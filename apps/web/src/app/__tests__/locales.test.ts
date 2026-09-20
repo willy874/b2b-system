@@ -1,0 +1,104 @@
+import { describe, expect, it } from 'vitest';
+
+import enUS from '../locales/en_US.json';
+import zhTW from '../locales/zh_TW.json';
+
+/**
+ * 後端的 `ErrorCode` 與 `PERMISSION_SEED` 是這兩份翻譯的來源。
+ * 缺翻譯會靜默降級成通用訊息，所以用測試擋下（docs/frontend/08-i18n.md §3.1）。
+ */
+const ERROR_CODES = [
+  'VALIDATION_FAILED',
+  'AUTH_INVALID_CREDENTIALS',
+  'AUTH_ACCOUNT_PENDING',
+  'AUTH_ACCOUNT_DISABLED',
+  'AUTH_ACCOUNT_LOCKED',
+  'AUTH_TOKEN_INVALID',
+  'AUTH_TOKEN_STALE',
+  'AUTH_REFRESH_INVALID',
+  'AUTH_REFRESH_EXPIRED',
+  'AUTH_REFRESH_REVOKED',
+  'AUTH_REFRESH_REUSED',
+  'AUTH_PASSWORD_MISMATCH',
+  'AUTH_PASSWORD_WEAK',
+  'AUTH_SETUP_TOKEN_INVALID',
+  'AUTHZ_FORBIDDEN',
+  'AUTHZ_ESCALATION',
+  'AUTHZ_SELF_MODIFY',
+  'ROUTE_PERMISSION_NOT_DECLARED',
+  'USER_NOT_FOUND',
+  'USER_EMAIL_DUPLICATE',
+  'USER_USERNAME_DUPLICATE',
+  'USER_NOT_LOCKED',
+  'ROLE_NOT_FOUND',
+  'ROLE_NAME_DUPLICATE',
+  'ROLE_SYSTEM_PROTECTED',
+  'ROLE_SUPER_ADMIN_IMMUTABLE',
+  'ROLE_IN_USE',
+  'LAST_SUPER_ADMIN',
+  'PERMISSION_UNKNOWN',
+  'RATE_LIMITED',
+  'INTERNAL_ERROR',
+];
+
+const PERMISSION_KEYS = [
+  ['user', 'create'],
+  ['user', 'read'],
+  ['user', 'update'],
+  ['user', 'delete'],
+  ['user', 'assignRole'],
+  ['user', 'resetPassword'],
+  ['role', 'create'],
+  ['role', 'read'],
+  ['role', 'update'],
+  ['role', 'delete'],
+  ['role', 'grantPermission'],
+  ['permission', 'read'],
+  ['auditLog', 'read'],
+  ['system', 'read'],
+  ['system', 'update'],
+] as const;
+
+const bundles = { zh_TW: zhTW, en_US: enUS } as Record<string, Record<string, unknown>>;
+
+function lookup(bundle: Record<string, unknown>, path: string[]): unknown {
+  return path.reduce<unknown>(
+    (value, key) => (value as Record<string, unknown> | undefined)?.[key],
+    bundle,
+  );
+}
+
+describe('語系檔完整性', () => {
+  for (const [name, bundle] of Object.entries(bundles)) {
+    it(`${name}：每個 ErrorCode 都有翻譯`, () => {
+      const missing = ERROR_CODES.filter((code) => !lookup(bundle, ['error', code]));
+      expect(missing, `缺少：${missing.join(', ')}`).toEqual([]);
+    });
+
+    it(`${name}：每個權限都有顯示名稱`, () => {
+      const missing = PERMISSION_KEYS.filter(
+        ([resource, action]) => !lookup(bundle, ['permission', resource, action]),
+      ).map(([resource, action]) => `${resource}:${action}`);
+      expect(missing, `缺少：${missing.join(', ')}`).toEqual([]);
+    });
+
+    it(`${name}：每個資源都有分組名稱`, () => {
+      const resources = [...new Set(PERMISSION_KEYS.map(([resource]) => resource))];
+      const missing = resources.filter(
+        (resource) => !lookup(bundle, ['permission', 'resource', resource]),
+      );
+      expect(missing, `缺少：${missing.join(', ')}`).toEqual([]);
+    });
+  }
+
+  it('兩個語系的鍵集合一致', () => {
+    const flatten = (value: unknown, prefix = ''): string[] =>
+      typeof value === 'object' && value !== null
+        ? Object.entries(value).flatMap(([key, child]) =>
+            flatten(child, prefix ? `${prefix}.${key}` : key),
+          )
+        : [prefix];
+
+    expect(new Set(flatten(zhTW))).toEqual(new Set(flatten(enUS)));
+  });
+});

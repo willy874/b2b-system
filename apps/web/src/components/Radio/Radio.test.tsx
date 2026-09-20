@@ -1,0 +1,57 @@
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
+
+import { RadioGroup } from './index';
+
+const options = [
+  { value: 'active', label: '啟用' },
+  { value: 'inactive', label: '停用' },
+  { value: 'locked', label: '鎖定', disabled: true },
+];
+
+describe('RadioGroup', () => {
+  it('點擊選項會變更值', async () => {
+    const onValueChange = vi.fn();
+    render(<RadioGroup options={options} onValueChange={onValueChange} aria-label="狀態" />);
+    await userEvent.click(screen.getByText('停用'));
+    expect(onValueChange).toHaveBeenCalledWith('inactive');
+  });
+
+  it('方向鍵可在選項之間移動（roving tabindex）', async () => {
+    const onValueChange = vi.fn();
+    render(
+      <RadioGroup
+        options={options}
+        defaultValue="active"
+        onValueChange={onValueChange}
+        aria-label="狀態"
+      />,
+    );
+    await userEvent.tab();
+    await userEvent.keyboard('{ArrowDown}');
+    expect(onValueChange).toHaveBeenCalledWith('inactive');
+  });
+
+  it('disabled 的選項不能選', async () => {
+    const onValueChange = vi.fn();
+    render(<RadioGroup options={options} onValueChange={onValueChange} aria-label="狀態" />);
+    await userEvent.click(screen.getByTestId('radio-locked'));
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
+
+  it('整組 disabled 時完全不能操作', async () => {
+    const onValueChange = vi.fn();
+    render(
+      <RadioGroup disabled options={options} onValueChange={onValueChange} aria-label="狀態" />,
+    );
+    await userEvent.click(screen.getByText('啟用'));
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
+
+  it('受控值反映在 aria-checked 上', () => {
+    render(<RadioGroup value="inactive" options={options} aria-label="狀態" />);
+    expect(screen.getByTestId('radio-inactive')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('radio-active')).toHaveAttribute('aria-checked', 'false');
+  });
+});
