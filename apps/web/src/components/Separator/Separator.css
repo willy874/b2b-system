@@ -1,0 +1,12 @@
+.ge-separator {
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+.ge-separator--horizontal {
+  height: 1px;
+  width: 100%;
+}
+.ge-separator--vertical {
+  width: 1px;
+  align-self: stretch;
+}

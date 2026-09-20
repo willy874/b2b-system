@@ -1,0 +1,46 @@
+.ge-switch {
+  position: relative;
+  width: 2.25rem;
+  height: 1.25rem;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--seed-gray-200);
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.ge-switch[data-checked] {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+}
+
+.ge-switch[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ge-switch:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.ge-switch__thumb {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: var(--color-surface);
+  transition: transform 120ms ease;
+}
+
+.ge-switch[data-checked] .ge-switch__thumb {
+  transform: translateX(1rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ge-switch,
+  .ge-switch__thumb {
+    transition: none;
+  }
+}
