@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "emitDeclarationOnly": true,
+    "outDir": "./dist-types"
+  },
+  "include": ["tests/**/*", "helpers/**/*", "fixtures/**/*", "playwright.config.ts"]
+}
