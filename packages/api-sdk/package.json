@@ -1,0 +1,27 @@
+{
+  "name": "@game-editor/api-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "generate": "orval --config ./orval.config.ts && node ./scripts/write-index.mjs && oxfmt ./src/generated",
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "typecheck": "tsc -b",
+    "test": "echo \"no tests yet\""
+  },
+  "devDependencies": {
+    "orval": "^7.14.1"
+  }
+}
