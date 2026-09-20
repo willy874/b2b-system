@@ -1,0 +1,13 @@
+{
+  "home": {
+    "title": "首頁",
+    "description": "Phase 0 只建置 RBAC 骨架，編輯器功能之後才會出現在這裡。",
+    "you": {
+      "title": "你的身分",
+      "displayName": "顯示名稱",
+      "email": "Email",
+      "roles": "角色",
+      "permissions": "持有權限數"
+    }
+  }
+}

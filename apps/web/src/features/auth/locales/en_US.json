@@ -1,0 +1,28 @@
+{
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "description": "Use your account credentials to sign in.",
+      "submit": "Sign in",
+      "forgotPassword": "Forgot password?"
+    },
+    "forgotPassword": {
+      "title": "Forgot password",
+      "description": "Enter your email and we will send a reset link.",
+      "submit": "Send",
+      "sent": "If that email exists in the system, a reset link has been sent."
+    },
+    "resetPassword": { "title": "Reset password" },
+    "setup": { "title": "Set your password", "submit": "Activate account" },
+    "field": {
+      "email": "Email",
+      "password": "Password",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm new password",
+      "currentPassword": "Current password"
+    },
+    "password": { "hint": "At least 12 characters and not a common password." },
+    "backToLogin": "Back to sign in",
+    "logout": { "success": "Signed out." }
+  }
+}

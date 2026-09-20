@@ -1,0 +1,28 @@
+{
+  "auth": {
+    "login": {
+      "title": "登入",
+      "description": "請使用你的帳號密碼登入。",
+      "submit": "登入",
+      "forgotPassword": "忘記密碼？"
+    },
+    "forgotPassword": {
+      "title": "忘記密碼",
+      "description": "輸入你的 Email，我們會寄出重設連結。",
+      "submit": "送出",
+      "sent": "如果這個 Email 存在於系統中，重設連結已寄出。"
+    },
+    "resetPassword": { "title": "重設密碼" },
+    "setup": { "title": "設定初始密碼", "submit": "啟用帳號" },
+    "field": {
+      "email": "Email",
+      "password": "密碼",
+      "newPassword": "新密碼",
+      "confirmPassword": "確認新密碼",
+      "currentPassword": "目前密碼"
+    },
+    "password": { "hint": "至少 12 個字元，不可為常見密碼。" },
+    "backToLogin": "返回登入",
+    "logout": { "success": "已登出。" }
+  }
+}

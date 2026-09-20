@@ -1,0 +1,13 @@
+{
+  "home": {
+    "title": "Home",
+    "description": "Phase 0 ships the RBAC skeleton only; editor features come later.",
+    "you": {
+      "title": "Your identity",
+      "displayName": "Display name",
+      "email": "Email",
+      "roles": "Roles",
+      "permissions": "Permissions held"
+    }
+  }
+}
