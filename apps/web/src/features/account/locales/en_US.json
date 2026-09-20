@@ -1,0 +1,27 @@
+{
+  "account": {
+    "profile": {
+      "title": "Profile",
+      "description": "These settings affect only your own account.",
+      "saved": "Profile updated."
+    },
+    "password": {
+      "title": "Change password",
+      "hint": "Changing your password signs you out of every device.",
+      "submit": "Change password",
+      "changed": "Password changed. Please sign in again."
+    },
+    "preference": {
+      "title": "Preferences",
+      "description": "Language and timezone are synced to your account.",
+      "saved": "Preferences saved."
+    },
+    "field": {
+      "email": "Email",
+      "displayName": "Display name",
+      "roles": "Roles",
+      "locale": "Language",
+      "timezone": "Timezone"
+    }
+  }
+}

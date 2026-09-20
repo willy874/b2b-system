@@ -1,0 +1,27 @@
+{
+  "account": {
+    "profile": {
+      "title": "個人資料",
+      "description": "這些設定只影響你自己的帳號。",
+      "saved": "個人資料已更新。"
+    },
+    "password": {
+      "title": "變更密碼",
+      "hint": "變更密碼後，所有裝置都會被登出。",
+      "submit": "變更密碼",
+      "changed": "密碼已變更，請重新登入。"
+    },
+    "preference": {
+      "title": "偏好設定",
+      "description": "語系與時區會同步到你的帳號。",
+      "saved": "偏好已儲存。"
+    },
+    "field": {
+      "email": "Email",
+      "displayName": "顯示名稱",
+      "roles": "角色",
+      "locale": "語系",
+      "timezone": "時區"
+    }
+  }
+}

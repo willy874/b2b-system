@@ -1,0 +1,37 @@
+{
+  "auditLog": {
+    "title": "稽核日誌",
+    "description": "所有寫入操作與授權決策的紀錄。此表為 append-only，不可修改或刪除。",
+    "expand": "展開",
+    "collapse": "收合",
+    "highRisk": "高風險",
+    "filter": {
+      "actionPlaceholder": "動作（支援前綴比對，如 role.*）",
+      "allResources": "全部資源",
+      "allResults": "全部結果",
+      "from": "起始日期",
+      "to": "結束日期",
+      "range": "時間範圍"
+    },
+    "field": {
+      "occurredAt": "時間",
+      "actor": "操作者",
+      "action": "動作",
+      "resource": "資源",
+      "result": "結果"
+    },
+    "result": {
+      "success": "成功",
+      "failure": "失敗"
+    },
+    "resource": {
+      "auth": "認證",
+      "authz": "授權"
+    },
+    "detail": {
+      "title": "紀錄詳情",
+      "changes": "變更前後",
+      "metadata": "中繼資料"
+    }
+  }
+}
