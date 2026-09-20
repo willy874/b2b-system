@@ -1,0 +1,40 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { registerAccountPagePermissions, PREFERENCE_PAGE, PROFILE_PAGE } from '@/features/account';
+import { AUDIT_LOG_PAGE, registerAuditLogPagePermissions } from '@/features/audit-log';
+import { HOME_PAGE, registerHomePagePermissions } from '@/features/home';
+import { PERMISSION_PAGE, registerPermissionPagePermissions } from '@/features/permission';
+import { registerRolePagePermissions, ROLE_CREATE_PAGE, ROLE_PAGE } from '@/features/role';
+import { registerUserPagePermissions, USER_CREATE_PAGE, USER_PAGE } from '@/features/user';
+
+import { getRegisteredPageKeys, resetPagePermissionRegistry } from '../registry';
+
+/** 取代靜態表原本提供的編譯期完整性（ADR-0001 的代價緩解）。 */
+describe('註冊表完整性', () => {
+  beforeEach(() => {
+    resetPagePermissionRegistry();
+  });
+
+  it('註冊的頁面鍵集合等於所有 feature 匯出的頁面鍵之聯集', () => {
+    registerHomePagePermissions();
+    registerUserPagePermissions();
+    registerRolePagePermissions();
+    registerPermissionPagePermissions();
+    registerAuditLogPagePermissions();
+    registerAccountPagePermissions();
+
+    expect(new Set(getRegisteredPageKeys())).toEqual(
+      new Set([
+        HOME_PAGE,
+        USER_PAGE,
+        USER_CREATE_PAGE,
+        ROLE_PAGE,
+        ROLE_CREATE_PAGE,
+        PERMISSION_PAGE,
+        AUDIT_LOG_PAGE,
+        PROFILE_PAGE,
+        PREFERENCE_PAGE,
+      ]),
+    );
+  });
+});
