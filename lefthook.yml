@@ -1,0 +1,9 @@
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      glob: '*.{js,ts,jsx,tsx,mjs,cjs,json}'
+      run: pnpm oxfmt --check {staged_files}
+    lint:
+      glob: '*.{js,ts,jsx,tsx,mjs,cjs}'
+      run: pnpm oxlint {staged_files}

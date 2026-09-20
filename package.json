@@ -1,0 +1,51 @@
+{
+  "name": "game-editor",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm db:up && pnpm -r --parallel --filter \"./apps/api\" --filter \"./apps/web\" dev",
+    "dev:api": "pnpm --filter @game-editor/api dev",
+    "dev:web": "pnpm --filter @game-editor/web dev",
+    "dev:e2e": "AUTH_RATE_LIMIT=1000 DEFAULT_RATE_LIMIT=10000 pnpm --filter @game-editor/api dev",
+    "build": "pnpm --filter @game-editor/api-sdk build && pnpm --filter @game-editor/api build && pnpm --filter @game-editor/web build",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @game-editor/api db:generate",
+    "db:migrate": "pnpm --filter @game-editor/api db:migrate",
+    "db:seed": "pnpm --filter @game-editor/api db:seed",
+    "db:seed:dev": "pnpm --filter @game-editor/api db:seed:dev",
+    "db:seed:e2e": "pnpm --filter @game-editor/api db:seed:e2e",
+    "db:reset": "pnpm --filter @game-editor/api db:reset",
+    "db:studio": "pnpm --filter @game-editor/api db:studio",
+    "sdk:generate": "pnpm --filter @game-editor/api-sdk generate",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "typecheck": "tsc -b",
+    "test": "pnpm -r --filter \"!@game-editor/e2e\" test",
+    "test:e2e": "pnpm --filter @game-editor/e2e test",
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.9",
+    "lefthook": "^2.1.14",
+    "oxfmt": "^0.68.0",
+    "oxlint": "^1.83.0",
+    "typescript": "~5.9.3"
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "packageManager": "pnpm@10.12.1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@swc/core",
+      "esbuild",
+      "lefthook",
+      "msw",
+      "@node-rs/argon2"
+    ]
+  }
+}

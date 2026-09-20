@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  // 規格文件由人維護，格式化工具不得改寫。
+  "ignorePatterns": ["docs/**", "**/*.md", "**/dist/**", "**/dist-types/**", "**/coverage/**"],
+  "printWidth": 100,
+  "tabWidth": 2,
+  "singleQuote": true,
+  "jsxSingleQuote": false,
+  "semi": true,
+  "arrowParens": "always",
+  "trailingComma": "all",
+  "sortImports": true,
+}

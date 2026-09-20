@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/utils" },
+    { "path": "./packages/api-sdk" },
+    { "path": "./apps/api" },
+    { "path": "./apps/web" },
+    { "path": "./apps/e2e" }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["import", "typescript", "unicorn", "react", "jsx-a11y", "oxc"],
+  "env": {
+    "browser": true,
+    "es2024": true,
+    "node": true
+  },
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/dist-types/**",
+    "**/node_modules/**",
+    "**/coverage/**",
+    "packages/api-sdk/src/generated/**"
+  ],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "rules": {
+    "no-console": "warn",
+    "eqeqeq": "error",
+    "typescript/no-explicit-any": "warn",
+    "import/no-cycle": "error",
+    "import/no-unassigned-import": "off",
+    "import/no-named-as-default": "off",
+    "react/react-in-jsx-scope": "off",
+    "unicorn/prefer-node-protocol": "error"
+  },
+  "overrides": [
+    {
+      "files": ["apps/web/**/*.{ts,tsx}", "packages/**/*.ts"],
+      "rules": {
+        "typescript/consistent-type-imports": "error"
+      }
+    },
+    {
+      "files": ["apps/api/**/*.ts"],
+      "env": {
+        "browser": false
+      },
+      "rules": {
+        "typescript/no-extraneous-class": "off",
+        "typescript/consistent-type-imports": "off"
+      }
+    },
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/__tests__/**"],
+      "rules": {
+        "typescript/no-explicit-any": "off",
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["apps/web/src/components/Table/**"],
+      "rules": {
+        "react/incompatible-library": "off",
+        "react/no-array-index-key": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/api/src/db/**",
+        "apps/api/scripts/**",
+        "apps/e2e/**",
+        "packages/api-sdk/scripts/**"
+      ],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
+}
