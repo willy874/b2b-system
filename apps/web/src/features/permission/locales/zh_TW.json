@@ -1,0 +1,8 @@
+{
+  "permissionCatalog": {
+    "title": "權限目錄",
+    "description": "系統中所有可授予的權限。此頁為唯讀，權限清單由後端 seed 管理。",
+    "held": "你持有",
+    "notHeld": "未持有"
+  }
+}

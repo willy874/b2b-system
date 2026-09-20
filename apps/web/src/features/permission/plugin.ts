@@ -1,0 +1,29 @@
+import type { AppPluginFactory } from '@/core/app';
+import { LanguageNamespace, Languages } from '@/shared/constants/lang';
+
+import { PERMISSION_LOCALE_SCOPE } from './locale';
+import { registerPermissionPagePermissions } from './permission';
+
+export function appContextPlugin(): AppPluginFactory {
+  return (context) => {
+    registerPermissionPagePermissions();
+    const app = context.getInstance();
+
+    return {
+      name: 'app-permission-feature-plugin',
+      onInit: () => {
+        app.addResourceBundle(
+          {
+            [Languages.EN_US]: {
+              [LanguageNamespace.TRANSLATE]: () => import('./locales/en_US.json'),
+            },
+            [Languages.ZH_TW]: {
+              [LanguageNamespace.TRANSLATE]: () => import('./locales/zh_TW.json'),
+            },
+          },
+          { scope: PERMISSION_LOCALE_SCOPE },
+        );
+      },
+    };
+  };
+}

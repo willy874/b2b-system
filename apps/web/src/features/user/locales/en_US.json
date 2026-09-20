@@ -1,0 +1,48 @@
+{
+  "user": {
+    "list": {
+      "title": "Users",
+      "description": "Manage accounts, status and role assignments.",
+      "searchPlaceholder": "Search email, username or display name"
+    },
+    "create": {
+      "action": "Create user",
+      "title": "Create user",
+      "description": "An activation link is sent; the user sets their own password.",
+      "activationHint": "Admins never set passwords: activation email only.",
+      "success": "User {{email}} created."
+    },
+    "update": { "success": "User updated." },
+    "delete": {
+      "title": "Delete user",
+      "confirm": "Delete \"{{name}}\"? The account is soft-deleted and signed out immediately.",
+      "success": "User deleted.",
+      "selfProtected": "You cannot delete your own account."
+    },
+    "assignRole": { "action": "Save roles", "success": "Role assignment updated." },
+    "unlock": { "action": "Unlock", "success": "Account unlocked." },
+    "resetPassword": { "action": "Reset password", "success": "Reset link sent." },
+    "detail": {
+      "title": "User detail",
+      "basic": "Basics",
+      "roles": "Roles",
+      "selfHint": "You cannot change your own status or roles; ask another administrator."
+    },
+    "field": {
+      "email": "Email",
+      "username": "Username",
+      "displayName": "Display name",
+      "status": "Status",
+      "roles": "Roles",
+      "lastLoginAt": "Last sign-in",
+      "createdAt": "Created"
+    },
+    "status": {
+      "all": "All statuses",
+      "pending": "Pending",
+      "active": "Active",
+      "inactive": "Inactive",
+      "locked": "Locked"
+    }
+  }
+}

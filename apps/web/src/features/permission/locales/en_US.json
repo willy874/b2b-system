@@ -1,0 +1,8 @@
+{
+  "permissionCatalog": {
+    "title": "Permission catalog",
+    "description": "Every grantable permission in the system. Read-only; the catalog is managed by backend seeds.",
+    "held": "Held",
+    "notHeld": "Not held"
+  }
+}
