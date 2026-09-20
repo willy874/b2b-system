@@ -1,0 +1,118 @@
+import type { AuditLog, Permission, Role, User } from '@/shared/api-sdk';
+
+/** 固定種子的資料工廠：測試與 dev mock 共用，確保可重現。 */
+export const PERMISSION_FIXTURES: Permission[] = [
+  ['user', 'create', 100],
+  ['user', 'read', 101],
+  ['user', 'update', 102],
+  ['user', 'delete', 103],
+  ['user', 'assignRole', 104],
+  ['user', 'resetPassword', 105],
+  ['role', 'create', 200],
+  ['role', 'read', 201],
+  ['role', 'update', 202],
+  ['role', 'delete', 203],
+  ['role', 'grantPermission', 204],
+  ['permission', 'read', 300],
+  ['auditLog', 'read', 400],
+  ['system', 'read', 500],
+  ['system', 'update', 501],
+].map(([resource, action, sortOrder]) => ({
+  id: `permission-${resource as string}-${action as string}`,
+  key: `${resource as string}:${action as string}`,
+  resource: resource as string,
+  action: action as string,
+  nameI18nKey: `permission.${resource as string}.${action as string}`,
+  description: null,
+  sortOrder: sortOrder as number,
+})) as Permission[];
+
+export const ROLE_FIXTURES: Role[] = [
+  {
+    id: 'role-admin',
+    slug: 'admin',
+    name: '系統管理員',
+    description: '管理使用者、角色與權限。',
+    isSystem: true,
+    permissionCount: 14,
+    userCount: 2,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'role-editor',
+    slug: 'content-editor',
+    name: '內容編輯',
+    description: null,
+    isSystem: false,
+    permissionCount: 2,
+    userCount: 1,
+    createdAt: '2026-02-01T00:00:00.000Z',
+    updatedAt: '2026-02-01T00:00:00.000Z',
+  },
+];
+
+export const USER_FIXTURES: User[] = [
+  {
+    id: 'user-admin',
+    email: 'admin@example.com',
+    username: 'admin',
+    displayName: 'Super Admin',
+    status: 'active',
+    roles: [{ id: 'role-admin', slug: 'admin', name: '系統管理員', isSystem: true }],
+    locale: 'zh-TW',
+    timezone: 'Asia/Taipei',
+    lastLoginAt: '2026-09-19T02:10:00.000Z',
+    lockedUntil: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'user-alice',
+    email: 'alice@example.com',
+    username: 'alice',
+    displayName: 'Alice',
+    status: 'locked',
+    roles: [],
+    locale: 'zh-TW',
+    timezone: 'Asia/Taipei',
+    lastLoginAt: null,
+    lockedUntil: '2030-01-01T00:00:00.000Z',
+    createdAt: '2026-03-01T00:00:00.000Z',
+    updatedAt: '2026-03-01T00:00:00.000Z',
+  },
+];
+
+export const AUDIT_LOG_FIXTURES: AuditLog[] = [
+  {
+    id: '1',
+    occurredAt: '2026-09-19T02:11:00.000Z',
+    actorId: 'user-admin',
+    actorEmail: 'admin@example.com',
+    action: 'role.grantPermission',
+    resourceType: 'role',
+    resourceId: 'role-editor',
+    resourceName: '內容編輯',
+    result: 'success',
+    errorCode: null,
+    changes: {
+      before: { permissions: ['user:read'] },
+      after: { permissions: ['user:read', 'auditLog:read'] },
+    },
+    metadata: { requestId: 'req-1', ip: '127.0.0.1' },
+  },
+  {
+    id: '2',
+    occurredAt: '2026-09-19T02:12:00.000Z',
+    actorId: 'user-alice',
+    actorEmail: 'alice@example.com',
+    action: 'authz.denied',
+    resourceType: 'authz',
+    resourceId: null,
+    resourceName: null,
+    result: 'failure',
+    errorCode: 'AUTHZ_FORBIDDEN',
+    changes: null,
+    metadata: { route: 'GET /users', required: ['user:read'], missing: ['user:read'] },
+  },
+];
