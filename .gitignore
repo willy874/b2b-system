@@ -3,6 +3,9 @@ dist/
 build/
 coverage/
 *.tsbuildinfo
+# tsc -b 在早期設定下會把設定檔也編出來，別讓它進版控
+apps/api/*.config.js
+apps/api/*.config.js.map
 .env
 .env.*
 !.env.example
