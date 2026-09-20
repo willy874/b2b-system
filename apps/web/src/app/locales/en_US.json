@@ -1,0 +1,122 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "create": "Create",
+    "edit": "Edit",
+    "search": "Search",
+    "reset": "Reset",
+    "retry": "Retry",
+    "close": "Close",
+    "back": "Back",
+    "loading": "Loading…",
+    "empty": "No data",
+    "yes": "Yes",
+    "no": "No",
+    "actions": "Actions",
+    "previous": "Previous",
+    "next": "Next",
+    "total": "{{total}} items",
+    "none": "None"
+  },
+  "menu": {
+    "home": "Home",
+    "user": "Users",
+    "role": "Roles",
+    "permission": "Permissions",
+    "auditLog": "Audit log",
+    "profile": "Profile",
+    "preference": "Preferences",
+    "logout": "Sign out"
+  },
+  "app": {
+    "title": "Game Editor",
+    "subtitle": "RBAC console"
+  },
+  "error": {
+    "unknown": "Something went wrong. Please try again.",
+    "unknown_with_id": "Something went wrong (code {{requestId}}). Please contact an administrator.",
+    "permission_changed": "Your permissions just changed; the page has been re-synced.",
+    "VALIDATION_FAILED": "Some fields are invalid. Please review and try again.",
+    "AUTH_INVALID_CREDENTIALS": "Incorrect email or password.",
+    "AUTH_ACCOUNT_PENDING": "This account is not activated yet.",
+    "AUTH_ACCOUNT_DISABLED": "This account has been disabled.",
+    "AUTH_ACCOUNT_LOCKED": "Too many failed attempts; the account is temporarily locked.",
+    "AUTH_TOKEN_INVALID": "Your session is invalid. Please sign in again.",
+    "AUTH_TOKEN_STALE": "Your session was terminated by an administrator. Please sign in again.",
+    "AUTH_REFRESH_INVALID": "Your session has expired. Please sign in again.",
+    "AUTH_REFRESH_EXPIRED": "Your session has expired. Please sign in again.",
+    "AUTH_REFRESH_REVOKED": "Your session was revoked. Please sign in again.",
+    "AUTH_REFRESH_REUSED": "Credential reuse detected; you have been signed out everywhere.",
+    "AUTH_PASSWORD_MISMATCH": "Current password is incorrect.",
+    "AUTH_PASSWORD_WEAK": "Password too weak: at least 12 characters and not a common password.",
+    "AUTH_SETUP_TOKEN_INVALID": "This link is invalid or has expired.",
+    "AUTHZ_FORBIDDEN": "You do not have permission to do that.",
+    "AUTHZ_ESCALATION": "You cannot grant permissions you do not hold.",
+    "AUTHZ_SELF_MODIFY": "You cannot perform this action on your own account.",
+    "ROUTE_PERMISSION_NOT_DECLARED": "Configuration error: this endpoint declares no authorization policy.",
+    "USER_NOT_FOUND": "User not found.",
+    "USER_EMAIL_DUPLICATE": "This email is already in use.",
+    "USER_USERNAME_DUPLICATE": "This username is already in use.",
+    "USER_NOT_LOCKED": "This account is not locked.",
+    "ROLE_NOT_FOUND": "Role not found.",
+    "ROLE_NAME_DUPLICATE": "Role name already exists.",
+    "ROLE_SYSTEM_PROTECTED": "System roles cannot be deleted or renamed.",
+    "ROLE_SUPER_ADMIN_IMMUTABLE": "Permissions of the super admin role cannot be changed.",
+    "ROLE_IN_USE": "Some users still hold this role.",
+    "LAST_SUPER_ADMIN": "The system must keep at least one active super admin.",
+    "PERMISSION_UNKNOWN": "The request contains unknown permission keys.",
+    "RATE_LIMITED": "Too many requests. Please slow down.",
+    "INTERNAL_ERROR": "Server error. Please try again later.",
+    "page": {
+      "forbidden": {
+        "title": "You do not have access to this page",
+        "description": "If you think this is a mistake, ask an administrator to grant you access."
+      },
+      "notFound": {
+        "title": "Page not found",
+        "description": "This URL does not exist or has been removed."
+      },
+      "unexpected": {
+        "title": "Unexpected error",
+        "description": "Please retry or contact an administrator."
+      }
+    }
+  },
+  "permission": {
+    "resource": {
+      "user": "Users",
+      "role": "Roles",
+      "permission": "Permissions",
+      "auditLog": "Audit log",
+      "system": "System"
+    },
+    "user": {
+      "create": "Create user",
+      "read": "View users",
+      "update": "Edit user",
+      "delete": "Delete user",
+      "assignRole": "Assign roles",
+      "resetPassword": "Reset password"
+    },
+    "role": {
+      "create": "Create role",
+      "read": "View roles",
+      "update": "Edit role",
+      "delete": "Delete role",
+      "grantPermission": "Grant / revoke permissions"
+    },
+    "permission": {
+      "read": "View permission catalog"
+    },
+    "auditLog": {
+      "read": "View audit log"
+    },
+    "system": {
+      "read": "View system info",
+      "update": "Change system settings"
+    }
+  }
+}
