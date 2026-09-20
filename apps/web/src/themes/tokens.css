@@ -1,0 +1,81 @@
+/*
+ * Design Token — 三層（seed / alias / component）。
+ * Phase 0 只做 Light Mode，dark 只需新增一份 alias 對照表。
+ * 元件樣式只能使用 alias 與 component 層，不得直接用 seed 或十六進位色碼。
+ */
+
+/* ── seed：原始色階與尺度 ───────────────────────────── */
+:root {
+  --seed-gray-0: #ffffff;
+  --seed-gray-50: #f8f9fa;
+  --seed-gray-100: #f1f3f5;
+  --seed-gray-200: #e9ecef;
+  --seed-gray-300: #dee2e6;
+  --seed-gray-500: #adb5bd;
+  --seed-gray-600: #646c77;
+  --seed-gray-700: #495057;
+  --seed-gray-900: #212529;
+
+  --seed-blue-500: #1971c2;
+  --seed-blue-600: #1864ab;
+  --seed-red-600: #c92a2a;
+  --seed-red-700: #b3261e;
+  --seed-green-600: #2b8a3e;
+  --seed-green-700: #1b6b30;
+  --seed-yellow-600: #d96c00;
+  --seed-yellow-800: #8a5200;
+
+  --seed-space-1: 0.25rem;
+  --seed-space-2: 0.5rem;
+  --seed-space-3: 0.75rem;
+  --seed-space-4: 1rem;
+  --seed-space-6: 1.5rem;
+  --seed-space-8: 2rem;
+
+  --seed-radius-sm: 4px;
+  --seed-radius-md: 6px;
+  --seed-radius-lg: 10px;
+
+  --seed-font-sans:
+    'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --seed-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+/* ── alias：語意化（換主題時只換這一層）───────────────── */
+:root {
+  --color-bg: var(--seed-gray-50);
+  --color-surface: var(--seed-gray-0);
+  --color-border: var(--seed-gray-300);
+  --color-fg: var(--seed-gray-900);
+  --color-fg-muted: var(--seed-gray-600);
+  --color-brand: var(--seed-blue-500);
+  --color-brand-hover: var(--seed-blue-600);
+  --color-brand-fg: var(--seed-gray-0);
+  /*
+   * 狀態色有兩個值：`-*` 是填色（搭配 --color-*-on），`-*-text` 是前景色。
+   * 飽和的狀態色當背景沒問題，當文字常常過不了 WCAG AA。
+   */
+  --color-danger: var(--seed-red-600);
+  --color-danger-text: var(--seed-red-700);
+  --color-danger-on: var(--seed-gray-0);
+  --color-success: var(--seed-green-600);
+  --color-success-text: var(--seed-green-700);
+  --color-success-on: var(--seed-gray-0);
+  --color-warning: var(--seed-yellow-600);
+  --color-warning-text: var(--seed-yellow-800);
+  --color-warning-on: var(--seed-gray-0);
+
+  --radius-sm: var(--seed-radius-sm);
+  --radius-md: var(--seed-radius-md);
+  --radius-lg: var(--seed-radius-lg);
+
+  --font-sans: var(--seed-font-sans);
+  --font-mono: var(--seed-font-mono);
+}
+
+/* ── component：元件層（由各元件擴充）──────────────────── */
+:root {
+  --button-height-md: 2.25rem;
+  --button-padding-x-md: var(--seed-space-4);
+  --field-height-md: 2.25rem;
+}

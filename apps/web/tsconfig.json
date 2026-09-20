@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"],
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler",
+    "emitDeclarationOnly": true,
+    "composite": true,
+    "outDir": "./dist-types",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["src/**/*", "src/**/*.json", "vite.config.ts", "uno.config.ts"],
+  "references": [{ "path": "../../packages/utils" }, { "path": "../../packages/api-sdk" }]
+}
