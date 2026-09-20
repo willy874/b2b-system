@@ -1,0 +1,53 @@
+.ge-collapsible {
+  display: flex;
+  flex-direction: column;
+}
+
+.ge-collapsible__trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--seed-space-2);
+  padding: var(--seed-space-2) 0;
+  border: none;
+  background: none;
+  color: var(--color-fg);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: start;
+  cursor: pointer;
+}
+
+.ge-collapsible__trigger:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.ge-collapsible__trigger[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ge-collapsible__chevron {
+  transition: transform 120ms ease;
+}
+
+.ge-collapsible__trigger[data-panel-open] .ge-collapsible__chevron {
+  transform: rotate(90deg);
+}
+
+.ge-collapsible__panel {
+  overflow: hidden;
+}
+
+.ge-collapsible__content {
+  padding-block-end: var(--seed-space-2);
+  font-size: 0.875rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ge-collapsible__chevron {
+    transition: none;
+  }
+}

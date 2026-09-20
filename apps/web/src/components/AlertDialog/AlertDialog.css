@@ -1,0 +1,39 @@
+.ge-alert-dialog__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 40%);
+  z-index: 80;
+}
+
+.ge-alert-dialog__popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100vw - 2rem);
+  max-width: 26rem;
+  padding: var(--seed-space-6);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 18%);
+  z-index: 81;
+}
+
+.ge-alert-dialog__title {
+  margin: 0 0 var(--seed-space-2);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ge-alert-dialog__description {
+  margin: 0 0 var(--seed-space-4);
+  font-size: 0.875rem;
+  color: var(--color-fg-muted);
+}
+
+.ge-alert-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--seed-space-2);
+  margin-top: var(--seed-space-4);
+}
