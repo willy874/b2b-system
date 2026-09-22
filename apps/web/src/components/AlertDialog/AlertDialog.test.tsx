@@ -42,10 +42,17 @@ describe('AlertDialog', () => {
     expect(onOpenChange).toHaveBeenCalled();
   });
 
-  it('loading 時兩個按鈕都不可按（避免重複送出）', () => {
-    renderDialog({ loading: true });
+  it('loading 時兩個按鈕都不可按（避免重複送出）', async () => {
+    const { onConfirm, onOpenChange } = renderDialog({ loading: true });
+
+    // 取消鍵整個停用；確認鍵保留焦點（aria-disabled），否則送出當下焦點會掉回 <body>
     expect(screen.getByTestId('alert-dialog-cancel')).toBeDisabled();
-    expect(screen.getByTestId('alert-dialog-confirm')).toBeDisabled();
+    expect(screen.getByTestId('alert-dialog-confirm')).toHaveAttribute('aria-disabled', 'true');
+
+    await userEvent.click(screen.getByTestId('alert-dialog-cancel'));
+    await userEvent.click(screen.getByTestId('alert-dialog-confirm'));
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalled();
   });
 
   it('關閉時不渲染', () => {

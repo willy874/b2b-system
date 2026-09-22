@@ -59,7 +59,7 @@
   cursor: pointer;
 }
 
-.ge-calendar__day:hover:not(:disabled) {
+.ge-calendar__day:hover:not([data-disabled]) {
   background: var(--color-bg);
 }
 
@@ -88,7 +88,7 @@
   color: var(--color-brand-fg);
 }
 
-.ge-calendar__day:disabled {
+.ge-calendar__day[data-disabled] {
   opacity: 0.35;
   cursor: not-allowed;
 }

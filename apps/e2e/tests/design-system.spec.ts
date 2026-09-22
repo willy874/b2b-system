@@ -10,7 +10,7 @@ test('稽核日誌的日期篩選使用 DateRangePicker，選取後會寫進網�
   await expect(page.getByTestId('audit-log-page')).toBeVisible();
 
   await page.getByTestId('audit-log-range').click();
-  const firstDay = page.locator('[data-testid^="calendar-day-"]:not([disabled])').nth(10);
+  const firstDay = page.locator('[data-testid^="calendar-day-"]:not([data-disabled])').nth(10);
   const value = await firstDay.getAttribute('data-testid');
   await firstDay.click();
 

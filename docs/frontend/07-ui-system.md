@@ -35,25 +35,25 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `Button`                      | `@base-ui/react/button` ＋ `use-button`     |
 | `Input`                       | `@base-ui/react/input`、`field`             |
 | `Select`                      | `@base-ui/react/select`                     |
-| `Combobox` / `Autocomplete`   | `@base-ui/react/combobox`、`autocomplete`   |
-| `Checkbox` / `CheckboxGroup`  | `@base-ui/react/checkbox`、`checkbox-group` |
+| `Combobox`（`Autocomplete` 未實作）| `@base-ui/react/combobox`、`autocomplete`   |
+| `Checkbox`（`CheckboxGroup` 未實作）| `@base-ui/react/checkbox`、`checkbox-group` |
 | `Radio` / `RadioGroup`        | `@base-ui/react/radio`、`radio-group`       |
 | `Switch`                      | `@base-ui/react/switch`                     |
 | `Dialog`                      | `@base-ui/react/dialog`                     |
 | `AlertDialog`                 | `@base-ui/react/alert-dialog`               |
 | `Popover`                     | `@base-ui/react/popover`                    |
 | `Tooltip`                     | `@base-ui/react/tooltip`                    |
-| `Menu` / `ContextMenu`        | `@base-ui/react/menu`、`context-menu`       |
+| `Menu`（`ContextMenu` 未實作）| `@base-ui/react/menu`、`context-menu`       |
 | `Tabs`                        | `@base-ui/react/tabs`                       |
 | `Accordion` / `Collapsible`   | `@base-ui/react/accordion`、`collapsible`   |
 | `Toast`                       | `@base-ui/react/toast`                      |
 | `Toolbar`                     | `@base-ui/react/toolbar`                    |
 | `ScrollArea`                  | `@base-ui/react/scroll-area`                |
-| `Progress` / `Meter`          | `@base-ui/react/progress`、`meter`          |
+| `Progress`（`Meter` 未實作）  | `@base-ui/react/progress`、`meter`          |
 | `NumberField`                 | `@base-ui/react/number-field`               |
 | `Separator`                   | `@base-ui/react/separator`                  |
 | `Avatar`                      | `@base-ui/react/avatar`                     |
-| `Field` / `Fieldset` / `Form` | `@base-ui/react/field`、`fieldset`、`form`  |
+| `Field` / `Form`（`Fieldset` 未實作）| `@base-ui/react/field`、`fieldset`、`form`  |
 
 ### 2.2 Base UI 沒有的（自己實作）
 
@@ -99,6 +99,7 @@ components/Button/
 | 3   | **受控／非受控都支援**（`value` ＋ `defaultValue`） | 表單與獨立使用都要能用  |
 | 4   | **樣式只用 token，不寫死顏色與尺寸**                | 主題與 dark mode 的前提 |
 | 5   | **每個元件有 `data-testid` 透傳**                   | E2E 依賴                |
+| 6   | **停用狀態若會在互動中途發生，要保留焦點**          | 見 §3.5                 |
 
 ### 3.2 範例：`Dialog`
 
@@ -208,6 +209,37 @@ TanStack Router 的 `Link` 塞進 Menu item 而不失去鍵盤行為：
 ```tsx
 <Menu.Item render={<Link to="/role/$roleId" params={{ roleId }} />}>{t("role.detail")}</Menu.Item>
 ```
+
+### 3.5 停用與焦點
+
+原生 `disabled` 會把元素移出 tab order，瀏覽器接著把焦點踢回 `<body>`。
+有兩種情況因此不能用它：
+
+1. **停用是「互動中途才發生」的** —— 焦點會在使用者腳下被抽走。
+2. **停用的理由需要被說明** —— 包在外面的 `Tooltip` 只有 hover 才出現，
+   鍵盤使用者聚焦不到，就永遠讀不到那句話。
+
+| 情境                                       | 作法                                                          |
+| ------------------------------------------ | ------------------------------------------------------------- |
+| 按鈕 `loading`（送出中）                   | `Button` 一律隱含 `focusableWhenDisabled`                     |
+| 停用的按鈕外面包著解釋原因的 `Tooltip`     | 明確傳 `<Button disabled focusableWhenDisabled>`              |
+| 月曆中超出 `min`/`max` 的日子              | `aria-disabled` ＋ `data-disabled`，讓 roving tabindex 能聚焦 |
+| 停用的 **Checkbox**，理由要說明            | 理由放常駐的 `description`（Base UI Checkbox 無此選項，見下） |
+| 一開始就停用、理由不必說明的控制項         | 原生 `disabled` 即可                                          |
+
+Base UI 在 `focusableWhenDisabled` 模式下會同時給 `aria-disabled` 與
+`data-disabled`，並自行擋掉 click/keydown。因此**樣式一律寫 `[data-disabled]`，
+不要只寫 `:disabled`**，否則 loading 中的按鈕會還原成可 hover 的樣子。
+
+`focusableWhenDisabled` 只有 `Button` 有。Base UI 的 `Checkbox` 等控制項在內部
+寫死 `useButton({ disabled })`，沒有這個開關；那些地方不要用 Tooltip 講理由，
+改成常駐可見的文字（例如 `Checkbox` 的 `description`）——對所有人都比 hover 好。
+見 `features/role/components/PermissionPicker.tsx`。
+
+測試也不要斷言 `toBeDisabled()`（jest-dom 只看原生屬性），改成斷言
+`aria-disabled` 與「回呼沒有被呼叫」。Playwright 的 `toBeDisabled()` 會把
+`aria-disabled` 一併算進去，但斷言 `toHaveAttribute('aria-disabled', 'true')`
+意圖更清楚。
 
 ---
 

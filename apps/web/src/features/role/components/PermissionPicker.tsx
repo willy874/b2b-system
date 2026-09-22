@@ -1,5 +1,4 @@
 import { Checkbox } from '@/components/Checkbox';
-import { Tooltip } from '@/components/Tooltip';
 import { useTranslation } from '@/core/locales';
 
 import { useGrantablePermissions } from '../hooks/useGrantablePermissions';
@@ -12,7 +11,7 @@ export interface PermissionPickerProps {
 }
 
 /**
- * 反提權：未持有的權限顯示為 disabled ＋ tooltip，不隱藏——
+ * 反提權：未持有的權限顯示為 disabled ＋ 常駐的理由說明，不隱藏——
  * 隱藏會讓管理員以為系統沒有這個權限。
  */
 export function PermissionPicker({ selected, onToggle, disabled, ...rest }: PermissionPickerProps) {
@@ -34,18 +33,20 @@ export function PermissionPicker({ selected, onToggle, disabled, ...rest }: Perm
               const item = items.find((permission) => permission.key === key);
               const grantable = isGrantable(key);
               return (
-                <Tooltip key={key} content={grantable ? '' : t('role.permission.notGrantable')}>
-                  <span>
-                    <Checkbox
-                      checked={selected.has(key)}
-                      disabled={disabled || !grantable}
-                      onCheckedChange={(checked) => onToggle(key, checked)}
-                      label={item ? t(item.nameI18nKey) : key}
-                      description={key}
-                      data-testid={`permission-checkbox-${key}`}
-                    />
-                  </span>
-                </Tooltip>
+                <Checkbox
+                  key={key}
+                  checked={selected.has(key)}
+                  disabled={disabled || !grantable}
+                  onCheckedChange={(checked) => onToggle(key, checked)}
+                  label={item ? t(item.nameI18nKey) : key}
+                  /*
+                   * Base UI 的 Checkbox 沒有 focusableWhenDisabled，停用後就聚焦不到，
+                   * 所以「不可授予」的理由不能只放在 hover 才出現的 Tooltip 裡。
+                   * 改成常駐的 description——它在 <label> 內，會跟著一起被念出來。
+                   */
+                  description={grantable ? key : `${key} · ${t('role.permission.notGrantable')}`}
+                  data-testid={`permission-checkbox-${key}`}
+                />
               );
             })}
           </div>

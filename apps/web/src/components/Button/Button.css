@@ -33,7 +33,7 @@
   background: var(--color-brand);
   color: var(--color-brand-fg);
 }
-.ge-button--primary:not(:disabled):hover {
+.ge-button--primary:not(:disabled):not([data-disabled]):hover {
   background: var(--color-brand-hover);
 }
 
@@ -42,7 +42,7 @@
   border-color: var(--color-border);
   color: var(--color-fg);
 }
-.ge-button--secondary:not(:disabled):hover {
+.ge-button--secondary:not(:disabled):not([data-disabled]):hover {
   background: var(--color-bg);
 }
 
@@ -50,7 +50,7 @@
   background: transparent;
   color: var(--color-fg);
 }
-.ge-button--ghost:not(:disabled):hover {
+.ge-button--ghost:not(:disabled):not([data-disabled]):hover {
   background: var(--color-bg);
 }
 
@@ -58,7 +58,7 @@
   background: var(--color-danger);
   color: var(--color-brand-fg);
 }
-.ge-button--danger:not(:disabled):hover {
+.ge-button--danger:not(:disabled):not([data-disabled]):hover {
   filter: brightness(0.94);
 }
 

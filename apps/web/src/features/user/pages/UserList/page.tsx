@@ -149,6 +149,8 @@ export default function UserListPage() {
                   size="sm"
                   variant="ghost"
                   disabled={!row.original.canDelete}
+                  // 停用的理由在外層 Tooltip 裡，按鈕要保持可聚焦才讀得到
+                  focusableWhenDisabled
                   onClick={() => setPendingDelete(row.original)}
                   data-testid="user-delete-button"
                 >

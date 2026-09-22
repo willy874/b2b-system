@@ -80,6 +80,8 @@ export default function UserDetailPage() {
                   <Button
                     size="sm"
                     disabled={isSelf}
+                    // 停用的理由在外層 Tooltip 裡，按鈕要保持可聚焦才讀得到
+                    focusableWhenDisabled
                     onClick={() => {
                       setDisplayName(user.data.displayName);
                       setStatus(user.data.status === 'locked' ? 'active' : user.data.status);

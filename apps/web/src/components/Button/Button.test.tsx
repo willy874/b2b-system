@@ -34,11 +34,29 @@ describe('Button', () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
-  it('loading 時 disabled 且標記 aria-busy', () => {
-    render(<Button loading>送出</Button>);
+  it('loading 時阻擋點擊並標記 aria-busy，但仍可聚焦', async () => {
+    const onClick = vi.fn();
+    render(
+      <Button loading onClick={onClick}>
+        送出
+      </Button>,
+    );
     const button = screen.getByRole('button');
-    expect(button).toBeDisabled();
     expect(button).toHaveAttribute('aria-busy', 'true');
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toHaveAttribute('data-disabled');
+
+    await userEvent.click(button);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('送出後進入 loading 不會讓焦點掉回 body', () => {
+    const { rerender } = render(<Button>送出</Button>);
+    screen.getByRole('button').focus();
+
+    rerender(<Button loading>送出</Button>);
+
+    expect(screen.getByRole('button')).toHaveFocus();
   });
 
   it('透傳 className 與 data-testid', () => {
@@ -50,6 +68,23 @@ describe('Button', () => {
     const button = screen.getByTestId('my-button');
     expect(button).toHaveClass('custom');
     expect(button).toHaveClass('ge-button');
+  });
+
+  it('focusableWhenDisabled 讓停用的按鈕仍可聚焦（外層 Tooltip 才讀得到理由）', async () => {
+    const onClick = vi.fn();
+    render(
+      <Button disabled focusableWhenDisabled onClick={onClick}>
+        刪除
+      </Button>,
+    );
+    const button = screen.getByRole('button', { name: '刪除' });
+
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.tab();
+    expect(button).toHaveFocus();
+
+    await userEvent.click(button);
+    expect(onClick).not.toHaveBeenCalled();
   });
 
   it('IconButton 要求 aria-label 以提供無障礙名稱', () => {
