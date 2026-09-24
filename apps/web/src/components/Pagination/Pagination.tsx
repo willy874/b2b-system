@@ -4,10 +4,15 @@ import { cn } from '@/shared/utils';
 
 import { Button } from '../Button';
 import { Select } from '../Select';
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
 
 import './Pagination.css';
 
-export interface PaginationProps {
+/** `className` 落在根元素（`<nav>`）；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
+export type PaginationSlot = 'summary' | 'controls' | 'pageSize' | 'previous' | 'page' | 'next';
+
+export interface PaginationProps extends SlotOverrides<PaginationSlot> {
   /** 透傳到根元素（React 19 的 ref 是一般 prop）。 */
   ref?: Ref<HTMLElement>;
   offset: number;
@@ -38,8 +43,12 @@ export function Pagination({
   pageSizeOptions = DEFAULT_PAGE_SIZES,
   labels,
   className,
+  classNames,
+  styles,
+  testIds,
   ...rest
 }: PaginationProps) {
+  const slot = createSlots({ classNames, styles, testIds });
   const pageCount = Math.max(1, Math.ceil(total / limit));
   const page = Math.floor(offset / limit) + 1;
   const from = total === 0 ? 0 : offset + 1;
@@ -51,34 +60,34 @@ export function Pagination({
 
   return (
     <nav className={cn('ge-pagination', className)} aria-label="pagination" {...rest}>
-      <span className="ge-pagination__summary" data-testid="pagination-summary">
+      <span {...slot('summary', 'ge-pagination__summary', { testId: 'pagination-summary' })}>
         {summary}
       </span>
-      <div className="ge-pagination__controls">
+      <div {...slot('controls', 'ge-pagination__controls')}>
         <Select
           size="sm"
           value={String(limit)}
           onValueChange={(value) => onChange({ offset: 0, limit: Number(value) })}
           options={pageSizeOptions.map((size) => ({ value: String(size), label: String(size) }))}
           aria-label="page size"
-          className="ge-pagination__size"
+          {...slot('pageSize', 'ge-pagination__size')}
         />
         <Button
           size="sm"
           disabled={page <= 1}
           onClick={() => onChange({ offset: Math.max(0, offset - limit), limit })}
-          data-testid="pagination-prev"
+          {...slot('previous', undefined, { testId: 'pagination-prev' })}
         >
           {labels?.previous ?? '上一頁'}
         </Button>
-        <span className="ge-pagination__page">
+        <span {...slot('page', 'ge-pagination__page')}>
           {page} / {pageCount}
         </span>
         <Button
           size="sm"
           disabled={page >= pageCount}
           onClick={() => onChange({ offset: offset + limit, limit })}
-          data-testid="pagination-next"
+          {...slot('next', undefined, { testId: 'pagination-next' })}
         >
           {labels?.next ?? '下一頁'}
         </Button>

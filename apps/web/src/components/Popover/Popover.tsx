@@ -1,11 +1,17 @@
 import { Popover as BasePopover } from '@base-ui-components/react/popover';
-import type { ReactElement, ReactNode } from 'react';
+import type { CSSProperties, ReactElement, ReactNode } from 'react';
 
 import { cn } from '@/shared/utils';
 
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
+
 import './Popover.css';
 
-export interface PopoverProps {
+/** `className` / `style` / `data-testid` 落在彈層（popup）；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
+export type PopoverSlot = 'positioner' | 'title' | 'description';
+
+export interface PopoverProps extends SlotOverrides<PopoverSlot> {
   trigger: ReactElement<Record<string, unknown>>;
   title?: ReactNode;
   description?: ReactNode;
@@ -16,6 +22,7 @@ export interface PopoverProps {
   side?: 'top' | 'bottom' | 'left' | 'right';
   align?: 'start' | 'center' | 'end';
   className?: string;
+  style?: CSSProperties;
   'data-testid'?: string;
 }
 
@@ -31,8 +38,12 @@ export function Popover({
   side = 'bottom',
   align = 'start',
   className,
+  classNames,
+  styles,
+  testIds,
   ...rest
 }: PopoverProps) {
+  const slot = createSlots({ classNames, styles, testIds });
   return (
     <BasePopover.Root
       open={open}
@@ -45,12 +56,14 @@ export function Popover({
           side={side}
           align={align}
           sideOffset={6}
-          className="ge-popover__positioner"
+          {...slot('positioner', 'ge-popover__positioner')}
         >
           <BasePopover.Popup className={cn('ge-popover__popup', className)} {...rest}>
-            {title && <BasePopover.Title className="ge-popover__title">{title}</BasePopover.Title>}
+            {title && (
+              <BasePopover.Title {...slot('title', 'ge-popover__title')}>{title}</BasePopover.Title>
+            )}
             {description && (
-              <BasePopover.Description className="ge-popover__description">
+              <BasePopover.Description {...slot('description', 'ge-popover__description')}>
                 {description}
               </BasePopover.Description>
             )}

@@ -4,10 +4,18 @@ import { useId } from 'react';
 import { cn } from '@/shared/utils';
 
 import { Icon } from '../Icon';
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
 
 import './NumberField.css';
 
-export interface NumberFieldProps {
+/**
+ * `className` 落在根元素，`data-testid` / `aria-label` 落在 `input`；
+ * 其餘各層用 `classNames` / `styles` / `testIds` 覆寫。
+ */
+export type NumberFieldSlot = 'group' | 'decrement' | 'input' | 'increment';
+
+export interface NumberFieldProps extends SlotOverrides<NumberFieldSlot> {
   value?: number | null;
   defaultValue?: number;
   onValueChange?: (value: number | null) => void;
@@ -46,8 +54,12 @@ export function NumberField({
   size = 'md',
   className,
   labels = { increment: 'increase', decrement: 'decrease' },
+  classNames,
+  styles,
+  testIds,
   ...rest
 }: NumberFieldProps) {
+  const slot = createSlots({ classNames, styles, testIds });
   const id = useId();
 
   return (
@@ -67,22 +79,25 @@ export function NumberField({
       className={cn('ge-number-field', className)}
     >
       <BaseNumberField.Group
-        className={cn('ge-number-field__group', size === 'sm' && 'ge-number-field__group--sm')}
+        {...slot('group', [
+          'ge-number-field__group',
+          size === 'sm' && 'ge-number-field__group--sm',
+        ])}
       >
         <BaseNumberField.Decrement
-          className="ge-number-field__button"
+          {...slot('decrement', 'ge-number-field__button')}
           aria-label={labels.decrement}
         >
           <Icon name="minus" size={16} />
         </BaseNumberField.Decrement>
         <BaseNumberField.Input
-          className="ge-number-field__input"
+          {...slot('input', 'ge-number-field__input')}
           placeholder={placeholder}
           aria-invalid={invalid || undefined}
           {...rest}
         />
         <BaseNumberField.Increment
-          className="ge-number-field__button"
+          {...slot('increment', 'ge-number-field__button')}
           aria-label={labels.increment}
         >
           <Icon name="plus" size={16} />

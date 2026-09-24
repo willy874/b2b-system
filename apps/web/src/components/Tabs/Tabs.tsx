@@ -3,6 +3,9 @@ import type { ReactElement, ReactNode, Ref } from 'react';
 
 import { cn } from '@/shared/utils';
 
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
+
 import './Tabs.css';
 
 export interface TabDescriptor {
@@ -12,7 +15,10 @@ export interface TabDescriptor {
   render?: ReactElement<Record<string, unknown>>;
 }
 
-export interface TabsProps {
+/** `className` 落在根元素；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
+export type TabsSlot = 'list' | 'tab' | 'indicator';
+
+export interface TabsProps extends SlotOverrides<TabsSlot> {
   /** 透傳到根元素（React 19 的 ref 是一般 prop）。 */
   ref?: Ref<HTMLDivElement>;
   value: string;
@@ -23,7 +29,18 @@ export interface TabsProps {
   'data-testid'?: string;
 }
 
-export function Tabs({ value, onValueChange, tabs, children, className, ...rest }: TabsProps) {
+export function Tabs({
+  value,
+  onValueChange,
+  tabs,
+  children,
+  className,
+  classNames,
+  styles,
+  testIds,
+  ...rest
+}: TabsProps) {
+  const slot = createSlots({ classNames, styles, testIds });
   return (
     <BaseTabs.Root
       value={value}
@@ -31,20 +48,19 @@ export function Tabs({ value, onValueChange, tabs, children, className, ...rest 
       className={cn('ge-tabs', className)}
       {...rest}
     >
-      <BaseTabs.List className="ge-tabs__list">
+      <BaseTabs.List {...slot('list', 'ge-tabs__list')}>
         {tabs.map((tab) => (
           <BaseTabs.Tab
             key={tab.value}
             value={tab.value}
             render={tab.render}
-            className="ge-tabs__tab"
-            data-testid="tab"
+            {...slot('tab', 'ge-tabs__tab', { testId: 'tab' })}
             data-value={tab.value}
           >
             {tab.label}
           </BaseTabs.Tab>
         ))}
-        <BaseTabs.Indicator className="ge-tabs__indicator" />
+        <BaseTabs.Indicator {...slot('indicator', 'ge-tabs__indicator')} />
       </BaseTabs.List>
       {children}
     </BaseTabs.Root>

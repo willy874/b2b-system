@@ -1,12 +1,14 @@
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import { useEffect, useRef, useState } from 'react';
-import type { KeyboardEvent, Ref } from 'react';
+import type { CSSProperties, KeyboardEvent, Ref } from 'react';
 
 import { cn } from '@/shared/utils';
 
 import { IconButton } from '../Button';
 import { Icon } from '../Icon';
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
 import {
   buildMonthGrid,
   DATE_FORMAT,
@@ -21,7 +23,21 @@ import type { DateValue } from './calendar-utils';
 
 import './Calendar.css';
 
-export interface CalendarProps {
+/** `className` / `style` 落在根元素；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
+export type CalendarSlot =
+  | 'header'
+  | 'previousButton'
+  | 'month'
+  | 'nextButton'
+  | 'grid'
+  | 'caption'
+  | 'weekdays'
+  | 'weekday'
+  | 'week'
+  | 'cell'
+  | 'day';
+
+export interface CalendarProps extends SlotOverrides<CalendarSlot> {
   /** 透傳到根元素（React 19 的 ref 是一般 prop）。 */
   ref?: Ref<HTMLDivElement>;
   /** 已選日期（單選傳一個，範圍傳頭尾）。 */
@@ -36,6 +52,7 @@ export interface CalendarProps {
   defaultMonth?: DateValue;
   labels?: { previousMonth: string; nextMonth: string };
   className?: string;
+  style?: CSSProperties;
   'data-testid'?: string;
 }
 
@@ -50,8 +67,12 @@ export function Calendar({
   defaultMonth,
   labels = { previousMonth: 'previous month', nextMonth: 'next month' },
   className,
+  classNames,
+  styles,
+  testIds,
   ...rest
 }: CalendarProps) {
+  const slot = createSlots({ classNames, styles, testIds });
   const firstSelected = parseDate(selected.find(Boolean) ?? null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fallbackMonth = parseDate(defaultMonth ?? null) ?? dayjs();
@@ -65,7 +86,7 @@ export function Calendar({
     const container = containerRef.current;
     if (!container?.contains(document.activeElement)) return;
     const target = container.querySelector<HTMLButtonElement>(
-      `[data-testid="calendar-day"][data-value="${formatDate(focused)}"]`,
+      `.ge-calendar__day[data-value="${formatDate(focused)}"]`,
     );
     target?.focus();
   }, [focused]);
@@ -117,33 +138,39 @@ export function Calendar({
 
   return (
     <div ref={containerRef} className={cn('ge-calendar', className)} {...rest}>
-      <header className="ge-calendar__header">
+      <header {...slot('header', 'ge-calendar__header')}>
         <IconButton
           aria-label={labels.previousMonth}
           size="sm"
           onClick={() => setMonth(month.subtract(1, 'month'))}
+          {...slot('previousButton')}
         >
           <Icon name="chevron-left" size={16} />
         </IconButton>
-        <span className="ge-calendar__month" aria-live="polite">
+        <span {...slot('month', 'ge-calendar__month')} aria-live="polite">
           {monthLabel(month, locale)}
         </span>
         <IconButton
           aria-label={labels.nextMonth}
           size="sm"
           onClick={() => setMonth(month.add(1, 'month'))}
+          {...slot('nextButton')}
         >
           <Icon name="chevron-right" size={16} />
         </IconButton>
       </header>
 
       {/* 用真正的 <table>：語意正確，也不需要手動補 grid/row/gridcell 這些 role */}
-      <table className="ge-calendar__grid">
-        <caption className="ge-calendar__caption">{monthLabel(month, locale)}</caption>
+      <table {...slot('grid', 'ge-calendar__grid')}>
+        <caption {...slot('caption', 'ge-calendar__caption')}>{monthLabel(month, locale)}</caption>
         <thead>
-          <tr className="ge-calendar__weekdays">
+          <tr {...slot('weekdays', 'ge-calendar__weekdays')}>
             {weekdayLabels(locale).map((label, index) => (
-              <th scope="col" key={`${label}-${index}`} className="ge-calendar__weekday">
+              <th
+                scope="col"
+                key={`${label}-${index}`}
+                {...slot('weekday', 'ge-calendar__weekday')}
+              >
                 {label}
               </th>
             ))}
@@ -151,22 +178,26 @@ export function Calendar({
         </thead>
         <tbody>
           {grid.map((week) => (
-            <tr className="ge-calendar__week" key={week[0]?.format(DATE_FORMAT)}>
+            <tr {...slot('week', 'ge-calendar__week')} key={week[0]?.format(DATE_FORMAT)}>
               {week.map((day) => {
                 const value = formatDate(day);
                 const isSelected = selected.some((item) => item === value);
                 const disabled = isOutOfRange(day, min ?? null, max ?? null);
                 const outside = !day.isSame(month, 'month');
                 return (
-                  <td key={value} className="ge-calendar__cell">
+                  <td key={value} {...slot('cell', 'ge-calendar__cell')}>
                     <button
                       type="button"
-                      className={cn(
-                        'ge-calendar__day',
-                        outside && 'ge-calendar__day--outside',
-                        isSelected && 'ge-calendar__day--selected',
-                        isBetween(day, rangeStart, rangeEnd) && 'ge-calendar__day--in-range',
-                        day.isSame(dayjs(), 'day') && 'ge-calendar__day--today',
+                      {...slot(
+                        'day',
+                        [
+                          'ge-calendar__day',
+                          outside && 'ge-calendar__day--outside',
+                          isSelected && 'ge-calendar__day--selected',
+                          isBetween(day, rangeStart, rangeEnd) && 'ge-calendar__day--in-range',
+                          day.isSame(dayjs(), 'day') && 'ge-calendar__day--today',
+                        ],
+                        { testId: 'calendar-day' },
                       )}
                       aria-pressed={isSelected}
                       aria-label={value}
@@ -177,7 +208,6 @@ export function Calendar({
                         setFocused(day);
                         onSelect(value);
                       }}
-                      data-testid="calendar-day"
                       data-value={value}
                     >
                       {day.date()}

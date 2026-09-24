@@ -4,12 +4,20 @@ import { cn } from '@/shared/utils';
 
 import { Icon } from '../Icon';
 import { Popover } from '../Popover';
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
 import { Calendar } from './Calendar';
 import type { DateValue } from './calendar-utils';
 
 import './DatePicker.css';
 
-export interface DatePickerProps {
+/**
+ * `className` 落在外框，`data-testid` / `aria-label` 落在 `trigger`；
+ * 其餘各層用 `classNames` / `styles` / `testIds` 覆寫。
+ */
+export type DatePickerSlot = 'trigger' | 'icon' | 'value' | 'popup' | 'calendar' | 'clear';
+
+export interface DatePickerProps extends SlotOverrides<DatePickerSlot> {
   value: DateValue;
   onValueChange: (value: DateValue) => void;
   min?: DateValue;
@@ -44,25 +52,39 @@ export function DatePicker({
   defaultMonth,
   className,
   labels = { clear: 'clear', open: 'open calendar' },
+  classNames,
+  styles,
+  testIds,
   ...rest
 }: DatePickerProps) {
+  const slot = createSlots({ classNames, styles, testIds });
   const [open, setOpen] = useState(false);
+  const triggerSlot = slot('trigger', [
+    'ge-date-picker__trigger',
+    invalid && 'ge-date-picker__trigger--invalid',
+  ]);
 
   return (
     <div className={cn('ge-date-picker', className)}>
       <Popover
         open={open}
         onOpenChange={setOpen}
+        {...slot('popup')}
         trigger={
           <button
             type="button"
-            className={cn('ge-date-picker__trigger', invalid && 'ge-date-picker__trigger--invalid')}
+            {...triggerSlot}
             disabled={disabled}
             aria-label={rest['aria-label'] ?? labels.open}
-            data-testid={rest['data-testid']}
+            data-testid={rest['data-testid'] ?? triggerSlot['data-testid']}
           >
-            <Icon name="calendar" size={16} />
-            <span className={cn('ge-date-picker__value', !value && 'ge-date-picker__value--empty')}>
+            <Icon name="calendar" size={16} {...slot('icon')} />
+            <span
+              {...slot('value', [
+                'ge-date-picker__value',
+                !value && 'ge-date-picker__value--empty',
+              ])}
+            >
               {value ?? placeholder}
             </span>
           </button>
@@ -78,17 +100,16 @@ export function DatePicker({
             onValueChange(next);
             setOpen(false);
           }}
-          data-testid="date-picker-calendar"
+          {...slot('calendar', undefined, { testId: 'date-picker-calendar' })}
         />
       </Popover>
 
       {clearable && value && !disabled && (
         <button
           type="button"
-          className="ge-date-picker__clear"
+          {...slot('clear', 'ge-date-picker__clear', { testId: 'date-picker-clear' })}
           aria-label={labels.clear}
           onClick={() => onValueChange(null)}
-          data-testid="date-picker-clear"
         >
           <Icon name="close" size={14} />
         </button>

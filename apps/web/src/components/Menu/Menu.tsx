@@ -3,6 +3,9 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { cn } from '@/shared/utils';
 
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
+
 import './Menu.css';
 
 export interface MenuItemDescriptor {
@@ -15,7 +18,10 @@ export interface MenuItemDescriptor {
   render?: ReactElement<Record<string, unknown>>;
 }
 
-export interface MenuProps {
+/** `className` 落在選單（popup）；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
+export type MenuSlot = 'positioner' | 'item';
+
+export interface MenuProps extends SlotOverrides<MenuSlot> {
   trigger: ReactElement<Record<string, unknown>>;
   items: MenuItemDescriptor[];
   align?: 'start' | 'center' | 'end';
@@ -23,12 +29,26 @@ export interface MenuProps {
   'data-testid'?: string;
 }
 
-export function Menu({ trigger, items, align = 'end', className, ...rest }: MenuProps) {
+export function Menu({
+  trigger,
+  items,
+  align = 'end',
+  className,
+  classNames,
+  styles,
+  testIds,
+  ...rest
+}: MenuProps) {
+  const slot = createSlots({ classNames, styles, testIds });
   return (
     <BaseMenu.Root>
       <BaseMenu.Trigger render={trigger} />
       <BaseMenu.Portal>
-        <BaseMenu.Positioner align={align} sideOffset={4} className="ge-menu__positioner">
+        <BaseMenu.Positioner
+          align={align}
+          sideOffset={4}
+          {...slot('positioner', 'ge-menu__positioner')}
+        >
           <BaseMenu.Popup className={cn('ge-menu__popup', className)} {...rest}>
             {items.map((item) => (
               <BaseMenu.Item
@@ -36,8 +56,13 @@ export function Menu({ trigger, items, align = 'end', className, ...rest }: Menu
                 disabled={item.disabled}
                 onClick={item.onSelect}
                 render={item.render}
-                className={cn('ge-menu__item', item.tone === 'danger' && 'ge-menu__item--danger')}
-                data-testid="menu-item"
+                {...slot(
+                  'item',
+                  ['ge-menu__item', item.tone === 'danger' && 'ge-menu__item--danger'],
+                  {
+                    testId: 'menu-item',
+                  },
+                )}
                 data-value={item.key}
               >
                 {item.label}

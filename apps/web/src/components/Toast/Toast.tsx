@@ -2,7 +2,8 @@ import { Toast as BaseToast } from '@base-ui-components/react/toast';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
-import { cn } from '@/shared/utils';
+import { createSlots } from '../slots';
+import type { SlotOverrides, SlotResolver } from '../slots';
 
 import './Toast.css';
 
@@ -20,20 +21,28 @@ function toToastType(type: string | undefined): ToastType {
   return type !== undefined && Object.hasOwn(TYPE_CLASS, type) ? (type as ToastType) : 'info';
 }
 
-export function ToastProvider({ children }: { children: ReactNode }) {
+/** 各層用 `classNames` / `styles` / `testIds` 覆寫（套用到每一則 toast）。 */
+export type ToastSlot = 'viewport' | 'toast' | 'title' | 'description' | 'close';
+
+interface ToastProviderProps extends SlotOverrides<ToastSlot> {
+  children: ReactNode;
+}
+
+export function ToastProvider({ children, classNames, styles, testIds }: ToastProviderProps) {
+  const slot = createSlots({ classNames, styles, testIds });
   return (
     <BaseToast.Provider>
       {children}
       <BaseToast.Portal>
-        <BaseToast.Viewport className="ge-toast__viewport">
-          <ToastList />
+        <BaseToast.Viewport {...slot('viewport', 'ge-toast__viewport')}>
+          <ToastList slot={slot} />
         </BaseToast.Viewport>
       </BaseToast.Portal>
     </BaseToast.Provider>
   );
 }
 
-function ToastList() {
+function ToastList({ slot }: { slot: SlotResolver<ToastSlot> }) {
   const { toasts } = BaseToast.useToastManager();
   return (
     <>
@@ -43,16 +52,14 @@ function ToastList() {
           <BaseToast.Root
             key={toast.id}
             toast={toast}
-            className={cn('ge-toast', TYPE_CLASS[type])}
-            data-testid="toast"
+            {...slot('toast', ['ge-toast', TYPE_CLASS[type]], { testId: 'toast' })}
             data-value={type}
           >
-            <BaseToast.Title className="ge-toast__title" />
-            <BaseToast.Description className="ge-toast__description" />
+            <BaseToast.Title {...slot('title', 'ge-toast__title')} />
+            <BaseToast.Description {...slot('description', 'ge-toast__description')} />
             <BaseToast.Close
-              className="ge-toast__close"
+              {...slot('close', 'ge-toast__close', { testId: 'toast-close' })}
               aria-label="close"
-              data-testid="toast-close"
             >
               ✕
             </BaseToast.Close>

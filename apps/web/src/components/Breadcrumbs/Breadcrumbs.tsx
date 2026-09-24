@@ -5,6 +5,8 @@ import { cn } from '@/shared/utils';
 
 import { Icon } from '../Icon';
 import { Link } from '../Link';
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
 
 import './Breadcrumbs.css';
 
@@ -16,7 +18,10 @@ export interface BreadcrumbItem {
   render?: ReactElement<Record<string, unknown>>;
 }
 
-export interface BreadcrumbsProps {
+/** `className` 落在根元素（`<nav>`）；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
+export type BreadcrumbsSlot = 'list' | 'item' | 'link' | 'current' | 'separator';
+
+export interface BreadcrumbsProps extends SlotOverrides<BreadcrumbsSlot> {
   items: BreadcrumbItem[];
   /** 透傳到根元素（React 19 的 ref 是一般 prop）。 */
   ref?: Ref<HTMLElement>;
@@ -30,28 +35,32 @@ export function Breadcrumbs({
   items,
   className,
   'aria-label': ariaLabel = 'breadcrumb',
+  classNames,
+  styles,
+  testIds,
   ...rest
 }: BreadcrumbsProps) {
+  const slot = createSlots({ classNames, styles, testIds });
   return (
     <nav aria-label={ariaLabel} className={cn('ge-breadcrumbs', className)} {...rest}>
-      <ol className="ge-breadcrumbs__list">
+      <ol {...slot('list', 'ge-breadcrumbs__list')}>
         {items.map((item, index) => {
           const isLast = index === items.length - 1;
           return (
             <Fragment key={item.key}>
-              <li className="ge-breadcrumbs__item">
+              <li {...slot('item', 'ge-breadcrumbs__item')} data-value={item.key}>
                 {isLast ? (
-                  <span className="ge-breadcrumbs__current" aria-current="page">
+                  <span {...slot('current', 'ge-breadcrumbs__current')} aria-current="page">
                     {item.label}
                   </span>
                 ) : (
-                  <Link href={item.href} render={item.render} tone="muted">
+                  <Link href={item.href} render={item.render} tone="muted" {...slot('link')}>
                     {item.label}
                   </Link>
                 )}
               </li>
               {!isLast && (
-                <li aria-hidden="true" className="ge-breadcrumbs__separator">
+                <li aria-hidden="true" {...slot('separator', 'ge-breadcrumbs__separator')}>
                   <Icon name="chevron-right" size={16} />
                 </li>
               )}

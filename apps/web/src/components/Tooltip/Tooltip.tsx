@@ -3,9 +3,15 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { cn } from '@/shared/utils';
 
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
+
 import './Tooltip.css';
 
-export interface TooltipProps {
+/** `className` / `data-testid` 落在提示框（popup）；定位層用 `classNames` / `styles` / `testIds` 覆寫。 */
+export type TooltipSlot = 'positioner';
+
+export interface TooltipProps extends SlotOverrides<TooltipSlot> {
   content: ReactNode;
   children: ReactElement<Record<string, unknown>>;
   side?: 'top' | 'bottom' | 'left' | 'right';
@@ -13,13 +19,27 @@ export interface TooltipProps {
   'data-testid'?: string;
 }
 
-export function Tooltip({ content, children, side = 'top', className, ...rest }: TooltipProps) {
+export function Tooltip({
+  content,
+  children,
+  side = 'top',
+  className,
+  classNames,
+  styles,
+  testIds,
+  ...rest
+}: TooltipProps) {
   if (!content) return children;
+  const slot = createSlots({ classNames, styles, testIds });
   return (
     <BaseTooltip.Root>
       <BaseTooltip.Trigger render={children} />
       <BaseTooltip.Portal>
-        <BaseTooltip.Positioner side={side} sideOffset={6} className="ge-tooltip__positioner">
+        <BaseTooltip.Positioner
+          side={side}
+          sideOffset={6}
+          {...slot('positioner', 'ge-tooltip__positioner')}
+        >
           <BaseTooltip.Popup className={cn('ge-tooltip__popup', className)} {...rest}>
             {content}
           </BaseTooltip.Popup>

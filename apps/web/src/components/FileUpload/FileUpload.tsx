@@ -5,6 +5,8 @@ import { cn } from '@/shared/utils';
 
 import { IconButton } from '../Button';
 import { Icon } from '../Icon';
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
 
 import './FileUpload.css';
 
@@ -16,7 +18,22 @@ export interface FileUploadLabels {
   wrongType: string;
 }
 
-export interface FileUploadProps {
+/** `className` 落在根元素；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
+export type FileUploadSlot =
+  | 'dropzone'
+  | 'icon'
+  | 'hint'
+  | 'browse'
+  | 'input'
+  | 'errors'
+  | 'list'
+  | 'item'
+  | 'itemIcon'
+  | 'itemName'
+  | 'itemSize'
+  | 'remove';
+
+export interface FileUploadProps extends SlotOverrides<FileUploadSlot> {
   /** 透傳到根元素（React 19 的 ref 是一般 prop）。 */
   ref?: Ref<HTMLDivElement>;
   files: File[];
@@ -70,8 +87,12 @@ export function FileUpload({
   className,
   labels: labelOverrides,
   onRejected,
+  classNames,
+  styles,
+  testIds,
   ...rest
 }: FileUploadProps) {
+  const slot = createSlots({ classNames, styles, testIds });
   const labels = { ...DEFAULT_LABELS, ...labelOverrides };
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -115,10 +136,14 @@ export function FileUpload({
   return (
     <div className={cn('ge-file-upload', className)} {...rest}>
       <div
-        className={cn(
-          'ge-file-upload__dropzone',
-          dragging && 'ge-file-upload__dropzone--dragging',
-          disabled && 'ge-file-upload__dropzone--disabled',
+        {...slot(
+          'dropzone',
+          [
+            'ge-file-upload__dropzone',
+            dragging && 'ge-file-upload__dropzone--dragging',
+            disabled && 'ge-file-upload__dropzone--disabled',
+          ],
+          { testId: 'file-upload-dropzone' },
         )}
         onDragOver={(event) => {
           event.preventDefault();
@@ -126,12 +151,11 @@ export function FileUpload({
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
-        data-testid="file-upload-dropzone"
       >
-        <Icon name="upload" size={20} />
-        <p className="ge-file-upload__hint">
+        <Icon name="upload" size={20} {...slot('icon')} />
+        <p {...slot('hint', 'ge-file-upload__hint')}>
           {labels.hint}{' '}
-          <label htmlFor={inputId} className="ge-file-upload__browse">
+          <label htmlFor={inputId} {...slot('browse', 'ge-file-upload__browse')}>
             {labels.browse}
           </label>
         </p>
@@ -139,7 +163,7 @@ export function FileUpload({
           ref={inputRef}
           id={inputId}
           type="file"
-          className="ge-file-upload__input"
+          {...slot('input', 'ge-file-upload__input', { testId: 'file-upload-input' })}
           accept={accept}
           multiple={multiple}
           disabled={disabled}
@@ -147,12 +171,11 @@ export function FileUpload({
             accept_(event.target.files);
             event.target.value = '';
           }}
-          data-testid="file-upload-input"
         />
       </div>
 
       {errors.length > 0 && (
-        <ul className="ge-file-upload__errors" data-testid="file-upload-errors">
+        <ul {...slot('errors', 'ge-file-upload__errors', { testId: 'file-upload-errors' })}>
           {errors.map((message) => (
             <li key={message}>{message}</li>
           ))}
@@ -160,14 +183,19 @@ export function FileUpload({
       )}
 
       {files.length > 0 && (
-        <ul className="ge-file-upload__list" data-testid="file-upload-list">
+        <ul {...slot('list', 'ge-file-upload__list', { testId: 'file-upload-list' })}>
           {files.map((file) => (
-            <li key={`${file.name}-${file.size}`} className="ge-file-upload__item">
-              <Icon name="file" size={16} />
-              <span className="ge-file-upload__name">{file.name}</span>
-              <span className="ge-file-upload__size">{formatSize(file.size)}</span>
+            <li
+              key={`${file.name}-${file.size}`}
+              {...slot('item', 'ge-file-upload__item')}
+              data-value={file.name}
+            >
+              <Icon name="file" size={16} {...slot('itemIcon')} />
+              <span {...slot('itemName', 'ge-file-upload__name')}>{file.name}</span>
+              <span {...slot('itemSize', 'ge-file-upload__size')}>{formatSize(file.size)}</span>
               <IconButton
                 size="sm"
+                {...slot('remove')}
                 aria-label={`${labels.remove} ${file.name}`}
                 disabled={disabled}
                 onClick={() => onFilesChange(files.filter((item) => item !== file))}

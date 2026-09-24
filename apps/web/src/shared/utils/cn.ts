@@ -1,4 +1,4 @@
-type ClassValue = string | number | null | undefined | false | ClassValue[];
+export type ClassValue = string | number | null | undefined | false | ClassValue[];
 
 /** 極簡 classnames：不做 tailwind-merge，元件層自己負責不衝突。 */
 export function cn(...values: ClassValue[]): string {

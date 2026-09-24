@@ -54,13 +54,14 @@
 
 ### 3.1 設計系統元件（`components/`）
 
-遵守 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.1 的五條契約：
+遵守 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.1 的六條契約：
 
 1. 不洩漏 Base UI 型別到 props（🔒 `design-system.test.ts`）。
 2. forward `ref`、`className`、`data-*`、`aria-*`（🔒 `ref-forwarding.test.tsx`）。
 3. 受控／非受控都支援。
 4. 樣式只用 token。
 5. 透傳 `data-testid`（🔒 `design-system.test.ts`）。
+6. 多層元件開出 `classNames` / `styles` / `testIds`（`Partial<Record<XxxSlot, T>>`），以 `createSlots()` 實作（👀 Review）。
 
 ### 3.2 業務元件（`features/<name>/components/`）
 

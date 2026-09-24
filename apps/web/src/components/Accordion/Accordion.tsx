@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import { cn } from '@/shared/utils';
 
 import { Icon } from '../Icon';
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
 
 import './Accordion.css';
 
@@ -14,7 +16,10 @@ export interface AccordionItemDescriptor {
   disabled?: boolean;
 }
 
-export interface AccordionProps {
+/** `className` 落在根元素；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
+export type AccordionSlot = 'item' | 'header' | 'trigger' | 'chevron' | 'panel' | 'content';
+
+export interface AccordionProps extends SlotOverrides<AccordionSlot> {
   items: AccordionItemDescriptor[];
   value?: string[];
   defaultValue?: string[];
@@ -32,8 +37,12 @@ export function Accordion({
   onValueChange,
   single,
   className,
+  classNames,
+  styles,
+  testIds,
   ...rest
 }: AccordionProps) {
+  const slot = createSlots({ classNames, styles, testIds });
   return (
     <BaseAccordion.Root
       value={value}
@@ -48,20 +57,19 @@ export function Accordion({
           key={item.value}
           value={item.value}
           disabled={item.disabled}
-          className="ge-accordion__item"
+          {...slot('item', 'ge-accordion__item')}
         >
-          <BaseAccordion.Header className="ge-accordion__header">
+          <BaseAccordion.Header {...slot('header', 'ge-accordion__header')}>
             <BaseAccordion.Trigger
-              className="ge-accordion__trigger"
-              data-testid="accordion-trigger"
+              {...slot('trigger', 'ge-accordion__trigger', { testId: 'accordion-trigger' })}
               data-value={item.value}
             >
               <span>{item.title}</span>
-              <Icon name="chevron-down" size={16} className="ge-accordion__chevron" />
+              <Icon name="chevron-down" size={16} {...slot('chevron', 'ge-accordion__chevron')} />
             </BaseAccordion.Trigger>
           </BaseAccordion.Header>
-          <BaseAccordion.Panel className="ge-accordion__panel">
-            <div className="ge-accordion__content">{item.content}</div>
+          <BaseAccordion.Panel {...slot('panel', 'ge-accordion__panel')}>
+            <div {...slot('content', 'ge-accordion__content')}>{item.content}</div>
           </BaseAccordion.Panel>
         </BaseAccordion.Item>
       ))}

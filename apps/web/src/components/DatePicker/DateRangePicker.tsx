@@ -4,6 +4,8 @@ import { cn } from '@/shared/utils';
 
 import { Icon } from '../Icon';
 import { Popover } from '../Popover';
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
 import { Calendar } from './Calendar';
 import { parseDate } from './calendar-utils';
 import type { DateValue } from './calendar-utils';
@@ -15,7 +17,13 @@ export interface DateRange {
   to: DateValue;
 }
 
-export interface DateRangePickerProps {
+/**
+ * `className` 落在外框，`data-testid` / `aria-label` 落在 `trigger`；
+ * 其餘各層用 `classNames` / `styles` / `testIds` 覆寫。
+ */
+export type DateRangePickerSlot = 'trigger' | 'icon' | 'value' | 'popup' | 'calendar' | 'clear';
+
+export interface DateRangePickerProps extends SlotOverrides<DateRangePickerSlot> {
   value: DateRange;
   onValueChange: (value: DateRange) => void;
   min?: DateValue;
@@ -45,9 +53,14 @@ export function DateRangePicker({
   defaultMonth,
   className,
   labels = { clear: 'clear', open: 'open calendar', separator: '~' },
+  classNames,
+  styles,
+  testIds,
   ...rest
 }: DateRangePickerProps) {
+  const slot = createSlots({ classNames, styles, testIds });
   const [open, setOpen] = useState(false);
+  const triggerSlot = slot('trigger', 'ge-date-picker__trigger');
 
   const handleSelect = (next: string) => {
     const from = parseDate(value.from);
@@ -71,17 +84,21 @@ export function DateRangePicker({
       <Popover
         open={open}
         onOpenChange={setOpen}
+        {...slot('popup')}
         trigger={
           <button
             type="button"
-            className="ge-date-picker__trigger"
+            {...triggerSlot}
             disabled={disabled}
             aria-label={rest['aria-label'] ?? labels.open}
-            data-testid={rest['data-testid']}
+            data-testid={rest['data-testid'] ?? triggerSlot['data-testid']}
           >
-            <Icon name="calendar" size={16} />
+            <Icon name="calendar" size={16} {...slot('icon')} />
             <span
-              className={cn('ge-date-picker__value', !value.from && 'ge-date-picker__value--empty')}
+              {...slot('value', [
+                'ge-date-picker__value',
+                !value.from && 'ge-date-picker__value--empty',
+              ])}
             >
               {label}
             </span>
@@ -96,17 +113,16 @@ export function DateRangePicker({
           locale={locale}
           defaultMonth={defaultMonth}
           onSelect={handleSelect}
-          data-testid="date-range-picker-calendar"
+          {...slot('calendar', undefined, { testId: 'date-range-picker-calendar' })}
         />
       </Popover>
 
       {clearable && value.from && !disabled && (
         <button
           type="button"
-          className="ge-date-picker__clear"
+          {...slot('clear', 'ge-date-picker__clear', { testId: 'date-range-picker-clear' })}
           aria-label={labels.clear}
           onClick={() => onValueChange({ from: null, to: null })}
-          data-testid="date-range-picker-clear"
         >
           <Icon name="close" size={14} />
         </button>

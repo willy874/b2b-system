@@ -90,7 +90,7 @@ components/Button/
 └── index.ts            只匯出公開 API
 ```
 
-### 3.1 五條規則
+### 3.1 六條規則
 
 | #   | 規則                                                | 理由                    |
 | --- | --------------------------------------------------- | ----------------------- |
@@ -99,6 +99,34 @@ components/Button/
 | 3   | **受控／非受控都支援**（`value` ＋ `defaultValue`） | 表單與獨立使用都要能用  |
 | 4   | **樣式只用 token，不寫死顏色與尺寸**                | 主題與 dark mode 的前提 |
 | 5   | **每個元件有 `data-testid` 透傳**                   | E2E 依賴                |
+| 6   | **多層元件開出 `classNames` / `styles` / `testIds`** | 內層也要能覆寫與標註，不必退回複合形式 |
+
+#### 規則 6：逐層覆寫
+
+元件內部有兩層以上 DOM（`Dialog` 的 backdrop / header / body、`Table` 的 row / cell …）時，
+除了根元素的 `className` / `data-testid`，再開出三個 `Partial<Record<XxxSlot, T>>` 參數：
+
+| 參數         | 型別                  | 行為                                         |
+| ------------ | --------------------- | -------------------------------------------- |
+| `classNames` | `string`              | 疊加在該層預設 class 之後                    |
+| `styles`     | `CSSProperties`       | 與該層預設 inline style 逐屬性合併，呼叫端優先 |
+| `testIds`    | `string`              | 取代該層預設 `data-testid`；`data-value` 保留 |
+
+- 層名以 `export type XxxSlot = 'header' | 'body' | …` 匯出，寫在 Props 介面上方，
+  並在註解標明頂層 `className` / `data-testid` 落在哪一層（不一定是最外層，例如 `Select` 落在觸發按鈕）。
+- 頂層 `data-testid` 落到的那一層，頂層值優先於 `testIds` 的同名鍵。
+- 實作一律用 `components/slots.ts` 的 `createSlots()`：
+  `<div {...slot('body', 'ge-dialog__body')}>`；攤開後不再另寫 `className` / `style` / `data-testid`。
+- 被當成內層的設計系統元件（`Icon`、`Popover`、`Select`、`Empty`、`Calendar`）因此也接受 `style`。
+- 只有單層的元件（`Button`、`Chip`、`Input` …）不開這三個參數。
+
+```tsx
+<Dialog
+  title={t('role.create.title')}
+  classNames={{ body: 'grid gap-4' }}
+  testIds={{ footer: 'role-create-footer' }}
+/>
+```
 
 ### 3.2 範例：`Dialog`
 

@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import { cn } from '@/shared/utils';
 
 import { Icon } from '../Icon';
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
 
 import './Combobox.css';
 
@@ -14,7 +16,23 @@ export interface ComboboxOption<T extends string = string> {
   disabled?: boolean;
 }
 
-export interface ComboboxProps<T extends string = string> {
+/**
+ * `className` 落在外框（包住輸入框與按鈕），`data-testid` / `aria-label` 落在 `input`；
+ * 其餘各層用 `classNames` / `styles` / `testIds` 覆寫。
+ */
+export type ComboboxSlot =
+  | 'input'
+  | 'trigger'
+  | 'positioner'
+  | 'popup'
+  | 'empty'
+  | 'list'
+  | 'item'
+  | 'indicator'
+  | 'itemText'
+  | 'itemDescription';
+
+export interface ComboboxProps<T extends string = string> extends SlotOverrides<ComboboxSlot> {
   value?: T | null;
   defaultValue?: T | null;
   onValueChange?: (value: T | null) => void;
@@ -39,8 +57,12 @@ export function Combobox<T extends string = string>({
   disabled,
   invalid,
   className,
+  classNames,
+  styles,
+  testIds,
   ...rest
 }: ComboboxProps<T>) {
+  const slot = createSlots({ classNames, styles, testIds });
   return (
     <BaseCombobox.Root
       items={options}
@@ -52,37 +74,40 @@ export function Combobox<T extends string = string>({
     >
       <div className={cn('ge-combobox', className)}>
         <BaseCombobox.Input
-          className="ge-combobox__input"
+          {...slot('input', 'ge-combobox__input')}
           placeholder={placeholder}
           aria-invalid={invalid || undefined}
           {...rest}
         />
-        <BaseCombobox.Trigger className="ge-combobox__trigger" aria-label="open">
+        <BaseCombobox.Trigger {...slot('trigger', 'ge-combobox__trigger')} aria-label="open">
           <Icon name="chevron-down" size={16} />
         </BaseCombobox.Trigger>
       </div>
 
       <BaseCombobox.Portal>
-        <BaseCombobox.Positioner sideOffset={4} className="ge-combobox__positioner">
-          <BaseCombobox.Popup className="ge-combobox__popup">
-            <BaseCombobox.Empty className="ge-combobox__empty">{emptyMessage}</BaseCombobox.Empty>
-            <BaseCombobox.List>
+        <BaseCombobox.Positioner sideOffset={4} {...slot('positioner', 'ge-combobox__positioner')}>
+          <BaseCombobox.Popup {...slot('popup', 'ge-combobox__popup')}>
+            <BaseCombobox.Empty {...slot('empty', 'ge-combobox__empty')}>
+              {emptyMessage}
+            </BaseCombobox.Empty>
+            <BaseCombobox.List {...slot('list')}>
               {(item: ComboboxOption<T>) => (
                 <BaseCombobox.Item
                   key={item.value}
                   value={item}
                   disabled={item.disabled}
-                  className="ge-combobox__item"
-                  data-testid="combobox-item"
+                  {...slot('item', 'ge-combobox__item', { testId: 'combobox-item' })}
                   data-value={item.value}
                 >
-                  <BaseCombobox.ItemIndicator className="ge-combobox__indicator">
+                  <BaseCombobox.ItemIndicator {...slot('indicator', 'ge-combobox__indicator')}>
                     <Icon name="check" size={14} />
                   </BaseCombobox.ItemIndicator>
-                  <span className="ge-combobox__item-text">
+                  <span {...slot('itemText', 'ge-combobox__item-text')}>
                     <span>{item.label}</span>
                     {item.description && (
-                      <span className="ge-combobox__item-description">{item.description}</span>
+                      <span {...slot('itemDescription', 'ge-combobox__item-description')}>
+                        {item.description}
+                      </span>
                     )}
                   </span>
                 </BaseCombobox.Item>

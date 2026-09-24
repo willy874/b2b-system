@@ -1,4 +1,4 @@
-import type { Ref } from 'react';
+import type { CSSProperties, Ref } from 'react';
 
 import { cn } from '@/shared/utils';
 
@@ -15,6 +15,7 @@ export interface IconProps {
   name: IconName;
   size?: IconSize;
   className?: string;
+  style?: CSSProperties;
   /** 純裝飾時留空（預設 aria-hidden）；有語意時才給。 */
   'aria-label'?: string;
   'data-testid'?: string;

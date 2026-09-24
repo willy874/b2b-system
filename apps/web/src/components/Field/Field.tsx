@@ -3,9 +3,15 @@ import type { ReactNode, Ref } from 'react';
 
 import { cn } from '@/shared/utils';
 
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
+
 import './Field.css';
 
-export interface FieldProps {
+/** `className` 落在根元素；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
+export type FieldSlot = 'label' | 'required' | 'description' | 'error';
+
+export interface FieldProps extends SlotOverrides<FieldSlot> {
   /** 透傳到根元素（React 19 的 ref 是一般 prop）。 */
   ref?: Ref<HTMLDivElement>;
   /** 對應 `Form` 的 `errors` 鍵（後端回傳的欄位錯誤靠這個對上）。 */
@@ -28,8 +34,12 @@ export function Field({
   required,
   className,
   children,
+  classNames,
+  styles,
+  testIds,
   ...rest
 }: FieldProps) {
+  const slot = createSlots({ classNames, styles, testIds });
   return (
     <BaseField.Root
       name={name}
@@ -39,10 +49,10 @@ export function Field({
       {...rest}
     >
       {label && (
-        <BaseField.Label className="ge-field__label">
+        <BaseField.Label {...slot('label', 'ge-field__label')}>
           {label}
           {required && (
-            <span className="ge-field__required" aria-hidden="true">
+            <span {...slot('required', 'ge-field__required')} aria-hidden="true">
               *
             </span>
           )}
@@ -50,18 +60,18 @@ export function Field({
       )}
       {children}
       {description && !error && (
-        <BaseField.Description className="ge-field__description">
+        <BaseField.Description {...slot('description', 'ge-field__description')}>
           {description}
         </BaseField.Description>
       )}
       {/* 明確傳入的錯誤（例如 TanStack Form 的欄位驗證） */}
       {error && (
-        <BaseField.Error match className="ge-field__error">
+        <BaseField.Error match {...slot('error', 'ge-field__error')}>
           {error}
         </BaseField.Error>
       )}
       {/* 沒有明確錯誤時，顯示 Form 從後端帶進來的欄位錯誤 */}
-      {!error && <BaseField.Error className="ge-field__error" />}
+      {!error && <BaseField.Error {...slot('error', 'ge-field__error')} />}
     </BaseField.Root>
   );
 }

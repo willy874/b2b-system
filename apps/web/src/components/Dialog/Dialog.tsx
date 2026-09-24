@@ -3,6 +3,9 @@ import type { ReactNode } from 'react';
 
 import { cn } from '@/shared/utils';
 
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
+
 import './Dialog.css';
 
 export type DialogSize = 'sm' | 'md' | 'lg';
@@ -13,7 +16,10 @@ const SIZE_CLASS = {
   lg: 'ge-dialog__popup--lg',
 } as const satisfies Record<DialogSize, string>;
 
-export interface DialogProps {
+/** `className` 落在彈窗（popup）；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
+export type DialogSlot = 'backdrop' | 'header' | 'title' | 'description' | 'body' | 'footer';
+
+export interface DialogProps extends SlotOverrides<DialogSlot> {
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -39,8 +45,12 @@ export function Dialog({
   dismissible = true,
   children,
   className,
+  classNames,
+  styles,
+  testIds,
   ...rest
 }: DialogProps) {
+  const slot = createSlots({ classNames, styles, testIds });
   return (
     <BaseDialog.Root
       open={open}
@@ -49,18 +59,18 @@ export function Dialog({
       disablePointerDismissal={!dismissible}
     >
       <BaseDialog.Portal>
-        <BaseDialog.Backdrop className="ge-dialog__backdrop" />
+        <BaseDialog.Backdrop {...slot('backdrop', 'ge-dialog__backdrop')} />
         <BaseDialog.Popup className={cn('ge-dialog__popup', SIZE_CLASS[size], className)} {...rest}>
-          <header className="ge-dialog__header">
-            <BaseDialog.Title className="ge-dialog__title">{title}</BaseDialog.Title>
+          <header {...slot('header', 'ge-dialog__header')}>
+            <BaseDialog.Title {...slot('title', 'ge-dialog__title')}>{title}</BaseDialog.Title>
             {description && (
-              <BaseDialog.Description className="ge-dialog__description">
+              <BaseDialog.Description {...slot('description', 'ge-dialog__description')}>
                 {description}
               </BaseDialog.Description>
             )}
           </header>
-          <div className="ge-dialog__body">{children}</div>
-          {footer && <footer className="ge-dialog__footer">{footer}</footer>}
+          <div {...slot('body', 'ge-dialog__body')}>{children}</div>
+          {footer && <footer {...slot('footer', 'ge-dialog__footer')}>{footer}</footer>}
         </BaseDialog.Popup>
       </BaseDialog.Portal>
     </BaseDialog.Root>

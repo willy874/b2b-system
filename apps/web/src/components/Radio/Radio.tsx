@@ -4,6 +4,9 @@ import type { ReactNode } from 'react';
 
 import { cn } from '@/shared/utils';
 
+import { createSlots } from '../slots';
+import type { SlotOverrides } from '../slots';
+
 import './Radio.css';
 
 export type RadioGroupOrientation = 'vertical' | 'horizontal';
@@ -20,7 +23,10 @@ export interface RadioOption<T extends string = string> {
   disabled?: boolean;
 }
 
-export interface RadioGroupProps<T extends string = string> {
+/** `className` 落在群組根元素；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
+export type RadioGroupSlot = 'option' | 'control' | 'indicator' | 'text' | 'label' | 'description';
+
+export interface RadioGroupProps<T extends string = string> extends SlotOverrides<RadioGroupSlot> {
   value?: T;
   defaultValue?: T;
   onValueChange?: (value: T) => void;
@@ -42,8 +48,12 @@ export function RadioGroup<T extends string = string>({
   disabled,
   orientation = 'vertical',
   className,
+  classNames,
+  styles,
+  testIds,
   ...rest
 }: RadioGroupProps<T>) {
+  const slot = createSlots({ classNames, styles, testIds });
   return (
     <BaseRadioGroup
       value={value}
@@ -57,21 +67,20 @@ export function RadioGroup<T extends string = string>({
       {options.map((option) => (
         <label
           key={option.value}
-          className={cn('ge-radio', option.disabled && 'ge-radio--disabled')}
+          {...slot('option', ['ge-radio', option.disabled && 'ge-radio--disabled'])}
         >
           <BaseRadio.Root
             value={option.value}
             disabled={option.disabled}
-            className="ge-radio__control"
-            data-testid="radio-option"
+            {...slot('control', 'ge-radio__control', { testId: 'radio-option' })}
             data-value={option.value}
           >
-            <BaseRadio.Indicator className="ge-radio__indicator" />
+            <BaseRadio.Indicator {...slot('indicator', 'ge-radio__indicator')} />
           </BaseRadio.Root>
-          <span className="ge-radio__text">
-            <span className="ge-radio__label">{option.label}</span>
+          <span {...slot('text', 'ge-radio__text')}>
+            <span {...slot('label', 'ge-radio__label')}>{option.label}</span>
             {option.description && (
-              <span className="ge-radio__description">{option.description}</span>
+              <span {...slot('description', 'ge-radio__description')}>{option.description}</span>
             )}
           </span>
         </label>
