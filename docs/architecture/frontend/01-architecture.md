@@ -65,7 +65,7 @@ export * from "@game-editor/api-sdk";
 | `core/auth`       | `SessionStore`：token 生命週期、跨分頁單飛續期、終止判定            |
 | `core/cache`      | `queryClient` 實例、跨分頁失效廣播、store 持久化                    |
 | `core/client`     | `HttpContext` / `FetcherContext` / `defineFetcher` / 攔截器鏈       |
-| `core/components` | 機制性元件：`ErrorPage`、`Empty`、`PermissionGate`、`Suspense` 封裝 |
+| `core/components` | 機制性元件：`ErrorPage`、`Empty`、`PermissionGate`、`Suspense` 封裝、`RichTable`（列表頁表格：`Table` ＋ `Pagination`，之後整合篩選列與欄位設定） |
 | `core/errors`     | 錯誤碼常數、`AppError` 型別、`useErrorMessage()`                    |
 | `core/locales`    | i18n scope 註冊與 route loader                                      |
 | `core/notify`     | `useToast()`：發 `GlobalEvents.TOAST_SHOW` 到 eventBus，由 `app/ToastHost` 渲染 |
