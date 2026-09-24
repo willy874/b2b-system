@@ -92,8 +92,14 @@
   }
 
   .indicator {
+    display: flex;
+    flex-shrink: 0;
     width: 1rem;
     color: var(--color-brand);
+  }
+
+  .indicator:not([data-selected]) {
+    visibility: hidden;
   }
 
   .itemText {

@@ -13,7 +13,13 @@
     flex-wrap: wrap;
   }
 
+  /*
+   * Base UI 在 control 旁放一個 `position: fixed; top: 0` 的隱藏 input；點 label 時瀏覽器會 focus 它。
+   * 祖先有 transform（Dialog、Storybook docs）時 fixed 會相對該祖先定位，focus 就把捲軸拉走而抖動。
+   * `contain: layout` 讓 fixed 改以這裡為包含區塊，input 永遠落在選項旁。
+   */
   .option {
+    contain: layout;
     display: inline-flex;
     align-items: flex-start;
     gap: var(--seed-space-2);

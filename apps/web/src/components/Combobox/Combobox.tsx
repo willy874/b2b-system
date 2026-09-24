@@ -103,7 +103,8 @@ export function Combobox<T extends string = string>({
                   {...slot('item', styles.item, { testId: 'combobox-item' })}
                   data-value={item.value}
                 >
-                  <BaseCombobox.ItemIndicator {...slot('indicator', styles.indicator)}>
+                  {/* 常駐佔位、未選取時以 CSS 隱藏；否則選取瞬間插入 ✓ 會把文字往右推。 */}
+                  <BaseCombobox.ItemIndicator keepMounted {...slot('indicator', styles.indicator)}>
                     <Icon name="check" size={14} />
                   </BaseCombobox.ItemIndicator>
                   <span {...slot('itemText', styles.itemText)}>
