@@ -3,8 +3,9 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
 import type { RoleSortField } from '@/apis/role/types';
-import { Button } from '@/components/Button';
+import { IconButton } from '@/components/Button';
 import { Chip } from '@/components/Chip';
+import { Icon } from '@/components/Icon';
 import { Tooltip } from '@/components/Tooltip';
 import { RichTable } from '@/core/components';
 import type { FilterBarProps, RichTablePagination, TableSettingsConfig } from '@/core/components';
@@ -108,18 +109,22 @@ export function RoleTable({
         enableSorting: false,
         cell: ({ row }) => (
           <div className="flex gap-1">
-            {/* 有權限但當下狀態不允許 → disable ＋ tooltip 說明 */}
+            {/* 有權限但當下狀態不允許 → disable ＋ tooltip 改成說明原因 */}
             {permission.canDelete && (
-              <Tooltip content={row.original.isSystem ? t('role.delete.systemProtected') : ''}>
-                <Button
+              <Tooltip
+                content={
+                  row.original.isSystem ? t('role.delete.systemProtected') : t('common.delete')
+                }
+              >
+                <IconButton
                   size="sm"
-                  variant="ghost"
+                  aria-label={t('common.delete')}
                   disabled={!row.original.canDelete}
                   onClick={() => onDelete(row.original)}
                   data-testid="role-delete-button"
                 >
-                  {t('common.delete')}
-                </Button>
+                  <Icon name="trash" size={16} />
+                </IconButton>
               </Tooltip>
             )}
           </div>

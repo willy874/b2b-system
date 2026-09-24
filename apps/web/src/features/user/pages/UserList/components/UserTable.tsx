@@ -3,8 +3,9 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
 import type { UserSortField } from '@/apis/user/types';
-import { Button } from '@/components/Button';
+import { IconButton } from '@/components/Button';
 import { Chip } from '@/components/Chip';
+import { Icon } from '@/components/Icon';
 import { Tooltip } from '@/components/Tooltip';
 import { RichTable } from '@/core/components';
 import type { FilterBarProps, RichTablePagination, TableSettingsConfig } from '@/core/components';
@@ -118,35 +119,43 @@ export function UserTable({
         cell: ({ row }) => (
           <div className="flex gap-1">
             {permission.canUnlock && row.original.status === 'locked' && (
-              <Button
-                size="sm"
-                onClick={() => void unlockUser.mutate({ params: { userId: row.original.id } })}
-                data-testid="user-unlock-button"
-              >
-                {t('user.unlock.action')}
-              </Button>
+              <Tooltip content={t('user.unlock.action')}>
+                <IconButton
+                  size="sm"
+                  aria-label={t('user.unlock.action')}
+                  onClick={() => void unlockUser.mutate({ params: { userId: row.original.id } })}
+                  data-testid="user-unlock-button"
+                >
+                  <Icon name="unlock" size={16} />
+                </IconButton>
+              </Tooltip>
             )}
             {permission.canResetPassword && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => void resetPassword.mutate({ params: { userId: row.original.id } })}
-                data-testid="user-reset-password-button"
-              >
-                {t('user.resetPassword.action')}
-              </Button>
-            )}
-            {permission.canDelete && (
-              <Tooltip content={row.original.isSelf ? t('user.delete.selfProtected') : ''}>
-                <Button
+              <Tooltip content={t('user.resetPassword.action')}>
+                <IconButton
                   size="sm"
-                  variant="ghost"
+                  aria-label={t('user.resetPassword.action')}
+                  onClick={() => void resetPassword.mutate({ params: { userId: row.original.id } })}
+                  data-testid="user-reset-password-button"
+                >
+                  <Icon name="key" size={16} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {/* 有權限但當下狀態不允許 → disable ＋ tooltip 改成說明原因 */}
+            {permission.canDelete && (
+              <Tooltip
+                content={row.original.isSelf ? t('user.delete.selfProtected') : t('common.delete')}
+              >
+                <IconButton
+                  size="sm"
+                  aria-label={t('common.delete')}
                   disabled={!row.original.canDelete}
                   onClick={() => onDelete(row.original)}
                   data-testid="user-delete-button"
                 >
-                  {t('common.delete')}
-                </Button>
+                  <Icon name="trash" size={16} />
+                </IconButton>
               </Tooltip>
             )}
           </div>

@@ -24,6 +24,7 @@ import Search from '@/assets/icons/search.svg?react';
 import Settings from '@/assets/icons/settings.svg?react';
 import Shield from '@/assets/icons/shield.svg?react';
 import Trash from '@/assets/icons/trash.svg?react';
+import Unlock from '@/assets/icons/unlock.svg?react';
 import Upload from '@/assets/icons/upload.svg?react';
 import User from '@/assets/icons/user.svg?react';
 import Users from '@/assets/icons/users.svg?react';
@@ -60,6 +61,7 @@ export const ICONS = {
   settings: Settings,
   shield: Shield,
   trash: Trash,
+  unlock: Unlock,
   upload: Upload,
   user: User,
   users: Users,

@@ -1,8 +1,10 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
-import { Button } from '@/components/Button';
+import { IconButton } from '@/components/Button';
 import { Chip } from '@/components/Chip';
+import { Icon } from '@/components/Icon';
+import { Tooltip } from '@/components/Tooltip';
 import { RichTable } from '@/core/components';
 import type { FilterBarProps, RichTablePagination, TableSettingsConfig } from '@/core/components';
 import { useTranslation } from '@/core/locales';
@@ -81,16 +83,23 @@ export function AuditLogTable({
         id: 'actions',
         header: '',
         enableSorting: false,
-        cell: ({ row }) => (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onToggleExpand(row.original.id)}
-            data-testid="audit-log-expand"
-          >
-            {expandedId === row.original.id ? t('auditLog.collapse') : t('auditLog.expand')}
-          </Button>
-        ),
+        cell: ({ row }) => {
+          const isExpanded = expandedId === row.original.id;
+          const label = isExpanded ? t('auditLog.collapse') : t('auditLog.expand');
+          return (
+            <Tooltip content={label}>
+              <IconButton
+                size="sm"
+                aria-label={label}
+                aria-expanded={isExpanded}
+                onClick={() => onToggleExpand(row.original.id)}
+                data-testid="audit-log-expand"
+              >
+                <Icon name={isExpanded ? 'chevron-down' : 'chevron-right'} size={16} />
+              </IconButton>
+            </Tooltip>
+          );
+        },
       },
     ],
     [expandedId, onToggleExpand, t],
