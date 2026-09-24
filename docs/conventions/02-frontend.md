@@ -21,6 +21,8 @@
 > 規劃以 `no-restricted-imports` 強制，**目前 `.oxlintrc.json` 尚未設定**，先靠 review。
 > 補上後把標記改成 🔒。
 >
+> 完整的依賴矩陣見 [`07-layer-dependencies.md`](./07-layer-dependencies.md)。
+>
 > `design-system.test.ts` 另外守住：`features/` 不直接 import Base UI、`components/` 不匯出 Base UI 型別、
 > `components/` 的 CSS 不出現十六進位色碼。
 
@@ -102,6 +104,7 @@
 
 - 不寫十六進位色碼、`rgb()`；用 token 或 UnoCSS 對應的 token class（`components/` 的 CSS 有 🔒 測試，其餘 👀）。
 - 尺寸、間距用 token；不寫魔術數字。
+- className 不得以字串模板組成，見 [`06-literal-strings.md`](./06-literal-strings.md)。
 - 語意色：`-main` 給背景／邊框，`-text` 給文字（對比度不同）。見
   [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §4.2。
 
@@ -110,6 +113,7 @@
 ## 8. i18n
 
 - 畫面上的字一律走 `t()`，不寫死中英文字串。
+- key 不得以字串模板組成，見 [`06-literal-strings.md`](./06-literal-strings.md)。
 - 兩個語系檔（`en_US.json`、`zh_TW.json`）同一批修改；🔒 `locales.test.ts` 會比對兩邊鍵集合，並檢查每個錯誤碼與權限都有翻譯。
 - 權限名稱 `permission.<resource>.<action>`、錯誤訊息 `error.<CODE>`。見
   [`architecture/frontend/08-i18n.md`](../architecture/frontend/08-i18n.md) §3。

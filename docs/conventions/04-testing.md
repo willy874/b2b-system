@@ -36,6 +36,7 @@
 - 一個 `it` 驗一件事；需要的前置狀態用小工具函式（例：`hydrate(keys)`）說清楚。
 - 對應到規格或缺陷時，在 `describe` 標出處：`describe('路由稽核（docs/architecture/backend/05-rbac.md §7）')`。
 - 查詢 DOM 優先用 `getByRole` ＋ 可存取名稱；E2E 一律用 `data-testid`（文字會隨語系變）。
+  列表項目用 `[data-testid="x"][data-value="y"]`，不拼接 testid（見 [`06-literal-strings.md`](./06-literal-strings.md) §3.3）。
 - 不測實作細節（內部 state、私有函式）；測輸入 → 輸出、使用者看得到的結果。
 - 測試之間不共享可變狀態；全域註冊表在 `beforeEach` 重設（例：`resetPagePermissionRegistry()`）。
 - 不用 `sleep` / 固定等待；用 `findBy*`、`waitFor`、Playwright 的 auto-wait。

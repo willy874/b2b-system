@@ -18,6 +18,7 @@
 | 7   | 刪除角色前 **先** 查出受影響的使用者，再刪                                                     | cascade 之後就查不到人，快取無從失效             | 👀 Review     |
 | 8   | 跨模組只注入對方 `exports` 的 service，不注入 repository；不用 `forwardRef`                    | 循環依賴代表職責畫錯了                           | 👀 Review     |
 
+完整的依賴矩陣見 [`07-layer-dependencies.md`](./07-layer-dependencies.md) §3。
 各層「可以／不可以」的對照表見
 [`architecture/backend/01-architecture.md`](../architecture/backend/01-architecture.md) §1.1。
 

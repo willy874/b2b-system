@@ -16,7 +16,7 @@ Game Editor 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架*
 | 前端 | `docs/architecture/frontend/01`→`03`→`06` |
 | 後端 | `docs/architecture/backend/01`→`03`→`05` |
 | 權限相關 | [`docs/rbac/02-permission-catalog.md`](docs/rbac/02-permission-catalog.md) |
-| 寫程式規範 | [`docs/conventions/`](docs/conventions/README.md)（命名、TS、測試、commit） |
+| 寫程式規範 | [`docs/conventions/`](docs/conventions/README.md)（命名、TS、測試、commit、字面量、層級依賴）；寫或 review 程式碼前用 `best-practice` skill 載入 |
 
 ## 三處必須同步
 

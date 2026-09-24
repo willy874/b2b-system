@@ -108,7 +108,9 @@ docs/
 │   ├── 02-frontend.md                 前端分層規則、feature / 元件 / hook / 樣式
 │   ├── 03-backend.md                  後端分層規則、各層寫法、錯誤、DB
 │   ├── 04-testing.md                  測試位置、命名、寫法、何時必寫
-│   └── 05-git.md                      branch、commit message、PR 檢查清單
+│   ├── 05-git.md                      branch、commit message、PR 檢查清單
+│   ├── 06-literal-strings.md          i18n key / className / testid 不得以模板組成
+│   └── 07-layer-dependencies.md       package 與資料夾的層級依賴矩陣
 │
 └── adr/                               架構決策紀錄（Architecture Decision Records）
     ├── 0001-plugin-based-app-context.md

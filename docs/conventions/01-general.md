@@ -71,8 +71,10 @@
 | 查詢鍵常數                         | SCREAMING_SNAKE ＋ `_QUERY_KEY`               | `ROLE_LIST_QUERY_KEY`     |
 | Zod schema                         | PascalCase ＋ `Schema`                        | `CreateRoleSchema`        |
 | 布林                               | `is` / `has` / `can` 開頭                     | `canGrantPermission`      |
-| TestId                             | `data-testid="<feature>-<element>-<variant>"` | `role-table-row`          |
+| TestId                             | `data-testid="<feature>-<element>"`，變動部分放 `data-value` | `role-table-row`          |
 | 語系鍵                             | 見 [`architecture/frontend/08-i18n.md`](../architecture/frontend/08-i18n.md) | `role.create.success` |
+
+i18n key、className、`data-testid` 一律寫完整字面量，見 [`06-literal-strings.md`](./06-literal-strings.md)。
 
 同一個概念在前端 feature、後端 module、DB 表、權限 resource 用 **同一個字根**
 （`role` / `roles` / `role:*`），找東西不需要換腦袋。
