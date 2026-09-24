@@ -1,24 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, Outlet, useNavigate } from '@tanstack/react-router';
-import type { ColumnDef } from '@tanstack/react-table';
+import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
 import { getRoleListQueryOptions } from '@/apis/role/get-role-list/query';
 import { AlertDialog } from '@/components/AlertDialog';
 import { Button } from '@/components/Button';
-import { Chip } from '@/components/Chip';
 import { Input } from '@/components/Input';
 import { Pagination } from '@/components/Pagination';
-import { Table } from '@/components/Table';
-import { Tooltip } from '@/components/Tooltip';
 import { useTranslation } from '@/core/locales';
-import { formatDateTime } from '@/shared/date';
 
 import { useRoleDeleteMutation } from '../../hooks/useRoleMutations';
 import { useRolePermission } from '../../hooks/useRolePermission';
 import { RoleCreateRoute, RoleDetailRoute } from '../../routes';
 import { toRoleRowVM } from './adapter';
 import type { RoleRowVM } from './adapter';
+import { RoleTable } from './components/RoleTable';
 import { useRoleSearchFilter } from './useRoleSearchFilter';
 
 export default function RoleListPage() {
@@ -45,88 +41,6 @@ export default function RoleListPage() {
   const rows = useMemo(
     () => (data?.items ?? []).map((role) => toRoleRowVM(role, permission)),
     [data, permission],
-  );
-
-  const columns = useMemo<Array<ColumnDef<RoleRowVM, unknown>>>(
-    () => [
-      {
-        id: 'name',
-        header: t('role.field.name'),
-        cell: ({ row }) => (
-          <Link
-            to={RoleDetailRoute.to}
-            params={{ roleId: row.original.id }}
-            search={search}
-            className="font-medium text-[var(--color-brand)]"
-            data-testid="role-name-link"
-          >
-            {row.original.name}
-          </Link>
-        ),
-      },
-      {
-        id: 'slug',
-        header: t('role.field.slug'),
-        cell: ({ row }) => <code className="font-mono text-xs">{row.original.slug}</code>,
-      },
-      {
-        id: 'description',
-        header: t('role.field.description'),
-        cell: ({ row }) => row.original.description,
-      },
-      {
-        id: 'isSystem',
-        header: t('role.field.type'),
-        enableSorting: false,
-        cell: ({ row }) =>
-          row.original.isSystem ? (
-            <Chip tone="brand">{t('role.type.system')}</Chip>
-          ) : (
-            <Chip tone="neutral">{t('role.type.custom')}</Chip>
-          ),
-      },
-      {
-        id: 'permissionCount',
-        header: t('role.field.permissionCount'),
-        enableSorting: false,
-        cell: ({ row }) => row.original.permissionCount,
-      },
-      {
-        id: 'userCount',
-        header: t('role.field.userCount'),
-        enableSorting: false,
-        cell: ({ row }) => row.original.userCount,
-      },
-      {
-        id: 'createdAt',
-        header: t('role.field.createdAt'),
-        cell: ({ row }) => formatDateTime(row.original.createdAt),
-      },
-      {
-        id: 'actions',
-        header: t('common.actions'),
-        enableSorting: false,
-        cell: ({ row }) => (
-          <div className="flex gap-1">
-            {/* 有權限但當下狀態不允許 → disable ＋ tooltip 說明 */}
-            {permission.canDelete && (
-              <Tooltip content={row.original.isSystem ? t('role.delete.systemProtected') : ''}>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={!row.original.canDelete}
-                  onClick={() => setPendingDelete(row.original)}
-                  data-testid="role-delete-button"
-                >
-                  {t('common.delete')}
-                </Button>
-              </Tooltip>
-            )}
-          </div>
-        ),
-      },
-    ],
-    [permission, search, t],
   );
 
   return (
@@ -162,18 +76,15 @@ export default function RoleListPage() {
         <Button onClick={() => setKeyword(keywordDraft)}>{t('common.search')}</Button>
       </div>
 
-      <Table
-        data={rows}
-        columns={columns}
+      <RoleTable
+        rows={rows}
         loading={isPending}
-        getRowId={(row) => row.id}
-        emptyTitle={t('common.empty')}
-        sorting={{ sortBy: search.sortBy, sortOrder: search.sortOrder }}
-        onSortingChange={(sortBy, sortOrder) => setSort(sortBy as typeof search.sortBy, sortOrder)}
+        search={search}
+        onSortingChange={setSort}
         onRowDoubleClick={(row) =>
           void navigate({ to: RoleDetailRoute.to, params: { roleId: row.id }, search })
         }
-        data-testid="role-table"
+        onDelete={setPendingDelete}
       />
 
       <Pagination

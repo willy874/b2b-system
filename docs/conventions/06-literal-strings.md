@@ -62,8 +62,8 @@ export const USER_STATUS_LABEL_KEY = {
 | 設定物件中的完整字面量            | `{ labelKey: 'menu.role', … }` → `t(item.labelKey)` | 欄位名以 `Key` / `I18nKey` 結尾               |
 | 後端回傳的完整 key                | `t(permission.nameI18nKey)`                         | 後端以字面量存放（`db/seeds/permissions.ts`） |
 
-錯誤碼同理：用 `ERROR_MESSAGE_KEY: Record<ErrorCode, string>` 對照表，
-而不是 `` `error.${code}` ``。
+錯誤碼同理：`core/errors/errorMessageKey.ts` 的 `ERROR_MESSAGE_KEY` 對照表，而不是 `` `error.${code}` ``。
+新增錯誤碼時要加進這張表（🔒 `locales.test.ts` 會比對它與後端錯誤碼清單）。
 
 ### 3.2 className
 
@@ -95,14 +95,15 @@ className={cn('ge-button', VARIANT_CLASS[variant], block && 'ge-button--block', 
 
 ```ts
 // E2E
-page.locator('[data-testid="permission-checkbox"][data-value="user:read"]');
+getByTestIdAndValue(page, 'permission-checkbox', 'user:read');
+// 等同 page.locator('[data-testid="permission-checkbox"][data-value="user:read"]')
 ```
 
 - 值域固定的一組元素（選單、分頁），在設定物件裡寫完整字面量：
   `{ to: '/role', labelKey: 'menu.role', testId: 'menu-role' }`。
 - 設計系統元件（`components/`）渲染的列表項目統一用 `<元件>-item` ＋ `data-value`，
   例如 `data-testid="menu-item" data-value="logout"`。
-- `shared/constants/testid.ts` 的 `testId()` 以模板組字串，**不再使用**。
+- E2E 用 `apps/e2e/helpers/selectors.ts` 的 `getByTestIdAndValue(page, 'permission-checkbox', 'user:read')`。
 
 ---
 
@@ -118,19 +119,3 @@ git grep -nE '`[a-z][a-z0-9-]*--\$\{' -- 'apps/web/src/*.tsx'
 # data-testid
 git grep -nE 'data-testid=\{`' -- apps/web/src
 ```
-
----
-
-## 5. 現況（規則建立時的既有違規）
-
-規則建立於 2026-09-24，以下既有程式碼尚未遷移。修改到這些檔案時順手遷移，
-全部清完後刪除本節並補上 lint 規則。
-
-| 類型      | 位置                                                                                                  |
-| --------- | ----------------------------------------------------------------------------------------------------- |
-| i18n key  | `core/errors/useErrorMessage.ts`、`features/user/pages/UserList/page.tsx`、`features/user/pages/UserDetail/page.tsx`、`mocks/resources/fixtures.ts`、`mocks/handlers/rbac.ts` |
-| className | `components/` 下的 Button、Chip、Dialog、Link、Progress、Radio、Separator、Toast、Toolbar              |
-| testid    | `app/layouts/DashboardLayout.tsx`；`components/` 下的 Accordion、Combobox、Calendar、Menu、Radio、Tabs、Toast；`features/` 下的 Preference、PermissionList、PermissionPicker、UserCreate、UserDetail；`shared/constants/testid.ts` |
-
-遷移 testid 時要同一批修改 `apps/e2e/` 的選擇器（例：`rbac-lifecycle.spec.ts` 的
-`permission-checkbox-user:read`、`design-system.spec.ts` 的 `calendar-day-`）。

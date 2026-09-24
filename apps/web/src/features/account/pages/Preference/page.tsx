@@ -71,7 +71,7 @@ export default function PreferencePage() {
       </Field>
 
       {sections.map((section) => (
-        <section key={section.key} data-testid={`preference-section-${section.key}`}>
+        <section key={section.key} data-testid="preference-section" data-value={section.key}>
           <h2 className="mb-2 text-base font-medium">{t(section.labelI18nKey)}</h2>
           <section.Component />
         </section>

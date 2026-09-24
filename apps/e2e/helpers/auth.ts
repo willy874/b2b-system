@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test';
 
 import { ACCOUNTS, E2E_PASSWORD } from '../fixtures/accounts';
 import type { AccountKey } from '../fixtures/accounts';
+import { getByTestIdAndValue } from './selectors';
 
 export async function login(
   page: Page,
@@ -22,5 +23,5 @@ export async function loginAndWaitForHome(page: Page, account: AccountKey): Prom
 
 export async function logout(page: Page): Promise<void> {
   await page.getByTestId('account-menu-trigger').click();
-  await page.getByTestId('menu-item-logout').click();
+  await getByTestIdAndValue(page, 'menu-item', 'logout').click();
 }

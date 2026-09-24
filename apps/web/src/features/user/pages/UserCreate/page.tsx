@@ -151,7 +151,8 @@ export default function UserCreatePage() {
                   }
                   label={role.name}
                   description={role.slug}
-                  data-testid={`user-role-checkbox-${role.slug}`}
+                  data-testid="user-role-checkbox"
+                  data-value={role.slug}
                 />
               ))}
             </div>

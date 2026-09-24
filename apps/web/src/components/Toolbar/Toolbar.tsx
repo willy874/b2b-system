@@ -5,11 +5,18 @@ import { cn } from '@/shared/utils';
 
 import './Toolbar.css';
 
+export type ToolbarOrientation = 'horizontal' | 'vertical';
+
+const ORIENTATION_CLASS = {
+  horizontal: 'ge-toolbar--horizontal',
+  vertical: 'ge-toolbar--vertical',
+} as const satisfies Record<ToolbarOrientation, string>;
+
 export interface ToolbarProps {
   /** 透傳到根元素（React 19 的 ref 是一般 prop）。 */
   ref?: Ref<HTMLDivElement>;
   children: ReactNode;
-  orientation?: 'horizontal' | 'vertical';
+  orientation?: ToolbarOrientation;
   className?: string;
   'aria-label'?: string;
   'data-testid'?: string;
@@ -28,7 +35,7 @@ export function Toolbar({
   return (
     <BaseToolbar.Root
       orientation={orientation}
-      className={cn('ge-toolbar', `ge-toolbar--${orientation}`, className)}
+      className={cn('ge-toolbar', ORIENTATION_CLASS[orientation], className)}
       {...rest}
     >
       {children}

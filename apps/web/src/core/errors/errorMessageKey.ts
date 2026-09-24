@@ -1,0 +1,63 @@
+/**
+ * 後端錯誤碼 → 語系鍵。key 以完整字面量寫在表裡，不以 `` `error.${code}` `` 組字串
+ * （docs/conventions/06-literal-strings.md §3.1）。
+ *
+ * 錯誤碼的來源是後端 `apps/api/src/core/errors/error-code.ts`；新增錯誤碼時同步加在這裡
+ * 與兩個語系檔的 `error.<CODE>`（`app/__tests__/locales.test.ts` 會比對）。
+ */
+export const ERROR_MESSAGE_KEY = {
+  // ── 驗證 ──
+  VALIDATION_FAILED: 'error.VALIDATION_FAILED',
+
+  // ── 認證 ──
+  AUTH_INVALID_CREDENTIALS: 'error.AUTH_INVALID_CREDENTIALS',
+  AUTH_ACCOUNT_PENDING: 'error.AUTH_ACCOUNT_PENDING',
+  AUTH_ACCOUNT_DISABLED: 'error.AUTH_ACCOUNT_DISABLED',
+  AUTH_ACCOUNT_LOCKED: 'error.AUTH_ACCOUNT_LOCKED',
+  AUTH_TOKEN_INVALID: 'error.AUTH_TOKEN_INVALID',
+  AUTH_TOKEN_STALE: 'error.AUTH_TOKEN_STALE',
+  AUTH_REFRESH_INVALID: 'error.AUTH_REFRESH_INVALID',
+  AUTH_REFRESH_EXPIRED: 'error.AUTH_REFRESH_EXPIRED',
+  AUTH_REFRESH_REVOKED: 'error.AUTH_REFRESH_REVOKED',
+  AUTH_REFRESH_REUSED: 'error.AUTH_REFRESH_REUSED',
+  AUTH_PASSWORD_MISMATCH: 'error.AUTH_PASSWORD_MISMATCH',
+  AUTH_PASSWORD_WEAK: 'error.AUTH_PASSWORD_WEAK',
+  AUTH_SETUP_TOKEN_INVALID: 'error.AUTH_SETUP_TOKEN_INVALID',
+
+  // ── 授權 ──
+  AUTHZ_FORBIDDEN: 'error.AUTHZ_FORBIDDEN',
+  AUTHZ_ESCALATION: 'error.AUTHZ_ESCALATION',
+  AUTHZ_SELF_MODIFY: 'error.AUTHZ_SELF_MODIFY',
+  ROUTE_PERMISSION_NOT_DECLARED: 'error.ROUTE_PERMISSION_NOT_DECLARED',
+
+  // ── 使用者 ──
+  USER_NOT_FOUND: 'error.USER_NOT_FOUND',
+  USER_EMAIL_DUPLICATE: 'error.USER_EMAIL_DUPLICATE',
+  USER_USERNAME_DUPLICATE: 'error.USER_USERNAME_DUPLICATE',
+  USER_NOT_LOCKED: 'error.USER_NOT_LOCKED',
+
+  // ── 角色 ──
+  ROLE_NOT_FOUND: 'error.ROLE_NOT_FOUND',
+  ROLE_NAME_DUPLICATE: 'error.ROLE_NAME_DUPLICATE',
+  ROLE_SYSTEM_PROTECTED: 'error.ROLE_SYSTEM_PROTECTED',
+  ROLE_SUPER_ADMIN_IMMUTABLE: 'error.ROLE_SUPER_ADMIN_IMMUTABLE',
+  ROLE_IN_USE: 'error.ROLE_IN_USE',
+  LAST_SUPER_ADMIN: 'error.LAST_SUPER_ADMIN',
+
+  // ── 權限 ──
+  PERMISSION_UNKNOWN: 'error.PERMISSION_UNKNOWN',
+
+  // ── 通用 ──
+  RATE_LIMITED: 'error.RATE_LIMITED',
+  INTERNAL_ERROR: 'error.INTERNAL_ERROR',
+} as const;
+
+/** 前端認得的後端錯誤碼。 */
+export type KnownErrorCode = keyof typeof ERROR_MESSAGE_KEY;
+
+/** 取得錯誤碼對應的語系鍵；不認得的碼回 `undefined`（由呼叫端退回通用訊息）。 */
+export function getErrorMessageKey(code: string): string | undefined {
+  return Object.hasOwn(ERROR_MESSAGE_KEY, code)
+    ? ERROR_MESSAGE_KEY[code as KnownErrorCode]
+    : undefined;
+}

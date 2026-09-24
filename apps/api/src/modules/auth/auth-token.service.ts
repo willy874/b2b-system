@@ -1,19 +1,18 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { and, eq, isNull } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { DRIZZLE } from '@/core/database';
-import type { AuthTokenPurpose, AuthTokenRow } from '@/db/schema';
+import type { AuthTokenPurpose, AuthTokenRow, RevokedReason } from '@/db/schema';
 import { authTokens } from '@/db/schema';
+
+import { RefreshTokenRepository } from './refresh-token.repository';
+import { sha256 } from './token-hash';
 
 export const ACTIVATION_TTL_SECONDS = 24 * 60 * 60; // 24 小時
 export const PASSWORD_RESET_TTL_SECONDS = 60 * 60; // 1 小時
-
-export function sha256(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
-}
 
 /**
  * 啟用 / 密碼重設 token。
@@ -24,7 +23,15 @@ export function sha256(value: string): string {
 export class AuthTokenService {
   private readonly logger = new Logger(AuthTokenService.name);
 
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    private readonly refreshTokens: RefreshTokenRepository,
+  ) {}
+
+  /** 撤銷使用者所有未撤銷的 refresh token（停用、刪除帳號時用）。 */
+  async revokeAllRefreshTokens(userId: string, reason: RevokedReason, tx?: DbOrTx): Promise<void> {
+    await this.refreshTokens.revokeAllForUser(userId, reason, tx);
+  }
 
   /** 發新 token 前先作廢同使用者同用途的既有未使用 token。 */
   async issue(

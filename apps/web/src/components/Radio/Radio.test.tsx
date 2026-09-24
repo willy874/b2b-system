@@ -4,6 +4,17 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { RadioGroup } from './index';
 
+/** 以固定的 `data-testid` ＋ `data-value` 找元素（docs/conventions/06-literal-strings.md §3.3）。 */
+function queryOption(value: string) {
+  return document.querySelector<HTMLElement>(`[data-testid="radio-option"][data-value="${value}"]`);
+}
+
+function getOption(value: string) {
+  const element = queryOption(value);
+  if (!element) throw new Error(`找不到 radio-option（data-value="${value}"）`);
+  return element;
+}
+
 const options = [
   { value: 'active', label: '啟用' },
   { value: 'inactive', label: '停用' },
@@ -36,7 +47,7 @@ describe('RadioGroup', () => {
   it('disabled 的選項不能選', async () => {
     const onValueChange = vi.fn();
     render(<RadioGroup options={options} onValueChange={onValueChange} aria-label="狀態" />);
-    await userEvent.click(screen.getByTestId('radio-locked'));
+    await userEvent.click(getOption('locked'));
     expect(onValueChange).not.toHaveBeenCalled();
   });
 
@@ -51,7 +62,7 @@ describe('RadioGroup', () => {
 
   it('受控值反映在 aria-checked 上', () => {
     render(<RadioGroup value="inactive" options={options} aria-label="狀態" />);
-    expect(screen.getByTestId('radio-inactive')).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByTestId('radio-active')).toHaveAttribute('aria-checked', 'false');
+    expect(getOption('inactive')).toHaveAttribute('aria-checked', 'true');
+    expect(getOption('active')).toHaveAttribute('aria-checked', 'false');
   });
 });

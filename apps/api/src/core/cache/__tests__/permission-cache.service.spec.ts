@@ -1,7 +1,7 @@
 import type { ConfigService } from '@nestjs/config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { PermissionKey } from '@/common/types';
+import type { PermissionKey } from '@/db/seeds/permissions';
 
 import { PermissionCacheService } from '../permission-cache.service';
 

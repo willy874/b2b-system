@@ -30,21 +30,48 @@ interface MenuItem {
   icon: IconName;
 }
 
+interface NavItem extends MenuItem {
+  /** 完整字面量（docs/conventions/06-literal-strings.md §3.3），E2E 以此定位側邊選單項 */
+  testId: string;
+}
+
 /** `app/` 是唯一知道所有 feature 的地方，這是組裝層的本分。 */
-const MENU: MenuItem[] = [
-  { pageKey: HOME_PAGE, to: '/', labelKey: 'menu.home', icon: 'home' },
-  { pageKey: USER_PAGE, to: '/user', labelKey: 'menu.user', icon: 'users' },
-  { pageKey: ROLE_PAGE, to: '/role', labelKey: 'menu.role', icon: 'shield' },
-  { pageKey: PERMISSION_PAGE, to: '/permission', labelKey: 'menu.permission', icon: 'key' },
-  { pageKey: AUDIT_LOG_PAGE, to: '/audit-log', labelKey: 'menu.auditLog', icon: 'list' },
+const MENU: NavItem[] = [
+  { pageKey: HOME_PAGE, to: '/', labelKey: 'menu.home', testId: 'menu-home', icon: 'home' },
+  { pageKey: USER_PAGE, to: '/user', labelKey: 'menu.user', testId: 'menu-user', icon: 'users' },
+  { pageKey: ROLE_PAGE, to: '/role', labelKey: 'menu.role', testId: 'menu-role', icon: 'shield' },
+  {
+    pageKey: PERMISSION_PAGE,
+    to: '/permission',
+    labelKey: 'menu.permission',
+    testId: 'menu-permission',
+    icon: 'key',
+  },
+  {
+    pageKey: AUDIT_LOG_PAGE,
+    to: '/audit-log',
+    labelKey: 'menu.auditLog',
+    testId: 'menu-auditLog',
+    icon: 'list',
+  },
 ];
 
 const ACCOUNT_MENU: MenuItem[] = [
-  { pageKey: PROFILE_PAGE, to: '/profile', labelKey: 'menu.profile', icon: 'user' },
-  { pageKey: PREFERENCE_PAGE, to: '/preference', labelKey: 'menu.preference', icon: 'settings' },
+  {
+    pageKey: PROFILE_PAGE,
+    to: '/profile',
+    labelKey: 'menu.profile',
+    icon: 'user',
+  },
+  {
+    pageKey: PREFERENCE_PAGE,
+    to: '/preference',
+    labelKey: 'menu.preference',
+    icon: 'settings',
+  },
 ];
 
-function useMenuItems(items: MenuItem[]) {
+function useMenuItems<T extends MenuItem>(items: T[]): T[] {
   const { hydrated, canAccessPage } = usePageAccessChecker();
   // 未水合時回空陣列，而不是顯示全部再消失
   return useMemo(
@@ -80,7 +107,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 (pathname === item.to || (item.to !== '/' && pathname.startsWith(`${item.to}/`))) &&
                   'ge-shell__nav-item--active',
               )}
-              data-testid={`menu-${item.labelKey.split('.')[1]}`}
+              data-testid={item.testId}
               title={collapsed ? t(item.labelKey) : undefined}
             >
               <Icon name={item.icon} size={16} />

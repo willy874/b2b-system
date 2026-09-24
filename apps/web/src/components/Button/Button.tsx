@@ -10,6 +10,20 @@ import './Button.css';
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
+const VARIANT_CLASS = {
+  primary: 'ge-button--primary',
+  secondary: 'ge-button--secondary',
+  ghost: 'ge-button--ghost',
+  danger: 'ge-button--danger',
+} as const satisfies Record<ButtonVariant, string>;
+
+/** `md` 是預設尺寸，不加 modifier。 */
+const SIZE_CLASS = {
+  sm: 'ge-button--sm',
+  md: undefined,
+  lg: 'ge-button--lg',
+} as const satisfies Record<ButtonSize, string | undefined>;
+
 export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'> {
   variant?: ButtonVariant;
   size?: ButtonSize;
@@ -42,8 +56,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={type}
       className={cn(
         'ge-button',
-        `ge-button--${variant}`,
-        size !== 'md' && `ge-button--${size}`,
+        VARIANT_CLASS[variant],
+        SIZE_CLASS[size],
         block && 'ge-button--block',
         className,
       )}

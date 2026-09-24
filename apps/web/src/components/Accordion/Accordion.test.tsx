@@ -4,6 +4,19 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { Accordion } from './index';
 
+/** 以固定的 `data-testid` ＋ `data-value` 找元素（docs/conventions/06-literal-strings.md §3.3）。 */
+function queryTrigger(value: string) {
+  return document.querySelector<HTMLElement>(
+    `[data-testid="accordion-trigger"][data-value="${value}"]`,
+  );
+}
+
+function getTrigger(value: string) {
+  const element = queryTrigger(value);
+  if (!element) throw new Error(`找不到 accordion-trigger（data-value="${value}"）`);
+  return element;
+}
+
 const items = [
   { value: 'user', title: '使用者', content: '使用者相關權限' },
   { value: 'role', title: '角色', content: '角色相關權限' },
@@ -14,30 +27,30 @@ describe('Accordion', () => {
   it('點擊標題展開對應內容', async () => {
     render(<Accordion items={items} />);
     expect(screen.queryByText('使用者相關權限')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByTestId('accordion-trigger-user'));
+    await userEvent.click(getTrigger('user'));
     expect(await screen.findByText('使用者相關權限')).toBeVisible();
   });
 
   it('single 模式下展開新項目會收合舊的', async () => {
     const onValueChange = vi.fn();
     render(<Accordion single items={items} onValueChange={onValueChange} />);
-    await userEvent.click(screen.getByTestId('accordion-trigger-user'));
-    await userEvent.click(screen.getByTestId('accordion-trigger-role'));
+    await userEvent.click(getTrigger('user'));
+    await userEvent.click(getTrigger('role'));
     expect(onValueChange).toHaveBeenLastCalledWith(['role']);
   });
 
   it('方向鍵可在標題之間移動', async () => {
     render(<Accordion items={items} />);
     await userEvent.tab();
-    expect(screen.getByTestId('accordion-trigger-user')).toHaveFocus();
+    expect(getTrigger('user')).toHaveFocus();
     await userEvent.keyboard('{ArrowDown}');
-    expect(screen.getByTestId('accordion-trigger-role')).toHaveFocus();
+    expect(getTrigger('role')).toHaveFocus();
   });
 
   it('disabled 的項目不能展開', async () => {
     const onValueChange = vi.fn();
     render(<Accordion items={items} onValueChange={onValueChange} />);
-    await userEvent.click(screen.getByTestId('accordion-trigger-system'));
+    await userEvent.click(getTrigger('system'));
     expect(onValueChange).not.toHaveBeenCalled();
   });
 });

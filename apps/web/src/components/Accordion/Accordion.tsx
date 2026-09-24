@@ -53,7 +53,8 @@ export function Accordion({
           <BaseAccordion.Header className="ge-accordion__header">
             <BaseAccordion.Trigger
               className="ge-accordion__trigger"
-              data-testid={`accordion-trigger-${item.value}`}
+              data-testid="accordion-trigger"
+              data-value={item.value}
             >
               <span>{item.title}</span>
               <Icon name="chevron-down" size={16} className="ge-accordion__chevron" />

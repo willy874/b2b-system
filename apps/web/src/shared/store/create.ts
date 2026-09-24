@@ -39,6 +39,7 @@ export function create<T extends object>(creator: StateCreator<T>): UseBoundStor
 
   state = creator(setState, getState);
 
+  // 沒有 selector 時 U 就是 T；TS 無法從可選參數推導出這個關係，只能在這裡轉型
   const useStore = (<U>(selector?: (state: T) => U) =>
     useSyncExternalStore(
       subscribe,

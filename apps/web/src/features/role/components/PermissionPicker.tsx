@@ -42,7 +42,8 @@ export function PermissionPicker({ selected, onToggle, disabled, ...rest }: Perm
                       onCheckedChange={(checked) => onToggle(key, checked)}
                       label={item ? t(item.nameI18nKey) : key}
                       description={key}
-                      data-testid={`permission-checkbox-${key}`}
+                      data-testid="permission-checkbox"
+                      data-value={key}
                     />
                   </span>
                 </Tooltip>

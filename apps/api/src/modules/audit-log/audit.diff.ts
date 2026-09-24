@@ -12,7 +12,7 @@ function isEqual(a: unknown, b: unknown): boolean {
 }
 
 /** 只記實際改變的欄位（docs/architecture/backend/06-audit-log.md §5）。 */
-export function diff<T extends Record<string, unknown>>(
+export function diff<T extends object>(
   before: T,
   after: Partial<T>,
   fields: readonly (keyof T)[],

@@ -113,6 +113,10 @@
 ## 8. i18n
 
 - 畫面上的字一律走 `t()`，不寫死中英文字串。
+  例外：
+  - `components/` 不能依賴 `core/locales`，元件的預設文案（`emptyTitle`、`labels` 等）可以寫死，
+    但 `features/` 使用時 **必須** 以 `t()` 傳入。
+  - 語言選單的語言名稱用該語言本身書寫（`繁體中文`、`English`），不翻譯。
 - key 不得以字串模板組成，見 [`06-literal-strings.md`](./06-literal-strings.md)。
 - 兩個語系檔（`en_US.json`、`zh_TW.json`）同一批修改；🔒 `locales.test.ts` 會比對兩邊鍵集合，並檢查每個錯誤碼與權限都有翻譯。
 - 權限名稱 `permission.<resource>.<action>`、錯誤訊息 `error.<CODE>`。見

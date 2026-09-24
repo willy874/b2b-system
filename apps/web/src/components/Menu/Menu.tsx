@@ -37,7 +37,8 @@ export function Menu({ trigger, items, align = 'end', className, ...rest }: Menu
                 onClick={item.onSelect}
                 render={item.render}
                 className={cn('ge-menu__item', item.tone === 'danger' && 'ge-menu__item--danger')}
-                data-testid={`menu-item-${item.key}`}
+                data-testid="menu-item"
+                data-value={item.key}
               >
                 {item.label}
               </BaseMenu.Item>

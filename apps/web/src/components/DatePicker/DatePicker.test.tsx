@@ -1,8 +1,21 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DatePicker } from './index';
+
+/** 以固定的 `data-testid` ＋ `data-value` 找元素（docs/conventions/06-literal-strings.md §3.3）。 */
+function queryDay(value: string) {
+  return document.querySelector<HTMLElement>(`[data-testid="calendar-day"][data-value="${value}"]`);
+}
+
+function getDay(value: string) {
+  const element = queryDay(value);
+  if (!element) throw new Error(`找不到 calendar-day（data-value="${value}"）`);
+  return element;
+}
+
+const findDay = (value: string) => waitFor(() => getDay(value));
 
 describe('DatePicker', () => {
   it('沒有值時顯示 placeholder', () => {
@@ -15,7 +28,7 @@ describe('DatePicker', () => {
     render(<DatePicker value="2026-09-15" onValueChange={onValueChange} aria-label="開始日期" />);
 
     await userEvent.click(screen.getByRole('button', { name: '開始日期' }));
-    await userEvent.click(await screen.findByTestId('calendar-day-2026-09-20'));
+    await userEvent.click(await findDay('2026-09-20'));
 
     expect(onValueChange).toHaveBeenCalledWith('2026-09-20');
   });
@@ -25,7 +38,7 @@ describe('DatePicker', () => {
     render(<DatePicker value="2026-09-15" onValueChange={onValueChange} aria-label="開始日期" />);
 
     await userEvent.click(screen.getByRole('button', { name: '開始日期' }));
-    const selected = await screen.findByTestId('calendar-day-2026-09-15');
+    const selected = await findDay('2026-09-15');
     selected.focus();
     await userEvent.keyboard('{ArrowRight}{Enter}');
 
@@ -43,8 +56,8 @@ describe('DatePicker', () => {
       />,
     );
     await userEvent.click(screen.getByRole('button', { name: '開始日期' }));
-    expect(await screen.findByTestId('calendar-day-2026-09-25')).toBeDisabled();
-    expect(screen.getByTestId('calendar-day-2026-09-18')).toBeEnabled();
+    expect(await findDay('2026-09-25')).toBeDisabled();
+    expect(getDay('2026-09-18')).toBeEnabled();
   });
 
   it('清除按鈕把值設回 null', async () => {

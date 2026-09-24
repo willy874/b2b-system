@@ -73,7 +73,8 @@ export function Combobox<T extends string = string>({
                   value={item}
                   disabled={item.disabled}
                   className="ge-combobox__item"
-                  data-testid={`combobox-item-${item.value}`}
+                  data-testid="combobox-item"
+                  data-value={item.value}
                 >
                   <BaseCombobox.ItemIndicator className="ge-combobox__indicator">
                     <Icon name="check" size={14} />

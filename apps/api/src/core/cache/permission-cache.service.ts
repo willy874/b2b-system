@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import type { PermissionKey } from '@/common/types';
+import type { PermissionKey } from '@/db/seeds/permissions';
 
 import type { Env } from '../config';
 

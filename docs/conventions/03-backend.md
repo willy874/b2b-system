@@ -64,7 +64,7 @@
 
 - 新錯誤碼加在 `core/errors/error-code.ts`，同時決定它對應的 HTTP 狀態碼。
 - 命名 `<DOMAIN>_<REASON>`（`ROLE_SYSTEM_PROTECTED`）；已發布的錯誤碼 **不改名**，前端與語系檔依賴它。
-- 同步前端語系檔的 `error.<CODE>`（🔒 `locales.test.ts` 會檢查）。
+- 同步前端 `core/errors/errorMessageKey.ts` 的 `ERROR_MESSAGE_KEY` 與兩個語系檔的 `error.<CODE>`（🔒 `locales.test.ts` 會檢查）。
 - 錯誤碼清單與流程見 [`architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §5。
 
 ---

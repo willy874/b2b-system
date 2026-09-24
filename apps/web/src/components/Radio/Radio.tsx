@@ -6,6 +6,13 @@ import { cn } from '@/shared/utils';
 
 import './Radio.css';
 
+export type RadioGroupOrientation = 'vertical' | 'horizontal';
+
+const ORIENTATION_CLASS = {
+  vertical: 'ge-radio-group--vertical',
+  horizontal: 'ge-radio-group--horizontal',
+} as const satisfies Record<RadioGroupOrientation, string>;
+
 export interface RadioOption<T extends string = string> {
   value: T;
   label: ReactNode;
@@ -20,7 +27,7 @@ export interface RadioGroupProps<T extends string = string> {
   options: Array<RadioOption<T>>;
   name?: string;
   disabled?: boolean;
-  orientation?: 'vertical' | 'horizontal';
+  orientation?: RadioGroupOrientation;
   className?: string;
   'aria-label'?: string;
   'data-testid'?: string;
@@ -44,7 +51,7 @@ export function RadioGroup<T extends string = string>({
       onValueChange={(next: unknown) => onValueChange?.(next as T)}
       name={name}
       disabled={disabled}
-      className={cn('ge-radio-group', `ge-radio-group--${orientation}`, className)}
+      className={cn('ge-radio-group', ORIENTATION_CLASS[orientation], className)}
       {...rest}
     >
       {options.map((option) => (
@@ -56,7 +63,8 @@ export function RadioGroup<T extends string = string>({
             value={option.value}
             disabled={option.disabled}
             className="ge-radio__control"
-            data-testid={`radio-${option.value}`}
+            data-testid="radio-option"
+            data-value={option.value}
           >
             <BaseRadio.Indicator className="ge-radio__indicator" />
           </BaseRadio.Root>

@@ -2,15 +2,14 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
 import { UserCacheService } from '@/core/cache';
-import type { Database } from '@/core/database';
+import type { Database, DbOrTx } from '@/core/database';
 import { DRIZZLE, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { paginated } from '@/core/http';
-import type { UserRow } from '@/db/schema';
+import type { UserInsert, UserRow } from '@/db/schema';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { AuthTokenService } from '@/modules/auth/auth-token.service';
-import { RefreshTokenRepository } from '@/modules/auth/refresh-token.repository';
 import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
 import { PermissionService } from '@/modules/permission/permission.service';
 
@@ -46,7 +45,6 @@ export class UserService {
     private readonly repo: UserRepository,
     private readonly permissionService: PermissionService,
     private readonly authTokens: AuthTokenService,
-    private readonly refreshTokens: RefreshTokenRepository,
     private readonly userCache: UserCacheService,
     private readonly audit: AuditService,
   ) {}
@@ -124,7 +122,7 @@ export class UserService {
       await this.assertUsernameAvailable(dto.username);
     }
 
-    const changes = diff(user as unknown as Record<string, unknown>, dto, [...USER_AUDIT_FIELDS]);
+    const changes = diff(user, dto, [...USER_AUDIT_FIELDS]);
     const deactivating = dto.status !== undefined && dto.status !== 'active';
 
     const updated = await withTransaction(this.db, async (tx) => {
@@ -134,7 +132,7 @@ export class UserService {
       if (deactivating) {
         // 停用：撤銷所有 refresh token 並讓既存 access token 失效
         await this.repo.incrementTokenVersion(id, tx);
-        await this.refreshTokens.revokeAllForUser(id, 'user_disabled', tx);
+        await this.authTokens.revokeAllRefreshTokens(id, 'user_disabled', tx);
       }
 
       await this.audit.record(
@@ -163,7 +161,7 @@ export class UserService {
 
     await withTransaction(this.db, async (tx) => {
       await this.repo.softDelete(id, actor.id, tx);
-      await this.refreshTokens.revokeAllForUser(id, 'user_disabled', tx);
+      await this.authTokens.revokeAllRefreshTokens(id, 'user_disabled', tx);
       await this.audit.record(
         {
           action: 'user.delete',
@@ -302,5 +300,32 @@ export class UserService {
     if (!roleIds.length) return;
     const found = await this.repo.findActiveRolesByIds(roleIds);
     if (found.length !== new Set(roleIds).size) throw new AppException('ROLE_NOT_FOUND');
+  }
+
+  // ── 帳號狀態與憑證：供 AuthModule 使用 ─────────────────────
+  // 回傳含 passwordHash、tokenVersion 的 row，只給認證流程用，不可經由 controller 回傳。
+
+  findAccountById(id: string): Promise<UserRow | undefined> {
+    return this.repo.findById(id);
+  }
+
+  findAccountByEmail(email: string): Promise<UserRow | undefined> {
+    return this.repo.findByEmail(email);
+  }
+
+  updateAccount(
+    id: string,
+    values: Partial<UserInsert>,
+    tx?: DbOrTx,
+  ): Promise<UserRow | undefined> {
+    return this.repo.update(id, values, tx);
+  }
+
+  incrementTokenVersion(id: string, tx?: DbOrTx): Promise<void> {
+    return this.repo.incrementTokenVersion(id, tx);
+  }
+
+  listRoleSummaries(id: string): Promise<UserRoleSummary[]> {
+    return this.repo.listRoles(id);
   }
 }

@@ -5,6 +5,14 @@ import { cn } from '@/shared/utils';
 
 import './Progress.css';
 
+export type ProgressTone = 'brand' | 'success' | 'danger';
+
+const TONE_CLASS = {
+  brand: 'ge-progress--brand',
+  success: 'ge-progress--success',
+  danger: 'ge-progress--danger',
+} as const satisfies Record<ProgressTone, string>;
+
 export interface ProgressProps {
   /** 透傳到根元素（React 19 的 ref 是一般 prop）。 */
   ref?: Ref<HTMLDivElement>;
@@ -14,7 +22,7 @@ export interface ProgressProps {
   label?: ReactNode;
   /** 在右側顯示百分比。 */
   showValue?: boolean;
-  tone?: 'brand' | 'success' | 'danger';
+  tone?: ProgressTone;
   className?: string;
   'aria-label'?: string;
   'data-testid'?: string;
@@ -33,7 +41,7 @@ export function Progress({
     <BaseProgress.Root
       value={value}
       max={max}
-      className={cn('ge-progress', `ge-progress--${tone}`, className)}
+      className={cn('ge-progress', TONE_CLASS[tone], className)}
       {...rest}
     >
       {(label || showValue) && (

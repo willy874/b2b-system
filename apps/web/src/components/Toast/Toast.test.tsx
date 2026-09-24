@@ -33,7 +33,7 @@ describe('Toast', () => {
   it('錯誤訊息可帶說明，並標記 error 類型', async () => {
     renderToast();
     await userEvent.click(screen.getByRole('button', { name: '失敗' }));
-    expect(await screen.findByTestId('toast-error')).toBeInTheDocument();
+    expect(await screen.findByTestId('toast')).toHaveAttribute('data-value', 'error');
     expect(screen.getByText('請聯絡管理員')).toBeVisible();
   });
 

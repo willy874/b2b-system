@@ -1,31 +1,139 @@
 import type { AuditLog, Permission, Role, User } from '@/shared/api-sdk';
 
+/**
+ * 權限目錄（對應 apps/api/src/db/seeds/permissions.ts）。
+ * mocks 不能 import apps/api，所以 key 與語系鍵以完整字面量寫在這裡
+ * （docs/conventions/06-literal-strings.md §3.1）。
+ */
+const PERMISSION_CATALOG = [
+  {
+    resource: 'user',
+    action: 'create',
+    key: 'user:create',
+    nameI18nKey: 'permission.user.create',
+    sortOrder: 100,
+  },
+  {
+    resource: 'user',
+    action: 'read',
+    key: 'user:read',
+    nameI18nKey: 'permission.user.read',
+    sortOrder: 101,
+  },
+  {
+    resource: 'user',
+    action: 'update',
+    key: 'user:update',
+    nameI18nKey: 'permission.user.update',
+    sortOrder: 102,
+  },
+  {
+    resource: 'user',
+    action: 'delete',
+    key: 'user:delete',
+    nameI18nKey: 'permission.user.delete',
+    sortOrder: 103,
+  },
+  {
+    resource: 'user',
+    action: 'assignRole',
+    key: 'user:assignRole',
+    nameI18nKey: 'permission.user.assignRole',
+    sortOrder: 104,
+  },
+  {
+    resource: 'user',
+    action: 'resetPassword',
+    key: 'user:resetPassword',
+    nameI18nKey: 'permission.user.resetPassword',
+    sortOrder: 105,
+  },
+  {
+    resource: 'role',
+    action: 'create',
+    key: 'role:create',
+    nameI18nKey: 'permission.role.create',
+    sortOrder: 200,
+  },
+  {
+    resource: 'role',
+    action: 'read',
+    key: 'role:read',
+    nameI18nKey: 'permission.role.read',
+    sortOrder: 201,
+  },
+  {
+    resource: 'role',
+    action: 'update',
+    key: 'role:update',
+    nameI18nKey: 'permission.role.update',
+    sortOrder: 202,
+  },
+  {
+    resource: 'role',
+    action: 'delete',
+    key: 'role:delete',
+    nameI18nKey: 'permission.role.delete',
+    sortOrder: 203,
+  },
+  {
+    resource: 'role',
+    action: 'grantPermission',
+    key: 'role:grantPermission',
+    nameI18nKey: 'permission.role.grantPermission',
+    sortOrder: 204,
+  },
+  {
+    resource: 'permission',
+    action: 'read',
+    key: 'permission:read',
+    nameI18nKey: 'permission.permission.read',
+    sortOrder: 300,
+  },
+  {
+    resource: 'auditLog',
+    action: 'read',
+    key: 'auditLog:read',
+    nameI18nKey: 'permission.auditLog.read',
+    sortOrder: 400,
+  },
+  {
+    resource: 'system',
+    action: 'read',
+    key: 'system:read',
+    nameI18nKey: 'permission.system.read',
+    sortOrder: 500,
+  },
+  {
+    resource: 'system',
+    action: 'update',
+    key: 'system:update',
+    nameI18nKey: 'permission.system.update',
+    sortOrder: 501,
+  },
+] as const;
+
+/** 權限資源 → 分組名稱的語系鍵。 */
+export const PERMISSION_RESOURCE_NAME_KEY = {
+  user: 'permission.resource.user',
+  role: 'permission.resource.role',
+  permission: 'permission.resource.permission',
+  auditLog: 'permission.resource.auditLog',
+  system: 'permission.resource.system',
+} as const satisfies Record<(typeof PERMISSION_CATALOG)[number]['resource'], string>;
+
 /** 固定種子的資料工廠：測試與 dev mock 共用，確保可重現。 */
-export const PERMISSION_FIXTURES: Permission[] = [
-  ['user', 'create', 100],
-  ['user', 'read', 101],
-  ['user', 'update', 102],
-  ['user', 'delete', 103],
-  ['user', 'assignRole', 104],
-  ['user', 'resetPassword', 105],
-  ['role', 'create', 200],
-  ['role', 'read', 201],
-  ['role', 'update', 202],
-  ['role', 'delete', 203],
-  ['role', 'grantPermission', 204],
-  ['permission', 'read', 300],
-  ['auditLog', 'read', 400],
-  ['system', 'read', 500],
-  ['system', 'update', 501],
-].map(([resource, action, sortOrder]) => ({
-  id: `permission-${resource as string}-${action as string}`,
-  key: `${resource as string}:${action as string}`,
-  resource: resource as string,
-  action: action as string,
-  nameI18nKey: `permission.${resource as string}.${action as string}`,
-  description: null,
-  sortOrder: sortOrder as number,
-})) as Permission[];
+export const PERMISSION_FIXTURES: Permission[] = PERMISSION_CATALOG.map(
+  ({ resource, action, key, nameI18nKey, sortOrder }) => ({
+    id: `permission-${resource}-${action}`,
+    key,
+    resource,
+    action,
+    nameI18nKey,
+    description: null,
+    sortOrder,
+  }),
+);
 
 export const ROLE_FIXTURES: Role[] = [
   {

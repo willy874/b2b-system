@@ -125,7 +125,7 @@ import { RoleFilter } from './components/RoleFilter';
 | 後端業務錯誤       | `throw new AppException(ErrorCode.XXX)`，見 [`03-backend.md`](./03-backend.md) §3              |
 | 後端啟動 / 腳本錯誤 | `throw new Error('…')`，訊息用 zh-TW 並指出下一步（例：「請先跑 db:seed」）                  |
 | 前端 API 錯誤      | fetcher 轉成 `AppError`；畫面訊息一律經過 `useErrorMessage()`，不顯示原始 `code` 或 `message` |
-| 新增錯誤碼         | 後端 `ErrorCode` ＋ 前端 `ErrorCodes`（若前端要分支處理）＋ 兩個語系檔 `error.<CODE>`            |
+| 新增錯誤碼         | 後端 `ErrorCode` ＋ 前端 `ERROR_MESSAGE_KEY` ＋ 兩個語系檔 `error.<CODE>`（前端要分支處理時再加進 `ErrorCodes`） |
 
 - 不吞例外：`catch` 裡至少要轉型、重拋或記錄其一；空的 `catch {}` 必須有註解說明為何安全。
 - 🔒 `no-console` 為 warn；正式程式碼的紀錄走後端 Pino logger，前端不留 `console.log`。

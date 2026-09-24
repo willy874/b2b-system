@@ -1,8 +1,23 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Combobox } from './index';
+
+/** 以固定的 `data-testid` ＋ `data-value` 找元素（docs/conventions/06-literal-strings.md §3.3）。 */
+function queryItem(value: string) {
+  return document.querySelector<HTMLElement>(
+    `[data-testid="combobox-item"][data-value="${value}"]`,
+  );
+}
+
+function getItem(value: string) {
+  const element = queryItem(value);
+  if (!element) throw new Error(`找不到 combobox-item（data-value="${value}"）`);
+  return element;
+}
+
+const findItem = (value: string) => waitFor(() => getItem(value));
 
 const options = [
   { value: 'admin', label: '系統管理員' },
@@ -15,15 +30,15 @@ describe('Combobox', () => {
     render(<Combobox options={options} aria-label="角色" placeholder="搜尋角色" />);
     await userEvent.click(screen.getByRole('combobox', { name: '角色' }));
     await userEvent.keyboard('稽核');
-    expect(await screen.findByTestId('combobox-item-auditor')).toBeInTheDocument();
-    expect(screen.queryByTestId('combobox-item-admin')).not.toBeInTheDocument();
+    expect(await findItem('auditor')).toBeInTheDocument();
+    expect(queryItem('admin')).not.toBeInTheDocument();
   });
 
   it('選取後回傳 value', async () => {
     const onValueChange = vi.fn();
     render(<Combobox options={options} onValueChange={onValueChange} aria-label="角色" />);
     await userEvent.click(screen.getByRole('combobox', { name: '角色' }));
-    await userEvent.click(await screen.findByTestId('combobox-item-admin'));
+    await userEvent.click(await findItem('admin'));
     expect(onValueChange).toHaveBeenCalled();
   });
 
@@ -32,7 +47,7 @@ describe('Combobox', () => {
     render(<Combobox options={options} onValueChange={onValueChange} aria-label="角色" />);
     await userEvent.tab();
     await userEvent.keyboard('{ArrowDown}');
-    expect(await screen.findByTestId('combobox-item-admin')).toBeInTheDocument();
+    expect(await findItem('admin')).toBeInTheDocument();
     await userEvent.keyboard('{Enter}');
     expect(onValueChange).toHaveBeenCalled();
   });

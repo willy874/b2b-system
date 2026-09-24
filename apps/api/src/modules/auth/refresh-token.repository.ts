@@ -8,7 +8,7 @@ import { DRIZZLE } from '@/core/database';
 import type { RefreshTokenRow, RevokedReason } from '@/db/schema';
 import { refreshTokens } from '@/db/schema';
 
-import { sha256 } from './auth-token.service';
+import { sha256 } from './token-hash';
 
 export interface IssueRefreshTokenInput {
   userId: string;

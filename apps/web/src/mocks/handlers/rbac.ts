@@ -4,6 +4,7 @@ import { MOCK_API_BASE } from '../config';
 import {
   AUDIT_LOG_FIXTURES,
   PERMISSION_FIXTURES,
+  PERMISSION_RESOURCE_NAME_KEY,
   ROLE_FIXTURES,
   USER_FIXTURES,
 } from '../resources/fixtures';
@@ -44,9 +45,9 @@ export const rbacHandlers = [
     HttpResponse.json({
       data: {
         items: PERMISSION_FIXTURES,
-        groups: [...new Set(PERMISSION_FIXTURES.map((item) => item.resource))].map((resource) => ({
+        groups: Object.entries(PERMISSION_RESOURCE_NAME_KEY).map(([resource, nameI18nKey]) => ({
           resource,
-          nameI18nKey: `permission.resource.${resource}`,
+          nameI18nKey,
           keys: PERMISSION_FIXTURES.filter((item) => item.resource === resource).map(
             (item) => item.key,
           ),

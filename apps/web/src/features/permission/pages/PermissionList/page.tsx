@@ -26,7 +26,8 @@ export default function PermissionListPage() {
         <section
           key={group.resource}
           className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
-          data-testid={`permission-group-${group.resource}`}
+          data-testid="permission-group"
+          data-value={group.resource}
         >
           <h2 className="m-0 mb-3 text-base font-medium">{t(group.nameI18nKey)}</h2>
           <ul className="m-0 flex list-none flex-col gap-2 p-0">

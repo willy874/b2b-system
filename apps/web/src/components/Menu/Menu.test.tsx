@@ -1,9 +1,22 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Button } from '../Button';
 import { Menu } from './index';
+
+/** 以固定的 `data-testid` ＋ `data-value` 找元素（docs/conventions/06-literal-strings.md §3.3）。 */
+function queryItem(value: string) {
+  return document.querySelector<HTMLElement>(`[data-testid="menu-item"][data-value="${value}"]`);
+}
+
+function getItem(value: string) {
+  const element = queryItem(value);
+  if (!element) throw new Error(`找不到 menu-item（data-value="${value}"）`);
+  return element;
+}
+
+const findItem = (value: string) => waitFor(() => getItem(value));
 
 function renderMenu(onEdit = vi.fn(), onDelete = vi.fn()) {
   render(
@@ -28,14 +41,14 @@ describe('Menu', () => {
   it('選取項目會觸發 onSelect', async () => {
     const { onEdit } = renderMenu();
     await userEvent.click(screen.getByRole('button', { name: '操作' }));
-    await userEvent.click(await screen.findByTestId('menu-item-edit'));
+    await userEvent.click(await findItem('edit'));
     expect(onEdit).toHaveBeenCalled();
   });
 
   it('disabled 的項目不會觸發', async () => {
     const { onDelete } = renderMenu();
     await userEvent.click(screen.getByRole('button', { name: '操作' }));
-    await userEvent.click(await screen.findByTestId('menu-item-delete'));
+    await userEvent.click(await findItem('delete'));
     expect(onDelete).not.toHaveBeenCalled();
   });
 

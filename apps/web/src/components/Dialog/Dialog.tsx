@@ -5,6 +5,14 @@ import { cn } from '@/shared/utils';
 
 import './Dialog.css';
 
+export type DialogSize = 'sm' | 'md' | 'lg';
+
+const SIZE_CLASS = {
+  sm: 'ge-dialog__popup--sm',
+  md: 'ge-dialog__popup--md',
+  lg: 'ge-dialog__popup--lg',
+} as const satisfies Record<DialogSize, string>;
+
 export interface DialogProps {
   open?: boolean;
   defaultOpen?: boolean;
@@ -12,7 +20,7 @@ export interface DialogProps {
   title: ReactNode;
   description?: ReactNode;
   footer?: ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  size?: DialogSize;
   /** 點擊遮罩是否關閉。破壞性操作應設為 false。 */
   dismissible?: boolean;
   children: ReactNode;
@@ -42,10 +50,7 @@ export function Dialog({
     >
       <BaseDialog.Portal>
         <BaseDialog.Backdrop className="ge-dialog__backdrop" />
-        <BaseDialog.Popup
-          className={cn('ge-dialog__popup', `ge-dialog__popup--${size}`, className)}
-          {...rest}
-        >
+        <BaseDialog.Popup className={cn('ge-dialog__popup', SIZE_CLASS[size], className)} {...rest}>
           <header className="ge-dialog__header">
             <BaseDialog.Title className="ge-dialog__title">{title}</BaseDialog.Title>
             {description && (

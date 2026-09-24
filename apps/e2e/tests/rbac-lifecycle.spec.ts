@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 import { ACCOUNTS } from '../fixtures/accounts';
 import { apiLogin, apiRequest } from '../helpers/api';
 import { loginAndWaitForHome } from '../helpers/auth';
+import { getByTestIdAndValue } from '../helpers/selectors';
 
 const ROLE_NAME = `E2E 檢視者 ${Date.now()}`;
 
@@ -15,7 +16,7 @@ test.describe('RBAC 生命週期', () => {
     await page.goto('/role');
     await page.getByTestId('role-create-button').click();
     await page.getByTestId('role-name-input').fill(ROLE_NAME);
-    await page.getByTestId('permission-checkbox-user:read').click();
+    await getByTestIdAndValue(page, 'permission-checkbox', 'user:read').click();
     await page.getByTestId('role-create-submit').click();
     await expect(page.getByTestId('role-list-page')).toContainText(ROLE_NAME);
 
@@ -68,9 +69,9 @@ test.describe('RBAC 生命週期', () => {
     await page.getByTestId('role-create-button').click();
 
     // admin 沒有 system:update
-    await expect(page.getByTestId('permission-checkbox-system:update')).toBeDisabled();
+    await expect(getByTestIdAndValue(page, 'permission-checkbox', 'system:update')).toBeDisabled();
     // 但有 user:read
-    await expect(page.getByTestId('permission-checkbox-user:read')).toBeEnabled();
+    await expect(getByTestIdAndValue(page, 'permission-checkbox', 'user:read')).toBeEnabled();
   });
 
   test('反提權：直接打 API 也會被擋下（AUTHZ_ESCALATION）', async () => {

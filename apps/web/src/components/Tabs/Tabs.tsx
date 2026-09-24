@@ -38,7 +38,8 @@ export function Tabs({ value, onValueChange, tabs, children, className, ...rest 
             value={tab.value}
             render={tab.render}
             className="ge-tabs__tab"
-            data-testid={`tab-${tab.value}`}
+            data-testid="tab"
+            data-value={tab.value}
           >
             {tab.label}
           </BaseTabs.Tab>

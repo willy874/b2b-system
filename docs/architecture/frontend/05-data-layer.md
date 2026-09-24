@@ -263,11 +263,12 @@ export function useErrorMessage() {
   return useCallback(
     (error: unknown) => {
       if (!(error instanceof AppError)) return t("error.unknown");
-      const key = `error.${error.code}`;
-      const msg = t(key);
-      return msg === key
-        ? t("error.unknown_with_id", { requestId: error.requestId }) // 沒有對應翻譯
-        : msg;
+      // 錯誤碼 → 語系鍵走對照表，不組字串（conventions/06-literal-strings.md §3.1）
+      const key = getErrorMessageKey(error.code);
+      const msg = key ? t(key) : undefined;
+      return msg && msg !== key
+        ? msg
+        : t("error.unknown_with_id", { requestId: error.requestId ?? "-" }); // 不認得的碼或缺翻譯
     },
     [t],
   );

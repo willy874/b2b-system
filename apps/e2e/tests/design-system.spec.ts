@@ -10,11 +10,11 @@ test('稽核日誌的日期篩選使用 DateRangePicker，選取後會寫進網�
   await expect(page.getByTestId('audit-log-page')).toBeVisible();
 
   await page.getByTestId('audit-log-range').click();
-  const firstDay = page.locator('[data-testid^="calendar-day-"]:not([disabled])').nth(10);
-  const value = await firstDay.getAttribute('data-testid');
+  const firstDay = page.getByTestId('calendar-day').and(page.locator(':not([disabled])')).nth(10);
+  const picked = await firstDay.getAttribute('data-value');
+  if (!picked) throw new Error('calendar-day 缺少 data-value');
   await firstDay.click();
 
-  const picked = value!.replace('calendar-day-', '');
   await expect(page).toHaveURL(new RegExp(`from=${picked}`));
   await expect(page.getByTestId('audit-log-range')).toContainText(picked);
 });

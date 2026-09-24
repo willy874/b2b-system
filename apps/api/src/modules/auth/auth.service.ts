@@ -13,9 +13,9 @@ import { AppException } from '@/core/errors';
 import type { UserRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { PermissionService } from '@/modules/permission/permission.service';
-import { UserRepository } from '@/modules/user/user.repository';
+import { UserService } from '@/modules/user/user.service';
 
-import { AuthTokenService, sha256 } from './auth-token.service';
+import { AuthTokenService } from './auth-token.service';
 import type {
   ChangePasswordDto,
   ForgotPasswordDto,
@@ -28,6 +28,7 @@ import type {
 } from './dto/auth.dto';
 import { hashPassword, verifyAgainstDummy, verifyPassword } from './password';
 import { RefreshTokenRepository } from './refresh-token.repository';
+import { sha256 } from './token-hash';
 
 export interface RequestMeta {
   ip?: string | null;
@@ -45,7 +46,7 @@ export class AuthService {
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly config: ConfigService<Env, true>,
     private readonly jwt: JwtService,
-    private readonly users: UserRepository,
+    private readonly users: UserService,
     private readonly refreshTokens: RefreshTokenRepository,
     private readonly authTokens: AuthTokenService,
     private readonly permissionService: PermissionService,
@@ -56,7 +57,7 @@ export class AuthService {
   // ── 登入 ────────────────────────────────────────────────
 
   async login(dto: LoginDto, meta: RequestMeta): Promise<IssuedSession> {
-    const user = await this.users.findByEmail(dto.email);
+    const user = await this.users.findAccountByEmail(dto.email);
 
     // 時序攻擊防護：帳號不存在時也跑一次 argon2
     if (!user) {
@@ -87,7 +88,7 @@ export class AuthService {
       throw new AppException('AUTH_INVALID_CREDENTIALS');
     }
 
-    await this.users.update(user.id, {
+    await this.users.updateAccount(user.id, {
       failedLoginCount: 0,
       lockedUntil: null,
       lastLoginAt: new Date(),
@@ -111,7 +112,7 @@ export class AuthService {
     const lockoutSeconds = this.config.get('LOGIN_LOCKOUT_SECONDS', { infer: true });
     const shouldLock = count >= maxAttempts;
 
-    await this.users.update(user.id, {
+    await this.users.updateAccount(user.id, {
       failedLoginCount: count,
       lockedUntil: shouldLock ? new Date(Date.now() + lockoutSeconds * 1000) : null,
       status: shouldLock ? 'locked' : user.status,
@@ -188,7 +189,7 @@ export class AuthService {
       throw new AppException('AUTH_REFRESH_REUSED');
     }
 
-    const user = await this.users.findById(row.userId);
+    const user = await this.users.findAccountById(row.userId);
     if (!user || user.deletedAt) throw new AppException('AUTH_REFRESH_INVALID');
     if (user.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
 
@@ -238,10 +239,10 @@ export class AuthService {
   // ── 個人資料 ────────────────────────────────────────────
 
   async getProfile(actor: AuthUser): Promise<ProfileDto> {
-    const user = await this.users.findById(actor.id);
+    const user = await this.users.findAccountById(actor.id);
     if (!user) throw new AppException('USER_NOT_FOUND');
     const [roles, permissions] = await Promise.all([
-      this.users.listRoles(user.id),
+      this.users.listRoleSummaries(user.id),
       this.permissionService.getEffectivePermissionKeys(user.id),
     ]);
     return {
@@ -260,7 +261,7 @@ export class AuthService {
   }
 
   async updateProfile(dto: UpdateProfileDto, actor: AuthUser): Promise<ProfileDto> {
-    await this.users.update(actor.id, {
+    await this.users.updateAccount(actor.id, {
       displayName: dto.displayName,
       locale: dto.preferences?.locale,
       timezone: dto.preferences?.timezone,
@@ -271,7 +272,7 @@ export class AuthService {
   }
 
   async changePassword(dto: ChangePasswordDto, actor: AuthUser): Promise<{ success: true }> {
-    const user = await this.users.findById(actor.id);
+    const user = await this.users.findAccountById(actor.id);
     if (!user?.passwordHash) throw new AppException('AUTH_PASSWORD_MISMATCH');
 
     const ok = await verifyPassword(user.passwordHash, dto.currentPassword);
@@ -279,7 +280,7 @@ export class AuthService {
     if (dto.currentPassword === dto.newPassword) throw new AppException('AUTH_PASSWORD_WEAK');
 
     await withTransaction(this.db, async (tx) => {
-      await this.users.update(
+      await this.users.updateAccount(
         user.id,
         { passwordHash: await this.hash(dto.newPassword), updatedBy: user.id },
         tx,
@@ -306,7 +307,7 @@ export class AuthService {
   // ── 忘記密碼 / 重設 / 啟用 ───────────────────────────────
 
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ sent: true }> {
-    const user = await this.users.findByEmail(dto.email);
+    const user = await this.users.findAccountByEmail(dto.email);
     if (user && user.status === 'active') {
       await this.authTokens.issue(user.id, 'password_reset');
     }
@@ -317,11 +318,11 @@ export class AuthService {
   async resetPassword(dto: ResetPasswordDto): Promise<{ success: true }> {
     const token = await this.authTokens.findUsable(dto.token, 'password_reset');
     if (!token) throw new AppException('AUTH_SETUP_TOKEN_INVALID');
-    const user = await this.users.findById(token.userId);
+    const user = await this.users.findAccountById(token.userId);
     if (!user) throw new AppException('AUTH_SETUP_TOKEN_INVALID');
 
     await withTransaction(this.db, async (tx) => {
-      await this.users.update(
+      await this.users.updateAccount(
         user.id,
         {
           passwordHash: await this.hash(dto.newPassword),
@@ -353,18 +354,18 @@ export class AuthService {
   async verifySetupToken(token: string): Promise<{ valid: boolean; email?: string }> {
     const row = await this.authTokens.findUsable(token, 'activation');
     if (!row) return { valid: false };
-    const user = await this.users.findById(row.userId);
+    const user = await this.users.findAccountById(row.userId);
     return user ? { valid: true, email: user.email } : { valid: false };
   }
 
   async setup(dto: SetupDto): Promise<{ success: true }> {
     const token = await this.authTokens.findUsable(dto.token, 'activation');
     if (!token) throw new AppException('AUTH_SETUP_TOKEN_INVALID');
-    const user = await this.users.findById(token.userId);
+    const user = await this.users.findAccountById(token.userId);
     if (!user) throw new AppException('AUTH_SETUP_TOKEN_INVALID');
 
     await withTransaction(this.db, async (tx) => {
-      await this.users.update(
+      await this.users.updateAccount(
         user.id,
         { passwordHash: await this.hash(dto.password), status: 'active' },
         tx,

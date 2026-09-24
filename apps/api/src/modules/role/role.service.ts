@@ -102,7 +102,7 @@ export class RoleService {
     const role = await this.getExisting(id);
     if (dto.name && dto.name !== role.name) await this.assertNameAvailable(dto.name);
 
-    const changes = diff(role as unknown as Record<string, unknown>, dto, [...ROLE_AUDIT_FIELDS]);
+    const changes = diff(role, dto, [...ROLE_AUDIT_FIELDS]);
 
     await withTransaction(this.db, async (tx) => {
       const updated = await this.repo.update(id, { ...dto, updatedBy: actor.id }, tx);

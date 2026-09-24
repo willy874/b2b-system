@@ -1,2 +1,2 @@
 /** 跨 feature 只引用 route 物件（等同引用一個字串路徑），集中在這一個檔案。 */
-export { UserListRoute, UserDetailRoute } from '@/features/user/routes';
+export { UserDetailRoute, UserListRoute } from '@/features/user/routes';

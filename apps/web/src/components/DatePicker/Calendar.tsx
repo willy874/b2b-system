@@ -65,7 +65,7 @@ export function Calendar({
     const container = containerRef.current;
     if (!container?.contains(document.activeElement)) return;
     const target = container.querySelector<HTMLButtonElement>(
-      `[data-testid="calendar-day-${formatDate(focused)}"]`,
+      `[data-testid="calendar-day"][data-value="${formatDate(focused)}"]`,
     );
     target?.focus();
   }, [focused]);
@@ -177,7 +177,8 @@ export function Calendar({
                         setFocused(day);
                         onSelect(value);
                       }}
-                      data-testid={`calendar-day-${value}`}
+                      data-testid="calendar-day"
+                      data-value={value}
                     >
                       {day.date()}
                     </button>

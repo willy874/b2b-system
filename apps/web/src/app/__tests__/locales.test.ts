@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { ERROR_MESSAGE_KEY } from '@/core/errors';
+
 import enUS from '../locales/en_US.json';
 import zhTW from '../locales/zh_TW.json';
 
@@ -75,6 +77,13 @@ describe('語系檔完整性', () => {
       expect(missing, `缺少：${missing.join(', ')}`).toEqual([]);
     });
 
+    it(`${name}：ERROR_MESSAGE_KEY 的每個語系鍵都有翻譯`, () => {
+      const missing = Object.values(ERROR_MESSAGE_KEY).filter(
+        (key) => !lookup(bundle, key.split('.')),
+      );
+      expect(missing, `缺少：${missing.join(', ')}`).toEqual([]);
+    });
+
     it(`${name}：每個權限都有顯示名稱`, () => {
       const missing = PERMISSION_KEYS.filter(
         ([resource, action]) => !lookup(bundle, ['permission', resource, action]),
@@ -90,6 +99,10 @@ describe('語系檔完整性', () => {
       expect(missing, `缺少：${missing.join(', ')}`).toEqual([]);
     });
   }
+
+  it('ERROR_MESSAGE_KEY 涵蓋每個 ErrorCode，且不多不少', () => {
+    expect(new Set(Object.keys(ERROR_MESSAGE_KEY))).toEqual(new Set(ERROR_CODES));
+  });
 
   it('兩個語系的鍵集合一致', () => {
     const flatten = (value: unknown, prefix = ''): string[] =>

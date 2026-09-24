@@ -1,0 +1,164 @@
+import { Link } from '@tanstack/react-router';
+import type { ColumnDef } from '@tanstack/react-table';
+import { useMemo } from 'react';
+
+import { Button } from '@/components/Button';
+import { Chip } from '@/components/Chip';
+import { Table } from '@/components/Table';
+import { Tooltip } from '@/components/Tooltip';
+import { useTranslation } from '@/core/locales';
+import { formatDateTime } from '@/shared/date';
+
+import { USER_STATUS_LABEL_KEY } from '../../../constants';
+import {
+  useUserResetPasswordMutation,
+  useUserUnlockMutation,
+} from '../../../hooks/useUserMutations';
+import { useUserPermission } from '../../../hooks/useUserPermission';
+import { UserDetailRoute } from '../../../routes';
+import type { UserSearchQuery } from '../../../routes';
+import type { UserRowVM } from '../adapter';
+
+const STATUS_TONE = {
+  active: 'success',
+  pending: 'warning',
+  inactive: 'neutral',
+  locked: 'danger',
+} as const;
+
+interface UserTableProps {
+  rows: UserRowVM[];
+  loading: boolean;
+  search: UserSearchQuery;
+  onSortingChange: (
+    sortBy: UserSearchQuery['sortBy'],
+    sortOrder: UserSearchQuery['sortOrder'],
+  ) => void;
+  onRowDoubleClick: (row: UserRowVM) => void;
+  onDelete: (row: UserRowVM) => void;
+}
+
+export function UserTable({
+  rows,
+  loading,
+  search,
+  onSortingChange,
+  onRowDoubleClick,
+  onDelete,
+}: UserTableProps) {
+  const { t } = useTranslation();
+  const permission = useUserPermission();
+  const unlockUser = useUserUnlockMutation();
+  const resetPassword = useUserResetPasswordMutation();
+
+  const columns = useMemo<Array<ColumnDef<UserRowVM, unknown>>>(
+    () => [
+      {
+        id: 'displayName',
+        header: t('user.field.displayName'),
+        cell: ({ row }) => (
+          <Link
+            to={UserDetailRoute.to}
+            params={{ userId: row.original.id }}
+            search={search}
+            className="font-medium text-[var(--color-brand)]"
+            data-testid="user-name-link"
+          >
+            {row.original.displayName}
+          </Link>
+        ),
+      },
+      { id: 'email', header: t('user.field.email'), cell: ({ row }) => row.original.email },
+      {
+        id: 'status',
+        header: t('user.field.status'),
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Chip tone={STATUS_TONE[row.original.status]}>
+            {t(USER_STATUS_LABEL_KEY[row.original.status])}
+          </Chip>
+        ),
+      },
+      {
+        id: 'roles',
+        header: t('user.field.roles'),
+        enableSorting: false,
+        cell: ({ row }) =>
+          row.original.roles.length ? (
+            <span className="flex flex-wrap gap-1">
+              {row.original.roles.map((role) => (
+                <Chip key={role.id} tone={role.isSystem ? 'brand' : 'neutral'}>
+                  {role.name}
+                </Chip>
+              ))}
+            </span>
+          ) : (
+            <span className="text-[var(--color-fg-muted)]">{t('common.none')}</span>
+          ),
+      },
+      {
+        id: 'lastLoginAt',
+        header: t('user.field.lastLoginAt'),
+        cell: ({ row }) => formatDateTime(row.original.lastLoginAt),
+      },
+      {
+        id: 'actions',
+        header: t('common.actions'),
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="flex gap-1">
+            {permission.canUnlock && row.original.status === 'locked' && (
+              <Button
+                size="sm"
+                onClick={() => void unlockUser.mutate({ params: { userId: row.original.id } })}
+                data-testid="user-unlock-button"
+              >
+                {t('user.unlock.action')}
+              </Button>
+            )}
+            {permission.canResetPassword && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => void resetPassword.mutate({ params: { userId: row.original.id } })}
+                data-testid="user-reset-password-button"
+              >
+                {t('user.resetPassword.action')}
+              </Button>
+            )}
+            {permission.canDelete && (
+              <Tooltip content={row.original.isSelf ? t('user.delete.selfProtected') : ''}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={!row.original.canDelete}
+                  onClick={() => onDelete(row.original)}
+                  data-testid="user-delete-button"
+                >
+                  {t('common.delete')}
+                </Button>
+              </Tooltip>
+            )}
+          </div>
+        ),
+      },
+    ],
+    [onDelete, permission, resetPassword, search, t, unlockUser],
+  );
+
+  return (
+    <Table
+      data={rows}
+      columns={columns}
+      loading={loading}
+      getRowId={(row) => row.id}
+      emptyTitle={t('common.empty')}
+      sorting={{ sortBy: search.sortBy, sortOrder: search.sortOrder }}
+      onSortingChange={(sortBy, sortOrder) =>
+        onSortingChange(sortBy as UserSearchQuery['sortBy'], sortOrder)
+      }
+      onRowDoubleClick={onRowDoubleClick}
+      data-testid="user-table"
+    />
+  );
+}

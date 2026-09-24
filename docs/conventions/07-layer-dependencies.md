@@ -109,8 +109,8 @@ apps/e2e ┄┄┄┄┄▶ 只透過瀏覽器 / HTTP 操作執行中的系統�
 | from ＼ to        | db/schema | core | common | modules/&lt;b&gt;               | db/seeds |
 | ----------------- | :-------: | :--: | :----: | :-----------------------------: | :------: |
 | `db/schema/`      | ✅（同層）| ❌   | ❌     | ❌                              | ❌       |
-| `core/`           | ✅        | ✅   | ❌     | ❌                              | ❌       |
-| `common/`         | ✅        | ✅   | ✅     | ❌                              | ⚠️¹      |
+| `core/`           | ✅        | ✅   | ❌     | ❌                              | ⚠️¹      |
+| `common/`         | ✅        | ✅   | ✅     | ⚠️⁴                             | ⚠️¹      |
 | `modules/<a>/`    | ✅        | ✅   | ✅     | ⚠️²                             | ⚠️¹      |
 | 組裝根            | ✅        | ✅   | ✅     | ✅                              | ❌       |
 | `db/seeds/`、`scripts/` | ✅  | ✅   | ✅     | ⚠️³                             | ✅       |
@@ -119,6 +119,9 @@ apps/e2e ┄┄┄┄┄▶ 只透過瀏覽器 / HTTP 操作執行中的系統�
 2. 跨模組只能 import 對方的 `*.module.ts`、`*.service.ts`、`dto/`、`*.constants.ts` 與純函式；
    **不可 import 對方的 `*.repository.ts`、`*.controller.ts`**；不用 `forwardRef`。
 3. 只能 import 不依賴 DI 的純函式（例：`modules/auth/password.ts`）。
+4. 只有 `common/guards/permissions.guard.ts` 可以注入葉節點模組的 service：
+   `PermissionService`（`modules/permission`）與 `AuditService`（`modules/audit-log`）。
+   這是 [`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §3 的設計；其他 `common/` 檔案不可 import `modules/`。
 
 `core/` 不 import `modules/` 是硬規則（見 [`03-backend.md`](./03-backend.md) §1）。
 
@@ -137,24 +140,10 @@ git grep -nE "from '@/(features|app|apis|plugins)" -- apps/web/src/core ':!*__te
 git grep -nE "from '@/features/[a-z-]+/" -- apps/web/src/features ':!*/routes/external.ts' ':!*__tests__*'
 # api：core 依賴 modules / common
 git grep -nE "from '@/(modules|common)" -- apps/api/src/core ':!*__tests__*'
-# api：common 依賴 modules
-git grep -nE "from '@/modules/" -- apps/api/src/common ':!*__tests__*'
+# api：common 依賴 modules（排除 §3.2 註 4 允許的兩個 service）
+git grep -nE "from '@/modules/" -- apps/api/src/common ':!*__tests__*' | grep -vE "permission/permission\.service|audit-log/audit\.service" 
 # api：跨模組 import repository / controller
 git grep -nE "from '@/modules/[a-z-]+/[a-z.-]+\.(repository|controller)'" -- apps/api/src/modules ':!*__tests__*'
 ```
 
 補上 `no-restricted-imports`（或自訂腳本）後，把對應列的強度改成 🔒。
-
----
-
-## 5. 現況（規則建立時的既有違規）
-
-規則建立於 2026-09-24。修改到這些檔案時順手修正，清完後刪除對應列。
-
-| 位置                                                         | 違反                         | 建議                                                     |
-| ------------------------------------------------------------ | ---------------------------- | -------------------------------------------------------- |
-| `web/features/role/pages/RoleDetail/page.tsx`                | 深入 `@/features/user/routes` | 改從 `role/routes/external.ts` 取得                      |
-| `api/core/cache/permission-cache.service.ts`                 | `core` → `common/types`      | `PermissionKey` 型別下移到 `core/` 或 `db/`              |
-| `api/common/guards/permissions.guard.ts`                     | `common` → `modules`         | 把 guard 需要的介面抽到 `core/`，由 module 提供實作      |
-| `api/modules/auth/*` → `modules/user/user.repository`        | 跨模組 import repository     | 由 `UserService` 開出需要的方法                          |
-| `api/modules/user/*` → `modules/auth/refresh-token.repository` | 跨模組 import repository   | 由 `AuthTokenService` 開出需要的方法                     |

@@ -42,6 +42,8 @@ export function createCoreContext<
       plugin.results.onDestroy?.();
       for (const cleanup of plugin.cleanups) cleanup();
     } catch (error) {
+      // 清理失敗不能中斷後續 plugin 的清理；shared/ 沒有 logger 可用，只能回報到 console
+      // oxlint-disable-next-line no-console
       console.error(`[context] plugin "${name}" 清理失敗`, error);
     }
     plugins.delete(name);
