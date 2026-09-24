@@ -42,7 +42,7 @@
   }
 
   .positioner {
-    z-index: 60;
+    z-index: var(--z-floating);
   }
 
   .popup {

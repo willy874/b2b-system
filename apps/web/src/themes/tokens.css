@@ -84,6 +84,17 @@
   --shadow-toast: var(--seed-shadow-md-strong);
   --shadow-dialog: var(--seed-shadow-lg);
   --color-backdrop: var(--seed-black-alpha-40);
+
+  /*
+   * 疊放層級。錨定在觸發元素上的浮層（Popover / Select / Combobox / Menu）共用 --z-floating，
+   * 且高於所有對話框：它們常被放在對話框或另一個浮層「裡面」。
+   * 同一層之間由 DOM 順序決定——Base UI 開啟時才 portal 到 body 尾端，後開的（巢狀的子浮層）自然在上。
+   */
+  --z-dialog: 70;
+  --z-alert-dialog: 80;
+  --z-floating: 85;
+  --z-tooltip: 90;
+  --z-toast: 100;
 }
 
 /* ── component：元件層（由各元件擴充）──────────────────── */

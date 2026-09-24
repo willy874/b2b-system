@@ -3,7 +3,7 @@
     position: fixed;
     inset: 0;
     background: var(--color-backdrop);
-    z-index: 80;
+    z-index: var(--z-alert-dialog);
   }
 
   .popup {
@@ -17,7 +17,7 @@
     border-radius: var(--radius-lg);
     background: var(--color-surface);
     box-shadow: var(--shadow-dialog);
-    z-index: 81;
+    z-index: calc(var(--z-alert-dialog) + 1);
   }
 
   .title {

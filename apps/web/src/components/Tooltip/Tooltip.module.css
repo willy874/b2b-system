@@ -1,6 +1,6 @@
 @layer components {
   .positioner {
-    z-index: 90;
+    z-index: var(--z-tooltip);
   }
 
   .popup {
