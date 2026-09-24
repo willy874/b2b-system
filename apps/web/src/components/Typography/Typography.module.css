@@ -43,6 +43,10 @@
     padding: 1px var(--seed-space-1);
   }
 
+  .root[data-strong] {
+    font-weight: 600;
+  }
+
   .root[data-tone='muted'] {
     color: var(--color-fg-muted);
   }

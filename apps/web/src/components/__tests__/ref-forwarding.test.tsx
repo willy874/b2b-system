@@ -18,7 +18,7 @@ import { ScrollArea } from '../ScrollArea';
 import { Separator } from '../Separator';
 import { Skeleton } from '../Skeleton';
 import { Spinner } from '../Spinner';
-import { Typography } from '../Typography';
+import { Paragraph, Text, Title, Typography } from '../Typography';
 
 /**
  * React 19 把 `ref` 當成一般 prop 傳給函式元件，所以只要元件把 `...rest`
@@ -48,6 +48,9 @@ const cases: Array<[string, (ref: RefObject<HTMLElement | null>) => ReactElement
   ['Link', (ref) => <Link ref={ref as RefObject<HTMLAnchorElement>} href="#x" />],
   ['Chip', (ref) => <Chip ref={ref as RefObject<HTMLSpanElement>}>x</Chip>],
   ['Typography', (ref) => <Typography ref={ref}>x</Typography>],
+  ['Title', (ref) => <Title ref={ref}>x</Title>],
+  ['Text', (ref) => <Text ref={ref}>x</Text>],
+  ['Paragraph', (ref) => <Paragraph ref={ref}>x</Paragraph>],
   ['Skeleton', (ref) => <Skeleton ref={ref as RefObject<HTMLSpanElement>} />],
   ['Spinner', (ref) => <Spinner ref={ref as RefObject<HTMLOutputElement>} />],
   ['Separator', (ref) => <Separator ref={ref as RefObject<HTMLDivElement>} />],

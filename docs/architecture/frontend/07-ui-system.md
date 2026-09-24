@@ -68,6 +68,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `Chip` / `Badge`                 | 純自製                                               |
 | `FileUpload`                     | 自製（`<input type="file">` ＋ 拖放）                |
 | `TextEllipsis` / `BoxEllipsis` / `ButtonEllipsis` | 自製：CSS 省略號 ＋ `ResizeObserver` 量測；提示框用 `Tooltip`、下拉用 `Menu`（§3.8） |
+| `Typography` / `Title` / `Text` / `Paragraph` | 純自製（§3.9） |
 
 > **DatePicker 是最大的一塊自製工作**，排入
 > [`../../overview/03-roadmap.md`](../../overview/03-roadmap.md) 的 M2，已完成：`components/DatePicker/` 底下是
@@ -363,6 +364,19 @@ app/ToastHost ◀──────────┘ eventBus.on(TOAST_SHOW) → t
 - 狀態以 `data-truncated`、`data-collapsed`、`data-overflowing` 表達。
 - 提示框切換用 `Tooltip` 的 `disabled`，而不是清空 `content`——後者會讓觸發元素重新掛載，量測狀態跟著遺失。
 - 測試用 `src/test/fakeLayout.ts`：以 `data-testid` 指定元素尺寸並手動觸發 `ResizeObserver`（jsdom 沒有布局）。
+
+### 3.9 文字：`Typography` / `Title` / `Text` / `Paragraph`
+
+`components/Typography/`。`Typography` 是以 `variant` 指定外觀的底層元件；日常使用語意更明確的三個包裝：
+
+| 元件 | 預設標籤 | 外觀參數 | 對應的 `variant` |
+| --- | --- | --- | --- |
+| `Title` | `h1`～`h3`（跟著 `level`） | `level`：`1` / `2` / `3` | `pageTitle` / `sectionTitle` / `bodyStrong` |
+| `Text` | `span`（行內） | `size`：`md` / `sm`；`code` | `body` / `caption`；`code` 優先 |
+| `Paragraph` | `p` | `size`：`md` / `sm` | `body` / `caption` |
+
+- 共通參數：`tone`（`default` / `muted` / `brand` / `danger` / `success`）、`strong`、`as`（只換標籤、保留外觀）。
+- 以 `data-variant`、`data-tone`、`data-strong` 表達外觀（§3.3）。
 
 ---
 
