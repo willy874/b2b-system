@@ -15,6 +15,11 @@ export interface TooltipProps extends SlotOverrides<TooltipSlot> {
   content: ReactNode;
   children: ReactElement<Record<string, unknown>>;
   side?: 'top' | 'bottom' | 'left' | 'right';
+  /**
+   * 暫時不顯示提示，但保留觸發元素的結構。
+   * 與「`content` 給空值」不同：切換時 children 不會被重新掛載（ref、量測狀態不會遺失）。
+   */
+  disabled?: boolean;
   className?: string;
   'data-testid'?: string;
 }
@@ -23,6 +28,7 @@ export function Tooltip({
   content,
   children,
   side = 'top',
+  disabled,
   className,
   classNames,
   styles: styleOverrides,
@@ -32,7 +38,7 @@ export function Tooltip({
   if (!content) return children;
   const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
-    <BaseTooltip.Root>
+    <BaseTooltip.Root disabled={disabled}>
       <BaseTooltip.Trigger render={children} />
       <BaseTooltip.Portal>
         <BaseTooltip.Positioner

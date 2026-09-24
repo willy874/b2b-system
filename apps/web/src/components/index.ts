@@ -9,6 +9,7 @@ export * from './Collapsible';
 export * from './Combobox';
 export * from './DatePicker';
 export * from './Dialog';
+export * from './Ellipsis';
 export * from './Empty';
 export * from './Field';
 export * from './FileUpload';

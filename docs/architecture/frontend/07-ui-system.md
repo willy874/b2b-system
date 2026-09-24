@@ -68,6 +68,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `Empty`                          | 版面元件                                             |
 | `Chip` / `Badge`                 | 純自製                                               |
 | `FileUpload`                     | 自製（`<input type="file">` ＋ 拖放）                |
+| `TextEllipsis` / `BoxEllipsis` / `ButtonEllipsis` | 自製：CSS 省略號 ＋ `ResizeObserver` 量測；提示框用 `Tooltip`、下拉用 `Menu`（§3.8） |
 
 > **DatePicker 是最大的一塊自製工作**，排入
 > [`../../overview/03-roadmap.md`](../../overview/03-roadmap.md) 的 M2，已完成：`components/DatePicker/` 底下是
@@ -321,6 +322,48 @@ app/ToastHost ◀──────────┘ eventBus.on(TOAST_SHOW) → t
 - `core/notify` 的 `useToast()` 是 React 裡的入口；React 之外直接 `eventBus.emit(GlobalEvents.TOAST_SHOW, …)`。
 - 整個 app 只有 `app/ToastHost` 持有 toaster；各類型的預設停留時間在 `DEFAULT_TOAST_TIMEOUT`（錯誤 8 秒，其餘 4 秒）。
 - 測試用 `src/test/renderWithPermissions.tsx` 的 `AllProviders`，它已經掛好 eventBus 與 `ToastHost`。
+
+### 3.8 省略號：`TextEllipsis` / `BoxEllipsis` / `ButtonEllipsis`
+
+`components/Ellipsis/`。放不下時截斷或收起來，並在 hover／聚焦時讓使用者看到被藏起來的東西。
+
+| 元件 | 放不下時 | 隱藏判斷點 | 隱藏替代節點 |
+| --- | --- | --- | --- |
+| `TextEllipsis` | 文字以省略號截斷（`lines` 可多行） | `collapseAt`：數字（父元素寬度 px）或 `'overflow'` | `collapsedContent` |
+| `BoxEllipsis` | 一排項目從尾端收進溢出區 | `maxVisible`：數字或 `(寬度) => 數量`；`fit={false}` 只看它 | `renderOverflow`（預設 `+N`，提示框列出被隱藏的項目） |
+| `ButtonEllipsis` | 一組按鈕從尾端收進「更多」下拉（`Menu`） | `maxVisible` 同上；`iconOnly`：數字（寬度 px）時先縮成只剩圖示 | `renderMoreTrigger`、`moreIcon`、`moreLabel` |
+
+提示框：`TextEllipsis` 的 `tooltip` 為 `auto`（預設，被截斷或已收合才顯示）／`always`／`never`；
+`ButtonEllipsis` 只剩圖示的按鈕以 `label` 為提示，`item.tooltip` 可覆寫。
+
+**`TextEllipsis`**
+
+- 數字判斷點量 **父元素** 而不是自己：收合後自己會變窄，拿自己比會永遠展不回來。
+  父元素寬度為 0（尚未布局、`display: none`）時不判斷。
+- `'overflow'` 收合時記下「當時的容器寬度」與「還差多少寬度」，容器變寬到補得回差額才展開，避免在臨界點來回閃動。
+- 收合後原內容以視覺隱藏的方式保留給螢幕報讀器。
+
+**`BoxEllipsis`**
+
+- 每個頂層子節點是一個項目（Fragment 不展開）；容器寬度由父層決定（block，或在 flex 裡給 `min-width: 0` ＋ `flex: 1`）。
+- 量測：項目的 key 或 `measureKey` 改變時，先渲染全部項目與「全部隱藏」時的溢出區量寬度，
+  在 layout effect 裡同步算出可見數量（不會閃）；之後縮放只用快取寬度重算，`document.fonts.ready` 後再量一次。
+- 可見數量的演算法是純函式 `fitCount()`，有 table-driven 測試。
+- 容器 `overflow: hidden`，以 `padding: 4px; margin: -4px` 外推裁切邊界，項目的 focus ring 才不會被切掉。
+
+**`ButtonEllipsis`**
+
+- 以 `items: ButtonEllipsisItem[]`（`key`、`label`、`icon`、`onClick`、`disabled`、`loading`、`variant`、`tooltip`）描述按鈕；
+  同一份資料渲染成外面的按鈕與下拉選項，`variant: 'danger'` 在下拉中顯示為危險色。
+- `iconOnly` 切換會改變按鈕寬度，所以當成 `measureKey` 傳給 `BoxEllipsis` 觸發重新量測。
+- 下拉按鈕預設 `aria-label="更多"`；`features/` 使用時以 `t()` 傳入 `moreLabel`。
+- testid：按鈕 `button-ellipsis-item` ＋ `data-value={key}`、下拉按鈕 `button-ellipsis-more`、選項沿用 `menu-item`。
+
+**共通**
+
+- 狀態以 `data-truncated`、`data-collapsed`、`data-overflowing` 表達。
+- 提示框切換用 `Tooltip` 的 `disabled`，而不是清空 `content`——後者會讓觸發元素重新掛載，量測狀態跟著遺失。
+- 測試用 `src/test/fakeLayout.ts`：以 `data-testid` 指定元素尺寸並手動觸發 `ResizeObserver`（jsdom 沒有布局）。
 
 ---
 

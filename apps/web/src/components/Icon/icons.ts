@@ -17,6 +17,7 @@ import List from '@/assets/icons/list.svg?react';
 import Logout from '@/assets/icons/logout.svg?react';
 import Menu from '@/assets/icons/menu.svg?react';
 import Minus from '@/assets/icons/minus.svg?react';
+import More from '@/assets/icons/more.svg?react';
 import Plus from '@/assets/icons/plus.svg?react';
 import Search from '@/assets/icons/search.svg?react';
 import Settings from '@/assets/icons/settings.svg?react';
@@ -51,6 +52,7 @@ export const ICONS = {
   logout: Logout,
   menu: Menu,
   minus: Minus,
+  more: More,
   plus: Plus,
   search: Search,
   settings: Settings,

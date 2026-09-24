@@ -7,6 +7,7 @@ import { Avatar } from '../Avatar';
 import { Breadcrumbs } from '../Breadcrumbs';
 import { Button, IconButton } from '../Button';
 import { Chip } from '../Chip';
+import { BoxEllipsis, ButtonEllipsis, TextEllipsis } from '../Ellipsis';
 import { Empty } from '../Empty';
 import { Field } from '../Field';
 import { Input, Textarea } from '../Input';
@@ -35,6 +36,14 @@ const cases: Array<[string, (ref: RefObject<HTMLElement | null>) => ReactElement
       </IconButton>
     ),
   ],
+  [
+    'ButtonEllipsis',
+    (ref) => (
+      <ButtonEllipsis ref={ref as RefObject<HTMLDivElement>} items={[{ key: 'x', label: 'x' }]} />
+    ),
+  ],
+  ['BoxEllipsis', (ref) => <BoxEllipsis ref={ref as RefObject<HTMLDivElement>}>x</BoxEllipsis>],
+  ['TextEllipsis', (ref) => <TextEllipsis ref={ref as RefObject<HTMLSpanElement>}>x</TextEllipsis>],
   ['Input', (ref) => <Input ref={ref as RefObject<HTMLInputElement>} aria-label="x" />],
   ['Textarea', (ref) => <Textarea ref={ref as RefObject<HTMLTextAreaElement>} aria-label="x" />],
   ['Link', (ref) => <Link ref={ref as RefObject<HTMLAnchorElement>} href="#x" />],
