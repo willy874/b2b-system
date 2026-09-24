@@ -26,6 +26,7 @@ import {
   i18nPlugin,
   realtimePlugin,
 } from '@/plugins/app';
+import { tableColumnSettingsPlugin } from '@/plugins/features';
 import { ENV } from '@/shared/constants';
 
 async function bootstrap(): Promise<void> {
@@ -72,6 +73,8 @@ async function bootstrap(): Promise<void> {
     .use(permissionFeaturePlugin())
     .use(auditLogFeaturePlugin())
     .use(accountFeaturePlugin())
+    // 擴充 feature 的小外掛：往偏好頁插「表格欄位」分頁
+    .use(tableColumnSettingsPlugin())
     // 最後：建立 router（此時所有 route 都已存在）
     .use(appContextPlugin());
 

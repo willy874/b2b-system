@@ -198,6 +198,7 @@ export function tableColumnSettingsPlugin(): AppPluginFactory {
       order: 200,
       labelI18nKey: 'preference.tableColumns.title',
       Component: TableColumnsSection,
+      localeScope: TABLE_COLUMN_SETTINGS_LOCALE_SCOPE, // 偏好頁的 loader 會一併載入
     });
     return {
       name: 'plugin-table-column-settings',
@@ -209,6 +210,12 @@ export function tableColumnSettingsPlugin(): AppPluginFactory {
 
 `features/account` 的偏好頁只做一件事：`getPreferenceSections()` 然後依 `order`
 渲染。**拿掉 `main.tsx` 裡那一行，這個分頁就消失了。**
+
+分頁要列出「有哪些表、各有哪些欄位」，但不能 import 各 feature。所以 `core/preference` 另有一份
+**列表註冊表**：feature 在 plugin 的同步階段呼叫 `registerPreferenceTable({ id, labelI18nKey, columnLabelKeys, localeScope })`
+（見各 feature 的 `preference.ts`），分頁用 `getPreferenceTables()` 列出，並用列表上同一個 `TableSettings` 調整。
+`id` 與 `RichTable` 的 `settings.tableId` 相同，兩邊讀寫同一份 `core/store/tableColumnSettings`。
+偏好頁的 route loader 是 `preferenceLocaleLoader()`：各分頁與各列表名稱所在的 scope 都會先載入。
 
 ---
 

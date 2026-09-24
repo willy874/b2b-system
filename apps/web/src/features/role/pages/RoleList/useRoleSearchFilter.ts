@@ -18,7 +18,8 @@ export function useRoleSearchFilter() {
 
   return {
     search,
-    setKeyword: (keyword: string) => patch({ keyword: keyword || undefined, offset: 0 }),
+    /** 篩選面板送出時一次更新，改篩選條件就回到第一頁。 */
+    setFilters: (filters: Pick<RoleSearchQuery, 'keyword'>) => patch({ ...filters, offset: 0 }),
     setSort: (sortBy: RoleSearchQuery['sortBy'], sortOrder: RoleSearchQuery['sortOrder']) =>
       patch({ sortBy, sortOrder, offset: 0 }),
     setPage: (offset: number, limit: number) => patch({ offset, limit }),

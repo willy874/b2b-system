@@ -1,0 +1,12 @@
+{
+  "preference": {
+    "tableColumns": {
+      "title": "表格欄位",
+      "description": "調整各列表的欄位順序與顯示；也可以在列表「操作」欄的齒輪按鈕調整，兩邊是同一份設定。",
+      "visibleCount": "顯示 {{visible}} / {{total}} 欄",
+      "customized": "已自訂",
+      "default": "預設",
+      "hidden": "已隱藏"
+    }
+  }
+}

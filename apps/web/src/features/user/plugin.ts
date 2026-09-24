@@ -3,10 +3,12 @@ import { LanguageNamespace, Languages } from '@/shared/constants/lang';
 
 import { USER_LOCALE_SCOPE } from './locale';
 import { registerUserPagePermissions } from './permission';
+import { registerUserPreferences } from './preference';
 
 export function appContextPlugin(): AppPluginFactory {
   return (context) => {
     registerUserPagePermissions();
+    registerUserPreferences(); // 偏好頁的列表註冊表
     const app = context.getInstance();
 
     return {

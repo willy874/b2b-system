@@ -19,7 +19,14 @@
     "previous": "Previous",
     "next": "Next",
     "total": "{{total}} items",
-    "none": "None"
+    "none": "None",
+    "all": "All",
+    "filter": "Filter",
+    "tableSettings": "Columns",
+    "dragToReorder": "Drag to reorder {{name}}",
+    "clear": "Clear",
+    "apply": "Apply",
+    "restoreDefault": "Restore defaults"
   },
   "menu": {
     "home": "Home",

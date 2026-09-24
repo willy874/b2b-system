@@ -1,0 +1,12 @@
+{
+  "preference": {
+    "tableColumns": {
+      "title": "Table columns",
+      "description": "Choose the order and visibility of each list's columns. The gear button in a list's Actions column edits the same settings.",
+      "visibleCount": "{{visible}} of {{total}} columns shown",
+      "customized": "Customized",
+      "default": "Default",
+      "hidden": "Hidden"
+    }
+  }
+}

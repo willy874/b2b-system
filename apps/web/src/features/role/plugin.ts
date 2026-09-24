@@ -3,11 +3,13 @@ import { LanguageNamespace, Languages } from '@/shared/constants/lang';
 
 import { ROLE_LOCALE_SCOPE } from './locale';
 import { registerRolePagePermissions } from './permission';
+import { registerRolePreferences } from './preference';
 
 export function appContextPlugin(): AppPluginFactory {
   return (context) => {
     // ── 同步階段 ──
     registerRolePagePermissions();
+    registerRolePreferences(); // 偏好頁的列表註冊表
     const app = context.getInstance();
 
     return {

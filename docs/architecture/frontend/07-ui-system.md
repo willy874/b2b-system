@@ -408,6 +408,22 @@ UnoCSS 負責 **排版**（flex、grid、間距、尺寸），**不負責顏色*
 UnoCSS 的輸出放在 `utilities` 層，排在元件的 `components` 層之後（§3.4），
 所以傳進元件的工具類不必加 `!` 就能覆寫元件預設值。
 
+### 4.4 疊放層級（z-index）
+
+z-index 也是 token（`themes/tokens.css`），元件不寫數字：
+
+| token              | 值  | 用在                                             |
+| ------------------ | --- | ------------------------------------------------ |
+| `--z-dialog`       | 70  | `Dialog` 的遮罩（popup 為 `+ 1`）                |
+| `--z-alert-dialog` | 80  | `AlertDialog` 的遮罩（popup 為 `+ 1`）           |
+| `--z-floating`     | 85  | `Popover`、`Select`、`Combobox`、`Menu` 的定位層 |
+| `--z-tooltip`      | 90  | `Tooltip`                                        |
+| `--z-toast`        | 100 | `Toast`                                          |
+
+錨定在觸發元素上的浮層共用 `--z-floating`，而且 **高於所有對話框**：它們常被放在對話框或另一個浮層裡面
+（例：`RichTable` 篩選面板裡的 `Select`）。同一層之間由 DOM 順序決定——Base UI 開啟時才 portal 到
+`body` 尾端，後開的（巢狀的子浮層）自然在上，不需要再分層。
+
 ---
 
 ## 5. 可近性基線
@@ -453,6 +469,29 @@ components/Table/
 - 雙擊任一列 **開啟詳情**
 - 點擊列內的按鈕、連結或勾選框 **只觸發該元件**——`TableRow` 會略過來自互動元素的點擊，
   呼叫端不必各自 `stopPropagation`
+
+### 6.1 列表頁用 `RichTable`（`core/components/RichTable/`）
+
+`Table` 不依賴語系與 store；列表頁實際使用的是 `core/` 的 `RichTable`，它在 `Table` 外面加上：
+
+| 功能 | 元件 | 說明 |
+| ---- | ---- | ---- |
+| 分頁 | `Pagination` | `pagination={{ offset, limit, total, onChange }}`，文案走 `t()` |
+| 篩選 | `FilterBar` | 「篩選」按鈕點開的下拉表單；欄位型別 `text` / `select` / `multiSelect` / `dateRange` / `custom`。`value` ＋ `onSubmit` 以泛型型別化，一次送出整份值（只更新一次網址） |
+| 欄位設定 | `TableSettings` | 齒輪按鈕點開的下拉清單：拖曳（dnd-kit，含鍵盤）排序、勾選顯示；依 `tableId` 存在 `core/store/tableColumnSettings`，偏好頁的「表格欄位」分頁改的是同一份 |
+
+兩個面板 **都不即時套用**：面板裡的修改只改草稿，按送出鈕才生效，關掉面板就放棄草稿；每次打開都從目前生效的值開始。
+
+| 面板 | 重設鈕（只改草稿） | 送出鈕 | 覆寫文字 |
+| ---- | ------------------ | ------ | -------- |
+| `FilterBar` | 「清除」→ `defaultValue`（不提供就不顯示） | 「搜尋」；文字欄位按 Enter 同義 | `labels={{ reset, submit }}` |
+| `TableSettings` | 「恢復預設」→ `defaultValue` | 「套用」；草稿等於預設時呼叫 `onReset`，不留下多餘的設定 | `labels={{ reset, submit }}` |
+
+兩顆按鈕放進 `toolsColumnId`（預設 `actions`）那一欄的表頭；該欄固定、不列入欄位設定，找不到時改放在表格右上方。
+只有「有 `id` 且表頭是非空字串」的欄位可以設定。
+
+表頭改成模組層級的 `ToolsHeader` 元件、設定由 context 傳入：TanStack 的 `flexRender` 把函式表頭當成元件，
+每次渲染產生新函式會讓按鈕重新掛載，下拉面板在值改變時就會被關掉。
 
 ---
 

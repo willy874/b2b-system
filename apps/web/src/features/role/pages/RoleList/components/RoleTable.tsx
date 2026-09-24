@@ -6,14 +6,18 @@ import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { Tooltip } from '@/components/Tooltip';
 import { RichTable } from '@/core/components';
-import type { RichTablePagination } from '@/core/components';
+import type { FilterBarProps, RichTablePagination, TableSettingsConfig } from '@/core/components';
 import { useTranslation } from '@/core/locales';
 import { formatDateTime } from '@/shared/date';
 
 import { useRolePermission } from '../../../hooks/useRolePermission';
+import { ROLE_LIST_TABLE_ID } from '../../../preference';
 import { RoleDetailRoute } from '../../../routes';
 import type { RoleSearchQuery } from '../../../routes';
 import type { RoleRowVM } from '../adapter';
+
+/** 欄位順序與顯示存在這台裝置（`core/store/tableColumnSettings`）；可設定的欄位登記在 `preference.ts`。 */
+const ROLE_TABLE_SETTINGS: TableSettingsConfig = { tableId: ROLE_LIST_TABLE_ID };
 
 interface RoleTableProps {
   rows: RoleRowVM[];
@@ -25,6 +29,7 @@ interface RoleTableProps {
   ) => void;
   onRowDoubleClick: (row: RoleRowVM) => void;
   onDelete: (row: RoleRowVM) => void;
+  filters: FilterBarProps;
   pagination: RichTablePagination;
 }
 
@@ -35,6 +40,7 @@ export function RoleTable({
   onSortingChange,
   onRowDoubleClick,
   onDelete,
+  filters,
   pagination,
 }: RoleTableProps) {
   const { t } = useTranslation();
@@ -128,6 +134,8 @@ export function RoleTable({
       columns={columns}
       loading={loading}
       getRowId={(row) => row.id}
+      filters={filters}
+      settings={ROLE_TABLE_SETTINGS}
       pagination={pagination}
       sorting={{ sortBy: search.sortBy, sortOrder: search.sortOrder }}
       onSortingChange={(sortBy, sortOrder) =>

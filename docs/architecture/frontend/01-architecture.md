@@ -65,14 +65,14 @@ export * from "@game-editor/api-sdk";
 | `core/auth`       | `SessionStore`：token 生命週期、跨分頁單飛續期、終止判定            |
 | `core/cache`      | `queryClient` 實例、跨分頁失效廣播、store 持久化                    |
 | `core/client`     | `HttpContext` / `FetcherContext` / `defineFetcher` / 攔截器鏈       |
-| `core/components` | 機制性元件：`ErrorPage`、`Empty`、`PermissionGate`、`Suspense` 封裝、`RichTable`（列表頁表格：`Table` ＋ `Pagination`，之後整合篩選列與欄位設定） |
+| `core/components` | 機制性元件：`ErrorPage`、`Empty`、`PermissionGate`、`Suspense` 封裝、`RichTable`（列表頁表格：`Table` ＋ `Pagination`，表頭放 `FilterBar` 與 `TableSettings` 兩個下拉面板） |
 | `core/errors`     | 錯誤碼常數、`AppError` 型別、`useErrorMessage()`                    |
 | `core/locales`    | i18n scope 註冊與 route loader                                      |
 | `core/notify`     | `useToast()`：發 `GlobalEvents.TOAST_SHOW` 到 eventBus，由 `app/ToastHost` 渲染 |
 | `core/permission` | ★ 權限註冊表、常數、hooks                                           |
-| `core/preference` | 偏好設定註冊表（讓 feature 往偏好頁掛分頁）                         |
+| `core/preference` | 偏好設定註冊表（讓 feature 往偏好頁掛分頁）、列表註冊表（可自訂欄位的表） |
 | `core/router`     | `RootRoute`、`RouterProvider` 封裝                                  |
-| `core/store`      | 全域 store：`permission`、`layout`、`timezone`、`locale`            |
+| `core/store`      | 全域 store：`permission`、`layout`、`timezone`、`locale`、`tableColumnSettings` |
 
 **鐵則**：`core/` 內任何檔案 `grep -r "features/"` 必須是零結果。
 這條規則由一個 lint 規則與 CI 檢查強制。

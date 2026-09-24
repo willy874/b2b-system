@@ -1,26 +1,79 @@
 import type { ComponentType } from 'react';
 
+import { i18n, loadLocaleScope } from '@/core/locales';
+
 export interface PreferenceSection {
   key: string;
   order: number;
   labelI18nKey: string;
   Component: ComponentType;
+  /** 分頁自己的語系包所在的 scope；偏好頁載入時一併下載（`preferenceLocaleLoader`）。 */
+  localeScope?: string;
 }
 
-const registry = new Map<string, PreferenceSection>();
+/**
+ * 一張可以自訂欄位的列表：讓偏好頁在「不掛載該列表」的情況下也能列出、調整它的欄位設定。
+ * `id` 與 `RichTable` 的 `settings.tableId` 是同一個值。
+ */
+export interface PreferenceTable {
+  id: string;
+  labelI18nKey: string;
+  /** 可設定的欄位 id → 欄位名稱的語系 key；物件的鍵順序就是預設順序。 */
+  columnLabelKeys: Record<string, string>;
+  /** 沒有存過設定時預設隱藏的欄位。 */
+  defaultHidden?: readonly string[];
+  /** 名稱所在的語系 scope（通常是 feature 的 scope）；偏好頁會先載入它。 */
+  localeScope?: string;
+}
+
+const sections = new Map<string, PreferenceSection>();
+const tables = new Map<string, PreferenceTable>();
 
 /** 讓 feature 或 `plugins/features/*` 往偏好頁插分頁，偏好頁不需要認識它們。 */
 export function registerPreferenceSection(section: PreferenceSection): void {
-  if (registry.has(section.key)) {
+  if (sections.has(section.key)) {
     throw new Error(`Preference section already registered: ${section.key}`);
   }
-  registry.set(section.key, section);
+  sections.set(section.key, section);
 }
 
 export function getPreferenceSections(): PreferenceSection[] {
-  return [...registry.values()].sort((a, b) => a.order - b.order);
+  return [...sections.values()].toSorted((a, b) => a.order - b.order);
 }
 
+/** feature 在 plugin 的同步階段登記自己的列表（docs/architecture/frontend/02-plugin-system.md §5）。 */
+export function registerPreferenceTable(table: PreferenceTable): void {
+  if (tables.has(table.id)) {
+    throw new Error(`Preference table already registered: ${table.id}`);
+  }
+  tables.set(table.id, table);
+}
+
+export function getPreferenceTables(): PreferenceTable[] {
+  return [...tables.values()];
+}
+
+export function getPreferenceTable(id: string): PreferenceTable | undefined {
+  return tables.get(id);
+}
+
+/**
+ * 偏好頁的 route loader：除了頁面自己的 scope，也下載各分頁與各列表名稱所在的 scope，
+ * 否則在那些 feature 的路由之外渲染時只會看到語系 key。
+ */
+export function preferenceLocaleLoader(...scopes: string[]) {
+  return async (): Promise<void> => {
+    const all = new Set([
+      ...scopes,
+      ...getPreferenceSections().flatMap((section) => section.localeScope ?? []),
+      ...getPreferenceTables().flatMap((table) => table.localeScope ?? []),
+    ]);
+    await Promise.all([...all].map((scope) => loadLocaleScope(scope, i18n.language)));
+  };
+}
+
+/** 測試用。 */
 export function resetPreferenceRegistry(): void {
-  registry.clear();
+  sections.clear();
+  tables.clear();
 }

@@ -19,7 +19,14 @@
     "previous": "上一頁",
     "next": "下一頁",
     "total": "共 {{total}} 筆",
-    "none": "無"
+    "none": "無",
+    "all": "全部",
+    "filter": "篩選",
+    "tableSettings": "欄位設定",
+    "dragToReorder": "拖曳調整「{{name}}」的順序",
+    "clear": "清除",
+    "apply": "套用",
+    "restoreDefault": "恢復預設"
   },
   "menu": {
     "home": "首頁",

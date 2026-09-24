@@ -39,7 +39,7 @@ const collapsed = useLayoutStore((s) => s.sidebarCollapsed);
 | `layout`              | 側邊選單開合、密度               | ✅ localStorage             |
 | `locale`              | 當前語系                         | ✅ localStorage ＋ 後端偏好 |
 | `timezone`            | 當前時區                         | ✅ localStorage ＋ 後端偏好 |
-| `tableColumnSettings` | 各表格的欄位顯示與順序           | ✅ localStorage             |
+| `tableColumnSettings` | 各表格的欄位顯示與順序（依 `tableId`） | ✅ localStorage ＋ 跨分頁頻道 |
 | `tableFilterSettings` | 各表格的預設篩選                 | ✅ localStorage             |
 
 ---
@@ -309,6 +309,7 @@ const stop = shareStore(
 | `leader:realtime:<後端>`    | `request-leader`、`leader-announcement`、`leader-heartbeat`、`leader-release` | 預設 | `createLeaderChannel` → `shared/leader` 的 `LeaderElection`（[11 §3.3](./11-realtime.md)） | realtime plugin |
 | `realtime-control:<後端>`   | `resource-changed`、`resync`、`status`、`status-request` | 預設 | `createRealtimeControlChannel` → `core/realtime/RealtimeCoordinator`（[11 §3.4](./11-realtime.md)） | realtime plugin |
 | `store:preference:storage`  | `set`、`remove`（`DictStorageMessages`） | 預設 | `createPreferenceChannel` → `core/store/preference` 的 dictStorage | 寫入即送；i18n plugin 訂閱（`syncPreferencesAcrossTabs`） |
+| `store:table-column-settings:storage` | `set`、`remove`（`DictStorageMessages`） | 預設（不經伺服器中繼） | `createTableColumnSettingsChannel` → `core/store/tableColumnSettings` 的 dictStorage | 寫入即送；表格掛載期間訂閱（`syncTableColumnSettings`） |
 
 目前沒有 store 使用 `syncStore` / `shareStore`（偏好設定由 dictStorage 同步）；新增時把頻道補進上表。
 

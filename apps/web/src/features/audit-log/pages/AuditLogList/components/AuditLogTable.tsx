@@ -4,11 +4,15 @@ import { useMemo } from 'react';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { RichTable } from '@/core/components';
-import type { RichTablePagination } from '@/core/components';
+import type { FilterBarProps, RichTablePagination, TableSettingsConfig } from '@/core/components';
 import { useTranslation } from '@/core/locales';
 import { formatDateTime } from '@/shared/date';
 
+import { AUDIT_LOG_LIST_TABLE_ID } from '../../../preference';
 import type { AuditLogRowVM } from '../adapter';
+
+/** 欄位順序與顯示存在這台裝置（`core/store/tableColumnSettings`）；可設定的欄位登記在 `preference.ts`。 */
+const AUDIT_LOG_TABLE_SETTINGS: TableSettingsConfig = { tableId: AUDIT_LOG_LIST_TABLE_ID };
 
 interface AuditLogTableProps {
   items: AuditLogRowVM[];
@@ -16,6 +20,7 @@ interface AuditLogTableProps {
   /** 目前展開明細的那一列 */
   expandedId: string | undefined;
   onToggleExpand: (id: string) => void;
+  filters: FilterBarProps;
   pagination: RichTablePagination;
 }
 
@@ -24,6 +29,7 @@ export function AuditLogTable({
   loading,
   expandedId,
   onToggleExpand,
+  filters,
   pagination,
 }: AuditLogTableProps) {
   const { t } = useTranslation();
@@ -71,7 +77,7 @@ export function AuditLogTable({
           ),
       },
       {
-        id: 'expand',
+        id: 'actions',
         header: '',
         enableSorting: false,
         cell: ({ row }) => (
@@ -95,6 +101,8 @@ export function AuditLogTable({
       columns={columns}
       loading={loading}
       getRowId={(row) => row.id}
+      filters={filters}
+      settings={AUDIT_LOG_TABLE_SETTINGS}
       pagination={pagination}
       data-testid="audit-log-table"
     />

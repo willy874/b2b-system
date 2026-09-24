@@ -4,8 +4,7 @@ import { useMemo, useState } from 'react';
 
 import { getRoleListQueryOptions } from '@/apis/role/get-role-list/query';
 import { AlertDialog } from '@/components/AlertDialog';
-import { Button, ButtonLink } from '@/components/Button';
-import { Input } from '@/components/Input';
+import { ButtonLink } from '@/components/Button';
 import { useTranslation } from '@/core/locales';
 
 import { useRoleDeleteMutation } from '../../hooks/useRoleMutations';
@@ -14,14 +13,16 @@ import { RoleCreateRoute, RoleDetailRoute } from '../../routes';
 import { toRoleRowVM } from './adapter';
 import type { RoleRowVM } from './adapter';
 import { RoleTable } from './components/RoleTable';
+import { useRoleFilters } from './useRoleFilters';
 import { useRoleSearchFilter } from './useRoleSearchFilter';
 
 export default function RoleListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const permission = useRolePermission();
-  const { search, setKeyword, setSort, setPage } = useRoleSearchFilter();
-  const [keywordDraft, setKeywordDraft] = useState(search.keyword ?? '');
+  const searchFilter = useRoleSearchFilter();
+  const { search, setSort, setPage } = searchFilter;
+  const filters = useRoleFilters(searchFilter);
   const [pendingDelete, setPendingDelete] = useState<RoleRowVM>();
   const deleteRole = useRoleDeleteMutation();
 
@@ -62,20 +63,6 @@ export default function RoleListPage() {
         )}
       </header>
 
-      <div className="flex gap-2">
-        <Input
-          placeholder={t('role.list.searchPlaceholder')}
-          value={keywordDraft}
-          onChange={(event) => setKeywordDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') setKeyword(keywordDraft);
-          }}
-          className="max-w-xs"
-          data-testid="role-search-input"
-        />
-        <Button onClick={() => setKeyword(keywordDraft)}>{t('common.search')}</Button>
-      </div>
-
       <RoleTable
         rows={rows}
         loading={isPending}
@@ -85,6 +72,7 @@ export default function RoleListPage() {
           void navigate({ to: RoleDetailRoute.to, params: { roleId: row.id }, search })
         }
         onDelete={setPendingDelete}
+        filters={filters}
         pagination={{
           offset: search.offset,
           limit: search.limit,

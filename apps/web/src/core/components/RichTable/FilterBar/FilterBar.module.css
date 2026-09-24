@@ -1,0 +1,59 @@
+@layer components {
+  .trigger[data-active] {
+    color: var(--color-brand);
+  }
+
+  .count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.125rem;
+    height: 1.125rem;
+    padding: 0 var(--seed-space-1);
+    border-radius: 999px;
+    background: var(--color-brand);
+    color: var(--color-brand-fg);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .popup {
+    width: 20rem;
+    max-width: calc(100vw - 2 * var(--seed-space-4));
+  }
+
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--seed-space-3);
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--seed-space-1);
+  }
+
+  .fieldLabel {
+    color: var(--color-fg-muted);
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+
+  .checkboxList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--seed-space-2);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--seed-space-2);
+    margin-top: var(--seed-space-1);
+  }
+}

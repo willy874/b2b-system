@@ -13,15 +13,17 @@ import { useUserPermission } from '../../hooks/useUserPermission';
 import { UserCreateRoute, UserDetailRoute } from '../../routes';
 import { toUserRowVM } from './adapter';
 import type { UserRowVM } from './adapter';
-import { UserFilter } from './components/UserFilter';
 import { UserTable } from './components/UserTable';
+import { useUserFilters } from './useUserFilters';
 import { useUserSearchFilter } from './useUserSearchFilter';
 
 export default function UserListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const permission = useUserPermission();
-  const { search, setKeyword, setStatus, setSort, setPage } = useUserSearchFilter();
+  const searchFilter = useUserSearchFilter();
+  const { search, setSort, setPage } = searchFilter;
+  const filters = useUserFilters(searchFilter);
   const [pendingDelete, setPendingDelete] = useState<UserRowVM>();
 
   const profile = useQuery(getAuthProfileQueryOptions());
@@ -64,8 +66,6 @@ export default function UserListPage() {
         )}
       </header>
 
-      <UserFilter search={search} onKeywordChange={setKeyword} onStatusChange={setStatus} />
-
       <UserTable
         rows={rows}
         loading={isPending}
@@ -75,6 +75,7 @@ export default function UserListPage() {
           void navigate({ to: UserDetailRoute.to, params: { userId: row.id }, search })
         }
         onDelete={setPendingDelete}
+        filters={filters}
         pagination={{
           offset: search.offset,
           limit: search.limit,

@@ -6,13 +6,15 @@ import { useTranslation } from '@/core/locales';
 
 import { toAuditLogRowVM } from './adapter';
 import { AuditLogDetail } from './components/AuditLogDetail';
-import { AuditLogFilter } from './components/AuditLogFilter';
 import { AuditLogTable } from './components/AuditLogTable';
+import { useAuditLogFilters } from './useAuditLogFilters';
 import { useAuditLogSearchFilter } from './useAuditLogSearchFilter';
 
 export default function AuditLogListPage() {
   const { t } = useTranslation();
-  const { search, setFilter, setPage } = useAuditLogSearchFilter();
+  const searchFilter = useAuditLogSearchFilter();
+  const { search, setPage } = searchFilter;
+  const filters = useAuditLogFilters(searchFilter);
   const [expanded, setExpanded] = useState<string>();
   const toggleExpand = useCallback(
     (id: string) => setExpanded((prev) => (prev === id ? undefined : id)),
@@ -43,13 +45,12 @@ export default function AuditLogListPage() {
         <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('auditLog.description')}</p>
       </header>
 
-      <AuditLogFilter search={search} onChange={setFilter} />
-
       <AuditLogTable
         items={rows}
         loading={isPending}
         expandedId={expanded}
         onToggleExpand={toggleExpand}
+        filters={filters}
         pagination={{
           offset: search.offset,
           limit: search.limit,

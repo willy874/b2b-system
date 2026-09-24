@@ -18,8 +18,9 @@ export function useUserSearchFilter() {
 
   return {
     search,
-    setKeyword: (keyword: string) => patch({ keyword: keyword || undefined, offset: 0 }),
-    setStatus: (status: UserSearchQuery['status']) => patch({ status, offset: 0 }),
+    /** 篩選面板送出時一次更新，改篩選條件就回到第一頁。 */
+    setFilters: (filters: Pick<UserSearchQuery, 'keyword' | 'status'>) =>
+      patch({ ...filters, offset: 0 }),
     setSort: (sortBy: UserSearchQuery['sortBy'], sortOrder: UserSearchQuery['sortOrder']) =>
       patch({ sortBy, sortOrder, offset: 0 }),
     setPage: (offset: number, limit: number) => patch({ offset, limit }),

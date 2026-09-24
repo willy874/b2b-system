@@ -6,6 +6,7 @@ import ChevronRight from '@/assets/icons/chevron-right.svg?react';
 import Close from '@/assets/icons/close.svg?react';
 import Edit from '@/assets/icons/edit.svg?react';
 import File from '@/assets/icons/file.svg?react';
+import Filter from '@/assets/icons/filter.svg?react';
 import Home from '@/assets/icons/home.svg?react';
 import Info from '@/assets/icons/info.svg?react';
 import Key from '@/assets/icons/key.svg?react';
@@ -36,6 +37,7 @@ export const ICONS = {
   close: Close,
   edit: Edit,
   file: File,
+  filter: Filter,
   home: Home,
   info: Info,
   key: Key,

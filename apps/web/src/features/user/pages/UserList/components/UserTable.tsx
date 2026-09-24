@@ -6,7 +6,7 @@ import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { Tooltip } from '@/components/Tooltip';
 import { RichTable } from '@/core/components';
-import type { RichTablePagination } from '@/core/components';
+import type { FilterBarProps, RichTablePagination, TableSettingsConfig } from '@/core/components';
 import { useTranslation } from '@/core/locales';
 import { formatDateTime } from '@/shared/date';
 
@@ -16,6 +16,7 @@ import {
   useUserUnlockMutation,
 } from '../../../hooks/useUserMutations';
 import { useUserPermission } from '../../../hooks/useUserPermission';
+import { USER_LIST_TABLE_ID } from '../../../preference';
 import { UserDetailRoute } from '../../../routes';
 import type { UserSearchQuery } from '../../../routes';
 import type { UserRowVM } from '../adapter';
@@ -27,6 +28,9 @@ const STATUS_TONE = {
   locked: 'danger',
 } as const;
 
+/** 欄位順序與顯示存在這台裝置（`core/store/tableColumnSettings`）；可設定的欄位登記在 `preference.ts`。 */
+const USER_TABLE_SETTINGS: TableSettingsConfig = { tableId: USER_LIST_TABLE_ID };
+
 interface UserTableProps {
   rows: UserRowVM[];
   loading: boolean;
@@ -37,6 +41,7 @@ interface UserTableProps {
   ) => void;
   onRowDoubleClick: (row: UserRowVM) => void;
   onDelete: (row: UserRowVM) => void;
+  filters: FilterBarProps;
   pagination: RichTablePagination;
 }
 
@@ -47,6 +52,7 @@ export function UserTable({
   onSortingChange,
   onRowDoubleClick,
   onDelete,
+  filters,
   pagination,
 }: UserTableProps) {
   const { t } = useTranslation();
@@ -155,6 +161,8 @@ export function UserTable({
       columns={columns}
       loading={loading}
       getRowId={(row) => row.id}
+      filters={filters}
+      settings={USER_TABLE_SETTINGS}
       pagination={pagination}
       sorting={{ sortBy: search.sortBy, sortOrder: search.sortOrder }}
       onSortingChange={(sortBy, sortOrder) =>

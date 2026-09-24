@@ -3,10 +3,12 @@ import { LanguageNamespace, Languages } from '@/shared/constants/lang';
 
 import { AUDIT_LOG_LOCALE_SCOPE } from './locale';
 import { registerAuditLogPagePermissions } from './permission';
+import { registerAuditLogPreferences } from './preference';
 
 export function appContextPlugin(): AppPluginFactory {
   return (context) => {
     registerAuditLogPagePermissions();
+    registerAuditLogPreferences(); // 偏好頁的列表註冊表
     const app = context.getInstance();
 
     return {
