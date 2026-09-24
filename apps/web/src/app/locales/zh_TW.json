@@ -22,6 +22,7 @@
     "none": "無",
     "all": "全部",
     "filter": "篩選",
+    "filterActive": "篩選（{{count}} 個條件）",
     "tableSettings": "欄位設定",
     "dragToReorder": "拖曳調整「{{name}}」的順序",
     "clear": "清除",

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 
-import { Button } from '@/components/Button';
+import { Button, IconButton } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { Popover } from '@/components/Popover';
 import { createSlots } from '@/components/slots';
@@ -32,10 +32,10 @@ export interface FilterBarProps<
 }
 
 /**
- * 列表頁的篩選：一顆「篩選」按鈕（有值時顯示數量），點開是所有欄位的表單。
+ * 列表頁的篩選：一顆篩選圖示按鈕（有值時角落顯示數量），點開是所有欄位的表單。
  * 面板裡的修改只改草稿，按「搜尋」才一次送出；關掉面板就放棄草稿。
  * 一次送出也讓頁面只需要更新一次網址（docs/architecture/frontend/09-state-and-storage.md §1）。
- * `RichTable` 會把它放進「操作」欄的表頭。
+ * `RichTable` 會把它固定在最後一欄表頭的右下角。
  */
 export function FilterBar<TValues extends Record<string, unknown>>({
   fields,
@@ -79,17 +79,23 @@ export function FilterBar<TValues extends Record<string, unknown>>({
       align="end"
       {...slot('popup', styles.popup, { testId: 'filter-bar-popup' })}
       trigger={
-        <Button
+        <IconButton
           size="sm"
-          variant="ghost"
-          startIcon={<Icon name="filter" size={14} />}
+          aria-label={
+            activeCount > 0 ? t('common.filterActive', { count: activeCount }) : t('common.filter')
+          }
           className={cn(styles.trigger, className)}
           data-active={activeCount > 0 || undefined}
           data-testid={testId}
         >
-          {t('common.filter')}
-          {activeCount > 0 && <span {...slot('count', styles.count)}>{activeCount}</span>}
-        </Button>
+          <Icon name="filter" size={16} />
+          {/* 數量已含在 aria-label，徽章只給視覺 */}
+          {activeCount > 0 && (
+            <span aria-hidden {...slot('count', styles.count)}>
+              {activeCount}
+            </span>
+          )}
+        </IconButton>
       }
     >
       <form {...slot('form', styles.form)} onSubmit={handleSubmit}>

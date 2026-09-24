@@ -22,6 +22,7 @@
     "none": "None",
     "all": "All",
     "filter": "Filter",
+    "filterActive": "Filter ({{count}} active)",
     "tableSettings": "Columns",
     "dragToReorder": "Drag to reorder {{name}}",
     "clear": "Clear",

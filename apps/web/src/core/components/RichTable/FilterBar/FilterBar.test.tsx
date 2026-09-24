@@ -1,6 +1,9 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+
+import zhTW from '@/app/locales/zh_TW.json';
+import { i18n, initI18n } from '@/core/locales';
 
 import { FilterBar } from './FilterBar';
 import type { FilterBarProps, FilterField } from './index';
@@ -62,6 +65,12 @@ function fieldOf(key: string): HTMLElement {
   return element;
 }
 
+// 篩選按鈕只有圖示，名稱來自語系檔的 aria-label
+beforeAll(async () => {
+  await initI18n('zh-TW');
+  i18n.addResourceBundle('zh-TW', 'translation', zhTW, true, true);
+});
+
 describe('FilterBar', () => {
   describe('篩選按鈕', () => {
     it('沒有欄位有值時不顯示數量', () => {
@@ -76,6 +85,16 @@ describe('FilterBar', () => {
       const trigger = screen.getByTestId('filter-bar-trigger');
       expect(trigger).toHaveAttribute('data-active');
       expect(trigger).toHaveTextContent('2');
+    });
+
+    it('只顯示圖示，以 aria-label 命名', () => {
+      renderBar();
+      expect(screen.getByTestId('filter-bar-trigger')).toHaveAccessibleName('篩選');
+    });
+
+    it('有篩選時 aria-label 帶數量', () => {
+      renderBar({ value: { ...EMPTY, keyword: 'alice' } });
+      expect(screen.getByTestId('filter-bar-trigger')).toHaveAccessibleName('篩選（1 個條件）');
     });
 
     it('點開後依序列出每個欄位', async () => {
