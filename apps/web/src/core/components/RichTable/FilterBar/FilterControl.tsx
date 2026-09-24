@@ -5,6 +5,7 @@ import { Select } from '@/components/Select';
 import { useTranslation } from '@/core/locales';
 
 import { isDateRangeValue, isStringArray } from './filter-utils';
+import { SortControl } from './SortControl';
 import type {
   AnyFilterField,
   DateRangeFilterField,
@@ -36,6 +37,8 @@ export function FilterControl({ field, value, onChange }: ControlProps<AnyFilter
       return <MultiSelectControl field={field} value={value} onChange={onChange} />;
     case 'dateRange':
       return <DateRangeControl field={field} value={value} onChange={onChange} />;
+    case 'sort':
+      return <SortControl field={field} value={value} onChange={onChange} />;
     case 'custom':
       return field.render({ value, onChange });
   }

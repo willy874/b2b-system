@@ -1,6 +1,7 @@
 import { keepPreviousData, queryOptions } from '@tanstack/react-query';
 
 import type { HttpRequestDTO } from '@/core/client';
+import { toSortParams } from '@/shared/constants';
 
 import type { RoleListParams } from '../types';
 import { fetchRoleListQuery } from './fetcher';
@@ -16,8 +17,7 @@ const getRoleListQueryKeys = (params: RoleListParams) =>
     params.limit,
     params.keyword,
     params.isSystem,
-    params.sortBy,
-    params.sortOrder,
+    params.sort ? toSortParams(params.sort).join(',') : '',
   ] as const;
 
 export const getRoleListQueryOptions = (options: HttpRequestDTO<RoleListParams>) =>
@@ -33,7 +33,7 @@ export const getRoleOptionsQueryOptions = () =>
     queryKey: [ROLE_OPTIONS_QUERY_KEY] as const,
     queryFn: ({ signal }) =>
       fetchRoleListQuery({
-        params: { offset: 0, limit: 200, sortBy: 'name', sortOrder: 'asc' },
+        params: { offset: 0, limit: 200, sort: [{ sort: 'name', order: 'asc' }] },
         signal,
       }),
     staleTime: 60_000,

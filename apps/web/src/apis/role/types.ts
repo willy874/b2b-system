@@ -1,8 +1,13 @@
+import type { SortEntry } from '@/shared/constants';
+
+/** 後端 `ListRoleSchema` 的排序白名單。 */
+export type RoleSortField = 'createdAt' | 'name' | 'slug';
+
 export interface RoleListParams {
   offset: number;
   limit: number;
   keyword?: string;
   isSystem?: boolean;
-  sortBy?: 'createdAt' | 'name' | 'slug';
-  sortOrder?: 'asc' | 'desc';
+  /** 多欄排序，陣列順序即優先順序。 */
+  sort?: Array<SortEntry<RoleSortField>>;
 }

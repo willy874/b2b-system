@@ -190,16 +190,14 @@ import { fetchRoleListQuery } from "./fetcher";
 export const ROLE_LIST_QUERY_KEY = "ROLE_LIST_QUERY_KEY";
 
 const getRoleListQueryKeys = (p: ListRolesRequest) =>
-  [ROLE_LIST_QUERY_KEY, p.offset, p.limit, p.keyword, p.sortBy, p.sortOrder] as const;
+  // 陣列參數（多欄排序）先轉成字串，key 裡只放扁平的原始值
+  [ROLE_LIST_QUERY_KEY, p.offset, p.limit, p.keyword, p.sort ? toSortParams(p.sort).join(",") : ""] as const;
 
 export const getRoleListQueryOptions = (options: HttpRequestDTO<ListRolesRequest>) =>
   queryOptions({
     queryKey: getRoleListQueryKeys(options.params),
     placeholderData: keepPreviousData, // 換頁時不閃空白
-    queryFn: ({ queryKey, signal }) => {
-      const [, offset, limit, keyword, sortBy, sortOrder] = queryKey;
-      return fetchRoleListQuery({ signal, params: { offset, limit, keyword, sortBy, sortOrder } });
-    },
+    queryFn: ({ signal }) => fetchRoleListQuery({ signal, params: options.params }),
   });
 
 // 型別化的 query key 註冊（讓失效工具能推導）

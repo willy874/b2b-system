@@ -56,7 +56,9 @@ export function FilterBar<TValues extends Record<string, unknown>>({
   // 泛型內 TS 無法展開延遲求值的 `FilterField<TValues>`；它的每個成員都是 `AnyFilterField` 之一
   // （見 types.ts 的 `FieldFor`），這是唯一一處轉型，控制項只需要不分 key 的欄位型別
   const anyFields = fields as AnyFilterField[];
-  const activeCount = anyFields.filter((field) => isFilterActive(field, value[field.key])).length;
+  const activeCount = anyFields.filter((field) =>
+    isFilterActive(field, value[field.key], defaultValue?.[field.key]),
+  ).length;
 
   const handleOpenChange = (next: boolean) => {
     // 每次打開都從目前生效的值開始編輯

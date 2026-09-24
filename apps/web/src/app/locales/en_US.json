@@ -26,7 +26,15 @@
     "dragToReorder": "Drag to reorder {{name}}",
     "clear": "Clear",
     "apply": "Apply",
-    "restoreDefault": "Restore defaults"
+    "restoreDefault": "Restore defaults",
+    "sort": "Sort",
+    "sortAsc": "Ascending",
+    "sortDesc": "Descending",
+    "addSort": "Add sort",
+    "removeSort": "Remove sort by {{name}}",
+    "sortField": "Sort field {{index}}",
+    "sortDirection": "Sort direction for {{name}}",
+    "sortEmpty": "No sort conditions; the default order is used after you search."
   },
   "menu": {
     "home": "Home",

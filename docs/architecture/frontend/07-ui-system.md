@@ -477,8 +477,11 @@ components/Table/
 | 功能 | 元件 | 說明 |
 | ---- | ---- | ---- |
 | 分頁 | `Pagination` | `pagination={{ offset, limit, total, onChange }}`，文案走 `t()` |
-| 篩選 | `FilterBar` | 「篩選」按鈕點開的下拉表單；欄位型別 `text` / `select` / `multiSelect` / `dateRange` / `custom`。`value` ＋ `onSubmit` 以泛型型別化，一次送出整份值（只更新一次網址） |
+| 篩選 | `FilterBar` | 「篩選」按鈕點開的下拉表單；欄位型別 `text` / `select` / `multiSelect` / `dateRange` / `sort`（多欄排序，`SortEntry[]`，拖曳調整優先順序）/ `custom`。`value` ＋ `onSubmit` 以泛型型別化，一次送出整份值（只更新一次網址） |
 | 欄位設定 | `TableSettings` | 齒輪按鈕點開的下拉清單：拖曳（dnd-kit，含鍵盤）排序、勾選顯示；依 `tableId` 存在 `core/store/tableColumnSettings`，偏好頁的「表格欄位」分頁改的是同一份 |
+
+表頭點擊排序會把排序換成「只依這一欄」，表頭只標示主排序（第一個條件）；多欄排序在篩選面板設定。
+篩選按鈕上的數量：`sort` 與 `defaultValue` 不同才計入（排序永遠有值）。
 
 兩個面板 **都不即時套用**：面板裡的修改只改草稿，按送出鈕才生效，關掉面板就放棄草稿；每次打開都從目前生效的值開始。
 

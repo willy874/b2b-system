@@ -88,8 +88,8 @@ export const RoleSearchQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).catch(0),
   limit: z.coerce.number().int().min(1).max(200).catch(20),
   keyword: z.string().trim().optional().catch(undefined),
-  sortBy: z.enum(["createdAt", "name"]).catch("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).catch("desc"),
+  // 多欄排序 SortEntry[]；不合法（白名單外、重複）時退回預設，不變成錯誤頁
+  sort: sortSearchSchema(ROLE_SORT_FIELDS, DEFAULT_ROLE_SORT),
 });
 
 export type RoleSearchQuery = z.infer<typeof RoleSearchQuerySchema>;

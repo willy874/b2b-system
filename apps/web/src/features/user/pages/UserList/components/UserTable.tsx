@@ -2,12 +2,14 @@ import { Link } from '@tanstack/react-router';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
+import type { UserSortField } from '@/apis/user/types';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { Tooltip } from '@/components/Tooltip';
 import { RichTable } from '@/core/components';
 import type { FilterBarProps, RichTablePagination, TableSettingsConfig } from '@/core/components';
 import { useTranslation } from '@/core/locales';
+import type { SortOrderType } from '@/shared/constants';
 import { formatDateTime } from '@/shared/date';
 
 import { USER_STATUS_LABEL_KEY } from '../../../constants';
@@ -17,9 +19,10 @@ import {
 } from '../../../hooks/useUserMutations';
 import { useUserPermission } from '../../../hooks/useUserPermission';
 import { USER_LIST_TABLE_ID } from '../../../preference';
-import { UserDetailRoute } from '../../../routes';
+import { USER_SORT_FIELDS, UserDetailRoute } from '../../../routes';
 import type { UserSearchQuery } from '../../../routes';
 import type { UserRowVM } from '../adapter';
+import type { UserFilterValues } from '../useUserFilters';
 
 const STATUS_TONE = {
   active: 'success',
@@ -35,13 +38,11 @@ interface UserTableProps {
   rows: UserRowVM[];
   loading: boolean;
   search: UserSearchQuery;
-  onSortingChange: (
-    sortBy: UserSearchQuery['sortBy'],
-    sortOrder: UserSearchQuery['sortOrder'],
-  ) => void;
+  /** 表頭點擊：換成只依這一欄排序。 */
+  onSortingChange: (sort: UserSortField, order: SortOrderType) => void;
   onRowDoubleClick: (row: UserRowVM) => void;
   onDelete: (row: UserRowVM) => void;
-  filters: FilterBarProps;
+  filters: FilterBarProps<UserFilterValues>;
   pagination: RichTablePagination;
 }
 
@@ -155,6 +156,8 @@ export function UserTable({
     [onDelete, permission, resetPassword, search, t, unlockUser],
   );
 
+  const primary = search.sort[0];
+
   return (
     <RichTable
       data={rows}
@@ -164,12 +167,17 @@ export function UserTable({
       filters={filters}
       settings={USER_TABLE_SETTINGS}
       pagination={pagination}
-      sorting={{ sortBy: search.sortBy, sortOrder: search.sortOrder }}
-      onSortingChange={(sortBy, sortOrder) =>
-        onSortingChange(sortBy as UserSearchQuery['sortBy'], sortOrder)
-      }
+      // 表頭只標示主排序（第一個條件）
+      sorting={primary && { sortBy: primary.sort, sortOrder: primary.order }}
+      onSortingChange={(sortBy, sortOrder) => {
+        if (isSortField(sortBy)) onSortingChange(sortBy, sortOrder);
+      }}
       onRowDoubleClick={onRowDoubleClick}
       data-testid="user-table"
     />
   );
+}
+
+function isSortField(value: string): value is UserSortField {
+  return (USER_SORT_FIELDS as readonly string[]).includes(value);
 }

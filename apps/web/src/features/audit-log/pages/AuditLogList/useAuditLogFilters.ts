@@ -4,7 +4,10 @@ import { useTranslation } from '@/core/locales';
 import type { AuditLogSearchQuery } from '../../routes';
 import type { useAuditLogSearchFilter } from './useAuditLogSearchFilter';
 
-type AuditLogFilterValues = Pick<AuditLogSearchQuery, 'action' | 'resourceType' | 'result'> & {
+export type AuditLogFilterValues = Pick<
+  AuditLogSearchQuery,
+  'action' | 'resourceType' | 'result'
+> & {
   /** 網址上是 `from` / `to` 兩個參數，面板裡合成一個日期區間欄位。 */
   range?: DateRangeFilterValue;
 };

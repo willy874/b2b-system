@@ -1,6 +1,7 @@
 import { keepPreviousData, queryOptions } from '@tanstack/react-query';
 
 import type { HttpRequestDTO } from '@/core/client';
+import { toSortParams } from '@/shared/constants';
 
 import type { UserListParams } from '../types';
 import { fetchUserListQuery } from './fetcher';
@@ -15,8 +16,7 @@ const getUserListQueryKeys = (params: UserListParams) =>
     params.keyword,
     params.status?.join(',') ?? '',
     params.roleId?.join(',') ?? '',
-    params.sortBy,
-    params.sortOrder,
+    params.sort ? toSortParams(params.sort).join(',') : '',
   ] as const;
 
 export const getUserListQueryOptions = (options: HttpRequestDTO<UserListParams>) =>

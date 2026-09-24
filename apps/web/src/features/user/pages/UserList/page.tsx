@@ -36,8 +36,7 @@ export default function UserListPage() {
         limit: search.limit,
         keyword: search.keyword,
         status: search.status ? [search.status] : undefined,
-        sortBy: search.sortBy,
-        sortOrder: search.sortOrder,
+        sort: search.sort,
       },
     }),
   );

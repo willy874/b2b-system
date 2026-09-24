@@ -26,7 +26,15 @@
     "dragToReorder": "拖曳調整「{{name}}」的順序",
     "clear": "清除",
     "apply": "套用",
-    "restoreDefault": "恢復預設"
+    "restoreDefault": "恢復預設",
+    "sort": "排序",
+    "sortAsc": "升冪",
+    "sortDesc": "降冪",
+    "addSort": "新增排序條件",
+    "removeSort": "移除「{{name}}」的排序",
+    "sortField": "第 {{index}} 個排序欄位",
+    "sortDirection": "「{{name}}」的排序方向",
+    "sortEmpty": "沒有排序條件；送出後使用預設排序。"
   },
   "menu": {
     "home": "首頁",

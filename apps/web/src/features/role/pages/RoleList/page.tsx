@@ -32,8 +32,7 @@ export default function RoleListPage() {
         offset: search.offset,
         limit: search.limit,
         keyword: search.keyword,
-        sortBy: search.sortBy,
-        sortOrder: search.sortOrder,
+        sort: search.sort,
       },
     }),
   );

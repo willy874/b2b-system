@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import type { SortEntry } from '@/shared/constants';
+
 export interface FilterOption<T extends string = string> {
   /** 不可為空字串（`select` 以空字串代表「全部」）。 */
   value: T;
@@ -51,6 +53,19 @@ export interface DateRangeFilterField<K extends string = string> extends FilterF
 }
 
 /**
+ * 多欄排序（資料結構同 merak-client 的 `SortEntry[]`）：每列選欄位與方向，拖曳調整優先順序，
+ * 同一欄位只能出現一次。全部移除時送出空陣列，由頁面決定改用預設排序。
+ */
+export interface SortFilterField<
+  K extends string = string,
+  T extends string = string,
+> extends FilterFieldBase<K> {
+  type: 'sort';
+  /** 可以排序的欄位。 */
+  options: Array<FilterOption<T>>;
+}
+
+/**
  * 內建型別不夠用時，自己渲染控制項；`value` / `onChange` 讀寫的是草稿，送出時才生效。
  * `render` 用方法語法宣告（參數雙變），`FilterField<TValues>` 才能放進不分型別的陣列。
  */
@@ -68,7 +83,8 @@ type ElementOf<V> = V extends ReadonlyArray<infer E> ? E : never;
 
 /**
  * 依 `value` 物件裡該屬性的型別，決定這個 key 可以用哪些欄位型別：
- * 字串 → `text` / `select`，字串陣列 → `multiSelect`，`DateRangeFilterValue` → `dateRange`，任何型別都能用 `custom`。
+ * 字串 → `text` / `select`，字串陣列 → `multiSelect`，`DateRangeFilterValue` → `dateRange`，
+ * `SortEntry[]` → `sort`，任何型別都能用 `custom`。
  * 用 `[V]` 包起來避免分配，`select` 的選項型別才會是整個聯集。
  */
 type FieldFor<K extends string, V> =
@@ -79,6 +95,9 @@ type FieldFor<K extends string, V> =
       ? MultiSelectFilterField<K, Extract<ElementOf<NonNullable<V>>, string>>
       : never)
   | ([V] extends [DateRangeFilterValue | undefined] ? DateRangeFilterField<K> : never)
+  | ([V] extends [ReadonlyArray<SortEntry> | undefined]
+      ? SortFilterField<K, Extract<ElementOf<NonNullable<V>>, SortEntry>['sort']>
+      : never)
   | CustomFilterField<K, V>;
 
 /**
@@ -90,6 +109,7 @@ export type AnyFilterField =
   | SelectFilterField
   | MultiSelectFilterField
   | DateRangeFilterField
+  | SortFilterField
   | CustomFilterField;
 
 /** `value` 物件（例：`{ keyword?: string; status?: UserStatus }`）對應的欄位定義。 */
