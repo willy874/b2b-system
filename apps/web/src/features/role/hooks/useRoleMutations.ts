@@ -6,9 +6,9 @@ import { getRoleDeleteMutationOptions } from '@/apis/role/delete-role/mutation';
 import { getRoleDuplicateMutationOptions } from '@/apis/role/duplicate-role/mutation';
 import { getGrantRolePermissionsMutationOptions } from '@/apis/role/grant-role-permissions/mutation';
 import { getRoleUpdateMutationOptions } from '@/apis/role/update-role/mutation';
-import { useToast } from '@/components/Toast';
 import { useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
+import { useToast } from '@/core/notify';
 
 export function useRoleCreateMutation() {
   const toast = useToast();

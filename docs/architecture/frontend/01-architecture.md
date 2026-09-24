@@ -68,6 +68,7 @@ export * from "@game-editor/api-sdk";
 | `core/components` | 機制性元件：`ErrorPage`、`Empty`、`PermissionGate`、`Suspense` 封裝 |
 | `core/errors`     | 錯誤碼常數、`AppError` 型別、`useErrorMessage()`                    |
 | `core/locales`    | i18n scope 註冊與 route loader                                      |
+| `core/notify`     | `useToast()`：發 `GlobalEvents.TOAST_SHOW` 到 eventBus，由 `app/ToastHost` 渲染 |
 | `core/permission` | ★ 權限註冊表、常數、hooks                                           |
 | `core/preference` | 偏好設定註冊表（讓 feature 往偏好頁掛分頁）                         |
 | `core/router`     | `RootRoute`、`RouterProvider` 封裝                                  |

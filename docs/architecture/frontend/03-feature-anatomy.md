@@ -244,7 +244,7 @@ export function toRoleRowVM(dto: RoleListItem, perm: RolePermissionFacade): Role
 
 ```ts
 export function useRoleCreateMutation() {
-  const toast = useToast();
+  const toast = useToast(); // @/core/notify：發到 eventBus，由 app/ToastHost 渲染
   const { t } = useTranslation();
 
   return useMutation({

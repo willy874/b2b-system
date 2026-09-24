@@ -303,6 +303,24 @@ TanStack Router 的 `Link` 塞進 Menu item 而不失去鍵盤行為：
 
 `disabled` 時 TanStack 會拿掉 `href` 並擋下點擊，`ButtonLink` 另外標上 `aria-disabled` 與 `data-disabled`。
 
+### 3.7 Toast 與 eventBus
+
+提示走全域 eventBus，發的一方不需要在 Provider 底下、也不需要知道 toast 怎麼渲染：
+
+```
+useToast().success(…)  ─┐
+plugin / 攔截器         ─┼─ eventBus.emit(GlobalEvents.TOAST_SHOW, options)
+                         │
+app/ToastHost ◀──────────┘ eventBus.on(TOAST_SHOW) → toaster.show(options)
+  └─ <ToastProvider toaster={toaster}>   components/Toast（Base UI 的 toast manager）
+```
+
+- `components/Toast` 只提供 `createToaster()`（可在 React 樹外呼叫的 `show` / `close`）與 `ToastProvider`，
+  不認識 eventBus；Base UI 的 manager 不出現在公開型別上。
+- `core/notify` 的 `useToast()` 是 React 裡的入口；React 之外直接 `eventBus.emit(GlobalEvents.TOAST_SHOW, …)`。
+- 整個 app 只有 `app/ToastHost` 持有 toaster；各類型的預設停留時間在 `DEFAULT_TOAST_TIMEOUT`（錯誤 8 秒，其餘 4 秒）。
+- 測試用 `src/test/renderWithPermissions.tsx` 的 `AllProviders`，它已經掛好 eventBus 與 `ToastHost`。
+
 ---
 
 ## 4. Design Token

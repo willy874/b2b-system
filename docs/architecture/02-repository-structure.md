@@ -64,6 +64,7 @@ apps/web/src/
 │   ├── App.tsx
 │   ├── Layout.tsx           依 matcher 決定套哪個 layout
 │   ├── GlobalProvider.tsx   Query / Router / Theme / Toast providers
+│   ├── ToastHost.tsx        唯一持有 toaster：eventBus 的 toast:show → 畫面
 │   ├── plugin.ts            建立 router，掛到 AppContext
 │   ├── routes.tsx           把各 feature 的 route 組成 route tree
 │   ├── layouts/
@@ -79,6 +80,7 @@ apps/web/src/
 │   ├── components/          機制性元件（ErrorPage、Empty、PermissionGate…）
 │   ├── errors/              錯誤碼、例外型別、useErrorMessage
 │   ├── locales/             i18n scope loader
+│   ├── notify/              useToast()：把提示發到 eventBus
 │   ├── permission/          ★ 權限註冊表、hooks、常數
 │   ├── preference/          偏好設定註冊表（讓 feature 擴充偏好頁）
 │   ├── router/              RootRoute、Router Provider

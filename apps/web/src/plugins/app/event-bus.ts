@@ -1,10 +1,5 @@
-import type { AppPluginFactory } from '@/core/app';
+import type { AppPluginFactory, GlobalEventMap } from '@/core/app';
 import { EventEmitter } from '@/shared/EventEmitter';
-
-export type GlobalEventMap = {
-  'user:rolesChanged': (payload: { userId: string }) => void;
-  'session:ended': (reason: string) => void;
-};
 
 export function eventBusPlugin(): AppPluginFactory {
   const eventBus = new EventEmitter<GlobalEventMap>();

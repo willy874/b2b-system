@@ -10,10 +10,10 @@ import { Chip } from '@/components/Chip';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/Input';
 import { Separator } from '@/components/Separator';
-import { useToast } from '@/components/Toast';
 import { sessionStore } from '@/core/auth';
 import { useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
+import { useToast } from '@/core/notify';
 
 export default function ProfilePage() {
   const { t } = useTranslation();

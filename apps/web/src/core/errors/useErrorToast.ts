@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { useToast } from '@/components/Toast';
+import { useToast } from '@/core/notify';
 
 import { isSilentError, useErrorMessage } from './useErrorMessage';
 

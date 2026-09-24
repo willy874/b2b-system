@@ -4,8 +4,8 @@ import { getUpdateProfileMutationOptions } from '@/apis/auth/update-profile/muta
 import { invalidateResources, selfUpdated } from '@/apis/resources';
 import { Field } from '@/components/Field';
 import { Select } from '@/components/Select';
-import { useToast } from '@/components/Toast';
 import { useTranslation } from '@/core/locales';
+import { useToast } from '@/core/notify';
 import { getPreferenceSections } from '@/core/preference';
 import { useLocaleStore, useTimezoneStore } from '@/core/store';
 import { Languages } from '@/shared/constants/lang';

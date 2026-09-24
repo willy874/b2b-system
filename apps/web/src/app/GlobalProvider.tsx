@@ -3,13 +3,15 @@ import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 
 import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
-import { ToastProvider, useToast } from '@/components/Toast';
 import { TooltipProvider } from '@/components/Tooltip';
 import { AppContextProvider } from '@/core/app';
 import type { AppContext } from '@/core/app';
 import { queryClient } from '@/core/cache';
 import { AppError, ErrorCodes } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
+import { useToast } from '@/core/notify';
+
+import { ToastHost } from './ToastHost';
 
 /** 同一波失敗（例如一個頁面上好幾個 query 同時 403）只提示、重抓一次。 */
 const DRIFT_DEBOUNCE_MS = 2_000;
@@ -66,10 +68,10 @@ export function GlobalProvider({
     <AppContextProvider context={context}>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <ToastProvider>
+          <ToastHost>
             <PermissionDriftWatcher />
             {children}
-          </ToastProvider>
+          </ToastHost>
         </TooltipProvider>
       </QueryClientProvider>
     </AppContextProvider>

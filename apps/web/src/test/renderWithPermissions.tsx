@@ -1,12 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import type { RenderOptions, RenderResult } from '@testing-library/react';
+import { useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
-import { ToastProvider } from '@/components/Toast';
+import { ToastHost } from '@/app/ToastHost';
 import { TooltipProvider } from '@/components/Tooltip';
+import { AppContextProvider, createAppContext } from '@/core/app';
 import type { PermissionKey } from '@/core/permission';
 import { usePermissionStore } from '@/core/store';
+import { eventBusPlugin } from '@/plugins/app';
 
 export function createTestQueryClient(): QueryClient {
   return new QueryClient({
@@ -14,13 +17,22 @@ export function createTestQueryClient(): QueryClient {
   });
 }
 
+/** 元件樹用得到的最小 AppContext：`useToast()` 需要 eventBus。 */
+export function createTestAppContext() {
+  return createAppContext().use(eventBusPlugin());
+}
+
 export function AllProviders({ children }: { children: ReactNode }) {
+  const [context] = useState(createTestAppContext);
+  const [client] = useState(createTestQueryClient);
   return (
-    <QueryClientProvider client={createTestQueryClient()}>
-      <TooltipProvider>
-        <ToastProvider>{children}</ToastProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AppContextProvider context={context}>
+      <QueryClientProvider client={client}>
+        <TooltipProvider>
+          <ToastHost>{children}</ToastHost>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </AppContextProvider>
   );
 }
 

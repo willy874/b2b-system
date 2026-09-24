@@ -7,9 +7,9 @@ import { getUserDeleteMutationOptions } from '@/apis/user/delete-user/mutation';
 import { getUserResetPasswordMutationOptions } from '@/apis/user/reset-user-password/mutation';
 import { getUserUnlockMutationOptions } from '@/apis/user/unlock-user/mutation';
 import { getUserUpdateMutationOptions } from '@/apis/user/update-user/mutation';
-import { useToast } from '@/components/Toast';
 import { useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
+import { useToast } from '@/core/notify';
 import type { User } from '@/shared/api-sdk';
 
 /** 使用者持有的角色：讓依賴圖只失效這幾個角色，而不是全部。 */
