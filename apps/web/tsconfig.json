@@ -15,7 +15,7 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*", "src/**/*.json", "vite.config.ts", "uno.config.ts"],
+  "include": ["src/**/*", "src/**/*.json", ".storybook/**/*", "vite.config.ts", "uno.config.ts"],
   "references": [
     { "path": "../../packages/utils" },
     { "path": "../../packages/api-sdk" },

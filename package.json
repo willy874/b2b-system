@@ -8,6 +8,8 @@
     "dev:api": "pnpm --filter @game-editor/api dev",
     "dev:web": "pnpm --filter @game-editor/web dev",
     "dev:e2e": "AUTH_RATE_LIMIT=1000 DEFAULT_RATE_LIMIT=10000 pnpm --filter @game-editor/api dev",
+    "storybook": "pnpm --filter @game-editor/web storybook",
+    "storybook:build": "pnpm --filter @game-editor/web storybook:build",
     "build": "pnpm --filter @game-editor/api-sdk build && pnpm --filter @game-editor/api build && pnpm --filter @game-editor/web build",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",

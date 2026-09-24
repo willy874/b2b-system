@@ -1,7 +1,14 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   // 規格文件由人維護，格式化工具不得改寫。
-  "ignorePatterns": ["docs/**", "**/*.md", "**/dist/**", "**/dist-types/**", "**/coverage/**"],
+  "ignorePatterns": [
+    "docs/**",
+    "**/*.md",
+    "**/dist/**",
+    "**/dist-types/**",
+    "**/coverage/**",
+    "**/storybook-static/**",
+  ],
   "printWidth": 100,
   "tabWidth": 2,
   "singleQuote": true,

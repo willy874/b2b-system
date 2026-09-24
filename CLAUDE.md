@@ -67,6 +67,7 @@ pnpm test           # 單元 + 整合（後端整合測試會用 Testcontainers 
 pnpm test:e2e       # Playwright（需要 api 與 web 已啟動）
 pnpm db:migrate / db:seed / db:seed:dev / db:seed:e2e / db:reset
 pnpm openapi:generate && pnpm sdk:generate   # 改動 controller / DTO 之後必跑
+pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法見 docs/architecture/frontend/07-ui-system.md §9
 ```
 
 ## 新增一個功能的順序

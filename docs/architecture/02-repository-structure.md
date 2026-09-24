@@ -48,6 +48,7 @@ packages:
 | `pnpm lint` / `pnpm format` / `pnpm typecheck` | 全 workspace                                             |
 | `pnpm test`                                    | 全 workspace 單元測試                                    |
 | `pnpm test:e2e`                                | Playwright                                               |
+| `pnpm storybook` / `pnpm storybook:build`      | 設計系統元件的 Storybook（:6006）／輸出靜態站到 `apps/web/storybook-static/` |
 
 ---
 
@@ -104,6 +105,7 @@ apps/web/src/
 │
 ├── components/              ★ Base UI 封裝層（設計系統元件）
 │   ├── Button/  Input/  Select/  Dialog/  Table/  Toast/  Tooltip/ …
+│   │   └── Xxx.stories.tsx  每個元件的 Storybook story（設定在 apps/web/.storybook/）
 │   └── …
 │
 ├── plugins/                 可插拔的能力（非業務、非核心）

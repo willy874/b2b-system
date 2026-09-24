@@ -11,6 +11,7 @@
     "**/dist-types/**",
     "**/node_modules/**",
     "**/coverage/**",
+    "**/storybook-static/**",
     "packages/api-sdk/src/generated/**"
   ],
   "categories": {

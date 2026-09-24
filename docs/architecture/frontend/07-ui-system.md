@@ -87,6 +87,7 @@ components/Button/
 ├── Link.tsx            ButtonLink：按鈕外觀的 TanStack Link（createLink ＋ <a>）
 ├── Button.module.css   該元件的樣式（CSS Module，用 component 層 token）
 ├── Button.test.tsx
+├── Button.stories.tsx  Storybook（§9）
 └── index.ts            只匯出公開 API
 ```
 
@@ -472,3 +473,37 @@ components/Table/
       （由 lint 規則 `no-restricted-imports` 強制）
 - [ ] `contrast.test.ts` 全綠
 - [ ] 每個元件都有 `.test.tsx`，至少涵蓋鍵盤操作與 disabled 狀態
+- [ ] 每個元件都有 `.stories.tsx`（§9，🔒 `design-system.test.ts`）
+
+---
+
+## 9. Storybook
+
+設計系統元件的目錄與互動沙盒。只收 `src/components/`；業務元件（`features/*/components/`）不寫 story——
+它們依賴權限、API 與 i18n，要看就開 app。
+
+```bash
+pnpm storybook          # http://localhost:6006
+pnpm storybook:build    # 靜態站輸出到 apps/web/storybook-static/（已 gitignore）
+```
+
+| 檔案 | 內容 |
+| --- | --- |
+| `apps/web/.storybook/main.ts` | 收 `src/components/**/*.stories.tsx`；addon：docs、a11y |
+| `apps/web/.storybook/preview.tsx` | 載入 `virtual:uno.css` 與 `src/index.css`（token）；全域 `autodocs`；`router` decorator |
+| `apps/web/.storybook/preview-head.html` | 與 `index.html` 相同的 `@layer` 順序宣告（§3.4），否則工具類蓋不過元件預設值 |
+
+Vite 設定直接沿用 `apps/web/vite.config.ts`（UnoCSS、svgr、`@/` alias、CSS Module 命名），不另外維護一份。
+
+### 9.1 寫法
+
+- story 放在元件資料夾內，檔名 `Xxx.stories.tsx`，`title: 'Components/<資料夾名>'`。
+- CSF3：`const meta = { … } satisfies Meta<typeof Xxx>; export default meta;`。
+  CSF 規定要 default export，這是 [`conventions/01-general.md`](../../conventions/01-general.md) §2.3 允許的例外。
+- 至少有一個 args 驅動的 `Playground`，另外列出有意義的變體、尺寸與狀態（disabled、invalid、loading、empty…）。
+- 需要狀態的受控示範寫成同檔的具名元件（`function ControlledDemo()`），`render: () => <ControlledDemo />`。
+- 回呼用 `storybook/test` 的 `fn()`，會出現在 Actions 面板。
+- 需要 TanStack Router context 的元件（`ButtonLink`、`render` 接 router `Link`）設 `parameters: { router: true }`，
+  由 `preview.tsx` 的 decorator 包一層記憶體 router。
+- 跟元件本身一樣只 import `components/`、`shared/`，不 import `core/`、`features/`、`apis/`；範例資料用中性內容，不出現業務名詞。
+- `design-system.test.ts` 的規則（不寫色碼、不用 `ge-` class）同樣套用在 story 上。

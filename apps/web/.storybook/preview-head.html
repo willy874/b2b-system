@@ -1,0 +1,8 @@
+<!--
+  與 index.html 相同的 CSS 層順序宣告：必須是頁面上第一個出現的 @layer，
+  否則元件的 components 層與 UnoCSS 的 utilities 層覆寫順序會亂掉。
+  見 docs/architecture/frontend/07-ui-system.md §3.4。
+-->
+<style>
+  @layer reset, base, components, utilities;
+</style>

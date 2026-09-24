@@ -32,6 +32,14 @@ describe('設計系統的結構規則', () => {
     expect(missing, `缺少 index.ts 或測試：${missing.join(', ')}`).toEqual([]);
   });
 
+  it('每個元件資料夾都有 Storybook story（07-ui-system.md §9）', () => {
+    const missing = componentDirs.filter(
+      (dir) =>
+        !readdirSync(resolve(componentsDir, dir)).some((file) => file.endsWith('.stories.tsx')),
+    );
+    expect(missing, `缺少 .stories.tsx：${missing.join(', ')}`).toEqual([]);
+  });
+
   it('CSS 不出現十六進位色碼、rgb()、hsl()（顏色與陰影一律走 Design Token）', () => {
     const offenders = cssFiles
       .map((file) => ({
