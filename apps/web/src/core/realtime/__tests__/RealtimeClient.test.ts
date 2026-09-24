@@ -7,7 +7,7 @@ import {
   isRealtimeAvailable,
   setActiveRealtimeClient,
 } from '../activeClient';
-import { RealtimeClient, REALTIME_SOCKET_PATH } from '../RealtimeClient';
+import { RealtimeClient, RealtimeClientEvent, REALTIME_SOCKET_PATH } from '../RealtimeClient';
 import type { RealtimeSocket, RealtimeSocketOptions } from '../RealtimeClient';
 
 type AnyListener = (...args: unknown[]) => void;
@@ -244,7 +244,7 @@ describe('RealtimeClient：resource.changed（§4）', () => {
   it('驗證後交給 resourceChanged', async () => {
     const { client, socket } = await connected();
     const onChanged = vi.fn();
-    client.events.on('resourceChanged', onChanged);
+    client.events.on(RealtimeClientEvent.RESOURCE_CHANGED, onChanged);
 
     socket.push('resource.changed', { changes: [change], origin: 'other-tab' });
 
@@ -254,7 +254,7 @@ describe('RealtimeClient：resource.changed（§4）', () => {
   it('origin 是本分頁的也交出去：leader 要轉給其他分頁，套不套用由協調者決定', async () => {
     const { client, socket } = await connected();
     const onChanged = vi.fn();
-    client.events.on('resourceChanged', onChanged);
+    client.events.on(RealtimeClientEvent.RESOURCE_CHANGED, onChanged);
 
     socket.push('resource.changed', { changes: [change], origin: 'this-tab' });
 
@@ -264,7 +264,7 @@ describe('RealtimeClient：resource.changed（§4）', () => {
   it('schema 不合（新舊版本並存）時略過，不拋例外', async () => {
     const { client, socket } = await connected();
     const onChanged = vi.fn();
-    client.events.on('resourceChanged', onChanged);
+    client.events.on(RealtimeClientEvent.RESOURCE_CHANGED, onChanged);
 
     expect(() =>
       socket.push('resource.changed', { changes: [{ resource: 'unknown', kind: 'update' }] }),
@@ -279,7 +279,7 @@ describe('RealtimeClient：重連後的補償（§5）', () => {
   it('connected 事件：第一次連線 resumed=false；重新連上 resumed=true（中間的推播已遺失）', async () => {
     const context = setup();
     const onConnected = vi.fn();
-    context.client.events.on('connected', onConnected);
+    context.client.events.on(RealtimeClientEvent.CONNECTED, onConnected);
     context.client.start();
     await vi.waitFor(() => expect(context.socket.handshakes).toHaveLength(1));
     context.socket.accept();

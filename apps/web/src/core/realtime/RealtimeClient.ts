@@ -31,16 +31,48 @@ export const REALTIME_SOCKET_PATH = '/api/socket.io';
 /** 伺服器主動斷線（`socket.disconnect(true)`）時的原因；Socket.io 不會自動重連。 */
 const SERVER_DISCONNECT_REASON = 'io server disconnect';
 
+/** `RealtimeClient.events` 的事件名稱（前端內部，與伺服器的 `ServerEvent` 分開）。 */
+export const RealtimeClientEvent = {
+  RESOURCE_CHANGED: 'resourceChanged',
+  CONNECTED: 'connected',
+  DISCONNECTED: 'disconnected',
+} as const;
+
+export type RealtimeClientEvent = (typeof RealtimeClientEvent)[keyof typeof RealtimeClientEvent];
+
 export type RealtimeClientEvents = {
   /**
    * 伺服器推來的來源變更（已驗證）。**不**在這裡略過本分頁發起的：leader 要把它轉給其他分頁，
    * 是否在本分頁套用由 `RealtimeCoordinator` 依 `origin` 決定。
    */
-  resourceChanged: (payload: ResourceChanged) => void;
+  [RealtimeClientEvent.RESOURCE_CHANGED]: (payload: ResourceChanged) => void;
   /** handshake 通過。`resumed`：這個分頁之前連線過，斷線期間的推播已遺失（§5）。 */
-  connected: (info: { resumed: boolean }) => void;
-  disconnected: () => void;
+  [RealtimeClientEvent.CONNECTED]: (info: { resumed: boolean }) => void;
+  [RealtimeClientEvent.DISCONNECTED]: () => void;
 };
+
+/**
+ * 伺服器事件 → `events` 的事件：驗證後原樣轉發 payload。
+ * 不在表上的伺服器事件由 `RealtimeClient` 自己處理（`session.*`）或交給其他模組（`channel.relay`），
+ * feature 要聽的用 `useRealtimeEvent()`。
+ */
+export const SERVER_TO_CLIENT_EVENT = {
+  [ServerEvent.RESOURCE_CHANGED]: RealtimeClientEvent.RESOURCE_CHANGED,
+} as const satisfies Partial<Record<ServerEvent, RealtimeClientEvent>>;
+
+/** payload 與對應的 `events` 事件一致的伺服器事件。 */
+type PayloadMatched = {
+  [E in keyof typeof SERVER_TO_CLIENT_EVENT]: Parameters<
+    ServerToClientEvents[E]
+  > extends Parameters<RealtimeClientEvents[(typeof SERVER_TO_CLIENT_EVENT)[E]]>
+    ? E
+    : never;
+}[keyof typeof SERVER_TO_CLIENT_EVENT];
+/** 對照表接到 payload 不同的事件時編譯失敗，而不是執行期把錯的形狀交給訂閱者。 */
+type AssertForwardable<T extends PayloadMatched> = T;
+export type ForwardedServerEvent = AssertForwardable<keyof typeof SERVER_TO_CLIENT_EVENT>;
+
+const FORWARDED_SERVER_EVENTS = Object.keys(SERVER_TO_CLIENT_EVENT) as ForwardedServerEvent[];
 
 export interface RealtimeClientOptions {
   session: SessionStore;
@@ -107,9 +139,7 @@ export class RealtimeClient {
     this.socket.on('connect_error', this.handleConnectError);
     this.socket.on(ServerEvent.SESSION_EXPIRED, this.handleSessionExpired);
     this.socket.on(ServerEvent.SESSION_REVOKED, this.handleSessionRevoked);
-    this.onServerEvent(ServerEvent.RESOURCE_CHANGED, (payload) => {
-      this.events.emit('resourceChanged', payload);
-    });
+    for (const event of FORWARDED_SERVER_EVENTS) this.forwardServerEvent(event);
   }
 
   /** 連線中（handshake 已通過）。 */
@@ -147,6 +177,18 @@ export class RealtimeClient {
     return () => {
       socket.off(event, wrapped);
     };
+  }
+
+  /** 依 `SERVER_TO_CLIENT_EVENT` 把伺服器事件（驗證後）轉成 `events` 的事件。 */
+  private forwardServerEvent<E extends ForwardedServerEvent>(event: E): void {
+    const clientEvent = SERVER_TO_CLIENT_EVENT[event];
+    // payload 型別一致由 AssertForwardable 在編譯期保證；泛型下 TS 無法自行對上兩張表
+    const emit = this.events.emit.bind(this.events) as (
+      name: RealtimeClientEvent,
+      ...args: unknown[]
+    ) => void;
+    this.onServerEvent(event, ((...args: unknown[]) =>
+      emit(clientEvent, ...args)) as ServerToClientEvents[E]);
   }
 
   /** 接上 session：已有 session 就連線，之後跟著登入、續期、登出（§3 生命週期表）。 */
@@ -220,12 +262,12 @@ export class RealtimeClient {
     const resumed = this.hasConnectedBefore;
     this.hasConnectedBefore = true;
     this.notify();
-    this.events.emit('connected', { resumed });
+    this.events.emit(RealtimeClientEvent.CONNECTED, { resumed });
   };
 
   private readonly handleDisconnect = (reason: string): void => {
     this.notify();
-    this.events.emit('disconnected');
+    this.events.emit(RealtimeClientEvent.DISCONNECTED);
     if (reason === SERVER_DISCONNECT_REASON && this.expiredPending) {
       this.expiredPending = false;
       // handshake 會先透過 ensureAccessToken() 換一張新 token

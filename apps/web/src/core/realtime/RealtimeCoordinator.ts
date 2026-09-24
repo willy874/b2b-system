@@ -7,6 +7,7 @@ import type { ResourceChanged, ResourceChangeWire } from '@/shared/realtime';
 import { createKeyedThrottle } from '@/shared/utils';
 import type { JitterRange, KeyedThrottle } from '@/shared/utils';
 
+import { RealtimeClientEvent } from './RealtimeClient';
 import type { RealtimeClient } from './RealtimeClient';
 
 /**
@@ -129,9 +130,9 @@ export class RealtimeCoordinator {
     client.setOwner(false);
     this.offs.push(
       election.state.subscribe((state, previous) => this.handleElection(state, previous)),
-      client.events.on('connected', this.handleConnected),
-      client.events.on('disconnected', this.handleDisconnected),
-      client.events.on('resourceChanged', this.handleServerChanges),
+      client.events.on(RealtimeClientEvent.CONNECTED, this.handleConnected),
+      client.events.on(RealtimeClientEvent.DISCONNECTED, this.handleDisconnected),
+      client.events.on(RealtimeClientEvent.RESOURCE_CHANGED, this.handleServerChanges),
       channel.on('resource-changed', this.handleRelayedChanges),
       channel.on('resync', this.handleResync),
       channel.on('status', this.handleStatus),

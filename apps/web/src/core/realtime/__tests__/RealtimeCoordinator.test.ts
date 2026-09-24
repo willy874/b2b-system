@@ -7,6 +7,7 @@ import type { LeaderElectionAdapters, LeaderMessages } from '@/shared/leader';
 import type { ResourceChangeWire } from '@/shared/realtime';
 import { createFakeChannelHub } from '@/test/fakeChannelHub';
 
+import { RealtimeClientEvent } from '../RealtimeClient';
 import type { RealtimeClient, RealtimeClientEvents } from '../RealtimeClient';
 import { RealtimeCoordinator } from '../RealtimeCoordinator';
 import type { ApplyOptions, RealtimeControlMessages } from '../RealtimeCoordinator';
@@ -34,16 +35,19 @@ class FakeClient {
     this.isConnected = true;
     const resumed = this.hasConnectedBefore;
     this.hasConnectedBefore = true;
-    this.events.emit('connected', { resumed });
+    this.events.emit(RealtimeClientEvent.CONNECTED, { resumed });
   }
 
   drop(): void {
     this.isConnected = false;
-    this.events.emit('disconnected');
+    this.events.emit(RealtimeClientEvent.DISCONNECTED);
   }
 
   push(changes: ResourceChangeWire[], origin?: string): void {
-    this.events.emit('resourceChanged', origin === undefined ? { changes } : { changes, origin });
+    this.events.emit(
+      RealtimeClientEvent.RESOURCE_CHANGED,
+      origin === undefined ? { changes } : { changes, origin },
+    );
   }
 }
 

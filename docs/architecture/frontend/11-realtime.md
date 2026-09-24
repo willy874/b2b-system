@@ -47,6 +47,9 @@ shared/realtime/                           `@game-editor/realtime` 的唯一匯�
   其他地方拿到的是 `RealtimeClient` 或 channel，換掉 Socket.io 時影響範圍固定。
 - `plugins/` 不能 import `apis/`，所以「收到來源變更 → 依賴圖換算」的函式由 `main.tsx` 注入。
 - Feature 不直接碰 socket，一律透過 `useRealtimeEvent()`（§8）。
+- 事件名稱都用常數，不寫字串：伺服器事件用合約的 `ServerEvent`，`RealtimeClient.events` 用 `RealtimeClientEvent`
+  （`resourceChanged`、`connected`、`disconnected`）。伺服器事件要轉成 `events` 的，登記在 `SERVER_TO_CLIENT_EVENT`
+  對照表（目前只有 `resource.changed` → `resourceChanged`）；兩邊 payload 不一致時編譯失敗。
 
 ---
 
@@ -210,7 +213,7 @@ leader 當掉時 follower 在心跳逾時後改判為不可用，mutation 自動
 
 | 情況 | 判斷 |
 | ---- | ---- |
-| leader 重新連上 | `RealtimeClient` 的 `connected` 事件帶 `resumed: true`（這個分頁之前連線過） |
+| leader 重新連上 | `RealtimeClient` 的 `RealtimeClientEvent.CONNECTED` 事件帶 `resumed: true`（這個分頁之前連線過） |
 | leader 交接後第一次連上 | 當選前已知有別的 leader：交接的空窗（讓位 → 新 leader 連上）裡可能漏了推播 |
 | follower 發現序號跳號 | 只有這個 follower 重新驗證（§3.4） |
 
