@@ -4,7 +4,7 @@ import { Outlet, useNavigate } from '@tanstack/react-router';
 import { getRoleDetailQueryOptions } from '@/apis/role/get-role-detail/query';
 import { getRolePermissionsQueryOptions } from '@/apis/role/get-role-permissions/query';
 import { getRoleUsersQueryOptions } from '@/apis/role/get-role-users/query';
-import { Button } from '@/components/Button';
+import { Button, ButtonLink } from '@/components/Button';
 import { Dialog } from '@/components/Dialog';
 import { Skeleton } from '@/components/Skeleton';
 import { useTranslation } from '@/core/locales';
@@ -62,15 +62,15 @@ export default function RoleDetailPage() {
             </Button>
           )}
           {permission.canManagePermission && !isSystem && (
-            <Button
+            <ButtonLink
               variant="secondary"
-              onClick={() =>
-                void navigate({ to: RoleDetailPermissionRoute.to, params: { roleId }, search })
-              }
+              to={RoleDetailPermissionRoute.to}
+              params={{ roleId }}
+              search={search}
               data-testid="role-manage-permission-button"
             >
               {t('role.detail.managePermission')}
-            </Button>
+            </ButtonLink>
           )}
           <Button variant="primary" onClick={close}>
             {t('common.close')}

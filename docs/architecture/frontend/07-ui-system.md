@@ -84,7 +84,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 components/Button/
 ├── Button.tsx          主元件
 ├── IconButton.tsx      變體
-├── Link.tsx            以 <a> / TanStack Link 渲染的變體
+├── Link.tsx            ButtonLink：按鈕外觀的 TanStack Link（createLink ＋ <a>）
 ├── Button.module.css   該元件的樣式（CSS Module，用 component 層 token）
 ├── Button.test.tsx
 └── index.ts            只匯出公開 API
@@ -282,6 +282,26 @@ TanStack Router 的 `Link` 塞進 Menu item 而不失去鍵盤行為：
 ```tsx
 <Menu.Item render={<Link to="/role/$roleId" params={{ roleId }} />}>{t("role.detail")}</Menu.Item>
 ```
+
+### 3.6 `ButtonLink` — 會換頁的按鈕
+
+「點了就換頁」的動作（建立、管理權限…）用 `ButtonLink`，不寫 `<Button onClick={() => navigate(...)}>`：
+它是 TanStack `createLink()` 包住與 `Button` 同一份樣式的 `<a>`，所以有真正的 `href`
+（可中鍵開新分頁、看得到目的網址、可預先載入），props 是 `to` / `params` / `search` ＋ `Button` 的外觀。
+
+```tsx
+<ButtonLink variant="primary" to={RoleCreateRoute.to} search={search} data-testid="role-create-button">
+  {t("role.create.action")}
+</ButtonLink>
+```
+
+| 需求               | 用                                           |
+| ------------------ | -------------------------------------------- |
+| 按鈕外觀、站內換頁 | `ButtonLink`（`components/Button`）          |
+| 文字連結           | `Link`（`components/Link`），站內時以 `render` 傳 router 的 `Link` |
+| 不換頁的動作       | `Button`                                     |
+
+`disabled` 時 TanStack 會拿掉 `href` 並擋下點擊，`ButtonLink` 另外標上 `aria-disabled` 與 `data-disabled`。
 
 ---
 

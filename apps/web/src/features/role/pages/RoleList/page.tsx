@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 
 import { getRoleListQueryOptions } from '@/apis/role/get-role-list/query';
 import { AlertDialog } from '@/components/AlertDialog';
-import { Button } from '@/components/Button';
+import { Button, ButtonLink } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Pagination } from '@/components/Pagination';
 import { useTranslation } from '@/core/locales';
@@ -52,13 +52,14 @@ export default function RoleListPage() {
         </div>
         {/* 使用者永遠不會有這個權限時直接隱藏 */}
         {permission.canCreate && (
-          <Button
+          <ButtonLink
             variant="primary"
-            onClick={() => void navigate({ to: RoleCreateRoute.to, search })}
+            to={RoleCreateRoute.to}
+            search={search}
             data-testid="role-create-button"
           >
             {t('role.create.action')}
-          </Button>
+          </ButtonLink>
         )}
       </header>
 

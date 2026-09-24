@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
 import { AlertDialog } from '@/components/AlertDialog';
-import { Button } from '@/components/Button';
+import { ButtonLink } from '@/components/Button';
 import { Pagination } from '@/components/Pagination';
 import { useTranslation } from '@/core/locales';
 
@@ -54,13 +54,14 @@ export default function UserListPage() {
           <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('user.list.description')}</p>
         </div>
         {permission.canCreate && (
-          <Button
+          <ButtonLink
             variant="primary"
-            onClick={() => void navigate({ to: UserCreateRoute.to, search })}
+            to={UserCreateRoute.to}
+            search={search}
             data-testid="user-create-button"
           >
             {t('user.create.action')}
-          </Button>
+          </ButtonLink>
         )}
       </header>
 
