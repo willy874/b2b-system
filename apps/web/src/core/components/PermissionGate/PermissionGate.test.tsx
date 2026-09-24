@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { PermissionKey } from '@/core/permission';
 import { renderUnhydrated, renderWithPermissions } from '@/test/renderWithPermissions';
 
-import { PermissionGate } from '../PermissionGate';
+import { PermissionGate } from './PermissionGate';
 
 const gate = (
   <PermissionGate

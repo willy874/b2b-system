@@ -294,7 +294,7 @@ function RoleListToolbar() {
 宣告式的寫法，供巢狀較深的地方使用：
 
 ```tsx
-// core/components/PermissionGate.tsx
+// core/components/PermissionGate/PermissionGate.tsx
 <PermissionGate require={[PermissionKey.RoleDelete]} match="every" fallback={null}>
   <DeleteButton />
 </PermissionGate>
