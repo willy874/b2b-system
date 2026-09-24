@@ -65,16 +65,33 @@ cursor 分頁做不到。資料規模（使用者、角色）也遠不到 offset
 
 ### 2.1 排序
 
-```ts
-export const SortSchema = <T extends readonly [string, ...string[]]>(fields: T) =>
-  z.object({
-    sortBy: z.enum(fields).default(fields[0]),
-    sortOrder: z.enum(["asc", "desc"]).default("desc"),
-  });
+多欄排序：查詢參數 `sort=<欄位>:<asc|desc>` 可重複，**出現順序就是優先順序**。
+
+```http
+GET /users?sort=displayName:asc&sort=createdAt:desc
 ```
 
-**`sortBy` 必須是白名單 enum**，不接受任意欄位名——那是 SQL injection 的入口，
-也會讓沒有索引的欄位被拿來排序。
+```ts
+// core/http/pagination.ts —— 解析成 SortEntry[]（資料結構同前端 shared/constants/sort.ts）
+export const SortSchema = <const T extends readonly [string, ...string[]]>(fields: T) =>
+  z.object({
+    sort: z.preprocess(
+      parseSortTokens, // "name:asc" → { sort: "name", order: "asc" }
+      z
+        .array(z.object({ sort: z.enum(fields), order: z.enum(["asc", "desc"]) }))
+        .min(1)
+        .max(fields.length)
+        .refine(noDuplicateField)
+        .default([{ sort: fields[0], order: "desc" }]),
+    ),
+  });
+
+// repository：依序 orderBy，最後以 id 收尾讓分頁順序穩定
+.orderBy(...query.sort.map(({ sort, order }) => (order === "asc" ? asc : desc)(SORT_COLUMNS[sort])), desc(users.id))
+```
+
+**欄位必須是白名單 enum**，不接受任意欄位名——那是 SQL injection 的入口，
+也會讓沒有索引的欄位被拿來排序。同一欄位出現兩次、格式不是 `<欄位>:<方向>` 都回 400。
 
 ---
 

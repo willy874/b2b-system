@@ -366,8 +366,7 @@ export class UserService {
       offset: 0,
       limit: 1,
       keyword: username,
-      sortBy: 'createdAt',
-      sortOrder: 'desc',
+      sort: [{ sort: 'createdAt', order: 'desc' }],
     });
     if (items.some((item) => item.username?.toLowerCase() === username.toLowerCase())) {
       throw new AppException('USER_USERNAME_DUPLICATE', { field: 'username', value: username });

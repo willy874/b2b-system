@@ -85,7 +85,10 @@ export class RoleRepository {
     }
     if (query.isSystem !== undefined) conditions.push(eq(roles.isSystem, query.isSystem));
     const where = and(...conditions);
-    const column = SORT_COLUMNS[query.sortBy as keyof typeof SORT_COLUMNS];
+    // 依 sort 陣列的順序排；最後以 id 收尾，讓同值的列在分頁之間順序穩定
+    const orderBy = query.sort.map(({ sort, order }) =>
+      order === 'asc' ? asc(SORT_COLUMNS[sort]) : desc(SORT_COLUMNS[sort]),
+    );
 
     const [items, [counted]] = await Promise.all([
       this.db
@@ -96,7 +99,7 @@ export class RoleRepository {
         })
         .from(roles)
         .where(where)
-        .orderBy(query.sortOrder === 'asc' ? asc(column) : desc(column))
+        .orderBy(...orderBy, desc(roles.id))
         .limit(query.limit)
         .offset(query.offset),
       this.db
