@@ -15,6 +15,14 @@ const options: ComboboxOption[] = [
 const meta = {
   title: 'Components/Combobox',
   component: Combobox,
+  // 元件寬度是 100%，在置中版面裡要給容器寬度才看得出樣子
+  decorators: [
+    (Story) => (
+      <div className="w-80">
+        <Story />
+      </div>
+    ),
+  ],
   args: { options, placeholder: '選擇一種水果', onValueChange: fn() },
 } satisfies Meta<typeof Combobox>;
 

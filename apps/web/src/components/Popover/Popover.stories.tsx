@@ -7,6 +7,10 @@ import { Popover } from './Popover';
 const meta = {
   title: 'Components/Popover',
   component: Popover,
+  parameters: {
+    // 開啟狀態的彈出層會蓋住整個 docs 頁；每個 story 放進自己的 iframe
+    docs: { story: { inline: false, iframeHeight: 360 } },
+  },
   args: {
     trigger: <Button>開啟</Button>,
     children: '這裡是彈層內容。',

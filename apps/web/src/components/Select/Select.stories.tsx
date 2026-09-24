@@ -13,6 +13,14 @@ const options = [
 const meta = {
   title: 'Components/Select',
   component: Select,
+  // 元件寬度是 100%，在置中版面裡要給容器寬度才看得出樣子
+  decorators: [
+    (Story) => (
+      <div className="w-80">
+        <Story />
+      </div>
+    ),
+  ],
   args: { options, defaultValue: 'draft', onValueChange: fn() },
   argTypes: {
     size: { control: 'inline-radio', options: ['sm', 'md'] },
@@ -30,7 +38,7 @@ export const Placeholder: Story = {
 
 export const Sizes: Story = {
   render: (args) => (
-    <div className="flex items-center gap-2">
+    <div className="grid gap-2">
       <Select {...args} size="sm" />
       <Select {...args} size="md" />
     </div>

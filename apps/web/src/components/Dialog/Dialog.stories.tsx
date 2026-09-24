@@ -8,6 +8,10 @@ import { Dialog } from './Dialog';
 const meta = {
   title: 'Components/Dialog',
   component: Dialog,
+  parameters: {
+    // 開啟狀態的彈出層會蓋住整個 docs 頁；每個 story 放進自己的 iframe
+    docs: { story: { inline: false, iframeHeight: 360 } },
+  },
   args: {
     title: '建立專案',
     children: <p>這裡放表單或說明文字。</p>,

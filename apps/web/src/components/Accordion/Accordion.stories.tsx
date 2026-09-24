@@ -13,6 +13,14 @@ const items: AccordionItemDescriptor[] = [
 const meta = {
   title: 'Components/Accordion',
   component: Accordion,
+  // 元件寬度是 100%，在置中版面裡要給容器寬度才看得出樣子
+  decorators: [
+    (Story) => (
+      <div className="w-80">
+        <Story />
+      </div>
+    ),
+  ],
   args: { items, onValueChange: fn() },
 } satisfies Meta<typeof Accordion>;
 

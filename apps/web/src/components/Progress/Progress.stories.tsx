@@ -5,6 +5,14 @@ import { Progress } from './Progress';
 const meta = {
   title: 'Components/Progress',
   component: Progress,
+  // 元件寬度是 100%，在置中版面裡要給容器寬度才看得出樣子
+  decorators: [
+    (Story) => (
+      <div className="w-80">
+        <Story />
+      </div>
+    ),
+  ],
   args: { value: 40 },
   argTypes: {
     tone: { control: 'inline-radio', options: ['brand', 'success', 'danger'] },

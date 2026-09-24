@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useState } from 'react';
+import { useArgs } from 'storybook/preview-api';
 import { fn } from 'storybook/test';
 
 import { Button } from '../Button';
@@ -8,6 +8,10 @@ import { AlertDialog } from './AlertDialog';
 const meta = {
   title: 'Components/AlertDialog',
   component: AlertDialog,
+  parameters: {
+    // 開啟狀態的彈出層會蓋住整個 docs 頁；每個 story 放進自己的 iframe
+    docs: { story: { inline: false, iframeHeight: 360 } },
+  },
   args: {
     open: true,
     onOpenChange: fn(),
@@ -16,6 +20,32 @@ const meta = {
     confirmLabel: '刪除',
     cancelLabel: '取消',
     onConfirm: fn(),
+  },
+  /**
+   * `open` 是受控的必填 prop：關閉、確認時把新狀態寫回 args，否則對話框永遠關不掉；
+   * 關掉後用按鈕（或 Controls 的 open）重新開啟。`useArgs` 只能在 render 函式本身呼叫。
+   */
+  render: function Render(args) {
+    const [, updateArgs] = useArgs();
+    const setOpen = (open: boolean) => {
+      args.onOpenChange(open);
+      updateArgs({ open });
+    };
+    return (
+      <>
+        <Button variant="danger" onClick={() => setOpen(true)}>
+          開啟確認對話框
+        </Button>
+        <AlertDialog
+          {...args}
+          onOpenChange={setOpen}
+          onConfirm={() => {
+            void args.onConfirm();
+            setOpen(false);
+          }}
+        />
+      </>
+    );
   },
 } satisfies Meta<typeof AlertDialog>;
 
@@ -30,29 +60,4 @@ export const Primary: Story = {
 
 export const Loading: Story = {
   args: { loading: true },
-};
-
-/** 破壞性確認需要觸發按鈕才能在畫面上開關，因此獨立用受控範例展示。 */
-function ControlledDemo() {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <Button variant="danger" onClick={() => setOpen(true)}>
-        刪除項目
-      </Button>
-      <AlertDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="刪除這個項目？"
-        description="刪除後無法復原，請確認是否繼續。"
-        confirmLabel="刪除"
-        cancelLabel="取消"
-        onConfirm={() => setOpen(false)}
-      />
-    </>
-  );
-}
-
-export const WithTrigger: Story = {
-  render: () => <ControlledDemo />,
 };
