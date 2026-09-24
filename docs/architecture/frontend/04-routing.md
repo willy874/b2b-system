@@ -176,8 +176,8 @@ pathname '/role/abc/permission'
 這一層不是權限守衛的責任，而是 `SessionStore` 的：
 
 ```
-任何請求 → 401/終止訊號
-  → SessionStore 判定 session 結束（latched，只觸發一次）
+任何請求 → 401 → 續期被伺服器拒絕，或收到終止類錯誤碼
+  → SessionStore 判定 session 結束（latched，只觸發一次；網路錯誤、5xx 不算）
   → emit SESSION_ENDED
   → app 層監聽：清空 permission store、清空 query cache、
      navigate({ to: '/auth/login', search: { redirect: currentPath } })

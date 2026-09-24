@@ -1,4 +1,5 @@
 import { AbortReason, RequestAbortedError, requestAbortBus, toAbortedError } from './abort';
+import { NetworkError } from './NetworkError';
 import type { FetcherRequest, FetcherResponse, HttpContextOptions } from './types';
 
 /** fetcher 實作拿到的介面：已綁定呼叫端的 signal。 */
@@ -42,12 +43,20 @@ export class HttpContext implements HttpClient {
         request = await interceptor(request);
       }
       sent = request;
-      const response = await fetch(request.url, request.init);
-      let result: FetcherResponse = {
-        status: response.status,
-        data: parseBody(await response.text()),
-        headers: response.headers,
-      };
+      let result: FetcherResponse;
+      try {
+        const response = await fetch(request.url, request.init);
+        result = {
+          status: response.status,
+          data: parseBody(await response.text()),
+          headers: response.headers,
+        };
+      } catch (error) {
+        // 中止：統一成 RequestAbortedError（舊環境的 fetch 丟 DOMException）；
+        // 其餘都是傳輸層失敗（離線、DNS、CORS、連線中途斷掉）
+        if (signal.aborted) throw toAbortedError(signal);
+        throw new NetworkError(error);
+      }
       for (const interceptor of this.options.responseInterceptors ?? []) {
         result = await interceptor(result, request);
       }
@@ -68,9 +77,6 @@ export class HttpContext implements HttpClient {
           lastError = next;
         }
       }
-      // fetch 會以 signal.reason（RequestAbortedError）reject；舊環境丟 DOMException，統一換掉。
-      // 伺服器已回應的 AppError 保留原樣
-      if (signal.aborted && isDomAbort(lastError)) throw toAbortedError(signal);
       throw lastError;
     } finally {
       abort.dispose();
@@ -108,10 +114,6 @@ export class HttpContext implements HttpClient {
       },
     };
   }
-}
-
-function isDomAbort(error: unknown): boolean {
-  return error instanceof DOMException && error.name === 'AbortError';
 }
 
 /** 空字串 → undefined；非 JSON（例如 proxy 回的 502 HTML）→ undefined，交給狀態碼判斷。 */

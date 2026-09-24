@@ -2,7 +2,7 @@ import { renderHook } from '@testing-library/react';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import zhTW from '@/app/locales/zh_TW.json';
-import { AbortReason, RequestAbortedError } from '@/core/client';
+import { AbortReason, NetworkError, RequestAbortedError } from '@/core/client';
 import { i18n, initI18n } from '@/core/locales';
 
 import { AppError } from '../AppError';
@@ -29,6 +29,13 @@ describe('useErrorMessage', () => {
   it('非 AppError 一律通用訊息', () => {
     const { result } = renderHook(() => useErrorMessage());
     expect(result.current(new Error('boom'))).toBe('發生未預期的錯誤，請稍後再試。');
+  });
+
+  it('網路錯誤顯示連線訊息', () => {
+    const { result } = renderHook(() => useErrorMessage());
+    expect(result.current(new NetworkError(new TypeError('Failed to fetch')))).toBe(
+      '無法連線到伺服器，請檢查網路後再試。',
+    );
   });
 
   it('逾時顯示逾時訊息', () => {

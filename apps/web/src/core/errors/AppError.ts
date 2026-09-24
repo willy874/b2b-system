@@ -44,3 +44,13 @@ export const SESSION_TERMINAL_CODES = new Set<string>([
   ErrorCodes.AUTH_REFRESH_REVOKED,
   ErrorCodes.AUTH_REFRESH_REUSED,
 ]);
+
+/**
+ * 伺服器明確拒絕了這個 session（401 或終止類錯誤碼）。
+ * 網路錯誤、5xx、429、逾時都 **不是**：那是暫時性失敗，結束 session 只會把使用者無故登出。
+ */
+export function isSessionRejected(error: unknown): boolean {
+  return (
+    error instanceof AppError && (error.status === 401 || SESSION_TERMINAL_CODES.has(error.code))
+  );
+}

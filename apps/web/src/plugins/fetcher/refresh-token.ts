@@ -1,7 +1,7 @@
 import { sessionStore } from '@/core/auth';
-import { isRequestAborted, raceAbort } from '@/core/client';
+import { raceAbort } from '@/core/client';
 import type { ErrorInterceptor } from '@/core/client';
-import { AppError, SESSION_TERMINAL_CODES } from '@/core/errors';
+import { AppError, isSessionRejected, SESSION_TERMINAL_CODES } from '@/core/errors';
 
 import { sentAccessToken } from './auth';
 
@@ -27,12 +27,14 @@ export const refreshTokenInterceptor: ErrorInterceptor = async (error, request, 
       request.signal,
     );
   } catch (renewError) {
-    // 本請求被中止不代表 session 有問題
-    if (isRequestAborted(renewError)) throw renewError;
-    sessionStore.endSession(error.code);
-    throw error;
+    // 續期被伺服器拒絕：SessionStore 已結束 session，對呼叫端回報原本的 401。
+    // 其餘（本請求被中止、網路錯誤、5xx、429）不代表 session 有問題：原樣丟出，
+    // 交給後面的 retry 攔截器（重試時會再走一次續期）或呼叫端
+    if (isSessionRejected(renewError)) throw error;
+    throw renewError;
   }
   if (!token) {
+    // 沒有 session 可續（未登入，或等待期間 session 已被其他分頁結束）
     sessionStore.endSession(error.code);
     throw error;
   }

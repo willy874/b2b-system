@@ -169,8 +169,15 @@ Refresh token 是 **輪替** 的：用過一次就作廢，後端會換發新的
 分頁 B 需要續期
   ├─ 已收到 'refresh-start' 且在 3 秒內 → 等待 'refresh-done'
   ├─ 收到 → 直接採用，不打 API
+  ├─ 收到 'refresh-failed' → 不再等：session 已結束就放棄，否則自己打
   └─ 逾時未收到（A 分頁可能被關了）→ 自己打
 ```
+
+**續期失敗不一定是 session 結束。** 只有伺服器明確拒絕（401、`AUTH_REFRESH_*`、
+`AUTH_ACCOUNT_DISABLED`，即 `isSessionRejected()`）才結束 session；網路錯誤、5xx、
+`429 RATE_LIMITED`、逾時都是暫時性的，保留 session，錯誤照常回報給這次請求，
+下一個請求會再試一次續期（冪等請求由 `retry.ts` 自動重試）。否則一次網路抖動
+就會把使用者登出。
 
 **逾時的必要性**：廣播「我要續期了」之後如果那個分頁被關掉，其他分頁不能永遠
 等下去。3 秒是一個「正常續期一定完成、異常時使用者也還沒察覺」的值。

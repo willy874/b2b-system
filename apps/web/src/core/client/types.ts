@@ -5,7 +5,6 @@ export interface HttpRequestDTO<TParams = unknown> {
    * 由 `defineXxxFetcher` 自動接到 `HttpContext`，fetcher 實作不必（也不應）自己傳給 `fetch`。
    */
   signal?: AbortSignal;
-  headers?: Record<string, string>;
 }
 
 export interface FetcherRequest {

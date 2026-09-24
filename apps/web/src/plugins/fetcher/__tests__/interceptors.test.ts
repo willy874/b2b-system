@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { sessionStore } from '@/core/auth';
-import { AbortReason, RequestAbortedError } from '@/core/client';
+import { AbortReason, NetworkError, RequestAbortedError } from '@/core/client';
 import type { FetcherRequest, FetcherResponse } from '@/core/client';
 import { AppError } from '@/core/errors';
 
@@ -91,10 +91,17 @@ describe('retry 攔截器', () => {
     expect(retry).toHaveBeenCalled();
   });
 
-  it('網路錯誤（TypeError）會重試', async () => {
+  it('網路錯誤（NetworkError）會重試', async () => {
     const retry = vi.fn().mockResolvedValue(response(200, 'ok'));
-    await retryInterceptor(new TypeError('Failed to fetch'), request, retry);
+    await retryInterceptor(new NetworkError(new TypeError('Failed to fetch')), request, retry);
     expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it('程式錯誤（非 NetworkError 的 TypeError）不重試', async () => {
+    const retry = vi.fn();
+    const bug = new TypeError('x is not a function');
+    await expect(retryInterceptor(bug, request, retry)).rejects.toBe(bug);
+    expect(retry).not.toHaveBeenCalled();
   });
 
   it('★ 非冪等方法（POST）不重試：避免重複寫入與 refresh token 重用', async () => {
@@ -275,5 +282,37 @@ describe('refresh-token 攔截器', () => {
     finishRefresh?.();
     off();
     sessionStore.clear();
+  });
+
+  it('★ 續期時網路失敗 → 不結束 session，丟出網路錯誤交給 retry', async () => {
+    const networkError = new NetworkError(new TypeError('Failed to fetch'));
+    sessionStore.setRefreshFn(() => Promise.reject(networkError));
+    sessionStore.setTokens({ accessToken: 'token-1', expiresIn: 300 });
+    const ended = vi.fn();
+    const off = sessionStore.events.on('ended', ended);
+    const retry = vi.fn();
+
+    await expect(
+      refreshTokenInterceptor(new AppError('AUTH_TOKEN_INVALID', 401), withToken('token-1'), retry),
+    ).rejects.toBe(networkError);
+    expect(ended).not.toHaveBeenCalled();
+    expect(sessionStore.hasSession()).toBe(true);
+    expect(retry).not.toHaveBeenCalled();
+    off();
+    sessionStore.clear();
+  });
+
+  it('續期被伺服器拒絕 → 結束 session，對呼叫端回報原本的 401', async () => {
+    sessionStore.setRefreshFn(() => Promise.reject(new AppError('AUTH_REFRESH_REVOKED', 401)));
+    sessionStore.setTokens({ accessToken: 'token-1', expiresIn: 300 });
+    const ended = vi.fn();
+    const off = sessionStore.events.on('ended', ended);
+    const original = new AppError('AUTH_TOKEN_INVALID', 401);
+
+    await expect(refreshTokenInterceptor(original, withToken('token-1'), vi.fn())).rejects.toBe(
+      original,
+    );
+    expect(ended).toHaveBeenCalledWith('AUTH_REFRESH_REVOKED');
+    off();
   });
 });

@@ -42,6 +42,40 @@ describe.runIf(hasBroadcastChannel)('SessionStore 跨分頁協調', () => {
     second.destroy();
   });
 
+  it('其他分頁續期失敗時不再乾等，自己續期', async () => {
+    const first = new SessionStore();
+    const second = new SessionStore();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    let rejectRefresh: ((error: Error) => void) | undefined;
+    first.setRefreshFn(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectRefresh = reject;
+        }),
+    );
+    const secondRefresh = vi.fn().mockResolvedValue({ accessToken: 'own', expiresIn: 300 });
+    second.setRefreshFn(secondRefresh);
+    first.setTokens({ accessToken: 'stale-1', expiresIn: 1 });
+    second.setTokens({ accessToken: 'stale-2', expiresIn: 1 });
+
+    const firstPromise = first.ensureAccessToken();
+    await vi.waitFor(() => expect(rejectRefresh).toBeDefined());
+    // 等 second 收到 refresh-start
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const startedAt = Date.now();
+    const secondPromise = second.ensureAccessToken();
+    rejectRefresh?.(new Error('network'));
+
+    await expect(firstPromise).rejects.toThrow('network');
+    await expect(secondPromise).resolves.toBe('own');
+    // 沒有等到 3 秒逾時
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+
+    first.destroy();
+    second.destroy();
+  });
+
   it('一處登出，其他分頁跟著結束 session', async () => {
     const first = new SessionStore();
     const second = new SessionStore();

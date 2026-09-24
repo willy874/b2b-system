@@ -1,3 +1,4 @@
+import { isSessionRejected } from '@/core/errors';
 import { EventEmitter } from '@/shared/EventEmitter';
 import { createDictStorage } from '@/shared/storage';
 
@@ -35,10 +36,12 @@ interface TokenMessage {
  */
 export class SessionStore {
   readonly events = new EventEmitter<SessionStoreEvents>();
+  /** 內部用：其他分頁的續期結果（成功走公開的 `refreshed`）。 */
+  private readonly peerEvents = new EventEmitter<{ refreshFailed: () => void }>();
 
   private accessToken: string | undefined;
   private expiresAt = 0;
-  private inFlight: Promise<string> | undefined;
+  private inFlight: Promise<string | undefined> | undefined;
   private refreshFn: RefreshFn | undefined;
   private ended = false; // latched：只觸發一次
   private peerSeen = false;
@@ -85,8 +88,13 @@ export class SessionStore {
   }
 
   setTokens({ accessToken, expiresIn }: SessionTokens): void {
+    this.applyTokens(accessToken, Date.now() + expiresIn * 1000);
+  }
+
+  /** 本分頁登入／續期，或其他分頁續期完成時共用：新 token 代表 session 重新開始。 */
+  private applyTokens(accessToken: string, expiresAt: number): void {
     this.accessToken = accessToken;
-    this.expiresAt = Date.now() + expiresIn * 1000;
+    this.expiresAt = expiresAt;
     this.ended = false;
     this.storage.set(HAS_SESSION_KEY, true);
     this.events.emit('refreshed');
@@ -140,9 +148,11 @@ export class SessionStore {
     return this.ensureAccessToken();
   }
 
-  private async refresh(): Promise<string> {
-    const waited = await this.waitForPeerRefresh();
-    if (waited) return waited;
+  /** 回傳新的 access token；`undefined` 代表等待期間 session 已結束（例如其他分頁續期被拒）。 */
+  private async refresh(): Promise<string | undefined> {
+    const peer = await this.waitForPeerRefresh();
+    if (peer === 'done') return this.accessToken;
+    if (this.ended) return undefined;
 
     if (!this.refreshFn) throw new Error('SessionStore.refreshFn 尚未注入');
     this.post(this.tokenChannel, { type: 'refresh-start' });
@@ -157,32 +167,37 @@ export class SessionStore {
       return tokens.accessToken;
     } catch (error) {
       this.post(this.tokenChannel, { type: 'refresh-failed' });
-      // 續期失敗 = session 結束（refresh token 過期、被撤銷、或帳號被停用）
-      this.endSession(error instanceof Error ? error.message : 'refresh_failed');
+      // 只有伺服器明確拒絕（refresh token 過期／撤銷／重用、帳號停用）才結束 session；
+      // 網路錯誤、5xx、429、逾時是暫時性的：保留 session，下一個請求會再試一次續期
+      if (isSessionRejected(error)) {
+        this.endSession(error instanceof Error ? error.message : 'refresh_failed');
+      }
       throw error;
     }
   }
 
-  /** 其他分頁正在續期（3 秒內）→ 等它的結果，不要自己打 API。 */
-  private async waitForPeerRefresh(): Promise<string | undefined> {
-    if (!this.peerSeen) return undefined;
-    if (Date.now() - this.peerRefreshStartedAt > PEER_REFRESH_TIMEOUT_MS) return undefined;
+  /**
+   * 其他分頁正在續期（3 秒內）→ 等它的結果，不要自己打 API。
+   * - `done`：拿到新 token
+   * - `failed`：對方續期失敗或 session 已結束 → 不再等（要不要自己打由呼叫端判斷）
+   * - `skipped`：沒有人在續期，或等到逾時（那個分頁可能被關了）
+   */
+  private async waitForPeerRefresh(): Promise<'done' | 'failed' | 'skipped'> {
+    if (!this.peerSeen) return 'skipped';
+    if (Date.now() - this.peerRefreshStartedAt > PEER_REFRESH_TIMEOUT_MS) return 'skipped';
 
-    return new Promise<string | undefined>((resolve) => {
-      const timer = setTimeout(() => {
-        cleanup();
-        resolve(undefined); // 逾時：那個分頁可能被關了，自己來
-      }, PEER_REFRESH_TIMEOUT_MS);
-
-      const onDone = () => {
-        cleanup();
-        resolve(this.accessToken);
-      };
-      const cleanup = () => {
+    return new Promise((resolve) => {
+      const finish = (result: 'done' | 'failed' | 'skipped') => {
         clearTimeout(timer);
-        this.events.off('refreshed', onDone);
+        offRefreshed();
+        offEnded();
+        offFailed();
+        resolve(result);
       };
-      this.events.on('refreshed', onDone);
+      const timer = setTimeout(() => finish('skipped'), PEER_REFRESH_TIMEOUT_MS);
+      const offRefreshed = this.events.on('refreshed', () => finish('done'));
+      const offEnded = this.events.on('ended', () => finish('failed'));
+      const offFailed = this.peerEvents.on('refreshFailed', () => finish('failed'));
     });
   }
 
@@ -199,11 +214,14 @@ export class SessionStore {
       }
       case 'refresh-done': {
         if (message.accessToken && message.expiresAt) {
-          this.accessToken = message.accessToken;
-          this.expiresAt = message.expiresAt;
-          this.storage.set(HAS_SESSION_KEY, true);
-          this.events.emit('refreshed');
+          this.applyTokens(message.accessToken, message.expiresAt);
         }
+        break;
+      }
+      case 'refresh-failed': {
+        // 暫時性失敗時對方不會結束 session，本分頁不必乾等到逾時
+        this.peerRefreshStartedAt = 0;
+        this.peerEvents.emit('refreshFailed');
         break;
       }
       default:
@@ -227,6 +245,7 @@ export class SessionStore {
     this.tokenChannel?.close();
     this.sessionChannel?.close();
     this.events.clear();
+    this.peerEvents.clear();
   }
 }
 

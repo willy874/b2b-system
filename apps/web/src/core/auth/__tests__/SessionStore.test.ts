@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { NetworkError } from '@/core/client';
+import { AppError } from '@/core/errors';
+
 import { SessionStore } from '../SessionStore';
 
 function createStore(): SessionStore {
@@ -90,9 +93,9 @@ describe('SessionStore', () => {
     store.destroy();
   });
 
-  it('續期失敗時結束 session（refresh token 過期或帳號被停用）', async () => {
+  it('續期被伺服器拒絕時結束 session（refresh token 過期或帳號被停用）', async () => {
     const store = createStore();
-    store.setRefreshFn(() => Promise.reject(new Error('AUTH_REFRESH_REVOKED')));
+    store.setRefreshFn(() => Promise.reject(new AppError('AUTH_REFRESH_REVOKED', 401)));
     store.setTokens({ accessToken: 'stale', expiresIn: 1 });
     const ended = vi.fn();
     store.events.on('ended', ended);
@@ -100,6 +103,29 @@ describe('SessionStore', () => {
     await expect(store.ensureAccessToken()).rejects.toThrow(/AUTH_REFRESH_REVOKED/);
     expect(ended).toHaveBeenCalledOnce();
     expect(store.hasSession()).toBe(false);
+    store.destroy();
+  });
+
+  it.each([
+    ['網路錯誤', new NetworkError(new TypeError('Failed to fetch'))],
+    ['5xx', new AppError('INTERNAL_ERROR', 503)],
+    ['速率限制', new AppError('RATE_LIMITED', 429)],
+  ])('★ 續期暫時性失敗（%s）不結束 session，下一次會再試', async (_label, failure) => {
+    const store = createStore();
+    const refresh = vi
+      .fn()
+      .mockRejectedValueOnce(failure)
+      .mockResolvedValueOnce({ accessToken: 'fresh', expiresIn: 300 });
+    store.setRefreshFn(refresh);
+    store.setTokens({ accessToken: 'stale', expiresIn: 1 });
+    const ended = vi.fn();
+    store.events.on('ended', ended);
+
+    await expect(store.ensureAccessToken()).rejects.toBe(failure);
+    expect(ended).not.toHaveBeenCalled();
+    expect(store.hasSession()).toBe(true);
+
+    await expect(store.ensureAccessToken()).resolves.toBe('fresh');
     store.destroy();
   });
 

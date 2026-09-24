@@ -1,4 +1,4 @@
-import { abortableDelay } from '@/core/client';
+import { abortableDelay, isNetworkError } from '@/core/client';
 import type { ErrorInterceptor, FetcherRequest } from '@/core/client';
 import { AppError } from '@/core/errors';
 
@@ -20,8 +20,8 @@ function isRetryable(error: unknown, request: FetcherRequest): boolean {
   if (request.signal.aborted) return false;
   if (!isIdempotent(request)) return false;
   if (error instanceof AppError) return error.status >= 500;
-  // fetch 在網路失敗時丟 TypeError；其餘（中止、程式錯誤）不重試
-  return error instanceof TypeError;
+  // 其餘（中止、程式錯誤）不重試
+  return isNetworkError(error);
 }
 
 export const retryInterceptor: ErrorInterceptor = async (error, request, retry) => {

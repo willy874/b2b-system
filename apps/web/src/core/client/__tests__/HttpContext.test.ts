@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AbortReason, abortRequests, HttpContext, isRequestAborted } from '@/core/client';
+import {
+  AbortReason,
+  abortRequests,
+  HttpContext,
+  isNetworkError,
+  isRequestAborted,
+} from '@/core/client';
 import type {
   ErrorInterceptor,
   FetcherResponse,
@@ -71,6 +77,17 @@ describe('HttpContext', () => {
     };
     expect(authorizationOf(0)).toBe('old');
     expect(authorizationOf(1)).toBe('new');
+  });
+
+  it('fetch 的傳輸層失敗換成 NetworkError（保留原始錯誤於 cause）', async () => {
+    const cause = new TypeError('Failed to fetch');
+    fetchMock.mockRejectedValueOnce(cause);
+    const http = new HttpContext({ name: 'test', baseUrl: '' });
+
+    const error = await rejectionOf(http.request('/x'));
+
+    expect(isNetworkError(error)).toBe(true);
+    expect((error as Error).cause).toBe(cause);
   });
 
   it('非 JSON 的回應本文不會變成解析錯誤，交給狀態碼判斷', async () => {

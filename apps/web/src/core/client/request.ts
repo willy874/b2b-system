@@ -14,10 +14,9 @@ export function withQuery(url: string, params?: Record<string, unknown>): string
   return query ? `${url}?${query}` : url;
 }
 
+/** 以 JSON 送出 body；保留呼叫端的 headers（物件、陣列或 `Headers` 皆可）。 */
 export function jsonBody(body: unknown, init: RequestInit = {}): RequestInit {
-  return {
-    ...init,
-    body: JSON.stringify(body),
-    headers: { ...(init.headers as Record<string, string>), 'content-type': 'application/json' },
-  };
+  const headers = new Headers(init.headers);
+  headers.set('content-type', 'application/json');
+  return { ...init, body: JSON.stringify(body), headers };
 }

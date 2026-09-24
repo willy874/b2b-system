@@ -90,7 +90,6 @@ export const fetchRoleListQuery = defineAuthFetcher<
 export interface HttpRequestDTO<P = unknown> {
   params: P;
   signal?: AbortSignal; // ★ TanStack Query 會傳入；mutation 需要可取消時自行傳入
-  headers?: Record<string, string>;
 }
 ```
 
@@ -127,6 +126,14 @@ abortRequests({ reason: 'session-ended', contexts: ['auth'], detail: <原因碼>
 - 共用的非同步工作（跨分頁單飛續期）不會因為某一個請求被中止而取消，只是那個請求不再等它。
 - 請求結束（成功、失敗、中止）時退訂匯流排並清掉計時器。
 - 新的中止時機（例：切換租戶）只要呼叫 `abortRequests()`，不必改任何 fetcher。
+
+### 3.4 傳輸層失敗
+
+`fetch` 在離線、DNS、CORS、連線中斷時只丟一個沒有區別性的 `TypeError`。`HttpContext`
+把它換成 `NetworkError`（原始錯誤放在 `cause`），因此：
+
+- `retry.ts` 只重試 `NetworkError` 與 5xx，**程式錯誤（其他 `TypeError`）不會被當成網路問題重送**；
+- UI 顯示 `error.network`，而不是「未預期的錯誤」。
 
 UI 端：`isSilentError(error)` 對 `caller`、`session-ended` 回 `true`（使用者不需要知道）；
 `timeout` 顯示 `error.timeout`。mutation 的 `onError` 用 `useErrorToast()`，它會略過 silent 錯誤。
@@ -359,6 +366,7 @@ export class AppError extends Error {
 | **業務規則** | `status === 403/409` 且有已知 `code`      | toast 顯示已本地化訊息                       |
 | **未預期**   | 其餘                                      | toast 通用訊息 ＋ 顯示 `requestId` 供回報    |
 | **中止**     | `RequestAbortedError`                     | `timeout` → toast `error.timeout`；其餘不提示（§3.3） |
+| **連線**     | `NetworkError`                            | toast `error.network`（§3.4）                |
 
 ```ts
 // core/errors/useErrorMessage.ts
@@ -366,6 +374,10 @@ export function useErrorMessage() {
   const { t } = useTranslation();
   return useCallback(
     (error: unknown) => {
+      if (isRequestAborted(error)) {
+        return error.reason === AbortReason.TIMEOUT ? t("error.timeout") : t("error.aborted");
+      }
+      if (isNetworkError(error)) return t("error.network");
       if (!(error instanceof AppError)) return t("error.unknown");
       // 錯誤碼 → 語系鍵走對照表，不組字串（conventions/06-literal-strings.md §3.1）
       const key = getErrorMessageKey(error.code);
@@ -385,14 +397,19 @@ export function useErrorMessage() {
 通常是權限剛被改掉。全域處理：
 
 ```ts
-// app/GlobalProvider.tsx
+// app/GlobalProvider.tsx（mutation 與 query 都監看）
 queryClient.getMutationCache().subscribe((event) => {
-  const error = event.mutation?.state.error;
-  if (error instanceof AppError && error.code === "AUTHZ_FORBIDDEN") {
-    toast.warning(t("error.permission_changed"));
-    queryClient.invalidateQueries({ queryKey: [AUTH_PROFILE_QUERY_KEY] }); // 立刻重新水合
-  }
+  // 只看「這次變成錯誤」：observer 增減也會發事件，而 state.error 仍在，只看它會重複提示
+  if (event.type === "updated" && event.action.type === "error") onError(event.action.error);
 });
+queryClient.getQueryCache().subscribe(/* 同上 */);
+
+function onError(error: unknown) {
+  if (!isForbidden(error)) return;
+  if (Date.now() - lastHandledAt < 2_000) return; // 一個頁面好幾個 query 同時 403 → 只處理一次
+  toast.warning(t("error.permission_changed"));
+  queryClient.invalidateQueries({ queryKey: [AUTH_PROFILE_QUERY_KEY] }); // 立刻重新水合
+}
 ```
 
 **後端是權威，UI 發現不一致就立刻自我修正。**

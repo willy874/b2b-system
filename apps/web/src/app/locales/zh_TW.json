@@ -38,6 +38,7 @@
   "error": {
     "unknown": "發生未預期的錯誤，請稍後再試。",
     "unknown_with_id": "發生未預期的錯誤（代碼 {{requestId}}），請聯絡管理員。",
+    "network": "無法連線到伺服器，請檢查網路後再試。",
     "timeout": "請求逾時，請檢查網路連線後再試。",
     "aborted": "請求已取消。",
     "permission_changed": "你的權限剛剛變更了，畫面已重新同步。",

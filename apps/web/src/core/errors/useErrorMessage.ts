@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { AbortReason, isRequestAborted } from '@/core/client';
+import { AbortReason, isNetworkError, isRequestAborted } from '@/core/client';
 import { useTranslation } from '@/core/locales';
 
 import { AppError } from './AppError';
@@ -21,6 +21,7 @@ export function useErrorMessage(): (error: unknown) => string {
       if (isRequestAborted(error)) {
         return error.reason === AbortReason.TIMEOUT ? t('error.timeout') : t('error.aborted');
       }
+      if (isNetworkError(error)) return t('error.network');
       if (!(error instanceof AppError)) return t('error.unknown');
       const key = getErrorMessageKey(error.code);
       const message = key ? t(key) : undefined;
