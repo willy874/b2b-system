@@ -11,6 +11,7 @@ import { AppError, ErrorCodes } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
 
+import { ConfirmDialogHost } from './ConfirmDialogHost';
 import { ToastHost } from './ToastHost';
 
 /** 同一波失敗（例如一個頁面上好幾個 query 同時 403）只提示、重抓一次。 */
@@ -69,8 +70,10 @@ export function GlobalProvider({
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <ToastHost>
-            <PermissionDriftWatcher />
-            {children}
+            <ConfirmDialogHost>
+              <PermissionDriftWatcher />
+              {children}
+            </ConfirmDialogHost>
           </ToastHost>
         </TooltipProvider>
       </QueryClientProvider>

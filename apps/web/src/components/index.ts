@@ -6,6 +6,7 @@ export * from './Button';
 export * from './Checkbox';
 export * from './Chip';
 export * from './Collapsible';
+export * from './ConfirmDialog';
 export * from './DatePicker';
 export * from './Dialog';
 export * from './Ellipsis';

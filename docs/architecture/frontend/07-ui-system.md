@@ -64,6 +64,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `Icon`                           | SVG sprite ＋ `vite-plugin-svgr`                     |
 | `Empty`                          | 版面元件                                             |
 | `Chip` / `Badge`                 | 純自製                                               |
+| `ConfirmDialogProvider` / `useConfirm` | 包在 `AlertDialog` 外的命令式 API（§3.11）       |
 | `FileUpload`                     | 自製（`<input type="file">` ＋ 拖放）                |
 | `TextEllipsis` / `BoxEllipsis` / `ButtonEllipsis` | 自製：CSS 省略號 ＋ `ResizeObserver` 量測；提示框用 `Tooltip`、下拉用 `Menu`（§3.8） |
 | `Select`（含搜尋，取代原本的 `Combobox`）/ `Menu` | 自製列表 ＋ Base UI `Popover`（定位、點外面／Esc 關閉、焦點歸還）＋ TanStack Virtual（§3.10） |
@@ -425,6 +426,37 @@ Base UI 的 `Select` / `Menu` / `Combobox` 需要 **所有項目都掛在 DOM �
 2. 列高固定（`itemSize` 與 CSS 一致）、文字不換行；勾選框／✓ 常駐，只換 `data-state`，勾選不改變列的寬高。
 3. 開啟期間不重排（`pinSelected` 用快照）；勾選、載入更多都不動捲動位置；捲軸以 `scrollbar-gutter: stable` 預留。
 4. 列元件 `memo` ＋ 固定參考的 callback：勾一個項目只重繪狀態改變的列。
+
+### 3.11 命令式確認：`useConfirm`
+
+`components/ConfirmDialog/`。`AlertDialog` 是宣告式的，每個要確認的地方都得自己維護「待確認項目」的 state
+與一份 `<AlertDialog>`；`useConfirm()` 把它收成一個回傳 `Promise<boolean>` 的函式：
+
+```tsx
+const confirm = useConfirm();
+
+const handleDelete = async (row: RoleRowVM) => {
+  await confirm({
+    title: t('role.delete.title'),
+    description: t('role.delete.confirm', { name: row.name }),
+    confirmLabel: t('common.delete'),
+    onConfirm: () => deleteRole.mutateAsync({ params: { roleId: row.id } }),
+  });
+};
+```
+
+| 行為 | 說明 |
+| --- | --- |
+| 回傳值 | 確認 → `true`；取消按鈕、Esc → `false`（沿用 `AlertDialog`：點遮罩不關閉） |
+| `onConfirm` | 執行期間兩顆按鈕都 disabled、Esc 無效；成功才關閉並回傳 `true`；丟錯時對話框留著，使用者可重試或取消，錯誤提示交給全域處理 |
+| 同時呼叫兩次 | 同時只有一個對話框：前一個還沒回答的以 `false` 結束 |
+| 預設文案 | `ConfirmDialogProvider` 的 `confirmLabel` / `cancelLabel`；每次呼叫可覆寫 |
+| 覆寫內層 | Provider 收 `AlertDialogSlot` 的 `classNames` / `styles` / `testIds`；每次呼叫的 `className` / `data-testid` 落在彈窗 |
+
+- `app/ConfirmDialogHost` 掛在 `GlobalProvider`（`ToastHost` 內側），以 `t('common.confirm')` / `t('common.cancel')` 當預設文案；
+  測試的 `AllProviders` 也已經掛好。
+- 按鈕的 testid 與 `AlertDialog` 相同：`alert-dialog-confirm`、`alert-dialog-cancel`。
+- 需要在對話框裡放表單或其他內容時，仍用宣告式的 `AlertDialog`（`children`）或 `Dialog`。
 
 ---
 

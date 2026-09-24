@@ -66,6 +66,7 @@ apps/web/src/
 │   ├── Layout.tsx           依 matcher 決定套哪個 layout
 │   ├── GlobalProvider.tsx   Query / Router / Theme / Toast providers
 │   ├── ToastHost.tsx        唯一持有 toaster：eventBus 的 toast:show → 畫面
+│   ├── ConfirmDialogHost.tsx 掛上 useConfirm()，以 t() 傳入預設按鈕文案
 │   ├── plugin.ts            建立 router，掛到 AppContext
 │   ├── routes.tsx           把各 feature 的 route 組成 route tree
 │   ├── layouts/

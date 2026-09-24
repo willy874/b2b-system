@@ -4,6 +4,7 @@ import type { RenderOptions, RenderResult } from '@testing-library/react';
 import { useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
+import { ConfirmDialogHost } from '@/app/ConfirmDialogHost';
 import { ToastHost } from '@/app/ToastHost';
 import { TooltipProvider } from '@/components/Tooltip';
 import { AppContextProvider, createAppContext } from '@/core/app';
@@ -29,7 +30,9 @@ export function AllProviders({ children }: { children: ReactNode }) {
     <AppContextProvider context={context}>
       <QueryClientProvider client={client}>
         <TooltipProvider>
-          <ToastHost>{children}</ToastHost>
+          <ToastHost>
+            <ConfirmDialogHost>{children}</ConfirmDialogHost>
+          </ToastHost>
         </TooltipProvider>
       </QueryClientProvider>
     </AppContextProvider>
