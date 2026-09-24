@@ -20,6 +20,7 @@ MUI 作法，最大的差異是 **UI 函式庫改用 Base UI**，因此 `src/com
 | 08  | [`08-i18n.md`](./08-i18n.md)                           | 語系分包、scope loader、命名                |
 | 09  | [`09-state-and-storage.md`](./09-state-and-storage.md) | store 分類、持久化、跨分頁同步              |
 | 10  | [`10-testing.md`](./10-testing.md)                     | Vitest / Testing Library / MSW / Playwright |
+| 11  | [`11-realtime.md`](./11-realtime.md)                   | Socket.io、leader 分頁持有連線、推播 → 失效 |
 
 ## 三條必須記住的規則
 

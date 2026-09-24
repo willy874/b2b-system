@@ -86,7 +86,7 @@ describe("RoleService.updatePermissions", () => {
       await fn(tx);
       order.push("commit");
     });
-    permissionCache.invalidateByRole.mockImplementation(async () => {
+    permissionService.invalidateUsers.mockImplementation(() => {
       order.push("invalidate");
     });
     await service.updatePermissions("r1", { add: [], remove: ["user:read"] }, actor);
@@ -320,7 +320,7 @@ Fixture **直接寫資料庫**，不經 API——測試的前置條件不應該�
 
 - [ ] TTL 到期後重新解析
 - [ ] `invalidate(userId)` 立即生效
-- [ ] `invalidateByRole` 涵蓋該角色的所有持有者
+- [ ] 角色權限變更時，`invalidateUsers` 與 `permissions.changed` 涵蓋該角色的所有持有者（交易前查出）
 - [ ] **刪除角色時先查使用者再刪**（順序測試）
 - [ ] 快取值是 `Set`，不是陣列
 

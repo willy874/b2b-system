@@ -83,7 +83,8 @@ docs/
 │   │   ├── 07-ui-system.md            Base UI、元件封裝層、Design Token
 │   │   ├── 08-i18n.md                 語系分包與 scope loader
 │   │   ├── 09-state-and-storage.md    store 分類、持久化、跨分頁同步
-│   │   └── 10-testing.md              Vitest / Testing Library / MSW / Playwright
+│   │   ├── 10-testing.md              Vitest / Testing Library / MSW / Playwright
+│   │   └── 11-realtime.md             Socket.io、leader 分頁持有連線、推播 → 快取失效
 │   │
 │   └── backend/
 │       ├── README.md
@@ -93,7 +94,8 @@ docs/
 │       ├── 04-auth.md                 登入、JWT、refresh rotation、重用偵測
 │       ├── 05-rbac.md                 Guard / Decorator / 權限快取 / 反提權
 │       ├── 06-audit-log.md            稽核日誌設計
-│       └── 07-testing.md              單元 / 整合 / e2e 測試策略
+│       ├── 07-testing.md              單元 / 整合 / e2e 測試策略
+│       └── 08-realtime.md             Socket.io gateway、room 與受眾、推播時機
 │
 ├── rbac/
 │   ├── 01-domain-model.md             實體、ER 圖、不變條件
@@ -119,7 +121,8 @@ docs/
     ├── 0004-jwt-with-rotating-refresh-token.md
     ├── 0005-permission-resolved-server-side.md
     ├── 0006-flat-permission-scope.md
-    └── 0007-openapi-generated-api-sdk.md
+    ├── 0007-openapi-generated-api-sdk.md
+    └── 0008-realtime-with-socket-io.md
 ```
 
 ---

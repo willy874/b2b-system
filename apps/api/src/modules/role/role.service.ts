@@ -1,9 +1,11 @@
+import { ChangeKind, ChangeSource } from '@game-editor/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser, PermissionKey } from '@/common/types';
 import type { Database } from '@/core/database';
 import { DRIZZLE, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
+import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
 import type { PermissionRow } from '@/db/schema';
 import { diff } from '@/modules/audit-log/audit.diff';
@@ -40,6 +42,7 @@ export class RoleService {
     private readonly repo: RoleRepository,
     private readonly permissionService: PermissionService,
     private readonly audit: AuditService,
+    private readonly events: DomainEventBus,
   ) {}
 
   async list(query: ListRoleDto) {
@@ -95,6 +98,9 @@ export class RoleService {
       return created;
     });
 
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [{ resource: ChangeSource.ROLE, kind: ChangeKind.CREATE, id: role.id }],
+    });
     return this.findOne(role.id);
   }
 
@@ -119,6 +125,12 @@ export class RoleService {
       );
     });
 
+    // 改名不影響權限，但持有者的 profile（角色名稱）要重抓
+    const holders = await this.permissionService.findUserIdsByRole(id);
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [{ resource: ChangeSource.ROLE, kind: ChangeKind.UPDATE, id }],
+      affectedUserIds: holders,
+    });
     return this.findOne(id);
   }
 
@@ -167,8 +179,14 @@ export class RoleService {
       );
     });
 
-    // ★ 快取失效在交易「之後」——交易可能 rollback
-    await this.permissionService.invalidateByRole(id);
+    // ★ 快取失效在交易「之後」——交易可能 rollback；之後才發事件（room 同步要讀到新權限）
+    const holders = await this.permissionService.findUserIdsByRole(id);
+    this.permissionService.invalidateUsers(holders);
+    this.events.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: holders });
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [{ resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id }],
+      affectedUserIds: holders,
+    });
     return { permissions: await this.repo.listPermissions(id) };
   }
 
@@ -208,6 +226,9 @@ export class RoleService {
       return role;
     });
 
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [{ resource: ChangeSource.ROLE, kind: ChangeKind.CREATE, id: created.id }],
+    });
     return { ...(await this.findOne(created.id)), skippedPermissions: skipped };
   }
 
@@ -239,6 +260,11 @@ export class RoleService {
     });
 
     this.permissionService.invalidateUsers(affected);
+    this.events.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: affected });
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [{ resource: ChangeSource.ROLE, kind: ChangeKind.DELETE, id }],
+      affectedUserIds: affected,
+    });
   }
 
   // ── 業務規則 ─────────────────────────────────────────────

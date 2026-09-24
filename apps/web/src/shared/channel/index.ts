@@ -6,6 +6,7 @@ export * from './transports/broadcastChannel';
 export * from './transports/compose';
 export * from './transports/serviceWorker';
 export * from './transports/sharedWorker';
+export * from './transports/socketIo';
 export * from './transports/storage';
 export * from './transports/webSocket';
 export * from './transports/types';

@@ -21,9 +21,16 @@ import { ROLE_USERS_QUERY_KEY } from '@/apis/role/get-role-users/query';
 import { USER_DETAIL_QUERY_KEY } from '@/apis/user/get-user-detail/query';
 import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
 import { USER_ROLES_QUERY_KEY } from '@/apis/user/get-user-roles/query';
-import { ANY_ID, broadcastInvalidate, createResourceGraph, queryClient } from '@/core/cache';
-import type { ResourceChange } from '@/core/cache';
+import {
+  ANY_ID,
+  applyInvalidation,
+  broadcastInvalidate,
+  createResourceGraph,
+  queryClient,
+} from '@/core/cache';
+import type { ApplyInvalidationOptions, ResourceChange } from '@/core/cache';
 import type { Profile } from '@/shared/api-sdk';
+import type { ChangeSource } from '@/shared/realtime';
 
 export const Resource = {
   // 實體
@@ -43,6 +50,14 @@ export const Resource = {
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
+
+/**
+ * 編譯期檢查：伺服器推來的每個來源（`ChangeSource`）都必須是 `Resource` 的成員。
+ * 後端在合約新增來源而這裡沒跟上時編譯失敗，而不是推播進來後依賴圖查不到規則。
+ * `Resource` 是超集：`profile` 這類以登入者為視角的衍生只存在於前端。
+ */
+type AssertServerSources<T extends Resource> = T;
+export type ServerChangeSource = AssertServerSources<ChangeSource>;
 
 export type ResourceChangeEvent = ResourceChange<Resource>;
 
@@ -123,6 +138,18 @@ export function selfUpdated(profile: Profile): ResourceChangeEvent {
 /** 依依賴圖換算出要失效的 query，套用到本分頁並廣播給其他分頁。 */
 export function invalidateResources(changes: readonly ResourceChangeEvent[]): void {
   broadcastInvalidate(graph.resolve(changes));
+}
+
+/**
+ * 推播轉來的變更：只在本分頁套用。其他分頁會經 leader 分頁各自收到，不需要再轉給它們
+ * （呼叫 `invalidateResources()` 會又經 BroadcastChannel 廣播，讓其他分頁失效兩次）。
+ * 背景分頁以 `{ refetch: false }` 只標 stale（docs/architecture/frontend/11-realtime.md §4）。
+ */
+export function applyResourceChanges(
+  changes: readonly ResourceChangeEvent[],
+  options?: ApplyInvalidationOptions,
+): void {
+  applyInvalidation(graph.resolve(changes), options);
 }
 
 /** 供測試檢查換算結果，不觸發任何失效。 */

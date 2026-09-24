@@ -22,6 +22,7 @@
                                  │ HTTPS / JSON
                                  │ Authorization: Bearer <access token>
                                  │ Cookie: refresh_token (httpOnly, /auth)
+                                 │ WebSocket /api/socket.io（handshake auth.token；伺服器推播）
                                  ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │ apps/api  (NestJS 11)                                               │
@@ -34,6 +35,7 @@
 │  └────────────────────────────────────────────────────────────────┘  │
 │                                                                     │
 │  modules/  auth · user · role · permission · audit-log · health     │
+│            realtime（Socket.io gateway：推播、session 撤銷）         │
 │  core/     database(Drizzle) · config · cache · logger · errors     │
 └────────────────────────────────┬────────────────────────────────────┘
                                  │ SQL (postgres-js / node-postgres)
@@ -126,9 +128,9 @@ repository ✗──▶ service  （單向）
                 └─ RolesService.update
                      ├─ 系統角色保護檢查（is_system → 403）
                      ├─ 反提權檢查（若變更權限）
-                     ├─ RoleRepository.update（交易內）
-                     ├─ PermissionCache.invalidateByRole(roleId)
-                     └─ AuditService.record('role.update', diff)
+                     ├─ RoleRepository.update ＋ AuditService.record('role.update', diff)（交易內）
+                     ├─ PermissionService.invalidateUsers(holders)（交易後；holders 在交易前查出）
+                     └─ DomainEventBus.publish('resource.changed')（→ 其他人的畫面即時更新）
         ◀── 200 { data: Role }
 
   ◀─ onSuccess → invalidateResources([{ resource: 'role', kind: 'update', id }])
@@ -144,8 +146,10 @@ repository ✗──▶ service  （單向）
 | ------------ | ----------------------------------------------------------------------------------------------- | ----------------------------- |
 | 後端授權判斷 | `PermissionCacheService`（in-memory，TTL 60s）＋ 角色/指派變更時 **主動失效**                   | 主動失效 < 1s；漏網情況 ≤ 60s |
 | Access Token | **不內嵌權限**（只有 `sub`、`jti`、`ver`）→ 不會有 token 內的陳舊權限                           | 不適用                        |
-| 前端 UI      | `GET /auth/profile` 於：登入後、路由切換回首頁時、`window` focus 時、以及每 5 分鐘重新取得      | ≤ 5 min                       |
-| 強制登出     | 使用者被停用或刪除 → `users.token_version` +1 → 所有既存 access token 驗簽時因 `ver` 不符而失效 | 下一次請求                    |
+| 前端 UI      | 伺服器推 `resource.changed`（`userRole` / `role` / `rolePermission`）→ 依賴圖衍生失效 `PROFILE` → 重抓 `GET /auth/profile`；推播斷線時退回：登入後、window focus 時、每 5 分鐘重新取得 | 推播 < 1s；斷線時 ≤ 5 min |
+| 強制登出     | 使用者被停用或刪除 → `users.token_version` +1 → 推 `session.revoked` 並斷線；既存 access token 驗簽時因 `ver` 不符而失效 | 推播 < 1s；否則下一次請求 |
+
+推播的設計見 [`backend/08-realtime.md`](./backend/08-realtime.md)、[`frontend/11-realtime.md`](./frontend/11-realtime.md)。
 
 > **關鍵取捨**：access token 不帶權限，代表每次請求都要解析權限集合。這是用
 > 一次快取查詢換取「權限變更立即生效」。見
@@ -162,7 +166,7 @@ pnpm dev
 ├─ docker compose up -d postgres        (localhost:5432)
 ├─ apps/api    nest start --watch       (localhost:3000)
 └─ apps/web    vite                     (localhost:5173)
-                 └─ proxy /api → http://localhost:3000
+                 └─ proxy /api → http://localhost:3000（ws: true，含 /api/socket.io）
 ```
 
 前端一律透過 `/api` 前綴打到 Vite dev proxy，**不在程式碼裡寫死後端位址**，

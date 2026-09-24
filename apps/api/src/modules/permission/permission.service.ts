@@ -99,12 +99,6 @@ export class PermissionService {
     };
   }
 
-  /** 角色的權限或成員變更時呼叫。順序很重要：刪除角色前必須先查出使用者。 */
-  async invalidateByRole(roleId: string): Promise<void> {
-    const userIds = await this.repo.findUserIdsByRole(roleId);
-    this.cache.invalidateMany(userIds);
-  }
-
   invalidateUser(userId: string): void {
     this.cache.invalidate(userId);
   }

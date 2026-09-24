@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { ChangeKind, ChangeSource, SessionRevokedReason } from '@game-editor/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -10,10 +11,11 @@ import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
 import { DRIZZLE, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
+import { DomainEvent, DomainEventBus } from '@/core/events';
 import type { RefreshTokenRow, UserRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { PermissionService } from '@/modules/permission/permission.service';
-import { UserService } from '@/modules/user/user.service';
+import { UserService, userUpdated } from '@/modules/user/user.service';
 
 import { AuthTokenService } from './auth-token.service';
 import type {
@@ -52,6 +54,7 @@ export class AuthService {
     private readonly permissionService: PermissionService,
     private readonly userCache: UserCacheService,
     private readonly audit: AuditService,
+    private readonly events: DomainEventBus,
   ) {}
 
   // ── 登入 ────────────────────────────────────────────────
@@ -118,6 +121,19 @@ export class AuthService {
       status: shouldLock ? 'locked' : user.status,
     });
     this.userCache.invalidate(user.id);
+    if (shouldLock && user.status !== 'locked') {
+      // 鎖定不遞增 token_version，但 status 已非 active：既有 access token 的下一次 HTTP 請求
+      // 本來就會被 AUTH_ACCOUNT_DISABLED 擋下，即時連線也同樣立刻撤銷，不等 token 到期
+      this.events.publish(DomainEvent.SESSIONS_REVOKED, {
+        userIds: [user.id],
+        reason: SessionRevokedReason.ACCOUNT_DISABLED,
+      });
+      // 狀態欄會出現在使用者列表
+      this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+        changes: [userUpdated(user.id, await this.users.listRoleSummaries(user.id))],
+        affectedUserIds: [user.id],
+      });
+    }
 
     await this.audit.recordSafely({
       action: shouldLock ? 'auth.account_locked' : 'auth.login.failure',
@@ -289,7 +305,13 @@ export class AuthService {
       updatedBy: actor.id,
     });
     this.userCache.invalidate(actor.id);
-    return this.getProfile(actor);
+    const profile = await this.getProfile(actor);
+    // 與前端 `selfUpdated(profile)` 宣告的來源相同
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [userUpdated(actor.id, profile.roles)],
+      affectedUserIds: [actor.id],
+    });
+    return profile;
   }
 
   async changePassword(dto: ChangePasswordDto, actor: AuthUser): Promise<{ success: true }> {
@@ -322,6 +344,7 @@ export class AuthService {
     });
 
     this.userCache.invalidate(user.id);
+    this.publishCredentialChanged(user.id);
     return { success: true };
   }
 
@@ -369,6 +392,14 @@ export class AuthService {
     });
 
     this.userCache.invalidate(user.id);
+    this.publishCredentialChanged(user.id);
+    if (user.status === 'locked') {
+      // 重設密碼順帶解鎖：狀態變了
+      this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+        changes: [userUpdated(user.id, await this.users.listRoleSummaries(user.id))],
+        affectedUserIds: [user.id],
+      });
+    }
     return { success: true };
   }
 
@@ -406,7 +437,23 @@ export class AuthService {
     });
 
     this.userCache.invalidate(user.id);
+    // pending → active：使用者列表的狀態欄
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [userUpdated(user.id, await this.users.listRoleSummaries(user.id))],
+      affectedUserIds: [user.id],
+    });
     return { success: true };
+  }
+
+  /** 改密碼／重設密碼：`token_version` 已遞增，既有 session 全部作廢。 */
+  private publishCredentialChanged(userId: string): void {
+    this.events.publish(DomainEvent.SESSIONS_REVOKED, {
+      userIds: [userId],
+      reason: SessionRevokedReason.TOKEN_STALE,
+    });
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [{ resource: ChangeSource.USER_CREDENTIAL, kind: ChangeKind.UPDATE, id: userId }],
+    });
   }
 
   private hash(password: string): Promise<string> {

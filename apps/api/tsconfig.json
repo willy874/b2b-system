@@ -19,5 +19,5 @@
   },
   "include": ["src/**/*", "test/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "dist"],
-  "references": [{ "path": "../../packages/utils" }]
+  "references": [{ "path": "../../packages/utils" }, { "path": "../../packages/realtime" }]
 }

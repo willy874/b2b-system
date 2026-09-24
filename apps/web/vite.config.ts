@@ -27,6 +27,8 @@ export default defineConfig(({ command }) => ({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
+        // 即時推播的 WebSocket（`/api/socket.io` → `/socket.io`，同一個 rewrite）
+        ws: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },

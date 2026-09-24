@@ -1,0 +1,24 @@
+/** 單一 frame 上限；超過時 Socket.io 直接斷線（docs/architecture/backend/08-realtime.md §11）。 */
+export const REALTIME_MAX_FRAME_BYTES = 16 * 1024;
+
+export const REALTIME_LIMITS = Symbol('REALTIME_LIMITS');
+
+/** §11 的防濫用上限。以 provider 注入，整合測試可以覆寫成較小的值。 */
+export interface RealtimeLimits {
+  /** 每個 IP 在 `handshakeWindowMs` 內可建立的 handshake 數。 */
+  handshakesPerIp: number;
+  handshakeWindowMs: number;
+  /** 每條連線在 `messageWindowMs` 內可送的訊息數；超過略過，超過兩倍斷線。 */
+  messagesPerSocket: number;
+  messageWindowMs: number;
+  /** 每個使用者同時的連線數（所有裝置、所有分頁）。 */
+  connectionsPerUser: number;
+}
+
+export const DEFAULT_REALTIME_LIMITS: RealtimeLimits = {
+  handshakesPerIp: 30,
+  handshakeWindowMs: 60_000,
+  messagesPerSocket: 30,
+  messageWindowMs: 10_000,
+  connectionsPerUser: 20,
+};

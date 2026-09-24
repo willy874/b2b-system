@@ -8,6 +8,7 @@ import { Public, RequirePermissions } from '@/common/decorators';
 import {
   auditRoutes,
   collectDeclaredPermissionKeys,
+  collectGatewayDeclarations,
   collectRouteDeclarations,
 } from '@/common/route-audit';
 import { ALL_PERMISSION_KEYS } from '@/db/seeds/permissions';
@@ -125,6 +126,24 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
 
     for (const [route, declaration] of Object.entries(expected)) {
       expect(actual.get(route), `${route} 的授權宣告`).toBe(declaration);
+    }
+    expect(actual.size).toBe(Object.keys(expected).length);
+  });
+
+  it('WebSocket 訊息處理器 × 權限總表與 docs/architecture/backend/08-realtime.md §5 一致', () => {
+    const actual = new Map(
+      collectGatewayDeclarations(app).map((message) => [
+        `WS ${message.event}`,
+        message.declaration === 'permissions' ? message.keys.join('+') : message.declaration,
+      ]),
+    );
+    const expected: Record<string, string> = {
+      'WS session.renew': 'authenticated',
+      'WS channel.relay': 'authenticated',
+    };
+
+    for (const [event, declaration] of Object.entries(expected)) {
+      expect(actual.get(event), `${event} 的授權宣告`).toBe(declaration);
     }
     expect(actual.size).toBe(Object.keys(expected).length);
   });

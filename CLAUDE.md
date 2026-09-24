@@ -42,7 +42,8 @@ Game Editor 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架*
 4. 每個路由都要宣告 `@Public()` / `@Authenticated()` / `@RequirePermissions()`
    其中之一——沒宣告會讓 **程序啟動失敗**（`common/route-audit.ts`）。
 5. Service 拋 `AppException(ErrorCode)`，不拋 `HttpException`。
-6. 稽核寫入在交易 **內**；快取失效在交易 **後**。
+6. 稽核寫入在交易 **內**；快取失效在交易 **後**；領域事件（`DomainEventBus`）在快取失效 **後** 發佈。
+   Service 不直接碰 Socket.io，推播由 `modules/realtime` 訂閱事件處理。
 7. 刪除角色前 **先** 查出受影響的使用者，再刪（否則 cascade 之後查不到人）。
 
 ### 前端
@@ -94,3 +95,4 @@ pnpm openapi:generate && pnpm sdk:generate   # 改動 controller / DTO 之後必
 | 速率限制 | 具名 throttler `auth` | 單一全域桶 ＋ 端點 `@Throttle()` 覆寫 | `@nestjs/throttler` 的具名 throttler 會「同時」套用到所有路由 |
 | 建立對話框的權限 | 沿用列表頁的 page key | `USER_CREATE` / `ROLE_CREATE` 各自註冊 | 才能讓 auditor 直接貼 `/user/create` 時看到 403 |
 | `resolvePageKey` | 前綴命中 | 前綴命中取 **最長** | 有了上一列的子頁面規則之後才不會被父規則蓋掉 |
+| WebSocket 的 guard | 全域 guard 同時保護 HTTP 與 WS | gateway 以 `@UseGuards(WsAuthGuard, PermissionsGuard)` 掛在 class 上 | Nest 的 WS context 不套用 `APP_GUARD` / `APP_INTERCEPTOR`；throttler 也不作用，限流在 `realtime.rate-limit.ts` |

@@ -19,6 +19,7 @@ game-editor/
 │
 ├── packages/
 │   ├── api-sdk/                 @game-editor/api-sdk — 由 OpenAPI 產生的型別、zod schema 與 fetch client
+│   ├── realtime/                @game-editor/realtime — Socket.io 事件合約（事件名稱、zod schema、型別）
 │   └── utils/                   @game-editor/utils — 前後端共用的純函式
 │
 └── docs/                        本文件集
@@ -223,11 +224,14 @@ ARGON2_TIME_COST=2
 PERMISSION_CACHE_TTL=60            # 秒
 AUTH_RATE_LIMIT=10                 # /auth/* 每分鐘每 IP（E2E 需調高）
 DEFAULT_RATE_LIMIT=120             # 其餘端點每分鐘每 IP
+TRUST_PROXY=false                  # Express trust proxy：反向代理後面設跳數或子網路（例：uniquelocal）
 LOGIN_MAX_ATTEMPTS=5
 LOGIN_LOCKOUT_SECONDS=900
 
 SUPER_ADMIN_EMAIL=admin@example.com
 SUPER_ADMIN_PASSWORD=              # 留空則 seed 時隨機產生並印出一次
+
+REALTIME_ALLOWED_ORIGINS=http://localhost:5173   # Socket.io handshake 的 Origin 白名單（逗號分隔）
 
 # ── apps/web（VITE_ 前綴才會進 bundle）─────────────────
 VITE_API_BASE_URL=/api

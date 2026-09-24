@@ -4,9 +4,11 @@ import { SessionStore, sessionStore } from '@/core/auth';
 import { AbortReason, NetworkError, RequestAbortedError } from '@/core/client';
 import type { FetcherRequest, FetcherResponse } from '@/core/client';
 import { AppError } from '@/core/errors';
+import { CLIENT_ID } from '@/core/realtime';
 
 import { apiAdapterInterceptor } from '../api-adapter';
 import { createAuthHeaderInterceptor } from '../auth';
+import { clientIdInterceptor } from '../client-id';
 import { createRefreshTokenInterceptor } from '../refresh-token';
 import { retryInterceptor } from '../retry';
 
@@ -75,6 +77,20 @@ describe('auth 攔截器', () => {
     sessionStore.clear();
     const result = await authHeaderInterceptor(request);
     expect(new Headers(result.init.headers).get('authorization')).toBeNull();
+  });
+});
+
+describe('client-id 攔截器（docs/architecture/frontend/11-realtime.md §4.1）', () => {
+  it('每個請求帶上本分頁的 x-client-id', async () => {
+    const result = await clientIdInterceptor(request);
+    expect(new Headers(result.init.headers).get('x-client-id')).toBe(CLIENT_ID);
+  });
+
+  it('保留既有標頭（例如 Authorization）', async () => {
+    const result = await clientIdInterceptor(withToken('token-1'));
+    const headers = new Headers(result.init.headers);
+    expect(headers.get('authorization')).toBe('Bearer token-1');
+    expect(headers.get('x-client-id')).toBe(CLIENT_ID);
   });
 });
 

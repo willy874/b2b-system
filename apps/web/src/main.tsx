@@ -5,6 +5,7 @@ import 'virtual:uno.css';
 import './index.css';
 
 import { fetchRefreshMutation } from '@/apis/auth/refresh/fetcher';
+import { applyResourceChanges } from '@/apis/resources';
 import { App } from '@/app/App';
 import { appContextPlugin } from '@/app/plugin';
 import { createAppContext } from '@/core/app';
@@ -23,6 +24,7 @@ import {
   featureFlagPlugin,
   httpContextPlugin,
   i18nPlugin,
+  realtimePlugin,
 } from '@/plugins/app';
 import { ENV } from '@/shared/constants';
 
@@ -53,7 +55,15 @@ async function bootstrap(): Promise<void> {
         },
       ]),
     )
-    .use(featureFlagPlugin({}))
+    .use(featureFlagPlugin({}));
+
+  // 即時推播：必須在 httpContext 之後（要用它建立的 session）；依賴圖換算在這裡注入（plugin 不認識 apis/）。
+  // Mock 模式不註冊：MSW 不處理 Socket.io，行為等同推播停用（docs/architecture/frontend/11-realtime.md §9）
+  if (!ENV.ENABLE_MOCK) {
+    context.use(realtimePlugin({ backend: MAIN_BACKEND, onResourceChanged: applyResourceChanges }));
+  }
+
+  context
     // 每個 feature 的 plugin factory —— ★ 在此「同步」註冊頁面權限
     .use(authFeaturePlugin())
     .use(homeFeaturePlugin())

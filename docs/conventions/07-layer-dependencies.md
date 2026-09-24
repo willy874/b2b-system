@@ -13,6 +13,8 @@
 ```
 apps/web ──────▶ packages/api-sdk
    │
+   ├───────────▶ packages/realtime ◀──── apps/api
+   │
    └───────────▶ packages/utils ◀─────── apps/api
 
 apps/e2e ┄┄┄┄┄▶ 只透過瀏覽器 / HTTP 操作執行中的系統，不 import 任何 workspace 原始碼
@@ -22,13 +24,15 @@ apps/e2e ┄┄┄┄┄▶ 只透過瀏覽器 / HTTP 操作執行中的系統�
 | ---------------------- | ---------------------------------------- | ------------------------------------------------------------ | ---- |
 | `packages/utils`       | 無                                       | 任何 workspace package；DOM / Node 專屬 API（要前後端都能跑） | 👀   |
 | `packages/api-sdk`     | 無                                       | 任何 workspace package；手改 `src/generated/`                 | 👀   |
-| `apps/web`             | `api-sdk`、`utils`                        | `apps/*`                                                     | 🔒 `package.json` |
-| `apps/api`             | `utils`                                  | `api-sdk`（後端才是型別的來源，不能反過來依賴產物）、`apps/*` | 🔒 `package.json` |
+| `packages/realtime`    | 無（只依賴 `zod`）                       | 任何 workspace package；DOM / Node 專屬 API                   | 👀   |
+| `apps/web`             | `api-sdk`、`realtime`、`utils`            | `apps/*`                                                     | 🔒 `package.json` |
+| `apps/api`             | `realtime`、`utils`                      | `api-sdk`（後端才是型別的來源，不能反過來依賴產物）、`apps/*` | 🔒 `package.json` |
 | `apps/e2e`             | 無                                       | 任何 `apps/*` 原始碼；只透過瀏覽器與 HTTP 操作系統            | 👀   |
 
 - `apps/*` 之間 **永不互相 import**；packages 永不 import apps。
 - 新增 workspace 依賴要先在 `package.json` 宣告；pnpm 的隔離會讓未宣告的 import 解析失敗。
 - `apps/web` 只在 `src/shared/api-sdk/` 這 **一個地方** import `@game-editor/api-sdk`，其餘一律 `@/shared/api-sdk`。
+  `@game-editor/realtime` 同理，只經由 `src/shared/realtime/`。
 
 ---
 

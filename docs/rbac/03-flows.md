@@ -263,13 +263,14 @@ PATCH /roles/:id/permissions  { add: [], remove: ['user:delete'] }
   ├─ 檢查 R 不是 super-admin（ROLE_SUPER_ADMIN_IMMUTABLE）
   ├─ 檢查反提權（add 的鍵 ⊆ actor 權限集合）
   ├─ ★ 檢查 I8：若 R 是最後一個帶 super-admin 等效權限的角色 → 拒絕
+  ├─ 查出持有 R 的所有 user_id（holders）
   ├─ 交易：DELETE role_permissions WHERE role_id = R AND permission_id IN (...)
   ├─ audit(role.grantPermission, { before, after })
   │
-  ▼
-PermissionCacheService.invalidateByRole(R)
-  ├─ 查出持有 R 的所有 user_id
-  └─ 逐一 cache.delete(`perm:${userId}`)
+  ▼  交易之後
+PermissionService.invalidateUsers(holders)          逐一刪除快取
+DomainEventBus.publish(permissions.changed / resource.changed)
+  └─ realtime：holders 換 room、收到推播 → 前端重抓 profile（backend/08-realtime.md §7）
   │
   ▼  下一次這些使用者的請求
 PermissionsGuard → cache miss → 重新解析 → 不含 'user:delete' → 403

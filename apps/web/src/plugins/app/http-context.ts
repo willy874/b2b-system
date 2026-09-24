@@ -11,6 +11,7 @@ import {
 } from '@/core/client';
 import {
   apiAdapterInterceptor,
+  clientIdInterceptor,
   createAuthHeaderInterceptor,
   createRefreshTokenInterceptor,
   retryInterceptor,
@@ -32,7 +33,7 @@ export interface BackendOptions {
 
 /**
  * 每個後端建立一個 session 與兩個管道，彼此獨立：
- * - `<name>:base`：retry ＋ 錯誤轉換。給登入、續期、公開端點
+ * - `<name>:base`：x-client-id ＋ retry ＋ 錯誤轉換。給登入、續期、公開端點
  * - `<name>:auth`：base ＋ 該後端 session 的 ensureAccessToken ＋ 401 續期重放
  *
  * 必須包含 `MAIN_BACKEND`：它的 session 決定整個 app 的登入狀態。
@@ -57,6 +58,7 @@ export function httpContextPlugin(backends: readonly BackendOptions[]): AppPlugi
           name: names.base,
           baseUrl: backend.baseUrl,
           timeoutMs: REQUEST_TIMEOUT_MS,
+          requestInterceptors: [clientIdInterceptor],
           responseInterceptors: [apiAdapterInterceptor],
           errorInterceptors: [retryInterceptor],
         }),
@@ -66,7 +68,8 @@ export function httpContextPlugin(backends: readonly BackendOptions[]): AppPlugi
           name: names.auth,
           baseUrl: backend.baseUrl,
           timeoutMs: REQUEST_TIMEOUT_MS,
-          requestInterceptors: [createAuthHeaderInterceptor(session)],
+          // x-client-id：伺服器推播的 origin，讓發起寫入的分頁略過自己的變更
+          requestInterceptors: [clientIdInterceptor, createAuthHeaderInterceptor(session)],
           responseInterceptors: [apiAdapterInterceptor],
           errorInterceptors: [createRefreshTokenInterceptor(session), retryInterceptor],
         }),

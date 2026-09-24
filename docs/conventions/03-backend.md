@@ -14,9 +14,10 @@
 | 3   | Repository 不含業務判斷，只有 Drizzle 查詢                                                    | 「可不可以」只在一個地方決定                     | 👀 Review     |
 | 4   | 每個路由宣告 `@Public()` / `@Authenticated()` / `@RequirePermissions()` 其中之一               | 預設拒絕；漏宣告不能變成公開                     | 🔒 啟動檢查（`common/route-audit.ts`） |
 | 5   | Service 拋 `AppException(ErrorCode)`，不拋 `HttpException`                                     | Service 不依賴 HTTP 語境                         | 👀 Review     |
-| 6   | 稽核寫入在交易 **內**；快取失效在交易 **後**                                                   | 業務與紀錄同生共死；rollback 時不留下錯的快取    | 👀 Review     |
+| 6   | 稽核寫入在交易 **內**；快取失效、領域事件發佈在交易 **後**（先失效再發佈）                     | 業務與紀錄同生共死；rollback 時不留下錯的快取，也不推出不存在的變更 | 👀 Review     |
 | 7   | 刪除角色前 **先** 查出受影響的使用者，再刪                                                     | cascade 之後就查不到人，快取無從失效             | 👀 Review     |
 | 8   | 跨模組只注入對方 `exports` 的 service，不注入 repository；不用 `forwardRef`                    | 循環依賴代表職責畫錯了                           | 👀 Review     |
+| 9   | 推播等副作用由 service 發佈 `DomainEventBus` 事件，不直接注入 `RealtimeModule` 或 Socket.io     | 業務模組不依賴推播；受眾判斷集中在 listener（[`architecture/backend/08-realtime.md`](../architecture/backend/08-realtime.md) §7） | 👀 Review     |
 
 完整的依賴矩陣見 [`07-layer-dependencies.md`](./07-layer-dependencies.md) §3。
 各層「可以／不可以」的對照表見

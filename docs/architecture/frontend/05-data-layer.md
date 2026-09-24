@@ -377,6 +377,10 @@ channel.onmessage = (e) => apply(e.data.targets); // 不再廣播
 
 在 A 分頁刪掉一個角色，B 分頁的列表立刻更新。
 
+**有推播之後**：其他分頁、其他裝置、其他使用者都由伺服器推 `resource.changed`，各自用同一張依賴圖換算；
+`broadcastInvalidate` 只在推播 **斷線** 時才經 BroadcastChannel 廣播，避免同一個分頁失效兩次。
+見 [`11-realtime.md`](./11-realtime.md) §4。
+
 ---
 
 ## 7. 錯誤處理

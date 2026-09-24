@@ -4,6 +4,7 @@ import { Reflector } from '@nestjs/core';
 import type { JwtService } from '@nestjs/jwt';
 import { describe, expect, it, vi } from 'vitest';
 
+import { AccessTokenVerifier } from '@/common/auth';
 import { Public } from '@/common/decorators';
 import { UserCacheService } from '@/core/cache';
 import type { Database } from '@/core/database';
@@ -69,7 +70,10 @@ function createGuard(
     }),
   } as unknown as Database;
 
-  return new JwtAuthGuard(new Reflector(), jwt, config as never, userCache, db);
+  return new JwtAuthGuard(
+    new Reflector(),
+    new AccessTokenVerifier(jwt, config as never, userCache, db),
+  );
 }
 
 describe('extractBearer', () => {

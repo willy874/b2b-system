@@ -3,6 +3,7 @@
   "references": [
     { "path": "./packages/utils" },
     { "path": "./packages/api-sdk" },
+    { "path": "./packages/realtime" },
     { "path": "./packages/api-sdk/codegen" },
     { "path": "./apps/api" },
     { "path": "./apps/web" },

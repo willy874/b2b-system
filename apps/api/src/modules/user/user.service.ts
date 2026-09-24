@@ -1,3 +1,5 @@
+import { ChangeKind, ChangeSource, SessionRevokedReason } from '@game-editor/realtime';
+import type { ResourceChangeWire } from '@game-editor/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
@@ -5,6 +7,7 @@ import { UserCacheService } from '@/core/cache';
 import type { Database, DbOrTx } from '@/core/database';
 import { DRIZZLE, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
+import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
 import type { UserInsert, UserRow } from '@/db/schema';
 import { diff } from '@/modules/audit-log/audit.diff';
@@ -38,6 +41,19 @@ function toDto(user: UserRow, roles: UserRoleSummary[]): UserDto {
   };
 }
 
+/** 使用者資料或狀態變更；帶上持有的角色，讓角色的持有者清單精準失效。 */
+export function userUpdated(
+  id: string,
+  roles: readonly Pick<UserRoleSummary, 'id'>[],
+): ResourceChangeWire {
+  return {
+    resource: ChangeSource.USER,
+    kind: ChangeKind.UPDATE,
+    id,
+    refs: { [ChangeSource.ROLE]: roles.map((role) => role.id) },
+  };
+}
+
 @Injectable()
 export class UserService {
   constructor(
@@ -47,6 +63,7 @@ export class UserService {
     private readonly authTokens: AuthTokenService,
     private readonly userCache: UserCacheService,
     private readonly audit: AuditService,
+    private readonly events: DomainEventBus,
   ) {}
 
   async list(query: ListUserDto) {
@@ -108,6 +125,16 @@ export class UserService {
     });
 
     await this.authTokens.issue(created.id, 'activation');
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [
+        {
+          resource: ChangeSource.USER,
+          kind: ChangeKind.CREATE,
+          id: created.id,
+          refs: { [ChangeSource.ROLE]: dto.roleIds },
+        },
+      ],
+    });
     return toDto(created, await this.repo.listRoles(created.id));
   }
 
@@ -151,13 +178,27 @@ export class UserService {
     // 使用者狀態／token_version 變了，JwtAuthGuard 的快取必須主動失效
     this.userCache.invalidate(id);
     this.permissionService.invalidateUser(id);
-    return toDto(updated, await this.repo.listRoles(id));
+
+    const roles = await this.repo.listRoles(id);
+    if (deactivating) {
+      this.events.publish(DomainEvent.SESSIONS_REVOKED, {
+        userIds: [id],
+        reason: SessionRevokedReason.ACCOUNT_DISABLED,
+      });
+    }
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [userUpdated(id, roles)],
+      affectedUserIds: [id],
+    });
+    return toDto(updated, roles);
   }
 
   async remove(id: string, actor: AuthUser): Promise<void> {
     const user = await this.getExisting(id);
     this.assertNotSelf(actor.id, id);
     await this.assertNotLastSuperAdmin(id);
+    // 先查角色再刪：推播要帶上受影響的角色（userCount）
+    const roles = await this.repo.listRoles(id);
 
     await withTransaction(this.db, async (tx) => {
       await this.repo.softDelete(id, actor.id, tx);
@@ -176,6 +217,21 @@ export class UserService {
 
     this.userCache.invalidate(id);
     this.permissionService.invalidateUser(id);
+    // softDelete 遞增了 token_version
+    this.events.publish(DomainEvent.SESSIONS_REVOKED, {
+      userIds: [id],
+      reason: SessionRevokedReason.TOKEN_INVALID,
+    });
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [
+        {
+          resource: ChangeSource.USER,
+          kind: ChangeKind.DELETE,
+          id,
+          refs: { [ChangeSource.ROLE]: roles.map((role) => role.id) },
+        },
+      ],
+    });
   }
 
   /** PUT：整批取代語意。 */
@@ -214,6 +270,20 @@ export class UserService {
     });
 
     this.permissionService.invalidateUser(id);
+    // 新舊角色都要通知：兩邊的 userCount 與持有者清單都變了
+    const roleIds = [...new Set([...before.map((role) => role.id), ...dto.roleIds])];
+    this.events.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: [id] });
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [
+        {
+          resource: ChangeSource.USER_ROLE,
+          kind: ChangeKind.UPDATE,
+          id,
+          refs: { [ChangeSource.ROLE]: roleIds },
+        },
+      ],
+      affectedUserIds: [id],
+    });
     return { roles: await this.repo.listRoles(id) };
   }
 
@@ -227,6 +297,9 @@ export class UserService {
       resourceName: user.email,
       actorId: actor.id,
       actorEmail: actor.email,
+    });
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [{ resource: ChangeSource.USER_CREDENTIAL, kind: ChangeKind.UPDATE, id }],
     });
     return { sent: true };
   }
@@ -256,7 +329,12 @@ export class UserService {
     });
 
     this.userCache.invalidate(id);
-    return toDto(updated, await this.repo.listRoles(id));
+    const roles = await this.repo.listRoles(id);
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [userUpdated(id, roles)],
+      affectedUserIds: [id],
+    });
+    return toDto(updated, roles);
   }
 
   // ── 業務規則 ─────────────────────────────────────────────

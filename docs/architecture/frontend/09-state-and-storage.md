@@ -127,6 +127,7 @@ interface DictStorage {
 | 表格欄位設定、預設篩選                             | 任何個人識別資訊         |
 | 「不要再顯示這個提示」的旗標                       | 權限集合（每次重新取得） |
 | Refresh Token 的 **傳輸方式標記**（非 token 本身） | 任何伺服器資料的複本     |
+| 跨分頁 leader 選舉的任期 counter（`game-editor:leader:*:counter`，[11 §3.3](./11-realtime.md)） |                          |
 
 ### 4.3 Token 的儲存
 
@@ -169,7 +170,8 @@ channel.close();
 | ----------------------------------- | ---------------------------- | --------------- | ------------------------------------------------------------ |
 | `broadcastChannelTransport()`（預設）| 本機同源分頁                 | structured clone | 一般跨分頁同步                                               |
 | `storageTransport()`                | 本機同源分頁                 | JSON            | 沒有 `BroadcastChannel` 時的後備；訊息會短暫寫進 localStorage |
-| `webSocketTransport(socket)`        | 跨裝置（經伺服器）           | JSON            | 同一帳號在多台裝置即時同步                                   |
+| `webSocketTransport(socket)`        | 跨裝置（經伺服器）           | JSON            | 原生 WebSocket 伺服器；本專案後端是 Socket.io，改用下一列     |
+| `socketIoTransport(socket)`         | 跨裝置（經本專案後端）       | JSON            | 同一帳號在多台裝置即時同步；只轉白名單頻道（[11 §7](./11-realtime.md)） |
 | `sharedWorkerTransport(worker)`     | 本機同源分頁（經 worker）    | structured clone | 需要一個跨分頁的單一執行者（例：只由 worker 維持連線）        |
 | `serviceWorkerTransport()`          | SW 控制的分頁（經 SW）       | structured clone | SW 本身也要收發（例：背景同步後通知失效）                    |
 | `fallbackTransport(a, b, …)`        | —                            | —               | 依序用第一個目前環境支援的                                   |
@@ -252,7 +254,9 @@ const stop = shareStore(useEditorSessionStore, 'editor-session', ['activeDocumen
 | 頻道（`ge:` 之後）          | 訊息                            | 傳輸層             | 位置                                         |
 | --------------------------- | ------------------------------- | ------------------ | -------------------------------------------- |
 | `session:<後端>`            | `refresh-done`、`session-ended` | BroadcastChannel（釘死） | `core/auth/SessionStore`               |
-| `query-invalidate`          | `invalidate`                    | 預設               | `core/cache/broadcastInvalidate`             |
+| `query-invalidate`          | `invalidate`                    | 預設（推播可用時不送） | `core/cache/broadcastInvalidate`         |
+| `leader:realtime:<後端>`    | `request-leader`、`leader-announcement`、`leader-heartbeat`、`leader-release` | 預設 | `shared/leader`，由 realtime plugin 啟動（[11 §3.3](./11-realtime.md)） |
+| `realtime-control:<後端>`   | `resource-changed`、`resync`、`status`、`status-request` | 預設 | `core/realtime/RealtimeCoordinator`（[11 §3.4](./11-realtime.md)） |
 | `store:preference:locale`   | `state`（`syncStore`）          | 預設               | `core/store/preference`，由 i18n plugin 啟動 |
 | `store:preference:timezone` | `state`（`syncStore`）          | 預設               | 同上                                         |
 

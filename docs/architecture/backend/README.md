@@ -16,6 +16,7 @@
 | 05  | [`05-rbac.md`](./05-rbac.md)                       | Guard、Decorator、權限快取、反提權、路由稽核 |
 | 06  | [`06-audit-log.md`](./06-audit-log.md)             | 稽核日誌設計與不可變性                       |
 | 07  | [`07-testing.md`](./07-testing.md)                 | 單元 / 整合 / e2e 測試策略                   |
+| 08  | [`08-realtime.md`](./08-realtime.md)               | Socket.io gateway、room 與受眾、推播時機     |
 
 ## 四條必須記住的規則
 

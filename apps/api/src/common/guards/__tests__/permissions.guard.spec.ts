@@ -1,5 +1,6 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { WsException } from '@nestjs/websockets';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -140,5 +141,68 @@ describe('PermissionsGuard', () => {
       }),
     } as unknown as ExecutionContext;
     await expect(guard.canActivate(context)).rejects.toMatchObject({ code: 'AUTH_TOKEN_INVALID' });
+  });
+});
+
+function createWsContext(method: keyof TestController, data: Record<string, unknown>) {
+  const instance = new TestController();
+  return {
+    getType: () => 'ws',
+    getHandler: () => instance[method] as () => void,
+    getClass: () => TestController,
+    switchToWs: () => ({ getClient: () => ({ id: 's1', data }) }),
+  } as unknown as ExecutionContext;
+}
+
+const socketIdentity = {
+  userId: 'user-1',
+  email: 'a@example.com',
+  tokenVersion: 0,
+  expiresAt: Date.now() + 60_000,
+};
+
+describe('PermissionsGuard（WebSocket，docs/architecture/backend/08-realtime.md §4）', () => {
+  it('@Authenticated 放行', async () => {
+    const { guard } = createGuard([]);
+    await expect(
+      guard.canActivate(createWsContext('authenticatedRoute', socketIdentity)),
+    ).resolves.toBe(true);
+  });
+
+  it('從 socket.data.userId 解析權限，持有即放行', async () => {
+    const { guard } = createGuard(['role:update']);
+    await expect(guard.canActivate(createWsContext('updateRole', socketIdentity))).resolves.toBe(
+      true,
+    );
+  });
+
+  it('缺權限 → WsException（帶 code）並寫稽核', async () => {
+    const { guard, audit } = createGuard([]);
+    const error = await guard
+      .canActivate(createWsContext('updateRole', socketIdentity))
+      .catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(WsException);
+    expect((error as WsException).getError()).toMatchObject({ code: 'AUTHZ_FORBIDDEN' });
+    expect(audit.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({ actorId: 'user-1', action: 'authz.denied' }),
+    );
+  });
+
+  it('沒有宣告 → ROUTE_PERMISSION_NOT_DECLARED', async () => {
+    const { guard } = createGuard(['role:update']);
+    const error = await guard
+      .canActivate(createWsContext('undeclaredRoute', socketIdentity))
+      .catch((caught: unknown) => caught);
+    expect((error as WsException).getError()).toMatchObject({
+      code: 'ROUTE_PERMISSION_NOT_DECLARED',
+    });
+  });
+
+  it('socket 上沒有身分 → AUTH_TOKEN_INVALID', async () => {
+    const { guard } = createGuard(['role:update']);
+    const error = await guard
+      .canActivate(createWsContext('updateRole', {}))
+      .catch((caught: unknown) => caught);
+    expect((error as WsException).getError()).toMatchObject({ code: 'AUTH_TOKEN_INVALID' });
   });
 });

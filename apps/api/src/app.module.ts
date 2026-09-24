@@ -3,18 +3,21 @@ import { ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
+import { AccessTokenModule } from './common/auth';
 import { JwtAuthGuard, PermissionsGuard } from './common/guards';
 import { CacheModule } from './core/cache';
 import { ConfigModule } from './core/config';
 import type { Env } from './core/config';
 import { DatabaseModule } from './core/database';
 import { HttpExceptionFilter } from './core/errors';
+import { EventsModule } from './core/events';
 import { RequestIdMiddleware, TransformInterceptor } from './core/http';
 import { LoggerModule } from './core/logger';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { PermissionModule } from './modules/permission/permission.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
 import { RoleModule } from './modules/role/role.module';
 import { SystemModule } from './modules/system/system.module';
 import { UserModule } from './modules/user/user.module';
@@ -27,6 +30,8 @@ import { UserModule } from './modules/user/user.module';
     LoggerModule,
     DatabaseModule,
     CacheModule,
+    EventsModule,
+    AccessTokenModule,
     // 只有一個全域桶；`/auth/*` 以 @Throttle() 覆寫成更嚴格的值。
     // （多個具名 throttler 會「同時」套用到每個路由，那會讓最嚴格的那個變成全域限制。）
     ThrottlerModule.forRootAsync({
@@ -39,6 +44,8 @@ import { UserModule } from './modules/user/user.module';
     // 葉節點模組（被很多人依賴）
     PermissionModule,
     AuditLogModule,
+    // 訂閱領域事件並推播；沒有任何模組依賴它（docs/architecture/backend/08-realtime.md §2）
+    RealtimeModule,
 
     // 業務模組
     AuthModule,

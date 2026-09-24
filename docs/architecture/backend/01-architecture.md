@@ -177,7 +177,7 @@ providers: [
 
 ```
 app.module
-  ├─ CoreModule（global）: Config · Database · Cache · Logger
+  ├─ CoreModule（global）: Config · Database · Cache · Logger · Events（DomainEventBus）
   ├─ AuthModule      ──▶ UserModule(exports UserService)
   │                  ──▶ PermissionModule(exports PermissionService)
   │                  ──▶ AuditLogModule(exports AuditService)
@@ -188,6 +188,7 @@ app.module
   │                  ──▶ AuditLogModule
   ├─ PermissionModule
   ├─ AuditLogModule
+  ├─ RealtimeModule  ──▶ PermissionModule（訂閱 DomainEventBus；沒有模組依賴它）
   └─ HealthModule
 ```
 
@@ -196,6 +197,9 @@ app.module
 - **跨模組只注入對方 `exports` 的 service**，不注入 repository。
 - `PermissionModule` 與 `AuditLogModule` 是葉節點，被很多人依賴，自己不依賴業務模組。
 - 循環依賴一律用重構解決，**不用 `forwardRef`**。出現循環代表職責畫錯了。
+- **副作用走領域事件，不反向依賴**：業務模組發佈 `DomainEventBus` 事件，
+  推播這類「晚一點發生也沒關係」的副作用由訂閱的模組處理（[`08-realtime.md`](./08-realtime.md) §7）。
+  業務模組不 import `RealtimeModule`。
 
 ### 4.1 一個實際的循環與它的解法
 
@@ -232,6 +236,7 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
   await this.permissionService.assertGrantable(actor.id, dto.add);   // 反提權
 
   const before = await this.roleRepo.listPermissionKeys(roleId);
+  const holders = await this.roleRepo.findUserIdsByRole(roleId);
 
   await withTransaction(this.db, async (tx) => {
     if (dto.remove.length) await this.roleRepo.removePermissions(roleId, dto.remove, tx);
@@ -243,7 +248,7 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
   });
 
   // ★ 快取失效在交易「之後」——交易可能 rollback
-  await this.permissionCache.invalidateByRole(roleId);
+  this.permissionService.invalidateUsers(holders); // holders 在交易前查出（05-rbac §5.1）
 }
 ```
 
@@ -253,6 +258,7 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 | -------------------- | ----------------------------------------------------------------------------------- |
 | **稽核寫入在交易內** | 業務變更與它的紀錄必須同生共死                                                      |
 | **快取失效在交易後** | 交易可能 rollback；提前失效會讓快取重新載入到「尚未提交」的舊值，之後又不會再被失效 |
+| **領域事件在交易後、快取失效後發佈** | rollback 的變更不該被推出去；訂閱者（推播）觸發的重抓必須拿到已失效的快取 |
 
 Repository 的每個寫入方法都接受一個可選的 `tx` 參數，預設用 `this.db`：
 

@@ -230,10 +230,10 @@ export class PermissionCacheService {
 | 權限目錄變更（seed / migration） | **全部**                       |
 
 ```ts
-async invalidateByRole(roleId: string): Promise<void> {
-  const userIds = await this.roleRepo.findUserIdsByRole(roleId);
-  for (const id of userIds) this.cache.invalidate(id);
-}
+// RoleService：持有者在交易「之前」查出，交易之後失效
+const holders = await this.repo.findUserIdsByRole(roleId);
+await withTransaction(this.db, async (tx) => { /* 寫入 ＋ 稽核 */ });
+this.permissionService.invalidateUsers(holders);
 ```
 
 **順序陷阱**：刪除角色時必須 **先** 查出受影響的使用者，**再** 執行刪除。
@@ -247,6 +247,9 @@ Phase 0 是單一 API 執行個體。in-memory Map 的失效是即時且確定�
 **多執行個體時的升級路徑**：換成 Redis（或加一個 Postgres `LISTEN/NOTIFY`
 的失效廣播）。`PermissionCacheService` 的介面不變，只換實作。
 60 秒 TTL 在那之前就是安全網：即使某個節點漏收失效通知，最遲 60 秒後也會重新解析。
+
+快取失效之後，同一處還要呼叫 `RealtimePublisher` 把變更推給受影響的使用者，
+並同步他們的 Socket.io room（[`08-realtime.md`](./08-realtime.md) §6.2、§7）。
 
 ### 5.3 快取值的大小
 

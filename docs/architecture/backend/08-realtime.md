@@ -1,0 +1,528 @@
+# 後端 08 — 即時推播（Socket.io）
+
+> 狀態：**已實作（Phase 0，單一執行個體）**。決策理由見 [ADR-0008](../../adr/0008-realtime-with-socket-io.md)；
+> 前端對應章節見 [`../frontend/11-realtime.md`](../frontend/11-realtime.md)。
+
+## 1. 設計原則
+
+| #   | 原則                     | 落實方式                                                                       |
+| --- | ------------------------ | ------------------------------------------------------------------------------ |
+| 1   | **推播只是加速**         | 正確性仍由 HTTP ＋ `staleTime` 保證；漏收事件只會變慢，不會錯                  |
+| 2   | **預設拒絕**             | 連線必須帶有效 access token；未宣告授權的訊息處理器 → 啟動失敗                 |
+| 3   | **推來源變更，不推資料** | payload 只有 `resource / kind / id / refs`，客戶端自己重抓（重抓時照常過 Guard） |
+| 4   | **只推給看得到的人**     | 以 `perm:{permissionKey}` room 過濾受眾                                        |
+| 5   | **交易後才推**           | 與快取失效同一個時機（[01 §5.2](./01-architecture.md)）；rollback 的變更不會被推出去 |
+| 6   | **撤銷即時生效**         | `token_version` 遞增時主動推 `session.revoked` 並斷線                          |
+
+**不在範圍內**：協作編輯、presence（誰在線上）、訊息持久化與重送。
+這些之後需要時在同一個 gateway 上擴充，不影響本章的事件。
+
+---
+
+## 2. 目錄與模組相依
+
+業務模組與 WebSocket 之間以 **領域事件匯流排（`DomainEventBus`）** 解耦：
+service 只宣告「發生了什麼」，誰要推播、推給誰由訂閱端決定。
+
+```
+apps/api/src/
+├── core/
+│   └── events/                        ★ 領域事件匯流排（全域 module）
+│       ├── domain-events.ts           事件名稱 ＋ 事件 → payload 對照表
+│       ├── event-bus.ts               DomainEventBus：publish / subscribe / drain
+│       └── events.module.ts
+├── common/
+│   ├── auth/
+│   │   ├── access-token.verifier.ts   ★ 從 JwtAuthGuard 抽出：驗簽 → userCache → status / ver 檢查
+│   │   └── access-token.module.ts     @Global：JwtAuthGuard（AppModule）與 gateway 都注入 verifier
+│   ├── types/
+│   │   └── authenticated-socket.ts    common 的 guard 讀 socket.data 用，不必 import modules
+│   └── guards/
+│       ├── jwt-auth.guard.ts          改用 AccessTokenVerifier
+│       ├── ws-auth.guard.ts           ★ 訊息處理器用：重驗 socket 上的使用者仍有效
+│       └── permissions.guard.ts       支援 ctx.getType() === 'ws'
+└── modules/
+    └── realtime/
+        ├── realtime.module.ts
+        ├── realtime.gateway.ts        連線驗證、加入 room、session.renew、channel.relay
+        ├── realtime.listener.ts       ★ 訂閱領域事件 → 同步 room / 推播 / 撤銷
+        ├── realtime.audience.ts       來源 → room 的對照、同步使用者的 perm room
+        ├── realtime.expiry.ts         access token 到期斷線的計時器
+        ├── realtime.rate-limit.ts     §11 的 Origin、handshake、訊息速率、連線數限制
+        ├── realtime.constants.ts      REALTIME_LIMITS（可由測試覆寫）
+        ├── realtime.types.ts          RealtimeServer / RealtimeSocket（套上合約泛型）
+        └── realtime.rooms.ts          room 名稱（userRoom / permRoom），不以模板散落各處
+
+packages/realtime/                     ★ 事件合約（前後端共用，見 §9）
+```
+
+```
+UserModule / RoleModule / AuthModule ──▶ core/events（DomainEventBus）◀── RealtimeModule
+                                                                          └──▶ PermissionModule
+```
+
+- **業務模組不 import `RealtimeModule`**。拿掉 realtime，業務模組照樣編譯、照樣運作，只是沒有推播。
+- `RealtimeModule` 依賴 `PermissionModule`（解析權限集合 → perm room）與 bus；沒有模組依賴它。
+- Gateway 放在 `modules/` 而不是 `core/`：它需要 `PermissionService` 來決定 room，而 `core/` 不認識任何 module。
+- Bus 放在 `core/`：它只認得事件的形狀，不認得任何發佈者或訂閱者。
+
+---
+
+## 3. 連線
+
+### 3.1 路徑與傳輸
+
+```ts
+@WebSocketGateway({
+  path: '/socket.io',          // 瀏覽器看到的是 /api/socket.io；proxy 去掉 /api（同 HTTP）
+  transports: ['websocket'],   // 不開 long-polling：免 sticky session，也少一條吃 cookie 的 HTTP 路徑
+  serveClient: false,
+  cors: false,                 // 同源；另以 allowRequest 檢查 Origin（§11）
+})
+export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {}
+```
+
+### 3.2 Handshake 驗證
+
+驗證寫在 `afterInit` 註冊的 `io.use()` middleware，**驗證失敗就不建立連線**，不會有「先連上再踢掉」的空窗：
+
+```ts
+afterInit(io: RealtimeServer) {
+  io.use(async (socket, next) => {
+    const token = socket.handshake.auth?.token;
+    const result = await this.verifier.verify(typeof token === 'string' ? token : undefined);
+    if (!result.ok) return next(connectError(result.code)); // AUTH_TOKEN_INVALID / AUTH_TOKEN_STALE / AUTH_ACCOUNT_DISABLED
+    socket.data.userId = result.user.id;
+    socket.data.tokenVersion = result.payload.ver;
+    socket.data.expiresAt = result.payload.exp * 1000;
+    next();
+  });
+}
+
+function connectError(code: ErrorCode): Error {
+  // 客戶端在 connect_error 的 err.data.code 拿到，和 HTTP 的錯誤碼同一套
+  return Object.assign(new Error(code), { data: { code } });
+}
+```
+
+- `AccessTokenVerifier` 與 `JwtAuthGuard` **共用同一段邏輯**：驗簽 → `UserCacheService` → `deletedAt` / `status` / `token_version`。
+  不在 gateway 重寫一次，避免兩邊的判定規則分歧。
+- **不用 cookie 驗證。** refresh cookie 的 Path 是 `/api/auth`，本來就不會送到 `/api/socket.io`；
+  用 token 也讓跨站 WebSocket 劫持（CSWSH）無從利用瀏覽器自動帶的憑證。
+- Token 放在 `handshake.auth`，**不放 query string**（會進 proxy 與存取日誌）。
+
+### 3.3 連線成功之後
+
+```ts
+async handleConnection(socket: RealtimeSocket) {
+  await socket.join(userRoom(socket.data.userId));
+  await this.audience.syncRooms(socket);  // 依權限集合加入 perm:<key>
+  this.expiry.schedule(socket);           // §3.4
+}
+
+handleDisconnect(socket: RealtimeSocket) {
+  this.expiry.cancel(socket);
+}
+```
+
+### 3.4 Access token 到期與續期
+
+Access token 只有 5 分鐘，連線會比它活得久。規則：**連線的授權期限 = 最後一次驗過的 token 的 `exp`**。
+
+| 時機                       | 伺服器                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------- |
+| 客戶端送 `session.renew`   | 以同一個 verifier 驗新 token；**`sub` 必須相同**（不能在連線上換人）；更新 `expiresAt` 並重設計時器；ack `{ ok: true }` 或 `{ ok: false, code }` |
+| 到了 `expiresAt` 還沒續期  | 推 `session.expired`，接著 `socket.disconnect(true)`                            |
+
+客戶端在 `SessionStore` 續期成功時送 `session.renew`；閒置分頁收到 `session.expired` 時重新連線，
+handshake 會先透過 `ensureAccessToken()` 換一張新 token（[前端 11 §3](../frontend/11-realtime.md)）。
+
+### 3.5 撤銷
+
+`token_version` 遞增（停用、刪除、改密碼、強制登出所有裝置）的 service，在交易後呼叫：
+
+```ts
+this.events.publish(DomainEvent.SESSIONS_REVOKED, {
+  userIds: [userId],
+  reason: SessionRevokedReason.TOKEN_STALE,
+});
+// realtime.listener → io.to(userRoom(id)).emit('session.revoked', { reason })
+//                   → io.in(userRoom(id)).disconnectSockets(true)
+```
+
+之前被停用的人要等到「下一次 HTTP 請求」才會被擋下；現在是即時的。
+單一裝置的登出不遞增 `token_version`，由該分頁自己斷線（前端 `SessionStore` 的 `ended`）。
+
+---
+
+## 4. 訊息處理器的授權
+
+`JwtAuthGuard` 的 `if (ctx.getType() !== 'http') return true` 代表 **HTTP 的守門員對 WebSocket 不生效**。
+WebSocket 另有三道防線：
+
+1. **連線 middleware**（§3.2）：沒有有效 token 就連不上。
+2. **`WsAuthGuard`**：每則客戶端訊息都以 `socket.data` 重驗使用者
+   （走 `UserCacheService`，30 秒 TTL），停用、`token_version` 不符或已超過 `expiresAt` 就拒絕並斷線。
+3. **`PermissionsGuard` 支援 `ws`**：從 `socket.data.userId` 解析權限集合，其餘判定與 HTTP 相同；拒絕時拋帶 `code` 的 `WsException`。
+
+> **Nest 的 WebSocket context 不套用 `APP_GUARD` / `APP_INTERCEPTOR`。** 所以 gateway 以
+> `@UseGuards(WsAuthGuard, PermissionsGuard)` 掛在 class 上（順序即執行順序）；
+> `@nestjs/throttler` 與 `TransformInterceptor` 也不作用在 WebSocket 上，限流由 §11 自己做。
+
+---
+
+## 5. 路由稽核延伸到 gateway
+
+`common/route-audit.ts` 目前只掃 Express 路由。改成同時掃所有 gateway 的 `@SubscribeMessage`：
+
+| 宣告                         | WebSocket 上的意義                             |
+| ---------------------------- | ---------------------------------------------- |
+| `@Authenticated()`           | 已登入即可（連線本身已驗證）                   |
+| `@RequirePermissions(...)`   | 需要特定權限                                   |
+| `@Public()`                  | **不允許**——連線一定已驗證，出現即視為寫錯     |
+| 都沒有                       | **程序啟動失敗**，與 HTTP 路由同樣預設拒絕    |
+
+---
+
+## 6. Room 與受眾
+
+| Room                   | 誰在裡面                                   | 名稱來源                     |
+| ---------------------- | ------------------------------------------ | ---------------------------- |
+| `user:{userId}`        | 該使用者的所有連線（所有裝置、所有分頁）   | `userRoom(id)`               |
+| `perm:{permissionKey}` | 持有該權限的使用者的連線                   | `permRoom(key)`（例 `perm:role:read`） |
+
+super-admin 加入所有 `perm:` room。
+
+### 6.1 來源 → 受眾
+
+推播的受眾是「會因這筆變更而需要重抓的人」。對照表寫在 `realtime.audience.ts`，與前端
+`apis/resources.ts` 的依賴圖對應：
+
+| 來源（`resource`） | perm room                                  | user room                          | 為什麼                                               |
+| ------------------ | ------------------------------------------ | ---------------------------------- | ---------------------------------------------------- |
+| `user`             | `user:read`、`role:read`                   | 被改的那個人                       | 角色的持有者清單嵌入使用者名稱與狀態；本人的 profile |
+| `userRole`         | `user:read`、`role:read`                   | 被指派／移除的那個人               | 使用者嵌入角色摘要、角色的 userCount；本人的權限      |
+| `role`             | `role:read`、`user:read`（僅 update/delete）| 持有該角色的所有人（update/delete）| 使用者嵌入角色名稱；持有者的權限可能改變              |
+| `rolePermission`   | `role:read`                                | 持有該角色的所有人                 | 權限數與清單；持有者的有效權限                        |
+| `userCredential`   | —                                          | —                                  | 沒有任何畫面顯示憑證                                  |
+| 任何來源           | `auditLog:read`                            | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）    |
+
+- `io.to([...rooms]).emit()` 會對多個 room 的聯集 **去重**，同一條連線只收到一次。
+- 「持有該角色的所有人」就是 service 已經為了權限快取查出來的那份清單。
+  **刪除角色前先查人**（[05 §5.1](./05-rbac.md)）的規則同樣適用。
+- Payload 只有 id，不含名稱或內容；即使受眾稍微放寬也不會外洩資料。
+
+### 6.2 權限變更時同步 room
+
+使用者的權限集合改變後，他的連線必須換 room，否則會繼續收到（或收不到）不該收的事件：
+
+```ts
+async refreshAudience(userIds: readonly string[]) {
+  for (const id of userIds) {
+    const { permissions, isSuperAdmin } = await this.permissionService.resolve(id);
+    const room = this.io.in(userRoom(id));
+    room.socketsLeave(ALL_PERM_ROOMS);
+    room.socketsJoin(permRoomsFor(permissions, isSuperAdmin));
+  }
+}
+```
+
+`socketsLeave` / `socketsJoin` 經由 adapter 作用在所有節點上的連線（§10）。
+
+目前的實作會 **略過本節點沒有連線的使用者**（不必為他們查 DB）。裝上跨節點 adapter 時要拿掉這個捷徑，
+否則其他節點上的連線不會換 room（程式碼註解已標記）。
+
+---
+
+## 7. 推播：領域事件匯流排
+
+### 7.1 事件
+
+| 事件（`DomainEvent`）  | payload                                                   | 由誰發佈                         | `realtime.listener` 的動作                  |
+| ---------------------- | --------------------------------------------------------- | -------------------------------- | ------------------------------------------- |
+| `permissions.changed`  | `{ userIds }`                                             | 權限集合可能改變的寫入           | 同步這些人的 perm room（§6.2）              |
+| `resource.changed`     | `{ changes: ResourceChangeWire[], affectedUserIds? }`     | 所有會改變畫面資料的寫入         | 依 §6.1 算出 room，推 `resource.changed`    |
+| `sessions.revoked`     | `{ userIds, reason }`                                     | 遞增 `token_version` 的寫入      | 推 `session.revoked` 並斷線（§3.5）         |
+
+事件描述的是 **領域上發生了什麼**，不是「要推給誰」；受眾的判斷只在 listener 裡。
+之後新增的訂閱者（例：寄通知信、webhook）不需要動到發佈端。
+
+### 7.2 `DomainEventBus` 的語意
+
+```ts
+export interface DomainEventBus {
+  /** 交易提交後呼叫。不拋錯、不等待 handler（fire-and-forget）。 */
+  publish<K extends DomainEvent>(type: K, payload: DomainEventPayloads[K]): void;
+  subscribe<K extends DomainEvent>(type: K, handler: DomainEventHandler<K>): () => void;
+  /** 測試用：等所有已發佈的事件處理完。 */
+  drain(): Promise<void>;
+}
+
+type DomainEventHandler<K> = (payload: DomainEventPayloads[K], meta: DomainEventMeta) => Promise<void> | void;
+
+interface DomainEventMeta {
+  occurredAt: Date;
+  clientId?: string;   // x-client-id（§7.4）
+  requestId?: string;
+}
+```
+
+| 語意                         | 為什麼                                                                                  |
+| ---------------------------- | --------------------------------------------------------------------------------------- |
+| **`meta` 在 publish 當下擷取** | handler 非同步執行時請求 context 可能已結束；`origin` 必須是發起請求的那個分頁          |
+| **依序處理**（單一 queue，逐一 await） | 同一次操作先發 `permissions.changed` 再發 `resource.changed`：room 一定先同步完才推播 |
+| **handler 錯誤隔離**         | 記錄後吞掉；一個訂閱者壞掉不影響其他訂閱者，也不影響已經成功的寫入                      |
+| **不阻塞 HTTP 回應**         | 推播只是加速（原則 1）                                                                  |
+| **行程內、不持久化**         | Phase 0 單一執行個體；行程在事件處理前結束，事件就遺失——客戶端重連時會整批重新驗證      |
+
+### 7.3 在 service 裡的位置
+
+與快取失效並排，**都在交易之後**：
+
+```ts
+async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUser) {
+  // … 反提權、讀 before …
+  const holders = await this.repo.findUserIdsByRole(roleId);
+
+  await withTransaction(this.db, async (tx) => {
+    // … 寫入 ＋ 稽核（交易內）
+  });
+
+  // ★ 交易之後：先同步失效快取（授權正確性依賴它），再發佈事件（副作用）
+  this.permissionService.invalidateUsers(holders);
+  this.events.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: holders });
+  this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+    changes: [{ resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id: roleId }],
+    affectedUserIds: holders,
+  });
+}
+```
+
+| 規則                                         | 理由                                                                               |
+| -------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **事件在交易後發佈**                         | 交易 rollback 時不會推出一個不存在的變更；客戶端重抓時資料一定已提交              |
+| **權限快取失效不走 bus**                     | 它決定授權是否正確，必須同步、確定地發生；bus 只負責「晚一點發生也沒關係」的副作用 |
+| **先失效快取、再發佈**                       | 客戶端收到後立刻重抓；若快取還沒失效，會拿到舊權限並快取在前端                    |
+| **`changes` 與前端 mutation 宣告的來源一致** | 前端 `invalidateResources()` 宣告了什麼，伺服器就發佈什麼（同一張依賴圖）          |
+| **刪除角色前先查人**                         | `affectedUserIds` 與權限快取失效用的是同一份、刪除前查出的清單                     |
+
+各寫入發佈的事件（實作時的對照；與前端 mutation 宣告的來源一致，有些更精確）：
+
+| 操作                         | `resource.changed`                                   | 另外發佈                                                  |
+| ---------------------------- | ---------------------------------------------------- | --------------------------------------------------------- |
+| 角色建立／複製               | `role create`（帶 `id`）                             | —                                                         |
+| 角色更新                     | `role update`，持有者                                | —                                                         |
+| 角色權限增減                 | `rolePermission update`，持有者                      | 先發 `permissions.changed`                                |
+| 角色刪除                     | `role delete`，持有者（刪除 **前** 查出）            | 先發 `permissions.changed`                                |
+| 使用者建立                   | `user create`，`refs.role`                           | —                                                         |
+| 使用者更新／解鎖             | `user update`，`refs.role`                           | 停用時 `sessions.revoked`（`AUTH_ACCOUNT_DISABLED`）      |
+| 使用者刪除                   | `user delete`，`refs.role`（刪除前查出）             | `sessions.revoked`（`AUTH_TOKEN_INVALID`）                |
+| 指派角色                     | `userRole update`，`refs.role` = 新舊角色聯集        | 先發 `permissions.changed`                                |
+| 寄重設密碼信                 | `userCredential update`                              | —                                                         |
+| 修改個人資料／啟用／登入鎖定 | `user update`                                        | —                                                         |
+| 改密碼／以重設信改密碼       | `userCredential update`                              | `sessions.revoked`（`AUTH_TOKEN_STALE`）                  |
+
+登入失敗被鎖定 **不** 遞增 `token_version`，因此不撤銷既有連線：被鎖的人最遲在 access token 到期（§3.4）
+或下一則客戶端訊息（`WsAuthGuard`）時斷線。
+
+### 7.4 升級路徑
+
+Bus 的介面不變，實作可以替換：
+
+| 階段                     | 實作                                                                                   |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| Phase 0（單一執行個體）  | 行程內 queue                                                                           |
+| 多執行個體               | 推播改由 `@socket.io/postgres-adapter` 跨節點（§10.3）；bus 仍在行程內即可               |
+| 需要保證送達（通知信等） | Transactional outbox：事件在交易 **內** 寫進 `domain_events` 表，由背景工作讀出後分派   |
+
+### 7.5 `origin`：略過發起的分頁
+
+發起寫入的分頁在 mutation 成功時已經自己失效過了；伺服器推回來的同一筆再失效一次，會多抓一次。
+
+- 前端每個請求帶 `x-client-id`（分頁的 instance id）。
+- `RequestIdMiddleware` 旁邊加一段把它存進請求 context（`core/http`），格式驗證：長度 ≤ 64、僅 `[A-Za-z0-9:-]`，不合格就忽略。
+- `DomainEventBus.publish` 在發佈當下把它放進 `meta.clientId`，listener 推播時放進 `origin`；客戶端比對到自己就略過。
+
+這個 header 只用來去重，**不做任何授權判斷**。
+
+---
+
+## 8. 跨裝置中繼：`channel.relay`
+
+讓前端 `shared/channel` 的頻道可以跨裝置（例：偏好設定）。伺服器不理解 payload，只轉送：
+
+```ts
+@Authenticated()
+@SubscribeMessage(ClientEvent.CHANNEL_RELAY)
+relay(@ConnectedSocket() socket: RealtimeSocket, @MessageBody() body: unknown) {
+  const envelope = channelEnvelopeSchema.safeParse(body);
+  if (!envelope.success || !isRelayable(envelope.data.channel)) return;
+  socket.to(userRoom(socket.data.userId)).emit(ServerEvent.CHANNEL_RELAY, envelope.data);
+}
+```
+
+| 限制                                     | 理由                                                             |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| **只轉給同一個使用者的其他連線**         | 不能變成任意廣播的通道                                           |
+| 頻道名稱白名單（`ge:store:preference:` 前綴） | 帶 token 的 `session:*` 頻道永遠不該離開本機                |
+| 外框序列化後 ≤ 4 KB                      | 偏好設定用不到更大；擋掉濫用                                     |
+| 計入 §11 的訊息速率                      | 同上                                                             |
+
+---
+
+## 9. 事件合約：`packages/realtime`
+
+事件名稱、payload 的 zod schema 與 Socket.io 的泛型型別放在新的 workspace package，前後端共用。
+OpenAPI 描述不了 Socket 事件，所以不放進 `api-sdk`。
+
+```ts
+export const ServerEvent = {
+  RESOURCE_CHANGED: 'resource.changed',
+  SESSION_EXPIRED: 'session.expired',
+  SESSION_REVOKED: 'session.revoked',
+  CHANNEL_RELAY: 'channel.relay',
+} as const;
+
+export const ClientEvent = {
+  SESSION_RENEW: 'session.renew',
+  CHANNEL_RELAY: 'channel.relay',
+} as const;
+
+/** 伺服器會推的來源；前端的 Resource 必須是它的超集（PROFILE 等只存在於前端）。 */
+export const ChangeSource = {
+  USER: 'user',
+  ROLE: 'role',
+  USER_ROLE: 'userRole',
+  ROLE_PERMISSION: 'rolePermission',
+  USER_CREDENTIAL: 'userCredential',
+} as const;
+
+export const resourceChangedSchema = z.object({
+  changes: z.array(resourceChangeWireSchema).max(100),
+  origin: z.string().max(64).optional(),
+});
+
+export interface ServerToClientEvents {
+  'resource.changed': (payload: ResourceChanged) => void;
+  'session.expired': () => void;
+  'session.revoked': (payload: { reason: SessionRevokedReason }) => void;
+  'channel.relay': (envelope: ChannelEnvelopeWire) => void;
+}
+
+export interface ClientToServerEvents {
+  'session.renew': (payload: { token: string }, ack: (result: RenewResult) => void) => void;
+  'channel.relay': (envelope: ChannelEnvelopeWire) => void;
+}
+```
+
+- **兩端都在執行期驗證**：伺服器驗客戶端送來的，客戶端驗伺服器推來的（版本並存時不會壞掉，只會略過）。
+- 新增事件＝在這裡加名稱與 schema →（需要時）`core/events` 加領域事件 → `realtime.listener` 或 gateway → 前端 `core/realtime` 的處理，**同一批**修改。
+- 依賴規則：`packages/realtime` 只依賴 `zod`，不依賴任何 workspace package，不使用 DOM / Node 專屬 API
+  （[`conventions/07`](../../conventions/07-layer-dependencies.md) §1）。
+
+---
+
+## 10. 部署與擴展
+
+### 10.1 本機
+
+Vite proxy 的 `/api` 規則加上 `ws: true`；既有的 rewrite 會把 `/api/socket.io` 轉成 `/socket.io`。
+
+### 10.2 Production
+
+```nginx
+location /api/socket.io/ {
+  proxy_pass http://api/socket.io/;
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade $http_upgrade;
+  proxy_set_header Connection "upgrade";
+  proxy_set_header Host $host;
+  proxy_read_timeout 60s;   # 大於 pingInterval（25s）＋ pingTimeout（20s）
+}
+```
+
+### 10.3 多執行個體
+
+| 需求               | 作法                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------ |
+| 跨節點 emit / room | `@socket.io/postgres-adapter`（`LISTEN/NOTIFY`，需要一個 `pg` Pool 與 `socket_io_attachments` 表） |
+| Sticky session     | **不需要**：只用 websocket 傳輸，連線建立後就固定在同一個節點                               |
+| 權限／使用者快取   | 仍是各節點的 in-memory；跨節點失效走同一條 `LISTEN/NOTIFY`（[05 §5.2](./05-rbac.md) 的升級路徑） |
+| Token 到期計時器   | 每個節點只管自己的連線，不需要協調                                                         |
+
+Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEventBus`）不因此改變。
+
+---
+
+## 11. 限制與防濫用
+
+`@nestjs/throttler` 只作用在 HTTP，WebSocket 要自己限：
+
+| 項目                     | 限制                                              | 超過時               |
+| ------------------------ | ------------------------------------------------- | -------------------- |
+| Origin                   | `allowRequest` 檢查 `Origin` 屬於 `REALTIME_ALLOWED_ORIGINS` | 拒絕 handshake |
+| 每個 IP 的 handshake     | 每分鐘 30 次                                      | 拒絕 handshake       |
+| 每條連線的訊息           | 每 10 秒 30 則                                    | 略過；持續超過就斷線 |
+| 單一 frame               | `maxHttpBufferSize` = 16 KB                       | Socket.io 直接斷線   |
+| 每個使用者的連線數       | 20                                                | 拒絕新的 handshake   |
+
+前端同一個瀏覽器只有 leader 分頁連線（[前端 11 §3.3](../frontend/11-realtime.md)），
+所以 20 條大約對應 20 個瀏覽器／裝置，而不是 20 個分頁。
+
+新增環境變數：`REALTIME_ALLOWED_ORIGINS`（逗號分隔；開發預設 `http://localhost:5173`）。
+
+- 沒帶 `Origin` 的 handshake 只在非 production 放行（給 Node 測試客戶端用）。
+- Origin 與每 IP 次數在 HTTP 升級階段就拒絕，客戶端的 `connect_error` **不帶** `data.code`；
+  只有 token 驗證失敗（§3.2）才帶。
+- 「每 IP」與 HTTP throttler 用 **同一個** 客戶端 IP 判定：`main.ts` 依 `TRUST_PROXY` 設定 Express 的
+  `trust proxy`，gateway 讀 Express 編譯好的 `trust proxy fn`，以 `proxy-addr` 算出與 `req.ip` 相同的結果。
+  在 nginx 後面時要設 `TRUST_PROXY`（compose 用 `uniquelocal`），否則所有人共用 nginx 那一個 IP 的額度。
+
+---
+
+## 12. 可觀測性
+
+| 事件                   | 日誌欄位                                          |
+| ---------------------- | ------------------------------------------------- |
+| handshake 被拒         | `ip`、`code`                                      |
+| 連線／斷線             | `socketId`、`userId`、`reason`、`durationMs`      |
+| `session.revoked`      | `userId`、`reason`、斷掉的連線數                  |
+| 推播                   | `resource`、`kind`、room 數；payload 不記         |
+
+`GET /health/ready` 不因推播停擺而失敗：推播不是必要功能（原則 1）。
+
+---
+
+## 13. 測試
+
+整合測試沿用 Testcontainers，`app.listen(0)` 後用 `socket.io-client` 連線（[07-testing.md](./07-testing.md)）。
+
+| 案例                                                                   | 層     |
+| ---------------------------------------------------------------------- | ------ |
+| 沒帶 token、token 過期、`token_version` 不符 → `connect_error` 帶正確 `code` | 整合 |
+| `session.renew` 換成別人的 token → 拒絕                                | 整合   |
+| 到了 `exp` 沒續期 → 收到 `session.expired` 並斷線                      | 整合（假時鐘） |
+| 改角色權限 → 持有者與 `role:read` 持有者收到，其他人收不到             | 整合   |
+| 被拿掉 `role:read` 之後不再收到角色變更（room 已同步）                 | 整合   |
+| 交易 rollback → 沒有任何推播                                           | 整合   |
+| 停用使用者 → 該使用者所有連線收到 `session.revoked` 並被斷線           | 整合   |
+| `channel.relay` 只到同使用者；非白名單頻道被略過                       | 整合   |
+| gateway 有未宣告授權的 `@SubscribeMessage` → 啟動失敗                  | 單元（route-audit） |
+| 來源 → 受眾對照（§6.1）                                               | 單元   |
+| `DomainEventBus`：依序處理、錯誤隔離、`meta` 在發佈當下擷取            | 單元   |
+| `realtime.listener`：三個領域事件各自的動作（假 bus ＋ 假 io）         | 單元   |
+
+---
+
+## 14. 安全檢查清單
+
+- [ ] handshake 以 `AccessTokenVerifier` 驗證，與 `JwtAuthGuard` 同一段邏輯
+- [ ] token 只從 `handshake.auth` 取，不從 query string
+- [ ] 每則客戶端訊息都過 `WsAuthGuard`；每個處理器都有授權宣告（route-audit）
+- [ ] `session.renew` 驗證 `sub` 不變
+- [ ] 推播 payload 只有 id，不含內容
+- [ ] 受眾經過 perm room 過濾；權限變更後同步 room
+- [ ] 領域事件在交易後、快取失效後發佈；業務模組不 import `RealtimeModule`
+- [ ] `token_version` 遞增的所有路徑都發佈 `sessions.revoked`
+- [ ] `channel.relay` 只轉同使用者、有白名單與大小上限
+- [ ] Origin 檢查、handshake 與訊息速率限制
