@@ -5,5 +5,5 @@ import type { User } from '@/shared/api-sdk';
 
 export const fetchUserUnlockMutation = defineAuthFetcher<HttpRequestDTO<{ userId: string }>, User>(
   (http, request) =>
-    http.request(getUserControllerUnlockUrl(request.params.userId), { method: 'POST' }),
+    http.request(getUserControllerUnlockUrl({ id: request.params.userId }), { method: 'POST' }),
 );

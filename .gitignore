@@ -16,3 +16,4 @@ apps/api/*.config.js.map
 apps/e2e/test-results/
 apps/e2e/playwright-report/
 dist-types/
+packages/api-sdk/codegen/__tests__/.output/

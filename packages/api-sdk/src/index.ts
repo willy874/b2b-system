@@ -1,4 +1,2 @@
-export * from './http-client';
-
-// 由 `pnpm sdk:generate` 產生；M1 之後才會有內容。
+// 由 `pnpm sdk:generate` 產生（packages/api-sdk/codegen）。
 export * from './generated';

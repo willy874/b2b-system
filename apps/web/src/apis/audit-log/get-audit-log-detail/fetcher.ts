@@ -5,7 +5,7 @@ import type { AuditLog } from '@/shared/api-sdk';
 
 export const fetchAuditLogDetailQuery = defineAuthFetcher<HttpRequestDTO<{ id: string }>, AuditLog>(
   (http, request) =>
-    http.request(getAuditLogControllerFindOneUrl(request.params.id), {
+    http.request(getAuditLogControllerFindOneUrl({ id: request.params.id }), {
       method: 'GET',
     }),
 );

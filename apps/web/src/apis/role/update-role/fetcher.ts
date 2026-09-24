@@ -8,7 +8,7 @@ export const fetchRoleUpdateMutation = defineAuthFetcher<
   Role
 >((http, request) =>
   http.request(
-    getRoleControllerUpdateUrl(request.params.roleId),
+    getRoleControllerUpdateUrl({ id: request.params.roleId }),
     jsonBody(request.params.body, { method: 'PATCH' }),
   ),
 );

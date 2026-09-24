@@ -18,7 +18,7 @@ game-editor/
 │   └── e2e/                     @game-editor/e2e — Playwright
 │
 ├── packages/
-│   ├── api-sdk/                 @game-editor/api-sdk — 由 OpenAPI 產生的型別與 client
+│   ├── api-sdk/                 @game-editor/api-sdk — 由 OpenAPI 產生的型別、zod schema 與 fetch client
 │   └── utils/                   @game-editor/utils — 前後端共用的純函式
 │
 └── docs/                        本文件集
@@ -43,7 +43,7 @@ packages:
 | `pnpm db:migrate`                              | 套用 migration                                           |
 | `pnpm db:seed`                                 | 灌入權限目錄與系統角色                                   |
 | `pnpm db:studio`                               | drizzle-kit studio                                       |
-| `pnpm sdk:generate`                            | 從執行中的 api 抓 openapi.json → 產生 `packages/api-sdk` |
+| `pnpm sdk:generate`                            | 從 `apps/api/openapi.json` 產生 `packages/api-sdk/src/generated/` |
 | `pnpm lint` / `pnpm format` / `pnpm typecheck` | 全 workspace                                             |
 | `pnpm test`                                    | 全 workspace 單元測試                                    |
 | `pnpm test:e2e`                                | Playwright                                               |

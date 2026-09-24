@@ -15,13 +15,19 @@
     }
   },
   "scripts": {
-    "generate": "orval --config ./orval.config.ts && node ./scripts/write-index.mjs && oxfmt ./src/generated",
+    "generate": "tsx ./codegen/cli.ts --input ../../apps/api/openapi.json --output ./src/generated && oxfmt ./src/generated",
     "build": "tsc -b",
-    "clean": "rm -rf dist *.tsbuildinfo",
-    "typecheck": "tsc -b",
-    "test": "echo \"no tests yet\""
+    "clean": "rm -rf dist *.tsbuildinfo codegen/dist-types",
+    "typecheck": "tsc -b && tsc -b ./codegen",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "orval": "^7.14.1"
+    "@types/node": "^20.19.9",
+    "openapi-types": "^12.1.3",
+    "tsx": "^4.20.6",
+    "vitest": "^3.2.7"
   }
 }

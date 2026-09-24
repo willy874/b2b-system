@@ -1,12 +1,12 @@
 import { Link } from '@tanstack/react-router';
 
 import { useTranslation } from '@/core/locales';
-import type { RoleControllerListUsers200Data } from '@/shared/api-sdk';
+import type { RoleControllerListUsersResponse } from '@/shared/api-sdk';
 
 import { ExternalRoutes } from '../../../routes';
 
 interface RoleHolderSectionProps {
-  holders: RoleControllerListUsers200Data['items'] | undefined;
+  holders: RoleControllerListUsersResponse['data']['items'] | undefined;
 }
 
 /** 持有此角色的使用者，連到 user feature 的詳情頁。 */

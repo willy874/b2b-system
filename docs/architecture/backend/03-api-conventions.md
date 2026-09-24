@@ -334,9 +334,9 @@ export const PermissionKey = {
 
 ```bash
 pnpm sdk:generate
-# 1. 啟動 api（或讀既有的 openapi.json）
-# 2. orval / openapi-generator → packages/api-sdk/src/
-# 3. tsc 編譯
+# 讀進版控的 apps/api/openapi.json
+# → packages/api-sdk/codegen（自製產生器）
+# → packages/api-sdk/src/generated/（TS 型別 ＋ zod schema ＋ fetch 函式）
 ```
 
 CI 會檢查 `openapi.json` 與原始碼一致（重新產生後 `git diff` 必須為空），

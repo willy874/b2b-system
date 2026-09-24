@@ -7,7 +7,7 @@ export const fetchRoleDeleteMutation = defineAuthFetcher<
   undefined
 >((http, request) =>
   http.request(
-    withQuery(getRoleControllerRemoveUrl(request.params.roleId), {
+    withQuery(getRoleControllerRemoveUrl({ id: request.params.roleId }), {
       force: request.params.force ? 'true' : undefined,
     }),
     { method: 'DELETE' },

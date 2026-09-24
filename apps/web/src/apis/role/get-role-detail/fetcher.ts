@@ -5,7 +5,7 @@ import type { Role } from '@/shared/api-sdk';
 
 export const fetchRoleDetailQuery = defineAuthFetcher<HttpRequestDTO<{ roleId: string }>, Role>(
   (http, request) =>
-    http.request(getRoleControllerFindOneUrl(request.params.roleId), {
+    http.request(getRoleControllerFindOneUrl({ id: request.params.roleId }), {
       method: 'GET',
     }),
 );

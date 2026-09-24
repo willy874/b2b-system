@@ -147,7 +147,7 @@ NestJS，再用 `zod-openapi` 讓 schema 自動出現在 Swagger 文件裡。
 ```
 apps/api  ──(@nestjs/swagger)──▶  openapi.json
                                        │
-                                       ▼ (orval / openapi-generator)
+                                       ▼ (packages/api-sdk/codegen)
                             packages/api-sdk  ──▶  apps/web
 ```
 

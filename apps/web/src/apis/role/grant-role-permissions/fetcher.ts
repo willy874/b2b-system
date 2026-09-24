@@ -9,7 +9,7 @@ export const fetchGrantRolePermissionsMutation = defineAuthFetcher<
   RolePermissions
 >((http, request) =>
   http.request(
-    getRoleControllerUpdatePermissionsUrl(request.params.roleId),
+    getRoleControllerUpdatePermissionsUrl({ id: request.params.roleId }),
     jsonBody(request.params.body, { method: 'PATCH' }),
   ),
 );

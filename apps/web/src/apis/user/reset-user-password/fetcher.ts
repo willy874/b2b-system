@@ -6,5 +6,7 @@ export const fetchUserResetPasswordMutation = defineAuthFetcher<
   HttpRequestDTO<{ userId: string }>,
   { sent: boolean }
 >((http, request) =>
-  http.request(getUserControllerResetPasswordUrl(request.params.userId), { method: 'POST' }),
+  http.request(getUserControllerResetPasswordUrl({ id: request.params.userId }), {
+    method: 'POST',
+  }),
 );

@@ -9,7 +9,7 @@ export const fetchAssignUserRolesMutation = defineAuthFetcher<
   UserRoles
 >((http, request) =>
   http.request(
-    getUserControllerReplaceRolesUrl(request.params.userId),
+    getUserControllerReplaceRolesUrl({ id: request.params.userId }),
     jsonBody(request.params.body, { method: 'PUT' }),
   ),
 );

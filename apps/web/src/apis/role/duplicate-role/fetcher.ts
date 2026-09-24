@@ -8,7 +8,7 @@ export const fetchRoleDuplicateMutation = defineAuthFetcher<
   Role & { skippedPermissions?: string[] }
 >((http, request) =>
   http.request(
-    getRoleControllerDuplicateUrl(request.params.roleId),
+    getRoleControllerDuplicateUrl({ id: request.params.roleId }),
     jsonBody(request.params.body, { method: 'POST' }),
   ),
 );

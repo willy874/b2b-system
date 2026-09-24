@@ -6,5 +6,5 @@ export const fetchUserDeleteMutation = defineAuthFetcher<
   HttpRequestDTO<{ userId: string }>,
   undefined
 >((http, request) =>
-  http.request(getUserControllerRemoveUrl(request.params.userId), { method: 'DELETE' }),
+  http.request(getUserControllerRemoveUrl({ id: request.params.userId }), { method: 'DELETE' }),
 );

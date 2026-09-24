@@ -5,7 +5,7 @@ import type { User } from '@/shared/api-sdk';
 
 export const fetchUserDetailQuery = defineAuthFetcher<HttpRequestDTO<{ userId: string }>, User>(
   (http, request) =>
-    http.request(getUserControllerFindOneUrl(request.params.userId), {
+    http.request(getUserControllerFindOneUrl({ id: request.params.userId }), {
       method: 'GET',
     }),
 );

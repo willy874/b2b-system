@@ -1,0 +1,11 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "emitDeclarationOnly": true,
+    "outDir": "./dist-types"
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["dist-types", "__tests__/.output"]
+}

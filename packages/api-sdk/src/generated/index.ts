@@ -1,9 +1,13 @@
-// 由 `pnpm sdk:generate` 產生，請勿手動編輯。
-export * from './model';
-export * from './audit-logs/audit-logs';
-export * from './auth/auth';
-export * from './health/health';
-export * from './permissions/permissions';
-export * from './roles/roles';
-export * from './system/system';
-export * from './users/users';
+// 由 api-sdk codegen 產生，請勿手動編輯。
+// 來源：Game Editor API 0.0.0（OpenAPI 3.0.0）
+
+export * from './runtime';
+export * from './models';
+export * from './schemas';
+export * from './endpoints/audit-logs';
+export * from './endpoints/auth';
+export * from './endpoints/health';
+export * from './endpoints/permissions';
+export * from './endpoints/roles';
+export * from './endpoints/system';
+export * from './endpoints/users';

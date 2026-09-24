@@ -7,7 +7,7 @@ export const fetchRolePermissionsQuery = defineAuthFetcher<
   HttpRequestDTO<{ roleId: string }>,
   RolePermissions
 >((http, request) =>
-  http.request(getRoleControllerListPermissionsUrl(request.params.roleId), {
+  http.request(getRoleControllerListPermissionsUrl({ id: request.params.roleId }), {
     method: 'GET',
   }),
 );

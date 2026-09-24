@@ -8,7 +8,7 @@ export const fetchUserUpdateMutation = defineAuthFetcher<
   User
 >((http, request) =>
   http.request(
-    getUserControllerUpdateUrl(request.params.userId),
+    getUserControllerUpdateUrl({ id: request.params.userId }),
     jsonBody(request.params.body, { method: 'PATCH' }),
   ),
 );

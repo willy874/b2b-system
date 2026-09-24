@@ -15,7 +15,7 @@
 ```
 apps/api  ──(@nestjs/swagger + zod-openapi)──▶  openapi.json
                                                      │
-                                                     ▼ (orval)
+                                                     ▼ (packages/api-sdk/codegen)
                                           packages/api-sdk
                                                      │
                                                      ▼
@@ -57,3 +57,34 @@ apps/api  ──(@nestjs/swagger + zod-openapi)──▶  openapi.json
 | tRPC                          | 要求前後端在同一個 TypeScript 專案並共用型別。與 NestJS 的 controller/DTO 模型不合，也放棄了 OpenAPI 帶來的可文件化 |
 | GraphQL                       | schema 確實是單一來源，但為了一個 CRUD 管理後台引入 GraphQL 的複雜度不成比例                                        |
 | 只共用權限鍵，其餘手寫型別    | 那就要維護兩套同步機制                                                                                              |
+
+## 修訂：以自製產生器取代 orval（2026-09-24）
+
+`packages/api-sdk/codegen/` 是專案自己的產生器，取代原本的 orval。
+
+**產出**（`src/generated/`，整個目錄由產生器擁有）：
+
+| 檔案 | 內容 |
+| --- | --- |
+| `models.ts` | `components.schemas` 的 TS 型別；字串 enum 另外輸出同名 `as const` 物件（`PermissionKey` 靠它） |
+| `schemas.ts` | 同一批 component 的 zod schema（`UserSchema`…），以 `satisfies z.ZodType<User>` 和 `models.ts` 對齊 |
+| `endpoints/<tag>.ts` | 每個 operation 的 `XxxInput` / `XxxResponses` / `XxxResult` 型別、`XxxSchemas`（path / query / headers / body / responses 的 zod）、URL builder `getXxxUrl(path?, query?)`、以及 fetch 函式 `xxx(input, options)` |
+| `runtime.ts` | 由 `codegen/runtime.ts` 原樣複製：`request()`、`buildUrl()`、`ApiError`、`configureSdk()` |
+
+**為什麼換掉 orval**
+
+1. **只要 fetch、不要 middleware。** 攔截器（token、續期、重試、錯誤轉換）已經在
+   `apps/web/src/core/client` 的 `HttpContext` 實作；SDK 再帶一套 mutator / interceptor 只會重疊。
+   新產生器的執行期只有 `fetch`，需要客製傳輸時以 `options.fetch` 注入，不提供攔截器鏈。
+2. **同時產出 zod schema。** 表單驗證與（可選的）回應驗證可以直接用 spec 產生的 schema，
+   不必手寫一份「長得一樣」的 zod。
+3. **每份 SDK 自給自足。** `runtime.ts` 複製進輸出目錄，多個後端各自產生 SDK 時設定互不干擾。
+4. **命名可預測。** 巢狀的匿名物件不再被拆成 `XxxController200Data` 這類型別；
+   需要內層型別時用索引存取（`UserControllerListResponse['data']`）。
+
+**開源套件**：只用 `openapi-types`（spec 的型別定義）與 `tsx`（執行 TS 寫成的 CLI）；
+zod 與 TS 的輸出由產生器自己寫，才能掌握 `$ref` → 具名 schema、循環引用（`z.lazy`）與宣告順序。
+
+**支援範圍**：OpenAPI 3.0 / 3.1 的 JSON spec，只接受文件內的 `$ref`（外部檔案請先 bundle）。
+cookie 參數不產生；`prefixItems`（tuple）以一般陣列表示——這些情況 CLI 會印出警告。
+
