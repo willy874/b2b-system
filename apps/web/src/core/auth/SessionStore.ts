@@ -1,6 +1,8 @@
+import { MAIN_BACKEND } from '@/core/client';
 import { isSessionRejected } from '@/core/errors';
 import { EventEmitter } from '@/shared/EventEmitter';
 import { createDictStorage } from '@/shared/storage';
+import type { DictStorage } from '@/shared/storage';
 
 export interface SessionTokens {
   accessToken: string;
@@ -20,8 +22,9 @@ const REFRESH_THRESHOLD_SECONDS = 30;
 /** 等待其他分頁完成續期的上限（毫秒）。 */
 const PEER_REFRESH_TIMEOUT_MS = 3_000;
 
-const TOKEN_CHANNEL = 'ge:token';
-const SESSION_CHANNEL = 'ge:session';
+const TOKEN_CHANNEL_PREFIX = 'ge:token:';
+const SESSION_CHANNEL_PREFIX = 'ge:session:';
+const STORAGE_NAMESPACE_PREFIX = 'auth:';
 const HAS_SESSION_KEY = 'hasSession';
 
 interface TokenMessage {
@@ -31,8 +34,11 @@ interface TokenMessage {
 }
 
 /**
- * Access token 只存在這個閉包裡，不進 localStorage / sessionStorage。
+ * 一個後端的 session。Access token 只存在這個閉包裡，不進 localStorage / sessionStorage；
  * Refresh token 是 httpOnly cookie，JS 讀不到。
+ *
+ * 每個後端一個實例，以 `name`（= 後端名稱）隔開跨分頁頻道與 localStorage 旗標：
+ * 同名的實例（其他分頁）互相協調續期、同步登出；不同名的彼此完全不干擾。
  */
 export class SessionStore {
   readonly events = new EventEmitter<SessionStoreEvents>();
@@ -47,12 +53,16 @@ export class SessionStore {
   private peerSeen = false;
   private peerRefreshStartedAt = 0;
 
-  private readonly storage = createDictStorage('auth');
+  private readonly storage: DictStorage;
   private readonly subscribers = new Set<() => void>();
-  private readonly tokenChannel = this.createChannel(TOKEN_CHANNEL);
-  private readonly sessionChannel = this.createChannel(SESSION_CHANNEL);
+  private readonly tokenChannel: BroadcastChannel | undefined;
+  private readonly sessionChannel: BroadcastChannel | undefined;
 
-  constructor() {
+  constructor(readonly name: string) {
+    this.storage = createDictStorage(STORAGE_NAMESPACE_PREFIX + name);
+    this.tokenChannel = this.createChannel(TOKEN_CHANNEL_PREFIX + name);
+    this.sessionChannel = this.createChannel(SESSION_CHANNEL_PREFIX + name);
+
     this.tokenChannel?.addEventListener('message', (event) => {
       this.onTokenMessage((event as MessageEvent<TokenMessage>).data);
     });
@@ -249,4 +259,28 @@ export class SessionStore {
   }
 }
 
-export const sessionStore = new SessionStore();
+const stores = new Map<string, SessionStore>();
+
+/** 取得某個後端的 session；還沒有就建立（每個名稱在整個 app 只有一個實例）。 */
+export function ensureSessionStore(name: string): SessionStore {
+  let store = stores.get(name);
+  if (!store) {
+    store = new SessionStore(name);
+    stores.set(name, store);
+  }
+  return store;
+}
+
+/** 取得已建立的 session；名稱打錯時明確報錯，而不是默默建一個空的。 */
+export function getSessionStore(name: string): SessionStore {
+  const store = stores.get(name);
+  if (!store) throw new Error(`SessionStore "${name}" 尚未建立`);
+  return store;
+}
+
+export function getSessionStores(): SessionStore[] {
+  return Array.from(stores.values());
+}
+
+/** 主後端的 session：決定整個 app 的登入狀態。 */
+export const sessionStore = ensureSessionStore(MAIN_BACKEND);

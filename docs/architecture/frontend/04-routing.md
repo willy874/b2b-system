@@ -177,13 +177,17 @@ pathname '/role/abc/permission'
 
 ```
 任何請求 → 401 → 續期被伺服器拒絕，或收到終止類錯誤碼
-  → SessionStore 判定 session 結束（latched，只觸發一次；網路錯誤、5xx 不算）
+  → 主後端的 SessionStore 判定 session 結束（latched，只觸發一次；網路錯誤、5xx 不算）
   → emit SESSION_ENDED
   → app 層監聽：清空 permission store、清空 query cache、
      navigate({ to: '/auth/login', search: { redirect: currentPath } })
 ```
 
 登入成功後讀 `search.redirect` 導回原本要去的頁面。
+
+只有 **主後端**（`MAIN_BACKEND`）的 session 會觸發這個流程。其他後端的 session 結束
+只中止該後端的請求，由使用它的 feature 自行訂閱 `getSessionStore('<後端>').events` 決定 UI
+（例如顯示「重新連線」），不會把使用者登出整個 app（[05 §3.5](./05-data-layer.md)）。
 
 ---
 

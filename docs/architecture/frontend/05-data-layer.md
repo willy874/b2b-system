@@ -76,10 +76,12 @@ export const fetchRoleListQuery = defineAuthFetcher<
 
 ### 3.1 `defineAuthFetcher` vs `defineBaseFetcher`
 
-|                     | 掛上的攔截器                                | 用於                                      |
-| ------------------- | ------------------------------------------- | ----------------------------------------- |
-| `defineBaseFetcher` | retry、錯誤轉換                             | `/auth/login`、`/auth/refresh`、`/health` |
-| `defineAuthFetcher` | 上述 ＋ `ensureAccessToken` ＋ 401 續期重放 | 其餘全部                                  |
+|                     | 管道          | 掛上的攔截器                                | 用於                                      |
+| ------------------- | ------------- | ------------------------------------------- | ----------------------------------------- |
+| `defineBaseFetcher` | `main:base`   | retry、錯誤轉換                             | `/auth/login`、`/auth/refresh`、`/health` |
+| `defineAuthFetcher` | `main:auth`   | 上述 ＋ `ensureAccessToken` ＋ 401 續期重放 | 其餘全部                                  |
+
+這兩個是 **主後端** 的定義器；其他後端見 §3.5。
 
 用錯會造成死結：登入端點若用 `defineAuthFetcher`，它會先嘗試取得 access token
 （還沒有），觸發續期（沒有 refresh token），失敗 → 登入永遠打不出去。
@@ -109,13 +111,13 @@ export interface HttpRequestDTO<P = unknown> {
 | 中止匯流排 | 廣播帶的 reason | `abortRequests({ reason, contexts?, detail? })` |
 
 ```
-SessionStore 'ended'
+某個後端的 SessionStore 'ended'
   │  httpContextPlugin 訂閱
   ▼
-abortRequests({ reason: 'session-ended', contexts: ['auth'], detail: <原因碼> })
+abortRequests({ reason: 'session-ended', contexts: ['<後端>:auth'], detail: <原因碼> })
   │  requestAbortBus（core/client/abort.ts）
   ▼
-每個進行中的 auth 請求 → controller.abort(new RequestAbortedError(...))
+該後端每個進行中的 auth 請求 → controller.abort(new RequestAbortedError(...))
   ├─ fetch 立刻 reject
   ├─ 等待中的續期（raceAbort）、重試退避（abortableDelay）立刻結束
   └─ 錯誤攔截器不再執行（不續期、不重試）
@@ -134,6 +136,44 @@ abortRequests({ reason: 'session-ended', contexts: ['auth'], detail: <原因碼>
 
 - `retry.ts` 只重試 `NetworkError` 與 5xx，**程式錯誤（其他 `TypeError`）不會被當成網路問題重送**；
 - UI 顯示 `error.network`，而不是「未預期的錯誤」。
+
+### 3.5 多個後端（各自獨立登入）
+
+每個後端有 **自己的 session 與自己的兩個管道**，生命週期互不相干：
+
+| 後端的東西     | 名稱                                          | 建立者                          |
+| -------------- | --------------------------------------------- | ------------------------------- |
+| session        | `SessionStore(<後端>)`（`getSessionStore()`） | `httpContextPlugin`             |
+| 管道           | `<後端>:base`、`<後端>:auth`                  | `httpContextPlugin`             |
+| fetcher 定義器 | `defineBackendFetchers(<後端>)`               | 該後端的 `apis/<domain>/`       |
+| 續期實作       | `BackendOptions.refresh`                      | `main.tsx` 注入（plugin 不認識 `apis/`） |
+
+```ts
+// main.tsx
+.use(httpContextPlugin([
+  { name: MAIN_BACKEND, baseUrl: ENV.API_BASE_URL, refresh: refreshMain },
+  { name: 'reports', baseUrl: ENV.REPORTS_API_BASE_URL, refresh: refreshReports },
+]))
+
+// apis/report/backend.ts
+export const { defineBaseFetcher, defineAuthFetcher } = defineBackendFetchers('reports');
+```
+
+| 事件                     | 影響範圍                                                                           |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| 某後端 401 → 續期        | 只續期該後端的 session；跨分頁單飛也只在同一後端之間協調                          |
+| 其他後端的 session 結束  | 只中止 `<後端>:auth` 的請求；**不** 登出 app，由 feature 訂閱該 session 的 `ended` 決定 UI |
+| 主後端的 session 結束    | 登出整個 app（[04 §4.3](./04-routing.md)），並 **一併結束其他後端的 session**      |
+
+主 session 結束時連帶結束其他 session，是因為「登出 app」代表換人：若保留，下一個在同一台
+瀏覽器登入的人會沿用上一個人在其他後端的 access token。結束後 `hasSession` 旗標為 false，
+也不會再拿殘留的 refresh cookie 自動續期；要讓伺服器端也失效，feature 的登出流程應呼叫
+該後端的 logout 端點。
+
+- 其他後端的登入：該 feature 呼叫自己的 login fetcher（`defineBaseFetcher`），成功後
+  `getSessionStore('<後端>').setTokens(...)`；畫面用 `useHasSession(getSessionStore('<後端>'))`。
+- 跨網域的後端：refresh cookie 要能送出，fetcher 需用 `credentials: 'include'`，
+  後端 CORS 需允許 credentials。
 
 UI 端：`isSilentError(error)` 對 `caller`、`session-ended` 回 `true`（使用者不需要知道）；
 `timeout` 顯示 `error.timeout`。mutation 的 `onError` 用 `useErrorToast()`，它會略過 silent 錯誤。

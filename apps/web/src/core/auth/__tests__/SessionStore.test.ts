@@ -6,7 +6,7 @@ import { AppError } from '@/core/errors';
 import { SessionStore } from '../SessionStore';
 
 function createStore(): SessionStore {
-  return new SessionStore();
+  return new SessionStore('test');
 }
 
 describe('SessionStore', () => {

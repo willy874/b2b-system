@@ -164,7 +164,7 @@ plugin 常持有 context 摸不到的資源：`BroadcastChannel`、`setInterval`
 | `cachePlugin`       | `queryClient`, `dictStorage`                  | 建立 `QueryClient`、掛上跨分頁失效通道                               |
 | `eventBusPlugin`    | `eventBus`                                    | 建立全域 `EventEmitter`                                              |
 | `i18nPlugin`        | `i18n`, `addResourceBundle`, `changeLanguage` | `i18next.init()`、載入 app 層語系包                                  |
-| `httpContextPlugin` | `getHttpContexts(name)`                       | 建立 `base` / `auth` 兩個 HttpContext（30 秒逾時），掛上攔截器鏈與 `SessionStore`；session 結束時中止所有 `auth` 請求（[05 §3.3](./05-data-layer.md)） |
+| `httpContextPlugin` | `sessionStore`（主後端）                      | 依傳入的後端清單，每個後端建立一個 `SessionStore` 與 `<後端>:base` / `<後端>:auth` 兩個 HttpContext（30 秒逾時）並掛上攔截器鏈；某個 session 結束只中止該後端的 `auth` 請求；主 session 結束時一併結束其他後端的 session（[05 §3.3、§3.5](./05-data-layer.md)） |
 | `featureFlagPlugin` | `featureFlags`                                | 寫入旗標 store                                                       |
 | `componentPlugin`   | `componentRegistry`                           | 建立元件註冊表（讓 feature 覆寫核心元件）                            |
 
@@ -175,8 +175,8 @@ plugin 常持有 context 摸不到的資源：`BroadcastChannel`、`setInterval`
 
 | 攔截器             | 職責                                               |
 | ------------------ | -------------------------------------------------- |
-| `auth.ts`          | 請求前 `ensureAccessToken()`，加上 `Authorization`；每次重放都會重跑 |
-| `refresh-token.ts` | 401 → **強制**續期（被拒的 token 未到期也一樣；已被別的請求換新則沿用）→ 重放原請求 |
+| `auth.ts`          | `createAuthHeaderInterceptor(session)`：請求前 `ensureAccessToken()`，加上 `Authorization`；每次重放都會重跑 |
+| `refresh-token.ts` | `createRefreshTokenInterceptor(session)`：401 → **強制**續期（被拒的 token 未到期也一樣；已被別的請求換新則沿用）→ 重放原請求；只結束自己綁定的 session |
 | `retry.ts`         | 網路錯誤與 5xx 指數退避重試；只重試 `GET`/`HEAD`/`OPTIONS`，不重試 4xx 與中止 |
 | `api-adapter.ts`   | 把後端錯誤信封轉成 `AppError`                      |
 

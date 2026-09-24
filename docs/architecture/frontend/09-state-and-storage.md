@@ -131,7 +131,7 @@ interface DictStorage {
 ### 4.3 Token 的儲存
 
 ```
-Access Token   → 只存在 SessionStore 的閉包變數裡
+Access Token   → 只存在該後端 SessionStore 的閉包變數裡
                  重新整理頁面 = 消失 = 必須用 refresh token 重新取得
 Refresh Token  → httpOnly cookie，JavaScript 讀不到
 ```
@@ -149,9 +149,13 @@ Refresh Token  → httpOnly cookie，JavaScript 讀不到
 
 | 通道                  | 用途                             | 位置                             |
 | --------------------- | -------------------------------- | -------------------------------- |
-| `ge:token`            | Token 續期協調（單飛、結果廣播） | `core/auth/SessionStore`         |
+| `ge:token:<後端>`     | Token 續期協調（單飛、結果廣播） | `core/auth/SessionStore`         |
 | `ge:query-invalidate` | Query 失效廣播                   | `core/cache/broadcastInvalidate` |
-| `ge:session`          | 登出廣播（一處登出，全部登出）   | `core/auth/SessionStore`         |
+| `ge:session:<後端>`   | 登出廣播（一處登出，全部登出）   | `core/auth/SessionStore`         |
+
+`SessionStore` 每個後端一個實例（[05 §3.5](./05-data-layer.md)），頻道名稱與
+localStorage 的 `hasSession` 旗標（`game-editor:auth:<後端>:hasSession`）都帶後端名稱：
+同一後端在不同分頁之間協調，不同後端之間完全不互相收訊息。
 
 ### 5.1 Token 續期的單飛（最重要的一個）
 

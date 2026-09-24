@@ -112,7 +112,7 @@ repository ✗──▶ service  （單向）
 [web] RoleDetailPage → 「儲存」
   └─▶ useMutation(getRoleUpdateMutationOptions())
         └─▶ fetchRoleUpdateMutation (apis/role/update-role/fetcher.ts)
-              └─▶ defineAuthFetcher → HttpContext('auth')
+              └─▶ defineAuthFetcher → HttpContext('main:auth')
                     ├─ SessionStore.ensureAccessToken()
                     │    └─ 若剩餘壽命 < 30s：先續期（跨分頁單飛）
                     └─ fetch PATCH /roles/:id  Authorization: Bearer …

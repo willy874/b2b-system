@@ -157,7 +157,7 @@ apis/
     ├─ useQuery(getRoleListQueryOptions({ params }))
     │     │
     │     ▼ apis/role/get-role-list/fetcher.ts
-    │       defineAuthFetcher → core/client HttpContext('auth')
+    │       defineAuthFetcher → core/client HttpContext('main:auth')
     │         ├─ plugins/fetcher/auth.ts        加上 Authorization
     │         ├─ plugins/fetcher/refresh-token.ts 401 → 強制續期 → 重放
     │         └─ plugins/fetcher/retry.ts        網路錯誤／5xx 退避重試（僅冪等方法）

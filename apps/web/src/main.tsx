@@ -8,7 +8,7 @@ import { fetchRefreshMutation } from '@/apis/auth/refresh/fetcher';
 import { App } from '@/app/App';
 import { appContextPlugin } from '@/app/plugin';
 import { createAppContext } from '@/core/app';
-import { sessionStore } from '@/core/auth';
+import { MAIN_BACKEND } from '@/core/client';
 import { hydratePreferences } from '@/core/store';
 import { accountFeaturePlugin } from '@/features/account';
 import { auditLogFeaturePlugin } from '@/features/audit-log';
@@ -40,7 +40,19 @@ async function bootstrap(): Promise<void> {
     .use(cachePlugin())
     .use(eventBusPlugin())
     .use(i18nPlugin())
-    .use(httpContextPlugin())
+    // 每個後端一組獨立的 session 與管道；續期實作在這裡注入（plugin 不認識 apis/）
+    .use(
+      httpContextPlugin([
+        {
+          name: MAIN_BACKEND,
+          baseUrl: ENV.API_BASE_URL,
+          refresh: async () => {
+            const session = await fetchRefreshMutation();
+            return { accessToken: session.accessToken, expiresIn: session.expiresIn };
+          },
+        },
+      ]),
+    )
     .use(featureFlagPlugin({}))
     // 每個 feature 的 plugin factory —— ★ 在此「同步」註冊頁面權限
     .use(authFeaturePlugin())
@@ -52,12 +64,6 @@ async function bootstrap(): Promise<void> {
     .use(accountFeaturePlugin())
     // 最後：建立 router（此時所有 route 都已存在）
     .use(appContextPlugin());
-
-  // SessionStore 的續期實作：core/auth 不認識 apis/
-  sessionStore.setRefreshFn(async () => {
-    const session = await fetchRefreshMutation();
-    return { accessToken: session.accessToken, expiresIn: session.expiresIn };
-  });
 
   await context.load();
 

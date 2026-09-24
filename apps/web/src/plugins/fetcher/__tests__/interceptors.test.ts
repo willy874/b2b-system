@@ -1,14 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { sessionStore } from '@/core/auth';
+import { SessionStore, sessionStore } from '@/core/auth';
 import { AbortReason, NetworkError, RequestAbortedError } from '@/core/client';
 import type { FetcherRequest, FetcherResponse } from '@/core/client';
 import { AppError } from '@/core/errors';
 
 import { apiAdapterInterceptor } from '../api-adapter';
-import { authHeaderInterceptor } from '../auth';
-import { refreshTokenInterceptor } from '../refresh-token';
+import { createAuthHeaderInterceptor } from '../auth';
+import { createRefreshTokenInterceptor } from '../refresh-token';
 import { retryInterceptor } from '../retry';
+
+const authHeaderInterceptor = createAuthHeaderInterceptor(sessionStore);
+const refreshTokenInterceptor = createRefreshTokenInterceptor(sessionStore);
 
 const request: FetcherRequest = {
   url: '/api/roles',
@@ -314,5 +317,24 @@ describe('refresh-token 攔截器', () => {
     );
     expect(ended).toHaveBeenCalledWith('AUTH_REFRESH_REVOKED');
     off();
+  });
+
+  it('★ 只結束自己綁定的 session：其他後端的終止錯誤不會讓主 session 登出', async () => {
+    const other = new SessionStore('other-backend');
+    other.setTokens({ accessToken: 'other-token', expiresIn: 300 });
+    sessionStore.setTokens({ accessToken: 'main-token', expiresIn: 300 });
+    const mainEnded = vi.fn();
+    const off = sessionStore.events.on('ended', mainEnded);
+
+    await expect(
+      createRefreshTokenInterceptor(other)(new AppError('AUTH_TOKEN_STALE', 401), request, vi.fn()),
+    ).rejects.toBeInstanceOf(AppError);
+
+    expect(other.hasSession()).toBe(false);
+    expect(mainEnded).not.toHaveBeenCalled();
+    expect(sessionStore.getAccessToken()).toBe('main-token');
+    off();
+    other.destroy();
+    sessionStore.clear();
   });
 });
