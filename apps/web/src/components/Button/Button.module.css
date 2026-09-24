@@ -15,7 +15,6 @@
     font: inherit;
     font-weight: 500;
     line-height: 1;
-    cursor: pointer;
     transition:
       background-color 120ms ease,
       border-color 120ms ease,
@@ -41,7 +40,7 @@
     color: var(--color-brand-fg);
   }
   .root[data-variant='primary']:not(:disabled):hover {
-    background: var(--color-brand-hover);
+    background: var(--button-primary-hover-bg);
   }
 
   .root[data-variant='secondary'] {
@@ -50,7 +49,7 @@
     color: var(--color-fg);
   }
   .root[data-variant='secondary']:not(:disabled):hover {
-    background: var(--color-bg);
+    background: var(--button-subtle-hover-bg);
   }
 
   .root[data-variant='ghost'] {
@@ -58,7 +57,7 @@
     color: var(--color-fg);
   }
   .root[data-variant='ghost']:not(:disabled):hover {
-    background: var(--color-bg);
+    background: var(--button-subtle-hover-bg);
   }
 
   .root[data-variant='danger'] {
@@ -66,7 +65,7 @@
     color: var(--color-brand-fg);
   }
   .root[data-variant='danger']:not(:disabled):hover {
-    filter: brightness(0.94);
+    background: var(--button-danger-hover-bg);
   }
 
   .root[data-size='sm'] {
