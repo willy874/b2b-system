@@ -3,7 +3,8 @@ import { useMemo } from 'react';
 
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
-import { Table } from '@/components/Table';
+import { RichTable } from '@/core/components';
+import type { RichTablePagination } from '@/core/components';
 import { useTranslation } from '@/core/locales';
 import { formatDateTime } from '@/shared/date';
 
@@ -15,9 +16,16 @@ interface AuditLogTableProps {
   /** 目前展開明細的那一列 */
   expandedId: string | undefined;
   onToggleExpand: (id: string) => void;
+  pagination: RichTablePagination;
 }
 
-export function AuditLogTable({ items, loading, expandedId, onToggleExpand }: AuditLogTableProps) {
+export function AuditLogTable({
+  items,
+  loading,
+  expandedId,
+  onToggleExpand,
+  pagination,
+}: AuditLogTableProps) {
   const { t } = useTranslation();
 
   const columns = useMemo<Array<ColumnDef<AuditLogRowVM, unknown>>>(
@@ -82,12 +90,12 @@ export function AuditLogTable({ items, loading, expandedId, onToggleExpand }: Au
   );
 
   return (
-    <Table
+    <RichTable
       data={items}
       columns={columns}
       loading={loading}
       getRowId={(row) => row.id}
-      emptyTitle={t('common.empty')}
+      pagination={pagination}
       data-testid="audit-log-table"
     />
   );

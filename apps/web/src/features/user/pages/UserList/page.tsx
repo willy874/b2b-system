@@ -6,7 +6,6 @@ import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
 import { AlertDialog } from '@/components/AlertDialog';
 import { ButtonLink } from '@/components/Button';
-import { Pagination } from '@/components/Pagination';
 import { useTranslation } from '@/core/locales';
 
 import { useUserDeleteMutation } from '../../hooks/useUserMutations';
@@ -76,17 +75,11 @@ export default function UserListPage() {
           void navigate({ to: UserDetailRoute.to, params: { userId: row.id }, search })
         }
         onDelete={setPendingDelete}
-      />
-
-      <Pagination
-        offset={search.offset}
-        limit={search.limit}
-        total={data?.pagination.total ?? 0}
-        onChange={({ offset, limit }) => setPage(offset, limit)}
-        labels={{
-          previous: t('common.previous'),
-          next: t('common.next'),
-          summary: ({ from, to, total }) => `${from}-${to} / ${total}`,
+        pagination={{
+          offset: search.offset,
+          limit: search.limit,
+          total: data?.pagination.total ?? 0,
+          onChange: ({ offset, limit }) => setPage(offset, limit),
         }}
       />
 

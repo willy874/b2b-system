@@ -4,8 +4,9 @@ import { useMemo } from 'react';
 
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
-import { Table } from '@/components/Table';
 import { Tooltip } from '@/components/Tooltip';
+import { RichTable } from '@/core/components';
+import type { RichTablePagination } from '@/core/components';
 import { useTranslation } from '@/core/locales';
 import { formatDateTime } from '@/shared/date';
 
@@ -36,6 +37,7 @@ interface UserTableProps {
   ) => void;
   onRowDoubleClick: (row: UserRowVM) => void;
   onDelete: (row: UserRowVM) => void;
+  pagination: RichTablePagination;
 }
 
 export function UserTable({
@@ -45,6 +47,7 @@ export function UserTable({
   onSortingChange,
   onRowDoubleClick,
   onDelete,
+  pagination,
 }: UserTableProps) {
   const { t } = useTranslation();
   const permission = useUserPermission();
@@ -147,12 +150,12 @@ export function UserTable({
   );
 
   return (
-    <Table
+    <RichTable
       data={rows}
       columns={columns}
       loading={loading}
       getRowId={(row) => row.id}
-      emptyTitle={t('common.empty')}
+      pagination={pagination}
       sorting={{ sortBy: search.sortBy, sortOrder: search.sortOrder }}
       onSortingChange={(sortBy, sortOrder) =>
         onSortingChange(sortBy as UserSearchQuery['sortBy'], sortOrder)

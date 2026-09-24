@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 
 import { getAuditLogListQueryOptions } from '@/apis/audit-log/get-audit-log-list/query';
-import { Pagination } from '@/components/Pagination';
 import { useTranslation } from '@/core/locales';
 
 import { toAuditLogRowVM } from './adapter';
@@ -51,22 +50,16 @@ export default function AuditLogListPage() {
         loading={isPending}
         expandedId={expanded}
         onToggleExpand={toggleExpand}
+        pagination={{
+          offset: search.offset,
+          limit: search.limit,
+          total: data?.pagination.total ?? 0,
+          pageSizeOptions: [25, 50, 100],
+          onChange: ({ offset, limit }) => setPage(offset, limit),
+        }}
       />
 
       {detail && <AuditLogDetail log={detail} />}
-
-      <Pagination
-        offset={search.offset}
-        limit={search.limit}
-        total={data?.pagination.total ?? 0}
-        pageSizeOptions={[25, 50, 100]}
-        onChange={({ offset, limit }) => setPage(offset, limit)}
-        labels={{
-          previous: t('common.previous'),
-          next: t('common.next'),
-          summary: ({ from, to, total }) => `${from}-${to} / ${total}`,
-        }}
-      />
     </div>
   );
 }

@@ -6,7 +6,6 @@ import { getRoleListQueryOptions } from '@/apis/role/get-role-list/query';
 import { AlertDialog } from '@/components/AlertDialog';
 import { Button, ButtonLink } from '@/components/Button';
 import { Input } from '@/components/Input';
-import { Pagination } from '@/components/Pagination';
 import { useTranslation } from '@/core/locales';
 
 import { useRoleDeleteMutation } from '../../hooks/useRoleMutations';
@@ -86,17 +85,11 @@ export default function RoleListPage() {
           void navigate({ to: RoleDetailRoute.to, params: { roleId: row.id }, search })
         }
         onDelete={setPendingDelete}
-      />
-
-      <Pagination
-        offset={search.offset}
-        limit={search.limit}
-        total={data?.pagination.total ?? 0}
-        onChange={({ offset, limit }) => setPage(offset, limit)}
-        labels={{
-          previous: t('common.previous'),
-          next: t('common.next'),
-          summary: ({ from, to, total }) => `${from}-${to} / ${total}`,
+        pagination={{
+          offset: search.offset,
+          limit: search.limit,
+          total: data?.pagination.total ?? 0,
+          onChange: ({ offset, limit }) => setPage(offset, limit),
         }}
       />
 

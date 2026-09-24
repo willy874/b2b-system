@@ -4,8 +4,9 @@ import { useMemo } from 'react';
 
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
-import { Table } from '@/components/Table';
 import { Tooltip } from '@/components/Tooltip';
+import { RichTable } from '@/core/components';
+import type { RichTablePagination } from '@/core/components';
 import { useTranslation } from '@/core/locales';
 import { formatDateTime } from '@/shared/date';
 
@@ -24,6 +25,7 @@ interface RoleTableProps {
   ) => void;
   onRowDoubleClick: (row: RoleRowVM) => void;
   onDelete: (row: RoleRowVM) => void;
+  pagination: RichTablePagination;
 }
 
 export function RoleTable({
@@ -33,6 +35,7 @@ export function RoleTable({
   onSortingChange,
   onRowDoubleClick,
   onDelete,
+  pagination,
 }: RoleTableProps) {
   const { t } = useTranslation();
   const permission = useRolePermission();
@@ -120,12 +123,12 @@ export function RoleTable({
   );
 
   return (
-    <Table
+    <RichTable
       data={rows}
       columns={columns}
       loading={loading}
       getRowId={(row) => row.id}
-      emptyTitle={t('common.empty')}
+      pagination={pagination}
       sorting={{ sortBy: search.sortBy, sortOrder: search.sortOrder }}
       onSortingChange={(sortBy, sortOrder) =>
         onSortingChange(sortBy as RoleSearchQuery['sortBy'], sortOrder)
