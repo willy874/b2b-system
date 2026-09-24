@@ -1,6 +1,8 @@
-import { lazy } from 'react';
+import { lazyRouteComponent } from '@tanstack/react-router';
 
-export const AsyncRoleListPage = lazy(() => import('./RoleList/page'));
-export const AsyncRoleCreatePage = lazy(() => import('./RoleCreate/page'));
-export const AsyncRoleDetailPage = lazy(() => import('./RoleDetail/page'));
-export const AsyncRoleDetailPermissionPage = lazy(() => import('./RoleDetailPermission/page'));
+export const AsyncRoleListPage = lazyRouteComponent(() => import('./RoleList/page'));
+export const AsyncRoleCreatePage = lazyRouteComponent(() => import('./RoleCreate/page'));
+export const AsyncRoleDetailPage = lazyRouteComponent(() => import('./RoleDetail/page'));
+export const AsyncRoleDetailPermissionPage = lazyRouteComponent(
+  () => import('./RoleDetailPermission/page'),
+);

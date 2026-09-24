@@ -1,5 +1,5 @@
-import { lazy } from 'react';
+import { lazyRouteComponent } from '@tanstack/react-router';
 
-export const AsyncUserListPage = lazy(() => import('./UserList/page'));
-export const AsyncUserCreatePage = lazy(() => import('./UserCreate/page'));
-export const AsyncUserDetailPage = lazy(() => import('./UserDetail/page'));
+export const AsyncUserListPage = lazyRouteComponent(() => import('./UserList/page'));
+export const AsyncUserCreatePage = lazyRouteComponent(() => import('./UserCreate/page'));
+export const AsyncUserDetailPage = lazyRouteComponent(() => import('./UserDetail/page'));

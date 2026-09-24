@@ -1,4 +1,4 @@
-import { lazy } from 'react';
+import { lazyRouteComponent } from '@tanstack/react-router';
 
-export const AsyncProfilePage = lazy(() => import('./Profile/page'));
-export const AsyncPreferencePage = lazy(() => import('./Preference/page'));
+export const AsyncProfilePage = lazyRouteComponent(() => import('./Profile/page'));
+export const AsyncPreferencePage = lazyRouteComponent(() => import('./Preference/page'));

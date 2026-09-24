@@ -1,3 +1,3 @@
-import { lazy } from 'react';
+import { lazyRouteComponent } from '@tanstack/react-router';
 
-export const AsyncPermissionListPage = lazy(() => import('./PermissionList/page'));
+export const AsyncPermissionListPage = lazyRouteComponent(() => import('./PermissionList/page'));

@@ -19,7 +19,7 @@ features/role/
 │   └── external.ts            ★ 跨 feature 連結時引用的「別人的」route
 │
 ├── pages/
-│   ├── index.tsx              lazy 包裝：export const AsyncRoleListPage = lazy(...)
+│   ├── index.tsx              lazy 包裝：export const AsyncRoleListPage = lazyRouteComponent(...)
 │   ├── RoleList/
 │   │   ├── page.tsx           頁面組裝（版面、工具列、表格、對話框掛載點）
 │   │   ├── models.ts          view model 型別
@@ -187,13 +187,22 @@ export function useRolePermission() {
 ### 2.5 `pages/index.tsx` — lazy 邊界
 
 ```tsx
-import { lazy } from "react";
+import { lazyRouteComponent } from "@tanstack/react-router";
 
-export const AsyncRoleListPage = lazy(() => import("./RoleList/page"));
-export const AsyncRoleCreatePage = lazy(() => import("./RoleCreate/page"));
-export const AsyncRoleDetailPage = lazy(() => import("./RoleDetail/page"));
-export const AsyncRoleDetailPermissionPage = lazy(() => import("./RoleDetailPermission/page"));
+export const AsyncRoleListPage = lazyRouteComponent(() => import("./RoleList/page"));
+export const AsyncRoleCreatePage = lazyRouteComponent(() => import("./RoleCreate/page"));
+export const AsyncRoleDetailPage = lazyRouteComponent(() => import("./RoleDetail/page"));
+export const AsyncRoleDetailPermissionPage = lazyRouteComponent(
+  () => import("./RoleDetailPermission/page"),
+);
 ```
+
+> **用 `lazyRouteComponent`，不用 React 的 `lazy`**：`lazyRouteComponent` 帶有
+> `preload()`，Router 會在切換路由 **之前** 等 chunk 下載完（`defaultPreload: 'intent'`
+> 也會在 hover 時先載）。`React.lazy` 沒有 `preload()`，Router 以為元件已就緒就
+> commit，頁面在 render 時才 suspend；子 route 沒有自己的 Suspense 邊界，會被 root
+> `<Outlet />` 的邊界接住，連同父頁面一起被隱藏——第一次點進子頁面（如
+> `/user/create`）時整個列表頁會閃一下。
 
 ### 2.6 `pages/<Page>/adapter.ts` — DTO → View Model
 
@@ -355,7 +364,7 @@ apps/web/src/features/session/
 | 5    | `plugin.ts`                     | 同步呼叫註冊；`onInit` 掛語系包                          |
 | 6    | `hooks/useSessionPermission.ts` | 權限 facade                                              |
 | 7    | `pages/SessionList/page.tsx`    | 頁面                                                     |
-| 8    | `pages/index.tsx`               | lazy 匯出                                                |
+| 8    | `pages/index.tsx`               | `lazyRouteComponent` 匯出                                |
 | 9    | `index.tsx`                     | `.update({ component })` ＋ 對外匯出                     |
 
 ### Step 5 — 接上 app

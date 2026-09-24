@@ -1,3 +1,3 @@
-import { lazy } from 'react';
+import { lazyRouteComponent } from '@tanstack/react-router';
 
-export const AsyncAuditLogListPage = lazy(() => import('./AuditLogList/page'));
+export const AsyncAuditLogListPage = lazyRouteComponent(() => import('./AuditLogList/page'));

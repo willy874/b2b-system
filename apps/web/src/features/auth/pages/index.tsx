@@ -1,6 +1,6 @@
-import { lazy } from 'react';
+import { lazyRouteComponent } from '@tanstack/react-router';
 
-export const AsyncLoginPage = lazy(() => import('./Login/page'));
-export const AsyncForgotPasswordPage = lazy(() => import('./ForgotPassword/page'));
-export const AsyncResetPasswordPage = lazy(() => import('./ResetPassword/page'));
-export const AsyncSetupPage = lazy(() => import('./Setup/page'));
+export const AsyncLoginPage = lazyRouteComponent(() => import('./Login/page'));
+export const AsyncForgotPasswordPage = lazyRouteComponent(() => import('./ForgotPassword/page'));
+export const AsyncResetPasswordPage = lazyRouteComponent(() => import('./ResetPassword/page'));
+export const AsyncSetupPage = lazyRouteComponent(() => import('./Setup/page'));

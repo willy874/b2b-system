@@ -1,3 +1,3 @@
-import { lazy } from 'react';
+import { lazyRouteComponent } from '@tanstack/react-router';
 
-export const AsyncHomePage = lazy(() => import('./Home/page'));
+export const AsyncHomePage = lazyRouteComponent(() => import('./Home/page'));
