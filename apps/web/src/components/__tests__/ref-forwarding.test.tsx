@@ -15,10 +15,12 @@ import { Link } from '../Link';
 import { Pagination } from '../Pagination';
 import { Progress } from '../Progress';
 import { ScrollArea } from '../ScrollArea';
+import { Select } from '../Select';
 import { Separator } from '../Separator';
 import { Skeleton } from '../Skeleton';
 import { Spinner } from '../Spinner';
 import { Paragraph, Text, Title, Typography } from '../Typography';
+import { VirtualList } from '../VirtualList';
 
 /**
  * React 19 把 `ref` 當成一般 prop 傳給函式元件，所以只要元件把 `...rest`
@@ -69,6 +71,21 @@ const cases: Array<[string, (ref: RefObject<HTMLElement | null>) => ReactElement
     (ref) => <Breadcrumbs ref={ref as RefObject<HTMLElement>} items={[{ key: 'a', label: 'a' }]} />,
   ],
   ['ScrollArea', (ref) => <ScrollArea ref={ref as RefObject<HTMLDivElement>}>x</ScrollArea>],
+  [
+    'Select',
+    (ref) => <Select ref={ref as RefObject<HTMLButtonElement>} options={[]} aria-label="x" />,
+  ],
+  [
+    'VirtualList',
+    (ref) => (
+      <VirtualList
+        ref={ref as RefObject<HTMLDivElement>}
+        items={['x']}
+        getKey={String}
+        renderItem={String}
+      />
+    ),
+  ],
   [
     'Field',
     (ref) => (

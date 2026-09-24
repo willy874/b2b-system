@@ -1,0 +1,26 @@
+@layer components {
+  .root {
+    overflow-y: auto;
+    /* 捲軸出現或消失時內容寬度不變，載入下一頁時列不會左右跳 */
+    scrollbar-gutter: stable;
+    overscroll-behavior: contain;
+  }
+
+  .list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .item {
+    box-sizing: border-box;
+  }
+
+  .footer {
+    display: flex;
+    justify-content: center;
+    padding: var(--seed-space-2);
+    color: var(--color-fg-muted);
+    font-size: 0.875rem;
+  }
+}

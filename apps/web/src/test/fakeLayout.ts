@@ -66,3 +66,43 @@ export function installFakeLayout() {
     },
   };
 }
+
+/**
+ * 虛擬捲動用的假布局：@tanstack/react-virtual 以 `offsetHeight` 量捲動容器與列高。
+ * 帶 `data-index` 的元素（列）高 `rowHeight`，其他元素（捲動容器）高 `viewportHeight`；
+ * `scrollHeight` 是子元素 inline `height` 的總和。
+ */
+export function installFakeListLayout({ rowHeight = 32, viewportHeight = 288 } = {}) {
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return this.hasAttribute('data-index') ? rowHeight : viewportHeight;
+  });
+  vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(240);
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return this.hasAttribute('data-index') ? rowHeight : viewportHeight;
+  });
+  // 內容高度：子元素 inline style 的 height（虛擬捲動撐出的總高度）加總
+  vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return Array.from(this.children).reduce(
+      (sum, child) => sum + (Number.parseFloat((child as HTMLElement).style.height) || 0),
+      0,
+    );
+  });
+  // jsdom 沒有實作 scrollTo：直接改 scrollTop 並送出 scroll 事件，虛擬捲動才會重新計算範圍
+  const original = Element.prototype.scrollTo;
+  Element.prototype.scrollTo = function (this: Element, options?: ScrollToOptions | number) {
+    if (typeof options === 'object' && options.top !== undefined) this.scrollTop = options.top;
+    this.dispatchEvent(new Event('scroll'));
+  } as typeof Element.prototype.scrollTo;
+  return {
+    restore() {
+      Element.prototype.scrollTo = original;
+      vi.restoreAllMocks();
+    },
+  };
+}

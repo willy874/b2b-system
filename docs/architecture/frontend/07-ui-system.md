@@ -34,8 +34,6 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | ----------------------------- | ------------------------------------------- |
 | `Button`                      | `@base-ui/react/button` ＋ `use-button`     |
 | `Input`                       | `@base-ui/react/input`、`field`             |
-| `Select`                      | `@base-ui/react/select`                     |
-| `Combobox` / `Autocomplete`   | `@base-ui/react/combobox`、`autocomplete`   |
 | `Checkbox` / `CheckboxGroup`  | `@base-ui/react/checkbox`、`checkbox-group` |
 | `Radio` / `RadioGroup`        | `@base-ui/react/radio`、`radio-group`       |
 | `Switch`                      | `@base-ui/react/switch`                     |
@@ -43,7 +41,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `AlertDialog`                 | `@base-ui/react/alert-dialog`               |
 | `Popover`                     | `@base-ui/react/popover`                    |
 | `Tooltip`                     | `@base-ui/react/tooltip`                    |
-| `Menu` / `ContextMenu`        | `@base-ui/react/menu`、`context-menu`       |
+| `ContextMenu`                 | `@base-ui/react/context-menu`               |
 | `Tabs`                        | `@base-ui/react/tabs`                       |
 | `Accordion` / `Collapsible`   | `@base-ui/react/accordion`、`collapsible`   |
 | `Toast`                       | `@base-ui/react/toast`                      |
@@ -68,6 +66,8 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `Chip` / `Badge`                 | 純自製                                               |
 | `FileUpload`                     | 自製（`<input type="file">` ＋ 拖放）                |
 | `TextEllipsis` / `BoxEllipsis` / `ButtonEllipsis` | 自製：CSS 省略號 ＋ `ResizeObserver` 量測；提示框用 `Tooltip`、下拉用 `Menu`（§3.8） |
+| `Select`（含搜尋，取代原本的 `Combobox`）/ `Menu` | 自製列表 ＋ Base UI `Popover`（定位、點外面／Esc 關閉、焦點歸還）＋ TanStack Virtual（§3.10） |
+| `VirtualList`                    | TanStack Virtual；長列表的虛擬捲動 ＋ 無限捲動（§3.10） |
 | `Typography` / `Title` / `Text` / `Paragraph` | 自製；`copyable` 的複製按鈕用 `Tooltip` ＋ `navigator.clipboard`（§3.9） |
 
 > **DatePicker 是最大的一塊自製工作**，排入
@@ -390,6 +390,42 @@ app/ToastHost ◀──────────┘ eventBus.on(TOAST_SHOW) → t
 - 逐層覆寫（§3.1 規則 6）：`TypographySlot = 'copy'`；頂層 `className` / `data-testid` 落在文字本身，
   按鈕預設 `data-testid="typography-copy"`。
 
+### 3.10 下拉列表：`Select` / `Menu` / `VirtualList`
+
+Base UI 的 `Select` / `Menu` / `Combobox` 需要 **所有項目都掛在 DOM 上**（靠它們做鍵盤導覽），
+無法虛擬捲動。所以這兩個元件改成：
+
+- **Base UI `Popover`**：定位、點外面／Esc 關閉、焦點歸還、`--anchor-width` 等 CSS 變數。
+- **自己的列表**：焦點留在列表容器（有搜尋框時留在輸入框），以 `aria-activedescendant` 指向作用列；
+  鍵盤、虛擬捲動、無限捲動的 hook 都在 `components/VirtualList/`，三個元件共用：
+
+| hook | 用途 |
+| ---- | ---- |
+| `useVirtualRows` | 列數超過 `virtualThreshold`（預設 100）才虛擬化；`scrollToIndex` 只在鍵盤移動與開啟時呼叫 |
+| `useInfiniteScroll` | 距底部 64px 內呼叫 `onLoadMore`；同一筆數只觸發一次、內容不滿一屏自動補頁、失敗後要再捲動才重試；`resetKey` 換資料集時解鎖 |
+| `useListNavigation` | ↑↓ / Home / End / PageUp / PageDown / typeahead，跳過停用列 |
+
+**Select 的功能**（單選 props 不變；多選以 `multiple` 區分型別）：
+
+| 功能 | props |
+| ---- | ---- |
+| 多選 | `multiple`、`value: T[]`；勾選不關閉 |
+| 值與標籤的順序 | `valueOrder`：`selection`（勾選先後，預設）／`options`（選項順序） |
+| 已選置頂 | `pinSelected`：取 **開啟當下** 的快照，開啟期間勾選不重排 |
+| 全選 | `selectAll`（半勾狀態、Ctrl/⌘ + A）；只作用在目前看得到、未停用的選項 |
+| 選項排序 | `sortOptions`：`asc` / `desc`（自然順序）或比較函式，含子選項 |
+| 可展開的列 | 選項帶 `children` 即成為 `role="tree"`；群組列不是值，多選時勾群組 = 勾所有子孫；←／→ 收合展開 |
+| 搜尋（原 `Combobox`） | `searchable`、`searchValue` / `onSearchChange`、`filterOption`（`false` = 後端搜尋）、`searchPlaceholder`、`noMatchLabel`、`clearSearchOnClose` |
+| 無限捲動 | `hasMore`、`loading`、`onLoadMore`；搜尋字改變時自動解鎖分頁 |
+| 兩行選項 | 選項 `description`，`itemSize` 設 48 |
+
+**不抖動的約定**（改這幾個元件時要守住）：
+
+1. 觸發鈕高度固定；多選標籤單行，放不下的收成 `+N`（`BoxEllipsis`）——觸發鈕尺寸不變，彈出層就不會移位。
+2. 列高固定（`itemSize` 與 CSS 一致）、文字不換行；勾選框／✓ 常駐，只換 `data-state`，勾選不改變列的寬高。
+3. 開啟期間不重排（`pinSelected` 用快照）；勾選、載入更多都不動捲動位置；捲軸以 `scrollbar-gutter: stable` 預留。
+4. 列元件 `memo` ＋ 固定參考的 callback：勾一個項目只重繪狀態改變的列。
+
 ---
 
 ## 4. Design Token
@@ -484,7 +520,7 @@ z-index 也是 token（`themes/tokens.css`），元件不寫數字：
 | ------------------ | --- | ------------------------------------------------ |
 | `--z-dialog`       | 70  | `Dialog` 的遮罩（popup 為 `+ 1`）                |
 | `--z-alert-dialog` | 80  | `AlertDialog` 的遮罩（popup 為 `+ 1`）           |
-| `--z-floating`     | 85  | `Popover`、`Select`、`Combobox`、`Menu` 的定位層 |
+| `--z-floating`     | 85  | `Popover`、`Select`、`Menu` 的定位層 |
 | `--z-tooltip`      | 90  | `Tooltip`                                        |
 | `--z-toast`        | 100 | `Toast`                                          |
 

@@ -3,8 +3,14 @@
     z-index: var(--z-floating);
   }
 
+  /* popup 本身是捲動容器（虛擬捲動、無限捲動都量它） */
   .popup {
+    box-sizing: border-box;
     min-width: 10rem;
+    max-width: min(24rem, var(--available-width, 24rem));
+    max-height: min(20rem, var(--available-height, 20rem));
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: var(--seed-space-1);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
@@ -12,16 +18,27 @@
     box-shadow: var(--shadow-popover);
   }
 
+  .list:focus {
+    outline: none;
+  }
+
+  /* 列高固定（= itemSize 預設 32px），虛擬捲動的量測結果與預估一致，捲動時不會修正位置 */
   .item {
+    box-sizing: border-box;
     display: flex;
     align-items: center;
     gap: var(--seed-space-2);
     width: 100%;
-    padding: var(--seed-space-2) var(--seed-space-3);
+    height: 2rem;
+    padding: 0 var(--seed-space-3);
     border-radius: var(--radius-sm);
     font-size: 0.875rem;
+    line-height: 1.25rem;
     color: var(--color-fg);
     text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     cursor: pointer;
     user-select: none;
   }
@@ -38,5 +55,14 @@
 
   .item[data-tone='danger'] {
     color: var(--color-danger);
+  }
+
+  .footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 2rem;
+    color: var(--color-fg-muted);
+    font-size: 0.875rem;
   }
 }
