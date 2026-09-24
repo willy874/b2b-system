@@ -101,7 +101,7 @@
   │                    │   是 → 共用那個 promise  │     │
   │                    └──────┬──────────────────┘     │
   │                           │                        │
-  │                           │─ BroadcastChannel ────▶│ 「我要續期了」
+  │                           │─ navigator.locks ─────▶│ 取得續期鎖（B 在此排隊）
   │                           │                        │
   │                           │─ POST /auth/refresh    │
   │                           │  Cookie: refresh_token │
@@ -111,7 +111,7 @@
   │                           │   Set-Cookie 新 refresh│
   │                           │                        │
   │                           │─ BroadcastChannel ────▶│ 「新 token 在這」
-  │                           │                        │─ 直接採用，不再自己打
+  │                           │─ 釋放鎖                │─ 拿到鎖時 token 已新鮮 → 直接採用
   │◀── accessToken ───────────│                        │
 ```
 
@@ -123,7 +123,7 @@
   ├─ 雜湊後查 refresh_tokens
   │    └─ 查無 → 401 AUTH_REFRESH_INVALID
   │
-  ├─ revoked_at IS NOT NULL → 401 AUTH_REFRESH_REVOKED
+  ├─ revoked_at IS NOT NULL，或同家族有任一列已撤銷 → 401 AUTH_REFRESH_REVOKED
   │
   ├─ expires_at < now       → 401 AUTH_REFRESH_EXPIRED
   │
@@ -136,6 +136,8 @@
   │
   └─ 正常 → 交易內：
        ├─ UPDATE 舊列 SET used_at = now
+       │    WHERE used_at IS NULL AND revoked_at IS NULL
+       │    └─ 0 列（併發請求搶先）→ 已撤銷回 REVOKED，否則同上 ★ 重用偵測
        ├─ INSERT 新列（同 family_id）
        ├─ 檢查 user.status 仍為 active、token_version 未變
        └─ 簽發新 access token
@@ -143,7 +145,7 @@
 
 > **為什麼要跨分頁協調**：refresh token 是輪替的。兩個分頁同時拿同一個舊 token
 > 去續期，第二個會被判定為「重用」，整條家族被撤銷，使用者被登出。
-> `BroadcastChannel` 讓同一瀏覽器的分頁只有一個真的去打 API。
+> Web Locks 讓同一瀏覽器的分頁依序續期，後一個拿到鎖時用的已經是新 cookie。
 
 ---
 

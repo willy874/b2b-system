@@ -1,5 +1,7 @@
 import { MAIN_BACKEND } from '@/core/client';
 import { isSessionRejected } from '@/core/errors';
+import { createTabChannel } from '@/shared/channel';
+import type { TabChannel } from '@/shared/channel';
 import { EventEmitter } from '@/shared/EventEmitter';
 import { createDictStorage } from '@/shared/storage';
 import type { DictStorage } from '@/shared/storage';
@@ -19,18 +21,33 @@ type RefreshFn = () => Promise<SessionTokens>;
 
 /** 剩餘壽命少於這個值就先續期（秒）。 */
 const REFRESH_THRESHOLD_SECONDS = 30;
-/** 等待其他分頁完成續期的上限（毫秒）。 */
-const PEER_REFRESH_TIMEOUT_MS = 3_000;
 
-const TOKEN_CHANNEL_PREFIX = 'ge:token:';
-const SESSION_CHANNEL_PREFIX = 'ge:session:';
+const SESSION_CHANNEL_PREFIX = 'session:';
+const REFRESH_LOCK_PREFIX = 'ge:refresh:';
 const STORAGE_NAMESPACE_PREFIX = 'auth:';
 const HAS_SESSION_KEY = 'hasSession';
 
-interface TokenMessage {
-  type: 'ping' | 'pong' | 'refresh-start' | 'refresh-done' | 'refresh-failed';
-  accessToken?: string;
-  expiresAt?: number;
+/** 同一個頻道依序送達：登出之後才到的續期結果一定排在登出之後。 */
+type SessionMessages = {
+  'refresh-done': { accessToken: string; expiresAt: number };
+  'session-ended': { reason: string };
+};
+
+/** 以 `name` 為鍵的跨分頁互斥：同名的 `task` 同一時間只有一個在跑。 */
+export type RunExclusive = <T>(name: string, task: () => Promise<T>) => Promise<T>;
+
+export interface SessionStoreOptions {
+  /** 預設用 `navigator.locks`（Web Locks）；測試注入假的來模擬多個分頁。 */
+  runExclusive?: RunExclusive;
+}
+
+/** 瀏覽器不支援 Web Locks 時退回只有分頁內單飛（`inFlight`）。 */
+function webLocksExclusive(): RunExclusive {
+  const locks = globalThis.navigator?.locks;
+  if (!locks) return (_name, task) => task();
+  // lib.dom 把回傳型別寫成 Promise<Promise<T>>；規格上 request 會等 task 完成並以其結果 resolve
+  return <T>(name: string, task: () => Promise<T>) =>
+    locks.request(name, task) as unknown as Promise<T>;
 }
 
 /**
@@ -42,36 +59,32 @@ interface TokenMessage {
  */
 export class SessionStore {
   readonly events = new EventEmitter<SessionStoreEvents>();
-  /** 內部用：其他分頁的續期結果（成功走公開的 `refreshed`）。 */
-  private readonly peerEvents = new EventEmitter<{ refreshFailed: () => void }>();
 
   private accessToken: string | undefined;
   private expiresAt = 0;
   private inFlight: Promise<string | undefined> | undefined;
   private refreshFn: RefreshFn | undefined;
   private ended = false; // latched：只觸發一次
-  private peerSeen = false;
-  private peerRefreshStartedAt = 0;
+  /** 每次清空 session 就 +1：續期回來時世代不同，代表中途登出過，結果要丟掉。 */
+  private epoch = 0;
+  private readonly runExclusive: RunExclusive;
 
   private readonly storage: DictStorage;
   private readonly subscribers = new Set<() => void>();
-  private readonly tokenChannel: BroadcastChannel | undefined;
-  private readonly sessionChannel: BroadcastChannel | undefined;
+  private readonly channel: TabChannel<SessionMessages>;
 
-  constructor(readonly name: string) {
+  constructor(
+    readonly name: string,
+    options: SessionStoreOptions = {},
+  ) {
+    this.runExclusive = options.runExclusive ?? webLocksExclusive();
     this.storage = createDictStorage(STORAGE_NAMESPACE_PREFIX + name);
-    this.tokenChannel = this.createChannel(TOKEN_CHANNEL_PREFIX + name);
-    this.sessionChannel = this.createChannel(SESSION_CHANNEL_PREFIX + name);
-
-    this.tokenChannel?.addEventListener('message', (event) => {
-      this.onTokenMessage((event as MessageEvent<TokenMessage>).data);
+    this.channel = createTabChannel<SessionMessages>(SESSION_CHANNEL_PREFIX + name);
+    this.channel.on('refresh-done', ({ accessToken, expiresAt }) => {
+      // 已結束的 session 不被其他分頁晚到的續期結果救活
+      if (!this.ended) this.applyTokens(accessToken, expiresAt);
     });
-    this.sessionChannel?.addEventListener('message', (event) => {
-      const data = (event as MessageEvent<{ type: string; reason?: string }>).data;
-      if (data.type === 'session-ended') this.endSession(data.reason ?? 'peer', false);
-    });
-    // 啟動時 ping 一次：只有確定有其他分頁時才付等待成本
-    this.post(this.tokenChannel, { type: 'ping' });
+    this.channel.on('session-ended', ({ reason }) => this.endSession(reason, false));
   }
 
   setRefreshFn(fn: RefreshFn): void {
@@ -115,6 +128,7 @@ export class SessionStore {
     this.accessToken = undefined;
     this.expiresAt = 0;
     this.inFlight = undefined;
+    this.epoch += 1;
     this.storage.set(HAS_SESSION_KEY, false);
     this.notify();
   }
@@ -124,7 +138,7 @@ export class SessionStore {
     if (this.ended) return;
     this.ended = true;
     this.clear();
-    if (broadcast) this.post(this.sessionChannel, { type: 'session-ended', reason });
+    if (broadcast) this.channel.post('session-ended', { reason });
     this.events.emit('ended', reason);
     this.notify();
   }
@@ -158,104 +172,46 @@ export class SessionStore {
     return this.ensureAccessToken();
   }
 
-  /** 回傳新的 access token；`undefined` 代表等待期間 session 已結束（例如其他分頁續期被拒）。 */
-  private async refresh(): Promise<string | undefined> {
-    const peer = await this.waitForPeerRefresh();
-    if (peer === 'done') return this.accessToken;
-    if (this.ended) return undefined;
-
-    if (!this.refreshFn) throw new Error('SessionStore.refreshFn 尚未注入');
-    this.post(this.tokenChannel, { type: 'refresh-start' });
-    try {
-      const tokens = await this.refreshFn();
-      this.setTokens(tokens);
-      this.post(this.tokenChannel, {
-        type: 'refresh-done',
-        accessToken: tokens.accessToken,
-        expiresAt: this.expiresAt,
-      });
-      return tokens.accessToken;
-    } catch (error) {
-      this.post(this.tokenChannel, { type: 'refresh-failed' });
-      // 只有伺服器明確拒絕（refresh token 過期／撤銷／重用、帳號停用）才結束 session；
-      // 網路錯誤、5xx、429、逾時是暫時性的：保留 session，下一個請求會再試一次續期
-      if (isSessionRejected(error)) {
-        this.endSession(error instanceof Error ? error.message : 'refresh_failed');
-      }
-      throw error;
-    }
-  }
-
   /**
-   * 其他分頁正在續期（3 秒內）→ 等它的結果，不要自己打 API。
-   * - `done`：拿到新 token
-   * - `failed`：對方續期失敗或 session 已結束 → 不再等（要不要自己打由呼叫端判斷）
-   * - `skipped`：沒有人在續期，或等到逾時（那個分頁可能被關了）
+   * 回傳新的 access token；`undefined` 代表 session 已在途中結束（登出、其他分頁續期被拒）。
+   *
+   * 以 Web Locks 做跨分頁互斥：拿到鎖時，前一個分頁的續期回應已經寫入新的 refresh cookie，
+   * 這裡再打也是用新 cookie，不會被判定為重用。BroadcastChannel 只負責把新 token 分享出去。
    */
-  private async waitForPeerRefresh(): Promise<'done' | 'failed' | 'skipped'> {
-    if (!this.peerSeen) return 'skipped';
-    if (Date.now() - this.peerRefreshStartedAt > PEER_REFRESH_TIMEOUT_MS) return 'skipped';
+  private async refresh(): Promise<string | undefined> {
+    const refreshFn = this.refreshFn;
+    if (!refreshFn) throw new Error('SessionStore.refreshFn 尚未注入');
+    const epoch = this.epoch;
 
-    return new Promise((resolve) => {
-      const finish = (result: 'done' | 'failed' | 'skipped') => {
-        clearTimeout(timer);
-        offRefreshed();
-        offEnded();
-        offFailed();
-        resolve(result);
-      };
-      const timer = setTimeout(() => finish('skipped'), PEER_REFRESH_TIMEOUT_MS);
-      const offRefreshed = this.events.on('refreshed', () => finish('done'));
-      const offEnded = this.events.on('ended', () => finish('failed'));
-      const offFailed = this.peerEvents.on('refreshFailed', () => finish('failed'));
+    return this.runExclusive(REFRESH_LOCK_PREFIX + this.name, async () => {
+      if (epoch !== this.epoch) return undefined;
+      // 等鎖期間其他分頁已續期完成，新 token 已經由 refresh-done 送到
+      if (this.isFresh()) return this.accessToken;
+
+      try {
+        const tokens = await refreshFn();
+        // 續期途中 session 已結束（登出）：丟掉結果，否則會把已登出的頁面救活
+        if (epoch !== this.epoch) return undefined;
+        this.setTokens(tokens);
+        this.channel.post('refresh-done', {
+          accessToken: tokens.accessToken,
+          expiresAt: this.expiresAt,
+        });
+        return tokens.accessToken;
+      } catch (error) {
+        // 只有伺服器明確拒絕（refresh token 過期／撤銷／重用、帳號停用）才結束 session；
+        // 網路錯誤、5xx、429、逾時是暫時性的：保留 session，下一個請求會再試一次續期
+        if (epoch === this.epoch && isSessionRejected(error)) {
+          this.endSession(error instanceof Error ? error.message : 'refresh_failed');
+        }
+        throw error;
+      }
     });
   }
 
-  private onTokenMessage(message: TokenMessage): void {
-    this.peerSeen = true;
-    switch (message.type) {
-      case 'ping': {
-        this.post(this.tokenChannel, { type: 'pong' });
-        break;
-      }
-      case 'refresh-start': {
-        this.peerRefreshStartedAt = Date.now();
-        break;
-      }
-      case 'refresh-done': {
-        if (message.accessToken && message.expiresAt) {
-          this.applyTokens(message.accessToken, message.expiresAt);
-        }
-        break;
-      }
-      case 'refresh-failed': {
-        // 暫時性失敗時對方不會結束 session，本分頁不必乾等到逾時
-        this.peerRefreshStartedAt = 0;
-        this.peerEvents.emit('refreshFailed');
-        break;
-      }
-      default:
-        break;
-    }
-  }
-
-  private createChannel(name: string): BroadcastChannel | undefined {
-    return typeof BroadcastChannel === 'undefined' ? undefined : new BroadcastChannel(name);
-  }
-
-  private post(channel: BroadcastChannel | undefined, message: unknown): void {
-    try {
-      channel?.postMessage(message);
-    } catch {
-      /* 分頁關閉中：忽略 */
-    }
-  }
-
   destroy(): void {
-    this.tokenChannel?.close();
-    this.sessionChannel?.close();
+    this.channel.close();
     this.events.clear();
-    this.peerEvents.clear();
   }
 }
 

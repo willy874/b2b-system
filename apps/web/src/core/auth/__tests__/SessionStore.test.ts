@@ -50,7 +50,7 @@ describe('SessionStore', () => {
 
     const first = store.ensureAccessToken();
     const second = store.ensureAccessToken();
-    // refreshFn 在 waitForPeerRefresh 之後才被呼叫，等一個 microtask
+    // refreshFn 在取得鎖之後才被呼叫，等一個 microtask
     await vi.waitFor(() => expect(resolveRefresh).toBeDefined());
     resolveRefresh?.({ accessToken: 'fresh', expiresIn: 300 });
 
@@ -126,6 +126,76 @@ describe('SessionStore', () => {
     expect(store.hasSession()).toBe(true);
 
     await expect(store.ensureAccessToken()).resolves.toBe('fresh');
+    store.destroy();
+  });
+
+  it('★ 續期途中登出：晚回來的結果被丟棄，session 不復活', async () => {
+    const store = createStore();
+    let resolveRefresh: ((value: { accessToken: string; expiresIn: number }) => void) | undefined;
+    store.setRefreshFn(
+      () =>
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+    store.setTokens({ accessToken: 'stale', expiresIn: 1 });
+
+    const pending = store.ensureAccessToken();
+    await vi.waitFor(() => expect(resolveRefresh).toBeDefined());
+    store.endSession('logout');
+    resolveRefresh?.({ accessToken: 'zombie', expiresIn: 300 });
+
+    await expect(pending).resolves.toBeUndefined();
+    expect(store.getAccessToken()).toBeUndefined();
+    expect(store.hasSession()).toBe(false);
+    store.destroy();
+  });
+
+  it('★ 續期途中登出又重新登入：舊的續期結果不覆蓋新登入的 token', async () => {
+    const store = createStore();
+    let resolveRefresh: ((value: { accessToken: string; expiresIn: number }) => void) | undefined;
+    store.setRefreshFn(
+      () =>
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+    store.setTokens({ accessToken: 'stale', expiresIn: 1 });
+
+    const pending = store.ensureAccessToken();
+    await vi.waitFor(() => expect(resolveRefresh).toBeDefined());
+    store.endSession('logout');
+    store.setTokens({ accessToken: 'new-login', expiresIn: 300 });
+    resolveRefresh?.({ accessToken: 'old-family', expiresIn: 300 });
+
+    await expect(pending).resolves.toBeUndefined();
+    expect(store.getAccessToken()).toBe('new-login');
+    store.destroy();
+  });
+
+  it('續期途中登出後，續期被拒也不再觸發第二次 ended', async () => {
+    const store = createStore();
+    let rejectRefresh: ((error: Error) => void) | undefined;
+    store.setRefreshFn(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectRefresh = reject;
+        }),
+    );
+    store.setTokens({ accessToken: 'stale', expiresIn: 1 });
+    const ended = vi.fn();
+    store.events.on('ended', ended);
+
+    const pending = store.ensureAccessToken();
+    await vi.waitFor(() => expect(rejectRefresh).toBeDefined());
+    store.endSession('logout');
+    store.setTokens({ accessToken: 'new-login', expiresIn: 300 });
+    rejectRefresh?.(new AppError('AUTH_REFRESH_REVOKED', 401));
+
+    await expect(pending).rejects.toThrow(/AUTH_REFRESH_REVOKED/);
+    // 舊世代的拒絕不會把重新登入的 session 結束掉
+    expect(ended).toHaveBeenCalledOnce();
+    expect(store.getAccessToken()).toBe('new-login');
     store.destroy();
   });
 

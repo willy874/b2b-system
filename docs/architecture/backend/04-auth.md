@@ -85,7 +85,7 @@ WHERE family_id = $1 AND revoked_at IS NULL;
 **整條家族失效**，使用者被登出，必須重新登入。同時寫入一筆高嚴重度的稽核紀錄
 （`auth.refresh.reuse_detected`）。
 
-> 這就是為什麼前端的跨分頁單飛（`BroadcastChannel`）不是最佳化，而是 **必要**。
+> 這就是為什麼前端的跨分頁互斥（Web Locks）不是最佳化，而是 **必要**。
 > 見 [`../frontend/09-state-and-storage.md`](../frontend/09-state-and-storage.md) §5.1。
 
 ### 2.3 完整判定
@@ -96,37 +96,40 @@ async refresh(rawToken: string, ctx: RequestContext) {
   const row = await this.tokenRepo.findByHash(hash);
 
   if (!row)                        throw new AppException(ErrorCode.AUTH_REFRESH_INVALID);
-  if (row.revokedAt)               throw new AppException(ErrorCode.AUTH_REFRESH_REVOKED);
+  if (row.revokedAt || await this.tokenRepo.isFamilyRevoked(row.familyId))
+                                   throw new AppException(ErrorCode.AUTH_REFRESH_REVOKED);
   if (row.expiresAt < new Date())  throw new AppException(ErrorCode.AUTH_REFRESH_EXPIRED);
-
-  if (row.usedAt) {
-    await this.tokenRepo.revokeFamily(row.familyId, 'reuse_detected');
-    await this.audit.record({
-      action: 'auth.refresh.reuse_detected', result: 'failure',
-      actorId: row.userId, resourceType: 'auth', metadata: { familyId: row.familyId, ...ctx },
-    });
-    throw new AppException(ErrorCode.AUTH_REFRESH_REUSED);
-  }
+  if (row.usedAt)                  return this.rejectReuse(row, ctx); // 撤銷家族 ＋ 稽核 ＋ REUSED
 
   const user = await this.userRepo.findById(row.userId);
   if (!user || user.deletedAt)     throw new AppException(ErrorCode.AUTH_REFRESH_INVALID);
   if (user.status !== 'active')    throw new AppException(ErrorCode.AUTH_ACCOUNT_DISABLED);
 
-  return withTransaction(this.db, async (tx) => {
-    await this.tokenRepo.markUsed(row.id, tx);
-    const next = await this.tokenRepo.create({
-      userId: user.id, familyId: row.familyId, ...ctx,
-    }, tx);
-    return {
-      accessToken: this.signAccessToken(user),
-      refreshToken: next.raw,
-    };
+  const raw = await withTransaction(this.db, async (tx) => {
+    // UPDATE … WHERE used_at IS NULL AND revoked_at IS NULL：0 列代表被併發請求搶先
+    if (!(await this.tokenRepo.markUsed(row.id, tx))) return undefined;
+    const next = await this.tokenRepo.issue({ userId: user.id, familyId: row.familyId, ...ctx }, tx);
+    return next.raw;
   });
+  if (raw === undefined) {
+    const latest = await this.tokenRepo.findByHash(row.tokenHash);
+    if (latest?.revokedAt) throw new AppException(ErrorCode.AUTH_REFRESH_REVOKED);
+    return this.rejectReuse(row, ctx);
+  }
+  return { accessToken: this.signAccessToken(user), refreshToken: raw };
 }
 ```
 
-**注意 `markUsed` 與 `create` 在同一個交易裡**：否則有可能標記了舊 token 卻沒
+**注意 `markUsed` 與 `issue` 在同一個交易裡**：否則有可能標記了舊 token 卻沒
 建立新的，使用者被無故登出。
+
+**`markUsed` 必須是條件式 `UPDATE`**：先 `SELECT` 看 `used_at` 再無條件標記的話，
+同一張 token 的兩個併發請求都會通過檢查、各自換發一張，家族分岔成兩條有效的鏈，
+重用偵測完全沒觸發。條件式 `UPDATE` 由列鎖序列化，只有一個搶得到。
+
+**為什麼也要看整個家族**：登出的 `revokeFamily` 與一個併發的續期交易同時進行時，
+續期新插入的那一列不在 `UPDATE` 的快照裡，不會被撤銷。撤銷一律以家族（或使用者）
+為單位，所以「家族裡有任一列已撤銷」就等於整個家族已失效。
 
 ### 2.4 Cookie
 
@@ -397,6 +400,9 @@ async logout(@Req() req, @Res({ passthrough: true }) res) {
 session」，而不是「作廢我手上這個 token 但留著它的後繼者」。
 
 `token_version` **不** 遞增——登出只影響這個裝置，其他裝置的 session 應該保留。
+
+前端的呼叫順序是「先結束前端 session、再打這個端點」，避免等待期間完成的續期
+把已登出的頁面救活；見 [`../frontend/09-state-and-storage.md`](../frontend/09-state-and-storage.md) §5.2。
 
 ---
 

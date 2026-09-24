@@ -54,7 +54,7 @@ test.describe('跨分頁協調', () => {
     await second.goto('/role');
     await expect(second.getByTestId('role-list-page')).toBeVisible();
 
-    // 兩邊同時重新整理：只有一個分頁會實際續期（BroadcastChannel 單飛）
+    // 兩邊同時重新整理：兩個分頁依序續期（Web Locks 互斥），不會拿同一個舊 cookie
     await Promise.all([first.reload(), second.reload()]);
     await expect(first.getByTestId('home-page')).toBeVisible();
     await expect(second.getByTestId('role-list-page')).toBeVisible();

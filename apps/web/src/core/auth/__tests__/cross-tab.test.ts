@@ -1,76 +1,95 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { AppError } from '@/core/errors';
+
 import { SessionStore } from '../SessionStore';
+import type { RunExclusive, SessionTokens } from '../SessionStore';
 
 const hasBroadcastChannel = typeof BroadcastChannel !== 'undefined';
 
-describe.runIf(hasBroadcastChannel)('SessionStore 跨分頁協調', () => {
-  it('偵測到其他分頁正在續期時等它的結果，不自己打 API', async () => {
-    const first = new SessionStore('test');
-    const second = new SessionStore('test');
-
-    // 讓兩邊互相看見（ping / pong）
-    await vi.waitFor(() => expect(second.hasSession()).toBe(false));
-    await new Promise((resolve) => setTimeout(resolve, 20));
-
-    let resolveRefresh: ((value: { accessToken: string; expiresIn: number }) => void) | undefined;
-    const firstRefresh = vi.fn(
-      () =>
-        new Promise<{ accessToken: string; expiresIn: number }>((resolve) => {
-          resolveRefresh = resolve;
-        }),
+/** 模擬 `navigator.locks`：同名的 task 依序執行（同一個瀏覽器的所有分頁共用）。 */
+function createLocks(): RunExclusive {
+  const tails = new Map<string, Promise<unknown>>();
+  return (name, task) => {
+    const run = (tails.get(name) ?? Promise.resolve()).then(task);
+    tails.set(
+      name,
+      run.catch(() => undefined),
     );
-    const secondRefresh = vi.fn();
-    first.setRefreshFn(firstRefresh);
-    second.setRefreshFn(secondRefresh);
+    return run;
+  };
+}
 
-    first.setTokens({ accessToken: 'stale-1', expiresIn: 1 });
-    second.setTokens({ accessToken: 'stale-2', expiresIn: 1 });
+/**
+ * 模擬後端的輪替 refresh token 與瀏覽器共用的 cookie：
+ * 同一個 cookie 被用第二次就是重用（`AUTH_REFRESH_REUSED`）。
+ */
+function createRotatingBackend() {
+  let cookie = 0;
+  const used = new Set<number>();
+  let active = 0;
+  let maxActive = 0;
+  const refresh = async (): Promise<SessionTokens> => {
+    const sent = cookie;
+    active += 1;
+    maxActive = Math.max(maxActive, active);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    active -= 1;
+    if (used.has(sent)) throw new AppError('AUTH_REFRESH_REUSED', 401);
+    used.add(sent);
+    cookie = sent + 1; // Set-Cookie：換成新的 refresh token
+    return { accessToken: `access-${cookie}`, expiresIn: 300 };
+  };
+  return { refresh, maxActive: () => maxActive };
+}
 
-    const firstPromise = first.ensureAccessToken();
-    await vi.waitFor(() => expect(resolveRefresh).toBeDefined());
+describe.runIf(hasBroadcastChannel)('SessionStore 跨分頁協調', () => {
+  it('★ 多個分頁同時續期（例：闔上筆電後喚醒）：依序執行，不會觸發重用偵測', async () => {
+    const locks = createLocks();
+    const backend = createRotatingBackend();
+    const tabs = [1, 2, 3].map(() => new SessionStore('test', { runExclusive: locks }));
+    for (const tab of tabs) {
+      tab.setRefreshFn(vi.fn(backend.refresh));
+      tab.setTokens({ accessToken: 'stale', expiresIn: 1 });
+    }
 
-    const secondPromise = second.ensureAccessToken();
-    resolveRefresh?.({ accessToken: 'fresh', expiresIn: 300 });
+    const results = await Promise.all(tabs.map((tab) => tab.ensureAccessToken()));
 
-    await expect(firstPromise).resolves.toBe('fresh');
-    await expect(secondPromise).resolves.toBeDefined();
-    // ★ 第二個分頁沒有自己打 refresh（否則會觸發後端的重用偵測）
-    expect(secondRefresh).not.toHaveBeenCalled();
+    for (const token of results) expect(token).toMatch(/^access-/);
+    expect(backend.maxActive()).toBe(1);
+    for (const tab of tabs) {
+      expect(tab.hasSession()).toBe(true);
+      tab.destroy();
+    }
+  });
+
+  it('其他分頁續期完成時，新 token 同步過來', async () => {
+    const locks = createLocks();
+    const first = new SessionStore('test', { runExclusive: locks });
+    const second = new SessionStore('test', { runExclusive: locks });
+    first.setRefreshFn(vi.fn().mockResolvedValue({ accessToken: 'fresh', expiresIn: 300 }));
+    first.setTokens({ accessToken: 'stale', expiresIn: 1 });
+
+    await expect(first.ensureAccessToken()).resolves.toBe('fresh');
+    await vi.waitFor(() => expect(second.getAccessToken()).toBe('fresh'));
 
     first.destroy();
     second.destroy();
   });
 
-  it('其他分頁續期失敗時不再乾等，自己續期', async () => {
-    const first = new SessionStore('test');
-    const second = new SessionStore('test');
+  it('★ 已登出的分頁不被其他分頁晚到的續期結果救活', async () => {
+    const first = new SessionStore('test', { runExclusive: createLocks() });
+    const second = new SessionStore('test', { runExclusive: createLocks() });
+    first.setRefreshFn(vi.fn().mockResolvedValue({ accessToken: 'late', expiresIn: 300 }));
+    first.setTokens({ accessToken: 'stale', expiresIn: 1 });
+    second.setTokens({ accessToken: 'token', expiresIn: 300 });
+
+    second.endSession('logout', false);
+    await first.ensureAccessToken();
     await new Promise((resolve) => setTimeout(resolve, 20));
 
-    let rejectRefresh: ((error: Error) => void) | undefined;
-    first.setRefreshFn(
-      () =>
-        new Promise((_resolve, reject) => {
-          rejectRefresh = reject;
-        }),
-    );
-    const secondRefresh = vi.fn().mockResolvedValue({ accessToken: 'own', expiresIn: 300 });
-    second.setRefreshFn(secondRefresh);
-    first.setTokens({ accessToken: 'stale-1', expiresIn: 1 });
-    second.setTokens({ accessToken: 'stale-2', expiresIn: 1 });
-
-    const firstPromise = first.ensureAccessToken();
-    await vi.waitFor(() => expect(rejectRefresh).toBeDefined());
-    // 等 second 收到 refresh-start
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    const startedAt = Date.now();
-    const secondPromise = second.ensureAccessToken();
-    rejectRefresh?.(new Error('network'));
-
-    await expect(firstPromise).rejects.toThrow('network');
-    await expect(secondPromise).resolves.toBe('own');
-    // 沒有等到 3 秒逾時
-    expect(Date.now() - startedAt).toBeLessThan(1_000);
+    // hasSession 旗標在 localStorage，各分頁共用，這裡只驗記憶體裡的 token
+    expect(second.getAccessToken()).toBeUndefined();
 
     first.destroy();
     second.destroy();
@@ -95,7 +114,6 @@ describe.runIf(hasBroadcastChannel)('SessionStore 跨分頁協調', () => {
   it('★ 不同後端的 session 互不干擾：續期結果與登出都不外溢', async () => {
     const main = new SessionStore('main-x');
     const reports = new SessionStore('reports-x');
-    await new Promise((resolve) => setTimeout(resolve, 20));
     main.setRefreshFn(vi.fn().mockResolvedValue({ accessToken: 'main-fresh', expiresIn: 300 }));
     main.setTokens({ accessToken: 'main-stale', expiresIn: 1 });
     reports.setTokens({ accessToken: 'reports-token', expiresIn: 300 });

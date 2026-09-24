@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { DRIZZLE } from '@/core/database';
@@ -52,9 +52,34 @@ export class RefreshTokenRepository {
     return { raw, row };
   }
 
-  async markUsed(id: string, tx?: DbOrTx): Promise<void> {
+  /**
+   * 只在尚未使用、尚未撤銷時標記為已使用。回傳是否標記成功：
+   * `false` 代表併發的另一個請求搶先用掉或撤銷了它（條件式 UPDATE 由列鎖序列化）。
+   */
+  async markUsed(id: string, tx?: DbOrTx): Promise<boolean> {
     const db = tx ?? this.db;
-    await db.update(refreshTokens).set({ usedAt: new Date() }).where(eq(refreshTokens.id, id));
+    const rows = await db
+      .update(refreshTokens)
+      .set({ usedAt: new Date() })
+      .where(
+        and(
+          eq(refreshTokens.id, id),
+          isNull(refreshTokens.usedAt),
+          isNull(refreshTokens.revokedAt),
+        ),
+      )
+      .returning({ id: refreshTokens.id });
+    return rows.length > 0;
+  }
+
+  /** 家族裡是否有任何一張已被撤銷（撤銷一律以家族或使用者為單位）。 */
+  async isFamilyRevoked(familyId: string): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: refreshTokens.id })
+      .from(refreshTokens)
+      .where(and(eq(refreshTokens.familyId, familyId), isNotNull(refreshTokens.revokedAt)))
+      .limit(1);
+    return row !== undefined;
   }
 
   async revokeFamily(familyId: string, reason: RevokedReason, tx?: DbOrTx): Promise<void> {

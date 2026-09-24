@@ -145,13 +145,49 @@ Refresh Token  → httpOnly cookie，JavaScript 讀不到
 
 ## 5. 跨分頁同步
 
-三個獨立的 `BroadcastChannel`：
+所有跨分頁訊息都經過 `shared/channel` 的 `createTabChannel()`，**不直接 `new BroadcastChannel()`**：
 
-| 通道                  | 用途                             | 位置                             |
-| --------------------- | -------------------------------- | -------------------------------- |
-| `ge:token:<後端>`     | Token 續期協調（單飛、結果廣播） | `core/auth/SessionStore`         |
-| `ge:query-invalidate` | Query 失效廣播                   | `core/cache/broadcastInvalidate` |
-| `ge:session:<後端>`   | 登出廣播（一處登出，全部登出）   | `core/auth/SessionStore`         |
+```ts
+// 訊息型別 → payload 的對照表（用 type，interface 沒有隱含索引簽章）
+type SessionMessages = {
+  'refresh-done': { accessToken: string; expiresAt: number };
+  'session-ended': { reason: string };
+};
+
+const channel = createTabChannel<SessionMessages>(`session:${name}`); // 實際頻道 ge:session:<name>
+channel.on('session-ended', ({ reason }) => …);
+channel.post('session-ended', { reason });
+channel.close();
+```
+
+它統一處理每個使用者原本各寫一次的細節：`ge:` 命名空間、依 `type` 分派、
+不支援 `BroadcastChannel` 時退化成只在本分頁運作、分頁關閉中 `postMessage` 拋例外時忽略、
+收到格式不符或未知 `type`（新舊版本分頁並存）時略過。
+**自己送出的訊息自己收不到**（`BroadcastChannel` 的語意），本分頁要做的事在 `post` 前自己做。
+
+### Store 的跨分頁同步
+
+signal store 要在所有分頁保持一致時，用 `shared/store` 的 `syncAcrossTabs()`，不自己開頻道：
+
+```ts
+const stop = syncAcrossTabs(useLocaleStore, 'preference:locale', ['locale']);
+```
+
+- 只同步列出的資料欄位；action 是函式，無法也不該跨分頁傳遞。
+- 收到的更新以 `setState` 套用、不再廣播，不會迴圈。
+- 只同步 **之後的變更**；新分頁的初始值由持久化（`dictStorage`）水合。
+  持久化寫在 action 裡的 store，收訊方不必再寫一次——發訊方已寫入共用的 localStorage。
+
+### 目前的頻道
+
+| 頻道（`ge:` 之後）             | 訊息                              | 位置                                   |
+| ------------------------------ | --------------------------------- | -------------------------------------- |
+| `session:<後端>`               | `refresh-done`、`session-ended`   | `core/auth/SessionStore`               |
+| `query-invalidate`             | `invalidate`                      | `core/cache/broadcastInvalidate`       |
+| `store:preference:locale`      | `state`（`syncAcrossTabs`）       | `core/store/preference`，由 i18n plugin 啟動 |
+| `store:preference:timezone`    | `state`（`syncAcrossTabs`）       | 同上                                   |
+
+續期結果與登出放在 **同一個頻道**：同一頻道的訊息依序送達，登出之後才到的續期結果不會排在登出前面。
 
 `SessionStore` 每個後端一個實例（[05 §3.5](./05-data-layer.md)），頻道名稱與
 localStorage 的 `hasSession` 旗標（`game-editor:auth:<後端>:hasSession`）都帶後端名稱：
@@ -164,18 +200,22 @@ Refresh token 是 **輪替** 的：用過一次就作廢，後端會換發新的
 使用者被登出**。
 
 ```
-分頁 A 需要續期
-  ├─ 檢查本地 in-flight promise → 有則共用
-  ├─ 廣播 { type: 'refresh-start' }
-  ├─ 實際打 POST /auth/refresh
-  └─ 廣播 { type: 'refresh-done', accessToken, expiresAt }
-
-分頁 B 需要續期
-  ├─ 已收到 'refresh-start' 且在 3 秒內 → 等待 'refresh-done'
-  ├─ 收到 → 直接採用，不打 API
-  ├─ 收到 'refresh-failed' → 不再等：session 已結束就放棄，否則自己打
-  └─ 逾時未收到（A 分頁可能被關了）→ 自己打
+任一分頁需要續期
+  ├─ 檢查本地 in-flight promise → 有則共用（分頁內單飛）
+  ├─ navigator.locks.request('ge:refresh:<name>')  ← 跨分頁互斥，其他分頁在這裡排隊
+  │    ├─ 拿到鎖時 session 已結束（世代不同）→ 放棄
+  │    ├─ 拿到鎖時 token 已新鮮（其他分頁的 refresh-done 已到）→ 直接採用，不打 API
+  │    ├─ 實際打 POST /auth/refresh
+  │    └─ 廣播 { type: 'refresh-done', accessToken, expiresAt }
+  └─ 釋放鎖
 ```
+
+**為什麼用 Web Locks 而不是只靠 `BroadcastChannel`**：廣播是非同步送達的，
+「看有沒有人在續期」與「宣告我要續期」之間有空窗。闔上筆電再打開時，所有分頁
+會同時醒來、同時續期，各自都還沒收到別人的宣告，就拿同一個舊 cookie 去打 API。
+Web Locks 保證同一時間只有一個分頁在續期；而且下一個分頁拿到鎖時，前一個分頁的
+回應已經寫入新的 refresh cookie，就算 `refresh-done` 還沒送到、它再打一次也是用
+新 cookie，不會被判定為重用。不支援 Web Locks 的瀏覽器退回只有分頁內單飛。
 
 **續期失敗不一定是 session 結束。** 只有伺服器明確拒絕（401、`AUTH_REFRESH_*`、
 `AUTH_ACCOUNT_DISABLED`，即 `isSessionRejected()`）才結束 session；網路錯誤、5xx、
@@ -183,19 +223,25 @@ Refresh token 是 **輪替** 的：用過一次就作廢，後端會換發新的
 下一個請求會再試一次續期（冪等請求由 `retry.ts` 自動重試）。否則一次網路抖動
 就會把使用者登出。
 
-**逾時的必要性**：廣播「我要續期了」之後如果那個分頁被關掉，其他分頁不能永遠
-等下去。3 秒是一個「正常續期一定完成、異常時使用者也還沒察覺」的值。
-
-另一個細節：**只有在「確定有其他分頁存在」時才付這個等待成本**。
-`SessionStore` 會在啟動時廣播一次 ping，收到回應才記下 `peerSeen = true`。
-單一分頁的情況（絕大多數）完全不等待。
+**晚回來的續期不能救活已結束的 session。** `SessionStore` 每次清空 session 就把
+世代（`epoch`）加一；續期回來時世代不同就丟掉結果。其他分頁的 `refresh-done`
+與 `session-ended` 走同一個頻道、依序送達，已結束的分頁不採用之後才到的 token。
 
 ### 5.2 登出廣播
 
 ```ts
-channel.postMessage({ type: "session-ended", reason });
+channel.post("session-ended", { reason });
 // 其他分頁：clear permission store → queryClient.clear() → navigate('/auth/login')
 ```
+
+登出的順序是 **先結束前端、再撤銷後端**（`useLogoutMutation`）：
+
+1. `ensureAccessToken()`：等手上的續期結束，取得目前的 token
+2. `endSession('logout')`：中止帶身分的請求、清掉 token、廣播、導回登入頁
+3. 用第 1 步的 token 走 base 管道打 `POST /auth/logout`，撤銷整條家族
+
+反過來（先打 API、回應後才結束 session）的話，等待期間完成的續期會把新 token
+寫回已登出的頁面。
 
 ---
 
@@ -252,4 +298,6 @@ TanStack Router 的 `useBlocker` 會攔截路由離開。**只攔截路由，不
 | `permissions.clear(); keys.forEach(add)` | `new Set(keys)`                             |
 | 用 `permissions.size === 0` 判斷載入中   | 用 `hydrated`                               |
 | 登出時只清 permission store              | 同時 `queryClient.clear()`                  |
-| 每個分頁各自續期 token                   | `BroadcastChannel` 單飛                     |
+| 每個分頁各自續期 token                   | Web Locks 跨分頁互斥 ＋ `refresh-done` 廣播 |
+| 登出時先打 API、回應後才清 session       | 先 `endSession`，再用擷取的 token 撤銷後端  |
+| 直接 `new BroadcastChannel()`            | `createTabChannel()`；store 用 `syncAcrossTabs()` |
