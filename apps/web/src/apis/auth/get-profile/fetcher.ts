@@ -3,10 +3,6 @@ import type { HttpRequestDTO } from '@/core/client';
 import { getAuthControllerProfileUrl } from '@/shared/api-sdk';
 import type { Profile } from '@/shared/api-sdk';
 
-export const fetchProfileQuery = defineAuthFetcher<HttpRequestDTO<void> | void, Profile>(
-  (http, request) =>
-    http.request(getAuthControllerProfileUrl(), {
-      method: 'GET',
-      signal: (request as HttpRequestDTO<void> | undefined)?.signal,
-    }),
+export const fetchProfileQuery = defineAuthFetcher<HttpRequestDTO<void>, Profile>((http) =>
+  http.request(getAuthControllerProfileUrl(), { method: 'GET' }),
 );

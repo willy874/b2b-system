@@ -11,6 +11,5 @@ export const fetchRoleListQuery = defineAuthFetcher<
 >((http, request) =>
   http.request(withQuery(getRoleControllerListUrl(), { ...request.params }), {
     method: 'GET',
-    signal: request.signal,
   }),
 );

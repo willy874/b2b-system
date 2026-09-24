@@ -1,27 +1,53 @@
+import { AbortReason, RequestAbortedError, requestAbortBus, toAbortedError } from './abort';
 import type { FetcherRequest, FetcherResponse, HttpContextOptions } from './types';
+
+/** fetcher 實作拿到的介面：已綁定呼叫端的 signal。 */
+export interface HttpClient {
+  request<T>(url: string, init?: RequestInit): Promise<FetcherResponse<T>>;
+}
 
 /**
  * 一個具名的 HTTP 管道：baseUrl ＋ 攔截器鏈。
  * `base` 給 login / refresh / health；`auth` 給其餘全部。
  */
-export class HttpContext {
+export class HttpContext implements HttpClient {
   constructor(private readonly options: HttpContextOptions) {}
 
   get name(): string {
     return this.options.name;
   }
 
-  async request<T>(url: string, init: RequestInit = {}): Promise<FetcherResponse<T>> {
-    let request: FetcherRequest = {
-      url: url.startsWith('http') ? url : `${this.options.baseUrl}${url}`,
-      init,
+  /** 綁定呼叫端的 signal；`init.signal` 有給時以它為準。 */
+  bind(signal: AbortSignal | undefined): HttpClient {
+    return {
+      request: <T>(url: string, init: RequestInit = {}) =>
+        this.request<T>(url, { ...init, signal: init.signal ?? signal }),
     };
+  }
 
-    const execute = async (): Promise<FetcherResponse> => {
+  async request<T>(url: string, init: RequestInit = {}): Promise<FetcherResponse<T>> {
+    const abort = this.createAbortScope(init.signal ?? undefined);
+    const { signal } = abort;
+    const original: FetcherRequest = {
+      url: url.startsWith('http') ? url : `${this.options.baseUrl}${url}`,
+      init: { ...init, signal },
+      signal,
+    };
+    let sent = original;
+
+    // 每次送出（含重放）都從原始請求重跑請求攔截器：續期後要換上新的 token
+    const send = async (): Promise<FetcherResponse> => {
+      let request = original;
+      for (const interceptor of this.options.requestInterceptors ?? []) {
+        request = await interceptor(request);
+      }
+      sent = request;
       const response = await fetch(request.url, request.init);
-      const text = await response.text();
-      const data: unknown = text.length ? JSON.parse(text) : undefined;
-      let result: FetcherResponse = { status: response.status, data, headers: response.headers };
+      let result: FetcherResponse = {
+        status: response.status,
+        data: parseBody(await response.text()),
+        headers: response.headers,
+      };
       for (const interceptor of this.options.responseInterceptors ?? []) {
         result = await interceptor(result, request);
       }
@@ -29,22 +55,72 @@ export class HttpContext {
     };
 
     try {
-      // 請求攔截器也放在 try 裡：`ensureAccessToken()` 失敗時錯誤攔截器才看得到
-      for (const interceptor of this.options.requestInterceptors ?? []) {
-        request = await interceptor(request);
-      }
-      return (await execute()) as FetcherResponse<T>;
+      // 請求攔截器也在 try 裡：`ensureAccessToken()` 失敗時錯誤攔截器才看得到
+      return (await send()) as FetcherResponse<T>;
     } catch (error) {
       let lastError = error;
       for (const interceptor of this.options.errorInterceptors ?? []) {
+        // 已中止就不再續期、重試
+        if (signal.aborted) break;
         try {
-          return (await interceptor(lastError, request, execute)) as FetcherResponse<T>;
+          return (await interceptor(lastError, sent, send)) as FetcherResponse<T>;
         } catch (next) {
           lastError = next;
         }
       }
+      // fetch 會以 signal.reason（RequestAbortedError）reject；舊環境丟 DOMException，統一換掉。
+      // 伺服器已回應的 AppError 保留原樣
+      if (signal.aborted && isDomAbort(lastError)) throw toAbortedError(signal);
       throw lastError;
+    } finally {
+      abort.dispose();
     }
+  }
+
+  /** 合併三個中止來源：呼叫端 signal、逾時、`abortRequests()` 廣播。 */
+  private createAbortScope(callerSignal: AbortSignal | undefined) {
+    const controller = new AbortController();
+    const abortWith = (reason: AbortReason, detail?: string) => {
+      if (!controller.signal.aborted) controller.abort(new RequestAbortedError(reason, detail));
+    };
+
+    const onCallerAbort = () => abortWith(AbortReason.CALLER);
+    if (callerSignal?.aborted) onCallerAbort();
+    else callerSignal?.addEventListener('abort', onCallerAbort, { once: true });
+
+    const timer =
+      this.options.timeoutMs === undefined
+        ? undefined
+        : setTimeout(() => abortWith(AbortReason.TIMEOUT), this.options.timeoutMs);
+
+    const offBus = requestAbortBus.on('abort', (event) => {
+      if (!event.contexts || event.contexts.includes(this.name)) {
+        abortWith(event.reason, event.detail);
+      }
+    });
+
+    return {
+      signal: controller.signal,
+      dispose: () => {
+        callerSignal?.removeEventListener('abort', onCallerAbort);
+        clearTimeout(timer);
+        offBus();
+      },
+    };
+  }
+}
+
+function isDomAbort(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
+/** 空字串 → undefined；非 JSON（例如 proxy 回的 502 HTML）→ undefined，交給狀態碼判斷。 */
+function parseBody(text: string): unknown {
+  if (!text.length) return undefined;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return undefined;
   }
 }
 

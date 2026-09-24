@@ -7,6 +7,5 @@ export const fetchRoleDetailQuery = defineAuthFetcher<HttpRequestDTO<{ roleId: s
   (http, request) =>
     http.request(getRoleControllerFindOneUrl(request.params.roleId), {
       method: 'GET',
-      signal: request.signal,
     }),
 );

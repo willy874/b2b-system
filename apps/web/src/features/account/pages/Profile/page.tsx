@@ -12,13 +12,13 @@ import { Input } from '@/components/Input';
 import { Separator } from '@/components/Separator';
 import { useToast } from '@/components/Toast';
 import { sessionStore } from '@/core/auth';
-import { useErrorMessage } from '@/core/errors';
+import { useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 
 export default function ProfilePage() {
   const { t } = useTranslation();
   const toast = useToast();
-  const toMessage = useErrorMessage();
+  const showError = useErrorToast();
   const profile = useQuery(getAuthProfileQueryOptions());
 
   // 草稿為 undefined 時顯示伺服器上的值（不用 effect 同步）
@@ -31,7 +31,7 @@ export default function ProfilePage() {
       invalidateResources([selfUpdated(updated)]);
       toast.success(t('account.profile.saved'));
     },
-    onError: (error) => toast.error(toMessage(error)),
+    onError: showError,
   });
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -45,7 +45,7 @@ export default function ProfilePage() {
       // 變更密碼會撤銷所有 refresh token，包含當前這一條
       sessionStore.endSession('password_changed');
     },
-    onError: (error) => toast.error(toMessage(error)),
+    onError: showError,
   });
 
   return (

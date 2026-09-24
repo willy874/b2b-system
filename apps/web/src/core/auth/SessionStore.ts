@@ -131,6 +131,15 @@ export class SessionStore {
     return this.inFlight;
   }
 
+  /**
+   * 伺服器以 401 拒絕了 `rejected`：它仍是目前的 token 就強制續期（到期時間還沒到也一樣）；
+   * 已被其他請求換掉就直接沿用新的，不重複續期。
+   */
+  async renewAccessToken(rejected: string | undefined): Promise<string | undefined> {
+    if (this.accessToken !== undefined && this.accessToken === rejected) this.expiresAt = 0;
+    return this.ensureAccessToken();
+  }
+
   private async refresh(): Promise<string> {
     const waited = await this.waitForPeerRefresh();
     if (waited) return waited;

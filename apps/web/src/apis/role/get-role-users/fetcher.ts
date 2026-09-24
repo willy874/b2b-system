@@ -12,6 +12,6 @@ export const fetchRoleUsersQuery = defineAuthFetcher<
       offset: request.params.offset,
       limit: request.params.limit,
     }),
-    { method: 'GET', signal: request.signal },
+    { method: 'GET' },
   ),
 );

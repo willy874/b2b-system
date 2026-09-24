@@ -9,6 +9,5 @@ export const fetchRolePermissionsQuery = defineAuthFetcher<
 >((http, request) =>
   http.request(getRoleControllerListPermissionsUrl(request.params.roleId), {
     method: 'GET',
-    signal: request.signal,
   }),
 );

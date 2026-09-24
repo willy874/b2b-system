@@ -11,6 +11,5 @@ export const fetchUserListQuery = defineAuthFetcher<
 >((http, request) =>
   http.request(withQuery(getUserControllerListUrl(), { ...request.params }), {
     method: 'GET',
-    signal: request.signal,
   }),
 );

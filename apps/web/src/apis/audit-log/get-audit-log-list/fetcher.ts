@@ -11,6 +11,5 @@ export const fetchAuditLogListQuery = defineAuthFetcher<
 >((http, request) =>
   http.request(withQuery(getAuditLogControllerListUrl(), { ...request.params }), {
     method: 'GET',
-    signal: request.signal,
   }),
 );

@@ -58,18 +58,21 @@ apis/role/
 
 ```ts
 // apis/role/get-role-list/fetcher.ts
-import { Configuration, RolesApi } from "@/shared/api-sdk";
-import type { ListRolesRequest, RoleListResponse } from "@/shared/api-sdk";
-import { defineAuthFetcher, type HttpRequestDTO } from "@/core/client/http";
+import { defineAuthFetcher, withQuery } from '@/core/client';
+import type { HttpRequestDTO } from '@/core/client';
+import { getRoleControllerListUrl } from '@/shared/api-sdk';
+import type { RoleControllerList200Data } from '@/shared/api-sdk';
 
 export const fetchRoleListQuery = defineAuthFetcher<
-  HttpRequestDTO<ListRolesRequest>,
-  RoleListResponse
->(async (_httpContext, fetcherContext, request) => {
-  const api = new RolesApi(new Configuration(fetcherContext.initialConfig()));
-  return api.listRoles(request.params);
-});
+  HttpRequestDTO<RoleListParams>,
+  RoleControllerList200Data
+>((http, request) =>
+  http.request(withQuery(getRoleControllerListUrl(), { ...request.params }), { method: 'GET' }),
+);
 ```
+
+`http` 是已綁定呼叫端 `signal` 的 `HttpClient`，fetcher **不需要、也不應該** 自己把
+`signal` 傳給 `fetch`（見 §3.2）。
 
 ### 3.1 `defineAuthFetcher` vs `defineBaseFetcher`
 
@@ -86,14 +89,47 @@ export const fetchRoleListQuery = defineAuthFetcher<
 ```ts
 export interface HttpRequestDTO<P = unknown> {
   params: P;
-  signal?: AbortSignal; // ★ TanStack Query 會傳入，用於取消
-  headers?: Headers;
-  // …其餘 RequestInit 欄位
+  signal?: AbortSignal; // ★ TanStack Query 會傳入；mutation 需要可取消時自行傳入
+  headers?: Record<string, string>;
 }
 ```
 
-`signal` 必須一路傳到 `fetch`，否則使用者快速切換篩選時，舊請求不會被取消，
+`signal` 由 `defineXxxFetcher` 統一接到 `HttpContext.bind(signal)`，一路傳到 `fetch`
+與每個攔截器的等待（續期、重試退避）。否則使用者快速切換篩選時，舊請求不會被取消，
 可能造成「後回來的舊回應覆蓋新回應」。
+
+### 3.3 請求中止
+
+每個請求在 `HttpContext` 裡都有 **自己的 `AbortController`**，合併三個來源，
+攔截器從 `FetcherRequest.signal` 讀到的就是它：
+
+| 來源 | `AbortReason` | 觸發 |
+| ---- | ------------- | ---- |
+| 呼叫端 signal | `caller` | TanStack Query 取消、元件卸載、呼叫端自己 `abort()` |
+| 逾時 | `timeout` | `HttpContextOptions.timeoutMs`（兩個管道皆 30 秒，含續期等待與重試） |
+| 中止匯流排 | 廣播帶的 reason | `abortRequests({ reason, contexts?, detail? })` |
+
+```
+SessionStore 'ended'
+  │  httpContextPlugin 訂閱
+  ▼
+abortRequests({ reason: 'session-ended', contexts: ['auth'], detail: <原因碼> })
+  │  requestAbortBus（core/client/abort.ts）
+  ▼
+每個進行中的 auth 請求 → controller.abort(new RequestAbortedError(...))
+  ├─ fetch 立刻 reject
+  ├─ 等待中的續期（raceAbort）、重試退避（abortableDelay）立刻結束
+  └─ 錯誤攔截器不再執行（不續期、不重試）
+```
+
+- 中止後一律以 `RequestAbortedError { reason, detail }` reject，不外露 `DOMException`；
+  伺服器已回應的 `AppError` 保留原樣。
+- 共用的非同步工作（跨分頁單飛續期）不會因為某一個請求被中止而取消，只是那個請求不再等它。
+- 請求結束（成功、失敗、中止）時退訂匯流排並清掉計時器。
+- 新的中止時機（例：切換租戶）只要呼叫 `abortRequests()`，不必改任何 fetcher。
+
+UI 端：`isSilentError(error)` 對 `caller`、`session-ended` 回 `true`（使用者不需要知道）；
+`timeout` 顯示 `error.timeout`。mutation 的 `onError` 用 `useErrorToast()`，它會略過 silent 錯誤。
 
 ---
 
@@ -322,6 +358,7 @@ export class AppError extends Error {
 | **欄位層級** | `status === 400` 且 `details.fields` 存在 | 呼叫端的表單 `setFieldError()`，不顯示 toast |
 | **業務規則** | `status === 403/409` 且有已知 `code`      | toast 顯示已本地化訊息                       |
 | **未預期**   | 其餘                                      | toast 通用訊息 ＋ 顯示 `requestId` 供回報    |
+| **中止**     | `RequestAbortedError`                     | `timeout` → toast `error.timeout`；其餘不提示（§3.3） |
 
 ```ts
 // core/errors/useErrorMessage.ts

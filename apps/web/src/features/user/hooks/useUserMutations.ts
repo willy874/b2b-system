@@ -8,7 +8,7 @@ import { getUserResetPasswordMutationOptions } from '@/apis/user/reset-user-pass
 import { getUserUnlockMutationOptions } from '@/apis/user/unlock-user/mutation';
 import { getUserUpdateMutationOptions } from '@/apis/user/update-user/mutation';
 import { useToast } from '@/components/Toast';
-import { useErrorMessage } from '@/core/errors';
+import { useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import type { User } from '@/shared/api-sdk';
 
@@ -30,7 +30,7 @@ export function useUserCreateMutation() {
 export function useUserUpdateMutation() {
   const toast = useToast();
   const { t } = useTranslation();
-  const toMessage = useErrorMessage();
+  const showError = useErrorToast();
   return useMutation({
     ...getUserUpdateMutationOptions(),
     onSuccess: (user) => {
@@ -39,14 +39,14 @@ export function useUserUpdateMutation() {
       ]);
       toast.success(t('user.update.success'));
     },
-    onError: (error) => toast.error(toMessage(error)),
+    onError: showError,
   });
 }
 
 export function useUserDeleteMutation() {
   const toast = useToast();
   const { t } = useTranslation();
-  const toMessage = useErrorMessage();
+  const showError = useErrorToast();
   return useMutation({
     ...getUserDeleteMutationOptions(),
     onSuccess: (_, { params }) => {
@@ -54,7 +54,7 @@ export function useUserDeleteMutation() {
       invalidateResources([{ resource: Resource.USER, kind: 'delete', id: params.userId }]);
       toast.success(t('user.delete.success'));
     },
-    onError: (error) => toast.error(toMessage(error)),
+    onError: showError,
   });
 }
 
@@ -62,7 +62,7 @@ export function useUserDeleteMutation() {
 export function useAssignUserRolesMutation(user: Pick<User, 'id' | 'roles'>) {
   const toast = useToast();
   const { t } = useTranslation();
-  const toMessage = useErrorMessage();
+  const showError = useErrorToast();
   return useMutation({
     ...getAssignUserRolesMutationOptions(),
     onSuccess: (_, { params }) => {
@@ -73,14 +73,14 @@ export function useAssignUserRolesMutation(user: Pick<User, 'id' | 'roles'>) {
       ]);
       toast.success(t('user.assignRole.success'));
     },
-    onError: (error) => toast.error(toMessage(error)),
+    onError: showError,
   });
 }
 
 export function useUserUnlockMutation() {
   const toast = useToast();
   const { t } = useTranslation();
-  const toMessage = useErrorMessage();
+  const showError = useErrorToast();
   return useMutation({
     ...getUserUnlockMutationOptions(),
     onSuccess: (user) => {
@@ -89,14 +89,14 @@ export function useUserUnlockMutation() {
       ]);
       toast.success(t('user.unlock.success'));
     },
-    onError: (error) => toast.error(toMessage(error)),
+    onError: showError,
   });
 }
 
 export function useUserResetPasswordMutation() {
   const toast = useToast();
   const { t } = useTranslation();
-  const toMessage = useErrorMessage();
+  const showError = useErrorToast();
   return useMutation({
     ...getUserResetPasswordMutationOptions(),
     onSuccess: (_, { params }) => {
@@ -106,6 +106,6 @@ export function useUserResetPasswordMutation() {
       ]);
       toast.success(t('user.resetPassword.success'));
     },
-    onError: (error) => toast.error(toMessage(error)),
+    onError: showError,
   });
 }

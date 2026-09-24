@@ -1,18 +1,26 @@
 import { getHttpContext } from './HttpContext';
-import type { HttpContext } from './HttpContext';
+import type { HttpClient } from './HttpContext';
 import type { FetcherResponse } from './types';
 
 export type FetcherImpl<TRequest, TResponse> = (
-  http: HttpContext,
+  http: HttpClient,
   request: TRequest,
 ) => Promise<FetcherResponse<TResponse>>;
+
+/** `HttpRequestDTO.signal`；`void` 請求（例：refresh、logout）沒有。 */
+function signalOf(request: unknown): AbortSignal | undefined {
+  if (typeof request !== 'object' || request === null || !('signal' in request)) return undefined;
+  return request.signal instanceof AbortSignal ? request.signal : undefined;
+}
 
 function define<TRequest, TResponse>(
   contextName: string,
   impl: FetcherImpl<TRequest, TResponse>,
 ): (request: TRequest) => Promise<TResponse> {
   return async (request: TRequest) => {
-    const response = await impl(getHttpContext(contextName), request);
+    // signal 在這裡統一接上，fetcher 實作漏傳也不會失去取消能力
+    const http = getHttpContext(contextName).bind(signalOf(request));
+    const response = await impl(http, request);
     return response.data;
   };
 }

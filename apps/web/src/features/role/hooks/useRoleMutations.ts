@@ -7,7 +7,7 @@ import { getRoleDuplicateMutationOptions } from '@/apis/role/duplicate-role/muta
 import { getGrantRolePermissionsMutationOptions } from '@/apis/role/grant-role-permissions/mutation';
 import { getRoleUpdateMutationOptions } from '@/apis/role/update-role/mutation';
 import { useToast } from '@/components/Toast';
-import { useErrorMessage } from '@/core/errors';
+import { useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 
 export function useRoleCreateMutation() {
@@ -39,7 +39,7 @@ export function useRoleUpdateMutation() {
 export function useRoleDeleteMutation() {
   const toast = useToast();
   const { t } = useTranslation();
-  const toMessage = useErrorMessage();
+  const showError = useErrorToast();
 
   return useMutation({
     ...getRoleDeleteMutationOptions(),
@@ -47,7 +47,7 @@ export function useRoleDeleteMutation() {
       invalidateResources([{ resource: Resource.ROLE, kind: 'delete', id: params.roleId }]);
       toast.success(t('role.delete.success'));
     },
-    onError: (error) => toast.error(toMessage(error)),
+    onError: showError,
   });
 }
 
@@ -72,7 +72,7 @@ export function useRoleDuplicateMutation() {
 export function useGrantRolePermissionsMutation() {
   const toast = useToast();
   const { t } = useTranslation();
-  const toMessage = useErrorMessage();
+  const showError = useErrorToast();
 
   return useMutation({
     ...getGrantRolePermissionsMutationOptions(),
@@ -83,6 +83,6 @@ export function useGrantRolePermissionsMutation() {
       ]);
       toast.success(t('role.permission.success'));
     },
-    onError: (error) => toast.error(toMessage(error)),
+    onError: showError,
   });
 }

@@ -16,6 +16,5 @@ export const fetchVerifySetupQuery = defineBaseFetcher<
 >((http, request) =>
   http.request(withQuery(getAuthControllerVerifySetupUrl(), request.params), {
     method: 'GET',
-    signal: request.signal,
   }),
 );

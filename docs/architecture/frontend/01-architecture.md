@@ -159,8 +159,8 @@ apis/
     │     ▼ apis/role/get-role-list/fetcher.ts
     │       defineAuthFetcher → core/client HttpContext('auth')
     │         ├─ plugins/fetcher/auth.ts        加上 Authorization
-    │         ├─ plugins/fetcher/refresh-token.ts 401 → 續期重試
-    │         └─ plugins/fetcher/retry.ts        網路錯誤退避重試
+    │         ├─ plugins/fetcher/refresh-token.ts 401 → 強制續期 → 重放
+    │         └─ plugins/fetcher/retry.ts        網路錯誤／5xx 退避重試（僅冪等方法）
     │              │
     │              ▼ packages/api-sdk → fetch('/api/roles?...')
     │

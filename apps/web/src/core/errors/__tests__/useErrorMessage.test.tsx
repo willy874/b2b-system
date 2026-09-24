@@ -2,10 +2,11 @@ import { renderHook } from '@testing-library/react';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import zhTW from '@/app/locales/zh_TW.json';
+import { AbortReason, RequestAbortedError } from '@/core/client';
 import { i18n, initI18n } from '@/core/locales';
 
 import { AppError } from '../AppError';
-import { useErrorMessage } from '../useErrorMessage';
+import { isSilentError, useErrorMessage } from '../useErrorMessage';
 
 beforeAll(async () => {
   await initI18n('zh-TW');
@@ -28,5 +29,21 @@ describe('useErrorMessage', () => {
   it('非 AppError 一律通用訊息', () => {
     const { result } = renderHook(() => useErrorMessage());
     expect(result.current(new Error('boom'))).toBe('發生未預期的錯誤，請稍後再試。');
+  });
+
+  it('逾時顯示逾時訊息', () => {
+    const { result } = renderHook(() => useErrorMessage());
+    expect(result.current(new RequestAbortedError(AbortReason.TIMEOUT))).toBe(
+      '請求逾時，請檢查網路連線後再試。',
+    );
+  });
+});
+
+describe('isSilentError', () => {
+  it('呼叫端取消與 session 結束的中止不提示；逾時與伺服器錯誤要提示', () => {
+    expect(isSilentError(new RequestAbortedError(AbortReason.CALLER))).toBe(true);
+    expect(isSilentError(new RequestAbortedError(AbortReason.SESSION_ENDED))).toBe(true);
+    expect(isSilentError(new RequestAbortedError(AbortReason.TIMEOUT))).toBe(false);
+    expect(isSilentError(new AppError('INTERNAL_ERROR', 500))).toBe(false);
   });
 });

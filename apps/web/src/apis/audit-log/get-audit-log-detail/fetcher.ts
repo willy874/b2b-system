@@ -7,6 +7,5 @@ export const fetchAuditLogDetailQuery = defineAuthFetcher<HttpRequestDTO<{ id: s
   (http, request) =>
     http.request(getAuditLogControllerFindOneUrl(request.params.id), {
       method: 'GET',
-      signal: request.signal,
     }),
 );

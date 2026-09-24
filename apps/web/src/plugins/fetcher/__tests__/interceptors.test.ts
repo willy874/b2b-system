@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { sessionStore } from '@/core/auth';
+import { AbortReason, RequestAbortedError } from '@/core/client';
 import type { FetcherRequest, FetcherResponse } from '@/core/client';
 import { AppError } from '@/core/errors';
 
@@ -9,7 +10,19 @@ import { authHeaderInterceptor } from '../auth';
 import { refreshTokenInterceptor } from '../refresh-token';
 import { retryInterceptor } from '../retry';
 
-const request: FetcherRequest = { url: '/api/roles', init: {} };
+const request: FetcherRequest = {
+  url: '/api/roles',
+  init: {},
+  signal: new AbortController().signal,
+};
+
+const withInit = (init: RequestInit, signal = request.signal): FetcherRequest => ({
+  ...request,
+  init,
+  signal,
+});
+
+const withToken = (token: string) => withInit({ headers: { authorization: `Bearer ${token}` } });
 
 const response = (status: number, data: unknown): FetcherResponse => ({
   status,
@@ -77,6 +90,104 @@ describe('retry 攔截器', () => {
     expect(result.status).toBe(200);
     expect(retry).toHaveBeenCalled();
   });
+
+  it('網路錯誤（TypeError）會重試', async () => {
+    const retry = vi.fn().mockResolvedValue(response(200, 'ok'));
+    await retryInterceptor(new TypeError('Failed to fetch'), request, retry);
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it('★ 非冪等方法（POST）不重試：避免重複寫入與 refresh token 重用', async () => {
+    const retry = vi.fn();
+    const error = new AppError('INTERNAL_ERROR', 500);
+    await expect(retryInterceptor(error, withInit({ method: 'POST' }), retry)).rejects.toBe(error);
+    expect(retry).not.toHaveBeenCalled();
+  });
+
+  it('★ 等待重試時被中止 → 丟 RequestAbortedError，不再送出', async () => {
+    const controller = new AbortController();
+    const retry = vi.fn();
+    const pending = retryInterceptor(
+      new AppError('INTERNAL_ERROR', 500),
+      withInit({}, controller.signal),
+      retry,
+    );
+    controller.abort(new RequestAbortedError(AbortReason.CALLER));
+
+    await expect(pending).rejects.toMatchObject({ reason: AbortReason.CALLER });
+    expect(retry).not.toHaveBeenCalled();
+  });
+
+  it('中止錯誤本身不重試', async () => {
+    const retry = vi.fn();
+    const aborted = new RequestAbortedError(AbortReason.TIMEOUT);
+    await expect(retryInterceptor(aborted, request, retry)).rejects.toBe(aborted);
+    expect(retry).not.toHaveBeenCalled();
+  });
+
+  it('★ 被拒的 token 尚未到期也要強制續期，再重放', async () => {
+    const refreshFn = vi.fn().mockResolvedValue({ accessToken: 'token-2', expiresIn: 300 });
+    sessionStore.setRefreshFn(refreshFn);
+    sessionStore.setTokens({ accessToken: 'token-1', expiresIn: 300 });
+    const retry = vi.fn().mockResolvedValue(response(200, 'ok'));
+
+    await refreshTokenInterceptor(
+      new AppError('AUTH_TOKEN_INVALID', 401),
+      withToken('token-1'),
+      retry,
+    );
+
+    expect(refreshFn).toHaveBeenCalledOnce();
+    expect(retry).toHaveBeenCalledOnce();
+    expect(sessionStore.getAccessToken()).toBe('token-2');
+    sessionStore.clear();
+  });
+
+  it('token 已被其他請求換新 → 不重複續期，直接重放', async () => {
+    const refreshFn = vi.fn();
+    sessionStore.setRefreshFn(refreshFn);
+    sessionStore.setTokens({ accessToken: 'token-2', expiresIn: 300 });
+    const retry = vi.fn().mockResolvedValue(response(200, 'ok'));
+
+    await refreshTokenInterceptor(
+      new AppError('AUTH_TOKEN_INVALID', 401),
+      withToken('token-1'),
+      retry,
+    );
+
+    expect(refreshFn).not.toHaveBeenCalled();
+    expect(retry).toHaveBeenCalledOnce();
+    sessionStore.clear();
+  });
+
+  it('等待續期時本請求被中止 → 不結束 session', async () => {
+    let finishRefresh: (() => void) | undefined;
+    sessionStore.setRefreshFn(
+      () =>
+        new Promise((resolve) => {
+          finishRefresh = () => resolve({ accessToken: 'token-2', expiresIn: 300 });
+        }),
+    );
+    sessionStore.setTokens({ accessToken: 'token-1', expiresIn: 300 });
+    const ended = vi.fn();
+    const off = sessionStore.events.on('ended', ended);
+    const controller = new AbortController();
+    const retry = vi.fn();
+
+    const pending = refreshTokenInterceptor(
+      new AppError('AUTH_TOKEN_INVALID', 401),
+      withInit({ headers: { authorization: 'Bearer token-1' } }, controller.signal),
+      retry,
+    );
+    controller.abort(new RequestAbortedError(AbortReason.CALLER));
+
+    await expect(pending).rejects.toBeInstanceOf(RequestAbortedError);
+    expect(ended).not.toHaveBeenCalled();
+    expect(retry).not.toHaveBeenCalled();
+    finishRefresh?.();
+    off();
+    sessionStore.clear();
+  });
 });
 
 describe('refresh-token 攔截器', () => {
@@ -100,5 +211,69 @@ describe('refresh-token 攔截器', () => {
       refreshTokenInterceptor(new AppError('ROLE_IN_USE', 409), request, retry),
     ).rejects.toMatchObject({ code: 'ROLE_IN_USE' });
     expect(retry).not.toHaveBeenCalled();
+  });
+
+  it('★ 被拒的 token 尚未到期也要強制續期，再重放', async () => {
+    const refreshFn = vi.fn().mockResolvedValue({ accessToken: 'token-2', expiresIn: 300 });
+    sessionStore.setRefreshFn(refreshFn);
+    sessionStore.setTokens({ accessToken: 'token-1', expiresIn: 300 });
+    const retry = vi.fn().mockResolvedValue(response(200, 'ok'));
+
+    await refreshTokenInterceptor(
+      new AppError('AUTH_TOKEN_INVALID', 401),
+      withToken('token-1'),
+      retry,
+    );
+
+    expect(refreshFn).toHaveBeenCalledOnce();
+    expect(retry).toHaveBeenCalledOnce();
+    expect(sessionStore.getAccessToken()).toBe('token-2');
+    sessionStore.clear();
+  });
+
+  it('token 已被其他請求換新 → 不重複續期，直接重放', async () => {
+    const refreshFn = vi.fn();
+    sessionStore.setRefreshFn(refreshFn);
+    sessionStore.setTokens({ accessToken: 'token-2', expiresIn: 300 });
+    const retry = vi.fn().mockResolvedValue(response(200, 'ok'));
+
+    await refreshTokenInterceptor(
+      new AppError('AUTH_TOKEN_INVALID', 401),
+      withToken('token-1'),
+      retry,
+    );
+
+    expect(refreshFn).not.toHaveBeenCalled();
+    expect(retry).toHaveBeenCalledOnce();
+    sessionStore.clear();
+  });
+
+  it('等待續期時本請求被中止 → 不結束 session', async () => {
+    let finishRefresh: (() => void) | undefined;
+    sessionStore.setRefreshFn(
+      () =>
+        new Promise((resolve) => {
+          finishRefresh = () => resolve({ accessToken: 'token-2', expiresIn: 300 });
+        }),
+    );
+    sessionStore.setTokens({ accessToken: 'token-1', expiresIn: 300 });
+    const ended = vi.fn();
+    const off = sessionStore.events.on('ended', ended);
+    const controller = new AbortController();
+    const retry = vi.fn();
+
+    const pending = refreshTokenInterceptor(
+      new AppError('AUTH_TOKEN_INVALID', 401),
+      withInit({ headers: { authorization: 'Bearer token-1' } }, controller.signal),
+      retry,
+    );
+    controller.abort(new RequestAbortedError(AbortReason.CALLER));
+
+    await expect(pending).rejects.toBeInstanceOf(RequestAbortedError);
+    expect(ended).not.toHaveBeenCalled();
+    expect(retry).not.toHaveBeenCalled();
+    finishRefresh?.();
+    off();
+    sessionStore.clear();
   });
 });

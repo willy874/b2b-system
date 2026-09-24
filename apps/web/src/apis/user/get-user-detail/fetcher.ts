@@ -7,6 +7,5 @@ export const fetchUserDetailQuery = defineAuthFetcher<HttpRequestDTO<{ userId: s
   (http, request) =>
     http.request(getUserControllerFindOneUrl(request.params.userId), {
       method: 'GET',
-      signal: request.signal,
     }),
 );
