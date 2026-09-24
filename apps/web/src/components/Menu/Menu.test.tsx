@@ -52,6 +52,13 @@ describe('Menu', () => {
     expect(onDelete).not.toHaveBeenCalled();
   });
 
+  it('tone 以 data-tone 屬性表現', async () => {
+    renderMenu();
+    await userEvent.click(screen.getByRole('button', { name: '操作' }));
+    expect(await findItem('delete')).toHaveAttribute('data-tone', 'danger');
+    expect(getItem('edit')).toHaveAttribute('data-tone', 'default');
+  });
+
   it('鍵盤可開啟，Esc 關閉後焦點回到觸發鈕', async () => {
     renderMenu();
     await userEvent.tab();

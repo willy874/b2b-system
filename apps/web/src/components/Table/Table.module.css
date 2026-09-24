@@ -1,0 +1,58 @@
+@layer components {
+  .root {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    overflow-x: auto;
+  }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .head {
+    background: var(--color-bg);
+  }
+
+  .headerCell {
+    padding: var(--seed-space-2) var(--seed-space-3);
+    text-align: start;
+    font-weight: 600;
+    color: var(--color-fg-muted);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .headerCell[data-sortable] {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .sortIndicator {
+    margin-inline-start: var(--seed-space-1);
+    font-size: 0.625rem;
+  }
+
+  .row {
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .row:last-child {
+    border-bottom: none;
+  }
+
+  .row:hover {
+    background: var(--color-bg);
+  }
+
+  .row[data-selected] {
+    background: color-mix(in srgb, var(--color-brand) 8%, transparent);
+  }
+
+  .cell {
+    padding: var(--seed-space-2) var(--seed-space-3);
+    vertical-align: middle;
+  }
+}

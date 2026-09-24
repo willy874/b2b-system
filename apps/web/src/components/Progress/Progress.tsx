@@ -6,15 +6,9 @@ import { cn } from '@/shared/utils';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Progress.css';
+import styles from './Progress.module.css';
 
 export type ProgressTone = 'brand' | 'success' | 'danger';
-
-const TONE_CLASS = {
-  brand: 'ge-progress--brand',
-  success: 'ge-progress--success',
-  danger: 'ge-progress--danger',
-} as const satisfies Record<ProgressTone, string>;
 
 /** `className` 落在根元素；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
 export type ProgressSlot = 'header' | 'label' | 'value' | 'track' | 'indicator';
@@ -42,30 +36,29 @@ export function Progress({
   tone = 'brand',
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: ProgressProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
     <BaseProgress.Root
       value={value}
       max={max}
-      className={cn('ge-progress', TONE_CLASS[tone], className)}
+      className={cn(styles.root, className)}
+      data-tone={tone}
       {...rest}
     >
       {(label || showValue) && (
-        <div {...slot('header', 'ge-progress__header')}>
+        <div {...slot('header', styles.header)}>
           {label && (
-            <BaseProgress.Label {...slot('label', 'ge-progress__label')}>
-              {label}
-            </BaseProgress.Label>
+            <BaseProgress.Label {...slot('label', styles.label)}>{label}</BaseProgress.Label>
           )}
-          {showValue && <BaseProgress.Value {...slot('value', 'ge-progress__value')} />}
+          {showValue && <BaseProgress.Value {...slot('value', styles.value)} />}
         </div>
       )}
-      <BaseProgress.Track {...slot('track', 'ge-progress__track')}>
-        <BaseProgress.Indicator {...slot('indicator', 'ge-progress__indicator')} />
+      <BaseProgress.Track {...slot('track', styles.track)}>
+        <BaseProgress.Indicator {...slot('indicator', styles.indicator)} />
       </BaseProgress.Track>
     </BaseProgress.Root>
   );

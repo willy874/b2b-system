@@ -12,7 +12,7 @@
 | 對象          | ❌ 不可以                                           | ✅ 改成                                                        |
 | ------------- | --------------------------------------------------- | -------------------------------------------------------------- |
 | i18n key      | ``t(`user.status.${status}`)``                      | `t(USER_STATUS_LABEL_KEY[status])`（對照表，見 §3.1）           |
-| className     | ``cn('ge-button', `ge-button--${variant}`)``        | `cn('ge-button', BUTTON_VARIANT_CLASS[variant])`（見 §3.2）     |
+| className     | ``cn('ge-shell', `ge-shell--${state}`)``            | `cn('ge-shell', SHELL_STATE_CLASS[state])`（見 §3.2）           |
 | `data-testid` | ``data-testid={`permission-checkbox-${key}`}``      | `data-testid="permission-checkbox" data-value={key}`（見 §3.3） |
 
 強度：👀 Review（尚無 lint 規則；補上後改成 🔒）。
@@ -67,17 +67,24 @@ export const USER_STATUS_LABEL_KEY = {
 
 ### 3.2 className
 
-variant、size 這類有限值域 → 對照表：
+設計系統元件（`components/`）用 CSS Module，class 來自 `styles.xxx`，變體不組 class 而是寫成 `data-*` 屬性
+（見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.3、§3.4）：
+
+```tsx
+import styles from './Button.module.css';
+
+<button className={cn(styles.root, className)} data-variant={variant} data-block={block || undefined} />
+```
+
+`features/`、`app/` 用 UnoCSS 工具類或全域 class 時，variant、size 這類有限值域 → 對照表：
 
 ```ts
-const VARIANT_CLASS = {
-  primary: 'ge-button--primary',
-  secondary: 'ge-button--secondary',
-  ghost: 'ge-button--ghost',
-  danger: 'ge-button--danger',
-} as const satisfies Record<ButtonVariant, string>;
+const TONE_CLASS = {
+  default: 'text-fg',
+  muted: 'text-muted',
+} as const satisfies Record<Tone, string>;
 
-className={cn('ge-button', VARIANT_CLASS[variant], block && 'ge-button--block', className)}
+className={cn('text-sm', TONE_CLASS[tone], bold && 'font-semibold', className)}
 ```
 
 - 條件 class 用 `cn()` 的 `條件 && '完整字串'`，不用三元運算組字串片段。

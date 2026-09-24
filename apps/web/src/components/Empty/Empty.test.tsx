@@ -17,7 +17,7 @@ describe('Empty', () => {
   });
 
   it('沒有說明時不渲染說明段落', () => {
-    const { container } = render(<Empty title="沒有資料" />);
-    expect(container.querySelector('.ge-empty__description')).toBeNull();
+    render(<Empty title="沒有資料" testIds={{ description: 'empty-description' }} />);
+    expect(screen.queryByTestId('empty-description')).toBeNull();
   });
 });

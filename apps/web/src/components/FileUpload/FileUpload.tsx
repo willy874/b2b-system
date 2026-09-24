@@ -8,7 +8,7 @@ import { Icon } from '../Icon';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './FileUpload.css';
+import styles from './FileUpload.module.css';
 
 export interface FileUploadLabels {
   hint: string;
@@ -88,11 +88,11 @@ export function FileUpload({
   labels: labelOverrides,
   onRejected,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: FileUploadProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   const labels = { ...DEFAULT_LABELS, ...labelOverrides };
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -134,17 +134,11 @@ export function FileUpload({
   };
 
   return (
-    <div className={cn('ge-file-upload', className)} {...rest}>
+    <div className={cn(styles.root, className)} {...rest}>
       <div
-        {...slot(
-          'dropzone',
-          [
-            'ge-file-upload__dropzone',
-            dragging && 'ge-file-upload__dropzone--dragging',
-            disabled && 'ge-file-upload__dropzone--disabled',
-          ],
-          { testId: 'file-upload-dropzone' },
-        )}
+        {...slot('dropzone', styles.dropzone, { testId: 'file-upload-dropzone' })}
+        data-dragging={dragging || undefined}
+        data-disabled={disabled || undefined}
         onDragOver={(event) => {
           event.preventDefault();
           if (!disabled) setDragging(true);
@@ -153,9 +147,9 @@ export function FileUpload({
         onDrop={onDrop}
       >
         <Icon name="upload" size={20} {...slot('icon')} />
-        <p {...slot('hint', 'ge-file-upload__hint')}>
+        <p {...slot('hint', styles.hint)}>
           {labels.hint}{' '}
-          <label htmlFor={inputId} {...slot('browse', 'ge-file-upload__browse')}>
+          <label htmlFor={inputId} {...slot('browse', styles.browse)}>
             {labels.browse}
           </label>
         </p>
@@ -163,7 +157,7 @@ export function FileUpload({
           ref={inputRef}
           id={inputId}
           type="file"
-          {...slot('input', 'ge-file-upload__input', { testId: 'file-upload-input' })}
+          {...slot('input', styles.input, { testId: 'file-upload-input' })}
           accept={accept}
           multiple={multiple}
           disabled={disabled}
@@ -175,7 +169,7 @@ export function FileUpload({
       </div>
 
       {errors.length > 0 && (
-        <ul {...slot('errors', 'ge-file-upload__errors', { testId: 'file-upload-errors' })}>
+        <ul {...slot('errors', styles.errors, { testId: 'file-upload-errors' })}>
           {errors.map((message) => (
             <li key={message}>{message}</li>
           ))}
@@ -183,16 +177,16 @@ export function FileUpload({
       )}
 
       {files.length > 0 && (
-        <ul {...slot('list', 'ge-file-upload__list', { testId: 'file-upload-list' })}>
+        <ul {...slot('list', styles.list, { testId: 'file-upload-list' })}>
           {files.map((file) => (
             <li
               key={`${file.name}-${file.size}`}
-              {...slot('item', 'ge-file-upload__item')}
+              {...slot('item', styles.item)}
               data-value={file.name}
             >
               <Icon name="file" size={16} {...slot('itemIcon')} />
-              <span {...slot('itemName', 'ge-file-upload__name')}>{file.name}</span>
-              <span {...slot('itemSize', 'ge-file-upload__size')}>{formatSize(file.size)}</span>
+              <span {...slot('itemName', styles.itemName)}>{file.name}</span>
+              <span {...slot('itemSize', styles.itemSize)}>{formatSize(file.size)}</span>
               <IconButton
                 size="sm"
                 {...slot('remove')}

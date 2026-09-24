@@ -1,0 +1,109 @@
+@layer components {
+  .root {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+
+  .input {
+    width: 100%;
+    height: var(--field-height-md);
+    padding: 0 2rem 0 var(--seed-space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-fg);
+    font: inherit;
+  }
+
+  .input:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: -1px;
+    border-color: var(--color-brand);
+  }
+
+  .input[aria-invalid='true'] {
+    border-color: var(--color-danger);
+  }
+
+  .input[disabled] {
+    background: var(--seed-gray-100);
+    color: var(--color-fg-muted);
+    cursor: not-allowed;
+  }
+
+  .trigger {
+    position: absolute;
+    inset-inline-end: var(--seed-space-1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: none;
+    background: transparent;
+    color: var(--color-fg-muted);
+    cursor: pointer;
+  }
+
+  .positioner {
+    z-index: 60;
+  }
+
+  .popup {
+    min-width: var(--anchor-width, 12rem);
+    max-height: 18rem;
+    overflow-y: auto;
+    padding: var(--seed-space-1);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-popover);
+  }
+
+  .empty {
+    padding: var(--seed-space-2) var(--seed-space-3);
+    font-size: 0.8125rem;
+    color: var(--color-fg-muted);
+  }
+
+  .empty:not([data-empty]) {
+    display: none;
+  }
+
+  .item {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-2);
+    padding: var(--seed-space-2) var(--seed-space-3);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .item[data-highlighted] {
+    background: var(--color-bg);
+  }
+
+  .item[data-disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .indicator {
+    width: 1rem;
+    color: var(--color-brand);
+  }
+
+  .itemText {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.875rem;
+  }
+
+  .itemDescription {
+    font-size: 0.75rem;
+    color: var(--color-fg-muted);
+  }
+}

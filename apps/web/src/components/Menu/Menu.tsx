@@ -6,7 +6,7 @@ import { cn } from '@/shared/utils';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Menu.css';
+import styles from './Menu.module.css';
 
 export interface MenuItemDescriptor {
   key: string;
@@ -35,11 +35,11 @@ export function Menu({
   align = 'end',
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: MenuProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
     <BaseMenu.Root>
       <BaseMenu.Trigger render={trigger} />
@@ -47,22 +47,17 @@ export function Menu({
         <BaseMenu.Positioner
           align={align}
           sideOffset={4}
-          {...slot('positioner', 'ge-menu__positioner')}
+          {...slot('positioner', styles.positioner)}
         >
-          <BaseMenu.Popup className={cn('ge-menu__popup', className)} {...rest}>
+          <BaseMenu.Popup className={cn(styles.popup, className)} {...rest}>
             {items.map((item) => (
               <BaseMenu.Item
                 key={item.key}
                 disabled={item.disabled}
                 onClick={item.onSelect}
                 render={item.render}
-                {...slot(
-                  'item',
-                  ['ge-menu__item', item.tone === 'danger' && 'ge-menu__item--danger'],
-                  {
-                    testId: 'menu-item',
-                  },
-                )}
+                {...slot('item', styles.item, { testId: 'menu-item' })}
+                data-tone={item.tone ?? 'default'}
                 data-value={item.key}
               >
                 {item.label}

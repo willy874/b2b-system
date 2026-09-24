@@ -5,7 +5,7 @@ import { cn } from '@/shared/utils';
 import { ICONS } from './icons';
 import type { IconName } from './icons';
 
-import './Icon.css';
+import styles from './Icon.module.css';
 
 export type IconSize = 14 | 16 | 20 | 24;
 
@@ -27,7 +27,7 @@ export function Icon({ name, size = 20, className, ...rest }: IconProps) {
   const label = rest['aria-label'];
   return (
     <Svg
-      className={cn('ge-icon', className)}
+      className={cn(styles.root, className)}
       width={size}
       height={size}
       focusable="false"

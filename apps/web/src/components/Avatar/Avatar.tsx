@@ -6,7 +6,7 @@ import { cn } from '@/shared/utils';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Avatar.css';
+import styles from './Avatar.module.css';
 
 /** `className` 落在根元素；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
 export type AvatarSlot = 'image' | 'fallback';
@@ -34,21 +34,19 @@ export function Avatar({
   size = 32,
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: AvatarProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
     <BaseAvatar.Root
-      className={cn('ge-avatar', className)}
+      className={cn(styles.root, className)}
       style={{ width: size, height: size, fontSize: Math.round(size / 2.6) }}
       {...rest}
     >
-      {src && <BaseAvatar.Image src={src} alt={name} {...slot('image', 'ge-avatar__image')} />}
-      <BaseAvatar.Fallback {...slot('fallback', 'ge-avatar__fallback')}>
-        {initials(name)}
-      </BaseAvatar.Fallback>
+      {src && <BaseAvatar.Image src={src} alt={name} {...slot('image', styles.image)} />}
+      <BaseAvatar.Fallback {...slot('fallback')}>{initials(name)}</BaseAvatar.Fallback>
     </BaseAvatar.Root>
   );
 }

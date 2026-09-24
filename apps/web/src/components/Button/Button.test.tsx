@@ -49,7 +49,18 @@ describe('Button', () => {
     );
     const button = screen.getByTestId('my-button');
     expect(button).toHaveClass('custom');
-    expect(button).toHaveClass('ge-button');
+  });
+
+  it('變體、尺寸與 block 以 data-* 屬性表達', () => {
+    render(
+      <Button variant="danger" size="sm" block>
+        送出
+      </Button>,
+    );
+    const button = screen.getByRole('button');
+    expect(button).toHaveAttribute('data-variant', 'danger');
+    expect(button).toHaveAttribute('data-size', 'sm');
+    expect(button).toHaveAttribute('data-block');
   });
 
   it('IconButton 要求 aria-label 以提供無障礙名稱', () => {

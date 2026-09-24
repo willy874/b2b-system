@@ -39,6 +39,12 @@
   --seed-font-sans:
     'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --seed-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  --seed-shadow-sm: 0 4px 12px rgb(0 0 0 / 20%);
+  --seed-shadow-md: 0 8px 24px rgb(0 0 0 / 12%);
+  --seed-shadow-md-strong: 0 8px 24px rgb(0 0 0 / 14%);
+  --seed-shadow-lg: 0 16px 48px rgb(0 0 0 / 18%);
+  --seed-black-alpha-40: rgb(0 0 0 / 40%);
 }
 
 /* ── alias：語意化（換主題時只換這一層）───────────────── */
@@ -71,6 +77,13 @@
 
   --font-sans: var(--seed-font-sans);
   --font-mono: var(--seed-font-mono);
+
+  /* 浮層的高度感：越重要、越需要與背景分離的浮層陰影越重 */
+  --shadow-tooltip: var(--seed-shadow-sm);
+  --shadow-popover: var(--seed-shadow-md);
+  --shadow-toast: var(--seed-shadow-md-strong);
+  --shadow-dialog: var(--seed-shadow-lg);
+  --color-backdrop: var(--seed-black-alpha-40);
 }
 
 /* ── component：元件層（由各元件擴充）──────────────────── */

@@ -6,7 +6,7 @@ import { cn } from '@/shared/utils';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Select.css';
+import styles from './Select.module.css';
 
 export interface SelectOption<T extends string = string> {
   value: T;
@@ -53,11 +53,11 @@ export function Select<T extends string = string>({
   size = 'md',
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: SelectProps<T>) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
     <BaseSelect.Root
       value={value as string}
@@ -69,7 +69,8 @@ export function Select<T extends string = string>({
       items={options.map((option) => ({ value: option.value, label: option.label }))}
     >
       <BaseSelect.Trigger
-        className={cn('ge-select__trigger', size === 'sm' && 'ge-select__trigger--sm', className)}
+        className={cn(styles.trigger, className)}
+        data-size={size}
         aria-invalid={invalid || undefined}
         {...rest}
       >
@@ -78,20 +79,20 @@ export function Select<T extends string = string>({
             options.find((option) => option.value === selected)?.label ?? placeholder ?? ''
           }
         </BaseSelect.Value>
-        <BaseSelect.Icon {...slot('icon', 'ge-select__icon')}>▾</BaseSelect.Icon>
+        <BaseSelect.Icon {...slot('icon', styles.icon)}>▾</BaseSelect.Icon>
       </BaseSelect.Trigger>
       <BaseSelect.Portal>
-        <BaseSelect.Positioner sideOffset={4} {...slot('positioner', 'ge-select__positioner')}>
-          <BaseSelect.Popup {...slot('popup', 'ge-select__popup')}>
+        <BaseSelect.Positioner sideOffset={4} {...slot('positioner', styles.positioner)}>
+          <BaseSelect.Popup {...slot('popup', styles.popup)}>
             {options.map((option) => (
               <BaseSelect.Item
                 key={option.value}
                 value={option.value}
                 disabled={option.disabled}
-                {...slot('item', 'ge-select__item')}
+                {...slot('item', styles.item)}
                 data-value={option.value}
               >
-                <BaseSelect.ItemIndicator {...slot('indicator', 'ge-select__indicator')}>
+                <BaseSelect.ItemIndicator {...slot('indicator', styles.indicator)}>
                   ✓
                 </BaseSelect.ItemIndicator>
                 <BaseSelect.ItemText {...slot('itemText')}>{option.label}</BaseSelect.ItemText>

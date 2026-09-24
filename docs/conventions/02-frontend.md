@@ -106,7 +106,14 @@
 
 - 不寫十六進位色碼、`rgb()`；用 token 或 UnoCSS 對應的 token class（`components/` 的 CSS 有 🔒 測試，其餘 👀）。
 - 尺寸、間距用 token；不寫魔術數字。
+- 陰影與遮罩也是顏色：用 `--shadow-tooltip` / `--shadow-popover` / `--shadow-toast` / `--shadow-dialog` / `--color-backdrop`，
+  不寫 `box-shadow: … rgb(…)`（`components/` 的 CSS 有 🔒 測試擋 `rgb()` / `hsl()`）。
 - className 不得以字串模板組成，見 [`06-literal-strings.md`](./06-literal-strings.md)。
+- 設計系統元件（`components/`）的樣式寫在同資料夾的 `Xxx.module.css`，整份包在 `@layer components`；
+  不再新增全域 `.css` 或 `ge-` 前綴的 class（🔒 `design-system.test.ts`）。寫法見
+  [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.4。
+- 元件的變體、尺寸、布林外觀用 `data-*` 屬性表達（`data-variant={variant}`、`data-block={block || undefined}`），
+  CSS 選 `.root[data-variant='primary']`；測試斷言屬性，不斷言 class（👀 Review）。
 - 語意色：`-main` 給背景／邊框，`-text` 給文字（對比度不同）。見
   [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §4.2。
 

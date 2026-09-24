@@ -22,8 +22,8 @@ describe('Progress', () => {
     expect(screen.getByText('65%')).toBeInTheDocument();
   });
 
-  it('tone 以 class 表現', () => {
+  it('tone 以 data-tone 屬性表現', () => {
     render(<Progress value={10} tone="danger" data-testid="progress" aria-label="p" />);
-    expect(screen.getByTestId('progress')).toHaveClass('ge-progress--danger');
+    expect(screen.getByTestId('progress')).toHaveAttribute('data-tone', 'danger');
   });
 });

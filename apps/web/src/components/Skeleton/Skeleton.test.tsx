@@ -14,8 +14,8 @@ describe('Skeleton', () => {
     expect(screen.getByTestId('skeleton')).toHaveStyle({ width: '120px', height: '20px' });
   });
 
-  it('rounded 變體', () => {
+  it('rounded 以 data-rounded 屬性表達', () => {
     render(<Skeleton rounded data-testid="skeleton" />);
-    expect(screen.getByTestId('skeleton')).toHaveClass('ge-skeleton--rounded');
+    expect(screen.getByTestId('skeleton')).toHaveAttribute('data-rounded');
   });
 });

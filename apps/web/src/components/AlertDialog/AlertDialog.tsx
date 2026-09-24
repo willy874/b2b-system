@@ -7,7 +7,7 @@ import { Button } from '../Button';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './AlertDialog.css';
+import styles from './AlertDialog.module.css';
 
 /** `className` 落在彈窗（popup）；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
 export type AlertDialogSlot =
@@ -47,26 +47,24 @@ export function AlertDialog({
   children,
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: AlertDialogProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
     <BaseAlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <BaseAlertDialog.Portal>
-        <BaseAlertDialog.Backdrop {...slot('backdrop', 'ge-alert-dialog__backdrop')} />
-        <BaseAlertDialog.Popup className={cn('ge-alert-dialog__popup', className)} {...rest}>
-          <BaseAlertDialog.Title {...slot('title', 'ge-alert-dialog__title')}>
-            {title}
-          </BaseAlertDialog.Title>
+        <BaseAlertDialog.Backdrop {...slot('backdrop', styles.backdrop)} />
+        <BaseAlertDialog.Popup className={cn(styles.popup, className)} {...rest}>
+          <BaseAlertDialog.Title {...slot('title', styles.title)}>{title}</BaseAlertDialog.Title>
           {description && (
-            <BaseAlertDialog.Description {...slot('description', 'ge-alert-dialog__description')}>
+            <BaseAlertDialog.Description {...slot('description', styles.description)}>
               {description}
             </BaseAlertDialog.Description>
           )}
           {children}
-          <div {...slot('actions', 'ge-alert-dialog__actions')}>
+          <div {...slot('actions', styles.actions)}>
             <BaseAlertDialog.Close
               render={<Button variant="secondary" disabled={loading} />}
               {...slot('cancel', undefined, { testId: 'alert-dialog-cancel' })}

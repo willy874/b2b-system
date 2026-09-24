@@ -4,7 +4,7 @@ import type { InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
 
 import { cn } from '@/shared/utils';
 
-import './Input.css';
+import styles from './Input.module.css';
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
   size?: 'sm' | 'md';
@@ -18,7 +18,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   return (
     <BaseInput
       ref={ref}
-      className={cn('ge-input', size === 'sm' && 'ge-input--sm', className)}
+      className={cn(styles.root, className)}
+      data-size={size}
       aria-invalid={invalid || undefined}
       {...rest}
     />
@@ -37,7 +38,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
     <textarea
       ref={ref}
       rows={rows}
-      className={cn('ge-input', 'ge-textarea', className)}
+      className={cn(styles.root, styles.textarea, className)}
       aria-invalid={invalid || undefined}
       {...rest}
     />

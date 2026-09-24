@@ -23,6 +23,20 @@ describe('DatePicker', () => {
     expect(screen.getByRole('button', { name: '開始日期' })).toHaveTextContent('YYYY-MM-DD');
   });
 
+  it('invalid 與空值以 data-* 屬性表達', () => {
+    render(<DatePicker value={null} invalid onValueChange={vi.fn()} aria-label="開始日期" />);
+    const trigger = screen.getByRole('button', { name: '開始日期' });
+    expect(trigger).toHaveAttribute('data-invalid');
+    expect(screen.getByText('YYYY-MM-DD')).toHaveAttribute('data-empty');
+  });
+
+  it('已選日期以 data-selected 標記', async () => {
+    render(<DatePicker value="2026-09-15" onValueChange={vi.fn()} aria-label="開始日期" />);
+    await userEvent.click(screen.getByRole('button', { name: '開始日期' }));
+    expect(await findDay('2026-09-15')).toHaveAttribute('data-selected');
+    expect(getDay('2026-09-16')).not.toHaveAttribute('data-selected');
+  });
+
   it('點擊日期會回傳 YYYY-MM-DD 並關閉彈層', async () => {
     const onValueChange = vi.fn();
     render(<DatePicker value="2026-09-15" onValueChange={onValueChange} aria-label="開始日期" />);

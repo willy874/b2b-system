@@ -7,7 +7,7 @@ import { Icon } from '../Icon';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Collapsible.css';
+import styles from './Collapsible.module.css';
 
 /** `className` 落在根元素；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
 export type CollapsibleSlot = 'trigger' | 'chevron' | 'title' | 'panel' | 'content';
@@ -32,26 +32,26 @@ export function Collapsible({
   disabled,
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: CollapsibleProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
     <BaseCollapsible.Root
       open={open}
       defaultOpen={defaultOpen}
       onOpenChange={(next: boolean) => onOpenChange?.(next)}
       disabled={disabled}
-      className={cn('ge-collapsible', className)}
+      className={cn(styles.root, className)}
       {...rest}
     >
-      <BaseCollapsible.Trigger {...slot('trigger', 'ge-collapsible__trigger')}>
-        <Icon name="chevron-right" size={16} {...slot('chevron', 'ge-collapsible__chevron')} />
+      <BaseCollapsible.Trigger {...slot('trigger', styles.trigger)}>
+        <Icon name="chevron-right" size={16} {...slot('chevron', styles.chevron)} />
         <span {...slot('title')}>{title}</span>
       </BaseCollapsible.Trigger>
-      <BaseCollapsible.Panel {...slot('panel', 'ge-collapsible__panel')}>
-        <div {...slot('content', 'ge-collapsible__content')}>{children}</div>
+      <BaseCollapsible.Panel {...slot('panel', styles.panel)}>
+        <div {...slot('content', styles.content)}>{children}</div>
       </BaseCollapsible.Panel>
     </BaseCollapsible.Root>
   );

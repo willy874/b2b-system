@@ -36,6 +36,6 @@ describe('Form', () => {
       </Form>,
     );
     const form = screen.getByTestId('role-form');
-    expect(form).toHaveClass('ge-form', 'custom');
+    expect(form).toHaveClass('custom');
   });
 });

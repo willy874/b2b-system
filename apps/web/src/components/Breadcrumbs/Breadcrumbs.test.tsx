@@ -30,7 +30,7 @@ describe('Breadcrumbs', () => {
 
   it('分隔符號對輔助技術隱藏', () => {
     const { container } = render(<Breadcrumbs items={items} />);
-    const separators = container.querySelectorAll('.ge-breadcrumbs__separator');
+    const separators = container.querySelectorAll('li[aria-hidden="true"]');
     expect(separators).toHaveLength(2);
     for (const separator of separators) expect(separator).toHaveAttribute('aria-hidden', 'true');
   });

@@ -5,8 +5,16 @@ import unocss from 'unocss/vite';
 import { defineConfig } from 'vite';
 import svgr from 'vite-plugin-svgr';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [unocss(), react(), svgr()],
+  css: {
+    modules: {
+      // 開發時保留檔名與 class 名稱，DevTools 裡一眼看得出是哪個元件的哪一層；
+      // 正式建置只留 hash，縮短輸出。
+      generateScopedName:
+        command === 'serve' ? 'ge-[name]__[local]__[hash:base64:4]' : 'ge-[hash:base64:6]',
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -27,4 +35,4 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
   },
-});
+}));

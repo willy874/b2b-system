@@ -6,7 +6,7 @@ import { cn } from '@/shared/utils';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Popover.css';
+import styles from './Popover.module.css';
 
 /** `className` / `style` / `data-testid` 落在彈層（popup）；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
 export type PopoverSlot = 'positioner' | 'title' | 'description';
@@ -39,11 +39,11 @@ export function Popover({
   align = 'start',
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: PopoverProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
     <BasePopover.Root
       open={open}
@@ -56,14 +56,14 @@ export function Popover({
           side={side}
           align={align}
           sideOffset={6}
-          {...slot('positioner', 'ge-popover__positioner')}
+          {...slot('positioner', styles.positioner)}
         >
-          <BasePopover.Popup className={cn('ge-popover__popup', className)} {...rest}>
+          <BasePopover.Popup className={cn(styles.popup, className)} {...rest}>
             {title && (
-              <BasePopover.Title {...slot('title', 'ge-popover__title')}>{title}</BasePopover.Title>
+              <BasePopover.Title {...slot('title', styles.title)}>{title}</BasePopover.Title>
             )}
             {description && (
-              <BasePopover.Description {...slot('description', 'ge-popover__description')}>
+              <BasePopover.Description {...slot('description', styles.description)}>
                 {description}
               </BasePopover.Description>
             )}

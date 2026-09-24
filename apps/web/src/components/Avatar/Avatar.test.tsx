@@ -17,7 +17,7 @@ describe('Avatar', () => {
   it('尺寸與 className 透傳', () => {
     render(<Avatar name="A" size={48} className="custom" data-testid="avatar" />);
     const avatar = screen.getByTestId('avatar');
-    expect(avatar).toHaveClass('ge-avatar', 'custom');
+    expect(avatar).toHaveClass('custom');
     expect(avatar).toHaveStyle({ width: '48px' });
   });
 });

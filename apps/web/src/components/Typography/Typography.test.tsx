@@ -18,13 +18,15 @@ describe('Typography', () => {
     expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument();
   });
 
-  it('tone 以 class 表現，不寫死顏色', () => {
+  it('variant 與 tone 以 data-* 屬性表達，不寫死顏色', () => {
     render(
       <Typography tone="danger" data-testid="text">
         錯誤
       </Typography>,
     );
-    expect(screen.getByTestId('text')).toHaveClass('ge-typography--danger');
+    const text = screen.getByTestId('text');
+    expect(text).toHaveAttribute('data-variant', 'body');
+    expect(text).toHaveAttribute('data-tone', 'danger');
   });
 
   it('透傳 className 與 data-testid', () => {

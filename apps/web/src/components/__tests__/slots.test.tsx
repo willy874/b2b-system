@@ -58,7 +58,7 @@ describe('元件的逐層覆寫', () => {
       />,
     );
     const title = screen.getByTestId('empty-title');
-    expect(title).toHaveClass('ge-empty__title', 'my-title');
+    expect(title).toHaveClass('my-title');
     expect(screen.getByText('說明')).toHaveStyle({ opacity: '0.5' });
   });
 
@@ -129,7 +129,7 @@ describe('元件的逐層覆寫', () => {
     const start = document.querySelector<HTMLElement>(
       '[data-testid="my-day"][data-value="2026-09-15"]',
     );
-    expect(start).toHaveClass('ge-calendar__day', 'my-day-class');
+    expect(start).toHaveClass('my-day-class');
     start?.focus();
     await userEvent.keyboard('{ArrowRight}');
     expect(document.activeElement).toHaveAttribute('data-value', '2026-09-16');

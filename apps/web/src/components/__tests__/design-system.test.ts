@@ -32,15 +32,40 @@ describe('設計系統的結構規則', () => {
     expect(missing, `缺少 index.ts 或測試：${missing.join(', ')}`).toEqual([]);
   });
 
-  it('CSS 不出現十六進位色碼（顏色一律走 Design Token）', () => {
+  it('CSS 不出現十六進位色碼、rgb()、hsl()（顏色與陰影一律走 Design Token）', () => {
     const offenders = cssFiles
-      .map((file) => ({ file, matches: /#[0-9a-f]{3,8}\b/gi.exec(readFileSync(file, 'utf8')) }))
+      .map((file) => ({
+        file,
+        matches: /#[0-9a-f]{3,8}\b|\b(rgba?|hsla?)\(/gi.exec(readFileSync(file, 'utf8')),
+      }))
       .filter((entry) => entry.matches)
       .map(
         (entry) =>
           `${entry.file.split('/components/')[1] as string}: ${entry.matches?.[0] as string}`,
       );
     expect(offenders, `發現寫死的色碼：${offenders.join(', ')}`).toEqual([]);
+  });
+
+  it('樣式一律是 CSS Module，整份包在 @layer components（07-ui-system.md §3.4）', () => {
+    const offenders = cssFiles
+      .filter((file) => {
+        if (!file.endsWith('.module.css')) return true;
+        const source = readFileSync(file, 'utf8')
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .trim();
+        return !source.startsWith('@layer components {') || !source.endsWith('}');
+      })
+      .map((file) => file.split('/components/')[1] as string);
+    expect(offenders, `不是包在 @layer components 的 CSS Module：${offenders.join(', ')}`).toEqual(
+      [],
+    );
+  });
+
+  it('元件不再使用全域 ge- class（改用 CSS Module 的 styles.xxx）', () => {
+    const offenders = tsxFiles
+      .filter((file) => /['"`]ge-[a-z]/.test(readFileSync(file, 'utf8')))
+      .map((file) => file.split('/components/')[1] as string);
+    expect(offenders, `仍使用全域 class：${offenders.join(', ')}`).toEqual([]);
   });
 
   it('不匯出 Base UI 的型別（換底層時 props 不變）', () => {

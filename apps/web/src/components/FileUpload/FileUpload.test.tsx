@@ -60,6 +60,7 @@ describe('FileUpload', () => {
   it('disabled 時 input 不可用', () => {
     render(<FileUpload files={[]} disabled onFilesChange={vi.fn()} />);
     expect(screen.getByTestId('file-upload-input')).toBeDisabled();
+    expect(screen.getByTestId('file-upload-dropzone')).toHaveAttribute('data-disabled');
   });
 
   it('拖放檔案也會被接受', async () => {

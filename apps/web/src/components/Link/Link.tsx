@@ -3,23 +3,11 @@ import type { AnchorHTMLAttributes, ElementType, ReactElement } from 'react';
 
 import { cn } from '@/shared/utils';
 
-import './Link.css';
+import styles from './Link.module.css';
 
 export type LinkTone = 'brand' | 'muted' | 'danger';
 
 export type LinkUnderline = 'hover' | 'always' | 'none';
-
-const TONE_CLASS = {
-  brand: 'ge-link--brand',
-  muted: 'ge-link--muted',
-  danger: 'ge-link--danger',
-} as const satisfies Record<LinkTone, string>;
-
-const UNDERLINE_CLASS = {
-  hover: 'ge-link--underline-hover',
-  always: 'ge-link--underline-always',
-  none: 'ge-link--underline-none',
-} as const satisfies Record<LinkUnderline, string>;
 
 export interface LinkProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
   tone?: LinkTone;
@@ -36,13 +24,15 @@ export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function Link(
   { tone = 'brand', underline = 'hover', render, className, children, ...rest },
   ref,
 ) {
-  const classes = cn('ge-link', TONE_CLASS[tone], UNDERLINE_CLASS[underline], className);
+  const classes = cn(styles.root, className);
 
   if (render) {
     const Rendered = render.type as ElementType;
     return (
       <Rendered
         {...render.props}
+        data-tone={tone}
+        data-underline={underline}
         {...rest}
         ref={ref}
         className={cn(classes, render.props.className)}
@@ -53,7 +43,7 @@ export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function Link(
   }
 
   return (
-    <a ref={ref} className={classes} {...rest}>
+    <a ref={ref} className={classes} data-tone={tone} data-underline={underline} {...rest}>
       {children}
     </a>
   );

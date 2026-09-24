@@ -6,7 +6,7 @@ import { cn } from '@/shared/utils';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Tooltip.css';
+import styles from './Tooltip.module.css';
 
 /** `className` / `data-testid` 落在提示框（popup）；定位層用 `classNames` / `styles` / `testIds` 覆寫。 */
 export type TooltipSlot = 'positioner';
@@ -25,12 +25,12 @@ export function Tooltip({
   side = 'top',
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: TooltipProps) {
   if (!content) return children;
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
     <BaseTooltip.Root>
       <BaseTooltip.Trigger render={children} />
@@ -38,9 +38,9 @@ export function Tooltip({
         <BaseTooltip.Positioner
           side={side}
           sideOffset={6}
-          {...slot('positioner', 'ge-tooltip__positioner')}
+          {...slot('positioner', styles.positioner)}
         >
-          <BaseTooltip.Popup className={cn('ge-tooltip__popup', className)} {...rest}>
+          <BaseTooltip.Popup className={cn(styles.popup, className)} {...rest}>
             {content}
           </BaseTooltip.Popup>
         </BaseTooltip.Positioner>

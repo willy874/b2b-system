@@ -5,7 +5,7 @@ import { cn } from '@/shared/utils';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Empty.css';
+import styles from './Empty.module.css';
 
 /** `className` 落在根元素；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
 export type EmptySlot = 'title' | 'description' | 'action';
@@ -27,16 +27,16 @@ export function Empty({
   action,
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: EmptyProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
-    <div className={cn('ge-empty', className)} {...rest}>
-      <p {...slot('title', 'ge-empty__title')}>{title}</p>
-      {description && <p {...slot('description', 'ge-empty__description')}>{description}</p>}
-      {action && <div {...slot('action', 'ge-empty__action')}>{action}</div>}
+    <div className={cn(styles.root, className)} {...rest}>
+      <p {...slot('title', styles.title)}>{title}</p>
+      {description && <p {...slot('description', styles.description)}>{description}</p>}
+      {action && <div {...slot('action', styles.action)}>{action}</div>}
     </div>
   );
 }

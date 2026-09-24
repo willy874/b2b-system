@@ -65,6 +65,23 @@ describe('Table', () => {
     );
   });
 
+  it('選取中的列以 data-selected 標記、可排序的表頭以 data-sortable 標記', () => {
+    render(
+      <Table
+        data={data}
+        columns={columns}
+        getRowId={(row) => row.id}
+        rowSelection={{ '2': true }}
+        onRowSelectionChange={vi.fn()}
+        onSortingChange={vi.fn()}
+      />,
+    );
+    const [first, second] = screen.getAllByTestId('table-row');
+    expect(first).not.toHaveAttribute('data-selected');
+    expect(second).toHaveAttribute('data-selected');
+    expect(screen.getByRole('columnheader', { name: '名稱' })).toHaveAttribute('data-sortable');
+  });
+
   it('雙擊列會開啟詳情', async () => {
     const onRowDoubleClick = vi.fn();
     render(

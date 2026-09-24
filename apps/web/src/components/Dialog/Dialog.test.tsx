@@ -28,6 +28,15 @@ describe('Dialog', () => {
     expect(onOpenChange.mock.calls[0]?.[0]).toBe(false);
   });
 
+  it('尺寸以 data-size 屬性表達', () => {
+    render(
+      <Dialog open size="lg" title="建立角色">
+        <p>內容</p>
+      </Dialog>,
+    );
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-size', 'lg');
+  });
+
   it('關閉時不渲染任何東西', () => {
     render(
       <Dialog open={false} title="建立角色">

@@ -1,5 +1,0 @@
-.ge-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--seed-space-4);
-}

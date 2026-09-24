@@ -9,7 +9,7 @@ import type { SlotOverrides } from '../slots';
 import { Calendar } from './Calendar';
 import type { DateValue } from './calendar-utils';
 
-import './DatePicker.css';
+import styles from './DatePicker.module.css';
 
 /**
  * `className` 落在外框，`data-testid` / `aria-label` 落在 `trigger`；
@@ -53,19 +53,16 @@ export function DatePicker({
   className,
   labels = { clear: 'clear', open: 'open calendar' },
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: DatePickerProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   const [open, setOpen] = useState(false);
-  const triggerSlot = slot('trigger', [
-    'ge-date-picker__trigger',
-    invalid && 'ge-date-picker__trigger--invalid',
-  ]);
+  const triggerSlot = slot('trigger', styles.trigger);
 
   return (
-    <div className={cn('ge-date-picker', className)}>
+    <div className={cn(styles.root, className)}>
       <Popover
         open={open}
         onOpenChange={setOpen}
@@ -75,16 +72,12 @@ export function DatePicker({
             type="button"
             {...triggerSlot}
             disabled={disabled}
+            data-invalid={invalid || undefined}
             aria-label={rest['aria-label'] ?? labels.open}
             data-testid={rest['data-testid'] ?? triggerSlot['data-testid']}
           >
             <Icon name="calendar" size={16} {...slot('icon')} />
-            <span
-              {...slot('value', [
-                'ge-date-picker__value',
-                !value && 'ge-date-picker__value--empty',
-              ])}
-            >
+            <span {...slot('value', styles.value)} data-empty={!value || undefined}>
               {value ?? placeholder}
             </span>
           </button>
@@ -107,7 +100,7 @@ export function DatePicker({
       {clearable && value && !disabled && (
         <button
           type="button"
-          {...slot('clear', 'ge-date-picker__clear', { testId: 'date-picker-clear' })}
+          {...slot('clear', styles.clear, { testId: 'date-picker-clear' })}
           aria-label={labels.clear}
           onClick={() => onValueChange(null)}
         >

@@ -3,7 +3,7 @@ import type { FormHTMLAttributes, ReactNode } from 'react';
 
 import { cn } from '@/shared/utils';
 
-import './Form.css';
+import styles from './Form.module.css';
 
 export interface FormProps extends FormHTMLAttributes<HTMLFormElement> {
   /**
@@ -17,7 +17,7 @@ export interface FormProps extends FormHTMLAttributes<HTMLFormElement> {
 /** 把後端的欄位錯誤接到表單上的薄封裝；驗證本身由 TanStack Form ＋ Zod 負責。 */
 export function Form({ errors, className, children, ...rest }: FormProps) {
   return (
-    <BaseForm errors={errors} className={cn('ge-form', className)} {...rest}>
+    <BaseForm errors={errors} className={cn(styles.root, className)} {...rest}>
       {children}
     </BaseForm>
   );

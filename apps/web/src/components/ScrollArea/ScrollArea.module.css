@@ -1,0 +1,57 @@
+@layer components {
+  .root {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .viewport {
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .viewport:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: -2px;
+  }
+
+  .scrollbar {
+    display: flex;
+    justify-content: center;
+    width: 0.5rem;
+    padding: 2px;
+    background: transparent;
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  .scrollbar[data-orientation='horizontal'] {
+    flex-direction: column;
+    width: auto;
+    height: 0.5rem;
+  }
+
+  .root:hover .scrollbar,
+  .scrollbar[data-scrolling] {
+    opacity: 1;
+  }
+
+  .thumb {
+    flex: 1;
+    border-radius: 999px;
+    background: var(--seed-gray-300);
+  }
+
+  .thumb:hover {
+    background: var(--seed-gray-500);
+  }
+
+  .corner {
+    background: transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scrollbar {
+      transition: none;
+    }
+  }
+}

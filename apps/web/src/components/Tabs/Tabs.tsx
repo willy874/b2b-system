@@ -6,7 +6,7 @@ import { cn } from '@/shared/utils';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Tabs.css';
+import styles from './Tabs.module.css';
 
 export interface TabDescriptor {
   value: string;
@@ -36,31 +36,31 @@ export function Tabs({
   children,
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: TabsProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
     <BaseTabs.Root
       value={value}
       onValueChange={(next) => onValueChange?.(String(next))}
-      className={cn('ge-tabs', className)}
+      className={cn(styles.root, className)}
       {...rest}
     >
-      <BaseTabs.List {...slot('list', 'ge-tabs__list')}>
+      <BaseTabs.List {...slot('list', styles.list)}>
         {tabs.map((tab) => (
           <BaseTabs.Tab
             key={tab.value}
             value={tab.value}
             render={tab.render}
-            {...slot('tab', 'ge-tabs__tab', { testId: 'tab' })}
+            {...slot('tab', styles.tab, { testId: 'tab' })}
             data-value={tab.value}
           >
             {tab.label}
           </BaseTabs.Tab>
         ))}
-        <BaseTabs.Indicator {...slot('indicator', 'ge-tabs__indicator')} />
+        <BaseTabs.Indicator {...slot('indicator', styles.indicator)} />
       </BaseTabs.List>
       {children}
     </BaseTabs.Root>

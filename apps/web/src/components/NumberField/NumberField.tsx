@@ -7,7 +7,7 @@ import { Icon } from '../Icon';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './NumberField.css';
+import styles from './NumberField.module.css';
 
 /**
  * `className` 落在根元素，`data-testid` / `aria-label` 落在 `input`；
@@ -55,11 +55,11 @@ export function NumberField({
   className,
   labels = { increment: 'increase', decrement: 'decrease' },
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: NumberFieldProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   const id = useId();
 
   return (
@@ -76,28 +76,23 @@ export function NumberField({
       required={required}
       name={name}
       format={format}
-      className={cn('ge-number-field', className)}
+      className={cn(styles.root, className)}
     >
-      <BaseNumberField.Group
-        {...slot('group', [
-          'ge-number-field__group',
-          size === 'sm' && 'ge-number-field__group--sm',
-        ])}
-      >
+      <BaseNumberField.Group {...slot('group', styles.group)} data-size={size}>
         <BaseNumberField.Decrement
-          {...slot('decrement', 'ge-number-field__button')}
+          {...slot('decrement', styles.button)}
           aria-label={labels.decrement}
         >
           <Icon name="minus" size={16} />
         </BaseNumberField.Decrement>
         <BaseNumberField.Input
-          {...slot('input', 'ge-number-field__input')}
+          {...slot('input', styles.input)}
           placeholder={placeholder}
           aria-invalid={invalid || undefined}
           {...rest}
         />
         <BaseNumberField.Increment
-          {...slot('increment', 'ge-number-field__button')}
+          {...slot('increment', styles.button)}
           aria-label={labels.increment}
         >
           <Icon name="plus" size={16} />

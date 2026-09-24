@@ -6,33 +6,36 @@ import { ScrollArea } from './index';
 describe('ScrollArea', () => {
   it('渲染內容並套上 maxHeight', () => {
     render(
-      <ScrollArea maxHeight={200} data-testid="scroll">
+      <ScrollArea maxHeight={200} testIds={{ viewport: 'viewport' }}>
         <p>很長的內容</p>
       </ScrollArea>,
     );
     expect(screen.getByText('很長的內容')).toBeInTheDocument();
-    const viewport = screen.getByTestId('scroll').querySelector('.ge-scroll-area__viewport');
-    expect(viewport).toHaveStyle({ maxHeight: '200px' });
+    expect(screen.getByTestId('viewport')).toHaveStyle({ maxHeight: '200px' });
   });
 
   it('預設只有垂直捲軸', () => {
     render(
-      <ScrollArea data-testid="scroll">
+      <ScrollArea testIds={{ scrollbar: 'scrollbar' }}>
         <p>內容</p>
       </ScrollArea>,
     );
-    const scrollbars = screen.getByTestId('scroll').querySelectorAll('.ge-scroll-area__scrollbar');
+    const scrollbars = screen.getAllByTestId('scrollbar');
     expect(scrollbars).toHaveLength(1);
+    expect(scrollbars[0]).toHaveAttribute('data-orientation', 'vertical');
   });
 
   it('orientation=both 時有兩個捲軸', () => {
     render(
-      <ScrollArea orientation="both" data-testid="scroll">
+      <ScrollArea orientation="both" testIds={{ scrollbar: 'scrollbar' }}>
         <p>內容</p>
       </ScrollArea>,
     );
-    const scrollbars = screen.getByTestId('scroll').querySelectorAll('.ge-scroll-area__scrollbar');
-    expect(scrollbars).toHaveLength(2);
+    const scrollbars = screen.getAllByTestId('scrollbar');
+    expect(scrollbars.map((bar) => bar.getAttribute('data-orientation'))).toEqual([
+      'vertical',
+      'horizontal',
+    ]);
   });
 
   it('透傳 className', () => {
@@ -41,6 +44,6 @@ describe('ScrollArea', () => {
         <p>內容</p>
       </ScrollArea>,
     );
-    expect(screen.getByTestId('scroll')).toHaveClass('ge-scroll-area', 'custom');
+    expect(screen.getByTestId('scroll')).toHaveClass('custom');
   });
 });

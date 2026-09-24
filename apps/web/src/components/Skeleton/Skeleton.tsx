@@ -2,7 +2,7 @@ import type { Ref } from 'react';
 
 import { cn } from '@/shared/utils';
 
-import './Skeleton.css';
+import styles from './Skeleton.module.css';
 
 export interface SkeletonProps {
   /** 透傳到根元素（React 19 的 ref 是一般 prop）。 */
@@ -17,7 +17,8 @@ export interface SkeletonProps {
 export function Skeleton({ width, height = 16, rounded, className, ...rest }: SkeletonProps) {
   return (
     <span
-      className={cn('ge-skeleton', rounded && 'ge-skeleton--rounded', className)}
+      className={cn(styles.root, className)}
+      data-rounded={rounded || undefined}
       style={{ width: width ?? '100%', height }}
       aria-hidden="true"
       {...rest}

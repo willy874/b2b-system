@@ -3,14 +3,9 @@ import type { ReactElement, ReactNode, Ref } from 'react';
 
 import { cn } from '@/shared/utils';
 
-import './Toolbar.css';
+import styles from './Toolbar.module.css';
 
 export type ToolbarOrientation = 'horizontal' | 'vertical';
-
-const ORIENTATION_CLASS = {
-  horizontal: 'ge-toolbar--horizontal',
-  vertical: 'ge-toolbar--vertical',
-} as const satisfies Record<ToolbarOrientation, string>;
 
 export interface ToolbarProps {
   /** 透傳到根元素（React 19 的 ref 是一般 prop）。 */
@@ -33,11 +28,7 @@ export function Toolbar({
   ...rest
 }: ToolbarProps) {
   return (
-    <BaseToolbar.Root
-      orientation={orientation}
-      className={cn('ge-toolbar', ORIENTATION_CLASS[orientation], className)}
-      {...rest}
-    >
+    <BaseToolbar.Root orientation={orientation} className={cn(styles.root, className)} {...rest}>
       {children}
     </BaseToolbar.Root>
   );
@@ -56,18 +47,16 @@ export interface ToolbarButtonProps {
 
 export function ToolbarButton({ children, render, className, ...rest }: ToolbarButtonProps) {
   return (
-    <BaseToolbar.Button render={render} className={cn('ge-toolbar__button', className)} {...rest}>
+    <BaseToolbar.Button render={render} className={cn(styles.button, className)} {...rest}>
       {children}
     </BaseToolbar.Button>
   );
 }
 
 export function ToolbarSeparator({ className }: { className?: string }) {
-  return <BaseToolbar.Separator className={cn('ge-toolbar__separator', className)} />;
+  return <BaseToolbar.Separator className={cn(styles.separator, className)} />;
 }
 
 export function ToolbarGroup({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <BaseToolbar.Group className={cn('ge-toolbar__group', className)}>{children}</BaseToolbar.Group>
-  );
+  return <BaseToolbar.Group className={cn(styles.group, className)}>{children}</BaseToolbar.Group>;
 }

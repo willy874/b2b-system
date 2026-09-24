@@ -1,14 +1,12 @@
 import { Fragment } from 'react';
 import type { ReactElement, ReactNode, Ref } from 'react';
 
-import { cn } from '@/shared/utils';
-
 import { Icon } from '../Icon';
 import { Link } from '../Link';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Breadcrumbs.css';
+import styles from './Breadcrumbs.module.css';
 
 export interface BreadcrumbItem {
   key: string;
@@ -36,21 +34,21 @@ export function Breadcrumbs({
   className,
   'aria-label': ariaLabel = 'breadcrumb',
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: BreadcrumbsProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
-    <nav aria-label={ariaLabel} className={cn('ge-breadcrumbs', className)} {...rest}>
-      <ol {...slot('list', 'ge-breadcrumbs__list')}>
+    <nav aria-label={ariaLabel} className={className} {...rest}>
+      <ol {...slot('list', styles.list)}>
         {items.map((item, index) => {
           const isLast = index === items.length - 1;
           return (
             <Fragment key={item.key}>
-              <li {...slot('item', 'ge-breadcrumbs__item')} data-value={item.key}>
+              <li {...slot('item', styles.item)} data-value={item.key}>
                 {isLast ? (
-                  <span {...slot('current', 'ge-breadcrumbs__current')} aria-current="page">
+                  <span {...slot('current', styles.current)} aria-current="page">
                     {item.label}
                   </span>
                 ) : (
@@ -60,7 +58,7 @@ export function Breadcrumbs({
                 )}
               </li>
               {!isLast && (
-                <li aria-hidden="true" {...slot('separator', 'ge-breadcrumbs__separator')}>
+                <li aria-hidden="true" {...slot('separator', styles.separator)}>
                   <Icon name="chevron-right" size={16} />
                 </li>
               )}

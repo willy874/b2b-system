@@ -10,7 +10,7 @@ import { Calendar } from './Calendar';
 import { parseDate } from './calendar-utils';
 import type { DateValue } from './calendar-utils';
 
-import './DatePicker.css';
+import styles from './DatePicker.module.css';
 
 export interface DateRange {
   from: DateValue;
@@ -54,13 +54,13 @@ export function DateRangePicker({
   className,
   labels = { clear: 'clear', open: 'open calendar', separator: '~' },
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: DateRangePickerProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   const [open, setOpen] = useState(false);
-  const triggerSlot = slot('trigger', 'ge-date-picker__trigger');
+  const triggerSlot = slot('trigger', styles.trigger);
 
   const handleSelect = (next: string) => {
     const from = parseDate(value.from);
@@ -80,7 +80,7 @@ export function DateRangePicker({
       : (value.from ?? placeholder);
 
   return (
-    <div className={cn('ge-date-picker', 'ge-date-picker--range', className)}>
+    <div className={cn(styles.root, className)}>
       <Popover
         open={open}
         onOpenChange={setOpen}
@@ -94,12 +94,7 @@ export function DateRangePicker({
             data-testid={rest['data-testid'] ?? triggerSlot['data-testid']}
           >
             <Icon name="calendar" size={16} {...slot('icon')} />
-            <span
-              {...slot('value', [
-                'ge-date-picker__value',
-                !value.from && 'ge-date-picker__value--empty',
-              ])}
-            >
+            <span {...slot('value', styles.value)} data-empty={!value.from || undefined}>
               {label}
             </span>
           </button>
@@ -120,7 +115,7 @@ export function DateRangePicker({
       {clearable && value.from && !disabled && (
         <button
           type="button"
-          {...slot('clear', 'ge-date-picker__clear', { testId: 'date-range-picker-clear' })}
+          {...slot('clear', styles.clear, { testId: 'date-range-picker-clear' })}
           aria-label={labels.clear}
           onClick={() => onValueChange({ from: null, to: null })}
         >

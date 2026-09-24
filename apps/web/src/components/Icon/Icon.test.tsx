@@ -18,6 +18,6 @@ describe('Icon', () => {
     const { container } = render(<Icon name="check" size={24} className="custom" />);
     const svg = container.querySelector('svg');
     expect(svg).toHaveAttribute('width', '24');
-    expect(svg).toHaveClass('custom', 'ge-icon');
+    expect(svg).toHaveClass('custom');
   });
 });

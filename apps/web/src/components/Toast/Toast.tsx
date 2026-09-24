@@ -5,20 +5,20 @@ import type { ReactNode } from 'react';
 import { createSlots } from '../slots';
 import type { SlotOverrides, SlotResolver } from '../slots';
 
-import './Toast.css';
+import styles from './Toast.module.css';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
-const TYPE_CLASS = {
-  success: 'ge-toast--success',
-  error: 'ge-toast--error',
-  warning: 'ge-toast--warning',
-  info: 'ge-toast--info',
-} as const satisfies Record<ToastType, string>;
+const TOAST_TYPES: readonly string[] = [
+  'success',
+  'error',
+  'warning',
+  'info',
+] satisfies ToastType[];
 
 /** Base UI 的 `toast.type` 是任意字串；不在值域內的一律視為 `info`。 */
 function toToastType(type: string | undefined): ToastType {
-  return type !== undefined && Object.hasOwn(TYPE_CLASS, type) ? (type as ToastType) : 'info';
+  return type !== undefined && TOAST_TYPES.includes(type) ? (type as ToastType) : 'info';
 }
 
 /** 各層用 `classNames` / `styles` / `testIds` 覆寫（套用到每一則 toast）。 */
@@ -28,13 +28,18 @@ interface ToastProviderProps extends SlotOverrides<ToastSlot> {
   children: ReactNode;
 }
 
-export function ToastProvider({ children, classNames, styles, testIds }: ToastProviderProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+export function ToastProvider({
+  children,
+  classNames,
+  styles: styleOverrides,
+  testIds,
+}: ToastProviderProps) {
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
     <BaseToast.Provider>
       {children}
       <BaseToast.Portal>
-        <BaseToast.Viewport {...slot('viewport', 'ge-toast__viewport')}>
+        <BaseToast.Viewport {...slot('viewport', styles.viewport)}>
           <ToastList slot={slot} />
         </BaseToast.Viewport>
       </BaseToast.Portal>
@@ -52,13 +57,13 @@ function ToastList({ slot }: { slot: SlotResolver<ToastSlot> }) {
           <BaseToast.Root
             key={toast.id}
             toast={toast}
-            {...slot('toast', ['ge-toast', TYPE_CLASS[type]], { testId: 'toast' })}
+            {...slot('toast', styles.toast, { testId: 'toast' })}
             data-value={type}
           >
-            <BaseToast.Title {...slot('title', 'ge-toast__title')} />
-            <BaseToast.Description {...slot('description', 'ge-toast__description')} />
+            <BaseToast.Title {...slot('title', styles.title)} />
+            <BaseToast.Description {...slot('description', styles.description)} />
             <BaseToast.Close
-              {...slot('close', 'ge-toast__close', { testId: 'toast-close' })}
+              {...slot('close', styles.close, { testId: 'toast-close' })}
               aria-label="close"
             >
               ✕

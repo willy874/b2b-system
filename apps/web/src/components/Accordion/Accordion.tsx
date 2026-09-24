@@ -7,7 +7,7 @@ import { Icon } from '../Icon';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Accordion.css';
+import styles from './Accordion.module.css';
 
 export interface AccordionItemDescriptor {
   value: string;
@@ -38,18 +38,18 @@ export function Accordion({
   single,
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: AccordionProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
     <BaseAccordion.Root
       value={value}
       defaultValue={defaultValue}
       onValueChange={(next: unknown) => onValueChange?.((next as string[]) ?? [])}
       multiple={!single}
-      className={cn('ge-accordion', className)}
+      className={cn(styles.root, className)}
       {...rest}
     >
       {items.map((item) => (
@@ -57,19 +57,19 @@ export function Accordion({
           key={item.value}
           value={item.value}
           disabled={item.disabled}
-          {...slot('item', 'ge-accordion__item')}
+          {...slot('item', styles.item)}
         >
-          <BaseAccordion.Header {...slot('header', 'ge-accordion__header')}>
+          <BaseAccordion.Header {...slot('header', styles.header)}>
             <BaseAccordion.Trigger
-              {...slot('trigger', 'ge-accordion__trigger', { testId: 'accordion-trigger' })}
+              {...slot('trigger', styles.trigger, { testId: 'accordion-trigger' })}
               data-value={item.value}
             >
               <span>{item.title}</span>
-              <Icon name="chevron-down" size={16} {...slot('chevron', 'ge-accordion__chevron')} />
+              <Icon name="chevron-down" size={16} {...slot('chevron', styles.chevron)} />
             </BaseAccordion.Trigger>
           </BaseAccordion.Header>
-          <BaseAccordion.Panel {...slot('panel', 'ge-accordion__panel')}>
-            <div {...slot('content', 'ge-accordion__content')}>{item.content}</div>
+          <BaseAccordion.Panel {...slot('panel', styles.panel)}>
+            <div {...slot('content', styles.content)}>{item.content}</div>
           </BaseAccordion.Panel>
         </BaseAccordion.Item>
       ))}

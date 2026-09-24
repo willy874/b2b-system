@@ -32,6 +32,17 @@ describe('Toolbar', () => {
     expect(screen.getByRole('button', { name: '建立' })).not.toHaveFocus();
   });
 
+  it('方向用 data-orientation 表達，分隔線與 toolbar 垂直', () => {
+    render(
+      <Toolbar orientation="vertical" data-testid="toolbar">
+        <ToolbarButton>建立</ToolbarButton>
+        <ToolbarSeparator />
+      </Toolbar>,
+    );
+    expect(screen.getByTestId('toolbar')).toHaveAttribute('data-orientation', 'vertical');
+    expect(screen.getByRole('separator')).toHaveAttribute('data-orientation', 'horizontal');
+  });
+
   it('disabled 的按鈕不會觸發', async () => {
     const onDelete = renderToolbar();
     await userEvent.click(screen.getByRole('button', { name: '刪除' }));

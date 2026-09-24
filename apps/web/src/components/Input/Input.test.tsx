@@ -32,6 +32,11 @@ describe('Input', () => {
     expect(screen.getByRole('textbox', { name: '名稱' })).toHaveFocus();
   });
 
+  it('尺寸以 data-size 屬性表達', () => {
+    render(<Input aria-label="名稱" size="sm" />);
+    expect(screen.getByRole('textbox', { name: '名稱' })).toHaveAttribute('data-size', 'sm');
+  });
+
   it('Textarea 支援多行與 rows', () => {
     render(<Textarea aria-label="描述" rows={5} />);
     expect(screen.getByRole('textbox', { name: '描述' })).toHaveAttribute('rows', '5');

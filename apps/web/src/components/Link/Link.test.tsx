@@ -9,7 +9,8 @@ describe('Link', () => {
     render(<Link href="/role">角色</Link>);
     const link = screen.getByRole('link', { name: '角色' });
     expect(link).toHaveAttribute('href', '/role');
-    expect(link).toHaveClass('ge-link');
+    expect(link).toHaveAttribute('data-tone', 'brand');
+    expect(link).toHaveAttribute('data-underline', 'hover');
   });
 
   it('可用 render 換成別的元素，樣式仍然套用', () => {
@@ -22,7 +23,8 @@ describe('Link', () => {
       </Link>,
     );
     const rendered = screen.getByRole('button', { name: '刪除' });
-    expect(rendered).toHaveClass('ge-link', 'ge-link--danger');
+    expect(rendered).toHaveAttribute('data-tone', 'danger');
+    expect(rendered.className).not.toBe('');
   });
 
   it('鍵盤可聚焦並觸發', async () => {

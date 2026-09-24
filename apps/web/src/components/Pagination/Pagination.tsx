@@ -7,7 +7,7 @@ import { Select } from '../Select';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Pagination.css';
+import styles from './Pagination.module.css';
 
 /** `className` 落在根元素（`<nav>`）；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
 export type PaginationSlot = 'summary' | 'controls' | 'pageSize' | 'previous' | 'page' | 'next';
@@ -44,11 +44,11 @@ export function Pagination({
   labels,
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: PaginationProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   const pageCount = Math.max(1, Math.ceil(total / limit));
   const page = Math.floor(offset / limit) + 1;
   const from = total === 0 ? 0 : offset + 1;
@@ -59,18 +59,16 @@ export function Pagination({
     : `${from}-${to} / ${total}`;
 
   return (
-    <nav className={cn('ge-pagination', className)} aria-label="pagination" {...rest}>
-      <span {...slot('summary', 'ge-pagination__summary', { testId: 'pagination-summary' })}>
-        {summary}
-      </span>
-      <div {...slot('controls', 'ge-pagination__controls')}>
+    <nav className={cn(styles.root, className)} aria-label="pagination" {...rest}>
+      <span {...slot('summary', undefined, { testId: 'pagination-summary' })}>{summary}</span>
+      <div {...slot('controls', styles.controls)}>
         <Select
           size="sm"
           value={String(limit)}
           onValueChange={(value) => onChange({ offset: 0, limit: Number(value) })}
           options={pageSizeOptions.map((size) => ({ value: String(size), label: String(size) }))}
           aria-label="page size"
-          {...slot('pageSize', 'ge-pagination__size')}
+          {...slot('pageSize', styles.pageSize)}
         />
         <Button
           size="sm"
@@ -80,7 +78,7 @@ export function Pagination({
         >
           {labels?.previous ?? '上一頁'}
         </Button>
-        <span {...slot('page', 'ge-pagination__page')}>
+        <span {...slot('page', styles.page)}>
           {page} / {pageCount}
         </span>
         <Button

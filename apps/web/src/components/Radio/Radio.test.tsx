@@ -65,4 +65,20 @@ describe('RadioGroup', () => {
     expect(getOption('inactive')).toHaveAttribute('aria-checked', 'true');
     expect(getOption('active')).toHaveAttribute('aria-checked', 'false');
   });
+
+  it('方向與 disabled 選項以 data-* 屬性表現', () => {
+    render(
+      <RadioGroup
+        options={options}
+        orientation="horizontal"
+        aria-label="狀態"
+        data-testid="group"
+        testIds={{ option: 'option' }}
+      />,
+    );
+    expect(screen.getByTestId('group')).toHaveAttribute('data-orientation', 'horizontal');
+    const [active, , locked] = screen.getAllByTestId('option');
+    expect(active).not.toHaveAttribute('data-disabled');
+    expect(locked).toHaveAttribute('data-disabled');
+  });
 });

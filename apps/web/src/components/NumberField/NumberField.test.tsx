@@ -43,4 +43,9 @@ describe('NumberField', () => {
     await userEvent.click(screen.getByRole('button', { name: 'increase' }));
     expect(onValueChange).not.toHaveBeenCalledWith(6);
   });
+
+  it('尺寸以 data-size 屬性表現在 group 上', () => {
+    render(<NumberField size="sm" aria-label="數量" testIds={{ group: 'group' }} />);
+    expect(screen.getByTestId('group')).toHaveAttribute('data-size', 'sm');
+  });
 });

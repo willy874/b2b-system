@@ -6,7 +6,7 @@ import { cn } from '@/shared/utils';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Checkbox.css';
+import styles from './Checkbox.module.css';
 
 /**
  * `className` 落在最外層（`<label>` 或 `<span>`），`data-testid` / `aria-label` 落在 `control`；
@@ -37,11 +37,11 @@ export function Checkbox({
   description,
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: CheckboxProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   const control = (
     <BaseCheckbox.Root
       checked={checked}
@@ -49,25 +49,23 @@ export function Checkbox({
       indeterminate={indeterminate}
       onCheckedChange={onCheckedChange}
       disabled={disabled}
-      {...slot('control', 'ge-checkbox__control')}
+      {...slot('control', styles.control)}
       {...rest}
     >
-      <BaseCheckbox.Indicator {...slot('indicator', 'ge-checkbox__indicator')}>
+      <BaseCheckbox.Indicator {...slot('indicator', styles.indicator)}>
         {indeterminate ? '–' : '✓'}
       </BaseCheckbox.Indicator>
     </BaseCheckbox.Root>
   );
 
-  if (!label) return <span className={cn('ge-checkbox', className)}>{control}</span>;
+  if (!label) return <span className={cn(styles.root, className)}>{control}</span>;
 
   return (
-    <label className={cn('ge-checkbox', 'ge-checkbox--labeled', className)}>
+    <label className={cn(styles.root, className)} data-labeled>
       {control}
-      <span {...slot('text', 'ge-checkbox__text')}>
-        <span {...slot('label', 'ge-checkbox__label')}>{label}</span>
-        {description && (
-          <span {...slot('description', 'ge-checkbox__description')}>{description}</span>
-        )}
+      <span {...slot('text', styles.text)}>
+        <span {...slot('label', styles.label)}>{label}</span>
+        {description && <span {...slot('description', styles.description)}>{description}</span>}
       </span>
     </label>
   );

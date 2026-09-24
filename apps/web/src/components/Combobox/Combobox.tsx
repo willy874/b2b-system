@@ -7,7 +7,7 @@ import { Icon } from '../Icon';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Combobox.css';
+import styles from './Combobox.module.css';
 
 export interface ComboboxOption<T extends string = string> {
   value: T;
@@ -58,11 +58,11 @@ export function Combobox<T extends string = string>({
   invalid,
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: ComboboxProps<T>) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
     <BaseCombobox.Root
       items={options}
@@ -72,40 +72,38 @@ export function Combobox<T extends string = string>({
       disabled={disabled}
       itemToStringLabel={(item: unknown) => (item as ComboboxOption).label}
     >
-      <div className={cn('ge-combobox', className)}>
+      <div className={cn(styles.root, className)}>
         <BaseCombobox.Input
-          {...slot('input', 'ge-combobox__input')}
+          {...slot('input', styles.input)}
           placeholder={placeholder}
           aria-invalid={invalid || undefined}
           {...rest}
         />
-        <BaseCombobox.Trigger {...slot('trigger', 'ge-combobox__trigger')} aria-label="open">
+        <BaseCombobox.Trigger {...slot('trigger', styles.trigger)} aria-label="open">
           <Icon name="chevron-down" size={16} />
         </BaseCombobox.Trigger>
       </div>
 
       <BaseCombobox.Portal>
-        <BaseCombobox.Positioner sideOffset={4} {...slot('positioner', 'ge-combobox__positioner')}>
-          <BaseCombobox.Popup {...slot('popup', 'ge-combobox__popup')}>
-            <BaseCombobox.Empty {...slot('empty', 'ge-combobox__empty')}>
-              {emptyMessage}
-            </BaseCombobox.Empty>
+        <BaseCombobox.Positioner sideOffset={4} {...slot('positioner', styles.positioner)}>
+          <BaseCombobox.Popup {...slot('popup', styles.popup)}>
+            <BaseCombobox.Empty {...slot('empty', styles.empty)}>{emptyMessage}</BaseCombobox.Empty>
             <BaseCombobox.List {...slot('list')}>
               {(item: ComboboxOption<T>) => (
                 <BaseCombobox.Item
                   key={item.value}
                   value={item}
                   disabled={item.disabled}
-                  {...slot('item', 'ge-combobox__item', { testId: 'combobox-item' })}
+                  {...slot('item', styles.item, { testId: 'combobox-item' })}
                   data-value={item.value}
                 >
-                  <BaseCombobox.ItemIndicator {...slot('indicator', 'ge-combobox__indicator')}>
+                  <BaseCombobox.ItemIndicator {...slot('indicator', styles.indicator)}>
                     <Icon name="check" size={14} />
                   </BaseCombobox.ItemIndicator>
-                  <span {...slot('itemText', 'ge-combobox__item-text')}>
+                  <span {...slot('itemText', styles.itemText)}>
                     <span>{item.label}</span>
                     {item.description && (
-                      <span {...slot('itemDescription', 'ge-combobox__item-description')}>
+                      <span {...slot('itemDescription', styles.itemDescription)}>
                         {item.description}
                       </span>
                     )}

@@ -42,4 +42,9 @@ describe('Select', () => {
     render(<Select options={options} invalid aria-label="狀態" />);
     expect(screen.getByRole('combobox', { name: '狀態' })).toHaveAttribute('aria-invalid', 'true');
   });
+
+  it('尺寸以 data-size 屬性表現在觸發按鈕上', () => {
+    render(<Select options={options} size="sm" aria-label="狀態" />);
+    expect(screen.getByRole('combobox', { name: '狀態' })).toHaveAttribute('data-size', 'sm');
+  });
 });

@@ -9,7 +9,7 @@ import { Skeleton } from '../Skeleton';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Table.css';
+import styles from './Table.module.css';
 
 /** `className` 落在最外層容器；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
 export type TableSlot =
@@ -56,11 +56,11 @@ export function Table<TData>({
   onSortingChange,
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: TableProps<TData>) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   const table = useReactTable({
     data,
     columns,
@@ -86,9 +86,9 @@ export function Table<TData>({
   };
 
   return (
-    <div className={cn('ge-table__wrapper', className)} {...rest}>
-      <table {...slot('table', 'ge-table')} aria-busy={loading || undefined}>
-        <thead {...slot('head', 'ge-table__head')}>
+    <div className={cn(styles.root, className)} {...rest}>
+      <table {...slot('table', styles.table)} aria-busy={loading || undefined}>
+        <thead {...slot('head', styles.head)}>
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id} {...slot('headerRow')}>
               {headerGroup.headers.map((header) => {
@@ -97,9 +97,10 @@ export function Table<TData>({
                 return (
                   <th
                     key={header.id}
-                    {...slot('headerCell', ['ge-table__th', sortable && 'ge-table__th--sortable'], {
+                    {...slot('headerCell', styles.headerCell, {
                       style: { width: header.getSize() === 150 ? undefined : header.getSize() },
                     })}
+                    data-sortable={sortable ? true : undefined}
                     aria-sort={
                       active
                         ? sorting?.sortOrder === 'asc'
@@ -121,7 +122,7 @@ export function Table<TData>({
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
                     {active && (
-                      <span {...slot('sortIndicator', 'ge-table__sort')}>
+                      <span {...slot('sortIndicator', styles.sortIndicator)}>
                         {sorting?.sortOrder === 'asc' ? '▲' : '▼'}
                       </span>
                     )}
@@ -137,14 +138,14 @@ export function Table<TData>({
             Array.from({ length: 5 }, (_, index) => (
               <tr
                 key={`skeleton-${index}`}
-                className={cn('ge-table__row', classNames?.row)}
-                style={styles?.row}
+                className={cn(styles.row, classNames?.row)}
+                style={styleOverrides?.row}
               >
                 {columns.map((_column, columnIndex) => (
                   <td
                     key={`skeleton-cell-${columnIndex}`}
-                    className={cn('ge-table__td', classNames?.cell)}
-                    style={styles?.cell}
+                    className={cn(styles.cell, classNames?.cell)}
+                    style={styleOverrides?.cell}
                   >
                     <Skeleton height={14} />
                   </td>
@@ -156,19 +157,14 @@ export function Table<TData>({
             table.getRowModel().rows.map((row) => (
               <tr
                 key={row.id}
-                {...slot(
-                  'row',
-                  ['ge-table__row', row.getIsSelected() && 'ge-table__row--selected'],
-                  {
-                    testId: 'table-row',
-                  },
-                )}
+                {...slot('row', styles.row, { testId: 'table-row' })}
                 data-value={row.id}
+                data-selected={row.getIsSelected() || undefined}
                 onClick={() => handleRowClick(row)}
                 onDoubleClick={() => onRowDoubleClick?.(row.original)}
               >
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} {...slot('cell', 'ge-table__td')}>
+                  <td key={cell.id} {...slot('cell', styles.cell)}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}

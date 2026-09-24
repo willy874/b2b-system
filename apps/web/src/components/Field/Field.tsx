@@ -6,7 +6,7 @@ import { cn } from '@/shared/utils';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './Field.css';
+import styles from './Field.module.css';
 
 /** `className` 落在根元素；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
 export type FieldSlot = 'label' | 'required' | 'description' | 'error';
@@ -35,24 +35,24 @@ export function Field({
   className,
   children,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: FieldProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
     <BaseField.Root
       name={name}
-      className={cn('ge-field', className)}
+      className={cn(styles.root, className)}
       invalid={error ? true : undefined}
       validationMode="onSubmit"
       {...rest}
     >
       {label && (
-        <BaseField.Label {...slot('label', 'ge-field__label')}>
+        <BaseField.Label {...slot('label', styles.label)}>
           {label}
           {required && (
-            <span {...slot('required', 'ge-field__required')} aria-hidden="true">
+            <span {...slot('required', styles.required)} aria-hidden="true">
               *
             </span>
           )}
@@ -60,18 +60,18 @@ export function Field({
       )}
       {children}
       {description && !error && (
-        <BaseField.Description {...slot('description', 'ge-field__description')}>
+        <BaseField.Description {...slot('description', styles.description)}>
           {description}
         </BaseField.Description>
       )}
       {/* 明確傳入的錯誤（例如 TanStack Form 的欄位驗證） */}
       {error && (
-        <BaseField.Error match {...slot('error', 'ge-field__error')}>
+        <BaseField.Error match {...slot('error', styles.error)}>
           {error}
         </BaseField.Error>
       )}
       {/* 沒有明確錯誤時，顯示 Form 從後端帶進來的欄位錯誤 */}
-      {!error && <BaseField.Error {...slot('error', 'ge-field__error')} />}
+      {!error && <BaseField.Error {...slot('error', styles.error)} />}
     </BaseField.Root>
   );
 }

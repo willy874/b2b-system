@@ -85,7 +85,7 @@ components/Button/
 ├── Button.tsx          主元件
 ├── IconButton.tsx      變體
 ├── Link.tsx            以 <a> / TanStack Link 渲染的變體
-├── Button.css          該元件的樣式（用 component 層 token）
+├── Button.module.css   該元件的樣式（CSS Module，用 component 層 token）
 ├── Button.test.tsx
 └── index.ts            只匯出公開 API
 ```
@@ -116,7 +116,9 @@ components/Button/
   並在註解標明頂層 `className` / `data-testid` 落在哪一層（不一定是最外層，例如 `Select` 落在觸發按鈕）。
 - 頂層 `data-testid` 落到的那一層，頂層值優先於 `testIds` 的同名鍵。
 - 實作一律用 `components/slots.ts` 的 `createSlots()`：
-  `<div {...slot('body', 'ge-dialog__body')}>`；攤開後不再另寫 `className` / `style` / `data-testid`。
+  `<div {...slot('body', styles.body)}>`；攤開後不再另寫 `className` / `style` / `data-testid`。
+- `styles` prop 與 `import styles from './Xxx.module.css'` 同名：一律在解構時改名為
+  `styles: styleOverrides`，再傳 `createSlots({ classNames, styles: styleOverrides, testIds })`。
 - 被當成內層的設計系統元件（`Icon`、`Popover`、`Select`、`Empty`、`Calendar`）因此也接受 `style`。
 - 只有單層的元件（`Button`、`Chip`、`Input` …）不開這三個參數。
 
@@ -138,7 +140,7 @@ Base UI 的 Dialog 是複合元件（`Root` / `Trigger` / `Portal` / `Backdrop` 
 // components/Dialog/Dialog.tsx
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import { cn } from "@/shared/utils";
-import "./Dialog.css";
+import styles from "./Dialog.module.css";
 
 export interface DialogProps {
   open?: boolean;
@@ -176,21 +178,22 @@ export function Dialog({
       dismissible={dismissible}
     >
       <BaseDialog.Portal>
-        <BaseDialog.Backdrop className="ge-dialog__backdrop" />
+        <BaseDialog.Backdrop className={styles.backdrop} />
         <BaseDialog.Popup
-          className={cn("ge-dialog__popup", `ge-dialog__popup--${size}`, className)}
+          className={cn(styles.popup, className)}
+          data-size={size}
           {...rest}
         >
-          <header className="ge-dialog__header">
-            <BaseDialog.Title className="ge-dialog__title">{title}</BaseDialog.Title>
+          <header className={styles.header}>
+            <BaseDialog.Title className={styles.title}>{title}</BaseDialog.Title>
             {description && (
-              <BaseDialog.Description className="ge-dialog__description">
+              <BaseDialog.Description className={styles.description}>
                 {description}
               </BaseDialog.Description>
             )}
           </header>
-          <div className="ge-dialog__body">{children}</div>
-          {footer && <footer className="ge-dialog__footer">{footer}</footer>}
+          <div className={styles.body}>{children}</div>
+          {footer && <footer className={styles.footer}>{footer}</footer>}
         </BaseDialog.Popup>
       </BaseDialog.Portal>
     </BaseDialog.Root>
@@ -210,25 +213,68 @@ Base UI 用 `data-*` 屬性暴露狀態，樣式直接掛在上面，不需要�
 className：
 
 ```css
-.ge-button[data-disabled] {
+/* Button.module.css */
+.root[data-disabled] {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.ge-select-item[data-highlighted] {
+/* Select.module.css */
+.item[data-highlighted] {
   background: var(--ge-color-surface-hover);
 }
-.ge-select-item[data-selected] {
+.item[data-selected] {
   font-weight: 600;
 }
-.ge-dialog__popup[data-open] {
-  animation: ge-dialog-in 160ms ease-out;
+/* Dialog.module.css */
+.popup[data-open] {
+  animation: dialog-in 160ms ease-out;
 }
-.ge-dialog__popup[data-closed] {
-  animation: ge-dialog-out 120ms ease-in;
+.popup[data-closed] {
+  animation: dialog-out 120ms ease-in;
 }
 ```
 
-### 3.4 `render` prop — 換底層元素
+我們自己的變體（`variant`、`size`、`tone`、`block` …）也用同一套寫法：元件把 prop 寫成
+`data-variant={variant}`、`data-block={block || undefined}`，CSS 選 `.root[data-variant='primary']`、
+`.root[data-block]`，不再維護「prop → modifier class」的對照表。
+
+### 3.4 樣式檔：CSS Module ＋ `@layer`
+
+每個元件的樣式是同資料夾的 `Xxx.module.css`（🔒 `design-system.test.ts` 擋下非 module 的 `.css`）：
+
+```css
+/* Button.module.css */
+@layer components {
+  .root { … }
+  .root[data-variant='primary'] { … }
+  .icon { … }
+}
+```
+
+```tsx
+import styles from './Button.module.css';
+
+<button className={cn(styles.root, className)} data-variant={variant} data-size={size} />
+```
+
+| 約定 | 說明 |
+| --- | --- |
+| class 名稱 | 模組內的短名：根元素 `.root`，其餘以該層的角色命名（`.title`、`.popup`、`.itemText`），不再寫 `ge-` 前綴與 BEM |
+| 變體 | 用 `data-*` 屬性（§3.3），不用 modifier class；測試也斷言屬性，不斷言 class |
+| 產出的 class | 開發時 `ge-[檔名]__[本地名]__[hash]`，正式建置 `ge-[hash]`（`vite.config.ts` 的 `css.modules`）；Vitest 產生 `_本地名_hash` 這種穩定名稱 |
+| keyframes | 寫在模組裡，名稱會自動加上作用域，不會和其他元件撞名 |
+| 外部覆寫 | 呼叫端只能透過 `className` / `classNames` / `styles`，不能選到元件內部的 class（hash 過，也不是公開 API） |
+
+**`@layer` 決定覆寫順序。** `index.html` 的 `<head>` 以內嵌 `<style>` 宣告
+`@layer reset, base, components, utilities;`：
+
+- 元件模組、`app/` 與 `core/` 的版面 CSS 都包在 `@layer components`。
+- UnoCSS 以 `outputToCssLayers` 輸出到 `utilities`，排在元件之後，
+  所以 `classNames={{ body: 'grid gap-4' }}` 這類工具類 **一定** 蓋得過元件預設值，與選擇器權重、CSS 載入順序無關。
+- 順序宣告必須是頁面上第一個出現的 `@layer`，所以放在 `index.html`，不放在任何 CSS 檔：
+  正式建置時 CSS 會被拆成多個 chunk，`<link>` 的先後不保證與 import 順序相同（例如 `Toast` 的 CSS 會排在 `index.css` 之前）。
+
+### 3.5 `render` prop — 換底層元素
 
 Base UI 每個 part 都支援 `render` 來改變實際渲染的元素，讓我們能把
 TanStack Router 的 `Link` 塞進 Menu item 而不失去鍵盤行為：
@@ -319,6 +365,9 @@ UnoCSS 負責 **排版**（flex、grid、間距、尺寸），**不負責顏色*
 ```
 
 `uno.config.ts` 裡把顏色相關的工具類 **關掉**，讓錯誤用法無法通過建置。
+
+UnoCSS 的輸出放在 `utilities` 層，排在元件的 `components` 層之後（§3.4），
+所以傳進元件的工具類不必加 `!` 就能覆寫元件預設值。
 
 ---
 

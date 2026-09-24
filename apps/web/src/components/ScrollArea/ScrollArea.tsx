@@ -6,7 +6,7 @@ import { cn } from '@/shared/utils';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
-import './ScrollArea.css';
+import styles from './ScrollArea.module.css';
 
 /** `className` 落在根元素；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
 export type ScrollAreaSlot = 'viewport' | 'content' | 'scrollbar' | 'thumb' | 'corner';
@@ -31,41 +31,28 @@ export function ScrollArea({
   className,
   style,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: ScrollAreaProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   return (
-    <BaseScrollArea.Root className={cn('ge-scroll-area', className)} style={style} {...rest}>
-      <BaseScrollArea.Viewport
-        {...slot('viewport', 'ge-scroll-area__viewport', { style: { maxHeight } })}
-      >
+    <BaseScrollArea.Root className={cn(styles.root, className)} style={style} {...rest}>
+      <BaseScrollArea.Viewport {...slot('viewport', styles.viewport, { style: { maxHeight } })}>
         <BaseScrollArea.Content {...slot('content')}>{children}</BaseScrollArea.Content>
       </BaseScrollArea.Viewport>
 
       {orientation !== 'horizontal' && (
-        <BaseScrollArea.Scrollbar
-          orientation="vertical"
-          {...slot('scrollbar', 'ge-scroll-area__scrollbar')}
-        >
-          <BaseScrollArea.Thumb {...slot('thumb', 'ge-scroll-area__thumb')} />
+        <BaseScrollArea.Scrollbar orientation="vertical" {...slot('scrollbar', styles.scrollbar)}>
+          <BaseScrollArea.Thumb {...slot('thumb', styles.thumb)} />
         </BaseScrollArea.Scrollbar>
       )}
       {orientation !== 'vertical' && (
-        <BaseScrollArea.Scrollbar
-          orientation="horizontal"
-          {...slot('scrollbar', [
-            'ge-scroll-area__scrollbar',
-            'ge-scroll-area__scrollbar--horizontal',
-          ])}
-        >
-          <BaseScrollArea.Thumb {...slot('thumb', 'ge-scroll-area__thumb')} />
+        <BaseScrollArea.Scrollbar orientation="horizontal" {...slot('scrollbar', styles.scrollbar)}>
+          <BaseScrollArea.Thumb {...slot('thumb', styles.thumb)} />
         </BaseScrollArea.Scrollbar>
       )}
-      {orientation === 'both' && (
-        <BaseScrollArea.Corner {...slot('corner', 'ge-scroll-area__corner')} />
-      )}
+      {orientation === 'both' && <BaseScrollArea.Corner {...slot('corner', styles.corner)} />}
     </BaseScrollArea.Root>
   );
 }

@@ -1,0 +1,97 @@
+/*
+ * 變體與尺寸掛在 data-* 屬性上（data-variant / data-size / data-block），
+ * 與 Base UI 的狀態屬性（data-disabled）同一套寫法；測試也用屬性斷言，不依賴 hash 後的 class。
+ */
+@layer components {
+  .root {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--seed-space-2);
+    height: var(--button-height-md);
+    padding: 0 var(--button-padding-x-md);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    font: inherit;
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      color 120ms ease;
+    white-space: nowrap;
+  }
+
+  .root:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+
+  .root[data-disabled],
+  .root:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .root[data-variant='primary'] {
+    background: var(--color-brand);
+    color: var(--color-brand-fg);
+  }
+  .root[data-variant='primary']:not(:disabled):hover {
+    background: var(--color-brand-hover);
+  }
+
+  .root[data-variant='secondary'] {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+    color: var(--color-fg);
+  }
+  .root[data-variant='secondary']:not(:disabled):hover {
+    background: var(--color-bg);
+  }
+
+  .root[data-variant='ghost'] {
+    background: transparent;
+    color: var(--color-fg);
+  }
+  .root[data-variant='ghost']:not(:disabled):hover {
+    background: var(--color-bg);
+  }
+
+  .root[data-variant='danger'] {
+    background: var(--color-danger);
+    color: var(--color-brand-fg);
+  }
+  .root[data-variant='danger']:not(:disabled):hover {
+    filter: brightness(0.94);
+  }
+
+  .root[data-size='sm'] {
+    height: 1.75rem;
+    padding: 0 var(--seed-space-3);
+    font-size: 0.8125rem;
+  }
+  .root[data-size='lg'] {
+    height: 2.75rem;
+    padding: 0 var(--seed-space-6);
+  }
+
+  .root[data-block] {
+    width: 100%;
+  }
+
+  .icon {
+    width: var(--button-height-md);
+    padding: 0;
+  }
+  .icon[data-size='sm'] {
+    width: 1.75rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .root {
+      transition: none;
+    }
+  }
+}

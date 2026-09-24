@@ -1,0 +1,61 @@
+@layer components {
+  .root {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: var(--seed-space-2);
+  }
+
+  .root[data-labeled] {
+    cursor: pointer;
+  }
+
+  .control {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    margin-top: 2px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-brand-fg);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .control[data-checked],
+  .control[data-indeterminate] {
+    background: var(--color-brand);
+    border-color: var(--color-brand);
+  }
+
+  .control[data-disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .control:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+
+  .indicator {
+    font-size: 0.6875rem;
+    line-height: 1;
+  }
+
+  .text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .label {
+    font-size: 0.875rem;
+  }
+
+  .description {
+    font-size: 0.75rem;
+    color: var(--color-fg-muted);
+  }
+}

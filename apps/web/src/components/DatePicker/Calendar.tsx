@@ -21,7 +21,7 @@ import {
 } from './calendar-utils';
 import type { DateValue } from './calendar-utils';
 
-import './Calendar.css';
+import styles from './Calendar.module.css';
 
 /** `className` / `style` 落在根元素；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
 export type CalendarSlot =
@@ -68,11 +68,11 @@ export function Calendar({
   labels = { previousMonth: 'previous month', nextMonth: 'next month' },
   className,
   classNames,
-  styles,
+  styles: styleOverrides,
   testIds,
   ...rest
 }: CalendarProps) {
-  const slot = createSlots({ classNames, styles, testIds });
+  const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   const firstSelected = parseDate(selected.find(Boolean) ?? null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fallbackMonth = parseDate(defaultMonth ?? null) ?? dayjs();
@@ -86,7 +86,7 @@ export function Calendar({
     const container = containerRef.current;
     if (!container?.contains(document.activeElement)) return;
     const target = container.querySelector<HTMLButtonElement>(
-      `.ge-calendar__day[data-value="${formatDate(focused)}"]`,
+      `button[data-value="${formatDate(focused)}"]`,
     );
     target?.focus();
   }, [focused]);
@@ -137,8 +137,8 @@ export function Calendar({
   };
 
   return (
-    <div ref={containerRef} className={cn('ge-calendar', className)} {...rest}>
-      <header {...slot('header', 'ge-calendar__header')}>
+    <div ref={containerRef} className={cn(styles.root, className)} {...rest}>
+      <header {...slot('header', styles.header)}>
         <IconButton
           aria-label={labels.previousMonth}
           size="sm"
@@ -147,7 +147,7 @@ export function Calendar({
         >
           <Icon name="chevron-left" size={16} />
         </IconButton>
-        <span {...slot('month', 'ge-calendar__month')} aria-live="polite">
+        <span {...slot('month', styles.month)} aria-live="polite">
           {monthLabel(month, locale)}
         </span>
         <IconButton
@@ -161,16 +161,12 @@ export function Calendar({
       </header>
 
       {/* 用真正的 <table>：語意正確，也不需要手動補 grid/row/gridcell 這些 role */}
-      <table {...slot('grid', 'ge-calendar__grid')}>
-        <caption {...slot('caption', 'ge-calendar__caption')}>{monthLabel(month, locale)}</caption>
+      <table {...slot('grid', styles.grid)}>
+        <caption {...slot('caption', styles.caption)}>{monthLabel(month, locale)}</caption>
         <thead>
-          <tr {...slot('weekdays', 'ge-calendar__weekdays')}>
+          <tr {...slot('weekdays')}>
             {weekdayLabels(locale).map((label, index) => (
-              <th
-                scope="col"
-                key={`${label}-${index}`}
-                {...slot('weekday', 'ge-calendar__weekday')}
-              >
+              <th scope="col" key={`${label}-${index}`} {...slot('weekday', styles.weekday)}>
                 {label}
               </th>
             ))}
@@ -178,27 +174,21 @@ export function Calendar({
         </thead>
         <tbody>
           {grid.map((week) => (
-            <tr {...slot('week', 'ge-calendar__week')} key={week[0]?.format(DATE_FORMAT)}>
+            <tr {...slot('week')} key={week[0]?.format(DATE_FORMAT)}>
               {week.map((day) => {
                 const value = formatDate(day);
                 const isSelected = selected.some((item) => item === value);
                 const disabled = isOutOfRange(day, min ?? null, max ?? null);
                 const outside = !day.isSame(month, 'month');
                 return (
-                  <td key={value} {...slot('cell', 'ge-calendar__cell')}>
+                  <td key={value} {...slot('cell', styles.cell)}>
                     <button
                       type="button"
-                      {...slot(
-                        'day',
-                        [
-                          'ge-calendar__day',
-                          outside && 'ge-calendar__day--outside',
-                          isSelected && 'ge-calendar__day--selected',
-                          isBetween(day, rangeStart, rangeEnd) && 'ge-calendar__day--in-range',
-                          day.isSame(dayjs(), 'day') && 'ge-calendar__day--today',
-                        ],
-                        { testId: 'calendar-day' },
-                      )}
+                      {...slot('day', styles.day, { testId: 'calendar-day' })}
+                      data-outside={outside || undefined}
+                      data-selected={isSelected || undefined}
+                      data-in-range={isBetween(day, rangeStart, rangeEnd) || undefined}
+                      data-today={day.isSame(dayjs(), 'day') || undefined}
                       aria-pressed={isSelected}
                       aria-label={value}
                       disabled={disabled}
