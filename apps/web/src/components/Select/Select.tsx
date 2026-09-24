@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from 'react';
 
 import { cn } from '@/shared/utils';
 
+import { Icon } from '../Icon';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
@@ -79,7 +80,9 @@ export function Select<T extends string = string>({
             options.find((option) => option.value === selected)?.label ?? placeholder ?? ''
           }
         </BaseSelect.Value>
-        <BaseSelect.Icon {...slot('icon', styles.icon)}>▾</BaseSelect.Icon>
+        <BaseSelect.Icon {...slot('icon', styles.icon)}>
+          <Icon name="chevron-down" size={16} />
+        </BaseSelect.Icon>
       </BaseSelect.Trigger>
       <BaseSelect.Portal>
         <BaseSelect.Positioner sideOffset={4} {...slot('positioner', styles.positioner)}>
@@ -93,7 +96,7 @@ export function Select<T extends string = string>({
                 data-value={option.value}
               >
                 <BaseSelect.ItemIndicator {...slot('indicator', styles.indicator)}>
-                  ✓
+                  <Icon name="check" size={14} />
                 </BaseSelect.ItemIndicator>
                 <BaseSelect.ItemText {...slot('itemText')}>{option.label}</BaseSelect.ItemText>
               </BaseSelect.Item>

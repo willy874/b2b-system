@@ -5,7 +5,9 @@
     gap: var(--seed-space-2);
   }
 
+  /* 同 Radio 的 `.option`：讓隱藏 input 以 label 為包含區塊，點 label 時捲軸不會跳。 */
   .root[data-labeled] {
+    contain: layout;
     cursor: pointer;
   }
 
@@ -41,8 +43,7 @@
   }
 
   .indicator {
-    font-size: 0.6875rem;
-    line-height: 1;
+    display: flex;
   }
 
   .text {

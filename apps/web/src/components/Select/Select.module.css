@@ -37,8 +37,13 @@
   }
 
   .icon {
+    display: flex;
     color: var(--color-fg-muted);
-    font-size: 0.75rem;
+    transition: transform 120ms ease;
+  }
+
+  .trigger[data-popup-open] .icon {
+    transform: rotate(180deg);
   }
 
   .positioner {
@@ -80,7 +85,14 @@
   }
 
   .indicator {
+    display: flex;
     width: 1rem;
     color: var(--color-brand);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .icon {
+      transition: none;
+    }
   }
 }

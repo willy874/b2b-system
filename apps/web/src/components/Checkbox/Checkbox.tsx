@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 import { cn } from '@/shared/utils';
 
+import { Icon } from '../Icon';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
@@ -53,7 +54,7 @@ export function Checkbox({
       {...rest}
     >
       <BaseCheckbox.Indicator {...slot('indicator', styles.indicator)}>
-        {indeterminate ? '–' : '✓'}
+        <Icon name={indeterminate ? 'minus' : 'check'} size={14} />
       </BaseCheckbox.Indicator>
     </BaseCheckbox.Root>
   );
