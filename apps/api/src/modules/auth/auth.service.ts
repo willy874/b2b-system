@@ -168,6 +168,9 @@ export class AuthService {
     if (!row) throw new AppException('AUTH_REFRESH_INVALID');
     // 也看整個家族：登出與續期同時提交時，續期新發的那張可能沒被撤銷到
     if (row.revokedAt || (await this.refreshTokens.isFamilyRevoked(row.familyId))) {
+      // 已被用過的 token 再出示就是重用，即使家族已被撤銷：同一張 token 的併發請求裡，
+      // 先失敗的那個已撤銷整條家族，後到的仍要判定為重用（docs/architecture/backend/04-auth.md §2.3）
+      if (await this.wasUsed(row)) return this.rejectReuse(row, meta);
       throw new AppException('AUTH_REFRESH_REVOKED');
     }
     if (row.expiresAt.getTime() < Date.now()) throw new AppException('AUTH_REFRESH_EXPIRED');
@@ -197,10 +200,9 @@ export class AuthService {
     });
 
     if (raw === undefined) {
-      // 沒搶到：看是被撤銷（例：同時登出）還是被另一個請求用掉
-      const latest = await this.refreshTokens.findByHash(row.tokenHash);
-      if (latest?.revokedAt) throw new AppException('AUTH_REFRESH_REVOKED');
-      return this.rejectReuse(row, meta);
+      // 沒搶到：被另一個請求用掉 → 重用；沒被用掉而是被撤銷（例：同時登出）→ 撤銷
+      if (await this.wasUsed(row)) return this.rejectReuse(row, meta);
+      throw new AppException('AUTH_REFRESH_REVOKED');
     }
 
     return {
@@ -208,6 +210,13 @@ export class AuthService {
       refreshToken: raw,
       refreshTtlSeconds: refreshTtl,
     };
+  }
+
+  /** 讀取當下的狀態：`row` 是請求一開始讀到的，併發請求可能已經把它用掉。 */
+  private async wasUsed(row: RefreshTokenRow): Promise<boolean> {
+    if (row.usedAt) return true;
+    const latest = await this.refreshTokens.findByHash(row.tokenHash);
+    return Boolean(latest?.usedAt);
   }
 
   /** 重用偵測：整條家族失效並記錄高嚴重度稽核。 */

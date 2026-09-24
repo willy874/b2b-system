@@ -96,8 +96,10 @@ async refresh(rawToken: string, ctx: RequestContext) {
   const row = await this.tokenRepo.findByHash(hash);
 
   if (!row)                        throw new AppException(ErrorCode.AUTH_REFRESH_INVALID);
-  if (row.revokedAt || await this.tokenRepo.isFamilyRevoked(row.familyId))
+  if (row.revokedAt || await this.tokenRepo.isFamilyRevoked(row.familyId)) {
+    if (await this.wasUsed(row))   return this.rejectReuse(row, ctx); // 用過的 token 再出示＝重用
                                    throw new AppException(ErrorCode.AUTH_REFRESH_REVOKED);
+  }
   if (row.expiresAt < new Date())  throw new AppException(ErrorCode.AUTH_REFRESH_EXPIRED);
   if (row.usedAt)                  return this.rejectReuse(row, ctx); // 撤銷家族 ＋ 稽核 ＋ REUSED
 
@@ -112,9 +114,8 @@ async refresh(rawToken: string, ctx: RequestContext) {
     return next.raw;
   });
   if (raw === undefined) {
-    const latest = await this.tokenRepo.findByHash(row.tokenHash);
-    if (latest?.revokedAt) throw new AppException(ErrorCode.AUTH_REFRESH_REVOKED);
-    return this.rejectReuse(row, ctx);
+    if (await this.wasUsed(row)) return this.rejectReuse(row, ctx);   // 被併發請求用掉
+    throw new AppException(ErrorCode.AUTH_REFRESH_REVOKED);           // 被併發的登出撤銷
   }
   return { accessToken: this.signAccessToken(user), refreshToken: raw };
 }
@@ -126,6 +127,11 @@ async refresh(rawToken: string, ctx: RequestContext) {
 **`markUsed` 必須是條件式 `UPDATE`**：先 `SELECT` 看 `used_at` 再無條件標記的話，
 同一張 token 的兩個併發請求都會通過檢查、各自換發一張，家族分岔成兩條有效的鏈，
 重用偵測完全沒觸發。條件式 `UPDATE` 由列鎖序列化，只有一個搶得到。
+
+**「用過」優先於「已撤銷」**：同一張 token 的併發請求裡，第一個失敗者觸發重用偵測並撤銷整條家族，
+後到的失敗者會看到家族已撤銷。它們出示的仍是一張已被用掉的 token，所以一樣判定為重用（`wasUsed()`
+重新讀取當下的 `used_at`，因為請求一開始讀到的列可能已過時）。沒被用過的 token 碰上撤銷
+（登出後漏網的那張、重用偵測後贏家手上的新 token）才是 `AUTH_REFRESH_REVOKED`。
 
 **為什麼也要看整個家族**：登出的 `revokeFamily` 與一個併發的續期交易同時進行時，
 續期新插入的那一列不在 `UPDATE` 的快照裡，不會被撤銷。撤銷一律以家族（或使用者）
