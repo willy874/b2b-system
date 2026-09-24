@@ -39,7 +39,17 @@ describe('Combobox', () => {
     render(<Combobox options={options} onValueChange={onValueChange} aria-label="角色" />);
     await userEvent.click(screen.getByRole('combobox', { name: '角色' }));
     await userEvent.click(await findItem('admin'));
-    expect(onValueChange).toHaveBeenCalled();
+    expect(onValueChange).toHaveBeenCalledWith('admin');
+  });
+
+  it('value 對應到選項，輸入框顯示該選項的 label', () => {
+    render(<Combobox options={options} value="auditor" aria-label="角色" />);
+    expect(screen.getByRole('combobox', { name: '角色' })).toHaveValue('稽核人員');
+  });
+
+  it('defaultValue 對應到選項，輸入框顯示該選項的 label', () => {
+    render(<Combobox options={options} defaultValue="admin" aria-label="角色" />);
+    expect(screen.getByRole('combobox', { name: '角色' })).toHaveValue('系統管理員');
   });
 
   it('鍵盤可以開啟清單並選取', async () => {

@@ -63,12 +63,18 @@ export function Combobox<T extends string = string>({
   ...rest
 }: ComboboxProps<T>) {
   const slot = createSlots({ classNames, styles: styleOverrides, testIds });
+  // Base UI 的值是 items 裡的選項物件；對外的 props 只用選項的 value 字串，在這裡互轉。
+  // `value === undefined` 維持非受控；受控時 `null` 代表沒有選取。
+  const findOption = (key: T | null | undefined) =>
+    key === undefined ? undefined : (options.find((option) => option.value === key) ?? null);
   return (
     <BaseCombobox.Root
       items={options}
-      value={value ?? undefined}
-      defaultValue={defaultValue ?? undefined}
-      onValueChange={(next: unknown) => onValueChange?.((next ?? null) as T | null)}
+      value={findOption(value)}
+      defaultValue={findOption(defaultValue)}
+      onValueChange={(next: unknown) =>
+        onValueChange?.((next as ComboboxOption<T> | null)?.value ?? null)
+      }
       disabled={disabled}
       itemToStringLabel={(item: unknown) => (item as ComboboxOption).label}
     >

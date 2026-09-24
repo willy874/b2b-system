@@ -1,5 +1,8 @@
 @layer components {
   .root {
+    /* Base UI 的 Switch.Root 渲染成 <span>，不設 display 寬高不會生效 */
+    display: inline-block;
+    flex-shrink: 0;
     position: relative;
     width: 2.25rem;
     height: 1.25rem;
