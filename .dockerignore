@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/dist-types
+**/coverage
+**/*.tsbuildinfo
+.git
+.env
+.claude
+docs
+apps/e2e

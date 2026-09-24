@@ -173,25 +173,64 @@ pnpm dev
 production 由反向代理負責同源。這讓 refresh token cookie 可以是同源的
 `httpOnly` cookie，不需要 CORS credentials 的複雜度。
 
-### 4.2 Production
+### 4.2 Production（`docker-compose.prod.yml`）
 
 ```
-                   ┌──────────────┐
-  Internet ───────▶│  Nginx / LB  │
-                   └──────┬───────┘
-                          │ 同一個 origin
-            ┌─────────────┴─────────────┐
-            │                           │
-     /  → 靜態檔                   /api/* → apps/api
-     (apps/web 的 dist)            (Node 程序 / 容器)
-                                         │
-                                         ▼
-                                   PostgreSQL
+                         ┌──────────────────────────────┐
+  Internet ─────────────▶│ web（nginx）  :8080 → 80     │  network: edge
+                         │  /               → 靜態檔     │
+                         │  /api/socket.io/ → api（Upgrade）│
+                         │  /api/*          → api（去掉前綴）│
+                         └──────────────┬───────────────┘
+                                        │ edge
+                         ┌──────────────▼───────────────┐
+                         │ api（NestJS）  :3000          │  networks: edge, data
+                         │  REST ＋ Socket.io gateway    │
+                         └──────────────┬───────────────┘
+                                        │ data
+  migrate（一次性）─────────────────────┤
+   migration ＋ 冪等 seed               │
+                         ┌──────────────▼───────────────┐
+                         │ postgres 17  （volume）       │  network: data
+                         └──────────────────────────────┘
 ```
+
+| 服務       | 映像                          | 角色                                                 | 啟動條件                        |
+| ---------- | ----------------------------- | ---------------------------------------------------- | ------------------------------- |
+| `postgres` | `postgres:17-alpine`          | 唯一的狀態儲存                                       | —                               |
+| `migrate`  | `game-editor-api`（同 api）   | `migrate.js` ＋ `seeds/index.js`，跑完即結束         | postgres healthy                |
+| `api`      | `game-editor-api`             | REST、Socket.io、權限快取                            | migrate **成功結束**            |
+| `web`      | `apps/web/Dockerfile`（nginx）| 靜態檔、反向代理、安全標頭                 | api healthy                     |
 
 - 前端是純靜態產物，SPA fallback 到 `index.html`。
-- `/api/*` 反向代理去掉前綴後轉給 NestJS。
-- CSP：`default-src 'self'`，不允許 inline script（Vite build 產物符合）。
+- `/api/*` 反向代理去掉前綴後轉給 NestJS；`/api/socket.io/` 另一段 location 帶 `Upgrade` header，
+  `proxy_read_timeout` 大於 Socket.io 心跳間隔。
+- **網路分兩段**：`web` 只在 `edge`，碰不到 `postgres`；`migrate` 只在 `data`。
+- `migrate` 與 `api` 共用映像：部署時 schema 一定先於新版程式就位，api 不在啟動時自己跑 migration
+  （多執行個體時會互搶）。
+- CSP：`default-src 'self'`，不允許 inline script（Vite build 產物符合）；`connect-src 'self'` 同時涵蓋同源的 `wss:`。
+- TLS 由前面的 LB / ingress 終結；`PUBLIC_ORIGIN` 設成瀏覽器看到的 origin，作為 Socket.io 的 Origin 白名單。
+- api 設 `TRUST_PROXY=uniquelocal`：只信任私有網段（nginx）帶來的 `X-Forwarded-For`，
+  HTTP 與 WebSocket 的每 IP 限流才看得到真實客戶端；外部自帶的標頭無法偽造 IP。
+
+### 4.3 為什麼不拆成更多服務，以及何時要拆
+
+Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service 互動，將來要拆有清楚的邊界，
+但現在拆只會多出網路呼叫與分散式交易。必須存在的服務只有上表四個。
+
+| 想拆出來的東西            | 現在不拆的理由                                                               | 拆的前提                                                                 |
+| ------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Socket.io 獨立成 realtime 服務 | 推播必須在寫入交易之後、由同一個 service 觸發；拆開就要一條可靠的事件匯流排 | 有了 outbox 或 `LISTEN/NOTIFY` 事件流；連線數大到影響 REST 的延遲        |
+| auth 獨立服務             | 每個請求都要驗 token 與權限；拆開就是每個請求多一跳                          | 有第二個需要同一套帳號的產品                                             |
+| Redis                     | 快取與 room 都在單一程序的記憶體裡就夠                                       | 見下一段；Postgres `LISTEN/NOTIFY` 能滿足時仍不需要                      |
+
+**api 水平擴展（`replicas > 1`）要同時具備三件事**，缺一就會出錯，所以 compose 目前固定單一執行個體：
+
+1. Socket.io 跨節點廣播：`@socket.io/postgres-adapter`（[`backend/08-realtime.md`](./backend/08-realtime.md) §10.3）。
+2. 權限／使用者快取跨節點失效：同一條 `LISTEN/NOTIFY`（[`backend/05-rbac.md`](./backend/05-rbac.md) §5.2）。
+   否則某節點上被拿掉權限的人，最多還能用 60 秒。
+3. nginx 的 upstream 要能看到每個執行個體（`resolver 127.0.0.11` ＋ 變數化的 `proxy_pass`，或改用 LB）；
+   Socket.io 只用 websocket 傳輸，**不需要** sticky session。
 
 ---
 

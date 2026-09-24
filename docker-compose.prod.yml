@@ -1,4 +1,7 @@
-# 生產拓撲的最小可執行範例：nginx（靜態檔 ＋ /api 反向代理）→ api → postgres
+# 生產拓撲（docs/architecture/01-system.md §4.2）：
+#   web（nginx：靜態檔 ＋ /api、/api/socket.io 反向代理）→ api（REST ＋ Socket.io）→ postgres
+#   migrate 是一次性工作：migration ＋ 冪等 seed 跑完才啟動 api。
+# 網路切兩段：web 碰不到 postgres。
 services:
   postgres:
     image: postgres:17-alpine
@@ -9,16 +12,35 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-game_editor}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    networks: [data]
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-gameeditor}']
+      test:
+        ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-gameeditor} -d ${POSTGRES_DB:-game_editor}']
       interval: 10s
       timeout: 5s
       retries: 10
 
-  api:
+  migrate:
+    image: game-editor-api
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+    restart: 'no'
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-gameeditor}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-game_editor}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
+    # seed 是冪等的（權限目錄 upsert、系統角色已存在就略過），每次部署都跑
+    command: ['sh', '-c', 'node dist/src/db/migrate.js && node dist/src/db/seeds/index.js']
+    networks: [data]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    # 與 migrate 共用同一個映像（由 migrate 的 build 產生），不另外 build 也不 pull
+    image: game-editor-api
+    pull_policy: never
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -26,9 +48,15 @@ services:
       JWT_SECRET: ${JWT_SECRET:?required}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
       REFRESH_COOKIE_PATH: /api/auth
+      # nginx 在同一個 docker 網路（私有網段）：信任它帶的 X-Forwarded-For，限流才看得到真實 IP
+      TRUST_PROXY: uniquelocal
+      # 瀏覽器看到的 origin；Socket.io handshake 的 Origin 檢查（backend/08-realtime.md §11）
+      REALTIME_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost:8080}
+    networks: [edge, data]
+    # 單一執行個體：權限快取與 Socket.io room 都在記憶體。擴展前提見 01-system.md §4.3
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   web:
     build:
@@ -37,8 +65,14 @@ services:
     restart: unless-stopped
     ports:
       - '8080:80'
+    networks: [edge]
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+
+networks:
+  edge:
+  data:
 
 volumes:
   postgres-data:
