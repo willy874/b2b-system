@@ -25,14 +25,32 @@
     border-bottom: 1px solid var(--color-border);
   }
 
-  .headerCell[data-sortable] {
+  .sortButton {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--seed-space-1);
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: inherit;
+    font: inherit;
     cursor: pointer;
     user-select: none;
   }
 
-  .sortIndicator {
-    margin-inline-start: var(--seed-space-1);
-    font-size: 0.625rem;
+  .sortButton:hover {
+    color: var(--color-fg);
+  }
+
+  .sortButton:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+
+  /* 圖示本身朝下（降冪）；升冪轉 180 度 */
+  .sortButton[data-order='asc'] .sortIndicator {
+    transform: rotate(180deg);
   }
 
   .row {

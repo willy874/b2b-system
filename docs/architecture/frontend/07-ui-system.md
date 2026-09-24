@@ -413,22 +413,27 @@ Base UI 已處理焦點陷阱、roving tabindex、ARIA 角色與鍵盤互動。�
 
 ```
 components/Table/
-├── Table.tsx             版面外殼 ＋ TanStack Table 整合
-├── TableHeader.tsx       排序、欄寬拖曳
-├── TableBody.tsx         虛擬捲動（列數 > 100 時啟用）
+├── Table.tsx             版面外殼 ＋ TanStack Table 整合（排序、分頁都交給伺服器）
+├── TableHeader.tsx       表頭；可排序欄位以 <button> 承接點擊（鍵盤可操作）、aria-sort
 ├── TableRow.tsx          選取、hover、單擊/雙擊行為
-├── TableEmpty.tsx
-├── TableSkeleton.tsx
-├── useTableSelection.ts  跨頁保留的選取狀態
+├── TableSkeleton.tsx     載入中的骨架列（不帶 table-row testid）
+├── sorting.ts            TableSorting 型別、nextSortOrder()、aria-sort 對照
+├── slots.ts              TableSlot
 └── index.ts
 ```
+
+尚未實作（需要時再加）：`TableBody` 虛擬捲動（列數 > 100 時啟用）、欄寬拖曳、
+`useTableSelection`（跨頁保留的選取狀態）。
+
+欄寬：只有宣告了 `size` 的欄位會在 `<th>` 設定寬度，其餘交給瀏覽器分配。
 
 固定的互動行為（這組行為已在實際的管理後台使用者身上驗證過）：
 
 - 尚未進入選取模式時，單擊列身 **不做任何事**
 - 已勾選至少一列後，單擊列身 **切換該列選取**
 - 雙擊任一列 **開啟詳情**
-- 點擊列內的按鈕或勾選框 **只觸發該元件**（`stopPropagation`）
+- 點擊列內的按鈕、連結或勾選框 **只觸發該元件**——`TableRow` 會略過來自互動元素的點擊，
+  呼叫端不必各自 `stopPropagation`
 
 ---
 

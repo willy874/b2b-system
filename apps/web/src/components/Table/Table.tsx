@@ -1,27 +1,19 @@
-import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import type { ColumnDef, Row, RowSelectionState, Updater } from '@tanstack/react-table';
+import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { ColumnDef, RowSelectionState, Updater } from '@tanstack/react-table';
 import type { ReactNode, Ref } from 'react';
 
 import { cn } from '@/shared/utils';
 
 import { Empty } from '../Empty';
-import { Skeleton } from '../Skeleton';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
+import type { TableSlot } from './slots';
+import type { TableSortOrder, TableSorting } from './sorting';
+import { TableHeader } from './TableHeader';
+import { TableRow } from './TableRow';
+import { TableSkeleton } from './TableSkeleton';
 
 import styles from './Table.module.css';
-
-/** `className` 落在最外層容器；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
-export type TableSlot =
-  | 'table'
-  | 'head'
-  | 'headerRow'
-  | 'headerCell'
-  | 'sortIndicator'
-  | 'body'
-  | 'row'
-  | 'cell'
-  | 'empty';
 
 export interface TableProps<TData> extends SlotOverrides<TableSlot> {
   /** 透傳到根元素（React 19 的 ref 是一般 prop）。 */
@@ -36,12 +28,22 @@ export interface TableProps<TData> extends SlotOverrides<TableSlot> {
   rowSelection?: RowSelectionState;
   onRowSelectionChange?: (selection: RowSelectionState) => void;
   onRowDoubleClick?: (row: TData) => void;
-  sorting?: { sortBy: string; sortOrder: 'asc' | 'desc' };
-  onSortingChange?: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
+  sorting?: TableSorting;
+  /** 提供時，除了 `enableSorting: false` 的欄位，其餘表頭都可點擊排序。 */
+  onSortingChange?: (sortBy: string, sortOrder: TableSortOrder) => void;
   className?: string;
   'data-testid'?: string;
 }
 
+const EMPTY_SELECTION: RowSelectionState = {};
+
+/** TanStack 會把預設寬度（150）併進每個 columnDef；清掉它，TableHeader 才分得出「沒宣告 size」。 */
+const DEFAULT_COLUMN = { size: undefined };
+
+/**
+ * 資料表格：TanStack Table 負責欄位模型，排序、分頁都交給伺服器（只回報使用者的操作）。
+ * 各層的實作拆在 `TableHeader`（排序）、`TableRow`（點擊與選取）、`TableSkeleton`（載入中）。
+ */
 export function Table<TData>({
   data,
   columns,
@@ -49,7 +51,7 @@ export function Table<TData>({
   loading,
   emptyTitle = '沒有資料',
   emptyDescription,
-  rowSelection,
+  rowSelection = EMPTY_SELECTION,
   onRowSelectionChange,
   onRowDoubleClick,
   sorting,
@@ -64,112 +66,46 @@ export function Table<TData>({
   const table = useReactTable({
     data,
     columns,
+    defaultColumn: DEFAULT_COLUMN,
     getCoreRowModel: getCoreRowModel(),
-    getRowId: getRowId ? (row) => getRowId(row) : undefined,
-    state: { rowSelection: rowSelection ?? {} },
+    getRowId,
+    state: { rowSelection },
     enableRowSelection: Boolean(onRowSelectionChange),
     onRowSelectionChange: (updater: Updater<RowSelectionState>) => {
-      if (!onRowSelectionChange) return;
-      const next = typeof updater === 'function' ? updater(rowSelection ?? {}) : updater;
-      onRowSelectionChange(next);
+      onRowSelectionChange?.(typeof updater === 'function' ? updater(rowSelection) : updater);
     },
     manualPagination: true,
     manualSorting: true,
   });
 
-  const selectionMode = Object.values(rowSelection ?? {}).some(Boolean);
-
-  const handleRowClick = (row: Row<TData>) => {
-    // 尚未進入選取模式時，單擊列身不做任何事
-    if (!selectionMode || !onRowSelectionChange) return;
-    row.toggleSelected();
-  };
+  // 尚未勾選任何一列時，單擊列身不做任何事
+  const selectable = Boolean(onRowSelectionChange) && Object.values(rowSelection).some(Boolean);
 
   return (
     <div className={cn(styles.root, className)} {...rest}>
       <table {...slot('table', styles.table)} aria-busy={loading || undefined}>
-        <thead {...slot('head', styles.head)}>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id} {...slot('headerRow')}>
-              {headerGroup.headers.map((header) => {
-                const sortable = header.column.columnDef.enableSorting !== false && onSortingChange;
-                const active = sorting?.sortBy === header.column.id;
-                return (
-                  <th
-                    key={header.id}
-                    {...slot('headerCell', styles.headerCell, {
-                      style: { width: header.getSize() === 150 ? undefined : header.getSize() },
-                    })}
-                    data-sortable={sortable ? true : undefined}
-                    aria-sort={
-                      active
-                        ? sorting?.sortOrder === 'asc'
-                          ? 'ascending'
-                          : 'descending'
-                        : undefined
-                    }
-                    onClick={
-                      sortable
-                        ? () =>
-                            onSortingChange(
-                              header.column.id,
-                              active && sorting?.sortOrder === 'asc' ? 'desc' : 'asc',
-                            )
-                        : undefined
-                    }
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                    {active && (
-                      <span {...slot('sortIndicator', styles.sortIndicator)}>
-                        {sorting?.sortOrder === 'asc' ? '▲' : '▼'}
-                      </span>
-                    )}
-                  </th>
-                );
-              })}
-            </tr>
-          ))}
-        </thead>
+        <TableHeader
+          headerGroups={table.getHeaderGroups()}
+          sorting={sorting}
+          onSortingChange={onSortingChange}
+          slot={slot}
+        />
         <tbody {...slot('body')}>
-          {/* 骨架列只套 class 與 style，不帶 testid：E2E 數 table-row 時不能把它算進去 */}
-          {loading &&
-            Array.from({ length: 5 }, (_, index) => (
-              <tr
-                key={`skeleton-${index}`}
-                className={cn(styles.row, classNames?.row)}
-                style={styleOverrides?.row}
-              >
-                {columns.map((_column, columnIndex) => (
-                  <td
-                    key={`skeleton-cell-${columnIndex}`}
-                    className={cn(styles.cell, classNames?.cell)}
-                    style={styleOverrides?.cell}
-                  >
-                    <Skeleton height={14} />
-                  </td>
-                ))}
-              </tr>
-            ))}
-
-          {!loading &&
-            table.getRowModel().rows.map((row) => (
-              <tr
-                key={row.id}
-                {...slot('row', styles.row, { testId: 'table-row' })}
-                data-value={row.id}
-                data-selected={row.getIsSelected() || undefined}
-                onClick={() => handleRowClick(row)}
-                onDoubleClick={() => onRowDoubleClick?.(row.original)}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} {...slot('cell', styles.cell)}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
+          {loading ? (
+            <TableSkeleton columnCount={table.getVisibleLeafColumns().length} slot={slot} />
+          ) : (
+            table
+              .getRowModel()
+              .rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  row={row}
+                  selectable={selectable}
+                  onDoubleClick={onRowDoubleClick}
+                  slot={slot}
+                />
+              ))
+          )}
         </tbody>
       </table>
 
