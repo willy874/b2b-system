@@ -1,7 +1,9 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Paragraph, Text, Title, Typography } from './index';
+import { getNodeText } from './useCopyable';
 
 describe('Typography', () => {
   it('pageTitle 預設渲染成 h1', () => {
@@ -92,5 +94,117 @@ describe('Paragraph', () => {
     const text = screen.getByTestId('text');
     expect(text.tagName).toBe('P');
     expect(text).toHaveAttribute('data-variant', 'caption');
+  });
+});
+
+describe('copyable', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('沒開 copyable 時不渲染複製按鈕', () => {
+    render(<Text>abc</Text>);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('點擊後把 children 的純文字寫入剪貼簿，並切換成「已複製」', async () => {
+    const user = userEvent.setup();
+    const onCopy = vi.fn();
+    render(
+      <Paragraph copyable={{ onCopy }}>
+        編號 <strong>A-001</strong>
+      </Paragraph>,
+    );
+
+    await user.click(screen.getByRole('button', { name: '複製' }));
+
+    expect(await navigator.clipboard.readText()).toBe('編號 A-001');
+    expect(onCopy).toHaveBeenCalledWith('編號 A-001');
+    const button = screen.getByRole('button', { name: '已複製' });
+    expect(button).toHaveAttribute('data-copied');
+  });
+
+  it('copyable.text 指定時複製它而不是畫面文字', async () => {
+    const user = userEvent.setup();
+    render(<Text copyable={{ text: 'secret-token' }}>••••</Text>);
+
+    await user.click(screen.getByRole('button', { name: '複製' }));
+
+    expect(await navigator.clipboard.readText()).toBe('secret-token');
+  });
+
+  it('resetAfter 之後回到「複製」', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<Text copyable={{ resetAfter: 1000 }}>abc</Text>);
+
+    await user.click(screen.getByRole('button', { name: '複製' }));
+    expect(screen.getByRole('button', { name: '已複製' })).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(screen.getByRole('button', { name: '複製' })).not.toHaveAttribute('data-copied');
+  });
+
+  it('寫入剪貼簿失敗時呼叫 onError，不切換成「已複製」', async () => {
+    const user = userEvent.setup();
+    const error = new Error('denied');
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(error);
+    const onError = vi.fn();
+    const onCopy = vi.fn();
+    render(<Text copyable={{ onError, onCopy }}>abc</Text>);
+
+    await user.click(screen.getByRole('button', { name: '複製' }));
+
+    expect(onError).toHaveBeenCalledWith(error);
+    expect(onCopy).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '複製' })).not.toHaveAttribute('data-copied');
+  });
+
+  it('文案可覆寫（features/ 以 t() 傳入）', () => {
+    render(
+      <Title copyable={{ copyLabel: 'Copy', copiedLabel: 'Copied' }} level={2}>
+        abc
+      </Title>,
+    );
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+  });
+
+  it('複製按鈕的 className / data-testid 可經由 classNames / testIds 覆寫', () => {
+    render(
+      <Text copyable classNames={{ copy: 'ml-2' }} testIds={{ copy: 'id-copy' }}>
+        abc
+      </Text>,
+    );
+    expect(screen.getByTestId('id-copy')).toHaveClass('ml-2');
+  });
+
+  it('鍵盤可以聚焦並觸發複製', async () => {
+    const user = userEvent.setup();
+    render(<Text copyable>abc</Text>);
+
+    await user.tab();
+    await user.keyboard('{Enter}');
+
+    expect(await navigator.clipboard.readText()).toBe('abc');
+  });
+});
+
+describe('getNodeText', () => {
+  it.each([
+    ['字串', 'abc', 'abc'],
+    ['數字', 42, '42'],
+    ['陣列', ['a', 1, null, false, 'b'], 'a1b'],
+    [
+      '巢狀元素',
+      <span key="x">
+        a<b>b</b>c
+      </span>,
+      'abc',
+    ],
+    ['空值', null, ''],
+  ])('%s', (_label, node, expected) => {
+    expect(getNodeText(node)).toBe(expected);
   });
 });

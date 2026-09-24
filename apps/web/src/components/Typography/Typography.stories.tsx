@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { fn } from 'storybook/test';
 
 import { Paragraph } from './Paragraph';
 import { Text } from './Text';
@@ -21,6 +22,7 @@ const meta = {
       options: ['default', 'muted', 'brand', 'danger', 'success'],
     },
     strong: { control: 'boolean' },
+    copyable: { control: 'boolean' },
   },
 } satisfies Meta<typeof Typography>;
 
@@ -72,6 +74,26 @@ export const SemanticComponents: Story = {
         <Text code>code</Text> 與 <Text size="sm">小字說明</Text>。
       </Paragraph>
       <Paragraph size="sm">小字段落，用於表單或區塊底下的補充說明。</Paragraph>
+    </div>
+  ),
+};
+
+/** 文字後面加一個複製按鈕；點擊後圖示變成勾勾，數秒後復原。 */
+export const Copyable: Story = {
+  render: () => (
+    <div className="flex flex-col items-start gap-2">
+      <Title level={2} copyable>
+        可複製的標題
+      </Title>
+      <Paragraph copyable={{ onCopy: fn() }}>
+        複製整段文字，含 <Text strong>行內元素</Text>。
+      </Paragraph>
+      <Text code copyable={{ text: 'a1b2-c3d4-e5f6' }}>
+        a1b2-••••
+      </Text>
+      <Text copyable={{ copyLabel: 'Copy', copiedLabel: 'Copied', tooltip: false }}>
+        自訂文案、不顯示提示框
+      </Text>
     </div>
   ),
 };

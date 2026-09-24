@@ -59,4 +59,31 @@
   .root[data-tone='success'] {
     color: var(--color-success-text);
   }
+
+  /* copyable 的複製按鈕：跟著文字行內排列，不佔按鈕高度 */
+  .copy {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-inline-start: var(--seed-space-1);
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-fg-muted);
+    font: inherit;
+    line-height: 1;
+    vertical-align: middle;
+    cursor: pointer;
+  }
+  .copy:hover {
+    color: var(--color-brand);
+  }
+  .copy:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+  .copy[data-copied] {
+    color: var(--color-success-text);
+  }
 }

@@ -68,7 +68,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `Chip` / `Badge`                 | 純自製                                               |
 | `FileUpload`                     | 自製（`<input type="file">` ＋ 拖放）                |
 | `TextEllipsis` / `BoxEllipsis` / `ButtonEllipsis` | 自製：CSS 省略號 ＋ `ResizeObserver` 量測；提示框用 `Tooltip`、下拉用 `Menu`（§3.8） |
-| `Typography` / `Title` / `Text` / `Paragraph` | 純自製（§3.9） |
+| `Typography` / `Title` / `Text` / `Paragraph` | 自製；`copyable` 的複製按鈕用 `Tooltip` ＋ `navigator.clipboard`（§3.9） |
 
 > **DatePicker 是最大的一塊自製工作**，排入
 > [`../../overview/03-roadmap.md`](../../overview/03-roadmap.md) 的 M2，已完成：`components/DatePicker/` 底下是
@@ -375,8 +375,20 @@ app/ToastHost ◀──────────┘ eventBus.on(TOAST_SHOW) → t
 | `Text` | `span`（行內） | `size`：`md` / `sm`；`code` | `body` / `caption`；`code` 優先 |
 | `Paragraph` | `p` | `size`：`md` / `sm` | `body` / `caption` |
 
-- 共通參數：`tone`（`default` / `muted` / `brand` / `danger` / `success`）、`strong`、`as`（只換標籤、保留外觀）。
+- 共通參數：`tone`（`default` / `muted` / `brand` / `danger` / `success`）、`strong`、`copyable`、`as`（只換標籤、保留外觀）。
 - 以 `data-variant`、`data-tone`、`data-strong` 表達外觀（§3.3）。
+
+**`copyable`**
+
+- `true` 或 `TypographyCopyableConfig`：`text`（省略時取 children 的純文字）、`copyLabel` / `copiedLabel`、
+  `resetAfter`（預設 3000 ms）、`tooltip`（`false` 只留 `aria-label`）、`onCopy`、`onError`。
+- 文字後面渲染一個行內 `<button>`（圖示 `copy`，成功後換成 `check` 並帶 `data-copied`），
+  `aria-label` 與提示框都是目前的文案；預設 `複製` / `已複製`，`features/` 使用時以 `t()` 傳入。
+- children 的純文字由 `getNodeText()` 攤平：只走字串、數字與元素的 `children`；
+  children 是會自己產生文字的元件（例如 `<Trans>`）時要明確給 `text`。
+- 寫入剪貼簿失敗（權限被拒、非安全環境）不切換成「已複製」，交給 `onError`；元件本身不發 toast（`components/` 不認識 eventBus）。
+- 逐層覆寫（§3.1 規則 6）：`TypographySlot = 'copy'`；頂層 `className` / `data-testid` 落在文字本身，
+  按鈕預設 `data-testid="typography-copy"`。
 
 ---
 

@@ -7,6 +7,7 @@ import ChevronDown from '@/assets/icons/chevron-down.svg?react';
 import ChevronLeft from '@/assets/icons/chevron-left.svg?react';
 import ChevronRight from '@/assets/icons/chevron-right.svg?react';
 import Close from '@/assets/icons/close.svg?react';
+import Copy from '@/assets/icons/copy.svg?react';
 import Edit from '@/assets/icons/edit.svg?react';
 import File from '@/assets/icons/file.svg?react';
 import Filter from '@/assets/icons/filter.svg?react';
@@ -42,6 +43,7 @@ export const ICONS = {
   'chevron-left': ChevronLeft,
   'chevron-right': ChevronRight,
   close: Close,
+  copy: Copy,
   edit: Edit,
   file: File,
   filter: Filter,
