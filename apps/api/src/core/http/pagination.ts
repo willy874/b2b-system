@@ -36,23 +36,24 @@ export interface SortEntry<TField extends string = string> {
 }
 
 /**
- * 查詢字串的 `sort=createdAt:desc&sort=name:asc` → `[{ sort, order }, …]`。
- * 格式不對的值原樣留下，交給後面的 schema 回 400。
+ * 查詢字串的 `sort=-createdAt&sort=name` → `[{ sort: 'createdAt', order: 'desc' }, { sort: 'name', order: 'asc' }]`：
+ * 欄位名前面加 `-` 是降冪，沒加是升冪。欄位名不合法（含 `--name`、`name:asc`）交給後面的 schema 回 400。
  */
 function parseSortTokens(value: unknown): unknown {
   if (value === undefined) return undefined;
   const tokens = Array.isArray(value) ? value : [value];
   return tokens.map((token) => {
     if (typeof token !== 'string') return token;
-    const [sort, order, ...rest] = token.split(':');
-    return rest.length ? token : { sort, order };
+    return token.startsWith('-')
+      ? { sort: token.slice(1), order: 'desc' }
+      : { sort: token, order: 'asc' };
   });
 }
 
 /**
- * 多欄排序（`sort=<欄位>:<asc|desc>`，可重複）。
+ * 多欄排序（`sort=<欄位>` 升冪、`sort=-<欄位>` 降冪，可重複）。
  * 欄位必須是白名單 enum，不接受任意欄位名——那是 SQL injection 的入口，也會讓沒有索引的欄位被拿來排序；
- * 同一欄位不能出現兩次。沒帶時預設 `<fields[0]>:desc`。
+ * 同一欄位不能出現兩次。沒帶時預設 `-<fields[0]>`。
  */
 export const SortSchema = <const T extends readonly [string, ...string[]]>(fields: T) =>
   z.object({

@@ -106,7 +106,7 @@
 | `keyword`   | string        | —           | 模糊比對 email / username / displayName               |
 | `status`    | enum[]        | —           | 可多值                                                |
 | `roleId`    | uuid[]        | —           | 可多值，取聯集                                        |
-| `sort`      | `<欄位>:<asc\|desc>`[] | `createdAt:desc` | 可多值，出現順序即優先順序；欄位為 `createdAt` / `email` / `displayName` / `lastLoginAt`，不可重複（見 [`architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §2.1） |
+| `sort`      | `<欄位>` \| `-<欄位>`[] | `-createdAt` | `-` 前綴為降冪；可多值，出現順序即優先順序；欄位為 `createdAt` / `email` / `displayName` / `lastLoginAt`，不可重複（見 [`architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §2.1） |
 
 **回應**
 

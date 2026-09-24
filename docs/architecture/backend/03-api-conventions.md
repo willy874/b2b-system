@@ -65,10 +65,10 @@ cursor 分頁做不到。資料規模（使用者、角色）也遠不到 offset
 
 ### 2.1 排序
 
-多欄排序：查詢參數 `sort=<欄位>:<asc|desc>` 可重複，**出現順序就是優先順序**。
+多欄排序：查詢參數 `sort=<欄位>`（升冪）或 `sort=-<欄位>`（降冪），可重複，**出現順序就是優先順序**。
 
 ```http
-GET /users?sort=displayName:asc&sort=createdAt:desc
+GET /users?sort=displayName&sort=-createdAt
 ```
 
 ```ts
@@ -76,7 +76,7 @@ GET /users?sort=displayName:asc&sort=createdAt:desc
 export const SortSchema = <const T extends readonly [string, ...string[]]>(fields: T) =>
   z.object({
     sort: z.preprocess(
-      parseSortTokens, // "name:asc" → { sort: "name", order: "asc" }
+      parseSortTokens, // "name" → { sort: "name", order: "asc" }；"-name" → { sort: "name", order: "desc" }
       z
         .array(z.object({ sort: z.enum(fields), order: z.enum(["asc", "desc"]) }))
         .min(1)
@@ -91,7 +91,8 @@ export const SortSchema = <const T extends readonly [string, ...string[]]>(field
 ```
 
 **欄位必須是白名單 enum**，不接受任意欄位名——那是 SQL injection 的入口，
-也會讓沒有索引的欄位被拿來排序。同一欄位出現兩次、格式不是 `<欄位>:<方向>` 都回 400。
+也會讓沒有索引的欄位被拿來排序。同一欄位出現兩次（即使方向不同）、欄位名不在白名單（含舊格式 `name:asc`、`--name`）都回 400。
+前端網址用同一個格式（見 [`frontend/04-routing.md`](../frontend/04-routing.md) §3）。
 
 ---
 

@@ -71,7 +71,7 @@ describe('列表的多欄排序（docs/architecture/backend/03-api-conventions.m
   });
 
   it('依 sort 的出現順序決定優先順序', async () => {
-    const items = await listUsers('sort=displayName:asc&sort=email:desc');
+    const items = await listUsers('sort=displayName&sort=-email');
     expect(items.map((item) => item.email)).toEqual([
       'a2-sort-case@example.com',
       'a1-sort-case@example.com',
@@ -81,7 +81,7 @@ describe('列表的多欄排序（docs/architecture/backend/03-api-conventions.m
   });
 
   it('換個順序，結果跟著變', async () => {
-    const items = await listUsers('sort=displayName:desc&sort=email:asc');
+    const items = await listUsers('sort=-displayName&sort=email');
     expect(items.map((item) => item.email)).toEqual([
       'b1-sort-case@example.com',
       'b2-sort-case@example.com',
@@ -91,9 +91,9 @@ describe('列表的多欄排序（docs/architecture/backend/03-api-conventions.m
   });
 
   it.each([
-    ['白名單以外的欄位', 'sort=passwordHash:asc'],
-    ['同一欄位出現兩次', 'sort=email:asc&sort=email:desc'],
-    ['格式不對', 'sort=email'],
+    ['白名單以外的欄位', 'sort=passwordHash'],
+    ['同一欄位出現兩次', 'sort=email&sort=-email'],
+    ['舊格式', 'sort=email:asc'],
   ])('%s → 400', async (_, query) => {
     await request(http).get(`/users?${query}`).set('authorization', `Bearer ${token}`).expect(400);
   });
