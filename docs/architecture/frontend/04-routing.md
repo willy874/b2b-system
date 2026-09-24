@@ -61,6 +61,10 @@ RootRoute  (core/router/root.tsx)
 - 瀏覽器上一頁＝關閉對話框，符合直覺
 - 列表頁在背後保持掛載（子路由的 `Outlet` 在列表頁內），不會重新抓資料
 
+對話框本身又有子路由時（`/role/$roleId/permission`），`Outlet` 要放在 `Dialog`
+**旁邊**，不能放進 `Dialog` 的 children：Base UI 的 Dialog 在 React 樹中巢狀時，
+背後列表頁的 Select 觸發按鈕會陷入 ref 更新迴圈，整頁 `Maximum update depth exceeded`。
+
 代價：子路由必須也宣告 `validateSearch: RoleSearchQuerySchema`，否則導覽進
 對話框時列表的篩選條件會從網址消失。這是必須記住的一點。
 
