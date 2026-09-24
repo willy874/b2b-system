@@ -15,7 +15,7 @@ interface Entry {
   expiresAt: number;
 }
 
-/** 異常情況下的上限，避免無限成長（docs/backend/05-rbac.md §5.3）。 */
+/** 異常情況下的上限，避免無限成長（docs/architecture/backend/05-rbac.md §5.3）。 */
 const MAX_ENTRIES = 10_000;
 
 @Injectable()

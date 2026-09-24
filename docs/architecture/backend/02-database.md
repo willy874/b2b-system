@@ -157,7 +157,7 @@ export const userRoles = pgTable(
 ```
 
 > **未來加作用域時**：在這裡加 `scopeType text` / `scopeId uuid`，主鍵擴成
-> 四欄。見 [ADR-0006](../adr/0006-flat-permission-scope.md)。
+> 四欄。見 [ADR-0006](../../adr/0006-flat-permission-scope.md)。
 
 ### 2.5 `role_permissions`
 

@@ -23,7 +23,7 @@ import { Typography } from '../Typography';
 /**
  * React 19 把 `ref` 當成一般 prop 傳給函式元件，所以只要元件把 `...rest`
  * 攤到根元素上（或交給 Base UI part），呼叫端就能拿到 DOM 節點。
- * 這支測試把 docs/frontend/07-ui-system.md §3.1 的第 2 條規則釘住。
+ * 這支測試把 docs/architecture/frontend/07-ui-system.md §3.1 的第 2 條規則釘住。
  */
 const cases: Array<[string, (ref: RefObject<HTMLElement | null>) => ReactElement]> = [
   ['Button', (ref) => <Button ref={ref as RefObject<HTMLButtonElement>}>x</Button>],

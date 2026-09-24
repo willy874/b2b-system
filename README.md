@@ -1,7 +1,7 @@
 # Game Editor
 
 以 Web 為載體的遊戲內容編輯與管理平台。**Phase 0 只建置 RBAC 骨架**，
-架構規格見 [`docs/`](./docs/README.md)，實作進度見 [`docs/roadmap.md`](./docs/roadmap.md)。
+架構規格見 [`docs/`](./docs/README.md)，實作進度見 [`docs/overview/03-roadmap.md`](./docs/overview/03-roadmap.md)。
 
 ## 技術堆疊
 
@@ -62,7 +62,7 @@ packages/utils     前後端共用純函式
 docs/        架構規格（唯一事實來源，改程式必須同步改文件）
 ```
 
-詳細佈局與命名慣例見 [`docs/03-repository-structure.md`](./docs/03-repository-structure.md)。
+詳細佈局見 [`docs/architecture/02-repository-structure.md`](./docs/architecture/02-repository-structure.md)，寫程式規範見 [`docs/conventions/`](./docs/conventions/README.md)。
 
 ## 測試
 

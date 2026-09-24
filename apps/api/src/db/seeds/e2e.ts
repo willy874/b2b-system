@@ -9,7 +9,7 @@ import { runSeed } from './index';
 
 export const E2E_PASSWORD = 'E2E!Password123';
 
-/** 固定帳號，讓 E2E 的起點永遠一致（docs/frontend/10-testing.md §4.3）。 */
+/** 固定帳號，讓 E2E 的起點永遠一致（docs/architecture/frontend/10-testing.md §4.3）。 */
 export const E2E_ACCOUNTS = [
   { email: 'e2e-superadmin@dev.local', displayName: 'E2E Super Admin', role: 'super-admin' },
   { email: 'e2e-admin@dev.local', displayName: 'E2E Admin', role: 'admin' },

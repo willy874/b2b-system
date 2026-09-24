@@ -5,7 +5,7 @@ import zhTW from '../locales/zh_TW.json';
 
 /**
  * 後端的 `ErrorCode` 與 `PERMISSION_SEED` 是這兩份翻譯的來源。
- * 缺翻譯會靜默降級成通用訊息，所以用測試擋下（docs/frontend/08-i18n.md §3.1）。
+ * 缺翻譯會靜默降級成通用訊息，所以用測試擋下（docs/architecture/frontend/08-i18n.md §3.1）。
  */
 const ERROR_CODES = [
   'VALIDATION_FAILED',

@@ -9,7 +9,7 @@ import { createTestDatabase, expectDbError, truncateAll } from './db';
 let db: TestDatabase;
 let close: () => Promise<void>;
 
-describe('DB 層的不變條件（docs/backend/02-database.md §3）', () => {
+describe('DB 層的不變條件（docs/architecture/backend/02-database.md §3）', () => {
   beforeAll(async () => {
     const created = createTestDatabase();
     db = created.db;

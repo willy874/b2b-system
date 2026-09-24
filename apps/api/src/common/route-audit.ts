@@ -75,7 +75,7 @@ export function collectRouteDeclarations(app: INestApplication): RouteDeclaratio
 
 /**
  * 「預設拒絕」策略的守門員：任何未宣告授權的路由都讓程序啟動失敗。
- * 於 `app.listen()` 之前呼叫（docs/backend/05-rbac.md §7）。
+ * 於 `app.listen()` 之前呼叫（docs/architecture/backend/05-rbac.md §7）。
  */
 export function auditRoutes(app: INestApplication): void {
   const undeclared = collectRouteDeclarations(app).filter((r) => r.declaration === 'none');

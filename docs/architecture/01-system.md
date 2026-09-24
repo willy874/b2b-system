@@ -1,4 +1,4 @@
-# 02 — 系統架構
+# 系統架構
 
 ## 1. 全貌
 
@@ -148,7 +148,7 @@ repository ✗──▶ service  （單向）
 
 > **關鍵取捨**：access token 不帶權限，代表每次請求都要解析權限集合。這是用
 > 一次快取查詢換取「權限變更立即生效」。見
-> [ADR-0005](./adr/0005-permission-resolved-server-side.md)。
+> [ADR-0005](../adr/0005-permission-resolved-server-side.md)。
 
 ---
 

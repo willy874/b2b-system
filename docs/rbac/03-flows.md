@@ -196,7 +196,7 @@ ZodValidationPipe → Controller → Service → Repository
 
 這個「忘記宣告就爆炸」的設計是刻意的：它讓「漏掉權限檢查」在開發期就被發現，
 而不是上線後才變成資安事件。啟動時另有一個 **路由稽核**（見
-[`../backend/05-rbac.md`](../backend/05-rbac.md) §7）掃描所有註冊的路由，
+[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §7）掃描所有註冊的路由，
 任何未宣告的路由讓程序啟動失敗。
 
 ---

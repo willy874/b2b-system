@@ -3,7 +3,7 @@ import { defineConfig } from 'unocss';
 
 /**
  * 顏色一律走 Design Token 的 CSS 變數（themes/），
- * 不在元件裡寫十六進位色碼（見 docs/frontend/07-ui-system.md）。
+ * 不在元件裡寫十六進位色碼（見 docs/architecture/frontend/07-ui-system.md）。
  */
 export default defineConfig({
   presets: [presetWind4()],

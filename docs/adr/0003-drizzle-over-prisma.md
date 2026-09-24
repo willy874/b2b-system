@@ -2,7 +2,7 @@
 
 - 狀態：**提案中（待確認）**
 - 日期：2026-09-19
-- 相關：[`../backend/02-database.md`](../backend/02-database.md)
+- 相關：[`../architecture/backend/02-database.md`](../architecture/backend/02-database.md)
 
 ## 背景
 
@@ -33,7 +33,7 @@
 | 代價                                                        | 緩解                                                                                                  |
 | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | 沒有 Prisma Studio 那樣成熟的 GUI                           | `drizzle-kit studio` 夠用；複雜查詢直接 psql                                                          |
-| Migration 產生不如 Prisma 聰明（欄位改名可能變成 drop+add） | **明定規則：產生後必須人工檢視 SQL**（[`../backend/02-database.md`](../backend/02-database.md) §5.1） |
+| Migration 產生不如 Prisma 聰明（欄位改名可能變成 drop+add） | **明定規則：產生後必須人工檢視 SQL**（[`../architecture/backend/02-database.md`](../architecture/backend/02-database.md) §5.1） |
 | Trigger / function 要手寫 migration                         | 本來就要手寫；已在 §5.2 定義位置                                                                      |
 | 關聯查詢需要自己想清楚 join                                 | 這是優點不是缺點——N+1 不會偷偷發生                                                                    |
 | 生態系比 Prisma 小                                          | 核心功能穩定；NestJS 整合只需要一個 provider                                                          |

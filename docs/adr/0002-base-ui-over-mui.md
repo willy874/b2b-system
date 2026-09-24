@@ -2,7 +2,7 @@
 
 - 狀態：**提案中（待確認）**
 - 日期：2026-09-19
-- 相關：[`../frontend/07-ui-system.md`](../frontend/07-ui-system.md)
+- 相關：[`../architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md)
 
 ## 背景
 
@@ -32,7 +32,7 @@
 
 | 代價                                   | 評估                                                                                |
 | -------------------------------------- | ----------------------------------------------------------------------------------- |
-| **`components/` 的初期工作量大幅增加** | 這是主要代價。約 20 個元件要從零寫樣式。排入 [`../roadmap.md`](../roadmap.md) M1–M2 |
+| **`components/` 的初期工作量大幅增加** | 這是主要代價。約 20 個元件要從零寫樣式。排入 [`../overview/03-roadmap.md`](../overview/03-roadmap.md) M1–M2 |
 | Table / DatePicker 等要自己做          | Table 用 TanStack Table（本來就要用）；DatePicker 是 M2 的一整項工作                |
 | 沒有現成的視覺參考                     | 需要先定 Design Token 與元件規格，不能邊做邊想                                      |
 | 社群範例比 MUI 少                      | Base UI 文件完整；且它的 API 面比 MUI 小得多                                        |

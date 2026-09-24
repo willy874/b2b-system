@@ -6,16 +6,17 @@
 ## 這個專案是什麼
 
 Game Editor 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**。
-沒有任何遊戲編輯器功能。範圍見 [`docs/00-overview.md`](docs/00-overview.md)。
+沒有任何遊戲編輯器功能。範圍見 [`docs/overview/01-overview.md`](docs/overview/01-overview.md)。
 
 ## 先讀哪些文件
 
 | 你要做什麼 | 先讀 |
 | --- | --- |
-| 任何事 | [`docs/README.md`](docs/README.md)、[`docs/02-architecture.md`](docs/02-architecture.md) |
-| 前端 | `docs/frontend/01`→`03`→`06` |
-| 後端 | `docs/backend/01`→`03`→`05` |
+| 任何事 | [`docs/README.md`](docs/README.md)、[`docs/architecture/01-system.md`](docs/architecture/01-system.md)、[`docs/conventions/01-general.md`](docs/conventions/01-general.md) |
+| 前端 | `docs/architecture/frontend/01`→`03`→`06` |
+| 後端 | `docs/architecture/backend/01`→`03`→`05` |
 | 權限相關 | [`docs/rbac/02-permission-catalog.md`](docs/rbac/02-permission-catalog.md) |
+| 寫程式規範 | [`docs/conventions/`](docs/conventions/README.md)（命名、TS、測試、commit） |
 
 ## 三處必須同步
 
@@ -30,6 +31,8 @@ Game Editor 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架*
 兩個語系檔的 `permission.<resource>.<action>`。
 
 ## 不可違反的規則
+
+以下是摘要；理由、正反例與哪些由工具強制，見 [`docs/conventions/`](docs/conventions/README.md)。
 
 ### 後端
 
@@ -78,7 +81,7 @@ pnpm openapi:generate && pnpm sdk:generate   # 改動 controller / DTO 之後必
 7. 測試：feature 的 hook 測試、頁面的三個權限案例、必要時補 E2E
 8. 回頭更新 `docs/`
 
-完整 SOP：[`docs/frontend/03-feature-anatomy.md`](docs/frontend/03-feature-anatomy.md) §5。
+完整 SOP：[`docs/architecture/frontend/03-feature-anatomy.md`](docs/architecture/frontend/03-feature-anatomy.md) §5。
 
 ## 與文件不同的實作決定
 

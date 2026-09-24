@@ -11,7 +11,7 @@ function isEqual(a: unknown, b: unknown): boolean {
   return false;
 }
 
-/** 只記實際改變的欄位（docs/backend/06-audit-log.md §5）。 */
+/** 只記實際改變的欄位（docs/architecture/backend/06-audit-log.md §5）。 */
 export function diff<T extends Record<string, unknown>>(
   before: T,
   after: Partial<T>,

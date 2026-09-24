@@ -11,7 +11,7 @@ import { setupSwagger } from './swagger';
 
 async function bootstrap(): Promise<void> {
   // 不設 global prefix：dev 由 Vite proxy、prod 由反向代理去掉 `/api` 前綴後轉入
-  // （docs/02-architecture.md §4）。
+  // （docs/architecture/01-system.md §4）。
   const app = await NestFactory.create(AppModule, { bufferLogs: false });
   const config = app.get(ConfigService<Env, true>);
 

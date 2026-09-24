@@ -56,7 +56,7 @@ async function createActiveUser(
   return user!.id;
 }
 
-describe('RBAC 生命週期（docs/roadmap.md M4 驗收）', () => {
+describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
   beforeAll(async () => {
     process.env.DATABASE_URL = inject('databaseUrl');
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';

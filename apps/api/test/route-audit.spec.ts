@@ -37,7 +37,7 @@ class DeclaredModule {}
 @Module({ imports: [DiscoveryModule], controllers: [DeclaredController, UndeclaredController] })
 class UndeclaredModule {}
 
-describe('路由稽核（docs/backend/05-rbac.md §7）', () => {
+describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
   beforeAll(async () => {
     process.env.DATABASE_URL = inject('databaseUrl');
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
@@ -76,7 +76,7 @@ describe('路由稽核（docs/backend/05-rbac.md §7）', () => {
     for (const key of declared) expect(ALL_PERMISSION_KEYS).toContain(key);
   });
 
-  it('端點 × 權限總表與 docs/backend/05-rbac.md §9 一致', () => {
+  it('端點 × 權限總表與 docs/architecture/backend/05-rbac.md §9 一致', () => {
     const actual = new Map(
       collectRouteDeclarations(app).map((route) => [
         `${route.method} ${route.path}`,

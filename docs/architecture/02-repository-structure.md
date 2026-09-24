@@ -1,4 +1,4 @@
-# 03 — Repository 結構
+# Repository 結構
 
 ## 1. Monorepo 佈局
 
@@ -194,50 +194,13 @@ modules/role/
 
 ---
 
-## 4. 命名慣例
+## 4. 命名與匯入慣例
 
-| 對象                               | 慣例                                          | 例                        |
-| ---------------------------------- | --------------------------------------------- | ------------------------- |
-| 前端資料夾（feature / api domain） | kebab-case                                    | `audit-log/`              |
-| 前端元件檔                         | PascalCase                                    | `RoleTable.tsx`           |
-| 前端 hook                          | `use` + PascalCase                            | `useRolePermission.ts`    |
-| 前端頁面                           | `pages/<PageName>/page.tsx`                   | `pages/RoleList/page.tsx` |
-| 後端檔案                           | kebab-case ＋ NestJS 後綴                     | `role.service.ts`         |
-| DB 表                              | 複數 snake_case                               | `role_permissions`        |
-| DB 欄位                            | snake_case                                    | `created_at`              |
-| Drizzle 變數                       | camelCase 複數                                | `rolePermissions`         |
-| 權限鍵                             | `camelCaseResource:camelCaseAction`           | `auditLog:read`           |
-| 錯誤碼                             | SCREAMING_SNAKE                               | `ROLE_SYSTEM_PROTECTED`   |
-| 查詢鍵常數                         | SCREAMING_SNAKE ＋ `_QUERY_KEY`               | `ROLE_LIST_QUERY_KEY`     |
-| TestId                             | `data-testid="<feature>-<element>-<variant>"` | `role-table-row`          |
+已移到 [`conventions/01-general.md`](../conventions/01-general.md) §3–4。
 
 ---
 
-## 5. 匯入順序（由 oxfmt 強制）
-
-前端：
-
-```ts
-// 1. 外部套件
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-// 2. workspace 套件
-import { RolesApi } from "@game-editor/api-sdk";
-// 3. shared
-import { cn } from "@/shared/utils";
-// 4. core
-import { usePagePermission } from "@/core/permission";
-// 5. components
-import { Button } from "@/components/Button";
-// 6. apis
-import { getRoleListQueryOptions } from "@/apis/role/get-role-list/query";
-// 7. 同 feature 內（相對路徑）
-import { RoleFilter } from "./components/RoleFilter";
-```
-
----
-
-## 6. 環境變數
+## 5. 環境變數
 
 `.env.example`：
 

@@ -2,7 +2,7 @@
 
 - 狀態：**提案中（待確認）**
 - 日期：2026-09-19
-- 相關：[`../backend/04-auth.md`](../backend/04-auth.md)、[`../frontend/09-state-and-storage.md`](../frontend/09-state-and-storage.md)
+- 相關：[`../architecture/backend/04-auth.md`](../architecture/backend/04-auth.md)、[`../architecture/frontend/09-state-and-storage.md`](../architecture/frontend/09-state-and-storage.md)
 
 ## 背景
 

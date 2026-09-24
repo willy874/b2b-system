@@ -22,7 +22,7 @@ const tsxFiles = walk(
   (file) => file.endsWith('.tsx') && !file.endsWith('.test.tsx'),
 );
 
-/** docs/frontend/07-ui-system.md §8 的驗收條件，用測試守住。 */
+/** docs/architecture/frontend/07-ui-system.md §8 的驗收條件，用測試守住。 */
 describe('設計系統的結構規則', () => {
   it('每個元件資料夾都有 index.ts 與測試', () => {
     const missing = componentDirs.filter((dir) => {

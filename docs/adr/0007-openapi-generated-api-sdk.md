@@ -2,7 +2,7 @@
 
 - 狀態：**提案中（待確認）**
 - 日期：2026-09-19
-- 相關：[`../backend/03-api-conventions.md`](../backend/03-api-conventions.md) §7
+- 相關：[`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §7
 
 ## 背景
 

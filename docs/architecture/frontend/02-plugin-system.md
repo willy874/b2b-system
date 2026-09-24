@@ -11,7 +11,7 @@ Plugin 架構把方向反過來：**核心提供插槽，功能自己插進去�
 註解掉那一行，角色功能就完整消失——路由、語系、權限、選單全部一起消失，
 不留殘骸。
 
-詳細取捨見 [ADR-0001](../adr/0001-plugin-based-app-context.md)。
+詳細取捨見 [ADR-0001](../../adr/0001-plugin-based-app-context.md)。
 
 ---
 

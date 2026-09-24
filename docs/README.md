@@ -4,7 +4,7 @@
 **完整的 RBAC（Role-Based Access Control）能力與流程**，作為之後所有功能的地基。
 
 > 狀態：**待確認（Draft）**。程式碼尚未開始撰寫。
-> 本文件確認後才進入實作階段（見 [`roadmap.md`](./roadmap.md)）。
+> 本文件確認後才進入實作階段（見 [`overview/03-roadmap.md`](./overview/03-roadmap.md)）。
 > 最後更新：2026-09-19
 
 ---
@@ -25,27 +25,35 @@
 
 **第一次讀（決策者 / Reviewer）**
 
-1. [`00-overview.md`](./00-overview.md) — 目標、範圍、角色定義
-2. [`01-technology-selection.md`](./01-technology-selection.md) — 技術選型與理由
-3. [`02-architecture.md`](./02-architecture.md) — 系統全貌與資料流
+1. [`overview/01-overview.md`](./overview/01-overview.md) — 目標、範圍、角色定義
+2. [`overview/02-technology-selection.md`](./overview/02-technology-selection.md) — 技術選型與理由
+3. [`architecture/01-system.md`](./architecture/01-system.md) — 系統全貌與資料流
 4. [`rbac/01-domain-model.md`](./rbac/01-domain-model.md) — RBAC 領域模型
-5. [`roadmap.md`](./roadmap.md) — 實作階段與驗收條件
+5. [`overview/03-roadmap.md`](./overview/03-roadmap.md) — 實作階段與驗收條件
+
+**開始寫程式之前（所有人）**
+
+1. [`conventions/README.md`](./conventions/README.md) — 寫程式規範總覽
+2. [`conventions/01-general.md`](./conventions/01-general.md) — TypeScript、命名、匯入、錯誤處理
+3. [`conventions/05-git.md`](./conventions/05-git.md) — branch、commit、PR 檢查清單
 
 **要寫前端**
 
-1. [`03-repository-structure.md`](./03-repository-structure.md)
-2. [`frontend/01-architecture.md`](./frontend/01-architecture.md)
-3. [`frontend/02-plugin-system.md`](./frontend/02-plugin-system.md)
-4. [`frontend/03-feature-anatomy.md`](./frontend/03-feature-anatomy.md) ← 新增 feature 的 SOP
-5. [`frontend/06-permission.md`](./frontend/06-permission.md)
+1. [`architecture/02-repository-structure.md`](./architecture/02-repository-structure.md)
+2. [`architecture/frontend/01-architecture.md`](./architecture/frontend/01-architecture.md)
+3. [`architecture/frontend/02-plugin-system.md`](./architecture/frontend/02-plugin-system.md)
+4. [`architecture/frontend/03-feature-anatomy.md`](./architecture/frontend/03-feature-anatomy.md) ← 新增 feature 的 SOP
+5. [`architecture/frontend/06-permission.md`](./architecture/frontend/06-permission.md)
+6. [`conventions/02-frontend.md`](./conventions/02-frontend.md)
 
 **要寫後端**
 
-1. [`backend/01-architecture.md`](./backend/01-architecture.md)
-2. [`backend/02-database.md`](./backend/02-database.md)
-3. [`backend/03-api-conventions.md`](./backend/03-api-conventions.md)
-4. [`backend/04-auth.md`](./backend/04-auth.md)
-5. [`backend/05-rbac.md`](./backend/05-rbac.md)
+1. [`architecture/backend/01-architecture.md`](./architecture/backend/01-architecture.md)
+2. [`architecture/backend/02-database.md`](./architecture/backend/02-database.md)
+3. [`architecture/backend/03-api-conventions.md`](./architecture/backend/03-api-conventions.md)
+4. [`architecture/backend/04-auth.md`](./architecture/backend/04-auth.md)
+5. [`architecture/backend/05-rbac.md`](./architecture/backend/05-rbac.md)
+6. [`conventions/03-backend.md`](./conventions/03-backend.md)
 
 ---
 
@@ -53,44 +61,56 @@
 
 ```
 docs/
-├── README.md                      ← 你在這裡
-├── 00-overview.md                 專案總覽、範圍、使用者角色
-├── 01-technology-selection.md     技術選型與評估
-├── 02-architecture.md             系統架構、部署拓撲、端到端資料流
-├── 03-repository-structure.md     monorepo 結構、命名與匯入慣例
-├── roadmap.md                     分期實作計畫與驗收條件
+├── README.md                          ← 你在這裡
 │
-├── frontend/
-│   ├── README.md
-│   ├── 01-architecture.md         分層（app / core / features / apis / components / shared / plugins）
-│   ├── 02-plugin-system.md        AppContext、plugin 生命週期、註冊時序
-│   ├── 03-feature-anatomy.md      feature 資料夾規格 ＋ 新增 feature SOP
-│   ├── 04-routing.md              TanStack Router、route 樹、權限 guard
-│   ├── 05-data-layer.md           apis/ fetcher ＋ query/mutation ＋ 快取策略
-│   ├── 06-permission.md           前端權限：registry、hooks、UI gating
-│   ├── 07-ui-system.md            Base UI、元件封裝層、Design Token
-│   ├── 08-i18n.md                 語系分包與 scope loader
-│   ├── 09-state-and-storage.md    store 分類、持久化、跨分頁同步
-│   └── 10-testing.md              Vitest / Testing Library / MSW / Playwright
+├── overview/                          為什麼做、做什麼、何時做
+│   ├── 01-overview.md                 專案總覽、範圍、使用者角色
+│   ├── 02-technology-selection.md     技術選型與評估
+│   └── 03-roadmap.md                  分期實作計畫與驗收條件
 │
-├── backend/
-│   ├── README.md
-│   ├── 01-architecture.md         NestJS 模組分層與相依方向
-│   ├── 02-database.md             Drizzle schema 慣例、migration 流程
-│   ├── 03-api-conventions.md      REST、分頁、排序、錯誤碼、驗證
-│   ├── 04-auth.md                 登入、JWT、refresh rotation、重用偵測
-│   ├── 05-rbac.md                 Guard / Decorator / 權限快取 / 反提權
-│   ├── 06-audit-log.md            稽核日誌設計
-│   └── 07-testing.md              單元 / 整合 / e2e 測試策略
+├── architecture/                      系統長什麼樣子（規格）
+│   ├── 01-system.md                   系統架構、部署拓撲、端到端資料流
+│   ├── 02-repository-structure.md     monorepo 結構、目錄佈局、環境變數
+│   │
+│   ├── frontend/
+│   │   ├── README.md
+│   │   ├── 01-architecture.md         分層（app / core / features / apis / components / shared / plugins）
+│   │   ├── 02-plugin-system.md        AppContext、plugin 生命週期、註冊時序
+│   │   ├── 03-feature-anatomy.md      feature 資料夾規格 ＋ 新增 feature SOP
+│   │   ├── 04-routing.md              TanStack Router、route 樹、權限 guard
+│   │   ├── 05-data-layer.md           apis/ fetcher ＋ query/mutation ＋ 快取策略
+│   │   ├── 06-permission.md           前端權限：registry、hooks、UI gating
+│   │   ├── 07-ui-system.md            Base UI、元件封裝層、Design Token
+│   │   ├── 08-i18n.md                 語系分包與 scope loader
+│   │   ├── 09-state-and-storage.md    store 分類、持久化、跨分頁同步
+│   │   └── 10-testing.md              Vitest / Testing Library / MSW / Playwright
+│   │
+│   └── backend/
+│       ├── README.md
+│       ├── 01-architecture.md         NestJS 模組分層與相依方向
+│       ├── 02-database.md             Drizzle schema 慣例、migration 流程
+│       ├── 03-api-conventions.md      REST、分頁、排序、錯誤碼、驗證
+│       ├── 04-auth.md                 登入、JWT、refresh rotation、重用偵測
+│       ├── 05-rbac.md                 Guard / Decorator / 權限快取 / 反提權
+│       ├── 06-audit-log.md            稽核日誌設計
+│       └── 07-testing.md              單元 / 整合 / e2e 測試策略
 │
 ├── rbac/
-│   ├── 01-domain-model.md         實體、ER 圖、不變條件
-│   ├── 02-permission-catalog.md   權限清單（resource × action）
-│   ├── 03-flows.md                登入、授權檢查、角色指派、權限變更生效
-│   ├── 04-api-spec.md             RBAC 相關 API 規格
-│   └── 05-seed-and-bootstrap.md   預設角色與系統初始化
+│   ├── 01-domain-model.md             實體、ER 圖、不變條件
+│   ├── 02-permission-catalog.md       權限清單（resource × action）
+│   ├── 03-flows.md                    登入、授權檢查、角色指派、權限變更生效
+│   ├── 04-api-spec.md                 RBAC 相關 API 規格
+│   └── 05-seed-and-bootstrap.md       預設角色與系統初始化
 │
-└── adr/                           架構決策紀錄（Architecture Decision Records）
+├── conventions/                       寫程式時每天要遵守的規則
+│   ├── README.md                      規則強度標記（🔒 工具 / 👀 Review）
+│   ├── 01-general.md                  TypeScript、命名、匯入、註解、錯誤處理
+│   ├── 02-frontend.md                 前端分層規則、feature / 元件 / hook / 樣式
+│   ├── 03-backend.md                  後端分層規則、各層寫法、錯誤、DB
+│   ├── 04-testing.md                  測試位置、命名、寫法、何時必寫
+│   └── 05-git.md                      branch、commit message、PR 檢查清單
+│
+└── adr/                               架構決策紀錄（Architecture Decision Records）
     ├── 0001-plugin-based-app-context.md
     ├── 0002-base-ui-over-mui.md
     ├── 0003-drizzle-over-prisma.md
@@ -108,6 +128,8 @@ docs/
 - 權限一律寫成 `resource:action`（例如 `role:update`）。
 - 使用者故事格式：**「作為 …，我希望 …，以便 …」** ＋ Given / When / Then。
 - 任何「為什麼不選 X」的判斷放進 `adr/`，不要散落在規格內文。
+- 分區原則：`overview/` 講目標與計畫、`architecture/` 講系統設計、`rbac/` 講領域規格、
+  `conventions/` 講寫程式規則、`adr/` 講決策理由。新文件依此歸位。
 - 檔案路徑用相對於 repo 根目錄的形式（`apps/web/src/...`）。
 
 ---

@@ -2,7 +2,7 @@
 
 所有端點皆在 `/api` 前綴之下（由反向代理／Vite proxy 加上）。
 共用的回應信封、分頁與錯誤格式見
-[`../backend/03-api-conventions.md`](../backend/03-api-conventions.md)。
+[`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md)。
 
 圖例：
 

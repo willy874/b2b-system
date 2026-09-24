@@ -18,7 +18,7 @@ M0–M5 的功能全部實作完成並跑通；以下是與驗收清單的落差
 | ⚠️ | **前端整體覆蓋率 41.9%**（目標 75%）：缺口集中在 `features/*/pages` 與 `apis/` |
 | ⚠️ | **後端整體覆蓋率 71.9%**（目標 80%）；`common/guards` 與 `core/cache` 已達 100% 的硬門檻 |
 
-實作過程中與文件不同的決定記錄在 [`../CLAUDE.md`](../CLAUDE.md) 最後一節，
+實作過程中與文件不同的決定記錄在 [`../../CLAUDE.md`](../../CLAUDE.md) 最後一節，
 相關章節也已同步更新。
 
 ---
@@ -70,24 +70,24 @@ game-editor/
 
 | 項目                                             | 對應文件                                                              |
 | ------------------------------------------------ | --------------------------------------------------------------------- |
-| `db/schema/*.ts` 全部 8 張表                     | [`backend/02-database.md`](./backend/02-database.md) §2               |
+| `db/schema/*.ts` 全部 8 張表                     | [`../architecture/backend/02-database.md`](../architecture/backend/02-database.md) §2               |
 | 手寫 migration：三個 trigger                     | 同上 §3                                                               |
-| `db/seeds/` 權限目錄、系統角色、super-admin      | [`rbac/05-seed-and-bootstrap.md`](./rbac/05-seed-and-bootstrap.md)    |
-| `core/config`（Zod env 驗證）                    | [`backend/01-architecture.md`](./backend/01-architecture.md) §6       |
+| `db/seeds/` 權限目錄、系統角色、super-admin      | [`../rbac/05-seed-and-bootstrap.md`](../rbac/05-seed-and-bootstrap.md)    |
+| `core/config`（Zod env 驗證）                    | [`../architecture/backend/01-architecture.md`](../architecture/backend/01-architecture.md) §6       |
 | `core/database`（Drizzle provider、交易輔助）    | 同上 §5                                                               |
-| `core/errors`（ErrorCode、AppException、Filter） | [`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §5 |
+| `core/errors`（ErrorCode、AppException、Filter） | [`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §5 |
 | `core/http`（RequestId、Transform、分頁）        | 同上 §1–2                                                             |
 | `core/validation`（ZodValidationPipe）           | 同上 §3                                                               |
-| `common/decorators` ＋ `common/guards`           | [`backend/05-rbac.md`](./backend/05-rbac.md) §2–3                     |
+| `common/decorators` ＋ `common/guards`           | [`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §2–3                     |
 | `PermissionService` ＋ `PermissionCacheService`  | 同上 §4–5                                                             |
-| `modules/permission`（`GET /permissions`）       | [`rbac/04-api-spec.md`](./rbac/04-api-spec.md) §4                     |
-| **路由稽核**（啟動時檢查）                       | [`backend/05-rbac.md`](./backend/05-rbac.md) §7                       |
-| Testcontainers 測試環境                          | [`backend/07-testing.md`](./backend/07-testing.md) §2                 |
+| `modules/permission`（`GET /permissions`）       | [`../rbac/04-api-spec.md`](../rbac/04-api-spec.md) §4                     |
+| **路由稽核**（啟動時檢查）                       | [`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §7                       |
+| Testcontainers 測試環境                          | [`../architecture/backend/07-testing.md`](../architecture/backend/07-testing.md) §2                 |
 
 ### 驗收
 
 - [ ] `pnpm db:migrate && pnpm db:seed` 成功，且 **連續執行兩次筆數不變**
-- [ ] [`rbac/05-seed-and-bootstrap.md`](./rbac/05-seed-and-bootstrap.md) §8 的
+- [ ] [`../rbac/05-seed-and-bootstrap.md`](../rbac/05-seed-and-bootstrap.md) §8 的
       8 項斷言全部通過
 - [ ] 三個 trigger 的整合測試通過（I7 / I12 / I2）
 - [ ] 故意建立一個沒有授權宣告的路由 → **程序啟動失敗**
@@ -131,29 +131,29 @@ game-editor/
 
 | 項目                                                    | 對應文件                                                              |
 | ------------------------------------------------------- | --------------------------------------------------------------------- |
-| `modules/auth`：login / refresh / logout / profile      | [`backend/04-auth.md`](./backend/04-auth.md)                          |
+| `modules/auth`：login / refresh / logout / profile      | [`../architecture/backend/04-auth.md`](../architecture/backend/04-auth.md)                          |
 | Refresh token 輪替 ＋ 家族撤銷 ＋ 重用偵測              | 同上 §2                                                               |
 | `JwtAuthGuard` ＋ `UserCacheService`                    | 同上 §6                                                               |
 | Argon2 密碼雜湊、強度檢查、帳號鎖定                     | 同上 §3–4                                                             |
 | 啟用 / 忘記密碼 / 重設密碼                              | 同上 §5                                                               |
-| 速率限制                                                | [`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8 |
-| `@nestjs/swagger` → `openapi.json` → `packages/api-sdk` | [ADR-0007](./adr/0007-openapi-generated-api-sdk.md)                   |
+| 速率限制                                                | [`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §8 |
+| `@nestjs/swagger` → `openapi.json` → `packages/api-sdk` | [ADR-0007](../adr/0007-openapi-generated-api-sdk.md)                   |
 
 ### 前端
 
 | 項目                                                | 對應文件                                                                    |
 | --------------------------------------------------- | --------------------------------------------------------------------------- |
-| `shared/context`（plugin context 實作）             | [`frontend/02-plugin-system.md`](./frontend/02-plugin-system.md) §2         |
+| `shared/context`（plugin context 實作）             | [`../architecture/frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §2         |
 | `core/app`（AppContext）                            | 同上                                                                        |
-| `core/auth`（SessionStore：單飛、跨分頁、終止判定） | [`frontend/09-state-and-storage.md`](./frontend/09-state-and-storage.md) §5 |
-| `core/client` ＋ `plugins/fetcher`（攔截器鏈）      | [`frontend/05-data-layer.md`](./frontend/05-data-layer.md) §3               |
+| `core/auth`（SessionStore：單飛、跨分頁、終止判定） | [`../architecture/frontend/09-state-and-storage.md`](../architecture/frontend/09-state-and-storage.md) §5 |
+| `core/client` ＋ `plugins/fetcher`（攔截器鏈）      | [`../architecture/frontend/05-data-layer.md`](../architecture/frontend/05-data-layer.md) §3               |
 | `core/cache` ＋ `plugins/app/*`                     | 同上 §6                                                                     |
-| `core/permission`（registry ＋ hooks）              | [`frontend/06-permission.md`](./frontend/06-permission.md)                  |
-| `core/router` ＋ `app/`（Layout、權限守衛）         | [`frontend/04-routing.md`](./frontend/04-routing.md) §4                     |
-| `features/auth`（登入、忘記密碼、重設、啟用）       | [`frontend/03-feature-anatomy.md`](./frontend/03-feature-anatomy.md)        |
+| `core/permission`（registry ＋ hooks）              | [`../architecture/frontend/06-permission.md`](../architecture/frontend/06-permission.md)                  |
+| `core/router` ＋ `app/`（Layout、權限守衛）         | [`../architecture/frontend/04-routing.md`](../architecture/frontend/04-routing.md) §4                     |
+| `features/auth`（登入、忘記密碼、重設、啟用）       | [`../architecture/frontend/03-feature-anatomy.md`](../architecture/frontend/03-feature-anatomy.md)        |
 | `features/home`（空白首頁 ＋ 側邊選單）             |                                                                             |
-| i18n scope 載入機制 ＋ 兩套語系檔                   | [`frontend/08-i18n.md`](./frontend/08-i18n.md)                              |
-| MSW handlers                                        | [`frontend/05-data-layer.md`](./frontend/05-data-layer.md) §10              |
+| i18n scope 載入機制 ＋ 兩套語系檔                   | [`../architecture/frontend/08-i18n.md`](../architecture/frontend/08-i18n.md)                              |
+| MSW handlers                                        | [`../architecture/frontend/05-data-layer.md`](../architecture/frontend/05-data-layer.md) §10              |
 
 ### 驗收
 
@@ -174,16 +174,16 @@ game-editor/
 
 - `modules/user`：列表 / 建立 / 詳情 / 更新 / 刪除 / 指派角色 / 重設密碼 / 解鎖
 - `modules/role`：列表 / 建立 / 詳情 / 更新 / 刪除 / 權限增減 / 複製 / 持有者
-- 全部業務規則（[`backend/05-rbac.md`](./backend/05-rbac.md) §8）
-- 全部稽核寫入（[`backend/06-audit-log.md`](./backend/06-audit-log.md) §2.1）
+- 全部業務規則（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §8）
+- 全部稽核寫入（[`../architecture/backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) §2.1）
 
 ### 前端
 
 - `features/user`：列表、建立、詳情、角色指派子頁
 - `features/role`：列表、建立（含權限挑選）、詳情、權限管理子頁、複製
 - `features/permission`：唯讀權限目錄
-- 三層 UI gating（[`frontend/06-permission.md`](./frontend/06-permission.md) §6）
-- 反提權的前端過濾（[`frontend/05-data-layer.md`](./frontend/05-data-layer.md) §9）
+- 三層 UI gating（[`../architecture/frontend/06-permission.md`](../architecture/frontend/06-permission.md) §6）
+- 反提權的前端過濾（[`../architecture/frontend/05-data-layer.md`](../architecture/frontend/05-data-layer.md) §9）
 
 ### 驗收（RBAC 生命週期 E2E）
 
@@ -221,16 +221,16 @@ game-editor/
 
 **安全**
 
-- [ ] [`backend/04-auth.md`](./backend/04-auth.md) §9 的 15 項檢查清單全部通過
-- [ ] [`backend/05-rbac.md`](./backend/05-rbac.md) §10 的反面教材都不存在於程式碼中
-- [ ] [`backend/06-audit-log.md`](./backend/06-audit-log.md) §9 的 13 項檢查清單全部通過
+- [ ] [`../architecture/backend/04-auth.md`](../architecture/backend/04-auth.md) §9 的 15 項檢查清單全部通過
+- [ ] [`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §10 的反面教材都不存在於程式碼中
+- [ ] [`../architecture/backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) §9 的 13 項檢查清單全部通過
 - [ ] 路由稽核通過；`@RequirePermissions` 使用的鍵全部存在於權限目錄
 
 **測試**
 
 - [ ] 前端覆蓋率 ≥ 75%，`core/permission` 100%、`core/auth` ≥ 95%
 - [ ] 後端覆蓋率 ≥ 80%，`common/guards` 100%
-- [ ] 10 條 E2E 全部通過（[`frontend/10-testing.md`](./frontend/10-testing.md) §4.1）
+- [ ] 10 條 E2E 全部通過（[`../architecture/frontend/10-testing.md`](../architecture/frontend/10-testing.md) §4.1）
 
 **契約**
 
@@ -251,7 +251,7 @@ game-editor/
 
 依序考慮，但需要主功能的輪廓先確定：
 
-1. **資源作用域**（[ADR-0006](./adr/0006-flat-permission-scope.md) 的延伸路徑）
+1. **資源作用域**（[ADR-0006](../adr/0006-flat-permission-scope.md) 的延伸路徑）
 2. Dark Mode（Token 已預留）
 3. MFA（`users.mfa_enabled` 已預留）
 4. 批次匯入 / 匯出

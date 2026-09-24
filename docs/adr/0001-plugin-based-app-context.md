@@ -2,7 +2,7 @@
 
 - 狀態：**提案中（待確認）**
 - 日期：2026-09-19
-- 相關：[`../frontend/02-plugin-system.md`](../frontend/02-plugin-system.md)
+- 相關：[`../architecture/frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md)
 
 ## 背景
 
@@ -44,7 +44,7 @@ createAppContext()
 
 | 代價                                                                | 緩解                                                                                                                                              |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 比直接 import 多一層間接，新人需要時間理解                          | [`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) 與 [`frontend/03-feature-anatomy.md`](../frontend/03-feature-anatomy.md) 的 SOP |
+| 比直接 import 多一層間接，新人需要時間理解                          | [`../architecture/frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) 與 [`../architecture/frontend/03-feature-anatomy.md`](../architecture/frontend/03-feature-anatomy.md) 的 SOP |
 | 失去「靜態表的編譯期完整性」                                        | 用 `registry.test.ts` 斷言註冊鍵集合 = feature page key 聯集                                                                                      |
 | `use()` 同步 / `load()` 非同步的分野需要記住                        | 文件明確標示；權限註冊必須在同步階段（否則首次 render 會炸）                                                                                      |
 | 註冊順序有隱含相依（`httpContextPlugin` 必須在 `cachePlugin` 之後） | `main.tsx` 加註解說明；未來可加宣告式相依檢查                                                                                                     |

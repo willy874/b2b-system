@@ -142,7 +142,7 @@
 
 > 頁面內的 **按鈕層級** gating 另由 `usePagePermission()` 派生的
 > `canCreate/canRead/canUpdate/canDelete` 決定，見
-> [`../frontend/06-permission.md`](../frontend/06-permission.md)。
+> [`../architecture/frontend/06-permission.md`](../architecture/frontend/06-permission.md)。
 
 ---
 

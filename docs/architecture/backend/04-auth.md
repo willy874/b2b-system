@@ -21,7 +21,7 @@ JWT 一旦簽出就無法撤回其內容。若權限寫在 token 裡，管理員
 
 改成每次請求查詢權限集合（有快取），換來「權限變更立即生效」。
 代價是一次快取查詢（命中時 < 1 ms）。詳見
-[ADR-0005](../adr/0005-permission-resolved-server-side.md)。
+[ADR-0005](../../adr/0005-permission-resolved-server-side.md)。
 
 Token 裡因此只有三樣東西：
 

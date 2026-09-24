@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * 環境變數是啟動的前置條件：缺少或格式錯誤一律在 bootstrap 階段失敗，
- * 不容許執行到一半才發現（見 docs/backend/01-architecture.md §6）。
+ * 不容許執行到一半才發現（見 docs/architecture/backend/01-architecture.md §6）。
  */
 export const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),

@@ -1,4 +1,4 @@
-# 00 — 專案總覽
+# 專案總覽
 
 ## 1. 專案定位
 
@@ -36,7 +36,7 @@
 
 - 遊戲編輯器本身的任何功能（關卡、資源、腳本、預覽…）
 - **資源層級作用域**（例如「只能編輯自己專案的資源」）
-  — 架構已預留延伸點，理由見 [ADR-0006](./adr/0006-flat-permission-scope.md)
+  — 架構已預留延伸點，理由見 [ADR-0006](../adr/0006-flat-permission-scope.md)
 - 多租戶（Tenant）隔離
 - SSO / OIDC / LDAP 整合
 - MFA（雙因素驗證）— 資料表預留欄位，流程不實作
@@ -97,7 +97,7 @@
 
 - **Given** 某使用者持有角色 R，R 原本有 `user:delete`
 - **When** 我從 R 移除 `user:delete`
-- **Then** 該使用者的下一次請求（最遲 60 秒內，見 [`backend/05-rbac.md`](./backend/05-rbac.md) §5）即被拒絕
+- **Then** 該使用者的下一次請求（最遲 60 秒內，見 [`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5）即被拒絕
 - **And** 該使用者重新整理頁面後，UI 上的刪除按鈕消失
 
 **作為系統管理員，我希望系統角色不會被誤刪，以便系統永遠有人管得動。**
