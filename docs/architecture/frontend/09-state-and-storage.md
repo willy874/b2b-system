@@ -221,6 +221,32 @@ const stop = syncStore(useLocaleStore, 'preference:locale', ['locale']);
   持久化寫在 action 裡的 store，本機分頁的收訊方不必再寫一次——發訊方已寫入共用的 localStorage；
   跨裝置時各裝置的 localStorage 不共用，收訊方要自己持久化。
 
+### 跨分頁的單一狀態：`shareStore`
+
+`syncStore` 只同步「之後的變更」，而且同時修改時各分頁以最後收到的為準、可能不一致。
+狀態 **不持久化**、但所有分頁必須看到 **同一份** 時，改用 `shared/store` 的 `shareStore()`：
+
+```ts
+const stop = shareStore(useEditorSessionStore, 'editor-session', ['activeDocumentId', 'mode']);
+// 跨裝置：第四個參數傳 { transport }，與 syncStore 相同
+```
+
+|                    | `syncStore`                              | `shareStore`                                              |
+| ------------------ | ---------------------------------------- | --------------------------------------------------------- |
+| 頻道               | `ge:store:<name>`                        | `ge:shared:<name>`                                        |
+| 新分頁的初始值     | 由持久化（`dictStorage`）水合            | **加入時送 `snapshot-request`，向既有分頁要目前的快照**   |
+| 同時修改           | 各自以最後收到的為準                     | **版本號 ＋ 寫入者 id**，所有分頁收斂到同一個值           |
+| 適合               | 會寫進 localStorage 的偏好設定           | 不持久化、但必須全域一致的執行期狀態                      |
+
+規則（實作在 `shared/store/shareStore.ts`）：
+
+- 本地改到同步欄位 → 版本 +1 並廣播。收到的版本 **較新**（同版本時寫入者 id 較大）才套用，並採用對方的版本，
+  所以之後的本地修改一定比收到的新（Lamport clock）；亂序晚到的舊版本會被略過。
+- **只有改過狀態（版本 > 0）的分頁回覆快照**。沒人改過時新分頁保持自己的初始值——
+  否則大家都回覆預設值，會依寫入者 id 隨機蓋掉彼此。
+- 收到快照前的本地修改，若版本較舊會被快照覆蓋：已經有人改過的狀態優先。
+- 與 `syncStore` 相同：只同步列出的資料欄位、收到的不再廣播、停止後不收發。
+
 ### 目前的頻道
 
 | 頻道（`ge:` 之後）          | 訊息                            | 傳輸層             | 位置                                         |
@@ -229,6 +255,8 @@ const stop = syncStore(useLocaleStore, 'preference:locale', ['locale']);
 | `query-invalidate`          | `invalidate`                    | 預設               | `core/cache/broadcastInvalidate`             |
 | `store:preference:locale`   | `state`（`syncStore`）          | 預設               | `core/store/preference`，由 i18n plugin 啟動 |
 | `store:preference:timezone` | `state`（`syncStore`）          | 預設               | 同上                                         |
+
+目前沒有 store 使用 `shareStore`（偏好設定都有持久化，`syncStore` 足夠）；新增時把頻道補進上表。
 
 續期結果與登出放在 **同一個頻道**：同一頻道的訊息依序送達，登出之後才到的續期結果不會排在登出前面。
 
