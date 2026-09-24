@@ -293,7 +293,7 @@ onSuccess: (role) => {
 | --------------------------------- | -------------------------------------------------------------------- |
 | `core/cache/resourceGraph.ts`     | 通用引擎：來源變更 → 失效目標（不認識任何業務 key）                  |
 | `apis/resources.ts`               | 本專案的依賴宣告：每個資源有哪些 query、由哪些來源衍生               |
-| `core/cache/broadcastInvalidate.ts` | 套用失效目標並跨分頁廣播（§6.3）                                    |
+| `core/cache/AppQueryClient.ts`    | `queryClient` 的 class：套用失效目標並跨分頁廣播（§6.3）            |
 
 #### 邏輯線
 
@@ -363,22 +363,28 @@ mutation 成功
 
 ### 6.3 跨分頁失效
 
-`core/cache/broadcastInvalidate.ts`：廣播的是 **換算後的失效目標**，不是來源變更，
-收到的分頁直接套用、不再廣播（避免迴圈）。
+`queryClient` 是 `core/cache/AppQueryClient.ts` 的實例：繼承 TanStack 的 `QueryClient`，
+並持有 `query-invalidate` 頻道（[09 §5](./09-state-and-storage.md) 的持有者規則）。
+廣播的是 **換算後的失效目標**，不是來源變更，收到的分頁直接套用、不再廣播（避免迴圈）。
 
 ```ts
-export function broadcastInvalidate(targets: readonly InvalidationTarget[]) {
-  apply(targets); // invalidate 或 remove
-  channel?.postMessage({ targets });
+export class AppQueryClient extends QueryClient {
+  start() { this.offChannel ??= this.channel.on('invalidate', (t) => this.applyInvalidation(t)); } // 不再廣播
+  applyInvalidation(targets, { refetch }) { … } // 只在本分頁：invalidate 或 remove
+  broadcastInvalidation(targets) {              // 本分頁 ＋ 其他分頁
+    this.applyInvalidation(targets);
+    if (!this.isRealtimeAvailable()) this.channel.post('invalidate', targets);
+  }
+  revalidateAll({ refetch }) { … }              // 推播中斷後整批重新驗證
 }
-
-channel.onmessage = (e) => apply(e.data.targets); // 不再廣播
 ```
+
+收訊由 cache plugin 管理：`onInit` 呼叫 `start()`、`onDestroy` 呼叫 `stop()`。
 
 在 A 分頁刪掉一個角色，B 分頁的列表立刻更新。
 
 **有推播之後**：其他分頁、其他裝置、其他使用者都由伺服器推 `resource.changed`，各自用同一張依賴圖換算；
-`broadcastInvalidate` 只在推播 **斷線** 時才經 BroadcastChannel 廣播，避免同一個分頁失效兩次。
+`broadcastInvalidation` 只在推播 **斷線** 時才經 BroadcastChannel 廣播，避免同一個分頁失效兩次。
 見 [`11-realtime.md`](./11-realtime.md) §4。
 
 ---

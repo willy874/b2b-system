@@ -145,7 +145,7 @@ beforeEach(() => {
 afterEach(() => {
   for (const { client, session } of created.splice(0)) {
     client.destroy();
-    session.destroy();
+    session.dispose();
   }
   setActiveRealtimeClient(undefined);
 });

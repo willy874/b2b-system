@@ -350,7 +350,7 @@ describe('refresh-token 攔截器', () => {
     expect(mainEnded).not.toHaveBeenCalled();
     expect(sessionStore.getAccessToken()).toBe('main-token');
     off();
-    other.destroy();
+    other.dispose();
     sessionStore.clear();
   });
 });

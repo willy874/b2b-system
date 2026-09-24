@@ -21,13 +21,7 @@ import { ROLE_USERS_QUERY_KEY } from '@/apis/role/get-role-users/query';
 import { USER_DETAIL_QUERY_KEY } from '@/apis/user/get-user-detail/query';
 import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
 import { USER_ROLES_QUERY_KEY } from '@/apis/user/get-user-roles/query';
-import {
-  ANY_ID,
-  applyInvalidation,
-  broadcastInvalidate,
-  createResourceGraph,
-  queryClient,
-} from '@/core/cache';
+import { ANY_ID, createResourceGraph, queryClient } from '@/core/cache';
 import type { ApplyInvalidationOptions, ResourceChange } from '@/core/cache';
 import type { Profile } from '@/shared/api-sdk';
 import type { ChangeSource } from '@/shared/realtime';
@@ -137,7 +131,7 @@ export function selfUpdated(profile: Profile): ResourceChangeEvent {
 
 /** 依依賴圖換算出要失效的 query，套用到本分頁並廣播給其他分頁。 */
 export function invalidateResources(changes: readonly ResourceChangeEvent[]): void {
-  broadcastInvalidate(graph.resolve(changes));
+  queryClient.broadcastInvalidation(graph.resolve(changes));
 }
 
 /**
@@ -149,7 +143,7 @@ export function applyResourceChanges(
   changes: readonly ResourceChangeEvent[],
   options?: ApplyInvalidationOptions,
 ): void {
-  applyInvalidation(graph.resolve(changes), options);
+  queryClient.applyInvalidation(graph.resolve(changes), options);
 }
 
 /** 供測試檢查換算結果，不觸發任何失效。 */

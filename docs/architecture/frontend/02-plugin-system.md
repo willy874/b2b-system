@@ -161,7 +161,7 @@ plugin 常持有 context 摸不到的資源：`BroadcastChannel`、`setInterval`
 
 | Plugin              | `attrs` 提供                                  | `onInit` 做什麼                                                      |
 | ------------------- | --------------------------------------------- | -------------------------------------------------------------------- |
-| `cachePlugin`       | `queryClient`, `dictStorage`                  | 建立 `QueryClient`、掛上跨分頁失效通道                               |
+| `cachePlugin`       | `queryClient`, `dictStorage`                  | `queryClient.start()`：開始收其他分頁的失效（`onDestroy` 時 `stop()`） |
 | `eventBusPlugin`    | `eventBus`                                    | 建立全域 `EventEmitter`                                              |
 | `i18nPlugin`        | `i18n`, `addResourceBundle`, `changeLanguage` | `i18next.init()`、載入 app 層語系包                                  |
 | `httpContextPlugin` | `sessionStore`（主後端）                      | 依傳入的後端清單，每個後端建立一個 `SessionStore` 與 `<後端>:base` / `<後端>:auth` 兩個 HttpContext（30 秒逾時）並掛上攔截器鏈；某個 session 結束只中止該後端的 `auth` 請求；主 session 結束時一併結束其他後端的 session（[05 §3.3、§3.5](./05-data-layer.md)） |

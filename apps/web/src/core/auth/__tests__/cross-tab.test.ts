@@ -59,7 +59,7 @@ describe.runIf(hasBroadcastChannel)('SessionStore 跨分頁協調', () => {
     expect(backend.maxActive()).toBe(1);
     for (const tab of tabs) {
       expect(tab.hasSession()).toBe(true);
-      tab.destroy();
+      tab.dispose();
     }
   });
 
@@ -73,8 +73,8 @@ describe.runIf(hasBroadcastChannel)('SessionStore 跨分頁協調', () => {
     await expect(first.ensureAccessToken()).resolves.toBe('fresh');
     await vi.waitFor(() => expect(second.getAccessToken()).toBe('fresh'));
 
-    first.destroy();
-    second.destroy();
+    first.dispose();
+    second.dispose();
   });
 
   it('★ 已登出的分頁不被其他分頁晚到的續期結果救活', async () => {
@@ -91,8 +91,8 @@ describe.runIf(hasBroadcastChannel)('SessionStore 跨分頁協調', () => {
     // hasSession 旗標在 localStorage，各分頁共用，這裡只驗記憶體裡的 token
     expect(second.getAccessToken()).toBeUndefined();
 
-    first.destroy();
-    second.destroy();
+    first.dispose();
+    second.dispose();
   });
 
   it('一處登出，其他分頁跟著結束 session', async () => {
@@ -107,8 +107,8 @@ describe.runIf(hasBroadcastChannel)('SessionStore 跨分頁協調', () => {
     await vi.waitFor(() => expect(ended).toHaveBeenCalled());
     expect(second.hasSession()).toBe(false);
 
-    first.destroy();
-    second.destroy();
+    first.dispose();
+    second.dispose();
   });
 
   it('★ 不同後端的 session 互不干擾：續期結果與登出都不外溢', async () => {
@@ -129,7 +129,7 @@ describe.runIf(hasBroadcastChannel)('SessionStore 跨分頁協調', () => {
     expect(reports.hasSession()).toBe(true);
     expect(reportsEnded).not.toHaveBeenCalled();
 
-    main.destroy();
-    reports.destroy();
+    main.dispose();
+    reports.dispose();
   });
 });

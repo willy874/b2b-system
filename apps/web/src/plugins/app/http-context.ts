@@ -104,7 +104,7 @@ export function httpContextPlugin(backends: readonly BackendOptions[]): AppPlugi
       attrs: { sessionStore },
       onDestroy: () => {
         for (const off of offs) off();
-        for (const session of sessions) session.destroy();
+        for (const session of sessions) session.dispose();
       },
     };
   };

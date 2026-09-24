@@ -22,7 +22,7 @@ describe('SessionStore', () => {
 
     await expect(store.ensureAccessToken()).resolves.toBe('token-1');
     expect(refresh).not.toHaveBeenCalled();
-    store.destroy();
+    store.dispose();
   });
 
   it('剩餘壽命 < 30 秒時先續期', async () => {
@@ -33,7 +33,7 @@ describe('SessionStore', () => {
 
     await expect(store.ensureAccessToken()).resolves.toBe('token-2');
     expect(refresh).toHaveBeenCalledOnce();
-    store.destroy();
+    store.dispose();
   });
 
   it('★ 單飛：同時多個請求只觸發一次續期', async () => {
@@ -57,7 +57,7 @@ describe('SessionStore', () => {
     await expect(first).resolves.toBe('fresh');
     await expect(second).resolves.toBe('fresh');
     expect(refresh).toHaveBeenCalledOnce();
-    store.destroy();
+    store.dispose();
   });
 
   it('沒有 session 時不嘗試續期', async () => {
@@ -66,7 +66,7 @@ describe('SessionStore', () => {
     store.setRefreshFn(refresh);
     await expect(store.ensureAccessToken()).resolves.toBeUndefined();
     expect(refresh).not.toHaveBeenCalled();
-    store.destroy();
+    store.dispose();
   });
 
   it('endSession 是 latched：只觸發一次', () => {
@@ -81,7 +81,7 @@ describe('SessionStore', () => {
     expect(listener).toHaveBeenCalledOnce();
     expect(listener).toHaveBeenCalledWith('AUTH_TOKEN_STALE');
     expect(store.getAccessToken()).toBeUndefined();
-    store.destroy();
+    store.dispose();
   });
 
   it('access token 不進 localStorage（只有「有無 session」的旗標）', () => {
@@ -90,7 +90,7 @@ describe('SessionStore', () => {
     const dump = JSON.stringify(globalThis.localStorage);
     expect(dump).not.toContain('super-secret-token');
     expect(store.hasSession()).toBe(true);
-    store.destroy();
+    store.dispose();
   });
 
   it('續期被伺服器拒絕時結束 session（refresh token 過期或帳號被停用）', async () => {
@@ -103,7 +103,7 @@ describe('SessionStore', () => {
     await expect(store.ensureAccessToken()).rejects.toThrow(/AUTH_REFRESH_REVOKED/);
     expect(ended).toHaveBeenCalledOnce();
     expect(store.hasSession()).toBe(false);
-    store.destroy();
+    store.dispose();
   });
 
   it.each([
@@ -126,7 +126,7 @@ describe('SessionStore', () => {
     expect(store.hasSession()).toBe(true);
 
     await expect(store.ensureAccessToken()).resolves.toBe('fresh');
-    store.destroy();
+    store.dispose();
   });
 
   it('★ 續期途中登出：晚回來的結果被丟棄，session 不復活', async () => {
@@ -148,7 +148,7 @@ describe('SessionStore', () => {
     await expect(pending).resolves.toBeUndefined();
     expect(store.getAccessToken()).toBeUndefined();
     expect(store.hasSession()).toBe(false);
-    store.destroy();
+    store.dispose();
   });
 
   it('★ 續期途中登出又重新登入：舊的續期結果不覆蓋新登入的 token', async () => {
@@ -170,7 +170,7 @@ describe('SessionStore', () => {
 
     await expect(pending).resolves.toBeUndefined();
     expect(store.getAccessToken()).toBe('new-login');
-    store.destroy();
+    store.dispose();
   });
 
   it('續期途中登出後，續期被拒也不再觸發第二次 ended', async () => {
@@ -196,14 +196,14 @@ describe('SessionStore', () => {
     // 舊世代的拒絕不會把重新登入的 session 結束掉
     expect(ended).toHaveBeenCalledOnce();
     expect(store.getAccessToken()).toBe('new-login');
-    store.destroy();
+    store.dispose();
   });
 
   it('沒有注入 refreshFn 時明確報錯', async () => {
     const store = createStore();
     store.setTokens({ accessToken: 'stale', expiresIn: 1 });
     await expect(store.ensureAccessToken()).rejects.toThrow(/refreshFn/);
-    store.destroy();
+    store.dispose();
   });
 
   it('clear 之後 hasSession 為 false', () => {
@@ -212,7 +212,7 @@ describe('SessionStore', () => {
     store.clear();
     expect(store.hasSession()).toBe(false);
     expect(store.getAccessToken()).toBeUndefined();
-    store.destroy();
+    store.dispose();
   });
 
   it('subscribe 在登入 / 登出時通知（讓 React 重新渲染）', () => {
@@ -222,6 +222,6 @@ describe('SessionStore', () => {
     store.setTokens({ accessToken: 'token', expiresIn: 300 });
     store.endSession('logout');
     expect(listener).toHaveBeenCalledTimes(3); // setTokens + clear + endSession 的 notify
-    store.destroy();
+    store.dispose();
   });
 });

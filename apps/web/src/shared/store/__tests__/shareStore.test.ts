@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createChannel } from '@/shared/channel';
 import type { ChannelTransportFactory } from '@/shared/channel';
 
 import { create } from '../create';
@@ -63,7 +64,7 @@ describe.runIf(hasBroadcastChannel)('shareStore（跨分頁單一狀態，Broadc
   /** 每次呼叫代表一個分頁裡的同一個 store。 */
   function openTab() {
     const store = createCounter();
-    stops.push(shareStore(store, 'test-counter', ['count']));
+    stops.push(shareStore(store, ['count'], createChannel('shared:test-counter')));
     return store;
   }
 
@@ -110,7 +111,13 @@ describe.runIf(hasBroadcastChannel)('shareStore（跨分頁單一狀態，Broadc
 describe('shareStore（版本與衝突，手動送達）', () => {
   function openTab(hub: ReturnType<typeof manualHub>) {
     const store = createCounter();
-    stops.push(shareStore(store, 'test-counter', ['count'], { transport: hub.transport }));
+    stops.push(
+      shareStore(
+        store,
+        ['count'],
+        createChannel('shared:test-counter', { transport: hub.transport }),
+      ),
+    );
     return store;
   }
 

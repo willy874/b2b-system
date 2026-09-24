@@ -1,5 +1,5 @@
 import { createChannel, createInstanceId } from '@/shared/channel';
-import type { Channel } from '@/shared/channel';
+import type { Channel, ChannelOptions } from '@/shared/channel';
 import { create } from '@/shared/store';
 import type { StoreApi } from '@/shared/store';
 
@@ -330,10 +330,18 @@ export function createLeaderElection(
   };
 }
 
+/** 選舉頻道：由 `LeaderElection` 持有（經 `adapters.channel` 交給它，`dispose()` 時關閉）。 */
+export function createLeaderChannel(
+  name: string,
+  options?: ChannelOptions,
+): Channel<LeaderMessages> {
+  return createChannel(`leader:${name}`, options);
+}
+
 /** 分頁關閉時的正常讓位由 `stop()` 處理；當掉或被凍結的分頁由心跳逾時接手。 */
 export function browserLeaderAdapters(name: string): LeaderElectionAdapters {
   return {
-    channel: createChannel<LeaderMessages>(`leader:${name}`),
+    channel: createLeaderChannel(name),
     storage: {
       // 隱私模式可能直接拋錯；`nextLeaderTerm` 會接住並改走退化路徑
       getItem: (key) => globalThis.localStorage.getItem(key),

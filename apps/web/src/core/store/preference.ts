@@ -1,11 +1,23 @@
-import { DEFAULT_LANGUAGE, DEFAULT_TIMEZONE } from '@/shared/constants/lang';
+import { createChannel } from '@/shared/channel';
+import type { Channel, ChannelOptions } from '@/shared/channel';
+import { DEFAULT_LANGUAGE, DEFAULT_TIMEZONE, SUPPORTED_LANGUAGES } from '@/shared/constants/lang';
 import type { Language } from '@/shared/constants/lang';
 import { createDictStorage } from '@/shared/storage';
-import { create, syncStore } from '@/shared/store';
+import type { DictStorageMessages } from '@/shared/storage';
+import { create } from '@/shared/store';
 
-const storage = createDictStorage('preference');
 const LOCALE_KEY = 'locale';
 const TIMEZONE_KEY = 'timezone';
+
+/**
+ * 偏好設定的跨分頁頻道：由 `preference` 的 dictStorage 持有，寫入即廣播。
+ * 名稱落在 `ge:store:preference:` 之下：伺服器中繼的白名單（`RELAYABLE_CHANNEL_PREFIXES`）。
+ */
+export function createPreferenceChannel(options?: ChannelOptions): Channel<DictStorageMessages> {
+  return createChannel('store:preference:storage', options);
+}
+
+const storage = createDictStorage('preference', { channel: createPreferenceChannel() });
 
 interface LocaleStore {
   locale: Language;
@@ -39,16 +51,25 @@ export function hydratePreferences(): void {
   useTimezoneStore.setState({ timezone: storage.get(TIMEZONE_KEY, DEFAULT_TIMEZONE) });
 }
 
+function isLanguage(value: unknown): value is Language {
+  return SUPPORTED_LANGUAGES.includes(value as Language);
+}
+
 /**
- * 一個分頁改了語系或時區，其他分頁立即跟上。
- * 收訊方只更新 store：發訊方已寫入共用的 localStorage；切換 i18n 由 i18n plugin 訂閱 store 處理。
+ * 一個分頁改了語系或時區，其他分頁立即跟上：dictStorage 寫入時經頻道廣播，這裡只把收到的值放進 store
+ * （發訊方已寫入共用的 localStorage；切換 i18n 由 i18n plugin 訂閱 store 處理）。
+ * 其他分頁送來的值無法信任型別（新舊版本並存），不合法就略過。
  */
 export function syncPreferencesAcrossTabs(): () => void {
-  const stops = [
-    syncStore(useLocaleStore, 'preference:locale', ['locale']),
-    syncStore(useTimezoneStore, 'preference:timezone', ['timezone']),
+  const offs = [
+    storage.subscribe(LOCALE_KEY, (value) => {
+      if (isLanguage(value)) useLocaleStore.setState({ locale: value });
+    }),
+    storage.subscribe(TIMEZONE_KEY, (value) => {
+      if (typeof value === 'string') useTimezoneStore.setState({ timezone: value });
+    }),
   ];
   return () => {
-    for (const stop of stops) stop();
+    for (const off of offs) off();
   };
 }

@@ -28,10 +28,19 @@ const STORAGE_NAMESPACE_PREFIX = 'auth:';
 const HAS_SESSION_KEY = 'hasSession';
 
 /** 同一個頻道依序送達：登出之後才到的續期結果一定排在登出之後。 */
-type SessionMessages = {
+export type SessionMessages = {
   'refresh-done': { accessToken: string; expiresAt: number };
   'session-ended': { reason: string };
 };
+
+/**
+ * 某個後端的 session 頻道：由 `SessionStore` 持有。
+ * 明確釘在 BroadcastChannel、不開放選傳輸層：refresh-done 帶著 access token，
+ * 不可改走 localStorage（會落地）或 WebSocket（會離開本機），即使預設傳輸層日後被改掉。
+ */
+export function createSessionChannel(name: string): Channel<SessionMessages> {
+  return createChannel(SESSION_CHANNEL_PREFIX + name, { transport: broadcastChannelTransport() });
+}
 
 /** 以 `name` 為鍵的跨分頁互斥：同名的 `task` 同一時間只有一個在跑。 */
 export type RunExclusive = <T>(name: string, task: () => Promise<T>) => Promise<T>;
@@ -39,6 +48,8 @@ export type RunExclusive = <T>(name: string, task: () => Promise<T>) => Promise<
 export interface SessionStoreOptions {
   /** 預設用 `navigator.locks`（Web Locks）；測試注入假的來模擬多個分頁。 */
   runExclusive?: RunExclusive;
+  /** 預設 `createSessionChannel(name)`；交給 store 後由它負責關閉（`dispose()`）。 */
+  channel?: Channel<SessionMessages>;
 }
 
 /** 瀏覽器不支援 Web Locks 時退回只有分頁內單飛（`inFlight`）。 */
@@ -79,11 +90,8 @@ export class SessionStore {
   ) {
     this.runExclusive = options.runExclusive ?? webLocksExclusive();
     this.storage = createDictStorage(STORAGE_NAMESPACE_PREFIX + name);
-    // 明確釘在 BroadcastChannel：refresh-done 帶著 access token，
-    // 不可改走 localStorage（會落地）或 WebSocket（會離開本機），即使預設傳輸層日後被改掉
-    this.channel = createChannel<SessionMessages>(SESSION_CHANNEL_PREFIX + name, {
-      transport: broadcastChannelTransport(),
-    });
+    this.channel = options.channel ?? createSessionChannel(name);
+    // 不等 start()：session 從建立起就要跟其他分頁同步，直到 dispose()
     this.channel.on('refresh-done', ({ accessToken, expiresAt }) => {
       // 已結束的 session 不被其他分頁晚到的續期結果救活
       if (!this.ended) this.applyTokens(accessToken, expiresAt);
@@ -213,7 +221,7 @@ export class SessionStore {
     });
   }
 
-  destroy(): void {
+  dispose(): void {
     this.channel.close();
     this.events.clear();
   }

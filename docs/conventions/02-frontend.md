@@ -100,6 +100,16 @@
 不把伺服器資料複製進 store（唯一例外是權限集合）。
 見 [`architecture/frontend/09-state-and-storage.md`](../architecture/frontend/09-state-and-storage.md) §1。
 
+跨分頁同步（👀 Review）：每個頻道只有一個 **持有者**。名稱與訊息型別只寫在持有者旁的 `createXxxChannel()`，
+持有者從建構參數收下 `channel`、負責 `close()`，其他程式碼呼叫持有者的方法而不直接 `post` / `on`。
+持久化的狀態用帶頻道的 `dictStorage`。見 [`architecture/frontend/09-state-and-storage.md`](../architecture/frontend/09-state-and-storage.md) §5。
+
+| ❌ 不要 | ✅ 改成 |
+| ------- | ------- |
+| 模組層級 `let channel` ＋ `initXxxChannel()` | class 持有 `channel`，`start()` / `stop()` / `dispose()` |
+| 在呼叫端拼頻道名稱 ``createChannel(`realtime-control:${backend}`)`` | `createRealtimeControlChannel(backend)` |
+| store 與 localStorage 各自同步（`syncStore` ＋ `storage.set`） | `createDictStorage(ns, { channel })`，`subscribe` 收其他分頁的值 |
+
 ---
 
 ## 7. 樣式

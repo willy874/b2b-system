@@ -3,12 +3,12 @@ import { getSessionStore } from '@/core/auth';
 import { queryClient } from '@/core/cache';
 import {
   CLIENT_ID,
+  createRealtimeControlChannel,
   RealtimeClient,
   RealtimeCoordinator,
   setActiveRealtimeClient,
 } from '@/core/realtime';
-import type { ApplyOptions, CreateRealtimeSocket, RealtimeControlMessages } from '@/core/realtime';
-import { createChannel } from '@/shared/channel';
+import type { ApplyOptions, CreateRealtimeSocket } from '@/core/realtime';
 import type { ChannelTransportFactory } from '@/shared/channel';
 import { browserLeaderAdapters, createLeaderElection } from '@/shared/leader';
 import type { LeaderElectionAdapters } from '@/shared/leader';
@@ -58,13 +58,10 @@ export function realtimePlugin(options: RealtimePluginOptions): AppPluginFactory
     const coordinator = new RealtimeCoordinator({
       client: realtime,
       election,
-      channel: createChannel<RealtimeControlMessages>(`realtime-control:${backend}`, {
-        transport: options.controlTransport,
-      }),
+      channel: createRealtimeControlChannel(backend, { transport: options.controlTransport }),
       clientId: CLIENT_ID,
       applyChanges: options.onResourceChanged,
-      resync: ({ refetch }) =>
-        void queryClient.invalidateQueries({ refetchType: refetch ? 'active' : 'none' }),
+      resync: (applyOptions) => queryClient.revalidateAll(applyOptions),
       visibility: adapters.visibility,
     });
     setActiveRealtimeClient(realtime, coordinator);

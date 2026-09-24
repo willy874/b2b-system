@@ -104,20 +104,23 @@ Store 用參照比較來決定是否通知訂閱者，原地修改不會觸發�
 
 ```ts
 /** 命名空間化的 localStorage，值自動 JSON 序列化，讀取失敗時回 fallback */
-export function createDictStorage(namespace: string): DictStorage;
+export function createDictStorage(namespace: string, options?: { channel?: Channel<DictStorageMessages> }): DictStorage;
 
 interface DictStorage {
   get<T>(key: string, fallback: T): T;
   set<T>(key: string, value: T): void;
   remove(key: string): void;
-  subscribe(key: string, fn: (value: unknown) => void): () => void; // 跨分頁
+  subscribe(key: string, fn: (value: unknown) => void): () => void; // 其他參與者改了 key
+  dispose(): void; // 關閉頻道
 }
 ```
 
 - 命名空間前綴 `game-editor:`，避免與同網域的其他東西衝突
 - 所有讀取都包 `try/catch`：私密瀏覽模式、儲存空間已滿、使用者關閉 cookie
   都會讓 `localStorage` 拋例外。**拋例外時回 fallback，絕不讓 app 掛掉**
-- `subscribe` 監聽 `storage` 事件，讓 A 分頁改的偏好在 B 分頁立即生效
+- `subscribe` 只通知 **其他參與者** 的修改（本實例自己的寫入不通知）：
+  - 帶 `channel`：`set` / `remove` 後經頻道廣播，`subscribe` 聽頻道（§5「持久化狀態的同步」）
+  - 沒帶：聽瀏覽器的 `storage` 事件
 
 ### 4.2 什麼可以放 localStorage，什麼不可以
 
@@ -160,6 +163,33 @@ const channel = createChannel<SessionMessages>(`session:${name}`); // 實際頻�
 channel.on('session-ended', ({ reason }) => …);
 channel.post('session-ended', { reason });
 channel.close();
+```
+
+### 統一的使用方式：每個頻道有一個持有者
+
+各功能用 Channel 的形狀一律如下；新增頻道照做，並補進下方「目前的頻道」表：
+
+| # | 規則 | 理由 |
+| - | ---- | ---- |
+| 1 | 頻道的名稱與訊息型別只寫在 **一處**：持有者旁邊的 `XxxMessages` 型別 ＋ `createXxxChannel(…)` 工廠 | 搜尋名稱就找得到唯一的來源；傳輸層的限制（例：session 釘死 BroadcastChannel）寫在工廠裡，呼叫端改不掉 |
+| 2 | 持有者從建構參數收下 `channel`（有預設值的用 `options.channel ?? createXxxChannel()`） | 測試以 `createFakeChannelHub()` 注入，模擬多個分頁 |
+| 3 | **收下就負責關閉**：持有者的 `dispose()`（函式型則是回傳的 stop）呼叫 `channel.close()` | 不會有「誰該關」的疑問；呼叫端建好就交出去 |
+| 4 | 只有持有者呼叫 `post` / `on`；其他人呼叫持有者的方法 | 訊息協定（去迴圈、驗證 payload、何時該送）集中在一處 |
+| 5 | 由 plugin 管理生命週期的持有者：`start()` 開始收訊、`stop()` 停止（可再 `start()`）、`dispose()` 關閉頻道 | plugin 同步階段建立、`onInit` start、`onDestroy` stop 或 dispose |
+
+模組層級的單例（`queryClient`、各後端的 `SessionStore`、偏好設定的 dictStorage）在載入時就建好頻道；
+plugin 的 `onDestroy` 只 `stop()`，不 `dispose()`——app 重新建立時還要再 `start()`。
+
+```ts
+// 持有者（core/cache/AppQueryClient.ts）
+export type QueryInvalidateMessages = { invalidate: readonly InvalidationTarget[] };
+export function createQueryInvalidateChannel(options?: ChannelOptions) {
+  return createChannel<QueryInvalidateMessages>('query-invalidate', options);
+}
+
+// 測試：兩個分頁
+const hub = createFakeChannelHub();
+const a = new AppQueryClient({ channel: createQueryInvalidateChannel({ transport: hub.transport() }) });
 ```
 
 ### 傳輸層
@@ -208,13 +238,30 @@ createChannel('store:layout', {
 WebSocket 的連線由呼叫端建立、重連與關閉；頻道 `close()` 只取消訂閱。
 連線中（`CONNECTING`）送出的訊息會排隊到 `open`，已關閉時丟棄。
 
-### Store 的同步
+### 持久化狀態的同步：帶頻道的 `dictStorage`
 
-signal store 要在所有參與者保持一致時，用 `shared/store` 的 `syncStore()`，不自己開頻道：
+會寫進 localStorage 的狀態（偏好設定），由 **dictStorage 持有頻道**：寫入即廣播，其他分頁經 `subscribe` 收到值再放進 store。
 
 ```ts
-const stop = syncStore(useLocaleStore, 'preference:locale', ['locale']);
-// 跨裝置：第四個參數傳 { transport }
+// core/store/preference.ts
+const storage = createDictStorage('preference', { channel: createPreferenceChannel() });
+
+storage.subscribe('locale', (value) => {
+  if (isLanguage(value)) useLocaleStore.setState({ locale: value }); // 其他分頁的值不信任型別
+});
+```
+
+- 收訊方只通知訂閱者，**不再寫一次** localStorage：本機分頁共用同一份，發訊方已經寫過。
+- 因此只適用本機分頁的傳輸層；跨裝置時各裝置的 localStorage 不共用，要改用 `syncStore` 並由收訊方自己持久化。
+- 持久化與通知在同一個 `set()` 裡，不會「寫了沒廣播」或「廣播了沒寫」。
+
+### Store 的同步
+
+signal store（不經 dictStorage）要在所有參與者保持一致時，用 `shared/store` 的 `syncStore()`，不自己訂閱頻道：
+
+```ts
+const stop = syncStore(useLayoutStore, ['collapsed'], createChannel('store:layout'));
+// 跨裝置：createChannel 的第二個參數傳 { transport }
 ```
 
 - 只同步列出的資料欄位；action 是函式，無法也不該傳遞。
@@ -229,8 +276,12 @@ const stop = syncStore(useLocaleStore, 'preference:locale', ['locale']);
 狀態 **不持久化**、但所有分頁必須看到 **同一份** 時，改用 `shared/store` 的 `shareStore()`：
 
 ```ts
-const stop = shareStore(useEditorSessionStore, 'editor-session', ['activeDocumentId', 'mode']);
-// 跨裝置：第四個參數傳 { transport }，與 syncStore 相同
+const stop = shareStore(
+  useEditorSessionStore,
+  ['activeDocumentId', 'mode'],
+  createChannel('shared:editor-session'),
+);
+// 跨裝置：createChannel 的第二個參數傳 { transport }，與 syncStore 相同
 ```
 
 |                    | `syncStore`                              | `shareStore`                                              |
@@ -238,7 +289,7 @@ const stop = shareStore(useEditorSessionStore, 'editor-session', ['activeDocumen
 | 頻道               | `ge:store:<name>`                        | `ge:shared:<name>`                                        |
 | 新分頁的初始值     | 由持久化（`dictStorage`）水合            | **加入時送 `snapshot-request`，向既有分頁要目前的快照**   |
 | 同時修改           | 各自以最後收到的為準                     | **版本號 ＋ 寫入者 id**，所有分頁收斂到同一個值           |
-| 適合               | 會寫進 localStorage 的偏好設定           | 不持久化、但必須全域一致的執行期狀態                      |
+| 適合               | 會寫進 localStorage 的狀態（本機分頁可直接用帶頻道的 `dictStorage`） | 不持久化、但必須全域一致的執行期狀態 |
 
 規則（實作在 `shared/store/shareStore.ts`）：
 
@@ -251,16 +302,15 @@ const stop = shareStore(useEditorSessionStore, 'editor-session', ['activeDocumen
 
 ### 目前的頻道
 
-| 頻道（`ge:` 之後）          | 訊息                            | 傳輸層             | 位置                                         |
-| --------------------------- | ------------------------------- | ------------------ | -------------------------------------------- |
-| `session:<後端>`            | `refresh-done`、`session-ended` | BroadcastChannel（釘死） | `core/auth/SessionStore`               |
-| `query-invalidate`          | `invalidate`                    | 預設（推播可用時不送） | `core/cache/broadcastInvalidate`         |
-| `leader:realtime:<後端>`    | `request-leader`、`leader-announcement`、`leader-heartbeat`、`leader-release` | 預設 | `shared/leader`，由 realtime plugin 啟動（[11 §3.3](./11-realtime.md)） |
-| `realtime-control:<後端>`   | `resource-changed`、`resync`、`status`、`status-request` | 預設 | `core/realtime/RealtimeCoordinator`（[11 §3.4](./11-realtime.md)） |
-| `store:preference:locale`   | `state`（`syncStore`）          | 預設               | `core/store/preference`，由 i18n plugin 啟動 |
-| `store:preference:timezone` | `state`（`syncStore`）          | 預設               | 同上                                         |
+| 頻道（`ge:` 之後）          | 訊息                            | 傳輸層             | 工廠 → 持有者                                 | 收訊期間 |
+| --------------------------- | ------------------------------- | ------------------ | --------------------------------------------- | -------- |
+| `session:<後端>`            | `refresh-done`、`session-ended` | BroadcastChannel（釘死） | `createSessionChannel` → `core/auth/SessionStore` | 建立起到 `dispose()` |
+| `query-invalidate`          | `invalidate`                    | 預設（推播可用時不送） | `createQueryInvalidateChannel` → `core/cache/AppQueryClient` | cache plugin 的 `start()` / `stop()` |
+| `leader:realtime:<後端>`    | `request-leader`、`leader-announcement`、`leader-heartbeat`、`leader-release` | 預設 | `createLeaderChannel` → `shared/leader` 的 `LeaderElection`（[11 §3.3](./11-realtime.md)） | realtime plugin |
+| `realtime-control:<後端>`   | `resource-changed`、`resync`、`status`、`status-request` | 預設 | `createRealtimeControlChannel` → `core/realtime/RealtimeCoordinator`（[11 §3.4](./11-realtime.md)） | realtime plugin |
+| `store:preference:storage`  | `set`、`remove`（`DictStorageMessages`） | 預設 | `createPreferenceChannel` → `core/store/preference` 的 dictStorage | 寫入即送；i18n plugin 訂閱（`syncPreferencesAcrossTabs`） |
 
-目前沒有 store 使用 `shareStore`（偏好設定都有持久化，`syncStore` 足夠）；新增時把頻道補進上表。
+目前沒有 store 使用 `syncStore` / `shareStore`（偏好設定由 dictStorage 同步）；新增時把頻道補進上表。
 
 續期結果與登出放在 **同一個頻道**：同一頻道的訊息依序送達，登出之後才到的續期結果不會排在登出前面。
 
@@ -375,5 +425,5 @@ TanStack Router 的 `useBlocker` 會攔截路由離開。**只攔截路由，不
 | 登出時只清 permission store              | 同時 `queryClient.clear()`                  |
 | 每個分頁各自續期 token                   | Web Locks 跨分頁互斥 ＋ `refresh-done` 廣播 |
 | 登出時先打 API、回應後才清 session       | 先 `endSession`，再用擷取的 token 撤銷後端  |
-| 直接 `new BroadcastChannel()` / 聽 `storage` 事件 | `createChannel()`；store 用 `syncStore()` |
+| 直接 `new BroadcastChannel()` / 聽 `storage` 事件 | `createChannel()`，由一個持有者收下（§5）；持久化狀態用帶頻道的 `dictStorage`，store 用 `syncStore()` |
 | 帶 token 的頻道走預設或 localStorage     | 明確指定 `broadcastChannelTransport()`      |

@@ -23,7 +23,7 @@ export function getActiveRealtimeClient(): RealtimeClient | undefined {
 
 /**
  * 推播是否可用：本分頁是 leader 且連線中，或 leader 分頁回報連線中。
- * 可用時其他分頁會經 leader 收到同一筆變更，`broadcastInvalidate` 就不再經本機頻道廣播
+ * 可用時其他分頁會經 leader 收到同一筆變更，`queryClient.broadcastInvalidation` 就不再經本機頻道廣播
  * （docs/architecture/frontend/11-realtime.md §4.2）。沒有協調者時退回看本分頁的連線。
  */
 export function isRealtimeAvailable(): boolean {

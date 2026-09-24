@@ -1,7 +1,8 @@
-import { createChannel } from '@/shared/channel';
-import type { ChannelOptions } from '@/shared/channel';
+import type { Channel } from '@/shared/channel';
 
 import type { StoreApi } from './create';
+
+export type SyncStoreMessages<S> = { state: S };
 
 /**
  * 讓同一個 store 在所有參與者（分頁、其他裝置，視傳輸層而定）保持一致：
@@ -12,17 +13,14 @@ import type { StoreApi } from './create';
  * - 持久化寫在 action 裡的 store，收訊方不必再寫一次：發訊方已經寫進共用的 localStorage
  *   （跨裝置時例外：各裝置的 localStorage 不共用，收訊方要自己持久化）。
  *
- * @param name 頻道名稱，同一個 store 在所有參與者要一致（實際頻道為 `ge:store:<name>`）
- * @param options 傳輸層，預設只在本機分頁之間（`BroadcastChannel`）
- * @returns 停止同步
+ * @param channel 所有參與者同名的頻道（慣例 `createChannel('store:<name>')`）；交給 `syncStore` 後由它負責關閉
+ * @returns 停止同步並關閉頻道
  */
 export function syncStore<T extends object, K extends keyof T>(
   store: StoreApi<T>,
-  name: string,
   keys: readonly K[],
-  options?: ChannelOptions,
+  channel: Channel<SyncStoreMessages<Pick<T, K>>>,
 ): () => void {
-  const channel = createChannel<{ state: Pick<T, K> }>(`store:${name}`, options);
   let isApplyingRemote = false;
 
   const pick = (state: T): Pick<T, K> => {

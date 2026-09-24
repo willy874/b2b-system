@@ -34,7 +34,7 @@ core/realtime/
 ├── clientId.ts                            分頁的 instance id（也用在 x-client-id）
 ├── useRealtimeEvent.ts                    feature 訂閱伺服器事件的唯一入口
 └── index.ts
-core/cache/broadcastInvalidate.ts          推播可用時不再跨分頁廣播；applyInvalidation 支援只標 stale
+core/cache/AppQueryClient.ts               推播可用時不再跨分頁廣播；applyInvalidation 支援只標 stale
 shared/leader/                             ★ 跨分頁 leader 選舉（純引擎，adapters 可注入）
 shared/utils/keyedThrottle.ts              以 key 去重、隨機延遲削峰
 shared/channel/transports/socketIo.ts      ★ 跨裝置頻道的傳輸層
@@ -153,7 +153,7 @@ Origin 或速率限制是在 HTTP 升級階段被拒，`connect_error` 不帶 `c
 // apis/resources.ts
 /** 伺服器推來的變更：只在本分頁套用。每個分頁都有自己的連線，不需要再轉給其他分頁。 */
 export function applyResourceChanges(changes: readonly ResourceChangeEvent[]): void {
-  applyInvalidation(graph.resolve(changes));
+  queryClient.applyInvalidation(graph.resolve(changes));
 }
 ```
 
@@ -185,13 +185,14 @@ export function applyResourceChanges(changes: readonly ResourceChangeEvent[]): v
 
 ### 4.2 跨分頁廣播的降級
 
-推播可用時，同瀏覽器的其他分頁會經 leader 收到同一筆變更；`broadcastInvalidate` 再廣播一次會讓它們失效兩次。
+推播可用時，同瀏覽器的其他分頁會經 leader 收到同一筆變更；`broadcastInvalidation` 再廣播一次會讓它們失效兩次。
 
 ```ts
-export function broadcastInvalidate(targets: readonly InvalidationTarget[]): void {
-  applyInvalidation(targets);
+// core/cache/AppQueryClient.ts
+broadcastInvalidation(targets: readonly InvalidationTarget[]): void {
+  this.applyInvalidation(targets);
   // 推播可用時由 leader 轉給其他分頁；不可用（或推播停用）時才走本機頻道
-  if (!isRealtimeAvailable()) channel?.post('invalidate', targets);
+  if (!this.isRealtimeAvailable()) this.channel.post('invalidate', targets);
 }
 ```
 
@@ -238,7 +239,7 @@ leader 當掉時 follower 在心跳逾時後改判為不可用，mutation 自動
 `shared/channel` 的頻道可以經由伺服器中繼到同一個使用者的其他裝置：
 
 ```ts
-createChannel('store:preference:locale', {
+createChannel('store:preference:theme', {
   transport: combineTransports(broadcastChannelTransport(), socketIoTransport(realtime.socket)),
 });
 ```
@@ -249,7 +250,7 @@ createChannel('store:preference:locale', {
 | 伺服器只轉 **白名單** 頻道（`ge:store:preference:*`） | 其他頻道即使用了這個傳輸層也不會離開本機                              |
 | `session:*` 頻道 **永遠** 只走 BroadcastChannel | 帶 token（[09 §5](./09-state-and-storage.md) 的安全限制）                   |
 | 本機也檢查白名單                              | 不在 `RELAYABLE_CHANNEL_PREFIXES` 的頻道，`socketIoTransport` 回 `undefined`（不經這條連線），不依賴伺服器擋 |
-| 收訊方要自己持久化                           | 各裝置的 localStorage 不共用（[09 §5](./09-state-and-storage.md)「Store 的同步」） |
+| 收訊方要自己持久化                           | 各裝置的 localStorage 不共用（[09 §5](./09-state-and-storage.md)「Store 的同步」）。偏好設定目前的 `store:preference:storage` 由 dictStorage 持有、收訊時不寫入，**只適用本機分頁**；要跨裝置時改用 `syncStore` |
 
 `RealtimeClient` 在 plugin 初始化時就建立 `Socket` 物件（只是還沒連線），所以頻道可以在啟動時就綁上傳輸層。
 **只有 leader 分頁的 socket 會連線**：follower 經這個傳輸層送出的訊息會被丟棄（斷線時丟棄的規則）。
@@ -287,7 +288,7 @@ useRealtimeEvent(ServerEvent.SOMETHING, (payload) => { … });
 | 單元         | `RealtimeClient` 注入假的 socket：schema 不合時略過、`connected` 的 `resumed`、`setOwner` 決定連不連、`refreshed` → `session.renew` |
 | 單元         | `createLeaderElection`：假計時器 ＋ `src/test/fakeChannelHub.ts`（可控延遲、可模擬分頁當掉）；切換分頁、並排、當掉接手、同時當選、localStorage 不可用 |
 | 單元         | `RealtimeCoordinator`：只有 leader 持有連線、轉發與 `origin`、背景只標 stale、合併、跳號與重複、舊任期、重連與交接的 `resync`、推播是否可用 |
-| 單元         | `broadcastInvalidate`：推播可用時不廣播、不可用時廣播；`refetch: false` 只標 stale               |
+| 單元         | `AppQueryClient`：兩個分頁以 `fakeChannelHub` 相連；推播可用時不廣播、不可用時廣播、收到的不再轉送；`refetch: false` 只標 stale |
 | 單元         | `socketIoTransport`：斷線時丟棄、只交出外框給 `createChannel`                                |
 | E2E          | Playwright 開兩個 browser context：A 改角色權限，B 的選單在數秒內改變；A 停用 B，B 立刻回登入頁 |
 

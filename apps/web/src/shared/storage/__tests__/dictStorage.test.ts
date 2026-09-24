@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createChannel } from '@/shared/channel';
+import { createFakeChannelHub } from '@/test/fakeChannelHub';
+
 import { createDictStorage } from '../dictStorage';
 
 afterEach(() => {
@@ -41,5 +44,64 @@ describe('dictStorage', () => {
     storage.set('key', 'value');
     storage.remove('key');
     expect(storage.get('key', 'gone')).toBe('gone');
+  });
+});
+
+/** 每次呼叫代表一個分頁裡的同一份 dictStorage；本機分頁共用同一份 localStorage。 */
+function openTabs(count: number) {
+  const hub = createFakeChannelHub();
+  return Array.from({ length: count }, () =>
+    createDictStorage('preference', {
+      channel: createChannel('store:test', { transport: hub.transport() }),
+    }),
+  );
+}
+
+describe('dictStorage（帶頻道）', () => {
+  it('一個分頁寫入，其他分頁的訂閱者收到新值', async () => {
+    const [a, b] = openTabs(2);
+    const listener = vi.fn();
+    b?.subscribe('locale', listener);
+
+    a?.set('locale', 'en_US');
+
+    await vi.waitFor(() => expect(listener).toHaveBeenCalledWith('en_US'));
+    expect(b?.get('locale', 'zh_TW')).toBe('en_US');
+  });
+
+  it('自己的寫入不通知自己；只通知訂閱的 key', async () => {
+    const [a, b] = openTabs(2);
+    const own = vi.fn();
+    const other = vi.fn();
+    a?.subscribe('locale', own);
+    b?.subscribe('timezone', other);
+
+    a?.set('locale', 'en_US');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(own).not.toHaveBeenCalled();
+    expect(other).not.toHaveBeenCalled();
+  });
+
+  it('移除時訂閱者收到 undefined', async () => {
+    const [a, b] = openTabs(2);
+    const listener = vi.fn();
+    b?.subscribe('locale', listener);
+
+    a?.remove('locale');
+
+    await vi.waitFor(() => expect(listener).toHaveBeenCalledWith(undefined));
+  });
+
+  it('dispose 之後不再收發', async () => {
+    const [a, b] = openTabs(2);
+    const listener = vi.fn();
+    b?.subscribe('locale', listener);
+    b?.dispose();
+
+    a?.set('locale', 'en_US');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(listener).not.toHaveBeenCalled();
   });
 });

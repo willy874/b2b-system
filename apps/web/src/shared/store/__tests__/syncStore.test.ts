@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createChannel } from '@/shared/channel';
+
 import { create } from '../create';
 import { syncStore } from '../syncStore';
 
@@ -19,7 +21,7 @@ function openTab() {
     draft: '',
     setLocale: (locale) => set({ locale }),
   }));
-  stops.push(syncStore(store, 'test-pref', ['locale']));
+  stops.push(syncStore(store, ['locale'], createChannel('store:test-pref')));
   return store;
 }
 

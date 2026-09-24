@@ -1,4 +1,5 @@
-import type { Channel } from '@/shared/channel';
+import { createChannel } from '@/shared/channel';
+import type { Channel, ChannelOptions } from '@/shared/channel';
 import { compareLeaderTerm, isLeaderTerm } from '@/shared/leader';
 import type { LeaderElection, LeaderElectionState, LeaderTerm } from '@/shared/leader';
 import { ResourceChangeWireSchema } from '@/shared/realtime';
@@ -28,6 +29,14 @@ export type RealtimeControlMessages = {
   'status-request': Record<string, never>;
 };
 
+/** 某個後端的 control channel：由 `RealtimeCoordinator` 持有。 */
+export function createRealtimeControlChannel(
+  backend: string,
+  options?: ChannelOptions,
+): Channel<RealtimeControlMessages> {
+  return createChannel(`realtime-control:${backend}`, options);
+}
+
 export interface ApplyOptions {
   /** `false`：只標成 stale、不立刻重抓（背景分頁；回到前景時由 TanStack 的 focus refetch 接手）。 */
   refetch: boolean;
@@ -36,6 +45,7 @@ export interface ApplyOptions {
 export interface RealtimeCoordinatorOptions {
   client: RealtimeClient;
   election: LeaderElection;
+  /** `createRealtimeControlChannel(backend)`；交給協調者後由它負責關閉（`dispose()`）。 */
   channel: Channel<RealtimeControlMessages>;
   /** 本分頁的 instance id（`x-client-id`）：推播的 `origin` 是自己就不在本分頁套用。 */
   clientId: string;
@@ -94,7 +104,7 @@ export class RealtimeCoordinator {
 
   /**
    * 推播是否可用：本分頁是 leader 且連線中，或已知的 leader 回報連線中。
-   * 可用時其他分頁會收到同一筆變更，`broadcastInvalidate` 不必再經本機頻道廣播。
+   * 可用時其他分頁會收到同一筆變更，`broadcastInvalidation` 不必再經本機頻道廣播。
    */
   isAvailable(): boolean {
     const { election, client } = this.options;

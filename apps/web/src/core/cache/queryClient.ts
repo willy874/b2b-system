@@ -1,6 +1,6 @@
-import { QueryClient } from '@tanstack/react-query';
+import { AppQueryClient } from './AppQueryClient';
 
-export const queryClient = new QueryClient({
+export const queryClient = new AppQueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,
