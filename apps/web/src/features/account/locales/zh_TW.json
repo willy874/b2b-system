@@ -21,7 +21,9 @@
       "displayName": "顯示名稱",
       "roles": "角色",
       "locale": "語系",
-      "timezone": "時區"
+      "timezone": "時區",
+      "currentPassword": "目前密碼",
+      "newPassword": "新密碼"
     }
   }
 }

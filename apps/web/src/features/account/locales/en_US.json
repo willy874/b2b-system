@@ -21,7 +21,9 @@
       "displayName": "Display name",
       "roles": "Roles",
       "locale": "Language",
-      "timezone": "Timezone"
+      "timezone": "Timezone",
+      "currentPassword": "Current password",
+      "newPassword": "New password"
     }
   }
 }

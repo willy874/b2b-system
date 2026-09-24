@@ -95,7 +95,7 @@ export default function ProfilePage() {
       <section className="flex flex-col gap-3">
         <h2 className="m-0 text-base font-medium">{t('account.password.title')}</h2>
         <p className="m-0 text-sm text-[var(--color-fg-muted)]">{t('account.password.hint')}</p>
-        <Field label={t('auth.field.currentPassword')} required>
+        <Field label={t('account.field.currentPassword')} required>
           <Input
             type="password"
             value={currentPassword}
@@ -103,7 +103,7 @@ export default function ProfilePage() {
             data-testid="profile-current-password"
           />
         </Field>
-        <Field label={t('auth.field.newPassword')} required>
+        <Field label={t('account.field.newPassword')} required>
           <Input
             type="password"
             value={newPassword}
