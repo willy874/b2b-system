@@ -108,7 +108,7 @@ game-editor/
 | 批次 1（基礎） | `Button` `IconButton` `Link` `Typography` `Icon` `Spinner` `Skeleton` `Separator` `Chip` |
 | 批次 2（表單） | `Field` `Input` `NumberField` `Select` `Combobox` `Checkbox` `Radio` `Switch` `Form`     |
 | 批次 3（彈層） | `Dialog` `AlertDialog` `Popover` `Tooltip` `Menu` `Toast`                                |
-| 批次 4（版面） | `Tabs` `Accordion` `Collapsible` `ScrollArea` `Toolbar` `Breadcrumbs` `Empty`            |
+| 批次 4（版面） | `Tabs` `Accordion` `Collapsible` `ScrollArea` `Breadcrumbs` `Empty`                      |
 | 批次 5（資料） | `Table`（TanStack Table ＋ 虛擬捲動）`Pagination` `Avatar` `Progress`                    |
 | 批次 6（延後） | `DatePicker` `DateRangePicker` `FileUpload`                                              |
 

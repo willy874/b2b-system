@@ -269,12 +269,12 @@ return <Outlet />;
 function RoleListToolbar() {
   const { canCreate, canDelete } = useRolePermission();
   return (
-    <Toolbar>
+    <div className={styles.toolbar}>
       {canCreate && <Button onClick={openCreate}>{t("role.create")}</Button>}
       <Button disabled={!canDelete || selection.length === 0} onClick={openDelete}>
         {t("common.delete")}
       </Button>
-    </Toolbar>
+    </div>
   );
 }
 ```

@@ -18,7 +18,6 @@ import { ScrollArea } from '../ScrollArea';
 import { Separator } from '../Separator';
 import { Skeleton } from '../Skeleton';
 import { Spinner } from '../Spinner';
-import { Toolbar } from '../Toolbar';
 import { Typography } from '../Typography';
 
 /**
@@ -66,7 +65,6 @@ const cases: Array<[string, (ref: RefObject<HTMLElement | null>) => ReactElement
     'Breadcrumbs',
     (ref) => <Breadcrumbs ref={ref as RefObject<HTMLElement>} items={[{ key: 'a', label: 'a' }]} />,
   ],
-  ['Toolbar', (ref) => <Toolbar ref={ref as RefObject<HTMLDivElement>}>x</Toolbar>],
   ['ScrollArea', (ref) => <ScrollArea ref={ref as RefObject<HTMLDivElement>}>x</ScrollArea>],
   [
     'Field',

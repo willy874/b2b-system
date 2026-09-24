@@ -47,7 +47,6 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `Tabs`                        | `@base-ui/react/tabs`                       |
 | `Accordion` / `Collapsible`   | `@base-ui/react/accordion`、`collapsible`   |
 | `Toast`                       | `@base-ui/react/toast`                      |
-| `Toolbar`                     | `@base-ui/react/toolbar`                    |
 | `ScrollArea`                  | `@base-ui/react/scroll-area`                |
 | `Progress` / `Meter`          | `@base-ui/react/progress`、`meter`          |
 | `NumberField`                 | `@base-ui/react/number-field`               |
