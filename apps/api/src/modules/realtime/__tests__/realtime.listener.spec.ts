@@ -11,8 +11,8 @@ import type { DomainEventBus, DomainEventMeta } from '@/core/events';
 
 import * as audienceModule from '../realtime.audience';
 import type { RealtimeAudience } from '../realtime.audience';
-import type { RealtimeGateway } from '../realtime.gateway';
 import { RealtimeListener } from '../realtime.listener';
+import { RealtimePublisher } from '../realtime.publisher';
 
 type Handler = (payload: unknown, meta: DomainEventMeta) => unknown;
 
@@ -26,22 +26,25 @@ function setup(openRooms: Record<string, number> = {}) {
     }),
   };
 
-  const emits: Array<{ rooms: string | string[]; event: string; payload: unknown }> = [];
+  const emits: Array<{ rooms: string | readonly string[]; event: string; payload: unknown }> = [];
   const disconnected: string[] = [];
-  const io = {
-    sockets: {
-      adapter: { rooms: new Map(Object.entries(openRooms).map(([r, n]) => [r, { size: n }])) },
-    },
-    to: (rooms: string | string[]) => ({
-      emit: (event: string, payload: unknown) => emits.push({ rooms, event, payload }),
-    }),
-    in: (room: string) => ({ disconnectSockets: () => disconnected.push(room) }),
-  };
+  const publisher = new (class extends RealtimePublisher {
+    emit(rooms: string | readonly string[], event: string, payload?: unknown): void {
+      emits.push({ rooms, event, payload });
+    }
+    countConnections(room: string): number {
+      return openRooms[room] ?? 0;
+    }
+    moveRooms(): void {}
+    disconnect(room: string): void {
+      disconnected.push(room);
+    }
+  })();
   const audience = { refreshAudience: vi.fn().mockResolvedValue(undefined) };
 
   const listener = new RealtimeListener(
     bus as unknown as DomainEventBus,
-    { server: io } as unknown as RealtimeGateway,
+    publisher,
     audience as unknown as RealtimeAudience,
   );
   listener.onModuleInit();
@@ -49,10 +52,10 @@ function setup(openRooms: Record<string, number> = {}) {
   const fire = (type: string, payload: unknown, meta: Partial<DomainEventMeta> = {}) =>
     handlers.get(type)?.(payload, { occurredAt: new Date(), ...meta });
 
-  return { listener, fire, emits, disconnected, audience, io, unsubscribe, bus };
+  return { listener, fire, emits, disconnected, audience, unsubscribe, bus };
 }
 
-describe('RealtimeListener（領域事件 → Socket.io）', () => {
+describe('RealtimeListener（領域事件 → 推播）', () => {
   it('啟動時訂閱三個事件，關閉時全部取消', () => {
     const { listener, bus, unsubscribe } = setup();
     expect(bus.subscribe.mock.calls.map(([type]) => type).toSorted()).toEqual(
@@ -67,9 +70,9 @@ describe('RealtimeListener（領域事件 → Socket.io）', () => {
   });
 
   it('permissions.changed → 同步這些人的 room', async () => {
-    const { fire, audience, io } = setup();
+    const { fire, audience } = setup();
     await fire(DomainEvent.PERMISSIONS_CHANGED, { userIds: ['u1', 'u2'] });
-    expect(audience.refreshAudience).toHaveBeenCalledWith(io, ['u1', 'u2']);
+    expect(audience.refreshAudience).toHaveBeenCalledWith(['u1', 'u2']);
   });
 
   it('resource.changed → 推到受眾 room，origin 取自 meta.clientId', () => {
@@ -87,7 +90,7 @@ describe('RealtimeListener（領域事件 → Socket.io）', () => {
     );
   });
 
-  it('resource.changed 算不出任何受眾時不推（to([]) 會廣播給所有連線）', () => {
+  it('resource.changed 算不出任何受眾時不推', () => {
     const { fire, emits } = setup();
     vi.mocked(audienceModule.resolveAudienceRooms).mockReturnValueOnce([]);
     fire(DomainEvent.RESOURCE_CHANGED, {
@@ -110,30 +113,5 @@ describe('RealtimeListener（領域事件 → Socket.io）', () => {
       { rooms: 'user:u1', event: 'session.revoked', payload: { reason: 'AUTH_ACCOUNT_DISABLED' } },
     ]);
     expect(disconnected).toEqual(['user:u1']);
-  });
-
-  it('gateway 尚未初始化（沒有 server）時什麼都不做', async () => {
-    const handlers = new Map<string, Handler>();
-    const listener = new RealtimeListener(
-      {
-        subscribe: (type: string, handler: Handler) => {
-          handlers.set(type, handler);
-          return () => {};
-        },
-      } as unknown as DomainEventBus,
-      {} as RealtimeGateway,
-      { refreshAudience: vi.fn() } as unknown as RealtimeAudience,
-    );
-    listener.onModuleInit();
-    const meta = { occurredAt: new Date() };
-    await expect(
-      handlers.get(DomainEvent.PERMISSIONS_CHANGED)?.({ userIds: ['u1'] }, meta),
-    ).resolves.toBeUndefined();
-    expect(() =>
-      handlers.get(DomainEvent.RESOURCE_CHANGED)?.(
-        { changes: [{ resource: 'role', kind: 'create' }] },
-        meta,
-      ),
-    ).not.toThrow();
   });
 });

@@ -3,7 +3,6 @@ import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { WsException } from '@nestjs/websockets';
 import { MESSAGE_METADATA } from '@nestjs/websockets/constants';
-import type { Socket } from 'socket.io';
 
 import { AppException } from '@/core/errors';
 import { AuditService } from '@/modules/audit-log/audit.service';
@@ -12,7 +11,7 @@ import { PermissionService } from '@/modules/permission/permission.service';
 import { IS_AUTHENTICATED, IS_PUBLIC, REQUIRED_PERMISSIONS } from '../decorators';
 import type { PermissionRequirement } from '../decorators';
 import { getSocketIdentity } from '../types';
-import type { AuthenticatedRequest } from '../types';
+import type { AuthenticatedRequest, WsClient } from '../types';
 
 interface GuardSubject {
   route: string;
@@ -82,7 +81,7 @@ export class PermissionsGuard implements CanActivate {
 
   /** WebSocket：身分來自 handshake 寫進 `socket.data` 的資料（docs/architecture/backend/08-realtime.md §4）。 */
   private wsSubject(ctx: ExecutionContext): GuardSubject {
-    const socket = ctx.switchToWs().getClient<Socket>();
+    const socket = ctx.switchToWs().getClient<WsClient>();
     const event = Reflect.getMetadata(MESSAGE_METADATA, ctx.getHandler()) as unknown;
     const identity = getSocketIdentity(socket);
     return {

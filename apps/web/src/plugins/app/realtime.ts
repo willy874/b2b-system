@@ -7,8 +7,9 @@ import {
   RealtimeClient,
   RealtimeCoordinator,
   setActiveRealtimeClient,
+  socketIoRealtimeTransport,
 } from '@/core/realtime';
-import type { ApplyOptions, CreateRealtimeSocket } from '@/core/realtime';
+import type { ApplyOptions, CreateRealtimeTransport } from '@/core/realtime';
 import type { ChannelTransportFactory } from '@/shared/channel';
 import { browserLeaderAdapters, createLeaderElection } from '@/shared/leader';
 import type { LeaderElectionAdapters } from '@/shared/leader';
@@ -22,8 +23,8 @@ export interface RealtimePluginOptions {
    * 由 `main.tsx` 注入 `applyResourceChanges`：plugin 不能 import `apis/`。
    */
   onResourceChanged: (changes: readonly ResourceChangeWire[], options: ApplyOptions) => void;
-  /** 測試注入假的 socket。 */
-  createSocket?: CreateRealtimeSocket;
+  /** 連線的實作；預設 Socket.io，測試注入假的。 */
+  createTransport?: CreateRealtimeTransport;
   /** 測試注入假的選舉環境（頻道、計時、可見性）。 */
   leaderAdapters?: LeaderElectionAdapters;
   /** 測試注入 control channel 的傳輸層；預設 BroadcastChannel。 */
@@ -41,15 +42,15 @@ export interface RealtimePluginOptions {
  * | `onDestroy`          | 讓位、斷線、關閉頻道                                               |
  *
  * 必須註冊在 `httpContextPlugin` 之後：要用它建立的 session（含 refreshFn）。
- * Mock 模式不註冊（MSW 不處理 Socket.io），行為等同推播停用。
+ * Mock 模式不註冊（MSW 不處理推播連線），行為等同推播停用。
  */
 export function realtimePlugin(options: RealtimePluginOptions): AppPluginFactory {
   return () => {
     const { backend } = options;
-    // 在同步階段就建立：`realtime.socket` 讓頻道可以在啟動時就綁上 `socketIoTransport`
+    // 在同步階段就建立：`realtime.relay` 讓頻道可以在啟動時就綁上 `serverRelayTransport`
     const realtime = new RealtimeClient({
       session: getSessionStore(backend),
-      createSocket: options.createSocket,
+      createTransport: options.createTransport ?? socketIoRealtimeTransport(),
     });
     const adapters = options.leaderAdapters ?? browserLeaderAdapters(`realtime:${backend}`);
     const election = createLeaderElection(adapters, {

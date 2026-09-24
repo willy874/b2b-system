@@ -31,6 +31,7 @@ import { RealtimeAudience } from './realtime.audience';
 import { REALTIME_LIMITS, REALTIME_MAX_FRAME_BYTES } from './realtime.constants';
 import type { RealtimeLimits } from './realtime.constants';
 import { RealtimeExpiry } from './realtime.expiry';
+import { SocketIoRealtimePublisher } from './realtime.publisher';
 import { clientIpOf, FixedWindowCounter } from './realtime.rate-limit';
 import type { TrustProxyFn } from './realtime.rate-limit';
 import { userRoom } from './realtime.rooms';
@@ -44,7 +45,8 @@ function connectError(code: ErrorCode): Error {
 }
 
 /**
- * 伺服器推播的唯一入口（docs/architecture/backend/08-realtime.md §3、§8、§11）。
+ * 連線的入口（docs/architecture/backend/08-realtime.md §3、§8、§11）。與 `RealtimePublisher` 的
+ * Socket.io 實作一起構成傳輸層；listener 與 audience 不直接碰這裡的 `server`。
  *
  * - 連線：`allowRequest`（Origin ＋ 每 IP handshake 次數）→ `io.use` 驗 access token → 加入 room。
  * - 訊息：`WsAuthGuard` 重驗使用者 → `PermissionsGuard` 看宣告；每個處理器都要有授權宣告
@@ -80,6 +82,7 @@ export class RealtimeGateway
     config: ConfigService<Env, true>,
     @Inject(REALTIME_LIMITS) private readonly limits: RealtimeLimits,
     private readonly adapterHost: HttpAdapterHost,
+    private readonly publisher: SocketIoRealtimePublisher,
   ) {
     this.allowedOrigins = new Set(config.get('REALTIME_ALLOWED_ORIGINS', { infer: true }));
     // 瀏覽器一定帶 Origin；沒帶的只會是 Node 客戶端（整合測試、腳本），production 一律拒絕
@@ -89,6 +92,7 @@ export class RealtimeGateway
   }
 
   afterInit(io: RealtimeServer): void {
+    this.publisher.attach(io);
     io.engine.opts.allowRequest = (req, callback) => {
       const rejection = this.checkRequest(req);
       if (rejection) {
@@ -132,7 +136,7 @@ export class RealtimeGateway
 
     try {
       await socket.join(userRoom(userId));
-      await this.audience.syncRooms(socket);
+      await socket.join(await this.audience.roomsFor(userId));
     } catch (error) {
       this.logger.error({ err: error, socketId: socket.id, userId }, '加入 room 失敗，斷線');
       socket.disconnect(true);

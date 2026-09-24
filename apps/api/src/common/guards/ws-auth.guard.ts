@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
-import type { Socket } from 'socket.io';
 
 import { AccessTokenVerifier } from '../auth/access-token.verifier';
 import { getSocketIdentity } from '../types';
+import type { WsClient } from '../types';
 
 /**
  * WebSocket 訊息處理器的守門員：每則客戶端訊息都以 `socket.data` 重驗使用者
@@ -22,7 +22,7 @@ export class WsAuthGuard implements CanActivate {
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     if (ctx.getType() !== 'ws') return true;
 
-    const socket = ctx.switchToWs().getClient<Socket>();
+    const socket = ctx.switchToWs().getClient<WsClient>();
     const identity = getSocketIdentity(socket);
     const code = !identity
       ? 'AUTH_TOKEN_INVALID'

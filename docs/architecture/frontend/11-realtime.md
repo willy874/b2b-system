@@ -28,7 +28,9 @@ plugins/app/realtime.ts                    ★ 組裝：連線物件 ＋ leader 
 plugins/fetcher/client-id.ts               ★ 每個請求帶 x-client-id
 apis/resources.ts                          ＋ applyResourceChanges()：只在本分頁套用
 core/realtime/
-├── RealtimeClient.ts                      ★ 包裝 socket.io-client：連線、續期、事件分派；`setOwner()` 決定連不連
+├── RealtimeClient.ts                      ★ 連線、續期、事件分派；`setOwner()` 決定連不連。只依賴 `RealtimeTransport`
+├── transport.ts                           ★ `RealtimeTransport` 介面：RealtimeClient 對連線的所有要求
+├── socketIoTransport.ts                   ★ `RealtimeTransport` 的 Socket.io 實作；全 app 唯一 import socket.io-client 的檔案
 ├── RealtimeCoordinator.ts                 ★ 只讓 leader 連線、轉發變更、序號與任期、背景延後、削峰（§3.3、§3.4）
 ├── activeClient.ts                        目前的連線與協調者（isRealtimeAvailable）：core/cache 不必認識 plugin
 ├── clientId.ts                            分頁的 instance id（也用在 x-client-id）
@@ -37,14 +39,24 @@ core/realtime/
 core/cache/AppQueryClient.ts               推播可用時不再跨分頁廣播；applyInvalidation 支援只標 stale
 shared/leader/                             ★ 跨分頁 leader 選舉（純引擎，adapters 可注入）
 shared/utils/keyedThrottle.ts              以 key 去重、隨機延遲削峰
-shared/channel/transports/socketIo.ts      ★ 跨裝置頻道的傳輸層
+shared/channel/transports/serverRelay.ts   ★ 跨裝置頻道的傳輸層（經 `ServerRelayLink`，不認識 Socket.io）
 shared/realtime/                           `@game-editor/realtime` 的唯一匯入點（同 shared/api-sdk）
 ```
 
 依賴方向照 [`conventions/07`](../../conventions/07-layer-dependencies.md) §2：
 
-- **只有 `core/realtime` 與 `shared/channel/transports/socketIo.ts` import `socket.io-client`。**
-  其他地方拿到的是 `RealtimeClient` 或 channel，換掉 Socket.io 時影響範圍固定。
+- **只有 `core/realtime/socketIoTransport.ts` import `socket.io-client`**（🔒 `transport-boundary.test.ts`）。
+  `RealtimeClient` 只認得 `RealtimeTransport`，對外也不交出連線本身：feature 用 `useRealtimeEvent()`，
+  跨裝置頻道用 `realtime.relay`。換掉 Socket.io 時只要換掉這一個檔案（實作新的 `RealtimeTransport`）。
+
+  | `RealtimeTransport` 的要求 | Socket.io 實作的對應 |
+  | -------------------------- | -------------------- |
+  | `hooks.authenticate()` 每次（重）連線都呼叫；回 `undefined` 放棄這次連線 | `auth` 設成函式；`undefined` 時 `socket.disconnect()` |
+  | `onDisconnect({ byServer })`：伺服器斷的不自動重連 | `reason === 'io server disconnect'` |
+  | `onConnectError({ code })`：有 `code` 是伺服器拒絕（不自動重試），沒有是網路錯誤（自動退避重連） | `err.data.code`（`RealtimeConnectErrorData`） |
+  | `isActive`：連線中或等待重連 | `socket.active` |
+- 測試注入假的 `RealtimeTransport`（`RealtimeClient` 的 `createTransport`、`realtimePlugin` 的 `createTransport`）；
+  Socket.io 的設定（路徑、只用 websocket、`auth` 是函式）由 `socketIoTransport.test.ts` 單獨驗。
 - `plugins/` 不能 import `apis/`，所以「收到來源變更 → 依賴圖換算」的函式由 `main.tsx` 注入。
 - Feature 不直接碰 socket，一律透過 `useRealtimeEvent()`（§8）。
 - 事件名稱都用常數，不寫字串：伺服器事件用合約的 `ServerEvent`，`RealtimeClient.events` 用 `RealtimeClientEvent`
@@ -62,7 +74,7 @@ shared/realtime/                           `@game-editor/realtime` 的唯一匯�
 
 | 時機                                | 動作                                                                 |
 | ----------------------------------- | -------------------------------------------------------------------- |
-| plugin 建立（同步階段）             | 建立 `RealtimeClient`（`autoConnect: false`，只建物件不連線）、leader 選舉、control channel、`RealtimeCoordinator`：`attrs.realtime` 與 §7 的傳輸層在啟動時就要拿得到 |
+| plugin 建立（同步階段）             | 建立 `RealtimeClient`（只建傳輸層、不連線）、leader 選舉、control channel、`RealtimeCoordinator`：`attrs.realtime` 與 §7 的 `realtime.relay` 在啟動時就要拿得到 |
 | plugin `onInit`                     | 協調者先交出擁有權，再開始選舉；**當選 leader 且有 session** 才連線（§3.3） |
 | `SessionStore` 從無到有（登入）     | leader 分頁連線                                                      |
 | 失去 / 取得 leader                  | 斷線 / 連線（`client.setOwner()`）                                   |
@@ -237,30 +249,31 @@ leader 當掉時 follower 在心跳逾時後改判為不可用，mutation 自動
 
 ---
 
-## 7. 跨裝置頻道：`socketIoTransport`
+## 7. 跨裝置頻道：`serverRelayTransport`
 
 `shared/channel` 的頻道可以經由伺服器中繼到同一個使用者的其他裝置：
 
 ```ts
 createChannel('store:preference:theme', {
-  transport: combineTransports(broadcastChannelTransport(), socketIoTransport(realtime.socket)),
+  transport: combineTransports(broadcastChannelTransport(), serverRelayTransport(realtime.relay)),
 });
 ```
 
 | 規則                                         | 說明                                                                           |
 | -------------------------------------------- | ------------------------------------------------------------------------------ |
-| 送出走 `channel.relay`，只在 `socket.connected` 時送 | 斷線時丟棄，不讓 Socket.io 緩衝後補送（過期的狀態不該在重連時覆蓋別人的） |
+| 送出走 `channel.relay`，只在 `relay.isConnected()` 時送 | 斷線時丟棄，不讓傳輸層（Socket.io）緩衝後補送（過期的狀態不該在重連時覆蓋別人的） |
 | 伺服器只轉 **白名單** 頻道（`ge:store:preference:*`） | 其他頻道即使用了這個傳輸層也不會離開本機                              |
 | `session:*` 頻道 **永遠** 只走 BroadcastChannel | 帶 token（[09 §5](./09-state-and-storage.md) 的安全限制）                   |
-| 本機也檢查白名單                              | 不在 `RELAYABLE_CHANNEL_PREFIXES` 的頻道，`socketIoTransport` 回 `undefined`（不經這條連線），不依賴伺服器擋 |
+| 本機也檢查白名單                              | 不在 `RELAYABLE_CHANNEL_PREFIXES` 的頻道，`serverRelayTransport` 回 `undefined`（不經這條連線），不依賴伺服器擋 |
 | 收訊方要自己持久化                           | 各裝置的 localStorage 不共用（[09 §5](./09-state-and-storage.md)「Store 的同步」）。偏好設定目前的 `store:preference:storage` 由 dictStorage 持有、收訊時不寫入，**只適用本機分頁**；要跨裝置時改用 `syncStore` |
 
-`RealtimeClient` 在 plugin 初始化時就建立 `Socket` 物件（只是還沒連線），所以頻道可以在啟動時就綁上傳輸層。
-**只有 leader 分頁的 socket 會連線**：follower 經這個傳輸層送出的訊息會被丟棄（斷線時丟棄的規則）。
+`RealtimeClient` 在 plugin 初始化時就建立傳輸層（只是還沒連線），所以頻道可以在啟動時就綁上 `realtime.relay`。
+`shared/channel` 只認得 `ServerRelayLink`（`isConnected` / `send` / `subscribe`），不認得 `RealtimeClient` 或 Socket.io。
+**只有 leader 分頁會連線**：follower 經這個傳輸層送出的訊息會被丟棄（斷線時丟棄的規則）。
 要讓 follower 也能跨裝置送出，得由 leader 代轉——接上偏好設定同步時一併設計。
 
 > 既有的 `webSocketTransport(socket)` 是給原生 WebSocket 用的，與 Socket.io 的協定不相容；
-> 連本專案後端時一律用 `socketIoTransport`。
+> 連本專案後端時一律用 `serverRelayTransport(realtime.relay)`。
 
 **首版範圍**：只接 §4 的失效與 §6 的 session 事件。偏好設定的跨裝置同步是第二步，接上時更新 [09 §5](./09-state-and-storage.md)「目前的頻道」表。
 
@@ -288,11 +301,13 @@ useRealtimeEvent(ServerEvent.SOMETHING, (payload) => { … });
 | 層           | 作法                                                                                         |
 | ------------ | -------------------------------------------------------------------------------------------- |
 | Mock 模式    | `ENV.ENABLE_MOCK` 時 **不註冊** `realtimePlugin`（MSW 不處理 Socket.io）；行為等同推播停用     |
-| 單元         | `RealtimeClient` 注入假的 socket：schema 不合時略過、`connected` 的 `resumed`、`setOwner` 決定連不連、`refreshed` → `session.renew` |
+| 單元         | `RealtimeClient` 注入假的 `RealtimeTransport`：schema 不合時略過、`connected` 的 `resumed`、`setOwner` 決定連不連、`refreshed` → `session.renew` |
 | 單元         | `createLeaderElection`：假計時器 ＋ `src/test/fakeChannelHub.ts`（可控延遲、可模擬分頁當掉）；切換分頁、並排、當掉接手、同時當選、localStorage 不可用 |
 | 單元         | `RealtimeCoordinator`：只有 leader 持有連線、轉發與 `origin`、背景只標 stale、合併、跳號與重複、舊任期、重連與交接的 `resync`、推播是否可用 |
 | 單元         | `AppQueryClient`：兩個分頁以 `fakeChannelHub` 相連；推播可用時不廣播、不可用時廣播、收到的不再轉送；`refetch: false` 只標 stale |
-| 單元         | `socketIoTransport`：斷線時丟棄、只交出外框給 `createChannel`                                |
+| 單元         | `socketIoRealtimeTransport`：路徑、只用 websocket、`auth` 是函式、斷線原因與錯誤碼的對應      |
+| 單元         | `serverRelayTransport`：斷線時丟棄、只交出外框給 `createChannel`                              |
+| 結構         | `transport-boundary.test.ts`：只有 `socketIoTransport.ts` import `socket.io-client`           |
 | E2E          | Playwright 開兩個 browser context：A 改角色權限，B 的選單在數秒內改變；A 停用 B，B 立刻回登入頁 |
 
 ---
@@ -303,8 +318,8 @@ useRealtimeEvent(ServerEvent.SOMETHING, (payload) => { … });
 | ------------------------------------------------------ | ---------------------------------------------- |
 | `auth: { token }` 寫成物件                             | 5 分鐘後的重連都帶過期 token，推播靜默停止     |
 | 收到 `resource.changed` 後呼叫 `invalidateResources()` | 又經 BroadcastChannel 廣播，其他分頁失效兩次    |
-| 在 feature 裡 `import { io } from 'socket.io-client'`  | 多開一條連線、沒有驗證與續期                   |
-| 把 `session:*` 頻道接到 `socketIoTransport`             | token 送出本機（伺服器白名單會擋，但不該依賴它）|
+| 在 feature 裡 `import { io } from 'socket.io-client'`  | 多開一條連線、沒有驗證與續期（🔒 測試會擋）     |
+| 把 `session:*` 頻道接到 `serverRelayTransport`          | token 送出本機（伺服器白名單會擋，但不該依賴它）|
 | 用推播取代 `staleTime`                                  | 斷線時資料永遠不更新；推播只是加速             |
 | 經 control channel 轉發高頻事件或資料本體               | 每個分頁都付解析與渲染成本，正是 leader 模式要避免的 |
-| 在 follower 分頁直接 `realtime.socket.connect()`        | 繞過選舉，同一個瀏覽器又變成多條連線           |
+| 在 follower 分頁直接 `realtime.connect()`               | 繞過選舉，同一個瀏覽器又變成多條連線（連線擁有權由 `RealtimeCoordinator` 經 `setOwner()` 決定） |

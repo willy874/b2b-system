@@ -7,6 +7,7 @@ import { DEFAULT_REALTIME_LIMITS, REALTIME_LIMITS } from './realtime.constants';
 import { RealtimeExpiry } from './realtime.expiry';
 import { RealtimeGateway } from './realtime.gateway';
 import { RealtimeListener } from './realtime.listener';
+import { RealtimePublisher, SocketIoRealtimePublisher } from './realtime.publisher';
 
 /**
  * 只依賴 `PermissionModule`（解析權限集合 → perm room）與 core 的 `DomainEventBus`。
@@ -20,6 +21,8 @@ import { RealtimeListener } from './realtime.listener';
     RealtimeListener,
     RealtimeAudience,
     RealtimeExpiry,
+    SocketIoRealtimePublisher,
+    { provide: RealtimePublisher, useExisting: SocketIoRealtimePublisher },
     { provide: REALTIME_LIMITS, useValue: DEFAULT_REALTIME_LIMITS },
   ],
 })

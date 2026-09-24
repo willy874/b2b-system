@@ -44,7 +44,7 @@
 4. **NestJS 有一級支援。** `@WebSocketGateway`、`@SubscribeMessage` 讓事件處理器可以掛 decorator，
    沿用「宣告式授權 ＋ 啟動時稽核」的既有模式。
 5. **前端的傳輸層抽象已經就緒。** `shared/channel` 的傳輸層可替換，只要多寫一個
-   `socketIoTransport()`；`createChannel` 的語意（略過自己、去重、未知 type 略過）不變。
+   `serverRelayTransport()`；`createChannel` 的語意（略過自己、去重、未知 type 略過）不變。
 6. **推來源變更、不推失效目標。** 伺服器不需要知道前端有哪些 query key；
    `PROFILE` 這類「以登入者為視角」的衍生（`isSelf`、`selfHoldsRole`）只有客戶端算得出來。
 7. **以領域事件解耦發佈端與推播。** 業務模組只宣告「發生了什麼」，不 import realtime；
@@ -56,7 +56,7 @@
 
 | 代價                                                                     | 緩解                                                                                           |
 | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| **Socket.io 是自有協定**，不是標準 WebSocket；客戶端必須用 `socket.io-client` | 只在 `core/realtime` 與 `shared/channel/transports/socketIo.ts` 兩處接觸；換掉時影響範圍固定 |
+| **Socket.io 是自有協定**，不是標準 WebSocket；客戶端必須用 `socket.io-client` | 對外介面不暴露 Socket.io 的型別：前端只有 `core/realtime/socketIoTransport.ts`（實作 `RealtimeTransport`）、後端只有 gateway / publisher / expiry / types 四個檔案接觸，🔒 由 boundary 測試守住；換掉時只換這幾個檔案（[`frontend/11-realtime.md`](../architecture/frontend/11-realtime.md) §2、[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §2.1） |
 | 前端 bundle 增加約 15 KB（gzip）                                         | 可接受；登入後才連線，可與 App Shell 一起分包                                                  |
 | **`JwtAuthGuard` 對非 HTTP 直接放行**，路由稽核也看不到 `@SubscribeMessage` | 連線 middleware 驗證 token；路由稽核延伸到 gateway（[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §5） |
 | 長連線會比 5 分鐘的 access token 活得久                                  | 伺服器在 `exp` 到期時斷線；客戶端在 token 續期時送 `session.renew`                             |

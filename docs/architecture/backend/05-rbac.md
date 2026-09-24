@@ -248,8 +248,8 @@ Phase 0 是單一 API 執行個體。in-memory Map 的失效是即時且確定�
 的失效廣播）。`PermissionCacheService` 的介面不變，只換實作。
 60 秒 TTL 在那之前就是安全網：即使某個節點漏收失效通知，最遲 60 秒後也會重新解析。
 
-快取失效之後，同一處還要呼叫 `RealtimePublisher` 把變更推給受影響的使用者，
-並同步他們的 Socket.io room（[`08-realtime.md`](./08-realtime.md) §6.2、§7）。
+快取失效之後，同一處發佈領域事件（`DomainEventBus`）；`modules/realtime` 的 listener 收到後
+同步受影響使用者的 room、把變更推給他們（[`08-realtime.md`](./08-realtime.md) §6.2、§7）。
 
 ### 5.3 快取值的大小
 

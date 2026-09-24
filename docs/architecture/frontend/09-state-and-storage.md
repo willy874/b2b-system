@@ -201,7 +201,7 @@ const a = new AppQueryClient({ channel: createQueryInvalidateChannel({ transport
 | `broadcastChannelTransport()`（預設）| 本機同源分頁                 | structured clone | 一般跨分頁同步                                               |
 | `storageTransport()`                | 本機同源分頁                 | JSON            | 沒有 `BroadcastChannel` 時的後備；訊息會短暫寫進 localStorage |
 | `webSocketTransport(socket)`        | 跨裝置（經伺服器）           | JSON            | 原生 WebSocket 伺服器；本專案後端是 Socket.io，改用下一列     |
-| `socketIoTransport(socket)`         | 跨裝置（經本專案後端）       | JSON            | 同一帳號在多台裝置即時同步；只轉白名單頻道（[11 §7](./11-realtime.md)） |
+| `serverRelayTransport(realtime.relay)` | 跨裝置（經本專案後端）    | JSON            | 同一帳號在多台裝置即時同步；只轉白名單頻道（[11 §7](./11-realtime.md)） |
 | `sharedWorkerTransport(worker)`     | 本機同源分頁（經 worker）    | structured clone | 需要一個跨分頁的單一執行者（例：只由 worker 維持連線）        |
 | `serviceWorkerTransport()`          | SW 控制的分頁（經 SW）       | structured clone | SW 本身也要收發（例：背景同步後通知失效）                    |
 | `fallbackTransport(a, b, …)`        | —                            | —               | 依序用第一個目前環境支援的                                   |

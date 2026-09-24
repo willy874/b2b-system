@@ -6,8 +6,8 @@ import { PERMISSION } from '@/common/types';
 import type { PermissionKey } from '@/common/types';
 import { PermissionService } from '@/modules/permission/permission.service';
 
+import { RealtimePublisher } from './realtime.publisher';
 import { ALL_PERM_ROOMS, permRoom, permRoomsFor, userRoom } from './realtime.rooms';
-import type { RealtimeServer, RealtimeSocket } from './realtime.types';
 
 interface AudienceRule {
   /** 哪些 perm room 的人會因這筆變更需要重抓。 */
@@ -42,7 +42,7 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
 /** 每次寫入都會新增一筆稽核（前端 `derivesFromAnyChange`）。 */
 const ANY_CHANGE_PERMS: PermissionKey[] = [PERMISSION.AUDIT_LOG_READ];
 
-/** 一批變更要推給哪些 room。`io.to([...rooms])` 會對聯集去重，同一條連線只收到一次。 */
+/** 一批變更要推給哪些 room。`RealtimePublisher.emit` 會對聯集去重，同一條連線只收到一次。 */
 export function resolveAudienceRooms(
   changes: readonly ResourceChangeWire[],
   affectedUserIds: readonly string[] = [],
@@ -63,29 +63,27 @@ export function resolveAudienceRooms(
 /** 使用者 ↔ perm room 的同步（§3.3、§6.2）。 */
 @Injectable()
 export class RealtimeAudience {
-  constructor(private readonly permissionService: PermissionService) {}
+  constructor(
+    private readonly permissionService: PermissionService,
+    private readonly publisher: RealtimePublisher,
+  ) {}
 
-  /** 新連線：依權限集合加入 perm room。 */
-  async syncRooms(socket: RealtimeSocket): Promise<void> {
-    const { permissions, isSuperAdmin } = await this.permissionService.getPermissionSet(
-      socket.data.userId,
-    );
-    await socket.join(permRoomsFor(permissions, isSuperAdmin));
+  /** 新連線要加入的 perm room（依權限集合）。 */
+  async roomsFor(userId: string): Promise<string[]> {
+    const { permissions, isSuperAdmin } = await this.permissionService.getPermissionSet(userId);
+    return permRoomsFor(permissions, isSuperAdmin);
   }
 
   /**
    * 權限集合改變的人：他們的連線換 room，否則會繼續收到（或收不到）不該收的事件。
    * 呼叫前權限快取必須已失效，否則會拿到舊集合。
    */
-  async refreshAudience(io: RealtimeServer, userIds: readonly string[]): Promise<void> {
+  async refreshAudience(userIds: readonly string[]): Promise<void> {
     for (const id of new Set(userIds)) {
-      // 沒有連線的人不必解析權限（省一次 DB）。只看本機 adapter：
+      // 沒有連線的人不必解析權限（省一次 DB）。只看本機的連線：
       // 裝了跨節點 adapter 之後要拿掉這個捷徑（§10.3）。
-      if (!io.sockets.adapter.rooms.has(userRoom(id))) continue;
-      const { permissions, isSuperAdmin } = await this.permissionService.getPermissionSet(id);
-      const room = io.in(userRoom(id));
-      room.socketsLeave([...ALL_PERM_ROOMS]);
-      room.socketsJoin(permRoomsFor(permissions, isSuperAdmin));
+      if (!this.publisher.countConnections(userRoom(id))) continue;
+      this.publisher.moveRooms(userRoom(id), ALL_PERM_ROOMS, await this.roomsFor(id));
     }
   }
 }

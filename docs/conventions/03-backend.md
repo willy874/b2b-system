@@ -18,6 +18,7 @@
 | 7   | 刪除角色前 **先** 查出受影響的使用者，再刪                                                     | cascade 之後就查不到人，快取無從失效             | 👀 Review     |
 | 8   | 跨模組只注入對方 `exports` 的 service，不注入 repository；不用 `forwardRef`                    | 循環依賴代表職責畫錯了                           | 👀 Review     |
 | 9   | 推播等副作用由 service 發佈 `DomainEventBus` 事件，不直接注入 `RealtimeModule` 或 Socket.io     | 業務模組不依賴推播；受眾判斷集中在 listener（[`architecture/backend/08-realtime.md`](../architecture/backend/08-realtime.md) §7） | 👀 Review     |
+| 10  | Socket.io 的型別只在 `modules/realtime` 的傳輸層（types / gateway / publisher / expiry）；listener、audience 經 `RealtimePublisher`，`common/` 的 guard 經 `WsClient` | 換掉 Socket.io 只換傳輸層（[`architecture/backend/08-realtime.md`](../architecture/backend/08-realtime.md) §2.1） | 🔒 測試（`transport-boundary.spec.ts`） |
 
 完整的依賴矩陣見 [`07-layer-dependencies.md`](./07-layer-dependencies.md) §3。
 各層「可以／不可以」的對照表見

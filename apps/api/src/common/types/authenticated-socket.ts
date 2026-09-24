@@ -1,5 +1,3 @@
-import type { Socket } from 'socket.io';
-
 /**
  * handshake 驗證成功後放在 `socket.data` 的身分（docs/architecture/backend/08-realtime.md §3.2）。
  * 放在 `common/` 是因為 `WsAuthGuard`、`PermissionsGuard` 也要讀它，而它們不可 import `modules/`。
@@ -13,8 +11,21 @@ export interface AuthenticatedSocketData {
   expiresAt: number;
 }
 
-/** 從 socket 取出已驗證的身分；handshake 沒走完（理論上不會發生）時回 undefined。 */
-export function getSocketIdentity(socket: Socket): AuthenticatedSocketData | undefined {
+/**
+ * guard 從 `ctx.switchToWs().getClient()` 拿到的連線：只描述需要的部分，
+ * 不綁定 Socket.io 的型別，換傳輸層時 `common/` 不必跟著改。
+ */
+export interface WsClient {
+  readonly id: string;
+  readonly data: unknown;
+  /** `close`：連底層連線一起關閉，而不只是離開 namespace。 */
+  disconnect(close?: boolean): unknown;
+}
+
+/** 從連線取出已驗證的身分；handshake 沒走完（理論上不會發生）時回 undefined。 */
+export function getSocketIdentity(
+  socket: Pick<WsClient, 'data'>,
+): AuthenticatedSocketData | undefined {
   const data = socket.data as Partial<AuthenticatedSocketData> | undefined;
   if (
     typeof data?.userId !== 'string' ||

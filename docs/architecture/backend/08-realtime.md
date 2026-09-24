@@ -36,7 +36,7 @@ apps/api/src/
 │   │   ├── access-token.verifier.ts   ★ 從 JwtAuthGuard 抽出：驗簽 → userCache → status / ver 檢查
 │   │   └── access-token.module.ts     @Global：JwtAuthGuard（AppModule）與 gateway 都注入 verifier
 │   ├── types/
-│   │   └── authenticated-socket.ts    common 的 guard 讀 socket.data 用，不必 import modules
+│   │   └── authenticated-socket.ts    `WsClient` ＋ socket.data 的身分：guard 不必 import modules，也不綁 Socket.io 的型別
 │   └── guards/
 │       ├── jwt-auth.guard.ts          改用 AccessTokenVerifier
 │       ├── ws-auth.guard.ts           ★ 訊息處理器用：重驗 socket 上的使用者仍有效
@@ -44,13 +44,14 @@ apps/api/src/
 └── modules/
     └── realtime/
         ├── realtime.module.ts
-        ├── realtime.gateway.ts        連線驗證、加入 room、session.renew、channel.relay
-        ├── realtime.listener.ts       ★ 訂閱領域事件 → 同步 room / 推播 / 撤銷
-        ├── realtime.audience.ts       來源 → room 的對照、同步使用者的 perm room
-        ├── realtime.expiry.ts         access token 到期斷線的計時器
+        ├── realtime.gateway.ts        【傳輸層】連線驗證、加入 room、session.renew、channel.relay
+        ├── realtime.publisher.ts      【傳輸層】RealtimePublisher（抽象）＋ Socket.io 實作：emit / 連線數 / 換 room / 斷線
+        ├── realtime.expiry.ts         【傳輸層】access token 到期斷線的計時器
+        ├── realtime.listener.ts       ★ 訂閱領域事件 → 同步 room / 推播 / 撤銷（只經 RealtimePublisher）
+        ├── realtime.audience.ts       來源 → room 的對照、同步使用者的 perm room（只經 RealtimePublisher）
         ├── realtime.rate-limit.ts     §11 的 Origin、handshake、訊息速率、連線數限制
         ├── realtime.constants.ts      REALTIME_LIMITS（可由測試覆寫）
-        ├── realtime.types.ts          RealtimeServer / RealtimeSocket（套上合約泛型）
+        ├── realtime.types.ts          【傳輸層】RealtimeServer / RealtimeSocket（套上合約泛型）；唯一 import socket.io 的檔案
         └── realtime.rooms.ts          room 名稱（userRoom / permRoom），不以模板散落各處
 
 packages/realtime/                     ★ 事件合約（前後端共用，見 §9）
@@ -65,6 +66,23 @@ UserModule / RoleModule / AuthModule ──▶ core/events（DomainEventBus）�
 - `RealtimeModule` 依賴 `PermissionModule`（解析權限集合 → perm room）與 bus；沒有模組依賴它。
 - Gateway 放在 `modules/` 而不是 `core/`：它需要 `PermissionService` 來決定 room，而 `core/` 不認識任何 module。
 - Bus 放在 `core/`：它只認得事件的形狀，不認得任何發佈者或訂閱者。
+
+### 2.1 傳輸層的邊界
+
+Socket.io 只是傳輸層；受眾判斷與推播時機不認識它。標了【傳輸層】的檔案之外，一律經由抽象：
+
+| 誰                         | 經由                   | 可以做的事                                                        |
+| -------------------------- | ---------------------- | ----------------------------------------------------------------- |
+| `RealtimeListener`、`RealtimeAudience` | `RealtimePublisher` | `emit(rooms, event, …)`、`countConnections(room)`、`moveRooms(room, leave, join)`、`disconnect(room)` |
+| `common/guards/*`          | `WsClient`（`common/types`） | 讀 `socket.data` 的身分、`disconnect(true)`                   |
+
+- `RealtimePublisher` 是 abstract class（同時當 DI token），實作是 `SocketIoRealtimePublisher`。
+  伺服器物件由 gateway 在 `afterInit` 以 `attach()` 交進去；反過來讓 publisher 注入 gateway 會形成
+  gateway → audience → publisher → gateway 的循環。交進去之前所有操作都是空操作。
+- `emit` 在 room 為空時不推：Socket.io 的 `to([])` 會廣播給 **所有** 連線。
+- 🔒 `transport-boundary.spec.ts`：只有 `realtime.types.ts` import `socket.io`；只有 gateway、publisher、expiry
+  使用 `realtime.types`。換掉 Socket.io 時，要改的就是這四個檔案。
+- `RealtimePublisher` 只在 `modules/realtime` 內使用；業務模組仍然只發佈領域事件（[ADR-0008](../../adr/0008-realtime-with-socket-io.md) 理由 7）。
 
 ---
 
@@ -115,9 +133,9 @@ function connectError(code: ErrorCode): Error {
 
 ```ts
 async handleConnection(socket: RealtimeSocket) {
-  await socket.join(userRoom(socket.data.userId));
-  await this.audience.syncRooms(socket);  // 依權限集合加入 perm:<key>
-  this.expiry.schedule(socket);           // §3.4
+  this.expiry.schedule(socket);                                 // §3.4
+  await socket.join(userRoom(socket.data.userId));              // 先加 user room：連線數上限依它計算
+  await socket.join(await this.audience.roomsFor(socket.data.userId)); // 依權限集合加入 perm:<key>
 }
 
 handleDisconnect(socket: RealtimeSocket) {
@@ -218,16 +236,14 @@ super-admin 加入所有 `perm:` room。
 
 ```ts
 async refreshAudience(userIds: readonly string[]) {
-  for (const id of userIds) {
-    const { permissions, isSuperAdmin } = await this.permissionService.resolve(id);
-    const room = this.io.in(userRoom(id));
-    room.socketsLeave(ALL_PERM_ROOMS);
-    room.socketsJoin(permRoomsFor(permissions, isSuperAdmin));
+  for (const id of new Set(userIds)) {
+    if (!this.publisher.countConnections(userRoom(id))) continue;
+    this.publisher.moveRooms(userRoom(id), ALL_PERM_ROOMS, await this.roomsFor(id));
   }
 }
 ```
 
-`socketsLeave` / `socketsJoin` 經由 adapter 作用在所有節點上的連線（§10）。
+`moveRooms` 的 Socket.io 實作是 `io.in(room).socketsLeave(…)` / `socketsJoin(…)`，經由 adapter 作用在所有節點上的連線（§10）。
 
 目前的實作會 **略過本節點沒有連線的使用者**（不必為他們查 DB）。裝上跨節點 adapter 時要拿掉這個捷徑，
 否則其他節點上的連線不會換 room（程式碼註解已標記）。

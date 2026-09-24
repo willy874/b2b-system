@@ -16,6 +16,7 @@
 | 5   | `components/` 不出現業務名詞；業務元件放 `features/<name>/components/`                  | 設計系統要能搬到下一個產品                        | 👀 Review |
 | 6   | 顏色一律走 Design Token（`themes/tokens.css`），不寫十六進位色碼                        | 主題與 dark mode 的前提                          | 🔒 測試（僅 `components/` 的 CSS） |
 | 7   | Access token 只存在記憶體，不進 `localStorage` / `sessionStorage`                       | XSS 時不外洩長效憑證（[ADR-0004](../adr/0004-jwt-with-rotating-refresh-token.md)） | 👀 Review |
+| 8   | 只有 `core/realtime/socketIoTransport.ts` import `socket.io-client`；其他地方經由 `RealtimeTransport`、`useRealtimeEvent()`、`realtime.relay` | 換掉 Socket.io 只換一個檔案（[`architecture/frontend/11-realtime.md`](../architecture/frontend/11-realtime.md) §2） | 🔒 測試（`transport-boundary.test.ts`） |
 
 > 規則 1、2 在 [`architecture/frontend/01-architecture.md`](../architecture/frontend/01-architecture.md) §5
 > 規劃以 `no-restricted-imports` 強制，**目前 `.oxlintrc.json` 尚未設定**，先靠 review。

@@ -1,7 +1,10 @@
 import type { ResourceChangeWire } from '@game-editor/realtime';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { resolveAudienceRooms } from '../realtime.audience';
+import type { PermissionService } from '@/modules/permission/permission.service';
+
+import { RealtimeAudience, resolveAudienceRooms } from '../realtime.audience';
+import type { RealtimePublisher } from '../realtime.publisher';
 import { ALL_PERM_ROOMS, permRoomsFor } from '../realtime.rooms';
 
 const sorted = (rooms: string[]) => rooms.toSorted();
@@ -81,5 +84,43 @@ describe('permRoomsFor', () => {
 
   it('super-admin：加入所有 perm room', () => {
     expect(permRoomsFor(new Set(), true)).toEqual([...ALL_PERM_ROOMS]);
+  });
+});
+
+function setup(openRooms: Record<string, number>) {
+  const permissionService = {
+    getPermissionSet: vi.fn(async () => ({
+      permissions: new Set(['role:read']),
+      isSuperAdmin: false,
+    })),
+  };
+  const publisher = {
+    countConnections: vi.fn((room: string) => openRooms[room] ?? 0),
+    moveRooms: vi.fn(),
+  };
+  const audience = new RealtimeAudience(
+    permissionService as unknown as PermissionService,
+    publisher as unknown as RealtimePublisher,
+  );
+  return { audience, permissionService, publisher };
+}
+
+describe('RealtimeAudience.refreshAudience（§6.2）', () => {
+  it('有連線的人：移出所有 perm room、再加入目前權限對應的', async () => {
+    const { audience, publisher } = setup({ 'user:u1': 1 });
+
+    await audience.refreshAudience(['u1', 'u1']);
+
+    expect(publisher.moveRooms).toHaveBeenCalledTimes(1);
+    expect(publisher.moveRooms).toHaveBeenCalledWith('user:u1', ALL_PERM_ROOMS, ['perm:role:read']);
+  });
+
+  it('沒有連線的人不解析權限', async () => {
+    const { audience, permissionService, publisher } = setup({});
+
+    await audience.refreshAudience(['u2']);
+
+    expect(permissionService.getPermissionSet).not.toHaveBeenCalled();
+    expect(publisher.moveRooms).not.toHaveBeenCalled();
   });
 });
