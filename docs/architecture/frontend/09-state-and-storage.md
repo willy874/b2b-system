@@ -145,7 +145,8 @@ Refresh Token  → httpOnly cookie，JavaScript 讀不到
 
 ## 5. 跨分頁同步
 
-所有跨分頁訊息都經過 `shared/channel` 的 `createTabChannel()`，**不直接 `new BroadcastChannel()`**：
+所有同步訊息都經過 `shared/channel` 的 `createChannel()`，**不直接 `new BroadcastChannel()`、
+不直接聽 `storage` 事件、不直接在 WebSocket / worker 上自訂訊息格式**：
 
 ```ts
 // 訊息型別 → payload 的對照表（用 type，interface 沒有隱含索引簽章）
@@ -154,38 +155,80 @@ type SessionMessages = {
   'session-ended': { reason: string };
 };
 
-const channel = createTabChannel<SessionMessages>(`session:${name}`); // 實際頻道 ge:session:<name>
+const channel = createChannel<SessionMessages>(`session:${name}`); // 實際頻道 ge:session:<name>
 channel.on('session-ended', ({ reason }) => …);
 channel.post('session-ended', { reason });
 channel.close();
 ```
 
-它統一處理每個使用者原本各寫一次的細節：`ge:` 命名空間、依 `type` 分派、
-不支援 `BroadcastChannel` 時退化成只在本分頁運作、分頁關閉中 `postMessage` 拋例外時忽略、
-收到格式不符或未知 `type`（新舊版本分頁並存）時略過。
-**自己送出的訊息自己收不到**（`BroadcastChannel` 的語意），本分頁要做的事在 `post` 前自己做。
+### 傳輸層
 
-### Store 的跨分頁同步
+`createChannel(name, { transport })` 的 `transport` 決定訊息怎麼走；使用端的 `post` / `on` 寫法不變。
 
-signal store 要在所有分頁保持一致時，用 `shared/store` 的 `syncAcrossTabs()`，不自己開頻道：
+| 傳輸層                              | 範圍                         | 序列化          | 用在                                                         |
+| ----------------------------------- | ---------------------------- | --------------- | ------------------------------------------------------------ |
+| `broadcastChannelTransport()`（預設）| 本機同源分頁                 | structured clone | 一般跨分頁同步                                               |
+| `storageTransport()`                | 本機同源分頁                 | JSON            | 沒有 `BroadcastChannel` 時的後備；訊息會短暫寫進 localStorage |
+| `webSocketTransport(socket)`        | 跨裝置（經伺服器）           | JSON            | 同一帳號在多台裝置即時同步                                   |
+| `sharedWorkerTransport(worker)`     | 本機同源分頁（經 worker）    | structured clone | 需要一個跨分頁的單一執行者（例：只由 worker 維持連線）        |
+| `serviceWorkerTransport()`          | SW 控制的分頁（經 SW）       | structured clone | SW 本身也要收發（例：背景同步後通知失效）                    |
+| `fallbackTransport(a, b, …)`        | —                            | —               | 依序用第一個目前環境支援的                                   |
+| `combineTransports(a, b, …)`        | —                            | —               | 同時走多條路（例：本機 BroadcastChannel ＋ 跨裝置 WebSocket） |
 
 ```ts
-const stop = syncAcrossTabs(useLocaleStore, 'preference:locale', ['locale']);
+// 本機分頁即時、其他裝置經伺服器；同一則訊息兩條路都到只處理一次
+createChannel('store:layout', {
+  transport: combineTransports(broadcastChannelTransport(), webSocketTransport(socket)),
+});
 ```
 
-- 只同步列出的資料欄位；action 是函式，無法也不該跨分頁傳遞。
+不論哪種傳輸層，`createChannel` 保證同樣的語意，傳輸層不必各做一次：
+
+- 名稱加上 `ge:` 前綴；共用同一條連線（WebSocket、worker）時以名稱分流。
+- **自己送出的訊息自己收不到**，即使被伺服器或 worker 轉回來（外框帶 `sender`）。
+  本地要做的事在 `post` 前自己做。
+- 同一則訊息從多條路送達只處理一次（外框帶 `id`）。
+- 不是頻道外框、或不認得的 `type`（新舊版本並存、同一條連線上的其他協定）直接略過。
+- 傳輸層不支援、送出失敗（分頁關閉中、斷線、payload 無法序列化）時不拋例外，視同沒有其他參與者。
+
+中繼端（伺服器、worker）只需要認得外框（`isChannelEnvelope()`），不需要知道 payload：
+
+| 中繼                 | 做法                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| WebSocket 伺服器     | 收到外框就原樣轉給該收的其他連線（例：同一使用者）；轉回發送者也沒關係             |
+| SharedWorker         | `startChannelHub(self)`；或直接用 `createChannelHubWorker()`（`workers/channelHub.worker.ts`） |
+| Service Worker       | 在 SW 腳本呼叫 `relayChannelMessages(self)`；非外框的訊息（含 MSW 的）不受影響       |
+
+**選傳輸層的安全限制**：帶 token 或個人資料的頻道只能走 `broadcastChannelTransport()`——
+`storageTransport` 會把訊息寫進 localStorage（§4.2），WebSocket 會把它送出本機。
+`SessionStore` 因此明確指定傳輸層，而不是依賴預設值。
+
+WebSocket 的連線由呼叫端建立、重連與關閉；頻道 `close()` 只取消訂閱。
+連線中（`CONNECTING`）送出的訊息會排隊到 `open`，已關閉時丟棄。
+
+### Store 的同步
+
+signal store 要在所有參與者保持一致時，用 `shared/store` 的 `syncStore()`，不自己開頻道：
+
+```ts
+const stop = syncStore(useLocaleStore, 'preference:locale', ['locale']);
+// 跨裝置：第四個參數傳 { transport }
+```
+
+- 只同步列出的資料欄位；action 是函式，無法也不該傳遞。
 - 收到的更新以 `setState` 套用、不再廣播，不會迴圈。
 - 只同步 **之後的變更**；新分頁的初始值由持久化（`dictStorage`）水合。
-  持久化寫在 action 裡的 store，收訊方不必再寫一次——發訊方已寫入共用的 localStorage。
+  持久化寫在 action 裡的 store，本機分頁的收訊方不必再寫一次——發訊方已寫入共用的 localStorage；
+  跨裝置時各裝置的 localStorage 不共用，收訊方要自己持久化。
 
 ### 目前的頻道
 
-| 頻道（`ge:` 之後）             | 訊息                              | 位置                                   |
-| ------------------------------ | --------------------------------- | -------------------------------------- |
-| `session:<後端>`               | `refresh-done`、`session-ended`   | `core/auth/SessionStore`               |
-| `query-invalidate`             | `invalidate`                      | `core/cache/broadcastInvalidate`       |
-| `store:preference:locale`      | `state`（`syncAcrossTabs`）       | `core/store/preference`，由 i18n plugin 啟動 |
-| `store:preference:timezone`    | `state`（`syncAcrossTabs`）       | 同上                                   |
+| 頻道（`ge:` 之後）          | 訊息                            | 傳輸層             | 位置                                         |
+| --------------------------- | ------------------------------- | ------------------ | -------------------------------------------- |
+| `session:<後端>`            | `refresh-done`、`session-ended` | BroadcastChannel（釘死） | `core/auth/SessionStore`               |
+| `query-invalidate`          | `invalidate`                    | 預設               | `core/cache/broadcastInvalidate`             |
+| `store:preference:locale`   | `state`（`syncStore`）          | 預設               | `core/store/preference`，由 i18n plugin 啟動 |
+| `store:preference:timezone` | `state`（`syncStore`）          | 預設               | 同上                                         |
 
 續期結果與登出放在 **同一個頻道**：同一頻道的訊息依序送達，登出之後才到的續期結果不會排在登出前面。
 
@@ -300,4 +343,5 @@ TanStack Router 的 `useBlocker` 會攔截路由離開。**只攔截路由，不
 | 登出時只清 permission store              | 同時 `queryClient.clear()`                  |
 | 每個分頁各自續期 token                   | Web Locks 跨分頁互斥 ＋ `refresh-done` 廣播 |
 | 登出時先打 API、回應後才清 session       | 先 `endSession`，再用擷取的 token 撤銷後端  |
-| 直接 `new BroadcastChannel()`            | `createTabChannel()`；store 用 `syncAcrossTabs()` |
+| 直接 `new BroadcastChannel()` / 聽 `storage` 事件 | `createChannel()`；store 用 `syncStore()` |
+| 帶 token 的頻道走預設或 localStorage     | 明確指定 `broadcastChannelTransport()`      |

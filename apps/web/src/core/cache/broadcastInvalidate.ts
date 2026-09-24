@@ -1,9 +1,12 @@
+import { createChannel } from '@/shared/channel';
+import type { Channel } from '@/shared/channel';
+
 import { queryClient } from './queryClient';
 import type { InvalidationTarget } from './resourceGraph';
 
-const CHANNEL_NAME = 'ge:query-invalidate';
+type InvalidateMessages = { invalidate: readonly InvalidationTarget[] };
 
-let channel: BroadcastChannel | undefined;
+let channel: Channel<InvalidateMessages> | undefined;
 
 function apply(targets: readonly InvalidationTarget[]): void {
   for (const { queryKey, action } of targets) {
@@ -13,12 +16,9 @@ function apply(targets: readonly InvalidationTarget[]): void {
 }
 
 export function initInvalidateChannel(): () => void {
-  if (typeof BroadcastChannel === 'undefined') return () => {};
-  channel = new BroadcastChannel(CHANNEL_NAME);
-  channel.onmessage = (event: MessageEvent<{ targets: readonly InvalidationTarget[] }>) => {
-    // 不再廣播，避免迴圈
-    apply(event.data.targets);
-  };
+  channel = createChannel<InvalidateMessages>('query-invalidate');
+  // 收到的不再廣播，避免迴圈
+  channel.on('invalidate', apply);
   return () => {
     channel?.close();
     channel = undefined;
@@ -28,9 +28,5 @@ export function initInvalidateChannel(): () => void {
 /** 在 A 分頁刪掉一個角色，B 分頁的列表立刻更新。 */
 export function broadcastInvalidate(targets: readonly InvalidationTarget[]): void {
   apply(targets);
-  try {
-    channel?.postMessage({ targets });
-  } catch {
-    /* 分頁關閉中：忽略 */
-  }
+  channel?.post('invalidate', targets);
 }

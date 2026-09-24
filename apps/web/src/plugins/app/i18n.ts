@@ -7,31 +7,47 @@ import {
   initI18n,
   loadLocaleScope,
 } from '@/core/locales';
-import { useLocaleStore } from '@/core/store';
+import { syncPreferencesAcrossTabs, useLocaleStore } from '@/core/store';
 import { LanguageNamespace, Languages } from '@/shared/constants/lang';
 
 export function i18nPlugin(): AppPluginFactory {
-  return () => ({
-    name: 'i18n',
-    attrs: { i18n, addResourceBundle, changeLanguage },
-    onInit: async () => {
-      const { locale } = useLocaleStore.getState();
-      await initI18n(locale);
-      addResourceBundle(
-        {
-          [Languages.EN_US]: {
-            [LanguageNamespace.TRANSLATE]: () => import('@/app/locales/en_US.json'),
+  return () => {
+    let stopSync: (() => void) | undefined;
+    let offLocale: (() => void) | undefined;
+    return {
+      name: 'i18n',
+      attrs: { i18n, addResourceBundle, changeLanguage },
+      onInit: async () => {
+        const { locale } = useLocaleStore.getState();
+        await initI18n(locale);
+        addResourceBundle(
+          {
+            [Languages.EN_US]: {
+              [LanguageNamespace.TRANSLATE]: () => import('@/app/locales/en_US.json'),
+            },
+            [Languages.ZH_TW]: {
+              [LanguageNamespace.TRANSLATE]: () => import('@/app/locales/zh_TW.json'),
+            },
           },
-          [Languages.ZH_TW]: {
-            [LanguageNamespace.TRANSLATE]: () => import('@/app/locales/zh_TW.json'),
-          },
-        },
-        { scope: GLOBAL_LOCALE_SCOPE },
-      );
-      // 全域語系包必須在首次 render 前就緒
-      await loadLocaleScope(GLOBAL_LOCALE_SCOPE, locale);
-    },
-  });
+          { scope: GLOBAL_LOCALE_SCOPE },
+        );
+        // 全域語系包必須在首次 render 前就緒
+        await loadLocaleScope(GLOBAL_LOCALE_SCOPE, locale);
+
+        // 其他分頁改了語系：store 由跨分頁同步更新，這裡跟著切換
+        stopSync = syncPreferencesAcrossTabs();
+        offLocale = useLocaleStore.subscribe((state, previous) => {
+          if (state.locale !== previous.locale && state.locale !== i18n.language) {
+            void changeLanguage(state.locale);
+          }
+        });
+      },
+      onDestroy: () => {
+        offLocale?.();
+        stopSync?.();
+      },
+    };
+  };
 }
 
 declare module '@/core/app/context' {

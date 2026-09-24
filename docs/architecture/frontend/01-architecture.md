@@ -38,7 +38,7 @@ feature 的小外掛」，允許依賴那個 feature 的公開介面（見
 
 ### 2.1 `shared/` — 純工具
 
-**可以有**：`EventEmitter`、signal store 實作、`localStorage` 封裝、日期工具、
+**可以有**：`EventEmitter`、signal store 實作與跨分頁同步、同步頻道與傳輸層（`shared/channel`：BroadcastChannel / localStorage / WebSocket / SharedWorker / Service Worker）、`localStorage` 封裝、日期工具、
 型別工具、env 常數、`cn()`。
 
 **不可以有**：任何 `import` 自 `core/`、`features/`、`components/`；任何 React

@@ -1,7 +1,7 @@
 import { MAIN_BACKEND } from '@/core/client';
 import { isSessionRejected } from '@/core/errors';
-import { createTabChannel } from '@/shared/channel';
-import type { TabChannel } from '@/shared/channel';
+import { broadcastChannelTransport, createChannel } from '@/shared/channel';
+import type { Channel } from '@/shared/channel';
 import { EventEmitter } from '@/shared/EventEmitter';
 import { createDictStorage } from '@/shared/storage';
 import type { DictStorage } from '@/shared/storage';
@@ -71,7 +71,7 @@ export class SessionStore {
 
   private readonly storage: DictStorage;
   private readonly subscribers = new Set<() => void>();
-  private readonly channel: TabChannel<SessionMessages>;
+  private readonly channel: Channel<SessionMessages>;
 
   constructor(
     readonly name: string,
@@ -79,7 +79,11 @@ export class SessionStore {
   ) {
     this.runExclusive = options.runExclusive ?? webLocksExclusive();
     this.storage = createDictStorage(STORAGE_NAMESPACE_PREFIX + name);
-    this.channel = createTabChannel<SessionMessages>(SESSION_CHANNEL_PREFIX + name);
+    // 明確釘在 BroadcastChannel：refresh-done 帶著 access token，
+    // 不可改走 localStorage（會落地）或 WebSocket（會離開本機），即使預設傳輸層日後被改掉
+    this.channel = createChannel<SessionMessages>(SESSION_CHANNEL_PREFIX + name, {
+      transport: broadcastChannelTransport(),
+    });
     this.channel.on('refresh-done', ({ accessToken, expiresAt }) => {
       // 已結束的 session 不被其他分頁晚到的續期結果救活
       if (!this.ended) this.applyTokens(accessToken, expiresAt);
