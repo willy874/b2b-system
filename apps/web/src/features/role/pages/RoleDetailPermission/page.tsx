@@ -19,7 +19,7 @@ export default function RoleDetailPermissionPage() {
   const search = RoleListRoute.useSearch();
   const permission = useRolePermission();
   const current = useQuery(getRolePermissionsQueryOptions(roleId));
-  const grant = useGrantRolePermissionsMutation(roleId);
+  const grant = useGrantRolePermissionsMutation();
 
   const initial = useMemo(
     () => new Set<string>((current.data?.permissions ?? []).map((item) => String(item.key))),

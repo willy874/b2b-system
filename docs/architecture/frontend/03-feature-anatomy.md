@@ -244,14 +244,14 @@ export function toRoleRowVM(dto: RoleListItem, perm: RolePermissionFacade): Role
 
 ```ts
 export function useRoleCreateMutation() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const toast = useToast();
   const { t } = useTranslation();
 
   return useMutation({
     ...getRoleCreateMutationOptions(),
     onSuccess: (role) => {
-      queryClient.invalidateQueries({ queryKey: [ROLE_LIST_QUERY_KEY] });
+      // 只宣告後端改了什麼；要失效哪些 query 由依賴圖換算（05-data-layer.md §6.2）
+      invalidateResources([{ resource: Resource.ROLE, kind: "create" }]);
       toast.success(t("role.create.success", { name: role.name }));
     },
     // 錯誤不在這裡吞掉：交給全域錯誤處理決定 toast，

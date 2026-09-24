@@ -77,7 +77,8 @@
 - mutation hook 的形狀固定：展開 `getXxxMutationOptions()` → `onSuccess` 失效快取 ＋ toast。
   **錯誤不在 hook 裡吞掉**，交給全域處理或呼叫端表單。見
   [`architecture/frontend/03-feature-anatomy.md`](../architecture/frontend/03-feature-anatomy.md) §3.1。
-- 寫入後要失效的 query key 對照 [`architecture/frontend/05-data-layer.md`](../architecture/frontend/05-data-layer.md) §6.2 失效矩陣。
+- 寫入後 **不手列 query key**：`onSuccess` 呼叫 `invalidateResources()` 宣告後端改了什麼，
+  由 `apis/resources.ts` 的依賴圖換算。見 [`architecture/frontend/05-data-layer.md`](../architecture/frontend/05-data-layer.md) §6.2。
 
 ---
 

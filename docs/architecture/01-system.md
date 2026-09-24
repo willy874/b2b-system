@@ -131,7 +131,8 @@ repository ✗──▶ service  （單向）
                      └─ AuditService.record('role.update', diff)
         ◀── 200 { data: Role }
 
-  ◀─ onSuccess → queryClient.invalidateQueries(['ROLE_DETAIL', id])
+  ◀─ onSuccess → invalidateResources([{ resource: 'role', kind: 'update', id }])
+                 → 依賴圖換算出 ROLE_LIST、ROLE_DETAIL(id)…（frontend/05 §6.2）
                  → BroadcastChannel 通知其他分頁同步失效
 ```
 

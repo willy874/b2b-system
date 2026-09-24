@@ -1,7 +1,7 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 
-import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
 import { getUpdateProfileMutationOptions } from '@/apis/auth/update-profile/mutation';
+import { invalidateResources, selfUpdated } from '@/apis/resources';
 import { Field } from '@/components/Field';
 import { Select } from '@/components/Select';
 import { useToast } from '@/components/Toast';
@@ -16,7 +16,6 @@ const TIMEZONES = ['Asia/Taipei', 'Asia/Tokyo', 'UTC', 'America/Los_Angeles'];
 export default function PreferencePage() {
   const { t, changeLanguage } = useTranslation();
   const toast = useToast();
-  const queryClient = useQueryClient();
   const locale = useLocaleStore((state) => state.locale);
   const setLocale = useLocaleStore((state) => state.setLocale);
   const timezone = useTimezoneStore((state) => state.timezone);
@@ -24,7 +23,7 @@ export default function PreferencePage() {
 
   const sync = useMutation({
     ...getUpdateProfileMutationOptions(),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: [AUTH_PROFILE_QUERY_KEY] }),
+    onSuccess: (updated) => invalidateResources([selfUpdated(updated)]),
   });
 
   // feature 或 plugins/features/* 註冊的分頁；偏好頁不需要認識它們

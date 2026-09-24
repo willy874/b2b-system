@@ -69,6 +69,8 @@ apps/e2e ┄┄┄┄┄▶ 只透過瀏覽器 / HTTP 操作執行中的系統�
 | `mocks/`          | ✅                       | ❌         | ❌   | ❌   | ❌      | ❌       | ❌  | ✅    |
 
 1. `apis/<domain>/` 之間只能共用 `apis/<domain>/types.ts`；操作資料夾彼此不 import。
+   唯一例外是 `apis/resources.ts`（資源依賴圖）：它可以 import 各操作 `query.ts` 的 key 常數；
+   操作資料夾 **不可** 反過來 import 它（會形成循環）。
 2. 只能在自己的 `routes/external.ts` 裡 re-export 對方的 **route 物件**；其他需求走 `apis/` 或 eventBus。
 3. 只能 import 對方的 `index.tsx`（`@/features/<name>`），不可深入內部檔案。
 4. 只能在 `import.meta.env.VITE_ENABLE_MOCK` 判斷下以動態 `import()` 載入。

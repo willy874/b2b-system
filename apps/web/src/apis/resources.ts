@@ -1,0 +1,131 @@
+/**
+ * 本專案的資源依賴圖（機制見 `core/cache/resourceGraph.ts`）。
+ *
+ * 寫入後不要手列 query key，改成宣告「後端改了什麼」：
+ *
+ *   invalidateResources([{ resource: Resource.ROLE, kind: 'update', id: role.id }]);
+ *
+ * 規則：
+ * - 這是 `apis/` 底下唯一可以 import 各操作 `query.ts` 的檔案；操作資料夾 **不可** 反過來 import 它。
+ * - 新增 query 時，把它的 key 放進對應資源的 `collection` 或 `entity`。
+ * - 新增衍生關係時，直接宣告到 **來源** 上（不做遞移），並寫出「為什麼」。
+ */
+import { AUDIT_LOG_DETAIL_QUERY_KEY } from '@/apis/audit-log/get-audit-log-detail/query';
+import { AUDIT_LOG_LIST_QUERY_KEY } from '@/apis/audit-log/get-audit-log-list/query';
+import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
+import { PERMISSION_LIST_QUERY_KEY } from '@/apis/permission/get-permission-list/query';
+import { ROLE_DETAIL_QUERY_KEY } from '@/apis/role/get-role-detail/query';
+import { ROLE_LIST_QUERY_KEY, ROLE_OPTIONS_QUERY_KEY } from '@/apis/role/get-role-list/query';
+import { ROLE_PERMISSIONS_QUERY_KEY } from '@/apis/role/get-role-permissions/query';
+import { ROLE_USERS_QUERY_KEY } from '@/apis/role/get-role-users/query';
+import { USER_DETAIL_QUERY_KEY } from '@/apis/user/get-user-detail/query';
+import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
+import { USER_ROLES_QUERY_KEY } from '@/apis/user/get-user-roles/query';
+import { ANY_ID, broadcastInvalidate, createResourceGraph, queryClient } from '@/core/cache';
+import type { ResourceChange } from '@/core/cache';
+import type { Profile } from '@/shared/api-sdk';
+
+export const Resource = {
+  // 實體
+  USER: 'user',
+  ROLE: 'role',
+  PERMISSION: 'permission',
+  AUDIT_LOG: 'auditLog',
+  /** 目前登入者的 session 視角（profile ＋ 有效權限） */
+  PROFILE: 'profile',
+  // 關係：沒有自己的 query，只作為來源
+  /** 使用者 ↔ 角色（`id` = userId，`refs.role` = 新舊角色） */
+  USER_ROLE: 'userRole',
+  /** 角色 ↔ 權限（`id` = roleId） */
+  ROLE_PERMISSION: 'rolePermission',
+  /** 密碼、邀請等不出現在任何畫面上的憑證寫入（`id` = userId） */
+  USER_CREDENTIAL: 'userCredential',
+} as const;
+
+export type Resource = (typeof Resource)[keyof typeof Resource];
+
+export type ResourceChangeEvent = ResourceChange<Resource>;
+
+function cachedProfile(): Profile | undefined {
+  return queryClient.getQueryData<Profile>([AUTH_PROFILE_QUERY_KEY]);
+}
+
+/** 沒有快取可判斷時一律視為「是」：profile 只有一個 query，寧可多抓一次。 */
+function isSelf(change: ResourceChangeEvent): boolean {
+  const profile = cachedProfile();
+  return !profile || change.id === undefined || change.id === profile.user.id;
+}
+
+function selfHoldsRole(change: ResourceChangeEvent): boolean {
+  const profile = cachedProfile();
+  if (!profile || change.id === undefined || change.id === ANY_ID) return true;
+  return profile.roles.some((role) => role.id === change.id);
+}
+
+const graph = createResourceGraph<Resource>({
+  [Resource.USER]: {
+    collection: [USER_LIST_QUERY_KEY],
+    entity: [USER_DETAIL_QUERY_KEY, USER_ROLES_QUERY_KEY],
+    derivesFrom: [
+      // 使用者列表／詳情嵌入了角色摘要
+      { from: Resource.USER_ROLE, id: 'self' },
+      // 角色改名或被刪，持有它的使用者畫面要更新；角色端不知道是哪些人
+      { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'ref' },
+    ],
+  },
+  [Resource.ROLE]: {
+    collection: [ROLE_LIST_QUERY_KEY, ROLE_OPTIONS_QUERY_KEY],
+    entity: [ROLE_DETAIL_QUERY_KEY, ROLE_PERMISSIONS_QUERY_KEY, ROLE_USERS_QUERY_KEY],
+    derivesFrom: [
+      // permissionCount 與權限清單
+      { from: Resource.ROLE_PERMISSION, id: 'self' },
+      // userCount 與持有者清單
+      { from: Resource.USER_ROLE, id: 'ref' },
+      // 新增（帶角色）／刪除使用者改變 userCount；更新改變持有者清單上的名稱與狀態
+      { from: Resource.USER, id: 'ref' },
+    ],
+  },
+  [Resource.PERMISSION]: {
+    // 權限目錄在一個部署版本內不會變，沒有任何來源
+    collection: [PERMISSION_LIST_QUERY_KEY],
+  },
+  [Resource.AUDIT_LOG]: {
+    collection: [AUDIT_LOG_LIST_QUERY_KEY],
+    entity: [AUDIT_LOG_DETAIL_QUERY_KEY],
+    // 任何寫入都會產生稽核紀錄；既有紀錄不可變，所以只影響列表
+    derivesFromAnyChange: true,
+  },
+  [Resource.PROFILE]: {
+    collection: [AUTH_PROFILE_QUERY_KEY],
+    derivesFrom: [
+      { from: Resource.USER, kinds: ['update'], id: 'none', when: isSelf },
+      { from: Resource.USER_ROLE, id: 'none', when: isSelf },
+      // 自己持有的角色改名、被刪或權限被改，有效權限可能變了
+      { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'none', when: selfHoldsRole },
+      { from: Resource.ROLE_PERMISSION, id: 'none', when: selfHoldsRole },
+    ],
+  },
+  [Resource.USER_ROLE]: {},
+  [Resource.ROLE_PERMISSION]: {},
+  [Resource.USER_CREDENTIAL]: {},
+});
+
+/** 登入者改了自己的資料（profile / 偏好）：對系統而言就是一筆 user 更新。 */
+export function selfUpdated(profile: Profile): ResourceChangeEvent {
+  return {
+    resource: Resource.USER,
+    kind: 'update',
+    id: profile.user.id,
+    refs: { role: profile.roles.map((role) => role.id) },
+  };
+}
+
+/** 依依賴圖換算出要失效的 query，套用到本分頁並廣播給其他分頁。 */
+export function invalidateResources(changes: readonly ResourceChangeEvent[]): void {
+  broadcastInvalidate(graph.resolve(changes));
+}
+
+/** 供測試檢查換算結果，不觸發任何失效。 */
+export function resolveResourceChanges(changes: readonly ResourceChangeEvent[]) {
+  return graph.resolve(changes);
+}

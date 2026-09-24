@@ -24,7 +24,7 @@ export function UserRoleSection({
   isSelf,
 }: UserRoleSectionProps) {
   const { t } = useTranslation();
-  const assignRoles = useAssignUserRolesMutation(user.id, isSelf);
+  const assignRoles = useAssignUserRolesMutation(user);
   const { selectedRoleIds, toggleRole, isDirty } = useUserRoleSelection(user.roles);
 
   return (

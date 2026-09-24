@@ -195,34 +195,101 @@ export const queryClient = new QueryClient({
 | `GET /auth/profile`             | 5 min ＋ `refetchOnWindowFocus` | 權限變更的偵測窗口，見 §8 |
 | `GET /permissions`（權限目錄）  | `Infinity`                      | 一個部署版本內不會變      |
 
-### 6.2 失效矩陣
+### 6.2 資源依賴圖（取代手列 query key）
 
-| 操作                     | 失效的 query key                                                                           |
-| ------------------------ | ------------------------------------------------------------------------------------------ |
-| 建立 / 刪除角色          | `ROLE_LIST_QUERY_KEY`, `ROLE_OPTIONS_INFINITE_QUERY_KEY`                                   |
-| 更新角色基本資料         | `ROLE_LIST_QUERY_KEY`, `ROLE_DETAIL_QUERY_KEY`                                             |
-| 變更角色權限             | 上述 ＋ `ROLE_PERMISSIONS_QUERY_KEY` ＋ **`AUTH_PROFILE_QUERY_KEY`**（自己的權限可能變了） |
-| 建立 / 更新 / 刪除使用者 | `USER_LIST_QUERY_KEY`, `USER_DETAIL_QUERY_KEY`                                             |
-| 指派使用者角色           | 上述 ＋ `USER_PERMISSIONS_QUERY_KEY`；若 `targetId === 自己` 再加 `AUTH_PROFILE_QUERY_KEY` |
-| 任何寫入                 | `AUDIT_LOG_LIST_QUERY_KEY`                                                                 |
+寫入後 **不手列要失效的 query key**，改成宣告「後端改了什麼」，由依賴圖換算：
 
-> 最後一列容易漏。稽核日誌頁若開著，使用者做了操作卻看不到新紀錄會很困惑。
+```ts
+// features/role/hooks/useRoleMutations.ts
+onSuccess: (role) => {
+  invalidateResources([{ resource: Resource.ROLE, kind: 'update', id: role.id }]);
+},
+```
+
+| 檔案                              | 職責                                                                 |
+| --------------------------------- | -------------------------------------------------------------------- |
+| `core/cache/resourceGraph.ts`     | 通用引擎：來源變更 → 失效目標（不認識任何業務 key）                  |
+| `apis/resources.ts`               | 本專案的依賴宣告：每個資源有哪些 query、由哪些來源衍生               |
+| `core/cache/broadcastInvalidate.ts` | 套用失效目標並跨分頁廣播（§6.3）                                    |
+
+#### 邏輯線
+
+```
+mutation 成功
+  │  宣告來源變更 { resource, kind, id?, refs? }
+  ▼
+① 資源自己的 query
+     create        → collection
+     update(id)    → collection ＋ entity(id)
+     delete(id)    → collection ＋ 移除 entity(id)（不重抓，避免 404）
+② 直接衍生自該來源的資源（反向索引查表，一層）
+     id: 'self'    → 同一筆
+     id: 'ref'     → change.refs[本資源]；沒給就退回整個前綴
+     id: 'none'    → 只有 collection
+③ derivesFromAnyChange（稽核列表）
+  │
+  ▼
+去重（前綴已失效就不列單筆）→ invalidate / remove → 廣播
+```
+
+**為什麼不會大規模擴散**：
+
+- **只走一層、不遞移。** 衍生資料（角色的 `userCount`）變了，不等於嵌入角色摘要的使用者也變了；
+  真的有關係就直接宣告到來源上。因此沒有循環，也沒有「一路傳下去」的連鎖。
+- **查表而非搜尋。** 建圖時就產生「來源 → 衍生規則」的反向索引，一筆變更的成本只跟該來源的邊數有關。
+- **精準到筆。** 呼叫端知道連帶影響哪幾筆時用 `refs` 告知（例：指派角色時的新舊角色），
+  只有不知道時才退回前綴失效；前綴失效也只會重抓 **畫面上正在用** 的 query。
+
+#### 資源與來源
+
+| 資源（query）                                                                  | 衍生自                                                                               |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `user`：`USER_LIST` ／ `USER_DETAIL`、`USER_ROLES`                              | `userRole`（同一人）、`role` 更新／刪除（持有者，未知 → 全部）                        |
+| `role`：`ROLE_LIST`、`ROLE_OPTIONS` ／ `ROLE_DETAIL`、`ROLE_PERMISSIONS`、`ROLE_USERS` | `rolePermission`（同一角色）、`userRole`（新舊角色）、`user`（該使用者持有的角色） |
+| `profile`：`AUTH_PROFILE`                                                      | `user` 更新（自己）、`userRole`（自己）、`role` 更新／刪除與 `rolePermission`（自己持有的角色） |
+| `auditLog`：`AUDIT_LOG_LIST` ／ `AUDIT_LOG_DETAIL`                              | **任何寫入**（只影響列表；既有紀錄不可變）                                            |
+| `permission`：`PERMISSION_LIST`                                                | 無（一個部署版本內不變）                                                              |
+
+`userRole`、`rolePermission`、`userCredential` 是 **關係／純來源**：沒有自己的 query，只用來描述寫入。
+
+#### 各操作宣告的來源
+
+| 操作                     | 來源變更                                                                 |
+| ------------------------ | ------------------------------------------------------------------------ |
+| 建立 / 複製角色          | `role` create                                                            |
+| 更新 / 刪除角色          | `role` update / delete（id）                                             |
+| 變更角色權限             | `rolePermission` update（roleId）                                        |
+| 建立 / 更新 / 解鎖使用者 | `user` create / update（id），`refs.role` = 該使用者持有的角色            |
+| 刪除使用者               | `user` delete（id）                                                      |
+| 指派使用者角色           | `userRole` update（userId），`refs.role` = 新舊角色聯集                   |
+| 重設使用者密碼           | `userCredential` update（userId）                                        |
+| 修改自己的 profile / 偏好 | `user` update（自己的 id），`refs.role` = 自己的角色（`selfUpdated()`）   |
+
+「自己」的判斷讀 profile 快取；沒有快取時一律視為是（profile 只有一個 query，寧可多抓一次）。
+
+#### 新增一支 query 或一種寫入
+
+1. 新 query：把 key 放進 `apis/resources.ts` 對應資源的 `collection` 或 `entity`
+   （`entity` 的 key 第二個元素必須是 id）。
+2. 新的衍生關係：在 **被影響的資源** 上加 `derivesFrom`，並註解「為什麼」。
+3. 新寫入：在 feature hook 的 `onSuccess` 呼叫 `invalidateResources()`，只描述後端改了什麼。
+4. `apis/__tests__/resources.test.ts` 補一個案例，鎖住換算結果。
+
+> 登入時 `queryClient.clear()`、收到 `AUTHZ_FORBIDDEN` 時重抓 profile 屬於 **重新同步**，
+> 不是資源變更，不走依賴圖。
 
 ### 6.3 跨分頁失效
 
-`core/cache/broadcastInvalidate.ts`：
+`core/cache/broadcastInvalidate.ts`：廣播的是 **換算後的失效目標**，不是來源變更，
+收到的分頁直接套用、不再廣播（避免迴圈）。
 
 ```ts
-const channel = new BroadcastChannel("query-invalidate");
-
-export function broadcastInvalidate(queryKey: readonly unknown[]) {
-  queryClient.invalidateQueries({ queryKey });
-  channel.postMessage({ queryKey });
+export function broadcastInvalidate(targets: readonly InvalidationTarget[]) {
+  apply(targets); // invalidate 或 remove
+  channel?.postMessage({ targets });
 }
 
-channel.onmessage = (e) => {
-  queryClient.invalidateQueries({ queryKey: e.data.queryKey }); // 不再廣播，避免迴圈
-};
+channel.onmessage = (e) => apply(e.data.targets); // 不再廣播
 ```
 
 在 A 分頁刪掉一個角色，B 分頁的列表立刻更新。

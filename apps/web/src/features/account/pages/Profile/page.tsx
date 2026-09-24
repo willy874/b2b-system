@@ -1,9 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { getChangePasswordMutationOptions } from '@/apis/auth/change-password/mutation';
-import { AUTH_PROFILE_QUERY_KEY, getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
+import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getUpdateProfileMutationOptions } from '@/apis/auth/update-profile/mutation';
+import { invalidateResources, selfUpdated } from '@/apis/resources';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { Field } from '@/components/Field';
@@ -18,7 +19,6 @@ export default function ProfilePage() {
   const { t } = useTranslation();
   const toast = useToast();
   const toMessage = useErrorMessage();
-  const queryClient = useQueryClient();
   const profile = useQuery(getAuthProfileQueryOptions());
 
   // 草稿為 undefined 時顯示伺服器上的值（不用 effect 同步）
@@ -27,8 +27,8 @@ export default function ProfilePage() {
 
   const updateProfile = useMutation({
     ...getUpdateProfileMutationOptions(),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: [AUTH_PROFILE_QUERY_KEY] });
+    onSuccess: (updated) => {
+      invalidateResources([selfUpdated(updated)]);
       toast.success(t('account.profile.saved'));
     },
     onError: (error) => toast.error(toMessage(error)),

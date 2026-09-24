@@ -241,7 +241,7 @@ ZodValidationPipe → Controller → Service → Repository
   │               │                    └─────────┬──────────────────────┘
   │               │◀── 201 { data: Role } ───────│
   │               │                              │
-  │               │─ invalidateQueries(ROLE_LIST)│
+  │               │─ invalidateResources(role)   │
   │◀── 成功提示 ──│                              │
 ```
 
