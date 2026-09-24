@@ -11,3 +11,9 @@ export const AuditLogSearchQuerySchema = z.object({
 });
 
 export type AuditLogSearchQuery = z.infer<typeof AuditLogSearchQuerySchema>;
+
+/** 預設的查詢條件；與它相等的參數不寫進網址（`stripSearchParams`，見 routes/pages.ts）。 */
+export const DEFAULT_AUDIT_LOG_SEARCH: AuditLogSearchQuery = {
+  offset: 0,
+  limit: 50,
+};

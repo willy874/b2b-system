@@ -452,7 +452,7 @@ components/Table/
 ├── TableHeader.tsx       表頭；可排序欄位以 <button> 承接點擊（鍵盤可操作）、aria-sort
 ├── TableRow.tsx          選取、hover、單擊/雙擊行為
 ├── TableSkeleton.tsx     載入中的骨架列（不帶 table-row testid）
-├── sorting.ts            TableSorting 型別、nextSortOrder()、aria-sort 對照
+├── sorting.ts            TableSorting 型別、toggleSorting()、排序圖示與 aria-sort 對照
 ├── slots.ts              TableSlot
 └── index.ts
 ```
@@ -480,8 +480,11 @@ components/Table/
 | 篩選 | `FilterBar` | 「篩選」按鈕點開的下拉表單；欄位型別 `text` / `select` / `multiSelect` / `dateRange` / `sort`（多欄排序，`SortEntry[]`，拖曳調整優先順序）/ `custom`。`value` ＋ `onSubmit` 以泛型型別化，一次送出整份值（只更新一次網址） |
 | 欄位設定 | `TableSettings` | 齒輪按鈕點開的下拉清單：拖曳（dnd-kit，含鍵盤）排序、勾選顯示；依 `tableId` 存在 `core/store/tableColumnSettings`，偏好頁的「表格欄位」分頁改的是同一份 |
 
-表頭點擊排序會把排序換成「只依這一欄」，表頭只標示主排序（第一個條件）；多欄排序在篩選面板設定。
-篩選按鈕上的數量：`sort` 與 `defaultValue` 不同才計入（排序永遠有值）。
+表頭可以直接設定多欄排序：`sorting` 是 `TableSorting[]`（陣列順序即優先順序），每一欄循環
+**不排（`arrow-up-down`，淡化）→ 升冪（`arrow-up`）→ 降冪（`arrow-down`）→ 不排**。新排序的欄位加到最後，
+移除時後面的往前遞補；排序中的欄位在圖示旁顯示優先順序數字（1、2、3…）。`onSortingChange` 回報點擊後
+完整的陣列，與篩選面板的 `sort` 欄位是同一份狀態。全部取消＝空陣列，不送 `sort`，由後端套用預設排序。
+篩選按鈕上的數量：`sort` 與 `defaultValue`（空陣列）不同才計入。
 
 兩個面板 **都不即時套用**：面板裡的修改只改草稿，按送出鈕才生效，關掉面板就放棄草稿；每次打開都從目前生效的值開始。
 
@@ -490,7 +493,9 @@ components/Table/
 | `FilterBar` | 「清除」→ `defaultValue`（不提供就不顯示） | 「搜尋」；文字欄位按 Enter 同義 | `labels={{ reset, submit }}` |
 | `TableSettings` | 「恢復預設」→ `defaultValue` | 「套用」；草稿等於預設時呼叫 `onReset`，不留下多餘的設定 | `labels={{ reset, submit }}` |
 
-兩顆按鈕放進 `toolsColumnId`（預設 `actions`）那一欄的表頭；該欄固定、不列入欄位設定，找不到時改放在表格右上方。
+兩顆按鈕透過 `Table` 的 `headerTrailing` **固定在最後一欄表頭的右下角**（不論那一欄是什麼，也不會被包進排序按鈕）。
+該欄的標題用 grid `minmax(0, max-content)` 排版：空間夠時完整顯示，欄寬被擠壓時標題裁掉（`overflow: hidden` ＋ 省略號），按鈕不縮。
+`actions`（操作欄）固定在原位、不列入欄位設定。
 只有「有 `id` 且表頭是非空字串」的欄位可以設定。
 
 表頭改成模組層級的 `ToolsHeader` 元件、設定由 context 傳入：TanStack 的 `flexRender` 把函式表頭當成元件，

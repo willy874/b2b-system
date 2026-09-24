@@ -1,3 +1,6 @@
+import ArrowDown from '@/assets/icons/arrow-down.svg?react';
+import ArrowUpDown from '@/assets/icons/arrow-up-down.svg?react';
+import ArrowUp from '@/assets/icons/arrow-up.svg?react';
 import Calendar from '@/assets/icons/calendar.svg?react';
 import Check from '@/assets/icons/check.svg?react';
 import ChevronDown from '@/assets/icons/chevron-down.svg?react';
@@ -29,6 +32,9 @@ import Warning from '@/assets/icons/warning.svg?react';
  * 只要換 `src/assets/icons/` 底下的檔案，呼叫端一行都不用改。
  */
 export const ICONS = {
+  'arrow-down': ArrowDown,
+  'arrow-up': ArrowUp,
+  'arrow-up-down': ArrowUpDown,
   calendar: Calendar,
   check: Check,
   'chevron-down': ChevronDown,

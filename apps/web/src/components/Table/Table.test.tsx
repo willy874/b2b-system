@@ -36,25 +36,60 @@ describe('Table', () => {
     expect(screen.getByTestId('table-empty')).toHaveTextContent('沒有角色');
   });
 
-  it('點擊可排序的表頭會回報欄位與方向', async () => {
+  it('點擊升冪中的表頭換成降冪', async () => {
     const onSortingChange = vi.fn();
     render(
       <Table
         data={data}
         columns={columns}
-        sorting={{ sortBy: 'name', sortOrder: 'asc' }}
+        sorting={[{ sortBy: 'name', sortOrder: 'asc' }]}
         onSortingChange={onSortingChange}
       />,
     );
     await userEvent.click(screen.getByRole('button', { name: '名稱' }));
-    expect(onSortingChange).toHaveBeenCalledWith('name', 'desc');
+    expect(onSortingChange).toHaveBeenCalledWith([{ sortBy: 'name', sortOrder: 'desc' }]);
+  });
+
+  it('點擊降冪中的表頭取消排序', async () => {
+    const onSortingChange = vi.fn();
+    render(
+      <Table
+        data={data}
+        columns={columns}
+        sorting={[{ sortBy: 'name', sortOrder: 'desc' }]}
+        onSortingChange={onSortingChange}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: '名稱' }));
+    expect(onSortingChange).toHaveBeenCalledWith([]);
   });
 
   it('未排序的欄位從升冪開始', async () => {
     const onSortingChange = vi.fn();
     render(<Table data={data} columns={columns} onSortingChange={onSortingChange} />);
     await userEvent.click(screen.getByRole('button', { name: '名稱' }));
-    expect(onSortingChange).toHaveBeenCalledWith('name', 'asc');
+    expect(onSortingChange).toHaveBeenCalledWith([{ sortBy: 'name', sortOrder: 'asc' }]);
+  });
+
+  it('排序中的欄位顯示優先順序數字，未排序的欄位不顯示', () => {
+    render(
+      <Table
+        data={data}
+        columns={[
+          ...columns,
+          { id: 'id', header: 'ID', cell: ({ row }) => row.original.id },
+          { id: 'extra', header: '其他', cell: () => '-' },
+        ]}
+        sorting={[
+          { sortBy: 'id', sortOrder: 'desc' },
+          { sortBy: 'name', sortOrder: 'asc' },
+        ]}
+        onSortingChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('columnheader', { name: /名稱/ })).toHaveTextContent('名稱2');
+    expect(screen.getByRole('columnheader', { name: /ID/ })).toHaveTextContent('ID1');
+    expect(screen.getByRole('columnheader', { name: /其他/ })).toHaveTextContent(/^其他$/);
   });
 
   it('可排序的表頭可以用鍵盤觸發', async () => {
@@ -63,7 +98,7 @@ describe('Table', () => {
     await userEvent.tab();
     expect(screen.getByRole('button', { name: '名稱' })).toHaveFocus();
     await userEvent.keyboard('{Enter}');
-    expect(onSortingChange).toHaveBeenCalledWith('name', 'asc');
+    expect(onSortingChange).toHaveBeenCalledWith([{ sortBy: 'name', sortOrder: 'asc' }]);
   });
 
   it('enableSorting: false 的欄位不可排序', () => {
@@ -97,7 +132,7 @@ describe('Table', () => {
       <Table
         data={data}
         columns={columns}
-        sorting={{ sortBy: 'name', sortOrder: 'asc' }}
+        sorting={[{ sortBy: 'name', sortOrder: 'asc' }]}
         onSortingChange={vi.fn()}
       />,
     );

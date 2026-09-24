@@ -1,13 +1,12 @@
 import type { FilterBarProps } from '@/core/components';
 import { useTranslation } from '@/core/locales';
 
-import { DEFAULT_ROLE_SORT } from '../../routes';
 import type { RoleSearchQuery } from '../../routes';
 import type { useRoleSearchFilter } from './useRoleSearchFilter';
 
 export type RoleFilterValues = Pick<RoleSearchQuery, 'keyword' | 'sort'>;
 
-const EMPTY_FILTERS: RoleFilterValues = { keyword: undefined, sort: DEFAULT_ROLE_SORT };
+const EMPTY_FILTERS: RoleFilterValues = { keyword: undefined, sort: [] };
 
 /** 篩選面板：關鍵字、多欄排序。送出時一次寫進網址（`useRoleSearchFilter`）。 */
 export function useRoleFilters({
@@ -18,9 +17,8 @@ export function useRoleFilters({
   return {
     value: { keyword: search.keyword, sort: search.sort },
     defaultValue: EMPTY_FILTERS,
-    // 排序條件全部移除時退回預設排序（後端至少要一個條件）
-    onSubmit: ({ sort, ...rest }) =>
-      setFilters({ ...rest, sort: sort.length ? sort : DEFAULT_ROLE_SORT }),
+    // 排序條件全部移除＝不指定，由後端套用預設排序
+    onSubmit: setFilters,
     fields: [
       {
         type: 'text',

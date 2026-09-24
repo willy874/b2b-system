@@ -1,4 +1,4 @@
-import { createRoute, redirect } from '@tanstack/react-router';
+import { createRoute, redirect, stripSearchParams } from '@tanstack/react-router';
 
 import { getRoleDetailQueryOptions } from '@/apis/role/get-role-detail/query';
 import { queryClient } from '@/core/cache';
@@ -14,6 +14,8 @@ export const RoleListRoute = createRoute({
   path: '/role',
   loader: localeScopeLoader(ROLE_LOCALE_SCOPE),
   validateSearch: RoleSearchQuerySchema,
+  // 等於預設值的參數不寫進網址（子路由也套用）
+  search: { middlewares: [stripSearchParams(DEFAULT_ROLE_SEARCH)] },
 });
 
 /** 對話框即路由：可分享網址、上一頁＝關閉對話框。 */

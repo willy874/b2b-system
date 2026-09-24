@@ -79,24 +79,25 @@ function filters(keyword?: string): FilterBarProps<{ keyword?: string }> {
 }
 
 describe('RichTable 的篩選按鈕', () => {
-  it('放在 actions 欄的表頭，保留原本的標題', () => {
+  it('固定在最後一欄的表頭，保留原本的標題', () => {
     render(<RichTable data={rows} columns={withActions} filters={filters()} />);
     const header = screen.getByRole('columnheader', { name: /操作/ });
+    expect(header).toHaveTextContent('操作');
     expect(within(header).getByTestId('filter-bar-trigger')).toBeInTheDocument();
   });
 
-  it('toolsColumnId 可以指定其他欄位', () => {
-    render(
-      <RichTable data={rows} columns={withActions} filters={filters()} toolsColumnId="name" />,
-    );
+  it('沒有操作欄時放在最後一欄（不論欄位 id）', () => {
+    render(<RichTable data={rows} columns={columns} filters={filters()} />);
     const header = screen.getByRole('columnheader', { name: /Name/ });
     expect(within(header).getByTestId('filter-bar-trigger')).toBeInTheDocument();
   });
 
-  it('找不到指定欄位時放在表格外面', () => {
-    render(<RichTable data={rows} columns={columns} filters={filters()} />);
+  it('可排序的最後一欄：按鈕不會被包進排序按鈕裡', () => {
+    render(
+      <RichTable data={rows} columns={columns} filters={filters()} onSortingChange={vi.fn()} />,
+    );
     const trigger = screen.getByTestId('filter-bar-trigger');
-    expect(trigger.closest('table')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Name' })).not.toContainElement(trigger);
   });
 
   it('重新渲染（例如網址更新、欄位設定寫入）時面板不會被關掉', async () => {

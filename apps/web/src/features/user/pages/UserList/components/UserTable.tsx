@@ -9,7 +9,7 @@ import { Tooltip } from '@/components/Tooltip';
 import { RichTable } from '@/core/components';
 import type { FilterBarProps, RichTablePagination, TableSettingsConfig } from '@/core/components';
 import { useTranslation } from '@/core/locales';
-import type { SortOrderType } from '@/shared/constants';
+import type { SortEntry } from '@/shared/constants';
 import { formatDateTime } from '@/shared/date';
 
 import { USER_STATUS_LABEL_KEY } from '../../../constants';
@@ -38,8 +38,8 @@ interface UserTableProps {
   rows: UserRowVM[];
   loading: boolean;
   search: UserSearchQuery;
-  /** 表頭點擊：換成只依這一欄排序。 */
-  onSortingChange: (sort: UserSortField, order: SortOrderType) => void;
+  /** 表頭點擊：回報點擊後完整的多欄排序。 */
+  onSortingChange: (sort: Array<SortEntry<UserSortField>>) => void;
   onRowDoubleClick: (row: UserRowVM) => void;
   onDelete: (row: UserRowVM) => void;
   filters: FilterBarProps<UserFilterValues>;
@@ -156,8 +156,6 @@ export function UserTable({
     [onDelete, permission, resetPassword, search, t, unlockUser],
   );
 
-  const primary = search.sort[0];
-
   return (
     <RichTable
       data={rows}
@@ -167,11 +165,14 @@ export function UserTable({
       filters={filters}
       settings={USER_TABLE_SETTINGS}
       pagination={pagination}
-      // 表頭只標示主排序（第一個條件）
-      sorting={primary && { sortBy: primary.sort, sortOrder: primary.order }}
-      onSortingChange={(sortBy, sortOrder) => {
-        if (isSortField(sortBy)) onSortingChange(sortBy, sortOrder);
-      }}
+      sorting={search.sort.map(({ sort, order }) => ({ sortBy: sort, sortOrder: order }))}
+      onSortingChange={(sorting) =>
+        onSortingChange(
+          sorting.flatMap(({ sortBy, sortOrder }) =>
+            isSortField(sortBy) ? [{ sort: sortBy, order: sortOrder }] : [],
+          ),
+        )
+      }
       onRowDoubleClick={onRowDoubleClick}
       data-testid="user-table"
     />

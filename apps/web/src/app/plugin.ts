@@ -2,6 +2,7 @@ import { createRouter } from '@tanstack/react-router';
 
 import type { AppPluginFactory } from '@/core/app';
 import { queryClient } from '@/core/cache';
+import { parseSearch, stringifySearch } from '@/core/router';
 
 import { routeTree } from './routes';
 
@@ -11,6 +12,8 @@ function createAppRouter() {
     context: { queryClient },
     defaultPreload: 'intent',
     defaultPendingMs: 200,
+    parseSearch,
+    stringifySearch,
   });
 }
 

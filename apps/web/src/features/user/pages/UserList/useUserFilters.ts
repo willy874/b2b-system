@@ -2,7 +2,6 @@ import type { FilterBarProps } from '@/core/components';
 import { useTranslation } from '@/core/locales';
 
 import { USER_STATUS_LABEL_KEY } from '../../constants';
-import { DEFAULT_USER_SORT } from '../../routes';
 import type { UserSearchQuery } from '../../routes';
 import type { useUserSearchFilter } from './useUserSearchFilter';
 
@@ -11,7 +10,7 @@ export type UserFilterValues = Pick<UserSearchQuery, 'keyword' | 'status' | 'sor
 const EMPTY_FILTERS: UserFilterValues = {
   keyword: undefined,
   status: undefined,
-  sort: DEFAULT_USER_SORT,
+  sort: [],
 };
 
 /** 篩選面板：關鍵字、狀態、多欄排序。送出時一次寫進網址（`useUserSearchFilter`）。 */
@@ -23,9 +22,8 @@ export function useUserFilters({
   return {
     value: { keyword: search.keyword, status: search.status, sort: search.sort },
     defaultValue: EMPTY_FILTERS,
-    // 排序條件全部移除時退回預設排序（後端至少要一個條件）
-    onSubmit: ({ sort, ...rest }) =>
-      setFilters({ ...rest, sort: sort.length ? sort : DEFAULT_USER_SORT }),
+    // 排序條件全部移除＝不指定，由後端套用預設排序
+    onSubmit: setFilters,
     fields: [
       {
         type: 'text',

@@ -8,7 +8,7 @@ import { Empty } from '../Empty';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 import type { TableSlot } from './slots';
-import type { TableSortOrder, TableSorting } from './sorting';
+import type { TableSorting } from './sorting';
 import { TableHeader } from './TableHeader';
 import { TableRow } from './TableRow';
 import { TableSkeleton } from './TableSkeleton';
@@ -28,14 +28,24 @@ export interface TableProps<TData> extends SlotOverrides<TableSlot> {
   rowSelection?: RowSelectionState;
   onRowSelectionChange?: (selection: RowSelectionState) => void;
   onRowDoubleClick?: (row: TData) => void;
-  sorting?: TableSorting;
-  /** 提供時，除了 `enableSorting: false` 的欄位，其餘表頭都可點擊排序。 */
-  onSortingChange?: (sortBy: string, sortOrder: TableSortOrder) => void;
+  /** 多欄排序，陣列順序即優先順序（表頭顯示 1、2、3…）。 */
+  sorting?: readonly TableSorting[];
+  /**
+   * 提供時，除了 `enableSorting: false` 的欄位，其餘表頭都可點擊排序：
+   * 每一欄循環「不排 → 升冪 → 降冪 → 不排」，回報點擊後完整的排序陣列。
+   */
+  onSortingChange?: (sorting: TableSorting[]) => void;
+  /**
+   * 固定在最後一欄表頭右側、靠底的內容（例如篩選、欄位設定按鈕）。
+   * 欄寬不夠時，該欄的標題被裁掉（overflow hidden），這裡的內容不縮。
+   */
+  headerTrailing?: ReactNode;
   className?: string;
   'data-testid'?: string;
 }
 
 const EMPTY_SELECTION: RowSelectionState = {};
+const EMPTY_SORTING: readonly TableSorting[] = [];
 
 /** TanStack 會把預設寬度（150）併進每個 columnDef；清掉它，TableHeader 才分得出「沒宣告 size」。 */
 const DEFAULT_COLUMN = { size: undefined };
@@ -54,8 +64,9 @@ export function Table<TData>({
   rowSelection = EMPTY_SELECTION,
   onRowSelectionChange,
   onRowDoubleClick,
-  sorting,
+  sorting = EMPTY_SORTING,
   onSortingChange,
+  headerTrailing,
   className,
   classNames,
   styles: styleOverrides,
@@ -88,6 +99,7 @@ export function Table<TData>({
           headerGroups={table.getHeaderGroups()}
           sorting={sorting}
           onSortingChange={onSortingChange}
+          trailing={headerTrailing}
           slot={slot}
         />
         <tbody {...slot('body')}>

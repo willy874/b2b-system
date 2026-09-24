@@ -3,7 +3,9 @@ import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
 import { useState } from 'react';
 import { fn } from 'storybook/test';
 
-import type { TableSortOrder, TableSorting } from './sorting';
+import { IconButton } from '../Button';
+import { Icon } from '../Icon';
+import type { TableSorting } from './sorting';
 import { Table } from './Table';
 
 interface Row {
@@ -53,31 +55,58 @@ export const Empty: Story = {
   args: { data: [], emptyTitle: '沒有商品', emptyDescription: '目前還沒有任何商品資料。' },
 };
 
-/** 排序交給伺服器（`manualSorting`）：這裡用 `useState` 模擬「回報排序 → 重新取資料」的流程。 */
+function compareBy(sortBy: string, a: (typeof data)[number], b: (typeof data)[number]): number {
+  if (sortBy === 'qty') return a.qty - b.qty;
+  if (sortBy === 'price') return a.price - b.price;
+  return a.name.localeCompare(b.name);
+}
+
+/**
+ * 排序交給伺服器（`manualSorting`）：這裡用 `useState` 模擬「回報排序 → 重新取資料」的流程。
+ * 每一欄循環「不排 → 升冪 → 降冪 → 不排」，數字是優先順序。
+ */
 function SortableDemo() {
-  const [sorting, setSorting] = useState<TableSorting>({ sortBy: 'qty', sortOrder: 'asc' });
+  const [sorting, setSorting] = useState<TableSorting[]>([{ sortBy: 'qty', sortOrder: 'asc' }]);
   const sorted = data.toSorted((a, b) => {
-    const order = sorting.sortOrder === 'asc' ? 1 : -1;
-    if (sorting.sortBy === 'qty') return (a.qty - b.qty) * order;
-    if (sorting.sortBy === 'price') return (a.price - b.price) * order;
-    return a.name.localeCompare(b.name) * order;
+    for (const { sortBy, sortOrder } of sorting) {
+      const result = compareBy(sortBy, a, b) * (sortOrder === 'asc' ? 1 : -1);
+      if (result !== 0) return result;
+    }
+    return 0;
   });
-  const handleSortingChange = (sortBy: string, sortOrder: TableSortOrder) => {
-    setSorting({ sortBy, sortOrder });
-  };
   return (
     <Table
       data={sorted}
       columns={columns}
       getRowId={(row) => row.id}
       sorting={sorting}
-      onSortingChange={handleSortingChange}
+      onSortingChange={setSorting}
     />
   );
 }
 
 export const Sortable: Story = {
   render: () => <SortableDemo />,
+};
+
+/**
+ * `headerTrailing` 固定在最後一欄表頭的右下角（列表頁用來放篩選、欄位設定按鈕）；
+ * 最後一欄的欄寬不夠時（把視窗縮窄看看），標題被裁掉，按鈕不縮。
+ */
+export const HeaderTrailing: Story = {
+  args: {
+    columns: [...columns, { id: 'note', header: '備註說明很長的欄位標題', cell: () => '-' }],
+    headerTrailing: (
+      <>
+        <IconButton size="sm" aria-label="篩選">
+          <Icon name="filter" size={16} />
+        </IconButton>
+        <IconButton size="sm" aria-label="欄位設定">
+          <Icon name="settings" size={16} />
+        </IconButton>
+      </>
+    ),
+  },
 };
 
 /** 已進入選取模式（至少勾選一列）時，單擊列身即可切換選取。 */

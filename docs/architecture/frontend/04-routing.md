@@ -88,8 +88,8 @@ export const RoleSearchQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).catch(0),
   limit: z.coerce.number().int().min(1).max(200).catch(20),
   keyword: z.string().trim().optional().catch(undefined),
-  // 多欄排序 SortEntry[]；不合法（白名單外、重複）時退回預設，不變成錯誤頁
-  sort: sortSearchSchema(ROLE_SORT_FIELDS, DEFAULT_ROLE_SORT),
+  // 多欄排序 SortEntry[]；空陣列＝後端預設排序；不合法（白名單外、重複）時退回空陣列，不變成錯誤頁
+  sort: sortSearchSchema(ROLE_SORT_FIELDS),
 });
 
 export type RoleSearchQuery = z.infer<typeof RoleSearchQuerySchema>;
@@ -97,6 +97,42 @@ export type RoleSearchQuery = z.infer<typeof RoleSearchQuerySchema>;
 
 `.catch()` 而非 `.default()`：使用者手改網址成 `?limit=abc` 時 **回退到預設值**
 而不是丟出路由錯誤。列表頁不該因為一個壞參數就變成錯誤頁。
+
+網址格式不用 TanStack Router 預設的 JSON，而是在 `createRouter` 換成
+`core/router/search.ts` 的 `parseSearch` / `stringifySearch`：**重複的 key 就是陣列**，
+值一律是字串（型別交給 `validateSearch` 的 `z.coerce`）。排序與後端 API 同格式——
+`createdAt` 升冪、`-createdAt` 降冪：
+
+```
+/user?keyword=foo&sort=displayName&sort=-createdAt
+```
+
+元件拿到的 `search.sort` 仍是 `SortEntry[]`：`sortSearchSchema` 把 token 解析成物件，
+`stringifySearch` 導覽時再把 `SortEntry` 轉回 token（`toSortToken`）。
+
+每個列表另外定義一組預設查詢條件，列表路由用 `stripSearchParams` 把 **與預設值
+（深層）相等** 的參數從網址拿掉——剛進列表頁的網址是 `/role`，而不是
+`/role?offset=0&limit=20&sort=...`：
+
+```ts
+// features/role/routes/model.ts
+export const DEFAULT_ROLE_SEARCH: RoleSearchQuery = {
+  offset: 0,
+  limit: 20,
+  sort: [],
+};
+
+// features/role/routes/pages.ts
+export const RoleListRoute = createRoute({
+  // ...
+  validateSearch: RoleSearchQuerySchema,
+  search: { middlewares: [stripSearchParams(DEFAULT_ROLE_SEARCH)] },
+});
+```
+
+預設值必須和 schema 的 `.catch()` 回退值一致，否則被拿掉的參數讀回來會是另一個值。
+search middleware 會套用到目的地路由鏈上的每一層，所以只需要掛在列表路由，
+子路由（`create`、`$roleId`）自動套用。
 
 讀寫：
 

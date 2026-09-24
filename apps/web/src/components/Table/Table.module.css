@@ -25,8 +25,47 @@
     border-bottom: 1px solid var(--color-border);
   }
 
+  /*
+   * 有 trailing 的表頭：標題在左、trailing 固定在右下角。
+   * 用 grid 的 minmax(0, max-content)：空間夠時標題完整顯示；
+   * 表格自動版面算最小欄寬時標題貢獻 0（flex 做不到——nowrap 文字仍會撐出最小寬度），擠壓時裁掉。
+   */
+  .headerInner {
+    display: grid;
+    grid-template-columns: minmax(0, max-content) auto;
+    justify-content: space-between;
+    align-items: end;
+    gap: var(--seed-space-2);
+  }
+
+  .headerInner .headerLabel {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .headerTrailing {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--seed-space-1);
+  }
+
+  /* 被裁切的容器會吃掉外側的 focus ring，改畫在內側 */
+  .headerInner .sortButton:focus-visible {
+    outline-offset: -2px;
+  }
+
+  .headerTrailing {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: var(--seed-space-1);
+    margin-inline-start: auto;
+  }
+
   .sortButton {
     display: inline-flex;
+    max-width: 100%;
     align-items: center;
     gap: var(--seed-space-1);
     padding: 0;
@@ -39,6 +78,12 @@
     user-select: none;
   }
 
+  .sortLabel {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .sortButton:hover {
     color: var(--color-fg);
   }
@@ -48,9 +93,31 @@
     outline-offset: 2px;
   }
 
-  /* 圖示本身朝下（降冪）；升冪轉 180 度 */
-  .sortButton[data-order='asc'] .sortIndicator {
-    transform: rotate(180deg);
+  /* 未排序的欄位：圖示淡化，滑過時才明顯 */
+  .sortIndicator {
+    flex-shrink: 0;
+    opacity: 0.4;
+  }
+
+  .sortButton:hover .sortIndicator,
+  .sortButton[data-order] .sortIndicator {
+    opacity: 1;
+  }
+
+  .sortButton[data-order] {
+    color: var(--color-fg);
+  }
+
+  .sortPriority {
+    min-width: 1rem;
+    padding: 0 var(--seed-space-1);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-brand) 12%, transparent);
+    color: var(--color-brand);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1rem;
+    text-align: center;
   }
 
   .row {
