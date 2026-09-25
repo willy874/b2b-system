@@ -88,7 +88,7 @@ export function AuditLogTable({
       },
       {
         id: 'actions',
-        header: '',
+        header: t('common.actions'),
         enableSorting: false,
         cell: ({ row }) => {
           const isExpanded = expandedId === row.original.id;
