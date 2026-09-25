@@ -1,6 +1,6 @@
 @layer components {
   .popup {
-    width: 16rem;
+    width: 18rem;
     max-width: calc(100vw - 2 * var(--seed-space-4));
   }
 
@@ -63,6 +63,43 @@
 
   .checkbox {
     flex: 1;
+  }
+
+  /* 固定在左／右：未選的一側淡化，選中的一側用品牌色 */
+  .pinToggle {
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+
+  .pinToggle [aria-pressed='false'] {
+    color: var(--color-fg-muted);
+    opacity: 0.5;
+  }
+
+  .pinToggle [aria-pressed='true'] {
+    background: color-mix(in srgb, var(--color-brand) 12%, transparent);
+    color: var(--color-brand);
+  }
+
+  .fixedItem {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-1);
+    padding-inline-start: var(--seed-space-1);
+  }
+
+  .fixedLabel {
+    flex: 1;
+    font-size: 0.875rem;
+  }
+
+  .pinning {
+    display: flex;
+    flex-direction: column;
+    gap: var(--seed-space-2);
+    margin-top: var(--seed-space-3);
+    padding-top: var(--seed-space-3);
+    border-top: 1px solid var(--color-border);
   }
 
   .footer {

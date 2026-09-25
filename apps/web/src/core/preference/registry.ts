@@ -22,6 +22,10 @@ export interface PreferenceTable {
   columnLabelKeys: Record<string, string>;
   /** 沒有存過設定時預設隱藏的欄位。 */
   defaultHidden?: readonly string[];
+  /** 列表沒有勾選欄（`enableRowSelection={false}`）時設為 `false`；預設有。 */
+  selectable?: boolean;
+  /** 列表沒有釘選欄（`enableRowPinning={false}`）時設為 `false`；預設有。 */
+  rowPinning?: boolean;
   /** 名稱所在的語系 scope（通常是 feature 的 scope）；偏好頁會先載入它。 */
   localeScope?: string;
 }

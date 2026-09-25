@@ -35,7 +35,22 @@
     "removeSort": "Remove sort by {{name}}",
     "sortField": "Sort field {{index}}",
     "sortDirection": "Sort direction for {{name}}",
-    "sortEmpty": "No sort conditions; the default order is used after you search."
+    "sortEmpty": "No sort conditions; the default order is used after you search.",
+    "pinning": "Pinning",
+    "pinColumnStart": "Pin \"{{name}}\" to the left",
+    "pinColumnEnd": "Pin \"{{name}}\" to the right",
+    "stickyHeader": "Sticky header",
+    "pinRow": "Pin row",
+    "pinRowTop": "Pin to top",
+    "pinRowBottom": "Pin to bottom",
+    "unpinRow": "Unpin row",
+    "pinnedColumnsSummary": "{{count}} pinned columns",
+    "pinnedRowsSummary": "{{count}} pinned rows",
+    "clearPinnedRows": "Clear pinned rows",
+    "selectColumn": "Select",
+    "selectAll": "Select all on this page",
+    "selectRow": "Select row",
+    "pinColumn": "Pin"
   },
   "menu": {
     "home": "Home",

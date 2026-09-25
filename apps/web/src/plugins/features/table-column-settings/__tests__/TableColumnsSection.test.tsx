@@ -20,7 +20,7 @@ function card(tableId: string): HTMLElement {
 describe('TableColumnsSection（偏好頁的表格欄位分頁）', () => {
   beforeEach(() => {
     localStorage.clear();
-    useTableColumnSettingsStore.setState({ settings: {} });
+    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
     resetPreferenceRegistry();
     registerPreferenceTable({
       id: 'user-list',
@@ -33,22 +33,29 @@ describe('TableColumnsSection（偏好頁的表格欄位分頁）', () => {
   it('每張登記的表一張卡片，依預設順序列出欄位並標出預設隱藏的欄位', () => {
     render(<TableColumnsSection />);
     const items = within(card('user-list')).getAllByRole('listitem');
-    expect(items.map((item) => item.textContent)).toEqual([
-      expect.stringContaining('name'),
-      expect.stringContaining('email'),
-      expect.stringContaining('status'),
+    // 工具欄排在最前面：勾選欄固定在 start、釘選欄預設隱藏
+    expect(items.map((item) => item.dataset.value)).toEqual([
+      '__select',
+      '__pin',
+      'name',
+      'email',
+      'status',
     ]);
-    expect(items[2]).toHaveAttribute('data-hidden');
+    expect(items[0]).toHaveAttribute('data-pin', 'start');
+    expect(items[1]).toHaveAttribute('data-hidden');
+    expect(items[4]).toHaveAttribute('data-hidden');
   });
 
   it('反映存下來的設定（列表上改的也會在這裡看到）', () => {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ 'user-list': { order: ['email', 'name', 'status'], hidden: [] } }),
+      JSON.stringify({
+        'user-list': { order: ['__pin', 'email', 'name', 'status'], hidden: [] },
+      }),
     );
     render(<TableColumnsSection />);
     const items = within(card('user-list')).getAllByRole('listitem');
-    expect(items[0]).toHaveTextContent('email');
+    expect(items[1]).toHaveTextContent('email');
     expect(items.some((item) => item.hasAttribute('data-hidden'))).toBe(false);
   });
 
@@ -61,8 +68,48 @@ describe('TableColumnsSection（偏好頁的表格欄位分頁）', () => {
     await userEvent.click(screen.getByTestId('table-settings-submit'));
 
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({
-      'user-list': { order: ['name', 'email', 'status'], hidden: ['status', 'email'] },
+      'user-list': {
+        order: ['__select', '__pin', 'name', 'email', 'status'],
+        hidden: ['__pin', 'status', 'email'],
+        pinnedColumns: { __select: 'start', actions: 'end' },
+        stickyHeader: false,
+      },
     });
-    expect(within(card('user-list')).getAllByRole('listitem')[1]).toHaveAttribute('data-hidden');
+    const emailItem = within(card('user-list'))
+      .getAllByRole('listitem')
+      .find((item) => item.dataset.value === 'email');
+    expect(emailItem).toHaveAttribute('data-hidden');
+  });
+
+  it('卡片摘要列出固定的欄位數、固定表頭與釘選的列，並可清除釘選列', async () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        'user-list': {
+          order: ['name', 'email', 'status'],
+          hidden: [],
+          pinnedColumns: { name: 'start', actions: 'end' },
+          stickyHeader: true,
+        },
+      }),
+    );
+    // 掛載時會從 localStorage 重讀，所以直接寫進 localStorage
+    localStorage.setItem(
+      'game-editor:table-column-settings:pinnedRows',
+      JSON.stringify({ 'user-list': [{ id: '1', side: 'top', row: {} }] }),
+    );
+    render(<TableColumnsSection />);
+    const summary = within(card('user-list')).getByTestId('table-columns-pinning');
+    const values = [...summary.querySelectorAll<HTMLElement>('[data-value]')].map(
+      (element) => element.dataset.value,
+    );
+    expect(values).toEqual(['columns', 'stickyHeader', 'rows']);
+    const nameItem = within(card('user-list'))
+      .getAllByRole('listitem')
+      .find((item) => item.dataset.value === 'name');
+    expect(nameItem).toHaveAttribute('data-pin', 'start');
+
+    await userEvent.click(within(card('user-list')).getByTestId('table-columns-clear-pinned-rows'));
+    expect(useTableColumnSettingsStore.getState().pinnedRows).toEqual({});
   });
 });

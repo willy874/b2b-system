@@ -28,8 +28,14 @@ describe('resolveColumnSettings（把存下來的設定套到目前的欄位）'
     [
       '新加的欄位接在最後並顯示',
       { order: ['b', 'a'], hidden: ['a'] },
-      ['c'],
+      [],
       { order: ['b', 'a', 'c'], hidden: ['a'] },
+    ],
+    [
+      '新加的欄位若在 defaultHidden 裡則隱藏',
+      { order: ['b', 'a'], hidden: [] },
+      ['c'],
+      { order: ['b', 'a', 'c'], hidden: ['c'] },
     ],
     [
       '重複的 id 只留第一個',
@@ -38,14 +44,64 @@ describe('resolveColumnSettings（把存下來的設定套到目前的欄位）'
       { order: ['a', 'b', 'c'], hidden: [] },
     ],
   ])('%s', (_, stored, defaultHidden, expected) => {
-    expect(resolveColumnSettings(['a', 'b', 'c'], stored, defaultHidden)).toEqual(expected);
+    expect(resolveColumnSettings(['a', 'b', 'c'], stored, defaultHidden)).toEqual({
+      ...expected,
+      // 預設固定操作欄，但這張表沒有操作欄，所以被濾掉
+      pinnedColumns: {},
+      stickyHeader: false,
+    });
+  });
+
+  it('工具欄的預設：勾選欄固定在 start、釘選欄隱藏；已存過設定的表新加這兩欄時也套用', () => {
+    const ids = ['__select', '__pin', 'a'];
+    expect(resolveColumnSettings(ids, undefined, [], ['actions'])).toEqual({
+      order: ids,
+      hidden: ['__pin'],
+      pinnedColumns: { __select: 'start', actions: 'end' },
+      stickyHeader: false,
+    });
+    expect(
+      resolveColumnSettings(ids, { order: ['a'], hidden: [], pinnedColumns: {} }, [], ['actions']),
+    ).toEqual({
+      order: ['a', '__select', '__pin'],
+      hidden: ['__pin'],
+      pinnedColumns: { __select: 'start' },
+      stickyHeader: false,
+    });
+  });
+
+  it('預設把操作欄固定在 end（有 fixedColumnIds 時）', () => {
+    expect(resolveColumnSettings(['a'], undefined, [], ['actions']).pinnedColumns).toEqual({
+      actions: 'end',
+    });
+  });
+
+  it('沿用存下來的固定設定，丟掉已經不存在的欄位', () => {
+    expect(
+      resolveColumnSettings(
+        ['a', 'b'],
+        {
+          order: ['a', 'b'],
+          hidden: [],
+          pinnedColumns: { a: 'start', x: 'end' },
+          stickyHeader: true,
+        },
+        [],
+        ['actions'],
+      ),
+    ).toEqual({
+      order: ['a', 'b'],
+      hidden: [],
+      pinnedColumns: { a: 'start' },
+      stickyHeader: true,
+    });
   });
 });
 
 describe('useTableColumnSettingsStore', () => {
   beforeEach(() => {
     localStorage.clear();
-    useTableColumnSettingsStore.setState({ settings: {} });
+    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
   });
 
   it('寫入時存進 localStorage，各表格分開', () => {
@@ -68,5 +124,40 @@ describe('useTableColumnSettingsStore', () => {
     expect(useTableColumnSettingsStore.getState().settings).toEqual({
       'role-list': { order: ['x'], hidden: [] },
     });
+  });
+});
+
+describe('釘選的資料列', () => {
+  const PINNED_KEY = 'game-editor:table-column-settings:pinnedRows';
+
+  beforeEach(() => {
+    localStorage.clear();
+    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
+  });
+
+  it('釘選寫進 localStorage；同一列改側時移到該側的最後', () => {
+    const { pinRow } = useTableColumnSettingsStore.getState();
+    pinRow('user-list', '1', 'top', { id: '1' });
+    pinRow('user-list', '2', 'bottom', { id: '2' });
+    pinRow('user-list', '1', 'bottom', { id: '1' });
+
+    expect(JSON.parse(localStorage.getItem(PINNED_KEY) ?? '{}')).toEqual({
+      'user-list': [
+        { id: '2', side: 'bottom', row: { id: '2' } },
+        { id: '1', side: 'bottom', row: { id: '1' } },
+      ],
+    });
+  });
+
+  it('取消最後一列時整張表的紀錄一起移除；重設欄位設定不影響釘選', () => {
+    const { pinRow, unpinRow, setTableSettings, resetTableSettings } =
+      useTableColumnSettingsStore.getState();
+    pinRow('user-list', '1', 'top', {});
+    setTableSettings('user-list', { order: ['a'], hidden: [] });
+    resetTableSettings('user-list');
+    expect(useTableColumnSettingsStore.getState().pinnedRows['user-list']).toHaveLength(1);
+
+    unpinRow('user-list', '1');
+    expect(useTableColumnSettingsStore.getState().pinnedRows).toEqual({});
   });
 });

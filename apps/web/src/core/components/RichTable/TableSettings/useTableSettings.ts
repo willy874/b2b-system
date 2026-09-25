@@ -1,6 +1,8 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
+import type { TableColumnSettings } from '@/core/store';
+
 import type { TableSettingsColumn, TableSettingsProps } from './TableSettings';
 import { useTableColumnSettings } from './useTableColumnSettings';
 
@@ -17,13 +19,15 @@ export interface TableSettingsConfig {
 interface UseTableSettingsResult<TData> {
   /** 套用順序與顯示設定後，實際交給表格的欄位。 */
   columns: Array<ColumnDef<TData, unknown>>;
+  /** 目前生效的設定；沒有 `config` 時是預設值（操作欄固定在 `end`、表頭不固定）。 */
+  value: TableColumnSettings;
   /** 沒有 `config` 時為 `undefined`（不顯示齒輪按鈕）。 */
   settingsProps: TableSettingsProps | undefined;
 }
 
 /**
  * 把欄位設定套到表格欄位上。
- * 只有「有 id、表頭是非空字串、且不是 `fixedColumnId`」的欄位可以設定；
+ * 只有「有 id、表頭是非空字串（或有 `meta.settingsLabel`）、且不是 `fixedColumnId`」的欄位可以設定；
  * 其他欄位（操作欄、純圖示欄）保留在原本的位置，永遠顯示。
  */
 export function useTableSettings<TData>(
@@ -33,12 +37,23 @@ export function useTableSettings<TData>(
 ): UseTableSettingsResult<TData> {
   const configurable = useMemo(
     () =>
+      columns.flatMap((column): TableSettingsColumn[] => {
+        const label = settingsLabelOf(column);
+        return column.id && column.id !== fixedColumnId && label ? [{ id: column.id, label }] : [];
+      }),
+    [columns, fixedColumnId],
+  );
+  // 固定欄位（操作欄）不列入順序，但可以設定固定在哪一側
+  const fixed = useMemo(
+    () =>
       columns.flatMap((column): TableSettingsColumn[] =>
-        column.id &&
-        column.id !== fixedColumnId &&
-        typeof column.header === 'string' &&
-        column.header
-          ? [{ id: column.id, label: column.header }]
+        column.id === fixedColumnId
+          ? [
+              {
+                id: column.id,
+                label: typeof column.header === 'string' ? column.header : column.id,
+              },
+            ]
           : [],
       ),
     [columns, fixedColumnId],
@@ -47,6 +62,7 @@ export function useTableSettings<TData>(
     config?.tableId,
     configurable,
     config?.defaultHidden,
+    fixed,
   );
 
   const displayed = useMemo(() => {
@@ -64,5 +80,15 @@ export function useTableSettings<TData>(
     });
   }, [columns, configurable, settingsProps, value]);
 
-  return { columns: displayed, settingsProps };
+  return { columns: displayed, value, settingsProps };
+}
+
+/**
+ * 欄位設定裡的名稱：字串表頭，或非字串表頭（勾選框、圖示）的 `meta.settingsLabel`。
+ * 宣告了 `settingsLabel` 就算可設定；名稱是空的（語系還沒載入）時退回欄位 id，欄位不會因此脫離設定。
+ */
+function settingsLabelOf<TData>(column: ColumnDef<TData, unknown>): string | undefined {
+  if (typeof column.header === 'string' && column.header) return column.header;
+  if (column.meta && 'settingsLabel' in column.meta) return column.meta.settingsLabel || column.id;
+  return undefined;
 }

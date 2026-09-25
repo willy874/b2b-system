@@ -17,19 +17,24 @@ interface UseTableColumnSettingsResult {
   settingsProps: TableSettingsProps | undefined;
 }
 
+const NO_FIXED_COLUMNS: TableSettingsColumn[] = [];
+
 /**
  * 讀寫一張表的欄位設定，並組出 `TableSettings` 需要的 props。
  * 列表（`RichTable`）與偏好頁共用：兩邊改的是同一份設定。
  * `defaultHidden` 沒給時沿用 `core/preference` 登記的值。
+ * `fixedColumns` 是不列入順序、但可以固定的欄位（操作欄）。
  */
 export function useTableColumnSettings(
   tableId: string | undefined,
   columns: TableSettingsColumn[],
   defaultHidden?: readonly string[],
+  fixedColumns: TableSettingsColumn[] = NO_FIXED_COLUMNS,
 ): UseTableColumnSettingsResult {
   const hiddenByDefault =
     defaultHidden ?? (tableId ? getPreferenceTable(tableId)?.defaultHidden : undefined);
   const columnIds = useMemo(() => columns.map((column) => column.id), [columns]);
+  const fixedIds = useMemo(() => fixedColumns.map((column) => column.id), [fixedColumns]);
 
   useEffect(() => (tableId ? syncTableColumnSettings() : undefined), [tableId]);
 
@@ -40,12 +45,12 @@ export function useTableColumnSettings(
   );
 
   const value = useMemo(
-    () => resolveColumnSettings(columnIds, stored, hiddenByDefault),
-    [columnIds, stored, hiddenByDefault],
+    () => resolveColumnSettings(columnIds, stored, hiddenByDefault, fixedIds),
+    [columnIds, stored, hiddenByDefault, fixedIds],
   );
   const defaultValue = useMemo(
-    () => resolveColumnSettings(columnIds, undefined, hiddenByDefault),
-    [columnIds, hiddenByDefault],
+    () => resolveColumnSettings(columnIds, undefined, hiddenByDefault, fixedIds),
+    [columnIds, hiddenByDefault, fixedIds],
   );
 
   const settingsProps = useMemo(
@@ -53,13 +58,14 @@ export function useTableColumnSettings(
       tableId
         ? {
             columns,
+            fixedColumns,
             value,
             defaultValue,
             onChange: (next: TableColumnSettings) => setTableSettings(tableId, next),
             onReset: () => resetTableSettings(tableId),
           }
         : undefined,
-    [columns, defaultValue, resetTableSettings, setTableSettings, tableId, value],
+    [columns, defaultValue, fixedColumns, resetTableSettings, setTableSettings, tableId, value],
   );
 
   return { value, settingsProps };

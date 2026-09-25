@@ -35,7 +35,22 @@
     "removeSort": "移除「{{name}}」的排序",
     "sortField": "第 {{index}} 個排序欄位",
     "sortDirection": "「{{name}}」的排序方向",
-    "sortEmpty": "沒有排序條件；送出後使用預設排序。"
+    "sortEmpty": "沒有排序條件；送出後使用預設排序。",
+    "pinning": "固定",
+    "pinColumnStart": "將「{{name}}」固定在左側",
+    "pinColumnEnd": "將「{{name}}」固定在右側",
+    "stickyHeader": "固定表頭",
+    "pinRow": "釘選這一列",
+    "pinRowTop": "釘選到頂端",
+    "pinRowBottom": "釘選到底端",
+    "unpinRow": "取消釘選",
+    "pinnedColumnsSummary": "固定 {{count}} 欄",
+    "pinnedRowsSummary": "釘選 {{count}} 列",
+    "clearPinnedRows": "清除釘選列",
+    "selectColumn": "勾選",
+    "selectAll": "全選本頁",
+    "selectRow": "選取這一列",
+    "pinColumn": "釘選"
   },
   "menu": {
     "home": "首頁",

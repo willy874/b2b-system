@@ -616,14 +616,39 @@ components/Table/
 ├── TableRow.tsx          選取、hover、單擊/雙擊行為
 ├── TableSkeleton.tsx     載入中的骨架列（不帶 table-row testid）
 ├── sorting.ts            TableSorting 型別、toggleSorting()、排序圖示與 aria-sort 對照
+├── pinning.ts            欄位固定、釘選列：預設值（actions 靠右）與量測 sticky 位移的 usePinLayout
+├── columns.tsx           工具欄：createSelectColumn（勾選欄 CheckboxColumn）、ColumnMeta.settingsLabel
+├── useTableSelection.ts  跨頁保留的選取狀態（id ＋ 勾選當下的資料），批次操作用
 ├── slots.ts              TableSlot
 └── index.ts
 ```
 
-尚未實作（需要時再加）：`TableBody` 虛擬捲動（列數 > 100 時啟用）、欄寬拖曳、
-`useTableSelection`（跨頁保留的選取狀態）。
+尚未實作（需要時再加）：`TableBody` 虛擬捲動（列數 > 100 時啟用）、欄寬拖曳。
+
+勾選欄（CheckboxColumn）與批次操作的準備：`createSelectColumn(labels)` 產生 id 為 `__select` 的欄位——表頭全選／取消本頁
+（部分勾選時半選）、每列一個勾選框；搭配 `useTableSelection(data, getRowId)` 取得 `rowSelection` / `onRowSelectionChange`，
+以及跨頁保留的 `selectedIds`、`selectedRows`（勾選當下的資料，列還在目前頁時換成最新的一筆）與 `clear()`。
+批次操作直接拿 `selectedRows` 送出；篩選條件改變或操作完成後由呼叫端 `clear()`。
+
+非字串表頭（勾選框、圖示）的欄位以 `meta.settingsLabel` 宣告欄位設定裡的名稱，才會進入欄位設定（排序、隱藏、固定）。
 
 欄寬：只有宣告了 `size` 的欄位會在 `<th>` 設定寬度，其餘交給瀏覽器分配。
+
+固定（pinning）：固定欄位、釘選列、固定表頭都用 `position: sticky` 貼在外框（捲動容器）的邊上；
+sticky 儲存格有不透明底色（hover、選取狀態會同步），固定區與一般區交界畫分隔線。
+位移由 `usePinLayout` 量實際的欄寬、列高算出（`ResizeObserver` 在尺寸改變時重量），所以沒宣告 `size` 的欄位也能多欄固定。
+
+| prop | 型別 | 效果 |
+| ---- | ---- | ---- |
+| `columnPinning` | TanStack `ColumnPinningState` | 欄位固定在左（`left`）或右（`right`），陣列順序即排列順序；**預設 `{ right: ['actions'] }`**，傳 `{}` 取消。表頭與列都依「左固定 → 其餘 → 右固定」排列 |
+| `rowPinning` | TanStack `RowPinningState` | 資料列貼在頂端（`top`）或底端（`bottom`），捲動時留在原位；需要 `getRowId`，列必須在 `data` 裡 |
+| `stickyHeader` | `boolean` | 表頭在垂直捲動時留在上方；頂端的釘選列排在表頭下緣 |
+| `maxHeight` | CSS 長度 | 固定表頭或有釘選列時外框的最大高度，預設 `70vh` |
+
+頁面本身捲動時 sticky 無效（外框為了水平捲動已經是捲動容器），所以 **固定表頭或有釘選列時，外框改成雙向捲動、最高 `maxHeight`**。
+疊放順序：固定欄 < 釘選列 < 釘選列 × 固定欄 < 表頭 < 表頭 × 固定欄。
+
+`RichTable` 把這些固定都記在每張表的偏好裡（§6.1）。
 
 固定的互動行為（這組行為已在實際的管理後台使用者身上驗證過）：
 
@@ -659,6 +684,38 @@ components/Table/
 兩顆按鈕透過 `Table` 的 `headerTrailing` **固定在最後一欄表頭的右下角**（不論那一欄是什麼，也不會被包進排序按鈕）。
 該欄的標題用 grid `minmax(0, max-content)` 排版：空間夠時完整顯示，欄寬被擠壓時標題裁掉（`overflow: hidden` ＋ 省略號），按鈕不縮。
 `actions`（操作欄）固定在原位、不列入欄位設定。
+
+**所有 Pin 都記在偏好裡**（`core/store/tableColumnSettings`，依 `tableId` 分開、存 localStorage、跨分頁同步）：
+
+| 固定 | 在哪裡改 | 存在哪 | 預設 |
+| ---- | -------- | ------ | ---- |
+| 欄位固定（Column Pin） | 齒輪面板每一欄右側的「左／右」切換鈕；操作欄在面板下方的「固定」區塊 | `TableColumnSettings.pinnedColumns`（欄位 id → `'start'` / `'end'`） | 操作欄 `end` |
+| 固定表頭 | 齒輪面板「固定」區塊的勾選框 | `TableColumnSettings.stickyHeader` | 關 |
+| 資料列釘選（Row Pin） | 釘選欄（PinColumn，`__pin`）每列的選單：釘選到頂端／底端／取消 | `pinnedRows[tableId]`（`{ id, side: 'top' \| 'bottom', row }[]`） | 無 |
+
+**每個 `RichTable` 預設都有這兩個工具欄**，排在所有欄位最前面，和一般欄位一樣進欄位設定（可排序、隱藏、固定）：
+
+| 工具欄 | 出現條件 | 預設 |
+| ------ | -------- | ---- |
+| 勾選欄（CheckboxColumn，`__select`） | 預設都有；`enableRowSelection={false}` 關閉 | 顯示、固定在 `start` |
+| 釘選欄（PinColumn，`__pin`） | 有 `settings.tableId` 與 `getRowId`（釘選要記進偏好）；`enableRowPinning={false}` 關閉 | **隱藏**，使用者在欄位設定裡打開 |
+
+勾選欄的選取狀態：呼叫端沒傳 `rowSelection` / `onRowSelectionChange` 時由 `RichTable` 內部的 `useTableSelection` 管理（跨頁保留）；
+要做批次操作的頁面自己呼叫 `useTableSelection(data, getRowId)` 並把 `rowSelection` / `onRowSelectionChange` 傳進來接手，
+再用 `selectedRows` 送出。沒有 `getRowId` 時與 TanStack 相同，以索引當列 id（換頁後同索引會被視為同一列，因此建議都提供 `getRowId`）。
+
+預設值寫在 `core/store/tableColumnSettings` 的 `DEFAULT_PINNED_COLUMNS` / `DEFAULT_HIDDEN_COLUMNS`；
+已存過設定的表遇到新加的欄位時，也套用這些預設（新欄位不會突然出現或沒被固定）。
+偏好頁的卡片預設列出兩個工具欄；關掉勾選欄或釘選欄的表，在 `registerPreferenceTable` 對應設 `selectable: false` / `rowPinning: false`。
+
+- 欄位固定與固定表頭跟欄位順序一樣是 **草稿**，按「套用」才生效；固定的欄位依目前的欄位順序排在左右兩側。
+- 資料列釘選 **立即生效**，和欄位設定分開存：「恢復預設」不會清掉釘選列。釘選的列換頁、排序、篩選都不動——
+  其他頁的釘選列以釘選當下的資料（`row`）併進 `data`，回到該頁時改用最新的那一筆；因為存的是整筆資料，重新整理後仍在，但內容可能是舊的。
+  釘選欄被隱藏時，已釘選的列仍然釘在原位（偏好頁可整批清除）。
+- 偏好頁「表格欄位」的卡片用同一個齒輪面板，並列出固定的欄位數、固定表頭、釘選的列數（可整批清除）。
+- 釘選欄的儲存格由 context 取得狀態（`RowPin/`），理由同下方的 `ToolsHeader`；勾選欄與釘選欄的定義以翻譯後的字串為依賴 memo，
+  不以 `t` 為依賴（每次渲染都是新函式，會讓勾選框重新掛載、失去焦點）。
+- 呼叫端明確傳入 `columnPinning` / `stickyHeader` 時以它為準。
 只有「有 `id` 且表頭是非空字串」的欄位可以設定。
 
 表頭改成模組層級的 `ToolsHeader` 元件、設定由 context 傳入：TanStack 的 `flexRender` 把函式表頭當成元件，

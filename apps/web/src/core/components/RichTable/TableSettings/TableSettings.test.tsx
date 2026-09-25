@@ -11,12 +11,14 @@ const COLUMNS = [
   { id: 'status', label: '狀態' },
 ];
 
-const DEFAULT_VALUE = { order: ['name', 'email', 'status'], hidden: [] };
+const PINNING = { pinnedColumns: { actions: 'end' as const }, stickyHeader: false };
+const DEFAULT_VALUE = { order: ['name', 'email', 'status'], hidden: [], ...PINNING };
 
 function renderSettings(overrides: Partial<TableSettingsProps> = {}) {
   const props: TableSettingsProps = {
     columns: COLUMNS,
-    value: { order: ['status', 'name', 'email'], hidden: ['email'] },
+    fixedColumns: [{ id: 'actions', label: '操作' }],
+    value: { order: ['status', 'name', 'email'], hidden: ['email'], ...PINNING },
     defaultValue: DEFAULT_VALUE,
     onChange: vi.fn(),
     onReset: vi.fn(),
@@ -62,6 +64,7 @@ describe('TableSettings', () => {
     expect(onChange).toHaveBeenCalledWith({
       order: ['status', 'name', 'email'],
       hidden: ['status'],
+      ...PINNING,
     });
     expect(screen.queryByTestId('table-settings-popup')).not.toBeInTheDocument();
   });
@@ -90,7 +93,7 @@ describe('TableSettings', () => {
   });
 
   it('只剩一個顯示中的欄位時不能取消', async () => {
-    renderSettings({ value: { order: ['name', 'email'], hidden: ['email'] } });
+    renderSettings({ value: { order: ['name', 'email'], hidden: ['email'], ...PINNING } });
     const popup = await openPanel();
     expect(checkboxOf(popup, 'name')).toHaveAttribute('aria-disabled', 'true');
   });
@@ -108,5 +111,31 @@ describe('TableSettings', () => {
     await openPanel();
     expect(screen.getByTestId('table-settings-reset')).toHaveTextContent('還原');
     expect(screen.getByTestId('table-settings-submit')).toHaveTextContent('儲存');
+  });
+
+  it('每一欄可固定在左側或右側，再按一次取消；操作欄在「固定」區塊；都是草稿，按「套用」一起送出', async () => {
+    const { onChange } = renderSettings();
+    const popup = await openPanel();
+    const item = items(popup).find((element) => element.dataset.value === 'name') as HTMLElement;
+    await userEvent.click(within(item).getByTestId('table-settings-pin-start'));
+    expect(within(item).getByTestId('table-settings-pin-start')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    const actions = within(popup).getByTestId('table-settings-fixed-item');
+    // 操作欄預設在 end：按 end 取消、再改到 start
+    await userEvent.click(within(actions).getByTestId('table-settings-pin-end'));
+    await userEvent.click(within(actions).getByTestId('table-settings-pin-start'));
+    await userEvent.click(within(popup).getByTestId('table-settings-sticky-header'));
+    expect(onChange).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByTestId('table-settings-submit'));
+    expect(onChange).toHaveBeenCalledWith({
+      order: ['status', 'name', 'email'],
+      hidden: ['email'],
+      pinnedColumns: { name: 'start', actions: 'start' },
+      stickyHeader: true,
+    });
   });
 });

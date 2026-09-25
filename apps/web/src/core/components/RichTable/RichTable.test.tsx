@@ -3,10 +3,13 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { useTableSelection } from '@/components/Table';
 import { useTableColumnSettingsStore } from '@/core/store';
 
 import type { FilterBarProps } from './FilterBar';
 import { RichTable } from './RichTable';
+
+const getId = (row: { id: string }) => row.id;
 
 interface Row {
   id: string;
@@ -116,8 +119,12 @@ describe('RichTable 的篩選按鈕', () => {
   });
 });
 
+/** 一般欄位的表頭文字（略過勾選欄、釘選欄這些工具欄）。 */
 function headers(): string[] {
-  return screen.getAllByRole('columnheader').map((header) => header.textContent?.trim() ?? '');
+  return screen
+    .getAllByRole('columnheader')
+    .filter((header) => !header.dataset.columnId?.startsWith('__'))
+    .map((header) => header.textContent?.trim() ?? '');
 }
 
 describe('RichTable 的欄位設定', () => {
@@ -129,7 +136,7 @@ describe('RichTable 的欄位設定', () => {
   ];
   beforeEach(() => {
     localStorage.clear();
-    useTableColumnSettingsStore.setState({ settings: {} });
+    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
   });
 
   it('沒有存過設定時照原本順序，套用 defaultHidden', () => {
@@ -146,7 +153,9 @@ describe('RichTable 的欄位設定', () => {
   it('依存下來的設定重排與隱藏，操作欄固定在原位並帶著齒輪按鈕', () => {
     localStorage.setItem(
       'game-editor:table-column-settings:tables',
-      JSON.stringify({ sample: { order: ['note', 'name', 'code'], hidden: ['code'] } }),
+      JSON.stringify({
+        sample: { order: ['note', 'name', 'code'], hidden: ['code'] },
+      }),
     );
     render(<RichTable data={rows} columns={settingsColumns} settings={{ tableId: 'sample' }} />);
     expect(headers()).toEqual(['Note', 'Name', '操作']);
@@ -157,5 +166,260 @@ describe('RichTable 的欄位設定', () => {
   it('沒有 settings 時不顯示齒輪按鈕', () => {
     render(<RichTable data={rows} columns={settingsColumns} />);
     expect(screen.queryByTestId('table-settings-trigger')).not.toBeInTheDocument();
+  });
+});
+
+function storeSampleSettings(settings: Record<string, unknown>) {
+  localStorage.setItem(
+    'game-editor:table-column-settings:tables',
+    JSON.stringify({ sample: { order: ['name'], hidden: [], ...settings } }),
+  );
+}
+
+/** 各列的名稱：用 Name 欄（`data-column-id` 對到的那一格），不受工具欄在前面影響。 */
+function rowNames() {
+  const nameIndex = screen
+    .getAllByRole('columnheader')
+    .findIndex((header) => header.dataset.columnId === 'name');
+  return screen
+    .getAllByTestId('table-row')
+    .map((row) => (row as HTMLTableRowElement).cells[nameIndex]?.textContent);
+}
+
+describe('RichTable 的欄位固定與固定表頭（依每張表的欄位設定）', () => {
+  const pinColumns: Array<ColumnDef<Row, unknown>> = [
+    ...columns,
+    { id: 'code', header: 'Code', cell: ({ row }) => row.original.id },
+    { id: 'actions', header: '操作', cell: () => null },
+  ];
+
+  beforeEach(() => {
+    localStorage.clear();
+    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
+  });
+
+  it('預設操作欄固定在右側、表頭不固定', () => {
+    render(<RichTable data={rows} columns={pinColumns} settings={{ tableId: 'sample' }} />);
+    expect(screen.getByRole('columnheader', { name: /操作/ })).toHaveAttribute(
+      'data-pinned',
+      'right',
+    );
+    expect(screen.getByRole('table').parentElement).not.toHaveAttribute('data-sticky-header');
+  });
+
+  it('套用存下來的欄位固定：Code 固定在左側（排到最前面）、操作欄改到左側、表頭固定', () => {
+    storeSampleSettings({
+      order: ['name', 'code'],
+      pinnedColumns: { code: 'start', actions: 'start' },
+      stickyHeader: true,
+    });
+    render(<RichTable data={rows} columns={pinColumns} settings={{ tableId: 'sample' }} />);
+    expect(headers()).toEqual(['Code', '操作', 'Name']);
+    expect(screen.getByRole('columnheader', { name: 'Code' })).toHaveAttribute(
+      'data-pinned',
+      'left',
+    );
+    expect(screen.getByRole('columnheader', { name: /操作/ })).toHaveAttribute('data-pinned-edge');
+    expect(screen.getByRole('table').parentElement).toHaveAttribute('data-sticky-header');
+  });
+
+  it('齒輪面板取消固定操作欄後寫入該表的設定', async () => {
+    render(<RichTable data={rows} columns={pinColumns} settings={{ tableId: 'sample' }} />);
+    await userEvent.click(screen.getByTestId('table-settings-trigger'));
+    const popup = await screen.findByTestId('table-settings-popup');
+    const actions = within(popup).getByTestId('table-settings-fixed-item');
+    await userEvent.click(within(actions).getByTestId('table-settings-pin-end'));
+    await userEvent.click(screen.getByTestId('table-settings-submit'));
+    expect(useTableColumnSettingsStore.getState().settings.sample).toMatchObject({
+      pinnedColumns: {},
+    });
+    expect(screen.getByRole('columnheader', { name: /操作/ })).not.toHaveAttribute('data-pinned');
+  });
+});
+
+async function pinRowAt(rowIndex: number, option: 'top' | 'bottom' | 'unpin') {
+  await userEvent.click(screen.getAllByTestId('table-row-pin')[rowIndex] as HTMLElement);
+  const options = await screen.findAllByTestId('table-row-pin-option');
+  const target = options.find((element) => element.dataset.value === option);
+  if (!target) throw new Error(`找不到選項 ${option}`);
+  await userEvent.click(target);
+}
+
+describe('RichTable 的釘選欄（PinColumn）', () => {
+  const withActionsColumn: Array<ColumnDef<Row, unknown>> = [
+    ...columns,
+    { id: 'actions', header: '操作', cell: () => <button type="button">編輯</button> },
+  ];
+  const settings = { tableId: 'sample' };
+  const threeRows: Row[] = [...rows, { id: '3', name: 'Carol' }];
+
+  function showPinColumn() {
+    storeSampleSettings({ order: ['__pin', 'name'], hidden: [] });
+  }
+
+  function renderTable(data: Row[] = threeRows) {
+    return render(
+      <RichTable
+        data={data}
+        columns={withActionsColumn}
+        getRowId={(row) => row.id}
+        settings={settings}
+      />,
+    );
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
+  });
+
+  it('預設隱藏；在欄位設定裡列為可設定的欄位', async () => {
+    renderTable();
+    expect(screen.queryByTestId('table-row-pin')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByTestId('table-settings-trigger'));
+    const popup = await screen.findByTestId('table-settings-popup');
+    const pinItem = within(popup)
+      .getAllByTestId('table-settings-item')
+      .find((item) => item.dataset.value === '__pin');
+    expect(pinItem).toBeDefined();
+  });
+
+  it('打開後是獨立的一欄，操作欄的內容不受影響', () => {
+    showPinColumn();
+    renderTable(rows);
+    // 工具欄排在最前面：勾選欄、釘選欄
+    expect(screen.getAllByRole('columnheader').map((header) => header.dataset.columnId)).toEqual([
+      '__select',
+      '__pin',
+      'name',
+      'actions',
+    ]);
+    expect(screen.getAllByTestId('table-row-pin')).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: '編輯' })).toHaveLength(2);
+  });
+
+  it('可以釘選到頂端或底端，並記進偏好；取消後回到原位', async () => {
+    showPinColumn();
+    renderTable();
+    await pinRowAt(2, 'top');
+    expect(rowNames()).toEqual(['Carol', 'Alice', 'Bob']);
+    expect(screen.getAllByTestId('table-row')[0]).toHaveAttribute('data-pinned-row', 'top');
+
+    // Alice 現在在第 2 列
+    await pinRowAt(1, 'bottom');
+    expect(rowNames()).toEqual(['Carol', 'Bob', 'Alice']);
+    expect(screen.getAllByTestId('table-row')[2]).toHaveAttribute('data-pinned-row', 'bottom');
+    expect(
+      JSON.parse(localStorage.getItem('game-editor:table-column-settings:pinnedRows') ?? '{}'),
+    ).toEqual({
+      sample: [
+        { id: '3', side: 'top', row: { id: '3', name: 'Carol' } },
+        { id: '1', side: 'bottom', row: { id: '1', name: 'Alice' } },
+      ],
+    });
+
+    await pinRowAt(0, 'unpin');
+    expect(rowNames()).toEqual(['Bob', 'Carol', 'Alice']);
+  });
+
+  it('換頁後釘選的列仍留在原位', async () => {
+    showPinColumn();
+    const { rerender } = renderTable(rows);
+    await pinRowAt(0, 'top');
+    rerender(
+      <RichTable
+        data={[{ id: '3', name: 'Carol' }]}
+        columns={withActionsColumn}
+        getRowId={(row) => row.id}
+        settings={settings}
+      />,
+    );
+    expect(rowNames()).toEqual(['Alice', 'Carol']);
+  });
+
+  it('enableRowPinning={false}、沒有 getRowId 或沒有 tableId 時不提供釘選欄', () => {
+    showPinColumn();
+    const { rerender } = render(
+      <RichTable
+        data={rows}
+        columns={withActionsColumn}
+        getRowId={(row) => row.id}
+        settings={settings}
+        enableRowPinning={false}
+      />,
+    );
+    expect(screen.queryByTestId('table-row-pin')).not.toBeInTheDocument();
+    rerender(<RichTable data={rows} columns={withActionsColumn} settings={settings} />);
+    expect(screen.queryByTestId('table-row-pin')).not.toBeInTheDocument();
+    rerender(<RichTable data={rows} columns={withActionsColumn} getRowId={(row) => row.id} />);
+    expect(screen.queryByTestId('table-row-pin')).not.toBeInTheDocument();
+  });
+});
+
+describe('RichTable 的勾選欄（CheckboxColumn）', () => {
+  const pageOne: Row[] = rows;
+  const pageTwo: Row[] = [{ id: '3', name: 'Carol' }];
+
+  function SelectionDemo({ data }: { data: Row[] }) {
+    const selection = useTableSelection(data, getId);
+    return (
+      <>
+        <RichTable
+          data={data}
+          columns={columns}
+          getRowId={getId}
+          settings={{ tableId: 'sample' }}
+          rowSelection={selection.rowSelection}
+          onRowSelectionChange={selection.onRowSelectionChange}
+        />
+        <output data-testid="selected">
+          {selection.selectedRows.map((row) => row.name).join(',')}
+        </output>
+      </>
+    );
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
+  });
+
+  it('預設就有勾選欄：呼叫端沒接手時由 RichTable 自己管理選取；enableRowSelection={false} 時沒有', async () => {
+    const { rerender } = render(
+      <RichTable data={rows} columns={columns} settings={{ tableId: 'sample' }} />,
+    );
+    await userEvent.click(screen.getAllByTestId('table-select-row')[0] as HTMLElement);
+    expect(screen.getAllByTestId('table-row')[0]).toHaveAttribute('data-selected');
+
+    rerender(
+      <RichTable
+        data={rows}
+        columns={columns}
+        settings={{ tableId: 'sample' }}
+        enableRowSelection={false}
+      />,
+    );
+    expect(screen.queryByTestId('table-select-all')).not.toBeInTheDocument();
+  });
+
+  it('預設排在最前面並固定在 start', () => {
+    render(<SelectionDemo data={pageOne} />);
+    const first = screen.getAllByRole('columnheader')[0];
+    expect(first).toHaveAttribute('data-column-id', '__select');
+    expect(first).toHaveAttribute('data-pinned', 'left');
+  });
+
+  it('勾選列、全選本頁；換頁後其他頁的勾選與資料都保留', async () => {
+    const { rerender } = render(<SelectionDemo data={pageOne} />);
+    await userEvent.click(screen.getAllByTestId('table-select-row')[1] as HTMLElement);
+    expect(screen.getByTestId('selected')).toHaveTextContent('Bob');
+    expect(screen.getByTestId('table-select-all')).toHaveAttribute('aria-checked', 'mixed');
+
+    await userEvent.click(screen.getByTestId('table-select-all'));
+    expect(screen.getByTestId('selected')).toHaveTextContent('Bob,Alice');
+
+    rerender(<SelectionDemo data={pageTwo} />);
+    await userEvent.click(screen.getAllByTestId('table-select-row')[0] as HTMLElement);
+    expect(screen.getByTestId('selected')).toHaveTextContent('Bob,Alice,Carol');
   });
 });

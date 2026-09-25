@@ -21,6 +21,8 @@ import Minus from '@/assets/icons/minus.svg?react';
 import Monitor from '@/assets/icons/monitor.svg?react';
 import Moon from '@/assets/icons/moon.svg?react';
 import More from '@/assets/icons/more.svg?react';
+import PinOff from '@/assets/icons/pin-off.svg?react';
+import Pin from '@/assets/icons/pin.svg?react';
 import Plus from '@/assets/icons/plus.svg?react';
 import Search from '@/assets/icons/search.svg?react';
 import Settings from '@/assets/icons/settings.svg?react';
@@ -61,6 +63,8 @@ export const ICONS = {
   monitor: Monitor,
   moon: Moon,
   more: More,
+  pin: Pin,
+  'pin-off': PinOff,
   plus: Plus,
   search: Search,
   settings: Settings,

@@ -24,7 +24,7 @@ import { Popover } from '@/components/Popover';
 import { createSlots } from '@/components/slots';
 import type { SlotOverrides, SlotResolver } from '@/components/slots';
 import { useTranslation } from '@/core/locales';
-import type { TableColumnSettings } from '@/core/store';
+import type { ColumnPinSide, TableColumnSettings } from '@/core/store';
 
 import styles from './TableSettings.module.css';
 
@@ -40,6 +40,8 @@ export type TableSettingsSlot =
   | 'list'
   | 'item'
   | 'dragHandle'
+  | 'pinToggle'
+  | 'pinning'
   | 'footer'
   | 'reset'
   | 'submit';
@@ -51,9 +53,13 @@ export interface TableSettingsLabels {
   submit?: string;
 }
 
+const NO_FIXED_COLUMNS: TableSettingsColumn[] = [];
+
 export interface TableSettingsProps extends SlotOverrides<TableSettingsSlot> {
   /** 可以設定的欄位（不含固定的操作欄）。 */
   columns: TableSettingsColumn[];
+  /** 不列入順序、但可以設定固定在哪一側的欄位（操作欄）；列在「固定」區塊。 */
+  fixedColumns?: TableSettingsColumn[];
   /** 目前生效的設定（已與 `columns` 合併過，`resolveColumnSettings`）。 */
   value: TableColumnSettings;
   /** 「恢復預設」回到的設定。 */
@@ -67,12 +73,14 @@ export interface TableSettingsProps extends SlotOverrides<TableSettingsSlot> {
 }
 
 /**
- * 欄位設定：齒輪按鈕點開的下拉面板。拖曳調整順序、勾選決定是否顯示，這些都只改草稿；
+ * 欄位設定：齒輪按鈕點開的下拉面板。拖曳調整順序、勾選決定是否顯示、每一欄可固定在左側或右側，
+ * 下方的「固定」區塊設定操作欄與表頭，這些都只改草稿；
  * 按「套用」才寫入，關掉面板就放棄草稿。至少保留一個欄位顯示。
  * 拖曳的操作方式參考 merak-client 的 ColumnSettings（dnd-kit，含鍵盤操作）。
  */
 export function TableSettings({
   columns,
+  fixedColumns = NO_FIXED_COLUMNS,
   value,
   defaultValue,
   onChange,
@@ -116,6 +124,11 @@ export function TableSettings({
     setDraft({ ...draft, hidden });
   };
 
+  const setPin = (id: string, side: ColumnPinSide | undefined) => {
+    const { [id]: _previous, ...rest } = draft.pinnedColumns;
+    setDraft({ ...draft, pinnedColumns: side ? { ...rest, [id]: side } : rest });
+  };
+
   const submit = () => {
     if (isSameSettings(draft, defaultValue)) onReset();
     else onChange(draft);
@@ -156,6 +169,8 @@ export function TableSettings({
                   locked={visible && visibleCount === 1}
                   dragLabel={t('common.dragToReorder', { name: label })}
                   onToggle={toggle}
+                  pin={draft.pinnedColumns[id]}
+                  onPinChange={setPin}
                   slot={slot}
                 />
               );
@@ -163,6 +178,32 @@ export function TableSettings({
           </ul>
         </SortableContext>
       </DndContext>
+      <div {...slot('pinning', styles.pinning)}>
+        <p className={styles.title}>{t('common.pinning')}</p>
+        {fixedColumns.map((column) => (
+          <div
+            key={column.id}
+            className={styles.fixedItem}
+            data-testid="table-settings-fixed-item"
+            data-value={column.id}
+          >
+            <span className={styles.fixedLabel}>{column.label}</span>
+            <PinToggle
+              id={column.id}
+              label={column.label}
+              value={draft.pinnedColumns[column.id]}
+              onChange={setPin}
+              slot={slot}
+            />
+          </div>
+        ))}
+        <Checkbox
+          label={t('common.stickyHeader')}
+          checked={draft.stickyHeader}
+          onCheckedChange={(checked) => setDraft({ ...draft, stickyHeader: checked })}
+          data-testid="table-settings-sticky-header"
+        />
+      </div>
       <div {...slot('footer', styles.footer)}>
         <Button
           size="sm"
@@ -190,7 +231,51 @@ function isSameSettings(a: TableColumnSettings, b: TableColumnSettings): boolean
     a.order.length === b.order.length && a.order.every((id, i) => b.order[i] === id);
   const sameHidden =
     a.hidden.length === b.hidden.length && a.hidden.every((id) => b.hidden.includes(id));
-  return sameOrder && sameHidden;
+  return (
+    sameOrder &&
+    sameHidden &&
+    isSamePins(a.pinnedColumns, b.pinnedColumns) &&
+    a.stickyHeader === b.stickyHeader
+  );
+}
+
+function isSamePins(a: Record<string, ColumnPinSide>, b: Record<string, ColumnPinSide>): boolean {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((key) => a[key] === b[key]);
+}
+
+const PIN_SIDES = [
+  { side: 'start', icon: 'chevron-left', labelKey: 'common.pinColumnStart' },
+  { side: 'end', icon: 'chevron-right', labelKey: 'common.pinColumnEnd' },
+] as const;
+
+interface PinToggleProps {
+  id: string;
+  label: string;
+  value: ColumnPinSide | undefined;
+  onChange: (id: string, side: ColumnPinSide | undefined) => void;
+  slot: SlotResolver<TableSettingsSlot>;
+}
+
+/** 固定在左側／右側的兩顆切換按鈕；再按一次已選的那一側就取消固定。 */
+function PinToggle({ id, label, value, onChange, slot }: PinToggleProps) {
+  const { t } = useTranslation();
+  return (
+    <span {...slot('pinToggle', styles.pinToggle)} data-pin={value}>
+      {PIN_SIDES.map(({ side, icon, labelKey }) => (
+        <IconButton
+          key={side}
+          size="sm"
+          aria-label={t(labelKey, { name: label })}
+          aria-pressed={value === side}
+          onClick={() => onChange(id, value === side ? undefined : side)}
+          data-testid={`table-settings-pin-${side}`}
+        >
+          <Icon name={icon} size={14} />
+        </IconButton>
+      ))}
+    </span>
+  );
 }
 
 interface SortableItemProps {
@@ -201,6 +286,8 @@ interface SortableItemProps {
   /** 拖曳把手的無障礙名稱，含欄位名稱。 */
   dragLabel: string;
   onToggle: (id: string, visible: boolean) => void;
+  pin: ColumnPinSide | undefined;
+  onPinChange: (id: string, side: ColumnPinSide | undefined) => void;
   slot: SlotResolver<TableSettingsSlot>;
 }
 
@@ -211,6 +298,8 @@ function SortableItem({
   locked,
   dragLabel,
   onToggle,
+  pin,
+  onPinChange,
   slot,
 }: SortableItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -247,6 +336,7 @@ function SortableItem({
         onCheckedChange={(checked) => onToggle(id, checked)}
         className={styles.checkbox}
       />
+      <PinToggle id={id} label={label} value={pin} onChange={onPinChange} slot={slot} />
     </li>
   );
 }
