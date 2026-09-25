@@ -4,6 +4,7 @@ import { loginAndWaitForHome } from '../helpers/auth';
 import { getByTestIdAndValue } from '../helpers/selectors';
 
 const APPLICANT_PASSWORD = 'Applicant!Password2026';
+const API_URL = process.env.E2E_API_URL ?? 'http://localhost:3000';
 
 test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
   test('申請帳號 → admin 核准並指派角色 → 申請人可以登入', async ({ page, browser }) => {
@@ -63,6 +64,37 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
     await expect(page.getByTestId('home-page')).toBeVisible();
   });
 
+  test('列上快速核准與快速駁回（不開對話框）', async ({ page, request }) => {
+    const approveEmail = `e2e-quick-ok-${Date.now()}@dev.local`;
+    const rejectEmail = `e2e-quick-no-${Date.now()}@dev.local`;
+    const responses = await Promise.all(
+      [approveEmail, rejectEmail].map((email) =>
+        request.post(`${API_URL}/auth/register`, {
+          data: { email, displayName: 'E2E Quick', password: APPLICANT_PASSWORD },
+        }),
+      ),
+    );
+    for (const response of responses) expect(response.status()).toBe(202);
+
+    await loginAndWaitForHome(page, 'admin');
+    await page.goto('/approval');
+    const statusOf = (email: string) =>
+      page
+        .locator('tr', { has: getByTestIdAndValue(page, 'approval-detail-link', email) })
+        .getByTestId('approval-status');
+
+    await getByTestIdAndValue(page, 'approval-quick-approve', approveEmail).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: '核准' }).click();
+    await expect(statusOf(approveEmail)).toHaveAttribute('data-value', 'approved');
+
+    await getByTestIdAndValue(page, 'approval-quick-reject', rejectEmail).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: '駁回' }).click();
+    await expect(statusOf(rejectEmail)).toHaveAttribute('data-value', 'rejected');
+
+    // 已審核的列不再有快速審核
+    await expect(getByTestIdAndValue(page, 'approval-quick-approve', approveEmail)).toHaveCount(0);
+  });
+
   test('auditor 看得到審批列表，但沒有審核操作', async ({ page }) => {
     await loginAndWaitForHome(page, 'auditor');
     await page.getByTestId('menu-approval').click();
@@ -73,6 +105,13 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
     await link.click();
     await expect(page.getByTestId('approval-detail-dialog')).toBeVisible();
     await expect(page.getByTestId('approval-review-form')).toHaveCount(0);
+  });
+
+  test('auditor 的列表沒有快速審核按鈕', async ({ page }) => {
+    await loginAndWaitForHome(page, 'auditor');
+    await page.goto('/approval');
+    await expect(page.getByTestId('approval-table')).toBeVisible();
+    await expect(page.getByTestId('approval-quick-approve')).toHaveCount(0);
   });
 
   test('member 看不到審批選單，直接進網址是 403 頁', async ({ page }) => {

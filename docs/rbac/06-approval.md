@@ -172,6 +172,7 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 | 申請帳號頁 | `/auth/register`（未登入可進；登入頁有連結）                                             |
 | 審批列表   | `/approval`，Page Key `APPROVAL`（`approval:read`），選單「審批」                        |
 | 審核對話框 | `/approval/$approvalId`：申請內容、角色（可搜尋多選）、審核意見；核准／駁回固定在 footer |
+| 快速審核   | 列表「操作」欄：待審列的 ✓ 核准／✗ 駁回，確認後直接送出。**不指派角色、不附意見**；要指派角色改開對話框。沒有 `approval:review` 時整欄不出現；缺類型要求的權限時核准鈕停用並說明原因 |
 | 權限 facade | `useApprovalPermission()`：`canReview`、`canApproveRegistration`、`canAssignRole`        |
 | 可見性     | `useApprovalReviewAccess()`：未水合／無 `approval:review`／已審核 → 不顯示審核操作       |
 | 快取       | `approval` 資源（`APPROVAL_LIST` ／ `APPROVAL_DETAIL`）；核准註冊另宣告 `user` create    |

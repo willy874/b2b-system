@@ -13,6 +13,16 @@
       "commentPlaceholder": "Review comment (optional, recorded in the audit log)",
       "missingCreatePermission": "Approving a registration creates an account and requires the \"Create user\" permission. You can still reject it."
     },
+    "quickApprove": {
+      "action": "Quick approve",
+      "title": "Approve registration",
+      "confirm": "Approve the request from \"{{name}}\"? An active account will be created without roles (assign them later on the user page, or open the review dialog instead)."
+    },
+    "quickReject": {
+      "action": "Quick reject",
+      "title": "Reject request",
+      "confirm": "Reject the request from \"{{name}}\"?"
+    },
     "approve": { "action": "Approve", "success": "Approved." },
     "reject": { "action": "Reject", "success": "Rejected." },
     "field": {

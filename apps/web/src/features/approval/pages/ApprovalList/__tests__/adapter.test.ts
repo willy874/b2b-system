@@ -21,31 +21,55 @@ const BASE: ApprovalRequest = {
   updatedAt: '2026-09-25T01:00:00.000Z',
 };
 
+const REVIEWER = { canReview: true, canApproveRegistration: true };
+
 describe('toApprovalRowVM', () => {
   it.each([
     ['pending', true],
     ['approved', false],
     ['rejected', false],
   ] as const)('%s → isPending = %s', (status, isPending) => {
-    expect(toApprovalRowVM({ ...BASE, status }).isPending).toBe(isPending);
+    expect(toApprovalRowVM({ ...BASE, status }, REVIEWER).isPending).toBe(isPending);
   });
 
   it('時間字串轉成 Date；未審核時 reviewedAt 為 null', () => {
-    const vm = toApprovalRowVM(BASE);
+    const vm = toApprovalRowVM(BASE, REVIEWER);
     expect(vm.createdAt).toEqual(new Date('2026-09-25T01:00:00.000Z'));
     expect(vm.reviewedAt).toBeNull();
   });
 
   it('已審核時帶出審核者與審核時間', () => {
-    const vm = toApprovalRowVM({
-      ...BASE,
-      status: 'approved',
-      reviewerName: 'admin@example.com',
-      reviewedAt: '2026-09-25T02:00:00.000Z',
-    });
+    const vm = toApprovalRowVM(
+      {
+        ...BASE,
+        status: 'approved',
+        reviewerName: 'admin@example.com',
+        reviewedAt: '2026-09-25T02:00:00.000Z',
+      },
+      REVIEWER,
+    );
     expect(vm).toMatchObject({
       reviewerName: 'admin@example.com',
       reviewedAt: new Date('2026-09-25T02:00:00.000Z'),
     });
+  });
+
+  it.each([
+    ['待審 ＋ 完整權限', 'pending', REVIEWER, { canReview: true, canApprove: true }],
+    [
+      '待審 ＋ 只有審核權（沒有 user:create）',
+      'pending',
+      { canReview: true, canApproveRegistration: false },
+      { canReview: true, canApprove: false },
+    ],
+    [
+      '待審 ＋ 沒有審核權',
+      'pending',
+      { canReview: false, canApproveRegistration: false },
+      { canReview: false, canApprove: false },
+    ],
+    ['已審核', 'rejected', REVIEWER, { canReview: false, canApprove: false }],
+  ] as const)('快速審核旗標：%s', (_, status, permission, expected) => {
+    expect(toApprovalRowVM({ ...BASE, status }, permission)).toMatchObject(expected);
   });
 });

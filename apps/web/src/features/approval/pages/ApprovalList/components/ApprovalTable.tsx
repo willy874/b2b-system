@@ -15,11 +15,13 @@ import {
   APPROVAL_STATUS_TONE,
   APPROVAL_TYPE_LABEL_KEY,
 } from '../../../constants';
+import { useApprovalPermission } from '../../../hooks/useApprovalPermission';
 import { APPROVAL_LIST_TABLE_ID } from '../../../preference';
 import { APPROVAL_SORT_FIELDS, ApprovalDetailRoute } from '../../../routes';
 import type { ApprovalSearchQuery } from '../../../routes';
 import type { ApprovalRowVM } from '../adapter';
 import type { ApprovalFilterValues } from '../useApprovalFilters';
+import { ApprovalRowActions } from './ApprovalRowActions';
 
 /** 欄位順序與顯示存在這台裝置（`core/store/tableColumnSettings`）；可設定的欄位登記在 `preference.ts`。 */
 const APPROVAL_TABLE_SETTINGS: TableSettingsConfig = { tableId: APPROVAL_LIST_TABLE_ID };
@@ -45,6 +47,9 @@ export function ApprovalTable({
   pagination,
 }: ApprovalTableProps) {
   const { t } = useTranslation();
+  // 沒有審核權限（或權限未水合）時整欄不出現，而不是一欄空白
+  const { hydrated, canReview } = useApprovalPermission();
+  const showActions = hydrated && canReview;
 
   const columns = useMemo<Array<ColumnDef<ApprovalRowVM, unknown>>>(
     () => [
@@ -101,8 +106,18 @@ export function ApprovalTable({
         header: t('approval.field.reviewedAt'),
         cell: ({ row }) => formatDateTime(row.original.reviewedAt),
       },
+      ...(showActions
+        ? [
+            {
+              id: 'actions',
+              header: t('common.actions'),
+              enableSorting: false,
+              cell: ({ row }) => <ApprovalRowActions row={row.original} />,
+            } satisfies ColumnDef<ApprovalRowVM, unknown>,
+          ]
+        : []),
     ],
-    [search, t],
+    [search, showActions, t],
   );
 
   return (

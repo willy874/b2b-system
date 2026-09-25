@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { getApprovalListQueryOptions } from '@/apis/approval/get-approval-list/query';
 import { useTranslation } from '@/core/locales';
 
+import { useApprovalPermission } from '../../hooks/useApprovalPermission';
 import { ApprovalDetailRoute } from '../../routes';
 import { toApprovalRowVM } from './adapter';
 import { ApprovalTable } from './components/ApprovalTable';
@@ -17,6 +18,7 @@ export default function ApprovalListPage() {
   const searchFilter = useApprovalSearchFilter();
   const { search, setSort, setPage } = searchFilter;
   const filters = useApprovalFilters(searchFilter);
+  const permission = useApprovalPermission();
 
   const { data, isPending } = useQuery(
     getApprovalListQueryOptions({
@@ -31,7 +33,10 @@ export default function ApprovalListPage() {
     }),
   );
 
-  const rows = useMemo(() => (data?.items ?? []).map(toApprovalRowVM), [data]);
+  const rows = useMemo(
+    () => (data?.items ?? []).map((item) => toApprovalRowVM(item, permission)),
+    [data, permission],
+  );
 
   return (
     <div className="flex flex-col gap-4" data-testid="approval-list-page">

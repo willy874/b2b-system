@@ -13,6 +13,16 @@
       "commentPlaceholder": "審核意見（選填，會記錄在稽核日誌）",
       "missingCreatePermission": "核准註冊會建立帳號，需要「建立使用者」權限。你仍可以駁回。"
     },
+    "quickApprove": {
+      "action": "快速核准",
+      "title": "核准註冊申請",
+      "confirm": "確定核准「{{name}}」的申請嗎？會建立已啟用的帳號，不指派角色（之後可在使用者頁調整，或改開審核對話框逐筆指派）。"
+    },
+    "quickReject": {
+      "action": "快速駁回",
+      "title": "駁回申請",
+      "confirm": "確定駁回「{{name}}」的申請嗎？"
+    },
     "approve": { "action": "核准", "success": "已核准。" },
     "reject": { "action": "駁回", "success": "已駁回。" },
     "field": {
