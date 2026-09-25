@@ -700,6 +700,15 @@ components/Table/
 
 欄寬：只有宣告了 `size` 的欄位會在 `<th>` 設定寬度，其餘交給瀏覽器分配。
 
+換行：**儲存格預設不換行**（`white-space: nowrap`），寬度不夠時整張表水平捲動，左右固定欄留在原位。
+自動版面在寬度不夠時，會把「可以斷行」的欄（中文日期、描述，每個字之間都能斷）擠成一字一行，
+不能斷的欄（email、識別碼）卻保持原寬，整張表看起來變形；不換行之後每一列都是一行高，欄位也不會被擠扁。
+
+| 需求 | 做法 |
+| ---- | ---- |
+| 長文字（描述、備註） | `TextEllipsis` 加最大寬度（例：`className="max-w-60"`），放不下以省略號結尾、滑過顯示全文 |
+| 真的要多行顯示 | 欄位宣告 `meta: { wrap: true }`（儲存格帶 `data-wrap`），通常再給 `size`，否則仍可能被擠得很窄 |
+
 展開列：`expandedRowIds`（需要 `getRowId`）＋ `renderExpandedRow(row)`。展開的列正下方插入一列
 `data-testid="table-expanded-row"`（`data-value` 是列 id），單一儲存格橫跨所有可見欄位；主列帶
 `data-expanded`，兩者之間不畫分隔線。展開狀態由呼叫端管理（通常是操作欄的展開按鈕），
@@ -759,7 +768,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 | `TableSettings` | 「恢復預設」→ `defaultValue` | 「套用」；草稿等於預設時呼叫 `onReset`，不留下多餘的設定 | `labels={{ reset, submit }}` |
 
 兩顆按鈕透過 `Table` 的 `headerTrailing` **固定在最後一欄表頭的右下角**（不論那一欄是什麼，也不會被包進排序按鈕）。
-該欄的標題用 grid `minmax(0, max-content)` 排版：空間夠時完整顯示，欄寬被擠壓時標題裁掉（`overflow: hidden` ＋ 省略號），按鈕不縮。
+該欄的標題與按鈕都算進最小欄寬（grid `max-content auto`），標題不會被裁切——儲存格不換行後，寬度不夠時整張表水平捲動，欄位不會被擠到比內容窄。
 `actions`（操作欄）固定在原位、不列入欄位設定。
 
 **所有 Pin 都記在偏好裡**（`core/store/tableColumnSettings`，依 `tableId` 分開、存 localStorage、跨分頁同步）：

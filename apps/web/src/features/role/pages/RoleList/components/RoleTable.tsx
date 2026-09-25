@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import type { RoleSortField } from '@/apis/role/types';
 import { IconButton } from '@/components/Button';
 import { Chip } from '@/components/Chip';
+import { TextEllipsis } from '@/components/Ellipsis';
 import { Icon } from '@/components/Icon';
 import { Tooltip } from '@/components/Tooltip';
 import { RichTable } from '@/core/components';
@@ -73,7 +74,10 @@ export function RoleTable({
       {
         id: 'description',
         header: t('role.field.description'),
-        cell: ({ row }) => row.original.description,
+        // 描述可能很長：限制寬度、放不下以省略號結尾，滑過顯示全文（不讓整張表被撐寬）
+        cell: ({ row }) => (
+          <TextEllipsis className="max-w-60">{row.original.description}</TextEllipsis>
+        ),
       },
       {
         id: 'isSystem',

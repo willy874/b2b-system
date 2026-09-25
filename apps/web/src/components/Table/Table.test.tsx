@@ -269,6 +269,28 @@ describe('Table', () => {
     });
   });
 
+  describe('換行', () => {
+    it('儲存格預設不換行；meta.wrap 的欄位才標上 data-wrap', () => {
+      render(
+        <Table
+          data={data}
+          columns={[
+            { id: 'name', header: '名稱', cell: ({ row }) => row.original.name },
+            {
+              id: 'note',
+              header: '備註',
+              cell: ({ row }) => row.original.name,
+              meta: { wrap: true },
+            },
+          ]}
+        />,
+      );
+      const [name, note] = screen.getAllByRole('cell');
+      expect(name).not.toHaveAttribute('data-wrap');
+      expect(note).toHaveAttribute('data-wrap');
+    });
+  });
+
   describe('欄位固定', () => {
     const withActions: Array<ColumnDef<Row, unknown>> = [
       { id: 'actions', header: '操作', cell: () => '…' },

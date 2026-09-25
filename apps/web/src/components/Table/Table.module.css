@@ -27,12 +27,12 @@
 
   /*
    * 有 trailing 的表頭：標題在左、trailing 固定在右下角。
-   * 用 grid 的 minmax(0, max-content)：空間夠時標題完整顯示；
-   * 表格自動版面算最小欄寬時標題貢獻 0（flex 做不到——nowrap 文字仍會撐出最小寬度），擠壓時裁掉。
+   * 標題與按鈕都算進最小欄寬（不裁切）：儲存格不換行、寬度不夠時整張表水平捲動，
+   * 欄位不會被擠到比內容窄，裁掉標題（「操...」）只會少資訊。
    */
   .headerInner {
     display: grid;
-    grid-template-columns: minmax(0, max-content) auto;
+    grid-template-columns: max-content auto;
     justify-content: space-between;
     align-items: end;
     gap: var(--seed-space-2);
@@ -173,15 +173,27 @@
 
   .expandedContent {
     position: sticky;
+    white-space: normal;
     left: 0;
     box-sizing: border-box;
     width: 100cqi;
     padding: var(--seed-space-3);
   }
 
+  /*
+   * 儲存格預設不換行：自動版面在寬度不夠時會把「可斷行」的欄（中文日期、描述，每個字都能斷）
+   * 擠成一字一行，不能斷的欄（email）卻保持原寬——版面看起來變形。
+   * 不換行之後，寬度不夠就整張表水平捲動（外框本來就是捲動容器，左右固定欄留在原位）。
+   * 真的要換行的欄位宣告 `meta.wrap`（通常再給 `size`）；長文字改用 TextEllipsis 限制寬度。
+   */
   .cell {
     padding: var(--seed-space-2) var(--seed-space-3);
     vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  .cell[data-wrap] {
+    white-space: normal;
   }
 
   /*

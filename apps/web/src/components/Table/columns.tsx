@@ -10,6 +10,11 @@ declare module '@tanstack/react-table' {
      * 有它的欄位才能被設定（排序、隱藏、固定）。
      */
     settingsLabel?: string;
+    /**
+     * 允許這一欄的內容換行（預設不換行，寬度不夠時整張表水平捲動）。
+     * 通常再給 `size`，否則自動版面仍可能把它擠得很窄。
+     */
+    wrap?: boolean;
   }
 }
 

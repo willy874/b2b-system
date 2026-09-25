@@ -85,7 +85,12 @@ export function TableRow<TData>({
           // sticky 放在儲存格上（<tr> 的 sticky 在部分瀏覽器無效）
           const style = pin ? { ...columnStyle, [pin.side]: pin.offset } : columnStyle;
           return (
-            <td key={cell.id} {...slot('cell', styles.cell, { style })} {...pinnedAttributes}>
+            <td
+              key={cell.id}
+              {...slot('cell', styles.cell, { style })}
+              {...pinnedAttributes}
+              data-wrap={cell.column.columnDef.meta?.wrap || undefined}
+            >
               {flexRender(cell.column.columnDef.cell, cell.getContext())}
             </td>
           );
