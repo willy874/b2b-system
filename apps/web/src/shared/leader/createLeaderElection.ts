@@ -1,6 +1,6 @@
 import { createChannel, createInstanceId } from '@/shared/channel';
 import type { Channel, ChannelOptions } from '@/shared/channel';
-import { create } from '@/shared/store';
+import { createStore } from '@/shared/store';
 import type { StoreApi } from '@/shared/store';
 
 import { compareLeaderTerm, isLeaderTerm, nextLeaderTerm } from './leaderTerm';
@@ -109,7 +109,7 @@ export function createLeaderElection(
   const claimDelayJitter = options.claimDelayJitter ?? 200;
   const instanceId = options.instanceId ?? createInstanceId();
 
-  const state = create<LeaderElectionState>(() => ({ ...INITIAL_STATE }));
+  const state = createStore<LeaderElectionState>(() => ({ ...INITIAL_STATE }));
   const set = (partial: Partial<LeaderElectionState>) => state.setState(partial);
   const get = () => state.getState();
 

@@ -1,5 +1,5 @@
 import type { PermissionKey } from '@/core/permission/enums';
-import { create } from '@/shared/store';
+import { create } from '@/shared/store/react';
 
 interface PermissionStore {
   hydrated: boolean;

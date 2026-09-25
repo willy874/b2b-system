@@ -216,6 +216,9 @@ importers:
       '@lezer/highlight':
         specifier: ^1.2.4
         version: 1.2.4
+      '@sigrea/core':
+        specifier: ^0.7.2
+        version: 0.7.2
       '@tanstack/react-form':
         specifier: ^1.28.0
         version: 1.33.5(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -2605,6 +2608,10 @@ packages:
   '@scarf/scarf@1.4.0':
     resolution: {integrity: sha512-xxeapPiUXdZAE3che6f3xogoJPeZgig6omHEy1rIY5WVsB3H2BHNnZH+gHG6x91SCWyQCzWGsuL2Hh3ClO5/qQ==}
 
+  '@sigrea/core@0.7.2':
+    resolution: {integrity: sha512-K7lWSIibFtRgWFVBlP2lLmRLLzl1rSfCtHIgK7nPq/j5nxqTIBGuUEYbV8JdZTWPS+4qglPe2wgWGPY171Ss5w==}
+    engines: {node: '>=24'}
+
   '@socket.io/component-emitter@3.1.2':
     resolution: {integrity: sha512-9BCxFwvbGg/RsZK9tjXd8s4UcwR0MWeFQ1XEKIQVVvAGJyINdrqKMcTRyLoK8Rse1GjzLV9cwjWV1olXRWEXVA==}
 
@@ -3361,6 +3368,9 @@ packages:
 
   ajv@8.20.0:
     resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
+
+  alien-signals@3.2.1:
+    resolution: {integrity: sha512-I8FjmltrfnDFoZedi5CG8DghVYNhzb/Ijluz7tCSJH0xpd0484Kowhbb1XDYOxfJpU1p5wnM2X54dA+IfGyD1g==}
 
   ansi-colors@4.1.3:
     resolution: {integrity: sha512-/6w/C21Pm1A7aZitlI5Ni/2J6FFQN8i1Cvz3kHABAAbw93v/NlvKdVOqz7CCWz/3iv/JplRSEEZ83XION15ovw==}
@@ -7901,6 +7911,10 @@ snapshots:
 
   '@scarf/scarf@1.4.0': {}
 
+  '@sigrea/core@0.7.2':
+    dependencies:
+      alien-signals: 3.2.1
+
   '@socket.io/component-emitter@3.1.2': {}
 
   '@storybook/addon-a11y@10.6.0(storybook@10.6.0(@types/react@19.3.0)(react@19.3.0))':
@@ -8836,6 +8850,8 @@ snapshots:
       fast-uri: 3.1.8
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
+
+  alien-signals@3.2.1: {}
 
   ansi-colors@4.1.3: {}
 

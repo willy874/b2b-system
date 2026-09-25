@@ -19,7 +19,38 @@
 
 ## 2. Signal store
 
-`shared/store` 是一個約 100 行的極簡 store，介面刻意與 Zustand 相容：
+`shared/store` 以 [`@sigrea/core`](https://github.com/sigrea/core) 的 signal 為底，分成兩層：
+
+| 入口 | 內容 | 依賴 |
+| --- | --- | --- |
+| `@/shared/store` | `createStore`、`watch`、`computed`、`untracked`、`syncStore`、`shareStore` | 只有 `@sigrea/core`，**不依賴 React** |
+| `@/shared/store/react` | `create`（Zustand 相容的 bound hook）、`useStore`、`useValue`、`useComputed` | React |
+
+`@sigrea/core` 只在 `shared/store/` 裡 import；`shared/store/`（`react.ts` 除外）與 `shared/context/` 不 import React。兩者都由 oxlint 的 `no-restricted-imports` 強制。
+
+### 2.0 底層：依賴追蹤的 store
+
+```ts
+const layout = createStore<Layout>((set) => ({
+  sidebarCollapsed: false,
+  density: 'normal',
+  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+}));
+
+layout.getState();                 // 快照，不追蹤（action、事件處理用）
+layout.state.sidebarCollapsed;     // 追蹤：在 computed / watch 裡只依賴這個欄位
+const label = layout.select((s) => (s.sidebarCollapsed ? 'collapsed' : 'open'));
+const stop = watch(() => layout.state.density + permission.state.hydrated, (next, prev) => { … });
+```
+
+- 整份狀態是 **一個** signal，`setState` 一次寫入：多欄位同時改只通知一次，訂閱者看不到中間狀態。
+- 每個欄位各有一個 `computed` 從快照取值：讀 `state.x` 只依賴 `x`，其他欄位變動時不會重算。
+- `setState` 以 `Object.is` 比對，沒有欄位改變就不通知；`setState(partial, true)` 取代整份狀態。
+- `subscribe` 與 `watch` 都是 **同步** 通知（`flush: 'sync'`），巢狀 `setState` 時舊值仍是上一次通知的值。
+
+### 2.0.1 React 層
+
+介面刻意與 Zustand 相容：
 
 ```ts
 export const useLayoutStore = create<LayoutStore>((set) => ({
@@ -29,7 +60,22 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
 
 // 讀取時一律用 selector，避免無關欄位變動造成重渲染
 const collapsed = useLayoutStore((s) => s.sidebarCollapsed);
+
+// 跨 store 的衍生值：依賴自動追蹤；閉包用到的 props 列進 deps（同 useMemo）
+const canEdit = useComputed(
+  () => usePermissionStore.state.permissions.has(key) && !useLayoutStore.state.sidebarCollapsed,
+  [key],
+);
 ```
+
+`create()` 回傳的 hook 本身也是 `StoreApi`（`getState` / `setState` / `subscribe` / `state` / `select`），
+所以非 React 程式碼（plugin、`syncStore`）直接拿它用。不需要 hook 的 store（例：`shared/leader` 的選舉狀態）用 `createStore`。
+
+### 2.0.2 CoreContext 的狀態
+
+`createCoreContext()` 的 context 狀態就是一個 `createStore`（見 [02 §2](./02-plugin-system.md)）：
+`context.state`、`context.prop(key, value?)`、`context.watch(getter, callback)`，plugin 的 `ctx.watch` 在該 plugin destroy 時自動停止。
+React 端以 `useStore(context.state, (s) => s.x)` 讀取。
 
 ### 2.1 `core/store/` 的清單
 

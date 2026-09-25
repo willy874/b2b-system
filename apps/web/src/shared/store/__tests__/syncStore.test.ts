@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createChannel } from '@/shared/channel';
 
-import { create } from '../create';
+import { createStore } from '../createStore';
 import { syncStore } from '../syncStore';
 
 interface PrefStore {
@@ -16,7 +16,7 @@ const stops: (() => void)[] = [];
 
 /** 每次呼叫代表一個分頁裡的同一個 store。 */
 function openTab() {
-  const store = create<PrefStore>((set) => ({
+  const store = createStore<PrefStore>((set) => ({
     locale: 'en_US',
     draft: '',
     setLocale: (locale) => set({ locale }),

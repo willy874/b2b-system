@@ -3,7 +3,7 @@ import { createChannel } from '@/shared/channel';
 import type { Channel, ChannelOptions } from '@/shared/channel';
 import { createDictStorage } from '@/shared/storage';
 import type { DictStorageMessages } from '@/shared/storage';
-import { create } from '@/shared/store';
+import { create } from '@/shared/store/react';
 
 /** 欄位固定在哪一側：`start` 是左、`end` 是右（對應 TanStack 的 left / right）。 */
 export type ColumnPinSide = 'start' | 'end';

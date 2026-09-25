@@ -1,5 +1,5 @@
 import { createDictStorage } from '@/shared/storage';
-import { create } from '@/shared/store';
+import { create } from '@/shared/store/react';
 
 const storage = createDictStorage('layout');
 const SIDEBAR_KEY = 'sidebarCollapsed';

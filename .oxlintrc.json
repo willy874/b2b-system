@@ -38,6 +38,64 @@
       }
     },
     {
+      "files": ["apps/web/src/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@sigrea/core",
+                "message": "只經由 @/shared/store（React 綁定在 @/shared/store/react）使用 signal。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/web/src/shared/context/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@sigrea/core",
+                "message": "只經由 @/shared/store（React 綁定在 @/shared/store/react）使用 signal。"
+              },
+              {
+                "name": "react",
+                "message": "這一層不依賴 React；React 綁定放 @/shared/store/react 或 core/app/react.tsx。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/web/src/shared/store/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "react",
+                "message": "這一層不依賴 React；React 綁定放 @/shared/store/react 或 core/app/react.tsx。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/web/src/shared/store/react.ts", "apps/web/src/shared/store/__tests__/**"],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    },
+    {
       "files": ["apps/api/**/*.ts"],
       "env": {
         "browser": false

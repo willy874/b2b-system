@@ -32,6 +32,7 @@
     "@game-editor/utils": "workspace:*",
     "@lezer/common": "^1.5.3",
     "@lezer/highlight": "^1.2.4",
+    "@sigrea/core": "^0.7.2",
     "@tanstack/react-form": "^1.28.0",
     "@tanstack/react-query": "^5.103.1",
     "@tanstack/react-router": "^1.170.38",

@@ -6,7 +6,7 @@ import { DEFAULT_THEME, SUPPORTED_THEMES } from '@/shared/constants/theme';
 import type { ThemePreference } from '@/shared/constants/theme';
 import { createDictStorage } from '@/shared/storage';
 import type { DictStorageMessages } from '@/shared/storage';
-import { create } from '@/shared/store';
+import { create } from '@/shared/store/react';
 
 const LOCALE_KEY = 'locale';
 const TIMEZONE_KEY = 'timezone';

@@ -33,8 +33,9 @@ export interface PluginHooks {
 
 /** plugin factory 收到的東西：狀態、事件、以及取得整個 context 的逃生口 */
 export interface PluginContext<State, Events, Instance> {
-  prop: SignalStore<State>['prop'];
-  watch: SignalStore<State>['watch'];
+  state: StoreApi<Partial<State>>;      // @/shared/store 的 createStore，與 CoreContext.state 同一個
+  prop: <K extends keyof State>(key: K, value?: State[K]) => State[K] | undefined; // 讀取會被追蹤
+  watch: <T>(getter: (state) => T, callback: (value: T, previous: T) => void) => () => void; // plugin destroy 時自動停止
   on / emit / off: EventEmitter<Events>;
   clearup: (fn: () => void) => void;
   getInstance: () => Instance;

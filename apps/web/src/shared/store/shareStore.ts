@@ -1,7 +1,7 @@
 import { createInstanceId } from '@/shared/channel';
 import type { Channel } from '@/shared/channel';
 
-import type { StoreApi } from './create';
+import type { StoreApi } from './createStore';
 
 /** 帶版本的狀態：`version` 越大越新；同版本以 `writer` 決定勝負，所有參與者判定一致。 */
 interface VersionedState<S> {
