@@ -328,6 +328,7 @@ Fixture **直接寫資料庫**，不經 API——測試的前置條件不應該�
 
 - [ ] 授予自己沒有的權限 → `AUTHZ_ESCALATION`
 - [ ] 指派帶有自己沒有的權限的角色 → `AUTHZ_ESCALATION`
+- [ ] 非 super-admin 指派 super-admin 角色 → `AUTHZ_ESCALATION`（`details.role`），即使持有全部權限鍵（[`05-rbac.md`](./05-rbac.md) §4.1）
 - [ ] super-admin 豁免
 - [ ] 空陣列不觸發檢查
 

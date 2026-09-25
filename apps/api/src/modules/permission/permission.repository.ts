@@ -56,6 +56,17 @@ export class PermissionRepository {
     return rows.map((row) => row.key as PermissionKey);
   }
 
+  /** super-admin 是隱含全集、在 role_permissions 沒有列，指派前要另外用 slug 判斷。 */
+  async includesSuperAdminRole(roleIds: readonly string[]): Promise<boolean> {
+    if (roleIds.length === 0) return false;
+    const [row] = await this.db
+      .select({ one: sql<number>`1` })
+      .from(roles)
+      .where(and(inArray(roles.id, [...roleIds]), eq(roles.slug, SUPER_ADMIN_SLUG)))
+      .limit(1);
+    return Boolean(row);
+  }
+
   async listCatalog(): Promise<PermissionRow[]> {
     return this.db.select().from(permissions).orderBy(asc(permissions.sortOrder));
   }
