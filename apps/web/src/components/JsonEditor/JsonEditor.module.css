@@ -136,4 +136,101 @@
     color: var(--color-danger-text);
     font-size: 0.75rem;
   }
+
+  /* 搜尋列：工具列正下方 */
+  .search {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-1);
+    padding: var(--seed-space-1) var(--seed-space-2);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+
+  .searchIcon {
+    flex-shrink: 0;
+    color: var(--color-fg-muted);
+  }
+
+  .searchInput {
+    min-width: 0;
+    flex: 1;
+    height: 1.75rem;
+    padding: 0 var(--seed-space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-fg);
+    font: inherit;
+    font-size: 0.8125rem;
+  }
+
+  .searchInput:focus-visible {
+    border-color: var(--color-brand);
+    outline: none;
+  }
+
+  .searchStatus {
+    min-width: 5rem;
+    color: var(--color-fg-muted);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+  }
+
+  /* 驗證錯誤清單：編輯區下方，最多約 5 筆高，其餘捲動 */
+  .validation {
+    border-top: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-danger) 6%, var(--color-surface));
+  }
+
+  .validationTitle {
+    margin: 0;
+    padding: var(--seed-space-1) var(--seed-space-3);
+    color: var(--color-danger-text);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .validationList {
+    max-height: 7.5rem;
+    margin: 0;
+    padding: 0 0 var(--seed-space-1);
+    overflow-y: auto;
+    list-style: none;
+  }
+
+  .validationItem {
+    display: flex;
+    width: 100%;
+    gap: var(--seed-space-2);
+    padding: var(--seed-space-1) var(--seed-space-3);
+    border: none;
+    background: none;
+    color: var(--color-fg);
+    font: inherit;
+    font-size: 0.75rem;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .validationItem:hover:not(:disabled) {
+    background: var(--color-fill-subtle);
+  }
+
+  .validationItem:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  .validationItem:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: -2px;
+  }
+
+  .validationPath {
+    flex-shrink: 0;
+    color: var(--color-danger-text);
+    font-family: var(--font-mono);
+  }
 }

@@ -13,6 +13,10 @@
     --json-tag-background: var(--color-fill);
     --json-tag-color: var(--color-fg-muted);
     --json-hover-background: var(--color-fill);
+    --json-search-match-background: color-mix(in srgb, var(--color-warning) 35%, transparent);
+    --json-active-background: color-mix(in srgb, var(--color-brand) 14%, transparent);
+    --json-error-color: var(--color-danger-text);
+    --json-error-background: color-mix(in srgb, var(--color-danger) 10%, transparent);
 
     overflow: auto;
     /* 捲軸出現或消失時內容寬度不變 */
@@ -129,6 +133,36 @@
 
   .line:focus-within {
     background: var(--json-hover-background);
+  }
+
+  /* 搜尋：符合的文字加底色；目前的結果（或點選的驗證錯誤）整行加底色 */
+  .match {
+    border-radius: 2px;
+    background: var(--json-search-match-background);
+    color: inherit;
+  }
+
+  .line[data-invalid] {
+    background: var(--json-error-background);
+  }
+
+  /* 焦點行另外畫左側的線：同時是錯誤行時，兩種標示都看得到 */
+  .line[data-active] {
+    background: var(--json-active-background);
+    box-shadow: inset 2px 0 0 var(--color-brand);
+  }
+
+  .marker {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    margin-inline-start: var(--seed-space-1);
+    color: var(--json-error-color);
+  }
+
+  /* 收合的容器裡面有錯：淡一點，表示錯誤不在這一行本身 */
+  .marker[data-nested] {
+    opacity: 0.6;
   }
 
   /* 收合容器的計數徽章（對應 --jse-tag-*） */

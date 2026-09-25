@@ -259,5 +259,5 @@ game-editor/
 6. 稽核日誌分區表
 7. 多執行個體部署（權限快取換 Redis）
 8. 服務帳號 / API Token
-9. ~~`JsonEditor`~~（第一版已完成：樹狀／文字模式、行內編輯、復原重做；見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.12）。
-   後續依 svelte-jsoneditor 補 table 模式、搜尋、JSON Schema 驗證、拖曳排序
+9. ~~`JsonEditor`~~（已完成：樹狀／文字模式、行內編輯、復原重做、搜尋、JSON Schema 驗證；見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.12）。
+   後續依 svelte-jsoneditor 補 table 模式、取代、拖曳排序

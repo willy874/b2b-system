@@ -1,4 +1,4 @@
-import { useCallback, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, ReactNode, Ref } from 'react';
 
 import { cn } from '@/shared/utils';
@@ -10,7 +10,9 @@ import { DEFAULT_JSON_MAX_HEIGHT } from '../JsonViewer';
 import type { JsonViewerLabels, JsonViewerSlot } from '../JsonViewer';
 import { formatPath, parsePath } from '../JsonViewer/jsonLines';
 import type { JsonLine, JsonPath } from '../JsonViewer/jsonLines';
-import { JSON_PRIMITIVE_CLASS, JsonTree } from '../JsonViewer/JsonTree';
+import { searchJson } from '../JsonViewer/jsonSearch';
+import { highlightText, JSON_PRIMITIVE_CLASS, JsonTree } from '../JsonViewer/JsonTree';
+import type { JsonLineAnnotation } from '../JsonViewer/JsonTree';
 import { useJsonTree } from '../JsonViewer/useJsonTree';
 import { Menu } from '../Menu';
 import type { MenuItemDescriptor } from '../Menu';
@@ -18,6 +20,7 @@ import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 import { Tooltip } from '../Tooltip';
 import { useControllableState } from '../useControllableState';
+import { useLatestRef } from '../useLatestRef';
 import {
   appendChild,
   convert,
@@ -32,14 +35,25 @@ import {
   toEditText,
 } from './jsonEdit';
 import type { InsertResult, JsonConvertTarget } from './jsonEdit';
+import { JsonSearchBar } from './JsonSearchBar';
 import { useJsonHistory } from './useJsonHistory';
+import { useJsonValidation } from './useJsonValidation';
+import type { JsonValidationError, JsonValidator } from './validation';
+import { ValidationPanel } from './ValidationPanel';
 
 import styles from './JsonEditor.module.css';
 
 export type JsonEditorMode = 'tree' | 'text';
 
 /** `className` / `data-testid` 落在最外層；樹狀區沿用 `JsonViewerSlot`，其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
-export type JsonEditorSlot = JsonViewerSlot | 'toolbar' | 'textarea' | 'error' | 'input';
+export type JsonEditorSlot =
+  | JsonViewerSlot
+  | 'toolbar'
+  | 'search'
+  | 'textarea'
+  | 'error'
+  | 'input'
+  | 'validation';
 
 export interface JsonEditorLabels extends JsonViewerLabels {
   tree?: string;
@@ -65,6 +79,18 @@ export interface JsonEditorLabels extends JsonViewerLabels {
   duplicateKey?: string;
   /** 文字模式的內容不是合法 JSON；後面接瀏覽器的錯誤訊息。 */
   parseError?: string;
+  search?: string;
+  searchPlaceholder?: string;
+  previousMatch?: string;
+  nextMatch?: string;
+  closeSearch?: string;
+  noMatch?: string;
+  /** 搜尋結果的位置，例如「2 / 5」。 */
+  matchCount?: (active: number, total: number) => string;
+  /** 驗證錯誤清單的標題，例如「3 個驗證錯誤」。 */
+  validationErrors?: (count: number) => string;
+  /** 驗證錯誤清單裡根節點的名稱。 */
+  rootPath?: string;
 }
 
 export interface JsonEditorProps extends SlotOverrides<JsonEditorSlot> {
@@ -85,6 +111,13 @@ export interface JsonEditorProps extends SlotOverrides<JsonEditorSlot> {
   defaultExpandDepth?: number;
   /** 行數超過這個值才虛擬捲動。預設 100。 */
   virtualThreshold?: number;
+  /**
+   * 驗證：錯誤的行標紅、收合的上層顯示標記，編輯區下方列出錯誤（點一下跳過去）。
+   * JSON Schema 用 `createJsonSchemaValidator(schema)`；請保持參考固定（模組層級或 `useMemo`），改變時會重新驗證。
+   */
+  validator?: JsonValidator;
+  /** 驗證結果改變時通知（例如在錯誤未清空前停用送出鈕）。 */
+  onValidationChange?: (errors: readonly JsonValidationError[]) => void;
   /** 預設文案是繁中；`features/` 使用時以 `t()` 傳入。 */
   labels?: JsonEditorLabels;
   className?: string;
@@ -115,6 +148,15 @@ const DEFAULT_LABELS = {
   remove: '刪除',
   duplicateKey: '鍵名重複',
   parseError: '不是合法的 JSON',
+  search: '搜尋',
+  searchPlaceholder: '搜尋鍵名或值',
+  previousMatch: '上一個',
+  nextMatch: '下一個',
+  closeSearch: '關閉搜尋',
+  noMatch: '沒有符合的結果',
+  matchCount: (active: number, total: number) => `${active} / ${total}`,
+  validationErrors: (count: number) => `${count} 個驗證錯誤`,
+  rootPath: '（根）',
 } satisfies Required<Omit<JsonEditorLabels, keyof JsonViewerLabels>>;
 
 /** 新增的物件鍵名；重複時接數字（`newKey1`）。 */
@@ -126,6 +168,35 @@ const NEW_VALUE = '';
 const EMPTY_OBJECT = {};
 
 const MODES = ['tree', 'text'] as const satisfies readonly JsonEditorMode[];
+
+interface SearchState {
+  isOpen: boolean;
+  query: string;
+  /** 目前是第幾筆；資料改變使筆數變少時會被夾到最後一筆。 */
+  index: number;
+}
+
+const CLOSED_SEARCH: SearchState = { isOpen: false, query: '', index: 0 };
+
+/** 驗證錯誤 → 行的標記：錯誤所在的行，以及它每一層上層（收合時提示裡面有錯）。 */
+function toAnnotations(
+  errors: readonly JsonValidationError[],
+): ReadonlyMap<string, JsonLineAnnotation> {
+  const messages = new Map<string, string[]>();
+  for (const error of errors) {
+    const path = formatPath(error.path);
+    messages.set(path, [...(messages.get(path) ?? []), error.message]);
+  }
+  const annotations = new Map<string, JsonLineAnnotation>();
+  for (const [path, list] of messages) annotations.set(path, { errors: list });
+  for (const error of errors) {
+    for (let depth = 0; depth < error.path.length; depth += 1) {
+      const ancestor = formatPath(error.path.slice(0, depth));
+      if (!annotations.has(ancestor)) annotations.set(ancestor, { nested: true });
+    }
+  }
+  return annotations;
+}
 
 interface EditingTarget {
   path: string;
@@ -234,6 +305,8 @@ export function JsonEditor({
   maxHeight = DEFAULT_JSON_MAX_HEIGHT,
   defaultExpandDepth = Infinity,
   virtualThreshold,
+  validator,
+  onValidationChange,
   labels: labelOverrides,
   className,
   style,
@@ -255,6 +328,62 @@ export function JsonEditor({
   const [draft, setDraft] = useState<TextDraft>({ text: '', source: undefined, error: undefined });
   const text =
     draft.source === value ? draft : { text: stringify(value), source: value, error: undefined };
+
+  const errors = useJsonValidation(value, validator);
+  const annotations = useMemo(() => toAnnotations(errors), [errors]);
+  const onValidationChangeRef = useLatestRef(onValidationChange);
+  useEffect(() => {
+    onValidationChangeRef.current?.(errors);
+  }, [errors, onValidationChangeRef]);
+
+  // 搜尋與「跳到驗證錯誤」共用同一個焦點行
+  const [search, setSearch] = useState(CLOSED_SEARCH);
+  const [activeTarget, setActiveTarget] = useState<{ path: string }>();
+  const searchInput = useRef<HTMLInputElement>(null);
+  const matches = useMemo(
+    () => (search.isOpen ? searchJson(value, search.query) : []),
+    [value, search.isOpen, search.query],
+  );
+  const matchIndex = matches.length === 0 ? -1 : Math.min(search.index, matches.length - 1);
+  const highlight = search.isOpen ? search.query : undefined;
+
+  const goTo = useCallback(
+    (path: string) => {
+      tree.expandTo(path);
+      setActiveTarget({ path });
+    },
+    [tree],
+  );
+
+  const openSearch = () => {
+    setSearch((current) => (current.isOpen ? current : { ...current, isOpen: true }));
+    searchInput.current?.focus();
+    searchInput.current?.select();
+  };
+
+  const changeQuery = (query: string) => {
+    setSearch({ isOpen: true, query, index: 0 });
+    const first = searchJson(value, query)[0];
+    if (first) goTo(first.path);
+    else setActiveTarget(undefined);
+  };
+
+  const step = (delta: 1 | -1) => {
+    if (matches.length === 0) return;
+    const index = (matchIndex + delta + matches.length) % matches.length;
+    setSearch((current) => ({ ...current, index }));
+    goTo((matches[index] as { path: string }).path);
+  };
+
+  const closeSearch = () => {
+    setSearch(CLOSED_SEARCH);
+    setActiveTarget(undefined);
+  };
+
+  const selectError = (error: JsonValidationError) => {
+    setMode('tree');
+    goTo(formatPath(error.path));
+  };
 
   const commit = useCallback(
     (next: unknown) => {
@@ -279,12 +408,19 @@ export function JsonEditor({
   );
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (readOnly || !(event.metaKey || event.ctrlKey)) return;
+    if (!(event.metaKey || event.ctrlKey)) return;
+    const key = event.key.toLowerCase();
+    // 樹狀模式攔下 ⌘/Ctrl + F（瀏覽器的尋找看不到虛擬捲動外的行）；文字模式交給瀏覽器
+    if (key === 'f' && mode === 'tree') {
+      event.preventDefault();
+      openSearch();
+      return;
+    }
+    if (readOnly) return;
     // 輸入框與文字框用瀏覽器自己的復原
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
       return;
     }
-    const key = event.key.toLowerCase();
     if (key === 'z' && !event.shiftKey) {
       event.preventDefault();
       history.undo();
@@ -337,7 +473,7 @@ export function JsonEditor({
         aria-label={`${labels.editKey}：${key}`}
         onClick={() => setEditing({ path: line.path, target: 'key' })}
       >
-        {key}
+        {highlightText(key, highlight)}
       </button>
     );
   };
@@ -369,7 +505,7 @@ export function JsonEditor({
         aria-label={`${labels.editValue}：${line.text}`}
         onClick={() => setEditing({ path: line.path, target: 'value' })}
       >
-        {line.text}
+        {highlightText(line.text, highlight)}
       </button>
     );
   };
@@ -513,6 +649,7 @@ export function JsonEditor({
         </div>
         {mode === 'tree' ? (
           <>
+            <ToolbarButton label={labels.search} icon="search" onClick={openSearch} />
             <ToolbarButton
               label={labels.expandAll}
               icon="chevrons-up-down"
@@ -564,6 +701,21 @@ export function JsonEditor({
         )}
       </div>
 
+      {mode === 'tree' && search.isOpen && (
+        <JsonSearchBar
+          inputRef={searchInput}
+          query={search.query}
+          activeIndex={matchIndex}
+          total={matches.length}
+          onQueryChange={changeQuery}
+          onNext={() => step(1)}
+          onPrevious={() => step(-1)}
+          onClose={closeSearch}
+          labels={labels}
+          slotAttributes={slot('search', styles.search, { testId: 'json-editor-search' })}
+        />
+      )}
+
       {mode === 'tree' ? (
         <JsonTree
           lines={tree.lines}
@@ -574,6 +726,9 @@ export function JsonEditor({
           slot={slot}
           className={styles.body}
           aria-label={ariaLabel}
+          activeTarget={activeTarget}
+          highlight={highlight}
+          annotations={annotations}
           renderKey={renderKey}
           renderValue={renderValue}
           renderActions={renderActions}
@@ -603,6 +758,18 @@ export function JsonEditor({
             </p>
           )}
         </>
+      )}
+
+      {errors.length > 0 && (
+        <ValidationPanel
+          errors={errors}
+          onSelect={selectError}
+          disabled={Boolean(text.error)}
+          labels={labels}
+          slotAttributes={slot('validation', styles.validation, {
+            testId: 'json-editor-validation',
+          })}
+        />
       )}
     </div>
   );

@@ -490,10 +490,13 @@ const handleDelete = async (row: RoleRowVM) => {
 | 檔案 | 內容 |
 | ---- | ---- |
 | `JsonViewer/jsonLines.ts` | `toJsonLines`（攤平成行）、`parsePath` / `formatPath`（`$["a"][0]` ↔ `['a', 0]`） |
-| `JsonViewer/useJsonTree.ts` | 收合狀態：以「與基準相反的路徑」記錄；基準是 `defaultExpandDepth`、全部展開或全部收合 |
-| `JsonViewer/JsonTree.tsx` | 捲動框 ＋ 逐行渲染；`renderKey` / `renderValue` / `renderActions` 讓編輯器換掉鍵名、值並加上行尾操作 |
+| `JsonViewer/jsonSearch.ts` | `searchJson`：在整份資料（含收合中的節點）找鍵名與值，依文件順序 |
+| `JsonViewer/useJsonTree.ts` | 收合狀態：以「與基準相反的路徑」記錄；基準是 `defaultExpandDepth`、全部展開或全部收合；`expandTo` 展開某節點的所有上層 |
+| `JsonViewer/JsonTree.tsx` | 捲動框 ＋ 逐行渲染；`renderKey` / `renderValue` / `renderActions` 讓編輯器換掉鍵名、值並加上行尾操作；`activeTarget`（焦點行，置中捲入）、`highlight`（符合的文字）、`annotations`（驗證錯誤標記） |
 | `JsonEditor/jsonEdit.ts` | 不可變的資料操作（`setIn`、`removeIn`、`renameKey`、`insertAfter`、`appendChild`、`duplicate`、`convert`）與編輯框文字轉換 |
 | `JsonEditor/useJsonHistory.ts` | 復原／重做：保存每一版的根（最多 100 步）；外部換掉 `value` 時清空 |
+| `JsonEditor/validation.ts` | `JsonValidator` 型別與 `createJsonSchemaValidator`；ajv 在 `ajvValidator.ts`，第一次驗證時才動態載入 |
+| `JsonEditor/useJsonValidation.ts` | 值改變時重新驗證（`useDeferredValue`），丟掉過期的非同步結果 |
 
 **`JsonEditor`**（自製而非包 `vanilla-jsoneditor`，見 [ADR-0010](../../adr/0010-self-built-json-editor.md)）：
 
@@ -504,12 +507,22 @@ const handleDelete = async (row: RoleRowVM) => {
 | 編輯鍵名／值 | 點一下直接編輯（`<button>`，鍵盤 Enter 同義）；Enter 送出、Esc 放棄、失焦送出。鍵名重複時標示錯誤不送出 |
 | 型別判斷 | 與 svelte-jsoneditor 相同：`true` / `false` / `null` 與 JSON 數字轉成對應型別，其餘是字串；要字串的 `123` 就輸入 `"123"` |
 | 行尾選單（`⋯`） | 編輯鍵名、編輯值、新增子項、在下方插入、複製一份、轉成物件／陣列／值、刪除；插入後直接編輯新鍵名，送出後接著編輯值 |
-| 工具列 | 模式切換；樹狀：全部展開／全部收合；文字：格式化／壓縮；復原／重做（⌘/Ctrl + Z、⌘/Ctrl + Shift + Z 或 Y） |
+| 工具列 | 模式切換；樹狀：搜尋、全部展開／全部收合；文字：格式化／壓縮；復原／重做（⌘/Ctrl + Z、⌘/Ctrl + Shift + Z 或 Y） |
+| 搜尋 | 樹狀模式 ⌘/Ctrl + F 或工具列的放大鏡：找整份資料的鍵名與值（不分大小寫，含收合中的節點）；符合的文字加底色、顯示「2 / 5」；Enter / Shift + Enter 上下一筆，跳到的那一行展開上層、置中並加左側線；Esc 關閉。文字模式交給瀏覽器的尋找 |
+| 驗證 | `validator`（可非同步，形狀同 svelte-jsoneditor）；JSON Schema 用 `createJsonSchemaValidator(schema, { formatMessage })`。錯誤的行標紅 ＋ ⚠（提示框列出訊息），收合的上層顯示淡色 ⚠；編輯區下方列出錯誤，點一下切到樹狀並跳過去；`onValidationChange` 回報結果。validator 請保持參考固定 |
 | 唯讀 | `readOnly`：可切模式、收合，不能改、沒有選單與復原 |
 | 文案 | `labels`（延伸 `JsonViewerLabels`）；`features/` 以 `t()` 傳入 |
-| testid | 工具列 `json-editor-toolbar`、模式鈕 `json-editor-mode` ＋ `data-value`、行尾選單 `json-editor-actions`、編輯框 `json-editor-input`、文字框 `json-editor-text`、錯誤 `json-editor-error`；樹狀的行沿用 `json-viewer-item` |
+| testid | 工具列 `json-editor-toolbar`、模式鈕 `json-editor-mode` ＋ `data-value`、行尾選單 `json-editor-actions`、編輯框 `json-editor-input`、文字框 `json-editor-text`、錯誤 `json-editor-error`、搜尋列 `json-editor-search`（輸入 `-input`、筆數 `-status`）、驗證清單 `json-editor-validation`（每筆 `json-editor-validation-item` ＋ `data-value` 路徑）；樹狀的行沿用 `json-viewer-item`，錯誤標記 `json-viewer-marker` |
 
-尚未實作（依同一基準補）：table 模式、搜尋／取代、JSON Schema 驗證、拖曳排序、JSON 修復。
+**JSON Schema 驗證器用 ajv**（與 svelte-jsoneditor 相同；依 `$schema` 選 draft-07／2019-09／2020-12，未宣告時 draft-07，含 `ajv-formats`）：
+
+- 錯誤路徑：`required` 標在缺欄位的物件上；`additionalProperties` 標在多出來的那個鍵上。
+- 訊息是 ajv 的英文；`features/` 要中文時傳 `formatMessage`，依 `keyword` / `params` 用 `t()` 組字。
+- ajv 以動態 `import()` 載入：沒用到 schema 的頁面整個 bundle 都不含 ajv。
+- ajv 會把 schema 編譯成 JavaScript（`new Function`）；之後若啟用不含 `unsafe-eval` 的 CSP，要改成建置時預先編譯（ajv standalone）。
+- 評估過 `@cfworker/json-schema`（不用 eval、體積小），但屬性本身驗證失敗時會被誤報成 `additionalProperties`，不採用（[ADR-0010](../../adr/0010-self-built-json-editor.md)）。
+
+尚未實作（依同一基準補）：table 模式、取代、拖曳排序、JSON 修復。
 
 ---
 

@@ -33,8 +33,11 @@ export interface VirtualRows {
   containerStyle: CSSProperties | undefined;
   /** 虛擬捲動時掛在列元素上量實際高度（列元素要帶 `data-index`）。 */
   measureElement: ((element: Element | null) => void) | undefined;
-  /** 把某一列捲進可視範圍（已在範圍內就不動）。 */
-  scrollToIndex: (index: number) => void;
+  /**
+   * 把某一列捲進可視範圍。`auto`（預設）已在範圍內就不動、否則捲最短距離；
+   * `center` 一律置中（跳到搜尋結果這類「跳轉」用，前後文都看得到）。
+   */
+  scrollToIndex: (index: number, align?: 'auto' | 'center') => void;
 }
 
 /**
@@ -81,16 +84,16 @@ export function useVirtualRows({
   });
 
   const scrollToIndex = useCallback(
-    (index: number) => {
+    (index: number, align: 'auto' | 'center' = 'auto') => {
       if (index < 0 || index >= count) return;
       if (isVirtual) {
-        virtualizer.scrollToIndex(index, { align: 'auto' });
+        virtualizer.scrollToIndex(index, { align });
         return;
       }
       scrollElement
         ?.querySelector<HTMLElement>(`[data-index="${index}"]`)
         // jsdom 沒有 scrollIntoView
-        ?.scrollIntoView?.({ block: 'nearest' });
+        ?.scrollIntoView?.({ block: align === 'center' ? 'center' : 'nearest' });
     },
     [count, isVirtual, scrollElement, virtualizer],
   );

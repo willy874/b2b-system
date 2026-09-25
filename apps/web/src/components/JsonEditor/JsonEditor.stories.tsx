@@ -4,6 +4,7 @@ import { fn } from 'storybook/test';
 
 import { JsonViewer } from '../JsonViewer';
 import { JsonEditor } from './JsonEditor';
+import { createJsonSchemaValidator } from './validation';
 
 const sample = {
   id: 'hero-001',
@@ -22,6 +23,26 @@ const large = {
     tags: ['melee'],
   })),
 };
+
+/** 模組層級建立：validator 的參考要固定，否則每次 render 都會重新驗證。 */
+const heroValidator = createJsonSchemaValidator({
+  type: 'object',
+  required: ['id', 'name'],
+  properties: {
+    id: { type: 'string', pattern: '^hero-\\d{3}$' },
+    name: { type: 'string', minLength: 1 },
+    level: { type: 'integer', minimum: 1, maximum: 99 },
+    isBoss: { type: 'boolean' },
+    skills: { type: 'array', items: { type: 'string' }, uniqueItems: true },
+    stats: {
+      type: 'object',
+      required: ['hp'],
+      properties: { hp: { type: 'integer', minimum: 0 }, mp: { type: 'integer', minimum: 0 } },
+    },
+    drop: { type: ['string', 'null'] },
+  },
+  additionalProperties: false,
+});
 
 const meta = {
   title: 'Components/JsonEditor',
@@ -62,4 +83,16 @@ export const ReadOnly: Story = {
 /** 數千行：樹狀模式虛擬捲動。 */
 export const Large: Story = {
   args: { defaultValue: large, defaultExpandDepth: 2 },
+};
+
+/**
+ * JSON Schema 驗證：錯誤的行標紅、收合的上層有標記，下方清單點一下跳過去。
+ * 試著把 `level` 改成 0、刪掉 `name`、新增一個鍵。
+ */
+export const WithSchema: Story = {
+  args: {
+    validator: heroValidator,
+    defaultValue: { ...sample, level: 120, stats: { hp: -1, mp: 45 }, skills: ['slash', 'slash'] },
+    defaultExpandDepth: 1,
+  },
 };
