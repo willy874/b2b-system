@@ -172,6 +172,8 @@
   /* Hover 一律變淡：實心按鈕往表面色混，外框／幽靈按鈕疊一層淡淡的前景色 */
   --button-primary-hover-bg: color-mix(in srgb, var(--color-brand) 90%, var(--color-surface));
   --button-danger-hover-bg: color-mix(in srgb, var(--color-danger) 90%, var(--color-surface));
+  --button-success-hover-bg: color-mix(in srgb, var(--color-success) 90%, var(--color-surface));
+  --button-warning-hover-bg: color-mix(in srgb, var(--color-warning) 90%, var(--color-surface));
   --button-subtle-hover-bg: color-mix(in srgb, var(--color-fg) 6%, transparent);
   --field-height-md: 2.25rem;
 }

@@ -86,16 +86,40 @@ describe('RichTable 的批次操作（ADR-0009）', () => {
     expect(screen.getByTestId('batch-action')).toHaveAttribute('data-value', 'unlock');
   });
 
+  it('按鈕顏色依 tone：省略時 secondary', async () => {
+    renderHarness([
+      action({ id: 'plain' }),
+      action({ id: 'primary', tone: 'primary' }),
+      action({ id: 'success', tone: 'success' }),
+      action({ id: 'warning', tone: 'warning' }),
+      action({ id: 'danger', tone: 'danger' }),
+    ]);
+    await selectRows(0);
+    const variants = screen
+      .getAllByTestId('batch-action')
+      .map((button) => [button.getAttribute('data-value'), button.getAttribute('data-variant')]);
+    expect(variants).toEqual([
+      ['plain', 'secondary'],
+      ['primary', 'primary'],
+      ['success', 'success'],
+      ['warning', 'warning'],
+      ['danger', 'danger'],
+    ]);
+  });
+
   it('hidden 的動作不顯示；全部都 hidden 時整個操作列不出現', async () => {
     renderHarness([action({ hidden: true })]);
     await selectRows(0);
     expect(screen.queryByTestId('batch-action-bar')).not.toBeInTheDocument();
   });
 
-  it('選到的列都不適用 → 按鈕停用', async () => {
-    renderHarness([action()]);
+  it('選到的列都不適用 → 按鈕停用，hover 顯示該動作的原因', async () => {
+    renderHarness([action({ ineligibleReason: '只能解鎖被鎖定的列' })]);
     await selectRows(1);
     expect(screen.getByTestId('batch-action')).toBeDisabled();
+
+    await userEvent.hover(screen.getByTestId('tooltip-disabled-trigger'));
+    expect(await screen.findByText('只能解鎖被鎖定的列')).toBeVisible();
   });
 
   it('只送出適用的列', async () => {

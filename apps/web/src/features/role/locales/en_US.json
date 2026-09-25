@@ -24,7 +24,8 @@
         "action": "Delete",
         "title": "Delete roles",
         "confirm": "Delete {{count}} roles? This cannot be undone. Roles still assigned to users are not deleted.",
-        "success": "Deleted {{count}} roles."
+        "success": "Deleted {{count}} roles.",
+        "ineligible": "System roles and roles still assigned to users cannot be deleted in bulk."
       }
     },
     "duplicate": {

@@ -25,6 +25,7 @@ export function useRoleBatchActions(): Array<BatchAction<RoleRowVM>> {
         // 權限未水合前不出現操作按鈕（docs/conventions/02-frontend.md §3.2）
         hidden: !permission.hydrated || !permission.canDelete,
         isEligible: (row) => row.canDelete && row.userCount === 0,
+        ineligibleReason: t('role.batch.delete.ineligible'),
         confirm: ({ eligible }) => ({
           title: t('role.batch.delete.title'),
           description: t('role.batch.delete.confirm', { count: eligible.length }),

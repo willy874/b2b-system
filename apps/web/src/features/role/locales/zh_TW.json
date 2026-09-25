@@ -24,7 +24,8 @@
         "action": "刪除",
         "title": "批次刪除角色",
         "confirm": "確定要刪除 {{count}} 個角色嗎？此操作無法復原。仍有人持有的角色不會被刪除。",
-        "success": "已刪除 {{count}} 個角色。"
+        "success": "已刪除 {{count}} 個角色。",
+        "ineligible": "系統角色與仍有人持有的角色不能批次刪除。"
       }
     },
     "duplicate": {

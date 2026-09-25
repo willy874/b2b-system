@@ -13,6 +13,10 @@ export type TooltipSlot = 'positioner';
 
 export interface TooltipProps extends SlotOverrides<TooltipSlot> {
   content: ReactNode;
+  /**
+   * 觸發元素。帶 `disabled` 時自動外包一層可聚焦的 `<span>` 當觸發點（停用的按鈕收不到 hover／focus），
+   * 停用與否切換時觸發元素會重新掛載。
+   */
   children: ReactElement<Record<string, unknown>>;
   side?: 'top' | 'bottom' | 'left' | 'right';
   /**
@@ -37,9 +41,20 @@ export function Tooltip({
 }: TooltipProps) {
   if (!content) return children;
   const slot = createSlots({ classNames, styles: styleOverrides, testIds });
+  // 停用的按鈕收不到滑鼠事件、也無法聚焦，提示永遠出不來——偏偏這時最需要說明「為什麼不能按」
+  // （docs/architecture/frontend/06-permission.md §6.1）。改由外層可聚焦的 span 當觸發點。
+  const trigger = children.props.disabled ? (
+    // 刻意可聚焦：停用的按鈕無法聚焦，鍵盤使用者只能靠這層看到「為什麼不能按」
+    // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+    <span className={styles.disabledTrigger} tabIndex={0} data-testid="tooltip-disabled-trigger">
+      {children}
+    </span>
+  ) : (
+    children
+  );
   return (
     <BaseTooltip.Root disabled={disabled}>
-      <BaseTooltip.Trigger render={children} />
+      <BaseTooltip.Trigger render={trigger} />
       <BaseTooltip.Portal>
         <BaseTooltip.Positioner
           side={side}

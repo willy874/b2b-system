@@ -79,7 +79,7 @@ export function useBatchRunner<TData>(
         title: content.title,
         description: [content.description, skippedNote].filter(Boolean).join(' '),
         confirmLabel: content.confirmLabel ?? action.label,
-        tone: action.tone ?? 'primary',
+        tone: action.tone === 'danger' || action.tone === 'warning' ? 'danger' : 'primary',
         onConfirm: async () => {
           try {
             result = await action.run(targets.eligible.map(getRowId));

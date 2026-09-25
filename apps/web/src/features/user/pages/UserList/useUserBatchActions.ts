@@ -29,8 +29,10 @@ export function useUserBatchActions(): Array<BatchAction<UserRowVM>> {
       {
         id: 'activate',
         label: t('user.batch.activate.action'),
+        tone: 'success',
         hidden: !ready || !permission.canUpdate,
         isEligible: (row) => row.canUpdate && row.status === 'inactive',
+        ineligibleReason: t('user.batch.activate.ineligible'),
         confirm: ({ eligible }) => ({
           title: t('user.batch.activate.title'),
           description: t('user.batch.activate.confirm', { count: eligible.length }),
@@ -41,9 +43,10 @@ export function useUserBatchActions(): Array<BatchAction<UserRowVM>> {
       {
         id: 'deactivate',
         label: t('user.batch.deactivate.action'),
-        tone: 'danger',
+        tone: 'warning',
         hidden: !ready || !permission.canUpdate,
         isEligible: (row) => row.canUpdate && row.status !== 'inactive',
+        ineligibleReason: t('user.batch.deactivate.ineligible'),
         confirm: ({ eligible }) => ({
           title: t('user.batch.deactivate.title'),
           description: t('user.batch.deactivate.confirm', { count: eligible.length }),
@@ -54,8 +57,10 @@ export function useUserBatchActions(): Array<BatchAction<UserRowVM>> {
       {
         id: 'unlock',
         label: t('user.batch.unlock.action'),
+        tone: 'success',
         hidden: !ready || !permission.canUnlock,
         isEligible: (row) => row.canUnlock,
+        ineligibleReason: t('user.batch.unlock.ineligible'),
         confirm: ({ eligible }) => ({
           title: t('user.batch.unlock.title'),
           description: t('user.batch.unlock.confirm', { count: eligible.length }),
@@ -69,6 +74,7 @@ export function useUserBatchActions(): Array<BatchAction<UserRowVM>> {
         tone: 'danger',
         hidden: !ready || !permission.canDelete,
         isEligible: (row) => row.canDelete,
+        ineligibleReason: t('user.batch.delete.ineligible'),
         confirm: ({ eligible }) => ({
           title: t('user.batch.delete.title'),
           description: t('user.batch.delete.confirm', { count: eligible.length }),

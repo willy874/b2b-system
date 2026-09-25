@@ -48,12 +48,12 @@ export function BatchBar<TData>({ batch, getRowId }: BatchBarProps<TData>) {
             const disabled = runner.tooMany || noneEligible;
             const reason = runner.tooMany
               ? t('common.batch.tooMany', { max: BATCH_MAX_SIZE })
-              : t('common.batch.noneEligible');
+              : (action.ineligibleReason ?? t('common.batch.noneEligible'));
             return (
               <Tooltip key={action.id} content={reason} disabled={!disabled}>
                 <Button
                   size="sm"
-                  variant={action.tone === 'danger' ? 'danger' : 'secondary'}
+                  variant={action.tone ?? 'secondary'}
                   disabled={disabled}
                   onClick={() => void runner.execute(action)}
                   data-testid="batch-action"

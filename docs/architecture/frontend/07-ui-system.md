@@ -666,6 +666,7 @@ Base UI 已處理焦點陷阱、roving tabindex、ARIA 角色與鍵盤互動。�
 | 表單標籤 | 一律用 Base UI `Field.Label`，不用純視覺標籤                       |
 | 錯誤訊息 | `Field.Error` 帶 `aria-describedby` 連到輸入元素                   |
 | 圖示按鈕 | 必須有 `aria-label`                                                |
+| 停用說明 | 停用的按鈕收不到 hover／focus：`Tooltip` 包住帶 `disabled` 的元素時，自動外包一層可聚焦的 `<span>` 當觸發點（testid `tooltip-disabled-trigger`），「為什麼不能按」一定看得到（[06-permission.md](./06-permission.md) §6.1） |
 | 動態內容 | toast 用 Base UI Toast（已含 `aria-live`）；表格載入用 `aria-busy` |
 | 減少動效 | `@media (prefers-reduced-motion: reduce)` 關閉所有非必要動畫       |
 
@@ -817,7 +818,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 | -- | ---- | ---- |
 | 設計系統 | `components/Table/BatchActionBar` | `role="toolbar"`：已選筆數（`batch-action-bar-count`，`data-value` 是筆數）、清除選取、呼叫端放進來的按鈕；不認識任何業務操作，文案由 `labels` 傳入 |
 | 機制 | `core/batch` | `BatchAction<TData>` 型別；`useBatchRunner()` 跑「分組 → 確認 → 送出 → 更新選取 → 提示／結果對話框」；`BatchResultDialog` 逐筆列出未完成的項目 |
-| 列表 | `core/components/RichTable/BatchBar.tsx` | `batch` prop 的接線：勾選後在表格上方顯示操作列，每個動作一顆按鈕（`data-testid="batch-action"`，`data-value` 是動作 id） |
+| 列表 | `core/components/RichTable/BatchBar.tsx` | `batch` prop 的接線：勾選後在表格上方顯示操作列，每個動作一顆按鈕（`data-testid="batch-action"`，`data-value` 是動作 id；顏色依 `tone`：`primary` / `success` / `warning` / `danger`，省略時 secondary；確認框在 `danger` / `warning` 時用危險色） |
 | feature | `pages/<List>/use<Name>BatchActions.ts` | 宣告這張表有哪些批次動作；`run` 呼叫 feature 的 batch mutation |
 
 ```tsx
@@ -844,7 +845,7 @@ const batchActions = useUserBatchActions();
 | 情境 | 結果 |
 | ---- | ---- |
 | 沒有勾選，或所有動作都 `hidden` | 不顯示操作列 |
-| 選到的列都不適用（`isEligible` 全為 false） | 按鈕停用，tooltip 說明原因 |
+| 選到的列都不適用（`isEligible` 全為 false） | 按鈕停用，tooltip 顯示該動作的 `ineligibleReason`（省略時用通用文案） |
 | 跨頁累積超過 200 筆（`BATCH_MAX_SIZE`，與後端相同） | 所有按鈕停用，tooltip 提示上限 |
 | 部分列不適用 | 只送出適用的 id；確認框自動補上「其中 N 筆不適用，將會略過」 |
 | 全部成功 | 成功的列移出選取、toast 顯示 `successMessage` |
