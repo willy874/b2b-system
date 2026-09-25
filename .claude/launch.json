@@ -8,6 +8,22 @@
       "port": 5173
     },
     {
+      "name": "web-mock",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VITE_ENABLE_MOCK=true",
+        "pnpm",
+        "--filter",
+        "@game-editor/web",
+        "exec",
+        "vite",
+        "--port",
+        "5174",
+        "--strictPort"
+      ],
+      "port": 5174
+    },
+    {
       "name": "storybook",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["storybook"],
