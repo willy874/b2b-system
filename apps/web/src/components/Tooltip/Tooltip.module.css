@@ -7,8 +7,8 @@
     max-width: 18rem;
     padding: var(--seed-space-1) var(--seed-space-2);
     border-radius: var(--radius-sm);
-    background: var(--seed-gray-900);
-    color: var(--seed-gray-0);
+    background: var(--color-tooltip-bg);
+    color: var(--color-tooltip-fg);
     font-size: 0.75rem;
     line-height: 1.4;
     box-shadow: var(--shadow-tooltip);

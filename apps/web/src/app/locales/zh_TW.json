@@ -124,5 +124,12 @@
     "permission": { "read": "檢視權限目錄" },
     "auditLog": { "read": "檢視稽核日誌" },
     "system": { "read": "檢視系統資訊", "update": "變更系統設定" }
+  },
+  "theme": {
+    "label": "主題",
+    "light": "淺色",
+    "dark": "深色",
+    "system": "跟隨系統",
+    "current": "目前選擇"
   }
 }

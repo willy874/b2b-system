@@ -466,14 +466,12 @@ const handleDelete = async (row: RoleRowVM) => {
 
 ```
 themes/
-├── seed.css        ① 原始值：色階、間距刻度、字級、圓角、陰影
-├── alias.css       ② 語意層：surface / text / border / primary / danger …
-├── component.css   ③ 元件層：--ge-button-bg、--ge-dialog-radius …
-├── index.ts        依序 import（順序即優先序）
-├── light.ts        淺色模式的 alias 值
-├── dark.ts         （預留，Phase 0 不啟用）
-└── contrast.test.ts  對比度驗證
+├── tokens.css        ① seed ② alias（淺色 :root ＋ 深色 :root[data-theme='dark']）③ component
+└── contrast.test.ts  兩個主題各自的對比度驗證
 ```
+
+> 下方 §4.1 的範例是設計時的命名草稿（`--ge-*` 前綴）；實作的名稱以 `tokens.css` 為準
+> （`--seed-*`、`--color-*`、`--button-*`）。
 
 ### 4.1 三層的意義
 
@@ -544,7 +542,36 @@ UnoCSS 負責 **排版**（flex、grid、間距、尺寸），**不負責顏色*
 UnoCSS 的輸出放在 `utilities` 層，排在元件的 `components` 層之後（§3.4），
 所以傳進元件的工具類不必加 `!` 就能覆寫元件預設值。
 
-### 4.4 疊放層級（z-index）
+### 4.4 深色主題
+
+換主題 **只換 alias 層**：`tokens.css` 的 `:root[data-theme='dark']` 區塊覆寫顏色與陰影的 alias，
+seed、尺寸、字型、z-index 與 component 層都沿用淺色。
+
+| 項目 | 做法 |
+| --- | --- |
+| 切換機制 | `<html data-theme>`（`light` 或 `dark`）；`color-scheme` 跟著切，原生捲軸與表單控制項一起變 |
+| 偏好 | `light` / `dark` / `system`（預設），存在 `preference` dictStorage 的 `theme` 鍵；**只存本機**，不同步到帳號 |
+| 跟隨系統 | 在 JS 解析 `prefers-color-scheme` 後寫入 `data-theme`；CSS 不寫 `@media (prefers-color-scheme)`，深色對照表才不必寫兩份 |
+| 首次繪製 | `public/theme-init.js` 在 `<head>` 同步執行，先設好 `data-theme`，避免先閃白；獨立成檔是因為正式環境的 CSP 不允許 inline script |
+| 之後的變化 | `plugins/app/theme.ts`：使用者切換、其他分頁同步、系統深淺色變化（只在 `system` 時） |
+| 入口 | 頂列的主題選單（`app/layouts/ThemeMenu.tsx`）與偏好頁；選項表 `THEME_OPTIONS` 在 `core/theme` |
+| Storybook | 工具列的 **Theme** 切換 |
+
+深色主題的調色原則：
+
+- 主色與狀態色的 **前景**（`--color-brand`、`--color-*-text`）調亮到在深色 surface 上 ≥ 4.5:1；
+  主色調亮後白字不夠，`--color-brand-fg` 改成深色。
+- 狀態色的 **填色**（`--color-danger` 等）沿用淺色，搭配 `-on` 的白字仍 ≥ 3:1。
+  所以危險按鈕的字用 `--color-danger-on`，不要借用 `--color-brand-fg`。
+- 中性填色有自己的 alias：`--color-fill-subtle`（停用欄位、中性標籤）、`--color-fill`（軌道、骨架、頭像）、
+  `--color-scrollbar(-hover)`、`--color-tooltip-bg/-fg`。元件不直接引用 `--seed-gray-*`
+  （🔒 `design-system.test.ts` 擋 `components/` 的 CSS 引用 seed 色）。
+- 深色背景上陰影不明顯，陰影與遮罩的 alias 在深色時更重。
+
+新增顏色 alias 時：淺色 `:root` 與深色區塊要一起加；`contrast.test.ts` 會對兩個主題各跑一次，
+且深色區塊只能覆寫淺色已有的 token。
+
+### 4.5 疊放層級（z-index）
 
 z-index 也是 token（`themes/tokens.css`），元件不寫數字：
 

@@ -72,7 +72,8 @@ export * from "@game-editor/api-sdk";
 | `core/permission` | ★ 權限註冊表、常數、hooks                                           |
 | `core/preference` | 偏好設定註冊表（讓 feature 往偏好頁掛分頁）、列表註冊表（可自訂欄位的表） |
 | `core/router`     | `RootRoute`、`RouterProvider` 封裝                                  |
-| `core/store`      | 全域 store：`permission`、`layout`、`timezone`、`locale`、`tableColumnSettings` |
+| `core/store`      | 全域 store：`permission`、`layout`、`timezone`、`locale`、`theme`、`tableColumnSettings` |
+| `core/theme`      | 主題選項表（`THEME_OPTIONS`）、`resolveTheme()` / `applyTheme()`（[07 §4.4](./07-ui-system.md)） |
 
 **鐵則**：`core/` 內任何檔案 `grep -r "features/"` 必須是零結果。
 這條規則由一個 lint 規則與 CI 檢查強制。

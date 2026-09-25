@@ -252,7 +252,7 @@ game-editor/
 依序考慮，但需要主功能的輪廓先確定：
 
 1. **資源作用域**（[ADR-0006](../adr/0006-flat-permission-scope.md) 的延伸路徑）
-2. Dark Mode（Token 已預留）
+2. ~~Dark Mode~~（已完成，見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §4.4）
 3. MFA（`users.mfa_enabled` 已預留）
 4. 批次匯入 / 匯出
 5. SSO（OIDC）

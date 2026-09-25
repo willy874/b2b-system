@@ -1,6 +1,8 @@
 /*
  * Design Token — 三層（seed / alias / component）。
- * Phase 0 只做 Light Mode，dark 只需新增一份 alias 對照表。
+ * 主題只換 alias 層：`:root` 是淺色，`:root[data-theme='dark']` 覆寫成深色。
+ * `data-theme` 由 index.html 的內嵌腳本在首次繪製前設定、之後由 themePlugin 維護；
+ * 「跟隨系統」在 JS 解析成 light / dark，CSS 不寫 prefers-color-scheme（否則深色對照表要寫兩份）。
  * 元件樣式只能使用 alias 與 component 層，不得直接用 seed 或十六進位色碼。
  */
 
@@ -25,6 +27,23 @@
   --seed-yellow-600: #d96c00;
   --seed-yellow-800: #8a5200;
 
+  /* 深色主題的中性色階：數字越大越暗，與 gray 相同方向 */
+  --seed-dark-100: #e3e5e8;
+  --seed-dark-300: #a1a7b0;
+  --seed-dark-400: #6b707a;
+  --seed-dark-500: #4b4f57;
+  --seed-dark-600: #3a3d44;
+  --seed-dark-700: #2c2e33;
+  --seed-dark-800: #1f2024;
+  --seed-dark-900: #151619;
+
+  /* 深色背景上的前景色：同色相、調亮到在深色 surface 上 >= 4.5:1 */
+  --seed-blue-200: #a5d0f7;
+  --seed-blue-300: #74b3f0;
+  --seed-red-300: #ff8a8a;
+  --seed-green-300: #6fcf85;
+  --seed-yellow-300: #f5b25c;
+
   --seed-space-1: 0.25rem;
   --seed-space-2: 0.5rem;
   --seed-space-3: 0.75rem;
@@ -45,10 +64,20 @@
   --seed-shadow-md-strong: 0 8px 24px rgb(0 0 0 / 14%);
   --seed-shadow-lg: 0 16px 48px rgb(0 0 0 / 18%);
   --seed-black-alpha-40: rgb(0 0 0 / 40%);
+
+  /* 深色背景上陰影不明顯，要更重才看得出浮層高度 */
+  --seed-shadow-sm-dark: 0 4px 12px rgb(0 0 0 / 45%);
+  --seed-shadow-md-dark: 0 8px 24px rgb(0 0 0 / 45%);
+  --seed-shadow-md-strong-dark: 0 8px 24px rgb(0 0 0 / 50%);
+  --seed-shadow-lg-dark: 0 16px 48px rgb(0 0 0 / 55%);
+  --seed-black-alpha-60: rgb(0 0 0 / 60%);
 }
 
 /* ── alias：語意化（換主題時只換這一層）───────────────── */
 :root {
+  /* 原生控制項（捲軸、date input、autofill）跟著主題 */
+  color-scheme: light;
+
   --color-bg: var(--seed-gray-50);
   --color-surface: var(--seed-gray-0);
   --color-border: var(--seed-gray-300);
@@ -57,6 +86,14 @@
   --color-brand: var(--seed-blue-500);
   --color-brand-hover: var(--seed-blue-600);
   --color-brand-fg: var(--seed-gray-0);
+  /* 中性填色：`-subtle` 給停用欄位、中性標籤；無後綴給軌道、骨架、頭像底色 */
+  --color-fill-subtle: var(--seed-gray-100);
+  --color-fill: var(--seed-gray-200);
+  --color-scrollbar: var(--seed-gray-300);
+  --color-scrollbar-hover: var(--seed-gray-500);
+  /* Tooltip 與頁面反差最大：淺色主題用深底，深色主題用較亮的灰 */
+  --color-tooltip-bg: var(--seed-gray-900);
+  --color-tooltip-fg: var(--seed-gray-0);
   /*
    * 狀態色有兩個值：`-*` 是填色（搭配 --color-*-on），`-*-text` 是前景色。
    * 飽和的狀態色當背景沒問題，當文字常常過不了 WCAG AA。
@@ -95,6 +132,37 @@
   --z-floating: 85;
   --z-tooltip: 90;
   --z-toast: 100;
+}
+
+/* ── alias（深色）：只覆寫顏色與陰影，尺寸、字型、z-index 沿用淺色 ─── */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-bg: var(--seed-dark-900);
+  --color-surface: var(--seed-dark-800);
+  --color-border: var(--seed-dark-600);
+  --color-fg: var(--seed-dark-100);
+  --color-fg-muted: var(--seed-dark-300);
+  /* 主色調亮後白字過不了 AA，主色按鈕的前景改用深色 */
+  --color-brand: var(--seed-blue-300);
+  --color-brand-hover: var(--seed-blue-200);
+  --color-brand-fg: var(--seed-dark-900);
+  --color-fill-subtle: var(--seed-dark-700);
+  --color-fill: var(--seed-dark-600);
+  --color-scrollbar: var(--seed-dark-500);
+  --color-scrollbar-hover: var(--seed-dark-400);
+  --color-tooltip-bg: var(--seed-dark-600);
+  --color-tooltip-fg: var(--seed-dark-100);
+  /* 狀態填色沿用淺色（搭配白字仍 >= 3:1），只換前景色 */
+  --color-danger-text: var(--seed-red-300);
+  --color-success-text: var(--seed-green-300);
+  --color-warning-text: var(--seed-yellow-300);
+
+  --shadow-tooltip: var(--seed-shadow-sm-dark);
+  --shadow-popover: var(--seed-shadow-md-dark);
+  --shadow-toast: var(--seed-shadow-md-strong-dark);
+  --shadow-dialog: var(--seed-shadow-lg-dark);
+  --color-backdrop: var(--seed-black-alpha-60);
 }
 
 /* ── component：元件層（由各元件擴充）──────────────────── */

@@ -27,7 +27,7 @@
     position: relative;
     height: 0.5rem;
     border-radius: 999px;
-    background: var(--seed-gray-200);
+    background: var(--color-fill);
     overflow: hidden;
   }
 

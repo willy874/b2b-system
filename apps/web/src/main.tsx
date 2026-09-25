@@ -25,6 +25,7 @@ import {
   httpContextPlugin,
   i18nPlugin,
   realtimePlugin,
+  themePlugin,
 } from '@/plugins/app';
 import { tableColumnSettingsPlugin } from '@/plugins/features';
 import { ENV } from '@/shared/constants';
@@ -43,6 +44,7 @@ async function bootstrap(): Promise<void> {
     .use(cachePlugin())
     .use(eventBusPlugin())
     .use(i18nPlugin())
+    .use(themePlugin())
     // 每個後端一組獨立的 session 與管道；續期實作在這裡注入（plugin 不認識 apis/）
     .use(
       httpContextPlugin([

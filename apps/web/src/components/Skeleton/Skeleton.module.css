@@ -3,9 +3,9 @@
     display: block;
     background: linear-gradient(
       90deg,
-      var(--seed-gray-200) 25%,
-      var(--seed-gray-100) 37%,
-      var(--seed-gray-200) 63%
+      var(--color-fill) 25%,
+      var(--color-fill-subtle) 37%,
+      var(--color-fill) 63%
     );
     background-size: 400% 100%;
     border-radius: var(--radius-sm);

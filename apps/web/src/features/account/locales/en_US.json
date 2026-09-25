@@ -14,7 +14,8 @@
     "preference": {
       "title": "Preferences",
       "description": "Language and timezone are synced to your account.",
-      "saved": "Preferences saved."
+      "saved": "Preferences saved.",
+      "themeHint": "Theme is saved on this device only and is not synced to your account."
     },
     "field": {
       "email": "Email",
@@ -23,7 +24,8 @@
       "locale": "Language",
       "timezone": "Timezone",
       "currentPassword": "Current password",
-      "newPassword": "New password"
+      "newPassword": "New password",
+      "theme": "Theme"
     }
   }
 }

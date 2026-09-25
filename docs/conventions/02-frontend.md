@@ -125,6 +125,9 @@
   [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.4。
 - 元件的變體、尺寸、布林外觀用 `data-*` 屬性表達（`data-variant={variant}`、`data-block={block || undefined}`），
   CSS 選 `.root[data-variant='primary']`；測試斷言屬性，不斷言 class（👀 Review）。
+- 顏色與陰影只引用 alias 層（`--color-*`、`--shadow-*`），不直接用 `--seed-gray-*` 等 seed 色——
+  深色主題只覆寫 alias（`components/` 的 CSS 有 🔒 測試）。中性底色用 `--color-fill-subtle` / `--color-fill`。
+  見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §4.4。
 - 語意色：`-main` 給背景／邊框，`-text` 給文字（對比度不同）。見
   [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §4.2。
 

@@ -54,6 +54,15 @@ describe('設計系統的結構規則', () => {
     expect(offenders, `發現寫死的色碼：${offenders.join(', ')}`).toEqual([]);
   });
 
+  it('CSS 的顏色與陰影只引用 alias 層，不直接用 seed 色（換主題只換 alias，docs/architecture/frontend/07-ui-system.md §4.1）', () => {
+    const offenders = cssFiles.flatMap((file) =>
+      [...readFileSync(file, 'utf8').matchAll(/var\(--seed-(?!space-|radius-|font-)[\w-]+\)/g)].map(
+        (match) => `${file.split('/components/')[1] as string}: ${match[0]}`,
+      ),
+    );
+    expect(offenders, `發現直接引用 seed 色：${offenders.join(', ')}`).toEqual([]);
+  });
+
   it('樣式一律是 CSS Module，整份包在 @layer components（07-ui-system.md §3.4）', () => {
     const offenders = cssFiles
       .filter((file) => {

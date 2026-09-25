@@ -4,3 +4,4 @@ export * from './feature-flags';
 export * from './http-context';
 export * from './i18n';
 export * from './realtime';
+export * from './theme';

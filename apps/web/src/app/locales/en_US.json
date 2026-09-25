@@ -137,5 +137,12 @@
       "read": "View system info",
       "update": "Change system settings"
     }
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "current": "Current"
   }
 }

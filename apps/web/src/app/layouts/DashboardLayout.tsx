@@ -21,6 +21,8 @@ import { ROLE_PAGE } from '@/features/role';
 import { USER_PAGE } from '@/features/user';
 import { cn } from '@/shared/utils';
 
+import { ThemeMenu } from './ThemeMenu';
+
 import './DashboardLayout.css';
 
 interface MenuItem {
@@ -127,6 +129,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             ☰
           </IconButton>
           <div className="flex-1" />
+          <ThemeMenu />
           <Menu
             trigger={
               <Button variant="ghost" data-testid="account-menu-trigger">

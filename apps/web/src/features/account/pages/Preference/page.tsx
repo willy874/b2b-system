@@ -7,7 +7,8 @@ import { Select } from '@/components/Select';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
 import { getPreferenceSections } from '@/core/preference';
-import { useLocaleStore, useTimezoneStore } from '@/core/store';
+import { useLocaleStore, useThemeStore, useTimezoneStore } from '@/core/store';
+import { THEME_OPTIONS } from '@/core/theme';
 import { Languages } from '@/shared/constants/lang';
 import type { Language } from '@/shared/constants/lang';
 
@@ -20,6 +21,8 @@ export default function PreferencePage() {
   const setLocale = useLocaleStore((state) => state.setLocale);
   const timezone = useTimezoneStore((state) => state.timezone);
   const setTimezone = useTimezoneStore((state) => state.setTimezone);
+  const theme = useThemeStore((state) => state.theme);
+  const setTheme = useThemeStore((state) => state.setTheme);
 
   const sync = useMutation({
     ...getUpdateProfileMutationOptions(),
@@ -66,6 +69,24 @@ export default function PreferencePage() {
           }}
           options={TIMEZONES.map((zone) => ({ value: zone, label: zone }))}
           data-testid="preference-timezone"
+        />
+      </Field>
+
+      {/* 主題只存在本機，不呼叫 sync */}
+      <Field label={t('account.field.theme')} description={t('account.preference.themeHint')}>
+        <Select
+          value={theme}
+          onValueChange={(value) => {
+            const option = THEME_OPTIONS.find((item) => item.value === value);
+            if (!option) return;
+            setTheme(option.value);
+            toast.success(t('account.preference.saved'));
+          }}
+          options={THEME_OPTIONS.map((option) => ({
+            value: option.value,
+            label: t(option.labelKey),
+          }))}
+          data-testid="preference-theme"
         />
       </Field>
 

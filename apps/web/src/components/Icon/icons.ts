@@ -18,11 +18,14 @@ import List from '@/assets/icons/list.svg?react';
 import Logout from '@/assets/icons/logout.svg?react';
 import Menu from '@/assets/icons/menu.svg?react';
 import Minus from '@/assets/icons/minus.svg?react';
+import Monitor from '@/assets/icons/monitor.svg?react';
+import Moon from '@/assets/icons/moon.svg?react';
 import More from '@/assets/icons/more.svg?react';
 import Plus from '@/assets/icons/plus.svg?react';
 import Search from '@/assets/icons/search.svg?react';
 import Settings from '@/assets/icons/settings.svg?react';
 import Shield from '@/assets/icons/shield.svg?react';
+import Sun from '@/assets/icons/sun.svg?react';
 import Trash from '@/assets/icons/trash.svg?react';
 import Unlock from '@/assets/icons/unlock.svg?react';
 import Upload from '@/assets/icons/upload.svg?react';
@@ -55,11 +58,14 @@ export const ICONS = {
   logout: Logout,
   menu: Menu,
   minus: Minus,
+  monitor: Monitor,
+  moon: Moon,
   more: More,
   plus: Plus,
   search: Search,
   settings: Settings,
   shield: Shield,
+  sun: Sun,
   trash: Trash,
   unlock: Unlock,
   upload: Upload,

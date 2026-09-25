@@ -13,7 +13,7 @@
   }
 
   .root[data-tone='neutral'] {
-    background: var(--seed-gray-100);
+    background: var(--color-fill-subtle);
     color: var(--color-fg-muted);
     border-color: var(--color-border);
   }
