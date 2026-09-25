@@ -286,78 +286,6 @@
         "tags": ["approvals"]
       }
     },
-    "/approvals/batch-approve": {
-      "post": {
-        "operationId": "ApprovalController_approveMany",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BatchIdsRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/BatchResult"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "批次快速核准（不指派角色、不附意見；逐筆回報結果，另需各類型要求的權限）",
-        "tags": ["approvals"]
-      }
-    },
-    "/approvals/batch-reject": {
-      "post": {
-        "operationId": "ApprovalController_rejectMany",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BatchIdsRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/BatchResult"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "批次快速駁回（不附意見；逐筆回報結果）",
-        "tags": ["approvals"]
-      }
-    },
     "/auth/login": {
       "post": {
         "operationId": "AuthController_login",
@@ -961,114 +889,6 @@
         "tags": ["users"]
       }
     },
-    "/users/batch-delete": {
-      "post": {
-        "operationId": "UserController_removeMany",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BatchIdsRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/BatchResult"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "批次刪除使用者（逐筆回報結果）",
-        "tags": ["users"]
-      }
-    },
-    "/users/batch-unlock": {
-      "post": {
-        "operationId": "UserController_unlockMany",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BatchIdsRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/BatchResult"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "批次解鎖使用者（逐筆回報結果）",
-        "tags": ["users"]
-      }
-    },
-    "/users/batch-status": {
-      "post": {
-        "operationId": "UserController_updateStatusMany",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BatchUserStatusRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/BatchResult"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "批次啟用／停用使用者（逐筆回報結果）",
-        "tags": ["users"]
-      }
-    },
     "/roles": {
       "get": {
         "operationId": "RoleController_list",
@@ -1243,42 +1063,6 @@
             "description": ""
           }
         },
-        "tags": ["roles"]
-      }
-    },
-    "/roles/batch-delete": {
-      "post": {
-        "operationId": "RoleController_removeMany",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BatchIdsRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/BatchResult"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "批次刪除角色（逐筆回報結果；有人持有的角色不刪）",
         "tags": ["roles"]
       }
     },
@@ -1519,63 +1303,6 @@
       }
     },
     "schemas": {
-      "BatchIdsRequest": {
-        "type": "object",
-        "properties": {
-          "ids": {
-            "minItems": 1,
-            "maxItems": 200,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-            }
-          }
-        },
-        "required": ["ids"],
-        "additionalProperties": false
-      },
-      "BatchFailure": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "code": {
-            "type": "string"
-          },
-          "details": {
-            "type": "object",
-            "additionalProperties": {}
-          }
-        },
-        "required": ["id", "code"],
-        "additionalProperties": false
-      },
-      "BatchResult": {
-        "type": "object",
-        "properties": {
-          "succeeded": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-            }
-          },
-          "failed": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/BatchFailure"
-            }
-          }
-        },
-        "required": ["succeeded", "failed"],
-        "additionalProperties": false
-      },
       "ApprovalStatus": {
         "type": "string",
         "enum": ["pending", "approved", "rejected"]
@@ -1809,27 +1536,6 @@
           "changes",
           "metadata"
         ],
-        "additionalProperties": false
-      },
-      "BatchUserStatusRequest": {
-        "type": "object",
-        "properties": {
-          "ids": {
-            "minItems": 1,
-            "maxItems": 200,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-            }
-          },
-          "status": {
-            "type": "string",
-            "enum": ["active", "inactive"]
-          }
-        },
-        "required": ["ids", "status"],
         "additionalProperties": false
       },
       "CreateUserRequest": {

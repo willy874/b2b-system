@@ -108,9 +108,6 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /users/:id/permissions': 'user:read',
       'POST /users/:id/reset-password': 'user:resetPassword',
       'POST /users/:id/unlock': 'user:update',
-      'POST /users/batch-delete': 'user:delete',
-      'POST /users/batch-unlock': 'user:update',
-      'POST /users/batch-status': 'user:update',
       'GET /roles': 'role:read',
       'POST /roles': 'role:create',
       'GET /roles/:id': 'role:read',
@@ -120,7 +117,6 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'PATCH /roles/:id/permissions': 'role:grantPermission',
       'GET /roles/:id/users': 'role:read+user:read',
       'POST /roles/:id/duplicate': 'role:create',
-      'POST /roles/batch-delete': 'role:delete',
       'GET /permissions': 'permission:read',
       'GET /audit-logs': 'auditLog:read',
       'GET /audit-logs/:id': 'auditLog:read',
@@ -131,8 +127,6 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /approvals/:id': 'approval:read',
       'POST /approvals/:id/approve': 'approval:review',
       'POST /approvals/:id/reject': 'approval:review',
-      'POST /approvals/batch-approve': 'approval:review',
-      'POST /approvals/batch-reject': 'approval:review',
     };
 
     for (const [route, declaration] of Object.entries(expected)) {

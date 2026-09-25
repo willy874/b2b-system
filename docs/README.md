@@ -126,7 +126,8 @@ docs/
     ├── 0008-realtime-with-socket-io.md
     ├── 0009-table-batch-operations.md
     ├── 0010-self-built-json-editor.md
-    └── 0011-codemirror-json-editor.md
+    ├── 0011-codemirror-json-editor.md
+    └── 0012-batch-queue-worker.md
 ```
 
 ---

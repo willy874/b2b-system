@@ -2,14 +2,12 @@ import { ChangeKind, ChangeSource } from '@game-editor/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser, PermissionKey } from '@/common/types';
-import { runBatch } from '@/core/batch';
-import type { BatchResult } from '@/core/batch';
-import type { Database, Transaction } from '@/core/database';
+import type { Database } from '@/core/database';
 import { DRIZZLE, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
-import type { PermissionRow, RoleRow } from '@/db/schema';
+import type { PermissionRow } from '@/db/schema';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
@@ -22,15 +20,6 @@ import type { UpdateRoleDto, UpdateRolePermissionsDto } from './dto/update-role.
 import { ROLE_AUDIT_FIELDS, slugify } from './role.constants';
 import type { RoleWithCounts } from './role.repository';
 import { RoleRepository } from './role.repository';
-
-/** 刪除一個角色所需的資料：交易前查好，交易與事件都用同一份。 */
-interface RoleRemoval {
-  role: RoleRow;
-  userCount: number;
-  /** 刪除前的持有者（cascade 之後就查不到了）。 */
-  affected: string[];
-  forced: boolean;
-}
 
 function toDto(role: RoleWithCounts): RoleDto {
   return {
@@ -244,70 +233,36 @@ export class RoleService {
   }
 
   async remove(id: string, query: DeleteRoleDto, actor: AuthUser): Promise<void> {
-    const plan = await this.prepareRemove(id, query.force === true);
-    await withTransaction(this.db, (tx) => this.applyRemove(plan, actor, tx));
-    this.invalidateRemoved(plan);
-    this.publishRemoved([plan]);
-  }
-
-  /** 批次刪除：不提供 `force`，有人持有的角色回報 `ROLE_IN_USE`（ADR-0009 D10）。 */
-  removeMany(ids: readonly string[], actor: AuthUser): Promise<BatchResult> {
-    return runBatch(this.db, ids, {
-      prepare: (id) => this.prepareRemove(id, false),
-      apply: (plan, tx) => this.applyRemove(plan, actor, tx),
-      invalidate: (plan) => this.invalidateRemoved(plan),
-      publish: (plans) => this.publishRemoved(plans),
-    });
-  }
-
-  // ── 刪除的三段：檢查 → 交易內寫入與稽核 → 快取失效；事件由呼叫端在最後發 ──
-
-  private async prepareRemove(id: string, force: boolean): Promise<RoleRemoval> {
     const role = await this.getExisting(id);
     if (role.isSystem) throw new AppException('ROLE_SYSTEM_PROTECTED');
 
     const userCount = await this.repo.countUsers(id);
-    if (userCount > 0 && !force) {
+    if (userCount > 0 && !query.force) {
       throw new AppException('ROLE_IN_USE', { userCount });
     }
 
     // ★ 順序陷阱：先查出受影響的使用者，再刪角色
     const affected = await this.repo.findUserIdsByRole(id);
-    return { role, userCount, affected, forced: force };
-  }
 
-  private async applyRemove(
-    { role, userCount, forced }: RoleRemoval,
-    actor: AuthUser,
-    tx: Transaction,
-  ): Promise<void> {
-    await this.repo.softDelete(role.id, actor.id, tx);
-    await this.audit.record(
-      {
-        action: 'role.delete',
-        resourceType: 'role',
-        resourceId: role.id,
-        resourceName: role.name,
-        changes: { before: { name: role.name, slug: role.slug } },
-        metadata: { forced, userCount },
-      },
-      tx,
-    );
-  }
+    await withTransaction(this.db, async (tx) => {
+      await this.repo.softDelete(id, actor.id, tx);
+      await this.audit.record(
+        {
+          action: 'role.delete',
+          resourceType: 'role',
+          resourceId: id,
+          resourceName: role.name,
+          changes: { before: { name: role.name, slug: role.slug } },
+          metadata: { forced: query.force === true, userCount },
+        },
+        tx,
+      );
+    });
 
-  private invalidateRemoved({ affected }: RoleRemoval): void {
     this.permissionService.invalidateUsers(affected);
-  }
-
-  private publishRemoved(plans: readonly RoleRemoval[]): void {
-    const affected = [...new Set(plans.flatMap((plan) => plan.affected))];
     this.events.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: affected });
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: plans.map(({ role }) => ({
-        resource: ChangeSource.ROLE,
-        kind: ChangeKind.DELETE,
-        id: role.id,
-      })),
+      changes: [{ resource: ChangeSource.ROLE, kind: ChangeKind.DELETE, id }],
       affectedUserIds: affected,
     });
   }

@@ -98,9 +98,7 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 與 [`../conventions/03-backend.md`](../conventions/03-backend.md) §1 規則 6 一致：稽核在交易內，
 快取失效與事件在交易後。
 
-批次核准（`POST /approvals/batch-approve`，[ADR-0009](../adr/0009-table-batch-operations.md)）逐筆走 ①②，
-每筆一個交易、失敗的收進 `failed`；③④ 延到整批結束後才做——各筆的 `afterApply()` 照常呼叫，
-④ 合併成一個帶多筆 `changes` 的 approval update。批次駁回同理（沒有 ③）。
+批次核准／駁回沒有專用端點，由前端逐筆呼叫單筆 API，見 [ADR-0012](../adr/0012-batch-queue-worker.md)。
 
 ---
 
@@ -177,7 +175,7 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 | 審批列表   | `/approval`，Page Key `APPROVAL`（`approval:read`），選單「審批」                        |
 | 審核對話框 | `/approval/$approvalId`：申請內容、角色（可搜尋多選）、審核意見；核准／駁回固定在 footer |
 | 快速審核   | 列表「操作」欄：待審列的 ✓ 核准／✗ 駁回，確認後直接送出。**不指派角色、不附意見**；要指派角色改開對話框。沒有 `approval:review` 時整欄不出現；缺類型要求的權限時核准鈕停用並說明原因 |
-| 批次審核   | 勾選後的批次操作列：核准／駁回，語意同快速審核（`useApprovalBatchActions`）。只送出待審的列，核准另需類型要求的權限；逐筆結果由 `useBatchRunner` 顯示 |
+| 批次審核   | 勾選後的批次操作列：核准／駁回，語意同快速審核（`useApprovalBatchActions`、`features/approval/batch.ts`）。只送出待審的列，核准另需類型要求的權限；送進全域佇列逐筆呼叫單筆的核准／駁回端點，進度與結果見 [`../architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §6.2 |
 | 權限 facade | `useApprovalPermission()`：`canReview`、`canApproveRegistration`、`canAssignRole`        |
 | 可見性     | `useApprovalReviewAccess()`：未水合／無 `approval:review`／已審核 → 不顯示審核操作       |
 | 快取       | `approval` 資源（`APPROVAL_LIST` ／ `APPROVAL_DETAIL`）；核准註冊另宣告 `user` create    |

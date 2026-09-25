@@ -1,21 +1,6 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
 // 來源：Game Editor API 0.0.0（OpenAPI 3.0.0）
 
-export interface BatchIdsRequest {
-  ids: Array<string>;
-}
-
-export interface BatchFailure {
-  id: string;
-  code: string;
-  details?: Record<string, unknown>;
-}
-
-export interface BatchResult {
-  succeeded: Array<string>;
-  failed: Array<BatchFailure>;
-}
-
 export const ApprovalStatus = {
   pending: 'pending',
   approved: 'approved',
@@ -80,11 +65,6 @@ export interface AuditLog {
   errorCode: string | null;
   changes: Record<string, unknown> | null;
   metadata: Record<string, unknown> | null;
-}
-
-export interface BatchUserStatusRequest {
-  ids: Array<string>;
-  status: 'active' | 'inactive';
 }
 
 export interface CreateUserRequest {

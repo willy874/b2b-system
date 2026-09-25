@@ -1,6 +1,6 @@
 # ADR-0009 — 列表的批次操作：後端批次端點、逐筆交易、部分成功
 
-- 狀態：**提案中（待確認）**
+- 狀態：**已被取代**（[ADR-0012](./0012-batch-queue-worker.md)：改為前端全域佇列逐筆呼叫單筆 API，批次端點已移除）
 - 日期：2026-09-25
 - 相關：[`../architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §6、[`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md)、[`../rbac/04-api-spec.md`](../rbac/04-api-spec.md)、[ADR-0008](./0008-realtime-with-socket-io.md)
 

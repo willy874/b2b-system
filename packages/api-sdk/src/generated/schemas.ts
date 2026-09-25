@@ -10,10 +10,6 @@ import type {
   ApproveApprovalRequest,
   AuditLog,
   AuditLogSummary,
-  BatchFailure,
-  BatchIdsRequest,
-  BatchResult,
-  BatchUserStatusRequest,
   ChangePasswordRequest,
   CreateRoleRequest,
   CreateUserRequest,
@@ -44,46 +40,6 @@ import type {
   UserRoles,
   UserStatus,
 } from './models';
-
-export const BatchIdsRequestSchema = z.object({
-  ids: z
-    .array(
-      z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-    )
-    .min(1)
-    .max(200),
-}) satisfies z.ZodType<BatchIdsRequest>;
-
-export const BatchFailureSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  code: z.string(),
-  details: z.record(z.string(), z.unknown()).optional(),
-}) satisfies z.ZodType<BatchFailure>;
-
-export const BatchResultSchema = z.object({
-  succeeded: z.array(
-    z
-      .uuid()
-      .regex(
-        new RegExp(
-          '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-        ),
-      ),
-  ),
-  failed: z.array(BatchFailureSchema),
-}) satisfies z.ZodType<BatchResult>;
 
 export const ApprovalStatusSchema = z.enum([
   'pending',
@@ -177,22 +133,6 @@ export const AuditLogSchema = z.object({
   changes: z.record(z.string(), z.unknown()).nullable(),
   metadata: z.record(z.string(), z.unknown()).nullable(),
 }) satisfies z.ZodType<AuditLog>;
-
-export const BatchUserStatusRequestSchema = z.object({
-  ids: z
-    .array(
-      z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-    )
-    .min(1)
-    .max(200),
-  status: z.enum(['active', 'inactive']),
-}) satisfies z.ZodType<BatchUserStatusRequest>;
 
 export const CreateUserRequestSchema = z.object({
   email: z

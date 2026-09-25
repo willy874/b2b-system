@@ -3,13 +3,7 @@
 
 import { z } from 'zod';
 
-import type {
-  ApprovalRequest,
-  ApproveApprovalRequest,
-  BatchIdsRequest,
-  BatchResult,
-  RejectApprovalRequest,
-} from '../models';
+import type { ApprovalRequest, ApproveApprovalRequest, RejectApprovalRequest } from '../models';
 import { buildUrl, request } from '../runtime';
 import type {
   ApiResponse,
@@ -20,8 +14,6 @@ import type {
 import {
   ApprovalRequestSchema,
   ApproveApprovalRequestSchema,
-  BatchIdsRequestSchema,
-  BatchResultSchema,
   RejectApprovalRequestSchema,
 } from '../schemas';
 
@@ -257,116 +249,4 @@ export function approvalControllerReject(
   options?: RequestOptions,
 ): Promise<ApprovalControllerRejectResult> {
   return request<ApprovalControllerRejectResult>(approvalControllerRejectOperation, input, options);
-}
-
-// POST /approvals/batch-approve
-
-export type ApprovalControllerApproveManyBody = BatchIdsRequest;
-
-export interface ApprovalControllerApproveManyInput {
-  body: ApprovalControllerApproveManyBody;
-}
-
-export interface ApprovalControllerApproveManyResponses {
-  200: {
-    data: BatchResult;
-  };
-}
-
-export type ApprovalControllerApproveManyResponse = ApprovalControllerApproveManyResponses[200];
-
-export type ApprovalControllerApproveManyResult = ApiResponse<
-  200,
-  ApprovalControllerApproveManyResponses[200]
->;
-
-export const ApprovalControllerApproveManySchemas = {
-  body: BatchIdsRequestSchema,
-  responses: {
-    200: z.object({
-      data: BatchResultSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
-export function getApprovalControllerApproveManyUrl(): string {
-  return buildUrl('/approvals/batch-approve');
-}
-
-const approvalControllerApproveManyOperation: OperationDefinition = {
-  id: 'ApprovalController_approveMany',
-  method: 'POST',
-  path: '/approvals/batch-approve',
-  bodyType: 'json',
-  contentType: 'application/json',
-  responseTypes: { 200: 'json' },
-  schemas: ApprovalControllerApproveManySchemas,
-};
-
-/** 批次快速核准（不指派角色、不附意見；逐筆回報結果，另需各類型要求的權限） */
-export function approvalControllerApproveMany(
-  input: ApprovalControllerApproveManyInput,
-  options?: RequestOptions,
-): Promise<ApprovalControllerApproveManyResult> {
-  return request<ApprovalControllerApproveManyResult>(
-    approvalControllerApproveManyOperation,
-    input,
-    options,
-  );
-}
-
-// POST /approvals/batch-reject
-
-export type ApprovalControllerRejectManyBody = BatchIdsRequest;
-
-export interface ApprovalControllerRejectManyInput {
-  body: ApprovalControllerRejectManyBody;
-}
-
-export interface ApprovalControllerRejectManyResponses {
-  200: {
-    data: BatchResult;
-  };
-}
-
-export type ApprovalControllerRejectManyResponse = ApprovalControllerRejectManyResponses[200];
-
-export type ApprovalControllerRejectManyResult = ApiResponse<
-  200,
-  ApprovalControllerRejectManyResponses[200]
->;
-
-export const ApprovalControllerRejectManySchemas = {
-  body: BatchIdsRequestSchema,
-  responses: {
-    200: z.object({
-      data: BatchResultSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
-export function getApprovalControllerRejectManyUrl(): string {
-  return buildUrl('/approvals/batch-reject');
-}
-
-const approvalControllerRejectManyOperation: OperationDefinition = {
-  id: 'ApprovalController_rejectMany',
-  method: 'POST',
-  path: '/approvals/batch-reject',
-  bodyType: 'json',
-  contentType: 'application/json',
-  responseTypes: { 200: 'json' },
-  schemas: ApprovalControllerRejectManySchemas,
-};
-
-/** 批次快速駁回（不附意見；逐筆回報結果） */
-export function approvalControllerRejectMany(
-  input: ApprovalControllerRejectManyInput,
-  options?: RequestOptions,
-): Promise<ApprovalControllerRejectManyResult> {
-  return request<ApprovalControllerRejectManyResult>(
-    approvalControllerRejectManyOperation,
-    input,
-    options,
-  );
 }

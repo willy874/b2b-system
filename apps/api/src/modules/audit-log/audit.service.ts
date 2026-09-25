@@ -35,8 +35,6 @@ export class AuditService {
         ip: ctx?.ip,
         userAgent: ctx?.userAgent,
         requestId: ctx?.requestId,
-        // 同一批共用 requestId；batch 標記讓人一眼看出這筆是批次操作的一部分
-        ...(ctx?.batch && { batch: ctx.batch }),
         ...input.metadata,
       },
     });

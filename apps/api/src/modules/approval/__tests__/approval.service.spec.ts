@@ -51,7 +51,7 @@ function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperA
   const db = { transaction: vi.fn((fn: (t: unknown) => unknown) => fn(tx)) };
   const repo = {
     create: vi.fn(async (values: Partial<ApprovalRequestRow>) => row(values)),
-    findById: vi.fn(async (_id: string): Promise<ApprovalRequestRow | undefined> => row()),
+    findById: vi.fn(async (): Promise<ApprovalRequestRow | undefined> => row()),
     findPending: vi.fn(async (): Promise<ApprovalRequestRow | undefined> => undefined),
     list: vi.fn(),
     review: vi.fn(
@@ -257,87 +257,6 @@ describe('ApprovalService.reject', () => {
     ctx.repo.review.mockResolvedValueOnce(undefined);
     await expectCode(ctx.service.reject('approval-1', {}, REVIEWER), 'APPROVAL_ALREADY_REVIEWED');
     expect(ctx.events.publish).not.toHaveBeenCalled();
-  });
-});
-
-describe('ApprovalService.approveMany', () => {
-  it('逐筆快速核准（不指派角色），收集逐筆錯誤；afterApply 與推播在整批結束後、只推播一次', async () => {
-    const ctx = setup();
-    ctx.repo.findById.mockImplementation(async (id: string) => {
-      if (id === 'missing') return undefined;
-      if (id === 'done') return row({ id, status: 'approved' });
-      return row({ id });
-    });
-    ctx.repo.review.mockImplementation(async (id: string, values) =>
-      row({ ...values, id, privatePayload: null }),
-    );
-
-    const result = await ctx.service.approveMany(['a', 'missing', 'done', 'b'], REVIEWER);
-
-    expect(result).toEqual({
-      succeeded: ['a', 'b'],
-      failed: [
-        { id: 'missing', code: 'APPROVAL_NOT_FOUND' },
-        { id: 'done', code: 'APPROVAL_ALREADY_REVIEWED' },
-      ],
-    });
-    expect(ctx.handler.apply).toHaveBeenCalledWith(
-      expect.objectContaining({ options: { roleIds: [] } }),
-      ctx.tx,
-    );
-    expect(ctx.repo.review).toHaveBeenCalledWith(
-      'a',
-      expect.objectContaining({ status: 'approved', reviewComment: null }),
-      ctx.tx,
-    );
-    expect(ctx.handler.afterApply).toHaveBeenCalledTimes(2);
-    expect(ctx.events.publish).toHaveBeenCalledTimes(1);
-    expect(ctx.events.publish).toHaveBeenCalledWith('resource.changed', {
-      changes: [
-        { resource: 'approval', kind: 'update', id: 'a' },
-        { resource: 'approval', kind: 'update', id: 'b' },
-      ],
-    });
-    const lastApply = ctx.handler.apply.mock.invocationCallOrder.at(-1)!;
-    expect(ctx.handler.afterApply.mock.invocationCallOrder[0]).toBeGreaterThan(lastApply);
-  });
-
-  it('缺少 handler 要求的權限 → 每筆記為 AUTHZ_FORBIDDEN，不發事件', async () => {
-    const ctx = setup({ permissions: new Set(['approval:review']), isSuperAdmin: false });
-    const result = await ctx.service.approveMany(['approval-1'], REVIEWER);
-    expect(result).toEqual({
-      succeeded: [],
-      failed: [
-        { id: 'approval-1', code: 'AUTHZ_FORBIDDEN', details: { missing: ['user:create'] } },
-      ],
-    });
-    expect(ctx.repo.review).not.toHaveBeenCalled();
-    expect(ctx.events.publish).not.toHaveBeenCalled();
-  });
-});
-
-describe('ApprovalService.rejectMany', () => {
-  it('逐筆駁回（不附意見）、不呼叫 handler；自己送出的記為 APPROVAL_SELF_REVIEW', async () => {
-    const ctx = setup();
-    ctx.repo.findById.mockImplementation(async (id: string) =>
-      row({ id, requesterId: id === 'mine' ? REVIEWER.id : null }),
-    );
-
-    const result = await ctx.service.rejectMany(['a', 'mine'], REVIEWER);
-
-    expect(result).toEqual({
-      succeeded: ['a'],
-      failed: [{ id: 'mine', code: 'APPROVAL_SELF_REVIEW' }],
-    });
-    expect(ctx.repo.review).toHaveBeenCalledWith(
-      'a',
-      expect.objectContaining({ status: 'rejected', reviewComment: null }),
-      ctx.tx,
-    );
-    expect(ctx.handler.apply).not.toHaveBeenCalled();
-    expect(ctx.events.publish).toHaveBeenCalledWith('resource.changed', {
-      changes: [{ resource: 'approval', kind: 'update', id: 'a' }],
-    });
   });
 });
 

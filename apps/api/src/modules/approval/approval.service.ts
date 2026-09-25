@@ -2,9 +2,7 @@ import { ChangeKind, ChangeSource } from '@game-editor/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser, PermissionKey } from '@/common/types';
-import { runBatch } from '@/core/batch';
-import type { BatchResult } from '@/core/batch';
-import type { Database, Transaction } from '@/core/database';
+import type { Database } from '@/core/database';
 import { DRIZZLE, withTransaction } from '@/core/database';
 import { AppException, constraintNameOf, isUniqueViolation } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
@@ -17,13 +15,7 @@ import { ApprovalHandlerRegistry } from './approval-handler.registry';
 import { PENDING_SUBJECT_CONSTRAINT } from './approval.constants';
 import type { ApprovalType } from './approval.constants';
 import { ApprovalRepository } from './approval.repository';
-import type {
-  ApprovalContext,
-  ApprovalHandler,
-  ApprovalOutcome,
-  ApproveOptions,
-  SubmitApprovalInput,
-} from './approval.types';
+import type { ApprovalContext, ApprovalHandler, SubmitApprovalInput } from './approval.types';
 import type {
   ApprovalRequestDto,
   ApproveApprovalDto,
@@ -48,13 +40,6 @@ function toDto(row: ApprovalRequestRow): ApprovalRequestDto {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
-}
-
-/** 核准一筆的檢查結果，交給交易內的套用步驟。 */
-interface ApprovePlan {
-  request: ApprovalRequestRow;
-  handler: ApprovalHandler;
-  ctx: ApprovalContext;
 }
 
 /**
@@ -122,7 +107,7 @@ export class ApprovalService {
       throw error;
     }
 
-    this.publishChanged([created.id], ChangeKind.CREATE);
+    this.publishChanged(created.id, ChangeKind.CREATE);
     return toDto(created);
   }
 
@@ -140,38 +125,54 @@ export class ApprovalService {
     dto: ApproveApprovalDto,
     reviewer: AuthUser,
   ): Promise<ApprovalRequestDto> {
-    const plan = await this.prepareApprove(id, { roleIds: dto.roleIds }, reviewer);
-    const { reviewed, outcome } = await withTransaction(this.db, (tx) =>
-      this.applyApprove(plan, dto.comment ?? null, tx),
-    );
-    await plan.handler.afterApply(plan.ctx, outcome);
-    this.publishChanged([id]);
-    return toDto(reviewed);
-  }
+    const request = await this.getPending(id, reviewer);
+    const handler = this.handlers.get(request.type);
+    const ctx: ApprovalContext = { request, reviewer, options: { roleIds: dto.roleIds } };
 
-  /**
-   * 批次核准＝逐筆「快速核准」：不指派角色、不附意見；要指派角色請逐筆審（ADR-0009 D15）。
-   * 各筆的 handler `afterApply` 與審批本身的推播都在整批結束後才執行。
-   */
-  approveMany(ids: readonly string[], reviewer: AuthUser): Promise<BatchResult> {
-    const outcomes = new Map<string, ApprovalOutcome>();
-    return runBatch(this.db, ids, {
-      prepare: (id) => this.prepareApprove(id, { roleIds: [] }, reviewer),
-      apply: async (plan, tx) => {
-        const { outcome } = await this.applyApprove(plan, null, tx);
-        outcomes.set(plan.request.id, outcome);
-      },
-      invalidate: () => undefined,
-      publish: async (plans) => {
-        await Promise.all(
-          plans.map((plan) => {
-            const outcome = outcomes.get(plan.request.id);
-            return outcome && plan.handler.afterApply(plan.ctx, outcome);
-          }),
-        );
-        this.publishChanged(plans.map((plan) => plan.request.id));
-      },
+    await this.assertPermissions(reviewer.id, handler.requiredPermissions(ctx));
+    await handler.assertApprovable(ctx);
+
+    const { reviewed, outcome } = await withTransaction(this.db, async (tx) => {
+      // 先搶下請求再套用：併發核准時，輸的那個在建立任何東西之前就 rollback
+      const row = await this.repo.review(
+        id,
+        {
+          status: 'approved',
+          reviewerId: reviewer.id,
+          reviewerName: reviewer.email,
+          reviewComment: dto.comment ?? null,
+          reviewedAt: new Date(),
+        },
+        tx,
+      );
+      if (!row) throw new AppException('APPROVAL_ALREADY_REVIEWED');
+
+      const applied = await handler.apply(ctx, tx);
+      await this.repo.setResult(id, applied.resourceId, tx);
+      await this.audit.record(
+        {
+          action: 'approval.approve',
+          resourceType: 'approval',
+          resourceId: id,
+          resourceName: request.requesterName,
+          changes: {
+            before: { status: 'pending' },
+            after: {
+              status: 'approved',
+              comment: dto.comment ?? null,
+              roleIds: dto.roleIds,
+              resultResourceId: applied.resourceId,
+            },
+          },
+        },
+        tx,
+      );
+      return { reviewed: { ...row, resultResourceId: applied.resourceId }, outcome: applied };
     });
+
+    await handler.afterApply(ctx, outcome);
+    this.publishChanged(id, ChangeKind.UPDATE);
+    return toDto(reviewed);
   }
 
   async reject(
@@ -180,116 +181,38 @@ export class ApprovalService {
     reviewer: AuthUser,
   ): Promise<ApprovalRequestDto> {
     const request = await this.getPending(id, reviewer);
-    const reviewed = await withTransaction(this.db, (tx) =>
-      this.applyReject(request, dto.comment ?? null, reviewer, tx),
-    );
-    this.publishChanged([id]);
-    return toDto(reviewed);
-  }
 
-  /** 批次駁回＝逐筆「快速駁回」：不附意見。 */
-  rejectMany(ids: readonly string[], reviewer: AuthUser): Promise<BatchResult> {
-    return runBatch(this.db, ids, {
-      prepare: (id) => this.getPending(id, reviewer),
-      apply: async (request, tx) => {
-        await this.applyReject(request, null, reviewer, tx);
-      },
-      invalidate: () => undefined,
-      publish: (requests) => this.publishChanged(requests.map((request) => request.id)),
-    });
-  }
-
-  // ── 單筆與批次共用的步驟：檢查 → 交易內寫入與稽核；afterApply 與推播由呼叫端在最後做 ──
-  // （ADR-0009 §D3／D4）
-
-  private async prepareApprove(
-    id: string,
-    options: ApproveOptions,
-    reviewer: AuthUser,
-  ): Promise<ApprovePlan> {
-    const request = await this.getPending(id, reviewer);
-    const handler = this.handlers.get(request.type);
-    const ctx: ApprovalContext = { request, reviewer, options };
-
-    await this.assertPermissions(reviewer.id, handler.requiredPermissions(ctx));
-    await handler.assertApprovable(ctx);
-    return { request, handler, ctx };
-  }
-
-  private async applyApprove(
-    { request, handler, ctx }: ApprovePlan,
-    comment: string | null,
-    tx: Transaction,
-  ): Promise<{ reviewed: ApprovalRequestRow; outcome: ApprovalOutcome }> {
-    // 先搶下請求再套用：併發核准時，輸的那個在建立任何東西之前就 rollback
-    const row = await this.repo.review(
-      request.id,
-      {
-        status: 'approved',
-        reviewerId: ctx.reviewer.id,
-        reviewerName: ctx.reviewer.email,
-        reviewComment: comment,
-        reviewedAt: new Date(),
-      },
-      tx,
-    );
-    if (!row) throw new AppException('APPROVAL_ALREADY_REVIEWED');
-
-    const outcome = await handler.apply(ctx, tx);
-    await this.repo.setResult(request.id, outcome.resourceId, tx);
-    await this.audit.record(
-      {
-        action: 'approval.approve',
-        resourceType: 'approval',
-        resourceId: request.id,
-        resourceName: request.requesterName,
-        changes: {
-          before: { status: 'pending' },
-          after: {
-            status: 'approved',
-            comment,
-            roleIds: ctx.options.roleIds,
-            resultResourceId: outcome.resourceId,
+    const reviewed = await withTransaction(this.db, async (tx) => {
+      const row = await this.repo.review(
+        id,
+        {
+          status: 'rejected',
+          reviewerId: reviewer.id,
+          reviewerName: reviewer.email,
+          reviewComment: dto.comment ?? null,
+          reviewedAt: new Date(),
+        },
+        tx,
+      );
+      if (!row) throw new AppException('APPROVAL_ALREADY_REVIEWED');
+      await this.audit.record(
+        {
+          action: 'approval.reject',
+          resourceType: 'approval',
+          resourceId: id,
+          resourceName: request.requesterName,
+          changes: {
+            before: { status: 'pending' },
+            after: { status: 'rejected', comment: dto.comment ?? null },
           },
         },
-      },
-      tx,
-    );
-    return { reviewed: { ...row, resultResourceId: outcome.resourceId }, outcome };
-  }
+        tx,
+      );
+      return row;
+    });
 
-  private async applyReject(
-    request: ApprovalRequestRow,
-    comment: string | null,
-    reviewer: AuthUser,
-    tx: Transaction,
-  ): Promise<ApprovalRequestRow> {
-    const row = await this.repo.review(
-      request.id,
-      {
-        status: 'rejected',
-        reviewerId: reviewer.id,
-        reviewerName: reviewer.email,
-        reviewComment: comment,
-        reviewedAt: new Date(),
-      },
-      tx,
-    );
-    if (!row) throw new AppException('APPROVAL_ALREADY_REVIEWED');
-    await this.audit.record(
-      {
-        action: 'approval.reject',
-        resourceType: 'approval',
-        resourceId: request.id,
-        resourceName: request.requesterName,
-        changes: {
-          before: { status: 'pending' },
-          after: { status: 'rejected', comment },
-        },
-      },
-      tx,
-    );
-    return row;
+    this.publishChanged(id, ChangeKind.UPDATE);
+    return toDto(reviewed);
   }
 
   // ── 業務規則 ─────────────────────────────────────────────
@@ -317,9 +240,9 @@ export class ApprovalService {
     if (missing.length) throw new AppException('AUTHZ_FORBIDDEN', { missing });
   }
 
-  private publishChanged(ids: readonly string[], kind: ChangeKind = ChangeKind.UPDATE): void {
+  private publishChanged(id: string, kind: ChangeKind): void {
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: ids.map((id) => ({ resource: ChangeSource.APPROVAL, kind, id })),
+      changes: [{ resource: ChangeSource.APPROVAL, kind, id }],
     });
   }
 }
