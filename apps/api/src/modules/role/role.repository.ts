@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, desc, eq, ilike, inArray, isNull, like, sql } from 'drizzle-orm';
-import type { SQL } from 'drizzle-orm';
+import type { SQL, SQLWrapper } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { DRIZZLE } from '@/core/database';
@@ -14,10 +14,25 @@ export interface RoleWithCounts extends RoleRow {
   userCount: number;
 }
 
+const permissionCountOf = (roleId: SQLWrapper | string) =>
+  sql<number>`(SELECT count(*)::int FROM ${rolePermissions} rp WHERE rp.role_id = ${roleId})`;
+
+// 軟刪除使用者不會清掉 user_roles，計數要排除已刪除的使用者（與 listUsers 一致）
+const userCountOf = (roleId: SQLWrapper | string) =>
+  sql<number>`(SELECT count(*)::int FROM ${userRoles} ur INNER JOIN ${users} u ON u.id = ur.user_id WHERE ur.role_id = ${roleId} AND u.deleted_at IS NULL)`;
+
+// 單表 select 時 Drizzle 會把 ${roles.id} 輸出成不帶表名的 "id"，在子查詢裡會被解析成 users.id；
+// 明確寫出表名才會關聯到外層的角色
+const OUTER_ROLE_ID = sql`${roles}.${sql.identifier(roles.id.name)}`;
+
+// 按數量排序時每個符合條件的角色都要先算完子查詢才能排；兩個子查詢都走 role_id 開頭的索引，
+// 角色數量級（數十～數百）下成本可忽略。user_roles 成長到百萬級再考慮反正規化成計數欄位。
 const SORT_COLUMNS = {
   createdAt: roles.createdAt,
   name: roles.name,
   slug: roles.slug,
+  permissionCount: permissionCountOf(OUTER_ROLE_ID),
+  userCount: userCountOf(OUTER_ROLE_ID),
 } as const;
 
 @Injectable()
@@ -64,8 +79,8 @@ export class RoleRepository {
     if (!role) return undefined;
     const [counts] = await this.db
       .select({
-        permissionCount: sql<number>`(SELECT count(*)::int FROM ${rolePermissions} rp WHERE rp.role_id = ${id})`,
-        userCount: sql<number>`(SELECT count(*)::int FROM ${userRoles} ur WHERE ur.role_id = ${id})`,
+        permissionCount: permissionCountOf(id),
+        userCount: userCountOf(id),
       })
       .from(roles)
       .where(eq(roles.id, id))
@@ -94,8 +109,8 @@ export class RoleRepository {
       this.db
         .select({
           role: roles,
-          permissionCount: sql<number>`(SELECT count(*)::int FROM ${rolePermissions} rp WHERE rp.role_id = ${roles.id})`,
-          userCount: sql<number>`(SELECT count(*)::int FROM ${userRoles} ur WHERE ur.role_id = ${roles.id})`,
+          permissionCount: SORT_COLUMNS.permissionCount,
+          userCount: SORT_COLUMNS.userCount,
         })
         .from(roles)
         .where(where)
@@ -195,6 +210,7 @@ export class RoleRepository {
     const [row] = await this.db
       .select({ total: sql<number>`count(*)::int` })
       .from(userRoles)
+      .innerJoin(users, and(eq(users.id, userRoles.userId), isNull(users.deletedAt)))
       .where(eq(userRoles.roleId, roleId));
     return row?.total ?? 0;
   }

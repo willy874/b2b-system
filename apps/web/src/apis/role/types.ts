@@ -1,7 +1,7 @@
 import type { SortEntry } from '@/shared/constants';
 
 /** 後端 `ListRoleSchema` 的排序白名單。 */
-export type RoleSortField = 'createdAt' | 'name' | 'slug';
+export type RoleSortField = 'createdAt' | 'name' | 'slug' | 'permissionCount' | 'userCount';
 
 export interface RoleListParams {
   offset: number;

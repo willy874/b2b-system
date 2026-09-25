@@ -8,6 +8,8 @@ export const ROLE_SORT_FIELDS = [
   'createdAt',
   'name',
   'slug',
+  'permissionCount',
+  'userCount',
 ] as const satisfies readonly RoleSortField[];
 
 /** `.catch()` 而非 `.default()`：使用者手改網址成 ?limit=abc 時退回預設值，不變成錯誤頁。 */

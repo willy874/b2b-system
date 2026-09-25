@@ -182,7 +182,25 @@
 | GET    | `/roles/:id/users`       | 🛡 `role:read` ＋ `user:read`       | 持有此角色的使用者         |
 | POST   | `/roles/:id/duplicate`   | 🛡 `role:create`                    | 以既有角色為範本建立新角色 |
 
-### 3.1 `POST /roles`
+### 3.1 `GET /roles`
+
+**Query**
+
+| 參數       | 型別                    | 預設         | 說明                                                                                                   |
+| ---------- | ----------------------- | ------------ | ------------------------------------------------------------------------------------------------------ |
+| `offset`   | int ≥ 0                 | 0            |                                                                                                        |
+| `limit`    | int 1–200               | 20           |                                                                                                        |
+| `keyword`  | string                  | —            | 模糊比對 name / slug                                                                                   |
+| `isSystem` | `true` \| `false`       | —            |                                                                                                        |
+| `sort`     | `<欄位>` \| `-<欄位>`[] | `-createdAt` | 同 `GET /users`；欄位為 `createdAt` / `name` / `slug` / `permissionCount` / `userCount`，不可重複      |
+
+- 每一列帶 `permissionCount`（授予的權限數）與 `userCount`（持有者數，**不含已軟刪除的使用者**，
+  與 `GET /roles/:id/users` 的結果一致）。
+- `permissionCount` / `userCount` 是查詢時以子查詢計算的衍生值，沒有對應欄位；
+  依它們排序時需先算完所有符合條件角色的計數，兩個子查詢都走 `role_id` 開頭的索引，
+  在角色數量級（數十～數百）下成本可忽略。
+
+### 3.2 `POST /roles`
 
 ```jsonc
 // Request
@@ -199,7 +217,7 @@
 - `slug` 由 `name` 自動產生（kebab-case ＋ 去重後綴），建立後不可變。
 - `permissionKeys` 受反提權檢查。
 
-### 3.2 `PATCH /roles/:id/permissions`
+### 3.3 `PATCH /roles/:id/permissions`
 
 ```jsonc
 // Request — 差異語意，避免整批取代造成的競態覆寫
@@ -218,14 +236,14 @@
 5. `LAST_SUPER_ADMIN` 檢查
 6. 交易寫入 → 失效快取 → 稽核
 
-### 3.3 `DELETE /roles/:id`
+### 3.4 `DELETE /roles/:id`
 
 - `isSystem` → `403 ROLE_SYSTEM_PROTECTED`
-- 尚有使用者持有 → 預設拒絕 `409 ROLE_IN_USE`，帶 `details.userCount`
+- 尚有（未刪除的）使用者持有 → 預設拒絕 `409 ROLE_IN_USE`，帶 `details.userCount`
   - 可加 `?force=true`（仍需 `role:delete`）強制刪除並連帶移除指派，
     此時稽核紀錄 `metadata.forced = true`
 
-### 3.4 `POST /roles/:id/duplicate`
+### 3.5 `POST /roles/:id/duplicate`
 
 ```jsonc
 { "name": "內容編輯（唯讀）" } // 未提供則自動命名為「<原名> Copy」/「Copy 2」…

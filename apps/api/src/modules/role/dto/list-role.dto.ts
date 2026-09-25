@@ -8,7 +8,7 @@ export const ListRoleSchema = PaginationSchema.extend({
     .enum(['true', 'false'])
     .transform((value) => value === 'true')
     .optional(),
-}).extend(SortSchema(['createdAt', 'name', 'slug']).shape);
+}).extend(SortSchema(['createdAt', 'name', 'slug', 'permissionCount', 'userCount']).shape);
 
 export type ListRoleDto = z.infer<typeof ListRoleSchema>;
 

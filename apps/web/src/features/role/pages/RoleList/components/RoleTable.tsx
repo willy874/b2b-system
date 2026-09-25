@@ -89,13 +89,11 @@ export function RoleTable({
       {
         id: 'permissionCount',
         header: t('role.field.permissionCount'),
-        enableSorting: false,
         cell: ({ row }) => row.original.permissionCount,
       },
       {
         id: 'userCount',
         header: t('role.field.userCount'),
-        enableSorting: false,
         cell: ({ row }) => row.original.userCount,
       },
       {
