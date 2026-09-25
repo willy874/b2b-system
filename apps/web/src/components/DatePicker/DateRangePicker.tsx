@@ -7,7 +7,7 @@ import { Popover } from '../Popover';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 import { Calendar } from './Calendar';
-import { parseDate } from './calendar-utils';
+import { formatDate, parseDate } from './calendar-utils';
 import type { DateValue } from './calendar-utils';
 
 import styles from './DatePicker.module.css';
@@ -28,6 +28,8 @@ export interface DateRangePickerProps extends SlotOverrides<DateRangePickerSlot>
   onValueChange: (value: DateRange) => void;
   min?: DateValue;
   max?: DateValue;
+  /** 區間最多涵蓋幾天（含頭尾）。選了起點之後，超過的日期不可選。 */
+  maxSpanDays?: number;
   placeholder?: string;
   disabled?: boolean;
   clearable?: boolean;
@@ -46,6 +48,7 @@ export function DateRangePicker({
   onValueChange,
   min,
   max,
+  maxSpanDays,
   placeholder = 'YYYY-MM-DD ~ YYYY-MM-DD',
   disabled,
   clearable = true,
@@ -73,6 +76,8 @@ export function DateRangePicker({
     onValueChange({ from: value.from, to: next });
     setOpen(false);
   };
+
+  const effectiveMax = spanLimitedMax(value, max ?? null, maxSpanDays);
 
   const label =
     value.from && value.to
@@ -104,7 +109,7 @@ export function DateRangePicker({
           selected={[value.from, value.to]}
           range={{ start: value.from, end: value.to }}
           min={min}
-          max={max}
+          max={effectiveMax}
           locale={locale}
           defaultMonth={defaultMonth}
           onSelect={handleSelect}
@@ -124,4 +129,13 @@ export function DateRangePicker({
       )}
     </div>
   );
+}
+
+/** 只選了起點時，終點不能超過「起點 + maxSpanDays − 1」；與原本的 `max` 取較早者。 */
+function spanLimitedMax(value: DateRange, max: DateValue, maxSpanDays?: number): DateValue {
+  const from = parseDate(value.from);
+  if (!maxSpanDays || !from || value.to) return max;
+  const spanMax = from.add(maxSpanDays - 1, 'day');
+  const original = parseDate(max);
+  return original && original.isBefore(spanMax, 'day') ? max : formatDate(spanMax);
 }

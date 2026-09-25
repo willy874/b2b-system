@@ -28,6 +28,11 @@ export const WithMinMax: Story = {
   args: { min: '2024-03-01', max: '2024-03-25', defaultMonth: '2024-03-01' },
 };
 
+/** 選了起點之後，超過 7 天的日期變成不可選。 */
+export const WithMaxSpan: Story = {
+  args: { value: { from: '2024-03-05', to: null }, maxSpanDays: 7, defaultMonth: '2024-03-01' },
+};
+
 export const Disabled: Story = {
   args: { disabled: true, value: { from: '2024-03-05', to: '2024-03-18' } },
 };

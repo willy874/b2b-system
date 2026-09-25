@@ -103,6 +103,9 @@ function DateRangeControl({ field, value, onChange }: ControlProps<DateRangeFilt
       onValueChange={({ from, to }) =>
         onChange(from || to ? { from: from ?? undefined, to: to ?? undefined } : undefined)
       }
+      min={field.min}
+      max={field.max}
+      maxSpanDays={field.maxSpanDays}
       disabled={field.disabled}
       aria-label={field.label}
       labels={{ clear: t('common.clear'), open: field.label, separator: '~' }}

@@ -50,6 +50,11 @@ export interface DateRangeFilterValue {
 
 export interface DateRangeFilterField<K extends string = string> extends FilterFieldBase<K> {
   type: 'dateRange';
+  /** 可選的最早／最晚日期（`YYYY-MM-DD`） */
+  min?: string;
+  max?: string;
+  /** 區間最多涵蓋幾天（含頭尾），對應後端的查詢範圍上限 */
+  maxSpanDays?: number;
 }
 
 /**

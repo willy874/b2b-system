@@ -76,4 +76,33 @@ describe('DateRangePicker', () => {
     await userEvent.click(screen.getByTestId('date-range-picker-clear'));
     expect(onValueChange).toHaveBeenCalledWith({ from: null, to: null });
   });
+
+  it('maxSpanDays：選了起點後，超過跨度的日期不可選', async () => {
+    render(
+      <DateRangePicker
+        value={{ from: '2026-09-10', to: null }}
+        onValueChange={vi.fn()}
+        maxSpanDays={7}
+        aria-label="期間"
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: '期間' }));
+    expect(await findDay('2026-09-16')).toBeEnabled();
+    expect(getDay('2026-09-17')).toBeDisabled();
+  });
+
+  it('maxSpanDays 與 max 取較早者', async () => {
+    render(
+      <DateRangePicker
+        value={{ from: '2026-09-10', to: null }}
+        onValueChange={vi.fn()}
+        max="2026-09-12"
+        maxSpanDays={7}
+        aria-label="期間"
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: '期間' }));
+    expect(await findDay('2026-09-12')).toBeEnabled();
+    expect(getDay('2026-09-13')).toBeDisabled();
+  });
 });
