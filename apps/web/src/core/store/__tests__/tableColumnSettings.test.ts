@@ -52,7 +52,7 @@ describe('resolveColumnSettings（把存下來的設定套到目前的欄位）'
     });
   });
 
-  it('工具欄的預設：勾選欄固定在 start、釘選欄隱藏；已存過設定的表新加這兩欄時也套用', () => {
+  it('工具欄的預設：勾選欄固定在 start、釘選欄隱藏；已存過設定的表新加這兩欄時也套用，並插在最前面', () => {
     const ids = ['__select', '__pin', 'a'];
     expect(resolveColumnSettings(ids, undefined, [], ['actions'])).toEqual({
       order: ids,
@@ -63,7 +63,7 @@ describe('resolveColumnSettings（把存下來的設定套到目前的欄位）'
     expect(
       resolveColumnSettings(ids, { order: ['a'], hidden: [], pinnedColumns: {} }, [], ['actions']),
     ).toEqual({
-      order: ['a', '__select', '__pin'],
+      order: ['__select', '__pin', 'a'],
       hidden: ['__pin'],
       pinnedColumns: { __select: 'start' },
       stickyHeader: false,

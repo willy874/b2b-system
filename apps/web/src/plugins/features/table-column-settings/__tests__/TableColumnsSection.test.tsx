@@ -55,7 +55,14 @@ describe('TableColumnsSection（偏好頁的表格欄位分頁）', () => {
     );
     render(<TableColumnsSection />);
     const items = within(card('user-list')).getAllByRole('listitem');
-    expect(items[1]).toHaveTextContent('email');
+    // 存設定時還沒有勾選欄：新加的工具欄插在最前面，其餘照存下來的順序
+    expect(items.map((item) => item.dataset.value)).toEqual([
+      '__select',
+      '__pin',
+      'email',
+      'name',
+      'status',
+    ]);
     expect(items.some((item) => item.hasAttribute('data-hidden'))).toBe(false);
   });
 

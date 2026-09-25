@@ -35,6 +35,9 @@ export const DEFAULT_PINNED_COLUMNS: Readonly<Record<string, ColumnPinSide>> = {
   [SELECT_COLUMN_ID]: 'start',
   [ACTIONS_COLUMN_ID]: 'end',
 };
+/** 工具欄（勾選欄、釘選欄）：永遠排在一般欄位前面，已存過設定的表新加它們時也插在最前面。 */
+const UTILITY_COLUMN_IDS: ReadonlySet<string> = new Set([SELECT_COLUMN_ID, ROW_PIN_COLUMN_ID]);
+
 /** 每張表都預設隱藏的欄位（與各表登記的 `defaultHidden` 合併）。 */
 export const DEFAULT_HIDDEN_COLUMNS: readonly string[] = [ROW_PIN_COLUMN_ID];
 export const DEFAULT_STICKY_HEADER = false;
@@ -144,7 +147,7 @@ export function syncTableColumnSettings(): () => void {
 }
 
 /**
- * 把存下來的設定套到目前的欄位上：已經不存在的欄位丟掉、新加的欄位接在最後。
+ * 把存下來的設定套到目前的欄位上：已經不存在的欄位丟掉、新加的欄位接在最後（工具欄插在最前面）。
  * 預設值（沒有存過設定、或新加的欄位）：隱藏 `defaultHidden` ＋ `DEFAULT_HIDDEN_COLUMNS`、
  * 固定 `DEFAULT_PINNED_COLUMNS`（勾選欄在 `start`、操作欄在 `end`）、表頭不固定。
  * `fixedColumnIds` 是不列入順序、但可以固定的欄位（操作欄）。
@@ -174,7 +177,9 @@ export function resolveColumnSettings(
   const order = [...new Set(stored.order)].filter((id) => known.has(id));
   const placed = new Set(order);
   const added = columnIds.filter((id) => !placed.has(id));
-  order.push(...added);
+  // 新加的工具欄插在最前面（依 columnIds 的順序），其餘新欄位接在最後
+  order.unshift(...added.filter((id) => UTILITY_COLUMN_IDS.has(id)));
+  order.push(...added.filter((id) => !UTILITY_COLUMN_IDS.has(id)));
 
   // 新加的欄位（存設定時還不存在）套用預設的隱藏與固定
   const hidden = [
