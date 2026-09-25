@@ -10,7 +10,7 @@ import type { FilterBarProps, RichTablePagination, TableSettingsConfig } from '@
 import { useTranslation } from '@/core/locales';
 import { formatDateTime } from '@/shared/date';
 
-import { AUDIT_LOG_LIST_TABLE_ID } from '../../../preference';
+import { AUDIT_LOG_LIST_DEFAULT_HIDDEN, AUDIT_LOG_LIST_TABLE_ID } from '../../../preference';
 import type { AuditLogRowVM } from '../adapter';
 import type { AuditLogFilterValues } from '../useAuditLogFilters';
 import { AuditLogDetail } from './AuditLogDetail';
@@ -19,7 +19,10 @@ import { AuditLogDetail } from './AuditLogDetail';
 const renderDetail = (row: AuditLogRowVM) => <AuditLogDetail id={row.id} />;
 
 /** 欄位順序與顯示存在這台裝置（`core/store/tableColumnSettings`）；可設定的欄位登記在 `preference.ts`。 */
-const AUDIT_LOG_TABLE_SETTINGS: TableSettingsConfig = { tableId: AUDIT_LOG_LIST_TABLE_ID };
+const AUDIT_LOG_TABLE_SETTINGS: TableSettingsConfig = {
+  tableId: AUDIT_LOG_LIST_TABLE_ID,
+  defaultHidden: AUDIT_LOG_LIST_DEFAULT_HIDDEN,
+};
 
 interface AuditLogTableProps {
   items: AuditLogRowVM[];
