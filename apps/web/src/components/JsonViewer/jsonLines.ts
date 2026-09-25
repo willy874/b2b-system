@@ -110,7 +110,8 @@ export function toJsonLines(
       continue;
     }
 
-    lines.push({ ...base, type: 'open', container, size: entries.length });
+    // 逗號接在結尾那一行（`},`），開頭那一行不接
+    lines.push({ ...base, comma: false, type: 'open', container, size: entries.length });
     ancestors.add(node);
     stack.push({
       kind: 'close',
@@ -131,4 +132,28 @@ export function toJsonLines(
     }
   }
   return lines;
+}
+
+export type JsonPath = ReadonlyArray<string | number>;
+
+const PATH_SEGMENT = /\[(\d+)\]|\[("(?:[^"\\]|\\.)*")\]/gy;
+
+/** `toJsonLines` 產生的路徑字串（`$["a"][0]`）轉回路徑陣列（`['a', 0]`）。 */
+export function parsePath(path: string): JsonPath {
+  if (!path.startsWith(ROOT_PATH)) throw new Error(`不是 JSON 路徑：${path}`);
+  const segments: Array<string | number> = [];
+  PATH_SEGMENT.lastIndex = ROOT_PATH.length;
+  while (PATH_SEGMENT.lastIndex < path.length) {
+    const match = PATH_SEGMENT.exec(path);
+    if (!match) throw new Error(`不是 JSON 路徑：${path}`);
+    segments.push(
+      match[1] !== undefined ? Number(match[1]) : (JSON.parse(match[2] as string) as string),
+    );
+  }
+  return segments;
+}
+
+/** `parsePath` 的反向：路徑陣列轉成路徑字串。 */
+export function formatPath(segments: JsonPath): string {
+  return segments.reduce<string>(childPath, ROOT_PATH);
 }

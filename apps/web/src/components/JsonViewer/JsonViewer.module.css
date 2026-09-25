@@ -106,6 +106,31 @@
     color: var(--json-null-color);
   }
 
+  /*
+   * 行尾的操作（JsonEditor）：貼在可視範圍右緣（水平捲動時不跑掉），滑過或聚焦該行才顯示；
+   * 用 opacity 而不是 display，鍵盤仍可 Tab 進來（聚焦後 :focus-within 會讓它顯示）。
+   */
+  .actions {
+    position: sticky;
+    right: 0;
+    display: inline-flex;
+    align-items: center;
+    margin-inline-start: auto;
+    padding-inline-start: var(--seed-space-2);
+    opacity: 0;
+  }
+
+  .line:hover .actions,
+  .line:focus-within .actions {
+    opacity: 1;
+    /* 蓋住捲到底下的長行文字 */
+    background: var(--json-hover-background);
+  }
+
+  .line:focus-within {
+    background: var(--json-hover-background);
+  }
+
   /* 收合容器的計數徽章（對應 --jse-tag-*） */
   .summary {
     margin-inline-start: var(--seed-space-1);

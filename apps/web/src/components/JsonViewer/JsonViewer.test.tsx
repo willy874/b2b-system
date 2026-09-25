@@ -27,6 +27,16 @@ describe('toJsonLines', () => {
     ]);
   });
 
+  it('展開中的容器：逗號接在結尾那一行，開頭那一行不接', () => {
+    const lines = toJsonLines({ list: [1], last: 0 }, expandAll);
+    expect(
+      lines.filter((line) => line.path === '$["list"]').map((line) => [line.type, line.comma]),
+    ).toEqual([
+      ['open', false],
+      ['close', true],
+    ]);
+  });
+
   it('收合的容器與空容器只佔一行', () => {
     const lines = toJsonLines({ a: { x: 1 }, b: [] }, (path) => path === '$["a"]');
     expect(lines.filter((line) => line.type === 'collapsed').map((line) => line.path)).toEqual([
