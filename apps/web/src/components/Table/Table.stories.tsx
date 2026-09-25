@@ -104,7 +104,7 @@ export const Sortable: Story = {
 };
 
 /**
- * `headerTrailing` 固定在最後一欄表頭的右下角（列表頁用來放篩選、欄位設定按鈕）；
+ * `headerTrailing` 固定在最後一欄表頭的右側（與標題垂直置中）（列表頁用來放篩選、欄位設定按鈕）；
  * 最後一欄的欄寬不夠時（把視窗縮窄看看），標題被裁掉，按鈕不縮。
  */
 export const HeaderTrailing: Story = {

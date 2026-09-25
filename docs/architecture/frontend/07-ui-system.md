@@ -769,7 +769,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 | `FilterBar` | 「清除」→ `defaultValue`（不提供就不顯示） | 「搜尋」；文字欄位按 Enter 同義 | `labels={{ reset, submit }}` |
 | `TableSettings` | 「恢復預設」→ `defaultValue` | 「套用」；草稿等於預設時呼叫 `onReset`，不留下多餘的設定 | `labels={{ reset, submit }}` |
 
-兩顆按鈕透過 `Table` 的 `headerTrailing` **固定在最後一欄表頭的右下角**（不論那一欄是什麼，也不會被包進排序按鈕）。
+兩顆按鈕透過 `Table` 的 `headerTrailing` **固定在最後一欄表頭的右側（與標題垂直置中）**（不論那一欄是什麼，也不會被包進排序按鈕）。
 該欄的標題與按鈕都算進最小欄寬（grid `max-content auto`），標題不會被裁切——儲存格不換行後，寬度不夠時整張表水平捲動，欄位不會被擠到比內容窄。
 `actions`（操作欄）固定在原位、不列入欄位設定。
 

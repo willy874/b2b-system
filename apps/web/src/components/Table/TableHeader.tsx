@@ -16,7 +16,7 @@ interface TableHeaderProps<TData> {
   headerGroups: Array<HeaderGroup<TData>>;
   sorting: readonly TableSorting[];
   onSortingChange: ((sorting: TableSorting[]) => void) | undefined;
-  /** 固定在最後一欄表頭右側、靠底的內容。 */
+  /** 固定在最後一欄表頭右側、與標題垂直置中的內容。 */
   trailing: ReactNode;
   pinLayout: PinLayout;
   slot: SlotResolver<TableSlot>;
@@ -106,7 +106,7 @@ function TableHeaderCell<TData>({
       aria-sort={sortable && order ? ARIA_SORT[order] : undefined}
     >
       {trailing ? (
-        // 標題吃剩下的寬度，被擠壓時裁掉（overflow hidden）；trailing 固定在右下角、不縮
+        // 標題吃剩下的寬度，被擠壓時裁掉（overflow hidden）；trailing 固定在右側、不縮，兩者垂直置中
         <div {...slot('headerInner', styles.headerInner)}>
           {label}
           <span {...slot('headerTrailing', styles.headerTrailing)}>{trailing}</span>

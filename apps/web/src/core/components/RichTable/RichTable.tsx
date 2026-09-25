@@ -69,7 +69,7 @@ export interface RichTableProps<
 /**
  * 列表頁用的表格：把 `Table` 與 `Pagination` 組在一起，並以目前語系補上空狀態與分頁的預設文案。
  * 放在 `core/` 而不是 `components/`，因為它依賴 `core/locales`（docs/conventions/02-frontend.md §8）。
- * 篩選（`FilterBar`）與欄位設定（`TableSettings`）都是下拉面板，按鈕固定在最後一欄表頭的右下角
+ * 篩選（`FilterBar`）與欄位設定（`TableSettings`）都是下拉面板，按鈕固定在最後一欄表頭的右側（與標題垂直置中）
  * （`Table` 的 `headerTrailing`），該欄標題被擠壓時裁掉。
  */
 export function RichTable<TData, TFilters extends Record<string, unknown>>({
