@@ -6,6 +6,7 @@ import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
 import { AlertDialog } from '@/components/AlertDialog';
 import { ButtonLink } from '@/components/Button';
+import { useTableSelection } from '@/components/Table';
 import { useTranslation } from '@/core/locales';
 
 import { useUserDeleteMutation } from '../../hooks/useUserMutations';
@@ -14,6 +15,7 @@ import { UserCreateRoute, UserDetailRoute } from '../../routes';
 import { toUserRowVM } from './adapter';
 import type { UserRowVM } from './adapter';
 import { UserTable } from './components/UserTable';
+import { useUserBatchActions } from './useUserBatchActions';
 import { useUserFilters } from './useUserFilters';
 import { useUserSearchFilter } from './useUserSearchFilter';
 
@@ -23,7 +25,7 @@ export default function UserListPage() {
   const permission = useUserPermission();
   const searchFilter = useUserSearchFilter();
   const { search, setSort, setPage } = searchFilter;
-  const filters = useUserFilters(searchFilter);
+  const batchActions = useUserBatchActions();
   const [pendingDelete, setPendingDelete] = useState<UserRowVM>();
 
   const profile = useQuery(getAuthProfileQueryOptions());
@@ -45,6 +47,15 @@ export default function UserListPage() {
     () => (data?.items ?? []).map((user) => toUserRowVM(user, permission, profile.data?.user.id)),
     [data, permission, profile.data],
   );
+  const selection = useTableSelection(rows, getRowId);
+  // 篩選條件改變後，原本勾選的列可能不在結果裡了：清空選取（排序只是換順序，保留）
+  const filters = useUserFilters({
+    ...searchFilter,
+    setFilters: (next) => {
+      if (next.keyword !== search.keyword || next.status !== search.status) selection.clear();
+      searchFilter.setFilters(next);
+    },
+  });
 
   return (
     <div className="flex flex-col gap-4" data-testid="user-list-page">
@@ -75,6 +86,7 @@ export default function UserListPage() {
         }
         onDelete={setPendingDelete}
         filters={filters}
+        batch={{ selection, actions: batchActions, getRowLabel }}
         pagination={{
           offset: search.offset,
           limit: search.limit,
@@ -104,3 +116,6 @@ export default function UserListPage() {
     </div>
   );
 }
+
+const getRowId = (row: UserRowVM) => row.id;
+const getRowLabel = (row: UserRowVM) => row.email;

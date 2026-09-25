@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 
 import { invalidateResources, Resource } from '@/apis/resources';
+import { getRoleBatchDeleteMutationOptions } from '@/apis/role/batch-delete-role/mutation';
 import { getRoleCreateMutationOptions } from '@/apis/role/create-role/mutation';
 import { getRoleDeleteMutationOptions } from '@/apis/role/delete-role/mutation';
 import { getRoleDuplicateMutationOptions } from '@/apis/role/duplicate-role/mutation';
@@ -84,5 +85,19 @@ export function useGrantRolePermissionsMutation() {
       toast.success(t('role.permission.success'));
     },
     onError: showError,
+  });
+}
+
+/**
+ * 批次刪除（ADR-0009）：提示與結果對話框由 RichTable 的批次流程處理，這裡只負責失效快取。
+ * 整批失敗（網路、500）時已提交的筆數不明，送出的全部失效。
+ */
+export function useRoleBatchDeleteMutation() {
+  return useMutation({
+    ...getRoleBatchDeleteMutationOptions(),
+    onSettled: (result, _error, { params }) => {
+      const ids = result?.succeeded ?? params.body.ids;
+      invalidateResources(ids.map((id) => ({ resource: Resource.ROLE, kind: 'delete', id })));
+    },
   });
 }

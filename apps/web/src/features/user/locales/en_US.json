@@ -22,6 +22,32 @@
     "assignRole": { "action": "Save roles", "success": "Role assignment updated." },
     "unlock": { "action": "Unlock", "success": "Account unlocked." },
     "resetPassword": { "action": "Reset password", "success": "Reset link sent." },
+    "batch": {
+      "delete": {
+        "action": "Delete",
+        "title": "Delete users",
+        "confirm": "Delete {{count}} users? Their accounts will be soft-deleted and signed out immediately.",
+        "success": "Deleted {{count}} users."
+      },
+      "unlock": {
+        "action": "Unlock",
+        "title": "Unlock users",
+        "confirm": "Unlock {{count}} users?",
+        "success": "Unlocked {{count}} users."
+      },
+      "deactivate": {
+        "action": "Deactivate",
+        "title": "Deactivate users",
+        "confirm": "Deactivate {{count}} users? They will be signed out immediately.",
+        "success": "Deactivated {{count}} users."
+      },
+      "activate": {
+        "action": "Activate",
+        "title": "Activate users",
+        "confirm": "Activate {{count}} users?",
+        "success": "Activated {{count}} users."
+      }
+    },
     "detail": {
       "title": "User detail",
       "basic": "Basics",

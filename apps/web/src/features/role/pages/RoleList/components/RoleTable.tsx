@@ -9,7 +9,12 @@ import { TextEllipsis } from '@/components/Ellipsis';
 import { Icon } from '@/components/Icon';
 import { Tooltip } from '@/components/Tooltip';
 import { RichTable } from '@/core/components';
-import type { FilterBarProps, RichTablePagination, TableSettingsConfig } from '@/core/components';
+import type {
+  FilterBarProps,
+  RichTableBatch,
+  RichTablePagination,
+  TableSettingsConfig,
+} from '@/core/components';
 import { useTranslation } from '@/core/locales';
 import type { SortEntry } from '@/shared/constants';
 import { formatDateTime } from '@/shared/date';
@@ -33,6 +38,7 @@ interface RoleTableProps {
   onRowDoubleClick: (row: RoleRowVM) => void;
   onDelete: (row: RoleRowVM) => void;
   filters: FilterBarProps<RoleFilterValues>;
+  batch: RichTableBatch<RoleRowVM>;
   pagination: RichTablePagination;
 }
 
@@ -44,6 +50,7 @@ export function RoleTable({
   onRowDoubleClick,
   onDelete,
   filters,
+  batch,
   pagination,
 }: RoleTableProps) {
   const { t } = useTranslation();
@@ -141,8 +148,9 @@ export function RoleTable({
       data={rows}
       columns={columns}
       loading={loading}
-      getRowId={(row) => row.id}
+      getRowId={getRowId}
       filters={filters}
+      batch={batch}
       settings={ROLE_TABLE_SETTINGS}
       pagination={pagination}
       sorting={search.sort.map(({ sort, order }) => ({ sortBy: sort, sortOrder: order }))}
@@ -158,6 +166,8 @@ export function RoleTable({
     />
   );
 }
+
+const getRowId = (row: RoleRowVM) => row.id;
 
 function isSortField(value: string): value is RoleSortField {
   return (ROLE_SORT_FIELDS as readonly string[]).includes(value);

@@ -50,7 +50,17 @@
     "selectColumn": "勾選",
     "selectAll": "全選本頁",
     "selectRow": "選取這一列",
-    "pinColumn": "釘選"
+    "pinColumn": "釘選",
+    "batch": {
+      "toolbar": "批次操作",
+      "selected": "已選取 {{count}} 筆",
+      "clear": "清除選取",
+      "tooMany": "一次最多處理 {{max}} 筆，請減少選取。",
+      "noneEligible": "選取的項目都不適用這個操作。",
+      "skipped": "其中 {{count}} 筆不適用，將會略過。",
+      "resultTitle": "部分項目未完成",
+      "resultSummary": "成功 {{succeeded}} 筆，未完成 {{failed}} 筆。未完成的項目仍保持勾選。"
+    }
   },
   "menu": {
     "home": "首頁",

@@ -266,25 +266,27 @@ return <Outlet />;
 ### 層級 3 — 元素
 
 ```tsx
-function RoleListToolbar() {
-  const { canCreate, canDelete } = useRolePermission();
-  return (
-    <div className={styles.toolbar}>
-      {canCreate && <Button onClick={openCreate}>{t("role.create")}</Button>}
-      <Button disabled={!canDelete || selection.length === 0} onClick={openDelete}>
-        {t("common.delete")}
-      </Button>
-    </div>
-  );
+// 建立鈕：永遠不會有這個權限 → 不渲染
+{permission.canCreate && <ButtonLink to={RoleCreateRoute.to}>{t("role.create.action")}</ButtonLink>}
+
+// 批次刪除（features/role/pages/RoleList/useRoleBatchActions.ts）：
+// 沒有 role:delete → hidden；有權限但選到的都是系統角色 → isEligible 全為 false，按鈕停用 ＋ tooltip
+{
+  id: "delete",
+  hidden: !permission.hydrated || !permission.canDelete,
+  isEligible: (row) => row.canDelete && row.userCount === 0,
+  …
 }
 ```
+
+批次操作的完整寫法見 [`07-ui-system.md`](./07-ui-system.md) §6.2。
 
 ### 6.1 隱藏還是 disable？
 
 | 情況                                                           | 作法                        | 理由                           |
 | -------------------------------------------------------------- | --------------------------- | ------------------------------ |
 | 使用者永遠不會有這個權限（例如 auditor 看刪除鍵）              | **隱藏**                    | 少一個噪音                     |
-| 使用者有權限，但當下狀態不允許（沒選取任何列、目標是系統角色） | **disable ＋ tooltip 說明** | 使用者需要知道為什麼           |
+| 使用者有權限，但當下狀態不允許（選到的列都不適用、目標是系統角色） | **disable ＋ tooltip 說明** | 使用者需要知道為什麼           |
 | 反提權導致某個權限不能授予                                     | **disable ＋ tooltip**      | 隱藏會讓人以為系統沒有這個權限 |
 
 判準：**「為什麼不能按」對使用者有意義就 disable，沒意義就隱藏。**

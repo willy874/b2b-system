@@ -19,6 +19,14 @@
       "success": "Role deleted.",
       "systemProtected": "System roles are protected and cannot be deleted."
     },
+    "batch": {
+      "delete": {
+        "action": "Delete",
+        "title": "Delete roles",
+        "confirm": "Delete {{count}} roles? This cannot be undone. Roles still assigned to users are not deleted.",
+        "success": "Deleted {{count}} roles."
+      }
+    },
     "duplicate": {
       "action": "Duplicate",
       "success": "Duplicated as \"{{name}}\".",

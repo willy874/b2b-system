@@ -50,7 +50,17 @@
     "selectColumn": "Select",
     "selectAll": "Select all on this page",
     "selectRow": "Select row",
-    "pinColumn": "Pin"
+    "pinColumn": "Pin",
+    "batch": {
+      "toolbar": "Bulk actions",
+      "selected": "{{count}} selected",
+      "clear": "Clear selection",
+      "tooMany": "You can process up to {{max}} items at once. Select fewer items.",
+      "noneEligible": "None of the selected items support this action.",
+      "skipped": "{{count}} of them don't apply and will be skipped.",
+      "resultTitle": "Some items were not processed",
+      "resultSummary": "{{succeeded}} succeeded, {{failed}} not processed. Unprocessed items stay selected."
+    }
   },
   "menu": {
     "home": "Home",

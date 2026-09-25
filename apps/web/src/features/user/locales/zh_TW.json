@@ -22,6 +22,32 @@
     "assignRole": { "action": "儲存角色", "success": "角色指派已更新。" },
     "unlock": { "action": "解鎖", "success": "帳號已解鎖。" },
     "resetPassword": { "action": "重設密碼", "success": "重設連結已寄出。" },
+    "batch": {
+      "delete": {
+        "action": "刪除",
+        "title": "批次刪除使用者",
+        "confirm": "確定要刪除 {{count}} 位使用者嗎？帳號會被軟刪除並立即登出。",
+        "success": "已刪除 {{count}} 位使用者。"
+      },
+      "unlock": {
+        "action": "解鎖",
+        "title": "批次解鎖",
+        "confirm": "確定要解鎖 {{count}} 位使用者嗎？",
+        "success": "已解鎖 {{count}} 位使用者。"
+      },
+      "deactivate": {
+        "action": "停用",
+        "title": "批次停用",
+        "confirm": "確定要停用 {{count}} 位使用者嗎？他們會立即被登出。",
+        "success": "已停用 {{count}} 位使用者。"
+      },
+      "activate": {
+        "action": "啟用",
+        "title": "批次啟用",
+        "confirm": "確定要啟用 {{count}} 位使用者嗎？",
+        "success": "已啟用 {{count}} 位使用者。"
+      }
+    },
     "detail": {
       "title": "使用者詳情",
       "basic": "基本資料",

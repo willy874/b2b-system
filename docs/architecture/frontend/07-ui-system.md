@@ -685,6 +685,7 @@ components/Table/
 ├── pinning.ts            欄位固定、釘選列：預設值（actions 靠右）與量測 sticky 位移的 usePinLayout
 ├── columns.tsx           工具欄：createSelectColumn（勾選欄 CheckboxColumn）、ColumnMeta.settingsLabel
 ├── useTableSelection.ts  跨頁保留的選取狀態（id ＋ 勾選當下的資料），批次操作用
+├── BatchActionBar.tsx    勾選後的批次操作列：已選筆數、清除選取、呼叫端的按鈕（§6.2）
 ├── slots.ts              TableSlot
 └── index.ts
 ```
@@ -694,7 +695,7 @@ components/Table/
 勾選欄（CheckboxColumn）與批次操作的準備：`createSelectColumn(labels)` 產生 id 為 `__select` 的欄位——表頭全選／取消本頁
 （部分勾選時半選）、每列一個勾選框；搭配 `useTableSelection(data, getRowId)` 取得 `rowSelection` / `onRowSelectionChange`，
 以及跨頁保留的 `selectedIds`、`selectedRows`（勾選當下的資料，列還在目前頁時換成最新的一筆）與 `clear()`。
-批次操作直接拿 `selectedRows` 送出；篩選條件改變或操作完成後由呼叫端 `clear()`。
+批次操作直接拿 `selectedRows` 送出；篩選條件改變時由呼叫端 `clear()`。列表頁的完整批次流程見 §6.2。
 
 非字串表頭（勾選框、圖示）的欄位以 `meta.settingsLabel` 宣告欄位設定裡的名稱，才會進入欄位設定（排序、隱藏、固定）。
 
@@ -806,6 +807,55 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 
 表頭改成模組層級的 `ToolsHeader` 元件、設定由 context 傳入：TanStack 的 `flexRender` 把函式表頭當成元件，
 每次渲染產生新函式會讓按鈕重新掛載，下拉面板在值改變時就會被關掉。
+
+### 6.2 批次操作（`RichTable` 的 `batch`）
+
+決策與理由見 [ADR-0009](../../adr/0009-table-batch-operations.md)；後端端點見
+[`../backend/03-api-conventions.md`](../backend/03-api-conventions.md) §10。
+
+| 層 | 檔案 | 職責 |
+| -- | ---- | ---- |
+| 設計系統 | `components/Table/BatchActionBar` | `role="toolbar"`：已選筆數（`batch-action-bar-count`，`data-value` 是筆數）、清除選取、呼叫端放進來的按鈕；不認識任何業務操作，文案由 `labels` 傳入 |
+| 機制 | `core/batch` | `BatchAction<TData>` 型別；`useBatchRunner()` 跑「分組 → 確認 → 送出 → 更新選取 → 提示／結果對話框」；`BatchResultDialog` 逐筆列出未完成的項目 |
+| 列表 | `core/components/RichTable/BatchBar.tsx` | `batch` prop 的接線：勾選後在表格上方顯示操作列，每個動作一顆按鈕（`data-testid="batch-action"`，`data-value` 是動作 id） |
+| feature | `pages/<List>/use<Name>BatchActions.ts` | 宣告這張表有哪些批次動作；`run` 呼叫 feature 的 batch mutation |
+
+```tsx
+// page.tsx
+const selection = useTableSelection(rows, getRowId);
+const batchActions = useUserBatchActions();
+<UserTable batch={{ selection, actions: batchActions, getRowLabel: (row) => row.email }} … />
+
+// useUserBatchActions.ts（節錄）
+{
+  id: 'delete',
+  label: t('user.batch.delete.action'),
+  tone: 'danger',
+  hidden: !permission.hydrated || !permission.canDelete, // 永遠不會有 → 隱藏
+  isEligible: (row) => row.canDelete,                      // 沿用 adapter 的列旗標
+  confirm: ({ eligible }) => ({ title: …, description: t('user.batch.delete.confirm', { count: eligible.length }) }),
+  run: (ids) => deleteMany({ params: { body: { ids } } }),
+  successMessage: (count) => t('user.batch.delete.success', { count }),
+}
+```
+
+行為：
+
+| 情境 | 結果 |
+| ---- | ---- |
+| 沒有勾選，或所有動作都 `hidden` | 不顯示操作列 |
+| 選到的列都不適用（`isEligible` 全為 false） | 按鈕停用，tooltip 說明原因 |
+| 跨頁累積超過 200 筆（`BATCH_MAX_SIZE`，與後端相同） | 所有按鈕停用，tooltip 提示上限 |
+| 部分列不適用 | 只送出適用的 id；確認框自動補上「其中 N 筆不適用，將會略過」 |
+| 全部成功 | 成功的列移出選取、toast 顯示 `successMessage` |
+| 部分未完成 | 結果對話框（`batch-result-dialog`）逐筆列出名稱與原因（`batch-result-failure`，`data-value` 是 id）；未完成的列保留勾選，`*_NOT_FOUND`（已被別人刪除）一併移出 |
+| 整批失敗（網路、403、500） | toast 顯示錯誤，確認框留著讓使用者重試或取消，選取不變 |
+
+- 略過的列（不適用、沒送出）保留勾選，可以接著做別的批次動作。
+- `batch` 提供時由 `batch.selection` 控制勾選欄，不必另外傳 `rowSelection` / `onRowSelectionChange`。
+- feature 的 batch mutation hook **只失效快取、不發 toast**（提示依結果而定，由 `useBatchRunner` 處理），
+  並用 `onSettled`：成功時只失效 `succeeded`；整批失敗時已提交的筆數不明，送出的 id 全部失效。
+- 篩選條件（不含排序）改變時頁面呼叫 `selection.clear()`：勾選的列可能已不在結果裡。
 
 ---
 

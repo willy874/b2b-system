@@ -36,7 +36,7 @@
 | D8 | 稽核 | 每筆一條稽核紀錄（`action` 與單筆相同）；同一批共用 `metadata.requestId`，另加 `metadata.batch: { size }` |
 | D9 | 冪等 | 目標已經是結果狀態（例如停用已停用的人）→ 算 **成功**，但不寫稽核、不發事件。單筆本來就會拒絕的情況維持拒絕（解鎖沒被鎖的人 → `USER_NOT_LOCKED`），批次不改變單筆的規則 |
 | D10 | 角色批次刪除的 `force` | **不提供**。有人持有的角色一律回報 `ROLE_IN_USE`，要強制刪除請走單筆 |
-| D11 | 前端通用元件 | `components/Table/BatchActionBar`（沒有業務名詞，文字由 `labels` 傳入）＋ `RichTable` 的 `batch` prop ＋ `core/batch/useBatchRunner`（確認 → 執行 → 結果） |
+| D11 | 前端通用元件 | `components/Table/BatchActionBar`（沒有業務名詞，文字由 `labels` 傳入）＋ `RichTable` 的 `batch` prop（接線在 `core/components/RichTable/BatchBar.tsx`）＋ `core/batch`（`useBatchRunner`：確認 → 執行 → 結果；`BatchResultDialog`） |
 | D12 | 前端資格預判 | 每個批次動作以 `isEligible(row)` 預先分出「可執行／會略過」，只把可執行的 id 送出；**後端仍然逐筆完整檢查**，預判只是體驗 |
 | D13 | 執行後的選取 | 成功的從選取移除；失敗的保留勾選以便修正後重試，但 `*_NOT_FOUND`（已被別人刪除）一併移除 |
 | D14 | 首期範圍 | 使用者：批次刪除、批次解鎖、批次停用／啟用；角色：批次刪除 |

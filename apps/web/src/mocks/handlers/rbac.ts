@@ -10,6 +10,53 @@ import {
   USER_FIXTURES,
 } from '../resources/fixtures';
 
+/** 目前登入的 mock 使用者（profile 回的是第一筆）。 */
+const SELF_ID = USER_FIXTURES[0]!.id;
+
+type Failure = { id: string; code: string; details?: Record<string, unknown> };
+
+const forbidden = (permission: string) =>
+  HttpResponse.json(
+    {
+      error: { code: 'AUTHZ_FORBIDDEN', message: 'forbidden', details: { missing: [permission] } },
+    },
+    { status: 403 },
+  );
+
+/**
+ * 批次端點（ADR-0009）：逐筆套用與後端相同的檢查，回 `{ succeeded, failed }`。
+ * 只回結果、不改 fixture——列表重新整理後資料不變。
+ */
+function batchHandler(
+  path: string,
+  permission: string,
+  check: (id: string, body: Record<string, unknown>) => Failure | undefined,
+) {
+  return http.post(`${MOCK_API_BASE}${path}`, async ({ request }) => {
+    if (!mockState.permissions.includes(permission)) return forbidden(permission);
+    const body = (await request.json()) as { ids: string[] } & Record<string, unknown>;
+    const failed: Failure[] = [];
+    const succeeded: string[] = [];
+    for (const id of body.ids) {
+      const failure = check(id, body);
+      if (failure) failed.push(failure);
+      else succeeded.push(id);
+    }
+    return HttpResponse.json({ data: { succeeded, failed } });
+  });
+}
+
+function checkUser(
+  id: string,
+  extra?: (user: (typeof USER_FIXTURES)[number]) => string | undefined,
+) {
+  const user = USER_FIXTURES.find((item) => item.id === id);
+  if (!user) return { id, code: 'USER_NOT_FOUND' };
+  if (id === SELF_ID) return { id, code: 'AUTHZ_SELF_MODIFY' };
+  const code = extra?.(user);
+  return code ? { id, code } : undefined;
+}
+
 const paginate = <T>(items: T[]) => ({
   items,
   pagination: { offset: 0, limit: 20, total: items.length },
@@ -127,5 +174,21 @@ export const rbacHandlers = [
         resultResourceId: approved ? 'user-carol' : null,
       },
     });
+  }),
+
+  batchHandler('/users/batch-delete', 'user:delete', (id) => checkUser(id)),
+  batchHandler('/users/batch-status', 'user:update', (id) => checkUser(id)),
+  batchHandler('/users/batch-unlock', 'user:update', (id) => {
+    const user = USER_FIXTURES.find((item) => item.id === id);
+    if (!user) return { id, code: 'USER_NOT_FOUND' };
+    return user.status === 'locked' ? undefined : { id, code: 'USER_NOT_LOCKED' };
+  }),
+  batchHandler('/roles/batch-delete', 'role:delete', (id) => {
+    const role = ROLE_FIXTURES.find((item) => item.id === id);
+    if (!role) return { id, code: 'ROLE_NOT_FOUND' };
+    if (role.isSystem) return { id, code: 'ROLE_SYSTEM_PROTECTED' };
+    if (role.userCount > 0)
+      return { id, code: 'ROLE_IN_USE', details: { userCount: role.userCount } };
+    return undefined;
   }),
 ];
