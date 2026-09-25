@@ -414,3 +414,35 @@ async login(...) {}
 | 欄位命名     | 回應一律 camelCase（Drizzle 已做 snake ↔ camel 轉換）               |
 | 版本         | Phase 0 不加 `/v1` 前綴。需要時用標頭協商或新增前綴，不破壞既有路徑 |
 | CORS         | 同源部署，不啟用。開發時由 Vite proxy 處理                          |
+
+---
+
+## 10. 批次端點
+
+列表勾選多筆後一次操作。決策與理由見 [ADR-0009](../../adr/0009-table-batch-operations.md)。
+
+| 項目 | 約定 |
+| ---- | ---- |
+| 路徑 | `POST /<resources>/batch-<action>`（`/users/batch-delete`）。不用 `/batch/<action>`：會和 `POST /<resources>/:id/<action>` 撞路由 |
+| 權限 | 與單筆操作相同，不另設權限鍵 |
+| 請求 | `BatchIdsRequest`：`{ ids: uuid[] }`，1–200 筆、不可重複；其他參數以 `BatchIdsSchema.extend()` 並列 |
+| 回應 | `200 { data: BatchResult }`，`{ succeeded: string[], failed: { id, code, details? }[] }`，兩者各依請求的 `ids` 順序 |
+| 執行 | 依序逐筆、每筆一個交易；逐筆的業務檢查與單筆 **完全相同**（共用同一段程式） |
+| 失敗 | 逐筆的 `AppException` 進 `failed`；整批層級的錯誤（驗證 `400`、權限 `403`、`429`）照一般錯誤信封回傳；非預期例外整批 `500`，已提交的那幾筆不回滾 |
+| 冪等 | 目標已經是結果狀態（例：停用已停用的人）→ 算成功，不寫入、不稽核、不發事件。單筆本來就會拒絕的情況（解鎖沒被鎖的人 → `USER_NOT_LOCKED`）照樣進 `failed` |
+| 事件 | 快取失效逐筆做；領域事件整批結束後合併發佈一次 |
+| 稽核 | 每筆一條，`action` 與單筆相同；`metadata.batch = { size }`，同一批共用 `metadata.requestId` |
+
+實作：service 把單筆方法拆成 `prepare`（檢查）→ `apply`（交易內寫入＋稽核）→ 快取失效 → 發佈事件，
+單筆方法依序呼叫這幾段，批次方法交給 `core/batch` 的 `runBatch()`：
+
+```ts
+removeMany(ids: readonly string[], actor: AuthUser): Promise<BatchResult> {
+  return runBatch(this.db, ids, {
+    prepare: (id) => this.prepareRemove(id, actor),        // 拋 AppException → failed；回 null → 已是結果狀態
+    apply: (plan, tx) => this.applyRemove(plan, actor, tx), // 同一筆的交易內
+    invalidate: (plan) => this.invalidateAccount(plan.user.id),
+    publish: (plans) => this.publishRemoved(plans),        // 整批一次
+  });
+}
+```

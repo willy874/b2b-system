@@ -16,6 +16,8 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, RequirePermissions } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
+import { BatchIdsSchema, BatchResultSchema } from '@/core/batch';
+import type { BatchIdsDto } from '@/core/batch';
 import {
   ApiZodBody,
   ApiZodListResponse,
@@ -23,6 +25,8 @@ import {
   ZodValidationPipe,
 } from '@/core/validation';
 
+import { BatchUserStatusSchema } from './dto/batch-user.dto';
+import type { BatchUserStatusDto } from './dto/batch-user.dto';
 import { CreateUserSchema } from './dto/create-user.dto';
 import type { CreateUserDto } from './dto/create-user.dto';
 import { ListUserSchema } from './dto/list-user.dto';
@@ -123,5 +127,46 @@ export class UserController {
   @ApiZodResponse(200, UserSchema)
   unlock(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
     return this.userService.unlock(id, actor);
+  }
+
+  // ── 批次（ADR-0009）：逐筆回報結果，權限與單筆相同 ──
+
+  @Post('batch-delete')
+  @HttpCode(200)
+  @RequirePermissions(PERMISSION.USER_DELETE)
+  @ApiOperation({ summary: '批次刪除使用者（逐筆回報結果）' })
+  @ApiZodBody(BatchIdsSchema)
+  @ApiZodResponse(200, BatchResultSchema)
+  removeMany(
+    @Body(new ZodValidationPipe(BatchIdsSchema)) dto: BatchIdsDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.userService.removeMany(dto.ids, actor);
+  }
+
+  @Post('batch-unlock')
+  @HttpCode(200)
+  @RequirePermissions(PERMISSION.USER_UPDATE)
+  @ApiOperation({ summary: '批次解鎖使用者（逐筆回報結果）' })
+  @ApiZodBody(BatchIdsSchema)
+  @ApiZodResponse(200, BatchResultSchema)
+  unlockMany(
+    @Body(new ZodValidationPipe(BatchIdsSchema)) dto: BatchIdsDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.userService.unlockMany(dto.ids, actor);
+  }
+
+  @Post('batch-status')
+  @HttpCode(200)
+  @RequirePermissions(PERMISSION.USER_UPDATE)
+  @ApiOperation({ summary: '批次啟用／停用使用者（逐筆回報結果）' })
+  @ApiZodBody(BatchUserStatusSchema)
+  @ApiZodResponse(200, BatchResultSchema)
+  updateStatusMany(
+    @Body(new ZodValidationPipe(BatchUserStatusSchema)) dto: BatchUserStatusDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.userService.updateStatusMany(dto.ids, dto.status, actor);
   }
 }

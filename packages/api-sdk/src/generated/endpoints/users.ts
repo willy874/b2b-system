@@ -4,6 +4,9 @@
 import { z } from 'zod';
 
 import type {
+  BatchIdsRequest,
+  BatchResult,
+  BatchUserStatusRequest,
   CreateUserRequest,
   ReplaceUserRolesRequest,
   UpdateUserRequest,
@@ -18,6 +21,9 @@ import type {
   RequestOptions,
 } from '../runtime';
 import {
+  BatchIdsRequestSchema,
+  BatchResultSchema,
+  BatchUserStatusRequestSchema,
   CreateUserRequestSchema,
   ReplaceUserRolesRequestSchema,
   UpdateUserRequestSchema,
@@ -543,4 +549,164 @@ export function userControllerUnlock(
   options?: RequestOptions,
 ): Promise<UserControllerUnlockResult> {
   return request<UserControllerUnlockResult>(userControllerUnlockOperation, input, options);
+}
+
+// POST /users/batch-delete
+
+export type UserControllerRemoveManyBody = BatchIdsRequest;
+
+export interface UserControllerRemoveManyInput {
+  body: UserControllerRemoveManyBody;
+}
+
+export interface UserControllerRemoveManyResponses {
+  200: {
+    data: BatchResult;
+  };
+}
+
+export type UserControllerRemoveManyResponse = UserControllerRemoveManyResponses[200];
+
+export type UserControllerRemoveManyResult = ApiResponse<
+  200,
+  UserControllerRemoveManyResponses[200]
+>;
+
+export const UserControllerRemoveManySchemas = {
+  body: BatchIdsRequestSchema,
+  responses: {
+    200: z.object({
+      data: BatchResultSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getUserControllerRemoveManyUrl(): string {
+  return buildUrl('/users/batch-delete');
+}
+
+const userControllerRemoveManyOperation: OperationDefinition = {
+  id: 'UserController_removeMany',
+  method: 'POST',
+  path: '/users/batch-delete',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: UserControllerRemoveManySchemas,
+};
+
+/** 批次刪除使用者（逐筆回報結果） */
+export function userControllerRemoveMany(
+  input: UserControllerRemoveManyInput,
+  options?: RequestOptions,
+): Promise<UserControllerRemoveManyResult> {
+  return request<UserControllerRemoveManyResult>(userControllerRemoveManyOperation, input, options);
+}
+
+// POST /users/batch-unlock
+
+export type UserControllerUnlockManyBody = BatchIdsRequest;
+
+export interface UserControllerUnlockManyInput {
+  body: UserControllerUnlockManyBody;
+}
+
+export interface UserControllerUnlockManyResponses {
+  200: {
+    data: BatchResult;
+  };
+}
+
+export type UserControllerUnlockManyResponse = UserControllerUnlockManyResponses[200];
+
+export type UserControllerUnlockManyResult = ApiResponse<
+  200,
+  UserControllerUnlockManyResponses[200]
+>;
+
+export const UserControllerUnlockManySchemas = {
+  body: BatchIdsRequestSchema,
+  responses: {
+    200: z.object({
+      data: BatchResultSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getUserControllerUnlockManyUrl(): string {
+  return buildUrl('/users/batch-unlock');
+}
+
+const userControllerUnlockManyOperation: OperationDefinition = {
+  id: 'UserController_unlockMany',
+  method: 'POST',
+  path: '/users/batch-unlock',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: UserControllerUnlockManySchemas,
+};
+
+/** 批次解鎖使用者（逐筆回報結果） */
+export function userControllerUnlockMany(
+  input: UserControllerUnlockManyInput,
+  options?: RequestOptions,
+): Promise<UserControllerUnlockManyResult> {
+  return request<UserControllerUnlockManyResult>(userControllerUnlockManyOperation, input, options);
+}
+
+// POST /users/batch-status
+
+export type UserControllerUpdateStatusManyBody = BatchUserStatusRequest;
+
+export interface UserControllerUpdateStatusManyInput {
+  body: UserControllerUpdateStatusManyBody;
+}
+
+export interface UserControllerUpdateStatusManyResponses {
+  200: {
+    data: BatchResult;
+  };
+}
+
+export type UserControllerUpdateStatusManyResponse = UserControllerUpdateStatusManyResponses[200];
+
+export type UserControllerUpdateStatusManyResult = ApiResponse<
+  200,
+  UserControllerUpdateStatusManyResponses[200]
+>;
+
+export const UserControllerUpdateStatusManySchemas = {
+  body: BatchUserStatusRequestSchema,
+  responses: {
+    200: z.object({
+      data: BatchResultSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getUserControllerUpdateStatusManyUrl(): string {
+  return buildUrl('/users/batch-status');
+}
+
+const userControllerUpdateStatusManyOperation: OperationDefinition = {
+  id: 'UserController_updateStatusMany',
+  method: 'POST',
+  path: '/users/batch-status',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: UserControllerUpdateStatusManySchemas,
+};
+
+/** 批次啟用／停用使用者（逐筆回報結果） */
+export function userControllerUpdateStatusMany(
+  input: UserControllerUpdateStatusManyInput,
+  options?: RequestOptions,
+): Promise<UserControllerUpdateStatusManyResult> {
+  return request<UserControllerUpdateStatusManyResult>(
+    userControllerUpdateStatusManyOperation,
+    input,
+    options,
+  );
 }

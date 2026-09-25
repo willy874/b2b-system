@@ -67,6 +67,7 @@ interface AuditRecord {
     ip?: string;
     userAgent?: string;
     requestId?: string;
+    batch?: { size: number }; // 批次端點（ADR-0009 D8）；同一批共用 requestId
     [k: string]: unknown;
   } | null;
 }
@@ -109,6 +110,7 @@ export class AuditService {
         ip: ctx?.ip,
         userAgent: ctx?.userAgent,
         requestId: ctx?.requestId,
+        ...(ctx?.batch && { batch: ctx.batch }), // runBatch() 執行期間帶入
         ...input.metadata,
       },
     });

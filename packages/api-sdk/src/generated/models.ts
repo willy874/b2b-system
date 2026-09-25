@@ -67,6 +67,26 @@ export interface AuditLog {
   metadata: Record<string, unknown> | null;
 }
 
+export interface BatchIdsRequest {
+  ids: Array<string>;
+}
+
+export interface BatchFailure {
+  id: string;
+  code: string;
+  details?: Record<string, unknown>;
+}
+
+export interface BatchResult {
+  succeeded: Array<string>;
+  failed: Array<BatchFailure>;
+}
+
+export interface BatchUserStatusRequest {
+  ids: Array<string>;
+  status: 'active' | 'inactive';
+}
+
 export interface CreateUserRequest {
   email: string;
   username?: string;

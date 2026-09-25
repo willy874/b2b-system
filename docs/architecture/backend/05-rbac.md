@@ -475,6 +475,9 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/users/:id/permissions`    | `user:read`                      |
 | POST   | `/users/:id/reset-password` | `user:resetPassword`             |
 | POST   | `/users/:id/unlock`         | `user:update`                    |
+| POST   | `/users/batch-delete`       | `user:delete`²                   |
+| POST   | `/users/batch-unlock`       | `user:update`²                   |
+| POST   | `/users/batch-status`       | `user:update`²                   |
 | GET    | `/roles`                    | `role:read`                      |
 | POST   | `/roles`                    | `role:create`                    |
 | GET    | `/roles/:id`                | `role:read`                      |
@@ -484,6 +487,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | PATCH  | `/roles/:id/permissions`    | `role:grantPermission`           |
 | GET    | `/roles/:id/users`          | `role:read` ＋ `user:read`       |
 | POST   | `/roles/:id/duplicate`      | `role:create`                    |
+| POST   | `/roles/batch-delete`       | `role:delete`²                   |
 | GET    | `/permissions`              | `permission:read`                |
 | GET    | `/audit-logs`               | `auditLog:read`                  |
 | GET    | `/audit-logs/:id`           | `auditLog:read`                  |
@@ -498,6 +502,9 @@ private assertNotSelf(actorId: string, targetId: string): void {
 ¹ 路由宣告只有 `approval:review`；核准時 `ApprovalService` 另外檢查該類型 handler 要求的權限
 （`user.register` = `user:create`，指派角色時再加 `user:assignRole`），缺少時同樣回
 `403 AUTHZ_FORBIDDEN` ＋ `details.missing`。見 [`../../rbac/06-approval.md`](../../rbac/06-approval.md) §3.2。
+
+² 批次端點沿用單筆操作的權限，不另設權限鍵（[ADR-0009](../../adr/0009-table-batch-operations.md) D5）；
+逐筆的業務檢查與單筆相同，結果見 [`03-api-conventions.md`](./03-api-conventions.md) §10。
 
 **這張表必須與 `docs/rbac/04-api-spec.md` 一致**，且有一支測試從 metadata
 產生它並與文件比對（見 §7.1）。

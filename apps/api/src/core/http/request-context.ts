@@ -10,6 +10,8 @@ export interface RequestContext {
    * 只用來讓推播略過發起的分頁，**不做任何授權判斷**（docs/architecture/backend/08-realtime.md §7.1）。
    */
   clientId?: string;
+  /** 批次端點執行期間由 `runBatch()` 帶入，稽核據此標記 `metadata.batch`（ADR-0009 D8）。 */
+  batch?: { size: number };
 }
 
 const storage = new AsyncLocalStorage<RequestContext>();

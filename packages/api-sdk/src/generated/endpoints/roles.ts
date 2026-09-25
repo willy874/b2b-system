@@ -4,6 +4,8 @@
 import { z } from 'zod';
 
 import type {
+  BatchIdsRequest,
+  BatchResult,
   CreateRoleRequest,
   DuplicateRoleRequest,
   Role,
@@ -20,6 +22,8 @@ import type {
   RequestOptions,
 } from '../runtime';
 import {
+  BatchIdsRequestSchema,
+  BatchResultSchema,
   CreateRoleRequestSchema,
   DuplicateRoleRequestSchema,
   RoleHolderSchema,
@@ -274,6 +278,58 @@ export function roleControllerUpdate(
   options?: RequestOptions,
 ): Promise<RoleControllerUpdateResult> {
   return request<RoleControllerUpdateResult>(roleControllerUpdateOperation, input, options);
+}
+
+// POST /roles/batch-delete
+
+export type RoleControllerRemoveManyBody = BatchIdsRequest;
+
+export interface RoleControllerRemoveManyInput {
+  body: RoleControllerRemoveManyBody;
+}
+
+export interface RoleControllerRemoveManyResponses {
+  200: {
+    data: BatchResult;
+  };
+}
+
+export type RoleControllerRemoveManyResponse = RoleControllerRemoveManyResponses[200];
+
+export type RoleControllerRemoveManyResult = ApiResponse<
+  200,
+  RoleControllerRemoveManyResponses[200]
+>;
+
+export const RoleControllerRemoveManySchemas = {
+  body: BatchIdsRequestSchema,
+  responses: {
+    200: z.object({
+      data: BatchResultSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getRoleControllerRemoveManyUrl(): string {
+  return buildUrl('/roles/batch-delete');
+}
+
+const roleControllerRemoveManyOperation: OperationDefinition = {
+  id: 'RoleController_removeMany',
+  method: 'POST',
+  path: '/roles/batch-delete',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: RoleControllerRemoveManySchemas,
+};
+
+/** 批次刪除角色（逐筆回報結果；有人持有的角色不刪） */
+export function roleControllerRemoveMany(
+  input: RoleControllerRemoveManyInput,
+  options?: RequestOptions,
+): Promise<RoleControllerRemoveManyResult> {
+  return request<RoleControllerRemoveManyResult>(roleControllerRemoveManyOperation, input, options);
 }
 
 // GET /roles/{id}/permissions

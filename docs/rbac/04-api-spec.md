@@ -112,6 +112,9 @@
 | GET    | `/users/:id/permissions`    | 🛡 `user:read`          | 該使用者的有效權限集合（除錯／稽核用） |
 | POST   | `/users/:id/reset-password` | 🛡 `user:resetPassword` | 代觸發重設流程                         |
 | POST   | `/users/:id/unlock`         | 🛡 `user:update`        | 解除登入鎖定                           |
+| POST   | `/users/batch-delete`       | 🛡 `user:delete`        | 批次軟刪除（逐筆結果，§2.5）           |
+| POST   | `/users/batch-unlock`       | 🛡 `user:update`        | 批次解除鎖定（§2.5）                   |
+| POST   | `/users/batch-status`       | 🛡 `user:update`        | 批次啟用／停用（§2.5）                 |
 
 ### 2.1 `GET /users`
 
@@ -184,6 +187,32 @@
 
 檢查：反提權（§5）、`AUTHZ_SELF_MODIFY`、`LAST_SUPER_ADMIN`。
 
+### 2.5 批次：`POST /users/batch-delete`、`/users/batch-unlock`、`/users/batch-status`
+
+```jsonc
+// Request
+{ "ids": ["…", "…"] }                         // batch-delete / batch-unlock
+{ "ids": ["…", "…"], "status": "inactive" }   // batch-status：只接受 active / inactive
+
+// 200 — 逐筆結果（部分成功）
+{
+  "data": {
+    "succeeded": ["…"],
+    "failed": [{ "id": "…", "code": "AUTHZ_SELF_MODIFY" }],
+  },
+}
+```
+
+| 端點 | 權限 | 逐筆檢查（同單筆） |
+| ---- | ---- | ------------------ |
+| `batch-delete` | `user:delete` | `USER_NOT_FOUND`、`AUTHZ_SELF_MODIFY`、`LAST_SUPER_ADMIN` |
+| `batch-unlock` | `user:update` | `USER_NOT_FOUND`、`USER_NOT_LOCKED` |
+| `batch-status` | `user:update` | `USER_NOT_FOUND`、`AUTHZ_SELF_MODIFY`、停用時 `LAST_SUPER_ADMIN`；已是目標狀態 → 成功、不寫入 |
+
+- `ids` 1–200 筆、不可重複，否則 `400 VALIDATION_FAILED`。
+- 依 `ids` 順序逐筆執行：同一批裡刪到只剩最後一位 super-admin 時，那一筆回 `LAST_SUPER_ADMIN`。
+- 通用規則見 [`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §10。
+
 ---
 
 ## 3. Roles
@@ -199,6 +228,7 @@
 | PATCH  | `/roles/:id/permissions` | 🛡 `role:grantPermission`           | 增減權限（差異語意）       |
 | GET    | `/roles/:id/users`       | 🛡 `role:read` ＋ `user:read`       | 持有此角色的使用者         |
 | POST   | `/roles/:id/duplicate`   | 🛡 `role:create`                    | 以既有角色為範本建立新角色 |
+| POST   | `/roles/batch-delete`    | 🛡 `role:delete`                    | 批次刪除（逐筆結果，§3.6） |
 
 ### 3.1 `GET /roles`
 
@@ -269,6 +299,27 @@
 
 複製來源的權限集合，但仍受 **反提權** 限制：操作者持有的權限才會被複製過去，
 其餘略過，回應中以 `data.skippedPermissions` 列出，讓 UI 可以提示。
+
+### 3.6 `POST /roles/batch-delete`
+
+```jsonc
+// Request
+{ "ids": ["…", "…"] }
+
+// 200
+{
+  "data": {
+    "succeeded": ["…"],
+    "failed": [
+      { "id": "…", "code": "ROLE_SYSTEM_PROTECTED" },
+      { "id": "…", "code": "ROLE_IN_USE", "details": { "userCount": 3 } },
+    ],
+  },
+}
+```
+
+- 權限 `role:delete`；逐筆檢查同 §3.4。
+- **不支援 `force`**：有人持有的角色一律回 `ROLE_IN_USE`，強制刪除走單筆（[ADR-0009](../adr/0009-table-batch-operations.md) D10）。
 
 ---
 

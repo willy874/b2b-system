@@ -15,6 +15,8 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, RequirePermissions } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
+import { BatchIdsSchema, BatchResultSchema } from '@/core/batch';
+import type { BatchIdsDto } from '@/core/batch';
 import {
   ApiZodBody,
   ApiZodListResponse,
@@ -82,6 +84,19 @@ export class RoleController {
     @CurrentUser() actor: AuthUser,
   ) {
     await this.roleService.remove(id, query, actor);
+  }
+
+  @Post('batch-delete')
+  @RequirePermissions(PERMISSION.ROLE_DELETE)
+  @HttpCode(200)
+  @ApiOperation({ summary: '批次刪除角色（逐筆回報結果；有人持有的角色不刪）' })
+  @ApiZodBody(BatchIdsSchema)
+  @ApiZodResponse(200, BatchResultSchema)
+  removeMany(
+    @Body(new ZodValidationPipe(BatchIdsSchema)) dto: BatchIdsDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.roleService.removeMany(dto.ids, actor);
   }
 
   @Get(':id/permissions')

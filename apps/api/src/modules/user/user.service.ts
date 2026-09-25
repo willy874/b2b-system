@@ -3,8 +3,10 @@ import type { ResourceChangeWire } from '@game-editor/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
+import { runBatch } from '@/core/batch';
+import type { BatchResult } from '@/core/batch';
 import { UserCacheService } from '@/core/cache';
-import type { Database, DbOrTx } from '@/core/database';
+import type { Database, DbOrTx, Transaction } from '@/core/database';
 import { DRIZZLE, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
@@ -16,6 +18,7 @@ import { AuthTokenService } from '@/modules/auth/auth-token.service';
 import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
 import { PermissionService } from '@/modules/permission/permission.service';
 
+import type { BatchUserStatus } from './dto/batch-user.dto';
 import type { CreateUserDto } from './dto/create-user.dto';
 import type { ListUserDto } from './dto/list-user.dto';
 import type { ReplaceUserRolesDto, UpdateUserDto } from './dto/update-user.dto';
@@ -32,6 +35,12 @@ export interface NewAccount {
   passwordHash?: string | null;
   status: UserStatus;
   roleIds: readonly string[];
+}
+
+/** 單筆與批次共用的操作對象：交易前查好，交易與事件都用同一份。 */
+interface UserTarget {
+  user: UserRow;
+  roles: UserRoleSummary[];
 }
 
 function toDto(user: UserRow, roles: UserRoleSummary[]): UserDto {
@@ -127,8 +136,7 @@ export class UserService {
     const user = await this.getExisting(id);
 
     if (dto.status && dto.status !== user.status) {
-      this.assertNotSelf(actor.id, id);
-      if (dto.status !== 'active') await this.assertNotLastSuperAdmin(id);
+      await this.assertStatusChangeAllowed(id, dto.status, actor);
     }
     if (dto.username && dto.username !== user.username) {
       await this.assertUsernameAvailable(dto.username);
@@ -141,11 +149,7 @@ export class UserService {
       const next = await this.repo.update(id, { ...dto, updatedBy: actor.id }, tx);
       if (!next) throw new AppException('USER_NOT_FOUND');
 
-      if (deactivating) {
-        // 停用：撤銷所有 refresh token 並讓既存 access token 失效
-        await this.repo.incrementTokenVersion(id, tx);
-        await this.authTokens.revokeAllRefreshTokens(id, 'user_disabled', tx);
-      }
+      if (deactivating) await this.revokeSessions(id, tx);
 
       await this.audit.record(
         {
@@ -160,9 +164,7 @@ export class UserService {
       return next;
     });
 
-    // 使用者狀態／token_version 變了，JwtAuthGuard 的快取必須主動失效
-    this.userCache.invalidate(id);
-    this.permissionService.invalidateUser(id);
+    this.invalidateAccount(id);
 
     const roles = await this.repo.listRoles(id);
     if (deactivating) {
@@ -179,43 +181,18 @@ export class UserService {
   }
 
   async remove(id: string, actor: AuthUser): Promise<void> {
-    const user = await this.getExisting(id);
-    this.assertNotSelf(actor.id, id);
-    await this.assertNotLastSuperAdmin(id);
-    // 先查角色再刪：推播要帶上受影響的角色（userCount）
-    const roles = await this.repo.listRoles(id);
+    const plan = await this.prepareRemove(id, actor);
+    await withTransaction(this.db, (tx) => this.applyRemove(plan, actor, tx));
+    this.invalidateAccount(id);
+    this.publishRemoved([plan]);
+  }
 
-    await withTransaction(this.db, async (tx) => {
-      await this.repo.softDelete(id, actor.id, tx);
-      await this.authTokens.revokeAllRefreshTokens(id, 'user_disabled', tx);
-      await this.audit.record(
-        {
-          action: 'user.delete',
-          resourceType: 'user',
-          resourceId: id,
-          resourceName: user.email,
-          changes: { before: { email: user.email, status: user.status } },
-        },
-        tx,
-      );
-    });
-
-    this.userCache.invalidate(id);
-    this.permissionService.invalidateUser(id);
-    // softDelete 遞增了 token_version
-    this.events.publish(DomainEvent.SESSIONS_REVOKED, {
-      userIds: [id],
-      reason: SessionRevokedReason.TOKEN_INVALID,
-    });
-    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: [
-        {
-          resource: ChangeSource.USER,
-          kind: ChangeKind.DELETE,
-          id,
-          refs: { [ChangeSource.ROLE]: roles.map((role) => role.id) },
-        },
-      ],
+  removeMany(ids: readonly string[], actor: AuthUser): Promise<BatchResult> {
+    return runBatch(this.db, ids, {
+      prepare: (id) => this.prepareRemove(id, actor),
+      apply: (plan, tx) => this.applyRemove(plan, actor, tx),
+      invalidate: (plan) => this.invalidateAccount(plan.user.id),
+      publish: (plans) => this.publishRemoved(plans),
     });
   }
 
@@ -290,36 +267,172 @@ export class UserService {
   }
 
   async unlock(id: string, actor: AuthUser): Promise<UserDto> {
+    const plan = await this.prepareUnlock(id);
+    const updated = await withTransaction(this.db, (tx) => this.applyUnlock(plan, actor, tx));
+    this.userCache.invalidate(id);
+    this.publishUpdated([plan]);
+    return toDto(updated, plan.roles);
+  }
+
+  unlockMany(ids: readonly string[], actor: AuthUser): Promise<BatchResult> {
+    return runBatch(this.db, ids, {
+      prepare: (id) => this.prepareUnlock(id),
+      apply: async (plan, tx) => {
+        await this.applyUnlock(plan, actor, tx);
+      },
+      invalidate: (plan) => this.userCache.invalidate(plan.user.id),
+      publish: (plans) => this.publishUpdated(plans),
+    });
+  }
+
+  /** 批次停用／啟用；已經是目標狀態的算成功、不寫入（ADR-0009 D9）。 */
+  updateStatusMany(
+    ids: readonly string[],
+    status: BatchUserStatus,
+    actor: AuthUser,
+  ): Promise<BatchResult> {
+    return runBatch(this.db, ids, {
+      prepare: (id) => this.prepareStatus(id, status, actor),
+      apply: (plan, tx) => this.applyStatus(plan, status, actor, tx),
+      invalidate: (plan) => this.invalidateAccount(plan.user.id),
+      publish: (plans) => {
+        if (status !== 'active') {
+          this.events.publish(DomainEvent.SESSIONS_REVOKED, {
+            userIds: plans.map((plan) => plan.user.id),
+            reason: SessionRevokedReason.ACCOUNT_DISABLED,
+          });
+        }
+        this.publishUpdated(plans);
+      },
+    });
+  }
+
+  // ── 單筆與批次共用的步驟：檢查 → 交易內寫入與稽核 → 快取失效；事件由呼叫端在最後發 ──
+  // （ADR-0009 §D3／D4）
+
+  private async prepareRemove(id: string, actor: AuthUser): Promise<UserTarget> {
+    const user = await this.getExisting(id);
+    this.assertNotSelf(actor.id, id);
+    await this.assertNotLastSuperAdmin(id);
+    // 先查角色再刪：推播要帶上受影響的角色（userCount）
+    return { user, roles: await this.repo.listRoles(id) };
+  }
+
+  private async applyRemove({ user }: UserTarget, actor: AuthUser, tx: Transaction): Promise<void> {
+    await this.repo.softDelete(user.id, actor.id, tx);
+    await this.authTokens.revokeAllRefreshTokens(user.id, 'user_disabled', tx);
+    await this.audit.record(
+      {
+        action: 'user.delete',
+        resourceType: 'user',
+        resourceId: user.id,
+        resourceName: user.email,
+        changes: { before: { email: user.email, status: user.status } },
+      },
+      tx,
+    );
+  }
+
+  private publishRemoved(plans: readonly UserTarget[]): void {
+    // softDelete 遞增了 token_version
+    this.events.publish(DomainEvent.SESSIONS_REVOKED, {
+      userIds: plans.map((plan) => plan.user.id),
+      reason: SessionRevokedReason.TOKEN_INVALID,
+    });
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: plans.map(({ user, roles }) => ({
+        resource: ChangeSource.USER,
+        kind: ChangeKind.DELETE,
+        id: user.id,
+        refs: { [ChangeSource.ROLE]: roles.map((role) => role.id) },
+      })),
+    });
+  }
+
+  private async prepareUnlock(id: string): Promise<UserTarget> {
     const user = await this.getExisting(id);
     const locked = user.status === 'locked' || (user.lockedUntil?.getTime() ?? 0) > Date.now();
     if (!locked) throw new AppException('USER_NOT_LOCKED');
+    return { user, roles: await this.repo.listRoles(id) };
+  }
 
-    const updated = await withTransaction(this.db, async (tx) => {
-      const next = await this.repo.update(
-        id,
-        {
-          status: user.status === 'locked' ? 'active' : user.status,
-          lockedUntil: null,
-          failedLoginCount: 0,
-          updatedBy: actor.id,
-        },
-        tx,
-      );
-      if (!next) throw new AppException('USER_NOT_FOUND');
-      await this.audit.record(
-        { action: 'user.unlock', resourceType: 'user', resourceId: id, resourceName: next.email },
-        tx,
-      );
-      return next;
-    });
+  private async applyUnlock(
+    { user }: UserTarget,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<UserRow> {
+    const next = await this.repo.update(
+      user.id,
+      {
+        status: user.status === 'locked' ? 'active' : user.status,
+        lockedUntil: null,
+        failedLoginCount: 0,
+        updatedBy: actor.id,
+      },
+      tx,
+    );
+    if (!next) throw new AppException('USER_NOT_FOUND');
+    await this.audit.record(
+      {
+        action: 'user.unlock',
+        resourceType: 'user',
+        resourceId: user.id,
+        resourceName: next.email,
+      },
+      tx,
+    );
+    return next;
+  }
 
-    this.userCache.invalidate(id);
-    const roles = await this.repo.listRoles(id);
+  private async prepareStatus(
+    id: string,
+    status: BatchUserStatus,
+    actor: AuthUser,
+  ): Promise<UserTarget | null> {
+    const user = await this.getExisting(id);
+    if (user.status === status) return null;
+    await this.assertStatusChangeAllowed(id, status, actor);
+    return { user, roles: await this.repo.listRoles(id) };
+  }
+
+  private async applyStatus(
+    { user }: UserTarget,
+    status: BatchUserStatus,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<void> {
+    const next = await this.repo.update(user.id, { status, updatedBy: actor.id }, tx);
+    if (!next) throw new AppException('USER_NOT_FOUND');
+    if (status !== 'active') await this.revokeSessions(user.id, tx);
+    await this.audit.record(
+      {
+        action: 'user.update',
+        resourceType: 'user',
+        resourceId: user.id,
+        resourceName: next.email,
+        changes: diff(user, { status }, [...USER_AUDIT_FIELDS]),
+      },
+      tx,
+    );
+  }
+
+  private publishUpdated(plans: readonly UserTarget[]): void {
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: [userUpdated(id, roles)],
-      affectedUserIds: [id],
+      changes: plans.map(({ user, roles }) => userUpdated(user.id, roles)),
+      affectedUserIds: plans.map((plan) => plan.user.id),
     });
-    return toDto(updated, roles);
+  }
+
+  /** 狀態或 token_version 變了：JwtAuthGuard 的使用者快取與權限快取都要主動失效。 */
+  private invalidateAccount(id: string): void {
+    this.userCache.invalidate(id);
+    this.permissionService.invalidateUser(id);
+  }
+
+  /** 停用：撤銷所有 refresh token 並讓既存 access token 失效。 */
+  private async revokeSessions(id: string, tx: DbOrTx): Promise<void> {
+    await this.repo.incrementTokenVersion(id, tx);
+    await this.authTokens.revokeAllRefreshTokens(id, 'user_disabled', tx);
   }
 
   // ── 建立帳號：供 create 與審批（user.register）共用 ─────────────
@@ -390,6 +503,16 @@ export class UserService {
     const user = await this.repo.findById(id);
     if (!user) throw new AppException('USER_NOT_FOUND');
     return user;
+  }
+
+  /** 改變帳號狀態：不能改自己；停用時不能讓 super-admin 歸零。 */
+  private async assertStatusChangeAllowed(
+    id: string,
+    status: UserStatus,
+    actor: AuthUser,
+  ): Promise<void> {
+    this.assertNotSelf(actor.id, id);
+    if (status !== 'active') await this.assertNotLastSuperAdmin(id);
   }
 
   private assertNotSelf(actorId: string, targetId: string): void {
