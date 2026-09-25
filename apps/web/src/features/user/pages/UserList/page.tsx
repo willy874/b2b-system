@@ -11,6 +11,7 @@ import { useTranslation } from '@/core/locales';
 
 import { useUserDeleteMutation } from '../../hooks/useUserMutations';
 import { useUserPermission } from '../../hooks/useUserPermission';
+import { USER_LIST_TABLE_ID } from '../../preference';
 import { UserCreateRoute, UserDetailRoute } from '../../routes';
 import { toUserRowVM } from './adapter';
 import type { UserRowVM } from './adapter';
@@ -86,7 +87,7 @@ export default function UserListPage() {
         }
         onDelete={setPendingDelete}
         filters={filters}
-        batch={{ selection, actions: batchActions, getRowLabel }}
+        batch={{ scope: USER_LIST_TABLE_ID, selection, actions: batchActions, getRowLabel }}
         pagination={{
           offset: search.offset,
           limit: search.limit,

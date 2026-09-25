@@ -8,6 +8,7 @@ import { IconButton } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import type { IconName } from '@/components/Icon';
 import { Menu } from '@/components/Menu';
+import { BatchQueueIndicator, BatchQueueNotifier } from '@/core/batch';
 import { useTranslation } from '@/core/locales';
 import { usePageAccessChecker } from '@/core/permission';
 import type { PageKey } from '@/core/permission';
@@ -137,6 +138,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             ☰
           </IconButton>
           <div className="flex-1" />
+          <BatchQueueIndicator />
           <ThemeMenu />
           <Menu
             trigger={
@@ -160,6 +162,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           />
         </header>
         <main className="ge-shell__content">{children}</main>
+        {/* 批次工作結束時彈出結果（佇列只通知發起的分頁） */}
+        <BatchQueueNotifier />
       </div>
     </div>
   );

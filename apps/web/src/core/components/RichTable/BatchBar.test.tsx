@@ -1,12 +1,19 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useTableSelection } from '@/components/Table';
+import {
+  BatchQueueNotifier,
+  registerBatchOperation,
+  resetBatchOperations,
+  setActiveBatchQueue,
+} from '@/core/batch';
 import type { BatchAction } from '@/core/batch';
 import { AppError } from '@/core/errors';
 import { useTableColumnSettingsStore } from '@/core/store';
+import { createFakeBatchQueue } from '@/test/fakeBatchQueue';
 import { AllProviders } from '@/test/renderWithPermissions';
 
 import { RichTable } from './RichTable';
@@ -23,7 +30,6 @@ const ROWS: Row[] = [
   { id: 'c', name: 'Carol', locked: true },
 ];
 const getId = (row: Row) => row.id;
-const isDisabled = (element: HTMLElement) => element.matches(':disabled, [aria-disabled="true"]');
 const columns: Array<ColumnDef<Row, unknown>> = [
   { id: 'name', header: 'Name', cell: ({ row }) => row.original.name },
 ];
@@ -34,8 +40,7 @@ function action(overrides: Partial<BatchAction<Row>> = {}): BatchAction<Row> {
     label: 'Unlock',
     isEligible: (row) => row.locked,
     confirm: ({ eligible }) => ({ title: 'Unlock?', description: `${eligible.length} rows` }),
-    run: vi.fn(async (ids: string[]) => ({ succeeded: ids, failed: [] })),
-    successMessage: (count) => `Unlocked ${count}`,
+    operation: 'row.unlock',
     ...overrides,
   };
 }
@@ -48,12 +53,17 @@ function Harness({ actions }: { actions: Array<BatchAction<Row>> }) {
         data={ROWS}
         columns={columns}
         getRowId={getId}
-        batch={{ selection, actions, getRowLabel: (row) => row.name }}
+        batch={{ scope: 'rows', selection, actions, getRowLabel: (row) => row.name }}
       />
       <output data-testid="selected">{selection.selectedIds.join(',')}</output>
+      <BatchQueueNotifier />
     </>
   );
 }
+
+/** 每筆呼叫一次；預設全部成功。 */
+let runItem = vi.fn(async (_id: string): Promise<unknown> => undefined);
+let queue: ReturnType<typeof createFakeBatchQueue>;
 
 function renderHarness(actions: Array<BatchAction<Row>>) {
   return render(<Harness actions={actions} />, { wrapper: AllProviders });
@@ -72,10 +82,27 @@ async function confirmBatch() {
   await userEvent.click(within(dialog).getByTestId('alert-dialog-confirm'));
 }
 
-describe('RichTable 的批次操作（ADR-0009）', () => {
-  beforeEach(() => {
+describe('RichTable 的批次操作（ADR-0012）', () => {
+  beforeEach(async () => {
     localStorage.clear();
     useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
+    resetBatchOperations();
+    runItem = vi.fn(async (_id: string): Promise<unknown> => undefined);
+    registerBatchOperation({
+      id: 'row.unlock',
+      labelKey: 'row.unlock',
+      successKey: 'row.unlocked',
+      run: (id) => runItem(id),
+    });
+    queue = createFakeBatchQueue();
+    const tab = queue.openTab('this-tab');
+    await tab.start();
+    setActiveBatchQueue(tab);
+  });
+
+  afterEach(() => {
+    setActiveBatchQueue(undefined);
+    queue.dispose();
   });
 
   it('沒有勾選時不顯示操作列；勾選後顯示筆數與動作', async () => {
@@ -124,38 +151,57 @@ describe('RichTable 的批次操作（ADR-0009）', () => {
     expect(await screen.findByText('只能解鎖被鎖定的列')).toBeVisible();
   });
 
-  it('只送出適用的列', async () => {
-    const run = vi.fn(async (ids: string[]) => ({ succeeded: ids, failed: [] }));
-    renderHarness([action({ run })]);
+  it('只把適用的列送進佇列，逐筆呼叫', async () => {
+    renderHarness([action()]);
     await selectRows(0, 1, 2);
     await userEvent.click(screen.getByTestId('batch-action'));
 
     expect(await screen.findByRole('alertdialog')).toHaveTextContent('2 rows');
     await confirmBatch();
 
-    await waitFor(() => expect(run).toHaveBeenCalledWith(['a', 'c']));
+    await waitFor(() => expect(runItem.mock.calls.map(([id]) => id)).toEqual(['a', 'c']));
   });
 
-  it('全部成功 → 成功的移出選取、顯示提示；略過的仍保持勾選', async () => {
+  it('處理中 → 操作列換成進度條，顯示已處理筆數', async () => {
+    let finishFirst!: () => void;
+    runItem = vi.fn(
+      (id: string) =>
+        new Promise<unknown>((resolve) => {
+          if (id === 'a') finishFirst = () => resolve(undefined);
+        }),
+    );
+    renderHarness([action()]);
+    await selectRows(0, 2);
+    await userEvent.click(screen.getByTestId('batch-action'));
+    await confirmBatch();
+
+    const bar = await screen.findByTestId('batch-progress-bar');
+    expect(screen.queryByTestId('batch-action-bar')).not.toBeInTheDocument();
+    expect(within(bar).getByTestId('batch-progress-count')).toHaveAttribute('data-value', '0');
+
+    finishFirst();
+    await waitFor(() =>
+      expect(within(bar).getByTestId('batch-progress-count')).toHaveAttribute('data-value', '1'),
+    );
+  });
+
+  it('全部成功 → 成功的移出選取、彈出成功提示；略過的仍保持勾選', async () => {
     renderHarness([action()]);
     await selectRows(0, 1);
     await userEvent.click(screen.getByTestId('batch-action'));
     await confirmBatch();
 
     await waitFor(() => expect(screen.getByTestId('selected')).toHaveTextContent(/^b$/));
-    expect(await screen.findByText('Unlocked 1')).toBeInTheDocument();
+    expect(await screen.findByTestId('toast')).toHaveAttribute('data-type', 'success');
     expect(screen.queryByTestId('batch-result-dialog')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('batch-progress-bar')).not.toBeInTheDocument();
   });
 
-  it('部分失敗 → 結果對話框列出未完成項目；失敗的保留勾選，已不存在的移出', async () => {
-    const run = vi.fn(async () => ({
-      succeeded: [] as string[],
-      failed: [
-        { id: 'a', code: 'AUTHZ_SELF_MODIFY' },
-        { id: 'c', code: 'USER_NOT_FOUND' },
-      ],
-    }));
-    renderHarness([action({ run })]);
+  it('有失敗 → 結束時彈出結果對話框；失敗的保留勾選，已不存在的移出', async () => {
+    runItem = vi.fn(async (id: string) => {
+      throw new AppError(id === 'a' ? 'AUTHZ_SELF_MODIFY' : 'USER_NOT_FOUND', 409);
+    });
+    renderHarness([action()]);
     await selectRows(0, 2);
     await userEvent.click(screen.getByTestId('batch-action'));
     await confirmBatch();
@@ -167,40 +213,21 @@ describe('RichTable 的批次操作（ADR-0009）', () => {
     expect(screen.getByTestId('selected')).toHaveTextContent(/^a$/);
   });
 
-  it('整批失敗 → 確認框留著、選取不變', async () => {
-    const run = vi.fn(async () => {
-      throw new AppError('INTERNAL_ERROR', 500);
-    });
-    renderHarness([action({ run })]);
+  it('取消確認 → 不送進佇列、選取不變', async () => {
+    renderHarness([action()]);
     await selectRows(0);
     await userEvent.click(screen.getByTestId('batch-action'));
-    await confirmBatch();
+    const dialog = await screen.findByRole('alertdialog');
+    await userEvent.click(within(dialog).getByTestId('alert-dialog-cancel'));
 
-    await waitFor(() => expect(run).toHaveBeenCalled());
-    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    expect(runItem).not.toHaveBeenCalled();
     expect(screen.getByTestId('selected')).toHaveTextContent(/^a$/);
   });
 
-  it('跨頁累積超過 200 筆 → 所有動作停用', async () => {
-    const many = Array.from({ length: 201 }, (_, i) => ({
-      id: `r${i}`,
-      name: `R${i}`,
-      locked: true,
-    }));
-    function Many() {
-      const selection = useTableSelection(many, getId);
-      return (
-        <RichTable
-          data={many}
-          columns={columns}
-          getRowId={getId}
-          batch={{ selection, actions: [action()], getRowLabel: (row) => row.name }}
-        />
-      );
-    }
-    render(<Many />, { wrapper: AllProviders });
-    await userEvent.click(screen.getByTestId('table-select-all'));
-    // 有說明文字時是 aria-disabled（可 hover），測試環境沒載入語系則是原生 disabled
-    expect(screen.getByTestId('batch-action')).toSatisfy(isDisabled);
+  it('佇列沒有啟用 → 不顯示批次操作', async () => {
+    setActiveBatchQueue(undefined);
+    renderHarness([action()]);
+    await selectRows(0);
+    expect(screen.queryByTestId('batch-action-bar')).not.toBeInTheDocument();
   });
 });

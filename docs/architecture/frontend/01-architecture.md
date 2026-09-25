@@ -62,7 +62,7 @@ export * from "@game-editor/api-sdk";
 | 模組              | 職責                                                                |
 | ----------------- | ------------------------------------------------------------------- |
 | `core/app`        | `AppContext` 型別、`createAppContext()`、React context bridge       |
-| `core/batch`      | 列表批次操作：`BatchAction` 型別、`useBatchRunner()`（確認 → 送出 → 更新選取 → 提示或結果對話框）、`BatchResultDialog`（[07 §6.2](./07-ui-system.md)） |
+| `core/batch`      | 全域批次佇列：SharedWorker（不支援時 dedicated worker）逐筆排程、分頁以單筆 API 執行、Channel 廣播進度；`BatchAction` 型別、`registerBatchOperation`、進度條、AppHeader 面板、結束時的彈出（[07 §6.2](./07-ui-system.md)、[ADR-0012](../../adr/0012-batch-queue-worker.md)） |
 | `core/auth`       | `SessionStore`：token 生命週期、跨分頁單飛續期、終止判定            |
 | `core/cache`      | `queryClient` 實例、跨分頁失效廣播、store 持久化                    |
 | `core/client`     | `HttpContext` / `FetcherContext` / `defineFetcher` / 攔截器鏈       |

@@ -837,21 +837,34 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 
 ### 6.2 批次操作（`RichTable` 的 `batch`）
 
-決策與理由見 [ADR-0009](../../adr/0009-table-batch-operations.md)；後端端點見
-[`../backend/03-api-conventions.md`](../backend/03-api-conventions.md) §10。
+決策與理由見 [ADR-0012](../../adr/0012-batch-queue-worker.md)。後端 **沒有** 批次端點：確認後把適用的列送進
+**全域批次佇列**，由佇列逐筆（一次一筆、堵塞式）交給分頁以一般的單筆 API 處理。
 
 | 層 | 檔案 | 職責 |
 | -- | ---- | ---- |
 | 設計系統 | `components/Table/BatchActionBar` | `role="toolbar"`：已選筆數（`batch-action-bar-count`，`data-value` 是筆數）、清除選取、呼叫端放進來的按鈕；不認識任何業務操作，文案由 `labels` 傳入 |
-| 機制 | `core/batch` | `BatchAction<TData>` 型別；`useBatchRunner()` 跑「分組 → 確認 → 送出 → 更新選取 → 提示／結果對話框」；`BatchResultDialog` 逐筆列出未完成的項目 |
-| 列表 | `core/components/RichTable/BatchBar.tsx` | `batch` prop 的接線：勾選後在表格上方顯示操作列，每個動作一顆按鈕（`data-testid="batch-action"`，`data-value` 是動作 id；顏色依 `tone`：`primary` / `success` / `warning` / `danger`，省略時 secondary；確認框在 `danger` / `warning` 時用危險色） |
-| feature | `pages/<List>/use<Name>BatchActions.ts` | 宣告這張表有哪些批次動作；`run` 呼叫 feature 的 batch mutation |
+| 機制 | `core/batch` | 佇列：`BatchQueueHost`（在 SharedWorker / dedicated worker 裡）、`BatchQueueClient`（每個分頁一個，由 `batchQueuePlugin` 建立）、`connectBatchQueue()`；操作註冊表 `registerBatchOperation`；UI：`BatchProgressBar`、`BatchQueueIndicator`（AppHeader）、`BatchQueueNotifier`（結束時彈出）、`BatchResultDialog` |
+| 列表 | `core/components/RichTable/BatchBar.tsx` | `batch` prop 的接線：勾選後顯示操作列，每個動作一顆按鈕（`data-testid="batch-action"`，`data-value` 是動作 id；顏色依 `tone`：`primary` / `success` / `warning` / `danger`，省略時 secondary；確認框在 `danger` / `warning` 時用危險色）；這張表（`batch.scope`）的工作進行中時換成進度條 |
+| feature | `batch.ts` | 在 plugin 的同步階段註冊操作：每筆呼叫一次單筆 fetcher ＋ 失效快取（同單筆 mutation hook），**不發 toast**；失敗直接拋出 |
+| feature | `pages/<List>/use<Name>BatchActions.ts` | 宣告這張表有哪些批次動作；`operation` 引用註冊的操作 id |
 
 ```tsx
+// features/user/batch.ts（節錄）
+registerBatchOperation({
+  id: UserBatchOperation.DELETE,               // 'user.delete'
+  labelKey: 'user.batch.delete.title',         // 佇列面板、進度條、結果對話框上的名稱
+  localeScope: USER_LOCALE_SCOPE,              // 佇列 UI 在其他 feature 的頁面也會顯示：顯示前補載
+  successKey: 'user.batch.delete.success',     // 全部成功時的 toast，參數 { count }
+  run: async (userId) => {
+    await deleteUser({ params: { userId } });
+    invalidateResources([{ resource: Resource.USER, kind: 'delete', id: userId }]);
+  },
+});
+
 // page.tsx
 const selection = useTableSelection(rows, getRowId);
 const batchActions = useUserBatchActions();
-<UserTable batch={{ selection, actions: batchActions, getRowLabel: (row) => row.email }} … />
+<UserTable batch={{ scope: USER_LIST_TABLE_ID, selection, actions: batchActions, getRowLabel: (row) => row.email }} … />
 
 // useUserBatchActions.ts（節錄）
 {
@@ -861,8 +874,7 @@ const batchActions = useUserBatchActions();
   hidden: !permission.hydrated || !permission.canDelete, // 永遠不會有 → 隱藏
   isEligible: (row) => row.canDelete,                      // 沿用 adapter 的列旗標
   confirm: ({ eligible }) => ({ title: …, description: t('user.batch.delete.confirm', { count: eligible.length }) }),
-  run: (ids) => deleteMany({ params: { body: { ids } } }),
-  successMessage: (count) => t('user.batch.delete.success', { count }),
+  operation: UserBatchOperation.DELETE,
 }
 ```
 
@@ -872,17 +884,24 @@ const batchActions = useUserBatchActions();
 | ---- | ---- |
 | 沒有勾選，或所有動作都 `hidden` | 不顯示操作列 |
 | 選到的列都不適用（`isEligible` 全為 false） | 按鈕停用，tooltip 顯示該動作的 `ineligibleReason`（省略時用通用文案） |
-| 跨頁累積超過 200 筆（`BATCH_MAX_SIZE`，與後端相同） | 所有按鈕停用，tooltip 提示上限 |
-| 部分列不適用 | 只送出適用的 id；確認框自動補上「其中 N 筆不適用，將會略過」 |
-| 全部成功 | 成功的列移出選取、toast 顯示 `successMessage` |
-| 部分未完成 | 結果對話框（`batch-result-dialog`）逐筆列出名稱與原因（`batch-result-failure`，`data-value` 是 id）；未完成的列保留勾選，`*_NOT_FOUND`（已被別人刪除）一併移出 |
-| 整批失敗（網路、403、500） | toast 顯示錯誤，確認框留著讓使用者重試或取消，選取不變 |
+| 部分列不適用 | 只送出適用的列；確認框自動補上「其中 N 筆不適用，將會略過」與「會在背景逐筆處理」 |
+| 確認後 | 工作進入全域佇列（前面有工作就排隊）；這張表的操作列換成進度條（`batch-progress-bar`；每個工作一個 `batch-progress`，`data-status` 是 `queued` / `running` / `done` / `cancelled`，已處理筆數在 `batch-progress-count` 的 `data-value`），可以取消 |
+| 每一筆 | 成功或失敗都即時反映在進度條（失敗筆數另外標示）；執行的分頁照單筆規則失效快取 |
+| 全部成功 | 成功的列移出選取；彈出成功 toast（操作的 `successKey`） |
+| 有失敗 | 彈出結果對話框（`batch-result-dialog`）逐筆列出名稱與原因（`batch-result-failure`，`data-value` 是 id）；失敗的列保留勾選，`*_NOT_FOUND`（已被別人刪除）一併移出 |
+| 取消 | 正在處理的那一筆做完就停；彈出資訊 toast（已完成幾筆），已完成的不會還原 |
 
+- 結束時的彈出只在 **一個分頁**：發起的分頁；它已經關掉就給任一個還開著的分頁。選取的更新只發生在發起的分頁（選取是頁面狀態）。
+- 發起的分頁關掉或換頁，工作仍會繼續（SharedWorker 由其他分頁接手執行）；所有分頁都關掉時停止。
+- 同一張表在其他分頁打開時也會看到進度條（佇列狀態經 Channel `batch-queue` 廣播，[09 §5](./09-state-and-storage.md)）。
+- **AppHeader 的佇列按鈕**（`batch-queue-trigger`，徽章 `batch-queue-count` 是進行中的工作數）打開面板
+  （`batch-queue-panel`），新的在上面：取消（`batch-progress-cancel`）、查看失敗項目（`batch-progress-failures`）、
+  移除（`batch-progress-dismiss`）、清除已結束（`batch-queue-clear`）。已結束的工作最多保留 30 筆。
+- session 結束時取消所有進行中的工作。
 - 略過的列（不適用、沒送出）保留勾選，可以接著做別的批次動作。
 - `batch` 提供時由 `batch.selection` 控制勾選欄，不必另外傳 `rowSelection` / `onRowSelectionChange`。
-- feature 的 batch mutation hook **只失效快取、不發 toast**（提示依結果而定，由 `useBatchRunner` 處理），
-  並用 `onSettled`：成功時只失效 `succeeded`；整批失敗時已提交的筆數不明，送出的 id 全部失效。
 - 篩選條件（不含排序）改變時頁面呼叫 `selection.clear()`：勾選的列可能已不在結果裡。
+- 佇列沒有啟用（`batchQueuePlugin` 未註冊，例如元件測試）時不顯示批次操作；測試用 `@/test/fakeBatchQueue` 建一個同行程的佇列並 `setActiveBatchQueue()`。
 
 ---
 

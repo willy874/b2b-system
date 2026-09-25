@@ -55,11 +55,30 @@
       "toolbar": "批次操作",
       "selected": "已選取 {{count}} 筆",
       "clear": "清除選取",
-      "tooMany": "一次最多處理 {{max}} 筆，請減少選取。",
       "noneEligible": "選取的項目都不適用這個操作。",
       "skipped": "其中 {{count}} 筆不適用，將會略過。",
-      "resultTitle": "部分項目未完成",
-      "resultSummary": "成功 {{succeeded}} 筆，未完成 {{failed}} 筆。未完成的項目仍保持勾選。"
+      "queuedNote": "送出後會在背景逐筆處理，可從右上角的佇列查看進度。",
+      "progressLabel": "批次處理進度",
+      "progress": {
+        "queued": "排隊中（共 {{total}} 筆）",
+        "running": "處理中 {{done}} / {{total}}",
+        "done": "已完成 {{done}} / {{total}}",
+        "cancelled": "已取消，處理了 {{done}} / {{total}}",
+        "failed": "失敗 {{count}} 筆"
+      },
+      "queue": {
+        "title": "批次處理佇列",
+        "trigger": "批次處理佇列",
+        "triggerActive": "批次處理佇列（{{count}} 個進行中）",
+        "empty": "目前沒有批次工作。",
+        "clearFinished": "清除已結束"
+      },
+      "viewFailures": "查看失敗項目",
+      "dismiss": "移除",
+      "resultTitle": "「{{name}}」有項目未完成",
+      "resultSummary": "成功 {{succeeded}} 筆，失敗 {{failed}} 筆。失敗的項目仍保持勾選。",
+      "cancelledToast": "已取消「{{name}}」，完成的 {{count}} 筆不受影響",
+      "doneToast": "「{{name}}」已完成 {{count}} 筆"
     }
   },
   "menu": {

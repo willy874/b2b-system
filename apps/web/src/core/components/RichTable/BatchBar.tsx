@@ -1,17 +1,32 @@
+import { useCallback } from 'react';
+
 import { Button } from '@/components/Button';
+import { useConfirm } from '@/components/ConfirmDialog';
 import type { TableSelection } from '@/components/Table';
 import { BatchActionBar } from '@/components/Table';
 import { Tooltip } from '@/components/Tooltip';
-import { BATCH_MAX_SIZE, BatchResultDialog, useBatchRunner } from '@/core/batch';
-import type { BatchAction } from '@/core/batch';
+import {
+  BatchProgressBar,
+  isBatchJobActive,
+  isGoneError,
+  useBatchJobFinished,
+  useBatchJobs,
+  useBatchQueue,
+} from '@/core/batch';
+import type { BatchAction, BatchTargets } from '@/core/batch';
 import { useTranslation } from '@/core/locales';
 
 /** `RichTable` 的批次操作（docs/architecture/frontend/07-ui-system.md §6.2）。 */
 export interface RichTableBatch<TData> {
+  /**
+   * 這張表在全域佇列裡的識別（例：`user-list`）。這張表送出的工作進行中時，
+   * 操作列換成進度條——在任何分頁打開這張表都看得到。
+   */
+  scope: string;
   /** 由頁面以 `useTableSelection(data, getRowId)` 建立；`RichTable` 以它控制勾選欄。 */
   selection: TableSelection<TData>;
   actions: ReadonlyArray<BatchAction<TData>>;
-  /** 結果對話框列出未完成項目時顯示的名稱。 */
+  /** 佇列面板與結果對話框列出項目時顯示的名稱。 */
   getRowLabel: (row: TData) => string;
 }
 
@@ -20,53 +35,112 @@ interface BatchBarProps<TData> {
   getRowId: (row: TData) => string;
 }
 
+function splitTargets<TData>(
+  rows: readonly TData[],
+  action: BatchAction<TData>,
+): BatchTargets<TData> {
+  const eligible: TData[] = [];
+  const skipped: TData[] = [];
+  for (const row of rows) (action.isEligible(row) ? eligible : skipped).push(row);
+  return { eligible, skipped };
+}
+
 /**
- * 勾選後出現在表格上方的操作列。結果對話框掛在操作列之外：
- * 執行完選取可能被清空（操作列消失），對話框仍要留著。
+ * 表格上方的批次區：勾選後是操作列（`BatchActionBar`），確認後把適用的列送進全域佇列
+ * （`core/batch`，由 worker 逐筆呼叫單筆 API），這張表的工作進行中時換成進度條。
+ * 工作結束時（發起的分頁）成功與已不存在的列移出選取，失敗的保留勾選以便重試。
  */
 export function BatchBar<TData>({ batch, getRowId }: BatchBarProps<TData>) {
   const { t } = useTranslation();
-  const runner = useBatchRunner(batch.selection, getRowId, batch.getRowLabel);
+  const confirm = useConfirm();
+  const queue = useBatchQueue();
+  const jobs = useBatchJobs();
+  const { selection, scope, getRowLabel } = batch;
   const actions = batch.actions.filter((action) => !action.hidden);
-  const count = batch.selection.selectedIds.length;
+  const count = selection.selectedIds.length;
+  const running = jobs.filter((job) => job.scope === scope && isBatchJobActive(job));
+
+  useBatchJobFinished((job) => {
+    if (job.scope !== scope) return;
+    const done = new Set([
+      ...job.succeeded,
+      ...job.failures.filter((failure) => isGoneError(failure.error)).map((failure) => failure.id),
+    ]);
+    selection.onRowSelectionChange(
+      Object.fromEntries(
+        selection.selectedIds.filter((id) => !done.has(id)).map((id) => [id, true]),
+      ),
+    );
+  });
+
+  const execute = useCallback(
+    async (action: BatchAction<TData>) => {
+      if (!queue) return;
+      const targets = splitTargets(selection.selectedRows, action);
+      const content = action.confirm(targets);
+      const skippedNote = targets.skipped.length
+        ? t('common.batch.skipped', { count: targets.skipped.length })
+        : '';
+      const confirmed = await confirm({
+        title: content.title,
+        description: [content.description, skippedNote, t('common.batch.queuedNote')]
+          .filter(Boolean)
+          .join(' '),
+        confirmLabel: content.confirmLabel ?? action.label,
+        tone: action.tone === 'danger' || action.tone === 'warning' ? 'danger' : 'primary',
+        'data-testid': 'batch-confirm-dialog',
+      });
+      if (!confirmed) return;
+      queue.enqueue({
+        operation: action.operation,
+        scope,
+        items: targets.eligible.map((row) => ({ id: getRowId(row), label: getRowLabel(row) })),
+      });
+    },
+    [confirm, getRowId, getRowLabel, queue, scope, selection.selectedRows, t],
+  );
+
+  // 佇列沒有啟用（plugin 未註冊）時不提供批次操作
+  if (!queue) return null;
+
+  if (running.length > 0) {
+    return <BatchProgressBar jobs={running} onCancel={(jobId) => queue.cancel(jobId)} />;
+  }
+
+  if (count === 0 || actions.length === 0) return null;
 
   return (
-    <>
-      {count > 0 && actions.length > 0 && (
-        <BatchActionBar
-          count={count}
-          onClear={batch.selection.clear}
-          labels={{
-            count: (value) => t('common.batch.selected', { count: value }),
-            clear: t('common.batch.clear'),
-            toolbar: t('common.batch.toolbar'),
-          }}
-        >
-          {actions.map((action) => {
-            // 有權限但當下不能按 → 停用並說明原因（docs/architecture/frontend/06-permission.md §6.1）
-            const noneEligible = runner.targetsOf(action).eligible.length === 0;
-            const disabled = runner.tooMany || noneEligible;
-            const reason = runner.tooMany
-              ? t('common.batch.tooMany', { max: BATCH_MAX_SIZE })
-              : (action.ineligibleReason ?? t('common.batch.noneEligible'));
-            return (
-              <Tooltip key={action.id} content={reason} disabled={!disabled}>
-                <Button
-                  size="sm"
-                  variant={action.tone ?? 'secondary'}
-                  disabled={disabled}
-                  onClick={() => void runner.execute(action)}
-                  data-testid="batch-action"
-                  data-value={action.id}
-                >
-                  {action.label}
-                </Button>
-              </Tooltip>
-            );
-          })}
-        </BatchActionBar>
-      )}
-      <BatchResultDialog report={runner.report} onClose={runner.closeReport} />
-    </>
+    <BatchActionBar
+      count={count}
+      onClear={selection.clear}
+      labels={{
+        count: (value) => t('common.batch.selected', { count: value }),
+        clear: t('common.batch.clear'),
+        toolbar: t('common.batch.toolbar'),
+      }}
+    >
+      {actions.map((action) => {
+        // 有權限但當下不能按 → 停用並說明原因（docs/architecture/frontend/06-permission.md §6.1）
+        const disabled = splitTargets(selection.selectedRows, action).eligible.length === 0;
+        return (
+          <Tooltip
+            key={action.id}
+            content={action.ineligibleReason ?? t('common.batch.noneEligible')}
+            disabled={!disabled}
+          >
+            <Button
+              size="sm"
+              variant={action.tone ?? 'secondary'}
+              disabled={disabled}
+              onClick={() => void execute(action)}
+              data-testid="batch-action"
+              data-value={action.id}
+            >
+              {action.label}
+            </Button>
+          </Tooltip>
+        );
+      })}
+    </BatchActionBar>
   );
 }

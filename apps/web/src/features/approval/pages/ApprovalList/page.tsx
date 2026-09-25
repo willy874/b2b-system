@@ -7,6 +7,7 @@ import { useTableSelection } from '@/components/Table';
 import { useTranslation } from '@/core/locales';
 
 import { useApprovalPermission } from '../../hooks/useApprovalPermission';
+import { APPROVAL_LIST_TABLE_ID } from '../../preference';
 import { ApprovalDetailRoute } from '../../routes';
 import { toApprovalRowVM } from './adapter';
 import type { ApprovalRowVM } from './adapter';
@@ -74,7 +75,7 @@ export default function ApprovalListPage() {
           void navigate({ to: ApprovalDetailRoute.to, params: { approvalId: row.id }, search })
         }
         filters={filters}
-        batch={{ selection, actions: batchActions, getRowLabel }}
+        batch={{ scope: APPROVAL_LIST_TABLE_ID, selection, actions: batchActions, getRowLabel }}
         pagination={{
           offset: search.offset,
           limit: search.limit,

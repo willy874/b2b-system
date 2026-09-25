@@ -55,11 +55,30 @@
       "toolbar": "Bulk actions",
       "selected": "{{count}} selected",
       "clear": "Clear selection",
-      "tooMany": "You can process up to {{max}} items at once. Select fewer items.",
       "noneEligible": "None of the selected items support this action.",
       "skipped": "{{count}} of them don't apply and will be skipped.",
-      "resultTitle": "Some items were not processed",
-      "resultSummary": "{{succeeded}} succeeded, {{failed}} not processed. Unprocessed items stay selected."
+      "queuedNote": "Items are processed one by one in the background. Track progress from the queue in the top bar.",
+      "progressLabel": "Bulk action progress",
+      "progress": {
+        "queued": "Queued ({{total}} items)",
+        "running": "Processing {{done}} / {{total}}",
+        "done": "Done {{done}} / {{total}}",
+        "cancelled": "Cancelled after {{done}} / {{total}}",
+        "failed": "{{count}} failed"
+      },
+      "queue": {
+        "title": "Bulk action queue",
+        "trigger": "Bulk action queue",
+        "triggerActive": "Bulk action queue ({{count}} in progress)",
+        "empty": "No bulk actions yet.",
+        "clearFinished": "Clear finished"
+      },
+      "viewFailures": "View failed items",
+      "dismiss": "Remove",
+      "resultTitle": "Some items in “{{name}}” were not completed",
+      "resultSummary": "{{succeeded}} succeeded, {{failed}} failed. Failed items stay selected.",
+      "cancelledToast": "“{{name}}” cancelled; the {{count}} completed items are kept",
+      "doneToast": "“{{name}}” completed {{count}} items"
     }
   },
   "menu": {

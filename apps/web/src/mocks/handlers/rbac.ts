@@ -13,7 +13,7 @@ import {
 /** 目前登入的 mock 使用者（profile 回的是第一筆）。 */
 const SELF_ID = USER_FIXTURES[0]!.id;
 
-type Failure = { id: string; code: string; details?: Record<string, unknown> };
+type Failure = { code: string; details?: Record<string, unknown> };
 
 const forbidden = (permission: string) =>
   HttpResponse.json(
@@ -23,44 +23,48 @@ const forbidden = (permission: string) =>
     { status: 403 },
   );
 
+function failureStatus(code: string): number {
+  if (code.endsWith('_NOT_FOUND')) return 404;
+  if (code.startsWith('AUTHZ_')) return 403;
+  return 409;
+}
+
 /**
- * 批次端點（ADR-0009）：逐筆套用與後端相同的檢查，回 `{ succeeded, failed }`。
+ * 單筆寫入端點：套用與後端相同的檢查，失敗回對應的錯誤。批次操作由前端佇列逐筆呼叫這些端點（ADR-0012）。
  * 只回結果、不改 fixture——列表重新整理後資料不變。
  */
-function batchHandler(
+function writeHandler(
+  method: 'patch' | 'post' | 'delete',
   path: string,
   permission: string,
-  check: (id: string, body: Record<string, unknown>) => Failure | undefined,
+  check: (id: string) => Failure | undefined,
+  respond: (id: string) => Response,
 ) {
-  return http.post(`${MOCK_API_BASE}${path}`, async ({ request }) => {
+  return http[method](`${MOCK_API_BASE}${path}`, ({ params }) => {
     if (!mockState.permissions.includes(permission)) return forbidden(permission);
-    const body = (await request.json()) as { ids: string[] } & Record<string, unknown>;
-    const failed: Failure[] = [];
-    const succeeded: string[] = [];
-    for (const id of body.ids) {
-      const failure = check(id, body);
-      if (failure) failed.push(failure);
-      else succeeded.push(id);
-    }
-    return HttpResponse.json({ data: { succeeded, failed } });
+    const id = String(params.id);
+    const failure = check(id);
+    if (!failure) return respond(id);
+    return HttpResponse.json(
+      { error: { code: failure.code, message: failure.code, details: failure.details } },
+      { status: failureStatus(failure.code) },
+    );
   });
 }
 
-function checkApproval(id: string) {
-  const approval = APPROVAL_FIXTURES.find((item) => item.id === id);
-  if (!approval) return { id, code: 'APPROVAL_NOT_FOUND' };
-  return approval.status === 'pending' ? undefined : { id, code: 'APPROVAL_ALREADY_REVIEWED' };
-}
+const noContent = () => new HttpResponse(null, { status: 204 });
+const userResponse = (id: string) =>
+  HttpResponse.json({ data: USER_FIXTURES.find((item) => item.id === id) });
 
 function checkUser(
   id: string,
   extra?: (user: (typeof USER_FIXTURES)[number]) => string | undefined,
 ) {
   const user = USER_FIXTURES.find((item) => item.id === id);
-  if (!user) return { id, code: 'USER_NOT_FOUND' };
-  if (id === SELF_ID) return { id, code: 'AUTHZ_SELF_MODIFY' };
+  if (!user) return { code: 'USER_NOT_FOUND' };
+  if (id === SELF_ID) return { code: 'AUTHZ_SELF_MODIFY' };
   const code = extra?.(user);
-  return code ? { id, code } : undefined;
+  return code ? { code } : undefined;
 }
 
 const paginate = <T>(items: T[]) => ({
@@ -182,21 +186,27 @@ export const rbacHandlers = [
     });
   }),
 
-  batchHandler('/approvals/batch-approve', 'approval:review', (id) => checkApproval(id)),
-  batchHandler('/approvals/batch-reject', 'approval:review', (id) => checkApproval(id)),
-  batchHandler('/users/batch-delete', 'user:delete', (id) => checkUser(id)),
-  batchHandler('/users/batch-status', 'user:update', (id) => checkUser(id)),
-  batchHandler('/users/batch-unlock', 'user:update', (id) => {
-    const user = USER_FIXTURES.find((item) => item.id === id);
-    if (!user) return { id, code: 'USER_NOT_FOUND' };
-    return user.status === 'locked' ? undefined : { id, code: 'USER_NOT_LOCKED' };
-  }),
-  batchHandler('/roles/batch-delete', 'role:delete', (id) => {
-    const role = ROLE_FIXTURES.find((item) => item.id === id);
-    if (!role) return { id, code: 'ROLE_NOT_FOUND' };
-    if (role.isSystem) return { id, code: 'ROLE_SYSTEM_PROTECTED' };
-    if (role.userCount > 0)
-      return { id, code: 'ROLE_IN_USE', details: { userCount: role.userCount } };
-    return undefined;
-  }),
+  writeHandler('delete', '/users/:id', 'user:delete', (id) => checkUser(id), noContent),
+  writeHandler('patch', '/users/:id', 'user:update', (id) => checkUser(id), userResponse),
+  writeHandler(
+    'post',
+    '/users/:id/unlock',
+    'user:update',
+    (id) => checkUser(id, (user) => (user.status === 'locked' ? undefined : 'USER_NOT_LOCKED')),
+    userResponse,
+  ),
+  writeHandler(
+    'delete',
+    '/roles/:id',
+    'role:delete',
+    (id) => {
+      const role = ROLE_FIXTURES.find((item) => item.id === id);
+      if (!role) return { code: 'ROLE_NOT_FOUND' };
+      if (role.isSystem) return { code: 'ROLE_SYSTEM_PROTECTED' };
+      if (role.userCount > 0)
+        return { code: 'ROLE_IN_USE', details: { userCount: role.userCount } };
+      return undefined;
+    },
+    noContent,
+  ),
 ];

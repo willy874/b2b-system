@@ -10,6 +10,7 @@ import { useTranslation } from '@/core/locales';
 
 import { useRoleDeleteMutation } from '../../hooks/useRoleMutations';
 import { useRolePermission } from '../../hooks/useRolePermission';
+import { ROLE_LIST_TABLE_ID } from '../../preference';
 import { RoleCreateRoute, RoleDetailRoute } from '../../routes';
 import { toRoleRowVM } from './adapter';
 import type { RoleRowVM } from './adapter';
@@ -83,7 +84,7 @@ export default function RoleListPage() {
         }
         onDelete={setPendingDelete}
         filters={filters}
-        batch={{ selection, actions: batchActions, getRowLabel }}
+        batch={{ scope: ROLE_LIST_TABLE_ID, selection, actions: batchActions, getRowLabel }}
         pagination={{
           offset: search.offset,
           limit: search.limit,

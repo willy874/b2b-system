@@ -3,22 +3,17 @@ import { useMemo } from 'react';
 import type { BatchAction } from '@/core/batch';
 import { useTranslation } from '@/core/locales';
 
-import {
-  useBatchApproveApprovalMutation,
-  useBatchRejectApprovalMutation,
-} from '../../hooks/useApprovalMutations';
+import { ApprovalBatchOperation } from '../../batch';
 import { useApprovalPermission } from '../../hooks/useApprovalPermission';
 import type { ApprovalRowVM } from './adapter';
 
 /**
- * 審批列表的批次動作（ADR-0009 D15）：逐筆的「快速核准／快速駁回」——不指派角色、不附意見；
+ * 審批列表的批次動作（ADR-0012）：逐筆的「快速核准／快速駁回」——不指派角色、不附意見；
  * 要指派角色請開審核對話框逐筆審。資格沿用 adapter 算好的列旗標。
  */
 export function useApprovalBatchActions(): Array<BatchAction<ApprovalRowVM>> {
   const { t } = useTranslation();
   const permission = useApprovalPermission();
-  const { mutateAsync: approveMany } = useBatchApproveApprovalMutation();
-  const { mutateAsync: rejectMany } = useBatchRejectApprovalMutation();
   // 權限未水合前不出現操作按鈕（docs/conventions/02-frontend.md §3.2）
   const hidden = !permission.hydrated || !permission.canReview;
 
@@ -36,8 +31,7 @@ export function useApprovalBatchActions(): Array<BatchAction<ApprovalRowVM>> {
           description: t('approval.batch.approve.confirm', { count: eligible.length }),
           confirmLabel: t('approval.approve.action'),
         }),
-        run: (ids) => approveMany({ params: { body: { ids } } }),
-        successMessage: (count) => t('approval.batch.approve.success', { count }),
+        operation: ApprovalBatchOperation.APPROVE,
       },
       {
         id: 'reject',
@@ -51,10 +45,9 @@ export function useApprovalBatchActions(): Array<BatchAction<ApprovalRowVM>> {
           description: t('approval.batch.reject.confirm', { count: eligible.length }),
           confirmLabel: t('approval.reject.action'),
         }),
-        run: (ids) => rejectMany({ params: { body: { ids } } }),
-        successMessage: (count) => t('approval.batch.reject.success', { count }),
+        operation: ApprovalBatchOperation.REJECT,
       },
     ],
-    [approveMany, hidden, rejectMany, t],
+    [hidden, t],
   );
 }

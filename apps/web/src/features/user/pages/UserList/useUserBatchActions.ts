@@ -3,24 +3,18 @@ import { useMemo } from 'react';
 import type { BatchAction } from '@/core/batch';
 import { useTranslation } from '@/core/locales';
 
-import {
-  useUserBatchDeleteMutation,
-  useUserBatchStatusMutation,
-  useUserBatchUnlockMutation,
-} from '../../hooks/useUserMutations';
+import { UserBatchOperation } from '../../batch';
 import { useUserPermission } from '../../hooks/useUserPermission';
 import type { UserRowVM } from './adapter';
 
 /**
- * 使用者列表的批次動作（ADR-0009 D14）。資格沿用 adapter 算好的列旗標：
+ * 使用者列表的批次動作：確認後送進全域佇列，逐筆呼叫單筆 API（ADR-0012）。
+ * 資格沿用 adapter 算好的列旗標：
  * 不能動自己（`canUpdate` / `canDelete` 已排除），解鎖只對被鎖定的人。
  */
 export function useUserBatchActions(): Array<BatchAction<UserRowVM>> {
   const { t } = useTranslation();
   const permission = useUserPermission();
-  const { mutateAsync: deleteMany } = useUserBatchDeleteMutation();
-  const { mutateAsync: unlockMany } = useUserBatchUnlockMutation();
-  const { mutateAsync: updateStatusMany } = useUserBatchStatusMutation();
   // 權限未水合前不出現操作按鈕（docs/conventions/02-frontend.md §3.2）
   const ready = permission.hydrated;
 
@@ -37,8 +31,7 @@ export function useUserBatchActions(): Array<BatchAction<UserRowVM>> {
           title: t('user.batch.activate.title'),
           description: t('user.batch.activate.confirm', { count: eligible.length }),
         }),
-        run: (ids) => updateStatusMany({ params: { body: { ids, status: 'active' } } }),
-        successMessage: (count) => t('user.batch.activate.success', { count }),
+        operation: UserBatchOperation.ACTIVATE,
       },
       {
         id: 'deactivate',
@@ -51,8 +44,7 @@ export function useUserBatchActions(): Array<BatchAction<UserRowVM>> {
           title: t('user.batch.deactivate.title'),
           description: t('user.batch.deactivate.confirm', { count: eligible.length }),
         }),
-        run: (ids) => updateStatusMany({ params: { body: { ids, status: 'inactive' } } }),
-        successMessage: (count) => t('user.batch.deactivate.success', { count }),
+        operation: UserBatchOperation.DEACTIVATE,
       },
       {
         id: 'unlock',
@@ -65,8 +57,7 @@ export function useUserBatchActions(): Array<BatchAction<UserRowVM>> {
           title: t('user.batch.unlock.title'),
           description: t('user.batch.unlock.confirm', { count: eligible.length }),
         }),
-        run: (ids) => unlockMany({ params: { body: { ids } } }),
-        successMessage: (count) => t('user.batch.unlock.success', { count }),
+        operation: UserBatchOperation.UNLOCK,
       },
       {
         id: 'delete',
@@ -79,10 +70,9 @@ export function useUserBatchActions(): Array<BatchAction<UserRowVM>> {
           title: t('user.batch.delete.title'),
           description: t('user.batch.delete.confirm', { count: eligible.length }),
         }),
-        run: (ids) => deleteMany({ params: { body: { ids } } }),
-        successMessage: (count) => t('user.batch.delete.success', { count }),
+        operation: UserBatchOperation.DELETE,
       },
     ],
-    [deleteMany, permission, ready, t, unlockMany, updateStatusMany],
+    [permission, ready, t],
   );
 }

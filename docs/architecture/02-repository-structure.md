@@ -77,7 +77,7 @@ apps/web/src/
 ├── core/                    跨 feature 的機制層（不認識任何 feature）
 │   ├── app/                 AppContext 型別、createAppContext、React context
 │   ├── auth/                SessionStore（token 生命週期、跨分頁單飛續期）
-│   ├── batch/               列表批次操作的流程（useBatchRunner、結果對話框）
+│   ├── batch/               全域批次佇列（SharedWorker 排程、進度條、AppHeader 面板、結果彈出）
 │   ├── cache/               queryClient、跨分頁失效、store 持久化
 │   ├── client/              HttpContext / FetcherContext / defineFetcher / 攔截器
 │   ├── components/          機制性元件（ErrorPage、Empty、PermissionGate…）

@@ -54,8 +54,8 @@ export interface RichTableProps<
    */
   enableRowSelection?: boolean;
   /**
-   * 批次操作：勾選後在表格上方出現操作列（`BatchActionBar`），確認、送出、結果提示都由 RichTable 處理。
-   * 提供時以 `batch.selection` 控制勾選欄，不必另外傳 `rowSelection` / `onRowSelectionChange`。
+   * 批次操作：勾選後在表格上方出現操作列（`BatchActionBar`），確認後送進全域佇列逐筆處理，
+   * 進行中時操作列換成進度條。提供時以 `batch.selection` 控制勾選欄，不必另外傳 `rowSelection` / `onRowSelectionChange`。
    */
   batch?: RichTableBatch<TData>;
   /** 不提供時不顯示分頁列（例如資料量固定的小表格）。 */
