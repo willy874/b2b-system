@@ -70,7 +70,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `Select`（含搜尋，取代原本的 `Combobox`）/ `Menu` | 自製列表 ＋ Base UI `Popover`（定位、點外面／Esc 關閉、焦點歸還）＋ TanStack Virtual（§3.10） |
 | `VirtualList`                    | TanStack Virtual；長列表的虛擬捲動 ＋ 無限捲動（§3.10） |
 | `Typography` / `Title` / `Text` / `Paragraph` | 自製；`copyable` 的複製按鈕用 `Tooltip` ＋ `navigator.clipboard`（§3.9） |
-| `JsonViewer`                     | 自製；外觀對標 svelte-jsoneditor 的 tree 模式，逐行渲染 ＋ `useVirtualRows` 虛擬捲動（§3.12） |
+| `JsonViewer` / `JsonEditor`      | 自製；外觀與操作對標 svelte-jsoneditor，逐行渲染 ＋ `useVirtualRows` 虛擬捲動；編輯選單用 `Menu`（§3.12、[ADR-0010](../../adr/0010-self-built-json-editor.md)） |
 
 > **DatePicker 是最大的一塊自製工作**，排入
 > [`../../overview/03-roadmap.md`](../../overview/03-roadmap.md) 的 M2，已完成：`components/DatePicker/` 底下是
@@ -459,7 +459,7 @@ const handleDelete = async (row: RoleRowVM) => {
 - 按鈕的 testid 與 `AlertDialog` 相同：`alert-dialog-confirm`、`alert-dialog-cancel`。
 - 需要在對話框裡放表單或其他內容時，仍用宣告式的 `AlertDialog`（`children`）或 `Dialog`。
 
-### 3.12 JSON 預覽：`JsonViewer`（之後的 `JsonEditor`）
+### 3.12 JSON：`JsonViewer` / `JsonEditor`
 
 `components/JsonViewer/`。顯示任意 JSON（稽核日誌的 `changes` / `metadata`、之後的設定檔與遊戲資料）：
 
@@ -485,10 +485,31 @@ const handleDelete = async (row: RoleRowVM) => {
 
 顏色一律以 `--json-*` 元件變數定義在 `JsonViewer.module.css` 的 `.root`，值只引用 alias token（深色主題自動跟著換）。
 
-**之後的 `JsonEditor`**（尚未實作）：同樣對標 svelte-jsoneditor，沿用 `toJsonLines` 的行模型與 `--json-*` 變數，
-在 viewer 之上加上編輯行內值與鍵名、新增／刪除／拖曳節點、text 模式（原始 JSON）、JSON Schema 驗證、復原／重做、搜尋。
-實作前先評估「包 `vanilla-jsoneditor`」與「自製」：前者功能齊全但樣式與鍵盤行為要另外對齊設計系統，
-後者可完全沿用本元件；決定後補一份 ADR。
+檔案分工（`JsonViewer/` 裡的 `jsonLines.ts`、`useJsonTree.ts`、`JsonTree.tsx` 兩個元件共用，不從 index 匯出）：
+
+| 檔案 | 內容 |
+| ---- | ---- |
+| `JsonViewer/jsonLines.ts` | `toJsonLines`（攤平成行）、`parsePath` / `formatPath`（`$["a"][0]` ↔ `['a', 0]`） |
+| `JsonViewer/useJsonTree.ts` | 收合狀態：以「與基準相反的路徑」記錄；基準是 `defaultExpandDepth`、全部展開或全部收合 |
+| `JsonViewer/JsonTree.tsx` | 捲動框 ＋ 逐行渲染；`renderKey` / `renderValue` / `renderActions` 讓編輯器換掉鍵名、值並加上行尾操作 |
+| `JsonEditor/jsonEdit.ts` | 不可變的資料操作（`setIn`、`removeIn`、`renameKey`、`insertAfter`、`appendChild`、`duplicate`、`convert`）與編輯框文字轉換 |
+| `JsonEditor/useJsonHistory.ts` | 復原／重做：保存每一版的根（最多 100 步）；外部換掉 `value` 時清空 |
+
+**`JsonEditor`**（自製而非包 `vanilla-jsoneditor`，見 [ADR-0010](../../adr/0010-self-built-json-editor.md)）：
+
+| 功能 | props / 行為 |
+| ---- | ---- |
+| 值 | `value` / `defaultValue` / `onChange`（受控／非受控）；每次回報整份新值，未改到的子樹沿用原參考 |
+| 模式 | `mode` / `defaultMode` / `onModeChange`：`tree`（樹狀）、`text`（原始 JSON，合法才即時套用；不合法時顯示錯誤、不能切回樹狀） |
+| 編輯鍵名／值 | 點一下直接編輯（`<button>`，鍵盤 Enter 同義）；Enter 送出、Esc 放棄、失焦送出。鍵名重複時標示錯誤不送出 |
+| 型別判斷 | 與 svelte-jsoneditor 相同：`true` / `false` / `null` 與 JSON 數字轉成對應型別，其餘是字串；要字串的 `123` 就輸入 `"123"` |
+| 行尾選單（`⋯`） | 編輯鍵名、編輯值、新增子項、在下方插入、複製一份、轉成物件／陣列／值、刪除；插入後直接編輯新鍵名，送出後接著編輯值 |
+| 工具列 | 模式切換；樹狀：全部展開／全部收合；文字：格式化／壓縮；復原／重做（⌘/Ctrl + Z、⌘/Ctrl + Shift + Z 或 Y） |
+| 唯讀 | `readOnly`：可切模式、收合，不能改、沒有選單與復原 |
+| 文案 | `labels`（延伸 `JsonViewerLabels`）；`features/` 以 `t()` 傳入 |
+| testid | 工具列 `json-editor-toolbar`、模式鈕 `json-editor-mode` ＋ `data-value`、行尾選單 `json-editor-actions`、編輯框 `json-editor-input`、文字框 `json-editor-text`、錯誤 `json-editor-error`；樹狀的行沿用 `json-viewer-item` |
+
+尚未實作（依同一基準補）：table 模式、搜尋／取代、JSON Schema 驗證、拖曳排序、JSON 修復。
 
 ---
 

@@ -6,6 +6,8 @@ import Check from '@/assets/icons/check.svg?react';
 import ChevronDown from '@/assets/icons/chevron-down.svg?react';
 import ChevronLeft from '@/assets/icons/chevron-left.svg?react';
 import ChevronRight from '@/assets/icons/chevron-right.svg?react';
+import ChevronsDownUp from '@/assets/icons/chevrons-down-up.svg?react';
+import ChevronsUpDown from '@/assets/icons/chevrons-up-down.svg?react';
 import Close from '@/assets/icons/close.svg?react';
 import Copy from '@/assets/icons/copy.svg?react';
 import Edit from '@/assets/icons/edit.svg?react';
@@ -24,11 +26,13 @@ import More from '@/assets/icons/more.svg?react';
 import PinOff from '@/assets/icons/pin-off.svg?react';
 import Pin from '@/assets/icons/pin.svg?react';
 import Plus from '@/assets/icons/plus.svg?react';
+import Redo from '@/assets/icons/redo.svg?react';
 import Search from '@/assets/icons/search.svg?react';
 import Settings from '@/assets/icons/settings.svg?react';
 import Shield from '@/assets/icons/shield.svg?react';
 import Sun from '@/assets/icons/sun.svg?react';
 import Trash from '@/assets/icons/trash.svg?react';
+import Undo from '@/assets/icons/undo.svg?react';
 import Unlock from '@/assets/icons/unlock.svg?react';
 import Upload from '@/assets/icons/upload.svg?react';
 import User from '@/assets/icons/user.svg?react';
@@ -48,6 +52,8 @@ export const ICONS = {
   'chevron-down': ChevronDown,
   'chevron-left': ChevronLeft,
   'chevron-right': ChevronRight,
+  'chevrons-down-up': ChevronsDownUp,
+  'chevrons-up-down': ChevronsUpDown,
   close: Close,
   copy: Copy,
   edit: Edit,
@@ -66,11 +72,13 @@ export const ICONS = {
   pin: Pin,
   'pin-off': PinOff,
   plus: Plus,
+  redo: Redo,
   search: Search,
   settings: Settings,
   shield: Shield,
   sun: Sun,
   trash: Trash,
+  undo: Undo,
   unlock: Unlock,
   upload: Upload,
   user: User,

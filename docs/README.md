@@ -122,7 +122,8 @@ docs/
     ├── 0005-permission-resolved-server-side.md
     ├── 0006-flat-permission-scope.md
     ├── 0007-openapi-generated-api-sdk.md
-    └── 0008-realtime-with-socket-io.md
+    ├── 0008-realtime-with-socket-io.md
+    └── 0010-self-built-json-editor.md
 ```
 
 ---
