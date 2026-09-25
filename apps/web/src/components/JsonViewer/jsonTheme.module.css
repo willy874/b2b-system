@@ -1,0 +1,96 @@
+@layer components {
+  /*
+   * JsonViewer 與 JsonEditor（CodeMirror）共用的外觀：顏色、字型、行高、行號欄與摺疊標記。
+   * 編輯器的版面（.cm-gutters 等）在 JsonEditor/editorTheme.ts 以這些變數設定；
+   * JsonViewer 以相同的變數畫出一樣的版面，兩者並排時看起來是同一個元件。
+   */
+  .theme {
+    --json-font-size: 0.75rem;
+    --json-line-height: 1.25rem;
+    --json-padding-block: var(--seed-space-2);
+    /* 內容與行號欄之間的距離（CodeMirror 的 .cm-line 左側留白） */
+    --json-content-inset: var(--seed-space-2);
+    --json-fold-width: 1.25rem;
+
+    --json-background: var(--color-fill-subtle);
+    --json-color: var(--color-fg);
+    --json-gutter-background: var(--color-fill-subtle);
+    --json-gutter-color: var(--color-fg-muted);
+    --json-gutter-border: var(--color-border);
+
+    --json-key-color: var(--color-fg);
+    --json-string-color: var(--color-success-text);
+    --json-number-color: var(--color-danger-text);
+    --json-boolean-color: var(--color-warning-text);
+    --json-null-color: var(--color-brand);
+    --json-delimiter-color: var(--color-fg-muted);
+
+    --json-placeholder-background: var(--color-fill);
+    --json-placeholder-color: var(--color-fg-muted);
+    --json-active-line-background: color-mix(in srgb, var(--color-fill) 60%, transparent);
+    --json-selection-background: color-mix(in srgb, var(--color-brand) 22%, transparent);
+    --json-search-match-background: color-mix(in srgb, var(--color-warning) 35%, transparent);
+    --json-search-match-active-background: color-mix(
+      in srgb,
+      var(--color-warning) 70%,
+      transparent
+    );
+    --json-error-color: var(--color-danger-text);
+
+    background: var(--json-background);
+    color: var(--json-color);
+    font-family: var(--font-mono);
+    font-size: var(--json-font-size);
+    line-height: var(--json-line-height);
+  }
+
+  /* 語法上色：JsonViewer 直接用；JsonEditor 經由 HighlightStyle 的 class 對應 */
+  .key {
+    color: var(--json-key-color);
+  }
+
+  .punctuation {
+    color: var(--json-delimiter-color);
+  }
+
+  .string {
+    color: var(--json-string-color);
+  }
+
+  .number {
+    color: var(--json-number-color);
+  }
+
+  .boolean {
+    color: var(--json-boolean-color);
+  }
+
+  .null {
+    color: var(--json-null-color);
+  }
+
+  /* 摺疊欄的箭頭：以邊框畫出，展開朝下、收合朝右 */
+  .foldMarker {
+    display: inline-block;
+    width: 0.3rem;
+    height: 0.3rem;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateX(-0.05rem) rotate(-45deg);
+  }
+
+  .foldMarker[data-open] {
+    transform: translateY(-0.1rem) rotate(45deg);
+  }
+
+  /* 收合的內容：`{…}` 中間的 `…`（對應 CodeMirror 的 .cm-foldPlaceholder） */
+  .foldPlaceholder {
+    display: inline-block;
+    margin: 0 1px;
+    padding: 0 var(--seed-space-1);
+    border-radius: var(--radius-sm);
+    background: var(--json-placeholder-background);
+    color: var(--json-placeholder-color);
+    line-height: 1rem;
+  }
+}

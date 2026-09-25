@@ -125,7 +125,8 @@ docs/
     ├── 0007-openapi-generated-api-sdk.md
     ├── 0008-realtime-with-socket-io.md
     ├── 0009-table-batch-operations.md
-    └── 0010-self-built-json-editor.md
+    ├── 0010-self-built-json-editor.md
+    └── 0011-codemirror-json-editor.md
 ```
 
 ---

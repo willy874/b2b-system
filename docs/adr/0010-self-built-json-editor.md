@@ -1,6 +1,6 @@
 # ADR-0010 — JsonEditor 自製，外觀與操作對標 svelte-jsoneditor
 
-- 狀態：**採用**
+- 狀態：**已被取代**——由 [ADR-0011](./0011-codemirror-json-editor.md) 取代（`JsonEditor` 改以 CodeMirror 6 實作，`JsonViewer` 對齊它的外觀）
 - 日期：2026-09-25
 - 相關：[`../architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.12、[ADR-0002](./0002-base-ui-over-mui.md)
 

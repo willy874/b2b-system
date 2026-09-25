@@ -6,10 +6,12 @@ import { installFakeListLayout } from '@/test/fakeLayout';
 import { toJsonLines } from './jsonLines';
 import { JsonViewer } from './JsonViewer';
 
-const lineTexts = () =>
-  Array.from(document.querySelectorAll('[data-testid="json-viewer-item"]'), (line) =>
-    line.textContent?.trim(),
-  );
+const items = () => Array.from(document.querySelectorAll('[data-testid="json-viewer-item"]'));
+
+/** 每一行的內容（不含行號欄），與 CodeMirror 顯示的原始 JSON 文字相同。 */
+const lineTexts = () => items().map((line) => line.lastElementChild?.textContent);
+
+const lineNumbers = () => items().map((line) => Number(line.getAttribute('data-line-number')));
 
 const expandAll = () => false;
 
@@ -45,6 +47,11 @@ describe('toJsonLines', () => {
     ]);
   });
 
+  it('行號是完整展開時的行號：收合的容器之後跳號', () => {
+    const lines = toJsonLines({ a: { x: 1, y: [2, 3] }, b: 4 }, (path) => path === '$["a"]');
+    expect(lines.map((line) => line.lineNumber)).toEqual([1, 2, 9, 10]);
+  });
+
   it('循環參照不會無限展開', () => {
     const value: Record<string, unknown> = { a: 1 };
     value.self = value;
@@ -60,28 +67,33 @@ describe('JsonViewer', () => {
     layout = undefined;
   });
 
-  it('鍵名不加引號，字串值保留引號與逗號', () => {
-    render(<JsonViewer value={{ name: 'a', count: 2 }} />);
-    expect(lineTexts()).toEqual(['{', 'name: "a",', 'count: 2', '}']);
+  it('與 JSON.stringify(value, null, 2) 相同的文字：鍵名帶引號、縮排 2 格、逗號', () => {
+    const value = { name: 'a', count: 2, list: [true] };
+    render(<JsonViewer value={value} />);
+    expect(lineTexts().join('\n')).toBe(JSON.stringify(value, null, 2));
+    expect(lineNumbers()).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });
 
-  it('點箭頭收合與展開，收合時顯示摘要', () => {
+  it('點箭頭收合與展開；收合顯示 `[…]`，滑過看到摘要，後面的行號跳號', () => {
     render(
       <JsonViewer
-        value={{ list: [1, 2, 3] }}
+        value={{ list: [1, 2, 3], last: 0 }}
         labels={{ collapse: '收', expand: '展', summary: (size) => `${size} items` }}
       />,
     );
     fireEvent.click(screen.getAllByRole('button', { name: '收' })[1] as HTMLElement);
-    expect(lineTexts()).toEqual(['{', 'list: […]3 items', '}']);
+    expect(lineTexts()).toEqual(['{', '  "list": […],', '  "last": 0', '}']);
+    expect(lineNumbers()).toEqual([1, 2, 7, 8]);
+    expect(screen.getByTitle('3 items')).toHaveTextContent('…');
 
     fireEvent.click(screen.getByRole('button', { name: '展' }));
-    expect(lineTexts()).toHaveLength(7);
+    expect(lineTexts()).toHaveLength(8);
   });
 
   it('defaultExpandDepth 以下的容器一開始是收合的', () => {
     render(<JsonViewer value={{ a: { b: { c: 1 } } }} defaultExpandDepth={1} />);
-    expect(lineTexts()).toEqual(['{', 'a: {…}1 個欄位', '}']);
+    expect(lineTexts()).toEqual(['{', '  "a": {…}', '}']);
+    expect(screen.getByTitle('1 個欄位')).toBeInTheDocument();
   });
 
   it('換一份資料時收合狀態回到預設', () => {

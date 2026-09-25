@@ -70,7 +70,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `Select`（含搜尋，取代原本的 `Combobox`）/ `Menu` | 自製列表 ＋ Base UI `Popover`（定位、點外面／Esc 關閉、焦點歸還）＋ TanStack Virtual（§3.10） |
 | `VirtualList`                    | TanStack Virtual；長列表的虛擬捲動 ＋ 無限捲動（§3.10） |
 | `Typography` / `Title` / `Text` / `Paragraph` | 自製；`copyable` 的複製按鈕用 `Tooltip` ＋ `navigator.clipboard`（§3.9） |
-| `JsonViewer` / `JsonEditor`      | 自製；外觀與操作對標 svelte-jsoneditor，逐行渲染 ＋ `useVirtualRows` 虛擬捲動；編輯選單用 `Menu`（§3.12、[ADR-0010](../../adr/0010-self-built-json-editor.md)） |
+| `JsonViewer` / `JsonEditor`      | `JsonEditor` 是 CodeMirror 6；`JsonViewer` 自製（逐行渲染 ＋ `useVirtualRows`），外觀對齊 CodeMirror（§3.12、[ADR-0011](../../adr/0011-codemirror-json-editor.md)） |
 
 > **DatePicker 是最大的一塊自製工作**，排入
 > [`../../overview/03-roadmap.md`](../../overview/03-roadmap.md) 的 M2，已完成：`components/DatePicker/` 底下是
@@ -461,58 +461,66 @@ const handleDelete = async (row: RoleRowVM) => {
 
 ### 3.12 JSON：`JsonViewer` / `JsonEditor`
 
-`components/JsonViewer/`。顯示任意 JSON（稽核日誌的 `changes` / `metadata`、之後的設定檔與遊戲資料）：
+`JsonEditor` 以 **CodeMirror 6** 實作；`JsonViewer` 自製、不載入 CodeMirror，但外觀與它一致——
+行號欄（行號 ＋ 摺疊箭頭）、原始 JSON 文字、同一套語法上色。兩者並排（例如編輯器下方預覽目前的值）時看起來是同一個元件。
+決策見 [ADR-0011](../../adr/0011-codemirror-json-editor.md)（取代 [ADR-0010](../../adr/0010-self-built-json-editor.md) 的自製樹狀編輯器）。
+
+**共用外觀**：`JsonViewer/jsonTheme.module.css` 是唯一的定義。
+
+| 項目 | 內容 |
+| ---- | ---- |
+| 變數（`.theme`） | 版面：`--json-font-size`、`--json-line-height`（1.25rem）、`--json-padding-block`、`--json-content-inset`、`--json-fold-width`；顏色：`--json-background`、`--json-gutter-*`、`--json-key-color` → `--color-fg`、`--json-string-color` → `--color-success-text`、`--json-number-color` → `--color-danger-text`、`--json-boolean-color` → `--color-warning-text`、`--json-null-color` → `--color-brand`、`--json-delimiter-color` → `--color-fg-muted`、`--json-placeholder-*`、`--json-selection-background`、`--json-search-match-*`、`--json-error-color` |
+| 語法上色 class | `.key` `.string` `.number` `.boolean` `.null` `.punctuation`；`JsonViewer` 直接用，`JsonEditor` 以 `HighlightStyle` 的 `class` 對應 `@lezer/json` 的標記 |
+| 摺疊 | `.foldMarker`（邊框畫的箭頭，`data-open` 朝下）、`.foldPlaceholder`（`{…}` 中間的 `…`，滑過顯示 `labels.summary`） |
+
+CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `JsonEditor/editorTheme.ts` 以 `EditorView.theme` 設定，
+值只引用上述變數：CodeMirror 的預設樣式是不分層的 `<style>`，`@layer components` 裡的規則壓不過它。
+`JsonViewer.module.css` 以同一組變數畫出相同的行號欄寬（位數由元件以 `--json-line-number-digits` 提供，至少 2 位）、行高與留白。
+
+**`JsonViewer`**（`components/JsonViewer/`）：顯示任意 JSON（稽核日誌的 `changes` / `metadata`、之後的設定檔與遊戲資料）。
 
 | 功能 | props / 行為 |
 | ---- | ---- |
-| 語法上色 | 鍵名、字串、數字、布林、`null` 各一色；標點淡化 |
-| 收合 | 物件／陣列前的箭頭；收合後只佔一行，後接計數徽章（`labels.summary`）。`defaultExpandDepth` 決定一開始展開到第幾層；換一份 `value` 時收合狀態回到預設 |
-| 高度 | `maxHeight`（預設 `20rem`），超過在框內捲動；長行不換行、在框內水平捲動 |
+| 內容 | 與 `JSON.stringify(value, null, 2)` 相同的文字：鍵名帶引號、縮排是真的空白（選取複製出來就是 JSON） |
+| 行號 | 完整展開時的行號；收合的容器之後跳號，與 CodeMirror 摺疊後相同 |
+| 收合 | 行號欄的箭頭；收合後顯示 `{…}` / `[…]`，滑過 `…` 顯示 `labels.summary`。`defaultExpandDepth` 決定一開始展開到第幾層；換一份 `value` 時收合狀態回到預設 |
+| 高度 | `maxHeight`（預設 `20rem`），超過在框內捲動；長行不換行、在框內水平捲動，行號欄固定在左側 |
 | 虛擬捲動 | 攤平成「一行一個元素」（`toJsonLines`，迴圈走訪不遞迴、循環參照顯示 `[Circular]`），行數超過 `virtualThreshold`（預設 100）以 `useVirtualRows` 只渲染可視範圍 |
-| 可近性 | 捲動框是 `<section>`，傳 `aria-label` 即成為 `region` 地標；箭頭是 `<button aria-expanded>` |
-| testid | 行：`json-viewer-item` ＋ `data-value`（節點路徑，如 `$["a"][0]`）；箭頭：`json-viewer-toggle` |
+| 可近性 | 捲動框是 `<section>`，傳 `aria-label` 即成為 `region` 地標；箭頭是 `<button aria-expanded>`；行號 `aria-hidden` |
+| testid | 行：`json-viewer-item` ＋ `data-value`（節點路徑，如 `$["a"][0]`）＋ `data-line-number`；箭頭：`json-viewer-toggle` |
 
-**設計對標：[svelte-jsoneditor](https://github.com/josdejong/svelte-jsoneditor)**（React 以 `vanilla-jsoneditor` 使用，ISC 授權）。
-選它當基準的理由：維護中、tree／text／table 三種模式、支援大型文件（官方標示到 512 MB），也是 `JsonEditor` 功能範圍的參考。
+**`JsonEditor`**（`components/JsonEditor/`）：
 
-| 對標項目 | svelte-jsoneditor | 本專案 |
-| ---- | ---- | ---- |
-| 鍵名 | 不加引號，`--jse-key-color` | 相同，`--json-key-color` → `--color-fg` |
-| 字串／數字／布林／null | 綠／紅／橘／藍（`--jse-value-color-*`） | `--json-string-color` → `--color-success-text`、`--json-number-color` → `--color-danger-text`、`--json-boolean-color` → `--color-warning-text`、`--json-null-color` → `--color-brand` |
-| 標點 | `--jse-delimiter-color`（淡化） | `--json-delimiter-color` → `--color-fg-muted` |
-| 收合的容器 | 計數徽章（`--jse-tag-*`） | `--json-tag-background` / `--json-tag-color` |
-| 大型文件 | 不可變資料 ＋ 只重繪改變的部分 | 逐行虛擬捲動 |
+| 功能 | props / 行為 |
+| ---- | ---- |
+| 值 | `value` / `defaultValue` / `onChange`（受控／非受控）。內容是合法 JSON 時回報解析後的值，打到一半不回報。傳入的值與最後一次回報的不是同一個參考時，整份內容重新產生（復原紀錄、游標、摺疊重設） |
+| 編輯 | CodeMirror：語法上色、行號、摺疊（行號欄的箭頭、⌘/Ctrl + Shift + [ ／ ]）、括號配對與自動補上、目前行底色 |
+| 不合法的內容 | 解析錯誤以 lint 標在出錯的位置，下方顯示 `labels.parseError` ＋ 瀏覽器的訊息（`role="alert"`）；編輯區 `aria-invalid` |
+| 工具列 | 搜尋、全部展開／全部收合（根節點保持展開）、格式化／壓縮（只改排版，不回報 `onChange`，可復原）、復原／重做（⌘/Ctrl + Z、⌘/Ctrl + Shift + Z） |
+| 搜尋 | ⌘/Ctrl + F 或工具列的放大鏡：搜尋列（`JsonSearchBar`，設計系統元件）以 portal 渲染進 CodeMirror 的搜尋面板位置，查詢交給 `@codemirror/search`。不分大小寫、顯示「2 / 5」；Enter / Shift + Enter 上下一筆，跳到的位置會打開包住它的摺疊並置中；Esc 關閉 |
+| 驗證 | `validator`（可非同步）；JSON Schema 用 `createJsonSchemaValidator(schema, { formatMessage })`。結果放進 CodeMirror 的 state，以 lint 畫波浪底線（滑過顯示訊息）：物件成員標鍵名（值是基本型別時連值），容器只標開頭的括號。編輯區下方列出錯誤，點一下打開摺疊並選取；`onValidationChange` 回報結果。validator 請保持參考固定 |
+| 唯讀 | `readOnly`：可搜尋、摺疊、選取複製；不能改，沒有格式化／壓縮與復原 |
+| 高度 | `maxHeight`（預設 `20rem`），超過在編輯區內捲動 |
+| 文案 | `labels`（延伸 `JsonViewerLabels`）；`features/` 以 `t()` 傳入 |
+| testid | 工具列 `json-editor-toolbar`、編輯區 `json-editor-content`、錯誤 `json-editor-error`、搜尋列 `json-editor-search`（輸入 `-input`、筆數 `-status`）、驗證清單 `json-editor-validation`（每筆 `json-editor-validation-item` ＋ `data-value` 路徑） |
 
-顏色一律以 `--json-*` 元件變數定義在 `JsonViewer.module.css` 的 `.root`，值只引用 alias token（深色主題自動跟著換）。
-
-檔案分工（`JsonViewer/` 裡的 `jsonLines.ts`、`useJsonTree.ts`、`JsonTree.tsx` 兩個元件共用，不從 index 匯出）：
+檔案分工：
 
 | 檔案 | 內容 |
 | ---- | ---- |
-| `JsonViewer/jsonLines.ts` | `toJsonLines`（攤平成行）、`parsePath` / `formatPath`（`$["a"][0]` ↔ `['a', 0]`） |
-| `JsonViewer/jsonSearch.ts` | `searchJson`：在整份資料（含收合中的節點）找鍵名與值，依文件順序 |
-| `JsonViewer/useJsonTree.ts` | 收合狀態：以「與基準相反的路徑」記錄；基準是 `defaultExpandDepth`、全部展開或全部收合；`expandTo` 展開某節點的所有上層 |
-| `JsonViewer/JsonTree.tsx` | 捲動框 ＋ 逐行渲染；`renderKey` / `renderValue` / `renderActions` 讓編輯器換掉鍵名、值並加上行尾操作；`activeTarget`（焦點行，置中捲入）、`highlight`（符合的文字）、`annotations`（驗證錯誤標記） |
-| `JsonEditor/jsonEdit.ts` | 不可變的資料操作（`setIn`、`removeIn`、`renameKey`、`insertAfter`、`appendChild`、`duplicate`、`convert`）與編輯框文字轉換 |
-| `JsonEditor/useJsonHistory.ts` | 復原／重做：保存每一版的根（最多 100 步）；外部換掉 `value` 時清空 |
+| `JsonViewer/jsonTheme.module.css` | 兩個元件共用的變數與 class（見上） |
+| `JsonViewer/jsonLines.ts` | `toJsonLines`（攤平成行，含行號）、`formatPath`（`['a', 0]` → `$["a"][0]`） |
+| `JsonViewer/useJsonTree.ts` | 收合狀態：以「與 `defaultExpandDepth` 相反的路徑」記錄，換 `value` 時重設 |
+| `JsonEditor/editorTheme.ts` | CodeMirror 的 `EditorView.theme` 與 `HighlightStyle` |
+| `JsonEditor/jsonDocument.ts` | 在語法樹上找路徑的位置（`findPathRange`）、依深度摺疊（`foldAtDepth`）、摺疊摘要（`describeFold`） |
 | `JsonEditor/validation.ts` | `JsonValidator` 型別與 `createJsonSchemaValidator`；ajv 在 `ajvValidator.ts`，第一次驗證時才動態載入 |
 | `JsonEditor/useJsonValidation.ts` | 值改變時重新驗證（`useDeferredValue`），丟掉過期的非同步結果 |
 
-**`JsonEditor`**（自製而非包 `vanilla-jsoneditor`，見 [ADR-0010](../../adr/0010-self-built-json-editor.md)）：
+**Bundle**：CodeMirror（用到的部分）約 120 KB gzip，只被 `JsonEditor` 匯入；沒有頁面用到 `JsonEditor` 時，正式建置不含 CodeMirror。
+預覽一律用 `JsonViewer`。
 
-| 功能 | props / 行為 |
-| ---- | ---- |
-| 值 | `value` / `defaultValue` / `onChange`（受控／非受控）；每次回報整份新值，未改到的子樹沿用原參考 |
-| 模式 | `mode` / `defaultMode` / `onModeChange`：`tree`（樹狀）、`text`（原始 JSON，合法才即時套用；不合法時顯示錯誤、不能切回樹狀） |
-| 編輯鍵名／值 | 點一下直接編輯（`<button>`，鍵盤 Enter 同義）；Enter 送出、Esc 放棄、失焦送出。鍵名重複時標示錯誤不送出 |
-| 型別判斷 | 與 svelte-jsoneditor 相同：`true` / `false` / `null` 與 JSON 數字轉成對應型別，其餘是字串；要字串的 `123` 就輸入 `"123"` |
-| 行尾選單（`⋯`） | 編輯鍵名、編輯值、新增子項、在下方插入、複製一份、轉成物件／陣列／值、刪除；插入後直接編輯新鍵名，送出後接著編輯值 |
-| 工具列 | 模式切換；樹狀：搜尋、全部展開／全部收合；文字：格式化／壓縮；復原／重做（⌘/Ctrl + Z、⌘/Ctrl + Shift + Z 或 Y） |
-| 搜尋 | 樹狀模式 ⌘/Ctrl + F 或工具列的放大鏡：找整份資料的鍵名與值（不分大小寫，含收合中的節點）；符合的文字加底色、顯示「2 / 5」；Enter / Shift + Enter 上下一筆，跳到的那一行展開上層、置中並加左側線；Esc 關閉。文字模式交給瀏覽器的尋找 |
-| 驗證 | `validator`（可非同步，形狀同 svelte-jsoneditor）；JSON Schema 用 `createJsonSchemaValidator(schema, { formatMessage })`。錯誤的行標紅 ＋ ⚠（提示框列出訊息），收合的上層顯示淡色 ⚠；編輯區下方列出錯誤，點一下切到樹狀並跳過去；`onValidationChange` 回報結果。validator 請保持參考固定 |
-| 唯讀 | `readOnly`：可切模式、收合，不能改、沒有選單與復原 |
-| 文案 | `labels`（延伸 `JsonViewerLabels`）；`features/` 以 `t()` 傳入 |
-| testid | 工具列 `json-editor-toolbar`、模式鈕 `json-editor-mode` ＋ `data-value`、行尾選單 `json-editor-actions`、編輯框 `json-editor-input`、文字框 `json-editor-text`、錯誤 `json-editor-error`、搜尋列 `json-editor-search`（輸入 `-input`、筆數 `-status`）、驗證清單 `json-editor-validation`（每筆 `json-editor-validation-item` ＋ `data-value` 路徑）；樹狀的行沿用 `json-viewer-item`，錯誤標記 `json-viewer-marker` |
+**測試**：jsdom 沒有 `Range.getClientRects`，`JsonEditor.test.tsx` 補上替身；也無法模擬 contenteditable 的輸入，
+測試以 `EditorView.findFromDOM()` 取得編輯器後直接送 transaction。
 
 **JSON Schema 驗證器用 ajv**（與 svelte-jsoneditor 相同；依 `$schema` 選 draft-07／2019-09／2020-12，未宣告時 draft-07，含 `ajv-formats`）：
 
@@ -522,7 +530,7 @@ const handleDelete = async (row: RoleRowVM) => {
 - ajv 會把 schema 編譯成 JavaScript（`new Function`）；之後若啟用不含 `unsafe-eval` 的 CSP，要改成建置時預先編譯（ajv standalone）。
 - 評估過 `@cfworker/json-schema`（不用 eval、體積小），但屬性本身驗證失敗時會被誤報成 `additionalProperties`，不採用（[ADR-0010](../../adr/0010-self-built-json-editor.md)）。
 
-尚未實作（依同一基準補）：table 模式、取代、拖曳排序、JSON 修復。
+尚未實作：取代（`@codemirror/search` 已支援，需要時在 `JsonSearchBar` 加欄位）、摺疊處的驗證錯誤標記。
 
 ---
 

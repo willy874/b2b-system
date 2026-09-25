@@ -28,6 +28,21 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["storybook"],
       "port": 6006
+    },
+    {
+      "name": "storybook-alt",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@game-editor/web",
+        "exec",
+        "storybook",
+        "dev",
+        "-p",
+        "6007",
+        "--no-open"
+      ],
+      "port": 6007
     }
   ]
 }

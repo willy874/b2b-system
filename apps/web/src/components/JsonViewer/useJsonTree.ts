@@ -1,122 +1,50 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { formatPath, parsePath, toJsonLines } from './jsonLines';
+import { toJsonLines } from './jsonLines';
 import type { JsonLine } from './jsonLines';
-
-/** 收合的基準：`default` 依 `defaultExpandDepth`；`all` 全部展開；`none` 只留根節點展開。 */
-type ExpandBase = 'default' | 'all' | 'none';
 
 interface TreeState {
   resetKey: unknown;
-  base: ExpandBase;
-  /** 與基準相反的節點（路徑字串）。 */
+  /** 與 `defaultExpandDepth` 相反的節點（路徑字串）。 */
   toggled: ReadonlySet<string>;
 }
 
 const EMPTY_PATHS: ReadonlySet<string> = new Set();
 
-const initialState = (resetKey: unknown): TreeState => ({
-  resetKey,
-  base: 'default',
-  toggled: EMPTY_PATHS,
-});
-
 export interface UseJsonTreeOptions {
   /** 這個深度（含）以下的物件／陣列一開始是收合的；根節點深度為 0。 */
   defaultExpandDepth: number;
-  /** 值改變時收合狀態回到預設（JsonViewer 傳 `value`；JsonEditor 編輯時要保留狀態，不傳）。 */
-  resetKey?: unknown;
+  /** 這個值改變時，收合狀態回到預設（JsonViewer 傳 `value`）。 */
+  resetKey: unknown;
 }
 
 export interface JsonTree {
   lines: JsonLine[];
   toggle: (path: string) => void;
-  /** 確保某個節點是展開的（例如新增子項之後）。 */
-  expand: (path: string) => void;
-  /** 展開某個節點的所有上層（跳到搜尋結果、驗證錯誤時用）。 */
-  expandTo: (path: string) => void;
-  expandAll: () => void;
-  collapseAll: () => void;
 }
 
-/** JsonViewer／JsonEditor 共用：收合狀態 ＋ 攤平成行。 */
+/** JsonViewer 的收合狀態 ＋ 攤平成行。 */
 export function useJsonTree(
   value: unknown,
   { defaultExpandDepth, resetKey }: UseJsonTreeOptions,
 ): JsonTree {
-  const [stored, setStored] = useState(() => initialState(resetKey));
-  const state = useMemo(
-    () => (stored.resetKey === resetKey ? stored : initialState(resetKey)),
-    [stored, resetKey],
-  );
-
-  const isCollapsedBy = useCallback(
-    ({ base, toggled }: TreeState, path: string, depth: number) => {
-      const byBase =
-        base === 'all' ? false : base === 'none' ? depth >= 1 : depth >= defaultExpandDepth;
-      return byBase !== toggled.has(path);
-    },
-    [defaultExpandDepth],
-  );
-
-  const update = useCallback(
-    (next: (current: TreeState) => TreeState) =>
-      setStored((previous) =>
-        next(previous.resetKey === resetKey ? previous : initialState(resetKey)),
-      ),
-    [resetKey],
-  );
+  const [stored, setStored] = useState<TreeState>({ resetKey, toggled: EMPTY_PATHS });
+  const toggled = stored.resetKey === resetKey ? stored.toggled : EMPTY_PATHS;
 
   const toggle = useCallback(
     (path: string) =>
-      update((current) => {
-        const toggled = new Set(current.toggled);
-        if (!toggled.delete(path)) toggled.add(path);
-        return { ...current, toggled };
+      setStored((previous) => {
+        const next = new Set(previous.resetKey === resetKey ? previous.toggled : EMPTY_PATHS);
+        if (!next.delete(path)) next.add(path);
+        return { resetKey, toggled: next };
       }),
-    [update],
-  );
-
-  const expand = useCallback(
-    (path: string) =>
-      update((current) => {
-        if (!isCollapsedBy(current, path, parsePath(path).length)) return current;
-        const toggled = new Set(current.toggled);
-        if (!toggled.delete(path)) toggled.add(path);
-        return { ...current, toggled };
-      }),
-    [update, isCollapsedBy],
-  );
-
-  const expandTo = useCallback(
-    (path: string) =>
-      update((current) => {
-        const segments = parsePath(path);
-        let toggled: Set<string> | undefined;
-        for (let depth = 0; depth < segments.length; depth += 1) {
-          const ancestor = formatPath(segments.slice(0, depth));
-          if (!isCollapsedBy(current, ancestor, depth)) continue;
-          toggled ??= new Set(current.toggled);
-          if (!toggled.delete(ancestor)) toggled.add(ancestor);
-        }
-        return toggled ? { ...current, toggled } : current;
-      }),
-    [update, isCollapsedBy],
-  );
-
-  const expandAll = useCallback(
-    () => update((current) => ({ ...current, base: 'all', toggled: EMPTY_PATHS })),
-    [update],
-  );
-  const collapseAll = useCallback(
-    () => update((current) => ({ ...current, base: 'none', toggled: EMPTY_PATHS })),
-    [update],
+    [resetKey],
   );
 
   const lines = useMemo(
-    () => toJsonLines(value, (path, depth) => isCollapsedBy(state, path, depth)),
-    [value, state, isCollapsedBy],
+    () => toJsonLines(value, (path, depth) => depth >= defaultExpandDepth !== toggled.has(path)),
+    [value, toggled, defaultExpandDepth],
   );
 
-  return { lines, toggle, expand, expandTo, expandAll, collapseAll };
+  return { lines, toggle };
 }
