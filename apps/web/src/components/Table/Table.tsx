@@ -154,6 +154,7 @@ export function Table<TData>({
       className={cn(styles.root, className)}
       data-scrollable={scrollable || undefined}
       data-sticky-header={stickyHeader || undefined}
+      data-expandable={renderExpandedRow ? true : undefined}
       style={scrollable ? { maxHeight } : undefined}
       {...rest}
     >

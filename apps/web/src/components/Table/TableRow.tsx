@@ -97,7 +97,10 @@ export function TableRow<TData>({
           data-value={row.id}
         >
           <td {...slot('expandedCell', styles.expandedCell)} colSpan={cells.length}>
-            {expandedContent}
+            {/* 兩層包裝：外層不讓內容撐寬欄位，內層貼住可視範圍（見 Table.module.css） */}
+            <div className={styles.expandedFrame}>
+              <div {...slot('expandedContent', styles.expandedContent)}>{expandedContent}</div>
+            </div>
           </td>
         </tr>
       )}

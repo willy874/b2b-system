@@ -150,7 +150,32 @@
     border-bottom: none;
   }
 
+  /*
+   * 展開列不能影響欄寬：自動版面下，跨欄儲存格的內容寬度會被分攤回它橫跨的欄位，
+   * 內容一寬（長字串、JSON）整張表就重新分配欄寬，展開／收合時欄位左右跳動。
+   *
+   * - 外框（expandedFrame）以 `contain: inline-size` 讓內容對欄寬的貢獻為 0，寬度只跟著表格。
+   * - 內容（expandedContent）寬度等於表格外框（.root，inline-size container）的可視寬度 100cqi，
+   *   並 sticky 貼在左緣：表格水平捲動時展開內容留在可視範圍內，不會一半被捲出去。
+   *   寬內容在內容自己的區塊裡捲動（例如 JsonViewer），不撐開表格。
+   */
+  .root[data-expandable] {
+    container-type: inline-size;
+  }
+
   .expandedCell {
+    padding: 0;
+  }
+
+  .expandedFrame {
+    contain: inline-size;
+  }
+
+  .expandedContent {
+    position: sticky;
+    left: 0;
+    box-sizing: border-box;
+    width: 100cqi;
     padding: var(--seed-space-3);
   }
 
