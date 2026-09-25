@@ -124,7 +124,7 @@ export default function RoleCreatePage() {
           />
         </div>
 
-        {formError && <p className="m-0 text-sm text-[var(--color-danger)]">{formError}</p>}
+        {formError && <p className="m-0 text-sm text-[var(--color-danger-text)]">{formError}</p>}
       </form>
     </Dialog>
   );

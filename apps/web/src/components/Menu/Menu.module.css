@@ -54,7 +54,7 @@
   }
 
   .item[data-tone='danger'] {
-    color: var(--color-danger);
+    color: var(--color-danger-text);
   }
 
   .footer {

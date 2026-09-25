@@ -97,7 +97,7 @@ export default function LoginPage() {
         </form.Field>
 
         {formError && (
-          <p className="m-0 text-sm text-[var(--color-danger)]" data-testid="login-error">
+          <p className="m-0 text-sm text-[var(--color-danger-text)]" data-testid="login-error">
             {formError}
           </p>
         )}

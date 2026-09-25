@@ -89,7 +89,7 @@ export default function ResetPasswordPage() {
             </Field>
           )}
         </form.Field>
-        {formError && <p className="m-0 text-sm text-[var(--color-danger)]">{formError}</p>}
+        {formError && <p className="m-0 text-sm text-[var(--color-danger-text)]">{formError}</p>}
         <Button type="submit" variant="primary" block loading={reset.isPending}>
           {t('common.confirm')}
         </Button>

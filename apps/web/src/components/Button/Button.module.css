@@ -62,7 +62,7 @@
 
   .root[data-variant='danger'] {
     background: var(--color-danger);
-    color: var(--color-brand-fg);
+    color: var(--color-danger-on);
   }
   .root[data-variant='danger']:not(:disabled):hover {
     background: var(--button-danger-hover-bg);

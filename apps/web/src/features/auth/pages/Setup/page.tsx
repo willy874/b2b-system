@@ -49,7 +49,7 @@ export default function SetupPage() {
   if (!token || verify.data?.valid === false) {
     return (
       <AuthShell title={t('auth.setup.title')}>
-        <p className="text-sm text-[var(--color-danger)]" data-testid="setup-invalid">
+        <p className="text-sm text-[var(--color-danger-text)]" data-testid="setup-invalid">
           {t('error.AUTH_SETUP_TOKEN_INVALID')}
         </p>
       </AuthShell>
@@ -104,7 +104,7 @@ export default function SetupPage() {
             </Field>
           )}
         </form.Field>
-        {formError && <p className="m-0 text-sm text-[var(--color-danger)]">{formError}</p>}
+        {formError && <p className="m-0 text-sm text-[var(--color-danger-text)]">{formError}</p>}
         <Button type="submit" variant="primary" block loading={setup.isPending}>
           {t('auth.setup.submit')}
         </Button>
