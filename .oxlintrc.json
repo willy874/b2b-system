@@ -27,6 +27,7 @@
     "import/no-unassigned-import": "off",
     "import/no-named-as-default": "off",
     "react/react-in-jsx-scope": "off",
+    "react/no-unstable-nested-components": "off",
     "unicorn/prefer-node-protocol": "error"
   },
   "overrides": [
