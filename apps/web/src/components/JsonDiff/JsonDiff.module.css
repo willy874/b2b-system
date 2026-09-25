@@ -1,0 +1,159 @@
+@layer components {
+  /*
+   * 版面沿用 JsonViewer：左側行號欄、右側原始 JSON 文字，顏色與字型來自 jsonTheme.module.css 的 --json-* 變數。
+   * 差異多了兩樣：行號欄並列舊版／新版兩欄，內容前有 +／- 標記欄；新增與刪除的行整行上底色。
+   */
+  .root {
+    --json-diff-added-background: color-mix(in srgb, var(--color-success) 14%, transparent);
+    --json-diff-removed-background: color-mix(in srgb, var(--color-danger) 14%, transparent);
+    --json-diff-added-gutter-background: color-mix(in srgb, var(--color-success) 24%, transparent);
+    --json-diff-removed-gutter-background: color-mix(in srgb, var(--color-danger) 24%, transparent);
+    --json-diff-marker-width: 1.25rem;
+    /* 兩欄行號，各自帶左右留白 */
+    --json-gutter-width: calc(
+      2 * (var(--json-line-number-digits, 2) * 1ch + var(--seed-space-2) + var(--seed-space-1))
+    );
+
+    position: relative;
+    overflow: auto;
+    scrollbar-gutter: stable;
+    overscroll-behavior: contain;
+    padding-block: var(--json-padding-block);
+    border-radius: var(--radius-sm);
+    /* 上下留白處也畫出行號欄與右側分隔線（與 JsonViewer 相同的做法） */
+    background:
+      linear-gradient(
+        to right,
+        var(--json-gutter-background) var(--json-gutter-width),
+        var(--json-gutter-border) var(--json-gutter-width) calc(var(--json-gutter-width) + 1px),
+        transparent calc(var(--json-gutter-width) + 1px)
+      ),
+      var(--json-background);
+  }
+
+  .root:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: -2px;
+  }
+
+  .lines {
+    width: max-content;
+    min-width: 100%;
+  }
+
+  /* 行高固定，與 JsonDiff.tsx 的 LINE_HEIGHT 一致；不換行，長的行在框內水平捲動 */
+  .line,
+  .foldRow {
+    display: flex;
+    box-sizing: border-box;
+    min-width: 100%;
+    height: var(--json-line-height);
+    align-items: center;
+    white-space: pre;
+  }
+
+  .line[data-value='added'] {
+    background: var(--json-diff-added-background);
+  }
+
+  .line[data-value='removed'] {
+    background: var(--json-diff-removed-background);
+  }
+
+  /* 水平捲動時固定在左側；底色要不透明才蓋得住捲過去的內容，變更的行再疊一層顏色 */
+  .gutter {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    display: flex;
+    flex-shrink: 0;
+    height: 100%;
+    align-items: center;
+    border-right: 1px solid var(--json-gutter-border);
+    background: var(--json-gutter-background);
+    color: var(--json-gutter-color);
+  }
+
+  .line[data-value='added'] .gutter {
+    background-image: linear-gradient(
+      var(--json-diff-added-gutter-background),
+      var(--json-diff-added-gutter-background)
+    );
+  }
+
+  .line[data-value='removed'] .gutter {
+    background-image: linear-gradient(
+      var(--json-diff-removed-gutter-background),
+      var(--json-diff-removed-gutter-background)
+    );
+  }
+
+  .lineNumber {
+    box-sizing: content-box;
+    width: calc(var(--json-line-number-digits, 2) * 1ch);
+    padding: 0 var(--seed-space-1) 0 var(--seed-space-2);
+    text-align: right;
+    user-select: none;
+  }
+
+  .marker {
+    flex-shrink: 0;
+    width: var(--json-diff-marker-width);
+    color: var(--json-gutter-color);
+    text-align: center;
+    user-select: none;
+  }
+
+  .line[data-value='added'] .marker {
+    color: var(--color-success-text);
+  }
+
+  .line[data-value='removed'] .marker {
+    color: var(--color-danger-text);
+  }
+
+  .content {
+    padding-inline-end: var(--seed-space-3);
+  }
+
+  /* 摺疊列：橫跨整行，行號欄的位置留空 */
+  .foldRow {
+    padding-inline-start: calc(var(--json-gutter-width) + 1px);
+    background: var(--json-placeholder-background);
+  }
+
+  .fold {
+    position: sticky;
+    left: calc(var(--json-gutter-width) + 1px);
+    display: inline-flex;
+    height: 100%;
+    align-items: center;
+    gap: var(--seed-space-2);
+    padding: 0 var(--seed-space-2);
+    border: none;
+    background: none;
+    color: var(--json-placeholder-color);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .fold:hover {
+    color: var(--json-color);
+  }
+
+  .fold:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: -2px;
+  }
+
+  .empty {
+    margin: 0;
+    padding: 0 var(--seed-space-3);
+    color: var(--json-placeholder-color);
+  }
+
+  /* 沒有行，不畫行號欄 */
+  .root[data-empty] {
+    background: var(--json-background);
+  }
+}

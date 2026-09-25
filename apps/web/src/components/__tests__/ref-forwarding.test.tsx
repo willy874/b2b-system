@@ -11,6 +11,7 @@ import { BoxEllipsis, ButtonEllipsis, TextEllipsis } from '../Ellipsis';
 import { Empty } from '../Empty';
 import { Field } from '../Field';
 import { Input, Textarea } from '../Input';
+import { JsonDiff } from '../JsonDiff';
 import { JsonEditor } from '../JsonEditor';
 import { JsonViewer } from '../JsonViewer';
 import { Link } from '../Link';
@@ -89,6 +90,7 @@ const cases: Array<[string, (ref: RefObject<HTMLElement | null>) => ReactElement
     ),
   ],
   ['JsonViewer', (ref) => <JsonViewer ref={ref} value={{}} />],
+  ['JsonDiff', (ref) => <JsonDiff ref={ref} before={{}} after={{ a: 1 }} />],
   ['JsonEditor', (ref) => <JsonEditor ref={ref as RefObject<HTMLDivElement>} />],
   [
     'Field',

@@ -16,6 +16,7 @@ export * from './FileUpload';
 export * from './Form';
 export * from './Icon';
 export * from './Input';
+export * from './JsonDiff';
 export * from './JsonEditor';
 export * from './JsonViewer';
 export * from './Link';

@@ -71,6 +71,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `VirtualList`                    | TanStack Virtual；長列表的虛擬捲動 ＋ 無限捲動（§3.10） |
 | `Typography` / `Title` / `Text` / `Paragraph` | 自製；`copyable` 的複製按鈕用 `Tooltip` ＋ `navigator.clipboard`（§3.9） |
 | `JsonViewer` / `JsonEditor`      | `JsonEditor` 是 CodeMirror 6；`JsonViewer` 自製（逐行渲染 ＋ `useVirtualRows`），外觀對齊 CodeMirror（§3.12、[ADR-0011](../../adr/0011-codemirror-json-editor.md)） |
+| `JsonDiff`                       | 自製：Myers 逐行差異 ＋ `useVirtualRows`，外觀沿用 `JsonViewer`（§3.12） |
 
 > **DatePicker 是最大的一塊自製工作**，排入
 > [`../../overview/03-roadmap.md`](../../overview/03-roadmap.md) 的 M2，已完成：`components/DatePicker/` 底下是
@@ -488,6 +489,21 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | 虛擬捲動 | 攤平成「一行一個元素」（`toJsonLines`，迴圈走訪不遞迴、循環參照顯示 `[Circular]`），行數超過 `virtualThreshold`（預設 100）以 `useVirtualRows` 只渲染可視範圍 |
 | 可近性 | 捲動框是 `<section>`，傳 `aria-label` 即成為 `region` 地標；箭頭是 `<button aria-expanded>`；行號 `aria-hidden` |
 | testid | 行：`json-viewer-item` ＋ `data-value`（節點路徑，如 `$["a"][0]`）＋ `data-line-number`；箭頭：`json-viewer-toggle` |
+
+**`JsonDiff`**（`components/JsonDiff/`）：兩份 JSON 的逐行差異（unified diff），稽核日誌的「變更前後」用它。
+
+| 功能 | props / 行為 |
+| ---- | ---- |
+| 內容 | `before` / `after` 各自以 `JSON.stringify(value, null, 2)` 攤成行，以 Myers 演算法逐行比對（O((N + M)·D)）；同一段變更先列刪除、再列新增。`undefined` 代表這一邊不存在（建立／刪除），另一邊整份是新增／刪除 |
+| 行尾逗號 | 比對時忽略行尾逗號（陣列尾端加一項不會讓原本的最後一行變成「刪一行、加一行」）；未變更的行顯示新版的文字 |
+| 外觀 | 行號欄並列舊版／新版行號，後接 `+` / `-` 標記；新增的行 `--color-success`、刪除的行 `--color-danger` 混色的底色；語法上色與 `JsonViewer` 相同（`jsonTheme.module.css`） |
+| 摺疊 | 只保留變更前後 `context` 行（預設 3），其餘連續未變更的行收成摺疊列（只有一行的不收），點一下展開該段；換一份 `before` / `after` 時回到預設 |
+| 沒有變更 | 兩邊相同或都不存在時顯示 `labels.empty` |
+| 高度 | `maxHeight`（預設 `20rem`）；列數超過 `virtualThreshold`（預設 100）以 `useVirtualRows` 虛擬捲動 |
+| 文案 | `labels.expandUnchanged(count)`、`labels.empty`；`features/` 以 `t()` 傳入 |
+| testid | 行：`json-diff-item` ＋ `data-value`（`equal` / `added` / `removed`）＋ `data-old-line-number` / `data-new-line-number`；摺疊列：`json-diff-fold` ＋ `data-value`（區段起點） |
+
+純邏輯在 `JsonDiff/diffLines.ts`：`diffJsonLines`（比對）、`toJsonDiffRows`（摺疊）、`tokenizeJsonLine`（一行切成語法上色的片段）。
 
 **`JsonEditor`**（`components/JsonEditor/`）：
 

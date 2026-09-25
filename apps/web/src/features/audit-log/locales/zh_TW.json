@@ -33,7 +33,9 @@
       "changes": "變更前後",
       "metadata": "中繼資料",
       "arraySummary": "{{count}} 項",
-      "objectSummary": "{{count}} 個欄位"
+      "objectSummary": "{{count}} 個欄位",
+      "expandUnchanged": "展開 {{count}} 行未變更",
+      "noChanges": "沒有變更"
     }
   }
 }
