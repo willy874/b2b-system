@@ -22,6 +22,7 @@
 | GET    | `/auth/profile`         | 🔑              | 取得自己的身分、角色與 **權限集合** |
 | PATCH  | `/auth/profile`         | 🔑              | 修改自己的顯示名稱與偏好設定        |
 | POST   | `/auth/change-password` | 🔑              | 變更自己的密碼（需提供舊密碼）      |
+| POST   | `/auth/register`        | 🔓              | 送出註冊申請（需審批，永遠回 202）  |
 | POST   | `/auth/forgot-password` | 🔓              | 請求密碼重設信                      |
 | POST   | `/auth/reset-password`  | 🔓              | 以 reset token 設定新密碼           |
 | GET    | `/auth/setup/verify`    | 🔓              | 驗證啟用 token 是否有效             |
@@ -77,6 +78,23 @@
 ```
 
 不可經此端點修改 `email` / `status` / 角色。
+
+---
+
+### 1.5 `POST /auth/register`
+
+```jsonc
+// Request
+{ "email": "alice@example.com", "displayName": "Alice", "password": "…≥12 字元…", "reason": "新進企劃" }
+
+// 202 — 不論 email 是否已註冊或已在審核中，回應都相同（帳號列舉防護）
+{ "data": { "submitted": true } }
+```
+
+- 不建立帳號，只建立一筆 `user.register` 審批請求；核准後才以這組 email 與密碼建立 **已啟用** 的帳號。
+- 密碼在送出時就雜湊，只存在請求的 `private_payload`，審核後清空。
+- 速率限制：同 IP 每分鐘 `max(3, AUTH_RATE_LIMIT / 3)` 次。
+- 流程與規則見 [`06-approval.md`](./06-approval.md) §5。
 
 ---
 
@@ -258,7 +276,7 @@
 
 | Method | Path           | 授權                | 說明                               |
 | ------ | -------------- | ------------------- | ---------------------------------- |
-| GET    | `/permissions` | 🛡 `permission:read` | 全部權限目錄（不分頁，固定 15 筆） |
+| GET    | `/permissions` | 🛡 `permission:read` | 全部權限目錄（不分頁，固定 17 筆） |
 
 ```jsonc
 // 200
@@ -301,6 +319,7 @@
 | `POST /roles/:id/duplicate`    | 來源角色的權限集合（超出的部分略過而非拒絕） |
 | `POST /users`                  | `roleIds` 各角色的權限集合聯集               |
 | `PUT /users/:id/roles`         | 同上                                         |
+| `POST /approvals/:id/approve`  | `roleIds`（`user.register`）同上             |
 
 規則：`待授予集合 ⊆ actor 的權限集合`，否則 `403 AUTHZ_ESCALATION`，
 `details.missing` 列出超出的鍵。
@@ -323,7 +342,7 @@
 | `offset` / `limit` | 分頁（`limit` 上限 100）                |
 | `actorId`          | 操作者                                  |
 | `action`           | 例 `role.update`，支援前綴比對 `role.*`（`%` / `_` 視為一般字元） |
-| `resourceType`     | `user` / `role` / `auth` / `permission` |
+| `resourceType`     | `user` / `role` / `auth` / `permission` / `approval` |
 | `resourceId`       |                                         |
 | `result`           | `success` / `failure`                   |
 | `from` / `to`      | ISO 8601 時間範圍；跨度最多 90 天（超過回 `400 VALIDATION_FAILED`）。都沒帶時為「現在往前 90 天」，只帶一端時往另一端推 90 天 |
@@ -334,7 +353,49 @@
 
 ---
 
-## 7. System
+## 7. Approvals
+
+| Method | Path                     | 授權                                    | 說明                         |
+| ------ | ------------------------ | --------------------------------------- | ---------------------------- |
+| GET    | `/approvals`             | 🛡 `approval:read`                      | 列表（分頁／篩選／排序）     |
+| GET    | `/approvals/:id`         | 🛡 `approval:read`                      | 詳情                         |
+| POST   | `/approvals/:id/approve` | 🛡 `approval:review` ＋ 類型要求的權限   | 核准並套用變更               |
+| POST   | `/approvals/:id/reject`  | 🛡 `approval:review`                    | 駁回                         |
+
+**`GET /approvals` Query**
+
+| 參數               | 說明                                                          |
+| ------------------ | ------------------------------------------------------------- |
+| `offset` / `limit` | 分頁                                                          |
+| `keyword`          | 申請人名稱（註冊 = email）部分比對                            |
+| `status`           | `pending` / `approved` / `rejected`，可重複                   |
+| `type`             | `user.register`，可重複                                       |
+| `sort`             | `createdAt` / `reviewedAt`，`-` 前綴為降冪；預設 `-createdAt` |
+
+**`POST /approvals/:id/approve`**
+
+```jsonc
+// Request（皆可省略）
+{ "comment": "歡迎", "roleIds": ["uuid"] }   // roleIds 只對 user.register 有意義
+```
+
+回應為更新後的 `ApprovalRequest`（`status = approved`、`resultResourceId` = 新使用者 id）。
+`private_payload` 永遠不會出現在任何回應中。
+
+**`POST /approvals/:id/reject`**：`{ "comment"?: string }`，回應同上（`status = rejected`）。
+
+| 錯誤                          | 時機                                                            |
+| ----------------------------- | --------------------------------------------------------------- |
+| `404 APPROVAL_NOT_FOUND`      | id 不存在                                                       |
+| `409 APPROVAL_ALREADY_REVIEWED` | 已被審核過（含兩位審核者同時送出時較晚的那位）                |
+| `403 APPROVAL_SELF_REVIEW`    | 審核自己送出的請求                                              |
+| `403 AUTHZ_FORBIDDEN`         | 缺少類型要求的權限（`details.missing`）                         |
+| `403 AUTHZ_ESCALATION`        | 指派的角色超出審核者的權限                                      |
+| `409 USER_EMAIL_DUPLICATE`    | `user.register`：申請後該 email 已被建立（請改為駁回）          |
+
+---
+
+## 8. System
 
 | Method | Path            | 授權            | 說明                    |
 | ------ | --------------- | --------------- | ----------------------- |
@@ -344,18 +405,19 @@
 
 ---
 
-## 8. HTTP 狀態碼使用約定
+## 9. HTTP 狀態碼使用約定
 
 | 碼  | 使用時機                                                     |
 | --- | ------------------------------------------------------------ |
 | 200 | 讀取、更新成功                                               |
 | 201 | 建立成功（`Location` 標頭指向新資源）                        |
+| 202 | 已受理、尚未生效（註冊申請：待審批）                         |
 | 204 | 刪除成功且無回應主體                                         |
 | 400 | 請求格式／驗證錯誤（Zod 失敗、未知權限鍵）                   |
 | 401 | 未認證或認證失效                                             |
 | 403 | 已認證但無權限、業務規則拒絕（系統角色保護、提權、自我操作） |
 | 404 | 資源不存在 **或** 無權得知其存在                             |
-| 409 | 狀態衝突（名稱重複、角色使用中）                             |
+| 409 | 狀態衝突（名稱重複、角色使用中、審批已審核過）               |
 | 422 | 語意正確但無法處理（保留，Phase 0 未使用）                   |
 | 429 | 速率限制                                                     |
 | 500 | 未預期錯誤（不洩漏堆疊，只回 `requestId`）                   |

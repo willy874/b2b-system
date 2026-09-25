@@ -13,6 +13,7 @@ import { usePageAccessChecker } from '@/core/permission';
 import type { PageKey } from '@/core/permission';
 import { useLayoutStore } from '@/core/store';
 import { PREFERENCE_PAGE, PROFILE_PAGE } from '@/features/account';
+import { APPROVAL_PAGE } from '@/features/approval';
 import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { useLogoutMutation } from '@/features/auth';
 import { HOME_PAGE } from '@/features/home';
@@ -55,6 +56,13 @@ const MENU: NavItem[] = [
     labelKey: 'menu.auditLog',
     testId: 'menu-auditLog',
     icon: 'list',
+  },
+  {
+    pageKey: APPROVAL_PAGE,
+    to: '/approval',
+    labelKey: 'menu.approval',
+    testId: 'menu-approval',
+    icon: 'check',
   },
 ];
 

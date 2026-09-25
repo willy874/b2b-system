@@ -1,5 +1,6 @@
 import { RootRoute } from '@/core/router';
 import { Routes as AccountRoutes } from '@/features/account';
+import { Routes as ApprovalRoutes } from '@/features/approval';
 import { Routes as AuditLogRoutes } from '@/features/audit-log';
 import { Routes as AuthRoutes } from '@/features/auth';
 import { Routes as HomeRoutes } from '@/features/home';
@@ -20,6 +21,7 @@ export const routeTree = RootRoute.addChildren([
     AuthRoutes.ForgotPasswordRoute,
     AuthRoutes.ResetPasswordRoute,
     AuthRoutes.SetupRoute,
+    AuthRoutes.RegisterRoute,
   ]),
 
   UserRoutes.UserListRoute.addChildren([UserRoutes.UserCreateRoute, UserRoutes.UserDetailRoute]),
@@ -31,6 +33,7 @@ export const routeTree = RootRoute.addChildren([
 
   PermissionRoutes.PermissionListRoute,
   AuditLogRoutes.AuditLogListRoute,
+  ApprovalRoutes.ApprovalListRoute.addChildren([ApprovalRoutes.ApprovalDetailRoute]),
   AccountRoutes.ProfileRoute,
   AccountRoutes.PreferenceRoute,
 ]);

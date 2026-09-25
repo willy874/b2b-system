@@ -329,6 +329,7 @@ mutation 成功
 | `role`：`ROLE_LIST`、`ROLE_OPTIONS` ／ `ROLE_DETAIL`、`ROLE_PERMISSIONS`、`ROLE_USERS` | `rolePermission`（同一角色）、`userRole`（新舊角色）、`user`（該使用者持有的角色） |
 | `profile`：`AUTH_PROFILE`                                                      | `user` 更新（自己）、`userRole`（自己）、`role` 更新／刪除與 `rolePermission`（自己持有的角色） |
 | `auditLog`：`AUDIT_LOG_LIST` ／ `AUDIT_LOG_DETAIL`                              | **任何寫入**（只影響列表；既有紀錄不可變）                                            |
+| `approval`：`APPROVAL_LIST` ／ `APPROVAL_DETAIL`                                | 無（只有自己的寫入）                                                                  |
 | `permission`：`PERMISSION_LIST`                                                | 無（一個部署版本內不變）                                                              |
 
 `userRole`、`rolePermission`、`userCredential` 是 **關係／純來源**：沒有自己的 query，只用來描述寫入。
@@ -344,6 +345,8 @@ mutation 成功
 | 刪除使用者               | `user` delete（id）                                                      |
 | 指派使用者角色           | `userRole` update（userId），`refs.role` = 新舊角色聯集                   |
 | 重設使用者密碼           | `userCredential` update（userId）                                        |
+| 核准審批                 | `approval` update（id）；`user.register` 另宣告 `user` create（新帳號 id），`refs.role` = 指派的角色 |
+| 駁回審批                 | `approval` update（id）                                                  |
 | 修改自己的 profile / 偏好 | `user` update（自己的 id），`refs.role` = 自己的角色（`selfUpdated()`）   |
 
 「自己」的判斷讀 profile 快取；沒有快取時一律視為是（profile 只有一個 query，寧可多抓一次）。

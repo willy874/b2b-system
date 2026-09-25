@@ -26,6 +26,14 @@ const keysOf = (...changes: ResourceChangeEvent[]) =>
 describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）', () => {
   afterEach(() => queryClient.clear());
 
+  it('審核一筆請求：審批列表與該筆詳情，不碰其他資源', () => {
+    expect(keysOf({ resource: Resource.APPROVAL, kind: 'update', id: 'a1' })).toEqual([
+      'invalidate:APPROVAL_DETAIL_QUERY_KEY:a1',
+      'invalidate:APPROVAL_LIST_QUERY_KEY',
+      'invalidate:AUDIT_LOG_LIST_QUERY_KEY',
+    ]);
+  });
+
   it('建立角色：角色列表與選項，不碰任何角色詳情', () => {
     expect(keysOf({ resource: Resource.ROLE, kind: 'create' })).toEqual([
       'invalidate:AUDIT_LOG_LIST_QUERY_KEY',

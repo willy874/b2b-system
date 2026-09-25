@@ -46,9 +46,18 @@ export default function LoginPage() {
       title={t('auth.login.title')}
       description={t('auth.login.description')}
       footer={
-        <a className="text-[var(--color-brand)]" href="/auth/forgot-password">
-          {t('auth.login.forgotPassword')}
-        </a>
+        <div className="flex justify-between gap-2">
+          <a className="text-[var(--color-brand)]" href="/auth/forgot-password">
+            {t('auth.login.forgotPassword')}
+          </a>
+          <a
+            className="text-[var(--color-brand)]"
+            href="/auth/register"
+            data-testid="login-register-link"
+          >
+            {t('auth.login.register')}
+          </a>
+        </div>
       }
     >
       <form

@@ -39,6 +39,9 @@ const ERROR_CODES = [
   'ROLE_IN_USE',
   'LAST_SUPER_ADMIN',
   'PERMISSION_UNKNOWN',
+  'APPROVAL_NOT_FOUND',
+  'APPROVAL_ALREADY_REVIEWED',
+  'APPROVAL_SELF_REVIEW',
   'RATE_LIMITED',
   'INTERNAL_ERROR',
 ];
@@ -59,6 +62,8 @@ const PERMISSION_KEYS = [
   ['auditLog', 'read'],
   ['system', 'read'],
   ['system', 'update'],
+  ['approval', 'read'],
+  ['approval', 'review'],
 ] as const;
 
 const bundles = { zh_TW: zhTW, en_US: enUS } as Record<string, Record<string, unknown>>;

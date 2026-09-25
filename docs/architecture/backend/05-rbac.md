@@ -421,6 +421,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | ------ | --------------------------- | -------------------------------- |
 | POST   | `/auth/login`               | `@Public`                        |
 | POST   | `/auth/refresh`             | `@Public`                        |
+| POST   | `/auth/register`            | `@Public`                        |
 | POST   | `/auth/forgot-password`     | `@Public`                        |
 | POST   | `/auth/reset-password`      | `@Public`                        |
 | GET    | `/auth/setup/verify`        | `@Public`                        |
@@ -454,6 +455,14 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/health`                   | `@Public`                        |
 | GET    | `/health/ready`             | `@Public`                        |
 | GET    | `/system/info`              | `system:read`                    |
+| GET    | `/approvals`                | `approval:read`                  |
+| GET    | `/approvals/:id`            | `approval:read`                  |
+| POST   | `/approvals/:id/approve`    | `approval:review` ＋ 類型要求的權限¹ |
+| POST   | `/approvals/:id/reject`     | `approval:review`                |
+
+¹ 路由宣告只有 `approval:review`；核准時 `ApprovalService` 另外檢查該類型 handler 要求的權限
+（`user.register` = `user:create`，指派角色時再加 `user:assignRole`），缺少時同樣回
+`403 AUTHZ_FORBIDDEN` ＋ `details.missing`。見 [`../../rbac/06-approval.md`](../../rbac/06-approval.md) §3.2。
 
 **這張表必須與 `docs/rbac/04-api-spec.md` 一致**，且有一支測試從 metadata
 產生它並與文件比對（見 §7.1）。

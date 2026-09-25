@@ -9,7 +9,7 @@ import { DRIZZLE, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
-import type { UserInsert, UserRow } from '@/db/schema';
+import type { AuditMetadata, UserInsert, UserRow, UserStatus } from '@/db/schema';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { AuthTokenService } from '@/modules/auth/auth-token.service';
@@ -23,6 +23,16 @@ import type { UserDto } from './dto/user.dto';
 import { USER_AUDIT_FIELDS } from './user.constants';
 import type { UserRoleSummary, UserWithRoles } from './user.repository';
 import { UserRepository } from './user.repository';
+
+/** `createAccount()` 的輸入：`passwordHash` 為 null 時帳號必須走啟用信流程（status = pending）。 */
+export interface NewAccount {
+  email: string;
+  username?: string | null;
+  displayName: string;
+  passwordHash?: string | null;
+  status: UserStatus;
+  roleIds: readonly string[];
+}
 
 function toDto(user: UserRow, roles: UserRoleSummary[]): UserDto {
   return {
@@ -92,49 +102,24 @@ export class UserService {
   }
 
   async create(dto: CreateUserDto, actor: AuthUser): Promise<UserDto> {
-    await this.assertEmailAvailable(dto.email);
-    await this.permissionService.assertRolesAssignable(actor.id, dto.roleIds);
-    await this.assertRolesExist(dto.roleIds);
+    await this.assertCreatable(dto.email, dto.roleIds, actor);
 
-    const created = await withTransaction(this.db, async (tx) => {
-      const user = await this.repo.create(
+    const created = await withTransaction(this.db, (tx) =>
+      this.createAccount(
         {
           email: dto.email,
           username: dto.username ?? null,
           displayName: dto.displayName,
           status: 'pending', // 不接受 password：一律走啟用信流程
-          createdBy: actor.id,
-          updatedBy: actor.id,
+          roleIds: dto.roleIds,
         },
+        actor,
         tx,
-      );
-      await this.repo.assignRoles(user.id, dto.roleIds, actor.id, tx);
-      await this.audit.record(
-        {
-          action: 'user.create',
-          resourceType: 'user',
-          resourceId: user.id,
-          resourceName: user.email,
-          changes: {
-            after: { email: user.email, displayName: user.displayName, roles: dto.roleIds },
-          },
-        },
-        tx,
-      );
-      return user;
-    });
+      ),
+    );
 
     await this.authTokens.issue(created.id, 'activation');
-    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: [
-        {
-          resource: ChangeSource.USER,
-          kind: ChangeKind.CREATE,
-          id: created.id,
-          refs: { [ChangeSource.ROLE]: dto.roleIds },
-        },
-      ],
-    });
+    this.publishCreated(created.id, dto.roleIds);
     return toDto(created, await this.repo.listRoles(created.id));
   }
 
@@ -335,6 +320,68 @@ export class UserService {
       affectedUserIds: [id],
     });
     return toDto(updated, roles);
+  }
+
+  // ── 建立帳號：供 create 與審批（user.register）共用 ─────────────
+
+  /** 建立前的檢查：email 未被使用、角色存在且 actor 指派得了（反提權）。 */
+  async assertCreatable(email: string, roleIds: readonly string[], actor: AuthUser): Promise<void> {
+    await this.assertEmailAvailable(email);
+    await this.permissionService.assertRolesAssignable(actor.id, roleIds);
+    await this.assertRolesExist(roleIds);
+  }
+
+  /**
+   * 在呼叫端的交易內建立帳號、指派角色並寫稽核。呼叫前先 `assertCreatable()`；
+   * 交易提交後呼叫 `publishCreated()`。
+   */
+  async createAccount(
+    input: NewAccount,
+    actor: AuthUser,
+    tx: DbOrTx,
+    metadata?: AuditMetadata,
+  ): Promise<UserRow> {
+    const user = await this.repo.create(
+      {
+        email: input.email,
+        username: input.username ?? null,
+        displayName: input.displayName,
+        passwordHash: input.passwordHash ?? null,
+        status: input.status,
+        createdBy: actor.id,
+        updatedBy: actor.id,
+      },
+      tx,
+    );
+    await this.repo.assignRoles(user.id, input.roleIds, actor.id, tx);
+    await this.audit.record(
+      {
+        action: 'user.create',
+        resourceType: 'user',
+        resourceId: user.id,
+        resourceName: user.email,
+        // 密碼雜湊絕不進稽核
+        changes: {
+          after: { email: user.email, displayName: user.displayName, roles: input.roleIds },
+        },
+        metadata,
+      },
+      tx,
+    );
+    return user;
+  }
+
+  publishCreated(userId: string, roleIds: readonly string[]): void {
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [
+        {
+          resource: ChangeSource.USER,
+          kind: ChangeKind.CREATE,
+          id: userId,
+          refs: { [ChangeSource.ROLE]: [...roleIds] },
+        },
+      ],
+    });
   }
 
   // ── 業務規則 ─────────────────────────────────────────────

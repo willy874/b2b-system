@@ -8,6 +8,8 @@ import type {
   ForgotPasswordRequest,
   LoginRequest,
   Profile,
+  RegisterRequest,
+  RegisterResult,
   ResetPasswordRequest,
   Session,
   SetupRequest,
@@ -25,6 +27,8 @@ import {
   ForgotPasswordRequestSchema,
   LoginRequestSchema,
   ProfileSchema,
+  RegisterRequestSchema,
+  RegisterResultSchema,
   ResetPasswordRequestSchema,
   SessionSchema,
   SetupRequestSchema,
@@ -289,6 +293,55 @@ export function authControllerChangePassword(
     input,
     options,
   );
+}
+
+// POST /auth/register
+
+export type AuthControllerRegisterBody = RegisterRequest;
+
+export interface AuthControllerRegisterInput {
+  body: AuthControllerRegisterBody;
+}
+
+export interface AuthControllerRegisterResponses {
+  202: {
+    data: RegisterResult;
+  };
+}
+
+export type AuthControllerRegisterResponse = AuthControllerRegisterResponses[202];
+
+export type AuthControllerRegisterResult = ApiResponse<202, AuthControllerRegisterResponses[202]>;
+
+export const AuthControllerRegisterSchemas = {
+  body: RegisterRequestSchema,
+  responses: {
+    202: z.object({
+      data: RegisterResultSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getAuthControllerRegisterUrl(): string {
+  return buildUrl('/auth/register');
+}
+
+const authControllerRegisterOperation: OperationDefinition = {
+  id: 'AuthController_register',
+  method: 'POST',
+  path: '/auth/register',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 202: 'json' },
+  schemas: AuthControllerRegisterSchemas,
+};
+
+/** 送出註冊申請，待管理員審批（永遠回 202） */
+export function authControllerRegister(
+  input: AuthControllerRegisterInput,
+  options?: RequestOptions,
+): Promise<AuthControllerRegisterResult> {
+  return request<AuthControllerRegisterResult>(authControllerRegisterOperation, input, options);
 }
 
 // POST /auth/forgot-password

@@ -20,6 +20,8 @@ export const mockState = {
     'auditLog:read',
     'system:read',
     'system:update',
+    'approval:read',
+    'approval:review',
   ] as string[],
 };
 

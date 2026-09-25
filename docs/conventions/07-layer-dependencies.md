@@ -122,7 +122,7 @@ apps/e2e ┄┄┄┄┄▶ 只透過瀏覽器 / HTTP 操作執行中的系統�
 | `db/seeds/`、`scripts/` | ✅  | ✅   | ✅     | ⚠️³                             | ✅       |
 
 1. 只允許 import **權限目錄** `db/seeds/permissions.ts`（它是權限鍵的唯一來源）。
-2. 跨模組只能 import 對方的 `*.module.ts`、`*.service.ts`、`dto/`、`*.constants.ts` 與純函式；
+2. 跨模組只能 import 對方的 `*.module.ts`、`*.service.ts`、`dto/`、`*.constants.ts`、`*.types.ts`（只限 `import type`）與純函式；
    **不可 import 對方的 `*.repository.ts`、`*.controller.ts`**；不用 `forwardRef`。
 3. 只能 import 不依賴 DI 的純函式（例：`modules/auth/password.ts`）。
 4. 只有 `common/guards/permissions.guard.ts` 可以注入葉節點模組的 service：

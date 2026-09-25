@@ -58,6 +58,7 @@
     "role": "Roles",
     "permission": "Permissions",
     "auditLog": "Audit log",
+    "approval": "Approvals",
     "profile": "Profile",
     "preference": "Preferences",
     "logout": "Sign out"
@@ -102,6 +103,9 @@
     "ROLE_IN_USE": "Some users still hold this role.",
     "LAST_SUPER_ADMIN": "The system must keep at least one active super admin.",
     "PERMISSION_UNKNOWN": "The request contains unknown permission keys.",
+    "APPROVAL_NOT_FOUND": "This approval request does not exist.",
+    "APPROVAL_ALREADY_REVIEWED": "This request has already been reviewed.",
+    "APPROVAL_SELF_REVIEW": "You cannot review your own request. Ask another administrator.",
     "RATE_LIMITED": "Too many requests. Please slow down.",
     "INTERNAL_ERROR": "Server error. Please try again later.",
     "page": {
@@ -125,7 +129,8 @@
       "role": "Roles",
       "permission": "Permissions",
       "auditLog": "Audit log",
-      "system": "System"
+      "system": "System",
+      "approval": "Approvals"
     },
     "user": {
       "create": "Create user",
@@ -151,6 +156,10 @@
     "system": {
       "read": "View system info",
       "update": "Change system settings"
+    },
+    "approval": {
+      "read": "View approvals",
+      "review": "Review requests"
     }
   },
   "theme": {

@@ -1,7 +1,8 @@
 import { HttpResponse, http } from 'msw';
 
-import { MOCK_API_BASE } from '../config';
+import { MOCK_API_BASE, mockState } from '../config';
 import {
+  APPROVAL_FIXTURES,
   AUDIT_LOG_FIXTURES,
   PERMISSION_FIXTURES,
   PERMISSION_RESOURCE_NAME_KEY,
@@ -72,5 +73,59 @@ export const rbacHandlers = [
           { error: { code: 'VALIDATION_FAILED', message: 'not found' } },
           { status: 400 },
         );
+  }),
+
+  http.get(`${MOCK_API_BASE}/approvals`, () =>
+    HttpResponse.json({ data: paginate(APPROVAL_FIXTURES) }),
+  ),
+  http.get(`${MOCK_API_BASE}/approvals/:id`, ({ params }) => {
+    const approval = APPROVAL_FIXTURES.find((item) => item.id === params.id);
+    return approval
+      ? HttpResponse.json({ data: approval })
+      : HttpResponse.json(
+          { error: { code: 'APPROVAL_NOT_FOUND', message: 'not found' } },
+          { status: 404 },
+        );
+  }),
+  // 審核：沒有 approval:review 回 403（MSW 要模擬權限行為，docs/conventions/04-testing.md §3）
+  http.post(`${MOCK_API_BASE}/approvals/:id/:decision`, async ({ params, request }) => {
+    if (!mockState.permissions.includes('approval:review')) {
+      return HttpResponse.json(
+        {
+          error: {
+            code: 'AUTHZ_FORBIDDEN',
+            message: 'forbidden',
+            details: { missing: ['approval:review'] },
+          },
+        },
+        { status: 403 },
+      );
+    }
+    const approval = APPROVAL_FIXTURES.find((item) => item.id === params.id);
+    if (!approval) {
+      return HttpResponse.json(
+        { error: { code: 'APPROVAL_NOT_FOUND', message: 'not found' } },
+        { status: 404 },
+      );
+    }
+    if (approval.status !== 'pending') {
+      return HttpResponse.json(
+        { error: { code: 'APPROVAL_ALREADY_REVIEWED', message: 'reviewed' } },
+        { status: 409 },
+      );
+    }
+    const body = (await request.json()) as { comment?: string };
+    const approved = params.decision === 'approve';
+    return HttpResponse.json({
+      data: {
+        ...approval,
+        status: approved ? 'approved' : 'rejected',
+        reviewerId: 'user-admin',
+        reviewerName: 'admin@example.com',
+        reviewComment: body.comment ?? null,
+        reviewedAt: new Date().toISOString(),
+        resultResourceId: approved ? 'user-carol' : null,
+      },
+    });
   }),
 ];

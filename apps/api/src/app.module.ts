@@ -13,6 +13,7 @@ import { HttpExceptionFilter } from './core/errors';
 import { EventsModule } from './core/events';
 import { RequestIdMiddleware, TransformInterceptor } from './core/http';
 import { LoggerModule } from './core/logger';
+import { ApprovalModule } from './modules/approval/approval.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
@@ -46,6 +47,9 @@ import { UserModule } from './modules/user/user.module';
     AuditLogModule,
     // 訂閱領域事件並推播；沒有任何模組依賴它（docs/architecture/backend/08-realtime.md §2）
     RealtimeModule,
+
+    // 審批的狀態機；各類型的 handler 由擁有資源的業務模組註冊（docs/rbac/06-approval.md §4）
+    ApprovalModule,
 
     // 業務模組
     AuthModule,

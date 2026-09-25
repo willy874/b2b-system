@@ -4,7 +4,16 @@
       "title": "登入",
       "description": "請使用你的帳號密碼登入。",
       "submit": "登入",
-      "forgotPassword": "忘記密碼？"
+      "forgotPassword": "忘記密碼？",
+      "register": "申請帳號"
+    },
+    "register": {
+      "title": "申請帳號",
+      "description": "送出後由管理員審核，核准後即可用這組 Email 與密碼登入。",
+      "reason": "申請理由",
+      "reasonPlaceholder": "例：所屬團隊、需要使用的功能（選填）",
+      "submit": "送出申請",
+      "submitted": "申請已送出。管理員核准後，你就能用剛才設定的 Email 與密碼登入。"
     },
     "forgotPassword": {
       "title": "忘記密碼",
@@ -16,6 +25,7 @@
     "setup": { "title": "設定初始密碼", "submit": "啟用帳號" },
     "field": {
       "email": "Email",
+      "displayName": "顯示名稱",
       "password": "密碼",
       "newPassword": "新密碼",
       "confirmPassword": "確認新密碼",

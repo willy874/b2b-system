@@ -16,7 +16,7 @@
 | 前端架構 | **plugin-based AppContext ＋ feature-first 分層 ＋ 執行期權限註冊表**                          |
 | 前端 UI  | **Base UI**（`@base-ui/react`）＋ 專案自有的 `components/` 封裝層                              |
 | 後端     | **NestJS** + **Drizzle ORM** + **PostgreSQL**                                                  |
-| 首期範圍 | 認證（登入／登出／Token 續期）、使用者、角色、權限、稽核日誌、個人帳號                         |
+| 首期範圍 | 認證（登入／登出／Token 續期）、使用者、角色、權限、稽核日誌、個人帳號、審批（註冊需核准）     |
 | 不在首期 | 任何遊戲編輯器本身的功能、資源層級作用域（見 [ADR-0006](./adr/0006-flat-permission-scope.md)） |
 
 ---
@@ -102,7 +102,8 @@ docs/
 │   ├── 02-permission-catalog.md       權限清單（resource × action）
 │   ├── 03-flows.md                    登入、授權檢查、角色指派、權限變更生效
 │   ├── 04-api-spec.md                 RBAC 相關 API 規格
-│   └── 05-seed-and-bootstrap.md       預設角色與系統初始化
+│   ├── 05-seed-and-bootstrap.md       預設角色與系統初始化
+│   └── 06-approval.md                 審批：請求 → 核准 → 套用；使用者註冊
 │
 ├── conventions/                       寫程式時每天要遵守的規則
 │   ├── README.md                      規則強度標記（🔒 工具 / 👀 Review）
@@ -123,6 +124,7 @@ docs/
     ├── 0006-flat-permission-scope.md
     ├── 0007-openapi-generated-api-sdk.md
     ├── 0008-realtime-with-socket-io.md
+    ├── 0009-table-batch-operations.md
     └── 0010-self-built-json-editor.md
 ```
 

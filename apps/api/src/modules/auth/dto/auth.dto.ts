@@ -80,6 +80,22 @@ export const SetupSchema = defineSchema(
   z.object({ token: z.string().min(10).max(200), password: PasswordSchema }),
 );
 
+export const RegisterSchema = defineSchema(
+  'RegisterRequest',
+  z.object({
+    email: z.string().trim().email().max(255),
+    displayName: z.string().trim().min(1).max(100),
+    password: PasswordSchema,
+    /** 給審核者看的申請理由。 */
+    reason: z.string().trim().max(500).optional(),
+  }),
+);
+
+export const RegisterResultSchema = defineSchema(
+  'RegisterResult',
+  z.object({ submitted: z.literal(true) }),
+);
+
 export const VerifySetupSchema = z.object({ token: z.string().min(10).max(200) });
 
 export type LoginDto = z.infer<typeof LoginSchema>;
@@ -88,5 +104,6 @@ export type ChangePasswordDto = z.infer<typeof ChangePasswordSchema>;
 export type ForgotPasswordDto = z.infer<typeof ForgotPasswordSchema>;
 export type ResetPasswordDto = z.infer<typeof ResetPasswordSchema>;
 export type SetupDto = z.infer<typeof SetupSchema>;
+export type RegisterDto = z.infer<typeof RegisterSchema>;
 export type ProfileDto = z.infer<typeof ProfileSchema>;
 export type SessionDto = z.infer<typeof SessionSchema>;

@@ -10,6 +10,7 @@ export const ChangeSource = {
   USER_ROLE: 'userRole',
   ROLE_PERMISSION: 'rolePermission',
   USER_CREDENTIAL: 'userCredential',
+  APPROVAL: 'approval',
 } as const;
 
 export type ChangeSource = (typeof ChangeSource)[keyof typeof ChangeSource];
@@ -33,6 +34,7 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.USER_ROLE,
   ChangeSource.ROLE_PERMISSION,
   ChangeSource.USER_CREDENTIAL,
+  ChangeSource.APPROVAL,
 ]);
 
 export const ResourceChangeWireSchema = z.object({

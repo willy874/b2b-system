@@ -112,6 +112,180 @@
         "tags": ["audit-logs"]
       }
     },
+    "/approvals": {
+      "get": {
+        "operationId": "ApprovalController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ApprovalRequest"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "審批請求列表",
+        "tags": ["approvals"]
+      }
+    },
+    "/approvals/{id}": {
+      "get": {
+        "operationId": "ApprovalController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApprovalRequest"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["approvals"]
+      }
+    },
+    "/approvals/{id}/approve": {
+      "post": {
+        "operationId": "ApprovalController_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveApprovalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApprovalRequest"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "核准（另需該類型要求的權限，例：user.register 需要 user:create）",
+        "tags": ["approvals"]
+      }
+    },
+    "/approvals/{id}/reject": {
+      "post": {
+        "operationId": "ApprovalController_reject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectApprovalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApprovalRequest"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "駁回",
+        "tags": ["approvals"]
+      }
+    },
     "/auth/login": {
       "post": {
         "operationId": "AuthController_login",
@@ -264,6 +438,42 @@
             "description": ""
           }
         },
+        "tags": ["auth"]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RegisterResult"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "送出註冊申請，待管理員審批（永遠回 202）",
         "tags": ["auth"]
       }
     },
@@ -1093,6 +1303,123 @@
       }
     },
     "schemas": {
+      "ApprovalStatus": {
+        "type": "string",
+        "enum": ["pending", "approved", "rejected"]
+      },
+      "ApprovalType": {
+        "type": "string",
+        "enum": ["user.register"]
+      },
+      "ApprovalRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ApprovalType"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ApprovalStatus"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "requesterId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "requesterName": {
+            "type": "string"
+          },
+          "reason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "reviewerId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "reviewerName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "reviewComment": {
+            "nullable": true,
+            "type": "string"
+          },
+          "reviewedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "resultResourceId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "status",
+          "payload",
+          "requesterId",
+          "requesterName",
+          "reason",
+          "reviewerId",
+          "reviewerName",
+          "reviewComment",
+          "reviewedAt",
+          "resultResourceId",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ApproveApprovalRequest": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "roleIds": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": ["roleIds"],
+        "additionalProperties": false
+      },
+      "RejectApprovalRequest": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "additionalProperties": false
+      },
       "AuditLogSummary": {
         "type": "object",
         "properties": {
@@ -1408,7 +1735,9 @@
           "permission:read",
           "auditLog:read",
           "system:read",
-          "system:update"
+          "system:update",
+          "approval:read",
+          "approval:review"
         ]
       },
       "Permission": {
@@ -1675,6 +2004,44 @@
           }
         },
         "required": ["token", "password"],
+        "additionalProperties": false
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 255,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 128
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": ["email", "displayName", "password"],
+        "additionalProperties": false
+      },
+      "RegisterResult": {
+        "type": "object",
+        "properties": {
+          "submitted": {
+            "type": "boolean",
+            "enum": [true]
+          }
+        },
+        "required": ["submitted"],
         "additionalProperties": false
       },
       "CreateRoleRequest": {

@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（Phase 0，共 15 項）
+## 2. 權限清單（Phase 0，共 17 項）
 
 ### 2.1 `user` — 使用者
 
@@ -71,7 +71,17 @@
 | `system:read`   | 檢視系統資訊      | 版本、健康狀態、設定摘要                 |
 | `system:update` | 變更系統設定      | 全域設定（Phase 0 尚無可設定項，先佔位） |
 
-### 2.6 個人範圍（不需要權限）
+### 2.6 `approval` — 審批
+
+| 權限鍵            | 顯示名稱（zh-TW） | 說明                                                                                          |
+| ----------------- | ----------------- | --------------------------------------------------------------------------------------------- |
+| `approval:read`   | 檢視審批          | 審批請求列表與詳情                                                                            |
+| `approval:review` | 審核申請          | 核准／駁回。**核准另需該類型要求的權限**（`user.register` = `user:create`），見 [`06-approval.md`](./06-approval.md) §3.2 |
+
+> 為什麼不是 `approval:update`：核准與駁回是具名的「審核」決定，不是修改請求內容；
+> 也讓「能看不能審」（auditor）與「能審」清楚分開。
+
+### 2.7 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
@@ -93,6 +103,7 @@
 | `permission`      |   —    |  ✓   |   —    |   —    | —                             |
 | `auditLog`        |   —    |  ✓   |   —    |   —    | —                             |
 | `system`          |   —    |  ✓   |   ✓    |   —    | —                             |
+| `approval`        |   —    |  ✓   |   —    |   —    | `review`                      |
 
 ---
 
@@ -115,6 +126,8 @@
 | `auditLog:read`        |      ✓*       |    ✓    |     ✓     |          |
 | `system:read`          |      ✓*       |    ✓    |     ✓     |          |
 | `system:update`        |      ✓*       |         |           |          |
+| `approval:read`        |      ✓*       |    ✓    |     ✓     |          |
+| `approval:review`      |      ✓*       |    ✓    |           |          |
 
 `*` super-admin 是 **隱含全集**，不在 `role_permissions` 中逐筆登錄；
 `GET /auth/profile` 回傳時才展開成完整清單。
@@ -130,6 +143,7 @@
 | ------------ | -------------------------- | --------------- | -------------------------------- | ----- |
 | 首頁         | `/`                        | `HOME`          | 無                               | —     |
 | 登入         | `/auth/login`              | 不受管          | 無（未登入可進）                 | —     |
+| 申請帳號     | `/auth/register`           | 不受管          | 無（未登入可進）                 | —     |
 | 個人資料     | `/profile`                 | `PROFILE`       | 無                               | —     |
 | 偏好設定     | `/preference`              | `PREFERENCE`    | 無                               | —     |
 | 使用者列表   | `/user`                    | `USER`          | `user:read`                      | EVERY |
@@ -139,6 +153,7 @@
 | 角色權限管理 | `/role/$roleId/permission` | （沿用 `ROLE`） | `role:read` ＋ `permission:read` | EVERY |
 | 權限目錄     | `/permission`              | `PERMISSION`    | `permission:read`                | EVERY |
 | 稽核日誌     | `/audit-log`               | `AUDIT_LOG`     | `auditLog:read`                  | EVERY |
+| 審批         | `/approval`（含 `/approval/$approvalId` 對話框） | `APPROVAL` | `approval:read`           | EVERY |
 
 > 頁面內的 **按鈕層級** gating 另由 `usePagePermission()` 派生的
 > `canCreate/canRead/canUpdate/canDelete` 決定，見
@@ -170,6 +185,9 @@ export const PERMISSION_SEED = [
   ["auditLog", "read", "permission.auditLog.read", 400],
   ["system", "read", "permission.system.read", 500],
   ["system", "update", "permission.system.update", 501],
+
+  ["approval", "read", "permission.approval.read", 600],
+  ["approval", "review", "permission.approval.review", 601],
 ] as const;
 ```
 

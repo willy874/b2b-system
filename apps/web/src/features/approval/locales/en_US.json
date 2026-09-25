@@ -1,0 +1,41 @@
+{
+  "approval": {
+    "list": {
+      "title": "Approvals",
+      "description": "Requests that take effect only after an administrator approves them. Approving acts on the requester's behalf, so it also requires the permission for that operation.",
+      "searchPlaceholder": "Search requester"
+    },
+    "detail": { "title": "Approval details" },
+    "review": {
+      "title": "Review",
+      "roles": "Roles to assign on approval",
+      "rolesPlaceholder": "None (can be changed later on the user page)",
+      "commentPlaceholder": "Review comment (optional, recorded in the audit log)",
+      "missingCreatePermission": "Approving a registration creates an account and requires the \"Create user\" permission. You can still reject it."
+    },
+    "approve": { "action": "Approve", "success": "Approved." },
+    "reject": { "action": "Reject", "success": "Rejected." },
+    "field": {
+      "type": "Type",
+      "requester": "Requester",
+      "status": "Status",
+      "createdAt": "Submitted",
+      "reviewer": "Reviewer",
+      "reviewedAt": "Reviewed",
+      "comment": "Review comment",
+      "reason": "Reason",
+      "email": "Email",
+      "displayName": "Display name"
+    },
+    "status": {
+      "all": "All statuses",
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "type": {
+      "all": "All types",
+      "userRegister": "Registration"
+    }
+  }
+}

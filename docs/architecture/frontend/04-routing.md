@@ -25,7 +25,8 @@ RootRoute  (core/router/root.tsx)
 │   ├── login                      LoginRoute
 │   ├── forgot-password            ForgotPasswordRoute
 │   ├── reset-password             ResetPasswordRoute
-│   └── setup                      SetupRoute
+│   ├── setup                      SetupRoute
+│   └── register                   RegisterRoute      （申請帳號，需審批）
 │
 ├── /profile                       ProfileRoute
 ├── /preference                    PreferenceRoute
@@ -45,6 +46,8 @@ RootRoute  (core/router/root.tsx)
 │
 ├── /permission                    PermissionListRoute
 ├── /audit-log                     AuditLogListRoute
+├── /approval                      ApprovalListRoute
+│   └── $approvalId                ApprovalDetailRoute    （審核對話框）
 │
 └── (dev only)
     ├── /__router_devtools__
@@ -330,6 +333,7 @@ const MENU = [
   { pageKey: ROLE_PAGE, to: "/role", labelKey: "menu.role", icon: ShieldIcon },
   { pageKey: PERMISSION_PAGE, to: "/permission", labelKey: "menu.permission", icon: KeyIcon },
   { pageKey: AUDIT_LOG_PAGE, to: "/audit-log", labelKey: "menu.auditLog", icon: ListIcon },
+  { pageKey: APPROVAL_PAGE, to: "/approval", labelKey: "menu.approval", icon: CheckIcon },
 ];
 
 function useMenuItems() {

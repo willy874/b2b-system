@@ -4,6 +4,10 @@
 import { z } from 'zod';
 
 import type {
+  ApprovalRequest,
+  ApprovalStatus,
+  ApprovalType,
+  ApproveApprovalRequest,
   AuditLog,
   AuditLogSummary,
   ChangePasswordRequest,
@@ -17,6 +21,9 @@ import type {
   PermissionGroup,
   PermissionKey,
   Profile,
+  RegisterRequest,
+  RegisterResult,
+  RejectApprovalRequest,
   ReplaceUserRolesRequest,
   ResetPasswordRequest,
   Role,
@@ -33,6 +40,71 @@ import type {
   UserRoles,
   UserStatus,
 } from './models';
+
+export const ApprovalStatusSchema = z.enum([
+  'pending',
+  'approved',
+  'rejected',
+]) satisfies z.ZodType<ApprovalStatus>;
+
+export const ApprovalTypeSchema = z.enum(['user.register']) satisfies z.ZodType<ApprovalType>;
+
+export const ApprovalRequestSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  type: ApprovalTypeSchema,
+  status: ApprovalStatusSchema,
+  payload: z.record(z.string(), z.unknown()),
+  requesterId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  requesterName: z.string(),
+  reason: z.string().nullable(),
+  reviewerId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  reviewerName: z.string().nullable(),
+  reviewComment: z.string().nullable(),
+  reviewedAt: z.string().nullable(),
+  resultResourceId: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}) satisfies z.ZodType<ApprovalRequest>;
+
+export const ApproveApprovalRequestSchema = z.object({
+  comment: z.string().max(500).optional(),
+  roleIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(20)
+    .default([]),
+}) satisfies z.ZodType<ApproveApprovalRequest>;
+
+export const RejectApprovalRequestSchema = z.object({
+  comment: z.string().max(500).optional(),
+}) satisfies z.ZodType<RejectApprovalRequest>;
 
 export const AuditLogSummarySchema = z.object({
   id: z.string(),
@@ -170,6 +242,8 @@ export const PermissionKeySchema = z.enum([
   'auditLog:read',
   'system:read',
   'system:update',
+  'approval:read',
+  'approval:review',
 ]) satisfies z.ZodType<PermissionKey>;
 
 export const PermissionSchema = z.object({
@@ -275,6 +349,24 @@ export const SetupRequestSchema = z.object({
   token: z.string().min(10).max(200),
   password: z.string().min(12).max(128),
 }) satisfies z.ZodType<SetupRequest>;
+
+export const RegisterRequestSchema = z.object({
+  email: z
+    .email()
+    .max(255)
+    .regex(
+      new RegExp(
+        "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+      ),
+    ),
+  displayName: z.string().min(1).max(100),
+  password: z.string().min(12).max(128),
+  reason: z.string().max(500).optional(),
+}) satisfies z.ZodType<RegisterRequest>;
+
+export const RegisterResultSchema = z.object({
+  submitted: z.literal(true),
+}) satisfies z.ZodType<RegisterResult>;
 
 export const CreateRoleRequestSchema = z.object({
   name: z.string().min(1).max(64),

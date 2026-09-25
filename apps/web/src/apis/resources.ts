@@ -10,6 +10,8 @@
  * - 新增 query 時，把它的 key 放進對應資源的 `collection` 或 `entity`。
  * - 新增衍生關係時，直接宣告到 **來源** 上（不做遞移），並寫出「為什麼」。
  */
+import { APPROVAL_DETAIL_QUERY_KEY } from '@/apis/approval/get-approval-detail/query';
+import { APPROVAL_LIST_QUERY_KEY } from '@/apis/approval/get-approval-list/query';
 import { AUDIT_LOG_DETAIL_QUERY_KEY } from '@/apis/audit-log/get-audit-log-detail/query';
 import { AUDIT_LOG_LIST_QUERY_KEY } from '@/apis/audit-log/get-audit-log-list/query';
 import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
@@ -32,6 +34,8 @@ export const Resource = {
   ROLE: 'role',
   PERMISSION: 'permission',
   AUDIT_LOG: 'auditLog',
+  /** 審批請求（`id` = 請求 id） */
+  APPROVAL: 'approval',
   /** 目前登入者的 session 視角（profile ＋ 有效權限） */
   PROFILE: 'profile',
   // 關係：沒有自己的 query，只作為來源
@@ -103,6 +107,10 @@ const graph = createResourceGraph<Resource>({
     entity: [AUDIT_LOG_DETAIL_QUERY_KEY],
     // 任何寫入都會產生稽核紀錄；既有紀錄不可變，所以只影響列表
     derivesFromAnyChange: true,
+  },
+  [Resource.APPROVAL]: {
+    collection: [APPROVAL_LIST_QUERY_KEY],
+    entity: [APPROVAL_DETAIL_QUERY_KEY],
   },
   [Resource.PROFILE]: {
     collection: [AUTH_PROFILE_QUERY_KEY],

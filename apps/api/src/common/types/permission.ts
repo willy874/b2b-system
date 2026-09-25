@@ -24,4 +24,7 @@ export const PERMISSION = {
   AUDIT_LOG_READ: 'auditLog:read',
   SYSTEM_READ: 'system:read',
   SYSTEM_UPDATE: 'system:update',
+
+  APPROVAL_READ: 'approval:read',
+  APPROVAL_REVIEW: 'approval:review',
 } as const satisfies Record<string, PermissionKey>;

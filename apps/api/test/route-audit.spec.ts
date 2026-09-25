@@ -89,6 +89,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
     const expected: Record<string, string> = {
       'POST /auth/login': 'public',
       'POST /auth/refresh': 'public',
+      'POST /auth/register': 'public',
       'POST /auth/forgot-password': 'public',
       'POST /auth/reset-password': 'public',
       'GET /auth/setup/verify': 'public',
@@ -122,6 +123,10 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /health': 'public',
       'GET /health/ready': 'public',
       'GET /system/info': 'system:read',
+      'GET /approvals': 'approval:read',
+      'GET /approvals/:id': 'approval:read',
+      'POST /approvals/:id/approve': 'approval:review',
+      'POST /approvals/:id/reject': 'approval:review',
     };
 
     for (const [route, declaration] of Object.entries(expected)) {

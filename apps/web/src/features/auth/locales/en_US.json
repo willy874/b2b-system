@@ -4,7 +4,16 @@
       "title": "Sign in",
       "description": "Use your account credentials to sign in.",
       "submit": "Sign in",
-      "forgotPassword": "Forgot password?"
+      "forgotPassword": "Forgot password?",
+      "register": "Request an account"
+    },
+    "register": {
+      "title": "Request an account",
+      "description": "An administrator will review your request. Once approved, sign in with this email and password.",
+      "reason": "Reason",
+      "reasonPlaceholder": "e.g. your team and what you need access to (optional)",
+      "submit": "Submit request",
+      "submitted": "Request submitted. Once an administrator approves it, you can sign in with the email and password you just set."
     },
     "forgotPassword": {
       "title": "Forgot password",
@@ -16,6 +25,7 @@
     "setup": { "title": "Set your password", "submit": "Activate account" },
     "field": {
       "email": "Email",
+      "displayName": "Display name",
       "password": "Password",
       "newPassword": "New password",
       "confirmPassword": "Confirm new password",

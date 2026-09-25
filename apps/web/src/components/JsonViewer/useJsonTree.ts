@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { parsePath, toJsonLines } from './jsonLines';
+import { formatPath, parsePath, toJsonLines } from './jsonLines';
 import type { JsonLine } from './jsonLines';
 
 /** 收合的基準：`default` 依 `defaultExpandDepth`；`all` 全部展開；`none` 只留根節點展開。 */
@@ -33,6 +33,8 @@ export interface JsonTree {
   toggle: (path: string) => void;
   /** 確保某個節點是展開的（例如新增子項之後）。 */
   expand: (path: string) => void;
+  /** 展開某個節點的所有上層（跳到搜尋結果、驗證錯誤時用）。 */
+  expandTo: (path: string) => void;
   expandAll: () => void;
   collapseAll: () => void;
 }
@@ -86,6 +88,22 @@ export function useJsonTree(
     [update, isCollapsedBy],
   );
 
+  const expandTo = useCallback(
+    (path: string) =>
+      update((current) => {
+        const segments = parsePath(path);
+        let toggled: Set<string> | undefined;
+        for (let depth = 0; depth < segments.length; depth += 1) {
+          const ancestor = formatPath(segments.slice(0, depth));
+          if (!isCollapsedBy(current, ancestor, depth)) continue;
+          toggled ??= new Set(current.toggled);
+          if (!toggled.delete(ancestor)) toggled.add(ancestor);
+        }
+        return toggled ? { ...current, toggled } : current;
+      }),
+    [update, isCollapsedBy],
+  );
+
   const expandAll = useCallback(
     () => update((current) => ({ ...current, base: 'all', toggled: EMPTY_PATHS })),
     [update],
@@ -100,5 +118,5 @@ export function useJsonTree(
     [value, state, isCollapsedBy],
   );
 
-  return { lines, toggle, expand, expandAll, collapseAll };
+  return { lines, toggle, expand, expandTo, expandAll, collapseAll };
 }

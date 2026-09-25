@@ -37,6 +37,8 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'permission:read',
       'auditLog:read',
       'system:read',
+      'approval:read',
+      'approval:review',
     ],
   },
   {
@@ -44,7 +46,14 @@ export const ROLE_SEED: readonly RoleSeed[] = [
     name: '稽核人員',
     description: '唯讀存取使用者、角色與稽核日誌。',
     isSystem: true,
-    permissions: ['user:read', 'role:read', 'permission:read', 'auditLog:read', 'system:read'],
+    permissions: [
+      'user:read',
+      'role:read',
+      'permission:read',
+      'auditLog:read',
+      'system:read',
+      'approval:read',
+    ],
   },
   {
     slug: 'member',

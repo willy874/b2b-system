@@ -13,8 +13,10 @@ import { DRIZZLE, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import type { RefreshTokenRow, UserRow } from '@/db/schema';
+import { ApprovalService } from '@/modules/approval/approval.service';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { PermissionService } from '@/modules/permission/permission.service';
+import { userRegistrationRequest } from '@/modules/user/user-registration.approval';
 import { UserService, userUpdated } from '@/modules/user/user.service';
 
 import { AuthTokenService } from './auth-token.service';
@@ -23,6 +25,7 @@ import type {
   ForgotPasswordDto,
   LoginDto,
   ProfileDto,
+  RegisterDto,
   ResetPasswordDto,
   SessionDto,
   SetupDto,
@@ -55,6 +58,7 @@ export class AuthService {
     private readonly userCache: UserCacheService,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
+    private readonly approvals: ApprovalService,
   ) {}
 
   // ── 登入 ────────────────────────────────────────────────
@@ -346,6 +350,24 @@ export class AuthService {
     this.userCache.invalidate(user.id);
     this.publishCredentialChanged(user.id);
     return { success: true };
+  }
+
+  // ── 註冊（需審批）────────────────────────────────────────
+
+  /**
+   * 送出註冊申請，由管理員在審批頁核准後才建立帳號（docs/rbac/06-approval.md §5）。
+   * email 已註冊或已在審核中都回同樣的結果（帳號列舉防護）；雜湊照算，讓回應時間一致。
+   */
+  async register(dto: RegisterDto): Promise<{ submitted: true }> {
+    const passwordHash = await this.hash(dto.password);
+    if (await this.users.findAccountByEmail(dto.email)) return { submitted: true };
+    await this.approvals.submit(
+      userRegistrationRequest(
+        { email: dto.email, displayName: dto.displayName, reason: dto.reason },
+        passwordHash,
+      ),
+    );
+    return { submitted: true };
   }
 
   // ── 忘記密碼 / 重設 / 啟用 ───────────────────────────────

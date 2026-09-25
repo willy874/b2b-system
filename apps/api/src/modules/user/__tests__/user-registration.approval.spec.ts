@@ -1,0 +1,114 @@
+import { describe, expect, it, vi } from 'vitest';
+
+import type { AuthUser } from '@/common/types';
+import type { ApprovalRequestRow } from '@/db/schema';
+import type { ApprovalService } from '@/modules/approval/approval.service';
+import type { ApprovalContext } from '@/modules/approval/approval.types';
+
+import {
+  UserRegistrationApprovalHandler,
+  userRegistrationRequest,
+} from '../user-registration.approval';
+import type { UserService } from '../user.service';
+
+const REVIEWER: AuthUser = { id: 'reviewer-1', email: 'reviewer@example.com', status: 'active' };
+
+function context(roleIds: string[] = []): ApprovalContext {
+  const input = userRegistrationRequest(
+    { email: 'Alice@Example.com', displayName: 'Alice', reason: '新進企劃' },
+    'argon2-hash',
+  );
+  return {
+    request: {
+      id: 'approval-1',
+      type: input.type,
+      status: 'pending',
+      subjectKey: input.subjectKey,
+      payload: input.payload,
+      privatePayload: input.privatePayload ?? null,
+      requesterId: null,
+      requesterName: input.requester.name,
+      reason: input.reason ?? null,
+    } as ApprovalRequestRow,
+    reviewer: REVIEWER,
+    options: { roleIds },
+  };
+}
+
+function setup() {
+  const users = {
+    assertCreatable: vi.fn(async () => undefined),
+    createAccount: vi.fn(async () => ({ id: 'user-9' })),
+    publishCreated: vi.fn(),
+  };
+  const approvals = { registerHandler: vi.fn() };
+  const handler = new UserRegistrationApprovalHandler(
+    approvals as unknown as ApprovalService,
+    users as unknown as UserService,
+  );
+  return { handler, users, approvals };
+}
+
+describe('userRegistrationRequest', () => {
+  it('去重鍵是小寫 email；密碼雜湊只放在 privatePayload', () => {
+    const input = userRegistrationRequest(
+      { email: 'Alice@Example.com', displayName: 'Alice' },
+      'argon2-hash',
+    );
+    expect(input).toMatchObject({
+      type: 'user.register',
+      subjectKey: 'alice@example.com',
+      payload: { email: 'Alice@Example.com', displayName: 'Alice' },
+      privatePayload: { passwordHash: 'argon2-hash' },
+      requester: { id: null, name: 'Alice@Example.com' },
+    });
+    expect(JSON.stringify(input.payload)).not.toContain('argon2-hash');
+  });
+});
+
+describe('UserRegistrationApprovalHandler（docs/rbac/06-approval.md §5）', () => {
+  it('啟動時把自己註冊進審批服務', () => {
+    const { handler, approvals } = setup();
+    handler.onModuleInit();
+    expect(approvals.registerHandler).toHaveBeenCalledWith(handler);
+  });
+
+  it('不指派角色時只需要 user:create；指派角色時另需 user:assignRole', () => {
+    const { handler } = setup();
+    expect(handler.requiredPermissions(context())).toEqual(['user:create']);
+    expect(handler.requiredPermissions(context(['role-1']))).toEqual([
+      'user:create',
+      'user:assignRole',
+    ]);
+  });
+
+  it('核准前的檢查與建立使用者相同（email 可用、角色可指派）', async () => {
+    const { handler, users } = setup();
+    await handler.assertApprovable(context(['role-1']));
+    expect(users.assertCreatable).toHaveBeenCalledWith('Alice@Example.com', ['role-1'], REVIEWER);
+  });
+
+  it('以申請時的密碼建立已啟用的帳號，稽核帶上審批 id', async () => {
+    const { handler, users } = setup();
+    const tx = {} as never;
+    await expect(handler.apply(context(['role-1']), tx)).resolves.toEqual({ resourceId: 'user-9' });
+    expect(users.createAccount).toHaveBeenCalledWith(
+      {
+        email: 'Alice@Example.com',
+        displayName: 'Alice',
+        passwordHash: 'argon2-hash',
+        status: 'active',
+        roleIds: ['role-1'],
+      },
+      REVIEWER,
+      tx,
+      { approvalId: 'approval-1' },
+    );
+  });
+
+  it('交易提交後推播新使用者（帶上指派的角色）', async () => {
+    const { handler, users } = setup();
+    await handler.afterApply(context(['role-1']), { resourceId: 'user-9' });
+    expect(users.publishCreated).toHaveBeenCalledWith('user-9', ['role-1']);
+  });
+});

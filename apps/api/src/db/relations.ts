@@ -1,5 +1,6 @@
 import { relations } from 'drizzle-orm';
 
+import { approvalRequests } from './schema/approval-requests';
 import { auditLogs } from './schema/audit-logs';
 import { authTokens } from './schema/auth-tokens';
 import { permissions } from './schema/permissions';
@@ -47,3 +48,8 @@ export const authTokensRelations = relations(authTokens, ({ one }) => ({
 
 // audit_logs 刻意沒有外鍵關聯：使用者被硬刪除時稽核紀錄必須留著。
 export const auditLogsRelations = relations(auditLogs, () => ({}));
+
+// 申請人、審核者的名稱已快照在列上；關聯只供需要時 join。
+export const approvalRequestsRelations = relations(approvalRequests, ({ one }) => ({
+  requester: one(users, { fields: [approvalRequests.requesterId], references: [users.id] }),
+}));

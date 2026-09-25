@@ -215,6 +215,11 @@ export const ErrorCode = {
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },
 
+  // ── 審批 ──
+  APPROVAL_NOT_FOUND: { status: 404 },
+  APPROVAL_ALREADY_REVIEWED: { status: 409 },
+  APPROVAL_SELF_REVIEW: { status: 403 },
+
   // ── 通用 ──
   RATE_LIMITED: { status: 429 },
   INTERNAL_ERROR: { status: 500 },

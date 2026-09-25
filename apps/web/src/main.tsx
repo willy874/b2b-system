@@ -12,6 +12,7 @@ import { createAppContext } from '@/core/app';
 import { MAIN_BACKEND } from '@/core/client';
 import { hydratePreferences } from '@/core/store';
 import { accountFeaturePlugin } from '@/features/account';
+import { approvalFeaturePlugin } from '@/features/approval';
 import { auditLogFeaturePlugin } from '@/features/audit-log';
 import { authFeaturePlugin } from '@/features/auth';
 import { homeFeaturePlugin } from '@/features/home';
@@ -74,6 +75,7 @@ async function bootstrap(): Promise<void> {
     .use(roleFeaturePlugin())
     .use(permissionFeaturePlugin())
     .use(auditLogFeaturePlugin())
+    .use(approvalFeaturePlugin())
     .use(accountFeaturePlugin())
     // 擴充 feature 的小外掛：往偏好頁插「表格欄位」分頁
     .use(tableColumnSettingsPlugin())

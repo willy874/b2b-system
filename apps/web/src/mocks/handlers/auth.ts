@@ -23,6 +23,11 @@ export const authHandlers = [
     }),
   ),
 
+  // 永遠回 202（帳號列舉防護），與後端一致
+  http.post(`${MOCK_API_BASE}/auth/register`, () =>
+    HttpResponse.json({ data: { submitted: true } }, { status: 202 }),
+  ),
+
   http.post(`${MOCK_API_BASE}/auth/logout`, () => HttpResponse.json({ data: { success: true } })),
 
   http.get(`${MOCK_API_BASE}/auth/profile`, () =>

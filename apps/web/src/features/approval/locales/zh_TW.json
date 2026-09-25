@@ -1,0 +1,41 @@
+{
+  "approval": {
+    "list": {
+      "title": "審批",
+      "description": "需要管理員核准才會生效的申請。核准等同代為執行該操作，因此也需要該操作本身的權限。",
+      "searchPlaceholder": "搜尋申請人"
+    },
+    "detail": { "title": "審批詳情" },
+    "review": {
+      "title": "審核",
+      "roles": "核准時一併指派的角色",
+      "rolesPlaceholder": "不指派（之後可在使用者頁調整）",
+      "commentPlaceholder": "審核意見（選填，會記錄在稽核日誌）",
+      "missingCreatePermission": "核准註冊會建立帳號，需要「建立使用者」權限。你仍可以駁回。"
+    },
+    "approve": { "action": "核准", "success": "已核准。" },
+    "reject": { "action": "駁回", "success": "已駁回。" },
+    "field": {
+      "type": "類型",
+      "requester": "申請人",
+      "status": "狀態",
+      "createdAt": "申請時間",
+      "reviewer": "審核者",
+      "reviewedAt": "審核時間",
+      "comment": "審核意見",
+      "reason": "申請理由",
+      "email": "Email",
+      "displayName": "顯示名稱"
+    },
+    "status": {
+      "all": "全部狀態",
+      "pending": "待審核",
+      "approved": "已核准",
+      "rejected": "已駁回"
+    },
+    "type": {
+      "all": "全部類型",
+      "userRegister": "註冊申請"
+    }
+  }
+}

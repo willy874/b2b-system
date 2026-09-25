@@ -53,6 +53,7 @@ export function useAuditLogFilters({
         options: [
           { value: 'user', label: t('permission.resource.user') },
           { value: 'role', label: t('permission.resource.role') },
+          { value: 'approval', label: t('permission.resource.approval') },
           { value: 'auth', label: t('auditLog.resource.auth') },
           { value: 'authz', label: t('auditLog.resource.authz') },
         ],

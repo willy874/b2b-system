@@ -26,6 +26,12 @@ export const REFRESH_THROTTLE = {
   ttl: 60_000,
 } as const;
 
+/** 註冊申請：與忘記密碼同級（每一筆都會進管理員的待審清單）。 */
+export const REGISTER_THROTTLE = {
+  limit: Math.max(3, Math.floor(AUTH_THROTTLE.limit / 3)),
+  ttl: 60_000,
+} as const;
+
 /** 忘記密碼更嚴格。 */
 export const FORGOT_PASSWORD_THROTTLE = {
   limit: Math.max(3, Math.floor(AUTH_THROTTLE.limit / 3)),

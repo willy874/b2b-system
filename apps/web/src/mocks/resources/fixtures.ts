@@ -1,4 +1,4 @@
-import type { AuditLog, Permission, Role, User } from '@/shared/api-sdk';
+import type { ApprovalRequest, AuditLog, Permission, Role, User } from '@/shared/api-sdk';
 
 /**
  * 權限目錄（對應 apps/api/src/db/seeds/permissions.ts）。
@@ -111,6 +111,20 @@ const PERMISSION_CATALOG = [
     nameI18nKey: 'permission.system.update',
     sortOrder: 501,
   },
+  {
+    resource: 'approval',
+    action: 'read',
+    key: 'approval:read',
+    nameI18nKey: 'permission.approval.read',
+    sortOrder: 600,
+  },
+  {
+    resource: 'approval',
+    action: 'review',
+    key: 'approval:review',
+    nameI18nKey: 'permission.approval.review',
+    sortOrder: 601,
+  },
 ] as const;
 
 /** 權限資源 → 分組名稱的語系鍵。 */
@@ -120,6 +134,7 @@ export const PERMISSION_RESOURCE_NAME_KEY = {
   permission: 'permission.resource.permission',
   auditLog: 'permission.resource.auditLog',
   system: 'permission.resource.system',
+  approval: 'permission.resource.approval',
 } as const satisfies Record<(typeof PERMISSION_CATALOG)[number]['resource'], string>;
 
 /** 固定種子的資料工廠：測試與 dev mock 共用，確保可重現。 */
@@ -142,7 +157,7 @@ export const ROLE_FIXTURES: Role[] = [
     name: '系統管理員',
     description: '管理使用者、角色與權限。',
     isSystem: true,
-    permissionCount: 14,
+    permissionCount: 16,
     userCount: 2,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
@@ -222,5 +237,40 @@ export const AUDIT_LOG_FIXTURES: AuditLog[] = [
     errorCode: 'AUTHZ_FORBIDDEN',
     changes: null,
     metadata: { route: 'GET /users', required: ['user:read'], missing: ['user:read'] },
+  },
+];
+
+export const APPROVAL_FIXTURES: ApprovalRequest[] = [
+  {
+    id: 'approval-pending',
+    type: 'user.register',
+    status: 'pending',
+    payload: { email: 'carol@example.com', displayName: 'Carol' },
+    requesterId: null,
+    requesterName: 'carol@example.com',
+    reason: '加入關卡設計組',
+    reviewerId: null,
+    reviewerName: null,
+    reviewComment: null,
+    reviewedAt: null,
+    resultResourceId: null,
+    createdAt: '2026-09-24T08:00:00.000Z',
+    updatedAt: '2026-09-24T08:00:00.000Z',
+  },
+  {
+    id: 'approval-rejected',
+    type: 'user.register',
+    status: 'rejected',
+    payload: { email: 'dave@example.com', displayName: 'Dave' },
+    requesterId: null,
+    requesterName: 'dave@example.com',
+    reason: null,
+    reviewerId: 'user-admin',
+    reviewerName: 'admin@example.com',
+    reviewComment: '請改用公司信箱',
+    reviewedAt: '2026-09-23T09:00:00.000Z',
+    resultResourceId: null,
+    createdAt: '2026-09-23T08:00:00.000Z',
+    updatedAt: '2026-09-23T09:00:00.000Z',
   },
 ];

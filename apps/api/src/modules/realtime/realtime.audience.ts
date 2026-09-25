@@ -37,6 +37,8 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
   [ChangeSource.ROLE_PERMISSION]: { perms: () => [PERMISSION.ROLE_READ], includesSubject: false },
   // 沒有任何畫面顯示憑證
   [ChangeSource.USER_CREDENTIAL]: { perms: () => [], includesSubject: false },
+  // 審批列表；匿名申請人（註冊）沒有連線，不必通知本人
+  [ChangeSource.APPROVAL]: { perms: () => [PERMISSION.APPROVAL_READ], includesSubject: false },
 };
 
 /** 每次寫入都會新增一筆稽核（前端 `derivesFromAnyChange`）。 */

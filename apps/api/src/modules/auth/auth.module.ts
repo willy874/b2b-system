@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 
 import type { Env } from '@/core/config';
+import { ApprovalModule } from '@/modules/approval/approval.module';
 import { UserModule } from '@/modules/user/user.module';
 
 import { AuthTokenModule } from './auth-token.module';
@@ -13,6 +14,7 @@ import { AuthService } from './auth.service';
   imports: [
     AuthTokenModule,
     UserModule,
+    ApprovalModule,
     JwtModule.registerAsync({
       global: true,
       inject: [ConfigService],

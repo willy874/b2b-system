@@ -201,6 +201,12 @@ importers:
       '@tanstack/react-virtual':
         specifier: ^3.13.12
         version: 3.14.13(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      ajv:
+        specifier: ^8.20.0
+        version: 8.20.0
+      ajv-formats:
+        specifier: ^3.0.1
+        version: 3.0.1(ajv@8.20.0)
       dayjs:
         specifier: ^1.11.23
         version: 1.11.23

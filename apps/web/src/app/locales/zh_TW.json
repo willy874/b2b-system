@@ -58,6 +58,7 @@
     "role": "角色",
     "permission": "權限目錄",
     "auditLog": "稽核日誌",
+    "approval": "審批",
     "profile": "個人資料",
     "preference": "偏好設定",
     "logout": "登出"
@@ -102,6 +103,9 @@
     "ROLE_IN_USE": "仍有使用者持有這個角色。",
     "LAST_SUPER_ADMIN": "系統必須保留至少一位可用的超級管理員。",
     "PERMISSION_UNKNOWN": "包含系統未定義的權限鍵。",
+    "APPROVAL_NOT_FOUND": "找不到這筆審批申請。",
+    "APPROVAL_ALREADY_REVIEWED": "這筆申請已經被審核過了。",
+    "APPROVAL_SELF_REVIEW": "不能審核自己送出的申請，請由其他管理員處理。",
     "RATE_LIMITED": "操作太頻繁，請稍後再試。",
     "INTERNAL_ERROR": "伺服器發生錯誤，請稍後再試。",
     "page": {
@@ -119,7 +123,8 @@
       "role": "角色",
       "permission": "權限目錄",
       "auditLog": "稽核日誌",
-      "system": "系統"
+      "system": "系統",
+      "approval": "審批"
     },
     "user": {
       "create": "建立使用者",
@@ -138,7 +143,8 @@
     },
     "permission": { "read": "檢視權限目錄" },
     "auditLog": { "read": "檢視稽核日誌" },
-    "system": { "read": "檢視系統資訊", "update": "變更系統設定" }
+    "system": { "read": "檢視系統資訊", "update": "變更系統設定" },
+    "approval": { "read": "檢視審批", "review": "審核申請" }
   },
   "theme": {
     "label": "主題",

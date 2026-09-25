@@ -31,6 +31,8 @@
 |        | `user.activate` / `user.unlock` / `user.reset_password_requested` |                        |
 | 角色   | `role.create` / `role.update` / `role.delete` / `role.duplicate`  |                        |
 |        | `role.grantPermission`                                            | **含前後權限清單**     |
+| 審批   | `approval.submit`                                                 | 匿名申請（註冊）的 actor 為申請人 email、`actorId = null` |
+|        | `approval.approve` / `approval.reject`                            | 含審核意見；核准另記該變更本身（例：`user.create`，`metadata.approvalId`） |
 | 系統   | `system.bootstrap`                                                | 初始 super-admin 建立  |
 |        | `system.seed`                                                     | 權限目錄變更           |
 
@@ -173,7 +175,8 @@ const AUDIT_EXCLUDED_FIELDS = new Set(["passwordHash", "tokenHash", "tokenVersio
 ```
 
 **密碼雜湊絕不進稽核。** 密碼變更只記 `action: 'auth.password_change'`，
-`changes` 為 `null`。
+`changes` 為 `null`。審批請求的 `private_payload`（註冊時的密碼雜湊）同樣不進稽核
+（[`../../rbac/06-approval.md`](../../rbac/06-approval.md) §2）。
 
 ### 5.2 授權變更的 `changes` 形狀
 

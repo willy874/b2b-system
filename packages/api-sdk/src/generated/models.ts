@@ -1,6 +1,44 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
 // 來源：Game Editor API 0.0.0（OpenAPI 3.0.0）
 
+export const ApprovalStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+export type ApprovalStatus = (typeof ApprovalStatus)[keyof typeof ApprovalStatus];
+
+export const ApprovalType = {
+  'user.register': 'user.register',
+} as const;
+export type ApprovalType = (typeof ApprovalType)[keyof typeof ApprovalType];
+
+export interface ApprovalRequest {
+  id: string;
+  type: ApprovalType;
+  status: ApprovalStatus;
+  payload: Record<string, unknown>;
+  requesterId: string | null;
+  requesterName: string;
+  reason: string | null;
+  reviewerId: string | null;
+  reviewerName: string | null;
+  reviewComment: string | null;
+  reviewedAt: string | null;
+  resultResourceId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApproveApprovalRequest {
+  comment?: string;
+  roleIds: Array<string>;
+}
+
+export interface RejectApprovalRequest {
+  comment?: string;
+}
+
 export interface AuditLogSummary {
   id: string;
   occurredAt: string;
@@ -98,6 +136,8 @@ export const PermissionKey = {
   'auditLog:read': 'auditLog:read',
   'system:read': 'system:read',
   'system:update': 'system:update',
+  'approval:read': 'approval:read',
+  'approval:review': 'approval:review',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
@@ -175,6 +215,17 @@ export interface ResetPasswordRequest {
 export interface SetupRequest {
   token: string;
   password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  displayName: string;
+  password: string;
+  reason?: string;
+}
+
+export interface RegisterResult {
+  submitted: true;
 }
 
 export interface CreateRoleRequest {

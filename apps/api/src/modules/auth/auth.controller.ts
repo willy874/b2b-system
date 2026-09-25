@@ -5,7 +5,12 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 
 import { Authenticated, CurrentUser, Public } from '@/common/decorators';
-import { AUTH_THROTTLE, FORGOT_PASSWORD_THROTTLE, REFRESH_THROTTLE } from '@/common/rate-limit';
+import {
+  AUTH_THROTTLE,
+  FORGOT_PASSWORD_THROTTLE,
+  REFRESH_THROTTLE,
+  REGISTER_THROTTLE,
+} from '@/common/rate-limit';
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
@@ -18,6 +23,8 @@ import {
   ForgotPasswordSchema,
   LoginSchema,
   ProfileSchema,
+  RegisterResultSchema,
+  RegisterSchema,
   ResetPasswordSchema,
   SessionSchema,
   SetupSchema,
@@ -28,6 +35,7 @@ import type {
   ChangePasswordDto,
   ForgotPasswordDto,
   LoginDto,
+  RegisterDto,
   ResetPasswordDto,
   SetupDto,
   UpdateProfileDto,
@@ -122,6 +130,17 @@ export class AuthController {
     @CurrentUser() actor: AuthUser,
   ) {
     return this.authService.changePassword(dto, actor);
+  }
+
+  @Post('register')
+  @HttpCode(202)
+  @Public()
+  @Throttle({ default: REGISTER_THROTTLE })
+  @ApiOperation({ summary: '送出註冊申請，待管理員審批（永遠回 202）' })
+  @ApiZodBody(RegisterSchema)
+  @ApiZodResponse(202, RegisterResultSchema)
+  register(@Body(new ZodValidationPipe(RegisterSchema)) dto: RegisterDto) {
+    return this.authService.register(dto);
   }
 
   @Post('forgot-password')
