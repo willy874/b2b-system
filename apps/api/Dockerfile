@@ -1,5 +1,5 @@
 # ── build ────────────────────────────────────────────────────────────
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /repo
 
 RUN corepack enable
@@ -22,7 +22,7 @@ RUN pnpm --filter @game-editor/utils build \
 RUN pnpm --filter @game-editor/api deploy --prod --legacy /app
 
 # ── runtime ──────────────────────────────────────────────────────────
-FROM node:20-alpine AS runtime
+FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 

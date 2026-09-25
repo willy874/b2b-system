@@ -125,7 +125,7 @@
 | 前端首屏         | 登入頁 LCP < 1.5 s（本地建置產物 + gzip）                |
 | 語系             | zh-TW（預設）、en-US，語系包隨 feature 分包載入          |
 | 瀏覽器           | 最新兩個版本的 Chrome / Edge / Firefox / Safari          |
-| Node             | >= 20.19（Vite 8 與 NestJS 11 的最低要求）               |
+| Node             | >= 24（`.nvmrc`；`@sigrea/core` 的最低要求）             |
 | 稽核保存         | 稽核日誌不可修改、不可刪除（append-only），保留 ≥ 365 天 |
 
 ---
