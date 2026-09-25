@@ -118,12 +118,19 @@ describe('Table', () => {
       <Table
         data={data}
         columns={[
-          { id: 'name', header: '名稱', size: 240, cell: ({ row }) => row.original.name },
+          {
+            id: 'name',
+            header: '名稱',
+            size: 240,
+            cell: ({ row }) => row.original.name,
+          },
           { id: 'id', header: 'ID', cell: ({ row }) => row.original.id },
         ]}
       />,
     );
-    expect(screen.getByRole('columnheader', { name: '名稱' })).toHaveStyle({ width: '240px' });
+    expect(screen.getByRole('columnheader', { name: '名稱' })).toHaveStyle({
+      width: '240px',
+    });
     expect(screen.getByRole('columnheader', { name: 'ID' }).style.width).toBe('');
   });
 
@@ -232,5 +239,58 @@ describe('Table', () => {
     );
     await userEvent.click(screen.getAllByTestId('table-row')[0] as HTMLElement);
     expect(onRowSelectionChange).toHaveBeenCalledWith({ '1': true, '2': true });
+  });
+
+  describe('欄位固定', () => {
+    const withActions: Array<ColumnDef<Row, unknown>> = [
+      { id: 'actions', header: '操作', cell: () => '…' },
+      ...columns,
+    ];
+
+    it('預設把 actions 欄固定在最右側', () => {
+      render(<Table data={data} columns={withActions} getRowId={(row) => row.id} />);
+      const headers = screen.getAllByRole('columnheader');
+      expect(headers.map((header) => header.textContent)).toEqual(['名稱', '操作']);
+      expect(headers[1]).toHaveAttribute('data-pinned', 'right');
+      expect(headers[1]).toHaveStyle({ right: '0px' });
+      const cells = screen.getAllByRole('cell');
+      expect(cells[1]).toHaveAttribute('data-pinned', 'right');
+      expect(cells[1]).toHaveAttribute('data-pinned-edge', 'true');
+    });
+
+    it('columnPinning 傳 {} 時不固定任何欄位', () => {
+      render(<Table data={data} columns={withActions} columnPinning={{}} />);
+      const headers = screen.getAllByRole('columnheader');
+      expect(headers.map((header) => header.textContent)).toEqual(['操作', '名稱']);
+      expect(headers[0]).not.toHaveAttribute('data-pinned');
+    });
+  });
+
+  describe('資料列釘選', () => {
+    const many: Row[] = [
+      { id: '1', name: 'A' },
+      { id: '2', name: 'B' },
+      { id: '3', name: 'C' },
+      { id: '4', name: 'D' },
+    ];
+
+    it('top 依序排在最前、bottom 依序排在最後，並把外框變成捲動框', () => {
+      render(
+        <Table
+          data={many}
+          columns={columns}
+          getRowId={(row) => row.id}
+          rowPinning={{ top: ['3'], bottom: ['1', '2'] }}
+        />,
+      );
+      const rows = screen.getAllByTestId('table-row');
+      expect(rows.map((row) => row.textContent)).toEqual(['C', 'D', 'A', 'B']);
+      expect(rows[0]).toHaveAttribute('data-pinned-row', 'top');
+      expect(rows[0]).toHaveAttribute('data-pinned-row-edge');
+      expect(rows[2]).toHaveAttribute('data-pinned-row', 'bottom');
+      expect(rows[2]).toHaveAttribute('data-pinned-row-edge');
+      expect(rows[3]).not.toHaveAttribute('data-pinned-row-edge');
+      expect(screen.getByRole('table').parentElement).toHaveAttribute('data-scrollable');
+    });
   });
 });

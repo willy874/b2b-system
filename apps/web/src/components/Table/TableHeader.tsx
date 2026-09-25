@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 
 import { Icon } from '../Icon';
 import type { SlotResolver } from '../slots';
+import { getPinnedCellProps } from './pinning';
+import type { PinLayout } from './pinning';
 import type { TableSlot } from './slots';
 import { ARIA_SORT, SORT_ICON, toggleSorting } from './sorting';
 import type { TableSorting } from './sorting';
@@ -16,6 +18,7 @@ interface TableHeaderProps<TData> {
   onSortingChange: ((sorting: TableSorting[]) => void) | undefined;
   /** 固定在最後一欄表頭右側、靠底的內容。 */
   trailing: ReactNode;
+  pinLayout: PinLayout;
   slot: SlotResolver<TableSlot>;
 }
 
@@ -24,6 +27,7 @@ export function TableHeader<TData>({
   sorting,
   onSortingChange,
   trailing,
+  pinLayout,
   slot,
 }: TableHeaderProps<TData>) {
   return (
@@ -37,6 +41,7 @@ export function TableHeader<TData>({
               sorting={sorting}
               onSortingChange={onSortingChange}
               trailing={index === headerGroup.headers.length - 1 ? trailing : undefined}
+              pinLayout={pinLayout}
               slot={slot}
             />
           ))}
@@ -55,6 +60,7 @@ function TableHeaderCell<TData>({
   sorting,
   onSortingChange,
   trailing,
+  pinLayout,
   slot,
 }: TableHeaderCellProps<TData>) {
   const { column } = header;
@@ -66,8 +72,9 @@ function TableHeaderCell<TData>({
   const index = sorting.findIndex((entry) => entry.sortBy === column.id);
   const order = index === -1 ? undefined : sorting[index]!.sortOrder;
 
+  const { style: pinnedStyle, ...pinnedAttributes } = getPinnedCellProps(column, pinLayout);
   const cellAttributes = slot('headerCell', styles.headerCell, {
-    style: width === undefined ? undefined : { width },
+    style: width === undefined && !pinnedStyle ? undefined : { width, ...pinnedStyle },
   });
 
   // 有 onSortingChange 時，除非欄位明確關閉，否則都可排序
@@ -93,6 +100,8 @@ function TableHeaderCell<TData>({
   return (
     <th
       {...cellAttributes}
+      {...pinnedAttributes}
+      data-column-id={column.id}
       data-sortable={sortable || undefined}
       aria-sort={sortable && order ? ARIA_SORT[order] : undefined}
     >

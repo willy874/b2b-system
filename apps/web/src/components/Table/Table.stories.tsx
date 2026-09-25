@@ -1,12 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 import { fn } from 'storybook/test';
 
 import { IconButton } from '../Button';
 import { Icon } from '../Icon';
+import { createSelectColumn } from './columns';
 import type { TableSorting } from './sorting';
 import { Table } from './Table';
+import { useTableSelection } from './useTableSelection';
 
 interface Row {
   id: string;
@@ -25,8 +27,15 @@ const data: Row[] = [
 const columns: Array<ColumnDef<Row, unknown>> = [
   { id: 'name', header: '商品', cell: ({ row }) => row.original.name },
   { id: 'qty', header: '數量', cell: ({ row }) => row.original.qty, size: 120 },
-  { id: 'price', header: '價格', cell: ({ row }) => `NT$ ${row.original.price}`, size: 120 },
+  {
+    id: 'price',
+    header: '價格',
+    cell: ({ row }) => `NT$ ${row.original.price}`,
+    size: 120,
+  },
 ];
+
+const getRowId = (row: Row) => row.id;
 
 // 為了讓 Meta / Story 型別對到 `Table<Row>` 這個實例化後的函式（instantiation expression）
 const TypedTable = Table<Row>;
@@ -52,7 +61,11 @@ export const Loading: Story = {
 };
 
 export const Empty: Story = {
-  args: { data: [], emptyTitle: '沒有商品', emptyDescription: '目前還沒有任何商品資料。' },
+  args: {
+    data: [],
+    emptyTitle: '沒有商品',
+    emptyDescription: '目前還沒有任何商品資料。',
+  },
 };
 
 function compareBy(sortBy: string, a: (typeof data)[number], b: (typeof data)[number]): number {
@@ -109,21 +122,74 @@ export const HeaderTrailing: Story = {
   },
 };
 
-/** 已進入選取模式（至少勾選一列）時，單擊列身即可切換選取。 */
+const selectableColumns = [createSelectColumn<Row>(), ...columns];
+
+/**
+ * 勾選欄（`createSelectColumn`）＋ `useTableSelection`：表頭全選本頁、跨頁保留選取與資料。
+ * 已進入選取模式（至少勾選一列）時，單擊列身也能切換選取。
+ */
 function SelectableDemo() {
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({ '2': true });
+  const selection = useTableSelection(data, getRowId);
   return (
-    <Table
-      data={data}
-      columns={columns}
-      getRowId={(row) => row.id}
-      rowSelection={rowSelection}
-      onRowSelectionChange={setRowSelection}
-      onRowDoubleClick={fn()}
-    />
+    <div style={{ display: 'grid', gap: 8 }}>
+      <Table
+        data={data}
+        columns={selectableColumns}
+        getRowId={getRowId}
+        rowSelection={selection.rowSelection}
+        onRowSelectionChange={selection.onRowSelectionChange}
+        onRowDoubleClick={fn()}
+      />
+      <span>已選取：{selection.selectedRows.map((row) => row.name).join('、') || '無'}</span>
+    </div>
   );
 }
 
 export const Selectable: Story = {
   render: () => <SelectableDemo />,
+};
+
+const wideColumns: Array<ColumnDef<Row, unknown>> = [
+  ...columns,
+  ...['分類', '供應商', '倉庫', '建立時間', '更新時間'].map((header): ColumnDef<Row, unknown> => ({
+    id: header,
+    header,
+    cell: () => <span style={{ whiteSpace: 'nowrap' }}>一段比較長的欄位內容</span>,
+  })),
+  {
+    id: 'actions',
+    header: '操作',
+    cell: () => (
+      <IconButton size="sm" aria-label="刪除">
+        <Icon name="trash" size={16} />
+      </IconButton>
+    ),
+  },
+];
+
+/** 欄位多到要水平捲動時，`actions` 欄預設固定在右側。 */
+export const PinnedActions: Story = {
+  args: { columns: wideColumns },
+};
+
+const manyRows: Row[] = Array.from({ length: 30 }, (_, index) => ({
+  id: String(index + 1),
+  name: `商品 ${index + 1}`,
+  qty: (index * 7) % 50,
+  price: 100 + index * 10,
+}));
+
+/**
+ * 固定表頭與釘選列：外框變成最高 `maxHeight` 的捲動框，表頭留在上方；
+ * `rowPinning.top` 的列貼在頂端、`bottom` 的貼在底端；「商品」欄固定在左側、`actions` 固定在右側。
+ */
+export const StickyHeaderAndPinnedRows: Story = {
+  args: {
+    data: manyRows,
+    columns: wideColumns,
+    stickyHeader: true,
+    maxHeight: 320,
+    rowPinning: { top: ['12', '5'], bottom: ['20'] },
+    columnPinning: { left: ['name'], right: ['actions'] },
+  },
 };

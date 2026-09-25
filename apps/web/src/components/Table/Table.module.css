@@ -140,4 +140,91 @@
     padding: var(--seed-space-2) var(--seed-space-3);
     vertical-align: middle;
   }
+
+  /*
+   * 固定（pinning）：固定欄位、釘選列、固定表頭都是 sticky 貼在外框（捲動容器）的邊上，
+   * 需要不透明底色蓋住底下捲過的內容，因此列的 hover / 選取底色要在 sticky 儲存格上再畫一次
+   * （選取色是半透明，疊在 surface 上）。
+   *
+   * 疊放順序：固定欄 1 < 釘選列 2 < 釘選列 × 固定欄 3 < 表頭 4 < 表頭 × 固定欄 5。
+   * 交界的分隔線用兩個變數組合：欄的交界（--pin-edge-x）與列的交界（--pin-edge-y）可能落在同一格。
+   */
+  .headerCell,
+  .cell {
+    --pin-edge-x: 0 0 transparent;
+    --pin-edge-y: 0 0 transparent;
+  }
+
+  .headerCell[data-pinned],
+  .cell[data-pinned],
+  .row[data-pinned-row] > .cell {
+    position: sticky;
+    box-shadow: var(--pin-edge-x), var(--pin-edge-y);
+  }
+
+  .cell[data-pinned] {
+    z-index: 1;
+    background: var(--color-surface);
+  }
+
+  .row[data-pinned-row] > .cell {
+    z-index: 2;
+    background: color-mix(in srgb, var(--color-brand) 4%, var(--color-surface));
+  }
+
+  .row[data-pinned-row] > .cell[data-pinned] {
+    z-index: 3;
+  }
+
+  .row:hover > .cell[data-pinned],
+  .row[data-pinned-row]:hover > .cell {
+    background: var(--color-bg);
+  }
+
+  .row[data-selected] > .cell[data-pinned],
+  .row[data-pinned-row][data-selected] > .cell {
+    background:
+      linear-gradient(
+        color-mix(in srgb, var(--color-brand) 8%, transparent),
+        color-mix(in srgb, var(--color-brand) 8%, transparent)
+      ),
+      var(--color-surface);
+  }
+
+  .headerCell[data-pinned] {
+    z-index: 4;
+    background: var(--color-bg);
+  }
+
+  [data-pinned='right'][data-pinned-edge] {
+    --pin-edge-x: inset 1px 0 0 var(--color-border);
+  }
+
+  [data-pinned='left'][data-pinned-edge] {
+    --pin-edge-x: inset -1px 0 0 var(--color-border);
+  }
+
+  .row[data-pinned-row='top'][data-pinned-row-edge] > .cell {
+    --pin-edge-y: inset 0 -2px 0 var(--color-border);
+  }
+
+  .row[data-pinned-row='bottom'][data-pinned-row-edge] > .cell {
+    --pin-edge-y: inset 0 2px 0 var(--color-border);
+  }
+
+  /* 固定表頭或有釘選列時：外框改成雙向捲動、有最大高度（inline style） */
+  .root[data-scrollable] {
+    overflow: auto;
+  }
+
+  .root[data-sticky-header] .headerCell {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background: var(--color-bg);
+  }
+
+  .root[data-sticky-header] .headerCell[data-pinned] {
+    z-index: 5;
+  }
 }

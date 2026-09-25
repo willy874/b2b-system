@@ -1,12 +1,21 @@
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import type { ColumnDef, RowSelectionState, Updater } from '@tanstack/react-table';
-import type { ReactNode, Ref } from 'react';
+import type {
+  ColumnDef,
+  ColumnPinningState,
+  RowPinningState,
+  RowSelectionState,
+  Updater,
+} from '@tanstack/react-table';
+import { useRef } from 'react';
+import type { CSSProperties, ReactNode, Ref } from 'react';
 
 import { cn } from '@/shared/utils';
 
 import { Empty } from '../Empty';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
+import { DEFAULT_COLUMN_PINNING, usePinLayout } from './pinning';
+import type { PinLayout, RowPin } from './pinning';
 import type { TableSlot } from './slots';
 import type { TableSorting } from './sorting';
 import { TableHeader } from './TableHeader';
@@ -40,12 +49,31 @@ export interface TableProps<TData> extends SlotOverrides<TableSlot> {
    * 欄寬不夠時，該欄的標題被裁掉（overflow hidden），這裡的內容不縮。
    */
   headerTrailing?: ReactNode;
+  /**
+   * 水平捲動時固定在左右兩側的欄位 id。預設把 `actions`（操作欄）固定在右側；
+   * 傳 `{}` 取消固定。表頭與列的欄位順序會變成「左固定 → 其餘 → 右固定」。
+   */
+  columnPinning?: ColumnPinningState;
+  /** 垂直捲動時表頭留在上方（表格外框變成捲動框，見 `maxHeight`）。 */
+  stickyHeader?: boolean;
+  /**
+   * 釘選的資料列 id：`top` 依序貼在頂端、`bottom` 依序貼在底端，捲動時都留在原位；需要 `getRowId`。
+   * 列必須在 `data` 裡——伺服器分頁時由呼叫端把其他頁的釘選列併進 `data`（`RichTable` 已處理）。
+   */
+  rowPinning?: RowPinningState;
+  /**
+   * 固定表頭或有釘選列時，外框變成最高這個高度的捲動框（預設 `70vh`）——
+   * 頁面本身捲動時 sticky 無效，因為外框為了水平捲動已經是捲動容器。
+   */
+  maxHeight?: CSSProperties['maxHeight'];
   className?: string;
   'data-testid'?: string;
 }
 
 const EMPTY_SELECTION: RowSelectionState = {};
 const EMPTY_SORTING: readonly TableSorting[] = [];
+const EMPTY_ROW_PINNING: RowPinningState = {};
+const DEFAULT_MAX_HEIGHT = '70vh';
 
 /** TanStack 會把預設寬度（150）併進每個 columnDef；清掉它，TableHeader 才分得出「沒宣告 size」。 */
 const DEFAULT_COLUMN = { size: undefined };
@@ -67,6 +95,10 @@ export function Table<TData>({
   sorting = EMPTY_SORTING,
   onSortingChange,
   headerTrailing,
+  columnPinning = DEFAULT_COLUMN_PINNING,
+  stickyHeader,
+  maxHeight = DEFAULT_MAX_HEIGHT,
+  rowPinning = EMPTY_ROW_PINNING,
   className,
   classNames,
   styles: styleOverrides,
@@ -74,13 +106,15 @@ export function Table<TData>({
   ...rest
 }: TableProps<TData>) {
   const slot = createSlots({ classNames, styles: styleOverrides, testIds });
+  const tableRef = useRef<HTMLTableElement>(null);
   const table = useReactTable({
     data,
     columns,
     defaultColumn: DEFAULT_COLUMN,
     getCoreRowModel: getCoreRowModel(),
     getRowId,
-    state: { rowSelection },
+    state: { rowSelection, columnPinning, rowPinning },
+    keepPinnedRows: true,
     enableRowSelection: Boolean(onRowSelectionChange),
     onRowSelectionChange: (updater: Updater<RowSelectionState>) => {
       onRowSelectionChange?.(typeof updater === 'function' ? updater(rowSelection) : updater);
@@ -89,14 +123,29 @@ export function Table<TData>({
     manualSorting: true,
   });
 
+  const hasPinnedRows = Boolean(rowPinning.top?.length || rowPinning.bottom?.length);
+  const scrollable = Boolean(stickyHeader) || hasPinnedRows;
+  const pinLayout = usePinLayout(
+    tableRef,
+    { columnPinning, rowPinning, stickyHeader: Boolean(stickyHeader) },
+    [data, columns, loading],
+  );
+
   // 尚未勾選任何一列時，單擊列身不做任何事
   const selectable = Boolean(onRowSelectionChange) && Object.values(rowSelection).some(Boolean);
 
   return (
-    <div className={cn(styles.root, className)} {...rest}>
-      <table {...slot('table', styles.table)} aria-busy={loading || undefined}>
+    <div
+      className={cn(styles.root, className)}
+      data-scrollable={scrollable || undefined}
+      data-sticky-header={stickyHeader || undefined}
+      style={scrollable ? { maxHeight } : undefined}
+      {...rest}
+    >
+      <table ref={tableRef} {...slot('table', styles.table)} aria-busy={loading || undefined}>
         <TableHeader
           headerGroups={table.getHeaderGroups()}
+          pinLayout={pinLayout}
           sorting={sorting}
           onSortingChange={onSortingChange}
           trailing={headerTrailing}
@@ -106,17 +155,40 @@ export function Table<TData>({
           {loading ? (
             <TableSkeleton columnCount={table.getVisibleLeafColumns().length} slot={slot} />
           ) : (
-            table
-              .getRowModel()
-              .rows.map((row) => (
+            <>
+              {table.getTopRows().map((row, index, pinned) => (
                 <TableRow
                   key={row.id}
                   row={row}
+                  pin={rowPin(pinLayout, row.id, 'top', index === pinned.length - 1)}
+                  pinLayout={pinLayout}
                   selectable={selectable}
                   onDoubleClick={onRowDoubleClick}
                   slot={slot}
                 />
-              ))
+              ))}
+              {table.getCenterRows().map((row) => (
+                <TableRow
+                  key={row.id}
+                  row={row}
+                  pinLayout={pinLayout}
+                  selectable={selectable}
+                  onDoubleClick={onRowDoubleClick}
+                  slot={slot}
+                />
+              ))}
+              {table.getBottomRows().map((row, index) => (
+                <TableRow
+                  key={row.id}
+                  row={row}
+                  pin={rowPin(pinLayout, row.id, 'bottom', index === 0)}
+                  pinLayout={pinLayout}
+                  selectable={selectable}
+                  onDoubleClick={onRowDoubleClick}
+                  slot={slot}
+                />
+              ))}
+            </>
           )}
         </tbody>
       </table>
@@ -130,4 +202,8 @@ export function Table<TData>({
       )}
     </div>
   );
+}
+
+function rowPin(layout: PinLayout, id: string, side: RowPin['side'], edge: boolean): RowPin {
+  return { side, edge, offset: layout.rows[id]?.[side] ?? 0 };
 }

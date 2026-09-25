@@ -3,6 +3,8 @@ import type { Row } from '@tanstack/react-table';
 import type { MouseEvent } from 'react';
 
 import type { SlotResolver } from '../slots';
+import { getPinnedCellProps } from './pinning';
+import type { PinLayout, RowPin } from './pinning';
 import type { TableSlot } from './slots';
 
 import styles from './Table.module.css';
@@ -19,6 +21,9 @@ function isFromInteractiveElement(event: MouseEvent<HTMLElement>): boolean {
 
 interface TableRowProps<TData> {
   row: Row<TData>;
+  /** 釘選的列：貼在頂端或底端（sticky），交界的那一列畫分隔線。 */
+  pin?: RowPin;
+  pinLayout: PinLayout;
   /** 已進入選取模式（至少勾選一列）時，單擊列身切換選取。 */
   selectable: boolean;
   onDoubleClick: ((row: TData) => void) | undefined;
@@ -30,7 +35,14 @@ interface TableRowProps<TData> {
  * 單擊只在選取模式下切換選取、雙擊開詳情；點在列內的按鈕、連結、勾選框上只觸發該元件，
  * 呼叫端不必在每個按鈕上 `stopPropagation`。
  */
-export function TableRow<TData>({ row, selectable, onDoubleClick, slot }: TableRowProps<TData>) {
+export function TableRow<TData>({
+  row,
+  pin,
+  pinLayout,
+  selectable,
+  onDoubleClick,
+  slot,
+}: TableRowProps<TData>) {
   const handleClick = (event: MouseEvent<HTMLTableRowElement>) => {
     if (!selectable || isFromInteractiveElement(event)) return;
     row.toggleSelected();
@@ -46,14 +58,29 @@ export function TableRow<TData>({ row, selectable, onDoubleClick, slot }: TableR
       {...slot('row', styles.row, { testId: 'table-row' })}
       data-value={row.id}
       data-selected={row.getIsSelected() || undefined}
+      data-pinned-row={pin?.side}
+      data-pinned-row-edge={pin?.edge || undefined}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
     >
-      {row.getVisibleCells().map((cell) => (
-        <td key={cell.id} {...slot('cell', styles.cell)}>
-          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-        </td>
-      ))}
+      {/* 與表頭（getHeaderGroups）同樣依「左固定 → 其餘 → 右固定」排列 */}
+      {[
+        ...row.getLeftVisibleCells(),
+        ...row.getCenterVisibleCells(),
+        ...row.getRightVisibleCells(),
+      ].map((cell) => {
+        const { style: columnStyle, ...pinnedAttributes } = getPinnedCellProps(
+          cell.column,
+          pinLayout,
+        );
+        // sticky 放在儲存格上（<tr> 的 sticky 在部分瀏覽器無效）
+        const style = pin ? { ...columnStyle, [pin.side]: pin.offset } : columnStyle;
+        return (
+          <td key={cell.id} {...slot('cell', styles.cell, { style })} {...pinnedAttributes}>
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </td>
+        );
+      })}
     </tr>
   );
 }
