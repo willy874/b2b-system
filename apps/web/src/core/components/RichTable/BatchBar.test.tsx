@@ -23,6 +23,7 @@ const ROWS: Row[] = [
   { id: 'c', name: 'Carol', locked: true },
 ];
 const getId = (row: Row) => row.id;
+const isDisabled = (element: HTMLElement) => element.matches(':disabled, [aria-disabled="true"]');
 const columns: Array<ColumnDef<Row, unknown>> = [
   { id: 'name', header: 'Name', cell: ({ row }) => row.original.name },
 ];
@@ -116,9 +117,10 @@ describe('RichTable 的批次操作（ADR-0009）', () => {
   it('選到的列都不適用 → 按鈕停用，hover 顯示該動作的原因', async () => {
     renderHarness([action({ ineligibleReason: '只能解鎖被鎖定的列' })]);
     await selectRows(1);
-    expect(screen.getByTestId('batch-action')).toBeDisabled();
+    const button = screen.getByTestId('batch-action');
+    expect(button).toHaveAttribute('aria-disabled', 'true');
 
-    await userEvent.hover(screen.getByTestId('tooltip-disabled-trigger'));
+    await userEvent.hover(button);
     expect(await screen.findByText('只能解鎖被鎖定的列')).toBeVisible();
   });
 
@@ -198,6 +200,7 @@ describe('RichTable 的批次操作（ADR-0009）', () => {
     }
     render(<Many />, { wrapper: AllProviders });
     await userEvent.click(screen.getByTestId('table-select-all'));
-    expect(screen.getByTestId('batch-action')).toBeDisabled();
+    // 有說明文字時是 aria-disabled（可 hover），測試環境沒載入語系則是原生 disabled
+    expect(screen.getByTestId('batch-action')).toSatisfy(isDisabled);
   });
 });

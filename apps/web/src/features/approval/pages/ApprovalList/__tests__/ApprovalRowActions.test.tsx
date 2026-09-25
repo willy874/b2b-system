@@ -41,7 +41,10 @@ describe('ApprovalRowActions（列上的快速審核）', () => {
 
   it('缺少類型要求的權限 → 核准停用，駁回仍可用', () => {
     renderWithPermissions(<ApprovalRowActions row={{ ...ROW, canApprove: false }} />);
-    expect(screen.getByTestId('approval-quick-approve')).toBeDisabled();
+    // 有說明文字時 Tooltip 讓它改用 aria-disabled（可 hover），測試環境沒載入語系則是原生 disabled
+    expect(
+      screen.getByTestId('approval-quick-approve').matches(':disabled, [aria-disabled="true"]'),
+    ).toBe(true);
     expect(screen.getByTestId('approval-quick-reject')).toBeEnabled();
   });
 

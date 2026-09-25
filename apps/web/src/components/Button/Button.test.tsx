@@ -63,6 +63,23 @@ describe('Button', () => {
     expect(button).toHaveAttribute('data-block');
   });
 
+  it('focusableWhenDisabled：用 aria-disabled 取代 disabled，仍可聚焦但不觸發 onClick', async () => {
+    const onClick = vi.fn();
+    render(
+      <Button disabled focusableWhenDisabled onClick={onClick}>
+        送出
+      </Button>,
+    );
+    const button = screen.getByRole('button');
+    expect(button).not.toHaveAttribute('disabled');
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toHaveAttribute('data-disabled');
+    await userEvent.tab();
+    expect(button).toHaveFocus();
+    await userEvent.click(button);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
   it.each(['primary', 'secondary', 'ghost', 'success', 'warning', 'danger'] as const)(
     '變體 %s 寫在 data-variant',
     (variant) => {

@@ -3,20 +3,6 @@
     z-index: var(--z-tooltip);
   }
 
-  /* 停用元素的外層觸發點：接收 hover／focus，內層不攔截指標事件 */
-  .disabledTrigger {
-    display: inline-flex;
-    cursor: not-allowed;
-    border-radius: var(--radius-md);
-  }
-  .disabledTrigger:focus-visible {
-    outline: 2px solid var(--color-brand);
-    outline-offset: 2px;
-  }
-  .disabledTrigger > * {
-    pointer-events: none;
-  }
-
   .popup {
     max-width: 18rem;
     padding: var(--seed-space-1) var(--seed-space-2);
