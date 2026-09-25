@@ -22,6 +22,8 @@ export default defineConfig(({ command }) => ({
   },
   server: {
     port: 5173,
+    // 5173 被占用時直接失敗，不自動改用 5174：E2E、REALTIME_ALLOWED_ORIGINS 都寫死 5173。
+    strictPort: true,
     proxy: {
       // 前端一律打 `/api`，不在程式碼裡寫死後端位址（docs/architecture/01-system.md §4.1）。
       '/api': {
