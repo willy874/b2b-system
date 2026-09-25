@@ -2,6 +2,7 @@ import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import type {
   ColumnDef,
   ColumnPinningState,
+  Row,
   RowPinningState,
   RowSelectionState,
   Updater,
@@ -66,6 +67,12 @@ export interface TableProps<TData> extends SlotOverrides<TableSlot> {
    * 頁面本身捲動時 sticky 無效，因為外框為了水平捲動已經是捲動容器。
    */
   maxHeight?: CSSProperties['maxHeight'];
+  /**
+   * 展開中的列 id（需要 `getRowId`）：該列正下方插入一列橫跨所有欄位，內容由 `renderExpandedRow` 提供。
+   * 展開狀態由呼叫端管理，通常搭配操作欄裡的展開按鈕。
+   */
+  expandedRowIds?: readonly string[];
+  renderExpandedRow?: (row: TData) => ReactNode;
   className?: string;
   'data-testid'?: string;
 }
@@ -73,6 +80,7 @@ export interface TableProps<TData> extends SlotOverrides<TableSlot> {
 const EMPTY_SELECTION: RowSelectionState = {};
 const EMPTY_SORTING: readonly TableSorting[] = [];
 const EMPTY_ROW_PINNING: RowPinningState = {};
+const EMPTY_EXPANDED: readonly string[] = [];
 const DEFAULT_MAX_HEIGHT = '70vh';
 
 /** TanStack 會把預設寬度（150）併進每個 columnDef；清掉它，TableHeader 才分得出「沒宣告 size」。 */
@@ -99,6 +107,8 @@ export function Table<TData>({
   stickyHeader,
   maxHeight = DEFAULT_MAX_HEIGHT,
   rowPinning = EMPTY_ROW_PINNING,
+  expandedRowIds = EMPTY_EXPANDED,
+  renderExpandedRow,
   className,
   classNames,
   styles: styleOverrides,
@@ -131,6 +141,11 @@ export function Table<TData>({
     [data, columns, loading],
   );
 
+  const expandedContent = (row: Row<TData>): ReactNode =>
+    renderExpandedRow && expandedRowIds.includes(row.id)
+      ? renderExpandedRow(row.original)
+      : undefined;
+
   // 尚未勾選任何一列時，單擊列身不做任何事
   const selectable = Boolean(onRowSelectionChange) && Object.values(rowSelection).some(Boolean);
 
@@ -162,6 +177,7 @@ export function Table<TData>({
                   row={row}
                   pin={rowPin(pinLayout, row.id, 'top', index === pinned.length - 1)}
                   pinLayout={pinLayout}
+                  expandedContent={expandedContent(row)}
                   selectable={selectable}
                   onDoubleClick={onRowDoubleClick}
                   slot={slot}
@@ -172,6 +188,7 @@ export function Table<TData>({
                   key={row.id}
                   row={row}
                   pinLayout={pinLayout}
+                  expandedContent={expandedContent(row)}
                   selectable={selectable}
                   onDoubleClick={onRowDoubleClick}
                   slot={slot}
@@ -183,6 +200,7 @@ export function Table<TData>({
                   row={row}
                   pin={rowPin(pinLayout, row.id, 'bottom', index === 0)}
                   pinLayout={pinLayout}
+                  expandedContent={expandedContent(row)}
                   selectable={selectable}
                   onDoubleClick={onRowDoubleClick}
                   slot={slot}

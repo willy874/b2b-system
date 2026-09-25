@@ -241,6 +241,34 @@ describe('Table', () => {
     expect(onRowSelectionChange).toHaveBeenCalledWith({ '1': true, '2': true });
   });
 
+  describe('展開列', () => {
+    it('展開的列正下方插入一列，橫跨所有欄位', () => {
+      render(
+        <Table
+          data={data}
+          columns={[...columns, { id: 'extra', header: '備註', cell: () => '-' }]}
+          getRowId={(row) => row.id}
+          expandedRowIds={['1']}
+          renderExpandedRow={(row) => `明細：${row.name}`}
+        />,
+      );
+      const rows = screen.getAllByRole('row');
+      // 表頭、第一列、第一列的展開、第二列
+      expect(rows).toHaveLength(4);
+      expect(rows[2]).toHaveAttribute('data-testid', 'table-expanded-row');
+      expect(rows[2]).toHaveTextContent('明細：系統管理員');
+      expect(rows[2]?.querySelector('td')).toHaveAttribute('colspan', '2');
+      expect(rows[1]).toHaveAttribute('data-expanded');
+    });
+
+    it('沒有 renderExpandedRow 或沒展開時不插入', () => {
+      render(
+        <Table data={data} columns={columns} getRowId={(row) => row.id} expandedRowIds={['1']} />,
+      );
+      expect(screen.queryByTestId('table-expanded-row')).not.toBeInTheDocument();
+    });
+  });
+
   describe('欄位固定', () => {
     const withActions: Array<ColumnDef<Row, unknown>> = [
       { id: 'actions', header: '操作', cell: () => '…' },

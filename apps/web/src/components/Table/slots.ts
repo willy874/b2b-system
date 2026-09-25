@@ -14,4 +14,6 @@ export type TableSlot =
   | 'body'
   | 'row'
   | 'cell'
+  | 'expandedRow'
+  | 'expandedCell'
   | 'empty';

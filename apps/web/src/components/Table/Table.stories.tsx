@@ -167,6 +167,44 @@ const wideColumns: Array<ColumnDef<Row, unknown>> = [
   },
 ];
 
+/** 展開列：點操作欄的箭頭，在該列正下方顯示橫跨所有欄位的內容。 */
+export const Expandable: Story = {
+  render: () => <ExpandableDemo />,
+};
+
+function ExpandableDemo() {
+  const [expanded, setExpanded] = useState<string>();
+  const expandColumns: Array<ColumnDef<Row, unknown>> = [
+    ...columns,
+    {
+      id: 'actions',
+      header: '',
+      cell: ({ row }) => {
+        const isExpanded = expanded === row.original.id;
+        return (
+          <IconButton
+            size="sm"
+            aria-label={isExpanded ? '收合' : '展開'}
+            aria-expanded={isExpanded}
+            onClick={() => setExpanded(isExpanded ? undefined : row.original.id)}
+          >
+            <Icon name={isExpanded ? 'chevron-down' : 'chevron-right'} size={16} />
+          </IconButton>
+        );
+      },
+    },
+  ];
+  return (
+    <Table
+      data={data}
+      columns={expandColumns}
+      getRowId={(row) => row.id}
+      expandedRowIds={expanded ? [expanded] : undefined}
+      renderExpandedRow={(row) => `${row.name}：庫存 ${row.qty}，單價 NT$ ${row.price}`}
+    />
+  );
+}
+
 /** 欄位多到要水平捲動時，`actions` 欄預設固定在右側。 */
 export const PinnedActions: Story = {
   args: { columns: wideColumns },

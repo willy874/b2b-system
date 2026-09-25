@@ -613,7 +613,7 @@ Base UI 已處理焦點陷阱、roving tabindex、ARIA 角色與鍵盤互動。�
 components/Table/
 ├── Table.tsx             版面外殼 ＋ TanStack Table 整合（排序、分頁都交給伺服器）
 ├── TableHeader.tsx       表頭；可排序欄位以 <button> 承接點擊（鍵盤可操作）、aria-sort
-├── TableRow.tsx          選取、hover、單擊/雙擊行為
+├── TableRow.tsx          選取、hover、單擊/雙擊行為、展開列
 ├── TableSkeleton.tsx     載入中的骨架列（不帶 table-row testid）
 ├── sorting.ts            TableSorting 型別、toggleSorting()、排序圖示與 aria-sort 對照
 ├── pinning.ts            欄位固定、釘選列：預設值（actions 靠右）與量測 sticky 位移的 usePinLayout
@@ -633,6 +633,12 @@ components/Table/
 非字串表頭（勾選框、圖示）的欄位以 `meta.settingsLabel` 宣告欄位設定裡的名稱，才會進入欄位設定（排序、隱藏、固定）。
 
 欄寬：只有宣告了 `size` 的欄位會在 `<th>` 設定寬度，其餘交給瀏覽器分配。
+
+展開列：`expandedRowIds`（需要 `getRowId`）＋ `renderExpandedRow(row)`。展開的列正下方插入一列
+`data-testid="table-expanded-row"`（`data-value` 是列 id），單一儲存格橫跨所有可見欄位；主列帶
+`data-expanded`，兩者之間不畫分隔線。展開狀態由呼叫端管理（通常是操作欄的展開按鈕），
+內容也由呼叫端決定——例如稽核日誌在展開當下才向後端取明細
+（[`backend/06-audit-log.md`](../backend/06-audit-log.md) §7.3）。
 
 固定（pinning）：固定欄位、釘選列、固定表頭都用 `position: sticky` 貼在外框（捲動容器）的邊上；
 sticky 儲存格有不透明底色（hover、選取狀態會同步），固定區與一般區交界畫分隔線。

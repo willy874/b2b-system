@@ -136,6 +136,24 @@
     background: color-mix(in srgb, var(--color-brand) 8%, transparent);
   }
 
+  /* 展開列與它的主列視為一體：中間不畫分隔線，展開內容用略深的底色區隔 */
+  .row[data-expanded] {
+    border-bottom: none;
+  }
+
+  .expandedRow {
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+
+  .expandedRow:last-child {
+    border-bottom: none;
+  }
+
+  .expandedCell {
+    padding: var(--seed-space-3);
+  }
+
   .cell {
     padding: var(--seed-space-2) var(--seed-space-3);
     vertical-align: middle;
