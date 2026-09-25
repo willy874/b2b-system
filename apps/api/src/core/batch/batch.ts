@@ -67,8 +67,11 @@ export interface BatchSteps<TPlan> {
   apply: (plan: TPlan, tx: Transaction) => Promise<void>;
   /** 這一筆交易提交後的快取失效。 */
   invalidate: (plan: TPlan) => void;
-  /** 整批結束後，以所有實際寫入的 plan 發佈一次領域事件。 */
-  publish: (plans: TPlan[]) => void;
+  /**
+   * 整批結束後，以所有實際寫入的 plan 發佈一次領域事件。
+   * 可以是非同步的（例：審批 handler 的 `afterApply`），`runBatch` 會等它完成才回應。
+   */
+  publish: (plans: TPlan[]) => void | Promise<void>;
 }
 
 /**
@@ -117,7 +120,7 @@ export async function runBatch<TPlan>(
         result.succeeded.push(id);
       }
     } finally {
-      if (applied.length) steps.publish(applied);
+      if (applied.length) await steps.publish(applied);
     }
     return result;
   };

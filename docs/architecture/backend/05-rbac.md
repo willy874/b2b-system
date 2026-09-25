@@ -498,6 +498,8 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/approvals/:id`            | `approval:read`                  |
 | POST   | `/approvals/:id/approve`    | `approval:review` ＋ 類型要求的權限¹ |
 | POST   | `/approvals/:id/reject`     | `approval:review`                |
+| POST   | `/approvals/batch-approve`  | `approval:review` ＋ 類型要求的權限¹² |
+| POST   | `/approvals/batch-reject`   | `approval:review`²               |
 
 ¹ 路由宣告只有 `approval:review`；核准時 `ApprovalService` 另外檢查該類型 handler 要求的權限
 （`user.register` = `user:create`，指派角色時再加 `user:assignRole`），缺少時同樣回

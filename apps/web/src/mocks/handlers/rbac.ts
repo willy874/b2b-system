@@ -46,6 +46,12 @@ function batchHandler(
   });
 }
 
+function checkApproval(id: string) {
+  const approval = APPROVAL_FIXTURES.find((item) => item.id === id);
+  if (!approval) return { id, code: 'APPROVAL_NOT_FOUND' };
+  return approval.status === 'pending' ? undefined : { id, code: 'APPROVAL_ALREADY_REVIEWED' };
+}
+
 function checkUser(
   id: string,
   extra?: (user: (typeof USER_FIXTURES)[number]) => string | undefined,
@@ -176,6 +182,8 @@ export const rbacHandlers = [
     });
   }),
 
+  batchHandler('/approvals/batch-approve', 'approval:review', (id) => checkApproval(id)),
+  batchHandler('/approvals/batch-reject', 'approval:review', (id) => checkApproval(id)),
   batchHandler('/users/batch-delete', 'user:delete', (id) => checkUser(id)),
   batchHandler('/users/batch-status', 'user:update', (id) => checkUser(id)),
   batchHandler('/users/batch-unlock', 'user:update', (id) => {

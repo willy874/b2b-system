@@ -25,6 +25,22 @@
     },
     "approve": { "action": "核准", "success": "已核准。" },
     "reject": { "action": "駁回", "success": "已駁回。" },
+    "batch": {
+      "approve": {
+        "action": "核准",
+        "title": "批次核准",
+        "confirm": "確定核准 {{count}} 筆申請嗎？會建立已啟用的帳號，不指派角色、不附審核意見（要指派角色請逐筆開審核對話框）。",
+        "success": "已核准 {{count}} 筆申請。",
+        "ineligible": "只能核准待審核的申請；核准註冊需要「建立使用者」權限。"
+      },
+      "reject": {
+        "action": "駁回",
+        "title": "批次駁回",
+        "confirm": "確定駁回 {{count}} 筆申請嗎？不會附審核意見。",
+        "success": "已駁回 {{count}} 筆申請。",
+        "ineligible": "只能駁回待審核的申請。"
+      }
+    },
     "field": {
       "type": "類型",
       "requester": "申請人",

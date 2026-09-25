@@ -5,7 +5,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
-import { auditLogs, roles, userRoles, users } from '@/db/schema';
+import { approvalRequests, auditLogs, roles, userRoles, users } from '@/db/schema';
 import type { UserStatus } from '@/db/schema';
 
 import type { TestDatabase } from './db';
@@ -67,6 +67,23 @@ async function createUser(
 async function createRole(name: string): Promise<string> {
   const [role] = await db.insert(roles).values({ slug: name, name }).returning();
   return role!.id;
+}
+
+/** 直接寫 DB 建立一筆待審的註冊申請。 */
+async function createRegistration(
+  email = `batch-apply-${(seq += 1)}@example.com`,
+): Promise<string> {
+  const [row] = await db
+    .insert(approvalRequests)
+    .values({
+      type: 'user.register',
+      subjectKey: email.toLowerCase(),
+      payload: { email, displayName: email },
+      privatePayload: { passwordHash: 'hash' },
+      requesterName: email,
+    })
+    .returning();
+  return row!.id;
 }
 
 async function userIdOf(email: string): Promise<string> {
@@ -281,6 +298,62 @@ describe('批次端點（docs/adr/0009-table-batch-operations.md）', () => {
     it('沒有 role:delete → 整批 403', async () => {
       const role = await createRole('batch-forbidden');
       const response = await post('/roles/batch-delete', { ids: [role] }, MEMBER);
+      expect(response.status).toBe(403);
+    });
+  });
+
+  describe('POST /approvals/batch-approve、batch-reject', () => {
+    it('核准：建立已啟用、無角色的帳號；email 已被使用的回報在 failed', async () => {
+      const ok = await createRegistration();
+      const taken = `batch-taken-${(seq += 1)}@example.com`;
+      await createUser({ email: taken });
+      const duplicate = await createRegistration(taken);
+
+      const response = await post('/approvals/batch-approve', { ids: [ok, duplicate, MISSING_ID] });
+
+      expect(response.status).toBe(200);
+      expect((response.body as BatchBody).data).toEqual({
+        succeeded: [ok],
+        failed: [
+          {
+            id: duplicate,
+            code: 'USER_EMAIL_DUPLICATE',
+            details: { field: 'email', value: taken },
+          },
+          { id: MISSING_ID, code: 'APPROVAL_NOT_FOUND' },
+        ],
+      });
+      const [approved] = await db
+        .select()
+        .from(approvalRequests)
+        .where(eq(approvalRequests.id, ok));
+      expect(approved).toMatchObject({ status: 'approved', reviewComment: null });
+      const [user] = await db.select().from(users).where(eq(users.id, approved!.resultResourceId!));
+      expect(user!.status).toBe('active');
+      expect(await db.select().from(userRoles).where(eq(userRoles.userId, user!.id))).toEqual([]);
+    });
+
+    it('駁回：已審核過的回報 APPROVAL_ALREADY_REVIEWED', async () => {
+      const pending = await createRegistration();
+      const done = await createRegistration();
+      expect((await post('/approvals/batch-reject', { ids: [done] })).status).toBe(200);
+
+      const response = await post('/approvals/batch-reject', { ids: [pending, done] });
+
+      expect((response.body as BatchBody).data).toEqual({
+        succeeded: [pending],
+        failed: [{ id: done, code: 'APPROVAL_ALREADY_REVIEWED' }],
+      });
+      const [rejected] = await db
+        .select()
+        .from(approvalRequests)
+        .where(eq(approvalRequests.id, pending));
+      expect(rejected!.status).toBe('rejected');
+    });
+
+    it('沒有 approval:review → 整批 403', async () => {
+      const id = await createRegistration();
+      const response = await post('/approvals/batch-reject', { ids: [id] }, MEMBER);
       expect(response.status).toBe(403);
     });
   });

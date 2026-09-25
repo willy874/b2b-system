@@ -131,6 +131,8 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /approvals/:id': 'approval:read',
       'POST /approvals/:id/approve': 'approval:review',
       'POST /approvals/:id/reject': 'approval:review',
+      'POST /approvals/batch-approve': 'approval:review',
+      'POST /approvals/batch-reject': 'approval:review',
     };
 
     for (const [route, declaration] of Object.entries(expected)) {

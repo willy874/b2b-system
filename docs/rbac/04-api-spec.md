@@ -412,6 +412,8 @@
 | GET    | `/approvals/:id`         | 🛡 `approval:read`                      | 詳情                         |
 | POST   | `/approvals/:id/approve` | 🛡 `approval:review` ＋ 類型要求的權限   | 核准並套用變更               |
 | POST   | `/approvals/:id/reject`  | 🛡 `approval:review`                    | 駁回                         |
+| POST   | `/approvals/batch-approve` | 🛡 `approval:review` ＋ 類型要求的權限 | 批次快速核准（逐筆結果）     |
+| POST   | `/approvals/batch-reject`  | 🛡 `approval:review`                  | 批次快速駁回（逐筆結果）     |
 
 **`GET /approvals` Query**
 
@@ -443,6 +445,13 @@
 | `403 AUTHZ_FORBIDDEN`         | 缺少類型要求的權限（`details.missing`）                         |
 | `403 AUTHZ_ESCALATION`        | 指派的角色超出審核者的權限                                      |
 | `409 USER_EMAIL_DUPLICATE`    | `user.register`：申請後該 email 已被建立（請改為駁回）          |
+
+**批次：`POST /approvals/batch-approve`、`/approvals/batch-reject`**
+
+請求只有 `{ "ids": [...] }`，回應為逐筆結果，格式與規則同 §2.5。語意等同列表上的「快速審核」：
+**不指派角色、不附意見**（要指派角色請走單筆 `/approvals/:id/approve`）。
+上表的錯誤碼（`AUTHZ_ESCALATION` 除外）改為逐筆收進 `failed`；類型要求的權限不足時該筆回
+`AUTHZ_FORBIDDEN`（`details.missing`），整批層級只檢查 `approval:review`。
 
 ---
 

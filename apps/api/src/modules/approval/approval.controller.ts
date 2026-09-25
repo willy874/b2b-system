@@ -4,6 +4,8 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, RequirePermissions } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
+import { BatchIdsSchema, BatchResultSchema } from '@/core/batch';
+import type { BatchIdsDto } from '@/core/batch';
 import {
   ApiZodBody,
   ApiZodListResponse,
@@ -66,5 +68,35 @@ export class ApprovalController {
     @CurrentUser() actor: AuthUser,
   ) {
     return this.approvalService.reject(id, dto, actor);
+  }
+
+  // ── 批次（ADR-0009）：逐筆回報結果，權限與單筆相同 ──
+
+  @Post('batch-approve')
+  @HttpCode(200)
+  @RequirePermissions(PERMISSION.APPROVAL_REVIEW)
+  @ApiOperation({
+    summary: '批次快速核准（不指派角色、不附意見；逐筆回報結果，另需各類型要求的權限）',
+  })
+  @ApiZodBody(BatchIdsSchema)
+  @ApiZodResponse(200, BatchResultSchema)
+  approveMany(
+    @Body(new ZodValidationPipe(BatchIdsSchema)) dto: BatchIdsDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.approvalService.approveMany(dto.ids, actor);
+  }
+
+  @Post('batch-reject')
+  @HttpCode(200)
+  @RequirePermissions(PERMISSION.APPROVAL_REVIEW)
+  @ApiOperation({ summary: '批次快速駁回（不附意見；逐筆回報結果）' })
+  @ApiZodBody(BatchIdsSchema)
+  @ApiZodResponse(200, BatchResultSchema)
+  rejectMany(
+    @Body(new ZodValidationPipe(BatchIdsSchema)) dto: BatchIdsDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.approvalService.rejectMany(dto.ids, actor);
   }
 }
