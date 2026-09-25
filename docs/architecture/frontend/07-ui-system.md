@@ -70,6 +70,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `Select`（含搜尋，取代原本的 `Combobox`）/ `Menu` | 自製列表 ＋ Base UI `Popover`（定位、點外面／Esc 關閉、焦點歸還）＋ TanStack Virtual（§3.10） |
 | `VirtualList`                    | TanStack Virtual；長列表的虛擬捲動 ＋ 無限捲動（§3.10） |
 | `Typography` / `Title` / `Text` / `Paragraph` | 自製；`copyable` 的複製按鈕用 `Tooltip` ＋ `navigator.clipboard`（§3.9） |
+| `JsonViewer`                     | 自製；外觀對標 svelte-jsoneditor 的 tree 模式，逐行渲染 ＋ `useVirtualRows` 虛擬捲動（§3.12） |
 
 > **DatePicker 是最大的一塊自製工作**，排入
 > [`../../overview/03-roadmap.md`](../../overview/03-roadmap.md) 的 M2，已完成：`components/DatePicker/` 底下是
@@ -458,6 +459,37 @@ const handleDelete = async (row: RoleRowVM) => {
 - 按鈕的 testid 與 `AlertDialog` 相同：`alert-dialog-confirm`、`alert-dialog-cancel`。
 - 需要在對話框裡放表單或其他內容時，仍用宣告式的 `AlertDialog`（`children`）或 `Dialog`。
 
+### 3.12 JSON 預覽：`JsonViewer`（之後的 `JsonEditor`）
+
+`components/JsonViewer/`。顯示任意 JSON（稽核日誌的 `changes` / `metadata`、之後的設定檔與遊戲資料）：
+
+| 功能 | props / 行為 |
+| ---- | ---- |
+| 語法上色 | 鍵名、字串、數字、布林、`null` 各一色；標點淡化 |
+| 收合 | 物件／陣列前的箭頭；收合後只佔一行，後接計數徽章（`labels.summary`）。`defaultExpandDepth` 決定一開始展開到第幾層；換一份 `value` 時收合狀態回到預設 |
+| 高度 | `maxHeight`（預設 `20rem`），超過在框內捲動；長行不換行、在框內水平捲動 |
+| 虛擬捲動 | 攤平成「一行一個元素」（`toJsonLines`，迴圈走訪不遞迴、循環參照顯示 `[Circular]`），行數超過 `virtualThreshold`（預設 100）以 `useVirtualRows` 只渲染可視範圍 |
+| 可近性 | 捲動框是 `<section>`，傳 `aria-label` 即成為 `region` 地標；箭頭是 `<button aria-expanded>` |
+| testid | 行：`json-viewer-item` ＋ `data-value`（節點路徑，如 `$["a"][0]`）；箭頭：`json-viewer-toggle` |
+
+**設計對標：[svelte-jsoneditor](https://github.com/josdejong/svelte-jsoneditor)**（React 以 `vanilla-jsoneditor` 使用，ISC 授權）。
+選它當基準的理由：維護中、tree／text／table 三種模式、支援大型文件（官方標示到 512 MB），也是 `JsonEditor` 功能範圍的參考。
+
+| 對標項目 | svelte-jsoneditor | 本專案 |
+| ---- | ---- | ---- |
+| 鍵名 | 不加引號，`--jse-key-color` | 相同，`--json-key-color` → `--color-fg` |
+| 字串／數字／布林／null | 綠／紅／橘／藍（`--jse-value-color-*`） | `--json-string-color` → `--color-success-text`、`--json-number-color` → `--color-danger-text`、`--json-boolean-color` → `--color-warning-text`、`--json-null-color` → `--color-brand` |
+| 標點 | `--jse-delimiter-color`（淡化） | `--json-delimiter-color` → `--color-fg-muted` |
+| 收合的容器 | 計數徽章（`--jse-tag-*`） | `--json-tag-background` / `--json-tag-color` |
+| 大型文件 | 不可變資料 ＋ 只重繪改變的部分 | 逐行虛擬捲動 |
+
+顏色一律以 `--json-*` 元件變數定義在 `JsonViewer.module.css` 的 `.root`，值只引用 alias token（深色主題自動跟著換）。
+
+**之後的 `JsonEditor`**（尚未實作）：同樣對標 svelte-jsoneditor，沿用 `toJsonLines` 的行模型與 `--json-*` 變數，
+在 viewer 之上加上編輯行內值與鍵名、新增／刪除／拖曳節點、text 模式（原始 JSON）、JSON Schema 驗證、復原／重做、搜尋。
+實作前先評估「包 `vanilla-jsoneditor`」與「自製」：前者功能齊全但樣式與鍵盤行為要另外對齊設計系統，
+後者可完全沿用本元件；決定後補一份 ADR。
+
 ---
 
 ## 4. Design Token
@@ -639,6 +671,11 @@ components/Table/
 `data-expanded`，兩者之間不畫分隔線。展開狀態由呼叫端管理（通常是操作欄的展開按鈕），
 內容也由呼叫端決定——例如稽核日誌在展開當下才向後端取明細
 （[`backend/06-audit-log.md`](../backend/06-audit-log.md) §7.3）。
+
+展開內容 **不影響欄寬**：自動版面下，跨欄儲存格的內容寬度會被分攤回它橫跨的欄位，內容一寬（長字串、JSON）
+展開／收合時整張表就會重新分配欄寬。所以展開儲存格裡包兩層：外層 `contain: inline-size`（對欄寬的貢獻為 0），
+內層（slot `expandedContent`）寬度等於外框的可視寬度（外框是 `container-type: inline-size`，內層 `width: 100cqi`）並 sticky 貼左緣——
+表格水平捲動時展開內容留在畫面上；過寬的內容在內容自己的捲動框裡處理（例如 `JsonViewer`）。
 
 固定（pinning）：固定欄位、釘選列、固定表頭都用 `position: sticky` 貼在外框（捲動容器）的邊上；
 sticky 儲存格有不透明底色（hover、選取狀態會同步），固定區與一般區交界畫分隔線。

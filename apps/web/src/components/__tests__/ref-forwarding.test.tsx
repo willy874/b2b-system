@@ -11,6 +11,7 @@ import { BoxEllipsis, ButtonEllipsis, TextEllipsis } from '../Ellipsis';
 import { Empty } from '../Empty';
 import { Field } from '../Field';
 import { Input, Textarea } from '../Input';
+import { JsonViewer } from '../JsonViewer';
 import { Link } from '../Link';
 import { Pagination } from '../Pagination';
 import { Progress } from '../Progress';
@@ -86,6 +87,7 @@ const cases: Array<[string, (ref: RefObject<HTMLElement | null>) => ReactElement
       />
     ),
   ],
+  ['JsonViewer', (ref) => <JsonViewer ref={ref} value={{}} />],
   [
     'Field',
     (ref) => (

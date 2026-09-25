@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { getAuditLogDetailQueryOptions } from '@/apis/audit-log/get-audit-log-detail/query';
+import { JsonViewer } from '@/components/JsonViewer';
+import type { JsonViewerLabels } from '@/components/JsonViewer';
 import { useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 
@@ -10,13 +12,24 @@ interface AuditLogDetailProps {
   id: string;
 }
 
+/** 單一區塊的最大高度；超過在框內捲動，展開列不會把整頁撐長。 */
+const JSON_MAX_HEIGHT = '16rem';
+
 /**
- * 展開列的明細：變更前後與 metadata 原樣以 JSON 顯示。
+ * 展開列的明細：變更前後與 metadata 以 `JsonViewer` 顯示（可收合、長內容在框內捲動、大量資料虛擬捲動）。
  * 這兩欄是稽核紀錄裡最大的部分，列表不帶，展開時才向 `GET /audit-logs/:id` 取。
  */
 export function AuditLogDetail({ id }: AuditLogDetailProps) {
   const { t } = useTranslation();
   const toMessage = useErrorMessage();
+  const jsonLabels: JsonViewerLabels = {
+    expand: t('auditLog.expand'),
+    collapse: t('auditLog.collapse'),
+    summary: (count, container) =>
+      container === 'array'
+        ? t('auditLog.detail.arraySummary', { count })
+        : t('auditLog.detail.objectSummary', { count }),
+  };
   const { data, error, isPending } = useQuery({
     ...getAuditLogDetailQueryOptions(id),
     select: toAuditLogDetailVM,
@@ -35,21 +48,29 @@ export function AuditLogDetail({ id }: AuditLogDetailProps) {
         <p className="m-0 text-sm text-[var(--color-fg-muted)]">{t('common.loading')}</p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          <div>
+          <div className="min-w-0">
             <p className="m-0 mb-1 text-xs text-[var(--color-fg-muted)]">
               {t('auditLog.detail.changes')}
             </p>
-            <pre className="m-0 overflow-x-auto rounded bg-[var(--color-bg)] p-2 font-mono text-xs">
-              {JSON.stringify(data.changes, null, 2)}
-            </pre>
+            <JsonViewer
+              value={data.changes}
+              maxHeight={JSON_MAX_HEIGHT}
+              labels={jsonLabels}
+              aria-label={t('auditLog.detail.changes')}
+              data-testid="audit-log-detail-changes"
+            />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="m-0 mb-1 text-xs text-[var(--color-fg-muted)]">
               {t('auditLog.detail.metadata')}
             </p>
-            <pre className="m-0 overflow-x-auto rounded bg-[var(--color-bg)] p-2 font-mono text-xs">
-              {JSON.stringify(data.metadata, null, 2)}
-            </pre>
+            <JsonViewer
+              value={data.metadata}
+              maxHeight={JSON_MAX_HEIGHT}
+              labels={jsonLabels}
+              aria-label={t('auditLog.detail.metadata')}
+              data-testid="audit-log-detail-metadata"
+            />
           </div>
         </div>
       )}

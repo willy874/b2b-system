@@ -31,7 +31,9 @@
     "detail": {
       "title": "紀錄詳情",
       "changes": "變更前後",
-      "metadata": "中繼資料"
+      "metadata": "中繼資料",
+      "arraySummary": "{{count}} 項",
+      "objectSummary": "{{count}} 個欄位"
     }
   }
 }

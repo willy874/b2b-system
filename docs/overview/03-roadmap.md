@@ -259,3 +259,4 @@ game-editor/
 6. 稽核日誌分區表
 7. 多執行個體部署（權限快取換 Redis）
 8. 服務帳號 / API Token
+9. `JsonEditor`：對標 svelte-jsoneditor，建在 `JsonViewer` 之上（[`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.12）

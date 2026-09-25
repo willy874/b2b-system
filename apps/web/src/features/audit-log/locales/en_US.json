@@ -31,7 +31,9 @@
     "detail": {
       "title": "Record detail",
       "changes": "Before / after",
-      "metadata": "Metadata"
+      "metadata": "Metadata",
+      "arraySummary": "{{count}} items",
+      "objectSummary": "{{count}} fields"
     }
   }
 }

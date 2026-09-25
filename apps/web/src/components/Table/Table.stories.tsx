@@ -5,6 +5,7 @@ import { fn } from 'storybook/test';
 
 import { IconButton } from '../Button';
 import { Icon } from '../Icon';
+import { JsonViewer } from '../JsonViewer';
 import { createSelectColumn } from './columns';
 import type { TableSorting } from './sorting';
 import { Table } from './Table';
@@ -167,7 +168,10 @@ const wideColumns: Array<ColumnDef<Row, unknown>> = [
   },
 ];
 
-/** 展開列：點操作欄的箭頭，在該列正下方顯示橫跨所有欄位的內容。 */
+/**
+ * 展開列：點操作欄的箭頭，在該列正下方顯示橫跨所有欄位的內容。
+ * 內容再寬也不影響欄寬（展開／收合時欄位不跳動），寬的部分在內容自己的框裡捲動。
+ */
 export const Expandable: Story = {
   render: () => <ExpandableDemo />,
 };
@@ -200,7 +204,18 @@ function ExpandableDemo() {
       columns={expandColumns}
       getRowId={(row) => row.id}
       expandedRowIds={expanded ? [expanded] : undefined}
-      renderExpandedRow={(row) => `${row.name}：庫存 ${row.qty}，單價 NT$ ${row.price}`}
+      renderExpandedRow={(row) => (
+        <JsonViewer
+          aria-label={row.name}
+          value={{
+            ...row,
+            description: `${row.name}的說明很長，展開後不會把欄位撐寬，而是在框內水平捲動。`.repeat(
+              3,
+            ),
+            history: Array.from({ length: 30 }, (_, index) => ({ index, qty: row.qty - index })),
+          }}
+        />
+      )}
     />
   );
 }
