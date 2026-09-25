@@ -175,16 +175,50 @@ export class PermissionService {
     }
   }
 
-  /** 指派角色前：該角色帶的權限必須全部是 actor 已持有的 */
+  /** 指派角色前：該角色帶的權限必須全部是 actor 已持有的；super-admin 另外特判（§4.1） */
   async assertRolesAssignable(actorId: string, roleIds: string[]): Promise<void> {
     if (roleIds.length === 0) return;
-    const { isSuperAdmin } = await this.getPermissionSet(actorId);
+    const { permissions, isSuperAdmin } = await this.getPermissionSet(actorId);
     if (isSuperAdmin) return;
+    if (await this.repo.includesSuperAdminRole(roleIds)) {
+      const allKeys = await this.repo.findAllPermissionKeys();
+      const missing = allKeys.filter((k) => !permissions.has(k));
+      throw new AppException(ErrorCode.AUTHZ_ESCALATION, { missing, role: SUPER_ADMIN_SLUG });
+    }
     const keys = await this.repo.findPermissionKeysByRoles(roleIds);
     await this.assertGrantable(actorId, keys);
   }
 }
 ```
+
+### 4.1 反提權與 super-admin 角色
+
+`super-admin` 是 **隱含全集**：它在 `role_permissions` 裡沒有任何列
+（[`rbac/05-seed-and-bootstrap.md`](../../rbac/05-seed-and-bootstrap.md) §4、
+[`rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §4）。
+只用 `findPermissionKeysByRoles()` 比對會查出空陣列、檢查直接通過——
+任何持有 `user:assignRole` 或 `user:create` 的人都能把 super-admin 指派給任何人（含自己的分身帳號）。
+
+所以 `assertRolesAssignable()` 先以 slug（`SUPER_ADMIN_SLUG`）判斷 `roleIds` 是否含 super-admin：
+
+| actor               | `roleIds` 含 super-admin | 結果                                      |
+| ------------------- | ------------------------ | ----------------------------------------- |
+| super-admin         | 是 / 否                  | 放行（super-admin 豁免反提權）            |
+| 非 super-admin      | 是                       | **一律** `403 AUTHZ_ESCALATION`           |
+| 非 super-admin      | 否                       | 照一般規則比對角色帶的權限鍵              |
+
+- 「一律」的意思是：即使 actor 已持有目錄中的每個權限鍵也要擋。super-admin 還會繞過
+  **未來新增** 的權限，以及 `LAST_SUPER_ADMIN` 等只針對 super-admin 的保護，不等於「目前的全集」。
+- `details` 維持既有形狀：`missing` 是全集中 actor 未持有的權限鍵（可能為空陣列），
+  另外加上 `role: 'super-admin'` 說明原因。
+
+  ```json
+  { "error": { "code": "AUTHZ_ESCALATION",
+               "details": { "missing": ["system:update", "…"], "role": "super-admin" } } }
+  ```
+
+- 走這個檢查的端點：`POST /users`（`roleIds`）、`PUT /users/:id/roles`，以及審批核准時帶入的 `roleIds`。
+  新增任何會指派角色的端點都必須呼叫 `assertRolesAssignable()`，不可自行只比對權限鍵。
 
 ---
 
@@ -382,6 +416,7 @@ it("權限目錄與 @RequirePermissions 使用的鍵完全一致", async () => {
 | 角色仍被使用時不可刪除（除非 `force`） | `RoleService`                             | `ROLE_IN_USE`                |
 | 反提權（授予權限）                     | `PermissionService.assertGrantable`       | `AUTHZ_ESCALATION`           |
 | 反提權（指派角色）                     | `PermissionService.assertRolesAssignable` | `AUTHZ_ESCALATION`           |
+| 只有 super-admin 能指派 super-admin（§4.1） | `PermissionService.assertRolesAssignable` | `AUTHZ_ESCALATION`      |
 | 不能修改自己的狀態 / 角色              | `UserService`                             | `AUTHZ_SELF_MODIFY`          |
 | 不能刪除自己                           | `UserService`                             | `AUTHZ_SELF_MODIFY`          |
 | 不能移除最後一個 super-admin           | `UserService` / `RoleService`             | `LAST_SUPER_ADMIN`           |

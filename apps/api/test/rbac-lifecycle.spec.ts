@@ -133,6 +133,68 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     });
   });
 
+  describe('指派 super-admin 角色（隱含全集，role_permissions 沒有列）', () => {
+    async function superAdminRoleId(): Promise<string> {
+      const [role] = await db.select().from(roles).where(eq(roles.slug, 'super-admin'));
+      return role!.id;
+    }
+
+    it('admin 以 PUT /users/:id/roles 指派 super-admin → AUTHZ_ESCALATION', async () => {
+      const token = await login(ADMIN);
+      const targetId = await createActiveUser('escalate-put@example.com', 'EscalatePut!2026');
+      const response = await request(http)
+        .put(`/users/${targetId}/roles`)
+        .set('authorization', `Bearer ${token}`)
+        .send({ roleIds: [await superAdminRoleId()] })
+        .expect(403);
+      expect(response.body).toMatchObject({
+        error: {
+          code: 'AUTHZ_ESCALATION',
+          details: { role: 'super-admin', missing: expect.arrayContaining(['system:update']) },
+        },
+      });
+    });
+
+    it('admin 以 POST /users 建立帶 super-admin 的使用者 → AUTHZ_ESCALATION', async () => {
+      const token = await login(ADMIN);
+      const response = await request(http)
+        .post('/users')
+        .set('authorization', `Bearer ${token}`)
+        .send({
+          email: 'escalate-post@example.com',
+          displayName: '提權測試',
+          roleIds: [await superAdminRoleId()],
+        })
+        .expect(403);
+      expect(response.body).toMatchObject({
+        error: { code: 'AUTHZ_ESCALATION', details: { role: 'super-admin' } },
+      });
+      const [created] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, 'escalate-post@example.com'));
+      expect(created).toBeUndefined();
+    });
+
+    it('super-admin 本人仍可指派 super-admin', async () => {
+      const token = await login(SUPER_ADMIN);
+      const targetId = await createActiveUser('promote@example.com', 'PromotePassword!2026');
+      await request(http)
+        .put(`/users/${targetId}/roles`)
+        .set('authorization', `Bearer ${token}`)
+        .send({ roleIds: [await superAdminRoleId()] })
+        .expect(200);
+
+      // 還原：後面的 LAST_SUPER_ADMIN 測試假設 root 是唯一的 super-admin
+      const [memberRole] = await db.select().from(roles).where(eq(roles.slug, 'member'));
+      await request(http)
+        .put(`/users/${targetId}/roles`)
+        .set('authorization', `Bearer ${token}`)
+        .send({ roleIds: [memberRole!.id] })
+        .expect(200);
+    });
+  });
+
   it('建立角色 → 指派給 member → member 立刻能讀使用者列表', async () => {
     const adminToken = await login(ADMIN);
     const created = await request(http)

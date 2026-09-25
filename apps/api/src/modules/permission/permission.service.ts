@@ -6,6 +6,7 @@ import { PermissionCacheService } from '@/core/cache';
 import { AppException } from '@/core/errors';
 import type { PermissionRow } from '@/db/schema';
 
+import { SUPER_ADMIN_SLUG } from './permission.constants';
 import { PermissionRepository } from './permission.repository';
 
 export interface PermissionCatalog {
@@ -51,11 +52,21 @@ export class PermissionService {
     }
   }
 
-  /** 指派角色前：該角色帶的權限必須全部是 actor 已持有的。 */
+  /**
+   * 指派角色前：該角色帶的權限必須全部是 actor 已持有的。
+   * super-admin 在 role_permissions 沒有列，只看權限鍵會查出空集合而放行，
+   * 所以用 slug 特判：只有 super-admin 能指派 super-admin（docs/architecture/backend/05-rbac.md §4.1）。
+   */
   async assertRolesAssignable(actorId: string, roleIds: readonly string[]): Promise<void> {
     if (roleIds.length === 0) return;
-    const { isSuperAdmin } = await this.getPermissionSet(actorId);
+    const { permissions, isSuperAdmin } = await this.getPermissionSet(actorId);
     if (isSuperAdmin) return;
+    if (await this.repo.includesSuperAdminRole(roleIds)) {
+      // 即使 actor 已持有目錄中每個權限鍵也要擋：super-admin 還會繞過未來新增的權限與業務保護
+      const allKeys = await this.repo.findAllPermissionKeys();
+      const missing = allKeys.filter((key) => !permissions.has(key));
+      throw new AppException('AUTHZ_ESCALATION', { missing, role: SUPER_ADMIN_SLUG });
+    }
     const keys = await this.repo.findPermissionKeysByRoles(roleIds);
     await this.assertGrantable(actorId, keys);
   }
