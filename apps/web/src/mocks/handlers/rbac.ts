@@ -56,7 +56,21 @@ export const rbacHandlers = [
     }),
   ),
 
+  // 列表只回摘要，`changes` / `metadata` 由明細端點提供（與後端一致）
   http.get(`${MOCK_API_BASE}/audit-logs`, () =>
-    HttpResponse.json({ data: paginate(AUDIT_LOG_FIXTURES) }),
+    HttpResponse.json({
+      data: paginate(
+        AUDIT_LOG_FIXTURES.map(({ changes: _c, metadata: _m, ...summary }) => summary),
+      ),
+    }),
   ),
+  http.get(`${MOCK_API_BASE}/audit-logs/:id`, ({ params }) => {
+    const log = AUDIT_LOG_FIXTURES.find((item) => item.id === params.id);
+    return log
+      ? HttpResponse.json({ data: log })
+      : HttpResponse.json(
+          { error: { code: 'VALIDATION_FAILED', message: 'not found' } },
+          { status: 400 },
+        );
+  }),
 ];

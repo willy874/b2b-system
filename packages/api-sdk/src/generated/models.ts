@@ -1,6 +1,19 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
 // 來源：Game Editor API 0.0.0（OpenAPI 3.0.0）
 
+export interface AuditLogSummary {
+  id: string;
+  occurredAt: string;
+  actorId: string | null;
+  actorEmail: string;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  resourceName: string | null;
+  result: 'success' | 'failure';
+  errorCode: string | null;
+}
+
 export interface AuditLog {
   id: string;
   occurredAt: string;

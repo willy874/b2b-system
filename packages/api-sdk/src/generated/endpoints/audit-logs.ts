@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 
-import type { AuditLog } from '../models';
+import type { AuditLog, AuditLogSummary } from '../models';
 import { buildUrl, request } from '../runtime';
 import type {
   ApiResponse,
@@ -11,14 +11,14 @@ import type {
   OperationSchemas,
   RequestOptions,
 } from '../runtime';
-import { AuditLogSchema } from '../schemas';
+import { AuditLogSchema, AuditLogSummarySchema } from '../schemas';
 
 // GET /audit-logs
 
 export interface AuditLogControllerListResponses {
   200: {
     data: {
-      items: Array<AuditLog>;
+      items: Array<AuditLogSummary>;
       pagination: {
         offset: number;
         limit: number;
@@ -36,7 +36,7 @@ export const AuditLogControllerListSchemas = {
   responses: {
     200: z.object({
       data: z.object({
-        items: z.array(AuditLogSchema),
+        items: z.array(AuditLogSummarySchema),
         pagination: z.object({
           offset: z.int(),
           limit: z.int(),
@@ -59,7 +59,7 @@ const auditLogControllerListOperation: OperationDefinition = {
   schemas: AuditLogControllerListSchemas,
 };
 
-/** 稽核日誌列表（固定 occurred_at DESC） */
+/** 稽核日誌列表（固定 occurred_at DESC；時間範圍預設且最多 90 天；不含 changes / metadata） */
 export function auditLogControllerList(
   options?: RequestOptions,
 ): Promise<AuditLogControllerListResult> {

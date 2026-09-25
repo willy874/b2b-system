@@ -1,6 +1,10 @@
+import dayjs from 'dayjs';
+
+import { formatDate } from '@/components/DatePicker';
 import type { DateRangeFilterValue, FilterBarProps } from '@/core/components';
 import { useTranslation } from '@/core/locales';
 
+import { AUDIT_LOG_MAX_RANGE_DAYS } from '../../constants';
 import type { AuditLogSearchQuery } from '../../routes';
 import type { useAuditLogSearchFilter } from './useAuditLogSearchFilter';
 
@@ -63,7 +67,13 @@ export function useAuditLogFilters({
           { value: 'failure', label: t('auditLog.result.failure') },
         ],
       },
-      { type: 'dateRange', key: 'range', label: t('auditLog.filter.range') },
+      {
+        type: 'dateRange',
+        key: 'range',
+        label: t('auditLog.filter.range'),
+        max: formatDate(dayjs()),
+        maxSpanDays: AUDIT_LOG_MAX_RANGE_DAYS,
+      },
     ],
   };
 }

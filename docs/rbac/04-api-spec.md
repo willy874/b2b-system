@@ -313,7 +313,7 @@
 
 | Method | Path              | 授權              | 說明                          |
 | ------ | ----------------- | ----------------- | ----------------------------- |
-| GET    | `/audit-logs`     | 🛡 `auditLog:read` | 列表                          |
+| GET    | `/audit-logs`     | 🛡 `auditLog:read` | 列表（摘要，不含 `changes` / `metadata`） |
 | GET    | `/audit-logs/:id` | 🛡 `auditLog:read` | 單筆詳情（含 `changes` 差異） |
 
 **Query**
@@ -322,13 +322,15 @@
 | ------------------ | --------------------------------------- |
 | `offset` / `limit` | 分頁（`limit` 上限 100）                |
 | `actorId`          | 操作者                                  |
-| `action`           | 例 `role.update`，支援前綴比對 `role.*` |
+| `action`           | 例 `role.update`，支援前綴比對 `role.*`（`%` / `_` 視為一般字元） |
 | `resourceType`     | `user` / `role` / `auth` / `permission` |
 | `resourceId`       |                                         |
 | `result`           | `success` / `failure`                   |
-| `from` / `to`      | ISO 8601 時間範圍                       |
+| `from` / `to`      | ISO 8601 時間範圍；跨度最多 90 天（超過回 `400 VALIDATION_FAILED`）。都沒帶時為「現在往前 90 天」，只帶一端時往另一端推 90 天 |
 
-排序固定為 `occurred_at DESC`（append-only 表，不提供其他排序以確保索引命中）。
+排序固定為 `occurred_at DESC, id DESC`（append-only 表，不提供其他排序以確保索引命中）。
+範圍早於 90 天時會連冷表一起查，對呼叫端透明。規則見
+[`architecture/backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) §7。
 
 ---
 

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AuditLog } from '@/shared/api-sdk';
+import type { AuditLogSummary } from '@/shared/api-sdk';
 
-import { toAuditLogRowVM } from '../adapter';
+import { toAuditLogDetailVM, toAuditLogRowVM } from '../adapter';
 
-const log: AuditLog = {
+const log: AuditLogSummary = {
   id: 'log-1',
   occurredAt: '2026-09-19T02:10:00.000Z',
   actorId: 'user-1',
@@ -15,8 +15,6 @@ const log: AuditLog = {
   resourceName: '內容編輯',
   result: 'success',
   errorCode: null,
-  changes: null,
-  metadata: null,
 };
 
 describe('toAuditLogRowVM', () => {
@@ -43,8 +41,13 @@ describe('toAuditLogRowVM', () => {
     const vm = toAuditLogRowVM({ ...log, result: 'failure', errorCode: 'AUTHZ_FORBIDDEN' });
     expect(vm).toMatchObject({ isSuccess: false, errorCode: 'AUTHZ_FORBIDDEN' });
   });
+});
 
+describe('toAuditLogDetailVM', () => {
   it('changes / metadata 為 null 時正規化成空物件', () => {
-    expect(toAuditLogRowVM(log)).toMatchObject({ changes: {}, metadata: {} });
+    expect(toAuditLogDetailVM({ ...log, changes: null, metadata: null })).toEqual({
+      changes: {},
+      metadata: {},
+    });
   });
 });

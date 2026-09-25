@@ -1,7 +1,7 @@
 {
   "auditLog": {
     "title": "Audit log",
-    "description": "Every write operation and authorization decision. Append-only: never edited or deleted.",
+    "description": "Every write operation and authorization decision. Append-only: never edited or deleted. Shows the last {{days}} days by default; a single query spans at most {{days}} days.",
     "expand": "Expand",
     "collapse": "Collapse",
     "highRisk": "High risk",

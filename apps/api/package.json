@@ -17,7 +17,8 @@
     "db:studio": "drizzle-kit studio",
     "db:seed:dev": "tsx src/db/seeds/dev.ts",
     "db:reset": "tsx src/db/reset.ts",
-    "db:seed:e2e": "tsx src/db/seeds/e2e.ts"
+    "db:seed:e2e": "tsx src/db/seeds/e2e.ts",
+    "db:archive-audit-logs": "tsx src/db/archive-audit-logs.ts"
   },
   "dependencies": {
     "@game-editor/realtime": "workspace:*",

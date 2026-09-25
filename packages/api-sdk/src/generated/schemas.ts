@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import type {
   AuditLog,
+  AuditLogSummary,
   ChangePasswordRequest,
   CreateRoleRequest,
   CreateUserRequest,
@@ -32,6 +33,19 @@ import type {
   UserRoles,
   UserStatus,
 } from './models';
+
+export const AuditLogSummarySchema = z.object({
+  id: z.string(),
+  occurredAt: z.string(),
+  actorId: z.string().nullable(),
+  actorEmail: z.string(),
+  action: z.string(),
+  resourceType: z.string(),
+  resourceId: z.string().nullable(),
+  resourceName: z.string().nullable(),
+  result: z.enum(['success', 'failure']),
+  errorCode: z.string().nullable(),
+}) satisfies z.ZodType<AuditLogSummary>;
 
 export const AuditLogSchema = z.object({
   id: z.string(),

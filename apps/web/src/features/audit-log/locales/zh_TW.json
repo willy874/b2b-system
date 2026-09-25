@@ -1,7 +1,7 @@
 {
   "auditLog": {
     "title": "稽核日誌",
-    "description": "所有寫入操作與授權決策的紀錄。此表為 append-only，不可修改或刪除。",
+    "description": "所有寫入操作與授權決策的紀錄。此表為 append-only，不可修改或刪除。未選日期時顯示最近 {{days}} 天，單次查詢最多 {{days}} 天。",
     "expand": "展開",
     "collapse": "收合",
     "highRisk": "高風險",

@@ -245,40 +245,66 @@ export const authTokens = pgTable(
 );
 ```
 
-### 2.8 `audit_logs`
+### 2.8 `audit_logs` / `audit_logs_archive`（熱表／冷表）
+
+稽核分成兩張欄位完全相同的表，分層理由與搬移流程見
+[`06-audit-log.md`](./06-audit-log.md) §8。
 
 ```ts
 export const auditResult = pgEnum("audit_result", ["success", "failure"]);
 
+// 兩張表共用；欄位順序必須一致（archive_audit_logs() 與 UNION ALL 依賴它）
+const auditLogColumns = () => ({
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+
+  // 操作者快照（刻意反正規化：使用者刪除後紀錄仍可讀，查詢不需 join）
+  actorId: uuid("actor_id"),
+  actorEmail: text("actor_email").notNull(), // 系統操作填 'system'
+
+  action: text("action").notNull(), // 'role.update'
+  resourceType: text("resource_type").notNull(), // 'role'
+  resourceId: text("resource_id"),
+  resourceName: text("resource_name"), // 快照
+
+  result: auditResult("result").notNull(),
+  errorCode: text("error_code"),
+
+  changes: jsonb("changes"), // { before: {...}, after: {...} }
+  metadata: jsonb("metadata"), // { ip, userAgent, requestId, ... }
+});
+
+// 熱表：最近 90 天，所有寫入都進這裡
 export const auditLogs = pgTable(
   "audit_logs",
-  {
-    id: bigserial("id", { mode: "bigint" }).primaryKey(),
-    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
-
-    // 操作者快照（刻意反正規化：使用者刪除後紀錄仍可讀，查詢不需 join）
-    actorId: uuid("actor_id"),
-    actorEmail: text("actor_email").notNull(), // 系統操作填 'system'
-
-    action: text("action").notNull(), // 'role.update'
-    resourceType: text("resource_type").notNull(), // 'role'
-    resourceId: text("resource_id"),
-    resourceName: text("resource_name"), // 快照
-
-    result: auditResult("result").notNull(),
-    errorCode: text("error_code"),
-
-    changes: jsonb("changes"), // { before: {...}, after: {...} }
-    metadata: jsonb("metadata"), // { ip, userAgent, requestId, ... }
-  },
+  { id: bigserial("id", { mode: "bigint" }).primaryKey(), ...auditLogColumns() },
   (t) => [
-    index("audit_logs_occurred_idx").on(t.occurredAt.desc()),
-    index("audit_logs_actor_idx").on(t.actorId, t.occurredAt.desc()),
-    index("audit_logs_resource_idx").on(t.resourceType, t.resourceId, t.occurredAt.desc()),
-    index("audit_logs_action_idx").on(t.action, t.occurredAt.desc()),
+    index("audit_logs_occurred_idx").on(t.occurredAt.desc().nullsFirst(), t.id.desc().nullsFirst()),
+    index("audit_logs_actor_idx").on(t.actorId, t.occurredAt.desc().nullsFirst()),
+    index("audit_logs_resource_idx").on(t.resourceType, t.resourceId, t.occurredAt.desc().nullsFirst()),
+    index("audit_logs_action_idx").on(t.action.op("text_pattern_ops"), t.occurredAt.desc().nullsFirst()),
+  ],
+);
+
+// 冷表：id 沿用熱表的值（不是 serial）；少一個 action 索引
+export const auditLogsArchive = pgTable(
+  "audit_logs_archive",
+  { id: bigint("id", { mode: "bigint" }).primaryKey(), ...auditLogColumns() },
+  (t) => [
+    index("audit_logs_archive_occurred_idx").on(t.occurredAt.desc().nullsFirst(), t.id.desc().nullsFirst()),
+    index("audit_logs_archive_actor_idx").on(t.actorId, t.occurredAt.desc().nullsFirst()),
+    index("audit_logs_archive_resource_idx").on(t.resourceType, t.resourceId, t.occurredAt.desc().nullsFirst()),
   ],
 );
 ```
+
+索引細節：
+
+| 決定 | 理由 |
+| --- | --- |
+| `DESC NULLS FIRST` | 與查詢的 `ORDER BY … DESC`（Postgres 預設 `NULLS FIRST`）完全一致，順向掃描即可，不多一次排序 |
+| `occurred_idx` 帶 `id` | 列表排序是 `occurred_at DESC, id DESC`，同一時間點的紀錄也由索引決定先後 |
+| `action` 用 `text_pattern_ops` | 預設 collation 下 `LIKE 'role.%'` 無法走 btree；pattern ops 同時支援等值與前綴 |
+| 冷表 `changes` / `metadata` 用 `lz4` 壓縮 | 冷資料讀得少、存得久；lz4 的壓縮與解壓都比預設 pglz 快 |
 
 **沒有外鍵指向 `users`**：使用者被硬刪除時稽核紀錄必須留著。`actor_id` 只是
 一個值，不是關聯。
@@ -324,20 +350,33 @@ BEGIN
   RAISE EXCEPTION 'AUDIT_LOG_IMMUTABLE: audit_logs is append-only';
 END; $$ LANGUAGE plpgsql;
 
+-- 熱表：不可改；只有「冷表已有一模一樣副本」的列可以刪（搬移用）
 CREATE TRIGGER audit_logs_no_update BEFORE UPDATE ON audit_logs
   FOR EACH ROW EXECUTE FUNCTION audit_logs_append_only();
 CREATE TRIGGER audit_logs_no_delete BEFORE DELETE ON audit_logs
+  FOR EACH ROW EXECUTE FUNCTION audit_logs_guard_delete();
+
+-- 冷表：不可改、不可刪
+CREATE TRIGGER audit_logs_archive_no_update BEFORE UPDATE ON audit_logs_archive
+  FOR EACH ROW EXECUTE FUNCTION audit_logs_append_only();
+CREATE TRIGGER audit_logs_archive_no_delete BEFORE DELETE ON audit_logs_archive
   FOR EACH ROW EXECUTE FUNCTION audit_logs_append_only();
 ```
 
-另外，應用程式使用的 DB role 只授予 `INSERT, SELECT`：
+`audit_logs_guard_delete()` 比對冷表同 `id` 那一列的 **所有欄位**
+（`IS NOT DISTINCT FROM`），不一致就 `RAISE`。所以「先在冷表塞一筆假副本，再刪熱表」
+這種竄改也會被擋下——任何從熱表消失的紀錄，冷表都有原封不動的一份。
+完整 SQL 見 `db/migrations/0003_audit_logs_archive_functions.sql`。
+
+另外，應用程式使用的 DB role 只授予 `INSERT, SELECT`（冷表只有 `SELECT`）：
 
 ```sql
 REVOKE UPDATE, DELETE ON audit_logs FROM game_editor_app;
+REVOKE INSERT, UPDATE, DELETE ON audit_logs_archive FROM game_editor_app;
 ```
 
-> **保留期限的清理** 由另一個具備 `DELETE` 權限的維運 role 執行（或改用分區
-> 表 `DROP PARTITION`，那是更好的作法，見 §7）。
+> **熱 → 冷搬移** 與 **冷表的保留期清理** 都由另一個具備 `DELETE` 權限的維運
+> role 執行（見 §7 與 [`06-audit-log.md`](./06-audit-log.md) §8）。
 
 ### 3.3 `updated_at` 自動更新
 
@@ -493,16 +532,30 @@ export const db = drizzle(client, { schema, logger: env.NODE_ENV === "developmen
 
 ## 7. 稽核日誌的成長
 
-Phase 0 用單一表。當 `audit_logs` 超過約 1000 萬列時改成按月分區：
+稽核分成熱表 `audit_logs`（最近 90 天）與冷表 `audit_logs_archive`（更早），
+每天由 `pnpm db:archive-audit-logs` 呼叫 `archive_audit_logs(cutoff, batch_size)` 搬移：
 
 ```sql
-CREATE TABLE audit_logs (...) PARTITION BY RANGE (occurred_at);
-CREATE TABLE audit_logs_2026_09 PARTITION OF audit_logs
+-- 一次搬一批最舊的；呼叫端重複呼叫到回傳值 < batch_size 為止
+SELECT archive_audit_logs(now() - interval '90 days', 5000);
+```
+
+函式內依序做「鎖定一批 id（`FOR UPDATE SKIP LOCKED`）→ 複製進冷表 → 從熱表刪除」，
+每次呼叫是一個短交易。刪除會經過 §3.2 的 guard trigger，確認冷表已有完整副本。
+
+分層的好處：
+
+- 熱表只有 90 天的量，四個索引都小到能常駐記憶體；寫入與預設查詢只碰熱表。
+- 冷表的量隨保留期成長，但只在查詢範圍早於 90 天時才被讀到（見 `06-audit-log.md` §7.2）。
+
+冷表超過約 1000 萬列時，再把冷表改成按月分區：
+
+```sql
+CREATE TABLE audit_logs_archive (...) PARTITION BY RANGE (occurred_at);
+CREATE TABLE audit_logs_archive_2026_09 PARTITION OF audit_logs_archive
   FOR VALUES FROM ('2026-09-01') TO ('2026-10-01');
 ```
 
-好處：保留期清理變成 `DROP TABLE audit_logs_2025_09`（瞬間完成、不產生
-bloat），而不是一個會鎖表數分鐘的大 `DELETE`。
-
-**Phase 0 先不做**，但索引設計（全部以 `occurred_at` 開頭或結尾）已經是
-分區友善的，改造時不需要改查詢。
+屆時保留期清理變成 `DROP TABLE audit_logs_archive_2025_09`（瞬間完成、不產生
+bloat），而不是一個會鎖表數分鐘的大 `DELETE`。索引全部以 `occurred_at` 結尾，
+改造時不需要改查詢。

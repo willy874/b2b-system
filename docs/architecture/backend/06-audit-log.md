@@ -200,11 +200,12 @@ const AUDIT_EXCLUDED_FIELDS = new Set(["passwordHash", "tokenHash", "tokenVersio
 
 三道防線（實作見 [`02-database.md`](./02-database.md) §3.2）：
 
-1. **DB trigger**：`BEFORE UPDATE OR DELETE ON audit_logs` → `RAISE EXCEPTION`
-2. **DB 權限**：應用程式的 DB role 只有 `INSERT, SELECT`
+1. **DB trigger**：熱表與冷表都擋 `UPDATE`；冷表擋 `DELETE`；熱表只允許刪除
+   「冷表已有完全相同副本」的列（熱 → 冷搬移用，見 §8）
+2. **DB 權限**：應用程式的 DB role 對熱表只有 `INSERT, SELECT`、對冷表只有 `SELECT`
 3. **沒有 API**：不存在 `PATCH /audit-logs/:id` 或 `DELETE /audit-logs/:id`
 
-保留期滿的清理由一個獨立的維運 role 執行（或改用分區表 `DROP PARTITION`）。
+熱 → 冷搬移與保留期滿的清理由一個獨立的維運 role 執行。
 
 ---
 
@@ -220,38 +221,89 @@ GET /audit-logs?offset=0&limit=50
   &from=2026-09-01T00:00:00Z&to=2026-09-30T23:59:59Z
 ```
 
-排序固定 `occurred_at DESC`，不提供其他排序——所有索引都以
+排序固定 `occurred_at DESC, id DESC`，不提供其他排序——所有索引都以
 `occurred_at DESC` 結尾，換排序就是全表掃描。
+
+**列表只回摘要**（不含 `changes` / `metadata`）。這兩個 jsonb 是一筆紀錄裡最大的部分，
+列表不讀它們就省下 detoast 與傳輸；展開明細時才打 `GET /audit-logs/:id` 取完整紀錄。
 
 ### 7.1 `action` 的前綴比對
 
 ```ts
 const actionFilter = query.action?.endsWith("*")
-  ? like(auditLogs.action, `${query.action.slice(0, -1)}%`)
+  ? like(auditLogs.action, `${escapeLike(query.action.slice(0, -1))}%`)
   : eq(auditLogs.action, query.action);
 ```
 
 `role.*` 會命中 `role.create` / `role.update` / `role.grantPermission`…
 這是稽核人員最常用的查詢方式（「給我所有跟角色有關的變更」）。
+使用者輸入的 `%` / `_` 會被跳脫，不會變成萬用字元；熱表的 `action` 索引用
+`text_pattern_ops`，前綴比對也能走索引（[`02-database.md`](./02-database.md) §2.8）。
 
-### 7.2 前端呈現
+### 7.2 時間範圍上限
+
+常數在 `modules/audit-log/audit-log.constants.ts`：
+
+| 常數 | 值 | 用途 |
+| --- | --- | --- |
+| `AUDIT_LOG_MAX_RANGE_DAYS` | 90 | 單次查詢的時間跨度上限；也是沒帶範圍時的預設跨度 |
+| `AUDIT_LOG_HOT_RETENTION_DAYS` | 90 | 熱表保留天數；**必須 ≥ 上一列**，預設查詢才只落在熱表（有單元測試守住） |
+| `AUDIT_LOG_ARCHIVE_BATCH_SIZE` | 5000 | 熱 → 冷每批搬移筆數 |
+
+`resolveAuditLogRange()` 補齊範圍：
+
+| 帶了什麼 | 實際範圍 |
+| --- | --- |
+| 都沒帶 | `[now − 90 天, now]` |
+| 只帶 `to` | `[to − 90 天, to]` |
+| 只帶 `from` | `[from, min(from + 90 天, now)]` |
+| 都帶 | 原樣；`from > to` 或跨度超過 90 天 → `400 VALIDATION_FAILED`（`fields.from`） |
+
+範圍一定存在，所以 `count(*)` 與排序的成本有上界，不會隨資料累積無限成長。
+
+**查哪張表**：搬移的 cutoff 只會早於 `now − 保留天數`，所以 `from ≥ now − 90 天`
+時資料一定全在熱表，只查熱表；否則熱表與冷表 `UNION ALL`（Postgres 以兩邊的
+`(occurred_at, id)` 索引 Merge Append，讀到 `offset + limit` 筆就停），總數是兩邊
+`count(*)` 相加。單筆詳情用 `(熱表 WHERE id) UNION ALL (冷表 WHERE id) LIMIT 1`：
+一次來回，熱表命中時冷表的掃描不會執行。
+
+### 7.3 前端呈現
 
 - 列表：時間、操作者、動作（已本地化）、資源、結果
-- 展開單列：`changes` 以 before/after 並排差異顯示；`metadata` 以鍵值表顯示
+- 展開單列：明細顯示在該列正下方（`Table` 的展開列），此時才向 `GET /audit-logs/:id` 取明細（`staleTime: Infinity`，紀錄不可變，取一次即可）；
+  `changes` 以 before/after 並排差異顯示；`metadata` 以鍵值表顯示
+- 日期篩選用 `DateRangePicker` 的 `maxSpanDays`（前端 `AUDIT_LOG_MAX_RANGE_DAYS`，與後端同值），
+  選了起日後超過 90 天的日期不可選；未選日期時由後端補成最近 90 天
 - 失敗的列以 danger 色標示，並顯示 `errorCode` 對應的訊息
 - `auth.refresh.reuse_detected` 特別標記為高風險（不同的圖示與顏色）
 
 ---
 
-## 8. 保留與容量
+## 8. 冷熱分層、保留與容量
+
+| 層 | 表 | 內容 | 索引 | 誰會讀 |
+| --- | --- | --- | --- | --- |
+| 熱 | `audit_logs` | 最近 90 天；所有寫入都進這裡 | 時間、操作者、資源、動作（pattern ops） | 預設查詢、所有寫入 |
+| 冷 | `audit_logs_archive` | 90 天以前；`id` 沿用熱表 | 時間、操作者、資源；jsonb 用 lz4 壓縮 | 查詢範圍早於 90 天時 |
+
+搬移：
+
+```bash
+pnpm db:archive-audit-logs   # 每天由排程執行一次；用維運 role 的 DATABASE_URL
+```
+
+腳本以 `cutoff = now − AUDIT_LOG_HOT_RETENTION_DAYS` 重複呼叫
+`archive_audit_logs(cutoff, AUDIT_LOG_ARCHIVE_BATCH_SIZE)`，直到某批不滿為止。每批是一個
+短交易（鎖定 → 複製 → 刪除），兩個排程重疊時 `SKIP LOCKED` 讓它們不互搶。
+搬移中斷也安全：沒搬完的列還在熱表，查詢規則（§7.2）本來就會把它們算進去。
 
 | 項目         | 決定                                                                       |
 | ------------ | -------------------------------------------------------------------------- |
-| 保留期       | ≥ 365 天                                                                   |
-| Phase 0 儲存 | 單一表                                                                     |
-| 分區時機     | 超過約 1000 萬列                                                           |
-| 清理方式     | 分區化之後用 `DROP TABLE <partition>`；在那之前用維運 role 批次 `DELETE`   |
-| 估算         | 100 位活躍管理員 × 每天 50 次寫入操作 ≈ 180 萬筆/年 → Phase 0 單表綽綽有餘 |
+| 保留期       | ≥ 365 天（熱表 90 天 ＋ 冷表其餘）                                          |
+| 熱表大小     | 固定約 90 天的量，不隨保留期成長                                             |
+| 冷表分區時機 | 超過約 1000 萬列時按月分區（[`02-database.md`](./02-database.md) §7）       |
+| 清理方式     | 冷表分區化之後用 `DROP TABLE <partition>`；在那之前由維運 role 處理          |
+| 估算         | 100 位活躍管理員 × 每天 50 次寫入操作 ≈ 180 萬筆/年 → 熱表約 45 萬筆          |
 
 ---
 
@@ -270,3 +322,7 @@ const actionFilter = query.action?.endsWith("*")
 - [ ] 應用程式的 DB role 沒有 `audit_logs` 的 `UPDATE` / `DELETE` 權限
 - [ ] 不存在修改或刪除稽核的 API
 - [ ] `requestId` 出現在每一筆 `metadata` 中，可與應用日誌對照
+- [ ] 列表查詢一定帶時間範圍，跨度不超過 `AUDIT_LOG_MAX_RANGE_DAYS`
+- [ ] 列表不回 `changes` / `metadata`；明細在展開時才取
+- [ ] 範圍在熱表保留期內時不碰冷表
+- [ ] 熱表的列只有在冷表有完全相同副本時才能被刪除

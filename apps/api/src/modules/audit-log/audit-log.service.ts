@@ -4,10 +4,12 @@ import { AppException } from '@/core/errors';
 import { paginated } from '@/core/http';
 import type { AuditLogRow } from '@/db/schema';
 
+import { resolveAuditLogRange } from './audit-log.constants';
 import { AuditLogRepository } from './audit-log.repository';
-import type { AuditLogDto, ListAuditLogDto } from './dto/list-audit-log.dto';
+import type { AuditLogSummaryRow } from './audit-log.repository';
+import type { AuditLogDto, AuditLogSummaryDto, ListAuditLogDto } from './dto/list-audit-log.dto';
 
-function toDto(row: AuditLogRow): AuditLogDto {
+function toSummaryDto(row: AuditLogSummaryRow): AuditLogSummaryDto {
   return {
     id: row.id.toString(),
     occurredAt: row.occurredAt.toISOString(),
@@ -19,6 +21,12 @@ function toDto(row: AuditLogRow): AuditLogDto {
     resourceName: row.resourceName,
     result: row.result,
     errorCode: row.errorCode,
+  };
+}
+
+function toDto(row: AuditLogRow): AuditLogDto {
+  return {
+    ...toSummaryDto(row),
     changes: (row.changes ?? null) as Record<string, unknown> | null,
     metadata: (row.metadata ?? null) as Record<string, unknown> | null,
   };
@@ -29,8 +37,9 @@ export class AuditLogService {
   constructor(private readonly repo: AuditLogRepository) {}
 
   async list(query: ListAuditLogDto) {
-    const { items, total } = await this.repo.list(query);
-    return paginated(items.map(toDto), total, query);
+    const range = resolveAuditLogRange(query, new Date());
+    const { items, total } = await this.repo.list(query, range);
+    return paginated(items.map(toSummaryDto), total, query);
   }
 
   async findOne(id: string): Promise<AuditLogDto> {

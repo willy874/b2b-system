@@ -66,6 +66,7 @@ pnpm lint / pnpm format / pnpm format:check
 pnpm test           # 單元 + 整合（後端整合測試會用 Testcontainers 起一個 postgres）
 pnpm test:e2e       # Playwright（需要 api 與 web 已啟動）
 pnpm db:migrate / db:seed / db:seed:dev / db:seed:e2e / db:reset
+pnpm db:archive-audit-logs   # 稽核熱表 → 冷表搬移（排程每天跑；需維運 role）
 pnpm openapi:generate && pnpm sdk:generate   # 改動 controller / DTO 之後必跑
 pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法見 docs/architecture/frontend/07-ui-system.md §9
 ```

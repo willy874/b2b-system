@@ -6,7 +6,11 @@ import { PERMISSION } from '@/common/types';
 import { ApiZodListResponse, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
 
 import { AuditLogService } from './audit-log.service';
-import { AuditLogSchema, ListAuditLogSchema } from './dto/list-audit-log.dto';
+import {
+  AuditLogSchema,
+  AuditLogSummarySchema,
+  ListAuditLogSchema,
+} from './dto/list-audit-log.dto';
 import type { ListAuditLogDto } from './dto/list-audit-log.dto';
 
 @ApiTags('audit-logs')
@@ -16,8 +20,11 @@ export class AuditLogController {
 
   @Get()
   @RequirePermissions(PERMISSION.AUDIT_LOG_READ)
-  @ApiOperation({ summary: '稽核日誌列表（固定 occurred_at DESC）' })
-  @ApiZodListResponse(200, AuditLogSchema)
+  @ApiOperation({
+    summary:
+      '稽核日誌列表（固定 occurred_at DESC；時間範圍預設且最多 90 天；不含 changes / metadata）',
+  })
+  @ApiZodListResponse(200, AuditLogSummarySchema)
   list(@Query(new ZodValidationPipe(ListAuditLogSchema)) query: ListAuditLogDto) {
     return this.auditLogService.list(query);
   }

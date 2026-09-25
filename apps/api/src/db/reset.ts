@@ -10,7 +10,7 @@ async function main(): Promise<void> {
   }
   const { client, db } = createScriptClient();
   await db.execute(
-    sql`TRUNCATE users, roles, permissions, user_roles, role_permissions, refresh_tokens, auth_tokens, audit_logs RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE users, roles, permissions, user_roles, role_permissions, refresh_tokens, auth_tokens, audit_logs, audit_logs_archive RESTART IDENTITY CASCADE`,
   );
   console.info('資料庫已清空（schema 保留）');
   await client.end();

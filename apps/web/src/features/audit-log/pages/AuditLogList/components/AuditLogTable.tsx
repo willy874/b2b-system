@@ -13,6 +13,10 @@ import { formatDateTime } from '@/shared/date';
 import { AUDIT_LOG_LIST_TABLE_ID } from '../../../preference';
 import type { AuditLogRowVM } from '../adapter';
 import type { AuditLogFilterValues } from '../useAuditLogFilters';
+import { AuditLogDetail } from './AuditLogDetail';
+
+/** 展開列的內容：明細在展開當下才向後端取（`AuditLogDetail`）。 */
+const renderDetail = (row: AuditLogRowVM) => <AuditLogDetail id={row.id} />;
 
 /** 欄位順序與顯示存在這台裝置（`core/store/tableColumnSettings`）；可設定的欄位登記在 `preference.ts`。 */
 const AUDIT_LOG_TABLE_SETTINGS: TableSettingsConfig = { tableId: AUDIT_LOG_LIST_TABLE_ID };
@@ -20,7 +24,7 @@ const AUDIT_LOG_TABLE_SETTINGS: TableSettingsConfig = { tableId: AUDIT_LOG_LIST_
 interface AuditLogTableProps {
   items: AuditLogRowVM[];
   loading: boolean;
-  /** 目前展開明細的那一列 */
+  /** 目前展開明細的那一列；明細顯示在該列正下方 */
   expandedId: string | undefined;
   onToggleExpand: (id: string) => void;
   filters: FilterBarProps<AuditLogFilterValues>;
@@ -114,6 +118,8 @@ export function AuditLogTable({
       filters={filters}
       settings={AUDIT_LOG_TABLE_SETTINGS}
       pagination={pagination}
+      expandedRowIds={expandedId ? [expandedId] : undefined}
+      renderExpandedRow={renderDetail}
       data-testid="audit-log-table"
     />
   );

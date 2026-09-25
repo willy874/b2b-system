@@ -19,6 +19,7 @@
     "db:seed:dev": "pnpm --filter @game-editor/api db:seed:dev",
     "db:seed:e2e": "pnpm --filter @game-editor/api db:seed:e2e",
     "db:reset": "pnpm --filter @game-editor/api db:reset",
+    "db:archive-audit-logs": "pnpm --filter @game-editor/api db:archive-audit-logs",
     "db:studio": "pnpm --filter @game-editor/api db:studio",
     "sdk:generate": "pnpm --filter @game-editor/api-sdk generate",
     "lint": "oxlint .",

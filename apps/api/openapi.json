@@ -47,7 +47,7 @@
                         "items": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/AuditLog"
+                            "$ref": "#/components/schemas/AuditLogSummary"
                           }
                         },
                         "pagination": {
@@ -73,7 +73,7 @@
             }
           }
         },
-        "summary": "稽核日誌列表（固定 occurred_at DESC）",
+        "summary": "稽核日誌列表（固定 occurred_at DESC；時間範圍預設且最多 90 天；不含 changes / metadata）",
         "tags": ["audit-logs"]
       }
     },
@@ -1093,6 +1093,59 @@
       }
     },
     "schemas": {
+      "AuditLogSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string"
+          },
+          "actorId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "actorEmail": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "resourceId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "resourceName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": ["success", "failure"]
+          },
+          "errorCode": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "occurredAt",
+          "actorId",
+          "actorEmail",
+          "action",
+          "resourceType",
+          "resourceId",
+          "resourceName",
+          "result",
+          "errorCode"
+        ],
+        "additionalProperties": false
+      },
       "AuditLog": {
         "type": "object",
         "properties": {
