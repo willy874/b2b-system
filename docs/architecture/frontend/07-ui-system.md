@@ -839,6 +839,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 
 決策與理由見 [ADR-0012](../../adr/0012-batch-queue-worker.md)。後端 **沒有** 批次端點：確認後把適用的列送進
 **全域批次佇列**，由佇列逐筆（一次一筆、堵塞式）交給分頁以一般的單筆 API 處理。
+上傳這類彼此獨立的操作可以讓同一個工作並行數筆、回報位元組進度（[ADR-0013](../../adr/0013-file-manager-upload.md)、[12 §8](./12-file-manager.md)）。
 
 | 層 | 檔案 | 職責 |
 | -- | ---- | ---- |
@@ -855,8 +856,8 @@ registerBatchOperation({
   labelKey: 'user.batch.delete.title',         // 佇列面板、進度條、結果對話框上的名稱
   localeScope: USER_LOCALE_SCOPE,              // 佇列 UI 在其他 feature 的頁面也會顯示：顯示前補載
   successKey: 'user.batch.delete.success',     // 全部成功時的 toast，參數 { count }
-  run: async (userId) => {
-    await deleteUser({ params: { userId } });
+  run: async (userId, { signal }) => {             // 第二個參數：取消時中止的 signal、reportProgress
+    await deleteUser({ params: { userId }, signal });
     invalidateResources([{ resource: Resource.USER, kind: 'delete', id: userId }]);
   },
 });
@@ -889,7 +890,7 @@ const batchActions = useUserBatchActions();
 | 每一筆 | 成功或失敗都即時反映在進度條（失敗筆數另外標示）；執行的分頁照單筆規則失效快取 |
 | 全部成功 | 成功的列移出選取；彈出成功 toast（操作的 `successKey`） |
 | 有失敗 | 彈出結果對話框（`batch-result-dialog`）逐筆列出名稱與原因（`batch-result-failure`，`data-value` 是 id）；失敗的列保留勾選，`*_NOT_FOUND`（已被別人刪除）一併移出 |
-| 取消 | 正在處理的那一筆做完就停；彈出資訊 toast（已完成幾筆），已完成的不會還原 |
+| 取消 | 處理中的項目收到中止（操作有接 `signal` 時立即停止，被中止的不算失敗），剩下的不再送出；彈出資訊 toast（已完成幾筆），已完成的不會還原 |
 
 - 結束時的彈出只在 **一個分頁**：發起的分頁；它已經關掉就給任一個還開著的分頁。選取的更新只發生在發起的分頁（選取是頁面狀態）。
 - 發起的分頁關掉或換頁，工作仍會繼續（SharedWorker 由其他分頁接手執行）；所有分頁都關掉時停止。

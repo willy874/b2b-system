@@ -172,6 +172,7 @@
 | 權限目錄     | `/permission`              | `PERMISSION`    | `permission:read`                | EVERY |
 | 稽核日誌     | `/audit-log`               | `AUDIT_LOG`     | `auditLog:read`                  | EVERY |
 | 審批         | `/approval`（含 `/approval/$approvalId` 對話框） | `APPROVAL` | `approval:read`           | EVERY |
+| 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:read`（上傳 `file:create`、改名 `file:update`、刪除 `file:delete` 為按鈕層級） | EVERY |
 
 > 頁面內的 **按鈕層級** gating 另由 `usePagePermission()` 派生的
 > `canCreate/canRead/canUpdate/canDelete` 決定，見

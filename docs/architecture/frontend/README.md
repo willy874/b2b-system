@@ -21,6 +21,7 @@ MUI 作法，最大的差異是 **UI 函式庫改用 Base UI**，因此 `src/com
 | 09  | [`09-state-and-storage.md`](./09-state-and-storage.md) | store 分類、持久化、跨分頁同步              |
 | 10  | [`10-testing.md`](./10-testing.md)                     | Vitest / Testing Library / MSW / Playwright |
 | 11  | [`11-realtime.md`](./11-realtime.md)                   | Socket.io、leader 分頁持有連線、推播 → 失效 |
+| 12  | [`12-file-manager.md`](./12-file-manager.md)           | 檔案管理器：排版、選取、上傳佇列、預覽擴充點 |
 
 ## 三條必須記住的規則
 

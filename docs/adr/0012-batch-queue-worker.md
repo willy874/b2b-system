@@ -1,6 +1,6 @@
 # ADR-0012 — 批次操作改為前端全域佇列：逐筆呼叫單筆 API，SharedWorker 排程
 
-- 狀態：**採用**（取代 [ADR-0009](./0009-table-batch-operations.md)）
+- 狀態：**採用**（取代 [ADR-0009](./0009-table-batch-operations.md)）；工作內並行、位元組進度與中止由 [ADR-0013](./0013-file-manager-upload.md) 擴充
 - 日期：2026-09-25
 - 相關：[`../architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §6.2、[`../architecture/frontend/09-state-and-storage.md`](../architecture/frontend/09-state-and-storage.md) §5、[`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §10
 

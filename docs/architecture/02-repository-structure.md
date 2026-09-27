@@ -84,6 +84,7 @@ apps/web/src/
 │   ├── client/              HttpContext / FetcherContext / defineFetcher / 攔截器
 │   ├── components/          機制性元件（ErrorPage、Empty、PermissionGate…）
 │   ├── errors/              錯誤碼、例外型別、useErrorMessage
+│   ├── file/                檔案類型、預覽解析器／檔案驗證器／縮圖產生器的註冊表
 │   ├── locales/             i18n scope loader
 │   ├── notify/              useToast()：把提示發到 eventBus
 │   ├── permission/          ★ 權限註冊表、hooks、常數
@@ -98,6 +99,8 @@ apps/web/src/
 │   ├── permission/
 │   ├── account/
 │   ├── audit-log/
+│   ├── approval/
+│   ├── file/                檔案管理器（docs/architecture/frontend/12-file-manager.md）
 │   └── home/
 │
 ├── apis/                    與後端對話的唯一入口
@@ -105,7 +108,9 @@ apps/web/src/
 │   ├── user/
 │   ├── role/
 │   ├── permission/
-│   └── audit-log/
+│   ├── audit-log/
+│   ├── approval/
+│   └── file/
 │
 ├── components/              ★ Base UI 封裝層（設計系統元件）
 │   ├── Button/  Input/  Select/  Dialog/  Table/  Toast/  Tooltip/ …
@@ -172,6 +177,8 @@ apps/api/src/
 │   ├── role/
 │   ├── permission/
 │   ├── audit-log/
+│   ├── approval/
+│   ├── file/                檔案轉介表、上傳流程（docs/architecture/backend/09-file.md）
 │   └── health/
 │
 └── db/
@@ -258,6 +265,8 @@ FILE_STORAGE_PUBLIC_ENDPOINT=http://localhost:5173/storage
 FILE_STORAGE_BUCKET=game-editor
 FILE_UPLOAD_MAX_SIZE=104857600
 FILE_URL_TTL=900
+FILE_MULTIPART_THRESHOLD=16777216   # 超過改用分塊上傳
+FILE_MULTIPART_PART_SIZE=8388608    # 每塊大小（≥ 5 MiB）
 
 # ── apps/web（VITE_ 前綴才會進 bundle）─────────────────
 VITE_API_BASE_URL=/api

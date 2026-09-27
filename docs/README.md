@@ -85,7 +85,8 @@ docs/
 │   │   ├── 08-i18n.md                 語系分包與 scope loader
 │   │   ├── 09-state-and-storage.md    store 分類、持久化、跨分頁同步
 │   │   ├── 10-testing.md              Vitest / Testing Library / MSW / Playwright
-│   │   └── 11-realtime.md             Socket.io、leader 分頁持有連線、推播 → 快取失效
+│   │   ├── 11-realtime.md             Socket.io、leader 分頁持有連線、推播 → 快取失效
+│   │   └── 12-file-manager.md         檔案管理器：排版、選取、上傳佇列、預覽擴充點
 │   │
 │   └── backend/
 │       ├── README.md
@@ -96,7 +97,8 @@ docs/
 │       ├── 05-rbac.md                 Guard / Decorator / 權限快取 / 反提權
 │       ├── 06-audit-log.md            稽核日誌設計
 │       ├── 07-testing.md              單元 / 整合 / e2e 測試策略
-│       └── 08-realtime.md             Socket.io gateway、room 與受眾、推播時機
+│       ├── 08-realtime.md             Socket.io gateway、room 與受眾、推播時機
+│       └── 09-file.md                 檔案模組：物件儲存抽象層、上傳流程（含分塊）、keyset 分頁
 │
 ├── rbac/
 │   ├── 01-domain-model.md             實體、ER 圖、不變條件
@@ -128,7 +130,8 @@ docs/
     ├── 0009-table-batch-operations.md
     ├── 0010-self-built-json-editor.md
     ├── 0011-codemirror-json-editor.md
-    └── 0012-batch-queue-worker.md
+    ├── 0012-batch-queue-worker.md
+    └── 0013-file-manager-upload.md
 ```
 
 ---
