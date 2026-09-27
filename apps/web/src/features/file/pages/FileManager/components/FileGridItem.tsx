@@ -61,7 +61,8 @@ export const FileGridItem = memo(function FileGridItem({
         <span
           data-file-checkbox=""
           className={cn(
-            'absolute top-1.5 left-1.5 rounded bg-[var(--color-surface)]',
+            // flex：底襯貼齊勾選框；inline 排版會吃到行高，底襯被撐成直長方形
+            'absolute top-1.5 left-1.5 flex rounded bg-[var(--color-surface)]',
             !selected && !selecting && 'opacity-0 group-hover:opacity-100 focus-within:opacity-100',
           )}
         >
@@ -70,6 +71,8 @@ export const FileGridItem = memo(function FileGridItem({
             onCheckedChange={() => onToggle(item.id)}
             aria-label={t('file.select', { name: item.name })}
             data-testid="file-item-checkbox"
+            // 取消與文字對齊用的 margin-top，否則底襯上方多出 2px
+            classNames={{ control: 'mt-0' }}
           />
         </span>
       </div>
