@@ -1,7 +1,8 @@
 # 生產拓撲（docs/architecture/01-system.md §4.2）：
-#   web（nginx：靜態檔 ＋ /api、/api/socket.io 反向代理）→ api（REST ＋ Socket.io）→ postgres
+#   web（nginx：靜態檔 ＋ /api、/api/socket.io、/storage 反向代理）→ api（REST ＋ Socket.io）→ postgres
+#                                                         └──────→ file-storage（S3 相容）
 #   migrate 是一次性工作：migration ＋ 冪等 seed 跑完才啟動 api。
-# 網路切兩段：web 碰不到 postgres。
+# 網路切三段：web 碰不到 postgres；file-storage 與 postgres 互不相通。
 services:
   postgres:
     image: postgres:17-alpine
@@ -52,11 +53,38 @@ services:
       TRUST_PROXY: uniquelocal
       # 瀏覽器看到的 origin；Socket.io handshake 的 Origin 檢查（backend/08-realtime.md §11）
       REALTIME_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost:8080}
-    networks: [edge, data]
+      # 物件儲存：api 走內網，presigned URL 以瀏覽器看到的位址簽章（backend/09-file.md §3）。
+      # 換成真正的 S3 時只改這幾個變數，並拿掉下面的 file-storage 服務。
+      FILE_STORAGE_ENDPOINT: http://file-storage:9000/storage
+      FILE_STORAGE_PUBLIC_ENDPOINT: ${PUBLIC_ORIGIN:-http://localhost:8080}/storage
+      FILE_STORAGE_BUCKET: ${FILE_STORAGE_BUCKET:-game-editor}
+      FILE_STORAGE_ACCESS_KEY_ID: ${FILE_STORAGE_ACCESS_KEY_ID:?required}
+      FILE_STORAGE_SECRET_ACCESS_KEY: ${FILE_STORAGE_SECRET_ACCESS_KEY:?required}
+    networks: [edge, data, storage]
     # 單一執行個體：權限快取與 Socket.io room 都在記憶體。擴展前提見 01-system.md §4.3
     depends_on:
       migrate:
         condition: service_completed_successfully
+      file-storage:
+        condition: service_healthy
+
+  # S3 相容的檔案儲存（apps/file-storage）；資料在 volume，映像本身無狀態
+  file-storage:
+    image: game-editor-file-storage
+    build:
+      context: .
+      dockerfile: apps/file-storage/Dockerfile
+    restart: unless-stopped
+    environment:
+      FILE_STORAGE_ACCESS_KEY_ID: ${FILE_STORAGE_ACCESS_KEY_ID:?required}
+      FILE_STORAGE_SECRET_ACCESS_KEY: ${FILE_STORAGE_SECRET_ACCESS_KEY:?required}
+      # nginx 以 /storage/ 轉進來且 **不去掉前綴**：SigV4 簽的是瀏覽器看到的完整路徑
+      FILE_STORAGE_BASE_PATH: /storage
+      FILE_STORAGE_MAX_OBJECT_SIZE: ${FILE_STORAGE_MAX_OBJECT_SIZE:-5368709120}
+    volumes:
+      - file-storage-data:/data
+    # edge：nginx 轉發瀏覽器的直傳／下載；storage：api 的伺服器端呼叫
+    networks: [edge, storage]
 
   web:
     build:
@@ -73,6 +101,8 @@ services:
 networks:
   edge:
   data:
+  storage:
 
 volumes:
   postgres-data:
+  file-storage-data:

@@ -33,6 +33,12 @@ export default defineConfig(({ command }) => ({
         ws: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
+      // 物件儲存（apps/file-storage）：presigned URL 簽的是瀏覽器看到的 host 與完整路徑，
+      // 所以 **不** changeOrigin、**不** rewrite；file-storage 以 FILE_STORAGE_BASE_PATH=/storage 接收
+      // （docs/architecture/backend/09-file.md §3）
+      '/storage': {
+        target: 'http://localhost:9000',
+      },
     },
   },
   build: {

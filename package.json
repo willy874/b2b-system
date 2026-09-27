@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm db:up && pnpm -r --parallel --filter \"./apps/api\" --filter \"./apps/web\" dev",
+    "dev": "pnpm db:up && pnpm -r --parallel --filter \"./apps/api\" --filter \"./apps/web\" --filter \"./apps/file-storage\" dev",
     "dev:api": "pnpm --filter @game-editor/api dev",
     "dev:web": "pnpm --filter @game-editor/web dev",
     "dev:storage": "pnpm --filter @game-editor/file-storage dev",
