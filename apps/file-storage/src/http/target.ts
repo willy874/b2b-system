@@ -51,13 +51,20 @@ export function parseQuery(rawQuery: string): Query {
   return new Query(entries);
 }
 
-export function parseTarget(url: string): RequestTarget {
+/**
+ * @param basePath 服務掛在反向代理的子路徑下時（例：`/storage`）先去掉它再解析 bucket / key；
+ *   `rawPath` 仍保留完整路徑，因為客戶端是對完整路徑簽章的。
+ */
+export function parseTarget(url: string, basePath = ''): RequestTarget {
   const querySeparator = url.indexOf('?');
   const rawPath = querySeparator < 0 ? url : url.slice(0, querySeparator);
   const rawQuery = querySeparator < 0 ? '' : url.slice(querySeparator + 1);
   if (!rawPath.startsWith('/')) throw new S3Error('InvalidURI');
+  if (basePath !== '' && rawPath !== basePath && !rawPath.startsWith(`${basePath}/`)) {
+    throw new S3Error('InvalidURI');
+  }
 
-  const path = rawPath.slice(1);
+  const path = rawPath.slice(basePath.length + 1);
   const keySeparator = path.indexOf('/');
   const rawBucket = keySeparator < 0 ? path : path.slice(0, keySeparator);
   const rawKey = keySeparator < 0 ? '' : path.slice(keySeparator + 1);

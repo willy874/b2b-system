@@ -8,3 +8,5 @@
 .claude
 docs
 apps/e2e
+# apps/file-storage 的本機資料
+**/.data

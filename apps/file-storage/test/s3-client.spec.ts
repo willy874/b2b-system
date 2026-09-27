@@ -43,6 +43,7 @@ async function startServer(): Promise<void> {
   const config: FileStorageConfig = {
     host: '127.0.0.1',
     port: 0,
+    basePath: '',
     dataDir,
     region: 'us-east-1',
     credentials,
@@ -711,5 +712,69 @@ describe('持久化', () => {
     const got = await client.send(new GetObjectCommand({ Bucket: bucket, Key: 'persist.txt' }));
     expect(await got.Body?.transformToString()).toBe('still here');
     expect(got.Metadata).toEqual({ a: '1' });
+  });
+});
+
+describe('掛在子路徑下（FILE_STORAGE_BASE_PATH）', () => {
+  let prefixed: Server;
+  let prefixedClient: S3Client;
+  let prefixedEndpoint: string;
+
+  beforeAll(async () => {
+    const store = await DiskStore.open(join(dataDir, 'prefixed'));
+    prefixed = createFileStorageServer({
+      config: {
+        host: '127.0.0.1',
+        port: 0,
+        basePath: '/storage',
+        dataDir: join(dataDir, 'prefixed'),
+        region: 'us-east-1',
+        credentials,
+        allowedOrigins: [],
+        maxObjectSize: 1024 * 1024,
+        minPartSize: S3_MIN_PART_SIZE,
+      },
+      store,
+      isAccessLogEnabled: false,
+    });
+    await new Promise<void>((resolve) => prefixed.listen(0, '127.0.0.1', resolve));
+    prefixedEndpoint = `http://127.0.0.1:${(prefixed.address() as AddressInfo).port}`;
+    prefixedClient = new S3Client({
+      endpoint: `${prefixedEndpoint}/storage`,
+      region: 'us-east-1',
+      forcePathStyle: true,
+      credentials,
+    });
+  });
+
+  afterAll(async () => {
+    prefixedClient.destroy();
+    prefixed.closeAllConnections();
+    await new Promise<void>((resolve) => prefixed.close(() => resolve()));
+  });
+
+  it('SDK 的 endpoint 帶上前綴即可正常存取（簽章涵蓋前綴）', async () => {
+    await prefixedClient.send(new CreateBucketCommand({ Bucket: 'prefixed' }));
+    await prefixedClient.send(
+      new PutObjectCommand({ Bucket: 'prefixed', Key: 'a/b.txt', Body: 'ok' }),
+    );
+    const url = await getSignedUrl(
+      prefixedClient,
+      new GetObjectCommand({ Bucket: 'prefixed', Key: 'a/b.txt' }),
+      { expiresIn: 60 },
+    );
+    expect(new URL(url).pathname).toBe('/storage/prefixed/a/b.txt');
+    expect(await (await fetch(url)).text()).toBe('ok');
+  });
+
+  it('不在前綴底下的路徑回 InvalidURI', async () => {
+    const response = await fetch(`${prefixedEndpoint}/prefixed/a/b.txt`);
+    expect(response.status).toBe(400);
+    expect(await response.text()).toContain('<Code>InvalidURI</Code>');
+  });
+
+  it('/_health 不需要簽章', async () => {
+    expect((await fetch(`${prefixedEndpoint}/_health`)).status).toBe(200);
+    expect((await fetch(`${prefixedEndpoint}/storage/_health`)).status).toBe(200);
   });
 });

@@ -33,6 +33,12 @@ const EXPOSED_HEADERS = [
 
 const PREFLIGHT_MAX_AGE_SECONDS = 3000;
 
+/**
+ * 不需要簽章的存活檢查（容器 healthcheck 用）。`_` 不可能出現在 bucket 名稱裡，
+ * 所以不會與 `ListObjects` 衝突。
+ */
+const HEALTH_PATH = '/_health';
+
 function isOriginAllowed(origin: string, allowed: readonly string[]): boolean {
   return allowed.includes('*') || allowed.includes(origin);
 }
@@ -131,6 +137,15 @@ async function handle(
   }
 
   try {
+    if (
+      method === 'GET' &&
+      (req.url === HEALTH_PATH || req.url === `${config.basePath}${HEALTH_PATH}`)
+    ) {
+      operation = 'Health';
+      res.writeHead(200, { 'Content-Type': 'text/plain', 'Content-Length': 2 });
+      res.end('ok');
+      return;
+    }
     applyCors(req, res, config.allowedOrigins);
     if (method === 'OPTIONS') {
       operation = 'Preflight';
@@ -138,7 +153,7 @@ async function handle(
       return;
     }
 
-    const target = parseTarget(req.url ?? '/');
+    const target = parseTarget(req.url ?? '/', config.basePath);
     resource = target.rawPath;
     const payload = authenticate(
       { method, rawPath: target.rawPath, query: target.query, headers: req.headers },

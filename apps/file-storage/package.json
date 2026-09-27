@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts",
-    "start": "tsx src/main.ts",
+    "build": "esbuild src/main.ts --bundle --platform=node --format=esm --target=node24 --sourcemap --outfile=dist/main.js",
+    "start": "node --enable-source-maps dist/main.js",
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -16,6 +17,7 @@
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1141.0",
     "@aws-sdk/s3-request-presigner": "^3.1141.0",
+    "esbuild": "^0.25.12",
     "tsx": "^4.20.6",
     "vitest": "^3.2.7"
   }

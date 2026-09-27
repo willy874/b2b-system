@@ -25,6 +25,15 @@ const csv = z
 const EnvSchema = z.object({
   FILE_STORAGE_HOST: z.string().trim().min(1).default('127.0.0.1'),
   FILE_STORAGE_PORT: z.coerce.number().int().min(0).max(65_535).default(9000),
+  /**
+   * 掛在反向代理子路徑下時的前綴（例：`/storage`）。代理 **不可** 去掉前綴：
+   * SigV4 簽的是瀏覽器看到的完整路徑（docs/architecture/03-file-storage.md §3.1）。
+   */
+  FILE_STORAGE_BASE_PATH: z
+    .string()
+    .trim()
+    .regex(/^(\/[A-Za-z0-9._~-]+)*$/, '必須是空字串或以 / 開頭、不以 / 結尾的路徑')
+    .default(''),
   /** 相對路徑以 `apps/file-storage/` 為基準。 */
   FILE_STORAGE_DATA_DIR: z.string().trim().min(1).default('.data'),
   /** 只影響 HeadBucket / GetBucketLocation 的回報值；簽章接受任何 region。 */
@@ -44,6 +53,7 @@ const EnvSchema = z.object({
 export interface FileStorageConfig {
   host: string;
   port: number;
+  basePath: string;
   dataDir: string;
   region: string;
   credentials: Credentials;
@@ -69,6 +79,7 @@ export function loadConfig(
   return {
     host: values.FILE_STORAGE_HOST,
     port: values.FILE_STORAGE_PORT,
+    basePath: values.FILE_STORAGE_BASE_PATH,
     dataDir: resolve(baseDir, values.FILE_STORAGE_DATA_DIR),
     region: values.FILE_STORAGE_REGION,
     credentials: {
