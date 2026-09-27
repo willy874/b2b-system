@@ -18,3 +18,5 @@ apps/e2e/playwright-report/
 dist-types/
 packages/api-sdk/codegen/__tests__/.output/
 storybook-static/
+# apps/file-storage 的本機資料目錄（FILE_STORAGE_DATA_DIR 預設 .data）：上傳的物件與中繼資料
+apps/file-storage/.data/
