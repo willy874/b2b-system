@@ -1,5 +1,5 @@
-import { isRelayableChannel } from '@/shared/realtime';
-import type { ChannelEnvelopeWire } from '@/shared/realtime';
+import { isRelayableChannel } from '@/shared/websocket-sdk';
+import type { ChannelEnvelopeWire } from '@/shared/websocket-sdk';
 
 import type { ChannelTransportFactory } from './types';
 

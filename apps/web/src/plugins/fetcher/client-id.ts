@@ -1,6 +1,6 @@
 import type { RequestInterceptor } from '@/core/client';
 import { CLIENT_ID } from '@/core/realtime';
-import { CLIENT_ID_HEADER } from '@/shared/realtime';
+import { CLIENT_ID_HEADER } from '@/shared/websocket-sdk';
 
 /**
  * 每個請求帶上這個分頁的 instance id（`x-client-id`）。

@@ -69,7 +69,7 @@ const canEdit = useComputed(
 ```
 
 `create()` 回傳的 hook 本身也是 `StoreApi`（`getState` / `setState` / `subscribe` / `state` / `select`），
-所以非 React 程式碼（plugin、`syncStore`）直接拿它用。不需要 hook 的 store（例：`shared/leader` 的選舉狀態）用 `createStore`。
+所以非 React 程式碼（plugin、`syncStore`）直接拿它用。不需要 hook 的 store（例：`shared/channel/leader` 的選舉狀態）用 `createStore`。
 
 ### 2.0.2 CoreContext 的狀態
 
@@ -352,7 +352,7 @@ const stop = shareStore(
 | --------------------------- | ------------------------------- | ------------------ | --------------------------------------------- | -------- |
 | `session:<後端>`            | `refresh-done`、`session-ended` | BroadcastChannel（釘死） | `createSessionChannel` → `core/auth/SessionStore` | 建立起到 `dispose()` |
 | `query-invalidate`          | `invalidate`                    | 預設（推播可用時不送） | `createQueryInvalidateChannel` → `core/cache/AppQueryClient` | cache plugin 的 `start()` / `stop()` |
-| `leader:realtime:<後端>`    | `request-leader`、`leader-announcement`、`leader-heartbeat`、`leader-release` | 預設 | `createLeaderChannel` → `shared/leader` 的 `LeaderElection`（[11 §3.3](./11-realtime.md)） | realtime plugin |
+| `leader:realtime:<後端>`    | `request-leader`、`leader-announcement`、`leader-heartbeat`、`leader-release` | 預設 | `createLeaderChannel` → `shared/channel/leader` 的 `LeaderElection`（[11 §3.3](./11-realtime.md)） | realtime plugin |
 | `realtime-control:<後端>`   | `resource-changed`、`resync`、`status`、`status-request` | 預設 | `createRealtimeControlChannel` → `core/realtime/RealtimeCoordinator`（[11 §3.4](./11-realtime.md)） | realtime plugin |
 | `store:preference:storage`  | `set`、`remove`（`DictStorageMessages`） | 預設 | `createPreferenceChannel` → `core/store/preference` 的 dictStorage | 寫入即送；i18n plugin 訂閱（`syncPreferencesAcrossTabs`，含語系、時區、主題）；主題由 theme plugin 訂閱 store 套用 |
 | `store:table-column-settings:storage` | `set`、`remove`（`DictStorageMessages`） | 預設（不經伺服器中繼） | `createTableColumnSettingsChannel` → `core/store/tableColumnSettings` 的 dictStorage | 寫入即送；表格掛載期間訂閱（`syncTableColumnSettings`） |

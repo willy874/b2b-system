@@ -1,4 +1,4 @@
-import type { ClientEvent, ClientToServerEvents, ServerEvent } from '@/shared/realtime';
+import type { ClientEvent, ClientToServerEvents, ServerEvent } from '@/shared/websocket-sdk';
 
 /** handshake 帶給伺服器的認證資料（docs/architecture/backend/08-realtime.md §3.2）。 */
 export interface RealtimeHandshakeAuth {

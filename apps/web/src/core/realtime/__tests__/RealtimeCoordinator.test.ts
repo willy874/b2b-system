@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createChannel } from '@/shared/channel';
+import { createChannel, createLeaderElection } from '@/shared/channel';
+import type { LeaderElectionAdapters, LeaderMessages } from '@/shared/channel';
 import { EventEmitter } from '@/shared/EventEmitter';
-import { createLeaderElection } from '@/shared/leader';
-import type { LeaderElectionAdapters, LeaderMessages } from '@/shared/leader';
-import type { ResourceChangeWire } from '@/shared/realtime';
+import type { ResourceChangeWire } from '@/shared/websocket-sdk';
 import { createFakeChannelHub } from '@/test/fakeChannelHub';
 
 import { RealtimeClientEvent } from '../RealtimeClient';

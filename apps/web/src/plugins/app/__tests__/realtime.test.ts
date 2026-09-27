@@ -5,7 +5,7 @@ import { MAIN_BACKEND } from '@/core/client';
 import { getActiveRealtimeClient, isRealtimeAvailable } from '@/core/realtime';
 import type { CreateRealtimeTransport, RealtimeTransportHooks } from '@/core/realtime';
 import { createChannel } from '@/shared/channel';
-import type { LeaderElectionAdapters, LeaderMessages } from '@/shared/leader';
+import type { LeaderElectionAdapters, LeaderMessages } from '@/shared/channel';
 import { createFakeChannelHub } from '@/test/fakeChannelHub';
 
 import { realtimePlugin } from '../realtime';

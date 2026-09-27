@@ -1,8 +1,10 @@
-import { createChannel, createInstanceId } from '@/shared/channel';
-import type { Channel, ChannelOptions } from '@/shared/channel';
-import { createStore } from '@/shared/store';
-import type { StoreApi } from '@/shared/store';
+// 直接指向 createStore：`@/shared/store` 的 shareStore / syncStore 依賴 `@/shared/channel`，走 index 會形成循環。
+import { createStore } from '@/shared/store/createStore';
+import type { StoreApi } from '@/shared/store/createStore';
 
+import { createChannel } from '../createChannel';
+import type { Channel, ChannelOptions } from '../createChannel';
+import { createInstanceId } from '../envelope';
 import { compareLeaderTerm, isLeaderTerm, nextLeaderTerm } from './leaderTerm';
 import type { LeaderTerm } from './leaderTerm';
 

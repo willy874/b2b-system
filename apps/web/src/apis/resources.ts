@@ -26,7 +26,7 @@ import { USER_ROLES_QUERY_KEY } from '@/apis/user/get-user-roles/query';
 import { ANY_ID, createResourceGraph, queryClient } from '@/core/cache';
 import type { ApplyInvalidationOptions, ResourceChange } from '@/core/cache';
 import type { Profile } from '@/shared/api-sdk';
-import type { ChangeSource } from '@/shared/realtime';
+import type { ChangeSource } from '@/shared/websocket-sdk';
 
 export const Resource = {
   // 實體

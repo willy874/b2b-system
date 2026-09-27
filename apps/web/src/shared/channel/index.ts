@@ -10,3 +10,5 @@ export * from './transports/serverRelay';
 export * from './transports/storage';
 export * from './transports/webSocket';
 export * from './transports/types';
+export * from './leader/createLeaderElection';
+export * from './leader/leaderTerm';

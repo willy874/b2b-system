@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createChannel } from '@/shared/channel';
 import { createFakeChannelHub } from '@/test/fakeChannelHub';
 
-import { createLeaderElection } from '../createLeaderElection';
-import type { LeaderElection, LeaderMessages } from '../createLeaderElection';
+import { createChannel } from '../createChannel';
+import { createLeaderElection } from '../leader/createLeaderElection';
+import type { LeaderElection, LeaderMessages } from '../leader/createLeaderElection';
 
 const COUNTER_KEY = 'test:leader:counter';
 const HEARTBEAT = 1000;

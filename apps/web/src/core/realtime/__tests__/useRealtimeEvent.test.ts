@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ServerEvent } from '@/shared/realtime';
+import { ServerEvent } from '@/shared/websocket-sdk';
 
 import { setActiveRealtimeClient } from '../activeClient';
 import type { RealtimeClient } from '../RealtimeClient';

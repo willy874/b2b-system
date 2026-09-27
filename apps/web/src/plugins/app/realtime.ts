@@ -10,10 +10,9 @@ import {
   socketIoRealtimeTransport,
 } from '@/core/realtime';
 import type { ApplyOptions, CreateRealtimeTransport } from '@/core/realtime';
-import type { ChannelTransportFactory } from '@/shared/channel';
-import { browserLeaderAdapters, createLeaderElection } from '@/shared/leader';
-import type { LeaderElectionAdapters } from '@/shared/leader';
-import type { ResourceChangeWire } from '@/shared/realtime';
+import { browserLeaderAdapters, createLeaderElection } from '@/shared/channel';
+import type { ChannelTransportFactory, LeaderElectionAdapters } from '@/shared/channel';
+import type { ResourceChangeWire } from '@/shared/websocket-sdk';
 
 export interface RealtimePluginOptions {
   /** 推播來自哪個後端；用它的 session 做 handshake 與續期，選舉與頻道也以它區隔。 */
