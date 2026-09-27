@@ -12,7 +12,10 @@ test('稽核日誌的日期篩選在表頭的篩選面板內選取，選取後�
   await page.getByTestId('audit-log-table').getByTestId('filter-bar-trigger').click();
   const rangePicker = page.getByTestId('filter-bar-date-range');
   await rangePicker.click();
-  const firstDay = page.getByTestId('calendar-day').and(page.locator(':not([disabled])')).nth(10);
+  const firstDay = page
+    .getByTestId('calendar-day')
+    .and(page.locator(':not([data-disabled])'))
+    .nth(10);
   const picked = await firstDay.getAttribute('data-value');
   if (!picked) throw new Error('calendar-day 缺少 data-value');
   await firstDay.click();

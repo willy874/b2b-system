@@ -21,7 +21,7 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
   /**
    * 停用時改用 `aria-disabled`，不加原生 `disabled`：按鈕仍可聚焦、收得到 hover，
    * 所以 `Tooltip` 能說明「為什麼不能按」；點擊與 Enter／Space 由元件擋下。
-   * 包在 `Tooltip` 裡的停用按鈕會自動打開（與 Base UI Button 的同名選項語意相同）。
+   * 包在 `Tooltip` 裡的停用按鈕會自動打開（與 Base UI Button 的同名選項語意相同）；`loading` 一律隱含開啟。
    */
   focusableWhenDisabled?: boolean;
 }
@@ -50,7 +50,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   ref,
 ) {
   const isDisabled = Boolean(disabled || loading);
-  const softDisabled = isDisabled && focusableWhenDisabled;
+  // loading 一律保留焦點：按下送出後元素若離開 tab order，瀏覽器會把焦點踢回 <body>，
+  // 鍵盤使用者失去位置、`aria-busy` 也念不到
+  const softDisabled = isDisabled && (focusableWhenDisabled || loading);
   return (
     <button
       ref={ref}

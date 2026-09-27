@@ -87,8 +87,8 @@ describe('DateRangePicker', () => {
       />,
     );
     await userEvent.click(screen.getByRole('button', { name: '期間' }));
-    expect(await findDay('2026-09-16')).toBeEnabled();
-    expect(getDay('2026-09-17')).toBeDisabled();
+    expect(await findDay('2026-09-16')).not.toHaveAttribute('aria-disabled');
+    expect(getDay('2026-09-17')).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('maxSpanDays 與 max 取較早者', async () => {
@@ -102,7 +102,7 @@ describe('DateRangePicker', () => {
       />,
     );
     await userEvent.click(screen.getByRole('button', { name: '期間' }));
-    expect(await findDay('2026-09-12')).toBeEnabled();
-    expect(getDay('2026-09-13')).toBeDisabled();
+    expect(await findDay('2026-09-12')).not.toHaveAttribute('aria-disabled');
+    expect(getDay('2026-09-13')).toHaveAttribute('aria-disabled', 'true');
   });
 });

@@ -61,7 +61,7 @@
     cursor: pointer;
   }
 
-  .day:hover:not(:disabled) {
+  .day:hover:not([data-disabled]) {
     background: var(--color-bg);
   }
 
@@ -90,7 +90,7 @@
     color: var(--color-brand-fg);
   }
 
-  .day:disabled {
+  .day[data-disabled] {
     opacity: 0.35;
     cursor: not-allowed;
   }

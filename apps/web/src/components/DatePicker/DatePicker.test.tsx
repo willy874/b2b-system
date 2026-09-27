@@ -59,10 +59,30 @@ describe('DatePicker', () => {
     expect(onValueChange).toHaveBeenCalledWith('2026-09-16');
   });
 
-  it('超出 min / max 的日期是 disabled', async () => {
+  it('超出 min / max 的日期以 aria-disabled 停用，點了不會選取', async () => {
+    const onValueChange = vi.fn();
     render(
       <DatePicker
         value="2026-09-15"
+        min="2026-09-10"
+        max="2026-09-20"
+        onValueChange={onValueChange}
+        aria-label="開始日期"
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: '開始日期' }));
+    const outOfRange = await findDay('2026-09-25');
+    expect(outOfRange).toHaveAttribute('aria-disabled', 'true');
+    expect(getDay('2026-09-18')).not.toHaveAttribute('aria-disabled');
+
+    await userEvent.click(outOfRange);
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
+
+  it('方向鍵走到超出範圍的日期時，焦點仍然跟著移動', async () => {
+    render(
+      <DatePicker
+        value="2026-09-20"
         min="2026-09-10"
         max="2026-09-20"
         onValueChange={vi.fn()}
@@ -70,8 +90,12 @@ describe('DatePicker', () => {
       />,
     );
     await userEvent.click(screen.getByRole('button', { name: '開始日期' }));
-    expect(await findDay('2026-09-25')).toBeDisabled();
-    expect(getDay('2026-09-18')).toBeEnabled();
+    (await findDay('2026-09-20')).focus();
+
+    // 21 號超出 max：若用原生 disabled，.focus() 會是 no-op，焦點環會卡在 20 號
+    await userEvent.keyboard('{ArrowRight}');
+
+    expect(getDay('2026-09-21')).toHaveFocus();
   });
 
   it('清除按鈕把值設回 null', async () => {

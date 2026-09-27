@@ -91,7 +91,11 @@ test.describe('RBAC 生命週期', () => {
     await expect(page.getByTestId('role-list-page')).toBeVisible();
 
     const systemRow = page.getByTestId('table-row').filter({ hasText: '系統管理員' }).first();
-    await expect(systemRow.getByTestId('role-delete-button')).toBeDisabled();
+    // 停用的理由在 Tooltip 裡，所以按鈕保持可聚焦：用 aria-disabled 而非原生 disabled
+    await expect(systemRow.getByTestId('role-delete-button')).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
 
     const token = await apiLogin('admin');
     const roles = (await apiRequest(token, 'get', '/roles?limit=100')).body as {

@@ -690,7 +690,7 @@ Base UI 已處理焦點陷阱、roving tabindex、ARIA 角色與鍵盤互動。�
 | 表單標籤 | 一律用 Base UI `Field.Label`，不用純視覺標籤                       |
 | 錯誤訊息 | `Field.Error` 帶 `aria-describedby` 連到輸入元素                   |
 | 圖示按鈕 | 必須有 `aria-label`                                                |
-| 停用說明 | 原生 `disabled` 的按鈕收不到 hover／focus，提示出不來。`Button` / `IconButton` 的 `focusableWhenDisabled` 改用 `aria-disabled`（仍可聚焦、hover，點擊與 Enter／Space 被擋下）；包在 `Tooltip` 裡的停用按鈕自動打開，「為什麼不能按」一定看得到（[06-permission.md](./06-permission.md) §6.1）。其他元素用原生 `disabled` 時提示不會顯示 |
+| 停用說明 | 原生 `disabled` 的按鈕收不到 hover／focus，提示出不來。`Button` / `IconButton` 的 `focusableWhenDisabled` 改用 `aria-disabled`（仍可聚焦、hover，點擊與 Enter／Space 被擋下）；包在 `Tooltip` 裡的停用按鈕自動打開，「為什麼不能按」一定看得到（[06-permission.md](./06-permission.md) §6.1）；`loading` 一律隱含開啟（送出中焦點不被踢回 `<body>`）。日曆超出 min / max 的日子同樣用 `aria-disabled`（roving tabindex 要能把焦點移過去）。Base UI 的 `Checkbox` 沒有這個開關，停用理由改寫進常駐的 `description`（例：`PermissionPicker` 的「不可授予」）。其他元素用原生 `disabled` 時提示不會顯示 |
 | 動態內容 | toast 用 Base UI Toast（已含 `aria-live`）；表格載入用 `aria-busy` |
 | 減少動效 | `@media (prefers-reduced-motion: reduce)` 關閉所有非必要動畫       |
 

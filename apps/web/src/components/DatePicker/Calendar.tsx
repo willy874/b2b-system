@@ -191,10 +191,18 @@ export function Calendar({
                       data-today={day.isSame(dayjs(), 'day') || undefined}
                       aria-pressed={isSelected}
                       aria-label={value}
-                      disabled={disabled}
+                      /*
+                       * 超出 min/max 的日子用 `aria-disabled` 而非原生 `disabled`：
+                       * roving tabindex 會把焦點移到這裡，而原生 disabled 的按鈕
+                       * `.focus()` 是 no-op，焦點環會卡住不動（WAI-ARIA grid 的慣例
+                       * 也是讓停用的格子保持可聚焦）。點擊改由 onClick 自行擋掉。
+                       */
+                      aria-disabled={disabled || undefined}
+                      data-disabled={disabled ? '' : undefined}
                       tabIndex={day.isSame(focused, 'day') ? 0 : -1}
                       onKeyDown={onKeyDown}
                       onClick={() => {
+                        if (disabled) return;
                         setFocused(day);
                         onSelect(value);
                       }}

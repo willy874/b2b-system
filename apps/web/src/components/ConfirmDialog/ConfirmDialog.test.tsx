@@ -78,7 +78,8 @@ describe('ConfirmDialog（useConfirm）', () => {
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('alert-dialog-cancel')).toBeDisabled();
-    expect(screen.getByTestId('alert-dialog-confirm')).toBeDisabled();
+    // 確認鈕是 loading：停用但保留焦點（aria-disabled），不是原生 disabled
+    expect(screen.getByTestId('alert-dialog-confirm')).toHaveAttribute('aria-disabled', 'true');
     expect(onResult).not.toHaveBeenCalled();
 
     finish?.();

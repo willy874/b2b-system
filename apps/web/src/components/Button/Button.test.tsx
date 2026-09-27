@@ -34,11 +34,24 @@ describe('Button', () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
-  it('loading 時 disabled 且標記 aria-busy', () => {
-    render(<Button loading>送出</Button>);
+  it('loading 時停用但保留焦點，並標記 aria-busy', async () => {
+    const onClick = vi.fn();
+    const { rerender } = render(<Button onClick={onClick}>送出</Button>);
     const button = screen.getByRole('button');
-    expect(button).toBeDisabled();
+    await userEvent.tab();
+    expect(button).toHaveFocus();
+
+    // 送出中：焦點不能被踢回 <body>
+    rerender(
+      <Button loading onClick={onClick}>
+        送出
+      </Button>,
+    );
+    expect(button).toHaveFocus();
+    expect(button).toHaveAttribute('aria-disabled', 'true');
     expect(button).toHaveAttribute('aria-busy', 'true');
+    await userEvent.keyboard('{Enter}');
+    expect(onClick).not.toHaveBeenCalled();
   });
 
   it('透傳 className 與 data-testid', () => {
