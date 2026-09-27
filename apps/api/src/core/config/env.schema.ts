@@ -52,6 +52,29 @@ export const EnvSchema = z.object({
         .filter(Boolean),
     ),
 
+  /**
+   * 物件儲存（S3 相容；本機是 apps/file-storage，正式環境可直接換成 S3）。
+   * `ENDPOINT` 是 api 自己連線用的位址；`PUBLIC_ENDPOINT` 是瀏覽器看到的位址，
+   * presigned URL 以它簽章——兩者的路徑前綴必須相同（docs/architecture/backend/09-file.md §3）。
+   */
+  FILE_STORAGE_ENDPOINT: z.string().url().default('http://127.0.0.1:9000/storage'),
+  FILE_STORAGE_PUBLIC_ENDPOINT: z.string().url().default('http://localhost:5173/storage'),
+  FILE_STORAGE_REGION: z.string().min(1).default('us-east-1'),
+  FILE_STORAGE_BUCKET: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/, '必須符合 S3 bucket 命名規則')
+    .default('game-editor'),
+  FILE_STORAGE_ACCESS_KEY_ID: z.string().min(3),
+  FILE_STORAGE_SECRET_ACCESS_KEY: z.string().min(8),
+  /** 單一檔案上限（位元組）。 */
+  FILE_UPLOAD_MAX_SIZE: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(100 * 1024 * 1024),
+  /** presigned 上傳 / 下載網址的有效秒數。 */
+  FILE_URL_TTL: z.coerce.number().int().min(60).max(604_800).default(900),
+
   SUPER_ADMIN_EMAIL: z.string().email(),
   // 留空 = 未設定：seed 時隨機產生並印出一次（docs/rbac/05-seed-and-bootstrap.md）。
   SUPER_ADMIN_PASSWORD: z.preprocess(

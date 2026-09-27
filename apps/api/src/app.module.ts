@@ -13,6 +13,7 @@ import { HttpExceptionFilter } from './core/errors';
 import { EventsModule } from './core/events';
 import { RequestIdMiddleware, TransformInterceptor } from './core/http';
 import { LoggerModule } from './core/logger';
+import { StorageModule } from './core/storage';
 import { ApprovalModule } from './modules/approval/approval.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -32,6 +33,8 @@ import { UserModule } from './modules/user/user.module';
     DatabaseModule,
     CacheModule,
     EventsModule,
+    // 物件儲存的抽象層（ObjectStorage）；實作是 S3 SDK（docs/architecture/backend/09-file.md §2）
+    StorageModule,
     AccessTokenModule,
     // 只有一個全域桶；`/auth/*` 以 @Throttle() 覆寫成更嚴格的值。
     // （多個具名 throttler 會「同時」套用到每個路由，那會讓最嚴格的那個變成全域限制。）

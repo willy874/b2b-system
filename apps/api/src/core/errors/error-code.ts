@@ -50,6 +50,9 @@ export const ErrorCode = {
   APPROVAL_ALREADY_REVIEWED: { status: 409 },
   APPROVAL_SELF_REVIEW: { status: 403 },
 
+  // ── 檔案 ──
+  FILE_STORAGE_UNAVAILABLE: { status: 503 },
+
   // ── 通用 ──
   RATE_LIMITED: { status: 429 },
   INTERNAL_ERROR: { status: 500 },
