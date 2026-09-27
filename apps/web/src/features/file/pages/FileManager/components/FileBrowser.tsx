@@ -1,6 +1,6 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from 'react';
+import type { DragEvent, KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from 'react';
 
 import type { FileSortField } from '@/apis/file/types';
 import { Icon } from '@/components/Icon';
@@ -9,17 +9,23 @@ import { Spinner } from '@/components/Spinner';
 import { useInfiniteScroll } from '@/components/VirtualList';
 import { useTranslation } from '@/core/locales';
 import type { SortEntry } from '@/shared/constants';
+import { cn } from '@/shared/utils';
 
 import type { FileViewMode } from '../../../preference';
-import type { FileItemVM } from '../adapter';
+import type { CollectedUpload } from '../../../upload/collectEntries';
+import type { BrowserItemVM } from '../adapter';
 import { computeFileLayout, itemRect, moveIndex } from '../layout';
 import { useElementSize } from '../useElementSize';
 import { useFileDrop } from '../useFileDrop';
 import type { FileSelection } from '../useFileSelection';
+import { draggedItemsOf } from '../useItemDrag';
+import type { ItemDrag } from '../useItemDrag';
 import { useMarqueeSelection } from '../useMarqueeSelection';
 import { FileGridItem } from './FileGridItem';
 import { FileListHeader } from './FileListHeader';
 import { FileListRow } from './FileListRow';
+import { FolderGridItem } from './FolderGridItem';
+import { FolderListRow } from './FolderListRow';
 
 /** 列數在這以下不虛擬化：全部渲染（測試環境沒有版面，也靠它看得到項目）。 */
 const VIRTUAL_THRESHOLD_ROWS = 40;
@@ -37,19 +43,26 @@ const NAVIGATION_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 interface FileBrowserProps {
-  items: readonly FileItemVM[];
+  /** 資料夾在前、檔案在後。 */
+  items: readonly BrowserItemVM[];
   viewMode: FileViewMode;
   selection: FileSelection;
   loading: boolean;
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
-  onOpen: (id: string) => void;
+  /** 開啟：資料夾是進入，檔案是 LightBox。 */
+  onOpen: (item: BrowserItemVM) => void;
   onDeleteSelected: () => void;
   onStaleUrl: () => void;
   canUpload: boolean;
-  onDropFiles: (files: File[]) => void;
-  onDropDirectories: (count: number) => void;
+  /** 從電腦拖檔案或資料夾進來；`folderId` 是放在哪個資料夾卡片上（空白處是 undefined）。 */
+  onDropUpload: (upload: CollectedUpload, folderId: string | undefined) => void;
+  /** 所在的資料夾（拖曳項目的來源）；根目錄是 undefined。 */
+  currentFolderId: string | undefined;
+  /** 拖曳項目到資料夾上移動；沒有移動權限時 `canMove` 為 false，項目不可拖曳。 */
+  itemDrag: ItemDrag;
+  canMove: boolean;
   sort: SortEntry<FileSortField>;
   onSortChange: (sort: SortEntry<FileSortField>) => void;
   emptyContent: ReactNode;
@@ -60,7 +73,8 @@ interface FileBrowserProps {
  * - 兩種排版（圖示卡片／列表）共用同一套固定尺寸的版面計算，依容器寬度自動調整欄數（RWD）
  * - 虛擬捲動：只渲染看得到的列
  * - 框選、點擊（Shift / Ctrl / ⌘）、鍵盤（方向鍵、空白鍵、Enter、Ctrl+A、Esc、Delete）選取
- * - 拖放檔案上傳
+ * - 拖放上傳（檔案與資料夾，放在資料夾卡片上就傳到那個資料夾）
+ * - 拖曳項目到資料夾卡片上移動（docs/architecture/frontend/12-file-manager.md §12）
  *
  * 項目的點擊以事件委派處理（listbox 模式：容器可聚焦、以 `aria-activedescendant` 指向焦點項目），
  * 不在每一格掛 handler。
@@ -77,8 +91,10 @@ export function FileBrowser({
   onDeleteSelected,
   onStaleUrl,
   canUpload,
-  onDropFiles,
-  onDropDirectories,
+  onDropUpload,
+  currentFolderId,
+  itemDrag,
+  canMove,
   sort,
   onSortChange,
   emptyContent,
@@ -92,6 +108,12 @@ export function FileBrowser({
   );
   const ids = useMemo(() => items.map((item) => item.id), [items]);
   const [focusIndex, setFocusIndex] = useState(-1);
+  // 換資料夾：焦點不留在新資料夾的同一個位置上（render 期間調整 state，不經過 effect）
+  const [focusFolder, setFocusFolder] = useState(currentFolderId);
+  if (focusFolder !== currentFolderId) {
+    setFocusFolder(currentFolderId);
+    setFocusIndex(-1);
+  }
   const focused = items[focusIndex];
 
   const virtualize = layout.rowCount > VIRTUAL_THRESHOLD_ROWS;
@@ -130,11 +152,30 @@ export function FileBrowser({
     enabled: !loading,
   });
 
-  const { isDragging, dropHandlers } = useFileDrop({
-    enabled: canUpload,
-    onFiles: onDropFiles,
-    onDirectories: onDropDirectories,
-  });
+  const {
+    isDragging,
+    overFolder,
+    dropHandlers: uploadDrop,
+  } = useFileDrop({ enabled: canUpload, onDrop: onDropUpload });
+  const overFolderName = overFolder
+    ? items.find((item) => item.id === overFolder)?.name
+    : undefined;
+  // 兩種拖曳各自只認自己的資料型別（電腦的檔案 / 頁面內的項目），同一個容器上依序交給兩邊
+  const dropHandlers = {
+    onDragEnter: uploadDrop.onDragEnter,
+    onDragOver: (event: DragEvent) => {
+      uploadDrop.onDragOver(event);
+      itemDrag.dropHandlers.onDragOver(event);
+    },
+    onDragLeave: (event: DragEvent) => {
+      uploadDrop.onDragLeave(event);
+      itemDrag.dropHandlers.onDragLeave(event);
+    },
+    onDrop: (event: DragEvent) => {
+      uploadDrop.onDrop(event);
+      itemDrag.dropHandlers.onDrop(event);
+    },
+  };
 
   // 無限捲動（同 VirtualList）：接近底部就載下一頁；內容不滿一屏時自動連續載到填滿
   const { onScroll } = useInfiniteScroll({
@@ -173,16 +214,37 @@ export function FileBrowser({
     if ((event.target as Element).closest('[data-file-checkbox]')) return;
     // 觸控：還沒有選取時點一下就打開（沒有雙擊）；進入選取後點一下是切換
     if (lastPointerType.current === 'touch') {
-      if (selection.selected.size === 0) onOpen(hit.id);
+      if (selection.selected.size === 0) openAt(hit.index);
       else selection.click(hit.id, { toggle: true });
       return;
     }
     selection.click(hit.id, { shift: event.shiftKey, toggle: event.metaKey || event.ctrlKey });
   };
 
+  const openAt = (index: number) => {
+    const item = items[index];
+    if (item) onOpen(item);
+  };
+
   const onDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
     const hit = itemFromEvent(event);
-    if (hit && !(event.target as Element).closest('[data-file-checkbox]')) onOpen(hit.id);
+    if (hit && !(event.target as Element).closest('[data-file-checkbox]')) openAt(hit.index);
+  };
+
+  // 拖曳已選取的項目 → 整批一起拖；拖曳沒選取的項目 → 只拖它（不改變選取，同作業系統的檔案總管）
+  const onDragStart = (event: DragEvent<HTMLDivElement>) => {
+    const hit = itemFromEvent(event);
+    if (!hit) return;
+    const draggedIds = selection.selected.has(hit.id) ? selection.selected : new Set([hit.id]);
+    const dragged = items.filter((item) => draggedIds.has(item.id));
+    const [only] = dragged;
+    itemDrag.startDrag(
+      event,
+      draggedItemsOf(dragged, currentFolderId),
+      dragged.length === 1 && only
+        ? only.name
+        : t('file.move.dragLabel', { count: dragged.length }),
+    );
   };
 
   const scrollToIndex = useCallback(
@@ -232,7 +294,7 @@ export function FileBrowser({
       case 'Enter':
         if (focused) {
           event.preventDefault();
-          onOpen(focused.id);
+          onOpen(focused);
         }
         return;
       case 'Escape':
@@ -288,6 +350,8 @@ export function FileBrowser({
         onClick={onClick}
         onDoubleClick={onDoubleClick}
         onKeyDown={onKeyDown}
+        onDragStart={onDragStart}
+        onDragEnd={itemDrag.endDrag}
         data-testid="file-browser-scroll"
       >
         {loading ? (
@@ -307,6 +371,34 @@ export function FileBrowser({
                   height: rect.height,
                 };
                 const isSelected = selection.selected.has(item.id);
+                if (item.type === 'folder') {
+                  const dropOver = itemDrag.isOver(item.id) || overFolder === item.id;
+                  return viewMode === 'grid' ? (
+                    <FolderGridItem
+                      key={item.id}
+                      item={item}
+                      selected={isSelected}
+                      focused={index === focusIndex}
+                      selecting={selecting}
+                      dropOver={dropOver}
+                      draggable={canMove}
+                      style={style}
+                      onToggle={onToggle}
+                    />
+                  ) : (
+                    <FolderListRow
+                      key={item.id}
+                      item={item}
+                      columns={layout.listColumns}
+                      selected={isSelected}
+                      focused={index === focusIndex}
+                      dropOver={dropOver}
+                      draggable={canMove}
+                      style={style}
+                      onToggle={onToggle}
+                    />
+                  );
+                }
                 return viewMode === 'grid' ? (
                   <FileGridItem
                     key={item.id}
@@ -314,6 +406,7 @@ export function FileBrowser({
                     selected={isSelected}
                     focused={index === focusIndex}
                     selecting={selecting}
+                    draggable={canMove}
                     style={style}
                     onStaleUrl={onStaleUrl}
                     onToggle={onToggle}
@@ -325,6 +418,7 @@ export function FileBrowser({
                     columns={layout.listColumns}
                     selected={isSelected}
                     focused={index === focusIndex}
+                    draggable={canMove}
                     style={style}
                     onStaleUrl={onStaleUrl}
                     onToggle={onToggle}
@@ -355,11 +449,22 @@ export function FileBrowser({
       </div>
       {isDragging && (
         <div
-          className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[var(--color-brand)] bg-[color-mix(in_srgb,var(--color-surface)_85%,transparent)] text-[var(--color-brand)]"
+          className={cn(
+            'pointer-events-none absolute inset-0 z-10 flex flex-col items-center gap-2 rounded-lg border-2 border-dashed border-[var(--color-brand)] text-[var(--color-brand)]',
+            // 停在資料夾上時不遮住卡片（要看得到亮起來的是哪一個），提示移到底部
+            overFolderName
+              ? 'justify-end pb-4'
+              : 'justify-center bg-[color-mix(in_srgb,var(--color-surface)_85%,transparent)]',
+          )}
           data-testid="file-drop-overlay"
+          data-value={overFolder}
         >
           <Icon name="upload" size={24} />
-          <span className="text-sm font-medium">{t('file.upload.dropHint')}</span>
+          <span className="rounded-md bg-[var(--color-surface)] px-2 py-0.5 text-sm font-medium">
+            {overFolderName
+              ? t('file.upload.dropHintFolder', { name: overFolderName })
+              : t('file.upload.dropHint')}
+          </span>
         </div>
       )}
     </div>

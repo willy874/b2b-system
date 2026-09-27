@@ -1,13 +1,14 @@
 import type { IconName } from '@/components/Icon';
 import { FILE_KIND_ICON, getFileKind, isBrowserImage } from '@/core/file';
 import type { FileKind } from '@/core/file';
-import type { StoredFile } from '@/shared/api-sdk';
+import type { FileFolder, StoredFile } from '@/shared/api-sdk';
 import { formatBytes } from '@/shared/utils';
 
 import { INLINE_PREVIEW_MAX_SIZE } from '../../constants';
 
 /** 主區塊與 LightBox 使用的檔案 View Model。 */
 export interface FileItemVM {
+  type: 'file';
   id: string;
   name: string;
   contentType: string;
@@ -34,6 +35,7 @@ export function toFileItemVM(file: StoredFile): FileItemVM {
       ? file.url
       : null;
   return {
+    type: 'file',
     id: file.id,
     name: file.name,
     contentType: file.contentType,
@@ -50,6 +52,39 @@ export function toFileItemVM(file: StoredFile): FileItemVM {
     createdAt: file.createdAt,
     updatedAt: file.updatedAt,
   };
+}
+
+/** 主區塊裡的資料夾（排在檔案前面）。 */
+export interface FolderItemVM {
+  type: 'folder';
+  id: string;
+  name: string;
+  parentId: string | null;
+  /** 直接包含的子資料夾數（檔案數要另外查，不顯示）。 */
+  folderCount: number;
+  updatedAt: string;
+}
+
+/** 主區塊的一格：資料夾或檔案。選取、框選、拖曳以 id 處理，不分種類。 */
+export type BrowserItemVM = FolderItemVM | FileItemVM;
+
+export function toFolderItemVM(folder: FileFolder, folderCount: number): FolderItemVM {
+  return {
+    type: 'folder',
+    id: folder.id,
+    name: folder.name,
+    parentId: folder.parentId,
+    folderCount,
+    updatedAt: folder.updatedAt,
+  };
+}
+
+export function isFileItem(item: BrowserItemVM): item is FileItemVM {
+  return item.type === 'file';
+}
+
+export function isFolderItem(item: BrowserItemVM): item is FolderItemVM {
+  return item.type === 'folder';
 }
 
 /** 無限捲動的多頁合併：重新驗證途中頁與頁之間可能短暫重疊，以 id 去重（保留先出現的）。 */

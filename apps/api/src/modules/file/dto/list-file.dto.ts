@@ -17,6 +17,10 @@ export const ListFileSchema = PaginationSchema.extend({
     .optional(),
   /** 分類（`file.constants.ts` 的 `FILE_CATEGORY_RULES`）；`other` 是不屬於其他分類的檔案。 */
   category: z.enum(FILE_CATEGORIES).optional(),
+  /**
+   * 只列這個資料夾「直接」包含的檔案；`root` 是根目錄。不帶則不分資料夾（全部）。
+   */
+  folderId: z.union([z.literal('root'), z.string().uuid()]).optional(),
   /** 只列這個人上傳的檔案。 */
   uploaderId: z.string().uuid().optional(),
   /**

@@ -16,6 +16,7 @@ import { AUDIT_LOG_DETAIL_QUERY_KEY } from '@/apis/audit-log/get-audit-log-detai
 import { AUDIT_LOG_LIST_QUERY_KEY } from '@/apis/audit-log/get-audit-log-list/query';
 import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
 import { FILE_DETAIL_QUERY_KEY } from '@/apis/file/get-file-detail/query';
+import { FILE_FOLDER_LIST_QUERY_KEY } from '@/apis/file/get-file-folder-list/query';
 import { FILE_INFINITE_LIST_QUERY_KEY, FILE_LIST_QUERY_KEY } from '@/apis/file/get-file-list/query';
 import { PERMISSION_LIST_QUERY_KEY } from '@/apis/permission/get-permission-list/query';
 import { ROLE_DETAIL_QUERY_KEY } from '@/apis/role/get-role-detail/query';
@@ -40,6 +41,8 @@ export const Resource = {
   APPROVAL: 'approval',
   /** 檔案（`id` = 檔案 id） */
   FILE: 'file',
+  /** 檔案管理器的資料夾（`id` = 資料夾 id） */
+  FILE_FOLDER: 'fileFolder',
   /** 目前登入者的 session 視角（profile ＋ 有效權限） */
   PROFILE: 'profile',
   // 關係：沒有自己的 query，只作為來源
@@ -121,6 +124,14 @@ const graph = createResourceGraph<Resource>({
     // 刪除後 LightBox 由詳情的 404 得知
     collection: [FILE_LIST_QUERY_KEY, FILE_INFINITE_LIST_QUERY_KEY],
     entity: [FILE_DETAIL_QUERY_KEY],
+    derivesFrom: [
+      // 遞迴刪除資料夾時其中的檔案一起消失；移動資料夾讓「目前資料夾」的列表內容改變
+      { from: Resource.FILE_FOLDER, kinds: ['update', 'delete'], id: 'none' },
+    ],
+  },
+  [Resource.FILE_FOLDER]: {
+    // 只有一個扁平清單：樹、麵包屑、主區塊的資料夾都由它組出來
+    collection: [FILE_FOLDER_LIST_QUERY_KEY],
   },
   [Resource.PROFILE]: {
     collection: [AUTH_PROFILE_QUERY_KEY],

@@ -36,6 +36,7 @@ function fileRow(overrides: Partial<FileRow> = {}): FileRow {
     imageWidth: null,
     imageHeight: null,
     variantFormat: null,
+    folderId: null,
     createdAt: now,
     createdBy: null,
     updatedAt: now,

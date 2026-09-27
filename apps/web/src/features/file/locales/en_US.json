@@ -1,7 +1,7 @@
 {
   "file": {
     "title": "Files",
-    "description": "Upload and manage game assets. Drop files below to upload; drag on empty space to select several files.",
+    "description": "Upload and manage game assets. Organize them into folders and drag items onto a folder to move them; drag files or whole folders from your computer below to upload.",
     "total": "{{count}} files",
     "refresh": "Refresh",
     "download": "Download",
@@ -68,20 +68,23 @@
     "selection": {
       "count": "{{count}} selected",
       "selectAll": "Select all {{count}}",
-      "hint": "Click to select; hold Shift / Ctrl to select several, or drag on empty space. Double-click to preview."
+      "hint": "Click to select; hold Shift/Ctrl to select more, or drag on empty space. Double-click to open; drag onto a folder to move."
     },
     "empty": {
       "title": "No files yet",
       "uploadHint": "Drop files here, or use “Upload” at the top right.",
       "filtered": "No files match these filters",
-      "clearFilters": "Clear filters"
+      "clearFilters": "Clear filters",
+      "folder": "This folder is empty"
     },
     "upload": {
       "action": "Upload",
       "dropHint": "Drop to upload",
       "queued": "Added {{count}} files to the upload queue",
       "rejected": "{{count}} files were not uploaded: “{{name}}” {{reason}}",
-      "directoryUnsupported": "Folders can't be uploaded; skipped {{count}} folders"
+      "files": "Upload files",
+      "directory": "Upload folder",
+      "dropHintFolder": "Drop to upload into \"{{name}}\""
     },
     "validation": {
       "tooLarge": "exceeds the {{max}} limit",
@@ -106,6 +109,11 @@
         "title": "Delete files",
         "confirm": "Delete {{count}} files? They are deleted one by one in the background and cannot be restored.",
         "success": "Deleted {{count}} files"
+      },
+      "deleteFolder": {
+        "title": "Delete folders",
+        "success": "Deleted {{count}} folders",
+        "confirm": "Delete {{count}} items? Selected folders will be deleted together with their files and subfolders. Deletion runs in the background and cannot be undone."
       }
     },
     "preview": {
@@ -121,6 +129,35 @@
       "tooLarge": "This file is too large to preview in the browser. Download it to open.",
       "deleted": "File deleted",
       "deletedDescription": "Someone may have just deleted this file."
+    },
+    "folder": {
+      "label": "Folder",
+      "subfolders": "{{count}} subfolders",
+      "root": "All files",
+      "location": "Current location",
+      "tree": "Folders",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "name": "Folder name",
+      "create": {
+        "action": "New folder",
+        "title": "New folder",
+        "submit": "Create",
+        "placeholder": "e.g. Character art",
+        "success": "Folder created"
+      },
+      "delete": {
+        "title": "Delete folder",
+        "confirm": "Delete \"{{name}}\"? Every file and subfolder inside it will be deleted as well. This cannot be undone.",
+        "success": "Folder deleted"
+      }
+    },
+    "move": {
+      "open": "Move",
+      "title": "Move {{count}} items to…",
+      "action": "Move here",
+      "success": "Moved {{count}} items",
+      "dragLabel": "{{count}} items"
     }
   }
 }

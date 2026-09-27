@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 
+import { FileFolderController } from './file-folder.controller';
+import { FileFolderRepository } from './file-folder.repository';
+import { FileFolderService } from './file-folder.service';
 import { FileImageService } from './file-image.service';
 import { FileMaintenanceService } from './file-maintenance.service';
 import { FileController } from './file.controller';
@@ -11,8 +14,15 @@ import { FileService } from './file.service';
  * 其他模組要引用檔案時存 `files.id`，並注入 `FileService`。
  */
 @Module({
-  controllers: [FileController],
-  providers: [FileService, FileImageService, FileMaintenanceService, FileRepository],
+  controllers: [FileController, FileFolderController],
+  providers: [
+    FileService,
+    FileImageService,
+    FileMaintenanceService,
+    FileRepository,
+    FileFolderService,
+    FileFolderRepository,
+  ],
   exports: [FileService],
 })
 export class FileModule {}

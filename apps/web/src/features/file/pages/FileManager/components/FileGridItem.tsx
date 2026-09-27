@@ -14,6 +14,8 @@ interface FileGridItemProps {
   focused: boolean;
   /** 已有選取時一律顯示勾選框（觸控裝置沒有 hover）。 */
   selecting: boolean;
+  /** 有移動權限時可以拖到資料夾上。 */
+  draggable: boolean;
   style: CSSProperties;
   onStaleUrl: () => void;
   /** 勾選框切換（穩定的參考：不因選取改變而讓所有項目重新渲染）。 */
@@ -29,6 +31,7 @@ export const FileGridItem = memo(function FileGridItem({
   selected,
   focused,
   selecting,
+  draggable,
   style,
   onStaleUrl,
   onToggle,
@@ -41,6 +44,7 @@ export const FileGridItem = memo(function FileGridItem({
       // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
       role="option"
       aria-selected={selected}
+      draggable={draggable}
       data-file-item=""
       data-id={item.id}
       data-testid="file-item"

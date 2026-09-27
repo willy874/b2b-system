@@ -24,6 +24,10 @@ import FileText from '@/assets/icons/file-text.svg?react';
 import FileVideo from '@/assets/icons/file-video.svg?react';
 import File from '@/assets/icons/file.svg?react';
 import Filter from '@/assets/icons/filter.svg?react';
+import FolderMove from '@/assets/icons/folder-move.svg?react';
+import FolderPlus from '@/assets/icons/folder-plus.svg?react';
+import FolderUpload from '@/assets/icons/folder-upload.svg?react';
+import Folder from '@/assets/icons/folder.svg?react';
 import Grid from '@/assets/icons/grid.svg?react';
 import Home from '@/assets/icons/home.svg?react';
 import Info from '@/assets/icons/info.svg?react';
@@ -85,6 +89,10 @@ export const ICONS = {
   'file-text': FileText,
   'file-video': FileVideo,
   filter: Filter,
+  folder: Folder,
+  'folder-move': FolderMove,
+  'folder-plus': FolderPlus,
+  'folder-upload': FolderUpload,
   grid: Grid,
   home: Home,
   info: Info,

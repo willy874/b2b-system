@@ -30,6 +30,8 @@ interface FileListRowProps {
   columns: readonly FileListColumn[];
   selected: boolean;
   focused: boolean;
+  /** 有移動權限時可以拖到資料夾上。 */
+  draggable: boolean;
   style: CSSProperties;
   onStaleUrl: () => void;
   /** 勾選框切換（穩定的參考：不因選取改變而讓所有項目重新渲染）。 */
@@ -42,6 +44,7 @@ export const FileListRow = memo(function FileListRow({
   columns,
   selected,
   focused,
+  draggable,
   style,
   onStaleUrl,
   onToggle,
@@ -68,6 +71,7 @@ export const FileListRow = memo(function FileListRow({
       // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
       role="option"
       aria-selected={selected}
+      draggable={draggable}
       data-file-item=""
       data-id={item.id}
       data-testid="file-item"

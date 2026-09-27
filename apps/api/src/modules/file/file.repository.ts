@@ -98,6 +98,11 @@ export class FileRepository {
       );
     }
     if (query.category) conditions.push(categoryCondition(query.category));
+    if (query.folderId) {
+      conditions.push(
+        query.folderId === 'root' ? isNull(files.folderId) : eq(files.folderId, query.folderId),
+      );
+    }
     if (query.uploaderId) conditions.push(eq(files.createdBy, query.uploaderId));
     const where = and(...conditions);
 

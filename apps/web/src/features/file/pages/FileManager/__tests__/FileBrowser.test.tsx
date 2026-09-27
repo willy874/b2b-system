@@ -1,14 +1,17 @@
-import { act, fireEvent, renderHook, screen } from '@testing-library/react';
+import { act, fireEvent, renderHook, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { renderWithPermissions } from '@/test/renderWithPermissions';
 
 import type { FileViewMode } from '../../../preference';
-import type { FileItemVM } from '../adapter';
+import type { BrowserItemVM, FileItemVM, FolderItemVM } from '../adapter';
 import { FileBrowser } from '../components/FileBrowser';
+import { buildFolderIndex } from '../folderTree';
 import { useFileSelection } from '../useFileSelection';
+import { ITEM_DRAG_TYPE, useItemDrag } from '../useItemDrag';
 
 const item = (id: string, overrides: Partial<FileItemVM> = {}): FileItemVM => ({
+  type: 'file',
   id,
   name: `${id}.png`,
   contentType: 'image/png',
@@ -27,18 +30,59 @@ const item = (id: string, overrides: Partial<FileItemVM> = {}): FileItemVM => ({
   ...overrides,
 });
 
+const folder = (id: string): FolderItemVM => ({
+  type: 'folder',
+  id,
+  name: `folder-${id}`,
+  parentId: null,
+  folderCount: 0,
+  updatedAt: '2026-09-27T00:00:00.000Z',
+});
+
 const ITEMS = [item('a'), item('b'), item('c'), item('d')];
 
+/** 主區塊裡所有的項目（資料夾在前）。 */
+const all = () => [
+  ...screen.queryAllByTestId('file-folder-item'),
+  ...screen.queryAllByTestId('file-item'),
+];
+
+/** 頁面內拖曳的 dataTransfer（jsdom 沒有 DataTransfer）。 */
+const itemDataTransfer = () => ({
+  types: [ITEM_DRAG_TYPE],
+  setData: vi.fn(),
+  setDragImage: vi.fn(),
+  effectAllowed: '',
+  dropEffect: '',
+});
+
 function setup(
-  options: { items?: FileItemVM[]; viewMode?: FileViewMode; canUpload?: boolean } = {},
+  options: {
+    items?: BrowserItemVM[];
+    viewMode?: FileViewMode;
+    canUpload?: boolean;
+    canMove?: boolean;
+  } = {},
 ) {
   const items = options.items ?? ITEMS;
   const selection = renderHook(() => useFileSelection(items.map((file) => file.id)));
+  const onMove = vi.fn();
+  const folders = buildFolderIndex(
+    items
+      .filter((entry) => entry.type === 'folder')
+      .map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        parentId: null,
+        createdAt: '',
+        updatedAt: '',
+      })),
+  );
+  const drag = renderHook(() => useItemDrag({ enabled: options.canMove ?? true, folders, onMove }));
   const props = {
     onOpen: vi.fn(),
     onDeleteSelected: vi.fn(),
-    onDropFiles: vi.fn(),
-    onDropDirectories: vi.fn(),
+    onDropUpload: vi.fn(),
     onSortChange: vi.fn(),
   };
   const view = () => (
@@ -52,6 +96,9 @@ function setup(
       onLoadMore={vi.fn()}
       onStaleUrl={vi.fn()}
       canUpload={options.canUpload ?? true}
+      currentFolderId={undefined}
+      itemDrag={drag.result.current}
+      canMove={options.canMove ?? true}
       sort={{ sort: 'createdAt', order: 'desc' }}
       emptyContent={<p data-testid="empty">empty</p>}
       {...props}
@@ -60,19 +107,16 @@ function setup(
   const rendered = renderWithPermissions(view());
   const rerender = () => rendered.rerender(view());
   const selected = () =>
-    screen
-      .getAllByTestId('file-item')
+    all()
       .filter((element) => element.getAttribute('aria-selected') === 'true')
       .map((element) => element.dataset.value);
   const itemEl = (id: string) =>
-    screen
-      .getAllByTestId('file-item')
-      .find((element) => element.dataset.value === id) as HTMLElement;
+    all().find((element) => element.dataset.value === id) as HTMLElement;
   const act$ = (fn: () => void) => {
     act(fn);
     rerender();
   };
-  return { ...props, selection, rerender, selected, itemEl, act$ };
+  return { ...props, onMove, selection, rerender, selected, itemEl, act$ };
 }
 
 describe('FileBrowser（主區塊）', () => {
@@ -98,7 +142,7 @@ describe('FileBrowser（主區塊）', () => {
   it('雙擊打開 LightBox', () => {
     const { itemEl, onOpen } = setup();
     fireEvent.doubleClick(itemEl('b'));
-    expect(onOpen).toHaveBeenCalledWith('b');
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'b', type: 'file' }));
   });
 
   it('鍵盤：Ctrl+A 全選、Esc 清除、Delete 要求刪除選取、Enter 打開焦點項目', () => {
@@ -114,37 +158,104 @@ describe('FileBrowser（主區塊）', () => {
     act$(() => fireEvent.keyDown(list, { key: 'ArrowRight' }));
     expect(selected()).toEqual(['a']);
     fireEvent.keyDown(list, { key: 'Enter' });
-    expect(onOpen).toHaveBeenCalledWith('a');
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }));
   });
 
-  it('拖放檔案：出現遮罩，放開後交出檔案、略過資料夾', () => {
-    const { onDropFiles, onDropDirectories } = setup();
+  it('拖放檔案：出現遮罩，放開後交出檔案（目的地是目前的資料夾）', async () => {
+    const { onDropUpload } = setup();
     const browser = screen.getByTestId('file-browser');
     const file = new File(['x'], 'a.txt');
     const dataTransfer = {
       types: ['Files'],
       files: [file],
-      items: [
-        { kind: 'file', getAsFile: () => file, webkitGetAsEntry: () => ({ isDirectory: false }) },
-        { kind: 'file', getAsFile: () => null, webkitGetAsEntry: () => ({ isDirectory: true }) },
-      ],
+      items: [{ kind: 'file', getAsFile: () => file, webkitGetAsEntry: () => null }],
     };
     fireEvent.dragEnter(browser, { dataTransfer });
     expect(screen.getByTestId('file-drop-overlay')).toBeInTheDocument();
     fireEvent.drop(browser, { dataTransfer });
-    expect(onDropFiles).toHaveBeenCalledWith([file]);
-    expect(onDropDirectories).toHaveBeenCalledWith(1);
+    await waitFor(() =>
+      expect(onDropUpload).toHaveBeenCalledWith(
+        { entries: [{ file, directories: [] }], directories: [] },
+        undefined,
+      ),
+    );
     expect(screen.queryByTestId('file-drop-overlay')).not.toBeInTheDocument();
   });
 
+  it('從電腦拖檔案放在資料夾卡片上：上傳到那個資料夾', async () => {
+    const { onDropUpload, itemEl } = setup({ items: [folder('f1'), item('a')] });
+    const file = new File(['x'], 'a.txt');
+    const dataTransfer = {
+      types: ['Files'],
+      files: [file],
+      items: [{ kind: 'file', getAsFile: () => file, webkitGetAsEntry: () => null }],
+    };
+    fireEvent.dragEnter(itemEl('f1'), { dataTransfer });
+    fireEvent.dragOver(itemEl('f1'), { dataTransfer });
+    expect(screen.getByTestId('file-drop-overlay').dataset.value).toBe('f1');
+    fireEvent.drop(itemEl('f1'), { dataTransfer });
+    await waitFor(() => expect(onDropUpload).toHaveBeenCalledWith(expect.anything(), 'f1'));
+  });
+
   it('沒有上傳權限：拖曳檔案不出現遮罩、不交出檔案', () => {
-    const { onDropFiles } = setup({ canUpload: false });
+    const { onDropUpload } = setup({ canUpload: false });
     const browser = screen.getByTestId('file-browser');
     const dataTransfer = { types: ['Files'], files: [new File(['x'], 'a.txt')], items: [] };
     fireEvent.dragEnter(browser, { dataTransfer });
     expect(screen.queryByTestId('file-drop-overlay')).not.toBeInTheDocument();
     fireEvent.drop(browser, { dataTransfer });
-    expect(onDropFiles).not.toHaveBeenCalled();
+    expect(onDropUpload).not.toHaveBeenCalled();
+  });
+
+  it('資料夾排在前面；雙擊資料夾是開啟（進入）', () => {
+    const { itemEl, onOpen } = setup({ items: [folder('f1'), item('a')] });
+    fireEvent.doubleClick(itemEl('f1'));
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'f1', type: 'folder' }));
+  });
+
+  describe('拖曳項目到資料夾上移動（docs/architecture/frontend/12-file-manager.md §12）', () => {
+    it('拖已選取的項目：整批（檔案與資料夾）移到放下的資料夾', () => {
+      const { itemEl, act$, onMove } = setup({
+        items: [folder('f1'), folder('f2'), item('a'), item('b')],
+      });
+      act$(() => fireEvent.click(itemEl('f2')));
+      act$(() => fireEvent.click(itemEl('a'), { ctrlKey: true }));
+      const dataTransfer = itemDataTransfer();
+      fireEvent.dragStart(itemEl('a'), { dataTransfer });
+      fireEvent.dragOver(itemEl('f1'), { dataTransfer });
+      expect(dataTransfer.dropEffect).toBe('move');
+      fireEvent.drop(itemEl('f1'), { dataTransfer });
+
+      expect(onMove).toHaveBeenCalledWith(
+        { fileIds: ['a'], folderIds: ['f2'], sourceFolderId: undefined },
+        'f1',
+      );
+    });
+
+    it('拖沒選取的項目：只拖它', () => {
+      const { itemEl, act$, onMove } = setup({ items: [folder('f1'), item('a'), item('b')] });
+      act$(() => fireEvent.click(itemEl('a')));
+      const dataTransfer = itemDataTransfer();
+      fireEvent.dragStart(itemEl('b'), { dataTransfer });
+      fireEvent.drop(itemEl('f1'), { dataTransfer });
+      expect(onMove).toHaveBeenCalledWith(expect.objectContaining({ fileIds: ['b'] }), 'f1');
+    });
+
+    it('資料夾不能放進自己：游標顯示禁止、不移動', () => {
+      const { itemEl, onMove } = setup({ items: [folder('f1'), item('a')] });
+      const dataTransfer = itemDataTransfer();
+      fireEvent.dragStart(itemEl('f1'), { dataTransfer });
+      fireEvent.dragOver(itemEl('f1'), { dataTransfer });
+      expect(dataTransfer.dropEffect).toBe('none');
+      fireEvent.drop(itemEl('f1'), { dataTransfer });
+      expect(onMove).not.toHaveBeenCalled();
+    });
+
+    it('沒有移動權限：項目不可拖曳', () => {
+      const { itemEl } = setup({ items: [folder('f1'), item('a')], canMove: false });
+      expect(itemEl('a').getAttribute('draggable')).toBe('false');
+      expect(itemEl('f1').getAttribute('draggable')).toBe('false');
+    });
   });
 
   it('列表模式有表頭，點欄名排序', () => {

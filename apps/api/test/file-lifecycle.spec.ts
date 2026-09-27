@@ -20,7 +20,7 @@ import type {
   StoredObjectHead,
   UploadedPart,
 } from '@/core/storage';
-import { auditLogs, files, roles, userRoles, users } from '@/db/schema';
+import { auditLogs, fileFolders, files, roles, userRoles, users } from '@/db/schema';
 import { FileImageService } from '@/modules/file/file-image.service';
 import { FileMaintenanceService } from '@/modules/file/file-maintenance.service';
 
@@ -234,6 +234,7 @@ async function startUpload(
     contentType: string;
     size: number;
     thumbnail?: { contentType: string; size: number };
+    folderId?: string;
   },
 ) {
   const response = await request(http)
@@ -683,6 +684,184 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     expect(row?.deletedAt).not.toBeNull();
     expect(storage.objects.has(`files/${file.id}`)).toBe(false);
     expect(storage.objects.has(orphanKey)).toBe(false);
+  });
+
+  describe('資料夾（docs/architecture/backend/09-file.md §4.2）', () => {
+    interface FolderBody {
+      id: string;
+      name: string;
+      parentId: string | null;
+    }
+
+    async function createFolder(token: string, name: string, parentId: string | null = null) {
+      const response = await request(http)
+        .post('/file-folders')
+        .set('authorization', `Bearer ${token}`)
+        .send({ name, parentId })
+        .expect(201);
+      return (response.body as { data: FolderBody }).data;
+    }
+
+    async function listIn(token: string, folderId: string) {
+      const response = await request(http)
+        .get('/files')
+        .query({ folderId })
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+      return (response.body as { data: { items: FileBody[] } }).data.items.map((f) => f.name);
+    }
+
+    it('上傳到資料夾、依 folderId 列出、移動檔案與資料夾', async () => {
+      const token = await login(ADMIN);
+      const art = await createFolder(token, 'art-move');
+      const ui = await createFolder(token, 'ui', art.id);
+
+      const { file, upload } = await startUpload(token, {
+        name: 'button.png',
+        contentType: 'text/plain',
+        size: 5,
+        folderId: ui.id,
+      });
+      storage.simulateBrowserUpload(upload.url, 5);
+      await request(http)
+        .post(`/files/${file.id}/complete`)
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(await listIn(token, ui.id)).toEqual(['button.png']);
+      expect(await listIn(token, 'root')).not.toContain('button.png');
+
+      const moved = await request(http)
+        .post('/files/move')
+        .set('authorization', `Bearer ${token}`)
+        .send({ fileIds: [file.id], folderIds: [ui.id], targetFolderId: null })
+        .expect(200);
+      expect((moved.body as { data: unknown }).data).toEqual({ movedFiles: 1, movedFolders: 1 });
+      expect(await listIn(token, 'root')).toContain('button.png');
+
+      const [row] = await db.select().from(fileFolders).where(eq(fileFolders.id, ui.id));
+      expect(row?.parentId).toBeNull();
+    });
+
+    it('移到自己的子孫底下 → 422 FILE_FOLDER_CYCLE；同層同名（不分大小寫）→ 409', async () => {
+      const token = await login(ADMIN);
+      const a = await createFolder(token, 'cycle-a');
+      const b = await createFolder(token, 'cycle-b', a.id);
+
+      const cycle = await request(http)
+        .post('/files/move')
+        .set('authorization', `Bearer ${token}`)
+        .send({ folderIds: [a.id], targetFolderId: b.id })
+        .expect(422);
+      expect((cycle.body as { error: { code: string } }).error.code).toBe('FILE_FOLDER_CYCLE');
+
+      const duplicate = await request(http)
+        .post('/file-folders')
+        .set('authorization', `Bearer ${token}`)
+        .send({ name: 'CYCLE-A', parentId: null })
+        .expect(409);
+      expect((duplicate.body as { error: { code: string } }).error.code).toBe(
+        'FILE_FOLDER_NAME_CONFLICT',
+      );
+    });
+
+    it('上傳資料夾：確保路徑時沿用同名資料夾，重送得到同樣的 id', async () => {
+      const token = await login(ADMIN);
+      const body = { parentId: null, paths: [['pack'], ['pack', 'sfx'], ['Pack', 'bgm', 'loop']] };
+      const first = await request(http)
+        .post('/file-folders/paths')
+        .set('authorization', `Bearer ${token}`)
+        .send(body)
+        .expect(200);
+      const second = await request(http)
+        .post('/file-folders/paths')
+        .set('authorization', `Bearer ${token}`)
+        .send(body)
+        .expect(200);
+      expect(second.body).toEqual(first.body);
+
+      const list = await request(http)
+        .get('/file-folders')
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+      const names = (list.body as { data: { items: FolderBody[] } }).data.items.map((f) => f.name);
+      expect(names.filter((name) => name.toLowerCase() === 'pack')).toHaveLength(1);
+      expect(names).toEqual(expect.arrayContaining(['sfx', 'bgm', 'loop']));
+    });
+
+    it('遞迴刪除：子資料夾與其中的檔案一起消失；刪除後可以再建同名資料夾', async () => {
+      const token = await login(ADMIN);
+      const top = await createFolder(token, 'trash-me');
+      const child = await createFolder(token, 'child', top.id);
+      const { file, upload } = await startUpload(token, {
+        name: 'inside.txt',
+        contentType: 'text/plain',
+        size: 2,
+        folderId: child.id,
+      });
+      storage.simulateBrowserUpload(upload.url, 2);
+      await request(http)
+        .post(`/files/${file.id}/complete`)
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+
+      await request(http)
+        .delete(`/file-folders/${top.id}`)
+        .set('authorization', `Bearer ${token}`)
+        .expect(204);
+      await request(http)
+        .get(`/files/${file.id}`)
+        .set('authorization', `Bearer ${token}`)
+        .expect(404);
+      const [row] = await db.select().from(fileFolders).where(eq(fileFolders.id, child.id));
+      expect(row?.deletedAt).not.toBeNull();
+      await createFolder(token, 'trash-me');
+    });
+
+    it('上傳到不存在的資料夾 → 404 FILE_FOLDER_NOT_FOUND', async () => {
+      const token = await login(ADMIN);
+      const response = await request(http)
+        .post('/files')
+        .set('authorization', `Bearer ${token}`)
+        .send({
+          name: 'x.txt',
+          contentType: 'text/plain',
+          size: 1,
+          folderId: '99999999-9999-4999-8999-999999999999',
+        })
+        .expect(404);
+      expect((response.body as { error: { code: string } }).error.code).toBe(
+        'FILE_FOLDER_NOT_FOUND',
+      );
+    });
+
+    it('auditor 能讀資料夾但不能建立或移動', async () => {
+      const auditor = await login(AUDITOR);
+      await request(http)
+        .get('/file-folders')
+        .set('authorization', `Bearer ${auditor}`)
+        .expect(200);
+      await request(http)
+        .post('/file-folders')
+        .set('authorization', `Bearer ${auditor}`)
+        .send({ name: 'nope' })
+        .expect(403);
+      await request(http)
+        .post('/files/move')
+        .set('authorization', `Bearer ${auditor}`)
+        .send({ fileIds: ['99999999-9999-4999-8999-999999999999'], targetFolderId: null })
+        .expect(403);
+    });
+
+    it('資料夾不可以是自己的上層（資料表約束）', async () => {
+      const [row] = await db.insert(fileFolders).values({ name: 'self' }).returning();
+      await expectDbError(
+        db
+          .update(fileFolders)
+          .set({ parentId: row?.id })
+          .where(eq(fileFolders.id, row?.id ?? '')),
+        /file_folders_not_own_parent/,
+      );
+    });
   });
 
   describe('files 資料表約束', () => {

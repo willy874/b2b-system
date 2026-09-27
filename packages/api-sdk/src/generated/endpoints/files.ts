@@ -5,13 +5,21 @@ import { z } from 'zod';
 
 import type {
   CompleteFileUploadRequest,
+  CreateFileFolderRequest,
   CreateFileUploadPartsRequest,
   CreateFileUploadRequest,
+  EnsureFileFolderPathsRequest,
+  FileFolder,
+  FileFolderList,
+  FileFolderPaths,
   FileListPage,
   FileUpload,
   FileUploadParts,
   FileUploadPolicy,
+  MoveFileItemsRequest,
+  MoveFileItemsResult,
   StoredFile,
+  UpdateFileFolderRequest,
   UpdateFileRequest,
 } from '../models';
 import { buildUrl, request } from '../runtime';
@@ -23,13 +31,21 @@ import type {
 } from '../runtime';
 import {
   CompleteFileUploadRequestSchema,
+  CreateFileFolderRequestSchema,
   CreateFileUploadPartsRequestSchema,
   CreateFileUploadRequestSchema,
+  EnsureFileFolderPathsRequestSchema,
+  FileFolderListSchema,
+  FileFolderPathsSchema,
+  FileFolderSchema,
   FileListPageSchema,
   FileUploadPartsSchema,
   FileUploadPolicySchema,
   FileUploadSchema,
+  MoveFileItemsRequestSchema,
+  MoveFileItemsResultSchema,
   StoredFileSchema,
+  UpdateFileFolderRequestSchema,
   UpdateFileRequestSchema,
 } from '../schemas';
 
@@ -169,6 +185,55 @@ export function fileControllerGetUploadPolicy(
     {},
     options,
   );
+}
+
+// POST /files/move
+
+export type FileControllerMoveBody = MoveFileItemsRequest;
+
+export interface FileControllerMoveInput {
+  body: FileControllerMoveBody;
+}
+
+export interface FileControllerMoveResponses {
+  200: {
+    data: MoveFileItemsResult;
+  };
+}
+
+export type FileControllerMoveResponse = FileControllerMoveResponses[200];
+
+export type FileControllerMoveResult = ApiResponse<200, FileControllerMoveResponses[200]>;
+
+export const FileControllerMoveSchemas = {
+  body: MoveFileItemsRequestSchema,
+  responses: {
+    200: z.object({
+      data: MoveFileItemsResultSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileControllerMoveUrl(): string {
+  return buildUrl('/files/move');
+}
+
+const fileControllerMoveOperation: OperationDefinition = {
+  id: 'FileController_move',
+  method: 'POST',
+  path: '/files/move',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: FileControllerMoveSchemas,
+};
+
+/** 把檔案與資料夾移到另一個資料夾（targetFolderId 為 null 是根目錄） */
+export function fileControllerMove(
+  input: FileControllerMoveInput,
+  options?: RequestOptions,
+): Promise<FileControllerMoveResult> {
+  return request<FileControllerMoveResult>(fileControllerMoveOperation, input, options);
 }
 
 // POST /files/{id}/parts
@@ -547,4 +612,275 @@ export function fileControllerUpdate(
   options?: RequestOptions,
 ): Promise<FileControllerUpdateResult> {
   return request<FileControllerUpdateResult>(fileControllerUpdateOperation, input, options);
+}
+
+// GET /file-folders
+
+export interface FileFolderControllerListResponses {
+  200: {
+    data: FileFolderList;
+  };
+}
+
+export type FileFolderControllerListResponse = FileFolderControllerListResponses[200];
+
+export type FileFolderControllerListResult = ApiResponse<
+  200,
+  FileFolderControllerListResponses[200]
+>;
+
+export const FileFolderControllerListSchemas = {
+  responses: {
+    200: z.object({
+      data: FileFolderListSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileFolderControllerListUrl(): string {
+  return buildUrl('/file-folders');
+}
+
+const fileFolderControllerListOperation: OperationDefinition = {
+  id: 'FileFolderController_list',
+  method: 'GET',
+  path: '/file-folders',
+  responseTypes: { 200: 'json' },
+  schemas: FileFolderControllerListSchemas,
+};
+
+/** 全部的資料夾（扁平清單，前端自行組成樹） */
+export function fileFolderControllerList(
+  options?: RequestOptions,
+): Promise<FileFolderControllerListResult> {
+  return request<FileFolderControllerListResult>(fileFolderControllerListOperation, {}, options);
+}
+
+// POST /file-folders
+
+export type FileFolderControllerCreateBody = CreateFileFolderRequest;
+
+export interface FileFolderControllerCreateInput {
+  body: FileFolderControllerCreateBody;
+}
+
+export interface FileFolderControllerCreateResponses {
+  201: {
+    data: FileFolder;
+  };
+}
+
+export type FileFolderControllerCreateResponse = FileFolderControllerCreateResponses[201];
+
+export type FileFolderControllerCreateResult = ApiResponse<
+  201,
+  FileFolderControllerCreateResponses[201]
+>;
+
+export const FileFolderControllerCreateSchemas = {
+  body: CreateFileFolderRequestSchema,
+  responses: {
+    201: z.object({
+      data: FileFolderSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileFolderControllerCreateUrl(): string {
+  return buildUrl('/file-folders');
+}
+
+const fileFolderControllerCreateOperation: OperationDefinition = {
+  id: 'FileFolderController_create',
+  method: 'POST',
+  path: '/file-folders',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 201: 'json' },
+  schemas: FileFolderControllerCreateSchemas,
+};
+
+export function fileFolderControllerCreate(
+  input: FileFolderControllerCreateInput,
+  options?: RequestOptions,
+): Promise<FileFolderControllerCreateResult> {
+  return request<FileFolderControllerCreateResult>(
+    fileFolderControllerCreateOperation,
+    input,
+    options,
+  );
+}
+
+// POST /file-folders/paths
+
+export type FileFolderControllerEnsurePathsBody = EnsureFileFolderPathsRequest;
+
+export interface FileFolderControllerEnsurePathsInput {
+  body: FileFolderControllerEnsurePathsBody;
+}
+
+export interface FileFolderControllerEnsurePathsResponses {
+  200: {
+    data: FileFolderPaths;
+  };
+}
+
+export type FileFolderControllerEnsurePathsResponse = FileFolderControllerEnsurePathsResponses[200];
+
+export type FileFolderControllerEnsurePathsResult = ApiResponse<
+  200,
+  FileFolderControllerEnsurePathsResponses[200]
+>;
+
+export const FileFolderControllerEnsurePathsSchemas = {
+  body: EnsureFileFolderPathsRequestSchema,
+  responses: {
+    200: z.object({
+      data: FileFolderPathsSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileFolderControllerEnsurePathsUrl(): string {
+  return buildUrl('/file-folders/paths');
+}
+
+const fileFolderControllerEnsurePathsOperation: OperationDefinition = {
+  id: 'FileFolderController_ensurePaths',
+  method: 'POST',
+  path: '/file-folders/paths',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: FileFolderControllerEnsurePathsSchemas,
+};
+
+/** 上傳資料夾：確保各路徑存在（同名的資料夾沿用），回傳各路徑的資料夾 id */
+export function fileFolderControllerEnsurePaths(
+  input: FileFolderControllerEnsurePathsInput,
+  options?: RequestOptions,
+): Promise<FileFolderControllerEnsurePathsResult> {
+  return request<FileFolderControllerEnsurePathsResult>(
+    fileFolderControllerEnsurePathsOperation,
+    input,
+    options,
+  );
+}
+
+// DELETE /file-folders/{id}
+
+export interface FileFolderControllerRemovePathParams {
+  id: string;
+}
+
+export interface FileFolderControllerRemoveInput {
+  path: FileFolderControllerRemovePathParams;
+}
+
+export interface FileFolderControllerRemoveResponses {
+  204: undefined;
+}
+
+export type FileFolderControllerRemoveResponse = FileFolderControllerRemoveResponses[204];
+
+export type FileFolderControllerRemoveResult = ApiResponse<
+  204,
+  FileFolderControllerRemoveResponses[204]
+>;
+
+export const FileFolderControllerRemoveSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+} satisfies OperationSchemas;
+
+export function getFileFolderControllerRemoveUrl(
+  path: FileFolderControllerRemovePathParams,
+): string {
+  return buildUrl('/file-folders/{id}', path);
+}
+
+const fileFolderControllerRemoveOperation: OperationDefinition = {
+  id: 'FileFolderController_remove',
+  method: 'DELETE',
+  path: '/file-folders/{id}',
+  responseTypes: { 204: 'none' },
+  schemas: FileFolderControllerRemoveSchemas,
+};
+
+/** 遞迴刪除資料夾：子資料夾與其中的檔案一起刪除 */
+export function fileFolderControllerRemove(
+  input: FileFolderControllerRemoveInput,
+  options?: RequestOptions,
+): Promise<FileFolderControllerRemoveResult> {
+  return request<FileFolderControllerRemoveResult>(
+    fileFolderControllerRemoveOperation,
+    input,
+    options,
+  );
+}
+
+// PATCH /file-folders/{id}
+
+export interface FileFolderControllerRenamePathParams {
+  id: string;
+}
+
+export type FileFolderControllerRenameBody = UpdateFileFolderRequest;
+
+export interface FileFolderControllerRenameInput {
+  path: FileFolderControllerRenamePathParams;
+  body: FileFolderControllerRenameBody;
+}
+
+export interface FileFolderControllerRenameResponses {
+  200: {
+    data: FileFolder;
+  };
+}
+
+export type FileFolderControllerRenameResponse = FileFolderControllerRenameResponses[200];
+
+export type FileFolderControllerRenameResult = ApiResponse<
+  200,
+  FileFolderControllerRenameResponses[200]
+>;
+
+export const FileFolderControllerRenameSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  body: UpdateFileFolderRequestSchema,
+  responses: {
+    200: z.object({
+      data: FileFolderSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileFolderControllerRenameUrl(
+  path: FileFolderControllerRenamePathParams,
+): string {
+  return buildUrl('/file-folders/{id}', path);
+}
+
+const fileFolderControllerRenameOperation: OperationDefinition = {
+  id: 'FileFolderController_rename',
+  method: 'PATCH',
+  path: '/file-folders/{id}',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: FileFolderControllerRenameSchemas,
+};
+
+export function fileFolderControllerRename(
+  input: FileFolderControllerRenameInput,
+  options?: RequestOptions,
+): Promise<FileFolderControllerRenameResult> {
+  return request<FileFolderControllerRenameResult>(
+    fileFolderControllerRenameOperation,
+    input,
+    options,
+  );
 }

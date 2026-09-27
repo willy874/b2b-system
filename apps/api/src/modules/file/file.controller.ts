@@ -31,6 +31,8 @@ import type {
   CreateFileUploadDto,
   CreateFileUploadPartsDto,
 } from './dto/create-file-upload.dto';
+import { MoveFileItemsResultSchema, MoveFileItemsSchema } from './dto/file-folder.dto';
+import type { MoveFileItemsDto } from './dto/file-folder.dto';
 import {
   FileListSchema,
   FileSchema,
@@ -44,6 +46,7 @@ import { ListFileSchema } from './dto/list-file.dto';
 import type { ListFileDto } from './dto/list-file.dto';
 import { UpdateFileSchema } from './dto/update-file.dto';
 import type { UpdateFileDto } from './dto/update-file.dto';
+import { FileFolderService } from './file-folder.service';
 import { FileImageService } from './file-image.service';
 import { IMAGE_VARIANTS } from './file.constants';
 import type { ImageVariant } from './file.constants';
@@ -55,6 +58,7 @@ export class FileController {
   constructor(
     private readonly fileService: FileService,
     private readonly fileImageService: FileImageService,
+    private readonly folderService: FileFolderService,
   ) {}
 
   @Get()
@@ -83,6 +87,19 @@ export class FileController {
     @CurrentUser() actor: AuthUser,
   ) {
     return this.fileService.createUpload(dto, actor);
+  }
+
+  @Post('move')
+  @RequirePermissions(PERMISSION.FILE_UPDATE)
+  @HttpCode(200)
+  @ApiOperation({ summary: '把檔案與資料夾移到另一個資料夾（targetFolderId 為 null 是根目錄）' })
+  @ApiZodBody(MoveFileItemsSchema)
+  @ApiZodResponse(200, MoveFileItemsResultSchema)
+  move(
+    @Body(new ZodValidationPipe(MoveFileItemsSchema)) dto: MoveFileItemsDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.folderService.move(dto, actor);
   }
 
   @Post(':id/parts')

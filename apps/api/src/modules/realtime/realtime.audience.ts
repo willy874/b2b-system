@@ -41,6 +41,8 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
   [ChangeSource.APPROVAL]: { perms: () => [PERMISSION.APPROVAL_READ], includesSubject: false },
   // 檔案列表與詳情
   [ChangeSource.FILE]: { perms: () => [PERMISSION.FILE_READ], includesSubject: false },
+  // 資料夾樹與麵包屑
+  [ChangeSource.FILE_FOLDER]: { perms: () => [PERMISSION.FILE_READ], includesSubject: false },
 };
 
 /** 每次寫入都會新增一筆稽核（前端 `derivesFromAnyChange`）。 */

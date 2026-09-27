@@ -12,6 +12,8 @@ export const ChangeSource = {
   USER_CREDENTIAL: 'userCredential',
   APPROVAL: 'approval',
   FILE: 'file',
+  /** 檔案管理器的資料夾（建立、改名、移動、刪除）。 */
+  FILE_FOLDER: 'fileFolder',
 } as const;
 
 export type ChangeSource = (typeof ChangeSource)[keyof typeof ChangeSource];
@@ -37,6 +39,7 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.USER_CREDENTIAL,
   ChangeSource.APPROVAL,
   ChangeSource.FILE,
+  ChangeSource.FILE_FOLDER,
 ]);
 
 export const ResourceChangeWireSchema = z.object({

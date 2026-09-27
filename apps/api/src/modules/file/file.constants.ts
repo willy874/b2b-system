@@ -92,6 +92,15 @@ export function fileIdOfKey(key: string): string | undefined {
 /** 維護排程一次查資料庫或處理的筆數。 */
 export const MAINTENANCE_BATCH_SIZE = 500;
 
+// ── 資料夾（docs/architecture/backend/09-file.md §4.2） ──
+
+/** 資料夾的最大深度：上傳資料夾時的路徑層數上限，也擋下失控的巢狀。 */
+export const MAX_FOLDER_DEPTH = 32;
+/** 上傳資料夾時一次確保的路徑數（前端依資料夾數分批送）。 */
+export const MAX_FOLDER_PATHS = 1000;
+/** 一次移動的檔案或資料夾數（各自的上限）。 */
+export const MAX_MOVE_ITEMS = 1000;
+
 /** 一次最多要幾塊的上傳網址（前端邊傳邊要，不必一次拿齊）。 */
 export const MAX_PARTS_PER_REQUEST = 100;
 /** S3 的上限。 */

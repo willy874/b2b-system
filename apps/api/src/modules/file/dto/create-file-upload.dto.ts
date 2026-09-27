@@ -31,6 +31,8 @@ export const CreateFileUploadSchema = defineSchema(
      * 超過 `FILE_MULTIPART_THRESHOLD` 時回應的是分塊上傳（`multipart`）而不是單次 PUT（`upload`）。
      */
     size: z.number().int().min(0),
+    /** 放進哪個資料夾；不帶或 null 是根目錄。資料夾不存在回 `FILE_FOLDER_NOT_FOUND`。 */
+    folderId: z.string().uuid().nullable().optional(),
     /** 瀏覽器產生的縮圖；有帶才發縮圖的直傳網址（`thumbnailUpload`）。 */
     thumbnail: z
       .object({

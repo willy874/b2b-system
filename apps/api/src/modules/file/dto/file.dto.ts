@@ -42,6 +42,8 @@ export const FileSchema = defineSchema(
     contentType: z.string(),
     size: z.number().int(),
     status: FileStatusSchema,
+    /** 所在的資料夾；null 是根目錄。 */
+    folderId: z.string().uuid().nullable(),
     /** 直接顯示用（`<img src>`、`<video src>`）；`pending` 時為 null。有效期限見 `urlExpiresAt`。 */
     url: z.string().nullable(),
     /** 觸發瀏覽器下載、並以 `name` 為檔名；`pending` 時為 null。 */

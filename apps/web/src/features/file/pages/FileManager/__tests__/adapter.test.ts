@@ -10,6 +10,7 @@ const file = (overrides: Partial<StoredFile> = {}): StoredFile => ({
   contentType: 'image/png',
   size: 1024,
   status: 'ready',
+  folderId: null,
   url: 'http://s/f1?inline',
   downloadUrl: 'http://s/f1?attachment',
   thumbnailUrl: null,
