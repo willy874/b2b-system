@@ -14,7 +14,8 @@
 ## 1. 啟動
 
 ```bash
-pnpm dev:storage     # tsx watch，預設 http://127.0.0.1:9000
+pnpm dev             # 與 postgres、api、web 一起啟動
+pnpm dev:storage     # 單獨啟動（tsx watch），預設 http://127.0.0.1:9000
 ```
 
 環境變數讀根目錄 `.env`（與 `apps/api` 共用），缺少或格式錯誤時 **啟動即失敗**：
@@ -23,6 +24,7 @@ pnpm dev:storage     # tsx watch，預設 http://127.0.0.1:9000
 | --- | --- | --- |
 | `FILE_STORAGE_HOST` | `127.0.0.1` | 綁定的位址 |
 | `FILE_STORAGE_PORT` | `9000` | 埠號 |
+| `FILE_STORAGE_BASE_PATH` | 空 | 掛在反向代理子路徑下時的前綴（本機與 Docker 都是 `/storage`），見 §3.1 |
 | `FILE_STORAGE_DATA_DIR` | `.data` | 資料目錄；相對路徑以 `apps/file-storage/` 為基準（已被 `.gitignore`） |
 | `FILE_STORAGE_REGION` | `us-east-1` | 只影響 `HeadBucket` / `GetBucketLocation` 回報的 region |
 | `FILE_STORAGE_ACCESS_KEY_ID` | —（必填） | 唯一一組存取金鑰 |
@@ -63,6 +65,22 @@ http://<host>:<port>/<bucket>/<key>      object（key 可含 /，URL 編碼）
 ```
 
 不支援 virtual-hosted style（`<bucket>.<host>`）——本機沒有萬用 DNS，SDK 設 `forcePathStyle: true` 即可。
+
+### 3.1 子路徑（`FILE_STORAGE_BASE_PATH`）
+
+瀏覽器經由同源的 `/storage/` 直傳與下載（Vite proxy / nginx），此時路徑變成
+`/<base path>/<bucket>/<key>`。SigV4 簽的是 **瀏覽器看到的完整路徑**，所以：
+
+- 代理 **不可** 去掉前綴、要原樣轉發 `Host`；
+- 服務設 `FILE_STORAGE_BASE_PATH=/storage`，解析 bucket / key 前先去掉它，但簽章仍以含前綴的原始路徑計算；
+- SDK 的 endpoint 帶上前綴：`endpoint: 'http://127.0.0.1:9000/storage'`。
+
+不在前綴底下的路徑回 `400 InvalidURI`。
+
+### 3.2 健康檢查
+
+`GET /_health`（或 `/<base path>/_health`）不需要簽章，回 `200 ok`，給容器的 healthcheck 用。
+`_` 不可能出現在 bucket 名稱裡，不會與 `ListObjects` 衝突。
 
 ---
 
@@ -195,12 +213,26 @@ Nest 的 JSON 回應包裝、全域 guard / pipe 都用不上，反而要一一�
 
 - `apps/api` **不 import** `apps/file-storage` 的任何程式碼，只透過 S3 HTTP API 溝通
   （與 `apps/*` 之間永不互相 import 的規則一致，見 [`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md) §1）。
-- 之後要在 `apps/api` 存檔時，加 `@aws-sdk/client-s3` 並以環境變數設定 endpoint，
-  正式環境直接指向真正的 S3。
+- `apps/api` 以 `@aws-sdk/client-s3` 連線，並用 `files` 資料表把物件包成對前端友善的檔案，
+  見 [`backend/09-file.md`](./backend/09-file.md)。正式環境可直接指向真正的 S3。
 
 ---
 
-## 9. 測試
+## 9. 建置與 Docker
+
+```bash
+pnpm --filter @game-editor/file-storage build   # esbuild → dist/main.js（程式＋zod 打成單一檔案）
+docker build -f apps/file-storage/Dockerfile -t game-editor-file-storage .
+```
+
+- runtime 映像只有 `node:24-alpine` ＋ `dist/`，不需要 `node_modules`；以非 root 使用者執行。
+- 資料在 `/data`（`VOLUME`）；`HEALTHCHECK` 打 `/_health`。
+- `docker-compose.prod.yml` 的 `file-storage` 服務：`FILE_STORAGE_BASE_PATH=/storage`，接在 `edge`（nginx 轉發瀏覽器請求）
+  與 `storage`（api 的伺服器端呼叫）兩個網路；碰不到 postgres。拓撲見 [`01-system.md`](./01-system.md) §4.2。
+
+---
+
+## 10. 測試
 
 ```bash
 pnpm --filter @game-editor/file-storage test
@@ -213,5 +245,7 @@ pnpm --filter @game-editor/file-storage test
 | `src/s3/__tests__/list.spec.ts` | 分頁與 delimiter 折疊（table-driven） |
 | `src/http/__tests__/aws-chunked.spec.ts` | aws-chunked 解碼（含逐位元組送入） |
 | `src/handlers/__tests__/object.spec.ts` | `Range` 標頭解析 |
+
+`test/s3-client.spec.ts` 另外起一個 `FILE_STORAGE_BASE_PATH=/storage` 的伺服器，驗證 SDK endpoint 帶前綴、presigned URL 與 `/_health`。
 
 整合測試用 SDK 而不是手寫 HTTP 請求：相容性的定義就是「官方 SDK 能用」。

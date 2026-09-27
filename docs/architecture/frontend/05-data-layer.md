@@ -52,6 +52,10 @@ apis/role/
 > **為什麼一操作一資料夾**：只用到列表的頁面不應該把刪除、建立的程式碼打包
 > 進去。細粒度的模組邊界讓 bundler 能真正做 tree shaking。
 
+> **例外：多步驟操作**。檔案上傳要依序打「登記 → 直傳到物件儲存 → 完成」三個端點，
+> 單獨呼叫任一步都沒有意義，所以只有一個 `apis/file/upload-file/`，對外提供 `uploadFile()`；
+> 兩個後端步驟放在同資料夾的 `steps.ts`。見 [`../backend/09-file.md`](../backend/09-file.md) §5。
+
 ---
 
 ## 3. `fetcher.ts`

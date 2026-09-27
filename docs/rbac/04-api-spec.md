@@ -346,7 +346,7 @@
 | `offset` / `limit` | 分頁（`limit` 上限 100）                |
 | `actorId`          | 操作者                                  |
 | `action`           | 例 `role.update`，支援前綴比對 `role.*`（`%` / `_` 視為一般字元） |
-| `resourceType`     | `user` / `role` / `auth` / `permission` / `approval` |
+| `resourceType`     | `user` / `role` / `auth` / `permission` / `approval` / `file` |
 | `resourceId`       |                                         |
 | `result`           | `success` / `failure`                   |
 | `from` / `to`      | ISO 8601 時間範圍；跨度最多 90 天（超過回 `400 VALIDATION_FAILED`）。都沒帶時為「現在往前 90 天」，只帶一端時往另一端推 90 天 |
@@ -401,12 +401,27 @@
 
 ---
 
+## 7.1 Files
+
+| Method | Path                  | 授權             | 說明                                         |
+| ------ | --------------------- | ---------------- | -------------------------------------------- |
+| GET    | `/files`              | 🛡 `file:read`   | 列表（只含 `ready`；分頁／篩選／排序）        |
+| POST   | `/files`              | 🛡 `file:create` | 登記上傳，回傳直傳網址（`pending`）           |
+| POST   | `/files/:id/complete` | 🛡 `file:create` | 確認直傳完成 → `ready`（只有上傳者本人）      |
+| GET    | `/files/:id`          | 🛡 `file:read`   | 詳情（`pending` 只有上傳者看得到）            |
+| PATCH  | `/files/:id`          | 🛡 `file:update` | 改名（`{ name }`）                           |
+| DELETE | `/files/:id`          | 🛡 `file:delete` | 軟刪除紀錄並刪除物件                         |
+
+流程、欄位與錯誤碼見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md) §4–§6。
+
+---
+
 ## 8. System
 
 | Method | Path            | 授權            | 說明                    |
 | ------ | --------------- | --------------- | ----------------------- |
 | GET    | `/health`       | 🔓              | liveness                |
-| GET    | `/health/ready` | 🔓              | readiness（含 DB ping） |
+| GET    | `/health/ready` | 🔓              | readiness（DB ping ＋ 物件儲存的 HeadBucket） |
 | GET    | `/system/info`  | 🛡 `system:read` | 版本、建置時間、環境    |
 
 ---

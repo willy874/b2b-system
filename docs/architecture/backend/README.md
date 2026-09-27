@@ -17,6 +17,7 @@
 | 06  | [`06-audit-log.md`](./06-audit-log.md)             | 稽核日誌設計與不可變性                       |
 | 07  | [`07-testing.md`](./07-testing.md)                 | 單元 / 整合 / e2e 測試策略                   |
 | 08  | [`08-realtime.md`](./08-realtime.md)               | Socket.io gateway、room 與受眾、推播時機     |
+| 09  | [`09-file.md`](./09-file.md)                       | 物件儲存抽象層、`files` 轉介表、直傳上傳流程 |
 
 ## 四條必須記住的規則
 
