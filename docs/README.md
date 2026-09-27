@@ -71,6 +71,7 @@ docs/
 ├── architecture/                      系統長什麼樣子（規格）
 │   ├── 01-system.md                   系統架構、部署拓撲、端到端資料流
 │   ├── 02-repository-structure.md     monorepo 結構、目錄佈局、環境變數
+│   ├── 03-file-storage.md             apps/file-storage：S3 相容的本機檔案儲存
 │   │
 │   ├── frontend/
 │   │   ├── README.md

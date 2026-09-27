@@ -15,6 +15,7 @@ game-editor/
 ├── apps/
 │   ├── web/                     @game-editor/web — React 前端
 │   ├── api/                     @game-editor/api — NestJS 後端
+│   ├── file-storage/            @game-editor/file-storage — S3 相容的本機檔案儲存（見 03-file-storage.md）
 │   └── e2e/                     @game-editor/e2e — Playwright
 │
 ├── packages/
@@ -39,6 +40,7 @@ packages:
 | ---------------------------------------------- | -------------------------------------------------------- |
 | `pnpm dev`                                     | `docker compose up -d postgres` ＋ 並行啟動 api 與 web   |
 | `pnpm dev:api` / `pnpm dev:web`                | 單獨啟動                                                 |
+| `pnpm dev:storage`                             | 啟動 `apps/file-storage`（S3 相容，:9000）               |
 | `pnpm build`                                   | 依序 `api-sdk` → `api` → `web`                           |
 | `pnpm db:generate`                             | drizzle-kit 產生 migration                               |
 | `pnpm db:migrate`                              | 套用 migration                                           |
@@ -239,10 +241,22 @@ SUPER_ADMIN_PASSWORD=              # 留空則 seed 時隨機產生並印出一�
 
 REALTIME_ALLOWED_ORIGINS=http://localhost:5173   # Socket.io handshake 的 Origin 白名單（逗號分隔）
 
+# ── apps/file-storage（S3 相容的本機檔案儲存）────────────
+FILE_STORAGE_HOST=127.0.0.1
+FILE_STORAGE_PORT=9000
+FILE_STORAGE_DATA_DIR=.data                  # 相對於 apps/file-storage/
+FILE_STORAGE_REGION=us-east-1
+FILE_STORAGE_ACCESS_KEY_ID=game-editor-dev
+FILE_STORAGE_SECRET_ACCESS_KEY=game-editor-dev-secret
+FILE_STORAGE_ALLOWED_ORIGINS=http://localhost:5173   # presigned URL 直傳 / 下載的 CORS
+FILE_STORAGE_MAX_OBJECT_SIZE=5368709120      # 位元組（預設 5 GiB）
+
 # ── apps/web（VITE_ 前綴才會進 bundle）─────────────────
 VITE_API_BASE_URL=/api
 VITE_ENABLE_MOCK=false
 ```
+
+`apps/file-storage` 的變數說明見 [`03-file-storage.md`](./03-file-storage.md) §1。
 
 env 由 `core/config` 以 Zod schema 驗證，**缺少必要變數時啟動即失敗**，不容許
 執行到一半才發現。

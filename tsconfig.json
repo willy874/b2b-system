@@ -6,6 +6,7 @@
     { "path": "./packages/realtime" },
     { "path": "./packages/api-sdk/codegen" },
     { "path": "./apps/api" },
+    { "path": "./apps/file-storage" },
     { "path": "./apps/web" },
     { "path": "./apps/e2e" }
   ]

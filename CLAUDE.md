@@ -61,6 +61,7 @@ Game Editor 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架*
 ```bash
 pnpm dev            # postgres + api(:3000) + web(:5173)
 pnpm dev:e2e        # 以放寬的速率限制啟動 api（跑 E2E 時用）
+pnpm dev:storage    # apps/file-storage：S3 相容的本機檔案儲存（:9000，見 docs/architecture/03-file-storage.md）
 pnpm typecheck      # tsc -b（全 workspace）
 pnpm lint / pnpm format / pnpm format:check
 pnpm test           # 單元 + 整合（後端整合測試會用 Testcontainers 起一個 postgres）
