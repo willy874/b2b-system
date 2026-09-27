@@ -19,6 +19,11 @@ export interface FilePreviewSource {
   size: number;
   /** 直接讀取內容的網址（inline）；沒有時無法預覽。 */
   url: string | null;
+  /**
+   * 顯示用的縮小版本（伺服器產生的全螢幕預覽，progressive JPEG）；沒有時用 `url`。
+   * 圖片解析器預設顯示它，切到「原始大小」才載入 `url` 的原圖。
+   */
+  displayUrl?: string | null;
 }
 
 export interface FilePreviewerProps {

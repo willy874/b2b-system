@@ -9,6 +9,7 @@ import type { DomainEventBus } from '@/core/events';
 import type { ObjectStorage, StoredObjectHead } from '@/core/storage';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 
+import type { FileImageService } from '../file-image.service';
 import { storageKeyOf, thumbnailKeyOf } from '../file.constants';
 import { decodeFileCursor, encodeFileCursor } from '../file.cursor';
 import type { FileRepository, FileWithUploader } from '../file.repository';
@@ -43,6 +44,10 @@ function fileRow(overrides: Partial<FileWithUploader> = {}): FileWithUploader {
     uploadId: null,
     hasThumbnail: false,
     version: 1,
+    variantStatus: 'none',
+    imageWidth: null,
+    imageHeight: null,
+    variantFormat: null,
     createdAt: now,
     createdBy: ALICE.id,
     updatedAt: now,
@@ -99,6 +104,22 @@ function setup(
   };
   const audit = { record: vi.fn(async () => undefined) };
   const events = { publish: vi.fn() };
+  const images = {
+    schedule: vi.fn(),
+    deleteVariants: vi.fn(async () => undefined),
+    signedUrls: vi.fn((file: FileWithUploader) =>
+      file.status === 'ready' && file.variantStatus === 'ready'
+        ? {
+            width: 800,
+            height: 600,
+            originalUrl: `/api/files/${file.id}/image/original?sig`,
+            previewUrl: `/api/files/${file.id}/image/preview?sig`,
+            thumbnailUrl: `/api/files/${file.id}/image/thumbnail?sig`,
+            expiresAt: '2026-09-27T00:10:00.000Z',
+          }
+        : null,
+    ),
+  };
   // withTransaction(db, fn) 只呼叫 db.transaction(fn)
   const db = { transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn('tx')) };
   const config = {
@@ -118,9 +139,10 @@ function setup(
     storage as unknown as ObjectStorage,
     audit as unknown as AuditService,
     events as unknown as DomainEventBus,
+    images as unknown as FileImageService,
     config as unknown as ConfigService<Env, true>,
   );
-  return { service, repo, storage, audit, events };
+  return { service, repo, storage, audit, events, images };
 }
 
 async function expectAppError(promise: Promise<unknown>, code: string) {
@@ -452,6 +474,91 @@ describe('FileService：縮圖', () => {
     expect(file.thumbnailUrl).toContain(thumbnailKeyOf(FILE_ID));
     await service.remove(FILE_ID, ALICE);
     expect(storage.delete).toHaveBeenCalledWith(thumbnailKeyOf(FILE_ID));
+  });
+});
+
+describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.4）', () => {
+  const head = { size: 10, etag: 'abc', contentType: 'image/png' };
+
+  it('complete：伺服器能處理的圖片 → 變體 pending，交易與推播之後才排入產生', async () => {
+    const { service, repo, images, events } = setup({ file: fileRow(), head });
+    await service.completeUpload(FILE_ID, {}, ALICE);
+    expect(repo.markReady).toHaveBeenCalledWith(
+      FILE_ID,
+      expect.objectContaining({ variantStatus: 'pending' }),
+      'tx',
+    );
+    expect(images.schedule).toHaveBeenCalledWith(FILE_ID);
+    expect(images.schedule.mock.invocationCallOrder[0]).toBeGreaterThan(
+      events.publish.mock.invocationCallOrder[0] ?? Infinity,
+    );
+  });
+
+  it('complete：其他型別（含 SVG）→ 變體 none，不排入', async () => {
+    const { service, repo, images } = setup({
+      file: fileRow({ name: 'a.svg', contentType: 'image/svg+xml' }),
+      head: { ...head, contentType: 'image/svg+xml' },
+    });
+    await service.completeUpload(FILE_ID, {}, ALICE);
+    expect(repo.markReady).toHaveBeenCalledWith(
+      FILE_ID,
+      expect.objectContaining({ variantStatus: 'none' }),
+      'tx',
+    );
+    expect(images.schedule).not.toHaveBeenCalled();
+  });
+
+  it('變體已產生 → image 帶三個版本，thumbnailUrl 優先用伺服器的圖示預覽', async () => {
+    const { service } = setup({
+      file: fileRow({
+        status: 'ready',
+        etag: 'a',
+        uploadedAt: new Date(),
+        hasThumbnail: true,
+        variantStatus: 'ready',
+        imageWidth: 800,
+        imageHeight: 600,
+        variantFormat: 'jpeg',
+      }),
+    });
+    const file = await service.findOne(FILE_ID, BOB);
+    expect(file.image).toMatchObject({ width: 800, height: 600 });
+    expect(file.image?.previewUrl).toContain('/image/preview');
+    expect(file.thumbnailUrl).toContain('/image/thumbnail');
+    // 影像網址比 presigned 網址早失效 → urlExpiresAt 取較早的
+    expect(file.urlExpiresAt).toBe('2026-09-27T00:10:00.000Z');
+  });
+
+  it('變體還沒產生 → image 為 null，thumbnailUrl 退回瀏覽器縮圖', async () => {
+    const { service } = setup({
+      file: fileRow({
+        status: 'ready',
+        etag: 'a',
+        uploadedAt: new Date(),
+        hasThumbnail: true,
+        variantStatus: 'pending',
+      }),
+    });
+    const file = await service.findOne(FILE_ID, BOB);
+    expect(file.image).toBeNull();
+    expect(file.thumbnailUrl).toContain(thumbnailKeyOf(FILE_ID));
+  });
+
+  it('刪除時一併刪除變體；沒有變體的檔案不必列物件', async () => {
+    const withVariants = setup({
+      file: fileRow({
+        status: 'ready',
+        etag: 'a',
+        uploadedAt: new Date(),
+        variantStatus: 'failed',
+      }),
+    });
+    await withVariants.service.remove(FILE_ID, ALICE);
+    expect(withVariants.images.deleteVariants).toHaveBeenCalledWith(FILE_ID);
+
+    const plain = setup({ file: fileRow({ status: 'ready', etag: 'a', uploadedAt: new Date() }) });
+    await plain.service.remove(FILE_ID, ALICE);
+    expect(plain.images.deleteVariants).not.toHaveBeenCalled();
   });
 });
 

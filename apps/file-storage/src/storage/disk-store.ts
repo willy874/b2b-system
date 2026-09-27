@@ -316,6 +316,22 @@ export class DiskStore {
     return upload;
   }
 
+  /**
+   * 這個 bucket 還沒完成也沒放棄的分塊上傳，依 key（UTF-8 位元組）、再依開始時間排序
+   * （與 S3 的 ListMultipartUploads 順序相同）。
+   */
+  listUploads(bucket: string): MultipartUpload[] {
+    this.requireBucket(bucket);
+    return [...this.uploads.values()]
+      .filter((upload) => upload.bucket === bucket)
+      .toSorted(
+        (a, b) =>
+          compareUtf8(a.key, b.key) ||
+          a.initiatedAt.getTime() - b.initiatedAt.getTime() ||
+          compareUtf8(a.uploadId, b.uploadId),
+      );
+  }
+
   getUpload(uploadId: string, bucket: string, key: string): MultipartUpload {
     this.requireBucket(bucket);
     const upload = this.uploads.get(uploadId);

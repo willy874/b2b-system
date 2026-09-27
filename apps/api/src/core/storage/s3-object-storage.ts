@@ -1,3 +1,5 @@
+import type { Readable } from 'node:stream';
+
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
@@ -7,6 +9,8 @@ import {
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
+  ListMultipartUploadsCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
   S3ServiceException,
@@ -24,6 +28,8 @@ import { contentDisposition } from './content-disposition';
 import { ObjectStorage, stableSigningDate } from './object-storage';
 import type {
   CreateMultipartUploadOptions,
+  ListedObject,
+  PendingMultipartUpload,
   PresignDownloadOptions,
   PresignedRequest,
   PresignUploadOptions,
@@ -156,6 +162,62 @@ export class S3ObjectStorage
     }
   }
 
+  async getObject(key: string): Promise<Readable | undefined> {
+    try {
+      const result = await this.client.send(
+        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+      // Node.js 執行環境下 Body 是 IncomingMessage（Readable）
+      return result.Body as Readable | undefined;
+    } catch (error) {
+      if (isNotFound(error)) return undefined;
+      throw this.unavailable(error, 'getObject');
+    }
+  }
+
+  async putObject(key: string, body: Buffer, options: { contentType: string }): Promise<void> {
+    try {
+      await this.client.send(
+        new PutObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+          Body: body,
+          ContentType: options.contentType,
+        }),
+      );
+    } catch (error) {
+      throw this.unavailable(error, 'putObject');
+    }
+  }
+
+  async *listObjects(prefix: string): AsyncIterable<ListedObject> {
+    let continuationToken: string | undefined;
+    do {
+      let page;
+      try {
+        // oxlint-disable-next-line no-await-in-loop -- 下一頁要用這一頁的 continuation token
+        page = await this.client.send(
+          new ListObjectsV2Command({
+            Bucket: this.bucket,
+            Prefix: prefix,
+            ContinuationToken: continuationToken,
+          }),
+        );
+      } catch (error) {
+        throw this.unavailable(error, 'listObjects');
+      }
+      for (const object of page.Contents ?? []) {
+        if (!object.Key) continue;
+        yield {
+          key: object.Key,
+          size: object.Size ?? 0,
+          lastModified: object.LastModified ?? new Date(0),
+        };
+      }
+      continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (continuationToken);
+  }
+
   async presignUpload(key: string, options: PresignUploadOptions): Promise<PresignedRequest> {
     const url = await getSignedUrl(
       this.presigner,
@@ -265,6 +327,38 @@ export class S3ObjectStorage
       if (isNotFound(error)) return;
       throw this.unavailable(error, 'abortMultipartUpload');
     }
+  }
+
+  async *listMultipartUploads(prefix: string): AsyncIterable<PendingMultipartUpload> {
+    let keyMarker: string | undefined;
+    let uploadIdMarker: string | undefined;
+    do {
+      let page;
+      try {
+        // oxlint-disable-next-line no-await-in-loop -- 下一頁要用這一頁的 marker
+        page = await this.client.send(
+          new ListMultipartUploadsCommand({
+            Bucket: this.bucket,
+            Prefix: prefix,
+            KeyMarker: keyMarker,
+            UploadIdMarker: uploadIdMarker,
+          }),
+        );
+      } catch (error) {
+        throw this.unavailable(error, 'listMultipartUploads');
+      }
+      for (const upload of page.Uploads ?? []) {
+        if (!upload.Key || !upload.UploadId) continue;
+        yield {
+          key: upload.Key,
+          uploadId: upload.UploadId,
+          initiatedAt: upload.Initiated ?? new Date(0),
+        };
+      }
+      const truncated = page.IsTruncated === true;
+      keyMarker = truncated ? page.NextKeyMarker : undefined;
+      uploadIdMarker = truncated ? page.NextUploadIdMarker : undefined;
+    } while (keyMarker);
   }
 
   private async createBucketIfMissing(): Promise<void> {

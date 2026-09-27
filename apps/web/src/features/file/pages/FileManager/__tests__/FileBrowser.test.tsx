@@ -17,6 +17,7 @@ const item = (id: string, overrides: Partial<FileItemVM> = {}): FileItemVM => ({
   size: 10,
   sizeLabel: '10 B',
   previewUrl: null,
+  displayUrl: null,
   url: null,
   downloadUrl: null,
   version: 1,

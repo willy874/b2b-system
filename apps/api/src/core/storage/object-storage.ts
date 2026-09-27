@@ -1,3 +1,5 @@
+import type { Readable } from 'node:stream';
+
 /**
  * 物件儲存的抽象層（docs/architecture/backend/09-file.md §2）。
  *
@@ -40,6 +42,20 @@ export interface UploadedPart {
   etag: string;
 }
 
+/** 列表（`listObjects`）的一筆。 */
+export interface ListedObject {
+  key: string;
+  size: number;
+  lastModified: Date;
+}
+
+/** 尚未完成也未放棄的分塊上傳（`listMultipartUploads`）。 */
+export interface PendingMultipartUpload {
+  key: string;
+  uploadId: string;
+  initiatedAt: Date;
+}
+
 export interface PresignDownloadOptions {
   /** 秒。 */
   expiresIn: number;
@@ -61,6 +77,18 @@ export abstract class ObjectStorage {
 
   /** 物件不存在也視為成功（與 S3 的 DeleteObject 相同）。 */
   abstract delete(key: string): Promise<void>;
+
+  /**
+   * 讀取物件內容（串流）；不存在回 `undefined`。只給 api 自己處理內容用（例：產生影像變體），
+   * 給瀏覽器的內容一律走 presigned URL。
+   */
+  abstract getObject(key: string): Promise<Readable | undefined>;
+
+  /** api 自己寫入的小物件（例：影像變體）；同 key 直接覆寫。 */
+  abstract putObject(key: string, body: Buffer, options: { contentType: string }): Promise<void>;
+
+  /** 依 key 排序逐頁列出 `prefix` 開頭的物件（殘留檔案對帳用）。 */
+  abstract listObjects(prefix: string): AsyncIterable<ListedObject>;
 
   abstract presignUpload(key: string, options: PresignUploadOptions): Promise<PresignedRequest>;
 
@@ -98,6 +126,9 @@ export abstract class ObjectStorage {
 
   /** 放棄分塊上傳並清掉已上傳的塊；uploadId 不存在也視為成功。 */
   abstract abortMultipartUpload(key: string, uploadId: string): Promise<void>;
+
+  /** 逐頁列出 `prefix` 開頭、還沒完成也沒放棄的分塊上傳（殘留檔案對帳用）。 */
+  abstract listMultipartUploads(prefix: string): AsyncIterable<PendingMultipartUpload>;
 }
 
 /**

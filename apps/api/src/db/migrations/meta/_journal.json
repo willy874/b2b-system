@@ -57,6 +57,13 @@
       "when": 1790484384128,
       "tag": "0007_file_manager",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790490979846,
+      "tag": "0008_file_image_variants",
+      "breakpoints": true
     }
   ]
 }

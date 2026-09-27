@@ -4,7 +4,8 @@
 [`apps/file-storage`](../03-file-storage.md)（S3 相容），正式環境可直接換成 S3 / MinIO / R2——**只改環境變數**。
 
 設計目標是「前端用起來不原始」：前端只認識 **檔案 id** 與 **可以直接放進 `<img src>` 的網址**，
-不知道 bucket、key、簽章，也不需要自己編排上傳步驟。
+不知道 bucket、key、簽章，也不需要自己編排上傳步驟。圖片另外由伺服器實體化成三個版本（原圖、全螢幕預覽、圖示預覽），
+經專用的影像 API 取得（§5.4）；上傳失敗留下的殘留由維護排程偵測並清除（§9）。
 
 ---
 
@@ -14,9 +15,10 @@
  features/*  ──uploadFile()──▶  apis/file/*                      前端：只有 StoredFile（id、name、url…）
                                     │ POST /files、PUT（直傳）、POST /files/:id/complete
  ───────────────────────────────────┼─────────────────────────────────────────────
- modules/file   FileService         │                            後端：業務規則、files 轉介表
+ modules/file   FileService / FileImageService / FileMaintenanceService   後端：業務規則、files 轉介表、影像變體、維護
                     │ 注入
  core/storage   ObjectStorage（抽象類別） ← S3ObjectStorage（@aws-sdk/client-s3）
+ core/image     ImageProcessor（抽象類別） ← SharpImageProcessor（sharp / libvips）
                     │ S3 API
  apps/file-storage（或 S3 / MinIO / R2）
 ```
@@ -26,6 +28,7 @@
 | 前端 `apis/file/` | 檔案 id、`url` / `downloadUrl`、`uploadFile()` | bucket、key、SigV4 |
 | `modules/file` | `files` 資料表、`ObjectStorage` 介面 | `@aws-sdk/*` |
 | `core/storage` | S3 協定、bucket、presign | `files` 資料表、權限、任何 module |
+| `core/image` | 解碼、縮放、編碼（sharp） | 物件儲存、`files` 資料表、變體的尺寸與格式政策 |
 
 ---
 
@@ -44,6 +47,11 @@ export abstract class ObjectStorage {
   presignUploadPart(key, uploadId, partNumber, { expiresIn }): Promise<PresignedRequest>;
   completeMultipartUpload(key, uploadId, parts): Promise<void>;          // 塊不對 → FILE_UPLOAD_INCOMPLETE
   abortMultipartUpload(key, uploadId): Promise<void>;                    // 不存在也算成功
+  // api 自己讀寫內容（影像變體，§5.4）與對帳（維護排程，§9）
+  getObject(key): Promise<Readable | undefined>;
+  putObject(key, body: Buffer, { contentType }): Promise<void>;
+  listObjects(prefix): AsyncIterable<{ key, size, lastModified }>;       // 自動翻頁
+  listMultipartUploads(prefix): AsyncIterable<{ key, uploadId, initiatedAt }>;
 }
 ```
 
@@ -106,6 +114,9 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 | `uploaded_at` | timestamptz | 確認完成的時間 |
 | `upload_id` | text | 分塊上傳的 uploadId；單次 PUT 或已完成時為 null（§5.2） |
 | `has_thumbnail` | boolean | 瀏覽器上傳的縮圖（`thumbnails/<id>`）在完成時確認存在且合規格（§5.1） |
+| `variant_status` | `file_variant_status` | 影像變體：`none`（不是伺服器能處理的圖片）/ `pending` / `ready` / `failed`（§5.4） |
+| `image_width` / `image_height` | integer | 套用 EXIF 方向後的原圖尺寸；變體 `ready` 才有 |
+| `variant_format` | text | 變體的主格式：`jpeg`（progressive）或 `webp`（有透明度的圖） |
 | `version` | integer | 樂觀鎖，每次改名遞增（§6.2）。不用 `updated_at` 比對：它是微秒精度，經過 JSON（毫秒）來回就對不上 |
 | `created_*` / `updated_*` / `deleted_at` | | 慣例欄位；`updated_at` 由 trigger 維護；刪除是軟刪除 |
 
@@ -114,6 +125,7 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 - `files_size_non_negative`：`size >= 0`
 - `files_ready_confirmed`：`status = 'pending'` 或（`etag` 與 `uploaded_at` 都有值）——沒經過物件儲存確認的 `ready` 不可能存在
 - `files_storage_key_key`：`storage_key` 唯一
+- `files_variant_ready_described`：`variant_status <> 'ready'` 或（尺寸與主格式都有值）（migration `0008_file_image_variants.sql`）
 
 索引（migration `0007_file_manager.sql`；都只涵蓋 `deleted_at IS NULL`）：
 
@@ -123,6 +135,7 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 | `files_status_name_idx`（status, name, id）、`files_status_size_idx`（status, size, id） | 依檔名／大小排序與 keyset 分頁：索引直接給出順序，不必排序整張表 |
 | `files_status_content_type_idx`（status, content_type） | 分類篩選（`content_type LIKE 'image/%'` 等前綴比對） |
 | `files_name_trgm_idx`（GIN, `gin_trgm_ops`） | 檔名的部分比對 `ILIKE '%…%'`：btree 用不上。需要 `pg_trgm`（PG 13 起為 trusted extension） |
+| `files_variant_pending_idx`（uploaded_at，只涵蓋 `variant_status = 'pending'`） | 維護排程找卡住的影像變體（`0008`）；絕大多數列不是 pending，索引很小 |
 
 ### 4.1 可見性
 
@@ -155,7 +168,7 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
   │                               │ 大小不符 → 刪物件、422 FILE_SIZE_MISMATCH
   │                               │ HeadObject(thumbnails/<id>)：存在且合規格 → has_thumbnail
   │                               │ 交易：UPDATE … SET status='ready' WHERE status='pending' ＋ 稽核 file.upload
-  │                               │ 交易後：推播 file create
+  │                               │ 交易後：推播 file create；圖片排入產生影像變體（§5.4，不等它完成）
   │ 200 StoredFile（ready，帶 url / downloadUrl / thumbnailUrl）
   │◀──────────────────────────────│
 ```
@@ -177,20 +190,15 @@ const file = await uploadFile({ file: input.files[0], thumbnail, onProgress: ({ 
 
 檔案管理器的完整上傳流程（驗證、全域佇列、跨分頁接手）見 [`../frontend/12-file-manager.md`](../frontend/12-file-manager.md) §8。
 
-### 5.1 縮圖
+### 5.1 瀏覽器縮圖
 
-列表的圖示預覽若直接用原圖，一頁 60 張 1–5 MB 的圖就是上百 MB。縮圖由 **瀏覽器在上傳時產生**（`core/file` 的縮圖產生器，
-長邊 480 px 的 WebP），與本體一起直傳到 `thumbnails/<id>`：
-
-為什麼不在伺服器產生：
-
-- 不必在 api 裝影像處理的原生套件（sharp / libvips），映像與建置都單純；
-- 不佔 api 的 CPU，也不必讓 api 從物件儲存把原圖讀回來；
-- 瀏覽器已經有解碼器，上傳前的檔案就在記憶體裡。
+列表的圖示預覽若直接用原圖，一頁 60 張 1–5 MB 的圖就是上百 MB。伺服器能處理的圖片由伺服器產生圖示預覽（§5.4）；
+在那之前、以及伺服器處理不了的檔案，退回 **瀏覽器在上傳時產生** 的縮圖（`core/file` 的縮圖產生器，長邊 480 px 的 WebP），
+與本體一起直傳到 `thumbnails/<id>`。它讓列表在變體產生完成前就有圖可看，也是之後其他類型（影片封面等）的擴充點。
 
 - 登記時帶 `thumbnail: { contentType, size }`（型別限 `image/webp` / `image/jpeg` / `image/png`，≤ 512 KiB）才發縮圖的直傳網址。
 - `complete` 時以 HeadObject 確認縮圖存在、大小與型別合規格才設 `has_thumbnail`；**不合規格不讓上傳失敗**，只是沒有縮圖。
-- 沒有縮圖的檔案（舊資料、瀏覽器不支援的格式）：前端以類型圖示顯示；2 MiB 以下的圖片直接用原檔。
+- `StoredFile.thumbnailUrl`：伺服器的圖示預覽優先，其次是瀏覽器縮圖；都沒有時前端以類型圖示顯示，2 MiB 以下的圖片直接用原檔。
 - 刪除時一併刪縮圖。
 
 ### 5.2 分塊上傳（大檔）
@@ -225,6 +233,58 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 刪除已上傳的內容與縮圖（失敗只記 warn）。`pending` 從未對其他人可見，所以不寫稽核、不發推播。
 與 `complete` 並行時以 `UPDATE … WHERE status='pending'` 決勝：`complete` 先完成就回 `409 FILE_ALREADY_UPLOADED`，不會刪掉已完成的檔案。
 
+### 5.4 影像變體與影像 API
+
+圖片上傳完成後，伺服器把它 **實體化成三個版本** 存進物件儲存，給前端不同的用途：
+
+| 版本（`variant`） | 物件 key | 內容 | 用途 |
+| --- | --- | --- | --- |
+| `original` | `files/<id>` | 使用者上傳的原檔，原封不動 | 下載、「原始大小」檢視 |
+| `preview` | `variants/<id>/preview.<格式>` | 長邊 ≤ 2560 px | LightBox 全螢幕預覽 |
+| `thumbnail` | `variants/<id>/thumbnail.<格式>` | 長邊 ≤ 480 px | 列表／卡片的圖示預覽 |
+
+- **哪些圖片**：`IMAGE_VARIANT_SOURCE_TYPES`（`file.constants.ts`）——JPEG、PNG、WebP、GIF（第一格）、AVIF、TIFF。
+  SVG 不處理（向量圖由瀏覽器直接顯示，也不讓 api 解析使用者給的 XML）；其他檔案 `variant_status = 'none'`。
+- **主格式**：**progressive JPEG**（mozjpeg，品質 82）——大圖在下載途中就由模糊到清楚逐步顯示；
+  有透明度的圖改用 WebP（JPEG 沒有透明度）。一律依 EXIF 轉正、移除中繼資料（GPS 等）、等比縮小不放大。
+- **何時產生**：`complete` 的交易與推播之後排入 `FileImageService.schedule()`（同一個 api 執行個體同時最多 2 張，
+  同一個檔案不重複排入），**不等它完成**。完成後 `variant_status = 'ready'` 並推播 `file` 的 UPDATE，前端重抓就拿到網址。
+  在那之前 `thumbnailUrl` 是瀏覽器縮圖（有的話），LightBox 用原圖。
+- **失敗**：解碼失敗（損毀、超過 128 MiB 或 1 億像素）→ `failed`，不再重試，前端退回瀏覽器縮圖或類型圖示；
+  儲存服務暫時不可用 → 維持 `pending`，由維護排程（§9）在 5 分鐘後重新排入。執行個體在產生途中重啟同理。
+- **既有資料**：migration `0008` 把已完成的圖片標成 `pending`，由維護排程逐批補產生。
+- **影像處理在 api 內**（`core/image` 的 `ImageProcessor`，實作是 sharp）：sharp 是預編譯的原生套件，
+  平台二進位檔隨 `@img/sharp-*` 安裝（macOS、Linux glibc / musl 都有），不需要編譯環境。取捨見 [ADR-0014](../../adr/0014-server-image-variants.md)。
+
+#### 影像 API：`GET /files/:id/image/:variant`
+
+`StoredFile.image` 帶三個版本的網址（`originalUrl` / `previewUrl` / `thumbnailUrl`），可以直接放進 `<img src>`：
+
+```
+/api/files/<id>/image/preview?exp=1790000000&sig=<HMAC>[&format=webp|avif|png|jpeg|auto]
+```
+
+| 規則 | 理由 |
+| --- | --- |
+| `@Public()`，以網址上的 **HMAC 簽章**授權（`file-image-url.ts`：簽 `id`、`variant`、`exp`，金鑰由 `JWT_SECRET` 衍生） | `<img src>` 帶不了 access token（只在記憶體）。網址只從 `file:read` 的回應拿得到——與 presigned URL 相同的模型 |
+| `format` 不在簽章內 | 它只決定編碼方式，不擴大能讀到的內容；前端可以自己在網址後面加 |
+| `exp` 取整到 `FILE_URL_TTL / 2` 的時間窗（同 §7.1） | 同一個時間窗內網址不變，`<img>` 與 HTTP 快取直接命中 |
+| 回 **302 轉址** 到物件儲存的 presigned 網址，帶 `Cache-Control: private, max-age=<剩餘秒數>`、`Vary: Accept` | 內容仍由物件儲存送出、不經過 api；轉址本身也被瀏覽器快取 |
+| 不限流（`@SkipThrottle()`） | 一頁的圖示預覽就有數十個請求；轉址會被快取，格式轉換只發生一次 |
+| 簽章不符、換了版本、過期 → `403 FILE_IMAGE_URL_INVALID`；檔案不存在、已刪除、變體不可用 → `404 FILE_NOT_FOUND` | |
+
+**格式**（`format` 參數）：
+
+| `format` | 回應 |
+| --- | --- |
+| 不指定 | 主格式：`preview` / `thumbnail` 是 progressive JPEG（透明圖是 WebP）；`original` 原封不動 |
+| `jpeg` | progressive JPEG（透明的部分鋪白底）；`original` 也會重新編碼成 progressive JPEG（原尺寸） |
+| `webp` / `avif` / `png` | 指定格式 |
+| `auto` | 依 `Accept`：AVIF → WebP → 同不指定；`original` 本身已是瀏覽器接受的格式時原封不動 |
+
+主格式以外的格式 **第一次被要求時才轉出**（從原圖轉，畫質比從主格式再轉一次好），存成 `variants/<id>/<variant>.<格式>`，
+之後直接轉址。同時多個請求只轉一次；轉換與變體產生共用同一個並行上限。
+
 ---
 
 ## 6. API
@@ -237,6 +297,7 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 | POST | `/files/:id/parts` | `file:create` | `200 FileUploadParts`：`{ parts, expiresAt }`（§5.2） |
 | POST | `/files/:id/complete` | `file:create` | `200 StoredFile`；分塊上傳要帶 `{ parts }` |
 | DELETE | `/files/:id/upload` | `file:create` | `204`（§5.3） |
+| GET | `/files/:id/image/:variant` | `@Public`（網址簽章） | `302` 轉址（§5.4）；`variant` = `original` / `preview` / `thumbnail` |
 | GET | `/files/:id` | `file:read` | `200 StoredFile` |
 | PATCH | `/files/:id` | `file:update` | `200 StoredFile`（`{ name, version? }`，§6.2） |
 | DELETE | `/files/:id` | `file:delete` | `204` |
@@ -257,8 +318,15 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   "status": "ready",
   "url": "https://…/storage/game-editor/files/<id>?X-Amz-…",          // inline：直接顯示
   "downloadUrl": "https://…/storage/game-editor/files/<id>?X-Amz-…",  // attachment：以 name 下載
-  "thumbnailUrl": "https://…/storage/game-editor/thumbnails/<id>?…",  // 沒有縮圖時為 null
-  "urlExpiresAt": "2026-09-27T00:15:00.000Z",                          // 三個網址中最早失效的時間
+  "thumbnailUrl": "/api/files/<id>/image/thumbnail?exp=…&sig=…",       // 伺服器圖示預覽 → 瀏覽器縮圖 → null
+  "image": {                                                           // 不是圖片、或變體還沒產生時為 null（§5.4）
+    "width": 4000, "height": 3000,                                     // 套用 EXIF 方向後的原圖尺寸
+    "originalUrl": "/api/files/<id>/image/original?exp=…&sig=…",
+    "previewUrl": "/api/files/<id>/image/preview?exp=…&sig=…",
+    "thumbnailUrl": "/api/files/<id>/image/thumbnail?exp=…&sig=…",
+    "expiresAt": "2026-09-27T00:15:00.000Z"
+  },
+  "urlExpiresAt": "2026-09-27T00:15:00.000Z",                          // 所有網址中最早失效的時間
   "version": 3,                                                        // 樂觀鎖
   "uploader": { "id": "uuid", "displayName": "Alice" },
   "uploadedAt": "…", "createdAt": "…", "updatedAt": "…"
@@ -306,14 +374,16 @@ LIMIT $limit
 | `FILE_SIZE_MISMATCH` | 422 | 實際大小與登記不符（`details.expected` / `details.actual`） |
 | `FILE_UPLOAD_PART_INVALID` | 422 | 對單次 PUT 的上傳要分塊網址、塊號超出 `partCount`、分塊上傳 `complete` 沒帶 `parts` |
 | `FILE_VERSION_CONFLICT` | 409 | 改名時版本不符（§6.2） |
+| `FILE_IMAGE_URL_INVALID` | 403 | 影像 API 的網址簽章不符、版本不符或已過期（§5.4） |
 | `FILE_STORAGE_UNAVAILABLE` | 503 | 物件儲存連不上或回非預期錯誤 |
 
 ---
 
 ## 7. 刪除、稽核、推播
 
-- 刪除：交易內軟刪除 ＋ 稽核 `file.delete`；**交易後** 才刪物件（交易 rollback 時紀錄還在，內容也要在）。
-  物件刪除失敗只留下孤兒物件並記 warn，不讓使用者的刪除失敗。
+- 刪除：交易內軟刪除 ＋ 稽核 `file.delete`；**交易後** 才刪物件（原檔、瀏覽器縮圖、`variants/<id>/` 底下的所有變體與轉出的格式；
+  交易 rollback 時紀錄還在，內容也要在）。物件刪除失敗只留下孤兒物件並記 warn，不讓使用者的刪除失敗——維護排程會再清（§9）。
+- 變體產生途中檔案被刪除：`markVariantsReady` 的 `WHERE deleted_at IS NULL` 不命中，剛寫入的變體立即刪除。
 - 稽核：`file.upload`（完成時，不是登記時）、`file.update`（只記有變的欄位）、`file.delete`；`resourceType = 'file'`。
 - 推播：`ChangeSource.FILE`，受眾 `file:read`（[`08-realtime.md`](./08-realtime.md) §6.1）；前端 `Resource.FILE`
   失效 `FILE_LIST_QUERY_KEY`、`FILE_INFINITE_LIST_QUERY_KEY` / `FILE_DETAIL_QUERY_KEY`。
@@ -342,16 +412,36 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `FILE_URL_TTL` | `900` | presigned 上傳／下載網址的有效秒數（60–604800）；下載網址在 `TTL / 2` 的時間窗內不變（§7.1） |
 | `FILE_MULTIPART_THRESHOLD` | `16777216`（16 MiB） | 超過這個大小改用分塊上傳（§5.2） |
 | `FILE_MULTIPART_PART_SIZE` | `8388608`（8 MiB） | 每塊大小（5 MiB–5 GiB）；檔案上限 / 10000 更大時自動放大 |
+| `FILE_PENDING_TTL` | `86400` | 登記後超過這個秒數仍未完成的上傳視為放棄（§9）；大檔會邊傳邊要新的分塊網址，所以遠長於 `FILE_URL_TTL` |
+| `FILE_MAINTENANCE_INTERVAL` | `3600` | 維護排程的間隔秒數；`0` 停用（多個 api 執行個體時可只留一個開著）。啟動 60 秒後第一次執行 |
+| `FILE_MAINTENANCE_DRY_RUN` | `false` | `true`：只偵測並記錄殘留，不刪除任何東西 |
+| `API_PUBLIC_BASE_URL` | `/api` | 瀏覽器看到的 api 位址；影像 API 的網址以它開頭（§5.4） |
 
 ---
 
-## 9. 尚未處理
+## 9. 維護排程：上傳失敗的殘留
 
-- **放棄的上傳**：前端失敗或取消時會呼叫 `DELETE /files/:id/upload`（§5.3），但分頁當掉、網路中斷時沒機會呼叫：
-  登記後沒完成的 `pending` 紀錄、未完成的 multipart upload（`upload_id`）與已上傳的塊不會自動清除。
-  之後以排程腳本清理「建立超過 `FILE_URL_TTL` 仍是 `pending`」的紀錄，並 AbortMultipartUpload（同 `db:archive-audit-logs` 的模式）。
-- **孤兒物件**：刪除時物件（或縮圖）刪除失敗留下的內容，需要以 `files.storage_key` 對帳清除。
-- **登記失敗留下的 multipart upload**：`CreateMultipartUpload` 成功而 INSERT 失敗時留下沒有紀錄的 uploadId；同上由排程清理。
+前端失敗或取消時會呼叫 `DELETE /files/:id/upload`（§5.3），但有些情況沒機會呼叫、或清理本身失敗，殘留不會自己消失。
+`FileMaintenanceService` 每 `FILE_MAINTENANCE_INTERVAL` 秒（在 api 內，`setInterval` ＋ `unref`）偵測並清除：
+
+| # | 殘留 | 來源 | 偵測 | 處理 |
+| --- | --- | --- | --- | --- |
+| 1 | 逾時的 `pending` 紀錄 | 分頁當掉、網路中斷，沒呼叫放棄上傳 | `status='pending' AND created_at < now - FILE_PENDING_TTL`（依 id 分頁） | 軟刪除紀錄（`WHERE status='pending'` 決勝，並行完成的不刪）→ AbortMultipartUpload、刪原檔與縮圖 |
+| 2 | 沒有紀錄的分塊上傳 | `CreateMultipartUpload` 成功而 INSERT 失敗；放棄時 abort 失敗 | `ListMultipartUploads(files/)` 中 uploadId 不屬於任何未刪除紀錄 | AbortMultipartUpload |
+| 3 | 孤兒物件 | 刪除、放棄時物件刪除失敗；紀錄已刪除 | `ListObjectsV2` 列出 `files/`、`thumbnails/`、`variants/`，由 key 取出 id，查不到未刪除紀錄 | 刪除 |
+| 4 | 卡住的影像變體 | 產生途中重啟、儲存服務暫時不可用；migration 補產生 | `variant_status='pending' AND uploaded_at < now - 5 分鐘` | 重新排入（§5.4） |
+
+- **不誤判**：2、3 只看建立早於 `now - FILE_PENDING_TTL` 的東西——剛登記、INSERT 還沒提交的上傳不會被當成孤兒；
+  不是這個模組產生的 key（前綴不對、id 不是 uuid）一律不碰。
+- **偵測**：每一輪回傳 `FileMaintenanceReport`（四類各偵測到幾筆、處理失敗幾筆），有發現時記 info log；
+  `FILE_MAINTENANCE_DRY_RUN=true` 時 **只偵測、不處理**，可以先觀察再開啟。
+- **冪等**：刪除不存在的東西視為成功、軟刪除以條件 UPDATE 決勝，多個執行個體同時跑只是重複做白工；
+  同一個執行個體內上一輪沒結束時不重疊執行。處理失敗的項目下一輪會再偵測到。
+- **步驟互不依賴**：某一步整個失敗（例：換成不支援 `ListMultipartUploads` 的儲存服務）只記一筆 failure 並記 warn，其他步驟照常執行。
+- **成本**：3 每一輪列出受管理前綴下的所有物件（每頁 1000 個、每 500 個查一次資料庫）；物件數量大到列表變慢時，
+  改成把間隔拉長，或在另一個執行個體跑。
+- 為什麼在 api 內而不是 `db:archive-audit-logs` 那樣的腳本：清理需要 `ObjectStorage` 與補產生變體的 `ImageProcessor`，
+  腳本只能 import 不依賴 DI 的純函式（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2）。
 
 ---
 
@@ -360,9 +450,12 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | 檔案 | 內容 |
 | --- | --- |
 | `src/modules/file/__tests__/file.service.spec.ts` | 業務規則：每個 `AppException` 分支、可見性、交易後才刪物件；分塊上傳、放棄上傳、縮圖、樂觀鎖、游標 |
-| `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、樂觀鎖、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、三個資料表約束 |
+| `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除時清變體）、維護排程（dry run 與清除）、樂觀鎖、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束 |
 | `src/core/storage/__tests__/content-disposition.spec.ts` | 中文檔名的 `Content-Disposition` |
 | `src/core/storage/__tests__/stable-signing-date.spec.ts` | 下載網址在時間窗內不變、剩餘效期範圍 |
+| `src/core/image/__tests__/sharp-image-processor.spec.ts` | progressive JPEG、等比縮放不放大、透明圖鋪白底、EXIF 轉正、串流讀入、位元組上限 |
+| `src/modules/file/__tests__/file-image.service.spec.ts` | 真的 sharp ＋ 記憶體儲存：實體化兩個變體、WebP 主格式、失敗與重試的分界、途中刪除、影像 API 的簽章／格式協商／依請求轉出並快取 |
+| `src/modules/file/__tests__/file-maintenance.service.spec.ts` | 四類殘留的偵測與清除、dry run、與 complete 並行、失敗不中斷、不重疊執行 |
 | `apps/web/src/apis/file/upload-file/__tests__/uploadFile.test.ts` | 編排、進度、直傳失敗、取消與放棄上傳、縮圖；分塊：並行、ETag 排序、單塊重試、4xx 不重試 |
 
 與真實 S3 協定的相容性由 apps/file-storage 的測試（官方 SDK）負責；api 端的 `S3ObjectStorage` 另以 Docker 整套

@@ -64,10 +64,14 @@ apps/api/src/
 │   ├── validation/
 │   │   ├── zod-validation.pipe.ts
 │   │   └── zod-openapi.ts                Zod schema → OpenAPI schema
-│   └── storage/
-│       ├── object-storage.ts             ★ ObjectStorage 抽象類別（同時是 DI token）
-│       ├── s3-object-storage.ts          實作：@aws-sdk/client-s3（見 09-file.md）
-│       └── storage.module.ts
+│   ├── storage/
+│   │   ├── object-storage.ts             ★ ObjectStorage 抽象類別（同時是 DI token）
+│   │   ├── s3-object-storage.ts          實作：@aws-sdk/client-s3（見 09-file.md）
+│   │   └── storage.module.ts
+│   └── image/
+│       ├── image-processor.ts            ★ ImageProcessor 抽象類別（同時是 DI token）
+│       ├── sharp-image-processor.ts      實作：sharp / libvips（見 09-file.md §5.4）
+│       └── image.module.ts
 │
 ├── common/                               ← 薄；只有 decorator 與 guard
 │   ├── decorators/
@@ -88,7 +92,7 @@ apps/api/src/
 │   ├── role/
 │   ├── permission/
 │   ├── audit-log/
-│   ├── file/                             files 轉介表 ＋ 直傳上傳（09-file.md）
+│   ├── file/                             files 轉介表 ＋ 直傳上傳、影像變體、維護排程（09-file.md）
 │   └── health/
 │
 ├── db/

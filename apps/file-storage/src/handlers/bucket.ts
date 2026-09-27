@@ -21,11 +21,16 @@ const MAX_DELETE_BODY_BYTES = 2 * 1024 * 1024;
 /** CreateBucket 的 body 只可能是 `<CreateBucketConfiguration>`。 */
 const MAX_CREATE_BUCKET_BODY_BYTES = 64 * 1024;
 
-function owner(context: RequestContext): string {
-  return element('Owner', [
+/** `<Owner>` / `<Initiator>` 的內容：模擬器只有一個帳號。 */
+function principal(context: RequestContext): string[] {
+  return [
     text('ID', createHash('sha256').update(context.config.credentials.accessKeyId).digest('hex')),
     text('DisplayName', 'file-storage'),
-  ]);
+  ];
+}
+
+function owner(context: RequestContext): string {
+  return element('Owner', principal(context));
 }
 
 /** `GET /` */
@@ -242,5 +247,79 @@ export async function deleteObjects(context: RequestContext): Promise<void> {
             ]),
       ),
     ),
+  );
+}
+
+const MAX_LIST_UPLOADS = 1000;
+
+/**
+ * `GET /<bucket>?uploads`（ListMultipartUploads）。支援 `prefix`、`max-uploads`、
+ * `key-marker` / `upload-id-marker` 分頁與 `encoding-type=url`；不支援 `delimiter`。
+ */
+export async function listMultipartUploads(context: RequestContext): Promise<void> {
+  const bucket = requireBucketName(context);
+  const { query } = context;
+  if (query.get('delimiter')) {
+    throw new S3Error('NotImplemented', 'ListMultipartUploads does not support delimiter.');
+  }
+  const prefix = query.get('prefix') ?? '';
+  const keyMarker = query.get('key-marker') || undefined;
+  // 規格：沒有 key-marker 時忽略 upload-id-marker
+  const uploadIdMarker = keyMarker ? query.get('upload-id-marker') || undefined : undefined;
+  const maxUploads = Math.min(
+    readIntParam(query.get('max-uploads'), 'max-uploads', {
+      min: 0,
+      max: Number.MAX_SAFE_INTEGER,
+      fallback: MAX_LIST_UPLOADS,
+    }),
+    MAX_LIST_UPLOADS,
+  );
+  const encode = encoder(context);
+
+  const all = context.store.listUploads(bucket).filter((upload) => upload.key.startsWith(prefix));
+  let start = 0;
+  if (keyMarker !== undefined) {
+    const markerIndex =
+      uploadIdMarker === undefined
+        ? -1
+        : all.findIndex((upload) => upload.key === keyMarker && upload.uploadId === uploadIdMarker);
+    // 有 upload-id-marker：接在那一筆之後；沒有（或找不到）：從 key 大於 key-marker 的開始
+    start =
+      markerIndex >= 0
+        ? markerIndex + 1
+        : all.findIndex(
+            (upload) => Buffer.compare(Buffer.from(upload.key), Buffer.from(keyMarker)) > 0,
+          );
+    if (start < 0) start = all.length;
+  }
+  const page = all.slice(start, start + maxUploads);
+  const isTruncated = start + page.length < all.length;
+  const last = page.at(-1);
+  const initiator = principal(context);
+
+  sendXml(
+    context,
+    200,
+    xmlDocument('ListMultipartUploadsResult', [
+      text('Bucket', bucket),
+      text('KeyMarker', encode(keyMarker ?? '')),
+      text('UploadIdMarker', uploadIdMarker ?? ''),
+      isTruncated && last !== undefined && text('NextKeyMarker', encode(last.key)),
+      isTruncated && last !== undefined && text('NextUploadIdMarker', last.uploadId),
+      text('Prefix', encode(prefix)),
+      text('MaxUploads', maxUploads),
+      query.has('encoding-type') && text('EncodingType', 'url'),
+      text('IsTruncated', isTruncated),
+      ...page.map((upload) =>
+        element('Upload', [
+          text('Key', encode(upload.key)),
+          text('UploadId', upload.uploadId),
+          element('Initiator', initiator),
+          element('Owner', initiator),
+          text('StorageClass', 'STANDARD'),
+          text('Initiated', upload.initiatedAt.toISOString()),
+        ]),
+      ),
+    ]),
   );
 }

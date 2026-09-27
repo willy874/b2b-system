@@ -1,6 +1,9 @@
+import { Readable } from 'node:stream';
+
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { eq } from 'drizzle-orm';
+import sharp from 'sharp';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
@@ -9,6 +12,8 @@ import { AppException } from '@/core/errors';
 import { ObjectStorage } from '@/core/storage';
 import type {
   CreateMultipartUploadOptions,
+  ListedObject,
+  PendingMultipartUpload,
   PresignDownloadOptions,
   PresignedRequest,
   PresignUploadOptions,
@@ -16,6 +21,8 @@ import type {
   UploadedPart,
 } from '@/core/storage';
 import { auditLogs, files, roles, userRoles, users } from '@/db/schema';
+import { FileImageService } from '@/modules/file/file-image.service';
+import { FileMaintenanceService } from '@/modules/file/file-maintenance.service';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, expectDbError, truncateAll } from './db';
@@ -27,6 +34,9 @@ import { createTestDatabase, expectDbError, truncateAll } from './db';
  */
 class InMemoryObjectStorage extends ObjectStorage {
   readonly objects = new Map<string, StoredObjectHead>();
+  /** 有實際內容的物件（影像測試用）；其他物件只有 head，讀出來是全零。 */
+  readonly contents = new Map<string, Buffer>();
+  readonly modifiedAt = new Map<string, Date>();
   readonly deleted: string[] = [];
 
   async ensureBucket(): Promise<void> {}
@@ -41,7 +51,41 @@ class InMemoryObjectStorage extends ObjectStorage {
 
   async delete(key: string): Promise<void> {
     this.objects.delete(key);
+    this.contents.delete(key);
+    this.modifiedAt.delete(key);
     this.deleted.push(key);
+  }
+
+  async getObject(key: string): Promise<Readable | undefined> {
+    const head = this.objects.get(key);
+    if (!head) return undefined;
+    return Readable.from([this.contents.get(key) ?? Buffer.alloc(head.size)]);
+  }
+
+  async putObject(key: string, body: Buffer, options: { contentType: string }): Promise<void> {
+    this.write(key, body, options.contentType);
+  }
+
+  async *listObjects(prefix: string): AsyncIterable<ListedObject> {
+    for (const [key, head] of [...this.objects].toSorted(([a], [b]) => a.localeCompare(b))) {
+      if (!key.startsWith(prefix)) continue;
+      yield { key, size: head.size, lastModified: this.modifiedAt.get(key) ?? new Date() };
+    }
+  }
+
+  async *listMultipartUploads(prefix: string): AsyncIterable<PendingMultipartUpload> {
+    for (const [uploadId, upload] of this.uploads) {
+      if (upload.key.startsWith(prefix)) {
+        yield { key: upload.key, uploadId, initiatedAt: upload.initiatedAt };
+      }
+    }
+  }
+
+  /** 寫入一個有內容的物件（模擬瀏覽器直傳真正的圖片）。 */
+  write(key: string, body: Buffer, contentType: string): void {
+    this.objects.set(key, { size: body.length, etag: `etag-${key}`, contentType });
+    this.contents.set(key, body);
+    this.modifiedAt.set(key, new Date());
   }
 
   async presignUpload(key: string, options: PresignUploadOptions): Promise<PresignedRequest> {
@@ -65,12 +109,17 @@ class InMemoryObjectStorage extends ObjectStorage {
   /** uploadId → { key, contentType, 已上傳的塊（塊號 → 大小） } */
   readonly uploads = new Map<
     string,
-    { key: string; contentType: string; parts: Map<number, number> }
+    { key: string; contentType: string; parts: Map<number, number>; initiatedAt: Date }
   >();
 
   async createMultipartUpload(key: string, options: CreateMultipartUploadOptions): Promise<string> {
     const uploadId = `upload-${this.uploads.size + 1}`;
-    this.uploads.set(uploadId, { key, contentType: options.contentType, parts: new Map() });
+    this.uploads.set(uploadId, {
+      key,
+      contentType: options.contentType,
+      parts: new Map(),
+      initiatedAt: new Date(),
+    });
     return uploadId;
   }
 
@@ -119,6 +168,7 @@ class InMemoryObjectStorage extends ObjectStorage {
     }
     const key = parsed.pathname.slice(1);
     this.objects.set(key, { size, etag: 'etag-' + key, contentType });
+    this.modifiedAt.set(key, new Date());
   }
 }
 
@@ -165,6 +215,13 @@ interface FileBody {
   size: number;
   version: number;
   thumbnailUrl: string | null;
+  image: {
+    width: number;
+    height: number;
+    originalUrl: string;
+    previewUrl: string;
+    thumbnailUrl: string;
+  } | null;
   url: string | null;
   downloadUrl: string | null;
   uploader: { displayName: string } | null;
@@ -240,6 +297,8 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
   });
 
   afterAll(async () => {
+    // 背景的影像變體產生要在關閉資料庫之前結束
+    await app.get(FileImageService).whenIdle();
     await app.close();
     await closeDb();
     delete process.env.FILE_UPLOAD_MAX_SIZE;
@@ -537,6 +596,95 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     expect(others).not.toContain('spec.pdf');
   });
 
+  it('圖片：完成後實體化全螢幕預覽與圖示預覽；影像 API 不必登入、依請求的格式轉址', async () => {
+    const token = await login(ADMIN);
+    const content = await sharp({
+      create: { width: 64, height: 48, channels: 3, background: '#336699' },
+    })
+      .png()
+      .toBuffer();
+    const { file, upload } = await startUpload(token, {
+      name: 'sprite.png',
+      contentType: 'image/png',
+      size: content.length,
+    });
+    storage.write(new URL(upload.url).pathname.slice(1), content, 'image/png');
+    await request(http)
+      .post(`/files/${file.id}/complete`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    await app.get(FileImageService).whenIdle();
+
+    const detail = (
+      (
+        await request(http)
+          .get(`/files/${file.id}`)
+          .set('authorization', `Bearer ${token}`)
+          .expect(200)
+      ).body as { data: FileBody }
+    ).data;
+    expect(detail.image).toMatchObject({ width: 64, height: 48 });
+    expect(detail.thumbnailUrl).toBe(detail.image?.thumbnailUrl);
+    expect(storage.contents.has(`variants/${file.id}/preview.jpeg`)).toBe(true);
+    expect(storage.contents.has(`variants/${file.id}/thumbnail.jpeg`)).toBe(true);
+
+    // 前端拿到的網址帶 `/api` 前綴（反向代理去掉後才進 api）
+    const previewPath = (detail.image?.previewUrl ?? '').replace(/^\/api/, '');
+    // 不帶 authorization：`<img src>` 帶不了 token
+    const preview = await request(http).get(previewPath).expect(302);
+    expect(preview.headers.location).toContain(`variants/${file.id}/preview.jpeg`);
+    expect(preview.headers['cache-control']).toMatch(/^private, max-age=\d+$/);
+
+    const webp = await request(http).get(`${previewPath}&format=webp`).expect(302);
+    expect(webp.headers.location).toContain(`variants/${file.id}/preview.webp`);
+    expect(storage.contents.has(`variants/${file.id}/preview.webp`)).toBe(true);
+
+    // 簽章綁定版本：拿預覽的簽章要原圖 → 403
+    const tampered = await request(http)
+      .get(previewPath.replace('/image/preview?', '/image/original?'))
+      .expect(403);
+    expect((tampered.body as { error: { code: string } }).error.code).toBe(
+      'FILE_IMAGE_URL_INVALID',
+    );
+
+    // 刪除時一併刪除變體與轉出的格式
+    await request(http)
+      .delete(`/files/${file.id}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(204);
+    expect([...storage.objects.keys()].some((key) => key.startsWith(`variants/${file.id}/`))).toBe(
+      false,
+    );
+    await request(http).get(previewPath).expect(404);
+  });
+
+  it('維護排程：偵測並清掉逾時的 pending 上傳與沒有紀錄的物件', async () => {
+    const token = await login(ADMIN);
+    const { file, upload } = await startUpload(token, {
+      name: 'abandoned.bin',
+      contentType: 'application/octet-stream',
+      size: 10,
+    });
+    storage.simulateBrowserUpload(upload.url, 10);
+    const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000);
+    await db.update(files).set({ createdAt: twoDaysAgo }).where(eq(files.id, file.id));
+    const orphanKey = 'thumbnails/99999999-9999-4999-8999-999999999999';
+    storage.objects.set(orphanKey, { size: 1, etag: 'o', contentType: 'image/webp' });
+    storage.modifiedAt.set(orphanKey, twoDaysAgo);
+
+    const maintenance = app.get(FileMaintenanceService);
+    const detected = await maintenance.sweep({ dryRun: true });
+    expect(detected).toMatchObject({ dryRun: true, stalePendingFiles: 1, orphanObjects: 1 });
+    expect(storage.objects.has(orphanKey)).toBe(true);
+
+    const report = await maintenance.sweep();
+    expect(report).toMatchObject({ dryRun: false, stalePendingFiles: 1, orphanObjects: 1 });
+    const [row] = await db.select().from(files).where(eq(files.id, file.id));
+    expect(row?.deletedAt).not.toBeNull();
+    expect(storage.objects.has(`files/${file.id}`)).toBe(false);
+    expect(storage.objects.has(orphanKey)).toBe(false);
+  });
+
   describe('files 資料表約束', () => {
     const base = { name: 'x', contentType: 'text/plain', storageKey: 'files/constraint' };
 
@@ -544,6 +692,13 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       await expectDbError(
         db.insert(files).values({ ...base, size: 1, status: 'ready' }),
         /files_ready_confirmed/,
+      );
+    });
+
+    it('影像變體 ready 必須有尺寸與主格式', async () => {
+      await expectDbError(
+        db.insert(files).values({ ...base, size: 1, variantStatus: 'ready' }),
+        /files_variant_ready_described/,
       );
     });
 

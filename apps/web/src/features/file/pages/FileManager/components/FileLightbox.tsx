@@ -33,7 +33,10 @@ interface FileLightboxProps {
 
 /** 先把上一個、下一個的圖片抓進快取：切換時立刻顯示。 */
 function usePreloadNeighbors(neighbors: ReadonlyArray<FileItemVM | undefined>): void {
-  const urls = neighbors.flatMap((item) => (item?.kind === 'image' && item.url ? [item.url] : []));
+  const urls = neighbors.flatMap((item) => {
+    const url = item?.kind === 'image' ? (item.displayUrl ?? item.url) : null;
+    return url ? [url] : [];
+  });
   const key = urls.join('\n');
   useEffect(() => {
     if (!key) return;

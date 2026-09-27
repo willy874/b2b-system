@@ -9,6 +9,7 @@ import {
   inArray,
   isNull,
   like,
+  isNotNull,
   lt,
   not,
   or,
@@ -18,7 +19,7 @@ import type { SQL } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { DRIZZLE } from '@/core/database';
-import type { FileInsert, FileRow } from '@/db/schema';
+import type { FileInsert, FileRow, FileVariantStatus } from '@/db/schema';
 import { files, users } from '@/db/schema';
 
 import type { ListFileDto } from './dto/list-file.dto';
@@ -148,6 +149,7 @@ export class FileRepository {
       etag: string;
       uploadedAt: Date;
       hasThumbnail: boolean;
+      variantStatus: FileVariantStatus;
       updatedBy: string;
     },
     tx?: DbOrTx,
@@ -182,8 +184,15 @@ export class FileRepository {
     return row;
   }
 
-  /** 放棄上傳：只作用在 `pending`，已完成的上傳不受影響。 */
-  async discardPending(id: string, actorId: string, tx?: DbOrTx): Promise<FileRow | undefined> {
+  /**
+   * 放棄上傳：只作用在 `pending`，已完成的上傳不受影響。
+   * `actorId` 為 null 是維護排程清掉的逾時上傳。
+   */
+  async discardPending(
+    id: string,
+    actorId: string | null,
+    tx?: DbOrTx,
+  ): Promise<FileRow | undefined> {
     const db = tx ?? this.db;
     const [row] = await db
       .update(files)
@@ -191,6 +200,89 @@ export class FileRepository {
       .where(and(eq(files.id, id), eq(files.status, 'pending'), isNull(files.deletedAt)))
       .returning();
     return row;
+  }
+
+  /** 影像變體產生完成。只作用在還在等待的檔案：途中被刪除的回 undefined。 */
+  async markVariantsReady(
+    id: string,
+    values: { imageWidth: number; imageHeight: number; variantFormat: string },
+  ): Promise<FileRow | undefined> {
+    const [row] = await this.db
+      .update(files)
+      .set({ ...values, variantStatus: 'ready' })
+      .where(and(eq(files.id, id), eq(files.variantStatus, 'pending'), isNull(files.deletedAt)))
+      .returning();
+    return row;
+  }
+
+  async markVariantsFailed(id: string): Promise<void> {
+    await this.db
+      .update(files)
+      .set({ variantStatus: 'failed' })
+      .where(and(eq(files.id, id), eq(files.variantStatus, 'pending')));
+  }
+
+  /** 完成上傳超過一段時間仍在等待產生影像變體的檔案（最早完成的先）。 */
+  async findPendingVariants(uploadedBefore: Date, limit: number): Promise<string[]> {
+    const rows = await this.db
+      .select({ id: files.id })
+      .from(files)
+      .where(
+        and(
+          eq(files.variantStatus, 'pending'),
+          isNull(files.deletedAt),
+          lt(files.uploadedAt, uploadedBefore),
+        ),
+      )
+      .orderBy(asc(files.uploadedAt))
+      .limit(limit);
+    return rows.map((row) => row.id);
+  }
+
+  /** 登記早於 `createdBefore` 仍未完成的上傳，依 id 分頁（`afterId` 之後）。 */
+  async findStalePending(
+    createdBefore: Date,
+    afterId: string | undefined,
+    limit: number,
+  ): Promise<Pick<FileRow, 'id' | 'storageKey' | 'uploadId'>[]> {
+    const conditions = [
+      eq(files.status, 'pending'),
+      isNull(files.deletedAt),
+      lt(files.createdAt, createdBefore),
+    ];
+    if (afterId) conditions.push(gt(files.id, afterId));
+    return this.db
+      .select({ id: files.id, storageKey: files.storageKey, uploadId: files.uploadId })
+      .from(files)
+      .where(and(...conditions))
+      .orderBy(asc(files.id))
+      .limit(limit);
+  }
+
+  /** 這些 id 之中還沒刪除的（含 pending）。 */
+  async findLiveIds(ids: readonly string[]): Promise<Set<string>> {
+    if (ids.length === 0) return new Set();
+    const rows = await this.db
+      .select({ id: files.id })
+      .from(files)
+      .where(and(inArray(files.id, [...ids]), isNull(files.deletedAt)));
+    return new Set(rows.map((row) => row.id));
+  }
+
+  /** 這些分塊上傳之中還屬於某個未刪除紀錄的。 */
+  async findLiveUploadIds(uploadIds: readonly string[]): Promise<Set<string>> {
+    if (uploadIds.length === 0) return new Set();
+    const rows = await this.db
+      .select({ uploadId: files.uploadId })
+      .from(files)
+      .where(
+        and(
+          inArray(files.uploadId, [...uploadIds]),
+          isNotNull(files.uploadId),
+          isNull(files.deletedAt),
+        ),
+      );
+    return new Set(rows.flatMap((row) => (row.uploadId ? [row.uploadId] : [])));
   }
 
   async softDelete(id: string, actorId: string, tx?: DbOrTx): Promise<FileRow | undefined> {

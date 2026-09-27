@@ -24,6 +24,17 @@ export const fileStatus = pgEnum('file_status', FILE_STATUSES);
 export type FileStatus = (typeof FILE_STATUSES)[number];
 
 /**
+ * 影像變體（全螢幕預覽、圖示預覽）的狀態。見 docs/architecture/backend/09-file.md §5.4。
+ * - `none`：不是伺服器能處理的影像（或還沒完成上傳）；
+ * - `pending`：等待產生（上傳完成後排入，或維護排程補產生）；
+ * - `ready`：兩個變體都已寫入物件儲存，`image_*` 欄位有值；
+ * - `failed`：解碼失敗（內容損毀、超過尺寸上限），不再重試。
+ */
+export const FILE_VARIANT_STATUSES = ['none', 'pending', 'ready', 'failed'] as const;
+export const fileVariantStatus = pgEnum('file_variant_status', FILE_VARIANT_STATUSES);
+export type FileVariantStatus = (typeof FILE_VARIANT_STATUSES)[number];
+
+/**
  * 檔案的轉介層：對外一律用 `id`，物件儲存的 key（`storage_key`）只在後端使用。
  * 換儲存後端、搬 key 的命名規則時，前端與其他資料表都不受影響。
  */
@@ -53,6 +64,12 @@ export const files = pgTable(
      * 不用 `updated_at` 比對：它是微秒精度，經過 JSON（毫秒）來回之後就對不上。
      */
     version: integer('version').notNull().default(1),
+    variantStatus: fileVariantStatus('variant_status').notNull().default('none'),
+    /** 套用 EXIF 方向後的原圖尺寸；`variant_status = 'ready'` 才有值。 */
+    imageWidth: integer('image_width'),
+    imageHeight: integer('image_height'),
+    /** 變體的主格式（`jpeg`：progressive JPEG；`webp`：有透明度的圖）；其他格式依請求另外轉出。 */
+    variantFormat: text('variant_format'),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -68,6 +85,10 @@ export const files = pgTable(
       'files_ready_confirmed',
       sql`${t.status} = 'pending' OR (${t.etag} IS NOT NULL AND ${t.uploadedAt} IS NOT NULL)`,
     ),
+    check(
+      'files_variant_ready_described',
+      sql`${t.variantStatus} <> 'ready' OR (${t.imageWidth} IS NOT NULL AND ${t.imageHeight} IS NOT NULL AND ${t.variantFormat} IS NOT NULL)`,
+    ),
     index('files_status_created_at_idx')
       .on(t.status, t.createdAt)
       .where(sql`${t.deletedAt} IS NULL`),
@@ -81,6 +102,10 @@ export const files = pgTable(
     index('files_status_content_type_idx')
       .on(t.status, t.contentType)
       .where(sql`${t.deletedAt} IS NULL`),
+    // 維護排程找「等待產生影像變體」的檔案；絕大多數列不是 pending，部分索引很小
+    index('files_variant_pending_idx')
+      .on(t.uploadedAt)
+      .where(sql`${t.variantStatus} = 'pending' AND ${t.deletedAt} IS NULL`),
     // 檔名的部分比對（ILIKE '%…%'）：btree 用不上，改用 pg_trgm 的 GIN 索引
     index('files_name_trgm_idx')
       .using('gin', sql`${t.name} gin_trgm_ops`)

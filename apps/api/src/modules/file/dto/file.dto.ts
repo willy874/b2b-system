@@ -11,6 +11,27 @@ export const FileUploaderSchema = defineSchema(
 );
 
 /**
+ * 伺服器能處理的圖片、且影像變體已產生時才有（docs/architecture/backend/09-file.md §5.4）。
+ * 三個網址都是影像 API（`GET /files/:id/image/:variant`），可直接放進 `<img src>`；
+ * 可在後面加 `&format=webp|avif|png|jpeg|auto` 要求其他格式。
+ */
+export const FileImageSchema = defineSchema(
+  'StoredFileImage',
+  z.object({
+    /** 套用 EXIF 方向後的原圖尺寸（px）。 */
+    width: z.number().int(),
+    height: z.number().int(),
+    originalUrl: z.string(),
+    /** 全螢幕預覽（長邊 ≤ 2560 px）。 */
+    previewUrl: z.string(),
+    /** 圖示預覽（長邊 ≤ 480 px）。 */
+    thumbnailUrl: z.string(),
+    /** 三個網址的失效時間；同一個時間窗內網址不變。 */
+    expiresAt: z.string(),
+  }),
+);
+
+/**
  * 前端看到的檔案。不暴露物件儲存的 key 或 bucket——只有 id 與可以直接使用的網址。
  */
 export const FileSchema = defineSchema(
@@ -25,9 +46,14 @@ export const FileSchema = defineSchema(
     url: z.string().nullable(),
     /** 觸發瀏覽器下載、並以 `name` 為檔名；`pending` 時為 null。 */
     downloadUrl: z.string().nullable(),
-    /** 上傳時一併產生的縮圖（列表的圖示預覽用）；沒有縮圖時為 null，改用 `url` 或類型圖示。 */
+    /**
+     * 列表的圖示預覽：伺服器產生的圖示預覽（`image.thumbnailUrl`）優先，其次是瀏覽器上傳時產生的縮圖；
+     * 都沒有時為 null，改用 `url` 或類型圖示。
+     */
     thumbnailUrl: z.string().nullable(),
-    /** 三個網址中最早失效的時間；同一個時間窗內網址不變，瀏覽器快取可以命中。 */
+    /** 圖片的三個版本（原圖、全螢幕預覽、圖示預覽）；不是圖片、或變體還沒產生時為 null。 */
+    image: FileImageSchema.nullable(),
+    /** 所有網址中最早失效的時間；同一個時間窗內網址不變，瀏覽器快取可以命中。 */
     urlExpiresAt: z.string().nullable(),
     /** 樂觀鎖版本：改名時帶上，版本不同回 `FILE_VERSION_CONFLICT`。 */
     version: z.number().int(),
@@ -115,6 +141,7 @@ export const FileUploadPolicySchema = defineSchema(
   }),
 );
 
+export type FileImageDto = z.infer<typeof FileImageSchema>;
 export type FileDto = z.infer<typeof FileSchema>;
 export type FileListDto = z.infer<typeof FileListSchema>;
 export type FileUploadDto = z.infer<typeof FileUploadSchema>;

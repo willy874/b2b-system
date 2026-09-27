@@ -12,7 +12,7 @@
 | 拖曳到主區塊上傳 | `useFileDrop`：只對帶檔案的拖曳反應，資料夾略過並提示 | §7 |
 | 框選多個檔案做批次處理 | `useMarqueeSelection`：以版面幾何計算命中，畫面外（虛擬捲動沒渲染）的項目也算得到 | §7 |
 | RWD | 欄數、卡片寬度、列表顯示的欄位都由容器寬度決定；工具列在窄螢幕換行 | §3 |
-| 常見格式的圖示、圖片的縮圖預覽 | `core/file` 的 `getFileKind()` ＋ 上傳時由瀏覽器產生的縮圖 | §6、§8 |
+| 常見格式的圖示、圖片的縮圖預覽 | `core/file` 的 `getFileKind()` ＋ 伺服器產生的圖示預覽（`thumbnailUrl`；之前退回上傳時由瀏覽器產生的縮圖） | §6、§8 |
 | 前後端效能 | 虛擬捲動、縮圖、穩定的下載網址（瀏覽器快取命中）、索引與 keyset 分頁 | §9 |
 | 變更事件的同步與資源競爭 | 推播失效、選取以 id 記錄並自動修剪、改名樂觀鎖、LightBox 偵測已刪除 | §10 |
 | 排序、搜尋、篩選 | 檔名搜尋（去抖動）、分類篩選、三種排序 ＋ 方向 | §4 |
@@ -131,7 +131,9 @@ registerFilePreviewer({
 ### 6.1 LightBox（`FileLightbox`）
 
 - 開啟：雙擊、Enter、觸控時點一下（還沒有選取時）；網址帶 `?preview=<id>`，可以直接分享。
-- 上一個／下一個：按鈕與 ← / →，在目前載入的項目之間切換（`replace`，返回鍵直接關掉 LightBox）；先把相鄰的圖片抓進快取。
+- 圖片預設顯示伺服器產生的 **全螢幕預覽**（`StoredFile.image.previewUrl` → `FileItemVM.displayUrl`，長邊 2560 px 的 progressive JPEG，
+  下載途中就由模糊到清楚逐步顯示）；切到「原始大小」才載入原圖（`url`）。變體還沒產生時直接用原圖（[backend 09 §5.4](../backend/09-file.md)）。
+- 上一個／下一個：按鈕與 ← / →，在目前載入的項目之間切換（`replace`，返回鍵直接關掉 LightBox）；先把相鄰的圖片（全螢幕預覽）抓進快取。
   方向鍵在 **capture** 階段監聽：Base UI Dialog 的焦點管理會在事件冒泡到 window 之前停止傳遞。
 - 詳情另外查 `GET /files/:id`：拿到最新的名稱、版本與網址；別人刪除了（404）顯示「檔案已被刪除」並隱藏操作。
 - 純文字預覽只讀前 256 KB（`Range`），JSON 自動排版；內容以 id 為 key、不可變，不重抓。
@@ -186,7 +188,7 @@ registerFilePreviewer({
 | 位置 | 做法 |
 | --- | --- |
 | 渲染 | 虛擬捲動（只渲染看得到的列）；項目元件 `memo`，回呼以 ref 保持穩定，選取改變時不重新渲染所有項目；點擊事件委派 |
-| 圖片 | 上傳時產生的縮圖（數十 KB）而不是原圖；`loading="lazy"`、`decoding="async"`；沒有縮圖的圖片只有 ≤ 2 MiB 才直接用原檔 |
+| 圖片 | 伺服器產生的圖示預覽（長邊 480 px；之前退回上傳時產生的縮圖）而不是原圖；LightBox 用全螢幕預覽；`loading="lazy"`、`decoding="async"`；沒有縮圖的圖片只有 ≤ 2 MiB 才直接用原檔 |
 | 網路 | 下載網址在時間窗內不變 ＋ `Cache-Control: immutable`：重抓列表不會重新下載縮圖；搜尋去抖動；換頁 `keepPreviousData` |
 | 推播 | 失效經依賴圖，背景分頁只標 stale、可見分頁合併後隨機延遲重抓（[11 §4](./11-realtime.md)） |
 | 後端 | (排序欄位, id) 索引 ＋ keyset 分頁：每一頁都是索引範圍掃描；檔名部分比對用 `pg_trgm` 的 GIN 索引；網址在 api 本地簽章，不打儲存服務 |
@@ -217,7 +219,8 @@ registerFilePreviewer({
 | `…/__tests__/useFileSelection.test.ts` | 點擊、⌘ / Shift、框選取代與疊加、資料更新後自動修剪 |
 | `…/__tests__/FileBrowser.test.tsx` | 點擊與勾選框、雙擊、鍵盤、拖放（含資料夾、無權限）、列表表頭排序、空狀態 |
 | `…/__tests__/FileLightbox.test.tsx` | 依註冊表選解析器、無解析器、超過大小上限、解析器壞掉、上一個／下一個、已刪除、權限 |
-| `…/__tests__/adapter.test.ts` | 縮圖／原檔／圖示的選擇、多頁去重、網址效期 |
+| `…/__tests__/adapter.test.ts` | 縮圖／原檔／圖示的選擇、全螢幕預覽、多頁去重、網址效期 |
+| `features/file/preview/__tests__/ImagePreview.test.tsx` | 預設顯示全螢幕預覽、原始大小才載入原圖、沒有預覽時用原圖 |
 | `features/file/hooks/__tests__/useFilePermission.test.tsx` | 有權限／只有 `file:read`／未水合 三案例 |
 | `features/file/__tests__/batch.test.ts` | 送進佇列的形狀、上傳操作（進度、失效、清暫存、拿不到檔案）、刪除操作 |
 | `features/file/upload/__tests__/validators.test.ts`、`__tests__/preference.test.ts` | 內建驗證器、偏好的逐欄驗證 |

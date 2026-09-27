@@ -17,6 +17,8 @@ export interface FileItemVM {
   sizeLabel: string;
   /** 卡片與列表的預覽圖：縮圖優先；沒有縮圖的小圖直接用原檔；其他為 null（顯示類型圖示）。 */
   previewUrl: string | null;
+  /** LightBox 顯示用：伺服器產生的全螢幕預覽；沒有時為 null（改用 `url`）。 */
+  displayUrl: string | null;
   url: string | null;
   downloadUrl: string | null;
   version: number;
@@ -40,6 +42,7 @@ export function toFileItemVM(file: StoredFile): FileItemVM {
     size: file.size,
     sizeLabel: formatBytes(file.size),
     previewUrl: file.thumbnailUrl ?? inlinePreview,
+    displayUrl: file.image?.previewUrl ?? null,
     url: file.url,
     downloadUrl: file.downloadUrl,
     version: file.version,

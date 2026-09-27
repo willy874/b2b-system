@@ -232,6 +232,7 @@ REFRESH_TOKEN_TTL=604800           # 秒（7 天）
 REFRESH_COOKIE_NAME=refresh_token
 REFRESH_COOKIE_PATH=/api/auth      # 瀏覽器看到的前綴（前端一律打 /api/*）
 REFRESH_COOKIE_DOMAIN=localhost
+API_PUBLIC_BASE_URL=/api            # 瀏覽器看到的 api 位址（影像 API 的網址以它開頭）
 
 ARGON2_MEMORY_COST=19456
 ARGON2_TIME_COST=2
@@ -267,6 +268,9 @@ FILE_UPLOAD_MAX_SIZE=104857600
 FILE_URL_TTL=900
 FILE_MULTIPART_THRESHOLD=16777216   # 超過改用分塊上傳
 FILE_MULTIPART_PART_SIZE=8388608    # 每塊大小（≥ 5 MiB）
+FILE_PENDING_TTL=86400              # 登記後超過這個秒數仍未完成的上傳，由維護排程清除
+FILE_MAINTENANCE_INTERVAL=3600      # 檔案維護排程的間隔秒數；0 停用
+FILE_MAINTENANCE_DRY_RUN=false      # true：只偵測並記錄殘留，不刪除
 
 # ── apps/web（VITE_ 前綴才會進 bundle）─────────────────
 VITE_API_BASE_URL=/api

@@ -258,6 +258,15 @@ export interface FileUploader {
   displayName: string;
 }
 
+export interface StoredFileImage {
+  width: number;
+  height: number;
+  originalUrl: string;
+  previewUrl: string;
+  thumbnailUrl: string;
+  expiresAt: string;
+}
+
 export interface StoredFile {
   id: string;
   name: string;
@@ -267,6 +276,7 @@ export interface StoredFile {
   url: string | null;
   downloadUrl: string | null;
   thumbnailUrl: string | null;
+  image: StoredFileImage | null;
   urlExpiresAt: string | null;
   version: number;
   uploader: FileUploader | null;
@@ -322,6 +332,12 @@ export interface FileUploadPolicy {
   partSize: number;
   thumbnailMaxSize: number;
   thumbnailContentTypes: Array<string>;
+}
+
+export interface GetFileImageQuery {
+  exp: number;
+  sig: string;
+  format?: 'jpeg' | 'webp' | 'avif' | 'png' | 'auto';
 }
 
 export interface UpdateFileRequest {

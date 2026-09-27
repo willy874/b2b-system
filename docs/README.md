@@ -131,7 +131,8 @@ docs/
     ├── 0010-self-built-json-editor.md
     ├── 0011-codemirror-json-editor.md
     ├── 0012-batch-queue-worker.md
-    └── 0013-file-manager-upload.md
+    ├── 0013-file-manager-upload.md
+    └── 0014-server-image-variants.md
 ```
 
 ---

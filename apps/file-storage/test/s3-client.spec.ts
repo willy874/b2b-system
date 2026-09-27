@@ -18,6 +18,7 @@ import {
   HeadBucketCommand,
   HeadObjectCommand,
   ListBucketsCommand,
+  ListMultipartUploadsCommand,
   ListObjectsCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -489,6 +490,54 @@ describe('Multipart upload', () => {
       new GetObjectCommand({ Bucket: bucket, Key: 'big.bin', Range: `bytes=${part1.length}-` }),
     );
     expect(await tail.Body?.transformToString()).toBe('tail');
+  });
+
+  it('ListMultipartUploads：列出未完成的上傳、prefix 篩選、marker 分頁；完成或放棄後消失', async () => {
+    const bucket = await newBucket();
+    const start = async (key: string) =>
+      (await client.send(new CreateMultipartUploadCommand({ Bucket: bucket, Key: key }))).UploadId;
+    const a1 = await start('files/a');
+    const a2 = await start('files/a');
+    const b = await start('files/b');
+    await start('other/c');
+
+    const all = await client.send(
+      new ListMultipartUploadsCommand({ Bucket: bucket, Prefix: 'files/' }),
+    );
+    expect(all.IsTruncated).toBe(false);
+    expect(all.Uploads?.map((upload) => [upload.Key, upload.UploadId])).toEqual([
+      ['files/a', a1],
+      ['files/a', a2],
+      ['files/b', b],
+    ]);
+    expect(all.Uploads?.[0]?.Initiated).toBeInstanceOf(Date);
+
+    // 分頁停在同一個 key 的兩個上傳之間
+    const first = await client.send(
+      new ListMultipartUploadsCommand({ Bucket: bucket, Prefix: 'files/', MaxUploads: 1 }),
+    );
+    expect(first).toMatchObject({
+      IsTruncated: true,
+      NextKeyMarker: 'files/a',
+      NextUploadIdMarker: a1,
+    });
+    const rest = await client.send(
+      new ListMultipartUploadsCommand({
+        Bucket: bucket,
+        Prefix: 'files/',
+        KeyMarker: first.NextKeyMarker,
+        UploadIdMarker: first.NextUploadIdMarker,
+      }),
+    );
+    expect(rest.Uploads?.map((upload) => upload.UploadId)).toEqual([a2, b]);
+
+    await client.send(
+      new AbortMultipartUploadCommand({ Bucket: bucket, Key: 'files/b', UploadId: b }),
+    );
+    const after = await client.send(
+      new ListMultipartUploadsCommand({ Bucket: bucket, Prefix: 'files/', KeyMarker: 'files/a' }),
+    );
+    expect(after.Uploads ?? []).toEqual([]);
   });
 
   it('非最後一段小於 5 MiB 回 EntityTooSmall', async () => {

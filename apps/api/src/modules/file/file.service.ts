@@ -30,8 +30,10 @@ import type {
 } from './dto/file.dto';
 import type { ListFileDto } from './dto/list-file.dto';
 import type { UpdateFileDto } from './dto/update-file.dto';
+import { FileImageService } from './file-image.service';
 import {
   FILE_AUDIT_FIELDS,
+  isImageVariantSource,
   MAX_PART_COUNT,
   storageKeyOf,
   THUMBNAIL_CONTENT_TYPES,
@@ -49,6 +51,7 @@ import { FileRepository } from './file.repository';
  * 上傳分兩步：`createUpload` 登記一筆 `pending` 並發 presigned PUT（大檔改為分塊上傳，
  * 各塊的網址由 `createUploadParts` 邊傳邊發）→ 瀏覽器直傳到物件儲存 →
  * `completeUpload` 向物件儲存確認後改成 `ready`。檔案內容從不經過 api，大檔也不佔 api 的頻寬與記憶體。
+ * 圖片完成後另外排入產生影像變體（`FileImageService`，§5.4）。
  */
 @Injectable()
 export class FileService {
@@ -64,6 +67,7 @@ export class FileService {
     private readonly storage: ObjectStorage,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
+    private readonly images: FileImageService,
     config: ConfigService<Env, true>,
   ) {
     this.maxSize = config.get('FILE_UPLOAD_MAX_SIZE', { infer: true });
@@ -240,6 +244,7 @@ export class FileService {
       thumbnail.size <= THUMBNAIL_MAX_SIZE &&
       (THUMBNAIL_CONTENT_TYPES as readonly string[]).includes(thumbnail.contentType ?? ''),
     );
+    const hasVariants = isImageVariantSource(file.contentType);
 
     await withTransaction(this.db, async (tx) => {
       const updated = await this.repo.markReady(
@@ -249,6 +254,7 @@ export class FileService {
           etag: stored.etag,
           uploadedAt: new Date(),
           hasThumbnail,
+          variantStatus: hasVariants ? 'pending' : 'none',
           updatedBy: actor.id,
         },
         tx,
@@ -269,6 +275,8 @@ export class FileService {
     });
 
     this.publish(ChangeKind.CREATE, id);
+    // 不等變體產生完：回應先帶瀏覽器縮圖（有的話），變體好了再以 UPDATE 推播
+    if (hasVariants) this.images.schedule(id);
     return this.findOne(id, actor);
   }
 
@@ -353,6 +361,7 @@ export class FileService {
     const results = await Promise.allSettled([
       this.storage.delete(file.storageKey),
       file.hasThumbnail ? this.storage.delete(thumbnailKeyOf(id)) : undefined,
+      file.variantStatus === 'none' ? undefined : this.images.deleteVariants(id),
     ]);
     for (const result of results) {
       if (result.status === 'rejected') {
@@ -414,8 +423,10 @@ export class FileService {
               : undefined,
           ])
         : undefined;
+    const image = this.images.signedUrls(file);
     const expiresAt = links
       ?.flatMap((link) => (link ? [link.expiresAt.getTime()] : []))
+      .concat(image ? [Date.parse(image.expiresAt)] : [])
       .reduce((min, time) => Math.min(min, time));
     return {
       id: file.id,
@@ -425,7 +436,8 @@ export class FileService {
       status: file.status,
       url: links?.[0].url ?? null,
       downloadUrl: links?.[1].url ?? null,
-      thumbnailUrl: links?.[2]?.url ?? null,
+      thumbnailUrl: image?.thumbnailUrl ?? links?.[2]?.url ?? null,
+      image,
       urlExpiresAt: expiresAt === undefined ? null : new Date(expiresAt).toISOString(),
       version: file.version,
       uploader: file.uploader,

@@ -30,6 +30,7 @@ const storedFile = (status: StoredFile['status']): StoredFile => ({
   url: status === 'ready' ? 'http://localhost/storage/b/files/file-1?inline' : null,
   downloadUrl: null,
   thumbnailUrl: null,
+  image: null,
   urlExpiresAt: null,
   version: 1,
   uploader: null,

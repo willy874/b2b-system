@@ -126,13 +126,14 @@ ETag 為內容的 MD5（含雙引號）。key 上限 1024 位元組（`KeyTooLon
 | `UploadPart` | `PUT /<bucket>/<key>?partNumber=N&uploadId=…` | `partNumber` 1–10000；單段 ≤ 5 GiB |
 | `CompleteMultipartUpload` | `POST /<bucket>/<key>?uploadId=…` | 檢查順序（`InvalidPartOrder`）、ETag（`InvalidPart`）、非最後一段 ≥ 5 MiB（`EntityTooSmall`）；ETag 為 `"<md5 of md5s>-<段數>"` |
 | `AbortMultipartUpload` | `DELETE /<bucket>/<key>?uploadId=…` | |
+| `ListMultipartUploads` | `GET /<bucket>?uploads` | `prefix`、`max-uploads`（≤ 1000）、`key-marker` / `upload-id-marker` 分頁、`encoding-type=url`；依 key、再依開始時間排序；不支援 `delimiter`（回 `NotImplemented`）。api 的維護排程用它找出沒有紀錄的分塊上傳（[`backend/09-file.md`](./backend/09-file.md) §9） |
 
-`@aws-sdk/lib-storage` 的 `Upload` 只用到以上四個操作，可以直接使用。
+`@aws-sdk/lib-storage` 的 `Upload` 只用到前四個操作，可以直接使用。
 
 ### 4.4 不支援
 
 版本控制、ACL / policy、tagging、lifecycle、bucket 層級 CORS 設定、加密、object lock、
-`ListMultipartUploads`、`ListParts`、`UploadPartCopy`、POST policy 表單上傳。
+`ListParts`、`UploadPartCopy`、POST policy 表單上傳。
 請求帶到這些子資源（`?acl`、`?tagging`、`?versionId`…）時一律回 **`501 NotImplemented`**，
 不會被當成一般的 Get / PutObject 靜默處理。
 

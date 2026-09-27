@@ -15,13 +15,17 @@ const CHECKERBOARD = {
   backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0',
 };
 
-/** 圖片預覽：預設縮放到可視範圍內，可切換成原始大小（可捲動）。 */
+/**
+ * 圖片預覽：預設以全螢幕預覽（`displayUrl`）縮放到可視範圍內；
+ * 切換成原始大小（可捲動）時才載入原圖。
+ */
 export function ImagePreview({ file }: FilePreviewerProps) {
   const { t } = useTranslation();
   const [actualSize, setActualSize] = useState(false);
   const [broken, setBroken] = useState(false);
+  const src = actualSize ? file.url : (file.displayUrl ?? file.url);
 
-  if (!file.url || broken) {
+  if (!src || broken) {
     return (
       <div
         className="flex h-full flex-col items-center justify-center gap-2 text-[var(--color-fg-muted)]"
@@ -43,7 +47,7 @@ export function ImagePreview({ file }: FilePreviewerProps) {
         style={CHECKERBOARD}
       >
         <img
-          src={file.url}
+          src={src}
           alt={file.name}
           decoding="async"
           onError={() => setBroken(true)}

@@ -59,6 +59,7 @@ export const ErrorCode = {
   FILE_STORAGE_UNAVAILABLE: { status: 503 },
   FILE_UPLOAD_PART_INVALID: { status: 422 },
   FILE_VERSION_CONFLICT: { status: 409 },
+  FILE_IMAGE_URL_INVALID: { status: 403 },
 
   // ── 通用 ──
   RATE_LIMITED: { status: 429 },

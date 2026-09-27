@@ -26,6 +26,7 @@ import type {
   FileUploadTarget,
   FileUploader,
   ForgotPasswordRequest,
+  GetFileImageQuery,
   LoginRequest,
   Permission,
   PermissionCatalog,
@@ -44,6 +45,7 @@ import type {
   Session,
   SetupRequest,
   StoredFile,
+  StoredFileImage,
   UpdateFileRequest,
   UpdateProfileRequest,
   UpdateRolePermissionsRequest,
@@ -428,6 +430,15 @@ export const FileUploaderSchema = z.object({
   displayName: z.string(),
 }) satisfies z.ZodType<FileUploader>;
 
+export const StoredFileImageSchema = z.object({
+  width: z.int().min(-9007199254740991).max(9007199254740991),
+  height: z.int().min(-9007199254740991).max(9007199254740991),
+  originalUrl: z.string(),
+  previewUrl: z.string(),
+  thumbnailUrl: z.string(),
+  expiresAt: z.string(),
+}) satisfies z.ZodType<StoredFileImage>;
+
 export const StoredFileSchema = z.object({
   id: z
     .uuid()
@@ -443,6 +454,7 @@ export const StoredFileSchema = z.object({
   url: z.string().nullable(),
   downloadUrl: z.string().nullable(),
   thumbnailUrl: z.string().nullable(),
+  image: StoredFileImageSchema.nullable(),
   urlExpiresAt: z.string().nullable(),
   version: z.int().min(-9007199254740991).max(9007199254740991),
   uploader: FileUploaderSchema.nullable(),
@@ -499,6 +511,12 @@ export const FileUploadPolicySchema = z.object({
   thumbnailMaxSize: z.int().min(-9007199254740991).max(9007199254740991),
   thumbnailContentTypes: z.array(z.string()),
 }) satisfies z.ZodType<FileUploadPolicy>;
+
+export const GetFileImageQuerySchema = z.object({
+  exp: z.int().max(9007199254740991).gt(0),
+  sig: z.string().min(1).max(100),
+  format: z.enum(['jpeg', 'webp', 'avif', 'png', 'auto']).optional(),
+}) satisfies z.ZodType<GetFileImageQuery>;
 
 export const UpdateFileRequestSchema = z.object({
   name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),

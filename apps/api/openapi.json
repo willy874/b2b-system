@@ -1456,6 +1456,37 @@
         "tags": ["files"]
       }
     },
+    "/files/{id}/image/{variant}": {
+      "get": {
+        "operationId": "FileController_getImage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variant",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": ["original", "preview", "thumbnail"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "轉址到該版本、該格式的內容"
+          }
+        },
+        "summary": "取得圖片的原圖／全螢幕預覽／圖示預覽（302 轉址到物件儲存）",
+        "tags": ["files"]
+      }
+    },
     "/files/{id}": {
       "get": {
         "operationId": "FileController_findOne",
@@ -2439,6 +2470,35 @@
         "required": ["id", "displayName"],
         "additionalProperties": false
       },
+      "StoredFileImage": {
+        "type": "object",
+        "properties": {
+          "width": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "originalUrl": {
+            "type": "string"
+          },
+          "previewUrl": {
+            "type": "string"
+          },
+          "thumbnailUrl": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": ["width", "height", "originalUrl", "previewUrl", "thumbnailUrl", "expiresAt"],
+        "additionalProperties": false
+      },
       "StoredFile": {
         "type": "object",
         "properties": {
@@ -2473,6 +2533,14 @@
           "thumbnailUrl": {
             "nullable": true,
             "type": "string"
+          },
+          "image": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StoredFileImage"
+              }
+            ]
           },
           "urlExpiresAt": {
             "nullable": true,
@@ -2511,6 +2579,7 @@
           "url",
           "downloadUrl",
           "thumbnailUrl",
+          "image",
           "urlExpiresAt",
           "version",
           "uploader",
@@ -2711,6 +2780,28 @@
           "thumbnailMaxSize",
           "thumbnailContentTypes"
         ],
+        "additionalProperties": false
+      },
+      "GetFileImageQuery": {
+        "type": "object",
+        "properties": {
+          "exp": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          },
+          "sig": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "format": {
+            "type": "string",
+            "enum": ["jpeg", "webp", "avif", "png", "auto"]
+          }
+        },
+        "required": ["exp", "sig"],
         "additionalProperties": false
       },
       "UpdateFileRequest": {

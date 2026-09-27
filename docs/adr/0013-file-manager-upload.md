@@ -1,6 +1,6 @@
 # ADR-0013 — 檔案管理器：上傳併入全域批次佇列、瀏覽器產生縮圖、keyset 分頁
 
-- 狀態：**採用**（擴充 [ADR-0012](./0012-batch-queue-worker.md)）
+- 狀態：**採用**（擴充 [ADR-0012](./0012-batch-queue-worker.md)）；D7 由 [ADR-0014](./0014-server-image-variants.md) 部分取代（伺服器產生影像變體，瀏覽器縮圖降為退路），「分頁當掉時的殘留」由 ADR-0014 的維護排程處理
 - 日期：2026-09-27
 - 相關：[`../architecture/frontend/12-file-manager.md`](../architecture/frontend/12-file-manager.md)、[`../architecture/backend/09-file.md`](../architecture/backend/09-file.md) §5、§6.1、§7.1
 

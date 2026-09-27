@@ -72,7 +72,7 @@ function bucketRoute(method: string, query: Query): Route {
   switch (method) {
     case 'GET':
       if (query.has('location')) return route('GetBucketLocation', bucket.getBucketLocation);
-      if (query.has('uploads')) return notImplemented(query);
+      if (query.has('uploads')) return route('ListMultipartUploads', bucket.listMultipartUploads);
       if (query.get('list-type') === '2') return route('ListObjectsV2', bucket.listObjectsV2);
       return route('ListObjects', bucket.listObjectsV1);
     case 'HEAD':

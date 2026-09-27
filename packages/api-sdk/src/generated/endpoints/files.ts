@@ -354,6 +354,52 @@ export function fileControllerAbortUpload(
   );
 }
 
+// GET /files/{id}/image/{variant}
+
+export interface FileControllerGetImagePathParams {
+  id: string;
+  variant: 'original' | 'preview' | 'thumbnail';
+}
+
+export interface FileControllerGetImageInput {
+  path: FileControllerGetImagePathParams;
+}
+
+export interface FileControllerGetImageResponses {
+  302: undefined;
+}
+
+export type FileControllerGetImageResponse = undefined;
+
+export type FileControllerGetImageResult = ApiResponse<number, undefined>;
+
+export const FileControllerGetImageSchemas = {
+  path: z.object({
+    id: z.string(),
+    variant: z.enum(['original', 'preview', 'thumbnail']),
+  }),
+} satisfies OperationSchemas;
+
+export function getFileControllerGetImageUrl(path: FileControllerGetImagePathParams): string {
+  return buildUrl('/files/{id}/image/{variant}', path);
+}
+
+const fileControllerGetImageOperation: OperationDefinition = {
+  id: 'FileController_getImage',
+  method: 'GET',
+  path: '/files/{id}/image/{variant}',
+  responseTypes: { 302: 'none' },
+  schemas: FileControllerGetImageSchemas,
+};
+
+/** 取得圖片的原圖／全螢幕預覽／圖示預覽（302 轉址到物件儲存） */
+export function fileControllerGetImage(
+  input: FileControllerGetImageInput,
+  options?: RequestOptions,
+): Promise<FileControllerGetImageResult> {
+  return request<FileControllerGetImageResult>(fileControllerGetImageOperation, input, options);
+}
+
 // GET /files/{id}
 
 export interface FileControllerFindOnePathParams {

@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 
+import { FileImageService } from './file-image.service';
+import { FileMaintenanceService } from './file-maintenance.service';
 import { FileController } from './file.controller';
 import { FileRepository } from './file.repository';
 import { FileService } from './file.service';
@@ -10,7 +12,7 @@ import { FileService } from './file.service';
  */
 @Module({
   controllers: [FileController],
-  providers: [FileService, FileRepository],
+  providers: [FileService, FileImageService, FileMaintenanceService, FileRepository],
   exports: [FileService],
 })
 export class FileModule {}

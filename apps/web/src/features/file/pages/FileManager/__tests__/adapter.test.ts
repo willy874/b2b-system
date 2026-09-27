@@ -13,6 +13,7 @@ const file = (overrides: Partial<StoredFile> = {}): StoredFile => ({
   url: 'http://s/f1?inline',
   downloadUrl: 'http://s/f1?attachment',
   thumbnailUrl: null,
+  image: null,
   urlExpiresAt: '2026-09-27T00:15:00.000Z',
   version: 1,
   uploader: { id: 'u1', displayName: 'Alice' },
@@ -26,6 +27,19 @@ describe('toFileItemVM', () => {
   it('縮圖優先；沒有縮圖的小圖直接用原檔', () => {
     expect(toFileItemVM(file({ thumbnailUrl: 'http://s/t1' })).previewUrl).toBe('http://s/t1');
     expect(toFileItemVM(file()).previewUrl).toBe('http://s/f1?inline');
+  });
+
+  it('LightBox 顯示伺服器產生的全螢幕預覽；還沒產生時為 null（改用原檔）', () => {
+    const image = {
+      width: 800,
+      height: 600,
+      originalUrl: '/api/files/f1/image/original?sig',
+      previewUrl: '/api/files/f1/image/preview?sig',
+      thumbnailUrl: '/api/files/f1/image/thumbnail?sig',
+      expiresAt: '2026-09-27T00:10:00.000Z',
+    };
+    expect(toFileItemVM(file({ image })).displayUrl).toBe(image.previewUrl);
+    expect(toFileItemVM(file()).displayUrl).toBeNull();
   });
 
   it('沒有縮圖的大圖、非圖片 → 沒有預覽圖（顯示類型圖示）', () => {
