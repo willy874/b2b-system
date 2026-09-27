@@ -24,9 +24,9 @@
 | 入口 | 內容 | 依賴 |
 | --- | --- | --- |
 | `@/shared/store` | `createStore`、`watch`、`computed`、`untracked`、`syncStore`、`shareStore` | 只有 `@sigrea/core`，**不依賴 React** |
-| `@/shared/store/react` | `create`（Zustand 相容的 bound hook）、`useStore`、`useValue`、`useComputed` | React |
+| `@/shared/hooks`（`shared/hooks/store.ts`） | `create`（Zustand 相容的 bound hook）、`useStore`、`useValue`、`useComputed` | React |
 
-`@sigrea/core` 只在 `shared/store/` 裡 import；`shared/store/`（`react.ts` 除外）與 `shared/context/` 不 import React。兩者都由 oxlint 的 `no-restricted-imports` 強制。
+`@sigrea/core` 只在 `shared/store/` 裡 import；`shared/store/` 與 `shared/context/` 不 import React。兩者都由 oxlint 的 `no-restricted-imports` 強制。
 
 ### 2.0 底層：依賴追蹤的 store
 

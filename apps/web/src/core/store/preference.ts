@@ -4,9 +4,9 @@ import { DEFAULT_LANGUAGE, DEFAULT_TIMEZONE, SUPPORTED_LANGUAGES } from '@/share
 import type { Language } from '@/shared/constants/lang';
 import { DEFAULT_THEME, SUPPORTED_THEMES } from '@/shared/constants/theme';
 import type { ThemePreference } from '@/shared/constants/theme';
+import { create } from '@/shared/hooks';
 import { createDictStorage } from '@/shared/storage';
 import type { DictStorageMessages } from '@/shared/storage';
-import { create } from '@/shared/store/react';
 
 const LOCALE_KEY = 'locale';
 const TIMEZONE_KEY = 'timezone';

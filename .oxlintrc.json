@@ -46,7 +46,7 @@
             "paths": [
               {
                 "name": "@sigrea/core",
-                "message": "只經由 @/shared/store（React 綁定在 @/shared/store/react）使用 signal。"
+                "message": "只經由 @/shared/store（React 綁定在 @/shared/hooks）使用 signal。"
               }
             ]
           }
@@ -62,11 +62,11 @@
             "paths": [
               {
                 "name": "@sigrea/core",
-                "message": "只經由 @/shared/store（React 綁定在 @/shared/store/react）使用 signal。"
+                "message": "只經由 @/shared/store（React 綁定在 @/shared/hooks）使用 signal。"
               },
               {
                 "name": "react",
-                "message": "這一層不依賴 React；React 綁定放 @/shared/store/react 或 core/app/react.tsx。"
+                "message": "這一層不依賴 React；React 綁定放 @/shared/hooks 或 core/app/react.tsx。"
               }
             ]
           }
@@ -82,7 +82,7 @@
             "paths": [
               {
                 "name": "react",
-                "message": "這一層不依賴 React；React 綁定放 @/shared/store/react 或 core/app/react.tsx。"
+                "message": "這一層不依賴 React；React 綁定放 @/shared/hooks 或 core/app/react.tsx。"
               }
             ]
           }
@@ -90,7 +90,7 @@
       }
     },
     {
-      "files": ["apps/web/src/shared/store/react.ts", "apps/web/src/shared/store/__tests__/**"],
+      "files": ["apps/web/src/shared/store/__tests__/**"],
       "rules": {
         "no-restricted-imports": "off"
       }

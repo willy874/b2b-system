@@ -1,7 +1,7 @@
 import { act, render, renderHook, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { create, useComputed, useStore, useValue } from '../react';
+import { create, useComputed, useStore, useValue } from '../store';
 
 interface CounterStore {
   count: number;

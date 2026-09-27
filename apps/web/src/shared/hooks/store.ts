@@ -1,10 +1,8 @@
-import { computed } from '@sigrea/core';
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import type { DependencyList } from 'react';
 
-import { createStore } from './createStore';
-import type { ReadonlySource, StateCreator, StoreApi } from './createStore';
-import { watch } from './watch';
+import { computed, createStore, watch } from '@/shared/store';
+import type { ReadonlySource, StateCreator, StoreApi } from '@/shared/store';
 
 export interface UseBoundStore<T> extends StoreApi<T> {
   (): T;
