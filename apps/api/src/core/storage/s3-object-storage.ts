@@ -1,5 +1,8 @@
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
   CreateBucketCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
@@ -7,6 +10,7 @@ import {
   PutObjectCommand,
   S3Client,
   S3ServiceException,
+  UploadPartCommand,
 } from '@aws-sdk/client-s3';
 import type { S3ClientConfig } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -17,12 +21,14 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config';
 import { AppException } from '../errors';
 import { contentDisposition } from './content-disposition';
-import { ObjectStorage } from './object-storage';
+import { ObjectStorage, stableSigningDate } from './object-storage';
 import type {
+  CreateMultipartUploadOptions,
   PresignDownloadOptions,
   PresignedRequest,
   PresignUploadOptions,
   StoredObjectHead,
+  UploadedPart,
 } from './object-storage';
 
 function isNotFound(error: unknown): boolean {
@@ -34,6 +40,14 @@ function isNotFound(error: unknown): boolean {
       error.name === 'NoSuchBucket')
   );
 }
+
+/** CompleteMultipartUpload 因「客戶端交來的塊不對」而失敗：重新上傳即可，不是儲存服務故障。 */
+const INVALID_PARTS_ERRORS = new Set([
+  'InvalidPart',
+  'InvalidPartOrder',
+  'EntityTooSmall',
+  'NoSuchUpload',
+]);
 
 function stripQuotes(etag: string | undefined): string {
   return (etag ?? '').replaceAll('"', '');
@@ -158,21 +172,99 @@ export class S3ObjectStorage
   }
 
   async presignDownload(key: string, options: PresignDownloadOptions): Promise<PresignedRequest> {
+    const signingDate = stableSigningDate(Date.now(), options.expiresIn);
+    const expiresAt = new Date(signingDate.getTime() + options.expiresIn * 1000);
     const url = await getSignedUrl(
       this.presigner,
       new GetObjectCommand({
         Bucket: this.bucket,
         Key: key,
         ResponseContentDisposition: contentDisposition(options.disposition, options.fileName),
+        // 物件內容以 id 為 key、永不覆寫：在網址有效期間內可以放心快取
+        ResponseCacheControl: `private, max-age=${Math.floor(options.expiresIn / 2)}, immutable`,
+      }),
+      { expiresIn: options.expiresIn, signingDate },
+    );
+    return { url, method: 'GET', headers: {}, expiresAt };
+  }
+
+  async createMultipartUpload(key: string, options: CreateMultipartUploadOptions): Promise<string> {
+    try {
+      const result = await this.client.send(
+        new CreateMultipartUploadCommand({
+          Bucket: this.bucket,
+          Key: key,
+          ContentType: options.contentType,
+        }),
+      );
+      if (!result.UploadId) throw new Error('CreateMultipartUpload 沒有回傳 UploadId');
+      return result.UploadId;
+    } catch (error) {
+      throw this.unavailable(error, 'createMultipartUpload');
+    }
+  }
+
+  async presignUploadPart(
+    key: string,
+    uploadId: string,
+    partNumber: number,
+    options: { expiresIn: number },
+  ): Promise<PresignedRequest> {
+    const url = await getSignedUrl(
+      this.presigner,
+      new UploadPartCommand({
+        Bucket: this.bucket,
+        Key: key,
+        UploadId: uploadId,
+        PartNumber: partNumber,
       }),
       { expiresIn: options.expiresIn },
     );
     return {
       url,
-      method: 'GET',
+      method: 'PUT',
       headers: {},
       expiresAt: new Date(Date.now() + options.expiresIn * 1000),
     };
+  }
+
+  async completeMultipartUpload(
+    key: string,
+    uploadId: string,
+    parts: readonly UploadedPart[],
+  ): Promise<void> {
+    try {
+      await this.client.send(
+        new CompleteMultipartUploadCommand({
+          Bucket: this.bucket,
+          Key: key,
+          UploadId: uploadId,
+          MultipartUpload: {
+            // S3 要求 ETag 帶雙引號
+            Parts: parts.map((part) => ({
+              PartNumber: part.partNumber,
+              ETag: `"${stripQuotes(part.etag)}"`,
+            })),
+          },
+        }),
+      );
+    } catch (error) {
+      if (error instanceof S3ServiceException && INVALID_PARTS_ERRORS.has(error.name)) {
+        throw new AppException('FILE_UPLOAD_INCOMPLETE');
+      }
+      throw this.unavailable(error, 'completeMultipartUpload');
+    }
+  }
+
+  async abortMultipartUpload(key: string, uploadId: string): Promise<void> {
+    try {
+      await this.client.send(
+        new AbortMultipartUploadCommand({ Bucket: this.bucket, Key: key, UploadId: uploadId }),
+      );
+    } catch (error) {
+      if (isNotFound(error)) return;
+      throw this.unavailable(error, 'abortMultipartUpload');
+    }
   }
 
   private async createBucketIfMissing(): Promise<void> {

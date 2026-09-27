@@ -57,6 +57,8 @@ export const ErrorCode = {
   FILE_UPLOAD_INCOMPLETE: { status: 409 },
   FILE_SIZE_MISMATCH: { status: 422 },
   FILE_STORAGE_UNAVAILABLE: { status: 503 },
+  FILE_UPLOAD_PART_INVALID: { status: 422 },
+  FILE_VERSION_CONFLICT: { status: 409 },
 
   // ── 通用 ──
   RATE_LIMITED: { status: 429 },

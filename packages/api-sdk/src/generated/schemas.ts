@@ -11,11 +11,18 @@ import type {
   AuditLog,
   AuditLogSummary,
   ChangePasswordRequest,
+  CompleteFileUploadRequest,
+  CreateFileUploadPartsRequest,
   CreateFileUploadRequest,
   CreateRoleRequest,
   CreateUserRequest,
   DuplicateRoleRequest,
+  FileListPage,
+  FileMultipartUpload,
   FileUpload,
+  FileUploadPart,
+  FileUploadParts,
+  FileUploadPolicy,
   FileUploadTarget,
   FileUploader,
   ForgotPasswordRequest,
@@ -385,7 +392,30 @@ export const CreateFileUploadRequestSchema = z.object({
     .max(255)
     .regex(new RegExp('^[a-z0-9][a-z0-9!#$&^_.+-]*\\/[a-z0-9][a-z0-9!#$&^_.+-]*$')),
   size: z.int().min(0).max(9007199254740991),
+  thumbnail: z
+    .object({
+      contentType: z.enum(['image/webp', 'image/jpeg', 'image/png']),
+      size: z.int().min(1).max(524288),
+    })
+    .optional(),
 }) satisfies z.ZodType<CreateFileUploadRequest>;
+
+export const CreateFileUploadPartsRequestSchema = z.object({
+  partNumbers: z.array(z.int().min(1).max(10000)).min(1).max(100),
+}) satisfies z.ZodType<CreateFileUploadPartsRequest>;
+
+export const CompleteFileUploadRequestSchema = z.object({
+  parts: z
+    .array(
+      z.object({
+        partNumber: z.int().min(1).max(10000),
+        etag: z.string().min(1).max(200),
+      }),
+    )
+    .min(1)
+    .max(10000)
+    .optional(),
+}) satisfies z.ZodType<CompleteFileUploadRequest>;
 
 export const FileUploaderSchema = z.object({
   id: z
@@ -412,12 +442,24 @@ export const StoredFileSchema = z.object({
   status: z.enum(['pending', 'ready']),
   url: z.string().nullable(),
   downloadUrl: z.string().nullable(),
+  thumbnailUrl: z.string().nullable(),
   urlExpiresAt: z.string().nullable(),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
   uploader: FileUploaderSchema.nullable(),
   uploadedAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 }) satisfies z.ZodType<StoredFile>;
+
+export const FileListPageSchema = z.object({
+  items: z.array(StoredFileSchema),
+  pagination: z.object({
+    offset: z.int().min(-9007199254740991).max(9007199254740991),
+    limit: z.int().min(-9007199254740991).max(9007199254740991),
+    total: z.int().min(-9007199254740991).max(9007199254740991),
+  }),
+  nextCursor: z.string().nullable(),
+}) satisfies z.ZodType<FileListPage>;
 
 export const FileUploadTargetSchema = z.object({
   url: z.string(),
@@ -426,13 +468,41 @@ export const FileUploadTargetSchema = z.object({
   expiresAt: z.string(),
 }) satisfies z.ZodType<FileUploadTarget>;
 
+export const FileMultipartUploadSchema = z.object({
+  partSize: z.int().min(-9007199254740991).max(9007199254740991),
+  partCount: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<FileMultipartUpload>;
+
 export const FileUploadSchema = z.object({
   file: StoredFileSchema,
-  upload: FileUploadTargetSchema,
+  upload: FileUploadTargetSchema.nullable(),
+  multipart: FileMultipartUploadSchema.nullable(),
+  thumbnailUpload: FileUploadTargetSchema.nullable(),
 }) satisfies z.ZodType<FileUpload>;
+
+export const FileUploadPartSchema = z.object({
+  partNumber: z.int().min(-9007199254740991).max(9007199254740991),
+  url: z.string(),
+  method: z.enum(['PUT']),
+  headers: z.record(z.string(), z.string()),
+}) satisfies z.ZodType<FileUploadPart>;
+
+export const FileUploadPartsSchema = z.object({
+  parts: z.array(FileUploadPartSchema),
+  expiresAt: z.string(),
+}) satisfies z.ZodType<FileUploadParts>;
+
+export const FileUploadPolicySchema = z.object({
+  maxSize: z.int().min(-9007199254740991).max(9007199254740991),
+  multipartThreshold: z.int().min(-9007199254740991).max(9007199254740991),
+  partSize: z.int().min(-9007199254740991).max(9007199254740991),
+  thumbnailMaxSize: z.int().min(-9007199254740991).max(9007199254740991),
+  thumbnailContentTypes: z.array(z.string()),
+}) satisfies z.ZodType<FileUploadPolicy>;
 
 export const UpdateFileRequestSchema = z.object({
   name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
+  version: z.int().min(1).max(9007199254740991).optional(),
 }) satisfies z.ZodType<UpdateFileRequest>;
 
 export const CreateRoleRequestSchema = z.object({

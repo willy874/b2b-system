@@ -1,8 +1,10 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   check,
   index,
+  integer,
   pgEnum,
   pgTable,
   text,
@@ -39,6 +41,18 @@ export const files = pgTable(
     etag: text('etag'),
     status: fileStatus('status').notNull().default('pending'),
     uploadedAt: timestamp('uploaded_at', { withTimezone: true }),
+    /**
+     * 分塊上傳（S3 multipart upload）的 uploadId；單次 PUT 上傳、或已完成時為 null。
+     * 見 docs/architecture/backend/09-file.md §5.2。
+     */
+    uploadId: text('upload_id'),
+    /** 瀏覽器在上傳時一併產生並上傳的縮圖（`thumbnails/<id>`）已確認存在。 */
+    hasThumbnail: boolean('has_thumbnail').notNull().default(false),
+    /**
+     * 樂觀鎖：每次改名遞增。前端帶上看到的版本，版本不同代表別人已經改過（`FILE_VERSION_CONFLICT`）。
+     * 不用 `updated_at` 比對：它是微秒精度，經過 JSON（毫秒）來回之後就對不上。
+     */
+    version: integer('version').notNull().default(1),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -56,6 +70,20 @@ export const files = pgTable(
     ),
     index('files_status_created_at_idx')
       .on(t.status, t.createdAt)
+      .where(sql`${t.deletedAt} IS NULL`),
+    // 檔案管理器的排序與 keyset 分頁：(排序欄位, id) 由索引直接給出順序（docs/architecture/backend/09-file.md §6.1）
+    index('files_status_name_idx')
+      .on(t.status, t.name, t.id)
+      .where(sql`${t.deletedAt} IS NULL`),
+    index('files_status_size_idx')
+      .on(t.status, t.size, t.id)
+      .where(sql`${t.deletedAt} IS NULL`),
+    index('files_status_content_type_idx')
+      .on(t.status, t.contentType)
+      .where(sql`${t.deletedAt} IS NULL`),
+    // 檔名的部分比對（ILIKE '%…%'）：btree 用不上，改用 pg_trgm 的 GIN 索引
+    index('files_name_trgm_idx')
+      .using('gin', sql`${t.name} gin_trgm_ops`)
       .where(sql`${t.deletedAt} IS NULL`),
   ],
 );

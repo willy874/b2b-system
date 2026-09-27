@@ -74,6 +74,22 @@ export const EnvSchema = z.object({
     .default(100 * 1024 * 1024),
   /** presigned 上傳 / 下載網址的有效秒數。 */
   FILE_URL_TTL: z.coerce.number().int().min(60).max(604_800).default(900),
+  /**
+   * 超過這個大小（位元組）改用分塊上傳（S3 multipart upload），瀏覽器可以逐塊追蹤進度、失敗只重傳那一塊。
+   * 見 docs/architecture/backend/09-file.md §5.2。
+   */
+  FILE_MULTIPART_THRESHOLD: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(16 * 1024 * 1024),
+  /** 分塊上傳的每塊大小（位元組）。S3 規定除了最後一塊都至少 5 MiB。 */
+  FILE_MULTIPART_PART_SIZE: z.coerce
+    .number()
+    .int()
+    .min(5 * 1024 * 1024)
+    .max(5 * 1024 * 1024 * 1024)
+    .default(8 * 1024 * 1024),
 
   SUPER_ADMIN_EMAIL: z.string().email(),
   // 留空 = 未設定：seed 時隨機產生並印出一次（docs/rbac/05-seed-and-bootstrap.md）。

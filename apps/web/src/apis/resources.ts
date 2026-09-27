@@ -16,7 +16,7 @@ import { AUDIT_LOG_DETAIL_QUERY_KEY } from '@/apis/audit-log/get-audit-log-detai
 import { AUDIT_LOG_LIST_QUERY_KEY } from '@/apis/audit-log/get-audit-log-list/query';
 import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
 import { FILE_DETAIL_QUERY_KEY } from '@/apis/file/get-file-detail/query';
-import { FILE_LIST_QUERY_KEY } from '@/apis/file/get-file-list/query';
+import { FILE_INFINITE_LIST_QUERY_KEY, FILE_LIST_QUERY_KEY } from '@/apis/file/get-file-list/query';
 import { PERMISSION_LIST_QUERY_KEY } from '@/apis/permission/get-permission-list/query';
 import { ROLE_DETAIL_QUERY_KEY } from '@/apis/role/get-role-detail/query';
 import { ROLE_LIST_QUERY_KEY, ROLE_OPTIONS_QUERY_KEY } from '@/apis/role/get-role-list/query';
@@ -117,7 +117,9 @@ const graph = createResourceGraph<Resource>({
     entity: [APPROVAL_DETAIL_QUERY_KEY],
   },
   [Resource.FILE]: {
-    collection: [FILE_LIST_QUERY_KEY],
+    // 檔案內容（FILE_TEXT_QUERY_KEY）刻意不列：內容以 id 為 key、上傳後不可變，改名不必重抓；
+    // 刪除後 LightBox 由詳情的 404 得知
+    collection: [FILE_LIST_QUERY_KEY, FILE_INFINITE_LIST_QUERY_KEY],
     entity: [FILE_DETAIL_QUERY_KEY],
   },
   [Resource.PROFILE]: {

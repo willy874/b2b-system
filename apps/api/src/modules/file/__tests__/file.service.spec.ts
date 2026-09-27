@@ -9,7 +9,8 @@ import type { DomainEventBus } from '@/core/events';
 import type { ObjectStorage, StoredObjectHead } from '@/core/storage';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 
-import { storageKeyOf } from '../file.constants';
+import { storageKeyOf, thumbnailKeyOf } from '../file.constants';
+import { decodeFileCursor, encodeFileCursor } from '../file.cursor';
 import type { FileRepository, FileWithUploader } from '../file.repository';
 import { FileService } from '../file.service';
 
@@ -24,7 +25,9 @@ const BOB: AuthUser = {
   status: 'active',
 };
 const FILE_ID = '33333333-3333-4333-8333-333333333333';
-const MAX_SIZE = 1000;
+const MAX_SIZE = 100 * 1024 * 1024;
+const THRESHOLD = 16 * 1024 * 1024;
+const PART_SIZE = 8 * 1024 * 1024;
 
 function fileRow(overrides: Partial<FileWithUploader> = {}): FileWithUploader {
   const now = new Date('2026-09-27T00:00:00Z');
@@ -37,6 +40,9 @@ function fileRow(overrides: Partial<FileWithUploader> = {}): FileWithUploader {
     etag: null,
     status: 'pending',
     uploadedAt: null,
+    uploadId: null,
+    hasThumbnail: false,
+    version: 1,
     createdAt: now,
     createdBy: ALICE.id,
     updatedAt: now,
@@ -47,18 +53,27 @@ function fileRow(overrides: Partial<FileWithUploader> = {}): FileWithUploader {
   };
 }
 
-function setup(options: { file?: FileWithUploader; head?: StoredObjectHead } = {}) {
+function setup(
+  options: {
+    file?: FileWithUploader;
+    head?: StoredObjectHead;
+    thumbnailHead?: StoredObjectHead;
+  } = {},
+) {
   const repo = {
     findById: vi.fn(async () => options.file),
     create: vi.fn(async (values: Partial<FileWithUploader>) => fileRow(values)),
     markReady: vi.fn(async () => fileRow({ status: 'ready' })),
     update: vi.fn(async () => fileRow({ status: 'ready' })),
     softDelete: vi.fn(async () => fileRow({ status: 'ready' })),
+    discardPending: vi.fn(async () => fileRow({ deletedAt: new Date() })),
     list: vi.fn(),
   };
   const storage = {
     ensureBucket: vi.fn(async () => undefined),
-    head: vi.fn(async () => options.head),
+    head: vi.fn(async (key: string) =>
+      key.startsWith('thumbnails/') ? options.thumbnailHead : options.head,
+    ),
     delete: vi.fn(async () => undefined),
     presignUpload: vi.fn(async (key: string) => ({
       url: `http://storage/${key}?put`,
@@ -72,6 +87,15 @@ function setup(options: { file?: FileWithUploader; head?: StoredObjectHead } = {
       headers: {},
       expiresAt: new Date('2026-09-27T00:15:00Z'),
     })),
+    createMultipartUpload: vi.fn(async () => 'upload-1'),
+    presignUploadPart: vi.fn(async (key: string, uploadId: string, partNumber: number) => ({
+      url: `http://storage/${key}?uploadId=${uploadId}&partNumber=${partNumber}`,
+      method: 'PUT' as const,
+      headers: {},
+      expiresAt: new Date('2026-09-27T00:15:00Z'),
+    })),
+    completeMultipartUpload: vi.fn(async () => undefined),
+    abortMultipartUpload: vi.fn(async () => undefined),
   };
   const audit = { record: vi.fn(async () => undefined) };
   const events = { publish: vi.fn() };
@@ -79,7 +103,13 @@ function setup(options: { file?: FileWithUploader; head?: StoredObjectHead } = {
   const db = { transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn('tx')) };
   const config = {
     get: vi.fn(
-      (key: keyof Env) => ({ FILE_UPLOAD_MAX_SIZE: MAX_SIZE, FILE_URL_TTL: 900 })[key as string],
+      (key: keyof Env) =>
+        ({
+          FILE_UPLOAD_MAX_SIZE: MAX_SIZE,
+          FILE_URL_TTL: 900,
+          FILE_MULTIPART_THRESHOLD: THRESHOLD,
+          FILE_MULTIPART_PART_SIZE: PART_SIZE,
+        })[key as string],
     ),
   };
   const service = new FileService(
@@ -140,7 +170,7 @@ describe('FileService.completeUpload', () => {
       file: fileRow(),
       head: { size: 10, etag: 'abc', contentType: 'image/png' },
     });
-    await service.completeUpload(FILE_ID, ALICE);
+    await service.completeUpload(FILE_ID, {}, ALICE);
 
     expect(repo.markReady).toHaveBeenCalledWith(
       FILE_ID,
@@ -158,7 +188,7 @@ describe('FileService.completeUpload', () => {
 
   it('物件還不存在 → FILE_UPLOAD_INCOMPLETE', async () => {
     const { service } = setup({ file: fileRow() });
-    await expectAppError(service.completeUpload(FILE_ID, ALICE), 'FILE_UPLOAD_INCOMPLETE');
+    await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_UPLOAD_INCOMPLETE');
   });
 
   it('大小不符 → 刪掉物件並回 FILE_SIZE_MISMATCH', async () => {
@@ -166,7 +196,7 @@ describe('FileService.completeUpload', () => {
       file: fileRow(),
       head: { size: 999, etag: 'abc', contentType: 'image/png' },
     });
-    await expectAppError(service.completeUpload(FILE_ID, ALICE), 'FILE_SIZE_MISMATCH');
+    await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_SIZE_MISMATCH');
     expect(storage.delete).toHaveBeenCalledWith(storageKeyOf(FILE_ID));
     expect(repo.markReady).not.toHaveBeenCalled();
   });
@@ -175,7 +205,7 @@ describe('FileService.completeUpload', () => {
     const { service } = setup({
       file: fileRow({ status: 'ready', etag: 'abc', uploadedAt: new Date() }),
     });
-    await expectAppError(service.completeUpload(FILE_ID, ALICE), 'FILE_ALREADY_UPLOADED');
+    await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_ALREADY_UPLOADED');
   });
 
   it('並行完成時第二個請求 → FILE_ALREADY_UPLOADED', async () => {
@@ -184,12 +214,12 @@ describe('FileService.completeUpload', () => {
       head: { size: 10, etag: 'abc', contentType: 'image/png' },
     });
     repo.markReady.mockResolvedValueOnce(undefined as never);
-    await expectAppError(service.completeUpload(FILE_ID, ALICE), 'FILE_ALREADY_UPLOADED');
+    await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_ALREADY_UPLOADED');
   });
 
   it('別人的 pending 上傳視為不存在 → FILE_NOT_FOUND', async () => {
     const { service } = setup({ file: fileRow() });
-    await expectAppError(service.completeUpload(FILE_ID, BOB), 'FILE_NOT_FOUND');
+    await expectAppError(service.completeUpload(FILE_ID, {}, BOB), 'FILE_NOT_FOUND');
   });
 });
 
@@ -253,5 +283,237 @@ describe('FileService.update / remove', () => {
     const { service, storage } = setup({ file: ready() });
     storage.delete.mockRejectedValueOnce(new AppException('FILE_STORAGE_UNAVAILABLE'));
     await expect(service.remove(FILE_ID, ALICE)).resolves.toBeUndefined();
+  });
+});
+
+describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.2）', () => {
+  const big = {
+    name: 'level.pak',
+    contentType: 'application/octet-stream',
+    size: 20 * 1024 * 1024,
+  };
+
+  it('超過門檻 → 開 multipart upload、回切法而不是單次 PUT', async () => {
+    const { service, repo, storage } = setup();
+    const result = await service.createUpload(big, ALICE);
+    expect(storage.createMultipartUpload).toHaveBeenCalled();
+    expect(storage.presignUpload).not.toHaveBeenCalled();
+    expect(repo.create.mock.calls[0]?.[0]).toMatchObject({ uploadId: 'upload-1' });
+    expect(result).toMatchObject({
+      upload: null,
+      multipart: { partSize: PART_SIZE, partCount: 3 },
+      thumbnailUpload: null,
+    });
+  });
+
+  it('門檻以下 → 單次 PUT，不開 multipart', async () => {
+    const { service, storage } = setup();
+    const result = await service.createUpload({ ...big, size: THRESHOLD }, ALICE);
+    expect(storage.createMultipartUpload).not.toHaveBeenCalled();
+    expect(result.multipart).toBeNull();
+    expect(result.upload).not.toBeNull();
+  });
+
+  it('parts：發出各塊網址；超出塊數 → FILE_UPLOAD_PART_INVALID', async () => {
+    const { service, storage } = setup({
+      file: fileRow({ uploadId: 'upload-1', size: big.size }),
+    });
+    const result = await service.createUploadParts(FILE_ID, { partNumbers: [1, 3] }, ALICE);
+    expect(result.parts.map((part) => part.partNumber)).toEqual([1, 3]);
+    expect(storage.presignUploadPart).toHaveBeenCalledWith(
+      storageKeyOf(FILE_ID),
+      'upload-1',
+      3,
+      expect.anything(),
+    );
+    await expectAppError(
+      service.createUploadParts(FILE_ID, { partNumbers: [4] }, ALICE),
+      'FILE_UPLOAD_PART_INVALID',
+    );
+  });
+
+  it('parts：單次 PUT 的上傳 → FILE_UPLOAD_PART_INVALID；別人的 → FILE_NOT_FOUND', async () => {
+    const { service } = setup({ file: fileRow() });
+    await expectAppError(
+      service.createUploadParts(FILE_ID, { partNumbers: [1] }, ALICE),
+      'FILE_UPLOAD_PART_INVALID',
+    );
+    await expectAppError(
+      service.createUploadParts(FILE_ID, { partNumbers: [1] }, BOB),
+      'FILE_NOT_FOUND',
+    );
+  });
+
+  it('complete：依塊號排序後組合，再確認大小', async () => {
+    const { service, storage, repo } = setup({
+      file: fileRow({ uploadId: 'upload-1', size: 30 }),
+      head: { size: 30, etag: 'abc-2', contentType: 'application/octet-stream' },
+    });
+    await service.completeUpload(
+      FILE_ID,
+      {
+        parts: [
+          { partNumber: 2, etag: 'b' },
+          { partNumber: 1, etag: 'a' },
+        ],
+      },
+      ALICE,
+    );
+    expect(storage.completeMultipartUpload).toHaveBeenCalledWith(
+      storageKeyOf(FILE_ID),
+      'upload-1',
+      [
+        { partNumber: 1, etag: 'a' },
+        { partNumber: 2, etag: 'b' },
+      ],
+    );
+    expect(repo.markReady).toHaveBeenCalled();
+  });
+
+  it('complete：分塊上傳沒帶 parts → FILE_UPLOAD_PART_INVALID', async () => {
+    const { service } = setup({ file: fileRow({ uploadId: 'upload-1' }) });
+    await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_UPLOAD_PART_INVALID');
+  });
+
+  it('abort：清掉分塊、內容與縮圖，紀錄軟刪除；不寫稽核、不發推播', async () => {
+    const { service, storage, repo, audit, events } = setup({
+      file: fileRow({ uploadId: 'upload-1' }),
+    });
+    await service.abortUpload(FILE_ID, ALICE);
+    expect(repo.discardPending).toHaveBeenCalledWith(FILE_ID, ALICE.id);
+    expect(storage.abortMultipartUpload).toHaveBeenCalledWith(storageKeyOf(FILE_ID), 'upload-1');
+    expect(storage.delete).toHaveBeenCalledWith(thumbnailKeyOf(FILE_ID));
+    expect(audit.record).not.toHaveBeenCalled();
+    expect(events.publish).not.toHaveBeenCalled();
+  });
+
+  it('abort：已完成 → FILE_ALREADY_UPLOADED；並行 complete 搶先 → FILE_ALREADY_UPLOADED', async () => {
+    const done = setup({ file: fileRow({ status: 'ready', etag: 'a', uploadedAt: new Date() }) });
+    await expectAppError(done.service.abortUpload(FILE_ID, ALICE), 'FILE_ALREADY_UPLOADED');
+
+    const raced = setup({ file: fileRow() });
+    raced.repo.discardPending.mockResolvedValueOnce(undefined as never);
+    await expectAppError(raced.service.abortUpload(FILE_ID, ALICE), 'FILE_ALREADY_UPLOADED');
+    expect(raced.storage.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe('FileService：縮圖', () => {
+  it('登記時帶 thumbnail → 發縮圖的直傳網址', async () => {
+    const { service, storage } = setup();
+    const result = await service.createUpload(
+      {
+        name: 'a.png',
+        contentType: 'image/png',
+        size: 10,
+        thumbnail: { contentType: 'image/webp', size: 100 },
+      },
+      ALICE,
+    );
+    expect(storage.presignUpload).toHaveBeenCalledWith(thumbnailKeyOf(result.file.id), {
+      contentType: 'image/webp',
+      expiresIn: 900,
+    });
+    expect(result.thumbnailUpload).not.toBeNull();
+  });
+
+  it('complete：縮圖存在且合規格才標記 hasThumbnail；不合規格不讓上傳失敗', async () => {
+    const head = { size: 10, etag: 'abc', contentType: 'image/png' };
+    const ok = setup({
+      file: fileRow(),
+      head,
+      thumbnailHead: { size: 100, etag: 't', contentType: 'image/webp' },
+    });
+    await ok.service.completeUpload(FILE_ID, {}, ALICE);
+    expect(ok.repo.markReady).toHaveBeenCalledWith(
+      FILE_ID,
+      expect.objectContaining({ hasThumbnail: true }),
+      'tx',
+    );
+
+    const bad = setup({
+      file: fileRow(),
+      head,
+      thumbnailHead: { size: 100, etag: 't', contentType: 'text/html' },
+    });
+    await bad.service.completeUpload(FILE_ID, {}, ALICE);
+    expect(bad.repo.markReady).toHaveBeenCalledWith(
+      FILE_ID,
+      expect.objectContaining({ hasThumbnail: false }),
+      'tx',
+    );
+  });
+
+  it('有縮圖的檔案帶 thumbnailUrl，刪除時一併刪縮圖', async () => {
+    const { service, storage } = setup({
+      file: fileRow({ status: 'ready', etag: 'a', uploadedAt: new Date(), hasThumbnail: true }),
+    });
+    const file = await service.findOne(FILE_ID, BOB);
+    expect(file.thumbnailUrl).toContain(thumbnailKeyOf(FILE_ID));
+    await service.remove(FILE_ID, ALICE);
+    expect(storage.delete).toHaveBeenCalledWith(thumbnailKeyOf(FILE_ID));
+  });
+});
+
+describe('FileService.update：樂觀鎖', () => {
+  const ready = () => fileRow({ status: 'ready', etag: 'abc', uploadedAt: new Date(), version: 3 });
+
+  it('帶的版本與目前不同 → FILE_VERSION_CONFLICT，不寫入', async () => {
+    const { service, repo } = setup({ file: ready() });
+    await expectAppError(
+      service.update(FILE_ID, { name: 'x.png', version: 2 }, ALICE),
+      'FILE_VERSION_CONFLICT',
+    );
+    expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  it('讀到之後被別人搶先改名（UPDATE 沒命中）→ FILE_VERSION_CONFLICT', async () => {
+    const { service, repo } = setup({ file: ready() });
+    repo.update.mockResolvedValueOnce(undefined as never);
+    await expectAppError(
+      service.update(FILE_ID, { name: 'x.png', version: 3 }, ALICE),
+      'FILE_VERSION_CONFLICT',
+    );
+    expect(repo.update).toHaveBeenCalledWith(FILE_ID, expect.anything(), 3, 'tx');
+  });
+});
+
+describe('FileService.list：keyset 游標', () => {
+  const query = {
+    offset: 0,
+    limit: 2,
+    sort: [{ sort: 'name' as const, order: 'asc' as const }],
+  };
+  const rows = [
+    fileRow({ id: '44444444-4444-4444-8444-444444444444', name: 'a', status: 'ready' }),
+    fileRow({ id: '55555555-5555-4555-8555-555555555555', name: 'b', status: 'ready' }),
+  ];
+
+  it('滿頁 → nextCursor 指向最後一筆；帶回游標時交給 repository', async () => {
+    const { service, repo } = setup();
+    repo.list.mockResolvedValue({ items: rows, total: 5, lastCreatedAt: undefined });
+    const page = await service.list(query);
+    const cursor = decodeFileCursor(page.nextCursor ?? '');
+    expect(cursor).toEqual({ sort: query.sort[0], value: 'b', id: rows[1]?.id });
+
+    await service.list({ ...query, cursor: page.nextCursor ?? '' });
+    expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), cursor);
+  });
+
+  it('不滿一頁 → nextCursor 為 null', async () => {
+    const { service, repo } = setup();
+    repo.list.mockResolvedValue({ items: rows.slice(0, 1), total: 1, lastCreatedAt: undefined });
+    await expect(service.list(query)).resolves.toMatchObject({ nextCursor: null });
+  });
+
+  it('游標格式錯誤或排序與游標不一致 → VALIDATION_FAILED', async () => {
+    const { service } = setup();
+    await expectAppError(service.list({ ...query, cursor: 'garbage' }), 'VALIDATION_FAILED');
+    const other = encodeFileCursor({
+      sort: { sort: 'size', order: 'desc' },
+      value: 1,
+      id: FILE_ID,
+    });
+    await expectAppError(service.list({ ...query, cursor: other }), 'VALIDATION_FAILED');
   });
 });

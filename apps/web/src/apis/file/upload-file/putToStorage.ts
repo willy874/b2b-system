@@ -7,16 +7,24 @@ export interface UploadProgress {
   total: number;
 }
 
+/** 直傳需要的最小資訊：分塊上傳的每一塊（`FileUploadPart`）也符合。 */
+export type StorageUploadTarget = Pick<FileUploadTarget, 'url' | 'method' | 'headers'>;
+
+export interface StorageUploadResult {
+  /** 物件儲存回的 ETag（分塊上傳完成時要交回）；同源代理下瀏覽器讀得到，跨源時需要 CORS 的 ExposeHeaders。 */
+  etag: string | undefined;
+}
+
 /**
  * 照後端給的 presigned 請求把內容直接送到物件儲存。
  * 用 XHR 而不是 fetch：fetch 拿不到上傳進度。
  * 不經過 `HttpContext`：對象是物件儲存而不是 api，也不能帶 Authorization。
  */
 export function putToStorage(
-  target: FileUploadTarget,
+  target: StorageUploadTarget,
   body: Blob,
   options: { signal?: AbortSignal; onProgress?: (progress: UploadProgress) => void } = {},
-): Promise<void> {
+): Promise<StorageUploadResult> {
   return new Promise((resolve, reject) => {
     const { signal, onProgress } = options;
     if (signal?.aborted) {
@@ -43,7 +51,9 @@ export function putToStorage(
     }
     xhr.addEventListener('load', () => {
       cleanup();
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve({ etag: xhr.getResponseHeader('ETag') ?? undefined });
+      }
       // 物件儲存回的是 S3 的 XML 錯誤，前端不解析；對使用者而言就是「上傳沒完成」
       else reject(new AppError('FILE_UPLOAD_INCOMPLETE', xhr.status));
     });

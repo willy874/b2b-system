@@ -88,6 +88,7 @@
     "permission": "Permissions",
     "auditLog": "Audit log",
     "approval": "Approvals",
+    "file": "Files",
     "profile": "Profile",
     "preference": "Preferences",
     "logout": "Sign out"
@@ -141,6 +142,8 @@
     "FILE_UPLOAD_INCOMPLETE": "The upload did not finish. Please upload again.",
     "FILE_SIZE_MISMATCH": "The uploaded content does not match the file size. Please upload again.",
     "FILE_STORAGE_UNAVAILABLE": "File storage is temporarily unavailable. Please try again later.",
+    "FILE_UPLOAD_PART_INVALID": "The uploaded parts are invalid. Please upload the file again.",
+    "FILE_VERSION_CONFLICT": "This file was changed by someone else. Refresh and try again.",
     "RATE_LIMITED": "Too many requests. Please slow down.",
     "INTERNAL_ERROR": "Server error. Please try again later.",
     "page": {

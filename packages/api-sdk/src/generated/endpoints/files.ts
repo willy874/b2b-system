@@ -3,7 +3,17 @@
 
 import { z } from 'zod';
 
-import type { CreateFileUploadRequest, FileUpload, StoredFile, UpdateFileRequest } from '../models';
+import type {
+  CompleteFileUploadRequest,
+  CreateFileUploadPartsRequest,
+  CreateFileUploadRequest,
+  FileListPage,
+  FileUpload,
+  FileUploadParts,
+  FileUploadPolicy,
+  StoredFile,
+  UpdateFileRequest,
+} from '../models';
 import { buildUrl, request } from '../runtime';
 import type {
   ApiResponse,
@@ -12,7 +22,12 @@ import type {
   RequestOptions,
 } from '../runtime';
 import {
+  CompleteFileUploadRequestSchema,
+  CreateFileUploadPartsRequestSchema,
   CreateFileUploadRequestSchema,
+  FileListPageSchema,
+  FileUploadPartsSchema,
+  FileUploadPolicySchema,
   FileUploadSchema,
   StoredFileSchema,
   UpdateFileRequestSchema,
@@ -22,14 +37,7 @@ import {
 
 export interface FileControllerListResponses {
   200: {
-    data: {
-      items: Array<StoredFile>;
-      pagination: {
-        offset: number;
-        limit: number;
-        total: number;
-      };
-    };
+    data: FileListPage;
   };
 }
 
@@ -40,14 +48,7 @@ export type FileControllerListResult = ApiResponse<200, FileControllerListRespon
 export const FileControllerListSchemas = {
   responses: {
     200: z.object({
-      data: z.object({
-        items: z.array(StoredFileSchema),
-        pagination: z.object({
-          offset: z.int(),
-          limit: z.int(),
-          total: z.int(),
-        }),
-      }),
+      data: FileListPageSchema,
     }),
   },
 } satisfies OperationSchemas;
@@ -124,14 +125,129 @@ export function fileControllerCreateUpload(
   );
 }
 
+// GET /files/upload-policy
+
+export interface FileControllerGetUploadPolicyResponses {
+  200: {
+    data: FileUploadPolicy;
+  };
+}
+
+export type FileControllerGetUploadPolicyResponse = FileControllerGetUploadPolicyResponses[200];
+
+export type FileControllerGetUploadPolicyResult = ApiResponse<
+  200,
+  FileControllerGetUploadPolicyResponses[200]
+>;
+
+export const FileControllerGetUploadPolicySchemas = {
+  responses: {
+    200: z.object({
+      data: FileUploadPolicySchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileControllerGetUploadPolicyUrl(): string {
+  return buildUrl('/files/upload-policy');
+}
+
+const fileControllerGetUploadPolicyOperation: OperationDefinition = {
+  id: 'FileController_getUploadPolicy',
+  method: 'GET',
+  path: '/files/upload-policy',
+  responseTypes: { 200: 'json' },
+  schemas: FileControllerGetUploadPolicySchemas,
+};
+
+/** 上傳前的檢查與切塊策略（大小上限、分塊門檻、每塊大小） */
+export function fileControllerGetUploadPolicy(
+  options?: RequestOptions,
+): Promise<FileControllerGetUploadPolicyResult> {
+  return request<FileControllerGetUploadPolicyResult>(
+    fileControllerGetUploadPolicyOperation,
+    {},
+    options,
+  );
+}
+
+// POST /files/{id}/parts
+
+export interface FileControllerCreateUploadPartsPathParams {
+  id: string;
+}
+
+export type FileControllerCreateUploadPartsBody = CreateFileUploadPartsRequest;
+
+export interface FileControllerCreateUploadPartsInput {
+  path: FileControllerCreateUploadPartsPathParams;
+  body: FileControllerCreateUploadPartsBody;
+}
+
+export interface FileControllerCreateUploadPartsResponses {
+  200: {
+    data: FileUploadParts;
+  };
+}
+
+export type FileControllerCreateUploadPartsResponse = FileControllerCreateUploadPartsResponses[200];
+
+export type FileControllerCreateUploadPartsResult = ApiResponse<
+  200,
+  FileControllerCreateUploadPartsResponses[200]
+>;
+
+export const FileControllerCreateUploadPartsSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  body: CreateFileUploadPartsRequestSchema,
+  responses: {
+    200: z.object({
+      data: FileUploadPartsSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileControllerCreateUploadPartsUrl(
+  path: FileControllerCreateUploadPartsPathParams,
+): string {
+  return buildUrl('/files/{id}/parts', path);
+}
+
+const fileControllerCreateUploadPartsOperation: OperationDefinition = {
+  id: 'FileController_createUploadParts',
+  method: 'POST',
+  path: '/files/{id}/parts',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: FileControllerCreateUploadPartsSchemas,
+};
+
+/** 分塊上傳：取得指定各塊的直傳網址 */
+export function fileControllerCreateUploadParts(
+  input: FileControllerCreateUploadPartsInput,
+  options?: RequestOptions,
+): Promise<FileControllerCreateUploadPartsResult> {
+  return request<FileControllerCreateUploadPartsResult>(
+    fileControllerCreateUploadPartsOperation,
+    input,
+    options,
+  );
+}
+
 // POST /files/{id}/complete
 
 export interface FileControllerCompleteUploadPathParams {
   id: string;
 }
 
+export type FileControllerCompleteUploadBody = CompleteFileUploadRequest;
+
 export interface FileControllerCompleteUploadInput {
   path: FileControllerCompleteUploadPathParams;
+  body: FileControllerCompleteUploadBody;
 }
 
 export interface FileControllerCompleteUploadResponses {
@@ -151,6 +267,7 @@ export const FileControllerCompleteUploadSchemas = {
   path: z.object({
     id: z.string(),
   }),
+  body: CompleteFileUploadRequestSchema,
   responses: {
     200: z.object({
       data: StoredFileSchema,
@@ -168,17 +285,70 @@ const fileControllerCompleteUploadOperation: OperationDefinition = {
   id: 'FileController_completeUpload',
   method: 'POST',
   path: '/files/{id}/complete',
+  bodyType: 'json',
+  contentType: 'application/json',
   responseTypes: { 200: 'json' },
   schemas: FileControllerCompleteUploadSchemas,
 };
 
-/** 確認直傳完成，檔案轉為 ready */
+/** 確認直傳完成，檔案轉為 ready（分塊上傳要帶各塊的 ETag） */
 export function fileControllerCompleteUpload(
   input: FileControllerCompleteUploadInput,
   options?: RequestOptions,
 ): Promise<FileControllerCompleteUploadResult> {
   return request<FileControllerCompleteUploadResult>(
     fileControllerCompleteUploadOperation,
+    input,
+    options,
+  );
+}
+
+// DELETE /files/{id}/upload
+
+export interface FileControllerAbortUploadPathParams {
+  id: string;
+}
+
+export interface FileControllerAbortUploadInput {
+  path: FileControllerAbortUploadPathParams;
+}
+
+export interface FileControllerAbortUploadResponses {
+  204: undefined;
+}
+
+export type FileControllerAbortUploadResponse = FileControllerAbortUploadResponses[204];
+
+export type FileControllerAbortUploadResult = ApiResponse<
+  204,
+  FileControllerAbortUploadResponses[204]
+>;
+
+export const FileControllerAbortUploadSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+} satisfies OperationSchemas;
+
+export function getFileControllerAbortUploadUrl(path: FileControllerAbortUploadPathParams): string {
+  return buildUrl('/files/{id}/upload', path);
+}
+
+const fileControllerAbortUploadOperation: OperationDefinition = {
+  id: 'FileController_abortUpload',
+  method: 'DELETE',
+  path: '/files/{id}/upload',
+  responseTypes: { 204: 'none' },
+  schemas: FileControllerAbortUploadSchemas,
+};
+
+/** 放棄上傳中的檔案：清掉已上傳的內容與分塊 */
+export function fileControllerAbortUpload(
+  input: FileControllerAbortUploadInput,
+  options?: RequestOptions,
+): Promise<FileControllerAbortUploadResult> {
+  return request<FileControllerAbortUploadResult>(
+    fileControllerAbortUploadOperation,
     input,
     options,
   );

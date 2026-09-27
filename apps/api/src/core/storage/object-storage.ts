@@ -30,6 +30,16 @@ export interface PresignUploadOptions {
   expiresIn: number;
 }
 
+export interface CreateMultipartUploadOptions {
+  contentType: string;
+}
+
+/** 分塊上傳完成時交回的一塊：`etag` 是上傳那一塊時物件儲存回的 ETag（有無引號皆可）。 */
+export interface UploadedPart {
+  partNumber: number;
+  etag: string;
+}
+
 export interface PresignDownloadOptions {
   /** 秒。 */
   expiresIn: number;
@@ -54,5 +64,47 @@ export abstract class ObjectStorage {
 
   abstract presignUpload(key: string, options: PresignUploadOptions): Promise<PresignedRequest>;
 
+  /**
+   * 下載網址在同一個時間窗內 **不變**（簽章時間取整），瀏覽器與 CDN 的快取才會命中；
+   * 回傳的網址至少還有 `expiresIn / 2` 秒有效。
+   */
   abstract presignDownload(key: string, options: PresignDownloadOptions): Promise<PresignedRequest>;
+
+  // ── 分塊上傳（S3 multipart upload；docs/architecture/backend/09-file.md §5.2） ──
+
+  /** 開始一個分塊上傳，回傳 uploadId。`Content-Type` 在這一步決定。 */
+  abstract createMultipartUpload(
+    key: string,
+    options: CreateMultipartUploadOptions,
+  ): Promise<string>;
+
+  /** 讓瀏覽器直接上傳第 `partNumber` 塊（1 起算）的 presigned PUT。 */
+  abstract presignUploadPart(
+    key: string,
+    uploadId: string,
+    partNumber: number,
+    options: { expiresIn: number },
+  ): Promise<PresignedRequest>;
+
+  /**
+   * 組合各塊成為一個物件。塊不存在、ETag 不符、順序錯誤、非最後一塊太小、uploadId 不存在時
+   * 拋 `FILE_UPLOAD_INCOMPLETE`（前端重新上傳）；其他失敗拋 `FILE_STORAGE_UNAVAILABLE`。
+   */
+  abstract completeMultipartUpload(
+    key: string,
+    uploadId: string,
+    parts: readonly UploadedPart[],
+  ): Promise<void>;
+
+  /** 放棄分塊上傳並清掉已上傳的塊；uploadId 不存在也視為成功。 */
+  abstract abortMultipartUpload(key: string, uploadId: string): Promise<void>;
+}
+
+/**
+ * 簽章時間取整到 `expiresIn / 2` 的倍數：同一個時間窗內對同一個物件簽出一模一樣的網址，
+ * 列表每次重抓也不會讓 `<img>` 重新下載。代價是網址的剩餘效期介於 `expiresIn / 2` 與 `expiresIn` 之間。
+ */
+export function stableSigningDate(now: number, expiresIn: number): Date {
+  const windowMs = Math.max(1, Math.floor(expiresIn / 2)) * 1000;
+  return new Date(Math.floor(now / windowMs) * windowMs);
 }

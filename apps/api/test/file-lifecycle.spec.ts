@@ -5,12 +5,15 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
+import { AppException } from '@/core/errors';
 import { ObjectStorage } from '@/core/storage';
 import type {
+  CreateMultipartUploadOptions,
   PresignDownloadOptions,
   PresignedRequest,
   PresignUploadOptions,
   StoredObjectHead,
+  UploadedPart,
 } from '@/core/storage';
 import { auditLogs, files, roles, userRoles, users } from '@/db/schema';
 
@@ -59,10 +62,63 @@ class InMemoryObjectStorage extends ObjectStorage {
     };
   }
 
-  /** 從 presigned URL 取出 key，模擬瀏覽器照著網址 PUT。 */
-  simulateBrowserUpload(url: string, size: number): void {
-    const key = new URL(url).pathname.slice(1);
-    this.objects.set(key, { size, etag: 'etag-' + key, contentType: undefined });
+  /** uploadId → { key, contentType, 已上傳的塊（塊號 → 大小） } */
+  readonly uploads = new Map<
+    string,
+    { key: string; contentType: string; parts: Map<number, number> }
+  >();
+
+  async createMultipartUpload(key: string, options: CreateMultipartUploadOptions): Promise<string> {
+    const uploadId = `upload-${this.uploads.size + 1}`;
+    this.uploads.set(uploadId, { key, contentType: options.contentType, parts: new Map() });
+    return uploadId;
+  }
+
+  async presignUploadPart(
+    key: string,
+    uploadId: string,
+    partNumber: number,
+    options: { expiresIn: number },
+  ): Promise<PresignedRequest> {
+    return {
+      url: `http://storage.test/${key}?uploadId=${uploadId}&partNumber=${partNumber}`,
+      method: 'PUT',
+      headers: {},
+      expiresAt: new Date(Date.now() + options.expiresIn * 1000),
+    };
+  }
+
+  async completeMultipartUpload(
+    key: string,
+    uploadId: string,
+    parts: readonly UploadedPart[],
+  ): Promise<void> {
+    const upload = this.uploads.get(uploadId);
+    const missing = parts.some((part) => !upload?.parts.has(part.partNumber));
+    if (!upload || upload.key !== key || missing) throw new AppException('FILE_UPLOAD_INCOMPLETE');
+    const size = parts.reduce((sum, part) => sum + (upload.parts.get(part.partNumber) ?? 0), 0);
+    this.objects.set(key, {
+      size,
+      etag: `etag-${key}-${parts.length}`,
+      contentType: upload.contentType,
+    });
+    this.uploads.delete(uploadId);
+  }
+
+  async abortMultipartUpload(_key: string, uploadId: string): Promise<void> {
+    this.uploads.delete(uploadId);
+  }
+
+  /** 從 presigned URL 取出 key，模擬瀏覽器照著網址 PUT（分塊網址則記下那一塊）。 */
+  simulateBrowserUpload(url: string, size: number, contentType?: string): void {
+    const parsed = new URL(url);
+    const uploadId = parsed.searchParams.get('uploadId');
+    if (uploadId) {
+      this.uploads.get(uploadId)?.parts.set(Number(parsed.searchParams.get('partNumber')), size);
+      return;
+    }
+    const key = parsed.pathname.slice(1);
+    this.objects.set(key, { size, etag: 'etag-' + key, contentType });
   }
 }
 
@@ -107,6 +163,8 @@ interface FileBody {
   name: string;
   status: string;
   size: number;
+  version: number;
+  thumbnailUrl: string | null;
   url: string | null;
   downloadUrl: string | null;
   uploader: { displayName: string } | null;
@@ -114,15 +172,28 @@ interface FileBody {
 
 async function startUpload(
   token: string,
-  body: { name: string; contentType: string; size: number },
+  body: {
+    name: string;
+    contentType: string;
+    size: number;
+    thumbnail?: { contentType: string; size: number };
+  },
 ) {
   const response = await request(http)
     .post('/files')
     .set('authorization', `Bearer ${token}`)
     .send(body)
     .expect(201);
-  return (response.body as { data: { file: FileBody; upload: { url: string; headers: object } } })
-    .data;
+  return (
+    response.body as {
+      data: {
+        file: FileBody;
+        upload: { url: string; headers: object };
+        multipart: { partSize: number; partCount: number } | null;
+        thumbnailUpload: { url: string } | null;
+      };
+    }
+  ).data;
 }
 
 async function uploadFile(
@@ -145,6 +216,8 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN.email;
     process.env.SUPER_ADMIN_PASSWORD = SUPER_ADMIN.password;
     process.env.FILE_UPLOAD_MAX_SIZE = '1000';
+    // 500 以上改用分塊上傳（每塊 8 MiB → 測試裡的檔案都只有一塊）
+    process.env.FILE_MULTIPART_THRESHOLD = '500';
 
     const created = createTestDatabase();
     db = created.db;
@@ -170,6 +243,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     await app.close();
     await closeDb();
     delete process.env.FILE_UPLOAD_MAX_SIZE;
+    delete process.env.FILE_MULTIPART_THRESHOLD;
   });
 
   it('登記 → 直傳 → 完成：pending 不出現在列表，ready 之後帶可用的網址', async () => {
@@ -317,6 +391,150 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       .post(`/files/${file.id}/complete`)
       .set('authorization', `Bearer ${root}`)
       .expect(404);
+  });
+
+  it('分塊上傳：登記 → 要各塊網址 → 逐塊直傳 → 帶 ETag 完成', async () => {
+    const token = await login(ADMIN);
+    const { file, upload, multipart } = await startUpload(token, {
+      name: 'level.pak',
+      contentType: 'application/octet-stream',
+      size: 600,
+    });
+    expect(upload).toBeNull();
+    expect(multipart).toMatchObject({ partCount: 1 });
+
+    const parts = await request(http)
+      .post(`/files/${file.id}/parts`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ partNumbers: [1] })
+      .expect(200);
+    const [part] = (parts.body as { data: { parts: Array<{ url: string }> } }).data.parts;
+    storage.simulateBrowserUpload(part?.url ?? '', 600);
+
+    // 沒帶 parts → 422
+    await request(http)
+      .post(`/files/${file.id}/complete`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(422);
+    const done = await request(http)
+      .post(`/files/${file.id}/complete`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ parts: [{ partNumber: 1, etag: '"etag-1"' }] })
+      .expect(200);
+    expect((done.body as { data: FileBody }).data).toMatchObject({ status: 'ready', size: 600 });
+    const [row] = await db.select().from(files).where(eq(files.id, file.id));
+    expect(row?.uploadId).toBeNull();
+  });
+
+  it('放棄上傳：pending 消失、分塊被清掉；已完成的不能放棄', async () => {
+    const token = await login(ADMIN);
+    const { file } = await startUpload(token, {
+      name: 'cancel.pak',
+      contentType: 'application/octet-stream',
+      size: 700,
+    });
+    const uploadsBefore = storage.uploads.size;
+    await request(http)
+      .delete(`/files/${file.id}/upload`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(204);
+    expect(storage.uploads.size).toBe(uploadsBefore - 1);
+    await request(http)
+      .get(`/files/${file.id}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(404);
+
+    const ready = await uploadFile(token, { name: 'kept.txt', contentType: 'text/plain', size: 2 });
+    const response = await request(http)
+      .delete(`/files/${ready.id}/upload`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(409);
+    expect((response.body as { error: { code: string } }).error.code).toBe('FILE_ALREADY_UPLOADED');
+  });
+
+  it('縮圖：登記時帶 thumbnail、直傳後 complete → 帶 thumbnailUrl', async () => {
+    const token = await login(ADMIN);
+    const { file, upload, thumbnailUpload } = await startUpload(token, {
+      name: 'thumb.png',
+      contentType: 'image/png',
+      size: 50,
+      thumbnail: { contentType: 'image/webp', size: 20 },
+    });
+    storage.simulateBrowserUpload(upload.url, 50);
+    storage.simulateBrowserUpload(thumbnailUpload?.url ?? '', 20, 'image/webp');
+    const done = await request(http)
+      .post(`/files/${file.id}/complete`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(200);
+    expect((done.body as { data: FileBody }).data.thumbnailUrl).toContain(`thumbnails/${file.id}`);
+  });
+
+  it('改名的樂觀鎖：拿舊版本改名 → 409 FILE_VERSION_CONFLICT', async () => {
+    const token = await login(ADMIN);
+    const file = await uploadFile(token, { name: 'v.txt', contentType: 'text/plain', size: 1 });
+    expect(file.version).toBe(1);
+    const first = await request(http)
+      .patch(`/files/${file.id}`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ name: 'v2.txt', version: 1 })
+      .expect(200);
+    expect((first.body as { data: FileBody }).data.version).toBe(2);
+    const stale = await request(http)
+      .patch(`/files/${file.id}`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ name: 'v3.txt', version: 1 })
+      .expect(409);
+    expect((stale.body as { error: { code: string } }).error.code).toBe('FILE_VERSION_CONFLICT');
+  });
+
+  it('keyset 游標：捲動途中有新檔案插入也不重複、不漏', async () => {
+    const token = await login(ADMIN);
+    for (const name of ['k1.txt', 'k2.txt', 'k3.txt', 'k4.txt']) {
+      await uploadFile(token, { name, contentType: 'text/x-keyset', size: 1 });
+    }
+    const list = async (query: Record<string, string>) =>
+      (
+        (
+          await request(http)
+            .get('/files')
+            .query({ contentType: 'text/x-keyset', limit: '2', ...query })
+            .set('authorization', `Bearer ${token}`)
+            .expect(200)
+        ).body as { data: { items: FileBody[]; nextCursor: string | null } }
+      ).data;
+
+    const first = await list({});
+    expect(first.items.map((f) => f.name)).toEqual(['k4.txt', 'k3.txt']);
+    // 第一頁之後插入一筆較新的：offset 分頁會讓 k3 重複出現在第二頁
+    await uploadFile(token, { name: 'k5.txt', contentType: 'text/x-keyset', size: 1 });
+    const second = await list({ cursor: first.nextCursor ?? '' });
+    expect(second.items.map((f) => f.name)).toEqual(['k2.txt', 'k1.txt']);
+
+    await request(http)
+      .get('/files')
+      .query({ cursor: first.nextCursor ?? '', sort: 'name' })
+      .set('authorization', `Bearer ${token}`)
+      .expect(400);
+  });
+
+  it('分類篩選：document、other', async () => {
+    const token = await login(ADMIN);
+    await uploadFile(token, { name: 'spec.pdf', contentType: 'application/pdf', size: 1 });
+    await uploadFile(token, { name: 'blob.xyz', contentType: 'application/x-custom', size: 1 });
+    const names = async (category: string) =>
+      (
+        (
+          await request(http)
+            .get('/files')
+            .query({ category, limit: '200' })
+            .set('authorization', `Bearer ${token}`)
+            .expect(200)
+        ).body as { data: { items: FileBody[] } }
+      ).data.items.map((f) => f.name);
+    expect(await names('document')).toEqual(['spec.pdf']);
+    const others = await names('other');
+    expect(others).toContain('blob.xyz');
+    expect(others).not.toContain('spec.pdf');
   });
 
   describe('files 資料表約束', () => {
