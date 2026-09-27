@@ -138,6 +138,10 @@ export const PermissionKey = {
   'system:update': 'system:update',
   'approval:read': 'approval:read',
   'approval:review': 'approval:review',
+  'file:create': 'file:create',
+  'file:read': 'file:read',
+  'file:update': 'file:update',
+  'file:delete': 'file:delete',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
@@ -226,6 +230,48 @@ export interface RegisterRequest {
 
 export interface RegisterResult {
   submitted: true;
+}
+
+export interface CreateFileUploadRequest {
+  name: string;
+  contentType: string;
+  size: number;
+}
+
+export interface FileUploader {
+  id: string;
+  displayName: string;
+}
+
+export interface StoredFile {
+  id: string;
+  name: string;
+  contentType: string;
+  size: number;
+  status: 'pending' | 'ready';
+  url: string | null;
+  downloadUrl: string | null;
+  urlExpiresAt: string | null;
+  uploader: FileUploader | null;
+  uploadedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FileUploadTarget {
+  url: string;
+  method: 'PUT';
+  headers: Record<string, string>;
+  expiresAt: string;
+}
+
+export interface FileUpload {
+  file: StoredFile;
+  upload: FileUploadTarget;
+}
+
+export interface UpdateFileRequest {
+  name: string;
 }
 
 export interface CreateRoleRequest {

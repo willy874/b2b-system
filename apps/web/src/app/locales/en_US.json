@@ -135,6 +135,12 @@
     "APPROVAL_NOT_FOUND": "This approval request does not exist.",
     "APPROVAL_ALREADY_REVIEWED": "This request has already been reviewed.",
     "APPROVAL_SELF_REVIEW": "You cannot review your own request. Ask another administrator.",
+    "FILE_NOT_FOUND": "This file does not exist or has been deleted.",
+    "FILE_TOO_LARGE": "The file exceeds the maximum allowed size.",
+    "FILE_ALREADY_UPLOADED": "This file has already been uploaded.",
+    "FILE_UPLOAD_INCOMPLETE": "The upload did not finish. Please upload again.",
+    "FILE_SIZE_MISMATCH": "The uploaded content does not match the file size. Please upload again.",
+    "FILE_STORAGE_UNAVAILABLE": "File storage is temporarily unavailable. Please try again later.",
     "RATE_LIMITED": "Too many requests. Please slow down.",
     "INTERNAL_ERROR": "Server error. Please try again later.",
     "page": {
@@ -159,7 +165,8 @@
       "permission": "Permissions",
       "auditLog": "Audit log",
       "system": "System",
-      "approval": "Approvals"
+      "approval": "Approvals",
+      "file": "Files"
     },
     "user": {
       "create": "Create user",
@@ -189,6 +196,12 @@
     "approval": {
       "read": "View approvals",
       "review": "Review requests"
+    },
+    "file": {
+      "create": "Upload files",
+      "read": "View files",
+      "update": "Edit files",
+      "delete": "Delete files"
     }
   },
   "theme": {

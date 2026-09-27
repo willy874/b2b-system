@@ -2,6 +2,7 @@ export * from './approval-requests';
 export * from './audit-logs';
 export * from './auth-tokens';
 export * from './custom-types';
+export * from './files';
 export * from './permissions';
 export * from './refresh-tokens';
 export * from './role-permissions';

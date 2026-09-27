@@ -7,6 +7,7 @@ export * from './schemas';
 export * from './endpoints/approvals';
 export * from './endpoints/audit-logs';
 export * from './endpoints/auth';
+export * from './endpoints/files';
 export * from './endpoints/health';
 export * from './endpoints/permissions';
 export * from './endpoints/roles';

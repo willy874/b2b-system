@@ -27,4 +27,9 @@ export const PERMISSION = {
 
   APPROVAL_READ: 'approval:read',
   APPROVAL_REVIEW: 'approval:review',
+
+  FILE_CREATE: 'file:create',
+  FILE_READ: 'file:read',
+  FILE_UPDATE: 'file:update',
+  FILE_DELETE: 'file:delete',
 } as const satisfies Record<string, PermissionKey>;

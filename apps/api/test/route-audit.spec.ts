@@ -127,6 +127,12 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /approvals/:id': 'approval:read',
       'POST /approvals/:id/approve': 'approval:review',
       'POST /approvals/:id/reject': 'approval:review',
+      'GET /files': 'file:read',
+      'POST /files': 'file:create',
+      'POST /files/:id/complete': 'file:create',
+      'GET /files/:id': 'file:read',
+      'PATCH /files/:id': 'file:update',
+      'DELETE /files/:id': 'file:delete',
     };
 
     for (const [route, declaration] of Object.entries(expected)) {

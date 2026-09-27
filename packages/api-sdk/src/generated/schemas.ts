@@ -11,9 +11,13 @@ import type {
   AuditLog,
   AuditLogSummary,
   ChangePasswordRequest,
+  CreateFileUploadRequest,
   CreateRoleRequest,
   CreateUserRequest,
   DuplicateRoleRequest,
+  FileUpload,
+  FileUploadTarget,
+  FileUploader,
   ForgotPasswordRequest,
   LoginRequest,
   Permission,
@@ -32,6 +36,8 @@ import type {
   RoleSummary,
   Session,
   SetupRequest,
+  StoredFile,
+  UpdateFileRequest,
   UpdateProfileRequest,
   UpdateRolePermissionsRequest,
   UpdateRoleRequest,
@@ -244,6 +250,10 @@ export const PermissionKeySchema = z.enum([
   'system:update',
   'approval:read',
   'approval:review',
+  'file:create',
+  'file:read',
+  'file:update',
+  'file:delete',
 ]) satisfies z.ZodType<PermissionKey>;
 
 export const PermissionSchema = z.object({
@@ -367,6 +377,63 @@ export const RegisterRequestSchema = z.object({
 export const RegisterResultSchema = z.object({
   submitted: z.literal(true),
 }) satisfies z.ZodType<RegisterResult>;
+
+export const CreateFileUploadRequestSchema = z.object({
+  name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
+  contentType: z
+    .string()
+    .max(255)
+    .regex(new RegExp('^[a-z0-9][a-z0-9!#$&^_.+-]*\\/[a-z0-9][a-z0-9!#$&^_.+-]*$')),
+  size: z.int().min(0).max(9007199254740991),
+}) satisfies z.ZodType<CreateFileUploadRequest>;
+
+export const FileUploaderSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  displayName: z.string(),
+}) satisfies z.ZodType<FileUploader>;
+
+export const StoredFileSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+  contentType: z.string(),
+  size: z.int().min(-9007199254740991).max(9007199254740991),
+  status: z.enum(['pending', 'ready']),
+  url: z.string().nullable(),
+  downloadUrl: z.string().nullable(),
+  urlExpiresAt: z.string().nullable(),
+  uploader: FileUploaderSchema.nullable(),
+  uploadedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}) satisfies z.ZodType<StoredFile>;
+
+export const FileUploadTargetSchema = z.object({
+  url: z.string(),
+  method: z.enum(['PUT']),
+  headers: z.record(z.string(), z.string()),
+  expiresAt: z.string(),
+}) satisfies z.ZodType<FileUploadTarget>;
+
+export const FileUploadSchema = z.object({
+  file: StoredFileSchema,
+  upload: FileUploadTargetSchema,
+}) satisfies z.ZodType<FileUpload>;
+
+export const UpdateFileRequestSchema = z.object({
+  name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
+}) satisfies z.ZodType<UpdateFileRequest>;
 
 export const CreateRoleRequestSchema = z.object({
   name: z.string().min(1).max(64),

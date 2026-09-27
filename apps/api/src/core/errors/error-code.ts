@@ -51,6 +51,11 @@ export const ErrorCode = {
   APPROVAL_SELF_REVIEW: { status: 403 },
 
   // ── 檔案 ──
+  FILE_NOT_FOUND: { status: 404 },
+  FILE_TOO_LARGE: { status: 413 },
+  FILE_ALREADY_UPLOADED: { status: 409 },
+  FILE_UPLOAD_INCOMPLETE: { status: 409 },
+  FILE_SIZE_MISMATCH: { status: 422 },
   FILE_STORAGE_UNAVAILABLE: { status: 503 },
 
   // ── 通用 ──

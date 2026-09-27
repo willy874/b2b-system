@@ -15,6 +15,8 @@ import { APPROVAL_LIST_QUERY_KEY } from '@/apis/approval/get-approval-list/query
 import { AUDIT_LOG_DETAIL_QUERY_KEY } from '@/apis/audit-log/get-audit-log-detail/query';
 import { AUDIT_LOG_LIST_QUERY_KEY } from '@/apis/audit-log/get-audit-log-list/query';
 import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
+import { FILE_DETAIL_QUERY_KEY } from '@/apis/file/get-file-detail/query';
+import { FILE_LIST_QUERY_KEY } from '@/apis/file/get-file-list/query';
 import { PERMISSION_LIST_QUERY_KEY } from '@/apis/permission/get-permission-list/query';
 import { ROLE_DETAIL_QUERY_KEY } from '@/apis/role/get-role-detail/query';
 import { ROLE_LIST_QUERY_KEY, ROLE_OPTIONS_QUERY_KEY } from '@/apis/role/get-role-list/query';
@@ -36,6 +38,8 @@ export const Resource = {
   AUDIT_LOG: 'auditLog',
   /** 審批請求（`id` = 請求 id） */
   APPROVAL: 'approval',
+  /** 檔案（`id` = 檔案 id） */
+  FILE: 'file',
   /** 目前登入者的 session 視角（profile ＋ 有效權限） */
   PROFILE: 'profile',
   // 關係：沒有自己的 query，只作為來源
@@ -111,6 +115,10 @@ const graph = createResourceGraph<Resource>({
   [Resource.APPROVAL]: {
     collection: [APPROVAL_LIST_QUERY_KEY],
     entity: [APPROVAL_DETAIL_QUERY_KEY],
+  },
+  [Resource.FILE]: {
+    collection: [FILE_LIST_QUERY_KEY],
+    entity: [FILE_DETAIL_QUERY_KEY],
   },
   [Resource.PROFILE]: {
     collection: [AUTH_PROFILE_QUERY_KEY],

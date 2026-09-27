@@ -17,6 +17,7 @@ import { StorageModule } from './core/storage';
 import { ApprovalModule } from './modules/approval/approval.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { FileModule } from './modules/file/file.module';
 import { HealthModule } from './modules/health/health.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
@@ -59,6 +60,7 @@ import { UserModule } from './modules/user/user.module';
     UserModule,
     RoleModule,
     SystemModule,
+    FileModule,
     HealthModule,
   ],
   providers: [

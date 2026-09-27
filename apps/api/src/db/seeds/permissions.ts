@@ -25,6 +25,11 @@ export const PERMISSION_SEED = [
 
   ['approval', 'read', 'permission.approval.read', 600],
   ['approval', 'review', 'permission.approval.review', 601],
+
+  ['file', 'create', 'permission.file.create', 700],
+  ['file', 'read', 'permission.file.read', 701],
+  ['file', 'update', 'permission.file.update', 702],
+  ['file', 'delete', 'permission.file.delete', 703],
 ] as const satisfies ReadonlyArray<readonly [string, string, string, number]>;
 
 type SeedList = typeof PERMISSION_SEED;
