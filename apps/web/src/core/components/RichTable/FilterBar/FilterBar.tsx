@@ -35,7 +35,7 @@ export interface FilterBarProps<
  * 列表頁的篩選：一顆篩選圖示按鈕（有值時角落顯示數量），點開是所有欄位的表單。
  * 面板裡的修改只改草稿，按「搜尋」才一次送出；關掉面板就放棄草稿。
  * 一次送出也讓頁面只需要更新一次網址（docs/architecture/frontend/09-state-and-storage.md §1）。
- * `RichTable` 會把它固定在最後一欄表頭的右下角。
+ * `RichTable` 會把它固定在最後一欄表頭的右側（與標題垂直置中）。
  */
 export function FilterBar<TValues extends Record<string, unknown>>({
   fields,

@@ -1,0 +1,126 @@
+{
+  "file": {
+    "title": "檔案",
+    "description": "上傳與管理遊戲素材。拖曳檔案到下方即可上傳，按住滑鼠拖曳可框選多個檔案。",
+    "total": "共 {{count}} 個檔案",
+    "refresh": "重新整理",
+    "download": "下載",
+    "select": "選取「{{name}}」",
+    "selectAll": "全選",
+    "browser": {
+      "label": "檔案清單"
+    },
+    "search": {
+      "placeholder": "搜尋檔名"
+    },
+    "field": {
+      "name": "檔名",
+      "kind": "類型",
+      "category": "分類",
+      "contentType": "MIME 類型",
+      "size": "大小",
+      "uploader": "上傳者",
+      "createdAt": "上傳時間",
+      "updatedAt": "更新時間"
+    },
+    "category": {
+      "all": "全部類型",
+      "image": "圖片",
+      "video": "影片",
+      "audio": "音訊",
+      "text": "文字與程式碼",
+      "document": "文件",
+      "archive": "壓縮檔",
+      "other": "其他"
+    },
+    "kind": {
+      "image": "圖片",
+      "video": "影片",
+      "audio": "音訊",
+      "text": "純文字",
+      "code": "程式碼／設定檔",
+      "pdf": "PDF",
+      "spreadsheet": "試算表",
+      "presentation": "簡報",
+      "document": "文件",
+      "archive": "壓縮檔",
+      "font": "字型",
+      "other": "其他"
+    },
+    "sort": {
+      "createdAt": "上傳時間",
+      "name": "檔名",
+      "size": "大小"
+    },
+    "view": {
+      "label": "排列方式",
+      "grid": "圖示",
+      "list": "列表"
+    },
+    "paging": {
+      "label": "閱覽模式",
+      "infinite": "無限捲動",
+      "pagination": "分頁"
+    },
+    "pagination": {
+      "summary": "第 {{from}}–{{to}} 個，共 {{total}} 個"
+    },
+    "selection": {
+      "count": "已選取 {{count}} 個",
+      "selectAll": "選取全部 {{count}} 個",
+      "hint": "點選檔案以選取；按住 Shift／Ctrl 可多選，或在空白處拖曳框選。雙擊開啟預覽。"
+    },
+    "empty": {
+      "title": "還沒有任何檔案",
+      "uploadHint": "把檔案拖曳到這裡，或按右上角的「上傳」。",
+      "filtered": "沒有符合條件的檔案",
+      "clearFilters": "清除篩選"
+    },
+    "upload": {
+      "action": "上傳",
+      "dropHint": "放開以上傳",
+      "queued": "已將 {{count}} 個檔案加入上傳佇列",
+      "rejected": "{{count}} 個檔案未上傳：「{{name}}」{{reason}}",
+      "directoryUnsupported": "不支援上傳資料夾，已略過 {{count}} 個資料夾"
+    },
+    "validation": {
+      "tooLarge": "超過單檔上限 {{max}}",
+      "imageCorrupted": "內容不是有效的 {{type}} 圖片"
+    },
+    "rename": {
+      "action": "重新命名",
+      "title": "重新命名",
+      "success": "已重新命名"
+    },
+    "delete": {
+      "title": "刪除檔案",
+      "confirm": "確定要刪除「{{name}}」嗎？刪除後無法復原。",
+      "success": "已刪除檔案"
+    },
+    "batch": {
+      "upload": {
+        "title": "上傳檔案",
+        "success": "已上傳 {{count}} 個檔案"
+      },
+      "delete": {
+        "title": "刪除檔案",
+        "confirm": "確定要刪除 {{count}} 個檔案嗎？刪除會在背景逐一進行，無法復原。",
+        "success": "已刪除 {{count}} 個檔案"
+      }
+    },
+    "preview": {
+      "title": "檔案詳情",
+      "previous": "上一個檔案",
+      "next": "下一個檔案",
+      "fit": "縮放至視窗",
+      "actualSize": "原始大小",
+      "imageError": "圖片無法顯示",
+      "truncated": "檔案較大，只顯示前 {{size}}；完整內容請下載。",
+      "unavailable": "無法預覽",
+      "unsupported": "這種檔案類型還沒有預覽方式，請下載後開啟。",
+      "tooLarge": "檔案太大，不適合在瀏覽器中預覽，請下載後開啟。",
+      "deleted": "檔案已被刪除",
+      "deletedDescription": "這個檔案可能剛被其他人刪除。"
+    }
+  }
+}

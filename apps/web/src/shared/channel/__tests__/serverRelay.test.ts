@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { ChannelEnvelopeWire } from '@/shared/realtime';
+import type { ChannelEnvelopeWire } from '@/shared/websocket-sdk';
 
 import { createChannel } from '../createChannel';
 import type { Channel } from '../createChannel';

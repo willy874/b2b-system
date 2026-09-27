@@ -184,6 +184,10 @@
 
 檢查：反提權（§5）、`AUTHZ_SELF_MODIFY`、`LAST_SUPER_ADMIN`。
 
+### 2.5 批次操作
+
+沒有批次端點：批次操作由前端逐筆呼叫單筆 API，見 [ADR-0012](../adr/0012-batch-queue-worker.md)。
+
 ---
 
 ## 3. Roles
@@ -342,7 +346,7 @@
 | `offset` / `limit` | 分頁（`limit` 上限 100）                |
 | `actorId`          | 操作者                                  |
 | `action`           | 例 `role.update`，支援前綴比對 `role.*`（`%` / `_` 視為一般字元） |
-| `resourceType`     | `user` / `role` / `auth` / `permission` / `approval` |
+| `resourceType`     | `user` / `role` / `auth` / `permission` / `approval` / `file` |
 | `resourceId`       |                                         |
 | `result`           | `success` / `failure`                   |
 | `from` / `to`      | ISO 8601 時間範圍；跨度最多 90 天（超過回 `400 VALIDATION_FAILED`）。都沒帶時為「現在往前 90 天」，只帶一端時往另一端推 90 天 |
@@ -393,6 +397,30 @@
 | `403 AUTHZ_ESCALATION`        | 指派的角色超出審核者的權限                                      |
 | `409 USER_EMAIL_DUPLICATE`    | `user.register`：申請後該 email 已被建立（請改為駁回）          |
 
+**批次**：沒有批次端點，由前端逐筆呼叫單筆 API，見 [ADR-0012](../adr/0012-batch-queue-worker.md)。
+
+---
+
+## 7.1 Files
+
+| Method | Path                  | 授權             | 說明                                         |
+| ------ | --------------------- | ---------------- | -------------------------------------------- |
+| GET    | `/files`              | 🛡 `file:read`   | 列表（只含 `ready`；分頁／篩選／排序）        |
+| GET    | `/files/upload-policy` | 🛡 `file:create` | 上傳前的檢查與切塊策略                       |
+| POST   | `/files`              | 🛡 `file:create` | 登記上傳，回傳直傳網址（`pending`）           |
+| POST   | `/files/:id/parts`    | 🛡 `file:create` | 分塊上傳：取得各塊的直傳網址                 |
+| POST   | `/files/:id/complete` | 🛡 `file:create` | 確認直傳完成 → `ready`（只有上傳者本人）      |
+| DELETE | `/files/:id/upload`   | 🛡 `file:create` | 放棄上傳中的檔案（只有上傳者本人）           |
+| GET    | `/files/:id/image/:variant` | 🔓 `@Public` ＋ 網址簽章 | 圖片的原圖／全螢幕預覽／圖示預覽（302）；網址只從 `file:read` 的回應拿得到² |
+| GET    | `/files/:id`          | 🛡 `file:read`   | 詳情（`pending` 只有上傳者看得到）            |
+| PATCH  | `/files/:id`          | 🛡 `file:update` | 改名（`{ name }`）                           |
+| DELETE | `/files/:id`          | 🛡 `file:delete` | 軟刪除紀錄並刪除物件                         |
+
+² `<img src>` 帶不了 access token，所以以網址上的 HMAC 簽章（綁定檔案 id、版本與失效時間）授權，與 presigned URL 相同的模型；
+簽章不符或過期回 `403 FILE_IMAGE_URL_INVALID`。見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md) §5.4。
+
+流程、欄位與錯誤碼見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md) §4–§6。
+
 ---
 
 ## 8. System
@@ -400,7 +428,7 @@
 | Method | Path            | 授權            | 說明                    |
 | ------ | --------------- | --------------- | ----------------------- |
 | GET    | `/health`       | 🔓              | liveness                |
-| GET    | `/health/ready` | 🔓              | readiness（含 DB ping） |
+| GET    | `/health/ready` | 🔓              | readiness（DB ping ＋ 物件儲存的 HeadBucket） |
 | GET    | `/system/info`  | 🛡 `system:read` | 版本、建置時間、環境    |
 
 ---

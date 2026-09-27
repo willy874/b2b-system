@@ -44,10 +44,22 @@ describe('toAuditLogRowVM', () => {
 });
 
 describe('toAuditLogDetailVM', () => {
-  it('changes / metadata 為 null 時正規化成空物件', () => {
-    expect(toAuditLogDetailVM({ ...log, changes: null, metadata: null })).toEqual({
-      changes: {},
+  it('changes 拆成變更前後；metadata 為 null 時正規化成空物件', () => {
+    const changes = { before: { roles: ['member'] }, after: { roles: [] } };
+    expect(toAuditLogDetailVM({ ...log, changes, metadata: null })).toEqual({
+      changes,
       metadata: {},
+    });
+  });
+
+  it('建立只有 after、changes 為 null 時兩邊都是 undefined', () => {
+    expect(toAuditLogDetailVM({ ...log, changes: { after: 1 }, metadata: {} }).changes).toEqual({
+      before: undefined,
+      after: 1,
+    });
+    expect(toAuditLogDetailVM({ ...log, changes: null, metadata: {} }).changes).toEqual({
+      before: undefined,
+      after: undefined,
     });
   });
 });

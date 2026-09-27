@@ -39,7 +39,7 @@
     background: var(--color-brand);
     color: var(--color-brand-fg);
   }
-  .root[data-variant='primary']:not(:disabled):hover {
+  .root[data-variant='primary']:not(:disabled):not([data-disabled]):hover {
     background: var(--button-primary-hover-bg);
   }
 
@@ -48,7 +48,7 @@
     border-color: var(--color-border);
     color: var(--color-fg);
   }
-  .root[data-variant='secondary']:not(:disabled):hover {
+  .root[data-variant='secondary']:not(:disabled):not([data-disabled]):hover {
     background: var(--button-subtle-hover-bg);
   }
 
@@ -56,15 +56,32 @@
     background: transparent;
     color: var(--color-fg);
   }
-  .root[data-variant='ghost']:not(:disabled):hover {
+  .root[data-variant='ghost']:not(:disabled):not([data-disabled]):hover {
     background: var(--button-subtle-hover-bg);
+  }
+
+  /* 狀態色填色搭配各自的 -on 前景（contrast.test.ts 守住 >= 3:1） */
+  .root[data-variant='success'] {
+    background: var(--color-success);
+    color: var(--color-success-on);
+  }
+  .root[data-variant='success']:not(:disabled):not([data-disabled]):hover {
+    background: var(--button-success-hover-bg);
+  }
+
+  .root[data-variant='warning'] {
+    background: var(--color-warning);
+    color: var(--color-warning-on);
+  }
+  .root[data-variant='warning']:not(:disabled):not([data-disabled]):hover {
+    background: var(--button-warning-hover-bg);
   }
 
   .root[data-variant='danger'] {
     background: var(--color-danger);
     color: var(--color-danger-on);
   }
-  .root[data-variant='danger']:not(:disabled):hover {
+  .root[data-variant='danger']:not(:disabled):not([data-disabled]):hover {
     background: var(--button-danger-hover-bg);
   }
 

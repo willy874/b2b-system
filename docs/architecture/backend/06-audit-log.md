@@ -274,8 +274,10 @@ const actionFilter = query.action?.endsWith("*")
 
 - 列表：時間、操作者、動作（已本地化）、資源、結果
 - 展開單列：明細顯示在該列正下方（`Table` 的展開列），此時才向 `GET /audit-logs/:id` 取明細（`staleTime: Infinity`，紀錄不可變，取一次即可）；
-  `changes` 與 `metadata` 並排，各以 `JsonViewer` 顯示（可收合、最高 `16rem` 後在框內捲動、行數多時虛擬捲動；
-  見 [`../frontend/07-ui-system.md`](../frontend/07-ui-system.md) §3.12）
+  `changes` 與 `metadata` 並排：`changes` 以 `JsonDiff` 呈現 `before` → `after` 的逐行差異（新增／刪除上色、未變更的長段收合；
+  建立只有 `after` 時整份是新增、刪除只有 `before` 時整份是刪除，`null` 顯示「沒有變更」），`metadata` 以 `JsonViewer` 顯示；
+  兩者最高 `16rem` 後在框內捲動、行數多時虛擬捲動（見 [`../frontend/07-ui-system.md`](../frontend/07-ui-system.md) §3.12）
+- 列表沒有批次操作，勾選欄預設隱藏（`defaultHidden`），需要時在欄位設定打開
 - 日期篩選用 `DateRangePicker` 的 `maxSpanDays`（前端 `AUDIT_LOG_MAX_RANGE_DAYS`，與後端同值），
   選了起日後超過 90 天的日期不可選；未選日期時由後端補成最近 90 天
 - 失敗的列以 danger 色標示，並顯示 `errorCode` 對應的訊息

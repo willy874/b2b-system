@@ -164,9 +164,11 @@ repository ✗──▶ service  （單向）
 ```
 pnpm dev
 ├─ docker compose up -d postgres        (localhost:5432)
-├─ apps/api    nest start --watch       (localhost:3000)
-└─ apps/web    vite                     (localhost:5173)
-                 └─ proxy /api → http://localhost:3000（ws: true，含 /api/socket.io）
+├─ apps/api           nest start --watch       (localhost:3000)
+├─ apps/file-storage  tsx watch                (localhost:9000，S3 相容)
+└─ apps/web           vite                     (localhost:5173)
+                        ├─ proxy /api     → http://localhost:3000（ws: true，含 /api/socket.io）
+                        └─ proxy /storage → http://localhost:9000（不去前綴、不改 Host：presigned URL）
 ```
 
 前端一律透過 `/api` 前綴打到 Vite dev proxy，**不在程式碼裡寫死後端位址**，
@@ -181,12 +183,13 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
                          │  /               → 靜態檔     │
                          │  /api/socket.io/ → api（Upgrade）│
                          │  /api/*          → api（去掉前綴）│
+                         │  /storage/*      → file-storage（保留前綴）│
                          └──────────────┬───────────────┘
                                         │ edge
-                         ┌──────────────▼───────────────┐
-                         │ api（NestJS）  :3000          │  networks: edge, data
-                         │  REST ＋ Socket.io gateway    │
-                         └──────────────┬───────────────┘
+                         ┌──────────────▼───────────────┐      ┌──────────────────────────┐
+                         │ api（NestJS）  :3000          │─────▶│ file-storage :9000（volume）│ networks: edge, storage
+                         │  REST ＋ Socket.io gateway    │ storage │  S3 相容物件儲存          │
+                         └──────────────┬───────────────┘      └──────────────────────────┘
                                         │ data
   migrate（一次性）─────────────────────┤
    migration ＋ 冪等 seed               │
@@ -199,13 +202,18 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 | ---------- | ----------------------------- | ---------------------------------------------------- | ------------------------------- |
 | `postgres` | `postgres:17-alpine`          | 唯一的狀態儲存                                       | —                               |
 | `migrate`  | `game-editor-api`（同 api）   | `migrate.js` ＋ `seeds/index.js`，跑完即結束         | postgres healthy                |
-| `api`      | `game-editor-api`             | REST、Socket.io、權限快取                            | migrate **成功結束**            |
+| `api`      | `game-editor-api`             | REST、Socket.io、權限快取                            | migrate **成功結束**、file-storage healthy |
+| `file-storage` | `apps/file-storage/Dockerfile` | S3 相容的物件儲存（[`03-file-storage.md`](./03-file-storage.md)） | —                     |
 | `web`      | `apps/web/Dockerfile`（nginx）| 靜態檔、反向代理、安全標頭                 | api healthy                     |
 
 - 前端是純靜態產物，SPA fallback 到 `index.html`。
 - `/api/*` 反向代理去掉前綴後轉給 NestJS；`/api/socket.io/` 另一段 location 帶 `Upgrade` header，
   `proxy_read_timeout` 大於 Socket.io 心跳間隔。
-- **網路分兩段**：`web` 只在 `edge`，碰不到 `postgres`；`migrate` 只在 `data`。
+- **網路分三段**：`web` 只在 `edge`，碰不到 `postgres`；`migrate` 只在 `data`；`file-storage` 在 `edge` 與 `storage`，
+  碰不到 `postgres`。
+- `/storage/` 的 location **不去掉前綴、原樣轉發 `Host`**、不緩衝、不限大小：瀏覽器以 presigned URL 直傳／下載，
+  簽章涵蓋 host 與完整路徑（[`backend/09-file.md`](./backend/09-file.md) §3）。同源，所以 CSP 不必放寬。
+  換成真正的 S3 時拿掉 `file-storage` 服務，改 api 的 `FILE_STORAGE_*` 即可。
 - `migrate` 與 `api` 共用映像：部署時 schema 一定先於新版程式就位，api 不在啟動時自己跑 migration
   （多執行個體時會互搶）。
 - CSP：`default-src 'self'`，不允許 inline script（Vite build 產物符合）；`connect-src 'self'` 同時涵蓋同源的 `wss:`。
@@ -216,7 +224,8 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 ### 4.3 為什麼不拆成更多服務，以及何時要拆
 
 Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service 互動，將來要拆有清楚的邊界，
-但現在拆只會多出網路呼叫與分散式交易。必須存在的服務只有上表四個。
+但現在拆只會多出網路呼叫與分散式交易。必須存在的服務只有上表五個；`file-storage` 是可替換的基礎設施
+（等同 S3），不是業務服務。
 
 | 想拆出來的東西            | 現在不拆的理由                                                               | 拆的前提                                                                 |
 | ------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ |

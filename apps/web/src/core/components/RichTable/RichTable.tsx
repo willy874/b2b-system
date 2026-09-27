@@ -9,6 +9,8 @@ import { ACTIONS_COLUMN_ID } from '@/core/store';
 import type { ColumnPinSide } from '@/core/store';
 import { cn } from '@/shared/utils';
 
+import { BatchBar } from './BatchBar';
+import type { RichTableBatch } from './BatchBar';
 import { FilterBar } from './FilterBar';
 import type { FilterBarProps } from './FilterBar';
 import { createPinColumn, RowPinContext, useRowPinning } from './RowPin';
@@ -51,6 +53,11 @@ export interface RichTableProps<
    * 由 RichTable 自己管理（跨頁保留）；要做批次操作的頁面用 `useTableSelection` 接手控制。`false` 不提供。
    */
   enableRowSelection?: boolean;
+  /**
+   * 批次操作：勾選後在表格上方出現操作列（`BatchActionBar`），確認後送進全域佇列逐筆處理，
+   * 進行中時操作列換成進度條。提供時以 `batch.selection` 控制勾選欄，不必另外傳 `rowSelection` / `onRowSelectionChange`。
+   */
+  batch?: RichTableBatch<TData>;
   /** 不提供時不顯示分頁列（例如資料量固定的小表格）。 */
   pagination?: RichTablePagination;
   /** 落在最外層容器。 */
@@ -62,7 +69,7 @@ export interface RichTableProps<
 /**
  * 列表頁用的表格：把 `Table` 與 `Pagination` 組在一起，並以目前語系補上空狀態與分頁的預設文案。
  * 放在 `core/` 而不是 `components/`，因為它依賴 `core/locales`（docs/conventions/02-frontend.md §8）。
- * 篩選（`FilterBar`）與欄位設定（`TableSettings`）都是下拉面板，按鈕固定在最後一欄表頭的右下角
+ * 篩選（`FilterBar`）與欄位設定（`TableSettings`）都是下拉面板，按鈕固定在最後一欄表頭的右側（與標題垂直置中）
  * （`Table` 的 `headerTrailing`），該欄標題被擠壓時裁掉。
  */
 export function RichTable<TData, TFilters extends Record<string, unknown>>({
@@ -72,6 +79,7 @@ export function RichTable<TData, TFilters extends Record<string, unknown>>({
   pagination,
   enableRowPinning = true,
   enableRowSelection = true,
+  batch,
   emptyTitle,
   className,
   'data-testid': testId,
@@ -86,13 +94,16 @@ export function RichTable<TData, TFilters extends Record<string, unknown>>({
   });
   // 勾選欄（CheckboxColumn）：呼叫端沒接手時由這裡管理選取；沒有 getRowId 時與 TanStack 一樣用索引當 id
   const indexRowId = useCallback((row: TData) => String(pin.data.indexOf(row)), [pin.data]);
-  const internalSelection = useTableSelection(pin.data, tableProps.getRowId ?? indexRowId);
-  const controlled = tableProps.onRowSelectionChange !== undefined;
+  const rowId = tableProps.getRowId ?? indexRowId;
+  const internalSelection = useTableSelection(pin.data, rowId);
+  // 選取的來源：批次操作的 selection → 呼叫端自己控制 → RichTable 內部
+  const selection = batch?.selection ?? internalSelection;
+  const controlled = !batch && tableProps.onRowSelectionChange !== undefined;
   const selectable = enableRowSelection;
-  const rowSelection = controlled ? tableProps.rowSelection : internalSelection.rowSelection;
+  const rowSelection = controlled ? tableProps.rowSelection : selection.rowSelection;
   const onRowSelectionChange = controlled
     ? tableProps.onRowSelectionChange
-    : internalSelection.onRowSelectionChange;
+    : selection.onRowSelectionChange;
 
   // 工具欄排在最前面，和一般欄位一起進欄位設定（預設值見 core/store 的 DEFAULT_PINNED_COLUMNS / DEFAULT_HIDDEN_COLUMNS）。
   // 依賴放翻譯後的字串而不是 t（每次渲染都是新函式）：欄位定義一換，flexRender 會重新掛載勾選框
@@ -149,6 +160,7 @@ export function RichTable<TData, TFilters extends Record<string, unknown>>({
 
   return (
     <div className={cn('flex flex-col gap-4', className)} data-testid={testId}>
+      {batch && selectable && <BatchBar batch={batch} getRowId={rowId} />}
       <RowPinContext value={pin.contextValue}>
         <Table
           // 呼叫端明確傳入 columnPinning / stickyHeader 時以它為準

@@ -54,10 +54,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** 點鍵名或值直接編輯；每行右側的「⋯」有插入、複製、轉換型別、刪除。 */
+/** CodeMirror：語法上色、行號、摺疊（點行號旁的箭頭）、⌘/Ctrl + F 搜尋、⌘/Ctrl + Z 復原。 */
 export const Playground: Story = {};
 
-/** 受控：下方的 JsonViewer 顯示 `onChange` 回報的值。 */
+/** 受控：下方的 JsonViewer 顯示 `onChange` 回報的值，兩者外觀一致。 */
 export const Controlled: Story = {
   render: (args) => <ControlledDemo {...args} />,
 };
@@ -72,21 +72,17 @@ function ControlledDemo(args: Story['args']) {
   );
 }
 
-export const TextMode: Story = {
-  args: { defaultMode: 'text' },
-};
-
 export const ReadOnly: Story = {
   args: { readOnly: true },
 };
 
-/** 數千行：樹狀模式虛擬捲動。 */
+/** 上萬行：CodeMirror 只渲染可視範圍；第 2 層以下一開始是摺疊的。 */
 export const Large: Story = {
   args: { defaultValue: large, defaultExpandDepth: 2 },
 };
 
 /**
- * JSON Schema 驗證：錯誤的行標紅、收合的上層有標記，下方清單點一下跳過去。
+ * JSON Schema 驗證：錯誤的位置畫上波浪底線（滑過顯示訊息），下方清單點一下跳過去（摺疊中會自動展開）。
  * 試著把 `level` 改成 0、刪掉 `name`、新增一個鍵。
  */
 export const WithSchema: Story = {

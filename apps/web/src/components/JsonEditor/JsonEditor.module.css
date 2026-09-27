@@ -8,7 +8,7 @@
     background: var(--color-surface);
   }
 
-  /* 對應 svelte-jsoneditor 的選單列：模式切換在左、復原／重做在右 */
+  /* 工具列：搜尋、展開／收合、格式化在左，復原／重做在右 */
   .toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -19,113 +19,25 @@
     background: var(--color-bg);
   }
 
-  .modes {
-    display: inline-flex;
-    gap: var(--seed-space-1);
-    margin-inline-end: var(--seed-space-2);
-  }
-
   .history {
     display: inline-flex;
     gap: var(--seed-space-1);
     margin-inline-start: auto;
   }
 
-  /* 樹狀區沿用 JsonViewer 的外觀，外框由編輯器提供 */
-  .body {
-    border-radius: 0;
+  /* CodeMirror 的容器：外觀變數來自 jsonTheme.module.css，版面在 editorTheme.ts */
+  .content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
 
-  /* 可點擊編輯的鍵名與值：看起來和 JsonViewer 一樣，滑過才提示可編輯 */
-  .editable {
-    padding: 0;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: none;
-    font: inherit;
-    white-space: pre;
-    cursor: text;
+  .content :global(.cm-editor) {
+    flex: 1;
   }
 
-  .editable:hover {
-    box-shadow: inset 0 -1px 0 currentColor;
-  }
-
-  .editable:focus-visible {
+  .content:focus-within {
     outline: 2px solid var(--color-brand);
-    outline-offset: 1px;
-  }
-
-  .key {
-    color: var(--json-key-color);
-  }
-
-  .input {
-    box-sizing: content-box;
-    min-width: 2ch;
-    height: 1rem;
-    padding: 0 var(--seed-space-1);
-    border: 1px solid var(--color-brand);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    color: var(--color-fg);
-    font: inherit;
-  }
-
-  .input:focus {
-    outline: none;
-  }
-
-  .input[aria-invalid] {
-    border-color: var(--color-danger);
-  }
-
-  .actionButton {
-    display: inline-flex;
-    width: 1.25rem;
-    height: 1.25rem;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: none;
-    color: var(--json-delimiter-color);
-    cursor: pointer;
-  }
-
-  .actionButton:hover,
-  .actionButton[data-popup-open] {
-    color: var(--color-fg);
-    background: var(--color-fill-subtle);
-  }
-
-  .actionButton:focus-visible {
-    outline: 2px solid var(--color-brand);
-    outline-offset: -2px;
-  }
-
-  .textarea {
-    box-sizing: border-box;
-    width: 100%;
-    padding: var(--seed-space-2) var(--seed-space-3);
-    border: none;
-    background: var(--color-fill-subtle);
-    color: var(--color-fg);
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    line-height: 1.25rem;
-    white-space: pre;
-    resize: vertical;
-  }
-
-  .textarea:focus-visible {
-    outline: 2px solid var(--color-brand);
-    outline-offset: -2px;
-  }
-
-  .textarea[aria-invalid] {
-    outline: 2px solid var(--color-danger);
     outline-offset: -2px;
   }
 
@@ -137,7 +49,7 @@
     font-size: 0.75rem;
   }
 
-  /* 搜尋列：工具列正下方 */
+  /* 搜尋列：CodeMirror 的上方面板（編輯區頂端） */
   .search {
     display: flex;
     align-items: center;

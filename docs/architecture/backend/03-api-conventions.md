@@ -414,3 +414,9 @@ async login(...) {}
 | 欄位命名     | 回應一律 camelCase（Drizzle 已做 snake ↔ camel 轉換）               |
 | 版本         | Phase 0 不加 `/v1` 前綴。需要時用標頭協商或新增前綴，不破壞既有路徑 |
 | CORS         | 同源部署，不啟用。開發時由 Vite proxy 處理                          |
+
+---
+
+## 10. 批次操作
+
+後端不提供批次端點。列表勾選多筆後的操作由前端逐筆呼叫單筆 API，見 [ADR-0012](../../adr/0012-batch-queue-worker.md)。

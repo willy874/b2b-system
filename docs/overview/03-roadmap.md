@@ -259,5 +259,6 @@ game-editor/
 6. 稽核日誌分區表
 7. 多執行個體部署（權限快取換 Redis）
 8. 服務帳號 / API Token
-9. ~~`JsonEditor`~~（已完成：樹狀／文字模式、行內編輯、復原重做、搜尋、JSON Schema 驗證；見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.12）。
-   後續依 svelte-jsoneditor 補 table 模式、取代、拖曳排序
+9. ~~`JsonEditor`~~（已完成：CodeMirror 6 編輯器——語法上色、行號、摺疊、復原重做、搜尋、JSON Schema 驗證；
+   `JsonViewer` 外觀與它一致；見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.12、
+   [ADR-0011](../adr/0011-codemirror-json-editor.md)）。後續視需要補取代（`@codemirror/search` 已支援）、摺疊處的驗證錯誤標記

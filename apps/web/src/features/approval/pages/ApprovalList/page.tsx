@@ -3,12 +3,16 @@ import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
 import { getApprovalListQueryOptions } from '@/apis/approval/get-approval-list/query';
+import { useTableSelection } from '@/components/Table';
 import { useTranslation } from '@/core/locales';
 
 import { useApprovalPermission } from '../../hooks/useApprovalPermission';
+import { APPROVAL_LIST_TABLE_ID } from '../../preference';
 import { ApprovalDetailRoute } from '../../routes';
 import { toApprovalRowVM } from './adapter';
+import type { ApprovalRowVM } from './adapter';
 import { ApprovalTable } from './components/ApprovalTable';
+import { useApprovalBatchActions } from './useApprovalBatchActions';
 import { useApprovalFilters } from './useApprovalFilters';
 import { useApprovalSearchFilter } from './useApprovalSearchFilter';
 
@@ -17,8 +21,8 @@ export default function ApprovalListPage() {
   const navigate = useNavigate();
   const searchFilter = useApprovalSearchFilter();
   const { search, setSort, setPage } = searchFilter;
-  const filters = useApprovalFilters(searchFilter);
   const permission = useApprovalPermission();
+  const batchActions = useApprovalBatchActions();
 
   const { data, isPending } = useQuery(
     getApprovalListQueryOptions({
@@ -37,6 +41,21 @@ export default function ApprovalListPage() {
     () => (data?.items ?? []).map((item) => toApprovalRowVM(item, permission)),
     [data, permission],
   );
+  const selection = useTableSelection(rows, getRowId);
+  // 篩選條件改變後，原本勾選的列可能不在結果裡了：清空選取（排序只是換順序，保留）
+  const filters = useApprovalFilters({
+    ...searchFilter,
+    setFilters: (next) => {
+      if (
+        next.keyword !== search.keyword ||
+        next.status !== search.status ||
+        next.type !== search.type
+      ) {
+        selection.clear();
+      }
+      searchFilter.setFilters(next);
+    },
+  });
 
   return (
     <div className="flex flex-col gap-4" data-testid="approval-list-page">
@@ -56,6 +75,7 @@ export default function ApprovalListPage() {
           void navigate({ to: ApprovalDetailRoute.to, params: { approvalId: row.id }, search })
         }
         filters={filters}
+        batch={{ scope: APPROVAL_LIST_TABLE_ID, selection, actions: batchActions, getRowLabel }}
         pagination={{
           offset: search.offset,
           limit: search.limit,
@@ -68,3 +88,6 @@ export default function ApprovalListPage() {
     </div>
   );
 }
+
+const getRowId = (row: ApprovalRowVM) => row.id;
+const getRowLabel = (row: ApprovalRowVM) => row.requesterName;

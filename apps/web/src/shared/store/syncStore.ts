@@ -1,6 +1,6 @@
 import type { Channel } from '@/shared/channel';
 
-import type { StoreApi } from './create';
+import type { StoreApi } from './createStore';
 
 export type SyncStoreMessages<S> = { state: S };
 

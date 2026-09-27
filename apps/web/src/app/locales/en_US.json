@@ -50,7 +50,36 @@
     "selectColumn": "Select",
     "selectAll": "Select all on this page",
     "selectRow": "Select row",
-    "pinColumn": "Pin"
+    "pinColumn": "Pin",
+    "batch": {
+      "toolbar": "Bulk actions",
+      "selected": "{{count}} selected",
+      "clear": "Clear selection",
+      "noneEligible": "None of the selected items support this action.",
+      "skipped": "{{count}} of them don't apply and will be skipped.",
+      "queuedNote": "Items are processed one by one in the background. Track progress from the queue in the top bar.",
+      "progressLabel": "Bulk action progress",
+      "progress": {
+        "queued": "Queued ({{total}} items)",
+        "running": "Processing {{done}} / {{total}}",
+        "done": "Done {{done}} / {{total}}",
+        "cancelled": "Cancelled after {{done}} / {{total}}",
+        "failed": "{{count}} failed"
+      },
+      "queue": {
+        "title": "Bulk action queue",
+        "trigger": "Bulk action queue",
+        "triggerActive": "Bulk action queue ({{count}} in progress)",
+        "empty": "No bulk actions yet.",
+        "clearFinished": "Clear finished"
+      },
+      "viewFailures": "View failed items",
+      "dismiss": "Remove",
+      "resultTitle": "Some items in “{{name}}” were not completed",
+      "resultSummary": "{{succeeded}} succeeded, {{failed}} failed. Failed items stay selected.",
+      "cancelledToast": "“{{name}}” cancelled; the {{count}} completed items are kept",
+      "doneToast": "“{{name}}” completed {{count}} items"
+    }
   },
   "menu": {
     "home": "Home",
@@ -59,6 +88,7 @@
     "permission": "Permissions",
     "auditLog": "Audit log",
     "approval": "Approvals",
+    "file": "Files",
     "profile": "Profile",
     "preference": "Preferences",
     "logout": "Sign out"
@@ -106,6 +136,15 @@
     "APPROVAL_NOT_FOUND": "This approval request does not exist.",
     "APPROVAL_ALREADY_REVIEWED": "This request has already been reviewed.",
     "APPROVAL_SELF_REVIEW": "You cannot review your own request. Ask another administrator.",
+    "FILE_NOT_FOUND": "This file does not exist or has been deleted.",
+    "FILE_TOO_LARGE": "The file exceeds the maximum allowed size.",
+    "FILE_ALREADY_UPLOADED": "This file has already been uploaded.",
+    "FILE_UPLOAD_INCOMPLETE": "The upload did not finish. Please upload again.",
+    "FILE_SIZE_MISMATCH": "The uploaded content does not match the file size. Please upload again.",
+    "FILE_STORAGE_UNAVAILABLE": "File storage is temporarily unavailable. Please try again later.",
+    "FILE_UPLOAD_PART_INVALID": "The uploaded parts are invalid. Please upload the file again.",
+    "FILE_VERSION_CONFLICT": "This file was changed by someone else. Refresh and try again.",
+    "FILE_IMAGE_URL_INVALID": "This image link has expired. Refresh and try again.",
     "RATE_LIMITED": "Too many requests. Please slow down.",
     "INTERNAL_ERROR": "Server error. Please try again later.",
     "page": {
@@ -130,7 +169,8 @@
       "permission": "Permissions",
       "auditLog": "Audit log",
       "system": "System",
-      "approval": "Approvals"
+      "approval": "Approvals",
+      "file": "Files"
     },
     "user": {
       "create": "Create user",
@@ -160,6 +200,12 @@
     "approval": {
       "read": "View approvals",
       "review": "Review requests"
+    },
+    "file": {
+      "create": "Upload files",
+      "read": "View files",
+      "update": "Edit files",
+      "delete": "Delete files"
     }
   },
   "theme": {

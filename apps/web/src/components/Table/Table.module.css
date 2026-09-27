@@ -26,7 +26,8 @@
   }
 
   /*
-   * 有 trailing 的表頭：標題在左、trailing 固定在右下角。
+   * 有 trailing 的表頭：標題在左、trailing 固定在右側，兩者垂直置中
+   * （trailing 是 icon 按鈕、比文字高，靠底對齊會讓標題比其他欄的表頭低）。
    * 標題與按鈕都算進最小欄寬（不裁切）：儲存格不換行、寬度不夠時整張表水平捲動，
    * 欄位不會被擠到比內容窄，裁掉標題（「操...」）只會少資訊。
    */
@@ -34,7 +35,7 @@
     display: grid;
     grid-template-columns: max-content auto;
     justify-content: space-between;
-    align-items: end;
+    align-items: center;
     gap: var(--seed-space-2);
   }
 
@@ -42,12 +43,6 @@
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .headerTrailing {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--seed-space-1);
   }
 
   /* 被裁切的容器會吃掉外側的 focus ring，改畫在內側 */

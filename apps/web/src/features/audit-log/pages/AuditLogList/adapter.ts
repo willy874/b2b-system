@@ -15,9 +15,18 @@ export interface AuditLogRowVM {
   errorCode: string | null;
 }
 
+/**
+ * 變更前後（docs/architecture/backend/06-audit-log.md §5）。
+ * 建立只有 `after`、刪除只有 `before`、沒有變更（如改密碼）兩者皆無；缺的一邊是 `undefined`。
+ */
+export interface AuditLogChangesVM {
+  before: unknown;
+  after: unknown;
+}
+
 /** 展開列才取的明細（列表 API 不回 `changes` / `metadata`）。 */
 export interface AuditLogDetailVM {
-  changes: Record<string, unknown>;
+  changes: AuditLogChangesVM;
   metadata: Record<string, unknown>;
 }
 
@@ -39,7 +48,7 @@ export function toAuditLogRowVM(dto: AuditLogSummary): AuditLogRowVM {
 
 export function toAuditLogDetailVM(dto: AuditLog): AuditLogDetailVM {
   return {
-    changes: dto.changes ?? {},
+    changes: { before: dto.changes?.before, after: dto.changes?.after },
     metadata: dto.metadata ?? {},
   };
 }

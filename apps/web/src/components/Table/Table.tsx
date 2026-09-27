@@ -46,7 +46,7 @@ export interface TableProps<TData> extends SlotOverrides<TableSlot> {
    */
   onSortingChange?: (sorting: TableSorting[]) => void;
   /**
-   * 固定在最後一欄表頭右側、靠底的內容（例如篩選、欄位設定按鈕）。
+   * 固定在最後一欄表頭右側、與標題垂直置中的內容（例如篩選、欄位設定按鈕）。
    * 欄寬不夠時，該欄的標題被裁掉（overflow hidden），這裡的內容不縮。
    */
   headerTrailing?: ReactNode;

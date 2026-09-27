@@ -63,6 +63,31 @@ describe('Button', () => {
     expect(button).toHaveAttribute('data-block');
   });
 
+  it('focusableWhenDisabled：用 aria-disabled 取代 disabled，仍可聚焦但不觸發 onClick', async () => {
+    const onClick = vi.fn();
+    render(
+      <Button disabled focusableWhenDisabled onClick={onClick}>
+        送出
+      </Button>,
+    );
+    const button = screen.getByRole('button');
+    expect(button).not.toHaveAttribute('disabled');
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toHaveAttribute('data-disabled');
+    await userEvent.tab();
+    expect(button).toHaveFocus();
+    await userEvent.click(button);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it.each(['primary', 'secondary', 'ghost', 'success', 'warning', 'danger'] as const)(
+    '變體 %s 寫在 data-variant',
+    (variant) => {
+      render(<Button variant={variant}>送出</Button>);
+      expect(screen.getByRole('button')).toHaveAttribute('data-variant', variant);
+    },
+  );
+
   it('IconButton 要求 aria-label 以提供無障礙名稱', () => {
     render(<IconButton aria-label="關閉">✕</IconButton>);
     expect(screen.getByRole('button', { name: '關閉' })).toBeInTheDocument();

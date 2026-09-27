@@ -10,6 +10,63 @@ import {
   USER_FIXTURES,
 } from '../resources/fixtures';
 
+/** 目前登入的 mock 使用者（profile 回的是第一筆）。 */
+const SELF_ID = USER_FIXTURES[0]!.id;
+
+type Failure = { code: string; details?: Record<string, unknown> };
+
+const forbidden = (permission: string) =>
+  HttpResponse.json(
+    {
+      error: { code: 'AUTHZ_FORBIDDEN', message: 'forbidden', details: { missing: [permission] } },
+    },
+    { status: 403 },
+  );
+
+function failureStatus(code: string): number {
+  if (code.endsWith('_NOT_FOUND')) return 404;
+  if (code.startsWith('AUTHZ_')) return 403;
+  return 409;
+}
+
+/**
+ * 單筆寫入端點：套用與後端相同的檢查，失敗回對應的錯誤。批次操作由前端佇列逐筆呼叫這些端點（ADR-0012）。
+ * 只回結果、不改 fixture——列表重新整理後資料不變。
+ */
+function writeHandler(
+  method: 'patch' | 'post' | 'delete',
+  path: string,
+  permission: string,
+  check: (id: string) => Failure | undefined,
+  respond: (id: string) => Response,
+) {
+  return http[method](`${MOCK_API_BASE}${path}`, ({ params }) => {
+    if (!mockState.permissions.includes(permission)) return forbidden(permission);
+    const id = String(params.id);
+    const failure = check(id);
+    if (!failure) return respond(id);
+    return HttpResponse.json(
+      { error: { code: failure.code, message: failure.code, details: failure.details } },
+      { status: failureStatus(failure.code) },
+    );
+  });
+}
+
+const noContent = () => new HttpResponse(null, { status: 204 });
+const userResponse = (id: string) =>
+  HttpResponse.json({ data: USER_FIXTURES.find((item) => item.id === id) });
+
+function checkUser(
+  id: string,
+  extra?: (user: (typeof USER_FIXTURES)[number]) => string | undefined,
+) {
+  const user = USER_FIXTURES.find((item) => item.id === id);
+  if (!user) return { code: 'USER_NOT_FOUND' };
+  if (id === SELF_ID) return { code: 'AUTHZ_SELF_MODIFY' };
+  const code = extra?.(user);
+  return code ? { code } : undefined;
+}
+
 const paginate = <T>(items: T[]) => ({
   items,
   pagination: { offset: 0, limit: 20, total: items.length },
@@ -128,4 +185,28 @@ export const rbacHandlers = [
       },
     });
   }),
+
+  writeHandler('delete', '/users/:id', 'user:delete', (id) => checkUser(id), noContent),
+  writeHandler('patch', '/users/:id', 'user:update', (id) => checkUser(id), userResponse),
+  writeHandler(
+    'post',
+    '/users/:id/unlock',
+    'user:update',
+    (id) => checkUser(id, (user) => (user.status === 'locked' ? undefined : 'USER_NOT_LOCKED')),
+    userResponse,
+  ),
+  writeHandler(
+    'delete',
+    '/roles/:id',
+    'role:delete',
+    (id) => {
+      const role = ROLE_FIXTURES.find((item) => item.id === id);
+      if (!role) return { code: 'ROLE_NOT_FOUND' };
+      if (role.isSystem) return { code: 'ROLE_SYSTEM_PROTECTED' };
+      if (role.userCount > 0)
+        return { code: 'ROLE_IN_USE', details: { userCount: role.userCount } };
+      return undefined;
+    },
+    noContent,
+  ),
 ];

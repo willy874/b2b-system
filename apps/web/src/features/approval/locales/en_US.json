@@ -25,6 +25,22 @@
     },
     "approve": { "action": "Approve", "success": "Approved." },
     "reject": { "action": "Reject", "success": "Rejected." },
+    "batch": {
+      "approve": {
+        "action": "Approve",
+        "title": "Approve requests",
+        "confirm": "Approve {{count}} requests? Active accounts will be created without roles or a review comment (open the review dialog to assign roles).",
+        "success": "Approved {{count}} requests.",
+        "ineligible": "Only pending requests can be approved; approving a registration requires the \"Create user\" permission."
+      },
+      "reject": {
+        "action": "Reject",
+        "title": "Reject requests",
+        "confirm": "Reject {{count}} requests? No review comment will be attached.",
+        "success": "Rejected {{count}} requests.",
+        "ineligible": "Only pending requests can be rejected."
+      }
+    },
     "field": {
       "type": "Type",
       "requester": "Requester",

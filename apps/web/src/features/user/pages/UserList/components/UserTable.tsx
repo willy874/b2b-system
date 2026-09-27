@@ -8,7 +8,12 @@ import { Chip } from '@/components/Chip';
 import { Icon } from '@/components/Icon';
 import { Tooltip } from '@/components/Tooltip';
 import { RichTable } from '@/core/components';
-import type { FilterBarProps, RichTablePagination, TableSettingsConfig } from '@/core/components';
+import type {
+  FilterBarProps,
+  RichTableBatch,
+  RichTablePagination,
+  TableSettingsConfig,
+} from '@/core/components';
 import { useTranslation } from '@/core/locales';
 import type { SortEntry } from '@/shared/constants';
 import { formatDateTime } from '@/shared/date';
@@ -44,6 +49,7 @@ interface UserTableProps {
   onRowDoubleClick: (row: UserRowVM) => void;
   onDelete: (row: UserRowVM) => void;
   filters: FilterBarProps<UserFilterValues>;
+  batch: RichTableBatch<UserRowVM>;
   pagination: RichTablePagination;
 }
 
@@ -55,6 +61,7 @@ export function UserTable({
   onRowDoubleClick,
   onDelete,
   filters,
+  batch,
   pagination,
 }: UserTableProps) {
   const { t } = useTranslation();
@@ -170,8 +177,9 @@ export function UserTable({
       data={rows}
       columns={columns}
       loading={loading}
-      getRowId={(row) => row.id}
+      getRowId={getRowId}
       filters={filters}
+      batch={batch}
       settings={USER_TABLE_SETTINGS}
       pagination={pagination}
       sorting={search.sort.map(({ sort, order }) => ({ sortBy: sort, sortOrder: order }))}
@@ -187,6 +195,8 @@ export function UserTable({
     />
   );
 }
+
+const getRowId = (row: UserRowVM) => row.id;
 
 function isSortField(value: string): value is UserSortField {
   return (USER_SORT_FIELDS as readonly string[]).includes(value);

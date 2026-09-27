@@ -2,6 +2,15 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "dev",
+      "runtimeExecutable": "zsh",
+      "runtimeArgs": [
+        "-c",
+        "unset PORT; export PATH=$HOME/.nvm/versions/node/v24.21.0/bin:$PATH && pnpm dev"
+      ],
+      "port": 5173
+    },
+    {
       "name": "web",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["dev:web"],
@@ -28,6 +37,21 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["storybook"],
       "port": 6006
+    },
+    {
+      "name": "storybook-alt",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@game-editor/web",
+        "exec",
+        "storybook",
+        "dev",
+        "-p",
+        "6007",
+        "--no-open"
+      ],
+      "port": 6007
     }
   ]
 }

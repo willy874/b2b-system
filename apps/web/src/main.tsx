@@ -15,11 +15,13 @@ import { accountFeaturePlugin } from '@/features/account';
 import { approvalFeaturePlugin } from '@/features/approval';
 import { auditLogFeaturePlugin } from '@/features/audit-log';
 import { authFeaturePlugin } from '@/features/auth';
+import { fileFeaturePlugin } from '@/features/file';
 import { homeFeaturePlugin } from '@/features/home';
 import { permissionFeaturePlugin } from '@/features/permission';
 import { roleFeaturePlugin } from '@/features/role';
 import { userFeaturePlugin } from '@/features/user';
 import {
+  batchQueuePlugin,
   cachePlugin,
   eventBusPlugin,
   featureFlagPlugin,
@@ -59,7 +61,9 @@ async function bootstrap(): Promise<void> {
         },
       ]),
     )
-    .use(featureFlagPlugin({}));
+    .use(featureFlagPlugin({}))
+    // 全域批次佇列：SharedWorker 排程、分頁以一般 API 逐筆執行；session 結束時取消（要用 httpContext 建立的 session）
+    .use(batchQueuePlugin({ backend: MAIN_BACKEND }));
 
   // 即時推播：必須在 httpContext 之後（要用它建立的 session）；依賴圖換算在這裡注入（plugin 不認識 apis/）。
   // Mock 模式不註冊：MSW 不處理 Socket.io，行為等同推播停用（docs/architecture/frontend/11-realtime.md §9）
@@ -76,6 +80,7 @@ async function bootstrap(): Promise<void> {
     .use(permissionFeaturePlugin())
     .use(auditLogFeaturePlugin())
     .use(approvalFeaturePlugin())
+    .use(fileFeaturePlugin())
     .use(accountFeaturePlugin())
     // 擴充 feature 的小外掛：往偏好頁插「表格欄位」分頁
     .use(tableColumnSettingsPlugin())

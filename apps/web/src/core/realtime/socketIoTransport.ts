@@ -1,7 +1,7 @@
 import { io } from 'socket.io-client';
 import type { ManagerOptions, Socket, SocketOptions } from 'socket.io-client';
 
-import type { ClientToServerEvents, ServerToClientEvents } from '@/shared/realtime';
+import type { ClientToServerEvents, ServerToClientEvents } from '@/shared/websocket-sdk';
 
 import type { CreateRealtimeTransport, RealtimeTransport } from './transport';
 

@@ -37,10 +37,10 @@ core/realtime/
 ├── useRealtimeEvent.ts                    feature 訂閱伺服器事件的唯一入口
 └── index.ts
 core/cache/AppQueryClient.ts               推播可用時不再跨分頁廣播；applyInvalidation 支援只標 stale
-shared/leader/                             ★ 跨分頁 leader 選舉（純引擎，adapters 可注入）
+shared/channel/leader/                     ★ 跨分頁 leader 選舉（純引擎，adapters 可注入）
 shared/utils/keyedThrottle.ts              以 key 去重、隨機延遲削峰
 shared/channel/transports/serverRelay.ts   ★ 跨裝置頻道的傳輸層（經 `ServerRelayLink`，不認識 Socket.io）
-shared/realtime/                           `@game-editor/realtime` 的唯一匯入點（同 shared/api-sdk）
+shared/websocket-sdk/                      `@game-editor/realtime` 的唯一匯入點（同 shared/api-sdk）
 ```
 
 依賴方向照 [`conventions/07`](../../conventions/07-layer-dependencies.md) §2：
@@ -124,7 +124,7 @@ Origin 或速率限制是在 HTTP 升級階段被拒，`connect_error` 不帶 `c
 ### 3.3 連線擁有權：只有 leader 分頁連線
 
 每個分頁都連 Socket.io，成本不只是多幾條連線：每則推播在每個分頁都要解析、驗證、換算依賴圖、失效、重抓。
-所以同源的所有分頁 **共用一條連線**，由選出來的 leader 分頁持有（`shared/leader` 的 `createLeaderElection`）：
+所以同源的所有分頁 **共用一條連線**，由選出來的 leader 分頁持有（`shared/channel/leader` 的 `createLeaderElection`）：
 
 | 規則 | 說明 |
 | ---- | ---- |
@@ -286,7 +286,7 @@ createChannel('store:preference:theme', {
 useRealtimeEvent(ServerEvent.SOMETHING, (payload) => { … });
 ```
 
-- 事件名稱與 payload 型別來自 `@/shared/realtime`，不在 feature 裡寫字串。
+- 事件名稱與 payload 型別來自 `@/shared/websocket-sdk`，不在 feature 裡寫字串。
 - 一般的資料更新 **不需要** 訂閱：宣告在依賴圖裡就會自動失效（[05 §6.2](./05-data-layer.md)）。
   只有「不是 query 的東西」（例：之後的協作游標、長任務進度）才用 `useRealtimeEvent`。
 - Feature 之間要互通仍走 eventBus；伺服器事件不是 feature 間的通訊管道。

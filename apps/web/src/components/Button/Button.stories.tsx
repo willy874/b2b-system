@@ -14,7 +14,10 @@ const meta = {
     onClick: fn(),
   },
   argTypes: {
-    variant: { control: 'inline-radio', options: ['primary', 'secondary', 'ghost', 'danger'] },
+    variant: {
+      control: 'inline-radio',
+      options: ['primary', 'secondary', 'ghost', 'success', 'warning', 'danger'],
+    },
     size: { control: 'inline-radio', options: ['sm', 'md', 'lg'] },
   },
 } satisfies Meta<typeof Button>;
@@ -35,6 +38,12 @@ export const Variants: Story = {
       </Button>
       <Button {...args} variant="ghost">
         Ghost
+      </Button>
+      <Button {...args} variant="success">
+        Success
+      </Button>
+      <Button {...args} variant="warning">
+        Warning
       </Button>
       <Button {...args} variant="danger">
         Danger

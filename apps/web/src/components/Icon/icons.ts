@@ -10,9 +10,21 @@ import ChevronsDownUp from '@/assets/icons/chevrons-down-up.svg?react';
 import ChevronsUpDown from '@/assets/icons/chevrons-up-down.svg?react';
 import Close from '@/assets/icons/close.svg?react';
 import Copy from '@/assets/icons/copy.svg?react';
+import Download from '@/assets/icons/download.svg?react';
 import Edit from '@/assets/icons/edit.svg?react';
+import FileArchive from '@/assets/icons/file-archive.svg?react';
+import FileAudio from '@/assets/icons/file-audio.svg?react';
+import FileCode from '@/assets/icons/file-code.svg?react';
+import FileFont from '@/assets/icons/file-font.svg?react';
+import FileImage from '@/assets/icons/file-image.svg?react';
+import FilePdf from '@/assets/icons/file-pdf.svg?react';
+import FilePresentation from '@/assets/icons/file-presentation.svg?react';
+import FileSpreadsheet from '@/assets/icons/file-spreadsheet.svg?react';
+import FileText from '@/assets/icons/file-text.svg?react';
+import FileVideo from '@/assets/icons/file-video.svg?react';
 import File from '@/assets/icons/file.svg?react';
 import Filter from '@/assets/icons/filter.svg?react';
+import Grid from '@/assets/icons/grid.svg?react';
 import Home from '@/assets/icons/home.svg?react';
 import Info from '@/assets/icons/info.svg?react';
 import Key from '@/assets/icons/key.svg?react';
@@ -27,6 +39,7 @@ import PinOff from '@/assets/icons/pin-off.svg?react';
 import Pin from '@/assets/icons/pin.svg?react';
 import Plus from '@/assets/icons/plus.svg?react';
 import Redo from '@/assets/icons/redo.svg?react';
+import Refresh from '@/assets/icons/refresh.svg?react';
 import Search from '@/assets/icons/search.svg?react';
 import Settings from '@/assets/icons/settings.svg?react';
 import Shield from '@/assets/icons/shield.svg?react';
@@ -38,6 +51,8 @@ import Upload from '@/assets/icons/upload.svg?react';
 import User from '@/assets/icons/user.svg?react';
 import Users from '@/assets/icons/users.svg?react';
 import Warning from '@/assets/icons/warning.svg?react';
+import ZoomIn from '@/assets/icons/zoom-in.svg?react';
+import ZoomOut from '@/assets/icons/zoom-out.svg?react';
 
 /**
  * 圖示註冊表。元件裡 **不得** 內嵌 `<svg>` 字面量——換一套圖示時
@@ -56,9 +71,21 @@ export const ICONS = {
   'chevrons-up-down': ChevronsUpDown,
   close: Close,
   copy: Copy,
+  download: Download,
   edit: Edit,
   file: File,
+  'file-archive': FileArchive,
+  'file-audio': FileAudio,
+  'file-code': FileCode,
+  'file-font': FileFont,
+  'file-image': FileImage,
+  'file-pdf': FilePdf,
+  'file-presentation': FilePresentation,
+  'file-spreadsheet': FileSpreadsheet,
+  'file-text': FileText,
+  'file-video': FileVideo,
   filter: Filter,
+  grid: Grid,
   home: Home,
   info: Info,
   key: Key,
@@ -73,6 +100,7 @@ export const ICONS = {
   'pin-off': PinOff,
   plus: Plus,
   redo: Redo,
+  refresh: Refresh,
   search: Search,
   settings: Settings,
   shield: Shield,
@@ -84,6 +112,8 @@ export const ICONS = {
   user: User,
   users: Users,
   warning: Warning,
+  'zoom-in': ZoomIn,
+  'zoom-out': ZoomOut,
 } as const;
 
 export type IconName = keyof typeof ICONS;

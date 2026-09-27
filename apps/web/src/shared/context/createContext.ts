@@ -1,18 +1,30 @@
 import { EventEmitter } from '@/shared/EventEmitter';
 import type { ListenerDict } from '@/shared/EventEmitter';
+import { createStore, watch as watchStore } from '@/shared/store';
 
-import type { CoreContext, PluginFactory, PluginResults, PluginState } from './type';
+import type {
+  ContextWatch,
+  CoreContext,
+  PluginFactory,
+  PluginResults,
+  PluginState,
+  PropAccessor,
+} from './type';
 
 interface RegisteredPlugin<Attrs> {
   results: PluginResults<Attrs>;
   cleanups: Array<() => void>;
+  watches: Set<() => void>;
 }
 
 /**
  * Plugin 容器。
  * - `use()` 同步執行 factory，attrs 立刻合併到 context（權限註冊必須在這個階段）
  * - `load()` 依註冊順序依序 await 每個 `onInit`（I/O 在這個階段）
- * - `destroy()` 逆向清理，每個 plugin 各自 try/catch
+ * - `destroy()` 逆向清理，每個 plugin 各自 try/catch；最後停止 context 層級的 `watch`、清空狀態
+ *
+ * context 狀態是 `@/shared/store` 的 store（signal 為底、依賴追蹤），不依賴 React：
+ * `prop()` / `state` / `watch()` 在 plugin、fetcher 等非 React 程式碼都能用。
  */
 export function createCoreContext<
   Attrs extends object,
@@ -20,16 +32,32 @@ export function createCoreContext<
   Events extends ListenerDict = ListenerDict,
 >(): CoreContext<Attrs, State, Events> {
   const plugins = new Map<string, RegisteredPlugin<Attrs>>();
-  const state = new Map<keyof State, State[keyof State]>();
+  const state = createStore<Partial<State>>(() => ({}));
   const emitter = new EventEmitter<Events>();
+  const contextWatches = new Set<() => void>();
 
-  const prop = <K extends keyof State>(key: K, value?: State[K]): State[K] | undefined => {
-    if (value !== undefined) state.set(key, value);
-    return state.get(key) as State[K] | undefined;
+  const prop: PropAccessor<State> = (key, value) => {
+    if (value !== undefined) state.setState({ [key]: value } as Partial<State>);
+    return state.state[key];
   };
 
+  /** 建立監聽並登記到 `stops`，回傳的停止函式也會把自己從 `stops` 移除。 */
+  const watchInto =
+    (stops: Set<() => void>): ContextWatch<State> =>
+    (getter, callback, options) => {
+      const stop = watchStore(() => getter(state.state), callback, options);
+      const dispose = () => {
+        stops.delete(dispose);
+        stop();
+      };
+      stops.add(dispose);
+      return dispose;
+    };
+
   const context = {
+    state,
     prop,
+    watch: watchInto(contextWatches),
     on: emitter.on.bind(emitter),
     off: emitter.off.bind(emitter),
     emit: emitter.emit.bind(emitter),
@@ -40,6 +68,7 @@ export function createCoreContext<
     if (!plugin) return;
     try {
       plugin.results.onDestroy?.();
+      for (const stop of plugin.watches) stop();
       for (const cleanup of plugin.cleanups) cleanup();
     } catch (error) {
       // 清理失敗不能中斷後續 plugin 的清理；shared/ 沒有 logger 可用，只能回報到 console
@@ -51,8 +80,11 @@ export function createCoreContext<
 
   context.use = (factory: PluginFactory<Attrs, State, Events>) => {
     const cleanups: Array<() => void> = [];
+    const watches = new Set<() => void>();
     const results = factory({
+      state,
       prop,
+      watch: watchInto(watches),
       on: emitter.on.bind(emitter),
       off: emitter.off.bind(emitter),
       emit: emitter.emit.bind(emitter),
@@ -61,7 +93,7 @@ export function createCoreContext<
     });
 
     if (plugins.has(results.name)) destroyPlugin(results.name);
-    plugins.set(results.name, { results, cleanups });
+    plugins.set(results.name, { results, cleanups, watches });
     Object.assign(context, results.attrs ?? {});
     return context;
   };
@@ -75,7 +107,8 @@ export function createCoreContext<
 
   context.destroy = () => {
     for (const name of [...plugins.keys()].reverse()) destroyPlugin(name);
-    state.clear();
+    for (const stop of contextWatches) stop();
+    state.setState({}, true);
     emitter.clear();
   };
 

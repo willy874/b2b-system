@@ -42,6 +42,15 @@ const ERROR_CODES = [
   'APPROVAL_NOT_FOUND',
   'APPROVAL_ALREADY_REVIEWED',
   'APPROVAL_SELF_REVIEW',
+  'FILE_NOT_FOUND',
+  'FILE_TOO_LARGE',
+  'FILE_ALREADY_UPLOADED',
+  'FILE_UPLOAD_INCOMPLETE',
+  'FILE_SIZE_MISMATCH',
+  'FILE_STORAGE_UNAVAILABLE',
+  'FILE_UPLOAD_PART_INVALID',
+  'FILE_VERSION_CONFLICT',
+  'FILE_IMAGE_URL_INVALID',
   'RATE_LIMITED',
   'INTERNAL_ERROR',
 ];
@@ -64,6 +73,10 @@ const PERMISSION_KEYS = [
   ['system', 'update'],
   ['approval', 'read'],
   ['approval', 'review'],
+  ['file', 'create'],
+  ['file', 'read'],
+  ['file', 'update'],
+  ['file', 'delete'],
 ] as const;
 
 const bundles = { zh_TW: zhTW, en_US: enUS } as Record<string, Record<string, unknown>>;

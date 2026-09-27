@@ -1,11 +1,15 @@
-import { createChannel } from '@/shared/channel';
-import type { Channel, ChannelOptions } from '@/shared/channel';
-import { compareLeaderTerm, isLeaderTerm } from '@/shared/leader';
-import type { LeaderElection, LeaderElectionState, LeaderTerm } from '@/shared/leader';
-import { ResourceChangeWireSchema } from '@/shared/realtime';
-import type { ResourceChanged, ResourceChangeWire } from '@/shared/realtime';
+import { compareLeaderTerm, createChannel, isLeaderTerm } from '@/shared/channel';
+import type {
+  Channel,
+  ChannelOptions,
+  LeaderElection,
+  LeaderElectionState,
+  LeaderTerm,
+} from '@/shared/channel';
 import { createKeyedThrottle } from '@/shared/utils';
 import type { JitterRange, KeyedThrottle } from '@/shared/utils';
+import { ResourceChangeWireSchema } from '@/shared/websocket-sdk';
+import type { ResourceChanged, ResourceChangeWire } from '@/shared/websocket-sdk';
 
 import { RealtimeClientEvent } from './RealtimeClient';
 import type { RealtimeClient } from './RealtimeClient';

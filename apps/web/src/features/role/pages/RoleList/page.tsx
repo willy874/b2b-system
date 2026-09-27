@@ -5,14 +5,17 @@ import { useMemo, useState } from 'react';
 import { getRoleListQueryOptions } from '@/apis/role/get-role-list/query';
 import { AlertDialog } from '@/components/AlertDialog';
 import { ButtonLink } from '@/components/Button';
+import { useTableSelection } from '@/components/Table';
 import { useTranslation } from '@/core/locales';
 
 import { useRoleDeleteMutation } from '../../hooks/useRoleMutations';
 import { useRolePermission } from '../../hooks/useRolePermission';
+import { ROLE_LIST_TABLE_ID } from '../../preference';
 import { RoleCreateRoute, RoleDetailRoute } from '../../routes';
 import { toRoleRowVM } from './adapter';
 import type { RoleRowVM } from './adapter';
 import { RoleTable } from './components/RoleTable';
+import { useRoleBatchActions } from './useRoleBatchActions';
 import { useRoleFilters } from './useRoleFilters';
 import { useRoleSearchFilter } from './useRoleSearchFilter';
 
@@ -22,7 +25,7 @@ export default function RoleListPage() {
   const permission = useRolePermission();
   const searchFilter = useRoleSearchFilter();
   const { search, setSort, setPage } = searchFilter;
-  const filters = useRoleFilters(searchFilter);
+  const batchActions = useRoleBatchActions();
   const [pendingDelete, setPendingDelete] = useState<RoleRowVM>();
   const deleteRole = useRoleDeleteMutation();
 
@@ -41,6 +44,15 @@ export default function RoleListPage() {
     () => (data?.items ?? []).map((role) => toRoleRowVM(role, permission)),
     [data, permission],
   );
+  const selection = useTableSelection(rows, getRowId);
+  // 關鍵字改變後，原本勾選的列可能不在結果裡了：清空選取（排序只是換順序，保留）
+  const filters = useRoleFilters({
+    ...searchFilter,
+    setFilters: (next) => {
+      if (next.keyword !== search.keyword) selection.clear();
+      searchFilter.setFilters(next);
+    },
+  });
 
   return (
     <div className="flex flex-col gap-4" data-testid="role-list-page">
@@ -72,6 +84,7 @@ export default function RoleListPage() {
         }
         onDelete={setPendingDelete}
         filters={filters}
+        batch={{ scope: ROLE_LIST_TABLE_ID, selection, actions: batchActions, getRowLabel }}
         pagination={{
           offset: search.offset,
           limit: search.limit,
@@ -102,3 +115,6 @@ export default function RoleListPage() {
     </div>
   );
 }
+
+const getRowId = (row: RoleRowVM) => row.id;
+const getRowLabel = (row: RoleRowVM) => row.name;

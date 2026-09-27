@@ -5,7 +5,12 @@ import { useMemo } from 'react';
 import type { ApprovalSortField } from '@/apis/approval/types';
 import { Chip } from '@/components/Chip';
 import { RichTable } from '@/core/components';
-import type { FilterBarProps, RichTablePagination, TableSettingsConfig } from '@/core/components';
+import type {
+  FilterBarProps,
+  RichTableBatch,
+  RichTablePagination,
+  TableSettingsConfig,
+} from '@/core/components';
 import { useTranslation } from '@/core/locales';
 import type { SortEntry } from '@/shared/constants';
 import { formatDateTime } from '@/shared/date';
@@ -34,6 +39,7 @@ interface ApprovalTableProps {
   onSortingChange: (sort: Array<SortEntry<ApprovalSortField>>) => void;
   onRowDoubleClick: (row: ApprovalRowVM) => void;
   filters: FilterBarProps<ApprovalFilterValues>;
+  batch: RichTableBatch<ApprovalRowVM>;
   pagination: RichTablePagination;
 }
 
@@ -44,6 +50,7 @@ export function ApprovalTable({
   onSortingChange,
   onRowDoubleClick,
   filters,
+  batch,
   pagination,
 }: ApprovalTableProps) {
   const { t } = useTranslation();
@@ -125,8 +132,9 @@ export function ApprovalTable({
       data={rows}
       columns={columns}
       loading={loading}
-      getRowId={(row) => row.id}
+      getRowId={getRowId}
       filters={filters}
+      batch={batch}
       settings={APPROVAL_TABLE_SETTINGS}
       pagination={pagination}
       sorting={search.sort.map(({ sort, order }) => ({ sortBy: sort, sortOrder: order }))}
@@ -142,6 +150,8 @@ export function ApprovalTable({
     />
   );
 }
+
+const getRowId = (row: ApprovalRowVM) => row.id;
 
 function isSortField(value: string): value is ApprovalSortField {
   return (APPROVAL_SORT_FIELDS as readonly string[]).includes(value);

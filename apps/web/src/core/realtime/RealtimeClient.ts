@@ -7,13 +7,13 @@ import {
   ResourceChangedSchema,
   ServerEvent,
   SessionRevokedReason,
-} from '@/shared/realtime';
+} from '@/shared/websocket-sdk';
 import type {
   ChannelEnvelopeWire,
   ResourceChanged,
   ServerToClientEvents,
   SessionRenewResult,
-} from '@/shared/realtime';
+} from '@/shared/websocket-sdk';
 
 import type {
   CreateRealtimeTransport,

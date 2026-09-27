@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createChannel } from '@/shared/channel';
 import type { ChannelTransportFactory } from '@/shared/channel';
 
-import { create } from '../create';
+import { createStore } from '../createStore';
 import { shareStore } from '../shareStore';
 
 interface CounterStore {
@@ -16,7 +16,7 @@ const hasBroadcastChannel = typeof BroadcastChannel !== 'undefined';
 const stops: (() => void)[] = [];
 
 function createCounter() {
-  return create<CounterStore>((set) => ({
+  return createStore<CounterStore>((set) => ({
     count: 0,
     draft: '',
     setCount: (count) => set({ count }),

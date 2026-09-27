@@ -494,10 +494,23 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/approvals/:id`            | `approval:read`                  |
 | POST   | `/approvals/:id/approve`    | `approval:review` ＋ 類型要求的權限¹ |
 | POST   | `/approvals/:id/reject`     | `approval:review`                |
+| GET    | `/files`                    | `file:read`                      |
+| GET    | `/files/upload-policy`      | `file:create`                    |
+| POST   | `/files`                    | `file:create`                    |
+| POST   | `/files/:id/parts`          | `file:create`                    |
+| POST   | `/files/:id/complete`       | `file:create`                    |
+| DELETE | `/files/:id/upload`         | `file:create`                    |
+| GET    | `/files/:id/image/:variant` | `@Public`（網址簽章）²           |
+| GET    | `/files/:id`                | `file:read`                      |
+| PATCH  | `/files/:id`                | `file:update`                    |
+| DELETE | `/files/:id`                | `file:delete`                    |
 
 ¹ 路由宣告只有 `approval:review`；核准時 `ApprovalService` 另外檢查該類型 handler 要求的權限
 （`user.register` = `user:create`，指派角色時再加 `user:assignRole`），缺少時同樣回
 `403 AUTHZ_FORBIDDEN` ＋ `details.missing`。見 [`../../rbac/06-approval.md`](../../rbac/06-approval.md) §3.2。
+
+² 影像 API 給 `<img src>` 用，帶不了 access token；以網址上的 HMAC 簽章授權，網址只從 `file:read` 的回應拿得到。
+見 [`./09-file.md`](./09-file.md) §5.4。
 
 **這張表必須與 `docs/rbac/04-api-spec.md` 一致**，且有一支測試從 metadata
 產生它並與文件比對（見 §7.1）。

@@ -52,6 +52,10 @@ apis/role/
 > **為什麼一操作一資料夾**：只用到列表的頁面不應該把刪除、建立的程式碼打包
 > 進去。細粒度的模組邊界讓 bundler 能真正做 tree shaking。
 
+> **例外：多步驟操作**。檔案上傳要依序打「登記 → 直傳到物件儲存 → 完成」三個端點，
+> 單獨呼叫任一步都沒有意義，所以只有一個 `apis/file/upload-file/`，對外提供 `uploadFile()`；
+> 兩個後端步驟放在同資料夾的 `steps.ts`。見 [`../backend/09-file.md`](../backend/09-file.md) §5。
+
 ---
 
 ## 3. `fetcher.ts`
@@ -330,6 +334,7 @@ mutation 成功
 | `profile`：`AUTH_PROFILE`                                                      | `user` 更新（自己）、`userRole`（自己）、`role` 更新／刪除與 `rolePermission`（自己持有的角色） |
 | `auditLog`：`AUDIT_LOG_LIST` ／ `AUDIT_LOG_DETAIL`                              | **任何寫入**（只影響列表；既有紀錄不可變）                                            |
 | `approval`：`APPROVAL_LIST` ／ `APPROVAL_DETAIL`                                | 無（只有自己的寫入）                                                                  |
+| `file`：`FILE_LIST`、`FILE_INFINITE_LIST` ／ `FILE_DETAIL`                      | 無（只有自己的寫入）；檔案內容 `FILE_TEXT` 刻意不列——以 id 為 key、不可變             |
 | `permission`：`PERMISSION_LIST`                                                | 無（一個部署版本內不變）                                                              |
 
 `userRole`、`rolePermission`、`userCredential` 是 **關係／純來源**：沒有自己的 query，只用來描述寫入。

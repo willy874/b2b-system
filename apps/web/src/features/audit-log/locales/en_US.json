@@ -33,7 +33,9 @@
       "changes": "Before / after",
       "metadata": "Metadata",
       "arraySummary": "{{count}} items",
-      "objectSummary": "{{count}} fields"
+      "objectSummary": "{{count}} fields",
+      "expandUnchanged": "Show {{count}} unchanged lines",
+      "noChanges": "No changes"
     }
   }
 }

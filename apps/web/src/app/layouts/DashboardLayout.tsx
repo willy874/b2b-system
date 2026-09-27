@@ -8,6 +8,7 @@ import { IconButton } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import type { IconName } from '@/components/Icon';
 import { Menu } from '@/components/Menu';
+import { BatchQueueIndicator, BatchQueueNotifier } from '@/core/batch';
 import { useTranslation } from '@/core/locales';
 import { usePageAccessChecker } from '@/core/permission';
 import type { PageKey } from '@/core/permission';
@@ -16,6 +17,7 @@ import { PREFERENCE_PAGE, PROFILE_PAGE } from '@/features/account';
 import { APPROVAL_PAGE } from '@/features/approval';
 import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { useLogoutMutation } from '@/features/auth';
+import { FILE_PAGE } from '@/features/file';
 import { HOME_PAGE } from '@/features/home';
 import { PERMISSION_PAGE } from '@/features/permission';
 import { ROLE_PAGE } from '@/features/role';
@@ -64,6 +66,7 @@ const MENU: NavItem[] = [
     testId: 'menu-approval',
     icon: 'check',
   },
+  { pageKey: FILE_PAGE, to: '/file', labelKey: 'menu.file', testId: 'menu-file', icon: 'file' },
 ];
 
 const ACCOUNT_MENU: MenuItem[] = [
@@ -137,6 +140,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             ☰
           </IconButton>
           <div className="flex-1" />
+          <BatchQueueIndicator />
           <ThemeMenu />
           <Menu
             trigger={
@@ -160,6 +164,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           />
         </header>
         <main className="ge-shell__content">{children}</main>
+        {/* 批次工作結束時彈出結果（佇列只通知發起的分頁） */}
+        <BatchQueueNotifier />
       </div>
     </div>
   );

@@ -70,7 +70,8 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `Select`（含搜尋，取代原本的 `Combobox`）/ `Menu` | 自製列表 ＋ Base UI `Popover`（定位、點外面／Esc 關閉、焦點歸還）＋ TanStack Virtual（§3.10） |
 | `VirtualList`                    | TanStack Virtual；長列表的虛擬捲動 ＋ 無限捲動（§3.10） |
 | `Typography` / `Title` / `Text` / `Paragraph` | 自製；`copyable` 的複製按鈕用 `Tooltip` ＋ `navigator.clipboard`（§3.9） |
-| `JsonViewer` / `JsonEditor`      | 自製；外觀與操作對標 svelte-jsoneditor，逐行渲染 ＋ `useVirtualRows` 虛擬捲動；編輯選單用 `Menu`（§3.12、[ADR-0010](../../adr/0010-self-built-json-editor.md)） |
+| `JsonViewer` / `JsonEditor`      | `JsonEditor` 是 CodeMirror 6；`JsonViewer` 自製（逐行渲染 ＋ `useVirtualRows`），外觀對齊 CodeMirror（§3.12、[ADR-0011](../../adr/0011-codemirror-json-editor.md)） |
+| `JsonDiff`                       | 自製：Myers 逐行差異 ＋ `useVirtualRows`，外觀沿用 `JsonViewer`（§3.12） |
 
 > **DatePicker 是最大的一塊自製工作**，排入
 > [`../../overview/03-roadmap.md`](../../overview/03-roadmap.md) 的 M2，已完成：`components/DatePicker/` 底下是
@@ -461,58 +462,81 @@ const handleDelete = async (row: RoleRowVM) => {
 
 ### 3.12 JSON：`JsonViewer` / `JsonEditor`
 
-`components/JsonViewer/`。顯示任意 JSON（稽核日誌的 `changes` / `metadata`、之後的設定檔與遊戲資料）：
+`JsonEditor` 以 **CodeMirror 6** 實作；`JsonViewer` 自製、不載入 CodeMirror，但外觀與它一致——
+行號欄（行號 ＋ 摺疊箭頭）、原始 JSON 文字、同一套語法上色。兩者並排（例如編輯器下方預覽目前的值）時看起來是同一個元件。
+決策見 [ADR-0011](../../adr/0011-codemirror-json-editor.md)（取代 [ADR-0010](../../adr/0010-self-built-json-editor.md) 的自製樹狀編輯器）。
+
+**共用外觀**：`JsonViewer/jsonTheme.module.css` 是唯一的定義。
+
+| 項目 | 內容 |
+| ---- | ---- |
+| 變數（`.theme`） | 版面：`--json-font-size`、`--json-line-height`（1.25rem）、`--json-padding-block`、`--json-content-inset`、`--json-fold-width`；顏色：`--json-background`、`--json-gutter-*`、`--json-key-color` → `--color-fg`、`--json-string-color` → `--color-success-text`、`--json-number-color` → `--color-danger-text`、`--json-boolean-color` → `--color-warning-text`、`--json-null-color` → `--color-brand`、`--json-delimiter-color` → `--color-fg-muted`、`--json-placeholder-*`、`--json-selection-background`、`--json-search-match-*`、`--json-error-color` |
+| 語法上色 class | `.key` `.string` `.number` `.boolean` `.null` `.punctuation`；`JsonViewer` 直接用，`JsonEditor` 以 `HighlightStyle` 的 `class` 對應 `@lezer/json` 的標記 |
+| 摺疊 | `.foldMarker`（邊框畫的箭頭，`data-open` 朝下）、`.foldPlaceholder`（`{…}` 中間的 `…`，滑過顯示 `labels.summary`） |
+
+CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `JsonEditor/editorTheme.ts` 以 `EditorView.theme` 設定，
+值只引用上述變數：CodeMirror 的預設樣式是不分層的 `<style>`，`@layer components` 裡的規則壓不過它。
+`JsonViewer.module.css` 以同一組變數畫出相同的行號欄寬（位數由元件以 `--json-line-number-digits` 提供，至少 2 位）、行高與留白。
+
+**`JsonViewer`**（`components/JsonViewer/`）：顯示任意 JSON（稽核日誌的 `changes` / `metadata`、之後的設定檔與遊戲資料）。
 
 | 功能 | props / 行為 |
 | ---- | ---- |
-| 語法上色 | 鍵名、字串、數字、布林、`null` 各一色；標點淡化 |
-| 收合 | 物件／陣列前的箭頭；收合後只佔一行，後接計數徽章（`labels.summary`）。`defaultExpandDepth` 決定一開始展開到第幾層；換一份 `value` 時收合狀態回到預設 |
-| 高度 | `maxHeight`（預設 `20rem`），超過在框內捲動；長行不換行、在框內水平捲動 |
+| 內容 | 與 `JSON.stringify(value, null, 2)` 相同的文字：鍵名帶引號、縮排是真的空白（選取複製出來就是 JSON） |
+| 行號 | 完整展開時的行號；收合的容器之後跳號，與 CodeMirror 摺疊後相同 |
+| 收合 | 行號欄的箭頭；收合後顯示 `{…}` / `[…]`，滑過 `…` 顯示 `labels.summary`。`defaultExpandDepth` 決定一開始展開到第幾層；換一份 `value` 時收合狀態回到預設 |
+| 高度 | `maxHeight`（預設 `20rem`），超過在框內捲動；長行不換行、在框內水平捲動，行號欄固定在左側 |
 | 虛擬捲動 | 攤平成「一行一個元素」（`toJsonLines`，迴圈走訪不遞迴、循環參照顯示 `[Circular]`），行數超過 `virtualThreshold`（預設 100）以 `useVirtualRows` 只渲染可視範圍 |
-| 可近性 | 捲動框是 `<section>`，傳 `aria-label` 即成為 `region` 地標；箭頭是 `<button aria-expanded>` |
-| testid | 行：`json-viewer-item` ＋ `data-value`（節點路徑，如 `$["a"][0]`）；箭頭：`json-viewer-toggle` |
+| 可近性 | 捲動框是 `<section>`，傳 `aria-label` 即成為 `region` 地標；箭頭是 `<button aria-expanded>`；行號 `aria-hidden` |
+| testid | 行：`json-viewer-item` ＋ `data-value`（節點路徑，如 `$["a"][0]`）＋ `data-line-number`；箭頭：`json-viewer-toggle` |
 
-**設計對標：[svelte-jsoneditor](https://github.com/josdejong/svelte-jsoneditor)**（React 以 `vanilla-jsoneditor` 使用，ISC 授權）。
-選它當基準的理由：維護中、tree／text／table 三種模式、支援大型文件（官方標示到 512 MB），也是 `JsonEditor` 功能範圍的參考。
+**`JsonDiff`**（`components/JsonDiff/`）：兩份 JSON 的逐行差異（unified diff），稽核日誌的「變更前後」用它。
 
-| 對標項目 | svelte-jsoneditor | 本專案 |
-| ---- | ---- | ---- |
-| 鍵名 | 不加引號，`--jse-key-color` | 相同，`--json-key-color` → `--color-fg` |
-| 字串／數字／布林／null | 綠／紅／橘／藍（`--jse-value-color-*`） | `--json-string-color` → `--color-success-text`、`--json-number-color` → `--color-danger-text`、`--json-boolean-color` → `--color-warning-text`、`--json-null-color` → `--color-brand` |
-| 標點 | `--jse-delimiter-color`（淡化） | `--json-delimiter-color` → `--color-fg-muted` |
-| 收合的容器 | 計數徽章（`--jse-tag-*`） | `--json-tag-background` / `--json-tag-color` |
-| 大型文件 | 不可變資料 ＋ 只重繪改變的部分 | 逐行虛擬捲動 |
+| 功能 | props / 行為 |
+| ---- | ---- |
+| 內容 | `before` / `after` 各自以 `JSON.stringify(value, null, 2)` 攤成行，以 Myers 演算法逐行比對（O((N + M)·D)）；同一段變更先列刪除、再列新增。`undefined` 代表這一邊不存在（建立／刪除），另一邊整份是新增／刪除 |
+| 行尾逗號 | 比對時忽略行尾逗號（陣列尾端加一項不會讓原本的最後一行變成「刪一行、加一行」）；未變更的行顯示新版的文字 |
+| 外觀 | 行號欄並列舊版／新版行號，後接 `+` / `-` 標記；新增的行 `--color-success`、刪除的行 `--color-danger` 混色的底色；語法上色與 `JsonViewer` 相同（`jsonTheme.module.css`） |
+| 摺疊 | 只保留變更前後 `context` 行（預設 3），其餘連續未變更的行收成摺疊列（只有一行的不收），點一下展開該段；換一份 `before` / `after` 時回到預設 |
+| 沒有變更 | 兩邊相同或都不存在時顯示 `labels.empty` |
+| 高度 | `maxHeight`（預設 `20rem`）；列數超過 `virtualThreshold`（預設 100）以 `useVirtualRows` 虛擬捲動 |
+| 文案 | `labels.expandUnchanged(count)`、`labels.empty`；`features/` 以 `t()` 傳入 |
+| testid | 行：`json-diff-item` ＋ `data-value`（`equal` / `added` / `removed`）＋ `data-old-line-number` / `data-new-line-number`；摺疊列：`json-diff-fold` ＋ `data-value`（區段起點） |
 
-顏色一律以 `--json-*` 元件變數定義在 `JsonViewer.module.css` 的 `.root`，值只引用 alias token（深色主題自動跟著換）。
+純邏輯在 `JsonDiff/diffLines.ts`：`diffJsonLines`（比對）、`toJsonDiffRows`（摺疊）、`tokenizeJsonLine`（一行切成語法上色的片段）。
 
-檔案分工（`JsonViewer/` 裡的 `jsonLines.ts`、`useJsonTree.ts`、`JsonTree.tsx` 兩個元件共用，不從 index 匯出）：
+**`JsonEditor`**（`components/JsonEditor/`）：
+
+| 功能 | props / 行為 |
+| ---- | ---- |
+| 值 | `value` / `defaultValue` / `onChange`（受控／非受控）。內容是合法 JSON 時回報解析後的值，打到一半不回報。傳入的值與最後一次回報的不是同一個參考時，整份內容重新產生（復原紀錄、游標、摺疊重設） |
+| 編輯 | CodeMirror：語法上色、行號、摺疊（行號欄的箭頭、⌘/Ctrl + Shift + [ ／ ]）、括號配對與自動補上、目前行底色 |
+| 不合法的內容 | 解析錯誤以 lint 標在出錯的位置，下方顯示 `labels.parseError` ＋ 瀏覽器的訊息（`role="alert"`）；編輯區 `aria-invalid` |
+| 工具列 | 搜尋、全部展開／全部收合（根節點保持展開）、格式化／壓縮（只改排版，不回報 `onChange`，可復原）、復原／重做（⌘/Ctrl + Z、⌘/Ctrl + Shift + Z） |
+| 搜尋 | ⌘/Ctrl + F 或工具列的放大鏡：搜尋列（`JsonSearchBar`，設計系統元件）以 portal 渲染進 CodeMirror 的搜尋面板位置，查詢交給 `@codemirror/search`。不分大小寫、顯示「2 / 5」；Enter / Shift + Enter 上下一筆，跳到的位置會打開包住它的摺疊並置中；Esc 關閉 |
+| 驗證 | `validator`（可非同步）；JSON Schema 用 `createJsonSchemaValidator(schema, { formatMessage })`。結果放進 CodeMirror 的 state，以 lint 畫波浪底線（滑過顯示訊息）：物件成員標鍵名（值是基本型別時連值），容器只標開頭的括號。編輯區下方列出錯誤，點一下打開摺疊並選取；`onValidationChange` 回報結果。validator 請保持參考固定 |
+| 唯讀 | `readOnly`：可搜尋、摺疊、選取複製；不能改，沒有格式化／壓縮與復原 |
+| 高度 | `maxHeight`（預設 `20rem`），超過在編輯區內捲動 |
+| 文案 | `labels`（延伸 `JsonViewerLabels`）；`features/` 以 `t()` 傳入 |
+| testid | 工具列 `json-editor-toolbar`、編輯區 `json-editor-content`、錯誤 `json-editor-error`、搜尋列 `json-editor-search`（輸入 `-input`、筆數 `-status`）、驗證清單 `json-editor-validation`（每筆 `json-editor-validation-item` ＋ `data-value` 路徑） |
+
+檔案分工：
 
 | 檔案 | 內容 |
 | ---- | ---- |
-| `JsonViewer/jsonLines.ts` | `toJsonLines`（攤平成行）、`parsePath` / `formatPath`（`$["a"][0]` ↔ `['a', 0]`） |
-| `JsonViewer/jsonSearch.ts` | `searchJson`：在整份資料（含收合中的節點）找鍵名與值，依文件順序 |
-| `JsonViewer/useJsonTree.ts` | 收合狀態：以「與基準相反的路徑」記錄；基準是 `defaultExpandDepth`、全部展開或全部收合；`expandTo` 展開某節點的所有上層 |
-| `JsonViewer/JsonTree.tsx` | 捲動框 ＋ 逐行渲染；`renderKey` / `renderValue` / `renderActions` 讓編輯器換掉鍵名、值並加上行尾操作；`activeTarget`（焦點行，置中捲入）、`highlight`（符合的文字）、`annotations`（驗證錯誤標記） |
-| `JsonEditor/jsonEdit.ts` | 不可變的資料操作（`setIn`、`removeIn`、`renameKey`、`insertAfter`、`appendChild`、`duplicate`、`convert`）與編輯框文字轉換 |
-| `JsonEditor/useJsonHistory.ts` | 復原／重做：保存每一版的根（最多 100 步）；外部換掉 `value` 時清空 |
+| `JsonViewer/jsonTheme.module.css` | 兩個元件共用的變數與 class（見上） |
+| `JsonViewer/jsonLines.ts` | `toJsonLines`（攤平成行，含行號）、`formatPath`（`['a', 0]` → `$["a"][0]`） |
+| `JsonViewer/useJsonTree.ts` | 收合狀態：以「與 `defaultExpandDepth` 相反的路徑」記錄，換 `value` 時重設 |
+| `JsonEditor/editorTheme.ts` | CodeMirror 的 `EditorView.theme` 與 `HighlightStyle` |
+| `JsonEditor/jsonDocument.ts` | 在語法樹上找路徑的位置（`findPathRange`）、依深度摺疊（`foldAtDepth`）、摺疊摘要（`describeFold`） |
 | `JsonEditor/validation.ts` | `JsonValidator` 型別與 `createJsonSchemaValidator`；ajv 在 `ajvValidator.ts`，第一次驗證時才動態載入 |
 | `JsonEditor/useJsonValidation.ts` | 值改變時重新驗證（`useDeferredValue`），丟掉過期的非同步結果 |
 
-**`JsonEditor`**（自製而非包 `vanilla-jsoneditor`，見 [ADR-0010](../../adr/0010-self-built-json-editor.md)）：
+**Bundle**：CodeMirror（用到的部分）約 120 KB gzip，只被 `JsonEditor` 匯入；沒有頁面用到 `JsonEditor` 時，正式建置不含 CodeMirror。
+預覽一律用 `JsonViewer`。
 
-| 功能 | props / 行為 |
-| ---- | ---- |
-| 值 | `value` / `defaultValue` / `onChange`（受控／非受控）；每次回報整份新值，未改到的子樹沿用原參考 |
-| 模式 | `mode` / `defaultMode` / `onModeChange`：`tree`（樹狀）、`text`（原始 JSON，合法才即時套用；不合法時顯示錯誤、不能切回樹狀） |
-| 編輯鍵名／值 | 點一下直接編輯（`<button>`，鍵盤 Enter 同義）；Enter 送出、Esc 放棄、失焦送出。鍵名重複時標示錯誤不送出 |
-| 型別判斷 | 與 svelte-jsoneditor 相同：`true` / `false` / `null` 與 JSON 數字轉成對應型別，其餘是字串；要字串的 `123` 就輸入 `"123"` |
-| 行尾選單（`⋯`） | 編輯鍵名、編輯值、新增子項、在下方插入、複製一份、轉成物件／陣列／值、刪除；插入後直接編輯新鍵名，送出後接著編輯值 |
-| 工具列 | 模式切換；樹狀：搜尋、全部展開／全部收合；文字：格式化／壓縮；復原／重做（⌘/Ctrl + Z、⌘/Ctrl + Shift + Z 或 Y） |
-| 搜尋 | 樹狀模式 ⌘/Ctrl + F 或工具列的放大鏡：找整份資料的鍵名與值（不分大小寫，含收合中的節點）；符合的文字加底色、顯示「2 / 5」；Enter / Shift + Enter 上下一筆，跳到的那一行展開上層、置中並加左側線；Esc 關閉。文字模式交給瀏覽器的尋找 |
-| 驗證 | `validator`（可非同步，形狀同 svelte-jsoneditor）；JSON Schema 用 `createJsonSchemaValidator(schema, { formatMessage })`。錯誤的行標紅 ＋ ⚠（提示框列出訊息），收合的上層顯示淡色 ⚠；編輯區下方列出錯誤，點一下切到樹狀並跳過去；`onValidationChange` 回報結果。validator 請保持參考固定 |
-| 唯讀 | `readOnly`：可切模式、收合，不能改、沒有選單與復原 |
-| 文案 | `labels`（延伸 `JsonViewerLabels`）；`features/` 以 `t()` 傳入 |
-| testid | 工具列 `json-editor-toolbar`、模式鈕 `json-editor-mode` ＋ `data-value`、行尾選單 `json-editor-actions`、編輯框 `json-editor-input`、文字框 `json-editor-text`、錯誤 `json-editor-error`、搜尋列 `json-editor-search`（輸入 `-input`、筆數 `-status`）、驗證清單 `json-editor-validation`（每筆 `json-editor-validation-item` ＋ `data-value` 路徑）；樹狀的行沿用 `json-viewer-item`，錯誤標記 `json-viewer-marker` |
+**測試**：jsdom 沒有 `Range.getClientRects`，`JsonEditor.test.tsx` 補上替身；也無法模擬 contenteditable 的輸入，
+測試以 `EditorView.findFromDOM()` 取得編輯器後直接送 transaction。
 
 **JSON Schema 驗證器用 ajv**（與 svelte-jsoneditor 相同；依 `$schema` 選 draft-07／2019-09／2020-12，未宣告時 draft-07，含 `ajv-formats`）：
 
@@ -522,7 +546,7 @@ const handleDelete = async (row: RoleRowVM) => {
 - ajv 會把 schema 編譯成 JavaScript（`new Function`）；之後若啟用不含 `unsafe-eval` 的 CSP，要改成建置時預先編譯（ajv standalone）。
 - 評估過 `@cfworker/json-schema`（不用 eval、體積小），但屬性本身驗證失敗時會被誤報成 `additionalProperties`，不採用（[ADR-0010](../../adr/0010-self-built-json-editor.md)）。
 
-尚未實作（依同一基準補）：table 模式、取代、拖曳排序、JSON 修復。
+尚未實作：取代（`@codemirror/search` 已支援，需要時在 `JsonSearchBar` 加欄位）、摺疊處的驗證錯誤標記。
 
 ---
 
@@ -666,6 +690,7 @@ Base UI 已處理焦點陷阱、roving tabindex、ARIA 角色與鍵盤互動。�
 | 表單標籤 | 一律用 Base UI `Field.Label`，不用純視覺標籤                       |
 | 錯誤訊息 | `Field.Error` 帶 `aria-describedby` 連到輸入元素                   |
 | 圖示按鈕 | 必須有 `aria-label`                                                |
+| 停用說明 | 原生 `disabled` 的按鈕收不到 hover／focus，提示出不來。`Button` / `IconButton` 的 `focusableWhenDisabled` 改用 `aria-disabled`（仍可聚焦、hover，點擊與 Enter／Space 被擋下）；包在 `Tooltip` 裡的停用按鈕自動打開，「為什麼不能按」一定看得到（[06-permission.md](./06-permission.md) §6.1）。其他元素用原生 `disabled` 時提示不會顯示 |
 | 動態內容 | toast 用 Base UI Toast（已含 `aria-live`）；表格載入用 `aria-busy` |
 | 減少動效 | `@media (prefers-reduced-motion: reduce)` 關閉所有非必要動畫       |
 
@@ -685,6 +710,7 @@ components/Table/
 ├── pinning.ts            欄位固定、釘選列：預設值（actions 靠右）與量測 sticky 位移的 usePinLayout
 ├── columns.tsx           工具欄：createSelectColumn（勾選欄 CheckboxColumn）、ColumnMeta.settingsLabel
 ├── useTableSelection.ts  跨頁保留的選取狀態（id ＋ 勾選當下的資料），批次操作用
+├── BatchActionBar.tsx    勾選後的批次操作列：已選筆數、清除選取、呼叫端的按鈕（§6.2）
 ├── slots.ts              TableSlot
 └── index.ts
 ```
@@ -694,7 +720,7 @@ components/Table/
 勾選欄（CheckboxColumn）與批次操作的準備：`createSelectColumn(labels)` 產生 id 為 `__select` 的欄位——表頭全選／取消本頁
 （部分勾選時半選）、每列一個勾選框；搭配 `useTableSelection(data, getRowId)` 取得 `rowSelection` / `onRowSelectionChange`，
 以及跨頁保留的 `selectedIds`、`selectedRows`（勾選當下的資料，列還在目前頁時換成最新的一筆）與 `clear()`。
-批次操作直接拿 `selectedRows` 送出；篩選條件改變或操作完成後由呼叫端 `clear()`。
+批次操作直接拿 `selectedRows` 送出；篩選條件改變時由呼叫端 `clear()`。列表頁的完整批次流程見 §6.2。
 
 非字串表頭（勾選框、圖示）的欄位以 `meta.settingsLabel` 宣告欄位設定裡的名稱，才會進入欄位設定（排序、隱藏、固定）。
 
@@ -767,7 +793,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 | `FilterBar` | 「清除」→ `defaultValue`（不提供就不顯示） | 「搜尋」；文字欄位按 Enter 同義 | `labels={{ reset, submit }}` |
 | `TableSettings` | 「恢復預設」→ `defaultValue` | 「套用」；草稿等於預設時呼叫 `onReset`，不留下多餘的設定 | `labels={{ reset, submit }}` |
 
-兩顆按鈕透過 `Table` 的 `headerTrailing` **固定在最後一欄表頭的右下角**（不論那一欄是什麼，也不會被包進排序按鈕）。
+兩顆按鈕透過 `Table` 的 `headerTrailing` **固定在最後一欄表頭的右側（與標題垂直置中）**（不論那一欄是什麼，也不會被包進排序按鈕）。
 該欄的標題與按鈕都算進最小欄寬（grid `max-content auto`），標題不會被裁切——儲存格不換行後，寬度不夠時整張表水平捲動，欄位不會被擠到比內容窄。
 `actions`（操作欄）固定在原位、不列入欄位設定。
 
@@ -783,7 +809,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 
 | 工具欄 | 出現條件 | 預設 |
 | ------ | -------- | ---- |
-| 勾選欄（CheckboxColumn，`__select`） | 預設都有；`enableRowSelection={false}` 關閉 | 顯示、固定在 `start` |
+| 勾選欄（CheckboxColumn，`__select`） | 預設都有；`enableRowSelection={false}` 關閉 | 顯示、固定在 `start`；沒有批次操作的表可以把 `__select` 放進 `defaultHidden` 預設隱藏（例：稽核日誌） |
 | 釘選欄（PinColumn，`__pin`） | 有 `settings.tableId` 與 `getRowId`（釘選要記進偏好）；`enableRowPinning={false}` 關閉 | **隱藏**，使用者在欄位設定裡打開 |
 
 勾選欄的選取狀態：呼叫端沒傳 `rowSelection` / `onRowSelectionChange` 時由 `RichTable` 內部的 `useTableSelection` 管理（跨頁保留）；
@@ -792,6 +818,8 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 
 預設值寫在 `core/store/tableColumnSettings` 的 `DEFAULT_PINNED_COLUMNS` / `DEFAULT_HIDDEN_COLUMNS`；
 已存過設定的表遇到新加的欄位時，也套用這些預設（新欄位不會突然出現或沒被固定）。
+各表另外要預設隱藏的欄位放在 `settings.defaultHidden`，並在 `registerPreferenceTable` 的 `defaultHidden` 登記同一份（兩處共用一個常數），
+偏好頁的「恢復預設」才會一致。
 偏好頁的卡片預設列出兩個工具欄；關掉勾選欄或釘選欄的表，在 `registerPreferenceTable` 對應設 `selectable: false` / `rowPinning: false`。
 
 - 欄位固定與固定表頭跟欄位順序一樣是 **草稿**，按「套用」才生效；固定的欄位依目前的欄位順序排在左右兩側。
@@ -806,6 +834,75 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 
 表頭改成模組層級的 `ToolsHeader` 元件、設定由 context 傳入：TanStack 的 `flexRender` 把函式表頭當成元件，
 每次渲染產生新函式會讓按鈕重新掛載，下拉面板在值改變時就會被關掉。
+
+### 6.2 批次操作（`RichTable` 的 `batch`）
+
+決策與理由見 [ADR-0012](../../adr/0012-batch-queue-worker.md)。後端 **沒有** 批次端點：確認後把適用的列送進
+**全域批次佇列**，由佇列逐筆（一次一筆、堵塞式）交給分頁以一般的單筆 API 處理。
+上傳這類彼此獨立的操作可以讓同一個工作並行數筆、回報位元組進度（[ADR-0013](../../adr/0013-file-manager-upload.md)、[12 §8](./12-file-manager.md)）。
+
+| 層 | 檔案 | 職責 |
+| -- | ---- | ---- |
+| 設計系統 | `components/Table/BatchActionBar` | `role="toolbar"`：已選筆數（`batch-action-bar-count`，`data-value` 是筆數）、清除選取、呼叫端放進來的按鈕；不認識任何業務操作，文案由 `labels` 傳入 |
+| 機制 | `core/batch` | 佇列：`BatchQueueHost`（在 SharedWorker / dedicated worker 裡）、`BatchQueueClient`（每個分頁一個，由 `batchQueuePlugin` 建立）、`connectBatchQueue()`；操作註冊表 `registerBatchOperation`；UI：`BatchProgressBar`、`BatchQueueIndicator`（AppHeader）、`BatchQueueNotifier`（結束時彈出）、`BatchResultDialog` |
+| 列表 | `core/components/RichTable/BatchBar.tsx` | `batch` prop 的接線：勾選後顯示操作列，每個動作一顆按鈕（`data-testid="batch-action"`，`data-value` 是動作 id；顏色依 `tone`：`primary` / `success` / `warning` / `danger`，省略時 secondary；確認框在 `danger` / `warning` 時用危險色）；這張表（`batch.scope`）的工作進行中時換成進度條 |
+| feature | `batch.ts` | 在 plugin 的同步階段註冊操作：每筆呼叫一次單筆 fetcher ＋ 失效快取（同單筆 mutation hook），**不發 toast**；失敗直接拋出 |
+| feature | `pages/<List>/use<Name>BatchActions.ts` | 宣告這張表有哪些批次動作；`operation` 引用註冊的操作 id |
+
+```tsx
+// features/user/batch.ts（節錄）
+registerBatchOperation({
+  id: UserBatchOperation.DELETE,               // 'user.delete'
+  labelKey: 'user.batch.delete.title',         // 佇列面板、進度條、結果對話框上的名稱
+  localeScope: USER_LOCALE_SCOPE,              // 佇列 UI 在其他 feature 的頁面也會顯示：顯示前補載
+  successKey: 'user.batch.delete.success',     // 全部成功時的 toast，參數 { count }
+  run: async (userId, { signal }) => {             // 第二個參數：取消時中止的 signal、reportProgress
+    await deleteUser({ params: { userId }, signal });
+    invalidateResources([{ resource: Resource.USER, kind: 'delete', id: userId }]);
+  },
+});
+
+// page.tsx
+const selection = useTableSelection(rows, getRowId);
+const batchActions = useUserBatchActions();
+<UserTable batch={{ scope: USER_LIST_TABLE_ID, selection, actions: batchActions, getRowLabel: (row) => row.email }} … />
+
+// useUserBatchActions.ts（節錄）
+{
+  id: 'delete',
+  label: t('user.batch.delete.action'),
+  tone: 'danger',
+  hidden: !permission.hydrated || !permission.canDelete, // 永遠不會有 → 隱藏
+  isEligible: (row) => row.canDelete,                      // 沿用 adapter 的列旗標
+  confirm: ({ eligible }) => ({ title: …, description: t('user.batch.delete.confirm', { count: eligible.length }) }),
+  operation: UserBatchOperation.DELETE,
+}
+```
+
+行為：
+
+| 情境 | 結果 |
+| ---- | ---- |
+| 沒有勾選，或所有動作都 `hidden` | 不顯示操作列 |
+| 選到的列都不適用（`isEligible` 全為 false） | 按鈕停用，tooltip 顯示該動作的 `ineligibleReason`（省略時用通用文案） |
+| 部分列不適用 | 只送出適用的列；確認框自動補上「其中 N 筆不適用，將會略過」與「會在背景逐筆處理」 |
+| 確認後 | 工作進入全域佇列（前面有工作就排隊）；這張表的操作列換成進度條（`batch-progress-bar`；每個工作一個 `batch-progress`，`data-status` 是 `queued` / `running` / `done` / `cancelled`，已處理筆數在 `batch-progress-count` 的 `data-value`），可以取消 |
+| 每一筆 | 成功或失敗都即時反映在進度條（失敗筆數另外標示）；執行的分頁照單筆規則失效快取 |
+| 全部成功 | 成功的列移出選取；彈出成功 toast（操作的 `successKey`） |
+| 有失敗 | 彈出結果對話框（`batch-result-dialog`）逐筆列出名稱與原因（`batch-result-failure`，`data-value` 是 id）；失敗的列保留勾選，`*_NOT_FOUND`（已被別人刪除）一併移出 |
+| 取消 | 處理中的項目收到中止（操作有接 `signal` 時立即停止，被中止的不算失敗），剩下的不再送出；彈出資訊 toast（已完成幾筆），已完成的不會還原 |
+
+- 結束時的彈出只在 **一個分頁**：發起的分頁；它已經關掉就給任一個還開著的分頁。選取的更新只發生在發起的分頁（選取是頁面狀態）。
+- 發起的分頁關掉或換頁，工作仍會繼續（SharedWorker 由其他分頁接手執行）；所有分頁都關掉時停止。
+- 同一張表在其他分頁打開時也會看到進度條（佇列狀態經 Channel `batch-queue` 廣播，[09 §5](./09-state-and-storage.md)）。
+- **AppHeader 的佇列按鈕**（`batch-queue-trigger`，徽章 `batch-queue-count` 是進行中的工作數）打開面板
+  （`batch-queue-panel`），新的在上面：取消（`batch-progress-cancel`）、查看失敗項目（`batch-progress-failures`）、
+  移除（`batch-progress-dismiss`）、清除已結束（`batch-queue-clear`）。已結束的工作最多保留 30 筆。
+- session 結束時取消所有進行中的工作。
+- 略過的列（不適用、沒送出）保留勾選，可以接著做別的批次動作。
+- `batch` 提供時由 `batch.selection` 控制勾選欄，不必另外傳 `rowSelection` / `onRowSelectionChange`。
+- 篩選條件（不含排序）改變時頁面呼叫 `selection.clear()`：勾選的列可能已不在結果裡。
+- 佇列沒有啟用（`batchQueuePlugin` 未註冊，例如元件測試）時不顯示批次操作；測試用 `@/test/fakeBatchQueue` 建一個同行程的佇列並 `setActiveBatchQueue()`。
 
 ---
 

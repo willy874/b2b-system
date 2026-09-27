@@ -1,5 +1,5 @@
+import { create } from '@/shared/hooks';
 import { createDictStorage } from '@/shared/storage';
-import { create } from '@/shared/store';
 
 const storage = createDictStorage('layout');
 const SIDEBAR_KEY = 'sidebarCollapsed';

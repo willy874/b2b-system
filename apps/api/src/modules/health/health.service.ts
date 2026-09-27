@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 
 import type { Database } from '@/core/database';
 import { DRIZZLE } from '@/core/database';
+import { ObjectStorage } from '@/core/storage';
 
 export interface HealthStatus {
   status: 'ok' | 'degraded';
@@ -13,7 +14,10 @@ export interface HealthStatus {
 
 @Injectable()
 export class HealthService {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    private readonly storage: ObjectStorage,
+  ) {}
 
   live(): HealthStatus {
     return {
@@ -24,11 +28,14 @@ export class HealthService {
   }
 
   async ready(): Promise<HealthStatus> {
-    const database = await this.pingDatabase();
+    const [database, storage] = await Promise.all([
+      this.pingDatabase(),
+      this.storage.ping().then((isUp): 'ok' | 'fail' => (isUp ? 'ok' : 'fail')),
+    ]);
     return {
       ...this.live(),
-      status: database === 'ok' ? 'ok' : 'degraded',
-      checks: { database },
+      status: database === 'ok' && storage === 'ok' ? 'ok' : 'degraded',
+      checks: { database, storage },
     };
   }
 

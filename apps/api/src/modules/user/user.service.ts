@@ -160,9 +160,7 @@ export class UserService {
       return next;
     });
 
-    // 使用者狀態／token_version 變了，JwtAuthGuard 的快取必須主動失效
-    this.userCache.invalidate(id);
-    this.permissionService.invalidateUser(id);
+    this.invalidateAccount(id);
 
     const roles = await this.repo.listRoles(id);
     if (deactivating) {
@@ -200,8 +198,7 @@ export class UserService {
       );
     });
 
-    this.userCache.invalidate(id);
-    this.permissionService.invalidateUser(id);
+    this.invalidateAccount(id);
     // softDelete 遞增了 token_version
     this.events.publish(DomainEvent.SESSIONS_REVOKED, {
       userIds: [id],
@@ -293,6 +290,7 @@ export class UserService {
     const user = await this.getExisting(id);
     const locked = user.status === 'locked' || (user.lockedUntil?.getTime() ?? 0) > Date.now();
     if (!locked) throw new AppException('USER_NOT_LOCKED');
+    const roles = await this.repo.listRoles(id);
 
     const updated = await withTransaction(this.db, async (tx) => {
       const next = await this.repo.update(
@@ -314,12 +312,17 @@ export class UserService {
     });
 
     this.userCache.invalidate(id);
-    const roles = await this.repo.listRoles(id);
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [userUpdated(id, roles)],
       affectedUserIds: [id],
     });
     return toDto(updated, roles);
+  }
+
+  /** 狀態或 token_version 變了：JwtAuthGuard 的使用者快取與權限快取都要主動失效。 */
+  private invalidateAccount(id: string): void {
+    this.userCache.invalidate(id);
+    this.permissionService.invalidateUser(id);
   }
 
   // ── 建立帳號：供 create 與審批（user.register）共用 ─────────────

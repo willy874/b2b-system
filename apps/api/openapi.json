@@ -1259,6 +1259,329 @@
         "tags": ["system"]
       }
     },
+    "/files": {
+      "get": {
+        "operationId": "FileController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FileListPage"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["files"]
+      },
+      "post": {
+        "operationId": "FileController_createUpload",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFileUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FileUpload"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "登記上傳並取得直傳網址（完成後呼叫 complete）",
+        "tags": ["files"]
+      }
+    },
+    "/files/upload-policy": {
+      "get": {
+        "operationId": "FileController_getUploadPolicy",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FileUploadPolicy"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "上傳前的檢查與切塊策略（大小上限、分塊門檻、每塊大小）",
+        "tags": ["files"]
+      }
+    },
+    "/files/{id}/parts": {
+      "post": {
+        "operationId": "FileController_createUploadParts",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFileUploadPartsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FileUploadParts"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "分塊上傳：取得指定各塊的直傳網址",
+        "tags": ["files"]
+      }
+    },
+    "/files/{id}/complete": {
+      "post": {
+        "operationId": "FileController_completeUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteFileUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/StoredFile"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "確認直傳完成，檔案轉為 ready（分塊上傳要帶各塊的 ETag）",
+        "tags": ["files"]
+      }
+    },
+    "/files/{id}/upload": {
+      "delete": {
+        "operationId": "FileController_abortUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "放棄上傳中的檔案：清掉已上傳的內容與分塊",
+        "tags": ["files"]
+      }
+    },
+    "/files/{id}/image/{variant}": {
+      "get": {
+        "operationId": "FileController_getImage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variant",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": ["original", "preview", "thumbnail"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "轉址到該版本、該格式的內容"
+          }
+        },
+        "summary": "取得圖片的原圖／全螢幕預覽／圖示預覽（302 轉址到物件儲存）",
+        "tags": ["files"]
+      }
+    },
+    "/files/{id}": {
+      "get": {
+        "operationId": "FileController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/StoredFile"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["files"]
+      },
+      "patch": {
+        "operationId": "FileController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/StoredFile"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["files"]
+      },
+      "delete": {
+        "operationId": "FileController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": ["files"]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_live",
@@ -1737,7 +2060,11 @@
           "system:read",
           "system:update",
           "approval:read",
-          "approval:review"
+          "approval:review",
+          "file:create",
+          "file:read",
+          "file:update",
+          "file:delete"
         ]
       },
       "Permission": {
@@ -2042,6 +2369,457 @@
           }
         },
         "required": ["submitted"],
+        "additionalProperties": false
+      },
+      "CreateFileUploadRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "pattern": "^[^/\\\\\\u0000-\\u001f\\u007f]+$"
+          },
+          "contentType": {
+            "type": "string",
+            "maxLength": 255,
+            "pattern": "^[a-z0-9][a-z0-9!#$&^_.+-]*\\/[a-z0-9][a-z0-9!#$&^_.+-]*$"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "thumbnail": {
+            "type": "object",
+            "properties": {
+              "contentType": {
+                "type": "string",
+                "enum": ["image/webp", "image/jpeg", "image/png"]
+              },
+              "size": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 524288
+              }
+            },
+            "required": ["contentType", "size"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["name", "contentType", "size"],
+        "additionalProperties": false
+      },
+      "CreateFileUploadPartsRequest": {
+        "type": "object",
+        "properties": {
+          "partNumbers": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            }
+          }
+        },
+        "required": ["partNumbers"],
+        "additionalProperties": false
+      },
+      "CompleteFileUploadRequest": {
+        "type": "object",
+        "properties": {
+          "parts": {
+            "minItems": 1,
+            "maxItems": 10000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "partNumber": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000
+                },
+                "etag": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "required": ["partNumber", "etag"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "FileUploader": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "displayName"],
+        "additionalProperties": false
+      },
+      "StoredFileImage": {
+        "type": "object",
+        "properties": {
+          "width": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "originalUrl": {
+            "type": "string"
+          },
+          "previewUrl": {
+            "type": "string"
+          },
+          "thumbnailUrl": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": ["width", "height", "originalUrl", "previewUrl", "thumbnailUrl", "expiresAt"],
+        "additionalProperties": false
+      },
+      "StoredFile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "ready"]
+          },
+          "url": {
+            "nullable": true,
+            "type": "string"
+          },
+          "downloadUrl": {
+            "nullable": true,
+            "type": "string"
+          },
+          "thumbnailUrl": {
+            "nullable": true,
+            "type": "string"
+          },
+          "image": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StoredFileImage"
+              }
+            ]
+          },
+          "urlExpiresAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "uploader": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FileUploader"
+              }
+            ]
+          },
+          "uploadedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "contentType",
+          "size",
+          "status",
+          "url",
+          "downloadUrl",
+          "thumbnailUrl",
+          "image",
+          "urlExpiresAt",
+          "version",
+          "uploader",
+          "uploadedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "FileListPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StoredFile"
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "offset": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "total": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["offset", "limit", "total"],
+            "additionalProperties": false
+          },
+          "nextCursor": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["items", "pagination", "nextCursor"],
+        "additionalProperties": false
+      },
+      "FileUploadTarget": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": ["PUT"]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": ["url", "method", "headers", "expiresAt"],
+        "additionalProperties": false
+      },
+      "FileMultipartUpload": {
+        "type": "object",
+        "properties": {
+          "partSize": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "partCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["partSize", "partCount"],
+        "additionalProperties": false
+      },
+      "FileUpload": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "$ref": "#/components/schemas/StoredFile"
+          },
+          "upload": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FileUploadTarget"
+              }
+            ]
+          },
+          "multipart": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FileMultipartUpload"
+              }
+            ]
+          },
+          "thumbnailUpload": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FileUploadTarget"
+              }
+            ]
+          }
+        },
+        "required": ["file", "upload", "multipart", "thumbnailUpload"],
+        "additionalProperties": false
+      },
+      "FileUploadPart": {
+        "type": "object",
+        "properties": {
+          "partNumber": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "url": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": ["PUT"]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["partNumber", "url", "method", "headers"],
+        "additionalProperties": false
+      },
+      "FileUploadParts": {
+        "type": "object",
+        "properties": {
+          "parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileUploadPart"
+            }
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": ["parts", "expiresAt"],
+        "additionalProperties": false
+      },
+      "FileUploadPolicy": {
+        "type": "object",
+        "properties": {
+          "maxSize": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "multipartThreshold": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "partSize": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "thumbnailMaxSize": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "thumbnailContentTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "maxSize",
+          "multipartThreshold",
+          "partSize",
+          "thumbnailMaxSize",
+          "thumbnailContentTypes"
+        ],
+        "additionalProperties": false
+      },
+      "GetFileImageQuery": {
+        "type": "object",
+        "properties": {
+          "exp": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          },
+          "sig": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "format": {
+            "type": "string",
+            "enum": ["jpeg", "webp", "avif", "png", "auto"]
+          }
+        },
+        "required": ["exp", "sig"],
+        "additionalProperties": false
+      },
+      "UpdateFileRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "pattern": "^[^/\\\\\\u0000-\\u001f\\u007f]+$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["name"],
         "additionalProperties": false
       },
       "CreateRoleRequest": {

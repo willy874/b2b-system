@@ -1,4 +1,4 @@
-import type { KeyboardEvent, Ref } from 'react';
+import type { KeyboardEvent } from 'react';
 
 import { IconButton } from '../Button';
 import { Icon } from '../Icon';
@@ -7,7 +7,6 @@ import type { SlotAttributes } from '../slots';
 import styles from './JsonEditor.module.css';
 
 interface JsonSearchBarProps {
-  inputRef: Ref<HTMLInputElement>;
   query: string;
   /** 目前是第幾筆（0 起算）；沒有結果時為 -1。 */
   activeIndex: number;
@@ -28,9 +27,11 @@ interface JsonSearchBarProps {
   slotAttributes: SlotAttributes;
 }
 
-/** 樹狀模式的搜尋列（對應 svelte-jsoneditor 的搜尋框）；Enter 下一筆、Shift + Enter 上一筆、Esc 關閉。 */
+/**
+ * 搜尋列：渲染在 CodeMirror 的搜尋面板位置（JsonEditor 以 portal 放進去），
+ * 外觀用設計系統的元件而不是 CodeMirror 內建的表單。Enter 下一筆、Shift + Enter 上一筆、Esc 關閉。
+ */
 export function JsonSearchBar({
-  inputRef,
   query,
   activeIndex,
   total,
@@ -63,7 +64,8 @@ export function JsonSearchBar({
     <search {...slotAttributes}>
       <Icon name="search" size={14} className={styles.searchIcon} />
       <input
-        ref={inputRef}
+        // CodeMirror 再次開啟搜尋（⌘/Ctrl + F）時聚焦帶這個屬性的欄位
+        main-field="true"
         // 打開搜尋列就是要打字
         // oxlint-disable-next-line jsx-a11y/no-autofocus
         autoFocus

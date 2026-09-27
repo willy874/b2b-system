@@ -13,7 +13,9 @@ import { useToast } from '@/core/notify';
 import type { User } from '@/shared/api-sdk';
 
 /** 使用者持有的角色：讓依賴圖只失效這幾個角色，而不是全部。 */
-const roleRefs = (user: Pick<User, 'roles'>) => ({ role: user.roles.map((role) => role.id) });
+export const roleRefs = (user: Pick<User, 'roles'>) => ({
+  role: user.roles.map((role) => role.id),
+});
 
 export function useUserCreateMutation() {
   const toast = useToast();

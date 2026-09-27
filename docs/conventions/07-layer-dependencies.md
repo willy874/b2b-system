@@ -18,6 +18,8 @@ apps/web ──────▶ packages/api-sdk
    └───────────▶ packages/utils ◀─────── apps/api
 
 apps/e2e ┄┄┄┄┄▶ 只透過瀏覽器 / HTTP 操作執行中的系統，不 import 任何 workspace 原始碼
+
+apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package，也不被任何 package import
 ```
 
 | Package                | 可以依賴（workspace）                    | 不可以                                                       | 強度 |
@@ -28,11 +30,14 @@ apps/e2e ┄┄┄┄┄▶ 只透過瀏覽器 / HTTP 操作執行中的系統�
 | `apps/web`             | `api-sdk`、`realtime`、`utils`            | `apps/*`                                                     | 🔒 `package.json` |
 | `apps/api`             | `realtime`、`utils`                      | `api-sdk`（後端才是型別的來源，不能反過來依賴產物）、`apps/*` | 🔒 `package.json` |
 | `apps/e2e`             | 無                                       | 任何 `apps/*` 原始碼；只透過瀏覽器與 HTTP 操作系統            | 👀   |
+| `apps/file-storage`    | 無                                       | 任何 workspace package；其他 app 只透過 S3 HTTP API 與它溝通 | 🔒 `package.json` |
 
 - `apps/*` 之間 **永不互相 import**；packages 永不 import apps。
 - 新增 workspace 依賴要先在 `package.json` 宣告；pnpm 的隔離會讓未宣告的 import 解析失敗。
 - `apps/web` 只在 `src/shared/api-sdk/` 這 **一個地方** import `@game-editor/api-sdk`，其餘一律 `@/shared/api-sdk`。
-  `@game-editor/realtime` 同理，只經由 `src/shared/realtime/`。
+  `@game-editor/realtime` 同理，只經由 `src/shared/websocket-sdk/`。
+- `@sigrea/core` 只在 `src/shared/store/` import，其餘一律 `@/shared/store`（React 綁定 `@/shared/hooks`）；
+  `shared/store/` 與 `shared/context/` 不 import React。🔒 oxlint `no-restricted-imports`
 
 ---
 

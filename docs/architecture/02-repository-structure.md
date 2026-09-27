@@ -15,6 +15,7 @@ game-editor/
 ├── apps/
 │   ├── web/                     @game-editor/web — React 前端
 │   ├── api/                     @game-editor/api — NestJS 後端
+│   ├── file-storage/            @game-editor/file-storage — S3 相容的本機檔案儲存（見 03-file-storage.md）
 │   └── e2e/                     @game-editor/e2e — Playwright
 │
 ├── packages/
@@ -37,8 +38,9 @@ packages:
 
 | script                                         | 作用                                                     |
 | ---------------------------------------------- | -------------------------------------------------------- |
-| `pnpm dev`                                     | `docker compose up -d postgres` ＋ 並行啟動 api 與 web   |
+| `pnpm dev`                                     | `docker compose up -d postgres` ＋ 並行啟動 api、web、file-storage |
 | `pnpm dev:api` / `pnpm dev:web`                | 單獨啟動                                                 |
+| `pnpm dev:storage`                             | 啟動 `apps/file-storage`（S3 相容，:9000）               |
 | `pnpm build`                                   | 依序 `api-sdk` → `api` → `web`                           |
 | `pnpm db:generate`                             | drizzle-kit 產生 migration                               |
 | `pnpm db:migrate`                              | 套用 migration                                           |
@@ -77,10 +79,12 @@ apps/web/src/
 ├── core/                    跨 feature 的機制層（不認識任何 feature）
 │   ├── app/                 AppContext 型別、createAppContext、React context
 │   ├── auth/                SessionStore（token 生命週期、跨分頁單飛續期）
+│   ├── batch/               全域批次佇列（SharedWorker 排程、進度條、AppHeader 面板、結果彈出）
 │   ├── cache/               queryClient、跨分頁失效、store 持久化
 │   ├── client/              HttpContext / FetcherContext / defineFetcher / 攔截器
 │   ├── components/          機制性元件（ErrorPage、Empty、PermissionGate…）
 │   ├── errors/              錯誤碼、例外型別、useErrorMessage
+│   ├── file/                檔案類型、預覽解析器／檔案驗證器／縮圖產生器的註冊表
 │   ├── locales/             i18n scope loader
 │   ├── notify/              useToast()：把提示發到 eventBus
 │   ├── permission/          ★ 權限註冊表、hooks、常數
@@ -95,6 +99,8 @@ apps/web/src/
 │   ├── permission/
 │   ├── account/
 │   ├── audit-log/
+│   ├── approval/
+│   ├── file/                檔案管理器（docs/architecture/frontend/12-file-manager.md）
 │   └── home/
 │
 ├── apis/                    與後端對話的唯一入口
@@ -102,7 +108,9 @@ apps/web/src/
 │   ├── user/
 │   ├── role/
 │   ├── permission/
-│   └── audit-log/
+│   ├── audit-log/
+│   ├── approval/
+│   └── file/
 │
 ├── components/              ★ Base UI 封裝層（設計系統元件）
 │   ├── Button/  Input/  Select/  Dialog/  Table/  Toast/  Tooltip/ …
@@ -169,6 +177,8 @@ apps/api/src/
 │   ├── role/
 │   ├── permission/
 │   ├── audit-log/
+│   ├── approval/
+│   ├── file/                檔案轉介表、上傳流程（docs/architecture/backend/09-file.md）
 │   └── health/
 │
 └── db/
@@ -222,6 +232,7 @@ REFRESH_TOKEN_TTL=604800           # 秒（7 天）
 REFRESH_COOKIE_NAME=refresh_token
 REFRESH_COOKIE_PATH=/api/auth      # 瀏覽器看到的前綴（前端一律打 /api/*）
 REFRESH_COOKIE_DOMAIN=localhost
+API_PUBLIC_BASE_URL=/api            # 瀏覽器看到的 api 位址（影像 API 的網址以它開頭）
 
 ARGON2_MEMORY_COST=19456
 ARGON2_TIME_COST=2
@@ -238,10 +249,36 @@ SUPER_ADMIN_PASSWORD=              # 留空則 seed 時隨機產生並印出一�
 
 REALTIME_ALLOWED_ORIGINS=http://localhost:5173   # Socket.io handshake 的 Origin 白名單（逗號分隔）
 
+# ── apps/file-storage（S3 相容的本機檔案儲存）────────────
+FILE_STORAGE_HOST=127.0.0.1
+FILE_STORAGE_PORT=9000
+FILE_STORAGE_BASE_PATH=/storage              # Vite 以 /storage 轉發且不去掉前綴
+FILE_STORAGE_DATA_DIR=.data                  # 相對於 apps/file-storage/
+FILE_STORAGE_REGION=us-east-1
+FILE_STORAGE_ACCESS_KEY_ID=game-editor-dev
+FILE_STORAGE_SECRET_ACCESS_KEY=game-editor-dev-secret
+FILE_STORAGE_ALLOWED_ORIGINS=http://localhost:5173   # presigned URL 直傳 / 下載的 CORS
+FILE_STORAGE_MAX_OBJECT_SIZE=5368709120      # 位元組（預設 5 GiB）
+
+# ── apps/api 連物件儲存（上面兩個 KEY 共用；docs/architecture/backend/09-file.md §8）
+FILE_STORAGE_ENDPOINT=http://127.0.0.1:9000/storage
+FILE_STORAGE_PUBLIC_ENDPOINT=http://localhost:5173/storage
+FILE_STORAGE_BUCKET=game-editor
+FILE_UPLOAD_MAX_SIZE=104857600
+FILE_URL_TTL=900
+FILE_MULTIPART_THRESHOLD=16777216   # 超過改用分塊上傳
+FILE_MULTIPART_PART_SIZE=8388608    # 每塊大小（≥ 5 MiB）
+FILE_PENDING_TTL=86400              # 登記後超過這個秒數仍未完成的上傳，由維護排程清除
+FILE_MAINTENANCE_INTERVAL=3600      # 檔案維護排程的間隔秒數；0 停用
+FILE_MAINTENANCE_DRY_RUN=false      # true：只偵測並記錄殘留，不刪除
+
 # ── apps/web（VITE_ 前綴才會進 bundle）─────────────────
 VITE_API_BASE_URL=/api
 VITE_ENABLE_MOCK=false
 ```
+
+`apps/file-storage` 的變數說明見 [`03-file-storage.md`](./03-file-storage.md) §1；api 端的物件儲存變數見
+[`backend/09-file.md`](./backend/09-file.md) §8。
 
 env 由 `core/config` 以 Zod schema 驗證，**缺少必要變數時啟動即失敗**，不容許
 執行到一半才發現。

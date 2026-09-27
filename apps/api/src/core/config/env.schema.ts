@@ -20,6 +20,14 @@ export const EnvSchema = z.object({
    */
   REFRESH_COOKIE_PATH: z.string().default('/api/auth'),
   REFRESH_COOKIE_DOMAIN: z.string().default('localhost'),
+  /**
+   * 瀏覽器看到的 api 位址（同源時是路徑前綴）。api 自己產生、要放進 `<img src>` 的網址
+   * （影像 API，docs/architecture/backend/09-file.md §5.4）以它開頭；理由同 `REFRESH_COOKIE_PATH`。
+   */
+  API_PUBLIC_BASE_URL: z
+    .string()
+    .default('/api')
+    .transform((value) => value.replace(/\/+$/, '')),
 
   ARGON2_MEMORY_COST: z.coerce.number().int().default(19456),
   ARGON2_TIME_COST: z.coerce.number().int().default(2),
@@ -51,6 +59,58 @@ export const EnvSchema = z.object({
         .map((origin) => origin.trim())
         .filter(Boolean),
     ),
+
+  /**
+   * 物件儲存（S3 相容；本機是 apps/file-storage，正式環境可直接換成 S3）。
+   * `ENDPOINT` 是 api 自己連線用的位址；`PUBLIC_ENDPOINT` 是瀏覽器看到的位址，
+   * presigned URL 以它簽章——兩者的路徑前綴必須相同（docs/architecture/backend/09-file.md §3）。
+   */
+  FILE_STORAGE_ENDPOINT: z.string().url().default('http://127.0.0.1:9000/storage'),
+  FILE_STORAGE_PUBLIC_ENDPOINT: z.string().url().default('http://localhost:5173/storage'),
+  FILE_STORAGE_REGION: z.string().min(1).default('us-east-1'),
+  FILE_STORAGE_BUCKET: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/, '必須符合 S3 bucket 命名規則')
+    .default('game-editor'),
+  FILE_STORAGE_ACCESS_KEY_ID: z.string().min(3),
+  FILE_STORAGE_SECRET_ACCESS_KEY: z.string().min(8),
+  /** 單一檔案上限（位元組）。 */
+  FILE_UPLOAD_MAX_SIZE: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(100 * 1024 * 1024),
+  /** presigned 上傳 / 下載網址的有效秒數。 */
+  FILE_URL_TTL: z.coerce.number().int().min(60).max(604_800).default(900),
+  /**
+   * 超過這個大小（位元組）改用分塊上傳（S3 multipart upload），瀏覽器可以逐塊追蹤進度、失敗只重傳那一塊。
+   * 見 docs/architecture/backend/09-file.md §5.2。
+   */
+  FILE_MULTIPART_THRESHOLD: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(16 * 1024 * 1024),
+  /** 分塊上傳的每塊大小（位元組）。S3 規定除了最後一塊都至少 5 MiB。 */
+  FILE_MULTIPART_PART_SIZE: z.coerce
+    .number()
+    .int()
+    .min(5 * 1024 * 1024)
+    .max(5 * 1024 * 1024 * 1024)
+    .default(8 * 1024 * 1024),
+  /**
+   * 登記後超過這個秒數仍未完成的上傳視為放棄：由維護排程清掉紀錄、分塊與已上傳的內容。
+   * 至少要比 `FILE_URL_TTL` 長（大檔會邊傳邊要新的分塊網址，實際上傳時間可能遠超過一個 TTL）。
+   * 見 docs/architecture/backend/09-file.md §9。
+   */
+  FILE_PENDING_TTL: z.coerce.number().int().min(60).default(86_400),
+  /** 檔案維護排程（殘留清理、補產生影像變體）的間隔秒數；`0` 停用（多個執行個體時可只留一個開著）。 */
+  FILE_MAINTENANCE_INTERVAL: z.coerce.number().int().min(0).default(3600),
+  /** `true`：維護排程只偵測並記錄殘留，不刪除任何東西。 */
+  FILE_MAINTENANCE_DRY_RUN: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
 
   SUPER_ADMIN_EMAIL: z.string().email(),
   // 留空 = 未設定：seed 時隨機產生並印出一次（docs/rbac/05-seed-and-bootstrap.md）。

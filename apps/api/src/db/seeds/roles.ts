@@ -39,6 +39,10 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'system:read',
       'approval:read',
       'approval:review',
+      'file:create',
+      'file:read',
+      'file:update',
+      'file:delete',
     ],
   },
   {
@@ -53,6 +57,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'auditLog:read',
       'system:read',
       'approval:read',
+      'file:read',
     ],
   },
   {

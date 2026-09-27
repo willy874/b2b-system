@@ -14,7 +14,7 @@
 └────────────────────────────────────────────────────────────┘
 
 橫切（core/ ＋ common/）：
-  config · database · cache · errors · http · logger · validation
+  config · database · cache · errors · http · logger · validation · storage
   decorators · guards
 ```
 
@@ -61,9 +61,17 @@ apps/api/src/
 │   │   └── pagination.ts                 分頁 DTO 與輔助
 │   ├── logger/
 │   │   └── logger.module.ts              Pino
-│   └── validation/
-│       ├── zod-validation.pipe.ts
-│       └── zod-openapi.ts                Zod schema → OpenAPI schema
+│   ├── validation/
+│   │   ├── zod-validation.pipe.ts
+│   │   └── zod-openapi.ts                Zod schema → OpenAPI schema
+│   ├── storage/
+│   │   ├── object-storage.ts             ★ ObjectStorage 抽象類別（同時是 DI token）
+│   │   ├── s3-object-storage.ts          實作：@aws-sdk/client-s3（見 09-file.md）
+│   │   └── storage.module.ts
+│   └── image/
+│       ├── image-processor.ts            ★ ImageProcessor 抽象類別（同時是 DI token）
+│       ├── sharp-image-processor.ts      實作：sharp / libvips（見 09-file.md §5.4）
+│       └── image.module.ts
 │
 ├── common/                               ← 薄；只有 decorator 與 guard
 │   ├── decorators/
@@ -84,6 +92,7 @@ apps/api/src/
 │   ├── role/
 │   ├── permission/
 │   ├── audit-log/
+│   ├── file/                             files 轉介表 ＋ 直傳上傳、影像變體、維護排程（09-file.md）
 │   └── health/
 │
 ├── db/
@@ -96,6 +105,7 @@ apps/api/src/
 │   │   ├── refresh-tokens.ts
 │   │   ├── audit-logs.ts
 │   │   ├── auth-tokens.ts                啟用 / 密碼重設 token
+│   │   ├── files.ts                      檔案轉介表（id ↔ 物件儲存的 key）
 │   │   └── index.ts
 │   ├── relations.ts
 │   ├── migrations/                       drizzle-kit 產生，進版控

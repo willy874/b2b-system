@@ -14,7 +14,7 @@ Game Editor 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架*
 | --- | --- |
 | 任何事 | [`docs/README.md`](docs/README.md)、[`docs/architecture/01-system.md`](docs/architecture/01-system.md)、[`docs/conventions/01-general.md`](docs/conventions/01-general.md) |
 | 前端 | `docs/architecture/frontend/01`→`03`→`06` |
-| 後端 | `docs/architecture/backend/01`→`03`→`05` |
+| 後端 | `docs/architecture/backend/01`→`03`→`05`；檔案／物件儲存看 `09` |
 | 權限相關 | [`docs/rbac/02-permission-catalog.md`](docs/rbac/02-permission-catalog.md) |
 | 寫程式規範 | [`docs/conventions/`](docs/conventions/README.md)（命名、TS、測試、commit、字面量、層級依賴）；寫或 review 程式碼前用 `best-practice` skill 載入 |
 
@@ -59,8 +59,9 @@ Game Editor 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架*
 ## 常用指令
 
 ```bash
-pnpm dev            # postgres + api(:3000) + web(:5173)
+pnpm dev            # postgres + api(:3000) + web(:5173) + file-storage(:9000)
 pnpm dev:e2e        # 以放寬的速率限制啟動 api（跑 E2E 時用）
+pnpm dev:storage    # 單獨啟動 apps/file-storage（S3 相容，:9000）；api 端見 docs/architecture/backend/09-file.md
 pnpm typecheck      # tsc -b（全 workspace）
 pnpm lint / pnpm format / pnpm format:check
 pnpm test           # 單元 + 整合（後端整合測試會用 Testcontainers 起一個 postgres）

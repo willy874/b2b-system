@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（Phase 0，共 17 項）
+## 2. 權限清單（共 21 項）
 
 ### 2.1 `user` — 使用者
 
@@ -81,7 +81,20 @@
 > 為什麼不是 `approval:update`：核准與駁回是具名的「審核」決定，不是修改請求內容；
 > 也讓「能看不能審」（auditor）與「能審」清楚分開。
 
-### 2.7 個人範圍（不需要權限）
+### 2.7 `file` — 檔案
+
+| 權限鍵        | 顯示名稱（zh-TW） | 說明                                                         |
+| ------------- | ----------------- | ------------------------------------------------------------ |
+| `file:create` | 上傳檔案          | 登記上傳並取得直傳網址、確認上傳完成                         |
+| `file:read`   | 檢視檔案          | 檔案列表與詳情，並取得預覽／下載網址                         |
+| `file:update` | 編輯檔案          | 改名（內容不可改；要換內容就上傳新檔）                       |
+| `file:delete` | 刪除檔案          | 軟刪除紀錄並刪除物件儲存中的內容                             |
+
+> 範圍是 **平的**（[ADR-0006](../adr/0006-flat-permission-scope.md)）：有 `file:read` 就能看所有檔案。
+> 唯一例外是還在上傳中（`pending`）的檔案，只有上傳者本人看得到，見
+> [`../architecture/backend/09-file.md`](../architecture/backend/09-file.md) §4。
+
+### 2.8 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
@@ -104,6 +117,7 @@
 | `auditLog`        |   —    |  ✓   |   —    |   —    | —                             |
 | `system`          |   —    |  ✓   |   ✓    |   —    | —                             |
 | `approval`        |   —    |  ✓   |   —    |   —    | `review`                      |
+| `file`            |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
 
 ---
 
@@ -128,6 +142,10 @@
 | `system:update`        |      ✓*       |         |           |          |
 | `approval:read`        |      ✓*       |    ✓    |     ✓     |          |
 | `approval:review`      |      ✓*       |    ✓    |           |          |
+| `file:create`          |      ✓*       |    ✓    |           |          |
+| `file:read`            |      ✓*       |    ✓    |     ✓     |          |
+| `file:update`          |      ✓*       |    ✓    |           |          |
+| `file:delete`          |      ✓*       |    ✓    |           |          |
 
 `*` super-admin 是 **隱含全集**，不在 `role_permissions` 中逐筆登錄；
 `GET /auth/profile` 回傳時才展開成完整清單。
@@ -154,6 +172,7 @@
 | 權限目錄     | `/permission`              | `PERMISSION`    | `permission:read`                | EVERY |
 | 稽核日誌     | `/audit-log`               | `AUDIT_LOG`     | `auditLog:read`                  | EVERY |
 | 審批         | `/approval`（含 `/approval/$approvalId` 對話框） | `APPROVAL` | `approval:read`           | EVERY |
+| 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:read`（上傳 `file:create`、改名 `file:update`、刪除 `file:delete` 為按鈕層級） | EVERY |
 
 > 頁面內的 **按鈕層級** gating 另由 `usePagePermission()` 派生的
 > `canCreate/canRead/canUpdate/canDelete` 決定，見
@@ -188,6 +207,11 @@ export const PERMISSION_SEED = [
 
   ["approval", "read", "permission.approval.read", 600],
   ["approval", "review", "permission.approval.review", 601],
+
+  ["file", "create", "permission.file.create", 700],
+  ["file", "read", "permission.file.read", 701],
+  ["file", "update", "permission.file.update", 702],
+  ["file", "delete", "permission.file.delete", 703],
 ] as const;
 ```
 

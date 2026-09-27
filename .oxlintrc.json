@@ -27,6 +27,7 @@
     "import/no-unassigned-import": "off",
     "import/no-named-as-default": "off",
     "react/react-in-jsx-scope": "off",
+    "react/no-unstable-nested-components": "off",
     "unicorn/prefer-node-protocol": "error"
   },
   "overrides": [
@@ -34,6 +35,64 @@
       "files": ["apps/web/**/*.{ts,tsx}", "packages/**/*.ts"],
       "rules": {
         "typescript/consistent-type-imports": "error"
+      }
+    },
+    {
+      "files": ["apps/web/src/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@sigrea/core",
+                "message": "只經由 @/shared/store（React 綁定在 @/shared/hooks）使用 signal。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/web/src/shared/context/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@sigrea/core",
+                "message": "只經由 @/shared/store（React 綁定在 @/shared/hooks）使用 signal。"
+              },
+              {
+                "name": "react",
+                "message": "這一層不依賴 React；React 綁定放 @/shared/hooks 或 core/app/react.tsx。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/web/src/shared/store/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "react",
+                "message": "這一層不依賴 React；React 綁定放 @/shared/hooks 或 core/app/react.tsx。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/web/src/shared/store/__tests__/**"],
+      "rules": {
+        "no-restricted-imports": "off"
       }
     },
     {

@@ -14,7 +14,7 @@
 ## 從零到跑起來
 
 ```bash
-# 1. 需求：Node >= 20.19、pnpm 10、Docker（本機資料庫）
+# 1. 需求：Node >= 24（`nvm use` 讀 `.nvmrc`）、pnpm 10、Docker（本機資料庫）
 corepack enable
 
 # 2. 安裝相依

@@ -22,6 +22,36 @@
     "assignRole": { "action": "Save roles", "success": "Role assignment updated." },
     "unlock": { "action": "Unlock", "success": "Account unlocked." },
     "resetPassword": { "action": "Reset password", "success": "Reset link sent." },
+    "batch": {
+      "delete": {
+        "action": "Delete",
+        "title": "Delete users",
+        "confirm": "Delete {{count}} users? Their accounts will be soft-deleted and signed out immediately.",
+        "success": "Deleted {{count}} users.",
+        "ineligible": "You cannot delete your own account."
+      },
+      "unlock": {
+        "action": "Unlock",
+        "title": "Unlock users",
+        "confirm": "Unlock {{count}} users?",
+        "success": "Unlocked {{count}} users.",
+        "ineligible": "Only locked users can be unlocked."
+      },
+      "deactivate": {
+        "action": "Deactivate",
+        "title": "Deactivate users",
+        "confirm": "Deactivate {{count}} users? They will be signed out immediately.",
+        "success": "Deactivated {{count}} users.",
+        "ineligible": "The selected users are already deactivated, or it is your own account."
+      },
+      "activate": {
+        "action": "Activate",
+        "title": "Activate users",
+        "confirm": "Activate {{count}} users?",
+        "success": "Activated {{count}} users.",
+        "ineligible": "Only deactivated users can be activated, and you cannot change your own account."
+      }
+    },
     "detail": {
       "title": "User detail",
       "basic": "Basics",

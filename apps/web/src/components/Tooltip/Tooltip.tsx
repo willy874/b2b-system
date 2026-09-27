@@ -1,8 +1,10 @@
 import { Tooltip as BaseTooltip } from '@base-ui-components/react/tooltip';
+import { cloneElement } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
 import { cn } from '@/shared/utils';
 
+import { Button, IconButton } from '../Button';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
@@ -13,6 +15,10 @@ export type TooltipSlot = 'positioner';
 
 export interface TooltipProps extends SlotOverrides<TooltipSlot> {
   content: ReactNode;
+  /**
+   * 觸發元素。停用的 `Button` / `IconButton` 會自動以 `focusableWhenDisabled` 渲染（`aria-disabled`、仍可聚焦），
+   * 提示才出得來；其他元素若用原生 `disabled`，瀏覽器不會送 hover，提示不會顯示。
+   */
   children: ReactElement<Record<string, unknown>>;
   side?: 'top' | 'bottom' | 'left' | 'right';
   /**
@@ -37,9 +43,15 @@ export function Tooltip({
 }: TooltipProps) {
   if (!content) return children;
   const slot = createSlots({ classNames, styles: styleOverrides, testIds });
+  // 原生 disabled 的按鈕收不到 hover／focus，提示永遠出不來——偏偏這時最需要說明「為什麼不能按」
+  // （docs/architecture/frontend/06-permission.md §6.1）。設計系統的按鈕改用 aria-disabled 停用。
+  const trigger =
+    children.props.disabled && isDesignSystemButton(children)
+      ? cloneElement(children, { focusableWhenDisabled: true })
+      : children;
   return (
     <BaseTooltip.Root disabled={disabled}>
-      <BaseTooltip.Trigger render={children} />
+      <BaseTooltip.Trigger render={trigger} />
       <BaseTooltip.Portal>
         <BaseTooltip.Positioner
           side={side}
@@ -53,6 +65,10 @@ export function Tooltip({
       </BaseTooltip.Portal>
     </BaseTooltip.Root>
   );
+}
+
+function isDesignSystemButton(element: ReactElement): boolean {
+  return element.type === Button || element.type === IconButton;
 }
 
 export const TooltipProvider = BaseTooltip.Provider;

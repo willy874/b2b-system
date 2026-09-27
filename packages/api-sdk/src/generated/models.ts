@@ -138,6 +138,10 @@ export const PermissionKey = {
   'system:update': 'system:update',
   'approval:read': 'approval:read',
   'approval:review': 'approval:review',
+  'file:create': 'file:create',
+  'file:read': 'file:read',
+  'file:update': 'file:update',
+  'file:delete': 'file:delete',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
@@ -226,6 +230,119 @@ export interface RegisterRequest {
 
 export interface RegisterResult {
   submitted: true;
+}
+
+export interface CreateFileUploadRequest {
+  name: string;
+  contentType: string;
+  size: number;
+  thumbnail?: {
+    contentType: 'image/webp' | 'image/jpeg' | 'image/png';
+    size: number;
+  };
+}
+
+export interface CreateFileUploadPartsRequest {
+  partNumbers: Array<number>;
+}
+
+export interface CompleteFileUploadRequest {
+  parts?: Array<{
+    partNumber: number;
+    etag: string;
+  }>;
+}
+
+export interface FileUploader {
+  id: string;
+  displayName: string;
+}
+
+export interface StoredFileImage {
+  width: number;
+  height: number;
+  originalUrl: string;
+  previewUrl: string;
+  thumbnailUrl: string;
+  expiresAt: string;
+}
+
+export interface StoredFile {
+  id: string;
+  name: string;
+  contentType: string;
+  size: number;
+  status: 'pending' | 'ready';
+  url: string | null;
+  downloadUrl: string | null;
+  thumbnailUrl: string | null;
+  image: StoredFileImage | null;
+  urlExpiresAt: string | null;
+  version: number;
+  uploader: FileUploader | null;
+  uploadedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FileListPage {
+  items: Array<StoredFile>;
+  pagination: {
+    offset: number;
+    limit: number;
+    total: number;
+  };
+  nextCursor: string | null;
+}
+
+export interface FileUploadTarget {
+  url: string;
+  method: 'PUT';
+  headers: Record<string, string>;
+  expiresAt: string;
+}
+
+export interface FileMultipartUpload {
+  partSize: number;
+  partCount: number;
+}
+
+export interface FileUpload {
+  file: StoredFile;
+  upload: FileUploadTarget | null;
+  multipart: FileMultipartUpload | null;
+  thumbnailUpload: FileUploadTarget | null;
+}
+
+export interface FileUploadPart {
+  partNumber: number;
+  url: string;
+  method: 'PUT';
+  headers: Record<string, string>;
+}
+
+export interface FileUploadParts {
+  parts: Array<FileUploadPart>;
+  expiresAt: string;
+}
+
+export interface FileUploadPolicy {
+  maxSize: number;
+  multipartThreshold: number;
+  partSize: number;
+  thumbnailMaxSize: number;
+  thumbnailContentTypes: Array<string>;
+}
+
+export interface GetFileImageQuery {
+  exp: number;
+  sig: string;
+  format?: 'jpeg' | 'webp' | 'avif' | 'png' | 'auto';
+}
+
+export interface UpdateFileRequest {
+  name: string;
+  version?: number;
 }
 
 export interface CreateRoleRequest {

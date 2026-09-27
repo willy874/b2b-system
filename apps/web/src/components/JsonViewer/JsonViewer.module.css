@@ -1,33 +1,31 @@
 @layer components {
   /*
-   * 外觀對標 svelte-jsoneditor（vanilla-jsoneditor）的 tree 模式：鍵名不加引號、值依型別上色、
-   * 收合的容器顯示計數徽章。顏色以元件變數（名稱對應它的 --jse-*）集中，之後的 JsonEditor 共用同一組。
+   * 版面對標 JsonEditor（CodeMirror）：左側行號欄（行號 ＋ 摺疊箭頭）、右側原始 JSON 文字。
+   * 顏色、字型、行高與尺寸來自 jsonTheme.module.css 的 --json-* 變數，編輯器用同一組。
    */
   .root {
-    --json-key-color: var(--color-fg);
-    --json-string-color: var(--color-success-text);
-    --json-number-color: var(--color-danger-text);
-    --json-boolean-color: var(--color-warning-text);
-    --json-null-color: var(--color-brand);
-    --json-delimiter-color: var(--color-fg-muted);
-    --json-tag-background: var(--color-fill);
-    --json-tag-color: var(--color-fg-muted);
-    --json-hover-background: var(--color-fill);
-    --json-search-match-background: color-mix(in srgb, var(--color-warning) 35%, transparent);
-    --json-active-background: color-mix(in srgb, var(--color-brand) 14%, transparent);
-    --json-error-color: var(--color-danger-text);
-    --json-error-background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+    /* 行號欄的寬度：行號（位數由元件以 --json-line-number-digits 提供）＋ 左右留白 ＋ 摺疊欄 */
+    --json-gutter-width: calc(
+      var(--json-line-number-digits, 2) * 1ch + var(--seed-space-2) + var(--seed-space-1) +
+        var(--json-fold-width)
+    );
 
+    position: relative;
     overflow: auto;
     /* 捲軸出現或消失時內容寬度不變 */
     scrollbar-gutter: stable;
     overscroll-behavior: contain;
-    padding-block: var(--seed-space-2);
+    padding-block: var(--json-padding-block);
     border-radius: var(--radius-sm);
-    background: var(--color-fill-subtle);
-    color: var(--color-fg);
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
+    /* 上下留白處也要看得到行號欄：以背景畫出欄位與右側分隔線（不隨捲動移動，與逐行的欄位重疊） */
+    background:
+      linear-gradient(
+        to right,
+        var(--json-gutter-background) var(--json-gutter-width),
+        var(--json-gutter-border) var(--json-gutter-width) calc(var(--json-gutter-width) + 1px),
+        transparent calc(var(--json-gutter-width) + 1px)
+      ),
+      var(--json-background);
   }
 
   .root:focus-visible {
@@ -35,7 +33,7 @@
     outline-offset: -2px;
   }
 
-  /* 撐到最長的一行：每一行的 hover 底色一樣寬（虛擬捲動時行是絕對定位，由 .line 的 min-width 補） */
+  /* 撐到最長的一行（虛擬捲動時行是絕對定位，由 .line 的 min-width 補） */
   .lines {
     width: max-content;
     min-width: 100%;
@@ -46,39 +44,59 @@
     display: flex;
     box-sizing: border-box;
     min-width: 100%;
-    height: 1.25rem;
+    height: var(--json-line-height);
     align-items: center;
-    padding-inline-end: var(--seed-space-3);
-    line-height: 1.25rem;
     white-space: pre;
   }
 
-  .line:hover {
-    background: var(--json-hover-background);
+  /* 對應 .cm-gutters：水平捲動時固定在左側 */
+  .gutter {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    display: flex;
+    flex-shrink: 0;
+    height: 100%;
+    align-items: center;
+    border-right: 1px solid var(--json-gutter-border);
+    background: var(--json-gutter-background);
+    color: var(--json-gutter-color);
   }
 
-  .toggle,
-  .toggleSpacer {
+  /* 對應 .cm-lineNumbers .cm-gutterElement */
+  .lineNumber {
+    box-sizing: content-box;
+    width: calc(var(--json-line-number-digits, 2) * 1ch);
+    padding: 0 var(--seed-space-1) 0 var(--seed-space-2);
+    text-align: right;
+    user-select: none;
+  }
+
+  /* 對應 .cm-foldGutter .cm-gutterElement */
+  .fold {
     display: inline-flex;
-    flex-shrink: 0;
-    width: 1.25rem;
-    height: 1.25rem;
+    width: var(--json-fold-width);
+    height: 100%;
     align-items: center;
     justify-content: center;
-    margin-inline-start: var(--seed-space-1);
   }
 
   .toggle {
+    display: inline-flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
     padding: 0;
     border: none;
     border-radius: var(--radius-sm);
     background: none;
-    color: var(--json-delimiter-color);
+    color: inherit;
     cursor: pointer;
   }
 
   .toggle:hover {
-    color: var(--color-fg);
+    color: var(--json-color);
   }
 
   .toggle:focus-visible {
@@ -86,94 +104,9 @@
     outline-offset: -2px;
   }
 
-  .key {
-    color: var(--json-key-color);
-  }
-
-  .punctuation {
-    color: var(--json-delimiter-color);
-  }
-
-  .string {
-    color: var(--json-string-color);
-  }
-
-  .number {
-    color: var(--json-number-color);
-  }
-
-  .boolean {
-    color: var(--json-boolean-color);
-  }
-
-  .null {
-    color: var(--json-null-color);
-  }
-
-  /*
-   * 行尾的操作（JsonEditor）：貼在可視範圍右緣（水平捲動時不跑掉），滑過或聚焦該行才顯示；
-   * 用 opacity 而不是 display，鍵盤仍可 Tab 進來（聚焦後 :focus-within 會讓它顯示）。
-   */
-  .actions {
-    position: sticky;
-    right: 0;
-    display: inline-flex;
-    align-items: center;
-    margin-inline-start: auto;
-    padding-inline-start: var(--seed-space-2);
-    opacity: 0;
-  }
-
-  .line:hover .actions,
-  .line:focus-within .actions {
-    opacity: 1;
-    /* 蓋住捲到底下的長行文字 */
-    background: var(--json-hover-background);
-  }
-
-  .line:focus-within {
-    background: var(--json-hover-background);
-  }
-
-  /* 搜尋：符合的文字加底色；目前的結果（或點選的驗證錯誤）整行加底色 */
-  .match {
-    border-radius: 2px;
-    background: var(--json-search-match-background);
-    color: inherit;
-  }
-
-  .line[data-invalid] {
-    background: var(--json-error-background);
-  }
-
-  /* 焦點行另外畫左側的線：同時是錯誤行時，兩種標示都看得到 */
-  .line[data-active] {
-    background: var(--json-active-background);
-    box-shadow: inset 2px 0 0 var(--color-brand);
-  }
-
-  .marker {
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: center;
-    margin-inline-start: var(--seed-space-1);
-    color: var(--json-error-color);
-  }
-
-  /* 收合的容器裡面有錯：淡一點，表示錯誤不在這一行本身 */
-  .marker[data-nested] {
-    opacity: 0.6;
-  }
-
-  /* 收合容器的計數徽章（對應 --jse-tag-*） */
-  .summary {
-    margin-inline-start: var(--seed-space-1);
-    padding: 0 var(--seed-space-1);
-    border-radius: var(--radius-sm);
-    background: var(--json-tag-background);
-    color: var(--json-tag-color);
-    font-family: var(--font-sans);
-    font-size: 0.6875rem;
-    line-height: 1rem;
+  /* 對應 .cm-line 的左右留白 */
+  .content {
+    margin-inline-start: var(--json-content-inset);
+    padding-inline-end: var(--seed-space-3);
   }
 }
