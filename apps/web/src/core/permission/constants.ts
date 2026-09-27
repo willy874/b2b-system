@@ -15,6 +15,7 @@ export const PermissionResource = {
   AUDIT_LOG: 'auditLog',
   SYSTEM: 'system',
   APPROVAL: 'approval',
+  FILE: 'file',
 } as const;
 export type PermissionResource = (typeof PermissionResource)[keyof typeof PermissionResource];
 

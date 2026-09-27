@@ -1,0 +1,126 @@
+{
+  "file": {
+    "title": "Files",
+    "description": "Upload and manage game assets. Drop files below to upload; drag on empty space to select several files.",
+    "total": "{{count}} files",
+    "refresh": "Refresh",
+    "download": "Download",
+    "select": "Select “{{name}}”",
+    "selectAll": "Select all",
+    "browser": {
+      "label": "Files"
+    },
+    "search": {
+      "placeholder": "Search file names"
+    },
+    "field": {
+      "name": "Name",
+      "kind": "Type",
+      "category": "Category",
+      "contentType": "MIME type",
+      "size": "Size",
+      "uploader": "Uploaded by",
+      "createdAt": "Uploaded",
+      "updatedAt": "Updated"
+    },
+    "category": {
+      "all": "All types",
+      "image": "Images",
+      "video": "Videos",
+      "audio": "Audio",
+      "text": "Text & code",
+      "document": "Documents",
+      "archive": "Archives",
+      "other": "Other"
+    },
+    "kind": {
+      "image": "Image",
+      "video": "Video",
+      "audio": "Audio",
+      "text": "Plain text",
+      "code": "Code / config",
+      "pdf": "PDF",
+      "spreadsheet": "Spreadsheet",
+      "presentation": "Presentation",
+      "document": "Document",
+      "archive": "Archive",
+      "font": "Font",
+      "other": "Other"
+    },
+    "sort": {
+      "createdAt": "Upload time",
+      "name": "Name",
+      "size": "Size"
+    },
+    "view": {
+      "label": "Layout",
+      "grid": "Icons",
+      "list": "List"
+    },
+    "paging": {
+      "label": "Browsing mode",
+      "infinite": "Infinite scroll",
+      "pagination": "Pages"
+    },
+    "pagination": {
+      "summary": "{{from}}–{{to}} of {{total}}"
+    },
+    "selection": {
+      "count": "{{count}} selected",
+      "selectAll": "Select all {{count}}",
+      "hint": "Click to select; hold Shift / Ctrl to select several, or drag on empty space. Double-click to preview."
+    },
+    "empty": {
+      "title": "No files yet",
+      "uploadHint": "Drop files here, or use “Upload” at the top right.",
+      "filtered": "No files match these filters",
+      "clearFilters": "Clear filters"
+    },
+    "upload": {
+      "action": "Upload",
+      "dropHint": "Drop to upload",
+      "queued": "Added {{count}} files to the upload queue",
+      "rejected": "{{count}} files were not uploaded: “{{name}}” {{reason}}",
+      "directoryUnsupported": "Folders can't be uploaded; skipped {{count}} folders"
+    },
+    "validation": {
+      "tooLarge": "exceeds the {{max}} limit",
+      "imageCorrupted": "is not a valid {{type}} image"
+    },
+    "rename": {
+      "action": "Rename",
+      "title": "Rename",
+      "success": "Renamed"
+    },
+    "delete": {
+      "title": "Delete file",
+      "confirm": "Delete “{{name}}”? This cannot be undone.",
+      "success": "File deleted"
+    },
+    "batch": {
+      "upload": {
+        "title": "Upload files",
+        "success": "Uploaded {{count}} files"
+      },
+      "delete": {
+        "title": "Delete files",
+        "confirm": "Delete {{count}} files? They are deleted one by one in the background and cannot be restored.",
+        "success": "Deleted {{count}} files"
+      }
+    },
+    "preview": {
+      "title": "File details",
+      "previous": "Previous file",
+      "next": "Next file",
+      "fit": "Fit to window",
+      "actualSize": "Actual size",
+      "imageError": "The image can't be displayed",
+      "truncated": "Large file: showing the first {{size}} only. Download it for the full content.",
+      "unavailable": "No preview",
+      "unsupported": "This file type can't be previewed yet. Download it to open.",
+      "tooLarge": "This file is too large to preview in the browser. Download it to open.",
+      "deleted": "File deleted",
+      "deletedDescription": "Someone may have just deleted this file."
+    }
+  }
+}

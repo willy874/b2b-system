@@ -17,6 +17,7 @@ import { PREFERENCE_PAGE, PROFILE_PAGE } from '@/features/account';
 import { APPROVAL_PAGE } from '@/features/approval';
 import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { useLogoutMutation } from '@/features/auth';
+import { FILE_PAGE } from '@/features/file';
 import { HOME_PAGE } from '@/features/home';
 import { PERMISSION_PAGE } from '@/features/permission';
 import { ROLE_PAGE } from '@/features/role';
@@ -65,6 +66,7 @@ const MENU: NavItem[] = [
     testId: 'menu-approval',
     icon: 'check',
   },
+  { pageKey: FILE_PAGE, to: '/file', labelKey: 'menu.file', testId: 'menu-file', icon: 'file' },
 ];
 
 const ACCOUNT_MENU: MenuItem[] = [

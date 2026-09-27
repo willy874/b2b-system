@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { registerAccountPagePermissions, PREFERENCE_PAGE, PROFILE_PAGE } from '@/features/account';
 import { AUDIT_LOG_PAGE, registerAuditLogPagePermissions } from '@/features/audit-log';
+import { FILE_PAGE, registerFilePagePermissions } from '@/features/file';
 import { HOME_PAGE, registerHomePagePermissions } from '@/features/home';
 import { PERMISSION_PAGE, registerPermissionPagePermissions } from '@/features/permission';
 import { registerRolePagePermissions, ROLE_CREATE_PAGE, ROLE_PAGE } from '@/features/role';
@@ -22,6 +23,7 @@ describe('註冊表完整性', () => {
     registerPermissionPagePermissions();
     registerAuditLogPagePermissions();
     registerAccountPagePermissions();
+    registerFilePagePermissions();
 
     expect(new Set(getRegisteredPageKeys())).toEqual(
       new Set([
@@ -34,6 +36,7 @@ describe('註冊表完整性', () => {
         AUDIT_LOG_PAGE,
         PROFILE_PAGE,
         PREFERENCE_PAGE,
+        FILE_PAGE,
       ]),
     );
   });
