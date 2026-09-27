@@ -79,3 +79,33 @@ export function isBatchJobActive(job: BatchJob): boolean {
 export function processedCount(job: BatchJob): number {
   return job.succeeded.length + job.failures.length;
 }
+
+/**
+ * 整體進度（0–1）。項目有 `weight`（例：位元組）時依份量計算，處理中的項目依它回報的進度計入；
+ * 否則每筆一樣重。
+ */
+export function jobProgressRatio(job: BatchJob): number {
+  const { total, done } = jobProgressAmount(job);
+  return total > 0 ? Math.min(1, done / total) : 0;
+}
+
+/** 已完成的份量與總份量；`weighted` 表示單位是項目的 `weight`（例：位元組）而不是筆數。 */
+export function jobProgressAmount(job: BatchJob): {
+  done: number;
+  total: number;
+  weighted: boolean;
+} {
+  const weighted = job.items.length > 0 && job.items.every((item) => item.weight !== undefined);
+  const weightOf = (id: string) =>
+    weighted ? (job.items.find((item) => item.id === id)?.weight ?? 0) : 1;
+  const settled = [...job.succeeded, ...job.failures.map((failure) => failure.id)];
+  let done = settled.reduce((sum, id) => sum + weightOf(id), 0);
+  for (const [id, progress] of Object.entries(job.progress)) {
+    const fraction = progress.total > 0 ? Math.min(1, progress.loaded / progress.total) : 0;
+    done += weightOf(id) * fraction;
+  }
+  const total = weighted
+    ? job.items.reduce((sum, item) => sum + (item.weight ?? 0), 0)
+    : job.items.length;
+  return { done, total, weighted };
+}

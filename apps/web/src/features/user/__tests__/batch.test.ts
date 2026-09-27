@@ -36,7 +36,7 @@ beforeEach(() => {
 function run(operation: string, id: string) {
   const definition = getBatchOperation(operation);
   if (!definition) throw new Error(`${operation} 未註冊`);
-  return definition.run(id);
+  return definition.run(id, { signal: new AbortController().signal, reportProgress: () => {} });
 }
 
 describe('使用者的批次操作（每筆呼叫一次單筆 API）', () => {

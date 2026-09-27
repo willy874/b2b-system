@@ -16,7 +16,7 @@ import type {
   BatchPort,
   BatchQueueMessages,
 } from './protocol';
-import type { BatchJob, BatchJobInput, BatchOperation } from './types';
+import type { BatchItemProgress, BatchJob, BatchJobInput, BatchOperation } from './types';
 
 export type BatchQueueClientEvents = {
   /** 這個分頁被指定彈出結果的工作（發起的分頁；它關掉了才輪到其他分頁）。 */
@@ -61,6 +61,11 @@ function webLocksHold(): HoldClientLock {
 
 const EMPTY: readonly BatchJob[] = [];
 
+/** 進度回報的最短間隔：上傳的 progress 事件一秒可達數十次，每次都廣播快照給所有分頁太吵。 */
+const PROGRESS_INTERVAL_MS = 200;
+
+const executionKey = (jobId: string, itemId: string) => `${jobId}\u0000${itemId}`;
+
 /**
  * 分頁端的批次佇列：送指令、以一般 API 執行佇列交派的項目，並彙整所有佇列經 Channel 廣播的進度
  * （docs/adr/0012-batch-queue-worker.md）。每個分頁一個實例，由 `batchQueuePlugin` 建立。
@@ -79,6 +84,8 @@ export class BatchQueueClient {
   private readonly ownsHost: boolean;
   private readonly hosts = new Map<string, { version: number; jobs: readonly BatchJob[] }>();
   private readonly subscribers = new Set<() => void>();
+  /** 這個分頁正在處理的項目；佇列要求中止（工作被取消）時用。 */
+  private readonly executions = new Map<string, AbortController>();
   private hostId: string | undefined;
   private lock: { release: () => void } | undefined;
   private started = false;
@@ -128,6 +135,8 @@ export class BatchQueueClient {
   }
 
   dispose(): void {
+    for (const controller of this.executions.values()) controller.abort();
+    this.executions.clear();
     this.stop();
     this.port.removeEventListener('message', this.onPortMessage);
     this.port.close?.();
@@ -143,7 +152,7 @@ export class BatchQueueClient {
     return jobId;
   }
 
-  /** 取消：正在處理的那一筆做完就停，剩下的不再送出。 */
+  /** 取消：正在處理的項目會被中止（操作有接 `signal` 時），剩下的不再送出。 */
   cancel(jobId: string): void {
     this.send({ type: 'cancel', jobId });
   }
@@ -181,6 +190,9 @@ export class BatchQueueClient {
       case 'execute':
         void this.execute(message.jobId, message.operation, message.itemId);
         return;
+      case 'abort':
+        this.executions.get(executionKey(message.jobId, message.itemId))?.abort();
+        return;
       case 'finished':
         this.events.emit('finished', message.job);
         return;
@@ -191,13 +203,32 @@ export class BatchQueueClient {
 
   /** 以一般（單筆）API 處理一筆，把成功或失敗回報給佇列。 */
   private async execute(jobId: string, operationId: string, itemId: string): Promise<void> {
+    const key = executionKey(jobId, itemId);
+    const controller = new AbortController();
+    this.executions.set(key, controller);
+    let lastReport = 0;
+    let trailing: ReturnType<typeof setTimeout> | undefined;
+    const report = (progress: BatchItemProgress) => {
+      clearTimeout(trailing);
+      const send = () => {
+        lastReport = Date.now();
+        this.send({ type: 'progress', jobId, itemId, progress });
+      };
+      // 節流但保留最後一次：停在 99% 的進度條比略慢的更新更讓人困惑
+      if (Date.now() - lastReport >= PROGRESS_INTERVAL_MS) send();
+      else trailing = setTimeout(send, PROGRESS_INTERVAL_MS);
+    };
     try {
       const operation = this.resolveOperation(operationId);
       if (!operation) throw new Error(`BatchOperation "${operationId}" 尚未註冊`);
-      await operation.run(itemId);
+      await operation.run(itemId, { signal: controller.signal, reportProgress: report });
+      clearTimeout(trailing);
       this.send({ type: 'result', jobId, itemId });
     } catch (error) {
+      clearTimeout(trailing);
       this.send({ type: 'result', jobId, itemId, error: serializeBatchError(error) });
+    } finally {
+      this.executions.delete(key);
     }
   }
 

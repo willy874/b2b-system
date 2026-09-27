@@ -1,7 +1,7 @@
 import { createChannel } from '@/shared/channel';
 import type { Channel, ChannelOptions } from '@/shared/channel';
 
-import type { BatchItemError, BatchJob, BatchJobInput } from './types';
+import type { BatchItemError, BatchItemProgress, BatchJob, BatchJobInput } from './types';
 
 /**
  * 佇列有兩條通道（docs/adr/0012-batch-queue-worker.md）：
@@ -31,6 +31,7 @@ export type BatchClientMessage =
   | { type: 'bye' }
   | { type: 'enqueue'; jobId: string; input: BatchJobInput }
   | { type: 'result'; jobId: string; itemId: string; error?: BatchItemError }
+  | { type: 'progress'; jobId: string; itemId: string; progress: BatchItemProgress }
   | { type: 'cancel'; jobId: string }
   | { type: 'cancel-all' }
   | { type: 'dismiss'; jobId: string }
@@ -41,6 +42,8 @@ export type BatchHostMessage =
   | { type: 'welcome'; hostId: string }
   /** 請這個分頁以一般 API 處理一筆；處理完回 `result`。 */
   | { type: 'execute'; jobId: string; operation: string; itemId: string }
+  /** 工作被取消：中止正在這個分頁處理的那一筆（它會以 `aborted` 的結果回來）。 */
+  | { type: 'abort'; jobId: string; itemId: string }
   /** 工作結束（完成或取消）：只送給一個分頁，由它彈出結果。 */
   | { type: 'finished'; job: BatchJob };
 

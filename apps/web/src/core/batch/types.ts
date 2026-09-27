@@ -7,6 +7,17 @@
 export interface BatchJobItem {
   id: string;
   label: string;
+  /**
+   * 這一筆佔整體進度的份量（例：上傳的位元組數）。有給時進度條依份量計算、顯示位元組；
+   * 省略時每筆一樣重。
+   */
+  weight?: number;
+}
+
+/** 處理中的一筆回報的進度（例：已上傳的位元組）。 */
+export interface BatchItemProgress {
+  loaded: number;
+  total: number;
 }
 
 /** 可序列化的錯誤：跨 worker 傳遞後由 `toBatchErrorInstance()` 還原，再交給 `useErrorMessage()`。 */
@@ -46,6 +57,10 @@ export interface BatchJob {
   status: BatchJobStatus;
   succeeded: string[];
   failures: BatchItemFailure[];
+  /** 同時處理幾筆（見 `BatchJobInput.concurrency`）。 */
+  concurrency: number;
+  /** 處理中的項目回報的進度（item id → 進度）；結果回來就移除。 */
+  progress: Record<string, BatchItemProgress>;
   createdAt: number;
   finishedAt?: number;
 }
@@ -55,6 +70,19 @@ export interface BatchJobInput {
   operation: string;
   scope: string;
   items: BatchJobItem[];
+  /**
+   * 這個工作同時處理幾筆，預設 1。工作之間仍是堵塞式（前一個工作結束才開始下一個）；
+   * 只有彼此獨立、單筆以網路傳輸為主的操作（上傳）才調高（docs/adr/0013-file-manager-upload.md）。
+   */
+  concurrency?: number;
+}
+
+/** 處理一筆時交給操作的工具。 */
+export interface BatchRunContext {
+  /** 使用者取消工作、或佇列收回這一筆時中止；操作應把它傳給 fetch / XHR。 */
+  signal: AbortSignal;
+  /** 回報這一筆的進度（例：已上傳的位元組）；呼叫頻率不限，由佇列節流。 */
+  reportProgress: (progress: BatchItemProgress) => void;
 }
 
 /**
@@ -74,7 +102,7 @@ export interface BatchOperation {
    */
   localeScope?: string;
   /** 處理一筆：打單筆 API ＋ 失效快取；失敗直接拋出（不在這裡提示）。 */
-  run: (itemId: string) => Promise<unknown>;
+  run: (itemId: string, context: BatchRunContext) => Promise<unknown>;
 }
 
 // ── 列表頁的批次動作（RichTable 的 batch.actions） ──

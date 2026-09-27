@@ -1,5 +1,10 @@
-import { isNetworkError, isRequestAborted, NetworkError, RequestAbortedError } from '@/core/client';
-import type { AbortReason } from '@/core/client';
+import {
+  AbortReason,
+  isNetworkError,
+  isRequestAborted,
+  NetworkError,
+  RequestAbortedError,
+} from '@/core/client';
 import { AppError } from '@/core/errors';
 
 import type { BatchItemError } from './types';
@@ -17,6 +22,10 @@ export function serializeBatchError(error: unknown): BatchItemError {
   }
   if (isNetworkError(error)) return { kind: 'network' };
   if (isRequestAborted(error)) return { kind: 'aborted', reason: error.reason };
+  // 操作直接把 signal 交給瀏覽器 API（例：fetch 分塊）時拿到的是原生的 AbortError
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return { kind: 'aborted', reason: AbortReason.CALLER };
+  }
   return { kind: 'unknown' };
 }
 

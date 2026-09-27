@@ -1,8 +1,9 @@
 import { Button } from '@/components/Button';
 import { Progress } from '@/components/Progress';
 import { useTranslation } from '@/core/locales';
+import { formatBytes } from '@/shared/utils';
 
-import { processedCount } from './activeQueue';
+import { jobProgressAmount, processedCount } from './activeQueue';
 import { getBatchOperation } from './operations';
 import type { BatchJob, BatchJobStatus } from './types';
 
@@ -45,6 +46,9 @@ export function BatchJobProgress({
   const total = job.items.length;
   const failed = job.failures.length;
   const active = job.status === 'queued' || job.status === 'running';
+  // 項目帶份量（上傳的位元組）時依份量計算，處理中的項目也依回報的進度推進
+  const amount = jobProgressAmount(job);
+  const percent = amount.total > 0 ? Math.round((amount.done / amount.total) * 100) : 0;
 
   return (
     <div
@@ -55,7 +59,7 @@ export function BatchJobProgress({
     >
       <Progress
         // Base UI 的百分比顯示直接格式化 value（不除以 max）：以 0–100 傳入
-        value={total > 0 ? Math.round((done / total) * 100) : 0}
+        value={Math.min(100, percent)}
         label={name}
         showValue
         tone={failed > 0 ? 'danger' : job.status === 'done' ? 'success' : 'brand'}
@@ -64,6 +68,11 @@ export function BatchJobProgress({
         <span data-testid="batch-progress-count" data-value={done}>
           {t(STATUS_KEY[job.status], { done, total })}
         </span>
+        {amount.weighted && active && (
+          <span data-testid="batch-progress-bytes">
+            {formatBytes(amount.done)} / {formatBytes(amount.total)}
+          </span>
+        )}
         {failed > 0 && (
           <span className={styles.failed} data-testid="batch-progress-failed" data-value={failed}>
             {t('common.batch.progress.failed', { count: failed })}

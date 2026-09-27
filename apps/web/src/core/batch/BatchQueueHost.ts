@@ -13,7 +13,7 @@ import type {
   BatchPort,
   BatchQueueMessages,
 } from './protocol';
-import type { BatchItemError, BatchJob } from './types';
+import type { BatchItemError, BatchItemProgress, BatchJob } from './types';
 
 /** 結束的工作保留幾筆給佇列面板；更舊的自動移除。 */
 const FINISHED_LIMIT = 30;
@@ -46,12 +46,18 @@ function webLocksWatcher(): WatchClient | undefined {
 
 const isActive = (job: BatchJob) => job.status === 'queued' || job.status === 'running';
 
+/** 一個工作一次最多並行幾筆：再多只會互搶頻寬，也讓「取消」要中止的請求變多。 */
+const MAX_CONCURRENCY = 6;
+
+const runningKey = (jobId: string, itemId: string) => `${jobId}\u0000${itemId}`;
+
 /**
  * 全域批次佇列（docs/adr/0012-batch-queue-worker.md）。在 SharedWorker（所有分頁共用一個）或
  * dedicated worker（不支援 SharedWorker 時，每個分頁一個）裡執行，不依賴 DOM。
  *
- * **堵塞式**：整個佇列同一時間只處理一筆——把它交給一個分頁（`execute`），等 `result` 回來才送下一筆；
- * 工作依送進來的順序處理。實際的 HTTP 請求由分頁以一般 API 送出：token、續期、錯誤轉換只在分頁的 `apis/` 一處，
+ * **堵塞式**：整個佇列同一時間只處理一個工作，工作依送進來的順序處理；工作內預設一次一筆——把它交給一個分頁
+ * （`execute`），等 `result` 回來才送下一筆。上傳這類彼此獨立的操作可以設 `concurrency` 讓同一個工作
+ * 同時處理數筆（docs/adr/0013-file-manager-upload.md）。實際的 HTTP 請求由分頁以一般 API 送出：token、續期、錯誤轉換只在分頁的 `apis/` 一處，
  * access token 不必離開分頁的記憶體。
  *
  * 執行者：優先交給發起的分頁；它關掉了就交給任一個還在的分頁（每個分頁都註冊了所有操作）。
@@ -65,7 +71,8 @@ export class BatchQueueHost {
   private readonly clients = new Map<string, BatchPort>();
   private readonly detachers = new Set<() => void>();
   private jobs: BatchJob[] = [];
-  private running: Running | undefined;
+  /** 處理中的項目（`runningKey(jobId, itemId)` → 由哪個分頁處理）。 */
+  private readonly running = new Map<string, Running>();
   private version = 0;
 
   constructor(options: BatchQueueHostOptions = {}) {
@@ -121,12 +128,21 @@ export class BatchQueueHost {
     // 同一個 clientId 可能已經以新的 port 重新連上（從 bfcache 回來）
     if (this.clients.get(clientId) !== port) return;
     this.clients.delete(clientId);
-    const running = this.running;
-    if (running?.clientId !== clientId) return;
-    // 這一筆沒有結果：交給其他分頁重送；已被取消的工作不再送，直接通知結束
-    this.running = undefined;
-    const job = this.jobs.find((candidate) => candidate.id === running.jobId);
-    if (job?.status === 'cancelled') this.notifyFinished(job);
+    const orphaned = [...this.running.entries()].filter(([, run]) => run.clientId === clientId);
+    if (orphaned.length === 0) return;
+    // 這些項目沒有結果：交給其他分頁重送；已被取消的工作不再送，最後一筆收回時通知結束
+    for (const [key, run] of orphaned) {
+      this.running.delete(key);
+      const job = this.findJob(run.jobId);
+      if (job) delete job.progress[run.itemId];
+    }
+    for (const jobId of new Set(orphaned.map(([, run]) => run.jobId))) {
+      const job = this.findJob(jobId);
+      if (job?.status === 'cancelled' && this.inFlight(jobId) === 0) this.notifyFinished(job);
+    }
+    // 移除的進度要讓其他分頁知道；沒有分頁了（dedicated worker 隨分頁關閉）就不必，
+    // 否則這份快照會晚於 `host-closed` 抵達，讓其他分頁又把工作加回去
+    if (this.clients.size > 0) this.broadcast();
     this.pump();
   }
 
@@ -144,6 +160,11 @@ export class BatchQueueHost {
           status: 'queued',
           succeeded: [],
           failures: [],
+          concurrency: Math.min(
+            MAX_CONCURRENCY,
+            Math.max(1, Math.floor(message.input.concurrency ?? 1)),
+          ),
+          progress: {},
           createdAt: this.now(),
         });
         this.broadcast();
@@ -152,6 +173,9 @@ export class BatchQueueHost {
       }
       case 'result':
         this.settleItem(message.jobId, message.itemId, message.error);
+        return;
+      case 'progress':
+        this.updateProgress(message.jobId, message.itemId, message.progress);
         return;
       case 'cancel':
         this.cancel((job) => job.id === message.jobId);
@@ -172,14 +196,19 @@ export class BatchQueueHost {
     }
   }
 
-  /** 下一筆：佇列中第一個還有未處理項目的工作。 */
+  /**
+   * 交派下一筆：佇列中第一個進行中的工作，補滿它的並行數。
+   * 前一個工作還有處理中的項目時，後面的工作不開始（工作之間仍是堵塞式）。
+   */
   private pump(): void {
-    if (this.running) return;
     const job = this.jobs.find(isActive);
     if (!job) return;
-    const done = new Set([...job.succeeded, ...job.failures.map((failure) => failure.id)]);
-    const item = job.items.find((candidate) => !done.has(candidate.id));
-    if (!item) {
+    const settled = new Set([...job.succeeded, ...job.failures.map((failure) => failure.id)]);
+    const pending = job.items.filter(
+      (item) => !settled.has(item.id) && !this.running.has(runningKey(job.id, item.id)),
+    );
+    if (pending.length === 0) {
+      if (this.inFlight(job.id) > 0) return;
       this.finish(job);
       this.pump();
       return;
@@ -191,44 +220,75 @@ export class BatchQueueHost {
       job.status = 'running';
       this.broadcast();
     }
-    this.running = { jobId: job.id, itemId: item.id, clientId: executor.clientId };
-    this.send(executor.port, {
-      type: 'execute',
-      jobId: job.id,
-      operation: job.operation,
-      itemId: item.id,
-    });
+    for (const item of pending.slice(0, job.concurrency - this.inFlight(job.id))) {
+      this.running.set(runningKey(job.id, item.id), {
+        jobId: job.id,
+        itemId: item.id,
+        clientId: executor.clientId,
+      });
+      this.send(executor.port, {
+        type: 'execute',
+        jobId: job.id,
+        operation: job.operation,
+        itemId: item.id,
+      });
+    }
   }
 
   private settleItem(jobId: string, itemId: string, error: BatchItemError | undefined): void {
-    const running = this.running;
-    if (!running || running.jobId !== jobId || running.itemId !== itemId) return;
-    this.running = undefined;
-    const job = this.jobs.find((candidate) => candidate.id === jobId);
+    const key = runningKey(jobId, itemId);
+    if (!this.running.has(key)) return;
+    this.running.delete(key);
+    const job = this.findJob(jobId);
     if (job) {
-      if (error) {
+      delete job.progress[itemId];
+      const cancelled = job.status === 'cancelled';
+      if (!error) {
+        job.succeeded.push(itemId);
+      } else if (!(cancelled && error.kind === 'aborted')) {
+        // 取消時被中止的那一筆不算失敗：它就是「沒有處理」
         const item = job.items.find((candidate) => candidate.id === itemId);
         job.failures.push({ id: itemId, label: item?.label ?? itemId, error });
-      } else {
-        job.succeeded.push(itemId);
       }
-      // 執行中被取消：這一筆的結果已記下，剩下的不再送出
-      if (job.status === 'cancelled') this.notifyFinished(job);
+      // 執行中被取消：最後一筆的結果回來才通知，結果清單才完整
+      if (cancelled && this.inFlight(jobId) === 0) this.notifyFinished(job);
       this.broadcast();
     }
     this.pump();
   }
 
+  private updateProgress(jobId: string, itemId: string, progress: BatchItemProgress): void {
+    if (!this.running.has(runningKey(jobId, itemId))) return;
+    const job = this.findJob(jobId);
+    if (!job || !isActive(job)) return;
+    job.progress[itemId] = { loaded: progress.loaded, total: progress.total };
+    this.broadcast();
+  }
+
   private cancel(match: (job: BatchJob) => boolean): void {
     for (const job of this.jobs) {
       if (!isActive(job) || !match(job)) continue;
-      const inFlight = this.running?.jobId === job.id;
       job.status = 'cancelled';
       job.finishedAt = this.now();
-      // 正在處理的那一筆等結果回來再通知，結果清單才完整
-      if (!inFlight) this.notifyFinished(job);
+      const inFlight = [...this.running.values()].filter((run) => run.jobId === job.id);
+      // 處理中的那幾筆：請執行的分頁中止，等結果回來再通知結束
+      for (const run of inFlight) {
+        const port = this.clients.get(run.clientId);
+        if (port) this.send(port, { type: 'abort', jobId: run.jobId, itemId: run.itemId });
+      }
+      if (inFlight.length === 0) this.notifyFinished(job);
     }
     this.broadcast();
+  }
+
+  private inFlight(jobId: string): number {
+    let count = 0;
+    for (const run of this.running.values()) if (run.jobId === jobId) count += 1;
+    return count;
+  }
+
+  private findJob(jobId: string): BatchJob | undefined {
+    return this.jobs.find((candidate) => candidate.id === jobId);
   }
 
   private finish(job: BatchJob): void {
