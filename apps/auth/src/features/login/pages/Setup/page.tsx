@@ -1,10 +1,11 @@
 import { useForm } from '@tanstack/react-form';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { z } from 'zod';
 
-import { getResetPasswordMutationOptions } from '@/apis/auth/reset-password/mutation';
+import { getSetupMutationOptions } from '@/apis/auth/setup/mutation';
+import { getVerifySetupQueryOptions } from '@/apis/auth/setup/query';
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/Input';
@@ -12,40 +13,54 @@ import { useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
-import { ResetPasswordRoute } from '../../routes';
+import { SetupRoute } from '../../routes';
 import { AuthShell } from '../AuthShell';
 
 const Schema = z
-  .object({ newPassword: z.string().min(12), confirmPassword: z.string().min(1) })
-  .refine((value) => value.newPassword === value.confirmPassword, {
+  .object({ password: z.string().min(12), confirmPassword: z.string().min(1) })
+  .refine((value) => value.password === value.confirmPassword, {
     path: ['confirmPassword'],
     message: 'passwords do not match',
   });
 
-export default function ResetPasswordPage() {
+export default function SetupPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { token } = ResetPasswordRoute.useSearch();
-  const reset = useMutation(getResetPasswordMutationOptions());
+  const { token } = SetupRoute.useSearch();
+  const verify = useQuery({ ...getVerifySetupQueryOptions(token ?? ''), enabled: Boolean(token) });
+  const setup = useMutation(getSetupMutationOptions());
   const toMessage = useErrorMessage();
   const [formError, setFormError] = useState<string>();
 
   const form = useForm({
-    defaultValues: { newPassword: '', confirmPassword: '' },
+    defaultValues: { password: '', confirmPassword: '' },
     validators: { onSubmit: zodFormValidator(Schema) },
     onSubmit: async ({ value }) => {
       setFormError(undefined);
       try {
-        await reset.mutateAsync({ params: { token: token ?? '', newPassword: value.newPassword } });
-        await navigate({ to: '/auth/login' });
+        await setup.mutateAsync({ params: { token: token ?? '', password: value.password } });
+        await navigate({ to: '/login' });
       } catch (error) {
         setFormError(toMessage(error));
       }
     },
   });
 
+  if (!token || verify.data?.valid === false) {
+    return (
+      <AuthShell title={t('login.setup.title')}>
+        <p className="text-sm text-[var(--color-danger-text)]" data-testid="setup-invalid">
+          {t('error.AUTH_SETUP_TOKEN_INVALID')}
+        </p>
+      </AuthShell>
+    );
+  }
+
   return (
-    <AuthShell title={t('auth.resetPassword.title')} description={t('auth.password.hint')}>
+    <AuthShell
+      title={t('login.setup.title')}
+      description={verify.data?.email ?? t('login.password.hint')}
+    >
       <form
         className="flex flex-col gap-3"
         onSubmit={(event) => {
@@ -53,10 +68,10 @@ export default function ResetPasswordPage() {
           void form.handleSubmit();
         }}
       >
-        <form.Field name="newPassword">
+        <form.Field name="password">
           {(field) => (
             <Field
-              label={t('auth.field.newPassword')}
+              label={t('login.field.newPassword')}
               required
               error={firstError(field.state.meta.errors)}
             >
@@ -66,7 +81,7 @@ export default function ResetPasswordPage() {
                 value={field.state.value}
                 onChange={(event) => field.handleChange(event.target.value)}
                 onBlur={field.handleBlur}
-                data-testid="reset-password-new"
+                data-testid="setup-password"
               />
             </Field>
           )}
@@ -74,7 +89,7 @@ export default function ResetPasswordPage() {
         <form.Field name="confirmPassword">
           {(field) => (
             <Field
-              label={t('auth.field.confirmPassword')}
+              label={t('login.field.confirmPassword')}
               required
               error={firstError(field.state.meta.errors)}
             >
@@ -84,14 +99,20 @@ export default function ResetPasswordPage() {
                 value={field.state.value}
                 onChange={(event) => field.handleChange(event.target.value)}
                 onBlur={field.handleBlur}
-                data-testid="reset-password-confirm"
+                data-testid="setup-confirm"
               />
             </Field>
           )}
         </form.Field>
         {formError && <p className="m-0 text-sm text-[var(--color-danger-text)]">{formError}</p>}
-        <Button type="submit" variant="primary" block loading={reset.isPending}>
-          {t('common.confirm')}
+        <Button
+          type="submit"
+          variant="primary"
+          block
+          loading={setup.isPending}
+          data-testid="setup-submit"
+        >
+          {t('login.setup.submit')}
         </Button>
       </form>
     </AuthShell>

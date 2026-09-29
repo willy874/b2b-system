@@ -214,12 +214,16 @@ export const SignupWorkspaceInvitationSchema = defineSchema(
   }),
 );
 
-/** 接受之後：前端導到這個工作區；新帳號的話，前端接著以 email ＋ 剛設定的密碼登入。 */
+/**
+ * 接受之後：apps/auth **頂層跳轉** 到 `workspaceUrl`（產品裡的工作區）；產品沒有 session 時經 IdP 登入
+ * （docs/adr/0019-sso-identity-platform.md D6：服務之間只以跳轉溝通）。
+ */
 export const AcceptedWorkspaceInvitationSchema = defineSchema(
   'AcceptedWorkspaceInvitation',
   z.object({
     email: z.string(),
     workspace: z.object({ id: z.string().uuid(), slug: z.string(), name: z.string() }),
+    workspaceUrl: z.string().url(),
   }),
 );
 

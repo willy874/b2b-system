@@ -61,7 +61,7 @@ export class WorkspaceInvitationJobs implements OnModuleInit {
         locale,
         workspaceName: invitation.workspace.name,
         inviterName: invitation.inviter?.displayName ?? null,
-        link: this.mail.link(WORKSPACE_INVITATION_PATH, { token: raw }),
+        link: this.mail.accountLink(WORKSPACE_INVITATION_PATH, { token: raw }),
         validDays: WORKSPACE_INVITATION_TTL_SECONDS / 86_400,
       }),
     );

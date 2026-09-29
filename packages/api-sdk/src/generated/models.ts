@@ -744,4 +744,5 @@ export interface AcceptedWorkspaceInvitation {
     slug: string;
     name: string;
   };
+  workspaceUrl: string;
 }

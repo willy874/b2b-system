@@ -13,4 +13,9 @@ export const routeTree = RootRoute.addChildren([
   LoginRoutes.SsoCallbackRoute,
   LoginRoutes.InteractionRoute,
   LoginRoutes.SsoErrorRoute,
+  LoginRoutes.ForgotPasswordRoute,
+  LoginRoutes.ResetPasswordRoute,
+  LoginRoutes.SetupRoute,
+  LoginRoutes.RegisterRoute,
+  LoginRoutes.InvitationRoute,
 ]);

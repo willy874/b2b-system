@@ -73,6 +73,7 @@ describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
     process.env.FILE_MAINTENANCE_CRON = '';
     process.env.AUTH_RATE_LIMIT = '1000';
     process.env.APP_PUBLIC_URL = 'https://editor.example.com';
+    process.env.AUTH_APP_URL = 'https://account.example.com';
 
     const created = createTestDatabase();
     db = created.db;
@@ -100,6 +101,7 @@ describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
       'FILE_MAINTENANCE_CRON',
       'AUTH_RATE_LIMIT',
       'APP_PUBLIC_URL',
+      'AUTH_APP_URL',
     ]) {
       delete process.env[key];
     }
@@ -116,8 +118,8 @@ describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
 
     const mail = await waitForMail('new-member@example.com');
     expect(mail.subject).toBe('啟用你的 B2B System 帳號');
-    expect(mail.text).toContain('https://editor.example.com/auth/setup?token=');
-    const setupToken = tokenIn(mail, '/auth/setup');
+    expect(mail.text).toContain('https://account.example.com/setup?token=');
+    const setupToken = tokenIn(mail, '/setup');
 
     await request(http)
       .post('/auth/setup')
@@ -146,7 +148,7 @@ describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
     // 第 1 封是啟用信
     const mail = await waitForMail(email, 2);
     expect(mail.subject).toBe('重設你的 B2B System 密碼');
-    const resetToken = tokenIn(mail, '/auth/reset-password');
+    const resetToken = tokenIn(mail, '/reset-password');
 
     await request(http)
       .post('/auth/reset-password')

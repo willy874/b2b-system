@@ -4,7 +4,12 @@ import { localeScopeLoader } from '@/core/locales';
 import { RootRoute } from '@/core/router';
 
 import { LOGIN_LOCALE_SCOPE } from '../locale';
-import { LoginSearchSchema, SsoCallbackSearchSchema, SsoErrorSearchSchema } from './model';
+import {
+  LoginSearchSchema,
+  SsoCallbackSearchSchema,
+  SsoErrorSearchSchema,
+  TokenSearchSchema,
+} from './model';
 
 /**
  * apps/auth 自己的頁面也經 SSO 登入（docs/adr/0019-sso-identity-platform.md）：這一頁只負責跳到 IdP。
@@ -40,4 +45,42 @@ export const SsoErrorRoute = createRoute({
   path: '/error',
   loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
   validateSearch: SsoErrorSearchSchema,
+});
+
+// ── 帳號流程（docs/adr/0019-sso-identity-platform.md D1）：帳號屬於平台，信中連結以 AUTH_APP_URL 開頭 ──
+
+export const ForgotPasswordRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: '/forgot-password',
+  loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
+});
+
+export const ResetPasswordRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: '/reset-password',
+  loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
+  validateSearch: TokenSearchSchema,
+});
+
+/** 啟用：管理員建立的帳號設定初始密碼。 */
+export const SetupRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: '/setup',
+  loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
+  validateSearch: TokenSearchSchema,
+});
+
+/** 註冊申請；核准前不會建立帳號（docs/rbac/06-approval.md §5）。 */
+export const RegisterRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: '/register',
+  loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
+});
+
+/** 接受工作區邀請（docs/adr/0018-workspace-tenancy.md D14）。 */
+export const InvitationRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: '/invitation',
+  loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
+  validateSearch: TokenSearchSchema,
 });

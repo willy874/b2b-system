@@ -5990,9 +5990,13 @@
             },
             "required": ["id", "slug", "name"],
             "additionalProperties": false
+          },
+          "workspaceUrl": {
+            "type": "string",
+            "format": "uri"
           }
         },
-        "required": ["email", "workspace"],
+        "required": ["email", "workspace", "workspaceUrl"],
         "additionalProperties": false
       }
     }

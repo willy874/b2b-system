@@ -26,3 +26,9 @@ export const SsoErrorSearchSchema = z.object({
   error: z.string().max(64).optional().catch(undefined),
 });
 export type SsoErrorSearch = z.infer<typeof SsoErrorSearchSchema>;
+
+/** 帳號流程的信中連結（啟用、重設密碼、接受邀請）帶的 token。 */
+export const TokenSearchSchema = z.object({
+  token: z.string().optional().catch(undefined),
+});
+export type TokenSearch = z.infer<typeof TokenSearchSchema>;

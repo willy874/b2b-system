@@ -1230,4 +1230,5 @@ export const AcceptedWorkspaceInvitationSchema = z.object({
     slug: z.string(),
     name: z.string(),
   }),
+  workspaceUrl: z.url(),
 }) satisfies z.ZodType<AcceptedWorkspaceInvitation>;

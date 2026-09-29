@@ -22,7 +22,7 @@ export default function InvitationPage() {
 
   if (!token || preview.isError) {
     return (
-      <AuthShell title={t('auth.invitation.title')}>
+      <AuthShell title={t('login.invitation.title')}>
         <p className="text-sm text-[var(--color-danger-text)]" data-testid="invitation-invalid">
           {t('error.WORKSPACE_INVITATION_INVALID')}
         </p>
@@ -30,20 +30,20 @@ export default function InvitationPage() {
     );
   }
   if (!preview.data) {
-    return <AuthShell title={t('auth.invitation.title')}>{null}</AuthShell>;
+    return <AuthShell title={t('login.invitation.title')}>{null}</AuthShell>;
   }
 
   const invitation = preview.data;
   return (
     <AuthShell
-      title={t('auth.invitation.title')}
+      title={t('login.invitation.title')}
       description={
         invitation.inviterName
-          ? t('auth.invitation.descriptionWithInviter', {
+          ? t('login.invitation.descriptionWithInviter', {
               inviter: invitation.inviterName,
               workspace: invitation.workspaceName,
             })
-          : t('auth.invitation.description', { workspace: invitation.workspaceName })
+          : t('login.invitation.description', { workspace: invitation.workspaceName })
       }
     >
       {invitation.hasAccount ? (

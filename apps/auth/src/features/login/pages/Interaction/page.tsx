@@ -74,6 +74,20 @@ export default function InteractionPage() {
             })
           : undefined
       }
+      footer={
+        <div className="flex justify-between gap-2">
+          <a className="text-[var(--color-brand)]" href="/forgot-password">
+            {t('login.interaction.forgotPassword')}
+          </a>
+          <a
+            className="text-[var(--color-brand)]"
+            href="/register"
+            data-testid="login-register-link"
+          >
+            {t('login.interaction.register')}
+          </a>
+        </div>
+      }
     >
       <form
         className="flex flex-col gap-3"

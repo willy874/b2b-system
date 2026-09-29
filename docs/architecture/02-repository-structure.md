@@ -297,6 +297,7 @@ FILE_MAINTENANCE_DRY_RUN=false      # true：只偵測並記錄殘留，不刪�
 # ── apps/backstage、apps/auth（VITE_ 前綴才會進 bundle；兩者各自讀自己目錄的 env）──
 VITE_API_BASE_URL=/api
 VITE_OIDC_ISSUER=http://localhost:5175/api/oidc   # SSO 的 issuer（兩個前端相同）
+VITE_AUTH_APP_URL=http://localhost:5175            # backstage：帳號流程與租戶管理在 apps/auth
 VITE_ENABLE_MOCK=false
 ```
 

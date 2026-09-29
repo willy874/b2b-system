@@ -319,7 +319,12 @@ export class WorkspaceInvitationService {
   }
 
   private accepted(invitation: InvitationByTokenRow): AcceptedWorkspaceInvitationDto {
-    return { email: invitation.email, workspace: invitation.workspace };
+    const app = this.config.get('APP_PUBLIC_URL', { infer: true });
+    return {
+      email: invitation.email,
+      workspace: invitation.workspace,
+      workspaceUrl: `${app}/w/${encodeURIComponent(invitation.workspace.slug)}`,
+    };
   }
 
   /** 待接受的唯一索引：同一個 email 同時被邀請兩次時，後到的回業務錯誤而不是 500。 */

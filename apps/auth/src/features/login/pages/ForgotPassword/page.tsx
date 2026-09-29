@@ -31,17 +31,17 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell
-      title={t('auth.forgotPassword.title')}
-      description={t('auth.forgotPassword.description')}
+      title={t('login.forgotPassword.title')}
+      description={t('login.forgotPassword.description')}
       footer={
-        <a className="text-[var(--color-brand)]" href="/auth/login">
-          {t('auth.backToLogin')}
+        <a className="text-[var(--color-brand)]" href="/login">
+          {t('login.backToLogin')}
         </a>
       }
     >
       {sent ? (
         <p className="text-sm" data-testid="forgot-password-sent">
-          {t('auth.forgotPassword.sent')}
+          {t('login.forgotPassword.sent')}
         </p>
       ) : (
         <form
@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
           <form.Field name="email">
             {(field) => (
               <Field
-                label={t('auth.field.email')}
+                label={t('login.field.email')}
                 required
                 error={firstError(field.state.meta.errors)}
               >
@@ -69,7 +69,7 @@ export default function ForgotPasswordPage() {
             )}
           </form.Field>
           <Button type="submit" variant="primary" block loading={forgot.isPending}>
-            {t('auth.forgotPassword.submit')}
+            {t('login.forgotPassword.submit')}
           </Button>
         </form>
       )}

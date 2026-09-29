@@ -10,9 +10,7 @@ import { useTranslation } from '@/core/locales';
 import type { WorkspaceInvitationPreview } from '@/shared/api-sdk';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
-import { useEnterInvitedWorkspace } from '../../../hooks/useEnterInvitedWorkspace';
 import { useSignupInvitationMutation } from '../../../hooks/useInvitationMutations';
-import { useLoginMutation } from '../../../hooks/useLoginMutation';
 import { InvitedEmail } from './InvitedEmail';
 
 const SignupSchema = z
@@ -31,12 +29,10 @@ interface NewAccountFormProps {
   invitation: WorkspaceInvitationPreview;
 }
 
-/** 還沒有帳號：建立帳號 → 以剛設定的密碼登入 → 進入工作區。 */
+/** 還沒有帳號：建立帳號 → 前往工作區（產品經 IdP 登入，用剛設定的密碼）。 */
 export function NewAccountForm({ token, invitation }: NewAccountFormProps) {
   const { t } = useTranslation();
   const signup = useSignupInvitationMutation();
-  const login = useLoginMutation();
-  const enter = useEnterInvitedWorkspace();
   const toMessage = useErrorMessage();
   const [formError, setFormError] = useState<string>();
 
@@ -46,11 +42,10 @@ export function NewAccountForm({ token, invitation }: NewAccountFormProps) {
     onSubmit: async ({ value }) => {
       setFormError(undefined);
       try {
-        const accepted = await signup.mutateAsync({
+        // 成功後頂層跳轉到工作區（useSignupInvitationMutation）；登入在那裡經 IdP 完成
+        await signup.mutateAsync({
           params: { token, displayName: value.displayName, password: value.password },
         });
-        await login.mutateAsync({ params: { email: accepted.email, password: value.password } });
-        await enter(accepted);
       } catch (error) {
         setFormError(toMessage(error));
       }
@@ -65,12 +60,12 @@ export function NewAccountForm({ token, invitation }: NewAccountFormProps) {
         void form.handleSubmit();
       }}
     >
-      <p className="m-0 text-sm text-[var(--color-fg-muted)]">{t('auth.invitation.newAccount')}</p>
+      <p className="m-0 text-sm text-[var(--color-fg-muted)]">{t('login.invitation.newAccount')}</p>
       <InvitedEmail email={invitation.email} />
       <form.Field name="displayName">
         {(field) => (
           <Field
-            label={t('auth.field.displayName')}
+            label={t('login.field.displayName')}
             required
             error={firstError(field.state.meta.errors)}
           >
@@ -87,8 +82,8 @@ export function NewAccountForm({ token, invitation }: NewAccountFormProps) {
       <form.Field name="password">
         {(field) => (
           <Field
-            label={t('auth.field.password')}
-            description={t('auth.password.hint')}
+            label={t('login.field.password')}
+            description={t('login.password.hint')}
             required
             error={firstError(field.state.meta.errors)}
           >
@@ -106,7 +101,7 @@ export function NewAccountForm({ token, invitation }: NewAccountFormProps) {
       <form.Field name="confirmPassword">
         {(field) => (
           <Field
-            label={t('auth.invitation.confirmPassword')}
+            label={t('login.invitation.confirmPassword')}
             required
             error={firstError(field.state.meta.errors)}
           >
@@ -126,10 +121,10 @@ export function NewAccountForm({ token, invitation }: NewAccountFormProps) {
         type="submit"
         variant="primary"
         block
-        loading={signup.isPending || login.isPending}
+        loading={signup.isPending || signup.isSuccess}
         data-testid="invitation-submit"
       >
-        {t('auth.invitation.signup')}
+        {t('login.invitation.signup')}
       </Button>
     </form>
   );

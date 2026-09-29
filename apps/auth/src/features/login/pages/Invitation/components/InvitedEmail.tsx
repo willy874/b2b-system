@@ -10,7 +10,7 @@ interface InvitedEmailProps {
 export function InvitedEmail({ email }: InvitedEmailProps) {
   const { t } = useTranslation();
   return (
-    <Field label={t('auth.field.email')}>
+    <Field label={t('login.field.email')}>
       <Input type="email" value={email} readOnly data-testid="invitation-email" />
     </Field>
   );

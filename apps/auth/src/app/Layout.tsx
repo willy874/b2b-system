@@ -7,7 +7,17 @@ import { usePageAccess } from '@/core/permission';
 import { PlatformLayout } from './layouts/PlatformLayout';
 
 /** 不套平台外框的頁面：登入相關的頁面自己置中顯示。 */
-const BARE_PREFIXES = ['/login', '/callback', '/interaction', '/error'];
+const BARE_PREFIXES = [
+  '/login',
+  '/callback',
+  '/interaction',
+  '/error',
+  '/forgot-password',
+  '/reset-password',
+  '/setup',
+  '/register',
+  '/invitation',
+];
 
 function PageFallback() {
   return <div className="p-6 text-sm text-[var(--color-fg-muted)]" aria-busy="true" />;

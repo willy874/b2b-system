@@ -20,17 +20,31 @@ export interface MailContent {
 @Injectable()
 export class MailService {
   private readonly appUrl: string;
+  private readonly authAppUrl: string;
 
   constructor(
     private readonly transport: MailTransport,
     config: ConfigService<Env, true>,
   ) {
     this.appUrl = config.get('APP_PUBLIC_URL', { infer: true });
+    this.authAppUrl = config.get('AUTH_APP_URL', { infer: true });
   }
 
-  /** 信裡的連結：`APP_PUBLIC_URL` ＋ 前端路徑 ＋ 查詢字串。 */
+  /** 信裡連到產品的連結：`APP_PUBLIC_URL` ＋ 前端路徑 ＋ 查詢字串。 */
   link(path: string, query: Record<string, string> = {}): string {
-    const url = new URL(`${this.appUrl}${path}`);
+    return this.build(this.appUrl, path, query);
+  }
+
+  /**
+   * 帳號流程的連結（啟用、重設密碼、接受邀請）：`AUTH_APP_URL` ＋ 路徑。帳號屬於平台，
+   * 這些頁面在 apps/auth（docs/adr/0019-sso-identity-platform.md D1）。
+   */
+  accountLink(path: string, query: Record<string, string> = {}): string {
+    return this.build(this.authAppUrl, path, query);
+  }
+
+  private build(base: string, path: string, query: Record<string, string>): string {
+    const url = new URL(`${base}${path}`);
     for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
     return url.toString();
   }

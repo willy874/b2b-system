@@ -21,7 +21,7 @@ pnpm --filter @b2b-system/auth build
 
 | 路徑 | 說明 |
 | --- | --- |
-| `features/login` | `/interaction/:uid`：**IdP 的登入互動頁**，所有產品的密碼登入都在這裡（D16）；`/error`：provider 的協定錯誤；`/login`、`/callback`：apps/auth 自己的頁面也經 SSO 登入 |
+| `features/login` | `/interaction/:uid`：**IdP 的登入互動頁**，所有產品的密碼登入都在這裡（D16）；`/error`：provider 的協定錯誤；`/login`、`/callback`：apps/auth 自己的頁面也經 SSO 登入；帳號流程 `/forgot-password`、`/reset-password`、`/setup`、`/register`、`/invitation`（從 backstage 搬過來） |
 | `features/home` | `/`：目前登入的身分；之後放租戶管理與外部 IdP 連線管理的入口 |
 | `app/` | 自己寫的 App Shell：`App.tsx`（沒有 session 時導向 `/login`；登出後停在「已登出」頁）、`Layout.tsx`（頁面權限守衛）、`layouts/PlatformLayout.tsx`（沒有工作區切換器） |
 
@@ -40,6 +40,7 @@ pnpm --filter @b2b-system/auth build
 | `apis/auth/` | `get-profile`、`login`、`logout`、`refresh` |
 | 其他 | `themes/`、`assets/icons/`、`index.css`、`public/theme-init.js`、`test/`（setup 與假物件）、`app/GlobalProvider.tsx`、`ToastHost.tsx`、`ConfirmDialogHost.tsx`、`plugin.ts`、`layouts/ThemeMenu.tsx`、`app/locales/*.json` |
 | `features/login` | `hooks/`（`useLogoutMutation`、`useSyncPermissions`、`useSsoCallbackMutation`）、`pages/AuthShell.tsx`、`pages/Login/page.tsx` 與 `pages/SsoCallback/page.tsx`（與 backstage `features/auth` 的同名頁面相同流程，改過文案鍵與路由）、`sso.ts`（client id 不同） |
+| 帳號流程（搬移，backstage 已刪除） | `features/login/pages/{ForgotPassword,ResetPassword,Setup,Register,Invitation}`、`apis/auth/{forgot-password,reset-password,setup,register}`、`apis/workspace/{get-workspace-invitation-preview,accept-workspace-invitation,signup-workspace-invitation}`；只存在 apps/auth，不需要同步 |
 | SSO 的瀏覽器端 | `core/auth/sso.ts`（PKCE、授權網址、verifier）、`apis/auth/sso-callback/`、`shared/constants/env.ts` 的 `OIDC_ISSUER` |
 
 `core/realtime` 與 `components/Table` 目前沒有畫面用到，是被 `core/cache`、`core/store` 依賴而一起帶進來的。

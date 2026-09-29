@@ -60,17 +60,17 @@ export default function RegisterPage() {
 
   return (
     <AuthShell
-      title={t('auth.register.title')}
-      description={submitted ? undefined : t('auth.register.description')}
+      title={t('login.register.title')}
+      description={submitted ? undefined : t('login.register.description')}
       footer={
-        <a className="text-[var(--color-brand)]" href="/auth/login">
-          {t('auth.backToLogin')}
+        <a className="text-[var(--color-brand)]" href="/login">
+          {t('login.backToLogin')}
         </a>
       }
     >
       {submitted ? (
         <p className="text-sm" data-testid="register-submitted">
-          {t('auth.register.submitted')}
+          {t('login.register.submitted')}
         </p>
       ) : (
         <form
@@ -83,7 +83,7 @@ export default function RegisterPage() {
           <form.Field name="email">
             {(field) => (
               <Field
-                label={t('auth.field.email')}
+                label={t('login.field.email')}
                 required
                 error={firstError(field.state.meta.errors)}
               >
@@ -102,7 +102,7 @@ export default function RegisterPage() {
           <form.Field name="displayName">
             {(field) => (
               <Field
-                label={t('auth.field.displayName')}
+                label={t('login.field.displayName')}
                 required
                 error={firstError(field.state.meta.errors)}
               >
@@ -120,8 +120,8 @@ export default function RegisterPage() {
           <form.Field name="password">
             {(field) => (
               <Field
-                label={t('auth.field.password')}
-                description={t('auth.password.hint')}
+                label={t('login.field.password')}
+                description={t('login.password.hint')}
                 required
                 error={firstError(field.state.meta.errors)}
               >
@@ -140,7 +140,7 @@ export default function RegisterPage() {
           <form.Field name="confirmPassword">
             {(field) => (
               <Field
-                label={t('auth.field.confirmPassword')}
+                label={t('login.field.confirmPassword')}
                 required
                 error={firstError(field.state.meta.errors)}
               >
@@ -158,14 +158,14 @@ export default function RegisterPage() {
 
           <form.Field name="reason">
             {(field) => (
-              <Field label={t('auth.register.reason')} error={firstError(field.state.meta.errors)}>
+              <Field label={t('login.register.reason')} error={firstError(field.state.meta.errors)}>
                 <Textarea
                   rows={3}
                   maxLength={500}
                   value={field.state.value}
                   onChange={(event) => field.handleChange(event.target.value)}
                   onBlur={field.handleBlur}
-                  placeholder={t('auth.register.reasonPlaceholder')}
+                  placeholder={t('login.register.reasonPlaceholder')}
                   data-testid="register-reason"
                 />
               </Field>
@@ -185,7 +185,7 @@ export default function RegisterPage() {
             loading={register.isPending}
             data-testid="register-submit"
           >
-            {t('auth.register.submit')}
+            {t('login.register.submit')}
           </Button>
         </form>
       )}

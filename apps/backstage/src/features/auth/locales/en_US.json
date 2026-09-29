@@ -2,53 +2,11 @@
   "auth": {
     "login": {
       "title": "Sign in",
-      "description": "Use your account credentials to sign in.",
       "submit": "Sign in",
-      "forgotPassword": "Forgot password?",
-      "register": "Request an account",
       "redirecting": "Taking you to the sign-in page…",
       "signedOut": "You are signed out. All products share one sign-in, so the other products are signed out too."
     },
-    "register": {
-      "title": "Request an account",
-      "description": "An administrator will review your request. Once approved, sign in with this email and password.",
-      "reason": "Reason",
-      "reasonPlaceholder": "e.g. your team and what you need access to (optional)",
-      "submit": "Submit request",
-      "submitted": "Request submitted. Once an administrator approves it, you can sign in with the email and password you just set."
-    },
-    "forgotPassword": {
-      "title": "Forgot password",
-      "description": "Enter your email and we will send a reset link.",
-      "submit": "Send",
-      "sent": "If that email exists in the system, a reset link has been sent."
-    },
-    "resetPassword": { "title": "Reset password" },
-    "setup": { "title": "Set your password", "submit": "Activate account" },
-    "field": {
-      "email": "Email",
-      "displayName": "Display name",
-      "password": "Password",
-      "newPassword": "New password",
-      "confirmPassword": "Confirm new password",
-      "currentPassword": "Current password"
-    },
-    "password": { "hint": "At least 12 characters and not a common password." },
-    "backToLogin": "Back to sign in",
     "logout": { "success": "Signed out." },
-    "invitation": {
-      "title": "Accept workspace invitation",
-      "description": "You have been invited to join the workspace “{{workspace}}”.",
-      "descriptionWithInviter": "{{inviter}} invited you to join the workspace “{{workspace}}”.",
-      "newAccount": "This email address does not have an account yet. Set a name and password to create one and join the workspace.",
-      "signup": "Create account and join",
-      "existingAccount": "This email address already has an account. Sign in to accept the invitation.",
-      "loginAndAccept": "Sign in and accept",
-      "signedInAs": "Signed in as {{email}}",
-      "confirmPassword": "Confirm password",
-      "accept": "Accept invitation",
-      "mismatch": "You are signed in as {{current}}, but this invitation is for {{invited}}. Sign out, sign in with the invited email address, and open the link again."
-    },
     "callback": {
       "title": "Sign in",
       "working": "Finishing sign-in…",

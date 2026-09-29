@@ -108,7 +108,7 @@ async function waitForMail(email: string, count = 1): Promise<MailMessage> {
 }
 
 function tokenIn(message: MailMessage): string {
-  const match = /\/auth\/invitation\?token=([A-Za-z0-9_-]+)/.exec(message.text);
+  const match = /\/invitation\?token=([A-Za-z0-9_-]+)/.exec(message.text);
   if (!match) throw new Error(`信裡找不到邀請連結：\n${message.text}`);
   return match[1]!;
 }
@@ -135,6 +135,7 @@ describe('工作區的 Email 邀請（docs/adr/0018-workspace-tenancy.md D14）'
     process.env.FILE_MAINTENANCE_CRON = '';
     process.env.AUTH_RATE_LIMIT = '1000';
     process.env.APP_PUBLIC_URL = 'https://editor.example.com';
+    process.env.AUTH_APP_URL = 'https://account.example.com';
 
     const created = createTestDatabase();
     db = created.db;
@@ -173,6 +174,7 @@ describe('工作區的 Email 邀請（docs/adr/0018-workspace-tenancy.md D14）'
       'FILE_MAINTENANCE_CRON',
       'AUTH_RATE_LIMIT',
       'APP_PUBLIC_URL',
+      'AUTH_APP_URL',
     ]) {
       delete process.env[key];
     }
@@ -190,7 +192,7 @@ describe('工作區的 Email 邀請（docs/adr/0018-workspace-tenancy.md D14）'
 
     const mail = await waitForMail('artist@example.com');
     expect(mail.subject).toBe('邀請你加入 B2B System 工作區：預設工作區');
-    expect(mail.text).toContain('https://editor.example.com/auth/invitation?token=');
+    expect(mail.text).toContain('https://account.example.com/invitation?token=');
     const token = tokenIn(mail);
 
     const preview = await request(http)
@@ -211,6 +213,7 @@ describe('工作區的 Email 邀請（docs/adr/0018-workspace-tenancy.md D14）'
     expect((accepted.body as { data: unknown }).data).toMatchObject({
       email: 'artist@example.com',
       workspace: { id: defaultWs, slug: 'default' },
+      workspaceUrl: 'https://editor.example.com/w/default',
     });
 
     const [user] = await db.select().from(users).where(eq(users.email, 'artist@example.com'));

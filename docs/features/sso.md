@@ -113,10 +113,14 @@
      - backstage：`/auth/login` 只負責跳到 IdP、新增 `/auth/callback`；登出後停在「已登出」頁
      - 與原構想不同（ADR-0019 已修訂）：沒有 `oidc_clients` 表（D7）、授權碼在本程序內兌換（D3）、單一登出在伺服器端完成（D5）；
        新增 D16（互動網址先經過 api）、D17（帳號停用時結束 IdP session）
-     - 已知缺口（交付順序 3 處理）：IdP 登入頁還沒有「忘記密碼」「申請帳號」連結（頁面仍在 backstage：`/auth/forgot-password`、
-       `/auth/register`）；backstage 的接受邀請頁、啟用、重設密碼仍直接以密碼登入（`POST /auth/login`），不經 IdP session。
-       `POST /auth/login` 保留給 API 測試與腳本
+     - 已知缺口：已在交付順序 3a 補上（IdP 登入頁的連結、帳號流程搬到 apps/auth）。`POST /auth/login` 保留給 API 測試與腳本
   3. 帳號流程與租戶管理搬進 `apps/auth`
+     - ✅ 帳號流程（3a）：忘記密碼、重設密碼、啟用、申請帳號、接受工作區邀請都在 apps/auth
+       （`/forgot-password`、`/reset-password`、`/setup`、`/register`、`/invitation`）；IdP 登入頁有「忘記密碼」「申請帳號」連結；
+       啟用、重設密碼、邀請信的連結以 `AUTH_APP_URL` 開頭（`MailService.accountLink`）。接受邀請的回應帶 `workspaceUrl`，
+       apps/auth 接受後頂層跳轉到產品的工作區，由 IdP 登入（新帳號不再在頁面上直接以密碼登入）。backstage 的舊網址
+       （`/auth/setup` 等）保留一版，連同查詢字串轉到 apps/auth。
+     - 租戶管理（3b）：待做
   4. 外部 IdP：連線管理、登入、帳號對應、網域導向
   5. E2E、歸檔
 

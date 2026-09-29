@@ -34,14 +34,14 @@ const SPECS = {
   activation: {
     purpose: 'activation',
     tokenPurpose: 'activation',
-    path: '/auth/setup',
+    path: '/setup',
     ttlSeconds: ACTIVATION_TTL_SECONDS,
     shouldSend: (status) => status === 'pending',
   },
   passwordReset: {
     purpose: 'passwordReset',
     tokenPurpose: 'password_reset',
-    path: '/auth/reset-password',
+    path: '/reset-password',
     ttlSeconds: PASSWORD_RESET_TTL_SECONDS,
     // 與 POST /auth/reset-password 一致：任何狀態都能重設（鎖定的會順帶解鎖）
     shouldSend: () => true,
@@ -95,7 +95,7 @@ export class AuthMailJobs implements OnModuleInit {
         purpose: spec.purpose,
         locale: toMailLocale(user.locale),
         displayName: user.displayName,
-        link: this.mail.link(spec.path, { token: raw }),
+        link: this.mail.accountLink(spec.path, { token: raw }),
         validHours: spec.ttlSeconds / 3600,
       }),
     );

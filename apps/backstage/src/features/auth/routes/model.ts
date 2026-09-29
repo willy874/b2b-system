@@ -13,11 +13,6 @@ export const LoginSearchSchema = z.object({
 });
 export type LoginSearch = z.infer<typeof LoginSearchSchema>;
 
-export const TokenSearchSchema = z.object({
-  token: z.string().optional().catch(undefined),
-});
-export type TokenSearch = z.infer<typeof TokenSearchSchema>;
-
 /** IdP 帶回來的參數（OIDC 授權回應）。 */
 export const SsoCallbackSearchSchema = z.object({
   code: z.string().optional().catch(undefined),

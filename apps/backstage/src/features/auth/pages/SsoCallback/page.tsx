@@ -1,4 +1,4 @@
-import { useNavigate } from '@tanstack/react-router';
+import { useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/Button';
@@ -17,7 +17,7 @@ import { AuthShell } from '../AuthShell';
  */
 export default function SsoCallbackPage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { code, state, error } = SsoCallbackRoute.useSearch();
   const exchange = useSsoCallbackMutation();
   const toMessage = useErrorMessage();
@@ -42,9 +42,10 @@ export default function SsoCallbackPage() {
           redirectUri: redirectUriOfClient(),
         },
       })
-      .then(() => navigate({ to: pending.returnTo, replace: true }))
+      // returnTo 可能帶查詢字串（例：接受邀請頁的 token），以網址直接換頁
+      .then(() => router.history.replace(pending.returnTo))
       .catch((caught: unknown) => setExchangeFailure({ message: toMessage(caught) }));
-  }, [code, error, exchange, navigate, pending, state, toMessage]);
+  }, [code, error, exchange, pending, router, state, toMessage]);
 
   const failure = usable
     ? exchangeFailure

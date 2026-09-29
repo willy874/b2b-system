@@ -3,11 +3,8 @@ import { defineJob } from '@/core/jobs';
 /** 邀請的有效期限：每次寄出都從寄出當下重新起算（外包常常隔幾天才看信）。 */
 export const WORKSPACE_INVITATION_TTL_SECONDS = 7 * 24 * 60 * 60;
 
-/**
- * 信中連結的前端路徑（`features/auth` 的接受邀請頁）。放在 `/auth` 底下：
- * 受邀者多半還沒登入，而 `/auth` 以外的頁面沒有 session 時會被導去登入頁、丟掉 `token`。
- */
-export const WORKSPACE_INVITATION_PATH = '/auth/invitation';
+/** 信中連結的前端路徑（apps/auth 的接受邀請頁，以 `AUTH_APP_URL` 開頭）。 */
+export const WORKSPACE_INVITATION_PATH = '/invitation';
 
 /**
  * 工作資料只有 `invitationId`：token 在 **寄出當下** 才簽發（docs/architecture/backend/11-mail.md §4），

@@ -129,9 +129,9 @@
      沒有帳號的 email 需要平台的 `user:create`；重新邀請同一個 email 會撤銷舊的；接受時角色與既有角色取聯集。
    - 寄信：背景工作 `workspace.invitationMail`（`modules/workspace/workspace-invitation.jobs.ts`）；稽核 `workspaceInvitation.create/revoke/accept`、
      `mail.send`；推播 `ChangeSource.WORKSPACE_INVITATION`（受眾：該工作區持有 `workspaceMember:read` 的人）。
-   - 前端：成員頁的「邀請成員」對話框與待接受邀請清單（`features/workspace`）；接受邀請頁在 `/auth/invitation`（`features/auth`）——
-     放在 `/auth` 底下，因為其他頁面沒有 session 時會被導去登入頁並丟掉 `token`；已有帳號的人直接在這頁登入後接受。
-   - 已知限制：登入的是別的帳號時，只提示「請登出後用受邀的信箱登入」（登出會導回登入頁、丟掉連結，要重新點信）；
+   - 前端：成員頁的「邀請成員」對話框與待接受邀請清單（backstage 的 `features/workspace`）；接受邀請頁已隨 SSO 搬到 apps/auth 的 `/invitation`
+     （[`sso.md`](./sso.md) 交付順序 3）：新帳號建立後頂層跳轉到 backstage 的工作區，由 IdP 登入；已有帳號的人經 SSO 登入後接受。
+   - 已知限制：登入的是別的帳號時，只提示「請登出後用受邀的信箱登入」（要重新點信）；
      `pending`（還沒啟用）的既有帳號收到邀請時，要先完成啟用才能登入接受；工作區管理員可以從
      `WORKSPACE_INVITATION_USER_CREATE_REQUIRED` 推知某個 email 在平台上沒有帳號。
 2. **稽核依工作區篩選（D6）**：`audit_logs`／`audit_logs_archive` 加 `workspace_id`；`archive_audit_logs()` 與
