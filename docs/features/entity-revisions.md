@@ -31,7 +31,7 @@
 - 實體選擇性加入：repository 用一個 helper 寫入快照，不強迫所有表都有版本
 - 快照在業務交易內寫入（和稽核同一條規則）
 - 軟刪除：`deleted_at` ＋ 預設查詢排除；唯一索引要改成 partial index
-- 永久刪除走排程（依賴 [`job-queue.md`](./job-queue.md)）
+- 永久刪除走排程工作（[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)）
 
 ## 開放問題
 

@@ -2,7 +2,7 @@
 
 - 優先度：P2
 - 狀態：提案
-- 依賴：[`job-queue.md`](./job-queue.md)（投遞與重試）
+- 依賴：背景工作（已完成，[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)；投遞與重試）
 - 相關：[`api-tokens.md`](./api-tokens.md)
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。

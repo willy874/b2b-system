@@ -479,7 +479,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `FILE_MULTIPART_THRESHOLD` | `16777216`（16 MiB） | 超過這個大小改用分塊上傳（§5.2） |
 | `FILE_MULTIPART_PART_SIZE` | `8388608`（8 MiB） | 每塊大小（5 MiB–5 GiB）；檔案上限 / 10000 更大時自動放大 |
 | `FILE_PENDING_TTL` | `86400` | 登記後超過這個秒數仍未完成的上傳視為放棄（§9）；大檔會邊傳邊要新的分塊網址，所以遠長於 `FILE_URL_TTL` |
-| `FILE_MAINTENANCE_INTERVAL` | `3600` | 維護排程的間隔秒數；`0` 停用（多個 api 執行個體時可只留一個開著）。啟動 60 秒後第一次執行 |
+| `FILE_MAINTENANCE_CRON` | `0 * * * *` | 維護排程（背景工作 `file.maintenance`，UTC）；空字串停用。同時段只跑一個，多個 api 執行個體也不重複（[`10-jobs.md`](./10-jobs.md)） |
 | `FILE_MAINTENANCE_DRY_RUN` | `false` | `true`：只偵測並記錄殘留，不刪除任何東西 |
 | `API_PUBLIC_BASE_URL` | `/api` | 瀏覽器看到的 api 位址；影像 API 的網址以它開頭（§5.4） |
 
@@ -488,7 +488,8 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 ## 9. 維護排程：上傳失敗的殘留
 
 前端失敗或取消時會呼叫 `DELETE /files/:id/upload`（§5.3），但有些情況沒機會呼叫、或清理本身失敗，殘留不會自己消失。
-`FileMaintenanceService` 每 `FILE_MAINTENANCE_INTERVAL` 秒（在 api 內，`setInterval` ＋ `unref`）偵測並清除：
+`FileMaintenanceService` 依 `FILE_MAINTENANCE_CRON` 由背景工作 `file.maintenance` 執行（[`10-jobs.md`](./10-jobs.md)），
+偵測並清除；每一輪的報告存成工作的結果，在背景工作頁看得到：
 
 | # | 殘留 | 來源 | 偵測 | 處理 |
 | --- | --- | --- | --- | --- |
@@ -501,12 +502,13 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
   不是這個模組產生的 key（前綴不對、id 不是 uuid）一律不碰。
 - **偵測**：每一輪回傳 `FileMaintenanceReport`（四類各偵測到幾筆、處理失敗幾筆），有發現時記 info log；
   `FILE_MAINTENANCE_DRY_RUN=true` 時 **只偵測、不處理**，可以先觀察再開啟。
-- **冪等**：刪除不存在的東西視為成功、軟刪除以條件 UPDATE 決勝，多個執行個體同時跑只是重複做白工；
-  同一個執行個體內上一輪沒結束時不重疊執行。處理失敗的項目下一輪會再偵測到。
+- **冪等**：刪除不存在的東西視為成功、軟刪除以條件 UPDATE 決勝；工作中途中斷、被收回重試時重做也不會出錯。
+  佇列同時段只放一筆（`exclusive`），上一輪沒結束時下一輪不會開始。處理失敗的項目下一輪會再偵測到；
+  整輪失敗（例：資料庫斷線）才由佇列重試。
 - **步驟互不依賴**：某一步整個失敗（例：換成不支援 `ListMultipartUploads` 的儲存服務）只記一筆 failure 並記 warn，其他步驟照常執行。
 - **成本**：3 每一輪列出受管理前綴下的所有物件（每頁 1000 個、每 500 個查一次資料庫）；物件數量大到列表變慢時，
-  改成把間隔拉長，或在另一個執行個體跑。
-- 為什麼在 api 內而不是 `db:archive-audit-logs` 那樣的腳本：清理需要 `ObjectStorage` 與補產生變體的 `ImageProcessor`，
+  改成把排程間隔拉長，或把 worker 拆到另一個容器（[`10-jobs.md`](./10-jobs.md) §5）。
+- 為什麼是 api 內的工作而不是 `db:archive-audit-logs` 那樣的腳本：清理需要 `ObjectStorage` 與補產生變體的 `ImageProcessor`，
   腳本只能 import 不依賴 DI 的純函式（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2）。
 
 ---

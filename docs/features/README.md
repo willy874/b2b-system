@@ -18,14 +18,13 @@
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
 | P0 | 工作區／多租戶 | [`workspace.md`](./workspace.md) | 提案 | — |
-| P1 | 後端工作佇列與排程 | [`job-queue.md`](./job-queue.md) | 規劃中 | — |
-| P1 | 郵件寄送 | [`mailer.md`](./mailer.md) | 規劃中 | `job-queue` |
+| P1 | 郵件寄送 | [`mailer.md`](./mailer.md) | 規劃中 | — |
 | P1 | 站內通知中心 | [`notification-center.md`](./notification-center.md) | 提案 | — |
 | P1 | 系統設定（執行期可調） | [`system-settings.md`](./system-settings.md) | 提案 | — |
 | P2 | 版本歷史與軟刪除 | [`entity-revisions.md`](./entity-revisions.md) | 提案 | — |
 | P2 | 服務帳號／API Token | [`api-tokens.md`](./api-tokens.md) | 提案 | — |
-| P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | `job-queue` |
-| P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | `job-queue` |
+| P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | — |
+| P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | — |
 | P2 | 標籤、留言、關注 | [`tags-comments.md`](./tags-comments.md) | 提案 | `notification-center` |
 | P2 | 全域搜尋 | [`global-search.md`](./global-search.md) | 提案 | — |
 | P3 | 使用者群組 | [`user-groups.md`](./user-groups.md) | 提案 | — |

@@ -98,7 +98,8 @@ docs/
 │       ├── 06-audit-log.md            稽核日誌設計
 │       ├── 07-testing.md              單元 / 整合 / e2e 測試策略
 │       ├── 08-realtime.md             Socket.io gateway、room 與受眾、推播時機
-│       └── 09-file.md                 檔案模組：物件儲存抽象層、上傳流程（含分塊）、keyset 分頁
+│       ├── 09-file.md                 檔案模組：物件儲存抽象層、上傳流程（含分塊）、keyset 分頁
+│       └── 10-jobs.md                 背景工作：pg-boss 佇列、排程、重試、管理 API
 │
 ├── rbac/
 │   ├── 01-domain-model.md             實體、ER 圖、不變條件

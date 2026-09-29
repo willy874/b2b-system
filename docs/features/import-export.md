@@ -2,7 +2,7 @@
 
 - 優先度：P2
 - 狀態：提案
-- 依賴：[`job-queue.md`](./job-queue.md)
+- 依賴：背景工作（已完成，[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)）
 - 相關：[`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 4 項、[ADR-0012](../adr/0012-batch-queue-worker.md)
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。

@@ -2,7 +2,7 @@
 
 - 優先度：P1
 - 狀態：規劃中
-- 依賴：[`job-queue.md`](./job-queue.md)（寄送失敗要重試）
+- 依賴：背景工作（已完成，[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)；寄送失敗要重試）
 - 相關：[`notification-center.md`](./notification-center.md)
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
@@ -31,7 +31,9 @@
   SES、Postmark、Resend、Mailgun、自架 relay 都提供 SMTP；部署在 AWS 用 SES，否則 Postmark／Resend。
   服務商的退信 webhook、開信追蹤屬於「不做」，用不到它們的 SDK
 - 寄件網域要設好 SPF、DKIM、DMARC（部署文件要寫）
-- 寄信一律入列（[`job-queue.md`](./job-queue.md)），入列在業務交易 **內**，不在 HTTP 請求內同步寄
+- 寄信一律入列（[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)），入列在業務交易 **內**，不在 HTTP 請求內同步寄
+- 工作資料不放 token 與信件內容（`job:read` 看得到 `data`，10-jobs §4）：只放範本種類與 id，
+  handler 執行時再產生連結。token 只存雜湊時，要改成入列當下產生、由 handler 以一次性方式取得，實作時決定
 - 選型見 [ADR-0017](../adr/0017-mail-delivery.md)
 - 範本放在後端（React Email，見開放問題 1），連結的 base URL 從 env 取；
   語系依收件人偏好選 zh-TW／en-US，字串放後端自己的語系檔，不共用前端的 locale 檔

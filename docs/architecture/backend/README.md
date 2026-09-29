@@ -18,6 +18,7 @@
 | 07  | [`07-testing.md`](./07-testing.md)                 | 單元 / 整合 / e2e 測試策略                   |
 | 08  | [`08-realtime.md`](./08-realtime.md)               | Socket.io gateway、room 與受眾、推播時機     |
 | 09  | [`09-file.md`](./09-file.md)                       | 物件儲存抽象層、`files` 轉介表、直傳上傳流程 |
+| 10  | [`10-jobs.md`](./10-jobs.md)                       | 背景工作佇列（pg-boss）、排程、管理 API      |
 
 ## 四條必須記住的規則
 

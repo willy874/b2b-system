@@ -33,6 +33,7 @@
 |        | `role.grantPermission`                                            | **含前後權限清單**     |
 | 審批   | `approval.submit`                                                 | 匿名申請（註冊）的 actor 為申請人 email、`actorId = null` |
 |        | `approval.approve` / `approval.reject`                            | 含審核意見；核准另記該變更本身（例：`user.create`，`metadata.approvalId`） |
+| 背景工作 | `job.retry`                                                     | 手動重試失敗的工作；`resourceName` 是工作名稱（[`10-jobs.md`](./10-jobs.md) §6） |
 | 系統   | `system.bootstrap`                                                | 初始 super-admin 建立  |
 |        | `system.seed`                                                     | 權限目錄變更           |
 
@@ -208,7 +209,8 @@ const AUDIT_EXCLUDED_FIELDS = new Set(["passwordHash", "tokenHash", "tokenVersio
 2. **DB 權限**：應用程式的 DB role 對熱表只有 `INSERT, SELECT`、對冷表只有 `SELECT`
 3. **沒有 API**：不存在 `PATCH /audit-logs/:id` 或 `DELETE /audit-logs/:id`
 
-熱 → 冷搬移與保留期滿的清理由一個獨立的維運 role 執行。
+熱 → 冷搬移經由 `SECURITY DEFINER` 的 `archive_audit_logs()`（§8），應用程式的 role 不需要 DELETE；
+保留期滿的清理由一個獨立的維運 role 執行。
 
 ---
 
@@ -292,16 +294,23 @@ const actionFilter = query.action?.endsWith("*")
 | 熱 | `audit_logs` | 最近 90 天；所有寫入都進這裡 | 時間、操作者、資源、動作（pattern ops） | 預設查詢、所有寫入 |
 | 冷 | `audit_logs_archive` | 90 天以前；`id` 沿用熱表 | 時間、操作者、資源；jsonb 用 lz4 壓縮 | 查詢範圍早於 90 天時 |
 
-搬移：
+搬移由背景工作 `auditLog.archive` 依 `AUDIT_LOG_ARCHIVE_CRON`（預設每天 03:30 UTC）執行
+（[`10-jobs.md`](./10-jobs.md)），執行結果與失敗原因在背景工作頁看得到。排程出問題時可手動補跑：
 
 ```bash
-pnpm db:archive-audit-logs   # 每天由排程執行一次；用維運 role 的 DATABASE_URL
+pnpm db:archive-audit-logs   # 與排程工作呼叫同一個函式（modules/audit-log/audit-log.archive.ts）
 ```
 
-腳本以 `cutoff = now − AUDIT_LOG_HOT_RETENTION_DAYS` 重複呼叫
+兩者都以 `cutoff = now − AUDIT_LOG_HOT_RETENTION_DAYS` 重複呼叫
 `archive_audit_logs(cutoff, AUDIT_LOG_ARCHIVE_BATCH_SIZE)`，直到某批不滿為止。每批是一個
 短交易（鎖定 → 複製 → 刪除），兩個排程重疊時 `SKIP LOCKED` 讓它們不互搶。
 搬移中斷也安全：沒搬完的列還在熱表，查詢規則（§7.2）本來就會把它們算進去。
+
+`archive_audit_logs()` 是 `SECURITY DEFINER`（migration `0014`，[ADR-0016](../../adr/0016-background-jobs.md) D8）：
+以擁有資料表的 role 執行，所以應用程式的 role 不需要 `audit_logs` 的 DELETE 就能搬移；
+熱表的刪除 trigger 仍要求冷表有完全相同的副本，函式也做不了別的事。`search_path` 固定為
+`public, pg_temp`，避免呼叫端以同名物件劫持。`EXECUTE` 維持預設的 `PUBLIC`（role 名稱依部署而定）；
+拆分 role 的部署可自行 `REVOKE … FROM PUBLIC` 後只授給應用程式的 role。
 
 | 項目         | 決定                                                                       |
 | ------------ | -------------------------------------------------------------------------- |
