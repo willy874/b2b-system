@@ -33,6 +33,7 @@ import Home from '@/assets/icons/home.svg?react';
 import Info from '@/assets/icons/info.svg?react';
 import Key from '@/assets/icons/key.svg?react';
 import List from '@/assets/icons/list.svg?react';
+import Lock from '@/assets/icons/lock.svg?react';
 import Logout from '@/assets/icons/logout.svg?react';
 import Menu from '@/assets/icons/menu.svg?react';
 import Minus from '@/assets/icons/minus.svg?react';
@@ -98,6 +99,7 @@ export const ICONS = {
   info: Info,
   key: Key,
   list: List,
+  lock: Lock,
   logout: Logout,
   menu: Menu,
   minus: Minus,
