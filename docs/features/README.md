@@ -20,6 +20,7 @@
 | P0 | 工作區／多租戶 | [`workspace.md`](./workspace.md) | 實作中 | — |
 | P1 | 站內通知中心 | [`notification-center.md`](./notification-center.md) | 提案 | — |
 | P1 | 系統設定（執行期可調） | [`system-settings.md`](./system-settings.md) | 提案 | — |
+| P1 | SSO 與身分平台（`apps/auth`） | [`sso.md`](./sso.md) | 規劃中 | `workspace` |
 | P2 | 版本歷史與軟刪除 | [`entity-revisions.md`](./entity-revisions.md) | 提案 | — |
 | P2 | 服務帳號／API Token | [`api-tokens.md`](./api-tokens.md) | 提案 | — |
 | P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | — |
@@ -27,7 +28,6 @@
 | P2 | 標籤、留言、關注 | [`tags-comments.md`](./tags-comments.md) | 提案 | `notification-center` |
 | P2 | 全域搜尋 | [`global-search.md`](./global-search.md) | 提案 | — |
 | P3 | 使用者群組 | [`user-groups.md`](./user-groups.md) | 提案 | — |
-| P3 | SSO（OIDC） | [`sso-oidc.md`](./sso-oidc.md) | 提案 | — |
 | P3 | MFA | [`mfa.md`](./mfa.md) | 提案 | — |
 | P3 | Feature Flag | [`feature-flags.md`](./feature-flags.md) | 提案 | `system-settings` |
 | P3 | 可觀測性 | [`observability.md`](./observability.md) | 提案 | — |
