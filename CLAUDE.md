@@ -5,7 +5,7 @@
 
 ## 這個專案是什麼
 
-Game Editor 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**。
+B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**。
 沒有任何遊戲編輯器功能。範圍見 [`docs/overview/01-overview.md`](docs/overview/01-overview.md)。
 
 ## 先讀哪些文件

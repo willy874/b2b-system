@@ -371,8 +371,8 @@ CREATE TRIGGER audit_logs_archive_no_delete BEFORE DELETE ON audit_logs_archive
 另外，應用程式使用的 DB role 只授予 `INSERT, SELECT`（冷表只有 `SELECT`）：
 
 ```sql
-REVOKE UPDATE, DELETE ON audit_logs FROM game_editor_app;
-REVOKE INSERT, UPDATE, DELETE ON audit_logs_archive FROM game_editor_app;
+REVOKE UPDATE, DELETE ON audit_logs FROM b2b_system_app;
+REVOKE INSERT, UPDATE, DELETE ON audit_logs_archive FROM b2b_system_app;
 ```
 
 > **熱 → 冷搬移** 與 **冷表的保留期清理** 都由另一個具備 `DELETE` 權限的維運

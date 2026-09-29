@@ -41,7 +41,7 @@ M0–M5 的功能全部實作完成並跑通；以下是與驗收清單的落差
 ### 產出
 
 ```
-game-editor/
+b2b-system/
 ├── package.json / pnpm-workspace.yaml / tsconfig.base.json
 ├── docker-compose.yml               postgres:17-alpine
 ├── .env.example

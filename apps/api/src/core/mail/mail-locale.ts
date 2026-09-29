@@ -11,6 +11,6 @@ export function toMailLocale(value: string | null | undefined): MailLocale {
 
 /** 所有信共用的頁尾。 */
 export const MAIL_FOOTER = {
-  'zh-TW': '這是 Game Editor 自動寄出的信，請勿直接回覆。',
-  'en-US': 'This is an automated message from Game Editor. Please do not reply.',
+  'zh-TW': '這是 B2B System 自動寄出的信，請勿直接回覆。',
+  'en-US': 'This is an automated message from B2B System. Please do not reply.',
 } as const satisfies Record<MailLocale, string>;

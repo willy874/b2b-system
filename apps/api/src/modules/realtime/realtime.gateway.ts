@@ -6,8 +6,8 @@ import {
   isRelayableChannel,
   MAX_RELAY_ENVELOPE_BYTES,
   ServerEvent,
-} from '@game-editor/realtime';
-import type { RealtimeConnectErrorData, SessionRenewResult } from '@game-editor/realtime';
+} from '@b2b-system/realtime';
+import type { RealtimeConnectErrorData, SessionRenewResult } from '@b2b-system/realtime';
 import { Inject, Logger, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpAdapterHost } from '@nestjs/core';

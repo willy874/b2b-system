@@ -25,7 +25,7 @@ interface StoredBlob {
   storedAt: number;
 }
 
-const DB_PREFIX = 'game-editor:blob:';
+const DB_PREFIX = 'b2b-system:blob:';
 const STORE = 'blobs';
 
 function request<T>(req: IDBRequest<T>): Promise<T> {
@@ -43,7 +43,7 @@ function openDatabase(factory: IDBFactory, name: string): Promise<IDBDatabase> {
   return request(open);
 }
 
-/** `name` 是資料庫的名稱（加上 `game-editor:blob:` 前綴），不同用途用不同的名稱。 */
+/** `name` 是資料庫的名稱（加上 `b2b-system:blob:` 前綴），不同用途用不同的名稱。 */
 export function createBlobStore(name: string, options: BlobStoreOptions = {}): BlobStore {
   const factory = 'indexedDB' in options ? options.indexedDB : globalThis.indexedDB;
   const now = options.now ?? Date.now;

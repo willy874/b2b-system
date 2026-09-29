@@ -1,6 +1,6 @@
 # File Storage（S3 相容的本機檔案儲存）
 
-`apps/file-storage`（`@game-editor/file-storage`）是一個 **模擬 Amazon S3** 的獨立 HTTP 服務，
+`apps/file-storage`（`@b2b-system/file-storage`）是一個 **模擬 Amazon S3** 的獨立 HTTP 服務，
 把 bucket / object 存在本機磁碟。它 **完全照 S3 REST API 的設計**：路徑、HTTP method、子資源、
 標頭、XML 格式、錯誤碼、SigV4 簽章都與 S3 相同，所以
 
@@ -222,8 +222,8 @@ Nest 的 JSON 回應包裝、全域 guard / pipe 都用不上，反而要一一�
 ## 9. 建置與 Docker
 
 ```bash
-pnpm --filter @game-editor/file-storage build   # esbuild → dist/main.js（程式＋zod 打成單一檔案）
-docker build -f apps/file-storage/Dockerfile -t game-editor-file-storage .
+pnpm --filter @b2b-system/file-storage build   # esbuild → dist/main.js（程式＋zod 打成單一檔案）
+docker build -f apps/file-storage/Dockerfile -t b2b-system-file-storage .
 ```
 
 - runtime 映像只有 `node:24-alpine` ＋ `dist/`，不需要 `node_modules`；以非 root 使用者執行。
@@ -236,7 +236,7 @@ docker build -f apps/file-storage/Dockerfile -t game-editor-file-storage .
 ## 10. 測試
 
 ```bash
-pnpm --filter @game-editor/file-storage test
+pnpm --filter @b2b-system/file-storage test
 ```
 
 | 檔案 | 內容 |

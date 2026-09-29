@@ -201,8 +201,8 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 | 服務       | 映像                          | 角色                                                 | 啟動條件                        |
 | ---------- | ----------------------------- | ---------------------------------------------------- | ------------------------------- |
 | `postgres` | `postgres:17-alpine`          | 唯一的狀態儲存                                       | —                               |
-| `migrate`  | `game-editor-api`（同 api）   | `migrate.js` ＋ `seeds/index.js`，跑完即結束         | postgres healthy                |
-| `api`      | `game-editor-api`             | REST、Socket.io、權限快取                            | migrate **成功結束**、file-storage healthy |
+| `migrate`  | `b2b-system-api`（同 api）   | `migrate.js` ＋ `seeds/index.js`，跑完即結束         | postgres healthy                |
+| `api`      | `b2b-system-api`             | REST、Socket.io、權限快取                            | migrate **成功結束**、file-storage healthy |
 | `file-storage` | `apps/file-storage/Dockerfile` | S3 相容的物件儲存（[`03-file-storage.md`](./03-file-storage.md)） | —                     |
 | `backstage` | `apps/backstage/Dockerfile`（nginx）| 靜態檔、反向代理、安全標頭                 | api healthy                     |
 

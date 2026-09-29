@@ -1,4 +1,4 @@
-import type { ServerToClientEvents } from '@game-editor/realtime';
+import type { ServerToClientEvents } from '@b2b-system/realtime';
 import { Injectable } from '@nestjs/common';
 
 import type { RealtimeServer } from './realtime.types';

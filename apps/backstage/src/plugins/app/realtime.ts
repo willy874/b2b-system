@@ -53,7 +53,7 @@ export function realtimePlugin(options: RealtimePluginOptions): AppPluginFactory
     });
     const adapters = options.leaderAdapters ?? browserLeaderAdapters(`realtime:${backend}`);
     const election = createLeaderElection(adapters, {
-      counterKey: `game-editor:leader:realtime:${backend}:counter`,
+      counterKey: `b2b-system:leader:realtime:${backend}:counter`,
     });
     const coordinator = new RealtimeCoordinator({
       client: realtime,

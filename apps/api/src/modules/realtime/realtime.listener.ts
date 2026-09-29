@@ -1,5 +1,5 @@
-import { ServerEvent } from '@game-editor/realtime';
-import type { ResourceChanged } from '@game-editor/realtime';
+import { ServerEvent } from '@b2b-system/realtime';
+import type { ResourceChanged } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 

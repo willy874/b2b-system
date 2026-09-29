@@ -13,7 +13,7 @@ afterEach(() => {
 describe('dictStorage', () => {
   it('以命名空間前綴隔離，避免與同網域的其他東西衝突', () => {
     createDictStorage('layout').set('sidebarCollapsed', true);
-    expect(globalThis.localStorage.getItem('game-editor:layout:sidebarCollapsed')).toBe('true');
+    expect(globalThis.localStorage.getItem('b2b-system:layout:sidebarCollapsed')).toBe('true');
   });
 
   it('讀不到時回 fallback', () => {
@@ -35,7 +35,7 @@ describe('dictStorage', () => {
   });
 
   it('壞掉的 JSON 回 fallback', () => {
-    globalThis.localStorage.setItem('game-editor:layout:broken', '{not json');
+    globalThis.localStorage.setItem('b2b-system:layout:broken', '{not json');
     expect(createDictStorage('layout').get('broken', 42)).toBe(42);
   });
 

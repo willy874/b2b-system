@@ -40,7 +40,7 @@ core/cache/AppQueryClient.ts               推播可用時不再跨分頁廣播�
 shared/channel/leader/                     ★ 跨分頁 leader 選舉（純引擎，adapters 可注入）
 shared/utils/keyedThrottle.ts              以 key 去重、隨機延遲削峰
 shared/channel/transports/serverRelay.ts   ★ 跨裝置頻道的傳輸層（經 `ServerRelayLink`，不認識 Socket.io）
-shared/websocket-sdk/                      `@game-editor/realtime` 的唯一匯入點（同 shared/api-sdk）
+shared/websocket-sdk/                      `@b2b-system/realtime` 的唯一匯入點（同 shared/api-sdk）
 ```
 
 依賴方向照 [`conventions/07`](../../conventions/07-layer-dependencies.md) §2：
@@ -133,7 +133,7 @@ Origin 或速率限制是在 HTTP 升級階段被拒，`connect_error` 不帶 `c
 | **進背景不讓位** | 只有一個分頁、使用者切到別的應用程式時，連線不會無故中斷；要等另一個可見分頁來要 |
 | **兩個視窗並排不互搶** | 可見時被要走 → `isSuspended`，暫停競選，直到本分頁再次變為可見 |
 | **leader 消失就接手** | leader 每秒心跳；3 秒沒收到，或收到 `reason: 'shutdown'` 的讓位（分頁關閉），可見分頁重新競選 —— **並解除 suspended** |
-| **任期單調遞增** | `LeaderTerm = { counter, ownerId }`，counter 存在 localStorage（`game-editor:leader:realtime:<後端>:counter`）；同時當選時較新的任期勝出，較舊的安靜退位 |
+| **任期單調遞增** | `LeaderTerm = { counter, ownerId }`，counter 存在 localStorage（`b2b-system:leader:realtime:<後端>:counter`）；同時當選時較新的任期勝出，較舊的安靜退位 |
 
 與參考實作的差異：
 

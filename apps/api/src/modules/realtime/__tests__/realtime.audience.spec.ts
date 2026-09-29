@@ -1,4 +1,4 @@
-import type { ResourceChangeWire } from '@game-editor/realtime';
+import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { PermissionService } from '@/modules/permission/permission.service';

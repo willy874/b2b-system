@@ -115,7 +115,7 @@ describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
     const userId = (created.body as { data: { id: string } }).data.id;
 
     const mail = await waitForMail('new-member@example.com');
-    expect(mail.subject).toBe('啟用你的 Game Editor 帳號');
+    expect(mail.subject).toBe('啟用你的 B2B System 帳號');
     expect(mail.text).toContain('https://editor.example.com/auth/setup?token=');
     const setupToken = tokenIn(mail, '/auth/setup');
 
@@ -145,7 +145,7 @@ describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
 
     // 第 1 封是啟用信
     const mail = await waitForMail(email, 2);
-    expect(mail.subject).toBe('重設你的 Game Editor 密碼');
+    expect(mail.subject).toBe('重設你的 B2B System 密碼');
     const resetToken = tokenIn(mail, '/auth/reset-password');
 
     await request(http)

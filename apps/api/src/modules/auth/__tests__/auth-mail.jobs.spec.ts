@@ -61,7 +61,7 @@ describe('AuthMailJobs（docs/architecture/backend/11-mail.md §4）', () => {
 
     expect(tokens.issue).toHaveBeenCalledWith('u1', 'activation');
     expect(sent[0]!.to).toBe('alice@example.com');
-    expect(sent[0]!.content.subject).toBe('Activate your Game Editor account');
+    expect(sent[0]!.content.subject).toBe('Activate your B2B System account');
     const text = await render(sent[0]!.content.body, { plainText: true });
     expect(text).toContain('https://app.test/auth/setup?token=raw-token');
     expect(text).toContain('24 hours');
@@ -96,7 +96,7 @@ describe('AuthMailJobs（docs/architecture/backend/11-mail.md §4）', () => {
     const { run, tokens, sent } = setup({ ...PENDING, status: 'locked', locale: 'zh-TW' });
     await run(PASSWORD_RESET_MAIL_JOB.name);
     expect(tokens.issue).toHaveBeenCalledWith('u1', 'password_reset');
-    expect(sent[0]!.content.subject).toBe('重設你的 Game Editor 密碼');
+    expect(sent[0]!.content.subject).toBe('重設你的 B2B System 密碼');
     const text = await render(sent[0]!.content.body, { plainText: true });
     expect(text).toContain('https://app.test/auth/reset-password?token=raw-token');
     expect(text).toContain('1 小時');

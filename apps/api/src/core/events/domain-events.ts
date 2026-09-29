@@ -1,4 +1,4 @@
-import type { ResourceChangeWire, SessionRevokedReason } from '@game-editor/realtime';
+import type { ResourceChangeWire, SessionRevokedReason } from '@b2b-system/realtime';
 
 /**
  * 業務 service 發佈、副作用（例：即時推播）訂閱的領域事件。

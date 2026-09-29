@@ -1,4 +1,4 @@
-# Game Editor
+# B2B System
 
 以 Web 為載體的遊戲內容編輯與管理平台。**Phase 0 只建置 RBAC 骨架**，
 架構規格見 [`docs/`](./docs/README.md)，實作進度見 [`docs/overview/03-roadmap.md`](./docs/overview/03-roadmap.md)。
@@ -42,7 +42,7 @@ pnpm dev
 | `pnpm build` | 依序建置 api-sdk → api → backstage |
 | `pnpm lint` / `pnpm format` / `pnpm format:check` / `pnpm typecheck` | 全 workspace 檢查 |
 | `pnpm test` | 單元測試（apps/api、apps/backstage） |
-| `pnpm test:e2e` | Playwright（首次需 `pnpm --filter @game-editor/e2e install:browsers`） |
+| `pnpm test:e2e` | Playwright（首次需 `pnpm --filter @b2b-system/e2e install:browsers`） |
 | `pnpm db:up` / `pnpm db:down` | 啟停本機 PostgreSQL |
 | `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:seed` / `pnpm db:studio` | 資料庫 |
 | `pnpm db:seed:dev` | 50 位假使用者、5 個自訂角色、300 筆稽核日誌（固定亂數種子） |

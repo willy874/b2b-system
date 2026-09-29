@@ -3,7 +3,7 @@
 ## 1. Monorepo 佈局
 
 ```
-game-editor/
+b2b-system/
 ├── package.json                 root scripts、devDependencies
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json           共用 compilerOptions 與 path alias 基準
@@ -13,15 +13,15 @@ game-editor/
 ├── .env.example
 │
 ├── apps/
-│   ├── backstage/               @game-editor/backstage — React 前端
-│   ├── api/                     @game-editor/api — NestJS 後端
-│   ├── file-storage/            @game-editor/file-storage — S3 相容的本機檔案儲存（見 03-file-storage.md）
-│   └── e2e/                     @game-editor/e2e — Playwright
+│   ├── backstage/               @b2b-system/backstage — React 前端
+│   ├── api/                     @b2b-system/api — NestJS 後端
+│   ├── file-storage/            @b2b-system/file-storage — S3 相容的本機檔案儲存（見 03-file-storage.md）
+│   └── e2e/                     @b2b-system/e2e — Playwright
 │
 ├── packages/
-│   ├── api-sdk/                 @game-editor/api-sdk — 由 OpenAPI 產生的型別、zod schema 與 fetch client
-│   ├── realtime/                @game-editor/realtime — Socket.io 事件合約（事件名稱、zod schema、型別）
-│   └── utils/                   @game-editor/utils — 前後端共用的純函式
+│   ├── api-sdk/                 @b2b-system/api-sdk — 由 OpenAPI 產生的型別、zod schema 與 fetch client
+│   ├── realtime/                @b2b-system/realtime — Socket.io 事件合約（事件名稱、zod schema、型別）
+│   └── utils/                   @b2b-system/utils — 前後端共用的純函式
 │
 └── docs/                        本文件集
 ```
@@ -230,7 +230,7 @@ modules/role/
 
 ```bash
 # ── apps/api ─────────────────────────────────────────
-DATABASE_URL=postgres://gameeditor:gameeditor@localhost:5432/game_editor
+DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_system
 PORT=3000
 NODE_ENV=development
 
@@ -257,7 +257,7 @@ SUPER_ADMIN_PASSWORD=              # 留空則 seed 時隨機產生並印出一�
 
 MAIL_TRANSPORT=smtp                 # smtp / console（backend/11-mail.md §2）
 MAIL_SMTP_URL=smtp://localhost:1025 # 本機是 Mailpit
-MAIL_FROM="Game Editor <no-reply@localhost>"
+MAIL_FROM="B2B System <no-reply@localhost>"
 APP_PUBLIC_URL=http://localhost:5173  # 信裡連結的開頭
 
 JOBS_WORKER_ENABLED=true            # 是否執行背景工作與排程；false 只入列（backend/10-jobs.md §5）
@@ -271,15 +271,15 @@ FILE_STORAGE_PORT=9000
 FILE_STORAGE_BASE_PATH=/storage              # Vite 以 /storage 轉發且不去掉前綴
 FILE_STORAGE_DATA_DIR=.data                  # 相對於 apps/file-storage/
 FILE_STORAGE_REGION=us-east-1
-FILE_STORAGE_ACCESS_KEY_ID=game-editor-dev
-FILE_STORAGE_SECRET_ACCESS_KEY=game-editor-dev-secret
+FILE_STORAGE_ACCESS_KEY_ID=b2b-system-dev
+FILE_STORAGE_SECRET_ACCESS_KEY=b2b-system-dev-secret
 FILE_STORAGE_ALLOWED_ORIGINS=http://localhost:5173   # presigned URL 直傳 / 下載的 CORS
 FILE_STORAGE_MAX_OBJECT_SIZE=5368709120      # 位元組（預設 5 GiB）
 
 # ── apps/api 連物件儲存（上面兩個 KEY 共用；docs/architecture/backend/09-file.md §8）
 FILE_STORAGE_ENDPOINT=http://127.0.0.1:9000/storage
 FILE_STORAGE_PUBLIC_ENDPOINT=http://localhost:5173/storage
-FILE_STORAGE_BUCKET=game-editor
+FILE_STORAGE_BUCKET=b2b-system
 FILE_UPLOAD_MAX_SIZE=104857600
 FILE_URL_TTL=900
 FILE_MULTIPART_THRESHOLD=16777216   # 超過改用分塊上傳

@@ -90,7 +90,7 @@
   不做一個 `role.api.ts` 裝全部。
 - Query key：第一個元素是 `XXX_QUERY_KEY` 常數，其餘是扁平原始值，由單一
   `getXxxQueryKeys()` 產生。見 [`architecture/frontend/05-data-layer.md`](../architecture/frontend/05-data-layer.md) §4.1。
-- 改了後端 controller / DTO 後必跑 `pnpm --filter @game-editor/api openapi:generate && pnpm sdk:generate`，
+- 改了後端 controller / DTO 後必跑 `pnpm --filter @b2b-system/api openapi:generate && pnpm sdk:generate`，
   不手改 `packages/api-sdk/src/generated/`。
 
 ---

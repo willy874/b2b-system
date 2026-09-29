@@ -1,5 +1,5 @@
-import { ChangeKind, ChangeSource } from '@game-editor/realtime';
-import type { ResourceChangeWire } from '@game-editor/realtime';
+import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
+import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser, WorkspaceScope } from '@/common/types';

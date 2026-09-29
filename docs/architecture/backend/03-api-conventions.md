@@ -319,7 +319,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 ```ts
 // main.ts
 const config = new DocumentBuilder()
-  .setTitle("Game Editor API")
+  .setTitle("B2B System API")
   .setVersion(pkg.version)
   .addBearerAuth()
   .build();

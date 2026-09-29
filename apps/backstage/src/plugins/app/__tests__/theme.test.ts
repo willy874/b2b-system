@@ -9,7 +9,7 @@ import { Themes } from '@/shared/constants/theme';
 
 import { themePlugin } from '../theme';
 
-const STORAGE_KEY = `game-editor:preference:${THEME_KEY}`;
+const STORAGE_KEY = `b2b-system:preference:${THEME_KEY}`;
 
 /** 可控的 `prefers-color-scheme: dark`：`setDark()` 會通知已註冊的 change 監聽。 */
 function stubSystemScheme(initialDark: boolean) {

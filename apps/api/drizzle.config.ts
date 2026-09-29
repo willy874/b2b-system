@@ -5,7 +5,7 @@ export default defineConfig({
   out: './src/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgres://gameeditor:gameeditor@localhost:5432/game_editor',
+    url: process.env.DATABASE_URL ?? 'postgres://b2bsystem:b2bsystem@localhost:5432/b2b_system',
   },
   verbose: true,
   strict: true,

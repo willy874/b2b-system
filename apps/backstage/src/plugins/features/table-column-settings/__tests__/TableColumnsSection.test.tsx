@@ -7,7 +7,7 @@ import { useTableColumnSettingsStore } from '@/core/store';
 
 import { TableColumnsSection } from '../TableColumnsSection';
 
-const STORAGE_KEY = 'game-editor:table-column-settings:tables';
+const STORAGE_KEY = 'b2b-system:table-column-settings:tables';
 
 function card(tableId: string): HTMLElement {
   const element = document.querySelector<HTMLElement>(
@@ -102,7 +102,7 @@ describe('TableColumnsSection（偏好頁的表格欄位分頁）', () => {
     );
     // 掛載時會從 localStorage 重讀，所以直接寫進 localStorage
     localStorage.setItem(
-      'game-editor:table-column-settings:pinnedRows',
+      'b2b-system:table-column-settings:pinnedRows',
       JSON.stringify({ 'user-list': [{ id: '1', side: 'top', row: {} }] }),
     );
     render(<TableColumnsSection />);

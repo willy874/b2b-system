@@ -8,7 +8,7 @@
 (function () {
   var preference = 'system';
   try {
-    var stored = JSON.parse(localStorage.getItem('game-editor:preference:theme'));
+    var stored = JSON.parse(localStorage.getItem('b2b-system:preference:theme'));
     if (stored === 'light' || stored === 'dark') preference = stored;
   } catch {
     // 忽略：退回跟隨系統

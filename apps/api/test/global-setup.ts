@@ -16,7 +16,7 @@ let container: StartedPostgreSqlContainer | undefined;
  */
 export async function setup(project: TestProject): Promise<void> {
   container = await new PostgreSqlContainer('postgres:17-alpine')
-    .withDatabase('game_editor_test')
+    .withDatabase('b2b_system_test')
     .withUsername('test')
     .withPassword('test')
     .start();

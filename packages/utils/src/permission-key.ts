@@ -1,6 +1,6 @@
 /**
  * 權限鍵的字串形狀：`camelCaseResource:camelCaseAction`。
- * 實際的鍵清單由後端定義，經 OpenAPI 傳到 `@game-editor/api-sdk`。
+ * 實際的鍵清單由後端定義，經 OpenAPI 傳到 `@b2b-system/api-sdk`。
  */
 export type PermissionKeyString = `${string}:${string}`;
 

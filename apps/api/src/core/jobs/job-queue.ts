@@ -69,7 +69,7 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     this.boss = new PgBoss({
       connectionString: config.get('DATABASE_URL', { infer: true }),
       schema: JOB_SCHEMA,
-      application_name: 'game-editor-jobs',
+      application_name: 'b2b-system-jobs',
       // pg-boss 自己的連線池（它用 `pg`）；業務交易內的入列走 fromDrizzle，不佔用這裡的連線
       max: 4,
       // 排程與維護（逾時、清除過期工作）只在執行工作的程序跑

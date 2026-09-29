@@ -39,10 +39,10 @@ describe('storageTransport（localStorage 的 storage 事件）', () => {
     open().post('ping', { n: 1 });
 
     expect(Storage.prototype.setItem).toHaveBeenCalledWith(
-      'game-editor:channel:ge:x',
+      'b2b-system:channel:ge:x',
       expect.stringContaining('"ping"'),
     );
-    expect(globalThis.localStorage.getItem('game-editor:channel:ge:x')).toBeNull();
+    expect(globalThis.localStorage.getItem('b2b-system:channel:ge:x')).toBeNull();
   });
 
   it('其他分頁收得到，刪除那一次的事件不會變成訊息', () => {

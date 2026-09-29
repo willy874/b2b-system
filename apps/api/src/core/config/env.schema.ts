@@ -71,7 +71,7 @@ export const EnvSchema = z.object({
   FILE_STORAGE_BUCKET: z
     .string()
     .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/, '必須符合 S3 bucket 命名規則')
-    .default('game-editor'),
+    .default('b2b-system'),
   FILE_STORAGE_ACCESS_KEY_ID: z.string().min(3),
   FILE_STORAGE_SECRET_ACCESS_KEY: z.string().min(8),
   /** 單一檔案上限（位元組）。 */
@@ -127,7 +127,7 @@ export const EnvSchema = z.object({
   MAIL_TRANSPORT: z.enum(['smtp', 'console']).default('console'),
   /** SMTP 連線網址，例：`smtp://localhost:1025`、`smtps://user:pass@smtp.example.com:465`。 */
   MAIL_SMTP_URL: z.string().default('smtp://localhost:1025'),
-  MAIL_FROM: z.string().min(3).default('Game Editor <no-reply@localhost>'),
+  MAIL_FROM: z.string().min(3).default('B2B System <no-reply@localhost>'),
   /** 瀏覽器看到的前端網址；信裡的連結（啟用、重設密碼）以它開頭。 */
   APP_PUBLIC_URL: z
     .string()

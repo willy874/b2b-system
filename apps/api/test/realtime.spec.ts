@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 
-import { CLIENT_ID_HEADER, ClientEvent, ServerEvent } from '@game-editor/realtime';
+import { CLIENT_ID_HEADER, ClientEvent, ServerEvent } from '@b2b-system/realtime';
 import type {
   ChannelEnvelopeWire,
   ClientToServerEvents,
   ResourceChanged,
   ServerToClientEvents,
   SessionRenewResult,
-} from '@game-editor/realtime';
+} from '@b2b-system/realtime';
 import type { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';

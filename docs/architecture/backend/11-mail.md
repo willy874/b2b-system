@@ -117,7 +117,7 @@ handler 執行時才呼叫 `AuthTokenService.issue()`、把原文放進連結、
 | --- | --- | --- |
 | `MAIL_TRANSPORT` | `console` | `smtp` 或 `console` |
 | `MAIL_SMTP_URL` | `smtp://localhost:1025` | 例：`smtps://user:pass@smtp.example.com:465` |
-| `MAIL_FROM` | `Game Editor <no-reply@localhost>` | 寄件人 |
+| `MAIL_FROM` | `B2B System <no-reply@localhost>` | 寄件人 |
 | `APP_PUBLIC_URL` | `http://localhost:5173` | 信裡連結的開頭（瀏覽器看到的前端網址） |
 
 ## 8. 測試

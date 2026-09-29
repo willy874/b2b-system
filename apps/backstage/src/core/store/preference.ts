@@ -11,7 +11,7 @@ import type { DictStorageMessages } from '@/shared/storage';
 const LOCALE_KEY = 'locale';
 const TIMEZONE_KEY = 'timezone';
 /**
- * localStorage 的完整鍵是 `game-editor:preference:theme`；index.html 的內嵌腳本在首次繪製前直接讀它，
+ * localStorage 的完整鍵是 `b2b-system:preference:theme`；index.html 的內嵌腳本在首次繪製前直接讀它，
  * 改名或改儲存格式時要同步改那段腳本（`theme.test.ts` 會比對）。
  */
 export const THEME_KEY = 'theme';

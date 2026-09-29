@@ -251,7 +251,7 @@ pnpm db:seed:dev
 不提供「後門 API」。作法是一支需要 DB 存取權的 CLI：
 
 ```bash
-pnpm --filter @game-editor/api cli:reset-super-admin --email admin@example.com
+pnpm --filter @b2b-system/api cli:reset-super-admin --email admin@example.com
 ```
 
 它會：

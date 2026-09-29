@@ -50,7 +50,7 @@ feature 的小外掛」，允許依賴那個 feature 的公開介面（見
 
 ```ts
 // 整個 app 對 packages/api-sdk 的唯一引用點
-export * from "@game-editor/api-sdk";
+export * from "@b2b-system/api-sdk";
 ```
 
 好處：SDK 換產生器、改套件名、或需要對某個型別做本地修補時，只改這一個檔。

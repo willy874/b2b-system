@@ -367,8 +367,8 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   "size": 12345,
   "status": "ready",
   "folderId": null,                                                    // 所在的資料夾；null 是根目錄
-  "url": "https://…/storage/game-editor/files/<id>?X-Amz-…",          // inline：直接顯示
-  "downloadUrl": "https://…/storage/game-editor/files/<id>?X-Amz-…",  // attachment：以 name 下載
+  "url": "https://…/storage/b2b-system/files/<id>?X-Amz-…",          // inline：直接顯示
+  "downloadUrl": "https://…/storage/b2b-system/files/<id>?X-Amz-…",  // attachment：以 name 下載
   "thumbnailUrl": "/api/files/<id>/image/thumbnail?exp=…&sig=…",       // 伺服器圖示預覽 → 瀏覽器縮圖 → null
   "image": {                                                           // 不是圖片、或變體還沒產生時為 null（§5.4）
     "width": 4000, "height": 3000,                                     // 套用 EXIF 方向後的原圖尺寸
@@ -472,7 +472,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `FILE_STORAGE_ENDPOINT` | `http://127.0.0.1:9000/storage` | api 連線用 |
 | `FILE_STORAGE_PUBLIC_ENDPOINT` | `http://localhost:5173/storage` | 瀏覽器看到的位址；presigned URL 以它簽章 |
 | `FILE_STORAGE_REGION` | `us-east-1` | |
-| `FILE_STORAGE_BUCKET` | `game-editor` | 不存在時自動建立 |
+| `FILE_STORAGE_BUCKET` | `b2b-system` | 不存在時自動建立 |
 | `FILE_STORAGE_ACCESS_KEY_ID` / `FILE_STORAGE_SECRET_ACCESS_KEY` | 必填 | 與 apps/file-storage 共用同名變數 |
 | `FILE_UPLOAD_MAX_SIZE` | `104857600`（100 MiB） | 單一檔案上限 |
 | `FILE_URL_TTL` | `900` | presigned 上傳／下載網址的有效秒數（60–604800）；下載網址在 `TTL / 2` 的時間窗內不變（§7.1） |

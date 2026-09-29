@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { ChangeKind, ChangeSource, SessionRevokedReason } from '@game-editor/realtime';
+import { ChangeKind, ChangeSource, SessionRevokedReason } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';

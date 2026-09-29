@@ -1,6 +1,6 @@
 import type { Channel } from '@/shared/channel';
 
-const NAMESPACE_PREFIX = 'game-editor:';
+const NAMESPACE_PREFIX = 'b2b-system:';
 
 /** 有頻道的 dictStorage 在寫入後廣播的訊息；收訊方只通知訂閱者，不再寫一次 localStorage。 */
 export type DictStorageMessages = {

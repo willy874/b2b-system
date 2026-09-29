@@ -19,21 +19,21 @@ interface AccountLinkCopy {
 const COPY = {
   activation: {
     'zh-TW': {
-      subject: '啟用你的 Game Editor 帳號',
+      subject: '啟用你的 B2B System 帳號',
       preview: '設定密碼後即可登入',
       greeting: (name) => `${name}，你好：`,
       body: (hours) =>
-        `管理員為你建立了 Game Editor 帳號。請在 ${hours} 小時內點下方按鈕設定密碼並啟用帳號。`,
+        `管理員為你建立了 B2B System 帳號。請在 ${hours} 小時內點下方按鈕設定密碼並啟用帳號。`,
       action: '設定密碼',
       fallback: '按鈕無法使用時，請把這個網址貼到瀏覽器：',
       ignore: '如果你沒有預期收到這封信，可以直接忽略。',
     },
     'en-US': {
-      subject: 'Activate your Game Editor account',
+      subject: 'Activate your B2B System account',
       preview: 'Set a password to sign in',
       greeting: (name) => `Hi ${name},`,
       body: (hours) =>
-        `An administrator created a Game Editor account for you. Set your password within ${hours} hours to activate it.`,
+        `An administrator created a B2B System account for you. Set your password within ${hours} hours to activate it.`,
       action: 'Set password',
       fallback: 'If the button does not work, paste this address into your browser:',
       ignore: 'If you were not expecting this email, you can ignore it.',
@@ -41,7 +41,7 @@ const COPY = {
   },
   passwordReset: {
     'zh-TW': {
-      subject: '重設你的 Game Editor 密碼',
+      subject: '重設你的 B2B System 密碼',
       preview: '點連結設定新密碼',
       greeting: (name) => `${name}，你好：`,
       body: (hours) =>
@@ -51,7 +51,7 @@ const COPY = {
       ignore: '如果不是你提出的要求，可以忽略這封信，密碼不會改變。',
     },
     'en-US': {
-      subject: 'Reset your Game Editor password',
+      subject: 'Reset your B2B System password',
       preview: 'Follow the link to choose a new password',
       greeting: (name) => `Hi ${name},`,
       body: (hours) =>

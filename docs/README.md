@@ -1,6 +1,6 @@
-# Game Editor — 架構文件
+# B2B System — 架構文件
 
-本目錄是 **Game Editor** 的架構規格書。目前專案尚未有主功能，第一階段只建置
+本目錄是 **B2B System** 的架構規格書。目前專案尚未有主功能，第一階段只建置
 **完整的 RBAC（Role-Based Access Control）能力與流程**，作為之後所有功能的地基。
 
 > 狀態：**待確認（Draft）**。程式碼尚未開始撰寫。

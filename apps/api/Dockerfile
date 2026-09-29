@@ -11,15 +11,15 @@ COPY packages/utils/package.json packages/utils/
 COPY packages/api-sdk/package.json packages/api-sdk/
 COPY packages/realtime/package.json packages/realtime/
 COPY apps/api/package.json apps/api/
-RUN pnpm install --frozen-lockfile --filter @game-editor/api...
+RUN pnpm install --frozen-lockfile --filter @b2b-system/api...
 
 COPY packages ./packages
 COPY apps/api ./apps/api
-RUN pnpm --filter @game-editor/utils build \
- && pnpm --filter @game-editor/realtime build \
- && pnpm --filter @game-editor/api build
+RUN pnpm --filter @b2b-system/utils build \
+ && pnpm --filter @b2b-system/realtime build \
+ && pnpm --filter @b2b-system/api build
 # pnpm 10 的 deploy 預設要求 inject-workspace-packages；--legacy 會把 workspace 依賴（realtime）實體複製進去
-RUN pnpm --filter @game-editor/api deploy --prod --legacy /app
+RUN pnpm --filter @b2b-system/api deploy --prod --legacy /app
 
 # ── runtime ──────────────────────────────────────────────────────────
 FROM node:24-alpine AS runtime

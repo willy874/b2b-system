@@ -8,7 +8,7 @@ import type { FolderIndex } from './folderTree';
  * 頁面內拖曳項目的資料型別。`dataTransfer` 只帶這個標記；拖了哪些項目記在 hook 裡——
  * `dragover` 期間瀏覽器不讓讀 `getData()`，放開之前就得知道能不能放。
  */
-export const ITEM_DRAG_TYPE = 'application/x-game-editor-file-items';
+export const ITEM_DRAG_TYPE = 'application/x-b2b-system-file-items';
 
 /**
  * 放置目標以 `data-drop-folder` 標出：值是資料夾 id，根目錄是空字串。

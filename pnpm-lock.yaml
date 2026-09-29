@@ -32,10 +32,10 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.1141.0
         version: 3.1141.0
-      '@game-editor/realtime':
+      '@b2b-system/realtime':
         specifier: workspace:*
         version: link:../../packages/realtime
-      '@game-editor/utils':
+      '@b2b-system/utils':
         specifier: workspace:*
         version: link:../../packages/utils
       '@nestjs/common':
@@ -225,13 +225,13 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.3.0)
-      '@game-editor/api-sdk':
+      '@b2b-system/api-sdk':
         specifier: workspace:*
         version: link:../../packages/api-sdk
-      '@game-editor/realtime':
+      '@b2b-system/realtime':
         specifier: workspace:*
         version: link:../../packages/realtime
-      '@game-editor/utils':
+      '@b2b-system/utils':
         specifier: workspace:*
         version: link:../../packages/utils
       '@lezer/common':

@@ -11,14 +11,14 @@ COPY packages/utils/package.json packages/utils/
 COPY packages/api-sdk/package.json packages/api-sdk/
 COPY packages/realtime/package.json packages/realtime/
 COPY apps/backstage/package.json apps/backstage/
-RUN pnpm install --frozen-lockfile --filter @game-editor/backstage...
+RUN pnpm install --frozen-lockfile --filter @b2b-system/backstage...
 
 COPY packages ./packages
 COPY apps/backstage ./apps/backstage
-RUN pnpm --filter @game-editor/utils build \
- && pnpm --filter @game-editor/api-sdk build \
- && pnpm --filter @game-editor/realtime build \
- && pnpm --filter @game-editor/backstage build
+RUN pnpm --filter @b2b-system/utils build \
+ && pnpm --filter @b2b-system/api-sdk build \
+ && pnpm --filter @b2b-system/realtime build \
+ && pnpm --filter @b2b-system/backstage build
 
 # ── runtime ──────────────────────────────────────────────────────────
 FROM nginx:1.27-alpine AS runtime

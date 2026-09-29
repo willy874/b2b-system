@@ -36,7 +36,7 @@
 
 ### 2.2 型別從哪裡來
 
-- **API 的請求／回應型別只從 OpenAPI 產生**（`@game-editor/api-sdk`），不手寫
+- **API 的請求／回應型別只從 OpenAPI 產生**（`@b2b-system/api-sdk`），不手寫
   一份「長得一樣」的介面。見 [ADR-0007](../adr/0007-openapi-generated-api-sdk.md)。
 - 後端 DTO 型別用 `z.infer<typeof XxxSchema>` 推導，schema 是唯一來源。
 - 權限鍵用 `PermissionKey`，**不寫裸字串**；拼錯會在編譯期被抓到。
@@ -94,7 +94,7 @@ i18n key、className、`data-testid` 一律寫完整字面量，見 [`06-literal
 // 1. 外部套件
 import { useQuery } from '@tanstack/react-query';
 // 2. workspace 套件
-import { RolesApi } from '@game-editor/api-sdk';
+import { RolesApi } from '@b2b-system/api-sdk';
 // 3. 專案內 alias（shared → core → components → apis）
 import { usePagePermission } from '@/core/permission';
 import { Button } from '@/components/Button';

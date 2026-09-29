@@ -276,7 +276,7 @@ GET /files?folderId=<目前資料夾 | root>  → 主區塊的檔案（資料夾
 | 拖什麼 | 拖已選取的項目 → 整批（檔案與資料夾）；拖沒選取的 → 只拖它（不改變選取，同作業系統的檔案總管）。游標旁顯示「N 個項目」的小標籤 |
 | 放在哪 | 標了 `data-drop-folder` 的元素：主區塊的資料夾卡片／列、樹的節點（也可以把節點拖到別的節點上）、麵包屑的每一層（往上層移）。容器上掛一組 handler，以事件委派找出目標 |
 | 能不能放 | 放回原處不算；資料夾不能放進自己或子孫（同後端的 `FILE_FOLDER_CYCLE`）。不合法時 `dropEffect = 'none'`（游標顯示禁止），合法的目標亮起來 |
-| 與上傳的區別 | 頁面內的拖曳只帶 `application/x-game-editor-file-items`；從電腦拖進來的帶 `Files`。兩個 hook 在同一個容器上各自只認自己的型別 |
+| 與上傳的區別 | 頁面內的拖曳只帶 `application/x-b2b-system-file-items`；從電腦拖進來的帶 `Files`。兩個 hook 在同一個容器上各自只認自己的型別 |
 | 拖了哪些 | `dragover` 期間瀏覽器不讓讀 `getData()`，所以拖曳的項目記在 hook 的 ref 裡，`dataTransfer` 只帶型別標記 |
 | 送出 | `POST /files/move` 一次送出檔案與資料夾（後端同一個交易）；成功後失效資料夾清單與檔案（`id='*'`），toast「已移動 N 個項目」 |
 | 權限 | 被拖的每個項目都要 `capabilities.canUpdate`，目的地要 `canCreate`（根目錄看 `rootCapabilities`）；不能拖的項目不可拖曳，不能放的目標不亮（§13） |

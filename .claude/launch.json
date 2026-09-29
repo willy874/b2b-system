@@ -32,7 +32,7 @@
         "VITE_ENABLE_MOCK=true",
         "pnpm",
         "--filter",
-        "@game-editor/backstage",
+        "@b2b-system/backstage",
         "exec",
         "vite",
         "--port",
@@ -52,7 +52,7 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [
         "--filter",
-        "@game-editor/backstage",
+        "@b2b-system/backstage",
         "exec",
         "storybook",
         "dev",

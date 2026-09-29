@@ -34,8 +34,8 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 
 - `apps/*` 之間 **永不互相 import**；packages 永不 import apps。
 - 新增 workspace 依賴要先在 `package.json` 宣告；pnpm 的隔離會讓未宣告的 import 解析失敗。
-- `apps/backstage` 只在 `src/shared/api-sdk/` 這 **一個地方** import `@game-editor/api-sdk`，其餘一律 `@/shared/api-sdk`。
-  `@game-editor/realtime` 同理，只經由 `src/shared/websocket-sdk/`。
+- `apps/backstage` 只在 `src/shared/api-sdk/` 這 **一個地方** import `@b2b-system/api-sdk`，其餘一律 `@/shared/api-sdk`。
+  `@b2b-system/realtime` 同理，只經由 `src/shared/websocket-sdk/`。
 - `@sigrea/core` 只在 `src/shared/store/` import，其餘一律 `@/shared/store`（React 綁定 `@/shared/hooks`）；
   `shared/store/` 與 `shared/context/` 不 import React。🔒 oxlint `no-restricted-imports`
 

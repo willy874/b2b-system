@@ -19,7 +19,7 @@ export default defineConfig({
   webServer: process.env.E2E_NO_SERVER
     ? undefined
     : {
-        command: 'pnpm --filter @game-editor/backstage dev',
+        command: 'pnpm --filter @b2b-system/backstage dev',
         url: WEB_URL,
         reuseExistingServer: !process.env.CI,
         timeout: 60_000,

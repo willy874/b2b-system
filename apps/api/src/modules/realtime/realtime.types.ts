@@ -1,4 +1,4 @@
-import type { ClientToServerEvents, ServerToClientEvents } from '@game-editor/realtime';
+import type { ClientToServerEvents, ServerToClientEvents } from '@b2b-system/realtime';
 import type { Server, Socket } from 'socket.io';
 
 import type { AuthenticatedSocketData } from '@/common/types';

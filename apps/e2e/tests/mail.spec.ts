@@ -20,7 +20,7 @@ test.describe('郵件（docs/architecture/backend/11-mail.md）', () => {
 
     // ② 從 Mailpit 取出啟用信，打開連結
     const mail = await waitForMail(email);
-    expect(mail.subject).toBe('啟用你的 Game Editor 帳號');
+    expect(mail.subject).toBe('啟用你的 B2B System 帳號');
     await page.goto(linkIn(mail, '/auth/setup'));
 
     // ③ 設定密碼 → 回到登入頁 → 登入

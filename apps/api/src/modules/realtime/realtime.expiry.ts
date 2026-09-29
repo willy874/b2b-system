@@ -1,4 +1,4 @@
-import { ServerEvent } from '@game-editor/realtime';
+import { ServerEvent } from '@b2b-system/realtime';
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 
 import type { RealtimeSocket } from './realtime.types';

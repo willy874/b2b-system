@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { resolveColumnSettings, useTableColumnSettingsStore } from '../tableColumnSettings';
 
-const STORAGE_KEY = 'game-editor:table-column-settings:tables';
+const STORAGE_KEY = 'b2b-system:table-column-settings:tables';
 
 describe('resolveColumnSettings（把存下來的設定套到目前的欄位）', () => {
   it.each([
@@ -128,7 +128,7 @@ describe('useTableColumnSettingsStore', () => {
 });
 
 describe('釘選的資料列', () => {
-  const PINNED_KEY = 'game-editor:table-column-settings:pinnedRows';
+  const PINNED_KEY = 'b2b-system:table-column-settings:pinnedRows';
 
   beforeEach(() => {
     localStorage.clear();

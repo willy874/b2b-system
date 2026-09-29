@@ -58,7 +58,7 @@
 - schema 用 `defineSchema('XxxRequest', z.object(…))` 登記，才會以 `$ref` 出現在 OpenAPI。
 - 字串欄位預設 `.trim()` 並設上限（`max()`）；陣列設上限。
 - 改完 DTO 或 controller 後跑
-  `pnpm --filter @game-editor/api openapi:generate && pnpm sdk:generate`。
+  `pnpm --filter @b2b-system/api openapi:generate && pnpm sdk:generate`。
 
 ---
 

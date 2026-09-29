@@ -8,27 +8,26 @@ services:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-gameeditor}
+      POSTGRES_USER: ${POSTGRES_USER:-b2bsystem}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
-      POSTGRES_DB: ${POSTGRES_DB:-game_editor}
+      POSTGRES_DB: ${POSTGRES_DB:-b2b_system}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks: [data]
     healthcheck:
-      test:
-        ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-gameeditor} -d ${POSTGRES_DB:-game_editor}']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-b2bsystem} -d ${POSTGRES_DB:-b2b_system}']
       interval: 10s
       timeout: 5s
       retries: 10
 
   migrate:
-    image: game-editor-api
+    image: b2b-system-api
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: 'no'
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-gameeditor}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-game_editor}
+      DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-b2b_system}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
     # seed 是冪等的（權限目錄 upsert、系統角色已存在就略過），每次部署都跑
@@ -40,12 +39,12 @@ services:
 
   api:
     # 與 migrate 共用同一個映像（由 migrate 的 build 產生），不另外 build 也不 pull
-    image: game-editor-api
+    image: b2b-system-api
     pull_policy: never
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER:-gameeditor}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-game_editor}
+      DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-b2b_system}
       JWT_SECRET: ${JWT_SECRET:?required}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
       REFRESH_COOKIE_PATH: /api/auth
@@ -57,7 +56,7 @@ services:
       # 換成真正的 S3 時只改這幾個變數，並拿掉下面的 file-storage 服務。
       FILE_STORAGE_ENDPOINT: http://file-storage:9000/storage
       FILE_STORAGE_PUBLIC_ENDPOINT: ${PUBLIC_ORIGIN:-http://localhost:8080}/storage
-      FILE_STORAGE_BUCKET: ${FILE_STORAGE_BUCKET:-game-editor}
+      FILE_STORAGE_BUCKET: ${FILE_STORAGE_BUCKET:-b2b-system}
       FILE_STORAGE_ACCESS_KEY_ID: ${FILE_STORAGE_ACCESS_KEY_ID:?required}
       FILE_STORAGE_SECRET_ACCESS_KEY: ${FILE_STORAGE_SECRET_ACCESS_KEY:?required}
       # 郵件（backend/11-mail.md）：正式環境一律 smtp，日誌不會出現連結；
@@ -77,7 +76,7 @@ services:
 
   # S3 相容的檔案儲存（apps/file-storage）；資料在 volume，映像本身無狀態
   file-storage:
-    image: game-editor-file-storage
+    image: b2b-system-file-storage
     build:
       context: .
       dockerfile: apps/file-storage/Dockerfile

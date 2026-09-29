@@ -152,7 +152,7 @@ describe('RichTable 的欄位設定', () => {
 
   it('依存下來的設定重排與隱藏，操作欄固定在原位並帶著齒輪按鈕', () => {
     localStorage.setItem(
-      'game-editor:table-column-settings:tables',
+      'b2b-system:table-column-settings:tables',
       JSON.stringify({
         sample: { order: ['note', 'name', 'code'], hidden: ['code'] },
       }),
@@ -171,7 +171,7 @@ describe('RichTable 的欄位設定', () => {
 
 function storeSampleSettings(settings: Record<string, unknown>) {
   localStorage.setItem(
-    'game-editor:table-column-settings:tables',
+    'b2b-system:table-column-settings:tables',
     JSON.stringify({ sample: { order: ['name'], hidden: [], ...settings } }),
   );
 }
@@ -310,7 +310,7 @@ describe('RichTable 的釘選欄（PinColumn）', () => {
     expect(rowNames()).toEqual(['Carol', 'Bob', 'Alice']);
     expect(screen.getAllByTestId('table-row')[2]).toHaveAttribute('data-pinned-row', 'bottom');
     expect(
-      JSON.parse(localStorage.getItem('game-editor:table-column-settings:pinnedRows') ?? '{}'),
+      JSON.parse(localStorage.getItem('b2b-system:table-column-settings:pinnedRows') ?? '{}'),
     ).toEqual({
       sample: [
         { id: '3', side: 'top', row: { id: '3', name: 'Carol' } },
