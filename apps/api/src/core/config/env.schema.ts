@@ -120,6 +120,21 @@ export const EnvSchema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((value) => value === 'true'),
+  /**
+   * 郵件寄送方式（docs/architecture/backend/11-mail.md）：`smtp` 經 nodemailer 寄出（本機寄給 Mailpit）；
+   * `console` 只寫日誌（含連結），給測試與沒有收信工具的環境用。
+   */
+  MAIL_TRANSPORT: z.enum(['smtp', 'console']).default('console'),
+  /** SMTP 連線網址，例：`smtp://localhost:1025`、`smtps://user:pass@smtp.example.com:465`。 */
+  MAIL_SMTP_URL: z.string().default('smtp://localhost:1025'),
+  MAIL_FROM: z.string().min(3).default('Game Editor <no-reply@localhost>'),
+  /** 瀏覽器看到的前端網址；信裡的連結（啟用、重設密碼）以它開頭。 */
+  APP_PUBLIC_URL: z
+    .string()
+    .url()
+    .default('http://localhost:5173')
+    .transform((value) => value.replace(/\/+$/, '')),
+
   /** 稽核日誌熱 → 冷搬移的 cron（UTC）；空字串停用（docs/architecture/backend/06-audit-log.md §8）。 */
   AUDIT_LOG_ARCHIVE_CRON: z.string().trim().default('30 3 * * *'),
 

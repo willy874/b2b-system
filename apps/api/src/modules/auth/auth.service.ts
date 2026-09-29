@@ -12,6 +12,7 @@ import type { Database } from '@/core/database';
 import { DRIZZLE, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
+import { JobQueue } from '@/core/jobs';
 import type { RefreshTokenRow, UserRow } from '@/db/schema';
 import { ApprovalService } from '@/modules/approval/approval.service';
 import { AuditService } from '@/modules/audit-log/audit.service';
@@ -19,6 +20,7 @@ import { PermissionService } from '@/modules/permission/permission.service';
 import { userRegistrationRequest } from '@/modules/user/user-registration.approval';
 import { UserService, userUpdated } from '@/modules/user/user.service';
 
+import { FORGOT_PASSWORD_THROTTLE_SECONDS, PASSWORD_RESET_MAIL_JOB } from './auth-mail.constants';
 import { AuthTokenService } from './auth-token.service';
 import type {
   ChangePasswordDto,
@@ -59,6 +61,7 @@ export class AuthService {
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
     private readonly approvals: ApprovalService,
+    private readonly jobs: JobQueue,
   ) {}
 
   // ── 登入 ────────────────────────────────────────────────
@@ -375,7 +378,12 @@ export class AuthService {
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ sent: true }> {
     const user = await this.users.findAccountByEmail(dto.email);
     if (user && user.status === 'active') {
-      await this.authTokens.issue(user.id, 'password_reset');
+      // 入列即回應：寄信慢或 SMTP 暫時失敗都不影響這個請求，也不會從回應時間看出帳號是否存在
+      await this.jobs.enqueue(
+        PASSWORD_RESET_MAIL_JOB,
+        { userId: user.id },
+        { throttle: { key: user.id, seconds: FORGOT_PASSWORD_THROTTLE_SECONDS } },
+      );
     }
     // 不論如何都回 200（帳號列舉防護）
     return { sent: true };

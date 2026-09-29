@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AuthMailJobs } from './auth-mail.jobs';
 import { AuthTokenService } from './auth-token.service';
 import { RefreshTokenRepository } from './refresh-token.repository';
 
@@ -9,7 +10,8 @@ import { RefreshTokenRepository } from './refresh-token.repository';
  * 把 token 的儲存層抽成獨立模組是那個循環的解法。
  */
 @Module({
-  providers: [AuthTokenService, RefreshTokenRepository],
+  // AuthMailJobs：啟用與重設密碼信的背景工作（docs/architecture/backend/11-mail.md §4）
+  providers: [AuthTokenService, RefreshTokenRepository, AuthMailJobs],
   exports: [AuthTokenService, RefreshTokenRepository],
 })
 export class AuthTokenModule {}

@@ -60,6 +60,13 @@ services:
       FILE_STORAGE_BUCKET: ${FILE_STORAGE_BUCKET:-game-editor}
       FILE_STORAGE_ACCESS_KEY_ID: ${FILE_STORAGE_ACCESS_KEY_ID:?required}
       FILE_STORAGE_SECRET_ACCESS_KEY: ${FILE_STORAGE_SECRET_ACCESS_KEY:?required}
+      # 郵件（backend/11-mail.md）：正式環境一律 smtp，日誌不會出現連結；
+      # MAIL_SMTP_URL 指向 SES、Postmark 等服務商的 SMTP，寄件網域要設好 SPF / DKIM / DMARC
+      MAIL_TRANSPORT: smtp
+      MAIL_SMTP_URL: ${MAIL_SMTP_URL:?required}
+      MAIL_FROM: ${MAIL_FROM:?required}
+      # 信裡的連結（啟用、重設密碼）以瀏覽器看到的 origin 開頭
+      APP_PUBLIC_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
     networks: [edge, data, storage]
     # 單一執行個體：權限快取與 Socket.io room 都在記憶體。擴展前提見 01-system.md §4.3
     depends_on:

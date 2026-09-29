@@ -15,6 +15,7 @@ import { RequestIdMiddleware, TransformInterceptor } from './core/http';
 import { ImageModule } from './core/image';
 import { JobsModule } from './core/jobs';
 import { LoggerModule } from './core/logger';
+import { MailModule } from './core/mail';
 import { StorageModule } from './core/storage';
 import { ApprovalModule } from './modules/approval/approval.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
@@ -41,6 +42,8 @@ import { UserModule } from './modules/user/user.module';
     JobsModule,
     // 物件儲存的抽象層（ObjectStorage）；實作是 S3 SDK（docs/architecture/backend/09-file.md §2）
     StorageModule,
+    // 寄信的抽象層（MailTransport）；smtp 或 console（docs/architecture/backend/11-mail.md）
+    MailModule,
     // 影像處理的抽象層（ImageProcessor）；實作是 sharp（docs/architecture/backend/09-file.md §5.4）
     ImageModule,
     AccessTokenModule,

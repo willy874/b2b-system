@@ -15,7 +15,9 @@
     "emitDecoratorMetadata": true,
     "strictPropertyInitialization": false,
     "isolatedModules": false,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    // 郵件範本用 React Email 寫（docs/adr/0017-mail-delivery.md D5）；只有 *.mail.tsx 使用
+    "jsx": "react-jsx"
   },
   "include": ["src/**/*", "test/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "dist"],

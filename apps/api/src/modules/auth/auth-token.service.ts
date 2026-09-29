@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, isNull } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
@@ -21,8 +21,6 @@ export const PASSWORD_RESET_TTL_SECONDS = 60 * 60; // 1 小時
  */
 @Injectable()
 export class AuthTokenService {
-  private readonly logger = new Logger(AuthTokenService.name);
-
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly refreshTokens: RefreshTokenRepository,
@@ -33,7 +31,10 @@ export class AuthTokenService {
     await this.refreshTokens.revokeAllForUser(userId, reason, tx);
   }
 
-  /** 發新 token 前先作廢同使用者同用途的既有未使用 token。 */
+  /**
+   * 發新 token 前先作廢同使用者同用途的既有未使用 token。
+   * 只由寄信的背景工作呼叫（`AuthMailJobs`）：寄出當下才簽發，原文不進工作資料。
+   */
   async issue(
     userId: string,
     purpose: AuthTokenPurpose,
@@ -56,11 +57,7 @@ export class AuthTokenService {
     const expiresAt = new Date(Date.now() + ttl * 1000);
 
     await db.insert(authTokens).values({ userId, purpose, tokenHash: sha256(raw), expiresAt });
-
-    // Phase 0 沒有郵件基礎設施：把連結寫進日誌，由維運人員轉交。
-    this.logger.warn(
-      `[${purpose}] token for user ${userId}: ${raw}（有效至 ${expiresAt.toISOString()}）`,
-    );
+    // 原文只回給寄信的工作放進連結，不寫日誌（docs/adr/0017-mail-delivery.md D7）
     return { raw, expiresAt };
   }
 

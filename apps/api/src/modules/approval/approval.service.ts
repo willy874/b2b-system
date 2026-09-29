@@ -7,11 +7,13 @@ import { DRIZZLE, withTransaction } from '@/core/database';
 import { AppException, constraintNameOf, isUniqueViolation } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
+import { JobQueue } from '@/core/jobs';
 import type { ApprovalRequestRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 
 import { ApprovalHandlerRegistry } from './approval-handler.registry';
+import { APPROVAL_RESULT_MAIL_JOB } from './approval-mail.constants';
 import { PENDING_SUBJECT_CONSTRAINT } from './approval.constants';
 import type { ApprovalType } from './approval.constants';
 import { ApprovalRepository } from './approval.repository';
@@ -55,6 +57,7 @@ export class ApprovalService {
     private readonly permissionService: PermissionService,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
+    private readonly jobs: JobQueue,
   ) {}
 
   /** 擁有資源的模組在 `onModuleInit` 呼叫，登記自己負責的審批類型。 */
@@ -175,6 +178,7 @@ export class ApprovalService {
         },
         tx,
       );
+      await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId: id }, { tx });
       return { reviewed: { ...row, resultResourceId: applied.resourceId }, outcome: applied };
     });
 
@@ -216,6 +220,7 @@ export class ApprovalService {
         },
         tx,
       );
+      await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId: id }, { tx });
       return row;
     });
 

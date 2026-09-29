@@ -1,11 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, ilike, inArray, like } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, isNull, like } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { DRIZZLE } from '@/core/database';
 import type { ApprovalRequestInsert, ApprovalRequestRow } from '@/db/schema';
-import { approvalRequests } from '@/db/schema';
+import { approvalRequests, users } from '@/db/schema';
 
 import type { ListApprovalDto } from './dto/approval.dto';
 
@@ -36,6 +36,16 @@ export class ApprovalRepository {
       .select()
       .from(approvalRequests)
       .where(eq(approvalRequests.id, id))
+      .limit(1);
+    return row;
+  }
+
+  /** 通知信的收件人：未刪除的使用者。 */
+  async findRecipient(userId: string): Promise<{ email: string; locale: string } | undefined> {
+    const [row] = await this.db
+      .select({ email: users.email, locale: users.locale })
+      .from(users)
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
       .limit(1);
     return row;
   }
