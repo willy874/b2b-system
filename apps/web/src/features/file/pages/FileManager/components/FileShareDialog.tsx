@@ -16,6 +16,7 @@ import type { SelectOption } from '@/components/Select';
 import { Spinner } from '@/components/Spinner';
 import { Switch } from '@/components/Switch';
 import { useTranslation } from '@/core/locales';
+import { useRequiredWorkspace } from '@/core/workspace';
 import type { FileAccessRequest, FileFolderGrant } from '@/shared/api-sdk';
 
 import {
@@ -60,9 +61,10 @@ interface FileShareDialogProps {
  * 等級選單只列出操作者授予得起的（`assignableLevels`，反提權），超出的授權唯讀；後端仍會再檢查。
  */
 export function FileShareDialog({ folder, onClose }: FileShareDialogProps) {
+  const { id: workspaceId } = useRequiredWorkspace();
   const { t } = useTranslation();
   const grants = useQuery({
-    ...getFileFolderGrantListQueryOptions(folder?.id ?? ''),
+    ...getFileFolderGrantListQueryOptions(workspaceId, folder?.id ?? ''),
     enabled: Boolean(folder),
   });
   const inheritance = useFolderInheritanceMutation();
@@ -95,7 +97,9 @@ export function FileShareDialog({ folder, onClose }: FileShareDialogProps) {
                 checked={grants.data.inheritGrants}
                 disabled={inheritance.isPending}
                 onCheckedChange={(inheritGrants) =>
-                  inheritance.mutate({ params: { folderId: folder.id, body: { inheritGrants } } })
+                  inheritance.mutate({
+                    params: { workspaceId, folderId: folder.id, body: { inheritGrants } },
+                  })
                 }
                 aria-label={t('file.share.inherit')}
                 data-testid="file-share-inherit"
@@ -144,8 +148,9 @@ export function FileShareDialog({ folder, onClose }: FileShareDialogProps) {
 
 /** 待審的存取申請（docs/rbac/07-resource-grants.md §6.5）；沒有申請時不顯示。 */
 function AccessRequestSection({ folderId }: { folderId: string }) {
+  const { id: workspaceId } = useRequiredWorkspace();
   const { t } = useTranslation();
-  const requests = useQuery(getFileAccessRequestListQueryOptions(folderId));
+  const requests = useQuery(getFileAccessRequestListQueryOptions(workspaceId, folderId));
   const items = requests.data?.items ?? [];
   if (items.length === 0) return null;
   return (
@@ -163,10 +168,13 @@ function AccessRequestSection({ folderId }: { folderId: string }) {
 }
 
 function AccessRequestRow({ folderId, request }: { folderId: string; request: FileAccessRequest }) {
+  const { id: workspaceId } = useRequiredWorkspace();
   const { t } = useTranslation();
   const review = useFileAccessReviewMutation();
   const decide = (decision: 'approve' | 'reject') =>
-    review.mutate({ params: { folderId, requestId: request.id, decision, body: {} } });
+    review.mutate({
+      params: { workspaceId, folderId, requestId: request.id, decision, body: {} },
+    });
   return (
     <li
       className="flex flex-wrap items-center gap-2 py-2"
@@ -216,6 +224,7 @@ interface AddGrantRowProps {
 
 /** 新增一筆授權：對象種類 ＋ 搜尋對象（伺服器端搜尋）＋ 等級 ＋ 期限（可不填）。 */
 function AddGrantRow({ folderId, levelOptions }: AddGrantRowProps) {
+  const { id: workspaceId } = useRequiredWorkspace();
   const { t } = useTranslation();
   const [subjectType, setSubjectType] = useState<FileGrantSubjectType>('role');
   const [keyword, setKeyword] = useState('');
@@ -230,6 +239,7 @@ function AddGrantRow({ folderId, levelOptions }: AddGrantRowProps) {
   const isEveryone = subjectType === 'everyone';
   const subjects = useQuery({
     ...getFileGrantSubjectListQueryOptions({
+      workspaceId,
       folderId,
       subjectType,
       keyword: debounced || undefined,
@@ -248,6 +258,7 @@ function AddGrantRow({ folderId, levelOptions }: AddGrantRowProps) {
     setGrant.mutate(
       {
         params: {
+          workspaceId,
           folderId,
           body: {
             subjectType,
@@ -349,6 +360,7 @@ interface GrantRowProps {
 }
 
 function GrantRow({ folderId, grant, levelOptions, editable }: GrantRowProps) {
+  const { id: workspaceId } = useRequiredWorkspace();
   const { t } = useTranslation();
   const setGrant = useFolderGrantSetMutation();
   const removeGrant = useFolderGrantDeleteMutation();
@@ -397,6 +409,7 @@ function GrantRow({ folderId, grant, levelOptions, editable }: GrantRowProps) {
               level !== grant.level &&
               setGrant.mutate({
                 params: {
+                  workspaceId,
                   folderId,
                   // 變更等級時保留期限；已過期的改等級等於重新授予（不過期）
                   body: { ...subject, level, expiresAt: grant.isExpired ? null : grant.expiresAt },
@@ -410,7 +423,7 @@ function GrantRow({ folderId, grant, levelOptions, editable }: GrantRowProps) {
             size="sm"
             loading={removeGrant.isPending}
             aria-label={t('file.share.removeLabel', { name: subjectName })}
-            onClick={() => removeGrant.mutate({ params: { folderId, ...subject } })}
+            onClick={() => removeGrant.mutate({ params: { workspaceId, folderId, ...subject } })}
             data-testid="file-share-grant-remove"
           >
             {t('file.share.remove')}

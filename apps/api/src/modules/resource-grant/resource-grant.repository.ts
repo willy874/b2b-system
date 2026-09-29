@@ -11,7 +11,14 @@ import type {
   ResourceGrantRow,
   ResourceType,
 } from '@/db/schema';
-import { EVERYONE_SUBJECT_ID, resourceGrants, roles, userRoles, users } from '@/db/schema';
+import {
+  EVERYONE_SUBJECT_ID,
+  resourceGrants,
+  roles,
+  users,
+  workspaceMemberRoles,
+  workspaceMembers,
+} from '@/db/schema';
 
 /** 一筆授權的識別：資源 × 對象。 */
 export interface GrantKey {
@@ -60,14 +67,22 @@ const LIVE_SUBJECT = sql`(
 export class ResourceGrantRepository {
   constructor(@Inject(DRIZZLE) private readonly db: Database) {}
 
-  /** 使用者持有的角色（未刪除）。 */
-  async findRoleIdsOfUser(userId: string, tx?: DbOrTx): Promise<string[]> {
+  /**
+   * 使用者在這個工作區持有的工作區角色（未刪除）。資源都在某個工作區裡，
+   * 授權對象的角色是工作區角色（docs/adr/0018-workspace-tenancy.md D7）。
+   */
+  async findRoleIdsOfMember(userId: string, workspaceId: string, tx?: DbOrTx): Promise<string[]> {
     const db = tx ?? this.db;
     const rows = await db
-      .select({ id: userRoles.roleId })
-      .from(userRoles)
-      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
-      .where(eq(userRoles.userId, userId));
+      .select({ id: workspaceMemberRoles.roleId })
+      .from(workspaceMemberRoles)
+      .innerJoin(roles, and(eq(roles.id, workspaceMemberRoles.roleId), isNull(roles.deletedAt)))
+      .where(
+        and(
+          eq(workspaceMemberRoles.userId, userId),
+          eq(workspaceMemberRoles.workspaceId, workspaceId),
+        ),
+      );
     return rows.map((row) => row.id);
   }
 
@@ -196,24 +211,44 @@ export class ResourceGrantRepository {
     return row;
   }
 
-  /** 對象存在（未刪除）。 */
-  async subjectExists(subjectType: GrantSubjectType, id: string, tx?: DbOrTx): Promise<boolean> {
+  /**
+   * 對象存在（未刪除），而且屬於這個工作區：角色必須是工作區角色、使用者必須是成員
+   * （docs/adr/0018-workspace-tenancy.md D7）。
+   */
+  async subjectExists(
+    subjectType: GrantSubjectType,
+    id: string,
+    workspaceId: string,
+    tx?: DbOrTx,
+  ): Promise<boolean> {
     if (subjectType === 'everyone') return id === EVERYONE_SUBJECT_ID;
     const db = tx ?? this.db;
-    const table = subjectType === 'role' ? roles : users;
+    if (subjectType === 'role') {
+      const [row] = await db
+        .select({ one: sql<number>`1` })
+        .from(roles)
+        .where(and(eq(roles.id, id), eq(roles.scope, 'workspace'), isNull(roles.deletedAt)))
+        .limit(1);
+      return Boolean(row);
+    }
     const [row] = await db
       .select({ one: sql<number>`1` })
-      .from(table)
-      .where(and(eq(table.id, id), isNull(table.deletedAt)))
+      .from(workspaceMembers)
+      .innerJoin(users, and(eq(users.id, workspaceMembers.userId), isNull(users.deletedAt)))
+      .where(and(eq(workspaceMembers.userId, id), eq(workspaceMembers.workspaceId, workspaceId)))
       .limit(1);
     return Boolean(row);
   }
 
-  /** 授權對象的候選：名稱（角色）或顯示名稱／帳號（使用者）部分比對。 */
+  /**
+   * 授權對象的候選：名稱（角色）或顯示名稱／帳號（使用者）部分比對。
+   * 只列這個工作區用得上的：工作區角色、工作區的成員。
+   */
   async searchSubjects(
     subjectType: GrantSubjectType,
     keyword: string | undefined,
     limit: number,
+    workspaceId: string,
   ): Promise<GrantSubjectRow[]> {
     const pattern = keyword ? `%${escapeLike(keyword)}%` : undefined;
     if (subjectType === 'everyone') {
@@ -223,16 +258,24 @@ export class ResourceGrantRepository {
       const rows = await this.db
         .select({ id: roles.id, name: roles.name, hint: roles.slug })
         .from(roles)
-        .where(and(isNull(roles.deletedAt), pattern ? ilike(roles.name, pattern) : undefined))
+        .where(
+          and(
+            isNull(roles.deletedAt),
+            eq(roles.scope, 'workspace'),
+            pattern ? ilike(roles.name, pattern) : undefined,
+          ),
+        )
         .orderBy(asc(roles.name), asc(roles.id))
         .limit(limit);
       return rows.map((row) => ({ subjectType, id: row.id, name: row.name, hint: row.hint }));
     }
     const rows = await this.db
       .select({ id: users.id, name: users.displayName, hint: users.username })
-      .from(users)
+      .from(workspaceMembers)
+      .innerJoin(users, eq(users.id, workspaceMembers.userId))
       .where(
         and(
+          eq(workspaceMembers.workspaceId, workspaceId),
           isNull(users.deletedAt),
           eq(users.status, 'active'),
           pattern

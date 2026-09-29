@@ -1,6 +1,8 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 
+import { useRequiredWorkspace } from '@/core/workspace';
+
 import { FileListRoute } from '../../routes';
 import type { FileSearchQuery } from '../../routes';
 
@@ -8,16 +10,18 @@ import type { FileSearchQuery } from '../../routes';
 export function useFileSearch() {
   const search = FileListRoute.useSearch();
   const navigate = useNavigate();
+  const { slug } = useRequiredWorkspace();
 
   const patch = useCallback(
     (next: Partial<FileSearchQuery>, options: { replace?: boolean } = {}) => {
       void navigate({
         to: FileListRoute.to,
+        params: { workspaceSlug: slug },
         search: { ...search, ...next },
         replace: options.replace,
       });
     },
-    [navigate, search],
+    [navigate, search, slug],
   );
 
   return {

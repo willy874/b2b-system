@@ -1,7 +1,7 @@
 # 工作區／多租戶
 
 - 優先度：P0
-- 狀態：規劃中
+- 狀態：實作中（branch：`feat/workspace`）
 - 依賴：—
 - 相關：[ADR-0018](../adr/0018-workspace-tenancy.md)（本功能的決定）、[ADR-0006](../adr/0006-flat-permission-scope.md)、[ADR-0015](../adr/0015-file-folder-access.md)、[`user-groups.md`](./user-groups.md)
 
@@ -52,7 +52,7 @@
 
 - **資料模型**
   - 新增 `workspaces`、`workspace_members`、`workspace_member_roles`、`workspace_invitations`。
-  - `roles`、`permissions` 加 `scope`；`users` 加 `last_workspace_id`。
+  - `roles`、`permissions` 加 `scope`；`workspace_members.last_accessed_at` 記錄最近進入的工作區。
   - `file_folders`、`files` 加 `workspace_id`（NOT NULL），並加上組合外鍵；系統資料夾的唯一索引加上 `workspace_id`。
   - `audit_logs`（含冷表）、`approval_requests` 加可為空的 `workspace_id`。
 - **後端**
@@ -61,7 +61,7 @@
   - `PermissionsGuard` 支援 `@WorkspaceScoped()`；`route-audit` 檢查權限鍵範圍與路由是否一致。
   - `modules/file` 的路由改掛前綴，系統資料夾改為每個工作區一份。
   - `modules/approval`：`fileFolder.access` 的申請帶上工作區。
-  - `modules/realtime`：新增工作區的 room 與 `workspace.subscribe`。
+  - `modules/realtime`：新增工作區的 room；連線時加入所屬每個工作區的 room。
   - 背景工作的 payload 帶 `workspaceId`。
 - **前端**
   - 新增 `core/workspace`（從 URL 推導目前工作區）與 App Shell 的切換器。

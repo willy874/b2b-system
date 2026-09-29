@@ -5,6 +5,7 @@ import { hashPassword } from '@/modules/auth/password';
 import type { ScriptDatabase } from '../client';
 import { createScriptClient, loadScriptEnv } from '../client';
 import { auditLogs, permissions, rolePermissions, roles, userRoles, users } from '../schema';
+import { DEFAULT_WORKSPACE_SLUG, seedWorkspaceMember } from './workspace';
 
 /** 固定亂數種子，確保 E2E fixture 可重現。 */
 function mulberry32(seed: number): () => number {
@@ -127,6 +128,16 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
         .values(shuffled.map((roleId) => ({ userId: created.id, roleId })))
         .onConflictDoNothing();
     }
+  }
+
+  // ── 預設工作區的成員：前 10 位是工作區管理員，其他是一般成員 ─────
+  for (const [index, userId] of createdUserIds.entries()) {
+    await seedWorkspaceMember(
+      db,
+      DEFAULT_WORKSPACE_SLUG,
+      userId,
+      index < 10 ? 'workspace-admin' : 'workspace-member',
+    );
   }
 
   // ── 300 筆稽核日誌（跨 90 天）───────────────────────────

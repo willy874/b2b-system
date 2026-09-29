@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { renderWithPermissions } from '@/test/renderWithPermissions';
+import { TEST_WORKSPACE, renderWithPermissions } from '@/test/renderWithPermissions';
 
 import { FileAccessRequestDialog } from '../components/FileAccessRequestDialog';
 import { FileLockedNotice } from '../components/FileLockedNotice';
@@ -27,7 +27,11 @@ describe('FileAccessRequestDialog（docs/rbac/07-resource-grants.md §6.5）', (
     fireEvent.click(screen.getByTestId('file-access-request-submit'));
     await waitFor(() =>
       expect(createRequest.mock.calls[0]?.[0]).toEqual({
-        params: { folderId: 'plan', body: { level: 'viewer', reason: '需要看企劃' } },
+        params: {
+          workspaceId: TEST_WORKSPACE.id,
+          folderId: 'plan',
+          body: { level: 'viewer', reason: '需要看企劃' },
+        },
       }),
     );
     await waitFor(() => expect(onClose).toHaveBeenCalled());
@@ -40,7 +44,11 @@ describe('FileAccessRequestDialog（docs/rbac/07-resource-grants.md §6.5）', (
     fireEvent.click(screen.getByTestId('file-access-request-submit'));
     await waitFor(() =>
       expect(createRequest.mock.calls[0]?.[0]).toEqual({
-        params: { folderId: 'plan', body: { level: 'viewer', reason: undefined } },
+        params: {
+          workspaceId: TEST_WORKSPACE.id,
+          folderId: 'plan',
+          body: { level: 'viewer', reason: undefined },
+        },
       }),
     );
   });

@@ -10,6 +10,7 @@ import { validateFile } from '@/core/file';
 import type { FileValidationIssue } from '@/core/file';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
+import { useRequiredWorkspace } from '@/core/workspace';
 
 import { enqueueFileUploads } from '../batch';
 import type { QueuedUpload } from '../batch';
@@ -30,6 +31,7 @@ const pathKey = (path: readonly string[]) => path.join('/');
  * 路徑多時分批送；每批都從同一個上層起算，已存在的上層會被沿用，所以分批不影響結果。
  */
 async function ensureFolders(
+  workspaceId: string,
   parentId: string | undefined,
   directories: readonly (readonly string[])[],
 ): Promise<Map<string, string>> {
@@ -40,6 +42,7 @@ async function ensureFolders(
     // oxlint-disable-next-line no-await-in-loop -- 見上
     const { items } = await ensurePaths({
       params: {
+        workspaceId,
         parentId: parentId ?? null,
         paths: unique.slice(start, start + FOLDER_PATHS_PER_REQUEST),
       },
@@ -60,7 +63,11 @@ export function useFileUpload(options: { enabled: boolean }) {
   const toast = useToast();
   const showError = useErrorToast();
   const queue = useBatchQueue();
-  const policy = useQuery({ ...getFileUploadPolicyQueryOptions(), enabled: options.enabled });
+  const { id: workspaceId } = useRequiredWorkspace();
+  const policy = useQuery({
+    ...getFileUploadPolicyQueryOptions(workspaceId),
+    enabled: options.enabled,
+  });
   const maxSize = policy.data?.maxSize;
 
   return useCallback(
@@ -94,7 +101,7 @@ export function useFileUpload(options: { enabled: boolean }) {
       let folderIds = new Map<string, string>();
       if (upload.directories.length > 0) {
         try {
-          folderIds = await ensureFolders(folderId, upload.directories);
+          folderIds = await ensureFolders(workspaceId, folderId, upload.directories);
         } catch (error) {
           // 資料夾建不起來就不上傳：檔案不該落到錯的位置
           showError(error);
@@ -110,11 +117,11 @@ export function useFileUpload(options: { enabled: boolean }) {
       }));
       if (accepted.length > 0) {
         if (!queue) throw new Error('批次佇列尚未註冊（batchQueuePlugin）');
-        await enqueueFileUploads(queue, accepted);
+        await enqueueFileUploads(queue, workspaceId, accepted);
         toast.info(t('file.upload.queued', { count: accepted.length }));
       }
       return { accepted, rejected };
     },
-    [maxSize, queue, showError, t, toast],
+    [maxSize, queue, showError, t, toast, workspaceId],
   );
 }

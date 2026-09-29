@@ -437,10 +437,9 @@ export class UserService {
     }
   }
 
+  /** 角色存在，而且是全域角色：工作區角色只能在工作區裡指派（docs/adr/0018-workspace-tenancy.md D3）。 */
   private async assertRolesExist(roleIds: readonly string[]): Promise<void> {
-    if (!roleIds.length) return;
-    const found = await this.repo.findActiveRolesByIds(roleIds);
-    if (found.length !== new Set(roleIds).size) throw new AppException('ROLE_NOT_FOUND');
+    await this.permissionService.assertRoleScope(roleIds, 'platform');
   }
 
   // ── 帳號狀態與憑證：供 AuthModule 使用 ─────────────────────

@@ -10,6 +10,7 @@
       "title": "建立角色",
       "description": "角色是一組權限的具名集合。你只能勾選自己持有的權限。",
       "permissions": "授予權限",
+      "scopeHint": "平台角色指派給使用者，管理整個平台；工作區角色在工作區裡指派給成員，只在那個工作區有效。建立後不能更改。",
       "success": "已建立角色「{{name}}」。"
     },
     "update": { "success": "角色已更新。" },
@@ -52,6 +53,7 @@
       "slug": "識別碼",
       "description": "描述",
       "type": "類型",
+      "scope": "範圍",
       "permissionCount": "權限數",
       "userCount": "使用者數",
       "createdAt": "建立時間"

@@ -46,7 +46,12 @@ function setup(access: AccessFixtureOptions, existingLevel?: 'manager') {
     request: {
       id: 'req-1',
       requesterId: REQUESTER,
-      payload: { folderId: FOLDER, folderName: '企劃', level: 'contributor' },
+      payload: {
+        workspaceId: '99999999-9999-4999-8999-999999999999',
+        folderId: FOLDER,
+        folderName: '企劃',
+        level: 'contributor',
+      },
     } as unknown as ApprovalRequestRow,
     reviewer: REVIEWER,
     options: { roleIds: [] },

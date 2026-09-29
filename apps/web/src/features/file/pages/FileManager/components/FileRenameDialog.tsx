@@ -5,6 +5,7 @@ import { Dialog } from '@/components/Dialog';
 import { Input } from '@/components/Input';
 import { useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
+import { useRequiredWorkspace } from '@/core/workspace';
 
 import { useFileRenameMutation } from '../../../hooks/useFileMutations';
 import type { FileItemVM } from '../adapter';
@@ -20,6 +21,7 @@ interface FileRenameDialogProps {
  * 資料重抓後（`useFileRenameMutation` 會失效該檔案）版本號更新，使用者確認後可以再送一次。
  */
 export function FileRenameDialog({ file, onClose }: FileRenameDialogProps) {
+  const { id: workspaceId } = useRequiredWorkspace();
   const { t } = useTranslation();
   const errorMessage = useErrorMessage();
   const rename = useFileRenameMutation();
@@ -48,7 +50,13 @@ export function FileRenameDialog({ file, onClose }: FileRenameDialogProps) {
       return;
     }
     await rename
-      .mutateAsync({ params: { fileId: file.id, body: { name: trimmed, version: file.version } } })
+      .mutateAsync({
+        params: {
+          workspaceId,
+          fileId: file.id,
+          body: { name: trimmed, version: file.version },
+        },
+      })
       .then(onClose)
       .catch(() => undefined);
   };

@@ -25,6 +25,11 @@ export interface FileListParams extends FileListFilters {
   cursor?: string;
 }
 
+/** 檔案 API 都在工作區底下（`/workspaces/:workspaceId/files…`，docs/adr/0018-workspace-tenancy.md D8）。 */
+export interface InWorkspace {
+  workspaceId: string;
+}
+
 /** 資料夾授權的對象種類與等級（docs/rbac/07-resource-grants.md §2、§6.2）。 */
 export type FileGrantSubjectType = SetFileFolderGrantRequest['subjectType'];
 export type FileGrantLevel = SetFileFolderGrantRequest['level'];

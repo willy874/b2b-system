@@ -13,6 +13,7 @@ export const getFileGrantSubjectListQueryOptions = (params: FileGrantSubjectPara
       params.folderId,
       params.subjectType,
       params.keyword ?? '',
+      params.workspaceId,
     ] as const,
     queryFn: ({ queryKey, signal }) =>
       fetchFileGrantSubjectListQuery({
@@ -20,6 +21,7 @@ export const getFileGrantSubjectListQueryOptions = (params: FileGrantSubjectPara
           folderId: queryKey[1],
           subjectType: queryKey[2],
           keyword: queryKey[3] || undefined,
+          workspaceId: queryKey[4],
         },
         signal,
       }),

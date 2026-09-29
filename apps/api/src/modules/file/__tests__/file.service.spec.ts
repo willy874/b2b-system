@@ -1,6 +1,7 @@
 import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
 
+import { workspaceScopeOf } from '@/common/types';
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
@@ -17,6 +18,9 @@ import type { FileRepository, FileWithUploader } from '../file.repository';
 import { FileService } from '../file.service';
 import { createFileAccess } from './file-access.fixture';
 import type { AccessFixtureOptions } from './file-access.fixture';
+
+/** 測試用的工作區範圍（docs/adr/0018-workspace-tenancy.md D10）。 */
+const WS = workspaceScopeOf('99999999-9999-4999-8999-999999999999');
 
 const ALICE: AuthUser = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -37,6 +41,7 @@ function fileRow(overrides: Partial<FileWithUploader> = {}): FileWithUploader {
   const now = new Date('2026-09-27T00:00:00Z');
   return {
     id: FILE_ID,
+    workspaceId: WS.workspaceId,
     name: 'hero.png',
     contentType: 'image/png',
     size: 10,
@@ -129,7 +134,7 @@ function setup(
   const db = { transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn('tx')) };
   // 根目錄不排隊，直接以預設連線執行
   const folders = {
-    insideFolder: vi.fn(async (_folderId: unknown, work: (tx: unknown) => unknown) =>
+    insideFolder: vi.fn(async (_ws: unknown, _folderId: unknown, work: (tx: unknown) => unknown) =>
       work(undefined),
     ),
   };
@@ -171,6 +176,7 @@ describe('FileService.createUpload（docs/architecture/backend/09-file.md §4）
   it('登記 pending 紀錄、storage key 只由 id 決定，回傳直傳網址', async () => {
     const { service, repo, storage } = setup();
     const result = await service.createUpload(
+      WS,
       { name: '../../角色 1.png', contentType: 'image/png', size: 10 },
       ALICE,
     );
@@ -190,6 +196,7 @@ describe('FileService.createUpload（docs/architecture/backend/09-file.md §4）
     const { service, repo } = setup();
     await expectAppError(
       service.createUpload(
+        WS,
         { name: 'big.bin', contentType: 'application/octet-stream', size: MAX_SIZE + 1 },
         ALICE,
       ),
@@ -205,7 +212,7 @@ describe('FileService.completeUpload', () => {
       file: fileRow(),
       head: { size: 10, etag: 'abc', contentType: 'image/png' },
     });
-    await service.completeUpload(FILE_ID, {}, ALICE);
+    await service.completeUpload(WS, FILE_ID, {}, ALICE);
 
     expect(repo.markReady).toHaveBeenCalledWith(
       FILE_ID,
@@ -218,12 +225,13 @@ describe('FileService.completeUpload', () => {
     );
     expect(events.publish).toHaveBeenCalledWith('resource.changed', {
       changes: [{ resource: 'file', kind: 'create', id: FILE_ID }],
+      workspaceId: WS.workspaceId,
     });
   });
 
   it('物件還不存在 → FILE_UPLOAD_INCOMPLETE', async () => {
     const { service } = setup({ file: fileRow() });
-    await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_UPLOAD_INCOMPLETE');
+    await expectAppError(service.completeUpload(WS, FILE_ID, {}, ALICE), 'FILE_UPLOAD_INCOMPLETE');
   });
 
   it('大小不符 → 刪掉物件並回 FILE_SIZE_MISMATCH', async () => {
@@ -231,7 +239,7 @@ describe('FileService.completeUpload', () => {
       file: fileRow(),
       head: { size: 999, etag: 'abc', contentType: 'image/png' },
     });
-    await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_SIZE_MISMATCH');
+    await expectAppError(service.completeUpload(WS, FILE_ID, {}, ALICE), 'FILE_SIZE_MISMATCH');
     expect(storage.delete).toHaveBeenCalledWith(storageKeyOf(FILE_ID));
     expect(repo.markReady).not.toHaveBeenCalled();
   });
@@ -240,7 +248,7 @@ describe('FileService.completeUpload', () => {
     const { service } = setup({
       file: fileRow({ status: 'ready', etag: 'abc', uploadedAt: new Date() }),
     });
-    await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_ALREADY_UPLOADED');
+    await expectAppError(service.completeUpload(WS, FILE_ID, {}, ALICE), 'FILE_ALREADY_UPLOADED');
   });
 
   it('並行完成時第二個請求 → FILE_ALREADY_UPLOADED', async () => {
@@ -249,12 +257,12 @@ describe('FileService.completeUpload', () => {
       head: { size: 10, etag: 'abc', contentType: 'image/png' },
     });
     repo.markReady.mockResolvedValueOnce(undefined as never);
-    await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_ALREADY_UPLOADED');
+    await expectAppError(service.completeUpload(WS, FILE_ID, {}, ALICE), 'FILE_ALREADY_UPLOADED');
   });
 
   it('別人的 pending 上傳視為不存在 → FILE_NOT_FOUND', async () => {
     const { service } = setup({ file: fileRow() });
-    await expectAppError(service.completeUpload(FILE_ID, {}, BOB), 'FILE_NOT_FOUND');
+    await expectAppError(service.completeUpload(WS, FILE_ID, {}, BOB), 'FILE_NOT_FOUND');
   });
 });
 
@@ -263,7 +271,7 @@ describe('FileService.findOne', () => {
     const { service } = setup({
       file: fileRow({ status: 'ready', etag: 'abc', uploadedAt: new Date() }),
     });
-    const file = await service.findOne(FILE_ID, BOB);
+    const file = await service.findOne(WS, FILE_ID, BOB);
     expect(file.url).toContain('inline');
     expect(file.downloadUrl).toContain('attachment');
     expect(file.urlExpiresAt).toBe('2026-09-27T00:15:00.000Z');
@@ -271,8 +279,8 @@ describe('FileService.findOne', () => {
 
   it('pending 只有上傳者看得到', async () => {
     const { service } = setup({ file: fileRow() });
-    await expect(service.findOne(FILE_ID, ALICE)).resolves.toMatchObject({ status: 'pending' });
-    await expectAppError(service.findOne(FILE_ID, BOB), 'FILE_NOT_FOUND');
+    await expect(service.findOne(WS, FILE_ID, ALICE)).resolves.toMatchObject({ status: 'pending' });
+    await expectAppError(service.findOne(WS, FILE_ID, BOB), 'FILE_NOT_FOUND');
   });
 });
 
@@ -281,10 +289,10 @@ describe('FileService.update / remove', () => {
 
   it('改名只記有變的欄位；名稱沒變時不寫入', async () => {
     const { service, repo, audit } = setup({ file: ready() });
-    await service.update(FILE_ID, { name: 'hero.png' }, ALICE);
+    await service.update(WS, FILE_ID, { name: 'hero.png' }, ALICE);
     expect(repo.update).not.toHaveBeenCalled();
 
-    await service.update(FILE_ID, { name: 'villain.png' }, ALICE);
+    await service.update(WS, FILE_ID, { name: 'villain.png' }, ALICE);
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'file.update',
@@ -296,13 +304,13 @@ describe('FileService.update / remove', () => {
 
   it('pending 不能改名或刪除 → FILE_NOT_FOUND', async () => {
     const { service } = setup({ file: fileRow() });
-    await expectAppError(service.update(FILE_ID, { name: 'x.png' }, ALICE), 'FILE_NOT_FOUND');
-    await expectAppError(service.remove(FILE_ID, ALICE), 'FILE_NOT_FOUND');
+    await expectAppError(service.update(WS, FILE_ID, { name: 'x.png' }, ALICE), 'FILE_NOT_FOUND');
+    await expectAppError(service.remove(WS, FILE_ID, ALICE), 'FILE_NOT_FOUND');
   });
 
   it('刪除：交易內軟刪除＋稽核，交易後才刪物件', async () => {
     const { service, repo, storage, audit } = setup({ file: ready() });
-    await service.remove(FILE_ID, ALICE);
+    await service.remove(WS, FILE_ID, ALICE);
     expect(repo.softDelete).toHaveBeenCalledWith(FILE_ID, ALICE.id, 'tx');
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'file.delete' }),
@@ -317,7 +325,7 @@ describe('FileService.update / remove', () => {
   it('物件刪除失敗不影響刪除結果（留下孤兒物件）', async () => {
     const { service, storage } = setup({ file: ready() });
     storage.delete.mockRejectedValueOnce(new AppException('FILE_STORAGE_UNAVAILABLE'));
-    await expect(service.remove(FILE_ID, ALICE)).resolves.toBeUndefined();
+    await expect(service.remove(WS, FILE_ID, ALICE)).resolves.toBeUndefined();
   });
 });
 
@@ -330,7 +338,7 @@ describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.
 
   it('超過門檻 → 開 multipart upload、回切法而不是單次 PUT', async () => {
     const { service, repo, storage } = setup();
-    const result = await service.createUpload(big, ALICE);
+    const result = await service.createUpload(WS, big, ALICE);
     expect(storage.createMultipartUpload).toHaveBeenCalled();
     expect(storage.presignUpload).not.toHaveBeenCalled();
     expect(repo.create.mock.calls[0]?.[0]).toMatchObject({ uploadId: 'upload-1' });
@@ -343,7 +351,7 @@ describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.
 
   it('門檻以下 → 單次 PUT，不開 multipart', async () => {
     const { service, storage } = setup();
-    const result = await service.createUpload({ ...big, size: THRESHOLD }, ALICE);
+    const result = await service.createUpload(WS, { ...big, size: THRESHOLD }, ALICE);
     expect(storage.createMultipartUpload).not.toHaveBeenCalled();
     expect(result.multipart).toBeNull();
     expect(result.upload).not.toBeNull();
@@ -353,7 +361,7 @@ describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.
     const { service, storage } = setup({
       file: fileRow({ uploadId: 'upload-1', size: big.size }),
     });
-    const result = await service.createUploadParts(FILE_ID, { partNumbers: [1, 3] }, ALICE);
+    const result = await service.createUploadParts(WS, FILE_ID, { partNumbers: [1, 3] }, ALICE);
     expect(result.parts.map((part) => part.partNumber)).toEqual([1, 3]);
     expect(storage.presignUploadPart).toHaveBeenCalledWith(
       storageKeyOf(FILE_ID),
@@ -362,7 +370,7 @@ describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.
       expect.anything(),
     );
     await expectAppError(
-      service.createUploadParts(FILE_ID, { partNumbers: [4] }, ALICE),
+      service.createUploadParts(WS, FILE_ID, { partNumbers: [4] }, ALICE),
       'FILE_UPLOAD_PART_INVALID',
     );
   });
@@ -370,11 +378,11 @@ describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.
   it('parts：單次 PUT 的上傳 → FILE_UPLOAD_PART_INVALID；別人的 → FILE_NOT_FOUND', async () => {
     const { service } = setup({ file: fileRow() });
     await expectAppError(
-      service.createUploadParts(FILE_ID, { partNumbers: [1] }, ALICE),
+      service.createUploadParts(WS, FILE_ID, { partNumbers: [1] }, ALICE),
       'FILE_UPLOAD_PART_INVALID',
     );
     await expectAppError(
-      service.createUploadParts(FILE_ID, { partNumbers: [1] }, BOB),
+      service.createUploadParts(WS, FILE_ID, { partNumbers: [1] }, BOB),
       'FILE_NOT_FOUND',
     );
   });
@@ -385,6 +393,7 @@ describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.
       head: { size: 30, etag: 'abc-2', contentType: 'application/octet-stream' },
     });
     await service.completeUpload(
+      WS,
       FILE_ID,
       {
         parts: [
@@ -407,14 +416,17 @@ describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.
 
   it('complete：分塊上傳沒帶 parts → FILE_UPLOAD_PART_INVALID', async () => {
     const { service } = setup({ file: fileRow({ uploadId: 'upload-1' }) });
-    await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_UPLOAD_PART_INVALID');
+    await expectAppError(
+      service.completeUpload(WS, FILE_ID, {}, ALICE),
+      'FILE_UPLOAD_PART_INVALID',
+    );
   });
 
   it('abort：清掉分塊、內容與縮圖，紀錄軟刪除；不寫稽核、不發推播', async () => {
     const { service, storage, repo, audit, events } = setup({
       file: fileRow({ uploadId: 'upload-1' }),
     });
-    await service.abortUpload(FILE_ID, ALICE);
+    await service.abortUpload(WS, FILE_ID, ALICE);
     expect(repo.discardPending).toHaveBeenCalledWith(FILE_ID, ALICE.id);
     expect(storage.abortMultipartUpload).toHaveBeenCalledWith(storageKeyOf(FILE_ID), 'upload-1');
     expect(storage.delete).toHaveBeenCalledWith(thumbnailKeyOf(FILE_ID));
@@ -424,11 +436,11 @@ describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.
 
   it('abort：已完成 → FILE_ALREADY_UPLOADED；並行 complete 搶先 → FILE_ALREADY_UPLOADED', async () => {
     const done = setup({ file: fileRow({ status: 'ready', etag: 'a', uploadedAt: new Date() }) });
-    await expectAppError(done.service.abortUpload(FILE_ID, ALICE), 'FILE_ALREADY_UPLOADED');
+    await expectAppError(done.service.abortUpload(WS, FILE_ID, ALICE), 'FILE_ALREADY_UPLOADED');
 
     const raced = setup({ file: fileRow() });
     raced.repo.discardPending.mockResolvedValueOnce(undefined as never);
-    await expectAppError(raced.service.abortUpload(FILE_ID, ALICE), 'FILE_ALREADY_UPLOADED');
+    await expectAppError(raced.service.abortUpload(WS, FILE_ID, ALICE), 'FILE_ALREADY_UPLOADED');
     expect(raced.storage.delete).not.toHaveBeenCalled();
   });
 });
@@ -437,6 +449,7 @@ describe('FileService：縮圖', () => {
   it('登記時帶 thumbnail → 發縮圖的直傳網址', async () => {
     const { service, storage } = setup();
     const result = await service.createUpload(
+      WS,
       {
         name: 'a.png',
         contentType: 'image/png',
@@ -459,7 +472,7 @@ describe('FileService：縮圖', () => {
       head,
       thumbnailHead: { size: 100, etag: 't', contentType: 'image/webp' },
     });
-    await ok.service.completeUpload(FILE_ID, {}, ALICE);
+    await ok.service.completeUpload(WS, FILE_ID, {}, ALICE);
     expect(ok.repo.markReady).toHaveBeenCalledWith(
       FILE_ID,
       expect.objectContaining({ hasThumbnail: true }),
@@ -471,7 +484,7 @@ describe('FileService：縮圖', () => {
       head,
       thumbnailHead: { size: 100, etag: 't', contentType: 'text/html' },
     });
-    await bad.service.completeUpload(FILE_ID, {}, ALICE);
+    await bad.service.completeUpload(WS, FILE_ID, {}, ALICE);
     expect(bad.repo.markReady).toHaveBeenCalledWith(
       FILE_ID,
       expect.objectContaining({ hasThumbnail: false }),
@@ -483,9 +496,9 @@ describe('FileService：縮圖', () => {
     const { service, storage } = setup({
       file: fileRow({ status: 'ready', etag: 'a', uploadedAt: new Date(), hasThumbnail: true }),
     });
-    const file = await service.findOne(FILE_ID, BOB);
+    const file = await service.findOne(WS, FILE_ID, BOB);
     expect(file.thumbnailUrl).toContain(thumbnailKeyOf(FILE_ID));
-    await service.remove(FILE_ID, ALICE);
+    await service.remove(WS, FILE_ID, ALICE);
     expect(storage.delete).toHaveBeenCalledWith(thumbnailKeyOf(FILE_ID));
   });
 });
@@ -495,7 +508,7 @@ describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.
 
   it('complete：伺服器能處理的圖片 → 變體 pending，交易與推播之後才排入產生', async () => {
     const { service, repo, images, events } = setup({ file: fileRow(), head });
-    await service.completeUpload(FILE_ID, {}, ALICE);
+    await service.completeUpload(WS, FILE_ID, {}, ALICE);
     expect(repo.markReady).toHaveBeenCalledWith(
       FILE_ID,
       expect.objectContaining({ variantStatus: 'pending' }),
@@ -512,7 +525,7 @@ describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.
       file: fileRow({ name: 'a.svg', contentType: 'image/svg+xml' }),
       head: { ...head, contentType: 'image/svg+xml' },
     });
-    await service.completeUpload(FILE_ID, {}, ALICE);
+    await service.completeUpload(WS, FILE_ID, {}, ALICE);
     expect(repo.markReady).toHaveBeenCalledWith(
       FILE_ID,
       expect.objectContaining({ variantStatus: 'none' }),
@@ -534,7 +547,7 @@ describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.
         variantFormat: 'jpeg',
       }),
     });
-    const file = await service.findOne(FILE_ID, BOB);
+    const file = await service.findOne(WS, FILE_ID, BOB);
     expect(file.image).toMatchObject({ width: 800, height: 600 });
     expect(file.image?.previewUrl).toContain('/image/preview');
     expect(file.thumbnailUrl).toContain('/image/thumbnail');
@@ -552,7 +565,7 @@ describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.
         variantStatus: 'pending',
       }),
     });
-    const file = await service.findOne(FILE_ID, BOB);
+    const file = await service.findOne(WS, FILE_ID, BOB);
     expect(file.image).toBeNull();
     expect(file.thumbnailUrl).toContain(thumbnailKeyOf(FILE_ID));
   });
@@ -566,11 +579,11 @@ describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.
         variantStatus: 'failed',
       }),
     });
-    await withVariants.service.remove(FILE_ID, ALICE);
+    await withVariants.service.remove(WS, FILE_ID, ALICE);
     expect(withVariants.images.deleteVariants).toHaveBeenCalledWith(FILE_ID);
 
     const plain = setup({ file: fileRow({ status: 'ready', etag: 'a', uploadedAt: new Date() }) });
-    await plain.service.remove(FILE_ID, ALICE);
+    await plain.service.remove(WS, FILE_ID, ALICE);
     expect(plain.images.deleteVariants).not.toHaveBeenCalled();
   });
 });
@@ -581,7 +594,7 @@ describe('FileService.update：樂觀鎖', () => {
   it('帶的版本與目前不同 → FILE_VERSION_CONFLICT，不寫入', async () => {
     const { service, repo } = setup({ file: ready() });
     await expectAppError(
-      service.update(FILE_ID, { name: 'x.png', version: 2 }, ALICE),
+      service.update(WS, FILE_ID, { name: 'x.png', version: 2 }, ALICE),
       'FILE_VERSION_CONFLICT',
     );
     expect(repo.update).not.toHaveBeenCalled();
@@ -591,7 +604,7 @@ describe('FileService.update：樂觀鎖', () => {
     const { service, repo } = setup({ file: ready() });
     repo.update.mockResolvedValueOnce(undefined as never);
     await expectAppError(
-      service.update(FILE_ID, { name: 'x.png', version: 3 }, ALICE),
+      service.update(WS, FILE_ID, { name: 'x.png', version: 3 }, ALICE),
       'FILE_VERSION_CONFLICT',
     );
     expect(repo.update).toHaveBeenCalledWith(FILE_ID, expect.anything(), 3, 'tx');
@@ -612,29 +625,32 @@ describe('FileService.list：keyset 游標', () => {
   it('滿頁 → nextCursor 指向最後一筆；帶回游標時交給 repository', async () => {
     const { service, repo } = setup();
     repo.list.mockResolvedValue({ items: rows, total: 5, lastCreatedAt: undefined });
-    const page = await service.list(query, ALICE);
+    const page = await service.list(WS, query, ALICE);
     const cursor = decodeFileCursor(page.nextCursor ?? '');
     expect(cursor).toEqual({ sort: query.sort[0], value: 'b', id: rows[1]?.id });
 
-    await service.list({ ...query, cursor: page.nextCursor ?? '' }, ALICE);
-    expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), cursor, undefined);
+    await service.list(WS, { ...query, cursor: page.nextCursor ?? '' }, ALICE);
+    expect(repo.list).toHaveBeenLastCalledWith(WS, expect.anything(), cursor, undefined);
   });
 
   it('不滿一頁 → nextCursor 為 null', async () => {
     const { service, repo } = setup();
     repo.list.mockResolvedValue({ items: rows.slice(0, 1), total: 1, lastCreatedAt: undefined });
-    await expect(service.list(query, ALICE)).resolves.toMatchObject({ nextCursor: null });
+    await expect(service.list(WS, query, ALICE)).resolves.toMatchObject({ nextCursor: null });
   });
 
   it('游標格式錯誤或排序與游標不一致 → VALIDATION_FAILED', async () => {
     const { service } = setup();
-    await expectAppError(service.list({ ...query, cursor: 'garbage' }, ALICE), 'VALIDATION_FAILED');
+    await expectAppError(
+      service.list(WS, { ...query, cursor: 'garbage' }, ALICE),
+      'VALIDATION_FAILED',
+    );
     const other = encodeFileCursor({
       sort: { sort: 'size', order: 'desc' },
       value: 1,
       id: FILE_ID,
     });
-    await expectAppError(service.list({ ...query, cursor: other }, ALICE), 'VALIDATION_FAILED');
+    await expectAppError(service.list(WS, { ...query, cursor: other }, ALICE), 'VALIDATION_FAILED');
   });
 });
 
@@ -660,11 +676,11 @@ describe('FileService 的資料夾層級授權（docs/rbac/07-resource-grants.md
       sort: [{ sort: 'createdAt' as const, order: 'desc' as const }],
     };
 
-    await service.list(query, ALICE);
-    expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), undefined, {
+    await service.list(WS, query, ALICE);
+    expect(repo.list).toHaveBeenLastCalledWith(WS, expect.anything(), undefined, {
       folderIds: [FOLDER],
     });
-    await expectAppError(service.list({ ...query, folderId: OTHER }, ALICE), 'AUTHZ_FORBIDDEN');
+    await expectAppError(service.list(WS, { ...query, folderId: OTHER }, ALICE), 'AUTHZ_FORBIDDEN');
   });
 
   it('看不到所在資料夾的 ready 檔案 → FILE_NOT_FOUND', async () => {
@@ -672,21 +688,21 @@ describe('FileService 的資料夾層級授權（docs/rbac/07-resource-grants.md
       access: contributor,
       file: fileRow({ status: 'ready', etag: 'e', uploadedAt: new Date(), folderId: OTHER }),
     });
-    await expectAppError(service.findOne(FILE_ID, ALICE), 'FILE_NOT_FOUND');
+    await expectAppError(service.findOne(WS, FILE_ID, ALICE), 'FILE_NOT_FOUND');
   });
 
   it('擁有者規則：contributor 能改名自己上傳的，不能改名別人的（AUTHZ_FORBIDDEN）', async () => {
     const ready = { status: 'ready' as const, etag: 'e', uploadedAt: new Date(), folderId: FOLDER };
     const mine = setup({ access: contributor, file: fileRow({ ...ready, createdBy: ALICE.id }) });
-    await mine.service.update(FILE_ID, { name: 'new.png' }, ALICE);
+    await mine.service.update(WS, FILE_ID, { name: 'new.png' }, ALICE);
     expect(mine.repo.update).toHaveBeenCalled();
 
     const theirs = setup({ access: contributor, file: fileRow({ ...ready, createdBy: BOB.id }) });
     await expectAppError(
-      theirs.service.update(FILE_ID, { name: 'x.png' }, ALICE),
+      theirs.service.update(WS, FILE_ID, { name: 'x.png' }, ALICE),
       'AUTHZ_FORBIDDEN',
     );
-    await expectAppError(theirs.service.remove(FILE_ID, ALICE), 'AUTHZ_FORBIDDEN');
+    await expectAppError(theirs.service.remove(WS, FILE_ID, ALICE), 'AUTHZ_FORBIDDEN');
     expect(theirs.repo.softDelete).not.toHaveBeenCalled();
   });
 
@@ -696,7 +712,7 @@ describe('FileService 的資料夾層級授權（docs/rbac/07-resource-grants.md
       access: contributor,
       file: fileRow({ ...ready, createdBy: BOB.id }),
     });
-    await expect(service.findOne(FILE_ID, ALICE)).resolves.toMatchObject({
+    await expect(service.findOne(WS, FILE_ID, ALICE)).resolves.toMatchObject({
       capabilities: { canUpdate: false, canDelete: false },
     });
   });
@@ -707,11 +723,11 @@ describe('FileService 的資料夾層級授權（docs/rbac/07-resource-grants.md
     });
     const dto = { name: 'a.png', contentType: 'image/png', size: 10 };
     await expectAppError(
-      viewer.service.createUpload({ ...dto, folderId: FOLDER }, ALICE),
+      viewer.service.createUpload(WS, { ...dto, folderId: FOLDER }, ALICE),
       'AUTHZ_FORBIDDEN',
     );
     await expectAppError(
-      viewer.service.createUpload({ ...dto, folderId: null }, ALICE),
+      viewer.service.createUpload(WS, { ...dto, folderId: null }, ALICE),
       'AUTHZ_FORBIDDEN',
     );
     expect(viewer.repo.create).not.toHaveBeenCalled();

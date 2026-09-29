@@ -4,17 +4,18 @@ import { getFileControllerListUrl } from '@/shared/api-sdk';
 import type { FileControllerListResponse } from '@/shared/api-sdk';
 import { toSortParams } from '@/shared/constants';
 
-import type { FileListParams } from '../types';
+import type { FileListParams, InWorkspace } from '../types';
 
 export const fetchFileListQuery = defineAuthFetcher<
-  HttpRequestDTO<FileListParams>,
+  HttpRequestDTO<InWorkspace & FileListParams>,
   FileControllerListResponse['data']
->((http, request) =>
-  http.request(
-    withQuery(getFileControllerListUrl(), {
-      ...request.params,
-      sort: request.params.sort && toSortParams(request.params.sort),
+>((http, request) => {
+  const { workspaceId, ...query } = request.params;
+  return http.request(
+    withQuery(getFileControllerListUrl({ workspaceId }), {
+      ...query,
+      sort: query.sort && toSortParams(query.sort),
     }),
     { method: 'GET' },
-  ),
-);
+  );
+});

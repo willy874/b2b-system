@@ -28,6 +28,7 @@ import { userRoom } from '@/modules/realtime/realtime.rooms';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
+import { assignRoles, createWorkspace, workspacePath } from './workspace';
 
 type ClientSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -427,8 +428,8 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
           { resource: 'userRole', kind: 'update', id: target, refs: { role: [auditorId] } },
         ],
       });
-      // auditor 有 file:read：取得檔案管理器權限，同時建立了個人資料夾（docs/rbac/07-resource-grants.md §12）
-      expect(got.slice(1).map((event) => event.changes[0]?.resource)).toEqual(['fileFolder']);
+      // auditor 是平台角色：不帶檔案權限，不會建立個人資料夾（docs/adr/0018-workspace-tenancy.md D2）
+      expect(got.slice(1)).toEqual([]);
 
       // 拿到 role:read（auditor）之後，別人的角色建立也會推過來
       got.length = 0;
@@ -481,6 +482,94 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       await barrier([socket]);
 
       expect(publish).not.toHaveBeenCalled();
+      expect(got).toEqual([]);
+    });
+  });
+
+  // ── 工作區 ─────────────────────────────────────────────────
+
+  describe('工作區的推播（docs/adr/0018-workspace-tenancy.md D16）', () => {
+    let wsA = '';
+    let wsB = '';
+    let wsC = '';
+    let member = '';
+    let memberRole = '';
+
+    beforeAll(async () => {
+      wsA = await createWorkspace(db, 'realtime-a');
+      wsB = await createWorkspace(db, 'realtime-b');
+      wsC = await createWorkspace(db, 'realtime-c');
+      memberRole = await roleIdOf('workspace-member');
+      member = await createUser('realtime-ws-member@example.com');
+      // A、B 的成員，不是 C 的
+      await assignRoles(db, member, [memberRole], wsA);
+      await assignRoles(db, member, [memberRole], wsB);
+    });
+
+    /** handshake 通過（客戶端的 connect）時，伺服器可能還在查權限、加入 room：等它加入。 */
+    const joined = (workspaceId: string) =>
+      expect
+        .poll(
+          () =>
+            app
+              .get(RealtimeGateway)
+              .server!.sockets.adapter.rooms.get(`ws:${workspaceId}:perm:file:access`)?.size ?? 0,
+        )
+        .toBeGreaterThan(0);
+
+    const fileChanged = (workspaceId: string) =>
+      bus.publish(DomainEvent.RESOURCE_CHANGED, {
+        changes: [{ resource: 'file', kind: 'update', id: randomUUID() }],
+        workspaceId,
+      });
+
+    it('收到所屬每個工作區的變更（leader 分頁代表所有分頁），不屬於的收不到', async () => {
+      const socket = await connect(await tokenFor(member));
+      const got = collect(socket);
+      await joined(wsA);
+      await joined(wsB);
+
+      fileChanged(wsA);
+      fileChanged(wsB);
+      fileChanged(wsC);
+      await barrier([socket]);
+      expect(got).toHaveLength(2);
+    });
+
+    it('被移出工作區 → 立刻收不到它的變更', async () => {
+      const leaver = await createUser('realtime-ws-leaver@example.com');
+      await assignRoles(db, leaver, [memberRole], wsA);
+      // 讓 wsA 有一位管理員，移除成員時才不會違反「至少一位管理員」
+      const admin = await createUser('realtime-ws-admin@example.com');
+      await assignRoles(db, admin, [await roleIdOf('workspace-admin')], wsA);
+
+      const socket = await connect(await tokenFor(leaver));
+      const got = collect(socket);
+      await joined(wsA);
+      fileChanged(wsA);
+      await barrier([socket]);
+      expect(got).toHaveLength(1);
+
+      await request(http)
+        .delete(`${workspacePath(wsA)}/members/${leaver}`)
+        .set('Authorization', `Bearer ${await tokenFor(admin)}`)
+        .expect(204);
+      await barrier([socket]);
+      got.length = 0;
+
+      fileChanged(wsA);
+      await barrier([socket]);
+      expect(got).toEqual([]);
+    });
+
+    it('沒帶 workspaceId 的工作區變更：誰都不推（寧可漏推也不跨工作區）', async () => {
+      const socket = await connect(await tokenFor(member));
+      const got = collect(socket);
+      bus.publish(DomainEvent.RESOURCE_CHANGED, {
+        changes: [{ resource: 'fileFolder', kind: 'create' }],
+      });
+      await barrier([socket]);
+      // 只剩 auditLog:read 的 room，member 不在裡面
       expect(got).toEqual([]);
     });
   });

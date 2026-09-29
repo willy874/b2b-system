@@ -8,6 +8,7 @@ import type {
   ApprovalStatus,
   ApprovalType,
   ApproveApprovalRequest,
+  AssignWorkspaceAdminRequest,
   AuditLog,
   AuditLogSummary,
   ChangePasswordRequest,
@@ -18,6 +19,7 @@ import type {
   CreateFileUploadRequest,
   CreateRoleRequest,
   CreateUserRequest,
+  CreateWorkspaceRequest,
   DuplicateRoleRequest,
   EnsureFileFolderPathsRequest,
   FileAccessRequest,
@@ -47,10 +49,13 @@ import type {
   LoginRequest,
   MoveFileItemsRequest,
   MoveFileItemsResult,
+  MyWorkspace,
+  MyWorkspaceList,
   Permission,
   PermissionCatalog,
   PermissionGroup,
   PermissionKey,
+  PermissionScope,
   Profile,
   RegisterRequest,
   RegisterResult,
@@ -75,9 +80,19 @@ import type {
   UpdateRolePermissionsRequest,
   UpdateRoleRequest,
   UpdateUserRequest,
+  UpdateWorkspaceMemberRolesRequest,
+  UpdateWorkspaceRequest,
   User,
   UserRoles,
   UserStatus,
+  Workspace,
+  WorkspaceAdmin,
+  WorkspaceDetail,
+  WorkspaceMe,
+  WorkspaceMember,
+  WorkspaceMemberRoles,
+  WorkspaceRole,
+  WorkspaceRoleList,
 } from './models';
 
 export const ApprovalStatusSchema = z.enum([
@@ -294,7 +309,20 @@ export const PermissionKeySchema = z.enum([
   'file:share',
   'job:read',
   'job:retry',
+  'workspace:create',
+  'workspace:read',
+  'workspace:update',
+  'workspace:delete',
+  'workspaceMember:read',
+  'workspaceMember:create',
+  'workspaceMember:delete',
+  'workspaceMember:assignRole',
 ]) satisfies z.ZodType<PermissionKey>;
+
+export const PermissionScopeSchema = z.enum([
+  'platform',
+  'workspace',
+]) satisfies z.ZodType<PermissionScope>;
 
 export const PermissionSchema = z.object({
   id: z
@@ -307,6 +335,7 @@ export const PermissionSchema = z.object({
   key: PermissionKeySchema,
   resource: z.string(),
   action: z.string(),
+  scope: PermissionScopeSchema,
   nameI18nKey: z.string(),
   description: z.string().nullable(),
   sortOrder: z.int().min(-9007199254740991).max(9007199254740991),
@@ -722,6 +751,12 @@ export const MoveFileItemsResultSchema = z.object({
   movedFolders: z.int().min(-9007199254740991).max(9007199254740991),
 }) satisfies z.ZodType<MoveFileItemsResult>;
 
+export const GetFileImageQuerySchema = z.object({
+  exp: z.int().max(9007199254740991).gt(0),
+  sig: z.string().min(1).max(100),
+  format: z.enum(['jpeg', 'webp', 'avif', 'png', 'auto']).optional(),
+}) satisfies z.ZodType<GetFileImageQuery>;
+
 export const FileUploaderSchema = z.object({
   id: z
     .uuid()
@@ -829,12 +864,6 @@ export const FileUploadPolicySchema = z.object({
   thumbnailContentTypes: z.array(z.string()),
 }) satisfies z.ZodType<FileUploadPolicy>;
 
-export const GetFileImageQuerySchema = z.object({
-  exp: z.int().max(9007199254740991).gt(0),
-  sig: z.string().min(1).max(100),
-  format: z.enum(['jpeg', 'webp', 'avif', 'png', 'auto']).optional(),
-}) satisfies z.ZodType<GetFileImageQuery>;
-
 export const UpdateFileRequestSchema = z.object({
   name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
   version: z.int().min(1).max(9007199254740991).optional(),
@@ -883,6 +912,7 @@ export const JobSchema = z.object({
 export const CreateRoleRequestSchema = z.object({
   name: z.string().min(1).max(64),
   description: z.string().max(500).optional(),
+  scope: PermissionScopeSchema.default('platform'),
   permissionKeys: z.array(PermissionKeySchema).max(100).default([]),
 }) satisfies z.ZodType<CreateRoleRequest>;
 
@@ -902,6 +932,7 @@ export const RoleSchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   isSystem: z.boolean(),
+  scope: PermissionScopeSchema,
   permissionCount: z.int().min(-9007199254740991).max(9007199254740991),
   userCount: z.int().min(-9007199254740991).max(9007199254740991),
   createdAt: z.string(),
@@ -934,3 +965,153 @@ export const UpdateRolePermissionsRequestSchema = z.object({
   add: z.array(PermissionKeySchema).max(100).default([]),
   remove: z.array(PermissionKeySchema).max(100).default([]),
 }) satisfies z.ZodType<UpdateRolePermissionsRequest>;
+
+export const WorkspaceSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  memberCount: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}) satisfies z.ZodType<Workspace>;
+
+export const WorkspaceAdminSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  email: z.string(),
+  displayName: z.string(),
+}) satisfies z.ZodType<WorkspaceAdmin>;
+
+export const WorkspaceDetailSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  memberCount: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  admins: z.array(WorkspaceAdminSchema),
+}) satisfies z.ZodType<WorkspaceDetail>;
+
+export const CreateWorkspaceRequestSchema = z.object({
+  name: z.string().min(1).max(64),
+  slug: z.string().regex(new RegExp('^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$')).optional(),
+  description: z.string().max(500).optional(),
+  adminUserId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+}) satisfies z.ZodType<CreateWorkspaceRequest>;
+
+export const UpdateWorkspaceRequestSchema = z.object({
+  name: z.string().min(1).max(64).optional(),
+  description: z.string().max(500).nullable().optional(),
+}) satisfies z.ZodType<UpdateWorkspaceRequest>;
+
+export const AssignWorkspaceAdminRequestSchema = z.object({
+  userId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+}) satisfies z.ZodType<AssignWorkspaceAdminRequest>;
+
+export const MyWorkspaceSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  isMember: z.boolean(),
+  lastAccessedAt: z.string().nullable(),
+}) satisfies z.ZodType<MyWorkspace>;
+
+export const MyWorkspaceListSchema = z.object({
+  items: z.array(MyWorkspaceSchema),
+}) satisfies z.ZodType<MyWorkspaceList>;
+
+export const WorkspaceMeSchema = z.object({
+  workspace: MyWorkspaceSchema,
+  roles: z.array(RoleSummarySchema),
+  permissions: z.array(PermissionKeySchema),
+}) satisfies z.ZodType<WorkspaceMe>;
+
+export const WorkspaceMemberSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  email: z.string(),
+  displayName: z.string(),
+  status: UserStatusSchema,
+  roles: z.array(RoleSummarySchema),
+  joinedAt: z.string(),
+}) satisfies z.ZodType<WorkspaceMember>;
+
+export const UpdateWorkspaceMemberRolesRequestSchema = z.object({
+  roleIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(50),
+}) satisfies z.ZodType<UpdateWorkspaceMemberRolesRequest>;
+
+export const WorkspaceMemberRolesSchema = z.object({
+  roles: z.array(RoleSummarySchema),
+}) satisfies z.ZodType<WorkspaceMemberRoles>;
+
+export const WorkspaceRoleSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  isSystem: z.boolean(),
+  permissions: z.array(PermissionKeySchema),
+}) satisfies z.ZodType<WorkspaceRole>;
+
+export const WorkspaceRoleListSchema = z.object({
+  items: z.array(WorkspaceRoleSchema),
+}) satisfies z.ZodType<WorkspaceRoleList>;

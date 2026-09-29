@@ -7,6 +7,7 @@ import { Button } from '@/components/Button';
 import { Dialog } from '@/components/Dialog';
 import { Field } from '@/components/Field';
 import { Input, Textarea } from '@/components/Input';
+import { RadioGroup } from '@/components/Radio';
 import { useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { firstError, zodFormValidator } from '@/shared/hooks';
@@ -27,6 +28,7 @@ export default function RoleCreatePage() {
   const createRole = useRoleCreateMutation();
   const toMessage = useErrorMessage();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [scope, setScope] = useState<'platform' | 'workspace'>('platform');
   const [formError, setFormError] = useState<string>();
 
   const close = () => void navigate({ to: RoleListRoute.to, search });
@@ -41,6 +43,7 @@ export default function RoleCreatePage() {
           params: {
             name: value.name,
             description: value.description || undefined,
+            scope,
             permissionKeys: [...selected] as never,
           },
         });
@@ -109,9 +112,27 @@ export default function RoleCreatePage() {
           )}
         </form.Field>
 
+        <Field label={t('role.field.scope')} description={t('role.create.scopeHint')}>
+          <RadioGroup
+            value={scope}
+            onValueChange={(next) => {
+              // 權限只能選同範圍的：換範圍時清掉已勾選的
+              setScope(next);
+              setSelected(new Set());
+            }}
+            options={[
+              { value: 'platform', label: t('permission.platformScope') },
+              { value: 'workspace', label: t('permission.workspaceScope') },
+            ]}
+            orientation="horizontal"
+            data-testid="role-scope-radio"
+          />
+        </Field>
+
         <div>
           <p className="mb-2 text-sm font-medium">{t('role.create.permissions')}</p>
           <PermissionPicker
+            scope={scope}
             selected={selected}
             onToggle={(key, checked) =>
               setSelected((prev) => {

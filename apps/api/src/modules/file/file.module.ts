@@ -11,6 +11,7 @@ import { FileFolderGrantService } from './file-folder-grant.service';
 import { FileFolderController } from './file-folder.controller';
 import { FileFolderRepository } from './file-folder.repository';
 import { FileFolderService } from './file-folder.service';
+import { FileImageController } from './file-image.controller';
 import { FileImageService } from './file-image.service';
 import { FileMaintenanceService } from './file-maintenance.service';
 import { FileSystemFolderService } from './file-system-folder.service';
@@ -24,7 +25,12 @@ import { FileService } from './file.service';
  */
 @Module({
   imports: [ResourceGrantModule, ApprovalModule],
-  controllers: [FileController, FileFolderController, FileFolderGrantController],
+  controllers: [
+    FileController,
+    FileImageController,
+    FileFolderController,
+    FileFolderGrantController,
+  ],
   providers: [
     FileAccessService,
     FileAccessRequestService,

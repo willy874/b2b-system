@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FileFolderGrantList } from '@/shared/api-sdk';
-import { renderWithPermissions } from '@/test/renderWithPermissions';
+import { TEST_WORKSPACE, renderWithPermissions } from '@/test/renderWithPermissions';
 
 import { FileShareDialog } from '../components/FileShareDialog';
 
@@ -111,7 +111,12 @@ describe('FileShareDialog（docs/architecture/frontend/12-file-manager.md §13�
     fireEvent.click(within(direct as HTMLElement).getByTestId('file-share-grant-remove'));
     await waitFor(() =>
       expect(deleteGrant.mock.calls[0]?.[0]).toEqual({
-        params: { folderId: 'ui', subjectType: 'role', subjectId: ART_TEAM },
+        params: {
+          workspaceId: TEST_WORKSPACE.id,
+          folderId: 'ui',
+          subjectType: 'role',
+          subjectId: ART_TEAM,
+        },
       }),
     );
   });
@@ -143,7 +148,7 @@ describe('FileShareDialog（docs/architecture/frontend/12-file-manager.md §13�
     fireEvent.click(await screen.findByTestId('file-share-inherit'));
     await waitFor(() =>
       expect(setInheritance.mock.calls[0]?.[0]).toEqual({
-        params: { folderId: 'ui', body: { inheritGrants: false } },
+        params: { workspaceId: TEST_WORKSPACE.id, folderId: 'ui', body: { inheritGrants: false } },
       }),
     );
   });
@@ -177,7 +182,12 @@ describe('FileShareDialog（docs/architecture/frontend/12-file-manager.md §13�
     fireEvent.click(within(row as HTMLElement).getByTestId('file-share-grant-remove'));
     await waitFor(() =>
       expect(deleteGrant.mock.calls[0]?.[0]).toEqual({
-        params: { folderId: 'ui', subjectType: 'everyone', subjectId: everyone },
+        params: {
+          workspaceId: TEST_WORKSPACE.id,
+          folderId: 'ui',
+          subjectType: 'everyone',
+          subjectId: everyone,
+        },
       }),
     );
   });

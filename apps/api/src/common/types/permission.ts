@@ -37,4 +37,14 @@ export const PERMISSION = {
 
   JOB_READ: 'job:read',
   JOB_RETRY: 'job:retry',
+
+  WORKSPACE_CREATE: 'workspace:create',
+  WORKSPACE_READ: 'workspace:read',
+  WORKSPACE_UPDATE: 'workspace:update',
+  WORKSPACE_DELETE: 'workspace:delete',
+
+  WORKSPACE_MEMBER_READ: 'workspaceMember:read',
+  WORKSPACE_MEMBER_CREATE: 'workspaceMember:create',
+  WORKSPACE_MEMBER_DELETE: 'workspaceMember:delete',
+  WORKSPACE_MEMBER_ASSIGN_ROLE: 'workspaceMember:assignRole',
 } as const satisfies Record<string, PermissionKey>;

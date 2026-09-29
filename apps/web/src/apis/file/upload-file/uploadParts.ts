@@ -44,7 +44,7 @@ function isRetryable(error: unknown): boolean {
  * - 任一塊用盡重試就中止其他塊並拋出錯誤（由 `uploadFile()` 放棄這次上傳）。
  */
 export async function uploadParts(
-  fileId: string,
+  target: { workspaceId: string; fileId: string },
   plan: FileMultipartUpload,
   file: Blob,
   options: UploadPartsOptions = {},
@@ -76,7 +76,7 @@ export async function uploadParts(
         (_, index) => partNumber + index,
       );
       const response = await fetchFileCreateUploadPartsMutation({
-        params: { fileId, partNumbers },
+        params: { ...target, partNumbers },
         signal,
       });
       for (const part of response.parts) urls.set(part.partNumber, part);

@@ -47,7 +47,9 @@ const SUBMIT: SubmitApprovalInput = {
   requester: { id: null, name: 'alice@example.com' },
 };
 
-function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperAdmin: true }) {
+function setup(
+  permissionSet: PermissionSet = { permissions: new Set(), isSuperAdmin: true, canEnter: true },
+) {
   const tx = { name: 'tx' };
   const db = { transaction: vi.fn((fn: (t: unknown) => unknown) => fn(tx)) };
   const repo = {
@@ -207,7 +209,11 @@ describe('ApprovalService.approve', () => {
   });
 
   it('缺少 handler 要求的權限 → AUTHZ_FORBIDDEN 並帶出缺少的鍵，不寫入任何東西', async () => {
-    const ctx = setup({ permissions: new Set(['approval:review']), isSuperAdmin: false });
+    const ctx = setup({
+      permissions: new Set(['approval:review']),
+      isSuperAdmin: false,
+      canEnter: true,
+    });
     const operation = ctx.service.approve('approval-1', { roleIds: [] }, REVIEWER);
     await expect(operation).rejects.toMatchObject({
       code: 'AUTHZ_FORBIDDEN',
@@ -220,6 +226,7 @@ describe('ApprovalService.approve', () => {
     const ctx = setup({
       permissions: new Set<PermissionKey>(['approval:review', 'user:create']),
       isSuperAdmin: false,
+      canEnter: true,
     });
     await expect(
       ctx.service.approve('approval-1', { roleIds: [] }, REVIEWER),

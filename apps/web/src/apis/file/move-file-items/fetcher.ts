@@ -3,9 +3,15 @@ import type { HttpRequestDTO } from '@/core/client';
 import { getFileControllerMoveUrl } from '@/shared/api-sdk';
 import type { MoveFileItemsRequest, MoveFileItemsResult } from '@/shared/api-sdk';
 
+import type { InWorkspace } from '../types';
+
 export const fetchFileMoveMutation = defineAuthFetcher<
-  HttpRequestDTO<MoveFileItemsRequest>,
+  HttpRequestDTO<InWorkspace & MoveFileItemsRequest>,
   MoveFileItemsResult
->((http, request) =>
-  http.request(getFileControllerMoveUrl(), jsonBody(request.params, { method: 'POST' })),
-);
+>((http, request) => {
+  const { workspaceId, ...body } = request.params;
+  return http.request(
+    getFileControllerMoveUrl({ workspaceId }),
+    jsonBody(body, { method: 'POST' }),
+  );
+});
