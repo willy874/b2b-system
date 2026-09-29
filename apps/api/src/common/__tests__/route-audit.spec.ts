@@ -70,6 +70,7 @@ describe('路由稽核延伸到 gateway（docs/architecture/backend/08-realtime.
         event: 'declared.authenticated',
         declaration: 'authenticated',
         keys: [],
+        platformKeys: [],
         match: undefined,
       },
       {
@@ -77,6 +78,7 @@ describe('路由稽核延伸到 gateway（docs/architecture/backend/08-realtime.
         event: 'declared.permission',
         declaration: 'permissions',
         keys: ['role:read'],
+        platformKeys: [],
         match: 'every',
       },
     ]);

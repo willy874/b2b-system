@@ -248,6 +248,15 @@ export interface Profile {
   permissions: Array<PermissionKey>;
 }
 
+export const PlatformPermissionKey = {
+  'tenant:read': 'tenant:read',
+  'tenant:create': 'tenant:create',
+  'tenant:update': 'tenant:update',
+  'tenant:delete': 'tenant:delete',
+} as const;
+export type PlatformPermissionKey =
+  (typeof PlatformPermissionKey)[keyof typeof PlatformPermissionKey];
+
 export interface PlatformProfile {
   admin: {
     id: string;
@@ -255,7 +264,9 @@ export interface PlatformProfile {
     displayName: string;
     status: 'active' | 'inactive' | 'locked';
     lastLoginAt: string | null;
+    role: 'super-admin' | 'operator' | 'auditor';
   };
+  permissions: Array<PlatformPermissionKey>;
 }
 
 export interface UpdateProfileRequest {
@@ -660,6 +671,41 @@ export interface UpdateRoleRequest {
 export interface UpdateRolePermissionsRequest {
   add: Array<PermissionKey>;
   remove: Array<PermissionKey>;
+}
+
+export interface PlatformTenant {
+  id: string;
+  code: string;
+  name: string;
+  status: 'provisioning' | 'active' | 'disabled' | 'failed';
+  domains: Array<string>;
+  storageBucket: string;
+  adminEmail: string | null;
+  provisionError: string | null;
+  provisionedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlatformTenantList {
+  items: Array<PlatformTenant>;
+  baseDomain: string;
+}
+
+export interface CreateTenantRequest {
+  code: string;
+  name: string;
+  adminEmail: string;
+  adminName?: string;
+  domains: Array<string>;
+}
+
+export interface UpdateTenantRequest {
+  name: string;
+}
+
+export interface AddTenantDomainRequest {
+  domain: string;
 }
 
 export interface CurrentTenant {

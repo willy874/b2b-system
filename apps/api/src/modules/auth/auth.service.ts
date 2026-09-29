@@ -254,6 +254,11 @@ export class AuthService {
 
   // ── 登出 ────────────────────────────────────────────────
 
+  /** 撤銷目前租戶的所有 session（平台管理者停用或刪除租戶，docs/adr/0020-physical-tenant-isolation.md D13）。 */
+  async revokeAllSessions(): Promise<void> {
+    await this.refreshTokens.revokeAll('tenant_disabled');
+  }
+
   async logout(rawToken: string | undefined, actor: AuthUser): Promise<{ success: true }> {
     const row = rawToken ? await this.refreshTokens.findByHash(sha256(rawToken)) : undefined;
     // 撤銷整條家族，而不只是當前這一條

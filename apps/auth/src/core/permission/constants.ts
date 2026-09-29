@@ -8,16 +8,9 @@ export const PermissionAction = {
 } as const;
 export type PermissionAction = (typeof PermissionAction)[keyof typeof PermissionAction];
 
+/** 平台的資源（docs/rbac/02-permission-catalog.md §8）；backstage 的這份是租戶的資源。 */
 export const PermissionResource = {
-  USER: 'user',
-  ROLE: 'role',
-  PERMISSION: 'permission',
-  AUDIT_LOG: 'auditLog',
-  SYSTEM: 'system',
-  APPROVAL: 'approval',
-  FILE: 'file',
-  JOB: 'job',
-  IDENTITY_PROVIDER: 'identityProvider',
+  TENANT: 'tenant',
 } as const;
 export type PermissionResource = (typeof PermissionResource)[keyof typeof PermissionResource];
 
@@ -28,7 +21,7 @@ export const PermissionMatch = {
 export type PermissionMatch = (typeof PermissionMatch)[keyof typeof PermissionMatch];
 
 /**
- * `buildPermissionKey('auditLog', 'create')` 會產生一個後端從不核發的鍵——
+ * 組出來的鍵不一定是後端核發的（例：某個資源沒有 delete 動作）——
  * 這是可以的：權限集合裡永遠不會有它，該能力恆為 false。
  */
 export function buildPermissionKey(

@@ -1,0 +1,149 @@
+import { Inject, Injectable } from '@nestjs/common';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+
+import { PLATFORM_DB } from '@/core/database';
+import type { PlatformDatabase } from '@/core/database';
+import { tenantDomains, tenants } from '@/db/platform/schema';
+import type { TenantRow, TenantStatus } from '@/db/platform/schema';
+
+export interface TenantWithDomains extends TenantRow {
+  /** 依登記順序；第一個是主要網域。 */
+  domains: string[];
+}
+
+export type NewTenant = Pick<
+  TenantRow,
+  'code' | 'name' | 'databaseUrlEncrypted' | 'storageBucket' | 'adminEmail' | 'adminName'
+>;
+
+export type TenantPatch = Partial<
+  Pick<TenantRow, 'name' | 'status' | 'provisionError' | 'provisionedAt' | 'deletedAt'>
+>;
+
+/** 平台管理者對租戶登記的讀寫（平台 DB，docs/adr/0020-physical-tenant-isolation.md D12、D13）。 */
+@Injectable()
+export class PlatformTenantRepository {
+  constructor(@Inject(PLATFORM_DB) private readonly db: PlatformDatabase) {}
+
+  async list(): Promise<TenantWithDomains[]> {
+    const rows = await this.db
+      .select()
+      .from(tenants)
+      .where(isNull(tenants.deletedAt))
+      .orderBy(asc(tenants.createdAt), asc(tenants.code));
+    return this.withDomains(rows);
+  }
+
+  async findById(id: string): Promise<TenantWithDomains | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(tenants)
+      .where(and(eq(tenants.id, id), isNull(tenants.deletedAt)))
+      .limit(1);
+    return row ? (await this.withDomains([row]))[0] : undefined;
+  }
+
+  async codeTaken(code: string): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: tenants.id })
+      .from(tenants)
+      .where(and(eq(tenants.code, code), isNull(tenants.deletedAt)))
+      .limit(1);
+    return row !== undefined;
+  }
+
+  /** 已被使用的 bucket（包含刪除的租戶：bucket 可能還沒清掉）。 */
+  async bucketsLike(prefix: string): Promise<Set<string>> {
+    const rows = await this.db
+      .select({ bucket: tenants.storageBucket })
+      .from(tenants)
+      .where(sql`${tenants.storageBucket} LIKE ${`${prefix}%`}`);
+    return new Set(rows.map((row) => row.bucket));
+  }
+
+  async domainsTaken(domains: string[]): Promise<string[]> {
+    if (!domains.length) return [];
+    const rows = await this.db
+      .select({ domain: tenantDomains.domain })
+      .from(tenantDomains)
+      .where(inArray(tenantDomains.domain, domains));
+    return rows.map((row) => row.domain);
+  }
+
+  async create(tenant: NewTenant, domains: string[]): Promise<TenantRow> {
+    return this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(tenants)
+        .values({ ...tenant, status: 'provisioning' })
+        .returning();
+      if (!row) throw new Error('建立租戶失敗');
+      // created_at 的先後決定主要網域；同一個交易裡的 now() 都一樣，所以明確給時間
+      const base = Date.now();
+      if (domains.length) {
+        await tx.insert(tenantDomains).values(
+          domains.map((domain, index) => ({
+            domain,
+            tenantId: row.id,
+            createdAt: new Date(base + index),
+          })),
+        );
+      }
+      return row;
+    });
+  }
+
+  /** 條件式更新：給了 `from` 就只在狀態是其中之一時更新；回傳更新後的列，沒更新到回 undefined。 */
+  async update(
+    id: string,
+    patch: TenantPatch,
+    from?: readonly TenantStatus[],
+  ): Promise<TenantRow | undefined> {
+    const [row] = await this.db
+      .update(tenants)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(
+        and(
+          eq(tenants.id, id),
+          isNull(tenants.deletedAt),
+          from ? inArray(tenants.status, [...from]) : undefined,
+        ),
+      )
+      .returning();
+    return row;
+  }
+
+  async addDomain(tenantId: string, domain: string): Promise<void> {
+    await this.db.insert(tenantDomains).values({ domain, tenantId });
+  }
+
+  async removeDomain(tenantId: string, domain: string): Promise<boolean> {
+    const removed = await this.db
+      .delete(tenantDomains)
+      .where(and(eq(tenantDomains.tenantId, tenantId), eq(tenantDomains.domain, domain)))
+      .returning({ domain: tenantDomains.domain });
+    return removed.length > 0;
+  }
+
+  /** 刪除租戶時釋出它的網域（之後可以登記給別的租戶）。 */
+  async removeAllDomains(tenantId: string): Promise<void> {
+    await this.db.delete(tenantDomains).where(eq(tenantDomains.tenantId, tenantId));
+  }
+
+  private async withDomains(rows: TenantRow[]): Promise<TenantWithDomains[]> {
+    if (!rows.length) return [];
+    const domains = await this.db
+      .select({ domain: tenantDomains.domain, tenantId: tenantDomains.tenantId })
+      .from(tenantDomains)
+      .where(
+        inArray(
+          tenantDomains.tenantId,
+          rows.map((row) => row.id),
+        ),
+      )
+      .orderBy(asc(tenantDomains.createdAt), asc(tenantDomains.domain));
+    return rows.map((row) => ({
+      ...row,
+      domains: domains.filter((d) => d.tenantId === row.id).map((d) => d.domain),
+    }));
+  }
+}

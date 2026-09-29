@@ -13,24 +13,27 @@ import { ALL_PERMISSION_KEYS, PermissionKey } from '../enums';
 
 describe('權限的代數', () => {
   it('buildPermissionKey 組出 resource:action', () => {
-    expect(buildPermissionKey(PermissionResource.ROLE, PermissionAction.UPDATE)).toBe(
-      'role:update',
+    expect(buildPermissionKey(PermissionResource.TENANT, PermissionAction.UPDATE)).toBe(
+      'tenant:update',
     );
   });
 
   it('組出後端不核發的鍵也沒關係（該能力恆為 false）', () => {
-    const key = buildPermissionKey(PermissionResource.AUDIT_LOG, PermissionAction.CREATE);
-    expect(key).toBe('auditLog:create');
+    const key = buildPermissionKey(
+      'platformAuditLog' as PermissionResource,
+      PermissionAction.CREATE,
+    );
+    expect(key).toBe('platformAuditLog:create');
     expect(ALL_PERMISSION_KEYS).not.toContain(key);
   });
 
   it('definePageKey 只是品牌化字串', () => {
-    expect(definePageKey('ROLE')).toBe('ROLE');
+    expect(definePageKey('TENANT')).toBe('TENANT');
   });
 
   it('evaluateAccess：EVERY 用 canEvery', () => {
     const rule: PagePermissionRule = {
-      access: [PermissionKey['role:read']],
+      access: [PermissionKey['tenant:read']],
       match: PermissionMatch.EVERY,
     };
     expect(
@@ -44,7 +47,7 @@ describe('權限的代數', () => {
 
   it('evaluateAccess：SOME 用 canSome', () => {
     const rule: PagePermissionRule = {
-      access: [PermissionKey['role:read']],
+      access: [PermissionKey['tenant:read']],
       match: PermissionMatch.SOME,
     };
     expect(

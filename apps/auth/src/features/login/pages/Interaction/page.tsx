@@ -119,8 +119,9 @@ export default function InteractionPage() {
           : undefined
       }
       footer={
-        // 帳號流程是租戶帳號的；平台管理者由其他平台管理者建立與重設
-        tenant && (
+        // 帳號流程是租戶帳號的；平台管理者由其他平台管理者建立與重設。
+        // 沒有租戶的互動是平台管理者的登入：走錯地方的租戶使用者從這裡去自己的租戶（D11）
+        tenant ? (
           <div className="flex justify-between gap-2">
             <a
               className="text-[var(--color-brand)]"
@@ -137,6 +138,14 @@ export default function InteractionPage() {
               {t('login.interaction.register')}
             </a>
           </div>
+        ) : (
+          <a
+            className="text-[var(--color-brand)]"
+            href="/enter"
+            data-testid="login-enter-tenant-link"
+          >
+            {t('login.interaction.enterTenant')}
+          </a>
         )
       }
     >

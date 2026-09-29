@@ -21,6 +21,16 @@ export const platformAdminStatus = pgEnum('platform_admin_status', [
 ]);
 
 /**
+ * 平台管理者的角色（D5）：固定的三種，權限對照在 `db/seeds/platform-permissions.ts`，沒有自訂角色。
+ * 平台的權限範圍很小，每個管理者一個角色就夠。
+ */
+export const platformAdminRole = pgEnum('platform_admin_role', [
+  'super-admin',
+  'operator',
+  'auditor',
+]);
+
+/**
  * 平台管理者（docs/adr/0020-physical-tenant-isolation.md D5）：apps/auth 不帶租戶登入時驗證的帳號。
  * 與租戶的 `users` 是兩份資料：同一個 email 在平台與某個租戶是兩個互不相干的帳號。
  */
@@ -32,6 +42,7 @@ export const platformAdmins = pgTable(
     displayName: text('display_name').notNull(),
     passwordHash: text('password_hash'),
     status: platformAdminStatus('status').notNull().default('active'),
+    role: platformAdminRole('role').notNull().default('auditor'),
     /** +1 即讓這個人所有既存的 access token 失效（同 `users.token_version`）。 */
     tokenVersion: integer('token_version').notNull().default(0),
     failedLoginCount: integer('failed_login_count').notNull().default(0),
@@ -99,4 +110,5 @@ export const platformAuditLogs = pgTable(
 );
 
 export type PlatformAdminRow = typeof platformAdmins.$inferSelect;
+export type PlatformAdminRole = (typeof platformAdminRole.enumValues)[number];
 export type PlatformRefreshTokenRow = typeof platformRefreshTokens.$inferSelect;

@@ -14,6 +14,14 @@ export const ErrorCode = {
   TENANT_UNAVAILABLE: { status: 503 },
   /** 平台管理者的端點只在 apps/auth 的網域（不屬於任何租戶）提供；租戶網域上等同不存在。 */
   PLATFORM_ONLY: { status: 404 },
+  /** 建立租戶：代碼已被使用（未刪除的租戶；D12）。 */
+  TENANT_CODE_TAKEN: { status: 409 },
+  /** 網域已屬於另一個租戶（一個網域只屬於一個租戶，D2）。 */
+  TENANT_DOMAIN_TAKEN: { status: 409 },
+  /** 租戶目前的狀態不能做這個動作（例：啟用一個佈建中的租戶、重試一個沒有失敗的佈建）。 */
+  TENANT_STATUS_CONFLICT: { status: 409 },
+  /** 不能移除租戶的最後一個網域（沒有網域就沒有入口）。 */
+  TENANT_LAST_DOMAIN: { status: 409 },
 
   // ── 認證 ──
   AUTH_INVALID_CREDENTIALS: { status: 401 },

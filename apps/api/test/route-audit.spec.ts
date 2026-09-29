@@ -8,10 +8,12 @@ import { Public, RequirePermissions } from '@/common/decorators';
 import {
   auditRoutes,
   collectDeclaredPermissionKeys,
+  collectDeclaredPlatformPermissionKeys,
   collectGatewayDeclarations,
   collectRouteDeclarations,
 } from '@/common/route-audit';
 import { ALL_PERMISSION_KEYS } from '@/db/seeds/permissions';
+import { ALL_PLATFORM_PERMISSION_KEYS } from '@/db/seeds/platform-permissions';
 
 let app: INestApplication;
 
@@ -76,13 +78,21 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
     for (const key of declared) expect(ALL_PERMISSION_KEYS).toContain(key);
   });
 
+  it('@RequirePlatformPermissions 使用的鍵全部存在於平台的權限目錄', () => {
+    const declared = collectDeclaredPlatformPermissionKeys(app);
+    expect(declared.length).toBeGreaterThan(0);
+    for (const key of declared) expect(ALL_PLATFORM_PERMISSION_KEYS).toContain(key);
+  });
+
   it('端點 × 權限總表與 docs/architecture/backend/05-rbac.md §9 一致', () => {
     const actual = new Map(
       collectRouteDeclarations(app).map((route) => [
         `${route.method} ${route.path}`,
         route.declaration === 'permissions'
           ? route.keys.join(route.match === 'some' ? '|' : '+')
-          : route.declaration,
+          : route.declaration === 'platformPermissions'
+            ? `platform ${route.platformKeys.join('+')}`
+            : route.declaration,
       ]),
     );
 
@@ -100,6 +110,16 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'POST /platform/auth/refresh': 'public',
       'POST /platform/auth/logout': 'authenticated',
       'GET /platform/auth/profile': 'authenticated',
+      'GET /platform/tenants': 'platform tenant:read',
+      'GET /platform/tenants/:id': 'platform tenant:read',
+      'POST /platform/tenants': 'platform tenant:create',
+      'PATCH /platform/tenants/:id': 'platform tenant:update',
+      'POST /platform/tenants/:id/provision': 'platform tenant:create',
+      'POST /platform/tenants/:id/disable': 'platform tenant:update',
+      'POST /platform/tenants/:id/enable': 'platform tenant:update',
+      'DELETE /platform/tenants/:id': 'platform tenant:delete',
+      'POST /platform/tenants/:id/domains': 'platform tenant:update',
+      'DELETE /platform/tenants/:id/domains/:domain': 'platform tenant:update',
       'GET /tenant/current': 'public',
       'GET /tenants/lookup': 'public',
       'GET /oidc-interaction/:uid': 'public',

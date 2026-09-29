@@ -1,6 +1,7 @@
 import type { PermissionKey } from '@/db/seeds/permissions';
+import type { PlatformPermissionKey } from '@/db/seeds/platform-permissions';
 
-export type { PermissionKey };
+export type { PermissionKey, PlatformPermissionKey };
 
 /**
  * `@RequirePermissions(PERMISSION.ROLE_UPDATE)` 用的具名常數。

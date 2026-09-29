@@ -27,7 +27,8 @@
       "register": "申請帳號",
       "external": "使用 {{name}} 登入",
       "ssoOnly": "你的組織使用 {{name}} 登入。",
-      "or": "或"
+      "or": "或",
+      "enterTenant": "要登入你的後台？輸入租戶代碼"
     },
     "client": {
       "backstage": "管理後台",
@@ -66,6 +67,13 @@
       "hint": "至少 12 個字元，不可為常見密碼。"
     },
     "backToLogin": "返回登入",
-    "tenantRequired": "找不到這是哪個租戶的帳號。請從租戶的登入頁或信中的連結進入。"
+    "tenantRequired": "找不到這是哪個租戶的帳號。請從租戶的登入頁或信中的連結進入。",
+    "enterTenant": {
+      "title": "進入租戶",
+      "description": "輸入你的租戶代碼，前往你的後台登入。",
+      "code": "租戶代碼",
+      "required": "請輸入租戶代碼",
+      "submit": "前往"
+    }
   }
 }

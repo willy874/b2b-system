@@ -4,6 +4,7 @@ import { generateStrongPassword, hashPassword } from '@/modules/auth/password';
 
 import type { PlatformScriptDatabase } from '../client';
 import { platformAdmins, platformAuditLogs } from '../platform/schema';
+import type { PlatformAdminRole } from '../platform/schema';
 
 /**
  * 第一位平台管理者（docs/adr/0020-physical-tenant-isolation.md D5）：平台 DB 還沒有任何管理者時，
@@ -42,15 +43,17 @@ export async function seedPlatformAdmin(db: PlatformScriptDatabase): Promise<voi
 /** 建立或重設（密碼、狀態）一位平台管理者；E2E 的固定帳號也用它。 */
 export async function upsertPlatformAdmin(
   db: PlatformScriptDatabase,
-  input: { email: string; displayName: string; password: string },
+  input: { email: string; displayName: string; password: string; role?: PlatformAdminRole },
 ): Promise<void> {
   const passwordHash = await hashPassword(input.password);
+  // 沒指定就是 super-admin：seed 建立的是第一位管理者，要能管理租戶與其他管理者
+  const role = input.role ?? 'super-admin';
   await db
     .insert(platformAdmins)
-    .values({ email: input.email, displayName: input.displayName, passwordHash })
+    .values({ email: input.email, displayName: input.displayName, passwordHash, role })
     .onConflictDoUpdate({
       target: platformAdmins.email,
       targetWhere: isNull(platformAdmins.deletedAt),
-      set: { passwordHash, status: 'active', failedLoginCount: 0, lockedUntil: null },
+      set: { passwordHash, role, status: 'active', failedLoginCount: 0, lockedUntil: null },
     });
 }

@@ -288,3 +288,39 @@ Seed 行為：
 6. `pnpm db:seed` → `pnpm sdk:generate`。
 7. 若這個權限會影響某個頁面的進入條件，更新該 feature 的 `permission.ts` 與本文件 §5。
 8. 更新 §4 的預設角色對照表，並在 seed 中把它加進該角色。
+
+---
+
+## 8. 平台的權限目錄（apps/auth 的平台管理者）
+
+平台管理者（[ADR-0020](../adr/0020-physical-tenant-isolation.md) D5）與租戶的使用者是兩份帳號，權限目錄也是兩份：
+上面 §1–§7 是 **租戶** 的目錄（存在每個租戶的 DB）；這一節是 **平台** 的目錄，只在 apps/auth 的網域有效。
+
+- 端點以 `@RequirePlatformPermissions(...)` 宣告（所有鍵都要有），租戶網域上一律 `404 PLATFORM_ONLY`；
+  拒絕寫平台稽核 `platform_audit_logs`（`authz.denied`）。
+- 平台的權限 **不寫進資料庫**：角色固定三種（`platform_admins.role`），角色 × 權限的對照在
+  `apps/api/src/db/seeds/platform-permissions.ts`。平台的權限範圍很小，每個管理者一個角色就夠，不提供自訂角色。
+- 前端從 `GET /platform/auth/profile` 的 `permissions` 取得目前管理者的權限。
+
+### 8.1 權限清單（共 4 項）
+
+| 權限鍵          | 顯示名稱（zh-TW） | 說明 |
+| --------------- | ----------------- | ---- |
+| `tenant:read`   | 檢視租戶          | 租戶清單、狀態、網域、佈建失敗的原因（不含連線字串） |
+| `tenant:create` | 建立租戶          | 建立並佈建新租戶（database、migration、第一位管理員與啟用信）、重試失敗的佈建 |
+| `tenant:update` | 編輯租戶          | 改名稱、新增／移除網域、停用與啟用（停用會撤銷該租戶的所有 session） |
+| `tenant:delete` | 刪除租戶          | 標記刪除並釋出網域；database 與 bucket 由另一個需要確認的手動步驟清除（D13） |
+
+平台管理者的管理（`platformAdmin:*`）、平台稽核（`platformAuditLog:read`）與背景工作監控（`job:*`）
+隨交付順序 4c 加入（[`../features/tenant-isolation.md`](../features/tenant-isolation.md)）。
+
+### 8.2 角色 × 權限
+
+| 權限            | `super-admin` | `operator` | `auditor` |
+| --------------- | :-----------: | :--------: | :-------: |
+| `tenant:read`   | ✅ | ✅ | ✅ |
+| `tenant:create` | ✅ | ✅ |    |
+| `tenant:update` | ✅ | ✅ |    |
+| `tenant:delete` | ✅ |    |    |
+
+`db:seed` 依 `PLATFORM_ADMIN_EMAIL` 建立的第一位平台管理者是 `super-admin`；之後新增的管理者預設是 `auditor`。

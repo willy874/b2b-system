@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { defineSchema } from '@/core/validation';
+import { ALL_PLATFORM_PERMISSION_KEYS } from '@/db/seeds/platform-permissions';
 import { PermissionKeySchema } from '@/modules/permission/dto/permission.dto';
 import { RoleSummarySchema, UserStatusSchema } from '@/modules/user/dto/user.dto';
 
@@ -41,6 +42,14 @@ export const ProfileSchema = defineSchema(
 );
 
 /** 平台管理者自己的身分（apps/auth，docs/adr/0020-physical-tenant-isolation.md D5）。 */
+/**
+ * 平台的權限鍵：以 `PlatformPermissionKey` 出現在 OpenAPI，apps/auth 由 api-sdk 取得常數（同租戶的 `PermissionKey`，ADR-0007）。
+ */
+export const PlatformPermissionKeySchema = defineSchema(
+  'PlatformPermissionKey',
+  z.enum(ALL_PLATFORM_PERMISSION_KEYS as [string, ...string[]]),
+);
+
 export const PlatformProfileSchema = defineSchema(
   'PlatformProfile',
   z.object({
@@ -50,7 +59,10 @@ export const PlatformProfileSchema = defineSchema(
       displayName: z.string(),
       status: z.enum(['active', 'inactive', 'locked']),
       lastLoginAt: z.string().nullable(),
+      role: z.enum(['super-admin', 'operator', 'auditor']),
     }),
+    /** 平台的權限鍵（docs/rbac/02-permission-catalog.md §8）。 */
+    permissions: z.array(PlatformPermissionKeySchema),
   }),
 );
 

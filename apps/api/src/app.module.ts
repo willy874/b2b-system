@@ -25,6 +25,7 @@ import { FileModule } from './modules/file/file.module';
 import { HealthModule } from './modules/health/health.module';
 import { JobModule } from './modules/job/job.module';
 import { PermissionModule } from './modules/permission/permission.module';
+import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { RoleModule } from './modules/role/role.module';
 import { SystemModule } from './modules/system/system.module';
@@ -63,6 +64,8 @@ import { UserModule } from './modules/user/user.module';
     // 葉節點模組（被很多人依賴）
     PermissionModule,
     AuditLogModule,
+    // 平台管理者與平台稽核：全域 PermissionsGuard 判斷平台端點的權限（ADR-0020 D5）
+    PlatformAdminModule,
     // 訂閱領域事件並推播；沒有任何模組依賴它（docs/architecture/backend/08-realtime.md §2）
     RealtimeModule,
 

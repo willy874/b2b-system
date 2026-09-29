@@ -14,6 +14,10 @@ const ERROR_CODES = [
   'TENANT_NOT_FOUND',
   'TENANT_UNAVAILABLE',
   'PLATFORM_ONLY',
+  'TENANT_CODE_TAKEN',
+  'TENANT_DOMAIN_TAKEN',
+  'TENANT_STATUS_CONFLICT',
+  'TENANT_LAST_DOMAIN',
   'AUTH_INVALID_CREDENTIALS',
   'AUTH_ACCOUNT_PENDING',
   'AUTH_ACCOUNT_DISABLED',
@@ -100,6 +104,11 @@ const PERMISSION_KEYS = [
   ['identityProvider', 'read'],
   ['identityProvider', 'update'],
   ['identityProvider', 'delete'],
+  // 平台的權限目錄（docs/rbac/02-permission-catalog.md §8）：apps/auth 的頁面實際用到的是這幾個
+  ['tenant', 'read'],
+  ['tenant', 'create'],
+  ['tenant', 'update'],
+  ['tenant', 'delete'],
 ] as const;
 
 const bundles = { zh_TW: zhTW, en_US: enUS } as Record<string, Record<string, unknown>>;

@@ -127,9 +127,18 @@ ADR-0018 的工作區是「共用資料表 ＋ `workspace_id`」，帳號跨工�
   落後的租戶回 503、每 30 秒重新檢查，DB 比程式新照常服務（`docs/architecture/backend/02-database.md` §5.3）。
   順手修正 api 的 Dockerfile 沒有複製平台 migration（`migrate.js` 找不到 `platform/migrations`）。
 
-### 進入第 4 步之前必須處理
-
-- 平台管理者目前只有登入與個人資料；權限目錄、管理者的新增／停用與租戶管理頁都在第 4 步。
+- 第 4 步分三批：
+  - ✅ **4a 後端**：平台的權限目錄與固定角色（`platform_admins.role`、`@RequirePlatformPermissions`、`docs/rbac/02-permission-catalog.md` §8）、
+    `/platform/tenants`（清單、建立、改名、網域、停用／啟用、刪除、重試佈建）、佈建背景工作 `tenant.provision`
+    （DB 角色與 database、migration、seed、第一位管理員、bucket、啟用信）、平台稽核。平台 migration 0004。
+    整合測試 `test/platform-tenant.spec.ts`（建立 → 佈建 → 啟用信 → 在新網域登入；停用 503 與撤銷 session；刪除後網域釋出）。
+  - ✅ **4b 前端（apps/auth）**：權限改為平台的目錄（`PlatformPermissionKey`，由 profile 水合）、`features/tenant`
+    （`/tenant` 清單與建立、`/tenant/$id` 詳情：網域、改名、停用／啟用、刪除、重試佈建；佈建中每 2 秒重抓）、
+    `/enter` 進入租戶（平台登入頁有連結）。瀏覽器驗證過完整流程：建立 → 佈建 → 啟用信 → 設定密碼 → 在
+    `beta.localhost:5173` 以新租戶的 super-admin 登入。「平台管理者建立租戶」的 E2E 併入第 6 步的兩個租戶 E2E。
+  - 佈建的後續步驟（啟用信、bucket）各自獨立：儲存服務暫時連不上時啟用信照寄，原因記在 `provision_error`。
+  - **4c**：平台管理者的管理（新增、停用、角色）、平台稽核頁、背景工作監控頁搬到 apps/auth（開放問題 3）並只給平台看；
+    `db:drop-tenant` 腳本（D13 的手動清除）；平台管理者開關「是否允許租戶設定外部 IdP」（開放問題 2）。
 
 ## 交付順序
 

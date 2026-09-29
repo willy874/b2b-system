@@ -247,6 +247,8 @@ DEFAULT_TENANT_CODE=default
 DEFAULT_TENANT_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_system
 DEFAULT_TENANT_DOMAINS=localhost:5173   # apps/auth（:5175）不屬於任何租戶
 DEFAULT_TENANT_STORAGE_BUCKET=b2b-system # 預設租戶的 bucket（每個租戶一個）
+TENANT_PROVISIONING_DATABASE_URL=        # 佈建新租戶用（CREATEDB＋CREATEROLE）；留空 = PLATFORM_DATABASE_URL
+TENANT_BASE_DOMAIN=                      # 新租戶的預設網域 {code}.<值>；留空 = APP_PUBLIC_URL 的 host
 PLATFORM_ADMIN_EMAIL=platform@example.com   # 第一位平台管理者（apps/auth 的登入）
 PLATFORM_ADMIN_PASSWORD=
 PORT=3000

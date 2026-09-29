@@ -4,6 +4,7 @@
 import { z } from 'zod';
 
 import type {
+  AddTenantDomainRequest,
   ApprovalRequest,
   ApprovalStatus,
   ApprovalType,
@@ -18,6 +19,7 @@ import type {
   CreateFileUploadRequest,
   CreateIdentityProviderRequest,
   CreateRoleRequest,
+  CreateTenantRequest,
   CreateUserRequest,
   CurrentTenant,
   DuplicateRoleRequest,
@@ -56,7 +58,10 @@ import type {
   PermissionCatalog,
   PermissionGroup,
   PermissionKey,
+  PlatformPermissionKey,
   PlatformProfile,
+  PlatformTenant,
+  PlatformTenantList,
   Profile,
   RegisterRequest,
   RegisterResult,
@@ -88,6 +93,7 @@ import type {
   UpdateProfileRequest,
   UpdateRolePermissionsRequest,
   UpdateRoleRequest,
+  UpdateTenantRequest,
   UpdateUserRequest,
   User,
   UserRoles,
@@ -436,6 +442,13 @@ export const ProfileSchema = z.object({
   permissions: z.array(PermissionKeySchema),
 }) satisfies z.ZodType<Profile>;
 
+export const PlatformPermissionKeySchema = z.enum([
+  'tenant:read',
+  'tenant:create',
+  'tenant:update',
+  'tenant:delete',
+]) satisfies z.ZodType<PlatformPermissionKey>;
+
 export const PlatformProfileSchema = z.object({
   admin: z.object({
     id: z
@@ -449,7 +462,9 @@ export const PlatformProfileSchema = z.object({
     displayName: z.string(),
     status: z.enum(['active', 'inactive', 'locked']),
     lastLoginAt: z.string().nullable(),
+    role: z.enum(['super-admin', 'operator', 'auditor']),
   }),
+  permissions: z.array(PlatformPermissionKeySchema),
 }) satisfies z.ZodType<PlatformProfile>;
 
 export const UpdateProfileRequestSchema = z.object({
@@ -1073,6 +1088,71 @@ export const UpdateRolePermissionsRequestSchema = z.object({
   add: z.array(PermissionKeySchema).max(100).default([]),
   remove: z.array(PermissionKeySchema).max(100).default([]),
 }) satisfies z.ZodType<UpdateRolePermissionsRequest>;
+
+export const PlatformTenantSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  code: z.string(),
+  name: z.string(),
+  status: z.enum(['provisioning', 'active', 'disabled', 'failed']),
+  domains: z.array(z.string()),
+  storageBucket: z.string(),
+  adminEmail: z.string().nullable(),
+  provisionError: z.string().nullable(),
+  provisionedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}) satisfies z.ZodType<PlatformTenant>;
+
+export const PlatformTenantListSchema = z.object({
+  items: z.array(PlatformTenantSchema),
+  baseDomain: z.string(),
+}) satisfies z.ZodType<PlatformTenantList>;
+
+export const CreateTenantRequestSchema = z.object({
+  code: z.string().regex(new RegExp('^[a-z][a-z0-9-]{1,30}[a-z0-9]$')),
+  name: z.string().min(1).max(100),
+  adminEmail: z
+    .email()
+    .max(254)
+    .regex(
+      new RegExp(
+        "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+      ),
+    ),
+  adminName: z.string().min(1).max(100).optional(),
+  domains: z
+    .array(
+      z
+        .string()
+        .regex(
+          new RegExp(
+            '^(?=.{1,253}(?::\\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\\d{1,5})?$',
+          ),
+        ),
+    )
+    .max(10)
+    .default([]),
+}) satisfies z.ZodType<CreateTenantRequest>;
+
+export const UpdateTenantRequestSchema = z.object({
+  name: z.string().min(1).max(100),
+}) satisfies z.ZodType<UpdateTenantRequest>;
+
+export const AddTenantDomainRequestSchema = z.object({
+  domain: z
+    .string()
+    .regex(
+      new RegExp(
+        '^(?=.{1,253}(?::\\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\\d{1,5})?$',
+      ),
+    ),
+}) satisfies z.ZodType<AddTenantDomainRequest>;
 
 export const CurrentTenantSchema = z.object({
   code: z.string(),

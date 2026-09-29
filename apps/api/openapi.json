@@ -2866,6 +2866,352 @@
         "summary": "以代碼找租戶的登入入口（apps/auth 的進入租戶、帳號流程完成後）",
         "tags": ["tenants"]
       }
+    },
+    "/platform/tenants": {
+      "get": {
+        "operationId": "PlatformTenantController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenantList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "所有租戶（未刪除）與預設網域的上層",
+        "tags": ["platform-tenants"]
+      },
+      "post": {
+        "operationId": "PlatformTenantController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "建立租戶：登記後由背景工作佈建（database、migration、第一位管理員與啟用信）",
+        "tags": ["platform-tenants"]
+      }
+    },
+    "/platform/tenants/{id}": {
+      "get": {
+        "operationId": "PlatformTenantController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-tenants"]
+      },
+      "patch": {
+        "operationId": "PlatformTenantController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-tenants"]
+      },
+      "delete": {
+        "operationId": "PlatformTenantController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "標記刪除並停用、釋出網域；database 與 bucket 由手動步驟清除",
+        "tags": ["platform-tenants"]
+      }
+    },
+    "/platform/tenants/{id}/provision": {
+      "post": {
+        "operationId": "PlatformTenantController_retryProvisioning",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "重試失敗的佈建",
+        "tags": ["platform-tenants"]
+      }
+    },
+    "/platform/tenants/{id}/disable": {
+      "post": {
+        "operationId": "PlatformTenantController_disable",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "停用：網域回 503，撤銷所有 session",
+        "tags": ["platform-tenants"]
+      }
+    },
+    "/platform/tenants/{id}/enable": {
+      "post": {
+        "operationId": "PlatformTenantController_enable",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-tenants"]
+      }
+    },
+    "/platform/tenants/{id}/domains": {
+      "post": {
+        "operationId": "PlatformTenantController_addDomain",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddTenantDomainRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-tenants"]
+      }
+    },
+    "/platform/tenants/{id}/domains/{domain}": {
+      "delete": {
+        "operationId": "PlatformTenantController_removeDomain",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "domain",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-tenants"]
+      }
     }
   },
   "info": {
@@ -3699,6 +4045,10 @@
         "required": ["user", "roles", "permissions"],
         "additionalProperties": false
       },
+      "PlatformPermissionKey": {
+        "type": "string",
+        "enum": ["tenant:read", "tenant:create", "tenant:update", "tenant:delete"]
+      },
       "PlatformProfile": {
         "type": "object",
         "properties": {
@@ -3723,13 +4073,23 @@
               "lastLoginAt": {
                 "nullable": true,
                 "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": ["super-admin", "operator", "auditor"]
               }
             },
-            "required": ["id", "email", "displayName", "status", "lastLoginAt"],
+            "required": ["id", "email", "displayName", "status", "lastLoginAt", "role"],
             "additionalProperties": false
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformPermissionKey"
+            }
           }
         },
-        "required": ["admin"],
+        "required": ["admin", "permissions"],
         "additionalProperties": false
       },
       "UpdateProfileRequest": {
@@ -5263,6 +5623,142 @@
           }
         },
         "required": ["add", "remove"],
+        "additionalProperties": false
+      },
+      "PlatformTenant": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["provisioning", "active", "disabled", "failed"]
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "storageBucket": {
+            "type": "string"
+          },
+          "adminEmail": {
+            "nullable": true,
+            "type": "string"
+          },
+          "provisionError": {
+            "nullable": true,
+            "type": "string"
+          },
+          "provisionedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "status",
+          "domains",
+          "storageBucket",
+          "adminEmail",
+          "provisionError",
+          "provisionedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "PlatformTenantList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformTenant"
+            }
+          },
+          "baseDomain": {
+            "type": "string"
+          }
+        },
+        "required": ["items", "baseDomain"],
+        "additionalProperties": false
+      },
+      "CreateTenantRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{1,30}[a-z0-9]$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "adminEmail": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "adminName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "domains": {
+            "default": [],
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?=.{1,253}(?::\\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\\d{1,5})?$"
+            }
+          }
+        },
+        "required": ["code", "name", "adminEmail", "domains"],
+        "additionalProperties": false
+      },
+      "UpdateTenantRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      },
+      "AddTenantDomainRequest": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "pattern": "^(?=.{1,253}(?::\\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\\d{1,5})?$"
+          }
+        },
+        "required": ["domain"],
         "additionalProperties": false
       },
       "CurrentTenant": {

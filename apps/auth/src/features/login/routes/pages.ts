@@ -50,6 +50,17 @@ export const SsoErrorRoute = createRoute({
   validateSearch: SsoErrorSearchSchema,
 });
 
+/**
+ * 進入租戶（docs/adr/0020-physical-tenant-isolation.md D11）：輸入代碼 → 前往那個租戶的 backstage 登入。
+ * `?tenant=` 帶了代碼就直接前往。
+ */
+export const EnterTenantRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: '/enter',
+  loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
+  validateSearch: TenantSearchSchema,
+});
+
 // ── 帳號流程（docs/adr/0019-sso-identity-platform.md D1）：頁面在 apps/auth、信中連結以 AUTH_APP_URL 開頭；
 // 帳號屬於某個租戶，網址帶 `?tenant=`（docs/adr/0020-physical-tenant-isolation.md）──
 

@@ -24,6 +24,22 @@ export const EnvSchema = z.object({
   TENANT_POOL_MAX: z.coerce.number().int().min(1).default(5),
   /** 網域 → 租戶的快取秒數。 */
   TENANT_CACHE_TTL: z.coerce.number().int().min(0).default(30),
+  /**
+   * 佈建租戶用的連線（D4、D12）：要有 `CREATEDB` 與 `CREATEROLE`，只在佈建時使用。新租戶的 database 與 DB 角色建在
+   * 同一台伺服器上。沒設定時用 `PLATFORM_DATABASE_URL`（開發環境的帳號通常就是超級使用者）。
+   */
+  TENANT_PROVISIONING_DATABASE_URL: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().url().optional(),
+  ),
+  /**
+   * 新租戶預設網域的上層（開放問題 4）：租戶 `acme` 的網域是 `acme.<這個值>`。沒設定時取 `APP_PUBLIC_URL` 的 host
+   * （開發環境是 `localhost:5173`，瀏覽器會把 `acme.localhost` 解析到本機）。
+   */
+  TENANT_BASE_DOMAIN: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().optional(),
+  ),
 
   JWT_SECRET: z.string().min(32),
   JWT_ACCESS_TTL: z.coerce.number().int().default(300),

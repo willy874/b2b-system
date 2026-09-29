@@ -116,6 +116,10 @@ auth /login（沒有 tenant）→ 授權（client auth、無 tenant 參數）→
 | IdP session 換身分時「登入後 session 換成新的身分」（D9） | 在 `realm_mismatch` check 裡先把舊身分從 session 拿掉（清帳號與 grant、換新的 `uid`）再要求登入 | oidc-provider 在「已登入的 session 換成另一個帳號」時會先把舊 session 登出（`end_session_confirm`），觸發單一登出、連帶登出另一個租戶開著的 backstage；而且 `uid` 不變，兩個租戶的 app session 會綁在同一個 IdP session 上 |
 | 平台管理者有自己的權限目錄與角色（D5） | 第 3 步只有登入與個人資料；權限目錄隨第 4 步的租戶管理一起加入 | 第 3 步還沒有任何需要權限的平台端點 |
 | 版本不符的租戶標成不可用（D14） | 只有 **落後** 的租戶不可用；DB 比程式新照常服務。落後的租戶每 30 秒重新檢查 | 滾動部署時舊的執行個體會看到較新的 DB；要求 migration 對上一版程式相容（`02-database.md` §5.1）比讓舊執行個體全部 503 合理。重新檢查讓補跑 `db:migrate` 之後不必重啟 |
+| 平台自己的角色與權限（D5） | 權限目錄在程式碼、角色固定三種（`platform_admins.role`：`super-admin`／`operator`／`auditor`），不建角色表、不提供自訂角色 | 平台的權限只有十個以內、管理者只有少數幾位；自訂角色的表、畫面與反提權規則換不到實際的好處。需要時再加表，端點的宣告（`@RequirePlatformPermissions`）不必改 |
+| 佈建的每一步都在背景工作裡（D12） | database 與 DB 角色的名稱是 `tenant_{code}_{8 位隨機}`；密碼在登記時產生、存在加密的連線字串裡；佈建工作不自動重試，失敗停在 `failed` 由平台管理者重試 | 代碼可以在刪除後重用，而刪除時 database 還沒清掉，名稱不能只用代碼；重試時沿用同一組連線字串，每一步都冪等（角色存在就把密碼改回來、database 存在就沿用） |
+| 佈建完成 = 所有步驟都成功 | database、migration、seed、第一位管理員完成就改成 `active`；之後在租戶脈絡裡確認 bucket、寄啟用信，失敗只記在 `provision_error` | 啟用信的背景工作要在租戶脈絡裡執行，而只有 `active` 的租戶能進入；bucket 在第一次上傳前還會再確認一次 |
+| 停用時撤銷所有 session（D13） | 先撤銷再停用；租戶的 DB 連不上時不擋停用 | 停用後租戶就不能進入，撤銷得在那之前；停用後網域一律 503，session 本來就用不了 |
 | refresh 輪替的規則寫在租戶的 `AuthService` | 抽成 `rotateRefreshToken`，租戶與平台各提供自己的 token 表 | 平台管理者的 session 用同一套規則（一次性使用、重用偵測、併發只有一個成功），安全相關的邏輯只有一份 |
 
 ## 替代方案

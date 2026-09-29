@@ -99,7 +99,7 @@ describe('IdP 的登入互動頁（docs/adr/0019-sso-identity-platform.md）', (
     );
   });
 
-  it('平台管理者的互動（沒有租戶）：沒有註冊與忘記密碼的連結', async () => {
+  it('平台管理者的互動（沒有租戶）：沒有註冊與忘記密碼的連結，有進入租戶的連結', async () => {
     details.mockResolvedValue({
       uid: UID,
       prompt: 'login',
@@ -112,6 +112,8 @@ describe('IdP 的登入互動頁（docs/adr/0019-sso-identity-platform.md）', (
     expect(await screen.findByTestId('login-email')).toBeInTheDocument();
     expect(screen.queryByTestId('login-register-link')).not.toBeInTheDocument();
     expect(screen.queryByTestId('login-forgot-password-link')).not.toBeInTheDocument();
+    // 走錯地方的租戶使用者：去「進入租戶」（docs/adr/0020 D11）
+    expect(screen.getByTestId('login-enter-tenant-link')).toHaveAttribute('href', '/enter');
   });
 
   it('登入成功 → 以互動 id 送出帳密，並頂層跳轉到 resume 網址', async () => {

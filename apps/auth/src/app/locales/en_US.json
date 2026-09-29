@@ -92,7 +92,8 @@
     "job": "Background jobs",
     "profile": "Profile",
     "preference": "Preferences",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "tenant": "Tenants"
   },
   "app": {
     "title": "B2B System",
@@ -110,6 +111,10 @@
     "TENANT_NOT_FOUND": "This address does not belong to any tenant. Check that the URL is correct.",
     "TENANT_UNAVAILABLE": "This tenant is currently unavailable. Contact the platform administrator.",
     "PLATFORM_ONLY": "This is only available on the platform administration site.",
+    "TENANT_CODE_TAKEN": "This tenant code is already in use.",
+    "TENANT_DOMAIN_TAKEN": "This domain already belongs to another tenant.",
+    "TENANT_STATUS_CONFLICT": "This action isn't available in the tenant's current state. Refresh and try again.",
+    "TENANT_LAST_DOMAIN": "A tenant must keep at least one domain.",
     "AUTH_INVALID_CREDENTIALS": "Incorrect email or password.",
     "AUTH_ACCOUNT_PENDING": "This account is not activated yet.",
     "AUTH_ACCOUNT_DISABLED": "This account has been disabled.",
@@ -193,7 +198,8 @@
       "approval": "Approvals",
       "file": "Files",
       "job": "Background jobs",
-      "identityProvider": "Identity providers"
+      "identityProvider": "Identity providers",
+      "tenant": "Tenants"
     },
     "user": {
       "create": "Create user",
@@ -241,6 +247,12 @@
       "read": "View identity providers",
       "update": "Edit identity providers",
       "delete": "Delete identity providers"
+    },
+    "tenant": {
+      "read": "View tenants",
+      "create": "Create tenants",
+      "update": "Edit tenants",
+      "delete": "Delete tenants"
     }
   },
   "theme": {

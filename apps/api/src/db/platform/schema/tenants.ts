@@ -32,6 +32,12 @@ export const tenants = pgTable(
      * 檔案維護的「沒有紀錄的物件」對帳也只看這個 bucket，不會碰到別的租戶的檔案。
      */
     storageBucket: text('storage_bucket').notNull(),
+    /** 佈建時建立的第一位管理員（D12）；佈建重試時沿用。`db:migrate` 登記的租戶沒有。 */
+    adminEmail: citext('admin_email'),
+    adminName: text('admin_name'),
+    /** 最近一次佈建失敗的原因（`failed` 時才有），給平台管理者看。 */
+    provisionError: text('provision_error'),
+    provisionedAt: timestamp('provisioned_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),

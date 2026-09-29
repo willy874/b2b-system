@@ -92,7 +92,8 @@
     "job": "背景工作",
     "profile": "個人資料",
     "preference": "偏好設定",
-    "logout": "登出"
+    "logout": "登出",
+    "tenant": "租戶"
   },
   "app": {
     "title": "B2B System",
@@ -110,6 +111,10 @@
     "TENANT_NOT_FOUND": "這個網址不屬於任何租戶，請確認網址是否正確。",
     "TENANT_UNAVAILABLE": "這個租戶目前無法使用，請聯絡平台管理員。",
     "PLATFORM_ONLY": "這個功能只在平台管理的網址提供。",
+    "TENANT_CODE_TAKEN": "這個租戶代碼已被使用。",
+    "TENANT_DOMAIN_TAKEN": "這個網域已屬於另一個租戶。",
+    "TENANT_STATUS_CONFLICT": "租戶目前的狀態不能執行這個動作，請重新整理後再試。",
+    "TENANT_LAST_DOMAIN": "租戶至少要保留一個網域。",
     "AUTH_INVALID_CREDENTIALS": "帳號或密碼錯誤。",
     "AUTH_ACCOUNT_PENDING": "此帳號尚未啟用，請先完成啟用流程。",
     "AUTH_ACCOUNT_DISABLED": "此帳號已被停用。",
@@ -173,8 +178,14 @@
         "title": "你沒有權限看這一頁",
         "description": "如果你認為這是錯誤，請聯絡系統管理員為你開通權限。"
       },
-      "notFound": { "title": "找不到頁面", "description": "這個網址不存在或已被移除。" },
-      "unexpected": { "title": "發生未預期的錯誤", "description": "請重試，或聯絡系統管理員。" }
+      "notFound": {
+        "title": "找不到頁面",
+        "description": "這個網址不存在或已被移除。"
+      },
+      "unexpected": {
+        "title": "發生未預期的錯誤",
+        "description": "請重試，或聯絡系統管理員。"
+      }
     }
   },
   "permission": {
@@ -187,7 +198,8 @@
       "approval": "審批",
       "file": "檔案",
       "job": "背景工作",
-      "identityProvider": "外部 IdP 連線"
+      "identityProvider": "外部 IdP 連線",
+      "tenant": "租戶"
     },
     "user": {
       "create": "建立使用者",
@@ -204,10 +216,20 @@
       "delete": "刪除角色",
       "grantPermission": "授予／移除權限"
     },
-    "permission": { "read": "檢視權限目錄" },
-    "auditLog": { "read": "檢視稽核日誌" },
-    "system": { "read": "檢視系統資訊", "update": "變更系統設定" },
-    "approval": { "read": "檢視審批", "review": "審核申請" },
+    "permission": {
+      "read": "檢視權限目錄"
+    },
+    "auditLog": {
+      "read": "檢視稽核日誌"
+    },
+    "system": {
+      "read": "檢視系統資訊",
+      "update": "變更系統設定"
+    },
+    "approval": {
+      "read": "檢視審批",
+      "review": "審核申請"
+    },
     "file": {
       "create": "上傳檔案",
       "read": "檢視檔案",
@@ -216,12 +238,21 @@
       "access": "使用檔案管理器",
       "share": "管理檔案授權"
     },
-    "job": { "read": "檢視背景工作", "retry": "重試背景工作" },
+    "job": {
+      "read": "檢視背景工作",
+      "retry": "重試背景工作"
+    },
     "identityProvider": {
       "create": "建立外部 IdP 連線",
       "read": "檢視外部 IdP 連線",
       "update": "編輯外部 IdP 連線",
       "delete": "刪除外部 IdP 連線"
+    },
+    "tenant": {
+      "read": "檢視租戶",
+      "create": "建立租戶",
+      "update": "編輯租戶",
+      "delete": "刪除租戶"
     }
   },
   "theme": {

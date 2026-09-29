@@ -31,9 +31,7 @@ RUN addgroup -S app && adduser -S app -G app
 COPY --from=build --chown=app:app /app/node_modules ./node_modules
 COPY --from=build --chown=app:app /repo/apps/api/dist ./dist
 COPY --from=build --chown=app:app /repo/apps/api/package.json ./package.json
-# tsconfig 的 rootDir 是 apps/api，產物在 dist/src/；migrate.js 以 __dirname/migrations、__dirname/platform/migrations 找 SQL
-COPY --from=build --chown=app:app /repo/apps/api/src/db/migrations ./dist/src/db/migrations
-COPY --from=build --chown=app:app /repo/apps/api/src/db/platform/migrations ./dist/src/db/platform/migrations
+# migration 的 SQL 由 nest-cli.json 的 assets 在 build 時複製到 dist/src/db/（租戶與平台兩條線；src/db/provision.ts）
 
 USER app
 EXPOSE 3000

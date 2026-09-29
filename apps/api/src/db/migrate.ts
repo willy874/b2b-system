@@ -1,25 +1,14 @@
-import { resolve } from 'node:path';
-
-import { sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 
 import {
   createPlatformScriptClient,
-  createScriptClient,
   ensureDatabase,
   listScriptTenants,
   loadScriptEnv,
   tenantSecretBox,
 } from './client';
 import { registerTenant } from './platform/register-tenant';
-
-/** 必要擴充：citext（大小寫不敏感 email、網域）、pgcrypto（gen_random_uuid）。 */
-async function ensureExtensions(db: {
-  execute: (query: ReturnType<typeof sql>) => Promise<unknown>;
-}): Promise<void> {
-  await db.execute(sql`CREATE EXTENSION IF NOT EXISTS citext`);
-  await db.execute(sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
-}
+import { ensureExtensions, migrateTenantDatabase, PLATFORM_MIGRATIONS_FOLDER } from './provision';
 
 /**
  * 先跑平台 DB，再依序跑每個租戶的 DB（docs/adr/0020-physical-tenant-isolation.md D14）。
@@ -37,7 +26,7 @@ async function main(): Promise<void> {
   const platform = createPlatformScriptClient(platformUrl);
   try {
     await ensureExtensions(platform.db);
-    await migrate(platform.db, { migrationsFolder: resolve(__dirname, 'platform/migrations') });
+    await migrate(platform.db, { migrationsFolder: PLATFORM_MIGRATIONS_FOLDER });
     console.info('平台 DB：migration 完成');
 
     const defaultUrl = process.env.DEFAULT_TENANT_DATABASE_URL;
@@ -61,16 +50,8 @@ async function main(): Promise<void> {
       try {
         // oxlint-disable-next-line no-await-in-loop -- 依序處理，錯誤訊息對得上是哪個租戶
         await ensureDatabase(tenant.databaseUrl);
-        const { client, db } = createScriptClient(tenant.databaseUrl);
-        try {
-          // oxlint-disable-next-line no-await-in-loop -- 同上
-          await ensureExtensions(db);
-          // oxlint-disable-next-line no-await-in-loop -- 同上
-          await migrate(db, { migrationsFolder: resolve(__dirname, 'migrations') });
-        } finally {
-          // oxlint-disable-next-line no-await-in-loop -- 同上
-          await client.end();
-        }
+        // oxlint-disable-next-line no-await-in-loop -- 同上
+        await migrateTenantDatabase(tenant.databaseUrl);
         console.info(`租戶 ${tenant.code}：migration 完成`);
       } catch (error) {
         console.error(`租戶 ${tenant.code}：migration 失敗`, error);

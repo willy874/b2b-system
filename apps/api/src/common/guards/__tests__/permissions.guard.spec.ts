@@ -8,11 +8,16 @@ import {
   Public,
   RequireAnyPermission,
   RequirePermissions,
+  RequirePlatformPermissions,
 } from '@/common/decorators';
-import type { PermissionKey } from '@/common/types';
+import type { PermissionKey, PlatformPermissionKey } from '@/common/types';
 import { AppException } from '@/core/errors';
+import { runInTenantContext } from '@/core/tenant';
+import type { TenantContext } from '@/core/tenant';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { PermissionService } from '@/modules/permission/permission.service';
+import type { PlatformAdminService } from '@/modules/platform-admin/platform-admin.service';
+import type { PlatformAuditService } from '@/modules/platform-admin/platform-audit.service';
 
 import { PermissionsGuard } from '../permissions.guard';
 
@@ -31,6 +36,9 @@ class TestController {
 
   @RequireAnyPermission('role:read', 'user:read')
   someRoute(): void {}
+
+  @RequirePlatformPermissions('tenant:create')
+  createTenant(): void {}
 
   undeclaredRoute(): void {}
 }
@@ -56,7 +64,12 @@ function createContext(method: keyof TestController): ExecutionContext {
 function createGuard(
   permissions: PermissionKey[],
   isSuperAdmin = false,
-): { guard: PermissionsGuard; audit: { recordSafely: ReturnType<typeof vi.fn> } } {
+  platformPermissions: PlatformPermissionKey[] = [],
+): {
+  guard: PermissionsGuard;
+  audit: { recordSafely: ReturnType<typeof vi.fn> };
+  platformAudit: { recordSafely: ReturnType<typeof vi.fn> };
+} {
   const permissionService = {
     getPermissionSet: vi.fn().mockResolvedValue({
       permissions: new Set(permissions),
@@ -64,13 +77,20 @@ function createGuard(
     }),
   } as unknown as PermissionService;
   const audit = { recordSafely: vi.fn().mockResolvedValue(undefined) };
+  const platformAudit = { recordSafely: vi.fn().mockResolvedValue(undefined) };
+  const platformAdmins = {
+    permissionsOf: vi.fn().mockResolvedValue(new Set(platformPermissions)),
+  } as unknown as PlatformAdminService;
   return {
     guard: new PermissionsGuard(
       new Reflector(),
       permissionService,
       audit as unknown as AuditService,
+      platformAdmins,
+      platformAudit as unknown as PlatformAuditService,
     ),
     audit,
+    platformAudit,
   };
 }
 
@@ -141,6 +161,41 @@ describe('PermissionsGuard', () => {
       }),
     } as unknown as ExecutionContext;
     await expect(guard.canActivate(context)).rejects.toMatchObject({ code: 'AUTH_TOKEN_INVALID' });
+  });
+});
+
+describe('PermissionsGuard：平台管理者的端點（docs/adr/0020-physical-tenant-isolation.md D5）', () => {
+  const tenant = { id: 't1', code: 'acme', db: {}, storageBucket: 'b' } as unknown as TenantContext;
+
+  it('持有平台權限時放行（不查租戶的權限）', async () => {
+    const { guard } = createGuard([], true, ['tenant:create']);
+    await expect(guard.canActivate(createContext('createTenant'))).resolves.toBe(true);
+  });
+
+  it('缺平台權限 → AUTHZ_FORBIDDEN，寫平台稽核（不寫租戶稽核）', async () => {
+    const { guard, audit, platformAudit } = createGuard([], true, ['tenant:read']);
+    await expect(guard.canActivate(createContext('createTenant'))).rejects.toMatchObject({
+      code: 'AUTHZ_FORBIDDEN',
+      details: { missing: ['tenant:create'] },
+    });
+    expect(platformAudit.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'authz.denied', errorCode: 'AUTHZ_FORBIDDEN' }),
+    );
+    expect(audit.recordSafely).not.toHaveBeenCalled();
+  });
+
+  it('租戶網域上 → PLATFORM_ONLY（租戶的 super-admin 也一樣）', async () => {
+    const { guard } = createGuard([], true, ['tenant:create']);
+    await expect(
+      runInTenantContext(tenant, () => guard.canActivate(createContext('createTenant'))),
+    ).rejects.toMatchObject({ code: 'PLATFORM_ONLY' });
+  });
+
+  it('租戶的權限端點不看平台權限', async () => {
+    const { guard } = createGuard([], false, ['tenant:create']);
+    await expect(guard.canActivate(createContext('updateRole'))).rejects.toMatchObject({
+      code: 'AUTHZ_FORBIDDEN',
+    });
   });
 });
 

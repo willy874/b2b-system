@@ -55,6 +55,10 @@ services:
       NODE_ENV: production
       PLATFORM_DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
       TENANT_SECRET_KEY: ${TENANT_SECRET_KEY:?required}
+      # 佈建新租戶（ADR-0020 D4、D12）：留空時用 PLATFORM_DATABASE_URL（postgres 映像的 POSTGRES_USER 是超級使用者）
+      TENANT_PROVISIONING_DATABASE_URL: ${TENANT_PROVISIONING_DATABASE_URL:-}
+      # 新租戶的預設網域 {code}.<值>；留空 = APP_PUBLIC_URL 的 host。wildcard 網域的反向代理在交付順序第 6 步
+      TENANT_BASE_DOMAIN: ${TENANT_BASE_DOMAIN:-}
       JWT_SECRET: ${JWT_SECRET:?required}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
       REFRESH_COOKIE_PATH: /api/auth

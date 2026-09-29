@@ -27,7 +27,8 @@
       "register": "Request an account",
       "external": "Sign in with {{name}}",
       "ssoOnly": "Your organization signs in with {{name}}.",
-      "or": "or"
+      "or": "or",
+      "enterTenant": "Signing in to your workspace? Enter your tenant code"
     },
     "client": {
       "backstage": "Console",
@@ -66,6 +67,13 @@
       "hint": "At least 12 characters and not a common password."
     },
     "backToLogin": "Back to sign in",
-    "tenantRequired": "We could not tell which tenant this account belongs to. Open this page from your tenant’s sign-in page or the link in the email."
+    "tenantRequired": "We could not tell which tenant this account belongs to. Open this page from your tenant’s sign-in page or the link in the email.",
+    "enterTenant": {
+      "title": "Go to your tenant",
+      "description": "Enter your tenant code to sign in to your workspace.",
+      "code": "Tenant code",
+      "required": "Enter your tenant code",
+      "submit": "Continue"
+    }
   }
 }

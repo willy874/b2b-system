@@ -1,0 +1,79 @@
+{
+  "tenant": {
+    "title": "租戶",
+    "description": "每個租戶有自己的資料庫、網域與後台帳號。建立後由背景工作佈建，完成後寄啟用信給第一位管理員。",
+    "empty": "還沒有任何租戶",
+    "back": "← 回到租戶清單",
+    "notFound": "找不到這個租戶，可能已被刪除。",
+    "provisioningHint": "正在建立資料庫與第一位管理員，完成後會自動更新這一頁。",
+    "provisionError": "佈建失敗：{{reason}}",
+    "status": {
+      "provisioning": "佈建中",
+      "active": "啟用",
+      "disabled": "停用",
+      "failed": "佈建失敗"
+    },
+    "field": {
+      "code": "代碼",
+      "name": "名稱",
+      "status": "狀態",
+      "primaryDomain": "主要網域",
+      "createdAt": "建立時間",
+      "adminEmail": "第一位管理員",
+      "adminName": "管理員名稱",
+      "storageBucket": "檔案儲存",
+      "provisionedAt": "佈建完成"
+    },
+    "hint": {
+      "code": "小寫英數與連字號，建立後不能修改。預設網域是 {{domain}}。",
+      "adminEmail": "佈建完成後寄啟用信到這個信箱，由他設定密碼並管理這個租戶。"
+    },
+    "error": {
+      "codeRequired": "請輸入代碼",
+      "codeInvalid": "代碼只能是小寫英數與連字號，3–32 字元，以字母開頭",
+      "codeReserved": "這個代碼保留給系統使用",
+      "nameRequired": "請輸入名稱",
+      "adminEmailInvalid": "請輸入有效的 email",
+      "domainInvalid": "網域格式不正確"
+    },
+    "create": {
+      "action": "建立租戶",
+      "title": "建立租戶",
+      "success": "已建立，正在佈建"
+    },
+    "rename": {
+      "action": "改名",
+      "title": "修改租戶名稱",
+      "success": "已更新名稱"
+    },
+    "retry": {
+      "action": "重試佈建",
+      "success": "已重新開始佈建"
+    },
+    "disable": {
+      "action": "停用",
+      "title": "停用租戶",
+      "confirm": "停用後 {{code}} 的所有網域會回「無法使用」，已登入的使用者全部登出。之後可以再啟用。",
+      "success": "已停用"
+    },
+    "enable": {
+      "action": "啟用",
+      "success": "已啟用"
+    },
+    "remove": {
+      "action": "刪除",
+      "title": "刪除租戶",
+      "confirm": "刪除 {{code}}：租戶會停用並從清單移除，網域釋出給其他租戶使用。資料庫與檔案不會立即清除，需要另外手動處理。",
+      "success": "已刪除"
+    },
+    "domain": {
+      "title": "網域",
+      "primary": "主要網域",
+      "add": "新增網域",
+      "addAction": "新增",
+      "remove": "移除這個網域",
+      "addSuccess": "已新增網域",
+      "removeSuccess": "已移除網域"
+    }
+  }
+}

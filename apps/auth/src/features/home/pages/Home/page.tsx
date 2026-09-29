@@ -6,7 +6,7 @@ import { useTranslation } from '@/core/locales';
 
 /**
  * 平台首頁：目前登入的平台管理者（docs/adr/0020-physical-tenant-isolation.md D5）。
- * 租戶管理在交付順序第 4 步加入；外部 IdP 連線屬於租戶，已搬到 backstage。
+ * 租戶管理在 `/tenant`；外部 IdP 連線屬於租戶，在各租戶的 backstage。
  */
 export default function HomePage() {
   const { t } = useTranslation();

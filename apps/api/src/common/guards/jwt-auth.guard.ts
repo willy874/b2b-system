@@ -4,9 +4,10 @@ import { Reflector } from '@nestjs/core';
 
 import { AppException } from '@/core/errors';
 import { setContextUser } from '@/core/http';
+import { currentTenant } from '@/core/tenant';
 
 import { AccessTokenVerifier } from '../auth/access-token.verifier';
-import { IS_PUBLIC } from '../decorators';
+import { IS_PUBLIC, REQUIRED_PLATFORM_PERMISSIONS } from '../decorators';
 import type { AuthenticatedRequest } from '../types';
 
 export type { AccessTokenPayload } from '../auth/access-token.verifier';
@@ -29,6 +30,15 @@ export class JwtAuthGuard implements CanActivate {
     if (ctx.getType() !== 'http') return true;
     if (this.reflector.getAllAndOverride<boolean>(IS_PUBLIC, [ctx.getHandler(), ctx.getClass()])) {
       return true;
+    }
+
+    // 平台管理者的端點在租戶網域上等同不存在（ADR-0020 D5），不必先驗 token
+    const targets = [ctx.getHandler(), ctx.getClass()];
+    if (
+      currentTenant() &&
+      this.reflector.getAllAndOverride(REQUIRED_PLATFORM_PERMISSIONS, targets)
+    ) {
+      throw new AppException('PLATFORM_ONLY');
     }
 
     const req = ctx.switchToHttp().getRequest<AuthenticatedRequest>();

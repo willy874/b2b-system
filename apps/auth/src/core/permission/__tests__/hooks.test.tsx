@@ -8,7 +8,7 @@ import { PermissionKey } from '../enums';
 import { usePageAccess, usePageAccessChecker, usePagePermission, usePermission } from '../hooks';
 import { registerPagePermission, resetPagePermissionRegistry } from '../registry';
 
-const ROLE_PAGE = definePageKey('ROLE');
+const TENANT_PAGE_KEY = definePageKey('TENANT');
 const HOME_PAGE = definePageKey('HOME');
 
 function hydrate(keys: PermissionKey[]): void {
@@ -19,11 +19,11 @@ beforeEach(() => {
   resetPagePermissionRegistry();
   usePermissionStore.setState({ permissions: new Set(), hydrated: false });
 
-  registerPagePermission(ROLE_PAGE, {
-    route: '/role',
+  registerPagePermission(TENANT_PAGE_KEY, {
+    route: '/tenant',
     rule: {
-      resource: PermissionResource.ROLE,
-      access: [PermissionKey['role:read']],
+      resource: PermissionResource.TENANT,
+      access: [PermissionKey['tenant:read']],
       match: PermissionMatch.EVERY,
     },
   });
@@ -41,11 +41,11 @@ describe('usePermission', () => {
   });
 
   it('canEvery 需要全部持有', () => {
-    hydrate([PermissionKey['role:read']]);
+    hydrate([PermissionKey['tenant:read']]);
     const { result } = renderHook(() => usePermission());
-    expect(result.current.canEvery([PermissionKey['role:read']])).toBe(true);
+    expect(result.current.canEvery([PermissionKey['tenant:read']])).toBe(true);
     expect(
-      result.current.canEvery([PermissionKey['role:read'], PermissionKey['permission:read']]),
+      result.current.canEvery([PermissionKey['tenant:read'], PermissionKey['tenant:update']]),
     ).toBe(false);
   });
 
@@ -57,8 +57,8 @@ describe('usePermission', () => {
 
 describe('usePagePermission', () => {
   it('從 resource 派生 CRUD 能力', () => {
-    hydrate([PermissionKey['role:read'], PermissionKey['role:create']]);
-    const { result } = renderHook(() => usePagePermission(ROLE_PAGE));
+    hydrate([PermissionKey['tenant:read'], PermissionKey['tenant:create']]);
+    const { result } = renderHook(() => usePagePermission(TENANT_PAGE_KEY));
     expect(result.current).toMatchObject({
       canAccess: true,
       canRead: true,
@@ -89,18 +89,17 @@ describe('usePagePermission', () => {
 
 describe('usePageAccessChecker', () => {
   it('回傳可在迴圈中呼叫的 predicate', () => {
-    hydrate([PermissionKey['role:read']]);
+    hydrate([PermissionKey['tenant:read']]);
     const { result } = renderHook(() => usePageAccessChecker());
-    expect([ROLE_PAGE, HOME_PAGE].filter((page) => result.current.canAccessPage(page))).toEqual([
-      ROLE_PAGE,
-      HOME_PAGE,
-    ]);
+    expect(
+      [TENANT_PAGE_KEY, HOME_PAGE].filter((page) => result.current.canAccessPage(page)),
+    ).toEqual([TENANT_PAGE_KEY, HOME_PAGE]);
   });
 
   it('沒有權限時過濾掉受管頁面', () => {
     hydrate([]);
     const { result } = renderHook(() => usePageAccessChecker());
-    expect(result.current.canAccessPage(ROLE_PAGE)).toBe(false);
+    expect(result.current.canAccessPage(TENANT_PAGE_KEY)).toBe(false);
     expect(result.current.canAccessPage(HOME_PAGE)).toBe(true);
   });
 });
@@ -119,19 +118,19 @@ describe('usePageAccess', () => {
   });
 
   it('受管頁面：有權限可進入', () => {
-    hydrate([PermissionKey['role:read']]);
-    const { result } = renderHook(() => usePageAccess('/role/abc/permission'));
-    expect(result.current).toMatchObject({ gated: true, canAccess: true, page: ROLE_PAGE });
+    hydrate([PermissionKey['tenant:read']]);
+    const { result } = renderHook(() => usePageAccess('/tenant/abc'));
+    expect(result.current).toMatchObject({ gated: true, canAccess: true, page: TENANT_PAGE_KEY });
   });
 
   it('受管頁面：無權限 → 顯示 403（不是導向）', () => {
     hydrate([]);
-    const { result } = renderHook(() => usePageAccess('/role'));
+    const { result } = renderHook(() => usePageAccess('/tenant'));
     expect(result.current).toMatchObject({ gated: true, canAccess: false });
   });
 
   it('未水合時 hydrated 為 false，讓 guard 顯示骨架屏', () => {
-    const { result } = renderHook(() => usePageAccess('/role'));
+    const { result } = renderHook(() => usePageAccess('/tenant'));
     expect(result.current.hydrated).toBe(false);
   });
 });

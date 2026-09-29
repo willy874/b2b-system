@@ -136,6 +136,20 @@ export class PermissionsGuard implements CanActivate {
 是唯讀開放給 `permission:read` 的）。告訴他缺哪一個，他才知道要去請誰開。
 隱藏只會讓「權限不足」變成一個要開 ticket 才查得出來的謎。
 
+### 3.2 平台管理者的端點（`@RequirePlatformPermissions`）
+
+apps/auth 的平台管理者與租戶的使用者是兩份帳號（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D5），
+權限目錄也是兩份（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §8）。平台的端點宣告
+`@RequirePlatformPermissions('tenant:create')`（所有鍵都要有），同一個 `PermissionsGuard` 判斷：
+
+| 情況 | 結果 |
+| --- | --- |
+| 請求的網域屬於某個租戶 | `404 PLATFORM_ONLY`——`JwtAuthGuard` 在驗 token **之前** 就擋下，等同端點不存在 |
+| 平台管理者（`realm: 'platform'` 的 token）有全部的鍵 | 放行；權限來自 `platform_admins.role` 的固定對照，不查租戶的權限快取 |
+| 缺任何一個 | `403 AUTHZ_FORBIDDEN`（帶 `missing`），拒絕寫 **平台** 稽核 `platform_audit_logs` |
+
+路由稽核（§7）把它算成一種宣告；WebSocket 的處理器不能用它（平台管理者不連 WebSocket）。
+
 ---
 
 ## 4. `PermissionService`
@@ -470,6 +484,16 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/platform/auth/refresh`    | `@Public`                        |
 | POST   | `/platform/auth/logout`     | `@Authenticated`（平台管理者）   |
 | GET    | `/platform/auth/profile`    | `@Authenticated`（平台管理者）   |
+| GET    | `/platform/tenants` | `@RequirePlatformPermissions('tenant:read')`（ADR-0020 D12、D13；只在 apps/auth 的網域） |
+| GET    | `/platform/tenants/:id` | `@RequirePlatformPermissions('tenant:read')` |
+| POST   | `/platform/tenants` | `@RequirePlatformPermissions('tenant:create')` |
+| PATCH  | `/platform/tenants/:id` | `@RequirePlatformPermissions('tenant:update')` |
+| POST   | `/platform/tenants/:id/provision` | `@RequirePlatformPermissions('tenant:create')` |
+| POST   | `/platform/tenants/:id/disable` | `@RequirePlatformPermissions('tenant:update')` |
+| POST   | `/platform/tenants/:id/enable` | `@RequirePlatformPermissions('tenant:update')` |
+| DELETE | `/platform/tenants/:id` | `@RequirePlatformPermissions('tenant:delete')` |
+| POST   | `/platform/tenants/:id/domains` | `@RequirePlatformPermissions('tenant:update')` |
+| DELETE | `/platform/tenants/:id/domains/:domain` | `@RequirePlatformPermissions('tenant:update')` |
 | GET    | `/tenant/current`           | `@Public`（目前網域的租戶，ADR-0020 D7） |
 | GET    | `/tenants/lookup`           | `@Public`（以代碼找租戶的登入入口，ADR-0020 D11） |
 | GET    | `/oidc-interaction/:uid`    | `@Public`（互動 cookie 就是憑證，ADR-0019 D16） |

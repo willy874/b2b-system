@@ -125,6 +125,14 @@ export class RefreshTokenRepository {
       .where(and(eq(refreshTokens.familyId, familyId), isNull(refreshTokens.revokedAt)));
   }
 
+  /** 撤銷目前租戶的所有 session（租戶停用，docs/adr/0020-physical-tenant-isolation.md D13）。 */
+  async revokeAll(reason: RevokedReason): Promise<void> {
+    await this.db
+      .update(refreshTokens)
+      .set({ revokedAt: new Date(), revokedReason: reason })
+      .where(isNull(refreshTokens.revokedAt));
+  }
+
   async revokeAllForUser(userId: string, reason: RevokedReason, tx?: DbOrTx): Promise<void> {
     const db = tx ?? this.db;
     await db

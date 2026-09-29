@@ -13,6 +13,7 @@ export * from './endpoints/identity-providers';
 export * from './endpoints/jobs';
 export * from './endpoints/permissions';
 export * from './endpoints/platform-auth';
+export * from './endpoints/platform-tenants';
 export * from './endpoints/roles';
 export * from './endpoints/system';
 export * from './endpoints/tenants';

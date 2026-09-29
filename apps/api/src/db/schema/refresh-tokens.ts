@@ -48,4 +48,6 @@ export type RevokedReason =
   | 'sso_logout'
   | 'reuse_detected'
   | 'user_disabled'
-  | 'password_reset';
+  | 'password_reset'
+  /** 平台管理者停用或刪除了租戶（docs/adr/0020-physical-tenant-isolation.md D13）。 */
+  | 'tenant_disabled';

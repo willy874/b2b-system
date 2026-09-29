@@ -8,15 +8,22 @@ import {
   MESSAGE_METADATA,
 } from '@nestjs/websockets/constants';
 
-import { IS_AUTHENTICATED, IS_PUBLIC, REQUIRED_PERMISSIONS } from './decorators';
-import type { PermissionRequirement } from './decorators';
-import type { PermissionKey } from './types';
+import {
+  IS_AUTHENTICATED,
+  IS_PUBLIC,
+  REQUIRED_PERMISSIONS,
+  REQUIRED_PLATFORM_PERMISSIONS,
+} from './decorators';
+import type { PermissionRequirement, PlatformPermissionRequirement } from './decorators';
+import type { PermissionKey, PlatformPermissionKey } from './types';
 
 export interface RouteDeclaration {
   method: string;
   path: string;
-  declaration: 'public' | 'authenticated' | 'permissions' | 'none';
+  declaration: 'public' | 'authenticated' | 'permissions' | 'platformPermissions' | 'none';
   keys: PermissionKey[];
+  /** `@RequirePlatformPermissions` 的鍵（平台的權限目錄，ADR-0020 D5）。 */
+  platformKeys: PlatformPermissionKey[];
   match?: 'every' | 'some';
 }
 
@@ -26,10 +33,11 @@ export interface GatewayMessageDeclaration {
   event: string;
   declaration: RouteDeclaration['declaration'];
   keys: PermissionKey[];
+  platformKeys: PlatformPermissionKey[];
   match?: 'every' | 'some';
 }
 
-type Declaration = Pick<RouteDeclaration, 'declaration' | 'keys' | 'match'>;
+type Declaration = Pick<RouteDeclaration, 'declaration' | 'keys' | 'platformKeys' | 'match'>;
 
 function declarationOf(reflector: Reflector, handler: object, metatype: object): Declaration {
   const targets = [handler, metatype] as Array<() => void>;
@@ -39,6 +47,10 @@ function declarationOf(reflector: Reflector, handler: object, metatype: object):
     REQUIRED_PERMISSIONS,
     targets,
   );
+  const platform = reflector.getAllAndOverride<PlatformPermissionRequirement>(
+    REQUIRED_PLATFORM_PERMISSIONS,
+    targets,
+  );
   return {
     declaration: isPublic
       ? 'public'
@@ -46,9 +58,12 @@ function declarationOf(reflector: Reflector, handler: object, metatype: object):
         ? 'authenticated'
         : requirement
           ? 'permissions'
-          : 'none',
+          : platform
+            ? 'platformPermissions'
+            : 'none',
     keys: requirement?.keys ?? [],
-    match: requirement?.match,
+    platformKeys: platform?.keys ?? [],
+    match: requirement?.match ?? (platform ? 'every' : undefined),
   };
 }
 
@@ -131,19 +146,23 @@ export function auditRoutes(app: INestApplication): void {
   const undeclared = collectRouteDeclarations(app).filter((r) => r.declaration === 'none');
   if (undeclared.length) {
     throw new Error(
-      '以下路由未宣告授權策略（需要 @Public / @Authenticated / @RequirePermissions 其中之一）：\n' +
+      '以下路由未宣告授權策略（需要 @Public / @Authenticated / @RequirePermissions / @RequirePlatformPermissions 其中之一）：\n' +
         undeclared.map((r) => `  - ${r.method} ${r.path}`).join('\n'),
     );
   }
 
   // WebSocket 連線本身一定已驗證，`@Public()` 在這裡沒有意義，出現即視為寫錯
   // （docs/architecture/backend/08-realtime.md §5）。
+  // 平台管理者不經 WebSocket（只有租戶網域上的 backstage 會連），`@RequirePlatformPermissions` 也不該出現
   const invalid = collectGatewayDeclarations(app).filter(
-    (m) => m.declaration === 'none' || m.declaration === 'public',
+    (m) =>
+      m.declaration === 'none' ||
+      m.declaration === 'public' ||
+      m.declaration === 'platformPermissions',
   );
   if (invalid.length) {
     throw new Error(
-      '以下 WebSocket 訊息處理器未宣告授權策略（需要 @Authenticated / @RequirePermissions；不可用 @Public）：\n' +
+      '以下 WebSocket 訊息處理器未宣告授權策略（需要 @Authenticated / @RequirePermissions；不可用 @Public / @RequirePlatformPermissions）：\n' +
         invalid.map((m) => `  - WS ${m.gateway} ${m.event}（${m.declaration}）`).join('\n'),
     );
   }
@@ -154,4 +173,10 @@ export function collectDeclaredPermissionKeys(app: INestApplication): Permission
     (r) => r.keys,
   );
   return [...new Set(keys)];
+}
+
+export function collectDeclaredPlatformPermissionKeys(
+  app: INestApplication,
+): PlatformPermissionKey[] {
+  return [...new Set(collectRouteDeclarations(app).flatMap((r) => r.platformKeys))];
 }

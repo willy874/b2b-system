@@ -9,7 +9,7 @@ import { useSyncPermissions } from '@/features/login';
 
 import { GlobalProvider } from './GlobalProvider';
 
-/** 不需要 session 的頁面：SSO 的起點與 callback、IdP 的登入互動與錯誤頁、帳號流程。 */
+/** 不需要 session 的頁面：SSO 的起點與 callback、IdP 的登入互動與錯誤頁、帳號流程、進入租戶。 */
 const PUBLIC_PREFIXES = [
   '/login',
   '/callback',
@@ -19,6 +19,7 @@ const PUBLIC_PREFIXES = [
   '/reset-password',
   '/setup',
   '/register',
+  '/enter',
 ];
 
 function isPublic(pathname: string): boolean {

@@ -10,6 +10,7 @@ import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
 import { currentTenant } from '@/core/tenant';
 import type { PlatformAdminRow } from '@/db/platform/schema';
+import { PLATFORM_ROLE_PERMISSIONS } from '@/db/seeds/platform-permissions';
 import { parseAccountId } from '@/modules/oidc-provider/oidc-account';
 import {
   OidcProviderService,
@@ -142,7 +143,10 @@ export class PlatformAuthService implements OnModuleInit {
         displayName: admin.displayName,
         status: admin.status,
         lastLoginAt: admin.lastLoginAt?.toISOString() ?? null,
+        role: admin.role,
       },
+      // 前端依它決定頁面與按鈕（平台的權限目錄，ADR-0020 D5）
+      permissions: PLATFORM_ROLE_PERMISSIONS[admin.role].toSorted(),
     };
   }
 

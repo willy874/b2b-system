@@ -7,4 +7,5 @@ export const AsyncSsoErrorPage = lazyRouteComponent(() => import('./SsoError/pag
 export const AsyncForgotPasswordPage = lazyRouteComponent(() => import('./ForgotPassword/page'));
 export const AsyncResetPasswordPage = lazyRouteComponent(() => import('./ResetPassword/page'));
 export const AsyncSetupPage = lazyRouteComponent(() => import('./Setup/page'));
+export const AsyncEnterTenantPage = lazyRouteComponent(() => import('./EnterTenant/page'));
 export const AsyncRegisterPage = lazyRouteComponent(() => import('./Register/page'));

@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
 import type { PlatformAdminRow } from '@/db/platform/schema';
+import { PLATFORM_ROLE_PERMISSIONS } from '@/db/seeds/platform-permissions';
+import type { PlatformPermissionKey } from '@/db/seeds/platform-permissions';
 import { verifyAgainstDummy, verifyPassword } from '@/modules/auth/password';
 
 import { PlatformAdminRepository } from './platform-admin.repository';
@@ -71,6 +73,12 @@ export class PlatformAdminService {
   async findActive(id: string): Promise<PlatformAdminRow | undefined> {
     const admin = await this.repo.findById(id);
     return admin?.status === 'active' ? admin : undefined;
+  }
+
+  /** 可以登入的平台管理者的權限（依角色）；不存在或不是 `active` 時是空集合。 */
+  async permissionsOf(id: string): Promise<ReadonlySet<PlatformPermissionKey>> {
+    const admin = await this.findActive(id);
+    return new Set(admin ? PLATFORM_ROLE_PERMISSIONS[admin.role] : []);
   }
 
   async findById(id: string): Promise<PlatformAdminRow | undefined> {
