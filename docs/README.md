@@ -119,6 +119,9 @@ docs/
 │   ├── 06-literal-strings.md          i18n key / className / testid 不得以模板組成
 │   └── 07-layer-dependencies.md       package 與資料夾的層級依賴矩陣
 │
+├── features/                          待製作功能的提案（完成後刪除、重寫成正式文件歸檔）
+│   └── README.md                      清單、優先度、提案 → 歸檔的流程
+│
 └── adr/                               架構決策紀錄（Architecture Decision Records）
     ├── 0001-plugin-based-app-context.md
     ├── 0002-base-ui-over-mui.md
@@ -147,6 +150,8 @@ docs/
 - 任何「為什麼不選 X」的判斷放進 `adr/`，不要散落在規格內文。
 - 分區原則：`overview/` 講目標與計畫、`architecture/` 講系統設計、`rbac/` 講領域規格、
   `conventions/` 講寫程式規則、`adr/` 講決策理由。新文件依此歸位。
+- **還沒實作的功能** 寫在 `features/`，不要寫進上述分區；那些分區只描述已存在的系統。
+  流程見 [`features/README.md`](./features/README.md)。
 - 檔案路徑用相對於 repo 根目錄的形式（`apps/web/src/...`）。
 
 ---

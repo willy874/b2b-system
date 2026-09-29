@@ -251,6 +251,9 @@ game-editor/
 
 依序考慮，但需要主功能的輪廓先確定：
 
+> 各項的提案、優先度與開放問題已移到 [`../features/README.md`](../features/README.md)；
+> 這裡只保留原始清單，完成狀態以 `features/` 為準。
+
 1. **資源作用域**（[ADR-0006](../adr/0006-flat-permission-scope.md) 的延伸路徑）
 2. ~~Dark Mode~~（已完成，見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §4.4）
 3. MFA（`users.mfa_enabled` 已預留）

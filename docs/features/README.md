@@ -1,0 +1,118 @@
+# 待製作功能（Feature Backlog）
+
+這個資料夾放 **還沒做的功能提案**，一個功能一份文件。
+它是暫存區，不是規格：功能做完之後，提案文件要 **刪掉**，內容改寫成正式的設計文件，
+歸檔到 `docs/` 的對應分區（見 §4）。
+
+> 為什麼要分開：`architecture/`、`rbac/` 描述的是 **系統現在長什麼樣子**，
+> 必須與程式碼同步（[`../README.md`](../README.md) §5）。尚未實作的構想若寫進去，
+> 讀者就分不出哪些是事實、哪些是願望。
+
+---
+
+## 1. 待製作清單
+
+依優先度排序。**P0** 會影響之後所有功能的資料模型，要先決定；**P1** 是現有流程已經卡住的缺口；
+**P2** 是通用機制，做了之後每個功能都受惠；**P3** 視實際需求再做。
+
+| 優先度 | 功能 | 文件 | 狀態 | 依賴 |
+| --- | --- | --- | --- | --- |
+| P0 | 工作區／多租戶 | [`workspace.md`](./workspace.md) | 提案 | — |
+| P1 | 後端工作佇列與排程 | [`job-queue.md`](./job-queue.md) | 提案 | — |
+| P1 | 郵件寄送 | [`mailer.md`](./mailer.md) | 提案 | `job-queue` |
+| P1 | 站內通知中心 | [`notification-center.md`](./notification-center.md) | 提案 | — |
+| P1 | 系統設定（執行期可調） | [`system-settings.md`](./system-settings.md) | 提案 | — |
+| P2 | 版本歷史與軟刪除 | [`entity-revisions.md`](./entity-revisions.md) | 提案 | — |
+| P2 | 服務帳號／API Token | [`api-tokens.md`](./api-tokens.md) | 提案 | — |
+| P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | `job-queue` |
+| P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | `job-queue` |
+| P2 | 標籤、留言、關注 | [`tags-comments.md`](./tags-comments.md) | 提案 | `notification-center` |
+| P2 | 全域搜尋 | [`global-search.md`](./global-search.md) | 提案 | — |
+| P3 | 使用者群組 | [`user-groups.md`](./user-groups.md) | 提案 | — |
+| P3 | SSO（OIDC） | [`sso-oidc.md`](./sso-oidc.md) | 提案 | — |
+| P3 | MFA | [`mfa.md`](./mfa.md) | 提案 | — |
+| P3 | Feature Flag | [`feature-flags.md`](./feature-flags.md) | 提案 | `system-settings` |
+| P3 | 可觀測性 | [`observability.md`](./observability.md) | 提案 | — |
+| P3 | 多實例部署 | [`multi-instance.md`](./multi-instance.md) | 提案 | — |
+
+狀態只有三種：
+
+| 狀態 | 意思 |
+| --- | --- |
+| 提案 | 只有構想與開放問題，還沒決定要不要做、怎麼做 |
+| 規劃中 | 開放問題已有答案，範圍已定；可以開始寫 ADR 與實作 |
+| 實作中 | 有 branch 在做；文件中寫上 branch 名稱 |
+
+做完的功能 **不留在這張表**：文件刪除時一併刪掉這一列（§3）。
+
+---
+
+## 2. 新增一份提案
+
+1. 複製 [`_template.md`](./_template.md)，檔名用 kebab-case 的功能名稱（`api-tokens.md`），
+   **不加編號**。優先度會變，編號不會跟著變。
+2. 填好「背景」「範圍」「開放問題」。「初步構想」可以留白，但如果已經有想法，
+   要寫清楚它 **會動到哪些既有模組**。
+3. 在 §1 的表格加一列，狀態寫「提案」。
+4. 提案之間有依賴時，兩邊都要寫：被依賴的文件在「相關」欄列出依賴它的功能。
+
+提案可以直接 commit 到 `main`（`docs: 新增 <功能> 提案`），不需要等實作。
+
+---
+
+## 3. 從提案到歸檔
+
+```
+提案 ──回答開放問題──▶ 規劃中 ──開 branch──▶ 實作中 ──合併──▶ 歸檔（刪除提案）
+```
+
+### 3.1 進入「規劃中」
+
+- 「開放問題」每一條都要有結論。結論寫在該條下方，不要直接刪掉問題，review 時才看得到當初的考量。
+- 如果結論是「有多個方案、選了其中一個」，那就是一份 ADR：先在 `docs/adr/` 寫好（狀態「提案中（待確認）」），
+  提案文件改成連結到那份 ADR。
+
+### 3.2 實作中
+
+- 開 branch（`feat/<功能>`），在提案文件的標頭填上 branch 名稱，§1 表格的狀態改成「實作中」。
+- 照 [`../../CLAUDE.md`](../../CLAUDE.md)「新增一個功能的順序」實作。
+- 實作過程中發現提案寫錯，**直接改程式碼、不必回頭改提案**；提案在下一步會被刪掉，
+  該記錄的東西寫進正式文件。
+
+### 3.3 歸檔（功能合併時，同一個 PR 內完成）
+
+提案文件不是設計文件，不能直接搬過去。歸檔 = **依實作結果重寫**：
+
+1. **寫正式文件**，依 §4 放到對應分區。內容描述的是 **做出來的樣子**，
+   不是提案時的構想；提案中被否決的方案、實作時改掉的做法，寫進 ADR 的「評估過的方案」。
+2. **ADR** 的狀態從「提案中（待確認）」改成「採用」。
+3. **更新索引**：[`../README.md`](../README.md) §3 文件地圖、對應分區的 `README.md`（如 `architecture/backend/README.md`）。
+4. **連帶更新**：權限目錄、[`../overview/01-overview.md`](../overview/01-overview.md) 的範圍表、
+   [`../overview/03-roadmap.md`](../overview/03-roadmap.md)、[`../../CLAUDE.md`](../../CLAUDE.md)（指令、與文件不同的實作決定）。
+5. **刪除提案文件**，並刪掉 §1 表格中的那一列。
+6. 若其他提案依賴它，把對方「依賴」欄的連結改成指向正式文件。
+
+檢查：`grep -rn "features/<功能>.md" docs CLAUDE.md` 應為空（沒有殘留連結）。
+
+### 3.4 決定不做
+
+直接刪除提案文件與表格那一列。若「不做」的理由值得留下（例如評估過後認為架構不適合），
+寫成一份狀態為「否決」的 ADR。
+
+---
+
+## 4. 歸檔去向
+
+| 提案的內容 | 歸檔到 |
+| --- | --- |
+| 為什麼選 A 不選 B | `docs/adr/NNNN-<主題>.md` |
+| 後端模組、資料表、API | `docs/architecture/backend/NN-<主題>.md` |
+| 前端 feature、元件、狀態 | `docs/architecture/frontend/NN-<主題>.md` |
+| 橫跨前後端或部署的系統設計 | `docs/architecture/NN-<主題>.md` |
+| 權限、授權、身分的領域規則 | `docs/rbac/NN-<主題>.md` ＋ `02-permission-catalog.md` |
+| 寫程式的新規則 | `docs/conventions/` |
+| 範圍、里程碑 | `docs/overview/01-overview.md`、`03-roadmap.md` |
+
+一份提案通常會拆成 **一份 ADR ＋ 一到兩份規格**，例如檔案管理器的資料夾授權就是
+[ADR-0015](../adr/0015-file-folder-access.md) ＋ [`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)
+＋ [`backend/09-file.md`](../architecture/backend/09-file.md) §11。

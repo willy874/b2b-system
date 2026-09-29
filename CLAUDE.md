@@ -16,6 +16,7 @@ Game Editor 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架*
 | 前端 | `docs/architecture/frontend/01`→`03`→`06` |
 | 後端 | `docs/architecture/backend/01`→`03`→`05`；檔案／物件儲存看 `09` |
 | 權限相關 | [`docs/rbac/02-permission-catalog.md`](docs/rbac/02-permission-catalog.md) |
+| 挑下一個要做的功能 | [`docs/features/README.md`](docs/features/README.md)（待製作清單；完成後刪提案、寫正式文件歸檔） |
 | 寫程式規範 | [`docs/conventions/`](docs/conventions/README.md)（命名、TS、測試、commit、字面量、層級依賴）；寫或 review 程式碼前用 `best-practice` skill 載入 |
 
 ## 三處必須同步
@@ -83,7 +84,7 @@ pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法�
    `hooks/` → `pages/` → `index.tsx`
 6. `main.tsx` 加一行 `.use(<name>FeaturePlugin())`；`app/routes.tsx` 接上 route
 7. 測試：feature 的 hook 測試、頁面的三個權限案例、必要時補 E2E
-8. 回頭更新 `docs/`
+8. 回頭更新 `docs/`；若功能來自 `docs/features/` 的提案，依該資料夾 README §3.3 歸檔並刪除提案
 
 完整 SOP：[`docs/architecture/frontend/03-feature-anatomy.md`](docs/architecture/frontend/03-feature-anatomy.md) §5。
 
