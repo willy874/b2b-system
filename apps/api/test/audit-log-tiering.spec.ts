@@ -227,4 +227,47 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
       }
     });
   });
+
+  // 放在最後：會多搬一筆到冷表，放前面會影響上面的總數
+  describe('SECURITY DEFINER（docs/adr/0016-background-jobs.md D8）', () => {
+    /** 模擬「只有 SELECT / INSERT」的應用程式 role；在交易內 SET LOCAL ROLE，結束後自動還原。 */
+    async function asLimitedRole<T>(fn: (tx: TestDatabase) => Promise<T>): Promise<T> {
+      await db.execute(sql`
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'audit_limited') THEN
+            CREATE ROLE audit_limited NOLOGIN;
+          END IF;
+        END $$`);
+      await db.execute(sql`GRANT USAGE ON SCHEMA public TO audit_limited`);
+      await db.execute(
+        sql`GRANT SELECT, INSERT ON audit_logs, audit_logs_archive TO audit_limited`,
+      );
+      return db.transaction(async (tx) => {
+        await tx.execute(sql`SET LOCAL ROLE audit_limited`);
+        return fn(tx as unknown as TestDatabase);
+      });
+    }
+
+    it('沒有 audit_logs DELETE 權限的 role 不能直接刪', async () => {
+      await expectDbError(
+        asLimitedRole((tx) => tx.execute(sql`DELETE FROM audit_logs WHERE action = 'tier.recent'`)),
+        /permission denied/,
+      );
+    });
+
+    it('同一個 role 可以透過 archive_audit_logs() 搬移', async () => {
+      await insertLog('tier.limited', daysAgo(200));
+      const [row] = await asLimitedRole((tx) =>
+        tx.execute<{ moved: number }>(
+          sql`SELECT archive_audit_logs(${daysAgo(90).toISOString()}::timestamptz, 100) AS moved`,
+        ),
+      );
+      expect(Number(row?.moved)).toBe(1);
+      const cold = await db
+        .select({ id: auditLogsArchive.id })
+        .from(auditLogsArchive)
+        .where(eq(auditLogsArchive.action, 'tier.limited'));
+      expect(cold).toHaveLength(1);
+    });
+  });
 });

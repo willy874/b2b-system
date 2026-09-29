@@ -1,0 +1,149 @@
+import { Inject, Injectable } from '@nestjs/common';
+import { and, sql } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
+
+import { DRIZZLE } from '../database';
+import type { Database } from '../database';
+import { JOB_SCHEMA } from './job-queue';
+
+export const JOB_STATES = [
+  'created',
+  'retry',
+  'active',
+  'completed',
+  'cancelled',
+  'failed',
+] as const;
+export type JobState = (typeof JOB_STATES)[number];
+
+export interface JobRecord {
+  id: string;
+  name: string;
+  state: JobState;
+  data: Record<string, unknown> | null;
+  /** 完成時是 handler 的回傳值；失敗時是序列化的錯誤（`message`、`stack`…）。 */
+  output: Record<string, unknown> | null;
+  retryCount: number;
+  retryLimit: number;
+  createdOn: Date;
+  startAfter: Date;
+  startedOn: Date | null;
+  completedOn: Date | null;
+}
+
+/** 一個佇列各狀態的筆數（保留期內）。 */
+export interface JobQueueCounts {
+  /** 可以立即執行、等 worker 取走。 */
+  readyCount: number;
+  /** 排定在未來（延後入列、重試退避中）。 */
+  deferredCount: number;
+  activeCount: number;
+  /** 重試用完而停下的。 */
+  failedCount: number;
+  completedCount: number;
+}
+
+export interface JobListFilter {
+  /** 只看這些佇列（已註冊的工作）；pg-boss 內部或死信佇列不列出。 */
+  names: string[];
+  name?: string;
+  state?: JobState;
+  offset: number;
+  limit: number;
+}
+
+const JOB_TABLE = sql.raw(`${JOB_SCHEMA}.job`);
+
+const JOB_COLUMNS = sql`
+  id, name, state::text AS state, data, output,
+  retry_count AS "retryCount", retry_limit AS "retryLimit",
+  created_on AS "createdOn", start_after AS "startAfter",
+  started_on AS "startedOn", completed_on AS "completedOn"`;
+
+/**
+ * 讀 pg-boss 的工作表給管理頁用。pg-boss 的 API 只能逐一佇列查、不能分頁，所以直接查表；
+ * 表結構屬於 pg-boss，只在這個檔案出現，升級 pg-boss 時對照它的 migration 檢查這裡。
+ */
+@Injectable()
+export class JobStore {
+  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+
+  async list(filter: JobListFilter): Promise<{ items: JobRecord[]; total: number }> {
+    if (filter.names.length === 0) return { items: [], total: 0 };
+    const where = and(
+      inNames(filter.names),
+      filter.name ? sql`name = ${filter.name}` : undefined,
+      filter.state ? sql`state = ${filter.state}::${sql.raw(JOB_SCHEMA)}.job_state` : undefined,
+    ) as SQL;
+    const [items, [count]] = await Promise.all([
+      this.db.execute<JobRecordRow>(
+        sql`SELECT ${JOB_COLUMNS} FROM ${JOB_TABLE} WHERE ${where}
+            ORDER BY created_on DESC, id DESC LIMIT ${filter.limit} OFFSET ${filter.offset}`,
+      ),
+      this.db.execute<{ total: number }>(
+        sql`SELECT count(*)::int AS total FROM ${JOB_TABLE} WHERE ${where}`,
+      ),
+    ]);
+    return { items: items.map(toRecord), total: count?.total ?? 0 };
+  }
+
+  /**
+   * 即時計數。pg-boss 的 `getQueues()` 是監控迴圈定期寫入的快照（最多落後一分鐘），
+   * 管理頁剛重試完就要看到數字變，所以直接數。
+   */
+  async counts(names: string[]): Promise<Map<string, JobQueueCounts>> {
+    const result = new Map<string, JobQueueCounts>(
+      names.map((name) => [
+        name,
+        { readyCount: 0, deferredCount: 0, activeCount: 0, failedCount: 0, completedCount: 0 },
+      ]),
+    );
+    if (names.length === 0) return result;
+    // interface 沒有索引簽章，db.execute 的泛型要求 Record；用映射型別轉一次
+    const rows = await this.db.execute<{ name: string } & { [K in keyof JobQueueCounts]: number }>(
+      sql`SELECT name,
+            count(*) FILTER (WHERE state IN ('created', 'retry') AND start_after <= now())::int AS "readyCount",
+            count(*) FILTER (WHERE state IN ('created', 'retry') AND start_after > now())::int AS "deferredCount",
+            count(*) FILTER (WHERE state = 'active')::int AS "activeCount",
+            count(*) FILTER (WHERE state = 'failed')::int AS "failedCount",
+            count(*) FILTER (WHERE state = 'completed')::int AS "completedCount"
+          FROM ${JOB_TABLE} WHERE ${inNames(names)} GROUP BY name`,
+    );
+    for (const { name, ...counts } of rows) result.set(name, counts);
+    return result;
+  }
+
+  async find(names: string[], id: string): Promise<JobRecord | undefined> {
+    if (names.length === 0) return undefined;
+    const [row] = await this.db.execute<JobRecordRow>(
+      sql`SELECT ${JOB_COLUMNS} FROM ${JOB_TABLE}
+          WHERE id = ${id} AND ${inNames(names)}`,
+    );
+    return row ? toRecord(row) : undefined;
+  }
+}
+
+function inNames(names: string[]): SQL {
+  return sql`name IN (${sql.join(
+    names.map((name) => sql`${name}`),
+    sql`, `,
+  )})`;
+}
+
+/** postgres.js 對 `db.execute` 的時間欄位回傳字串；在這裡轉成 Date，呼叫端不必知道。 */
+type JobRecordRow = Omit<JobRecord, 'createdOn' | 'startAfter' | 'startedOn' | 'completedOn'> & {
+  createdOn: string | Date;
+  startAfter: string | Date;
+  startedOn: string | Date | null;
+  completedOn: string | Date | null;
+};
+
+function toRecord(row: JobRecordRow): JobRecord {
+  return {
+    ...row,
+    createdOn: new Date(row.createdOn),
+    startAfter: new Date(row.startAfter),
+    startedOn: row.startedOn === null ? null : new Date(row.startedOn),
+    completedOn: row.completedOn === null ? null : new Date(row.completedOn),
+  };
+}

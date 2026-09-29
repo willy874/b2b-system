@@ -19,6 +19,8 @@ export default defineConfig({
     env: {
       FILE_STORAGE_ACCESS_KEY_ID: 'test-access-key',
       FILE_STORAGE_SECRET_ACCESS_KEY: 'test-secret-key',
+      // 預設不執行背景工作（排程、worker 不在其他測試裡偷跑）；test/jobs.spec.ts 自己打開
+      JOBS_WORKER_ENABLED: 'false',
     },
     // 整合測試共用同一個 container，檔案之間依序執行以避免互相污染
     fileParallelism: false,

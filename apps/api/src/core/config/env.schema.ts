@@ -104,13 +104,24 @@ export const EnvSchema = z.object({
    * 見 docs/architecture/backend/09-file.md §9。
    */
   FILE_PENDING_TTL: z.coerce.number().int().min(60).default(86_400),
-  /** 檔案維護排程（殘留清理、補產生影像變體）的間隔秒數；`0` 停用（多個執行個體時可只留一個開著）。 */
-  FILE_MAINTENANCE_INTERVAL: z.coerce.number().int().min(0).default(3600),
+  /** 檔案維護排程（殘留清理、補產生影像變體）的 cron（UTC）；空字串停用。 */
+  FILE_MAINTENANCE_CRON: z.string().trim().default('0 * * * *'),
   /** `true`：維護排程只偵測並記錄殘留，不刪除任何東西。 */
   FILE_MAINTENANCE_DRY_RUN: z
     .enum(['true', 'false'])
     .default('false')
     .transform((value) => value === 'true'),
+
+  /**
+   * 這個程序是否執行背景工作（worker ＋ 排程）。`false` 時仍可入列，由另一個以同一映像、
+   * 設為 `true` 的容器執行（docs/adr/0016-background-jobs.md D4、D5）。
+   */
+  JOBS_WORKER_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  /** 稽核日誌熱 → 冷搬移的 cron（UTC）；空字串停用（docs/architecture/backend/06-audit-log.md §8）。 */
+  AUDIT_LOG_ARCHIVE_CRON: z.string().trim().default('30 3 * * *'),
 
   SUPER_ADMIN_EMAIL: z.string().email(),
   // 留空 = 未設定：seed 時隨機產生並印出一次（docs/rbac/05-seed-and-bootstrap.md）。
