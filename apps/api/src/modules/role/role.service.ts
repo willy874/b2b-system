@@ -3,7 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser, PermissionKey } from '@/common/types';
 import type { Database } from '@/core/database';
-import { DRIZZLE, withTransaction } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
@@ -38,7 +38,7 @@ function toDto(role: RoleWithCounts): RoleDto {
 @Injectable()
 export class RoleService {
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly repo: RoleRepository,
     private readonly permissionService: PermissionService,
     private readonly audit: AuditService,

@@ -210,10 +210,16 @@ WebSocket 另有三道防線：
 | Room                   | 誰在裡面                                   | 名稱來源                     |
 | ---------------------- | ------------------------------------------ | ---------------------------- |
 | `user:{userId}`        | 該使用者的所有連線（所有裝置、所有分頁）   | `userRoom(id)`               |
-| `perm:{permissionKey}` | 持有該權限的使用者的連線                   | `permRoom(key)`（例 `perm:role:read`） |
+| `t:{tenantId}:perm:{permissionKey}` | 目前租戶裡持有該權限的使用者的連線 | `permRoom(key)`（例 `t:…:perm:role:read`；租戶取自目前的租戶脈絡） |
 | `sid:{idpSessionUid}`  | 同一個 IdP session 的連線（經 SSO 登入、token 帶 `sid` 時才加入） | `idpSessionRoom(uid)`（ADR-0019 D5） |
 
-super-admin 加入所有 `perm:` room。
+super-admin 加入自己租戶的所有 perm room。
+
+- **perm room 帶租戶**（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D17）：一個程序服務所有租戶，
+  權限鍵的名稱各租戶都一樣，不帶租戶的話 A 租戶的變更會推給 B 租戶持有同一權限的人。
+  `user:`、`sid:` 用的是全域唯一的 id，不必帶租戶。
+- **連線屬於一個租戶**：handshake 時依網域決定（找不到回 `connect_error` 的 `TENANT_NOT_FOUND`），
+  之後這條連線上的每則訊息都在該租戶的脈絡裡處理（`socket.use` 包一層 `runInTenantContext`）。
 
 ### 6.1 來源 → 受眾
 

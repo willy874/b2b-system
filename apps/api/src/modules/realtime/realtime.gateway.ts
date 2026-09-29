@@ -25,7 +25,11 @@ import { AccessTokenVerifier } from '@/common/auth';
 import { Authenticated } from '@/common/decorators';
 import { PermissionsGuard, WsAuthGuard } from '@/common/guards';
 import type { Env } from '@/core/config';
+import { AppException } from '@/core/errors';
 import type { ErrorCode } from '@/core/errors';
+import { requestHost } from '@/core/http';
+import { runInTenantContext, Tenancy, TenantDirectory } from '@/core/tenant';
+import type { TenantContext } from '@/core/tenant';
 
 import { RealtimeAudience } from './realtime.audience';
 import { REALTIME_LIMITS, REALTIME_MAX_FRAME_BYTES } from './realtime.constants';
@@ -48,7 +52,9 @@ function connectError(code: ErrorCode): Error {
  * 連線的入口（docs/architecture/backend/08-realtime.md §3、§8、§11）。與 `RealtimePublisher` 的
  * Socket.io 實作一起構成傳輸層；listener 與 audience 不直接碰這裡的 `server`。
  *
- * - 連線：`allowRequest`（Origin ＋ 每 IP handshake 次數）→ `io.use` 驗 access token → 加入 room。
+ * - 連線：`allowRequest`（Origin ＋ 每 IP handshake 次數）→ `io.use` 以網域決定租戶、驗 access token → 加入 room。
+ * - 租戶：handshake 的網域決定這條連線屬於哪個租戶，之後這條連線上的每則訊息都在該租戶的脈絡裡處理
+ *   （docs/adr/0020-physical-tenant-isolation.md D2、D3）。
  * - 訊息：`WsAuthGuard` 重驗使用者 → `PermissionsGuard` 看宣告；每個處理器都要有授權宣告
  *   （`common/route-audit.ts`）。
  * - Nest 的 APP_GUARD / APP_INTERCEPTOR **不會** 套用到 gateway（WebSocket 的 context creator
@@ -74,6 +80,8 @@ export class RealtimeGateway
   private readonly allowMissingOrigin: boolean;
   private readonly handshakes: FixedWindowCounter;
   private readonly messages: FixedWindowCounter;
+  /** 連線 → 它的租戶脈絡（handshake 時決定，連線期間不變）。 */
+  private readonly tenants = new WeakMap<RealtimeSocket, TenantContext>();
 
   constructor(
     private readonly verifier: AccessTokenVerifier,
@@ -83,6 +91,8 @@ export class RealtimeGateway
     @Inject(REALTIME_LIMITS) private readonly limits: RealtimeLimits,
     private readonly adapterHost: HttpAdapterHost,
     private readonly publisher: SocketIoRealtimePublisher,
+    private readonly directory: TenantDirectory,
+    private readonly tenancy: Tenancy,
   ) {
     this.allowedOrigins = new Set(config.get('REALTIME_ALLOWED_ORIGINS', { infer: true }));
     // 瀏覽器一定帶 Origin；沒帶的只會是 Node 客戶端（整合測試、腳本），production 一律拒絕
@@ -108,7 +118,7 @@ export class RealtimeGateway
 
     // 驗證失敗就不建立連線，不會有「先連上再踢掉」的空窗
     io.use((socket, next) => {
-      this.authenticate(io, socket).then(
+      this.enterTenant(io, socket).then(
         (code) => {
           if (!code) return next();
           this.logger.warn({ ip: socket.handshake.address, code }, 'WebSocket handshake 驗證失敗');
@@ -123,6 +133,18 @@ export class RealtimeGateway
   }
 
   async handleConnection(socket: RealtimeSocket): Promise<void> {
+    const tenant = this.tenants.get(socket);
+    if (!tenant) {
+      socket.disconnect(true);
+      return;
+    }
+    // 之後這條連線上的每則訊息都在同一個租戶裡處理；socket.io 在 middleware 鏈之後以 nextTick 分派，
+    // AsyncLocalStorage 會跟著傳過去
+    socket.use((_packet, next) => runInTenantContext(tenant, () => next()));
+    await runInTenantContext(tenant, () => this.onConnected(socket));
+  }
+
+  private async onConnected(socket: RealtimeSocket): Promise<void> {
     const { userId } = socket.data;
     socket.data.connectedAt = Date.now();
     this.limitMessages(socket);
@@ -211,6 +233,26 @@ export class RealtimeGateway
     const origin = req.headers.origin;
     const allowed = origin ? this.allowedOrigins.has(origin) : this.allowMissingOrigin;
     return allowed ? undefined : 'ORIGIN_NOT_ALLOWED';
+  }
+
+  /** 以 handshake 的網域決定租戶，在該租戶裡驗 token；回傳拒絕的錯誤碼。 */
+  private async enterTenant(
+    io: RealtimeServer,
+    socket: RealtimeSocket,
+  ): Promise<ErrorCode | undefined> {
+    const req = socket.request;
+    const host = requestHost(req.headers, req.socket.remoteAddress, this.trustProxy());
+    const record = host ? await this.directory.resolveHost(host) : undefined;
+    if (!record) return 'TENANT_NOT_FOUND';
+    let tenant: TenantContext;
+    try {
+      tenant = this.tenancy.contextOf(record);
+    } catch (error) {
+      if (error instanceof AppException) return error.code;
+      throw error;
+    }
+    this.tenants.set(socket, tenant);
+    return runInTenantContext(tenant, () => this.authenticate(io, socket));
   }
 
   /** 驗 token 並把身分寫進 `socket.data`；回傳拒絕的錯誤碼。 */

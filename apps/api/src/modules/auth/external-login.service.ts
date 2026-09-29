@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
-import { DRIZZLE, withTransaction } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException, isUniqueViolation } from '@/core/errors';
 import type { ErrorCode } from '@/core/errors';
 import type { UserRow } from '@/db/schema';
@@ -45,7 +45,7 @@ export class ExternalLoginService {
   private readonly apiBase: string;
 
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly providers: IdentityProviderService,
     private readonly client: ExternalOidcClient,
     private readonly oidc: OidcProviderService,

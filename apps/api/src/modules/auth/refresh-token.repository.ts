@@ -4,7 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type { RefreshTokenRow, RevokedReason } from '@/db/schema';
 import { refreshTokens } from '@/db/schema';
 
@@ -23,7 +23,7 @@ export interface IssueRefreshTokenInput {
 
 @Injectable()
 export class RefreshTokenRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
   async findByHash(hash: string): Promise<RefreshTokenRow | undefined> {
     const [row] = await this.db

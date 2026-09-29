@@ -3,7 +3,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { hashPassword } from '@/modules/auth/password';
 
 import type { ScriptDatabase } from '../client';
-import { createScriptClient, loadScriptEnv } from '../client';
+import { forEachScriptTenant, loadScriptEnv, seedTenantCode } from '../client';
 import { auditLogs, permissions, rolePermissions, roles, userRoles, users } from '../schema';
 
 /** 固定亂數種子，確保 E2E fixture 可重現。 */
@@ -163,9 +163,7 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
 
 async function main(): Promise<void> {
   loadScriptEnv();
-  const { client, db } = createScriptClient();
-  await seedDevData(db);
-  await client.end();
+  await forEachScriptTenant((db) => seedDevData(db), { code: seedTenantCode() });
 }
 
 if (require.main === module) {

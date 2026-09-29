@@ -8,6 +8,7 @@ import { AccessTokenVerifier } from '@/common/auth';
 import { Public } from '@/common/decorators';
 import { UserCacheService } from '@/core/cache';
 import type { Database } from '@/core/database';
+import { runInTenantContext } from '@/core/tenant';
 
 import { extractBearer, JwtAuthGuard } from '../jwt-auth.guard';
 
@@ -19,6 +20,9 @@ class TestController {
 }
 
 import type { CachedUser } from '@/core/cache';
+
+/** 測試用的租戶脈絡：token 的 `tid` 要與它相符（docs/adr/0020-physical-tenant-isolation.md D10）。 */
+const TENANT = { id: 'tenant-1', code: 'test', db: {} as Database };
 
 const activeUser: CachedUser = {
   id: 'user-1',
@@ -44,7 +48,7 @@ function createContext(method: keyof TestController, authorization?: string) {
 
 function createGuard(
   options: {
-    payload?: { sub: string; ver: number; jti: string };
+    payload?: { sub: string; ver: number; jti: string; tid?: string };
     cached?: typeof activeUser;
     dbUser?: Partial<typeof activeUser>;
   } = {},
@@ -54,14 +58,15 @@ function createGuard(
       .fn()
       .mockImplementation(() =>
         options.payload
-          ? Promise.resolve(options.payload)
+          ? Promise.resolve({ tid: TENANT.id, ...options.payload })
           : Promise.reject(new Error('invalid signature')),
       ),
   } as unknown as JwtService;
 
   const config = { get: () => 'secret' } as unknown as ConfigService<never, true>;
   const userCache = new UserCacheService();
-  if (options.cached) userCache.set(options.cached);
+  const { cached } = options;
+  if (cached) runInTenantContext(TENANT, () => userCache.set(cached));
 
   const rows = options.dbUser ? [{ ...activeUser, ...options.dbUser }] : [];
   const db = {
@@ -70,10 +75,15 @@ function createGuard(
     }),
   } as unknown as Database;
 
-  return new JwtAuthGuard(
+  const guard = new JwtAuthGuard(
     new Reflector(),
     new AccessTokenVerifier(jwt, config as never, userCache, db),
   );
+  // 請求都在某個租戶裡（TenantMiddleware）
+  return {
+    canActivate: (context: ExecutionContext) =>
+      runInTenantContext(TENANT, () => guard.canActivate(context)),
+  };
 }
 
 describe('extractBearer', () => {
@@ -104,6 +114,17 @@ describe('JwtAuthGuard', () => {
   it('驗簽失敗 → AUTH_TOKEN_INVALID', async () => {
     const { context } = createContext('guarded', 'Bearer bad-token');
     await expect(createGuard().canActivate(context)).rejects.toMatchObject({
+      code: 'AUTH_TOKEN_INVALID',
+    });
+  });
+
+  it('token 是別的租戶簽的 → AUTH_TOKEN_INVALID（不查使用者）', async () => {
+    const { context } = createContext('guarded', 'Bearer token');
+    const guard = createGuard({
+      payload: { sub: 'user-1', ver: 0, jti: 'jti', tid: 'tenant-2' },
+      cached: activeUser,
+    });
+    await expect(guard.canActivate(context)).rejects.toMatchObject({
       code: 'AUTH_TOKEN_INVALID',
     });
   });

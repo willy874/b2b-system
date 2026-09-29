@@ -104,9 +104,22 @@ ADR-0018 的工作區是「共用資料表 ＋ `workspace_id`」，帳號跨工�
 
 - ✅ 第 1 步（移除工作區）：後端 `modules/workspace`、`@WorkspaceScoped`、權限與角色的 `scope`、工作區邀請全部移除，
   檔案模組的路由回到頂層（`/files`、`/file-folders`）；backstage 移除 `/w/:workspaceSlug`、切換器、成員頁；
-  apps/auth 移除 `/workspaces` 與 `/invitation`。migration 重新建立基準點（`0000_baseline`、`0001_functions_and_triggers`），
-  **既有的開發資料庫要 `pnpm db:reset` 後重新 seed**。
-- 第 2 步起尚未開始。
+  apps/auth 移除 `/workspaces` 與 `/invitation`。migration 重新建立基準點（`0000_baseline`、`0001_functions_and_triggers`）。
+- ✅ 第 2 步（平台 DB 與租戶 DB 分離）：平台 DB（`tenants`、`tenant_domains`、`oidc_payloads`、pg-boss）與租戶 DB 兩條 migration 線；
+  `core/tenant`（`TenantMiddleware` 依網域決定租戶、`Tenancy` 的每租戶連線池、`TENANT_DB` Proxy）；WebSocket 依 handshake 的網域；
+  背景工作的信封與 outbox、排程展開到每個租戶；權限／使用者快取與 perm room 帶租戶；access token 帶 `tid`；
+  腳本走遍每個租戶，`db:migrate` 從 `DEFAULT_TENANT_*` 登記預設租戶。設計的調整記在 ADR-0020「實作時改掉的做法」。
+  整合測試 `test/tenancy.spec.ts`（兩個租戶的帳號、token、資料互不相通；未知網域 404、停用 503、不信任 X-Forwarded-Host）。
+  **既有的開發環境要重建**：`.env` 改用 `PLATFORM_DATABASE_URL`、`DEFAULT_TENANT_*`（見 `.env.example`），再 `pnpm db:migrate`，
+  預設租戶的 DB 要 `pnpm db:reset && pnpm db:seed`（舊 migration 紀錄對不上新的基準點時，改成刪掉重建 database）。
+
+### 進入第 4 步之前必須處理
+
+- **物件儲存還是所有租戶共用一個 bucket**（原排在第 5 步，D16）。檔案維護會刪掉「在本租戶 DB 找不到紀錄」的物件：
+  一旦有第二個租戶，A 租戶的維護會刪掉 B 租戶的檔案。第 4 步開放建立租戶之前要先完成每租戶一個 bucket。
+- **啟動時檢查每個租戶的 migration 版本（D14 後半）** 還沒做：目前只有 `db:migrate` 會逐一套用。
+- `DEFAULT_TENANT_DOMAINS` 暫時包含 apps/auth 的網域（`localhost:5175`）：第 3 步有平台管理者與 OIDC 帶租戶之後移除，
+  到時 apps/auth 的網域不屬於任何租戶（D2）。
 
 ## 交付順序
 

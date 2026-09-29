@@ -3,7 +3,7 @@ import { and, desc, eq, gte, like, lte, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
 import type { Database } from '@/core/database';
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type { AuditLogRow } from '@/db/schema';
 import { auditLogs, auditLogsArchive } from '@/db/schema';
 
@@ -41,7 +41,7 @@ function escapeLike(value: string): string {
 
 @Injectable()
 export class AuditLogRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
   private buildFilters(
     table: AuditLogTable,

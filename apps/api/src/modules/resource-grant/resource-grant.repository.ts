@@ -3,7 +3,7 @@ import { and, asc, eq, gt, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type {
   GrantLevel,
   GrantSubjectType,
@@ -58,7 +58,7 @@ const LIVE_SUBJECT = sql`(
 
 @Injectable()
 export class ResourceGrantRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
   /** 使用者持有的角色（未刪除）。 */
   async findRoleIdsOfUser(userId: string, tx?: DbOrTx): Promise<string[]> {

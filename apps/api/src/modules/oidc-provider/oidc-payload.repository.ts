@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 
-import type { Database } from '@/core/database';
-import { DRIZZLE } from '@/core/database';
-import type { OidcPayloadRow } from '@/db/schema';
-import { oidcPayloads } from '@/db/schema';
+import type { PlatformDatabase } from '@/core/database';
+import { PLATFORM_DB } from '@/core/database';
+import type { OidcPayloadRow } from '@/db/platform/schema';
+import { oidcPayloads } from '@/db/platform/schema';
 
 export interface UpsertOidcPayload {
   type: string;
@@ -19,7 +19,7 @@ export interface UpsertOidcPayload {
 /** `oidc_payloads` 的查詢；判斷「是否過期、是否已用過」由 Adapter 決定。 */
 @Injectable()
 export class OidcPayloadRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(@Inject(PLATFORM_DB) private readonly db: PlatformDatabase) {}
 
   async upsert(values: UpsertOidcPayload): Promise<void> {
     await this.db

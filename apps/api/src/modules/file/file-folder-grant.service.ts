@@ -3,7 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE, withTransaction } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import type { FileFolderRow, GrantLevel, ResourceGrantInsert } from '@/db/schema';
@@ -41,7 +41,7 @@ const SUBJECT_SEARCH_LIMIT = 20;
 @Injectable()
 export class FileFolderGrantService {
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly folders: FileFolderRepository,
     private readonly grants: ResourceGrantService,
     private readonly access: FileAccessService,

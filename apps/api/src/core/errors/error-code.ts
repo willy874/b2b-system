@@ -7,6 +7,12 @@ export const ErrorCode = {
   // ── 驗證 ──
   VALIDATION_FAILED: { status: 400 },
 
+  // ── 租戶（docs/adr/0020-physical-tenant-isolation.md D2） ──
+  /** 請求的網域不屬於任何租戶（或程式在沒有租戶脈絡的地方存取租戶 DB）。 */
+  TENANT_NOT_FOUND: { status: 404 },
+  /** 租戶停用、佈建中或佈建失敗。 */
+  TENANT_UNAVAILABLE: { status: 503 },
+
   // ── 認證 ──
   AUTH_INVALID_CREDENTIALS: { status: 401 },
   AUTH_ACCOUNT_PENDING: { status: 401 },

@@ -1,6 +1,6 @@
 import { archiveAuditLogs } from '@/modules/audit-log/audit-log.archive';
 
-import { createScriptClient, loadScriptEnv } from './client';
+import { forEachScriptTenant, loadScriptEnv } from './client';
 
 /**
  * 稽核日誌熱 → 冷搬移的手動入口（docs/architecture/backend/06-audit-log.md §8）。
@@ -8,10 +8,10 @@ import { createScriptClient, loadScriptEnv } from './client';
  */
 async function main(): Promise<void> {
   loadScriptEnv();
-  const { client, db } = createScriptClient();
-  const { moved, cutoff } = await archiveAuditLogs(db);
-  console.info(`稽核日誌搬移完成：${moved} 筆早於 ${cutoff.toISOString()} 的紀錄已移到冷表`);
-  await client.end();
+  await forEachScriptTenant(async (db) => {
+    const { moved, cutoff } = await archiveAuditLogs(db);
+    console.info(`稽核日誌搬移完成：${moved} 筆早於 ${cutoff.toISOString()} 的紀錄已移到冷表`);
+  });
 }
 
 main().catch((error: unknown) => {

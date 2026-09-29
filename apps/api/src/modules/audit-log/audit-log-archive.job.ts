@@ -3,7 +3,7 @@ import type { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '@/core/config';
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type { Database } from '@/core/database';
 import { defineJob, JobQueue } from '@/core/jobs';
 
@@ -27,7 +27,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
   private readonly logger = new Logger(AuditLogArchiveJob.name);
 
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly jobs: JobQueue,
     private readonly config: ConfigService<Env, true>,
   ) {}

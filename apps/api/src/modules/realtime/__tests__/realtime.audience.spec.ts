@@ -1,11 +1,14 @@
 import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { describe, expect, it, vi } from 'vitest';
 
+// perm room 帶租戶（docs/adr/0020-physical-tenant-isolation.md D17）：固定在租戶 t1
+vi.mock('@/core/tenant', () => ({ requireTenant: () => ({ id: 't1' }) }));
+
 import type { PermissionService } from '@/modules/permission/permission.service';
 
 import { RealtimeAudience, resolveAudienceRooms } from '../realtime.audience';
 import type { RealtimePublisher } from '../realtime.publisher';
-import { ALL_PERM_ROOMS, permRoomsFor } from '../realtime.rooms';
+import { allPermRooms, permRoomsFor } from '../realtime.rooms';
 
 const sorted = (rooms: string[]) => rooms.toSorted();
 
@@ -14,37 +17,37 @@ describe('來源 → 受眾（docs/architecture/backend/08-realtime.md §6.1）'
     {
       name: 'user：user:read、role:read 與被改的那個人',
       change: { resource: 'user', kind: 'update', id: 'u1' },
-      rooms: ['perm:auditLog:read', 'perm:role:read', 'perm:user:read', 'user:u1'],
+      rooms: ['t:t1:perm:auditLog:read', 't:t1:perm:role:read', 't:t1:perm:user:read', 'user:u1'],
     },
     {
       name: 'userRole：user:read、role:read 與被指派的那個人',
       change: { resource: 'userRole', kind: 'update', id: 'u1', refs: { role: ['r1'] } },
-      rooms: ['perm:auditLog:read', 'perm:role:read', 'perm:user:read', 'user:u1'],
+      rooms: ['t:t1:perm:auditLog:read', 't:t1:perm:role:read', 't:t1:perm:user:read', 'user:u1'],
     },
     {
       name: 'role create：只有 role:read',
       change: { resource: 'role', kind: 'create', id: 'r1' },
-      rooms: ['perm:auditLog:read', 'perm:role:read'],
+      rooms: ['t:t1:perm:auditLog:read', 't:t1:perm:role:read'],
     },
     {
       name: 'role update：role:read ＋ user:read（使用者嵌入角色名稱）',
       change: { resource: 'role', kind: 'update', id: 'r1' },
-      rooms: ['perm:auditLog:read', 'perm:role:read', 'perm:user:read'],
+      rooms: ['t:t1:perm:auditLog:read', 't:t1:perm:role:read', 't:t1:perm:user:read'],
     },
     {
       name: 'role delete：role:read ＋ user:read',
       change: { resource: 'role', kind: 'delete', id: 'r1' },
-      rooms: ['perm:auditLog:read', 'perm:role:read', 'perm:user:read'],
+      rooms: ['t:t1:perm:auditLog:read', 't:t1:perm:role:read', 't:t1:perm:user:read'],
     },
     {
       name: 'rolePermission：只有 role:read',
       change: { resource: 'rolePermission', kind: 'update', id: 'r1' },
-      rooms: ['perm:auditLog:read', 'perm:role:read'],
+      rooms: ['t:t1:perm:auditLog:read', 't:t1:perm:role:read'],
     },
     {
       name: 'userCredential：只有稽核的讀者（沒有畫面顯示憑證），也不推給本人',
       change: { resource: 'userCredential', kind: 'update', id: 'u1' },
-      rooms: ['perm:auditLog:read'],
+      rooms: ['t:t1:perm:auditLog:read'],
     },
   ];
 
@@ -79,11 +82,11 @@ describe('來源 → 受眾（docs/architecture/backend/08-realtime.md §6.1）'
 
 describe('permRoomsFor', () => {
   it('一般使用者：只有持有的權限', () => {
-    expect(permRoomsFor(new Set(['role:read'] as const), false)).toEqual(['perm:role:read']);
+    expect(permRoomsFor(new Set(['role:read'] as const), false)).toEqual(['t:t1:perm:role:read']);
   });
 
   it('super-admin：加入所有 perm room', () => {
-    expect(permRoomsFor(new Set(), true)).toEqual([...ALL_PERM_ROOMS]);
+    expect(permRoomsFor(new Set(), true)).toEqual([...allPermRooms()]);
   });
 });
 
@@ -112,7 +115,9 @@ describe('RealtimeAudience.refreshAudience（§6.2）', () => {
     await audience.refreshAudience(['u1', 'u1']);
 
     expect(publisher.moveRooms).toHaveBeenCalledTimes(1);
-    expect(publisher.moveRooms).toHaveBeenCalledWith('user:u1', ALL_PERM_ROOMS, ['perm:role:read']);
+    expect(publisher.moveRooms).toHaveBeenCalledWith('user:u1', allPermRooms(), [
+      't:t1:perm:role:read',
+    ]);
   });
 
   it('沒有連線的人不解析權限', async () => {

@@ -3,7 +3,7 @@ import { and, asc, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm
 import type { SQL } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type { RoleRow, UserInsert, UserRow } from '@/db/schema';
 import { roles, userRoles, users } from '@/db/schema';
 
@@ -38,7 +38,7 @@ const SORT_COLUMNS = {
 
 @Injectable()
 export class UserRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
   async findById(id: string): Promise<UserRow | undefined> {
     const [row] = await this.db

@@ -2,7 +2,7 @@ import { Controller, Get, Module } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DiscoveryModule } from '@nestjs/core';
-import { afterAll, beforeAll, describe, expect, it, inject } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { Public, RequirePermissions } from '@/common/decorators';
 import {
@@ -40,7 +40,6 @@ class UndeclaredModule {}
 
 describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
   beforeAll(async () => {
-    process.env.DATABASE_URL = inject('databaseUrl');
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = 'route-audit@example.com';
     const { AppModule } = await import('@/app.module');

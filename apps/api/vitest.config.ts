@@ -15,6 +15,7 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.spec.ts', 'test/**/*.spec.ts'],
     globalSetup: ['./test/global-setup.ts'],
+    setupFiles: ['./test/setup-env.ts'],
     // 必填但測試用不到真正連線的環境變數；個別測試仍可在 beforeAll 覆寫
     env: {
       FILE_STORAGE_ACCESS_KEY_ID: 'test-access-key',

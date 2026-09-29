@@ -7,7 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
-import { DRIZZLE, withTransaction } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
@@ -65,7 +65,7 @@ export class FileService {
   private readonly partSize: number;
 
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly repo: FileRepository,
     private readonly storage: ObjectStorage,
     private readonly audit: AuditService,

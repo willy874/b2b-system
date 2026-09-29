@@ -146,17 +146,12 @@ CREATE TABLE "user_identities" (
 	"last_login_at" timestamp with time zone
 );
 --> statement-breakpoint
-CREATE TABLE "oidc_payloads" (
-	"type" text NOT NULL,
-	"id" text NOT NULL,
-	"payload" jsonb NOT NULL,
-	"grant_id" text,
-	"uid" text,
-	"user_code" text,
-	"expires_at" timestamp with time zone,
-	"consumed_at" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "oidc_payloads_type_id_pk" PRIMARY KEY("type","id")
+CREATE TABLE "job_outbox" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"name" text NOT NULL,
+	"data" jsonb NOT NULL,
+	"options" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "permissions" (
@@ -301,9 +296,7 @@ CREATE INDEX "identity_provider_domains_provider_idx" ON "identity_provider_doma
 CREATE UNIQUE INDEX "identity_providers_name_key" ON "identity_providers" USING btree ("name") WHERE "identity_providers"."deleted_at" IS NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "user_identities_provider_subject_key" ON "user_identities" USING btree ("provider_id","subject");--> statement-breakpoint
 CREATE INDEX "user_identities_user_idx" ON "user_identities" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "oidc_payloads_grant_idx" ON "oidc_payloads" USING btree ("grant_id");--> statement-breakpoint
-CREATE INDEX "oidc_payloads_uid_idx" ON "oidc_payloads" USING btree ("type","uid");--> statement-breakpoint
-CREATE INDEX "oidc_payloads_expires_idx" ON "oidc_payloads" USING btree ("expires_at");--> statement-breakpoint
+CREATE INDEX "job_outbox_created_idx" ON "job_outbox" USING btree ("created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "permissions_resource_action_key" ON "permissions" USING btree ("resource","action");--> statement-breakpoint
 CREATE INDEX "permissions_sort_idx" ON "permissions" USING btree ("sort_order");--> statement-breakpoint
 CREATE UNIQUE INDEX "refresh_tokens_hash_key" ON "refresh_tokens" USING btree ("token_hash");--> statement-breakpoint

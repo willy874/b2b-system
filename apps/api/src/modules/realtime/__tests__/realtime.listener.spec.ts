@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
+// perm room 帶租戶（docs/adr/0020-physical-tenant-isolation.md D17）：固定在租戶 t1
+vi.mock('@/core/tenant', () => ({ requireTenant: () => ({ id: 't1' }) }));
+
 // 讓個別案例可以把受眾換成空集合；其餘案例走真實的對照表
 vi.mock('../realtime.audience', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../realtime.audience')>();
@@ -86,7 +89,7 @@ describe('RealtimeListener（領域事件 → 推播）', () => {
       payload: { changes, origin: 'tab-1' },
     });
     expect(emits[0]?.rooms).toEqual(
-      expect.arrayContaining(['perm:role:read', 'perm:auditLog:read', 'user:u1']),
+      expect.arrayContaining(['t:t1:perm:role:read', 't:t1:perm:auditLog:read', 'user:u1']),
     );
   });
 

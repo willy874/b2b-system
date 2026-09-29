@@ -493,41 +493,51 @@ pnpm db:migrate
 | 已套用到任何共用環境的 migration **不可修改**       | 要改就發新的一支                                         |
 | 破壞性變更拆成兩次部署                              | 先加新欄位並雙寫 → 部署 → 再移除舊欄位                   |
 
-### 5.2 手寫 migration 的位置
+### 5.2 兩條 migration 線
 
 ```
-db/migrations/
-├── 0000_baseline.sql                 drizzle-kit 產生（開頭手動加上 pg_trgm）
-├── 0001_functions_and_triggers.sql   手寫（drizzle-kit generate --custom）：protect_system_roles、
-│                                     audit append-only 與冷熱分層、set_updated_at 的各表 trigger
-└── 0002_…                            之後的變更接著編號
+db/migrations/                          租戶 DB（每個租戶都跑；schema 在 db/schema/，drizzle.config.ts）
+├── 0000_baseline.sql                   drizzle-kit 產生（開頭手動加上 pg_trgm）
+├── 0001_functions_and_triggers.sql     手寫（drizzle-kit generate --custom）：protect_system_roles、
+│                                       audit append-only 與冷熱分層、set_updated_at 的各表 trigger
+└── 0002_…                              之後的變更接著編號
+db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
+├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads
+└── 0001_functions_and_triggers.sql     tenants 的 updated_at
 ```
 
-2026-09-29 移除工作區時重新建立了基準點（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D20）：
-舊的 0000–0019 合併成上面兩支，當時還沒有正式環境資料。既有的開發資料庫要 `pnpm db:reset` 後重新 seed。
+產生 migration：租戶 DB `pnpm db:generate`；平台 DB `pnpm --filter @b2b-system/api exec drizzle-kit generate --config drizzle.platform.config.ts`。
+
+2026-09-29 移除工作區、分出平台 DB 時重新建立了基準點（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D20），
+當時還沒有正式環境資料。既有的開發資料庫要重建（見 [`../../features/tenant-isolation.md`](../../features/tenant-isolation.md)）。
 新增權限不需要資料 migration：seed 會 upsert 權限目錄；已存在的系統角色要補新權限時，再寫一支手寫 migration。
 
 ---
 
 ## 6. 連線
 
-```ts
-// core/database/database.provider.ts
-import postgres from "postgres";
-import { drizzle } from "drizzle-orm/postgres-js";
+資料庫分兩種（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D1）：
 
-const client = postgres(env.DATABASE_URL, {
-  max: env.NODE_ENV === "production" ? 20 : 5,
-  idle_timeout: 30,
-  connect_timeout: 10,
-  onnotice: () => {}, // 靜音 NOTICE
-});
+| | 內容 | 連線 | DI token |
+| --- | --- | --- | --- |
+| 平台 DB（一個） | `tenants`、`tenant_domains`、`oidc_payloads`、pg-boss | `PLATFORM_DATABASE_URL`；`DatabaseModule` 建一個連線池 | `PLATFORM_DB`（`PlatformDatabase`） |
+| 租戶 DB（每租戶一個） | 其餘所有業務表 | 連線字串以 `TENANT_SECRET_KEY` 加密存在 `tenants`；`core/tenant` 的 `Tenancy` 在第一次用到時建立小連線池（`TENANT_POOL_MAX`，閒置 60 秒關閉） | `TENANT_DB`（`Database`） |
 
-export const db = drizzle(client, { schema, logger: env.NODE_ENV === "development" });
-```
+- **`TENANT_DB` 永遠指向「目前的租戶」**：它是一個 Proxy，每次存取都轉到目前租戶脈絡（`AsyncLocalStorage`）的 database。
+  repository 照常 `@Inject(TENANT_DB) private readonly db: Database`、`withTransaction(this.db, …)`，不必知道有多個租戶。
+- **沒有租戶脈絡時存取 `TENANT_DB` 拋 `TENANT_NOT_FOUND`**，不會退回任何預設 database。
+- 租戶脈絡的來源：HTTP 由 `TenantMiddleware` 依請求的網域決定；WebSocket 由 gateway 依 handshake 的網域決定；
+  背景工作依工作的 `tenantId`（[`10-jobs.md`](./10-jobs.md) §1.1）；啟動時的初始化用 `Tenancy.forEachActive()`。
+  直接呼叫 service 的測試用 `test/tenant.ts` 的 `inTestTenant()`。
+- `withTransaction` 開的交易可以登記 `afterCommit(tx, hook)`，提交後才執行（背景工作的 outbox 用它）。
+- 關閉時平台連線池與每個租戶的連線池都 `client.end({ timeout: 5 })`。
 
-`DatabaseModule` 是 `@Global()`，提供 `DRIZZLE` injection token。
-應用程式關閉時（`OnApplicationShutdown`）呼叫 `client.end({ timeout: 5 })`。
+### 6.1 腳本
+
+`db:migrate`、`db:seed`、`db:reset`、`db:archive-audit-logs` 走遍平台 DB 登記的每個租戶（`db/client.ts` 的 `forEachScriptTenant`）；
+`db:seed:dev`、`db:seed:e2e` 只跑 `SEED_TENANT`（預設 `DEFAULT_TENANT_CODE`）。`db:migrate` 先跑平台 DB，
+設定了 `DEFAULT_TENANT_DATABASE_URL` 時登記預設租戶（`DEFAULT_TENANT_CODE`、`DEFAULT_TENANT_DOMAINS`），
+資料庫不存在時嘗試建立；單一租戶失敗不影響其他租戶，結束時列出失敗的租戶並以非零結束。
 
 ---
 

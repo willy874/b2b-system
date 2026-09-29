@@ -3,7 +3,7 @@ import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import type { PermissionKey } from '@/common/types';
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type { PermissionRow } from '@/db/schema';
 import { permissions, rolePermissions, roles, userRoles } from '@/db/schema';
 
@@ -11,7 +11,7 @@ import { SUPER_ADMIN_SLUG } from './permission.constants';
 
 @Injectable()
 export class PermissionRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
   /** 最熱的查詢：使用者透過所有角色間接持有的權限鍵。 */
   async findPermissionKeysByUser(userId: string): Promise<PermissionKey[]> {

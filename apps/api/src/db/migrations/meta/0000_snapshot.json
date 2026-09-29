@@ -1,5 +1,5 @@
 {
-  "id": "925a9601-a5f6-44f1-905f-e6fb7b8a2afe",
+  "id": "50b900b7-151b-4ec6-a237-ed803720074e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1515,57 +1515,35 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.oidc_payloads": {
-      "name": "oidc_payloads",
+    "public.job_outbox": {
+      "name": "job_outbox",
       "schema": "",
       "columns": {
-        "type": {
-          "name": "type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "id": {
           "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "payload": {
-          "name": "payload",
+        "data": {
+          "name": "data",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
         },
-        "grant_id": {
-          "name": "grant_id",
-          "type": "text",
+        "options": {
+          "name": "options",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": false
-        },
-        "uid": {
-          "name": "uid",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "user_code": {
-          "name": "user_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "consumed_at": {
-          "name": "consumed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'{}'::jsonb"
         },
         "created_at": {
           "name": "created_at",
@@ -1576,47 +1554,11 @@
         }
       },
       "indexes": {
-        "oidc_payloads_grant_idx": {
-          "name": "oidc_payloads_grant_idx",
+        "job_outbox_created_idx": {
+          "name": "job_outbox_created_idx",
           "columns": [
             {
-              "expression": "grant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "oidc_payloads_uid_idx": {
-          "name": "oidc_payloads_uid_idx",
-          "columns": [
-            {
-              "expression": "type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "uid",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "oidc_payloads_expires_idx": {
-          "name": "oidc_payloads_expires_idx",
-          "columns": [
-            {
-              "expression": "expires_at",
+              "expression": "created_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1629,12 +1571,7 @@
         }
       },
       "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "oidc_payloads_type_id_pk": {
-          "name": "oidc_payloads_type_id_pk",
-          "columns": ["type", "id"]
-        }
-      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},

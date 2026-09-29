@@ -3,8 +3,9 @@ import { ConfigService } from '@nestjs/config';
 
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
+import { IDP_SECRET_PURPOSE, SecretBox } from '@/core/crypto';
 import type { Database, DbOrTx, Transaction } from '@/core/database';
-import { DRIZZLE, withTransaction } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException, constraintNameOf, isUniqueViolation } from '@/core/errors';
 import type { IdentityProviderRow, UserIdentityRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
@@ -18,7 +19,6 @@ import type {
 import type { ExternalProviderConfig } from './external-oidc.client';
 import type { ProviderWithDomains } from './identity-provider.repository';
 import { IdentityProviderRepository } from './identity-provider.repository';
-import { SecretBox } from './secret-box';
 
 /** 稽核只記得到的欄位：client secret 絕不進稽核。 */
 const AUDIT_FIELDS = [
@@ -65,7 +65,7 @@ export class IdentityProviderService {
   private readonly callback: string;
 
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly repo: IdentityProviderRepository,
     private readonly audit: AuditService,
     config: ConfigService<Env, true>,
@@ -73,6 +73,7 @@ export class IdentityProviderService {
     this.secrets = SecretBox.fromConfig(
       config.get('IDP_SECRET_KEY', { infer: true }),
       config.get('JWT_SECRET', { infer: true }),
+      IDP_SECRET_PURPOSE,
     );
     const issuer = new URL(config.get('OIDC_ISSUER', { infer: true }));
     // 瀏覽器看到的 api 前綴（issuer 路徑去掉最後的 /oidc）＋ AuthModule 的固定 callback 路徑

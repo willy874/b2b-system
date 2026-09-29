@@ -28,7 +28,8 @@ export default defineConfig(({ command }) => ({
       // 前端一律打 `/api`，不在程式碼裡寫死後端位址（docs/architecture/01-system.md §4.1）。
       '/api': {
         target: 'http://localhost:3000',
-        changeOrigin: true,
+        // 保留瀏覽器看到的 Host（含 port）：api 以它決定租戶（docs/adr/0020-physical-tenant-isolation.md D2）
+        changeOrigin: false,
         // 即時推播的 WebSocket（`/api/socket.io` → `/socket.io`，同一個 rewrite）
         ws: true,
         rewrite: (path) => path.replace(/^\/api/, ''),

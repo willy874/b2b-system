@@ -2,8 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
-import { DRIZZLE } from '../database';
-import type { Database } from '../database';
+import { PLATFORM_DB } from '../database';
+import type { PlatformDatabase } from '../database';
 import { JOB_SCHEMA } from './job-queue';
 
 export const JOB_STATES = [
@@ -20,6 +20,7 @@ export interface JobRecord {
   id: string;
   name: string;
   state: JobState;
+  /** 入列時的資料（信封裡的 `payload`，docs/adr/0020-physical-tenant-isolation.md D15）。 */
   data: Record<string, unknown> | null;
   /** 完成時是 handler 的回傳值；失敗時是序列化的錯誤（`message`、`stack`…）。 */
   output: Record<string, unknown> | null;
@@ -44,6 +45,8 @@ export interface JobQueueCounts {
 }
 
 export interface JobListFilter {
+  /** 只看這個租戶的工作（信封的 `tenantId`）。 */
+  tenantId: string;
   /** 只看這些佇列（已註冊的工作）；pg-boss 內部或死信佇列不列出。 */
   names: string[];
   name?: string;
@@ -55,7 +58,7 @@ export interface JobListFilter {
 const JOB_TABLE = sql.raw(`${JOB_SCHEMA}.job`);
 
 const JOB_COLUMNS = sql`
-  id, name, state::text AS state, data, output,
+  id, name, state::text AS state, data->'payload' AS data, output,
   retry_count AS "retryCount", retry_limit AS "retryLimit",
   created_on AS "createdOn", start_after AS "startAfter",
   started_on AS "startedOn", completed_on AS "completedOn"`;
@@ -63,14 +66,16 @@ const JOB_COLUMNS = sql`
 /**
  * 讀 pg-boss 的工作表給管理頁用。pg-boss 的 API 只能逐一佇列查、不能分頁，所以直接查表；
  * 表結構屬於 pg-boss，只在這個檔案出現，升級 pg-boss 時對照它的 migration 檢查這裡。
+ * 佇列在平台 DB、所有租戶共用，每個查詢都以信封的 `tenantId` 過濾（`JobEnvelope`）。
  */
 @Injectable()
 export class JobStore {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(@Inject(PLATFORM_DB) private readonly db: PlatformDatabase) {}
 
   async list(filter: JobListFilter): Promise<{ items: JobRecord[]; total: number }> {
     if (filter.names.length === 0) return { items: [], total: 0 };
     const where = and(
+      ofTenant(filter.tenantId),
       inNames(filter.names),
       filter.name ? sql`name = ${filter.name}` : undefined,
       filter.state ? sql`state = ${filter.state}::${sql.raw(JOB_SCHEMA)}.job_state` : undefined,
@@ -91,7 +96,7 @@ export class JobStore {
    * 即時計數。pg-boss 的 `getQueues()` 是監控迴圈定期寫入的快照（最多落後一分鐘），
    * 管理頁剛重試完就要看到數字變，所以直接數。
    */
-  async counts(names: string[]): Promise<Map<string, JobQueueCounts>> {
+  async counts(tenantId: string, names: string[]): Promise<Map<string, JobQueueCounts>> {
     const result = new Map<string, JobQueueCounts>(
       names.map((name) => [
         name,
@@ -107,20 +112,24 @@ export class JobStore {
             count(*) FILTER (WHERE state = 'active')::int AS "activeCount",
             count(*) FILTER (WHERE state = 'failed')::int AS "failedCount",
             count(*) FILTER (WHERE state = 'completed')::int AS "completedCount"
-          FROM ${JOB_TABLE} WHERE ${inNames(names)} GROUP BY name`,
+          FROM ${JOB_TABLE} WHERE ${ofTenant(tenantId)} AND ${inNames(names)} GROUP BY name`,
     );
     for (const { name, ...counts } of rows) result.set(name, counts);
     return result;
   }
 
-  async find(names: string[], id: string): Promise<JobRecord | undefined> {
+  async find(tenantId: string, names: string[], id: string): Promise<JobRecord | undefined> {
     if (names.length === 0) return undefined;
     const [row] = await this.db.execute<JobRecordRow>(
       sql`SELECT ${JOB_COLUMNS} FROM ${JOB_TABLE}
-          WHERE id = ${id} AND ${inNames(names)}`,
+          WHERE id = ${id} AND ${ofTenant(tenantId)} AND ${inNames(names)}`,
     );
     return row ? toRecord(row) : undefined;
   }
+}
+
+function ofTenant(tenantId: string): SQL {
+  return sql`data->>'tenantId' = ${tenantId}`;
 }
 
 function inNames(names: string[]): SQL {

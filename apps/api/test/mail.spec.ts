@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { and, eq } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { afterAll, beforeAll, describe, expect, inject, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { MailTransport } from '@/core/mail';
 import type { MailMessage, SentMail } from '@/core/mail';
@@ -64,7 +64,6 @@ function tokenIn(message: MailMessage, path: string): string {
 
 describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
   beforeAll(async () => {
-    process.env.DATABASE_URL = inject('databaseUrl');
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN.email;
     process.env.SUPER_ADMIN_PASSWORD = SUPER_ADMIN.password;

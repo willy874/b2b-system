@@ -104,7 +104,7 @@ repository ✗──▶ service  （單向）
 [backstage] /auth/callback
   └─▶ POST /auth/sso/callback { code, codeVerifier, clientId, redirectUri }
         [api] 本程序內兌換授權碼（PKCE）
-                ├─ 簽發 access token  (JWT, 5 min, 僅含 sub/jti/ver/sid)
+                ├─ 簽發 access token  (JWT, 5 min, 僅含 sub/jti/ver/tid/sid)
                 └─ 產生 refresh token (opaque 隨機 256-bit，雜湊後入庫，記 client_id、idp_session_uid)
         ◀── 200 { accessToken, expiresIn, tokenType }
             Set-Cookie: refresh_token=…; HttpOnly; Secure; SameSite=Lax; Path=/api/auth（backstage 的 host-only cookie）
@@ -154,7 +154,7 @@ repository ✗──▶ service  （單向）
 | 層           | 機制                                                                                            | 最壞延遲                      |
 | ------------ | ----------------------------------------------------------------------------------------------- | ----------------------------- |
 | 後端授權判斷 | `PermissionCacheService`（in-memory，TTL 60s）＋ 角色/指派變更時 **主動失效**                   | 主動失效 < 1s；漏網情況 ≤ 60s |
-| Access Token | **不內嵌權限**（只有 `sub`、`jti`、`ver`）→ 不會有 token 內的陳舊權限                           | 不適用                        |
+| Access Token | **不內嵌權限**（只有 `sub`、`jti`、`ver`、`tid`）→ 不會有 token 內的陳舊權限                           | 不適用                        |
 | 前端 UI      | 伺服器推 `resource.changed`（`userRole` / `role` / `rolePermission`）→ 依賴圖衍生失效 `PROFILE` → 重抓 `GET /auth/profile`；推播斷線時退回：登入後、window focus 時、每 5 分鐘重新取得 | 推播 < 1s；斷線時 ≤ 5 min |
 | 強制登出     | 使用者被停用或刪除 → `users.token_version` +1 → 推 `session.revoked` 並斷線；既存 access token 驗簽時因 `ver` 不符而失效 | 推播 < 1s；否則下一次請求 |
 

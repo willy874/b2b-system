@@ -4,7 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE, withTransaction } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException, isUniqueViolation } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import type { FileFolderRow } from '@/db/schema';
@@ -46,7 +46,7 @@ interface PathNode {
 @Injectable()
 export class FileFolderService {
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly repo: FileFolderRepository,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,

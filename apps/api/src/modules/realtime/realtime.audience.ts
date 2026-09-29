@@ -7,7 +7,7 @@ import type { PermissionKey } from '@/common/types';
 import { PermissionService } from '@/modules/permission/permission.service';
 
 import { RealtimePublisher } from './realtime.publisher';
-import { ALL_PERM_ROOMS, permRoom, permRoomsFor, userRoom } from './realtime.rooms';
+import { allPermRooms, permRoom, permRoomsFor, userRoom } from './realtime.rooms';
 
 interface AudienceRule {
   /** 哪些 perm room 的人會因這筆變更需要重抓。 */
@@ -91,7 +91,7 @@ export class RealtimeAudience {
       // 沒有連線的人不必解析權限（省一次 DB）。只看本機的連線：
       // 裝了跨節點 adapter 之後要拿掉這個捷徑（§10.3）。
       if (!this.publisher.countConnections(userRoom(id))) continue;
-      this.publisher.moveRooms(userRoom(id), ALL_PERM_ROOMS, await this.roomsFor(id));
+      this.publisher.moveRooms(userRoom(id), allPermRooms(), await this.roomsFor(id));
     }
   }
 }

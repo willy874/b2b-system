@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { and, desc, eq } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { ObjectStorage } from '@/core/storage';
 import {
@@ -175,7 +175,6 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
   let adminArtFile: FileBody;
 
   beforeAll(async () => {
-    process.env.DATABASE_URL = inject('databaseUrl');
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN.email;
     process.env.SUPER_ADMIN_PASSWORD = SUPER_ADMIN.password;

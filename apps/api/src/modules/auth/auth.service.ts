@@ -9,10 +9,11 @@ import type { AuthUser } from '@/common/types';
 import { UserCacheService } from '@/core/cache';
 import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
-import { DRIZZLE, withTransaction } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { JobQueue } from '@/core/jobs';
+import { requireTenant } from '@/core/tenant';
 import type { RefreshTokenRow, UserRow } from '@/db/schema';
 import { ApprovalService } from '@/modules/approval/approval.service';
 import { AuditService } from '@/modules/audit-log/audit.service';
@@ -58,7 +59,7 @@ export interface SsoOrigin {
 @Injectable()
 export class AuthService {
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly config: ConfigService<Env, true>,
     private readonly jwt: JwtService,
     private readonly users: UserService,
@@ -206,6 +207,7 @@ export class AuthService {
         sub: user.id,
         ver: user.tokenVersion,
         jti: randomUUID(),
+        tid: requireTenant().id,
         ...(idpSessionUid && { sid: idpSessionUid }),
       },
       { secret: this.config.get('JWT_SECRET', { infer: true }), expiresIn },

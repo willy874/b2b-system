@@ -10,7 +10,7 @@
 | 壽命           | **5 分鐘**                    | **7 天**                           |
 | 存放（客戶端） | **記憶體**（JS 閉包）         | `httpOnly` cookie                  |
 | 存放（伺服器） | 不存                          | SHA-256 雜湊後存 `refresh_tokens`  |
-| 內容           | `{ sub, ver, jti, iat, exp }`；經 SSO 登入時多 `sid`（IdP session） | 無語意；經 SSO 發出時記 `client_id`、`idp_session_uid` |
+| 內容           | `{ sub, ver, jti, tid, iat, exp }`；經 SSO 登入時多 `sid`（IdP session） | 無語意；經 SSO 發出時記 `client_id`、`idp_session_uid` |
 | 輪替           | 不適用                        | **每次使用即輪替**                 |
 | 撤銷           | 靠 `token_version` 比對       | DB 標記 `revoked_at`               |
 
@@ -23,11 +23,13 @@ JWT 一旦簽出就無法撤回其內容。若權限寫在 token 裡，管理員
 代價是一次快取查詢（命中時 < 1 ms）。詳見
 [ADR-0005](../../adr/0005-permission-resolved-server-side.md)。
 
-Token 裡因此只有三樣東西：
+Token 裡因此只有這幾樣東西：
 
 - `sub` — 使用者 ID
 - `ver` — 簽發時的 `users.token_version`
 - `jti` — 供稽核追蹤
+- `tid` — 簽發時的租戶 id（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D10）：使用者 id 只在自己的租戶 DB 有意義，
+  驗證時 `tid` 必須等於請求網域決定的租戶，否則 `AUTH_TOKEN_INVALID`，不會拿去查別的租戶的使用者
 
 ### 1.2 `token_version` 的角色
 

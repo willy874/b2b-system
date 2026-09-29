@@ -27,7 +27,12 @@ services:
       dockerfile: apps/api/Dockerfile
     restart: 'no'
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-b2b_system}
+      # 平台 DB 不存在時 migrate 會建立；預設租戶的 DB 沿用 POSTGRES_DB（docs/adr/0020-physical-tenant-isolation.md）
+      PLATFORM_DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
+      TENANT_SECRET_KEY: ${TENANT_SECRET_KEY:?required}
+      DEFAULT_TENANT_DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-b2b_system}
+      # 瀏覽器看到的 host（含 port）；apps/auth 的是過渡（交付順序第 3 步移除）
+      DEFAULT_TENANT_DOMAINS: ${DEFAULT_TENANT_DOMAINS:-localhost:8080,localhost:8081}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
     # seed 是冪等的（權限目錄 upsert、系統角色已存在就略過），每次部署都跑
@@ -44,7 +49,8 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-b2b_system}
+      PLATFORM_DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
+      TENANT_SECRET_KEY: ${TENANT_SECRET_KEY:?required}
       JWT_SECRET: ${JWT_SECRET:?required}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
       REFRESH_COOKIE_PATH: /api/auth

@@ -241,7 +241,11 @@ modules/role/
 
 ```bash
 # ── apps/api ─────────────────────────────────────────
-DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_system
+PLATFORM_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_platform
+TENANT_SECRET_KEY=                 # 留空 = 由 JWT_SECRET 推導（production 必填）
+DEFAULT_TENANT_CODE=default
+DEFAULT_TENANT_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_system
+DEFAULT_TENANT_DOMAINS=localhost:5173,localhost:5175
 PORT=3000
 NODE_ENV=development
 

@@ -1,0 +1,58 @@
+import { sql } from 'drizzle-orm';
+import { index, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+
+import { citext } from '../../schema/custom-types';
+
+/**
+ * 租戶的生命週期（docs/adr/0020-physical-tenant-isolation.md D12、D13）：
+ * `provisioning` → `active`；佈建失敗停在 `failed`（可重試）；`disabled` 的網域回 503。
+ */
+export const tenantStatus = pgEnum('tenant_status', [
+  'provisioning',
+  'active',
+  'disabled',
+  'failed',
+]);
+
+/**
+ * 租戶登記（平台 DB）。每個租戶有自己的 database；連線字串以 `TENANT_SECRET_KEY` 加密存放（D4），
+ * 換叢集或換 DB 角色只要改這一欄。
+ */
+export const tenants = pgTable(
+  'tenants',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** 租戶代碼：網址與「進入租戶」頁輸入的就是它（小寫英數與連字號）。 */
+    code: citext('code').notNull(),
+    name: text('name').notNull(),
+    status: tenantStatus('status').notNull().default('active'),
+    databaseUrlEncrypted: text('database_url_encrypted').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex('tenants_code_key')
+      .on(t.code)
+      .where(sql`${t.deletedAt} IS NULL`),
+  ],
+);
+
+/**
+ * 租戶的網域（D2）：瀏覽器看到的 host。可以帶 port（`localhost:5173`），也可以只有主機名稱；
+ * 解析時先比對 `host:port`，再比對主機名稱。一個網域只屬於一個租戶。
+ */
+export const tenantDomains = pgTable(
+  'tenant_domains',
+  {
+    domain: citext('domain').primaryKey(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('tenant_domains_tenant_idx').on(t.tenantId)],
+);
+
+export type TenantRow = typeof tenants.$inferSelect;
+export type TenantStatus = (typeof tenantStatus.enumValues)[number];

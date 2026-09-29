@@ -17,6 +17,7 @@ import { JobsModule } from './core/jobs';
 import { LoggerModule } from './core/logger';
 import { MailModule } from './core/mail';
 import { StorageModule } from './core/storage';
+import { TenantMiddleware, TenantModule } from './core/tenant';
 import { ApprovalModule } from './modules/approval/approval.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -36,6 +37,8 @@ import { UserModule } from './modules/user/user.module';
     ConfigModule,
     LoggerModule,
     DatabaseModule,
+    // 依網域決定租戶、每租戶的連線池（docs/adr/0020-physical-tenant-isolation.md D2、D3）
+    TenantModule,
     CacheModule,
     EventsModule,
     // 背景工作佇列（pg-boss）；handler 由各模組註冊（docs/architecture/backend/10-jobs.md）
@@ -85,6 +88,7 @@ import { UserModule } from './modules/user/user.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(RequestIdMiddleware).forRoutes('*');
+    // 租戶要在所有路由之前決定（含 OidcProviderModule 掛的 /oidc/*：查帳號要連租戶 DB）
+    consumer.apply(RequestIdMiddleware, TenantMiddleware).forRoutes('*');
   }
 }

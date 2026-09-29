@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import sharp from 'sharp';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { ObjectStorage } from '@/core/storage';
 import { auditLogs, fileFolders, files, roles, userRoles, users } from '@/db/schema';
@@ -14,6 +14,7 @@ import { FileMaintenanceService } from '@/modules/file/file-maintenance.service'
 import type { TestDatabase } from './db';
 import { createTestDatabase, expectDbError, truncateAll } from './db';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
+import { inTestTenant } from './tenant';
 
 let app: INestApplication;
 let http: App;
@@ -112,7 +113,6 @@ async function uploadFile(
 
 describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
   beforeAll(async () => {
-    process.env.DATABASE_URL = inject('databaseUrl');
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN.email;
     process.env.SUPER_ADMIN_PASSWORD = SUPER_ADMIN.password;
@@ -526,11 +526,11 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     storage.modifiedAt.set(orphanKey, twoDaysAgo);
 
     const maintenance = app.get(FileMaintenanceService);
-    const detected = await maintenance.sweep({ dryRun: true });
+    const detected = await inTestTenant(app, () => maintenance.sweep({ dryRun: true }));
     expect(detected).toMatchObject({ dryRun: true, stalePendingFiles: 1, orphanObjects: 1 });
     expect(storage.objects.has(orphanKey)).toBe(true);
 
-    const report = await maintenance.sweep();
+    const report = await inTestTenant(app, () => maintenance.sweep());
     expect(report).toMatchObject({ dryRun: false, stalePendingFiles: 1, orphanObjects: 1 });
     const [row] = await db.select().from(files).where(eq(files.id, file.id));
     expect(row?.deletedAt).not.toBeNull();

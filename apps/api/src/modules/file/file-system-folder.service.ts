@@ -5,8 +5,9 @@ import type { OnApplicationBootstrap, OnModuleDestroy, OnModuleInit } from '@nes
 
 import { PERMISSION } from '@/common/types';
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE, withTransaction } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
+import { Tenancy } from '@/core/tenant';
 import type { FileFolderRow } from '@/db/schema';
 import { EVERYONE_SUBJECT_ID } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
@@ -35,12 +36,13 @@ export class FileSystemFolderService
   private unsubscribers: Array<() => void> = [];
 
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly repo: FileFolderRepository,
     private readonly grants: ResourceGrantService,
     private readonly permissions: PermissionService,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
+    private readonly tenancy: Tenancy,
   ) {}
 
   onModuleInit(): void {
@@ -60,11 +62,14 @@ export class FileSystemFolderService
     this.unsubscribers = [];
   }
 
+  /** 每個 `active` 的租戶各一套系統資料夾（docs/adr/0020-physical-tenant-isolation.md D3）。 */
   async onApplicationBootstrap(): Promise<void> {
-    await this.ensureSystemFolders();
-    await this.ensurePersonalFolders(await this.repo.findFileManagerUserIds());
-    // 服務沒在跑時刪除的使用者：啟動時補做
-    await this.removeEmptyPersonalFolders();
+    await this.tenancy.forEachActive(async () => {
+      await this.ensureSystemFolders();
+      await this.ensurePersonalFolders(await this.repo.findFileManagerUserIds());
+      // 服務沒在跑時刪除的使用者：啟動時補做
+      await this.removeEmptyPersonalFolders();
+    });
   }
 
   /**

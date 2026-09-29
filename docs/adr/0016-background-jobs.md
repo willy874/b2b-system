@@ -1,6 +1,6 @@
 # ADR-0016 — 後端工作佇列：pg-boss，worker 先跑在 api 程序內
 
-- 狀態：**採用**
+- 狀態：**採用**（D2、D3 的實作被 [ADR-0020](./0020-physical-tenant-isolation.md) D15 修改：佇列在平台 DB，交易內入列改寫租戶 DB 的 outbox，提交後搬進佇列）
 - 日期：2026-09-29
 - 相關：[`../architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md)、[`../architecture/backend/11-mail.md`](../architecture/backend/11-mail.md)、
   [`../architecture/backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) §6、§8、

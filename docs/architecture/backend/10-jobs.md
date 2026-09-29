@@ -23,9 +23,23 @@ modules/job/         管理 API（GET /jobs/queues、GET /jobs、GET /jobs/:id�
 ```
 
 - `core/jobs` 不認識任何業務工作；模組自己宣告、自己註冊（ADR-0016 D6，與審批 handler 同一個模式）。
-- pg-boss 的表在 `pgboss` schema，由 pg-boss 自己在啟動時建立與升級，不進 Drizzle 的 migration。
-- pg-boss 用自己的 `pg` 連線池（4 條）；業務交易內的入列走 pg-boss 內建的 `fromDrizzle` adapter，
-  使用該交易的連線。
+- pg-boss 的表在 **平台 DB** 的 `pgboss` schema（`PLATFORM_DATABASE_URL`），由 pg-boss 自己在啟動時建立與升級，
+  不進 Drizzle 的 migration。一套佇列與 worker 服務所有租戶（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D15）。
+- pg-boss 用自己的 `pg` 連線池（4 條）。業務交易在租戶 DB，不能和平台 DB 的佇列在同一個交易，
+  所以交易內的入列先寫租戶 DB 的 `job_outbox`（§4.1）。
+
+### 1.1 租戶
+
+每筆工作的資料是一個信封 `{ tenantId, payload }`（`JobEnvelope`）：
+
+| `defineJob` 的 `scope` | 入列 | 執行 |
+| --- | --- | --- |
+| `tenant`（預設） | 帶目前的租戶；沒有租戶脈絡時拋 `TENANT_NOT_FOUND` | handler 在 `tenantId` 的租戶脈絡裡執行（`Tenancy.run`），存取 `TENANT_DB` 就是那個租戶的 DB。租戶已停用或刪除時直接結束（`output = { skipped }`），不重試 |
+| `platform` | `tenantId = null`；不能帶 `tx` | 沒有租戶脈絡，只能碰平台 DB（例：`oidc.cleanup`、`jobs.outboxSweep`） |
+
+- **排程觸發的租戶工作沒有 `tenantId`**：worker 收到時展開成每個 `active` 租戶一筆（同一個佇列），
+  原本那筆的 `output` 是 `{ tenants: n }`。
+- `exclusive` 與 `throttle` 都以租戶區分（`singletonKey` 帶 `tenantId`），一個租戶的工作不會擋掉另一個租戶的。
 
 ## 2. 宣告與註冊
 
@@ -78,7 +92,8 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `file.maintenance` | `modules/file` | `FILE_MAINTENANCE_CRON` | `0 * * * *`（每小時整點） |
 | `auth.activationMail`、`auth.passwordResetMail` | `modules/auth` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
 | `approval.resultMail` | `modules/approval` | — | 由程式入列 |
-| `oidc.cleanup` | `modules/oidc-provider` | `OIDC_CLEANUP_CRON` | `45 3 * * *`（每天 03:45 UTC；清除過期的 IdP 狀態） |
+| `oidc.cleanup`（平台） | `modules/oidc-provider` | `OIDC_CLEANUP_CRON` | `45 3 * * *`（每天 03:45 UTC；清除過期的 IdP 狀態） |
+| `jobs.outboxSweep`（平台） | `core/jobs` | `JOBS_OUTBOX_SWEEP_CRON` | `* * * * *`（每分鐘；補搬各租戶 outbox 裡沒搬成的工作，§4.1） |
 
 ## 4. 入列
 
@@ -99,6 +114,16 @@ await withTransaction(this.db, async (tx) => {
   handler 執行時再取。
 - 沒註冊的工作不能入列（拋 `Error`）：代表擁有它的模組沒有載入，屬於程式錯誤。
 
+### 4.1 交易內入列：outbox
+
+帶 `tx` 的入列寫進租戶 DB 的 `job_outbox`（同一個交易），回傳的 id 在提交後就是佇列裡的工作 id：
+
+1. 交易提交後（`afterCommit`）立刻把目前租戶 outbox 裡的列搬進佇列並刪除（`SELECT … FOR UPDATE SKIP LOCKED`，一批 100 筆）。
+2. 搬移失敗或程序剛好在提交與搬移之間當掉：每分鐘的 `jobs.outboxSweep` 走遍每個 `active` 租戶補搬。
+3. 以 outbox 的 id 當 pg-boss 的工作 id（`ON CONFLICT DO NOTHING`）：送出後、刪除前當掉而重搬，也只會有一筆工作。
+
+交易回滾時 outbox 的列跟著消失，工作不存在——與 ADR-0016 D2 的保證相同，只是多了「提交後最多一分鐘才入列」的極端情況。
+
 ## 5. Worker 的位置
 
 | 部署 | 設定 |
@@ -117,13 +142,14 @@ await withTransaction(this.db, async (tx) => {
 | `GET /jobs/queues` | `job:read` | 已註冊的工作、排程、各狀態的 **即時** 筆數 |
 | `GET /jobs` | `job:read` | 列表（`createdOn DESC`；`name`、`state` 篩選；不含 `data` / `output`） |
 | `GET /jobs/:id` | `job:read` | 詳情（含 `data` 與 `output`；失敗時 `output` 是錯誤的 `message` / `stack`） |
-| `POST /jobs/:id/retry` | `job:retry` | 只接受 `failed`；稽核 `job.retry` 與重試在同一個交易 |
+| `POST /jobs/:id/retry` | `job:retry` | 只接受 `failed`；重試成功後寫稽核 `job.retry` |
 
-- 只列出程式有註冊的工作；pg-boss 內部或已下線的佇列不出現。
+- 只列出程式有註冊的 **租戶** 工作，而且只看目前租戶的（信封的 `tenantId`）；平台工作、pg-boss 內部或已下線的佇列不出現。
+  平台工作的監控之後放在 apps/auth（[`../../features/tenant-isolation.md`](../../features/tenant-isolation.md) 開放問題 3）。
 - 計數直接查表：`getQueues()` 的數字是 pg-boss 監控迴圈寫入的快照，最多落後一分鐘，重試完看不到數字變。
 - `JobStore` 是唯一直接讀 pg-boss 表結構的地方；升級 pg-boss 時對照它的 migration 檢查這個檔案。
-- 重試以 `state = 'failed'` 為條件更新：兩個人同時按，後到的得到 `JOB_NOT_RETRYABLE`（409），
-  稽核跟著回滾。
+- 重試以 `state = 'failed'` 為條件更新：兩個人同時按，後到的得到 `JOB_NOT_RETRYABLE`（409），不寫稽核。
+  佇列在平台 DB、稽核在租戶 DB，兩者不在同一個交易：先重試、成功才寫稽核。
 
 | 錯誤碼 | HTTP | 何時 |
 | --- | --- | --- |
@@ -138,6 +164,7 @@ await withTransaction(this.db, async (tx) => {
 | 環境變數 | 預設 | 說明 |
 | --- | --- | --- |
 | `JOBS_WORKER_ENABLED` | `true` | 這個程序是否執行工作與排程；`false` 只入列 |
+| `JOBS_OUTBOX_SWEEP_CRON` | `* * * * *` | 補搬 outbox 的排程（UTC）；空字串停用 |
 | `AUDIT_LOG_ARCHIVE_CRON` | `30 3 * * *` | 稽核封存的排程（UTC）；空字串停用 |
 | `FILE_MAINTENANCE_CRON` | `0 * * * *` | 檔案維護的排程（UTC）；空字串停用 |
 

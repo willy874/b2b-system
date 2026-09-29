@@ -3,7 +3,7 @@ import { and, asc, desc, eq, ilike, inArray, isNull, like } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type { ApprovalRequestInsert, ApprovalRequestRow } from '@/db/schema';
 import { approvalRequests, users } from '@/db/schema';
 
@@ -22,7 +22,7 @@ export type ApprovalReview = Pick<
 
 @Injectable()
 export class ApprovalRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
   async create(values: ApprovalRequestInsert, tx?: DbOrTx): Promise<ApprovalRequestRow> {
     const db = tx ?? this.db;

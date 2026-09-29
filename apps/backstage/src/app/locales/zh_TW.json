@@ -106,6 +106,8 @@
     "aborted": "請求已取消。",
     "permission_changed": "你的權限剛剛變更了，畫面已重新同步。",
     "VALIDATION_FAILED": "輸入內容不正確，請檢查後再試。",
+    "TENANT_NOT_FOUND": "這個網址不屬於任何租戶，請確認網址是否正確。",
+    "TENANT_UNAVAILABLE": "這個租戶目前無法使用，請聯絡平台管理員。",
     "AUTH_INVALID_CREDENTIALS": "帳號或密碼錯誤。",
     "AUTH_ACCOUNT_PENDING": "此帳號尚未啟用，請先完成啟用流程。",
     "AUTH_ACCOUNT_DISABLED": "此帳號已被停用。",

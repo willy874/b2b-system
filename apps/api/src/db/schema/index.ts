@@ -5,7 +5,7 @@ export * from './custom-types';
 export * from './file-folders';
 export * from './files';
 export * from './identity-providers';
-export * from './oidc-payloads';
+export * from './job-outbox';
 export * from './permissions';
 export * from './refresh-tokens';
 export * from './resource-grants';

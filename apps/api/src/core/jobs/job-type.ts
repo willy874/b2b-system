@@ -1,4 +1,4 @@
-/** 工作類型的執行設定；對應 pg-boss 的佇列選項（docs/architecture/backend/10-jobs.md §3）。 */
+/** 工作類型的執行設定；除了 `scope` 都對應 pg-boss 的佇列選項（docs/architecture/backend/10-jobs.md §3）。 */
 export interface JobTypeOptions {
   /** 失敗後最多重試幾次；用完就停在 `failed`，由管理頁手動重試。 */
   retryLimit: number;
@@ -12,6 +12,12 @@ export interface JobTypeOptions {
    * 一般工作（例：寄信）每筆都要執行，不能開。
    */
   exclusive: boolean;
+  /**
+   * `tenant`（預設）：在某個租戶裡執行，入列時帶目前的租戶；排程觸發時展開成每個 `active` 租戶一筆。
+   * `platform`：不屬於任何租戶（只碰平台 DB，例：清除 IdP 狀態），handler 裡沒有租戶脈絡
+   * （docs/adr/0020-physical-tenant-isolation.md D15）。
+   */
+  scope: 'tenant' | 'platform';
 }
 
 /**
@@ -33,6 +39,7 @@ const DEFAULT_JOB_OPTIONS: JobTypeOptions = {
   retryDelayMaxSeconds: 3600,
   expireInSeconds: 15 * 60,
   exclusive: false,
+  scope: 'tenant',
 };
 
 const JOB_NAME_PATTERN = /^[a-z][A-Za-z0-9]*\.[a-z][A-Za-z0-9]*$/;

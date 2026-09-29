@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type { FileFolderInsert, FileFolderKind, FileFolderRow } from '@/db/schema';
 import {
   fileFolders,
@@ -26,7 +26,7 @@ const FOLDER_TREE_LOCK_KEY = 'file_folders_tree';
 
 @Injectable()
 export class FileFolderRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
   /** 取得資料夾結構的寫入鎖；交易結束時自動釋放。 */
   async lockTree(tx: DbOrTx): Promise<void> {

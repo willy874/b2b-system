@@ -17,7 +17,7 @@ import { io } from 'socket.io-client';
 import type { Socket } from 'socket.io-client';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { afterAll, afterEach, beforeAll, describe, expect, inject, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { roles, userRoles, users } from '@/db/schema';
@@ -28,6 +28,7 @@ import { userRoom } from '@/modules/realtime/realtime.rooms';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
+import { inTestTenant, testTenantContext } from './tenant';
 
 type ClientSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -43,6 +44,8 @@ let db: TestDatabase;
 let closeDb: () => Promise<void>;
 let bus: DomainEventBus;
 let jwt: JwtService;
+/** 測試租戶的 id：直接簽的 token 要帶上（docs/adr/0020-physical-tenant-isolation.md D10）。 */
+let tenantId: string;
 
 const opened: ClientSocket[] = [];
 
@@ -71,6 +74,7 @@ async function tokenFor(
     sub: userId,
     ver: options.ver ?? 0,
     jti: randomUUID(),
+    tid: tenantId,
   };
   if (options.exp !== undefined) payload.exp = options.exp;
   return jwt.signAsync(payload, {
@@ -183,7 +187,6 @@ let superAdminToken: string;
 
 describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () => {
   beforeAll(async () => {
-    process.env.DATABASE_URL = inject('databaseUrl');
     process.env.JWT_SECRET = JWT_SECRET;
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN_EMAIL;
     process.env.SUPER_ADMIN_PASSWORD = 'RealtimeRoot!2026';
@@ -211,6 +214,7 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
     url = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
     bus = app.get(DomainEventBus);
     jwt = app.get(JwtService);
+    tenantId = (await testTenantContext(app)).id;
 
     const [root] = await db.select().from(users).where(eq(users.email, SUPER_ADMIN_EMAIL));
     superAdminToken = await tokenFor(root!.id);
@@ -542,9 +546,9 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       const userId = await createUser('stale-ws@example.com');
       const socket = await connect(await tokenFor(userId));
       await db.update(users).set({ tokenVersion: 1 }).where(eq(users.id, userId));
-      // UserCacheService 的 30 秒 TTL：模擬快取已過期
+      // UserCacheService 的 30 秒 TTL：模擬快取已過期（快取以租戶區分，要在租戶裡失效）
       const { UserCacheService } = await import('@/core/cache');
-      app.get(UserCacheService).invalidate(userId);
+      await inTestTenant(app, async () => app.get(UserCacheService).invalidate(userId));
 
       const disconnected = waitFor<string>(socket, 'disconnect');
       socket.emit(ClientEvent.CHANNEL_RELAY, relayEnvelope('ge:store:preference:theme'));

@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type { IdentityProviderInsert, IdentityProviderRow, UserIdentityRow } from '@/db/schema';
 import { identityProviderDomains, identityProviders, userIdentities } from '@/db/schema';
 
@@ -29,7 +29,7 @@ const DOMAIN_AGGREGATE = sql<ProviderDomain[]>`COALESCE(
 
 @Injectable()
 export class IdentityProviderRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
   // ── 連線 ─────────────────────────────────────────────────
 

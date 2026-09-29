@@ -7,7 +7,23 @@ import { z } from 'zod';
 export const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().default(3000),
-  DATABASE_URL: z.string().url(),
+  /**
+   * 平台 DB：租戶登記、IdP 的協定狀態、背景工作佇列（docs/adr/0020-physical-tenant-isolation.md D1）。
+   * 租戶 DB 的連線字串存在平台 DB 的 `tenants`，不在環境變數。
+   */
+  PLATFORM_DATABASE_URL: z.string().url(),
+  /**
+   * 加密租戶連線字串的主金鑰（32 bytes，base64；D4）。沒設定時（僅開發）由 `JWT_SECRET` 推導；
+   * **production 必填**。seed 與 migration 腳本用同一把，換金鑰要重新加密每個租戶的連線字串。
+   */
+  TENANT_SECRET_KEY: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().optional(),
+  ),
+  /** 每個租戶的連線池上限；閒置 60 秒的連線會關閉（D3）。 */
+  TENANT_POOL_MAX: z.coerce.number().int().min(1).default(5),
+  /** 網域 → 租戶的快取秒數。 */
+  TENANT_CACHE_TTL: z.coerce.number().int().min(0).default(30),
 
   JWT_SECRET: z.string().min(32),
   JWT_ACCESS_TTL: z.coerce.number().int().default(300),
@@ -121,6 +137,11 @@ export const EnvSchema = z.object({
     .default('true')
     .transform((value) => value === 'true'),
   /**
+   * 清掃租戶 outbox 的 cron（UTC）：交易提交後會立刻搬進佇列，這裡只補救搬移途中程序當掉的情況
+   * （docs/adr/0020-physical-tenant-isolation.md D15）。空字串停用。
+   */
+  JOBS_OUTBOX_SWEEP_CRON: z.string().trim().default('* * * * *'),
+  /**
    * 郵件寄送方式（docs/architecture/backend/11-mail.md）：`smtp` 經 nodemailer 寄出（本機寄給 Mailpit）；
    * `console` 只寫日誌（含連結），給測試與沒有收信工具的環境用。
    */
@@ -201,6 +222,9 @@ const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
   }
   if (!env.IDP_SECRET_KEY) {
     ctx.addIssue({ code: 'custom', path: ['IDP_SECRET_KEY'], message: 'production 必須設定' });
+  }
+  if (!env.TENANT_SECRET_KEY) {
+    ctx.addIssue({ code: 'custom', path: ['TENANT_SECRET_KEY'], message: 'production 必須設定' });
   }
 });
 

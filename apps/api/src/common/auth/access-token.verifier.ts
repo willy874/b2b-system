@@ -6,15 +6,18 @@ import { eq } from 'drizzle-orm';
 import { UserCacheService } from '@/core/cache';
 import type { CachedUser } from '@/core/cache';
 import type { Env } from '@/core/config';
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type { Database } from '@/core/database';
 import type { ErrorCode } from '@/core/errors';
+import { currentTenant } from '@/core/tenant';
 import { users } from '@/db/schema';
 
 export interface AccessTokenPayload {
   sub: string;
   ver: number;
   jti: string;
+  /** 簽發時的租戶（docs/adr/0020-physical-tenant-isolation.md D10）：拿到別的租戶的網域就無效。 */
+  tid: string;
   /** 經 SSO 登入時的 IdP session（docs/adr/0019-sso-identity-platform.md D5）；密碼直接登入時沒有。 */
   sid?: string;
 }
@@ -39,7 +42,7 @@ export type AccessTokenVerifyResult =
   | { ok: false; code: AccessTokenErrorCode };
 
 /**
- * Access token 的唯一判定規則：驗簽 → `UserCacheService`（沒有就查 DB）→
+ * Access token 的唯一判定規則：驗簽 → 租戶相符 → `UserCacheService`（沒有就查 DB）→
  * `deletedAt` / `status` / `token_version`。
  * `JwtAuthGuard`、WebSocket handshake、`WsAuthGuard` 共用，避免判定分歧
  * （docs/architecture/backend/08-realtime.md §3.2）。
@@ -50,7 +53,7 @@ export class AccessTokenVerifier {
     private readonly jwt: JwtService,
     private readonly config: ConfigService<Env, true>,
     private readonly userCache: UserCacheService,
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
   ) {}
 
   /** 驗證 token 並回傳使用者；不拋例外，由呼叫端決定要回 HTTP 錯誤或 connect_error。 */
@@ -63,6 +66,11 @@ export class AccessTokenVerifier {
         secret: this.config.get('JWT_SECRET', { infer: true }),
       });
     } catch {
+      return { ok: false, code: 'AUTH_TOKEN_INVALID' };
+    }
+
+    // 使用者 id 只在自己的租戶 DB 有意義；token 不能帶到別的租戶的網域使用
+    if (!payload.tid || payload.tid !== currentTenant()?.id) {
       return { ok: false, code: 'AUTH_TOKEN_INVALID' };
     }
 

@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type { Database } from '@/core/database';
 import { JobQueue } from '@/core/jobs';
 import type { JobContext } from '@/core/jobs';
@@ -54,7 +54,7 @@ export class AuthMailJobs implements OnModuleInit {
   private readonly logger = new Logger(AuthMailJobs.name);
 
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly jobs: JobQueue,
     private readonly tokens: AuthTokenService,
     private readonly mail: MailService,

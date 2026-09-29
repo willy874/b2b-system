@@ -18,7 +18,7 @@ import {
 import type { SQL } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type { FileInsert, FileRow, FileVariantStatus } from '@/db/schema';
 import { files, users } from '@/db/schema';
 
@@ -44,7 +44,7 @@ function escapeLike(value: string): string {
 
 @Injectable()
 export class FileRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
   private selectWithUploader() {
     return this.db

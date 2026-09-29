@@ -4,15 +4,16 @@ import { Test } from '@nestjs/testing';
 import { and, eq } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { afterAll, beforeAll, describe, expect, inject, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { DRIZZLE, withTransaction } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import type { Database } from '@/core/database';
 import { defineJob, JobQueue, JobStore } from '@/core/jobs';
-import { auditLogs, roles, userRoles, users } from '@/db/schema';
+import { auditLogs, jobOutbox, roles, userRoles, users } from '@/db/schema';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
+import { inTestTenant, testTenantContext } from './tenant';
 
 /** 第一次執行失敗、之後成功：用來走一遍「失敗 → 手動重試 → 完成」。 */
 const FLAKY_JOB = defineJob<{ label: string }>('test.flaky', {
@@ -45,6 +46,7 @@ let db: TestDatabase;
 let closeDb: () => Promise<void>;
 let jobs: JobQueue;
 let store: JobStore;
+let tenantId: string;
 
 const SUPER_ADMIN = { email: 'jobs-root@example.com', password: 'RootPassword!2026' };
 const AUDITOR = { email: 'jobs-auditor@example.com', password: 'AuditorPassword!2026' };
@@ -58,7 +60,7 @@ async function login(credentials: { email: string; password: string }): Promise<
 async function waitForState(id: string, state: string) {
   return vi.waitFor(
     async () => {
-      const job = await store.find(jobs.names(), id);
+      const job = await store.find(tenantId, jobs.names(), id);
       expect(job?.state).toBe(state);
       return job!;
     },
@@ -68,7 +70,6 @@ async function waitForState(id: string, state: string) {
 
 describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
   beforeAll(async () => {
-    process.env.DATABASE_URL = inject('databaseUrl');
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN.email;
     process.env.SUPER_ADMIN_PASSWORD = SUPER_ADMIN.password;
@@ -106,6 +107,7 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
     http = app.getHttpServer() as App;
     jobs = app.get(JobQueue);
     store = app.get(JobStore);
+    tenantId = (await testTenantContext(app)).id;
   });
 
   afterAll(async () => {
@@ -117,24 +119,28 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
   });
 
   describe('入列在業務交易內（docs/adr/0016-background-jobs.md D2）', () => {
-    it('交易回滾時工作也不存在', async () => {
-      const appDb = app.get<Database>(DRIZZLE);
+    it('交易回滾時工作也不存在（outbox 跟著回滾）', async () => {
+      const appDb = app.get<Database>(TENANT_DB);
       let id: string | null = null;
       await expect(
-        withTransaction(appDb, async (tx) => {
-          id = await jobs.enqueue(FLAKY_JOB, { label: 'rollback' }, { tx });
-          throw new Error('業務失敗');
-        }),
+        inTestTenant(app, () =>
+          withTransaction(appDb, async (tx) => {
+            id = await jobs.enqueue(FLAKY_JOB, { label: 'rollback' }, { tx });
+            throw new Error('業務失敗');
+          }),
+        ),
       ).rejects.toThrow('業務失敗');
       expect(id).not.toBeNull();
-      expect(await store.find(jobs.names(), id!)).toBeUndefined();
+      expect(await store.find(tenantId, jobs.names(), id!)).toBeUndefined();
+      expect(await db.select().from(jobOutbox)).toHaveLength(0);
     });
 
-    it('交易提交後工作才出現並被執行', async () => {
-      const appDb = app.get<Database>(DRIZZLE);
-      const id = await withTransaction(appDb, (tx) =>
-        jobs.enqueue(FLAKY_JOB, { label: 'commit' }, { tx }),
+    it('交易提交後才從 outbox 搬進佇列並被執行，工作 id 就是 outbox 的 id（docs/adr/0020 D15）', async () => {
+      const appDb = app.get<Database>(TENANT_DB);
+      const id = await inTestTenant(app, () =>
+        withTransaction(appDb, (tx) => jobs.enqueue(FLAKY_JOB, { label: 'commit' }, { tx })),
       );
+      expect(await db.select().from(jobOutbox)).toHaveLength(0);
       // 第一次執行失敗、retryLimit 0 → 直接停在 failed
       const job = await waitForState(id!, 'failed');
       expect(job.output).toMatchObject({ message: 'commit 第一次執行失敗' });
@@ -145,11 +151,29 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
     await expect(jobs.enqueue(defineJob('test.unknown'), {})).rejects.toThrow('沒有註冊');
   });
 
+  it('租戶的工作沒有租戶脈絡時不能入列', async () => {
+    await expect(jobs.enqueue(FLAKY_JOB, { label: 'no-tenant' })).rejects.toThrow(
+      'TENANT_NOT_FOUND',
+    );
+  });
+
+  it('提交後的搬移沒成功（程序當掉）時，定期清掃會補搬', async () => {
+    const [row] = await db
+      .insert(jobOutbox)
+      .values({ name: FLAKY_JOB.name, data: { label: 'swept' } })
+      .returning();
+    expect(await inTestTenant(app, () => jobs.relayOutbox())).toBe(1);
+    const job = await waitForState(row!.id, 'failed');
+    expect(job.data).toEqual({ label: 'swept' });
+    // 再搬一次也不會多出工作
+    expect(await inTestTenant(app, () => jobs.relayOutbox())).toBe(0);
+  });
+
   describe('管理 API', () => {
     let failedId: string;
 
     beforeAll(async () => {
-      failedId = (await jobs.enqueue(FLAKY_JOB, { label: 'manual' }))!;
+      failedId = (await inTestTenant(app, () => jobs.enqueue(FLAKY_JOB, { label: 'manual' })))!;
       await waitForState(failedId, 'failed');
     });
 
@@ -167,8 +191,11 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
       );
       expect(byName.get('auditLog.archive')).toMatchObject({ cron: '0 0 1 1 *' });
       expect(byName.get('file.maintenance')).toMatchObject({ cron: null });
-      // 即時計數：前面兩個 failed（commit、manual）
-      expect(byName.get('test.flaky')).toMatchObject({ failedCount: 2, activeCount: 0 });
+      // 即時計數：前面三個 failed（commit、swept、manual）
+      expect(byName.get('test.flaky')).toMatchObject({ failedCount: 3, activeCount: 0 });
+      // 平台工作不在租戶的管理頁
+      expect(byName.has('oidc.cleanup')).toBe(false);
+      expect(byName.has('jobs.outboxSweep')).toBe(false);
     });
 
     it('GET /jobs 依佇列與狀態篩選，不含 data / output', async () => {
@@ -255,8 +282,32 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
       resourceType: 'jobs',
       result: 'success',
     });
-    const id = await jobs.enqueue(AUDIT_LOG_ARCHIVE_JOB, {});
+    const id = await inTestTenant(app, () => jobs.enqueue(AUDIT_LOG_ARCHIVE_JOB, {}));
     const job = await waitForState(id!, 'completed');
     expect(job.output).toMatchObject({ moved: 1 });
+  });
+
+  it('排程觸發的租戶工作（沒有 tenantId）展開成每個 active 租戶一筆', async () => {
+    const { AUDIT_LOG_ARCHIVE_JOB } = await import('@/modules/audit-log/audit-log-archive.job');
+    // 模擬 pg-boss 的排程：資料是 null、不屬於任何租戶
+    const boss = (jobs as unknown as { boss: { send: (...args: unknown[]) => Promise<string> } })
+      .boss;
+    await boss.send(AUDIT_LOG_ARCHIVE_JOB.name, null, { singletonKey: 'scheduled-test' });
+    // 前一個測試已完成一筆；展開後測試租戶再多一筆完成的
+    const spawned = await vi.waitFor(
+      async () => {
+        const { items } = await store.list({
+          tenantId,
+          names: [AUDIT_LOG_ARCHIVE_JOB.name],
+          state: 'completed',
+          offset: 0,
+          limit: 10,
+        });
+        expect(items.length).toBeGreaterThanOrEqual(2);
+        return items;
+      },
+      { timeout: 20_000, interval: 200 },
+    );
+    expect(spawned[0]?.name).toBe(AUDIT_LOG_ARCHIVE_JOB.name);
   });
 });

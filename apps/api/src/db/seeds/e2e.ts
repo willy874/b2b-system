@@ -3,7 +3,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { hashPassword } from '@/modules/auth/password';
 
 import type { ScriptDatabase } from '../client';
-import { createScriptClient, loadScriptEnv } from '../client';
+import { forEachScriptTenant, loadScriptEnv, seedTenantCode } from '../client';
 import { roles, userRoles, users } from '../schema';
 import { runSeed } from './index';
 
@@ -67,10 +67,13 @@ export async function seedE2eData(db: ScriptDatabase): Promise<void> {
 
 async function main(): Promise<void> {
   loadScriptEnv();
-  const { client, db } = createScriptClient();
-  await runSeed(db);
-  await seedE2eData(db);
-  await client.end();
+  await forEachScriptTenant(
+    async (db) => {
+      await runSeed(db);
+      await seedE2eData(db);
+    },
+    { code: seedTenantCode() },
+  );
 }
 
 if (require.main === module) {

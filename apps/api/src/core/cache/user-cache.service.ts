@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 
 import type { UserStatus } from '@/db/schema/users';
 
+import { currentTenant } from '../tenant';
+
 export interface CachedUser {
   id: string;
   email: string;
@@ -14,30 +16,38 @@ export interface CachedUser {
 const TTL_MS = 30_000;
 const MAX_ENTRIES = 10_000;
 
+/**
+ * 快取的 key 是「租戶 × 使用者」：一個程序服務所有租戶，只用 userId 會讓 A 租戶的資料被拿去判斷 B 租戶的請求
+ * （docs/adr/0020-physical-tenant-isolation.md D17）。沒有租戶脈絡時（單元測試）歸在同一組。
+ */
+function keyOf(userId: string): string {
+  return `${currentTenant()?.id ?? '-'}:${userId}`;
+}
+
 @Injectable()
 export class UserCacheService {
   private readonly store = new Map<string, { value: CachedUser; expiresAt: number }>();
 
   get(userId: string): CachedUser | undefined {
-    const entry = this.store.get(userId);
+    const entry = this.store.get(keyOf(userId));
     if (!entry) return undefined;
     if (entry.expiresAt < Date.now()) {
-      this.store.delete(userId);
+      this.store.delete(keyOf(userId));
       return undefined;
     }
     return entry.value;
   }
 
   set(user: CachedUser): void {
-    if (this.store.size >= MAX_ENTRIES && !this.store.has(user.id)) {
+    if (this.store.size >= MAX_ENTRIES && !this.store.has(keyOf(user.id))) {
       const oldest = this.store.keys().next();
       if (!oldest.done) this.store.delete(oldest.value);
     }
-    this.store.set(user.id, { value: user, expiresAt: Date.now() + TTL_MS });
+    this.store.set(keyOf(user.id), { value: user, expiresAt: Date.now() + TTL_MS });
   }
 
   invalidate(userId: string): void {
-    this.store.delete(userId);
+    this.store.delete(keyOf(userId));
   }
 
   invalidateAll(): void {
