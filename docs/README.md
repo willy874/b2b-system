@@ -137,7 +137,9 @@ docs/
     ├── 0012-batch-queue-worker.md
     ├── 0013-file-manager-upload.md
     ├── 0014-server-image-variants.md
-    └── 0015-file-folder-access.md
+    ├── 0015-file-folder-access.md
+    ├── 0016-background-jobs.md
+    └── 0017-mail-delivery.md
 ```
 
 ---
