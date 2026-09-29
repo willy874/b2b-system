@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>B2B System 帳號</title>
+    <!--
+      CSS 層的順序（後面的層蓋過前面的層，與選擇器權重、載入順序無關）。
+      必須是頁面上第一個出現的 @layer：寫在這裡才不受打包時 CSS chunk 的順序影響。
+      reset：UnoCSS preflights；base：index.css；components：元件 CSS Module 與版面 CSS；
+      utilities：UnoCSS 工具類，讓呼叫端的 className 永遠蓋得過元件預設值。
+      見 docs/architecture/frontend/07-ui-system.md §3.4。
+    -->
+    <style>
+      @layer reset, base, components, utilities;
+    </style>
+    <!-- 首次繪製前套用主題（同步載入、不可 defer）；說明見該檔 -->
+    <script src="/theme-init.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "login": {
+    "title": "登入",
+    "description": "登入 B2B System 平台。所有產品共用這一組帳號。",
+    "submit": "登入",
+    "field": { "email": "Email", "password": "密碼" }
+  }
+}

@@ -1,0 +1,41 @@
+@layer components {
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    background: var(--color-backdrop);
+    z-index: var(--z-alert-dialog);
+  }
+
+  .popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(100vw - 2rem);
+    max-width: 26rem;
+    padding: var(--seed-space-6);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-dialog);
+    z-index: calc(var(--z-alert-dialog) + 1);
+  }
+
+  .title {
+    margin: 0 0 var(--seed-space-2);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .description {
+    margin: 0 0 var(--seed-space-4);
+    font-size: 0.875rem;
+    color: var(--color-fg-muted);
+  }
+
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--seed-space-2);
+    margin-top: var(--seed-space-4);
+  }
+}

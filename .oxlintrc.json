@@ -32,13 +32,13 @@
   },
   "overrides": [
     {
-      "files": ["apps/backstage/**/*.{ts,tsx}", "packages/**/*.ts"],
+      "files": ["apps/backstage/**/*.{ts,tsx}", "apps/auth/**/*.{ts,tsx}", "packages/**/*.ts"],
       "rules": {
         "typescript/consistent-type-imports": "error"
       }
     },
     {
-      "files": ["apps/backstage/src/**/*.{ts,tsx}"],
+      "files": ["apps/backstage/src/**/*.{ts,tsx}", "apps/auth/src/**/*.{ts,tsx}"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -54,7 +54,7 @@
       }
     },
     {
-      "files": ["apps/backstage/src/shared/context/**"],
+      "files": ["apps/backstage/src/shared/context/**", "apps/auth/src/shared/context/**"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -74,7 +74,7 @@
       }
     },
     {
-      "files": ["apps/backstage/src/shared/store/**"],
+      "files": ["apps/backstage/src/shared/store/**", "apps/auth/src/shared/store/**"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -90,7 +90,10 @@
       }
     },
     {
-      "files": ["apps/backstage/src/shared/store/__tests__/**"],
+      "files": [
+        "apps/backstage/src/shared/store/__tests__/**",
+        "apps/auth/src/shared/store/__tests__/**"
+      ],
       "rules": {
         "no-restricted-imports": "off"
       }
@@ -113,7 +116,7 @@
       }
     },
     {
-      "files": ["apps/backstage/src/components/Table/**"],
+      "files": ["apps/backstage/src/components/Table/**", "apps/auth/src/components/Table/**"],
       "rules": {
         "react/incompatible-library": "off",
         "react/no-array-index-key": "off"

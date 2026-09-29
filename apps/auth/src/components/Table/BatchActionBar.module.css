@@ -1,0 +1,27 @@
+@layer components {
+  .root {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--seed-space-2) var(--seed-space-3);
+    padding: var(--seed-space-2) var(--seed-space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-fill-subtle);
+    font-size: 0.875rem;
+    color: var(--color-fg);
+  }
+
+  .count {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--seed-space-2);
+    /* 清除鈕推到最右側 */
+    margin-inline-end: auto;
+  }
+}

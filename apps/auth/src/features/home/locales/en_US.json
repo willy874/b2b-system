@@ -1,0 +1,7 @@
+{
+  "home": {
+    "title": "B2B System account",
+    "description": "Accounts and tenants shared by the whole platform. Every product signs in through here.",
+    "you": { "title": "Signed in as", "displayName": "Display name", "email": "Email" }
+  }
+}

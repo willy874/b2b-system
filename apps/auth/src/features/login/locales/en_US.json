@@ -1,0 +1,8 @@
+{
+  "login": {
+    "title": "Sign in",
+    "description": "Sign in to the B2B System platform. All products share this account.",
+    "submit": "Sign in",
+    "field": { "email": "Email", "password": "Password" }
+  }
+}

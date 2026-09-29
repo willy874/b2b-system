@@ -103,7 +103,8 @@
 - **稽核**：`auth.sso_login`（含 IdP 與 client）、`identityProvider.create/update/delete`、`userIdentity.link/unlink`、`auth.logout`（標註是否為單一登出）。
 - **推播**：`ChangeSource.IDENTITY_PROVIDER`（管理頁）；單一登出沿用既有的 `SESSIONS_REVOKED`。
 - **交付順序**：
-  1. ADR 定案、`apps/auth` 骨架（複製的 core／components、dev／build／test／Docker、nginx）
+  1. ADR 定案、`apps/auth` 骨架（複製的 core／components、dev／build／test／Docker、nginx）——✅ 骨架已建立：
+     `/login`（暫時直接呼叫既有的 `POST /auth/login`）、`/`（目前的身分）、平台外框；複製清單見 `apps/auth/README.md`
   2. IdP：`oidc-provider`、密碼登入互動、backstage 改走 SSO、單一登出
   3. 帳號流程與租戶管理搬進 `apps/auth`
   4. 外部 IdP：連線管理、登入、帳號對應、網域導向

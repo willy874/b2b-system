@@ -26,6 +26,12 @@
       "port": 5173
     },
     {
+      "name": "auth",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev:auth"],
+      "port": 5175
+    },
+    {
       "name": "backstage-mock",
       "runtimeExecutable": "env",
       "runtimeArgs": [

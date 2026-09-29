@@ -13,7 +13,8 @@ b2b-system/
 ├── .env.example
 │
 ├── apps/
-│   ├── backstage/               @b2b-system/backstage — React 前端
+│   ├── backstage/               @b2b-system/backstage — React 前端（RBAC 管理後台與工作區內的頁面）
+│   ├── auth/                    @b2b-system/auth — 全平台共用的身分與租戶入口（React，ADR-0019；見該目錄的 README）
 │   ├── api/                     @b2b-system/api — NestJS 後端
 │   ├── file-storage/            @b2b-system/file-storage — S3 相容的本機檔案儲存（見 03-file-storage.md）
 │   └── e2e/                     @b2b-system/e2e — Playwright
@@ -38,12 +39,12 @@ packages:
 
 | script                                         | 作用                                                     |
 | ---------------------------------------------- | -------------------------------------------------------- |
-| `pnpm dev`                                     | `docker compose up -d postgres` ＋ Mailpit ＋ 並行啟動 api、backstage、file-storage |
-| `pnpm dev:api` / `pnpm dev:backstage`                | 單獨啟動                                                 |
+| `pnpm dev`                                     | `docker compose up -d postgres` ＋ Mailpit ＋ 並行啟動 api、backstage（:5173）、auth（:5175）、file-storage |
+| `pnpm dev:api` / `pnpm dev:backstage` / `pnpm dev:auth` | 單獨啟動                                                 |
 | `pnpm dev:e2e`                                 | 啟動 Mailpit，以放寬的速率限制、`MAIL_TRANSPORT=smtp` 啟動 api |
 | `pnpm mail:up`                                 | `docker compose up -d mailpit`（SMTP :1025、網頁 :8025） |
 | `pnpm dev:storage`                             | 啟動 `apps/file-storage`（S3 相容，:9000）               |
-| `pnpm build`                                   | 依序 `api-sdk` → `api` → `backstage`                           |
+| `pnpm build`                                   | 依序 `api-sdk` → `api` → `backstage` → `auth`                  |
 | `pnpm db:generate`                             | drizzle-kit 產生 migration                               |
 | `pnpm db:migrate`                              | 套用 migration                                           |
 | `pnpm db:seed`                                 | 灌入權限目錄與系統角色                                   |
@@ -288,7 +289,7 @@ FILE_PENDING_TTL=86400              # 登記後超過這個秒數仍未完成的
 FILE_MAINTENANCE_CRON=0 * * * *     # 檔案維護排程的 cron（UTC）；留空停用
 FILE_MAINTENANCE_DRY_RUN=false      # true：只偵測並記錄殘留，不刪除
 
-# ── apps/backstage（VITE_ 前綴才會進 bundle）─────────────────
+# ── apps/backstage、apps/auth（VITE_ 前綴才會進 bundle；兩者各自讀自己目錄的 env）──
 VITE_API_BASE_URL=/api
 VITE_ENABLE_MOCK=false
 ```

@@ -1,0 +1,27 @@
+@layer components {
+  .root {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--seed-space-2);
+    padding: var(--seed-space-8) var(--seed-space-4);
+    text-align: center;
+    color: var(--color-fg-muted);
+  }
+
+  .title {
+    margin: 0;
+    font-weight: 600;
+    color: var(--color-fg);
+  }
+
+  .description {
+    margin: 0;
+    font-size: 0.875rem;
+  }
+
+  .action {
+    margin-top: var(--seed-space-2);
+  }
+}

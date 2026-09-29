@@ -104,6 +104,19 @@ services:
       api:
         condition: service_healthy
 
+  # 全平台共用的身分與租戶入口（docs/adr/0019-sso-identity-platform.md）：獨立的 origin，同樣反向代理到 api
+  auth:
+    build:
+      context: .
+      dockerfile: apps/auth/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '8081:80'
+    networks: [edge]
+    depends_on:
+      api:
+        condition: service_healthy
+
 networks:
   edge:
   data:

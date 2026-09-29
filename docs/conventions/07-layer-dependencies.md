@@ -11,11 +11,10 @@
 ## 1. Package 層（monorepo）
 
 ```
-apps/backstage ──────▶ packages/api-sdk
-   │
-   ├───────────▶ packages/realtime ◀──── apps/api
-   │
-   └───────────▶ packages/utils ◀─────── apps/api
+apps/backstage ─┬────▶ packages/api-sdk
+apps/auth ──────┤
+                ├────▶ packages/realtime ◀──── apps/api
+                └────▶ packages/utils ◀─────── apps/api
 
 apps/e2e ┄┄┄┄┄▶ 只透過瀏覽器 / HTTP 操作執行中的系統，不 import 任何 workspace 原始碼
 
@@ -28,12 +27,14 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 | `packages/api-sdk`     | 無                                       | 任何 workspace package；手改 `src/generated/`                 | 👀   |
 | `packages/realtime`    | 無（只依賴 `zod`）                       | 任何 workspace package；DOM / Node 專屬 API                   | 👀   |
 | `apps/backstage`             | `api-sdk`、`realtime`、`utils`            | `apps/*`                                                     | 🔒 `package.json` |
+| `apps/auth`            | `api-sdk`、`realtime`、`utils`            | `apps/*`（backstage 的程式碼是 **複製** 過來的，不 import；[ADR-0019](../adr/0019-sso-identity-platform.md) D14） | 🔒 `package.json` |
 | `apps/api`             | `realtime`、`utils`                      | `api-sdk`（後端才是型別的來源，不能反過來依賴產物）、`apps/*` | 🔒 `package.json` |
 | `apps/e2e`             | 無                                       | 任何 `apps/*` 原始碼；只透過瀏覽器與 HTTP 操作系統            | 👀   |
 | `apps/file-storage`    | 無                                       | 任何 workspace package；其他 app 只透過 S3 HTTP API 與它溝通 | 🔒 `package.json` |
 
 - `apps/*` 之間 **永不互相 import**；packages 永不 import apps。
 - 新增 workspace 依賴要先在 `package.json` 宣告；pnpm 的隔離會讓未宣告的 import 解析失敗。
+- `apps/auth` 的資料夾層級與 §2 的 `apps/backstage` 相同，§2 的矩陣同樣適用。
 - `apps/backstage` 只在 `src/shared/api-sdk/` 這 **一個地方** import `@b2b-system/api-sdk`，其餘一律 `@/shared/api-sdk`。
   `@b2b-system/realtime` 同理，只經由 `src/shared/websocket-sdk/`。
 - `@sigrea/core` 只在 `src/shared/store/` import，其餘一律 `@/shared/store`（React 綁定 `@/shared/hooks`）；

@@ -1,0 +1,115 @@
+/*
+ * 變體與尺寸掛在 data-* 屬性上（data-variant / data-size / data-block），
+ * 與 Base UI 的狀態屬性（data-disabled）同一套寫法；測試也用屬性斷言，不依賴 hash 後的 class。
+ */
+@layer components {
+  .root {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--seed-space-2);
+    height: var(--button-height-md);
+    padding: 0 var(--button-padding-x-md);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    font: inherit;
+    font-weight: 500;
+    line-height: 1;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      color 120ms ease;
+    white-space: nowrap;
+    /* ButtonLink 渲染成 <a> */
+    text-decoration: none;
+  }
+
+  .root:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+
+  .root[data-disabled],
+  .root:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .root[data-variant='primary'] {
+    background: var(--color-brand);
+    color: var(--color-brand-fg);
+  }
+  .root[data-variant='primary']:not(:disabled):not([data-disabled]):hover {
+    background: var(--button-primary-hover-bg);
+  }
+
+  .root[data-variant='secondary'] {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+    color: var(--color-fg);
+  }
+  .root[data-variant='secondary']:not(:disabled):not([data-disabled]):hover {
+    background: var(--button-subtle-hover-bg);
+  }
+
+  .root[data-variant='ghost'] {
+    background: transparent;
+    color: var(--color-fg);
+  }
+  .root[data-variant='ghost']:not(:disabled):not([data-disabled]):hover {
+    background: var(--button-subtle-hover-bg);
+  }
+
+  /* 狀態色填色搭配各自的 -on 前景（contrast.test.ts 守住 >= 3:1） */
+  .root[data-variant='success'] {
+    background: var(--color-success);
+    color: var(--color-success-on);
+  }
+  .root[data-variant='success']:not(:disabled):not([data-disabled]):hover {
+    background: var(--button-success-hover-bg);
+  }
+
+  .root[data-variant='warning'] {
+    background: var(--color-warning);
+    color: var(--color-warning-on);
+  }
+  .root[data-variant='warning']:not(:disabled):not([data-disabled]):hover {
+    background: var(--button-warning-hover-bg);
+  }
+
+  .root[data-variant='danger'] {
+    background: var(--color-danger);
+    color: var(--color-danger-on);
+  }
+  .root[data-variant='danger']:not(:disabled):not([data-disabled]):hover {
+    background: var(--button-danger-hover-bg);
+  }
+
+  .root[data-size='sm'] {
+    height: 1.75rem;
+    padding: 0 var(--seed-space-3);
+    font-size: 0.8125rem;
+  }
+  .root[data-size='lg'] {
+    height: 2.75rem;
+    padding: 0 var(--seed-space-6);
+  }
+
+  .root[data-block] {
+    width: 100%;
+  }
+
+  .icon {
+    width: var(--button-height-md);
+    padding: 0;
+  }
+  .icon[data-size='sm'] {
+    width: 1.75rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .root {
+      transition: none;
+    }
+  }
+}
