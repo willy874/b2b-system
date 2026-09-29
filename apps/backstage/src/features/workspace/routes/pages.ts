@@ -29,7 +29,10 @@ export const WorkspaceMembersRoute = createRoute({
   search: { middlewares: [stripSearchParams(DEFAULT_WORKSPACE_MEMBER_SEARCH)] },
 });
 
-/** 平台管理員的工作區管理（`workspace:read`）；看不到工作區裡的內容（D5）。 */
+/**
+ * 平台的工作區管理搬到 apps/auth（docs/adr/0019-sso-identity-platform.md D13）：這個網址保留一版轉過去。
+ * 頁面權限仍以它註冊，側邊選單依 `workspace:read` 決定要不要顯示連到 apps/auth 的項目。
+ */
 export const WorkspaceAdminListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/workspace',

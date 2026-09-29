@@ -81,3 +81,18 @@ test.describe('跨分頁協調', () => {
     await context.close();
   });
 });
+
+// 租戶管理搬到 apps/auth（docs/adr/0019-sso-identity-platform.md D13）
+test('backstage 的「工作區」選單連到 apps/auth 的租戶管理頁，已登入不必再輸入密碼', async ({
+  page,
+}) => {
+  await loginAndWaitForHome(page, 'admin');
+  await page.getByTestId('menu-workspace').click();
+  await expect(page).toHaveURL(`${AUTH_URL}/workspaces`);
+  await expect(page.getByTestId('workspace-admin-page')).toBeVisible();
+  await expect(page.getByRole('cell', { name: '預設工作區' })).toBeVisible();
+
+  // 舊網址轉過去
+  await page.goto('/workspace');
+  await expect(page).toHaveURL(`${AUTH_URL}/workspaces`);
+});

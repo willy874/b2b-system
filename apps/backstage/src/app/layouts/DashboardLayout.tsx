@@ -30,6 +30,7 @@ import {
   WORKSPACE_MEMBER_PAGE,
   WorkspaceSwitcher,
 } from '@/features/workspace';
+import { ENV } from '@/shared/constants';
 import { cn } from '@/shared/utils';
 
 import { ThemeMenu } from './ThemeMenu';
@@ -46,6 +47,8 @@ interface MenuItem {
 interface NavItem extends MenuItem {
   /** 完整字面量（docs/conventions/06-literal-strings.md §3.3），E2E 以此定位側邊選單項 */
   testId: string;
+  /** 在另一個 app 的頁面（例：apps/auth 的租戶管理）：以一般連結頂層跳轉，不走 router */
+  href?: string;
 }
 
 /** 工作區裡的頁面：`to` 是工作區底下的相對路徑，實際連結帶上目前（或最近）的工作區。 */
@@ -83,6 +86,8 @@ const MENU: NavItem[] = [
   {
     pageKey: WORKSPACE_ADMIN_PAGE,
     to: '/workspace',
+    // 平台的租戶管理在 apps/auth（docs/adr/0019-sso-identity-platform.md D13）
+    href: `${ENV.AUTH_APP_URL}/workspaces`,
     labelKey: 'menu.workspace',
     testId: 'menu-workspace',
     icon: 'grid',
@@ -170,22 +175,36 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           {!collapsed && <span>{t('app.title')}</span>}
         </div>
         <nav className="ge-shell__nav">
-          {items.map((item) => (
-            <Link
-              key={item.pageKey}
-              to={item.to}
-              className={cn(
-                'ge-shell__nav-item',
-                (pathname === item.to || (item.to !== '/' && pathname.startsWith(`${item.to}/`))) &&
-                  'ge-shell__nav-item--active',
-              )}
-              data-testid={item.testId}
-              title={collapsed ? t(item.labelKey) : undefined}
-            >
-              <Icon name={item.icon} size={16} />
-              {!collapsed && <span>{t(item.labelKey)}</span>}
-            </Link>
-          ))}
+          {items.map((item) =>
+            item.href ? (
+              <a
+                key={item.pageKey}
+                href={item.href}
+                className="ge-shell__nav-item"
+                data-testid={item.testId}
+                title={collapsed ? t(item.labelKey) : undefined}
+              >
+                <Icon name={item.icon} size={16} />
+                {!collapsed && <span>{t(item.labelKey)}</span>}
+              </a>
+            ) : (
+              <Link
+                key={item.pageKey}
+                to={item.to}
+                className={cn(
+                  'ge-shell__nav-item',
+                  (pathname === item.to ||
+                    (item.to !== '/' && pathname.startsWith(`${item.to}/`))) &&
+                    'ge-shell__nav-item--active',
+                )}
+                data-testid={item.testId}
+                title={collapsed ? t(item.labelKey) : undefined}
+              >
+                <Icon name={item.icon} size={16} />
+                {!collapsed && <span>{t(item.labelKey)}</span>}
+              </Link>
+            ),
+          )}
         </nav>
       </aside>
 

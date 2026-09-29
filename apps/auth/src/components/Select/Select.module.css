@@ -1,0 +1,282 @@
+@layer components {
+  /* 觸發鈕高度固定：多選時加減標籤只換內容，不改變尺寸，彈出層的位置就不會跟著跳 */
+  .trigger {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--seed-space-2);
+    width: 100%;
+    height: var(--field-height-md);
+    padding: 0 var(--seed-space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-fg);
+    font: inherit;
+    cursor: pointer;
+    text-align: start;
+  }
+
+  .trigger[data-size='sm'] {
+    height: 1.75rem;
+    font-size: 0.8125rem;
+  }
+
+  .trigger:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: -1px;
+  }
+
+  .trigger[data-disabled] {
+    background: var(--color-fill-subtle);
+    color: var(--color-fg-muted);
+    cursor: not-allowed;
+  }
+
+  .trigger[aria-invalid='true'] {
+    border-color: var(--color-danger);
+  }
+
+  .value {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .placeholder {
+    color: var(--color-fg-muted);
+  }
+
+  /*
+   * 標籤列：單行、放不下的收成 +N（BoxEllipsis），不會把觸發鈕撐高。
+   * contain: inline-size 讓標籤不計入觸發鈕的內在寬度：放在 grid / flex 裡時，
+   * 多勾一個標籤不會把觸發鈕（以及以它為寬度的彈出層）撐寬零點幾 px。
+   */
+  .tags {
+    flex: 1;
+    min-width: 0;
+    contain: inline-size;
+    gap: var(--seed-space-1);
+  }
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 10rem;
+    padding: 0 var(--seed-space-2);
+    border-radius: var(--radius-sm);
+    background: var(--color-fill-subtle);
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tag[data-overflow] {
+    color: var(--color-fg-muted);
+  }
+
+  .icon {
+    display: flex;
+    flex: none;
+    color: var(--color-fg-muted);
+    transition: transform 120ms ease;
+  }
+
+  .trigger[data-popup-open] .icon {
+    transform: rotate(180deg);
+  }
+
+  .positioner {
+    z-index: var(--z-floating);
+  }
+
+  /* 外框：上方是（可選的）搜尋框，下方是捲動容器 */
+  .popup {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    min-width: var(--anchor-width, 10rem);
+    max-width: max(var(--anchor-width, 0px), min(24rem, var(--available-width, 24rem)));
+    max-height: min(20rem, var(--available-height, 20rem));
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-popover);
+  }
+
+  .search {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--seed-space-2);
+    padding: 0 var(--seed-space-3);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-fg-muted);
+  }
+
+  .searchInput {
+    flex: 1;
+    min-width: 0;
+    height: 2.25rem;
+    border: 0;
+    background: transparent;
+    color: var(--color-fg);
+    font: inherit;
+    font-size: 0.875rem;
+    outline: none;
+  }
+
+  /* 虛擬捲動、無限捲動都量這一層 */
+  .scroller {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* 載入更多而出現捲軸時，內容寬度不變 */
+    scrollbar-gutter: stable;
+    padding: var(--seed-space-1);
+  }
+
+  .list:focus {
+    outline: none;
+  }
+
+  /*
+   * 列高固定（= itemSize 預設 32px）、文字不換行：
+   * 虛擬捲動的量測值等於預估值，勾選也不會讓列變高或變寬。
+   */
+  .item {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-2);
+    height: 2rem;
+    padding: 0 var(--seed-space-3);
+    padding-inline-start: calc(var(--seed-space-3) + var(--select-depth, 0) * 1.25rem);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .item[data-highlighted] {
+    background: var(--color-bg);
+  }
+
+  .item[data-disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .item[data-kind='all'] {
+    border-bottom: 1px solid var(--color-border);
+    border-radius: 0;
+  }
+
+  /* 有說明文字的列是兩行（對應 itemSize 48） */
+  .item[data-described] {
+    height: 3rem;
+  }
+
+  .itemText {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  .itemLabel,
+  .itemDescription {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .itemDescription {
+    color: var(--color-fg-muted);
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+
+  /* 單選的 ✓ 常駐佔位，未選取時隱藏；否則選取瞬間插入 ✓ 會把文字往右推 */
+  .indicator {
+    display: flex;
+    flex: none;
+    width: 1rem;
+    color: var(--color-brand);
+    visibility: hidden;
+  }
+
+  .indicator[data-state='checked'] {
+    visibility: visible;
+  }
+
+  /* 多選的勾選框：尺寸固定，只以 data-state 切換外觀 */
+  .checkbox {
+    box-sizing: border-box;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-brand-fg);
+  }
+
+  .checkbox > svg {
+    visibility: hidden;
+  }
+
+  .checkbox[data-state='checked'],
+  .checkbox[data-state='indeterminate'] {
+    background: var(--color-brand);
+    border-color: var(--color-brand);
+  }
+
+  .checkbox[data-state='checked'] > svg,
+  .checkbox[data-state='indeterminate'] > svg {
+    visibility: visible;
+  }
+
+  .expander {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    color: var(--color-fg-muted);
+    transition: transform 120ms ease;
+  }
+
+  .expander[data-expanded] {
+    transform: rotate(90deg);
+  }
+
+  .footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 2rem;
+    color: var(--color-fg-muted);
+    font-size: 0.875rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .icon,
+    .expander {
+      transition: none;
+    }
+  }
+}

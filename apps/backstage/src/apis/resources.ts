@@ -32,9 +32,7 @@ import { USER_DETAIL_QUERY_KEY } from '@/apis/user/get-user-detail/query';
 import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
 import { USER_ROLES_QUERY_KEY } from '@/apis/user/get-user-roles/query';
 import { MY_WORKSPACE_LIST_QUERY_KEY } from '@/apis/workspace/get-my-workspaces/query';
-import { WORKSPACE_DETAIL_QUERY_KEY } from '@/apis/workspace/get-workspace-detail/query';
 import { WORKSPACE_INVITATION_LIST_QUERY_KEY } from '@/apis/workspace/get-workspace-invitation-list/query';
-import { WORKSPACE_LIST_QUERY_KEY } from '@/apis/workspace/get-workspace-list/query';
 import { WORKSPACE_ME_QUERY_KEY } from '@/apis/workspace/get-workspace-me/query';
 import { WORKSPACE_MEMBER_LIST_QUERY_KEY } from '@/apis/workspace/get-workspace-member-list/query';
 import { WORKSPACE_ROLE_LIST_QUERY_KEY } from '@/apis/workspace/get-workspace-role-list/query';
@@ -168,13 +166,7 @@ const graph = createResourceGraph<Resource>({
     ],
   },
   [Resource.WORKSPACE]: {
-    // 檔案等工作區內資料的 key 以工作區 id 分開，以 key 前綴失效時其他工作區的只會被標成 stale
-    collection: [WORKSPACE_LIST_QUERY_KEY],
-    entity: [WORKSPACE_DETAIL_QUERY_KEY],
-    derivesFrom: [
-      // 成員數與管理員清單
-      { from: Resource.WORKSPACE_MEMBER, id: 'none' },
-    ],
+    // 工作區管理頁在 apps/auth（ADR-0019 D13）；這裡只作為來源（切換器、目前工作區由 WORKSPACE_SELF 衍生）
   },
   [Resource.WORKSPACE_MEMBER]: {
     collection: [WORKSPACE_MEMBER_LIST_QUERY_KEY],

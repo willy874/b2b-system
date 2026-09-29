@@ -12,6 +12,7 @@ import { MAIN_BACKEND } from '@/core/client';
 import { hydratePreferences } from '@/core/store';
 import { homeFeaturePlugin } from '@/features/home';
 import { loginFeaturePlugin } from '@/features/login';
+import { workspaceAdminFeaturePlugin } from '@/features/workspace-admin';
 import {
   cachePlugin,
   eventBusPlugin,
@@ -51,6 +52,7 @@ async function bootstrap(): Promise<void> {
     // 每個 feature 的 plugin factory —— ★ 在此「同步」註冊頁面權限
     .use(loginFeaturePlugin())
     .use(homeFeaturePlugin())
+    .use(workspaceAdminFeaturePlugin())
     // 最後：建立 router（此時所有 route 都已存在）
     .use(appContextPlugin());
 

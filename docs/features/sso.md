@@ -120,7 +120,9 @@
        啟用、重設密碼、邀請信的連結以 `AUTH_APP_URL` 開頭（`MailService.accountLink`）。接受邀請的回應帶 `workspaceUrl`，
        apps/auth 接受後頂層跳轉到產品的工作區，由 IdP 登入（新帳號不再在頁面上直接以密碼登入）。backstage 的舊網址
        （`/auth/setup` 等）保留一版，連同查詢字串轉到 apps/auth。
-     - 租戶管理（3b）：待做
+     - ✅ 租戶管理（3b）：平台的工作區管理頁搬到 apps/auth 的 `/workspaces`（`features/workspace-admin`，`workspace:*`）；
+       apps/auth 的頂列依頁面權限顯示「首頁／工作區」。backstage 刪除該頁與專用的 hook／API，側邊選單的「工作區」改為連到
+       apps/auth 的一般連結（仍依 `workspace:read` 顯示），舊網址 `/workspace` 保留一版轉過去。外部 IdP 連線管理在交付順序 4
   4. 外部 IdP：連線管理、登入、帳號對應、網域導向
   5. E2E、歸檔
 

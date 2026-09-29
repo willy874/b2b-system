@@ -3,7 +3,7 @@ import * as Routes from './routes';
 
 Routes.WorkspaceRoute.update({ component: Pages.WorkspaceLayout });
 Routes.WorkspaceMembersRoute.update({ component: Pages.AsyncWorkspaceMembersPage });
-Routes.WorkspaceAdminListRoute.update({ component: Pages.AsyncWorkspaceAdminListPage });
+Routes.WorkspaceAdminListRoute.update({ component: Pages.AsyncWorkspaceAdminMovedPage });
 
 export { Routes };
 export { useDefaultWorkspaceSlug, WorkspaceSwitcher } from './components/WorkspaceSwitcher';
