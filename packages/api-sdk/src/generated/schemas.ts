@@ -4,6 +4,8 @@
 import { z } from 'zod';
 
 import type {
+  AcceptWorkspaceInvitationRequest,
+  AcceptedWorkspaceInvitation,
   ApprovalRequest,
   ApprovalStatus,
   ApprovalType,
@@ -19,6 +21,7 @@ import type {
   CreateFileUploadRequest,
   CreateRoleRequest,
   CreateUserRequest,
+  CreateWorkspaceInvitationRequest,
   CreateWorkspaceRequest,
   DuplicateRoleRequest,
   EnsureFileFolderPathsRequest,
@@ -70,6 +73,7 @@ import type {
   Session,
   SetFileFolderGrantRequest,
   SetupRequest,
+  SignupWorkspaceInvitationRequest,
   StoredFile,
   StoredFileCapabilities,
   StoredFileImage,
@@ -88,6 +92,9 @@ import type {
   Workspace,
   WorkspaceAdmin,
   WorkspaceDetail,
+  WorkspaceInvitation,
+  WorkspaceInvitationList,
+  WorkspaceInvitationPreview,
   WorkspaceMe,
   WorkspaceMember,
   WorkspaceMemberRoles,
@@ -1115,3 +1122,90 @@ export const WorkspaceRoleSchema = z.object({
 export const WorkspaceRoleListSchema = z.object({
   items: z.array(WorkspaceRoleSchema),
 }) satisfies z.ZodType<WorkspaceRoleList>;
+
+export const CreateWorkspaceInvitationRequestSchema = z.object({
+  email: z
+    .email()
+    .max(255)
+    .regex(
+      new RegExp(
+        "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+      ),
+    ),
+  roleIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(50),
+}) satisfies z.ZodType<CreateWorkspaceInvitationRequest>;
+
+export const WorkspaceInvitationSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  email: z.string(),
+  roles: z.array(RoleSummarySchema),
+  invitedBy: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      displayName: z.string(),
+    })
+    .nullable(),
+  hasAccount: z.boolean(),
+  createdAt: z.string(),
+  expiresAt: z.string(),
+  isExpired: z.boolean(),
+}) satisfies z.ZodType<WorkspaceInvitation>;
+
+export const WorkspaceInvitationListSchema = z.object({
+  items: z.array(WorkspaceInvitationSchema),
+}) satisfies z.ZodType<WorkspaceInvitationList>;
+
+export const WorkspaceInvitationPreviewSchema = z.object({
+  email: z.string(),
+  workspaceName: z.string(),
+  inviterName: z.string().nullable(),
+  hasAccount: z.boolean(),
+  expiresAt: z.string(),
+}) satisfies z.ZodType<WorkspaceInvitationPreview>;
+
+export const AcceptWorkspaceInvitationRequestSchema = z.object({
+  token: z.string().min(10).max(200),
+}) satisfies z.ZodType<AcceptWorkspaceInvitationRequest>;
+
+export const SignupWorkspaceInvitationRequestSchema = z.object({
+  token: z.string().min(10).max(200),
+  displayName: z.string().min(1).max(100),
+  password: z.string().min(12).max(128),
+}) satisfies z.ZodType<SignupWorkspaceInvitationRequest>;
+
+export const AcceptedWorkspaceInvitationSchema = z.object({
+  email: z.string(),
+  workspace: z.object({
+    id: z
+      .uuid()
+      .regex(
+        new RegExp(
+          '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+        ),
+      ),
+    slug: z.string(),
+    name: z.string(),
+  }),
+}) satisfies z.ZodType<AcceptedWorkspaceInvitation>;

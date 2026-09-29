@@ -91,6 +91,12 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
     perms: () => [PERMISSION.WORKSPACE_MEMBER_READ],
     includesSubject: true,
   },
+  // 成員頁的待接受邀請清單；受邀者還不是成員，不在受眾內
+  [ChangeSource.WORKSPACE_INVITATION]: {
+    scope: 'workspace',
+    perms: () => [PERMISSION.WORKSPACE_MEMBER_READ],
+    includesSubject: false,
+  },
 };
 
 /** 每次寫入都會新增一筆稽核（前端 `derivesFromAnyChange`）。 */

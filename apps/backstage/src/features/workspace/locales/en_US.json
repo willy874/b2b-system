@@ -29,6 +29,31 @@
         "success": "Member removed"
       }
     },
+    "invitation": {
+      "title": "Pending invitations ({{count}})",
+      "newAccount": "New account",
+      "expired": "Expired",
+      "field": {
+        "email": "Email",
+        "emailInvalid": "Enter a valid email address",
+        "roles": "Workspace roles",
+        "invitedBy": "Invited by",
+        "expiresAt": "Expires"
+      },
+      "create": {
+        "action": "Invite member",
+        "title": "Invite member",
+        "description": "They will receive an email and join this workspace by following the link. People without an account can set a password to create one (requires the platform “Create users” permission). Inviting the same email again invalidates the previous link.",
+        "submit": "Send invitation",
+        "success": "Invitation sent to {{email}}"
+      },
+      "revoke": {
+        "action": "Revoke invitation",
+        "title": "Revoke invitation",
+        "confirm": "Revoke the invitation for {{email}}? The link in the email stops working immediately.",
+        "success": "Invitation revoked"
+      }
+    },
     "admin": {
       "title": "Workspaces",
       "description": "All workspaces on the platform. You can see names, member counts and admins, but not the content inside.",

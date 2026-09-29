@@ -60,6 +60,18 @@ export const ErrorCode = {
   WORKSPACE_MEMBER_DUPLICATE: { status: 409 },
   /** 移除最後一位能管理成員的人（D12）。 */
   WORKSPACE_LAST_ADMIN: { status: 409 },
+  /** 邀請不存在，或已經接受／撤銷（撤銷時）。 */
+  WORKSPACE_INVITATION_NOT_FOUND: { status: 404 },
+  /** 同一個 email 同時被邀請兩次（待接受的唯一索引）。 */
+  WORKSPACE_INVITATION_DUPLICATE: { status: 409 },
+  /** 邀請連結無效：token 不對、已過期、已接受或已撤銷，或工作區已刪除。 */
+  WORKSPACE_INVITATION_INVALID: { status: 400 },
+  /** 登入的帳號與受邀的 email 不同。 */
+  WORKSPACE_INVITATION_EMAIL_MISMATCH: { status: 403 },
+  /** 受邀的 email 已經有帳號：要登入後接受，不能再建立帳號。 */
+  WORKSPACE_INVITATION_ACCOUNT_EXISTS: { status: 409 },
+  /** 邀請還沒有帳號的 email，邀請人另外需要平台的 `user:create`（D14）。 */
+  WORKSPACE_INVITATION_USER_CREATE_REQUIRED: { status: 403 },
 
   // ── 背景工作 ──
   JOB_NOT_FOUND: { status: 404 },

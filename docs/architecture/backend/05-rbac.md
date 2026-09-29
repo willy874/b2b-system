@@ -535,6 +535,12 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | PUT    | `/workspaces/:workspaceId/members/:userId/roles` | `workspaceMember:assignRole`⁴ |
 | DELETE | `/workspaces/:workspaceId/members/:userId` | `workspaceMember:delete`⁴ |
 | GET    | `/workspaces/:workspaceId/roles` | `workspaceMember:read`⁴ |
+| GET    | `/workspaces/:workspaceId/invitations` | `workspaceMember:read`⁴ |
+| POST   | `/workspaces/:workspaceId/invitations` | `workspaceMember:create`⁴⁵ |
+| DELETE | `/workspaces/:workspaceId/invitations/:invitationId` | `workspaceMember:create`⁴ |
+| GET    | `/workspace-invitations/preview` | `@Public` |
+| POST   | `/workspace-invitations/accept` | `@Authenticated` |
+| POST   | `/workspace-invitations/signup` | `@Public` |
 
 ¹ 路由宣告只有 `approval:review`；核准時 `ApprovalService` 另外檢查該類型 handler 要求的權限
 （`user.register` = `user:create`，指派角色時再加 `user:assignRole`），缺少時同樣回
@@ -551,6 +557,11 @@ private assertNotSelf(actorId: string, targetId: string): void {
 `:workspaceId` 的成員（或 super-admin），不是就回 `404 WORKSPACE_NOT_FOUND`；權限鍵以操作者在該工作區的集合判斷。
 所有 `/workspaces/:workspaceId/files…`、`/workspaces/:workspaceId/file-folders…` 路由也都是工作區範圍的。
 路由稽核在啟動時檢查：工作區範圍的鍵只能宣告在工作區範圍的路由上，反之亦然。
+
+⁵ 邀請的角色受反提權限制（比對邀請人在這個工作區的權限）；邀請 **還沒有帳號** 的 email 時，
+`WorkspaceInvitationService` 另外要求平台的 `user:create`，缺少時回 `403 WORKSPACE_INVITATION_USER_CREATE_REQUIRED`
+（[ADR-0018](../../adr/0018-workspace-tenancy.md) D14）。受邀者以信中的 token 查看與接受（`/workspace-invitations/*`），
+還不是成員，所以不是工作區範圍的路由；`accept` 要求登入的帳號 email 就是受邀的 email。
 
 **這張表必須與 `docs/rbac/04-api-spec.md` 一致**，且有一支測試從 metadata
 產生它並與文件比對（見 §7.1）。

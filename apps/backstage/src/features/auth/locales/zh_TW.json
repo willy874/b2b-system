@@ -33,6 +33,19 @@
     },
     "password": { "hint": "至少 12 個字元，不可為常見密碼。" },
     "backToLogin": "返回登入",
-    "logout": { "success": "已登出。" }
+    "logout": { "success": "已登出。" },
+    "invitation": {
+      "title": "接受工作區邀請",
+      "description": "你受邀加入工作區「{{workspace}}」。",
+      "descriptionWithInviter": "{{inviter}} 邀請你加入工作區「{{workspace}}」。",
+      "newAccount": "這個信箱還沒有帳號。設定名稱與密碼後，會建立帳號並直接加入工作區。",
+      "signup": "建立帳號並加入",
+      "existingAccount": "這個信箱已經有帳號，請登入後接受邀請。",
+      "loginAndAccept": "登入並接受",
+      "signedInAs": "目前登入的帳號：{{email}}",
+      "confirmPassword": "確認密碼",
+      "accept": "接受邀請",
+      "mismatch": "目前登入的是 {{current}}，但這份邀請是給 {{invited}} 的。請登出後用受邀的信箱登入，再開啟信中的連結。"
+    }
   }
 }

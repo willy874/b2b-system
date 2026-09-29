@@ -29,6 +29,31 @@
         "success": "已移除成員"
       }
     },
+    "invitation": {
+      "title": "待接受的邀請（{{count}}）",
+      "newAccount": "新帳號",
+      "expired": "已過期",
+      "field": {
+        "email": "Email",
+        "emailInvalid": "請輸入有效的 Email",
+        "roles": "工作區角色",
+        "invitedBy": "邀請人",
+        "expiresAt": "有效期限"
+      },
+      "create": {
+        "action": "邀請成員",
+        "title": "邀請成員",
+        "description": "對方會收到邀請信，點信中連結後加入這個工作區。還沒有帳號的人可以直接設定密碼建立帳號（需要平台的「建立使用者」權限）。同一個 Email 重新邀請會讓舊的連結失效。",
+        "submit": "寄出邀請",
+        "success": "已寄出邀請給 {{email}}"
+      },
+      "revoke": {
+        "action": "撤銷邀請",
+        "title": "撤銷邀請",
+        "confirm": "要撤銷給 {{email}} 的邀請嗎？信中的連結會立刻失效。",
+        "success": "已撤銷邀請"
+      }
+    },
     "admin": {
       "title": "工作區",
       "description": "平台上的所有工作區。你看得到名稱、成員數與管理員，看不到工作區裡的內容。",

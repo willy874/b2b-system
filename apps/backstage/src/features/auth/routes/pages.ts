@@ -41,3 +41,13 @@ export const SetupRoute = createRoute({
   path: 'setup',
   validateSearch: TokenSearchSchema,
 });
+
+/**
+ * 接受工作區邀請（docs/adr/0018-workspace-tenancy.md D14）。放在 `/auth` 底下：
+ * 受邀者多半還沒登入，而其他頁面沒有 session 時會被導去登入頁、丟掉 `token`。
+ */
+export const InvitationRoute = createRoute({
+  getParentRoute: () => AuthRoute,
+  path: 'invitation',
+  validateSearch: TokenSearchSchema,
+});

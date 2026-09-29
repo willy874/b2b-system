@@ -33,6 +33,7 @@ import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
 import { USER_ROLES_QUERY_KEY } from '@/apis/user/get-user-roles/query';
 import { MY_WORKSPACE_LIST_QUERY_KEY } from '@/apis/workspace/get-my-workspaces/query';
 import { WORKSPACE_DETAIL_QUERY_KEY } from '@/apis/workspace/get-workspace-detail/query';
+import { WORKSPACE_INVITATION_LIST_QUERY_KEY } from '@/apis/workspace/get-workspace-invitation-list/query';
 import { WORKSPACE_LIST_QUERY_KEY } from '@/apis/workspace/get-workspace-list/query';
 import { WORKSPACE_ME_QUERY_KEY } from '@/apis/workspace/get-workspace-me/query';
 import { WORKSPACE_MEMBER_LIST_QUERY_KEY } from '@/apis/workspace/get-workspace-member-list/query';
@@ -71,6 +72,8 @@ export const Resource = {
   USER_CREDENTIAL: 'userCredential',
   /** 工作區的成員 ↔ 工作區角色（`id` = userId）；成員清單以它為來源 */
   WORKSPACE_MEMBER: 'workspaceMember',
+  /** 工作區的待接受邀請（`id` = 邀請 id） */
+  WORKSPACE_INVITATION: 'workspaceInvitation',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -178,6 +181,13 @@ const graph = createResourceGraph<Resource>({
     derivesFrom: [
       // 成員清單嵌入使用者的名稱、狀態與角色名稱
       { from: Resource.USER, kinds: ['update', 'delete'], id: 'none' },
+      { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'none' },
+    ],
+  },
+  [Resource.WORKSPACE_INVITATION]: {
+    collection: [WORKSPACE_INVITATION_LIST_QUERY_KEY],
+    derivesFrom: [
+      // 邀請清單嵌入角色名稱
       { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'none' },
     ],
   },

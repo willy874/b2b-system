@@ -26,6 +26,11 @@ modules/approval/
 ├── approval-mail.constants.ts  工作：approval.resultMail
 ├── approval-result-mail.job.ts
 └── mails/approval-result.mail.tsx
+
+modules/workspace/
+├── workspace-invitation.constants.ts  工作：workspace.invitationMail
+├── workspace-invitation.jobs.ts       寄出（換上新 token、重新起算 7 天期限 → 產生信 → 寄 → 稽核）
+└── mails/workspace-invitation.mail.tsx
 ```
 
 - `core/mail` 不認識任何一封信；範本屬於擁有它的模組（`modules/<name>/mails/*.mail.tsx`），
@@ -81,11 +86,15 @@ export function accountLinkMail({ purpose, locale, displayName, link, validHours
 | `auth.activationMail` | `UserService.create`（建立帳號的交易內） | `{ userId }` | 使用者仍是 `pending` |
 | `auth.passwordResetMail` | `AuthService.forgotPassword`（節流：同帳號 60 秒一封）、`UserService.resetPassword`（與稽核同一交易） | `{ userId }` | 使用者存在 |
 | `approval.resultMail` | `ApprovalService.approve` / `reject`（審核的交易內） | `{ approvalId }` | 請求已審核、找得到收件人 |
+| `workspace.invitationMail` | `WorkspaceInvitationService.invite`（建立邀請的交易內） | `{ invitationId }` | 邀請未接受、未撤銷，工作區未刪除 |
 
 **token 在寄出當下才簽發。** 資料庫只存 token 的雜湊（[`04-auth.md`](./04-auth.md) §5.1），
 若在入列時簽發，就得把原文放進工作資料——而持有 `job:read` 的人看得到工作資料。所以工作資料只有 `userId`，
 handler 執行時才呼叫 `AuthTokenService.issue()`、把原文放進連結、寄出。重試會簽發新的 token
 （舊的跟著作廢），信箱裡只有最後一封能用。
+
+邀請信同一條規則：`workspace_invitations.token_hash` 在寄出當下才寫入（剛建立時是 null），每次寄出都換新並從寄出時重新起算期限；
+重新邀請同一個 email 會先撤銷舊的邀請，舊信的連結跟著失效。收件人已有帳號時用帳號的語系，沒有時用邀請人的語系。
 
 寄出前再檢查一次狀態：入列之後情況可能變了（使用者已經啟用、帳號已刪除），這時回傳 `{ skipped: … }`
 當作完成，不寄、也不重試。

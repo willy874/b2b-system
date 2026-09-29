@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 
 import { getWorkspaceMemberListQueryOptions } from '@/apis/workspace/get-workspace-member-list/query';
 import { AlertDialog } from '@/components/AlertDialog';
-import { IconButton } from '@/components/Button';
+import { Button, IconButton } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { Icon } from '@/components/Icon';
 import { Input } from '@/components/Input';
@@ -21,11 +21,13 @@ import { formatDateTime } from '@/shared/date';
 import { useDeleteWorkspaceMemberMutation } from '../../hooks/useWorkspaceMutations';
 import { useWorkspaceMemberPermission } from '../../hooks/useWorkspacePermission';
 import { WorkspaceMembersRoute } from '../../routes';
+import { InviteMemberDialog } from './components/InviteMemberDialog';
 import { MemberRolesDialog } from './components/MemberRolesDialog';
+import { PendingInvitations } from './components/PendingInvitations';
 
 const PAGE_SIZE = 20;
 
-/** 工作區的成員與他們的工作區角色（docs/adr/0018-workspace-tenancy.md D11、D12）。 */
+/** 工作區的成員與他們的工作區角色（docs/adr/0018-workspace-tenancy.md D11、D12），以及 Email 邀請（D14）。 */
 export default function WorkspaceMembersPage() {
   const { t } = useTranslation();
   const workspace = useRequiredWorkspace();
@@ -36,6 +38,7 @@ export default function WorkspaceMembersPage() {
   const remove = useDeleteWorkspaceMemberMutation();
   const [editing, setEditing] = useState<WorkspaceMember>();
   const [removing, setRemoving] = useState<WorkspaceMember>();
+  const [inviting, setInviting] = useState(false);
 
   const { data, isPending } = useQuery(
     getWorkspaceMemberListQueryOptions({
@@ -123,12 +126,26 @@ export default function WorkspaceMembersPage() {
 
   return (
     <div className="flex flex-col gap-4" data-testid="workspace-member-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('workspace.member.title')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-          {t('workspace.member.description')}
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="m-0 text-xl font-semibold">{t('workspace.member.title')}</h1>
+          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
+            {t('workspace.member.description')}
+          </p>
+        </div>
+        {permission.canInvite && (
+          <Button
+            variant="primary"
+            startIcon={<Icon name="plus" size={16} />}
+            onClick={() => setInviting(true)}
+            data-testid="workspace-invite-open"
+          >
+            {t('workspace.invitation.create.action')}
+          </Button>
+        )}
       </header>
+
+      <PendingInvitations workspaceId={workspace.id} canRevoke={permission.canInvite} />
 
       <Input
         className="max-w-80"
@@ -154,6 +171,11 @@ export default function WorkspaceMembersPage() {
         onChange={({ offset }) => patchSearch({ offset })}
       />
 
+      <InviteMemberDialog
+        workspaceId={workspace.id}
+        open={inviting}
+        onClose={() => setInviting(false)}
+      />
       <MemberRolesDialog
         workspaceId={workspace.id}
         member={editing}

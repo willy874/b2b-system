@@ -676,3 +676,53 @@ export interface WorkspaceRole {
 export interface WorkspaceRoleList {
   items: Array<WorkspaceRole>;
 }
+
+export interface CreateWorkspaceInvitationRequest {
+  email: string;
+  roleIds: Array<string>;
+}
+
+export interface WorkspaceInvitation {
+  id: string;
+  email: string;
+  roles: Array<RoleSummary>;
+  invitedBy: {
+    id: string;
+    displayName: string;
+  } | null;
+  hasAccount: boolean;
+  createdAt: string;
+  expiresAt: string;
+  isExpired: boolean;
+}
+
+export interface WorkspaceInvitationList {
+  items: Array<WorkspaceInvitation>;
+}
+
+export interface WorkspaceInvitationPreview {
+  email: string;
+  workspaceName: string;
+  inviterName: string | null;
+  hasAccount: boolean;
+  expiresAt: string;
+}
+
+export interface AcceptWorkspaceInvitationRequest {
+  token: string;
+}
+
+export interface SignupWorkspaceInvitationRequest {
+  token: string;
+  displayName: string;
+  password: string;
+}
+
+export interface AcceptedWorkspaceInvitation {
+  email: string;
+  workspace: {
+    id: string;
+    slug: string;
+    name: string;
+  };
+}

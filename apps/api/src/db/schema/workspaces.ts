@@ -10,6 +10,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { citext } from './custom-types';
 import { roles } from './roles';
 import { users } from './users';
 
@@ -88,7 +89,53 @@ export const workspaceMemberRoles = pgTable(
   ],
 );
 
+/**
+ * 以 email 邀請加入工作區（D14）。收件人點信中連結接受：已有帳號的登入後接受，沒有帳號的設定密碼、建立已啟用帳號。
+ * `token_hash` 在 **寄出當下** 才寫入（與啟用信同一條規則，docs/architecture/backend/11-mail.md §4），
+ * 所以剛建立、信還沒寄出時是 null；每次寄出都換新，只有最後一封信的連結有效。
+ */
+export const workspaceInvitations = pgTable(
+  'workspace_invitations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    email: citext('email').notNull(),
+    tokenHash: text('token_hash'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    invitedBy: uuid('invited_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+    acceptedBy: uuid('accepted_by').references(() => users.id, { onDelete: 'set null' }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    revokedBy: uuid('revoked_by').references(() => users.id, { onDelete: 'set null' }),
+  },
+  (t) => [
+    uniqueIndex('workspace_invitations_token_hash_key').on(t.tokenHash),
+    // 同一個工作區、同一個 email 只有一筆待接受（過期的也算：重新邀請時先撤銷舊的）
+    uniqueIndex('workspace_invitations_pending_key')
+      .on(t.workspaceId, t.email)
+      .where(sql`${t.acceptedAt} IS NULL AND ${t.revokedAt} IS NULL`),
+  ],
+);
+
+/** 邀請時指定的工作區角色：接受時原樣成為成員的角色。角色被刪除時跟著消失。 */
+export const workspaceInvitationRoles = pgTable(
+  'workspace_invitation_roles',
+  {
+    invitationId: uuid('invitation_id')
+      .notNull()
+      .references(() => workspaceInvitations.id, { onDelete: 'cascade' }),
+    roleId: uuid('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.invitationId, t.roleId] })],
+);
+
 export type WorkspaceRow = typeof workspaces.$inferSelect;
 export type WorkspaceInsert = typeof workspaces.$inferInsert;
 export type WorkspaceMemberRow = typeof workspaceMembers.$inferSelect;
 export type WorkspaceMemberRoleRow = typeof workspaceMemberRoles.$inferSelect;
+export type WorkspaceInvitationRow = typeof workspaceInvitations.$inferSelect;

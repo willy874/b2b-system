@@ -346,11 +346,12 @@ export class UserService {
 
   /**
    * 在呼叫端的交易內建立帳號、指派角色並寫稽核。呼叫前先 `assertCreatable()`；
-   * 交易提交後呼叫 `publishCreated()`。
+   * 交易提交後呼叫 `publishCreated()`。`actor` 為 null：沒有人代為建立
+   * （接受工作區邀請時由本人建立，而邀請人可能已被刪除）。
    */
   async createAccount(
     input: NewAccount,
-    actor: AuthUser,
+    actor: AuthUser | null,
     tx: DbOrTx,
     metadata?: AuditMetadata,
   ): Promise<UserRow> {
@@ -361,12 +362,12 @@ export class UserService {
         displayName: input.displayName,
         passwordHash: input.passwordHash ?? null,
         status: input.status,
-        createdBy: actor.id,
-        updatedBy: actor.id,
+        createdBy: actor?.id ?? null,
+        updatedBy: actor?.id ?? null,
       },
       tx,
     );
-    await this.repo.assignRoles(user.id, input.roleIds, actor.id, tx);
+    await this.repo.assignRoles(user.id, input.roleIds, actor?.id ?? null, tx);
     await this.audit.record(
       {
         action: 'user.create',

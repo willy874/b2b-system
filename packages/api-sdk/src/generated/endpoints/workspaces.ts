@@ -4,13 +4,20 @@
 import { z } from 'zod';
 
 import type {
+  AcceptWorkspaceInvitationRequest,
+  AcceptedWorkspaceInvitation,
   AssignWorkspaceAdminRequest,
+  CreateWorkspaceInvitationRequest,
   CreateWorkspaceRequest,
   MyWorkspaceList,
+  SignupWorkspaceInvitationRequest,
   UpdateWorkspaceMemberRolesRequest,
   UpdateWorkspaceRequest,
   Workspace,
   WorkspaceDetail,
+  WorkspaceInvitation,
+  WorkspaceInvitationList,
+  WorkspaceInvitationPreview,
   WorkspaceMe,
   WorkspaceMember,
   WorkspaceMemberRoles,
@@ -24,12 +31,19 @@ import type {
   RequestOptions,
 } from '../runtime';
 import {
+  AcceptWorkspaceInvitationRequestSchema,
+  AcceptedWorkspaceInvitationSchema,
   AssignWorkspaceAdminRequestSchema,
+  CreateWorkspaceInvitationRequestSchema,
   CreateWorkspaceRequestSchema,
   MyWorkspaceListSchema,
+  SignupWorkspaceInvitationRequestSchema,
   UpdateWorkspaceMemberRolesRequestSchema,
   UpdateWorkspaceRequestSchema,
   WorkspaceDetailSchema,
+  WorkspaceInvitationListSchema,
+  WorkspaceInvitationPreviewSchema,
+  WorkspaceInvitationSchema,
   WorkspaceMeSchema,
   WorkspaceMemberRolesSchema,
   WorkspaceMemberSchema,
@@ -743,6 +757,351 @@ export function workspaceMemberControllerListRoles(
 ): Promise<WorkspaceMemberControllerListRolesResult> {
   return request<WorkspaceMemberControllerListRolesResult>(
     workspaceMemberControllerListRolesOperation,
+    input,
+    options,
+  );
+}
+
+// GET /workspaces/{workspaceId}/invitations
+
+export interface WorkspaceInvitationControllerListPathParams {
+  workspaceId: unknown;
+}
+
+export interface WorkspaceInvitationControllerListInput {
+  path: WorkspaceInvitationControllerListPathParams;
+}
+
+export interface WorkspaceInvitationControllerListResponses {
+  200: {
+    data: WorkspaceInvitationList;
+  };
+}
+
+export type WorkspaceInvitationControllerListResponse =
+  WorkspaceInvitationControllerListResponses[200];
+
+export type WorkspaceInvitationControllerListResult = ApiResponse<
+  200,
+  WorkspaceInvitationControllerListResponses[200]
+>;
+
+export const WorkspaceInvitationControllerListSchemas = {
+  path: z.object({
+    workspaceId: z.unknown(),
+  }),
+  responses: {
+    200: z.object({
+      data: WorkspaceInvitationListSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getWorkspaceInvitationControllerListUrl(
+  path: WorkspaceInvitationControllerListPathParams,
+): string {
+  return buildUrl('/workspaces/{workspaceId}/invitations', path);
+}
+
+const workspaceInvitationControllerListOperation: OperationDefinition = {
+  id: 'WorkspaceInvitationController_list',
+  method: 'GET',
+  path: '/workspaces/{workspaceId}/invitations',
+  responseTypes: { 200: 'json' },
+  schemas: WorkspaceInvitationControllerListSchemas,
+};
+
+/** 待接受的邀請（含已過期） */
+export function workspaceInvitationControllerList(
+  input: WorkspaceInvitationControllerListInput,
+  options?: RequestOptions,
+): Promise<WorkspaceInvitationControllerListResult> {
+  return request<WorkspaceInvitationControllerListResult>(
+    workspaceInvitationControllerListOperation,
+    input,
+    options,
+  );
+}
+
+// POST /workspaces/{workspaceId}/invitations
+
+export interface WorkspaceInvitationControllerInvitePathParams {
+  workspaceId: unknown;
+}
+
+export type WorkspaceInvitationControllerInviteBody = CreateWorkspaceInvitationRequest;
+
+export interface WorkspaceInvitationControllerInviteInput {
+  path: WorkspaceInvitationControllerInvitePathParams;
+  body: WorkspaceInvitationControllerInviteBody;
+}
+
+export interface WorkspaceInvitationControllerInviteResponses {
+  201: {
+    data: WorkspaceInvitation;
+  };
+}
+
+export type WorkspaceInvitationControllerInviteResponse =
+  WorkspaceInvitationControllerInviteResponses[201];
+
+export type WorkspaceInvitationControllerInviteResult = ApiResponse<
+  201,
+  WorkspaceInvitationControllerInviteResponses[201]
+>;
+
+export const WorkspaceInvitationControllerInviteSchemas = {
+  path: z.object({
+    workspaceId: z.unknown(),
+  }),
+  body: CreateWorkspaceInvitationRequestSchema,
+  responses: {
+    201: z.object({
+      data: WorkspaceInvitationSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getWorkspaceInvitationControllerInviteUrl(
+  path: WorkspaceInvitationControllerInvitePathParams,
+): string {
+  return buildUrl('/workspaces/{workspaceId}/invitations', path);
+}
+
+const workspaceInvitationControllerInviteOperation: OperationDefinition = {
+  id: 'WorkspaceInvitationController_invite',
+  method: 'POST',
+  path: '/workspaces/{workspaceId}/invitations',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 201: 'json' },
+  schemas: WorkspaceInvitationControllerInviteSchemas,
+};
+
+/** 以 email 邀請（角色受反提權限制；沒有帳號的 email 另需平台的 user:create） */
+export function workspaceInvitationControllerInvite(
+  input: WorkspaceInvitationControllerInviteInput,
+  options?: RequestOptions,
+): Promise<WorkspaceInvitationControllerInviteResult> {
+  return request<WorkspaceInvitationControllerInviteResult>(
+    workspaceInvitationControllerInviteOperation,
+    input,
+    options,
+  );
+}
+
+// DELETE /workspaces/{workspaceId}/invitations/{invitationId}
+
+export interface WorkspaceInvitationControllerRevokePathParams {
+  invitationId: string;
+  workspaceId: unknown;
+}
+
+export interface WorkspaceInvitationControllerRevokeInput {
+  path: WorkspaceInvitationControllerRevokePathParams;
+}
+
+export interface WorkspaceInvitationControllerRevokeResponses {
+  204: undefined;
+}
+
+export type WorkspaceInvitationControllerRevokeResponse =
+  WorkspaceInvitationControllerRevokeResponses[204];
+
+export type WorkspaceInvitationControllerRevokeResult = ApiResponse<
+  204,
+  WorkspaceInvitationControllerRevokeResponses[204]
+>;
+
+export const WorkspaceInvitationControllerRevokeSchemas = {
+  path: z.object({
+    invitationId: z.string(),
+    workspaceId: z.unknown(),
+  }),
+} satisfies OperationSchemas;
+
+export function getWorkspaceInvitationControllerRevokeUrl(
+  path: WorkspaceInvitationControllerRevokePathParams,
+): string {
+  return buildUrl('/workspaces/{workspaceId}/invitations/{invitationId}', path);
+}
+
+const workspaceInvitationControllerRevokeOperation: OperationDefinition = {
+  id: 'WorkspaceInvitationController_revoke',
+  method: 'DELETE',
+  path: '/workspaces/{workspaceId}/invitations/{invitationId}',
+  responseTypes: { 204: 'none' },
+  schemas: WorkspaceInvitationControllerRevokeSchemas,
+};
+
+/** 撤銷待接受的邀請 */
+export function workspaceInvitationControllerRevoke(
+  input: WorkspaceInvitationControllerRevokeInput,
+  options?: RequestOptions,
+): Promise<WorkspaceInvitationControllerRevokeResult> {
+  return request<WorkspaceInvitationControllerRevokeResult>(
+    workspaceInvitationControllerRevokeOperation,
+    input,
+    options,
+  );
+}
+
+// GET /workspace-invitations/preview
+
+export interface WorkspaceInvitationAcceptControllerPreviewResponses {
+  200: {
+    data: WorkspaceInvitationPreview;
+  };
+}
+
+export type WorkspaceInvitationAcceptControllerPreviewResponse =
+  WorkspaceInvitationAcceptControllerPreviewResponses[200];
+
+export type WorkspaceInvitationAcceptControllerPreviewResult = ApiResponse<
+  200,
+  WorkspaceInvitationAcceptControllerPreviewResponses[200]
+>;
+
+export const WorkspaceInvitationAcceptControllerPreviewSchemas = {
+  responses: {
+    200: z.object({
+      data: WorkspaceInvitationPreviewSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getWorkspaceInvitationAcceptControllerPreviewUrl(): string {
+  return buildUrl('/workspace-invitations/preview');
+}
+
+const workspaceInvitationAcceptControllerPreviewOperation: OperationDefinition = {
+  id: 'WorkspaceInvitationAcceptController_preview',
+  method: 'GET',
+  path: '/workspace-invitations/preview',
+  responseTypes: { 200: 'json' },
+  schemas: WorkspaceInvitationAcceptControllerPreviewSchemas,
+};
+
+/** 接受邀請頁的資訊（token 無效回 WORKSPACE_INVITATION_INVALID） */
+export function workspaceInvitationAcceptControllerPreview(
+  options?: RequestOptions,
+): Promise<WorkspaceInvitationAcceptControllerPreviewResult> {
+  return request<WorkspaceInvitationAcceptControllerPreviewResult>(
+    workspaceInvitationAcceptControllerPreviewOperation,
+    {},
+    options,
+  );
+}
+
+// POST /workspace-invitations/accept
+
+export type WorkspaceInvitationAcceptControllerAcceptBody = AcceptWorkspaceInvitationRequest;
+
+export interface WorkspaceInvitationAcceptControllerAcceptInput {
+  body: WorkspaceInvitationAcceptControllerAcceptBody;
+}
+
+export interface WorkspaceInvitationAcceptControllerAcceptResponses {
+  200: {
+    data: AcceptedWorkspaceInvitation;
+  };
+}
+
+export type WorkspaceInvitationAcceptControllerAcceptResponse =
+  WorkspaceInvitationAcceptControllerAcceptResponses[200];
+
+export type WorkspaceInvitationAcceptControllerAcceptResult = ApiResponse<
+  200,
+  WorkspaceInvitationAcceptControllerAcceptResponses[200]
+>;
+
+export const WorkspaceInvitationAcceptControllerAcceptSchemas = {
+  body: AcceptWorkspaceInvitationRequestSchema,
+  responses: {
+    200: z.object({
+      data: AcceptedWorkspaceInvitationSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getWorkspaceInvitationAcceptControllerAcceptUrl(): string {
+  return buildUrl('/workspace-invitations/accept');
+}
+
+const workspaceInvitationAcceptControllerAcceptOperation: OperationDefinition = {
+  id: 'WorkspaceInvitationAcceptController_accept',
+  method: 'POST',
+  path: '/workspace-invitations/accept',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: WorkspaceInvitationAcceptControllerAcceptSchemas,
+};
+
+/** 以目前登入的帳號接受（帳號 email 必須是受邀的 email） */
+export function workspaceInvitationAcceptControllerAccept(
+  input: WorkspaceInvitationAcceptControllerAcceptInput,
+  options?: RequestOptions,
+): Promise<WorkspaceInvitationAcceptControllerAcceptResult> {
+  return request<WorkspaceInvitationAcceptControllerAcceptResult>(
+    workspaceInvitationAcceptControllerAcceptOperation,
+    input,
+    options,
+  );
+}
+
+// POST /workspace-invitations/signup
+
+export type WorkspaceInvitationAcceptControllerSignupBody = SignupWorkspaceInvitationRequest;
+
+export interface WorkspaceInvitationAcceptControllerSignupInput {
+  body: WorkspaceInvitationAcceptControllerSignupBody;
+}
+
+export interface WorkspaceInvitationAcceptControllerSignupResponses {
+  200: {
+    data: AcceptedWorkspaceInvitation;
+  };
+}
+
+export type WorkspaceInvitationAcceptControllerSignupResponse =
+  WorkspaceInvitationAcceptControllerSignupResponses[200];
+
+export type WorkspaceInvitationAcceptControllerSignupResult = ApiResponse<
+  200,
+  WorkspaceInvitationAcceptControllerSignupResponses[200]
+>;
+
+export const WorkspaceInvitationAcceptControllerSignupSchemas = {
+  body: SignupWorkspaceInvitationRequestSchema,
+  responses: {
+    200: z.object({
+      data: AcceptedWorkspaceInvitationSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getWorkspaceInvitationAcceptControllerSignupUrl(): string {
+  return buildUrl('/workspace-invitations/signup');
+}
+
+const workspaceInvitationAcceptControllerSignupOperation: OperationDefinition = {
+  id: 'WorkspaceInvitationAcceptController_signup',
+  method: 'POST',
+  path: '/workspace-invitations/signup',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: WorkspaceInvitationAcceptControllerSignupSchemas,
+};
+
+/** 還沒有帳號：設定密碼、建立已啟用的帳號並加入工作區 */
+export function workspaceInvitationAcceptControllerSignup(
+  input: WorkspaceInvitationAcceptControllerSignupInput,
+  options?: RequestOptions,
+): Promise<WorkspaceInvitationAcceptControllerSignupResult> {
+  return request<WorkspaceInvitationAcceptControllerSignupResult>(
+    workspaceInvitationAcceptControllerSignupOperation,
     input,
     options,
   );

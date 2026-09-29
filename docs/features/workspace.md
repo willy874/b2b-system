@@ -113,18 +113,27 @@
 
 ## 進度與剩餘工作
 
-第一批已合進 `feat/workspace`（`da1baa4`）：資料表與遷移、權限範圍、`@WorkspaceScoped` guard 與 route-audit、
+第一批已合進 `main`（`da1baa4`，merge `85b011d`）：資料表與遷移、權限範圍、`@WorkspaceScoped` guard 與 route-audit、
 `modules/workspace`（平台管理、成員與工作區角色）、檔案模組移進工作區、推播、前端 `/w/:workspaceSlug` 版面、
 切換器、成員頁、平台的工作區管理頁。以下是還沒做的，合併前要逐項處理或明確延後。
 
 ### 功能
 
-1. **Email 邀請（ADR-0018 D14）**
-   - 後端：`workspace_invitations` 表（email、工作區角色、token 雜湊、到期、接受／撤銷時間；同工作區同 email 只有一筆待接受）；
-     `POST /workspaces/:workspaceId/invitations`（`workspaceMember:create`，角色受反提權限制；沒有帳號的 email 另需平台的 `user:create`）、
-     撤銷、列表；公開的接受端點（已有帳號：登入後接受；沒有帳號：設定密碼、建立已啟用帳號並加入）。
-   - 寄信走 `core/mail` 與背景工作（ADR-0017）；稽核 `workspaceInvitation.create/revoke/accept`。
-   - 前端：成員頁的「邀請成員」對話框、待接受的邀請清單、接受邀請頁。
+1. ~~**Email 邀請（ADR-0018 D14）**~~ ✅ 已完成（`refactor/rename-web-to-backstage` 工作目錄，尚未 commit）。做出來的樣子，歸檔時寫進正式文件：
+   - 資料：`workspace_invitations`（email、`token_hash`、到期、邀請人、接受／撤銷時間；同工作區同 email 只有一筆待接受，
+     partial unique index）＋ `workspace_invitation_roles`（migration 0017）。`token_hash` 在寄出當下才寫入，每次寄出換新並重新起算 7 天。
+   - API：`GET/POST /workspaces/:workspaceId/invitations`、`DELETE …/invitations/:invitationId`（撤銷，`workspaceMember:create`）；
+     受邀者用的 `GET /workspace-invitations/preview`（公開）、`POST /workspace-invitations/accept`（登入，帳號 email 必須是受邀的 email）、
+     `POST /workspace-invitations/signup`（公開，建立 **已啟用** 帳號、沒有全域角色，前端接著登入）。
+   - 規則：角色受反提權限制（邀請時檢查；之後邀請人權限變了靠撤銷處理）；已是成員 → `WORKSPACE_MEMBER_DUPLICATE`；
+     沒有帳號的 email 需要平台的 `user:create`；重新邀請同一個 email 會撤銷舊的；接受時角色與既有角色取聯集。
+   - 寄信：背景工作 `workspace.invitationMail`（`modules/workspace/workspace-invitation.jobs.ts`）；稽核 `workspaceInvitation.create/revoke/accept`、
+     `mail.send`；推播 `ChangeSource.WORKSPACE_INVITATION`（受眾：該工作區持有 `workspaceMember:read` 的人）。
+   - 前端：成員頁的「邀請成員」對話框與待接受邀請清單（`features/workspace`）；接受邀請頁在 `/auth/invitation`（`features/auth`）——
+     放在 `/auth` 底下，因為其他頁面沒有 session 時會被導去登入頁並丟掉 `token`；已有帳號的人直接在這頁登入後接受。
+   - 已知限制：登入的是別的帳號時，只提示「請登出後用受邀的信箱登入」（登出會導回登入頁、丟掉連結，要重新點信）；
+     `pending`（還沒啟用）的既有帳號收到邀請時，要先完成啟用才能登入接受；工作區管理員可以從
+     `WORKSPACE_INVITATION_USER_CREATE_REQUIRED` 推知某個 email 在平台上沒有帳號。
 2. **稽核依工作區篩選（D6）**：`audit_logs`／`audit_logs_archive` 加 `workspace_id`；`archive_audit_logs()` 與
    `audit_logs_guard_delete()` 的欄位清單要一起改，改完重新 `ALTER FUNCTION … SECURITY DEFINER`（見 migration 0003、0014）；
    `AuditService.record()` 帶上工作區（目前工作區相關的稽核放在 `metadata.workspaceId`）；稽核列表 API 與頁面加篩選。
@@ -135,11 +144,11 @@
    `WorkspaceLayout`（slug 不存在 → 404、非成員、切換工作區清掉權限）；`WorkspaceSwitcher`；`core/permission` 的
    `usePageAccess(level)`、`resolvePageKey` 的 `$param` 比對、`routeBasePath` 接上層路徑；`core/workspace/paths.ts`。
 4. **E2E**：A 工作區的成員看不到 B（`/w/e2e-other/...` 顯示找不到）；切換器保留同一頁；成員頁指派角色；
-   平台管理員看不到工作區內容。seed 已準備 `e2e-other` 工作區（只有 e2e-admin 是成員）。
+   平台管理員看不到工作區內容；邀請 → 從 Mailpit 取連結 → 新帳號設定密碼後進入工作區。seed 已準備 `e2e-other` 工作區（只有 e2e-admin 是成員）。
 
 ### 環境
 
-5. **共用 dev 資料庫還沒 migrate**：開發期間用的是副本 `ws_scratch`。套用 `pnpm db:migrate && pnpm db:seed` 會搬動資料、
+5. **共用 dev 資料庫還沒 migrate**（0016 工作區、0017 邀請）：開發期間用的是副本 `ws_scratch`。套用 `pnpm db:migrate && pnpm db:seed` 會搬動資料、
    無法倒回，要在沒有其他對話依賴舊 schema 時執行。
 6. dev 資料的 `admin` 角色先前被縮成只有 `file:access`、`file:share`，遷移出來的 `workspace-admin` 因此沒有 `file:read`，
    無法指派 `workspace-viewer`（反提權照規則擋下）。要的話在角色頁補權限，或重建 dev 資料。

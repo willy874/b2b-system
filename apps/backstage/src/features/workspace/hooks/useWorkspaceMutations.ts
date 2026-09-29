@@ -2,9 +2,11 @@ import { useMutation } from '@tanstack/react-query';
 
 import { invalidateResources, Resource } from '@/apis/resources';
 import { getAssignWorkspaceAdminMutationOptions } from '@/apis/workspace/assign-workspace-admin/mutation';
+import { getCreateWorkspaceInvitationMutationOptions } from '@/apis/workspace/create-workspace-invitation/mutation';
 import { getCreateWorkspaceMutationOptions } from '@/apis/workspace/create-workspace/mutation';
 import { getDeleteWorkspaceMemberMutationOptions } from '@/apis/workspace/delete-workspace-member/mutation';
 import { getDeleteWorkspaceMutationOptions } from '@/apis/workspace/delete-workspace/mutation';
+import { getRevokeWorkspaceInvitationMutationOptions } from '@/apis/workspace/revoke-workspace-invitation/mutation';
 import { getUpdateWorkspaceMemberRolesMutationOptions } from '@/apis/workspace/update-workspace-member-roles/mutation';
 import { getUpdateWorkspaceMutationOptions } from '@/apis/workspace/update-workspace/mutation';
 import { useTranslation } from '@/core/locales';
@@ -35,6 +37,36 @@ export function useDeleteWorkspaceMemberMutation() {
         { resource: Resource.WORKSPACE_MEMBER, kind: 'delete', id: params.userId },
       ]);
       toast.success(t('workspace.member.remove.success'));
+    },
+  });
+}
+
+/** 錯誤由對話框顯示（例：AUTHZ_ESCALATION、WORKSPACE_INVITATION_USER_CREATE_REQUIRED）。 */
+export function useCreateWorkspaceInvitationMutation() {
+  const toast = useToast();
+  const { t } = useTranslation();
+  return useMutation({
+    ...getCreateWorkspaceInvitationMutationOptions(),
+    onSuccess: (invitation) => {
+      // 重新邀請同一個 email 會撤銷舊的：清單整個重抓
+      invalidateResources([
+        { resource: Resource.WORKSPACE_INVITATION, kind: 'create', id: invitation.id },
+      ]);
+      toast.success(t('workspace.invitation.create.success', { email: invitation.email }));
+    },
+  });
+}
+
+export function useRevokeWorkspaceInvitationMutation() {
+  const toast = useToast();
+  const { t } = useTranslation();
+  return useMutation({
+    ...getRevokeWorkspaceInvitationMutationOptions(),
+    onSuccess: (_, { params }) => {
+      invalidateResources([
+        { resource: Resource.WORKSPACE_INVITATION, kind: 'delete', id: params.invitationId },
+      ]);
+      toast.success(t('workspace.invitation.revoke.success'));
     },
   });
 }

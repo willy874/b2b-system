@@ -216,6 +216,12 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'PUT /workspaces/:workspaceId/members/:userId/roles': 'workspaceMember:assignRole',
       'DELETE /workspaces/:workspaceId/members/:userId': 'workspaceMember:delete',
       'GET /workspaces/:workspaceId/roles': 'workspaceMember:read',
+      'GET /workspaces/:workspaceId/invitations': 'workspaceMember:read',
+      'POST /workspaces/:workspaceId/invitations': 'workspaceMember:create',
+      'DELETE /workspaces/:workspaceId/invitations/:invitationId': 'workspaceMember:create',
+      'GET /workspace-invitations/preview': 'public',
+      'POST /workspace-invitations/accept': 'authenticated',
+      'POST /workspace-invitations/signup': 'public',
     };
 
     for (const [route, declaration] of Object.entries(expected)) {

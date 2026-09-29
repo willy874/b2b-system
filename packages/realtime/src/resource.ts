@@ -18,6 +18,8 @@ export const ChangeSource = {
   WORKSPACE: 'workspace',
   /** 工作區的成員與成員的工作區角色；`id` 是使用者 id。 */
   WORKSPACE_MEMBER: 'workspaceMember',
+  /** 工作區的待接受邀請（建立、撤銷、接受）；`id` 是邀請 id。 */
+  WORKSPACE_INVITATION: 'workspaceInvitation',
 } as const;
 
 export type ChangeSource = (typeof ChangeSource)[keyof typeof ChangeSource];
@@ -46,6 +48,7 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.FILE_FOLDER,
   ChangeSource.WORKSPACE,
   ChangeSource.WORKSPACE_MEMBER,
+  ChangeSource.WORKSPACE_INVITATION,
 ]);
 
 export const ResourceChangeWireSchema = z.object({

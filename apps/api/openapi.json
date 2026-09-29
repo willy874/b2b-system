@@ -1705,6 +1705,212 @@
         "tags": ["workspaces"]
       }
     },
+    "/workspaces/{workspaceId}/invitations": {
+      "get": {
+        "operationId": "WorkspaceInvitationController_list",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WorkspaceInvitationList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "待接受的邀請（含已過期）",
+        "tags": ["workspaces"]
+      },
+      "post": {
+        "operationId": "WorkspaceInvitationController_invite",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorkspaceInvitationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WorkspaceInvitation"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "以 email 邀請（角色受反提權限制；沒有帳號的 email 另需平台的 user:create）",
+        "tags": ["workspaces"]
+      }
+    },
+    "/workspaces/{workspaceId}/invitations/{invitationId}": {
+      "delete": {
+        "operationId": "WorkspaceInvitationController_revoke",
+        "parameters": [
+          {
+            "name": "invitationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "撤銷待接受的邀請",
+        "tags": ["workspaces"]
+      }
+    },
+    "/workspace-invitations/preview": {
+      "get": {
+        "operationId": "WorkspaceInvitationAcceptController_preview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WorkspaceInvitationPreview"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "接受邀請頁的資訊（token 無效回 WORKSPACE_INVITATION_INVALID）",
+        "tags": ["workspaces"]
+      }
+    },
+    "/workspace-invitations/accept": {
+      "post": {
+        "operationId": "WorkspaceInvitationAcceptController_accept",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptWorkspaceInvitationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AcceptedWorkspaceInvitation"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "以目前登入的帳號接受（帳號 email 必須是受邀的 email）",
+        "tags": ["workspaces"]
+      }
+    },
+    "/workspace-invitations/signup": {
+      "post": {
+        "operationId": "WorkspaceInvitationAcceptController_signup",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupWorkspaceInvitationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AcceptedWorkspaceInvitation"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "還沒有帳號：設定密碼、建立已啟用的帳號並加入工作區",
+        "tags": ["workspaces"]
+      }
+    },
     "/system/info": {
       "get": {
         "operationId": "SystemController_info",
@@ -5375,6 +5581,184 @@
           }
         },
         "required": ["items"],
+        "additionalProperties": false
+      },
+      "CreateWorkspaceInvitationRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 255,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "roleIds": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": ["email", "roleIds"],
+        "additionalProperties": false
+      },
+      "WorkspaceInvitation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "email": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleSummary"
+            }
+          },
+          "invitedBy": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "displayName"],
+            "additionalProperties": false
+          },
+          "hasAccount": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "isExpired": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "roles",
+          "invitedBy",
+          "hasAccount",
+          "createdAt",
+          "expiresAt",
+          "isExpired"
+        ],
+        "additionalProperties": false
+      },
+      "WorkspaceInvitationList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceInvitation"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "WorkspaceInvitationPreview": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "workspaceName": {
+            "type": "string"
+          },
+          "inviterName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "hasAccount": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": ["email", "workspaceName", "inviterName", "hasAccount", "expiresAt"],
+        "additionalProperties": false
+      },
+      "AcceptWorkspaceInvitationRequest": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 200
+          }
+        },
+        "required": ["token"],
+        "additionalProperties": false
+      },
+      "SignupWorkspaceInvitationRequest": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 200
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 128
+          }
+        },
+        "required": ["token", "displayName", "password"],
+        "additionalProperties": false
+      },
+      "AcceptedWorkspaceInvitation": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "workspace": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "slug", "name"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["email", "workspace"],
         "additionalProperties": false
       }
     }
