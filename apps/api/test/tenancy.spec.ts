@@ -77,12 +77,24 @@ describe('租戶實體隔離（docs/adr/0020-physical-tenant-isolation.md D1–D
     const box = SecretBox.fromConfig(inject('tenantSecretKey'), '', TENANT_SECRET_PURPOSE);
     await registerTenant(
       platform,
-      { code: 'other', name: '另一個租戶', databaseUrl: otherUrl, domains: ['other.test'] },
+      {
+        code: 'other',
+        name: '另一個租戶',
+        databaseUrl: otherUrl,
+        storageBucket: 'b2b-other',
+        domains: ['other.test'],
+      },
       box,
     );
     const offId = await registerTenant(
       platform,
-      { code: 'off', name: '停用的租戶', databaseUrl: offUrl, domains: ['off.test'] },
+      {
+        code: 'off',
+        name: '停用的租戶',
+        databaseUrl: offUrl,
+        storageBucket: 'b2b-off',
+        domains: ['off.test'],
+      },
       box,
     );
     await platform

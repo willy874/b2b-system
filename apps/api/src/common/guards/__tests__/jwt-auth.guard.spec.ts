@@ -22,7 +22,7 @@ class TestController {
 import type { CachedUser } from '@/core/cache';
 
 /** 測試用的租戶脈絡：token 的 `tid` 要與它相符（docs/adr/0020-physical-tenant-isolation.md D10）。 */
-const TENANT = { id: 'tenant-1', code: 'test', db: {} as Database };
+const TENANT = { id: 'tenant-1', code: 'test', db: {} as Database, storageBucket: 'b2b-test' };
 
 const activeUser: CachedUser = {
   id: 'user-1',

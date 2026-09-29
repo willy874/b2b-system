@@ -1,6 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm';
 
 import type { SecretBox } from '@/core/crypto';
+import { isValidBucketName } from '@/core/storage/object-storage';
 
 import type { PlatformScriptDatabase } from '../client';
 import { tenantDomains, tenants } from './schema';
@@ -9,6 +10,8 @@ export interface TenantRegistration {
   code: string;
   name: string;
   databaseUrl: string;
+  /** 物件儲存的 bucket（docs/adr/0020-physical-tenant-isolation.md D16）。 */
+  storageBucket: string;
   domains: string[];
 }
 
@@ -21,6 +24,9 @@ export async function registerTenant(
   registration: TenantRegistration,
   box: SecretBox,
 ): Promise<string> {
+  if (!isValidBucketName(registration.storageBucket)) {
+    throw new Error(`bucket 名稱 ${registration.storageBucket} 不符合 S3 命名規則`);
+  }
   const [existing] = await platform
     .select({ id: tenants.id })
     .from(tenants)
@@ -34,6 +40,7 @@ export async function registerTenant(
         code: registration.code,
         name: registration.name,
         databaseUrlEncrypted: box.encrypt(registration.databaseUrl),
+        storageBucket: registration.storageBucket,
       })
       .returning({ id: tenants.id });
     if (!created) throw new Error(`建立租戶 ${registration.code} 失敗`);

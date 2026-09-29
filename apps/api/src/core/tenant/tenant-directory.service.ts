@@ -16,6 +16,8 @@ export interface TenantRecord {
   name: string;
   status: TenantStatus;
   databaseUrl: string;
+  /** 物件儲存的 bucket（D16）。 */
+  storageBucket: string;
 }
 
 interface Cached<T> {
@@ -141,6 +143,7 @@ export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy 
       name: row.name,
       status: row.status,
       databaseUrl: this.secrets.decrypt(row.databaseUrlEncrypted),
+      storageBucket: row.storageBucket,
     };
   }
 

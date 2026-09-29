@@ -34,7 +34,10 @@ function setup() {
 
 describe('MailService（docs/architecture/backend/11-mail.md §3）', () => {
   const inTenant = <T>(fn: () => T) =>
-    runInTenantContext({ id: 't1', code: 'acme', db: {} as Database }, fn);
+    runInTenantContext(
+      { id: 't1', code: 'acme', db: {} as Database, storageBucket: 'b2b-acme' },
+      fn,
+    );
 
   it('link() 在租戶裡以租戶的主要網域開頭（協定沿用 APP_PUBLIC_URL）', () => {
     const { service } = setup();

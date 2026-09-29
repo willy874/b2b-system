@@ -38,7 +38,12 @@ export class Tenancy implements OnApplicationShutdown {
   /** 已解析的租戶 → 脈絡；只有 `active` 的租戶可以進入。 */
   contextOf(tenant: TenantRecord): TenantContext {
     if (tenant.status !== 'active') throw new AppException('TENANT_UNAVAILABLE');
-    return { id: tenant.id, code: tenant.code, db: this.poolOf(tenant).db };
+    return {
+      id: tenant.id,
+      code: tenant.code,
+      db: this.poolOf(tenant).db,
+      storageBucket: tenant.storageBucket,
+    };
   }
 
   /** 以 id 進入租戶（背景工作、腳本）。租戶不存在或不是 `active` 時拋錯。 */

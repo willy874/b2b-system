@@ -48,6 +48,8 @@ async function main(): Promise<void> {
           code: process.env.DEFAULT_TENANT_CODE || 'default',
           name: process.env.DEFAULT_TENANT_NAME || '預設租戶',
           databaseUrl: defaultUrl,
+          // 預設租戶沿用租戶化之前共用的 bucket，既有的檔案不必搬
+          storageBucket: process.env.DEFAULT_TENANT_STORAGE_BUCKET || 'b2b-system',
           domains: (process.env.DEFAULT_TENANT_DOMAINS ?? '').split(','),
         },
         tenantSecretBox(),

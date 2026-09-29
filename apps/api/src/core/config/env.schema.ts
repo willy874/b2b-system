@@ -86,10 +86,6 @@ export const EnvSchema = z.object({
   FILE_STORAGE_ENDPOINT: z.string().url().default('http://127.0.0.1:9000/storage'),
   FILE_STORAGE_PUBLIC_ENDPOINT: z.string().url().default('http://localhost:5173/storage'),
   FILE_STORAGE_REGION: z.string().min(1).default('us-east-1'),
-  FILE_STORAGE_BUCKET: z
-    .string()
-    .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/, '必須符合 S3 bucket 命名規則')
-    .default('b2b-system'),
   FILE_STORAGE_ACCESS_KEY_ID: z.string().min(3),
   FILE_STORAGE_SECRET_ACCESS_KEY: z.string().min(8),
   /** 單一檔案上限（位元組）。 */

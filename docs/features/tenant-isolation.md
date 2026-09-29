@@ -119,11 +119,12 @@ ADR-0018 的工作區是「共用資料表 ＋ `workspace_id`」，帳號跨工�
   換身分時強制重新登入並把舊身分從 IdP session 拿掉（`detachIdentity`，見 ADR-0020 實作調整）、兩個 BFF 各自檢查帳號範圍。
   apps/auth 的網域不再屬於任何租戶；帳號流程以 `?tenant=`／`X-Tenant` 指定租戶，完成後以 `GET /tenants/lookup` 回到租戶的登入；
   backstage 以 `GET /tenant/current` 取得代碼。外部 IdP 管理頁搬到 backstage（開放問題 2）。信中連回產品的網址用租戶的主要網域。
+- ✅ 每個租戶一個 bucket（D16，原排在第 5 步，提前到第 4 步之前）：`tenants.storage_bucket`（平台 migration 0003，
+  既有的預設租戶沿用 `b2b-system`）、租戶脈絡帶 bucket、`S3ObjectStorage` 依目前租戶選 bucket（沒有租戶拋 `TENANT_NOT_FOUND`）、
+  啟動時確認每個租戶的 bucket、健康檢查改成 `ListBuckets`。`FILE_STORAGE_BUCKET` 改為 `DEFAULT_TENANT_STORAGE_BUCKET`（`db:migrate` 用）。
 
 ### 進入第 4 步之前必須處理
 
-- **物件儲存還是所有租戶共用一個 bucket**（原排在第 5 步，D16）。檔案維護會刪掉「在本租戶 DB 找不到紀錄」的物件：
-  一旦有第二個租戶，A 租戶的維護會刪掉 B 租戶的檔案。第 4 步開放建立租戶之前要先完成每租戶一個 bucket。
 - **啟動時檢查每個租戶的 migration 版本（D14 後半）** 還沒做：目前只有 `db:migrate` 會逐一套用。
 - 平台管理者目前只有登入與個人資料；權限目錄、管理者的新增／停用與租戶管理頁都在第 4 步。
 

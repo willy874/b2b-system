@@ -8,6 +8,8 @@ export interface TenantContext {
   id: string;
   code: string;
   db: Database;
+  /** 物件儲存的 bucket（docs/adr/0020-physical-tenant-isolation.md D16）。 */
+  storageBucket: string;
 }
 
 const storage = new AsyncLocalStorage<TenantContext>();

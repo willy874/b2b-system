@@ -246,6 +246,7 @@ TENANT_SECRET_KEY=                 # 留空 = 由 JWT_SECRET 推導（production
 DEFAULT_TENANT_CODE=default
 DEFAULT_TENANT_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_system
 DEFAULT_TENANT_DOMAINS=localhost:5173   # apps/auth（:5175）不屬於任何租戶
+DEFAULT_TENANT_STORAGE_BUCKET=b2b-system # 預設租戶的 bucket（每個租戶一個）
 PLATFORM_ADMIN_EMAIL=platform@example.com   # 第一位平台管理者（apps/auth 的登入）
 PLATFORM_ADMIN_PASSWORD=
 PORT=3000
@@ -302,7 +303,6 @@ FILE_STORAGE_MAX_OBJECT_SIZE=5368709120      # 位元組（預設 5 GiB）
 # ── apps/api 連物件儲存（上面兩個 KEY 共用；docs/architecture/backend/09-file.md §8）
 FILE_STORAGE_ENDPOINT=http://127.0.0.1:9000/storage
 FILE_STORAGE_PUBLIC_ENDPOINT=http://localhost:5173/storage
-FILE_STORAGE_BUCKET=b2b-system
 FILE_UPLOAD_MAX_SIZE=104857600
 FILE_URL_TTL=900
 FILE_MULTIPART_THRESHOLD=16777216   # 超過改用分塊上傳

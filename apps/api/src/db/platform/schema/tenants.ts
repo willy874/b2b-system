@@ -27,6 +27,11 @@ export const tenants = pgTable(
     name: text('name').notNull(),
     status: tenantStatus('status').notNull().default('active'),
     databaseUrlEncrypted: text('database_url_encrypted').notNull(),
+    /**
+     * 這個租戶的物件儲存 bucket（docs/adr/0020-physical-tenant-isolation.md D16）：檔案、縮圖、影像變體都在裡面，
+     * 檔案維護的「沒有紀錄的物件」對帳也只看這個 bucket，不會碰到別的租戶的檔案。
+     */
+    storageBucket: text('storage_bucket').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -35,6 +40,8 @@ export const tenants = pgTable(
     uniqueIndex('tenants_code_key')
       .on(t.code)
       .where(sql`${t.deletedAt} IS NULL`),
+    // 刪除的租戶也算：bucket 可能還沒清掉，不能讓新租戶沿用
+    uniqueIndex('tenants_storage_bucket_key').on(t.storageBucket),
   ],
 );
 

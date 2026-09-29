@@ -57,7 +57,7 @@ export async function createExtraTenant(
   const platform = createPlatformTestDatabase();
   const id = await registerTenant(
     platform.db,
-    { code, name: `租戶 ${code}`, databaseUrl: url, domains },
+    { code, name: `租戶 ${code}`, databaseUrl: url, storageBucket: `b2b-${code}`, domains },
     SecretBox.fromConfig(inject('tenantSecretKey'), '', TENANT_SECRET_PURPOSE),
   );
   await platform.client.end();

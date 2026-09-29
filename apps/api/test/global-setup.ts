@@ -62,6 +62,7 @@ export async function setup(project: TestProject): Promise<void> {
       code: TEST_TENANT.code,
       name: '測試租戶',
       databaseUrl: tenantUrl,
+      storageBucket: 'b2b-test',
       domains: [...TEST_TENANT.domains],
     },
     SecretBox.fromConfig(tenantSecretKey, '', TENANT_SECRET_PURPOSE),

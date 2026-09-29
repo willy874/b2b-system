@@ -27,7 +27,7 @@
 | --- | --- | --- |
 | 前端 `apis/file/` | 檔案 id、`url` / `downloadUrl`、`uploadFile()` | bucket、key、SigV4 |
 | `modules/file` | `files` 資料表、`ObjectStorage` 介面 | `@aws-sdk/*` |
-| `core/storage` | S3 協定、bucket、presign | `files` 資料表、權限、任何 module |
+| `core/storage` | S3 協定、bucket（目前租戶的）、presign | `files` 資料表、權限、任何 module |
 | `core/image` | 解碼、縮放、編碼（sharp） | 物件儲存、`files` 資料表、變體的尺寸與格式政策 |
 
 ---
@@ -95,6 +95,15 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 （[`../03-file-storage.md`](../03-file-storage.md) §3.1）。同源的好處：不需要 CORS，CSP 的 `img-src 'self'`、`connect-src 'self'` 不必放寬。
 
 換成真正的 S3 時，`FILE_STORAGE_PUBLIC_ENDPOINT` 設成 S3 的 endpoint，並在 bucket 上設定 CORS 與放寬 CSP。
+
+### 3.1 每個租戶一個 bucket（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D16）
+
+- bucket 記在平台 DB 的 `tenants.storage_bucket`（唯一，刪除的租戶也算），隨租戶脈絡帶著走；`S3ObjectStorage` 的每個操作都用
+  **目前租戶** 的 bucket，沒有租戶脈絡時拋 `TENANT_NOT_FOUND`，不會退回任何共用的 bucket。業務模組的 key 不帶租戶。
+- 檔案維護（§9）在每個租戶裡各跑一次，「沒有紀錄的物件」只在自己的 bucket 對帳，不會刪到別的租戶的檔案。
+- 啟動時確認每個 `active` 租戶的 bucket，不存在就建立；上傳前再確認一次（`ensureBucket`）。健康檢查只看儲存服務連不連得上（`ListBuckets`）。
+- 預設租戶沿用租戶化之前共用的 bucket（`DEFAULT_TENANT_STORAGE_BUCKET`，預設 `b2b-system`），既有檔案不必搬；
+  之後的租戶由佈建（交付順序第 4 步）指定，命名規則由 `isValidBucketName` 檢查。
 
 ---
 
@@ -472,7 +481,6 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `FILE_STORAGE_ENDPOINT` | `http://127.0.0.1:9000/storage` | api 連線用 |
 | `FILE_STORAGE_PUBLIC_ENDPOINT` | `http://localhost:5173/storage` | 瀏覽器看到的位址；presigned URL 以它簽章 |
 | `FILE_STORAGE_REGION` | `us-east-1` | |
-| `FILE_STORAGE_BUCKET` | `b2b-system` | 不存在時自動建立 |
 | `FILE_STORAGE_ACCESS_KEY_ID` / `FILE_STORAGE_SECRET_ACCESS_KEY` | 必填 | 與 apps/file-storage 共用同名變數 |
 | `FILE_UPLOAD_MAX_SIZE` | `104857600`（100 MiB） | 單一檔案上限 |
 | `FILE_URL_TTL` | `900` | presigned 上傳／下載網址的有效秒數（60–604800）；下載網址在 `TTL / 2` 的時間窗內不變（§7.1） |
