@@ -40,6 +40,10 @@ import type {
   FileUploader,
   ForgotPasswordRequest,
   GetFileImageQuery,
+  Job,
+  JobQueue,
+  JobQueueList,
+  JobSummary,
   LoginRequest,
   MoveFileItemsRequest,
   MoveFileItemsResult,
@@ -288,6 +292,8 @@ export const PermissionKeySchema = z.enum([
   'file:delete',
   'file:access',
   'file:share',
+  'job:read',
+  'job:retry',
 ]) satisfies z.ZodType<PermissionKey>;
 
 export const PermissionSchema = z.object({
@@ -833,6 +839,46 @@ export const UpdateFileRequestSchema = z.object({
   name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
   version: z.int().min(1).max(9007199254740991).optional(),
 }) satisfies z.ZodType<UpdateFileRequest>;
+
+export const JobQueueSchema = z.object({
+  name: z.string(),
+  cron: z.string().nullable(),
+  readyCount: z.int().min(-9007199254740991).max(9007199254740991),
+  deferredCount: z.int().min(-9007199254740991).max(9007199254740991),
+  activeCount: z.int().min(-9007199254740991).max(9007199254740991),
+  failedCount: z.int().min(-9007199254740991).max(9007199254740991),
+  completedCount: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<JobQueue>;
+
+export const JobQueueListSchema = z.object({
+  items: z.array(JobQueueSchema),
+}) satisfies z.ZodType<JobQueueList>;
+
+export const JobSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  state: z.enum(['created', 'retry', 'active', 'completed', 'cancelled', 'failed']),
+  retryCount: z.int().min(-9007199254740991).max(9007199254740991),
+  retryLimit: z.int().min(-9007199254740991).max(9007199254740991),
+  createdOn: z.string(),
+  startAfter: z.string(),
+  startedOn: z.string().nullable(),
+  completedOn: z.string().nullable(),
+}) satisfies z.ZodType<JobSummary>;
+
+export const JobSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  state: z.enum(['created', 'retry', 'active', 'completed', 'cancelled', 'failed']),
+  retryCount: z.int().min(-9007199254740991).max(9007199254740991),
+  retryLimit: z.int().min(-9007199254740991).max(9007199254740991),
+  createdOn: z.string(),
+  startAfter: z.string(),
+  startedOn: z.string().nullable(),
+  completedOn: z.string().nullable(),
+  data: z.record(z.string(), z.unknown()).nullable(),
+  output: z.record(z.string(), z.unknown()).nullable(),
+}) satisfies z.ZodType<Job>;
 
 export const CreateRoleRequestSchema = z.object({
   name: z.string().min(1).max(64),

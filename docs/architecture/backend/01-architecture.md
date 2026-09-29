@@ -68,10 +68,15 @@ apps/api/src/
 │   │   ├── object-storage.ts             ★ ObjectStorage 抽象類別（同時是 DI token）
 │   │   ├── s3-object-storage.ts          實作：@aws-sdk/client-s3（見 09-file.md）
 │   │   └── storage.module.ts
-│   └── image/
-│       ├── image-processor.ts            ★ ImageProcessor 抽象類別（同時是 DI token）
-│       ├── sharp-image-processor.ts      實作：sharp / libvips（見 09-file.md §5.4）
-│       └── image.module.ts
+│   ├── image/
+│   │   ├── image-processor.ts            ★ ImageProcessor 抽象類別（同時是 DI token）
+│   │   ├── sharp-image-processor.ts      實作：sharp / libvips（見 09-file.md §5.4）
+│   │   └── image.module.ts
+│   └── jobs/
+│       ├── job-type.ts                   defineJob()：工作名稱 ＋ 資料型別 ＋ 重試設定
+│       ├── job-queue.ts                  ★ JobQueue：register / enqueue / retry（底層 pg-boss，見 10-jobs.md）
+│       ├── job-store.ts                  管理頁的列表與即時計數
+│       └── jobs.module.ts
 │
 ├── common/                               ← 薄；只有 decorator 與 guard
 │   ├── decorators/
@@ -91,8 +96,9 @@ apps/api/src/
 │   ├── user/
 │   ├── role/
 │   ├── permission/
-│   ├── audit-log/
+│   ├── audit-log/                        含熱 → 冷搬移的排程工作（06-audit-log.md §8）
 │   ├── file/                             files 轉介表 ＋ 直傳上傳、影像變體、維護排程、資料夾授權（09-file.md）
+│   ├── job/                              背景工作的管理 API（10-jobs.md §6）
 │   ├── resource-grant/                   資源授權：resource_grants ＋ 通用的等級解析（rbac/07-resource-grants.md）
 │   └── health/
 │

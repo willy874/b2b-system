@@ -2132,6 +2132,152 @@
         "tags": ["files"]
       }
     },
+    "/jobs/queues": {
+      "get": {
+        "operationId": "JobController_queues",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/JobQueueList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "各種背景工作的佇列狀態（等待、執行中、失敗筆數與排程）",
+        "tags": ["jobs"]
+      }
+    },
+    "/jobs": {
+      "get": {
+        "operationId": "JobController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/JobSummary"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "背景工作列表（固定 createdOn DESC；不含 data / output）",
+        "tags": ["jobs"]
+      }
+    },
+    "/jobs/{id}": {
+      "get": {
+        "operationId": "JobController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Job"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "背景工作詳情（含 data 與 output）",
+        "tags": ["jobs"]
+      }
+    },
+    "/jobs/{id}/retry": {
+      "post": {
+        "operationId": "JobController_retry",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Job"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "重新排入失敗的工作（只接受 failed）",
+        "tags": ["jobs"]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_live",
@@ -2616,7 +2762,9 @@
           "file:update",
           "file:delete",
           "file:access",
-          "file:share"
+          "file:share",
+          "job:read",
+          "job:retry"
         ]
       },
       "Permission": {
@@ -3880,6 +4028,180 @@
           }
         },
         "required": ["name"],
+        "additionalProperties": false
+      },
+      "JobQueue": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "cron": {
+            "nullable": true,
+            "type": "string"
+          },
+          "readyCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "deferredCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "activeCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failedCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "completedCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "name",
+          "cron",
+          "readyCount",
+          "deferredCount",
+          "activeCount",
+          "failedCount",
+          "completedCount"
+        ],
+        "additionalProperties": false
+      },
+      "JobQueueList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobQueue"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "JobSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["created", "retry", "active", "completed", "cancelled", "failed"]
+          },
+          "retryCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "retryLimit": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdOn": {
+            "type": "string"
+          },
+          "startAfter": {
+            "type": "string"
+          },
+          "startedOn": {
+            "nullable": true,
+            "type": "string"
+          },
+          "completedOn": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "state",
+          "retryCount",
+          "retryLimit",
+          "createdOn",
+          "startAfter",
+          "startedOn",
+          "completedOn"
+        ],
+        "additionalProperties": false
+      },
+      "Job": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["created", "retry", "active", "completed", "cancelled", "failed"]
+          },
+          "retryCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "retryLimit": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdOn": {
+            "type": "string"
+          },
+          "startAfter": {
+            "type": "string"
+          },
+          "startedOn": {
+            "nullable": true,
+            "type": "string"
+          },
+          "completedOn": {
+            "nullable": true,
+            "type": "string"
+          },
+          "data": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "output": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "state",
+          "retryCount",
+          "retryLimit",
+          "createdOn",
+          "startAfter",
+          "startedOn",
+          "completedOn",
+          "data",
+          "output"
+        ],
         "additionalProperties": false
       },
       "CreateRoleRequest": {

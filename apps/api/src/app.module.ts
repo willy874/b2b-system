@@ -13,6 +13,7 @@ import { HttpExceptionFilter } from './core/errors';
 import { EventsModule } from './core/events';
 import { RequestIdMiddleware, TransformInterceptor } from './core/http';
 import { ImageModule } from './core/image';
+import { JobsModule } from './core/jobs';
 import { LoggerModule } from './core/logger';
 import { StorageModule } from './core/storage';
 import { ApprovalModule } from './modules/approval/approval.module';
@@ -20,6 +21,7 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { FileModule } from './modules/file/file.module';
 import { HealthModule } from './modules/health/health.module';
+import { JobModule } from './modules/job/job.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { RoleModule } from './modules/role/role.module';
@@ -35,6 +37,8 @@ import { UserModule } from './modules/user/user.module';
     DatabaseModule,
     CacheModule,
     EventsModule,
+    // 背景工作佇列（pg-boss）；handler 由各模組註冊（docs/architecture/backend/10-jobs.md）
+    JobsModule,
     // 物件儲存的抽象層（ObjectStorage）；實作是 S3 SDK（docs/architecture/backend/09-file.md §2）
     StorageModule,
     // 影像處理的抽象層（ImageProcessor）；實作是 sharp（docs/architecture/backend/09-file.md §5.4）
@@ -64,6 +68,7 @@ import { UserModule } from './modules/user/user.module';
     RoleModule,
     SystemModule,
     FileModule,
+    JobModule,
     HealthModule,
   ],
   providers: [

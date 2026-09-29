@@ -1,0 +1,57 @@
+{
+  "job": {
+    "title": "Background jobs",
+    "description": "Work the server runs in the background: scheduled jobs (audit log archiving, file maintenance) and jobs queued by the application. Failures are retried automatically; once retries run out a job stays failed and can be retried here. Completed jobs are kept for 7 days.",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "scheduledAt": "Scheduled for {{time}}",
+    "name": {
+      "auditLogArchive": "Audit log archiving",
+      "fileMaintenance": "File maintenance"
+    },
+    "queues": {
+      "title": "Job types",
+      "cron": "Schedule: {{cron}} (UTC)",
+      "onDemand": "Queued by the application",
+      "ready": "Waiting {{count}}",
+      "deferred": "Scheduled {{count}}",
+      "active": "Running {{count}}",
+      "completed": "Completed {{count}}",
+      "failed": "{{count}} failed"
+    },
+    "filter": {
+      "allNames": "All jobs",
+      "allStates": "All states"
+    },
+    "field": {
+      "createdAt": "Created",
+      "name": "Job",
+      "state": "State",
+      "retries": "Retries",
+      "completedAt": "Finished"
+    },
+    "state": {
+      "created": "Waiting",
+      "retry": "Waiting to retry",
+      "active": "Running",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "failed": "Failed"
+    },
+    "retry": {
+      "action": "Retry",
+      "title": "Retry this job?",
+      "confirm": "\"{{name}}\" will be queued again and run by a worker.",
+      "success": "Queued again"
+    },
+    "detail": {
+      "title": "Job details",
+      "error": "Failure: {{message}}",
+      "data": "Job data",
+      "output": "Result",
+      "noOutput": "No result yet",
+      "arraySummary": "{{count}} items",
+      "objectSummary": "{{count}} fields"
+    }
+  }
+}

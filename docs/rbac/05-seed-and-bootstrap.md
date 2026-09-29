@@ -268,11 +268,11 @@ pnpm --filter @game-editor/api cli:reset-super-admin --email admin@example.com
 
 `db:seed` 完成後，以下斷言必須成立（`db/seeds/__tests__/seed.spec.ts`）：
 
-- [ ] `permissions` 表筆數 = `PERMISSION_SEED.length`（23）
+- [ ] `permissions` 表筆數 = `PERMISSION_SEED.length`（25）
 - [ ] 每筆 `permissions.key` = `resource || ':' || action`
 - [ ] `roles` 中恰有 4 筆 `is_system = true`
 - [ ] `super-admin` 在 `role_permissions` 中 **沒有任何列**（隱含全集）
-- [ ] `admin` 的權限集合 = `ROLE_SEED` 中宣告的 22 筆
+- [ ] `admin` 的權限集合 = `ROLE_SEED` 中宣告的 24 筆
 - [ ] 恰有一位使用者持有 `super-admin`
 - [ ] 連續執行 `db:seed` 兩次，所有表的筆數不變
-- [ ] `GET /auth/profile`（以 super-admin 登入）回傳的 `permissions` 長度 = 23
+- [ ] `GET /auth/profile`（以 super-admin 登入）回傳的 `permissions` 長度 = 25

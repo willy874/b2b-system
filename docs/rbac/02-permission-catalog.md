@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 23 項）
+## 2. 權限清單（共 25 項）
 
 ### 2.1 `user` — 使用者
 
@@ -99,7 +99,18 @@
 > 資料夾沿用同一組權限，不另設 `fileFolder:*`。還在上傳中（`pending`）的檔案只有上傳者本人看得到，見
 > [`../architecture/backend/09-file.md`](../architecture/backend/09-file.md) §4。
 
-### 2.8 個人範圍（不需要權限）
+### 2.8 `job` — 背景工作
+
+| 權限鍵      | 顯示名稱（zh-TW） | 說明                                                                 |
+| ----------- | ----------------- | -------------------------------------------------------------------- |
+| `job:read`  | 檢視背景工作      | 佇列狀態、工作列表與詳情（含工作資料與失敗原因）                     |
+| `job:retry` | 重試背景工作      | 把重試用完、停在失敗的工作重新排入；寫稽核 `job.retry`               |
+
+> 工作是系統自己產生的（排程、寄信、匯出），沒有 create / update / delete；
+> 重試是具名動作，理由同 `approval:review`。工作資料不放機密（token、密碼），
+> 因此 `job:read` 不會看到憑證，見 [`../architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md) §4。
+
+### 2.9 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
@@ -123,6 +134,7 @@
 | `system`          |   —    |  ✓   |   ✓    |   —    | —                             |
 | `approval`        |   —    |  ✓   |   —    |   —    | `review`                      |
 | `file`            |   ✓    |  ✓   |   ✓    |   ✓    | `access`, `share`             |
+| `job`             |   —    |  ✓   |   —    |   —    | `retry`                       |
 
 ---
 
@@ -153,6 +165,8 @@
 | `file:delete`          |      ✓*       |    ✓    |           |          |
 | `file:access`          |      ✓*       |    ✓    |           |    ✓     |
 | `file:share`           |      ✓*       |    ✓    |           |          |
+| `job:read`             |      ✓*       |    ✓    |     ✓     |          |
+| `job:retry`            |      ✓*       |    ✓    |           |          |
 
 `*` super-admin 是 **隱含全集**，不在 `role_permissions` 中逐筆登錄；
 `GET /auth/profile` 回傳時才展開成完整清單。
@@ -181,6 +195,7 @@
 | 權限目錄     | `/permission`              | `PERMISSION`    | `permission:read`                | EVERY |
 | 稽核日誌     | `/audit-log`               | `AUDIT_LOG`     | `auditLog:read`                  | EVERY |
 | 審批         | `/approval`（含 `/approval/$approvalId` 對話框） | `APPROVAL` | `approval:read`           | EVERY |
+| 背景工作     | `/job`（含 `/job/$jobId` 對話框） | `JOB` | `job:read`                      | EVERY |
 | 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:access` 或 `file:read`（按鈕層級看後端回傳的 `capabilities`，見 [`07-resource-grants.md`](./07-resource-grants.md) §7） | SOME |
 
 > 頁面內的 **按鈕層級** gating 另由 `usePagePermission()` 派生的

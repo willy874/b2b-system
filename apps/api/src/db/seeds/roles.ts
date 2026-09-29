@@ -46,6 +46,8 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'file:share',
       // member 有 file:access：admin 要持有它才能指派 member（反提權）
       'file:access',
+      'job:read',
+      'job:retry',
     ],
   },
   {
@@ -61,6 +63,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'system:read',
       'approval:read',
       'file:read',
+      'job:read',
     ],
   },
   {

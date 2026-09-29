@@ -5,6 +5,7 @@ import { Routes as AuditLogRoutes } from '@/features/audit-log';
 import { Routes as AuthRoutes } from '@/features/auth';
 import { Routes as FileRoutes } from '@/features/file';
 import { Routes as HomeRoutes } from '@/features/home';
+import { Routes as JobRoutes } from '@/features/job';
 import { Routes as PermissionRoutes } from '@/features/permission';
 import { Routes as RoleRoutes } from '@/features/role';
 import { Routes as UserRoutes } from '@/features/user';
@@ -36,6 +37,7 @@ export const routeTree = RootRoute.addChildren([
   AuditLogRoutes.AuditLogListRoute,
   ApprovalRoutes.ApprovalListRoute.addChildren([ApprovalRoutes.ApprovalDetailRoute]),
   FileRoutes.FileListRoute,
+  JobRoutes.JobListRoute,
   AccountRoutes.ProfileRoute,
   AccountRoutes.PreferenceRoute,
 ]);

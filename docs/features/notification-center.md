@@ -27,7 +27,7 @@
 - 通知內容存「類型 ＋ 參數」，文字由前端依語系組（沿用 i18n key 必須是字面量的規則）
 - 產生通知的邏輯放在各模組（`modules/<name>/<name>.notifications.ts`），`modules/notification` 只負責儲存與查詢
 - 權限：看自己的通知用 `@Authenticated()`，不需要權限鍵
-- 保留期限：已讀 N 天後刪除（排程，依賴 [`job-queue.md`](./job-queue.md)）
+- 保留期限：已讀 N 天後刪除（排程工作，[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)）
 
 ## 開放問題
 

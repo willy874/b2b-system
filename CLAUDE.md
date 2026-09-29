@@ -14,7 +14,7 @@ Game Editor 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架*
 | --- | --- |
 | 任何事 | [`docs/README.md`](docs/README.md)、[`docs/architecture/01-system.md`](docs/architecture/01-system.md)、[`docs/conventions/01-general.md`](docs/conventions/01-general.md) |
 | 前端 | `docs/architecture/frontend/01`→`03`→`06` |
-| 後端 | `docs/architecture/backend/01`→`03`→`05`；檔案／物件儲存看 `09` |
+| 後端 | `docs/architecture/backend/01`→`03`→`05`；檔案／物件儲存看 `09`；背景工作看 `10` |
 | 權限相關 | [`docs/rbac/02-permission-catalog.md`](docs/rbac/02-permission-catalog.md) |
 | 挑下一個要做的功能 | [`docs/features/README.md`](docs/features/README.md)（待製作清單；完成後刪提案、寫正式文件歸檔） |
 | 寫程式規範 | [`docs/conventions/`](docs/conventions/README.md)（命名、TS、測試、commit、字面量、層級依賴）；寫或 review 程式碼前用 `best-practice` skill 載入 |
@@ -68,7 +68,7 @@ pnpm lint / pnpm format / pnpm format:check
 pnpm test           # 單元 + 整合（後端整合測試會用 Testcontainers 起一個 postgres）
 pnpm test:e2e       # Playwright（需要 api 與 web 已啟動）
 pnpm db:migrate / db:seed / db:seed:dev / db:seed:e2e / db:reset
-pnpm db:archive-audit-logs   # 稽核熱表 → 冷表搬移（排程每天跑；需維運 role）
+pnpm db:archive-audit-logs   # 稽核熱表 → 冷表搬移的手動補跑（平常由背景工作 auditLog.archive 每天跑）
 pnpm openapi:generate && pnpm sdk:generate   # 改動 controller / DTO 之後必跑
 pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法見 docs/architecture/frontend/07-ui-system.md §9
 ```

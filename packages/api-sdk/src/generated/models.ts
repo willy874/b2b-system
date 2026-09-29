@@ -145,6 +145,8 @@ export const PermissionKey = {
   'file:delete': 'file:delete',
   'file:access': 'file:access',
   'file:share': 'file:share',
+  'job:read': 'job:read',
+  'job:retry': 'job:retry',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
@@ -481,6 +483,46 @@ export interface GetFileImageQuery {
 export interface UpdateFileRequest {
   name: string;
   version?: number;
+}
+
+export interface JobQueue {
+  name: string;
+  cron: string | null;
+  readyCount: number;
+  deferredCount: number;
+  activeCount: number;
+  failedCount: number;
+  completedCount: number;
+}
+
+export interface JobQueueList {
+  items: Array<JobQueue>;
+}
+
+export interface JobSummary {
+  id: string;
+  name: string;
+  state: 'created' | 'retry' | 'active' | 'completed' | 'cancelled' | 'failed';
+  retryCount: number;
+  retryLimit: number;
+  createdOn: string;
+  startAfter: string;
+  startedOn: string | null;
+  completedOn: string | null;
+}
+
+export interface Job {
+  id: string;
+  name: string;
+  state: 'created' | 'retry' | 'active' | 'completed' | 'cancelled' | 'failed';
+  retryCount: number;
+  retryLimit: number;
+  createdOn: string;
+  startAfter: string;
+  startedOn: string | null;
+  completedOn: string | null;
+  data: Record<string, unknown> | null;
+  output: Record<string, unknown> | null;
 }
 
 export interface CreateRoleRequest {

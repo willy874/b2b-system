@@ -533,7 +533,8 @@ export const db = drizzle(client, { schema, logger: env.NODE_ENV === "developmen
 ## 7. 稽核日誌的成長
 
 稽核分成熱表 `audit_logs`（最近 90 天）與冷表 `audit_logs_archive`（更早），
-每天由 `pnpm db:archive-audit-logs` 呼叫 `archive_audit_logs(cutoff, batch_size)` 搬移：
+每天由背景工作 `auditLog.archive`（[`10-jobs.md`](./10-jobs.md)；手動補跑用 `pnpm db:archive-audit-logs`）
+呼叫 `archive_audit_logs(cutoff, batch_size)` 搬移；函式是 `SECURITY DEFINER`（`0014`，[`06-audit-log.md`](./06-audit-log.md) §8）：
 
 ```sql
 -- 一次搬一批最舊的；呼叫端重複呼叫到回傳值 < batch_size 為止

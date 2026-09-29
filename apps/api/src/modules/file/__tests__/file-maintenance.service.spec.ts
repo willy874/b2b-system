@@ -2,6 +2,7 @@ import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Env } from '@/core/config';
+import type { JobQueue } from '@/core/jobs';
 import type { ObjectStorage } from '@/core/storage';
 
 import type { FileImageService } from '../file-image.service';
@@ -68,23 +69,34 @@ function setup() {
     get: vi.fn(
       (key: keyof Env) =>
         ({
-          FILE_MAINTENANCE_INTERVAL: 3600,
+          FILE_MAINTENANCE_CRON: '0 * * * *',
           FILE_PENDING_TTL: PENDING_TTL,
           FILE_MAINTENANCE_DRY_RUN: false,
-          NODE_ENV: 'test',
         })[key as string],
     ),
   };
+  const jobs = { register: vi.fn() };
   const service = new FileMaintenanceService(
     repo as unknown as FileRepository,
     storage as unknown as ObjectStorage,
     images as unknown as FileImageService,
+    jobs as unknown as JobQueue,
     config as unknown as ConfigService<Env, true>,
   );
-  return { service, repo, storage, images };
+  return { service, repo, storage, images, jobs };
 }
 
 describe('FileMaintenanceService（docs/architecture/backend/09-file.md §9）', () => {
+  it('以 FILE_MAINTENANCE_CRON 註冊成排程工作', () => {
+    const { service, jobs } = setup();
+    service.onModuleInit();
+    expect(jobs.register).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'file.maintenance' }),
+      expect.any(Function),
+      { cron: '0 * * * *' },
+    );
+  });
+
   it('偵測並清除四類殘留', async () => {
     const { service, repo, storage, images } = setup();
     const report = await service.sweep({ now: NOW });

@@ -89,6 +89,7 @@
     "auditLog": "Audit log",
     "approval": "Approvals",
     "file": "Files",
+    "job": "Background jobs",
     "profile": "Profile",
     "preference": "Preferences",
     "logout": "Sign out"
@@ -136,6 +137,8 @@
     "APPROVAL_NOT_FOUND": "This approval request does not exist.",
     "APPROVAL_ALREADY_REVIEWED": "This request has already been reviewed.",
     "APPROVAL_SELF_REVIEW": "You cannot review your own request. Ask another administrator.",
+    "JOB_NOT_FOUND": "This job does not exist or has been cleaned up.",
+    "JOB_NOT_RETRYABLE": "Only failed jobs can be retried. It may already have been retried by someone else.",
     "FILE_NOT_FOUND": "This file does not exist or has been deleted.",
     "FILE_TOO_LARGE": "The file exceeds the maximum allowed size.",
     "FILE_ALREADY_UPLOADED": "This file has already been uploaded.",
@@ -175,7 +178,8 @@
       "auditLog": "Audit log",
       "system": "System",
       "approval": "Approvals",
-      "file": "Files"
+      "file": "Files",
+      "job": "Background jobs"
     },
     "user": {
       "create": "Create user",
@@ -213,6 +217,10 @@
       "delete": "Delete files",
       "access": "Use the file manager",
       "share": "Manage file access"
+    },
+    "job": {
+      "read": "View background jobs",
+      "retry": "Retry background jobs"
     }
   },
   "theme": {

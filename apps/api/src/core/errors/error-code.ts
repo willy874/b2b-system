@@ -50,6 +50,10 @@ export const ErrorCode = {
   APPROVAL_ALREADY_REVIEWED: { status: 409 },
   APPROVAL_SELF_REVIEW: { status: 403 },
 
+  // ── 背景工作 ──
+  JOB_NOT_FOUND: { status: 404 },
+  JOB_NOT_RETRYABLE: { status: 409 },
+
   // ── 檔案 ──
   FILE_NOT_FOUND: { status: 404 },
   FILE_TOO_LARGE: { status: 413 },

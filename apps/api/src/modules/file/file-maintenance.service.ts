@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '@/core/config';
+import { defineJob, JobQueue } from '@/core/jobs';
 import { ObjectStorage } from '@/core/storage';
 
 import { FileImageService } from './file-image.service';
@@ -31,12 +32,21 @@ export interface FileMaintenanceReport {
   failures: number;
 }
 
-/** 首次執行延後，不和啟動時的其他工作搶資源。 */
-const FIRST_RUN_DELAY_MS = 60_000;
+/**
+ * 檔案維護的背景工作（docs/architecture/backend/09-file.md §9）。同時段只跑一個（`exclusive`）：
+ * 多個 api 執行個體也不會重複做白工。
+ */
+export const FILE_MAINTENANCE_JOB = defineJob<Record<string, never>>('file.maintenance', {
+  exclusive: true,
+  // 每步驟的失敗已記進報告、下一輪會再偵測到；整輪失敗（例：資料庫斷線）才重試
+  retryLimit: 2,
+  retryDelaySeconds: 60,
+  expireInSeconds: 30 * 60,
+});
 
 /**
  * 檔案的維護排程（docs/architecture/backend/09-file.md §9）：偵測並清除上傳失敗留下的殘留，
- * 並補產生卡住的影像變體。
+ * 並補產生卡住的影像變體。依 `FILE_MAINTENANCE_CRON` 由背景工作執行。
  *
  * 殘留的來源——前端沒機會呼叫「放棄上傳」（分頁當掉、網路中斷）、登記時 INSERT 失敗、
  * 刪除時物件刪除失敗——都不會自己消失，所以定期對帳：
@@ -48,43 +58,30 @@ const FIRST_RUN_DELAY_MS = 60_000;
  *
  * 2、3 只看建立早於 `FILE_PENDING_TTL` 的東西：剛登記、INSERT 還沒提交的上傳不會被誤判。
  * 每一步都是冪等的（刪除不存在的東西視為成功、軟刪除以 `WHERE status='pending'` 決勝），
- * 多個 api 執行個體同時跑只是重複做白工，不會出錯；要避免白工可只在一個執行個體開啟。
+ * 中途被中斷、重試時重做也不會出錯。
  */
 @Injectable()
-export class FileMaintenanceService implements OnApplicationBootstrap, OnApplicationShutdown {
+export class FileMaintenanceService implements OnModuleInit {
   private readonly logger = new Logger(FileMaintenanceService.name);
-  private readonly intervalMs: number;
+  private readonly cron: string;
   private readonly pendingTtlMs: number;
   private readonly dryRun: boolean;
-  private readonly isTest: boolean;
-  private timers: NodeJS.Timeout[] = [];
   private running: Promise<FileMaintenanceReport> | undefined;
 
   constructor(
     private readonly repo: FileRepository,
     private readonly storage: ObjectStorage,
     private readonly images: FileImageService,
+    private readonly jobs: JobQueue,
     config: ConfigService<Env, true>,
   ) {
-    this.intervalMs = config.get('FILE_MAINTENANCE_INTERVAL', { infer: true }) * 1000;
+    this.cron = config.get('FILE_MAINTENANCE_CRON', { infer: true });
     this.pendingTtlMs = config.get('FILE_PENDING_TTL', { infer: true }) * 1000;
     this.dryRun = config.get('FILE_MAINTENANCE_DRY_RUN', { infer: true });
-    this.isTest = config.get('NODE_ENV', { infer: true }) === 'test';
   }
 
-  onApplicationBootstrap(): void {
-    if (this.isTest || this.intervalMs === 0) return;
-    const run = () => void this.runScheduled();
-    // unref：排程不該讓程序在關機時多撐一個週期
-    this.timers = [
-      setTimeout(run, FIRST_RUN_DELAY_MS).unref(),
-      setInterval(run, this.intervalMs).unref(),
-    ];
-  }
-
-  onApplicationShutdown(): void {
-    for (const timer of this.timers) clearTimeout(timer);
-    this.timers = [];
+  onModuleInit(): void {
+    this.jobs.register(FILE_MAINTENANCE_JOB, () => this.runScheduled(), { cron: this.cron });
   }
 
   /** 執行一輪維護；上一輪還沒結束時直接回傳那一輪的結果，不重疊執行。 */
@@ -97,20 +94,18 @@ export class FileMaintenanceService implements OnApplicationBootstrap, OnApplica
     return this.running;
   }
 
-  private async runScheduled(): Promise<void> {
-    try {
-      const report = await this.sweep();
-      const found =
-        report.stalePendingFiles +
-        report.orphanMultipartUploads +
-        report.orphanObjects +
-        report.requeuedVariants;
-      if (found > 0 || report.failures > 0) {
-        this.logger.log({ report }, report.dryRun ? '偵測到檔案殘留（未處理）' : '檔案維護完成');
-      }
-    } catch (error) {
-      this.logger.error({ err: error }, '檔案維護失敗，下一輪重試');
+  /** 背景工作的 handler：報告存成工作的 output，管理頁看得到；整輪失敗就拋出讓佇列重試。 */
+  private async runScheduled(): Promise<FileMaintenanceReport> {
+    const report = await this.sweep();
+    const found =
+      report.stalePendingFiles +
+      report.orphanMultipartUploads +
+      report.orphanObjects +
+      report.requeuedVariants;
+    if (found > 0 || report.failures > 0) {
+      this.logger.log({ report }, report.dryRun ? '偵測到檔案殘留（未處理）' : '檔案維護完成');
     }
+    return report;
   }
 
   private async doSweep(dryRun: boolean, now: Date): Promise<FileMaintenanceReport> {

@@ -20,6 +20,9 @@ import { FILE_DETAIL_QUERY_KEY } from '@/apis/file/get-file-detail/query';
 import { FILE_FOLDER_GRANT_LIST_QUERY_KEY } from '@/apis/file/get-file-folder-grants/query';
 import { FILE_FOLDER_LIST_QUERY_KEY } from '@/apis/file/get-file-folder-list/query';
 import { FILE_INFINITE_LIST_QUERY_KEY, FILE_LIST_QUERY_KEY } from '@/apis/file/get-file-list/query';
+import { JOB_DETAIL_QUERY_KEY } from '@/apis/job/get-job-detail/query';
+import { JOB_LIST_QUERY_KEY } from '@/apis/job/get-job-list/query';
+import { JOB_QUEUE_LIST_QUERY_KEY } from '@/apis/job/get-job-queue-list/query';
 import { PERMISSION_LIST_QUERY_KEY } from '@/apis/permission/get-permission-list/query';
 import { ROLE_DETAIL_QUERY_KEY } from '@/apis/role/get-role-detail/query';
 import { ROLE_LIST_QUERY_KEY, ROLE_OPTIONS_QUERY_KEY } from '@/apis/role/get-role-list/query';
@@ -45,6 +48,8 @@ export const Resource = {
   FILE: 'file',
   /** 檔案管理器的資料夾（`id` = 資料夾 id） */
   FILE_FOLDER: 'fileFolder',
+  /** 背景工作（`id` = 工作 id） */
+  JOB: 'job',
   /** 目前登入者的 session 視角（profile ＋ 有效權限） */
   PROFILE: 'profile',
   // 關係：沒有自己的 query，只作為來源
@@ -120,6 +125,11 @@ const graph = createResourceGraph<Resource>({
   [Resource.APPROVAL]: {
     collection: [APPROVAL_LIST_QUERY_KEY],
     entity: [APPROVAL_DETAIL_QUERY_KEY],
+  },
+  [Resource.JOB]: {
+    // 佇列計數跟著工作的狀態走：重試一筆，失敗數就少一
+    collection: [JOB_LIST_QUERY_KEY, JOB_QUEUE_LIST_QUERY_KEY],
+    entity: [JOB_DETAIL_QUERY_KEY],
   },
   [Resource.FILE]: {
     // 檔案內容（FILE_TEXT_QUERY_KEY）刻意不列：內容以 id 為 key、上傳後不可變，改名不必重抓；

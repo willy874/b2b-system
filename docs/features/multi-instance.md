@@ -3,7 +3,7 @@
 - 優先度：P3
 - 狀態：提案
 - 依賴：—
-- 相關：[`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 6、7 項、[`job-queue.md`](./job-queue.md)
+- 相關：[`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 6、7 項、[ADR-0016](../adr/0016-background-jobs.md)（背景工作）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -33,7 +33,8 @@ api 目前假設只有一個程序：
 
 ## 開放問題
 
-1. Redis 或 Postgres？與 [`job-queue.md`](./job-queue.md) 的選擇一起決定
+1. Redis 或 Postgres？背景工作已選 pg-boss（[ADR-0016](../adr/0016-background-jobs.md)），不需要 Redis；
+   pg-boss 的排程與取工作本來就支援多實例
 2. 稽核日誌分區要現在做，還是等熱表真的撐不住？
 
 ## 歸檔去向

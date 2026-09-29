@@ -101,6 +101,7 @@ apps/web/src/
 │   ├── audit-log/
 │   ├── approval/
 │   ├── file/                檔案管理器（docs/architecture/frontend/12-file-manager.md）
+│   ├── job/                 背景工作的管理頁（docs/architecture/backend/10-jobs.md §6）
 │   └── home/
 │
 ├── apis/                    與後端對話的唯一入口
@@ -110,7 +111,8 @@ apps/web/src/
 │   ├── permission/
 │   ├── audit-log/
 │   ├── approval/
-│   └── file/
+│   ├── file/
+│   └── job/
 │
 ├── components/              ★ Base UI 封裝層（設計系統元件）
 │   ├── Button/  Input/  Select/  Dialog/  Table/  Toast/  Tooltip/ …
@@ -164,6 +166,7 @@ apps/api/src/
 │   ├── errors/              ErrorCode enum、AppException、HttpExceptionFilter
 │   ├── http/                TransformInterceptor、分頁 DTO、RequestId middleware
 │   ├── logger/              Pino 設定
+│   ├── jobs/                背景工作佇列（pg-boss）：JobQueue、defineJob（docs/architecture/backend/10-jobs.md）
 │   └── validation/          ZodValidationPipe、zod ↔ OpenAPI
 │
 ├── common/                  跨模組的 decorator / guard（薄）
@@ -180,6 +183,7 @@ apps/api/src/
 │   ├── approval/
 │   ├── file/                檔案轉介表、上傳流程、資料夾授權（docs/architecture/backend/09-file.md）
 │   ├── resource-grant/      資源授權與等級解析（docs/rbac/07-resource-grants.md）
+│   ├── job/                 背景工作的管理 API（docs/architecture/backend/10-jobs.md §6）
 │   └── health/
 │
 └── db/
@@ -248,6 +252,9 @@ LOGIN_LOCKOUT_SECONDS=900
 SUPER_ADMIN_EMAIL=admin@example.com
 SUPER_ADMIN_PASSWORD=              # 留空則 seed 時隨機產生並印出一次
 
+JOBS_WORKER_ENABLED=true            # 是否執行背景工作與排程；false 只入列（backend/10-jobs.md §5）
+AUDIT_LOG_ARCHIVE_CRON=30 3 * * *   # 稽核熱 → 冷搬移的 cron（UTC）；留空停用
+
 REALTIME_ALLOWED_ORIGINS=http://localhost:5173   # Socket.io handshake 的 Origin 白名單（逗號分隔）
 
 # ── apps/file-storage（S3 相容的本機檔案儲存）────────────
@@ -270,7 +277,7 @@ FILE_URL_TTL=900
 FILE_MULTIPART_THRESHOLD=16777216   # 超過改用分塊上傳
 FILE_MULTIPART_PART_SIZE=8388608    # 每塊大小（≥ 5 MiB）
 FILE_PENDING_TTL=86400              # 登記後超過這個秒數仍未完成的上傳，由維護排程清除
-FILE_MAINTENANCE_INTERVAL=3600      # 檔案維護排程的間隔秒數；0 停用
+FILE_MAINTENANCE_CRON=0 * * * *     # 檔案維護排程的 cron（UTC）；留空停用
 FILE_MAINTENANCE_DRY_RUN=false      # true：只偵測並記錄殘留，不刪除
 
 # ── apps/web（VITE_ 前綴才會進 bundle）─────────────────
