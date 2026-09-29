@@ -53,10 +53,14 @@ export function redirectUriOf(config: SsoClientConfig): string {
   return `${globalThis.location.origin}${config.callbackPath}`;
 }
 
-/** 組 IdP 的授權網址，並記下這次登入的 verifier（以 `state` 為鍵）。 */
+/**
+ * 組 IdP 的授權網址，並記下這次登入的 verifier（以 `state` 為鍵）。
+ * `extraParams`：authorize 的額外參數，例如 backstage 的 `tenant`（docs/adr/0020-physical-tenant-isolation.md D7）。
+ */
 export async function createAuthorizationUrl(
   config: SsoClientConfig,
   returnTo: string | undefined,
+  extraParams: Record<string, string> = {},
 ): Promise<string> {
   const verifier = randomBase64Url(32);
   const state = randomBase64Url(16);
@@ -70,6 +74,7 @@ export async function createAuthorizationUrl(
     state,
     code_challenge: await challengeOf(verifier),
     code_challenge_method: 'S256',
+    ...extraParams,
   });
   return `${config.issuer}/auth?${query.toString()}`;
 }

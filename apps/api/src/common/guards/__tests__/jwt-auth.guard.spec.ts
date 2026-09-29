@@ -77,7 +77,7 @@ function createGuard(
 
   const guard = new JwtAuthGuard(
     new Reflector(),
-    new AccessTokenVerifier(jwt, config as never, userCache, db),
+    new AccessTokenVerifier(jwt, config as never, userCache, db, {} as never),
   );
   // 請求都在某個租戶裡（TenantMiddleware）
   return {

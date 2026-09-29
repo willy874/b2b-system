@@ -1,6 +1,5 @@
 import { useForm } from '@tanstack/react-form';
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { z } from 'zod';
 
@@ -13,7 +12,9 @@ import { useTranslation } from '@/core/locales';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
 import { ResetPasswordRoute } from '../../routes';
+import { goToTenantLogin } from '../../tenant';
 import { AuthShell } from '../AuthShell';
+import { TenantRequired } from '../TenantLinks';
 
 const Schema = z
   .object({ newPassword: z.string().min(12), confirmPassword: z.string().min(1) })
@@ -24,8 +25,7 @@ const Schema = z
 
 export default function ResetPasswordPage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { token } = ResetPasswordRoute.useSearch();
+  const { token, tenant } = ResetPasswordRoute.useSearch();
   const reset = useMutation(getResetPasswordMutationOptions());
   const toMessage = useErrorMessage();
   const [formError, setFormError] = useState<string>();
@@ -36,13 +36,18 @@ export default function ResetPasswordPage() {
     onSubmit: async ({ value }) => {
       setFormError(undefined);
       try {
-        await reset.mutateAsync({ params: { token: token ?? '', newPassword: value.newPassword } });
-        await navigate({ to: '/login' });
+        await reset.mutateAsync({
+          params: { tenant: tenant ?? '', token: token ?? '', newPassword: value.newPassword },
+        });
+        // 帳號屬於租戶：到那個租戶的 backstage 登入（docs/adr/0020-physical-tenant-isolation.md D11）
+        await goToTenantLogin(tenant ?? '');
       } catch (error) {
         setFormError(toMessage(error));
       }
     },
   });
+
+  if (!tenant) return <TenantRequired title={t('login.resetPassword.title')} />;
 
   return (
     <AuthShell title={t('login.resetPassword.title')} description={t('login.password.hint')}>

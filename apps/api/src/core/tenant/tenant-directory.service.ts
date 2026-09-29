@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import type { OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import type { TenantRow, TenantStatus } from '@/db/platform/schema';
@@ -27,11 +28,16 @@ interface Cached<T> {
  * 所以結果（含「找不到」）快取 `TENANT_CACHE_TTL` 秒；租戶的狀態改變由 `invalidate()` 立即生效。
  */
 @Injectable()
-export class TenantDirectory {
+export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy {
+  private readonly logger = new Logger(TenantDirectory.name);
   private readonly secrets: SecretBox;
   private readonly ttlMs: number;
   private readonly byHost = new Map<string, Cached<TenantRecord | undefined>>();
   private readonly byId = new Map<string, Cached<TenantRecord | undefined>>();
+  private readonly byCode = new Map<string, Cached<TenantRecord | undefined>>();
+  /** 網域 → 租戶 id 的快照（同步讀取用），每 `TENANT_CACHE_TTL` 秒與 `invalidate()` 時重新載入。 */
+  private domains = new Map<string, string>();
+  private refreshTimer?: NodeJS.Timeout;
 
   constructor(
     private readonly repo: TenantRepository,
@@ -43,6 +49,43 @@ export class TenantDirectory {
       TENANT_SECRET_PURPOSE,
     );
     this.ttlMs = config.get('TENANT_CACHE_TTL', { infer: true }) * 1000;
+  }
+
+  async onApplicationBootstrap(): Promise<void> {
+    await this.refreshDomains();
+    if (this.ttlMs > 0) {
+      this.refreshTimer = setInterval(() => void this.refreshDomains(), this.ttlMs);
+      this.refreshTimer.unref();
+    }
+  }
+
+  onModuleDestroy(): void {
+    clearInterval(this.refreshTimer);
+  }
+
+  /**
+   * 同步版的「這個 host 屬於哪個租戶」：oidc-provider 判斷 redirect URI 是同步呼叫，不能查 DB。
+   * 讀的是快照，新登記的網域最多晚 `TENANT_CACHE_TTL` 秒生效（`invalidate()` 會立即重載）。
+   */
+  tenantIdOfHost(host: string): string | undefined {
+    const normalized = host.toLowerCase();
+    return this.domains.get(normalized) ?? this.domains.get(hostnameOf(normalized));
+  }
+
+  /** 租戶的主要網域（第一個登記的）；「進入租戶」與帳號流程完成後的登入入口用它。 */
+  primaryDomainOf(tenantId: string): string | undefined {
+    for (const [domain, owner] of this.domains) if (owner === tenantId) return domain;
+    return undefined;
+  }
+
+  async findByCode(code: string): Promise<TenantRecord | undefined> {
+    const key = code.toLowerCase();
+    const cached = this.fresh(this.byCode.get(key));
+    if (cached) return cached.value;
+    const row = await this.repo.findByCode(key);
+    const record = row ? this.toRecord(row) : undefined;
+    this.byCode.set(key, this.entry(record));
+    return record;
   }
 
   /** 先比對 `host:port`，再比對主機名稱（正式環境的網域通常不帶 port）。 */
@@ -77,6 +120,18 @@ export class TenantDirectory {
   invalidate(): void {
     this.byHost.clear();
     this.byId.clear();
+    this.byCode.clear();
+    void this.refreshDomains();
+  }
+
+  private async refreshDomains(): Promise<void> {
+    try {
+      const rows = await this.repo.listDomains();
+      this.domains = new Map(rows.map((row) => [row.domain.toLowerCase(), row.tenantId]));
+    } catch (error) {
+      // 沿用上一份快照；下一輪再試
+      this.logger.error({ err: error }, '載入租戶網域失敗');
+    }
   }
 
   private toRecord(row: TenantRow): TenantRecord {

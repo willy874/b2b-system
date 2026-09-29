@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { inject } from 'vitest';
 
+import * as platformSchema from '@/db/platform/schema';
 import * as relations from '@/db/relations';
 import * as schema from '@/db/schema';
 
@@ -13,6 +14,15 @@ export function createTestDatabase() {
 }
 
 export type TestDatabase = ReturnType<typeof createTestDatabase>['db'];
+
+/** 平台 DB（租戶登記、平台管理者；docs/adr/0020-physical-tenant-isolation.md D1）。 */
+export function createPlatformTestDatabase() {
+  const client = postgres(inject('platformDatabaseUrl'), { max: 2, onnotice: () => {} });
+  const db = drizzle(client, { schema: platformSchema });
+  return { client, db };
+}
+
+export type PlatformTestDatabase = ReturnType<typeof createPlatformTestDatabase>['db'];
 
 /** 每個 suite 之間清空業務資料（保留 schema 與 migration 紀錄）。 */
 export async function truncateAll(db: TestDatabase): Promise<void> {

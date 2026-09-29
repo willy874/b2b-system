@@ -1,10 +1,11 @@
 import { and, eq, inArray, isNull, notInArray } from 'drizzle-orm';
 
 import type { ScriptDatabase } from '../client';
-import { forEachScriptTenant, loadScriptEnv } from '../client';
+import { createPlatformScriptClient, forEachScriptTenant, loadScriptEnv } from '../client';
 import { permissions, rolePermissions, roles } from '../schema';
 import type { PermissionKey } from './permissions';
 import { PERMISSION_SEED } from './permissions';
+import { seedPlatformAdmin } from './platform-admin';
 import { ROLE_SEED } from './roles';
 import { seedSuperAdmin } from './super-admin';
 
@@ -97,9 +98,15 @@ export async function runSeed(db: ScriptDatabase): Promise<void> {
   await seedSuperAdmin(db);
 }
 
-/** 每個 `active` 的租戶都跑一次（權限目錄與系統角色是每個租戶各一份）。 */
+/** 先建平台管理者，再在每個 `active` 的租戶跑一次（權限目錄與系統角色是每個租戶各一份）。 */
 async function main(): Promise<void> {
   loadScriptEnv();
+  const platform = createPlatformScriptClient();
+  try {
+    await seedPlatformAdmin(platform.db);
+  } finally {
+    await platform.client.end();
+  }
   await forEachScriptTenant((db) => runSeed(db));
   console.info('seed 完成');
 }

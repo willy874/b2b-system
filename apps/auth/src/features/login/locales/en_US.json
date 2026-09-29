@@ -20,6 +20,8 @@
     },
     "interaction": {
       "for": "Sign in to continue to “{{client}}”. All products share this account.",
+      "forTenant": "Sign in to “{{tenant}}” to continue to “{{client}}”.",
+      "forPlatform": "Sign in with your platform administrator account.",
       "cancel": "Cancel",
       "forgotPassword": "Forgot password?",
       "register": "Request an account",
@@ -63,6 +65,7 @@
     "password": {
       "hint": "At least 12 characters and not a common password."
     },
-    "backToLogin": "Back to sign in"
+    "backToLogin": "Back to sign in",
+    "tenantRequired": "We could not tell which tenant this account belongs to. Open this page from your tenant’s sign-in page or the link in the email."
   }
 }

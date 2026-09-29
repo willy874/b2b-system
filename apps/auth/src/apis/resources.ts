@@ -3,17 +3,18 @@
  *
  * 寫入後不要手列 query key，改成宣告「後端改了什麼」：
  *
- *   invalidateResources([{ resource: Resource.IDENTITY_PROVIDER, kind: 'update', id: provider.id }]);
+ *   invalidateResources([{ resource: Resource.PROFILE, kind: 'update' }]);
  *
  * 這一版沒有推播：只有本分頁與其他分頁（BroadcastChannel）會失效。
+ * 租戶管理（交付順序第 4 步）加入時在這裡登記它的資源。
  */
-import { IDENTITY_PROVIDER_LIST_QUERY_KEY } from '@/apis/identity-provider/get-identity-provider-list/query';
+import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
 import { createResourceGraph, queryClient } from '@/core/cache';
 import type { ResourceChange } from '@/core/cache';
 
 export const Resource = {
-  /** 外部 IdP 連線（`id` = 連線 id） */
-  IDENTITY_PROVIDER: 'identityProvider',
+  /** 登入中的平台管理者 */
+  PROFILE: 'profile',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -21,8 +22,8 @@ export type Resource = (typeof Resource)[keyof typeof Resource];
 export type ResourceChangeEvent = ResourceChange<Resource>;
 
 const graph = createResourceGraph<Resource>({
-  [Resource.IDENTITY_PROVIDER]: {
-    collection: [IDENTITY_PROVIDER_LIST_QUERY_KEY],
+  [Resource.PROFILE]: {
+    collection: [AUTH_PROFILE_QUERY_KEY],
   },
 });
 

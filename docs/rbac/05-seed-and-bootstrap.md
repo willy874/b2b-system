@@ -11,16 +11,21 @@ RBAC 有一個雞生蛋問題：**要建立使用者需要 `user:create` 權限�
 ## 2. 執行順序
 
 ```
-pnpm db:migrate        建表（含約束、索引、trigger）
+pnpm db:migrate        平台 DB，再依序每個租戶的 DB（含約束、索引、trigger）；登記預設租戶
       │
       ▼
-pnpm db:seed           ① permissions   （冪等 upsert）
+pnpm db:seed           ⓪ 平台管理者（平台 DB；沒有任何管理者時依 PLATFORM_ADMIN_EMAIL 建立）
+      │                每個 active 的租戶各跑一次：
+      │                ① permissions   （冪等 upsert）
       │                ② roles         （冪等 upsert，is_system = true）
       │                ③ role_permissions（依對照表 upsert）
-      │                ④ super-admin 使用者（僅當不存在時建立）
+      │                ④ super-admin 使用者（僅當不存在時建立；每個租戶各一位）
       ▼
 pnpm dev
 ```
+
+平台管理者與租戶的 super-admin 是兩份資料（[ADR-0020](../adr/0020-physical-tenant-isolation.md) D5）：
+平台管理者登入 apps/auth，看不到任何租戶的內容；租戶的 super-admin 只在自己的租戶。
 
 `db:seed` 設計為 **完全冪等**：重複執行不會產生重複資料、不會覆寫使用者已調整
 的非系統角色權限。

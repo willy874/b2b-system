@@ -3,11 +3,20 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { hashPassword } from '@/modules/auth/password';
 
 import type { ScriptDatabase } from '../client';
-import { forEachScriptTenant, loadScriptEnv, seedTenantCode } from '../client';
+import {
+  createPlatformScriptClient,
+  forEachScriptTenant,
+  loadScriptEnv,
+  seedTenantCode,
+} from '../client';
 import { roles, userRoles, users } from '../schema';
 import { runSeed } from './index';
+import { upsertPlatformAdmin } from './platform-admin';
 
 export const E2E_PASSWORD = 'E2E!Password123';
+
+/** apps/auth 的平台管理者（docs/adr/0020-physical-tenant-isolation.md D5）；與租戶的帳號是兩份資料。 */
+export const E2E_PLATFORM_ADMIN = 'e2e-platform@dev.local';
 
 /** 固定帳號，讓 E2E 的起點永遠一致（docs/architecture/frontend/10-testing.md §4.3）。 */
 export const E2E_ACCOUNTS = [
@@ -67,6 +76,17 @@ export async function seedE2eData(db: ScriptDatabase): Promise<void> {
 
 async function main(): Promise<void> {
   loadScriptEnv();
+  const platform = createPlatformScriptClient();
+  try {
+    await upsertPlatformAdmin(platform.db, {
+      email: E2E_PLATFORM_ADMIN,
+      displayName: 'E2E Platform Admin',
+      password: E2E_PASSWORD,
+    });
+    console.info(`E2E 平台管理者已就緒：${E2E_PLATFORM_ADMIN}`);
+  } finally {
+    await platform.client.end();
+  }
   await forEachScriptTenant(
     async (db) => {
       await runSeed(db);

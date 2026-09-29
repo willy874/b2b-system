@@ -466,6 +466,12 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/auth/setup/verify`        | `@Public`                        |
 | POST   | `/auth/setup`               | `@Public`                        |
 | POST   | `/auth/sso/callback`        | `@Public`（授權碼 ＋ PKCE 就是憑證，ADR-0019 D3） |
+| POST   | `/platform/auth/sso/callback` | `@Public`（apps/auth 的 BFF：平台管理者，ADR-0020 D5） |
+| POST   | `/platform/auth/refresh`    | `@Public`                        |
+| POST   | `/platform/auth/logout`     | `@Authenticated`（平台管理者）   |
+| GET    | `/platform/auth/profile`    | `@Authenticated`（平台管理者）   |
+| GET    | `/tenant/current`           | `@Public`（目前網域的租戶，ADR-0020 D7） |
+| GET    | `/tenants/lookup`           | `@Public`（以代碼找租戶的登入入口，ADR-0020 D11） |
 | GET    | `/oidc-interaction/:uid`    | `@Public`（互動 cookie 就是憑證，ADR-0019 D16） |
 | GET    | `/oidc-interaction/:uid/details` | `@Public`                   |
 | POST   | `/oidc-interaction/:uid/login` | `@Public`                     |

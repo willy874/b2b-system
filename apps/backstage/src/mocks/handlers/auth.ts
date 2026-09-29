@@ -30,6 +30,11 @@ export const authHandlers = [
 
   http.post(`${MOCK_API_BASE}/auth/logout`, () => HttpResponse.json({ data: { success: true } })),
 
+  // 這個網域的租戶（docs/adr/0020-physical-tenant-isolation.md D7）
+  http.get(`${MOCK_API_BASE}/tenant/current`, () =>
+    HttpResponse.json({ data: { code: 'default', name: '預設租戶' } }),
+  ),
+
   http.get(`${MOCK_API_BASE}/auth/profile`, () =>
     HttpResponse.json({
       data: {

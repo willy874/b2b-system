@@ -27,8 +27,17 @@ export const SsoErrorSearchSchema = z.object({
 });
 export type SsoErrorSearch = z.infer<typeof SsoErrorSearchSchema>;
 
-/** 帳號流程的信中連結（啟用、重設密碼、接受邀請）帶的 token。 */
-export const TokenSearchSchema = z.object({
+/**
+ * 帳號流程是哪個租戶的帳號（docs/adr/0020-physical-tenant-isolation.md 開放問題 6）：
+ * 信中連結與登入互動頁的連結帶 `?tenant=<代碼>`。
+ */
+export const TenantSearchSchema = z.object({
+  tenant: z.string().max(63).optional().catch(undefined),
+});
+export type TenantSearch = z.infer<typeof TenantSearchSchema>;
+
+/** 帳號流程的信中連結（啟用、重設密碼）帶的 token 與租戶。 */
+export const TokenSearchSchema = TenantSearchSchema.extend({
   token: z.string().optional().catch(undefined),
 });
 export type TokenSearch = z.infer<typeof TokenSearchSchema>;

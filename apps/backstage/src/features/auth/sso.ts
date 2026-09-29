@@ -1,3 +1,4 @@
+import { fetchCurrentTenantQuery } from '@/apis/tenant/get-current-tenant/fetcher';
 import { createAuthorizationUrl, redirectUriOf } from '@/core/auth';
 import type { SsoClientConfig } from '@/core/auth';
 import { ENV } from '@/shared/constants';
@@ -9,9 +10,15 @@ export const SSO_CLIENT: SsoClientConfig = {
   callbackPath: '/auth/callback',
 };
 
-/** 頂層跳轉到 IdP 登入（docs/adr/0019-sso-identity-platform.md D6）。 */
+/**
+ * 頂層跳轉到 IdP 登入（docs/adr/0019-sso-identity-platform.md D6），帶上這個網域的租戶代碼：
+ * apps/auth 依它顯示租戶名稱、在那個租戶的帳號裡驗證（docs/adr/0020-physical-tenant-isolation.md D7、D8）。
+ */
 export async function startSsoLogin(returnTo: string | undefined): Promise<void> {
-  globalThis.location.assign(await createAuthorizationUrl(SSO_CLIENT, returnTo));
+  const tenant = await fetchCurrentTenantQuery({ params: undefined });
+  globalThis.location.assign(
+    await createAuthorizationUrl(SSO_CLIENT, returnTo, { tenant: tenant.code }),
+  );
 }
 
 /** 兌換時送出的 redirect URI：必須與授權時帶的完全相同。 */

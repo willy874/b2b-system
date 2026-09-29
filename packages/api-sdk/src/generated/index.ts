@@ -12,6 +12,8 @@ export * from './endpoints/health';
 export * from './endpoints/identity-providers';
 export * from './endpoints/jobs';
 export * from './endpoints/permissions';
+export * from './endpoints/platform-auth';
 export * from './endpoints/roles';
 export * from './endpoints/system';
+export * from './endpoints/tenants';
 export * from './endpoints/users';

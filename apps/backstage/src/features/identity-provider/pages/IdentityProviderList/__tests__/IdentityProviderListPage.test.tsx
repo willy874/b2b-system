@@ -41,7 +41,7 @@ function renderPage(permissions: PermissionKey[] | 'unhydrated') {
   );
   const router = createRouter({
     routeTree: RootRoute.addChildren([Routes.IdentityProviderListRoute]),
-    history: createMemoryHistory({ initialEntries: ['/identity-providers'] }),
+    history: createMemoryHistory({ initialEntries: ['/identity-provider'] }),
     parseSearch,
     stringifySearch,
   });

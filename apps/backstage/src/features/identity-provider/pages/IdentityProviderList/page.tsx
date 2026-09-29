@@ -19,7 +19,7 @@ import { useIdentityProviderPermission } from '../../hooks/useIdentityProviderPe
 import { IdentityProviderFormDialog } from './components/IdentityProviderFormDialog';
 
 /**
- * 平台的外部 IdP 連線（docs/adr/0019-sso-identity-platform.md D8–D11）：
+ * 租戶的外部 IdP 連線（docs/adr/0019-sso-identity-platform.md D8–D11、0020 D18）：
  * 連線清單、網域與要登記在外部 IdP 的 redirect URI；client secret 只寫不讀。
  */
 export default function IdentityProviderListPage() {

@@ -20,6 +20,8 @@
     },
     "interaction": {
       "for": "登入以繼續使用「{{client}}」。所有產品共用這一組帳號。",
+      "forTenant": "登入「{{tenant}}」以繼續使用「{{client}}」。",
+      "forPlatform": "以平台管理者的帳號登入。",
       "cancel": "取消",
       "forgotPassword": "忘記密碼？",
       "register": "申請帳號",
@@ -63,6 +65,7 @@
     "password": {
       "hint": "至少 12 個字元，不可為常見密碼。"
     },
-    "backToLogin": "返回登入"
+    "backToLogin": "返回登入",
+    "tenantRequired": "找不到這是哪個租戶的帳號。請從租戶的登入頁或信中的連結進入。"
   }
 }

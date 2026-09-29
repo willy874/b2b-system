@@ -9,7 +9,7 @@ import {
 
 import { IdentityProviderListRoute } from './routes/pages';
 
-/** 平台的外部 IdP 連線管理。 */
+/** 租戶的外部 IdP 連線管理。 */
 export const IDENTITY_PROVIDER_PAGE = definePageKey('IDENTITY_PROVIDER');
 
 export function registerIdentityProviderPagePermissions(): void {

@@ -19,4 +19,4 @@ import { TenantRepository } from './tenant.repository';
   ],
   exports: [TenantDirectory, Tenancy, TenantMiddleware, TENANT_DB],
 })
-export class TenantModule {}
+export class TenancyModule {}

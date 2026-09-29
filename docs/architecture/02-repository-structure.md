@@ -245,7 +245,9 @@ PLATFORM_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_platform
 TENANT_SECRET_KEY=                 # 留空 = 由 JWT_SECRET 推導（production 必填）
 DEFAULT_TENANT_CODE=default
 DEFAULT_TENANT_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_system
-DEFAULT_TENANT_DOMAINS=localhost:5173,localhost:5175
+DEFAULT_TENANT_DOMAINS=localhost:5173   # apps/auth（:5175）不屬於任何租戶
+PLATFORM_ADMIN_EMAIL=platform@example.com   # 第一位平台管理者（apps/auth 的登入）
+PLATFORM_ADMIN_PASSWORD=
 PORT=3000
 NODE_ENV=development
 
@@ -312,7 +314,7 @@ FILE_MAINTENANCE_DRY_RUN=false      # true：只偵測並記錄殘留，不刪�
 # ── apps/backstage、apps/auth（VITE_ 前綴才會進 bundle；兩者各自讀自己目錄的 env）──
 VITE_API_BASE_URL=/api
 VITE_OIDC_ISSUER=http://localhost:5175/api/oidc   # SSO 的 issuer（兩個前端相同）
-VITE_AUTH_APP_URL=http://localhost:5175            # backstage：帳號流程與租戶管理在 apps/auth
+VITE_AUTH_APP_URL=http://localhost:5175            # backstage：帳號流程與平台管理在 apps/auth
 VITE_ENABLE_MOCK=false
 ```
 

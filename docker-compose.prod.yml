@@ -31,8 +31,10 @@ services:
       PLATFORM_DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
       TENANT_SECRET_KEY: ${TENANT_SECRET_KEY:?required}
       DEFAULT_TENANT_DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-b2b_system}
-      # 瀏覽器看到的 host（含 port）；apps/auth 的是過渡（交付順序第 3 步移除）
-      DEFAULT_TENANT_DOMAINS: ${DEFAULT_TENANT_DOMAINS:-localhost:8080,localhost:8081}
+      # 瀏覽器看到的 host（含 port）；apps/auth（:8081）不屬於任何租戶
+      DEFAULT_TENANT_DOMAINS: ${DEFAULT_TENANT_DOMAINS:-localhost:8080}
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:?required}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
     # seed 是冪等的（權限目錄 upsert、系統角色已存在就略過），每次部署都跑

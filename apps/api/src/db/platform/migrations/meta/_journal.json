@@ -15,6 +15,13 @@
       "when": 1790695338344,
       "tag": "0001_functions_and_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790697700632,
+      "tag": "0002_platform_admins",
+      "breakpoints": true
     }
   ]
 }

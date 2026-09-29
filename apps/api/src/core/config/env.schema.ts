@@ -35,6 +35,8 @@ export const EnvSchema = z.object({
    * 因此這裡是 `/api/auth` 而不是 `/auth`。
    */
   REFRESH_COOKIE_PATH: z.string().default('/api/auth'),
+  /** 平台管理者的 refresh cookie（apps/auth 的 origin，`/platform/auth/*`；docs/adr/0020-physical-tenant-isolation.md D5）。 */
+  PLATFORM_REFRESH_COOKIE_PATH: z.string().default('/api/platform/auth'),
   REFRESH_COOKIE_DOMAIN: z.string().default('localhost'),
   /**
    * 瀏覽器看到的 api 位址（同源時是路徑前綴）。api 自己產生、要放進 `<img src>` 的網址
@@ -202,6 +204,16 @@ export const EnvSchema = z.object({
 
   /** 稽核日誌熱 → 冷搬移的 cron（UTC）；空字串停用（docs/architecture/backend/06-audit-log.md §8）。 */
   AUDIT_LOG_ARCHIVE_CRON: z.string().trim().default('30 3 * * *'),
+
+  /**
+   * 第一位平台管理者（apps/auth 的租戶管理）：`db:seed` 在平台 DB 沒有任何管理者時建立。
+   * 密碼留空 = seed 時隨機產生並印出一次。
+   */
+  PLATFORM_ADMIN_EMAIL: z.string().email().optional(),
+  PLATFORM_ADMIN_PASSWORD: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().min(12).optional(),
+  ),
 
   SUPER_ADMIN_EMAIL: z.string().email(),
   // 留空 = 未設定：seed 時隨機產生並印出一次（docs/rbac/05-seed-and-bootstrap.md）。

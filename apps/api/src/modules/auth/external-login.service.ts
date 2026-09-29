@@ -9,6 +9,7 @@ import type { Database } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException, isUniqueViolation } from '@/core/errors';
 import type { ErrorCode } from '@/core/errors';
+import { Tenancy } from '@/core/tenant';
 import type { UserRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { ExternalOidcClient } from '@/modules/identity-provider/external-oidc.client';
@@ -17,7 +18,12 @@ import {
   domainOf,
   IdentityProviderService,
 } from '@/modules/identity-provider/identity-provider.service';
+import { tenantAccountId } from '@/modules/oidc-provider/oidc-account';
 import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
+import type {
+  ExternalLoginState,
+  InteractionSummary,
+} from '@/modules/oidc-provider/oidc-provider.service';
 import { UserService } from '@/modules/user/user.service';
 
 import type { SsoDiscoveryDto, SsoRedirectDto } from './dto/auth.dto';
@@ -36,6 +42,9 @@ function random(bytes = 32): string {
  * 2. 外部 IdP 帶授權碼跳回 **固定** 的 callback（外部 IdP 大多要求 redirect URI 完全相符，不能帶互動 id）
  *    → `callback()` 兌換、驗證 ID token、對應帳號，再跳到互動路徑底下的 `…/external/complete`
  * 3. 那個路徑帶得到互動 cookie → `complete()` 完成互動，provider 接著帶授權碼跳回產品
+ *
+ * 外部 IdP 連線屬於租戶（docs/adr/0020-physical-tenant-isolation.md D18）：連線與帳號對應都在互動的那個租戶裡；
+ * 平台管理者的登入沒有外部 IdP。
  */
 @Injectable()
 export class ExternalLoginService {
@@ -51,6 +60,7 @@ export class ExternalLoginService {
     private readonly oidc: OidcProviderService,
     private readonly users: UserService,
     private readonly audit: AuditService,
+    private readonly tenancy: Tenancy,
     config: ConfigService<Env, true>,
   ) {
     this.authAppUrl = config.get('AUTH_APP_URL', { infer: true });
@@ -66,8 +76,9 @@ export class ExternalLoginService {
     uid: string,
     email: string,
   ): Promise<SsoDiscoveryDto> {
-    await this.assertInteraction(req, res, uid);
-    const found = await this.providers.discover(email);
+    const { tenant } = await this.assertInteraction(req, res, uid);
+    if (!tenant) return { provider: null, ssoOnly: false };
+    const found = await this.tenancy.run(tenant.id, () => this.providers.discover(email));
     return found
       ? { provider: { id: found.id, name: found.name }, ssoOnly: found.ssoOnly }
       : { provider: null, ssoOnly: false };
@@ -79,8 +90,9 @@ export class ExternalLoginService {
     uid: string,
     providerId: string,
   ): Promise<SsoRedirectDto> {
-    await this.assertInteraction(req, res, uid);
-    const login = await this.providers.loginConfig(providerId);
+    const { tenant } = await this.assertInteraction(req, res, uid);
+    if (!tenant) throw new AppException('AUTH_SSO_PROVIDER_UNAVAILABLE');
+    const login = await this.tenancy.run(tenant.id, () => this.providers.loginConfig(providerId));
     if (!login) throw new AppException('AUTH_SSO_PROVIDER_UNAVAILABLE');
 
     const state = random();
@@ -100,7 +112,7 @@ export class ExternalLoginService {
     }
     await this.oidc.saveExternalLogin(
       state,
-      { interactionUid: uid, providerId, codeVerifier, nonce },
+      { interactionUid: uid, tenantId: tenant.id, providerId, codeVerifier, nonce },
       EXTERNAL_LOGIN_TTL_SECONDS,
     );
     return { redirectTo };
@@ -115,7 +127,23 @@ export class ExternalLoginService {
   async callback(query: { state?: string; error?: string }, rawQuery: string): Promise<string> {
     const pending = query.state ? await this.oidc.findExternalLogin(query.state) : undefined;
     if (!query.state || !pending) return this.errorPage(undefined, 'AUTH_SSO_EXTERNAL_FAILED');
-    const { state } = query;
+    // 固定的 callback 不在任何租戶網域上：以登入狀態記下的租戶進入
+    try {
+      return await this.tenancy.run(pending.tenantId, () =>
+        this.finishCallback(query, rawQuery, query.state!, pending),
+      );
+    } catch (error) {
+      if (!(error instanceof AppException)) throw error;
+      return this.errorPage(pending.interactionUid, 'AUTH_SSO_EXTERNAL_FAILED');
+    }
+  }
+
+  private async finishCallback(
+    query: { error?: string },
+    rawQuery: string,
+    state: string,
+    pending: ExternalLoginState,
+  ): Promise<string> {
     const fail = async (code: ErrorCode, reason: string, error?: unknown) => {
       await this.oidc.consumeExternalLogin(state);
       await this.audit.recordSafely({
@@ -165,7 +193,7 @@ export class ExternalLoginService {
     });
     await this.oidc.saveExternalLogin(
       state,
-      { ...pending, accountId: user.id },
+      { ...pending, accountId: tenantAccountId(pending.tenantId, user.id) },
       EXTERNAL_LOGIN_TTL_SECONDS,
     );
     const ticket = new URLSearchParams({ ticket: state });
@@ -291,9 +319,9 @@ export class ExternalLoginService {
     req: IncomingMessage,
     res: ServerResponse,
     uid: string,
-  ): Promise<void> {
-    if (!(await this.oidc.interaction(req, res, uid))) {
-      throw new AppException('AUTH_SSO_INTERACTION_INVALID');
-    }
+  ): Promise<InteractionSummary> {
+    const summary = await this.oidc.interaction(req, res, uid);
+    if (!summary) throw new AppException('AUTH_SSO_INTERACTION_INVALID');
+    return summary;
   }
 }

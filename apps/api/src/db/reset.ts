@@ -12,7 +12,7 @@ async function main(): Promise<void> {
     throw new Error('db:reset 不可在 production 執行');
   }
   const platform = createPlatformScriptClient();
-  await platform.db.execute(sql`TRUNCATE oidc_payloads`);
+  await platform.db.execute(sql`TRUNCATE oidc_payloads, platform_refresh_tokens`);
   await platform.client.end();
 
   await forEachScriptTenant(async (db) => {

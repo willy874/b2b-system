@@ -14,7 +14,7 @@ import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { JobQueue } from '@/core/jobs';
 import { requireTenant } from '@/core/tenant';
-import type { RefreshTokenRow, UserRow } from '@/db/schema';
+import type { UserRow } from '@/db/schema';
 import { ApprovalService } from '@/modules/approval/approval.service';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { IdentityProviderService } from '@/modules/identity-provider/identity-provider.service';
@@ -37,6 +37,7 @@ import type {
   UpdateProfileDto,
 } from './dto/auth.dto';
 import { hashPassword, verifyAgainstDummy, verifyPassword } from './password';
+import { rotateRefreshToken } from './refresh-rotation';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import { sha256 } from './token-hash';
 
@@ -218,82 +219,37 @@ export class AuthService {
   // ── 續期 ────────────────────────────────────────────────
 
   async refresh(rawToken: string, meta: RequestMeta): Promise<IssuedSession> {
-    const row = await this.refreshTokens.findByHash(sha256(rawToken));
-
-    if (!row) throw new AppException('AUTH_REFRESH_INVALID');
-    // 也看整個家族：登出與續期同時提交時，續期新發的那張可能沒被撤銷到
-    if (row.revokedAt || (await this.refreshTokens.isFamilyRevoked(row.familyId))) {
-      // 已被用過的 token 再出示就是重用，即使家族已被撤銷：同一張 token 的併發請求裡，
-      // 先失敗的那個已撤銷整條家族，後到的仍要判定為重用（docs/architecture/backend/04-auth.md §2.3）
-      if (await this.wasUsed(row)) return this.rejectReuse(row, meta);
-      throw new AppException('AUTH_REFRESH_REVOKED');
-    }
-    if (row.expiresAt.getTime() < Date.now()) throw new AppException('AUTH_REFRESH_EXPIRED');
-    if (row.usedAt) return this.rejectReuse(row, meta);
-
-    const user = await this.users.findAccountById(row.userId);
-    if (!user || user.deletedAt) throw new AppException('AUTH_REFRESH_INVALID');
-    if (user.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
-
     const refreshTtl = this.config.get('REFRESH_TOKEN_TTL', { infer: true });
-
-    // markUsed 與 create 必須同一個交易，否則使用者會被無故登出
-    const raw = await withTransaction(this.db, async (tx) => {
-      // 條件式標記：同一張 token 的兩個併發請求只有一個搶得到，另一個不能也發出新 token
-      if (!(await this.refreshTokens.markUsed(row.id, tx))) return undefined;
-      const next = await this.refreshTokens.issue(
-        {
-          userId: user.id,
-          familyId: row.familyId,
-          clientId: row.clientId,
-          idpSessionUid: row.idpSessionUid,
-          ttlSeconds: refreshTtl,
-          userAgent: meta.userAgent ?? null,
-          ipAddress: meta.ip ?? null,
-        },
-        tx,
-      );
-      return next.raw;
+    const { row, subject, raw } = await rotateRefreshToken(this.refreshTokens.store, rawToken, {
+      ttlSeconds: refreshTtl,
+      meta,
+      loadSubject: async (userId) => {
+        const user = await this.users.findAccountById(userId);
+        if (!user || user.deletedAt) throw new AppException('AUTH_REFRESH_INVALID');
+        if (user.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
+        return user;
+      },
+      onReuse: (reused) =>
+        this.audit.recordSafely({
+          action: 'auth.refresh.reuse_detected',
+          resourceType: 'auth',
+          resourceId: reused.subjectId,
+          result: 'failure',
+          actorId: reused.subjectId,
+          errorCode: 'AUTH_REFRESH_REUSED',
+          metadata: {
+            familyId: reused.familyId,
+            severity: 'high',
+            ip: meta.ip ?? undefined,
+            userAgent: meta.userAgent ?? undefined,
+          },
+        }),
     });
-
-    if (raw === undefined) {
-      // 沒搶到：被另一個請求用掉 → 重用；沒被用掉而是被撤銷（例：同時登出）→ 撤銷
-      if (await this.wasUsed(row)) return this.rejectReuse(row, meta);
-      throw new AppException('AUTH_REFRESH_REVOKED');
-    }
-
     return {
-      ...(await this.signAccessToken(user, row.idpSessionUid)),
+      ...(await this.signAccessToken(subject, row.idpSessionUid)),
       refreshToken: raw,
       refreshTtlSeconds: refreshTtl,
     };
-  }
-
-  /** 讀取當下的狀態：`row` 是請求一開始讀到的，併發請求可能已經把它用掉。 */
-  private async wasUsed(row: RefreshTokenRow): Promise<boolean> {
-    if (row.usedAt) return true;
-    const latest = await this.refreshTokens.findByHash(row.tokenHash);
-    return Boolean(latest?.usedAt);
-  }
-
-  /** 重用偵測：整條家族失效並記錄高嚴重度稽核。 */
-  private async rejectReuse(row: RefreshTokenRow, meta: RequestMeta): Promise<never> {
-    await this.refreshTokens.revokeFamily(row.familyId, 'reuse_detected');
-    await this.audit.recordSafely({
-      action: 'auth.refresh.reuse_detected',
-      resourceType: 'auth',
-      resourceId: row.userId,
-      result: 'failure',
-      actorId: row.userId,
-      errorCode: 'AUTH_REFRESH_REUSED',
-      metadata: {
-        familyId: row.familyId,
-        severity: 'high',
-        ip: meta.ip ?? undefined,
-        userAgent: meta.userAgent ?? undefined,
-      },
-    });
-    throw new AppException('AUTH_REFRESH_REUSED');
   }
 
   // ── 登出 ────────────────────────────────────────────────

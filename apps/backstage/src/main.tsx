@@ -17,6 +17,7 @@ import { auditLogFeaturePlugin } from '@/features/audit-log';
 import { authFeaturePlugin } from '@/features/auth';
 import { fileFeaturePlugin } from '@/features/file';
 import { homeFeaturePlugin } from '@/features/home';
+import { identityProviderFeaturePlugin } from '@/features/identity-provider';
 import { jobFeaturePlugin } from '@/features/job';
 import { permissionFeaturePlugin } from '@/features/permission';
 import { roleFeaturePlugin } from '@/features/role';
@@ -83,6 +84,7 @@ async function bootstrap(): Promise<void> {
     .use(approvalFeaturePlugin())
     .use(fileFeaturePlugin())
     .use(jobFeaturePlugin())
+    .use(identityProviderFeaturePlugin())
     .use(accountFeaturePlugin())
     // 擴充 feature 的小外掛：往偏好頁插「表格欄位」分頁
     .use(tableColumnSettingsPlugin())

@@ -31,6 +31,25 @@ export class TenantRepository {
     return row;
   }
 
+  async findByCode(code: string): Promise<TenantRow | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(tenants)
+      .where(and(eq(tenants.code, code), isNull(tenants.deletedAt)))
+      .limit(1);
+    return row;
+  }
+
+  /** 所有未刪除租戶的網域（依建立順序；每個租戶的第一個網域是它的主要網域）。 */
+  async listDomains(): Promise<Array<{ domain: string; tenantId: string }>> {
+    return this.db
+      .select({ domain: tenantDomains.domain, tenantId: tenantDomains.tenantId })
+      .from(tenantDomains)
+      .innerJoin(tenants, eq(tenants.id, tenantDomains.tenantId))
+      .where(isNull(tenants.deletedAt))
+      .orderBy(tenantDomains.createdAt, tenantDomains.domain);
+  }
+
   async listActive(): Promise<TenantRow[]> {
     return this.db
       .select()

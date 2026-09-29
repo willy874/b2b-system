@@ -91,7 +91,6 @@
     "file": "檔案",
     "job": "背景工作",
     "profile": "個人資料",
-    "identityProvider": "外部 IdP",
     "preference": "偏好設定",
     "logout": "登出"
   },
@@ -110,6 +109,7 @@
     "VALIDATION_FAILED": "輸入內容不正確，請檢查後再試。",
     "TENANT_NOT_FOUND": "這個網址不屬於任何租戶，請確認網址是否正確。",
     "TENANT_UNAVAILABLE": "這個租戶目前無法使用，請聯絡平台管理員。",
+    "PLATFORM_ONLY": "這個功能只在平台管理的網址提供。",
     "AUTH_INVALID_CREDENTIALS": "帳號或密碼錯誤。",
     "AUTH_ACCOUNT_PENDING": "此帳號尚未啟用，請先完成啟用流程。",
     "AUTH_ACCOUNT_DISABLED": "此帳號已被停用。",

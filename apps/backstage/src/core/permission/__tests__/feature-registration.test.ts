@@ -4,6 +4,10 @@ import { registerAccountPagePermissions, PREFERENCE_PAGE, PROFILE_PAGE } from '@
 import { AUDIT_LOG_PAGE, registerAuditLogPagePermissions } from '@/features/audit-log';
 import { FILE_PAGE, registerFilePagePermissions } from '@/features/file';
 import { HOME_PAGE, registerHomePagePermissions } from '@/features/home';
+import {
+  IDENTITY_PROVIDER_PAGE,
+  registerIdentityProviderPagePermissions,
+} from '@/features/identity-provider';
 import { PERMISSION_PAGE, registerPermissionPagePermissions } from '@/features/permission';
 import { registerRolePagePermissions, ROLE_CREATE_PAGE, ROLE_PAGE } from '@/features/role';
 import { registerUserPagePermissions, USER_CREATE_PAGE, USER_PAGE } from '@/features/user';
@@ -24,6 +28,7 @@ describe('註冊表完整性', () => {
     registerAuditLogPagePermissions();
     registerAccountPagePermissions();
     registerFilePagePermissions();
+    registerIdentityProviderPagePermissions();
 
     expect(new Set(getRegisteredPageKeys())).toEqual(
       new Set([
@@ -37,6 +42,7 @@ describe('註冊表完整性', () => {
         PROFILE_PAGE,
         PREFERENCE_PAGE,
         FILE_PAGE,
+        IDENTITY_PROVIDER_PAGE,
       ]),
     );
   });

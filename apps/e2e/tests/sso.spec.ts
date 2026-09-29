@@ -1,11 +1,18 @@
 import { expect, test } from '@playwright/test';
 
-import { AUTH_URL, expectIdpLogin, loginAndWaitForHome, logout } from '../helpers/auth';
+import { ACCOUNTS, E2E_PASSWORD } from '../fixtures/accounts';
+import {
+  AUTH_URL,
+  expectIdpLogin,
+  loginAndWaitForHome,
+  loginPlatform,
+  logout,
+} from '../helpers/auth';
 import { getByTestIdAndValue } from '../helpers/selectors';
 
 /**
- * SSO 的協定邊界與 apps/auth 的平台頁面（docs/adr/0019-sso-identity-platform.md）。
- * 基本的登入、跨產品免登入、從 backstage 單一登出在 auth.spec.ts；外部 IdP 在 sso-external.spec.ts。
+ * SSO 的協定邊界、apps/auth 的平台管理者（docs/adr/0019-sso-identity-platform.md、0020 D5–D9）。
+ * 基本的登入與從 backstage 登出在 auth.spec.ts；外部 IdP 在 sso-external.spec.ts。
  */
 test.describe('SSO', () => {
   test('在 IdP 的登入頁按取消 → 回到 backstage 並顯示「已取消」，可以重新登入', async ({
@@ -36,36 +43,41 @@ test.describe('SSO', () => {
     await expect(getByTestIdAndValue(page, 'sso-error', 'invalid_redirect_uri')).toBeVisible();
   });
 
-  test('從 apps/auth 登出 → backstage 的 session 也結束（D5）', async ({ page }) => {
-    await loginAndWaitForHome(page, 'admin');
+  test('登入互動頁顯示要登入的租戶；平台的登入頁（apps/auth）登不進租戶的帳號', async ({
+    page,
+  }) => {
+    await page.goto('/auth/login');
+    await expectIdpLogin(page);
+    await expect(page.getByText('預設租戶', { exact: false })).toBeVisible();
+
     await page.goto(AUTH_URL);
-    await expect(page.getByTestId('home-display-name')).toBeVisible();
+    await expectIdpLogin(page);
+    await expect(page.getByTestId('login-register-link')).toHaveCount(0);
+    await page.getByTestId('login-email').fill(ACCOUNTS.superAdmin);
+    await page.getByTestId('login-password').fill(E2E_PASSWORD);
+    await page.getByTestId('login-submit').click();
+    await expect(page.getByTestId('login-error')).toBeVisible();
+  });
+
+  test('平台管理者從 apps/auth 登出 → 停在「已登出」頁，再進要重新登入', async ({ page }) => {
+    await loginPlatform(page);
     await logout(page);
     await expect(page).toHaveURL(/\/login\?.*signedOut=true/);
-
-    // backstage 的 refresh 家族已在伺服器端撤銷，IdP session 也不在了：要重新輸入密碼
-    await page.goto('/');
-    await expect(async () => {
-      const url = page.url();
-      expect(url.includes('signedOut=true') || url.startsWith(`${AUTH_URL}/interaction/`)).toBe(
-        true,
-      );
-    }).toPass();
-    await page.goto('/auth/login');
+    // IdP session 已結束：再進 apps/auth 會被帶到登入互動頁
+    await page.goto(AUTH_URL);
     await expectIdpLogin(page);
   });
 
-  test('auditor 在 apps/auth 看得到外部 IdP 連線，但沒有任何操作按鈕', async ({ page }) => {
+  test('外部 IdP 連線在 backstage：auditor 看得到但沒有任何操作按鈕', async ({ page }) => {
     await loginAndWaitForHome(page, 'auditor');
-    await page.goto(AUTH_URL);
     await page.getByTestId('menu-identity-provider').click();
     await expect(page.getByTestId('identity-provider-page')).toBeVisible();
     await expect(page.getByTestId('identity-provider-create-button')).toHaveCount(0);
   });
 
-  test('member 在 apps/auth 沒有平台選單，直接進網址是 403 頁', async ({ page }) => {
+  test('member 沒有外部 IdP 的選單，直接進網址是 403 頁', async ({ page }) => {
     await loginAndWaitForHome(page, 'member');
-    await page.goto(`${AUTH_URL}/identity-providers`);
+    await page.goto('/identity-provider');
     await expect(page.getByTestId('forbidden-page')).toBeVisible();
     await expect(page.getByTestId('menu-identity-provider')).toHaveCount(0);
   });

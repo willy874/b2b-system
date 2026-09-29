@@ -844,6 +844,106 @@
         "tags": ["auth"]
       }
     },
+    "/platform/auth/sso/callback": {
+      "post": {
+        "operationId": "PlatformAuthController_ssoCallback",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoCallbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Session"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "apps/auth 的 BFF：授權碼 ＋ PKCE verifier 換平台管理者的 session",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/refresh": {
+      "post": {
+        "operationId": "PlatformAuthController_refresh",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Session"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "以 refresh token 續期（需 x-refresh-request: 1）",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/logout": {
+      "post": {
+        "operationId": "PlatformAuthController_logout",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/profile": {
+      "get": {
+        "operationId": "PlatformAuthController_profile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformProfile"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "平台管理者自己的身分",
+        "tags": ["platform-auth"]
+      }
+    },
     "/users": {
       "get": {
         "operationId": "UserController_list",
@@ -2714,6 +2814,58 @@
         "summary": "Readiness probe（含 DB ping）",
         "tags": ["health"]
       }
+    },
+    "/tenant/current": {
+      "get": {
+        "operationId": "TenantController_current",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CurrentTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "目前網域的租戶（backstage 跳去登入時帶上它的代碼）",
+        "tags": ["tenants"]
+      }
+    },
+    "/tenants/lookup": {
+      "get": {
+        "operationId": "TenantController_lookup",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TenantLookup"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "以代碼找租戶的登入入口（apps/auth 的進入租戶、帳號流程完成後）",
+        "tags": ["tenants"]
+      }
     }
   },
   "info": {
@@ -3547,6 +3699,39 @@
         "required": ["user", "roles", "permissions"],
         "additionalProperties": false
       },
+      "PlatformProfile": {
+        "type": "object",
+        "properties": {
+          "admin": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "email": {
+                "type": "string"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["active", "inactive", "locked"]
+              },
+              "lastLoginAt": {
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": ["id", "email", "displayName", "status", "lastLoginAt"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["admin"],
+        "additionalProperties": false
+      },
       "UpdateProfileRequest": {
         "type": "object",
         "properties": {
@@ -3692,9 +3877,23 @@
           "loginHint": {
             "nullable": true,
             "type": "string"
+          },
+          "tenant": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": ["code", "name"],
+            "additionalProperties": false
           }
         },
-        "required": ["uid", "prompt", "clientId", "clientName", "loginHint"],
+        "required": ["uid", "prompt", "clientId", "clientName", "loginHint", "tenant"],
         "additionalProperties": false
       },
       "SsoRedirect": {
@@ -5064,6 +5263,47 @@
           }
         },
         "required": ["add", "remove"],
+        "additionalProperties": false
+      },
+      "CurrentTenant": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["code", "name"],
+        "additionalProperties": false
+      },
+      "TenantLookupQuery": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 63
+          }
+        },
+        "required": ["code"],
+        "additionalProperties": false
+      },
+      "TenantLookup": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "loginUrl": {
+            "type": "string"
+          }
+        },
+        "required": ["code", "name", "loginUrl"],
         "additionalProperties": false
       }
     }

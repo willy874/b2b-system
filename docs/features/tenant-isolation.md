@@ -112,14 +112,20 @@ ADR-0018 的工作區是「共用資料表 ＋ `workspace_id`」，帳號跨工�
   整合測試 `test/tenancy.spec.ts`（兩個租戶的帳號、token、資料互不相通；未知網域 404、停用 503、不信任 X-Forwarded-Host）。
   **既有的開發環境要重建**：`.env` 改用 `PLATFORM_DATABASE_URL`、`DEFAULT_TENANT_*`（見 `.env.example`），再 `pnpm db:migrate`，
   預設租戶的 DB 要 `pnpm db:reset && pnpm db:seed`（舊 migration 紀錄對不上新的基準點時，改成刪掉重建 database）。
+- ✅ 第 3 步（平台身分與 OIDC 帶租戶）：平台 DB 的 `platform_admins`／`platform_refresh_tokens`／`platform_audit_logs`，
+  第一位平台管理者由 `db:seed` 依 `PLATFORM_ADMIN_EMAIL` 建立；apps/auth 不帶租戶的登入對平台 DB 驗證，session 在
+  `/platform/auth/*`（refresh 輪替抽成共用的 `rotateRefreshToken`，租戶與平台共用）；access token 依網域決定範圍（`tid`／`realm`）。
+  OIDC：authorize 的 `tenant` 參數（redirect URI 必須是該租戶的網域）、帳號 id `t:`／`p:` 前綴、ID token 的 `tenant` claim、
+  換身分時強制重新登入並把舊身分從 IdP session 拿掉（`detachIdentity`，見 ADR-0020 實作調整）、兩個 BFF 各自檢查帳號範圍。
+  apps/auth 的網域不再屬於任何租戶；帳號流程以 `?tenant=`／`X-Tenant` 指定租戶，完成後以 `GET /tenants/lookup` 回到租戶的登入；
+  backstage 以 `GET /tenant/current` 取得代碼。外部 IdP 管理頁搬到 backstage（開放問題 2）。信中連回產品的網址用租戶的主要網域。
 
 ### 進入第 4 步之前必須處理
 
 - **物件儲存還是所有租戶共用一個 bucket**（原排在第 5 步，D16）。檔案維護會刪掉「在本租戶 DB 找不到紀錄」的物件：
   一旦有第二個租戶，A 租戶的維護會刪掉 B 租戶的檔案。第 4 步開放建立租戶之前要先完成每租戶一個 bucket。
 - **啟動時檢查每個租戶的 migration 版本（D14 後半）** 還沒做：目前只有 `db:migrate` 會逐一套用。
-- `DEFAULT_TENANT_DOMAINS` 暫時包含 apps/auth 的網域（`localhost:5175`）：第 3 步有平台管理者與 OIDC 帶租戶之後移除，
-  到時 apps/auth 的網域不屬於任何租戶（D2）。
+- 平台管理者目前只有登入與個人資料；權限目錄、管理者的新增／停用與租戶管理頁都在第 4 步。
 
 ## 交付順序
 

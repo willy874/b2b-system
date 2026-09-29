@@ -120,7 +120,7 @@
 | `identityProvider:delete`  | 刪除外部 IdP 連線 | 軟刪除並釋出網域；已連結的外部身分留著，但不能再以這個連線登入 |
 
 > 網域設為「只允許 SSO」後，那個網域的帳號不能用密碼登入、不能申請重設密碼（ADR-0019 D9）。
-> 管理頁在 apps/auth（`/identity-providers`），不在 apps/backstage。
+> 連線屬於租戶（[ADR-0020](../adr/0020-physical-tenant-isolation.md) D18），管理頁在 backstage 的 `/identity-provider`。
 
 ### 2.10 個人範圍（不需要權限）
 
@@ -213,13 +213,10 @@
 | 審批         | `/approval`（含 `/approval/$approvalId` 對話框） | `APPROVAL` | `approval:read`           | EVERY |
 | 背景工作     | `/job`（含 `/job/$jobId` 對話框） | `JOB` | `job:read`                      | EVERY |
 | 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:access` 或 `file:read`（按鈕層級看後端回傳的 `capabilities`，見 [`07-resource-grants.md`](./07-resource-grants.md) §7） | SOME |
+| 外部 IdP 連線 | `/identity-provider`      | `IDENTITY_PROVIDER` | `identityProvider:read`        | EVERY |
 
-apps/auth 的頁面（[`../architecture/04-sso.md`](../architecture/04-sso.md) §6.2；申請帳號等帳號流程也在那裡，未登入可進）：
-
-| 頁面          | 路由                  | Page Key            | 進入所需權限            | 判定  |
-| ------------- | --------------------- | ------------------- | ----------------------- | ----- |
-| 首頁          | `/`                   | `HOME`              | 無                      | —     |
-| 外部 IdP 連線 | `/identity-providers` | `IDENTITY_PROVIDER` | `identityProvider:read` | EVERY |
+apps/auth 只給平台管理者登入（[`../architecture/04-sso.md`](../architecture/04-sso.md) §1.1、§6.2），這個目錄的權限不適用；
+平台管理者的權限目錄在交付順序第 4 步加上租戶管理時建立。帳號流程（申請帳號、啟用、重設密碼）也在 apps/auth，未登入可進。
 
 > 頁面內的 **按鈕層級** gating 另由 `usePagePermission()` 派生的
 > `canCreate/canRead/canUpdate/canDelete` 決定，見

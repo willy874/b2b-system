@@ -5,8 +5,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { exportJWK, generateKeyPair } from 'jose';
-import Provider from 'oidc-provider';
+import Provider, { errors, interactionPolicy } from 'oidc-provider';
 import type {
+  Account,
   ClientMetadata,
   Configuration,
   InteractionResults,
@@ -17,8 +18,13 @@ import { z } from 'zod';
 
 import type { Env } from '@/core/config';
 import { DomainEvent, DomainEventBus } from '@/core/events';
+import { currentTenant, Tenancy, TenantDirectory } from '@/core/tenant';
+import type { TenantRecord } from '@/core/tenant';
+import { PlatformAdminService } from '@/modules/platform-admin/platform-admin.service';
 import { UserService } from '@/modules/user/user.service';
 
+import { parseAccountId, tenantAccountId } from './oidc-account';
+import type { OidcAccount } from './oidc-account';
 import { DrizzleOidcAdapter } from './oidc-adapter';
 import { OidcPayloadRepository } from './oidc-payload.repository';
 import { OIDC_CLIENT, OIDC_CLIENT_PATHS, OIDC_SCOPES, OIDC_TTL } from './oidc-provider.constants';
@@ -30,6 +36,8 @@ import type { OidcClientId } from './oidc-provider.constants';
  */
 const ExternalLoginStateSchema = z.object({
   interactionUid: z.string(),
+  /** 這次登入的租戶（外部 IdP 連線屬於租戶，docs/adr/0020-physical-tenant-isolation.md D18）。 */
+  tenantId: z.string(),
   providerId: z.string(),
   codeVerifier: z.string(),
   nonce: z.string(),
@@ -48,6 +56,8 @@ export interface InteractionSummary {
   clientId: string;
   clientName: string;
   loginHint: string | null;
+  /** 這次要登入哪個租戶；沒有時是平台管理者的登入（docs/adr/0020-physical-tenant-isolation.md D8）。 */
+  tenant: { id: string; code: string; name: string } | null;
 }
 
 /** 兌換授權碼的結果：誰、從哪個 IdP session 登入哪個產品。 */
@@ -69,6 +79,33 @@ export class OidcRedeemError extends Error {
 type NodeHandler = (req: IncomingMessage, res: ServerResponse) => void;
 
 /**
+ * 把舊的身分從這個瀏覽器的 IdP session 拿掉，讓接下來的登入是一個全新的 session：清掉帳號與各 client 的 grant，
+ * 並換一個新的 `uid`。
+ *
+ * 不這樣做的話，oidc-provider 在「已登入的 session 換成另一個帳號」時會先把舊的 session 登出
+ * （`end_session_confirm`），觸發單一登出，另一個租戶開著的 backstage 也跟著被登出；而且 `uid` 不變，
+ * 兩個租戶的 app session 會綁在同一個 IdP session 上，之後任一邊登出都會影響另一邊。
+ * 換了 `uid` 之後，舊身分的 app session 仍綁在舊的 uid 上，各自登出互不影響（D9）。
+ */
+function detachIdentity(session: KoaContextWithOIDC['oidc']['session']): void {
+  if (!session) return;
+  clearAccount(session);
+  const mutable = session as unknown as { authorizations?: Record<string, unknown>; uid: string };
+  mutable.authorizations = {};
+  mutable.uid = randomUUID();
+}
+
+/**
+ * 清掉 session 上的帳號。provider 包在 session 外的 Proxy 不接受把 `accountId` 設成空值，
+ * 所以用 delete（Proxy 沒有攔截 delete），再標記 session 已變更讓它被存回去。
+ */
+function clearAccount(session: KoaContextWithOIDC['oidc']['session']): void {
+  if (!session) return;
+  delete (session as unknown as { accountId?: string }).accountId;
+  (session as unknown as { touched: boolean }).touched = true;
+}
+
+/**
  * `apps/api` 當 OIDC Provider（docs/adr/0019-sso-identity-platform.md）。以
  * [`oidc-provider`](https://github.com/panva/node-oidc-provider) 實作協定，儲存在 `oidc_payloads`。
  *
@@ -88,6 +125,9 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService<Env, true>,
     private readonly repo: OidcPayloadRepository,
     private readonly users: UserService,
+    private readonly platformAdmins: PlatformAdminService,
+    private readonly directory: TenantDirectory,
+    private readonly tenancy: Tenancy,
     private readonly events: DomainEventBus,
   ) {
     this.issuer = new URL(this.config.get('OIDC_ISSUER', { infer: true }));
@@ -98,14 +138,17 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
     // 反向代理之後：provider 以 X-Forwarded-* 決定網址與 cookie 的 secure；這兩個標頭由 `handle()` 依設定覆寫
     provider.proxy = true;
     provider.on('server_error', (_ctx, error) => this.logger.error({ err: error }, 'OIDC 錯誤'));
+    this.allowTenantRedirects(provider);
     this.provider = provider;
 
     // 帳號停用、刪除、改密碼（token_version 遞增）時，這些人的 IdP session 一起結束：
     // 否則 IdP 上還留著一個指向不能用的帳號的 session（單一登出只帶 idpSessionUids，這裡不處理）
+    // 事件在租戶的脈絡裡發佈：userIds 是這個租戶的使用者，IdP 上的帳號 id 要帶上租戶（D6）
     this.unsubscribe = this.events.subscribe(DomainEvent.SESSIONS_REVOKED, ({ userIds }) => {
-      if (!userIds?.length) return;
+      const tenant = currentTenant();
+      if (!userIds?.length || !tenant) return;
       void this.repo
-        .destroySessionsOf(userIds)
+        .destroySessionsOf(userIds.map((userId) => tenantAccountId(tenant.id, userId)))
         .catch((error: unknown) => this.logger.error({ err: error }, '結束 IdP session 失敗'));
     });
   }
@@ -116,7 +159,10 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
 
   // ── 第一方 client ─────────────────────────────────────────
 
-  /** 產品的 redirect URI 由產品網址產生（D7）；這一版沒有第三方 client。 */
+  /**
+   * 產品的 redirect URI 由產品網址產生（D7）；這一版沒有第三方 client。backstage 的 redirect URI
+   * 實際上是「任何租戶網域的 callback」（`allowTenantRedirects`），這裡列的只是 client 的必填欄位。
+   */
   clients(): ClientMetadata[] {
     const origins: Record<OidcClientId, string> = {
       [OIDC_CLIENT.BACKSTAGE]: this.config.get('APP_PUBLIC_URL', { infer: true }),
@@ -132,6 +178,72 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
       grant_types: ['authorization_code'],
       response_types: ['code'],
     }));
+  }
+
+  /**
+   * backstage 的 redirect／登出後 URI：path 相符、host 是某個租戶的網域（docs/adr/0020-physical-tenant-isolation.md D7）。
+   * 屬於「哪一個」租戶由 authorize 的 `tenant` 參數交叉檢查（`validateTenantParam`）。
+   * 其他 client 照 oidc-provider 原本的白名單比對。
+   */
+  private allowTenantRedirects(provider: Provider): void {
+    type UriCheck = (this: { clientId: string }, value: string) => boolean;
+    const proto = provider.Client.prototype as unknown as {
+      redirectUriAllowed: UriCheck;
+      postLogoutRedirectUriAllowed: UriCheck;
+    };
+    const paths = OIDC_CLIENT_PATHS[OIDC_CLIENT.BACKSTAGE];
+    const onTenantDomain = (value: string, path: string): boolean => {
+      const url = URL.canParse(value) ? new URL(value) : undefined;
+      if (!url || !['http:', 'https:'].includes(url.protocol)) return false;
+      if (url.pathname !== path || url.search || url.hash || url.username) return false;
+      return this.directory.tenantIdOfHost(url.host) !== undefined;
+    };
+    const redirectAllowed = proto.redirectUriAllowed;
+    proto.redirectUriAllowed = function (value) {
+      return this.clientId === OIDC_CLIENT.BACKSTAGE
+        ? onTenantDomain(value, paths.callback)
+        : redirectAllowed.call(this, value);
+    };
+    const logoutAllowed = proto.postLogoutRedirectUriAllowed;
+    proto.postLogoutRedirectUriAllowed = function (value) {
+      return this.clientId === OIDC_CLIENT.BACKSTAGE
+        ? onTenantDomain(value, paths.loggedOut)
+        : logoutAllowed.call(this, value);
+    };
+  }
+
+  /**
+   * authorize 的 `tenant` 參數（D7）：backstage 必須帶，而且 redirect URI 的網域要屬於這個租戶；
+   * apps/auth（平台管理者）不能帶。錯誤會導回 redirect URI——它已經通過網域檢查，只會是某個租戶的 backstage。
+   */
+  private async validateTenantParam(
+    ctx: KoaContextWithOIDC,
+    value: string | undefined,
+    clientId: string | undefined,
+  ): Promise<void> {
+    if (clientId !== OIDC_CLIENT.BACKSTAGE) {
+      if (value) throw new errors.InvalidRequest('tenant is not allowed for this client');
+      return;
+    }
+    if (!value) throw new errors.InvalidRequest('tenant is required');
+    const tenant = await this.directory.findByCode(value);
+    if (!tenant || tenant.status !== 'active') throw new errors.InvalidRequest('unknown tenant');
+    const redirectUri = String(ctx.oidc.params?.redirect_uri ?? '');
+    const host = URL.canParse(redirectUri) ? new URL(redirectUri).host : '';
+    if (this.directory.tenantIdOfHost(host) !== tenant.id) {
+      throw new errors.InvalidRequest('redirect_uri does not belong to the tenant');
+    }
+  }
+
+  /** 這次授權要求的身分範圍：backstage 是 `tenant` 參數指定的租戶，apps/auth 是平台。 */
+  private async requestedRealm(
+    params: Record<string, unknown> | undefined,
+    clientId: string | undefined,
+  ): Promise<{ realm: 'platform' } | { realm: 'tenant'; tenant: TenantRecord } | undefined> {
+    if (clientId === OIDC_CLIENT.AUTH) return { realm: 'platform' };
+    const code = params?.tenant;
+    const tenant = typeof code === 'string' ? await this.directory.findByCode(code) : undefined;
+    return tenant ? { realm: 'tenant', tenant } : undefined;
   }
 
   isFirstParty(clientId: string): clientId is OidcClientId {
@@ -171,12 +283,19 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
     const clientId = String(details.params.client_id ?? '');
     const client = await this.provider.Client.find(clientId);
     const loginHint = details.params.login_hint;
+    const requested = await this.requestedRealm(details.params, clientId);
+    // backstage 的互動一定帶租戶（authorize 已驗證）；找不到代表租戶在這之間被停用或刪除
+    if (!requested) return undefined;
     return {
       uid: details.uid,
       prompt: details.prompt.name,
       clientId,
       clientName: client?.clientName ?? clientId,
       loginHint: typeof loginHint === 'string' ? loginHint : null,
+      tenant:
+        requested.realm === 'tenant'
+          ? { id: requested.tenant.id, code: requested.tenant.code, name: requested.tenant.name }
+          : null,
     };
   }
 
@@ -265,11 +384,11 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
     if (session) await session.destroy();
   }
 
-  /** provider 自己的 end-session（第三方 RP 用）結束時：交給呼叫端撤銷 app session。 */
-  onSessionEnded(listener: (sessionUid: string) => void): void {
+  /** provider 自己的 end-session（第三方 RP 用）結束時：交給呼叫端撤銷那個身分的 app session。 */
+  onSessionEnded(listener: (sessionUid: string, account: OidcAccount | undefined) => void): void {
     this.provider.on('end_session.success', (ctx: KoaContextWithOIDC) => {
       const uid = ctx.oidc.session?.uid;
-      if (uid) listener(uid);
+      if (uid) listener(uid, parseAccountId(ctx.oidc.session?.accountId));
     });
   }
 
@@ -291,19 +410,24 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
         short: { signed: true, sameSite: 'lax' },
       },
       scopes: [...OIDC_SCOPES],
-      claims: { openid: ['sub'], email: ['email', 'email_verified'], profile: ['name'] },
+      // `tenant`：帳號屬於哪個租戶（代碼）；平台管理者沒有（docs/adr/0020-physical-tenant-isolation.md D6）
+      claims: {
+        openid: ['sub', 'tenant'],
+        email: ['email', 'email_verified'],
+        profile: ['name'],
+      },
+      extraParams: {
+        tenant: (ctx, value, client) => this.validateTenantParam(ctx, value, client?.clientId),
+      },
       findAccount: async (ctx, sub) => {
-        const user = await this.users.findAccountById(sub);
-        if (!user || user.deletedAt || user.status !== 'active') {
+        const account = await this.findAccount(sub);
+        if (!account) {
           // IdP session 還指向這個帳號（例：剛被停用）：清掉，改走登入互動。
           // 不清的話 provider 會在沒有帳號的情況下繼續檢查同意而拋錯
-          if (ctx.oidc.session?.accountId === sub) ctx.oidc.session.accountId = undefined;
+          if (ctx.oidc.session?.accountId === sub) clearAccount(ctx.oidc.session);
           return undefined;
         }
-        return {
-          accountId: sub,
-          claims: () => ({ sub, email: user.email, email_verified: true, name: user.displayName }),
-        };
+        return account;
       },
       features: {
         devInteractions: { enabled: false },
@@ -321,6 +445,7 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
       responseTypes: ['code'],
       ttl: { ...OIDC_TTL },
       interactions: {
+        policy: this.interactionPolicy(),
         // 見 class 註解：互動 cookie 的 path 取自這個網址
         url: (_ctx, interaction) =>
           `${this.issuer.origin}${this.apiPrefix()}/oidc-interaction/${interaction.uid}`,
@@ -342,6 +467,71 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
         return grant;
       },
     };
+  }
+
+  /**
+   * IdP 帳號 → 目前可以登入的使用者或平台管理者（D6）。租戶帳號在那個租戶的 DB 查；
+   * 租戶停用、刪除或帳號不能用時回 undefined。
+   */
+  private async findAccount(sub: string): Promise<Account | undefined> {
+    const account = parseAccountId(sub);
+    if (account?.realm === 'platform') {
+      const admin = await this.platformAdmins.findActive(account.adminId);
+      if (!admin) return undefined;
+      return {
+        accountId: sub,
+        claims: () => ({ sub, email: admin.email, email_verified: true, name: admin.displayName }),
+      };
+    }
+    if (account?.realm !== 'tenant') return undefined;
+    const tenant = await this.directory.findById(account.tenantId);
+    if (!tenant || tenant.status !== 'active') return undefined;
+    const user = await this.tenancy.run(tenant.id, () =>
+      this.users.findAccountById(account.userId),
+    );
+    if (!user || user.deletedAt || user.status !== 'active') return undefined;
+    return {
+      accountId: sub,
+      claims: () => ({
+        sub,
+        email: user.email,
+        email_verified: true,
+        name: user.displayName,
+        tenant: tenant.code,
+      }),
+    };
+  }
+
+  /**
+   * 預設的互動 policy，再加一條：IdP session 的帳號與這次要求的身分範圍不同（別的租戶、或平台／租戶互換）
+   * 就要求重新登入（docs/adr/0020-physical-tenant-isolation.md D9）。見 `detachIdentity`。
+   */
+  private interactionPolicy(): interactionPolicy.Prompt[] {
+    const policy = interactionPolicy.base();
+    const login = policy.get('login');
+    if (!login) throw new Error('oidc-provider 的預設 policy 沒有 login prompt');
+    login.checks.add(
+      new interactionPolicy.Check(
+        'realm_mismatch',
+        'the signed-in account belongs to another tenant or realm',
+        async (ctx) => {
+          const account = parseAccountId(ctx.oidc.session?.accountId);
+          // 沒有登入由預設的 no_session 處理；格式不對的舊 session 也要重新登入
+          if (!ctx.oidc.session?.accountId) return interactionPolicy.Check.NO_NEED_TO_PROMPT;
+          if (!account) return interactionPolicy.Check.REQUEST_PROMPT;
+          const requested = await this.requestedRealm(ctx.oidc.params, ctx.oidc.client?.clientId);
+          if (!requested) return interactionPolicy.Check.REQUEST_PROMPT;
+          const same =
+            requested.realm === 'platform'
+              ? account.realm === 'platform'
+              : account.realm === 'tenant' && account.tenantId === requested.tenant.id;
+          if (same) return interactionPolicy.Check.NO_NEED_TO_PROMPT;
+          detachIdentity(ctx.oidc.session);
+          return interactionPolicy.Check.REQUEST_PROMPT;
+        },
+      ),
+    );
+    return policy;
   }
 
   /** 瀏覽器看到的 api 前綴：issuer 路徑去掉最後的 `/oidc`（例：`/api`）。 */

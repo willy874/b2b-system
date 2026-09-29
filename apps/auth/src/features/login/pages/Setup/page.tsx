@@ -1,6 +1,5 @@
 import { useForm } from '@tanstack/react-form';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { z } from 'zod';
 
@@ -14,6 +13,7 @@ import { useTranslation } from '@/core/locales';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
 import { SetupRoute } from '../../routes';
+import { goToTenantLogin } from '../../tenant';
 import { AuthShell } from '../AuthShell';
 
 const Schema = z
@@ -25,9 +25,11 @@ const Schema = z
 
 export default function SetupPage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { token } = SetupRoute.useSearch();
-  const verify = useQuery({ ...getVerifySetupQueryOptions(token ?? ''), enabled: Boolean(token) });
+  const { token, tenant } = SetupRoute.useSearch();
+  const verify = useQuery({
+    ...getVerifySetupQueryOptions(token ?? '', tenant ?? ''),
+    enabled: Boolean(token && tenant),
+  });
   const setup = useMutation(getSetupMutationOptions());
   const toMessage = useErrorMessage();
   const [formError, setFormError] = useState<string>();
@@ -38,15 +40,18 @@ export default function SetupPage() {
     onSubmit: async ({ value }) => {
       setFormError(undefined);
       try {
-        await setup.mutateAsync({ params: { token: token ?? '', password: value.password } });
-        await navigate({ to: '/login' });
+        await setup.mutateAsync({
+          params: { tenant: tenant ?? '', token: token ?? '', password: value.password },
+        });
+        // 帳號屬於租戶：到那個租戶的 backstage 登入（docs/adr/0020-physical-tenant-isolation.md D11）
+        await goToTenantLogin(tenant ?? '');
       } catch (error) {
         setFormError(toMessage(error));
       }
     },
   });
 
-  if (!token || verify.data?.valid === false) {
+  if (!token || !tenant || verify.data?.valid === false) {
     return (
       <AuthShell title={t('login.setup.title')}>
         <p className="text-sm text-[var(--color-danger-text)]" data-testid="setup-invalid">

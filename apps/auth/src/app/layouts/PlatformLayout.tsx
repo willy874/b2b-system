@@ -11,7 +11,6 @@ import { useTranslation } from '@/core/locales';
 import { usePageAccessChecker } from '@/core/permission';
 import type { PageKey } from '@/core/permission';
 import { HOME_PAGE } from '@/features/home';
-import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
 import { useLogoutMutation } from '@/features/login';
 
 import { ThemeMenu } from './ThemeMenu';
@@ -31,12 +30,6 @@ interface NavItem {
 /** `app/` 是唯一知道所有 feature 的地方。依頁面權限顯示（沒權限的不出現）。 */
 const NAV: NavItem[] = [
   { pageKey: HOME_PAGE, to: '/', labelKey: 'menu.home', testId: 'menu-home' },
-  {
-    pageKey: IDENTITY_PROVIDER_PAGE,
-    to: '/identity-providers',
-    labelKey: 'menu.identityProvider',
-    testId: 'menu-identity-provider',
-  },
 ];
 
 /**
@@ -79,7 +72,7 @@ export function PlatformLayout({ children }: PlatformLayoutProps) {
             trigger={
               <Button variant="ghost" size="sm" data-testid="account-menu-trigger">
                 <Icon name="user" size={16} />
-                <span>{profile.data.user.displayName}</span>
+                <span>{profile.data.admin.displayName}</span>
               </Button>
             }
             items={[

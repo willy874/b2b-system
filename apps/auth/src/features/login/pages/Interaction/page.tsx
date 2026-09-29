@@ -102,29 +102,42 @@ export default function InteractionPage() {
   }
 
   const client = interaction.data?.clientId;
+  // 帶租戶的互動：登入那個租戶的帳號；沒有租戶是平台管理者（docs/adr/0020-physical-tenant-isolation.md D8）
+  const tenant = interaction.data?.tenant;
+  const tenantQuery = tenant ? `?${new URLSearchParams({ tenant: tenant.code }).toString()}` : '';
   return (
     <AuthShell
       title={t('login.title')}
       description={
         client
-          ? t('login.interaction.for', {
-              client: t(CLIENT_NAME_KEY[client] ?? 'login.client.unknown'),
-            })
+          ? tenant
+            ? t('login.interaction.forTenant', {
+                tenant: tenant.name,
+                client: t(CLIENT_NAME_KEY[client] ?? 'login.client.unknown'),
+              })
+            : t('login.interaction.forPlatform')
           : undefined
       }
       footer={
-        <div className="flex justify-between gap-2">
-          <a className="text-[var(--color-brand)]" href="/forgot-password">
-            {t('login.interaction.forgotPassword')}
-          </a>
-          <a
-            className="text-[var(--color-brand)]"
-            href="/register"
-            data-testid="login-register-link"
-          >
-            {t('login.interaction.register')}
-          </a>
-        </div>
+        // 帳號流程是租戶帳號的；平台管理者由其他平台管理者建立與重設
+        tenant && (
+          <div className="flex justify-between gap-2">
+            <a
+              className="text-[var(--color-brand)]"
+              href={`/forgot-password${tenantQuery}`}
+              data-testid="login-forgot-password-link"
+            >
+              {t('login.interaction.forgotPassword')}
+            </a>
+            <a
+              className="text-[var(--color-brand)]"
+              href={`/register${tenantQuery}`}
+              data-testid="login-register-link"
+            >
+              {t('login.interaction.register')}
+            </a>
+          </div>
+        )
       }
     >
       <form

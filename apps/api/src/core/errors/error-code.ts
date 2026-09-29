@@ -12,6 +12,8 @@ export const ErrorCode = {
   TENANT_NOT_FOUND: { status: 404 },
   /** 租戶停用、佈建中或佈建失敗。 */
   TENANT_UNAVAILABLE: { status: 503 },
+  /** 平台管理者的端點只在 apps/auth 的網域（不屬於任何租戶）提供；租戶網域上等同不存在。 */
+  PLATFORM_ONLY: { status: 404 },
 
   // ── 認證 ──
   AUTH_INVALID_CREDENTIALS: { status: 401 },

@@ -19,6 +19,7 @@ import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { useLogoutMutation } from '@/features/auth';
 import { FILE_PAGE } from '@/features/file';
 import { HOME_PAGE } from '@/features/home';
+import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
 import { JOB_PAGE } from '@/features/job';
 import { PERMISSION_PAGE } from '@/features/permission';
 import { ROLE_PAGE } from '@/features/role';
@@ -69,6 +70,13 @@ const MENU: NavItem[] = [
   },
   { pageKey: FILE_PAGE, to: '/file', labelKey: 'menu.file', testId: 'menu-file', icon: 'file' },
   { pageKey: JOB_PAGE, to: '/job', labelKey: 'menu.job', testId: 'menu-job', icon: 'monitor' },
+  {
+    pageKey: IDENTITY_PROVIDER_PAGE,
+    to: '/identity-provider',
+    labelKey: 'menu.identityProvider',
+    testId: 'menu-identity-provider',
+    icon: 'key',
+  },
 ];
 
 const ACCOUNT_MENU: MenuItem[] = [

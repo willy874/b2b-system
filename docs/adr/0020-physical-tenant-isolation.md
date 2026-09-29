@@ -113,6 +113,9 @@ auth /login（沒有 tenant）→ 授權（client auth、無 tenant 參數）→
 | `tenants` 存 DB 角色與加密的密碼（D4） | 存加密的完整連線字串 | 換叢集、換主機、換角色都只改一欄；佈建時仍為每個租戶建立自己的角色（第 4 步） |
 | 快取與推播的租戶前綴在第 5 步做（D17） | 第 2 步就做，並加上 access token 的 `tid`（D10） | 整合測試發現：A 租戶簽的 token 拿到 B 租戶的網域時，以 userId 為 key 的快取會拿 A 的使用者與權限判斷 B 的請求（跨租戶提權） |
 | 佇列在平台 DB，交易內入列照舊（D15） | 交易內入列改寫租戶 DB 的 outbox | 平台 DB 與租戶 DB 不能在同一個交易 |
+| IdP session 換身分時「登入後 session 換成新的身分」（D9） | 在 `realm_mismatch` check 裡先把舊身分從 session 拿掉（清帳號與 grant、換新的 `uid`）再要求登入 | oidc-provider 在「已登入的 session 換成另一個帳號」時會先把舊 session 登出（`end_session_confirm`），觸發單一登出、連帶登出另一個租戶開著的 backstage；而且 `uid` 不變，兩個租戶的 app session 會綁在同一個 IdP session 上 |
+| 平台管理者有自己的權限目錄與角色（D5） | 第 3 步只有登入與個人資料；權限目錄隨第 4 步的租戶管理一起加入 | 第 3 步還沒有任何需要權限的平台端點 |
+| refresh 輪替的規則寫在租戶的 `AuthService` | 抽成 `rotateRefreshToken`，租戶與平台各提供自己的 token 表 | 平台管理者的 session 用同一套規則（一次性使用、重用偵測、併發只有一個成功），安全相關的邏輯只有一份 |
 
 ## 替代方案
 

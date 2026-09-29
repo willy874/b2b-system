@@ -11,7 +11,7 @@ export function appContextPlugin(): AppPluginFactory {
     const app = context.getInstance();
 
     return {
-      name: 'auth-identity-provider-feature-plugin',
+      name: 'identity-provider-feature-plugin',
       onInit: () => {
         app.addResourceBundle(
           {

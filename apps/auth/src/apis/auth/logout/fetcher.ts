@@ -1,5 +1,5 @@
 import { defineBaseFetcher } from '@/core/client';
-import { getAuthControllerLogoutUrl } from '@/shared/api-sdk';
+import { getPlatformAuthControllerLogoutUrl } from '@/shared/api-sdk';
 
 export interface LogoutRequest {
   accessToken: string;
@@ -11,7 +11,7 @@ export interface LogoutRequest {
  */
 export const fetchLogoutMutation = defineBaseFetcher<LogoutRequest, { success: boolean }>(
   (http, { accessToken }) =>
-    http.request(getAuthControllerLogoutUrl(), {
+    http.request(getPlatformAuthControllerLogoutUrl(), {
       method: 'POST',
       headers: { authorization: `Bearer ${accessToken}` },
       credentials: 'same-origin',

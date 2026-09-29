@@ -8,6 +8,7 @@ import {
   LoginSearchSchema,
   SsoCallbackSearchSchema,
   SsoErrorSearchSchema,
+  TenantSearchSchema,
   TokenSearchSchema,
 } from './model';
 
@@ -49,12 +50,14 @@ export const SsoErrorRoute = createRoute({
   validateSearch: SsoErrorSearchSchema,
 });
 
-// ── 帳號流程（docs/adr/0019-sso-identity-platform.md D1）：帳號屬於平台，信中連結以 AUTH_APP_URL 開頭 ──
+// ── 帳號流程（docs/adr/0019-sso-identity-platform.md D1）：頁面在 apps/auth、信中連結以 AUTH_APP_URL 開頭；
+// 帳號屬於某個租戶，網址帶 `?tenant=`（docs/adr/0020-physical-tenant-isolation.md）──
 
 export const ForgotPasswordRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/forgot-password',
   loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
+  validateSearch: TenantSearchSchema,
 });
 
 export const ResetPasswordRoute = createRoute({
@@ -77,4 +80,5 @@ export const RegisterRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/register',
   loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
+  validateSearch: TenantSearchSchema,
 });

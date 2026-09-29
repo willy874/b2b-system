@@ -40,6 +40,20 @@ export const ProfileSchema = defineSchema(
   }),
 );
 
+/** 平台管理者自己的身分（apps/auth，docs/adr/0020-physical-tenant-isolation.md D5）。 */
+export const PlatformProfileSchema = defineSchema(
+  'PlatformProfile',
+  z.object({
+    admin: z.object({
+      id: z.string().uuid(),
+      email: z.string(),
+      displayName: z.string(),
+      status: z.enum(['active', 'inactive', 'locked']),
+      lastLoginAt: z.string().nullable(),
+    }),
+  }),
+);
+
 export const UpdateProfileSchema = defineSchema(
   'UpdateProfileRequest',
   z
@@ -110,6 +124,11 @@ export const SsoInteractionSchema = defineSchema(
     clientId: z.string(),
     clientName: z.string(),
     loginHint: z.string().nullable(),
+    /**
+     * 要登入哪個租戶（互動頁顯示它的名稱）；`null` 是平台管理者的登入
+     * （docs/adr/0020-physical-tenant-isolation.md D8）。
+     */
+    tenant: z.object({ code: z.string(), name: z.string() }).nullable(),
   }),
 );
 
@@ -163,6 +182,7 @@ export type ResetPasswordDto = z.infer<typeof ResetPasswordSchema>;
 export type SetupDto = z.infer<typeof SetupSchema>;
 export type RegisterDto = z.infer<typeof RegisterSchema>;
 export type SsoInteractionDto = z.infer<typeof SsoInteractionSchema>;
+export type PlatformProfileDto = z.infer<typeof PlatformProfileSchema>;
 export type SsoRedirectDto = z.infer<typeof SsoRedirectSchema>;
 export type SsoCallbackDto = z.infer<typeof SsoCallbackSchema>;
 export type SsoDiscoveryQueryDto = z.infer<typeof SsoDiscoveryQuerySchema>;

@@ -90,7 +90,6 @@
     "approval": "Approvals",
     "file": "Files",
     "job": "Background jobs",
-    "identityProvider": "Identity providers",
     "profile": "Profile",
     "preference": "Preferences",
     "logout": "Sign out"
@@ -110,6 +109,7 @@
     "VALIDATION_FAILED": "Some fields are invalid. Please review and try again.",
     "TENANT_NOT_FOUND": "This address does not belong to any tenant. Check that the URL is correct.",
     "TENANT_UNAVAILABLE": "This tenant is currently unavailable. Contact the platform administrator.",
+    "PLATFORM_ONLY": "This is only available on the platform administration site.",
     "AUTH_INVALID_CREDENTIALS": "Incorrect email or password.",
     "AUTH_ACCOUNT_PENDING": "This account is not activated yet.",
     "AUTH_ACCOUNT_DISABLED": "This account has been disabled.",

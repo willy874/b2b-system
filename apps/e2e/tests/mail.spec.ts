@@ -24,17 +24,18 @@ test.describe('郵件（docs/architecture/backend/11-mail.md）', () => {
     expect(mail.subject).toBe('啟用你的 B2B System 帳號');
     await page.goto(linkIn(mail, '/setup'));
 
-    // ③ 設定密碼 → 回到登入頁 → 登入
+    // ③ 設定密碼 → 回到租戶的登入（啟用頁在 apps/auth，帳號屬於租戶：連結帶 ?tenant=）→ 登入
+    expect(page.url()).toContain('tenant=default');
     await page.getByTestId('setup-password').fill(NEW_PASSWORD);
     await page.getByTestId('setup-confirm').fill(NEW_PASSWORD);
     await page.getByTestId('setup-submit').click();
     await expectIdpLogin(page);
 
-    // 啟用頁在 apps/auth：登入後進入 apps/auth 的首頁
     await page.getByTestId('login-email').fill(email);
     await page.getByTestId('login-password').fill(NEW_PASSWORD);
     await page.getByTestId('login-submit').click();
-    await expect(page.getByTestId('home-display-name')).toHaveText('E2E Invitee');
+    await expect(page.getByTestId('home-page')).toBeVisible();
+    await expect(page).toHaveURL(/localhost:5173\//);
   });
 
   test('用過的啟用連結再打開會顯示失效', async ({ page }) => {

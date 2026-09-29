@@ -2,6 +2,7 @@ import { Injectable, Module, RequestMethod } from '@nestjs/common';
 import type { MiddlewareConsumer, NestMiddleware, NestModule } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
+import { PlatformAdminModule } from '@/modules/platform-admin/platform-admin.module';
 import { UserModule } from '@/modules/user/user.module';
 
 import { OidcCleanupJobs } from './oidc-cleanup.jobs';
@@ -23,11 +24,11 @@ class OidcProviderMiddleware implements NestMiddleware {
 
 /**
  * OIDC Provider（docs/adr/0019-sso-identity-platform.md）。葉節點：`AuthModule` 依賴它兌換授權碼與單一登出，
- * 它只依賴 `UserModule`（查帳號）。`/oidc/*` 不是 Nest 的路由，不經全域 guard 與路由稽核；
+ * 它只依賴 `UserModule` 與 `PlatformAdminModule`（查租戶的使用者與平台管理者）。`/oidc/*` 不是 Nest 的路由，不經全域 guard 與路由稽核；
  * 登入互動的端點在 `AuthModule`（宣告 `@Public()`）。
  */
 @Module({
-  imports: [UserModule],
+  imports: [UserModule, PlatformAdminModule],
   providers: [OidcPayloadRepository, OidcProviderService, OidcProviderMiddleware, OidcCleanupJobs],
   exports: [OidcProviderService],
 })

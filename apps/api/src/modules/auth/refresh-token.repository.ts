@@ -4,10 +4,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { TENANT_DB } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import type { RefreshTokenRow, RevokedReason } from '@/db/schema';
 import { refreshTokens } from '@/db/schema';
 
+import type { RefreshTokenRecord, RefreshTokenStore } from './refresh-rotation';
 import { sha256 } from './token-hash';
 
 export interface IssueRefreshTokenInput {
@@ -21,9 +22,38 @@ export interface IssueRefreshTokenInput {
   ipAddress?: string | null;
 }
 
+function toRecord(row: RefreshTokenRow): RefreshTokenRecord {
+  return { ...row, subjectId: row.userId };
+}
+
 @Injectable()
 export class RefreshTokenRepository {
   constructor(@Inject(TENANT_DB) private readonly db: Database) {}
+
+  /** 給 `rotateRefreshToken` 的介面（目前租戶的 `refresh_tokens`）。 */
+  readonly store: RefreshTokenStore = {
+    findByHash: async (hash) => {
+      const row = await this.findByHash(hash);
+      return row && toRecord(row);
+    },
+    isFamilyRevoked: (familyId) => this.isFamilyRevoked(familyId),
+    revokeFamily: (familyId, reason) => this.revokeFamily(familyId, reason),
+    rotate: (row, next) =>
+      withTransaction(this.db, async (tx) => {
+        if (!(await this.markUsed(row.id, tx))) return undefined;
+        const issued = await this.issue(
+          {
+            userId: row.subjectId,
+            familyId: row.familyId,
+            clientId: row.clientId,
+            idpSessionUid: row.idpSessionUid,
+            ...next,
+          },
+          tx,
+        );
+        return issued.raw;
+      }),
+  };
 
   async findByHash(hash: string): Promise<RefreshTokenRow | undefined> {
     const [row] = await this.db

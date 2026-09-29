@@ -20,6 +20,7 @@ import { FILE_DETAIL_QUERY_KEY } from '@/apis/file/get-file-detail/query';
 import { FILE_FOLDER_GRANT_LIST_QUERY_KEY } from '@/apis/file/get-file-folder-grants/query';
 import { FILE_FOLDER_LIST_QUERY_KEY } from '@/apis/file/get-file-folder-list/query';
 import { FILE_INFINITE_LIST_QUERY_KEY, FILE_LIST_QUERY_KEY } from '@/apis/file/get-file-list/query';
+import { IDENTITY_PROVIDER_LIST_QUERY_KEY } from '@/apis/identity-provider/get-identity-provider-list/query';
 import { JOB_DETAIL_QUERY_KEY } from '@/apis/job/get-job-detail/query';
 import { JOB_LIST_QUERY_KEY } from '@/apis/job/get-job-list/query';
 import { JOB_QUEUE_LIST_QUERY_KEY } from '@/apis/job/get-job-queue-list/query';
@@ -50,6 +51,8 @@ export const Resource = {
   FILE_FOLDER: 'fileFolder',
   /** 背景工作（`id` = 工作 id） */
   JOB: 'job',
+  /** 外部 IdP 連線（`id` = 連線 id）；只有本分頁與其他分頁會失效，後端沒有推播 */
+  IDENTITY_PROVIDER: 'identityProvider',
   /** 目前登入者的 session 視角（profile ＋ 有效權限） */
   PROFILE: 'profile',
   // 關係：沒有自己的 query，只作為來源
@@ -111,6 +114,9 @@ const graph = createResourceGraph<Resource>({
       // 新增（帶角色）／刪除使用者改變 userCount；更新改變持有者清單上的名稱與狀態
       { from: Resource.USER, id: 'ref' },
     ],
+  },
+  [Resource.IDENTITY_PROVIDER]: {
+    collection: [IDENTITY_PROVIDER_LIST_QUERY_KEY],
   },
   [Resource.PERMISSION]: {
     // 權限目錄在一個部署版本內不會變，沒有任何來源

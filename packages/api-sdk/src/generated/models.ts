@@ -248,6 +248,16 @@ export interface Profile {
   permissions: Array<PermissionKey>;
 }
 
+export interface PlatformProfile {
+  admin: {
+    id: string;
+    email: string;
+    displayName: string;
+    status: 'active' | 'inactive' | 'locked';
+    lastLoginAt: string | null;
+  };
+}
+
 export interface UpdateProfileRequest {
   displayName?: string;
   preferences?: {
@@ -292,6 +302,10 @@ export interface SsoInteraction {
   clientId: string;
   clientName: string;
   loginHint: string | null;
+  tenant: {
+    code: string;
+    name: string;
+  } | null;
 }
 
 export interface SsoRedirect {
@@ -646,4 +660,19 @@ export interface UpdateRoleRequest {
 export interface UpdateRolePermissionsRequest {
   add: Array<PermissionKey>;
   remove: Array<PermissionKey>;
+}
+
+export interface CurrentTenant {
+  code: string;
+  name: string;
+}
+
+export interface TenantLookupQuery {
+  code: string;
+}
+
+export interface TenantLookup {
+  code: string;
+  name: string;
+  loginUrl: string;
 }

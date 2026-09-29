@@ -69,6 +69,7 @@ beforeEach(() => {
     clientId: 'backstage',
     clientName: 'backstage',
     loginHint: null,
+    tenant: { code: 'acme', name: 'Acme 股份有限公司' },
   });
   login.mockReset().mockResolvedValue({ redirectTo: RESUME });
   abort.mockReset().mockResolvedValue({ redirectTo: `${RESUME}?aborted` });
@@ -86,6 +87,33 @@ afterEach(() => {
 });
 
 describe('IdP 的登入互動頁（docs/adr/0019-sso-identity-platform.md）', () => {
+  it('租戶的互動：帳號流程的連結帶上租戶代碼（docs/adr/0020 D8）', async () => {
+    renderInteraction();
+    expect(await screen.findByTestId('login-register-link')).toHaveAttribute(
+      'href',
+      '/register?tenant=acme',
+    );
+    expect(screen.getByTestId('login-forgot-password-link')).toHaveAttribute(
+      'href',
+      '/forgot-password?tenant=acme',
+    );
+  });
+
+  it('平台管理者的互動（沒有租戶）：沒有註冊與忘記密碼的連結', async () => {
+    details.mockResolvedValue({
+      uid: UID,
+      prompt: 'login',
+      clientId: 'auth',
+      clientName: 'auth',
+      loginHint: null,
+      tenant: null,
+    });
+    renderInteraction();
+    expect(await screen.findByTestId('login-email')).toBeInTheDocument();
+    expect(screen.queryByTestId('login-register-link')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('login-forgot-password-link')).not.toBeInTheDocument();
+  });
+
   it('登入成功 → 以互動 id 送出帳密，並頂層跳轉到 resume 網址', async () => {
     renderInteraction();
     fireEvent.change(await screen.findByTestId('login-email'), {

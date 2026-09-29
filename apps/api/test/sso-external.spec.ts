@@ -29,6 +29,8 @@ const SUPER_ADMIN = { email: 'ext-root@example.com', password: 'RootPassword!202
 const MEMBER = { email: 'ext-member@example.com', password: 'MemberPassword!2026' };
 const ALICE = 'alice@acme.test';
 const BACKSTAGE = { clientId: 'backstage', redirectUri: 'http://localhost:5173/auth/callback' };
+/** IdP 的端點在 apps/auth 的網域（不屬於任何租戶；docs/adr/0020-physical-tenant-isolation.md D2）。 */
+const AUTH_HOST = 'localhost:5175';
 
 async function roleIdOf(slug: string): Promise<string> {
   const [role] = await db.select().from(roles).where(eq(roles.slug, slug));
@@ -115,8 +117,13 @@ async function beginInteraction() {
     state: 'product-state',
     code_challenge: createHash('sha256').update(verifier).digest('base64url'),
     code_challenge_method: 'S256',
+    // 外部 IdP 連線屬於租戶：互動在測試租戶裡（ADR-0020 D18）
+    tenant: 'test',
   });
-  const start = await request(http).get(`/oidc/auth?${query.toString()}`).expect(303);
+  const start = await request(http)
+    .get(`/oidc/auth?${query.toString()}`)
+    .set('Host', AUTH_HOST)
+    .expect(303);
   jar.store(start);
   const uid = new URL(start.headers.location as string).pathname.split('/').pop()!;
   return { jar, uid, verifier };
@@ -129,6 +136,7 @@ async function loginExternally(
 ): Promise<string> {
   const started = await request(http)
     .post(`/oidc-interaction/${interaction.uid}/external`)
+    .set('Host', AUTH_HOST)
     .set('cookie', interaction.jar.header())
     .send({ providerId })
     .expect(200);
@@ -137,6 +145,7 @@ async function loginExternally(
   // 外部 IdP 跳回來（不帶任何 apps/auth 的 cookie：固定路徑的 callback 不需要）
   const back = await request(http)
     .get(`/oidc-interaction/external/callback?code=external-code&state=${state}`)
+    .set('Host', AUTH_HOST)
     .expect(302);
   return back.headers.location as string;
 }
@@ -148,10 +157,12 @@ async function finishToProduct(
 ): Promise<string> {
   const complete = await request(http)
     .get(internalPath(completeUrl))
+    .set('Host', AUTH_HOST)
     .set('cookie', interaction.jar.header())
     .expect(303);
   const resume = await request(http)
     .get(internalPath(complete.headers.location as string))
+    .set('Host', AUTH_HOST)
     .set('cookie', interaction.jar.header())
     .expect(303);
   const code = new URL(resume.headers.location as string).searchParams.get('code')!;
@@ -307,6 +318,7 @@ describe('外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D11）
       const interaction = await beginInteraction();
       const found = await request(http)
         .get(`/oidc-interaction/${interaction.uid}/discover?email=${encodeURIComponent(ALICE)}`)
+        .set('Host', AUTH_HOST)
         .set('cookie', interaction.jar.header())
         .expect(200);
       expect((found.body as { data: unknown }).data).toMatchObject({
@@ -315,6 +327,7 @@ describe('外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D11）
       });
       const none = await request(http)
         .get(`/oidc-interaction/${interaction.uid}/discover?email=someone@other.test`)
+        .set('Host', AUTH_HOST)
         .set('cookie', interaction.jar.header())
         .expect(200);
       expect((none.body as { data: unknown }).data).toEqual({ provider: null, ssoOnly: false });
@@ -442,6 +455,7 @@ describe('外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D11）
 
       const unknown = await request(http)
         .get('/oidc-interaction/external/callback?code=x&state=unknown-state-123')
+        .set('Host', AUTH_HOST)
         .expect(302);
       expect(unknown.headers.location).toBe(
         'http://localhost:5175/error?error=AUTH_SSO_EXTERNAL_FAILED',

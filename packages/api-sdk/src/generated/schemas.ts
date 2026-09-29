@@ -19,6 +19,7 @@ import type {
   CreateIdentityProviderRequest,
   CreateRoleRequest,
   CreateUserRequest,
+  CurrentTenant,
   DuplicateRoleRequest,
   EnsureFileFolderPathsRequest,
   FileAccessRequest,
@@ -55,6 +56,7 @@ import type {
   PermissionCatalog,
   PermissionGroup,
   PermissionKey,
+  PlatformProfile,
   Profile,
   RegisterRequest,
   RegisterResult,
@@ -77,6 +79,8 @@ import type {
   StoredFile,
   StoredFileCapabilities,
   StoredFileImage,
+  TenantLookup,
+  TenantLookupQuery,
   UpdateFileFolderAccessRequest,
   UpdateFileFolderRequest,
   UpdateFileRequest,
@@ -432,6 +436,22 @@ export const ProfileSchema = z.object({
   permissions: z.array(PermissionKeySchema),
 }) satisfies z.ZodType<Profile>;
 
+export const PlatformProfileSchema = z.object({
+  admin: z.object({
+    id: z
+      .uuid()
+      .regex(
+        new RegExp(
+          '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+        ),
+      ),
+    email: z.string(),
+    displayName: z.string(),
+    status: z.enum(['active', 'inactive', 'locked']),
+    lastLoginAt: z.string().nullable(),
+  }),
+}) satisfies z.ZodType<PlatformProfile>;
+
 export const UpdateProfileRequestSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
   preferences: z
@@ -492,6 +512,12 @@ export const SsoInteractionSchema = z.object({
   clientId: z.string(),
   clientName: z.string(),
   loginHint: z.string().nullable(),
+  tenant: z
+    .object({
+      code: z.string(),
+      name: z.string(),
+    })
+    .nullable(),
 }) satisfies z.ZodType<SsoInteraction>;
 
 export const SsoRedirectSchema = z.object({
@@ -1047,3 +1073,18 @@ export const UpdateRolePermissionsRequestSchema = z.object({
   add: z.array(PermissionKeySchema).max(100).default([]),
   remove: z.array(PermissionKeySchema).max(100).default([]),
 }) satisfies z.ZodType<UpdateRolePermissionsRequest>;
+
+export const CurrentTenantSchema = z.object({
+  code: z.string(),
+  name: z.string(),
+}) satisfies z.ZodType<CurrentTenant>;
+
+export const TenantLookupQuerySchema = z.object({
+  code: z.string().min(1).max(63),
+}) satisfies z.ZodType<TenantLookupQuery>;
+
+export const TenantLookupSchema = z.object({
+  code: z.string(),
+  name: z.string(),
+  loginUrl: z.string(),
+}) satisfies z.ZodType<TenantLookup>;

@@ -10,7 +10,9 @@ import { useTranslation } from '@/core/locales';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
 import { useRegisterMutation } from '../../hooks/useRegisterMutation';
+import { RegisterRoute } from '../../routes';
 import { AuthShell } from '../AuthShell';
+import { BackToTenantLogin, TenantRequired } from '../TenantLinks';
 
 const Schema = z
   .object({
@@ -31,6 +33,7 @@ const Schema = z
  */
 export default function RegisterPage() {
   const { t } = useTranslation();
+  const { tenant } = RegisterRoute.useSearch();
   const register = useRegisterMutation();
   const toMessage = useErrorMessage();
   const [submitted, setSubmitted] = useState(false);
@@ -44,6 +47,7 @@ export default function RegisterPage() {
       try {
         await register.mutateAsync({
           params: {
+            tenant: tenant ?? '',
             email: value.email,
             displayName: value.displayName,
             password: value.password,
@@ -58,15 +62,13 @@ export default function RegisterPage() {
     },
   });
 
+  if (!tenant) return <TenantRequired title={t('login.register.title')} />;
+
   return (
     <AuthShell
       title={t('login.register.title')}
       description={submitted ? undefined : t('login.register.description')}
-      footer={
-        <a className="text-[var(--color-brand)]" href="/login">
-          {t('login.backToLogin')}
-        </a>
-      }
+      footer={<BackToTenantLogin tenant={tenant} />}
     >
       {submitted ? (
         <p className="text-sm" data-testid="register-submitted">

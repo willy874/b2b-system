@@ -18,6 +18,10 @@ const { exchange } = vi.hoisted(() => ({ exchange: vi.fn() }));
 vi.mock('@/apis/auth/sso-callback/mutation', () => ({
   getSsoCallbackMutationOptions: () => ({ mutationFn: exchange }),
 }));
+// 這個網域的租戶（docs/adr/0020-physical-tenant-isolation.md D7）
+vi.mock('@/apis/tenant/get-current-tenant/fetcher', () => ({
+  fetchCurrentTenantQuery: vi.fn(async () => ({ code: 'acme', name: 'Acme' })),
+}));
 
 const assign = vi.fn();
 
@@ -60,12 +64,13 @@ afterEach(() => {
 });
 
 describe('登入頁（docs/adr/0019-sso-identity-platform.md）', () => {
-  it('沒有 session 時直接頂層跳轉到 IdP，記住原本要去的頁面', async () => {
+  it('沒有 session 時直接頂層跳轉到 IdP，帶上這個網域的租戶代碼', async () => {
     renderAt('/auth/login?redirect=%2Fusers');
     await waitFor(() => expect(assign).toHaveBeenCalled());
     const url = new URL(String(assign.mock.calls[0]?.[0]));
     expect(`${url.origin}${url.pathname}`).toBe(`${SSO_CLIENT.issuer}/auth`);
     expect(url.searchParams.get('client_id')).toBe('backstage');
+    expect(url.searchParams.get('tenant')).toBe('acme');
   });
 
   it('剛登出時不自動跳轉，按「登入」才跳', async () => {

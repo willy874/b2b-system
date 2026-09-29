@@ -1,7 +1,14 @@
 import { expect, test } from '@playwright/test';
 
-import { ACCOUNTS } from '../fixtures/accounts';
-import { AUTH_URL, expectSignedOut, login, loginAndWaitForHome, logout } from '../helpers/auth';
+import { ACCOUNTS, E2E_PASSWORD, PLATFORM_ADMIN } from '../fixtures/accounts';
+import {
+  AUTH_URL,
+  expectIdpLogin,
+  expectSignedOut,
+  login,
+  loginAndWaitForHome,
+  logout,
+} from '../helpers/auth';
 
 test.describe('認證流程', () => {
   // ① 登入 → 首頁 → 登出
@@ -13,23 +20,25 @@ test.describe('認證流程', () => {
     await expectSignedOut(page);
   });
 
-  // SSO（docs/adr/0019-sso-identity-platform.md）：登入一次，兩個產品都能用；任一個登出，兩邊一起結束
-  test('在 backstage 登入後打開 apps/auth 不必再登入；從 backstage 登出後 apps/auth 也登出', async ({
+  // 身分分屬租戶與平台（docs/adr/0020-physical-tenant-isolation.md D5、D9）：租戶帳號的 IdP session
+  // 不能直接進 apps/auth；以平台管理者登入 apps/auth 之後，backstage 仍維持登入
+  test('租戶的使用者打開 apps/auth 要以平台管理者重新登入；backstage 不受影響', async ({
     page,
   }) => {
     await loginAndWaitForHome(page, 'superAdmin');
 
     await page.goto(AUTH_URL);
-    await expect(page.getByTestId('home-display-name')).toBeVisible();
+    await expectIdpLogin(page);
+    await page.getByTestId('login-email').fill(PLATFORM_ADMIN);
+    await page.getByTestId('login-password').fill(E2E_PASSWORD);
+    await page.getByTestId('login-submit').click();
+    await expect(page.getByTestId('home-display-name')).toHaveText('E2E Platform Admin');
     await expect(page).toHaveURL(`${AUTH_URL}/`);
 
     await page.goto('/');
     await expect(page.getByTestId('home-page')).toBeVisible();
     await logout(page);
     await expectSignedOut(page);
-
-    await page.goto(AUTH_URL);
-    await expect(page).toHaveURL(/\/login\?.*signedOut=true/);
   });
 
   test('access token 不進 localStorage（只有 session 旗標）', async ({ page }) => {

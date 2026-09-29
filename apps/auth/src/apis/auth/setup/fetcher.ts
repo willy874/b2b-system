@@ -3,18 +3,27 @@ import type { HttpRequestDTO } from '@/core/client';
 import { getAuthControllerSetupUrl, getAuthControllerVerifySetupUrl } from '@/shared/api-sdk';
 import type { SetupRequest } from '@/shared/api-sdk';
 
+import { tenantHeaders } from '../tenant';
+import type { TenantScoped } from '../tenant';
+
 export const fetchSetupMutation = defineBaseFetcher<
-  HttpRequestDTO<SetupRequest>,
+  HttpRequestDTO<SetupRequest & TenantScoped>,
   { success: boolean }
->((http, request) =>
-  http.request(getAuthControllerSetupUrl(), jsonBody(request.params, { method: 'POST' })),
-);
+>((http, request) => {
+  const { tenant, ...body } = request.params;
+  return http.request(
+    getAuthControllerSetupUrl(),
+    jsonBody(body, { method: 'POST', headers: tenantHeaders(tenant) }),
+  );
+});
 
 export const fetchVerifySetupQuery = defineBaseFetcher<
-  HttpRequestDTO<{ token: string }>,
+  HttpRequestDTO<{ token: string } & TenantScoped>,
   { valid: boolean; email?: string }
->((http, request) =>
-  http.request(withQuery(getAuthControllerVerifySetupUrl(), request.params), {
+>((http, request) => {
+  const { tenant, token } = request.params;
+  return http.request(withQuery(getAuthControllerVerifySetupUrl(), { token }), {
     method: 'GET',
-  }),
-);
+    headers: tenantHeaders(tenant),
+  });
+});
