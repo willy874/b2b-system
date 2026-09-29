@@ -55,7 +55,7 @@ function errorCodeOf(response: { body: unknown }): string | undefined {
   return (response.body as { error?: { code?: string } }).error?.code;
 }
 
-describe('租戶實體隔離（docs/adr/0020-physical-tenant-isolation.md D1–D3）', () => {
+describe('租戶實體隔離（docs/adr/0020-physical-tenant-isolation.md D1–D3、D14）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;
@@ -65,12 +65,20 @@ describe('租戶實體隔離（docs/adr/0020-physical-tenant-isolation.md D1–D
     const platformUrl = inject('platformDatabaseUrl');
     const otherUrl = databaseUrlOf(platformUrl, 'b2b_tenant_other');
     const offUrl = databaseUrlOf(platformUrl, 'b2b_tenant_off');
+    const behindUrl = databaseUrlOf(platformUrl, 'b2b_tenant_behind');
     const admin = postgres(platformUrl, { max: 1, onnotice: () => {} });
     await admin.unsafe('CREATE DATABASE b2b_tenant_other');
     await admin.unsafe('CREATE DATABASE b2b_tenant_off');
+    await admin.unsafe('CREATE DATABASE b2b_tenant_behind');
     await admin.end();
     await migrateTenantDatabase(otherUrl);
     await migrateTenantDatabase(offUrl);
+    // 程式比 DB 新：拿掉最後一筆套用紀錄，等同少跑了最新的 migration
+    await migrateTenantDatabase(behindUrl);
+    const behindClient = postgres(behindUrl, { max: 1, onnotice: () => {} });
+    await behindClient`DELETE FROM drizzle.__drizzle_migrations
+      WHERE created_at = (SELECT max(created_at) FROM drizzle.__drizzle_migrations)`;
+    await behindClient.end();
 
     const platformClient = postgres(platformUrl, { max: 1, onnotice: () => {} });
     const platform = drizzle(platformClient, { schema: platformSchema });
@@ -94,6 +102,17 @@ describe('租戶實體隔離（docs/adr/0020-physical-tenant-isolation.md D1–D
         databaseUrl: offUrl,
         storageBucket: 'b2b-off',
         domains: ['off.test'],
+      },
+      box,
+    );
+    await registerTenant(
+      platform,
+      {
+        code: 'behind',
+        name: 'migration 落後的租戶',
+        databaseUrl: behindUrl,
+        storageBucket: 'b2b-behind',
+        domains: ['behind.test'],
       },
       box,
     );
@@ -193,6 +212,12 @@ describe('租戶實體隔離（docs/adr/0020-physical-tenant-isolation.md D1–D
   it('停用的租戶回 503 TENANT_UNAVAILABLE', async () => {
     const response = await loginAt('off.test', ROOT).expect(503);
     expect(errorCodeOf(response)).toBe('TENANT_UNAVAILABLE');
+  });
+
+  it('migration 落後的租戶回 503 TENANT_UNAVAILABLE，其他租戶照常（D14）', async () => {
+    const response = await loginAt('behind.test', ROOT).expect(503);
+    expect(errorCodeOf(response)).toBe('TENANT_UNAVAILABLE');
+    await loginAt('other.test', ALICE).expect(200);
   });
 
   it('不是受信任的代理時不看 X-Forwarded-Host（不能靠標頭換租戶）', async () => {

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { OnApplicationShutdown } from '@nestjs/common';
+import type { OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '../config';
@@ -10,6 +10,7 @@ import { runInTenantContext } from './tenant-context';
 import type { TenantContext } from './tenant-context';
 import { TenantDirectory } from './tenant-directory.service';
 import type { TenantRecord } from './tenant-directory.service';
+import { appliedTenantMigration, EXPECTED_TENANT_MIGRATION } from './tenant-schema';
 
 interface Pool {
   url: string;
@@ -17,15 +18,32 @@ interface Pool {
   db: Database;
 }
 
+type SchemaState = 'current' | 'behind' | 'error';
+
+interface SchemaCheck {
+  /** 檢查的是哪個連線字串；換了 DB 就要重新檢查。 */
+  url: string;
+  checkedAt: number;
+  state: Promise<SchemaState>;
+}
+
+/** 落後的租戶多久重新檢查一次：補跑 `db:migrate` 之後不必重啟程序就會恢復。 */
+export const SCHEMA_RECHECK_MS = 30_000;
+
 /**
  * 進入租戶脈絡的唯一入口（docs/adr/0020-physical-tenant-isolation.md D3）：HTTP 由 `TenantMiddleware`、
  * WebSocket 由 gateway、背景工作由 `JobQueue` 呼叫。每個租戶第一次用到時建立自己的小連線池；
  * 閒置的連線由 postgres.js 的 `idle_timeout` 關閉，連線池物件本身很便宜，不另外回收。
+ *
+ * 只有 migration 版本沒有落後的租戶可以進入（D14）：啟動時檢查每個 `active` 租戶，之後新登記的租戶在第一次進入時檢查。
+ * 落後的租戶回 `TENANT_UNAVAILABLE`（503），不阻止整個程序啟動，也不影響其他租戶。
+ * DB 比程式新（滾動部署時舊的執行個體、或程式回滾）照常服務：migration 必須對上一版程式相容。
  */
 @Injectable()
-export class Tenancy implements OnApplicationShutdown {
+export class Tenancy implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(Tenancy.name);
   private readonly pools = new Map<string, Pool>();
+  private readonly schemaChecks = new Map<string, SchemaCheck>();
   private readonly poolMax: number;
 
   constructor(
@@ -35,31 +53,44 @@ export class Tenancy implements OnApplicationShutdown {
     this.poolMax = config.get('TENANT_POOL_MAX', { infer: true });
   }
 
-  /** 已解析的租戶 → 脈絡；只有 `active` 的租戶可以進入。 */
-  contextOf(tenant: TenantRecord): TenantContext {
-    if (tenant.status !== 'active') throw new AppException('TENANT_UNAVAILABLE');
-    return {
-      id: tenant.id,
-      code: tenant.code,
-      db: this.poolOf(tenant).db,
-      storageBucket: tenant.storageBucket,
-    };
+  async onApplicationBootstrap(): Promise<void> {
+    const unavailable: string[] = [];
+    for (const tenant of await this.directory.listActive()) {
+      // oxlint-disable-next-line no-await-in-loop -- 依序檢查，不在啟動時一次打開所有租戶的連線
+      if ((await this.schemaStateOf(tenant)) !== 'current') unavailable.push(tenant.code);
+    }
+    if (unavailable.length) {
+      this.logger.error(
+        { tenants: unavailable },
+        '這些租戶的 migration 落後或無法檢查，暫停服務（補跑 pnpm db:migrate 後自動恢復）',
+      );
+    }
   }
 
-  /** 以 id 進入租戶（背景工作、腳本）。租戶不存在或不是 `active` 時拋錯。 */
+  /** 已解析的租戶 → 脈絡。租戶不是 `active`、或 migration 落後時拋 `TENANT_UNAVAILABLE`。 */
+  async enter(tenant: TenantRecord): Promise<TenantContext> {
+    if (tenant.status !== 'active') throw new AppException('TENANT_UNAVAILABLE');
+    if ((await this.schemaStateOf(tenant)) !== 'current') {
+      throw new AppException('TENANT_UNAVAILABLE');
+    }
+    return this.contextOf(tenant);
+  }
+
+  /** 以 id 進入租戶（背景工作、腳本）。租戶不存在或不能進入時拋錯。 */
   async run<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
     const tenant = await this.directory.findById(tenantId);
     if (!tenant) throw new AppException('TENANT_NOT_FOUND');
-    return runInTenantContext(this.contextOf(tenant), fn);
+    return runInTenantContext(await this.enter(tenant), fn);
   }
 
   /** 依序在每個 `active` 的租戶裡執行；單一租戶失敗不影響其他租戶，回傳失敗的租戶代碼。 */
   async forEachActive(fn: (tenant: TenantContext) => Promise<void>): Promise<string[]> {
     const failed: string[] = [];
     for (const tenant of await this.directory.listActive()) {
-      const context = this.contextOf(tenant);
       try {
         // oxlint-disable-next-line no-await-in-loop -- 依序執行，不一次打開所有租戶的連線
+        const context = await this.enter(tenant);
+        // oxlint-disable-next-line no-await-in-loop -- 同上
         await runInTenantContext(context, () => fn(context));
       } catch (error) {
         this.logger.error({ err: error, tenant: tenant.code }, '租戶的作業失敗');
@@ -72,6 +103,61 @@ export class Tenancy implements OnApplicationShutdown {
   async onApplicationShutdown(): Promise<void> {
     await Promise.all([...this.pools.values()].map((pool) => pool.close()));
     this.pools.clear();
+  }
+
+  private contextOf(tenant: TenantRecord): TenantContext {
+    return {
+      id: tenant.id,
+      code: tenant.code,
+      db: this.poolOf(tenant).db,
+      storageBucket: tenant.storageBucket,
+    };
+  }
+
+  /**
+   * 目前的 migration 狀態。對上版本的結果一直沿用（同一個連線字串）；落後的結果 `SCHEMA_RECHECK_MS` 後重新檢查；
+   * 檢查失敗（DB 連不上）不沿用，下一次進入就重試。併發的請求共用同一次檢查。
+   */
+  private async schemaStateOf(tenant: TenantRecord): Promise<SchemaState> {
+    const cached = this.schemaChecks.get(tenant.id);
+    if (cached?.url === tenant.databaseUrl) {
+      const state = await cached.state;
+      if (state === 'current') return state;
+      if (state === 'behind' && Date.now() - cached.checkedAt < SCHEMA_RECHECK_MS) return state;
+      // 等待期間別的請求可能已經重新檢查過
+      const latest = this.schemaChecks.get(tenant.id);
+      if (latest !== cached && latest?.url === tenant.databaseUrl) return latest.state;
+    }
+    const check: SchemaCheck = {
+      url: tenant.databaseUrl,
+      checkedAt: Date.now(),
+      state: this.checkSchema(tenant),
+    };
+    this.schemaChecks.set(tenant.id, check);
+    return check.state;
+  }
+
+  private async checkSchema(tenant: TenantRecord): Promise<SchemaState> {
+    try {
+      const applied = await appliedTenantMigration(this.poolOf(tenant).db);
+      if (applied !== undefined && applied >= EXPECTED_TENANT_MIGRATION) {
+        if (applied > EXPECTED_TENANT_MIGRATION) {
+          this.logger.warn(
+            { tenant: tenant.code, applied, expected: EXPECTED_TENANT_MIGRATION },
+            '租戶的 migration 比程式新（滾動部署中或程式回滾），照常服務',
+          );
+        }
+        return 'current';
+      }
+      this.logger.error(
+        { tenant: tenant.code, applied: applied ?? null, expected: EXPECTED_TENANT_MIGRATION },
+        '租戶的 migration 落後，暫停服務（補跑 pnpm db:migrate 後自動恢復）',
+      );
+      return 'behind';
+    } catch (error) {
+      this.logger.error({ err: error, tenant: tenant.code }, '無法檢查租戶的 migration 版本');
+      return 'error';
+    }
   }
 
   private poolOf(tenant: TenantRecord): Pool {

@@ -31,8 +31,9 @@ RUN addgroup -S app && adduser -S app -G app
 COPY --from=build --chown=app:app /app/node_modules ./node_modules
 COPY --from=build --chown=app:app /repo/apps/api/dist ./dist
 COPY --from=build --chown=app:app /repo/apps/api/package.json ./package.json
-# tsconfig 的 rootDir 是 apps/api，產物在 dist/src/；migrate.js 以 __dirname/migrations 找 SQL
+# tsconfig 的 rootDir 是 apps/api，產物在 dist/src/；migrate.js 以 __dirname/migrations、__dirname/platform/migrations 找 SQL
 COPY --from=build --chown=app:app /repo/apps/api/src/db/migrations ./dist/src/db/migrations
+COPY --from=build --chown=app:app /repo/apps/api/src/db/platform/migrations ./dist/src/db/platform/migrations
 
 USER app
 EXPOSE 3000

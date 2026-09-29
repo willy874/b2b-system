@@ -512,6 +512,21 @@ db/platform/migrations/                 平台 DB（schema 在 db/platform/schem
 當時還沒有正式環境資料。既有的開發資料庫要重建（見 [`../../features/tenant-isolation.md`](../../features/tenant-isolation.md)）。
 新增權限不需要資料 migration：seed 會 upsert 權限目錄；已存在的系統角色要補新權限時，再寫一支手寫 migration。
 
+### 5.3 啟動時檢查每個租戶的版本（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D14）
+
+`pnpm db:migrate` 先跑平台 DB，再依序跑每個 `active` 租戶；單一租戶失敗不影響其他租戶，最後列出失敗的租戶並以非零結束。
+api 不自己跑 migration，而是比對版本（`core/tenant/tenant-schema.ts`）：
+
+| 情況 | 行為 |
+| --- | --- |
+| 租戶 DB 的最後一筆套用紀錄（`drizzle.__drizzle_migrations.created_at`）等於程式的 journal 最新的 `when` | 照常服務；結果沿用到連線字串改變為止 |
+| 比程式新（滾動部署時的舊執行個體、程式回滾） | 照常服務並記 warn——所以 migration 必須對上一版程式相容（§5.1「破壞性變更拆成兩次部署」） |
+| 落後、或從沒跑過 migration | 該租戶回 `503 TENANT_UNAVAILABLE`（HTTP、WebSocket、背景工作都是），其他租戶照常；每 30 秒重新檢查，補跑 `db:migrate` 後不必重啟 |
+| 檢查失敗（DB 連不上） | 這次回 503，不沿用結果，下一次進入就重試 |
+
+檢查在 `Tenancy.enter()`：啟動時（`onApplicationBootstrap`）逐一檢查每個 `active` 租戶並把落後的列在 error log，
+之後登記的租戶在第一次進入時檢查。啟動不會因為某個租戶落後而失敗。平台 DB 由部署流程保證先 migrate（prod compose 的 `migrate` 服務）。
+
 ---
 
 ## 6. 連線

@@ -123,9 +123,12 @@ ADR-0018 的工作區是「共用資料表 ＋ `workspace_id`」，帳號跨工�
   既有的預設租戶沿用 `b2b-system`）、租戶脈絡帶 bucket、`S3ObjectStorage` 依目前租戶選 bucket（沒有租戶拋 `TENANT_NOT_FOUND`）、
   啟動時確認每個租戶的 bucket、健康檢查改成 `ListBuckets`。`FILE_STORAGE_BUCKET` 改為 `DEFAULT_TENANT_STORAGE_BUCKET`（`db:migrate` 用）。
 
+- ✅ 啟動時檢查每個租戶的 migration 版本（D14 後半）：`Tenancy.enter()` 比對租戶 DB 的最後一筆套用紀錄與程式的 journal，
+  落後的租戶回 503、每 30 秒重新檢查，DB 比程式新照常服務（`docs/architecture/backend/02-database.md` §5.3）。
+  順手修正 api 的 Dockerfile 沒有複製平台 migration（`migrate.js` 找不到 `platform/migrations`）。
+
 ### 進入第 4 步之前必須處理
 
-- **啟動時檢查每個租戶的 migration 版本（D14 後半）** 還沒做：目前只有 `db:migrate` 會逐一套用。
 - 平台管理者目前只有登入與個人資料；權限目錄、管理者的新增／停用與租戶管理頁都在第 4 步。
 
 ## 交付順序

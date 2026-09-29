@@ -24,7 +24,7 @@ import { databaseUrlOf } from './global-setup';
 export async function testTenantContext(app: INestApplication): Promise<TenantContext> {
   const record = await app.get(TenantDirectory).resolveHost('127.0.0.1');
   if (!record) throw new Error('測試租戶沒有登記（test/global-setup.ts）');
-  return app.get(Tenancy).contextOf(record);
+  return app.get(Tenancy).enter(record);
 }
 
 export async function inTestTenant<T>(app: INestApplication, fn: () => Promise<T>): Promise<T> {

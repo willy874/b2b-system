@@ -246,7 +246,7 @@ export class RealtimeGateway
     if (!record) return 'TENANT_NOT_FOUND';
     let tenant: TenantContext;
     try {
-      tenant = this.tenancy.contextOf(record);
+      tenant = await this.tenancy.enter(record);
     } catch (error) {
       if (error instanceof AppException) return error.code;
       throw error;

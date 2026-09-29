@@ -41,7 +41,7 @@ export class TenantMiddleware implements NestMiddleware {
       next();
       return;
     }
-    runInTenantContext(this.tenancy.contextOf(tenant), () => next());
+    runInTenantContext(await this.tenancy.enter(tenant), () => next());
   }
 
   private async resolve(req: Request): Promise<TenantRecord | undefined> {
