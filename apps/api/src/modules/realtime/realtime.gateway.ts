@@ -34,7 +34,7 @@ import { RealtimeExpiry } from './realtime.expiry';
 import { SocketIoRealtimePublisher } from './realtime.publisher';
 import { clientIpOf, FixedWindowCounter } from './realtime.rate-limit';
 import type { TrustProxyFn } from './realtime.rate-limit';
-import { userRoom } from './realtime.rooms';
+import { idpSessionRoom, userRoom } from './realtime.rooms';
 import type { RealtimeServer, RealtimeSocket } from './realtime.types';
 
 const SessionRenewSchema = z.object({ token: z.string().min(1).max(4096) });
@@ -136,6 +136,7 @@ export class RealtimeGateway
 
     try {
       await socket.join(userRoom(userId));
+      if (socket.data.idpSessionUid) await socket.join(idpSessionRoom(socket.data.idpSessionUid));
       await socket.join(await this.audience.roomsFor(userId));
     } catch (error) {
       this.logger.error({ err: error, socketId: socket.id, userId }, '加入 room 失敗，斷線');
@@ -231,6 +232,7 @@ export class RealtimeGateway
       email: result.user.email,
       tokenVersion: result.payload.ver,
       expiresAt: result.payload.exp * 1000,
+      idpSessionUid: result.payload.sid,
       connectedAt: Date.now(),
     });
     return undefined;

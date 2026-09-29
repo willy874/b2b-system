@@ -1,8 +1,34 @@
 {
   "login": {
     "title": "Sign in",
-    "description": "Sign in to the B2B System platform. All products share this account.",
     "submit": "Sign in",
-    "field": { "email": "Email", "password": "Password" }
+    "redirecting": "Taking you to the sign-in page…",
+    "signedOut": "You are signed out. All products share one sign-in, so the other products are signed out too.",
+    "callback": {
+      "title": "Sign in",
+      "working": "Finishing sign-in…",
+      "failed": "Sign-in did not complete; the link may have expired or already been used. Please sign in again.",
+      "cancelled": "Sign-in was cancelled."
+    },
+    "field": {
+      "email": "Email",
+      "password": "Password"
+    },
+    "interaction": {
+      "for": "Sign in to continue to “{{client}}”. All products share this account.",
+      "cancel": "Cancel"
+    },
+    "client": {
+      "backstage": "Console",
+      "auth": "Account platform",
+      "unknown": "the application"
+    },
+    "error": {
+      "title": "Can't sign in",
+      "invalidRedirectUri": "This site is not registered to use platform sign-in.",
+      "invalidClient": "Unknown application.",
+      "invalidRequest": "The sign-in request is malformed. Go back to the site and sign in again.",
+      "generic": "Something went wrong while signing in. Go back to the site and sign in again."
+    }
   }
 }

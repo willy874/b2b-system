@@ -259,7 +259,12 @@ SUPER_ADMIN_PASSWORD=              # 留空則 seed 時隨機產生並印出一�
 MAIL_TRANSPORT=smtp                 # smtp / console（backend/11-mail.md §2）
 MAIL_SMTP_URL=smtp://localhost:1025 # 本機是 Mailpit
 MAIL_FROM="B2B System <no-reply@localhost>"
-APP_PUBLIC_URL=http://localhost:5173  # 信裡連結的開頭
+APP_PUBLIC_URL=http://localhost:5173  # 信裡連結的開頭；也是第一方 client `backstage` 的 redirect URI 開頭
+AUTH_APP_URL=http://localhost:5175     # apps/auth（IdP 的登入互動頁）
+OIDC_ISSUER=http://localhost:5175/api/oidc
+OIDC_JWKS=                             # 簽 ID token 的私鑰 JWKS；留空 = 臨時金鑰（production 必填）
+OIDC_COOKIE_KEYS=                      # 簽 IdP cookie 的金鑰（production 必填）
+OIDC_CLEANUP_CRON=45 3 * * *
 
 JOBS_WORKER_ENABLED=true            # 是否執行背景工作與排程；false 只入列（backend/10-jobs.md §5）
 AUDIT_LOG_ARCHIVE_CRON=30 3 * * *   # 稽核熱 → 冷搬移的 cron（UTC）；留空停用
@@ -291,6 +296,7 @@ FILE_MAINTENANCE_DRY_RUN=false      # true：只偵測並記錄殘留，不刪�
 
 # ── apps/backstage、apps/auth（VITE_ 前綴才會進 bundle；兩者各自讀自己目錄的 env）──
 VITE_API_BASE_URL=/api
+VITE_OIDC_ISSUER=http://localhost:5175/api/oidc   # SSO 的 issuer（兩個前端相同）
 VITE_ENABLE_MOCK=false
 ```
 

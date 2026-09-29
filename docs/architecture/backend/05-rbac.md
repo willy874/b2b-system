@@ -465,6 +465,11 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/auth/reset-password`      | `@Public`                        |
 | GET    | `/auth/setup/verify`        | `@Public`                        |
 | POST   | `/auth/setup`               | `@Public`                        |
+| POST   | `/auth/sso/callback`        | `@Public`（授權碼 ＋ PKCE 就是憑證，ADR-0019 D3） |
+| GET    | `/oidc-interaction/:uid`    | `@Public`（互動 cookie 就是憑證，ADR-0019 D16） |
+| GET    | `/oidc-interaction/:uid/details` | `@Public`                   |
+| POST   | `/oidc-interaction/:uid/login` | `@Public`                     |
+| POST   | `/oidc-interaction/:uid/abort` | `@Public`                     |
 | POST   | `/auth/logout`              | `@Authenticated`                 |
 | GET    | `/auth/profile`             | `@Authenticated`                 |
 | PATCH  | `/auth/profile`             | `@Authenticated`                 |

@@ -21,6 +21,10 @@ export const ErrorCode = {
   AUTH_PASSWORD_MISMATCH: { status: 400 },
   AUTH_PASSWORD_WEAK: { status: 400 },
   AUTH_SETUP_TOKEN_INVALID: { status: 400 },
+  /** 登入互動不存在、已過期，或瀏覽器沒有帶互動 cookie（docs/adr/0019-sso-identity-platform.md）。 */
+  AUTH_SSO_INTERACTION_INVALID: { status: 400 },
+  /** 授權碼無效：不存在、已用過、過期、client 或 redirect URI 不符、PKCE 不符（不細分，不洩漏哪一項）。 */
+  AUTH_SSO_CODE_INVALID: { status: 400 },
 
   // ── 授權 ──
   AUTHZ_FORBIDDEN: { status: 403 },

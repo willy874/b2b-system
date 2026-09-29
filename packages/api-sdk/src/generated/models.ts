@@ -252,6 +252,25 @@ export interface RegisterResult {
   submitted: true;
 }
 
+export interface SsoInteraction {
+  uid: string;
+  prompt: string;
+  clientId: string;
+  clientName: string;
+  loginHint: string | null;
+}
+
+export interface SsoRedirect {
+  redirectTo: string;
+}
+
+export interface SsoCallbackRequest {
+  code: string;
+  codeVerifier: string;
+  clientId: string;
+  redirectUri: string;
+}
+
 export interface SetFileFolderGrantRequest {
   subjectType: 'role' | 'user' | 'everyone';
   subjectId: string;

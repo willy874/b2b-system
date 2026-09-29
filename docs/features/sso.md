@@ -85,11 +85,11 @@
   - `modules/workspace`：API 不變，只是呼叫端從 backstage 換成 `apps/auth`。
 - **資料模型**（草案）
   - `oidc_payloads`：`oidc-provider` 的通用儲存（session、grant、authorization code、interaction…，含 `expires_at`、`consumed_at`）。
-  - `oidc_clients`：註冊的產品（backstage、編輯器）：`client_id`、redirect URIs、post-logout URIs、`is_first_party`（跳過同意頁）。第一方 client 由 seed 建立。
+  - ~~`oidc_clients`~~：這一版不建表，第一方 client 由設定產生（ADR-0019 D7）。
   - `identity_providers`：外部 IdP 連線（issuer、client id、**加密** 的 client secret、scopes、啟用）。
   - `identity_provider_domains`：email 網域 → 連線、是否「只允許 SSO」、驗證狀態。
   - `user_identities`：帳號 ↔ 外部身分（`provider_id`、`subject`，唯一）。
-  - `refresh_tokens` 加 `client_id` 與 `idp_session_id`：知道一條 refresh 家族屬於哪個產品、哪個 IdP session（單一登出用）。
+  - `refresh_tokens` 加 `client_id` 與 `idp_session_uid`：知道一條 refresh 家族屬於哪個產品、哪個 IdP session（單一登出用）。
 - **前端（`apps/auth`）**
   - 架構比照 backstage：`main.tsx` 的 plugin chain、`app/`、`core/`、`features/`、`apis/`、`components/`、`shared/`、`themes/`。
   - **先複製需要的部分**（`core/app`、`auth`、`cache`、`client`、`errors`、`locales`、`notify`、`permission`、`router`、`store`、`theme`；
@@ -105,7 +105,17 @@
 - **交付順序**：
   1. ADR 定案、`apps/auth` 骨架（複製的 core／components、dev／build／test／Docker、nginx）——✅ 骨架已建立：
      `/login`（暫時直接呼叫既有的 `POST /auth/login`）、`/`（目前的身分）、平台外框；複製清單見 `apps/auth/README.md`
-  2. IdP：`oidc-provider`、密碼登入互動、backstage 改走 SSO、單一登出
+  2. IdP：`oidc-provider`、密碼登入互動、backstage 改走 SSO、單一登出——✅ 已完成（未 commit）：
+     - api：`modules/oidc-provider`（provider、`oidc_payloads` adapter、`oidc.cleanup` 排程）、`AuthModule` 的互動端點
+       （`/oidc-interaction/:uid`、`…/details`、`…/login`、`…/abort`）與 BFF（`POST /auth/sso/callback`）；migration 0018
+       （`oidc_payloads`；`refresh_tokens.client_id`、`idp_session_uid`）；access token 帶 `sid`，即時連線加入 `sid:{uid}` room
+     - apps/auth：`/interaction/:uid`（密碼登入）、`/error`；自己的頁面也經 SSO 登入（`/login` → `/callback`）
+     - backstage：`/auth/login` 只負責跳到 IdP、新增 `/auth/callback`；登出後停在「已登出」頁
+     - 與原構想不同（ADR-0019 已修訂）：沒有 `oidc_clients` 表（D7）、授權碼在本程序內兌換（D3）、單一登出在伺服器端完成（D5）；
+       新增 D16（互動網址先經過 api）、D17（帳號停用時結束 IdP session）
+     - 已知缺口（交付順序 3 處理）：IdP 登入頁還沒有「忘記密碼」「申請帳號」連結（頁面仍在 backstage：`/auth/forgot-password`、
+       `/auth/register`）；backstage 的接受邀請頁、啟用、重設密碼仍直接以密碼登入（`POST /auth/login`），不經 IdP session。
+       `POST /auth/login` 保留給 API 測試與腳本
   3. 帳號流程與租戶管理搬進 `apps/auth`
   4. 外部 IdP：連線管理、登入、帳號對應、網域導向
   5. E2E、歸檔
@@ -138,9 +148,9 @@
    - **結論**：外部 IdP 連線放資料庫（要能在管理頁新增），client secret 以 env 的主金鑰加密；OIDC Provider 的簽章金鑰放 env（JWKS），
      輪替流程另寫 runbook。（已確認）
 9. 單一登出怎麼做？
-   - **結論**：IdP session 與各產品的 refresh 家族以 `idp_session_id` 關聯。在任一產品登出 → 清掉自己的 cookie → 頂層跳轉到 IdP 的 end-session → api 撤銷該 IdP session
-     底下所有 refresh 家族，並以 `SESSIONS_REVOKED` 推播通知各產品的分頁。**不** 遞增 `token_version`：那會連其他裝置一起登出。
-     已發出的 access token 最多再活 5 分鐘（ADR-0004 的既有空窗）。（已確認）
+   - **結論**：IdP session 與各產品的 refresh 家族以 `idp_session_uid` 關聯。在任一產品登出 → api 銷毀 IdP session、撤銷它底下所有產品的
+     refresh 家族，並以 `SESSIONS_REVOKED` 推播給同一個 IdP session 的分頁（伺服器端完成，不必跳到 IdP 的 end-session，見 ADR-0019 D5）。
+     **不** 遞增 `token_version`：那會連其他裝置一起登出。已發出的 access token 最多再活 5 分鐘（ADR-0004 的既有空窗）。（已確認，實作時修訂）
 10. backstage 既有的登入頁、帳號流程與剛做好的 `/auth/invitation` 何時移除？
     - **結論**：交付順序第 2 步 backstage 改走 SSO 時移除登入頁；第 3 步帳號流程搬家時，信中連結改指向 `apps/auth`，
       backstage 的舊路徑保留一版做轉址（已寄出的信還有效）。（已確認）

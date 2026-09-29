@@ -16,13 +16,23 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // backstage 與 apps/auth（SSO 的登入互動頁，docs/adr/0019-sso-identity-platform.md）；api 要另外啟動（pnpm dev:e2e）
   webServer: process.env.E2E_NO_SERVER
     ? undefined
-    : {
-        command: 'pnpm --filter @b2b-system/backstage dev',
-        url: WEB_URL,
-        reuseExistingServer: !process.env.CI,
-        timeout: 60_000,
-        cwd: '../..',
-      },
+    : [
+        {
+          command: 'pnpm --filter @b2b-system/backstage dev',
+          url: WEB_URL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 60_000,
+          cwd: '../..',
+        },
+        {
+          command: 'pnpm --filter @b2b-system/auth dev',
+          url: process.env.E2E_AUTH_URL ?? 'http://localhost:5175',
+          reuseExistingServer: !process.env.CI,
+          timeout: 60_000,
+          cwd: '../..',
+        },
+      ],
 });

@@ -1,8 +1,34 @@
 {
   "login": {
     "title": "登入",
-    "description": "登入 B2B System 平台。所有產品共用這一組帳號。",
     "submit": "登入",
-    "field": { "email": "Email", "password": "密碼" }
+    "redirecting": "正在前往登入頁…",
+    "signedOut": "你已登出。所有產品共用同一組登入，登出後其他產品也會一起登出。",
+    "callback": {
+      "title": "登入",
+      "working": "正在完成登入…",
+      "failed": "登入沒有完成，連結可能已過期或已使用過。請重新登入。",
+      "cancelled": "已取消登入。"
+    },
+    "field": {
+      "email": "Email",
+      "password": "密碼"
+    },
+    "interaction": {
+      "for": "登入以繼續使用「{{client}}」。所有產品共用這一組帳號。",
+      "cancel": "取消"
+    },
+    "client": {
+      "backstage": "管理後台",
+      "auth": "帳號平台",
+      "unknown": "應用程式"
+    },
+    "error": {
+      "title": "無法登入",
+      "invalidRedirectUri": "這個網站沒有登記為可以使用平台登入的應用程式。",
+      "invalidClient": "不認識的應用程式。",
+      "invalidRequest": "登入請求的格式不正確，請回到原本的網站重新登入。",
+      "generic": "登入時發生錯誤，請回到原本的網站重新登入。"
+    }
   }
 }

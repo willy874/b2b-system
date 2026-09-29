@@ -4,6 +4,7 @@ export * from './auth-tokens';
 export * from './custom-types';
 export * from './file-folders';
 export * from './files';
+export * from './oidc-payloads';
 export * from './permissions';
 export * from './refresh-tokens';
 export * from './resource-grants';

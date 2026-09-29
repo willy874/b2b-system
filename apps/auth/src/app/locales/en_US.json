@@ -127,6 +127,8 @@
     "AUTH_PASSWORD_MISMATCH": "Current password is incorrect.",
     "AUTH_PASSWORD_WEAK": "Password too weak: at least 12 characters and not a common password.",
     "AUTH_SETUP_TOKEN_INVALID": "This link is invalid or has expired.",
+    "AUTH_SSO_INTERACTION_INVALID": "This sign-in page has expired. Go back to the site and sign in again.",
+    "AUTH_SSO_CODE_INVALID": "Sign-in did not complete; the link may have expired or already been used. Please sign in again.",
     "AUTHZ_FORBIDDEN": "You do not have permission to do that.",
     "AUTHZ_ESCALATION": "You cannot grant permissions you do not hold.",
     "AUTHZ_SELF_MODIFY": "You cannot perform this action on your own account.",

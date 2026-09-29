@@ -10,7 +10,7 @@
 | 壽命           | **5 分鐘**                    | **7 天**                           |
 | 存放（客戶端） | **記憶體**（JS 閉包）         | `httpOnly` cookie                  |
 | 存放（伺服器） | 不存                          | SHA-256 雜湊後存 `refresh_tokens`  |
-| 內容           | `{ sub, ver, jti, iat, exp }` | 無語意                             |
+| 內容           | `{ sub, ver, jti, iat, exp }`；經 SSO 登入時多 `sid`（IdP session） | 無語意；經 SSO 發出時記 `client_id`、`idp_session_uid` |
 | 輪替           | 不適用                        | **每次使用即輪替**                 |
 | 撤銷           | 靠 `token_version` 比對       | DB 標記 `revoked_at`               |
 
@@ -431,6 +431,22 @@ async cleanupExpiredTokens() {
 ```
 
 保留過期後 30 天，讓安全事件調查時還查得到「這個 token 什麼時候被用過」。
+
+
+---
+
+## 8.1 SSO（apps/api 當 OIDC Provider）
+
+決定與理由見 [ADR-0019](../../adr/0019-sso-identity-platform.md)；規劃與剩餘工作見 [`../../features/sso.md`](../../features/sso.md)。
+
+- `modules/oidc-provider`：[`oidc-provider`](https://github.com/panva/node-oidc-provider) 掛在本程序的 `/oidc`（瀏覽器看到 `OIDC_ISSUER`，
+  apps/auth origin 底下的 `/api/oidc`）；狀態存在 `oidc_payloads`，過期的列由背景工作 `oidc.cleanup` 清除。
+- 登入互動（`AuthModule` 的 `SsoInteractionController`）：密碼檢查與 `POST /auth/login` 同一套（§3，`AuthService.verifyCredentials`）。
+- 產品的 BFF（`POST /auth/sso/callback`）：在本程序內兌換授權碼後，照 §1、§2 發 app session，refresh token 多記 `client_id`、`idp_session_uid`；
+  輪替時沿用。access token 帶 `sid`。
+- 單一登出（§7 的延伸）：登出的家族有 `idp_session_uid` 時，銷毀 IdP session、撤銷同一個 IdP session 的所有家族（`revoked_reason = sso_logout`），
+  並推播 `SESSIONS_REVOKED { idpSessionUids }`（[`08-realtime.md`](./08-realtime.md) §3.5）。
+- 帳號停用、刪除、改密碼（`SESSIONS_REVOKED { userIds }`）時，這些人的 IdP session 一起結束（ADR-0019 D17）。
 
 ---
 

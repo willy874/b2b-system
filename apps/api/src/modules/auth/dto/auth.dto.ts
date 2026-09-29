@@ -98,6 +98,38 @@ export const RegisterResultSchema = defineSchema(
 
 export const VerifySetupSchema = z.object({ token: z.string().min(10).max(200) });
 
+// ── SSO（docs/adr/0019-sso-identity-platform.md）────────────────────
+
+/** 登入互動頁顯示的資訊。 */
+export const SsoInteractionSchema = defineSchema(
+  'SsoInteraction',
+  z.object({
+    uid: z.string(),
+    /** `login`：需要登入；`consent`：第三方 client 的同意（這一版沒有）。 */
+    prompt: z.string(),
+    clientId: z.string(),
+    clientName: z.string(),
+    loginHint: z.string().nullable(),
+  }),
+);
+
+/** 互動完成：前端以 **頂層跳轉** 到 `redirectTo`（provider 的 resume 端點），不以 fetch 跟隨。 */
+export const SsoRedirectSchema = defineSchema(
+  'SsoRedirect',
+  z.object({ redirectTo: z.string().url() }),
+);
+
+/** 產品的 BFF：授權碼 ＋ PKCE verifier 換 app session（D3）。 */
+export const SsoCallbackSchema = defineSchema(
+  'SsoCallbackRequest',
+  z.object({
+    code: z.string().min(10).max(500),
+    codeVerifier: z.string().min(43).max(128),
+    clientId: z.string().min(1).max(64),
+    redirectUri: z.string().url().max(500),
+  }),
+);
+
 export type LoginDto = z.infer<typeof LoginSchema>;
 export type UpdateProfileDto = z.infer<typeof UpdateProfileSchema>;
 export type ChangePasswordDto = z.infer<typeof ChangePasswordSchema>;
@@ -105,5 +137,8 @@ export type ForgotPasswordDto = z.infer<typeof ForgotPasswordSchema>;
 export type ResetPasswordDto = z.infer<typeof ResetPasswordSchema>;
 export type SetupDto = z.infer<typeof SetupSchema>;
 export type RegisterDto = z.infer<typeof RegisterSchema>;
+export type SsoInteractionDto = z.infer<typeof SsoInteractionSchema>;
+export type SsoRedirectDto = z.infer<typeof SsoRedirectSchema>;
+export type SsoCallbackDto = z.infer<typeof SsoCallbackSchema>;
 export type ProfileDto = z.infer<typeof ProfileSchema>;
 export type SessionDto = z.infer<typeof SessionSchema>;

@@ -24,6 +24,8 @@ export const SessionRevokedReason = {
   TOKEN_STALE: 'AUTH_TOKEN_STALE',
   ACCOUNT_DISABLED: 'AUTH_ACCOUNT_DISABLED',
   TOKEN_INVALID: 'AUTH_TOKEN_INVALID',
+  /** 單一登出：同一個 IdP session 的某個產品登出了（docs/adr/0019-sso-identity-platform.md D5）。 */
+  SIGNED_OUT: 'AUTH_REFRESH_REVOKED',
 } as const;
 
 export type SessionRevokedReason = (typeof SessionRevokedReason)[keyof typeof SessionRevokedReason];

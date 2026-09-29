@@ -15,6 +15,8 @@ export interface AccessTokenPayload {
   sub: string;
   ver: number;
   jti: string;
+  /** 經 SSO 登入時的 IdP session（docs/adr/0019-sso-identity-platform.md D5）；密碼直接登入時沒有。 */
+  sid?: string;
 }
 
 /** 驗簽後的 payload：`exp` 由 JWT 函式庫補上（秒）。 */

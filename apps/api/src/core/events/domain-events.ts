@@ -32,7 +32,15 @@ export interface DomainEventPayloads {
     workspaceId?: string;
   };
   [DomainEvent.PERMISSIONS_CHANGED]: { userIds: string[] };
-  [DomainEvent.SESSIONS_REVOKED]: { userIds: string[]; reason: SessionRevokedReason };
+  /**
+   * 撤銷即時連線：`userIds` 是這些人的所有連線；`idpSessionUids` 只到同一個 IdP session 的連線（單一登出，
+   * docs/adr/0019-sso-identity-platform.md D5）。
+   */
+  [DomainEvent.SESSIONS_REVOKED]: {
+    userIds?: string[];
+    idpSessionUids?: string[];
+    reason: SessionRevokedReason;
+  };
 }
 
 /** 發佈當下從請求 context 擷取的資訊；handler 執行時請求可能已經結束。 */

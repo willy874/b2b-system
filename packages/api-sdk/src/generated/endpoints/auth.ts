@@ -13,6 +13,9 @@ import type {
   ResetPasswordRequest,
   Session,
   SetupRequest,
+  SsoCallbackRequest,
+  SsoInteraction,
+  SsoRedirect,
   UpdateProfileRequest,
 } from '../models';
 import { buildUrl, request } from '../runtime';
@@ -32,6 +35,9 @@ import {
   ResetPasswordRequestSchema,
   SessionSchema,
   SetupRequestSchema,
+  SsoCallbackRequestSchema,
+  SsoInteractionSchema,
+  SsoRedirectSchema,
   UpdateProfileRequestSchema,
 } from '../schemas';
 
@@ -441,6 +447,62 @@ export function authControllerResetPassword(
   );
 }
 
+// POST /auth/sso/callback
+
+export type AuthControllerSsoCallbackBody = SsoCallbackRequest;
+
+export interface AuthControllerSsoCallbackInput {
+  body: AuthControllerSsoCallbackBody;
+}
+
+export interface AuthControllerSsoCallbackResponses {
+  200: {
+    data: Session;
+  };
+}
+
+export type AuthControllerSsoCallbackResponse = AuthControllerSsoCallbackResponses[200];
+
+export type AuthControllerSsoCallbackResult = ApiResponse<
+  200,
+  AuthControllerSsoCallbackResponses[200]
+>;
+
+export const AuthControllerSsoCallbackSchemas = {
+  body: SsoCallbackRequestSchema,
+  responses: {
+    200: z.object({
+      data: SessionSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getAuthControllerSsoCallbackUrl(): string {
+  return buildUrl('/auth/sso/callback');
+}
+
+const authControllerSsoCallbackOperation: OperationDefinition = {
+  id: 'AuthController_ssoCallback',
+  method: 'POST',
+  path: '/auth/sso/callback',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: AuthControllerSsoCallbackSchemas,
+};
+
+/** 產品的 BFF：授權碼 ＋ PKCE verifier 換 app session（docs/adr/0019-sso-identity-platform.md D3） */
+export function authControllerSsoCallback(
+  input: AuthControllerSsoCallbackInput,
+  options?: RequestOptions,
+): Promise<AuthControllerSsoCallbackResult> {
+  return request<AuthControllerSsoCallbackResult>(
+    authControllerSsoCallbackOperation,
+    input,
+    options,
+  );
+}
+
 // GET /auth/setup/verify
 
 export interface AuthControllerVerifySetupResponses {
@@ -513,4 +575,243 @@ export function authControllerSetup(
   options?: RequestOptions,
 ): Promise<AuthControllerSetupResult> {
   return request<AuthControllerSetupResult>(authControllerSetupOperation, input, options);
+}
+
+// GET /oidc-interaction/{uid}
+
+export interface SsoInteractionControllerToPagePathParams {
+  uid: string;
+}
+
+export interface SsoInteractionControllerToPageInput {
+  path: SsoInteractionControllerToPagePathParams;
+}
+
+export interface SsoInteractionControllerToPageResponses {
+  200: undefined;
+}
+
+export type SsoInteractionControllerToPageResponse = SsoInteractionControllerToPageResponses[200];
+
+export type SsoInteractionControllerToPageResult = ApiResponse<
+  200,
+  SsoInteractionControllerToPageResponses[200]
+>;
+
+export const SsoInteractionControllerToPageSchemas = {
+  path: z.object({
+    uid: z.string(),
+  }),
+} satisfies OperationSchemas;
+
+export function getSsoInteractionControllerToPageUrl(
+  path: SsoInteractionControllerToPagePathParams,
+): string {
+  return buildUrl('/oidc-interaction/{uid}', path);
+}
+
+const ssoInteractionControllerToPageOperation: OperationDefinition = {
+  id: 'SsoInteractionController_toPage',
+  method: 'GET',
+  path: '/oidc-interaction/{uid}',
+  responseTypes: { 200: 'none' },
+  schemas: SsoInteractionControllerToPageSchemas,
+};
+
+/** 轉到 apps/auth 的登入互動頁（互動 cookie 已設在這個路徑） */
+export function ssoInteractionControllerToPage(
+  input: SsoInteractionControllerToPageInput,
+  options?: RequestOptions,
+): Promise<SsoInteractionControllerToPageResult> {
+  return request<SsoInteractionControllerToPageResult>(
+    ssoInteractionControllerToPageOperation,
+    input,
+    options,
+  );
+}
+
+// GET /oidc-interaction/{uid}/details
+
+export interface SsoInteractionControllerDetailsPathParams {
+  uid: string;
+}
+
+export interface SsoInteractionControllerDetailsInput {
+  path: SsoInteractionControllerDetailsPathParams;
+}
+
+export interface SsoInteractionControllerDetailsResponses {
+  200: {
+    data: SsoInteraction;
+  };
+}
+
+export type SsoInteractionControllerDetailsResponse = SsoInteractionControllerDetailsResponses[200];
+
+export type SsoInteractionControllerDetailsResult = ApiResponse<
+  200,
+  SsoInteractionControllerDetailsResponses[200]
+>;
+
+export const SsoInteractionControllerDetailsSchemas = {
+  path: z.object({
+    uid: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: SsoInteractionSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getSsoInteractionControllerDetailsUrl(
+  path: SsoInteractionControllerDetailsPathParams,
+): string {
+  return buildUrl('/oidc-interaction/{uid}/details', path);
+}
+
+const ssoInteractionControllerDetailsOperation: OperationDefinition = {
+  id: 'SsoInteractionController_details',
+  method: 'GET',
+  path: '/oidc-interaction/{uid}/details',
+  responseTypes: { 200: 'json' },
+  schemas: SsoInteractionControllerDetailsSchemas,
+};
+
+/** 登入互動的資訊（哪個產品要求登入） */
+export function ssoInteractionControllerDetails(
+  input: SsoInteractionControllerDetailsInput,
+  options?: RequestOptions,
+): Promise<SsoInteractionControllerDetailsResult> {
+  return request<SsoInteractionControllerDetailsResult>(
+    ssoInteractionControllerDetailsOperation,
+    input,
+    options,
+  );
+}
+
+// POST /oidc-interaction/{uid}/login
+
+export interface SsoInteractionControllerLoginPathParams {
+  uid: string;
+}
+
+export type SsoInteractionControllerLoginBody = LoginRequest;
+
+export interface SsoInteractionControllerLoginInput {
+  path: SsoInteractionControllerLoginPathParams;
+  body: SsoInteractionControllerLoginBody;
+}
+
+export interface SsoInteractionControllerLoginResponses {
+  200: {
+    data: SsoRedirect;
+  };
+}
+
+export type SsoInteractionControllerLoginResponse = SsoInteractionControllerLoginResponses[200];
+
+export type SsoInteractionControllerLoginResult = ApiResponse<
+  200,
+  SsoInteractionControllerLoginResponses[200]
+>;
+
+export const SsoInteractionControllerLoginSchemas = {
+  path: z.object({
+    uid: z.string(),
+  }),
+  body: LoginRequestSchema,
+  responses: {
+    200: z.object({
+      data: SsoRedirectSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getSsoInteractionControllerLoginUrl(
+  path: SsoInteractionControllerLoginPathParams,
+): string {
+  return buildUrl('/oidc-interaction/{uid}/login', path);
+}
+
+const ssoInteractionControllerLoginOperation: OperationDefinition = {
+  id: 'SsoInteractionController_login',
+  method: 'POST',
+  path: '/oidc-interaction/{uid}/login',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: SsoInteractionControllerLoginSchemas,
+};
+
+/** 密碼登入；回傳要頂層跳轉的 resume 網址 */
+export function ssoInteractionControllerLogin(
+  input: SsoInteractionControllerLoginInput,
+  options?: RequestOptions,
+): Promise<SsoInteractionControllerLoginResult> {
+  return request<SsoInteractionControllerLoginResult>(
+    ssoInteractionControllerLoginOperation,
+    input,
+    options,
+  );
+}
+
+// POST /oidc-interaction/{uid}/abort
+
+export interface SsoInteractionControllerAbortPathParams {
+  uid: string;
+}
+
+export interface SsoInteractionControllerAbortInput {
+  path: SsoInteractionControllerAbortPathParams;
+}
+
+export interface SsoInteractionControllerAbortResponses {
+  200: {
+    data: SsoRedirect;
+  };
+}
+
+export type SsoInteractionControllerAbortResponse = SsoInteractionControllerAbortResponses[200];
+
+export type SsoInteractionControllerAbortResult = ApiResponse<
+  200,
+  SsoInteractionControllerAbortResponses[200]
+>;
+
+export const SsoInteractionControllerAbortSchemas = {
+  path: z.object({
+    uid: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: SsoRedirectSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getSsoInteractionControllerAbortUrl(
+  path: SsoInteractionControllerAbortPathParams,
+): string {
+  return buildUrl('/oidc-interaction/{uid}/abort', path);
+}
+
+const ssoInteractionControllerAbortOperation: OperationDefinition = {
+  id: 'SsoInteractionController_abort',
+  method: 'POST',
+  path: '/oidc-interaction/{uid}/abort',
+  responseTypes: { 200: 'json' },
+  schemas: SsoInteractionControllerAbortSchemas,
+};
+
+/** 取消登入；產品收到 error=access_denied */
+export function ssoInteractionControllerAbort(
+  input: SsoInteractionControllerAbortInput,
+  options?: RequestOptions,
+): Promise<SsoInteractionControllerAbortResult> {
+  return request<SsoInteractionControllerAbortResult>(
+    ssoInteractionControllerAbortOperation,
+    input,
+    options,
+  );
 }

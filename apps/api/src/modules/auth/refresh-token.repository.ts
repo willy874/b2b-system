@@ -13,6 +13,9 @@ import { sha256 } from './token-hash';
 export interface IssueRefreshTokenInput {
   userId: string;
   familyId?: string;
+  /** 經 SSO 發出時：哪個產品、哪個 IdP session（docs/adr/0019-sso-identity-platform.md D4）。輪替時沿用。 */
+  clientId?: string | null;
+  idpSessionUid?: string | null;
   ttlSeconds: number;
   userAgent?: string | null;
   ipAddress?: string | null;
@@ -44,6 +47,8 @@ export class RefreshTokenRepository {
         familyId: input.familyId ?? randomUUID(),
         tokenHash: sha256(raw),
         expiresAt: new Date(Date.now() + input.ttlSeconds * 1000),
+        clientId: input.clientId ?? null,
+        idpSessionUid: input.idpSessionUid ?? null,
         userAgent: input.userAgent ?? null,
         ipAddress: input.ipAddress ?? null,
       })
@@ -96,5 +101,20 @@ export class RefreshTokenRepository {
       .update(refreshTokens)
       .set({ revokedAt: new Date(), revokedReason: reason })
       .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)));
+  }
+
+  /** 單一登出：撤銷同一個 IdP session 底下所有產品的家族。回傳受影響的使用者。 */
+  async revokeByIdpSession(
+    idpSessionUid: string,
+    reason: RevokedReason,
+    tx?: DbOrTx,
+  ): Promise<string[]> {
+    const db = tx ?? this.db;
+    const rows = await db
+      .update(refreshTokens)
+      .set({ revokedAt: new Date(), revokedReason: reason })
+      .where(and(eq(refreshTokens.idpSessionUid, idpSessionUid), isNull(refreshTokens.revokedAt)))
+      .returning({ userId: refreshTokens.userId });
+    return [...new Set(rows.map((row) => row.userId))];
   }
 }

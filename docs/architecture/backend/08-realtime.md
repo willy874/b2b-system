@@ -168,6 +168,9 @@ this.events.publish(DomainEvent.SESSIONS_REVOKED, {
 //                   → io.in(userRoom(id)).disconnectSockets(true)
 ```
 
+單一登出（[ADR-0019](../../adr/0019-sso-identity-platform.md) D5）改帶 `idpSessionUids`：只撤銷 `sid:{uid}` room 的連線，
+同一個人的其他裝置不受影響；`reason` 是 `SessionRevokedReason.SIGNED_OUT`（`AUTH_REFRESH_REVOKED`）。
+
 之前被停用的人要等到「下一次 HTTP 請求」才會被擋下；現在是即時的。
 單一裝置的登出不遞增 `token_version`，由該分頁自己斷線（前端 `SessionStore` 的 `ended`）。
 
@@ -208,6 +211,7 @@ WebSocket 另有三道防線：
 | ---------------------- | ------------------------------------------ | ---------------------------- |
 | `user:{userId}`        | 該使用者的所有連線（所有裝置、所有分頁）   | `userRoom(id)`               |
 | `perm:{permissionKey}` | 持有該權限的使用者的連線                   | `permRoom(key)`（例 `perm:role:read`） |
+| `sid:{idpSessionUid}`  | 同一個 IdP session 的連線（經 SSO 登入、token 帶 `sid` 時才加入） | `idpSessionRoom(uid)`（ADR-0019 D5） |
 
 super-admin 加入所有 `perm:` room。
 

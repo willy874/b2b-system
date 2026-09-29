@@ -16,6 +16,7 @@ import { JobQueue } from '@/core/jobs';
 import type { RefreshTokenRow, UserRow } from '@/db/schema';
 import { ApprovalService } from '@/modules/approval/approval.service';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 import { userRegistrationRequest } from '@/modules/user/user-registration.approval';
 import { UserService, userUpdated } from '@/modules/user/user.service';
@@ -47,6 +48,12 @@ export interface IssuedSession extends SessionDto {
   refreshTtlSeconds: number;
 }
 
+/** 經 SSO 發出的 app session 帶的來源（docs/adr/0019-sso-identity-platform.md D4）。 */
+export interface SsoOrigin {
+  clientId: string;
+  idpSessionUid: string | null;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -62,11 +69,21 @@ export class AuthService {
     private readonly events: DomainEventBus,
     private readonly approvals: ApprovalService,
     private readonly jobs: JobQueue,
+    private readonly oidc: OidcProviderService,
   ) {}
 
   // ── 登入 ────────────────────────────────────────────────
 
   async login(dto: LoginDto, meta: RequestMeta): Promise<IssuedSession> {
+    const user = await this.verifyCredentials(dto);
+    return this.issueSession(user, meta);
+  }
+
+  /**
+   * 帳密檢查：列舉防護、鎖定、狀態、失敗計數與稽核。密碼直接登入與 IdP 的登入互動共用
+   * （docs/adr/0019-sso-identity-platform.md：密碼驗證只有一套）。
+   */
+  async verifyCredentials(dto: LoginDto): Promise<UserRow> {
     const user = await this.users.findAccountByEmail(dto.email);
 
     // 時序攻擊防護：帳號不存在時也跑一次 argon2
@@ -113,7 +130,7 @@ export class AuthService {
       actorEmail: user.email,
     });
 
-    return this.issueSession(user, meta);
+    return user;
   }
 
   private async registerFailedAttempt(user: UserRow): Promise<void> {
@@ -154,30 +171,37 @@ export class AuthService {
     });
   }
 
-  private async issueSession(
-    user: UserRow,
-    meta: RequestMeta,
-    familyId?: string,
-  ): Promise<IssuedSession> {
+  /** 發一條新的 refresh 家族與 access token；`sso` 有值時記下產品與 IdP session。 */
+  async issueSession(user: UserRow, meta: RequestMeta, sso?: SsoOrigin): Promise<IssuedSession> {
     const refreshTtl = this.config.get('REFRESH_TOKEN_TTL', { infer: true });
     const { raw } = await this.refreshTokens.issue({
       userId: user.id,
-      familyId,
       ttlSeconds: refreshTtl,
+      clientId: sso?.clientId ?? null,
+      idpSessionUid: sso?.idpSessionUid ?? null,
       userAgent: meta.userAgent ?? null,
       ipAddress: meta.ip ?? null,
     });
     return {
-      ...(await this.signAccessToken(user)),
+      ...(await this.signAccessToken(user, sso?.idpSessionUid ?? null)),
       refreshToken: raw,
       refreshTtlSeconds: refreshTtl,
     };
   }
 
-  private async signAccessToken(user: UserRow): Promise<SessionDto> {
+  /**
+   * `sid`：經 SSO 登入時的 IdP session。即時連線依它加入 session 專屬的 room，
+   * 單一登出只推給同一個 IdP session 的分頁，不影響同一個人的其他裝置（ADR-0019 D5）。
+   */
+  private async signAccessToken(user: UserRow, idpSessionUid: string | null): Promise<SessionDto> {
     const expiresIn = this.config.get('JWT_ACCESS_TTL', { infer: true });
     const accessToken = await this.jwt.signAsync(
-      { sub: user.id, ver: user.tokenVersion, jti: randomUUID() },
+      {
+        sub: user.id,
+        ver: user.tokenVersion,
+        jti: randomUUID(),
+        ...(idpSessionUid && { sid: idpSessionUid }),
+      },
       { secret: this.config.get('JWT_SECRET', { infer: true }), expiresIn },
     );
     return { accessToken, tokenType: 'Bearer', expiresIn };
@@ -213,6 +237,8 @@ export class AuthService {
         {
           userId: user.id,
           familyId: row.familyId,
+          clientId: row.clientId,
+          idpSessionUid: row.idpSessionUid,
           ttlSeconds: refreshTtl,
           userAgent: meta.userAgent ?? null,
           ipAddress: meta.ip ?? null,
@@ -229,7 +255,7 @@ export class AuthService {
     }
 
     return {
-      ...(await this.signAccessToken(user)),
+      ...(await this.signAccessToken(user, row.idpSessionUid)),
       refreshToken: raw,
       refreshTtlSeconds: refreshTtl,
     };
@@ -265,19 +291,37 @@ export class AuthService {
   // ── 登出 ────────────────────────────────────────────────
 
   async logout(rawToken: string | undefined, actor: AuthUser): Promise<{ success: true }> {
-    if (rawToken) {
-      const row = await this.refreshTokens.findByHash(sha256(rawToken));
-      // 撤銷整條家族，而不只是當前這一條
-      if (row) await this.refreshTokens.revokeFamily(row.familyId, 'logout');
-    }
+    const row = rawToken ? await this.refreshTokens.findByHash(sha256(rawToken)) : undefined;
+    // 撤銷整條家族，而不只是當前這一條
+    if (row) await this.refreshTokens.revokeFamily(row.familyId, 'logout');
+    // 經 SSO 登入的 session：同一個 IdP session 的所有產品一起登出（ADR-0019 D5）
+    const idpSessionUid = row?.userId === actor.id ? row.idpSessionUid : null;
+    if (idpSessionUid) await this.endIdpSession(idpSessionUid);
     await this.audit.recordSafely({
       action: 'auth.logout',
       resourceType: 'auth',
       resourceId: actor.id,
       actorId: actor.id,
       actorEmail: actor.email,
+      metadata: row?.clientId
+        ? { clientId: row.clientId, singleLogout: Boolean(idpSessionUid) }
+        : undefined,
     });
     return { success: true };
+  }
+
+  /**
+   * 單一登出（ADR-0019 D5）：銷毀 IdP session（apps/auth 上的 cookie 之後指向不存在的 session），
+   * 撤銷它底下所有產品的 refresh 家族，並推播給同一個 IdP session 的分頁。全部在伺服器端完成，
+   * 不需要碰其他 origin 的 cookie；**不** 遞增 `token_version`（那會連其他裝置一起登出）。
+   */
+  async endIdpSession(idpSessionUid: string): Promise<void> {
+    await this.oidc.destroySession(idpSessionUid);
+    await this.refreshTokens.revokeByIdpSession(idpSessionUid, 'sso_logout');
+    this.events.publish(DomainEvent.SESSIONS_REVOKED, {
+      idpSessionUids: [idpSessionUid],
+      reason: SessionRevokedReason.SIGNED_OUT,
+    });
   }
 
   // ── 個人資料 ────────────────────────────────────────────

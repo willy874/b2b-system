@@ -9,6 +9,8 @@ export interface AuthenticatedSocketData {
   tokenVersion: number;
   /** 連線的授權期限（epoch ms）= 最後一次驗過的 token 的 `exp`。 */
   expiresAt: number;
+  /** 經 SSO 登入時的 IdP session（token 的 `sid`）；單一登出只撤銷這個 session 的連線。 */
+  idpSessionUid?: string;
 }
 
 /**

@@ -7,4 +7,10 @@ import { Layout } from './Layout';
 RootRoute.update({ component: Layout });
 
 /** 只組裝，不實作業務。 */
-export const routeTree = RootRoute.addChildren([HomeRoutes.HomeRoute, LoginRoutes.LoginRoute]);
+export const routeTree = RootRoute.addChildren([
+  HomeRoutes.HomeRoute,
+  LoginRoutes.LoginRoute,
+  LoginRoutes.SsoCallbackRoute,
+  LoginRoutes.InteractionRoute,
+  LoginRoutes.SsoErrorRoute,
+]);

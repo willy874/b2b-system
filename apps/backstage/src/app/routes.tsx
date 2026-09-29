@@ -36,6 +36,7 @@ export const routeTree = RootRoute.addChildren([
 
   AuthRoutes.AuthRoute.addChildren([
     AuthRoutes.LoginRoute,
+    AuthRoutes.SsoCallbackRoute,
     AuthRoutes.ForgotPasswordRoute,
     AuthRoutes.ResetPasswordRoute,
     AuthRoutes.SetupRoute,

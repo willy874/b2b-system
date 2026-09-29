@@ -1,16 +1,35 @@
 import { expect, test } from '@playwright/test';
 
 import { ACCOUNTS } from '../fixtures/accounts';
-import { login, loginAndWaitForHome, logout } from '../helpers/auth';
+import { AUTH_URL, expectSignedOut, login, loginAndWaitForHome, logout } from '../helpers/auth';
 
 test.describe('認證流程', () => {
   // ① 登入 → 首頁 → 登出
-  test('登入後進入首頁，登出後回到登入頁', async ({ page }) => {
+  test('登入後進入首頁，登出後停在「已登出」頁', async ({ page }) => {
     await loginAndWaitForHome(page, 'superAdmin');
     await expect(page.getByTestId('menu-role')).toBeVisible();
 
     await logout(page);
-    await expect(page).toHaveURL(/\/auth\/login/);
+    await expectSignedOut(page);
+  });
+
+  // SSO（docs/adr/0019-sso-identity-platform.md）：登入一次，兩個產品都能用；任一個登出，兩邊一起結束
+  test('在 backstage 登入後打開 apps/auth 不必再登入；從 backstage 登出後 apps/auth 也登出', async ({
+    page,
+  }) => {
+    await loginAndWaitForHome(page, 'superAdmin');
+
+    await page.goto(AUTH_URL);
+    await expect(page.getByTestId('home-display-name')).toBeVisible();
+    await expect(page).toHaveURL(`${AUTH_URL}/`);
+
+    await page.goto('/');
+    await expect(page.getByTestId('home-page')).toBeVisible();
+    await logout(page);
+    await expectSignedOut(page);
+
+    await page.goto(AUTH_URL);
+    await expect(page).toHaveURL(/\/login\?.*signedOut=true/);
   });
 
   test('access token 不進 localStorage（只有 session 旗標）', async ({ page }) => {

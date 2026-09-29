@@ -74,6 +74,9 @@ import type {
   SetFileFolderGrantRequest,
   SetupRequest,
   SignupWorkspaceInvitationRequest,
+  SsoCallbackRequest,
+  SsoInteraction,
+  SsoRedirect,
   StoredFile,
   StoredFileCapabilities,
   StoredFileImage,
@@ -453,6 +456,25 @@ export const RegisterRequestSchema = z.object({
 export const RegisterResultSchema = z.object({
   submitted: z.literal(true),
 }) satisfies z.ZodType<RegisterResult>;
+
+export const SsoInteractionSchema = z.object({
+  uid: z.string(),
+  prompt: z.string(),
+  clientId: z.string(),
+  clientName: z.string(),
+  loginHint: z.string().nullable(),
+}) satisfies z.ZodType<SsoInteraction>;
+
+export const SsoRedirectSchema = z.object({
+  redirectTo: z.url(),
+}) satisfies z.ZodType<SsoRedirect>;
+
+export const SsoCallbackRequestSchema = z.object({
+  code: z.string().min(10).max(500),
+  codeVerifier: z.string().min(43).max(128),
+  clientId: z.string().min(1).max(64),
+  redirectUri: z.url().max(500),
+}) satisfies z.ZodType<SsoCallbackRequest>;
 
 export const SetFileFolderGrantRequestSchema = z.object({
   subjectType: z.enum(['role', 'user', 'everyone']),

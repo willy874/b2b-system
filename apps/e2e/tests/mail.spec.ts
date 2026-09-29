@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { apiLogin, apiRequest } from '../helpers/api';
+import { expectIdpLogin } from '../helpers/auth';
 import { linkIn, waitForMail } from '../helpers/mailpit';
 
 const NEW_PASSWORD = 'MailFlow!Password2026';
@@ -27,7 +28,7 @@ test.describe('郵件（docs/architecture/backend/11-mail.md）', () => {
     await page.getByTestId('setup-password').fill(NEW_PASSWORD);
     await page.getByTestId('setup-confirm').fill(NEW_PASSWORD);
     await page.getByTestId('setup-submit').click();
-    await expect(page).toHaveURL(/\/auth\/login/);
+    await expectIdpLogin(page);
 
     await page.getByTestId('login-email').fill(email);
     await page.getByTestId('login-password').fill(NEW_PASSWORD);
@@ -45,7 +46,7 @@ test.describe('郵件（docs/architecture/backend/11-mail.md）', () => {
     await page.getByTestId('setup-password').fill(NEW_PASSWORD);
     await page.getByTestId('setup-confirm').fill(NEW_PASSWORD);
     await page.getByTestId('setup-submit').click();
-    await expect(page).toHaveURL(/\/auth\/login/);
+    await expectIdpLogin(page);
 
     await page.goto(link);
     await expect(page.getByTestId('setup-invalid')).toBeVisible();

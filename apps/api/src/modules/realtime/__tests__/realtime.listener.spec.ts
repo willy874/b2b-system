@@ -117,4 +117,14 @@ describe('RealtimeListener（領域事件 → 推播）', () => {
     ]);
     expect(disconnected).toEqual(['user:u1']);
   });
+
+  it('單一登出只撤銷同一個 IdP session 的連線，不動同一個人的其他裝置（docs/adr/0019-sso-identity-platform.md D5）', () => {
+    const { fire, emits, disconnected } = setup({ 'user:u1': 3, 'sid:s1': 1 });
+    fire(DomainEvent.SESSIONS_REVOKED, { idpSessionUids: ['s1'], reason: 'AUTH_REFRESH_REVOKED' });
+
+    expect(emits).toEqual([
+      { rooms: 'sid:s1', event: 'session.revoked', payload: { reason: 'AUTH_REFRESH_REVOKED' } },
+    ]);
+    expect(disconnected).toEqual(['sid:s1']);
+  });
 });

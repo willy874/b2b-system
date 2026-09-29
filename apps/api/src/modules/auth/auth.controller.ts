@@ -28,6 +28,7 @@ import {
   ResetPasswordSchema,
   SessionSchema,
   SetupSchema,
+  SsoCallbackSchema,
   UpdateProfileSchema,
   VerifySetupSchema,
 } from './dto/auth.dto';
@@ -38,14 +39,17 @@ import type {
   RegisterDto,
   ResetPasswordDto,
   SetupDto,
+  SsoCallbackDto,
   UpdateProfileDto,
 } from './dto/auth.dto';
+import { SsoService } from './sso.service';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
+    private readonly sso: SsoService,
     private readonly config: ConfigService<Env, true>,
   ) {}
 
@@ -160,6 +164,28 @@ export class AuthController {
   @ApiZodBody(ResetPasswordSchema)
   resetPassword(@Body(new ZodValidationPipe(ResetPasswordSchema)) dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
+  }
+
+  @Post('sso/callback')
+  @HttpCode(200)
+  @Public()
+  @Throttle({ default: AUTH_THROTTLE })
+  @ApiOperation({
+    summary:
+      '產品的 BFF：授權碼 ＋ PKCE verifier 換 app session（docs/adr/0019-sso-identity-platform.md D3）',
+  })
+  @ApiZodBody(SsoCallbackSchema)
+  @ApiZodResponse(200, SessionSchema)
+  async ssoCallback(
+    @Body(new ZodValidationPipe(SsoCallbackSchema)) dto: SsoCallbackDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const session = await this.sso.callback(dto, {
+      ip: req.ip,
+      userAgent: req.header('user-agent'),
+    });
+    return this.respondWithSession(res, session);
   }
 
   @Get('setup/verify')

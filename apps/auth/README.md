@@ -17,13 +17,13 @@ pnpm --filter @b2b-system/auth test
 pnpm --filter @b2b-system/auth build
 ```
 
-## 目前的內容（交付順序 1：骨架）
+## 目前的內容（交付順序 2：IdP 與單一登出）
 
 | 路徑 | 說明 |
 | --- | --- |
-| `features/login` | `/login`：密碼登入。這一版直接呼叫既有的 `POST /auth/login`，之後改成 OIDC 的登入互動 |
+| `features/login` | `/interaction/:uid`：**IdP 的登入互動頁**，所有產品的密碼登入都在這裡（D16）；`/error`：provider 的協定錯誤；`/login`、`/callback`：apps/auth 自己的頁面也經 SSO 登入 |
 | `features/home` | `/`：目前登入的身分；之後放租戶管理與外部 IdP 連線管理的入口 |
-| `app/` | 自己寫的 App Shell：`App.tsx`（沒有 session 時導向 `/login`）、`Layout.tsx`（頁面權限守衛）、`layouts/PlatformLayout.tsx`（沒有工作區切換器） |
+| `app/` | 自己寫的 App Shell：`App.tsx`（沒有 session 時導向 `/login`；登出後停在「已登出」頁）、`Layout.tsx`（頁面權限守衛）、`layouts/PlatformLayout.tsx`（沒有工作區切換器） |
 
 沒有推播、批次佇列、feature flag、MSW mock 與 Storybook；需要時再從 backstage 帶過來。
 
@@ -39,7 +39,8 @@ pnpm --filter @b2b-system/auth build
 | `plugins/` | `fetcher/`；`app/` 的 `cache`、`event-bus`、`http-context`、`i18n`、`theme` |
 | `apis/auth/` | `get-profile`、`login`、`logout`、`refresh` |
 | 其他 | `themes/`、`assets/icons/`、`index.css`、`public/theme-init.js`、`test/`（setup 與假物件）、`app/GlobalProvider.tsx`、`ToastHost.tsx`、`ConfirmDialogHost.tsx`、`plugin.ts`、`layouts/ThemeMenu.tsx`、`app/locales/*.json` |
-| `features/login` | `hooks/`（`useLoginMutation`、`useLogoutMutation`、`useSyncPermissions`）、`pages/AuthShell.tsx`、`pages/Login/page.tsx`（改過文案鍵與路由） |
+| `features/login` | `hooks/`（`useLogoutMutation`、`useSyncPermissions`、`useSsoCallbackMutation`）、`pages/AuthShell.tsx`、`pages/Login/page.tsx` 與 `pages/SsoCallback/page.tsx`（與 backstage `features/auth` 的同名頁面相同流程，改過文案鍵與路由）、`sso.ts`（client id 不同） |
+| SSO 的瀏覽器端 | `core/auth/sso.ts`（PKCE、授權網址、verifier）、`apis/auth/sso-callback/`、`shared/constants/env.ts` 的 `OIDC_ISSUER` |
 
 `core/realtime` 與 `components/Table` 目前沒有畫面用到，是被 `core/cache`、`core/store` 依賴而一起帶進來的。
 
@@ -51,7 +52,7 @@ pnpm --filter @b2b-system/auth build
 
 ### 同步規則
 
-- 在任一邊修改上表的檔案時，**同一批** 檢查另一邊要不要一起改；安全相關（`core/auth`、`core/client`、`plugins/fetcher`）一律一起改。
+- 在任一邊修改上表的檔案時，**同一批** 檢查另一邊要不要一起改；安全相關（`core/auth`（含 `sso.ts`）、`core/client`、`plugins/fetcher`）與 `app/App.tsx` 的 `SessionWatcher`（登出後不自動跳回 IdP，ADR-0019 D5）一律一起改。
 - **新增錯誤碼**：除了 backstage 的 `ERROR_MESSAGE_KEY` 與語系檔，這裡的 `core/errors/errorMessageKey.ts`、`app/locales/*.json`、
   `app/__tests__/locales.test.ts` 的錯誤碼清單也要加。兩邊的測試各有一份清單，只更新 backstage 那份時這裡不會失敗，要靠 review。
 - 出現第三個前端時，評估把上表抽成 `packages/`（ADR-0019 D14）。

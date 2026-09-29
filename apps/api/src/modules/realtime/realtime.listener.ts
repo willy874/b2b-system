@@ -8,7 +8,7 @@ import type { DomainEventMeta, DomainEventPayloads } from '@/core/events';
 
 import { missingWorkspace, RealtimeAudience, resolveAudienceRooms } from './realtime.audience';
 import { RealtimePublisher } from './realtime.publisher';
-import { userRoom } from './realtime.rooms';
+import { idpSessionRoom, userRoom } from './realtime.rooms';
 
 /**
  * 領域事件 → 推播（docs/architecture/backend/08-realtime.md §3.5、§6.2、§7）。
@@ -90,17 +90,22 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
 
   /** 推 `session.revoked` 並斷掉這些使用者的所有連線（§3.5）。 */
   onSessionsRevoked({
-    userIds,
+    userIds = [],
+    idpSessionUids = [],
     reason,
   }: DomainEventPayloads[typeof DomainEvent.SESSIONS_REVOKED]): void {
-    for (const userId of new Set(userIds)) {
-      const room = userRoom(userId);
+    const rooms = [
+      ...[...new Set(userIds)].map(userRoom),
+      // 單一登出：只有同一個 IdP session 的連線，同一個人的其他裝置不受影響（ADR-0019 D5）
+      ...[...new Set(idpSessionUids)].map(idpSessionRoom),
+    ];
+    for (const room of rooms) {
       const sockets = this.publisher.countConnections(room);
       if (!sockets) continue;
       this.publisher.emit(room, ServerEvent.SESSION_REVOKED, { reason });
       // publisher 保證斷線前已 emit 的事件會先送到
       this.publisher.disconnect(room);
-      this.logger.log({ userId, reason, sockets }, '撤銷即時連線');
+      this.logger.log({ room, reason, sockets }, '撤銷即時連線');
     }
   }
 }

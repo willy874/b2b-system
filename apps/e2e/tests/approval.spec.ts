@@ -10,9 +10,8 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
   test('申請帳號 → admin 核准並指派角色 → 申請人可以登入', async ({ page, browser }) => {
     const email = `e2e-applicant-${Date.now()}@dev.local`;
 
-    // ① 未登入：從登入頁進入申請頁並送出
-    await page.goto('/auth/login');
-    await page.getByTestId('login-register-link').click();
+    // ① 未登入：進入申請頁並送出（登入頁已移到 apps/auth 的 IdP，申請頁在 docs/features/sso.md 交付順序 3 搬過去之前還在 backstage）
+    await page.goto('/auth/register');
     await page.getByTestId('register-email').fill(email);
     await page.getByTestId('register-display-name').fill('E2E Applicant');
     await page.getByTestId('register-password').fill(APPLICANT_PASSWORD);

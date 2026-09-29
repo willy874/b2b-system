@@ -5,7 +5,9 @@
       "description": "請使用你的帳號密碼登入。",
       "submit": "登入",
       "forgotPassword": "忘記密碼？",
-      "register": "申請帳號"
+      "register": "申請帳號",
+      "redirecting": "正在前往登入頁…",
+      "signedOut": "你已登出。所有產品共用同一組登入，登出後其他產品也會一起登出。"
     },
     "register": {
       "title": "申請帳號",
@@ -46,6 +48,12 @@
       "confirmPassword": "確認密碼",
       "accept": "接受邀請",
       "mismatch": "目前登入的是 {{current}}，但這份邀請是給 {{invited}} 的。請登出後用受邀的信箱登入，再開啟信中的連結。"
+    },
+    "callback": {
+      "title": "登入",
+      "working": "正在完成登入…",
+      "failed": "登入沒有完成，連結可能已過期或已使用過。請重新登入。",
+      "cancelled": "已取消登入。"
     }
   }
 }

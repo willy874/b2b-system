@@ -135,6 +135,41 @@ export const EnvSchema = z.object({
     .default('http://localhost:5173')
     .transform((value) => value.replace(/\/+$/, '')),
 
+  // ── SSO：apps/api 當 OIDC Provider（docs/adr/0019-sso-identity-platform.md）──────────
+  /** apps/auth 的網址（瀏覽器看到的）：登入互動頁與第一方 client `auth` 的 redirect URI 以它開頭。 */
+  AUTH_APP_URL: z
+    .string()
+    .url()
+    .default('http://localhost:5175')
+    .transform((value) => value.replace(/\/+$/, '')),
+  /** OIDC issuer：apps/auth origin 底下的 `/api/oidc`（反向代理去掉 `/api` 後由本程序的 `/oidc` 處理）。 */
+  OIDC_ISSUER: z
+    .string()
+    .url()
+    .default('http://localhost:5175/api/oidc')
+    .transform((value) => value.replace(/\/+$/, '')),
+  /**
+   * 簽 ID token 的私鑰（JWKS JSON：`{"keys":[…]}`）。沒設定時啟動時產生一把臨時金鑰（重啟後舊 token 失效），
+   * **production 必填**；輪替時新舊金鑰並存（D11）。
+   */
+  OIDC_JWKS: z.preprocess((value) => (value === '' ? undefined : value), z.string().optional()),
+  /** 簽 IdP cookie 的金鑰，逗號分隔（第一把用來簽、全部都能驗，輪替時把新的放前面）。production 必填。 */
+  OIDC_COOKIE_KEYS: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z
+      .string()
+      .optional()
+      .transform((value) =>
+        value
+          ?.split(',')
+          .map((key) => key.trim())
+          .filter(Boolean),
+      ),
+  ),
+
+  /** 清除過期 IdP 狀態（`oidc_payloads`）的 cron（UTC）；空字串停用。 */
+  OIDC_CLEANUP_CRON: z.string().trim().default('45 3 * * *'),
+
   /** 稽核日誌熱 → 冷搬移的 cron（UTC）；空字串停用（docs/architecture/backend/06-audit-log.md §8）。 */
   AUDIT_LOG_ARCHIVE_CRON: z.string().trim().default('30 3 * * *'),
 
@@ -144,6 +179,17 @@ export const EnvSchema = z.object({
     (value) => (value === '' ? undefined : value),
     z.string().min(12).optional(),
   ),
+});
+
+/** production 不接受開發用的預設值：沒有金鑰就不能簽 ID token 與 IdP cookie。 */
+const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
+  if (env.NODE_ENV !== 'production') return;
+  if (!env.OIDC_JWKS) {
+    ctx.addIssue({ code: 'custom', path: ['OIDC_JWKS'], message: 'production 必須設定簽章金鑰' });
+  }
+  if (!env.OIDC_COOKIE_KEYS?.length) {
+    ctx.addIssue({ code: 'custom', path: ['OIDC_COOKIE_KEYS'], message: 'production 必須設定' });
+  }
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -159,7 +205,7 @@ export function parseTrustProxy(value: string): boolean | number | string {
 
 /** 供 `ConfigModule.forRoot({ validate })` 使用；錯誤訊息明確指出缺哪一個。 */
 export function validateEnv(raw: Record<string, unknown>): Env {
-  const parsed = EnvSchema.safeParse(raw);
+  const parsed = ProductionEnvSchema.safeParse(raw);
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((issue) => `  - ${issue.path.join('.') || '(root)'}: ${issue.message}`)

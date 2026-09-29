@@ -10,6 +10,11 @@ export function userRoom(userId: string): string {
   return `user:${userId}`;
 }
 
+/** 同一個 IdP session 的連線（單一登出，docs/adr/0019-sso-identity-platform.md D5）。 */
+export function idpSessionRoom(idpSessionUid: string): string {
+  return `sid:${idpSessionUid}`;
+}
+
 /** 平台範圍的權限鍵。 */
 export function permRoom(key: PermissionKey): string {
   return `perm:${key}`;

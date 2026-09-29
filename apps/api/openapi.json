@@ -522,6 +522,42 @@
         "tags": ["auth"]
       }
     },
+    "/auth/sso/callback": {
+      "post": {
+        "operationId": "AuthController_ssoCallback",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoCallbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Session"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "產品的 BFF：授權碼 ＋ PKCE verifier 換 app session（docs/adr/0019-sso-identity-platform.md D3）",
+        "tags": ["auth"]
+      }
+    },
     "/auth/setup/verify": {
       "get": {
         "operationId": "AuthController_verifySetup",
@@ -553,6 +589,143 @@
             "description": ""
           }
         },
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}": {
+      "get": {
+        "operationId": "SsoInteractionController_toPage",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "轉到 apps/auth 的登入互動頁（互動 cookie 已設在這個路徑）",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/details": {
+      "get": {
+        "operationId": "SsoInteractionController_details",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoInteraction"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "登入互動的資訊（哪個產品要求登入）",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/login": {
+      "post": {
+        "operationId": "SsoInteractionController_login",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoRedirect"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "密碼登入；回傳要頂層跳轉的 resume 網址",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/abort": {
+      "post": {
+        "operationId": "SsoInteractionController_abort",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoRedirect"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "取消登入；產品收到 error=access_denied",
         "tags": ["auth"]
       }
     },
@@ -3957,6 +4130,67 @@
           }
         },
         "required": ["submitted"],
+        "additionalProperties": false
+      },
+      "SsoInteraction": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "clientName": {
+            "type": "string"
+          },
+          "loginHint": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["uid", "prompt", "clientId", "clientName", "loginHint"],
+        "additionalProperties": false
+      },
+      "SsoRedirect": {
+        "type": "object",
+        "properties": {
+          "redirectTo": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": ["redirectTo"],
+        "additionalProperties": false
+      },
+      "SsoCallbackRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 500
+          },
+          "codeVerifier": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 128
+          },
+          "clientId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "redirectUri": {
+            "type": "string",
+            "maxLength": 500,
+            "format": "uri"
+          }
+        },
+        "required": ["code", "codeVerifier", "clientId", "redirectUri"],
         "additionalProperties": false
       },
       "SetFileFolderGrantRequest": {
