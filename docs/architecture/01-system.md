@@ -47,9 +47,9 @@
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**登入不在 backstage**：`apps/auth` 是全平台共用、不分工作區的前端（獨立的 origin），`apps/api` 當 OIDC Provider。
+**登入不在 backstage**：`apps/auth` 是全平台共用、不屬於任何租戶的前端（獨立的 origin），`apps/api` 當 OIDC Provider。
 backstage 以授權碼 ＋ PKCE 跳到 apps/auth 登入，再以自己 origin 的 `/api/auth/sso/callback` 換成上圖的 app session。
-平台層級的頁面（租戶、外部 IdP 連線、帳號流程）也在 apps/auth。見 [`04-sso.md`](./04-sso.md)。
+平台層級的頁面（外部 IdP 連線、帳號流程；之後的租戶管理，ADR-0020）也在 apps/auth。見 [`04-sso.md`](./04-sso.md)。
 
 ---
 

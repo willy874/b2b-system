@@ -4,7 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { DiscoveryModule } from '@nestjs/core';
 import { afterAll, beforeAll, describe, expect, it, inject } from 'vitest';
 
-import { Public, RequirePermissions, WorkspaceScoped } from '@/common/decorators';
+import { Public, RequirePermissions } from '@/common/decorators';
 import {
   auditRoutes,
   collectDeclaredPermissionKeys,
@@ -32,40 +32,8 @@ class UndeclaredController {
   oops(): void {}
 }
 
-/** 工作區的鍵宣告在平台路由上：P(u) 永遠不會有它。 */
-@Controller('misplaced')
-class MisplacedController {
-  @Get()
-  @RequirePermissions('file:read')
-  list(): void {}
-}
-
-/** 平台的鍵宣告在工作區路由上。 */
-@WorkspaceScoped()
-@Controller('workspaces/:workspaceId/misplaced')
-class MisplacedWorkspaceController {
-  @Get()
-  @RequirePermissions('user:read')
-  list(): void {}
-}
-
-/** 工作區路由的路徑沒有 :workspaceId。 */
-@WorkspaceScoped()
-@Controller('no-param')
-class NoParamController {
-  @Get()
-  @RequirePermissions('file:read')
-  list(): void {}
-}
-
 @Module({ imports: [DiscoveryModule], controllers: [DeclaredController] })
 class DeclaredModule {}
-
-@Module({
-  imports: [DiscoveryModule],
-  controllers: [MisplacedController, MisplacedWorkspaceController, NoParamController],
-})
-class MisplacedModule {}
 
 @Module({ imports: [DiscoveryModule], controllers: [DeclaredController, UndeclaredController] })
 class UndeclaredModule {}
@@ -93,17 +61,6 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
     await bad.init();
     expect(() => auditRoutes(bad)).toThrow(/未宣告授權策略/);
     expect(() => auditRoutes(bad)).toThrow(/GET \/undeclared/);
-    await bad.close();
-  });
-
-  it('權限鍵的範圍與路由不符 → 稽核失敗（docs/adr/0018-workspace-tenancy.md D9）', async () => {
-    const bad = await NestFactory.create(MisplacedModule, { logger: false });
-    await bad.init();
-    expect(() => auditRoutes(bad)).toThrow(/GET \/misplaced（平台路由；範圍不符的鍵：file:read）/);
-    expect(() => auditRoutes(bad)).toThrow(
-      /GET \/workspaces\/:workspaceId\/misplaced（工作區路由；範圍不符的鍵：user:read）/,
-    );
-    expect(() => auditRoutes(bad)).toThrow(/GET \/no-param（工作區路由；路徑缺少 :workspaceId）/);
     await bad.close();
   });
 
@@ -189,52 +146,31 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /jobs': 'job:read',
       'GET /jobs/:id': 'job:read',
       'POST /jobs/:id/retry': 'job:retry',
-      'GET /workspaces/:workspaceId/files': 'file:access|file:read',
-      'POST /workspaces/:workspaceId/files': 'file:access|file:create',
-      'GET /workspaces/:workspaceId/files/upload-policy': 'file:access|file:create',
-      'POST /workspaces/:workspaceId/files/:id/parts': 'file:access|file:create',
-      'POST /workspaces/:workspaceId/files/:id/complete': 'file:access|file:create',
-      'DELETE /workspaces/:workspaceId/files/:id/upload': 'file:access|file:create',
-      'GET /workspaces/:workspaceId/files/:id': 'file:access|file:read',
-      'PATCH /workspaces/:workspaceId/files/:id': 'file:access|file:update',
-      'DELETE /workspaces/:workspaceId/files/:id': 'file:access|file:delete',
-      'POST /workspaces/:workspaceId/files/move': 'file:access|file:update',
-      'GET /workspaces/:workspaceId/file-folders': 'file:access|file:read',
-      'POST /workspaces/:workspaceId/file-folders': 'file:access|file:create',
-      'POST /workspaces/:workspaceId/file-folders/paths': 'file:access|file:create',
-      'PATCH /workspaces/:workspaceId/file-folders/:id': 'file:access|file:update',
-      'DELETE /workspaces/:workspaceId/file-folders/:id': 'file:access|file:delete',
-      'GET /workspaces/:workspaceId/file-folders/:id/grants': 'file:access|file:share',
-      'PUT /workspaces/:workspaceId/file-folders/:id/grants': 'file:access|file:share',
-      'DELETE /workspaces/:workspaceId/file-folders/:id/grants/:subjectType/:subjectId':
-        'file:access|file:share',
-      'GET /workspaces/:workspaceId/file-folders/:id/grant-subjects': 'file:access|file:share',
-      'PATCH /workspaces/:workspaceId/file-folders/:id/access': 'file:access|file:share',
-      'POST /workspaces/:workspaceId/file-folders/:id/access-requests': 'file:access|file:read',
-      'GET /workspaces/:workspaceId/file-folders/:id/access-requests': 'file:access|file:share',
-      'POST /workspaces/:workspaceId/file-folders/:id/access-requests/:requestId/approve':
-        'file:access|file:share',
-      'POST /workspaces/:workspaceId/file-folders/:id/access-requests/:requestId/reject':
-        'file:access|file:share',
+      'GET /files': 'file:access|file:read',
+      'POST /files': 'file:access|file:create',
+      'GET /files/upload-policy': 'file:access|file:create',
+      'POST /files/:id/parts': 'file:access|file:create',
+      'POST /files/:id/complete': 'file:access|file:create',
+      'DELETE /files/:id/upload': 'file:access|file:create',
       'GET /files/:id/image/:variant': 'public',
-      'GET /workspaces': 'workspace:read',
-      'POST /workspaces': 'workspace:create',
-      'GET /workspaces/mine': 'authenticated',
-      'GET /workspaces/:workspaceId': 'workspace:read',
-      'PATCH /workspaces/:workspaceId': 'workspace:update',
-      'DELETE /workspaces/:workspaceId': 'workspace:delete',
-      'POST /workspaces/:workspaceId/admins': 'workspace:update',
-      'GET /workspaces/:workspaceId/me': 'authenticated',
-      'GET /workspaces/:workspaceId/members': 'workspaceMember:read',
-      'PUT /workspaces/:workspaceId/members/:userId/roles': 'workspaceMember:assignRole',
-      'DELETE /workspaces/:workspaceId/members/:userId': 'workspaceMember:delete',
-      'GET /workspaces/:workspaceId/roles': 'workspaceMember:read',
-      'GET /workspaces/:workspaceId/invitations': 'workspaceMember:read',
-      'POST /workspaces/:workspaceId/invitations': 'workspaceMember:create',
-      'DELETE /workspaces/:workspaceId/invitations/:invitationId': 'workspaceMember:create',
-      'GET /workspace-invitations/preview': 'public',
-      'POST /workspace-invitations/accept': 'authenticated',
-      'POST /workspace-invitations/signup': 'public',
+      'GET /files/:id': 'file:access|file:read',
+      'PATCH /files/:id': 'file:access|file:update',
+      'DELETE /files/:id': 'file:access|file:delete',
+      'POST /files/move': 'file:access|file:update',
+      'GET /file-folders': 'file:access|file:read',
+      'POST /file-folders': 'file:access|file:create',
+      'POST /file-folders/paths': 'file:access|file:create',
+      'PATCH /file-folders/:id': 'file:access|file:update',
+      'DELETE /file-folders/:id': 'file:access|file:delete',
+      'GET /file-folders/:id/grants': 'file:access|file:share',
+      'PUT /file-folders/:id/grants': 'file:access|file:share',
+      'DELETE /file-folders/:id/grants/:subjectType/:subjectId': 'file:access|file:share',
+      'GET /file-folders/:id/grant-subjects': 'file:access|file:share',
+      'PATCH /file-folders/:id/access': 'file:access|file:share',
+      'POST /file-folders/:id/access-requests': 'file:access|file:read',
+      'GET /file-folders/:id/access-requests': 'file:access|file:share',
+      'POST /file-folders/:id/access-requests/:requestId/approve': 'file:access|file:share',
+      'POST /file-folders/:id/access-requests/:requestId/reject': 'file:access|file:share',
     };
 
     for (const [route, declaration] of Object.entries(expected)) {

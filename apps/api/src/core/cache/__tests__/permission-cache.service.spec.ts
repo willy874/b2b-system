@@ -13,7 +13,6 @@ function createCache(ttlSeconds = 60): PermissionCacheService {
 const value = (keys: PermissionKey[], isSuperAdmin = false) => ({
   permissions: new Set(keys),
   isSuperAdmin,
-  canEnter: true,
 });
 
 describe('PermissionCacheService', () => {
@@ -74,39 +73,5 @@ describe('PermissionCacheService', () => {
     const cache = createCache();
     cache.set('root', value([], true));
     expect(cache.get('root')?.isSuperAdmin).toBe(true);
-  });
-
-  it('平台與各工作區分開快取（docs/adr/0018-workspace-tenancy.md D15）', () => {
-    const cache = createCache();
-    cache.set('user-1', value(['user:read']));
-    cache.set('user-1', value(['file:read']), 'ws-a');
-    expect(cache.get('user-1')?.permissions.has('user:read')).toBe(true);
-    expect(cache.get('user-1', 'ws-a')?.permissions.has('file:read')).toBe(true);
-    expect(cache.get('user-1', 'ws-b')).toBeUndefined();
-  });
-
-  it('invalidate 清掉這個人在所有範圍的項目', () => {
-    const cache = createCache();
-    cache.set('user-1', value([]));
-    cache.set('user-1', value([]), 'ws-a');
-    cache.set('user-2', value([]), 'ws-a');
-    cache.invalidate('user-1');
-    expect(cache.get('user-1')).toBeUndefined();
-    expect(cache.get('user-1', 'ws-a')).toBeUndefined();
-    expect(cache.get('user-2', 'ws-a')).toBeDefined();
-  });
-
-  it('invalidateWorkspace 只清掉那個工作區（工作區刪除的用法）', () => {
-    const cache = createCache();
-    cache.set('user-1', value([]));
-    cache.set('user-1', value([]), 'ws-a');
-    cache.set('user-2', value([]), 'ws-a');
-    cache.set('user-2', value([]), 'ws-b');
-    cache.invalidateWorkspace('ws-a');
-    expect(cache.get('user-1')).toBeDefined();
-    expect(cache.get('user-1', 'ws-a')).toBeUndefined();
-    expect(cache.get('user-2', 'ws-a')).toBeUndefined();
-    expect(cache.get('user-2', 'ws-b')).toBeDefined();
-    expect(cache.size).toBe(2);
   });
 });

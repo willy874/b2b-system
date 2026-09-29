@@ -36,8 +36,8 @@ const PROVIDER = {
 function renderPage(permissions: PermissionKey[] | 'unhydrated') {
   usePermissionStore.setState(
     permissions === 'unhydrated'
-      ? { permissions: new Set(), hydrated: false, workspaceHydrated: false }
-      : { permissions: new Set(permissions), hydrated: true, workspaceHydrated: true },
+      ? { permissions: new Set(), hydrated: false }
+      : { permissions: new Set(permissions), hydrated: true },
   );
   const router = createRouter({
     routeTree: RootRoute.addChildren([Routes.IdentityProviderListRoute]),

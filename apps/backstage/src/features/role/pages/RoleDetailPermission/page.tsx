@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
-import { getRoleDetailQueryOptions } from '@/apis/role/get-role-detail/query';
 import { getRolePermissionsQueryOptions } from '@/apis/role/get-role-permissions/query';
 import { Button } from '@/components/Button';
 import { Dialog } from '@/components/Dialog';
@@ -20,7 +19,6 @@ export default function RoleDetailPermissionPage() {
   const search = RoleListRoute.useSearch();
   const permission = useRolePermission();
   const current = useQuery(getRolePermissionsQueryOptions(roleId));
-  const role = useQuery(getRoleDetailQueryOptions(roleId));
   const grant = useGrantRolePermissionsMutation();
 
   const initial = useMemo(
@@ -70,7 +68,6 @@ export default function RoleDetailPermissionPage() {
       }
     >
       <PermissionPicker
-        scope={role.data?.scope ?? 'platform'}
         selected={selected}
         disabled={!permission.canGrantPermission}
         onToggle={(key, checked) =>

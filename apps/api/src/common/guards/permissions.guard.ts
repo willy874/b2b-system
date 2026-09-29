@@ -8,18 +8,10 @@ import { AppException } from '@/core/errors';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 
-import {
-  IS_AUTHENTICATED,
-  IS_PUBLIC,
-  IS_WORKSPACE_SCOPED,
-  REQUIRED_PERMISSIONS,
-  WORKSPACE_ID_PARAM,
-} from '../decorators';
+import { IS_AUTHENTICATED, IS_PUBLIC, REQUIRED_PERMISSIONS } from '../decorators';
 import type { PermissionRequirement } from '../decorators';
-import { getSocketIdentity, workspaceScopeOf } from '../types';
+import { getSocketIdentity } from '../types';
 import type { AuthenticatedRequest, WsClient } from '../types';
-
-const UUID_PATTERN = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
 interface GuardSubject {
   route: string;
@@ -40,13 +32,6 @@ export class PermissionsGuard implements CanActivate {
     const targets = [ctx.getHandler(), ctx.getClass()];
 
     if (this.reflector.getAllAndOverride<boolean>(IS_PUBLIC, targets)) return true;
-
-    // 工作區範圍：先確認能進入（@Authenticated 的工作區路由也一樣），之後的權限鍵以 P(u, W) 判斷
-    const workspaceId =
-      type === 'http' && this.reflector.getAllAndOverride<boolean>(IS_WORKSPACE_SCOPED, targets)
-        ? await this.enterWorkspace(ctx)
-        : undefined;
-
     if (this.reflector.getAllAndOverride<boolean>(IS_AUTHENTICATED, targets)) return true;
 
     const { route, user } = type === 'ws' ? this.wsSubject(ctx) : this.httpSubject(ctx);
@@ -63,9 +48,7 @@ export class PermissionsGuard implements CanActivate {
     if (!user) throw this.reject(type, 'AUTH_TOKEN_INVALID');
 
     const { keys, match } = requirement;
-    const { permissions, isSuperAdmin } = workspaceId
-      ? await this.permissionService.getWorkspacePermissionSet(user.id, workspaceId)
-      : await this.permissionService.getPermissionSet(user.id);
+    const { permissions, isSuperAdmin } = await this.permissionService.getPermissionSet(user.id);
 
     if (isSuperAdmin) return true;
 
@@ -83,33 +66,12 @@ export class PermissionsGuard implements CanActivate {
         actorEmail: user.email,
         resourceType: 'authz',
         errorCode: 'AUTHZ_FORBIDDEN',
-        metadata: { route, required: keys, missing, ...(workspaceId ? { workspaceId } : {}) },
+        metadata: { route, required: keys, missing },
       });
       throw this.reject(type, 'AUTHZ_FORBIDDEN', { required: keys, missing });
     }
 
     return true;
-  }
-
-  /**
-   * `:workspaceId` 的工作區存在，而且操作者是成員（或 super-admin）：寫入 `req.workspace`，回傳 id。
-   * 否則一律 `404 WORKSPACE_NOT_FOUND`——不讓非成員分辨「不存在」與「沒有權限」
-   * （docs/adr/0018-workspace-tenancy.md D9）。
-   */
-  private async enterWorkspace(ctx: ExecutionContext): Promise<string> {
-    const req = ctx.switchToHttp().getRequest<AuthenticatedRequest>();
-    const workspaceId = req.params[WORKSPACE_ID_PARAM];
-    if (!req.user) throw new AppException('AUTH_TOKEN_INVALID');
-    if (typeof workspaceId !== 'string' || !UUID_PATTERN.test(workspaceId)) {
-      throw new AppException('WORKSPACE_NOT_FOUND');
-    }
-    const { canEnter } = await this.permissionService.getWorkspacePermissionSet(
-      req.user.id,
-      workspaceId,
-    );
-    if (!canEnter) throw new AppException('WORKSPACE_NOT_FOUND');
-    req.workspace = workspaceScopeOf(workspaceId);
-    return workspaceId;
   }
 
   private httpSubject(ctx: ExecutionContext): GuardSubject {

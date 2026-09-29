@@ -1,9 +1,9 @@
 # ADR-0018 — 工作區：權限鍵分範圍 × 工作區角色 ＋ 工作區內的資源授權
 
-- 狀態：**提案中（待確認）**
+- 狀態：**被取代**（[ADR-0020](./0020-physical-tenant-isolation.md)：改為每租戶一個 database 與網域；本文件保留作為評估紀錄）
 - 日期：2026-09-29
 - 相關：[ADR-0006](./0006-flat-permission-scope.md)（取代其「多租戶」延伸路徑）、[ADR-0015](./0015-file-folder-access.md)（實現其「專案成為資料夾的上層」）、
-  [ADR-0017](./0017-mail-delivery.md)（邀請信）、[`../features/workspace.md`](../features/workspace.md)
+  [ADR-0017](./0017-mail-delivery.md)（邀請信）、`features/workspace.md`（已刪除）
 
 ## 背景
 
@@ -59,7 +59,7 @@
 | D15 | 權限快取的 key 改成 `userId:workspaceId`（平台層級用 `userId:-`），並維護 `userId → keys` 的索引，讓 `invalidateUser` 能清掉這個人在所有工作區的項目。另外新增 `invalidateWorkspace` | 失效順序不變：交易之後清快取，然後才發佈事件 |
 | D16 | 推播：工作區的 room 叫 `ws:{id}:perm:{key}`；**連線時加入所屬每個工作區的 room**（依在各工作區的權限），成員資格或權限變了就重算。工作區範圍的變更必須帶 `workspaceId`，沒帶就不推給任何工作區的 room。平台的 room 不變。不是成員的 super-admin 不加入那些工作區：瀏覽時由重新聚焦的重抓更新 | 前端只有 leader 分頁持有連線，代表所有分頁，而各分頁可能開著不同的工作區，所以不能只訂閱「目前的」工作區（原本設想的 `workspace.subscribe` 因此不採用）。前端的 query key 帶工作區、以 key 前綴失效，收到別的工作區的變更只會把沒在用的快取標成 stale |
 | D17 | 前端：工作區頁面的網址是 `/w/:workspaceSlug/...`；目前工作區 **從 URL 推導**。工作區範圍的 query key 包含 `workspaceId`，所以切換工作區時不必清掉整個快取。`can()` 判斷「platform 鍵 ∪ 目前工作區的鍵」。頁面註冊時標 `scope: 'workspace'`：根版面只守平台頁面，工作區頁面由工作區版面在載入該工作區的權限後守。登入後預設開啟最近進入的工作區（`workspace_members.last_accessed_at`） | 連結可以直接分享、多分頁互不干擾；切回原本的工作區時快取還能命中。根版面若也等工作區的權限，會擋住負責載入它的工作區版面 |
-| D18 | 遷移：建立預設工作區 `default`，把現有的資料夾、檔案、檔案類審批全部歸進去，所有使用者成為成員；含工作區範圍權限鍵、或是資料夾授權對象的角色，另建一個工作區角色承接（系統角色對應到 `workspace-admin` / `workspace-member` / `workspace-viewer`），持有者在預設工作區取得它、資料夾授權改指向它（見 [`../features/workspace.md`](../features/workspace.md) 開放問題 4） | 不刪資料、不讓任何人失去原本的存取；只看權限鍵會漏掉「沒有權限鍵、只當資料夾授權對象」的角色 |
+| D18 | 遷移：建立預設工作區 `default`，把現有的資料夾、檔案、檔案類審批全部歸進去，所有使用者成為成員；含工作區範圍權限鍵、或是資料夾授權對象的角色，另建一個工作區角色承接（系統角色對應到 `workspace-admin` / `workspace-member` / `workspace-viewer`），持有者在預設工作區取得它、資料夾授權改指向它（見 `features/workspace.md`（已刪除） 開放問題 4） | 不刪資料、不讓任何人失去原本的存取；只看權限鍵會漏掉「沒有權限鍵、只當資料夾授權對象」的角色 |
 
 ## 代價
 

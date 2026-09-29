@@ -347,7 +347,7 @@ export class UserService {
   /**
    * 在呼叫端的交易內建立帳號、指派角色並寫稽核。呼叫前先 `assertCreatable()`；
    * 交易提交後呼叫 `publishCreated()`。`actor` 為 null：沒有人代為建立
-   * （接受工作區邀請時由本人建立，而邀請人可能已被刪除）。
+   * （外部 IdP 登入時自動建立的帳號）。
    */
   async createAccount(
     input: NewAccount,
@@ -438,9 +438,10 @@ export class UserService {
     }
   }
 
-  /** 角色存在，而且是全域角色：工作區角色只能在工作區裡指派（docs/adr/0018-workspace-tenancy.md D3）。 */
   private async assertRolesExist(roleIds: readonly string[]): Promise<void> {
-    await this.permissionService.assertRoleScope(roleIds, 'platform');
+    if (!roleIds.length) return;
+    const found = await this.repo.findActiveRolesByIds(roleIds);
+    if (found.length !== new Set(roleIds).size) throw new AppException('ROLE_NOT_FOUND');
   }
 
   // ── 帳號狀態與憑證：供 AuthModule 使用 ─────────────────────

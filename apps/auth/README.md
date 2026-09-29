@@ -1,7 +1,7 @@
 # apps/auth
 
-全平台共用、**不分工作區** 的身分與租戶入口（[ADR-0019](../../docs/adr/0019-sso-identity-platform.md)）。
-各產品（backstage、之後的編輯器）的登入都會經過這裡；平台層級的管理（租戶、外部 IdP 連線）也放在這裡。
+全平台共用、**不屬於任何租戶** 的身分入口（[ADR-0019](../../docs/adr/0019-sso-identity-platform.md)）。
+各產品（backstage、之後的編輯器）的登入都會經過這裡；平台層級的管理（外部 IdP 連線；之後的租戶管理，[ADR-0020](../../docs/adr/0020-physical-tenant-isolation.md)）也放在這裡。
 流程、端點與部署見 [`docs/architecture/04-sso.md`](../../docs/architecture/04-sso.md)。
 
 - 只有前端（Vite ＋ React 19），後端 API 由 `apps/api` 提供，經自己 origin 的 `/api` 反向代理（D2）。
@@ -21,11 +21,10 @@ pnpm --filter @b2b-system/auth build
 
 | 路徑 | 說明 |
 | --- | --- |
-| `features/login` | `/interaction/:uid`：**IdP 的登入互動頁**，所有產品的密碼登入都在這裡（D16）；`/error`：provider 的協定錯誤；`/login`、`/callback`：apps/auth 自己的頁面也經 SSO 登入；帳號流程 `/forgot-password`、`/reset-password`、`/setup`、`/register`、`/invitation`（從 backstage 搬過來） |
+| `features/login` | `/interaction/:uid`：**IdP 的登入互動頁**，所有產品的密碼登入都在這裡（D16）；`/error`：provider 的協定錯誤；`/login`、`/callback`：apps/auth 自己的頁面也經 SSO 登入；帳號流程 `/forgot-password`、`/reset-password`、`/setup`、`/register`（從 backstage 搬過來） |
 | `features/home` | `/`：目前登入的身分 |
-| `features/workspace-admin` | `/workspaces`：平台的租戶（工作區）管理（`workspace:*`，從 backstage 搬過來，ADR-0019 D13） |
 | `features/identity-provider` | `/identity-providers`：外部 IdP 連線（`identityProvider:*`，ADR-0019 D8–D11）；只存在 apps/auth |
-| `app/` | 自己寫的 App Shell：`App.tsx`（沒有 session 時導向 `/login`；登出後停在「已登出」頁）、`Layout.tsx`（頁面權限守衛）、`layouts/PlatformLayout.tsx`（沒有工作區切換器） |
+| `app/` | 自己寫的 App Shell：`App.tsx`（沒有 session 時導向 `/login`；登出後停在「已登出」頁）、`Layout.tsx`（頁面權限守衛）、`layouts/PlatformLayout.tsx` |
 
 沒有推播、批次佇列、feature flag、MSW mock 與 Storybook；需要時再從 backstage 帶過來。
 
@@ -42,8 +41,7 @@ pnpm --filter @b2b-system/auth build
 | `apis/auth/` | `get-profile`、`login`、`logout`、`refresh` |
 | 其他 | `themes/`、`assets/icons/`、`index.css`、`public/theme-init.js`、`test/`（setup 與假物件）、`app/GlobalProvider.tsx`、`ToastHost.tsx`、`ConfirmDialogHost.tsx`、`plugin.ts`、`layouts/ThemeMenu.tsx`、`app/locales/*.json` |
 | `features/login` | `hooks/`（`useLogoutMutation`、`useSyncPermissions`、`useSsoCallbackMutation`）、`pages/AuthShell.tsx`、`pages/Login/page.tsx` 與 `pages/SsoCallback/page.tsx`（與 backstage `features/auth` 的同名頁面相同流程，改過文案鍵與路由）、`sso.ts`（client id 不同） |
-| 租戶管理（搬移，backstage 已刪除） | `features/workspace-admin/pages/WorkspaceAdminList`、`apis/workspace/{get-workspace-list,create-workspace,update-workspace,delete-workspace,assign-workspace-admin,types.ts}`；`apis/user/get-user-list`（複製，backstage 的使用者頁也在用）；`apis/resources.ts` 是 apps/auth 自己的精簡版 |
-| 帳號流程（搬移，backstage 已刪除） | `features/login/pages/{ForgotPassword,ResetPassword,Setup,Register,Invitation}`、`apis/auth/{forgot-password,reset-password,setup,register}`、`apis/workspace/{get-workspace-invitation-preview,accept-workspace-invitation,signup-workspace-invitation}`；只存在 apps/auth，不需要同步 |
+| 帳號流程（搬移，backstage 已刪除） | `features/login/pages/{ForgotPassword,ResetPassword,Setup,Register}`、`apis/auth/{forgot-password,reset-password,setup,register}`；只存在 apps/auth，不需要同步。`apis/resources.ts` 是 apps/auth 自己的精簡版 |
 | SSO 的瀏覽器端 | `core/auth/sso.ts`（PKCE、授權網址、verifier）、`apis/auth/sso-callback/`、`shared/constants/env.ts` 的 `OIDC_ISSUER` |
 
 `core/realtime` 與 `components/Table` 目前沒有畫面用到，是被 `core/cache`、`core/store` 依賴而一起帶進來的。

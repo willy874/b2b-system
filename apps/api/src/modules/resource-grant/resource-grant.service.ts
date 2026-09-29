@@ -25,18 +25,16 @@ export class ResourceGrantService {
   constructor(private readonly repo: ResourceGrantRepository) {}
 
   /**
-   * 操作者（本人 ＋ 在這個工作區持有的工作區角色）在這幾種資源上所有未過期的授權。
-   * 上層鏈跨越多種資源時一次取齊；資源 id 都是 uuid，不會撞號。
-   * 資源本身屬於工作區，以 id 比對就不會拿到別的工作區的資源（docs/adr/0018-workspace-tenancy.md D7）。
+   * 操作者（本人 ＋ 持有的角色）在這幾種資源上所有未過期的授權。
+   * 上層鏈跨越多種資源時（例：資料夾 → 專案）一次取齊；資源 id 都是 uuid，不會撞號。
    */
   async grantsFor(
     userId: string,
     resourceTypes: readonly ResourceType[],
-    workspaceId: string,
     tx?: DbOrTx,
     now = new Date(),
   ): Promise<LevelGrant[]> {
-    const roleIds = await this.repo.findRoleIdsOfMember(userId, workspaceId, tx);
+    const roleIds = await this.repo.findRoleIdsOfUser(userId, tx);
     return this.repo.findActiveForSubjects(resourceTypes, { userId, roleIds }, now, tx);
   }
 
@@ -69,22 +67,15 @@ export class ResourceGrantService {
     return this.repo.delete(key, tx);
   }
 
-  /** 對象存在，而且屬於這個工作區（工作區角色，或成員）。 */
-  subjectExists(
-    subjectType: GrantSubjectType,
-    id: string,
-    workspaceId: string,
-    tx?: DbOrTx,
-  ): Promise<boolean> {
-    return this.repo.subjectExists(subjectType, id, workspaceId, tx);
+  subjectExists(subjectType: GrantSubjectType, id: string, tx?: DbOrTx): Promise<boolean> {
+    return this.repo.subjectExists(subjectType, id, tx);
   }
 
   searchSubjects(
     subjectType: GrantSubjectType,
     keyword: string | undefined,
     limit: number,
-    workspaceId: string,
   ): Promise<GrantSubjectRow[]> {
-    return this.repo.searchSubjects(subjectType, keyword, limit, workspaceId);
+    return this.repo.searchSubjects(subjectType, keyword, limit);
   }
 }

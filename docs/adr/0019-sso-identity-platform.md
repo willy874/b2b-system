@@ -1,6 +1,6 @@
 # ADR-0019 — SSO：`apps/api` 當 OIDC Provider、`apps/auth` 當身分與租戶入口
 
-- 狀態：**採用**
+- 狀態：**採用**（D1、D9、D12、D13 被 [ADR-0020](./0020-physical-tenant-isolation.md) 修改：帳號分屬各租戶 DB、外部 IdP 屬於租戶、授權帶 `tenant`、租戶管理之外的工作區頁面移除）
 - 日期：2026-09-29
 - 相關：[ADR-0004](./0004-jwt-with-rotating-refresh-token.md)（app session 不變）、[ADR-0005](./0005-permission-resolved-server-side.md)、
   [ADR-0018](./0018-workspace-tenancy.md)（工作區不進身分，D8）、[`../architecture/04-sso.md`](../architecture/04-sso.md)（做出來的樣子）

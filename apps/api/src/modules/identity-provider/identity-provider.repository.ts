@@ -16,7 +16,6 @@ export interface ProviderWithDomains extends IdentityProviderRow {
 }
 
 // 單表 select 時 Drizzle 把 ${identityProviders.id} 輸出成不帶表名的 "id"；明確寫出表名才會關聯到外層
-// （同 workspace.repository.ts 的 OUTER_WORKSPACE_ID）
 const OUTER_PROVIDER_ID = sql`${identityProviders}.${sql.identifier(identityProviders.id.name)}`;
 
 const DOMAIN_AGGREGATE = sql<ProviderDomain[]>`COALESCE(

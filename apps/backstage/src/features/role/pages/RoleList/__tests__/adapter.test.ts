@@ -10,7 +10,6 @@ const role: Role = {
   name: '內容編輯',
   description: null,
   isSystem: false,
-  scope: 'platform',
   permissionCount: 2,
   userCount: 1,
   createdAt: '2026-09-19T02:10:00.000Z',

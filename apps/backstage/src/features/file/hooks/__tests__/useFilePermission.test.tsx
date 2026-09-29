@@ -13,11 +13,7 @@ beforeEach(() => {
 });
 
 function hydrate(keys: PermissionKey[]): void {
-  usePermissionStore.setState({
-    permissions: new Set(keys),
-    hydrated: true,
-    workspaceHydrated: true,
-  });
+  usePermissionStore.setState({ permissions: new Set(keys), hydrated: true });
 }
 
 describe('useFilePermission（docs/architecture/frontend/12-file-manager.md §13）', () => {

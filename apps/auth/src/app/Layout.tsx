@@ -16,7 +16,6 @@ const BARE_PREFIXES = [
   '/reset-password',
   '/setup',
   '/register',
-  '/invitation',
 ];
 
 function PageFallback() {

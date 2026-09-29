@@ -6,7 +6,7 @@ import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import type { DomainEventMeta, DomainEventPayloads } from '@/core/events';
 
-import { missingWorkspace, RealtimeAudience, resolveAudienceRooms } from './realtime.audience';
+import { RealtimeAudience, resolveAudienceRooms } from './realtime.audience';
 import { RealtimePublisher } from './realtime.publisher';
 import { idpSessionRoom, userRoom } from './realtime.rooms';
 
@@ -58,23 +58,12 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
 
   /** 依來源 → 受眾表推播；`origin` 讓發起的分頁略過（§6.1、§7.1）。 */
   onResourceChanged(
-    {
-      changes,
-      affectedUserIds,
-      workspaceId,
-    }: DomainEventPayloads[typeof DomainEvent.RESOURCE_CHANGED],
+    { changes, affectedUserIds }: DomainEventPayloads[typeof DomainEvent.RESOURCE_CHANGED],
     meta: DomainEventMeta,
   ): void {
     if (!changes.length) return;
-    if (missingWorkspace(changes, workspaceId)) {
-      // 發佈端漏帶 workspaceId：寧可不推給工作區的讀者，也不要推錯工作區
-      this.logger.warn(
-        { resources: changes.map((c) => c.resource) },
-        '工作區範圍的變更沒有 workspaceId，略過工作區的受眾',
-      );
-    }
 
-    const rooms = resolveAudienceRooms(changes, affectedUserIds, workspaceId);
+    const rooms = resolveAudienceRooms(changes, affectedUserIds);
     // 沒有受眾就不推（原則 4：只推給看得到的人）
     if (!rooms.length) return;
     const payload: ResourceChanged = meta.clientId

@@ -121,14 +121,14 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 | `version` | integer | 樂觀鎖，每次改名遞增（§6.2）。不用 `updated_at` 比對：它是微秒精度，經過 JSON（毫秒）來回就對不上 |
 | `created_*` / `updated_*` / `deleted_at` | | 慣例欄位；`updated_at` 由 trigger 維護；刪除是軟刪除 |
 
-約束（migration `0006_files.sql`，整合測試證明擋得住）：
+約束（schema 的 `check()`，在 migration `0000_baseline.sql`；整合測試證明擋得住）：
 
 - `files_size_non_negative`：`size >= 0`
 - `files_ready_confirmed`：`status = 'pending'` 或（`etag` 與 `uploaded_at` 都有值）——沒經過物件儲存確認的 `ready` 不可能存在
 - `files_storage_key_key`：`storage_key` 唯一
-- `files_variant_ready_described`：`variant_status <> 'ready'` 或（尺寸與主格式都有值）（migration `0008_file_image_variants.sql`）
+- `files_variant_ready_described`：`variant_status <> 'ready'` 或（尺寸與主格式都有值）
 
-索引（migration `0007_file_manager.sql`；都只涵蓋 `deleted_at IS NULL`）：
+索引（都只涵蓋 `deleted_at IS NULL`）：
 
 | 索引 | 用途 |
 | --- | --- |
@@ -152,7 +152,7 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 
 ### 4.2 資料夾：`file_folders`
 
-檔案管理器的分類（migration `0009_file_folders.sql`）。資料夾只是分類：與物件儲存的 key 無關，移動、改名都不必搬物件。
+檔案管理器的分類。資料夾只是分類：與物件儲存的 key 無關，移動、改名都不必搬物件。
 
 | 欄位 | 型別 | 說明 |
 | --- | --- | --- |
@@ -290,7 +290,7 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   在那之前 `thumbnailUrl` 是瀏覽器縮圖（有的話），LightBox 用原圖。
 - **失敗**：解碼失敗（損毀、超過 128 MiB 或 1 億像素）→ `failed`，不再重試，前端退回瀏覽器縮圖或類型圖示；
   儲存服務暫時不可用 → 維持 `pending`，由維護排程（§9）在 5 分鐘後重新排入。執行個體在產生途中重啟同理。
-- **既有資料**：migration `0008` 把已完成的圖片標成 `pending`，由維護排程逐批補產生。
+- **補產生**：`variant_status = 'pending'` 的圖片由維護排程逐批補產生。
 - **影像處理在 api 內**（`core/image` 的 `ImageProcessor`，實作是 sharp）：sharp 是預編譯的原生套件，
   平台二進位檔隨 `@img/sharp-*` 安裝（macOS、Linux glibc / musl 都有），不需要編譯環境。取捨見 [ADR-0014](../../adr/0014-server-image-variants.md)。
 
@@ -568,8 +568,8 @@ FileAccessService（modules/file）
 | 中斷繼承 | `file_folders.inherit_grants`；設成 `false` 時在同一個交易內把目前繼承到的授權複製成直接授權 |
 | 授權對象 | 解析與清單都 join 未刪除的 `roles` / `users`：刪除角色或使用者不必清授權列 |
 
-資料表：`resource_grants`（migration `0010_resource_grants.sql`）、`file_folders.inherit_grants`（`0011_file_folder_access.sql`）、
-系統資料夾 `file_folders.kind` / `owner_id` 與授權對象 `everyone`（`0013_file_system_folders.sql`）。
+資料表：`resource_grants`、`file_folders.inherit_grants`、
+系統資料夾 `file_folders.kind` / `owner_id` 與授權對象 `everyone`（schema 在 `db/schema/`，migration 見 [`02-database.md`](./02-database.md) §5.2）。
 
 系統資料夾由 `FileSystemFolderService` 維護：`onApplicationBootstrap` 確保共用／私人資料夾存在並補建個人資料夾；
 訂閱 `permissions.changed` 為取得檔案管理器權限的使用者建立個人資料夾；訂閱 `resource.changed` 的 `user delete`，

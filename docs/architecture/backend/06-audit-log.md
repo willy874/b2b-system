@@ -307,7 +307,7 @@ pnpm db:archive-audit-logs   # 與排程工作呼叫同一個函式（modules/au
 短交易（鎖定 → 複製 → 刪除），兩個排程重疊時 `SKIP LOCKED` 讓它們不互搶。
 搬移中斷也安全：沒搬完的列還在熱表，查詢規則（§7.2）本來就會把它們算進去。
 
-`archive_audit_logs()` 是 `SECURITY DEFINER`（migration `0014`，[ADR-0016](../../adr/0016-background-jobs.md) D8）：
+`archive_audit_logs()` 是 `SECURITY DEFINER`（migration `0001_functions_and_triggers.sql`，[ADR-0016](../../adr/0016-background-jobs.md) D8）：
 以擁有資料表的 role 執行，所以應用程式的 role 不需要 `audit_logs` 的 DELETE 就能搬移；
 熱表的刪除 trigger 仍要求冷表有完全相同的副本，函式也做不了別的事。`search_path` 固定為
 `public, pg_temp`，避免呼叫端以同名物件劫持。`EXECUTE` 維持預設的 `PUBLIC`（role 名稱依部署而定）；

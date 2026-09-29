@@ -9,7 +9,6 @@ Routes.ForgotPasswordRoute.update({ component: Pages.AsyncForgotPasswordPage });
 Routes.ResetPasswordRoute.update({ component: Pages.AsyncResetPasswordPage });
 Routes.SetupRoute.update({ component: Pages.AsyncSetupPage });
 Routes.RegisterRoute.update({ component: Pages.AsyncRegisterPage });
-Routes.InvitationRoute.update({ component: Pages.AsyncInvitationPage });
 
 export { Routes };
 export { appContextPlugin as loginFeaturePlugin } from './plugin';

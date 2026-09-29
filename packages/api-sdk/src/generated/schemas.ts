@@ -4,13 +4,10 @@
 import { z } from 'zod';
 
 import type {
-  AcceptWorkspaceInvitationRequest,
-  AcceptedWorkspaceInvitation,
   ApprovalRequest,
   ApprovalStatus,
   ApprovalType,
   ApproveApprovalRequest,
-  AssignWorkspaceAdminRequest,
   AuditLog,
   AuditLogSummary,
   ChangePasswordRequest,
@@ -22,8 +19,6 @@ import type {
   CreateIdentityProviderRequest,
   CreateRoleRequest,
   CreateUserRequest,
-  CreateWorkspaceInvitationRequest,
-  CreateWorkspaceRequest,
   DuplicateRoleRequest,
   EnsureFileFolderPathsRequest,
   FileAccessRequest,
@@ -56,13 +51,10 @@ import type {
   LoginRequest,
   MoveFileItemsRequest,
   MoveFileItemsResult,
-  MyWorkspace,
-  MyWorkspaceList,
   Permission,
   PermissionCatalog,
   PermissionGroup,
   PermissionKey,
-  PermissionScope,
   Profile,
   RegisterRequest,
   RegisterResult,
@@ -77,7 +69,6 @@ import type {
   Session,
   SetFileFolderGrantRequest,
   SetupRequest,
-  SignupWorkspaceInvitationRequest,
   SsoCallbackRequest,
   SsoDiscovery,
   SsoInteraction,
@@ -94,22 +85,9 @@ import type {
   UpdateRolePermissionsRequest,
   UpdateRoleRequest,
   UpdateUserRequest,
-  UpdateWorkspaceMemberRolesRequest,
-  UpdateWorkspaceRequest,
   User,
   UserRoles,
   UserStatus,
-  Workspace,
-  WorkspaceAdmin,
-  WorkspaceDetail,
-  WorkspaceInvitation,
-  WorkspaceInvitationList,
-  WorkspaceInvitationPreview,
-  WorkspaceMe,
-  WorkspaceMember,
-  WorkspaceMemberRoles,
-  WorkspaceRole,
-  WorkspaceRoleList,
 } from './models';
 
 export const ApprovalStatusSchema = z.enum([
@@ -380,24 +358,11 @@ export const PermissionKeySchema = z.enum([
   'file:share',
   'job:read',
   'job:retry',
-  'workspace:create',
-  'workspace:read',
-  'workspace:update',
-  'workspace:delete',
-  'workspaceMember:read',
-  'workspaceMember:create',
-  'workspaceMember:delete',
-  'workspaceMember:assignRole',
   'identityProvider:create',
   'identityProvider:read',
   'identityProvider:update',
   'identityProvider:delete',
 ]) satisfies z.ZodType<PermissionKey>;
-
-export const PermissionScopeSchema = z.enum([
-  'platform',
-  'workspace',
-]) satisfies z.ZodType<PermissionScope>;
 
 export const PermissionSchema = z.object({
   id: z
@@ -410,7 +375,6 @@ export const PermissionSchema = z.object({
   key: PermissionKeySchema,
   resource: z.string(),
   action: z.string(),
-  scope: PermissionScopeSchema,
   nameI18nKey: z.string(),
   description: z.string().nullable(),
   sortOrder: z.int().min(-9007199254740991).max(9007199254740991),
@@ -871,12 +835,6 @@ export const MoveFileItemsResultSchema = z.object({
   movedFolders: z.int().min(-9007199254740991).max(9007199254740991),
 }) satisfies z.ZodType<MoveFileItemsResult>;
 
-export const GetFileImageQuerySchema = z.object({
-  exp: z.int().max(9007199254740991).gt(0),
-  sig: z.string().min(1).max(100),
-  format: z.enum(['jpeg', 'webp', 'avif', 'png', 'auto']).optional(),
-}) satisfies z.ZodType<GetFileImageQuery>;
-
 export const FileUploaderSchema = z.object({
   id: z
     .uuid()
@@ -984,6 +942,12 @@ export const FileUploadPolicySchema = z.object({
   thumbnailContentTypes: z.array(z.string()),
 }) satisfies z.ZodType<FileUploadPolicy>;
 
+export const GetFileImageQuerySchema = z.object({
+  exp: z.int().max(9007199254740991).gt(0),
+  sig: z.string().min(1).max(100),
+  format: z.enum(['jpeg', 'webp', 'avif', 'png', 'auto']).optional(),
+}) satisfies z.ZodType<GetFileImageQuery>;
+
 export const UpdateFileRequestSchema = z.object({
   name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
   version: z.int().min(1).max(9007199254740991).optional(),
@@ -1032,7 +996,6 @@ export const JobSchema = z.object({
 export const CreateRoleRequestSchema = z.object({
   name: z.string().min(1).max(64),
   description: z.string().max(500).optional(),
-  scope: PermissionScopeSchema.default('platform'),
   permissionKeys: z.array(PermissionKeySchema).max(100).default([]),
 }) satisfies z.ZodType<CreateRoleRequest>;
 
@@ -1052,7 +1015,6 @@ export const RoleSchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   isSystem: z.boolean(),
-  scope: PermissionScopeSchema,
   permissionCount: z.int().min(-9007199254740991).max(9007199254740991),
   userCount: z.int().min(-9007199254740991).max(9007199254740991),
   createdAt: z.string(),
@@ -1085,241 +1047,3 @@ export const UpdateRolePermissionsRequestSchema = z.object({
   add: z.array(PermissionKeySchema).max(100).default([]),
   remove: z.array(PermissionKeySchema).max(100).default([]),
 }) satisfies z.ZodType<UpdateRolePermissionsRequest>;
-
-export const WorkspaceSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  slug: z.string(),
-  name: z.string(),
-  description: z.string().nullable(),
-  memberCount: z.int().min(-9007199254740991).max(9007199254740991),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-}) satisfies z.ZodType<Workspace>;
-
-export const WorkspaceAdminSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  email: z.string(),
-  displayName: z.string(),
-}) satisfies z.ZodType<WorkspaceAdmin>;
-
-export const WorkspaceDetailSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  slug: z.string(),
-  name: z.string(),
-  description: z.string().nullable(),
-  memberCount: z.int().min(-9007199254740991).max(9007199254740991),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  admins: z.array(WorkspaceAdminSchema),
-}) satisfies z.ZodType<WorkspaceDetail>;
-
-export const CreateWorkspaceRequestSchema = z.object({
-  name: z.string().min(1).max(64),
-  slug: z.string().regex(new RegExp('^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$')).optional(),
-  description: z.string().max(500).optional(),
-  adminUserId: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-}) satisfies z.ZodType<CreateWorkspaceRequest>;
-
-export const UpdateWorkspaceRequestSchema = z.object({
-  name: z.string().min(1).max(64).optional(),
-  description: z.string().max(500).nullable().optional(),
-}) satisfies z.ZodType<UpdateWorkspaceRequest>;
-
-export const AssignWorkspaceAdminRequestSchema = z.object({
-  userId: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-}) satisfies z.ZodType<AssignWorkspaceAdminRequest>;
-
-export const MyWorkspaceSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  slug: z.string(),
-  name: z.string(),
-  description: z.string().nullable(),
-  isMember: z.boolean(),
-  lastAccessedAt: z.string().nullable(),
-}) satisfies z.ZodType<MyWorkspace>;
-
-export const MyWorkspaceListSchema = z.object({
-  items: z.array(MyWorkspaceSchema),
-}) satisfies z.ZodType<MyWorkspaceList>;
-
-export const WorkspaceMeSchema = z.object({
-  workspace: MyWorkspaceSchema,
-  roles: z.array(RoleSummarySchema),
-  permissions: z.array(PermissionKeySchema),
-}) satisfies z.ZodType<WorkspaceMe>;
-
-export const WorkspaceMemberSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  email: z.string(),
-  displayName: z.string(),
-  status: UserStatusSchema,
-  roles: z.array(RoleSummarySchema),
-  joinedAt: z.string(),
-}) satisfies z.ZodType<WorkspaceMember>;
-
-export const UpdateWorkspaceMemberRolesRequestSchema = z.object({
-  roleIds: z
-    .array(
-      z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-    )
-    .max(50),
-}) satisfies z.ZodType<UpdateWorkspaceMemberRolesRequest>;
-
-export const WorkspaceMemberRolesSchema = z.object({
-  roles: z.array(RoleSummarySchema),
-}) satisfies z.ZodType<WorkspaceMemberRoles>;
-
-export const WorkspaceRoleSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  slug: z.string(),
-  name: z.string(),
-  description: z.string().nullable(),
-  isSystem: z.boolean(),
-  permissions: z.array(PermissionKeySchema),
-}) satisfies z.ZodType<WorkspaceRole>;
-
-export const WorkspaceRoleListSchema = z.object({
-  items: z.array(WorkspaceRoleSchema),
-}) satisfies z.ZodType<WorkspaceRoleList>;
-
-export const CreateWorkspaceInvitationRequestSchema = z.object({
-  email: z
-    .email()
-    .max(255)
-    .regex(
-      new RegExp(
-        "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
-      ),
-    ),
-  roleIds: z
-    .array(
-      z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-    )
-    .max(50),
-}) satisfies z.ZodType<CreateWorkspaceInvitationRequest>;
-
-export const WorkspaceInvitationSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  email: z.string(),
-  roles: z.array(RoleSummarySchema),
-  invitedBy: z
-    .object({
-      id: z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-      displayName: z.string(),
-    })
-    .nullable(),
-  hasAccount: z.boolean(),
-  createdAt: z.string(),
-  expiresAt: z.string(),
-  isExpired: z.boolean(),
-}) satisfies z.ZodType<WorkspaceInvitation>;
-
-export const WorkspaceInvitationListSchema = z.object({
-  items: z.array(WorkspaceInvitationSchema),
-}) satisfies z.ZodType<WorkspaceInvitationList>;
-
-export const WorkspaceInvitationPreviewSchema = z.object({
-  email: z.string(),
-  workspaceName: z.string(),
-  inviterName: z.string().nullable(),
-  hasAccount: z.boolean(),
-  expiresAt: z.string(),
-}) satisfies z.ZodType<WorkspaceInvitationPreview>;
-
-export const AcceptWorkspaceInvitationRequestSchema = z.object({
-  token: z.string().min(10).max(200),
-}) satisfies z.ZodType<AcceptWorkspaceInvitationRequest>;
-
-export const SignupWorkspaceInvitationRequestSchema = z.object({
-  token: z.string().min(10).max(200),
-  displayName: z.string().min(1).max(100),
-  password: z.string().min(12).max(128),
-}) satisfies z.ZodType<SignupWorkspaceInvitationRequest>;
-
-export const AcceptedWorkspaceInvitationSchema = z.object({
-  email: z.string(),
-  workspace: z.object({
-    id: z
-      .uuid()
-      .regex(
-        new RegExp(
-          '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-        ),
-      ),
-    slug: z.string(),
-    name: z.string(),
-  }),
-  workspaceUrl: z.url(),
-}) satisfies z.ZodType<AcceptedWorkspaceInvitation>;

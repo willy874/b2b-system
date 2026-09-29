@@ -7,7 +7,6 @@ import { Field } from '@/components/Field';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
 import { useTranslation } from '@/core/locales';
-import { useRequiredWorkspace } from '@/core/workspace';
 
 import {
   FILE_GRANT_LEVEL_HINT_KEY,
@@ -27,7 +26,6 @@ interface FileAccessRequestDialogProps {
  * 送到資料夾的管理者與系統管理員；核准後自動取得申請的等級。
  */
 export function FileAccessRequestDialog({ folder, onClose }: FileAccessRequestDialogProps) {
-  const { id: workspaceId } = useRequiredWorkspace();
   const { t } = useTranslation();
   const request = useFileAccessRequestMutation();
   const [level, setLevel] = useState<FileGrantLevel>('viewer');
@@ -43,13 +41,7 @@ export function FileAccessRequestDialog({ folder, onClose }: FileAccessRequestDi
   const submit = () => {
     if (!folder) return;
     request.mutate(
-      {
-        params: {
-          workspaceId,
-          folderId: folder.id,
-          body: { level, reason: reason.trim() || undefined },
-        },
-      },
+      { params: { folderId: folder.id, body: { level, reason: reason.trim() || undefined } } },
       { onSuccess: onClose },
     );
   };

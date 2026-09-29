@@ -1,5 +1,3 @@
-import { createRoute, redirect } from '@tanstack/react-router';
-
 import { RootRoute } from '@/core/router';
 import { Routes as AccountRoutes } from '@/features/account';
 import { Routes as ApprovalRoutes } from '@/features/approval';
@@ -11,24 +9,10 @@ import { Routes as JobRoutes } from '@/features/job';
 import { Routes as PermissionRoutes } from '@/features/permission';
 import { Routes as RoleRoutes } from '@/features/role';
 import { Routes as UserRoutes } from '@/features/user';
-import { Routes as WorkspaceRoutes } from '@/features/workspace';
 
 import { Layout } from './Layout';
 
 RootRoute.update({ component: Layout });
-
-/** `/w/:workspaceSlug` 本身沒有內容：進到工作區的預設頁（檔案管理器）。 */
-const WorkspaceIndexRoute = createRoute({
-  getParentRoute: () => WorkspaceRoutes.WorkspaceRoute,
-  path: '/',
-  beforeLoad: ({ params }) => {
-    throw redirect({
-      to: '/w/$workspaceSlug/file',
-      params: { workspaceSlug: (params as { workspaceSlug: string }).workspaceSlug },
-      replace: true,
-    });
-  },
-});
 
 /** 只組裝，不實作業務。 */
 export const routeTree = RootRoute.addChildren([
@@ -46,11 +30,7 @@ export const routeTree = RootRoute.addChildren([
   PermissionRoutes.PermissionListRoute,
   AuditLogRoutes.AuditLogListRoute,
   ApprovalRoutes.ApprovalListRoute.addChildren([ApprovalRoutes.ApprovalDetailRoute]),
-  WorkspaceRoutes.WorkspaceRoute.addChildren([
-    WorkspaceIndexRoute,
-    FileRoutes.FileListRoute,
-    WorkspaceRoutes.WorkspaceMembersRoute,
-  ]),
+  FileRoutes.FileListRoute,
   JobRoutes.JobListRoute,
   AccountRoutes.ProfileRoute,
   AccountRoutes.PreferenceRoute,

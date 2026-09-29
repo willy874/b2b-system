@@ -8,7 +8,6 @@ import {
   Public,
   RequireAnyPermission,
   RequirePermissions,
-  WorkspaceScoped,
 } from '@/common/decorators';
 import type { PermissionKey } from '@/common/types';
 import { AppException } from '@/core/errors';
@@ -205,95 +204,5 @@ describe('PermissionsGuard（WebSocket，docs/architecture/backend/08-realtime.m
       .canActivate(createWsContext('updateRole', {}))
       .catch((caught: unknown) => caught);
     expect((error as WsException).getError()).toMatchObject({ code: 'AUTH_TOKEN_INVALID' });
-  });
-});
-
-@WorkspaceScoped()
-class WorkspaceController {
-  @Authenticated()
-  me(): void {}
-
-  @RequirePermissions('file:read')
-  listFiles(): void {}
-}
-
-const WORKSPACE_ID = '99999999-9999-4999-8999-999999999999';
-
-function createWorkspaceContext(method: keyof WorkspaceController, workspaceId = WORKSPACE_ID) {
-  const instance = new WorkspaceController();
-  const req: Record<string, unknown> = {
-    method: 'GET',
-    path: `/workspaces/${workspaceId}/files`,
-    route: { path: '/workspaces/:workspaceId/files' },
-    params: { workspaceId },
-    user: { id: 'user-1', email: 'a@example.com', status: 'active' },
-  };
-  const context = {
-    getType: () => 'http',
-    getHandler: () => instance[method] as () => void,
-    getClass: () => WorkspaceController,
-    switchToHttp: () => ({ getRequest: () => req }),
-  } as unknown as ExecutionContext;
-  return { context, req };
-}
-
-function createWorkspaceGuard(set: {
-  permissions: PermissionKey[];
-  canEnter: boolean;
-  isSuperAdmin?: boolean;
-}) {
-  const permissionService = {
-    getPermissionSet: vi.fn(),
-    getWorkspacePermissionSet: vi.fn().mockResolvedValue({
-      permissions: new Set(set.permissions),
-      isSuperAdmin: set.isSuperAdmin ?? false,
-      canEnter: set.canEnter,
-    }),
-  };
-  const audit = { recordSafely: vi.fn().mockResolvedValue(undefined) };
-  const guard = new PermissionsGuard(
-    new Reflector(),
-    permissionService as unknown as PermissionService,
-    audit as unknown as AuditService,
-  );
-  return { guard, permissionService };
-}
-
-describe('PermissionsGuard（工作區範圍，docs/adr/0018-workspace-tenancy.md D9）', () => {
-  it('成員：以 P(u, W) 判斷權限鍵，並把 WorkspaceScope 寫進 request', async () => {
-    const { guard, permissionService } = createWorkspaceGuard({
-      permissions: ['file:read'],
-      canEnter: true,
-    });
-    const { context, req } = createWorkspaceContext('listFiles');
-    await expect(guard.canActivate(context)).resolves.toBe(true);
-    expect(permissionService.getWorkspacePermissionSet).toHaveBeenCalledWith(
-      'user-1',
-      WORKSPACE_ID,
-    );
-    expect(permissionService.getPermissionSet).not.toHaveBeenCalled();
-    expect(req.workspace).toEqual({ workspaceId: WORKSPACE_ID });
-  });
-
-  it('不能進入 → WORKSPACE_NOT_FOUND（@Authenticated 的工作區路由也一樣）', async () => {
-    const { guard } = createWorkspaceGuard({ permissions: [], canEnter: false });
-    await expect(guard.canActivate(createWorkspaceContext('me').context)).rejects.toMatchObject({
-      code: 'WORKSPACE_NOT_FOUND',
-    });
-  });
-
-  it('工作區 id 不是 uuid → WORKSPACE_NOT_FOUND，不查資料庫', async () => {
-    const { guard, permissionService } = createWorkspaceGuard({ permissions: [], canEnter: true });
-    await expect(
-      guard.canActivate(createWorkspaceContext('me', 'not-a-uuid').context),
-    ).rejects.toMatchObject({ code: 'WORKSPACE_NOT_FOUND' });
-    expect(permissionService.getWorkspacePermissionSet).not.toHaveBeenCalled();
-  });
-
-  it('成員但缺權限鍵 → AUTHZ_FORBIDDEN', async () => {
-    const { guard } = createWorkspaceGuard({ permissions: [], canEnter: true });
-    await expect(
-      guard.canActivate(createWorkspaceContext('listFiles').context),
-    ).rejects.toMatchObject({ code: 'AUTHZ_FORBIDDEN' });
   });
 });

@@ -25,11 +25,6 @@ export interface DomainEventPayloads {
     changes: ResourceChangeWire[];
     /** 本人或角色持有者：除了 perm room 之外也要收到的人。 */
     affectedUserIds?: string[];
-    /**
-     * 工作區範圍的來源（檔案、資料夾、成員）必填：只推給這個工作區的 room
-     * （docs/adr/0018-workspace-tenancy.md D16）。
-     */
-    workspaceId?: string;
   };
   [DomainEvent.PERMISSIONS_CHANGED]: { userIds: string[] };
   /**

@@ -6,7 +6,6 @@ import {
   getFileListQueryOptions,
 } from '@/apis/file/get-file-list/query';
 import type { FileListFilters } from '@/apis/file/types';
-import { useRequiredWorkspace } from '@/core/workspace';
 import type { StoredFile } from '@/shared/api-sdk';
 
 import type { FilePagingMode } from '../../preference';
@@ -37,13 +36,12 @@ export function useFileListData({
   pageSize,
   enabled = true,
 }: UseFileListDataOptions) {
-  const { id: workspaceId } = useRequiredWorkspace();
   const paged = useQuery({
-    ...getFileListQueryOptions({ params: { workspaceId, ...filters, offset, limit: pageSize } }),
+    ...getFileListQueryOptions({ params: { ...filters, offset, limit: pageSize } }),
     enabled: enabled && mode === 'pagination',
   });
   const infinite = useInfiniteQuery({
-    ...getFileInfiniteListQueryOptions({ params: { workspaceId, filters, limit: pageSize } }),
+    ...getFileInfiniteListQueryOptions({ params: { filters, limit: pageSize } }),
     enabled: enabled && mode === 'infinite',
   });
 

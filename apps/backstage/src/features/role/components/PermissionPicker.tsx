@@ -1,12 +1,9 @@
 import { Checkbox } from '@/components/Checkbox';
 import { useTranslation } from '@/core/locales';
-import type { PermissionScope } from '@/shared/api-sdk';
 
 import { useGrantablePermissions } from '../hooks/useGrantablePermissions';
 
 export interface PermissionPickerProps {
-  /** 角色的範圍：只列同範圍的權限鍵。 */
-  scope: PermissionScope;
   selected: Set<string>;
   onToggle: (key: string, checked: boolean) => void;
   disabled?: boolean;
@@ -17,15 +14,9 @@ export interface PermissionPickerProps {
  * 反提權：未持有的權限顯示為 disabled ＋ 說明，不隱藏——
  * 隱藏會讓管理員以為系統沒有這個權限。
  */
-export function PermissionPicker({
-  scope,
-  selected,
-  onToggle,
-  disabled,
-  ...rest
-}: PermissionPickerProps) {
+export function PermissionPicker({ selected, onToggle, disabled, ...rest }: PermissionPickerProps) {
   const { t } = useTranslation();
-  const { groups, items, isGrantable, loading } = useGrantablePermissions(scope);
+  const { groups, items, isGrantable, loading } = useGrantablePermissions();
 
   if (loading) return <p className="text-sm text-[var(--color-fg-muted)]">{t('common.loading')}</p>;
 

@@ -78,11 +78,3 @@ export const RegisterRoute = createRoute({
   path: '/register',
   loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
 });
-
-/** 接受工作區邀請（docs/adr/0018-workspace-tenancy.md D14）。 */
-export const InvitationRoute = createRoute({
-  getParentRoute: () => RootRoute,
-  path: '/invitation',
-  loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
-  validateSearch: TokenSearchSchema,
-});

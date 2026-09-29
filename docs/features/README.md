@@ -17,7 +17,7 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P0 | 工作區／多租戶 | [`workspace.md`](./workspace.md) | 實作中 | — |
+| P0 | 租戶實體隔離 | [`tenant-isolation.md`](./tenant-isolation.md) | 實作中 | — |
 | P1 | 站內通知中心 | [`notification-center.md`](./notification-center.md) | 提案 | — |
 | P1 | 系統設定（執行期可調） | [`system-settings.md`](./system-settings.md) | 提案 | — |
 | P2 | 版本歷史與軟刪除 | [`entity-revisions.md`](./entity-revisions.md) | 提案 | — |

@@ -1,7 +1,7 @@
 import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
-import type { AuthUser, WorkspaceScope } from '@/common/types';
+import type { AuthUser } from '@/common/types';
 import type { Database, DbOrTx } from '@/core/database';
 import { DRIZZLE, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
@@ -50,27 +50,21 @@ export class FileFolderGrantService {
   ) {}
 
   /** 直接授權 ＋ 從上層繼承來的授權（標出來源資料夾）。 */
-  async list(
-    ws: WorkspaceScope,
-    folderId: string,
-    actor: AuthUser,
-  ): Promise<FileFolderGrantListDto> {
-    const ctx = await this.access.contextFor(ws, actor);
-    await this.assertCanShare(ws, ctx, actor, folderId);
-    return this.buildList(ws, ctx, folderId);
+  async list(folderId: string, actor: AuthUser): Promise<FileFolderGrantListDto> {
+    const ctx = await this.access.contextFor(actor);
+    await this.assertCanShare(ctx, actor, folderId);
+    return this.buildList(ctx, folderId);
   }
 
   async set(
-    ws: WorkspaceScope,
     folderId: string,
     dto: SetFileFolderGrantDto,
     actor: AuthUser,
   ): Promise<FileFolderGrantListDto> {
-    await this.writeGrants(ws, async (tx) => {
-      const ctx = await this.access.contextFor(ws, actor, tx);
-      const folder = await this.assertCanShare(ws, ctx, actor, folderId, tx);
-      // 對象必須屬於這個工作區：工作區角色、或成員（docs/adr/0018-workspace-tenancy.md D7）
-      if (!(await this.grants.subjectExists(dto.subjectType, dto.subjectId, ws.workspaceId, tx))) {
+    await this.writeGrants(async (tx) => {
+      const ctx = await this.access.contextFor(actor, tx);
+      const folder = await this.assertCanShare(ctx, actor, folderId, tx);
+      if (!(await this.grants.subjectExists(dto.subjectType, dto.subjectId, tx))) {
         throw new AppException('FILE_GRANT_SUBJECT_NOT_FOUND', {
           subjectType: dto.subjectType,
           subjectId: dto.subjectId,
@@ -104,21 +98,20 @@ export class FileFolderGrantService {
         tx,
       );
     });
-    this.publish(ws, folderId);
+    this.publish(folderId);
     // 授權變了，操作者的能力也可能變（例：授予自己的角色）：以寫入後的狀態重新解析
-    return this.buildList(ws, await this.access.contextFor(ws, actor), folderId);
+    return this.buildList(await this.access.contextFor(actor), folderId);
   }
 
   async revoke(
-    ws: WorkspaceScope,
     folderId: string,
     subjectType: FileGrantSubjectType,
     subjectId: string,
     actor: AuthUser,
   ): Promise<void> {
-    await this.writeGrants(ws, async (tx) => {
-      const ctx = await this.access.contextFor(ws, actor, tx);
-      const folder = await this.assertCanShare(ws, ctx, actor, folderId, tx);
+    await this.writeGrants(async (tx) => {
+      const ctx = await this.access.contextFor(actor, tx);
+      const folder = await this.assertCanShare(ctx, actor, folderId, tx);
       const key = this.keyOf(folderId, subjectType, subjectId);
       const existing = await this.grants.find(key, tx);
       if (!existing) throw new AppException('FILE_GRANT_NOT_FOUND', { subjectType, subjectId });
@@ -136,7 +129,7 @@ export class FileFolderGrantService {
         tx,
       );
     });
-    this.publish(ws, folderId);
+    this.publish(folderId);
   }
 
   /**
@@ -145,19 +138,17 @@ export class FileFolderGrantService {
    * 複製不是授予新的存取，不受反提權限制。
    */
   async setInheritance(
-    ws: WorkspaceScope,
     folderId: string,
     dto: UpdateFileFolderAccessDto,
     actor: AuthUser,
   ): Promise<FileFolderGrantListDto> {
-    await this.writeGrants(ws, async (tx) => {
-      const ctx = await this.access.contextFor(ws, actor, tx);
-      const folder = await this.assertCanShare(ws, ctx, actor, folderId, tx);
+    await this.writeGrants(async (tx) => {
+      const ctx = await this.access.contextFor(actor, tx);
+      const folder = await this.assertCanShare(ctx, actor, folderId, tx);
       if (folder.inheritGrants === dto.inheritGrants) return;
 
       const copied = dto.inheritGrants ? [] : await this.copyInherited(ctx, folderId, actor, tx);
       await this.folders.setInheritGrants(
-        ws,
         folderId,
         { inheritGrants: dto.inheritGrants, updatedBy: actor.id },
         tx,
@@ -176,27 +167,22 @@ export class FileFolderGrantService {
         tx,
       );
     });
-    this.publish(ws, folderId);
-    return this.buildList(ws, await this.access.contextFor(ws, actor), folderId);
+    this.publish(folderId);
+    return this.buildList(await this.access.contextFor(actor), folderId);
   }
 
-  /**
-   * 候選對象：只回 id 與名稱，管理授權的人不需要 `role:read` / `user:read`（§6.2）。
-   * 只列這個工作區的工作區角色與成員。
-   */
+  /** 候選對象：只回 id 與名稱，管理授權的人不需要 `role:read` / `user:read`（§6.2）。 */
   async searchSubjects(
-    ws: WorkspaceScope,
     folderId: string,
     query: ListFileGrantSubjectsDto,
     actor: AuthUser,
   ): Promise<FileGrantSubjectListDto> {
-    const ctx = await this.access.contextFor(ws, actor);
-    await this.assertCanShare(ws, ctx, actor, folderId);
+    const ctx = await this.access.contextFor(actor);
+    await this.assertCanShare(ctx, actor, folderId);
     const rows = await this.grants.searchSubjects(
       query.subjectType,
       query.keyword,
       SUBJECT_SEARCH_LIMIT,
-      ws.workspaceId,
     );
     return {
       items: rows.map((row) => ({
@@ -259,14 +245,13 @@ export class FileFolderGrantService {
   }
 
   private async buildList(
-    ws: WorkspaceScope,
     ctx: FileAccessContext,
     folderId: string,
   ): Promise<FileFolderGrantListDto> {
     const chain = inheritanceChain(ctx.folders, folderId);
     const [rows, chainFolders] = await Promise.all([
       this.grants.listOn('fileFolder', chain),
-      this.folders.findByIds(ws, chain),
+      this.folders.findByIds(chain),
     ]);
     const names = new Map(chainFolders.map((folder) => [folder.id, folder.name]));
     const distance = new Map(chain.map((id, index) => [id, index]));
@@ -301,13 +286,12 @@ export class FileFolderGrantService {
 
   /** 資料夾存在（否則 404），而且操作者能管理它的授權（否則 403）。 */
   async assertCanShare(
-    ws: WorkspaceScope,
     ctx: FileAccessContext,
     actor: AuthUser,
     folderId: string,
     tx?: DbOrTx,
   ): Promise<FileFolderRow> {
-    const folder = await this.folders.findById(ws, folderId, tx);
+    const folder = await this.folders.findById(folderId, tx);
     if (!folder) throw new AppException('FILE_FOLDER_NOT_FOUND', { folderId });
     if (!ctx.can('share', folderId)) {
       throw await this.access.deny(actor, 'share', 'fileFolder', folderId);
@@ -330,9 +314,9 @@ export class FileFolderGrantService {
   }
 
   /** 授權的寫入與資料夾結構的寫入排隊：解析等級時看到的上層鏈不會在途中改變。 */
-  private writeGrants<T>(ws: WorkspaceScope, work: (tx: DbOrTx) => Promise<T>): Promise<T> {
+  private writeGrants<T>(work: (tx: DbOrTx) => Promise<T>): Promise<T> {
     return withTransaction(this.db, async (tx) => {
-      await this.folders.lockTree(ws, tx);
+      await this.folders.lockTree(tx);
       return work(tx);
     });
   }
@@ -341,10 +325,9 @@ export class FileFolderGrantService {
     return { resourceType: 'fileFolder', resourceId: folderId, subjectType, subjectId };
   }
 
-  private publish(ws: WorkspaceScope, folderId: string): void {
+  private publish(folderId: string): void {
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [{ resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.UPDATE, id: folderId }],
-      workspaceId: ws.workspaceId,
     });
   }
 }

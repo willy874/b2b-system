@@ -55,12 +55,9 @@ test.describe('SSO', () => {
     await expectIdpLogin(page);
   });
 
-  test('auditor 在 apps/auth 看得到租戶與外部 IdP 連線，但沒有任何操作按鈕', async ({ page }) => {
+  test('auditor 在 apps/auth 看得到外部 IdP 連線，但沒有任何操作按鈕', async ({ page }) => {
     await loginAndWaitForHome(page, 'auditor');
-    await page.goto(`${AUTH_URL}/workspaces`);
-    await expect(page.getByTestId('workspace-admin-page')).toBeVisible();
-    await expect(page.getByTestId('workspace-create-button')).toHaveCount(0);
-
+    await page.goto(AUTH_URL);
     await page.getByTestId('menu-identity-provider').click();
     await expect(page.getByTestId('identity-provider-page')).toBeVisible();
     await expect(page.getByTestId('identity-provider-create-button')).toHaveCount(0);
@@ -70,7 +67,6 @@ test.describe('SSO', () => {
     await loginAndWaitForHome(page, 'member');
     await page.goto(`${AUTH_URL}/identity-providers`);
     await expect(page.getByTestId('forbidden-page')).toBeVisible();
-    await expect(page.getByTestId('menu-workspace')).toHaveCount(0);
     await expect(page.getByTestId('menu-identity-provider')).toHaveCount(0);
   });
 });

@@ -9,7 +9,7 @@ import type { App } from 'supertest/types';
 import { afterAll, beforeAll, beforeEach, describe, expect, inject, it } from 'vitest';
 
 import { ObjectStorage } from '@/core/storage';
-import { identityProviders, userIdentities, userRoles, users } from '@/db/schema';
+import { identityProviders, roles, userIdentities, userRoles, users } from '@/db/schema';
 import { ExternalOidcClient } from '@/modules/identity-provider/external-oidc.client';
 import type {
   ExternalIdentity,
@@ -19,7 +19,6 @@ import type {
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
-import { roleIdOf } from './workspace';
 
 let app: INestApplication;
 let http: App;
@@ -30,6 +29,11 @@ const SUPER_ADMIN = { email: 'ext-root@example.com', password: 'RootPassword!202
 const MEMBER = { email: 'ext-member@example.com', password: 'MemberPassword!2026' };
 const ALICE = 'alice@acme.test';
 const BACKSTAGE = { clientId: 'backstage', redirectUri: 'http://localhost:5173/auth/callback' };
+
+async function roleIdOf(slug: string): Promise<string> {
+  const [role] = await db.select().from(roles).where(eq(roles.slug, slug));
+  return role!.id;
+}
 
 /**
  * 假的外部 IdP：授權網址帶回 state；兌換時回傳測試指定的身分（`nextIdentity`），並記下收到的參數。
@@ -218,7 +222,7 @@ describe('外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D11）
       return row!.id;
     };
     const memberId = await insert(MEMBER.email, MEMBER.password);
-    await db.insert(userRoles).values({ userId: memberId, roleId: await roleIdOf(db, 'member') });
+    await db.insert(userRoles).values({ userId: memberId, roleId: await roleIdOf('member') });
     aliceId = await insert(ALICE, 'AlicePassword!2026');
 
     const { AppModule } = await import('@/app.module');

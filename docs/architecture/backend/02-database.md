@@ -366,7 +366,7 @@ CREATE TRIGGER audit_logs_archive_no_delete BEFORE DELETE ON audit_logs_archive
 `audit_logs_guard_delete()` 比對冷表同 `id` 那一列的 **所有欄位**
 （`IS NOT DISTINCT FROM`），不一致就 `RAISE`。所以「先在冷表塞一筆假副本，再刪熱表」
 這種竄改也會被擋下——任何從熱表消失的紀錄，冷表都有原封不動的一份。
-完整 SQL 見 `db/migrations/0003_audit_logs_archive_functions.sql`。
+完整 SQL 見 `db/migrations/0001_functions_and_triggers.sql`。
 
 另外，應用程式使用的 DB role 只授予 `INSERT, SELECT`（冷表只有 `SELECT`）：
 
@@ -497,14 +497,15 @@ pnpm db:migrate
 
 ```
 db/migrations/
-├── 0000_init.sql                  drizzle-kit 產生
-├── 0001_triggers.sql              手寫：protect_system_roles / audit append-only
-├── 0002_add_system_update.sql     drizzle-kit 產生
-└── 0003_grant_system_update.ts    手寫：把新權限授予 admin 角色
+├── 0000_baseline.sql                 drizzle-kit 產生（開頭手動加上 pg_trgm）
+├── 0001_functions_and_triggers.sql   手寫（drizzle-kit generate --custom）：protect_system_roles、
+│                                     audit append-only 與冷熱分層、set_updated_at 的各表 trigger
+└── 0002_…                            之後的變更接著編號
 ```
 
-`.ts` 的資料 migration 由一個小 runner 依序執行，與 `.sql` 共用同一張
-`__drizzle_migrations` 記錄表。
+2026-09-29 移除工作區時重新建立了基準點（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D20）：
+舊的 0000–0019 合併成上面兩支，當時還沒有正式環境資料。既有的開發資料庫要 `pnpm db:reset` 後重新 seed。
+新增權限不需要資料 migration：seed 會 upsert 權限目錄；已存在的系統角色要補新權限時，再寫一支手寫 migration。
 
 ---
 
@@ -534,7 +535,7 @@ export const db = drizzle(client, { schema, logger: env.NODE_ENV === "developmen
 
 稽核分成熱表 `audit_logs`（最近 90 天）與冷表 `audit_logs_archive`（更早），
 每天由背景工作 `auditLog.archive`（[`10-jobs.md`](./10-jobs.md)；手動補跑用 `pnpm db:archive-audit-logs`）
-呼叫 `archive_audit_logs(cutoff, batch_size)` 搬移；函式是 `SECURITY DEFINER`（`0014`，[`06-audit-log.md`](./06-audit-log.md) §8）：
+呼叫 `archive_audit_logs(cutoff, batch_size)` 搬移；函式是 `SECURITY DEFINER`（`0001_functions_and_triggers.sql`，[`06-audit-log.md`](./06-audit-log.md) §8）：
 
 ```sql
 -- 一次搬一批最舊的；呼叫端重複呼叫到回傳值 < batch_size 為止

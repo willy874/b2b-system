@@ -192,14 +192,6 @@ export const PermissionKey = {
   'file:share': 'file:share',
   'job:read': 'job:read',
   'job:retry': 'job:retry',
-  'workspace:create': 'workspace:create',
-  'workspace:read': 'workspace:read',
-  'workspace:update': 'workspace:update',
-  'workspace:delete': 'workspace:delete',
-  'workspaceMember:read': 'workspaceMember:read',
-  'workspaceMember:create': 'workspaceMember:create',
-  'workspaceMember:delete': 'workspaceMember:delete',
-  'workspaceMember:assignRole': 'workspaceMember:assignRole',
   'identityProvider:create': 'identityProvider:create',
   'identityProvider:read': 'identityProvider:read',
   'identityProvider:update': 'identityProvider:update',
@@ -207,18 +199,11 @@ export const PermissionKey = {
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
-export const PermissionScope = {
-  platform: 'platform',
-  workspace: 'workspace',
-} as const;
-export type PermissionScope = (typeof PermissionScope)[keyof typeof PermissionScope];
-
 export interface Permission {
   id: string;
   key: PermissionKey;
   resource: string;
   action: string;
-  scope: PermissionScope;
   nameI18nKey: string;
   description: string | null;
   sortOrder: number;
@@ -481,12 +466,6 @@ export interface MoveFileItemsResult {
   movedFolders: number;
 }
 
-export interface GetFileImageQuery {
-  exp: number;
-  sig: string;
-  format?: 'jpeg' | 'webp' | 'avif' | 'png' | 'auto';
-}
-
 export interface FileUploader {
   id: string;
   displayName: string;
@@ -575,6 +554,12 @@ export interface FileUploadPolicy {
   thumbnailContentTypes: Array<string>;
 }
 
+export interface GetFileImageQuery {
+  exp: number;
+  sig: string;
+  format?: 'jpeg' | 'webp' | 'avif' | 'png' | 'auto';
+}
+
 export interface UpdateFileRequest {
   name: string;
   version?: number;
@@ -623,7 +608,6 @@ export interface Job {
 export interface CreateRoleRequest {
   name: string;
   description?: string;
-  scope: PermissionScope;
   permissionKeys: Array<PermissionKey>;
 }
 
@@ -637,7 +621,6 @@ export interface Role {
   name: string;
   description: string | null;
   isSystem: boolean;
-  scope: PermissionScope;
   permissionCount: number;
   userCount: number;
   createdAt: string;
@@ -663,147 +646,4 @@ export interface UpdateRoleRequest {
 export interface UpdateRolePermissionsRequest {
   add: Array<PermissionKey>;
   remove: Array<PermissionKey>;
-}
-
-export interface Workspace {
-  id: string;
-  slug: string;
-  name: string;
-  description: string | null;
-  memberCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface WorkspaceAdmin {
-  id: string;
-  email: string;
-  displayName: string;
-}
-
-export interface WorkspaceDetail {
-  id: string;
-  slug: string;
-  name: string;
-  description: string | null;
-  memberCount: number;
-  createdAt: string;
-  updatedAt: string;
-  admins: Array<WorkspaceAdmin>;
-}
-
-export interface CreateWorkspaceRequest {
-  name: string;
-  slug?: string;
-  description?: string;
-  adminUserId: string;
-}
-
-export interface UpdateWorkspaceRequest {
-  name?: string;
-  description?: string | null;
-}
-
-export interface AssignWorkspaceAdminRequest {
-  userId: string;
-}
-
-export interface MyWorkspace {
-  id: string;
-  slug: string;
-  name: string;
-  description: string | null;
-  isMember: boolean;
-  lastAccessedAt: string | null;
-}
-
-export interface MyWorkspaceList {
-  items: Array<MyWorkspace>;
-}
-
-export interface WorkspaceMe {
-  workspace: MyWorkspace;
-  roles: Array<RoleSummary>;
-  permissions: Array<PermissionKey>;
-}
-
-export interface WorkspaceMember {
-  id: string;
-  email: string;
-  displayName: string;
-  status: UserStatus;
-  roles: Array<RoleSummary>;
-  joinedAt: string;
-}
-
-export interface UpdateWorkspaceMemberRolesRequest {
-  roleIds: Array<string>;
-}
-
-export interface WorkspaceMemberRoles {
-  roles: Array<RoleSummary>;
-}
-
-export interface WorkspaceRole {
-  id: string;
-  slug: string;
-  name: string;
-  description: string | null;
-  isSystem: boolean;
-  permissions: Array<PermissionKey>;
-}
-
-export interface WorkspaceRoleList {
-  items: Array<WorkspaceRole>;
-}
-
-export interface CreateWorkspaceInvitationRequest {
-  email: string;
-  roleIds: Array<string>;
-}
-
-export interface WorkspaceInvitation {
-  id: string;
-  email: string;
-  roles: Array<RoleSummary>;
-  invitedBy: {
-    id: string;
-    displayName: string;
-  } | null;
-  hasAccount: boolean;
-  createdAt: string;
-  expiresAt: string;
-  isExpired: boolean;
-}
-
-export interface WorkspaceInvitationList {
-  items: Array<WorkspaceInvitation>;
-}
-
-export interface WorkspaceInvitationPreview {
-  email: string;
-  workspaceName: string;
-  inviterName: string | null;
-  hasAccount: boolean;
-  expiresAt: string;
-}
-
-export interface AcceptWorkspaceInvitationRequest {
-  token: string;
-}
-
-export interface SignupWorkspaceInvitationRequest {
-  token: string;
-  displayName: string;
-  password: string;
-}
-
-export interface AcceptedWorkspaceInvitation {
-  email: string;
-  workspace: {
-    id: string;
-    slug: string;
-    name: string;
-  };
-  workspaceUrl: string;
 }

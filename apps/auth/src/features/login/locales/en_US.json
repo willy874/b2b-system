@@ -63,19 +63,6 @@
     "password": {
       "hint": "At least 12 characters and not a common password."
     },
-    "backToLogin": "Back to sign in",
-    "invitation": {
-      "title": "Accept workspace invitation",
-      "description": "You have been invited to join the workspace “{{workspace}}”.",
-      "descriptionWithInviter": "{{inviter}} invited you to join the workspace “{{workspace}}”.",
-      "newAccount": "This email address does not have an account yet. Set a name and password to create one, then continue to the workspace and sign in with that password.",
-      "signup": "Create account and join",
-      "existingAccount": "This email address already has an account. Sign in to accept the invitation.",
-      "loginAndAccept": "Sign in and accept",
-      "signedInAs": "Signed in as {{email}}",
-      "confirmPassword": "Confirm password",
-      "accept": "Accept invitation",
-      "mismatch": "You are signed in as {{current}}, but this invitation is for {{invited}}. Sign out, sign in with the invited email address, and open the link again."
-    }
+    "backToLogin": "Back to sign in"
   }
 }

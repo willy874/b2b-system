@@ -3,22 +3,15 @@
  *
  * 寫入後不要手列 query key，改成宣告「後端改了什麼」：
  *
- *   invalidateResources([{ resource: Resource.WORKSPACE, kind: 'update', id: workspace.id }]);
+ *   invalidateResources([{ resource: Resource.IDENTITY_PROVIDER, kind: 'update', id: provider.id }]);
  *
  * 這一版沒有推播：只有本分頁與其他分頁（BroadcastChannel）會失效。
  */
 import { IDENTITY_PROVIDER_LIST_QUERY_KEY } from '@/apis/identity-provider/get-identity-provider-list/query';
-import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
-import { WORKSPACE_LIST_QUERY_KEY } from '@/apis/workspace/get-workspace-list/query';
 import { createResourceGraph, queryClient } from '@/core/cache';
 import type { ResourceChange } from '@/core/cache';
 
 export const Resource = {
-  USER: 'user',
-  /** 工作區本身（`id` = 工作區 id） */
-  WORKSPACE: 'workspace',
-  /** 工作區的成員 ↔ 工作區角色（`id` = userId）；這裡沒有成員清單，只作為來源 */
-  WORKSPACE_MEMBER: 'workspaceMember',
   /** 外部 IdP 連線（`id` = 連線 id） */
   IDENTITY_PROVIDER: 'identityProvider',
 } as const;
@@ -28,18 +21,6 @@ export type Resource = (typeof Resource)[keyof typeof Resource];
 export type ResourceChangeEvent = ResourceChange<Resource>;
 
 const graph = createResourceGraph<Resource>({
-  [Resource.USER]: {
-    // 指定管理員的人選清單
-    collection: [USER_LIST_QUERY_KEY],
-  },
-  [Resource.WORKSPACE]: {
-    collection: [WORKSPACE_LIST_QUERY_KEY],
-    derivesFrom: [
-      // 成員數與管理員清單
-      { from: Resource.WORKSPACE_MEMBER, id: 'none' },
-    ],
-  },
-  [Resource.WORKSPACE_MEMBER]: {},
   [Resource.IDENTITY_PROVIDER]: {
     collection: [IDENTITY_PROVIDER_LIST_QUERY_KEY],
   },

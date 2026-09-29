@@ -13,14 +13,9 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 
-import {
-  CurrentUser,
-  CurrentWorkspace,
-  RequireAnyPermission,
-  WorkspaceScoped,
-} from '@/common/decorators';
+import { CurrentUser, RequireAnyPermission } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
-import type { AuthUser, WorkspaceScope } from '@/common/types';
+import type { AuthUser } from '@/common/types';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
 
 import {
@@ -56,8 +51,7 @@ import { FileFolderGrantService } from './file-folder-grant.service';
  * 需要在該資料夾有 share（全域 `file:share` 或 `manager` 等級），由 service 判斷。
  */
 @ApiTags('files')
-@WorkspaceScoped()
-@Controller('workspaces/:workspaceId/file-folders/:id')
+@Controller('file-folders/:id')
 export class FileFolderGrantController {
   constructor(
     private readonly grantService: FileFolderGrantService,
@@ -74,22 +68,17 @@ export class FileFolderGrantController {
   requestAccess(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(CreateFileAccessRequestSchema)) dto: CreateFileAccessRequestDto,
-    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.requestService.submit(ws, id, dto, actor);
+    return this.requestService.submit(id, dto, actor);
   }
 
   @Get('access-requests')
   @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_SHARE)
   @ApiOperation({ summary: '這個資料夾的待審存取申請（需要能管理它的授權）' })
   @ApiZodResponse(200, FileAccessRequestListSchema)
-  listAccessRequests(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentWorkspace() ws: WorkspaceScope,
-    @CurrentUser() actor: AuthUser,
-  ) {
-    return this.requestService.list(ws, id, actor);
+  listAccessRequests(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
+    return this.requestService.list(id, actor);
   }
 
   @Post('access-requests/:requestId/approve')
@@ -102,10 +91,9 @@ export class FileFolderGrantController {
     @Param('requestId', ParseUUIDPipe) requestId: string,
     @Body(new ZodValidationPipe(ReviewFileAccessRequestSchema.default({})))
     dto: ReviewFileAccessRequestDto,
-    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    await this.requestService.approve(ws, id, requestId, dto, actor);
+    await this.requestService.approve(id, requestId, dto, actor);
   }
 
   @Post('access-requests/:requestId/reject')
@@ -118,22 +106,17 @@ export class FileFolderGrantController {
     @Param('requestId', ParseUUIDPipe) requestId: string,
     @Body(new ZodValidationPipe(ReviewFileAccessRequestSchema.default({})))
     dto: ReviewFileAccessRequestDto,
-    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    await this.requestService.reject(ws, id, requestId, dto, actor);
+    await this.requestService.reject(id, requestId, dto, actor);
   }
 
   @Get('grants')
   @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_SHARE)
   @ApiOperation({ summary: '資料夾的授權：直接授權 ＋ 繼承自上層的（標出來源資料夾）' })
   @ApiZodResponse(200, FileFolderGrantListSchema)
-  list(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentWorkspace() ws: WorkspaceScope,
-    @CurrentUser() actor: AuthUser,
-  ) {
-    return this.grantService.list(ws, id, actor);
+  list(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
+    return this.grantService.list(id, actor);
   }
 
   @Put('grants')
@@ -144,10 +127,9 @@ export class FileFolderGrantController {
   set(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(SetFileFolderGrantSchema)) dto: SetFileFolderGrantDto,
-    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.grantService.set(ws, id, dto, actor);
+    return this.grantService.set(id, dto, actor);
   }
 
   @Delete('grants/:subjectType/:subjectId')
@@ -160,10 +142,9 @@ export class FileFolderGrantController {
     @Param('subjectType', new ZodValidationPipe(GrantSubjectTypeSchema))
     subjectType: FileGrantSubjectType,
     @Param('subjectId', ParseUUIDPipe) subjectId: string,
-    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    await this.grantService.revoke(ws, id, subjectType, subjectId, actor);
+    await this.grantService.revoke(id, subjectType, subjectId, actor);
   }
 
   @Patch('access')
@@ -174,10 +155,9 @@ export class FileFolderGrantController {
   setInheritance(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(UpdateFileFolderAccessSchema)) dto: UpdateFileFolderAccessDto,
-    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.grantService.setInheritance(ws, id, dto, actor);
+    return this.grantService.setInheritance(id, dto, actor);
   }
 
   @Get('grant-subjects')
@@ -187,9 +167,8 @@ export class FileFolderGrantController {
   searchSubjects(
     @Param('id', ParseUUIDPipe) id: string,
     @Query(new ZodValidationPipe(ListFileGrantSubjectsSchema)) query: ListFileGrantSubjectsDto,
-    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.grantService.searchSubjects(ws, id, query, actor);
+    return this.grantService.searchSubjects(id, query, actor);
   }
 }

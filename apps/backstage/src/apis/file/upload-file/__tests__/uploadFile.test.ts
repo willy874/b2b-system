@@ -151,12 +151,12 @@ describe('uploadFile（登記 → 直傳 → 完成）', () => {
   it('依序完成三步，回傳 ready 的檔案；直傳帶上簽過的標頭', async () => {
     const file = new File(['data'], 'hero.png', { type: 'image/png' });
     const progress = vi.fn();
-    const result = uploadFile({ workspaceId: 'ws-1', file, onProgress: progress });
+    const result = uploadFile({ file, onProgress: progress });
 
     await untilXhrSent();
     const xhr = currentXhr();
     expect(fetchFileCreateUploadMutation).toHaveBeenCalledWith({
-      params: { workspaceId: 'ws-1', name: 'hero.png', contentType: 'image/png', size: 4 },
+      params: { name: 'hero.png', contentType: 'image/png', size: 4 },
       signal: undefined,
     });
     expect(xhr).toMatchObject({ method: 'PUT', url: uploadTarget.url, body: file });
@@ -168,38 +168,28 @@ describe('uploadFile（登記 → 直傳 → 完成）', () => {
 
     await expect(result).resolves.toMatchObject({ id: 'file-1', status: 'ready' });
     expect(fetchFileCompleteUploadMutation).toHaveBeenCalledWith({
-      params: { workspaceId: 'ws-1', fileId: 'file-1', body: undefined },
+      params: { fileId: 'file-1', body: undefined },
       signal: undefined,
     });
     expect(fetchFileAbortUploadMutation).not.toHaveBeenCalled();
   });
 
   it('瀏覽器沒給型別時以 application/octet-stream 登記；Blob 要自己給檔名', async () => {
-    const result = uploadFile({ workspaceId: 'ws-1', file: new Blob(['data']), name: 'raw.bin' });
+    const result = uploadFile({ file: new Blob(['data']), name: 'raw.bin' });
     await untilXhrSent();
     currentXhr().respond(200);
     await result;
     expect(fetchFileCreateUploadMutation).toHaveBeenCalledWith(
       expect.objectContaining({
-        params: {
-          workspaceId: 'ws-1',
-          name: 'raw.bin',
-          contentType: 'application/octet-stream',
-          size: 4,
-        },
+        params: { name: 'raw.bin', contentType: 'application/octet-stream', size: 4 },
       }),
     );
 
-    await expect(uploadFile({ workspaceId: 'ws-1', file: new Blob(['x']) })).rejects.toThrow(
-      TypeError,
-    );
+    await expect(uploadFile({ file: new Blob(['x']) })).rejects.toThrow(TypeError);
   });
 
   it('物件儲存回非 2xx → FILE_UPLOAD_INCOMPLETE，不呼叫 complete', async () => {
-    const result = uploadFile({
-      workspaceId: 'ws-1',
-      file: new File(['data'], 'a.png', { type: 'image/png' }),
-    });
+    const result = uploadFile({ file: new File(['data'], 'a.png', { type: 'image/png' }) });
     await untilXhrSent();
     currentXhr().respond(403);
 
@@ -207,23 +197,16 @@ describe('uploadFile（登記 → 直傳 → 完成）', () => {
     expect(isAppError(error) && error.code).toBe('FILE_UPLOAD_INCOMPLETE');
     expect(fetchFileCompleteUploadMutation).not.toHaveBeenCalled();
     // 登記後失敗：放棄這次上傳，不留下 pending 紀錄
-    expect(fetchFileAbortUploadMutation).toHaveBeenCalledWith({
-      params: { workspaceId: 'ws-1', fileId: 'file-1' },
-    });
+    expect(fetchFileAbortUploadMutation).toHaveBeenCalledWith({ params: { fileId: 'file-1' } });
   });
 
   it('被中止 → RequestAbortedError，並放棄上傳（清理請求不用已中止的 signal）', async () => {
     const controller = new AbortController();
-    const result = uploadFile(
-      { workspaceId: 'ws-1', file: new File(['data'], 'a.png') },
-      controller.signal,
-    );
+    const result = uploadFile({ file: new File(['data'], 'a.png') }, controller.signal);
     await untilXhrSent();
     controller.abort();
     expect(isRequestAborted(await result.catch((reason: unknown) => reason))).toBe(true);
-    expect(fetchFileAbortUploadMutation).toHaveBeenCalledWith({
-      params: { workspaceId: 'ws-1', fileId: 'file-1' },
-    });
+    expect(fetchFileAbortUploadMutation).toHaveBeenCalledWith({ params: { fileId: 'file-1' } });
   });
 
   it('帶縮圖：登記時附上縮圖資訊，並與本體一起直傳；縮圖失敗不影響結果', async () => {
@@ -234,11 +217,7 @@ describe('uploadFile（登記 → 直傳 → 完成）', () => {
       thumbnailUpload: { ...uploadTarget, url: 'http://localhost/storage/b/thumbnails/file-1' },
     });
     const thumbnail = new Blob(['t'], { type: 'image/webp' });
-    const result = uploadFile({
-      workspaceId: 'ws-1',
-      file: new File(['data'], 'a.png'),
-      thumbnail,
-    });
+    const result = uploadFile({ file: new File(['data'], 'a.png'), thumbnail });
     await vi.waitFor(() => expect(FakeXhr.all).toHaveLength(2));
     expect(fetchFileCreateUploadMutation).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -253,7 +232,6 @@ describe('uploadFile（登記 → 直傳 → 完成）', () => {
 
   it('縮圖型別不在後端白名單 → 不送縮圖', async () => {
     const result = uploadFile({
-      workspaceId: 'ws-1',
       file: new File(['data'], 'a.png'),
       thumbnail: new Blob(['t'], { type: 'image/gif' }),
     });
@@ -266,7 +244,7 @@ describe('uploadFile（登記 → 直傳 → 完成）', () => {
   });
 
   it('連線失敗 → NetworkError', async () => {
-    const result = uploadFile({ workspaceId: 'ws-1', file: new File(['data'], 'a.png') });
+    const result = uploadFile({ file: new File(['data'], 'a.png') });
     await untilXhrSent();
     currentXhr().fail();
     expect(isNetworkError(await result.catch((reason: unknown) => reason))).toBe(true);
@@ -280,10 +258,7 @@ describe('uploadParts（分塊上傳，docs/architecture/backend/09-file.md §5.
 
   it('依切法切塊並行直傳，回傳依塊號排序的 ETag；進度是各塊的總和', async () => {
     const progress = vi.fn();
-    const result = uploadParts({ workspaceId: 'ws-1', fileId: 'file-1' }, plan, file, {
-      onProgress: progress,
-      concurrency: 2,
-    });
+    const result = uploadParts('file-1', plan, file, { onProgress: progress, concurrency: 2 });
     await vi.waitFor(() => expect(FakeXhr.all).toHaveLength(2));
     expect(fetchFileCreateUploadPartsMutation).toHaveBeenCalledTimes(1);
     const [first, second] = FakeXhr.all;
@@ -305,12 +280,7 @@ describe('uploadParts（分塊上傳，docs/architecture/backend/09-file.md §5.
   });
 
   it('網路錯誤只重試那一塊', async () => {
-    const result = uploadParts(
-      { workspaceId: 'ws-1', fileId: 'file-1' },
-      { partSize: 10, partCount: 1 },
-      file,
-      { wait: noWait },
-    );
+    const result = uploadParts('file-1', { partSize: 10, partCount: 1 }, file, { wait: noWait });
     await vi.waitFor(() => expect(FakeXhr.all).toHaveLength(1));
     FakeXhr.all[0]?.fail();
     await vi.waitFor(() => expect(FakeXhr.all).toHaveLength(2));
@@ -319,10 +289,7 @@ describe('uploadParts（分塊上傳，docs/architecture/backend/09-file.md §5.
   });
 
   it('4xx 不重試；一塊失敗就中止其他塊', async () => {
-    const result = uploadParts({ workspaceId: 'ws-1', fileId: 'file-1' }, plan, file, {
-      concurrency: 2,
-      wait: noWait,
-    });
+    const result = uploadParts('file-1', plan, file, { concurrency: 2, wait: noWait });
     await vi.waitFor(() => expect(FakeXhr.all).toHaveLength(2));
     const aborted = vi.fn();
     FakeXhr.all[1]?.events.addEventListener('abort', aborted);

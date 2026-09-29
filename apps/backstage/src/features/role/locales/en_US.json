@@ -10,7 +10,6 @@
       "title": "Create role",
       "description": "A role is a named set of permissions. You can only grant permissions you hold.",
       "permissions": "Grant permissions",
-      "scopeHint": "Platform roles are assigned to users and manage the whole platform; workspace roles are assigned to members inside a workspace and only apply there. Cannot be changed later.",
       "success": "Role \"{{name}}\" created."
     },
     "update": { "success": "Role updated." },
@@ -53,7 +52,6 @@
       "slug": "Slug",
       "description": "Description",
       "type": "Type",
-      "scope": "Scope",
       "permissionCount": "Permissions",
       "userCount": "Users",
       "createdAt": "Created"

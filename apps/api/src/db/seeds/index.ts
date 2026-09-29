@@ -7,17 +7,16 @@ import type { PermissionKey } from './permissions';
 import { PERMISSION_SEED } from './permissions';
 import { ROLE_SEED } from './roles';
 import { seedSuperAdmin } from './super-admin';
-import { seedDefaultWorkspace } from './workspace';
 
 /** ① 權限目錄：冪等 upsert；孤兒只警告不刪除。 */
 export async function seedPermissions(db: ScriptDatabase): Promise<void> {
-  for (const [resource, action, nameI18nKey, sortOrder, scope] of PERMISSION_SEED) {
+  for (const [resource, action, nameI18nKey, sortOrder] of PERMISSION_SEED) {
     await db
       .insert(permissions)
-      .values({ key: `${resource}:${action}`, resource, action, scope, nameI18nKey, sortOrder })
+      .values({ key: `${resource}:${action}`, resource, action, nameI18nKey, sortOrder })
       .onConflictDoUpdate({
         target: permissions.key,
-        set: { resource, action, scope, nameI18nKey, sortOrder },
+        set: { resource, action, nameI18nKey, sortOrder },
       });
   }
 
@@ -61,7 +60,6 @@ export async function seedRoles(db: ScriptDatabase): Promise<void> {
         name: seed.name,
         description: seed.description,
         isSystem: true,
-        scope: seed.scope,
       })
       .returning();
     if (!created) throw new Error(`建立系統角色失敗：${seed.slug}`);
@@ -97,7 +95,6 @@ export async function runSeed(db: ScriptDatabase): Promise<void> {
   await seedPermissions(db);
   await seedRoles(db);
   await seedSuperAdmin(db);
-  await seedDefaultWorkspace(db);
 }
 
 async function main(): Promise<void> {

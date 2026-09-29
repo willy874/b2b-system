@@ -28,7 +28,6 @@ import { RealtimeModule } from './modules/realtime/realtime.module';
 import { RoleModule } from './modules/role/role.module';
 import { SystemModule } from './modules/system/system.module';
 import { UserModule } from './modules/user/user.module';
-import { WorkspaceModule } from './modules/workspace/workspace.module';
 
 @Module({
   imports: [
@@ -70,7 +69,6 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
     AuthModule,
     UserModule,
     RoleModule,
-    WorkspaceModule,
     SystemModule,
     FileModule,
     JobModule,

@@ -31,11 +31,6 @@ import { ROLE_USERS_QUERY_KEY } from '@/apis/role/get-role-users/query';
 import { USER_DETAIL_QUERY_KEY } from '@/apis/user/get-user-detail/query';
 import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
 import { USER_ROLES_QUERY_KEY } from '@/apis/user/get-user-roles/query';
-import { MY_WORKSPACE_LIST_QUERY_KEY } from '@/apis/workspace/get-my-workspaces/query';
-import { WORKSPACE_INVITATION_LIST_QUERY_KEY } from '@/apis/workspace/get-workspace-invitation-list/query';
-import { WORKSPACE_ME_QUERY_KEY } from '@/apis/workspace/get-workspace-me/query';
-import { WORKSPACE_MEMBER_LIST_QUERY_KEY } from '@/apis/workspace/get-workspace-member-list/query';
-import { WORKSPACE_ROLE_LIST_QUERY_KEY } from '@/apis/workspace/get-workspace-role-list/query';
 import { ANY_ID, createResourceGraph, queryClient } from '@/core/cache';
 import type { ApplyInvalidationOptions, ResourceChange } from '@/core/cache';
 import type { Profile } from '@/shared/api-sdk';
@@ -55,12 +50,8 @@ export const Resource = {
   FILE_FOLDER: 'fileFolder',
   /** 背景工作（`id` = 工作 id） */
   JOB: 'job',
-  /** 工作區本身（`id` = 工作區 id） */
-  WORKSPACE: 'workspace',
   /** 目前登入者的 session 視角（profile ＋ 有效權限） */
   PROFILE: 'profile',
-  /** 目前登入者在工作區裡的視角（能進入的工作區、在工作區的權限） */
-  WORKSPACE_SELF: 'workspaceSelf',
   // 關係：沒有自己的 query，只作為來源
   /** 使用者 ↔ 角色（`id` = userId，`refs.role` = 新舊角色） */
   USER_ROLE: 'userRole',
@@ -68,10 +59,6 @@ export const Resource = {
   ROLE_PERMISSION: 'rolePermission',
   /** 密碼、邀請等不出現在任何畫面上的憑證寫入（`id` = userId） */
   USER_CREDENTIAL: 'userCredential',
-  /** 工作區的成員 ↔ 工作區角色（`id` = userId）；成員清單以它為來源 */
-  WORKSPACE_MEMBER: 'workspaceMember',
-  /** 工作區的待接受邀請（`id` = 邀請 id） */
-  WORKSPACE_INVITATION: 'workspaceInvitation',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -114,8 +101,7 @@ const graph = createResourceGraph<Resource>({
     ],
   },
   [Resource.ROLE]: {
-    // 工作區的角色清單（指派用）也是角色的清單
-    collection: [ROLE_LIST_QUERY_KEY, ROLE_OPTIONS_QUERY_KEY, WORKSPACE_ROLE_LIST_QUERY_KEY],
+    collection: [ROLE_LIST_QUERY_KEY, ROLE_OPTIONS_QUERY_KEY],
     entity: [ROLE_DETAIL_QUERY_KEY, ROLE_PERMISSIONS_QUERY_KEY, ROLE_USERS_QUERY_KEY],
     derivesFrom: [
       // permissionCount 與權限清單
@@ -163,36 +149,6 @@ const graph = createResourceGraph<Resource>({
       FILE_FOLDER_LIST_QUERY_KEY,
       FILE_FOLDER_GRANT_LIST_QUERY_KEY,
       FILE_ACCESS_REQUEST_LIST_QUERY_KEY,
-    ],
-  },
-  [Resource.WORKSPACE]: {
-    // 工作區管理頁在 apps/auth（ADR-0019 D13）；這裡只作為來源（切換器、目前工作區由 WORKSPACE_SELF 衍生）
-  },
-  [Resource.WORKSPACE_MEMBER]: {
-    collection: [WORKSPACE_MEMBER_LIST_QUERY_KEY],
-    derivesFrom: [
-      // 成員清單嵌入使用者的名稱、狀態與角色名稱
-      { from: Resource.USER, kinds: ['update', 'delete'], id: 'none' },
-      { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'none' },
-    ],
-  },
-  [Resource.WORKSPACE_INVITATION]: {
-    collection: [WORKSPACE_INVITATION_LIST_QUERY_KEY],
-    derivesFrom: [
-      // 邀請清單嵌入角色名稱
-      { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'none' },
-    ],
-  },
-  [Resource.WORKSPACE_SELF]: {
-    collection: [MY_WORKSPACE_LIST_QUERY_KEY, WORKSPACE_ME_QUERY_KEY],
-    derivesFrom: [
-      // 被加入、移出，或在某個工作區的角色變了
-      { from: Resource.WORKSPACE_MEMBER, id: 'none', when: isSelf },
-      // 工作區改名、被刪
-      { from: Resource.WORKSPACE, kinds: ['update', 'delete'], id: 'none' },
-      // 持有的工作區角色權限變了（前端不知道自己在各工作區持有哪些角色：一律重抓）
-      { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'none' },
-      { from: Resource.ROLE_PERMISSION, id: 'none' },
     ],
   },
   [Resource.PROFILE]: {

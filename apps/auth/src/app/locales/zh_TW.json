@@ -91,16 +91,9 @@
     "file": "檔案",
     "job": "背景工作",
     "profile": "個人資料",
-    "workspace": "工作區",
     "identityProvider": "外部 IdP",
-    "workspaceMember": "成員",
     "preference": "偏好設定",
     "logout": "登出"
-  },
-  "workspaceSwitcher": {
-    "label": "切換工作區",
-    "empty": "你還不屬於任何工作區",
-    "notMember": "（非成員）"
   },
   "app": {
     "title": "B2B System",
@@ -147,23 +140,11 @@
     "ROLE_SYSTEM_PROTECTED": "系統角色受保護，不可刪除或改名。",
     "ROLE_SUPER_ADMIN_IMMUTABLE": "超級管理員角色的權限不可變更。",
     "ROLE_IN_USE": "仍有使用者持有這個角色。",
-    "ROLE_SCOPE_MISMATCH": "角色的範圍不符：平台角色只能指派給使用者、工作區角色只能指派在工作區裡，權限也只能選同範圍的。",
     "LAST_SUPER_ADMIN": "系統必須保留至少一位可用的超級管理員。",
     "PERMISSION_UNKNOWN": "包含系統未定義的權限鍵。",
     "APPROVAL_NOT_FOUND": "找不到這筆審批申請。",
     "APPROVAL_ALREADY_REVIEWED": "這筆申請已經被審核過了。",
     "APPROVAL_SELF_REVIEW": "不能審核自己送出的申請，請由其他管理員處理。",
-    "WORKSPACE_NOT_FOUND": "找不到這個工作區，或你不是它的成員。",
-    "WORKSPACE_SLUG_DUPLICATE": "這個網址代稱已經被使用。",
-    "WORKSPACE_MEMBER_NOT_FOUND": "這個人不是工作區的成員。",
-    "WORKSPACE_MEMBER_DUPLICATE": "這個人已經是工作區的成員。",
-    "WORKSPACE_LAST_ADMIN": "工作區至少要留一位能管理成員的人。",
-    "WORKSPACE_INVITATION_NOT_FOUND": "找不到這份邀請，可能已被接受或撤銷。",
-    "WORKSPACE_INVITATION_DUPLICATE": "這個信箱剛剛已經被邀請了，請重新整理後再試。",
-    "WORKSPACE_INVITATION_INVALID": "邀請連結無效或已過期，請聯絡邀請你的人重新寄送。",
-    "WORKSPACE_INVITATION_EMAIL_MISMATCH": "目前登入的帳號不是受邀的信箱。",
-    "WORKSPACE_INVITATION_ACCOUNT_EXISTS": "這個信箱已經有帳號，請登入後接受邀請。",
-    "WORKSPACE_INVITATION_USER_CREATE_REQUIRED": "這個信箱還沒有帳號；邀請新帳號需要平台的「建立使用者」權限。",
     "IDENTITY_PROVIDER_NOT_FOUND": "找不到這個外部 IdP 連線，可能已被刪除。",
     "IDENTITY_PROVIDER_NAME_DUPLICATE": "已有同名的連線。",
     "IDENTITY_PROVIDER_DOMAIN_TAKEN": "這個網域已屬於另一個連線。",
@@ -204,12 +185,8 @@
       "approval": "審批",
       "file": "檔案",
       "job": "背景工作",
-      "workspace": "工作區",
-      "workspaceMember": "工作區成員",
       "identityProvider": "外部 IdP 連線"
     },
-    "platformScope": "平台",
-    "workspaceScope": "工作區",
     "user": {
       "create": "建立使用者",
       "read": "檢視使用者",
@@ -238,18 +215,6 @@
       "share": "管理檔案授權"
     },
     "job": { "read": "檢視背景工作", "retry": "重試背景工作" },
-    "workspace": {
-      "create": "建立工作區",
-      "read": "檢視工作區",
-      "update": "編輯工作區",
-      "delete": "刪除工作區"
-    },
-    "workspaceMember": {
-      "read": "檢視成員",
-      "create": "邀請成員",
-      "delete": "移除成員",
-      "assignRole": "指派工作區角色"
-    },
     "identityProvider": {
       "create": "建立外部 IdP 連線",
       "read": "檢視外部 IdP 連線",

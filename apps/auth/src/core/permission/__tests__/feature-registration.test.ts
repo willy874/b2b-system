@@ -5,10 +5,6 @@ import {
   IDENTITY_PROVIDER_PAGE,
   registerIdentityProviderPagePermissions,
 } from '@/features/identity-provider';
-import {
-  registerWorkspaceAdminPagePermissions,
-  WORKSPACE_ADMIN_PAGE,
-} from '@/features/workspace-admin';
 
 import { getRegisteredPageKeys, resetPagePermissionRegistry } from '../registry';
 
@@ -20,11 +16,8 @@ describe('註冊表完整性', () => {
 
   it('註冊的頁面鍵集合等於所有 feature 匯出的頁面鍵之聯集', () => {
     registerHomePagePermissions();
-    registerWorkspaceAdminPagePermissions();
     registerIdentityProviderPagePermissions();
 
-    expect(new Set(getRegisteredPageKeys())).toEqual(
-      new Set([HOME_PAGE, WORKSPACE_ADMIN_PAGE, IDENTITY_PROVIDER_PAGE]),
-    );
+    expect(new Set(getRegisteredPageKeys())).toEqual(new Set([HOME_PAGE, IDENTITY_PROVIDER_PAGE]));
   });
 });

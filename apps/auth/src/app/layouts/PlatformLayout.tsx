@@ -13,7 +13,6 @@ import type { PageKey } from '@/core/permission';
 import { HOME_PAGE } from '@/features/home';
 import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
 import { useLogoutMutation } from '@/features/login';
-import { WORKSPACE_ADMIN_PAGE } from '@/features/workspace-admin';
 
 import { ThemeMenu } from './ThemeMenu';
 
@@ -33,12 +32,6 @@ interface NavItem {
 const NAV: NavItem[] = [
   { pageKey: HOME_PAGE, to: '/', labelKey: 'menu.home', testId: 'menu-home' },
   {
-    pageKey: WORKSPACE_ADMIN_PAGE,
-    to: '/workspaces',
-    labelKey: 'menu.workspace',
-    testId: 'menu-workspace',
-  },
-  {
     pageKey: IDENTITY_PROVIDER_PAGE,
     to: '/identity-providers',
     labelKey: 'menu.identityProvider',
@@ -48,7 +41,7 @@ const NAV: NavItem[] = [
 
 /**
  * 平台頁面的外框：頂列（品牌、主題、帳號選單）＋ 內容。
- * 沒有工作區切換器：apps/auth 不分工作區（docs/adr/0019-sso-identity-platform.md D1）。
+ * apps/auth 不屬於任何租戶（docs/adr/0020-physical-tenant-isolation.md D2）。
  */
 export function PlatformLayout({ children }: PlatformLayoutProps) {
   const { t } = useTranslation();

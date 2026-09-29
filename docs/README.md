@@ -145,7 +145,8 @@ docs/
     ├── 0016-background-jobs.md
     ├── 0017-mail-delivery.md
     ├── 0018-workspace-tenancy.md
-    └── 0019-sso-identity-platform.md
+    ├── 0019-sso-identity-platform.md
+    └── 0020-physical-tenant-isolation.md
 ```
 
 ---

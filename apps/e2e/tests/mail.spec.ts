@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { apiLogin, apiRequest } from '../helpers/api';
-import { AUTH_URL, expectIdpLogin } from '../helpers/auth';
+import { expectIdpLogin } from '../helpers/auth';
 import { linkIn, waitForMail } from '../helpers/mailpit';
 
 const NEW_PASSWORD = 'MailFlow!Password2026';
@@ -52,39 +52,4 @@ test.describe('郵件（docs/architecture/backend/11-mail.md）', () => {
     await page.goto(link);
     await expect(page.getByTestId('setup-invalid')).toBeVisible();
   });
-});
-
-test('工作區邀請新帳號：apps/auth 建立帳號 → 跳到 backstage 的工作區 → IdP 登入 → 進入工作區', async ({
-  page,
-}) => {
-  const email = `e2e-invited-${Date.now()}@dev.local`;
-  const token = await apiLogin('admin');
-  const mine = await apiRequest(token, 'get', '/workspaces/mine');
-  const workspaces = (mine.body as { data: { items: Array<{ id: string; slug: string }> } }).data
-    .items;
-  const workspace = workspaces.find((item) => item.slug === 'default');
-  if (!workspace) throw new Error('e2e-admin 不是 default 工作區的成員');
-  const roles = await apiRequest(token, 'get', `/workspaces/${workspace.id}/roles`);
-  const member = (
-    roles.body as { data: { items: Array<{ id: string; slug: string }> } }
-  ).data.items.find((role) => role.slug === 'workspace-member');
-  const invited = await apiRequest(token, 'post', `/workspaces/${workspace.id}/invitations`, {
-    email,
-    roleIds: member ? [member.id] : [],
-  });
-  expect(invited.status).toBe(201);
-
-  await page.goto(linkIn(await waitForMail(email), '/invitation'));
-  await expect(page).toHaveURL(new RegExp(`^${AUTH_URL}/invitation`));
-  await page.getByTestId('invitation-display-name').fill('E2E Invited');
-  await page.getByTestId('invitation-password').fill(NEW_PASSWORD);
-  await page.getByTestId('invitation-confirm').fill(NEW_PASSWORD);
-  await page.getByTestId('invitation-submit').click();
-
-  // 跳到 backstage 的工作區 → 沒有 session → IdP 登入頁
-  await expectIdpLogin(page);
-  await page.getByTestId('login-email').fill(email);
-  await page.getByTestId('login-password').fill(NEW_PASSWORD);
-  await page.getByTestId('login-submit').click();
-  await expect(page).toHaveURL(/localhost:5173\/w\/default\//);
 });

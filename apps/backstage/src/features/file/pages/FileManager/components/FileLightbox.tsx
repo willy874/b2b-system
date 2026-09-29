@@ -11,7 +11,6 @@ import { Spinner } from '@/components/Spinner';
 import { isAppError } from '@/core/errors';
 import { resolveFilePreviewer } from '@/core/file';
 import { useTranslation } from '@/core/locales';
-import { useRequiredWorkspace } from '@/core/workspace';
 import { formatDateTime } from '@/shared/date';
 
 import { FILE_KIND_LABEL_KEY } from '../../../constants';
@@ -66,12 +65,8 @@ export function FileLightbox({
   onRename,
   onDelete,
 }: FileLightboxProps) {
-  const { id: workspaceId } = useRequiredWorkspace();
   const { t } = useTranslation();
-  const detail = useQuery({
-    ...getFileDetailQueryOptions(workspaceId, fileId ?? ''),
-    enabled: Boolean(fileId),
-  });
+  const detail = useQuery({ ...getFileDetailQueryOptions(fileId ?? ''), enabled: Boolean(fileId) });
   const index = fileId ? items.findIndex((item) => item.id === fileId) : -1;
   const listed = index >= 0 ? items[index] : undefined;
   const file = detail.data ? toFileItemVM(detail.data) : listed;

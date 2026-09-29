@@ -17,8 +17,6 @@ export const PermissionResource = {
   APPROVAL: 'approval',
   FILE: 'file',
   JOB: 'job',
-  WORKSPACE: 'workspace',
-  WORKSPACE_MEMBER: 'workspaceMember',
   IDENTITY_PROVIDER: 'identityProvider',
 } as const;
 export type PermissionResource = (typeof PermissionResource)[keyof typeof PermissionResource];
@@ -53,11 +51,6 @@ export interface PagePermissionRule {
   /** 進入這一頁所需的權限鍵。空陣列 = 任何已登入使用者都能進。 */
   access: PermissionKey[];
   match: PermissionMatch;
-  /**
-   * `workspace`：工作區裡的頁面（`/w/:workspaceSlug/…`），權限鍵要等目前工作區的權限水合後才判斷
-   * （docs/adr/0018-workspace-tenancy.md D17）。不帶是平台頁面。
-   */
-  scope?: 'workspace';
 }
 
 export function evaluateAccess(

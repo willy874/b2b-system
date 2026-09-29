@@ -1657,671 +1657,6 @@
         "tags": ["roles"]
       }
     },
-    "/workspaces/mine": {
-      "get": {
-        "operationId": "WorkspaceController_listMine",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/MyWorkspaceList"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "自己能進入的工作區（super-admin 是全部）",
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces": {
-      "get": {
-        "operationId": "WorkspaceController_list",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "required": ["items", "pagination"],
-                      "properties": {
-                        "items": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Workspace"
-                          }
-                        },
-                        "pagination": {
-                          "type": "object",
-                          "required": ["offset", "limit", "total"],
-                          "properties": {
-                            "offset": {
-                              "type": "integer"
-                            },
-                            "limit": {
-                              "type": "integer"
-                            },
-                            "total": {
-                              "type": "integer"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": ["workspaces"]
-      },
-      "post": {
-        "operationId": "WorkspaceController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateWorkspaceRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceDetail"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "建立工作區並指定第一位管理員",
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}": {
-      "get": {
-        "operationId": "WorkspaceController_findOne",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceDetail"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": ["workspaces"]
-      },
-      "patch": {
-        "operationId": "WorkspaceController_update",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateWorkspaceRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceDetail"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": ["workspaces"]
-      },
-      "delete": {
-        "operationId": "WorkspaceController_remove",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}/admins": {
-      "post": {
-        "operationId": "WorkspaceController_assignAdmin",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AssignWorkspaceAdminRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceDetail"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "指定管理員（加入成員並給 workspace-admin；留下稽核）",
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}/me": {
-      "get": {
-        "operationId": "WorkspaceMemberController_me",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceMe"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "自己在這個工作區的角色與權限鍵（進入工作區時呼叫）",
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}/members": {
-      "get": {
-        "operationId": "WorkspaceMemberController_listMembers",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "required": ["items", "pagination"],
-                      "properties": {
-                        "items": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/WorkspaceMember"
-                          }
-                        },
-                        "pagination": {
-                          "type": "object",
-                          "required": ["offset", "limit", "total"],
-                          "properties": {
-                            "offset": {
-                              "type": "integer"
-                            },
-                            "limit": {
-                              "type": "integer"
-                            },
-                            "total": {
-                              "type": "integer"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}/members/{userId}/roles": {
-      "put": {
-        "operationId": "WorkspaceMemberController_updateRoles",
-        "parameters": [
-          {
-            "name": "userId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateWorkspaceMemberRolesRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceMemberRoles"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "整批取代成員的工作區角色（受反提權限制）",
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}/members/{userId}": {
-      "delete": {
-        "operationId": "WorkspaceMemberController_removeMember",
-        "parameters": [
-          {
-            "name": "userId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}/roles": {
-      "get": {
-        "operationId": "WorkspaceMemberController_listRoles",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceRoleList"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "可以指派的工作區角色（不需要平台的 role:read）",
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}/invitations": {
-      "get": {
-        "operationId": "WorkspaceInvitationController_list",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceInvitationList"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "待接受的邀請（含已過期）",
-        "tags": ["workspaces"]
-      },
-      "post": {
-        "operationId": "WorkspaceInvitationController_invite",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateWorkspaceInvitationRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceInvitation"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "以 email 邀請（角色受反提權限制；沒有帳號的 email 另需平台的 user:create）",
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}/invitations/{invitationId}": {
-      "delete": {
-        "operationId": "WorkspaceInvitationController_revoke",
-        "parameters": [
-          {
-            "name": "invitationId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "summary": "撤銷待接受的邀請",
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspace-invitations/preview": {
-      "get": {
-        "operationId": "WorkspaceInvitationAcceptController_preview",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceInvitationPreview"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "接受邀請頁的資訊（token 無效回 WORKSPACE_INVITATION_INVALID）",
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspace-invitations/accept": {
-      "post": {
-        "operationId": "WorkspaceInvitationAcceptController_accept",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AcceptWorkspaceInvitationRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/AcceptedWorkspaceInvitation"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "以目前登入的帳號接受（帳號 email 必須是受邀的 email）",
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspace-invitations/signup": {
-      "post": {
-        "operationId": "WorkspaceInvitationAcceptController_signup",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SignupWorkspaceInvitationRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/AcceptedWorkspaceInvitation"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "還沒有帳號：設定密碼、建立已啟用的帳號並加入工作區",
-        "tags": ["workspaces"]
-      }
-    },
     "/system/info": {
       "get": {
         "operationId": "SystemController_info",
@@ -2335,19 +1670,10 @@
         "tags": ["system"]
       }
     },
-    "/workspaces/{workspaceId}/files": {
+    "/files": {
       "get": {
         "operationId": "FileController_list",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "responses": {
           "200": {
             "description": "",
@@ -2370,16 +1696,7 @@
       },
       "post": {
         "operationId": "FileController_createUpload",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
@@ -2412,19 +1729,10 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/files/upload-policy": {
+    "/files/upload-policy": {
       "get": {
         "operationId": "FileController_getUploadPolicy",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "responses": {
           "200": {
             "description": "",
@@ -2447,19 +1755,10 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/files/move": {
+    "/files/move": {
       "post": {
         "operationId": "FileController_move",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
@@ -2492,7 +1791,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/files/{id}/parts": {
+    "/files/{id}/parts": {
       "post": {
         "operationId": "FileController_createUploadParts",
         "parameters": [
@@ -2502,14 +1801,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -2545,7 +1836,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/files/{id}/complete": {
+    "/files/{id}/complete": {
       "post": {
         "operationId": "FileController_completeUpload",
         "parameters": [
@@ -2555,14 +1846,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -2598,7 +1881,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/files/{id}/upload": {
+    "/files/{id}/upload": {
       "delete": {
         "operationId": "FileController_abortUpload",
         "parameters": [
@@ -2608,14 +1891,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -2628,9 +1903,9 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/files/{id}": {
+    "/files/{id}/image/{variant}": {
       "get": {
-        "operationId": "FileController_findOne",
+        "operationId": "FileController_getImage",
         "parameters": [
           {
             "name": "id",
@@ -2641,11 +1916,34 @@
             }
           },
           {
-            "name": "workspaceId",
+            "name": "variant",
             "required": true,
             "in": "path",
             "schema": {
-              "format": "uuid"
+              "enum": ["original", "preview", "thumbnail"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "轉址到該版本、該格式的內容"
+          }
+        },
+        "summary": "取得圖片的原圖／全螢幕預覽／圖示預覽（302 轉址到物件儲存）",
+        "tags": ["files"]
+      }
+    },
+    "/files/{id}": {
+      "get": {
+        "operationId": "FileController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -2678,14 +1976,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -2729,14 +2019,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
           }
         ],
         "responses": {
@@ -2747,50 +2029,10 @@
         "tags": ["files"]
       }
     },
-    "/files/{id}/image/{variant}": {
-      "get": {
-        "operationId": "FileImageController_getImage",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "variant",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "enum": ["original", "preview", "thumbnail"],
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "302": {
-            "description": "轉址到該版本、該格式的內容"
-          }
-        },
-        "summary": "取得圖片的原圖／全螢幕預覽／圖示預覽（302 轉址到物件儲存）",
-        "tags": ["files"]
-      }
-    },
-    "/workspaces/{workspaceId}/file-folders": {
+    "/file-folders": {
       "get": {
         "operationId": "FileFolderController_list",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "responses": {
           "200": {
             "description": "",
@@ -2814,16 +2056,7 @@
       },
       "post": {
         "operationId": "FileFolderController_create",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
@@ -2855,19 +2088,10 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/paths": {
+    "/file-folders/paths": {
       "post": {
         "operationId": "FileFolderController_ensurePaths",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
@@ -2900,7 +2124,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}": {
+    "/file-folders/{id}": {
       "patch": {
         "operationId": "FileFolderController_rename",
         "parameters": [
@@ -2910,14 +2134,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -2961,14 +2177,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
           }
         ],
         "responses": {
@@ -2980,7 +2188,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}/access-requests": {
+    "/file-folders/{id}/access-requests": {
       "post": {
         "operationId": "FileFolderGrantController_requestAccess",
         "parameters": [
@@ -2990,14 +2198,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -3042,14 +2242,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
           }
         ],
         "responses": {
@@ -3074,7 +2266,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}/access-requests/{requestId}/approve": {
+    "/file-folders/{id}/access-requests/{requestId}/approve": {
       "post": {
         "operationId": "FileFolderGrantController_approveAccessRequest",
         "parameters": [
@@ -3092,14 +2284,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -3122,7 +2306,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}/access-requests/{requestId}/reject": {
+    "/file-folders/{id}/access-requests/{requestId}/reject": {
       "post": {
         "operationId": "FileFolderGrantController_rejectAccessRequest",
         "parameters": [
@@ -3140,14 +2324,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -3170,7 +2346,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}/grants": {
+    "/file-folders/{id}/grants": {
       "get": {
         "operationId": "FileFolderGrantController_list",
         "parameters": [
@@ -3180,14 +2356,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -3221,14 +2389,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -3264,7 +2424,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}/grants/{subjectType}/{subjectId}": {
+    "/file-folders/{id}/grants/{subjectType}/{subjectId}": {
       "delete": {
         "operationId": "FileFolderGrantController_revoke",
         "parameters": [
@@ -3292,14 +2452,6 @@
               "enum": ["role", "user", "everyone"],
               "type": "string"
             }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
           }
         ],
         "responses": {
@@ -3311,7 +2463,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}/access": {
+    "/file-folders/{id}/access": {
       "patch": {
         "operationId": "FileFolderGrantController_setInheritance",
         "parameters": [
@@ -3321,14 +2473,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -3364,7 +2508,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}/grant-subjects": {
+    "/file-folders/{id}/grant-subjects": {
       "get": {
         "operationId": "FileFolderGrantController_searchSubjects",
         "parameters": [
@@ -3374,14 +2518,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -4228,23 +3364,11 @@
           "file:share",
           "job:read",
           "job:retry",
-          "workspace:create",
-          "workspace:read",
-          "workspace:update",
-          "workspace:delete",
-          "workspaceMember:read",
-          "workspaceMember:create",
-          "workspaceMember:delete",
-          "workspaceMember:assignRole",
           "identityProvider:create",
           "identityProvider:read",
           "identityProvider:update",
           "identityProvider:delete"
         ]
-      },
-      "PermissionScope": {
-        "type": "string",
-        "enum": ["platform", "workspace"]
       },
       "Permission": {
         "type": "object",
@@ -4263,9 +3387,6 @@
           "action": {
             "type": "string"
           },
-          "scope": {
-            "$ref": "#/components/schemas/PermissionScope"
-          },
           "nameI18nKey": {
             "type": "string"
           },
@@ -4279,16 +3400,7 @@
             "maximum": 9007199254740991
           }
         },
-        "required": [
-          "id",
-          "key",
-          "resource",
-          "action",
-          "scope",
-          "nameI18nKey",
-          "description",
-          "sortOrder"
-        ],
+        "required": ["id", "key", "resource", "action", "nameI18nKey", "description", "sortOrder"],
         "additionalProperties": false
       },
       "PermissionGroup": {
@@ -5229,28 +4341,6 @@
         "required": ["movedFiles", "movedFolders"],
         "additionalProperties": false
       },
-      "GetFileImageQuery": {
-        "type": "object",
-        "properties": {
-          "exp": {
-            "type": "integer",
-            "minimum": 0,
-            "exclusiveMinimum": true,
-            "maximum": 9007199254740991
-          },
-          "sig": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "format": {
-            "type": "string",
-            "enum": ["jpeg", "webp", "avif", "png", "auto"]
-          }
-        },
-        "required": ["exp", "sig"],
-        "additionalProperties": false
-      },
       "FileUploader": {
         "type": "object",
         "properties": {
@@ -5602,6 +4692,28 @@
         ],
         "additionalProperties": false
       },
+      "GetFileImageQuery": {
+        "type": "object",
+        "properties": {
+          "exp": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          },
+          "sig": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "format": {
+            "type": "string",
+            "enum": ["jpeg", "webp", "avif", "png", "auto"]
+          }
+        },
+        "required": ["exp", "sig"],
+        "additionalProperties": false
+      },
       "UpdateFileRequest": {
         "type": "object",
         "properties": {
@@ -5806,14 +4918,6 @@
             "type": "string",
             "maxLength": 500
           },
-          "scope": {
-            "default": "platform",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/PermissionScope"
-              }
-            ]
-          },
           "permissionKeys": {
             "default": [],
             "maxItems": 100,
@@ -5823,7 +4927,7 @@
             }
           }
         },
-        "required": ["name", "scope", "permissionKeys"],
+        "required": ["name", "permissionKeys"],
         "additionalProperties": false
       },
       "DuplicateRoleRequest": {
@@ -5858,9 +4962,6 @@
           "isSystem": {
             "type": "boolean"
           },
-          "scope": {
-            "$ref": "#/components/schemas/PermissionScope"
-          },
           "permissionCount": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -5884,7 +4985,6 @@
           "name",
           "description",
           "isSystem",
-          "scope",
           "permissionCount",
           "userCount",
           "createdAt",
@@ -5964,507 +5064,6 @@
           }
         },
         "required": ["add", "remove"],
-        "additionalProperties": false
-      },
-      "Workspace": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "nullable": true,
-            "type": "string"
-          },
-          "memberCount": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "updatedAt": {
-            "type": "string"
-          }
-        },
-        "required": ["id", "slug", "name", "description", "memberCount", "createdAt", "updatedAt"],
-        "additionalProperties": false
-      },
-      "WorkspaceAdmin": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "email": {
-            "type": "string"
-          },
-          "displayName": {
-            "type": "string"
-          }
-        },
-        "required": ["id", "email", "displayName"],
-        "additionalProperties": false
-      },
-      "WorkspaceDetail": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "nullable": true,
-            "type": "string"
-          },
-          "memberCount": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "updatedAt": {
-            "type": "string"
-          },
-          "admins": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkspaceAdmin"
-            }
-          }
-        },
-        "required": [
-          "id",
-          "slug",
-          "name",
-          "description",
-          "memberCount",
-          "createdAt",
-          "updatedAt",
-          "admins"
-        ],
-        "additionalProperties": false
-      },
-      "CreateWorkspaceRequest": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64
-          },
-          "slug": {
-            "type": "string",
-            "pattern": "^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$"
-          },
-          "description": {
-            "type": "string",
-            "maxLength": 500
-          },
-          "adminUserId": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          }
-        },
-        "required": ["name", "adminUserId"],
-        "additionalProperties": false
-      },
-      "UpdateWorkspaceRequest": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64
-          },
-          "description": {
-            "nullable": true,
-            "type": "string",
-            "maxLength": 500
-          }
-        },
-        "additionalProperties": false
-      },
-      "AssignWorkspaceAdminRequest": {
-        "type": "object",
-        "properties": {
-          "userId": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          }
-        },
-        "required": ["userId"],
-        "additionalProperties": false
-      },
-      "MyWorkspace": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "nullable": true,
-            "type": "string"
-          },
-          "isMember": {
-            "type": "boolean"
-          },
-          "lastAccessedAt": {
-            "nullable": true,
-            "type": "string"
-          }
-        },
-        "required": ["id", "slug", "name", "description", "isMember", "lastAccessedAt"],
-        "additionalProperties": false
-      },
-      "MyWorkspaceList": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MyWorkspace"
-            }
-          }
-        },
-        "required": ["items"],
-        "additionalProperties": false
-      },
-      "WorkspaceMe": {
-        "type": "object",
-        "properties": {
-          "workspace": {
-            "$ref": "#/components/schemas/MyWorkspace"
-          },
-          "roles": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RoleSummary"
-            }
-          },
-          "permissions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PermissionKey"
-            }
-          }
-        },
-        "required": ["workspace", "roles", "permissions"],
-        "additionalProperties": false
-      },
-      "WorkspaceMember": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "email": {
-            "type": "string"
-          },
-          "displayName": {
-            "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/UserStatus"
-          },
-          "roles": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RoleSummary"
-            }
-          },
-          "joinedAt": {
-            "type": "string"
-          }
-        },
-        "required": ["id", "email", "displayName", "status", "roles", "joinedAt"],
-        "additionalProperties": false
-      },
-      "UpdateWorkspaceMemberRolesRequest": {
-        "type": "object",
-        "properties": {
-          "roleIds": {
-            "maxItems": 50,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-            }
-          }
-        },
-        "required": ["roleIds"],
-        "additionalProperties": false
-      },
-      "WorkspaceMemberRoles": {
-        "type": "object",
-        "properties": {
-          "roles": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RoleSummary"
-            }
-          }
-        },
-        "required": ["roles"],
-        "additionalProperties": false
-      },
-      "WorkspaceRole": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "nullable": true,
-            "type": "string"
-          },
-          "isSystem": {
-            "type": "boolean"
-          },
-          "permissions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PermissionKey"
-            }
-          }
-        },
-        "required": ["id", "slug", "name", "description", "isSystem", "permissions"],
-        "additionalProperties": false
-      },
-      "WorkspaceRoleList": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkspaceRole"
-            }
-          }
-        },
-        "required": ["items"],
-        "additionalProperties": false
-      },
-      "CreateWorkspaceInvitationRequest": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string",
-            "maxLength": 255,
-            "format": "email",
-            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
-          },
-          "roleIds": {
-            "maxItems": 50,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-            }
-          }
-        },
-        "required": ["email", "roleIds"],
-        "additionalProperties": false
-      },
-      "WorkspaceInvitation": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "email": {
-            "type": "string"
-          },
-          "roles": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RoleSummary"
-            }
-          },
-          "invitedBy": {
-            "nullable": true,
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              },
-              "displayName": {
-                "type": "string"
-              }
-            },
-            "required": ["id", "displayName"],
-            "additionalProperties": false
-          },
-          "hasAccount": {
-            "type": "boolean"
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "expiresAt": {
-            "type": "string"
-          },
-          "isExpired": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "id",
-          "email",
-          "roles",
-          "invitedBy",
-          "hasAccount",
-          "createdAt",
-          "expiresAt",
-          "isExpired"
-        ],
-        "additionalProperties": false
-      },
-      "WorkspaceInvitationList": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkspaceInvitation"
-            }
-          }
-        },
-        "required": ["items"],
-        "additionalProperties": false
-      },
-      "WorkspaceInvitationPreview": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string"
-          },
-          "workspaceName": {
-            "type": "string"
-          },
-          "inviterName": {
-            "nullable": true,
-            "type": "string"
-          },
-          "hasAccount": {
-            "type": "boolean"
-          },
-          "expiresAt": {
-            "type": "string"
-          }
-        },
-        "required": ["email", "workspaceName", "inviterName", "hasAccount", "expiresAt"],
-        "additionalProperties": false
-      },
-      "AcceptWorkspaceInvitationRequest": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 200
-          }
-        },
-        "required": ["token"],
-        "additionalProperties": false
-      },
-      "SignupWorkspaceInvitationRequest": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 200
-          },
-          "displayName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "password": {
-            "type": "string",
-            "minLength": 12,
-            "maxLength": 128
-          }
-        },
-        "required": ["token", "displayName", "password"],
-        "additionalProperties": false
-      },
-      "AcceptedWorkspaceInvitation": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string"
-          },
-          "workspace": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              },
-              "slug": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              }
-            },
-            "required": ["id", "slug", "name"],
-            "additionalProperties": false
-          },
-          "workspaceUrl": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "required": ["email", "workspace", "workspaceUrl"],
         "additionalProperties": false
       }
     }

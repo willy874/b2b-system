@@ -77,7 +77,6 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `auditLog.archive` | `modules/audit-log` | `AUDIT_LOG_ARCHIVE_CRON` | `30 3 * * *`（每天 03:30 UTC） |
 | `file.maintenance` | `modules/file` | `FILE_MAINTENANCE_CRON` | `0 * * * *`（每小時整點） |
 | `auth.activationMail`、`auth.passwordResetMail` | `modules/auth` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
-| `workspace.invitationMail` | `modules/workspace` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
 | `approval.resultMail` | `modules/approval` | — | 由程式入列 |
 | `oidc.cleanup` | `modules/oidc-provider` | `OIDC_CLEANUP_CRON` | `45 3 * * *`（每天 03:45 UTC；清除過期的 IdP 狀態） |
 

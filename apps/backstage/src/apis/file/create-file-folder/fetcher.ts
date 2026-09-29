@@ -3,15 +3,9 @@ import type { HttpRequestDTO } from '@/core/client';
 import { getFileFolderControllerCreateUrl } from '@/shared/api-sdk';
 import type { CreateFileFolderRequest, FileFolder } from '@/shared/api-sdk';
 
-import type { InWorkspace } from '../types';
-
 export const fetchFileFolderCreateMutation = defineAuthFetcher<
-  HttpRequestDTO<InWorkspace & CreateFileFolderRequest>,
+  HttpRequestDTO<CreateFileFolderRequest>,
   FileFolder
->((http, request) => {
-  const { workspaceId, ...body } = request.params;
-  return http.request(
-    getFileFolderControllerCreateUrl({ workspaceId }),
-    jsonBody(body, { method: 'POST' }),
-  );
-});
+>((http, request) =>
+  http.request(getFileFolderControllerCreateUrl(), jsonBody(request.params, { method: 'POST' })),
+);

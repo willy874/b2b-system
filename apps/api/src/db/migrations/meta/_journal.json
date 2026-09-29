@@ -5,141 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1789862666588,
-      "tag": "0000_sad_stephen_strange",
+      "when": 1790693430593,
+      "tag": "0000_baseline",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1789862674460,
-      "tag": "0001_triggers",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1790295424342,
-      "tag": "0002_audit_logs_archive",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1790295424735,
-      "tag": "0003_audit_logs_archive_functions",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1790299931027,
-      "tag": "0004_approval_requests",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1790299936082,
-      "tag": "0005_approval_triggers_and_grants",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1790480903678,
-      "tag": "0006_files",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1790484384128,
-      "tag": "0007_file_manager",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1790490979846,
-      "tag": "0008_file_image_variants",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1790493631747,
-      "tag": "0009_file_folders",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1790648623864,
-      "tag": "0010_resource_grants",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1790650229978,
-      "tag": "0011_file_folder_access",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1790651810355,
-      "tag": "0012_admin_file_access",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1790652543520,
-      "tag": "0013_file_system_folders",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
-      "when": 1790661847075,
-      "tag": "0014_audit_logs_archive_security_definer",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "7",
-      "when": 1790663464769,
-      "tag": "0015_job_permissions",
-      "breakpoints": true
-    },
-    {
-      "idx": 16,
-      "version": "7",
-      "when": 1790667178752,
-      "tag": "0016_workspaces",
-      "breakpoints": true
-    },
-    {
-      "idx": 17,
-      "version": "7",
-      "when": 1790673728402,
-      "tag": "0017_workspace_invitations",
-      "breakpoints": true
-    },
-    {
-      "idx": 18,
-      "version": "7",
-      "when": 1790678398654,
-      "tag": "0018_oidc_provider",
-      "breakpoints": true
-    },
-    {
-      "idx": 19,
-      "version": "7",
-      "when": 1790685655900,
-      "tag": "0019_identity_providers",
+      "when": 1790693449471,
+      "tag": "0001_functions_and_triggers",
       "breakpoints": true
     }
   ]

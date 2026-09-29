@@ -28,7 +28,6 @@ export const THUMBNAIL_MAX_SIZE = 512 * 1024;
 /**
  * 伺服器會為這些型別產生影像變體（sharp 預編譯版本能解碼的格式）。
  * SVG 不在內：向量圖由瀏覽器直接顯示即可，也不讓 api 解析使用者給的 XML。
- * migration `0008_file_image_variants.sql` 的補產生條件用同一份清單，改這裡要一起改。
  */
 export const IMAGE_VARIANT_SOURCE_TYPES = [
   'image/jpeg',

@@ -3,13 +3,6 @@ import type { HttpRequestDTO } from '@/core/client';
 import { getFileControllerGetUploadPolicyUrl } from '@/shared/api-sdk';
 import type { FileUploadPolicy } from '@/shared/api-sdk';
 
-import type { InWorkspace } from '../types';
-
-export const fetchFileUploadPolicyQuery = defineAuthFetcher<
-  HttpRequestDTO<InWorkspace>,
-  FileUploadPolicy
->((http, request) =>
-  http.request(getFileControllerGetUploadPolicyUrl({ workspaceId: request.params.workspaceId }), {
-    method: 'GET',
-  }),
+export const fetchFileUploadPolicyQuery = defineAuthFetcher<HttpRequestDTO<void>, FileUploadPolicy>(
+  (http) => http.request(getFileControllerGetUploadPolicyUrl(), { method: 'GET' }),
 );

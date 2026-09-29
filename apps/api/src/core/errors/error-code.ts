@@ -53,8 +53,6 @@ export const ErrorCode = {
   ROLE_SUPER_ADMIN_IMMUTABLE: { status: 403 },
   ROLE_IN_USE: { status: 409 },
   LAST_SUPER_ADMIN: { status: 403 },
-  /** 角色的範圍與權限鍵或指派的地方不符（docs/adr/0018-workspace-tenancy.md D3）。 */
-  ROLE_SCOPE_MISMATCH: { status: 422 },
 
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },
@@ -63,27 +61,6 @@ export const ErrorCode = {
   APPROVAL_NOT_FOUND: { status: 404 },
   APPROVAL_ALREADY_REVIEWED: { status: 409 },
   APPROVAL_SELF_REVIEW: { status: 403 },
-
-  // ── 工作區 ──
-  /** 不存在、已刪除，或操作者不是成員（不洩漏工作區是否存在，D9）。 */
-  WORKSPACE_NOT_FOUND: { status: 404 },
-  WORKSPACE_SLUG_DUPLICATE: { status: 409 },
-  WORKSPACE_MEMBER_NOT_FOUND: { status: 404 },
-  WORKSPACE_MEMBER_DUPLICATE: { status: 409 },
-  /** 移除最後一位能管理成員的人（D12）。 */
-  WORKSPACE_LAST_ADMIN: { status: 409 },
-  /** 邀請不存在，或已經接受／撤銷（撤銷時）。 */
-  WORKSPACE_INVITATION_NOT_FOUND: { status: 404 },
-  /** 同一個 email 同時被邀請兩次（待接受的唯一索引）。 */
-  WORKSPACE_INVITATION_DUPLICATE: { status: 409 },
-  /** 邀請連結無效：token 不對、已過期、已接受或已撤銷，或工作區已刪除。 */
-  WORKSPACE_INVITATION_INVALID: { status: 400 },
-  /** 登入的帳號與受邀的 email 不同。 */
-  WORKSPACE_INVITATION_EMAIL_MISMATCH: { status: 403 },
-  /** 受邀的 email 已經有帳號：要登入後接受，不能再建立帳號。 */
-  WORKSPACE_INVITATION_ACCOUNT_EXISTS: { status: 409 },
-  /** 邀請還沒有帳號的 email，邀請人另外需要平台的 `user:create`（D14）。 */
-  WORKSPACE_INVITATION_USER_CREATE_REQUIRED: { status: 403 },
 
   // ── 外部 IdP 連線 ──
   IDENTITY_PROVIDER_NOT_FOUND: { status: 404 },

@@ -5,7 +5,6 @@ import { Dialog } from '@/components/Dialog';
 import { Input } from '@/components/Input';
 import { useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
-import { useRequiredWorkspace } from '@/core/workspace';
 
 import {
   useFolderCreateMutation,
@@ -27,7 +26,6 @@ interface FileFolderDialogProps {
 
 /** 資料夾的名稱對話框。同層同名（`FILE_FOLDER_NAME_CONFLICT`）時顯示錯誤並保留輸入。 */
 export function FileFolderDialog({ target, onClose, onCreated }: FileFolderDialogProps) {
-  const { id: workspaceId } = useRequiredWorkspace();
   const { t } = useTranslation();
   const errorMessage = useErrorMessage();
   const create = useFolderCreateMutation();
@@ -61,17 +59,13 @@ export function FileFolderDialog({ target, onClose, onCreated }: FileFolderDialo
         return;
       }
       await rename
-        .mutateAsync({
-          params: { workspaceId, folderId: target.folder.id, body: { name: trimmed } },
-        })
+        .mutateAsync({ params: { folderId: target.folder.id, body: { name: trimmed } } })
         .then(onClose)
         .catch(() => undefined);
       return;
     }
     await create
-      .mutateAsync({
-        params: { workspaceId, name: trimmed, parentId: target.parentId ?? null },
-      })
+      .mutateAsync({ params: { name: trimmed, parentId: target.parentId ?? null } })
       .then((folder) => {
         onClose();
         onCreated?.(folder.id);

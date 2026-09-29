@@ -1,9 +1,8 @@
 import { useCallback, useState } from 'react';
 
 import { isBatchJobActive, useBatchJobs, useBatchQueue } from '@/core/batch';
-import { useRequiredWorkspace } from '@/core/workspace';
 
-import { FILE_MANAGER_SCOPE, FileBatchOperation, workspaceItemId } from '../../batch';
+import { FILE_MANAGER_SCOPE, FileBatchOperation } from '../../batch';
 import { useFileDeleteMutation } from '../../hooks/useFileMutations';
 import { useFileMoveMutation, useFolderDeleteMutation } from '../../hooks/useFolderMutations';
 import { isFileItem, isFolderItem } from './adapter';
@@ -22,7 +21,6 @@ const DOWNLOAD_INTERVAL_MS = 250;
  */
 export function useFileActions() {
   const queue = useBatchQueue();
-  const { id: workspaceId } = useRequiredWorkspace();
   const deleteOne = useFileDeleteMutation();
   const deleteFolder = useFolderDeleteMutation();
   const move = useFileMoveMutation();
@@ -39,8 +37,8 @@ export function useFileActions() {
     if (targets.length === 1 && only) {
       const done =
         only.type === 'folder'
-          ? deleteFolder.mutateAsync({ params: { workspaceId, folderId: only.id } })
-          : deleteOne.mutateAsync({ params: { workspaceId, fileId: only.id } });
+          ? deleteFolder.mutateAsync({ params: { folderId: only.id } })
+          : deleteOne.mutateAsync({ params: { fileId: only.id } });
       await done.catch(() => undefined);
     } else if (targets.length > 1 && queue) {
       const files = targets.filter(isFileItem);
@@ -49,38 +47,31 @@ export function useFileActions() {
         queue.enqueue({
           operation: FileBatchOperation.DELETE_FOLDER,
           scope: FILE_MANAGER_SCOPE,
-          items: folders.map((folder) => ({
-            id: workspaceItemId(workspaceId, folder.id),
-            label: folder.name,
-          })),
+          items: folders.map((folder) => ({ id: folder.id, label: folder.name })),
         });
       }
       if (files.length > 0) {
         queue.enqueue({
           operation: FileBatchOperation.DELETE,
           scope: FILE_MANAGER_SCOPE,
-          items: files.map((file) => ({
-            id: workspaceItemId(workspaceId, file.id),
-            label: file.name,
-          })),
+          items: files.map((file) => ({ id: file.id, label: file.name })),
         });
       }
     }
     setPendingDelete(undefined);
     return targets;
-  }, [deleteFolder, deleteOne, pendingDelete, queue, workspaceId]);
+  }, [deleteFolder, deleteOne, pendingDelete, queue]);
 
   const moveItems = useCallback(
     (items: DraggedItems, targetFolderId: string | undefined) =>
       move.mutateAsync({
         params: {
-          workspaceId,
           fileIds: [...items.fileIds],
           folderIds: [...items.folderIds],
           targetFolderId: targetFolderId ?? null,
         },
       }),
-    [move, workspaceId],
+    [move],
   );
   /** 拖放：錯誤已由 mutation 以 toast 顯示。 */
   const dropItems = useCallback(

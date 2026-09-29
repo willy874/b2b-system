@@ -11,7 +11,7 @@
    ┌────────────────────────┐        ┌───────────────────────────────────────────┐        ┌──────────────────┐
    │ backstage :5173        │◀──────▶│ apps/auth :5175（IdP 的 origin）            │◀──────▶│ 外部 IdP          │
    │ （RP：public client）   │        │  /interaction/:uid  登入互動頁              │        │ Google／Azure AD │
-   │ cookie：refresh（本 origin）│    │  /identity-providers、/workspaces  平台管理 │        │ （OIDC）          │
+   │ cookie：refresh（本 origin）│    │  /identity-providers  平台管理              │        │ （OIDC）          │
    └──────────┬─────────────┘        │ cookie：IdP session、互動、refresh（本 origin）│       └──────────────────┘
               │ /api                  └──────────────────┬────────────────────────┘
               ▼                                          │ /api
@@ -26,7 +26,7 @@
 - **我們自己當 IdP**：`apps/api` 是 OIDC Provider（[`oidc-provider`](https://github.com/panva/node-oidc-provider)），
   `apps/auth` 提供互動頁。每個產品（backstage、之後的編輯器）都是它的 client。
 - **外部 IdP 是登入互動裡的一種登入方式**：產品只認識我們的 IdP，不直接接 Google／Azure AD。
-- **身分與租戶分開**：IdP 只回答「你是誰」，工作區仍由路由帶（ADR-0018 D8、ADR-0019 D12）。
+- **租戶**：ADR-0018 的工作區已移除；租戶改為每租戶一個 database 與網域（[ADR-0020](../adr/0020-physical-tenant-isolation.md)，實作中，見 [`../features/tenant-isolation.md`](../features/tenant-isolation.md)）。
 - **只拆前端**：`apps/auth` 沒有自己的後端（ADR-0019 D2）。
 
 ## 2. Origin 與 cookie（ADR-0019 D6）
@@ -170,15 +170,13 @@ GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie�
 | `features/auth/pages/Login` | `/auth/login`：只負責跳到 IdP；`?signedOut=true` 時不自動跳，顯示「再次登入」 |
 | `features/auth/pages/SsoCallback` | `/auth/callback`：換 session 後 `router.history.replace(returnTo)`；`error=access_denied` 顯示「已取消」 |
 | `app/App.tsx` 的 `SessionWatcher` | 單一登出或續期失敗時導向 `/auth/login?signedOut=true` |
-| `app/layouts/DashboardLayout.tsx` 的 `EXTERNAL_MENU` | 側邊選單連到 apps/auth 的頁面（「工作區」→ `/workspaces`）：一般連結頂層跳轉，依權限鍵（`workspace:read`）顯示，backstage 不註冊頁面權限 |
 
 ### 6.2 apps/auth
 
 | Feature | 路由 | 說明 |
 | --- | --- | --- |
-| `login` | `/interaction/:uid`、`/error`、`/login`、`/callback`、`/forgot-password`、`/reset-password`、`/setup`、`/register`、`/invitation` | IdP 的互動頁（密碼、外部 IdP、網域導向）；provider 的協定錯誤頁；apps/auth 自己的頁面也經 SSO 登入（client `auth`）；帳號流程 |
+| `login` | `/interaction/:uid`、`/error`、`/login`、`/callback`、`/forgot-password`、`/reset-password`、`/setup`、`/register` | IdP 的互動頁（密碼、外部 IdP、網域導向）；provider 的協定錯誤頁；apps/auth 自己的頁面也經 SSO 登入（client `auth`）；帳號流程 |
 | `home` | `/` | 目前登入的身分 |
-| `workspace-admin` | `/workspaces` | 平台的租戶管理（`workspace:*`，D13） |
 | `identity-provider` | `/identity-providers` | 外部 IdP 連線（`identityProvider:*`）；顯示要登記在外部 IdP 的 redirect URI |
 
 帳號流程的信中連結以 `AUTH_APP_URL` 開頭（`MailService.accountLink`，[`backend/11-mail.md`](./backend/11-mail.md)）。

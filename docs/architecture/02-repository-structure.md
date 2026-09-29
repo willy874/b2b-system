@@ -13,7 +13,7 @@ b2b-system/
 ├── .env.example
 │
 ├── apps/
-│   ├── backstage/               @b2b-system/backstage — React 前端（RBAC 管理後台與工作區內的頁面）
+│   ├── backstage/               @b2b-system/backstage — React 前端（RBAC 管理後台）
 │   ├── auth/                    @b2b-system/auth — 全平台共用的身分與租戶入口（React，ADR-0019；見該目錄的 README）
 │   ├── api/                     @b2b-system/api — NestJS 後端
 │   ├── file-storage/            @b2b-system/file-storage — S3 相容的本機檔案儲存（見 03-file-storage.md）
@@ -155,7 +155,7 @@ apps/backstage/src/
 ### 2.2 `apps/auth`
 
 資料夾分層與上面相同（`main.tsx` → `app/` → `features/` → `apis/` → `core/` → `components/` → `shared/`）。
-features 是 `login`（IdP 互動頁、帳號流程）、`home`、`workspace-admin`、`identity-provider`；`core/`、`components/`、`shared/`
+features 是 `login`（IdP 互動頁、帳號流程）、`home`、`identity-provider`；`core/`、`components/`、`shared/`
 大多從 backstage **複製**（ADR-0019 D14），複製清單與同步規則見 [`apps/auth/README.md`](../../apps/auth/README.md)，
 路由與登入流程見 [`04-sso.md`](./04-sso.md) §6。
 
