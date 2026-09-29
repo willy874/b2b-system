@@ -1,0 +1,26 @@
+import { describe, expect, it } from 'vitest';
+
+import { redactRequest, redactUrl } from '../redact';
+
+describe('日誌遮蔽（docs/conventions/03-backend.md §7）', () => {
+  it('遮掉查詢字串裡的 token，保留其他參數', () => {
+    expect(redactUrl('/auth/setup/verify?token=abc_123-XYZ')).toBe(
+      '/auth/setup/verify?token=[Redacted]',
+    );
+    expect(redactUrl('/x?a=1&token=abc&b=2')).toBe('/x?a=1&token=[Redacted]&b=2');
+    expect(redactUrl('/users?keyword=token')).toBe('/users?keyword=token');
+    expect(redactUrl(undefined)).toBeUndefined();
+  });
+
+  it('請求的 URL 與 Referer 都遮', () => {
+    expect(
+      redactRequest({
+        url: '/auth/setup/verify?token=secret',
+        headers: { referer: 'http://localhost:5173/auth/setup?token=secret', host: 'x' },
+      }),
+    ).toEqual({
+      url: '/auth/setup/verify?token=[Redacted]',
+      headers: { referer: 'http://localhost:5173/auth/setup?token=[Redacted]', host: 'x' },
+    });
+  });
+});

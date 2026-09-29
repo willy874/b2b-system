@@ -323,6 +323,9 @@ const hash = sha256(raw); // 入庫的
 
 **資料庫裡只有雜湊。** 即使資料庫外洩，攻擊者也無法用其中的值重設任何人的密碼。
 
+原文只存在於寄出的信裡：token 由寄信的背景工作在 **寄出當下** 簽發，不在入列時簽發，
+所以工作資料與日誌都不會出現原文（[`11-mail.md`](./11-mail.md) §4、§5）。
+
 發新 token 時先作廢同使用者同用途的既有未使用 token：
 
 ```sql
@@ -336,14 +339,18 @@ WHERE user_id = $1 AND purpose = $2 AND used_at IS NULL;
 @Post('forgot-password')
 @Public()
 async forgotPassword(@Body(...) dto: ForgotPasswordDto) {
-  const user = await this.userRepo.findByEmail(dto.email);
+  const user = await this.users.findAccountByEmail(dto.email);
   if (user && user.status === 'active') {
-    await this.issueResetToken(user);   // 寄信
+    // 只入列：寄信在背景工作裡，回應時間不因帳號是否存在而不同；同帳號 60 秒內只入列一筆
+    await this.jobs.enqueue(PASSWORD_RESET_MAIL_JOB, { userId: user.id }, { throttle: … });
   }
   // ★ 不論如何都回 200，且回應時間一致
   return { sent: true };
 }
 ```
+
+管理員建立帳號時，啟用信在建立帳號的交易內入列；管理員代為重設時，重設信與稽核在同一個交易內入列
+（[`11-mail.md`](./11-mail.md) §4）。
 
 ---
 

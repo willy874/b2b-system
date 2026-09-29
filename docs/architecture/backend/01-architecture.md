@@ -72,6 +72,10 @@ apps/api/src/
 │   │   ├── image-processor.ts            ★ ImageProcessor 抽象類別（同時是 DI token）
 │   │   ├── sharp-image-processor.ts      實作：sharp / libvips（見 09-file.md §5.4）
 │   │   └── image.module.ts
+│   ├── mail/
+│   │   ├── mail-transport.ts             ★ MailTransport 抽象類別（smtp / console，見 11-mail.md）
+│   │   ├── mail.service.ts               範本 → HTML ＋ 純文字 → 傳輸層；信裡的連結
+│   │   └── mail-layout.tsx               所有信共用的外框（React Email）
 │   └── jobs/
 │       ├── job-type.ts                   defineJob()：工作名稱 ＋ 資料型別 ＋ 重試設定
 │       ├── job-queue.ts                  ★ JobQueue：register / enqueue / retry（底層 pg-boss，見 10-jobs.md）

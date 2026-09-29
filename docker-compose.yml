@@ -17,5 +17,15 @@ services:
       timeout: 5s
       retries: 10
 
+  # 本機收信工具（docs/architecture/backend/11-mail.md §6）：api 以 SMTP 寄到 :1025，
+  # 在 http://localhost:8025 看信；E2E 經它的 API 取出啟用／重設連結
+  mailpit:
+    image: axllent/mailpit:v1.27
+    container_name: game-editor-mailpit
+    restart: unless-stopped
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+
 volumes:
   postgres-data:

@@ -76,6 +76,8 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | --- | --- | --- | --- |
 | `auditLog.archive` | `modules/audit-log` | `AUDIT_LOG_ARCHIVE_CRON` | `30 3 * * *`（每天 03:30 UTC） |
 | `file.maintenance` | `modules/file` | `FILE_MAINTENANCE_CRON` | `0 * * * *`（每小時整點） |
+| `auth.activationMail`、`auth.passwordResetMail` | `modules/auth` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
+| `approval.resultMail` | `modules/approval` | — | 由程式入列 |
 
 ## 4. 入列
 
@@ -89,7 +91,9 @@ await withTransaction(this.db, async (tx) => {
 
 - **業務寫入觸發的工作，入列一律傳 `tx`**（ADR-0016 D2）：資料提交了工作一定在，回滾則工作也不存在。
   與「稽核在交易內」同一條規則（[`01-architecture.md`](./01-architecture.md)）。
-- `singletonKey`：同一個 key 同時只有一筆等待中的工作（重複入列回傳 `null`）。
+- `throttle: { key, seconds }`：同一個 key 在同一個時間窗內只入列一筆，其餘回傳 `null`
+  （例：忘記密碼同一帳號 60 秒一封）。對應 pg-boss 的 `singletonKey` ＋ `singletonSeconds`——
+  單獨的 `singletonKey` 在 standard 佇列 **不起作用**，所以不開放單獨使用。
 - **工作資料不放機密**（token、密碼、完整的信件內容）：`job:read` 看得到 `data`。需要時放 id，
   handler 執行時再取。
 - 沒註冊的工作不能入列（拋 `Error`）：代表擁有它的模組沒有載入，屬於程式錯誤。

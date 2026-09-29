@@ -9,9 +9,11 @@ import { DRIZZLE, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
+import { JobQueue } from '@/core/jobs';
 import type { AuditMetadata, UserInsert, UserRow, UserStatus } from '@/db/schema';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import { ACTIVATION_MAIL_JOB, PASSWORD_RESET_MAIL_JOB } from '@/modules/auth/auth-mail.constants';
 import { AuthTokenService } from '@/modules/auth/auth-token.service';
 import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
 import { PermissionService } from '@/modules/permission/permission.service';
@@ -71,6 +73,7 @@ export class UserService {
     private readonly repo: UserRepository,
     private readonly permissionService: PermissionService,
     private readonly authTokens: AuthTokenService,
+    private readonly jobs: JobQueue,
     private readonly userCache: UserCacheService,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
@@ -104,8 +107,8 @@ export class UserService {
   async create(dto: CreateUserDto, actor: AuthUser): Promise<UserDto> {
     await this.assertCreatable(dto.email, dto.roleIds, actor);
 
-    const created = await withTransaction(this.db, (tx) =>
-      this.createAccount(
+    const created = await withTransaction(this.db, async (tx) => {
+      const account = await this.createAccount(
         {
           email: dto.email,
           username: dto.username ?? null,
@@ -115,10 +118,12 @@ export class UserService {
         },
         actor,
         tx,
-      ),
-    );
+      );
+      // 與帳號同生共死：建立失敗就不會寄出啟用信（docs/architecture/backend/11-mail.md §4）
+      await this.jobs.enqueue(ACTIVATION_MAIL_JOB, { userId: account.id }, { tx });
+      return account;
+    });
 
-    await this.authTokens.issue(created.id, 'activation');
     this.publishCreated(created.id, dto.roleIds);
     return toDto(created, await this.repo.listRoles(created.id));
   }
@@ -271,14 +276,19 @@ export class UserService {
 
   async resetPassword(id: string, actor: AuthUser): Promise<{ sent: true }> {
     const user = await this.getExisting(id);
-    await this.authTokens.issue(id, 'password_reset');
-    await this.audit.record({
-      action: 'user.reset_password_requested',
-      resourceType: 'user',
-      resourceId: id,
-      resourceName: user.email,
-      actorId: actor.id,
-      actorEmail: actor.email,
+    await withTransaction(this.db, async (tx) => {
+      await this.jobs.enqueue(PASSWORD_RESET_MAIL_JOB, { userId: id }, { tx });
+      await this.audit.record(
+        {
+          action: 'user.reset_password_requested',
+          resourceType: 'user',
+          resourceId: id,
+          resourceName: user.email,
+          actorId: actor.id,
+          actorEmail: actor.email,
+        },
+        tx,
+      );
     });
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [{ resource: ChangeSource.USER_CREDENTIAL, kind: ChangeKind.UPDATE, id }],

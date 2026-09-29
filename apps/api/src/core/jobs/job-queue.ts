@@ -35,8 +35,11 @@ export interface RegisterJobOptions {
 export interface EnqueueOptions {
   /** 業務交易：入列與資料一起提交或一起回滾（docs/adr/0016-background-jobs.md D2）。 */
   tx?: Transaction;
-  /** 同一個 key 同時只會有一筆等待中的工作。 */
-  singletonKey?: string;
+  /**
+   * 節流：同一個 `key` 在同一個 `seconds` 秒的時間窗內只入列一筆，其餘回傳 `null`
+   * （pg-boss 的 singletonKey ＋ singletonSeconds；單獨的 singletonKey 在 standard 佇列不起作用）。
+   */
+  throttle?: { key: string; seconds: number };
   startAfter?: Date;
 }
 
@@ -119,7 +122,7 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     this.started = false;
   }
 
-  /** 入列；回傳工作 id。`singletonKey` 已有等待中的工作時回傳 `null`。 */
+  /** 入列；回傳工作 id。被 `throttle` 擋下時回傳 `null`。 */
   async enqueue<TData extends object>(
     type: JobType<TData>,
     data: TData,
@@ -128,7 +131,8 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     this.assertRegistered(type.name);
     return this.boss.send(type.name, data, {
       db: this.dbOf(options.tx),
-      singletonKey: options.singletonKey,
+      singletonKey: options.throttle?.key,
+      singletonSeconds: options.throttle?.seconds,
       startAfter: options.startAfter,
     });
   }

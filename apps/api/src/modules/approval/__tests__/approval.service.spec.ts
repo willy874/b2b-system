@@ -4,6 +4,7 @@ import type { AuthUser, PermissionKey } from '@/common/types';
 import type { PermissionSet } from '@/core/cache';
 import { AppException } from '@/core/errors';
 import type { DomainEventBus } from '@/core/events';
+import type { JobQueue } from '@/core/jobs';
 import type { ApprovalRequestRow } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { PermissionService } from '@/modules/permission/permission.service';
@@ -65,6 +66,7 @@ function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperA
   const permissionService = { getPermissionSet: vi.fn(async () => permissionSet) };
   const audit = { record: vi.fn(async () => undefined) };
   const events = { publish: vi.fn() };
+  const jobs = { enqueue: vi.fn(async () => 'job-1') };
   const handler = {
     type: ApprovalType.USER_REGISTER,
     requiredPermissions: vi.fn((): PermissionKey[] => ['user:create']),
@@ -80,9 +82,10 @@ function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperA
     permissionService as unknown as PermissionService,
     audit as unknown as AuditService,
     events as unknown as DomainEventBus,
+    jobs as unknown as JobQueue,
   );
   service.registerHandler(handler);
-  return { service, repo, audit, events, handler, tx };
+  return { service, repo, audit, events, handler, tx, jobs };
 }
 
 async function expectCode(operation: Promise<unknown>, code: string) {
@@ -166,6 +169,16 @@ describe('ApprovalService.approve', () => {
     expect(reviewOrder).toBeLessThan(ctx.handler.apply.mock.invocationCallOrder[0]!);
   });
 
+  it('審核結果通知在同一個交易內入列', async () => {
+    const ctx = setup();
+    await ctx.service.approve('approval-1', { roleIds: [] }, REVIEWER);
+    expect(ctx.jobs.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'approval.resultMail' }),
+      { approvalId: 'approval-1' },
+      { tx: ctx.tx },
+    );
+  });
+
   it('找不到 → APPROVAL_NOT_FOUND', async () => {
     const ctx = setup();
     ctx.repo.findById.mockResolvedValue(undefined);
@@ -233,6 +246,7 @@ describe('ApprovalService.approve', () => {
     expect(ctx.handler.apply).not.toHaveBeenCalled();
     expect(ctx.handler.afterApply).not.toHaveBeenCalled();
     expect(ctx.events.publish).not.toHaveBeenCalled();
+    expect(ctx.jobs.enqueue).not.toHaveBeenCalled();
   });
 });
 
@@ -250,6 +264,11 @@ describe('ApprovalService.reject', () => {
     expect(ctx.events.publish).toHaveBeenCalledWith('resource.changed', {
       changes: [{ resource: 'approval', kind: 'update', id: 'approval-1' }],
     });
+    expect(ctx.jobs.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'approval.resultMail' }),
+      { approvalId: 'approval-1' },
+      { tx: ctx.tx },
+    );
   });
 
   it('併發審核時沒搶到 → APPROVAL_ALREADY_REVIEWED', async () => {

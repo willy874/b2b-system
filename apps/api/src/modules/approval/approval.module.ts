@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { ApprovalHandlerRegistry } from './approval-handler.registry';
+import { ApprovalResultMailJob } from './approval-result-mail.job';
 import { ApprovalController } from './approval.controller';
 import { ApprovalRepository } from './approval.repository';
 import { ApprovalService } from './approval.service';
@@ -12,7 +13,7 @@ import { ApprovalService } from './approval.service';
  */
 @Module({
   controllers: [ApprovalController],
-  providers: [ApprovalService, ApprovalRepository, ApprovalHandlerRegistry],
+  providers: [ApprovalService, ApprovalRepository, ApprovalHandlerRegistry, ApprovalResultMailJob],
   exports: [ApprovalService],
 })
 export class ApprovalModule {}

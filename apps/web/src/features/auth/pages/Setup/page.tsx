@@ -105,7 +105,13 @@ export default function SetupPage() {
           )}
         </form.Field>
         {formError && <p className="m-0 text-sm text-[var(--color-danger-text)]">{formError}</p>}
-        <Button type="submit" variant="primary" block loading={setup.isPending}>
+        <Button
+          type="submit"
+          variant="primary"
+          block
+          loading={setup.isPending}
+          data-testid="setup-submit"
+        >
           {t('auth.setup.submit')}
         </Button>
       </form>

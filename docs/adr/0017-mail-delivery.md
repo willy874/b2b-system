@@ -1,8 +1,8 @@
 # ADR-0017 — 郵件寄送：SMTP（nodemailer）＋ React Email 範本，開發用 Mailpit
 
-- 狀態：**提案中（待確認）**
+- 狀態：**採用**
 - 日期：2026-09-29
-- 相關：[`../features/mailer.md`](../features/mailer.md)、[ADR-0016](./0016-background-jobs.md)、
+- 相關：[`../architecture/backend/11-mail.md`](../architecture/backend/11-mail.md)、[ADR-0016](./0016-background-jobs.md)、
   [`../architecture/backend/04-auth.md`](../architecture/backend/04-auth.md) §5、[`../rbac/06-approval.md`](../rbac/06-approval.md) §1
 
 ## 背景
@@ -42,10 +42,21 @@
 | D10 | E2E 經 Mailpit 的 API 取出啟用／重設連結 | 測到「從信箱點連結」的完整流程，不再依賴伺服器日誌 |
 | D11 | `console` 只給單元與整合測試用 | 不必起 SMTP 伺服器 |
 
+## 實作時的調整
+
+| 項目 | 提案 | 實作 | 原因 |
+| --- | --- | --- | --- |
+| token 何時簽發 | 未定（mailer 提案的開放問題） | 寄信的工作在 **寄出當下** 簽發；工作資料只有 `userId` | 資料庫只存雜湊；入列時簽發就得把原文放進工作資料，而 `job:read` 看得到工作資料。重試會簽新的、舊的作廢 |
+| 範本位置 | `core/mail/templates/` | `modules/<name>/mails/*.mail.tsx`；`core/mail` 只有外框與傳輸層 | 範本含業務名詞，`core/` 不認識 `modules/` |
+| 語系檔 | 後端語系檔 | 文案依語系寫在範本檔內（`satisfies Record<MailLocale, …>`） | 每封信的文案只有幾句；放在一起改範本時不會漏改 |
+| D7 的範圍 | 只管寄信本身 | 另外遮蔽 HTTP 請求日誌裡的 `token`（網址、`query`、`Referer`）與回應的 `set-cookie` | 實作時發現 pino-http 會記下 `/auth/setup/verify?token=…` 與 refresh cookie；不遮的話 D7 不成立 |
+| `MAIL_TRANSPORT` 預設值 | 本機走 `smtp` | 預設 `console`；`.env.example` 設 `smtp`，`docker-compose.prod.yml` 寫死 `smtp` | 測試與 CI 沒有 SMTP，預設 `smtp` 會讓工作一直重試 |
+| 忘記密碼的節流 | — | 同帳號 60 秒內只入列一封 | 避免重複按洗信箱；順帶修正 `JobQueue` 的節流選項（單獨的 `singletonKey` 在 pg-boss 的 standard 佇列不起作用） |
+
 ## 取捨
 
 | 代價 | 評估 |
 | --- | --- |
 | SMTP 拿不到服務商的即時回應細節（退信原因、訊息 id 格式不一） | 第一版不追蹤退信；需要時再加服務商專屬的 transport |
-| api 多了 `react` 相依與 JSX 設定 | 只在 `core/mail/templates/` 使用；不影響其他模組 |
+| api 多了 `react` 相依與 JSX 設定 | 只在 `*.mail.tsx` 使用；不影響其他模組 |
 | compose 多一個 Mailpit 服務 | 只在開發與 E2E；正式環境不部署 |

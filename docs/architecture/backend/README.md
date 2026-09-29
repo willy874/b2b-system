@@ -19,6 +19,7 @@
 | 08  | [`08-realtime.md`](./08-realtime.md)               | Socket.io gateway、room 與受眾、推播時機     |
 | 09  | [`09-file.md`](./09-file.md)                       | 物件儲存抽象層、`files` 轉介表、直傳上傳流程 |
 | 10  | [`10-jobs.md`](./10-jobs.md)                       | 背景工作佇列（pg-boss）、排程、管理 API      |
+| 11  | [`11-mail.md`](./11-mail.md)                       | 郵件：SMTP / console 傳輸、React Email 範本  |
 
 ## 四條必須記住的規則
 

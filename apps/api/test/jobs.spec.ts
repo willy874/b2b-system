@@ -161,15 +161,14 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
         .expect(200);
       const items = (response.body as { data: { items: Array<Record<string, unknown>> } }).data
         .items;
-      expect(items.map((queue) => queue.name)).toEqual([
-        'auditLog.archive',
-        'file.maintenance',
-        'test.flaky',
-      ]);
-      expect(items[0]).toMatchObject({ cron: '0 0 1 1 *' });
-      expect(items[1]).toMatchObject({ cron: null });
+      const byName = new Map(items.map((queue) => [queue.name, queue]));
+      expect([...byName.keys()]).toEqual(
+        expect.arrayContaining(['auditLog.archive', 'file.maintenance', 'test.flaky']),
+      );
+      expect(byName.get('auditLog.archive')).toMatchObject({ cron: '0 0 1 1 *' });
+      expect(byName.get('file.maintenance')).toMatchObject({ cron: null });
       // 即時計數：前面兩個 failed（commit、manual）
-      expect(items[2]).toMatchObject({ failedCount: 2, activeCount: 0 });
+      expect(byName.get('test.flaky')).toMatchObject({ failedCount: 2, activeCount: 0 });
     });
 
     it('GET /jobs 依佇列與狀態篩選，不含 data / output', async () => {
