@@ -141,7 +141,8 @@ docs/
     ├── 0014-server-image-variants.md
     ├── 0015-file-folder-access.md
     ├── 0016-background-jobs.md
-    └── 0017-mail-delivery.md
+    ├── 0017-mail-delivery.md
+    └── 0018-workspace-tenancy.md
 ```
 
 ---
