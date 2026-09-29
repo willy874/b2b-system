@@ -8,7 +8,7 @@ import { PERMISSION_PAGE, registerPermissionPagePermissions } from '@/features/p
 import { registerRolePagePermissions, ROLE_CREATE_PAGE, ROLE_PAGE } from '@/features/role';
 import { registerUserPagePermissions, USER_CREATE_PAGE, USER_PAGE } from '@/features/user';
 
-import { getRegisteredPageKeys, resetPagePermissionRegistry } from '../registry';
+import { getRegisteredPageKeys, resetPagePermissionRegistry, resolvePageKey } from '../registry';
 
 /** 取代靜態表原本提供的編譯期完整性（ADR-0001 的代價緩解）。 */
 describe('註冊表完整性', () => {
@@ -39,5 +39,15 @@ describe('註冊表完整性', () => {
         FILE_PAGE,
       ]),
     );
+  });
+
+  it('子頁面（建立對話框）解析到自己的頁面鍵，不被列表頁的規則蓋掉', () => {
+    registerUserPagePermissions();
+    registerRolePagePermissions();
+
+    expect(resolvePageKey('/user/create')).toBe(USER_CREATE_PAGE);
+    expect(resolvePageKey('/user')).toBe(USER_PAGE);
+    expect(resolvePageKey('/role/create')).toBe(ROLE_CREATE_PAGE);
+    expect(resolvePageKey('/role')).toBe(ROLE_PAGE);
   });
 });

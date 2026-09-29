@@ -23,7 +23,7 @@ export function registerRolePagePermissions(): void {
     },
   });
   registerPagePermission(ROLE_CREATE_PAGE, {
-    route: `${routeBasePath(RoleListRoute)}/${routeBasePath(RoleCreateRoute)}`,
+    route: routeBasePath(RoleCreateRoute),
     rule: {
       resource: PermissionResource.ROLE,
       access: [PermissionKey['role:read'], PermissionKey['role:create']],
