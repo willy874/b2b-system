@@ -4,6 +4,7 @@ import { Icon } from '@/components/Icon';
 import { useTranslation } from '@/core/locales';
 import { cn } from '@/shared/utils';
 
+import { FILE_FOLDER_KIND_ICON } from '../../../constants';
 import { childFolders, folderPath } from '../folderTree';
 import type { FolderIndex } from '../folderTree';
 import type { ItemDrag } from '../useItemDrag';
@@ -57,6 +58,7 @@ export function FileFolderTree({
     const disabled = isDisabled?.(id) ?? false;
     const dropOver = itemDrag?.isOver(id) ?? false;
     const folder = id ? folders.byId.get(id) : undefined;
+    const locked = folder?.capabilities.canRead === false;
     return (
       <li key={id ?? 'root'} className="m-0 list-none p-0">
         <div
@@ -88,7 +90,7 @@ export function FileFolderTree({
             disabled={disabled}
             aria-current={selectedId === id ? 'true' : undefined}
             onClick={() => onSelect(id)}
-            draggable={Boolean(itemDrag && canMove && folder)}
+            draggable={Boolean(itemDrag && canMove && folder?.capabilities.canUpdate)}
             onDragStart={(event) => {
               if (!itemDrag || !folder) return;
               itemDrag.startDrag(
@@ -111,11 +113,21 @@ export function FileFolderTree({
             )}
           >
             <Icon
-              name={id === undefined ? 'home' : 'folder'}
+              name={
+                id === undefined
+                  ? 'home'
+                  : locked
+                    ? 'lock'
+                    : FILE_FOLDER_KIND_ICON[folder?.kind ?? 'normal']
+              }
               size={16}
-              className="shrink-0 text-[var(--color-brand)]"
+              className={cn(
+                'shrink-0',
+                locked ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-brand)]',
+              )}
+              aria-label={locked ? t('file.access.locked') : undefined}
             />
-            <span className="truncate">{name}</span>
+            <span className={cn('truncate', locked && 'text-[var(--color-fg-muted)]')}>{name}</span>
           </button>
         </div>
         {expanded && children.length > 0 && (

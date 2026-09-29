@@ -6,6 +6,7 @@ import { Icon } from '@/components/Icon';
 import { useTranslation } from '@/core/locales';
 import { cn } from '@/shared/utils';
 
+import { FILE_FOLDER_KIND_ICON } from '../../../constants';
 import type { FolderItemVM } from '../adapter';
 
 interface FolderGridItemProps {
@@ -51,7 +52,8 @@ export const FolderGridItem = memo(function FolderGridItem({
       data-value={item.id}
       data-selected={selected || undefined}
       data-drop-over={dropOver || undefined}
-      title={item.name}
+      data-locked={!item.canRead || undefined}
+      title={item.canRead ? item.name : `${item.name}（${t('file.access.locked')}）`}
       style={style}
       className={cn(
         'group absolute flex cursor-default flex-col overflow-hidden rounded-md border bg-[var(--color-surface)] select-none',
@@ -63,8 +65,22 @@ export const FolderGridItem = memo(function FolderGridItem({
         focused && 'outline-2 outline-offset-2 outline-[var(--color-brand)]',
       )}
     >
-      <div className="relative flex min-h-0 flex-1 items-center justify-center bg-[var(--color-fill-subtle)] text-[var(--color-brand)]">
-        <Icon name="folder" size={24} className="scale-150" />
+      <div
+        className={cn(
+          'relative flex min-h-0 flex-1 items-center justify-center bg-[var(--color-fill-subtle)]',
+          item.canRead ? 'text-[var(--color-brand)]' : 'text-[var(--color-fg-muted)]',
+        )}
+      >
+        <Icon name={FILE_FOLDER_KIND_ICON[item.kind]} size={24} className="scale-150" />
+        {!item.canRead && (
+          // 鎖住的資料夾：看得到、進得去（子資料夾），看不到檔案（docs/rbac/07-resource-grants.md §5.1）
+          <span
+            className="absolute right-1.5 bottom-1.5 flex rounded-full bg-[var(--color-surface)] p-1 text-[var(--color-fg-muted)] shadow-[var(--shadow-popover)]"
+            data-testid="file-folder-locked"
+          >
+            <Icon name="lock" size={14} aria-label={t('file.access.locked')} />
+          </span>
+        )}
         <span
           data-file-checkbox=""
           className={cn(
@@ -84,9 +100,11 @@ export const FolderGridItem = memo(function FolderGridItem({
       <div className="flex flex-col gap-0.5 px-2 py-1.5">
         <span className="truncate text-sm font-medium">{item.name}</span>
         <span className="truncate text-xs text-[var(--color-fg-muted)]">
-          {item.folderCount > 0
-            ? t('file.folder.subfolders', { count: item.folderCount })
-            : t('file.folder.label')}
+          {!item.canRead
+            ? t(item.hasPendingAccessRequest ? 'file.access.pending' : 'file.access.locked')
+            : item.folderCount > 0
+              ? t('file.folder.subfolders', { count: item.folderCount })
+              : t('file.folder.label')}
         </span>
       </div>
     </div>

@@ -37,12 +37,21 @@ export function useFileManagerItems({
     () => ({ keyword, category, folderId: folderId ?? 'root', sort: [sort] }),
     [category, folderId, keyword, sort],
   );
-  const data = useFileListData({ mode: pagingMode, filters, offset, pageSize });
   const folders = useFolderView({ folderId, keyword, category, sort, onMissing: onMissingFolder });
+  // 鎖住的資料夾（docs/rbac/07-resource-grants.md §5.1）看得到子資料夾、看不到檔案：不查檔案。
+  // 資料夾清單載入前也先不查，避免對鎖住的資料夾送出一個註定 403 的請求
+  const locked = Boolean(folderId) && folders.location?.canRead !== true;
+  const data = useFileListData({
+    mode: pagingMode,
+    filters,
+    offset,
+    pageSize,
+    enabled: !locked,
+  });
   const items: BrowserItemVM[] = useMemo(
     () =>
       pagingMode === 'pagination' && offset > 0 ? data.items : [...folders.items, ...data.items],
     [data.items, folders.items, offset, pagingMode],
   );
-  return { filters, data, folders, items };
+  return { filters, data, folders, items, locked };
 }

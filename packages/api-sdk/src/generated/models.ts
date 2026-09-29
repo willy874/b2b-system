@@ -10,6 +10,7 @@ export type ApprovalStatus = (typeof ApprovalStatus)[keyof typeof ApprovalStatus
 
 export const ApprovalType = {
   'user.register': 'user.register',
+  'fileFolder.access': 'fileFolder.access',
 } as const;
 export type ApprovalType = (typeof ApprovalType)[keyof typeof ApprovalType];
 
@@ -142,6 +143,8 @@ export const PermissionKey = {
   'file:read': 'file:read',
   'file:update': 'file:update',
   'file:delete': 'file:delete',
+  'file:access': 'file:access',
+  'file:share': 'file:share',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
@@ -232,6 +235,73 @@ export interface RegisterResult {
   submitted: true;
 }
 
+export interface SetFileFolderGrantRequest {
+  subjectType: 'role' | 'user' | 'everyone';
+  subjectId: string;
+  level: 'viewer' | 'contributor' | 'editor' | 'manager';
+  expiresAt: string | null;
+}
+
+export interface FileFolderGrant {
+  subjectType: 'role' | 'user' | 'everyone';
+  subjectId: string;
+  subjectName: string;
+  level: 'viewer' | 'contributor' | 'editor' | 'manager';
+  expiresAt: string | null;
+  isExpired: boolean;
+  grantedAt: string;
+  source: {
+    folderId: string;
+    folderName: string;
+  } | null;
+}
+
+export interface FileFolderGrantList {
+  folderId: string;
+  inheritGrants: boolean;
+  assignableLevels: Array<'viewer' | 'contributor' | 'editor' | 'manager'>;
+  items: Array<FileFolderGrant>;
+}
+
+export interface FileGrantSubjectList {
+  items: Array<{
+    subjectType: 'role' | 'user' | 'everyone';
+    id: string;
+    name: string;
+    hint: string | null;
+  }>;
+}
+
+export interface UpdateFileFolderAccessRequest {
+  inheritGrants: boolean;
+}
+
+export interface CreateFileAccessRequest {
+  level: 'viewer' | 'contributor' | 'editor' | 'manager';
+  reason?: string;
+}
+
+export interface FileAccessRequestSubmitted {
+  submitted: boolean;
+}
+
+export interface FileAccessRequest {
+  id: string;
+  requesterId: string | null;
+  requesterName: string;
+  level: 'viewer' | 'contributor' | 'editor' | 'manager';
+  reason: string | null;
+  createdAt: string;
+}
+
+export interface FileAccessRequestList {
+  items: Array<FileAccessRequest>;
+}
+
+export interface ReviewFileAccessRequest {
+  comment?: string;
+}
+
 export interface CreateFileUploadRequest {
   name: string;
   contentType: string;
@@ -254,16 +324,32 @@ export interface CompleteFileUploadRequest {
   }>;
 }
 
+export interface FileFolderCapabilities {
+  canRead: boolean;
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  canShare: boolean;
+}
+
 export interface FileFolder {
   id: string;
   name: string;
   parentId: string | null;
+  kind: 'normal' | 'shared' | 'privateRoot' | 'personal';
+  inheritGrants: boolean;
+  hasPendingAccessRequest: boolean;
+  capabilities: FileFolderCapabilities;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface FileFolderList {
   items: Array<FileFolder>;
+  rootCapabilities: {
+    canCreate: boolean;
+  };
+  personalFolderId: string | null;
 }
 
 export interface CreateFileFolderRequest {
@@ -312,6 +398,11 @@ export interface StoredFileImage {
   expiresAt: string;
 }
 
+export interface StoredFileCapabilities {
+  canUpdate: boolean;
+  canDelete: boolean;
+}
+
 export interface StoredFile {
   id: string;
   name: string;
@@ -326,6 +417,7 @@ export interface StoredFile {
   urlExpiresAt: string | null;
   version: number;
   uploader: FileUploader | null;
+  capabilities: StoredFileCapabilities;
   uploadedAt: string | null;
   createdAt: string;
   updatedAt: string;

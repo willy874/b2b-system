@@ -71,6 +71,34 @@
       "when": 1790493631747,
       "tag": "0009_file_folders",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790648623864,
+      "tag": "0010_resource_grants",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790650229978,
+      "tag": "0011_file_folder_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790651810355,
+      "tag": "0012_admin_file_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790652543520,
+      "tag": "0013_file_system_folders",
+      "breakpoints": true
     }
   ]
 }

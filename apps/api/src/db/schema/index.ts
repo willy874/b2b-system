@@ -6,6 +6,7 @@ export * from './file-folders';
 export * from './files';
 export * from './permissions';
 export * from './refresh-tokens';
+export * from './resource-grants';
 export * from './role-permissions';
 export * from './roles';
 export * from './user-roles';

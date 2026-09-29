@@ -21,20 +21,28 @@ interface UseFileListDataOptions {
   filters: FileListFilters;
   offset: number;
   pageSize: number;
+  /** false：不查（例：鎖住的資料夾，查了只會 403）。 */
+  enabled?: boolean;
 }
 
 /**
  * 分頁與無限捲動兩種閱覽模式的資料來源（docs/architecture/frontend/12-file-manager.md §5）。
  * 同一時間只有一個 query 啟用；切換模式時另一個留在快取，切回來不必重抓。
  */
-export function useFileListData({ mode, filters, offset, pageSize }: UseFileListDataOptions) {
+export function useFileListData({
+  mode,
+  filters,
+  offset,
+  pageSize,
+  enabled = true,
+}: UseFileListDataOptions) {
   const paged = useQuery({
     ...getFileListQueryOptions({ params: { ...filters, offset, limit: pageSize } }),
-    enabled: mode === 'pagination',
+    enabled: enabled && mode === 'pagination',
   });
   const infinite = useInfiniteQuery({
     ...getFileInfiniteListQueryOptions({ params: { filters, limit: pageSize } }),
-    enabled: mode === 'infinite',
+    enabled: enabled && mode === 'infinite',
   });
 
   const files: StoredFile[] = useMemo(
@@ -76,7 +84,8 @@ export function useFileListData({ mode, filters, offset, pageSize }: UseFileList
   return {
     items,
     total,
-    isPending: active.isPending,
+    // 停用的 query 在 TanStack Query 裡也是 pending：不查的時候不要一直轉圈
+    isPending: enabled && active.isPending,
     isFetching: active.isFetching,
     error: active.error,
     hasMore: mode === 'infinite' && Boolean(hasNextPage),

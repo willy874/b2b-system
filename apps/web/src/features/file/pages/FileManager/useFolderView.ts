@@ -9,6 +9,9 @@ import { toFolderItemVM } from './adapter';
 import type { FolderItemVM } from './adapter';
 import { buildFolderIndex, childFolders, folderPath } from './folderTree';
 
+/** 資料夾清單還沒載入：根目錄當作不能建立（按鈕不會先出現再消失）。 */
+const NO_ROOT_ACCESS = { canCreate: false } as const;
+
 interface UseFolderViewOptions {
   folderId: string | undefined;
   keyword: string | undefined;
@@ -33,7 +36,10 @@ export function useFolderView({
   onMissing,
 }: UseFolderViewOptions) {
   const query = useQuery(getFileFolderListQueryOptions());
-  const index = useMemo(() => buildFolderIndex(query.data?.items ?? []), [query.data]);
+  const index = useMemo(
+    () => buildFolderIndex(query.data?.items ?? [], query.data?.rootCapabilities ?? NO_ROOT_ACCESS),
+    [query.data],
+  );
   const path = useMemo(() => folderPath(index, folderId), [folderId, index]);
 
   const missing = query.isSuccess && folderId !== undefined && !index.byId.has(folderId);
@@ -51,5 +57,19 @@ export function useFolderView({
     return ordered.map((folder) => toFolderItemVM(folder, childFolders(index, folder.id).length));
   }, [category, folderId, index, keyword, sort.order, sort.sort]);
 
-  return { index, path, items, isPending: query.isPending, refetch: query.refetch };
+  return {
+    index,
+    path,
+    items,
+    /** 自己的個人資料夾（docs/rbac/07-resource-grants.md §12）；清單還沒載入或沒有時 undefined。 */
+    personalFolderId: query.data?.personalFolderId ?? undefined,
+    /** 目前位置（資料夾或根目錄）的能力；清單還沒載入時 undefined。 */
+    location: query.data
+      ? folderId
+        ? index.byId.get(folderId)?.capabilities
+        : { ...index.root, canRead: true }
+      : undefined,
+    isPending: query.isPending,
+    refetch: query.refetch,
+  };
 }

@@ -17,6 +17,7 @@ interface AudienceRule {
 }
 
 const READERS_OF_USER_AND_ROLE: PermissionKey[] = [PERMISSION.USER_READ, PERMISSION.ROLE_READ];
+const FILE_READERS: PermissionKey[] = [PERMISSION.FILE_READ, PERMISSION.FILE_ACCESS];
 
 /**
  * 來源 → 受眾（docs/architecture/backend/08-realtime.md §6.1），與前端 `apis/resources.ts` 的依賴圖對應。
@@ -39,10 +40,11 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
   [ChangeSource.USER_CREDENTIAL]: { perms: () => [], includesSubject: false },
   // 審批列表；匿名申請人（註冊）沒有連線，不必通知本人
   [ChangeSource.APPROVAL]: { perms: () => [PERMISSION.APPROVAL_READ], includesSubject: false },
-  // 檔案列表與詳情
-  [ChangeSource.FILE]: { perms: () => [PERMISSION.FILE_READ], includesSubject: false },
-  // 資料夾樹與麵包屑
-  [ChangeSource.FILE_FOLDER]: { perms: () => [PERMISSION.FILE_READ], includesSubject: false },
+  // 檔案列表與詳情。`file:access` 的人只看得到被授權的資料夾：payload 只有 id，
+  // 收到看不到的變更只會多重抓一次（docs/rbac/07-resource-grants.md §9）
+  [ChangeSource.FILE]: { perms: () => FILE_READERS, includesSubject: false },
+  // 資料夾樹與麵包屑；資料夾授權變更也以 fileFolder update 推出
+  [ChangeSource.FILE_FOLDER]: { perms: () => FILE_READERS, includesSubject: false },
 };
 
 /** 每次寫入都會新增一筆稽核（前端 `derivesFromAnyChange`）。 */

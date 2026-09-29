@@ -16,7 +16,7 @@ import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 
-import { CurrentUser, Public, RequirePermissions } from '@/common/decorators';
+import { CurrentUser, Public, RequireAnyPermission } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
@@ -62,15 +62,18 @@ export class FileController {
   ) {}
 
   @Get()
-  @RequirePermissions(PERMISSION.FILE_READ)
+  @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_READ)
   @ApiZodResponse(200, FileListSchema)
-  list(@Query(new ZodValidationPipe(ListFileSchema)) query: ListFileDto) {
-    return this.fileService.list(query);
+  list(
+    @Query(new ZodValidationPipe(ListFileSchema)) query: ListFileDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.fileService.list(query, actor);
   }
 
   // 宣告在 `:id` 之前：否則會被當成 id 交給 ParseUUIDPipe
   @Get('upload-policy')
-  @RequirePermissions(PERMISSION.FILE_CREATE)
+  @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_CREATE)
   @ApiOperation({ summary: '上傳前的檢查與切塊策略（大小上限、分塊門檻、每塊大小）' })
   @ApiZodResponse(200, FileUploadPolicySchema)
   getUploadPolicy() {
@@ -78,7 +81,7 @@ export class FileController {
   }
 
   @Post()
-  @RequirePermissions(PERMISSION.FILE_CREATE)
+  @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_CREATE)
   @ApiOperation({ summary: '登記上傳並取得直傳網址（完成後呼叫 complete）' })
   @ApiZodBody(CreateFileUploadSchema)
   @ApiZodResponse(201, FileUploadSchema)
@@ -90,7 +93,7 @@ export class FileController {
   }
 
   @Post('move')
-  @RequirePermissions(PERMISSION.FILE_UPDATE)
+  @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_UPDATE)
   @HttpCode(200)
   @ApiOperation({ summary: '把檔案與資料夾移到另一個資料夾（targetFolderId 為 null 是根目錄）' })
   @ApiZodBody(MoveFileItemsSchema)
@@ -103,7 +106,7 @@ export class FileController {
   }
 
   @Post(':id/parts')
-  @RequirePermissions(PERMISSION.FILE_CREATE)
+  @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_CREATE)
   @HttpCode(200)
   @ApiOperation({ summary: '分塊上傳：取得指定各塊的直傳網址' })
   @ApiZodBody(CreateFileUploadPartsSchema)
@@ -117,7 +120,7 @@ export class FileController {
   }
 
   @Post(':id/complete')
-  @RequirePermissions(PERMISSION.FILE_CREATE)
+  @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_CREATE)
   @HttpCode(200)
   @ApiOperation({ summary: '確認直傳完成，檔案轉為 ready（分塊上傳要帶各塊的 ETag）' })
   @ApiZodBody(CompleteFileUploadSchema)
@@ -132,7 +135,7 @@ export class FileController {
   }
 
   @Delete(':id/upload')
-  @RequirePermissions(PERMISSION.FILE_CREATE)
+  @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_CREATE)
   @HttpCode(204)
   @ApiOperation({ summary: '放棄上傳中的檔案：清掉已上傳的內容與分塊' })
   async abortUpload(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
@@ -141,7 +144,7 @@ export class FileController {
 
   /**
    * 影像 API：`<img src>` 帶不了 access token，所以是 `@Public()`，改以網址簽章授權
-   * （網址只從 `file:read` 的回應拿得到，docs/architecture/backend/09-file.md §5.4）。
+   * （網址只從看得到該檔案的回應拿得到，docs/architecture/backend/09-file.md §5.4）。
    * 不限流：一頁的圖示預覽就有數十個請求，轉址又會被瀏覽器快取；格式轉換只在第一次發生。
    */
   @Get(':id/image/:variant')
@@ -165,14 +168,14 @@ export class FileController {
   }
 
   @Get(':id')
-  @RequirePermissions(PERMISSION.FILE_READ)
+  @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_READ)
   @ApiZodResponse(200, FileSchema)
   findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
     return this.fileService.findOne(id, actor);
   }
 
   @Patch(':id')
-  @RequirePermissions(PERMISSION.FILE_UPDATE)
+  @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_UPDATE)
   @ApiZodBody(UpdateFileSchema)
   @ApiZodResponse(200, FileSchema)
   update(
@@ -184,7 +187,7 @@ export class FileController {
   }
 
   @Delete(':id')
-  @RequirePermissions(PERMISSION.FILE_DELETE)
+  @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_DELETE)
   @HttpCode(204)
   async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
     await this.fileService.remove(id, actor);

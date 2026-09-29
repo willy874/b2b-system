@@ -11,6 +11,8 @@ export const APPROVAL_PERMISSIONS = {
  */
 export const ApprovalType = {
   USER_REGISTER: 'user.register',
+  /** 申請資料夾存取（docs/rbac/07-resource-grants.md §6.5）；handler 在 modules/file。 */
+  FILE_FOLDER_ACCESS: 'fileFolder.access',
 } as const;
 
 export type ApprovalType = (typeof ApprovalType)[keyof typeof ApprovalType];

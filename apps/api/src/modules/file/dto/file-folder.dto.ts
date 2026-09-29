@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { defineSchema } from '@/core/validation';
+import { FILE_FOLDER_KINDS } from '@/db/schema';
 
 import { MAX_FOLDER_DEPTH, MAX_FOLDER_PATHS, MAX_MOVE_ITEMS } from '../file.constants';
 import { FileNameSchema } from './create-file-upload.dto';
@@ -13,6 +14,23 @@ export const FileFolderNameSchema = FileNameSchema.refine((name) => name !== '.'
 /** 目的地：資料夾 id，或 null 表示根目錄。 */
 const FolderRefSchema = z.string().uuid().nullable();
 
+/** 操作者對資料夾的能力（docs/rbac/07-resource-grants.md §7）；前端只讀旗標，不重算。 */
+export const FileFolderCapabilitiesSchema = defineSchema(
+  'FileFolderCapabilities',
+  z.object({
+    /** false = 鎖住：看得到資料夾，看不到裡面的檔案（§5.1）。 */
+    canRead: z.boolean(),
+    /** 在裡面上傳、建立子資料夾。 */
+    canCreate: z.boolean(),
+    /** 改名、移動這個資料夾。 */
+    canUpdate: z.boolean(),
+    /** 遞迴刪除這個資料夾（子樹的附加條件在刪除時才檢查）。 */
+    canDelete: z.boolean(),
+    /** 管理這個資料夾的授權。 */
+    canShare: z.boolean(),
+  }),
+);
+
 export const FileFolderSchema = defineSchema(
   'FileFolder',
   z.object({
@@ -20,15 +38,28 @@ export const FileFolderSchema = defineSchema(
     name: z.string(),
     /** 上層資料夾；null 是根目錄。 */
     parentId: z.string().uuid().nullable(),
+    /** `normal` 以外是系統資料夾：共用、私人（容器）、個人資料夾（docs/rbac/07-resource-grants.md §12）。 */
+    kind: z.enum(FILE_FOLDER_KINDS),
+    /** false = 中斷繼承（私人資料夾）：上層的資料夾授權不再流到這裡（§3.3）。 */
+    inheritGrants: z.boolean(),
+    /** 操作者對這個資料夾有一筆待審的存取申請（§6.5）。 */
+    hasPendingAccessRequest: z.boolean(),
+    capabilities: FileFolderCapabilitiesSchema,
     createdAt: z.string(),
     updatedAt: z.string(),
   }),
 );
 
-/** 全部的資料夾（扁平清單）：前端自己組成樹，麵包屑、樹狀面板、移動對話框共用同一份。 */
+/** 全部資料夾（扁平清單；沒有權限的標成鎖住）：前端自己組成樹，麵包屑、樹狀面板、移動對話框共用同一份。 */
 export const FileFolderListSchema = defineSchema(
   'FileFolderList',
-  z.object({ items: z.array(FileFolderSchema) }),
+  z.object({
+    items: z.array(FileFolderSchema),
+    /** 根目錄只由全域權限決定（§3.1）。 */
+    rootCapabilities: z.object({ canCreate: z.boolean() }),
+    /** 操作者自己的個人資料夾（§12）；還沒建立（沒有檔案管理器權限）時為 null。前端的預設位置。 */
+    personalFolderId: z.string().uuid().nullable(),
+  }),
 );
 
 export const CreateFileFolderSchema = defineSchema(

@@ -1,5 +1,15 @@
 import { sql } from 'drizzle-orm';
-import { check, index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  check,
+  index,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 
 import { users } from './users';
@@ -9,6 +19,14 @@ import { users } from './users';
  * `parent_id` 為 null 是根目錄底下的資料夾；檔案以 `files.folder_id` 歸屬。
  * 資料夾只是分類：與物件儲存的 key 無關，移動、改名都不必搬物件。
  */
+/**
+ * 資料夾的種類（docs/rbac/07-resource-grants.md §12）：`normal` 是使用者建立的；其他三種是系統維護、
+ * 不能改名／移動／刪除的系統資料夾——共用資料夾、私人資料夾（容器）、每人一個的個人資料夾。
+ */
+export const FILE_FOLDER_KINDS = ['normal', 'shared', 'privateRoot', 'personal'] as const;
+export const fileFolderKind = pgEnum('file_folder_kind', FILE_FOLDER_KINDS);
+export type FileFolderKind = (typeof FILE_FOLDER_KINDS)[number];
+
 export const fileFolders = pgTable(
   'file_folders',
   {
@@ -18,6 +36,12 @@ export const fileFolders = pgTable(
     parentId: uuid('parent_id').references((): AnyPgColumn => fileFolders.id, {
       onDelete: 'restrict',
     }),
+    // false = 中斷繼承（私人資料夾）：上層的資料夾授權不再流到這裡與子孫；全域權限不受影響
+    // （docs/rbac/07-resource-grants.md §3.3）
+    inheritGrants: boolean('inherit_grants').notNull().default(true),
+    kind: fileFolderKind('kind').notNull().default('normal'),
+    /** `personal` 的擁有者；其他種類為 null。 */
+    ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'restrict' }),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -36,6 +60,17 @@ export const fileFolders = pgTable(
     index('file_folders_parent_idx')
       .on(t.parentId)
       .where(sql`${t.deletedAt} IS NULL`),
+    // 共用資料夾、私人資料夾各只有一個；每個人只有一個個人資料夾
+    uniqueIndex('file_folders_singleton_kind_key')
+      .on(t.kind)
+      .where(sql`${t.kind} IN ('shared', 'privateRoot') AND ${t.deletedAt} IS NULL`),
+    uniqueIndex('file_folders_personal_owner_key')
+      .on(t.ownerId)
+      .where(sql`${t.kind} = 'personal' AND ${t.deletedAt} IS NULL`),
+    check(
+      'file_folders_personal_has_owner',
+      sql`(${t.kind} = 'personal') = (${t.ownerId} IS NOT NULL)`,
+    ),
     // 更深的循環（移到自己的子孫底下）由 service 在交易內檢查（§4.2）
     check('file_folders_not_own_parent', sql`${t.parentId} IS NULL OR ${t.parentId} <> ${t.id}`),
   ],

@@ -41,7 +41,17 @@
         "ineligible": "Only pending requests can be rejected."
       }
     },
+    "fileAccess": {
+      "level": {
+        "viewer": "Viewer",
+        "contributor": "Contributor",
+        "editor": "Editor",
+        "manager": "Manager"
+      }
+    },
     "field": {
+      "folder": "Folder",
+      "level": "Requested level",
       "type": "Type",
       "requester": "Requester",
       "status": "Status",
@@ -61,7 +71,8 @@
     },
     "type": {
       "all": "All types",
-      "userRegister": "Registration"
+      "userRegister": "Registration",
+      "fileFolderAccess": "Folder access request"
     }
   }
 }

@@ -148,6 +148,8 @@
     "FILE_FOLDER_NOT_FOUND": "資料夾不存在或已被刪除。",
     "FILE_FOLDER_NAME_CONFLICT": "這個位置已有同名的資料夾。",
     "FILE_FOLDER_CYCLE": "資料夾不能移到自己或自己的子資料夾裡。",
+    "FILE_GRANT_SUBJECT_NOT_FOUND": "授權對象不存在或已被刪除。",
+    "FILE_GRANT_NOT_FOUND": "這筆授權已不存在。",
     "RATE_LIMITED": "操作太頻繁，請稍後再試。",
     "INTERNAL_ERROR": "伺服器發生錯誤，請稍後再試。",
     "page": {
@@ -188,7 +190,14 @@
     "auditLog": { "read": "檢視稽核日誌" },
     "system": { "read": "檢視系統資訊", "update": "變更系統設定" },
     "approval": { "read": "檢視審批", "review": "審核申請" },
-    "file": { "create": "上傳檔案", "read": "檢視檔案", "update": "編輯檔案", "delete": "刪除檔案" }
+    "file": {
+      "create": "上傳檔案",
+      "read": "檢視檔案",
+      "update": "編輯檔案",
+      "delete": "刪除檔案",
+      "access": "使用檔案管理器",
+      "share": "管理檔案授權"
+    }
   },
   "theme": {
     "label": "主題",

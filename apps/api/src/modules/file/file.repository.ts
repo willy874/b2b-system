@@ -83,12 +83,16 @@ export class FileRepository {
    * 只列出 `ready` 的檔案；`pending` 是還沒完成的上傳，不出現在列表。
    * 有 `after`（keyset 游標）時忽略 offset，只依 `sort[0]` ＋ id 排序，取「排在游標之後」的一頁。
    * `lastCreatedAt` 是最後一筆的 `created_at`（微秒精度），給下一頁的游標用。
+   * `scope.folderIds`：只列這些資料夾裡的檔案（根目錄不含在內）；不帶則不限（資料夾層級授權的範圍）。
    */
   async list(
     query: ListFileDto,
     after?: FileCursor,
+    scope?: { folderIds: readonly string[] },
   ): Promise<{ items: FileWithUploader[]; total: number; lastCreatedAt: string | undefined }> {
+    if (scope?.folderIds.length === 0) return { items: [], total: 0, lastCreatedAt: undefined };
     const conditions: SQL[] = [isNull(files.deletedAt), eq(files.status, 'ready')];
+    if (scope) conditions.push(inArray(files.folderId, [...scope.folderIds]));
     if (query.keyword) conditions.push(ilike(files.name, `%${escapeLike(query.keyword)}%`));
     if (query.contentType) {
       conditions.push(

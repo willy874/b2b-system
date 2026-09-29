@@ -22,6 +22,7 @@ const PENDING: ApprovalDetailVM = {
   reviewerName: null,
   reviewComment: null,
   reviewedAt: null,
+  folderAccess: null,
   registration: { email: 'alice@example.com', displayName: 'Alice' },
 };
 

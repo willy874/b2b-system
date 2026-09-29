@@ -31,6 +31,8 @@ const item = (id: string, overrides: Partial<FileItemVM> = {}): FileItemVM => ({
   downloadUrl: `http://s/${id}?download`,
   version: 1,
   uploaderName: 'Alice',
+  canUpdate: true,
+  canDelete: true,
   createdAt: '2026-09-27T00:00:00.000Z',
   updatedAt: '2026-09-27T00:00:00.000Z',
   ...overrides,

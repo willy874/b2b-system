@@ -81,11 +81,13 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
     const actual = new Map(
       collectRouteDeclarations(app).map((route) => [
         `${route.method} ${route.path}`,
-        route.declaration === 'permissions' ? route.keys.join('+') : route.declaration,
+        route.declaration === 'permissions'
+          ? route.keys.join(route.match === 'some' ? '|' : '+')
+          : route.declaration,
       ]),
     );
 
-    // 文件 §9 的表格（節錄為機器可比對的形式）
+    // 文件 §9 的表格（節錄為機器可比對的形式）：EVERY 寫成 a+b、SOME 寫成 a|b
     const expected: Record<string, string> = {
       'POST /auth/login': 'public',
       'POST /auth/refresh': 'public',
@@ -127,22 +129,31 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /approvals/:id': 'approval:read',
       'POST /approvals/:id/approve': 'approval:review',
       'POST /approvals/:id/reject': 'approval:review',
-      'GET /files': 'file:read',
-      'POST /files': 'file:create',
-      'GET /files/upload-policy': 'file:create',
-      'POST /files/:id/parts': 'file:create',
-      'POST /files/:id/complete': 'file:create',
-      'DELETE /files/:id/upload': 'file:create',
+      'GET /files': 'file:access|file:read',
+      'POST /files': 'file:access|file:create',
+      'GET /files/upload-policy': 'file:access|file:create',
+      'POST /files/:id/parts': 'file:access|file:create',
+      'POST /files/:id/complete': 'file:access|file:create',
+      'DELETE /files/:id/upload': 'file:access|file:create',
       'GET /files/:id/image/:variant': 'public',
-      'GET /files/:id': 'file:read',
-      'PATCH /files/:id': 'file:update',
-      'DELETE /files/:id': 'file:delete',
-      'POST /files/move': 'file:update',
-      'GET /file-folders': 'file:read',
-      'POST /file-folders': 'file:create',
-      'POST /file-folders/paths': 'file:create',
-      'PATCH /file-folders/:id': 'file:update',
-      'DELETE /file-folders/:id': 'file:delete',
+      'GET /files/:id': 'file:access|file:read',
+      'PATCH /files/:id': 'file:access|file:update',
+      'DELETE /files/:id': 'file:access|file:delete',
+      'POST /files/move': 'file:access|file:update',
+      'GET /file-folders': 'file:access|file:read',
+      'POST /file-folders': 'file:access|file:create',
+      'POST /file-folders/paths': 'file:access|file:create',
+      'PATCH /file-folders/:id': 'file:access|file:update',
+      'DELETE /file-folders/:id': 'file:access|file:delete',
+      'GET /file-folders/:id/grants': 'file:access|file:share',
+      'PUT /file-folders/:id/grants': 'file:access|file:share',
+      'DELETE /file-folders/:id/grants/:subjectType/:subjectId': 'file:access|file:share',
+      'GET /file-folders/:id/grant-subjects': 'file:access|file:share',
+      'PATCH /file-folders/:id/access': 'file:access|file:share',
+      'POST /file-folders/:id/access-requests': 'file:access|file:read',
+      'GET /file-folders/:id/access-requests': 'file:access|file:share',
+      'POST /file-folders/:id/access-requests/:requestId/approve': 'file:access|file:share',
+      'POST /file-folders/:id/access-requests/:requestId/reject': 'file:access|file:share',
     };
 
     for (const [route, declaration] of Object.entries(expected)) {

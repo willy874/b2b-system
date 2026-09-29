@@ -35,6 +35,7 @@ const storedFile = (status: StoredFile['status']): StoredFile => ({
   urlExpiresAt: null,
   version: 1,
   uploader: null,
+  capabilities: { canUpdate: true, canDelete: true },
   uploadedAt: null,
   createdAt: '2026-09-27T00:00:00.000Z',
   updatedAt: '2026-09-27T00:00:00.000Z',

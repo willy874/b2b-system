@@ -31,6 +31,16 @@ export const FileImageSchema = defineSchema(
   }),
 );
 
+/** 操作者對檔案的能力（docs/rbac/07-resource-grants.md §7）；前端只讀旗標，不重算。 */
+export const FileCapabilitiesSchema = defineSchema(
+  'StoredFileCapabilities',
+  z.object({
+    /** 改名、移動。 */
+    canUpdate: z.boolean(),
+    canDelete: z.boolean(),
+  }),
+);
+
 /**
  * 前端看到的檔案。不暴露物件儲存的 key 或 bucket——只有 id 與可以直接使用的網址。
  */
@@ -60,6 +70,7 @@ export const FileSchema = defineSchema(
     /** 樂觀鎖版本：改名時帶上，版本不同回 `FILE_VERSION_CONFLICT`。 */
     version: z.number().int(),
     uploader: FileUploaderSchema.nullable(),
+    capabilities: FileCapabilitiesSchema,
     uploadedAt: z.string().nullable(),
     createdAt: z.string(),
     updatedAt: z.string(),

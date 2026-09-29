@@ -1,9 +1,18 @@
 import type { ApprovalRequest } from '@/shared/api-sdk';
 
+import { FILE_ACCESS_LEVELS } from '../../constants';
+import type { FileAccessLevel } from '../../constants';
+
 /** `user.register` 的申請內容。 */
 export interface RegistrationVM {
   email: string;
   displayName: string;
+}
+
+/** `fileFolder.access` 的申請內容。 */
+export interface FolderAccessVM {
+  folderName: string;
+  level: FileAccessLevel;
 }
 
 export interface ApprovalDetailVM {
@@ -19,6 +28,12 @@ export interface ApprovalDetailVM {
   reviewedAt: Date | null;
   /** `type = user.register` 時才有 */
   registration: RegistrationVM | null;
+  /** `type = fileFolder.access` 時才有 */
+  folderAccess: FolderAccessVM | null;
+}
+
+function toLevel(value: unknown): FileAccessLevel {
+  return FILE_ACCESS_LEVELS.find((level) => level === value) ?? 'viewer';
 }
 
 const asString = (value: unknown): string => (typeof value === 'string' ? value : '');
@@ -39,6 +54,10 @@ export function toApprovalDetailVM(dto: ApprovalRequest): ApprovalDetailVM {
     registration:
       dto.type === 'user.register'
         ? { email: asString(dto.payload.email), displayName: asString(dto.payload.displayName) }
+        : null,
+    folderAccess:
+      dto.type === 'fileFolder.access'
+        ? { folderName: asString(dto.payload.folderName), level: toLevel(dto.payload.level) }
         : null,
   };
 }

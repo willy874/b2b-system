@@ -12,6 +12,7 @@ import type {
   AuditLogSummary,
   ChangePasswordRequest,
   CompleteFileUploadRequest,
+  CreateFileAccessRequest,
   CreateFileFolderRequest,
   CreateFileUploadPartsRequest,
   CreateFileUploadRequest,
@@ -19,9 +20,16 @@ import type {
   CreateUserRequest,
   DuplicateRoleRequest,
   EnsureFileFolderPathsRequest,
+  FileAccessRequest,
+  FileAccessRequestList,
+  FileAccessRequestSubmitted,
   FileFolder,
+  FileFolderCapabilities,
+  FileFolderGrant,
+  FileFolderGrantList,
   FileFolderList,
   FileFolderPaths,
+  FileGrantSubjectList,
   FileListPage,
   FileMultipartUpload,
   FileUpload,
@@ -45,14 +53,18 @@ import type {
   RejectApprovalRequest,
   ReplaceUserRolesRequest,
   ResetPasswordRequest,
+  ReviewFileAccessRequest,
   Role,
   RoleHolder,
   RolePermissions,
   RoleSummary,
   Session,
+  SetFileFolderGrantRequest,
   SetupRequest,
   StoredFile,
+  StoredFileCapabilities,
   StoredFileImage,
+  UpdateFileFolderAccessRequest,
   UpdateFileFolderRequest,
   UpdateFileRequest,
   UpdateProfileRequest,
@@ -70,7 +82,10 @@ export const ApprovalStatusSchema = z.enum([
   'rejected',
 ]) satisfies z.ZodType<ApprovalStatus>;
 
-export const ApprovalTypeSchema = z.enum(['user.register']) satisfies z.ZodType<ApprovalType>;
+export const ApprovalTypeSchema = z.enum([
+  'user.register',
+  'fileFolder.access',
+]) satisfies z.ZodType<ApprovalType>;
 
 export const ApprovalRequestSchema = z.object({
   id: z
@@ -271,6 +286,8 @@ export const PermissionKeySchema = z.enum([
   'file:read',
   'file:update',
   'file:delete',
+  'file:access',
+  'file:share',
 ]) satisfies z.ZodType<PermissionKey>;
 
 export const PermissionSchema = z.object({
@@ -395,6 +412,128 @@ export const RegisterResultSchema = z.object({
   submitted: z.literal(true),
 }) satisfies z.ZodType<RegisterResult>;
 
+export const SetFileFolderGrantRequestSchema = z.object({
+  subjectType: z.enum(['role', 'user', 'everyone']),
+  subjectId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  level: z.enum(['viewer', 'contributor', 'editor', 'manager']),
+  expiresAt: z.iso
+    .datetime({ offset: true })
+    .regex(
+      new RegExp(
+        '^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$',
+      ),
+    )
+    .nullable()
+    .default(null),
+}) satisfies z.ZodType<SetFileFolderGrantRequest>;
+
+export const FileFolderGrantSchema = z.object({
+  subjectType: z.enum(['role', 'user', 'everyone']),
+  subjectId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  subjectName: z.string(),
+  level: z.enum(['viewer', 'contributor', 'editor', 'manager']),
+  expiresAt: z.string().nullable(),
+  isExpired: z.boolean(),
+  grantedAt: z.string(),
+  source: z
+    .object({
+      folderId: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      folderName: z.string(),
+    })
+    .nullable(),
+}) satisfies z.ZodType<FileFolderGrant>;
+
+export const FileFolderGrantListSchema = z.object({
+  folderId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  inheritGrants: z.boolean(),
+  assignableLevels: z.array(z.enum(['viewer', 'contributor', 'editor', 'manager'])),
+  items: z.array(FileFolderGrantSchema),
+}) satisfies z.ZodType<FileFolderGrantList>;
+
+export const FileGrantSubjectListSchema = z.object({
+  items: z.array(
+    z.object({
+      subjectType: z.enum(['role', 'user', 'everyone']),
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      name: z.string(),
+      hint: z.string().nullable(),
+    }),
+  ),
+}) satisfies z.ZodType<FileGrantSubjectList>;
+
+export const UpdateFileFolderAccessRequestSchema = z.object({
+  inheritGrants: z.boolean(),
+}) satisfies z.ZodType<UpdateFileFolderAccessRequest>;
+
+export const CreateFileAccessRequestSchema = z.object({
+  level: z.enum(['viewer', 'contributor', 'editor', 'manager']),
+  reason: z.string().max(500).optional(),
+}) satisfies z.ZodType<CreateFileAccessRequest>;
+
+export const FileAccessRequestSubmittedSchema = z.object({
+  submitted: z.boolean(),
+}) satisfies z.ZodType<FileAccessRequestSubmitted>;
+
+export const FileAccessRequestSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  requesterId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  requesterName: z.string(),
+  level: z.enum(['viewer', 'contributor', 'editor', 'manager']),
+  reason: z.string().nullable(),
+  createdAt: z.string(),
+}) satisfies z.ZodType<FileAccessRequest>;
+
+export const FileAccessRequestListSchema = z.object({
+  items: z.array(FileAccessRequestSchema),
+}) satisfies z.ZodType<FileAccessRequestList>;
+
+export const ReviewFileAccessRequestSchema = z.object({
+  comment: z.string().max(500).optional(),
+}) satisfies z.ZodType<ReviewFileAccessRequest>;
+
 export const CreateFileUploadRequestSchema = z.object({
   name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
   contentType: z
@@ -436,6 +575,14 @@ export const CompleteFileUploadRequestSchema = z.object({
     .optional(),
 }) satisfies z.ZodType<CompleteFileUploadRequest>;
 
+export const FileFolderCapabilitiesSchema = z.object({
+  canRead: z.boolean(),
+  canCreate: z.boolean(),
+  canUpdate: z.boolean(),
+  canDelete: z.boolean(),
+  canShare: z.boolean(),
+}) satisfies z.ZodType<FileFolderCapabilities>;
+
 export const FileFolderSchema = z.object({
   id: z
     .uuid()
@@ -453,12 +600,27 @@ export const FileFolderSchema = z.object({
       ),
     )
     .nullable(),
+  kind: z.enum(['normal', 'shared', 'privateRoot', 'personal']),
+  inheritGrants: z.boolean(),
+  hasPendingAccessRequest: z.boolean(),
+  capabilities: FileFolderCapabilitiesSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
 }) satisfies z.ZodType<FileFolder>;
 
 export const FileFolderListSchema = z.object({
   items: z.array(FileFolderSchema),
+  rootCapabilities: z.object({
+    canCreate: z.boolean(),
+  }),
+  personalFolderId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
 }) satisfies z.ZodType<FileFolderList>;
 
 export const CreateFileFolderRequestSchema = z.object({
@@ -574,6 +736,11 @@ export const StoredFileImageSchema = z.object({
   expiresAt: z.string(),
 }) satisfies z.ZodType<StoredFileImage>;
 
+export const StoredFileCapabilitiesSchema = z.object({
+  canUpdate: z.boolean(),
+  canDelete: z.boolean(),
+}) satisfies z.ZodType<StoredFileCapabilities>;
+
 export const StoredFileSchema = z.object({
   id: z
     .uuid()
@@ -601,6 +768,7 @@ export const StoredFileSchema = z.object({
   urlExpiresAt: z.string().nullable(),
   version: z.int().min(-9007199254740991).max(9007199254740991),
   uploader: FileUploaderSchema.nullable(),
+  capabilities: StoredFileCapabilitiesSchema,
   uploadedAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),

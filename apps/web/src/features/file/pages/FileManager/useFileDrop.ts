@@ -10,7 +10,10 @@ function hasFiles(event: DragEvent): boolean {
 }
 
 interface UseFileDropOptions {
+  /** 有沒有任何地方可以放（目前的資料夾，或畫面上某個資料夾卡片）。 */
   enabled: boolean;
+  /** 放在這裡能不能上傳：資料夾卡片是它的 id，空白處（目前的資料夾）是 undefined。 */
+  canDropInto: (folderId: string | undefined) => boolean;
   /**
    * `folderId`：放在某個資料夾（卡片、列表列）上時是那個資料夾；放在空白處是 undefined（目前的資料夾）。
    */
@@ -22,7 +25,7 @@ interface UseFileDropOptions {
  * `dragenter` / `dragleave` 會在子元素之間成對觸發，以計數判斷是否真的離開；
  * 只對「帶檔案」的拖曳反應——頁面內拖動文字、圖片，或拖動主區塊裡的項目（移動）都不會出現遮罩。
  */
-export function useFileDrop({ enabled, onDrop }: UseFileDropOptions) {
+export function useFileDrop({ enabled, canDropInto, onDrop }: UseFileDropOptions) {
   const [isDragging, setDragging] = useState(false);
   /** 游標下的資料夾（放開就上傳到那裡）。 */
   const [overFolder, setOverFolder] = useState<string>();
@@ -42,10 +45,12 @@ export function useFileDrop({ enabled, onDrop }: UseFileDropOptions) {
       if (!enabled || !hasFiles(event)) return;
       // 不 preventDefault 就不會觸發 drop，瀏覽器會直接打開檔案
       event.preventDefault();
-      event.dataTransfer.dropEffect = 'copy';
-      setOverFolder(dropFolderOf(event.target));
+      const folderId = dropFolderOf(event.target);
+      const allowed = canDropInto(folderId);
+      event.dataTransfer.dropEffect = allowed ? 'copy' : 'none';
+      setOverFolder(allowed ? folderId : undefined);
     },
-    [enabled],
+    [canDropInto, enabled],
   );
   const onDragLeave = useCallback(
     (event: DragEvent) => {
@@ -66,12 +71,13 @@ export function useFileDrop({ enabled, onDrop }: UseFileDropOptions) {
       setDragging(false);
       setOverFolder(undefined);
       const folderId = dropFolderOf(event.target);
+      if (!canDropInto(folderId)) return;
       // 同步取出項目（Entry API 只在事件當下有效），再非同步展開資料夾
       void collectFromDataTransfer(event.dataTransfer).then((upload) => {
         if (upload.entries.length > 0 || upload.directories.length > 0) onDrop(upload, folderId);
       });
     },
-    [enabled, onDrop],
+    [canDropInto, enabled, onDrop],
   );
 
   return {

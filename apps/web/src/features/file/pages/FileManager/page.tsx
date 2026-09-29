@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BatchProgressBar } from '@/core/batch';
 
-import { useFilePermission } from '../../hooks/useFilePermission';
+import { selectionCapabilities, useFilePermission } from '../../hooks/useFilePermission';
 import { useFileUpload } from '../../hooks/useFileUpload';
 import { syncFileViewPreference, useFileViewPreferenceStore } from '../../preference';
 import type { CollectedUpload } from '../../upload/collectEntries';
 import { isFileItem } from './adapter';
 import type { BrowserItemVM } from './adapter';
+import { FileAccessRequestDialog } from './components/FileAccessRequestDialog';
 import { FileBreadcrumb } from './components/FileBreadcrumb';
 import { FileBrowser } from './components/FileBrowser';
 import { FileDeleteDialog } from './components/FileDeleteDialog';
@@ -15,12 +16,15 @@ import { FileEmptyState } from './components/FileEmptyState';
 import { FileFolderDialog } from './components/FileFolderDialog';
 import { FileFolderSidebar } from './components/FileFolderTree';
 import { FileLightbox } from './components/FileLightbox';
+import { FileLockedNotice } from './components/FileLockedNotice';
 import { FileManagerHeader } from './components/FileManagerHeader';
 import { FileMoveDialog } from './components/FileMoveDialog';
 import { FilePagination } from './components/FilePagination';
 import { FileRenameDialog } from './components/FileRenameDialog';
 import { FileSelectionBar } from './components/FileSelectionBar';
+import { FileShareDialog } from './components/FileShareDialog';
 import { FileToolbar } from './components/FileToolbar';
+import { canCreateIn } from './folderTree';
 import { useFileActions } from './useFileActions';
 import { useFileManagerItems } from './useFileManagerItems';
 import { useFileSearch } from './useFileSearch';
@@ -29,14 +33,16 @@ import { draggedItemsOf, useItemDrag } from './useItemDrag';
 import { useRenameTarget } from './useRenameTarget';
 
 export default function FileManagerPage() {
-  const permission = useFilePermission();
   const preference = useFileViewPreferenceStore();
   useEffect(syncFileViewPreference, []);
   const nav = useFileSearch();
   const { search, setFolder } = nav;
   const folderId = search.folder;
   const onMissingFolder = useCallback(() => setFolder(undefined, { replace: true }), [setFolder]);
-  const { filters, data, folders, items } = useFileManagerItems({
+  // 預設位置是自己的個人資料夾（docs/rbac/07-resource-grants.md §12）：只在進入頁面時導一次，
+  // 之後點「所有檔案」仍能回到根目錄
+  const landed = useRef(Boolean(folderId));
+  const { filters, data, folders, items, locked } = useFileManagerItems({
     folderId,
     keyword: search.keyword,
     category: search.category,
@@ -46,13 +52,25 @@ export default function FileManagerPage() {
     pageSize: preference.pageSize,
     onMissingFolder,
   });
+  // 按鈕看後端的 capabilities：目前位置、選取的項目（docs/architecture/frontend/12-file-manager.md §13）
+  const permission = useFilePermission(folders.location);
   const ids = useMemo(() => items.map((item) => item.id), [items]);
+  const { personalFolderId } = folders;
+  useEffect(() => {
+    if (landed.current || !personalFolderId) return;
+    landed.current = true;
+    setFolder(personalFolderId, { replace: true });
+  }, [personalFolderId, setFolder]);
   const selection = useFileSelection(ids);
   const selectedItems = items.filter((item) => selection.selected.has(item.id));
+  const selected = selectionCapabilities(selectedItems);
+  const [shareTarget, setShareTarget] = useState<{ id: string; name: string }>();
+  const [requestTarget, setRequestTarget] = useState<{ id: string; name: string }>();
+  const currentFolder = folderId ? folders.index.byId.get(folderId) : undefined;
   const upload = useFileUpload({ enabled: permission.canUpload });
   const actions = useFileActions();
   const itemDrag = useItemDrag({
-    enabled: permission.canMove,
+    enabled: permission.canAccess,
     folders: folders.index,
     onMove: actions.dropItems,
   });
@@ -88,6 +106,8 @@ export default function FileManagerPage() {
         onUpload={onUpload}
         canCreateFolder={permission.canCreateFolder}
         onCreateFolder={() => renameTarget.createFolder(folderId)}
+        canShare={permission.canShare}
+        onShare={() => currentFolder && setShareTarget(currentFolder)}
         onRefresh={() => {
           data.refetch();
           void folders.refetch();
@@ -96,6 +116,12 @@ export default function FileManagerPage() {
       />
       <FileBreadcrumb path={folders.path} onNavigate={setFolder} itemDrag={itemDrag} />
 
+      {locked && currentFolder && (
+        <FileLockedNotice
+          pending={currentFolder.hasPendingAccessRequest}
+          onRequest={() => setRequestTarget(currentFolder)}
+        />
+      )}
       {actions.activeJobs.length > 0 && (
         <BatchProgressBar jobs={actions.activeJobs} onCancel={actions.cancelJob} />
       )}
@@ -104,15 +130,19 @@ export default function FileManagerPage() {
           count={selectedItems.length}
           total={items.length}
           canDownload={selectedItems.some(isFileItem)}
-          canDelete={permission.canDelete}
-          canRename={permission.canRename}
-          canMove={permission.canMove}
+          canDelete={selected.canDelete}
+          canRename={selected.canRename}
+          canMove={selected.canMove}
+          canShare={selected.canShare}
+          canRequestAccess={selected.canRequestAccess}
           onSelectAll={selection.selectAll}
           onClear={selection.clear}
           onDownload={() => actions.download(selectedItems.filter(isFileItem))}
           onDelete={() => actions.requestDelete(selectedItems)}
           onRename={() => selectedItems[0] && renameTarget.rename(selectedItems[0])}
           onMove={() => actions.requestMove(draggedItemsOf(selectedItems, folderId))}
+          onShare={() => selectedItems[0] && setShareTarget(selectedItems[0])}
+          onRequestAccess={() => selectedItems[0] && setRequestTarget(selectedItems[0])}
         />
       )}
 
@@ -122,7 +152,7 @@ export default function FileManagerPage() {
           selectedId={folderId}
           onSelect={setFolder}
           itemDrag={itemDrag}
-          canMove={permission.canMove}
+          canMove={permission.canAccess}
         />
         <div className="min-w-0 flex-1">
           <FileBrowser
@@ -134,13 +164,14 @@ export default function FileManagerPage() {
             loadingMore={data.isLoadingMore}
             onLoadMore={data.loadMore}
             onOpen={onOpen}
-            onDeleteSelected={() => permission.canDelete && actions.requestDelete(selectedItems)}
+            onDeleteSelected={() => selected.canDelete && actions.requestDelete(selectedItems)}
             onStaleUrl={data.reportStaleUrl}
             canUpload={permission.canUpload}
             onDropUpload={onUpload}
             currentFolderId={folderId}
             itemDrag={itemDrag}
-            canMove={permission.canMove}
+            canMove={permission.canAccess}
+            canUploadInto={(target) => canCreateIn(folders.index, target)}
             sort={preference.sort}
             onSortChange={(sort) => preference.update({ sort })}
             emptyContent={
@@ -170,13 +201,15 @@ export default function FileManagerPage() {
         items={data.items}
         onNavigate={nav.switchPreview}
         onClose={nav.closePreview}
-        canRename={permission.canRename}
-        canDelete={permission.canDelete}
+        canRename={permission.canAccess}
+        canDelete={permission.canAccess}
         onRename={renameTarget.renameFile}
         onDelete={(file) => actions.requestDelete([file])}
       />
       <FileRenameDialog file={renameTarget.file} onClose={renameTarget.closeFile} />
       <FileFolderDialog target={renameTarget.folderDialog} onClose={renameTarget.closeFolder} />
+      <FileShareDialog folder={shareTarget} onClose={() => setShareTarget(undefined)} />
+      <FileAccessRequestDialog folder={requestTarget} onClose={() => setRequestTarget(undefined)} />
       <FileMoveDialog
         items={actions.pendingMove}
         folders={folders.index}

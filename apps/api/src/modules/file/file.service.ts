@@ -30,6 +30,8 @@ import type {
 } from './dto/file.dto';
 import type { ListFileDto } from './dto/list-file.dto';
 import type { UpdateFileDto } from './dto/update-file.dto';
+import type { FileAccessContext } from './file-access.context';
+import { FileAccessService } from './file-access.service';
 import { FileFolderService } from './file-folder.service';
 import { FileImageService } from './file-image.service';
 import {
@@ -70,6 +72,7 @@ export class FileService {
     private readonly events: DomainEventBus,
     private readonly images: FileImageService,
     private readonly folders: FileFolderService,
+    private readonly access: FileAccessService,
     config: ConfigService<Env, true>,
   ) {
     this.maxSize = config.get('FILE_UPLOAD_MAX_SIZE', { infer: true });
@@ -96,8 +99,9 @@ export class FileService {
   /**
    * 帶 `cursor` 是 keyset 分頁（無限捲動），否則是 offset 分頁。兩種都回 `nextCursor`，
    * 所以 offset 模式的第一頁也能直接接著用游標往下捲。
+   * 只列看得到的資料夾裡的檔案（docs/rbac/07-resource-grants.md §5.2）。
    */
-  async list(query: ListFileDto): Promise<FileListDto> {
+  async list(query: ListFileDto, actor: AuthUser): Promise<FileListDto> {
     let after: FileCursor | undefined;
     if (query.cursor) {
       after = decodeFileCursor(query.cursor);
@@ -106,9 +110,11 @@ export class FileService {
         throw new AppException('VALIDATION_FAILED', { field: 'cursor' });
       }
     }
-    const { items, total, lastCreatedAt } = await this.repo.list(query, after);
+    const ctx = await this.access.contextFor(actor);
+    const scope = await this.listScope(ctx, actor, query.folderId);
+    const { items, total, lastCreatedAt } = await this.repo.list(query, after, scope);
     const page = paginated(
-      await Promise.all(items.map((file) => this.toDto(file))),
+      await Promise.all(items.map((file) => this.toDto(file, ctx))),
       total,
       after ? { offset: 0, limit: query.limit } : query,
     );
@@ -131,15 +137,21 @@ export class FileService {
     return { ...page, nextCursor };
   }
 
-  /** `pending` 的檔案只有上傳者本人看得到（其他人眼中它還不存在）。 */
+  /**
+   * `pending` 的檔案只有上傳者本人看得到（其他人眼中它還不存在）；
+   * `ready` 的要看得到所在的資料夾。
+   */
   async findOne(id: string, actor: AuthUser): Promise<FileDto> {
-    return this.toDto(await this.getVisible(id, actor));
+    const ctx = await this.access.contextFor(actor);
+    return this.toDto(await this.getVisible(id, actor, ctx), ctx);
   }
 
   async createUpload(dto: CreateFileUploadDto, actor: AuthUser): Promise<FileUploadDto> {
     if (dto.size > this.maxSize) {
       throw new AppException('FILE_TOO_LARGE', { maxSize: this.maxSize, size: dto.size });
     }
+    const ctx = await this.access.contextFor(actor);
+    await this.access.assertCan(ctx, actor, 'create', dto.folderId ?? null);
     await this.storage.ensureBucket();
 
     const id = randomUUID();
@@ -183,7 +195,7 @@ export class FileService {
     ]);
 
     // 回應裡的 uploader 就是自己；不為了顯示名稱再查一次
-    const file = await this.toDto({ ...row, uploader: null });
+    const file = await this.toDto({ ...row, uploader: null }, ctx);
     return {
       file,
       upload: upload ? toUploadTarget(upload) : null,
@@ -224,8 +236,11 @@ export class FileService {
   }
 
   async completeUpload(id: string, dto: CompleteFileUploadDto, actor: AuthUser): Promise<FileDto> {
-    const file = await this.getVisible(id, actor);
+    const ctx = await this.access.contextFor(actor);
+    const file = await this.getVisible(id, actor, ctx);
     if (file.status === 'ready') throw new AppException('FILE_ALREADY_UPLOADED');
+    // 上傳途中被移除授權：不讓它變成看得到的檔案（放棄上傳仍然可以）
+    await this.access.assertCan(ctx, actor, 'create', file.folderId);
 
     if (file.uploadId) {
       if (!dto.parts) {
@@ -310,12 +325,12 @@ export class FileService {
   }
 
   async update(id: string, dto: UpdateFileDto, actor: AuthUser): Promise<FileDto> {
-    const file = await this.getReady(id);
+    const { file, ctx } = await this.getModifiable(id, actor, 'update');
     if (dto.version !== undefined && dto.version !== file.version) {
       throw new AppException('FILE_VERSION_CONFLICT', { current: file.version });
     }
     const changes = diff(file, { name: dto.name }, FILE_AUDIT_FIELDS);
-    if (!changes) return this.toDto(file);
+    if (!changes) return this.toDto(file, ctx);
 
     await withTransaction(this.db, async (tx) => {
       const updated = await this.repo.update(
@@ -347,7 +362,7 @@ export class FileService {
   }
 
   async remove(id: string, actor: AuthUser): Promise<void> {
-    const file = await this.getReady(id);
+    const { file } = await this.getModifiable(id, actor, 'delete');
 
     await withTransaction(this.db, async (tx) => {
       const deleted = await this.repo.softDelete(id, actor.id, tx);
@@ -379,27 +394,61 @@ export class FileService {
     this.publish(ChangeKind.DELETE, id);
   }
 
-  private async getVisible(id: string, actor: AuthUser): Promise<FileWithUploader> {
+  /** 別人的 `pending`、看不到所在資料夾的 `ready`：一律當作不存在。 */
+  private async getVisible(
+    id: string,
+    actor: AuthUser,
+    ctx: FileAccessContext,
+  ): Promise<FileWithUploader> {
     const file = await this.repo.findById(id);
-    if (!file || (file.status === 'pending' && file.createdBy !== actor.id)) {
-      throw new AppException('FILE_NOT_FOUND');
-    }
+    const visible =
+      file &&
+      (file.status === 'pending' ? file.createdBy === actor.id : ctx.can('read', file.folderId));
+    if (!visible) throw new AppException('FILE_NOT_FOUND');
     return file;
   }
 
   /** 上傳者本人、還在上傳中的檔案；已完成回 `FILE_ALREADY_UPLOADED`。 */
   private async getOwnPending(id: string, actor: AuthUser): Promise<FileWithUploader> {
-    const file = await this.getVisible(id, actor);
-    if (file.createdBy !== actor.id) throw new AppException('FILE_NOT_FOUND');
+    const file = await this.repo.findById(id);
+    if (!file || file.createdBy !== actor.id) throw new AppException('FILE_NOT_FOUND');
     if (file.status === 'ready') throw new AppException('FILE_ALREADY_UPLOADED');
     return file;
   }
 
-  /** 改名、刪除只對已完成上傳的檔案；還在上傳中的視為不存在。 */
-  private async getReady(id: string): Promise<FileWithUploader> {
-    const file = await this.repo.findById(id);
-    if (!file || file.status !== 'ready') throw new AppException('FILE_NOT_FOUND');
-    return file;
+  /**
+   * 改名、刪除只對已完成上傳、看得到的檔案（還在上傳中的視為不存在）；
+   * 能不能做看所在的資料夾與擁有者規則（docs/rbac/07-resource-grants.md §4）。
+   */
+  private async getModifiable(
+    id: string,
+    actor: AuthUser,
+    action: 'update' | 'delete',
+  ): Promise<{ file: FileWithUploader; ctx: FileAccessContext }> {
+    const [file, ctx] = await Promise.all([this.repo.findById(id), this.access.contextFor(actor)]);
+    if (!file || file.status !== 'ready' || !ctx.can('read', file.folderId)) {
+      throw new AppException('FILE_NOT_FOUND');
+    }
+    if (!ctx.canModify(action, file.folderId, file.createdBy)) {
+      throw await this.access.deny(actor, action, 'file', id);
+    }
+    return { file, ctx };
+  }
+
+  /**
+   * 列表的範圍：持有全域 `file:read` 不限；否則只有讀得到的資料夾，根目錄是空的（§5.2）。
+   * 指定了不存在的資料夾回 404、鎖住的回 403。
+   */
+  private async listScope(
+    ctx: FileAccessContext,
+    actor: AuthUser,
+    folderId: ListFileDto['folderId'],
+  ): Promise<{ folderIds: readonly string[] } | undefined> {
+    if (folderId && folderId !== 'root') {
+      await this.access.assertCan(ctx, actor, 'read', folderId);
+    }
+    const readable = ctx.readableFolderIds();
+    return readable ? { folderIds: readable } : undefined;
   }
 
   private publish(kind: ChangeKind, id: string): void {
@@ -408,7 +457,7 @@ export class FileService {
     });
   }
 
-  private async toDto(file: FileWithUploader): Promise<FileDto> {
+  private async toDto(file: FileWithUploader, ctx: FileAccessContext): Promise<FileDto> {
     const links =
       file.status === 'ready'
         ? await Promise.all([
@@ -450,6 +499,7 @@ export class FileService {
       urlExpiresAt: expiresAt === undefined ? null : new Date(expiresAt).toISOString(),
       version: file.version,
       uploader: file.uploader,
+      capabilities: ctx.fileCapabilities(file),
       uploadedAt: file.uploadedAt?.toISOString() ?? null,
       createdAt: file.createdAt.toISOString(),
       updatedAt: file.updatedAt.toISOString(),

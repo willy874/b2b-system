@@ -41,6 +41,9 @@ interface FileToolbarProps {
   onUpload: (upload: CollectedUpload) => void;
   canCreateFolder: boolean;
   onCreateFolder: () => void;
+  /** 目前所在的資料夾能管理授權時顯示「共用此資料夾」。 */
+  canShare: boolean;
+  onShare: () => void;
   onRefresh: () => void;
   refreshing: boolean;
 }
@@ -60,6 +63,8 @@ export function FileToolbar({
   onUpload,
   canCreateFolder,
   onCreateFolder,
+  canShare,
+  onShare,
   onRefresh,
   refreshing,
 }: FileToolbarProps) {
@@ -192,6 +197,15 @@ export function FileToolbar({
             <Icon name="refresh" size={16} />
           </IconButton>
         </Tooltip>
+        {canShare && (
+          <Button
+            startIcon={<Icon name="users" size={16} />}
+            onClick={onShare}
+            data-testid="file-share-button"
+          >
+            {t('file.share.openCurrent')}
+          </Button>
+        )}
         {canCreateFolder && (
           <Button
             startIcon={<Icon name="folder-plus" size={16} />}

@@ -60,9 +60,11 @@ interface FileBrowserProps {
   onDropUpload: (upload: CollectedUpload, folderId: string | undefined) => void;
   /** 所在的資料夾（拖曳項目的來源）；根目錄是 undefined。 */
   currentFolderId: string | undefined;
-  /** 拖曳項目到資料夾上移動；沒有移動權限時 `canMove` 為 false，項目不可拖曳。 */
+  /** 拖曳項目到資料夾上移動；`canMove` 為 false、或項目本身不能移動（`canUpdate`）時不可拖曳。 */
   itemDrag: ItemDrag;
   canMove: boolean;
+  /** 能不能上傳到這個資料夾卡片（後端的 `capabilities.canCreate`）。 */
+  canUploadInto: (folderId: string) => boolean;
   sort: SortEntry<FileSortField>;
   onSortChange: (sort: SortEntry<FileSortField>) => void;
   emptyContent: ReactNode;
@@ -95,6 +97,7 @@ export function FileBrowser({
   currentFolderId,
   itemDrag,
   canMove,
+  canUploadInto,
   sort,
   onSortChange,
   emptyContent,
@@ -156,7 +159,11 @@ export function FileBrowser({
     isDragging,
     overFolder,
     dropHandlers: uploadDrop,
-  } = useFileDrop({ enabled: canUpload, onDrop: onDropUpload });
+  } = useFileDrop({
+    enabled: canUpload || items.some((item) => item.type === 'folder' && item.canCreate),
+    canDropInto: (folderId) => (folderId ? canUploadInto(folderId) : canUpload),
+    onDrop: onDropUpload,
+  });
   const overFolderName = overFolder
     ? items.find((item) => item.id === overFolder)?.name
     : undefined;
@@ -237,6 +244,11 @@ export function FileBrowser({
     if (!hit) return;
     const draggedIds = selection.selected.has(hit.id) ? selection.selected : new Set([hit.id]);
     const dragged = items.filter((item) => draggedIds.has(item.id));
+    // 批次移動不做一半：其中有不能移動的就整批不拖
+    if (!canMove || dragged.some((item) => !item.canUpdate)) {
+      event.preventDefault();
+      return;
+    }
     const [only] = dragged;
     itemDrag.startDrag(
       event,
@@ -381,7 +393,7 @@ export function FileBrowser({
                       focused={index === focusIndex}
                       selecting={selecting}
                       dropOver={dropOver}
-                      draggable={canMove}
+                      draggable={canMove && item.canUpdate}
                       style={style}
                       onToggle={onToggle}
                     />
@@ -393,7 +405,7 @@ export function FileBrowser({
                       selected={isSelected}
                       focused={index === focusIndex}
                       dropOver={dropOver}
-                      draggable={canMove}
+                      draggable={canMove && item.canUpdate}
                       style={style}
                       onToggle={onToggle}
                     />
@@ -406,7 +418,7 @@ export function FileBrowser({
                     selected={isSelected}
                     focused={index === focusIndex}
                     selecting={selecting}
-                    draggable={canMove}
+                    draggable={canMove && item.canUpdate}
                     style={style}
                     onStaleUrl={onStaleUrl}
                     onToggle={onToggle}
@@ -418,7 +430,7 @@ export function FileBrowser({
                     columns={layout.listColumns}
                     selected={isSelected}
                     focused={index === focusIndex}
-                    draggable={canMove}
+                    draggable={canMove && item.canUpdate}
                     style={style}
                     onStaleUrl={onStaleUrl}
                     onToggle={onToggle}

@@ -11,12 +11,18 @@ interface FileSelectionBarProps {
   /** 只選一個、有改名權限時顯示。 */
   canRename: boolean;
   canMove: boolean;
+  /** 只選一個資料夾、能管理它的授權時顯示「共用」。 */
+  canShare: boolean;
+  /** 只選一個鎖住的資料夾時顯示「申請存取」。 */
+  canRequestAccess: boolean;
   onSelectAll: () => void;
   onClear: () => void;
   onDownload: () => void;
   onDelete: () => void;
   onRename: () => void;
   onMove: () => void;
+  onShare: () => void;
+  onRequestAccess: () => void;
 }
 
 /**
@@ -30,12 +36,16 @@ export function FileSelectionBar({
   canDelete,
   canRename,
   canMove,
+  canShare,
+  canRequestAccess,
   onSelectAll,
   onClear,
   onDownload,
   onDelete,
   onRename,
   onMove,
+  onShare,
+  onRequestAccess,
 }: FileSelectionBarProps) {
   const { t } = useTranslation();
   if (count === 0) {
@@ -87,6 +97,28 @@ export function FileSelectionBar({
             data-testid="file-selection-move"
           >
             {t('file.move.open')}
+          </Button>
+        )}
+        {canRequestAccess && (
+          <Button
+            size="sm"
+            variant="secondary"
+            startIcon={<Icon name="lock" size={14} />}
+            onClick={onRequestAccess}
+            data-testid="file-selection-request-access"
+          >
+            {t('file.access.request')}
+          </Button>
+        )}
+        {canShare && (
+          <Button
+            size="sm"
+            variant="secondary"
+            startIcon={<Icon name="users" size={14} />}
+            onClick={onShare}
+            data-testid="file-selection-share"
+          >
+            {t('file.share.open')}
           </Button>
         )}
         {canDownload && (

@@ -7,6 +7,7 @@ import { useTranslation } from '@/core/locales';
 import { formatDateTime } from '@/shared/date';
 import { cn } from '@/shared/utils';
 
+import { FILE_FOLDER_KIND_ICON } from '../../../constants';
 import type { FolderItemVM } from '../adapter';
 import type { FileListColumn } from '../layout';
 import { listGridTemplate } from './FileListRow';
@@ -37,10 +38,26 @@ export const FolderListRow = memo(function FolderListRow({
   const cells: Record<FileListColumn, ReactNode> = {
     name: (
       <span className="flex min-w-0 items-center gap-2">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded bg-[var(--color-fill-subtle)] text-[var(--color-brand)]">
-          <Icon name="folder" size={20} />
+        <span
+          className={cn(
+            'flex size-8 shrink-0 items-center justify-center rounded bg-[var(--color-fill-subtle)]',
+            item.canRead ? 'text-[var(--color-brand)]' : 'text-[var(--color-fg-muted)]',
+          )}
+        >
+          <Icon
+            name={item.canRead ? FILE_FOLDER_KIND_ICON[item.kind] : 'lock'}
+            size={item.canRead ? 20 : 16}
+          />
         </span>
         <span className="truncate font-medium">{item.name}</span>
+        {!item.canRead && (
+          <span
+            className="shrink-0 text-xs text-[var(--color-fg-muted)]"
+            data-testid="file-folder-locked"
+          >
+            {t(item.hasPendingAccessRequest ? 'file.access.pending' : 'file.access.locked')}
+          </span>
+        )}
       </span>
     ),
     kind: <span className="truncate">{t('file.folder.label')}</span>,

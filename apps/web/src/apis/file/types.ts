@@ -1,3 +1,4 @@
+import type { SetFileFolderGrantRequest } from '@/shared/api-sdk';
 import type { SortEntry } from '@/shared/constants';
 
 /** 後端 `ListFileSchema` 的排序白名單。 */
@@ -23,3 +24,7 @@ export interface FileListParams extends FileListFilters {
   /** keyset 分頁的游標（上一頁的 `nextCursor`）；帶了就忽略 `offset`。 */
   cursor?: string;
 }
+
+/** 資料夾授權的對象種類與等級（docs/rbac/07-resource-grants.md §2、§6.2）。 */
+export type FileGrantSubjectType = SetFileFolderGrantRequest['subjectType'];
+export type FileGrantLevel = SetFileFolderGrantRequest['level'];

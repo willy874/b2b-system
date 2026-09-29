@@ -25,18 +25,28 @@ const item = (id: string, overrides: Partial<FileItemVM> = {}): FileItemVM => ({
   downloadUrl: null,
   version: 1,
   uploaderName: 'Alice',
+  canUpdate: true,
+  canDelete: true,
   createdAt: '2026-09-27T00:00:00.000Z',
   updatedAt: '2026-09-27T00:00:00.000Z',
   ...overrides,
 });
 
-const folder = (id: string): FolderItemVM => ({
+const folder = (id: string, overrides: Partial<FolderItemVM> = {}): FolderItemVM => ({
   type: 'folder',
   id,
   name: `folder-${id}`,
   parentId: null,
+  kind: 'normal',
   folderCount: 0,
+  canRead: true,
+  hasPendingAccessRequest: false,
+  canCreate: true,
+  canUpdate: true,
+  canDelete: true,
+  canShare: false,
   updatedAt: '2026-09-27T00:00:00.000Z',
+  ...overrides,
 });
 
 const ITEMS = [item('a'), item('b'), item('c'), item('d')];
@@ -74,9 +84,20 @@ function setup(
         id: entry.id,
         name: entry.name,
         parentId: null,
+        kind: 'normal' as const,
+        inheritGrants: true,
+        hasPendingAccessRequest: false,
+        capabilities: {
+          canRead: entry.canRead,
+          canCreate: entry.canCreate,
+          canUpdate: entry.canUpdate,
+          canDelete: entry.canDelete,
+          canShare: entry.canShare,
+        },
         createdAt: '',
         updatedAt: '',
       })),
+    { canCreate: true },
   );
   const drag = renderHook(() => useItemDrag({ enabled: options.canMove ?? true, folders, onMove }));
   const props = {
@@ -99,6 +120,9 @@ function setup(
       currentFolderId={undefined}
       itemDrag={drag.result.current}
       canMove={options.canMove ?? true}
+      canUploadInto={(folderId) =>
+        items.some((entry) => entry.id === folderId && entry.type === 'folder' && entry.canCreate)
+      }
       sort={{ sort: 'createdAt', order: 'desc' }}
       emptyContent={<p data-testid="empty">empty</p>}
       {...props}
@@ -271,5 +295,13 @@ describe('FileBrowser（主區塊）', () => {
   it('沒有檔案時顯示空狀態', () => {
     setup({ items: [] });
     expect(screen.getByTestId('empty')).toBeInTheDocument();
+  });
+
+  it('鎖住的資料夾顯示鎖頭與「沒有存取權」', () => {
+    setup({ items: [folder('locked', { canRead: false, canCreate: false }), folder('open')] });
+    const [locked, open] = screen.getAllByTestId('file-folder-item');
+    expect(locked).toHaveAttribute('data-locked', 'true');
+    expect(open).not.toHaveAttribute('data-locked');
+    expect(screen.getAllByTestId('file-folder-locked')).toHaveLength(1);
   });
 });

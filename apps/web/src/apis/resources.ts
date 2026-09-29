@@ -15,7 +15,9 @@ import { APPROVAL_LIST_QUERY_KEY } from '@/apis/approval/get-approval-list/query
 import { AUDIT_LOG_DETAIL_QUERY_KEY } from '@/apis/audit-log/get-audit-log-detail/query';
 import { AUDIT_LOG_LIST_QUERY_KEY } from '@/apis/audit-log/get-audit-log-list/query';
 import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
+import { FILE_ACCESS_REQUEST_LIST_QUERY_KEY } from '@/apis/file/get-file-access-requests/query';
 import { FILE_DETAIL_QUERY_KEY } from '@/apis/file/get-file-detail/query';
+import { FILE_FOLDER_GRANT_LIST_QUERY_KEY } from '@/apis/file/get-file-folder-grants/query';
 import { FILE_FOLDER_LIST_QUERY_KEY } from '@/apis/file/get-file-folder-list/query';
 import { FILE_INFINITE_LIST_QUERY_KEY, FILE_LIST_QUERY_KEY } from '@/apis/file/get-file-list/query';
 import { PERMISSION_LIST_QUERY_KEY } from '@/apis/permission/get-permission-list/query';
@@ -130,8 +132,14 @@ const graph = createResourceGraph<Resource>({
     ],
   },
   [Resource.FILE_FOLDER]: {
-    // 只有一個扁平清單：樹、麵包屑、主區塊的資料夾都由它組出來
-    collection: [FILE_FOLDER_LIST_QUERY_KEY],
+    // 只有一個扁平清單：樹、麵包屑、主區塊的資料夾都由它組出來。
+    // 授權清單含繼承自上層的授權、移動資料夾會改變繼承鏈：一律跟著資料夾失效
+    // 存取申請的送出與審核也以 fileFolder update 推出（§6.5）
+    collection: [
+      FILE_FOLDER_LIST_QUERY_KEY,
+      FILE_FOLDER_GRANT_LIST_QUERY_KEY,
+      FILE_ACCESS_REQUEST_LIST_QUERY_KEY,
+    ],
   },
   [Resource.PROFILE]: {
     collection: [AUTH_PROFILE_QUERY_KEY],

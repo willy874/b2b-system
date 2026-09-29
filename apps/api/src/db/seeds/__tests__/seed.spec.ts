@@ -37,9 +37,9 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
     await close();
   });
 
-  it('① permissions 筆數 = PERMISSION_SEED.length（21）', async () => {
+  it('① permissions 筆數 = PERMISSION_SEED.length（23）', async () => {
     expect(await tableCount(db, 'permissions')).toBe(PERMISSION_SEED.length);
-    expect(PERMISSION_SEED.length).toBe(21);
+    expect(PERMISSION_SEED.length).toBe(23);
   });
 
   it("② 每筆 permissions.key = resource || ':' || action", async () => {
@@ -64,7 +64,7 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
     expect(rows).toHaveLength(0);
   });
 
-  it('⑤ admin 的權限集合 = ROLE_SEED 宣告的 20 筆', async () => {
+  it('⑤ admin 的權限集合 = ROLE_SEED 宣告的 22 筆', async () => {
     const [role] = await db.select().from(roles).where(eq(roles.slug, 'admin'));
     const rows = await db
       .select({ key: permissions.key })
@@ -74,7 +74,7 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
     const expected = ROLE_SEED.find((seed) => seed.slug === 'admin')!
       .permissions as readonly string[];
     expect(rows.map((row) => row.key).sort()).toEqual([...expected].sort());
-    expect(expected).toHaveLength(20);
+    expect(expected).toHaveLength(22);
   });
 
   it('⑥ 恰有一位使用者持有 super-admin', async () => {
@@ -106,9 +106,9 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
     expect(after).toEqual(before);
   });
 
-  it('⑧ super-admin 的有效權限展開後為全部 21 筆', async () => {
+  it('⑧ super-admin 的有效權限展開後為全部 23 筆', async () => {
     // 對應 GET /auth/profile 的展開行為（PermissionService.getEffectivePermissionKeys）
     const all = await db.select({ key: permissions.key }).from(permissions);
-    expect(all).toHaveLength(21);
+    expect(all).toHaveLength(23);
   });
 });

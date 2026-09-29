@@ -19,4 +19,16 @@ export const APPROVAL_STATUS_TONE = {
 
 export const APPROVAL_TYPE_LABEL_KEY = {
   'user.register': 'approval.type.userRegister',
+  'fileFolder.access': 'approval.type.fileFolderAccess',
 } as const satisfies Record<ApprovalType, string>;
+
+/** `fileFolder.access` 申請的等級（後端 `grant_level`）；不跨 feature 引用檔案管理器的語系。 */
+export const FILE_ACCESS_LEVELS = ['viewer', 'contributor', 'editor', 'manager'] as const;
+export type FileAccessLevel = (typeof FILE_ACCESS_LEVELS)[number];
+
+export const FILE_ACCESS_LEVEL_LABEL_KEY = {
+  viewer: 'approval.fileAccess.level.viewer',
+  contributor: 'approval.fileAccess.level.contributor',
+  editor: 'approval.fileAccess.level.editor',
+  manager: 'approval.fileAccess.level.manager',
+} as const satisfies Record<FileAccessLevel, string>;

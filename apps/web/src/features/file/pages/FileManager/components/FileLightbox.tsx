@@ -25,6 +25,7 @@ interface FileLightboxProps {
   items: readonly FileItemVM[];
   onNavigate: (fileId: string) => void;
   onClose: () => void;
+  /** 頁面層級（權限已水合）；個別檔案另外看自己的 `canUpdate` / `canDelete`。 */
   canRename: boolean;
   canDelete: boolean;
   onRename: (file: FileItemVM) => void;
@@ -150,7 +151,7 @@ export function FileLightbox({
             <Icon name="chevron-right" size={16} />
           </IconButton>
           <span className="ml-auto flex flex-wrap gap-2">
-            {file && !deleted && canRename && (
+            {file && !deleted && canRename && file.canUpdate && (
               <Button
                 variant="secondary"
                 startIcon={<Icon name="edit" size={14} />}
@@ -160,7 +161,7 @@ export function FileLightbox({
                 {t('file.rename.action')}
               </Button>
             )}
-            {file && !deleted && canDelete && (
+            {file && !deleted && canDelete && file.canDelete && (
               <Button
                 variant="danger"
                 startIcon={<Icon name="trash" size={14} />}

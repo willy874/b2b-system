@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, ilike, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, like } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
@@ -53,6 +53,32 @@ export class ApprovalRepository {
       )
       .limit(1);
     return row;
+  }
+
+  /**
+   * 某類型的待審請求，依 `subject_key` 前綴或申請人篩選（最早的在前）。
+   * 給「只看得到自己負責的那部分」的審核入口（例：資料夾的管理者）用。
+   */
+  async findPendingBy(
+    type: string,
+    filter: { subjectKeyPrefix?: string; requesterId?: string },
+  ): Promise<ApprovalRequestRow[]> {
+    const conditions: SQL[] = [
+      eq(approvalRequests.type, type),
+      eq(approvalRequests.status, 'pending'),
+    ];
+    if (filter.subjectKeyPrefix !== undefined) {
+      const escaped = filter.subjectKeyPrefix.replaceAll(/[\\%_]/g, (char) => `\\${char}`);
+      conditions.push(like(approvalRequests.subjectKey, `${escaped}%`));
+    }
+    if (filter.requesterId !== undefined) {
+      conditions.push(eq(approvalRequests.requesterId, filter.requesterId));
+    }
+    return this.db
+      .select()
+      .from(approvalRequests)
+      .where(and(...conditions))
+      .orderBy(asc(approvalRequests.createdAt), asc(approvalRequests.id));
   }
 
   async list(query: ListApprovalDto): Promise<{ items: ApprovalRequestRow[]; total: number }> {

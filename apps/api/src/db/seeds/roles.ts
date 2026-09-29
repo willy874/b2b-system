@@ -43,6 +43,9 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'file:read',
       'file:update',
       'file:delete',
+      'file:share',
+      // member 有 file:access：admin 要持有它才能指派 member（反提權）
+      'file:access',
     ],
   },
   {
@@ -63,8 +66,9 @@ export const ROLE_SEED: readonly RoleSeed[] = [
   {
     slug: 'member',
     name: '一般成員',
-    description: '僅能存取個人頁面。未來功能的權限掛載點。',
+    description: '個人頁面，以及被授權的資料夾。未來功能的權限掛載點。',
     isSystem: true,
-    permissions: [],
+    // 進得了檔案管理器；範圍由資料夾授權決定（docs/rbac/07-resource-grants.md）
+    permissions: ['file:access'],
   },
 ] as const;

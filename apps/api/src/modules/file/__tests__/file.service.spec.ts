@@ -15,6 +15,8 @@ import { storageKeyOf, thumbnailKeyOf } from '../file.constants';
 import { decodeFileCursor, encodeFileCursor } from '../file.cursor';
 import type { FileRepository, FileWithUploader } from '../file.repository';
 import { FileService } from '../file.service';
+import { createFileAccess } from './file-access.fixture';
+import type { AccessFixtureOptions } from './file-access.fixture';
 
 const ALICE: AuthUser = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -65,6 +67,7 @@ function setup(
     file?: FileWithUploader;
     head?: StoredObjectHead;
     thumbnailHead?: StoredObjectHead;
+    access?: AccessFixtureOptions;
   } = {},
 ) {
   const repo = {
@@ -149,6 +152,7 @@ function setup(
     events as unknown as DomainEventBus,
     images as unknown as FileImageService,
     folders as unknown as FileFolderService,
+    createFileAccess(options.access).access,
     config as unknown as ConfigService<Env, true>,
   );
   return { service, repo, storage, audit, events, images };
@@ -608,28 +612,108 @@ describe('FileService.list：keyset 游標', () => {
   it('滿頁 → nextCursor 指向最後一筆；帶回游標時交給 repository', async () => {
     const { service, repo } = setup();
     repo.list.mockResolvedValue({ items: rows, total: 5, lastCreatedAt: undefined });
-    const page = await service.list(query);
+    const page = await service.list(query, ALICE);
     const cursor = decodeFileCursor(page.nextCursor ?? '');
     expect(cursor).toEqual({ sort: query.sort[0], value: 'b', id: rows[1]?.id });
 
-    await service.list({ ...query, cursor: page.nextCursor ?? '' });
-    expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), cursor);
+    await service.list({ ...query, cursor: page.nextCursor ?? '' }, ALICE);
+    expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), cursor, undefined);
   });
 
   it('不滿一頁 → nextCursor 為 null', async () => {
     const { service, repo } = setup();
     repo.list.mockResolvedValue({ items: rows.slice(0, 1), total: 1, lastCreatedAt: undefined });
-    await expect(service.list(query)).resolves.toMatchObject({ nextCursor: null });
+    await expect(service.list(query, ALICE)).resolves.toMatchObject({ nextCursor: null });
   });
 
   it('游標格式錯誤或排序與游標不一致 → VALIDATION_FAILED', async () => {
     const { service } = setup();
-    await expectAppError(service.list({ ...query, cursor: 'garbage' }), 'VALIDATION_FAILED');
+    await expectAppError(service.list({ ...query, cursor: 'garbage' }, ALICE), 'VALIDATION_FAILED');
     const other = encodeFileCursor({
       sort: { sort: 'size', order: 'desc' },
       value: 1,
       id: FILE_ID,
     });
-    await expectAppError(service.list({ ...query, cursor: other }), 'VALIDATION_FAILED');
+    await expectAppError(service.list({ ...query, cursor: other }, ALICE), 'VALIDATION_FAILED');
+  });
+});
+
+describe('FileService 的資料夾層級授權（docs/rbac/07-resource-grants.md §4、§5.2）', () => {
+  const FOLDER = '66666666-6666-4666-8666-666666666666';
+  const OTHER = '77777777-7777-4777-8777-777777777777';
+  const nodes = () => [
+    { id: FOLDER, parentId: null, inheritGrants: true, createdBy: BOB.id },
+    { id: OTHER, parentId: null, inheritGrants: true, createdBy: BOB.id },
+  ];
+  const contributor = {
+    global: [],
+    nodes,
+    grants: [{ resourceId: FOLDER, level: 'contributor' as const }],
+  };
+
+  it('列表：沒有全域 file:read → 只查看得到的資料夾；指定鎖住的資料夾 → AUTHZ_FORBIDDEN', async () => {
+    const { service, repo } = setup({ access: contributor });
+    repo.list.mockResolvedValue({ items: [], total: 0, lastCreatedAt: undefined });
+    const query = {
+      offset: 0,
+      limit: 20,
+      sort: [{ sort: 'createdAt' as const, order: 'desc' as const }],
+    };
+
+    await service.list(query, ALICE);
+    expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), undefined, {
+      folderIds: [FOLDER],
+    });
+    await expectAppError(service.list({ ...query, folderId: OTHER }, ALICE), 'AUTHZ_FORBIDDEN');
+  });
+
+  it('看不到所在資料夾的 ready 檔案 → FILE_NOT_FOUND', async () => {
+    const { service } = setup({
+      access: contributor,
+      file: fileRow({ status: 'ready', etag: 'e', uploadedAt: new Date(), folderId: OTHER }),
+    });
+    await expectAppError(service.findOne(FILE_ID, ALICE), 'FILE_NOT_FOUND');
+  });
+
+  it('擁有者規則：contributor 能改名自己上傳的，不能改名別人的（AUTHZ_FORBIDDEN）', async () => {
+    const ready = { status: 'ready' as const, etag: 'e', uploadedAt: new Date(), folderId: FOLDER };
+    const mine = setup({ access: contributor, file: fileRow({ ...ready, createdBy: ALICE.id }) });
+    await mine.service.update(FILE_ID, { name: 'new.png' }, ALICE);
+    expect(mine.repo.update).toHaveBeenCalled();
+
+    const theirs = setup({ access: contributor, file: fileRow({ ...ready, createdBy: BOB.id }) });
+    await expectAppError(
+      theirs.service.update(FILE_ID, { name: 'x.png' }, ALICE),
+      'AUTHZ_FORBIDDEN',
+    );
+    await expectAppError(theirs.service.remove(FILE_ID, ALICE), 'AUTHZ_FORBIDDEN');
+    expect(theirs.repo.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('capabilities 反映位置與擁有者', async () => {
+    const ready = { status: 'ready' as const, etag: 'e', uploadedAt: new Date(), folderId: FOLDER };
+    const { service } = setup({
+      access: contributor,
+      file: fileRow({ ...ready, createdBy: BOB.id }),
+    });
+    await expect(service.findOne(FILE_ID, ALICE)).resolves.toMatchObject({
+      capabilities: { canUpdate: false, canDelete: false },
+    });
+  });
+
+  it('上傳：沒有 create 的位置 → AUTHZ_FORBIDDEN；根目錄只看全域權限', async () => {
+    const viewer = setup({
+      access: { global: [], nodes, grants: [{ resourceId: FOLDER, level: 'viewer' }] },
+    });
+    const dto = { name: 'a.png', contentType: 'image/png', size: 10 };
+    await expectAppError(
+      viewer.service.createUpload({ ...dto, folderId: FOLDER }, ALICE),
+      'AUTHZ_FORBIDDEN',
+    );
+    await expectAppError(
+      viewer.service.createUpload({ ...dto, folderId: null }, ALICE),
+      'AUTHZ_FORBIDDEN',
+    );
+    expect(viewer.repo.create).not.toHaveBeenCalled();
   });
 });

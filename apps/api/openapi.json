@@ -1777,6 +1777,361 @@
         "tags": ["files"]
       }
     },
+    "/file-folders/{id}/access-requests": {
+      "post": {
+        "operationId": "FileFolderGrantController_requestAccess",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFileAccessRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FileAccessRequestSubmitted"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "申請資料夾存取（審批類型 fileFolder.access）",
+        "tags": ["files"]
+      },
+      "get": {
+        "operationId": "FileFolderGrantController_listAccessRequests",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FileAccessRequestList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "這個資料夾的待審存取申請（需要能管理它的授權）",
+        "tags": ["files"]
+      }
+    },
+    "/file-folders/{id}/access-requests/{requestId}/approve": {
+      "post": {
+        "operationId": "FileFolderGrantController_approveAccessRequest",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewFileAccessRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "核准存取申請 ＝ 授予申請的等級（受反提權限制）",
+        "tags": ["files"]
+      }
+    },
+    "/file-folders/{id}/access-requests/{requestId}/reject": {
+      "post": {
+        "operationId": "FileFolderGrantController_rejectAccessRequest",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewFileAccessRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "駁回存取申請",
+        "tags": ["files"]
+      }
+    },
+    "/file-folders/{id}/grants": {
+      "get": {
+        "operationId": "FileFolderGrantController_list",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FileFolderGrantList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "資料夾的授權：直接授權 ＋ 繼承自上層的（標出來源資料夾）",
+        "tags": ["files"]
+      },
+      "put": {
+        "operationId": "FileFolderGrantController_set",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetFileFolderGrantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FileFolderGrantList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "新增或變更一筆授權（同一對象只有一筆，變更等級是覆寫）",
+        "tags": ["files"]
+      }
+    },
+    "/file-folders/{id}/grants/{subjectType}/{subjectId}": {
+      "delete": {
+        "operationId": "FileFolderGrantController_revoke",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subjectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subjectType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": ["role", "user", "everyone"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "移除一筆直接授權",
+        "tags": ["files"]
+      }
+    },
+    "/file-folders/{id}/access": {
+      "patch": {
+        "operationId": "FileFolderGrantController_setInheritance",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFileFolderAccessRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FileFolderGrantList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "中斷／恢復繼承（中斷時複製目前繼承到的授權）",
+        "tags": ["files"]
+      }
+    },
+    "/file-folders/{id}/grant-subjects": {
+      "get": {
+        "operationId": "FileFolderGrantController_searchSubjects",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FileGrantSubjectList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "授權對象的候選清單（只回 id 與名稱）",
+        "tags": ["files"]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_live",
@@ -1827,7 +2182,7 @@
       },
       "ApprovalType": {
         "type": "string",
-        "enum": ["user.register"]
+        "enum": ["user.register", "fileFolder.access"]
       },
       "ApprovalRequest": {
         "type": "object",
@@ -2259,7 +2614,9 @@
           "file:create",
           "file:read",
           "file:update",
-          "file:delete"
+          "file:delete",
+          "file:access",
+          "file:share"
         ]
       },
       "Permission": {
@@ -2566,6 +2923,242 @@
         "required": ["submitted"],
         "additionalProperties": false
       },
+      "SetFileFolderGrantRequest": {
+        "type": "object",
+        "properties": {
+          "subjectType": {
+            "type": "string",
+            "enum": ["role", "user", "everyone"]
+          },
+          "subjectId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "level": {
+            "type": "string",
+            "enum": ["viewer", "contributor", "editor", "manager"]
+          },
+          "expiresAt": {
+            "default": null,
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          }
+        },
+        "required": ["subjectType", "subjectId", "level", "expiresAt"],
+        "additionalProperties": false
+      },
+      "FileFolderGrant": {
+        "type": "object",
+        "properties": {
+          "subjectType": {
+            "type": "string",
+            "enum": ["role", "user", "everyone"]
+          },
+          "subjectId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "subjectName": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string",
+            "enum": ["viewer", "contributor", "editor", "manager"]
+          },
+          "expiresAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "isExpired": {
+            "type": "boolean"
+          },
+          "grantedAt": {
+            "type": "string"
+          },
+          "source": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "folderId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "folderName": {
+                "type": "string"
+              }
+            },
+            "required": ["folderId", "folderName"],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "subjectType",
+          "subjectId",
+          "subjectName",
+          "level",
+          "expiresAt",
+          "isExpired",
+          "grantedAt",
+          "source"
+        ],
+        "additionalProperties": false
+      },
+      "FileFolderGrantList": {
+        "type": "object",
+        "properties": {
+          "folderId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "inheritGrants": {
+            "type": "boolean"
+          },
+          "assignableLevels": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["viewer", "contributor", "editor", "manager"]
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileFolderGrant"
+            }
+          }
+        },
+        "required": ["folderId", "inheritGrants", "assignableLevels", "items"],
+        "additionalProperties": false
+      },
+      "FileGrantSubjectList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "subjectType": {
+                  "type": "string",
+                  "enum": ["role", "user", "everyone"]
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "hint": {
+                  "nullable": true,
+                  "type": "string"
+                }
+              },
+              "required": ["subjectType", "id", "name", "hint"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "UpdateFileFolderAccessRequest": {
+        "type": "object",
+        "properties": {
+          "inheritGrants": {
+            "type": "boolean"
+          }
+        },
+        "required": ["inheritGrants"],
+        "additionalProperties": false
+      },
+      "CreateFileAccessRequest": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": ["viewer", "contributor", "editor", "manager"]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": ["level"],
+        "additionalProperties": false
+      },
+      "FileAccessRequestSubmitted": {
+        "type": "object",
+        "properties": {
+          "submitted": {
+            "type": "boolean"
+          }
+        },
+        "required": ["submitted"],
+        "additionalProperties": false
+      },
+      "FileAccessRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "requesterId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "requesterName": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string",
+            "enum": ["viewer", "contributor", "editor", "manager"]
+          },
+          "reason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "requesterId", "requesterName", "level", "reason", "createdAt"],
+        "additionalProperties": false
+      },
+      "FileAccessRequestList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileAccessRequest"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "ReviewFileAccessRequest": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateFileUploadRequest": {
         "type": "object",
         "properties": {
@@ -2656,6 +3249,28 @@
         },
         "additionalProperties": false
       },
+      "FileFolderCapabilities": {
+        "type": "object",
+        "properties": {
+          "canRead": {
+            "type": "boolean"
+          },
+          "canCreate": {
+            "type": "boolean"
+          },
+          "canUpdate": {
+            "type": "boolean"
+          },
+          "canDelete": {
+            "type": "boolean"
+          },
+          "canShare": {
+            "type": "boolean"
+          }
+        },
+        "required": ["canRead", "canCreate", "canUpdate", "canDelete", "canShare"],
+        "additionalProperties": false
+      },
       "FileFolder": {
         "type": "object",
         "properties": {
@@ -2673,6 +3288,19 @@
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
+          "kind": {
+            "type": "string",
+            "enum": ["normal", "shared", "privateRoot", "personal"]
+          },
+          "inheritGrants": {
+            "type": "boolean"
+          },
+          "hasPendingAccessRequest": {
+            "type": "boolean"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/FileFolderCapabilities"
+          },
           "createdAt": {
             "type": "string"
           },
@@ -2680,7 +3308,17 @@
             "type": "string"
           }
         },
-        "required": ["id", "name", "parentId", "createdAt", "updatedAt"],
+        "required": [
+          "id",
+          "name",
+          "parentId",
+          "kind",
+          "inheritGrants",
+          "hasPendingAccessRequest",
+          "capabilities",
+          "createdAt",
+          "updatedAt"
+        ],
         "additionalProperties": false
       },
       "FileFolderList": {
@@ -2691,9 +3329,25 @@
             "items": {
               "$ref": "#/components/schemas/FileFolder"
             }
+          },
+          "rootCapabilities": {
+            "type": "object",
+            "properties": {
+              "canCreate": {
+                "type": "boolean"
+              }
+            },
+            "required": ["canCreate"],
+            "additionalProperties": false
+          },
+          "personalFolderId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           }
         },
-        "required": ["items"],
+        "required": ["items", "rootCapabilities", "personalFolderId"],
         "additionalProperties": false
       },
       "CreateFileFolderRequest": {
@@ -2881,6 +3535,19 @@
         "required": ["width", "height", "originalUrl", "previewUrl", "thumbnailUrl", "expiresAt"],
         "additionalProperties": false
       },
+      "StoredFileCapabilities": {
+        "type": "object",
+        "properties": {
+          "canUpdate": {
+            "type": "boolean"
+          },
+          "canDelete": {
+            "type": "boolean"
+          }
+        },
+        "required": ["canUpdate", "canDelete"],
+        "additionalProperties": false
+      },
       "StoredFile": {
         "type": "object",
         "properties": {
@@ -2947,6 +3614,9 @@
               }
             ]
           },
+          "capabilities": {
+            "$ref": "#/components/schemas/StoredFileCapabilities"
+          },
           "uploadedAt": {
             "nullable": true,
             "type": "string"
@@ -2972,6 +3642,7 @@
           "urlExpiresAt",
           "version",
           "uploader",
+          "capabilities",
           "uploadedAt",
           "createdAt",
           "updatedAt"

@@ -375,6 +375,10 @@ export class UserService {
   }
 
   publishCreated(userId: string, roleIds: readonly string[]): void {
+    // 帶角色建立＝權限從無到有：訂閱者（例：檔案模組建立個人資料夾）跟著反應
+    if (roleIds.length > 0) {
+      this.events.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: [userId] });
+    }
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [
         {

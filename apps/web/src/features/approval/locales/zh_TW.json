@@ -41,7 +41,17 @@
         "ineligible": "只能駁回待審核的申請。"
       }
     },
+    "fileAccess": {
+      "level": {
+        "viewer": "檢視者",
+        "contributor": "貢獻者",
+        "editor": "編輯者",
+        "manager": "管理者"
+      }
+    },
     "field": {
+      "folder": "資料夾",
+      "level": "申請的等級",
       "type": "類型",
       "requester": "申請人",
       "status": "狀態",
@@ -61,7 +71,8 @@
     },
     "type": {
       "all": "全部類型",
-      "userRegister": "註冊申請"
+      "userRegister": "註冊申請",
+      "fileFolderAccess": "資料夾存取申請"
     }
   }
 }

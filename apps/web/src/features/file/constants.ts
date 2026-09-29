@@ -1,5 +1,12 @@
-import type { FileCategory, FileSortField } from '@/apis/file/types';
+import type {
+  FileCategory,
+  FileGrantLevel,
+  FileGrantSubjectType,
+  FileSortField,
+} from '@/apis/file/types';
+import type { IconName } from '@/components/Icon';
 import type { FileKind } from '@/core/file';
+import type { FileFolder } from '@/shared/api-sdk';
 
 /** 後端 `FILE_CATEGORIES`（篩選分類）。 */
 export const FILE_CATEGORIES = [
@@ -63,3 +70,62 @@ export const UPLOAD_CONCURRENCY = 3;
 export const INLINE_PREVIEW_MAX_SIZE = 2 * 1024 * 1024;
 /** 後端 `MAX_FOLDER_PATHS`：上傳資料夾時一次確保的路徑數，超過就分批送。 */
 export const FOLDER_PATHS_PER_REQUEST = 1000;
+
+/** 資料夾授權的等級，由低到高（docs/rbac/07-resource-grants.md §2）。 */
+export const FILE_GRANT_LEVELS = [
+  'viewer',
+  'contributor',
+  'editor',
+  'manager',
+] as const satisfies readonly FileGrantLevel[];
+
+export const FILE_GRANT_LEVEL_LABEL_KEY = {
+  viewer: 'file.share.levels.viewer',
+  contributor: 'file.share.levels.contributor',
+  editor: 'file.share.levels.editor',
+  manager: 'file.share.levels.manager',
+} as const satisfies Record<FileGrantLevel, string>;
+
+export const FILE_GRANT_LEVEL_HINT_KEY = {
+  viewer: 'file.share.levelHints.viewer',
+  contributor: 'file.share.levelHints.contributor',
+  editor: 'file.share.levelHints.editor',
+  manager: 'file.share.levelHints.manager',
+} as const satisfies Record<FileGrantLevel, string>;
+
+export const FILE_GRANT_SUBJECT_TYPE_LABEL_KEY = {
+  role: 'file.share.subjectType.role',
+  user: 'file.share.subjectType.user',
+  everyone: 'file.share.subjectType.everyone',
+} as const satisfies Record<FileGrantSubjectType, string>;
+
+/** 對象種類 → 搜尋框的文案（完整字面量，docs/conventions/06-literal-strings.md）。 */
+export const FILE_GRANT_SUBJECT_COPY_KEY = {
+  role: {
+    placeholder: 'file.share.subjectPlaceholder',
+    search: 'file.share.subjectSearch',
+    noMatch: 'file.share.noSubjects',
+  },
+  user: {
+    placeholder: 'file.share.subjectPlaceholderUser',
+    search: 'file.share.subjectSearchUser',
+    noMatch: 'file.share.noSubjectsUser',
+  },
+  // 所有人不必挑選對象：這組文案不會顯示，只為了型別完整
+  everyone: {
+    placeholder: 'file.share.everyone',
+    search: 'file.share.everyone',
+    noMatch: 'file.share.everyone',
+  },
+} as const satisfies Record<FileGrantSubjectType, Record<string, string>>;
+
+/** 系統資料夾的圖示（docs/rbac/07-resource-grants.md §12）；一般資料夾是 `folder`。 */
+export const FILE_FOLDER_KIND_ICON = {
+  normal: 'folder',
+  shared: 'users',
+  privateRoot: 'user',
+  personal: 'user',
+} as const satisfies Record<FileFolder['kind'], IconName>;
+
+/** `subject_type = everyone` 的 `subject_id`（後端 `EVERYONE_SUBJECT_ID`）。 */
+export const EVERYONE_SUBJECT_ID = '00000000-0000-0000-0000-000000000000';

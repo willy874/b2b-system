@@ -422,13 +422,13 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
         .send({ roleIds: [auditorId] })
         .expect(200);
       await barrier([socket]);
-      expect(got).toEqual([
-        {
-          changes: [
-            { resource: 'userRole', kind: 'update', id: target, refs: { role: [auditorId] } },
-          ],
-        },
-      ]);
+      expect(got[0]).toEqual({
+        changes: [
+          { resource: 'userRole', kind: 'update', id: target, refs: { role: [auditorId] } },
+        ],
+      });
+      // auditor 有 file:read：取得檔案管理器權限，同時建立了個人資料夾（docs/rbac/07-resource-grants.md §12）
+      expect(got.slice(1).map((event) => event.changes[0]?.resource)).toEqual(['fileFolder']);
 
       // 拿到 role:read（auditor）之後，別人的角色建立也會推過來
       got.length = 0;

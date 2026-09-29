@@ -4,7 +4,11 @@ import { Chip } from '@/components/Chip';
 import { useTranslation } from '@/core/locales';
 import { formatDateTime } from '@/shared/date';
 
-import { APPROVAL_STATUS_LABEL_KEY, APPROVAL_STATUS_TONE } from '../../../constants';
+import {
+  APPROVAL_STATUS_LABEL_KEY,
+  APPROVAL_STATUS_TONE,
+  FILE_ACCESS_LEVEL_LABEL_KEY,
+} from '../../../constants';
 import type { ApprovalDetailVM } from '../adapter';
 
 interface ApprovalSummaryProps {
@@ -29,6 +33,14 @@ export function ApprovalSummary({ approval }: ApprovalSummaryProps) {
         <>
           <Row label={t('approval.field.email')}>{approval.registration.email}</Row>
           <Row label={t('approval.field.displayName')}>{approval.registration.displayName}</Row>
+        </>
+      )}
+      {approval.folderAccess && (
+        <>
+          <Row label={t('approval.field.folder')}>{approval.folderAccess.folderName}</Row>
+          <Row label={t('approval.field.level')}>
+            {t(FILE_ACCESS_LEVEL_LABEL_KEY[approval.folderAccess.level])}
+          </Row>
         </>
       )}
       <Row label={t('approval.field.reason')}>

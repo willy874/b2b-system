@@ -24,6 +24,9 @@ export interface FileItemVM {
   downloadUrl: string | null;
   version: number;
   uploaderName: string | null;
+  /** 改名、移動（後端的 `capabilities`）。 */
+  canUpdate: boolean;
+  canDelete: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,6 +52,8 @@ export function toFileItemVM(file: StoredFile): FileItemVM {
     downloadUrl: file.downloadUrl,
     version: file.version,
     uploaderName: file.uploader?.displayName ?? null,
+    canUpdate: file.capabilities.canUpdate,
+    canDelete: file.capabilities.canDelete,
     createdAt: file.createdAt,
     updatedAt: file.updatedAt,
   };
@@ -60,8 +65,18 @@ export interface FolderItemVM {
   id: string;
   name: string;
   parentId: string | null;
+  /** 系統資料夾的種類（共用、私人、個人）；一般資料夾是 `normal`。 */
+  kind: FileFolder['kind'];
   /** 直接包含的子資料夾數（檔案數要另外查，不顯示）。 */
   folderCount: number;
+  /** 後端的 `capabilities`：false = 鎖住（看得到資料夾、看不到檔案）；在裡面上傳／建立、改名與移動它、刪除它、管理它的授權。 */
+  canRead: boolean;
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  canShare: boolean;
+  /** 自己對這個資料夾有一筆待審的存取申請。 */
+  hasPendingAccessRequest: boolean;
   updatedAt: string;
 }
 
@@ -74,7 +89,10 @@ export function toFolderItemVM(folder: FileFolder, folderCount: number): FolderI
     id: folder.id,
     name: folder.name,
     parentId: folder.parentId,
+    kind: folder.kind,
     folderCount,
+    ...folder.capabilities,
+    hasPendingAccessRequest: folder.hasPendingAccessRequest,
     updatedAt: folder.updatedAt,
   };
 }

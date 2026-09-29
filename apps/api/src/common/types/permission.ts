@@ -32,4 +32,6 @@ export const PERMISSION = {
   FILE_READ: 'file:read',
   FILE_UPDATE: 'file:update',
   FILE_DELETE: 'file:delete',
+  FILE_ACCESS: 'file:access',
+  FILE_SHARE: 'file:share',
 } as const satisfies Record<string, PermissionKey>;

@@ -63,6 +63,11 @@ export const ErrorCode = {
   FILE_FOLDER_NOT_FOUND: { status: 404 },
   FILE_FOLDER_NAME_CONFLICT: { status: 409 },
   FILE_FOLDER_CYCLE: { status: 422 },
+  FILE_FOLDER_SYSTEM_PROTECTED: { status: 403 },
+  FILE_GRANT_SUBJECT_NOT_FOUND: { status: 404 },
+  FILE_GRANT_NOT_FOUND: { status: 404 },
+  FILE_ACCESS_ALREADY_GRANTED: { status: 409 },
+  FILE_ACCESS_REQUEST_NOT_FOUND: { status: 404 },
 
   // ── 通用 ──
   RATE_LIMITED: { status: 429 },

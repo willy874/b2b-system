@@ -11,6 +11,8 @@ export interface FolderIndex {
   byId: ReadonlyMap<string, FileFolder>;
   /** 上層 id（根目錄為 `ROOT_FOLDER`）→ 子資料夾（依名稱排序）。 */
   children: ReadonlyMap<string, readonly FileFolder[]>;
+  /** 根目錄的能力（`FileFolderList.rootCapabilities`）；資料夾的在各自的 `capabilities`。 */
+  root: { canCreate: boolean };
 }
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
@@ -20,7 +22,10 @@ export function compareFolderName(a: { name: string }, b: { name: string }): num
   return collator.compare(a.name, b.name);
 }
 
-export function buildFolderIndex(folders: readonly FileFolder[]): FolderIndex {
+export function buildFolderIndex(
+  folders: readonly FileFolder[],
+  root: { canCreate: boolean },
+): FolderIndex {
   const byId = new Map(folders.map((folder) => [folder.id, folder]));
   const children = new Map<string, FileFolder[]>();
   for (const folder of folders) {
@@ -32,7 +37,7 @@ export function buildFolderIndex(folders: readonly FileFolder[]): FolderIndex {
     children.set(key, list);
   }
   for (const list of children.values()) list.sort(compareFolderName);
-  return { byId, children };
+  return { byId, children, root };
 }
 
 export function childFolders(
@@ -60,15 +65,23 @@ export function isWithin(index: FolderIndex, folderId: string, ancestorId: strin
   return folderPath(index, folderId).some((folder) => folder.id === ancestorId);
 }
 
+/** 能不能在 `targetId`（undefined 是根目錄）裡上傳、建立、放進移動的項目（後端的 `capabilities`）。 */
+export function canCreateIn(index: FolderIndex, targetId: string | undefined): boolean {
+  if (!targetId) return index.root.canCreate;
+  return index.byId.get(targetId)?.capabilities.canCreate === true;
+}
+
 /**
- * 能不能把這些資料夾移到 `targetId`（undefined 是根目錄）：目的地不可以是其中任何一個或它們的子孫。
- * 與後端的 `FILE_FOLDER_CYCLE` 同一條規則，拖曳時先擋下，不必送出去才失敗。
+ * 能不能把這些項目移到 `targetId`（undefined 是根目錄）：目的地要能放進東西（`canCreateIn`），
+ * 而且不可以是要移動的資料夾本身或它們的子孫（與後端的 `FILE_FOLDER_CYCLE` 同一條規則）。
+ * 拖曳時先擋下，不必送出去才失敗。
  */
 export function canMoveFoldersTo(
   index: FolderIndex,
   folderIds: readonly string[],
   targetId: string | undefined,
 ): boolean {
+  if (!canCreateIn(index, targetId)) return false;
   if (!targetId) return true;
   return !folderIds.some((id) => isWithin(index, targetId, id));
 }

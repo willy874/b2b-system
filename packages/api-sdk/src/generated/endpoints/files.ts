@@ -5,20 +5,28 @@ import { z } from 'zod';
 
 import type {
   CompleteFileUploadRequest,
+  CreateFileAccessRequest,
   CreateFileFolderRequest,
   CreateFileUploadPartsRequest,
   CreateFileUploadRequest,
   EnsureFileFolderPathsRequest,
+  FileAccessRequestList,
+  FileAccessRequestSubmitted,
   FileFolder,
+  FileFolderGrantList,
   FileFolderList,
   FileFolderPaths,
+  FileGrantSubjectList,
   FileListPage,
   FileUpload,
   FileUploadParts,
   FileUploadPolicy,
   MoveFileItemsRequest,
   MoveFileItemsResult,
+  ReviewFileAccessRequest,
+  SetFileFolderGrantRequest,
   StoredFile,
+  UpdateFileFolderAccessRequest,
   UpdateFileFolderRequest,
   UpdateFileRequest,
 } from '../models';
@@ -31,20 +39,28 @@ import type {
 } from '../runtime';
 import {
   CompleteFileUploadRequestSchema,
+  CreateFileAccessRequestSchema,
   CreateFileFolderRequestSchema,
   CreateFileUploadPartsRequestSchema,
   CreateFileUploadRequestSchema,
   EnsureFileFolderPathsRequestSchema,
+  FileAccessRequestListSchema,
+  FileAccessRequestSubmittedSchema,
+  FileFolderGrantListSchema,
   FileFolderListSchema,
   FileFolderPathsSchema,
   FileFolderSchema,
+  FileGrantSubjectListSchema,
   FileListPageSchema,
   FileUploadPartsSchema,
   FileUploadPolicySchema,
   FileUploadSchema,
   MoveFileItemsRequestSchema,
   MoveFileItemsResultSchema,
+  ReviewFileAccessRequestSchema,
+  SetFileFolderGrantRequestSchema,
   StoredFileSchema,
+  UpdateFileFolderAccessRequestSchema,
   UpdateFileFolderRequestSchema,
   UpdateFileRequestSchema,
 } from '../schemas';
@@ -880,6 +896,569 @@ export function fileFolderControllerRename(
 ): Promise<FileFolderControllerRenameResult> {
   return request<FileFolderControllerRenameResult>(
     fileFolderControllerRenameOperation,
+    input,
+    options,
+  );
+}
+
+// GET /file-folders/{id}/access-requests
+
+export interface FileFolderGrantControllerListAccessRequestsPathParams {
+  id: string;
+}
+
+export interface FileFolderGrantControllerListAccessRequestsInput {
+  path: FileFolderGrantControllerListAccessRequestsPathParams;
+}
+
+export interface FileFolderGrantControllerListAccessRequestsResponses {
+  200: {
+    data: FileAccessRequestList;
+  };
+}
+
+export type FileFolderGrantControllerListAccessRequestsResponse =
+  FileFolderGrantControllerListAccessRequestsResponses[200];
+
+export type FileFolderGrantControllerListAccessRequestsResult = ApiResponse<
+  200,
+  FileFolderGrantControllerListAccessRequestsResponses[200]
+>;
+
+export const FileFolderGrantControllerListAccessRequestsSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: FileAccessRequestListSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileFolderGrantControllerListAccessRequestsUrl(
+  path: FileFolderGrantControllerListAccessRequestsPathParams,
+): string {
+  return buildUrl('/file-folders/{id}/access-requests', path);
+}
+
+const fileFolderGrantControllerListAccessRequestsOperation: OperationDefinition = {
+  id: 'FileFolderGrantController_listAccessRequests',
+  method: 'GET',
+  path: '/file-folders/{id}/access-requests',
+  responseTypes: { 200: 'json' },
+  schemas: FileFolderGrantControllerListAccessRequestsSchemas,
+};
+
+/** 這個資料夾的待審存取申請（需要能管理它的授權） */
+export function fileFolderGrantControllerListAccessRequests(
+  input: FileFolderGrantControllerListAccessRequestsInput,
+  options?: RequestOptions,
+): Promise<FileFolderGrantControllerListAccessRequestsResult> {
+  return request<FileFolderGrantControllerListAccessRequestsResult>(
+    fileFolderGrantControllerListAccessRequestsOperation,
+    input,
+    options,
+  );
+}
+
+// POST /file-folders/{id}/access-requests
+
+export interface FileFolderGrantControllerRequestAccessPathParams {
+  id: string;
+}
+
+export type FileFolderGrantControllerRequestAccessBody = CreateFileAccessRequest;
+
+export interface FileFolderGrantControllerRequestAccessInput {
+  path: FileFolderGrantControllerRequestAccessPathParams;
+  body: FileFolderGrantControllerRequestAccessBody;
+}
+
+export interface FileFolderGrantControllerRequestAccessResponses {
+  202: {
+    data: FileAccessRequestSubmitted;
+  };
+}
+
+export type FileFolderGrantControllerRequestAccessResponse =
+  FileFolderGrantControllerRequestAccessResponses[202];
+
+export type FileFolderGrantControllerRequestAccessResult = ApiResponse<
+  202,
+  FileFolderGrantControllerRequestAccessResponses[202]
+>;
+
+export const FileFolderGrantControllerRequestAccessSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  body: CreateFileAccessRequestSchema,
+  responses: {
+    202: z.object({
+      data: FileAccessRequestSubmittedSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileFolderGrantControllerRequestAccessUrl(
+  path: FileFolderGrantControllerRequestAccessPathParams,
+): string {
+  return buildUrl('/file-folders/{id}/access-requests', path);
+}
+
+const fileFolderGrantControllerRequestAccessOperation: OperationDefinition = {
+  id: 'FileFolderGrantController_requestAccess',
+  method: 'POST',
+  path: '/file-folders/{id}/access-requests',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 202: 'json' },
+  schemas: FileFolderGrantControllerRequestAccessSchemas,
+};
+
+/** 申請資料夾存取（審批類型 fileFolder.access） */
+export function fileFolderGrantControllerRequestAccess(
+  input: FileFolderGrantControllerRequestAccessInput,
+  options?: RequestOptions,
+): Promise<FileFolderGrantControllerRequestAccessResult> {
+  return request<FileFolderGrantControllerRequestAccessResult>(
+    fileFolderGrantControllerRequestAccessOperation,
+    input,
+    options,
+  );
+}
+
+// POST /file-folders/{id}/access-requests/{requestId}/approve
+
+export interface FileFolderGrantControllerApproveAccessRequestPathParams {
+  id: string;
+  requestId: string;
+}
+
+export type FileFolderGrantControllerApproveAccessRequestBody = ReviewFileAccessRequest;
+
+export interface FileFolderGrantControllerApproveAccessRequestInput {
+  path: FileFolderGrantControllerApproveAccessRequestPathParams;
+  body: FileFolderGrantControllerApproveAccessRequestBody;
+}
+
+export interface FileFolderGrantControllerApproveAccessRequestResponses {
+  204: undefined;
+}
+
+export type FileFolderGrantControllerApproveAccessRequestResponse =
+  FileFolderGrantControllerApproveAccessRequestResponses[204];
+
+export type FileFolderGrantControllerApproveAccessRequestResult = ApiResponse<
+  204,
+  FileFolderGrantControllerApproveAccessRequestResponses[204]
+>;
+
+export const FileFolderGrantControllerApproveAccessRequestSchemas = {
+  path: z.object({
+    id: z.string(),
+    requestId: z.string(),
+  }),
+  body: ReviewFileAccessRequestSchema,
+} satisfies OperationSchemas;
+
+export function getFileFolderGrantControllerApproveAccessRequestUrl(
+  path: FileFolderGrantControllerApproveAccessRequestPathParams,
+): string {
+  return buildUrl('/file-folders/{id}/access-requests/{requestId}/approve', path);
+}
+
+const fileFolderGrantControllerApproveAccessRequestOperation: OperationDefinition = {
+  id: 'FileFolderGrantController_approveAccessRequest',
+  method: 'POST',
+  path: '/file-folders/{id}/access-requests/{requestId}/approve',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 204: 'none' },
+  schemas: FileFolderGrantControllerApproveAccessRequestSchemas,
+};
+
+/** 核准存取申請 ＝ 授予申請的等級（受反提權限制） */
+export function fileFolderGrantControllerApproveAccessRequest(
+  input: FileFolderGrantControllerApproveAccessRequestInput,
+  options?: RequestOptions,
+): Promise<FileFolderGrantControllerApproveAccessRequestResult> {
+  return request<FileFolderGrantControllerApproveAccessRequestResult>(
+    fileFolderGrantControllerApproveAccessRequestOperation,
+    input,
+    options,
+  );
+}
+
+// POST /file-folders/{id}/access-requests/{requestId}/reject
+
+export interface FileFolderGrantControllerRejectAccessRequestPathParams {
+  id: string;
+  requestId: string;
+}
+
+export type FileFolderGrantControllerRejectAccessRequestBody = ReviewFileAccessRequest;
+
+export interface FileFolderGrantControllerRejectAccessRequestInput {
+  path: FileFolderGrantControllerRejectAccessRequestPathParams;
+  body: FileFolderGrantControllerRejectAccessRequestBody;
+}
+
+export interface FileFolderGrantControllerRejectAccessRequestResponses {
+  204: undefined;
+}
+
+export type FileFolderGrantControllerRejectAccessRequestResponse =
+  FileFolderGrantControllerRejectAccessRequestResponses[204];
+
+export type FileFolderGrantControllerRejectAccessRequestResult = ApiResponse<
+  204,
+  FileFolderGrantControllerRejectAccessRequestResponses[204]
+>;
+
+export const FileFolderGrantControllerRejectAccessRequestSchemas = {
+  path: z.object({
+    id: z.string(),
+    requestId: z.string(),
+  }),
+  body: ReviewFileAccessRequestSchema,
+} satisfies OperationSchemas;
+
+export function getFileFolderGrantControllerRejectAccessRequestUrl(
+  path: FileFolderGrantControllerRejectAccessRequestPathParams,
+): string {
+  return buildUrl('/file-folders/{id}/access-requests/{requestId}/reject', path);
+}
+
+const fileFolderGrantControllerRejectAccessRequestOperation: OperationDefinition = {
+  id: 'FileFolderGrantController_rejectAccessRequest',
+  method: 'POST',
+  path: '/file-folders/{id}/access-requests/{requestId}/reject',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 204: 'none' },
+  schemas: FileFolderGrantControllerRejectAccessRequestSchemas,
+};
+
+/** 駁回存取申請 */
+export function fileFolderGrantControllerRejectAccessRequest(
+  input: FileFolderGrantControllerRejectAccessRequestInput,
+  options?: RequestOptions,
+): Promise<FileFolderGrantControllerRejectAccessRequestResult> {
+  return request<FileFolderGrantControllerRejectAccessRequestResult>(
+    fileFolderGrantControllerRejectAccessRequestOperation,
+    input,
+    options,
+  );
+}
+
+// GET /file-folders/{id}/grants
+
+export interface FileFolderGrantControllerListPathParams {
+  id: string;
+}
+
+export interface FileFolderGrantControllerListInput {
+  path: FileFolderGrantControllerListPathParams;
+}
+
+export interface FileFolderGrantControllerListResponses {
+  200: {
+    data: FileFolderGrantList;
+  };
+}
+
+export type FileFolderGrantControllerListResponse = FileFolderGrantControllerListResponses[200];
+
+export type FileFolderGrantControllerListResult = ApiResponse<
+  200,
+  FileFolderGrantControllerListResponses[200]
+>;
+
+export const FileFolderGrantControllerListSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: FileFolderGrantListSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileFolderGrantControllerListUrl(
+  path: FileFolderGrantControllerListPathParams,
+): string {
+  return buildUrl('/file-folders/{id}/grants', path);
+}
+
+const fileFolderGrantControllerListOperation: OperationDefinition = {
+  id: 'FileFolderGrantController_list',
+  method: 'GET',
+  path: '/file-folders/{id}/grants',
+  responseTypes: { 200: 'json' },
+  schemas: FileFolderGrantControllerListSchemas,
+};
+
+/** 資料夾的授權：直接授權 ＋ 繼承自上層的（標出來源資料夾） */
+export function fileFolderGrantControllerList(
+  input: FileFolderGrantControllerListInput,
+  options?: RequestOptions,
+): Promise<FileFolderGrantControllerListResult> {
+  return request<FileFolderGrantControllerListResult>(
+    fileFolderGrantControllerListOperation,
+    input,
+    options,
+  );
+}
+
+// PUT /file-folders/{id}/grants
+
+export interface FileFolderGrantControllerSetPathParams {
+  id: string;
+}
+
+export type FileFolderGrantControllerSetBody = SetFileFolderGrantRequest;
+
+export interface FileFolderGrantControllerSetInput {
+  path: FileFolderGrantControllerSetPathParams;
+  body: FileFolderGrantControllerSetBody;
+}
+
+export interface FileFolderGrantControllerSetResponses {
+  200: {
+    data: FileFolderGrantList;
+  };
+}
+
+export type FileFolderGrantControllerSetResponse = FileFolderGrantControllerSetResponses[200];
+
+export type FileFolderGrantControllerSetResult = ApiResponse<
+  200,
+  FileFolderGrantControllerSetResponses[200]
+>;
+
+export const FileFolderGrantControllerSetSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  body: SetFileFolderGrantRequestSchema,
+  responses: {
+    200: z.object({
+      data: FileFolderGrantListSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileFolderGrantControllerSetUrl(
+  path: FileFolderGrantControllerSetPathParams,
+): string {
+  return buildUrl('/file-folders/{id}/grants', path);
+}
+
+const fileFolderGrantControllerSetOperation: OperationDefinition = {
+  id: 'FileFolderGrantController_set',
+  method: 'PUT',
+  path: '/file-folders/{id}/grants',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: FileFolderGrantControllerSetSchemas,
+};
+
+/** 新增或變更一筆授權（同一對象只有一筆，變更等級是覆寫） */
+export function fileFolderGrantControllerSet(
+  input: FileFolderGrantControllerSetInput,
+  options?: RequestOptions,
+): Promise<FileFolderGrantControllerSetResult> {
+  return request<FileFolderGrantControllerSetResult>(
+    fileFolderGrantControllerSetOperation,
+    input,
+    options,
+  );
+}
+
+// DELETE /file-folders/{id}/grants/{subjectType}/{subjectId}
+
+export interface FileFolderGrantControllerRevokePathParams {
+  id: string;
+  subjectId: string;
+  subjectType: 'role' | 'user' | 'everyone';
+}
+
+export interface FileFolderGrantControllerRevokeInput {
+  path: FileFolderGrantControllerRevokePathParams;
+}
+
+export interface FileFolderGrantControllerRevokeResponses {
+  204: undefined;
+}
+
+export type FileFolderGrantControllerRevokeResponse = FileFolderGrantControllerRevokeResponses[204];
+
+export type FileFolderGrantControllerRevokeResult = ApiResponse<
+  204,
+  FileFolderGrantControllerRevokeResponses[204]
+>;
+
+export const FileFolderGrantControllerRevokeSchemas = {
+  path: z.object({
+    id: z.string(),
+    subjectId: z.string(),
+    subjectType: z.enum(['role', 'user', 'everyone']),
+  }),
+} satisfies OperationSchemas;
+
+export function getFileFolderGrantControllerRevokeUrl(
+  path: FileFolderGrantControllerRevokePathParams,
+): string {
+  return buildUrl('/file-folders/{id}/grants/{subjectType}/{subjectId}', path);
+}
+
+const fileFolderGrantControllerRevokeOperation: OperationDefinition = {
+  id: 'FileFolderGrantController_revoke',
+  method: 'DELETE',
+  path: '/file-folders/{id}/grants/{subjectType}/{subjectId}',
+  responseTypes: { 204: 'none' },
+  schemas: FileFolderGrantControllerRevokeSchemas,
+};
+
+/** 移除一筆直接授權 */
+export function fileFolderGrantControllerRevoke(
+  input: FileFolderGrantControllerRevokeInput,
+  options?: RequestOptions,
+): Promise<FileFolderGrantControllerRevokeResult> {
+  return request<FileFolderGrantControllerRevokeResult>(
+    fileFolderGrantControllerRevokeOperation,
+    input,
+    options,
+  );
+}
+
+// PATCH /file-folders/{id}/access
+
+export interface FileFolderGrantControllerSetInheritancePathParams {
+  id: string;
+}
+
+export type FileFolderGrantControllerSetInheritanceBody = UpdateFileFolderAccessRequest;
+
+export interface FileFolderGrantControllerSetInheritanceInput {
+  path: FileFolderGrantControllerSetInheritancePathParams;
+  body: FileFolderGrantControllerSetInheritanceBody;
+}
+
+export interface FileFolderGrantControllerSetInheritanceResponses {
+  200: {
+    data: FileFolderGrantList;
+  };
+}
+
+export type FileFolderGrantControllerSetInheritanceResponse =
+  FileFolderGrantControllerSetInheritanceResponses[200];
+
+export type FileFolderGrantControllerSetInheritanceResult = ApiResponse<
+  200,
+  FileFolderGrantControllerSetInheritanceResponses[200]
+>;
+
+export const FileFolderGrantControllerSetInheritanceSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  body: UpdateFileFolderAccessRequestSchema,
+  responses: {
+    200: z.object({
+      data: FileFolderGrantListSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileFolderGrantControllerSetInheritanceUrl(
+  path: FileFolderGrantControllerSetInheritancePathParams,
+): string {
+  return buildUrl('/file-folders/{id}/access', path);
+}
+
+const fileFolderGrantControllerSetInheritanceOperation: OperationDefinition = {
+  id: 'FileFolderGrantController_setInheritance',
+  method: 'PATCH',
+  path: '/file-folders/{id}/access',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: FileFolderGrantControllerSetInheritanceSchemas,
+};
+
+/** 中斷／恢復繼承（中斷時複製目前繼承到的授權） */
+export function fileFolderGrantControllerSetInheritance(
+  input: FileFolderGrantControllerSetInheritanceInput,
+  options?: RequestOptions,
+): Promise<FileFolderGrantControllerSetInheritanceResult> {
+  return request<FileFolderGrantControllerSetInheritanceResult>(
+    fileFolderGrantControllerSetInheritanceOperation,
+    input,
+    options,
+  );
+}
+
+// GET /file-folders/{id}/grant-subjects
+
+export interface FileFolderGrantControllerSearchSubjectsPathParams {
+  id: string;
+}
+
+export interface FileFolderGrantControllerSearchSubjectsInput {
+  path: FileFolderGrantControllerSearchSubjectsPathParams;
+}
+
+export interface FileFolderGrantControllerSearchSubjectsResponses {
+  200: {
+    data: FileGrantSubjectList;
+  };
+}
+
+export type FileFolderGrantControllerSearchSubjectsResponse =
+  FileFolderGrantControllerSearchSubjectsResponses[200];
+
+export type FileFolderGrantControllerSearchSubjectsResult = ApiResponse<
+  200,
+  FileFolderGrantControllerSearchSubjectsResponses[200]
+>;
+
+export const FileFolderGrantControllerSearchSubjectsSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: FileGrantSubjectListSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileFolderGrantControllerSearchSubjectsUrl(
+  path: FileFolderGrantControllerSearchSubjectsPathParams,
+): string {
+  return buildUrl('/file-folders/{id}/grant-subjects', path);
+}
+
+const fileFolderGrantControllerSearchSubjectsOperation: OperationDefinition = {
+  id: 'FileFolderGrantController_searchSubjects',
+  method: 'GET',
+  path: '/file-folders/{id}/grant-subjects',
+  responseTypes: { 200: 'json' },
+  schemas: FileFolderGrantControllerSearchSubjectsSchemas,
+};
+
+/** 授權對象的候選清單（只回 id 與名稱） */
+export function fileFolderGrantControllerSearchSubjects(
+  input: FileFolderGrantControllerSearchSubjectsInput,
+  options?: RequestOptions,
+): Promise<FileFolderGrantControllerSearchSubjectsResult> {
+  return request<FileFolderGrantControllerSearchSubjectsResult>(
+    fileFolderGrantControllerSearchSubjectsOperation,
     input,
     options,
   );

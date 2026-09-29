@@ -116,6 +116,14 @@ export class ApprovalService {
     return paginated(items.map(toDto), total, query);
   }
 
+  /** 某類型的待審請求（依去重鍵前綴或申請人篩選）；讀取權限由呼叫端決定。 */
+  async listPendingBy(
+    type: ApprovalType,
+    filter: { subjectKeyPrefix?: string; requesterId?: string },
+  ): Promise<ApprovalRequestDto[]> {
+    return (await this.repo.findPendingBy(type, filter)).map(toDto);
+  }
+
   async findOne(id: string): Promise<ApprovalRequestDto> {
     return toDto(await this.getExisting(id));
   }

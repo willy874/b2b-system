@@ -18,6 +18,7 @@ const file = (overrides: Partial<StoredFile> = {}): StoredFile => ({
   urlExpiresAt: '2026-09-27T00:15:00.000Z',
   version: 1,
   uploader: { id: 'u1', displayName: 'Alice' },
+  capabilities: { canUpdate: true, canDelete: false },
   uploadedAt: '2026-09-27T00:00:00.000Z',
   createdAt: '2026-09-27T00:00:00.000Z',
   updatedAt: '2026-09-27T00:00:00.000Z',
