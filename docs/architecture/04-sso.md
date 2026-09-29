@@ -170,7 +170,7 @@ GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie�
 | `features/auth/pages/Login` | `/auth/login`：只負責跳到 IdP；`?signedOut=true` 時不自動跳，顯示「再次登入」 |
 | `features/auth/pages/SsoCallback` | `/auth/callback`：換 session 後 `router.history.replace(returnTo)`；`error=access_denied` 顯示「已取消」 |
 | `app/App.tsx` 的 `SessionWatcher` | 單一登出或續期失敗時導向 `/auth/login?signedOut=true` |
-| `features/auth/pages/MovedToAuthApp`、`features/workspace/pages/WorkspaceAdminMoved` | 舊網址（`/auth/setup`、`/auth/reset-password`、`/auth/invitation`、`/workspace` 等）連同查詢字串轉到 apps/auth；保留一版（已寄出的信還有效）後移除 |
+| `app/layouts/DashboardLayout.tsx` 的 `EXTERNAL_MENU` | 側邊選單連到 apps/auth 的頁面（「工作區」→ `/workspaces`）：一般連結頂層跳轉，依權限鍵（`workspace:read`）顯示，backstage 不註冊頁面權限 |
 
 ### 6.2 apps/auth
 
@@ -182,6 +182,7 @@ GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie�
 | `identity-provider` | `/identity-providers` | 外部 IdP 連線（`identityProvider:*`）；顯示要登記在外部 IdP 的 redirect URI |
 
 帳號流程的信中連結以 `AUTH_APP_URL` 開頭（`MailService.accountLink`，[`backend/11-mail.md`](./backend/11-mail.md)）。
+backstage 已經沒有這些頁面：SSO 之前寄出、指向 backstage `/auth/setup` 等的舊連結會是找不到頁面，要請管理員重寄。
 apps/auth 這一版沒有推播：寫入後的快取失效只在本分頁與其他分頁（BroadcastChannel）。
 
 ## 7. 設定與部署

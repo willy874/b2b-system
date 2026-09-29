@@ -342,7 +342,7 @@ PATCH /users/:id { status: 'inactive' }   或   DELETE /users/:id
 ```
 ① 管理員建立使用者（status = pending，password_hash = NULL）
      └─ 產生 activation token（24h）→ 寄信
-② 使用者點連結 /auth/setup?token=xxx
+② 使用者點連結 {AUTH_APP_URL}/setup?token=xxx（apps/auth 的頁面，docs/architecture/04-sso.md §6.2）
      └─ GET  /auth/setup/verify?token=xxx   → 200 { email } | 400 TOKEN_INVALID
      └─ POST /auth/setup { token, password }
            ├─ 密碼強度檢查（≥ 12 字元、非常見密碼）

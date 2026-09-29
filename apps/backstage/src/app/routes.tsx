@@ -34,15 +34,7 @@ const WorkspaceIndexRoute = createRoute({
 export const routeTree = RootRoute.addChildren([
   HomeRoutes.HomeRoute,
 
-  AuthRoutes.AuthRoute.addChildren([
-    AuthRoutes.LoginRoute,
-    AuthRoutes.SsoCallbackRoute,
-    AuthRoutes.ForgotPasswordRoute,
-    AuthRoutes.ResetPasswordRoute,
-    AuthRoutes.SetupRoute,
-    AuthRoutes.RegisterRoute,
-    AuthRoutes.InvitationRoute,
-  ]),
+  AuthRoutes.AuthRoute.addChildren([AuthRoutes.LoginRoute, AuthRoutes.SsoCallbackRoute]),
 
   UserRoutes.UserListRoute.addChildren([UserRoutes.UserCreateRoute, UserRoutes.UserDetailRoute]),
 
@@ -59,7 +51,6 @@ export const routeTree = RootRoute.addChildren([
     FileRoutes.FileListRoute,
     WorkspaceRoutes.WorkspaceMembersRoute,
   ]),
-  WorkspaceRoutes.WorkspaceAdminListRoute,
   JobRoutes.JobListRoute,
   AccountRoutes.ProfileRoute,
   AccountRoutes.PreferenceRoute,

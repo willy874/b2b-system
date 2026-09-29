@@ -26,32 +26,3 @@ export const SsoCallbackRoute = createRoute({
   path: 'callback',
   validateSearch: SsoCallbackSearchSchema,
 });
-
-/**
- * 帳號流程搬到 apps/auth（docs/adr/0019-sso-identity-platform.md D1）：舊網址保留一版，
- * 轉到 apps/auth 的同名頁面（已寄出的信裡的連結仍然有效）。
- */
-export const ForgotPasswordRoute = createRoute({
-  getParentRoute: () => AuthRoute,
-  path: 'forgot-password',
-});
-
-export const ResetPasswordRoute = createRoute({
-  getParentRoute: () => AuthRoute,
-  path: 'reset-password',
-});
-
-export const RegisterRoute = createRoute({
-  getParentRoute: () => AuthRoute,
-  path: 'register',
-});
-
-export const SetupRoute = createRoute({
-  getParentRoute: () => AuthRoute,
-  path: 'setup',
-});
-
-export const InvitationRoute = createRoute({
-  getParentRoute: () => AuthRoute,
-  path: 'invitation',
-});

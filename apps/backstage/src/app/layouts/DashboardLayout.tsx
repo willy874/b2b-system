@@ -10,7 +10,7 @@ import type { IconName } from '@/components/Icon';
 import { Menu } from '@/components/Menu';
 import { BatchQueueIndicator, BatchQueueNotifier } from '@/core/batch';
 import { useTranslation } from '@/core/locales';
-import { usePageAccessChecker } from '@/core/permission';
+import { PermissionKey, usePageAccessChecker, usePermission } from '@/core/permission';
 import type { PageKey } from '@/core/permission';
 import { useLayoutStore } from '@/core/store';
 import { useCurrentWorkspace } from '@/core/workspace';
@@ -26,7 +26,6 @@ import { ROLE_PAGE } from '@/features/role';
 import { USER_PAGE } from '@/features/user';
 import {
   useDefaultWorkspaceSlug,
-  WORKSPACE_ADMIN_PAGE,
   WORKSPACE_MEMBER_PAGE,
   WorkspaceSwitcher,
 } from '@/features/workspace';
@@ -47,8 +46,18 @@ interface MenuItem {
 interface NavItem extends MenuItem {
   /** 完整字面量（docs/conventions/06-literal-strings.md §3.3），E2E 以此定位側邊選單項 */
   testId: string;
-  /** 在另一個 app 的頁面（例：apps/auth 的租戶管理）：以一般連結頂層跳轉，不走 router */
-  href?: string;
+}
+
+/**
+ * 在另一個 app 的頁面（例：apps/auth 的租戶管理）：以一般連結頂層跳轉，不走 router。
+ * backstage 沒有這個頁面、也沒有頁面權限可以註冊，所以直接依權限鍵決定要不要顯示。
+ */
+interface ExternalNavItem {
+  href: string;
+  permission: PermissionKey;
+  labelKey: string;
+  testId: string;
+  icon: IconName;
 }
 
 /** 工作區裡的頁面：`to` 是工作區底下的相對路徑，實際連結帶上目前（或最近）的工作區。 */
@@ -83,11 +92,13 @@ const MENU: NavItem[] = [
     icon: 'check',
   },
   { pageKey: JOB_PAGE, to: '/job', labelKey: 'menu.job', testId: 'menu-job', icon: 'monitor' },
+];
+
+const EXTERNAL_MENU: ExternalNavItem[] = [
   {
-    pageKey: WORKSPACE_ADMIN_PAGE,
-    to: '/workspace',
     // 平台的租戶管理在 apps/auth（docs/adr/0019-sso-identity-platform.md D13）
     href: `${ENV.AUTH_APP_URL}/workspaces`,
+    permission: PermissionKey['workspace:read'],
     labelKey: 'menu.workspace',
     testId: 'menu-workspace',
     icon: 'grid',
@@ -148,6 +159,14 @@ function useWorkspaceMenuItems(items: WorkspaceNavItem[]): WorkspaceNavItem[] {
   }, [canAccessPage, current, items, slug]);
 }
 
+function useExternalMenuItems(items: ExternalNavItem[]): ExternalNavItem[] {
+  const { hydrated, can } = usePermission();
+  return useMemo(
+    () => (hydrated ? items.filter((item) => can(item.permission)) : []),
+    [can, hydrated, items],
+  );
+}
+
 function useMenuItems<T extends MenuItem>(items: T[]): T[] {
   const { hydrated, canAccessPage } = usePageAccessChecker();
   // 未水合時回空陣列，而不是顯示全部再消失
@@ -163,7 +182,11 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const collapsed = useLayoutStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useLayoutStore((state) => state.toggleSidebar);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const items = [...useMenuItems(MENU), ...useWorkspaceMenuItems(WORKSPACE_MENU)];
+  const items: Array<NavItem | ExternalNavItem> = [
+    ...useMenuItems(MENU),
+    ...useExternalMenuItems(EXTERNAL_MENU),
+    ...useWorkspaceMenuItems(WORKSPACE_MENU),
+  ];
   const accountItems = useMenuItems(ACCOUNT_MENU);
   const logout = useLogoutMutation();
 
@@ -176,9 +199,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         </div>
         <nav className="ge-shell__nav">
           {items.map((item) =>
-            item.href ? (
+            'href' in item ? (
               <a
-                key={item.pageKey}
+                key={item.testId}
                 href={item.href}
                 className="ge-shell__nav-item"
                 data-testid={item.testId}
@@ -189,7 +212,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               </a>
             ) : (
               <Link
-                key={item.pageKey}
+                key={item.testId}
                 to={item.to}
                 className={cn(
                   'ge-shell__nav-item',

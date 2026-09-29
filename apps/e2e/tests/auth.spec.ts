@@ -91,8 +91,4 @@ test('backstage 的「工作區」選單連到 apps/auth 的租戶管理頁，�
   await expect(page).toHaveURL(`${AUTH_URL}/workspaces`);
   await expect(page.getByTestId('workspace-admin-page')).toBeVisible();
   await expect(page.getByRole('cell', { name: '預設工作區' })).toBeVisible();
-
-  // 舊網址轉過去
-  await page.goto('/workspace');
-  await expect(page).toHaveURL(`${AUTH_URL}/workspaces`);
 });

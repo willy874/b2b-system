@@ -54,14 +54,6 @@ test.describe('郵件（docs/architecture/backend/11-mail.md）', () => {
   });
 });
 
-test('已寄出的舊連結（backstage 的 /auth/setup）會轉到 apps/auth，token 一起帶過去', async ({
-  page,
-}) => {
-  await page.goto('/auth/setup?token=legacy-token-123');
-  await expect(page).toHaveURL(`${AUTH_URL}/setup?token=legacy-token-123`);
-  await expect(page.getByTestId('setup-invalid')).toBeVisible();
-});
-
 test('工作區邀請新帳號：apps/auth 建立帳號 → 跳到 backstage 的工作區 → IdP 登入 → 進入工作區', async ({
   page,
 }) => {

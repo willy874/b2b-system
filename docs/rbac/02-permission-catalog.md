@@ -267,9 +267,18 @@
 | 稽核日誌     | `/audit-log`               | `AUDIT_LOG`     | `auditLog:read`                  | EVERY |
 | 審批         | `/approval`（含 `/approval/$approvalId` 對話框） | `APPROVAL` | `approval:read`           | EVERY |
 | 背景工作     | `/job`（含 `/job/$jobId` 對話框） | `JOB` | `job:read`                      | EVERY |
-| 工作區管理   | `/workspace`               | `WORKSPACE_ADMIN` | `workspace:read`               | EVERY |
 | 檔案         | `/w/$workspaceSlug/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | 工作區範圍：`file:access` 或 `file:read`（按鈕層級看後端回傳的 `capabilities`，見 [`07-resource-grants.md`](./07-resource-grants.md) §7） | SOME |
 | 工作區成員   | `/w/$workspaceSlug/members` | `WORKSPACE_MEMBER` | 工作區範圍：`workspaceMember:read` | EVERY |
+
+apps/auth 的平台頁面（[`../architecture/04-sso.md`](../architecture/04-sso.md) §6.2）：
+
+| 頁面         | 路由                  | Page Key            | 進入所需權限            | 判定  |
+| ------------ | --------------------- | ------------------- | ----------------------- | ----- |
+| 首頁         | `/`                   | `HOME`              | 無                      | —     |
+| 工作區管理   | `/workspaces`         | `WORKSPACE_ADMIN`   | `workspace:read`        | EVERY |
+| 外部 IdP 連線 | `/identity-providers` | `IDENTITY_PROVIDER` | `identityProvider:read` | EVERY |
+
+backstage 側邊選單的「工作區」連到 apps/auth 的 `/workspaces`，依 `workspace:read` 顯示（backstage 沒有對應的頁面）。
 
 > 工作區頁面（`/w/:workspaceSlug/…`）由工作區的版面把關：先確認是成員（不是回「找不到這個工作區」），
 > 載入在這個工作區的權限之後才判斷頁面權限（[ADR-0018](../adr/0018-workspace-tenancy.md) D17）。
