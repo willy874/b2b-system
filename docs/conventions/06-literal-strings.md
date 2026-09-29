@@ -120,9 +120,9 @@ getByTestIdAndValue(page, 'permission-checkbox', 'user:read');
 
 ```bash
 # i18n key：t(`…${…}`)、`xxx.${…}` 形式的 key
-git grep -nE '\bt\(`|`[a-z][A-Za-z_-]*\.[A-Za-z_.]*\$\{' -- 'apps/web/src/*.ts' 'apps/web/src/*.tsx' ':!*.test.*'
+git grep -nE '\bt\(`|`[a-z][A-Za-z_-]*\.[A-Za-z_.]*\$\{' -- 'apps/backstage/src/*.ts' 'apps/backstage/src/*.tsx' ':!*.test.*'
 # className：`ge-xxx--${…}` 形式的 modifier
-git grep -nE '`[a-z][a-z0-9-]*--\$\{' -- 'apps/web/src/*.tsx'
+git grep -nE '`[a-z][a-z0-9-]*--\$\{' -- 'apps/backstage/src/*.tsx'
 # data-testid
-git grep -nE 'data-testid=\{`' -- apps/web/src
+git grep -nE 'data-testid=\{`' -- apps/backstage/src
 ```

@@ -6,7 +6,7 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │ Browser                                                             │
 │                                                                     │
-│  apps/web  (React 19 + Vite)                                        │
+│  apps/backstage  (React 19 + Vite)                                        │
 │  ┌───────────────────────────────────────────────────────────────┐  │
 │  │ main.tsx — AppContext plugin chain                            │  │
 │  │   cache → eventBus → i18n → httpContext → features → app      │  │
@@ -88,7 +88,7 @@ repository ✗──▶ service  （單向）
 ### 3.1 登入
 
 ```
-[web] LoginPage
+[backstage] LoginPage
   └─▶ POST /auth/login { email, password }
         [api] AuthController.login
           └─▶ AuthService.login
@@ -111,7 +111,7 @@ repository ✗──▶ service  （單向）
 ### 3.2 一次受權限保護的寫入
 
 ```
-[web] RoleDetailPage → 「儲存」
+[backstage] RoleDetailPage → 「儲存」
   └─▶ useMutation(getRoleUpdateMutationOptions())
         └─▶ fetchRoleUpdateMutation (apis/role/update-role/fetcher.ts)
               └─▶ defineAuthFetcher → HttpContext('main:auth')
@@ -166,7 +166,7 @@ pnpm dev
 ├─ docker compose up -d postgres        (localhost:5432)
 ├─ apps/api           nest start --watch       (localhost:3000)
 ├─ apps/file-storage  tsx watch                (localhost:9000，S3 相容)
-└─ apps/web           vite                     (localhost:5173)
+└─ apps/backstage           vite                     (localhost:5173)
                         ├─ proxy /api     → http://localhost:3000（ws: true，含 /api/socket.io）
                         └─ proxy /storage → http://localhost:9000（不去前綴、不改 Host：presigned URL）
 ```
@@ -179,7 +179,7 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 
 ```
                          ┌──────────────────────────────┐
-  Internet ─────────────▶│ web（nginx）  :8080 → 80     │  network: edge
+  Internet ─────────────▶│ backstage（nginx） :8080 → 80│  network: edge
                          │  /               → 靜態檔     │
                          │  /api/socket.io/ → api（Upgrade）│
                          │  /api/*          → api（去掉前綴）│
@@ -204,12 +204,12 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 | `migrate`  | `game-editor-api`（同 api）   | `migrate.js` ＋ `seeds/index.js`，跑完即結束         | postgres healthy                |
 | `api`      | `game-editor-api`             | REST、Socket.io、權限快取                            | migrate **成功結束**、file-storage healthy |
 | `file-storage` | `apps/file-storage/Dockerfile` | S3 相容的物件儲存（[`03-file-storage.md`](./03-file-storage.md)） | —                     |
-| `web`      | `apps/web/Dockerfile`（nginx）| 靜態檔、反向代理、安全標頭                 | api healthy                     |
+| `backstage` | `apps/backstage/Dockerfile`（nginx）| 靜態檔、反向代理、安全標頭                 | api healthy                     |
 
 - 前端是純靜態產物，SPA fallback 到 `index.html`。
 - `/api/*` 反向代理去掉前綴後轉給 NestJS；`/api/socket.io/` 另一段 location 帶 `Upgrade` header，
   `proxy_read_timeout` 大於 Socket.io 心跳間隔。
-- **網路分三段**：`web` 只在 `edge`，碰不到 `postgres`；`migrate` 只在 `data`；`file-storage` 在 `edge` 與 `storage`，
+- **網路分三段**：`backstage` 只在 `edge`，碰不到 `postgres`；`migrate` 只在 `data`；`file-storage` 在 `edge` 與 `storage`，
   碰不到 `postgres`。
 - `/storage/` 的 location **不去掉前綴、原樣轉發 `Host`**、不緩衝、不限大小：瀏覽器以 presigned URL 直傳／下載，
   簽章涵蓋 host 與完整路徑（[`backend/09-file.md`](./backend/09-file.md) §3）。同源，所以 CSP 不必放寬。

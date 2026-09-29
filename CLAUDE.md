@@ -23,7 +23,7 @@ Game Editor 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架*
 
 任一處變更時，**同一批**修改另外兩處：
 
-1. `apps/web/src/features/<name>/`
+1. `apps/backstage/src/features/<name>/`
 2. `apps/api/src/modules/<name>/`
 3. `docs/` 對應章節
 
@@ -60,13 +60,13 @@ Game Editor 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架*
 ## 常用指令
 
 ```bash
-pnpm dev            # postgres + Mailpit(:8025) + api(:3000) + web(:5173) + file-storage(:9000)
+pnpm dev            # postgres + Mailpit(:8025) + api(:3000) + backstage(:5173) + file-storage(:9000)
 pnpm dev:e2e        # 以放寬的速率限制、寄信到 Mailpit 啟動 api（跑 E2E 時用）
 pnpm dev:storage    # 單獨啟動 apps/file-storage（S3 相容，:9000）；api 端見 docs/architecture/backend/09-file.md
 pnpm typecheck      # tsc -b（全 workspace）
 pnpm lint / pnpm format / pnpm format:check
 pnpm test           # 單元 + 整合（後端整合測試會用 Testcontainers 起一個 postgres）
-pnpm test:e2e       # Playwright（需要 api 與 web 已啟動）
+pnpm test:e2e       # Playwright（需要 api 與 backstage 已啟動）
 pnpm db:migrate / db:seed / db:seed:dev / db:seed:e2e / db:reset
 pnpm db:archive-audit-logs   # 稽核熱表 → 冷表搬移的手動補跑（平常由背景工作 auditLog.archive 每天跑）
 pnpm openapi:generate && pnpm sdk:generate   # 改動 controller / DTO 之後必跑

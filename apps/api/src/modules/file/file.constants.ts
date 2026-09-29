@@ -108,7 +108,7 @@ export const MAX_PART_COUNT = 10_000;
 
 /**
  * 列表的分類篩選（`GET /files?category=`）。`other` 是「不屬於其他任何一類」。
- * 前端的圖示與分類標籤依同一張表（`apps/web/src/core/file/fileType.ts`），改這裡要一起改。
+ * 前端的圖示與分類標籤依同一張表（`apps/backstage/src/core/file/fileType.ts`），改這裡要一起改。
  */
 export const FILE_CATEGORIES = [
   'image',

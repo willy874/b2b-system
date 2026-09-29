@@ -7,7 +7,7 @@
     { "path": "./packages/api-sdk/codegen" },
     { "path": "./apps/api" },
     { "path": "./apps/file-storage" },
-    { "path": "./apps/web" },
+    { "path": "./apps/backstage" },
     { "path": "./apps/e2e" }
   ]
 }

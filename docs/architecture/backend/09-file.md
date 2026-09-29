@@ -88,7 +88,7 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 
 | 環境 | 瀏覽器打 | 轉給 | 設定 |
 | --- | --- | --- | --- |
-| 本機 | `http://localhost:5173/storage/…` | Vite proxy → `localhost:9000` | 不 `changeOrigin`、不 `rewrite`（`apps/web/vite.config.ts`） |
+| 本機 | `http://localhost:5173/storage/…` | Vite proxy → `localhost:9000` | 不 `changeOrigin`、不 `rewrite`（`apps/backstage/vite.config.ts`） |
 | Docker | `${PUBLIC_ORIGIN}/storage/…` | nginx → `file-storage:9000` | `proxy_set_header Host $http_host`、`proxy_pass` 不帶 URI（`deploy/nginx.conf`） |
 
 兩者都 **保留 `/storage` 前綴**，由 file-storage 的 `FILE_STORAGE_BASE_PATH=/storage` 去掉後再解析 bucket / key
@@ -215,7 +215,7 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 - presigned PUT 無法限制大小，所以大小在 `complete` 時比對；不符就刪掉物件，使用者可用同一個網址（未過期時）重傳。
 - 並行的兩個 `complete`：`UPDATE … WHERE status='pending'` 只有一個成功，另一個 `409 FILE_ALREADY_UPLOADED`。
 
-前端不自己編排這些步驟，呼叫 `apps/web/src/apis/file/upload-file/` 的 `uploadFile()`：
+前端不自己編排這些步驟，呼叫 `apps/backstage/src/apis/file/upload-file/` 的 `uploadFile()`：
 
 ```ts
 const file = await uploadFile({ file: input.files[0], thumbnail, onProgress: ({ loaded, total }) => … }, signal);
@@ -531,7 +531,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `src/core/image/__tests__/sharp-image-processor.spec.ts` | progressive JPEG、等比縮放不放大、透明圖鋪白底、EXIF 轉正、串流讀入、位元組上限 |
 | `src/modules/file/__tests__/file-image.service.spec.ts` | 真的 sharp ＋ 記憶體儲存：實體化兩個變體、WebP 主格式、失敗與重試的分界、途中刪除、影像 API 的簽章／格式協商／依請求轉出並快取 |
 | `src/modules/file/__tests__/file-maintenance.service.spec.ts` | 四類殘留的偵測與清除、dry run、與 complete 並行、失敗不中斷、不重疊執行 |
-| `apps/web/src/apis/file/upload-file/__tests__/uploadFile.test.ts` | 編排、進度、直傳失敗、取消與放棄上傳、縮圖；分塊：並行、ETag 排序、單塊重試、4xx 不重試 |
+| `apps/backstage/src/apis/file/upload-file/__tests__/uploadFile.test.ts` | 編排、進度、直傳失敗、取消與放棄上傳、縮圖；分塊：並行、ETag 排序、單塊重試、4xx 不重試 |
 
 與真實 S3 協定的相容性由 apps/file-storage 的測試（官方 SDK）負責；api 端的 `S3ObjectStorage` 另以 Docker 整套
 （`docker-compose.prod.yml`）手動驗證過 presigned 直傳、Content-Type 綁定、中文檔名下載與刪除。

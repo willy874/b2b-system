@@ -1,8 +1,8 @@
 # 生產拓撲（docs/architecture/01-system.md §4.2）：
-#   web（nginx：靜態檔 ＋ /api、/api/socket.io、/storage 反向代理）→ api（REST ＋ Socket.io）→ postgres
+#   backstage（nginx：靜態檔 ＋ /api、/api/socket.io、/storage 反向代理）→ api（REST ＋ Socket.io）→ postgres
 #                                                         └──────→ file-storage（S3 相容）
 #   migrate 是一次性工作：migration ＋ 冪等 seed 跑完才啟動 api。
-# 網路切三段：web 碰不到 postgres；file-storage 與 postgres 互不相通。
+# 網路切三段：backstage 碰不到 postgres；file-storage 與 postgres 互不相通。
 services:
   postgres:
     image: postgres:17-alpine
@@ -93,10 +93,10 @@ services:
     # edge：nginx 轉發瀏覽器的直傳／下載；storage：api 的伺服器端呼叫
     networks: [edge, storage]
 
-  web:
+  backstage:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
+      dockerfile: apps/backstage/Dockerfile
     restart: unless-stopped
     ports:
       - '8080:80'

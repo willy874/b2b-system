@@ -157,7 +157,7 @@ docs/
   `conventions/` 講寫程式規則、`adr/` 講決策理由。新文件依此歸位。
 - **還沒實作的功能** 寫在 `features/`，不要寫進上述分區；那些分區只描述已存在的系統。
   流程見 [`features/README.md`](./features/README.md)。
-- 檔案路徑用相對於 repo 根目錄的形式（`apps/web/src/...`）。
+- 檔案路徑用相對於 repo 根目錄的形式（`apps/backstage/src/...`）。
 
 ---
 
@@ -165,7 +165,7 @@ docs/
 
 以下三處必須永遠同步，任一處變更時必須同一批修改另外兩處：
 
-1. `apps/web/src/features/<name>/` — 前端功能原始碼
+1. `apps/backstage/src/features/<name>/` — 前端功能原始碼
 2. `apps/api/src/modules/<name>/` — 後端模組原始碼
 3. `docs/` 對應章節 — 規格文件
 

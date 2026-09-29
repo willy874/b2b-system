@@ -1,6 +1,6 @@
 # 前端文件
 
-`apps/web` — React 19 + Vite + TanStack + Base UI。
+`apps/backstage` — React 19 + Vite + TanStack + Base UI。
 
 架構是 plugin-based AppContext ＋ feature-first 分層。相對於同類後台常見的
 MUI 作法，最大的差異是 **UI 函式庫改用 Base UI**，因此 `src/components/` 這層

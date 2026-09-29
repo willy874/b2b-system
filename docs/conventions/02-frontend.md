@@ -1,6 +1,6 @@
 # 02 — 前端規範
 
-`apps/web`。分層的完整說明在 [`architecture/frontend/`](../architecture/frontend/README.md)；
+`apps/backstage`。分層的完整說明在 [`architecture/frontend/`](../architecture/frontend/README.md)；
 這份只列 **寫程式時要遵守的規則**，細節一律連過去。
 
 ---

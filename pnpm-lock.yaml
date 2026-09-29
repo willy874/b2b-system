@@ -187,35 +187,7 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@24.13.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.33.0)(msw@2.15.0(@types/node@24.13.6)(typescript@5.9.3))(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
 
-  apps/e2e:
-    devDependencies:
-      '@playwright/test':
-        specifier: ^1.63.0
-        version: 1.63.0
-
-  apps/file-storage:
-    dependencies:
-      zod:
-        specifier: ^4.6.5
-        version: 4.6.5
-    devDependencies:
-      '@aws-sdk/client-s3':
-        specifier: ^3.1141.0
-        version: 3.1141.0
-      '@aws-sdk/s3-request-presigner':
-        specifier: ^3.1141.0
-        version: 3.1141.0
-      esbuild:
-        specifier: ^0.25.12
-        version: 0.25.12
-      tsx:
-        specifier: ^4.20.6
-        version: 4.23.13
-      vitest:
-        specifier: ^3.2.7
-        version: 3.2.7(@types/node@24.13.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.33.0)(msw@2.15.0(@types/node@24.13.6)(typescript@5.9.3))(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
-
-  apps/web:
+  apps/backstage:
     dependencies:
       '@base-ui-components/react':
         specifier: 1.0.0-rc.0
@@ -365,6 +337,34 @@ importers:
       vite-plugin-svgr:
         specifier: ^5.2.0
         version: 5.2.0(rollup@4.63.4)(typescript@5.9.3)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@24.13.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.33.0)(msw@2.15.0(@types/node@24.13.6)(typescript@5.9.3))(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)
+
+  apps/e2e:
+    devDependencies:
+      '@playwright/test':
+        specifier: ^1.63.0
+        version: 1.63.0
+
+  apps/file-storage:
+    dependencies:
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.1141.0
+        version: 3.1141.0
+      '@aws-sdk/s3-request-presigner':
+        specifier: ^3.1141.0
+        version: 3.1141.0
+      esbuild:
+        specifier: ^0.25.12
+        version: 0.25.12
+      tsx:
+        specifier: ^4.20.6
+        version: 4.23.13
       vitest:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@24.13.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.33.0)(msw@2.15.0(@types/node@24.13.6)(typescript@5.9.3))(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)

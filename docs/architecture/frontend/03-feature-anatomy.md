@@ -342,7 +342,7 @@ apis/session/
 ### Step 3 — 建立 feature 骨架
 
 ```bash
-apps/web/src/features/session/
+apps/backstage/src/features/session/
 ├── index.tsx
 ├── plugin.ts
 ├── permission.ts

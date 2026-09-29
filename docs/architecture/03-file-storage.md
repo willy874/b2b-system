@@ -14,7 +14,7 @@
 ## 1. 啟動
 
 ```bash
-pnpm dev             # 與 postgres、api、web 一起啟動
+pnpm dev             # 與 postgres、api、backstage 一起啟動
 pnpm dev:storage     # 單獨啟動（tsx watch），預設 http://127.0.0.1:9000
 ```
 

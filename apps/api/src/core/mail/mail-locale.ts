@@ -1,4 +1,4 @@
-/** 信件支援的語系；與前端 `apps/web` 的語系一致。 */
+/** 信件支援的語系；與前端 `apps/backstage` 的語系一致。 */
 export const MAIL_LOCALES = ['zh-TW', 'en-US'] as const;
 export type MailLocale = (typeof MAIL_LOCALES)[number];
 

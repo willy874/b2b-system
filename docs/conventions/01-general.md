@@ -47,7 +47,7 @@
 | ------------------------ | ----------------------------------------------------------------- |
 | 物件形狀                 | `interface`；聯集、映射、工具型別才用 `type`                        |
 | 列舉值                   | `as const` 物件 ＋ 推導聯集型別；不用 TS `enum`（例外：由 OpenAPI 產生的） |
-| 型別 import（web / packages） | `import type`，🔒 `typescript/consistent-type-imports`         |
+| 型別 import（backstage / packages） | `import type`，🔒 `typescript/consistent-type-imports`         |
 | 匯出                     | 具名匯出；**只有** `pages/<Page>/page.tsx`（給 lazy 用）、Storybook 的 `*.stories.tsx`（CSF 規定）與工具設定檔用 `export default` |
 | 回傳型別                 | `core/`、`shared/`、`common/` 等跨層匯出的函式明確標註；hook 與元件可交給推導 |
 

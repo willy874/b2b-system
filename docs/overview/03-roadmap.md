@@ -46,7 +46,7 @@ game-editor/
 ├── docker-compose.yml               postgres:17-alpine
 ├── .env.example
 ├── lefthook.yml / .oxlintrc.json / .oxfmtrc.jsonc
-├── apps/web/        Vite + React 19 + TS，空白頁能跑
+├── apps/backstage/        Vite + React 19 + TS，空白頁能跑
 ├── apps/api/        NestJS 11，/health 能回應
 ├── apps/e2e/        Playwright 設定
 └── packages/
@@ -57,7 +57,7 @@ game-editor/
 ### 驗收
 
 - [ ] `pnpm install` 成功
-- [ ] `pnpm dev` 同時起 postgres、api（:3000）、web（:5173）
+- [ ] `pnpm dev` 同時起 postgres、api（:3000）、backstage（:5173）
 - [ ] `curl localhost:5173/api/health` 經 Vite proxy 回到 api
 - [ ] `pnpm lint` / `pnpm format:check` / `pnpm typecheck` 全部通過
 - [ ] pre-commit hook 會擋下未格式化的檔案
@@ -214,7 +214,7 @@ game-editor/
 
 **架構**
 
-- [ ] `grep -r "features/" apps/web/src/core/` 為空
+- [ ] `grep -r "features/" apps/backstage/src/core/` 為空
 - [ ] `grep -r "modules/" apps/api/src/core/` 為空
 - [ ] 註解掉 `main.tsx` 任一 feature plugin，app 仍能啟動
 - [ ] 所有 lint 相依規則通過

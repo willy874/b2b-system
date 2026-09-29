@@ -11,7 +11,7 @@
 
 | 範圍                | 放哪裡                                           | 副檔名          | 🔒 由誰收進來                   |
 | ------------------- | ------------------------------------------------ | --------------- | ------------------------------- |
-| web 單元／元件      | 受測檔旁的 `__tests__/`，或元件資料夾內同層       | `*.test.ts(x)`  | `apps/web/vitest.config.ts`     |
+| backstage 單元／元件 | 受測檔旁的 `__tests__/`，或元件資料夾內同層       | `*.test.ts(x)`  | `apps/backstage/vitest.config.ts`     |
 | api 單元            | 受測檔旁的 `__tests__/`                           | `*.spec.ts`     | `apps/api/vitest.config.ts`     |
 | api 整合（真 DB）   | `apps/api/test/`                                 | `*.spec.ts`     | `apps/api/vitest.config.ts`     |
 | file-storage 單元   | 受測檔旁的 `__tests__/`                           | `*.spec.ts`     | `apps/file-storage/vitest.config.ts` |
@@ -19,7 +19,7 @@
 | E2E（瀏覽器）       | `apps/e2e/tests/`                                | `*.spec.ts`     | `apps/e2e/playwright.config.ts` |
 
 - 檔名跟受測對象同名：`useRolePermission.ts` → `__tests__/useRolePermission.test.tsx`。
-- 副檔名寫錯（web 用 `.spec`、api 用 `.test`）不會被執行，等於沒寫。
+- 副檔名寫錯（backstage 用 `.spec`、api 用 `.test`）不會被執行，等於沒寫。
 
 ---
 
@@ -81,8 +81,8 @@ MSW handler 要模擬權限行為（無權限回 403），不能一律回 200。
 ## 5. 執行
 
 ```bash
-pnpm test         # web ＋ api（api 整合測試需要 Docker）
-pnpm test:e2e     # 先跑 pnpm dev:e2e 與 web
+pnpm test         # backstage ＋ api（api 整合測試需要 Docker）
+pnpm test:e2e     # 先跑 pnpm dev:e2e 與 backstage
 ```
 
 測試失敗時修程式或修測試，**不** 用 `it.skip` / `it.only` 提交。

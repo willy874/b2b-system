@@ -1,6 +1,6 @@
 /**
  * 錯誤碼是前後端的穩定契約：前端用 `t('error.' + code)` 顯示訊息。
- * 新增一個碼時，必須同步加上 `apps/web/src/app/locales/{en_US,zh_TW}.json`
+ * 新增一個碼時，必須同步加上 `apps/backstage/src/app/locales/{en_US,zh_TW}.json`
  * 的 `error.<CODE>`（有測試比對）。
  */
 export const ErrorCode = {

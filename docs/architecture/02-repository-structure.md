@@ -13,7 +13,7 @@ game-editor/
 ├── .env.example
 │
 ├── apps/
-│   ├── web/                     @game-editor/web — React 前端
+│   ├── backstage/               @game-editor/backstage — React 前端
 │   ├── api/                     @game-editor/api — NestJS 後端
 │   ├── file-storage/            @game-editor/file-storage — S3 相容的本機檔案儲存（見 03-file-storage.md）
 │   └── e2e/                     @game-editor/e2e — Playwright
@@ -38,12 +38,12 @@ packages:
 
 | script                                         | 作用                                                     |
 | ---------------------------------------------- | -------------------------------------------------------- |
-| `pnpm dev`                                     | `docker compose up -d postgres` ＋ Mailpit ＋ 並行啟動 api、web、file-storage |
-| `pnpm dev:api` / `pnpm dev:web`                | 單獨啟動                                                 |
+| `pnpm dev`                                     | `docker compose up -d postgres` ＋ Mailpit ＋ 並行啟動 api、backstage、file-storage |
+| `pnpm dev:api` / `pnpm dev:backstage`                | 單獨啟動                                                 |
 | `pnpm dev:e2e`                                 | 啟動 Mailpit，以放寬的速率限制、`MAIL_TRANSPORT=smtp` 啟動 api |
 | `pnpm mail:up`                                 | `docker compose up -d mailpit`（SMTP :1025、網頁 :8025） |
 | `pnpm dev:storage`                             | 啟動 `apps/file-storage`（S3 相容，:9000）               |
-| `pnpm build`                                   | 依序 `api-sdk` → `api` → `web`                           |
+| `pnpm build`                                   | 依序 `api-sdk` → `api` → `backstage`                           |
 | `pnpm db:generate`                             | drizzle-kit 產生 migration                               |
 | `pnpm db:migrate`                              | 套用 migration                                           |
 | `pnpm db:seed`                                 | 灌入權限目錄與系統角色                                   |
@@ -52,16 +52,16 @@ packages:
 | `pnpm lint` / `pnpm format` / `pnpm typecheck` | 全 workspace                                             |
 | `pnpm test`                                    | 全 workspace 單元測試                                    |
 | `pnpm test:e2e`                                | Playwright                                               |
-| `pnpm storybook` / `pnpm storybook:build`      | 設計系統元件的 Storybook（:6006）／輸出靜態站到 `apps/web/storybook-static/` |
+| `pnpm storybook` / `pnpm storybook:build`      | 設計系統元件的 Storybook（:6006）／輸出靜態站到 `apps/backstage/storybook-static/` |
 
 ---
 
-## 2. `apps/web` 內部結構
+## 2. `apps/backstage` 內部結構
 
 檔案佈局如下（各層職責見 [`frontend/01-architecture.md`](./frontend/01-architecture.md)）：
 
 ```
-apps/web/src/
+apps/backstage/src/
 ├── main.tsx                 AppContext plugin chain ＋ createRoot
 ├── index.css
 │
@@ -118,7 +118,7 @@ apps/web/src/
 │
 ├── components/              ★ Base UI 封裝層（設計系統元件）
 │   ├── Button/  Input/  Select/  Dialog/  Table/  Toast/  Tooltip/ …
-│   │   └── Xxx.stories.tsx  每個元件的 Storybook story（設定在 apps/web/.storybook/）
+│   │   └── Xxx.stories.tsx  每個元件的 Storybook story（設定在 apps/backstage/.storybook/）
 │   └── …
 │
 ├── plugins/                 可插拔的能力（非業務、非核心）
@@ -288,7 +288,7 @@ FILE_PENDING_TTL=86400              # 登記後超過這個秒數仍未完成的
 FILE_MAINTENANCE_CRON=0 * * * *     # 檔案維護排程的 cron（UTC）；留空停用
 FILE_MAINTENANCE_DRY_RUN=false      # true：只偵測並記錄殘留，不刪除
 
-# ── apps/web（VITE_ 前綴才會進 bundle）─────────────────
+# ── apps/backstage（VITE_ 前綴才會進 bundle）─────────────────
 VITE_API_BASE_URL=/api
 VITE_ENABLE_MOCK=false
 ```

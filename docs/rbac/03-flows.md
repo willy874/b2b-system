@@ -7,7 +7,7 @@
 ## 1. 登入
 
 ```
-使用者        apps/web                 apps/api                      DB
+使用者        apps/backstage                 apps/api                      DB
   │              │                        │                           │
   │─ 輸入帳密 ──▶│                        │                           │
   │              │─ POST /auth/login ────▶│                           │
@@ -206,7 +206,7 @@ ZodValidationPipe → Controller → Service → Repository
 ## 4. 建立角色並授予權限（含反提權）
 
 ```
-管理員         apps/web                       apps/api
+管理員         apps/backstage                       apps/api
   │               │                              │
   │─ 進入 /role ─▶│                              │
   │               │  usePagePermission(ROLE_PAGE)

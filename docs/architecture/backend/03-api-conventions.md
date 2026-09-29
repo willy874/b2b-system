@@ -231,7 +231,7 @@ export type ErrorCode = keyof typeof ErrorCode;
 ### 5.1 新增錯誤碼的流程
 
 1. 加進上面的表
-2. 在 `apps/web/src/app/locales/{en_US,zh_TW}.json` 加 `error.<CODE>`
+2. 在 `apps/backstage/src/app/locales/{en_US,zh_TW}.json` 加 `error.<CODE>`
 3. CI 檢查會驗證每個 code 都有兩個語系的翻譯
 
 ### 5.2 `AppException`

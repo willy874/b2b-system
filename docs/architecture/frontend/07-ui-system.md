@@ -934,16 +934,16 @@ const batchActions = useUserBatchActions();
 
 ```bash
 pnpm storybook          # http://localhost:6006
-pnpm storybook:build    # 靜態站輸出到 apps/web/storybook-static/（已 gitignore）
+pnpm storybook:build    # 靜態站輸出到 apps/backstage/storybook-static/（已 gitignore）
 ```
 
 | 檔案 | 內容 |
 | --- | --- |
-| `apps/web/.storybook/main.ts` | 收 `src/components/**/*.stories.tsx`；addon：docs、a11y |
-| `apps/web/.storybook/preview.tsx` | 載入 `virtual:uno.css` 與 `src/index.css`（token）；全域 `autodocs`；`router` decorator |
-| `apps/web/.storybook/preview-head.html` | 與 `index.html` 相同的 `@layer` 順序宣告（§3.4），否則工具類蓋不過元件預設值 |
+| `apps/backstage/.storybook/main.ts` | 收 `src/components/**/*.stories.tsx`；addon：docs、a11y |
+| `apps/backstage/.storybook/preview.tsx` | 載入 `virtual:uno.css` 與 `src/index.css`（token）；全域 `autodocs`；`router` decorator |
+| `apps/backstage/.storybook/preview-head.html` | 與 `index.html` 相同的 `@layer` 順序宣告（§3.4），否則工具類蓋不過元件預設值 |
 
-Vite 設定直接沿用 `apps/web/vite.config.ts`（UnoCSS、svgr、`@/` alias、CSS Module 命名），不另外維護一份。
+Vite 設定直接沿用 `apps/backstage/vite.config.ts`（UnoCSS、svgr、`@/` alias、CSS Module 命名），不另外維護一份。
 
 ### 9.1 寫法
 

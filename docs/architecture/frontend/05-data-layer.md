@@ -546,7 +546,7 @@ mocks/
     └── role.ts
 ```
 
-- `VITE_ENABLE_MOCK=true pnpm dev:web` → 完全不需要後端即可開發前端
+- `VITE_ENABLE_MOCK=true pnpm dev:backstage` → 完全不需要後端即可開發前端
 - 測試直接共用同一批 handler，個別 case 用 `server.use(...)` 覆寫
 - handler 必須實作 **權限行為**：mock 的 `GET /auth/profile` 要能依測試情境回
   不同的權限集合，這樣才測得到 gating
