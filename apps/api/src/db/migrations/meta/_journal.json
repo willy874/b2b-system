@@ -64,6 +64,13 @@
       "when": 1790490979846,
       "tag": "0008_file_image_variants",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790493631747,
+      "tag": "0009_file_folders",
+      "breakpoints": true
     }
   ]
 }

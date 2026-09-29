@@ -137,6 +137,12 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /files/:id': 'file:read',
       'PATCH /files/:id': 'file:update',
       'DELETE /files/:id': 'file:delete',
+      'POST /files/move': 'file:update',
+      'GET /file-folders': 'file:read',
+      'POST /file-folders': 'file:create',
+      'POST /file-folders/paths': 'file:create',
+      'PATCH /file-folders/:id': 'file:update',
+      'DELETE /file-folders/:id': 'file:delete',
     };
 
     for (const [route, declaration] of Object.entries(expected)) {

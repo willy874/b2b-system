@@ -31,6 +31,8 @@ export interface UploadFileParams {
   file: Blob;
   /** 預設取 `File.name`；傳 `Blob` 時必填。 */
   name?: string;
+  /** 放進哪個資料夾；不帶或 null 是根目錄。 */
+  folderId?: string | null;
   /** 瀏覽器產生的縮圖（`core/file` 的縮圖產生器）；上傳失敗不影響檔案本身。 */
   thumbnail?: Blob;
   onProgress?: (progress: UploadProgress) => void;
@@ -61,6 +63,7 @@ export async function uploadFile(
       name,
       contentType: file.type || FALLBACK_CONTENT_TYPE,
       size: file.size,
+      ...(params.folderId && { folderId: params.folderId }),
       ...(thumbnail &&
         thumbnailType &&
         isThumbnailContentType(thumbnailType) && {

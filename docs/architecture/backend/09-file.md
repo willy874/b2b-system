@@ -117,6 +117,7 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 | `variant_status` | `file_variant_status` | 影像變體：`none`（不是伺服器能處理的圖片）/ `pending` / `ready` / `failed`（§5.4） |
 | `image_width` / `image_height` | integer | 套用 EXIF 方向後的原圖尺寸；變體 `ready` 才有 |
 | `variant_format` | text | 變體的主格式：`jpeg`（progressive）或 `webp`（有透明度的圖） |
+| `folder_id` | uuid（FK → `file_folders`） | 所在的資料夾；null 是根目錄（§4.2） |
 | `version` | integer | 樂觀鎖，每次改名遞增（§6.2）。不用 `updated_at` 比對：它是微秒精度，經過 JSON（毫秒）來回就對不上 |
 | `created_*` / `updated_*` / `deleted_at` | | 慣例欄位；`updated_at` 由 trigger 維護；刪除是軟刪除 |
 
@@ -136,6 +137,7 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 | `files_status_content_type_idx`（status, content_type） | 分類篩選（`content_type LIKE 'image/%'` 等前綴比對） |
 | `files_name_trgm_idx`（GIN, `gin_trgm_ops`） | 檔名的部分比對 `ILIKE '%…%'`：btree 用不上。需要 `pg_trgm`（PG 13 起為 trusted extension） |
 | `files_variant_pending_idx`（uploaded_at，只涵蓋 `variant_status = 'pending'`） | 維護排程找卡住的影像變體（`0008`）；絕大多數列不是 pending，索引很小 |
+| `files_folder_created_at_idx`（folder_id, created_at, id） | 檔案管理器一次只列一個資料夾（`GET /files?folderId=`），先以資料夾縮小範圍（`0009`） |
 
 ### 4.1 可見性
 
@@ -147,6 +149,39 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 `pending` 不出現在列表、不發推播；別人查詢一律 `404 FILE_NOT_FOUND`。
 
 其他模組要引用檔案（例：角色頭像、關卡素材）時 **存 `files.id` 外鍵**，需要網址時注入 `FileService`。
+
+### 4.2 資料夾：`file_folders`
+
+檔案管理器的分類（migration `0009_file_folders.sql`）。資料夾只是分類：與物件儲存的 key 無關，移動、改名都不必搬物件。
+
+| 欄位 | 型別 | 說明 |
+| --- | --- | --- |
+| `id` | uuid | |
+| `name` | text | 規則同檔名（不可含 `/`、`\`、控制字元，≤ 255），另外不可是 `.`、`..` |
+| `parent_id` | uuid（FK → 自己，`ON DELETE RESTRICT`） | 上層；null 是根目錄 |
+| `created_*` / `updated_*` / `deleted_at` | | 慣例欄位；刪除是軟刪除 |
+
+約束與索引（都只涵蓋 `deleted_at IS NULL`）：
+
+- `file_folders_parent_name_key`：同一層不可同名、**不分大小寫**——`(coalesce(parent_id, 全零 uuid), lower(name))` 的唯一索引；
+  根目錄的 `parent_id` 是 null，不代入常數的話 null 彼此不相等，根目錄就能同名
+- `file_folders_not_own_parent`：`parent_id <> id`
+- `file_folders_parent_idx`：列出某一層的子資料夾、遞迴 CTE
+
+規則（`FileFolderService`）：
+
+| 規則 | 做法 |
+| --- | --- |
+| 不可移到自己或自己的子孫底下 | 交易內以遞迴 CTE 取目的地往上的鏈（`findAncestorIds`），鏈上出現任何一個要移動的資料夾 → `422 FILE_FOLDER_CYCLE` |
+| 結構的寫入不互相穿插 | 建立、改名、移動、刪除在交易開頭取 `pg_advisory_xact_lock(hashtext('file_folders_tree'))`：兩個人同時把 A 移進 B、把 B 移進 A，各自檢查時都看不到循環，排隊之後第二個就看得到。資料夾的寫入不頻繁，整棵樹共用一把鎖就夠了 |
+| 同名 | 預檢查回 `409 FILE_FOLDER_NAME_CONFLICT`；競態下撞到唯一索引也轉成同一個錯誤。一起移進同一個目的地的資料夾彼此同名也算 |
+| 深度上限 32 層（`MAX_FOLDER_DEPTH`） | 建立、上傳資料夾時檢查；超過回 `400 VALIDATION_FAILED` |
+| 刪除是遞迴的 | 取出所有子孫（遞迴 CTE），同一個交易內軟刪除這些資料夾與其中的檔案（含上傳中的）；物件儲存的內容交給維護排程清除（紀錄已刪除的物件視為孤兒，§9），不在請求內逐一刪物件 |
+| 上傳到資料夾 | 登記上傳（`POST /files` 帶 `folderId`）時，資料夾存在的檢查與 INSERT 在同一個排隊的交易內：不會把檔案放進剛被遞迴刪除的資料夾 |
+
+**上傳資料夾**（`POST /file-folders/paths`）：前端把整個資料夾的相對路徑送上來（`[["素材"], ["素材","ui"], …]`，從 `parentId` 起算），
+後端一層一層處理——每層一次查出既有的子資料夾、一次建立缺少的——同名（不分大小寫）的資料夾直接沿用，回傳每條路徑最後一層的 id。
+所以重傳同一個資料夾是合併而不是失敗；深度 32 也只有幾十個查詢。一次最多 1000 條路徑（`MAX_FOLDER_PATHS`），前端超過就分批送。
 
 ---
 
@@ -301,11 +336,21 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 | GET | `/files/:id` | `file:read` | `200 StoredFile` |
 | PATCH | `/files/:id` | `file:update` | `200 StoredFile`（`{ name, version? }`，§6.2） |
 | DELETE | `/files/:id` | `file:delete` | `204` |
+| POST | `/files/move` | `file:update` | `200 MoveFileItemsResult`：`{ movedFiles, movedFolders }`（`{ fileIds, folderIds, targetFolderId }`，§4.2） |
+| GET | `/file-folders` | `file:read` | `FileFolderList`：全部資料夾的扁平清單（`{ id, name, parentId, createdAt, updatedAt }`），前端自行組成樹 |
+| POST | `/file-folders` | `file:create` | `201 FileFolder`（`{ name, parentId }`） |
+| POST | `/file-folders/paths` | `file:create` | `200 FileFolderPaths`：上傳資料夾時確保各路徑存在（§4.2） |
+| PATCH | `/file-folders/:id` | `file:update` | `200 FileFolder`（`{ name }`） |
+| DELETE | `/file-folders/:id` | `file:delete` | `204`；遞迴刪除子資料夾與其中的檔案 |
 
 `GET /files` 的 query：`offset` / `limit`、`keyword`（檔名部分比對）、`contentType`（`image/png` 或 `image/*`）、
 `category`（`image` / `video` / `audio` / `text` / `document` / `archive` / `other`，對照表在 `file.constants.ts` 的
 `FILE_CATEGORY_RULES`；`other` 是不屬於其他任何一類）、`uploaderId`、`sort`（`createdAt` / `name` / `size`，預設 `-createdAt`）、
-`cursor`（§6.1）。
+`cursor`（§6.1）、`folderId`（只列這個資料夾「直接」包含的檔案；`root` 是根目錄，不帶則不分資料夾）。
+
+`POST /files` 另外可帶 `folderId`（null 或不帶是根目錄；不存在回 `404 FILE_FOLDER_NOT_FOUND`）。
+`POST /files/move` 的資料夾不存在回 `FILE_FOLDER_NOT_FOUND`；檔案已刪除、還在上傳中、或本來就在目的地的略過（不讓整批失敗），
+回應的數量只算實際移動的。
 
 `StoredFile`（OpenAPI 名稱；避開瀏覽器內建的 `File`。列表的 `FileListPage` 同理避開 `FileList`）：
 
@@ -316,6 +361,7 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   "contentType": "image/png",
   "size": 12345,
   "status": "ready",
+  "folderId": null,                                                    // 所在的資料夾；null 是根目錄
   "url": "https://…/storage/game-editor/files/<id>?X-Amz-…",          // inline：直接顯示
   "downloadUrl": "https://…/storage/game-editor/files/<id>?X-Amz-…",  // attachment：以 name 下載
   "thumbnailUrl": "/api/files/<id>/image/thumbnail?exp=…&sig=…",       // 伺服器圖示預覽 → 瀏覽器縮圖 → null
@@ -376,6 +422,9 @@ LIMIT $limit
 | `FILE_VERSION_CONFLICT` | 409 | 改名時版本不符（§6.2） |
 | `FILE_IMAGE_URL_INVALID` | 403 | 影像 API 的網址簽章不符、版本不符或已過期（§5.4） |
 | `FILE_STORAGE_UNAVAILABLE` | 503 | 物件儲存連不上或回非預期錯誤 |
+| `FILE_FOLDER_NOT_FOUND` | 404 | 資料夾不存在或已刪除（上傳、建立、改名、移動的目的地或來源） |
+| `FILE_FOLDER_NAME_CONFLICT` | 409 | 同一層已有同名（不分大小寫）的資料夾 |
+| `FILE_FOLDER_CYCLE` | 422 | 把資料夾移到自己或自己的子孫底下（`details.folderIds`） |
 
 ---
 
@@ -385,8 +434,12 @@ LIMIT $limit
   交易 rollback 時紀錄還在，內容也要在）。物件刪除失敗只留下孤兒物件並記 warn，不讓使用者的刪除失敗——維護排程會再清（§9）。
 - 變體產生途中檔案被刪除：`markVariantsReady` 的 `WHERE deleted_at IS NULL` 不命中，剛寫入的變體立即刪除。
 - 稽核：`file.upload`（完成時，不是登記時）、`file.update`（只記有變的欄位）、`file.delete`；`resourceType = 'file'`。
+  資料夾：`fileFolder.create`（上傳資料夾時每個新建的資料夾一筆）、`fileFolder.update`、`fileFolder.delete`（`before` 記下遞迴刪除的資料夾數與檔案數）、
+  `file.move`（一次移動一筆，`resourceId` 是目的地，`changes.after` 列出移動的檔案與資料夾）；`resourceType = 'fileFolder'`。
 - 推播：`ChangeSource.FILE`，受眾 `file:read`（[`08-realtime.md`](./08-realtime.md) §6.1）；前端 `Resource.FILE`
   失效 `FILE_LIST_QUERY_KEY`、`FILE_INFINITE_LIST_QUERY_KEY` / `FILE_DETAIL_QUERY_KEY`。
+  資料夾：`ChangeSource.FILE_FOLDER`（受眾同樣是 `file:read`）。遞迴刪除與批次移動無法逐筆列出受影響的檔案，
+  另推一筆 `file` 的 `delete` / `update`、`id = '*'`：前端退回以前綴失效所有檔案的詳情。
 
 ### 7.1 下載網址的快取
 
@@ -450,7 +503,8 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | 檔案 | 內容 |
 | --- | --- |
 | `src/modules/file/__tests__/file.service.spec.ts` | 業務規則：每個 `AppException` 分支、可見性、交易後才刪物件；分塊上傳、放棄上傳、縮圖、樂觀鎖、游標 |
-| `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除時清變體）、維護排程（dry run 與清除）、樂觀鎖、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束 |
+| `src/modules/file/__tests__/file-folder.service.spec.ts` | 資料夾規則（以記憶體裡的樹模擬 repository）：同名（不分大小寫、只限同一層）、循環、目的地同名、遞迴刪除、上傳資料夾的沿用與深度上限 |
+| `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除時清變體）、維護排程（dry run 與清除）、樂觀鎖、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束；資料夾：上傳到資料夾與依 `folderId` 列出、移動、循環與同名（真的唯一索引）、上傳資料夾重送得到同樣的 id、遞迴刪除後可再建同名、`file_folders_not_own_parent` |
 | `src/core/storage/__tests__/content-disposition.spec.ts` | 中文檔名的 `Content-Disposition` |
 | `src/core/storage/__tests__/stable-signing-date.spec.ts` | 下載網址在時間窗內不變、剩餘效期範圍 |
 | `src/core/image/__tests__/sharp-image-processor.spec.ts` | progressive JPEG、等比縮放不放大、透明圖鋪白底、EXIF 轉正、串流讀入、位元組上限 |

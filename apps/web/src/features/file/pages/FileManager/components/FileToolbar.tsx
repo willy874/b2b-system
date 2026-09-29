@@ -4,6 +4,7 @@ import type { FileCategory, FileSortField } from '@/apis/file/types';
 import { Button, IconButton } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { Input } from '@/components/Input';
+import { Menu } from '@/components/Menu';
 import { Select } from '@/components/Select';
 import { Tooltip } from '@/components/Tooltip';
 import { useTranslation } from '@/core/locales';
@@ -16,6 +17,8 @@ import {
   FILE_SORT_LABEL_KEY,
 } from '../../../constants';
 import type { FilePagingMode, FileViewMode } from '../../../preference';
+import { collectFromFileList } from '../../../upload/collectEntries';
+import type { CollectedUpload } from '../../../upload/collectEntries';
 
 /** 打字停下來多久才搜尋：每個字都打一次 API 沒有意義。 */
 const SEARCH_DEBOUNCE_MS = 300;
@@ -35,12 +38,14 @@ interface FileToolbarProps {
   pagingMode: FilePagingMode;
   onPagingModeChange: (mode: FilePagingMode) => void;
   canUpload: boolean;
-  onUpload: (files: File[]) => void;
+  onUpload: (upload: CollectedUpload) => void;
+  canCreateFolder: boolean;
+  onCreateFolder: () => void;
   onRefresh: () => void;
   refreshing: boolean;
 }
 
-/** 搜尋、分類篩選、排序、排列方式、閱覽模式、上傳。窄螢幕自動換行。 */
+/** 搜尋、分類篩選、排序、排列方式、閱覽模式、新增資料夾、上傳（檔案或資料夾）。窄螢幕自動換行。 */
 export function FileToolbar({
   keyword,
   category,
@@ -53,11 +58,14 @@ export function FileToolbar({
   onPagingModeChange,
   canUpload,
   onUpload,
+  canCreateFolder,
+  onCreateFolder,
   onRefresh,
   refreshing,
 }: FileToolbarProps) {
   const { t } = useTranslation();
   const input = useRef<HTMLInputElement>(null);
+  const directoryInput = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(keyword ?? '');
   const [syncedKeyword, setSyncedKeyword] = useState(keyword);
   // 網址被外部改變（上一頁、清除篩選）時同步輸入框（render 期間調整 state，不經過 effect）
@@ -184,6 +192,15 @@ export function FileToolbar({
             <Icon name="refresh" size={16} />
           </IconButton>
         </Tooltip>
+        {canCreateFolder && (
+          <Button
+            startIcon={<Icon name="folder-plus" size={16} />}
+            onClick={onCreateFolder}
+            data-testid="file-create-folder-button"
+          >
+            {t('file.folder.create.action')}
+          </Button>
+        )}
         {canUpload && (
           <>
             <input
@@ -192,21 +209,67 @@ export function FileToolbar({
               multiple
               hidden
               onChange={(event) => {
-                const files = Array.from(event.target.files ?? []);
+                const upload = collectFromFileList(Array.from(event.target.files ?? []));
                 // 清空才能再次選同一個檔案
                 event.target.value = '';
-                if (files.length > 0) onUpload(files);
+                if (upload.entries.length > 0) onUpload(upload);
               }}
               data-testid="file-upload-input"
             />
-            <Button
-              variant="primary"
-              startIcon={<Icon name="upload" size={16} />}
-              onClick={() => input.current?.click()}
-              data-testid="file-upload-button"
-            >
-              {t('file.upload.action')}
-            </Button>
+            <input
+              // webkitdirectory 不在 React 的屬性型別裡（非標準但各大瀏覽器都支援）；以 ref 設定
+              ref={(element) => {
+                directoryInput.current = element;
+                element?.setAttribute('webkitdirectory', '');
+              }}
+              type="file"
+              multiple
+              hidden
+              onChange={(event) => {
+                const upload = collectFromFileList(Array.from(event.target.files ?? []));
+                event.target.value = '';
+                if (upload.entries.length > 0 || upload.directories.length > 0) onUpload(upload);
+              }}
+              data-testid="file-upload-directory-input"
+            />
+            <Menu
+              align="end"
+              trigger={
+                <Button
+                  variant="primary"
+                  startIcon={<Icon name="upload" size={16} />}
+                  endIcon={<Icon name="chevron-down" size={14} />}
+                  data-testid="file-upload-button"
+                >
+                  {t('file.upload.action')}
+                </Button>
+              }
+              items={[
+                {
+                  key: 'files',
+                  textValue: t('file.upload.files'),
+                  label: (
+                    <span className="flex items-center gap-2">
+                      <Icon name="file" size={14} />
+                      {t('file.upload.files')}
+                    </span>
+                  ),
+                  onSelect: () => input.current?.click(),
+                },
+                {
+                  key: 'directory',
+                  textValue: t('file.upload.directory'),
+                  label: (
+                    <span className="flex items-center gap-2">
+                      <Icon name="folder-upload" size={14} />
+                      {t('file.upload.directory')}
+                    </span>
+                  ),
+                  onSelect: () => directoryInput.current?.click(),
+                },
+              ]}
+              data-testid="file-upload-menu"
+            />
           </>
         )}
       </div>

@@ -9,6 +9,7 @@ import type { DomainEventBus } from '@/core/events';
 import type { ObjectStorage, StoredObjectHead } from '@/core/storage';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 
+import type { FileFolderService } from '../file-folder.service';
 import type { FileImageService } from '../file-image.service';
 import { storageKeyOf, thumbnailKeyOf } from '../file.constants';
 import { decodeFileCursor, encodeFileCursor } from '../file.cursor';
@@ -48,6 +49,7 @@ function fileRow(overrides: Partial<FileWithUploader> = {}): FileWithUploader {
     imageWidth: null,
     imageHeight: null,
     variantFormat: null,
+    folderId: null,
     createdAt: now,
     createdBy: ALICE.id,
     updatedAt: now,
@@ -122,6 +124,12 @@ function setup(
   };
   // withTransaction(db, fn) 只呼叫 db.transaction(fn)
   const db = { transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn('tx')) };
+  // 根目錄不排隊，直接以預設連線執行
+  const folders = {
+    insideFolder: vi.fn(async (_folderId: unknown, work: (tx: unknown) => unknown) =>
+      work(undefined),
+    ),
+  };
   const config = {
     get: vi.fn(
       (key: keyof Env) =>
@@ -140,6 +148,7 @@ function setup(
     audit as unknown as AuditService,
     events as unknown as DomainEventBus,
     images as unknown as FileImageService,
+    folders as unknown as FileFolderService,
     config as unknown as ConfigService<Env, true>,
   );
   return { service, repo, storage, audit, events, images };

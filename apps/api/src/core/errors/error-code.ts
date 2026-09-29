@@ -60,6 +60,9 @@ export const ErrorCode = {
   FILE_UPLOAD_PART_INVALID: { status: 422 },
   FILE_VERSION_CONFLICT: { status: 409 },
   FILE_IMAGE_URL_INVALID: { status: 403 },
+  FILE_FOLDER_NOT_FOUND: { status: 404 },
+  FILE_FOLDER_NAME_CONFLICT: { status: 409 },
+  FILE_FOLDER_CYCLE: { status: 422 },
 
   // ── 通用 ──
   RATE_LIMITED: { status: 429 },

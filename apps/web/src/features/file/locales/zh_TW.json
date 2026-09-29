@@ -1,7 +1,7 @@
 {
   "file": {
     "title": "檔案",
-    "description": "上傳與管理遊戲素材。拖曳檔案到下方即可上傳，按住滑鼠拖曳可框選多個檔案。",
+    "description": "上傳與管理遊戲素材。用資料夾分類，把檔案或資料夾拖到資料夾上即可移動；從電腦拖曳檔案或整個資料夾到下方即可上傳。",
     "total": "共 {{count}} 個檔案",
     "refresh": "重新整理",
     "download": "下載",
@@ -68,20 +68,23 @@
     "selection": {
       "count": "已選取 {{count}} 個",
       "selectAll": "選取全部 {{count}} 個",
-      "hint": "點選檔案以選取；按住 Shift／Ctrl 可多選，或在空白處拖曳框選。雙擊開啟預覽。"
+      "hint": "點選以選取；按住 Shift／Ctrl 可多選，或在空白處拖曳框選。雙擊開啟，拖到資料夾上移動。"
     },
     "empty": {
       "title": "還沒有任何檔案",
       "uploadHint": "把檔案拖曳到這裡，或按右上角的「上傳」。",
       "filtered": "沒有符合條件的檔案",
-      "clearFilters": "清除篩選"
+      "clearFilters": "清除篩選",
+      "folder": "這個資料夾是空的"
     },
     "upload": {
       "action": "上傳",
       "dropHint": "放開以上傳",
       "queued": "已將 {{count}} 個檔案加入上傳佇列",
       "rejected": "{{count}} 個檔案未上傳：「{{name}}」{{reason}}",
-      "directoryUnsupported": "不支援上傳資料夾，已略過 {{count}} 個資料夾"
+      "files": "上傳檔案",
+      "directory": "上傳資料夾",
+      "dropHintFolder": "放開以上傳到「{{name}}」"
     },
     "validation": {
       "tooLarge": "超過單檔上限 {{max}}",
@@ -106,6 +109,11 @@
         "title": "刪除檔案",
         "confirm": "確定要刪除 {{count}} 個檔案嗎？刪除會在背景逐一進行，無法復原。",
         "success": "已刪除 {{count}} 個檔案"
+      },
+      "deleteFolder": {
+        "title": "刪除資料夾",
+        "success": "已刪除 {{count}} 個資料夾",
+        "confirm": "確定要刪除 {{count}} 個項目嗎？選取的資料夾連同其中的檔案與子資料夾都會刪除。刪除會在背景逐一進行，無法復原。"
       }
     },
     "preview": {
@@ -121,6 +129,35 @@
       "tooLarge": "檔案太大，不適合在瀏覽器中預覽，請下載後開啟。",
       "deleted": "檔案已被刪除",
       "deletedDescription": "這個檔案可能剛被其他人刪除。"
+    },
+    "folder": {
+      "label": "資料夾",
+      "subfolders": "{{count}} 個子資料夾",
+      "root": "所有檔案",
+      "location": "目前位置",
+      "tree": "資料夾",
+      "expand": "展開",
+      "collapse": "收合",
+      "name": "資料夾名稱",
+      "create": {
+        "action": "新增資料夾",
+        "title": "新增資料夾",
+        "submit": "建立",
+        "placeholder": "例如：角色立繪",
+        "success": "已建立資料夾"
+      },
+      "delete": {
+        "title": "刪除資料夾",
+        "confirm": "確定要刪除「{{name}}」嗎？資料夾內的所有檔案與子資料夾都會一併刪除，無法復原。",
+        "success": "已刪除資料夾"
+      }
+    },
+    "move": {
+      "open": "移動",
+      "title": "移動 {{count}} 個項目到…",
+      "action": "移到這裡",
+      "success": "已移動 {{count}} 個項目",
+      "dragLabel": "{{count}} 個項目"
     }
   }
 }

@@ -145,6 +145,9 @@
     "FILE_UPLOAD_PART_INVALID": "The uploaded parts are invalid. Please upload the file again.",
     "FILE_VERSION_CONFLICT": "This file was changed by someone else. Refresh and try again.",
     "FILE_IMAGE_URL_INVALID": "This image link has expired. Refresh and try again.",
+    "FILE_FOLDER_NOT_FOUND": "The folder does not exist or has been deleted.",
+    "FILE_FOLDER_NAME_CONFLICT": "A folder with this name already exists here.",
+    "FILE_FOLDER_CYCLE": "A folder cannot be moved into itself or one of its subfolders.",
     "RATE_LIMITED": "Too many requests. Please slow down.",
     "INTERNAL_ERROR": "Server error. Please try again later.",
     "page": {

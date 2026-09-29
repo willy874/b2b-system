@@ -415,11 +415,17 @@
 | GET    | `/files/:id`          | 🛡 `file:read`   | 詳情（`pending` 只有上傳者看得到）            |
 | PATCH  | `/files/:id`          | 🛡 `file:update` | 改名（`{ name }`）                           |
 | DELETE | `/files/:id`          | 🛡 `file:delete` | 軟刪除紀錄並刪除物件                         |
+| POST   | `/files/move`         | 🛡 `file:update` | 把檔案與資料夾移到另一個資料夾（擋下移進自己的子孫） |
+| GET    | `/file-folders`       | 🛡 `file:read`   | 全部資料夾（扁平清單）                       |
+| POST   | `/file-folders`       | 🛡 `file:create` | 建立資料夾（同一層不可同名）                 |
+| POST   | `/file-folders/paths` | 🛡 `file:create` | 上傳資料夾：確保各路徑存在（同名的沿用）     |
+| PATCH  | `/file-folders/:id`   | 🛡 `file:update` | 資料夾改名                                   |
+| DELETE | `/file-folders/:id`   | 🛡 `file:delete` | 遞迴刪除資料夾（連同其中的檔案與子資料夾）   |
 
 ² `<img src>` 帶不了 access token，所以以網址上的 HMAC 簽章（綁定檔案 id、版本與失效時間）授權，與 presigned URL 相同的模型；
 簽章不符或過期回 `403 FILE_IMAGE_URL_INVALID`。見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md) §5.4。
 
-流程、欄位與錯誤碼見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md) §4–§6。
+流程、欄位與錯誤碼見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md) §4–§6（資料夾 §4.2）。
 
 ---
 

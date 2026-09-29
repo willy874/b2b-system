@@ -4,16 +4,22 @@ import { getBatchOperation, resetBatchOperations } from '@/core/batch';
 import type { BatchQueueClient } from '@/core/batch';
 import { isAppError } from '@/core/errors';
 
-const { uploadFile, deleteFile, invalidateResources, fetchQuery } = vi.hoisted(() => ({
-  uploadFile: vi.fn(),
-  deleteFile: vi.fn(),
-  invalidateResources: vi.fn(),
-  fetchQuery: vi.fn(),
-}));
+const { uploadFile, deleteFile, deleteFolder, invalidateResources, fetchQuery } = vi.hoisted(
+  () => ({
+    uploadFile: vi.fn(),
+    deleteFile: vi.fn(),
+    deleteFolder: vi.fn(),
+    invalidateResources: vi.fn(),
+    fetchQuery: vi.fn(),
+  }),
+);
 
 vi.mock('@/apis/file/upload-file/fetcher', () => ({ uploadFile }));
 vi.mock('@/apis/file/delete-file/mutation', () => ({
   getFileDeleteMutationOptions: () => ({ mutationFn: deleteFile }),
+}));
+vi.mock('@/apis/file/delete-file-folder/mutation', () => ({
+  getFileFolderDeleteMutationOptions: () => ({ mutationFn: deleteFolder }),
 }));
 vi.mock('@/apis/resources', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -41,7 +47,7 @@ describe('檔案的批次操作（docs/adr/0013-file-manager-upload.md）', () =
   it('enqueueFileUploads：檔案放進 uploadSources，佇列項目只帶 id、檔名與大小（份量）', async () => {
     const enqueue = vi.fn((_input: unknown) => 'job-1');
     const file = new File(['12345'], 'hero.png', { type: 'image/png' });
-    await enqueueFileUploads({ enqueue } as unknown as BatchQueueClient, [file]);
+    await enqueueFileUploads({ enqueue } as unknown as BatchQueueClient, [{ file }]);
 
     const input = enqueue.mock.calls[0]?.[0] as {
       items: Array<{ id: string; label: string; weight: number }>;
@@ -75,6 +81,25 @@ describe('檔案的批次操作（docs/adr/0013-file-manager-upload.md）', () =
     await expect(uploadSources.get('src-1')).resolves.toBeUndefined();
   });
 
+  it('上傳到資料夾：目的地編進項目 id，上傳時帶上 folderId；結果清單顯示相對路徑', async () => {
+    const enqueue = vi.fn((_input: unknown) => 'job-1');
+    const file = new File(['12'], 'button.png', { type: 'image/png' });
+    await enqueueFileUploads({ enqueue } as unknown as BatchQueueClient, [
+      { file, folderId: 'folder-1', label: 'ui/button.png' },
+    ]);
+    const input = enqueue.mock.calls[0]?.[0] as { items: Array<{ id: string; label: string }> };
+    const [item] = input.items;
+    expect(item?.label).toBe('ui/button.png');
+    uploadFile.mockResolvedValue({ id: 'file-2' });
+
+    await getBatchOperation(FileBatchOperation.UPLOAD)?.run(item?.id ?? '', context());
+
+    expect(uploadFile).toHaveBeenCalledWith(
+      expect.objectContaining({ file, folderId: 'folder-1' }),
+      expect.anything(),
+    );
+  });
+
   it('上傳：接手的分頁拿不到檔案 → FILE_UPLOAD_INCOMPLETE（請使用者重傳）', async () => {
     const error = await getBatchOperation(FileBatchOperation.UPLOAD)
       ?.run('missing', context())
@@ -100,6 +125,18 @@ describe('檔案的批次操作（docs/adr/0013-file-manager-upload.md）', () =
     );
     expect(invalidateResources).toHaveBeenCalledWith([
       { resource: 'file', kind: 'delete', id: 'file-9' },
+    ]);
+  });
+
+  it('刪除資料夾：呼叫單筆 API，失效資料夾與所有檔案（其中的檔案一起刪除了）', async () => {
+    deleteFolder.mockResolvedValue(undefined);
+    await getBatchOperation(FileBatchOperation.DELETE_FOLDER)?.run('folder-3', context());
+    expect(deleteFolder).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { folderId: 'folder-3' } }),
+    );
+    expect(invalidateResources).toHaveBeenCalledWith([
+      { resource: 'fileFolder', kind: 'delete', id: 'folder-3' },
+      { resource: 'file', kind: 'delete', id: '*' },
     ]);
   });
 });

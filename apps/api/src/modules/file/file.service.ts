@@ -30,6 +30,7 @@ import type {
 } from './dto/file.dto';
 import type { ListFileDto } from './dto/list-file.dto';
 import type { UpdateFileDto } from './dto/update-file.dto';
+import { FileFolderService } from './file-folder.service';
 import { FileImageService } from './file-image.service';
 import {
   FILE_AUDIT_FIELDS,
@@ -68,6 +69,7 @@ export class FileService {
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
     private readonly images: FileImageService,
+    private readonly folders: FileFolderService,
     config: ConfigService<Env, true>,
   ) {
     this.maxSize = config.get('FILE_UPLOAD_MAX_SIZE', { infer: true });
@@ -147,17 +149,23 @@ export class FileService {
     const uploadId = isMultipart
       ? await this.storage.createMultipartUpload(storageKey, { contentType: dto.contentType })
       : null;
-    const row = await this.repo.create({
-      id,
-      name: dto.name,
-      contentType: dto.contentType,
-      size: dto.size,
-      storageKey,
-      uploadId,
-      status: 'pending',
-      createdBy: actor.id,
-      updatedBy: actor.id,
-    });
+    const row = await this.folders.insideFolder(dto.folderId, (tx) =>
+      this.repo.create(
+        {
+          id,
+          name: dto.name,
+          contentType: dto.contentType,
+          size: dto.size,
+          storageKey,
+          uploadId,
+          folderId: dto.folderId ?? null,
+          status: 'pending',
+          createdBy: actor.id,
+          updatedBy: actor.id,
+        },
+        tx,
+      ),
+    );
 
     const [upload, thumbnailUpload] = await Promise.all([
       isMultipart
@@ -434,6 +442,7 @@ export class FileService {
       contentType: file.contentType,
       size: file.size,
       status: file.status,
+      folderId: file.folderId,
       url: links?.[0].url ?? null,
       downloadUrl: links?.[1].url ?? null,
       thumbnailUrl: image?.thumbnailUrl ?? links?.[2]?.url ?? null,

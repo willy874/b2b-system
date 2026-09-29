@@ -13,6 +13,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { fileFolders } from './file-folders';
 import { users } from './users';
 
 /**
@@ -70,6 +71,8 @@ export const files = pgTable(
     imageHeight: integer('image_height'),
     /** 變體的主格式（`jpeg`：progressive JPEG；`webp`：有透明度的圖）；其他格式依請求另外轉出。 */
     variantFormat: text('variant_format'),
+    /** 所在的資料夾；null 是根目錄（docs/architecture/backend/09-file.md §4.2）。 */
+    folderId: uuid('folder_id').references(() => fileFolders.id, { onDelete: 'restrict' }),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -98,6 +101,10 @@ export const files = pgTable(
       .where(sql`${t.deletedAt} IS NULL`),
     index('files_status_size_idx')
       .on(t.status, t.size, t.id)
+      .where(sql`${t.deletedAt} IS NULL`),
+    // 檔案管理器一次只列一個資料夾：先以 folder_id 縮小範圍，再依排序欄位排序
+    index('files_folder_created_at_idx')
+      .on(t.folderId, t.createdAt, t.id)
       .where(sql`${t.deletedAt} IS NULL`),
     index('files_status_content_type_idx')
       .on(t.status, t.contentType)

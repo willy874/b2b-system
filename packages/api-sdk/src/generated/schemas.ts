@@ -12,11 +12,16 @@ import type {
   AuditLogSummary,
   ChangePasswordRequest,
   CompleteFileUploadRequest,
+  CreateFileFolderRequest,
   CreateFileUploadPartsRequest,
   CreateFileUploadRequest,
   CreateRoleRequest,
   CreateUserRequest,
   DuplicateRoleRequest,
+  EnsureFileFolderPathsRequest,
+  FileFolder,
+  FileFolderList,
+  FileFolderPaths,
   FileListPage,
   FileMultipartUpload,
   FileUpload,
@@ -28,6 +33,8 @@ import type {
   ForgotPasswordRequest,
   GetFileImageQuery,
   LoginRequest,
+  MoveFileItemsRequest,
+  MoveFileItemsResult,
   Permission,
   PermissionCatalog,
   PermissionGroup,
@@ -46,6 +53,7 @@ import type {
   SetupRequest,
   StoredFile,
   StoredFileImage,
+  UpdateFileFolderRequest,
   UpdateFileRequest,
   UpdateProfileRequest,
   UpdateRolePermissionsRequest,
@@ -394,6 +402,15 @@ export const CreateFileUploadRequestSchema = z.object({
     .max(255)
     .regex(new RegExp('^[a-z0-9][a-z0-9!#$&^_.+-]*\\/[a-z0-9][a-z0-9!#$&^_.+-]*$')),
   size: z.int().min(0).max(9007199254740991),
+  folderId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable()
+    .optional(),
   thumbnail: z
     .object({
       contentType: z.enum(['image/webp', 'image/jpeg', 'image/png']),
@@ -418,6 +435,124 @@ export const CompleteFileUploadRequestSchema = z.object({
     .max(10000)
     .optional(),
 }) satisfies z.ZodType<CompleteFileUploadRequest>;
+
+export const FileFolderSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+  parentId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}) satisfies z.ZodType<FileFolder>;
+
+export const FileFolderListSchema = z.object({
+  items: z.array(FileFolderSchema),
+}) satisfies z.ZodType<FileFolderList>;
+
+export const CreateFileFolderRequestSchema = z.object({
+  name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
+  parentId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable()
+    .default(null),
+}) satisfies z.ZodType<CreateFileFolderRequest>;
+
+export const UpdateFileFolderRequestSchema = z.object({
+  name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
+}) satisfies z.ZodType<UpdateFileFolderRequest>;
+
+export const EnsureFileFolderPathsRequestSchema = z.object({
+  parentId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable()
+    .default(null),
+  paths: z
+    .array(
+      z
+        .array(z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')))
+        .min(1)
+        .max(32),
+    )
+    .min(1)
+    .max(1000),
+}) satisfies z.ZodType<EnsureFileFolderPathsRequest>;
+
+export const FileFolderPathsSchema = z.object({
+  items: z.array(
+    z.object({
+      path: z.array(z.string()),
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    }),
+  ),
+}) satisfies z.ZodType<FileFolderPaths>;
+
+export const MoveFileItemsRequestSchema = z.object({
+  fileIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(1000)
+    .default([]),
+  folderIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(1000)
+    .default([]),
+  targetFolderId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+}) satisfies z.ZodType<MoveFileItemsRequest>;
+
+export const MoveFileItemsResultSchema = z.object({
+  movedFiles: z.int().min(-9007199254740991).max(9007199254740991),
+  movedFolders: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<MoveFileItemsResult>;
 
 export const FileUploaderSchema = z.object({
   id: z
@@ -451,6 +586,14 @@ export const StoredFileSchema = z.object({
   contentType: z.string(),
   size: z.int().min(-9007199254740991).max(9007199254740991),
   status: z.enum(['pending', 'ready']),
+  folderId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
   url: z.string().nullable(),
   downloadUrl: z.string().nullable(),
   thumbnailUrl: z.string().nullable(),

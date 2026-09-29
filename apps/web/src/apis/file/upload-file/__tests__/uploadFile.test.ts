@@ -27,6 +27,7 @@ const storedFile = (status: StoredFile['status']): StoredFile => ({
   contentType: 'image/png',
   size: 4,
   status,
+  folderId: null,
   url: status === 'ready' ? 'http://localhost/storage/b/files/file-1?inline' : null,
   downloadUrl: null,
   thumbnailUrl: null,

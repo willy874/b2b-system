@@ -236,6 +236,7 @@ export interface CreateFileUploadRequest {
   name: string;
   contentType: string;
   size: number;
+  folderId?: string | null;
   thumbnail?: {
     contentType: 'image/webp' | 'image/jpeg' | 'image/png';
     size: number;
@@ -251,6 +252,50 @@ export interface CompleteFileUploadRequest {
     partNumber: number;
     etag: string;
   }>;
+}
+
+export interface FileFolder {
+  id: string;
+  name: string;
+  parentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FileFolderList {
+  items: Array<FileFolder>;
+}
+
+export interface CreateFileFolderRequest {
+  name: string;
+  parentId: string | null;
+}
+
+export interface UpdateFileFolderRequest {
+  name: string;
+}
+
+export interface EnsureFileFolderPathsRequest {
+  parentId: string | null;
+  paths: Array<Array<string>>;
+}
+
+export interface FileFolderPaths {
+  items: Array<{
+    path: Array<string>;
+    id: string;
+  }>;
+}
+
+export interface MoveFileItemsRequest {
+  fileIds: Array<string>;
+  folderIds: Array<string>;
+  targetFolderId: string | null;
+}
+
+export interface MoveFileItemsResult {
+  movedFiles: number;
+  movedFolders: number;
 }
 
 export interface FileUploader {
@@ -273,6 +318,7 @@ export interface StoredFile {
   contentType: string;
   size: number;
   status: 'pending' | 'ready';
+  folderId: string | null;
   url: string | null;
   downloadUrl: string | null;
   thumbnailUrl: string | null;

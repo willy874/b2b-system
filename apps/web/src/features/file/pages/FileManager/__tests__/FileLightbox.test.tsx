@@ -17,6 +17,7 @@ vi.mock('@/apis/file/get-file-detail/query', () => ({
 }));
 
 const item = (id: string, overrides: Partial<FileItemVM> = {}): FileItemVM => ({
+  type: 'file',
   id,
   name: `${id}.png`,
   contentType: 'image/png',

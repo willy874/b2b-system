@@ -61,3 +61,5 @@ export const DEFAULT_THUMBNAIL_MAX_BYTES = 512 * 1024;
 export const UPLOAD_CONCURRENCY = 3;
 /** 沒有縮圖的圖片，小於這個大小才直接拿原檔當預覽，避免列表下載一堆大圖。 */
 export const INLINE_PREVIEW_MAX_SIZE = 2 * 1024 * 1024;
+/** 後端 `MAX_FOLDER_PATHS`：上傳資料夾時一次確保的路徑數，超過就分批送。 */
+export const FOLDER_PATHS_PER_REQUEST = 1000;

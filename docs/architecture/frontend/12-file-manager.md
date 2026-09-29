@@ -9,7 +9,10 @@
 | --- | --- | --- |
 | 列表、圖示卡片兩種排版 | 同一套固定尺寸的版面計算，依容器寬度決定欄數 | §3 |
 | 分頁、無限捲動兩種閱覽模式 | 分頁用 offset；無限捲動用 keyset 游標（捲動中有人新增或刪除也不重複、不漏） | §5 |
-| 拖曳到主區塊上傳 | `useFileDrop`：只對帶檔案的拖曳反應，資料夾略過並提示 | §7 |
+| 資料夾分類（巢狀） | 左側樹狀面板 ＋ 麵包屑 ＋ 主區塊的資料夾（排在檔案前面）；一份扁平清單組成樹 | §12 |
+| 拖曳移動檔案與資料夾 | `useItemDrag`：拖到資料夾卡片、樹的節點、麵包屑上移動；擋下移進自己的子孫；「移動到…」對話框是替代方式 | §12 |
+| 拖曳到主區塊上傳 | `useFileDrop`：只對帶檔案的拖曳反應；資料夾保留結構上傳；放在資料夾卡片上就傳到那個資料夾 | §7、§8 |
+| 上傳資料夾 | 拖放資料夾或選取資料夾（`webkitdirectory`）；先在目的地建出同樣的結構（同名合併），再把檔案送進佇列 | §8 |
 | 框選多個檔案做批次處理 | `useMarqueeSelection`：以版面幾何計算命中，畫面外（虛擬捲動沒渲染）的項目也算得到 | §7 |
 | RWD | 欄數、卡片寬度、列表顯示的欄位都由容器寬度決定；工具列在窄螢幕換行 | §3 |
 | 常見格式的圖示、圖片的縮圖預覽 | `core/file` 的 `getFileKind()` ＋ 伺服器產生的圖示預覽（`thumbnailUrl`；之前退回上傳時由瀏覽器產生的縮圖） | §6、§8 |
@@ -31,14 +34,16 @@ features/file/                       業務：頁面、上傳入口、內建的�
 ├── plugin.ts                        同步階段：頁面權限、批次操作、內建擴充；onInit：語系、清理暫存
 ├── batch.ts                         批次操作 file.upload / file.delete、enqueueFileUploads()
 ├── preference.ts                    排列方式、閱覽模式、排序、每頁筆數（dictStorage ＋ 跨分頁頻道）
-├── upload/                          uploadSources（IndexedDB 暫存）、內建驗證器
+├── upload/                          uploadSources（IndexedDB 暫存）、內建驗證器、collectEntries（展開拖放／選取的資料夾）
 ├── preview/                         內建解析器：ImagePreview、TextPreview
-├── hooks/                           useFilePermission、useFileUpload、useFileRenameMutation / useFileDeleteMutation
-└── pages/FileManager/               page.tsx ＋ 版面計算、資料、選取、框選、拖放的 hooks ＋ 元件
+├── hooks/                           useFilePermission、useFileUpload、useFileRenameMutation / useFileDeleteMutation、
+│                                    useFolderMutations（建立、改名、遞迴刪除、移動）
+└── pages/FileManager/               page.tsx ＋ 版面計算、資料、選取、框選、拖放、資料夾樹（folderTree）、拖曳移動（useItemDrag）的 hooks ＋ 元件
 
 core/file/                           機制：檔案類型、三個擴充點的註冊表、圖片縮圖產生器（不認識任何 feature）
 core/batch/                          全域批次佇列（上傳與其他批次工作共用）
-apis/file/                           uploadFile()（單次／分塊／縮圖）、列表（分頁／無限）、詳情、內容（文字預覽）、上傳政策
+apis/file/                           uploadFile()（單次／分塊／縮圖）、列表（分頁／無限）、詳情、內容（文字預覽）、上傳政策、
+                                     資料夾（列表、建立、改名、刪除、確保路徑）、移動
 shared/storage/blobStore.ts          Blob 的鍵值儲存（記憶體 ＋ IndexedDB）
 ```
 
@@ -75,9 +80,9 @@ moveIndex(layout, i, 'ArrowDown', count);  // 鍵盤移動
 
 | 狀態 | 位置 | 理由 |
 | --- | --- | --- |
-| 搜尋關鍵字、分類、第幾頁（`offset`）、LightBox 開著的檔案（`preview`） | 網址（`FileSearchQuerySchema`） | 分享連結時對方看到同一個結果；上一頁可還原 |
+| 所在的資料夾（`folder`）、搜尋關鍵字、分類、第幾頁（`offset`）、LightBox 開著的檔案（`preview`） | 網址（`FileSearchQuerySchema`） | 分享連結時對方看到同一個結果；上一頁回到上一個資料夾 |
 | 排列方式、閱覽模式、排序、每頁筆數 | `preference.ts`：`dictStorage('file-view')` ＋ 頻道 `store:file-view:storage` | 個人偏好，下次打開沿用；改了其他分頁立即跟上；不進網址（對方有自己的偏好） |
-| 選取 | `useFileSelection`（頁面狀態） | 換條件、換頁、換閱覽模式時清空 |
+| 選取 | `useFileSelection`（頁面狀態） | 換資料夾、換條件、換頁、換閱覽模式時清空 |
 
 - 偏好從 localStorage 與其他分頁讀進來時逐欄驗證（`parseFileViewPreference`）：一個欄位壞掉只退回那一欄的預設值。
 - 搜尋打字後 300 ms 才寫進網址，且用 `replace`：不讓每個字都留一筆瀏覽紀錄。
@@ -144,32 +149,38 @@ registerFilePreviewer({
 
 | 操作 | 結果 |
 | --- | --- |
-| 點擊 | 只選這一個 |
+| 點擊 | 只選這一個（資料夾與檔案一樣可以選取、框選） |
 | ⌘ / Ctrl 點擊、點勾選框 | 切換這一個 |
 | Shift 點擊 | 從錨點選到這一個 |
 | 在空白處按下滑鼠拖曳 | 框選（按著 Shift / ⌘ / Ctrl 開始時疊加）；拖到上下邊緣自動捲動；空白處單純點一下清空選取 |
 | 方向鍵 / Home / End | 移動焦點並選取（Shift 延伸選取）；卡片模式上下移一整列 |
-| 空白鍵 / Enter | 切換焦點項目 / 打開 LightBox |
+| 空白鍵 / Enter、雙擊 | 切換焦點項目 / 打開：資料夾是進入，檔案是 LightBox |
+| 拖曳項目到資料夾（卡片、樹、麵包屑） | 移動；拖已選取的項目時整批一起移動（§12） |
 | ⌘ / Ctrl ＋ A、Esc、Delete | 全選、清除、刪除選取（有刪除權限時） |
-| 觸控 | 拖曳是捲動（不框選）；沒有選取時點一下打開，有選取後點一下切換 |
-| 把檔案拖進主區塊 | 出現遮罩；放開後驗證並送進上傳佇列；資料夾略過並提示 |
+| 觸控 | 拖曳是捲動（不框選）；沒有選取時點一下打開，有選取後點一下切換；移動用選取列的「移動」 |
+| 把檔案或資料夾從電腦拖進主區塊 | 出現遮罩；放開後驗證並送進上傳佇列（資料夾保留結構）；停在資料夾卡片上時卡片亮起、上傳到那個資料夾 |
 
 - 主區塊是 WAI-ARIA listbox（`aria-multiselectable`、`aria-activedescendant`），項目是 `role="option"`：
   點擊以事件委派處理，一萬個項目也不必各掛一組 handler。勾選框由自己的 `onCheckedChange` 切換
   （Base UI 會把 click 轉發給隱藏的 input，委派處理會看到兩次）。
 - 選取列常駐（沒有選取時顯示操作提示）：框選途中它若突然出現，主區塊會被往下推、框跟著跳動。
-- 多選的刪除送進全域佇列逐筆處理；單一檔案直接呼叫單筆 API。多選下載以 250 ms 間隔依序觸發（同一瞬間觸發多個，瀏覽器只處理第一個）。
+- 多選的刪除送進全域佇列逐筆處理（檔案 `file.delete`、資料夾 `file.deleteFolder` 各一個工作）；單一項目直接呼叫單筆 API。
+  資料夾是遞迴刪除，確認對話框明講「其中的檔案與子資料夾一併刪除」。
+- 選取列：只選一個時可改名（檔案與資料夾各自的對話框）、「移動」、下載（只下載選取中的檔案）、刪除。多選下載以 250 ms 間隔依序觸發（同一瞬間觸發多個，瀏覽器只處理第一個）。
 
 ---
 
 ## 8. 上傳
 
 ```
-選檔 / 拖放
+選檔 / 選資料夾 / 拖放
+  → collectEntries：展開成 { file, directories（相對路徑的各層） }，並列出每一個資料夾路徑（含空資料夾）；略過 .DS_Store 等系統檔
   → useFileUpload：validateFile()（core/file 的驗證器）→ 被擋下的以 toast 列出第一個原因
-  → enqueueFileUploads()：檔案放進 uploadSources（記憶體 ＋ IndexedDB），佇列項目只帶 { id, label: 檔名, weight: 大小 }
+  → 有資料夾時：POST /file-folders/paths 在目的地建出同樣的結構（同名合併），拿到每個路徑的資料夾 id；失敗就整批不上傳
+  → enqueueFileUploads()：檔案放進 uploadSources（記憶體 ＋ IndexedDB），佇列項目只帶
+       { id: <暫存 key>@<資料夾 id>, label: 相對路徑, weight: 大小 }——目的地編進 id，接手的分頁也知道要傳到哪裡
   → 全域批次佇列（concurrency 3）交派給某個分頁
-  → file.upload 操作：從 uploadSources 取檔 → createThumbnail() → uploadFile(file, thumbnail, onProgress, signal)
+  → file.upload 操作：從 uploadSources 取檔 → createThumbnail() → uploadFile(file, folderId, thumbnail, onProgress, signal)
        uploadFile：登記 → 單次 PUT 或分塊（4 塊並行、各塊重試）→ complete；失敗或中止時放棄上傳
   → 成功：invalidateResources(file create)；不論成敗都清掉暫存的檔案
 ```
@@ -180,6 +191,9 @@ registerFilePreviewer({
   IndexedDB 不可用（隱私模式）時接手的分頁拿不到檔案，該筆以 `FILE_UPLOAD_INCOMPLETE` 失敗，請使用者重傳。
   分頁當掉留下的暫存在下次啟動時清除（超過 24 小時）。
 - 大檔切塊與網址續期見 [backend 09 §5.2](../backend/09-file.md)。
+- **資料夾的讀取**：拖放時 `webkitGetAsEntry()` 只在 drop 事件的同步階段有效，`collectFromDataTransfer()` 在第一個 `await`
+  之前就取出所有項目，再非同步遞迴展開（`readEntries` 一次最多回 100 筆，要讀到回空陣列為止）。
+  選取資料夾（`<input webkitdirectory>`）則以 `webkitRelativePath` 還原路徑。
 
 ---
 
@@ -201,6 +215,9 @@ registerFilePreviewer({
 | 情境 | 處理 |
 | --- | --- |
 | 別人上傳、改名、刪除 | 推播 `file` 變更 → 依賴圖失效列表與詳情（`Resource.FILE`）；沒有推播時靠自己的寫入失效與 window focus |
+| 別人建立、改名、移動、刪除資料夾 | 推播 `fileFolder` 變更 → 失效資料夾清單（`Resource.FILE_FOLDER`）；移動與刪除也失效檔案列表（`derivesFrom`） |
+| 所在的資料夾被別人刪除 | 資料夾清單裡找不到網址上的 `folder` → 以 `replace` 回到根目錄 |
+| 拖放時別人剛好改了結構 | 前端先依自己的資料夾清單擋下明顯的循環；後端在排隊的交易內再檢查一次（`FILE_FOLDER_CYCLE` / `NAME_CONFLICT`），失敗以 toast 顯示並重抓資料夾 |
 | 無限捲動途中有人新增或刪除 | keyset 游標：下一頁從「最後一筆之後」取，不重複、不漏；重新驗證時合併以 id 去重 |
 | 選取的檔案被別人刪除 | 選取以 id 記錄，並以目前載入的 id 過濾：資料更新後自動移出，批次操作不會送出看不到的項目 |
 | 兩個人同時改名 | 送出畫面上看到的 `version`；後到者收到 `FILE_VERSION_CONFLICT`，對話框保留輸入，詳情重抓後可以再送 |
@@ -217,13 +234,59 @@ registerFilePreviewer({
 | --- | --- |
 | `features/file/pages/FileManager/__tests__/layout.test.ts` | RWD 欄數、框選命中（含畫面外、間距）、方向鍵 |
 | `…/__tests__/useFileSelection.test.ts` | 點擊、⌘ / Shift、框選取代與疊加、資料更新後自動修剪 |
-| `…/__tests__/FileBrowser.test.tsx` | 點擊與勾選框、雙擊、鍵盤、拖放（含資料夾、無權限）、列表表頭排序、空狀態 |
+| `…/__tests__/FileBrowser.test.tsx` | 點擊與勾選框、雙擊（檔案／資料夾）、鍵盤、拖放上傳（含放在資料夾卡片上、無權限）、拖曳移動（整批、只拖一個、放進自己被擋、無權限不可拖）、列表表頭排序、空狀態 |
+| `…/__tests__/folderTree.test.ts` | 自然排序、孤兒不掛到根目錄、路徑、`isWithin`、移動的合法性 |
+| `features/file/upload/__tests__/collectEntries.test.ts` | `webkitRelativePath` 還原結構、略過系統檔、拖放的遞迴展開（含空資料夾、分批的 `readEntries`） |
 | `…/__tests__/FileLightbox.test.tsx` | 依註冊表選解析器、無解析器、超過大小上限、解析器壞掉、上一個／下一個、已刪除、權限 |
 | `…/__tests__/adapter.test.ts` | 縮圖／原檔／圖示的選擇、全螢幕預覽、多頁去重、網址效期 |
 | `features/file/preview/__tests__/ImagePreview.test.tsx` | 預設顯示全螢幕預覽、原始大小才載入原圖、沒有預覽時用原圖 |
-| `features/file/hooks/__tests__/useFilePermission.test.tsx` | 有權限／只有 `file:read`／未水合 三案例 |
-| `features/file/__tests__/batch.test.ts` | 送進佇列的形狀、上傳操作（進度、失效、清暫存、拿不到檔案）、刪除操作 |
+| `features/file/hooks/__tests__/useFilePermission.test.tsx` | 有權限／只有 `file:read`／只有 `file:update`（可移動不可建立資料夾）／未水合 |
+| `features/file/__tests__/batch.test.ts` | 送進佇列的形狀、上傳到資料夾（目的地編進 id）、上傳操作（進度、失效、清暫存、拿不到檔案）、刪除檔案與資料夾 |
 | `features/file/upload/__tests__/validators.test.ts`、`__tests__/preference.test.ts` | 內建驗證器、偏好的逐欄驗證 |
 | `core/file/__tests__/*` | 類型判斷、三個註冊表 |
 | `core/batch/__tests__/BatchQueue.test.ts` | 工作內並行、進度回報與廣播、取消時中止處理中的項目、依份量計算進度 |
 | `shared/storage/__tests__/blobStore.test.ts` | 沒有 IndexedDB 時退回記憶體、`prune` |
+
+---
+
+## 12. 資料夾與拖曳移動
+
+資料夾把檔案分類成巢狀結構（後端規則見 [backend 09 §4.2](../backend/09-file.md)）。
+
+```
+GET /file-folders（全部資料夾，扁平清單）
+  → folderTree.buildFolderIndex()：byId ＋ 上層 → 子資料夾（自然排序）
+  → 麵包屑（folderPath）、側欄的樹（FileFolderTree）、主區塊的子資料夾（useFolderView）、移動對話框、拖放的合法性判斷共用
+GET /files?folderId=<目前資料夾 | root>  → 主區塊的檔案（資料夾排在前面）
+```
+
+- **為什麼一次拿全部資料夾**：資料夾數量遠少於檔案，一份清單就能畫出樹、麵包屑、判斷循環；逐層展開時才查詢
+  會讓麵包屑（要知道所有上層）與拖放的合法性判斷（要知道所有子孫）都得多打 API。
+- 主區塊的資料夾依名稱排序（依大小、上傳時間排序時仍以名稱排，只跟著「名稱遞減」反轉）；搜尋時依名稱篩選；選了檔案分類時不顯示。
+  分頁模式只在第一頁放資料夾（檔案的 offset 分頁不包含資料夾）。
+- 側欄只在 `lg` 以上顯示；窄螢幕以麵包屑往上層、以「移動」對話框移動。樹的節點：目前資料夾的上層自動展開，之後選到別處也保持展開。
+
+### 12.1 拖曳移動（`useItemDrag`）
+
+| 項目 | 做法 |
+| --- | --- |
+| 拖什麼 | 拖已選取的項目 → 整批（檔案與資料夾）；拖沒選取的 → 只拖它（不改變選取，同作業系統的檔案總管）。游標旁顯示「N 個項目」的小標籤 |
+| 放在哪 | 標了 `data-drop-folder` 的元素：主區塊的資料夾卡片／列、樹的節點（也可以把節點拖到別的節點上）、麵包屑的每一層（往上層移）。容器上掛一組 handler，以事件委派找出目標 |
+| 能不能放 | 放回原處不算；資料夾不能放進自己或子孫（同後端的 `FILE_FOLDER_CYCLE`）。不合法時 `dropEffect = 'none'`（游標顯示禁止），合法的目標亮起來 |
+| 與上傳的區別 | 頁面內的拖曳只帶 `application/x-game-editor-file-items`；從電腦拖進來的帶 `Files`。兩個 hook 在同一個容器上各自只認自己的型別 |
+| 拖了哪些 | `dragover` 期間瀏覽器不讓讀 `getData()`，所以拖曳的項目記在 hook 的 ref 裡，`dataTransfer` 只帶型別標記 |
+| 送出 | `POST /files/move` 一次送出檔案與資料夾（後端同一個交易）；成功後失效資料夾清單與檔案（`id='*'`），toast「已移動 N 個項目」 |
+| 權限 | `file:update`（`canMove`）；沒有時項目不可拖曳、不顯示「移動」 |
+
+**替代方式**：拖放不適合鍵盤、觸控、目的地不在畫面上的情況——選取列的「移動」開啟對話框（`FileMoveDialog`），
+以同一棵樹選目的地；要移動的資料夾與其子孫不可選，目前所在的位置可以選但「移到這裡」不可按。
+
+### 12.2 資料夾的操作
+
+| 操作 | 入口 | 權限 |
+| --- | --- | --- |
+| 新增資料夾（在目前的資料夾裡） | 工具列「新增資料夾」→ `FileFolderDialog` | `file:create` |
+| 改名 | 只選一個資料夾時，選取列的「重新命名」 | `file:update` |
+| 刪除（遞迴） | 選取後 Delete 鍵或選取列的「刪除」 | `file:delete` |
+| 進入 | 雙擊、Enter、觸控點一下、樹的節點、麵包屑 | `file:read` |
+

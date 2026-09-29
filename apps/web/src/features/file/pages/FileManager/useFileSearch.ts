@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import { FileListRoute } from '../../routes';
 import type { FileSearchQuery } from '../../routes';
 
-/** 篩選、第幾頁、LightBox 開著的檔案放在網址（可分享、上一頁可還原）。 */
+/** 所在的資料夾、篩選、第幾頁、LightBox 開著的檔案放在網址（可分享、上一頁可還原）。 */
 export function useFileSearch() {
   const search = FileListRoute.useSearch();
   const navigate = useNavigate();
@@ -26,6 +26,12 @@ export function useFileSearch() {
     setFilters: (filters: Pick<FileSearchQuery, 'keyword' | 'category'>, replace = false) =>
       patch({ ...filters, offset: 0 }, { replace }),
     setOffset: (offset: number) => patch({ offset }),
+    /**
+     * 進入資料夾（undefined 是根目錄）：回到第一頁、清掉搜尋與預覽——上一層的搜尋字放進新的資料夾沒有意義。
+     * 每次進入都留瀏覽紀錄，上一頁回到上一個資料夾；資料夾已不存在時以 `replace` 退回。
+     */
+    setFolder: (folder: string | undefined, options: { replace?: boolean } = {}) =>
+      patch({ folder, offset: 0, keyword: undefined, preview: undefined }, options),
     openPreview: (fileId: string) => patch({ preview: fileId }),
     /** 在 LightBox 裡切換上一個／下一個不留瀏覽紀錄：返回鍵直接關掉 LightBox。 */
     switchPreview: (fileId: string) => patch({ preview: fileId }, { replace: true }),
