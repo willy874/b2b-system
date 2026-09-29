@@ -5,8 +5,7 @@ import { useHasSession } from '@/core/auth';
 import { useTranslation } from '@/core/locales';
 
 /**
- * 平台首頁：目前登入的身分。租戶管理與外部 IdP 連線管理之後加在這裡
- * （docs/features/sso.md 交付順序 3、4）。
+ * 平台首頁：目前登入的身分。租戶管理與外部 IdP 連線是各自的頁面，從頂列進入（docs/architecture/04-sso.md §6.2）。
  */
 export default function HomePage() {
   const { t } = useTranslation();

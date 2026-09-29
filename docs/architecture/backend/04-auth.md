@@ -437,7 +437,7 @@ async cleanupExpiredTokens() {
 
 ## 8.1 SSO（apps/api 當 OIDC Provider）
 
-決定與理由見 [ADR-0019](../../adr/0019-sso-identity-platform.md)；規劃與剩餘工作見 [`../../features/sso.md`](../../features/sso.md)。
+流程、端點、資料模型與部署見 [`../04-sso.md`](../04-sso.md)；決定與理由見 [ADR-0019](../../adr/0019-sso-identity-platform.md)。這裡只列與本文件各節的關係。
 
 - `modules/oidc-provider`：[`oidc-provider`](https://github.com/panva/node-oidc-provider) 掛在本程序的 `/oidc`（瀏覽器看到 `OIDC_ISSUER`，
   apps/auth origin 底下的 `/api/oidc`）；狀態存在 `oidc_payloads`，過期的列由背景工作 `oidc.cleanup` 清除。

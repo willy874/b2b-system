@@ -25,6 +25,7 @@
 | 領域       | 內容                                                                                          |
 | ---------- | --------------------------------------------------------------------------------------------- |
 | 認證       | 登入、登出、Access Token 續期（rotating refresh token）、忘記密碼／重設密碼、首次啟用設定密碼 |
+| SSO（Phase 0 之後加入） | `apps/auth` 身分與租戶入口、`apps/api` 當 OIDC Provider、外部 IdP（OIDC）與網域導向、單一登出（[`architecture/04-sso.md`](../architecture/04-sso.md)） |
 | 使用者管理 | 列表（分頁／搜尋／排序）、建立、檢視、編輯、停用／啟用、刪除、指派角色                        |
 | 角色管理   | 列表、建立、檢視、編輯、刪除、授予／移除權限、系統角色保護                                    |
 | 權限目錄   | 唯讀的權限清單 API 與 UI（resource × action），供角色編輯時挑選                               |
@@ -38,7 +39,7 @@
 - **資源層級作用域**（例如「只能編輯自己專案的資源」）
   — 架構已預留延伸點，理由見 [ADR-0006](../adr/0006-flat-permission-scope.md)
 - 多租戶（Tenant）隔離
-- SSO / OIDC / LDAP 整合
+- LDAP、SAML 整合（OIDC 的 SSO 已在 Phase 0 之後加入，見 [`architecture/04-sso.md`](../architecture/04-sso.md)）
 - MFA（雙因素驗證）— 資料表預留欄位，流程不實作
 - 批次匯入／匯出
 - 通知中心、Webhook

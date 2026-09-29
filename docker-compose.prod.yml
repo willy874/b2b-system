@@ -64,8 +64,15 @@ services:
       MAIL_TRANSPORT: smtp
       MAIL_SMTP_URL: ${MAIL_SMTP_URL:?required}
       MAIL_FROM: ${MAIL_FROM:?required}
-      # 信裡的連結（啟用、重設密碼）以瀏覽器看到的 origin 開頭
+      # 信裡的產品連結以瀏覽器看到的 origin 開頭；也是第一方 client `backstage` 的 redirect URI 開頭
       APP_PUBLIC_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      # SSO（docs/architecture/04-sso.md）：apps/auth 是獨立的 origin，issuer 在它底下的 /api/oidc。
+      # 帳號流程的信中連結（啟用、重設密碼、邀請）以 AUTH_APP_URL 開頭
+      AUTH_APP_URL: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}
+      OIDC_ISSUER: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}/api/oidc
+      OIDC_JWKS: ${OIDC_JWKS:?required}
+      OIDC_COOKIE_KEYS: ${OIDC_COOKIE_KEYS:?required}
+      IDP_SECRET_KEY: ${IDP_SECRET_KEY:?required}
     networks: [edge, data, storage]
     # 單一執行個體：權限快取與 Socket.io room 都在記憶體。擴展前提見 01-system.md §4.3
     depends_on:
@@ -96,6 +103,9 @@ services:
     build:
       context: .
       dockerfile: apps/backstage/Dockerfile
+      args:
+        VITE_OIDC_ISSUER: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}/api/oidc
+        VITE_AUTH_APP_URL: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}
     restart: unless-stopped
     ports:
       - '8080:80'
@@ -109,6 +119,9 @@ services:
     build:
       context: .
       dockerfile: apps/auth/Dockerfile
+      args:
+        VITE_OIDC_ISSUER: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}/api/oidc
+        VITE_AUTH_APP_URL: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}
     restart: unless-stopped
     ports:
       - '8081:80'

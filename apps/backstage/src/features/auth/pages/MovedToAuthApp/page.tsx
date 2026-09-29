@@ -8,7 +8,7 @@ import { AuthShell } from '../AuthShell';
 
 /**
  * 帳號流程搬到 apps/auth 了（docs/adr/0019-sso-identity-platform.md D1）。這個頁面接住已寄出的信裡的舊連結
- * （`/auth/setup?token=…` 等），連同查詢字串頂層跳轉到 apps/auth 的同名頁面。保留一版後移除（docs/features/sso.md）。
+ * （`/auth/setup?token=…` 等），連同查詢字串頂層跳轉到 apps/auth 的同名頁面。保留一版後移除（docs/architecture/04-sso.md §6.1）。
  */
 export default function MovedToAuthAppPage() {
   const { t } = useTranslation();

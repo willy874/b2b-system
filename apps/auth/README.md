@@ -2,7 +2,7 @@
 
 全平台共用、**不分工作區** 的身分與租戶入口（[ADR-0019](../../docs/adr/0019-sso-identity-platform.md)）。
 各產品（backstage、之後的編輯器）的登入都會經過這裡；平台層級的管理（租戶、外部 IdP 連線）也放在這裡。
-規劃與交付順序見 [`docs/features/sso.md`](../../docs/features/sso.md)。
+流程、端點與部署見 [`docs/architecture/04-sso.md`](../../docs/architecture/04-sso.md)。
 
 - 只有前端（Vite ＋ React 19），後端 API 由 `apps/api` 提供，經自己 origin 的 `/api` 反向代理（D2）。
 - **獨立的 origin**（dev `localhost:5175`、prod 例：`auth.example.com`）。**不使用跨域 cookie**：每個 cookie 都是 host-only，
@@ -17,7 +17,7 @@ pnpm --filter @b2b-system/auth test
 pnpm --filter @b2b-system/auth build
 ```
 
-## 目前的內容（交付順序 3：IdP、帳號流程、租戶管理）
+## 內容
 
 | 路徑 | 說明 |
 | --- | --- |

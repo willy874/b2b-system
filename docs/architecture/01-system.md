@@ -47,6 +47,10 @@
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
+**登入不在 backstage**：`apps/auth` 是全平台共用、不分工作區的前端（獨立的 origin），`apps/api` 當 OIDC Provider。
+backstage 以授權碼 ＋ PKCE 跳到 apps/auth 登入，再以自己 origin 的 `/api/auth/sso/callback` 換成上圖的 app session。
+平台層級的頁面（租戶、外部 IdP 連線、帳號流程）也在 apps/auth。見 [`04-sso.md`](./04-sso.md)。
+
 ---
 
 ## 2. 相依方向（不可違反）
@@ -88,25 +92,30 @@ repository ✗──▶ service  （單向）
 ### 3.1 登入
 
 ```
-[backstage] LoginPage
-  └─▶ POST /auth/login { email, password }
-        [api] AuthController.login
-          └─▶ AuthService.login
+[backstage] /auth/login → 頂層跳轉 → {apps/auth}/api/oidc/auth?client_id=backstage&code_challenge=…&state=…
+  [api] oidc-provider：沒有 IdP session → apps/auth /interaction/:uid
+[apps/auth] 互動頁 └─▶ POST /oidc-interaction/:uid/login { email, password }（或導向外部 IdP）
+        [api] AuthService.verifyCredentials
                 ├─ UserRepository.findByEmail          (citext 比對)
                 ├─ argon2.verify(password_hash, pw)
-                ├─ 檢查 status = 'active'
-                ├─ 失敗次數 / 鎖定檢查
-                ├─ 簽發 access token  (JWT, 5 min, 僅含 sub/jti/ver)
-                ├─ 產生 refresh token (opaque 隨機 256-bit，雜湊後入庫)
+                ├─ 檢查 status = 'active'、失敗次數 / 鎖定、只允許 SSO 的網域
                 └─ 寫入 audit_logs (auth.login.success)
+        ◀── { redirectTo }（頁面頂層跳轉 → provider 建立 IdP session → 303 backstage /auth/callback?code&state）
+[backstage] /auth/callback
+  └─▶ POST /auth/sso/callback { code, codeVerifier, clientId, redirectUri }
+        [api] 本程序內兌換授權碼（PKCE）
+                ├─ 簽發 access token  (JWT, 5 min, 僅含 sub/jti/ver/sid)
+                └─ 產生 refresh token (opaque 隨機 256-bit，雜湊後入庫，記 client_id、idp_session_uid)
         ◀── 200 { accessToken, expiresIn, tokenType }
-            Set-Cookie: refresh_token=…; HttpOnly; Secure; SameSite=Lax; Path=/auth
+            Set-Cookie: refresh_token=…; HttpOnly; Secure; SameSite=Lax; Path=/api/auth（backstage 的 host-only cookie）
   ◀─ SessionStore.setTokens()  （access token 只存在記憶體閉包）
   └─▶ GET /auth/profile
         ◀── 200 { user, roles[], permissions: PermissionKey[] }
   └─▶ usePermissionStore.setPermissions(permissions)   ← 權限集合水合完成
-  └─▶ router.navigate('/')
+  └─▶ router.history.replace(returnTo)
 ```
+
+已有 IdP session 時（例：先在 apps/auth 登入過），provider 直接帶授權碼跳回，不出現登入頁。細節見 [`04-sso.md`](./04-sso.md) §3。
 
 ### 3.2 一次受權限保護的寫入
 
@@ -166,10 +175,14 @@ pnpm dev
 ├─ docker compose up -d postgres        (localhost:5432)
 ├─ apps/api           nest start --watch       (localhost:3000)
 ├─ apps/file-storage  tsx watch                (localhost:9000，S3 相容)
-└─ apps/backstage           vite                     (localhost:5173)
-                        ├─ proxy /api     → http://localhost:3000（ws: true，含 /api/socket.io）
-                        └─ proxy /storage → http://localhost:9000（不去前綴、不改 Host：presigned URL）
+├─ apps/backstage     vite                     (localhost:5173)
+│                       ├─ proxy /api     → http://localhost:3000（ws: true，含 /api/socket.io）
+│                       └─ proxy /storage → http://localhost:9000（不去前綴、不改 Host：presigned URL）
+└─ apps/auth          vite                     (localhost:5175，IdP 的 origin)
+                        └─ proxy /api     → http://localhost:3000
 ```
+
+外部 IdP 登入的開發與 E2E 另外跑 `pnpm dev:mock-idp`（localhost:4455）。
 
 前端一律透過 `/api` 前綴打到 Vite dev proxy，**不在程式碼裡寫死後端位址**，
 production 由反向代理負責同源。這讓 refresh token cookie 可以是同源的
@@ -205,8 +218,10 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 | `api`      | `b2b-system-api`             | REST、Socket.io、權限快取                            | migrate **成功結束**、file-storage healthy |
 | `file-storage` | `apps/file-storage/Dockerfile` | S3 相容的物件儲存（[`03-file-storage.md`](./03-file-storage.md)） | —                     |
 | `backstage` | `apps/backstage/Dockerfile`（nginx）| 靜態檔、反向代理、安全標頭                 | api healthy                     |
+| `auth`     | `apps/auth/Dockerfile`（nginx，`deploy/nginx.auth.conf`）| 身分與租戶入口：**獨立的 origin**（`:8081`），`/api/*` 同樣反向代理到 api | api healthy |
 
-- 前端是純靜態產物，SPA fallback 到 `index.html`。
+- 前端是純靜態產物，SPA fallback 到 `index.html`。SSO 的網址（`VITE_OIDC_ISSUER`、`VITE_AUTH_APP_URL`）是建置參數，
+  由 `AUTH_PUBLIC_ORIGIN` 產生；api 另需 `OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`IDP_SECRET_KEY`（[`04-sso.md`](./04-sso.md) §7）。
 - `/api/*` 反向代理去掉前綴後轉給 NestJS；`/api/socket.io/` 另一段 location 帶 `Upgrade` header，
   `proxy_read_timeout` 大於 Socket.io 心跳間隔。
 - **網路分三段**：`backstage` 只在 `edge`，碰不到 `postgres`；`migrate` 只在 `data`；`file-storage` 在 `edge` 與 `storage`，
@@ -224,13 +239,13 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 ### 4.3 為什麼不拆成更多服務，以及何時要拆
 
 Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service 互動，將來要拆有清楚的邊界，
-但現在拆只會多出網路呼叫與分散式交易。必須存在的服務只有上表五個；`file-storage` 是可替換的基礎設施
+但現在拆只會多出網路呼叫與分散式交易。必須存在的服務只有上表六個；`file-storage` 是可替換的基礎設施
 （等同 S3），不是業務服務。
 
 | 想拆出來的東西            | 現在不拆的理由                                                               | 拆的前提                                                                 |
 | ------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | Socket.io 獨立成 realtime 服務 | 推播必須在寫入交易之後、由同一個 service 觸發；拆開就要一條可靠的事件匯流排 | 有了 outbox 或 `LISTEN/NOTIFY` 事件流；連線數大到影響 REST 的延遲        |
-| auth 獨立服務             | 每個請求都要驗 token 與權限；拆開就是每個請求多一跳                          | 有第二個需要同一套帳號的產品                                             |
+| auth 獨立（後端）服務     | 每個請求都要驗 token 與權限；拆開就是每個請求多一跳。有了第二個產品之後只拆了 **前端**（`apps/auth`，[ADR-0019](../adr/0019-sso-identity-platform.md) D2），OIDC Provider 仍是 api 的模組 | 身分服務要給本平台以外的系統用，且負載或發版節奏與 api 明顯不同         |
 | Redis                     | 快取與 room 都在單一程序的記憶體裡就夠                                       | 見下一段；Postgres `LISTEN/NOTIFY` 能滿足時仍不需要                      |
 
 **api 水平擴展（`replicas > 1`）要同時具備三件事**，缺一就會出錯，所以 compose 目前固定單一執行個體：
@@ -263,7 +278,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | 密碼雜湊      | Argon2id，memory 19 MiB / iterations 2 / parallelism 1（OWASP 建議）                                       |
 | Access Token  | JWT（HS256 或 RS256），**5 分鐘**，只存記憶體，不進 `localStorage`                                         |
 | Refresh Token | 不透明隨機值，**雜湊後**入庫，7 天，每次使用即輪替，**重用偵測 → 整條家族撤銷**                            |
-| Cookie        | `HttpOnly; Secure; SameSite=Lax; Path=/auth`                                                               |
+| Cookie        | `HttpOnly; Secure; SameSite=Lax; Path=/api/auth`；一律 host-only（不設 `Domain`），不使用跨域 cookie（[`04-sso.md`](./04-sso.md) §2） |
 | CSRF          | refresh 端點是唯一吃 cookie 的端點，額外要求 `x-refresh-request: 1` 自訂標頭（簡單請求無法跨站帶自訂標頭） |
 | 暴力破解      | 同帳號連續 5 次失敗鎖定 15 分鐘；同 IP 速率限制（`@nestjs/throttler`）                                     |
 | 反提權        | 授予權限／指派角色時檢查「操作者是否持有該權限」                                                           |

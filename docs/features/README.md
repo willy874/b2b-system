@@ -20,7 +20,6 @@
 | P0 | 工作區／多租戶 | [`workspace.md`](./workspace.md) | 實作中 | — |
 | P1 | 站內通知中心 | [`notification-center.md`](./notification-center.md) | 提案 | — |
 | P1 | 系統設定（執行期可調） | [`system-settings.md`](./system-settings.md) | 提案 | — |
-| P1 | SSO 與身分平台（`apps/auth`） | [`sso.md`](./sso.md) | 規劃中 | `workspace` |
 | P2 | 版本歷史與軟刪除 | [`entity-revisions.md`](./entity-revisions.md) | 提案 | — |
 | P2 | 服務帳號／API Token | [`api-tokens.md`](./api-tokens.md) | 提案 | — |
 | P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | — |

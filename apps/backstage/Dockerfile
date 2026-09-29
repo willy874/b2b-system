@@ -13,6 +13,11 @@ COPY packages/realtime/package.json packages/realtime/
 COPY apps/backstage/package.json apps/backstage/
 RUN pnpm install --frozen-lockfile --filter @b2b-system/backstage...
 
+# SSO 的網址在建置時寫進產物（Vite 的 import.meta.env）：apps/auth 的 origin 與 issuer（docs/architecture/04-sso.md §7）
+ARG VITE_OIDC_ISSUER
+ARG VITE_AUTH_APP_URL
+ENV VITE_OIDC_ISSUER=$VITE_OIDC_ISSUER VITE_AUTH_APP_URL=$VITE_AUTH_APP_URL
+
 COPY packages ./packages
 COPY apps/backstage ./apps/backstage
 RUN pnpm --filter @b2b-system/utils build \

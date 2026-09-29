@@ -258,7 +258,8 @@ b2b-system/
 2. ~~Dark Mode~~（已完成，見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §4.4）
 3. MFA（`users.mfa_enabled` 已預留）
 4. 批次匯入 / 匯出
-5. SSO（OIDC）
+5. ~~SSO（OIDC）~~（已完成：`apps/auth` ＋ `apps/api` 當 OIDC Provider、外部 IdP、單一登出；見 [`architecture/04-sso.md`](../architecture/04-sso.md)、
+   [ADR-0019](../adr/0019-sso-identity-platform.md)）
 6. 稽核日誌分區表
 7. 多執行個體部署（權限快取換 Redis）
 8. 服務帳號 / API Token

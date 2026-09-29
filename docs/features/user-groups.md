@@ -18,7 +18,7 @@
 | 做 | 不做（這一版） |
 | --- | --- |
 | 群組 CRUD、成員管理 | 巢狀群組 |
-| 群組可當角色指派與資源授權的對象 | 從 SSO／LDAP 同步群組（等 [`sso.md`](./sso.md)） |
+| 群組可當角色指派與資源授權的對象 | 從 SSO／LDAP 同步群組（SSO 見 [`../architecture/04-sso.md`](../architecture/04-sso.md)；外部 IdP 的群組對應是後續工作） |
 
 ## 開放問題
 

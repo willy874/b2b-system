@@ -1,9 +1,9 @@
 # ADR-0019 — SSO：`apps/api` 當 OIDC Provider、`apps/auth` 當身分與租戶入口
 
-- 狀態：**提案中（待確認）**
+- 狀態：**採用**
 - 日期：2026-09-29
 - 相關：[ADR-0004](./0004-jwt-with-rotating-refresh-token.md)（app session 不變）、[ADR-0005](./0005-permission-resolved-server-side.md)、
-  [ADR-0018](./0018-workspace-tenancy.md)（工作區不進身分，D8）、[`../features/sso.md`](../features/sso.md)
+  [ADR-0018](./0018-workspace-tenancy.md)（工作區不進身分，D8）、[`../architecture/04-sso.md`](../architecture/04-sso.md)（做出來的樣子）
 
 ## 背景
 
@@ -17,7 +17,7 @@
 3. 產品拿到身分之後，session 怎麼表示：直接用 IdP 發的 token，還是沿用 ADR-0004 的 app session？
 4. 外部 IdP（Google、Azure AD）怎麼接進來？
 
-已確認的前提（[`../features/sso.md`](../features/sso.md) 開放問題 1–3）：我們自己當 IdP，也要能接外部 IdP；
+已確認的前提（提案階段的開放問題）：我們自己當 IdP，也要能接外部 IdP；
 `apps/auth` 只有前端，後端在 `apps/api`；`apps/auth` 先複製 backstage 需要的程式碼，不抽 package。
 
 ## 決定
@@ -97,3 +97,16 @@
 | 產品直接用 IdP 發的 access／refresh token（純 SPA public client） | refresh token 會落在 SPA 的 JavaScript 可及範圍（ADR-0004 理由 1 被推翻）；`JwtAuthGuard` 要改成驗 IdP 的 token 並另外處理 `token_version` |
 | 後端拆出獨立身分服務（`apps/auth` 帶自己的 NestJS） | 帳號、角色、稽核分散到兩個服務；每個請求都要跨服務查 `token_version` 與權限（`01-system.md` §4.3） |
 | 只接外部 IdP、不自己當 IdP（原 `sso-oidc.md`） | 產品之間仍然各自登入；多產品共用帳號的問題沒有解決 |
+
+### 實作時改掉的做法
+
+| 原本的構想 | 改成 | 理由 |
+| --- | --- | --- |
+| `oidc_clients` 表管理 client | 第一方 client 由設定產生（D7） | 只有自己的產品時，redirect URI 由部署設定決定即可，少一張要同步的表 |
+| BFF 以 HTTP 呼叫 provider 的 token 端點 | 本程序內兌換授權碼（D3） | 多一跳，也讓整合測試必須監聽 port |
+| 單一登出走 end-session 的跳轉鏈 | 伺服器端銷毀 IdP session ＋ 撤銷家族（D5） | 不必碰其他 origin 的 cookie；跳轉鏈任一環斷掉就登出不完整 |
+| 登出後自動跳回 IdP 的登入頁 | 停在「已登出」頁（D5） | 頁面卸載會取消還在路上的登出請求，使用者被尚未銷毀的 IdP session 登回來 |
+| 互動網址直接是 apps/auth 的 `/interaction/:uid` | 先經過 api 的 `/api/oidc-interaction/:uid`（D16） | provider 把互動 cookie 的 path 設成互動網址，否則端點收不到 cookie |
+| 外部 IdP 的 redirect URI 帶互動 id | 固定的 callback ＋ 互動路徑下的 `complete`（D8） | 外部 IdP 大多要求 redirect URI 完全相符 |
+| 找不到帳號時可「走審批」 | 這一版只有 `reject`／`auto_create`（D10） | 現有審批以密碼建立帳號，SSO 帳號沒有密碼 |
+| `identity_provider_domains` 有驗證狀態 | 沒有網域驗證，由平台管理員確認 | DNS TXT 驗證需要背景工作與重試，這一版的連線只由平台管理員建立 |

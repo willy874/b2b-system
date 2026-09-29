@@ -44,6 +44,7 @@ packages:
 | `pnpm dev:e2e`                                 | 啟動 Mailpit，以放寬的速率限制、`MAIL_TRANSPORT=smtp` 啟動 api |
 | `pnpm mail:up`                                 | `docker compose up -d mailpit`（SMTP :1025、網頁 :8025） |
 | `pnpm dev:storage`                             | 啟動 `apps/file-storage`（S3 相容，:9000）               |
+| `pnpm dev:mock-idp`                            | 模擬的外部 IdP（:4455）；外部 IdP 登入的開發與 E2E 用（[`04-sso.md`](./04-sso.md) §10） |
 | `pnpm build`                                   | 依序 `api-sdk` → `api` → `backstage` → `auth`                  |
 | `pnpm db:generate`                             | drizzle-kit 產生 migration                               |
 | `pnpm db:migrate`                              | 套用 migration                                           |
@@ -151,6 +152,13 @@ apps/backstage/src/
 
 匯入一律用 `@/`，**禁止** `../../../`（超過一層）。
 
+### 2.2 `apps/auth`
+
+資料夾分層與上面相同（`main.tsx` → `app/` → `features/` → `apis/` → `core/` → `components/` → `shared/`）。
+features 是 `login`（IdP 互動頁、帳號流程）、`home`、`workspace-admin`、`identity-provider`；`core/`、`components/`、`shared/`
+大多從 backstage **複製**（ADR-0019 D14），複製清單與同步規則見 [`apps/auth/README.md`](../../apps/auth/README.md)，
+路由與登入流程見 [`04-sso.md`](./04-sso.md) §6。
+
 ---
 
 ## 3. `apps/api` 內部結構
@@ -179,7 +187,9 @@ apps/api/src/
 │   └── types/
 │
 ├── modules/                 ★ 業務模組
-│   ├── auth/
+│   ├── auth/                登入、app session、SSO 的互動端點與 BFF、外部 IdP 登入（docs/architecture/04-sso.md）
+│   ├── oidc-provider/       oidc-provider 掛在 /oidc、oidc_payloads adapter
+│   ├── identity-provider/   外部 IdP 連線、openid-client、帳號 ↔ 外部身分
 │   ├── user/
 │   ├── role/
 │   ├── permission/

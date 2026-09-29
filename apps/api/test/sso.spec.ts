@@ -336,4 +336,23 @@ describe('SSO（docs/adr/0019-sso-identity-platform.md）', () => {
       'http://localhost:5175/error?error=invalid_redirect_uri',
     );
   });
+
+  it('帳號停用 → IdP session 一起結束；重新啟用後要重新登入（D17）', async () => {
+    const jar = new CookieJar();
+    await callback(BACKSTAGE, await authorize(jar, BACKSTAGE, USER)).expect(200);
+
+    const login = await request(http).post('/auth/login').send(SUPER_ADMIN).expect(200);
+    const admin = (login.body as { data: { accessToken: string } }).data.accessToken;
+    const setStatus = (status: 'inactive' | 'active') =>
+      request(http)
+        .patch(`/users/${userId}`)
+        .set('authorization', `Bearer ${admin}`)
+        .send({ status })
+        .expect(200);
+
+    await setStatus('inactive');
+    await setStatus('active');
+    // 同一個瀏覽器的 IdP session cookie 還在，但 session 已銷毀：不會直接拿到授權碼
+    await expect(authorize(jar, BACKSTAGE)).rejects.toThrow(/卻被導去登入/);
+  });
 });

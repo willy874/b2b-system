@@ -28,6 +28,7 @@
 1. [`overview/01-overview.md`](./overview/01-overview.md) — 目標、範圍、角色定義
 2. [`overview/02-technology-selection.md`](./overview/02-technology-selection.md) — 技術選型與理由
 3. [`architecture/01-system.md`](./architecture/01-system.md) — 系統全貌與資料流
+   （登入與身分見 [`architecture/04-sso.md`](./architecture/04-sso.md)）
 4. [`rbac/01-domain-model.md`](./rbac/01-domain-model.md) — RBAC 領域模型
 5. [`overview/03-roadmap.md`](./overview/03-roadmap.md) — 實作階段與驗收條件
 
@@ -72,6 +73,7 @@ docs/
 │   ├── 01-system.md                   系統架構、部署拓撲、端到端資料流
 │   ├── 02-repository-structure.md     monorepo 結構、目錄佈局、環境變數
 │   ├── 03-file-storage.md             apps/file-storage：S3 相容的本機檔案儲存
+│   ├── 04-sso.md                      SSO：apps/api 當 OIDC Provider、apps/auth、外部 IdP、單一登出
 │   │
 │   ├── frontend/
 │   │   ├── README.md
@@ -93,7 +95,7 @@ docs/
 │       ├── 01-architecture.md         NestJS 模組分層與相依方向
 │       ├── 02-database.md             Drizzle schema 慣例、migration 流程
 │       ├── 03-api-conventions.md      REST、分頁、排序、錯誤碼、驗證
-│       ├── 04-auth.md                 登入、JWT、refresh rotation、重用偵測
+│       ├── 04-auth.md                 登入、JWT、refresh rotation、重用偵測、SSO 的後端部分
 │       ├── 05-rbac.md                 Guard / Decorator / 權限快取 / 反提權
 │       ├── 06-audit-log.md            稽核日誌設計
 │       ├── 07-testing.md              單元 / 整合 / e2e 測試策略
@@ -166,7 +168,7 @@ docs/
 
 以下三處必須永遠同步，任一處變更時必須同一批修改另外兩處：
 
-1. `apps/backstage/src/features/<name>/` — 前端功能原始碼
+1. `apps/backstage/src/features/<name>/`（平台層級的頁面在 `apps/auth/src/features/<name>/`）— 前端功能原始碼
 2. `apps/api/src/modules/<name>/` — 後端模組原始碼
 3. `docs/` 對應章節 — 規格文件
 
