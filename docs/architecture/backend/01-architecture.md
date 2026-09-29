@@ -92,7 +92,8 @@ apps/api/src/
 │   ├── role/
 │   ├── permission/
 │   ├── audit-log/
-│   ├── file/                             files 轉介表 ＋ 直傳上傳、影像變體、維護排程（09-file.md）
+│   ├── file/                             files 轉介表 ＋ 直傳上傳、影像變體、維護排程、資料夾授權（09-file.md）
+│   ├── resource-grant/                   資源授權：resource_grants ＋ 通用的等級解析（rbac/07-resource-grants.md）
 │   └── health/
 │
 ├── db/

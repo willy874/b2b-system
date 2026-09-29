@@ -324,6 +324,7 @@
 | `POST /users`                  | `roleIds` 各角色的權限集合聯集               |
 | `PUT /users/:id/roles`         | 同上                                         |
 | `POST /approvals/:id/approve`  | `roleIds`（`user.register`）同上             |
+| `PUT /file-folders/:id/grants`、`DELETE …/grants/:subjectType/:subjectId` | 該等級蘊含的檔案動作（以操作者 **在該資料夾** 的能力比對，見 [`07-resource-grants.md`](./07-resource-grants.md) §6.1） |
 
 規則：`待授予集合 ⊆ actor 的權限集合`，否則 `403 AUTHZ_ESCALATION`，
 `details.missing` 列出超出的鍵。
@@ -346,7 +347,7 @@
 | `offset` / `limit` | 分頁（`limit` 上限 100）                |
 | `actorId`          | 操作者                                  |
 | `action`           | 例 `role.update`，支援前綴比對 `role.*`（`%` / `_` 視為一般字元） |
-| `resourceType`     | `user` / `role` / `auth` / `permission` / `approval` / `file` |
+| `resourceType`     | `user` / `role` / `auth` / `permission` / `approval` / `file` / `fileFolder` |
 | `resourceId`       |                                         |
 | `result`           | `success` / `failure`                   |
 | `from` / `to`      | ISO 8601 時間範圍；跨度最多 90 天（超過回 `400 VALIDATION_FAILED`）。都沒帶時為「現在往前 90 天」，只帶一端時往另一端推 90 天 |
@@ -403,29 +404,44 @@
 
 ## 7.1 Files
 
+檔案相關路由的 guard 只當 **閘門**：宣告 `file:access` 或對應的全域 `file:*` 其中之一（🛡 A|B）；
+範圍（哪個資料夾、哪個檔案）由 service 依資料夾授權判斷，規則見 [`07-resource-grants.md`](./07-resource-grants.md) §4。
+資源層級的拒絕：看不到的檔案回 `404 FILE_NOT_FOUND`（不透露存在）；資料夾對所有人可見，
+沒有權限（鎖住）或權限不夠回 `403 AUTHZ_FORBIDDEN`（`details: { action, resourceType, resourceId }`）。
+
 | Method | Path                  | 授權             | 說明                                         |
 | ------ | --------------------- | ---------------- | -------------------------------------------- |
-| GET    | `/files`              | 🛡 `file:read`   | 列表（只含 `ready`；分頁／篩選／排序）        |
-| GET    | `/files/upload-policy` | 🛡 `file:create` | 上傳前的檢查與切塊策略                       |
-| POST   | `/files`              | 🛡 `file:create` | 登記上傳，回傳直傳網址（`pending`）           |
-| POST   | `/files/:id/parts`    | 🛡 `file:create` | 分塊上傳：取得各塊的直傳網址                 |
-| POST   | `/files/:id/complete` | 🛡 `file:create` | 確認直傳完成 → `ready`（只有上傳者本人）      |
-| DELETE | `/files/:id/upload`   | 🛡 `file:create` | 放棄上傳中的檔案（只有上傳者本人）           |
-| GET    | `/files/:id/image/:variant` | 🔓 `@Public` ＋ 網址簽章 | 圖片的原圖／全螢幕預覽／圖示預覽（302）；網址只從 `file:read` 的回應拿得到² |
-| GET    | `/files/:id`          | 🛡 `file:read`   | 詳情（`pending` 只有上傳者看得到）            |
-| PATCH  | `/files/:id`          | 🛡 `file:update` | 改名（`{ name }`）                           |
-| DELETE | `/files/:id`          | 🛡 `file:delete` | 軟刪除紀錄並刪除物件                         |
-| POST   | `/files/move`         | 🛡 `file:update` | 把檔案與資料夾移到另一個資料夾（擋下移進自己的子孫） |
-| GET    | `/file-folders`       | 🛡 `file:read`   | 全部資料夾（扁平清單）                       |
-| POST   | `/file-folders`       | 🛡 `file:create` | 建立資料夾（同一層不可同名）                 |
-| POST   | `/file-folders/paths` | 🛡 `file:create` | 上傳資料夾：確保各路徑存在（同名的沿用）     |
-| PATCH  | `/file-folders/:id`   | 🛡 `file:update` | 資料夾改名                                   |
-| DELETE | `/file-folders/:id`   | 🛡 `file:delete` | 遞迴刪除資料夾（連同其中的檔案與子資料夾）   |
+| GET    | `/files`              | 🛡 `file:access` \| `file:read`   | 列表（只含 `ready` 且看得到的；分頁／篩選／排序）        |
+| GET    | `/files/upload-policy` | 🛡 `file:access` \| `file:create` | 上傳前的檢查與切塊策略                       |
+| POST   | `/files`              | 🛡 `file:access` \| `file:create` | 登記上傳，回傳直傳網址（`pending`）；需要目的地的 `create` |
+| POST   | `/files/:id/parts`    | 🛡 `file:access` \| `file:create` | 分塊上傳：取得各塊的直傳網址（只有上傳者本人）|
+| POST   | `/files/:id/complete` | 🛡 `file:access` \| `file:create` | 確認直傳完成 → `ready`（只有上傳者本人）      |
+| DELETE | `/files/:id/upload`   | 🛡 `file:access` \| `file:create` | 放棄上傳中的檔案（只有上傳者本人）           |
+| GET    | `/files/:id/image/:variant` | 🔓 `@Public` ＋ 網址簽章 | 圖片的原圖／全螢幕預覽／圖示預覽（302）；網址只從看得到該檔案的回應拿得到² |
+| GET    | `/files/:id`          | 🛡 `file:access` \| `file:read`   | 詳情（`pending` 只有上傳者看得到）            |
+| PATCH  | `/files/:id`          | 🛡 `file:access` \| `file:update` | 改名（`{ name }`）；擁有者規則適用           |
+| DELETE | `/files/:id`          | 🛡 `file:access` \| `file:delete` | 軟刪除紀錄並刪除物件；擁有者規則適用         |
+| POST   | `/files/move`         | 🛡 `file:access` \| `file:update` | 把檔案與資料夾移到另一個資料夾（擋下移進自己的子孫） |
+| GET    | `/file-folders`       | 🛡 `file:access` \| `file:read`   | 全部資料夾（扁平清單；沒有權限的 `capabilities.canRead = false`，申請中的 `hasPendingAccessRequest`，系統資料夾的 `kind`；別人的個人資料夾不列）、根目錄的能力、自己的 `personalFolderId` |
+| POST   | `/file-folders`       | 🛡 `file:access` \| `file:create` | 建立資料夾（同一層不可同名）                 |
+| POST   | `/file-folders/paths` | 🛡 `file:access` \| `file:create` | 上傳資料夾：確保各路徑存在（同名的沿用）     |
+| PATCH  | `/file-folders/:id`   | 🛡 `file:access` \| `file:update` | 資料夾改名                                   |
+| DELETE | `/file-folders/:id`   | 🛡 `file:access` \| `file:delete` | 遞迴刪除資料夾（連同其中的檔案與子資料夾）   |
+| GET    | `/file-folders/:id/grants` | 🛡 `file:access` \| `file:share` | 授權清單：直接授權 ＋ 繼承自上層的（標出來源資料夾）；需要 `share` |
+| PUT    | `/file-folders/:id/grants` | 🛡 `file:access` \| `file:share` | 新增或變更一筆授權（`{ subjectType, subjectId, level, expiresAt? }`）；**受反提權限制** |
+| DELETE | `/file-folders/:id/grants/:subjectType/:subjectId` | 🛡 `file:access` \| `file:share` | 移除一筆直接授權；**受反提權限制** |
+| GET    | `/file-folders/:id/grant-subjects` | 🛡 `file:access` \| `file:share` | 授權對象的候選清單（`?subjectType=role\|user&keyword=`，只回 id 與名稱） |
+| POST   | `/file-folders/:id/access-requests` | 🛡 `file:access` \| `file:read` | 申請存取（`{ level, reason? }`，審批類型 `fileFolder.access`）；`202 { submitted }` |
+| GET    | `/file-folders/:id/access-requests` | 🛡 `file:access` \| `file:share` | 這個資料夾的待審申請；需要 `share` |
+| POST   | `/file-folders/:id/access-requests/:requestId/approve` | 🛡 `file:access` \| `file:share` | 核准（`{ comment? }`）＝ 授予申請的等級；**受反提權限制** |
+| POST   | `/file-folders/:id/access-requests/:requestId/reject` | 🛡 `file:access` \| `file:share` | 駁回（`{ comment? }`） |
+| PATCH  | `/file-folders/:id/access` | 🛡 `file:access` \| `file:share` | 中斷／恢復繼承（`{ inheritGrants }`）；中斷時複製目前繼承到的授權 |
 
 ² `<img src>` 帶不了 access token，所以以網址上的 HMAC 簽章（綁定檔案 id、版本與失效時間）授權，與 presigned URL 相同的模型；
 簽章不符或過期回 `403 FILE_IMAGE_URL_INVALID`。見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md) §5.4。
+撤銷資料夾授權後，已發出的網址在到期前仍有效。
 
-流程、欄位與錯誤碼見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md) §4–§6（資料夾 §4.2）。
+流程、欄位與錯誤碼見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md) §4–§6（資料夾 §4.2、存取控制 §11）。
 
 ---
 

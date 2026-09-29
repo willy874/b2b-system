@@ -317,6 +317,7 @@ return <Outlet />;
 | 角色詳情 · 權限分頁   | `role:read` ＋ `permission:read` | 增減權限 → `role:grantPermission` ＋ 非 super-admin；可選權限受反提權過濾                                                                                    |
 | 權限目錄              | `permission:read`                | 全唯讀                                                                                                                                                       |
 | 稽核日誌              | `auditLog:read`                  | 全唯讀                                                                                                                                                       |
+| 檔案管理器            | `file:access` 或 `file:read`     | 資料夾層級授權：按鈕看後端回傳的 `capabilities`，不看全域權限鍵（[`12-file-manager.md`](./12-file-manager.md) §13）                                           |
 | 個人資料 / 偏好       | 無                               | 全部可用（對象是自己）                                                                                                                                       |
 
 ---

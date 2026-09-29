@@ -17,6 +17,10 @@
 super-admin）仍在 service 判斷。那些不是「通用權限」，而是資源狀態相關的規則，
 Guard 看不到資源。
 
+**資源層級授權** 也是這個例外：檔案管理器的資料夾授權（[`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)）
+由 `FileAccessService` 判斷。Guard 仍然宣告閘門（`@RequireAnyPermission('file:access', 'file:<動作>')`），
+所以「每個路由都有明確宣告」與「每次拒絕都寫稽核」兩條原則不變——資源層級的拒絕同樣寫 `authz.denied`。
+
 ---
 
 ## 2. Decorators
@@ -494,23 +498,42 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/approvals/:id`            | `approval:read`                  |
 | POST   | `/approvals/:id/approve`    | `approval:review` ＋ 類型要求的權限¹ |
 | POST   | `/approvals/:id/reject`     | `approval:review`                |
-| GET    | `/files`                    | `file:read`                      |
-| GET    | `/files/upload-policy`      | `file:create`                    |
-| POST   | `/files`                    | `file:create`                    |
-| POST   | `/files/:id/parts`          | `file:create`                    |
-| POST   | `/files/:id/complete`       | `file:create`                    |
-| DELETE | `/files/:id/upload`         | `file:create`                    |
+| GET    | `/files` | `file:access` \| `file:read`³ |
+| GET    | `/files/upload-policy` | `file:access` \| `file:create`³ |
+| POST   | `/files` | `file:access` \| `file:create`³ |
+| POST   | `/files/:id/parts` | `file:access` \| `file:create`³ |
+| POST   | `/files/:id/complete` | `file:access` \| `file:create`³ |
+| DELETE | `/files/:id/upload` | `file:access` \| `file:create`³ |
 | GET    | `/files/:id/image/:variant` | `@Public`（網址簽章）²           |
-| GET    | `/files/:id`                | `file:read`                      |
-| PATCH  | `/files/:id`                | `file:update`                    |
-| DELETE | `/files/:id`                | `file:delete`                    |
+| GET    | `/files/:id` | `file:access` \| `file:read`³ |
+| PATCH  | `/files/:id` | `file:access` \| `file:update`³ |
+| DELETE | `/files/:id` | `file:access` \| `file:delete`³ |
+| POST   | `/files/move` | `file:access` \| `file:update`³ |
+| GET    | `/file-folders` | `file:access` \| `file:read`³ |
+| POST   | `/file-folders` | `file:access` \| `file:create`³ |
+| POST   | `/file-folders/paths` | `file:access` \| `file:create`³ |
+| PATCH  | `/file-folders/:id` | `file:access` \| `file:update`³ |
+| DELETE | `/file-folders/:id` | `file:access` \| `file:delete`³ |
+| GET    | `/file-folders/:id/grants` | `file:access` \| `file:share`³ |
+| PUT    | `/file-folders/:id/grants` | `file:access` \| `file:share`³ |
+| DELETE | `/file-folders/:id/grants/:subjectType/:subjectId` | `file:access` \| `file:share`³ |
+| GET    | `/file-folders/:id/grant-subjects` | `file:access` \| `file:share`³ |
+| PATCH  | `/file-folders/:id/access` | `file:access` \| `file:share`³ |
+| POST   | `/file-folders/:id/access-requests` | `file:access` \| `file:read`³ |
+| GET    | `/file-folders/:id/access-requests` | `file:access` \| `file:share`³ |
+| POST   | `/file-folders/:id/access-requests/:requestId/approve` | `file:access` \| `file:share`³ |
+| POST   | `/file-folders/:id/access-requests/:requestId/reject` | `file:access` \| `file:share`³ |
 
 ¹ 路由宣告只有 `approval:review`；核准時 `ApprovalService` 另外檢查該類型 handler 要求的權限
 （`user.register` = `user:create`，指派角色時再加 `user:assignRole`），缺少時同樣回
 `403 AUTHZ_FORBIDDEN` ＋ `details.missing`。見 [`../../rbac/06-approval.md`](../../rbac/06-approval.md) §3.2。
 
-² 影像 API 給 `<img src>` 用，帶不了 access token；以網址上的 HMAC 簽章授權，網址只從 `file:read` 的回應拿得到。
+² 影像 API 給 `<img src>` 用，帶不了 access token；以網址上的 HMAC 簽章授權，網址只從看得到該檔案的回應拿得到。
 見 [`./09-file.md`](./09-file.md) §5.4。
+
+³ `A \| B` 是 `@RequireAnyPermission(A, B)`：guard 只當閘門（能進檔案管理器），哪個資料夾能做什麼由
+`FileAccessService` 依資料夾授權判斷（§1 原則 3 的例外，見 [`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)）。
+路由稽核測試把 SOME 寫成 `a|b`、EVERY 寫成 `a+b`。
 
 **這張表必須與 `docs/rbac/04-api-spec.md` 一致**，且有一支測試從 metadata
 產生它並與文件比對（見 §7.1）。

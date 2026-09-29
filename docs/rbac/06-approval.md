@@ -180,3 +180,21 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 | 可見性     | `useApprovalReviewAccess()`：未水合／無 `approval:review`／已審核 → 不顯示審核操作       |
 | 快取       | `approval` 資源（`APPROVAL_LIST` ／ `APPROVAL_DETAIL`）；核准註冊另宣告 `user` create    |
 | E2E        | `apps/e2e/tests/approval.spec.ts`                                                        |
+
+---
+
+## 7. `fileFolder.access` — 申請資料夾存取
+
+規格見 [`07-resource-grants.md`](./07-resource-grants.md) §6.5；handler 在
+`apps/api/src/modules/file/file-folder-access.approval.ts`。
+
+| 項目 | 內容 |
+| --- | --- |
+| 申請人 | 登入者（`requester_id` 是本人，四眼原則適用） |
+| `subject_key` | `<folderId>:<userId>`：同一個人對同一個資料夾同時只有一筆待審 |
+| `payload` | `{ folderId, folderName, level }`（申請的等級） |
+| `requiredPermissions()` | 無：審核權限是資源層級的，改在 `assertApprovable()` 檢查 |
+| `assertApprovable()` | 資料夾還在、申請人還在、審核者在該資料夾 `share` 且授予得起該等級（反提權） |
+| `apply()` | 對申請人寫入（或提高到）申請的等級；`fileFolder.grant` 稽核帶 `metadata.approvalId` |
+| 審核入口 | 審批頁（`approval:review`），或檔案管理器的共用對話框（資料夾的管理者，不需要 `approval:*`） |
+

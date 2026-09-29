@@ -224,8 +224,8 @@ super-admin 加入所有 `perm:` room。
 | `rolePermission`   | `role:read`                                | 持有該角色的所有人                 | 權限數與清單；持有者的有效權限                        |
 | `userCredential`   | —                                          | —                                  | 沒有任何畫面顯示憑證                                  |
 | `approval`         | `approval:read`                            | —                                  | 審批列表；匿名申請人（註冊）沒有連線，不必通知本人    |
-| `file`             | `file:read`                                | —                                  | 檔案列表與詳情（`pending` 不推，完成上傳才算建立）    |
-| `fileFolder`       | `file:read`                                | —                                  | 資料夾樹、麵包屑、主區塊的資料夾                      |
+| `file`             | `file:read`、`file:access`                 | —                                  | 檔案列表與詳情（`pending` 不推，完成上傳才算建立）。`file:access` 的人只看得到被授權的資料夾：收到看不到的變更只會多重抓一次 |
+| `fileFolder`       | `file:read`、`file:access`                 | —                                  | 資料夾樹、麵包屑、主區塊的資料夾；資料夾授權變更也以 `fileFolder update` 推出（能力旗標跟著變） |
 | 任何來源           | `auditLog:read`                            | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）    |
 
 - `io.to([...rooms]).emit()` 會對多個 room 的聯集 **去重**，同一條連線只收到一次。
@@ -347,6 +347,7 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 | 建立／改名資料夾             | `fileFolder create` / `fileFolder update`            | —                                                         |
 | 移動檔案與資料夾             | `fileFolder update`（`id='*'`）、`file update`（`id='*'`） | —                                                   |
 | 遞迴刪除資料夾               | `fileFolder delete`；有檔案一起刪除時另發 `file delete`（`id='*'`） | —                                         |
+| 資料夾授權變更、中斷繼承     | `fileFolder update`（id 是該資料夾）                 | —                                                         |
 
 登入失敗被鎖定 **不** 遞增 `token_version`，因此不撤銷既有連線：被鎖的人最遲在 access token 到期（§3.4）
 或下一則客戶端訊息（`WsAuthGuard`）時斷線。

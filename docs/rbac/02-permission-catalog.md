@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 21 項）
+## 2. 權限清單（共 23 項）
 
 ### 2.1 `user` — 使用者
 
@@ -85,14 +85,18 @@
 
 | 權限鍵        | 顯示名稱（zh-TW） | 說明                                                         |
 | ------------- | ----------------- | ------------------------------------------------------------ |
-| `file:create` | 上傳檔案          | 登記上傳並取得直傳網址、確認上傳完成；建立資料夾（含上傳資料夾時建出的結構） |
-| `file:read`   | 檢視檔案          | 檔案列表與詳情，並取得預覽／下載網址                         |
-| `file:update` | 編輯檔案          | 改名（內容不可改；要換內容就上傳新檔）；資料夾改名；移動檔案與資料夾 |
-| `file:delete` | 刪除檔案          | 軟刪除紀錄並刪除物件儲存中的內容；遞迴刪除資料夾（連同其中的檔案與子資料夾） |
+| `file:create` | 上傳檔案          | **所有資料夾**：登記上傳並取得直傳網址、確認上傳完成；建立資料夾（含上傳資料夾時建出的結構） |
+| `file:read`   | 檢視檔案          | **所有資料夾**：檔案列表與詳情，並取得預覽／下載網址         |
+| `file:update` | 編輯檔案          | **所有資料夾**：改名（內容不可改；要換內容就上傳新檔）；資料夾改名；移動檔案與資料夾 |
+| `file:delete` | 刪除檔案          | **所有資料夾**：軟刪除紀錄並刪除物件儲存中的內容；遞迴刪除資料夾（連同其中的檔案與子資料夾） |
+| `file:access` | 使用檔案管理器    | 進入檔案管理器；能看到、能做什麼 **由資料夾授權決定**（不含任何資料夾） |
+| `file:share`  | 管理檔案授權      | **所有資料夾**：檢視與變更資料夾的授權、中斷繼承。**受反提權限制** |
 
-> 範圍是 **平的**（[ADR-0006](../adr/0006-flat-permission-scope.md)）：有 `file:read` 就能看所有檔案。
-> 資料夾只是檔案的分類，沿用同一組權限，不另設 `fileFolder:*`。
-> 唯一例外是還在上傳中（`pending`）的檔案，只有上傳者本人看得到，見
+> 上面四個 CRUD 鍵是 **全域** 的：持有者對所有資料夾（含中斷繼承的私人資料夾）都有該動作。
+> 一般成員拿 `file:access`，再由資料夾授權（viewer / contributor / editor / manager）決定範圍，
+> 另有「能上傳的人可以改名、移動、刪除自己上傳的東西」的擁有者規則。
+> 模型、等級與解析規則見 [`07-resource-grants.md`](./07-resource-grants.md)（[ADR-0015](../adr/0015-file-folder-access.md)）。
+> 資料夾沿用同一組權限，不另設 `fileFolder:*`。還在上傳中（`pending`）的檔案只有上傳者本人看得到，見
 > [`../architecture/backend/09-file.md`](../architecture/backend/09-file.md) §4。
 
 ### 2.8 個人範圍（不需要權限）
@@ -118,7 +122,7 @@
 | `auditLog`        |   —    |  ✓   |   —    |   —    | —                             |
 | `system`          |   —    |  ✓   |   ✓    |   —    | —                             |
 | `approval`        |   —    |  ✓   |   —    |   —    | `review`                      |
-| `file`            |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
+| `file`            |   ✓    |  ✓   |   ✓    |   ✓    | `access`, `share`             |
 
 ---
 
@@ -147,11 +151,15 @@
 | `file:read`            |      ✓*       |    ✓    |     ✓     |          |
 | `file:update`          |      ✓*       |    ✓    |           |          |
 | `file:delete`          |      ✓*       |    ✓    |           |          |
+| `file:access`          |      ✓*       |    ✓    |           |    ✓     |
+| `file:share`           |      ✓*       |    ✓    |           |          |
 
 `*` super-admin 是 **隱含全集**，不在 `role_permissions` 中逐筆登錄；
 `GET /auth/profile` 回傳時才展開成完整清單。
 
-`member` 在 Phase 0 沒有任何權限，只能存取個人範圍的頁面（首頁、個人資料）。
+`member` 只有 `file:access`：進得了檔案管理器，看得到資料夾但全部鎖住，被授權之後才讀得到。
+`admin` 也持有 `file:access`：不擴大能力（已有全域 `file:*`），但指派 `member` 受反提權限制，要持有它的每個權限鍵。
+其餘只能存取個人範圍的頁面（首頁、個人資料）。
 這是刻意的：它是未來編輯器功能的權限掛載點。
 
 ---
@@ -173,7 +181,7 @@
 | 權限目錄     | `/permission`              | `PERMISSION`    | `permission:read`                | EVERY |
 | 稽核日誌     | `/audit-log`               | `AUDIT_LOG`     | `auditLog:read`                  | EVERY |
 | 審批         | `/approval`（含 `/approval/$approvalId` 對話框） | `APPROVAL` | `approval:read`           | EVERY |
-| 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:read`（上傳 `file:create`、改名 `file:update`、刪除 `file:delete` 為按鈕層級） | EVERY |
+| 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:access` 或 `file:read`（按鈕層級看後端回傳的 `capabilities`，見 [`07-resource-grants.md`](./07-resource-grants.md) §7） | SOME |
 
 > 頁面內的 **按鈕層級** gating 另由 `usePagePermission()` 派生的
 > `canCreate/canRead/canUpdate/canDelete` 決定，見
@@ -213,6 +221,8 @@ export const PERMISSION_SEED = [
   ["file", "read", "permission.file.read", 701],
   ["file", "update", "permission.file.update", 702],
   ["file", "delete", "permission.file.delete", 703],
+  ["file", "access", "permission.file.access", 704],
+  ["file", "share", "permission.file.share", 705],
 ] as const;
 ```
 

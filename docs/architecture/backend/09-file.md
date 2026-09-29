@@ -144,9 +144,9 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 | 狀態 | 誰看得到 | 可以做什麼 |
 | --- | --- | --- |
 | `pending` | 只有上傳者本人（`GET /files/:id`、`complete`） | 完成上傳 |
-| `ready` | 所有 `file:read`（平的範圍，ADR-0006） | 讀、改名、刪除 |
+| `ready` | 能讀取所在資料夾的人：全域 `file:read`，或資料夾授權 `viewer` 以上（§11） | 讀；改名、刪除看 `capabilities` |
 
-`pending` 不出現在列表、不發推播；別人查詢一律 `404 FILE_NOT_FOUND`。
+`pending` 不出現在列表、不發推播；別人查詢一律 `404 FILE_NOT_FOUND`。看不到所在資料夾的 `ready` 檔案同樣回 `404`。
 
 其他模組要引用檔案（例：角色頭像、關卡素材）時 **存 `files.id` 外鍵**，需要網址時注入 `FileService`。
 
@@ -159,6 +159,9 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 | `id` | uuid | |
 | `name` | text | 規則同檔名（不可含 `/`、`\`、控制字元，≤ 255），另外不可是 `.`、`..` |
 | `parent_id` | uuid（FK → 自己，`ON DELETE RESTRICT`） | 上層；null 是根目錄 |
+| `inherit_grants` | boolean | false = 中斷繼承（私人資料夾，rbac/07 §3.3） |
+| `kind` | `file_folder_kind` | `normal` / `shared` / `privateRoot` / `personal`：系統資料夾（rbac/07 §12） |
+| `owner_id` | uuid（FK → users） | `personal` 的擁有者；其他為 null |
 | `created_*` / `updated_*` / `deleted_at` | | 慣例欄位；刪除是軟刪除 |
 
 約束與索引（都只涵蓋 `deleted_at IS NULL`）：
@@ -348,7 +351,9 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 `FILE_CATEGORY_RULES`；`other` 是不屬於其他任何一類）、`uploaderId`、`sort`（`createdAt` / `name` / `size`，預設 `-createdAt`）、
 `cursor`（§6.1）、`folderId`（只列這個資料夾「直接」包含的檔案；`root` 是根目錄，不帶則不分資料夾）。
 
-`POST /files` 另外可帶 `folderId`（null 或不帶是根目錄；不存在回 `404 FILE_FOLDER_NOT_FOUND`）。
+`POST /files` 另外可帶 `folderId`（null 或不帶是根目錄；不存在或看不到回 `404 FILE_FOLDER_NOT_FOUND`）。
+
+各端點的權限宣告是閘門 `file:access` 或對應的全域 `file:*`；資料夾範圍的判斷與能力旗標見 §11。
 `POST /files/move` 的資料夾不存在回 `FILE_FOLDER_NOT_FOUND`；檔案已刪除、還在上傳中、或本來就在目的地的略過（不讓整批失敗），
 回應的數量只算實際移動的。
 
@@ -375,6 +380,7 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   "urlExpiresAt": "2026-09-27T00:15:00.000Z",                          // 所有網址中最早失效的時間
   "version": 3,                                                        // 樂觀鎖
   "uploader": { "id": "uuid", "displayName": "Alice" },
+  "capabilities": { "canUpdate": true, "canDelete": false },          // 操作者對這個檔案的能力（§11）
   "uploadedAt": "…", "createdAt": "…", "updatedAt": "…"
 }
 ```
@@ -425,6 +431,13 @@ LIMIT $limit
 | `FILE_FOLDER_NOT_FOUND` | 404 | 資料夾不存在或已刪除（上傳、建立、改名、移動的目的地或來源） |
 | `FILE_FOLDER_NAME_CONFLICT` | 409 | 同一層已有同名（不分大小寫）的資料夾 |
 | `FILE_FOLDER_CYCLE` | 422 | 把資料夾移到自己或自己的子孫底下（`details.folderIds`） |
+| `FILE_FOLDER_SYSTEM_PROTECTED` | 403 | 改名、移動、刪除系統資料夾（共用、私人、個人資料夾，rbac/07 §12） |
+| `AUTHZ_FORBIDDEN` | 403 | 看得到但沒有該動作的資料夾授權（`details: { action, resourceType, resourceId }`，§11）；遞迴刪除時子樹有別人的東西（`details.reason = 'not-owner'`）或有權限不足的私人資料夾（`details.reason = 'protected-subfolder'`） |
+| `AUTHZ_ESCALATION` | 403 | 授予超過自己在該資料夾能力的等級（`details.missing`） |
+| `FILE_GRANT_SUBJECT_NOT_FOUND` | 404 | 授權對象（角色／使用者）不存在或已刪除 |
+| `FILE_ACCESS_ALREADY_GRANTED` | 409 | 申請的等級已經有了（§11、rbac/07 §6.5） |
+| `FILE_ACCESS_REQUEST_NOT_FOUND` | 404 | 存取申請不存在、不是這個資料夾的、或已審核 |
+| `FILE_GRANT_NOT_FOUND` | 404 | 要移除的直接授權不存在（繼承來的要到來源資料夾移除） |
 
 ---
 
@@ -436,9 +449,9 @@ LIMIT $limit
 - 稽核：`file.upload`（完成時，不是登記時）、`file.update`（只記有變的欄位）、`file.delete`；`resourceType = 'file'`。
   資料夾：`fileFolder.create`（上傳資料夾時每個新建的資料夾一筆）、`fileFolder.update`、`fileFolder.delete`（`before` 記下遞迴刪除的資料夾數與檔案數）、
   `file.move`（一次移動一筆，`resourceId` 是目的地，`changes.after` 列出移動的檔案與資料夾）；`resourceType = 'fileFolder'`。
-- 推播：`ChangeSource.FILE`，受眾 `file:read`（[`08-realtime.md`](./08-realtime.md) §6.1）；前端 `Resource.FILE`
+- 推播：`ChangeSource.FILE`，受眾 `file:read` 與 `file:access`（[`08-realtime.md`](./08-realtime.md) §6.1）；前端 `Resource.FILE`
   失效 `FILE_LIST_QUERY_KEY`、`FILE_INFINITE_LIST_QUERY_KEY` / `FILE_DETAIL_QUERY_KEY`。
-  資料夾：`ChangeSource.FILE_FOLDER`（受眾同樣是 `file:read`）。遞迴刪除與批次移動無法逐筆列出受影響的檔案，
+  資料夾：`ChangeSource.FILE_FOLDER`（受眾相同）。遞迴刪除與批次移動無法逐筆列出受影響的檔案，
   另推一筆 `file` 的 `delete` / `update`、`id = '*'`：前端退回以前綴失效所有檔案的詳情。
 
 ### 7.1 下載網址的快取
@@ -504,6 +517,12 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | --- | --- |
 | `src/modules/file/__tests__/file.service.spec.ts` | 業務規則：每個 `AppException` 分支、可見性、交易後才刪物件；分塊上傳、放棄上傳、縮圖、樂觀鎖、游標 |
 | `src/modules/file/__tests__/file-folder.service.spec.ts` | 資料夾規則（以記憶體裡的樹模擬 repository）：同名（不分大小寫、只限同一層）、循環、目的地同名、遞迴刪除、上傳資料夾的沿用與深度上限 |
+| `src/modules/resource-grant/__tests__/resource-grant.resolver.spec.ts` | 等級解析：繼承、取最高、中斷繼承、記憶化、壞資料的循環 |
+| `src/modules/resource-grant/__tests__/resource-grant.levels.spec.ts` | 通用的等級 → 動作、反提權比對（以假的資源驗證不依賴檔案） |
+| `src/modules/file/__tests__/file-access.service.spec.ts` | 能力規則：全域 × 等級 × 擁有者的組合、根目錄、鎖住的資料夾、反提權 |
+| `src/modules/file/__tests__/file-folder-access.approval.spec.ts` | 申請存取的審批 handler：已有權限不能申請、核准者要能 share 且授予得起、套用寫入授權與稽核 |
+| `src/modules/file/__tests__/file-folder.service.spec.ts`（授權段落） | 鎖住的資料夾（canRead=false）、根目錄不能建立、鎖住的回 403、擁有者改名、遞迴刪除的 not-owner 與 protected-subfolder、移動的目的地 |
+| `test/file-access.spec.ts` | 真 Postgres：只有 `file:access` 的成員經角色／個人授權看到的資料夾與檔案、擁有者規則、中斷繼承與複製、授權過期、遞迴刪除的附加條件、`resource_grants` 唯一約束；存取申請；系統資料夾（啟動時建立、別人的個人資料夾鎖住、不能改名刪除移動、指派角色後自動建立、刪除使用者時空的個人資料夾跟著刪除） |
 | `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除時清變體）、維護排程（dry run 與清除）、樂觀鎖、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束；資料夾：上傳到資料夾與依 `folderId` 列出、移動、循環與同名（真的唯一索引）、上傳資料夾重送得到同樣的 id、遞迴刪除後可再建同名、`file_folders_not_own_parent` |
 | `src/core/storage/__tests__/content-disposition.spec.ts` | 中文檔名的 `Content-Disposition` |
 | `src/core/storage/__tests__/stable-signing-date.spec.ts` | 下載網址在時間窗內不變、剩餘效期範圍 |
@@ -514,3 +533,43 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 
 與真實 S3 協定的相容性由 apps/file-storage 的測試（官方 SDK）負責；api 端的 `S3ObjectStorage` 另以 Docker 整套
 （`docker-compose.prod.yml`）手動驗證過 presigned 直傳、Content-Type 綁定、中文檔名下載與刪除。
+
+---
+
+## 11. 存取控制（資料夾層級授權）
+
+規格：[`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)；決策：[ADR-0015](../../adr/0015-file-folder-access.md)。
+這一節只講實作落點。
+
+```
+controller   @RequireAnyPermission('file:access', 'file:<動作>')    ← 閘門
+    │
+service      FileService / FileFolderService / FileFolderGrantService
+    │  ctx = await access.contextFor(actor)                       ← 每個請求一次
+    │  access.assertCan(ctx, action, location, resource?)          ← 不能就 404 / 403 ＋ authz.denied
+    ▼
+FileAccessService（modules/file）
+    ├─ PermissionService.getPermissionSet(actor)                   全域 file:*（有快取）
+    ├─ FileFolderRepository.listTreeNodes()                        整棵樹：id / parent_id / inherit_grants / created_by
+    └─ ResourceGrantService.grantsFor(actor, ['fileFolder'])         本人 ＋ 持有角色的未過期授權
+            │
+            └─ resolveHierarchyLevels(nodes, grants)               modules/resource-grant：通用、純函式
+```
+
+| 項目 | 做法 |
+| --- | --- |
+| 解析範圍 | 每個請求載入一次整棵資料夾結構（四個欄位）與操作者的授權，在記憶體算出每個資料夾的有效等級（記憶化，每個資料夾只算一次） |
+| 列表過濾 | `GET /files` 不帶 `folderId` 且沒有全域 `file:read`：以看得到的資料夾 id 限制 `folder_id = ANY(…)`，根目錄的檔案不列 |
+| 能力旗標 | `toDto` 時由 context 算出 `capabilities`；列表一次算完，不逐筆查詢 |
+| 移動、遞迴刪除 | 在 `writeTree` 的交易（取得樹鎖）**之內** 建立 context：檢查與寫入之間結構不會變 |
+| 授權寫入 | `resource_grants` 的 upsert／delete 與稽核在同一個交易；交易後推 `fileFolder update` |
+| 中斷繼承 | `file_folders.inherit_grants`；設成 `false` 時在同一個交易內把目前繼承到的授權複製成直接授權 |
+| 授權對象 | 解析與清單都 join 未刪除的 `roles` / `users`：刪除角色或使用者不必清授權列 |
+
+資料表：`resource_grants`（migration `0010_resource_grants.sql`）、`file_folders.inherit_grants`（`0011_file_folder_access.sql`）、
+系統資料夾 `file_folders.kind` / `owner_id` 與授權對象 `everyone`（`0013_file_system_folders.sql`）。
+
+系統資料夾由 `FileSystemFolderService` 維護：`onApplicationBootstrap` 確保共用／私人資料夾存在並補建個人資料夾；
+訂閱 `permissions.changed` 為取得檔案管理器權限的使用者建立個人資料夾；訂閱 `resource.changed` 的 `user delete`，
+擁有者被刪除時把空的個人資料夾軟刪除（rbac/07 §12）。
+

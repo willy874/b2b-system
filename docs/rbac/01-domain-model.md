@@ -10,7 +10,7 @@
 | Role ↔ Permission 多對多           | ✅         | 權限是預先定義的目錄，不可由使用者自創                                      |
 | 角色階層（Hierarchical RBAC）      | ❌         | 見 [ADR-0006](../adr/0006-flat-permission-scope.md)，用「複製角色」取代繼承 |
 | 職責分離（SoD / Constrained RBAC） | ❌         | Phase 0 不做互斥角色                                                        |
-| 資源作用域（Scoped / ABAC）        | ❌（預留） | 見 §7 延伸點                                                                |
+| 資源作用域（Scoped / ABAC）        | ◐ 檔案     | 檔案管理器的資料夾層級授權，見 [`07-resource-grants.md`](./07-resource-grants.md)；其餘資源見 §7 延伸點 |
 | **反提權**                         | ✅（強化） | 授權者不能授予自己沒有的權限                                                |
 | **系統角色保護**                   | ✅（強化） | `is_system` 角色不可刪除／改名                                              |
 
@@ -253,7 +253,7 @@ deny 規則會讓「為什麼這個人不能做 X」變成需要推理的問題�
 
 | 延伸                                   | 預留方式                                                                                                        |
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| **資源作用域**（「只能編輯自己專案」） | `user_roles` 增加 `scope_type` / `scope_id` 兩欄（預設 `NULL` = 全域），複合主鍵擴充。權限解析加一層 scope 過濾 |
+| **資源作用域**（「只能編輯自己專案」） | 已由檔案資料夾先行實作：通用的 `resource_grants`（資源 × 對象 × 等級，沿上層鏈繼承），不改 `user_roles`。專案、關卡沿用同一張表，見 [`07-resource-grants.md`](./07-resource-grants.md) §10 |
 | **角色階層**                           | 新增 `role_inherits (parent_id, child_id)`，解析時做遞迴 CTE                                                    |
 | **條件式權限（ABAC）**                 | `role_permissions` 增加 `condition jsonb`，Guard 端加入條件評估器                                               |
 | **多租戶**                             | 各表加 `tenant_id`，配合 Postgres Row Level Security                                                            |

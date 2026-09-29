@@ -178,7 +178,8 @@ apps/api/src/
 │   ├── permission/
 │   ├── audit-log/
 │   ├── approval/
-│   ├── file/                檔案轉介表、上傳流程（docs/architecture/backend/09-file.md）
+│   ├── file/                檔案轉介表、上傳流程、資料夾授權（docs/architecture/backend/09-file.md）
+│   ├── resource-grant/      資源授權與等級解析（docs/rbac/07-resource-grants.md）
 │   └── health/
 │
 └── db/

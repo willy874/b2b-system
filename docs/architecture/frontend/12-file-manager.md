@@ -24,6 +24,7 @@
 | LightBox 預覽 | 詳情對話框；內容由預覽解析器顯示，內建圖片與純文字 | §6 |
 | 插件能力 | `core/file` 的三個註冊表：預覽解析器、檔案驗證器、縮圖產生器 | §6 |
 | 偏好記憶 | 排列方式、閱覽模式、排序、每頁筆數存在 localStorage，跨分頁同步 | §4 |
+| 資料夾層級的權限與共用 | 按鈕看後端回傳的 `capabilities`；「共用」對話框管理資料夾授權、中斷繼承 | §13 |
 
 ---
 
@@ -235,12 +236,14 @@ registerFilePreviewer({
 | `features/file/pages/FileManager/__tests__/layout.test.ts` | RWD 欄數、框選命中（含畫面外、間距）、方向鍵 |
 | `…/__tests__/useFileSelection.test.ts` | 點擊、⌘ / Shift、框選取代與疊加、資料更新後自動修剪 |
 | `…/__tests__/FileBrowser.test.tsx` | 點擊與勾選框、雙擊（檔案／資料夾）、鍵盤、拖放上傳（含放在資料夾卡片上、無權限）、拖曳移動（整批、只拖一個、放進自己被擋、無權限不可拖）、列表表頭排序、空狀態 |
-| `…/__tests__/folderTree.test.ts` | 自然排序、孤兒不掛到根目錄、路徑、`isWithin`、移動的合法性 |
+| `…/__tests__/folderTree.test.ts` | 自然排序、孤兒不掛到根目錄、路徑、`isWithin`、移動的合法性（含目的地的 canCreate） |
+| `…/components/__tests__/FileAccessRequestDialog.test.tsx` | 送出等級與理由、已送出的狀態 |
 | `features/file/upload/__tests__/collectEntries.test.ts` | `webkitRelativePath` 還原結構、略過系統檔、拖放的遞迴展開（含空資料夾、分批的 `readEntries`） |
 | `…/__tests__/FileLightbox.test.tsx` | 依註冊表選解析器、無解析器、超過大小上限、解析器壞掉、上一個／下一個、已刪除、權限 |
 | `…/__tests__/adapter.test.ts` | 縮圖／原檔／圖示的選擇、全螢幕預覽、多頁去重、網址效期 |
 | `features/file/preview/__tests__/ImagePreview.test.tsx` | 預設顯示全螢幕預覽、原始大小才載入原圖、沒有預覽時用原圖 |
-| `features/file/hooks/__tests__/useFilePermission.test.tsx` | 有權限／只有 `file:read`／只有 `file:update`（可移動不可建立資料夾）／未水合 |
+| `features/file/hooks/__tests__/useFilePermission.test.tsx` | 目前位置的能力（根目錄、資料夾）、選取項目的能力取交集、未水合 |
+| `…/components/__tests__/FileShareDialog.test.tsx` | 列出直接與繼承的授權、新增／變更等級／移除、中斷繼承、反提權錯誤、無權限 |
 | `features/file/__tests__/batch.test.ts` | 送進佇列的形狀、上傳到資料夾（目的地編進 id）、上傳操作（進度、失效、清暫存、拿不到檔案）、刪除檔案與資料夾 |
 | `features/file/upload/__tests__/validators.test.ts`、`__tests__/preference.test.ts` | 內建驗證器、偏好的逐欄驗證 |
 | `core/file/__tests__/*` | 類型判斷、三個註冊表 |
@@ -276,7 +279,7 @@ GET /files?folderId=<目前資料夾 | root>  → 主區塊的檔案（資料夾
 | 與上傳的區別 | 頁面內的拖曳只帶 `application/x-game-editor-file-items`；從電腦拖進來的帶 `Files`。兩個 hook 在同一個容器上各自只認自己的型別 |
 | 拖了哪些 | `dragover` 期間瀏覽器不讓讀 `getData()`，所以拖曳的項目記在 hook 的 ref 裡，`dataTransfer` 只帶型別標記 |
 | 送出 | `POST /files/move` 一次送出檔案與資料夾（後端同一個交易）；成功後失效資料夾清單與檔案（`id='*'`），toast「已移動 N 個項目」 |
-| 權限 | `file:update`（`canMove`）；沒有時項目不可拖曳、不顯示「移動」 |
+| 權限 | 被拖的每個項目都要 `capabilities.canUpdate`，目的地要 `canCreate`（根目錄看 `rootCapabilities`）；不能拖的項目不可拖曳，不能放的目標不亮（§13） |
 
 **替代方式**：拖放不適合鍵盤、觸控、目的地不在畫面上的情況——選取列的「移動」開啟對話框（`FileMoveDialog`），
 以同一棵樹選目的地；要移動的資料夾與其子孫不可選，目前所在的位置可以選但「移到這裡」不可按。
@@ -285,8 +288,40 @@ GET /files?folderId=<目前資料夾 | root>  → 主區塊的檔案（資料夾
 
 | 操作 | 入口 | 權限 |
 | --- | --- | --- |
-| 新增資料夾（在目前的資料夾裡） | 工具列「新增資料夾」→ `FileFolderDialog` | `file:create` |
-| 改名 | 只選一個資料夾時，選取列的「重新命名」 | `file:update` |
-| 刪除（遞迴） | 選取後 Delete 鍵或選取列的「刪除」 | `file:delete` |
-| 進入 | 雙擊、Enter、觸控點一下、樹的節點、麵包屑 | `file:read` |
+| 新增資料夾（在目前的資料夾裡） | 工具列「新增資料夾」→ `FileFolderDialog` | 目前位置的 `canCreate` |
+| 改名 | 只選一個資料夾時，選取列的「重新命名」 | 該資料夾的 `canUpdate` |
+| 刪除（遞迴） | 選取後 Delete 鍵或選取列的「刪除」 | 選取的每一項都 `canDelete` |
+| 共用（管理授權） | 只選一個資料夾時選取列的「共用」；工具列的「共用此資料夾」 → `FileShareDialog` | 該資料夾的 `canShare` |
+| 進入 | 雙擊、Enter、觸控點一下、樹的節點、麵包屑 | 看得到就能進（清單只含看得到的） |
+
+---
+
+## 13. 權限與共用（資料夾層級授權）
+
+規格：[`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)。前端 **不重算** 繼承與擁有者規則，只讀後端的旗標。
+
+| 資料 | 來源 | 用在 |
+| --- | --- | --- |
+| 能不能進檔案管理器 | 頁面權限 `FILE`：`file:access` 或 `file:read`（SOME） | 路由 guard、選單 |
+| 目前位置能不能上傳、建資料夾、共用 | 目前資料夾的 `capabilities`；根目錄是 `FileFolderList.rootCapabilities` | 工具列、拖放上傳、空狀態 |
+| 項目能不能改名、移動、刪除 | 每個 `StoredFile` / `FileFolder` 的 `capabilities`（經 `adapter.ts` 放進 VM） | 選取列（取交集）、拖曳移動、LightBox、Delete 鍵 |
+
+```
+useFilePermission({ location })            ← hooks/useFilePermission.ts
+  canAccess                                 頁面權限（未水合 → false）
+  canUpload / canCreateFolder / canShare    目前位置的 capabilities
+selectionCapabilities(items)                選取項目的能力取交集：canRename（只選一個）、canMove、canDelete
+```
+
+- **鎖住的資料夾**：沒有 `read` 的資料夾仍列出（`capabilities.canRead = false`），樹、卡片、列表都加鎖頭圖示並淡化；
+  可以進入（看得到子資料夾，才走得到裡面被授權的資料夾），檔案區改顯示「沒有存取權」與「申請存取」
+  （`FileAccessRequestDialog`：選等級、填理由；已申請時顯示「已送出申請，等待審核」）。不對鎖住的資料夾查檔案清單。
+- **系統資料夾**：共用資料夾（`users` 圖示）、私人資料夾與個人資料夾（`user` 圖示）依 `FileFolder.kind` 顯示；
+  沒有指定資料夾時開在自己的個人資料夾（`personalFolderId`，只在進入頁面時導一次，之後點「所有檔案」仍回到根目錄）。
+  系統資料夾的 `capabilities.canUpdate/canDelete` 恆為 false，選取列自然不顯示改名、移動、刪除。
+- **共用對話框（`FileShareDialog`）**：列出直接授權與繼承的授權（標出來源資料夾、不可在這裡改）；
+  新增對象（`GET /file-folders/:id/grant-subjects` 搜尋角色／使用者，或選「所有人」）、選等級、選過期時間；變更等級、移除；
+  「不繼承上層的授權」開關（開啟時提示會複製目前繼承到的授權）；「存取申請」區塊列出待審的申請，可核准或駁回。等級選單只列出操作者授予得起的（反提權，後端仍會再擋）。
+- 授權變更之後後端推 `fileFolder update`：資料夾清單與檔案清單重抓，旗標自然更新；被移除授權的人正在看的資料夾
+  從清單消失時，走既有的「網址上的資料夾不存在 → 回到根目錄」（`onMissingFolder`）。
 

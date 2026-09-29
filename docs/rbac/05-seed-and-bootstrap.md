@@ -87,6 +87,14 @@ export const ROLE_SEED = [
       "permission:read",
       "auditLog:read",
       "system:read",
+      "approval:read",
+      "approval:review",
+      "file:create",
+      "file:read",
+      "file:update",
+      "file:delete",
+      "file:share",
+      "file:access", // 指派 member 受反提權限制
     ],
   },
   {
@@ -94,14 +102,23 @@ export const ROLE_SEED = [
     name: "稽核人員",
     description: "唯讀存取使用者、角色與稽核日誌。",
     isSystem: true,
-    permissions: ["user:read", "role:read", "permission:read", "auditLog:read", "system:read"],
+    permissions: [
+      "user:read",
+      "role:read",
+      "permission:read",
+      "auditLog:read",
+      "system:read",
+      "approval:read",
+      "file:read",
+    ],
   },
   {
     slug: "member",
     name: "一般成員",
-    description: "僅能存取個人頁面。未來功能的權限掛載點。",
+    description: "個人頁面，以及被授權的資料夾。未來功能的權限掛載點。",
     isSystem: true,
-    permissions: [],
+    // 進得了檔案管理器；範圍由資料夾授權決定（rbac/07-resource-grants.md）
+    permissions: ["file:access"],
   },
 ] as const;
 ```
@@ -251,11 +268,11 @@ pnpm --filter @game-editor/api cli:reset-super-admin --email admin@example.com
 
 `db:seed` 完成後，以下斷言必須成立（`db/seeds/__tests__/seed.spec.ts`）：
 
-- [ ] `permissions` 表筆數 = `PERMISSION_SEED.length`（15）
+- [ ] `permissions` 表筆數 = `PERMISSION_SEED.length`（23）
 - [ ] 每筆 `permissions.key` = `resource || ':' || action`
 - [ ] `roles` 中恰有 4 筆 `is_system = true`
 - [ ] `super-admin` 在 `role_permissions` 中 **沒有任何列**（隱含全集）
-- [ ] `admin` 的權限集合 = `ROLE_SEED` 中宣告的 14 筆
+- [ ] `admin` 的權限集合 = `ROLE_SEED` 中宣告的 22 筆
 - [ ] 恰有一位使用者持有 `super-admin`
 - [ ] 連續執行 `db:seed` 兩次，所有表的筆數不變
-- [ ] `GET /auth/profile`（以 super-admin 登入）回傳的 `permissions` 長度 = 15
+- [ ] `GET /auth/profile`（以 super-admin 登入）回傳的 `permissions` 長度 = 23

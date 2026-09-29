@@ -17,7 +17,7 @@
 | 前端 UI  | **Base UI**（`@base-ui/react`）＋ 專案自有的 `components/` 封裝層                              |
 | 後端     | **NestJS** + **Drizzle ORM** + **PostgreSQL**                                                  |
 | 首期範圍 | 認證（登入／登出／Token 續期）、使用者、角色、權限、稽核日誌、個人帳號、審批（註冊需核准）     |
-| 不在首期 | 任何遊戲編輯器本身的功能、資源層級作用域（見 [ADR-0006](./adr/0006-flat-permission-scope.md)） |
+| 不在首期 | 任何遊戲編輯器本身的功能；資源層級作用域只先用在檔案管理器（見 [ADR-0006](./adr/0006-flat-permission-scope.md)、[ADR-0015](./adr/0015-file-folder-access.md)） |
 
 ---
 
@@ -106,7 +106,8 @@ docs/
 │   ├── 03-flows.md                    登入、授權檢查、角色指派、權限變更生效
 │   ├── 04-api-spec.md                 RBAC 相關 API 規格
 │   ├── 05-seed-and-bootstrap.md       預設角色與系統初始化
-│   └── 06-approval.md                 審批：請求 → 核准 → 套用；使用者註冊
+│   ├── 06-approval.md                 審批：請求 → 核准 → 套用；使用者註冊
+│   └── 07-resource-grants.md          資源授權：資料夾層級（等級、繼承、擁有者規則）
 │
 ├── conventions/                       寫程式時每天要遵守的規則
 │   ├── README.md                      規則強度標記（🔒 工具 / 👀 Review）
@@ -132,7 +133,8 @@ docs/
     ├── 0011-codemirror-json-editor.md
     ├── 0012-batch-queue-worker.md
     ├── 0013-file-manager-upload.md
-    └── 0014-server-image-variants.md
+    ├── 0014-server-image-variants.md
+    └── 0015-file-folder-access.md
 ```
 
 ---
