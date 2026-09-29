@@ -11,9 +11,14 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { CurrentUser, RequireAnyPermission } from '@/common/decorators';
+import {
+  CurrentUser,
+  CurrentWorkspace,
+  RequireAnyPermission,
+  WorkspaceScoped,
+} from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
-import type { AuthUser } from '@/common/types';
+import type { AuthUser, WorkspaceScope } from '@/common/types';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
 
 import {
@@ -35,10 +40,11 @@ import { FileFolderService } from './file-folder.service';
  * 檔案管理器的資料夾（docs/architecture/backend/09-file.md §4.2）。沿用檔案的權限：
  * 建立（含上傳資料夾）＝ create、改名 ＝ update、遞迴刪除 ＝ delete。
  * 閘門是 `file:access` 或全域 `file:<動作>`，資料夾範圍由 service 判斷（§11）。
- * 移動檔案與資料夾是 `POST /files/move`。
+ * 移動檔案與資料夾是 `POST /workspaces/:workspaceId/files/move`。
  */
 @ApiTags('files')
-@Controller('file-folders')
+@WorkspaceScoped()
+@Controller('workspaces/:workspaceId/file-folders')
 export class FileFolderController {
   constructor(private readonly folderService: FileFolderService) {}
 
@@ -46,8 +52,8 @@ export class FileFolderController {
   @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_READ)
   @ApiOperation({ summary: '全部的資料夾（扁平清單，前端自行組成樹）' })
   @ApiZodResponse(200, FileFolderListSchema)
-  list(@CurrentUser() actor: AuthUser) {
-    return this.folderService.list(actor);
+  list(@CurrentWorkspace() ws: WorkspaceScope, @CurrentUser() actor: AuthUser) {
+    return this.folderService.list(ws, actor);
   }
 
   @Post()
@@ -56,9 +62,10 @@ export class FileFolderController {
   @ApiZodResponse(201, FileFolderSchema)
   create(
     @Body(new ZodValidationPipe(CreateFileFolderSchema)) dto: CreateFileFolderDto,
+    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.folderService.create(dto, actor);
+    return this.folderService.create(ws, dto, actor);
   }
 
   @Post('paths')
@@ -71,9 +78,10 @@ export class FileFolderController {
   @ApiZodResponse(200, FileFolderPathsSchema)
   ensurePaths(
     @Body(new ZodValidationPipe(EnsureFileFolderPathsSchema)) dto: EnsureFileFolderPathsDto,
+    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.folderService.ensurePaths(dto, actor);
+    return this.folderService.ensurePaths(ws, dto, actor);
   }
 
   @Patch(':id')
@@ -83,16 +91,21 @@ export class FileFolderController {
   rename(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(UpdateFileFolderSchema)) dto: UpdateFileFolderDto,
+    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.folderService.rename(id, dto, actor);
+    return this.folderService.rename(ws, id, dto, actor);
   }
 
   @Delete(':id')
   @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_DELETE)
   @HttpCode(204)
   @ApiOperation({ summary: '遞迴刪除資料夾：子資料夾與其中的檔案一起刪除' })
-  async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
-    await this.folderService.remove(id, actor);
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentWorkspace() ws: WorkspaceScope,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    await this.folderService.remove(ws, id, actor);
   }
 }

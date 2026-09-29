@@ -28,6 +28,8 @@ function isThumbnailContentType(value: string): value is ThumbnailContentType {
 const FALLBACK_CONTENT_TYPE = 'application/octet-stream';
 
 export interface UploadFileParams {
+  /** 上傳到哪個工作區（docs/adr/0018-workspace-tenancy.md D8）。 */
+  workspaceId: string;
   file: Blob;
   /** 預設取 `File.name`；傳 `Blob` 時必填。 */
   name?: string;
@@ -49,7 +51,7 @@ export async function uploadFile(
   params: UploadFileParams,
   signal?: AbortSignal,
 ): Promise<StoredFile> {
-  const { file, onProgress } = params;
+  const { workspaceId, file, onProgress } = params;
   const thumbnail =
     params.thumbnail && isThumbnailContentType(params.thumbnail.type)
       ? params.thumbnail
@@ -60,6 +62,7 @@ export async function uploadFile(
 
   const registered = await fetchFileCreateUploadMutation({
     params: {
+      workspaceId,
       name,
       contentType: file.type || FALLBACK_CONTENT_TYPE,
       size: file.size,
@@ -83,19 +86,22 @@ export async function uploadFile(
 
     let parts: Awaited<ReturnType<typeof uploadParts>> | undefined;
     if (registered.multipart) {
-      parts = await uploadParts(fileId, registered.multipart, file, { signal, onProgress });
+      parts = await uploadParts({ workspaceId, fileId }, registered.multipart, file, {
+        signal,
+        onProgress,
+      });
     } else if (registered.upload) {
       await putToStorage(registered.upload, file, { signal, onProgress });
     }
     await thumbnailDone;
 
     return await fetchFileCompleteUploadMutation({
-      params: { fileId, body: parts ? { parts } : undefined },
+      params: { workspaceId, fileId, body: parts ? { parts } : undefined },
       signal,
     });
   } catch (error) {
     // 不用傳進來的 signal：被中止時它已經 aborted，清理請求也會被取消
-    void fetchFileAbortUploadMutation({ params: { fileId } }).catch(() => undefined);
+    void fetchFileAbortUploadMutation({ params: { workspaceId, fileId } }).catch(() => undefined);
     throw error;
   }
 }

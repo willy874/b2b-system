@@ -91,8 +91,15 @@
     "file": "檔案",
     "job": "背景工作",
     "profile": "個人資料",
+    "workspace": "工作區",
+    "workspaceMember": "成員",
     "preference": "偏好設定",
     "logout": "登出"
+  },
+  "workspaceSwitcher": {
+    "label": "切換工作區",
+    "empty": "你還不屬於任何工作區",
+    "notMember": "（非成員）"
   },
   "app": {
     "title": "Game Editor",
@@ -132,11 +139,17 @@
     "ROLE_SYSTEM_PROTECTED": "系統角色受保護，不可刪除或改名。",
     "ROLE_SUPER_ADMIN_IMMUTABLE": "超級管理員角色的權限不可變更。",
     "ROLE_IN_USE": "仍有使用者持有這個角色。",
+    "ROLE_SCOPE_MISMATCH": "角色的範圍不符：平台角色只能指派給使用者、工作區角色只能指派在工作區裡，權限也只能選同範圍的。",
     "LAST_SUPER_ADMIN": "系統必須保留至少一位可用的超級管理員。",
     "PERMISSION_UNKNOWN": "包含系統未定義的權限鍵。",
     "APPROVAL_NOT_FOUND": "找不到這筆審批申請。",
     "APPROVAL_ALREADY_REVIEWED": "這筆申請已經被審核過了。",
     "APPROVAL_SELF_REVIEW": "不能審核自己送出的申請，請由其他管理員處理。",
+    "WORKSPACE_NOT_FOUND": "找不到這個工作區，或你不是它的成員。",
+    "WORKSPACE_SLUG_DUPLICATE": "這個網址代稱已經被使用。",
+    "WORKSPACE_MEMBER_NOT_FOUND": "這個人不是工作區的成員。",
+    "WORKSPACE_MEMBER_DUPLICATE": "這個人已經是工作區的成員。",
+    "WORKSPACE_LAST_ADMIN": "工作區至少要留一位能管理成員的人。",
     "JOB_NOT_FOUND": "找不到這筆工作，可能已超過保留期被清除。",
     "JOB_NOT_RETRYABLE": "只有失敗的工作可以重試；它可能已經被其他人重試過了。",
     "FILE_NOT_FOUND": "找不到這個檔案，可能已被刪除。",
@@ -173,8 +186,12 @@
       "system": "系統",
       "approval": "審批",
       "file": "檔案",
-      "job": "背景工作"
+      "job": "背景工作",
+      "workspace": "工作區",
+      "workspaceMember": "工作區成員"
     },
+    "platformScope": "平台",
+    "workspaceScope": "工作區",
     "user": {
       "create": "建立使用者",
       "read": "檢視使用者",
@@ -202,7 +219,19 @@
       "access": "使用檔案管理器",
       "share": "管理檔案授權"
     },
-    "job": { "read": "檢視背景工作", "retry": "重試背景工作" }
+    "job": { "read": "檢視背景工作", "retry": "重試背景工作" },
+    "workspace": {
+      "create": "建立工作區",
+      "read": "檢視工作區",
+      "update": "編輯工作區",
+      "delete": "刪除工作區"
+    },
+    "workspaceMember": {
+      "read": "檢視成員",
+      "create": "邀請成員",
+      "delete": "移除成員",
+      "assignRole": "指派工作區角色"
+    }
   },
   "theme": {
     "label": "主題",

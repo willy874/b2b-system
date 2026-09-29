@@ -7,19 +7,30 @@ import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
 import { ObjectStorage } from '@/core/storage';
-import { auditLogs, fileFolders, files, roles, userRoles, users } from '@/db/schema';
+import { auditLogs, fileFolders, files, roles, users } from '@/db/schema';
 import { FileImageService } from '@/modules/file/file-image.service';
 import { FileMaintenanceService } from '@/modules/file/file-maintenance.service';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, expectDbError, truncateAll } from './db';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
+import { assignRoles, createWorkspace, defaultWorkspaceId, workspacePath } from './workspace';
 
 let app: INestApplication;
 let http: App;
 let db: TestDatabase;
 let closeDb: () => Promise<void>;
 const storage = new InMemoryObjectStorage();
+/** 工作區範圍 API 的前綴（beforeAll 裡設定）。 */
+let WS = '';
+let workspaceId = '';
+
+/** 平台角色 → 在預設工作區對應的工作區角色（docs/adr/0018-workspace-tenancy.md D18 的拆法）。 */
+const WORKSPACE_ROLE_OF: Record<string, string> = {
+  admin: 'workspace-admin',
+  auditor: 'workspace-viewer',
+  member: 'workspace-member',
+};
 
 const SUPER_ADMIN = { email: 'file-root@example.com', password: 'RootPassword!2026' };
 const ADMIN = { email: 'file-admin@example.com', password: 'AdminPassword!2026' };
@@ -47,8 +58,16 @@ async function createActiveUser(email: string, password: string, roleSlug: strin
       status: 'active',
     })
     .returning();
-  const [role] = await db.select().from(roles).where(eq(roles.slug, roleSlug));
-  await db.insert(userRoles).values({ userId: user!.id, roleId: role!.id });
+  const slugs = [roleSlug, WORKSPACE_ROLE_OF[roleSlug]].filter(Boolean) as string[];
+  const rows = await Promise.all(
+    slugs.map(async (slug) => (await db.select().from(roles).where(eq(roles.slug, slug)))[0]),
+  );
+  await assignRoles(
+    db,
+    user!.id,
+    rows.map((row) => row!.id),
+    workspaceId,
+  );
 }
 
 interface FileBody {
@@ -81,7 +100,7 @@ async function startUpload(
   },
 ) {
   const response = await request(http)
-    .post('/files')
+    .post(`${WS}/files`)
     .set('authorization', `Bearer ${token}`)
     .send(body)
     .expect(201);
@@ -104,7 +123,7 @@ async function uploadFile(
   const { file, upload } = await startUpload(token, body);
   storage.simulateBrowserUpload(upload.url, body.size);
   const response = await request(http)
-    .post(`/files/${file.id}/complete`)
+    .post(`${WS}/files/${file.id}/complete`)
     .set('authorization', `Bearer ${token}`)
     .expect(200);
   return (response.body as { data: FileBody }).data;
@@ -126,6 +145,8 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     await truncateAll(db);
     const { runSeed } = await import('@/db/seeds/index');
     await runSeed(db as never);
+    workspaceId = await defaultWorkspaceId(db);
+    WS = workspacePath(workspaceId);
     await createActiveUser(ADMIN.email, ADMIN.password, 'admin');
     await createActiveUser(AUDITOR.email, AUDITOR.password, 'auditor');
     await createActiveUser(MEMBER.email, MEMBER.password, 'member');
@@ -161,19 +182,21 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     // 不外洩 storage key / bucket
     expect(JSON.stringify(file)).not.toContain('storageKey');
 
-    const listBefore = await request(http).get('/files').set('authorization', `Bearer ${token}`);
+    const listBefore = await request(http)
+      .get(`${WS}/files`)
+      .set('authorization', `Bearer ${token}`);
     expect((listBefore.body as { data: { items: FileBody[] } }).data.items).toHaveLength(0);
 
     // 還沒上傳就完成 → 409
     const early = await request(http)
-      .post(`/files/${file.id}/complete`)
+      .post(`${WS}/files/${file.id}/complete`)
       .set('authorization', `Bearer ${token}`)
       .expect(409);
     expect((early.body as { error: { code: string } }).error.code).toBe('FILE_UPLOAD_INCOMPLETE');
 
     storage.simulateBrowserUpload(upload.url, 100);
     const done = await request(http)
-      .post(`/files/${file.id}/complete`)
+      .post(`${WS}/files/${file.id}/complete`)
       .set('authorization', `Bearer ${token}`)
       .expect(200);
     const ready = (done.body as { data: FileBody }).data;
@@ -195,7 +218,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     });
     storage.simulateBrowserUpload(upload.url, 11);
     const response = await request(http)
-      .post(`/files/${file.id}/complete`)
+      .post(`${WS}/files/${file.id}/complete`)
       .set('authorization', `Bearer ${token}`)
       .expect(422);
     expect((response.body as { error: { code: string } }).error.code).toBe('FILE_SIZE_MISMATCH');
@@ -205,7 +228,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
   it('超過 FILE_UPLOAD_MAX_SIZE → 413', async () => {
     const token = await login(ADMIN);
     const response = await request(http)
-      .post('/files')
+      .post(`${WS}/files`)
       .set('authorization', `Bearer ${token}`)
       .send({ name: 'huge.bin', contentType: 'application/octet-stream', size: 1001 })
       .expect(413);
@@ -215,7 +238,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
   it('檔名含路徑分隔字元 → 400', async () => {
     const token = await login(ADMIN);
     await request(http)
-      .post('/files')
+      .post(`${WS}/files`)
       .set('authorization', `Bearer ${token}`)
       .send({ name: '../etc/passwd', contentType: 'text/plain', size: 1 })
       .expect(400);
@@ -227,7 +250,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     await uploadFile(token, { name: 'icon.svg', contentType: 'image/svg+xml', size: 5 });
 
     const images = await request(http)
-      .get('/files')
+      .get(`${WS}/files`)
       .query({ contentType: 'image/*' })
       .set('authorization', `Bearer ${token}`)
       .expect(200);
@@ -237,7 +260,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     expect(imageNames.toSorted()).toEqual(['icon.svg', '角色 立繪.png']);
 
     const keyword = await request(http)
-      .get('/files')
+      .get(`${WS}/files`)
       .query({ keyword: 'BGM' })
       .set('authorization', `Bearer ${token}`)
       .expect(200);
@@ -251,18 +274,18 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     const file = await uploadFile(token, { name: 'old.txt', contentType: 'text/plain', size: 3 });
 
     const renamed = await request(http)
-      .patch(`/files/${file.id}`)
+      .patch(`${WS}/files/${file.id}`)
       .set('authorization', `Bearer ${token}`)
       .send({ name: 'new.txt' })
       .expect(200);
     expect((renamed.body as { data: FileBody }).data.name).toBe('new.txt');
 
     await request(http)
-      .delete(`/files/${file.id}`)
+      .delete(`${WS}/files/${file.id}`)
       .set('authorization', `Bearer ${token}`)
       .expect(204);
     await request(http)
-      .get(`/files/${file.id}`)
+      .get(`${WS}/files/${file.id}`)
       .set('authorization', `Bearer ${token}`)
       .expect(404);
     expect(storage.deleted).toContain(`files/${file.id}`);
@@ -270,21 +293,21 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
 
   it('auditor 能讀不能上傳；member 只有 file:access：進得來但什麼都看不到', async () => {
     const auditor = await login(AUDITOR);
-    await request(http).get('/files').set('authorization', `Bearer ${auditor}`).expect(200);
+    await request(http).get(`${WS}/files`).set('authorization', `Bearer ${auditor}`).expect(200);
     await request(http)
-      .post('/files')
+      .post(`${WS}/files`)
       .set('authorization', `Bearer ${auditor}`)
       .send({ name: 'x.txt', contentType: 'text/plain', size: 1 })
       .expect(403);
 
     const member = await login(MEMBER);
     const listed = await request(http)
-      .get('/files')
+      .get(`${WS}/files`)
       .set('authorization', `Bearer ${member}`)
       .expect(200);
     expect((listed.body as { data: { items: FileBody[] } }).data.items).toHaveLength(0);
     await request(http)
-      .post('/files')
+      .post(`${WS}/files`)
       .set('authorization', `Bearer ${member}`)
       .send({ name: 'x.txt', contentType: 'text/plain', size: 1 })
       .expect(403);
@@ -298,9 +321,12 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       contentType: 'text/plain',
       size: 1,
     });
-    await request(http).get(`/files/${file.id}`).set('authorization', `Bearer ${root}`).expect(404);
     await request(http)
-      .post(`/files/${file.id}/complete`)
+      .get(`${WS}/files/${file.id}`)
+      .set('authorization', `Bearer ${root}`)
+      .expect(404);
+    await request(http)
+      .post(`${WS}/files/${file.id}/complete`)
       .set('authorization', `Bearer ${root}`)
       .expect(404);
   });
@@ -316,7 +342,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     expect(multipart).toMatchObject({ partCount: 1 });
 
     const parts = await request(http)
-      .post(`/files/${file.id}/parts`)
+      .post(`${WS}/files/${file.id}/parts`)
       .set('authorization', `Bearer ${token}`)
       .send({ partNumbers: [1] })
       .expect(200);
@@ -325,11 +351,11 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
 
     // 沒帶 parts → 422
     await request(http)
-      .post(`/files/${file.id}/complete`)
+      .post(`${WS}/files/${file.id}/complete`)
       .set('authorization', `Bearer ${token}`)
       .expect(422);
     const done = await request(http)
-      .post(`/files/${file.id}/complete`)
+      .post(`${WS}/files/${file.id}/complete`)
       .set('authorization', `Bearer ${token}`)
       .send({ parts: [{ partNumber: 1, etag: '"etag-1"' }] })
       .expect(200);
@@ -347,18 +373,18 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     });
     const uploadsBefore = storage.uploads.size;
     await request(http)
-      .delete(`/files/${file.id}/upload`)
+      .delete(`${WS}/files/${file.id}/upload`)
       .set('authorization', `Bearer ${token}`)
       .expect(204);
     expect(storage.uploads.size).toBe(uploadsBefore - 1);
     await request(http)
-      .get(`/files/${file.id}`)
+      .get(`${WS}/files/${file.id}`)
       .set('authorization', `Bearer ${token}`)
       .expect(404);
 
     const ready = await uploadFile(token, { name: 'kept.txt', contentType: 'text/plain', size: 2 });
     const response = await request(http)
-      .delete(`/files/${ready.id}/upload`)
+      .delete(`${WS}/files/${ready.id}/upload`)
       .set('authorization', `Bearer ${token}`)
       .expect(409);
     expect((response.body as { error: { code: string } }).error.code).toBe('FILE_ALREADY_UPLOADED');
@@ -375,7 +401,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     storage.simulateBrowserUpload(upload.url, 50);
     storage.simulateBrowserUpload(thumbnailUpload?.url ?? '', 20, 'image/webp');
     const done = await request(http)
-      .post(`/files/${file.id}/complete`)
+      .post(`${WS}/files/${file.id}/complete`)
       .set('authorization', `Bearer ${token}`)
       .expect(200);
     expect((done.body as { data: FileBody }).data.thumbnailUrl).toContain(`thumbnails/${file.id}`);
@@ -386,13 +412,13 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     const file = await uploadFile(token, { name: 'v.txt', contentType: 'text/plain', size: 1 });
     expect(file.version).toBe(1);
     const first = await request(http)
-      .patch(`/files/${file.id}`)
+      .patch(`${WS}/files/${file.id}`)
       .set('authorization', `Bearer ${token}`)
       .send({ name: 'v2.txt', version: 1 })
       .expect(200);
     expect((first.body as { data: FileBody }).data.version).toBe(2);
     const stale = await request(http)
-      .patch(`/files/${file.id}`)
+      .patch(`${WS}/files/${file.id}`)
       .set('authorization', `Bearer ${token}`)
       .send({ name: 'v3.txt', version: 1 })
       .expect(409);
@@ -408,7 +434,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       (
         (
           await request(http)
-            .get('/files')
+            .get(`${WS}/files`)
             .query({ contentType: 'text/x-keyset', limit: '2', ...query })
             .set('authorization', `Bearer ${token}`)
             .expect(200)
@@ -423,7 +449,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     expect(second.items.map((f) => f.name)).toEqual(['k2.txt', 'k1.txt']);
 
     await request(http)
-      .get('/files')
+      .get(`${WS}/files`)
       .query({ cursor: first.nextCursor ?? '', sort: 'name' })
       .set('authorization', `Bearer ${token}`)
       .expect(400);
@@ -437,7 +463,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       (
         (
           await request(http)
-            .get('/files')
+            .get(`${WS}/files`)
             .query({ category, limit: '200' })
             .set('authorization', `Bearer ${token}`)
             .expect(200)
@@ -463,7 +489,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     });
     storage.write(new URL(upload.url).pathname.slice(1), content, 'image/png');
     await request(http)
-      .post(`/files/${file.id}/complete`)
+      .post(`${WS}/files/${file.id}/complete`)
       .set('authorization', `Bearer ${token}`)
       .expect(200);
     await app.get(FileImageService).whenIdle();
@@ -471,7 +497,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     const detail = (
       (
         await request(http)
-          .get(`/files/${file.id}`)
+          .get(`${WS}/files/${file.id}`)
           .set('authorization', `Bearer ${token}`)
           .expect(200)
       ).body as { data: FileBody }
@@ -502,7 +528,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
 
     // 刪除時一併刪除變體與轉出的格式
     await request(http)
-      .delete(`/files/${file.id}`)
+      .delete(`${WS}/files/${file.id}`)
       .set('authorization', `Bearer ${token}`)
       .expect(204);
     expect([...storage.objects.keys()].some((key) => key.startsWith(`variants/${file.id}/`))).toBe(
@@ -547,7 +573,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
 
     async function createFolder(token: string, name: string, parentId: string | null = null) {
       const response = await request(http)
-        .post('/file-folders')
+        .post(`${WS}/file-folders`)
         .set('authorization', `Bearer ${token}`)
         .send({ name, parentId })
         .expect(201);
@@ -556,7 +582,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
 
     async function listIn(token: string, folderId: string) {
       const response = await request(http)
-        .get('/files')
+        .get(`${WS}/files`)
         .query({ folderId })
         .set('authorization', `Bearer ${token}`)
         .expect(200);
@@ -576,14 +602,14 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       });
       storage.simulateBrowserUpload(upload.url, 5);
       await request(http)
-        .post(`/files/${file.id}/complete`)
+        .post(`${WS}/files/${file.id}/complete`)
         .set('authorization', `Bearer ${token}`)
         .expect(200);
       expect(await listIn(token, ui.id)).toEqual(['button.png']);
       expect(await listIn(token, 'root')).not.toContain('button.png');
 
       const moved = await request(http)
-        .post('/files/move')
+        .post(`${WS}/files/move`)
         .set('authorization', `Bearer ${token}`)
         .send({ fileIds: [file.id], folderIds: [ui.id], targetFolderId: null })
         .expect(200);
@@ -600,14 +626,14 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       const b = await createFolder(token, 'cycle-b', a.id);
 
       const cycle = await request(http)
-        .post('/files/move')
+        .post(`${WS}/files/move`)
         .set('authorization', `Bearer ${token}`)
         .send({ folderIds: [a.id], targetFolderId: b.id })
         .expect(422);
       expect((cycle.body as { error: { code: string } }).error.code).toBe('FILE_FOLDER_CYCLE');
 
       const duplicate = await request(http)
-        .post('/file-folders')
+        .post(`${WS}/file-folders`)
         .set('authorization', `Bearer ${token}`)
         .send({ name: 'CYCLE-A', parentId: null })
         .expect(409);
@@ -620,19 +646,19 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       const token = await login(ADMIN);
       const body = { parentId: null, paths: [['pack'], ['pack', 'sfx'], ['Pack', 'bgm', 'loop']] };
       const first = await request(http)
-        .post('/file-folders/paths')
+        .post(`${WS}/file-folders/paths`)
         .set('authorization', `Bearer ${token}`)
         .send(body)
         .expect(200);
       const second = await request(http)
-        .post('/file-folders/paths')
+        .post(`${WS}/file-folders/paths`)
         .set('authorization', `Bearer ${token}`)
         .send(body)
         .expect(200);
       expect(second.body).toEqual(first.body);
 
       const list = await request(http)
-        .get('/file-folders')
+        .get(`${WS}/file-folders`)
         .set('authorization', `Bearer ${token}`)
         .expect(200);
       const names = (list.body as { data: { items: FolderBody[] } }).data.items.map((f) => f.name);
@@ -652,16 +678,16 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       });
       storage.simulateBrowserUpload(upload.url, 2);
       await request(http)
-        .post(`/files/${file.id}/complete`)
+        .post(`${WS}/files/${file.id}/complete`)
         .set('authorization', `Bearer ${token}`)
         .expect(200);
 
       await request(http)
-        .delete(`/file-folders/${top.id}`)
+        .delete(`${WS}/file-folders/${top.id}`)
         .set('authorization', `Bearer ${token}`)
         .expect(204);
       await request(http)
-        .get(`/files/${file.id}`)
+        .get(`${WS}/files/${file.id}`)
         .set('authorization', `Bearer ${token}`)
         .expect(404);
       const [row] = await db.select().from(fileFolders).where(eq(fileFolders.id, child.id));
@@ -672,7 +698,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     it('上傳到不存在的資料夾 → 404 FILE_FOLDER_NOT_FOUND', async () => {
       const token = await login(ADMIN);
       const response = await request(http)
-        .post('/files')
+        .post(`${WS}/files`)
         .set('authorization', `Bearer ${token}`)
         .send({
           name: 'x.txt',
@@ -689,23 +715,23 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     it('auditor 能讀資料夾但不能建立或移動', async () => {
       const auditor = await login(AUDITOR);
       await request(http)
-        .get('/file-folders')
+        .get(`${WS}/file-folders`)
         .set('authorization', `Bearer ${auditor}`)
         .expect(200);
       await request(http)
-        .post('/file-folders')
+        .post(`${WS}/file-folders`)
         .set('authorization', `Bearer ${auditor}`)
         .send({ name: 'nope' })
         .expect(403);
       await request(http)
-        .post('/files/move')
+        .post(`${WS}/files/move`)
         .set('authorization', `Bearer ${auditor}`)
         .send({ fileIds: ['99999999-9999-4999-8999-999999999999'], targetFolderId: null })
         .expect(403);
     });
 
     it('資料夾不可以是自己的上層（資料表約束）', async () => {
-      const [row] = await db.insert(fileFolders).values({ name: 'self' }).returning();
+      const [row] = await db.insert(fileFolders).values({ workspaceId, name: 'self' }).returning();
       await expectDbError(
         db
           .update(fileFolders)
@@ -717,33 +743,60 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
   });
 
   describe('files 資料表約束', () => {
-    const base = { name: 'x', contentType: 'text/plain', storageKey: 'files/constraint' };
+    const base = () => ({
+      workspaceId,
+      name: 'x',
+      contentType: 'text/plain',
+      storageKey: 'files/constraint',
+    });
+
+    it('檔案不能放進別的工作區的資料夾（組合外鍵，docs/adr/0018-workspace-tenancy.md D10）', async () => {
+      const other = await createWorkspace(db, 'constraint-other');
+      const [folder] = await db
+        .insert(fileFolders)
+        .values({ workspaceId, name: 'cross-ws' })
+        .returning();
+      await expectDbError(
+        db.insert(files).values({
+          ...base(),
+          workspaceId: other,
+          storageKey: 'files/cross-ws',
+          size: 1,
+          folderId: folder?.id,
+        }),
+        /files_folder_fk/,
+      );
+      await expectDbError(
+        db.insert(fileFolders).values({ workspaceId: other, name: 'child', parentId: folder?.id }),
+        /file_folders_parent_fk/,
+      );
+    });
 
     it('ready 必須有 etag 與 uploaded_at', async () => {
       await expectDbError(
-        db.insert(files).values({ ...base, size: 1, status: 'ready' }),
+        db.insert(files).values({ ...base(), size: 1, status: 'ready' }),
         /files_ready_confirmed/,
       );
     });
 
     it('影像變體 ready 必須有尺寸與主格式', async () => {
       await expectDbError(
-        db.insert(files).values({ ...base, size: 1, variantStatus: 'ready' }),
+        db.insert(files).values({ ...base(), size: 1, variantStatus: 'ready' }),
         /files_variant_ready_described/,
       );
     });
 
     it('size 不可為負', async () => {
       await expectDbError(
-        db.insert(files).values({ ...base, size: -1 }),
+        db.insert(files).values({ ...base(), size: -1 }),
         /files_size_non_negative/,
       );
     });
 
     it('storage_key 唯一', async () => {
-      await db.insert(files).values({ ...base, storageKey: 'files/dup', size: 1 });
+      await db.insert(files).values({ ...base(), storageKey: 'files/dup', size: 1 });
       await expectDbError(
-        db.insert(files).values({ ...base, storageKey: 'files/dup', size: 1 }),
+        db.insert(files).values({ ...base(), storageKey: 'files/dup', size: 1 }),
         /files_storage_key_key/,
       );
     });

@@ -21,6 +21,7 @@ import { jobFeaturePlugin } from '@/features/job';
 import { permissionFeaturePlugin } from '@/features/permission';
 import { roleFeaturePlugin } from '@/features/role';
 import { userFeaturePlugin } from '@/features/user';
+import { workspaceFeaturePlugin } from '@/features/workspace';
 import {
   batchQueuePlugin,
   cachePlugin,
@@ -81,6 +82,7 @@ async function bootstrap(): Promise<void> {
     .use(permissionFeaturePlugin())
     .use(auditLogFeaturePlugin())
     .use(approvalFeaturePlugin())
+    .use(workspaceFeaturePlugin())
     .use(fileFeaturePlugin())
     .use(jobFeaturePlugin())
     .use(accountFeaturePlugin())

@@ -22,6 +22,7 @@ function fileRow(overrides: Partial<FileRow> = {}): FileRow {
   const now = new Date('2026-09-27T00:00:00Z');
   return {
     id: FILE_ID,
+    workspaceId: '99999999-9999-4999-8999-999999999999',
     name: 'hero.png',
     contentType: 'image/png',
     size: 10,
@@ -82,7 +83,7 @@ function memoryStorage() {
 function setup(file: FileRow | undefined) {
   let row = file;
   const repo = {
-    findById: vi.fn(async () => row),
+    findAnyById: vi.fn(async () => row),
     markVariantsReady: vi.fn(async (_id: string, values: Partial<FileRow>) => {
       if (!row || row.deletedAt) return undefined;
       row = { ...row, ...values, variantStatus: 'ready' };
@@ -168,6 +169,7 @@ describe('FileImageService：產生變體', () => {
     });
     expect(events.publish).toHaveBeenCalledWith('resource.changed', {
       changes: [{ resource: 'file', kind: 'update', id: FILE_ID }],
+      workspaceId: '99999999-9999-4999-8999-999999999999',
     });
   });
 

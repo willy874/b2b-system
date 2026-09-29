@@ -7,6 +7,7 @@ import {
 import type { ReviewFileAccessRequest } from '@/shared/api-sdk';
 
 export interface FileAccessReviewParams {
+  workspaceId: string;
   folderId: string;
   requestId: string;
   decision: 'approve' | 'reject';
@@ -18,7 +19,11 @@ export const fetchFileAccessRequestReviewMutation = defineAuthFetcher<
   HttpRequestDTO<FileAccessReviewParams>,
   undefined
 >((http, { params }) => {
-  const path = { id: params.folderId, requestId: params.requestId };
+  const path = {
+    workspaceId: params.workspaceId,
+    id: params.folderId,
+    requestId: params.requestId,
+  };
   const url =
     params.decision === 'approve'
       ? getFileFolderGrantControllerApproveAccessRequestUrl(path)

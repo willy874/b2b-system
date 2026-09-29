@@ -1,7 +1,7 @@
 # 工作區／多租戶
 
 - 優先度：P0
-- 狀態：規劃中
+- 狀態：實作中（branch：`feat/workspace`）
 - 依賴：—
 - 相關：[ADR-0018](../adr/0018-workspace-tenancy.md)（本功能的決定）、[ADR-0006](../adr/0006-flat-permission-scope.md)、[ADR-0015](../adr/0015-file-folder-access.md)、[`user-groups.md`](./user-groups.md)
 
@@ -52,7 +52,7 @@
 
 - **資料模型**
   - 新增 `workspaces`、`workspace_members`、`workspace_member_roles`、`workspace_invitations`。
-  - `roles`、`permissions` 加 `scope`；`users` 加 `last_workspace_id`。
+  - `roles`、`permissions` 加 `scope`；`workspace_members.last_accessed_at` 記錄最近進入的工作區。
   - `file_folders`、`files` 加 `workspace_id`（NOT NULL），並加上組合外鍵；系統資料夾的唯一索引加上 `workspace_id`。
   - `audit_logs`（含冷表）、`approval_requests` 加可為空的 `workspace_id`。
 - **後端**
@@ -61,7 +61,7 @@
   - `PermissionsGuard` 支援 `@WorkspaceScoped()`；`route-audit` 檢查權限鍵範圍與路由是否一致。
   - `modules/file` 的路由改掛前綴，系統資料夾改為每個工作區一份。
   - `modules/approval`：`fileFolder.access` 的申請帶上工作區。
-  - `modules/realtime`：新增工作區的 room 與 `workspace.subscribe`。
+  - `modules/realtime`：新增工作區的 room；連線時加入所屬每個工作區的 room。
   - 背景工作的 payload 帶 `workspaceId`。
 - **前端**
   - 新增 `core/workspace`（從 URL 推導目前工作區）與 App Shell 的切換器。
@@ -110,6 +110,56 @@
    - **結論**：暫時不做。改用組合外鍵、`WorkspaceScope` 品牌型別、越權整合測試三道防線（ADR-0018 D10）。
 6. 成員要怎麼加入：只能加入已經存在的使用者，還是用 email 邀請？
    - **結論**：做 email 邀請。已有帳號的人登入後接受；沒有帳號的人點連結後設定密碼、建立已啟用帳號。邀請沒有帳號的 email 時，邀請人另外需要平台的 `user:create`（ADR-0018 D14）。
+
+## 進度與剩餘工作
+
+第一批已合進 `feat/workspace`（`da1baa4`）：資料表與遷移、權限範圍、`@WorkspaceScoped` guard 與 route-audit、
+`modules/workspace`（平台管理、成員與工作區角色）、檔案模組移進工作區、推播、前端 `/w/:workspaceSlug` 版面、
+切換器、成員頁、平台的工作區管理頁。以下是還沒做的，合併前要逐項處理或明確延後。
+
+### 功能
+
+1. **Email 邀請（ADR-0018 D14）**
+   - 後端：`workspace_invitations` 表（email、工作區角色、token 雜湊、到期、接受／撤銷時間；同工作區同 email 只有一筆待接受）；
+     `POST /workspaces/:workspaceId/invitations`（`workspaceMember:create`，角色受反提權限制；沒有帳號的 email 另需平台的 `user:create`）、
+     撤銷、列表；公開的接受端點（已有帳號：登入後接受；沒有帳號：設定密碼、建立已啟用帳號並加入）。
+   - 寄信走 `core/mail` 與背景工作（ADR-0017）；稽核 `workspaceInvitation.create/revoke/accept`。
+   - 前端：成員頁的「邀請成員」對話框、待接受的邀請清單、接受邀請頁。
+2. **稽核依工作區篩選（D6）**：`audit_logs`／`audit_logs_archive` 加 `workspace_id`；`archive_audit_logs()` 與
+   `audit_logs_guard_delete()` 的欄位清單要一起改，改完重新 `ALTER FUNCTION … SECURITY DEFINER`（見 migration 0003、0014）；
+   `AuditService.record()` 帶上工作區（目前工作區相關的稽核放在 `metadata.workspaceId`）；稽核列表 API 與頁面加篩選。
+
+### 測試
+
+3. **前端頁面測試**：`WorkspaceMembers`、`WorkspaceAdminList` 的三個權限案例（有權限／沒權限／未水合）與 MSW handler；
+   `WorkspaceLayout`（slug 不存在 → 404、非成員、切換工作區清掉權限）；`WorkspaceSwitcher`；`core/permission` 的
+   `usePageAccess(level)`、`resolvePageKey` 的 `$param` 比對、`routeBasePath` 接上層路徑；`core/workspace/paths.ts`。
+4. **E2E**：A 工作區的成員看不到 B（`/w/e2e-other/...` 顯示找不到）；切換器保留同一頁；成員頁指派角色；
+   平台管理員看不到工作區內容。seed 已準備 `e2e-other` 工作區（只有 e2e-admin 是成員）。
+
+### 環境
+
+5. **共用 dev 資料庫還沒 migrate**：開發期間用的是副本 `ws_scratch`。套用 `pnpm db:migrate && pnpm db:seed` 會搬動資料、
+   無法倒回，要在沒有其他對話依賴舊 schema 時執行。
+6. dev 資料的 `admin` 角色先前被縮成只有 `file:access`、`file:share`，遷移出來的 `workspace-admin` 因此沒有 `file:read`，
+   無法指派 `workspace-viewer`（反提權照規則擋下）。要的話在角色頁補權限，或重建 dev 資料。
+
+### 已知限制（決定延後或接受）
+
+7. 不是成員的 super-admin 瀏覽工作區時收不到推播，資料靠重新聚焦時重抓（D16）。
+8. 成員被移出工作區時，他在那裡的個人資料夾保留（進不去但資料還在）；只有使用者被刪除時才清空的個人資料夾。
+9. 工作區只有軟刪除，這一版沒有還原與硬刪除／資料清除。
+10. `approval_requests` 沒有加 `workspace_id` 欄位：`fileFolder.access` 的工作區記在 payload；審批頁若要依工作區篩選再加。
+11. SDK 的 `CreateRoleRequest.scope` 變成必填（後端 schema 有預設值，但 OpenAPI 以輸出型別產生）；前端一律帶上，暫不處理。
+
+### 歸檔（合併時，依 [`README.md`](./README.md) §3.3）
+
+12. 寫正式文件：`docs/rbac/08-workspace.md`、`docs/architecture/backend/12-workspace.md`、`docs/architecture/frontend/13-workspace.md`；
+    更新 `rbac/01-domain-model.md`（實體、不變條件）、`05-seed-and-bootstrap.md`（工作區角色、預設工作區）、
+    `07-resource-grants.md` §10、§12（專案 = 工作區、系統資料夾每工作區一套）、`backend/06`、`08`、`09`、
+    `frontend/04`、`05`、`06`、`11`、`12`、`docs/README.md` 文件地圖、`overview/`；
+    ADR-0018 狀態改「採用」，ADR-0006、ADR-0015 標註被取代的部分；CLAUDE.md（常用指令、與文件不同的實作決定）；
+    刪除本檔與 backlog 那一列。
 
 ## 歸檔去向
 

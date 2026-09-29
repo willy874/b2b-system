@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react';
 
 import { getFileFolderListQueryOptions } from '@/apis/file/get-file-folder-list/query';
 import type { FileCategory, FileSortField } from '@/apis/file/types';
+import { useRequiredWorkspace } from '@/core/workspace';
 import type { SortEntry } from '@/shared/constants';
 
 import { toFolderItemVM } from './adapter';
@@ -35,7 +36,8 @@ export function useFolderView({
   sort,
   onMissing,
 }: UseFolderViewOptions) {
-  const query = useQuery(getFileFolderListQueryOptions());
+  const { id: workspaceId } = useRequiredWorkspace();
+  const query = useQuery(getFileFolderListQueryOptions(workspaceId));
   const index = useMemo(
     () => buildFolderIndex(query.data?.items ?? [], query.data?.rootCapabilities ?? NO_ROOT_ACCESS),
     [query.data],

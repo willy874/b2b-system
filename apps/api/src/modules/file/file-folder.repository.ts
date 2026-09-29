@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 
+import type { WorkspaceScope } from '@/common/types';
 import type { Database, DbOrTx } from '@/core/database';
 import { DRIZZLE } from '@/core/database';
 import type { FileFolderInsert, FileFolderKind, FileFolderRow } from '@/db/schema';
@@ -10,34 +11,40 @@ import {
   permissions,
   rolePermissions,
   roles,
-  userRoles,
   users,
+  workspaceMemberRoles,
+  workspaceMembers,
+  workspaces,
 } from '@/db/schema';
-import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
 
 import type { FolderNode } from './file-access.context';
 
 /**
  * 資料夾結構的寫入以交易層級的 advisory lock 排隊（docs/architecture/backend/09-file.md §4.2）：
  * 兩個人同時把 A 移進 B、把 B 移進 A，各自檢查時都看不到循環，排隊之後第二個就看得到。
- * 資料夾的寫入不頻繁，整棵樹共用一把鎖就夠了。
+ * 資料夾的寫入不頻繁，每個工作區的整棵樹共用一把鎖就夠了（樹以工作區為根，彼此不相干）。
  */
 const FOLDER_TREE_LOCK_KEY = 'file_folders_tree';
+
+/** 這個工作區的資料夾（工作區範圍的查詢一律帶上，docs/adr/0018-workspace-tenancy.md D10）。 */
+const inWorkspace = (ws: WorkspaceScope) => eq(fileFolders.workspaceId, ws.workspaceId);
 
 @Injectable()
 export class FileFolderRepository {
   constructor(@Inject(DRIZZLE) private readonly db: Database) {}
 
-  /** 取得資料夾結構的寫入鎖；交易結束時自動釋放。 */
-  async lockTree(tx: DbOrTx): Promise<void> {
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${FOLDER_TREE_LOCK_KEY}))`);
+  /** 取得這個工作區資料夾結構的寫入鎖；交易結束時自動釋放。 */
+  async lockTree(ws: WorkspaceScope, tx: DbOrTx): Promise<void> {
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext(${`${FOLDER_TREE_LOCK_KEY}:${ws.workspaceId}`}))`,
+    );
   }
 
   /**
    * 整棵資料夾結構（只取解析授權需要的欄位）：每個檔案請求的存取判斷都要它
    * （docs/architecture/backend/09-file.md §11）。
    */
-  async listTreeNodes(tx?: DbOrTx): Promise<FolderNode[]> {
+  async listTreeNodes(ws: WorkspaceScope, tx?: DbOrTx): Promise<FolderNode[]> {
     const db = tx ?? this.db;
     return db
       .select({
@@ -47,11 +54,12 @@ export class FileFolderRepository {
         createdBy: fileFolders.createdBy,
       })
       .from(fileFolders)
-      .where(isNull(fileFolders.deletedAt));
+      .where(and(inWorkspace(ws), isNull(fileFolders.deletedAt)));
   }
 
   /** 移動前的存取判斷：這些檔案所在的資料夾與上傳者（已刪除、還在上傳中的不列）。 */
   async findMovableFiles(
+    ws: WorkspaceScope,
     ids: readonly string[],
     tx?: DbOrTx,
   ): Promise<{ id: string; folderId: string | null; createdBy: string | null }[]> {
@@ -60,7 +68,14 @@ export class FileFolderRepository {
     return db
       .select({ id: files.id, folderId: files.folderId, createdBy: files.createdBy })
       .from(files)
-      .where(and(inArray(files.id, [...ids]), isNull(files.deletedAt), eq(files.status, 'ready')));
+      .where(
+        and(
+          eq(files.workspaceId, ws.workspaceId),
+          inArray(files.id, [...ids]),
+          isNull(files.deletedAt),
+          eq(files.status, 'ready'),
+        ),
+      );
   }
 
   /** 這些資料夾（與直接包含的檔案，含上傳中的）之中有沒有不是 `actorId` 建立的。 */
@@ -97,6 +112,7 @@ export class FileFolderRepository {
 
   /** 共用資料夾或私人資料夾（各只有一個）。 */
   async findSingleton(
+    ws: WorkspaceScope,
     kind: Extract<FileFolderKind, 'shared' | 'privateRoot'>,
     tx?: DbOrTx,
   ): Promise<FileFolderRow | undefined> {
@@ -104,7 +120,7 @@ export class FileFolderRepository {
     const [row] = await db
       .select()
       .from(fileFolders)
-      .where(and(eq(fileFolders.kind, kind), isNull(fileFolders.deletedAt)))
+      .where(and(inWorkspace(ws), eq(fileFolders.kind, kind), isNull(fileFolders.deletedAt)))
       .limit(1);
     return row;
   }
@@ -115,8 +131,12 @@ export class FileFolderRepository {
     await db.update(fileFolders).set({ kind }).where(eq(fileFolders.id, id));
   }
 
-  /** 這些使用者之中已經有個人資料夾的。 */
-  async findPersonalOwnerIds(userIds: readonly string[], tx?: DbOrTx): Promise<Set<string>> {
+  /** 這些使用者之中已經在這個工作區有個人資料夾的。 */
+  async findPersonalOwnerIds(
+    ws: WorkspaceScope,
+    userIds: readonly string[],
+    tx?: DbOrTx,
+  ): Promise<Set<string>> {
     if (userIds.length === 0) return new Set();
     const db = tx ?? this.db;
     const rows = await db
@@ -124,6 +144,7 @@ export class FileFolderRepository {
       .from(fileFolders)
       .where(
         and(
+          inWorkspace(ws),
           eq(fileFolders.kind, 'personal'),
           inArray(fileFolders.ownerId, [...userIds]),
           isNull(fileFolders.deletedAt),
@@ -133,7 +154,7 @@ export class FileFolderRepository {
   }
 
   /**
-   * 擁有者已被刪除（軟刪除）的個人資料夾：`ownerIds` 不帶時找全部（啟動時整理），
+   * 擁有者已被刪除（軟刪除）的個人資料夾（所有工作區）：`ownerIds` 不帶時找全部（啟動時整理），
    * 帶了只找這些擁有者的（刪除使用者時）。
    */
   async findPersonalOfDeletedOwners(
@@ -186,31 +207,61 @@ export class FileFolderRepository {
   }
 
   /**
-   * 能進檔案管理器的使用者（持有 `file:access` 或 `file:read` 的角色，或 super-admin）：
+   * 在這個工作區能進檔案管理器的成員（工作區角色持有 `file:access` 或 `file:read`）：
    * 啟動時補建個人資料夾用。與權限解析（PermissionRepository）同樣只看未刪除的角色。
+   * 不是成員的 super-admin 進得去，但不為他建個人資料夾（docs/adr/0018-workspace-tenancy.md D5）。
    */
-  async findFileManagerUserIds(): Promise<string[]> {
+  async findFileManagerMemberIds(ws: WorkspaceScope): Promise<string[]> {
     const rows = await this.db
       .selectDistinct({ id: users.id })
-      .from(users)
-      .innerJoin(userRoles, eq(userRoles.userId, users.id))
-      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
-      .leftJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
-      .leftJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+      .from(workspaceMembers)
+      .innerJoin(users, and(eq(users.id, workspaceMembers.userId), isNull(users.deletedAt)))
+      .innerJoin(
+        workspaceMemberRoles,
+        and(
+          eq(workspaceMemberRoles.workspaceId, workspaceMembers.workspaceId),
+          eq(workspaceMemberRoles.userId, workspaceMembers.userId),
+        ),
+      )
+      .innerJoin(roles, and(eq(roles.id, workspaceMemberRoles.roleId), isNull(roles.deletedAt)))
+      .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
       .where(
         and(
-          isNull(users.deletedAt),
-          or(
-            eq(roles.slug, SUPER_ADMIN_SLUG),
-            inArray(permissions.key, ['file:access', 'file:read']),
-          ),
+          eq(workspaceMembers.workspaceId, ws.workspaceId),
+          inArray(permissions.key, ['file:access', 'file:read']),
         ),
       );
     return rows.map((row) => row.id);
   }
 
+  /** 未刪除的工作區（啟動時逐一整理系統資料夾）。 */
+  async listWorkspaceIds(): Promise<string[]> {
+    const rows = await this.db
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(isNull(workspaces.deletedAt));
+    return rows.map((row) => row.id);
+  }
+
+  /** 這些使用者所屬的（未刪除的）工作區：權限改變時為他們補建個人資料夾。 */
+  async findMemberships(
+    userIds: readonly string[],
+  ): Promise<{ workspaceId: string; userId: string }[]> {
+    if (userIds.length === 0) return [];
+    return this.db
+      .select({ workspaceId: workspaceMembers.workspaceId, userId: workspaceMembers.userId })
+      .from(workspaceMembers)
+      .innerJoin(
+        workspaces,
+        and(eq(workspaces.id, workspaceMembers.workspaceId), isNull(workspaces.deletedAt)),
+      )
+      .where(inArray(workspaceMembers.userId, [...userIds]));
+  }
+
   /** 中斷／恢復繼承。 */
   async setInheritGrants(
+    ws: WorkspaceScope,
     id: string,
     values: { inheritGrants: boolean; updatedBy: string },
     tx?: DbOrTx,
@@ -219,41 +270,52 @@ export class FileFolderRepository {
     const [row] = await db
       .update(fileFolders)
       .set({ ...values, updatedAt: new Date() })
-      .where(and(eq(fileFolders.id, id), isNull(fileFolders.deletedAt)))
+      .where(and(inWorkspace(ws), eq(fileFolders.id, id), isNull(fileFolders.deletedAt)))
       .returning();
     return row;
   }
 
-  /** 全部未刪除的資料夾，依名稱排序。 */
-  async listAll(): Promise<FileFolderRow[]> {
+  /** 這個工作區全部未刪除的資料夾，依名稱排序。 */
+  async listAll(ws: WorkspaceScope): Promise<FileFolderRow[]> {
     return this.db
       .select()
       .from(fileFolders)
-      .where(isNull(fileFolders.deletedAt))
+      .where(and(inWorkspace(ws), isNull(fileFolders.deletedAt)))
       .orderBy(asc(fileFolders.name), asc(fileFolders.id));
   }
 
-  async findById(id: string, tx?: DbOrTx): Promise<FileFolderRow | undefined> {
+  /** 這個工作區的資料夾；別的工作區的 id 一律當作不存在。 */
+  async findById(ws: WorkspaceScope, id: string, tx?: DbOrTx): Promise<FileFolderRow | undefined> {
     const db = tx ?? this.db;
     const [row] = await db
       .select()
       .from(fileFolders)
-      .where(and(eq(fileFolders.id, id), isNull(fileFolders.deletedAt)))
+      .where(and(inWorkspace(ws), eq(fileFolders.id, id), isNull(fileFolders.deletedAt)))
       .limit(1);
     return row;
   }
 
-  async findByIds(ids: readonly string[], tx?: DbOrTx): Promise<FileFolderRow[]> {
+  async findByIds(
+    ws: WorkspaceScope,
+    ids: readonly string[],
+    tx?: DbOrTx,
+  ): Promise<FileFolderRow[]> {
     if (ids.length === 0) return [];
     const db = tx ?? this.db;
     return db
       .select()
       .from(fileFolders)
-      .where(and(inArray(fileFolders.id, [...ids]), isNull(fileFolders.deletedAt)));
+      .where(
+        and(inWorkspace(ws), inArray(fileFolders.id, [...ids]), isNull(fileFolders.deletedAt)),
+      );
   }
 
-  /** 這些上層（null 是根目錄）底下的資料夾。 */
-  async findChildren(parentIds: readonly (string | null)[], tx?: DbOrTx): Promise<FileFolderRow[]> {
+  /** 這些上層（null 是這個工作區的根目錄）底下的資料夾。 */
+  async findChildren(
+    ws: WorkspaceScope,
+    parentIds: readonly (string | null)[],
+    tx?: DbOrTx,
+  ): Promise<FileFolderRow[]> {
     const ids = parentIds.filter((id): id is string => id !== null);
     const includesRoot = parentIds.includes(null);
     const scope = or(
@@ -265,15 +327,16 @@ export class FileFolderRepository {
     return db
       .select()
       .from(fileFolders)
-      .where(and(scope, isNull(fileFolders.deletedAt)));
+      .where(and(inWorkspace(ws), scope, isNull(fileFolders.deletedAt)));
   }
 
-  /** 從 `id` 往上到根目錄的所有 id（含自己）。 */
-  async findAncestorIds(id: string, tx?: DbOrTx): Promise<string[]> {
+  /** 從 `id` 往上到根目錄的所有 id（含自己）；上層以組合外鍵保證在同一個工作區。 */
+  async findAncestorIds(ws: WorkspaceScope, id: string, tx?: DbOrTx): Promise<string[]> {
     const db = tx ?? this.db;
     const rows = await db.execute<{ id: string }>(sql`
       WITH RECURSIVE chain(id, parent_id) AS (
-        SELECT id, parent_id FROM file_folders WHERE id = ${id} AND deleted_at IS NULL
+        SELECT id, parent_id FROM file_folders
+        WHERE id = ${id} AND workspace_id = ${ws.workspaceId} AND deleted_at IS NULL
         UNION ALL
         SELECT f.id, f.parent_id FROM file_folders f JOIN chain c ON f.id = c.parent_id
       )
@@ -282,8 +345,12 @@ export class FileFolderRepository {
     return rows.map((row) => row.id);
   }
 
-  /** 這些資料夾與它們所有未刪除的子孫（含自己）。 */
-  async findDescendantIds(ids: readonly string[], tx?: DbOrTx): Promise<string[]> {
+  /** 這些資料夾與它們所有未刪除的子孫（含自己）；子孫以組合外鍵保證在同一個工作區。 */
+  async findDescendantIds(
+    ws: WorkspaceScope,
+    ids: readonly string[],
+    tx?: DbOrTx,
+  ): Promise<string[]> {
     if (ids.length === 0) return [];
     const db = tx ?? this.db;
     const rows = await db.execute<{ id: string }>(sql`
@@ -292,7 +359,7 @@ export class FileFolderRepository {
         WHERE id IN (${sql.join(
           ids.map((id) => sql`${id}::uuid`),
           sql`, `,
-        )}) AND deleted_at IS NULL
+        )}) AND workspace_id = ${ws.workspaceId} AND deleted_at IS NULL
         UNION
         SELECT f.id FROM file_folders f JOIN tree t ON f.parent_id = t.id WHERE f.deleted_at IS NULL
       )
@@ -308,6 +375,7 @@ export class FileFolderRepository {
   }
 
   async rename(
+    ws: WorkspaceScope,
     id: string,
     values: { name: string; updatedBy: string },
     tx?: DbOrTx,
@@ -316,13 +384,14 @@ export class FileFolderRepository {
     const [row] = await db
       .update(fileFolders)
       .set({ ...values, updatedAt: new Date() })
-      .where(and(eq(fileFolders.id, id), isNull(fileFolders.deletedAt)))
+      .where(and(inWorkspace(ws), eq(fileFolders.id, id), isNull(fileFolders.deletedAt)))
       .returning();
     return row;
   }
 
   /** 改變上層；本來就在目的地的不動。回傳實際移動的列。 */
   async move(
+    ws: WorkspaceScope,
     ids: readonly string[],
     parentId: string | null,
     actorId: string,
@@ -335,6 +404,7 @@ export class FileFolderRepository {
       .set({ parentId, updatedBy: actorId, updatedAt: new Date() })
       .where(
         and(
+          inWorkspace(ws),
           inArray(fileFolders.id, [...ids]),
           isNull(fileFolders.deletedAt),
           parentId === null
@@ -361,6 +431,7 @@ export class FileFolderRepository {
    * 回傳實際移動的數量。
    */
   async moveFiles(
+    ws: WorkspaceScope,
     fileIds: readonly string[],
     folderId: string | null,
     actorId: string,
@@ -373,6 +444,7 @@ export class FileFolderRepository {
       .set({ folderId, updatedBy: actorId, updatedAt: new Date() })
       .where(
         and(
+          eq(files.workspaceId, ws.workspaceId),
           inArray(files.id, [...fileIds]),
           isNull(files.deletedAt),
           eq(files.status, 'ready'),
@@ -406,6 +478,7 @@ export class FileFolderRepository {
 
   /** 同一層是否已有同名（不分大小寫）的資料夾；`exceptId` 是改名中的自己。 */
   async hasSibling(
+    ws: WorkspaceScope,
     parentId: string | null,
     name: string,
     exceptId?: string,
@@ -417,6 +490,7 @@ export class FileFolderRepository {
       .from(fileFolders)
       .where(
         and(
+          inWorkspace(ws),
           parentId === null ? isNull(fileFolders.parentId) : eq(fileFolders.parentId, parentId),
           sql`lower(${fileFolders.name}) = lower(${name})`,
           isNull(fileFolders.deletedAt),

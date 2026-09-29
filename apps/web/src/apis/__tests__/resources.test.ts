@@ -39,6 +39,8 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
       'invalidate:AUDIT_LOG_LIST_QUERY_KEY',
       'invalidate:ROLE_LIST_QUERY_KEY',
       'invalidate:ROLE_OPTIONS_QUERY_KEY',
+      // 工作區的角色清單（指派用）也是角色的清單
+      'invalidate:WORKSPACE_ROLE_LIST_QUERY_KEY',
     ]);
   });
 
@@ -85,6 +87,7 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
       'invalidate:USER_DETAIL_QUERY_KEY:u1',
       'invalidate:USER_LIST_QUERY_KEY',
       'invalidate:USER_ROLES_QUERY_KEY:u1',
+      'invalidate:WORKSPACE_ROLE_LIST_QUERY_KEY',
     ]);
   });
 

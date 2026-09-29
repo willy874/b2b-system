@@ -36,6 +36,9 @@ function setup(openRooms: Record<string, number> = {}) {
       return openRooms[room] ?? 0;
     }
     moveRooms(): void {}
+    roomsOf(): string[] {
+      return [];
+    }
     disconnect(room: string): void {
       disconnected.push(room);
     }

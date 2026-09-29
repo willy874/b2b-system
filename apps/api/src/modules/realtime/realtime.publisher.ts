@@ -26,6 +26,9 @@ export abstract class RealtimePublisher {
   /** 把 `room` 內的所有連線移出 `leave`、再加入 `join`。 */
   abstract moveRooms(room: string, leave: readonly string[], join: readonly string[]): void;
 
+  /** `room` 內的連線目前加入的所有 room（聯集，本節點）。 */
+  abstract roomsOf(room: string): string[];
+
   /** 斷掉 room 內的所有連線；之前 `emit` 的事件會先送達。 */
   abstract disconnect(room: string): void;
 }
@@ -63,6 +66,16 @@ export class SocketIoRealtimePublisher extends RealtimePublisher {
     const sockets = this.server.in(room);
     sockets.socketsLeave([...leave]);
     sockets.socketsJoin([...join]);
+  }
+
+  roomsOf(room: string): string[] {
+    const adapter = this.server?.sockets.adapter;
+    if (!adapter) return [];
+    const joined = new Set<string>();
+    for (const socketId of adapter.rooms.get(room) ?? []) {
+      for (const name of adapter.sids.get(socketId) ?? []) joined.add(name);
+    }
+    return [...joined];
   }
 
   disconnect(room: string): void {

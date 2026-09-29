@@ -4,7 +4,7 @@ import { ChangeKind, ChangeSource } from '@game-editor/realtime';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import type { AuthUser } from '@/common/types';
+import type { AuthUser, WorkspaceScope } from '@/common/types';
 import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
 import { DRIZZLE, withTransaction } from '@/core/database';
@@ -101,7 +101,7 @@ export class FileService {
    * 所以 offset 模式的第一頁也能直接接著用游標往下捲。
    * 只列看得到的資料夾裡的檔案（docs/rbac/07-resource-grants.md §5.2）。
    */
-  async list(query: ListFileDto, actor: AuthUser): Promise<FileListDto> {
+  async list(ws: WorkspaceScope, query: ListFileDto, actor: AuthUser): Promise<FileListDto> {
     let after: FileCursor | undefined;
     if (query.cursor) {
       after = decodeFileCursor(query.cursor);
@@ -110,9 +110,9 @@ export class FileService {
         throw new AppException('VALIDATION_FAILED', { field: 'cursor' });
       }
     }
-    const ctx = await this.access.contextFor(actor);
+    const ctx = await this.access.contextFor(ws, actor);
     const scope = await this.listScope(ctx, actor, query.folderId);
-    const { items, total, lastCreatedAt } = await this.repo.list(query, after, scope);
+    const { items, total, lastCreatedAt } = await this.repo.list(ws, query, after, scope);
     const page = paginated(
       await Promise.all(items.map((file) => this.toDto(file, ctx))),
       total,
@@ -141,16 +141,20 @@ export class FileService {
    * `pending` 的檔案只有上傳者本人看得到（其他人眼中它還不存在）；
    * `ready` 的要看得到所在的資料夾。
    */
-  async findOne(id: string, actor: AuthUser): Promise<FileDto> {
-    const ctx = await this.access.contextFor(actor);
-    return this.toDto(await this.getVisible(id, actor, ctx), ctx);
+  async findOne(ws: WorkspaceScope, id: string, actor: AuthUser): Promise<FileDto> {
+    const ctx = await this.access.contextFor(ws, actor);
+    return this.toDto(await this.getVisible(ws, id, actor, ctx), ctx);
   }
 
-  async createUpload(dto: CreateFileUploadDto, actor: AuthUser): Promise<FileUploadDto> {
+  async createUpload(
+    ws: WorkspaceScope,
+    dto: CreateFileUploadDto,
+    actor: AuthUser,
+  ): Promise<FileUploadDto> {
     if (dto.size > this.maxSize) {
       throw new AppException('FILE_TOO_LARGE', { maxSize: this.maxSize, size: dto.size });
     }
-    const ctx = await this.access.contextFor(actor);
+    const ctx = await this.access.contextFor(ws, actor);
     await this.access.assertCan(ctx, actor, 'create', dto.folderId ?? null);
     await this.storage.ensureBucket();
 
@@ -161,10 +165,11 @@ export class FileService {
     const uploadId = isMultipart
       ? await this.storage.createMultipartUpload(storageKey, { contentType: dto.contentType })
       : null;
-    const row = await this.folders.insideFolder(dto.folderId, (tx) =>
+    const row = await this.folders.insideFolder(ws, dto.folderId, (tx) =>
       this.repo.create(
         {
           id,
+          workspaceId: ws.workspaceId,
           name: dto.name,
           contentType: dto.contentType,
           size: dto.size,
@@ -208,11 +213,12 @@ export class FileService {
 
   /** 分塊上傳：發出指定各塊的直傳網址。只有上傳者本人、還沒完成的分塊上傳可以要。 */
   async createUploadParts(
+    ws: WorkspaceScope,
     id: string,
     dto: CreateFileUploadPartsDto,
     actor: AuthUser,
   ): Promise<FileUploadPartsDto> {
-    const file = await this.getOwnPending(id, actor);
+    const file = await this.getOwnPending(ws, id, actor);
     const { uploadId } = file;
     if (!uploadId) throw new AppException('FILE_UPLOAD_PART_INVALID', { reason: 'not-multipart' });
     const partCount = Math.max(1, Math.ceil(file.size / this.partSize));
@@ -235,9 +241,14 @@ export class FileService {
     };
   }
 
-  async completeUpload(id: string, dto: CompleteFileUploadDto, actor: AuthUser): Promise<FileDto> {
-    const ctx = await this.access.contextFor(actor);
-    const file = await this.getVisible(id, actor, ctx);
+  async completeUpload(
+    ws: WorkspaceScope,
+    id: string,
+    dto: CompleteFileUploadDto,
+    actor: AuthUser,
+  ): Promise<FileDto> {
+    const ctx = await this.access.contextFor(ws, actor);
+    const file = await this.getVisible(ws, id, actor, ctx);
     if (file.status === 'ready') throw new AppException('FILE_ALREADY_UPLOADED');
     // 上傳途中被移除授權：不讓它變成看得到的檔案（放棄上傳仍然可以）
     await this.access.assertCan(ctx, actor, 'create', file.folderId);
@@ -297,18 +308,18 @@ export class FileService {
       );
     });
 
-    this.publish(ChangeKind.CREATE, id);
+    this.publish(ws, ChangeKind.CREATE, id);
     // 不等變體產生完：回應先帶瀏覽器縮圖（有的話），變體好了再以 UPDATE 推播
     if (hasVariants) this.images.schedule(id);
-    return this.findOne(id, actor);
+    return this.findOne(ws, id, actor);
   }
 
   /**
    * 放棄上傳（使用者取消、或前端放棄重試）：清掉分塊、已上傳的內容與縮圖，紀錄軟刪除。
    * `pending` 從未對其他人可見，所以不寫稽核、不發推播。已完成的上傳回 `FILE_ALREADY_UPLOADED`。
    */
-  async abortUpload(id: string, actor: AuthUser): Promise<void> {
-    const file = await this.getOwnPending(id, actor);
+  async abortUpload(ws: WorkspaceScope, id: string, actor: AuthUser): Promise<void> {
+    const file = await this.getOwnPending(ws, id, actor);
     const discarded = await this.repo.discardPending(id, actor.id);
     // 並行的 complete 搶先完成了：這個檔案已經是 ready，不能當成放棄的上傳刪掉
     if (!discarded) throw new AppException('FILE_ALREADY_UPLOADED');
@@ -324,8 +335,13 @@ export class FileService {
     }
   }
 
-  async update(id: string, dto: UpdateFileDto, actor: AuthUser): Promise<FileDto> {
-    const { file, ctx } = await this.getModifiable(id, actor, 'update');
+  async update(
+    ws: WorkspaceScope,
+    id: string,
+    dto: UpdateFileDto,
+    actor: AuthUser,
+  ): Promise<FileDto> {
+    const { file, ctx } = await this.getModifiable(ws, id, actor, 'update');
     if (dto.version !== undefined && dto.version !== file.version) {
       throw new AppException('FILE_VERSION_CONFLICT', { current: file.version });
     }
@@ -357,12 +373,12 @@ export class FileService {
       );
     });
 
-    this.publish(ChangeKind.UPDATE, id);
-    return this.findOne(id, actor);
+    this.publish(ws, ChangeKind.UPDATE, id);
+    return this.findOne(ws, id, actor);
   }
 
-  async remove(id: string, actor: AuthUser): Promise<void> {
-    const { file } = await this.getModifiable(id, actor, 'delete');
+  async remove(ws: WorkspaceScope, id: string, actor: AuthUser): Promise<void> {
+    const { file } = await this.getModifiable(ws, id, actor, 'delete');
 
     await withTransaction(this.db, async (tx) => {
       const deleted = await this.repo.softDelete(id, actor.id, tx);
@@ -391,16 +407,17 @@ export class FileService {
         this.logger.warn({ err: result.reason, fileId: id }, '物件刪除失敗，留下孤兒物件');
       }
     }
-    this.publish(ChangeKind.DELETE, id);
+    this.publish(ws, ChangeKind.DELETE, id);
   }
 
   /** 別人的 `pending`、看不到所在資料夾的 `ready`：一律當作不存在。 */
   private async getVisible(
+    ws: WorkspaceScope,
     id: string,
     actor: AuthUser,
     ctx: FileAccessContext,
   ): Promise<FileWithUploader> {
-    const file = await this.repo.findById(id);
+    const file = await this.repo.findById(ws, id);
     const visible =
       file &&
       (file.status === 'pending' ? file.createdBy === actor.id : ctx.can('read', file.folderId));
@@ -409,8 +426,12 @@ export class FileService {
   }
 
   /** 上傳者本人、還在上傳中的檔案；已完成回 `FILE_ALREADY_UPLOADED`。 */
-  private async getOwnPending(id: string, actor: AuthUser): Promise<FileWithUploader> {
-    const file = await this.repo.findById(id);
+  private async getOwnPending(
+    ws: WorkspaceScope,
+    id: string,
+    actor: AuthUser,
+  ): Promise<FileWithUploader> {
+    const file = await this.repo.findById(ws, id);
     if (!file || file.createdBy !== actor.id) throw new AppException('FILE_NOT_FOUND');
     if (file.status === 'ready') throw new AppException('FILE_ALREADY_UPLOADED');
     return file;
@@ -421,11 +442,15 @@ export class FileService {
    * 能不能做看所在的資料夾與擁有者規則（docs/rbac/07-resource-grants.md §4）。
    */
   private async getModifiable(
+    ws: WorkspaceScope,
     id: string,
     actor: AuthUser,
     action: 'update' | 'delete',
   ): Promise<{ file: FileWithUploader; ctx: FileAccessContext }> {
-    const [file, ctx] = await Promise.all([this.repo.findById(id), this.access.contextFor(actor)]);
+    const [file, ctx] = await Promise.all([
+      this.repo.findById(ws, id),
+      this.access.contextFor(ws, actor),
+    ]);
     if (!file || file.status !== 'ready' || !ctx.can('read', file.folderId)) {
       throw new AppException('FILE_NOT_FOUND');
     }
@@ -451,9 +476,10 @@ export class FileService {
     return readable ? { folderIds: readable } : undefined;
   }
 
-  private publish(kind: ChangeKind, id: string): void {
+  private publish(ws: WorkspaceScope, kind: ChangeKind, id: string): void {
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [{ resource: ChangeSource.FILE, kind, id }],
+      workspaceId: ws.workspaceId,
     });
   }
 

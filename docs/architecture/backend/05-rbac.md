@@ -498,31 +498,43 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/approvals/:id`            | `approval:read`                  |
 | POST   | `/approvals/:id/approve`    | `approval:review` ＋ 類型要求的權限¹ |
 | POST   | `/approvals/:id/reject`     | `approval:review`                |
-| GET    | `/files` | `file:access` \| `file:read`³ |
-| GET    | `/files/upload-policy` | `file:access` \| `file:create`³ |
-| POST   | `/files` | `file:access` \| `file:create`³ |
-| POST   | `/files/:id/parts` | `file:access` \| `file:create`³ |
-| POST   | `/files/:id/complete` | `file:access` \| `file:create`³ |
-| DELETE | `/files/:id/upload` | `file:access` \| `file:create`³ |
+| GET    | `/workspaces/:workspaceId/files` | `file:access` \| `file:read`³ |
+| GET    | `/workspaces/:workspaceId/files/upload-policy` | `file:access` \| `file:create`³ |
+| POST   | `/workspaces/:workspaceId/files` | `file:access` \| `file:create`³ |
+| POST   | `/workspaces/:workspaceId/files/:id/parts` | `file:access` \| `file:create`³ |
+| POST   | `/workspaces/:workspaceId/files/:id/complete` | `file:access` \| `file:create`³ |
+| DELETE | `/workspaces/:workspaceId/files/:id/upload` | `file:access` \| `file:create`³ |
 | GET    | `/files/:id/image/:variant` | `@Public`（網址簽章）²           |
-| GET    | `/files/:id` | `file:access` \| `file:read`³ |
-| PATCH  | `/files/:id` | `file:access` \| `file:update`³ |
-| DELETE | `/files/:id` | `file:access` \| `file:delete`³ |
-| POST   | `/files/move` | `file:access` \| `file:update`³ |
-| GET    | `/file-folders` | `file:access` \| `file:read`³ |
-| POST   | `/file-folders` | `file:access` \| `file:create`³ |
-| POST   | `/file-folders/paths` | `file:access` \| `file:create`³ |
-| PATCH  | `/file-folders/:id` | `file:access` \| `file:update`³ |
-| DELETE | `/file-folders/:id` | `file:access` \| `file:delete`³ |
-| GET    | `/file-folders/:id/grants` | `file:access` \| `file:share`³ |
-| PUT    | `/file-folders/:id/grants` | `file:access` \| `file:share`³ |
-| DELETE | `/file-folders/:id/grants/:subjectType/:subjectId` | `file:access` \| `file:share`³ |
-| GET    | `/file-folders/:id/grant-subjects` | `file:access` \| `file:share`³ |
-| PATCH  | `/file-folders/:id/access` | `file:access` \| `file:share`³ |
-| POST   | `/file-folders/:id/access-requests` | `file:access` \| `file:read`³ |
-| GET    | `/file-folders/:id/access-requests` | `file:access` \| `file:share`³ |
-| POST   | `/file-folders/:id/access-requests/:requestId/approve` | `file:access` \| `file:share`³ |
-| POST   | `/file-folders/:id/access-requests/:requestId/reject` | `file:access` \| `file:share`³ |
+| GET    | `/workspaces/:workspaceId/files/:id` | `file:access` \| `file:read`³ |
+| PATCH  | `/workspaces/:workspaceId/files/:id` | `file:access` \| `file:update`³ |
+| DELETE | `/workspaces/:workspaceId/files/:id` | `file:access` \| `file:delete`³ |
+| POST   | `/workspaces/:workspaceId/files/move` | `file:access` \| `file:update`³ |
+| GET    | `/workspaces/:workspaceId/file-folders` | `file:access` \| `file:read`³ |
+| POST   | `/workspaces/:workspaceId/file-folders` | `file:access` \| `file:create`³ |
+| POST   | `/workspaces/:workspaceId/file-folders/paths` | `file:access` \| `file:create`³ |
+| PATCH  | `/workspaces/:workspaceId/file-folders/:id` | `file:access` \| `file:update`³ |
+| DELETE | `/workspaces/:workspaceId/file-folders/:id` | `file:access` \| `file:delete`³ |
+| GET    | `/workspaces/:workspaceId/file-folders/:id/grants` | `file:access` \| `file:share`³ |
+| PUT    | `/workspaces/:workspaceId/file-folders/:id/grants` | `file:access` \| `file:share`³ |
+| DELETE | `/workspaces/:workspaceId/file-folders/:id/grants/:subjectType/:subjectId` | `file:access` \| `file:share`³ |
+| GET    | `/workspaces/:workspaceId/file-folders/:id/grant-subjects` | `file:access` \| `file:share`³ |
+| PATCH  | `/workspaces/:workspaceId/file-folders/:id/access` | `file:access` \| `file:share`³ |
+| POST   | `/workspaces/:workspaceId/file-folders/:id/access-requests` | `file:access` \| `file:read`³ |
+| GET    | `/workspaces/:workspaceId/file-folders/:id/access-requests` | `file:access` \| `file:share`³ |
+| POST   | `/workspaces/:workspaceId/file-folders/:id/access-requests/:requestId/approve` | `file:access` \| `file:share`³ |
+| POST   | `/workspaces/:workspaceId/file-folders/:id/access-requests/:requestId/reject` | `file:access` \| `file:share`³ |
+| GET    | `/workspaces` | `workspace:read` |
+| POST   | `/workspaces` | `workspace:create` |
+| GET    | `/workspaces/mine` | `@Authenticated` |
+| GET    | `/workspaces/:workspaceId` | `workspace:read` |
+| PATCH  | `/workspaces/:workspaceId` | `workspace:update` |
+| DELETE | `/workspaces/:workspaceId` | `workspace:delete` |
+| POST   | `/workspaces/:workspaceId/admins` | `workspace:update` |
+| GET    | `/workspaces/:workspaceId/me` | `@Authenticated`⁴ |
+| GET    | `/workspaces/:workspaceId/members` | `workspaceMember:read`⁴ |
+| PUT    | `/workspaces/:workspaceId/members/:userId/roles` | `workspaceMember:assignRole`⁴ |
+| DELETE | `/workspaces/:workspaceId/members/:userId` | `workspaceMember:delete`⁴ |
+| GET    | `/workspaces/:workspaceId/roles` | `workspaceMember:read`⁴ |
 
 ¹ 路由宣告只有 `approval:review`；核准時 `ApprovalService` 另外檢查該類型 handler 要求的權限
 （`user.register` = `user:create`，指派角色時再加 `user:assignRole`），缺少時同樣回
@@ -534,6 +546,11 @@ private assertNotSelf(actorId: string, targetId: string): void {
 ³ `A \| B` 是 `@RequireAnyPermission(A, B)`：guard 只當閘門（能進檔案管理器），哪個資料夾能做什麼由
 `FileAccessService` 依資料夾授權判斷（§1 原則 3 的例外，見 [`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)）。
 路由稽核測試把 SOME 寫成 `a|b`、EVERY 寫成 `a+b`。
+
+⁴ 工作區範圍的路由（`@WorkspaceScoped()`，[ADR-0018](../../adr/0018-workspace-tenancy.md) D9）：guard 先確認操作者是
+`:workspaceId` 的成員（或 super-admin），不是就回 `404 WORKSPACE_NOT_FOUND`；權限鍵以操作者在該工作區的集合判斷。
+所有 `/workspaces/:workspaceId/files…`、`/workspaces/:workspaceId/file-folders…` 路由也都是工作區範圍的。
+路由稽核在啟動時檢查：工作區範圍的鍵只能宣告在工作區範圍的路由上，反之亦然。
 
 **這張表必須與 `docs/rbac/04-api-spec.md` 一致**，且有一支測試從 metadata
 產生它並與文件比對（見 §7.1）。

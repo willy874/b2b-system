@@ -32,23 +32,54 @@ const deleteFile = getFileDeleteMutationOptions().mutationFn;
 const deleteFolder = getFileFolderDeleteMutationOptions().mutationFn;
 
 /**
- * 上傳項目的 id：`<暫存檔的 key>` 或 `<暫存檔的 key>@<資料夾 id>`。
- * 佇列項目只能帶 id（要能跨 worker、跨分頁傳遞），目的地資料夾就編進 id 裡，接手的分頁也知道要傳到哪裡。
+ * 佇列項目只能帶 id（要能跨 worker、跨分頁傳遞）：工作區與目的地資料夾都編進 id 裡，
+ * 接手的分頁（可能開著別的工作區）也知道要傳到哪裡（docs/adr/0018-workspace-tenancy.md D8）。
+ *
+ * - 刪除：`<工作區 id>/<檔案或資料夾 id>`
+ * - 上傳：`<工作區 id>/<暫存檔的 key>` 或 `<工作區 id>/<暫存檔的 key>@<資料夾 id>`
  */
+const WORKSPACE_SEPARATOR = '/';
 const FOLDER_SEPARATOR = '@';
 
-export function uploadItemId(sourceKey: string, folderId: string | null | undefined): string {
-  return folderId ? `${sourceKey}${FOLDER_SEPARATOR}${folderId}` : sourceKey;
+export function workspaceItemId(workspaceId: string, id: string): string {
+  return `${workspaceId}${WORKSPACE_SEPARATOR}${id}`;
 }
 
-export function parseUploadItemId(itemId: string): { sourceKey: string; folderId?: string } {
-  const [sourceKey = itemId, folderId] = itemId.split(FOLDER_SEPARATOR);
-  return folderId ? { sourceKey, folderId } : { sourceKey };
+export function parseWorkspaceItemId(itemId: string): { workspaceId: string; id: string } {
+  const index = itemId.indexOf(WORKSPACE_SEPARATOR);
+  if (index < 0)
+    throw new AppError('VALIDATION_FAILED', 0, { reason: 'batch-item-without-workspace' });
+  return { workspaceId: itemId.slice(0, index), id: itemId.slice(index + 1) };
 }
 
-async function thumbnailFor(file: File, signal: AbortSignal): Promise<Blob | undefined> {
+export function uploadItemId(
+  workspaceId: string,
+  sourceKey: string,
+  folderId: string | null | undefined,
+): string {
+  return workspaceItemId(
+    workspaceId,
+    folderId ? `${sourceKey}${FOLDER_SEPARATOR}${folderId}` : sourceKey,
+  );
+}
+
+export function parseUploadItemId(itemId: string): {
+  workspaceId: string;
+  sourceKey: string;
+  folderId?: string;
+} {
+  const { workspaceId, id } = parseWorkspaceItemId(itemId);
+  const [sourceKey = id, folderId] = id.split(FOLDER_SEPARATOR);
+  return folderId ? { workspaceId, sourceKey, folderId } : { workspaceId, sourceKey };
+}
+
+async function thumbnailFor(
+  workspaceId: string,
+  file: File,
+  signal: AbortSignal,
+): Promise<Blob | undefined> {
   const policy = await queryClient
-    .fetchQuery(getFileUploadPolicyQueryOptions())
+    .fetchQuery(getFileUploadPolicyQueryOptions(workspaceId))
     .catch(() => undefined);
   return createThumbnail(file, {
     maxDimension: THUMBNAIL_MAX_DIMENSION,
@@ -65,16 +96,16 @@ async function runUpload(
   itemId: string,
   { signal, reportProgress }: BatchRunContext,
 ): Promise<void> {
-  const { sourceKey, folderId } = parseUploadItemId(itemId);
+  const { workspaceId, sourceKey, folderId } = parseUploadItemId(itemId);
   const source = await uploadSources.get(sourceKey);
   // 發起的分頁關掉、而這台瀏覽器的 IndexedDB 不可用：接手的分頁拿不到檔案，只能請使用者重傳
   if (!(source instanceof File)) {
     throw new AppError('FILE_UPLOAD_INCOMPLETE', 0, { reason: 'source-unavailable' });
   }
   try {
-    const thumbnail = await thumbnailFor(source, signal);
+    const thumbnail = await thumbnailFor(workspaceId, source, signal);
     const stored = await uploadFile(
-      { file: source, folderId, thumbnail, onProgress: reportProgress },
+      { workspaceId, file: source, folderId, thumbnail, onProgress: reportProgress },
       signal,
     );
     invalidateResources([{ resource: Resource.FILE, kind: 'create', id: stored.id }]);
@@ -101,8 +132,9 @@ export function registerFileBatchOperations(): void {
     labelKey: 'file.batch.delete.title',
     localeScope: FILE_LOCALE_SCOPE,
     successKey: 'file.batch.delete.success',
-    run: async (fileId, { signal }) => {
-      await deleteFile({ params: { fileId }, signal });
+    run: async (itemId, { signal }) => {
+      const { workspaceId, id: fileId } = parseWorkspaceItemId(itemId);
+      await deleteFile({ params: { workspaceId, fileId }, signal });
       invalidateResources([{ resource: Resource.FILE, kind: 'delete', id: fileId }]);
     },
   });
@@ -111,8 +143,9 @@ export function registerFileBatchOperations(): void {
     labelKey: 'file.batch.deleteFolder.title',
     localeScope: FILE_LOCALE_SCOPE,
     successKey: 'file.batch.deleteFolder.success',
-    run: async (folderId, { signal }) => {
-      await deleteFolder({ params: { folderId }, signal });
+    run: async (itemId, { signal }) => {
+      const { workspaceId, id: folderId } = parseWorkspaceItemId(itemId);
+      await deleteFolder({ params: { workspaceId, folderId }, signal });
       // 其中的檔案一起刪除了：檔案端無法逐筆得知
       invalidateResources([
         { resource: Resource.FILE_FOLDER, kind: 'delete', id: folderId },
@@ -137,6 +170,7 @@ export interface QueuedUpload {
  */
 export async function enqueueFileUploads(
   queue: BatchQueueClient,
+  workspaceId: string,
   uploads: readonly QueuedUpload[],
 ): Promise<string> {
   const items = await Promise.all(
@@ -144,7 +178,7 @@ export async function enqueueFileUploads(
       const sourceKey = crypto.randomUUID();
       await uploadSources.put(sourceKey, file);
       return {
-        id: uploadItemId(sourceKey, folderId),
+        id: uploadItemId(workspaceId, sourceKey, folderId),
         label: label ?? file.name,
         weight: file.size,
       };

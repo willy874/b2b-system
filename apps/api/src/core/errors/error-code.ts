@@ -41,6 +41,8 @@ export const ErrorCode = {
   ROLE_SUPER_ADMIN_IMMUTABLE: { status: 403 },
   ROLE_IN_USE: { status: 409 },
   LAST_SUPER_ADMIN: { status: 403 },
+  /** 角色的範圍與權限鍵或指派的地方不符（docs/adr/0018-workspace-tenancy.md D3）。 */
+  ROLE_SCOPE_MISMATCH: { status: 422 },
 
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },
@@ -49,6 +51,15 @@ export const ErrorCode = {
   APPROVAL_NOT_FOUND: { status: 404 },
   APPROVAL_ALREADY_REVIEWED: { status: 409 },
   APPROVAL_SELF_REVIEW: { status: 403 },
+
+  // ── 工作區 ──
+  /** 不存在、已刪除，或操作者不是成員（不洩漏工作區是否存在，D9）。 */
+  WORKSPACE_NOT_FOUND: { status: 404 },
+  WORKSPACE_SLUG_DUPLICATE: { status: 409 },
+  WORKSPACE_MEMBER_NOT_FOUND: { status: 404 },
+  WORKSPACE_MEMBER_DUPLICATE: { status: 409 },
+  /** 移除最後一位能管理成員的人（D12）。 */
+  WORKSPACE_LAST_ADMIN: { status: 409 },
 
   // ── 背景工作 ──
   JOB_NOT_FOUND: { status: 404 },

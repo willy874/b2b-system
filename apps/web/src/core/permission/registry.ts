@@ -4,7 +4,7 @@ export interface PageRegistration {
   rule: PagePermissionRule;
   /**
    * 錨定這一頁的 base path。`/role` 會命中 `/role`、`/role/create`、`/role/$id/…`。
-   * 根路徑 `/` 只精確命中。
+   * 根路徑 `/` 只精確命中。`$param` 片段比對任何一段（`/w/$workspaceSlug/file` 命中 `/w/a/file`）。
    */
   route: string;
 }
@@ -49,11 +49,21 @@ export function resolvePageKey(pathname: string): PageKey | undefined {
       if (pathname === '/') return page;
       continue;
     }
-    if (pathname !== route && !pathname.startsWith(`${route}/`)) continue;
+    if (!matchesBasePath(route, pathname)) continue;
     if (!matched || route.length > matched.length) matched = { page, length: route.length };
   }
 
   return matched?.page;
+}
+
+/** `route` 的每一段都對上 `pathname` 開頭的那幾段；`$param` 對上任何非空的一段。 */
+function matchesBasePath(route: string, pathname: string): boolean {
+  const expected = route.split('/').filter(Boolean);
+  const actual = pathname.split('/').filter(Boolean);
+  if (actual.length < expected.length) return false;
+  return expected.every(
+    (segment, index) => segment === actual[index] || (segment.startsWith('$') && !!actual[index]),
+  );
 }
 
 export function getRegisteredPageKeys(): PageKey[] {
@@ -65,9 +75,26 @@ export function resetPagePermissionRegistry(): void {
   registry.clear();
 }
 
-/** 從 route 物件讀 base path（不能用 `route.to`：router 建立前是 undefined）。 */
+interface RouteLike {
+  options?: { path?: string; getParentRoute?: () => unknown };
+}
+
+/**
+ * 從 route 物件讀 base path（不能用 `route.to`：router 建立前是 undefined）。
+ * 巢狀的 route（例：工作區底下的頁面）沿 `getParentRoute` 把上層的 path 接起來。
+ */
 export function routeBasePath(route: unknown): string {
-  const path = (route as { options?: { path?: string } }).options?.path;
+  const path = (route as RouteLike).options?.path;
   if (!path) throw new Error('route 沒有 path，無法註冊頁面權限');
-  return path;
+  const segments = [path];
+  let parent = (route as RouteLike).options?.getParentRoute?.();
+  while (parent) {
+    const parentPath = (parent as RouteLike).options?.path;
+    if (parentPath) segments.unshift(parentPath);
+    parent = (parent as RouteLike).options?.getParentRoute?.();
+  }
+  return `/${segments
+    .flatMap((segment) => segment.split('/'))
+    .filter(Boolean)
+    .join('/')}`;
 }

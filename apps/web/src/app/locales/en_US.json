@@ -90,9 +90,16 @@
     "approval": "Approvals",
     "file": "Files",
     "job": "Background jobs",
+    "workspace": "Workspaces",
+    "workspaceMember": "Members",
     "profile": "Profile",
     "preference": "Preferences",
     "logout": "Sign out"
+  },
+  "workspaceSwitcher": {
+    "label": "Switch workspace",
+    "empty": "You don't belong to any workspace yet",
+    "notMember": "(not a member)"
   },
   "app": {
     "title": "Game Editor",
@@ -132,11 +139,17 @@
     "ROLE_SYSTEM_PROTECTED": "System roles cannot be deleted or renamed.",
     "ROLE_SUPER_ADMIN_IMMUTABLE": "Permissions of the super admin role cannot be changed.",
     "ROLE_IN_USE": "Some users still hold this role.",
+    "ROLE_SCOPE_MISMATCH": "Role scope mismatch: platform roles are assigned to users, workspace roles only inside a workspace, and permissions must match the role's scope.",
     "LAST_SUPER_ADMIN": "The system must keep at least one active super admin.",
     "PERMISSION_UNKNOWN": "The request contains unknown permission keys.",
     "APPROVAL_NOT_FOUND": "This approval request does not exist.",
     "APPROVAL_ALREADY_REVIEWED": "This request has already been reviewed.",
     "APPROVAL_SELF_REVIEW": "You cannot review your own request. Ask another administrator.",
+    "WORKSPACE_NOT_FOUND": "This workspace does not exist, or you are not a member.",
+    "WORKSPACE_SLUG_DUPLICATE": "This URL slug is already in use.",
+    "WORKSPACE_MEMBER_NOT_FOUND": "This person is not a member of the workspace.",
+    "WORKSPACE_MEMBER_DUPLICATE": "This person is already a member of the workspace.",
+    "WORKSPACE_LAST_ADMIN": "A workspace must keep at least one person who can manage members.",
     "JOB_NOT_FOUND": "This job does not exist or has been cleaned up.",
     "JOB_NOT_RETRYABLE": "Only failed jobs can be retried. It may already have been retried by someone else.",
     "FILE_NOT_FOUND": "This file does not exist or has been deleted.",
@@ -179,8 +192,12 @@
       "system": "System",
       "approval": "Approvals",
       "file": "Files",
-      "job": "Background jobs"
+      "job": "Background jobs",
+      "workspace": "Workspaces",
+      "workspaceMember": "Workspace members"
     },
+    "platformScope": "Platform",
+    "workspaceScope": "Workspace",
     "user": {
       "create": "Create user",
       "read": "View users",
@@ -221,6 +238,18 @@
     "job": {
       "read": "View background jobs",
       "retry": "Retry background jobs"
+    },
+    "workspace": {
+      "create": "Create workspace",
+      "read": "View workspaces",
+      "update": "Edit workspace",
+      "delete": "Delete workspace"
+    },
+    "workspaceMember": {
+      "read": "View members",
+      "create": "Invite members",
+      "delete": "Remove members",
+      "assignRole": "Assign workspace roles"
     }
   },
   "theme": {

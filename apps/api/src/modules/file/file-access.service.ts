@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import type { AuthUser } from '@/common/types';
+import type { AuthUser, WorkspaceScope } from '@/common/types';
 import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { AuditService } from '@/modules/audit-log/audit.service';
@@ -32,19 +32,27 @@ export class FileAccessService {
   ) {}
 
   /**
-   * 建立操作者這次請求的存取判斷。結構寫入（移動、刪除）要在取得樹鎖的交易內呼叫並傳入 `tx`，
+   * 建立操作者這次請求在這個工作區的存取判斷。結構寫入（移動、刪除）要在取得樹鎖的交易內呼叫並傳入 `tx`，
    * 檢查與寫入之間結構才不會變。同一個交易的查詢依序執行。
+   * 全域動作看 `P(u, W)`：工作區內的 `file:*` 是「這個工作區的所有資料夾」（docs/adr/0018-workspace-tenancy.md D7）。
    */
-  async contextFor(actor: AuthUser, tx?: DbOrTx): Promise<FileAccessContext> {
-    const { permissions, isSuperAdmin } = await this.permissions.getPermissionSet(actor.id);
+  async contextFor(ws: WorkspaceScope, actor: AuthUser, tx?: DbOrTx): Promise<FileAccessContext> {
+    const { permissions, isSuperAdmin } = await this.permissions.getWorkspacePermissionSet(
+      actor.id,
+      ws.workspaceId,
+    );
     const globalActions = new Set<FileAction>(
       FILE_ACTIONS.filter(
         (action) => isSuperAdmin || permissions.has(FILE_ACTION_PERMISSION[action]),
       ),
     );
-    const nodes = await this.folders.listTreeNodes(tx);
-    // 資料夾掛到專案底下之後，上層鏈多一種節點：這裡加上 'project'（ADR-0015 §延伸）
-    const grants = await this.grants.grantsFor(actor.id, FILE_ACCESS_RESOURCE_TYPES, tx);
+    const nodes = await this.folders.listTreeNodes(ws, tx);
+    const grants = await this.grants.grantsFor(
+      actor.id,
+      FILE_ACCESS_RESOURCE_TYPES,
+      ws.workspaceId,
+      tx,
+    );
     const levelOf = resolveHierarchyLevels(nodes, grants);
     return new FileAccessContext(
       actor.id,

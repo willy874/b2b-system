@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   check,
+  foreignKey,
   index,
   integer,
   pgEnum,
@@ -15,6 +16,7 @@ import {
 
 import { fileFolders } from './file-folders';
 import { users } from './users';
+import { workspaces } from './workspaces';
 
 /**
  * `pending`：已登記、等待瀏覽器直傳到物件儲存；`ready`：已確認物件存在且大小相符。
@@ -43,6 +45,9 @@ export const files = pgTable(
   'files',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
     /** 顯示用檔名（含副檔名），可改名；與物件儲存的 key 無關。 */
     name: text('name').notNull(),
     contentType: text('content_type').notNull(),
@@ -71,8 +76,11 @@ export const files = pgTable(
     imageHeight: integer('image_height'),
     /** 變體的主格式（`jpeg`：progressive JPEG；`webp`：有透明度的圖）；其他格式依請求另外轉出。 */
     variantFormat: text('variant_format'),
-    /** 所在的資料夾；null 是根目錄（docs/architecture/backend/09-file.md §4.2）。 */
-    folderId: uuid('folder_id').references(() => fileFolders.id, { onDelete: 'restrict' }),
+    /**
+     * 所在的資料夾；null 是根目錄（docs/architecture/backend/09-file.md §4.2）。
+     * 必須在同一個工作區：組合外鍵 files_folder_fk（docs/adr/0018-workspace-tenancy.md D10）。
+     */
+    folderId: uuid('folder_id'),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -81,6 +89,11 @@ export const files = pgTable(
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (t) => [
+    foreignKey({
+      name: 'files_folder_fk',
+      columns: [t.workspaceId, t.folderId],
+      foreignColumns: [fileFolders.workspaceId, fileFolders.id],
+    }).onDelete('restrict'),
     uniqueIndex('files_storage_key_key').on(t.storageKey),
     check('files_size_non_negative', sql`${t.size} >= 0`),
     // ready 一定經過物件儲存確認：沒有 ETag 或上傳時間的 ready 是不可能的狀態
@@ -105,6 +118,10 @@ export const files = pgTable(
     // 檔案管理器一次只列一個資料夾：先以 folder_id 縮小範圍，再依排序欄位排序
     index('files_folder_created_at_idx')
       .on(t.folderId, t.createdAt, t.id)
+      .where(sql`${t.deletedAt} IS NULL`),
+    // 一個工作區的檔案（列表一律先以工作區縮小範圍，docs/adr/0018-workspace-tenancy.md D10）
+    index('files_workspace_created_at_idx')
+      .on(t.workspaceId, t.status, t.createdAt, t.id)
       .where(sql`${t.deletedAt} IS NULL`),
     index('files_status_content_type_idx')
       .on(t.status, t.contentType)

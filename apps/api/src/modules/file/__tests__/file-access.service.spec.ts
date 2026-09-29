@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
+import { workspaceScopeOf } from '@/common/types';
 import type { AuthUser } from '@/common/types';
 import { AppException } from '@/core/errors';
 
 import type { FolderNode } from '../file-access.context';
 import { createFileAccess } from './file-access.fixture';
+
+/** 測試用的工作區範圍（docs/adr/0018-workspace-tenancy.md D10）。 */
+const WS = workspaceScopeOf('99999999-9999-4999-8999-999999999999');
 
 const ALICE: AuthUser = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -22,7 +26,7 @@ const NODES = [ART, UI, SECRET];
 describe('FileAccessContext（docs/rbac/07-resource-grants.md §3、§4）', () => {
   it('全域權限鍵涵蓋所有資料夾與根目錄，不看資料夾授權', async () => {
     const { access } = createFileAccess({ global: ['read', 'update'], nodes: () => NODES });
-    const ctx = await access.contextFor(ALICE);
+    const ctx = await access.contextFor(WS, ALICE);
     expect(ctx.can('read', 'secret')).toBe(true);
     expect(ctx.can('update', null)).toBe(true);
     expect(ctx.can('create', 'art')).toBe(false);
@@ -35,7 +39,7 @@ describe('FileAccessContext（docs/rbac/07-resource-grants.md §3、§4）', () 
       grants: [{ resourceId: 'art', level: 'contributor' }],
       nodes: () => NODES,
     });
-    const ctx = await access.contextFor(ALICE);
+    const ctx = await access.contextFor(WS, ALICE);
     expect(ctx.can('read', null)).toBe(false);
     expect([ctx.can('read', 'ui'), ctx.can('create', 'ui'), ctx.can('update', 'ui')]).toEqual([
       true,
@@ -52,7 +56,7 @@ describe('FileAccessContext（docs/rbac/07-resource-grants.md §3、§4）', () 
       grants: [{ resourceId: 'art', level: 'contributor' }],
       nodes: () => NODES,
     });
-    const ctx = await access.contextFor(ALICE);
+    const ctx = await access.contextFor(WS, ALICE);
     expect(ctx.fileCapabilities({ folderId: 'art', createdBy: ALICE.id })).toEqual({
       canUpdate: true,
       canDelete: true,
@@ -66,7 +70,7 @@ describe('FileAccessContext（docs/rbac/07-resource-grants.md §3、§4）', () 
       global: [],
       grants: [{ resourceId: 'art', level: 'viewer' }],
       nodes: () => NODES,
-    }).access.contextFor(ALICE);
+    }).access.contextFor(WS, ALICE);
     expect(viewer.canModify('delete', 'art', ALICE.id)).toBe(false);
   });
 
@@ -76,7 +80,7 @@ describe('FileAccessContext（docs/rbac/07-resource-grants.md §3、§4）', () 
       grants: [{ resourceId: 'art', level: 'contributor' }],
       nodes: () => NODES,
     });
-    const ctx = await access.contextFor(ALICE);
+    const ctx = await access.contextFor(WS, ALICE);
     expect(ctx.folderCapabilities(ART)).toMatchObject({ canCreate: true, canUpdate: false });
     expect(ctx.folderCapabilities(UI)).toMatchObject({ canUpdate: true, canDelete: true });
   });
@@ -87,7 +91,7 @@ describe('FileAccessContext（docs/rbac/07-resource-grants.md §3、§4）', () 
       grants: [{ resourceId: 'ui', level: 'viewer' }],
       nodes: () => NODES,
     });
-    const ctx = await access.contextFor(ALICE);
+    const ctx = await access.contextFor(WS, ALICE);
     expect(ctx.folderCapabilities(ART)).toEqual({
       canRead: false,
       canCreate: false,
@@ -104,20 +108,20 @@ describe('FileAccessContext（docs/rbac/07-resource-grants.md §3、§4）', () 
     const onlyShare = await createFileAccess({
       global: ['share'],
       nodes: () => NODES,
-    }).access.contextFor(ALICE);
+    }).access.contextFor(WS, ALICE);
     expect(onlyShare.assignableLevels('art')).toEqual([]);
 
     const readShare = await createFileAccess({
       global: ['read', 'share'],
       nodes: () => NODES,
-    }).access.contextFor(ALICE);
+    }).access.contextFor(WS, ALICE);
     expect(readShare.assignableLevels('art')).toEqual(['viewer']);
 
     const manager = await createFileAccess({
       global: [],
       grants: [{ resourceId: 'art', level: 'manager' }],
       nodes: () => NODES,
-    }).access.contextFor(ALICE);
+    }).access.contextFor(WS, ALICE);
     expect(manager.assignableLevels('ui')).toEqual(['viewer', 'contributor', 'editor', 'manager']);
     expect(manager.missingActions(['manager'], 'secret')).toEqual([
       'read',
@@ -136,7 +140,7 @@ describe('FileAccessService.assertCan', () => {
       grants: [{ resourceId: 'art', level: 'viewer' }],
       nodes: () => NODES,
     });
-    const ctx = await access.contextFor(ALICE);
+    const ctx = await access.contextFor(WS, ALICE);
 
     const missing = await access.assertCan(ctx, ALICE, 'create', 'nope').catch((e: unknown) => e);
     expect((missing as AppException).code).toBe('FILE_FOLDER_NOT_FOUND');

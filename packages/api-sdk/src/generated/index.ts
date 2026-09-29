@@ -14,3 +14,4 @@ export * from './endpoints/permissions';
 export * from './endpoints/roles';
 export * from './endpoints/system';
 export * from './endpoints/users';
+export * from './endpoints/workspaces';

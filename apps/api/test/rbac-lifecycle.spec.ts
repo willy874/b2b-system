@@ -95,7 +95,8 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     const body = response.body as {
       data: { permissions: string[]; roles: Array<{ slug: string }> };
     };
-    expect(body.data.permissions).toHaveLength(25);
+    // 平台範圍的全集；工作區範圍的鍵在 GET /workspaces/:id/me（docs/adr/0018-workspace-tenancy.md D17）
+    expect(body.data.permissions).toHaveLength(23);
     expect(body.data.roles.map((role) => role.slug)).toContain('super-admin');
   });
 
