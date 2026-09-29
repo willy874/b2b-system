@@ -38,8 +38,10 @@ packages:
 
 | script                                         | 作用                                                     |
 | ---------------------------------------------- | -------------------------------------------------------- |
-| `pnpm dev`                                     | `docker compose up -d postgres` ＋ 並行啟動 api、web、file-storage |
+| `pnpm dev`                                     | `docker compose up -d postgres` ＋ Mailpit ＋ 並行啟動 api、web、file-storage |
 | `pnpm dev:api` / `pnpm dev:web`                | 單獨啟動                                                 |
+| `pnpm dev:e2e`                                 | 啟動 Mailpit，以放寬的速率限制、`MAIL_TRANSPORT=smtp` 啟動 api |
+| `pnpm mail:up`                                 | `docker compose up -d mailpit`（SMTP :1025、網頁 :8025） |
 | `pnpm dev:storage`                             | 啟動 `apps/file-storage`（S3 相容，:9000）               |
 | `pnpm build`                                   | 依序 `api-sdk` → `api` → `web`                           |
 | `pnpm db:generate`                             | drizzle-kit 產生 migration                               |
@@ -167,6 +169,7 @@ apps/api/src/
 │   ├── http/                TransformInterceptor、分頁 DTO、RequestId middleware
 │   ├── logger/              Pino 設定
 │   ├── jobs/                背景工作佇列（pg-boss）：JobQueue、defineJob（docs/architecture/backend/10-jobs.md）
+│   ├── mail/                寄信：MailTransport（smtp / console）、MailService（docs/architecture/backend/11-mail.md）
 │   └── validation/          ZodValidationPipe、zod ↔ OpenAPI
 │
 ├── common/                  跨模組的 decorator / guard（薄）
@@ -251,6 +254,11 @@ LOGIN_LOCKOUT_SECONDS=900
 
 SUPER_ADMIN_EMAIL=admin@example.com
 SUPER_ADMIN_PASSWORD=              # 留空則 seed 時隨機產生並印出一次
+
+MAIL_TRANSPORT=smtp                 # smtp / console（backend/11-mail.md §2）
+MAIL_SMTP_URL=smtp://localhost:1025 # 本機是 Mailpit
+MAIL_FROM="Game Editor <no-reply@localhost>"
+APP_PUBLIC_URL=http://localhost:5173  # 信裡連結的開頭
 
 JOBS_WORKER_ENABLED=true            # 是否執行背景工作與排程；false 只入列（backend/10-jobs.md §5）
 AUDIT_LOG_ARCHIVE_CRON=30 3 * * *   # 稽核熱 → 冷搬移的 cron（UTC）；留空停用

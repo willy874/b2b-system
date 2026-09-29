@@ -33,6 +33,7 @@
 |        | `role.grantPermission`                                            | **含前後權限清單**     |
 | 審批   | `approval.submit`                                                 | 匿名申請（註冊）的 actor 為申請人 email、`actorId = null` |
 |        | `approval.approve` / `approval.reject`                            | 含審核意見；核准另記該變更本身（例：`user.create`，`metadata.approvalId`） |
+| 郵件   | `mail.send`                                                       | 寄出的信；只記範本、收件人、jobId、messageId，不記內容與 token（[`11-mail.md`](./11-mail.md) §5） |
 | 背景工作 | `job.retry`                                                     | 手動重試失敗的工作；`resourceName` 是工作名稱（[`10-jobs.md`](./10-jobs.md) §6） |
 | 系統   | `system.bootstrap`                                                | 初始 super-admin 建立  |
 |        | `system.seed`                                                     | 權限目錄變更           |

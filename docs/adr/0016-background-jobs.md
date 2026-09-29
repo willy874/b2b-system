@@ -2,7 +2,7 @@
 
 - 狀態：**採用**
 - 日期：2026-09-29
-- 相關：[`../architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md)、[`../features/mailer.md`](../features/mailer.md)、
+- 相關：[`../architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md)、[`../architecture/backend/11-mail.md`](../architecture/backend/11-mail.md)、
   [`../architecture/backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) §6、§8、
   [`../architecture/backend/09-file.md`](../architecture/backend/09-file.md) §9、[ADR-0012](./0012-batch-queue-worker.md)
 
@@ -12,7 +12,7 @@
 
 - 稽核封存（`pnpm db:archive-audit-logs`）靠外部排程觸發，程式不知道它有沒有跑、跑成功沒
 - 上傳殘留清理（`FileMaintenanceService`）是 api 內的 `setInterval`，失敗沒有紀錄可查
-- 寄信（[`mailer.md`](../features/mailer.md)）、Webhook 投遞要重試，沒有地方放
+- 寄信（[`11-mail.md`](../architecture/backend/11-mail.md)）、Webhook 投遞要重試，沒有地方放
 - 大量匯出不能在 HTTP 請求內做完
 
 ADR-0012 的前端批次佇列需要使用者開著分頁，不適合伺服器自己發起的工作。

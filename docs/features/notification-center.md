@@ -3,7 +3,7 @@
 - 優先度：P1
 - 狀態：提案
 - 依賴：—
-- 相關：[`mailer.md`](./mailer.md)、[`tags-comments.md`](./tags-comments.md)
+- 相關：郵件（[`backend/11-mail.md`](../architecture/backend/11-mail.md)）、[`tags-comments.md`](./tags-comments.md)
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 

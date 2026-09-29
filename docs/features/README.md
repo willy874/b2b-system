@@ -18,7 +18,6 @@
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
 | P0 | 工作區／多租戶 | [`workspace.md`](./workspace.md) | 提案 | — |
-| P1 | 郵件寄送 | [`mailer.md`](./mailer.md) | 規劃中 | — |
 | P1 | 站內通知中心 | [`notification-center.md`](./notification-center.md) | 提案 | — |
 | P1 | 系統設定（執行期可調） | [`system-settings.md`](./system-settings.md) | 提案 | — |
 | P2 | 版本歷史與軟刪除 | [`entity-revisions.md`](./entity-revisions.md) | 提案 | — |
