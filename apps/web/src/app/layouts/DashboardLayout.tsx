@@ -19,6 +19,7 @@ import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { useLogoutMutation } from '@/features/auth';
 import { FILE_PAGE } from '@/features/file';
 import { HOME_PAGE } from '@/features/home';
+import { JOB_PAGE } from '@/features/job';
 import { PERMISSION_PAGE } from '@/features/permission';
 import { ROLE_PAGE } from '@/features/role';
 import { USER_PAGE } from '@/features/user';
@@ -67,6 +68,7 @@ const MENU: NavItem[] = [
     icon: 'check',
   },
   { pageKey: FILE_PAGE, to: '/file', labelKey: 'menu.file', testId: 'menu-file', icon: 'file' },
+  { pageKey: JOB_PAGE, to: '/job', labelKey: 'menu.job', testId: 'menu-job', icon: 'monitor' },
 ];
 
 const ACCOUNT_MENU: MenuItem[] = [

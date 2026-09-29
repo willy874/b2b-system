@@ -16,6 +16,7 @@ export const PermissionResource = {
   SYSTEM: 'system',
   APPROVAL: 'approval',
   FILE: 'file',
+  JOB: 'job',
 } as const;
 export type PermissionResource = (typeof PermissionResource)[keyof typeof PermissionResource];
 
