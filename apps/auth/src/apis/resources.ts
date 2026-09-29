@@ -7,6 +7,7 @@
  *
  * 這一版沒有推播：只有本分頁與其他分頁（BroadcastChannel）會失效。
  */
+import { IDENTITY_PROVIDER_LIST_QUERY_KEY } from '@/apis/identity-provider/get-identity-provider-list/query';
 import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
 import { WORKSPACE_LIST_QUERY_KEY } from '@/apis/workspace/get-workspace-list/query';
 import { createResourceGraph, queryClient } from '@/core/cache';
@@ -18,6 +19,8 @@ export const Resource = {
   WORKSPACE: 'workspace',
   /** 工作區的成員 ↔ 工作區角色（`id` = userId）；這裡沒有成員清單，只作為來源 */
   WORKSPACE_MEMBER: 'workspaceMember',
+  /** 外部 IdP 連線（`id` = 連線 id） */
+  IDENTITY_PROVIDER: 'identityProvider',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -37,6 +40,9 @@ const graph = createResourceGraph<Resource>({
     ],
   },
   [Resource.WORKSPACE_MEMBER]: {},
+  [Resource.IDENTITY_PROVIDER]: {
+    collection: [IDENTITY_PROVIDER_LIST_QUERY_KEY],
+  },
 });
 
 /** 依依賴圖換算出要失效的 query，套用到本分頁並廣播給其他分頁。 */

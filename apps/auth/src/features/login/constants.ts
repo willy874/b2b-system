@@ -9,4 +9,6 @@ export const SSO_ERROR_KEY: Partial<Record<string, string>> = {
   invalid_redirect_uri: 'login.error.invalidRedirectUri',
   invalid_client: 'login.error.invalidClient',
   invalid_request: 'login.error.invalidRequest',
+  // 外部 IdP 的 callback 對不上任何登入中的互動（過期、重複使用）
+  AUTH_SSO_EXTERNAL_FAILED: 'error.AUTH_SSO_EXTERNAL_FAILED',
 };

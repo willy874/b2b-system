@@ -22,7 +22,10 @@
       "for": "登入以繼續使用「{{client}}」。所有產品共用這一組帳號。",
       "cancel": "取消",
       "forgotPassword": "忘記密碼？",
-      "register": "申請帳號"
+      "register": "申請帳號",
+      "external": "使用 {{name}} 登入",
+      "ssoOnly": "你的組織使用 {{name}} 登入。",
+      "or": "或"
     },
     "client": {
       "backstage": "管理後台",

@@ -2,15 +2,17 @@ import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/rea
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { RootRoute } from '@/core/router';
+import { parseSearch, RootRoute, stringifySearch } from '@/core/router';
 import { AllProviders } from '@/test/renderWithPermissions';
 
 import { Routes } from '../../..';
 
-const { details, login, abort } = vi.hoisted(() => ({
+const { details, login, abort, discover, startExternal } = vi.hoisted(() => ({
   details: vi.fn(),
   login: vi.fn(),
   abort: vi.fn(),
+  discover: vi.fn(),
+  startExternal: vi.fn(),
 }));
 
 vi.mock('@/apis/sso-interaction/get-sso-interaction/query', () => ({
@@ -27,15 +29,31 @@ vi.mock('@/apis/sso-interaction/login-sso-interaction/mutation', () => ({
 vi.mock('@/apis/sso-interaction/abort-sso-interaction/mutation', () => ({
   getAbortSsoInteractionMutationOptions: () => ({ mutationFn: abort }),
 }));
+vi.mock('@/apis/sso-interaction/discover-sso-interaction/query', () => ({
+  SSO_DISCOVERY_QUERY_KEY: 'SSO_DISCOVERY_QUERY_KEY',
+  getSsoDiscoveryQueryOptions: (uid: string, email: string) => ({
+    queryKey: ['SSO_DISCOVERY_QUERY_KEY', uid, email],
+    queryFn: () => discover(email),
+    retry: false,
+  }),
+}));
+vi.mock('@/apis/sso-interaction/start-external-sso-interaction/mutation', () => ({
+  getStartExternalSsoInteractionMutationOptions: () => ({ mutationFn: startExternal }),
+}));
 
 const UID = 'abc12345xyz';
 const RESUME = `http://localhost:5175/api/oidc/auth/${UID}`;
 const assign = vi.fn();
 
-function renderInteraction() {
+const ACME = { id: '22222222-2222-4222-8222-222222222222', name: 'Acme Azure AD' };
+const EXTERNAL_AUTHORIZE = 'https://login.acme.test/authorize?state=s';
+
+function renderInteraction(query = '') {
   const router = createRouter({
     routeTree: RootRoute.addChildren([Routes.InteractionRoute]),
-    history: createMemoryHistory({ initialEntries: [`/interaction/${UID}`] }),
+    history: createMemoryHistory({ initialEntries: [`/interaction/${UID}${query}`] }),
+    parseSearch,
+    stringifySearch,
   });
   return render(
     <AllProviders>
@@ -54,6 +72,8 @@ beforeEach(() => {
   });
   login.mockReset().mockResolvedValue({ redirectTo: RESUME });
   abort.mockReset().mockResolvedValue({ redirectTo: `${RESUME}?aborted` });
+  discover.mockReset().mockResolvedValue({ provider: null, ssoOnly: false });
+  startExternal.mockReset().mockResolvedValue({ redirectTo: EXTERNAL_AUTHORIZE });
   assign.mockReset();
   // 頂層跳轉：jsdom 的 location.assign 不能 spy，整個換掉（router 用 memory history，不受影響）
   vi.stubGlobal('location', { ...window.location, assign });
@@ -109,5 +129,62 @@ describe('IdP 的登入互動頁（docs/adr/0019-sso-identity-platform.md）', (
     renderInteraction();
     expect(await screen.findByTestId('interaction-invalid')).toBeInTheDocument();
     expect(screen.queryByTestId('login-submit')).toBeNull();
+  });
+
+  describe('外部 IdP（docs/adr/0019-sso-identity-platform.md D8、D9）', () => {
+    async function typeEmail(email: string) {
+      const input = await screen.findByTestId('login-email');
+      fireEvent.change(input, { target: { value: email } });
+      fireEvent.blur(input);
+    }
+
+    it('網域沒有連線 → 只有密碼登入', async () => {
+      renderInteraction();
+      await typeEmail('user@example.com');
+      await waitFor(() => expect(discover).toHaveBeenCalledWith('user@example.com'));
+      expect(screen.queryByTestId('login-external')).toBeNull();
+      expect(screen.getByTestId('login-password')).toBeInTheDocument();
+    });
+
+    it('網域有連線 → 多一個「使用 X 登入」，按下後頂層跳轉到外部 IdP', async () => {
+      discover.mockResolvedValue({ provider: ACME, ssoOnly: false });
+      renderInteraction();
+      await typeEmail('alice@acme.test');
+      const button = await screen.findByTestId('login-external');
+      expect(button).toHaveAttribute('data-value', ACME.id);
+      expect(screen.getByTestId('login-password')).toBeInTheDocument();
+      await waitFor(() => expect(button).not.toBeDisabled());
+      fireEvent.click(button);
+      await waitFor(() => expect(assign).toHaveBeenCalledWith(EXTERNAL_AUTHORIZE));
+      expect(startExternal.mock.calls[0]?.[0]).toEqual({
+        params: { uid: UID, providerId: ACME.id },
+      });
+      expect(login).not.toHaveBeenCalled();
+    });
+
+    it('只允許 SSO 的網域 → 沒有密碼欄，送出表單就走外部 IdP', async () => {
+      discover.mockResolvedValue({ provider: ACME, ssoOnly: true });
+      renderInteraction();
+      await typeEmail('alice@acme.test');
+      expect(await screen.findByTestId('login-sso-only')).toBeInTheDocument();
+      expect(screen.queryByTestId('login-password')).toBeNull();
+      expect(screen.queryByTestId('login-submit')).toBeNull();
+      await waitFor(() => expect(screen.getByTestId('login-external')).not.toBeDisabled());
+      fireEvent.submit(screen.getByTestId('login-email').closest('form')!);
+      await waitFor(() => expect(assign).toHaveBeenCalledWith(EXTERNAL_AUTHORIZE));
+    });
+
+    it('不完整的 email 不查詢網域', async () => {
+      renderInteraction();
+      await typeEmail('alice@');
+      await waitFor(() => expect(screen.getByTestId('login-email')).toBeInTheDocument());
+      expect(discover).not.toHaveBeenCalled();
+    });
+
+    it('外部登入失敗帶回的錯誤碼 → 顯示對應訊息', async () => {
+      renderInteraction('?error=AUTH_SSO_ACCOUNT_NOT_FOUND');
+      const error = await screen.findByTestId('login-error');
+      expect(error).toHaveAttribute('data-value', 'AUTH_SSO_ACCOUNT_NOT_FOUND');
+    });
   });
 });

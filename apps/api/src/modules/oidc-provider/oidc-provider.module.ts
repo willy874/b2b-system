@@ -29,7 +29,7 @@ class OidcProviderMiddleware implements NestMiddleware {
 @Module({
   imports: [UserModule],
   providers: [OidcPayloadRepository, OidcProviderService, OidcProviderMiddleware, OidcCleanupJobs],
-  exports: [OidcProviderService, OidcPayloadRepository],
+  exports: [OidcProviderService],
 })
 export class OidcProviderModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

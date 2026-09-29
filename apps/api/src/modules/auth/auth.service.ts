@@ -16,6 +16,7 @@ import { JobQueue } from '@/core/jobs';
 import type { RefreshTokenRow, UserRow } from '@/db/schema';
 import { ApprovalService } from '@/modules/approval/approval.service';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import { IdentityProviderService } from '@/modules/identity-provider/identity-provider.service';
 import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 import { userRegistrationRequest } from '@/modules/user/user-registration.approval';
@@ -70,6 +71,7 @@ export class AuthService {
     private readonly approvals: ApprovalService,
     private readonly jobs: JobQueue,
     private readonly oidc: OidcProviderService,
+    private readonly identityProviders: IdentityProviderService,
   ) {}
 
   // ── 登入 ────────────────────────────────────────────────
@@ -84,6 +86,10 @@ export class AuthService {
    * （docs/adr/0019-sso-identity-platform.md：密碼驗證只有一套）。
    */
   async verifyCredentials(dto: LoginDto): Promise<UserRow> {
+    // 只允許 SSO 的網域（ADR-0019 D9）：先於查帳號判斷，回應只透露網域設定、不透露帳號是否存在
+    if (await this.identityProviders.isSsoOnly(dto.email)) {
+      throw new AppException('AUTH_SSO_REQUIRED');
+    }
     const user = await this.users.findAccountByEmail(dto.email);
 
     // 時序攻擊防護：帳號不存在時也跑一次 argon2
@@ -420,7 +426,9 @@ export class AuthService {
   // ── 忘記密碼 / 重設 / 啟用 ───────────────────────────────
 
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ sent: true }> {
-    const user = await this.users.findAccountByEmail(dto.email);
+    // 只允許 SSO 的網域不寄重設信（密碼本來就不能用）；回應照舊，不透露帳號是否存在
+    const ssoOnly = await this.identityProviders.isSsoOnly(dto.email);
+    const user = ssoOnly ? undefined : await this.users.findAccountByEmail(dto.email);
     if (user && user.status === 'active') {
       // 入列即回應：寄信慢或 SMTP 暫時失敗都不影響這個請求，也不會從回應時間看出帳號是否存在
       await this.jobs.enqueue(

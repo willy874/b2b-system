@@ -34,5 +34,13 @@ export default defineConfig({
           timeout: 60_000,
           cwd: '../..',
         },
+        // 外部 IdP 登入用的模擬 OIDC provider（tests/sso-external.spec.ts）
+        {
+          command: 'pnpm dev:mock-idp',
+          url: 'http://localhost:4455/.well-known/openid-configuration',
+          reuseExistingServer: !process.env.CI,
+          timeout: 60_000,
+          cwd: '../..',
+        },
       ],
 });

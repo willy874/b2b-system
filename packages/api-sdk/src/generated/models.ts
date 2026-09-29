@@ -68,6 +68,51 @@ export interface AuditLog {
   metadata: Record<string, unknown> | null;
 }
 
+export interface IdentityProviderDomain {
+  domain: string;
+  ssoOnly: boolean;
+}
+
+export interface IdentityProvider {
+  id: string;
+  name: string;
+  issuer: string;
+  clientId: string;
+  scopes: string;
+  enabled: boolean;
+  unmatchedPolicy: 'reject' | 'auto_create';
+  domains: Array<IdentityProviderDomain>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IdentityProviderList {
+  items: Array<IdentityProvider>;
+  callbackUrl: string;
+}
+
+export interface CreateIdentityProviderRequest {
+  name: string;
+  issuer: string;
+  clientId: string;
+  clientSecret: string;
+  scopes: string;
+  enabled: boolean;
+  unmatchedPolicy: 'reject' | 'auto_create';
+  domains: Array<IdentityProviderDomain>;
+}
+
+export interface UpdateIdentityProviderRequest {
+  name?: string;
+  issuer?: string;
+  clientId?: string;
+  clientSecret?: string;
+  scopes?: string;
+  enabled?: boolean;
+  unmatchedPolicy?: 'reject' | 'auto_create';
+  domains?: Array<IdentityProviderDomain>;
+}
+
 export interface CreateUserRequest {
   email: string;
   username?: string;
@@ -155,6 +200,10 @@ export const PermissionKey = {
   'workspaceMember:create': 'workspaceMember:create',
   'workspaceMember:delete': 'workspaceMember:delete',
   'workspaceMember:assignRole': 'workspaceMember:assignRole',
+  'identityProvider:create': 'identityProvider:create',
+  'identityProvider:read': 'identityProvider:read',
+  'identityProvider:update': 'identityProvider:update',
+  'identityProvider:delete': 'identityProvider:delete',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
@@ -262,6 +311,18 @@ export interface SsoInteraction {
 
 export interface SsoRedirect {
   redirectTo: string;
+}
+
+export interface SsoDiscovery {
+  provider: {
+    id: string;
+    name: string;
+  } | null;
+  ssoOnly: boolean;
+}
+
+export interface StartExternalLoginRequest {
+  providerId: string;
 }
 
 export interface SsoCallbackRequest {

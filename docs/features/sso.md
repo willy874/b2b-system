@@ -105,7 +105,7 @@
 - **交付順序**：
   1. ADR 定案、`apps/auth` 骨架（複製的 core／components、dev／build／test／Docker、nginx）——✅ 骨架已建立：
      `/login`（暫時直接呼叫既有的 `POST /auth/login`）、`/`（目前的身分）、平台外框；複製清單見 `apps/auth/README.md`
-  2. IdP：`oidc-provider`、密碼登入互動、backstage 改走 SSO、單一登出——✅ 已完成（未 commit）：
+  2. IdP：`oidc-provider`、密碼登入互動、backstage 改走 SSO、單一登出——✅ 已完成：
      - api：`modules/oidc-provider`（provider、`oidc_payloads` adapter、`oidc.cleanup` 排程）、`AuthModule` 的互動端點
        （`/oidc-interaction/:uid`、`…/details`、`…/login`、`…/abort`）與 BFF（`POST /auth/sso/callback`）；migration 0018
        （`oidc_payloads`；`refresh_tokens.client_id`、`idp_session_uid`）；access token 帶 `sid`，即時連線加入 `sid:{uid}` room
@@ -123,7 +123,19 @@
      - ✅ 租戶管理（3b）：平台的工作區管理頁搬到 apps/auth 的 `/workspaces`（`features/workspace-admin`，`workspace:*`）；
        apps/auth 的頂列依頁面權限顯示「首頁／工作區」。backstage 刪除該頁與專用的 hook／API，側邊選單的「工作區」改為連到
        apps/auth 的一般連結（仍依 `workspace:read` 顯示），舊網址 `/workspace` 保留一版轉過去。外部 IdP 連線管理在交付順序 4
-  4. 外部 IdP：連線管理、登入、帳號對應、網域導向
+  4. 外部 IdP：連線管理、登入、帳號對應、網域導向——✅ 已完成：
+     - api：`modules/identity-provider`（連線的增刪改、client secret 以 `IDP_SECRET_KEY` 做 AES-256-GCM 加密且不回傳、
+       `openid-client` 的 RP）；migration 0019（`identity_providers`、`identity_provider_domains`、`user_identities`、
+       `identityProvider:*` 權限）；互動端點 `…/:uid/discover`、`…/:uid/external`、`external/callback`、`…/:uid/external/complete`
+       （ADR-0019 D8 修訂）。只允許 SSO 的網域：`POST /auth/login`、互動頁的密碼登入回 `AUTH_SSO_REQUIRED`，忘記密碼不寄信
+     - 帳號對應（D8、D10）：已連結的 `subject` → 已驗證 email 對上既有帳號（連結，稽核 `userIdentity.link`）→ `auto_create` 且 email 網域
+       屬於這個連線才建立 → 否則回到互動頁並帶 `?error=AUTH_SSO_ACCOUNT_NOT_FOUND`。登入稽核沿用 `auth.login.success/failure`（`metadata.method = 'sso'`）
+     - apps/auth：互動頁離開 email 欄時查網域，有連線時多一個「使用 X 登入」，只允許 SSO 時不顯示密碼欄；管理頁 `/identity-providers`
+       （`features/identity-provider`），顯示要登記在外部 IdP 的 redirect URI
+     - 開發／E2E：`pnpm dev:mock-idp` 啟動模擬的外部 IdP（`http://localhost:4455`，client `b2b-mock`／`mock-secret`，輸入任何 email 都能登入）；
+       `apps/e2e/tests/sso-external.spec.ts`
+     - 這一版不做：`approval`（走審批，理由見 D10）、網域所有權驗證（DNS TXT；目前由平台管理員自行確認）、管理頁的推播
+       （`ChangeSource.IDENTITY_PROVIDER`；apps/auth 沒有推播，靠分頁間的 BroadcastChannel）、`userIdentity.unlink`（解除連結的畫面）
   5. E2E、歸檔
 
 ## 開放問題
@@ -147,6 +159,7 @@
      **不使用跨域 cookie，服務之間只以頂層跳轉溝通**（ADR-0019 D6）。（已確認）
 6. 外部 IdP 登入時，沒有對應到既有帳號的人：自動建立、走審批（`user.register`），還是拒絕？（原 `sso-oidc.md` 問題 1）
    - **結論**：依連線設定，預設 **拒絕**；可設為「自動建立（沒有任何角色）」或「走審批」。只以 IdP 回報 `email_verified = true` 的 email 對應。（已確認）
+   - **實作時修訂**：「走審批」這一版不做；自動建立只限這個連線登記的網域（ADR-0019 D10）。
 7. 外部 IdP 的連線屬於平台，還是屬於某個工作區（租戶）？
    - **結論**：屬於平台、綁 email 網域。帳號是平台層級的（一個人可以在多個工作區），所以登入方式不能由工作區決定；
      「某個工作區只允許 SSO 成員」留到下一版。（已確認）

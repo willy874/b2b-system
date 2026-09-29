@@ -38,6 +38,8 @@ export const InteractionRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/interaction/$uid',
   loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
+  // 外部 IdP 登入失敗時 api 帶錯誤碼回到這一頁（例：AUTH_SSO_ACCOUNT_NOT_FOUND）
+  validateSearch: SsoErrorSearchSchema,
 });
 
 export const SsoErrorRoute = createRoute({

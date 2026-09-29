@@ -26,6 +26,10 @@ const ERROR_CODES = [
   'AUTH_SETUP_TOKEN_INVALID',
   'AUTH_SSO_INTERACTION_INVALID',
   'AUTH_SSO_CODE_INVALID',
+  'AUTH_SSO_REQUIRED',
+  'AUTH_SSO_ACCOUNT_NOT_FOUND',
+  'AUTH_SSO_PROVIDER_UNAVAILABLE',
+  'AUTH_SSO_EXTERNAL_FAILED',
   'AUTHZ_FORBIDDEN',
   'AUTHZ_ESCALATION',
   'AUTHZ_SELF_MODIFY',
@@ -56,6 +60,9 @@ const ERROR_CODES = [
   'WORKSPACE_INVITATION_EMAIL_MISMATCH',
   'WORKSPACE_INVITATION_ACCOUNT_EXISTS',
   'WORKSPACE_INVITATION_USER_CREATE_REQUIRED',
+  'IDENTITY_PROVIDER_NOT_FOUND',
+  'IDENTITY_PROVIDER_NAME_DUPLICATE',
+  'IDENTITY_PROVIDER_DOMAIN_TAKEN',
   'JOB_NOT_FOUND',
   'JOB_NOT_RETRYABLE',
   'FILE_NOT_FOUND',
@@ -106,6 +113,10 @@ const PERMISSION_KEYS = [
   ['workspaceMember', 'create'],
   ['workspaceMember', 'delete'],
   ['workspaceMember', 'assignRole'],
+  ['identityProvider', 'create'],
+  ['identityProvider', 'read'],
+  ['identityProvider', 'update'],
+  ['identityProvider', 'delete'],
 ] as const;
 
 const bundles = { zh_TW: zhTW, en_US: enUS } as Record<string, Record<string, unknown>>;

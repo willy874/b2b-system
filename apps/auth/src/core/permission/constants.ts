@@ -19,6 +19,7 @@ export const PermissionResource = {
   JOB: 'job',
   WORKSPACE: 'workspace',
   WORKSPACE_MEMBER: 'workspaceMember',
+  IDENTITY_PROVIDER: 'identityProvider',
 } as const;
 export type PermissionResource = (typeof PermissionResource)[keyof typeof PermissionResource];
 

@@ -592,6 +592,19 @@
         "tags": ["auth"]
       }
     },
+    "/oidc-interaction/external/callback": {
+      "get": {
+        "operationId": "SsoInteractionController_externalCallback",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "外部 IdP 的 redirect URI（固定路徑）：驗證後跳到互動路徑底下完成互動",
+        "tags": ["auth"]
+      }
+    },
     "/oidc-interaction/{uid}": {
       "get": {
         "operationId": "SsoInteractionController_toPage",
@@ -691,6 +704,108 @@
           }
         },
         "summary": "密碼登入；回傳要頂層跳轉的 resume 網址",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/discover": {
+      "get": {
+        "operationId": "SsoInteractionController_discover",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoDiscovery"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "以 email 網域查詢外部 IdP 連線（home realm discovery）",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/external": {
+      "post": {
+        "operationId": "SsoInteractionController_startExternal",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartExternalLoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoRedirect"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "以外部 IdP 登入：回傳要頂層跳轉的外部授權網址",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/external/complete": {
+      "get": {
+        "operationId": "SsoInteractionController_completeExternal",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "外部 IdP 登入的最後一步（帶得到互動 cookie）：完成互動並跳回 provider",
         "tags": ["auth"]
       }
     },
@@ -1060,6 +1175,129 @@
           }
         },
         "tags": ["users"]
+      }
+    },
+    "/identity-providers": {
+      "get": {
+        "operationId": "IdentityProviderController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/IdentityProviderList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "所有連線（不含 client secret）與要登記在外部 IdP 的 redirect URI",
+        "tags": ["identity-providers"]
+      },
+      "post": {
+        "operationId": "IdentityProviderController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateIdentityProviderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/IdentityProvider"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["identity-providers"]
+      }
+    },
+    "/identity-providers/{id}": {
+      "patch": {
+        "operationId": "IdentityProviderController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateIdentityProviderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/IdentityProvider"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "更新；clientSecret 有給才更換，domains 有給就整批取代",
+        "tags": ["identity-providers"]
+      },
+      "delete": {
+        "operationId": "IdentityProviderController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": ["identity-providers"]
       }
     },
     "/roles": {
@@ -3594,6 +3832,194 @@
         ],
         "additionalProperties": false
       },
+      "IdentityProviderDomain": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "maxLength": 253,
+            "pattern": "^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\\.(?!-)[a-z0-9-]{1,63}(?<!-))+$"
+          },
+          "ssoOnly": {
+            "type": "boolean"
+          }
+        },
+        "required": ["domain", "ssoOnly"],
+        "additionalProperties": false
+      },
+      "IdentityProvider": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "unmatchedPolicy": {
+            "type": "string",
+            "enum": ["reject", "auto_create"]
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdentityProviderDomain"
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "issuer",
+          "clientId",
+          "scopes",
+          "enabled",
+          "unmatchedPolicy",
+          "domains",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "IdentityProviderList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdentityProvider"
+            }
+          },
+          "callbackUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": ["items", "callbackUrl"],
+        "additionalProperties": false
+      },
+      "CreateIdentityProviderRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "issuer": {
+            "type": "string",
+            "maxLength": 500,
+            "format": "uri"
+          },
+          "clientId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "clientSecret": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "scopes": {
+            "default": "openid email profile",
+            "type": "string",
+            "maxLength": 500
+          },
+          "enabled": {
+            "default": true,
+            "type": "boolean"
+          },
+          "unmatchedPolicy": {
+            "default": "reject",
+            "type": "string",
+            "enum": ["reject", "auto_create"]
+          },
+          "domains": {
+            "default": [],
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdentityProviderDomain"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "issuer",
+          "clientId",
+          "clientSecret",
+          "scopes",
+          "enabled",
+          "unmatchedPolicy",
+          "domains"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateIdentityProviderRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "issuer": {
+            "type": "string",
+            "maxLength": 500,
+            "format": "uri"
+          },
+          "clientId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "clientSecret": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "scopes": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "unmatchedPolicy": {
+            "type": "string",
+            "enum": ["reject", "auto_create"]
+          },
+          "domains": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdentityProviderDomain"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateUserRequest": {
         "type": "object",
         "properties": {
@@ -3809,7 +4235,11 @@
           "workspaceMember:read",
           "workspaceMember:create",
           "workspaceMember:delete",
-          "workspaceMember:assignRole"
+          "workspaceMember:assignRole",
+          "identityProvider:create",
+          "identityProvider:read",
+          "identityProvider:update",
+          "identityProvider:delete"
         ]
       },
       "PermissionScope": {
@@ -4164,6 +4594,44 @@
           }
         },
         "required": ["redirectTo"],
+        "additionalProperties": false
+      },
+      "SsoDiscovery": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "name"],
+            "additionalProperties": false
+          },
+          "ssoOnly": {
+            "type": "boolean"
+          }
+        },
+        "required": ["provider", "ssoOnly"],
+        "additionalProperties": false
+      },
+      "StartExternalLoginRequest": {
+        "type": "object",
+        "properties": {
+          "providerId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": ["providerId"],
         "additionalProperties": false
       },
       "SsoCallbackRequest": {

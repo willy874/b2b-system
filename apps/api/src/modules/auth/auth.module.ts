@@ -4,12 +4,14 @@ import { JwtModule } from '@nestjs/jwt';
 
 import type { Env } from '@/core/config';
 import { ApprovalModule } from '@/modules/approval/approval.module';
+import { IdentityProviderModule } from '@/modules/identity-provider/identity-provider.module';
 import { OidcProviderModule } from '@/modules/oidc-provider/oidc-provider.module';
 import { UserModule } from '@/modules/user/user.module';
 
 import { AuthTokenModule } from './auth-token.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { ExternalLoginService } from './external-login.service';
 import { SsoInteractionController } from './sso-interaction.controller';
 import { SsoService } from './sso.service';
 
@@ -19,6 +21,7 @@ import { SsoService } from './sso.service';
     UserModule,
     ApprovalModule,
     OidcProviderModule,
+    IdentityProviderModule,
     JwtModule.registerAsync({
       global: true,
       inject: [ConfigService],
@@ -29,7 +32,7 @@ import { SsoService } from './sso.service';
     }),
   ],
   controllers: [AuthController, SsoInteractionController],
-  providers: [AuthService, SsoService],
+  providers: [AuthService, SsoService, ExternalLoginService],
   exports: [AuthService],
 })
 export class AuthModule {}

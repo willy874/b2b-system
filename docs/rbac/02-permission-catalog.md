@@ -43,7 +43,7 @@
 
 ---
 
-## 2. 權限清單（共 33 項：平台 23、工作區 10）
+## 2. 權限清單（共 37 項：平台 27、工作區 10）
 
 ### 2.1 `user` — 使用者
 
@@ -142,7 +142,19 @@
 | `workspaceMember:delete`      | 移除成員          | 移出工作區（工作區角色一起消失）。拿掉的角色受反提權限制；不能移除自己、不能移除最後一位管理員 |
 | `workspaceMember:assignRole`  | 指派工作區角色    | 整批取代成員的工作區角色。**受反提權限制**（加上與拿掉的角色都比對操作者在這個工作區的權限） |
 
-### 2.11 個人範圍（不需要權限）
+### 2.11 `identityProvider` — 外部 IdP 連線（平台範圍）
+
+| 權限鍵                     | 顯示名稱（zh-TW） | 說明 |
+| -------------------------- | ----------------- | ---- |
+| `identityProvider:create`  | 建立外部 IdP 連線 | 新增 OIDC 連線（issuer、client id／secret、網域、找不到帳號時的處理方式）；寫稽核 `identityProvider.create`（不含 secret） |
+| `identityProvider:read`    | 檢視外部 IdP 連線 | 連線清單、網域與要登記在外部 IdP 的 redirect URI；**client secret 永遠不回傳**（ADR-0019 D11） |
+| `identityProvider:update`  | 編輯外部 IdP 連線 | 改設定、網域、啟用狀態與輪替 secret；稽核只記「換過 secret」 |
+| `identityProvider:delete`  | 刪除外部 IdP 連線 | 軟刪除並釋出網域；已連結的外部身分留著，但不能再以這個連線登入 |
+
+> 網域設為「只允許 SSO」後，那個網域的帳號不能用密碼登入、不能申請重設密碼（ADR-0019 D9）。
+> 管理頁在 apps/auth（`/identity-providers`），不在 apps/backstage。
+
+### 2.12 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
@@ -170,6 +182,7 @@
 | `job`             |   —    |  ✓   |   —    |   —    | `retry`                       |
 | `workspace`       |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
 | `workspaceMember` |   ✓    |  ✓   |   —    |   ✓    | `assignRole`                  |
+| `identityProvider`|   ✓    |  ✓   |   ✓    |   ✓    | —                             |
 
 ---
 
@@ -202,6 +215,10 @@
 | `workspace:read`       |      ✓*       |    ✓    |     ✓     |          |
 | `workspace:update`     |      ✓*       |    ✓    |           |          |
 | `workspace:delete`     |      ✓*       |    ✓    |           |          |
+| `identityProvider:create` |   ✓*       |    ✓    |           |          |
+| `identityProvider:read`   |   ✓*       |    ✓    |     ✓     |          |
+| `identityProvider:update` |   ✓*       |    ✓    |           |          |
+| `identityProvider:delete` |   ✓*       |    ✓    |           |          |
 
 `*` super-admin 是 **隱含全集**（兩個範圍都是），不在 `role_permissions` 中逐筆登錄；
 `GET /auth/profile` 回傳時展開成平台範圍的全集，`GET /workspaces/:id/me` 展開成工作區範圍的全集。

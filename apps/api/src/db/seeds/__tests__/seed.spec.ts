@@ -41,10 +41,10 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
     await close();
   });
 
-  it('① permissions 筆數 = PERMISSION_SEED.length（33：平台 23 ＋ 工作區 10）', async () => {
+  it('① permissions 筆數 = PERMISSION_SEED.length（37：平台 27 ＋ 工作區 10）', async () => {
     expect(await tableCount(db, 'permissions')).toBe(PERMISSION_SEED.length);
-    expect(PERMISSION_SEED.length).toBe(33);
-    expect(PLATFORM_PERMISSION_KEYS).toHaveLength(23);
+    expect(PERMISSION_SEED.length).toBe(37);
+    expect(PLATFORM_PERMISSION_KEYS).toHaveLength(27);
     expect(WORKSPACE_PERMISSION_KEYS).toHaveLength(10);
   });
 
@@ -71,7 +71,7 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
     expect(rows).toHaveLength(0);
   });
 
-  it('⑤ admin 的權限集合 = ROLE_SEED 宣告的 22 筆（只有平台範圍）', async () => {
+  it('⑤ admin 的權限集合 = ROLE_SEED 宣告的 26 筆（只有平台範圍）', async () => {
     const [role] = await db.select().from(roles).where(eq(roles.slug, 'admin'));
     const rows = await db
       .select({ key: permissions.key })
@@ -81,7 +81,7 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
     const expected = ROLE_SEED.find((seed) => seed.slug === 'admin')!
       .permissions as readonly string[];
     expect(rows.map((row) => row.key).sort()).toEqual([...expected].sort());
-    expect(expected).toHaveLength(22);
+    expect(expected).toHaveLength(26);
   });
 
   it('⑤-1 每個系統角色的權限鍵都與角色同範圍（docs/adr/0018-workspace-tenancy.md D3）', async () => {
@@ -130,7 +130,7 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
     expect(after).toEqual(before);
   });
 
-  it('⑧ super-admin 的有效權限展開後：平台 23 筆（/auth/profile）＋ 工作區 10 筆（/workspaces/:id/me）', async () => {
+  it('⑧ super-admin 的有效權限展開後：平台 27 筆（/auth/profile）＋ 工作區 10 筆（/workspaces/:id/me）', async () => {
     // 對應 PermissionService.getEffectivePermissionKeys / getEffectiveWorkspacePermissionKeys
     const platform = await db
       .select({ key: permissions.key })
@@ -140,7 +140,7 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
       .select({ key: permissions.key })
       .from(permissions)
       .where(eq(permissions.scope, 'workspace'));
-    expect(platform).toHaveLength(23);
+    expect(platform).toHaveLength(27);
     expect(workspace).toHaveLength(10);
   });
 });

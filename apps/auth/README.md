@@ -24,6 +24,7 @@ pnpm --filter @b2b-system/auth build
 | `features/login` | `/interaction/:uid`：**IdP 的登入互動頁**，所有產品的密碼登入都在這裡（D16）；`/error`：provider 的協定錯誤；`/login`、`/callback`：apps/auth 自己的頁面也經 SSO 登入；帳號流程 `/forgot-password`、`/reset-password`、`/setup`、`/register`、`/invitation`（從 backstage 搬過來） |
 | `features/home` | `/`：目前登入的身分 |
 | `features/workspace-admin` | `/workspaces`：平台的租戶（工作區）管理（`workspace:*`，從 backstage 搬過來，ADR-0019 D13） |
+| `features/identity-provider` | `/identity-providers`：外部 IdP 連線（`identityProvider:*`，ADR-0019 D8–D11）；只存在 apps/auth |
 | `app/` | 自己寫的 App Shell：`App.tsx`（沒有 session 時導向 `/login`；登出後停在「已登出」頁）、`Layout.tsx`（頁面權限守衛）、`layouts/PlatformLayout.tsx`（沒有工作區切換器） |
 
 沒有推播、批次佇列、feature flag、MSW mock 與 Storybook；需要時再從 backstage 帶過來。

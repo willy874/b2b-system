@@ -9,6 +9,7 @@
     "dev:backstage": "pnpm --filter @b2b-system/backstage dev",
     "dev:auth": "pnpm --filter @b2b-system/auth dev",
     "dev:storage": "pnpm --filter @b2b-system/file-storage dev",
+    "dev:mock-idp": "pnpm --filter @b2b-system/api mock-idp",
     "dev:e2e": "pnpm mail:up && AUTH_RATE_LIMIT=1000 DEFAULT_RATE_LIMIT=10000 MAIL_TRANSPORT=smtp pnpm --filter @b2b-system/api dev",
     "storybook": "pnpm --filter @b2b-system/backstage storybook",
     "storybook:build": "pnpm --filter @b2b-system/backstage storybook:build",

@@ -25,6 +25,14 @@ export const ErrorCode = {
   AUTH_SSO_INTERACTION_INVALID: { status: 400 },
   /** 授權碼無效：不存在、已用過、過期、client 或 redirect URI 不符、PKCE 不符（不細分，不洩漏哪一項）。 */
   AUTH_SSO_CODE_INVALID: { status: 400 },
+  /** 這個 email 網域只允許 SSO：不能用密碼登入（docs/adr/0019-sso-identity-platform.md D9）。 */
+  AUTH_SSO_REQUIRED: { status: 403 },
+  /** 外部 IdP 登入成功，但沒有對應的帳號，而連線設定為拒絕（D10）。 */
+  AUTH_SSO_ACCOUNT_NOT_FOUND: { status: 403 },
+  /** 外部 IdP 連線不存在、已停用，或無法連線（discovery 失敗）。 */
+  AUTH_SSO_PROVIDER_UNAVAILABLE: { status: 400 },
+  /** 外部 IdP 回來的結果無效：state 不對、已過期、授權碼兌換失敗、ID token 驗證失敗。 */
+  AUTH_SSO_EXTERNAL_FAILED: { status: 400 },
 
   // ── 授權 ──
   AUTHZ_FORBIDDEN: { status: 403 },
@@ -76,6 +84,12 @@ export const ErrorCode = {
   WORKSPACE_INVITATION_ACCOUNT_EXISTS: { status: 409 },
   /** 邀請還沒有帳號的 email，邀請人另外需要平台的 `user:create`（D14）。 */
   WORKSPACE_INVITATION_USER_CREATE_REQUIRED: { status: 403 },
+
+  // ── 外部 IdP 連線 ──
+  IDENTITY_PROVIDER_NOT_FOUND: { status: 404 },
+  IDENTITY_PROVIDER_NAME_DUPLICATE: { status: 409 },
+  /** 網域已經屬於另一個連線（一個網域只屬於一個連線）。 */
+  IDENTITY_PROVIDER_DOMAIN_TAKEN: { status: 409 },
 
   // ── 背景工作 ──
   JOB_NOT_FOUND: { status: 404 },

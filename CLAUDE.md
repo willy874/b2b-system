@@ -64,6 +64,7 @@ pnpm dev            # postgres + Mailpit(:8025) + api(:3000) + backstage(:5173) 
 pnpm dev:auth       # 單獨啟動 apps/auth（全平台共用的身分與租戶入口，:5175）；見 apps/auth/README.md
 pnpm dev:e2e        # 以放寬的速率限制、寄信到 Mailpit 啟動 api（跑 E2E 時用）
 pnpm dev:storage    # 單獨啟動 apps/file-storage（S3 相容，:9000）；api 端見 docs/architecture/backend/09-file.md
+pnpm dev:mock-idp   # 模擬的外部 IdP（:4455，client b2b-mock／mock-secret）；外部 IdP 登入的開發與 E2E 用
 pnpm typecheck      # tsc -b（全 workspace）
 pnpm lint / pnpm format / pnpm format:check
 pnpm test           # 單元 + 整合（後端整合測試會用 Testcontainers 起一個 postgres）

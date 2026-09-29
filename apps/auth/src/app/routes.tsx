@@ -1,5 +1,6 @@
 import { RootRoute } from '@/core/router';
 import { Routes as HomeRoutes } from '@/features/home';
+import { Routes as IdentityProviderRoutes } from '@/features/identity-provider';
 import { Routes as LoginRoutes } from '@/features/login';
 import { Routes as WorkspaceAdminRoutes } from '@/features/workspace-admin';
 
@@ -11,6 +12,7 @@ RootRoute.update({ component: Layout });
 export const routeTree = RootRoute.addChildren([
   HomeRoutes.HomeRoute,
   WorkspaceAdminRoutes.WorkspaceAdminListRoute,
+  IdentityProviderRoutes.IdentityProviderListRoute,
   LoginRoutes.LoginRoute,
   LoginRoutes.SsoCallbackRoute,
   LoginRoutes.InteractionRoute,

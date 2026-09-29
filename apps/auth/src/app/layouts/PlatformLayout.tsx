@@ -11,6 +11,7 @@ import { useTranslation } from '@/core/locales';
 import { usePageAccessChecker } from '@/core/permission';
 import type { PageKey } from '@/core/permission';
 import { HOME_PAGE } from '@/features/home';
+import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
 import { useLogoutMutation } from '@/features/login';
 import { WORKSPACE_ADMIN_PAGE } from '@/features/workspace-admin';
 
@@ -36,6 +37,12 @@ const NAV: NavItem[] = [
     to: '/workspaces',
     labelKey: 'menu.workspace',
     testId: 'menu-workspace',
+  },
+  {
+    pageKey: IDENTITY_PROVIDER_PAGE,
+    to: '/identity-providers',
+    labelKey: 'menu.identityProvider',
+    testId: 'menu-identity-provider',
   },
 ];
 

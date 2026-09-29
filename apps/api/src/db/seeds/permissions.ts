@@ -45,6 +45,12 @@ export const PERMISSION_SEED = [
   ['workspaceMember', 'create', 'permission.workspaceMember.create', 1001, 'workspace'],
   ['workspaceMember', 'delete', 'permission.workspaceMember.delete', 1002, 'workspace'],
   ['workspaceMember', 'assignRole', 'permission.workspaceMember.assignRole', 1003, 'workspace'],
+
+  // 外部 IdP 連線（docs/adr/0019-sso-identity-platform.md D8、D9）
+  ['identityProvider', 'create', 'permission.identityProvider.create', 1100, 'platform'],
+  ['identityProvider', 'read', 'permission.identityProvider.read', 1101, 'platform'],
+  ['identityProvider', 'update', 'permission.identityProvider.update', 1102, 'platform'],
+  ['identityProvider', 'delete', 'permission.identityProvider.delete', 1103, 'platform'],
 ] as const satisfies ReadonlyArray<
   readonly [string, string, string, number, 'platform' | 'workspace']
 >;

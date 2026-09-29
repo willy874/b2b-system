@@ -265,6 +265,7 @@ OIDC_ISSUER=http://localhost:5175/api/oidc
 OIDC_JWKS=                             # 簽 ID token 的私鑰 JWKS；留空 = 臨時金鑰（production 必填）
 OIDC_COOKIE_KEYS=                      # 簽 IdP cookie 的金鑰（production 必填）
 OIDC_CLEANUP_CRON=45 3 * * *
+IDP_SECRET_KEY=                        # 加密外部 IdP client secret 的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填，ADR-0019 D11）
 
 JOBS_WORKER_ENABLED=true            # 是否執行背景工作與排程；false 只入列（backend/10-jobs.md §5）
 AUDIT_LOG_ARCHIVE_CRON=30 3 * * *   # 稽核熱 → 冷搬移的 cron（UTC）；留空停用

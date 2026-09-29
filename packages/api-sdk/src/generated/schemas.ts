@@ -19,6 +19,7 @@ import type {
   CreateFileFolderRequest,
   CreateFileUploadPartsRequest,
   CreateFileUploadRequest,
+  CreateIdentityProviderRequest,
   CreateRoleRequest,
   CreateUserRequest,
   CreateWorkspaceInvitationRequest,
@@ -45,6 +46,9 @@ import type {
   FileUploader,
   ForgotPasswordRequest,
   GetFileImageQuery,
+  IdentityProvider,
+  IdentityProviderDomain,
+  IdentityProviderList,
   Job,
   JobQueue,
   JobQueueList,
@@ -75,14 +79,17 @@ import type {
   SetupRequest,
   SignupWorkspaceInvitationRequest,
   SsoCallbackRequest,
+  SsoDiscovery,
   SsoInteraction,
   SsoRedirect,
+  StartExternalLoginRequest,
   StoredFile,
   StoredFileCapabilities,
   StoredFileImage,
   UpdateFileFolderAccessRequest,
   UpdateFileFolderRequest,
   UpdateFileRequest,
+  UpdateIdentityProviderRequest,
   UpdateProfileRequest,
   UpdateRolePermissionsRequest,
   UpdateRoleRequest,
@@ -200,6 +207,60 @@ export const AuditLogSchema = z.object({
   changes: z.record(z.string(), z.unknown()).nullable(),
   metadata: z.record(z.string(), z.unknown()).nullable(),
 }) satisfies z.ZodType<AuditLog>;
+
+export const IdentityProviderDomainSchema = z.object({
+  domain: z
+    .string()
+    .max(253)
+    .regex(new RegExp('^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\\.(?!-)[a-z0-9-]{1,63}(?<!-))+$')),
+  ssoOnly: z.boolean(),
+}) satisfies z.ZodType<IdentityProviderDomain>;
+
+export const IdentityProviderSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+  issuer: z.string(),
+  clientId: z.string(),
+  scopes: z.string(),
+  enabled: z.boolean(),
+  unmatchedPolicy: z.enum(['reject', 'auto_create']),
+  domains: z.array(IdentityProviderDomainSchema),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}) satisfies z.ZodType<IdentityProvider>;
+
+export const IdentityProviderListSchema = z.object({
+  items: z.array(IdentityProviderSchema),
+  callbackUrl: z.url(),
+}) satisfies z.ZodType<IdentityProviderList>;
+
+export const CreateIdentityProviderRequestSchema = z.object({
+  name: z.string().min(1).max(64),
+  issuer: z.url().max(500),
+  clientId: z.string().min(1).max(255),
+  clientSecret: z.string().min(1).max(2000),
+  scopes: z.string().max(500).default('openid email profile'),
+  enabled: z.boolean().default(true),
+  unmatchedPolicy: z.enum(['reject', 'auto_create']).default('reject'),
+  domains: z.array(IdentityProviderDomainSchema).max(50).default([]),
+}) satisfies z.ZodType<CreateIdentityProviderRequest>;
+
+export const UpdateIdentityProviderRequestSchema = z.object({
+  name: z.string().min(1).max(64).optional(),
+  issuer: z.url().max(500).optional(),
+  clientId: z.string().min(1).max(255).optional(),
+  clientSecret: z.string().min(1).max(2000).optional(),
+  scopes: z.string().max(500).optional(),
+  enabled: z.boolean().optional(),
+  unmatchedPolicy: z.enum(['reject', 'auto_create']).optional(),
+  domains: z.array(IdentityProviderDomainSchema).max(50).optional(),
+}) satisfies z.ZodType<UpdateIdentityProviderRequest>;
 
 export const CreateUserRequestSchema = z.object({
   email: z
@@ -327,6 +388,10 @@ export const PermissionKeySchema = z.enum([
   'workspaceMember:create',
   'workspaceMember:delete',
   'workspaceMember:assignRole',
+  'identityProvider:create',
+  'identityProvider:read',
+  'identityProvider:update',
+  'identityProvider:delete',
 ]) satisfies z.ZodType<PermissionKey>;
 
 export const PermissionScopeSchema = z.enum([
@@ -468,6 +533,32 @@ export const SsoInteractionSchema = z.object({
 export const SsoRedirectSchema = z.object({
   redirectTo: z.url(),
 }) satisfies z.ZodType<SsoRedirect>;
+
+export const SsoDiscoverySchema = z.object({
+  provider: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      name: z.string(),
+    })
+    .nullable(),
+  ssoOnly: z.boolean(),
+}) satisfies z.ZodType<SsoDiscovery>;
+
+export const StartExternalLoginRequestSchema = z.object({
+  providerId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+}) satisfies z.ZodType<StartExternalLoginRequest>;
 
 export const SsoCallbackRequestSchema = z.object({
   code: z.string().min(10).max(500),

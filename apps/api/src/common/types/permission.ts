@@ -47,4 +47,9 @@ export const PERMISSION = {
   WORKSPACE_MEMBER_CREATE: 'workspaceMember:create',
   WORKSPACE_MEMBER_DELETE: 'workspaceMember:delete',
   WORKSPACE_MEMBER_ASSIGN_ROLE: 'workspaceMember:assignRole',
+
+  IDENTITY_PROVIDER_CREATE: 'identityProvider:create',
+  IDENTITY_PROVIDER_READ: 'identityProvider:read',
+  IDENTITY_PROVIDER_UPDATE: 'identityProvider:update',
+  IDENTITY_PROVIDER_DELETE: 'identityProvider:delete',
 } as const satisfies Record<string, PermissionKey>;

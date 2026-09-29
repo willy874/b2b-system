@@ -14,8 +14,10 @@ import type {
   Session,
   SetupRequest,
   SsoCallbackRequest,
+  SsoDiscovery,
   SsoInteraction,
   SsoRedirect,
+  StartExternalLoginRequest,
   UpdateProfileRequest,
 } from '../models';
 import { buildUrl, request } from '../runtime';
@@ -36,8 +38,10 @@ import {
   SessionSchema,
   SetupRequestSchema,
   SsoCallbackRequestSchema,
+  SsoDiscoverySchema,
   SsoInteractionSchema,
   SsoRedirectSchema,
+  StartExternalLoginRequestSchema,
   UpdateProfileRequestSchema,
 } from '../schemas';
 
@@ -577,6 +581,45 @@ export function authControllerSetup(
   return request<AuthControllerSetupResult>(authControllerSetupOperation, input, options);
 }
 
+// GET /oidc-interaction/external/callback
+
+export interface SsoInteractionControllerExternalCallbackResponses {
+  200: undefined;
+}
+
+export type SsoInteractionControllerExternalCallbackResponse =
+  SsoInteractionControllerExternalCallbackResponses[200];
+
+export type SsoInteractionControllerExternalCallbackResult = ApiResponse<
+  200,
+  SsoInteractionControllerExternalCallbackResponses[200]
+>;
+
+export const SsoInteractionControllerExternalCallbackSchemas = {} satisfies OperationSchemas;
+
+export function getSsoInteractionControllerExternalCallbackUrl(): string {
+  return buildUrl('/oidc-interaction/external/callback');
+}
+
+const ssoInteractionControllerExternalCallbackOperation: OperationDefinition = {
+  id: 'SsoInteractionController_externalCallback',
+  method: 'GET',
+  path: '/oidc-interaction/external/callback',
+  responseTypes: { 200: 'none' },
+  schemas: SsoInteractionControllerExternalCallbackSchemas,
+};
+
+/** 外部 IdP 的 redirect URI（固定路徑）：驗證後跳到互動路徑底下完成互動 */
+export function ssoInteractionControllerExternalCallback(
+  options?: RequestOptions,
+): Promise<SsoInteractionControllerExternalCallbackResult> {
+  return request<SsoInteractionControllerExternalCallbackResult>(
+    ssoInteractionControllerExternalCallbackOperation,
+    {},
+    options,
+  );
+}
+
 // GET /oidc-interaction/{uid}
 
 export interface SsoInteractionControllerToPagePathParams {
@@ -751,6 +794,188 @@ export function ssoInteractionControllerLogin(
 ): Promise<SsoInteractionControllerLoginResult> {
   return request<SsoInteractionControllerLoginResult>(
     ssoInteractionControllerLoginOperation,
+    input,
+    options,
+  );
+}
+
+// GET /oidc-interaction/{uid}/discover
+
+export interface SsoInteractionControllerDiscoverPathParams {
+  uid: string;
+}
+
+export interface SsoInteractionControllerDiscoverInput {
+  path: SsoInteractionControllerDiscoverPathParams;
+}
+
+export interface SsoInteractionControllerDiscoverResponses {
+  200: {
+    data: SsoDiscovery;
+  };
+}
+
+export type SsoInteractionControllerDiscoverResponse =
+  SsoInteractionControllerDiscoverResponses[200];
+
+export type SsoInteractionControllerDiscoverResult = ApiResponse<
+  200,
+  SsoInteractionControllerDiscoverResponses[200]
+>;
+
+export const SsoInteractionControllerDiscoverSchemas = {
+  path: z.object({
+    uid: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: SsoDiscoverySchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getSsoInteractionControllerDiscoverUrl(
+  path: SsoInteractionControllerDiscoverPathParams,
+): string {
+  return buildUrl('/oidc-interaction/{uid}/discover', path);
+}
+
+const ssoInteractionControllerDiscoverOperation: OperationDefinition = {
+  id: 'SsoInteractionController_discover',
+  method: 'GET',
+  path: '/oidc-interaction/{uid}/discover',
+  responseTypes: { 200: 'json' },
+  schemas: SsoInteractionControllerDiscoverSchemas,
+};
+
+/** 以 email 網域查詢外部 IdP 連線（home realm discovery） */
+export function ssoInteractionControllerDiscover(
+  input: SsoInteractionControllerDiscoverInput,
+  options?: RequestOptions,
+): Promise<SsoInteractionControllerDiscoverResult> {
+  return request<SsoInteractionControllerDiscoverResult>(
+    ssoInteractionControllerDiscoverOperation,
+    input,
+    options,
+  );
+}
+
+// POST /oidc-interaction/{uid}/external
+
+export interface SsoInteractionControllerStartExternalPathParams {
+  uid: string;
+}
+
+export type SsoInteractionControllerStartExternalBody = StartExternalLoginRequest;
+
+export interface SsoInteractionControllerStartExternalInput {
+  path: SsoInteractionControllerStartExternalPathParams;
+  body: SsoInteractionControllerStartExternalBody;
+}
+
+export interface SsoInteractionControllerStartExternalResponses {
+  200: {
+    data: SsoRedirect;
+  };
+}
+
+export type SsoInteractionControllerStartExternalResponse =
+  SsoInteractionControllerStartExternalResponses[200];
+
+export type SsoInteractionControllerStartExternalResult = ApiResponse<
+  200,
+  SsoInteractionControllerStartExternalResponses[200]
+>;
+
+export const SsoInteractionControllerStartExternalSchemas = {
+  path: z.object({
+    uid: z.string(),
+  }),
+  body: StartExternalLoginRequestSchema,
+  responses: {
+    200: z.object({
+      data: SsoRedirectSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getSsoInteractionControllerStartExternalUrl(
+  path: SsoInteractionControllerStartExternalPathParams,
+): string {
+  return buildUrl('/oidc-interaction/{uid}/external', path);
+}
+
+const ssoInteractionControllerStartExternalOperation: OperationDefinition = {
+  id: 'SsoInteractionController_startExternal',
+  method: 'POST',
+  path: '/oidc-interaction/{uid}/external',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: SsoInteractionControllerStartExternalSchemas,
+};
+
+/** 以外部 IdP 登入：回傳要頂層跳轉的外部授權網址 */
+export function ssoInteractionControllerStartExternal(
+  input: SsoInteractionControllerStartExternalInput,
+  options?: RequestOptions,
+): Promise<SsoInteractionControllerStartExternalResult> {
+  return request<SsoInteractionControllerStartExternalResult>(
+    ssoInteractionControllerStartExternalOperation,
+    input,
+    options,
+  );
+}
+
+// GET /oidc-interaction/{uid}/external/complete
+
+export interface SsoInteractionControllerCompleteExternalPathParams {
+  uid: string;
+}
+
+export interface SsoInteractionControllerCompleteExternalInput {
+  path: SsoInteractionControllerCompleteExternalPathParams;
+}
+
+export interface SsoInteractionControllerCompleteExternalResponses {
+  200: undefined;
+}
+
+export type SsoInteractionControllerCompleteExternalResponse =
+  SsoInteractionControllerCompleteExternalResponses[200];
+
+export type SsoInteractionControllerCompleteExternalResult = ApiResponse<
+  200,
+  SsoInteractionControllerCompleteExternalResponses[200]
+>;
+
+export const SsoInteractionControllerCompleteExternalSchemas = {
+  path: z.object({
+    uid: z.string(),
+  }),
+} satisfies OperationSchemas;
+
+export function getSsoInteractionControllerCompleteExternalUrl(
+  path: SsoInteractionControllerCompleteExternalPathParams,
+): string {
+  return buildUrl('/oidc-interaction/{uid}/external/complete', path);
+}
+
+const ssoInteractionControllerCompleteExternalOperation: OperationDefinition = {
+  id: 'SsoInteractionController_completeExternal',
+  method: 'GET',
+  path: '/oidc-interaction/{uid}/external/complete',
+  responseTypes: { 200: 'none' },
+  schemas: SsoInteractionControllerCompleteExternalSchemas,
+};
+
+/** 外部 IdP 登入的最後一步（帶得到互動 cookie）：完成互動並跳回 provider */
+export function ssoInteractionControllerCompleteExternal(
+  input: SsoInteractionControllerCompleteExternalInput,
+  options?: RequestOptions,
+): Promise<SsoInteractionControllerCompleteExternalResult> {
+  return request<SsoInteractionControllerCompleteExternalResult>(
+    ssoInteractionControllerCompleteExternalOperation,
     input,
     options,
   );

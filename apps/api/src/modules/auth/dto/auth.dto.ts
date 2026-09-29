@@ -119,6 +119,31 @@ export const SsoRedirectSchema = defineSchema(
   z.object({ redirectTo: z.string().url() }),
 );
 
+/** 登入互動頁以 email 查詢網域導向（D9）：有連線時顯示「以 X 登入」；`ssoOnly` 時不顯示密碼欄。 */
+export const SsoDiscoveryQuerySchema = z.object({ email: z.string().trim().email().max(255) });
+
+export const SsoDiscoverySchema = defineSchema(
+  'SsoDiscovery',
+  z.object({
+    provider: z.object({ id: z.string().uuid(), name: z.string() }).nullable(),
+    ssoOnly: z.boolean(),
+  }),
+);
+
+export const StartExternalLoginSchema = defineSchema(
+  'StartExternalLoginRequest',
+  z.object({ providerId: z.string().uuid() }),
+);
+
+/** 外部 IdP 帶回來的參數（OIDC 授權回應）。 */
+export const ExternalCallbackQuerySchema = z.object({
+  state: z.string().max(200).optional(),
+  code: z.string().max(2000).optional(),
+  error: z.string().max(200).optional(),
+});
+
+export const ExternalCompleteQuerySchema = z.object({ ticket: z.string().min(10).max(200) });
+
 /** 產品的 BFF：授權碼 ＋ PKCE verifier 換 app session（D3）。 */
 export const SsoCallbackSchema = defineSchema(
   'SsoCallbackRequest',
@@ -140,5 +165,10 @@ export type RegisterDto = z.infer<typeof RegisterSchema>;
 export type SsoInteractionDto = z.infer<typeof SsoInteractionSchema>;
 export type SsoRedirectDto = z.infer<typeof SsoRedirectSchema>;
 export type SsoCallbackDto = z.infer<typeof SsoCallbackSchema>;
+export type SsoDiscoveryQueryDto = z.infer<typeof SsoDiscoveryQuerySchema>;
+export type SsoDiscoveryDto = z.infer<typeof SsoDiscoverySchema>;
+export type StartExternalLoginDto = z.infer<typeof StartExternalLoginSchema>;
+export type ExternalCallbackQueryDto = z.infer<typeof ExternalCallbackQuerySchema>;
+export type ExternalCompleteQueryDto = z.infer<typeof ExternalCompleteQuerySchema>;
 export type ProfileDto = z.infer<typeof ProfileSchema>;
 export type SessionDto = z.infer<typeof SessionSchema>;

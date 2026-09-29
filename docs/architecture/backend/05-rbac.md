@@ -470,10 +470,18 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/oidc-interaction/:uid/details` | `@Public`                   |
 | POST   | `/oidc-interaction/:uid/login` | `@Public`                     |
 | POST   | `/oidc-interaction/:uid/abort` | `@Public`                     |
+| GET    | `/oidc-interaction/external/callback` | `@Public`（外部 IdP 跳回；state 就是憑證，ADR-0019 D8） |
+| GET    | `/oidc-interaction/:uid/discover` | `@Public`（email 網域 → 外部 IdP 連線） |
+| POST   | `/oidc-interaction/:uid/external` | `@Public`                  |
+| GET    | `/oidc-interaction/:uid/external/complete` | `@Public`（一次性 ticket ＋ 互動 cookie） |
 | POST   | `/auth/logout`              | `@Authenticated`                 |
 | GET    | `/auth/profile`             | `@Authenticated`                 |
 | PATCH  | `/auth/profile`             | `@Authenticated`                 |
 | POST   | `/auth/change-password`     | `@Authenticated`                 |
+| GET    | `/identity-providers`       | `identityProvider:read`          |
+| POST   | `/identity-providers`       | `identityProvider:create`        |
+| PATCH  | `/identity-providers/:id`   | `identityProvider:update`        |
+| DELETE | `/identity-providers/:id`   | `identityProvider:delete`        |
 | GET    | `/users`                    | `user:read`                      |
 | POST   | `/users`                    | `user:create`                    |
 | GET    | `/users/:id`                | `user:read`                      |

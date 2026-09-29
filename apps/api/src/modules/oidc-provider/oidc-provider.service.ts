@@ -13,6 +13,7 @@ import type {
   JWKS,
   KoaContextWithOIDC,
 } from 'oidc-provider';
+import { z } from 'zod';
 
 import type { Env } from '@/core/config';
 import { DomainEvent, DomainEventBus } from '@/core/events';
@@ -22,6 +23,23 @@ import { DrizzleOidcAdapter } from './oidc-adapter';
 import { OidcPayloadRepository } from './oidc-payload.repository';
 import { OIDC_CLIENT, OIDC_CLIENT_PATHS, OIDC_SCOPES, OIDC_TTL } from './oidc-provider.constants';
 import type { OidcClientId } from './oidc-provider.constants';
+
+/**
+ * 外部 IdP 登入的暫存（以 `state` 為鍵）：發起時記下互動、PKCE verifier 與 nonce；
+ * 外部 IdP 回來、驗證通過後補上 `accountId`，再由互動路徑底下的端點完成互動。
+ */
+const ExternalLoginStateSchema = z.object({
+  interactionUid: z.string(),
+  providerId: z.string(),
+  codeVerifier: z.string(),
+  nonce: z.string(),
+  /** 驗證通過、對應到帳號之後才有。 */
+  accountId: z.string().optional(),
+});
+
+export type ExternalLoginState = z.infer<typeof ExternalLoginStateSchema>;
+
+const EXTERNAL_LOGIN = 'ExternalLogin';
 
 /** 互動頁需要的資訊（不含 provider 內部物件）。 */
 export interface InteractionSummary {
@@ -204,6 +222,39 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
       clientId: code.clientId,
       sessionUid: code.sessionUid ?? null,
     };
+  }
+
+  // ── 外部 IdP 登入的暫存（D8）────────────────────────────────
+
+  async saveExternalLogin(
+    state: string,
+    value: ExternalLoginState,
+    ttlSeconds: number,
+  ): Promise<void> {
+    await this.repo.upsert({
+      type: EXTERNAL_LOGIN,
+      id: state,
+      payload: { ...value },
+      grantId: null,
+      uid: value.interactionUid,
+      userCode: null,
+      expiresAt: new Date(Date.now() + ttlSeconds * 1000),
+    });
+  }
+
+  /** 找得到、沒過期、沒用過時回傳；否則 undefined。 */
+  async findExternalLogin(state: string): Promise<ExternalLoginState | undefined> {
+    const row = await this.repo.find(EXTERNAL_LOGIN, state);
+    if (!row || row.consumedAt || (row.expiresAt && row.expiresAt.getTime() <= Date.now())) {
+      return undefined;
+    }
+    const parsed = ExternalLoginStateSchema.safeParse(row.payload);
+    return parsed.success ? parsed.data : undefined;
+  }
+
+  /** 用過即作廢：同一個 state 不能完成兩次互動。 */
+  async consumeExternalLogin(state: string): Promise<void> {
+    await this.repo.consume(EXTERNAL_LOGIN, state);
   }
 
   // ── 單一登出（D5）───────────────────────────────────────

@@ -22,7 +22,10 @@
       "for": "Sign in to continue to “{{client}}”. All products share this account.",
       "cancel": "Cancel",
       "forgotPassword": "Forgot password?",
-      "register": "Request an account"
+      "register": "Request an account",
+      "external": "Sign in with {{name}}",
+      "ssoOnly": "Your organization signs in with {{name}}.",
+      "or": "or"
     },
     "client": {
       "backstage": "Console",

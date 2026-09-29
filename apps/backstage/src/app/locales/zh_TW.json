@@ -128,6 +128,10 @@
     "AUTH_SETUP_TOKEN_INVALID": "連結無效或已過期，請重新索取。",
     "AUTH_SSO_INTERACTION_INVALID": "登入頁已過期，請回到原本的網站重新登入。",
     "AUTH_SSO_CODE_INVALID": "登入沒有完成，連結可能已過期或已使用過。請重新登入。",
+    "AUTH_SSO_REQUIRED": "這個信箱的網域只允許以公司帳號（SSO）登入。",
+    "AUTH_SSO_ACCOUNT_NOT_FOUND": "找不到對應的帳號，請聯絡管理員為你建立帳號。",
+    "AUTH_SSO_PROVIDER_UNAVAILABLE": "這個登入方式目前無法使用，請稍後再試或改用其他方式登入。",
+    "AUTH_SSO_EXTERNAL_FAILED": "外部登入沒有完成，請重新登入。",
     "AUTHZ_FORBIDDEN": "你沒有執行這個操作的權限。",
     "AUTHZ_ESCALATION": "你不能授予自己未持有的權限。",
     "AUTHZ_SELF_MODIFY": "不能對自己的帳號執行這個操作。",
@@ -158,6 +162,9 @@
     "WORKSPACE_INVITATION_EMAIL_MISMATCH": "目前登入的帳號不是受邀的信箱。",
     "WORKSPACE_INVITATION_ACCOUNT_EXISTS": "這個信箱已經有帳號，請登入後接受邀請。",
     "WORKSPACE_INVITATION_USER_CREATE_REQUIRED": "這個信箱還沒有帳號；邀請新帳號需要平台的「建立使用者」權限。",
+    "IDENTITY_PROVIDER_NOT_FOUND": "找不到這個外部 IdP 連線，可能已被刪除。",
+    "IDENTITY_PROVIDER_NAME_DUPLICATE": "已有同名的連線。",
+    "IDENTITY_PROVIDER_DOMAIN_TAKEN": "這個網域已屬於另一個連線。",
     "JOB_NOT_FOUND": "找不到這筆工作，可能已超過保留期被清除。",
     "JOB_NOT_RETRYABLE": "只有失敗的工作可以重試；它可能已經被其他人重試過了。",
     "FILE_NOT_FOUND": "找不到這個檔案，可能已被刪除。",
@@ -196,7 +203,8 @@
       "file": "檔案",
       "job": "背景工作",
       "workspace": "工作區",
-      "workspaceMember": "工作區成員"
+      "workspaceMember": "工作區成員",
+      "identityProvider": "外部 IdP 連線"
     },
     "platformScope": "平台",
     "workspaceScope": "工作區",
@@ -239,6 +247,12 @@
       "create": "邀請成員",
       "delete": "移除成員",
       "assignRole": "指派工作區角色"
+    },
+    "identityProvider": {
+      "create": "建立外部 IdP 連線",
+      "read": "檢視外部 IdP 連線",
+      "update": "編輯外部 IdP 連線",
+      "delete": "刪除外部 IdP 連線"
     }
   },
   "theme": {

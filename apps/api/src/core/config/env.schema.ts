@@ -167,6 +167,15 @@ export const EnvSchema = z.object({
       ),
   ),
 
+  /**
+   * 加密外部 IdP client secret 的主金鑰（32 bytes，base64 或 base64url；ADR-0019 D11）。
+   * 沒設定時（僅開發）由 `JWT_SECRET` 推導一把固定金鑰；**production 必填**。換金鑰要先以舊金鑰解開、再以新金鑰重新存入。
+   */
+  IDP_SECRET_KEY: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().optional(),
+  ),
+
   /** 清除過期 IdP 狀態（`oidc_payloads`）的 cron（UTC）；空字串停用。 */
   OIDC_CLEANUP_CRON: z.string().trim().default('45 3 * * *'),
 
@@ -189,6 +198,9 @@ const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
   }
   if (!env.OIDC_COOKIE_KEYS?.length) {
     ctx.addIssue({ code: 'custom', path: ['OIDC_COOKIE_KEYS'], message: 'production 必須設定' });
+  }
+  if (!env.IDP_SECRET_KEY) {
+    ctx.addIssue({ code: 'custom', path: ['IDP_SECRET_KEY'], message: 'production 必須設定' });
   }
 });
 

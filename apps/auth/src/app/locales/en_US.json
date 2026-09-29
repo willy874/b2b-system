@@ -91,6 +91,7 @@
     "file": "Files",
     "job": "Background jobs",
     "workspace": "Workspaces",
+    "identityProvider": "Identity providers",
     "workspaceMember": "Members",
     "profile": "Profile",
     "preference": "Preferences",
@@ -129,6 +130,10 @@
     "AUTH_SETUP_TOKEN_INVALID": "This link is invalid or has expired.",
     "AUTH_SSO_INTERACTION_INVALID": "This sign-in page has expired. Go back to the site and sign in again.",
     "AUTH_SSO_CODE_INVALID": "Sign-in did not complete; the link may have expired or already been used. Please sign in again.",
+    "AUTH_SSO_REQUIRED": "This email domain only allows signing in with your company account (SSO).",
+    "AUTH_SSO_ACCOUNT_NOT_FOUND": "No matching account was found. Ask an administrator to create one for you.",
+    "AUTH_SSO_PROVIDER_UNAVAILABLE": "This sign-in option is unavailable right now. Try again later or use another option.",
+    "AUTH_SSO_EXTERNAL_FAILED": "External sign-in did not complete. Please sign in again.",
     "AUTHZ_FORBIDDEN": "You do not have permission to do that.",
     "AUTHZ_ESCALATION": "You cannot grant permissions you do not hold.",
     "AUTHZ_SELF_MODIFY": "You cannot perform this action on your own account.",
@@ -159,6 +164,9 @@
     "WORKSPACE_INVITATION_EMAIL_MISMATCH": "The signed-in account is not the invited email address.",
     "WORKSPACE_INVITATION_ACCOUNT_EXISTS": "This email address already has an account. Sign in to accept the invitation.",
     "WORKSPACE_INVITATION_USER_CREATE_REQUIRED": "This email address has no account yet. Inviting new accounts requires the platform “Create users” permission.",
+    "IDENTITY_PROVIDER_NOT_FOUND": "This identity provider connection was not found; it may have been deleted.",
+    "IDENTITY_PROVIDER_NAME_DUPLICATE": "A connection with this name already exists.",
+    "IDENTITY_PROVIDER_DOMAIN_TAKEN": "This domain already belongs to another connection.",
     "JOB_NOT_FOUND": "This job does not exist or has been cleaned up.",
     "JOB_NOT_RETRYABLE": "Only failed jobs can be retried. It may already have been retried by someone else.",
     "FILE_NOT_FOUND": "This file does not exist or has been deleted.",
@@ -203,7 +211,8 @@
       "file": "Files",
       "job": "Background jobs",
       "workspace": "Workspaces",
-      "workspaceMember": "Workspace members"
+      "workspaceMember": "Workspace members",
+      "identityProvider": "Identity providers"
     },
     "platformScope": "Platform",
     "workspaceScope": "Workspace",
@@ -259,6 +268,12 @@
       "create": "Invite members",
       "delete": "Remove members",
       "assignRole": "Assign workspace roles"
+    },
+    "identityProvider": {
+      "create": "Create identity providers",
+      "read": "View identity providers",
+      "update": "Edit identity providers",
+      "delete": "Delete identity providers"
     }
   },
   "theme": {

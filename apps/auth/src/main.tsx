@@ -11,6 +11,7 @@ import { createAppContext } from '@/core/app';
 import { MAIN_BACKEND } from '@/core/client';
 import { hydratePreferences } from '@/core/store';
 import { homeFeaturePlugin } from '@/features/home';
+import { identityProviderFeaturePlugin } from '@/features/identity-provider';
 import { loginFeaturePlugin } from '@/features/login';
 import { workspaceAdminFeaturePlugin } from '@/features/workspace-admin';
 import {
@@ -53,6 +54,7 @@ async function bootstrap(): Promise<void> {
     .use(loginFeaturePlugin())
     .use(homeFeaturePlugin())
     .use(workspaceAdminFeaturePlugin())
+    .use(identityProviderFeaturePlugin())
     // 最後：建立 router（此時所有 route 都已存在）
     .use(appContextPlugin());
 

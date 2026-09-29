@@ -1,0 +1,299 @@
+import { createHash, randomBytes } from 'node:crypto';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+
+import type { Env } from '@/core/config';
+import type { Database } from '@/core/database';
+import { DRIZZLE, withTransaction } from '@/core/database';
+import { AppException, isUniqueViolation } from '@/core/errors';
+import type { ErrorCode } from '@/core/errors';
+import type { UserRow } from '@/db/schema';
+import { AuditService } from '@/modules/audit-log/audit.service';
+import { ExternalOidcClient } from '@/modules/identity-provider/external-oidc.client';
+import type { ExternalIdentity } from '@/modules/identity-provider/external-oidc.client';
+import {
+  domainOf,
+  IdentityProviderService,
+} from '@/modules/identity-provider/identity-provider.service';
+import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
+import { UserService } from '@/modules/user/user.service';
+
+import type { SsoDiscoveryDto, SsoRedirectDto } from './dto/auth.dto';
+
+/** 在外部 IdP 登入的時間上限：超過就要從頭來。 */
+const EXTERNAL_LOGIN_TTL_SECONDS = 10 * 60;
+
+function random(bytes = 32): string {
+  return randomBytes(bytes).toString('base64url');
+}
+
+/**
+ * 以外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D10）。全部以 **頂層跳轉** 串接（D6）：
+ *
+ * 1. 互動頁以 email 查出連線（網域導向）→ `start()` 回傳外部 IdP 的授權網址，頁面跳過去
+ * 2. 外部 IdP 帶授權碼跳回 **固定** 的 callback（外部 IdP 大多要求 redirect URI 完全相符，不能帶互動 id）
+ *    → `callback()` 兌換、驗證 ID token、對應帳號，再跳到互動路徑底下的 `…/external/complete`
+ * 3. 那個路徑帶得到互動 cookie → `complete()` 完成互動，provider 接著帶授權碼跳回產品
+ */
+@Injectable()
+export class ExternalLoginService {
+  private readonly logger = new Logger(ExternalLoginService.name);
+  private readonly authAppUrl: string;
+  /** 瀏覽器看到的 api 開頭（例：`https://auth.example.com/api`）。 */
+  private readonly apiBase: string;
+
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    private readonly providers: IdentityProviderService,
+    private readonly client: ExternalOidcClient,
+    private readonly oidc: OidcProviderService,
+    private readonly users: UserService,
+    private readonly audit: AuditService,
+    config: ConfigService<Env, true>,
+  ) {
+    this.authAppUrl = config.get('AUTH_APP_URL', { infer: true });
+    const issuer = new URL(config.get('OIDC_ISSUER', { infer: true }));
+    this.apiBase = `${issuer.origin}${issuer.pathname.replace(/\/oidc$/, '')}`;
+  }
+
+  // ── 1. 網域導向與發起 ─────────────────────────────────────
+
+  async discover(
+    req: IncomingMessage,
+    res: ServerResponse,
+    uid: string,
+    email: string,
+  ): Promise<SsoDiscoveryDto> {
+    await this.assertInteraction(req, res, uid);
+    const found = await this.providers.discover(email);
+    return found
+      ? { provider: { id: found.id, name: found.name }, ssoOnly: found.ssoOnly }
+      : { provider: null, ssoOnly: false };
+  }
+
+  async start(
+    req: IncomingMessage,
+    res: ServerResponse,
+    uid: string,
+    providerId: string,
+  ): Promise<SsoRedirectDto> {
+    await this.assertInteraction(req, res, uid);
+    const login = await this.providers.loginConfig(providerId);
+    if (!login) throw new AppException('AUTH_SSO_PROVIDER_UNAVAILABLE');
+
+    const state = random();
+    const nonce = random();
+    const codeVerifier = random();
+    let redirectTo: string;
+    try {
+      redirectTo = await this.client.authorizationUrl(login.config, {
+        redirectUri: this.providers.callbackUrl(),
+        state,
+        nonce,
+        codeChallenge: createHash('sha256').update(codeVerifier).digest('base64url'),
+      });
+    } catch (error) {
+      this.logger.warn({ err: error, providerId }, '外部 IdP discovery 失敗');
+      throw new AppException('AUTH_SSO_PROVIDER_UNAVAILABLE');
+    }
+    await this.oidc.saveExternalLogin(
+      state,
+      { interactionUid: uid, providerId, codeVerifier, nonce },
+      EXTERNAL_LOGIN_TTL_SECONDS,
+    );
+    return { redirectTo };
+  }
+
+  // ── 2. 外部 IdP 回來 ──────────────────────────────────────
+
+  /**
+   * 回傳要讓瀏覽器跳轉的網址，不拋例外：成功 → 互動路徑底下的 complete；
+   * 失敗 → apps/auth 的互動頁並帶上錯誤碼（讓使用者改用別的方式登入）。
+   */
+  async callback(query: { state?: string; error?: string }, rawQuery: string): Promise<string> {
+    const pending = query.state ? await this.oidc.findExternalLogin(query.state) : undefined;
+    if (!query.state || !pending) return this.errorPage(undefined, 'AUTH_SSO_EXTERNAL_FAILED');
+    const { state } = query;
+    const fail = async (code: ErrorCode, reason: string, error?: unknown) => {
+      await this.oidc.consumeExternalLogin(state);
+      await this.audit.recordSafely({
+        action: 'auth.login.failure',
+        resourceType: 'auth',
+        result: 'failure',
+        errorCode: code,
+        metadata: { method: 'sso', providerId: pending.providerId, reason },
+      });
+      if (error) this.logger.warn({ err: error, providerId: pending.providerId }, reason);
+      return this.errorPage(pending.interactionUid, code);
+    };
+
+    // 使用者在外部 IdP 按了取消，或外部 IdP 拒絕
+    if (query.error) return fail('AUTH_SSO_EXTERNAL_FAILED', `external_error:${query.error}`);
+    const login = await this.providers.loginConfig(pending.providerId);
+    if (!login) return fail('AUTH_SSO_PROVIDER_UNAVAILABLE', 'provider_unavailable');
+
+    let identity: ExternalIdentity;
+    try {
+      identity = await this.client.exchange(login.config, {
+        currentUrl: `${this.providers.callbackUrl()}${rawQuery ? `?${rawQuery}` : ''}`,
+        state,
+        nonce: pending.nonce,
+        codeVerifier: pending.codeVerifier,
+      });
+    } catch (error) {
+      return fail('AUTH_SSO_EXTERNAL_FAILED', 'exchange_failed', error);
+    }
+
+    let user: UserRow;
+    try {
+      user = await this.resolveAccount(login.provider, identity);
+    } catch (error) {
+      if (error instanceof AppException) return fail(error.code, 'account_resolution');
+      throw error;
+    }
+
+    await this.users.updateAccount(user.id, { lastLoginAt: new Date() });
+    await this.audit.recordSafely({
+      action: 'auth.login.success',
+      resourceType: 'auth',
+      resourceId: user.id,
+      actorId: user.id,
+      actorEmail: user.email,
+      metadata: { method: 'sso', providerId: login.provider.id },
+    });
+    await this.oidc.saveExternalLogin(
+      state,
+      { ...pending, accountId: user.id },
+      EXTERNAL_LOGIN_TTL_SECONDS,
+    );
+    const ticket = new URLSearchParams({ ticket: state });
+    return `${this.apiBase}/oidc-interaction/${pending.interactionUid}/external/complete?${ticket.toString()}`;
+  }
+
+  // ── 3. 完成互動 ───────────────────────────────────────────
+
+  /** 回傳 provider 的 resume 網址（頂層跳轉）。票不對、互動不符時拋 `AUTH_SSO_EXTERNAL_FAILED`。 */
+  async complete(
+    req: IncomingMessage,
+    res: ServerResponse,
+    uid: string,
+    ticket: string,
+  ): Promise<string> {
+    const pending = await this.oidc.findExternalLogin(ticket);
+    if (!pending?.accountId || pending.interactionUid !== uid) {
+      throw new AppException('AUTH_SSO_EXTERNAL_FAILED');
+    }
+    await this.assertInteraction(req, res, uid);
+    await this.oidc.consumeExternalLogin(ticket);
+    return this.oidc.finishInteraction(req, res, {
+      login: { accountId: pending.accountId, amr: ['ext'] },
+    });
+  }
+
+  errorPage(uid: string | undefined, code: ErrorCode): string {
+    const query = new URLSearchParams({ error: code });
+    return uid
+      ? `${this.authAppUrl}/interaction/${uid}?${query.toString()}`
+      : `${this.authAppUrl}/error?${query.toString()}`;
+  }
+
+  // ── 帳號對應（D8、D10）────────────────────────────────────
+
+  /**
+   * 1. 已連結的外部身分（`provider ＋ subject`）→ 那個帳號
+   * 2. 外部 IdP 回報 **已驗證** 的 email 對上既有帳號 → 連結後登入
+   * 3. 連線設為 `auto_create`，且 email 網域是這個連線登記的網域 → 建立沒有任何角色的已啟用帳號並連結
+   * 4. 否則拒絕
+   */
+  private async resolveAccount(
+    provider: { id: string; unmatchedPolicy: string; domains: { domain: string }[] },
+    identity: ExternalIdentity,
+  ): Promise<UserRow> {
+    const linked = await this.providers.findIdentity(provider.id, identity.subject);
+    if (linked) {
+      const user = await this.users.findAccountById(linked.userId);
+      this.assertUsable(user);
+      await this.providers.touchIdentity(linked.id);
+      return user;
+    }
+
+    if (!identity.email || !identity.emailVerified) {
+      throw new AppException('AUTH_SSO_ACCOUNT_NOT_FOUND');
+    }
+    const email = identity.email;
+    const existing = await this.users.findAccountByEmail(email);
+    if (existing) {
+      this.assertUsable(existing);
+      await withTransaction(this.db, async (tx) => {
+        await this.providers.linkIdentity(
+          { userId: existing.id, providerId: provider.id, subject: identity.subject, email },
+          tx,
+        );
+        await this.audit.record(
+          {
+            action: 'userIdentity.link',
+            resourceType: 'user',
+            resourceId: existing.id,
+            resourceName: existing.email,
+            actorId: existing.id,
+            actorEmail: existing.email,
+            metadata: { providerId: provider.id },
+          },
+          tx,
+        );
+      });
+      return existing;
+    }
+
+    const domain = domainOf(email);
+    const ownsDomain = provider.domains.some((item) => item.domain === domain);
+    if (provider.unmatchedPolicy !== 'auto_create' || !ownsDomain) {
+      throw new AppException('AUTH_SSO_ACCOUNT_NOT_FOUND');
+    }
+    try {
+      const created = await withTransaction(this.db, async (tx) => {
+        const user = await this.users.createAccount(
+          {
+            email,
+            displayName: identity.name?.trim() || email.slice(0, email.indexOf('@')),
+            status: 'active',
+            roleIds: [],
+          },
+          null,
+          tx,
+          { source: 'identityProvider', providerId: provider.id },
+        );
+        await this.providers.linkIdentity(
+          { userId: user.id, providerId: provider.id, subject: identity.subject, email },
+          tx,
+        );
+        return user;
+      });
+      this.users.publishCreated(created.id, []);
+      return created;
+    } catch (error) {
+      // 同一個人在兩個分頁同時第一次登入：後到的那個對上剛建立的帳號
+      if (isUniqueViolation(error)) throw new AppException('AUTH_SSO_EXTERNAL_FAILED');
+      throw error;
+    }
+  }
+
+  private assertUsable(user: UserRow | undefined): asserts user is UserRow {
+    if (!user || user.deletedAt) throw new AppException('AUTH_SSO_ACCOUNT_NOT_FOUND');
+    if (user.status === 'pending') throw new AppException('AUTH_ACCOUNT_PENDING');
+    if (user.status === 'locked') throw new AppException('AUTH_ACCOUNT_LOCKED');
+    if (user.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
+  }
+
+  private async assertInteraction(
+    req: IncomingMessage,
+    res: ServerResponse,
+    uid: string,
+  ): Promise<void> {
+    if (!(await this.oidc.interaction(req, res, uid))) {
+      throw new AppException('AUTH_SSO_INTERACTION_INVALID');
+    }
+  }
+}
