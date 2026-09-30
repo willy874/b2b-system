@@ -209,6 +209,13 @@
       "unexpected": {
         "title": "Unexpected error",
         "description": "Please retry or contact an administrator."
+      },
+      "backHome": "Go to home",
+      "goBack": "Go back",
+      "reload": "Reload",
+      "updated": {
+        "title": "A new version is available",
+        "description": "This page has been updated. Reload to continue."
       }
     }
   },

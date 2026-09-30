@@ -209,6 +209,13 @@
       "unexpected": {
         "title": "發生未預期的錯誤",
         "description": "請重試，或聯絡系統管理員。"
+      },
+      "backHome": "回首頁",
+      "goBack": "返回上一頁",
+      "reload": "重新整理",
+      "updated": {
+        "title": "系統已更新",
+        "description": "這個頁面有新版本，請重新整理後再繼續。"
       }
     }
   },

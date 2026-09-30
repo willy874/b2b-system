@@ -8,6 +8,7 @@ import { usePermissionStore } from '@/core/store';
 import { useSyncPermissions } from '@/features/auth';
 
 import { GlobalProvider } from './GlobalProvider';
+import { isPublic, loginSearchAfterSessionEnd } from './sessionRedirect';
 
 function SessionWatcher({ router }: { router: AppContext['router'] }) {
   // 整個 app 只有一個權限水合實例
@@ -25,27 +26,24 @@ function SessionWatcher({ router }: { router: AppContext['router'] }) {
     // 這裡若也導向，登入頁會立刻跳去 IdP——頁面卸載會取消還在路上的登出請求，
     // IdP session 沒被銷毀，使用者又被直接登回來（docs/adr/0019-sso-identity-platform.md D5）
     if (hadSession.current) return;
-    const pathname = globalThis.location.pathname;
-    if (pathname.startsWith('/auth')) return;
+    const { pathname, search } = globalThis.location;
+    if (isPublic(pathname)) return;
+    // 連同查詢字串（列表的篩選、分頁）一起記住
     void router.navigate({
       to: '/auth/login',
-      search: { redirect: pathname },
+      search: { redirect: `${pathname}${search}` },
       replace: true,
     });
   }, [hasSession, router]);
 
   useEffect(
     () =>
-      sessionStore.events.on('ended', () => {
+      sessionStore.events.on('ended', (reason) => {
         usePermissionStore.getState().clear();
         queryClient.clear();
-        const redirect = globalThis.location.pathname;
-        // signedOut：登入頁不自動跳到 IdP（單一登出可能還沒完成，見 features/auth 的登入頁）
         void router.navigate({
           to: '/auth/login',
-          search: redirect.startsWith('/auth')
-            ? { signedOut: true }
-            : { redirect, signedOut: true },
+          search: loginSearchAfterSessionEnd(reason, globalThis.location),
           replace: true,
         });
       }),

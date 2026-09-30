@@ -13,7 +13,7 @@ import { usePermissionStore } from '@/core/store';
 export function useSyncPermissions() {
   const setPermissions = usePermissionStore((state) => state.setPermissions);
   const hasSession = useHasSession();
-  const { data, isPending } = useQuery({
+  const { data, isPending, error, refetch } = useQuery({
     ...getAuthProfileQueryOptions(),
     enabled: hasSession,
   });
@@ -22,5 +22,5 @@ export function useSyncPermissions() {
     if (data) setPermissions(data.permissions as PermissionKey[]);
   }, [data, setPermissions]);
 
-  return { profile: data, loading: isPending };
+  return { profile: data, loading: isPending, error, refetch };
 }
