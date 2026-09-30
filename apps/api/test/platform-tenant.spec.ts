@@ -265,7 +265,7 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
     expect(errorCodeOf(reserved)).toBe('VALIDATION_FAILED');
   });
 
-  it('網域：新增的網域立即生效；不能移除最後一個', async () => {
+  it('網域：新增的網域立即生效；不能移除主要網域與最後一個', async () => {
     const acme = dataOf<{ items: TenantBody[] }>(
       await platform('get', '/platform/tenants').expect(200),
     ).items.find((t) => t.code === 'acme');
@@ -280,6 +280,13 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
       .set('Host', 'portal.acme.test')
       .send({ email: 'owner@acme.test', password: ADMIN_PASSWORD })
       .expect(200);
+
+    // 主要網域（第一個）不能移除，即使還有其他網域
+    const primary = await platform(
+      'delete',
+      `/platform/tenants/${acme!.id}/domains/acme.localhost:5173`,
+    ).expect(409);
+    expect(errorCodeOf(primary)).toBe('TENANT_PRIMARY_DOMAIN');
 
     await platform('delete', `/platform/tenants/${acme!.id}/domains/portal.acme.test`).expect(200);
     const last = await platform(

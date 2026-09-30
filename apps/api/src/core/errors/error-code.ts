@@ -22,6 +22,8 @@ export const ErrorCode = {
   TENANT_STATUS_CONFLICT: { status: 409 },
   /** 不能移除租戶的最後一個網域（沒有網域就沒有入口）。 */
   TENANT_LAST_DOMAIN: { status: 409 },
+  /** 不能移除租戶的主要網域（信中的連結與「進入租戶」都用它）。 */
+  TENANT_PRIMARY_DOMAIN: { status: 409 },
   /** 平台管理者不存在（或已刪除）。 */
   PLATFORM_ADMIN_NOT_FOUND: { status: 404 },
   /** 租戶不允許設定外部 IdP 連線（平台管理者關掉了，D22）。 */
