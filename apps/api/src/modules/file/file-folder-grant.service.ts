@@ -5,7 +5,7 @@ import type { AuthUser } from '@/common/types';
 import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
-import type { FileFolderRow, GrantLevel } from '@/db/schema';
+import type { FileFolderRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 
 import type {
@@ -25,6 +25,7 @@ import type { FolderGrant, GrantKey } from './file-folder-grant.repository';
 import { FileFolderTree } from './file-folder-tree';
 import { FileFolderRepository } from './file-folder.repository';
 import { inheritanceChain, levelRank, maxLevel } from './file-grant.levels';
+import type { GrantLevel } from './file-grant.levels';
 
 /** 授權對象候選清單一次最多幾筆（挑選用，不分頁）。 */
 const SUBJECT_SEARCH_LIMIT = 20;

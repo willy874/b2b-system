@@ -1,5 +1,16 @@
-import { GRANT_LEVELS } from '@/db/schema';
-import type { GrantLevel } from '@/db/schema';
+/** 資料夾授權的等級＝關係圖上 `fileFolder` 的直接關係。等級是全序：陣列的順序就是由低到高（§2）。 */
+export const GRANT_LEVELS = ['viewer', 'contributor', 'editor', 'manager'] as const;
+export type GrantLevel = (typeof GRANT_LEVELS)[number];
+
+/**
+ * API 上的授權對象：角色（圖上是 `role:<id>#holder`）、個別使用者（`user:<id>`），或 `everyone`
+ * （所有能進檔案管理器的人，圖上是 `user:*`；docs/rbac/07-resource-grants.md §6.2）。
+ */
+export const GRANT_SUBJECT_TYPES = ['role', 'user', 'everyone'] as const;
+export type GrantSubjectType = (typeof GRANT_SUBJECT_TYPES)[number];
+
+/** `everyone` 在 API 上的 `subjectId`：固定值（前端 `features/file/constants.ts` 同一個值）。 */
+export const EVERYONE_SUBJECT_ID = '00000000-0000-0000-0000-000000000000';
 
 /**
  * 資料夾授權的等級規則（docs/rbac/07-resource-grants.md §2、§3.3、§6.1）。

@@ -287,5 +287,5 @@ pnpm --filter @b2b-system/api cli:reset-super-admin --email admin@example.com
 - [ ] `GET /auth/profile`（以 super-admin 登入）回傳的 `permissions` 長度 = 25
 
 > seed 直接寫 `relation_tuples`（邊的形狀在 `db/schema/relation-tuples.ts`，[`../architecture/backend/02-database.md`](../architecture/backend/02-database.md) §2.10），
-> 不寫舊表 `user_roles`、`role_permissions`（G3b 刪除）。super-admin 的 `tenant:self#superAdmin` 邊由 `seedRoles` → `ensureSuperAdminTuple`
+> super-admin 的 `tenant:self#superAdmin` 邊由 `seedRoles` → `ensureSuperAdminTuple`
 > 明確寫入（冪等；角色已存在時也補一次）。seed 在另一個程序執行、不送失效廣播，執行中的 api 以權限快取的 TTL 反映。

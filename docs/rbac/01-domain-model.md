@@ -220,7 +220,7 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 權限由 **關係圖** 解析（[ADR-0024](../adr/0024-relationship-based-access-control.md)、`apps/api/src/core/authz/`）。
 角色的持有者、角色的權限鍵、資料夾授權只存在 `relation_tuples`（形狀與查詢條件在 `apps/api/src/db/schema/relation-tuples.ts`）：
 
-| 關係 | 關係圖上的邊 | 取代的舊表（G3b 刪除；程式已不讀寫） |
+| 關係 | 關係圖上的邊 | 取代的舊表（G3b 已刪除，migration 0010） |
 | --- | --- | --- |
 | 使用者 u 持有角色 r | `role:r#holder@user:u` | `user_roles` |
 | 角色 r 帶權限鍵 p | `tenant:self#<p.key>@role:r#holder` | `role_permissions` |

@@ -37,7 +37,7 @@ export async function setupTestDatabase() {
 export async function truncateAll() {
   // 保留 permissions 與 roles（seed 資料），只清業務資料
   await testDb.execute(sql`
-    TRUNCATE users, user_roles, relation_tuples, refresh_tokens, auth_tokens, audit_logs
+    TRUNCATE users, relation_tuples, refresh_tokens, auth_tokens, audit_logs
     RESTART IDENTITY CASCADE
   `);
 }
@@ -48,7 +48,6 @@ export async function truncateAll() {
 
 **`relation_tuples` 一定要清**：角色的持有者、權限鍵、資料夾授權都存在這張表（[`02-database.md`](./02-database.md) §2.10），
 而 `users` 被清掉時沒有外鍵會 cascade 到它；殘留的邊會讓下一個測試的權限判斷出錯。
-舊表（`user_roles` 等，G3b 刪除）程式已不讀寫，仍列在 TRUNCATE 裡只是為了 G3b 之前的 trigger 測試。
 
 ---
 
@@ -108,23 +107,19 @@ describe("RoleService.updatePermissions", () => {
 ## 4. 整合測試：Repository 與 DB 約束
 
 ```ts
-describe("relation_tuples 與舊表的同步（test/relation-tuples.spec.ts）", () => {
-  it("指派與移除角色 → role:<id>#holder@user:<id>", async () => {
-    const [alice, editor] = [await createUser("alice@x"), await createRole("editor")];
-    await db.insert(userRoles).values({ userId: alice, roleId: editor });
-    expect(await tuples()).toEqual([`role:${editor}#holder@user:${alice}`]);
-    await db.delete(userRoles).where(eq(userRoles.userId, alice));
-    expect(await tuples()).toEqual([]);
-  });
-
-  it("混合的寫入之後，relation_tuples 與舊表推導的結果一致", async () => {
-    // … 指派、授權、資料夾授權、刪除 …
-    await expectMirrored(); // 以 SQL 由三張舊表推導「應該有的」邊，與實際內容比較
+describe("關係圖的 revision（test/authz-revision.spec.ts）", () => {
+  it("relation_tuples 的每一條寫入語句讓 revision +1；一條語句寫多列只 +1", async () => {
+    const start = await revision();
+    await db.insert(relationTuples).values([
+      rolePermissionTuple(readerRoleId, "role:read"),
+      rolePermissionTuple(readerRoleId, "auditLog:read"),
+    ]);
+    expect(await revision()).toBe(start + 1); // migration 0009 的 statement-level trigger
   });
 });
 ```
 
-`test/relation-tuples.spec.ts` 驗證 migration 0008 的同步 trigger（滾動部署期間舊版程序寫舊表時用得到），與 trigger 一起在 G3b 刪除。
+trigger、約束這類只有資料庫才驗證得到的規則，寫成整合測試。
 
 關係圖的規則（等級、繼承、擁有者規則、依賴樹閉包）以純記憶體的 tuple 在單元測試驗證
 （`core/authz/__tests__`、`modules/file/__tests__/file.authz.spec.ts`、`file-grant.levels.spec.ts`），不需要資料庫。

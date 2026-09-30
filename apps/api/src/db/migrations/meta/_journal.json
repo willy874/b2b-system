@@ -71,6 +71,13 @@
       "when": 1790766677642,
       "tag": "0009_authz_revision",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790769830912,
+      "tag": "0010_drop_legacy_authz_tables",
+      "breakpoints": true
     }
   ]
 }

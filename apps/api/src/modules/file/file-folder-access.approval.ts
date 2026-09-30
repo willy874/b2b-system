@@ -7,8 +7,6 @@ import type { AuthUser, PermissionKey } from '@/common/types';
 import type { Transaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
-import { GRANT_LEVELS } from '@/db/schema';
-import type { GrantLevel } from '@/db/schema';
 import { ApprovalType } from '@/modules/approval/approval.constants';
 import { ApprovalService } from '@/modules/approval/approval.service';
 import type {
@@ -23,7 +21,8 @@ import { FILE_ACTION_PERMISSION } from './file-access.context';
 import { FileAccessService } from './file-access.service';
 import { FileFolderGrantRepository } from './file-folder-grant.repository';
 import { FileFolderRepository } from './file-folder.repository';
-import { levelRank } from './file-grant.levels';
+import { GRANT_LEVELS, levelRank } from './file-grant.levels';
+import type { GrantLevel } from './file-grant.levels';
 
 /** 審核者看得到的申請內容。 */
 export const FileFolderAccessPayloadSchema = z.object({

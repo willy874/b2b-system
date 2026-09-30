@@ -2,10 +2,10 @@ import type { PermissionKey } from '@/common/types';
 import { PERMISSION } from '@/common/types';
 import { TENANT_OBJECT } from '@/core/authz';
 import type { AuthzChecker } from '@/core/authz';
-import type { FileFolderKind, GrantLevel } from '@/db/schema';
+import type { FileFolderKind } from '@/db/schema';
 
 import { assignableLevels, missingActions } from './file-grant.levels';
-import type { HierarchyNode, LevelActions } from './file-grant.levels';
+import type { GrantLevel, HierarchyNode, LevelActions } from './file-grant.levels';
 import { itemEdges, locationObject } from './file.authz';
 
 /** 檔案動作；與全域權限鍵 `file:<動作>` 一一對應（docs/rbac/07-resource-grants.md §2）。 */

@@ -8,13 +8,13 @@ import type { DbOrTx } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { Tenancy } from '@/core/tenant';
 import type { FileFolderRow } from '@/db/schema';
-import { EVERYONE_SUBJECT_ID } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 
 import { FileFolderGrantRepository } from './file-folder-grant.repository';
 import { FileFolderTree } from './file-folder-tree';
 import { FileFolderRepository } from './file-folder.repository';
+import { EVERYONE_SUBJECT_ID } from './file-grant.levels';
 
 /** 系統資料夾的名稱（建立時；之後不能改名）。 */
 export const SHARED_FOLDER_NAME = '共用資料夾';

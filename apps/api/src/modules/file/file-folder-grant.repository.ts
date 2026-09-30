@@ -4,10 +4,7 @@ import type { SQL } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, containsPattern } from '@/core/database';
-import type { GrantLevel, GrantSubjectType } from '@/db/schema';
 import {
-  EVERYONE_SUBJECT_ID,
-  GRANT_LEVELS,
   isActiveRole,
   relationTuples,
   ROLE_HOLDER_RELATION,
@@ -17,6 +14,9 @@ import {
   users,
   WILDCARD_SUBJECT_ID,
 } from '@/db/schema';
+
+import { EVERYONE_SUBJECT_ID, GRANT_LEVELS } from './file-grant.levels';
+import type { GrantLevel, GrantSubjectType } from './file-grant.levels';
 
 /** 資料夾在關係圖上的型別（file.authz.ts 的 `FILE_FOLDER_TYPE`）。 */
 const FOLDER_OBJECT_TYPE = 'fileFolder';

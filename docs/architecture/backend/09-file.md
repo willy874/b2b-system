@@ -644,7 +644,7 @@ FileAccessService（modules/file）
 | 60 秒存活時間 | 只是防漏網（例：直接改資料庫）；正常的寫入都會主動失效 |
 | 單一執行個體的前提 | 失效只在本程序；api 目前固定單一執行個體（[`../01-system.md`](../01-system.md)），水平擴展時要改成跨程序的失效通知 |
 
-資料表：`relation_tuples`（資料夾授權的邊；舊表 `resource_grants` G3b 刪除，程式已不讀寫）、`file_folders.inherit_grants`、
+資料表：`relation_tuples`（資料夾授權的邊）、`file_folders.inherit_grants`、
 系統資料夾 `file_folders.kind` / `owner_id` 與授權對象 `everyone`（schema 在 `db/schema/`，migration 見 [`02-database.md`](./02-database.md) §5.2）。
 
 系統資料夾由 `FileSystemFolderService` 維護：`onApplicationBootstrap` 確保共用／私人資料夾存在並補建個人資料夾；

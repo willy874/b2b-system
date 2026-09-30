@@ -16,7 +16,6 @@ import type {
   SubjectKey,
   TupleEntry,
 } from '@/core/authz';
-import type { GrantLevel } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { PermissionService } from '@/modules/permission/permission.service';
 
@@ -24,6 +23,7 @@ import { FILE_ACTION_PERMISSION, FILE_ACTIONS } from '../file-access.context';
 import type { FileAction, FolderNode } from '../file-access.context';
 import { FileAccessService } from '../file-access.service';
 import type { FileFolderTree } from '../file-folder-tree';
+import type { GrantLevel } from '../file-grant.levels';
 import { FILE_AUTHZ_TYPES } from '../file.authz';
 
 /** 操作者（經由假角色）在某個資料夾上的直接授權。 */

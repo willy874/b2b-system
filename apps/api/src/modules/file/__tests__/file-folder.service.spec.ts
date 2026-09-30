@@ -4,13 +4,14 @@ import type { AuthUser } from '@/common/types';
 import type { Database } from '@/core/database';
 import { AppException } from '@/core/errors';
 import type { DomainEventBus } from '@/core/events';
-import type { FileFolderRow, GrantLevel } from '@/db/schema';
+import type { FileFolderRow } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 
 import type { FileAccessRequestService } from '../file-access-request.service';
 import { FileFolderTree } from '../file-folder-tree';
 import type { FileFolderRepository } from '../file-folder.repository';
 import { FileFolderService } from '../file-folder.service';
+import type { GrantLevel } from '../file-grant.levels';
 import { MAX_FOLDER_DEPTH } from '../file.constants';
 import type { LevelGrant } from './file-access.fixture';
 import { createFileAccess } from './file-access.fixture';

@@ -1,8 +1,8 @@
 # ADR-0024 — 權限改成關係圖（ReBAC），以雙寫＋影子比對逐步切換
 
-- 狀態：**採用**（G0～G3a 已實作並合併，G3a 於 2026-09-30 合併（96ae80a）；G3b、G4 待做）
+- 狀態：**採用**（G0～G3b 已實作並合併，G3a 於 2026-09-30 合併（96ae80a），G3b 同日；G4 待做）
 - 日期：2026-09-30
-- 相關：提案 [`../features/permission-graph.md`](../features/permission-graph.md)（只剩 G3b 以後）；規格 [`../rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4；
+- 相關：提案 [`../features/permission-graph.md`](../features/permission-graph.md)（只剩 G4 以後）；規格 [`../rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4；
   延伸 [ADR-0005](./0005-permission-resolved-server-side.md)（權限在伺服器端解析）；
   取代 [ADR-0006](./0006-flat-permission-scope.md) 的「延伸路徑」與 [ADR-0015](./0015-file-folder-access.md) 的解析方式
 
@@ -43,7 +43,7 @@
 
 | 代價 | 緩解 |
 | --- | --- |
-| G1～G3a 期間舊表仍在（G1～G2 同一份資料存兩份；G3a 起程式不再讀寫舊表） | trigger 保證同交易；`test/relation-tuples.spec.ts` 逐種寫入比對；G3b 刪舊表與 trigger |
+| G1～G3a 期間舊表仍在（G1～G2 同一份資料存兩份；G3a 起程式不再讀寫舊表） | trigger 保證同交易；`test/relation-tuples.spec.ts` 逐種寫入比對（與 trigger 一起在 G3b 刪除）；G3b 刪舊表與 trigger（migration 0010） |
 | G1～G2 的影子比對讓開發環境的解析多一倍查詢 | 只在快取未命中時比；正式環境預設關閉；G3a 已刪除 |
 | 依賴閉包讓部分自訂角色多出權限（例：只有 `file:create` 的角色取得全域讀取） | seed 時寫稽核 `role.permissionsImplied` 列出多出的鍵；發佈說明點名 |
 | G3a 起每次權限寫入都多一次平台 DB 的 `NOTIFY`，監聽連線斷線期間的通知會漏 | 送出失敗只記錄；重連時整個權限快取丟棄；TTL 仍是安全網 |
@@ -94,3 +94,11 @@ G0～G2 與提案不同的地方：快取仍逐事件失效（`authz_revision` �
 - 刪除角色是軟刪除並刪掉它的持有者邊；它的權限鍵邊、它作為主體的資料夾授權保留，解析時略過已刪除的角色。
 - 「每個主體在一個資料夾只有一個等級」不再是 DB 的唯一索引，由 `FileFolderGrantRepository.set`（先刪後插）維持；
   授權的寫入經 `FileFolderTree.write` 序列化。
+
+## 實作紀錄（G3b）
+
+| 項目 | 位置 |
+| --- | --- |
+| 刪 migration 0008 的同步 trigger 與函式（含 `roles_mirror_super_admin`）、`user_roles`、`role_permissions`、`resource_grants` 與 enum `resource_type`、`grant_level`、`grant_subject_type` | migration `0010_drop_legacy_authz_tables.sql`（不可回退） |
+| 舊表的 Drizzle schema 檔、`db/relations.ts` 的項目、`test/relation-tuples.spec.ts`、`test/db.ts` 與 `db/reset.ts` 的 TRUNCATE | 已刪除 |
+| 等級與對象型別的常數（`GRANT_LEVELS`、`GRANT_SUBJECT_TYPES`、`EVERYONE_SUBJECT_ID`） | 從 `db/schema/resource-grants.ts` 移到 `modules/file/file-grant.levels.ts` |

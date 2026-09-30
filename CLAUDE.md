@@ -107,5 +107,4 @@ pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法�
 | 建立對話框的權限 | 沿用列表頁的 page key | `USER_CREATE` / `ROLE_CREATE` 各自註冊 | 才能讓 auditor 直接貼 `/user/create` 時看到 403 |
 | `resolvePageKey` | 前綴命中 | 前綴命中取 **最長** | 有了上一列的子頁面規則之後才不會被父規則蓋掉 |
 | `Select` / `Menu` 的底層 | Base UI `Select` / `Menu`（另有 `Combobox`） | Base UI `Popover` ＋ 自製列表（`aria-activedescendant`）＋ TanStack Virtual；`Combobox` 併入 `Select` 的 `searchable` | Base UI 的列表元件需要所有項目都在 DOM 上，無法虛擬捲動；見 `docs/architecture/frontend/07-ui-system.md` §3.10 |
-| 權限圖的雙寫 trigger | ADR-0024 原計畫：G3a 刪雙寫 trigger，G3b 刪舊表 | G3a 保留 migration 0008 的 trigger（含 `roles_mirror_super_admin`）與舊表 `user_roles`、`role_permissions`、`resource_grants`；程式已不讀寫舊表。G3b 一起刪 trigger、舊表、schema 檔與 `db/relations.ts` 的項目 | migration 要與前一版程式相容（`02-database.md` §5.1）：滾動部署期間舊版（G2）程序仍寫舊表，靠 trigger 同步到 `relation_tuples` |
 | WebSocket 的 guard | 全域 guard 同時保護 HTTP 與 WS | gateway 以 `@UseGuards(WsAuthGuard, PermissionsGuard)` 掛在 class 上 | Nest 的 WS context 不套用 `APP_GUARD` / `APP_INTERCEPTOR`；throttler 也不作用，限流在 `realtime.rate-limit.ts` |

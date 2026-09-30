@@ -1,7 +1,7 @@
-# 權限圖（Relationship-based Access Control）：G3b 以後
+# 權限圖（Relationship-based Access Control）：G4 以後
 
 - 優先度：P0
-- 狀態：實作中（G0～G3a 已上 main 並歸檔；G3b 刪舊表與 trigger、G4 群組與 explain、G5 專案待做）
+- 狀態：實作中（G0～G3b 已上 main 並歸檔；G4 群組與 explain、G5 專案待做）
 - 依賴：—
 - 相關：[ADR-0024](../adr/0024-relationship-based-access-control.md)（本功能的決策）、
   [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4（圖的組成與模型）、
@@ -12,7 +12,7 @@
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
-## 已上線的部分（G0～G3a，2026-09-30）
+## 已上線的部分（G0～G3b，2026-09-30）
 
 權限的三套機制（全域 RBAC、資料夾授權、擁有者規則）已收斂成同一張關係圖，現在的樣子寫在正式文件裡：
 
@@ -30,24 +30,23 @@
 
 ## 背景
 
-G3a 之後還有四件事沒做：
+G3b 之後還有三件事沒做：
 
-1. **舊表還在**：`user_roles`、`role_permissions`、`resource_grants` 與同步的 trigger（migration 0008）為了滾動部署保留，程式已不讀寫（G3b）。
-2. **群組**：角色帶權限，拿來當分組會讓角色數量爆炸（「美術組-A 專案」「美術組-B 專案」…）；逐個使用者授權則難以維護。
+1. **群組**：角色帶權限，拿來當分組會讓角色數量爆炸（「美術組-A 專案」「美術組-B 專案」…）；逐個使用者授權則難以維護。
    群組是「純分組」：授權給群組、群組持有角色，人員異動只改成員。巢狀群組是 07 §10.2 寫下的「改用 Zanzibar 類服務」觸發條件，現在引擎已經有了。
-3. **沒辦法回答「他為什麼能做 X」**：路徑會經過群組、角色、資料夾繼承。引擎已有 `explain()`，但沒有 API 與畫面。
-4. **反提權還是三套手寫的檢查**（`assertGrantable`、`assertRolesAssignable`、資料夾等級的 `missingActions`）：
+2. **沒辦法回答「他為什麼能做 X」**：路徑會經過群組、角色、資料夾繼承。引擎已有 `explain()`，但沒有 API 與畫面。
+3. **反提權還是三套手寫的檢查**（`assertGrantable`、`assertRolesAssignable`、資料夾等級的 `missingActions`）：
    加了群組之後會變成第四套（把人加進持有 `admin` 的群組等於指派 `admin`）。
 
 ## 範圍
 
 | 做 | 不做（這一版） |
 | --- | --- |
-| G3b：刪舊表、同步 trigger、它們的 schema 定義 | 另外部署 OpenFGA／SpiceDB（ADR-0024 D1） |
-| 群組（含巢狀、群組持有角色），吸收原本的「使用者群組」提案 | deny／排除（D4） |
-| 反提權一般化：模型宣告「誰能寫這條邊」，引擎統一檢查 | 過期以外的條件式權限（ABAC、時段、IP） |
-| 「為什麼能／不能」的說明 API 與使用者詳情頁的「有效權限」 | 通用的 ListObjects（「列出我能讀的所有東西」） |
-| G5：專案成為資料夾的上層 | 平台管理者進圖（固定對照，範圍小） |
+| 群組（含巢狀、群組持有角色），吸收原本的「使用者群組」提案 | 另外部署 OpenFGA／SpiceDB（ADR-0024 D1） |
+| 反提權一般化：模型宣告「誰能寫這條邊」，引擎統一檢查 | deny／排除（D4） |
+| 「為什麼能／不能」的說明 API 與使用者詳情頁的「有效權限」 | 過期以外的條件式權限（ABAC、時段、IP） |
+| G5：專案成為資料夾的上層 | 通用的 ListObjects（「列出我能讀的所有東西」） |
+| | 平台管理者進圖（固定對照，範圍小） |
 | | 角色繼承角色（見開放問題 3） |
 
 ## 使用者故事
@@ -68,16 +67,9 @@ G3a 之後還有四件事沒做：
 
 ## 初步構想
 
-### 1. G3b：刪舊表
+### 1. G3b：刪舊表 ✅
 
-G3a 部署之後的下一次部署（[`backend/02-database.md`](../architecture/backend/02-database.md) §5.1：破壞性變更拆成兩次部署），**不可回退**：
-
-- 一支 migration 刪掉 migration 0008 的同步 trigger 與函式（含 `roles_mirror_super_admin`）與 `user_roles`、`role_permissions`、`resource_grants`；
-  `grant_subject_type`、`grant_level`、`resource_type` 三個 enum 一起刪。
-- 刪 `db/schema/user-roles.ts`、`role-permissions.ts`、`resource-grants.ts` 與 `db/relations.ts` 的對應項目；
-  `GRANT_LEVELS`、`GrantLevel`、`GrantSubjectType`、`EVERYONE_SUBJECT_ID` 先移到 `modules/file`（或 `db/schema/relation-tuples.ts`）。
-- `test/db.ts`、`db/reset.ts` 的 `TRUNCATE` 拿掉舊表；`test/relation-tuples.spec.ts`（測 trigger 同步）刪除。
-- `CLAUDE.md`「與文件不同的實作決定」刪掉「權限圖的雙寫 trigger」那一列。
+已完成（migration 0010），紀錄在 ADR-0024「實作紀錄（G3b）」。
 
 ### 2. 群組在模型上（G4）
 
@@ -173,7 +165,7 @@ user:alice
 | --- | --- | --- |
 | **G0～G2** ✅ | 引擎、`relation_tuples` 與雙寫、讀取改走引擎、權限依賴樹（2026-09-30，32427b4） | — |
 | **G3a** ✅ | 寫入只寫 tuple、`authz_revision` ＋ 平台 DB 廣播失效、刪影子比對與 `modules/resource-grant`（2026-09-30，96ae80a） | 舊表還在，但回退要反向回填 |
-| **G3b** | §1：刪同步 trigger、三張舊表、它們的 schema 定義 | 不可回退 |
+| **G3b** ✅ | §1：刪同步 trigger、三張舊表、它們的 schema 定義（2026-09-30，migration 0010） | 不可回退 |
 | **G4** | §2～§6：群組（巢狀、持有角色）、反提權一般化、explain API 與前端頁面 | — |
 | **G5** | §7：`project` 型別 | — |
 
