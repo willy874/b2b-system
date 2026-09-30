@@ -157,7 +157,8 @@ docs/
     ├── 0022-feature-flags.md
     ├── 0023-react-flow-tree-editor.md
     ├── 0024-relationship-based-access-control.md
-    └── 0025-entity-revisions.md
+    ├── 0025-entity-revisions.md
+    └── 0026-notification-center.md
 ```
 
 ---

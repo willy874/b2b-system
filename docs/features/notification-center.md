@@ -1,7 +1,7 @@
 # 站內通知中心
 
 - 優先度：P1
-- 狀態：提案
+- 狀態：實作中（branch `feat/notification-center`；決定見 [ADR-0026](../adr/0026-notification-center.md)）
 - 依賴：—
 - 相關：[`tags-comments.md`](./tags-comments.md)、[`import-export.md`](./import-export.md)（完成通知）、[`webhooks.md`](./webhooks.md)（連續失敗停用時通知）、
   郵件（[`backend/11-mail.md`](../architecture/backend/11-mail.md)）、即時推播（[`backend/08-realtime.md`](../architecture/backend/08-realtime.md)）
@@ -84,10 +84,14 @@ notifications
 ## 開放問題
 
 1. 連結用「route id ＋ 參數」的註冊表，還是直接存路徑字串？前者能在改路由時不壞，但每個 feature 要多註冊一次。
+   **結論**：route id ＋ 參數，feature 在 plugin 同步階段註冊；找不到 route id 只顯示文字。見 [ADR-0026](../adr/0026-notification-center.md) D3
 2. 通知偏好（哪些類型也要寄信）要做嗎？要做的話需要後端的偏好表：現在的 `core/preference` 是前端 localStorage 的註冊表，
    伺服器端只有 `users.locale`／`users.timezone`。
+   **結論**：第一版不做，既有的信照舊。見 [ADR-0026](../adr/0026-notification-center.md) D4
 3. 審批待審的收件人是「當下有審核權限的人」的快照，之後權限變動不補發也不收回。這樣可以接受嗎？
+   **結論**：可以。收件人是送出當下的快照，點進去照常檢查權限。見 [ADR-0026](../adr/0026-notification-center.md) D5
 4. 大量收件人（例如全租戶公告）要不要改成「一筆廣播 ＋ 每人已讀表」？第一版的類型收件人都不多，可以先不做。
+   **結論**：第一版不做，每位收件人一筆；單次收件人數設上限。見 [ADR-0026](../adr/0026-notification-center.md) D6
 
 ## 歸檔去向
 

@@ -18,7 +18,7 @@
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
 | P0 | 權限圖（ReBAC，收斂 RBAC／資源授權／群組） | [`permission-graph.md`](./permission-graph.md) | 實作中（G0～G3b 已上 main 並歸檔；G4 群組與 explain、G5 專案待做；原「使用者群組」提案併入 G4） | — |
-| P1 | 站內通知中心 | [`notification-center.md`](./notification-center.md) | 提案 | — |
+| P1 | 站內通知中心 | [`notification-center.md`](./notification-center.md) | 實作中（`feat/notification-center`，[ADR-0026](../adr/0026-notification-center.md)） | — |
 | P2 | 服務帳號／API Token | [`api-tokens.md`](./api-tokens.md) | 提案 | — |
 | P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | [背景工作](../architecture/backend/10-jobs.md)（已完成） |
 | P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | `notification-center`、[背景工作](../architecture/backend/10-jobs.md)（已完成） |
@@ -47,6 +47,7 @@
    （[`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11、[`backend/13-trash.md`](../architecture/backend/13-trash.md)、
    [`backend/14-revisions.md`](../architecture/backend/14-revisions.md)）。
 3. **`notification-center`**：匯入匯出、標籤留言直接依賴它；Webhook、MFA、API Token 的「通知建立者」也會用到。
+   開放問題已由 [ADR-0026](../adr/0026-notification-center.md) 結案，實作中（N1 後端、N2 前端）。
 4. 之後依需求二選一：對外整合（`api-tokens` → `webhooks`），或編輯器的協作（`tags-comments`；多型關聯的命名已由 [ADR-0025](../adr/0025-entity-revisions.md) D7 決定）。
 5. **`permission-graph` G4**：群組（巢狀、持有角色）、explain API 與頁面。
 6. `hardening-followups` 裡的小項目可以隨時穿插。
