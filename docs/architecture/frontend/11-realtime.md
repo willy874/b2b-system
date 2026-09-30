@@ -101,6 +101,8 @@ const socket = io({
 ```
 
 - **不能寫成物件**（`auth: { token }`）：那是建立當下的值，5 分鐘後的重連會帶過期 token。
+- 網路錯誤的自動重連以 `REALTIME_RECONNECTION` 退避：起點 2 秒、上限 30 秒、隨機 ±50%。api 重新部署時上千條連線同時斷線，
+  預設的 1–5 秒會讓它們在幾秒內一起打回冷快取的新程序與每 IP 的 handshake 上限。
 - `ensureAccessToken()` 會經過 Web Locks 單飛（[09 §5.1](./09-state-and-storage.md)），
   多個分頁同時重連不會各自輪替 refresh token。
 - `ensureAccessToken()` 回 `undefined`（已登出）或失敗（網路）時不送 handshake；等下一次 `refreshed` 或登入再連。
