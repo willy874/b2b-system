@@ -1259,6 +1259,11 @@ export const PlatformTenantSchema = z.object({
 
 export const PlatformTenantListSchema = z.object({
   items: z.array(PlatformTenantSchema),
+  pagination: z.object({
+    offset: z.number(),
+    limit: z.number(),
+    total: z.number(),
+  }),
   baseDomain: z.string(),
 }) satisfies z.ZodType<PlatformTenantList>;
 

@@ -60,7 +60,7 @@ const platformTenantControllerListOperation: OperationDefinition = {
   schemas: PlatformTenantControllerListSchemas,
 };
 
-/** 所有租戶（未刪除）與預設網域的上層 */
+/** 租戶（未刪除）與預設網域的上層；分頁、代碼／名稱／網域搜尋（q）、狀態篩選（status） */
 export function platformTenantControllerList(
   options?: RequestOptions,
 ): Promise<PlatformTenantControllerListResult> {
