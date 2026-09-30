@@ -1,1 +1,1 @@
-export * from './PermissionPicker';
+export * from './PermissionSkillTree';

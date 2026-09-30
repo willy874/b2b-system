@@ -13,7 +13,7 @@
 | ------------- | --------------------------------------------------- | -------------------------------------------------------------- |
 | i18n key      | ``t(`user.status.${status}`)``                      | `t(USER_STATUS_LABEL_KEY[status])`（對照表，見 §3.1）           |
 | className     | ``cn('ge-shell', `ge-shell--${state}`)``            | `cn('ge-shell', SHELL_STATE_CLASS[state])`（見 §3.2）           |
-| `data-testid` | ``data-testid={`permission-checkbox-${key}`}``      | `data-testid="permission-checkbox" data-value={key}`（見 §3.3） |
+| `data-testid` | ``data-testid={`role-permission-node-${key}`}``      | `data-testid="role-permission-node" data-value={key}`（見 §3.3） |
 
 強度：👀 Review（尚無 lint 規則；補上後改成 🔒）。
 
@@ -27,7 +27,7 @@
 | ------------- | ---------------------------------------- | ---------------------------------------------------------------------------- |
 | i18n key      | `locales/*.json`、未使用 key 檢查        | 在語系檔看到 `user.status.locked`，全專案搜不到是誰在用；刪 key 不敢刪、漏翻譯不會被發現 |
 | className     | UnoCSS 靜態擷取、CSS 檔                  | UnoCSS 掃不到組出來的 utility class，**正式建置時樣式直接消失**；CSS 的 modifier 搜不到呼叫端 |
-| `data-testid` | E2E / 單元測試的選擇器                   | E2E 寫 `permission-checkbox-user:read`，在原始碼搜不到；改名時測試靜默壞掉       |
+| `data-testid` | E2E / 單元測試的選擇器                   | E2E 寫 `role-permission-node-user:read`，在原始碼搜不到；改名時測試靜默壞掉       |
 
 共通原則：**從任何一端搜尋完整字串，都要能找到另一端。**
 
@@ -97,20 +97,20 @@ className={cn('text-sm', TONE_CLASS[tone], bold && 'font-semibold', className)}
 **固定部分放 `data-testid`，變動部分放另一個 `data-*` 屬性：**
 
 ```tsx
-<Checkbox data-testid="permission-checkbox" data-value={key} />
+<button data-testid="role-permission-node" data-value={key} />
 ```
 
 ```ts
 // E2E
-getByTestIdAndValue(page, 'permission-checkbox', 'user:read');
-// 等同 page.locator('[data-testid="permission-checkbox"][data-value="user:read"]')
+getByTestIdAndValue(page, 'role-permission-node', 'user:read');
+// 等同 page.locator('[data-testid="role-permission-node"][data-value="user:read"]')
 ```
 
 - 值域固定的一組元素（選單、分頁），在設定物件裡寫完整字面量：
   `{ to: '/role', labelKey: 'menu.role', testId: 'menu-role' }`。
 - 設計系統元件（`components/`）渲染的列表項目統一用 `<元件>-item` ＋ `data-value`，
   例如 `data-testid="menu-item" data-value="logout"`。
-- E2E 用 `apps/e2e/helpers/selectors.ts` 的 `getByTestIdAndValue(page, 'permission-checkbox', 'user:read')`。
+- E2E 用 `apps/e2e/helpers/selectors.ts` 的 `getByTestIdAndValue(page, 'role-permission-node', 'user:read')`。
 
 ---
 

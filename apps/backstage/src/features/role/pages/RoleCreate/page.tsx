@@ -12,7 +12,7 @@ import { useTranslation } from '@/core/locales';
 import { useUnsavedChangesGuard } from '@/core/router';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
-import { PermissionPicker } from '../../components';
+import { PermissionSkillTree } from '../../components';
 import { useRoleCreateMutation } from '../../hooks/useRoleMutations';
 import { RoleCreateRoute, RoleListRoute } from '../../routes';
 
@@ -75,7 +75,7 @@ export default function RoleCreatePage() {
       onOpenChange={(open) => !open && close()}
       title={t('role.create.title')}
       description={t('role.create.description')}
-      size="lg"
+      size="xl"
       data-testid="role-create-dialog"
       footer={
         <>
@@ -143,16 +143,10 @@ export default function RoleCreatePage() {
 
         <div>
           <p className="mb-2 text-sm font-medium">{t('role.create.permissions')}</p>
-          <PermissionPicker
-            selected={selected}
-            onToggle={(key, checked) =>
-              setSelected((prev) => {
-                const next = new Set(prev);
-                if (checked) next.add(key);
-                else next.delete(key);
-                return next;
-              })
-            }
+          <PermissionSkillTree
+            explicit={selected}
+            onChange={setSelected}
+            data-testid="role-create-permissions"
           />
         </div>
 

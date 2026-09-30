@@ -48,10 +48,27 @@
     },
     "permission": {
       "title": "管理角色權限",
-      "description": "勾選要授予的權限。你未持有的權限無法授予（反提權）。",
-      "notGrantable": "你未持有此權限，因此無法授予。",
+      "description": "點一個權限就會授予它，它包含的前置權限自動點亮為「已包含」。要取消前置，先取消包含它的權限；你未持有的權限無法授予（反提權）。",
       "success": "角色權限已更新。",
-      "summary": "將新增 {{add}} 項、移除 {{remove}} 項"
+      "summary": "將新增 {{add}} 項、移除 {{remove}} 項",
+      "skillTree": {
+        "label": "角色權限技能樹",
+        "legend": "圖例",
+        "hint": "滑過或聚焦一個權限，查看它包含的前置權限。",
+        "empty": "選一個權限查看說明",
+        "includes": "包含",
+        "requires": "需要",
+        "impliedBy": "由「{{names}}」包含",
+        "blocked": "要取消「{{name}}」，先取消包含它的：{{names}}",
+        "unavailable": "你未持有「{{name}}」，因此無法授予。",
+        "superAdmin": "super-admin 隱含全部權限，不能變更。",
+        "state": {
+          "explicit": "已授予",
+          "implied": "已包含",
+          "available": "可授予",
+          "unavailable": "無法授予"
+        }
+      }
     },
     "field": {
       "name": "名稱",

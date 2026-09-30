@@ -4,6 +4,7 @@ import { fn } from 'storybook/test';
 
 import { Button } from '../Button';
 import { Dialog } from './Dialog';
+import type { DialogSize } from './Dialog';
 
 const meta = {
   title: 'Components/Dialog',
@@ -18,7 +19,7 @@ const meta = {
     onOpenChange: fn(),
   },
   argTypes: {
-    size: { control: 'inline-radio', options: ['sm', 'md', 'lg'] },
+    size: { control: 'inline-radio', options: ['sm', 'md', 'lg', 'xl'] },
   },
 } satisfies Meta<typeof Dialog>;
 
@@ -42,14 +43,15 @@ export const WithDescriptionAndFooter: Story = {
   },
 };
 
-/** 三種尺寸各自用一顆按鈕觸發，避免三個對話框同時疊在畫面上。 */
+/** 四種尺寸各自用一顆按鈕觸發，避免多個對話框同時疊在畫面上。 */
 function SizesDemo() {
-  const [openSize, setOpenSize] = useState<'sm' | 'md' | 'lg' | null>(null);
+  const [openSize, setOpenSize] = useState<DialogSize | null>(null);
   return (
     <div className="flex gap-2">
       <Button onClick={() => setOpenSize('sm')}>小尺寸</Button>
       <Button onClick={() => setOpenSize('md')}>中尺寸</Button>
       <Button onClick={() => setOpenSize('lg')}>大尺寸</Button>
+      <Button onClick={() => setOpenSize('xl')}>特大（放畫布）</Button>
       <Dialog
         open={openSize !== null}
         onOpenChange={(next) => setOpenSize(next ? openSize : null)}

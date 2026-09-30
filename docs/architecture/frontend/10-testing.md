@@ -246,7 +246,7 @@ user-status-chip-active
 ```
 
 `variant` 必須是字面量；隨資料變動的部分（權限鍵、id、日期）放 `data-value`，
-不拼進 testid：`data-testid="permission-checkbox" data-value="user:read"`
+不拼進 testid：`data-testid="role-permission-node" data-value="user:read"`
 （見 [`conventions/06-literal-strings.md`](../../conventions/06-literal-strings.md) §3.3）。
 
 E2E 需要的 testid 必須在同一個 PR 內加進原始碼，不允許「先寫測試再補」。

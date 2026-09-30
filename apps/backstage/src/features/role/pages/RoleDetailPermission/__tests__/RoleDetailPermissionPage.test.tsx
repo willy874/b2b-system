@@ -1,13 +1,16 @@
 import { Outlet } from '@tanstack/react-router';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppError } from '@/core/errors';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
+import { installFlowDom } from '@/test/flowDom';
+import { initTestI18n } from '@/test/i18n';
 import { renderRoute } from '@/test/renderRoute';
 
 import { registerRolePagePermissions, Routes } from '../../..';
+import roleZhTW from '../../../locales/zh_TW.json';
 
 const { fetchRole, fetchRolePermissions, fetchPermissionList, grant } = vi.hoisted(() => ({
   fetchRole: vi.fn(),
@@ -54,10 +57,18 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-const checkbox = (key: string) =>
+/** 技能樹上的一個權限（節點內的按鈕）。 */
+const node = (key: string) =>
   screen
-    .getAllByTestId('permission-checkbox')
+    .getAllByTestId('role-permission-node')
     .find((element) => element.getAttribute('data-value') === key) as HTMLElement;
+
+beforeAll(() => initTestI18n(roleZhTW));
+beforeAll(installFlowDom);
+afterAll(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 beforeEach(() => {
   resetPagePermissionRegistry();
@@ -68,11 +79,25 @@ beforeEach(() => {
     name: 'Editor',
     isSystem: false,
   });
-  fetchRolePermissions.mockReset().mockResolvedValue({ permissions: [{ key: 'user:read' }] });
+  fetchRolePermissions
+    .mockReset()
+    .mockResolvedValue({ permissions: [{ key: 'user:read' }], isSuperAdmin: false });
   fetchPermissionList.mockReset().mockResolvedValue({
     items: [
-      { key: 'user:read', nameI18nKey: 'permission.user.read' },
-      { key: 'user:update', nameI18nKey: 'permission.user.update' },
+      {
+        key: 'user:read',
+        resource: 'user',
+        nameI18nKey: 'permission.user.read',
+        includes: [],
+        requires: [],
+      },
+      {
+        key: 'user:update',
+        resource: 'user',
+        nameI18nKey: 'permission.user.update',
+        includes: ['user:read'],
+        requires: [],
+      },
     ],
     groups: [
       {
@@ -88,17 +113,17 @@ beforeEach(() => {
 
 describe('RoleDetailPermissionPage', () => {
   it('既有權限還在載入時不能勾選；載入後只送出實際的增減', async () => {
-    const pending = deferred<{ permissions: { key: string }[] }>();
+    const pending = deferred<{ permissions: { key: string }[]; isSuperAdmin: boolean }>();
     fetchRolePermissions.mockReturnValue(pending.promise);
     renderRoute(routes, PATH, MANAGER);
 
     expect(await screen.findByTestId('role-permission-loading')).toBeInTheDocument();
-    expect(screen.queryAllByTestId('permission-checkbox')).toHaveLength(0);
+    expect(screen.queryAllByTestId('role-permission-node')).toHaveLength(0);
     expect(screen.getByTestId('role-permission-save')).toBeDisabled();
 
-    pending.resolve({ permissions: [{ key: 'user:read' }] });
-    await waitFor(() => expect(checkbox('user:update')).toBeInTheDocument());
-    fireEvent.click(checkbox('user:update'));
+    pending.resolve({ permissions: [{ key: 'user:read' }], isSuperAdmin: false });
+    await waitFor(() => expect(node('user:update')).toBeInTheDocument());
+    fireEvent.click(node('user:update'));
 
     expect(screen.getByTestId('role-permission-summary')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('role-permission-save'));
@@ -116,20 +141,20 @@ describe('RoleDetailPermissionPage', () => {
     grant.mockRejectedValue(new AppError('AUTHZ_ESCALATION', 403));
     renderRoute(routes, PATH, MANAGER);
 
-    await waitFor(() => expect(checkbox('user:update')).toBeInTheDocument());
-    fireEvent.click(checkbox('user:update'));
+    await waitFor(() => expect(node('user:update')).toBeInTheDocument());
+    fireEvent.click(node('user:update'));
     fireEvent.click(screen.getByTestId('role-permission-save'));
 
     expect(await screen.findByTestId('toast')).toHaveAttribute('data-value', 'error');
     expect(screen.getByTestId('role-permission-dialog')).toBeInTheDocument();
-    expect(checkbox('user:update')).toHaveAttribute('aria-checked', 'true');
+    expect(node('user:update')).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('有未儲存的勾選時按取消會先確認；選「繼續編輯」留在原處', async () => {
     renderRoute(routes, PATH, MANAGER);
 
-    await waitFor(() => expect(checkbox('user:update')).toBeInTheDocument());
-    fireEvent.click(checkbox('user:update'));
+    await waitFor(() => expect(node('user:update')).toBeInTheDocument());
+    fireEvent.click(node('user:update'));
     fireEvent.click(screen.getByTestId('role-permission-cancel'));
 
     const confirm = await screen.findByTestId('unsaved-changes-confirm');
@@ -139,13 +164,13 @@ describe('RoleDetailPermissionPage', () => {
       expect(screen.queryByTestId('unsaved-changes-confirm')).not.toBeInTheDocument(),
     );
     expect(screen.getByTestId('role-permission-dialog')).toBeInTheDocument();
-    expect(checkbox('user:update')).toHaveAttribute('aria-checked', 'true');
+    expect(node('user:update')).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('沒有改動時按取消直接關閉，不跳確認', async () => {
     renderRoute(routes, PATH, MANAGER);
 
-    await waitFor(() => expect(checkbox('user:update')).toBeInTheDocument());
+    await waitFor(() => expect(node('user:update')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('role-permission-cancel'));
 
     await waitFor(() =>
@@ -154,15 +179,15 @@ describe('RoleDetailPermissionPage', () => {
     expect(screen.queryByTestId('unsaved-changes-confirm')).not.toBeInTheDocument();
   });
 
-  it('沒有 role:grantPermission → 勾選框停用、不能儲存', async () => {
+  it('沒有 role:grantPermission → 技能樹唯讀、不能儲存', async () => {
     renderRoute(
       routes,
       PATH,
       MANAGER.filter((key) => key !== 'role:grantPermission'),
     );
 
-    await waitFor(() => expect(checkbox('user:update')).toBeInTheDocument());
-    expect(checkbox('user:update')).toHaveAttribute('data-disabled');
+    await waitFor(() => expect(node('user:update')).toBeInTheDocument());
+    expect(node('user:update')).toBeDisabled();
     expect(screen.getByTestId('role-permission-save')).toBeDisabled();
   });
 
@@ -170,5 +195,37 @@ describe('RoleDetailPermissionPage', () => {
     renderRoute(routes, PATH, 'unhydrated');
 
     expect(await screen.findByTestId('role-permission-save')).toBeDisabled();
+  });
+
+  it('互鎖：點上層時前置自動成為「已包含」；有上層時不能取消前置，並說明原因', async () => {
+    fetchRolePermissions.mockResolvedValue({ permissions: [], isSuperAdmin: false });
+    renderRoute(routes, PATH, MANAGER);
+
+    await waitFor(() => expect(node('user:update')).toBeInTheDocument());
+    fireEvent.click(node('user:update'));
+    expect(node('user:update')).toHaveAttribute('aria-pressed', 'true');
+    expect(node('user:read')).toHaveAttribute('aria-pressed', 'mixed');
+    expect(node('user:read')).toHaveAttribute('data-state', 'implied');
+
+    fireEvent.click(node('user:read'));
+    expect(screen.getByTestId('role-permission-notice')).not.toBeEmptyDOMElement();
+    expect(node('user:read')).toHaveAttribute('data-state', 'implied');
+
+    // 只送出明確點選的鍵
+    fireEvent.click(screen.getByTestId('role-permission-save'));
+    await waitFor(() => expect(grant).toHaveBeenCalledTimes(1));
+    expect(grant.mock.calls[0]![0]).toMatchObject({
+      params: { body: { add: ['user:update'], remove: [] } },
+    });
+  });
+
+  it('super-admin 角色：全部是已包含、不能變更', async () => {
+    fetchRolePermissions.mockResolvedValue({ permissions: [], isSuperAdmin: true });
+    renderRoute(routes, PATH, MANAGER);
+
+    await waitFor(() => expect(node('user:update')).toBeInTheDocument());
+    expect(node('user:update')).toBeDisabled();
+    expect(node('user:read')).toHaveAttribute('data-state', 'implied');
+    expect(screen.getByTestId('role-permission-notice')).not.toBeEmptyDOMElement();
   });
 });
