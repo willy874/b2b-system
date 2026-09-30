@@ -10,6 +10,7 @@ import {
   logout,
 } from '../helpers/auth';
 import { openMenuGroup } from '../helpers/menu';
+import { snapshot } from '../helpers/snapshot';
 
 test.describe('認證流程', () => {
   // ① 登入 → 首頁 → 登出
@@ -17,9 +18,11 @@ test.describe('認證流程', () => {
     await loginAndWaitForHome(page, 'superAdmin');
     await openMenuGroup(page, 'menu-group-people');
     await expect(page.getByTestId('menu-role')).toBeVisible();
+    await snapshot(page, 'home');
 
     await logout(page);
     await expectSignedOut(page);
+    await snapshot(page, 'signed-out');
   });
 
   // 身分分屬租戶與平台（docs/adr/0020-physical-tenant-isolation.md D5、D9）：租戶帳號的 IdP session
@@ -35,6 +38,7 @@ test.describe('認證流程', () => {
     await page.getByTestId('login-password').fill(E2E_PASSWORD);
     await page.getByTestId('login-submit').click();
     await expect(page.getByTestId('home-display-name')).toHaveText('E2E Platform Admin');
+    await snapshot(page, 'platform-home');
     await expect(page).toHaveURL(`${AUTH_URL}/`);
 
     await page.goto('/');
@@ -65,6 +69,7 @@ test.describe('認證流程', () => {
     }
     await login(page, 'lockTarget');
     await expect(page.getByTestId('login-error')).toContainText(/鎖定|locked/i);
+    await snapshot(page, 'account-locked');
   });
 });
 
@@ -88,6 +93,7 @@ test.describe('跨分頁協調', () => {
     await Promise.all([first.reload(), second.reload()]);
     await expect(first.getByTestId('home-page')).toBeVisible();
     await expect(second.getByTestId('role-list-page')).toBeVisible();
+    await snapshot(second, 'second-tab-after-reload');
 
     await context.close();
   });

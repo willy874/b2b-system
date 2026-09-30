@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { expectIdpLogin, loginAndWaitForHome } from '../helpers/auth';
 import { openMenuGroup } from '../helpers/menu';
+import { snapshot } from '../helpers/snapshot';
 
 test.describe('路由守衛與選單過濾', () => {
   // ⑤ auditor 直接輸入無權限的網址 → 看到 403 頁（不是被彈回首頁）
@@ -10,6 +11,7 @@ test.describe('路由守衛與選單過濾', () => {
     await page.goto('/user/create');
     await expect(page.getByTestId('forbidden-page')).toBeVisible();
     await expect(page).toHaveURL(/\/user\/create/);
+    await snapshot(page, 'forbidden');
   });
 
   test('member 沒有任何管理選單，直接打 /role 看到 403', async ({ page }) => {
@@ -31,10 +33,12 @@ test.describe('路由守衛與選單過濾', () => {
     await page.goto('/user');
     await expect(page.getByTestId('user-list-page')).toBeVisible();
     await expect(page.getByTestId('user-create-button')).toHaveCount(0);
+    await snapshot(page, 'read-only-user-list');
   });
 
   test('未登入時進入受保護頁面會被導向 IdP 的登入頁', async ({ page }) => {
     await page.goto('/role');
     await expectIdpLogin(page);
+    await snapshot(page, 'idp-login');
   });
 });

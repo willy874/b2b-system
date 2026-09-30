@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { loginAndWaitForHome } from '../helpers/auth';
 import { openMenuGroup } from '../helpers/menu';
+import { snapshot } from '../helpers/snapshot';
 
 // M2 的元件真的被接進 app 裡（不是只有單元測試通過）
 
@@ -26,6 +27,7 @@ test('稽核日誌的日期篩選在表頭的篩選面板內選取，選取後�
   await expect(page).toHaveURL(new RegExp(`from=${picked}`));
   await page.getByTestId('audit-log-table').getByTestId('filter-bar-trigger').click();
   await expect(rangePicker).toContainText(picked);
+  await snapshot(page, 'date-range-filter');
 });
 
 test('側邊選單有圖示', async ({ page }) => {
@@ -56,4 +58,5 @@ test('側邊選單預設只展開當前頁面所在的分類，父選單可收�
   await expect(page.getByTestId('audit-log-page')).toBeVisible();
   await expect(system).toHaveAttribute('aria-expanded', 'true');
   await expect(people).toHaveAttribute('aria-expanded', 'false');
+  await snapshot(page, 'menu-follows-page');
 });

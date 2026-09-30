@@ -5,6 +5,7 @@ import { ACCOUNTS, E2E_PASSWORD } from '../fixtures/accounts';
 import { AUTH_URL, expectIdpLogin, loginPlatform } from '../helpers/auth';
 import { linkIn, waitForMail } from '../helpers/mailpit';
 import { getByTestIdAndValue } from '../helpers/selectors';
+import { snapshot } from '../helpers/snapshot';
 
 /**
  * 兩個租戶（docs/adr/0020-physical-tenant-isolation.md）：平台管理者建立新租戶、第一位管理員從啟用信進入自己的後台；
@@ -95,6 +96,7 @@ test.describe('租戶實體隔離（兩個租戶）', () => {
     await expect(
       getByTestIdAndValue(platform, 'tenant-domain', `${CODE}.localhost:5173`),
     ).toBeVisible();
+    await snapshot(platform, 'tenant-provisioned');
 
     // 啟用信的連結在 apps/auth，帶上租戶代碼；設定完密碼回到這個租戶的登入
     const mail = await waitForMail(OWNER);
@@ -112,6 +114,7 @@ test.describe('租戶實體隔離（兩個租戶）', () => {
     await owner.getByTestId('login-submit').click();
     await expect(owner).toHaveURL(`${TENANT_URL}/`);
     await expect(owner.getByTestId('home-page')).toBeVisible();
+    await snapshot(owner, 'owner-home');
   });
 
   test('同一個 IdP session 換到別的租戶 → 要求重新登入（不會以這個租戶的身分進去）', async () => {
@@ -123,6 +126,7 @@ test.describe('租戶實體隔離（兩個租戶）', () => {
     await owner.getByTestId('login-password').fill(OWNER_PASSWORD);
     await owner.getByTestId('login-submit').click();
     await expect(owner.getByTestId('login-error')).toBeVisible();
+    await snapshot(owner, 'other-tenant-rejected');
   });
 
   test('預設租戶的授權碼送到新租戶的 BFF → AUTH_SSO_CODE_INVALID（D10）', async ({ browser }) => {
@@ -173,6 +177,7 @@ test.describe('租戶實體隔離（兩個租戶）', () => {
     await platform.getByTestId('tenant-disable').click();
     await platform.getByTestId('alert-dialog-confirm').click();
     await expect(getByTestIdAndValue(platform, 'tenant-status', 'disabled')).toBeVisible();
+    await snapshot(platform, 'tenant-disabled');
 
     expect(await fetchOn(browser, TENANT_URL, '/tenant/current')).toEqual({
       status: 503,

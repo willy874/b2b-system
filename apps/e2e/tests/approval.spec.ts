@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 import { loginAndWaitForHome } from '../helpers/auth';
 import { openMenuGroup } from '../helpers/menu';
 import { getByTestIdAndValue } from '../helpers/selectors';
+import { snapshot } from '../helpers/snapshot';
 
 const APPLICANT_PASSWORD = 'Applicant!Password2026';
 // 經過 backstage 的 /api 代理：api 以網域決定租戶（docs/adr/0020-physical-tenant-isolation.md D2）
@@ -23,6 +24,7 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
     await page.getByTestId('register-reason').fill('E2E 測試');
     await page.getByTestId('register-submit').click();
     await expect(page.getByTestId('register-submitted')).toBeVisible();
+    await snapshot(page, 'register-submitted');
 
     // 核准前不能登入
     await page.goto('/auth/login');
@@ -51,6 +53,7 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
     await adminPage.keyboard.press('Escape');
     await expect(adminPage.getByTestId('approval-role-select')).toContainText('一般成員');
     await adminPage.getByTestId('approval-comment-input').fill('歡迎加入');
+    await snapshot(adminPage, 'approval-dialog');
     await adminPage.getByTestId('approval-approve-button').click();
     await expect(dialog).toBeHidden();
     await expect(
@@ -58,6 +61,7 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
         .locator('tr', { has: getByTestIdAndValue(adminPage, 'approval-detail-link', email) })
         .getByTestId('approval-status'),
     ).toHaveAttribute('data-value', 'approved');
+    await snapshot(adminPage, 'approved');
     await adminContext.close();
 
     // ③ 申請人用自己設定的密碼登入
@@ -66,6 +70,7 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
     await page.getByTestId('login-password').fill(APPLICANT_PASSWORD);
     await page.getByTestId('login-submit').click();
     await expect(page.getByTestId('home-page')).toBeVisible();
+    await snapshot(page, 'applicant-home');
   });
 
   test('列上快速核准與快速駁回（不開對話框）', async ({ page, request }) => {
@@ -97,6 +102,7 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
 
     // 已審核的列不再有快速審核
     await expect(getByTestIdAndValue(page, 'approval-quick-approve', approveEmail)).toHaveCount(0);
+    await snapshot(page, 'quick-reviewed');
   });
 
   test('auditor 看得到審批列表，但沒有審核操作', async ({ page }) => {

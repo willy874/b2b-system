@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 import { apiLogin, apiRequest } from '../helpers/api';
 import { expectIdpLogin } from '../helpers/auth';
 import { linkIn, waitForMail } from '../helpers/mailpit';
+import { snapshot } from '../helpers/snapshot';
 
 const NEW_PASSWORD = 'MailFlow!Password2026';
 
@@ -26,6 +27,7 @@ test.describe('郵件（docs/architecture/backend/11-mail.md）', () => {
 
     // ③ 設定密碼 → 回到租戶的登入（啟用頁在 apps/auth，帳號屬於租戶：連結帶 ?tenant=）→ 登入
     expect(page.url()).toContain('tenant=default');
+    await snapshot(page, 'setup-password');
     await page.getByTestId('setup-password').fill(NEW_PASSWORD);
     await page.getByTestId('setup-confirm').fill(NEW_PASSWORD);
     await page.getByTestId('setup-submit').click();
@@ -36,6 +38,7 @@ test.describe('郵件（docs/architecture/backend/11-mail.md）', () => {
     await page.getByTestId('login-submit').click();
     await expect(page.getByTestId('home-page')).toBeVisible();
     await expect(page).toHaveURL(/localhost:5173\//);
+    await snapshot(page, 'invitee-home');
   });
 
   test('用過的啟用連結再打開會顯示失效', async ({ page }) => {
@@ -52,5 +55,6 @@ test.describe('郵件（docs/architecture/backend/11-mail.md）', () => {
 
     await page.goto(link);
     await expect(page.getByTestId('setup-invalid')).toBeVisible();
+    await snapshot(page, 'setup-link-invalid');
   });
 });

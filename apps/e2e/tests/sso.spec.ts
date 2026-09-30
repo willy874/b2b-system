@@ -10,6 +10,7 @@ import {
 } from '../helpers/auth';
 import { openMenuGroup } from '../helpers/menu';
 import { getByTestIdAndValue } from '../helpers/selectors';
+import { snapshot } from '../helpers/snapshot';
 
 /**
  * SSO 的協定邊界、apps/auth 的平台管理者（docs/adr/0019-sso-identity-platform.md、0020 D5–D9）。
@@ -24,6 +25,7 @@ test.describe('SSO', () => {
     await page.getByTestId('login-cancel').click();
 
     await expect(page).toHaveURL(/localhost:5173\/auth\/callback\?.*error=access_denied/);
+    await snapshot(page, 'login-cancelled');
     await page.getByTestId('sso-callback-retry').click();
     await expectIdpLogin(page);
   });
@@ -42,6 +44,7 @@ test.describe('SSO', () => {
     await page.goto(`${AUTH_URL}/api/oidc/auth?${query.toString()}`);
     await expect(page).toHaveURL(new RegExp(`^${AUTH_URL}/error`));
     await expect(getByTestIdAndValue(page, 'sso-error', 'invalid_redirect_uri')).toBeVisible();
+    await snapshot(page, 'invalid-redirect-uri');
   });
 
   test('登入互動頁顯示要登入的租戶；平台的登入頁（apps/auth）登不進租戶的帳號', async ({
@@ -58,12 +61,14 @@ test.describe('SSO', () => {
     await page.getByTestId('login-password').fill(E2E_PASSWORD);
     await page.getByTestId('login-submit').click();
     await expect(page.getByTestId('login-error')).toBeVisible();
+    await snapshot(page, 'platform-rejects-tenant-account');
   });
 
   test('平台管理者從 apps/auth 登出 → 停在「已登出」頁，再進要重新登入', async ({ page }) => {
     await loginPlatform(page);
     await logout(page);
     await expect(page).toHaveURL(/\/login\?.*signedOut=true/);
+    await snapshot(page, 'platform-signed-out');
     // IdP session 已結束：再進 apps/auth 會被帶到登入互動頁
     await page.goto(AUTH_URL);
     await expectIdpLogin(page);

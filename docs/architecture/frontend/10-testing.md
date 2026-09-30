@@ -251,6 +251,23 @@ user-status-chip-active
 
 E2E 需要的 testid 必須在同一個 PR 內加進原始碼，不允許「先寫測試再補」。
 
+### 4.5 關鍵快照
+
+E2E 在流程的關鍵狀態拍整頁截圖，留給人事後翻看「這次跑的畫面長什麼樣子」：
+
+```ts
+await expect(page.getByTestId('role-list-page')).toContainText(ROLE_NAME);
+await snapshot(page, 'role-created');
+```
+
+- helper 在 `apps/e2e/helpers/snapshot.ts`；輸出到 `apps/e2e/snapshots/<spec>/<test 標題>/<序號>-<name>.png`，
+  同時附在 HTML report（`pnpm --filter @b2b-system/e2e report`）上。
+- `apps/e2e/snapshots/` **不進版控**；`global-setup.ts` 每次執行前清空，只保留最近一次的結果。
+- 只是紀錄，**不做像素比對**，也不取代 `expect`：先 `expect` 到畫面穩定，再拍。
+- 拍的是「關鍵狀態」：流程的成功終點、被擋下的畫面（403、錯誤訊息、disabled）、跨角色／跨租戶的切換點。
+  一個 test 通常 1–3 張，不要每一步都拍。
+- `name` 用 kebab-case 字面量，不以字串模板組成（同 §4.4 的 testid）。
+
 ---
 
 ## 5. 覆蓋率目標

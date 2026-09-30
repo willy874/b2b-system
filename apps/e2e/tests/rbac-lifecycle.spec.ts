@@ -5,6 +5,7 @@ import { apiLogin, apiRequest } from '../helpers/api';
 import { expectIdpLogin, loginAndWaitForHome } from '../helpers/auth';
 import { openMenuGroup } from '../helpers/menu';
 import { getByTestIdAndValue } from '../helpers/selectors';
+import { snapshot } from '../helpers/snapshot';
 
 const ROLE_NAME = `E2E 檢視者 ${Date.now()}`;
 
@@ -20,6 +21,7 @@ test.describe('RBAC 生命週期', () => {
     await getByTestIdAndValue(page, 'permission-checkbox', 'user:read').click();
     await page.getByTestId('role-create-submit').click();
     await expect(page.getByTestId('role-list-page')).toContainText(ROLE_NAME);
+    await snapshot(page, 'role-created');
 
     // 指派給 member
     const token = await apiLogin('admin');
@@ -45,6 +47,7 @@ test.describe('RBAC 生命週期', () => {
     await expect(memberPage.getByTestId('menu-user')).toBeVisible();
     await memberPage.goto('/user');
     await expect(memberPage.getByTestId('user-list-page')).toBeVisible();
+    await snapshot(memberPage, 'member-granted');
 
     // ④ 移除該角色的權限 → 持有者重新整理後對應的選單與頁面消失
     const removed = await apiRequest(token, 'patch', `/roles/${newRole.id}/permissions`, {
@@ -55,6 +58,7 @@ test.describe('RBAC 生命週期', () => {
 
     await memberPage.reload();
     await expect(memberPage.getByTestId('forbidden-page')).toBeVisible();
+    await snapshot(memberPage, 'member-revoked');
     await memberPage.goto('/');
     await expect(memberPage.getByTestId('menu-user')).toHaveCount(0);
 
@@ -74,6 +78,7 @@ test.describe('RBAC 生命週期', () => {
     await expect(getByTestIdAndValue(page, 'permission-checkbox', 'system:update')).toBeDisabled();
     // 但有 user:read
     await expect(getByTestIdAndValue(page, 'permission-checkbox', 'user:read')).toBeEnabled();
+    await snapshot(page, 'escalation-disabled');
   });
 
   test('反提權：直接打 API 也會被擋下（AUTHZ_ESCALATION）', async () => {
@@ -98,6 +103,7 @@ test.describe('RBAC 生命週期', () => {
       'aria-disabled',
       'true',
     );
+    await snapshot(page, 'system-role-protected');
 
     const token = await apiLogin('admin');
     const roles = (await apiRequest(token, 'get', '/roles?limit=100')).body as {
@@ -134,6 +140,7 @@ test.describe('RBAC 生命週期', () => {
     // UI：下一次操作被導回登入頁（IdP 的 session 也一起結束，不會被直接登回來）
     await page.goto('/profile');
     await expectIdpLogin(page);
+    await snapshot(page, 'disabled-user-signed-out');
 
     await context.close();
   });
@@ -153,5 +160,6 @@ test.describe('i18n', () => {
     await page.goto('/role');
     await expect(page.getByTestId('role-list-page')).toContainText('Roles');
     await expect(page.getByTestId('menu-user')).toContainText('Users');
+    await snapshot(page, 'english');
   });
 });
