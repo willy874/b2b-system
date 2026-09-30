@@ -2,7 +2,7 @@ import { and, computed, defineType, direct, from, subjectKey, union } from '@/co
 import type { ObjectRef, TypeDefinition } from '@/core/authz';
 
 /**
- * 檔案管理器在關係圖上的型別（docs/rbac/07-resource-grants.md、docs/features/permission-graph.md §2）。
+ * 檔案管理器在關係圖上的型別（docs/rbac/07-resource-grants.md §2.1）。
  *
  * - 等級：高的蘊含低的，沿 `inherits_from` 往下流；中斷繼承的資料夾沒有 `inherits_from` 邊。
  * - 動作（`can_*`）：等級 ∪ 租戶上的全域權限鍵（07 §3.2 的 `has()`）。

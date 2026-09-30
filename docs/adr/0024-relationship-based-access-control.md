@@ -1,8 +1,8 @@
 # ADR-0024 — 權限改成關係圖（ReBAC），以雙寫＋影子比對逐步切換
 
-- 狀態：**採用**（G0～G2 已實作並合併；G3a（D7～D9）已實作，`feat/permission-graph-g3`；G3b 待做）
+- 狀態：**採用**（G0～G3a 已實作並合併，G3a 於 2026-09-30 合併（96ae80a）；G3b、G4 待做）
 - 日期：2026-09-30
-- 相關：提案 [`../features/permission-graph.md`](../features/permission-graph.md)；
+- 相關：提案 [`../features/permission-graph.md`](../features/permission-graph.md)（只剩 G3b 以後）；規格 [`../rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4；
   延伸 [ADR-0005](./0005-permission-resolved-server-side.md)（權限在伺服器端解析）；
   取代 [ADR-0006](./0006-flat-permission-scope.md) 的「延伸路徑」與 [ADR-0015](./0015-file-folder-access.md) 的解析方式
 

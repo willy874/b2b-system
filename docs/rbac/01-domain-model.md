@@ -14,6 +14,7 @@
 | **反提權**                         | ✅（強化） | 授權者不能授予自己沒有的權限                                                |
 | **權限依賴樹**                     | ✅（強化） | 同資源的子能力與只指向 read 的依賴：持有一個鍵就持有它帶來的鍵（[`02-permission-catalog.md`](./02-permission-catalog.md) §9、[ADR-0024](../adr/0024-relationship-based-access-control.md) D6） |
 | **系統角色保護**                   | ✅（強化） | `is_system` 角色不可刪除、不可改 `slug`（顯示名稱可改，見 §5）               |
+| **儲存與解析：關係圖（ReBAC）**    | ✅         | 持有角色、角色的權限鍵、資料夾授權都是同一張 `relation_tuples` 上的邊，由同一個引擎解析（§6.4、[ADR-0024](../adr/0024-relationship-based-access-control.md)）。對外仍是上面這套 RBAC：權限鍵的格式、角色、指派的 API 都沒有變 |
 
 > 「權限是目錄，不是自由文字」是這個模型最重要的性質。`permissions` 表的內容
 > 由 seed 決定、隨程式碼版本演進，**不提供 API 建立權限**。這讓前端可以安全地
@@ -252,6 +253,55 @@ guard、`GET /auth/profile`、反提權、即時推播的 room 看到的都是�
 本模型 **只有 allow，沒有 deny**。兩個角色的權限一律取聯集。這是刻意的：
 deny 規則會讓「為什麼這個人不能做 X」變成需要推理的問題。需要限制時，作法是
 拆角色，而不是加否定規則。
+
+### 6.4 關係圖的組成與模型
+
+Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的子集。引擎在 `apps/api/src/core/authz/`
+（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.2），決策見 [ADR-0024](../adr/0024-relationship-based-access-control.md)。
+
+```
+  user:bob ── holder ──▶ role:editor ── tenant:self#file:update 的主體 ──▶ tenant:self
+                                                                              ▲ tenant（隱含邊，每個物件都有）
+       fileFolder:素材 ◀── inherits_from ── fileFolder:角色 ◀── editor ── role:editor#holder
+                                                ▲ parent
+                                           file:hero.png ◀── owner ── user:bob
+```
+
+- **節點** `型別:id`：`user`、`role`、`tenant`（每個租戶 DB 只有一個，id 固定 `self`）、`fileRoot`（根目錄）、`fileFolder`、`file`。
+- **邊** `物件#關係@主體`。主體有三種：
+  - 一個節點（`user:alice`）；
+  - 一個節點的關係，也就是一群使用者（`role:editor#holder`）；
+  - 萬用字元（`user:*`，資料夾授權的「所有人」）。
+- **全域權限鍵是租戶節點上的關係**：`tenant:self#role:update@role:admin#holder` ＝「admin 的持有者有 `role:update`」。
+  權限鍵的字串格式因此不變。每個權限關係都定義成「直接授予 ∪ `superAdmin` ∪ 包含它的鍵」，
+  super-admin 的「隱含全集」與依賴樹（[`02-permission-catalog.md`](./02-permission-catalog.md) §9）都是模型裡的定義，不是程式裡的特判。
+- **資源的動作**：資料夾的等級與 `can_*` 是 `fileFolder` 型別上的關係，以 `file:<動作> from tenant` 接上全域權限
+  （[`07-resource-grants.md`](./07-resource-grants.md) §2.1）。
+- **結構邊不存**：資料夾的 `parent`、`inherits_from`（中斷繼承時沒有）、`owner` 由 `file_folders` 供應，
+  事實來源只有一份（ADR-0024 D3）。
+- **只有 allow**：模型支援交集，但只用在收窄的組合，例如「擁有者 ∧ 能在上層建立」；不支援排除（§6.3、ADR-0024 D4）。
+- **模型寫在程式碼裡**：和權限目錄一樣隨版本演進，租戶不能改。啟動時驗證模型，模型不合法就啟動失敗。
+
+| 概念 | 圖上 |
+| --- | --- |
+| 使用者持有角色 | `role:r#holder@user:u` |
+| 角色帶權限鍵 | `tenant:self#<key>@role:r#holder` |
+| super-admin | `tenant:self#superAdmin@role:<super-admin>#holder` |
+| 資料夾授權（角色／個人／所有人） | `fileFolder:F#<等級>@role:r#holder`、`@user:u`、`@user:*` |
+| 授權的期限 | 邊上的 `expires_at`，解析時忽略過期的 |
+| 中斷繼承 | 不產生 `inherits_from` 邊 |
+| 擁有者規則 | `owner` 關係 ＋ 交集（規則 A：能在這裡建立 ⇒ 能編輯自己建立的） |
+
+**不進圖的規則**：下面這些是資源的狀態，不是關係，所以仍在 service 裡檢查。
+
+- 系統角色保護（§5）、最後一位 super-admin（I8）、不能操作自己（I9）；
+- 遞迴刪除的子樹條件（[`07-resource-grants.md`](./07-resource-grants.md) §4）；
+- 上傳中的檔案只有本人看得到、系統資料夾不可移動。
+
+圖只回答「有沒有這條關係」。反提權目前也還在 service（`assertGrantable`、`assertRolesAssignable`、資料夾等級的 `missingActions`）；
+改成由模型宣告「誰能寫這條邊」是 G4 的工作（[`../features/permission-graph.md`](../features/permission-graph.md)）。
+
+**平台管理者不進圖**：`platform_admins.role` 是固定的角色與權限對照，範圍小（[`02-permission-catalog.md`](./02-permission-catalog.md) §8）。
 
 ---
 

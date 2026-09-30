@@ -29,7 +29,7 @@
 2. [`overview/02-technology-selection.md`](./overview/02-technology-selection.md) — 技術選型與理由
 3. [`architecture/01-system.md`](./architecture/01-system.md) — 系統全貌與資料流
    （登入與身分見 [`architecture/04-sso.md`](./architecture/04-sso.md)；每個租戶一個 database 與網域見 [`architecture/05-tenancy.md`](./architecture/05-tenancy.md)）
-4. [`rbac/01-domain-model.md`](./rbac/01-domain-model.md) — RBAC 領域模型
+4. [`rbac/01-domain-model.md`](./rbac/01-domain-model.md) — RBAC 領域模型與關係圖（§6.4）
 5. [`overview/03-roadmap.md`](./overview/03-roadmap.md) — 實作階段與驗收條件
 
 **開始寫程式之前（所有人）**
@@ -97,7 +97,7 @@ docs/
 │       ├── 02-database.md             Drizzle schema 慣例、migration 流程
 │       ├── 03-api-conventions.md      REST、分頁、排序、錯誤碼、驗證
 │       ├── 04-auth.md                 登入、JWT、refresh rotation、重用偵測、SSO 的後端部分
-│       ├── 05-rbac.md                 Guard / Decorator / 權限快取與 revision 失效 / 反提權 / 關係圖解析
+│       ├── 05-rbac.md                 Guard / Decorator / 關係圖引擎 / 權限快取與 revision 失效 / 反提權
 │       ├── 06-audit-log.md            稽核日誌設計
 │       ├── 07-testing.md              單元 / 整合 / e2e 測試策略
 │       ├── 08-realtime.md             Socket.io gateway、room 與受眾、推播時機
@@ -107,7 +107,7 @@ docs/
 │       └── 12-settings.md             系統設定：執行期可調的值（租戶 DB）、env 與設定的分工
 │
 ├── rbac/
-│   ├── 01-domain-model.md             實體、ER 圖、不變條件
+│   ├── 01-domain-model.md             實體、ER 圖、不變條件、關係圖的組成與模型
 │   ├── 02-permission-catalog.md       權限清單（resource × action）、權限依賴樹（§9）
 │   ├── 03-flows.md                    登入、授權檢查、角色指派、權限變更生效
 │   ├── 04-api-spec.md                 RBAC 相關 API 規格

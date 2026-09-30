@@ -17,7 +17,7 @@ import type { EdgeProvider } from './authz.snapshot';
 
 export { ROLE_HOLDER_RELATION, SUPER_ADMIN_RELATION } from '@/db/schema';
 
-/** 每個租戶 DB 只有一個租戶節點（docs/features/permission-graph.md §1）。 */
+/** 每個租戶 DB 只有一個租戶節點（docs/rbac/01-domain-model.md §6.4）。 */
 export const TENANT_OBJECT = { type: TENANT_OBJECT_TYPE, id: TENANT_OBJECT_ID } as const;
 
 export const USER_TYPE: TypeDefinition = defineType('user', {});

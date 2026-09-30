@@ -157,15 +157,17 @@ guard 因此注入 `PlatformAdminService`（查管理者的角色）與 `Platfor
 
 ## 4. `PermissionService`
 
-> **G2 起（[ADR-0024](../../adr/0024-relationship-based-access-control.md)）**：`getPermissionSet(s)` 由 `core/authz` 的 `AuthzService.tenantPermissionsOf()` 批次解析（主體閉包一條遞迴 CTE、租戶節點上的邊一條查詢，再在記憶體判斷），
-> `permissions` 是 **權限依賴樹的閉包**（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §9），並多帶 `subjects`（主體閉包，
-> 給 `FileAccessService` 解析資料夾授權時沿用）。下面的程式碼是介面與業務規則的形狀；反提權因為 actor 的集合已是閉包，
-> 只要比「明確鍵 ⊆ actor 閉包」；自我鎖定要比「剩下的鍵的閉包」。
+權限集合由 `core/authz` 的關係圖解析（[ADR-0024](../../adr/0024-relationship-based-access-control.md)、§4.2）：
+`AuthzService.tenantPermissionsOf()` 批次解析——主體閉包一條遞迴 CTE、租戶節點上的邊一條查詢，再在記憶體判斷。
+`permissions` 是 **權限依賴樹的閉包**（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §9），
+並多帶 `subjects`（主體閉包，給 `FileAccessService` 解析資料夾授權時沿用）。反提權因為 actor 的集合已是閉包，
+只要比「明確鍵 ⊆ actor 閉包」；自我鎖定要比「剩下的鍵的閉包」。
 
 ```ts
 export interface PermissionSet {
-  permissions: Set<PermissionKey>;
+  permissions: Set<PermissionKey>; // 依賴樹的閉包；super-admin 不展開（看 isSuperAdmin）
   isSuperAdmin: boolean;
+  subjects?: readonly string[];    // 主體閉包：user:<id>、user:*、role:<id>#holder…
 }
 
 @Injectable()
@@ -174,13 +176,11 @@ export class PermissionService {
     const cached = this.cache.get(userId);
     if (cached) return cached;
 
-    const [keys, isSuperAdmin] = await Promise.all([
-      this.repo.findPermissionKeysByUser(userId),
-      this.repo.isSuperAdmin(userId),
-    ]);
-
-    const value: PermissionSet = { permissions: new Set(keys), isSuperAdmin };
-    this.cache.set(userId, value);
+    const ticket = this.cache.ticket(); // 載入期間被失效就不寫回（§5）
+    const resolved = await this.authz.tenantPermissionsOf([userId], { withDependencies: true });
+    const { effective, isSuperAdmin, subjects } = resolved.get(userId)!;
+    const value = { permissions: effective, isSuperAdmin, subjects };
+    this.cache.set(userId, value, ticket);
     return value;
   }
 
@@ -253,6 +253,29 @@ export class PermissionService {
 是不是 super-admin 直接查 DB（`UserRepository.hasRoleSlug`），不經權限快取。重設密碼、解鎖不在此限（信寄到本人信箱；解鎖是幫忙）。
 
 ---
+
+### 4.2 關係圖引擎（`core/authz`）
+
+通用、不認識任何業務型別；業務模組在 `onModuleInit` 把自己的型別註冊進來（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2）。
+領域上的模型（有哪些型別、關係怎麼定義）見 [`../../rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §6.4。
+
+| 檔案 | 職責 |
+| --- | --- |
+| `authz.model.ts` | 模型 DSL：`defineType`、`direct`、`computed`、`from`（`X from Y`）、`union`、`and`（交集，只用在收窄的組合）；**沒有排除**。`createModel` 在啟動時驗證：引用的型別與關係存在、`from` 的 tupleset 是直接關係、`computed` 沒有循環。`impliedRelations` 算靜態蘊含（等級蘊含哪些動作、依賴閉包） |
+| `authz.types.ts` | 核心型別 `user`、`role`（`holder`）、`tenant`（由權限目錄產生：一個權限鍵一個關係＝直接授予 ∪ `superAdmin` ∪ 包含它的鍵）；每個物件都有隱含的 `tenant` 邊 |
+| `authz.registry.ts` | `register(type)`：業務型別（例：`modules/file/file.authz.ts` 的 `fileRoot`、`fileFolder`、`file`）；第一次取用時組合並驗證 |
+| `authz.repository.ts` | `relation_tuples` 的讀取：主體閉包（遞迴 CTE，深度上限 8，排除已刪除的角色）、某種物件上的直接邊（濾掉過期的）、`authz_revision` |
+| `authz.snapshot.ts` | 把一次判斷需要的邊載入記憶體；**結構邊供應者**（`EdgeProvider`）補上不存在 tuple 表的邊——資料夾的 `parent`／`inherits_from`／`owner` 由 `file_folders` 供應（ADR-0024 D3） |
+| `authz.checker.ts` | `check`／`explain`／`withEdges`：在快照上展開關係定義，同一個 `物件#關係` 只算一次（記憶化），遞迴深度上限 64；未知的型別或關係視為不成立 |
+| `authz.service.ts` | `tenantPermissionsOf`（全域權限）、`checkerFor`（資源：一次載入操作者在這些型別上的邊，交給判斷器） |
+| `authz.revision.ts` | 寫入後的失效與跨程序廣播（§5.1） |
+
+- **寫入不經引擎**：角色、使用者、資料夾授權的 repository 直接寫 `relation_tuples`，邊的形狀與查詢條件集中在
+  `db/schema/relation-tuples.ts`（`roleHolderTuple`、`rolePermissionTuple`、`isRoleHolderTuple()`…）。
+  寫入時不以模型驗證型別與主體（G4 的「反提權一般化」一起做，見 [`../../features/permission-graph.md`](../../features/permission-graph.md)）。
+- **判斷的成本**：全域權限在租戶節點上只有一層，閉包算完就是 `Set<PermissionKey>`，guard 仍是 O(1)。
+  資料夾是「整棵結構一次載入 ＋ 記憶化」，一次請求建一個判斷器（`FileAccessService.contextFor`）。
+- `explain()` 已實作，但還沒開放 API（G4）。
 
 ## 5. 權限快取
 

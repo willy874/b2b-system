@@ -16,7 +16,7 @@ import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
 /**
- * 關係圖的邊：`物件#關係@主體`（docs/features/permission-graph.md §3、docs/adr/0024-relationship-based-access-control.md）。
+ * 關係圖的邊：`物件#關係@主體`（docs/rbac/01-domain-model.md §6.4、docs/architecture/backend/02-database.md §2.10）。
  *
  * - 主體是節點（`subject_relation = ''`）、節點的關係（`role:<id>#holder`），或萬用字元（`subject_id = '*'`）。
  * - id 用 text：租戶節點是 `self`、萬用字元是 `*`；多型關聯沒有外鍵，解析時 join 未刪除的節點。
@@ -72,7 +72,7 @@ export const authzRevision = pgTable(
   (t) => [check('authz_revision_single_row', sql`${t.id}`)],
 );
 
-// ── 核心的邊（docs/features/permission-graph.md §2）──────────────────────
+// ── 核心的邊（docs/rbac/01-domain-model.md §6.4）──────────────────────
 // G3 起取代 user_roles、role_permissions、resource_grants；repository、seed、測試共用下面的
 // 建構函式與條件，邊的形狀只寫在這裡。
 //

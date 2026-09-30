@@ -1,5 +1,5 @@
 /**
- * 關係圖的型別定義（docs/features/permission-graph.md §2、docs/adr/0024-relationship-based-access-control.md）。
+ * 關係圖的型別定義（docs/rbac/01-domain-model.md §6.4、docs/adr/0024-relationship-based-access-control.md）。
  * 語意是 Zanzibar／OpenFGA 的子集：直接、計算（`computed`）、`X from Y`（`from`）、聯集、交集、萬用字元。
  * **刻意不提供排除（`but not`）**：只有 allow（D4）。
  */
