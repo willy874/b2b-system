@@ -10,5 +10,6 @@ export * from './permissions';
 export * from './refresh-tokens';
 export * from './relation-tuples';
 export * from './roles';
+export * from './soft-delete';
 export * from './system-settings';
 export * from './users';

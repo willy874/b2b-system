@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, ilike, inArray, isNull, like, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, like, sql } from 'drizzle-orm';
 import type { SQL, SQLWrapper } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
@@ -9,6 +9,7 @@ import {
   isActiveRole,
   isRoleHolderTuple,
   isRolePermissionTuple,
+  notDeleted,
   permissions,
   relationTuples,
   ROLE_HOLDER_RELATION,
@@ -41,7 +42,7 @@ const userCountOf = (roleId: SQLWrapper | string) =>
   sql<number>`(SELECT count(*)::int FROM ${relationTuples} t INNER JOIN ${users} u ON u.id::text = t.subject_id
     WHERE t.object_type = ${ROLE_OBJECT_TYPE} AND t.relation = ${ROLE_HOLDER_RELATION}
       AND t.subject_type = ${USER_SUBJECT_TYPE} AND t.subject_relation = ''
-      AND t.object_id = ${roleId}::text AND u.deleted_at IS NULL)`;
+      AND t.object_id = ${roleId}::text AND u.deleted_at IS NULL /* notDeleted */)`;
 
 /** 持有這個角色的邊（`role:<roleId>#holder@user:*`）。 */
 const holdersOf = (roleId: string) => and(isRoleHolderTuple(), eq(relationTuples.objectId, roleId));
@@ -278,17 +279,14 @@ export class RoleRepository {
       .from(relationTuples)
       .innerJoin(
         users,
-        and(eq(sql`${users.id}::text`, relationTuples.subjectId), isNull(users.deletedAt)),
+        and(eq(sql`${users.id}::text`, relationTuples.subjectId), notDeleted(users)),
       )
       .where(holdersOf(roleId));
     return row?.total ?? 0;
   }
 
   async listUsers(roleId: string, offset: number, limit: number) {
-    const holderOf = and(
-      eq(sql`${users.id}::text`, relationTuples.subjectId),
-      isNull(users.deletedAt),
-    );
+    const holderOf = and(eq(sql`${users.id}::text`, relationTuples.subjectId), notDeleted(users));
     const [items, [counted]] = await Promise.all([
       this.db
         .select({

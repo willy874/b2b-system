@@ -50,6 +50,8 @@
 
 - 只放 Drizzle 查詢，回傳 row 型別（或明確的投影型別）。
 - 每個寫入方法接受可選的 `tx?: Transaction`，預設用 `this.db`。
+- 軟刪除的條件用 `notDeleted(table)`、故意讀已刪除的列用 `isDeleted(table)`，不手寫 `isNull(x.deletedAt)`
+  （🔒 `src/__tests__/soft-delete-scan.spec.ts`；寫法見 [`architecture/backend/02-database.md`](../architecture/backend/02-database.md) §1）。
 - 列表查詢一次 join 取齊，避免 N+1。見
   [`architecture/backend/02-database.md`](../architecture/backend/02-database.md) §4.4。
 

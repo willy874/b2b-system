@@ -4,7 +4,7 @@ import { and, asc, eq, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import { PLATFORM_DB, withTransaction } from '@/core/database';
 import type { PlatformDatabase, PlatformDbOrTx } from '@/core/database';
 import type { PlatformAdminRole, PlatformAdminRow } from '@/db/platform/schema';
-import { platformAdmins, platformRefreshTokens } from '@/db/platform/schema';
+import { notDeleted, platformAdmins, platformRefreshTokens } from '@/db/platform/schema';
 import type { RevokedReason } from '@/db/schema';
 
 export type PlatformAdminPatch = Partial<
@@ -30,7 +30,7 @@ export class PlatformAdminRepository {
     return this.db
       .select()
       .from(platformAdmins)
-      .where(isNull(platformAdmins.deletedAt))
+      .where(notDeleted(platformAdmins))
       .orderBy(asc(platformAdmins.createdAt), asc(platformAdmins.email));
   }
 
@@ -38,7 +38,7 @@ export class PlatformAdminRepository {
     const [row] = await this.db
       .select()
       .from(platformAdmins)
-      .where(and(eq(platformAdmins.email, email), isNull(platformAdmins.deletedAt)))
+      .where(and(eq(platformAdmins.email, email), notDeleted(platformAdmins)))
       .limit(1);
     return row;
   }
@@ -47,7 +47,7 @@ export class PlatformAdminRepository {
     const [row] = await this.db
       .select()
       .from(platformAdmins)
-      .where(and(eq(platformAdmins.id, id), isNull(platformAdmins.deletedAt)))
+      .where(and(eq(platformAdmins.id, id), notDeleted(platformAdmins)))
       .limit(1);
     return row;
   }
@@ -152,7 +152,7 @@ export class PlatformAdminRepository {
         and(
           eq(platformAdmins.role, 'super-admin'),
           eq(platformAdmins.status, 'active'),
-          isNull(platformAdmins.deletedAt),
+          notDeleted(platformAdmins),
           exceptId ? ne(platformAdmins.id, exceptId) : undefined,
         ),
       );

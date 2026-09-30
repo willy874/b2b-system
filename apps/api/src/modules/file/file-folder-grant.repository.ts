@@ -1,11 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, containsPattern } from '@/core/database';
 import {
   isActiveRole,
+  notDeleted,
   relationTuples,
   ROLE_HOLDER_RELATION,
   ROLE_OBJECT_TYPE,
@@ -106,7 +107,7 @@ const LIVE_SUBJECT = sql`(
   OR (${relationTuples.subjectType} = ${ROLE_OBJECT_TYPE} AND EXISTS (
     SELECT 1 FROM ${roles} WHERE ${roles.id}::text = ${relationTuples.subjectId} AND ${isActiveRole()}))
   OR (${relationTuples.subjectType} = ${USER_SUBJECT_TYPE} AND EXISTS (
-    SELECT 1 FROM ${users} WHERE ${users.id}::text = ${relationTuples.subjectId} AND ${users.deletedAt} IS NULL))
+    SELECT 1 FROM ${users} WHERE ${users.id}::text = ${relationTuples.subjectId} AND ${notDeleted(users)}))
 )`;
 
 const GRANT_COLUMNS = {
@@ -173,7 +174,7 @@ export class FileFolderGrantRepository {
         and(
           eq(relationTuples.subjectType, USER_SUBJECT_TYPE),
           eq(sql`${users.id}::text`, relationTuples.subjectId),
-          isNull(users.deletedAt),
+          notDeleted(users),
         ),
       )
       .where(isFolderGrant(folderIds))
@@ -240,7 +241,7 @@ export class FileFolderGrantRepository {
     const [row] = await db
       .select({ one: sql<number>`1` })
       .from(table)
-      .where(and(eq(table.id, id), isNull(table.deletedAt)))
+      .where(and(eq(table.id, id), notDeleted(table)))
       .limit(1);
     return Boolean(row);
   }
@@ -266,7 +267,7 @@ export class FileFolderGrantRepository {
       .from(users)
       .where(
         and(
-          isNull(users.deletedAt),
+          notDeleted(users),
           eq(users.status, 'active'),
           pattern
             ? or(ilike(users.displayName, pattern), ilike(sql`${users.username}::text`, pattern))

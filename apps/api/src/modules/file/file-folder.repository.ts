@@ -4,7 +4,7 @@ import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB } from '@/core/database';
 import type { FileFolderInsert, FileFolderKind, FileFolderRow } from '@/db/schema';
-import { fileFolders, files, users } from '@/db/schema';
+import { fileFolders, files, isDeleted, notDeleted, users } from '@/db/schema';
 
 import type { FolderNode } from './file-access.context';
 
@@ -38,7 +38,7 @@ export class FileFolderRepository {
         createdBy: fileFolders.createdBy,
       })
       .from(fileFolders)
-      .where(isNull(fileFolders.deletedAt));
+      .where(notDeleted(fileFolders));
   }
 
   /** 移動前的存取判斷：這些檔案所在的資料夾與上傳者（已刪除、還在上傳中的不列）。 */
@@ -51,7 +51,7 @@ export class FileFolderRepository {
     return db
       .select({ id: files.id, folderId: files.folderId, createdBy: files.createdBy })
       .from(files)
-      .where(and(inArray(files.id, [...ids]), isNull(files.deletedAt), eq(files.status, 'ready')));
+      .where(and(inArray(files.id, [...ids]), notDeleted(files), eq(files.status, 'ready')));
   }
 
   /** 這些資料夾（與直接包含的檔案，含上傳中的）之中有沒有不是 `actorId` 建立的。 */
@@ -74,11 +74,7 @@ export class FileFolderRepository {
       .select({ id: files.id })
       .from(files)
       .where(
-        and(
-          inArray(files.folderId, [...folderIds]),
-          isNull(files.deletedAt),
-          notMine(files.createdBy),
-        ),
+        and(inArray(files.folderId, [...folderIds]), notDeleted(files), notMine(files.createdBy)),
       )
       .limit(1);
     return Boolean(file);
@@ -95,7 +91,7 @@ export class FileFolderRepository {
     const [row] = await db
       .select()
       .from(fileFolders)
-      .where(and(eq(fileFolders.kind, kind), isNull(fileFolders.deletedAt)))
+      .where(and(eq(fileFolders.kind, kind), notDeleted(fileFolders)))
       .limit(1);
     return row;
   }
@@ -117,7 +113,7 @@ export class FileFolderRepository {
         and(
           eq(fileFolders.kind, 'personal'),
           inArray(fileFolders.ownerId, [...userIds]),
-          isNull(fileFolders.deletedAt),
+          notDeleted(fileFolders),
         ),
       );
     return new Set(rows.flatMap((row) => (row.ownerId ? [row.ownerId] : [])));
@@ -140,8 +136,8 @@ export class FileFolderRepository {
       .where(
         and(
           eq(fileFolders.kind, 'personal'),
-          isNull(fileFolders.deletedAt),
-          sql`${users.deletedAt} IS NOT NULL`,
+          notDeleted(fileFolders),
+          isDeleted(users),
           ownerIds ? inArray(fileFolders.ownerId, [...ownerIds]) : undefined,
         ),
       );
@@ -154,13 +150,13 @@ export class FileFolderRepository {
     const [child] = await db
       .select({ id: fileFolders.id })
       .from(fileFolders)
-      .where(and(eq(fileFolders.parentId, folderId), isNull(fileFolders.deletedAt)))
+      .where(and(eq(fileFolders.parentId, folderId), notDeleted(fileFolders)))
       .limit(1);
     if (child) return false;
     const [file] = await db
       .select({ id: files.id })
       .from(files)
-      .where(and(eq(files.folderId, folderId), isNull(files.deletedAt)))
+      .where(and(eq(files.folderId, folderId), notDeleted(files)))
       .limit(1);
     return !file;
   }
@@ -173,12 +169,12 @@ export class FileFolderRepository {
     return this.db
       .select({ id: users.id, displayName: users.displayName, email: users.email })
       .from(users)
-      .where(and(inArray(users.id, [...userIds]), isNull(users.deletedAt)));
+      .where(and(inArray(users.id, [...userIds]), notDeleted(users)));
   }
 
   /** 未刪除的使用者：啟動時補建個人資料夾的候選人（能不能進檔案管理器由權限解析決定）。 */
   async findActiveUserIds(): Promise<string[]> {
-    const rows = await this.db.select({ id: users.id }).from(users).where(isNull(users.deletedAt));
+    const rows = await this.db.select({ id: users.id }).from(users).where(notDeleted(users));
     return rows.map((row) => row.id);
   }
 
@@ -192,7 +188,7 @@ export class FileFolderRepository {
     const [row] = await db
       .update(fileFolders)
       .set({ ...values, updatedAt: new Date() })
-      .where(and(eq(fileFolders.id, id), isNull(fileFolders.deletedAt)))
+      .where(and(eq(fileFolders.id, id), notDeleted(fileFolders)))
       .returning();
     return row;
   }
@@ -202,7 +198,7 @@ export class FileFolderRepository {
     return this.db
       .select()
       .from(fileFolders)
-      .where(isNull(fileFolders.deletedAt))
+      .where(notDeleted(fileFolders))
       .orderBy(asc(fileFolders.name), asc(fileFolders.id));
   }
 
@@ -211,7 +207,7 @@ export class FileFolderRepository {
     const [row] = await db
       .select()
       .from(fileFolders)
-      .where(and(eq(fileFolders.id, id), isNull(fileFolders.deletedAt)))
+      .where(and(eq(fileFolders.id, id), notDeleted(fileFolders)))
       .limit(1);
     return row;
   }
@@ -222,7 +218,7 @@ export class FileFolderRepository {
     return db
       .select()
       .from(fileFolders)
-      .where(and(inArray(fileFolders.id, [...ids]), isNull(fileFolders.deletedAt)));
+      .where(and(inArray(fileFolders.id, [...ids]), notDeleted(fileFolders)));
   }
 
   /** 這些上層（null 是根目錄）底下的資料夾。 */
@@ -238,7 +234,7 @@ export class FileFolderRepository {
     return db
       .select()
       .from(fileFolders)
-      .where(and(scope, isNull(fileFolders.deletedAt)));
+      .where(and(scope, notDeleted(fileFolders)));
   }
 
   /** 從 `id` 往上到根目錄的所有 id（含自己）。 */
@@ -246,7 +242,7 @@ export class FileFolderRepository {
     const db = tx ?? this.db;
     const rows = await db.execute<{ id: string }>(sql`
       WITH RECURSIVE chain(id, parent_id) AS (
-        SELECT id, parent_id FROM file_folders WHERE id = ${id} AND deleted_at IS NULL
+        SELECT id, parent_id FROM file_folders WHERE id = ${id} AND deleted_at IS NULL /* notDeleted */
         UNION ALL
         SELECT f.id, f.parent_id FROM file_folders f JOIN chain c ON f.id = c.parent_id
       )
@@ -265,9 +261,9 @@ export class FileFolderRepository {
         WHERE id IN (${sql.join(
           ids.map((id) => sql`${id}::uuid`),
           sql`, `,
-        )}) AND deleted_at IS NULL
+        )}) AND deleted_at IS NULL /* notDeleted */
         UNION
-        SELECT f.id FROM file_folders f JOIN tree t ON f.parent_id = t.id WHERE f.deleted_at IS NULL
+        SELECT f.id FROM file_folders f JOIN tree t ON f.parent_id = t.id WHERE f.deleted_at IS NULL /* notDeleted */
       )
       SELECT id FROM tree
     `);
@@ -286,10 +282,10 @@ export class FileFolderRepository {
         WHERE id IN (${sql.join(
           ids.map((id) => sql`${id}::uuid`),
           sql`, `,
-        )}) AND deleted_at IS NULL
+        )}) AND deleted_at IS NULL /* notDeleted */
         UNION ALL
         SELECT f.id, t.depth + 1 FROM file_folders f JOIN tree t ON f.parent_id = t.id
-        WHERE f.deleted_at IS NULL AND t.depth < ${limit}
+        WHERE f.deleted_at IS NULL /* notDeleted */ AND t.depth < ${limit}
       )
       SELECT coalesce(max(depth), 0)::int AS height FROM tree
     `);
@@ -311,7 +307,7 @@ export class FileFolderRepository {
     const [row] = await db
       .update(fileFolders)
       .set({ ...values, updatedAt: new Date() })
-      .where(and(eq(fileFolders.id, id), isNull(fileFolders.deletedAt)))
+      .where(and(eq(fileFolders.id, id), notDeleted(fileFolders)))
       .returning();
     return row;
   }
@@ -331,7 +327,7 @@ export class FileFolderRepository {
       .where(
         and(
           inArray(fileFolders.id, [...ids]),
-          isNull(fileFolders.deletedAt),
+          notDeleted(fileFolders),
           parentId === null
             ? sql`${fileFolders.parentId} IS NOT NULL`
             : sql`${fileFolders.parentId} IS DISTINCT FROM ${parentId}::uuid`,
@@ -346,7 +342,7 @@ export class FileFolderRepository {
     const rows = await db
       .update(fileFolders)
       .set({ deletedAt: new Date(), updatedBy: actorId })
-      .where(and(inArray(fileFolders.id, [...ids]), isNull(fileFolders.deletedAt)))
+      .where(and(inArray(fileFolders.id, [...ids]), notDeleted(fileFolders)))
       .returning({ id: fileFolders.id });
     return rows.length;
   }
@@ -369,7 +365,7 @@ export class FileFolderRepository {
       .where(
         and(
           inArray(files.id, [...fileIds]),
-          isNull(files.deletedAt),
+          notDeleted(files),
           eq(files.status, 'ready'),
           folderId === null
             ? sql`${files.folderId} IS NOT NULL`
@@ -394,7 +390,7 @@ export class FileFolderRepository {
     const rows = await db
       .update(files)
       .set({ deletedAt: new Date(), updatedBy: actorId })
-      .where(and(inArray(files.folderId, [...folderIds]), isNull(files.deletedAt)))
+      .where(and(inArray(files.folderId, [...folderIds]), notDeleted(files)))
       .returning({ id: files.id, status: files.status });
     return rows.filter((row) => row.status === 'ready').length;
   }
@@ -414,7 +410,7 @@ export class FileFolderRepository {
         and(
           parentId === null ? isNull(fileFolders.parentId) : eq(fileFolders.parentId, parentId),
           sql`lower(${fileFolders.name}) = lower(${name})`,
-          isNull(fileFolders.deletedAt),
+          notDeleted(fileFolders),
           exceptId ? ne(fileFolders.id, exceptId) : undefined,
         ),
       )

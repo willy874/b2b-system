@@ -4,7 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import { PLATFORM_DB, withTransaction } from '@/core/database';
 import type { PlatformDatabase, PlatformTransaction } from '@/core/database';
 import type { FeatureFlagGlobalState } from '@/core/feature-flags';
-import { featureFlagOverrides, tenants } from '@/db/platform/schema';
+import { featureFlagOverrides, notDeleted, tenants } from '@/db/platform/schema';
 
 /** 全平台層覆寫的寫入與租戶覆寫的統計（平台 DB，docs/adr/0022-feature-flags.md D2、D8）。 */
 @Injectable()
@@ -52,7 +52,7 @@ export class PlatformFeatureFlagRepository {
     return this.db.execute<{ key: string; enabled: boolean; count: number }>(sql`
       SELECT f.key, f.value::boolean AS enabled, count(*)::int AS count
       FROM ${tenants}, jsonb_each(${tenants.flags}) AS f(key, value)
-      WHERE ${tenants.deletedAt} IS NULL AND jsonb_typeof(f.value) = 'boolean'
+      WHERE ${notDeleted(tenants)} AND jsonb_typeof(f.value) = 'boolean'
       GROUP BY f.key, f.value
     `);
   }

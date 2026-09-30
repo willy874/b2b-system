@@ -20,7 +20,7 @@ import type { SQL } from 'drizzle-orm';
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB } from '@/core/database';
 import type { FileInsert, FileRow, FileVariantStatus } from '@/db/schema';
-import { files, users } from '@/db/schema';
+import { files, notDeleted, users } from '@/db/schema';
 
 import type { ListFileDto } from './dto/list-file.dto';
 import { FILE_CATEGORY_RULES } from './file.constants';
@@ -74,7 +74,7 @@ export class FileRepository {
   /** 未刪除的檔案（含 pending）。 */
   async findById(id: string): Promise<FileWithUploader | undefined> {
     const [row] = await this.selectWithUploader()
-      .where(and(eq(files.id, id), isNull(files.deletedAt)))
+      .where(and(eq(files.id, id), notDeleted(files)))
       .limit(1);
     return row && FileRepository.toFileWithUploader(row);
   }
@@ -97,7 +97,7 @@ export class FileRepository {
     if (scope?.folderIds.length === 0) {
       return { items: [], total: after ? null : 0, lastCreatedAt: undefined };
     }
-    const conditions: SQL[] = [isNull(files.deletedAt), eq(files.status, 'ready')];
+    const conditions: SQL[] = [notDeleted(files), eq(files.status, 'ready')];
     if (scope) conditions.push(inArray(files.folderId, [...scope.folderIds]));
     if (query.keyword) conditions.push(ilike(files.name, `%${escapeLike(query.keyword)}%`));
     if (query.contentType) {
@@ -176,7 +176,7 @@ export class FileRepository {
     const [row] = await db
       .update(files)
       .set({ ...values, status: 'ready', uploadId: null })
-      .where(and(eq(files.id, id), eq(files.status, 'pending'), isNull(files.deletedAt)))
+      .where(and(eq(files.id, id), eq(files.status, 'pending'), notDeleted(files)))
       .returning();
     return row;
   }
@@ -192,7 +192,7 @@ export class FileRepository {
     tx?: DbOrTx,
   ): Promise<FileRow | undefined> {
     const db = tx ?? this.db;
-    const conditions = [eq(files.id, id), isNull(files.deletedAt)];
+    const conditions = [eq(files.id, id), notDeleted(files)];
     if (expectedVersion !== undefined) conditions.push(eq(files.version, expectedVersion));
     const [row] = await db
       .update(files)
@@ -207,7 +207,7 @@ export class FileRepository {
     const [row] = await (tx ?? this.db)
       .select({ version: files.version })
       .from(files)
-      .where(and(eq(files.id, id), isNull(files.deletedAt)))
+      .where(and(eq(files.id, id), notDeleted(files)))
       .limit(1);
     return row?.version;
   }
@@ -225,7 +225,7 @@ export class FileRepository {
     const [row] = await db
       .update(files)
       .set({ deletedAt: new Date(), updatedBy: actorId })
-      .where(and(eq(files.id, id), eq(files.status, 'pending'), isNull(files.deletedAt)))
+      .where(and(eq(files.id, id), eq(files.status, 'pending'), notDeleted(files)))
       .returning();
     return row;
   }
@@ -238,7 +238,7 @@ export class FileRepository {
     const [row] = await this.db
       .update(files)
       .set({ ...values, variantStatus: 'ready' })
-      .where(and(eq(files.id, id), eq(files.variantStatus, 'pending'), isNull(files.deletedAt)))
+      .where(and(eq(files.id, id), eq(files.variantStatus, 'pending'), notDeleted(files)))
       .returning();
     return row;
   }
@@ -258,7 +258,7 @@ export class FileRepository {
       .where(
         and(
           eq(files.variantStatus, 'pending'),
-          isNull(files.deletedAt),
+          notDeleted(files),
           lt(files.uploadedAt, uploadedBefore),
         ),
       )
@@ -275,7 +275,7 @@ export class FileRepository {
   ): Promise<Pick<FileRow, 'id' | 'storageKey' | 'uploadId'>[]> {
     const conditions = [
       eq(files.status, 'pending'),
-      isNull(files.deletedAt),
+      notDeleted(files),
       lt(files.createdAt, createdBefore),
     ];
     if (afterId) conditions.push(gt(files.id, afterId));
@@ -293,7 +293,7 @@ export class FileRepository {
     const rows = await this.db
       .select({ id: files.id })
       .from(files)
-      .where(and(inArray(files.id, [...ids]), isNull(files.deletedAt)));
+      .where(and(inArray(files.id, [...ids]), notDeleted(files)));
     return new Set(rows.map((row) => row.id));
   }
 
@@ -304,11 +304,7 @@ export class FileRepository {
       .select({ uploadId: files.uploadId })
       .from(files)
       .where(
-        and(
-          inArray(files.uploadId, [...uploadIds]),
-          isNotNull(files.uploadId),
-          isNull(files.deletedAt),
-        ),
+        and(inArray(files.uploadId, [...uploadIds]), isNotNull(files.uploadId), notDeleted(files)),
       );
     return new Set(rows.flatMap((row) => (row.uploadId ? [row.uploadId] : [])));
   }
@@ -318,7 +314,7 @@ export class FileRepository {
     const [row] = await db
       .update(files)
       .set({ deletedAt: new Date(), updatedBy: actorId })
-      .where(and(eq(files.id, id), isNull(files.deletedAt)))
+      .where(and(eq(files.id, id), notDeleted(files)))
       .returning();
     return row;
   }

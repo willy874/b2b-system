@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import type { TenantRow } from '@/db/platform/schema';
-import { tenantDomains, tenants } from '@/db/platform/schema';
+import { notDeleted, tenantDomains, tenants } from '@/db/platform/schema';
 
 import { PLATFORM_DB } from '../database';
 import type { PlatformDatabase } from '../database';
@@ -19,14 +19,14 @@ export class TenantRepository {
       .select({ domain: tenantDomains.domain, tenant: tenants })
       .from(tenantDomains)
       .innerJoin(tenants, eq(tenants.id, tenantDomains.tenantId))
-      .where(and(inArray(tenantDomains.domain, domains), isNull(tenants.deletedAt)));
+      .where(and(inArray(tenantDomains.domain, domains), notDeleted(tenants)));
   }
 
   async findById(id: string): Promise<TenantRow | undefined> {
     const [row] = await this.db
       .select()
       .from(tenants)
-      .where(and(eq(tenants.id, id), isNull(tenants.deletedAt)))
+      .where(and(eq(tenants.id, id), notDeleted(tenants)))
       .limit(1);
     return row;
   }
@@ -35,7 +35,7 @@ export class TenantRepository {
     const [row] = await this.db
       .select()
       .from(tenants)
-      .where(and(eq(tenants.code, code), isNull(tenants.deletedAt)))
+      .where(and(eq(tenants.code, code), notDeleted(tenants)))
       .limit(1);
     return row;
   }
@@ -46,7 +46,7 @@ export class TenantRepository {
       .select({ domain: tenantDomains.domain, tenantId: tenantDomains.tenantId })
       .from(tenantDomains)
       .innerJoin(tenants, eq(tenants.id, tenantDomains.tenantId))
-      .where(isNull(tenants.deletedAt))
+      .where(notDeleted(tenants))
       .orderBy(tenantDomains.createdAt, tenantDomains.domain);
   }
 
@@ -54,7 +54,7 @@ export class TenantRepository {
     return this.db
       .select()
       .from(tenants)
-      .where(and(eq(tenants.status, 'active'), isNull(tenants.deletedAt)))
+      .where(and(eq(tenants.status, 'active'), notDeleted(tenants)))
       .orderBy(tenants.code);
   }
 }

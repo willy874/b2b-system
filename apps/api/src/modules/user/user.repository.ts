@@ -8,6 +8,7 @@ import type { RoleRow, UserInsert, UserRow, UserStatus } from '@/db/schema';
 import {
   isActiveRole,
   isRoleHolderTuple,
+  notDeleted,
   relationTuples,
   ROLE_HOLDER_RELATION,
   ROLE_OBJECT_TYPE,
@@ -95,7 +96,7 @@ export class UserRepository {
     const [row] = await this.db
       .select()
       .from(users)
-      .where(and(eq(users.id, id), isNull(users.deletedAt)))
+      .where(and(eq(users.id, id), notDeleted(users)))
       .limit(1);
     return row;
   }
@@ -104,7 +105,7 @@ export class UserRepository {
     const [row] = await this.db
       .select()
       .from(users)
-      .where(and(eq(users.email, email), isNull(users.deletedAt)))
+      .where(and(eq(users.email, email), notDeleted(users)))
       .limit(1);
     return row;
   }
@@ -115,14 +116,14 @@ export class UserRepository {
       .from(users)
       .leftJoin(relationTuples, HELD_BY_USER)
       .leftJoin(roles, HELD_ROLE)
-      .where(and(eq(users.id, id), isNull(users.deletedAt)))
+      .where(and(eq(users.id, id), notDeleted(users)))
       .groupBy(users.id)
       .limit(1);
     return row ? { ...row.user, roles: row.roles } : undefined;
   }
 
   private buildFilters(query: ListUserDto): SQL | undefined {
-    const conditions: SQL[] = [isNull(users.deletedAt)];
+    const conditions: SQL[] = [notDeleted(users)];
     if (query.keyword) {
       // 三個運算式與 pg_trgm 的 GIN 索引（users_*_trgm_idx）一致才用得上索引
       const pattern = containsPattern(query.keyword);
@@ -198,7 +199,7 @@ export class UserRepository {
     const db = tx ?? this.db;
     const conditions = [eq(users.id, id)];
     if (options.expectedVersion !== undefined) {
-      conditions.push(eq(users.version, options.expectedVersion), isNull(users.deletedAt));
+      conditions.push(eq(users.version, options.expectedVersion), notDeleted(users));
     }
     const [row] = await db
       .update(users)
@@ -213,7 +214,7 @@ export class UserRepository {
     const [row] = await (tx ?? this.db)
       .select({ version: users.version })
       .from(users)
-      .where(and(eq(users.id, id), isNull(users.deletedAt)))
+      .where(and(eq(users.id, id), notDeleted(users)))
       .limit(1);
     return row?.version;
   }
@@ -360,7 +361,7 @@ export class UserRepository {
     const conditions: SQL[] = [
       eq(roles.slug, slug),
       isActiveRole(),
-      isNull(users.deletedAt),
+      notDeleted(users),
       eq(users.status, 'active'),
     ];
     if (excludeUserId) conditions.push(sql`${users.id} <> ${excludeUserId}`);

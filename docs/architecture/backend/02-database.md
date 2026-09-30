@@ -9,7 +9,7 @@
 | 主鍵         | `uuid`，`DEFAULT gen_random_uuid()`（`audit_logs` 例外，用 `bigserial`） |
 | 時間         | `timestamptz`，一律存 UTC                                                |
 | 布林         | `NOT NULL DEFAULT false`，不允許三態                                     |
-| 軟刪除       | `deleted_at timestamptz`，唯一索引都帶 `WHERE deleted_at IS NULL`        |
+| 軟刪除       | `deleted_at timestamptz`，唯一索引都帶 `WHERE deleted_at IS NULL`；查詢條件一律用 `notDeleted(table)`（見下方） |
 | Drizzle 變數 | camelCase 複數：`relationTuples`                                         |
 | 列舉         | Postgres `enum` 型別（不是 `text` + `CHECK`），因為它會出現在 OpenAPI；例外見下方 |
 
@@ -18,6 +18,24 @@
 「指向哪一種資源」的欄位，每新增一種資源就要多一個值；用 enum 就得每次 `ALTER TYPE … ADD VALUE`，而且這個語句不能與使用新值的語句放在同一個交易。
 值集中在程式的常數（camelCase，與稽核、關係圖同一組字串），DTO 以同一份常數產生 `z.enum`，OpenAPI 與 SDK 照樣有型別。
 一般欄位的狀態、種類（例如 `users.status`）仍用 enum。
+
+**軟刪除的查詢條件**（[ADR-0025](../../adr/0025-entity-revisions.md) D8）：`db/schema/soft-delete.ts` 的 `notDeleted(table)`
+（＝`isNull(table.deletedAt)`，也接受 `alias()`），平台 DB 的表從 `@/db/platform/schema` 取得同一個函式。
+ADR 寫的位置是 `db/soft-delete.ts`；實作放在 `db/schema/` 底下，因為 `isActiveRole()`（`db/schema/roles.ts`）要用它，
+而 `db/schema/` 只依賴同層（[`conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2）。
+
+| 情境 | 寫法 |
+| --- | --- |
+| 一般查詢：只看未刪除的列 | `.where(and(eq(users.id, id), notDeleted(users)))` |
+| SQL 樣板裡引用 Drizzle 的表 | `` sql`… AND ${notDeleted(users)}` `` |
+| 手寫的別名、遞迴 CTE（無法呼叫函式） | `u.deleted_at IS NULL /* notDeleted */`：同一行必須帶這個註解 |
+| **故意** 讀已刪除的列（回收桶、還原、永久刪除） | `isDeleted(table)`（＝`isNotNull`），讀的人一眼看出不是漏了條件 |
+| 唯一值衝突（還原前找佔用者） | 照一般查詢寫 `notDeleted(...)`：佔用者一定是未刪除的列 |
+
+- 🔒 `src/__tests__/soft-delete-scan.spec.ts` 掃 `modules/`、`core/`：出現 `isNull(<x>.deletedAt)`、`${x.deletedAt} IS [NOT] NULL`
+  或沒有標註的 `deleted_at IS NULL` 就失敗。`db/schema` 的 partial unique index 不在掃描範圍。
+- **不做預設排除**：Drizzle 沒有 default scope，自己包一層會讓故意讀已刪除資料的查詢變得隱晦；每個查詢自己寫條件。
+- `isActiveRole()` 是 `notDeleted(roles)` 的別名，既有的呼叫照用。
 
 必要擴充：
 
@@ -117,9 +135,9 @@ export const roles = pgTable(
   ],
 );
 
-/** 還有效（未軟刪除）的角色：查到 roles 的模組一律用它，不各自寫 isNull(roles.deletedAt)。 */
+/** 還有效（未軟刪除）的角色＝notDeleted(roles) 的別名（§1）。 */
 export function isActiveRole(): SQL {
-  return isNull(roles.deletedAt);
+  return notDeleted(roles);
 }
 ```
 
@@ -465,7 +483,7 @@ const rows = await this.db
   // 持有角色的邊：role:<r>#holder@user:<users.id>（多型 id 是 text，uuid 那邊轉成 text）
   .leftJoin(relationTuples, and(isRoleHolderTuple(), eq(relationTuples.subjectId, sql`${users.id}::text`)))
   .leftJoin(roles, and(eq(sql`${roles.id}::text`, relationTuples.objectId), isActiveRole()))
-  .where(and(isNull(users.deletedAt), ...filters))
+  .where(and(notDeleted(users), ...filters))
   .groupBy(users.id)
   .orderBy(desc(users.createdAt))
   .limit(limit)
