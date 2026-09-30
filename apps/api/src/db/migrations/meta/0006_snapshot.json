@@ -1,6 +1,6 @@
 {
   "id": "9cfbc170-cac5-4e33-b97d-975dbf131845",
-  "prevId": "5f269dfc-e841-42d5-a200-fa03622c2fc5",
+  "prevId": "ac55d57b-0b26-4cc6-a83c-14d5dd71dbda",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -516,6 +516,28 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "audit_logs_archive_action_idx": {
+          "name": "audit_logs_archive_action_idx",
+          "columns": [
+            {
+              "expression": "action",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "text_pattern_ops"
             },
             {
               "expression": "occurred_at",
@@ -1096,6 +1118,28 @@
             },
             {
               "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"files\".\"deleted_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "files_created_by_created_at_idx": {
+          "name": "files_created_by_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1712,6 +1756,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "family_created_at": {
+          "name": "family_created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
         "token_hash": {
           "name": "token_hash",
           "type": "text",
@@ -1801,6 +1852,22 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "refresh_tokens_family_revoked_idx": {
+          "name": "refresh_tokens_family_revoked_idx",
+          "columns": [
+            {
+              "expression": "family_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"refresh_tokens\".\"revoked_at\" IS NOT NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}
