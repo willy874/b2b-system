@@ -3,8 +3,8 @@ import type { OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/comm
 import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '../config';
-import { createDatabase } from '../database';
-import type { Database } from '../database';
+import { connectionLimitsOf, createDatabase } from '../database';
+import type { ConnectionLimits, Database } from '../database';
 import { AppException } from '../errors';
 import { runInTenantContext } from './tenant-context';
 import type { TenantContext } from './tenant-context';
@@ -39,7 +39,7 @@ export const SCHEMA_RECHECK_MS = 30_000;
 /**
  * 進入租戶脈絡的唯一入口（docs/adr/0020-physical-tenant-isolation.md D3）：HTTP 由 `TenantMiddleware`、
  * WebSocket 由 gateway、背景工作由 `JobQueue` 呼叫。每個租戶第一次用到時建立自己的小連線池；
- * 閒置的連線由 postgres.js 的 `idle_timeout` 關閉，連線池物件本身很便宜，不另外回收。
+ * 閒置的連線由 postgres.js 的 `idle_timeout`（`TENANT_POOL_IDLE_TIMEOUT`）關閉，連線池物件本身很便宜，不另外回收。
  *
  * 只有 migration 版本沒有落後的租戶可以進入（D14）：啟動時檢查每個 `active` 租戶，之後新登記的租戶在第一次進入時檢查。
  * 落後的租戶回 `TENANT_UNAVAILABLE`（503），不阻止整個程序啟動，也不影響其他租戶。
@@ -51,12 +51,22 @@ export class Tenancy implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly pools = new Map<string, Pool>();
   private readonly schemaChecks = new Map<string, SchemaCheck>();
   private readonly poolMax: number;
+  private readonly poolIdleTimeout: number;
+  private readonly limits: ConnectionLimits;
 
   constructor(
     private readonly directory: TenantDirectory,
     config: ConfigService<Env, true>,
   ) {
     this.poolMax = config.get('TENANT_POOL_MAX', { infer: true });
+    this.poolIdleTimeout = config.get('TENANT_POOL_IDLE_TIMEOUT', { infer: true });
+    this.limits = connectionLimitsOf({
+      DB_CONNECT_TIMEOUT: config.get('DB_CONNECT_TIMEOUT', { infer: true }),
+      DB_STATEMENT_TIMEOUT_MS: config.get('DB_STATEMENT_TIMEOUT_MS', { infer: true }),
+      DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: config.get('DB_IDLE_IN_TRANSACTION_TIMEOUT_MS', {
+        infer: true,
+      }),
+    });
   }
 
   async onApplicationBootstrap(): Promise<void> {
@@ -196,8 +206,9 @@ export class Tenancy implements OnApplicationBootstrap, OnApplicationShutdown {
     const { client, db } = createDatabase({
       url: tenant.databaseUrl,
       max: this.poolMax,
-      idleTimeout: 60,
+      idleTimeout: this.poolIdleTimeout,
       logQueries: false,
+      limits: this.limits,
     });
     const pool: Pool = { url: tenant.databaseUrl, db, close: () => client.end({ timeout: 5 }) };
     this.pools.set(tenant.id, pool);

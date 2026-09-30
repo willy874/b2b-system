@@ -53,7 +53,7 @@
 | `Tenancy.runForMaintenance(id, fn)` | 不看狀態進入（仍檢查版本）：停用 **之後** 撤銷 session 用 |
 | `Tenancy.evict(id)` | 關掉連線池（停用、刪除之後） |
 
-- 每個租戶一個小連線池（`TENANT_POOL_MAX`，閒置連線 60 秒關閉）。連線字串以 `TENANT_SECRET_KEY` 加密存在
+- 每個租戶一個小連線池（`TENANT_POOL_MAX`，閒置連線 `TENANT_POOL_IDLE_TIMEOUT` 秒關閉；連線預算見 [`backend/02-database.md`](./backend/02-database.md) §6.2）。連線字串以 `TENANT_SECRET_KEY` 加密存在
   `tenants.database_url_encrypted`（D4），每個租戶有自己的 DB 角色，只能連自己的 database。
 - WebSocket 在 handshake 時依網域決定租戶，之後這條連線上的每則訊息都在那個租戶的脈絡裡處理
   （[`backend/08-realtime.md`](./backend/08-realtime.md)）。
@@ -115,13 +115,33 @@
 | --- | --- |
 | `PLATFORM_DATABASE_URL` | 平台 DB |
 | `TENANT_SECRET_KEY` | 加密租戶連線字串（production 必填；開發時由 `JWT_SECRET` 推導） |
-| `TENANT_POOL_MAX`、`TENANT_CACHE_TTL` | 每個租戶的連線池上限、租戶登記的快取秒數 |
+| `TENANT_POOL_MAX`、`TENANT_POOL_IDLE_TIMEOUT`、`TENANT_CACHE_TTL` | 每個租戶的連線池上限、閒置連線關閉的秒數、租戶登記的快取秒數 |
 | `TENANT_PROVISIONING_DATABASE_URL` | 佈建新租戶用（`CREATEDB`＋`CREATEROLE`）；留空用 `PLATFORM_DATABASE_URL` |
 | `TENANT_BASE_DOMAIN` | 新租戶預設網域的上層；留空用 `APP_PUBLIC_URL` 的 host（開發：`acme.localhost:5173`） |
 | `DEFAULT_TENANT_CODE`／`NAME`／`DATABASE_URL`／`DOMAINS`／`STORAGE_BUCKET` | `db:migrate` 在平台 DB 還沒有租戶時登記的預設租戶 |
 | `PLATFORM_ADMIN_EMAIL`、`PLATFORM_ADMIN_PASSWORD` | `db:seed` 建立的第一位平台管理者（`super-admin`） |
 | `SEED_TENANT` | `db:seed` 建立 `SUPER_ADMIN_EMAIL` 的租戶、`db:seed:dev`／`e2e` 的目標租戶（預設 `default`） |
 | `FILE_STORAGE_PUBLIC_ENDPOINT` | 預設 `{tenantOrigin}/storage`；真正的 S3 填固定網址 |
+
+### 7.1 DB 角色：api 不用超級使用者
+
+`docker-compose.prod.yml` 的 postgres 在 **第一次初始化資料目錄** 時執行 `deploy/postgres/10-roles.sh`，建立三個角色；
+api 與 migrate 都不再以 `POSTGRES_USER`（超級使用者）連線：
+
+| 角色 | 權限 | 用在 | 密碼（compose 變數） |
+| --- | --- | --- | --- |
+| `b2b_platform` | 擁有平台 DB（含 pg-boss 的 schema） | api、migrate 的 `PLATFORM_DATABASE_URL` | `POSTGRES_PLATFORM_PASSWORD` |
+| `b2b_tenant_default` | 擁有預設租戶的 DB（`POSTGRES_DB`） | `DEFAULT_TENANT_DATABASE_URL`：與佈建出來的租戶同一種模式（角色擁有自己的 DB，別人連不進來） | `POSTGRES_TENANT_PASSWORD` |
+| `b2b_provisioner` | `CREATEDB`、`CREATEROLE`，**不是** 超級使用者；`createrole_self_grant = 'set, inherit'` | `TENANT_PROVISIONING_DATABASE_URL`（佈建）、`pnpm db:drop-tenant` | `POSTGRES_PROVISIONER_PASSWORD` |
+
+- 每個 database 都 `REVOKE ALL … FROM PUBLIC`：一個角色的密碼外洩只碰得到自己的 database。
+- `createrole_self_grant` 讓佈建角色取得它建立的租戶角色的 `SET`，`CREATE DATABASE … OWNER <租戶角色>` 與
+  `DROP DATABASE … WITH (FORCE)` 才能在非超級使用者下執行（PG 16 起的規則）。
+- 密碼會放進連線字串，請用 URL 安全的字元（例：`openssl rand -hex 24`）。
+- **既有部署**（資料目錄已初始化過，腳本不會再跑）：以超級使用者手動執行 `10-roles.sh` 裡的 SQL（`CREATE DATABASE` 那一行
+  改成 `ALTER DATABASE <平台 DB> OWNER TO b2b_platform`），再把兩個 database 裡的物件交給新角色
+  （在各 database 執行 `REASSIGN OWNED BY <POSTGRES_USER> TO <角色>`），最後在平台 DB 以新的連線字串更新預設租戶的
+  `tenants.database_url_encrypted`（以 `TENANT_SECRET_KEY` 加密）。沒切換之前保留舊的 compose 設定即可，兩者可以並存。
 
 ## 8. 腳本
 

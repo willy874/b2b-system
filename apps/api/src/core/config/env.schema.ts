@@ -23,8 +23,24 @@ export const EnvSchema = z.object({
     (value) => (value === '' ? undefined : value),
     z.string().optional(),
   ),
-  /** 每個租戶的連線池上限；閒置 60 秒的連線會關閉（D3）。 */
-  TENANT_POOL_MAX: z.coerce.number().int().min(1).default(5),
+  /**
+   * 每個租戶的連線池上限（D3）。連線預算：平台池 ＋ pg-boss（4）＋ 活躍租戶數 × 這個值（× api 程序數）
+   * 要小於 postgres 的 `max_connections`（docs/architecture/backend/02-database.md §6.2）。
+   */
+  TENANT_POOL_MAX: z.coerce.number().int().min(1).default(10),
+  /** 租戶連線池的閒置連線幾秒後關閉：沒人用的租戶不佔連線（要比 outbox 清掃的間隔短）。 */
+  TENANT_POOL_IDLE_TIMEOUT: z.coerce.number().int().min(1).default(30),
+  /** 平台 DB 的連線池上限；沒設定時 production 10、其他環境 3。 */
+  PLATFORM_POOL_MAX: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.coerce.number().int().min(1).optional(),
+  ),
+  /** 建立 DB 連線的逾時（秒）。 */
+  DB_CONNECT_TIMEOUT: z.coerce.number().int().min(1).default(10),
+  /** 單一 SQL 語句的上限（毫秒；每條連線的 `statement_timeout`）；0 = 不限制。 */
+  DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(0).default(15_000),
+  /** 交易開著卻閒置的上限（毫秒；`idle_in_transaction_session_timeout`）；0 = 不限制。 */
+  DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: z.coerce.number().int().min(0).default(30_000),
   /** 網域 → 租戶的快取秒數。 */
   TENANT_CACHE_TTL: z.coerce.number().int().min(0).default(30),
   /**
@@ -188,9 +204,10 @@ export const EnvSchema = z.object({
     .transform((value) => value === 'true'),
   /**
    * 清掃租戶 outbox 的 cron（UTC）：交易提交後會立刻搬進佇列，這裡只補救搬移途中程序當掉的情況
-   * （docs/adr/0020-physical-tenant-isolation.md D15）。空字串停用。
+   * （docs/adr/0020-physical-tenant-isolation.md D15）。它會進入每個 active 租戶：間隔要比
+   * `TENANT_POOL_IDLE_TIMEOUT` 長得多，閒置租戶的連線池才會真的關掉。空字串停用。
    */
-  JOBS_OUTBOX_SWEEP_CRON: z.string().trim().default('* * * * *'),
+  JOBS_OUTBOX_SWEEP_CRON: z.string().trim().default('*/10 * * * *'),
   /**
    * 郵件寄送方式（docs/architecture/backend/11-mail.md）：`smtp` 經 nodemailer 寄出（本機寄給 Mailpit）；
    * `console` 只寫日誌（含連結），給測試與沒有收信工具的環境用。
@@ -198,6 +215,8 @@ export const EnvSchema = z.object({
   MAIL_TRANSPORT: z.enum(['smtp', 'console']).default('console'),
   /** SMTP 連線網址，例：`smtp://localhost:1025`、`smtps://user:pass@smtp.example.com:465`。 */
   MAIL_SMTP_URL: z.string().default('smtp://localhost:1025'),
+  /** SMTP 連線池的連線數（同時寄出的信；docs/architecture/backend/11-mail.md §2）。 */
+  MAIL_SMTP_POOL_SIZE: z.coerce.number().int().min(1).default(5),
   MAIL_FROM: z.string().min(3).default('B2B System <no-reply@localhost>'),
   /** 瀏覽器看到的前端網址；信裡的連結（啟用、重設密碼）以它開頭。 */
   APP_PUBLIC_URL: z

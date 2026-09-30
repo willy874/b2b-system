@@ -3,7 +3,7 @@ import type { OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '../config';
-import { createPlatformDatabase, PLATFORM_DB } from './database.provider';
+import { connectionLimitsOf, createPlatformDatabase, PLATFORM_DB } from './database.provider';
 
 type CreatedPlatformDatabase = ReturnType<typeof createPlatformDatabase>;
 
@@ -22,8 +22,17 @@ const PLATFORM_CLIENT = Symbol('PLATFORM_CLIENT');
       useFactory: (config: ConfigService<Env, true>): CreatedPlatformDatabase =>
         createPlatformDatabase({
           url: config.get('PLATFORM_DATABASE_URL', { infer: true }),
-          max: config.get('NODE_ENV', { infer: true }) === 'production' ? 10 : 3,
+          max:
+            config.get('PLATFORM_POOL_MAX', { infer: true }) ??
+            (config.get('NODE_ENV', { infer: true }) === 'production' ? 10 : 3),
           logQueries: false,
+          limits: connectionLimitsOf({
+            DB_CONNECT_TIMEOUT: config.get('DB_CONNECT_TIMEOUT', { infer: true }),
+            DB_STATEMENT_TIMEOUT_MS: config.get('DB_STATEMENT_TIMEOUT_MS', { infer: true }),
+            DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: config.get('DB_IDLE_IN_TRANSACTION_TIMEOUT_MS', {
+              infer: true,
+            }),
+          }),
         }),
     },
     {

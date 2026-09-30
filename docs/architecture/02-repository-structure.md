@@ -248,6 +248,12 @@ DEFAULT_TENANT_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_sy
 DEFAULT_TENANT_DOMAINS=localhost:5173   # apps/auth（:5175）不屬於任何租戶
 DEFAULT_TENANT_STORAGE_BUCKET=b2b-system # 預設租戶的 bucket（每個租戶一個）
 TENANT_PROVISIONING_DATABASE_URL=        # 佈建新租戶用（CREATEDB＋CREATEROLE）；留空 = PLATFORM_DATABASE_URL
+TENANT_POOL_MAX=10                 # 每個租戶的連線池上限（連線預算見 docs/architecture/backend/02-database.md §6.2）
+TENANT_POOL_IDLE_TIMEOUT=30        # 租戶連線池的閒置連線幾秒後關閉
+PLATFORM_POOL_MAX=                 # 平台 DB 的連線池上限；留空 = production 10、其他 3
+DB_CONNECT_TIMEOUT=10              # 建立連線的逾時（秒）
+DB_STATEMENT_TIMEOUT_MS=15000      # 每條連線的 statement_timeout（毫秒）；0 = 不限制
+DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=30000   # 交易開著卻閒置的上限（毫秒）；0 = 不限制
 TENANT_BASE_DOMAIN=                      # 新租戶的預設網域 {code}.<值>；留空 = APP_PUBLIC_URL 的 host
 PLATFORM_ADMIN_EMAIL=platform@example.com   # 第一位平台管理者（apps/auth 的登入）
 PLATFORM_ADMIN_PASSWORD=
@@ -284,6 +290,7 @@ SUPER_ADMIN_PASSWORD=              # 留空則 seed 時隨機產生並印出一�
 
 MAIL_TRANSPORT=smtp                 # smtp / console（backend/11-mail.md §2）
 MAIL_SMTP_URL=smtp://localhost:1025 # 本機是 Mailpit
+MAIL_SMTP_POOL_SIZE=5               # SMTP 連線池的連線數（同時寄出的信）
 MAIL_FROM="B2B System <no-reply@localhost>"
 APP_PUBLIC_URL=http://localhost:5173  # 信裡連結的開頭；也是第一方 client `backstage` 的 redirect URI 開頭
 AUTH_APP_URL=http://localhost:5175     # apps/auth（IdP 的登入互動頁）
