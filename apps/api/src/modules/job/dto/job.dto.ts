@@ -1,10 +1,11 @@
 import { z } from 'zod';
 
+import { OffsetSchema } from '@/core/http';
 import { JOB_STATES } from '@/core/jobs';
 import { defineSchema } from '@/core/validation';
 
 export const ListJobSchema = z.object({
-  offset: z.coerce.number().int().min(0).default(0),
+  offset: OffsetSchema,
   limit: z.coerce.number().int().min(1).max(100).default(50),
   name: z.string().trim().max(100).optional(),
   state: z.enum(JOB_STATES).optional(),

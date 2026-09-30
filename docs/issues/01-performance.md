@@ -212,6 +212,7 @@
   2. `refreshAudience` 以批次查詢取得多人的權限集合（一條 SQL `WHERE user_id = ANY($1)` group by user），並限制每批的並行數。
   3. `ensurePersonalFolders` 改成批次 SQL（一次 `INSERT … SELECT`、一次 grants、一次稽核），或改為「第一次進入檔案管理器時才建立」（lazy），把大量建立移到背景工作。
 - **驗收**：對 1000 人的角色授予 `file:access`，同一時間另一租戶的 `resource.changed` 推播延遲 < 1 s；該操作的交易時間 < 1 s。
+- **狀態**：已修（fix/role-events）——事件匯流排依租戶分開排隊、`sessions.revoked` 走優先通道；`refreshAudience` 與個人資料夾的資格篩選改用 `PermissionService.getPermissionSets` 批次查詢（每批兩條 SQL，refreshAudience 每批 200 人）。建議 3 的後半（`ensurePersonalFolders` 在樹鎖交易內逐人 `hasSibling`／`create`／`grants.set`／`audit.record`）屬檔案模組內部，未動，延後給檔案組改成批次 SQL 或 lazy 建立。
 
 ### PERF-09 列表每一頁都 `count(*)`，稽核最長 90 天範圍、檔案游標分頁也算，offset 沒有上限
 
@@ -366,6 +367,7 @@
 - **影響**：使用者數在數千以內時都是毫秒級，1000 人不會出事；使用者或檔案數成長到數十萬後才會退化。
 - **建議**：`files (created_by, created_at) WHERE deleted_at IS NULL`；`users` 三欄的 `gin_trgm_ops`（或合成一個 `search_text` 欄）；使用者列表先分頁再聚合角色（子查詢 `LIMIT` 後 join）。
 - **驗收**：`EXPLAIN ANALYZE` 顯示上述查詢使用索引；10 萬使用者時關鍵字搜尋 p95 < 50 ms。
+- **狀態**：部分已修（fix/role-events）——使用者關鍵字：`users` 的 email／username／display_name 加 `gin_trgm_ops` 部分索引（migration 0006），查詢運算式改成與索引一致（`username::text`，拿掉 `coalesce`），整合測試以 `EXPLAIN` 驗證三個索引都用得上。延後：`files (created_by, created_at)` 索引（檔案組）；使用者列表「先分頁再聚合角色」（目前規模下不必要）。
 
 ### PERF-20 容器沒有記憶體上限與 Node heap 設定；健康檢查只看 liveness
 

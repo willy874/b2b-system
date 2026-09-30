@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { defineSchema } from '@/core/validation';
+import { defineSchema, uniqueItems } from '@/core/validation';
 
 export const UpdateUserSchema = defineSchema(
   'UpdateUserRequest',
@@ -19,7 +19,7 @@ export const UpdateUserSchema = defineSchema(
 
 export const ReplaceUserRolesSchema = defineSchema(
   'ReplaceUserRolesRequest',
-  z.object({ roleIds: z.array(z.string().uuid()).max(20) }),
+  z.object({ roleIds: uniqueItems(z.array(z.string().uuid()).max(20)) }),
 );
 
 export type UpdateUserDto = z.infer<typeof UpdateUserSchema>;

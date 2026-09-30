@@ -182,6 +182,7 @@
 - **預期 vs 實際**：預期拒絕或至少二次確認；實際直接生效。
 - **建議**：`updatePermissions`/`remove` 若 actor 持有該角色、且變更會讓 actor 失去 `role:update` 或 `role:grantPermission`，回 `AUTHZ_SELF_MODIFY`（super-admin 豁免）；前端顯示警告。
 - **驗收**：整合測試「admin 移除自己角色的 role:grantPermission → 403」、「force 刪除自己持有的角色 → 403」。
+- **狀態**：已修（fix/role-events）——改用新錯誤碼 `ROLE_SELF_LOCKOUT`（403，`details.lost`）而非 `AUTHZ_SELF_MODIFY`，訊息較明確；受保護的權限為 `role:read`、`role:update`、`role:grantPermission`，super-admin 豁免（docs/architecture/backend/05-rbac.md §8.4）。前端只補錯誤訊息翻譯，沒有另做事前警告。
 
 ### EDGE-13 資料夾移動沒有檢查深度上限
 
@@ -212,6 +213,7 @@
 - **預期 vs 實際**：預期租戶間互不影響、踢線即時；實際排隊。
 - **建議**：佇列以租戶分開（`Map<tenantId, Promise>`），`SESSIONS_REVOKED` 走優先通道；`refreshAudience` 批次查權限（一次查所有 userId）並以有限並行處理。
 - **驗收**：單元測試兩個租戶的事件可並行；壓測 1000 人的角色變更在 N 秒內完成且不阻塞其他租戶。
+- **狀態**：已修（fix/role-events）——同 PERF-08：佇列依租戶分開（`Map<lane, Promise>`，處理完即移除）、`SESSIONS_REVOKED` 每個租戶另有優先通道、權限批次查詢；單元測試驗證兩個租戶的事件可並行、踢線不排在同租戶卡住的事件之後。事件只在記憶體（程序當掉會遺失）維持現狀，影響如現況所述有限。
 
 ### EDGE-16 個人資料夾命名碰撞會讓整批建立失敗
 
@@ -232,6 +234,7 @@
 - **預期 vs 實際**：預期 400 `VALIDATION_FAILED`；實際 500／錯誤碼誤導。
 - **建議**：陣列 DTO 一律 `.refine(unique)` 或在 service 去重；未對應的 23505 回 409 `CONFLICT` 而非 500；`HttpException` 依狀態碼對應（400 → `VALIDATION_FAILED`、404 → `NOT_FOUND`）。
 - **驗收**：`rbac-lifecycle.spec.ts` 加重複 roleIds 與非法 UUID 的案例。
+- **狀態**：已修（fix/role-events）——未對應的 23505 回 409 `CONFLICT`（並記 warn）；`HttpException` 依狀態碼對應（400 `VALIDATION_FAILED`、401 `AUTH_TOKEN_INVALID`、403 `AUTHZ_FORBIDDEN`、404 `NOT_FOUND`、409 `CONFLICT`、429；其餘 4xx `VALIDATION_FAILED`）；`roleIds`（建立使用者、替換角色、審批核准）以 `uniqueItems()` 禁止重複，repository 的插入也去重並 `onConflictDoNothing`。
 
 ### EDGE-18 同一權限同時在 `add` 與 `remove`：結果與稽核相反
 
@@ -242,6 +245,7 @@
 - **預期 vs 實際**：預期 400 或兩者一致；實際不一致。
 - **建議**：DTO `.refine` 禁止交集；或 `after` 在交易內以 `listPermissionKeys(tx)` 重新查出。
 - **驗收**：DTO 單元測試交集 → 400。
+- **狀態**：已修（fix/role-events）——DTO 禁止 `add`／`remove` 交集（400）；稽核的 `before`／`after` 在交易內（鎖住角色列後）讀取。
 
 ### EDGE-19 角色刪除的檢查在交易外
 
@@ -252,6 +256,7 @@
 - **預期 vs 實際**：預期其中一個以 `ROLE_IN_USE`／`ROLE_NOT_FOUND` 失敗；實際兩者都成功、狀態不一致。
 - **建議**：刪除交易內 `SELECT … FROM roles WHERE id=$1 FOR UPDATE` 後重新計數，並以 `DELETE … RETURNING user_id` 取得受影響者；指派交易內以 `FOR SHARE` 鎖住角色列再插入。
 - **驗收**：整合測試併發刪除與指派。
+- **狀態**：已修（fix/role-events）——刪除：交易內 `FOR UPDATE` 鎖角色列後重新計數，受影響者以 `DELETE … RETURNING` 取得；指派：`user.repository` 在交易內以 `FOR SHARE` 鎖角色列、只插入未刪除的角色。整合測試以測試端持有列鎖重現兩種先後順序。`user.service` 的 `assertRolesExist` 仍在交易外（認證帳號組負責的檔案），但交易內的 `FOR SHARE` 已保證不留下指向已刪除角色的指派。
 
 ### EDGE-20 並行移除網域可把網域移光
 
@@ -274,6 +279,7 @@
   - 已正確處理：全空白（`trim().min(1)`）、長度上限、排序欄位白名單、非法 enum、`from > to` 與 90 天範圍、非法日期（`z.coerce.date` 產生 Invalid Date 會被拒絕）。
 - **建議**：共用 `escapeLike()`；`offset` 設上限（例：10 000，超過要求改用游標）；角色名稱改 `citext` 或以 `lower(name)` 建唯一索引；名稱統一 `normalize('NFC')`。`assertUsernameAvailable` 改精確查詢。
 - **驗收**：`list-sort.spec.ts` 加 `keyword=_`、`offset=99999999999` 案例。
+- **狀態**：已修（fix/role-events）——`core/database` 的 `escapeLike`／`containsPattern`／`prefixPattern`（角色、使用者、審批改用；檔案、稽核、平台稽核、資源授權已有各自的私有 `escapeLike`，未合併以免與其他組衝突）；`PaginationSchema` 的 offset 上限 10 000（`OffsetSchema` 也套到背景工作列表；稽核與平台稽核列表的 DTO 有自己的 offset，留給基礎設施組的 PERF-09 一併處理）；`roles_name_key` 改 `lower(name)`（migration 0006：既有名稱先 NFC 正規化，只差大小寫的保留最早建立的、其餘改名「<原名> (<slug>)」），API 端角色名稱 `normalize('NFC')`。延後：`assertUsernameAvailable` 改精確查詢（在 `user.service`，屬認證帳號組；唯一索引兜底，行為正確）；資料夾名稱的 NFC 正規化（檔案組）。
 
 ### EDGE-22 分塊上傳 `complete` 的併發與中斷
 
@@ -310,6 +316,7 @@
 - **現況**：刪除角色實作是 `UPDATE roles SET deleted_at`（軟刪除），trigger 只擋 `DELETE` 與 slug／`is_system` 變更，所以 I7 的「DB trigger 雙保險」對實際的刪除路徑無效，只剩 service 檢查。`update()` 不檢查 `isSystem`，系統角色的 `name`／`description` 可改；[01-domain-model.md §1](../rbac/01-domain-model.md) 寫「`is_system` 角色不可刪除／改名」，§3.2 又說 name 可改，文件本身不一致。
 - **建議**：trigger 加 `IF OLD.is_system AND NEW.deleted_at IS NOT NULL THEN RAISE`；釐清「改名」的定義並補測試。
 - **驗收**：`triggers.spec.ts` 加「軟刪除系統角色被擋」。
+- **狀態**：已修（fix/role-events）——migration 0006 的 `protect_system_roles` 也擋 `deleted_at` 由 NULL 變非 NULL；service 層原本就擋。系統角色的顯示名稱維持可改（既定決定），`01-domain-model.md` §1 已改為「不可刪除、不可改 slug」。註記：同文件 §5 表格寫 super-admin 的 name／description 不可改，但 `RoleService.update` 沒有擋，依既定決定未動程式，文件與實作的差異待產品確認。
 
 ### EDGE-26 前端：離開未儲存、權限撤銷時的 UI、重連尖峰
 

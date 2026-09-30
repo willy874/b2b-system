@@ -37,6 +37,10 @@ const CONSTRAINT_TO_CODE: Record<string, string> = {
   roles_slug_key: 'ROLE_NAME_DUPLICATE',
 };
 
+/**
+ * 唯一鍵衝突 → 錯誤碼。沒有登記的約束回通用的 `CONFLICT`（409）而不是 500：
+ * 衝突是請求與現有資料的問題，不是伺服器壞了（docs/issues/03-edge-cases.md EDGE-17）。
+ */
 export function mapConstraintToCode(constraint: string | undefined): string {
-  return (constraint && CONSTRAINT_TO_CODE[constraint]) ?? 'INTERNAL_ERROR';
+  return (constraint && CONSTRAINT_TO_CODE[constraint]) ?? 'CONFLICT';
 }

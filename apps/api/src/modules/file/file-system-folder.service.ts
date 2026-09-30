@@ -225,19 +225,16 @@ export class FileSystemFolderService
 
   /** 能進檔案管理器（頁面的閘門：`file:access` 或 `file:read`，或 super-admin）。 */
   private async eligible(userIds: readonly string[]): Promise<string[]> {
-    const result: string[] = [];
-    for (const id of new Set(userIds)) {
-      // oxlint-disable-next-line no-await-in-loop -- 權限集合有快取；受影響的人數有限
-      const { permissions, isSuperAdmin } = await this.permissions.getPermissionSet(id);
-      if (
-        isSuperAdmin ||
-        permissions.has(PERMISSION.FILE_ACCESS) ||
-        permissions.has(PERMISSION.FILE_READ)
-      ) {
-        result.push(id);
-      }
-    }
-    return result;
+    // 一次批次解析：角色權限變更時受影響的可能是上千人（docs/issues/01-performance.md PERF-08）
+    const sets = await this.permissions.getPermissionSets(userIds);
+    return [...sets]
+      .filter(
+        ([, { permissions, isSuperAdmin }]) =>
+          isSuperAdmin ||
+          permissions.has(PERMISSION.FILE_ACCESS) ||
+          permissions.has(PERMISSION.FILE_READ),
+      )
+      .map(([id]) => id);
   }
 
   /** 找到就用；根目錄已有同名的一般資料夾就把它標成系統資料夾；都沒有就建立。 */

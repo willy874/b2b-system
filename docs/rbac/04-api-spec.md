@@ -253,19 +253,24 @@
 
 檢查順序：
 
+0. 同一個鍵同時在 `add` 與 `remove` → `400 VALIDATION_FAILED`（意圖不明，結果也會與稽核對不上）
 1. 角色存在且未刪除
 2. `isSystem && slug === 'super-admin'` → `403 ROLE_SUPER_ADMIN_IMMUTABLE`
 3. `add` 的鍵全部存在 → 否則 `400 PERMISSION_UNKNOWN`
 4. 反提權：`add ⊆ actor 權限集合` → 否則 `403 AUTHZ_ESCALATION`
-5. `LAST_SUPER_ADMIN` 檢查
-6. 交易寫入 → 失效快取 → 稽核
+5. 自我鎖定：actor 持有這個角色、且變更後會失去管理角色所需的權限 → `403 ROLE_SELF_LOCKOUT`
+   （[`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §8.4）
+6. 交易（先 `FOR UPDATE` 鎖住角色列）寫入 ＋ 稽核（`before`／`after` 在交易內讀取）→ 失效快取
 
 ### 3.4 `DELETE /roles/:id`
 
-- `isSystem` → `403 ROLE_SYSTEM_PROTECTED`
+- `isSystem` → `403 ROLE_SYSTEM_PROTECTED`（DB trigger 也擋系統角色的軟刪除）
+- actor 持有這個角色、且刪除後會失去管理角色所需的權限 → `403 ROLE_SELF_LOCKOUT`
 - 尚有（未刪除的）使用者持有 → 預設拒絕 `409 ROLE_IN_USE`，帶 `details.userCount`
   - 可加 `?force=true`（仍需 `role:delete`）強制刪除並連帶移除指派，
     此時稽核紀錄 `metadata.forced = true`
+- 計數與刪除在同一個交易裡、先以 `FOR UPDATE` 鎖住角色列；指派角色以 `FOR SHARE` 鎖住角色列再插入。
+  兩者同時發生時，後到的一方看得到先提交的結果（不會刪掉剛指派的人卻沒失效他的快取，也不會留下指向已刪除角色的指派）
 
 ### 3.5 `POST /roles/:id/duplicate`
 

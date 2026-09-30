@@ -75,6 +75,8 @@ export const ErrorCode = {
   ROLE_SUPER_ADMIN_IMMUTABLE: { status: 403 },
   ROLE_IN_USE: { status: 409 },
   LAST_SUPER_ADMIN: { status: 403 },
+  /** 改自己持有的角色的權限或刪除它，會讓自己失去管理角色所需的權限（docs/architecture/backend/05-rbac.md §8.4）。 */
+  ROLE_SELF_LOCKOUT: { status: 403 },
 
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },
@@ -118,6 +120,10 @@ export const ErrorCode = {
   SETTING_NOT_FOUND: { status: 404 },
 
   // ── 通用 ──
+  /** 路徑不存在（框架層的 404；業務上找不到資源用各自的 `<DOMAIN>_NOT_FOUND`）。 */
+  NOT_FOUND: { status: 404 },
+  /** 沒有對應到業務錯誤碼的唯一鍵衝突：多半是併發的重複寫入，重試或重新整理即可。 */
+  CONFLICT: { status: 409 },
   RATE_LIMITED: { status: 429 },
   INTERNAL_ERROR: { status: 500 },
 } as const;

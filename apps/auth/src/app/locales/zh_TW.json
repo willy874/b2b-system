@@ -152,6 +152,7 @@
     "ROLE_SUPER_ADMIN_IMMUTABLE": "超級管理員角色的權限不可變更。",
     "ROLE_IN_USE": "仍有使用者持有這個角色。",
     "LAST_SUPER_ADMIN": "系統必須保留至少一位可用的超級管理員。",
+    "ROLE_SELF_LOCKOUT": "這個變更會讓你失去管理角色所需的權限，請改由其他管理者操作。",
     "PERMISSION_UNKNOWN": "包含系統未定義的權限鍵。",
     "APPROVAL_NOT_FOUND": "找不到這筆審批申請。",
     "APPROVAL_ALREADY_REVIEWED": "這筆申請已經被審核過了。",
@@ -176,6 +177,8 @@
     "FILE_GRANT_SUBJECT_NOT_FOUND": "授權對象不存在或已被刪除。",
     "FILE_GRANT_NOT_FOUND": "這筆授權已不存在。",
     "SETTING_NOT_FOUND": "找不到這個設定。",
+    "NOT_FOUND": "找不到這個頁面或資源。",
+    "CONFLICT": "資料剛被其他操作變更，請重新整理後再試。",
     "RATE_LIMITED": "操作太頻繁，請稍後再試。",
     "INTERNAL_ERROR": "伺服器發生錯誤，請稍後再試。",
     "page": {

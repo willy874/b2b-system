@@ -3,7 +3,7 @@ import { and, asc, desc, eq, ilike, inArray, isNull, like, sql } from 'drizzle-o
 import type { SQL, SQLWrapper } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { TENANT_DB } from '@/core/database';
+import { TENANT_DB, containsPattern, prefixPattern } from '@/core/database';
 import type { PermissionRow, RoleInsert, RoleRow } from '@/db/schema';
 import { permissions, rolePermissions, roles, userRoles, users } from '@/db/schema';
 
@@ -57,11 +57,12 @@ export class RoleRepository {
     return row;
   }
 
+  /** 名稱不分大小寫（與唯一索引 `roles_name_key` 的 `lower(name)` 一致）。 */
   async findByName(name: string): Promise<RoleRow | undefined> {
     const [row] = await this.db
       .select()
       .from(roles)
-      .where(and(eq(roles.name, name), isNull(roles.deletedAt)))
+      .where(and(sql`lower(${roles.name}) = lower(${name})`, isNull(roles.deletedAt)))
       .limit(1);
     return row;
   }
@@ -70,7 +71,7 @@ export class RoleRepository {
     const rows = await this.db
       .select({ slug: roles.slug })
       .from(roles)
-      .where(and(like(roles.slug, `${prefix}%`), isNull(roles.deletedAt)));
+      .where(and(like(roles.slug, prefixPattern(prefix)), isNull(roles.deletedAt)));
     return rows.map((row) => row.slug);
   }
 
@@ -95,7 +96,7 @@ export class RoleRepository {
   async list(query: ListRoleDto): Promise<{ items: RoleWithCounts[]; total: number }> {
     const conditions: SQL[] = [isNull(roles.deletedAt)];
     if (query.keyword) {
-      const pattern = `%${query.keyword}%`;
+      const pattern = containsPattern(query.keyword);
       conditions.push(sql`(${roles.name} ILIKE ${pattern} OR ${roles.slug} ILIKE ${pattern})`);
     }
     if (query.isSystem !== undefined) conditions.push(eq(roles.isSystem, query.isSystem));
@@ -146,16 +147,31 @@ export class RoleRepository {
     return row;
   }
 
-  async softDelete(id: string, actorId: string, tx: DbOrTx): Promise<void> {
+  /** 在交易內以 `FOR UPDATE` 鎖住未刪除的角色列；不存在（或已刪除）時回 false。 */
+  async lockActive(id: string, tx: DbOrTx): Promise<boolean> {
+    const [row] = await tx
+      .select({ id: roles.id })
+      .from(roles)
+      .where(and(eq(roles.id, id), isNull(roles.deletedAt)))
+      .for('update');
+    return Boolean(row);
+  }
+
+  /** 軟刪除角色並刪掉它的指派；回傳被刪掉指派的使用者（刪除與取得在同一條語句）。 */
+  async softDelete(id: string, actorId: string, tx: DbOrTx): Promise<string[]> {
     await tx
       .update(roles)
       .set({ deletedAt: new Date(), updatedBy: actorId })
       .where(eq(roles.id, id));
-    await tx.delete(userRoles).where(eq(userRoles.roleId, id));
+    const removed = await tx
+      .delete(userRoles)
+      .where(eq(userRoles.roleId, id))
+      .returning({ userId: userRoles.userId });
+    return removed.map((row) => row.userId);
   }
 
-  async listPermissions(roleId: string): Promise<PermissionRow[]> {
-    return this.db
+  async listPermissions(roleId: string, db: DbOrTx = this.db): Promise<PermissionRow[]> {
+    return db
       .select({
         id: permissions.id,
         key: permissions.key,
@@ -172,8 +188,8 @@ export class RoleRepository {
       .orderBy(asc(permissions.sortOrder));
   }
 
-  async listPermissionKeys(roleId: string): Promise<string[]> {
-    const rows = await this.listPermissions(roleId);
+  async listPermissionKeys(roleId: string, db: DbOrTx = this.db): Promise<string[]> {
+    const rows = await this.listPermissions(roleId, db);
     return rows.map((row) => row.key);
   }
 
@@ -206,8 +222,8 @@ export class RoleRepository {
       );
   }
 
-  async countUsers(roleId: string): Promise<number> {
-    const [row] = await this.db
+  async countUsers(roleId: string, db: DbOrTx = this.db): Promise<number> {
+    const [row] = await db
       .select({ total: sql<number>`count(*)::int` })
       .from(userRoles)
       .innerJoin(users, and(eq(users.id, userRoles.userId), isNull(users.deletedAt)))
@@ -239,18 +255,10 @@ export class RoleRepository {
     return { items, total: counted?.total ?? 0 };
   }
 
-  async findUserIdsByRole(roleId: string): Promise<string[]> {
-    const rows = await this.db
-      .select({ userId: userRoles.userId })
-      .from(userRoles)
-      .where(eq(userRoles.roleId, roleId));
-    return rows.map((row) => row.userId);
-  }
-
   async searchByName(keyword: string): Promise<RoleRow[]> {
     return this.db
       .select()
       .from(roles)
-      .where(and(ilike(roles.name, `${keyword}%`), isNull(roles.deletedAt)));
+      .where(and(ilike(roles.name, prefixPattern(keyword)), isNull(roles.deletedAt)));
   }
 }

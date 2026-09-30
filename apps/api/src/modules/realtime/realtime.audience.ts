@@ -70,6 +70,9 @@ export function resolveAudienceRooms(
   return [...[...perms].map(permRoom), ...[...userIds].map(userRoom)];
 }
 
+/** `refreshAudience` 每批解析多少人的權限。 */
+const REFRESH_BATCH_SIZE = 200;
+
 /** 使用者 ↔ perm room 的同步（§3.3、§6.2）。 */
 @Injectable()
 export class RealtimeAudience {
@@ -87,13 +90,32 @@ export class RealtimeAudience {
   /**
    * 權限集合改變的人：他們的連線換 room，否則會繼續收到（或收不到）不該收的事件。
    * 呼叫前權限快取必須已失效，否則會拿到舊集合。
+   *
+   * 一個角色可能有上千位持有者：權限以批次查詢（每批兩條 SQL），不是每人各查一次
+   * （docs/issues/01-performance.md PERF-08）。
    */
   async refreshAudience(userIds: readonly string[]): Promise<void> {
-    for (const id of new Set(userIds)) {
-      // 沒有連線的人不必解析權限（省一次 DB）。只看本機的連線：
-      // 裝了跨節點 adapter 之後要拿掉這個捷徑（§10.3）。
-      if (!this.publisher.countConnections(userRoom(id))) continue;
-      this.publisher.moveRooms(userRoom(id), allPermRooms(), await this.roomsFor(id));
+    // 沒有連線的人不必解析權限（省 DB）。只看本機的連線：
+    // 裝了跨節點 adapter 之後要拿掉這個捷徑（§10.3）。
+    const connected = [...new Set(userIds)].filter((id) =>
+      this.publisher.countConnections(userRoom(id)),
+    );
+    if (connected.length === 0) return;
+
+    const everyPermRoom = allPermRooms();
+    for (let start = 0; start < connected.length; start += REFRESH_BATCH_SIZE) {
+      const batch = connected.slice(start, start + REFRESH_BATCH_SIZE);
+      // oxlint-disable-next-line no-await-in-loop -- 分批依序：限制同時佔用的 DB 連線與記憶體
+      const sets = await this.permissionService.getPermissionSets(batch);
+      for (const id of batch) {
+        const set = sets.get(id);
+        if (!set) continue;
+        this.publisher.moveRooms(
+          userRoom(id),
+          everyPermRoom,
+          permRoomsFor(set.permissions, set.isSuperAdmin),
+        );
+      }
     }
   }
 }
