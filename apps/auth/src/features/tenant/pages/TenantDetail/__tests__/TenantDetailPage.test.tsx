@@ -12,8 +12,9 @@ import { AllProviders } from '@/test/renderWithPermissions';
 import { registerTenantPagePermissions, Routes } from '../../..';
 import { tenantFixture } from '../../../test-fixtures';
 
-const { getTenant, retry, disable, removeDomain, update } = vi.hoisted(() => ({
+const { getTenant, retry, disable, removeDomain, update, removeTenant } = vi.hoisted(() => ({
   update: vi.fn(),
+  removeTenant: vi.fn(),
   getTenant: vi.fn(),
   retry: vi.fn(),
   disable: vi.fn(),
@@ -35,6 +36,9 @@ vi.mock('@/apis/platform-tenant/disable-tenant/mutation', () => ({
 vi.mock('@/apis/platform-tenant/update-tenant/mutation', () => ({
   getUpdateTenantMutationOptions: () => ({ mutationFn: update }),
 }));
+vi.mock('@/apis/platform-tenant/delete-tenant/mutation', () => ({
+  getDeleteTenantMutationOptions: () => ({ mutationFn: removeTenant }),
+}));
 vi.mock('@/apis/platform-tenant/remove-tenant-domain/mutation', () => ({
   getRemoveTenantDomainMutationOptions: () => ({ mutationFn: removeDomain }),
 }));
@@ -55,6 +59,7 @@ function renderPage(tenant: PlatformTenant, permissions: PermissionKey[]) {
       <RouterProvider router={router} />
     </AllProviders>,
   );
+  return router;
 }
 
 beforeEach(() => {
@@ -65,6 +70,7 @@ beforeEach(() => {
   disable.mockReset();
   removeDomain.mockReset();
   update.mockReset();
+  removeTenant.mockReset();
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
@@ -124,13 +130,35 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     expect(screen.queryByTestId('tenant-domain-remove')).toBeNull();
   });
 
-  it('外部 IdP 開關：有 tenant:update 才能切換，送出 allowExternalIdp', async () => {
+  it('外部 IdP 開關：打開直接送出 allowExternalIdp', async () => {
+    const tenant = tenantFixture({ allowExternalIdp: false });
+    update.mockResolvedValue({ ...tenant, allowExternalIdp: true });
+    renderPage(tenant, ALL);
+    const toggle = await screen.findByTestId('tenant-allow-external-idp');
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(toggle);
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect(update.mock.calls[0]?.[0]).toEqual({
+      params: { id: tenant.id, body: { allowExternalIdp: true } },
+    });
+    expect(screen.queryByTestId('tenant-external-idp-dialog')).toBeNull();
+  });
+
+  it('外部 IdP 開關：關閉要先確認影響（UX-15），取消就不送出', async () => {
     const tenant = tenantFixture();
     update.mockResolvedValue({ ...tenant, allowExternalIdp: false });
     renderPage(tenant, ALL);
     const toggle = await screen.findByTestId('tenant-allow-external-idp');
     expect(toggle).toHaveAttribute('aria-checked', 'true');
+
     fireEvent.click(toggle);
+    expect(await screen.findByTestId('tenant-external-idp-dialog')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('alert-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('tenant-external-idp-dialog')).toBeNull());
+    expect(update).not.toHaveBeenCalled();
+
+    fireEvent.click(toggle);
+    fireEvent.click(await screen.findByTestId('alert-dialog-confirm'));
     await waitFor(() => expect(update).toHaveBeenCalled());
     expect(update.mock.calls[0]?.[0]).toEqual({
       params: { id: tenant.id, body: { allowExternalIdp: false } },
@@ -147,5 +175,69 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     expect(await screen.findByTestId('tenant-provision-warning')).toBeInTheDocument();
     expect(screen.queryByTestId('tenant-provision-error')).toBeNull();
     expect(screen.queryByTestId('tenant-retry')).toBeNull();
+  });
+
+  it('主要網域沒有移除鈕；其他網域移除前要確認（UX-01），取消後網域還在', async () => {
+    renderPage(tenantFixture(), ALL);
+    expect(await screen.findByTestId('tenant-domain-primary')).toBeInTheDocument();
+    const removeButtons = screen.getAllByTestId('tenant-domain-remove');
+    expect(removeButtons.map((el) => el.dataset.value)).toEqual(['portal.acme.test']);
+
+    fireEvent.click(removeButtons[0]!);
+    expect(await screen.findByTestId('tenant-domain-remove-dialog')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('alert-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('tenant-domain-remove-dialog')).toBeNull());
+    expect(removeDomain).not.toHaveBeenCalled();
+  });
+
+  it('確認移除網域：送出中兩顆按鈕都停用，不會重複送出', async () => {
+    const tenant = tenantFixture();
+    let finish: (value: unknown) => void = () => undefined;
+    removeDomain.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    renderPage(tenant, ALL);
+    fireEvent.click(await screen.findByTestId('tenant-domain-remove'));
+    const confirmButton = await screen.findByTestId('alert-dialog-confirm');
+    fireEvent.click(confirmButton);
+    // loading 的按鈕用 aria-disabled（保留焦點），取消鈕是原生 disabled
+    await waitFor(() => expect(confirmButton).toHaveAttribute('aria-disabled', 'true'));
+    expect(screen.getByTestId('alert-dialog-cancel')).toBeDisabled();
+    fireEvent.click(confirmButton);
+    expect(removeDomain).toHaveBeenCalledTimes(1);
+    expect(removeDomain.mock.calls[0]?.[0]).toEqual({
+      params: { id: tenant.id, domain: 'portal.acme.test' },
+    });
+    finish({ ...tenant, domains: ['acme.localhost:5173'] });
+    await waitFor(() => expect(screen.queryByTestId('tenant-domain-remove-dialog')).toBeNull());
+  });
+
+  it('刪除租戶要輸入租戶代碼才能確認（UX-15）', async () => {
+    const tenant = tenantFixture();
+    removeTenant.mockResolvedValue(undefined);
+    const router = renderPage(tenant, ALL);
+    fireEvent.click(await screen.findByTestId('tenant-remove'));
+    const submit = await screen.findByTestId('tenant-remove-submit');
+    expect(submit).toBeDisabled();
+
+    fireEvent.change(screen.getByTestId('tenant-remove-confirm-input'), {
+      target: { value: 'acm' },
+    });
+    expect(submit).toBeDisabled();
+    fireEvent.click(submit);
+    expect(removeTenant).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByTestId('tenant-remove-confirm-input'), {
+      target: { value: 'acme' },
+    });
+    expect(submit).not.toBeDisabled();
+    fireEvent.click(submit);
+    await waitFor(() => expect(removeTenant).toHaveBeenCalled());
+    expect(removeTenant.mock.calls[0]?.[0]).toEqual({ params: { id: tenant.id } });
+    // 刪除後回到清單
+    await waitFor(() => expect(router.state.location.pathname).toBe('/tenant'));
+    await waitFor(() => expect(router.state.status).toBe('idle'));
   });
 });

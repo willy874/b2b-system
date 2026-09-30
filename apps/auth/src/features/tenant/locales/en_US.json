@@ -64,7 +64,8 @@
       "action": "Delete",
       "title": "Delete tenant",
       "confirm": "Delete {{code}}: the tenant is disabled and removed from the list, and its domains are released. The database and files aren't removed right away; that's a separate manual step.",
-      "success": "Deleted"
+      "success": "Deleted",
+      "typeToConfirm": "Type the tenant code {{code}} to confirm"
     },
     "domain": {
       "title": "Domains",
@@ -73,12 +74,19 @@
       "addAction": "Add",
       "remove": "Remove this domain",
       "addSuccess": "Domain added",
-      "removeSuccess": "Domain removed"
+      "removeSuccess": "Domain removed",
+      "removeTitle": "Remove domain",
+      "removeConfirm": "After removal, {{domain}} immediately stops leading to this tenant: people using it are locked out, and bookmarks and links in old emails stop working.",
+      "removeAction": "Remove",
+      "primaryHint": "The primary domain can't be removed: email links and tenant sign-in use it."
     },
     "externalIdp": {
       "title": "External IdP",
       "allow": "Allow this tenant to configure external IdP connections",
-      "description": "When off, the tenant can't add or enable connections and sign-in never redirects to an external IdP. Existing connections are kept and come back when you turn this on again."
+      "description": "When off, the tenant can't add or enable connections and sign-in never redirects to an external IdP. Existing connections are kept and come back when you turn this on again.",
+      "disableTitle": "Turn off external IdP",
+      "disableConfirm": "After turning this off, {{code}} users can no longer sign in with an external IdP, and SSO-only domains fall back to password sign-in. Users who only ever signed in through the external IdP and have no password must reset their password first. Existing connections are kept and come back when you turn this on again.",
+      "disableAction": "Turn off"
     },
     "provisionWarning": "Provisioning finished, but a follow-up step didn't succeed (the tenant is usable; file storage is retried on the first upload): {{reason}}"
   }
