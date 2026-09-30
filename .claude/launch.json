@@ -33,17 +33,10 @@
     },
     {
       "name": "backstage-mock",
-      "runtimeExecutable": "env",
+      "runtimeExecutable": "zsh",
       "runtimeArgs": [
-        "VITE_ENABLE_MOCK=true",
-        "pnpm",
-        "--filter",
-        "@b2b-system/backstage",
-        "exec",
-        "vite",
-        "--port",
-        "5174",
-        "--strictPort"
+        "-c",
+        "export PATH=$HOME/.nvm/versions/node/v24.21.0/bin:$PATH && VITE_ENABLE_MOCK=true pnpm --filter @b2b-system/backstage exec vite --port 5174 --strictPort"
       ],
       "port": 5174
     },

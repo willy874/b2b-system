@@ -1,12 +1,42 @@
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import react from '@vitejs/plugin-react';
 import unocss from 'unocss/vite';
 import { defineConfig } from 'vite';
+import type { Plugin } from 'vite';
 import svgr from 'vite-plugin-svgr';
 
+const MOCK_WORKER_FILE = 'mockServiceWorker.js';
+
+/**
+ * MSW 的 Service Worker 腳本：直接取已安裝的 msw 套件裡那一份，不 commit 生成檔（版本永遠一致）。
+ * 只在 `VITE_ENABLE_MOCK=true` 時提供——dev 由 middleware 回應、建置時才輸出到 dist；
+ * 放進 `public/` 的話每個正式產物都會帶著它。
+ */
+function mockServiceWorker(): Plugin {
+  let enabled = false;
+  const read = () => readFileSync(fileURLToPath(import.meta.resolve(`msw/${MOCK_WORKER_FILE}`)));
+  return {
+    name: 'b2b-system:mock-service-worker',
+    configResolved(config) {
+      enabled = config.env.VITE_ENABLE_MOCK === 'true';
+    },
+    configureServer(server) {
+      if (!enabled) return;
+      server.middlewares.use(`${server.config.base}${MOCK_WORKER_FILE}`, (_req, res) => {
+        res.setHeader('Content-Type', 'text/javascript');
+        res.end(read());
+      });
+    },
+    generateBundle() {
+      if (enabled) this.emitFile({ type: 'asset', fileName: MOCK_WORKER_FILE, source: read() });
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
-  plugins: [unocss(), react(), svgr()],
+  plugins: [unocss(), react(), svgr(), mockServiceWorker()],
   css: {
     modules: {
       // 開發時保留檔名與 class 名稱，DevTools 裡一眼看得出是哪個元件的哪一層；

@@ -549,6 +549,13 @@ mocks/
 ```
 
 - `VITE_ENABLE_MOCK=true pnpm dev:backstage` → 完全不需要後端即可開發前端
+- Service Worker 腳本（`mockServiceWorker.js`）**不 commit、也不放 `public/`**：`vite.config.ts` 的
+  `mockServiceWorker()` 外掛直接取已安裝的 `msw` 套件裡那一份，只在 `VITE_ENABLE_MOCK=true` 時提供
+  （dev 由 middleware 回應、`vite build` 才輸出到 dist）。版本永遠與 `msw` 一致，正式產物也不會帶著它
+- 登入交給 SSO（apps/auth），mock 模式不跳過去：`main.tsx` 啟動 worker 後呼叫
+  `sessionStore.presumeSession()`，一律視為已登入，由 MSW 回應 `/auth/refresh` 與 `/auth/profile`
+  （權限集合見 `mocks/config.ts`）。登出後會停在登入頁（按「登入」才會去真的 SSO）；重新整理就又登入。
+  要看未登入的畫面請用元件測試，不要用 mock 模式
 - 測試直接共用同一批 handler，個別 case 用 `server.use(...)` 覆寫
 - handler 必須實作 **權限行為**：mock 的 `GET /auth/profile` 要能依測試情境回
   不同的權限集合，這樣才測得到 gating
