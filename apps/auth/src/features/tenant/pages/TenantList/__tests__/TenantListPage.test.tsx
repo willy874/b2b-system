@@ -1,6 +1,6 @@
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
@@ -55,6 +55,11 @@ function renderPage(permissions: PermissionKey[] | 'unhydrated', url = '/tenant'
   );
   return router;
 }
+
+// 頁面是 lazy 載入：先載好，第一個測試才不會在機器忙碌時等超過 findBy 的逾時
+beforeAll(async () => {
+  await import('../page');
+});
 
 beforeEach(() => {
   resetPagePermissionRegistry();
