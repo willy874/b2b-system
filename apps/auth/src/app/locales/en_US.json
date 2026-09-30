@@ -305,5 +305,18 @@
     "format": "The format is invalid",
     "invalid": "The value is invalid",
     "passwordMismatch": "The passwords don't match"
+  },
+  "components": {
+    "required": "required",
+    "selectSearch": "Search…",
+    "selectNoMatch": "No matching items",
+    "selectAll": "Select all",
+    "pagination": {
+      "nav": "Pagination",
+      "pageSize": "Rows per page",
+      "first": "First",
+      "last": "Last",
+      "page": "Page number"
+    }
   }
 }

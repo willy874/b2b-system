@@ -305,5 +305,18 @@
     "format": "格式不正確",
     "invalid": "輸入的值不正確",
     "passwordMismatch": "兩次輸入的密碼不一致"
+  },
+  "components": {
+    "required": "必填",
+    "selectSearch": "搜尋…",
+    "selectNoMatch": "沒有符合的項目",
+    "selectAll": "全選",
+    "pagination": {
+      "nav": "分頁",
+      "pageSize": "每頁筆數",
+      "first": "第一頁",
+      "last": "最後一頁",
+      "page": "頁碼"
+    }
   }
 }
