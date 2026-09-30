@@ -22,7 +22,7 @@ function notFound() {
   });
 }
 
-function setup(existingBuckets: string[] = []) {
+function setup(existingBuckets: string[] = [], publicEndpoint = 'http://localhost:5173/storage') {
   const config = {
     get: vi.fn(
       (key: string) =>
@@ -32,11 +32,16 @@ function setup(existingBuckets: string[] = []) {
           FILE_STORAGE_ACCESS_KEY_ID: 'key',
           FILE_STORAGE_SECRET_ACCESS_KEY: 'secret-key',
           FILE_STORAGE_ENDPOINT: 'http://127.0.0.1:9000/storage',
-          FILE_STORAGE_PUBLIC_ENDPOINT: 'http://localhost:5173/storage',
+          FILE_STORAGE_PUBLIC_ENDPOINT: publicEndpoint,
+          APP_PUBLIC_URL: 'https://example.com',
         })[key],
     ),
   } as unknown as ConfigService<Env, true>;
-  const storage = new S3ObjectStorage(config, {} as TenantDirectory);
+  // 租戶的主要網域：測試裡的租戶 id 就是網域的第一段（`acme` → `acme.example.com`）
+  const directory = {
+    requirePrimaryDomain: async (id: string) => `${id}.example.com`,
+  } as unknown as TenantDirectory;
+  const storage = new S3ObjectStorage(config, directory);
   const sent: SentCommand[] = [];
   const buckets = new Set(existingBuckets);
   const send = vi.fn(async (command: SentCommand) => {
@@ -91,5 +96,26 @@ describe('S3ObjectStorage：每個租戶一個 bucket（docs/adr/0020-physical-t
     for (const name of ['B2B', 'ab', 'a..b', '-acme', 'acme_1']) {
       expect(isValidBucketName(name)).toBe(false);
     }
+  });
+
+  it('presigned URL 簽的是目前租戶的網域（`{tenantOrigin}`）：瀏覽器只能直傳到同源的 /storage', async () => {
+    const { storage } = setup([], '{tenantOrigin}/storage');
+    const acme = await inTenant('acme', () =>
+      storage.presignDownload('a/b', { expiresIn: 60, disposition: 'inline', fileName: 'x.png' }),
+    );
+    const beta = await inTenant('beta', () =>
+      storage.presignUpload('a/b', { expiresIn: 60, contentType: 'image/png' }),
+    );
+    expect(new URL(acme.url).origin).toBe('https://acme.example.com');
+    expect(new URL(acme.url).pathname).toBe('/storage/acme/a/b');
+    expect(new URL(beta.url).origin).toBe('https://beta.example.com');
+  });
+
+  it('固定的公開網址（真正的 S3、CDN）→ 不依租戶改變', async () => {
+    const { storage } = setup([], 'https://s3.example.net');
+    const signed = await inTenant('acme', () =>
+      storage.presignUpload('k', { expiresIn: 60, contentType: 'text/plain' }),
+    );
+    expect(new URL(signed.url).origin).toBe('https://s3.example.net');
   });
 });

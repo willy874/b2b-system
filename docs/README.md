@@ -28,7 +28,7 @@
 1. [`overview/01-overview.md`](./overview/01-overview.md) — 目標、範圍、角色定義
 2. [`overview/02-technology-selection.md`](./overview/02-technology-selection.md) — 技術選型與理由
 3. [`architecture/01-system.md`](./architecture/01-system.md) — 系統全貌與資料流
-   （登入與身分見 [`architecture/04-sso.md`](./architecture/04-sso.md)）
+   （登入與身分見 [`architecture/04-sso.md`](./architecture/04-sso.md)；每個租戶一個 database 與網域見 [`architecture/05-tenancy.md`](./architecture/05-tenancy.md)）
 4. [`rbac/01-domain-model.md`](./rbac/01-domain-model.md) — RBAC 領域模型
 5. [`overview/03-roadmap.md`](./overview/03-roadmap.md) — 實作階段與驗收條件
 
@@ -74,6 +74,7 @@ docs/
 │   ├── 02-repository-structure.md     monorepo 結構、目錄佈局、環境變數
 │   ├── 03-file-storage.md             apps/file-storage：S3 相容的本機檔案儲存
 │   ├── 04-sso.md                      SSO：apps/api 當 OIDC Provider、apps/auth、外部 IdP、單一登出
+│   ├── 05-tenancy.md                  租戶：每個租戶一個 database 與網域、佈建與生命週期、部署
 │   │
 │   ├── frontend/
 │   │   ├── README.md

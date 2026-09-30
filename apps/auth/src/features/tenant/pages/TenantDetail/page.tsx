@@ -290,7 +290,7 @@ function TenantDomains({ tenant, canUpdate }: { tenant: PlatformTenant; canUpdat
 }
 
 /**
- * 是否允許租戶設定外部 IdP 連線（docs/adr/0020-physical-tenant-isolation.md 開放問題 2）：
+ * 是否允許租戶設定外部 IdP 連線（docs/adr/0020-physical-tenant-isolation.md D22）：
  * 連線本身由租戶的管理者在自己的 backstage 設定，平台只能開關。
  */
 function ExternalIdpSwitch({ tenant, canUpdate }: { tenant: PlatformTenant; canUpdate: boolean }) {

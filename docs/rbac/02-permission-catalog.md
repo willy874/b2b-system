@@ -314,7 +314,7 @@ Seed 行為：
 | `platformAdmin:create`  | 新增平台管理者    | 建立成 `pending`，寄啟用信讓本人設定密碼（不接受密碼） |
 | `platformAdmin:update`  | 管理平台管理者    | 改名、換角色、停用／啟用（停用即撤銷 session，`locked` 改回 `active` 即解鎖）、寄設定密碼的連結；不能改自己的角色與狀態 |
 | `platformAuditLog:read` | 檢視平台稽核      | `platform_audit_logs`：平台管理者做過的事（D19）；看不到租戶的稽核 |
-| `platformJob:read`      | 檢視背景工作      | 所有租戶與平台自己的工作（開放問題 3）；租戶的後台只看得到自己的 |
+| `platformJob:read`      | 檢視背景工作      | 所有租戶與平台自己的工作（D23）；租戶的後台只看得到自己的 |
 | `platformJob:retry`     | 重試背景工作      | 把重試用完、停在失敗的工作重新排入；寫平台稽核 `platformJob.retry` |
 
 ### 8.2 角色 × 權限

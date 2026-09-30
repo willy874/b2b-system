@@ -1,10 +1,10 @@
 # ADR-0020 — 租戶實體隔離：每個租戶一個 database 與網域，平台與租戶分成兩份身分
 
-- 狀態：**提案中**（2026-09-29 確認，實作中；歸檔時改為「採用」）
+- 狀態：**採用**（2026-09-30 完成實作）
 - 日期：2026-09-29
 - 相關：取代 [ADR-0018](./0018-workspace-tenancy.md)（全部）；修改 [ADR-0019](./0019-sso-identity-platform.md) D1、D9、D12、D13；
   延續 [ADR-0004](./0004-jwt-with-rotating-refresh-token.md)（app session 不變）、[ADR-0006](./0006-flat-permission-scope.md)（租戶內回到扁平權限）；
-  實作計畫見 [`../features/tenant-isolation.md`](../features/tenant-isolation.md)
+  正式文件見 [`../architecture/05-tenancy.md`](../architecture/05-tenancy.md)
 
 ## 背景
 
@@ -60,6 +60,12 @@ ADR-0018 的 D2–D5、D8–D18 都建立在「同一個資料庫、同一份帳
 | D18 | **外部 IdP 連線屬於租戶**：`identity_providers`、`identity_provider_domains`、`user_identities` 在租戶 DB；home realm discovery 只在該租戶內進行。外部 IdP 的固定 callback 以 `state` 找回登入狀態（在平台 DB 的 `oidc_payloads`），裡面帶租戶 | 客戶用自己的 Azure AD 是租戶層級的設定；一個網域在不同租戶可以對應不同連線 |
 | D19 | **稽核分兩處**：租戶內的動作寫該租戶的 `audit_logs`；平台管理者的動作（租戶建立、停用、佈建結果、平台管理者登入）寫平台 DB 的 `platform_audit_logs`。平台管理者看不到租戶的稽核 | 租戶的稽核是租戶的資料；平台只記錄自己做過什麼 |
 | D20 | **既有的工作區實作整個移除**，不遷移成租戶：現有資料（Phase 0 的開發資料）做成第一個租戶 `default` 的 database，migration 線重新起一個基準點（平台、租戶各一個 baseline） | 工作區的表、`scope`、成員、邀請在新模型裡都沒有對應；還沒有正式環境資料，寫反向 migration 沒有價值 |
+| D21 | **migration 重新建立基準點**：平台與租戶各一條 migration 線，各自從 baseline 起算；已有需要保留的環境時，寫一支一次性的搬移腳本，而不是保留舊的 migration 線 | 還沒有正式環境資料；舊線上充滿工作區的欄位與表，保留只會讓每個新租戶多跑一段沒有意義的歷史 |
+| D22 | **外部 IdP 連線由租戶的管理者在自己的 backstage 設定**（資料在租戶 DB）；平台管理者只能開關「是否允許這個租戶使用外部 IdP」（`tenants.allow_external_idp`） | 連線的細節（client secret、網域）是租戶的資料，平台看不到；平台保留的是「能不能用」這個層級的決定 |
+| D23 | **背景工作的監控**：apps/auth 有全平台的監控頁（所有租戶與平台自己的工作，`platformJob:*`）；backstage 的 `/job` 只看自己租戶的工作 | 佇列在平台 DB，全平台的樣子只有平台該看；租戶的管理者仍需要看自己的寄信、匯出是否卡住（見「實作時改掉的做法」） |
+| D24 | **租戶的網域**：`tenant_domains` 支援多個網域，第一個是主要網域；建立時產生 `{code}.<TENANT_BASE_DOMAIN>`，客戶自己的網域由平台管理者加入（DNS 與 TLS 由部署處理） | 預設網域讓建立租戶不必等 DNS；自訂網域是少數客戶的需求，手動處理就夠 |
+| D25 | **平台管理者的 app session** 在 apps/auth 的 origin，結構同租戶的 `refresh_tokens`（平台 DB 的 `platform_refresh_tokens`），輪替規則共用 | 同一套已驗證過的規則（ADR-0004），只是資料在平台 DB |
+| D26 | **apps/auth 的帳號流程以網址參數 `?tenant=` 指定租戶**，頁面以 `X-Tenant` 標頭送給 api（只在 apps/auth 的網域有效）；token 在租戶 DB，以參數選 DB，查不到一律視為無效。沒有 `?tenant=` 的 `/setup`、`/reset-password` 是平台管理者的帳號 | 帳號流程的頁面只有一份（apps/auth），不必在每個租戶網域上各放一份；不區分「租戶不存在」與「token 無效」，不洩漏租戶是否存在 |
 
 ## 流程
 
@@ -120,9 +126,9 @@ auth /login（沒有 tenant）→ 授權（client auth、無 tenant 參數）→
 | 佈建的每一步都在背景工作裡（D12） | database 與 DB 角色的名稱是 `tenant_{code}_{8 位隨機}`；密碼在登記時產生、存在加密的連線字串裡；佈建工作不自動重試，失敗停在 `failed` 由平台管理者重試 | 代碼可以在刪除後重用，而刪除時 database 還沒清掉，名稱不能只用代碼；重試時沿用同一組連線字串，每一步都冪等（角色存在就把密碼改回來、database 存在就沿用） |
 | 佈建完成 = 所有步驟都成功 | database、migration、seed、第一位管理員完成就改成 `active`；之後在租戶脈絡裡確認 bucket、寄啟用信，失敗只記在 `provision_error` | 啟用信的背景工作要在租戶脈絡裡執行，而只有 `active` 的租戶能進入；bucket 在第一次上傳前還會再確認一次 |
 | 停用時撤銷所有 session（D13） | 先撤銷再停用；租戶的 DB 連不上時不擋停用 | 停用後租戶就不能進入，撤銷得在那之前；停用後網域一律 503，session 本來就用不了 |
-| 背景工作監控頁搬到 auth（開放問題 3） | apps/auth 加上 **全平台** 的監控（`/platform/jobs`，看得到每個租戶與平台工作）；backstage 的 `/job` 保留，只看自己租戶的 | 租戶的管理者仍需要看自己的匯出、寄信是否卡住；佇列查詢本來就以 `tenantId` 過濾，保留不會洩漏別的租戶。拿掉租戶的 `job:*` 要另寫 migration 清權限，好處不大 |
+| 背景工作監控頁搬到 auth（D23） | apps/auth 加上 **全平台** 的監控（`/platform/jobs`，看得到每個租戶與平台工作）；backstage 的 `/job` 保留，只看自己租戶的 | 租戶的管理者仍需要看自己的匯出、寄信是否卡住；佇列查詢本來就以 `tenantId` 過濾，保留不會洩漏別的租戶。拿掉租戶的 `job:*` 要另寫 migration 清權限，好處不大 |
 | 平台管理者由其他平台管理者建立（D5） | 建立成 `pending`、寄啟用信（`platform_auth_tokens`、平台工作 `platformAdmin.accountMail`）；忘記密碼沒有自助流程，由其他平台管理者「寄設定密碼的連結」 | 平台管理者人數少、權限大；自助的忘記密碼等於多一個對外的入口。連結不帶 `?tenant=`，apps/auth 的 `/setup`、`/reset-password` 據此走平台的端點 |
-| 平台管理者開關外部 IdP（開放問題 2） | `tenants.allow_external_idp`，隨租戶脈絡帶著走：關掉時租戶不能新增或啟用連線，登入時當作沒有連線（包括「只允許 SSO」的網域回到密碼登入）；既有連線保留 | 關掉的理由通常是暫停而不是刪除；登入時不走連線才是真的關掉。只靠外部 IdP 登入、沒有密碼的帳號要用重設密碼 |
+| 平台管理者開關外部 IdP（D22） | `tenants.allow_external_idp`，隨租戶脈絡帶著走：關掉時租戶不能新增或啟用連線，登入時當作沒有連線（包括「只允許 SSO」的網域回到密碼登入）；既有連線保留 | 關掉的理由通常是暫停而不是刪除；登入時不走連線才是真的關掉。只靠外部 IdP 登入、沒有密碼的帳號要用重設密碼 |
 | 停用 = 網域回 503、撤銷所有 session（D13） | 停用與刪除都 **先改狀態再收尾**：撤銷 app session（`Tenancy.runForMaintenance`，不看狀態進入）、刪除帳號 id 是 `t:{tenantId}:*` 的 IdP session／grant／授權碼、斷掉 `t:{tenantId}` room 的即時連線、關掉連線池。排隊中的工作：租戶已刪除或停用時略過；migration 落後或 DB 連不上（`TENANT_UNAVAILABLE` 的 `details.reason = maintenance`）時交給 pg-boss 重試 | 只撤銷 refresh token 的話，重新啟用後使用者會靠還留著的 IdP session 直接登回來；先撤銷再停用則留下一個空窗，期間新發的 token 撤銷不到。暫時性的故障不該把寄信之類的工作丟掉 |
 | 租戶的狀態改變立即生效（D2 的快取） | 只在本程序立即生效（`TenantDirectory.invalidate()`）；其他執行個體最多晚 `TENANT_CACHE_TTL` 秒 | 目前只部署一個 api 執行個體（WebSocket 也是單機的 adapter）。擴成多個執行個體時，改用平台 DB 的 `LISTEN/NOTIFY` 廣播失效，與 Socket.io 的 adapter 一起處理 |
 | 每個租戶一份的初始資料在啟動時準備（`forEachActive`） | 另外發佈 `DomainEvent.TENANT_ACTIVATED`（佈建完成、重新啟用時，在那個租戶的脈絡裡），檔案模組據此建立系統資料夾 | 新佈建的租戶不必等程序重啟才有共用資料夾與私人根目錄 |

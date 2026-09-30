@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+/** `FILE_STORAGE_PUBLIC_ENDPOINT` 裡代表「目前租戶的 origin」的佔位符。 */
+export const TENANT_ORIGIN_PLACEHOLDER = '{tenantOrigin}';
+
 /**
  * 環境變數是啟動的前置條件：缺少或格式錯誤一律在 bootstrap 階段失敗，
  * 不容許執行到一半才發現（見 docs/architecture/backend/01-architecture.md §6）。
@@ -33,7 +36,7 @@ export const EnvSchema = z.object({
     z.string().url().optional(),
   ),
   /**
-   * 新租戶預設網域的上層（開放問題 4）：租戶 `acme` 的網域是 `acme.<這個值>`。沒設定時取 `APP_PUBLIC_URL` 的 host
+   * 新租戶預設網域的上層（D24）：租戶 `acme` 的網域是 `acme.<這個值>`。沒設定時取 `APP_PUBLIC_URL` 的 host
    * （開發環境是 `localhost:5173`，瀏覽器會把 `acme.localhost` 解析到本機）。
    */
   TENANT_BASE_DOMAIN: z.preprocess(
@@ -100,7 +103,18 @@ export const EnvSchema = z.object({
    * presigned URL 以它簽章——兩者的路徑前綴必須相同（docs/architecture/backend/09-file.md §3）。
    */
   FILE_STORAGE_ENDPOINT: z.string().url().default('http://127.0.0.1:9000/storage'),
-  FILE_STORAGE_PUBLIC_ENDPOINT: z.string().url().default('http://localhost:5173/storage'),
+  /**
+   * 可以含 `{tenantOrigin}`：換成目前租戶主要網域的 origin（協定沿用 `APP_PUBLIC_URL`）。每個租戶的 backstage 在自己的網域，
+   * 瀏覽器只能直傳到同源的 `/storage`（CSP 的 `connect-src 'self'`；docs/adr/0020-physical-tenant-isolation.md D2）。
+   * 用真正的 S3 或 CDN 時填固定的網址。
+   */
+  FILE_STORAGE_PUBLIC_ENDPOINT: z
+    .string()
+    .default('{tenantOrigin}/storage')
+    .refine(
+      (value) => URL.canParse(value.replace(TENANT_ORIGIN_PLACEHOLDER, 'http://tenant.test')),
+      'url',
+    ),
   FILE_STORAGE_REGION: z.string().min(1).default('us-east-1'),
   FILE_STORAGE_ACCESS_KEY_ID: z.string().min(3),
   FILE_STORAGE_SECRET_ACCESS_KEY: z.string().min(8),

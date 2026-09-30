@@ -304,7 +304,7 @@ FILE_STORAGE_MAX_OBJECT_SIZE=5368709120      # 位元組（預設 5 GiB）
 
 # ── apps/api 連物件儲存（上面兩個 KEY 共用；docs/architecture/backend/09-file.md §8）
 FILE_STORAGE_ENDPOINT=http://127.0.0.1:9000/storage
-FILE_STORAGE_PUBLIC_ENDPOINT=http://localhost:5173/storage
+FILE_STORAGE_PUBLIC_ENDPOINT={tenantOrigin}/storage   # 目前租戶的 origin ＋ /storage；真正的 S3 填固定網址
 FILE_UPLOAD_MAX_SIZE=104857600
 FILE_URL_TTL=900
 FILE_MULTIPART_THRESHOLD=16777216   # 超過改用分塊上傳

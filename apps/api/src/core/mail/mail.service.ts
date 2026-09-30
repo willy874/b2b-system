@@ -48,7 +48,7 @@ export class MailService {
   /**
    * 帳號流程的連結（啟用、重設密碼）：`AUTH_APP_URL` ＋ 路徑。頁面在 apps/auth
    * （docs/adr/0019-sso-identity-platform.md D1），帳號屬於某個租戶，所以帶上目前租戶的代碼：
-   * 頁面以 `X-Tenant` 送回 api（docs/adr/0020-physical-tenant-isolation.md 開放問題 6）。
+   * 頁面以 `X-Tenant` 送回 api（docs/adr/0020-physical-tenant-isolation.md D26）。
    */
   accountLink(path: string, query: Record<string, string> = {}): string {
     const tenant = currentTenant();

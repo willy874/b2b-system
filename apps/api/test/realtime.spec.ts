@@ -263,6 +263,12 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       await expect(waitFor(allowed, 'connect')).resolves.toBeUndefined();
     });
 
+    it('同源（Origin 的 host 就是連線的網域）→ 不必列在清單裡（每個租戶在自己的網域，ADR-0020 D2）', async () => {
+      const token = await tokenFor(await createUser('hs-same-origin@example.com'));
+      const sameOrigin = openSocket(token, { origin: url });
+      await expect(waitFor(sameOrigin, 'connect')).resolves.toBeUndefined();
+    });
+
     it(`每個使用者最多 ${CONNECTIONS_PER_USER} 條連線 → 超過回 RATE_LIMITED`, async () => {
       const userId = await createUser('hs-limit@example.com');
       const token = await tokenFor(userId);

@@ -99,7 +99,7 @@ function linkToken(message: MailMessage, path: string): string {
   return match[1]!;
 }
 
-describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關（docs/adr/0020-physical-tenant-isolation.md D5、D19、開放問題 2、3）', () => {
+describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關（docs/adr/0020-physical-tenant-isolation.md D5、D19、D22、3）', () => {
   let root: string;
 
   beforeAll(async () => {

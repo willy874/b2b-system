@@ -68,7 +68,7 @@ export function accountLinkMail({ purpose, locale, displayName, link, validHours
 | 範本是回傳 `{ subject, body }` 的函式；文案依語系寫在同一個檔案（`satisfies Record<MailLocale, …>`） | 後端不共用前端的語系包；缺一個語系編譯失敗 |
 | 語系用收件人的 `users.locale`（`toMailLocale()`），不認識的退回 `zh-TW` | 信是寄給對方看的，不是操作者 |
 | 樣式寫成行內 style、色碼寫死 | 多數收信端不支援 `<style>`；這裡沒有 Design Token |
-| 連結一律 `MailService.link(path, query)`（產品頁面：目前租戶的主要網域，協定沿用 `APP_PUBLIC_URL`）或 `accountLink(path, query)`（帳號流程：啟用、重設密碼，`AUTH_APP_URL` 開頭並帶 `?tenant=<代碼>`，[ADR-0019](../../adr/0019-sso-identity-platform.md) D1、[ADR-0020](../../adr/0020-physical-tenant-isolation.md) 開放問題 6） | 查詢字串正確編碼；每個租戶的連結指向自己的網域 |
+| 連結一律 `MailService.link(path, query)`（產品頁面：目前租戶的主要網域，協定沿用 `APP_PUBLIC_URL`）或 `accountLink(path, query)`（帳號流程：啟用、重設密碼，`AUTH_APP_URL` 開頭並帶 `?tenant=<代碼>`，[ADR-0019](../../adr/0019-sso-identity-platform.md) D1、[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D26） | 查詢字串正確編碼；每個租戶的連結指向自己的網域 |
 | 按鈕旁附上純文字網址 | 按鈕在部分收信端無法點 |
 | `MailService.send()` 同時產生 HTML 與純文字版 | 純文字版給不支援 HTML 的收信端，也是 `console` 傳輸寫進日誌的內容 |
 

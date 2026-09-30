@@ -69,7 +69,7 @@ export abstract class ObjectStorage {
 | client | endpoint | 用途 |
 | --- | --- | --- |
 | `client` | `FILE_STORAGE_ENDPOINT`（內網，例：`http://file-storage:9000/storage`） | api 自己發的請求：HeadObject、DeleteObject、建 bucket |
-| `presigner` | `FILE_STORAGE_PUBLIC_ENDPOINT`（瀏覽器看到的，例：`https://example.com/storage`） | 只簽 presigned URL，不發請求 |
+| `presigner` | `FILE_STORAGE_PUBLIC_ENDPOINT`（瀏覽器看到的，例：`{tenantOrigin}/storage` → `https://acme.example.com/storage`） | 只簽 presigned URL，不發請求；每個 endpoint 一個 client |
 
 SigV4 的簽章包含 **host 與路徑**，所以不能用內網 client 簽完再把網址換成對外位址。
 
@@ -95,6 +95,10 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 （[`../03-file-storage.md`](../03-file-storage.md) §3.1）。同源的好處：不需要 CORS，CSP 的 `img-src 'self'`、`connect-src 'self'` 不必放寬。
 
 換成真正的 S3 時，`FILE_STORAGE_PUBLIC_ENDPOINT` 設成 S3 的 endpoint，並在 bucket 上設定 CORS 與放寬 CSP。
+
+每個租戶的 backstage 在自己的網域（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D2），CSP 的 `connect-src 'self'` 只允許同源，
+所以預設值 `{tenantOrigin}/storage` 的佔位符會換成 **目前租戶主要網域** 的 origin（協定沿用 `APP_PUBLIC_URL`）：
+acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域的反向代理轉給 file-storage（Host 原樣轉發，SigV4 的簽章才對得上）。
 
 ### 3.1 每個租戶一個 bucket（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D16）
 
@@ -479,7 +483,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | 變數 | 預設 | 說明 |
 | --- | --- | --- |
 | `FILE_STORAGE_ENDPOINT` | `http://127.0.0.1:9000/storage` | api 連線用 |
-| `FILE_STORAGE_PUBLIC_ENDPOINT` | `http://localhost:5173/storage` | 瀏覽器看到的位址；presigned URL 以它簽章 |
+| `FILE_STORAGE_PUBLIC_ENDPOINT` | `{tenantOrigin}/storage` | 瀏覽器看到的位址；presigned URL 以它簽章。`{tenantOrigin}` 換成目前租戶的 origin |
 | `FILE_STORAGE_REGION` | `us-east-1` | |
 | `FILE_STORAGE_ACCESS_KEY_ID` / `FILE_STORAGE_SECRET_ACCESS_KEY` | 必填 | 與 apps/file-storage 共用同名變數 |
 | `FILE_UPLOAD_MAX_SIZE` | `104857600`（100 MiB） | 單一檔案上限 |

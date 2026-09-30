@@ -48,7 +48,7 @@ export const tenants = pgTable(
     provisionError: text('provision_error'),
     provisionedAt: timestamp('provisioned_at', { withTimezone: true }),
     /**
-     * 是否允許租戶設定外部 IdP 連線（開放問題 2）：連線由租戶的管理者在 backstage 設定，平台只能開關。
+     * 是否允許租戶設定外部 IdP 連線（D22）：連線由租戶的管理者在 backstage 設定，平台只能開關。
      * 關掉時租戶不能新增或啟用連線，登入時也不走既有的連線。
      */
     allowExternalIdp: boolean('allow_external_idp').notNull().default(true),

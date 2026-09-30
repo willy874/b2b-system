@@ -256,9 +256,12 @@ deny 規則會讓「為什麼這個人不能做 X」變成需要推理的問題�
 | **資源作用域**（「只能編輯自己專案」） | 已由檔案資料夾先行實作：通用的 `resource_grants`（資源 × 對象 × 等級，沿上層鏈繼承），不改 `user_roles`。專案、關卡沿用同一張表，見 [`07-resource-grants.md`](./07-resource-grants.md) §10 |
 | **角色階層**                           | 新增 `role_inherits (parent_id, child_id)`，解析時做遞迴 CTE                                                    |
 | **條件式權限（ABAC）**                 | `role_permissions` 增加 `condition jsonb`，Guard 端加入條件評估器                                               |
-| **多租戶**                             | 各表加 `tenant_id`，配合 Postgres Row Level Security                                                            |
 | **MFA**                                | `users.mfa_enabled` / 新表 `user_mfa_secrets`                                                                   |
 | **API Token / 服務帳號**               | 新增 `service_accounts` 表，同樣掛 `user_roles`（Subject 抽象化）                                               |
+
+多租戶已經做了，方式不是 `tenant_id` 加 RLS，而是 **每個租戶一個 database**：這份領域模型整份存在每個租戶的 DB 裡，
+各租戶各一套權限目錄、角色與使用者（[`../architecture/05-tenancy.md`](../architecture/05-tenancy.md)、[ADR-0020](../adr/0020-physical-tenant-isolation.md)）。
+平台管理者另有一份很小的權限目錄與固定角色（[`02-permission-catalog.md`](./02-permission-catalog.md) §8）。
 
 延伸時的相容性承諾：**權限鍵的字串格式不會變**，因此既有的
 `@RequirePermissions('role:update')` 宣告與前端的 `can('role:update')` 都不需

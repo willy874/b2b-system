@@ -32,7 +32,7 @@ export default function IdentityProviderListPage() {
   const [removing, setRemoving] = useState<IdentityProvider>();
 
   const { data, isPending } = useQuery(getIdentityProviderListQueryOptions());
-  // 平台管理者可以關掉這個租戶的外部 IdP（docs/adr/0020-physical-tenant-isolation.md 開放問題 2）：
+  // 平台管理者可以關掉這個租戶的外部 IdP（docs/adr/0020-physical-tenant-isolation.md D22）：
   // 關掉時不能新增連線；既有的連線可以編輯、停用、刪除，但不能啟用
   const allowed = data?.allowed ?? true;
 

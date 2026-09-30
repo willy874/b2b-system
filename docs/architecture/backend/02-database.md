@@ -509,7 +509,8 @@ db/platform/migrations/                 平台 DB（schema 在 db/platform/schem
 產生 migration：租戶 DB `pnpm db:generate`；平台 DB `pnpm --filter @b2b-system/api exec drizzle-kit generate --config drizzle.platform.config.ts`。
 
 2026-09-29 移除工作區、分出平台 DB 時重新建立了基準點（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D20），
-當時還沒有正式環境資料。既有的開發資料庫要重建（見 [`../../features/tenant-isolation.md`](../../features/tenant-isolation.md)）。
+當時還沒有正式環境資料。既有的開發資料庫要重建：`.env` 改用 `PLATFORM_DATABASE_URL`、`DEFAULT_TENANT_*`（見 `.env.example`），再 `pnpm db:migrate`；
+預設租戶的 database 若留著舊的 migration 紀錄，刪掉重建後再 `pnpm db:seed`（[`../05-tenancy.md`](../05-tenancy.md) §8）。
 新增權限不需要資料 migration：seed 會 upsert 權限目錄；已存在的系統角色要補新權限時，再寫一支手寫 migration。
 
 ### 5.3 啟動時檢查每個租戶的版本（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D14）

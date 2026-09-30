@@ -24,7 +24,7 @@ export const ErrorCode = {
   TENANT_LAST_DOMAIN: { status: 409 },
   /** 平台管理者不存在（或已刪除）。 */
   PLATFORM_ADMIN_NOT_FOUND: { status: 404 },
-  /** 租戶不允許設定外部 IdP 連線（平台管理者關掉了，開放問題 2）。 */
+  /** 租戶不允許設定外部 IdP 連線（平台管理者關掉了，D22）。 */
   IDENTITY_PROVIDER_NOT_ALLOWED: { status: 403 },
 
   // ── 認證 ──

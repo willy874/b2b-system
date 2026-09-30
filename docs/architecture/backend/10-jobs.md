@@ -145,7 +145,7 @@ await withTransaction(this.db, async (tx) => {
 | `POST /jobs/:id/retry` | `job:retry` | 只接受 `failed`；重試成功後寫稽核 `job.retry` |
 
 - 只列出程式有註冊的 **租戶** 工作，而且只看目前租戶的（信封的 `tenantId`）；平台工作、pg-boss 內部或已下線的佇列不出現。
-- **平台的監控**（apps/auth 的 `/job`，[ADR-0020](../../adr/0020-physical-tenant-isolation.md) 開放問題 3）是另一組端點
+- **平台的監控**（apps/auth 的 `/job`，[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D23）是另一組端點
   `/platform/jobs/*`（`platformJob:read` / `platformJob:retry`，平台的權限目錄）：看得到所有租戶與平台自己的工作，
   列表多了 `tenantId` / `tenantCode`，`?tenant=<代碼>` 只看那個租戶、`?tenant=platform`（保留字）只看平台工作；
   佇列卡片的筆數是所有租戶合計，並標示 `scope`。重試寫平台稽核 `platformJob.retry`。

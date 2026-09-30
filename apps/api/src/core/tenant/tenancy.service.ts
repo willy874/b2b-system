@@ -29,7 +29,7 @@ interface SchemaCheck {
 
 export type TenantUnavailableReason = 'inactive' | 'maintenance';
 
-function unavailable(reason: TenantUnavailableReason): AppException {
+function tenantUnavailable(reason: TenantUnavailableReason): AppException {
   return new AppException('TENANT_UNAVAILABLE', { reason });
 }
 
@@ -79,8 +79,8 @@ export class Tenancy implements OnApplicationBootstrap, OnApplicationShutdown {
    * `maintenance`（migration 落後、DB 連不上：暫時的，稍後重試會好）。背景工作依此決定略過或重試。
    */
   async enter(tenant: TenantRecord): Promise<TenantContext> {
-    if (tenant.status !== 'active') throw unavailable('inactive');
-    if ((await this.schemaStateOf(tenant)) !== 'current') throw unavailable('maintenance');
+    if (tenant.status !== 'active') throw tenantUnavailable('inactive');
+    if ((await this.schemaStateOf(tenant)) !== 'current') throw tenantUnavailable('maintenance');
     return this.contextOf(tenant);
   }
 
@@ -91,7 +91,7 @@ export class Tenancy implements OnApplicationBootstrap, OnApplicationShutdown {
   async runForMaintenance<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
     const tenant = await this.directory.findById(tenantId);
     if (!tenant) throw new AppException('TENANT_NOT_FOUND');
-    if ((await this.schemaStateOf(tenant)) !== 'current') throw unavailable('maintenance');
+    if ((await this.schemaStateOf(tenant)) !== 'current') throw tenantUnavailable('maintenance');
     return runInTenantContext(this.contextOf(tenant), fn);
   }
 

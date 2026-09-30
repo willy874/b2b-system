@@ -3,7 +3,7 @@
 - 優先度：P3
 - 狀態：提案
 - 依賴：—
-- 相關：[`tenant-isolation.md`](./tenant-isolation.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)
+- 相關：[`../architecture/05-tenancy.md`](../architecture/05-tenancy.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -22,7 +22,7 @@
 
 ## 開放問題
 
-1. 若 [`tenant-isolation.md`](./tenant-isolation.md) 之後每個租戶的使用者變少，群組是否還有必要？（工作區角色已隨 ADR-0020 取消）
+1. 若 [租戶實體隔離](../architecture/05-tenancy.md) 之後每個租戶的使用者變少，群組是否還有必要？（工作區角色已隨 ADR-0020 取消）
 2. 群組指派角色後，權限快取的失效範圍怎麼算？
 
 ## 歸檔去向

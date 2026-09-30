@@ -232,8 +232,21 @@ export class RealtimeGateway
       return 'RATE_LIMITED' satisfies ErrorCode;
     }
     const origin = req.headers.origin;
-    const allowed = origin ? this.allowedOrigins.has(origin) : this.allowMissingOrigin;
+    const allowed = origin
+      ? this.allowedOrigins.has(origin) || this.isSameOrigin(origin, req)
+      : this.allowMissingOrigin;
     return allowed ? undefined : 'ORIGIN_NOT_ALLOWED';
+  }
+
+  /**
+   * 頁面與連線同源：每個租戶的 backstage 在自己的網域，連的是同網域的 `/api/socket.io`
+   * （docs/adr/0020-physical-tenant-isolation.md D2），不必把每個租戶的網域都列進 `REALTIME_ALLOWED_ORIGINS`。
+   * 跨站 WebSocket 劫持的頁面在別的網域，Origin 的 host 一定對不上。
+   */
+  private isSameOrigin(origin: string, req: IncomingMessage): boolean {
+    if (!URL.canParse(origin)) return false;
+    const host = requestHost(req.headers, req.socket.remoteAddress, this.trustProxy());
+    return Boolean(host) && new URL(origin).host.toLowerCase() === host;
   }
 
   /** 以 handshake 的網域決定租戶，在該租戶裡驗 token；回傳拒絕的錯誤碼。 */

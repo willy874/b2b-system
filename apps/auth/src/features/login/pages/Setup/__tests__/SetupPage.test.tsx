@@ -56,7 +56,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('設定初始密碼（租戶的帳號與平台管理者，docs/adr/0020-physical-tenant-isolation.md D5、開放問題 6）', () => {
+describe('設定初始密碼（租戶的帳號與平台管理者，docs/adr/0020-physical-tenant-isolation.md D5、D26）', () => {
   it('帶 ?tenant= → 租戶的帳號，完成後前往那個租戶的登入', async () => {
     renderAt('/setup?token=abcdefghijkl&tenant=acme');
     await submit();

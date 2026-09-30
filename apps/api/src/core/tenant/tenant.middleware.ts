@@ -11,7 +11,7 @@ import { runInTenantContext } from './tenant-context';
 import { TenantDirectory } from './tenant-directory.service';
 import type { TenantRecord } from './tenant-directory.service';
 
-/** apps/auth 上的帳號流程（啟用、重設密碼、註冊）指定租戶用的標頭（開放問題 6）。 */
+/** apps/auth 上的帳號流程（啟用、重設密碼、註冊）指定租戶用的標頭（D26）。 */
 export const TENANT_HEADER = 'x-tenant';
 
 /**

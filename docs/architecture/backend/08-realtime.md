@@ -504,7 +504,7 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 
 | 項目                     | 限制                                              | 超過時               |
 | ------------------------ | ------------------------------------------------- | -------------------- |
-| Origin                   | `allowRequest` 檢查 `Origin` 屬於 `REALTIME_ALLOWED_ORIGINS` | 拒絕 handshake |
+| Origin                   | `allowRequest` 檢查 `Origin` 屬於 `REALTIME_ALLOWED_ORIGINS`，或與連線的網域同源（每個租戶自己的網域，ADR-0020 D2） | 拒絕 handshake |
 | 每個 IP 的 handshake     | 每分鐘 30 次                                      | 拒絕 handshake       |
 | 每條連線的訊息           | 每 10 秒 30 則                                    | 略過；持續超過就斷線 |
 | 單一 frame               | `maxHttpBufferSize` = 16 KB                       | Socket.io 直接斷線   |

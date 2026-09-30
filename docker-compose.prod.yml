@@ -65,11 +65,13 @@ services:
       # nginx 在同一個 docker 網路（私有網段）：信任它帶的 X-Forwarded-For，限流才看得到真實 IP
       TRUST_PROXY: uniquelocal
       # 瀏覽器看到的 origin；Socket.io handshake 的 Origin 檢查（backend/08-realtime.md §11）
+      # 同源（每個租戶自己的網域）一律允許；這裡只需要列出額外允許的 origin
       REALTIME_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost:8080}
       # 物件儲存：api 走內網，presigned URL 以瀏覽器看到的位址簽章（backend/09-file.md §3）。
       # 換成真正的 S3 時只改這幾個變數，並拿掉下面的 file-storage 服務。
       FILE_STORAGE_ENDPOINT: http://file-storage:9000/storage
-      FILE_STORAGE_PUBLIC_ENDPOINT: ${PUBLIC_ORIGIN:-http://localhost:8080}/storage
+      # {tenantOrigin}：每個租戶在自己的網域，presigned URL 簽成同源的 /storage（ADR-0020 D2）
+      FILE_STORAGE_PUBLIC_ENDPOINT: '{tenantOrigin}/storage'
       FILE_STORAGE_ACCESS_KEY_ID: ${FILE_STORAGE_ACCESS_KEY_ID:?required}
       FILE_STORAGE_SECRET_ACCESS_KEY: ${FILE_STORAGE_SECRET_ACCESS_KEY:?required}
       # 郵件（backend/11-mail.md）：正式環境一律 smtp，日誌不會出現連結；

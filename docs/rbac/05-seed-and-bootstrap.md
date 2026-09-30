@@ -14,18 +14,20 @@ RBAC 有一個雞生蛋問題：**要建立使用者需要 `user:create` 權限�
 pnpm db:migrate        平台 DB，再依序每個租戶的 DB（含約束、索引、trigger）；登記預設租戶
       │
       ▼
-pnpm db:seed           ⓪ 平台管理者（平台 DB；沒有任何管理者時依 PLATFORM_ADMIN_EMAIL 建立）
-      │                每個 active 的租戶各跑一次：
+pnpm db:seed           ⓪ 平台管理者（平台 DB；沒有任何管理者時依 PLATFORM_ADMIN_EMAIL 建立，角色 super-admin）
+      │                每個 active、disabled 的租戶各跑一次：
       │                ① permissions   （冪等 upsert）
       │                ② roles         （冪等 upsert，is_system = true）
       │                ③ role_permissions（依對照表 upsert）
-      │                ④ super-admin 使用者（僅當不存在時建立；每個租戶各一位）
+      │                ④ super-admin 使用者（僅 SEED_TENANT，預設 default；僅當不存在時建立）
       ▼
 pnpm dev
 ```
 
 平台管理者與租戶的 super-admin 是兩份資料（[ADR-0020](../adr/0020-physical-tenant-isolation.md) D5）：
 平台管理者登入 apps/auth，看不到任何租戶的內容；租戶的 super-admin 只在自己的租戶。
+`SUPER_ADMIN_EMAIL` 只用在 `SEED_TENANT`：之後建立的租戶，第一位 super-admin 由 **佈建** 建立（`pending`，寄啟用信），
+營運方共用的帳密不會出現在客戶的租戶（[`../architecture/05-tenancy.md`](../architecture/05-tenancy.md) §5）。
 
 `db:seed` 設計為 **完全冪等**：重複執行不會產生重複資料、不會覆寫使用者已調整
 的非系統角色權限。

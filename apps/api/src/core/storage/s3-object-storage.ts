@@ -24,6 +24,8 @@ import type { OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/comm
 import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '../config';
+// 直接取 env.schema：從 `../config` 取值會載入 config.module（`ConfigModule.forRoot` 在載入時就驗證並快取環境變數）
+import { TENANT_ORIGIN_PLACEHOLDER } from '../config/env.schema';
 import { AppException } from '../errors';
 import { currentTenant, requireTenant, TenantDirectory } from '../tenant';
 import { contentDisposition } from './content-disposition';
@@ -79,10 +81,13 @@ export class S3ObjectStorage
   /** api 自己發請求用（容器內網位址）。 */
   private readonly client: S3Client;
   /**
-   * 只用來簽 presigned URL（瀏覽器看到的位址）。簽章包含 host 與路徑，
-   * 所以不能拿內網的 client 簽完再換網址。
+   * 只用來簽 presigned URL（瀏覽器看到的位址）。簽章包含 host 與路徑，所以不能拿內網的 client 簽完再換網址。
+   * 每個租戶在自己的網域：endpoint 含 `{tenantOrigin}` 時依目前租戶換成它的 origin，每個 endpoint 一個 client。
    */
-  private readonly presigner: S3Client;
+  private readonly presigners = new Map<string, S3Client>();
+  private readonly publicEndpoint: string;
+  private readonly appOrigin: URL;
+  private readonly presignerConfig: S3ClientConfig;
   /** bucket → 確認（或建立）中的 Promise；失敗時移除，下一次再試。 */
   private readonly bucketsReady = new Map<string, Promise<void>>();
 
@@ -109,10 +114,27 @@ export class S3ObjectStorage
       ...common,
       endpoint: config.get('FILE_STORAGE_ENDPOINT', { infer: true }),
     });
-    this.presigner = new S3Client({
-      ...common,
-      endpoint: config.get('FILE_STORAGE_PUBLIC_ENDPOINT', { infer: true }),
-    });
+    this.presignerConfig = common;
+    this.publicEndpoint = config.get('FILE_STORAGE_PUBLIC_ENDPOINT', { infer: true });
+    this.appOrigin = new URL(config.get('APP_PUBLIC_URL', { infer: true }));
+  }
+
+  /** 目前租戶的 presigner（瀏覽器看到的 endpoint）；沒有租戶時（平台）用 `APP_PUBLIC_URL` 的 origin。 */
+  private async presigner(): Promise<S3Client> {
+    let endpoint = this.publicEndpoint;
+    if (endpoint.includes(TENANT_ORIGIN_PLACEHOLDER)) {
+      const tenant = currentTenant();
+      const origin = tenant
+        ? `${this.appOrigin.protocol}//${await this.directory.requirePrimaryDomain(tenant.id)}`
+        : this.appOrigin.origin;
+      endpoint = endpoint.replace(TENANT_ORIGIN_PLACEHOLDER, origin);
+    }
+    let client = this.presigners.get(endpoint);
+    if (!client) {
+      client = new S3Client({ ...this.presignerConfig, endpoint });
+      this.presigners.set(endpoint, client);
+    }
+    return client;
   }
 
   onApplicationBootstrap(): void {
@@ -125,7 +147,8 @@ export class S3ObjectStorage
 
   onApplicationShutdown(): void {
     this.client.destroy();
-    this.presigner.destroy();
+    for (const presigner of this.presigners.values()) presigner.destroy();
+    this.presigners.clear();
   }
 
   /** 確認目前租戶的 bucket 存在，不存在就建立。 */
@@ -252,7 +275,7 @@ export class S3ObjectStorage
 
   async presignUpload(key: string, options: PresignUploadOptions): Promise<PresignedRequest> {
     const url = await getSignedUrl(
-      this.presigner,
+      await this.presigner(),
       new PutObjectCommand({ Bucket: this.bucket(), Key: key, ContentType: options.contentType }),
       // 把 Content-Type 簽進去：瀏覽器換了型別就上傳失敗，存下來的型別一定是登記的那個
       { expiresIn: options.expiresIn, signableHeaders: new Set(['content-type']) },
@@ -269,7 +292,7 @@ export class S3ObjectStorage
     const signingDate = stableSigningDate(Date.now(), options.expiresIn);
     const expiresAt = new Date(signingDate.getTime() + options.expiresIn * 1000);
     const url = await getSignedUrl(
-      this.presigner,
+      await this.presigner(),
       new GetObjectCommand({
         Bucket: this.bucket(),
         Key: key,
@@ -305,7 +328,7 @@ export class S3ObjectStorage
     options: { expiresIn: number },
   ): Promise<PresignedRequest> {
     const url = await getSignedUrl(
-      this.presigner,
+      await this.presigner(),
       new UploadPartCommand({
         Bucket: this.bucket(),
         Key: key,

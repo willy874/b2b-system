@@ -228,7 +228,7 @@ export class IdentityProviderService {
   }
 
   /**
-   * 平台管理者是否允許這個租戶使用外部 IdP（docs/adr/0020-physical-tenant-isolation.md 開放問題 2）。
+   * 平台管理者是否允許這個租戶使用外部 IdP（docs/adr/0020-physical-tenant-isolation.md D22）。
    * 關掉時：不能新增或啟用連線；登入時當作沒有連線（email 網域不會導向外部 IdP，只允許 SSO 的網域也回到密碼登入）。
    */
   private allowed(): boolean {

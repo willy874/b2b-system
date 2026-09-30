@@ -1,7 +1,7 @@
 # SSO 與身分平台（`apps/auth`）
 
 決定與理由見 [ADR-0019](../adr/0019-sso-identity-platform.md)；身分分屬租戶與平台的部分見
-[ADR-0020](../adr/0020-physical-tenant-isolation.md) D5–D11（實作中，[`../features/tenant-isolation.md`](../features/tenant-isolation.md)）。app session 本身（5 分鐘 JWT ＋ 輪替式 refresh cookie）不變，
+[ADR-0020](../adr/0020-physical-tenant-isolation.md) D5–D11（[`05-tenancy.md`](./05-tenancy.md)）。app session 本身（5 分鐘 JWT ＋ 輪替式 refresh cookie）不變，
 見 [ADR-0004](../adr/0004-jwt-with-rotating-refresh-token.md) 與 [`backend/04-auth.md`](./backend/04-auth.md)。
 `apps/auth` 前端的內部結構與從 backstage 複製的程式碼見 [`apps/auth/README.md`](../../apps/auth/README.md)。
 

@@ -213,13 +213,16 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 
 | 服務       | 映像                          | 角色                                                 | 啟動條件                        |
 | ---------- | ----------------------------- | ---------------------------------------------------- | ------------------------------- |
-| `postgres` | `postgres:17-alpine`          | 唯一的狀態儲存                                       | —                               |
+| `postgres` | `postgres:17-alpine`          | 唯一的狀態儲存：平台 DB ＋ 每個租戶一個 database     | —                               |
 | `migrate`  | `b2b-system-api`（同 api）   | `migrate.js` ＋ `seeds/index.js`，跑完即結束         | postgres healthy                |
 | `api`      | `b2b-system-api`             | REST、Socket.io、權限快取                            | migrate **成功結束**、file-storage healthy |
 | `file-storage` | `apps/file-storage/Dockerfile` | S3 相容的物件儲存（[`03-file-storage.md`](./03-file-storage.md)） | —                     |
 | `backstage` | `apps/backstage/Dockerfile`（nginx）| 靜態檔、反向代理、安全標頭                 | api healthy                     |
 | `auth`     | `apps/auth/Dockerfile`（nginx，`deploy/nginx.auth.conf`）| 身分與租戶入口：**獨立的 origin**（`:8081`），`/api/*` 同樣反向代理到 api | api healthy |
 
+- **每個租戶一個網域**（[`05-tenancy.md`](./05-tenancy.md) §7）：backstage 的 nginx 是 `server_name _`，任何網域都由它服務，
+  `Host` 原樣轉給 api 決定租戶；`*.<TENANT_BASE_DOMAIN>` 要有 wildcard DNS 與憑證。平台管理者在 apps/auth 建立租戶時，
+  api 以 `TENANT_PROVISIONING_DATABASE_URL`（預設即 `PLATFORM_DATABASE_URL`）在同一台 postgres 建立那個租戶的 database 與 DB 角色。
 - 前端是純靜態產物，SPA fallback 到 `index.html`。SSO 的網址（`VITE_OIDC_ISSUER`、`VITE_AUTH_APP_URL`）是建置參數，
   由 `AUTH_PUBLIC_ORIGIN` 產生；api 另需 `OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`IDP_SECRET_KEY`（[`04-sso.md`](./04-sso.md) §7）。
 - `/api/*` 反向代理去掉前綴後轉給 NestJS；`/api/socket.io/` 另一段 location 帶 `Upgrade` header，
@@ -232,7 +235,7 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 - `migrate` 與 `api` 共用映像：部署時 schema 一定先於新版程式就位，api 不在啟動時自己跑 migration
   （多執行個體時會互搶）。
 - CSP：`default-src 'self'`，不允許 inline script（Vite build 產物符合）；`connect-src 'self'` 同時涵蓋同源的 `wss:`。
-- TLS 由前面的 LB / ingress 終結；`PUBLIC_ORIGIN` 設成瀏覽器看到的 origin，作為 Socket.io 的 Origin 白名單。
+- TLS 由前面的 LB / ingress 終結；Socket.io 的 Origin 與連線同源（租戶自己的網域）一律允許，`PUBLIC_ORIGIN` 只是額外的白名單。
 - api 設 `TRUST_PROXY=uniquelocal`：只信任私有網段（nginx）帶來的 `X-Forwarded-For`，
   HTTP 與 WebSocket 的每 IP 限流才看得到真實客戶端；外部自帶的標頭無法偽造 IP。
 
@@ -248,12 +251,14 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | auth 獨立（後端）服務     | 每個請求都要驗 token 與權限；拆開就是每個請求多一跳。有了第二個產品之後只拆了 **前端**（`apps/auth`，[ADR-0019](../adr/0019-sso-identity-platform.md) D2），OIDC Provider 仍是 api 的模組 | 身分服務要給本平台以外的系統用，且負載或發版節奏與 api 明顯不同         |
 | Redis                     | 快取與 room 都在單一程序的記憶體裡就夠                                       | 見下一段；Postgres `LISTEN/NOTIFY` 能滿足時仍不需要                      |
 
-**api 水平擴展（`replicas > 1`）要同時具備三件事**，缺一就會出錯，所以 compose 目前固定單一執行個體：
+**api 水平擴展（`replicas > 1`）要同時具備四件事**，缺一就會出錯，所以 compose 目前固定單一執行個體：
 
 1. Socket.io 跨節點廣播：`@socket.io/postgres-adapter`（[`backend/08-realtime.md`](./backend/08-realtime.md) §10.3）。
 2. 權限／使用者快取跨節點失效：同一條 `LISTEN/NOTIFY`（[`backend/05-rbac.md`](./backend/05-rbac.md) §5.2）。
    否則某節點上被拿掉權限的人，最多還能用 60 秒。
-3. nginx 的 upstream 要能看到每個執行個體（`resolver 127.0.0.11` ＋ 變數化的 `proxy_pass`，或改用 LB）；
+3. 租戶登記的快取跨節點失效（停用、網域的變更）：同一條 `LISTEN/NOTIFY`；否則其他節點最多晚 `TENANT_CACHE_TTL` 秒
+   （[`05-tenancy.md`](./05-tenancy.md) §7）。
+4. nginx 的 upstream 要能看到每個執行個體（`resolver 127.0.0.11` ＋ 變數化的 `proxy_pass`，或改用 LB）；
    Socket.io 只用 websocket 傳輸，**不需要** sticky session。
 
 ---

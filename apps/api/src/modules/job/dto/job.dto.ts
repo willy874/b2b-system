@@ -68,7 +68,7 @@ export const JobSchema = defineSchema(
 export type JobDto = z.infer<typeof JobSchema>;
 
 /**
- * 平台的背景工作監控（apps/auth，docs/adr/0020-physical-tenant-isolation.md 開放問題 3）：看得到所有租戶與平台自己的工作。
+ * 平台的背景工作監控（apps/auth，docs/adr/0020-physical-tenant-isolation.md D23）：看得到所有租戶與平台自己的工作。
  * `tenant`：租戶代碼只看那個租戶；`platform`（保留字，不會是租戶代碼）只看平台工作；不給就是全部。
  */
 export const ListPlatformJobSchema = ListJobSchema.extend({

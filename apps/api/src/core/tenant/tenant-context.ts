@@ -10,7 +10,7 @@ export interface TenantContext {
   db: Database;
   /** 物件儲存的 bucket（docs/adr/0020-physical-tenant-isolation.md D16）。 */
   storageBucket: string;
-  /** 平台管理者是否允許這個租戶使用外部 IdP 連線（開放問題 2）。 */
+  /** 平台管理者是否允許這個租戶使用外部 IdP 連線（D22）。 */
   allowExternalIdp: boolean;
 }
 

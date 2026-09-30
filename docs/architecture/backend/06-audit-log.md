@@ -323,6 +323,22 @@ pnpm db:archive-audit-logs   # 與排程工作呼叫同一個函式（modules/au
 
 ---
 
+## 8.1 平台稽核（`platform_audit_logs`）
+
+每個租戶一個 database（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D19）：上面描述的 `audit_logs` 是 **租戶** 的稽核，
+在各租戶的 DB 裡，只記錄那個租戶裡發生的事。平台管理者（apps/auth）做的事另外寫在平台 DB 的 `platform_audit_logs`：
+
+| 項目 | 租戶的 `audit_logs` | 平台的 `platform_audit_logs` |
+| --- | --- | --- |
+| 寫入 | `AuditService` | `PlatformAuditService`（`modules/platform-admin`） |
+| 內容 | 使用者、角色、檔案、審批… | 平台管理者的登入、租戶的建立／佈建／停用／刪除／清除、平台管理者的管理、平台的背景工作重試、平台端點的 `authz.denied` |
+| 欄位 | §3 | 精簡版：`occurred_at`、`actor_*`、`action`、`resource_type`、`resource_id`、`result`、`error_code`、`metadata`（沒有 `changes`，前後值放在 `metadata.before`／`after`） |
+| 查詢 | `GET /audit-logs`（`auditLog:read`） | `GET /platform/audit-logs`（`platformAuditLog:read`）：同樣固定 `occurred_at DESC`、最多 90 天、`action` 支援 `x.*` 前綴；筆數少，列表直接帶 `metadata` |
+| 冷熱分層 | §8 | 沒有（量小） |
+
+兩邊互相看不到：平台管理者看不到租戶的稽核（要看就得在那個租戶有帳號），租戶也看不到平台做過什麼。
+平台稽核同樣 append-only：trigger `platform_audit_logs_immutable` 阻擋 `UPDATE`／`DELETE`（平台 migration 0002）。
+
 ## 9. 檢查清單
 
 - [ ] 所有寫入操作都有對應的稽核紀錄
