@@ -12,7 +12,7 @@
 | 職責分離（SoD / Constrained RBAC） | ❌         | Phase 0 不做互斥角色                                                        |
 | 資源作用域（Scoped / ABAC）        | ◐ 檔案     | 檔案管理器的資料夾層級授權，見 [`07-resource-grants.md`](./07-resource-grants.md)；其餘資源見 §7 延伸點 |
 | **反提權**                         | ✅（強化） | 授權者不能授予自己沒有的權限                                                |
-| **系統角色保護**                   | ✅（強化） | `is_system` 角色不可刪除／改名                                              |
+| **系統角色保護**                   | ✅（強化） | `is_system` 角色不可刪除、不可改 `slug`（顯示名稱可改，見 §5）               |
 
 > 「權限是目錄，不是自由文字」是這個模型最重要的性質。`permissions` 表的內容
 > 由 seed 決定、隨程式碼版本演進，**不提供 API 建立權限**。這讓前端可以安全地
@@ -152,7 +152,7 @@
 ### 3.2 `roles`
 
 - `slug`：程式碼唯一參照的穩定鍵（`super-admin`、`admin`…）。**建立後不可變**。
-- `name`：顯示名稱，可改，但在未刪除的角色中必須唯一。
+- `name`：顯示名稱，可改，但在未刪除的角色中必須唯一——**不分大小寫**（`Admin` 與 `admin` 不能並存），寫入前正規化成 Unicode NFC。
 - `is_system`：系統角色，受保護（見 §5）。
 
 ### 3.3 `permissions`
@@ -187,11 +187,11 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 | --- | ---------------------------------------------- | ---------------------------------------------------- |
 | I1  | `permissions.key` 全域唯一                     | `UNIQUE (key)`                                       |
 | I2  | `permissions.key` = `resource                  |                                                      | ':' |     | action` | `CHECK` 約束 |
-| I3  | 未刪除的 `roles.slug` / `roles.name` 唯一      | partial `UNIQUE INDEX ... WHERE deleted_at IS NULL`  |
+| I3  | 未刪除的 `roles.slug` / `roles.name` 唯一（name 不分大小寫） | partial `UNIQUE INDEX ... WHERE deleted_at IS NULL`（name 用 `lower(name)`） |
 | I4  | 未刪除的 `users.email` / `users.username` 唯一 | 同上                                                 |
 | I5  | `user_roles` / `role_permissions` 無重複       | 複合主鍵                                             |
 | I6  | 刪除角色時連帶刪除其指派與授權                 | `ON DELETE CASCADE`                                  |
-| I7  | **系統角色不可刪除**                           | Service 層檢查 ＋ DB trigger（雙保險）               |
+| I7  | **系統角色不可刪除**                           | Service 層檢查 ＋ DB trigger（雙保險；硬刪除與軟刪除 `deleted_at` 都擋） |
 | I8  | **系統中永遠至少有一個可用的 super-admin**     | 刪除／停用最後一個 super-admin 時 Service 拒絕       |
 | I9  | 使用者不能修改／刪除自己的帳號狀態與角色       | Service 層檢查（`actorId === targetId` → 403）       |
 | I10 | 授予的權限必須存在於 `permissions`             | 外鍵                                                 |

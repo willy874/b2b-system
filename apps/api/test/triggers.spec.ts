@@ -52,6 +52,30 @@ describe('DB 層的不變條件（docs/architecture/backend/02-database.md §3�
       );
     });
 
+    it('軟刪除系統角色（設定 deleted_at）也會被擋下（docs/issues/03-edge-cases.md EDGE-25）', async () => {
+      const [role] = await db
+        .insert(roles)
+        .values({ slug: 'trigger-soft', name: 'Trigger Soft', isSystem: true })
+        .returning();
+      await expectDbError(
+        db.update(roles).set({ deletedAt: new Date() }).where(eq(roles.id, role!.id)),
+        /ROLE_SYSTEM_PROTECTED/,
+      );
+    });
+
+    it('系統角色的顯示名稱可以改（docs/rbac/01-domain-model.md §5）', async () => {
+      const [role] = await db
+        .insert(roles)
+        .values({ slug: 'trigger-display', name: 'Trigger Display', isSystem: true })
+        .returning();
+      const [updated] = await db
+        .update(roles)
+        .set({ name: 'Trigger Display 2', description: '改過' })
+        .where(eq(roles.id, role!.id))
+        .returning();
+      expect(updated?.name).toBe('Trigger Display 2');
+    });
+
     it('非系統角色可以正常改名與刪除', async () => {
       const [role] = await db
         .insert(roles)
@@ -75,6 +99,26 @@ describe('DB 層的不變條件（docs/architecture/backend/02-database.md §3�
         .where(eq(roles.id, role!.id))
         .returning();
       expect(updated!.updatedAt.getTime()).toBeGreaterThan(role!.updatedAt.getTime());
+    });
+  });
+
+  describe('I3 角色名稱唯一（不分大小寫，docs/issues/03-edge-cases.md EDGE-21）', () => {
+    it('只差大小寫的名稱不能並存', async () => {
+      await db.insert(roles).values({ slug: 'case-a', name: 'Case Role' });
+      await expectDbError(
+        db.insert(roles).values({ slug: 'case-b', name: 'case ROLE' }),
+        /roles_name_key/,
+      );
+    });
+
+    it('已軟刪除的角色不佔用名稱', async () => {
+      await db.insert(roles).values({ slug: 'gone-a', name: 'Gone Role', deletedAt: new Date() });
+      await db.insert(roles).values({ slug: 'gone-b', name: 'GONE ROLE' });
+      const rows = await db
+        .select()
+        .from(roles)
+        .where(sql`lower(${roles.name}) = 'gone role'`);
+      expect(rows).toHaveLength(2);
     });
   });
 

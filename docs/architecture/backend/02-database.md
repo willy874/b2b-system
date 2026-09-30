@@ -505,7 +505,10 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0000_baseline.sql                   drizzle-kit 產生（開頭手動加上 pg_trgm）
 ├── 0001_functions_and_triggers.sql     手寫（drizzle-kit generate --custom）：protect_system_roles、
 │                                       audit append-only 與冷熱分層、set_updated_at 的各表 trigger
-└── 0002_…                              之後的變更接著編號
+├── 0002_system_settings.sql
+├── 0006_roles_and_search.sql           角色名稱不分大小寫唯一（含既有同名的改名修補）、users 關鍵字的 trigram 索引、
+│                                       protect_system_roles 也擋軟刪除
+└── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads
 └── 0001_functions_and_triggers.sql     tenants 的 updated_at
