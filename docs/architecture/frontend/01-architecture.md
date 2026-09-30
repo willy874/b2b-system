@@ -189,7 +189,6 @@ main.tsx
   │    .use(eventBusPlugin())     │ 基礎設施，必須最先
   │    .use(i18nPlugin())         │
   │    .use(httpContextPlugin())  ┘
-  │    .use(featureFlagPlugin({...}))
   │    .use(authFeaturePlugin())  ┐
   │    .use(userFeaturePlugin())  │ 每個 feature 的 plugin factory
   │    .use(roleFeaturePlugin())  │ ★ 在此 **同步** 註冊頁面權限

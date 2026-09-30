@@ -132,6 +132,7 @@
     "TENANT_NOT_FOUND": "This address does not belong to any tenant. Check that the URL is correct.",
     "TENANT_UNAVAILABLE": "This tenant is currently unavailable. Contact the platform administrator.",
     "FEATURE_DISABLED": "This feature is not enabled for the current tenant.",
+    "FEATURE_FLAG_NOT_FOUND": "This feature flag doesn't exist. It may have been removed.",
     "PLATFORM_ONLY": "This is only available on the platform administration site.",
     "TENANT_CODE_TAKEN": "This tenant code is already in use.",
     "TENANT_DOMAIN_TAKEN": "This domain already belongs to another tenant.",

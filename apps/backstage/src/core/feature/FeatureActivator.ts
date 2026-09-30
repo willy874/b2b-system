@@ -8,6 +8,13 @@ export interface FeatureDefinition {
   plugin: AppDynamicPluginFactory;
   /** 這個 feature 擁有的最上層 route 物件：用來判斷目前頁面屬於誰，以及掛上 `requireFeature`。 */
   routes: readonly unknown[];
+  /**
+   * 安裝條件（docs/adr/0022-feature-flags.md D9），列出的都要成立；省略 = `{ feature: <catalog 的 id> }`。
+   * - `feature`：租戶啟用的 feature（`/auth/profile` 的 `features`，ADR-0021）
+   * - `flag`：生效為開的 feature flag（`flags`）。試行中、之後會成為常駐的 feature 只宣告 `flag`；
+   *   flag 移除時把它從 catalog 拿掉、改回 `main.tsx` 的 `.use()`
+   */
+  requires?: { feature?: string; flag?: string };
 }
 
 export interface FeatureActivatorOptions {
@@ -57,9 +64,22 @@ export class FeatureActivator {
     });
   }
 
-  /** 套用新的啟用清單；不在 catalog 裡的 id 忽略（前端比後端舊或新時不會壞）。 */
-  apply(enabled: readonly string[]): Promise<void> {
-    const wanted = new Set(enabled);
+  /**
+   * 套用新的啟用清單與生效的 flag；不在 catalog 裡的 id 忽略（前端比後端舊或新時不會壞）。
+   * flag 立即寫進 store（`useFlag` 同步反映），feature 的安裝與卸載排在上一次套用之後。
+   */
+  apply(enabled: readonly string[], flags: readonly string[] = []): Promise<void> {
+    const features = new Set(enabled);
+    const on = new Set(flags);
+    featureStore.setState({ flags: on });
+    const wanted = new Set(
+      Object.entries(this.catalog)
+        .filter(([id, definition]) => {
+          const { feature, flag } = definition.requires ?? { feature: id };
+          return (!feature || features.has(feature)) && (!flag || on.has(flag));
+        })
+        .map(([id]) => id),
+    );
     this.queue = this.queue.then(() => this.reconcile(wanted));
     return this.queue;
   }

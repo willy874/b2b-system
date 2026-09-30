@@ -132,6 +132,7 @@
     "TENANT_NOT_FOUND": "這個網址不屬於任何租戶，請確認網址是否正確。",
     "TENANT_UNAVAILABLE": "這個租戶目前無法使用，請聯絡平台管理員。",
     "FEATURE_DISABLED": "這個功能沒有為目前的租戶啟用。",
+    "FEATURE_FLAG_NOT_FOUND": "這個試行開關不存在，可能已經移除。",
     "PLATFORM_ONLY": "這個功能只在平台管理的網址提供。",
     "TENANT_CODE_TAKEN": "這個租戶代碼已被使用。",
     "TENANT_DOMAIN_TAKEN": "這個網域已屬於另一個租戶。",
