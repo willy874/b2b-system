@@ -235,6 +235,19 @@
       "delete": "刪除外部 IdP 連線"
     }
   },
+  "language": {
+    "label": "語言",
+    "switchTo": "切換為「{{language}}」",
+    "current": "目前選擇"
+  },
+  "realtime": {
+    "status": {
+      "label": "即時連線狀態",
+      "connected": "即時連線：已連線",
+      "disconnected": "即時連線：未連線，資料改為定期更新",
+      "disabled": "即時連線：未啟用"
+    }
+  },
   "theme": {
     "label": "主題",
     "light": "淺色",

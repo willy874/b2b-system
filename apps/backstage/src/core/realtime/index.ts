@@ -5,3 +5,4 @@ export * from './RealtimeCoordinator';
 export * from './socketIoTransport';
 export * from './transport';
 export * from './useRealtimeEvent';
+export * from './useRealtimeStatus';

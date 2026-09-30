@@ -5,17 +5,17 @@ import { Avatar } from '@/components/Avatar';
 import { Button } from '@/components/Button';
 import { IconButton } from '@/components/Button';
 import { Menu } from '@/components/Menu';
-import { BatchQueueIndicator, BatchQueueNotifier } from '@/core/batch';
+import { BatchQueueNotifier } from '@/core/batch';
 import { useTranslation } from '@/core/locales';
 import { useLayoutStore } from '@/core/store';
 import { PREFERENCE_PAGE, PROFILE_PAGE } from '@/features/account';
 import { useLogoutMutation } from '@/features/auth';
 import { cn } from '@/shared/utils';
 
+import { HeaderToolbar } from './HeaderToolbar';
 import { useMenuItems } from './menu';
 import type { MenuItem } from './menu';
 import { SidebarNav } from './SidebarNav';
-import { ThemeMenu } from './ThemeMenu';
 
 import './DashboardLayout.css';
 
@@ -62,8 +62,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             ☰
           </IconButton>
           <div className="flex-1" />
-          <BatchQueueIndicator />
-          <ThemeMenu />
+          <HeaderToolbar />
           <Menu
             trigger={
               <Button variant="ghost" data-testid="account-menu-trigger">

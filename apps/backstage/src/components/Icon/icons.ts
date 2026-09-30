@@ -28,6 +28,7 @@ import FolderMove from '@/assets/icons/folder-move.svg?react';
 import FolderPlus from '@/assets/icons/folder-plus.svg?react';
 import FolderUpload from '@/assets/icons/folder-upload.svg?react';
 import Folder from '@/assets/icons/folder.svg?react';
+import Globe from '@/assets/icons/globe.svg?react';
 import Grid from '@/assets/icons/grid.svg?react';
 import Home from '@/assets/icons/home.svg?react';
 import Info from '@/assets/icons/info.svg?react';
@@ -56,6 +57,7 @@ import Upload from '@/assets/icons/upload.svg?react';
 import User from '@/assets/icons/user.svg?react';
 import Users from '@/assets/icons/users.svg?react';
 import Warning from '@/assets/icons/warning.svg?react';
+import Wifi from '@/assets/icons/wifi.svg?react';
 import ZoomIn from '@/assets/icons/zoom-in.svg?react';
 import ZoomOut from '@/assets/icons/zoom-out.svg?react';
 
@@ -94,6 +96,7 @@ export const ICONS = {
   'folder-move': FolderMove,
   'folder-plus': FolderPlus,
   'folder-upload': FolderUpload,
+  globe: Globe,
   grid: Grid,
   home: Home,
   info: Info,
@@ -122,6 +125,7 @@ export const ICONS = {
   user: User,
   users: Users,
   warning: Warning,
+  wifi: Wifi,
   'zoom-in': ZoomIn,
   'zoom-out': ZoomOut,
 } as const;
