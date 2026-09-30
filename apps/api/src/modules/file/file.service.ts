@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
+import { ChangeKind } from '@b2b-system/realtime';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -38,6 +38,7 @@ import { FileImageService } from './file-image.service';
 import {
   downloadPolicyOf,
   FILE_AUDIT_FIELDS,
+  fileChange,
   isImageVariantSource,
   MAX_PART_COUNT,
   storageKeyOf,
@@ -300,9 +301,10 @@ export class FileService {
       );
     });
 
-    this.publish(ChangeKind.CREATE, id);
-    // 不等變體產生完：回應先帶瀏覽器縮圖（有的話），變體好了再以 UPDATE 推播
-    if (hasVariants) this.images.schedule(id);
+    // 不等變體產生完：回應先帶瀏覽器縮圖（有的話）。圖片的 create 推播交給變體產生：
+    // 變體很快就好時「完成」與「變體好了」合併成一次推播（PERF-06）
+    if (hasVariants) this.images.schedule(id, { announce: { folderId: file.folderId } });
+    else this.publish(ChangeKind.CREATE, id, file.folderId);
     return this.findOne(id, actor);
   }
 
@@ -360,7 +362,7 @@ export class FileService {
       );
     });
 
-    this.publish(ChangeKind.UPDATE, id);
+    this.publish(ChangeKind.UPDATE, id, file.folderId);
     return this.findOne(id, actor);
   }
 
@@ -394,7 +396,7 @@ export class FileService {
         this.logger.warn({ err: result.reason, fileId: id }, '物件刪除失敗，留下孤兒物件');
       }
     }
-    this.publish(ChangeKind.DELETE, id);
+    this.publish(ChangeKind.DELETE, id, file.folderId);
   }
 
   /** 別人的 `pending`、看不到所在資料夾的 `ready`：一律當作不存在。 */
@@ -459,9 +461,9 @@ export class FileService {
     return this.settings.get(FILE_UPLOAD_MAX_SIZE_SETTING);
   }
 
-  private publish(kind: ChangeKind, id: string): void {
+  private publish(kind: ChangeKind, id: string, folderId: string | null): void {
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: [{ resource: ChangeSource.FILE, kind, id }],
+      changes: [fileChange(kind, id, folderId)],
     });
   }
 

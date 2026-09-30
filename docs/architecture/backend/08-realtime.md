@@ -358,7 +358,7 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 | 送出註冊申請                 | `approval create`                                    | —                                                         |
 | 核准審批                     | `approval update`；`user.register` 另發 `user create`，`refs.role` | —                                           |
 | 駁回審批                     | `approval update`                                    | —                                                         |
-| 檔案上傳完成／改名／刪除     | `file create` / `file update` / `file delete`        | —                                                         |
+| 檔案上傳完成／改名／刪除     | `file create` / `file update` / `file delete`，`refs.fileFolder` = 所在的資料夾（根目錄是 `root`）；圖片的 create 等變體最多 3 秒，與變體完成合併成一次 | —                                                         |
 | 建立／改名資料夾             | `fileFolder create` / `fileFolder update`            | —                                                         |
 | 移動檔案與資料夾             | `fileFolder update`（`id='*'`）、`file update`（`id='*'`） | —                                                   |
 | 遞迴刪除資料夾               | `fileFolder delete`；有檔案一起刪除時另發 `file delete`（`id='*'`） | —                                         |

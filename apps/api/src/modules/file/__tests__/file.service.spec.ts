@@ -205,10 +205,10 @@ describe('FileService.createUpload（docs/architecture/backend/09-file.md §4）
 });
 
 describe('FileService.completeUpload', () => {
-  it('物件存在且大小相符 → ready、寫稽核、發事件', async () => {
+  it('物件存在且大小相符 → ready、寫稽核、發事件（帶所在的資料夾）', async () => {
     const { service, repo, audit, events } = setup({
-      file: fileRow(),
-      head: { size: 10, etag: 'abc', contentType: 'image/png' },
+      file: fileRow({ name: 'a.pdf', contentType: 'application/pdf' }),
+      head: { size: 10, etag: 'abc', contentType: 'application/pdf' },
     });
     await service.completeUpload(FILE_ID, {}, ALICE);
 
@@ -222,7 +222,24 @@ describe('FileService.completeUpload', () => {
       'tx',
     );
     expect(events.publish).toHaveBeenCalledWith('resource.changed', {
-      changes: [{ resource: 'file', kind: 'create', id: FILE_ID }],
+      changes: [{ resource: 'file', kind: 'create', id: FILE_ID, refs: { fileFolder: ['root'] } }],
+    });
+  });
+
+  it('推播的 refs.fileFolder 是檔案所在的資料夾：前端只重抓正在看那個資料夾的列表（PERF-06）', async () => {
+    const folderId = '44444444-4444-4444-8444-444444444444';
+    const { service, events } = setup({
+      file: fileRow({ name: 'a.txt', contentType: 'text/plain', folderId }),
+      head: { size: 10, etag: 'abc', contentType: 'text/plain' },
+      access: {
+        nodes: () => [{ id: folderId, parentId: null, inheritGrants: true, createdBy: null }],
+      },
+    });
+    await service.completeUpload(FILE_ID, {}, ALICE);
+    expect(events.publish).toHaveBeenCalledWith('resource.changed', {
+      changes: [
+        { resource: 'file', kind: 'create', id: FILE_ID, refs: { fileFolder: [folderId] } },
+      ],
     });
   });
 
@@ -540,7 +557,7 @@ describe('FileService：縮圖', () => {
 describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.4）', () => {
   const head = { size: 10, etag: 'abc', contentType: 'image/png' };
 
-  it('complete：伺服器能處理的圖片 → 變體 pending，交易與推播之後才排入產生', async () => {
+  it('complete：伺服器能處理的圖片 → 變體 pending，交易後排入產生；create 推播交給變體產生（PERF-06）', async () => {
     const { service, repo, images, events } = setup({ file: fileRow(), head });
     await service.completeUpload(FILE_ID, {}, ALICE);
     expect(repo.markReady).toHaveBeenCalledWith(
@@ -548,10 +565,8 @@ describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.
       expect.objectContaining({ variantStatus: 'pending' }),
       'tx',
     );
-    expect(images.schedule).toHaveBeenCalledWith(FILE_ID);
-    expect(images.schedule.mock.invocationCallOrder[0]).toBeGreaterThan(
-      events.publish.mock.invocationCallOrder[0] ?? Infinity,
-    );
+    expect(images.schedule).toHaveBeenCalledWith(FILE_ID, { announce: { folderId: null } });
+    expect(events.publish).not.toHaveBeenCalled();
   });
 
   it('complete：其他型別（含 SVG）→ 變體 none，不排入', async () => {

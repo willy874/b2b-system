@@ -1,3 +1,6 @@
+import { ChangeSource } from '@b2b-system/realtime';
+import type { ChangeKind, ResourceChangeWire } from '@b2b-system/realtime';
+
 /** 稽核 `file.update` 時比對的欄位。 */
 export const FILE_AUDIT_FIELDS = ['name'] as const;
 
@@ -107,6 +110,12 @@ export const IMAGE_VARIANT_MAX_INPUT_SIZE = 128 * 1024 * 1024;
 export const IMAGE_VARIANT_CONCURRENCY = 2;
 
 /**
+ * 上傳完成的圖片等變體多久才先推 `file create`（PERF-06）：通常變體在這之前就好了，
+ * 「完成」與「變體好了」合併成一次推播；超過才先推 create，變體好了再推 update。
+ */
+export const IMAGE_VARIANT_ANNOUNCE_WAIT_MS = 3_000;
+
+/**
  * 變體排入後超過這個時間仍是 `pending`（執行個體重啟、儲存服務暫時失敗），維護排程重新排入。
  */
 export const IMAGE_VARIANT_RETRY_AFTER_MS = 5 * 60 * 1000;
@@ -136,6 +145,28 @@ export function fileIdOfKey(key: string): string | undefined {
 
 /** 維護排程一次查資料庫或處理的筆數。 */
 export const MAINTENANCE_BATCH_SIZE = 500;
+
+// ── 推播（docs/architecture/backend/09-file.md §7） ──
+
+/** 根目錄在推播 `refs.fileFolder` 裡的代號（與 `GET /files?folderId=root` 相同）。 */
+export const ROOT_FOLDER_REF = 'root';
+
+/**
+ * 一個檔案的變更推播：`refs.fileFolder` 帶所在的資料夾，前端只重抓正在看那個資料夾（與不分資料夾）的列表，
+ * 其他資料夾的檔案管理器不動（PERF-06）。
+ */
+export function fileChange(
+  kind: ChangeKind,
+  id: string,
+  folderId: string | null,
+): ResourceChangeWire {
+  return {
+    resource: ChangeSource.FILE,
+    kind,
+    id,
+    refs: { [ChangeSource.FILE_FOLDER]: [folderId ?? ROOT_FOLDER_REF] },
+  };
+}
 
 // ── 資料夾（docs/architecture/backend/09-file.md §4.2） ──
 

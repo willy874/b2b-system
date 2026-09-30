@@ -1,4 +1,4 @@
-import { Readable } from 'node:stream';
+import { PassThrough, Readable } from 'node:stream';
 
 import type { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
@@ -12,7 +12,7 @@ import type { ObjectStorage } from '@/core/storage';
 import type { FileRow } from '@/db/schema';
 
 import { negotiateFormat, FileImageService } from '../file-image.service';
-import { storageKeyOf, variantKeyOf } from '../file.constants';
+import { IMAGE_VARIANT_ANNOUNCE_WAIT_MS, storageKeyOf, variantKeyOf } from '../file.constants';
 import type { FileRepository } from '../file.repository';
 
 const FILE_ID = '33333333-3333-4333-8333-333333333333';
@@ -123,6 +123,12 @@ async function png(width: number, height: number, alpha = false): Promise<Buffer
     .toBuffer();
 }
 
+/** 內容由測試決定何時送達的串流（模擬很慢的原圖下載）。 */
+function deferredStream() {
+  const stream = new PassThrough();
+  return { stream, end: (data: Buffer) => stream.end(data) };
+}
+
 /** 從影像網址取出 query（`exp`、`sig`）。 */
 function queryOf(url: string) {
   const params = new URL(url, 'http://x').searchParams;
@@ -167,8 +173,65 @@ describe('FileImageService：產生變體', () => {
       isProgressive: true,
     });
     expect(events.publish).toHaveBeenCalledWith('resource.changed', {
-      changes: [{ resource: 'file', kind: 'update', id: FILE_ID }],
+      changes: [{ resource: 'file', kind: 'update', id: FILE_ID, refs: { fileFolder: ['root'] } }],
     });
+  });
+
+  it('剛上傳的圖片（announce）：變體很快就好 → 只推一次 create，不再推 update（PERF-06）', async () => {
+    const { service, storage, events, current } = setup(fileRow());
+    storage.objects.set(storageKeyOf(FILE_ID), {
+      data: await png(10, 10),
+      contentType: 'image/png',
+    });
+    service.schedule(FILE_ID, { announce: { folderId: null } });
+    await service.whenIdle();
+    expect(current()?.variantStatus).toBe('ready');
+    expect(events.publish).toHaveBeenCalledTimes(1);
+    expect(events.publish).toHaveBeenCalledWith('resource.changed', {
+      changes: [{ resource: 'file', kind: 'create', id: FILE_ID, refs: { fileFolder: ['root'] } }],
+    });
+  });
+
+  it('剛上傳的圖片：變體超過等待時間 → 先推 create，好了再推 update', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const { service, storage, events } = setup(fileRow());
+      const source = deferredStream();
+      storage.getObject.mockImplementationOnce(async () => source.stream);
+      service.schedule(FILE_ID, { announce: { folderId: 'f1' } });
+      await vi.advanceTimersByTimeAsync(IMAGE_VARIANT_ANNOUNCE_WAIT_MS);
+      expect(events.publish).toHaveBeenCalledTimes(1);
+      expect(events.publish).toHaveBeenLastCalledWith('resource.changed', {
+        changes: [{ resource: 'file', kind: 'create', id: FILE_ID, refs: { fileFolder: ['f1'] } }],
+      });
+
+      source.end(await png(10, 10));
+      vi.useRealTimers();
+      await service.whenIdle();
+      expect(events.publish).toHaveBeenCalledTimes(2);
+      expect(events.publish).toHaveBeenLastCalledWith(
+        'resource.changed',
+        expect.objectContaining({ changes: [expect.objectContaining({ kind: 'update' })] }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('剛上傳的圖片：變體失敗也照樣推 create（其他人要看得到這個檔案）', async () => {
+    const { service, storage, events, current } = setup(fileRow());
+    storage.objects.set(storageKeyOf(FILE_ID), {
+      data: Buffer.from('nope'),
+      contentType: 'image/png',
+    });
+    service.schedule(FILE_ID, { announce: { folderId: null } });
+    await service.whenIdle();
+    expect(current()?.variantStatus).toBe('failed');
+    expect(events.publish).toHaveBeenCalledTimes(1);
+    expect(events.publish).toHaveBeenCalledWith(
+      'resource.changed',
+      expect.objectContaining({ changes: [expect.objectContaining({ kind: 'create' })] }),
+    );
   });
 
   it('有透明度的圖改用 WebP 當主格式', async () => {

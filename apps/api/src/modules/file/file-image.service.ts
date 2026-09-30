@@ -1,4 +1,4 @@
-import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
+import { ChangeKind } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -14,6 +14,8 @@ import type { FileImageDto } from './dto/file.dto';
 import type { GetFileImageDto } from './dto/get-file-image.dto';
 import { deriveImageUrlKey, signImageUrl, verifyImageUrl } from './file-image-url';
 import {
+  fileChange,
+  IMAGE_VARIANT_ANNOUNCE_WAIT_MS,
   IMAGE_VARIANT_CONCURRENCY,
   IMAGE_VARIANT_MAX_EDGE,
   IMAGE_VARIANT_MAX_INPUT_SIZE,
@@ -80,14 +82,32 @@ export class FileImageService {
   /**
    * 排入產生影像變體；同一個檔案已在佇列中就不重複排入。不等待完成——
    * 完成後發佈 `file` 的 UPDATE，前端重抓就拿到影像網址。
+   *
+   * `announce`：剛完成上傳、還沒推過 `file create` 的檔案（PERF-06）。變體在
+   * `IMAGE_VARIANT_ANNOUNCE_WAIT_MS` 內處理完（不論成敗）就只推一次 create；超過才先推 create，好了再推 update。
    */
-  schedule(fileId: string): void {
-    if (this.generating.has(fileId)) return;
+  schedule(fileId: string, options: { announce?: { folderId: string | null } } = {}): void {
+    const announce = options.announce
+      ? this.announcement(fileId, options.announce.folderId)
+      : undefined;
+    if (this.generating.has(fileId)) {
+      announce?.now();
+      return;
+    }
     const task = this.limit(() => this.generate(fileId))
+      .then((ready) => {
+        // 還沒推過 create：這一次就涵蓋了變體（前端重抓時已經是 ready）
+        if (announce && !announce.isDone()) announce.now();
+        else if (ready) this.publish(ChangeKind.UPDATE, ready);
+      })
       .catch((error: unknown) => {
         this.logger.error({ err: error, fileId }, '產生影像變體時發生未預期的錯誤');
       })
-      .finally(() => this.generating.delete(fileId));
+      .finally(() => {
+        // 失敗也要讓其他人看得到這個檔案
+        announce?.now();
+        this.generating.delete(fileId);
+      });
     this.generating.set(fileId, task);
   }
 
@@ -187,9 +207,10 @@ export class FileImageService {
     await Promise.all(keys.map((key) => this.storage.delete(key)));
   }
 
-  private async generate(fileId: string): Promise<void> {
+  /** 產生變體；變體因此變成 ready 時回傳更新後的紀錄（要推 update），其他情況 undefined。 */
+  private async generate(fileId: string): Promise<FileRow | undefined> {
     const file = await this.repo.findById(fileId);
-    if (!file || file.status !== 'ready' || file.variantStatus !== 'pending') return;
+    if (!file || file.status !== 'ready' || file.variantStatus !== 'pending') return undefined;
 
     let described: { imageWidth: number; imageHeight: number; variantFormat: ImageFormat };
     try {
@@ -224,12 +245,12 @@ export class FileImageService {
       // 儲存服務暫時不可用：維持 pending，由維護排程稍後重試
       if (error instanceof AppException && error.code === 'FILE_STORAGE_UNAVAILABLE') {
         this.logger.warn({ fileId }, '儲存服務不可用，影像變體稍後重試');
-        return;
+        return undefined;
       }
       // 解碼失敗（損毀、超過上限）不會因為重試而成功：標為 failed，前端退回瀏覽器縮圖或類型圖示
       this.logger.warn({ err: error, fileId }, '無法產生影像變體');
       await this.repo.markVariantsFailed(fileId);
-      return;
+      return undefined;
     }
 
     const updated = await this.repo.markVariantsReady(fileId, described);
@@ -238,10 +259,29 @@ export class FileImageService {
       await this.deleteVariants(fileId).catch((error: unknown) => {
         this.logger.warn({ err: error, fileId }, '清除已刪除檔案的影像變體失敗，留下孤兒物件');
       });
-      return;
+      return undefined;
     }
+    return updated;
+  }
+
+  /** 至多推一次 `file create`：到期、或呼叫 `now()` 時（先到者）。 */
+  private announcement(fileId: string, folderId: string | null) {
+    let isDone = false;
+    const now = () => {
+      if (isDone) return;
+      isDone = true;
+      clearTimeout(timer);
+      this.publish(ChangeKind.CREATE, { id: fileId, folderId });
+    };
+    const timer = setTimeout(now, IMAGE_VARIANT_ANNOUNCE_WAIT_MS);
+    // 關機時不必等它
+    timer.unref();
+    return { now, isDone: () => isDone };
+  }
+
+  private publish(kind: ChangeKind, file: Pick<FileRow, 'id' | 'folderId'>): void {
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: [{ resource: ChangeSource.FILE, kind: ChangeKind.UPDATE, id: fileId }],
+      changes: [fileChange(kind, file.id, file.folderId)],
     });
   }
 

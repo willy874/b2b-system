@@ -298,8 +298,9 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   SVG 不處理（向量圖由瀏覽器直接顯示，也不讓 api 解析使用者給的 XML）；其他檔案 `variant_status = 'none'`。
 - **主格式**：**progressive JPEG**（mozjpeg，品質 82）——大圖在下載途中就由模糊到清楚逐步顯示；
   有透明度的圖改用 WebP（JPEG 沒有透明度）。一律依 EXIF 轉正、移除中繼資料（GPS 等）、等比縮小不放大。
-- **何時產生**：`complete` 的交易與推播之後排入 `FileImageService.schedule()`（同一個 api 執行個體同時最多 2 張，
-  同一個檔案不重複排入），**不等它完成**。完成後 `variant_status = 'ready'` 並推播 `file` 的 UPDATE，前端重抓就拿到網址。
+- **何時產生**：`complete` 的交易之後排入 `FileImageService.schedule()`（同一個 api 執行個體同時最多 2 張，
+  同一個檔案不重複排入），**不等它完成**。完成後 `variant_status = 'ready'` 並推播，前端重抓就拿到網址
+  （剛上傳的圖片與 `create` 合併成一次推播，§7）。
   在那之前 `thumbnailUrl` 是瀏覽器縮圖（有的話），LightBox 用原圖。
 - **失敗**：解碼失敗（損毀、超過 128 MiB 或 1 億像素）→ `failed`，不再重試，前端退回瀏覽器縮圖或類型圖示；
   儲存服務暫時不可用 → 維持 `pending`，由維護排程（§9）在 5 分鐘後重新排入。執行個體在產生途中重啟同理。
@@ -474,6 +475,10 @@ LIMIT $limit
   `file.move`（一次移動一筆，`resourceId` 是目的地，`changes.after` 列出移動的檔案與資料夾）；`resourceType = 'fileFolder'`。
 - 推播：`ChangeSource.FILE`，受眾 `file:read` 與 `file:access`（[`08-realtime.md`](./08-realtime.md) §6.1）；前端 `Resource.FILE`
   失效 `FILE_LIST_QUERY_KEY`、`FILE_INFINITE_LIST_QUERY_KEY` / `FILE_DETAIL_QUERY_KEY`。
+  - 每筆帶 `refs.fileFolder` = 所在的資料夾（根目錄是 `root`，`fileChange()`）：前端只重抓 **正在看那個資料夾** 與不分資料夾的列表，
+    開著其他資料夾的人不動（PERF-06）。
+  - 圖片的 `create` 交給變體產生（`FileImageService.schedule(id, { announce })`）：變體在 3 秒內處理完（不論成敗）就只推一次 `create`；
+    超過才先推 `create`，變體好了再推 `update`。一般情況下「上傳完成」與「變體好了」只推一次。
   資料夾：`ChangeSource.FILE_FOLDER`（受眾相同）。遞迴刪除與批次移動無法逐筆列出受影響的檔案，
   另推一筆 `file` 的 `delete` / `update`、`id = '*'`：前端退回以前綴失效所有檔案的詳情。
 
