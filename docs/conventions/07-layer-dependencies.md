@@ -143,7 +143,12 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 
 ## 4. 檢查方式
 
-目前沒有 lint 規則強制（`.oxlintrc.json` 只開了 `import/no-cycle`），先用搜尋自查：
+**api** 的規則由 🔒 `apps/api/src/__tests__/layer-dependencies.spec.ts` 強制（`pnpm test` 會跑）：
+`core/` 不依賴 `modules/`、`common/`；`common/` 只有 guard 能注入 §3.2 註 4 的四個 service；
+跨模組不 import repository / controller；葉節點（`permission`、`audit-log`、`platform-admin`、`credential`）只依賴彼此；
+模組之間以資料夾計不循環（`import/no-cycle` 只看檔案，抓不到「A 的 service → B、B 的純函式 → A」）；不用 `forwardRef`。
+
+**backstage** 目前由 `.oxlintrc.json` 的 `no-restricted-imports` 擋一部分，其餘用搜尋自查：
 
 ```bash
 # backstage：shared / components 往上依賴
@@ -152,12 +157,6 @@ git grep -nE "from '@/(core|apis|plugins|features|app)" -- apps/backstage/src/sh
 git grep -nE "from '@/(features|app|apis|plugins)" -- apps/backstage/src/core ':!*__tests__*'
 # backstage：feature 深入其他 feature（routes/external.ts 以外）
 git grep -nE "from '@/features/[a-z-]+/" -- apps/backstage/src/features ':!*/routes/external.ts' ':!*__tests__*'
-# api：core 依賴 modules / common
-git grep -nE "from '@/(modules|common)" -- apps/api/src/core ':!*__tests__*'
-# api：common 依賴 modules（排除 §3.2 註 4 允許的四個 service）
-git grep -nE "from '@/modules/" -- apps/api/src/common ':!*__tests__*' | grep -vE "permissions\.guard\.ts:.*(permission/permission|audit-log/audit|platform-admin/platform-admin|platform-admin/platform-audit)\.service'" 
-# api：跨模組 import repository / controller
-git grep -nE "from '@/modules/[a-z-]+/[a-z.-]+\.(repository|controller)'" -- apps/api/src/modules ':!*__tests__*'
 ```
 
-補上 `no-restricted-imports`（或自訂腳本）後，把對應列的強度改成 🔒。
+backstage 補上 `no-restricted-imports`（或比照 api 寫成測試）後，把對應列的強度改成 🔒。

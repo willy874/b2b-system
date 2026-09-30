@@ -9,14 +9,14 @@
 
 | #   | 規則                                                                                          | 理由                                             | 強度          |
 | --- | --------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------- |
-| 1   | `core/` 永遠不 import `modules/`                                                              | 機制層不認識業務                                 | 👀 Review     |
+| 1   | `core/` 永遠不 import `modules/`                                                              | 機制層不認識業務                                 | 🔒 測試（`src/__tests__/layer-dependencies.spec.ts`） |
 | 2   | Controller 不含業務邏輯，只做 HTTP ↔ DTO 與 `@RequirePermissions` 宣告                         | 業務規則要能被 CLI、排程、測試直接呼叫           | 👀 Review     |
 | 3   | Repository 不含業務判斷，只有 Drizzle 查詢                                                    | 「可不可以」只在一個地方決定                     | 👀 Review     |
 | 4   | 每個路由宣告 `@Public()` / `@Authenticated()` / `@RequirePermissions()` 其中之一               | 預設拒絕；漏宣告不能變成公開                     | 🔒 啟動檢查（`common/route-audit.ts`） |
 | 5   | Service 拋 `AppException(ErrorCode)`，不拋 `HttpException`                                     | Service 不依賴 HTTP 語境                         | 👀 Review     |
 | 6   | 稽核寫入在交易 **內**；快取失效、領域事件發佈在交易 **後**（先失效再發佈）                     | 業務與紀錄同生共死；rollback 時不留下錯的快取，也不推出不存在的變更 | 👀 Review     |
 | 7   | 刪除角色前 **先** 查出受影響的使用者，再刪                                                     | cascade 之後就查不到人，快取無從失效             | 👀 Review     |
-| 8   | 跨模組只注入對方 `exports` 的 service，不注入 repository；不用 `forwardRef`                    | 循環依賴代表職責畫錯了                           | 👀 Review     |
+| 8   | 跨模組只注入對方 `exports` 的 service，不注入 repository；不用 `forwardRef`；模組之間（以資料夾計）不循環 | 循環依賴代表職責畫錯了                           | 🔒 測試（`layer-dependencies.spec.ts`；「只注入 exports」仍靠 👀 Review） |
 | 9   | 推播等副作用由 service 發佈 `DomainEventBus` 事件，不直接注入 `RealtimeModule` 或 Socket.io     | 業務模組不依賴推播；受眾判斷集中在 listener（[`architecture/backend/08-realtime.md`](../architecture/backend/08-realtime.md) §7） | 👀 Review     |
 | 10  | Socket.io 的型別只在 `modules/realtime` 的傳輸層（types / gateway / publisher / expiry）；listener、audience 經 `RealtimePublisher`，`common/` 的 guard 經 `WsClient` | 換掉 Socket.io 只換傳輸層（[`architecture/backend/08-realtime.md`](../architecture/backend/08-realtime.md) §2.1） | 🔒 測試（`transport-boundary.spec.ts`） |
 
