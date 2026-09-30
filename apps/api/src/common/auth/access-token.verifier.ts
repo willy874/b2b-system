@@ -108,6 +108,8 @@ export class AccessTokenVerifier {
   }
 
   private async loadPlatformAdmin(adminId: string): Promise<CachedUser | undefined> {
+    // 查詢期間被失效（停用、刪除）時不寫回快取，否則舊的 active 會活到 TTL（EDGE-09）
+    const ticket = this.userCache.ticket();
     const [row] = await this.platformDb
       .select({
         id: platformAdmins.id,
@@ -120,11 +122,12 @@ export class AccessTokenVerifier {
       .where(eq(platformAdmins.id, adminId))
       .limit(1);
     if (!row) return undefined;
-    this.userCache.set(row);
+    this.userCache.set(row, ticket);
     return row;
   }
 
   private async loadUser(userId: string): Promise<CachedUser | undefined> {
+    const ticket = this.userCache.ticket();
     const [row] = await this.db
       .select({
         id: users.id,
@@ -137,7 +140,7 @@ export class AccessTokenVerifier {
       .where(eq(users.id, userId))
       .limit(1);
     if (!row) return undefined;
-    this.userCache.set(row);
+    this.userCache.set(row, ticket);
     return row;
   }
 }

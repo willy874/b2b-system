@@ -69,6 +69,49 @@ describe('PermissionCacheService', () => {
     expect(cache.size).toBeLessThanOrEqual(10_000);
   });
 
+  describe('載入期間被失效（docs/issues/03-edge-cases.md EDGE-09）', () => {
+    it('取票之後被失效：載入結果不寫回，下一次請求重新查 DB', () => {
+      const cache = createCache();
+      const ticket = cache.ticket();
+      // 撤銷權限的交易在這時提交並失效
+      cache.invalidate('user-1');
+      cache.set('user-1', value(['user:read']), ticket);
+      expect(cache.get('user-1')).toBeUndefined();
+    });
+
+    it('失效發生在取票之前：照常寫入', () => {
+      const cache = createCache();
+      cache.invalidate('user-1');
+      const ticket = cache.ticket();
+      cache.set('user-1', value(['user:read']), ticket);
+      expect(cache.get('user-1')).toBeDefined();
+    });
+
+    it('別人被失效不影響這一筆', () => {
+      const cache = createCache();
+      const ticket = cache.ticket();
+      cache.invalidate('user-2');
+      cache.set('user-1', value([]), ticket);
+      expect(cache.get('user-1')).toBeDefined();
+    });
+
+    it('invalidateAll 之前取的票全部作廢', () => {
+      const cache = createCache();
+      const ticket = cache.ticket();
+      cache.invalidateAll();
+      cache.set('user-1', value([]), ticket);
+      expect(cache.get('user-1')).toBeUndefined();
+    });
+
+    it('失效紀錄超過上限被擠掉時保守地不寫入', () => {
+      const cache = createCache();
+      const ticket = cache.ticket();
+      for (let index = 0; index < 10_050; index += 1) cache.invalidate(`user-${index}`);
+      cache.set('user-0', value([]), ticket);
+      expect(cache.get('user-0')).toBeUndefined();
+    });
+  });
+
   it('super-admin 旗標被保留', () => {
     const cache = createCache();
     cache.set('root', value([], true));
