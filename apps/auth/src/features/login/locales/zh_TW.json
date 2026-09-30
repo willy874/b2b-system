@@ -65,7 +65,12 @@
       "closed": "這個租戶目前不開放註冊申請。請聯絡管理員為你建立帳號。"
     },
     "password": {
-      "hint": "至少 {{min}} 個字元，不可為常見密碼。"
+      "hint": "至少 {{min}} 個字元，不可為常見密碼。",
+      "show": "顯示",
+      "hide": "隱藏",
+      "showLabel": "顯示密碼",
+      "hideLabel": "隱藏密碼",
+      "capsLock": "已開啟大寫鎖定（Caps Lock）"
     },
     "backToLogin": "返回登入",
     "tenantRequired": "找不到這是哪個租戶的帳號。請從租戶的登入頁或信中的連結進入。",

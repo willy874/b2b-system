@@ -267,4 +267,16 @@ describe('IdP 的登入互動頁（docs/adr/0019-sso-identity-platform.md）', (
     expect(screen.queryByTestId('login-restart-platform')).toBeNull();
     expect(screen.queryByTestId('login-submit')).toBeNull();
   });
+
+  it('進頁面後游標在 Email 欄；密碼欄可以切換顯示（UX-33）', async () => {
+    renderInteraction();
+    const email = await screen.findByTestId('login-email');
+    await waitFor(() => expect(email).toHaveFocus());
+
+    const password = screen.getByTestId('login-password');
+    expect(password).toHaveAttribute('type', 'password');
+    fireEvent.click(screen.getByTestId('password-visibility-toggle'));
+    expect(password).toHaveAttribute('type', 'text');
+    expect(password).toHaveAttribute('autocomplete', 'current-password');
+  });
 });

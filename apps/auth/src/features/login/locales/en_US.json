@@ -65,7 +65,12 @@
       "closed": "This tenant is not accepting registration requests. Ask an administrator to create an account for you."
     },
     "password": {
-      "hint": "At least {{min}} characters and not a common password."
+      "hint": "At least {{min}} characters and not a common password.",
+      "show": "Show",
+      "hide": "Hide",
+      "showLabel": "Show password",
+      "hideLabel": "Hide password",
+      "capsLock": "Caps Lock is on"
     },
     "backToLogin": "Back to sign in",
     "tenantRequired": "We could not tell which tenant this account belongs to. Open this page from your tenant’s sign-in page or the link in the email.",

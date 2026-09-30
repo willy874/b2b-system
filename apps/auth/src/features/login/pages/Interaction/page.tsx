@@ -1,5 +1,5 @@
 import { useForm } from '@tanstack/react-form';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import { Button } from '@/components/Button';
@@ -9,6 +9,7 @@ import { getErrorMessageKey, isAppError, useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
+import { PasswordInput } from '../../components/PasswordInput';
 import { CLIENT_NAME_KEY } from '../../constants';
 import { useAccountPolicy } from '../../hooks/useAccountPolicy';
 import {
@@ -64,6 +65,13 @@ export default function InteractionPage() {
   const discovery = useSsoDiscovery(uid, discoveryEmail);
   const provider = discovery.data?.provider ?? null;
   const ssoOnly = Boolean(provider && discovery.data?.ssoOnly);
+
+  // 互動載入後游標放在 Email 欄，進頁面就能直接輸入（UX-33）；不用 autoFocus：欄位在載入前還不存在
+  const emailRef = useRef<HTMLInputElement>(null);
+  const ready = interaction.isSuccess;
+  useEffect(() => {
+    if (ready) emailRef.current?.focus();
+  }, [ready]);
 
   const discover = (email: string) => {
     const parsed = EmailSchema.safeParse(email);
@@ -203,6 +211,7 @@ export default function InteractionPage() {
               <Input
                 type="email"
                 autoComplete="username"
+                ref={emailRef}
                 value={field.state.value}
                 onChange={(event) => field.handleChange(event.target.value)}
                 onBlur={() => {
@@ -229,8 +238,7 @@ export default function InteractionPage() {
                 required
                 error={firstError(field.state.meta.errors)}
               >
-                <Input
-                  type="password"
+                <PasswordInput
                   autoComplete="current-password"
                   value={field.state.value}
                   onChange={(event) => field.handleChange(event.target.value)}
