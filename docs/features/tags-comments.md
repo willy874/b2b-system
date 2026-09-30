@@ -15,7 +15,7 @@
 可以參考的既有模式：
 
 - **資源授權已經是多型關聯**：權限圖 G3a 起存在 `relation_tuples`（`object_type` ＋ `object_id`，都是 text、無外鍵；
-  舊的 `resource_grants` 用 Postgres enum `resource_type`，G3b 刪除）。關係圖引擎（`core/authz`）是通用的，
+  舊的 `resource_grants` 用 Postgres enum `resource_type`，已在 G3b 刪除）。關係圖引擎（`core/authz`）是通用的，
   擁有者模組（`modules/file`）在模型裡宣告型別、提供結構邊與授權的讀寫、API（[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) §10.1）。
 - **模組把 handler 註冊進通用模組**：審批（`approvals.registerHandler`）、背景工作、系統設定都是這樣，通用模組不 import 業務模組。
 - **前端的 feature 不能互相 import 元件**：共用 UI 要放 `components/`、`core/`，或經註冊表注入（[`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md) §2.2）。

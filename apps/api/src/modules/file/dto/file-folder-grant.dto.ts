@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 import { defineSchema } from '@/core/validation';
-import { GRANT_LEVELS, GRANT_SUBJECT_TYPES } from '@/db/schema';
+
+import { GRANT_LEVELS, GRANT_SUBJECT_TYPES } from '../file-grant.levels';
 
 /** 授權對象的種類：角色或個別使用者（docs/rbac/07-resource-grants.md §6.2）。 */
 export const FILE_GRANT_SUBJECT_TYPES = GRANT_SUBJECT_TYPES;

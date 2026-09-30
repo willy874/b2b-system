@@ -255,8 +255,8 @@ file_folders.inherit_grants  boolean not null default true        ← P2
   所以由 `FileFolderGrantRepository.set` 在同一個交易裡先刪掉這個對象在這個資料夾上的所有等級、再插入新的；
   授權的寫入一律經 `FileFolderTree.write` 序列化（backend 09 §11.1），並行的兩次授予不會各插一筆。
 - 等級規則（`levelRank`、`maxLevel`、`missingActions`、`assignableLevels`、`inheritanceChain`）在 `modules/file/file-grant.levels.ts`。
-- 舊表 `resource_grants`（enum `resource_type`、`grant_level`、`grant_subject_type`）G3b 刪除；程式已不讀寫。
-  等級與對象型別的常數（`GRANT_LEVELS`、`GrantSubjectType`、`EVERYONE_SUBJECT_ID`）目前仍定義在它的 schema 檔。
+- 等級與 API 上的對象型別（`GRANT_LEVELS`、`GRANT_SUBJECT_TYPES`、`EVERYONE_SUBJECT_ID`）也定義在 `file-grant.levels.ts`。
+  G3 之前的舊表 `resource_grants`（與 enum `resource_type`、`grant_level`、`grant_subject_type`）已在 G3b 刪除（migration 0010）。
 
 形狀就是 Zanzibar 的 `(object, relation, subject)` tuple，將來改用 OpenFGA / SpiceDB 時可以直接匯出（§10.2）。
 

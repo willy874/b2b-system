@@ -20,8 +20,8 @@ import { users } from './users';
  *
  * - 主體是節點（`subject_relation = ''`）、節點的關係（`role:<id>#holder`），或萬用字元（`subject_id = '*'`）。
  * - id 用 text：租戶節點是 `self`、萬用字元是 `*`；多型關聯沒有外鍵，解析時 join 未刪除的節點。
- * - G3 起由程式直接寫入。G1～G2 由舊表上的 trigger 同步（migration 0008）；trigger 與舊表留到 G3b 一起刪，
- *   讓滾動部署期間舊版程式對舊表的寫入仍同步過來。
+ * - 由程式直接寫入。G1～G2 期間由舊表（`user_roles`、`role_permissions`、`resource_grants`）上的 trigger 同步
+ *   （migration 0008）；trigger 與舊表已在 G3b 刪除（migration 0010）。
  */
 export const relationTuples = pgTable(
   'relation_tuples',
@@ -73,8 +73,7 @@ export const authzRevision = pgTable(
 );
 
 // ── 核心的邊（docs/rbac/01-domain-model.md §6.4）──────────────────────
-// G3 起取代 user_roles、role_permissions、resource_grants；repository、seed、測試共用下面的
-// 建構函式與條件，邊的形狀只寫在這裡。
+// repository、seed、測試共用下面的建構函式與條件，邊的形狀只寫在這裡。
 //
 // 多型的 id 是 text：與 uuid 欄位比較時一律把 uuid 那邊轉成 text（`roles.id::text = object_id`），
 // 不要把 object_id 轉成 uuid——租戶節點是 `self`、萬用字元是 `*`，轉型可能在過濾之前就執行而失敗。

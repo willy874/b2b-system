@@ -5,8 +5,6 @@ import type { AuthUser } from '@/common/types';
 import { AuthzRegistry, AuthzService, impliedRelations } from '@/core/authz';
 import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
-import { GRANT_LEVELS } from '@/db/schema';
-import type { GrantLevel } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 
@@ -14,7 +12,8 @@ import { FileAccessContext, FILE_ACTION_RELATION, FILE_ACTIONS } from './file-ac
 import type { FileAction, FileLocation } from './file-access.context';
 import { folderEdgeProvider } from './file-access.snapshot';
 import { FileFolderTree } from './file-folder-tree';
-import type { LevelActions } from './file-grant.levels';
+import { GRANT_LEVELS } from './file-grant.levels';
+import type { GrantLevel, LevelActions } from './file-grant.levels';
 import { FILE_AUTHZ_TYPES } from './file.authz';
 
 /** 檔案的上層鏈上會出現的資源種類。 */

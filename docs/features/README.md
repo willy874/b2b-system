@@ -18,7 +18,7 @@
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
 | P0 | 版本歷史、樂觀鎖與還原 | [`entity-revisions.md`](./entity-revisions.md) | 提案 | `permission-graph` G3（刪除角色時持有者存在哪） |
-| P0 | 權限圖（ReBAC，收斂 RBAC／資源授權／群組） | [`permission-graph.md`](./permission-graph.md) | 實作中（G0～G3a 已上 main 並歸檔；G3b 刪舊表與 trigger、G4 群組與 explain、G5 專案待做；原「使用者群組」提案併入 G4） | — |
+| P0 | 權限圖（ReBAC，收斂 RBAC／資源授權／群組） | [`permission-graph.md`](./permission-graph.md) | 實作中（G0～G3b 已上 main 並歸檔；G4 群組與 explain、G5 專案待做；原「使用者群組」提案併入 G4） | — |
 | P1 | 站內通知中心 | [`notification-center.md`](./notification-center.md) | 提案 | — |
 | P2 | 服務帳號／API Token | [`api-tokens.md`](./api-tokens.md) | 提案 | — |
 | P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | [背景工作](../architecture/backend/10-jobs.md)（已完成） |
@@ -42,9 +42,8 @@
 
 ### 1.1 建議的順序
 
-1. **`permission-graph` G3b**：G3a（讀寫只走 `relation_tuples`、`authz_revision` ＋ 平台 DB 廣播失效、刪影子比對與 `modules/resource-grant`）
-   已上 main（96ae80a）並歸檔進正式文件，順便做出了 `multi-instance` 的 `core/broadcast`。剩下 G3b：G3a 部署之後的下一次部署，
-   把三張舊表、雙寫 trigger、它們的 schema 定義一起刪掉（滾動部署期間舊版程序仍寫舊表，所以不能與 G3a 同一次部署）。
+1. **`permission-graph` G3b** ✅：G3a（讀寫只走 `relation_tuples`、`authz_revision` ＋ 平台 DB 廣播失效）與 G3b（刪三張舊表與雙寫 trigger，migration 0010）
+   都已上 main 並歸檔進正式文件，順便做出了 `multi-instance` 的 `core/broadcast`。
 2. **`entity-revisions` 的 ADR，與 G3 並行**：樂觀鎖、快照、還原的模式會被每個編輯器實體沿用，要在第一個編輯器功能之前定。
    它的開放問題 2（刪除角色時持有者保留與否）要改用 tuple 回答（G3a 起刪角色會刪掉它的持有者邊）；`resource_type` 用 enum 或 text 也在這份 ADR 一次定，`tags-comments` 沿用。
 3. **`notification-center`**：匯入匯出、標籤留言直接依賴它；Webhook、MFA、API Token 的「通知建立者」也會用到。

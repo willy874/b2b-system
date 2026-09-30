@@ -4,7 +4,7 @@ import { isRoleHolderTuple, relationTuples } from '@/db/schema';
 
 import type { TestDatabase } from './db';
 
-/** 使用者持有的角色 id（`role:<id>#holder@user:<userId>` 的邊；G3 起取代查 user_roles）。 */
+/** 使用者持有的角色 id（`role:<id>#holder@user:<userId>` 的邊）。 */
 export async function heldRoleIds(db: TestDatabase, userId: string): Promise<string[]> {
   const rows = await db
     .select({ roleId: relationTuples.objectId })

@@ -126,8 +126,6 @@ apps/api/src/
 │   │   ├── users.ts
 │   │   ├── roles.ts
 │   │   ├── permissions.ts
-│   │   ├── user-roles.ts                 G3b 刪除；程式已不讀寫（02-database.md §2.4）
-│   │   ├── role-permissions.ts           同上
 │   │   ├── relation-tuples.ts            關係圖的邊與 authz_revision；邊的建構函式與查詢條件（ADR-0024）
 │   │   ├── refresh-tokens.ts
 │   │   ├── audit-logs.ts

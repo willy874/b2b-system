@@ -142,18 +142,17 @@ export const permissions = pgTable(
 **沒有 `deleted_at`**：權限目錄不軟刪除。要移除一個權限就是明確的 migration，
 連帶處理 `relation_tuples` 上以它為關係的邊（`tenant:self#<key>@role:<id>#holder`）。
 
-### 2.4 `user_roles`、2.5 `role_permissions`（G3b 刪除；程式已不讀寫）
+### 2.4 `user_roles`、2.5 `role_permissions`（已刪除）
 
-G3a 起角色的持有者與角色的權限鍵只存在 `relation_tuples`（§2.10）：
+角色的持有者與角色的權限鍵只存在 `relation_tuples`（§2.10）。兩張舊表的對照：
 
 | 舊表的一列 | 現在的邊 |
 | --- | --- |
 | `user_roles(u, r)` | `role:<r>#holder@user:<u>` |
 | `role_permissions(r, p)` | `tenant:self#<p 的 key>@role:<r>#holder` |
 
-兩張表（與 `resource_grants`，[`09-file.md`](./09-file.md)）、它們的 Drizzle schema 檔、`db/relations.ts` 的項目、
-migration 0008 的同步 trigger 都還在：滾動部署期間舊版（G2）程序仍寫舊表，由 trigger 同步到 `relation_tuples`（§5.1「破壞性變更拆成兩次部署」）。
-新版程式不寫舊表，trigger 不會被觸發。下一次部署（G3b，[ADR-0024](../../adr/0024-relationship-based-access-control.md)）一起刪除。
+兩張表與 `resource_grants`（[`09-file.md`](./09-file.md)）、migration 0008 的同步 trigger，依 §5.1「破壞性變更拆成兩次部署」
+在 G3a 之後的下一次部署（G3b，[ADR-0024](../../adr/0024-relationship-based-access-control.md)）以 migration 0010 一起刪除，不可回退。
 
 ### 2.6 `refresh_tokens`
 
@@ -315,10 +314,7 @@ export const auditLogsArchive = pgTable(
 - 「每個主體在一個資料夾只有一個等級」不是 DB 的唯一索引（六欄唯一包含等級），由 `FileFolderGrantRepository.set` 先刪後插維持；
   授權的寫入經 `FileFolderTree.write` 序列化。
 
-**G1～G2 的舊表同步**（migration 0008，手寫；**G3b 刪除**）：`user_roles`、`role_permissions`、`resource_grants` 上的 AFTER trigger
-在同一個交易裡寫入／刪除對應的邊（`resource_grants` 改等級時先刪舊的邊再插新的；`everyone` 對應 `user:*`）；
-`roles` 建立 slug 為 `super-admin` 的角色時補上 superAdmin 的邊（`roles_mirror_super_admin`）。migration 同時回填既有資料。
-G3a 起只有滾動部署期間的舊版程序會觸發它們。**TRUNCATE 不會觸發 row trigger**：清空舊表的地方（`test/db.ts`、`db/reset.ts`）要一併清空 `relation_tuples`。
+G1～G2 期間由舊表上的 trigger 同步寫入這張表（migration 0008，並回填既有資料）；trigger、它們的函式與舊表已在 G3b 刪除（migration 0010）。
 
 ### 2.11 `authz_revision`（關係圖的版本號）
 
@@ -501,8 +497,9 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0006_roles_and_search.sql           角色名稱不分大小寫唯一（含既有同名的改名修補）、users 關鍵字的 trigram 索引、
 │                                       protect_system_roles 也擋軟刪除
 ├── 0007_relation_tuples.sql            關係圖的邊（§2.10）
-├── 0008_relation_tuples_mirror.sql     手寫：回填、舊表 → relation_tuples 的同步 trigger（trigger 於 G3b 刪除）
+├── 0008_relation_tuples_mirror.sql     手寫：回填、舊表 → relation_tuples 的同步 trigger（G3b 刪除）
 ├── 0009_authz_revision.sql             authz_revision 與遞增 trigger（§2.11）
+├── 0010_drop_legacy_authz_tables.sql   G3b：刪 0008 的 trigger 與函式、user_roles、role_permissions、resource_grants 與三個 enum
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

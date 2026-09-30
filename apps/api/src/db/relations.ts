@@ -3,39 +3,12 @@ import { relations } from 'drizzle-orm';
 import { approvalRequests } from './schema/approval-requests';
 import { auditLogs } from './schema/audit-logs';
 import { authTokens } from './schema/auth-tokens';
-import { permissions } from './schema/permissions';
 import { refreshTokens } from './schema/refresh-tokens';
-import { rolePermissions } from './schema/role-permissions';
-import { roles } from './schema/roles';
-import { userRoles } from './schema/user-roles';
 import { users } from './schema/users';
 
 export const usersRelations = relations(users, ({ many }) => ({
-  userRoles: many(userRoles),
   refreshTokens: many(refreshTokens),
   authTokens: many(authTokens),
-}));
-
-export const rolesRelations = relations(roles, ({ many }) => ({
-  userRoles: many(userRoles),
-  rolePermissions: many(rolePermissions),
-}));
-
-export const permissionsRelations = relations(permissions, ({ many }) => ({
-  rolePermissions: many(rolePermissions),
-}));
-
-export const userRolesRelations = relations(userRoles, ({ one }) => ({
-  user: one(users, { fields: [userRoles.userId], references: [users.id] }),
-  role: one(roles, { fields: [userRoles.roleId], references: [roles.id] }),
-}));
-
-export const rolePermissionsRelations = relations(rolePermissions, ({ one }) => ({
-  role: one(roles, { fields: [rolePermissions.roleId], references: [roles.id] }),
-  permission: one(permissions, {
-    fields: [rolePermissions.permissionId],
-    references: [permissions.id],
-  }),
 }));
 
 export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
