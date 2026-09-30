@@ -8,6 +8,7 @@ export * from './identity-providers';
 export * from './job-outbox';
 export * from './permissions';
 export * from './refresh-tokens';
+export * from './relation-tuples';
 export * from './resource-grants';
 export * from './role-permissions';
 export * from './roles';

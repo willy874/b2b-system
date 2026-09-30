@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/common/types';
+import type { AuthzService, AuthzShadow } from '@/core/authz';
 import type { PermissionCacheService } from '@/core/cache';
 
 import type { PermissionRepository } from '../permission.repository';
 import { PermissionService } from '../permission.service';
+
+/** 影子比對另有整合測試；這裡只測舊的解析與業務規則。 */
+const SHADOW_OFF = { enabled: false } as AuthzShadow;
 
 const ALL_KEYS = ['user:read', 'user:assignRole', 'system:update'] as PermissionKey[];
 
@@ -20,6 +24,8 @@ function createService(actor: { keys: PermissionKey[]; isSuperAdmin: boolean }) 
   const service = new PermissionService(
     repo as unknown as PermissionRepository,
     cache as unknown as PermissionCacheService,
+    {} as AuthzService,
+    SHADOW_OFF,
   );
   return { service, repo };
 }
@@ -87,10 +93,13 @@ function createBatchService(cached: Record<string, { keys: PermissionKey[] }> = 
       cached[id] ? { permissions: new Set(cached[id].keys), isSuperAdmin: false } : undefined,
     ),
     set: vi.fn(),
+    ticket: vi.fn(() => 0),
   };
   const service = new PermissionService(
     repo as unknown as PermissionRepository,
     cache as unknown as PermissionCacheService,
+    {} as AuthzService,
+    SHADOW_OFF,
   );
   return { service, repo, cache };
 }
@@ -102,7 +111,7 @@ describe('PermissionService.getPermissionSets（批次解析）', () => {
     const sets = await service.getPermissionSets(['u1', 'u2', 'root', 'u1']);
 
     expect(repo.findPermissionKeysByUsers).toHaveBeenCalledTimes(1);
-    expect(repo.findPermissionKeysByUsers).toHaveBeenCalledWith(['u1', 'u2', 'root']);
+    expect(repo.findPermissionKeysByUsers).toHaveBeenCalledWith(['u1', 'u2', 'root'], undefined);
     expect([...sets.keys()]).toEqual(['u1', 'u2', 'root']);
     expect([...sets.get('u1')!.permissions]).toEqual(['user:read']);
     expect(sets.get('u2')).toEqual({ permissions: new Set(), isSuperAdmin: false });
@@ -114,10 +123,14 @@ describe('PermissionService.getPermissionSets（批次解析）', () => {
 
     const sets = await service.getPermissionSets(['u1', 'u2']);
 
-    expect(repo.findPermissionKeysByUsers).toHaveBeenCalledWith(['u2']);
+    expect(repo.findPermissionKeysByUsers).toHaveBeenCalledWith(['u2'], undefined);
     expect([...sets.get('u1')!.permissions]).toEqual(['role:read']);
     expect(cache.set).toHaveBeenCalledTimes(1);
-    expect(cache.set).toHaveBeenCalledWith('u2', { permissions: new Set(), isSuperAdmin: false });
+    expect(cache.set).toHaveBeenCalledWith(
+      'u2',
+      { permissions: new Set(), isSuperAdmin: false },
+      0,
+    );
   });
 
   it('全部命中快取時不查 DB', async () => {

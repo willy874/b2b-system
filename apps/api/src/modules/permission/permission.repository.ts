@@ -14,8 +14,8 @@ export class PermissionRepository {
   constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
   /** 最熱的查詢：使用者透過所有角色間接持有的權限鍵。 */
-  async findPermissionKeysByUser(userId: string): Promise<PermissionKey[]> {
-    const rows = await this.db
+  async findPermissionKeysByUser(userId: string, db: DbOrTx = this.db): Promise<PermissionKey[]> {
+    const rows = await db
       .selectDistinct({ key: permissions.key })
       .from(userRoles)
       .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
@@ -53,9 +53,10 @@ export class PermissionRepository {
   /** `findPermissionKeysByUser` 的批次版：一條查詢取得多人的權限鍵（沒有任何權限的人不會出現）。 */
   async findPermissionKeysByUsers(
     userIds: readonly string[],
+    db: DbOrTx = this.db,
   ): Promise<Array<{ userId: string; key: PermissionKey }>> {
     if (userIds.length === 0) return [];
-    const rows = await this.db
+    const rows = await db
       .selectDistinct({ userId: userRoles.userId, key: permissions.key })
       .from(userRoles)
       .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
@@ -66,9 +67,9 @@ export class PermissionRepository {
   }
 
   /** `isSuperAdmin` 的批次版：這些人之中持有 super-admin 的。 */
-  async findSuperAdminUserIds(userIds: readonly string[]): Promise<string[]> {
+  async findSuperAdminUserIds(userIds: readonly string[], db: DbOrTx = this.db): Promise<string[]> {
     if (userIds.length === 0) return [];
-    const rows = await this.db
+    const rows = await db
       .selectDistinct({ userId: userRoles.userId })
       .from(userRoles)
       .innerJoin(roles, eq(roles.id, userRoles.roleId))
@@ -82,8 +83,8 @@ export class PermissionRepository {
     return rows.map((row) => row.userId);
   }
 
-  async isSuperAdmin(userId: string): Promise<boolean> {
-    const [row] = await this.db
+  async isSuperAdmin(userId: string, db: DbOrTx = this.db): Promise<boolean> {
+    const [row] = await db
       .select({ one: sql<number>`1` })
       .from(userRoles)
       .innerJoin(roles, eq(roles.id, userRoles.roleId))

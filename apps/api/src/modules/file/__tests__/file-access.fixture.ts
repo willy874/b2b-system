@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 
+import type { AuthzRegistry, AuthzService, AuthzShadow } from '@/core/authz';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { PermissionService } from '@/modules/permission/permission.service';
 import type { LevelGrant } from '@/modules/resource-grant/resource-grant.resolver';
@@ -39,6 +40,10 @@ export function createFileAccess(options: AccessFixtureOptions = {}) {
     grants as unknown as ResourceGrantService,
     tree as unknown as FileFolderTree,
     audit as unknown as AuditService,
+    {} as AuthzService,
+    // 影子比對另有整合測試；這裡只測舊的解析
+    { enabled: false } as AuthzShadow,
+    { register: vi.fn() } as unknown as AuthzRegistry,
   );
   return { access, audit, permissions, grants };
 }

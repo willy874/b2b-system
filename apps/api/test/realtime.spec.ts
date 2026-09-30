@@ -106,6 +106,11 @@ async function connect(token: string): Promise<ClientSocket> {
     socket.once('connect', resolve);
     socket.once('connect_error', reject);
   });
+  // 客戶端的 connect 早於伺服器端加入 room（要先解析權限）：等伺服器端的連線有了 room 再開始測
+  await vi.waitFor(() => {
+    const server = app.get(RealtimeGateway).server!.sockets.sockets.get(socket.id ?? '');
+    if (!server || server.rooms.size <= 1) throw new Error('伺服器端還沒加入 room');
+  });
   return socket;
 }
 

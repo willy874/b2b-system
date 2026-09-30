@@ -97,6 +97,14 @@ export const EnvSchema = z.object({
 
   PERMISSION_CACHE_TTL: z.coerce.number().int().default(60),
   /**
+   * 權限圖的影子比對（docs/adr/0024-relationship-based-access-control.md）：解析權限時新舊兩套都跑、比較結果。
+   * `log` 記錄不一致、`throw` 直接讓請求失敗。沒設定時依 `NODE_ENV`：test → throw、development → log、production → off。
+   */
+  AUTHZ_SHADOW: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.enum(['off', 'log', 'throw']).optional(),
+  ),
+  /**
    * 平台管理者的登入鎖定。租戶使用者改讀系統設定 `auth.loginMaxAttempts` / `auth.loginLockoutSeconds`
    * （docs/architecture/backend/12-settings.md §3）。
    */

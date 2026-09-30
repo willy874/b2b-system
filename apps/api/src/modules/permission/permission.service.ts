@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 
 import type { PermissionKey } from '@/common/types';
+import { AuthzService, AuthzShadow, setDiff } from '@/core/authz';
 import type { PermissionSet } from '@/core/cache';
 import { PermissionCacheService } from '@/core/cache';
+import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 import type { PermissionRow } from '@/db/schema';
 
@@ -22,6 +24,8 @@ export class PermissionService {
   constructor(
     private readonly repo: PermissionRepository,
     private readonly cache: PermissionCacheService,
+    private readonly authz: AuthzService,
+    private readonly shadow: AuthzShadow,
   ) {}
 
   async getPermissionSet(userId: string): Promise<PermissionSet> {
@@ -30,14 +34,49 @@ export class PermissionService {
 
     // 查詢期間若被失效（撤銷權限的交易剛提交），讀到的可能是舊值：不寫回快取
     const ticket = this.cache.ticket();
+    const value = this.shadow.enabled
+      ? await this.authz.readConsistently(async (tx) => {
+          const legacy = await this.loadLegacy(userId, tx);
+          await this.compareWithGraph(userId, legacy, tx);
+          return legacy;
+        })
+      : await this.loadLegacy(userId);
+    this.cache.set(userId, value, ticket);
+    return value;
+  }
+
+  private async loadLegacy(userId: string, db?: DbOrTx): Promise<PermissionSet> {
+    // 同一個交易的查詢依序執行；交易外可以並行
+    if (db) {
+      const keys = await this.repo.findPermissionKeysByUser(userId, db);
+      const isSuperAdmin = await this.repo.isSuperAdmin(userId, db);
+      return { permissions: new Set(keys), isSuperAdmin };
+    }
     const [keys, isSuperAdmin] = await Promise.all([
       this.repo.findPermissionKeysByUser(userId),
       this.repo.isSuperAdmin(userId),
     ]);
+    return { permissions: new Set(keys), isSuperAdmin };
+  }
 
-    const value: PermissionSet = { permissions: new Set(keys), isSuperAdmin };
-    this.cache.set(userId, value, ticket);
-    return value;
+  /**
+   * G1 影子比對：以關係圖（不含依賴樹）解析同一個人，應該與舊的解析完全一致
+   * （docs/adr/0024-relationship-based-access-control.md）。不一致時依 `AUTHZ_SHADOW` 記錄或丟錯。
+   */
+  private async compareWithGraph(userId: string, legacy: PermissionSet, tx: DbOrTx): Promise<void> {
+    const engine = await this.authz.tenantPermissions(userId, { withDependencies: false, tx });
+    const keys = setDiff(legacy.permissions, engine.explicit);
+    const superAdmin = legacy.isSuperAdmin !== engine.isSuperAdmin;
+    this.shadow.report(
+      'permissionSet',
+      keys || superAdmin
+        ? {
+            userId,
+            keys,
+            isSuperAdmin: { legacy: legacy.isSuperAdmin, engine: engine.isSuperAdmin },
+          }
+        : null,
+    );
   }
 
   /**
@@ -56,21 +95,45 @@ export class PermissionService {
 
     for (let start = 0; start < missing.length; start += PERMISSION_BATCH_SIZE) {
       const batch = missing.slice(start, start + PERMISSION_BATCH_SIZE);
+      // 與 getPermissionSet 相同：載入期間被失效過的人不寫回快取
+      const ticket = this.cache.ticket();
       // oxlint-disable-next-line no-await-in-loop -- 分批依序，避免一次佔用多條連線
-      const [rows, superAdmins] = await Promise.all([
-        this.repo.findPermissionKeysByUsers(batch),
-        this.repo.findSuperAdminUserIds(batch),
-      ]);
-      const superAdminIds = new Set(superAdmins);
-      const keysByUser = new Map<string, Set<PermissionKey>>(batch.map((id) => [id, new Set()]));
-      for (const row of rows) keysByUser.get(row.userId)?.add(row.key);
-      for (const [id, keys] of keysByUser) {
-        const value: PermissionSet = { permissions: keys, isSuperAdmin: superAdminIds.has(id) };
-        this.cache.set(id, value);
+      const loaded = await this.loadBatch(batch);
+      for (const [id, value] of loaded) {
+        this.cache.set(id, value, ticket);
         result.set(id, value);
       }
     }
     return result;
+  }
+
+  /** 一批人的權限；影子比對開啟時在一致讀取的交易裡逐人與關係圖比較。 */
+  private loadBatch(batch: readonly string[]): Promise<Map<string, PermissionSet>> {
+    if (!this.shadow.enabled) return this.loadLegacyBatch(batch);
+    return this.authz.readConsistently(async (tx) => {
+      const sets = await this.loadLegacyBatch(batch, tx);
+      for (const [id, set] of sets) {
+        // oxlint-disable-next-line no-await-in-loop -- 同一個交易的查詢依序執行
+        await this.compareWithGraph(id, set, tx);
+      }
+      return sets;
+    });
+  }
+
+  private async loadLegacyBatch(
+    batch: readonly string[],
+    db?: DbOrTx,
+  ): Promise<Map<string, PermissionSet>> {
+    const rows = await this.repo.findPermissionKeysByUsers(batch, db);
+    const superAdminIds = new Set(await this.repo.findSuperAdminUserIds(batch, db));
+    const keysByUser = new Map<string, Set<PermissionKey>>(batch.map((id) => [id, new Set()]));
+    for (const row of rows) keysByUser.get(row.userId)?.add(row.key);
+    return new Map(
+      [...keysByUser].map(([id, keys]) => [
+        id,
+        { permissions: keys, isSuperAdmin: superAdminIds.has(id) },
+      ]),
+    );
   }
 
   /** 供 /auth/profile 使用：super-admin 展開成全集，讓前端沒有特例。 */
