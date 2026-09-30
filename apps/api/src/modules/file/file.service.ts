@@ -252,7 +252,16 @@ export class FileService {
       }
       // 各塊的完整性由物件儲存檢查（缺塊、ETag 不符 → FILE_UPLOAD_INCOMPLETE）
       const parts = dto.parts.toSorted((a, b) => a.partNumber - b.partNumber);
-      await this.storage.completeMultipartUpload(file.storageKey, file.uploadId, parts);
+      try {
+        await this.storage.completeMultipartUpload(file.storageKey, file.uploadId, parts);
+      } catch (error) {
+        // 物件儲存那一側已經組好了，uploadId 因此失效（NoSuchUpload）：並行的另一個 complete 先組好、
+        // 或上次組好之後在 markReady 前中斷。物件在、大小對就照常完成（EDGE-22），否則原樣拋出
+        if (!(error instanceof AppException && error.code === 'FILE_UPLOAD_INCOMPLETE'))
+          throw error;
+        const assembled = await this.storage.head(file.storageKey);
+        if (assembled?.size !== file.size) throw error;
+      }
     }
 
     const [stored, thumbnail] = await Promise.all([
@@ -261,7 +270,8 @@ export class FileService {
     ]);
     if (!stored) throw new AppException('FILE_UPLOAD_INCOMPLETE');
     if (stored.size !== file.size) {
-      // 刪掉不符的內容，讓使用者能用同一個網址（未過期時）重傳
+      // 刪掉不符的內容：單次 PUT 可以用同一個網址（未過期時）重傳；
+      // 分塊上傳的 uploadId 在組合後就失效了，只能放棄這次上傳、重新登記
       await this.storage.delete(file.storageKey);
       throw new AppException('FILE_SIZE_MISMATCH', { expected: file.size, actual: stored.size });
     }

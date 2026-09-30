@@ -355,6 +355,45 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     expect(row?.uploadId).toBeNull();
   });
 
+  it('分塊上傳：物件儲存已組好、紀錄仍是 pending（上次在 markReady 前中斷）→ 重送 complete 成功（EDGE-22）', async () => {
+    const token = await login(ADMIN);
+    const { file } = await startUpload(token, {
+      name: 'crashed.pak',
+      contentType: 'application/octet-stream',
+      size: 600,
+    });
+    const parts = await request(http)
+      .post(`/files/${file.id}/parts`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ partNumbers: [1] })
+      .expect(200);
+    const [part] = (parts.body as { data: { parts: Array<{ url: string }> } }).data.parts;
+    storage.simulateBrowserUpload(part?.url ?? '', 600);
+    const [row] = await db.select().from(files).where(eq(files.id, file.id));
+    // 模擬「CompleteMultipartUpload 成功、markReady 之前程序當掉」：uploadId 在物件儲存那一側已失效
+    await storage.completeMultipartUpload(row?.storageKey ?? '', row?.uploadId ?? '', [
+      { partNumber: 1, etag: 'etag-1' },
+    ]);
+
+    const done = await request(http)
+      .post(`/files/${file.id}/complete`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ parts: [{ partNumber: 1, etag: 'etag-1' }] })
+      .expect(200);
+    expect((done.body as { data: FileBody }).data).toMatchObject({ status: 'ready', size: 600 });
+    // 再重送一次：已經完成
+    const again = await request(http)
+      .post(`/files/${file.id}/complete`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ parts: [{ partNumber: 1, etag: 'etag-1' }] })
+      .expect(409);
+    expect((again.body as { error: { code: string } }).error.code).toBe('FILE_ALREADY_UPLOADED');
+    await request(http)
+      .delete(`/files/${file.id}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(204);
+  });
+
   it('放棄上傳：pending 消失、分塊被清掉；已完成的不能放棄', async () => {
     const token = await login(ADMIN);
     const { file } = await startUpload(token, {

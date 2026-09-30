@@ -469,6 +469,32 @@ describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.
     expect(repo.markReady).toHaveBeenCalled();
   });
 
+  it('complete：物件儲存已經組好（NoSuchUpload）、紀錄仍是 pending → 照常完成（EDGE-22）', async () => {
+    const { service, storage, repo } = setup({
+      file: fileRow({ uploadId: 'upload-1', size: 20 * 1024 * 1024 }),
+      head: { size: 20 * 1024 * 1024, etag: 'abc-3', contentType: 'image/png' },
+    });
+    storage.completeMultipartUpload.mockRejectedValueOnce(
+      new AppException('FILE_UPLOAD_INCOMPLETE'),
+    );
+    await service.completeUpload(FILE_ID, { parts: [{ partNumber: 1, etag: 'a' }] }, ALICE);
+    expect(repo.markReady).toHaveBeenCalled();
+  });
+
+  it('complete：塊不對、物件也不在 → FILE_UPLOAD_INCOMPLETE', async () => {
+    const { service, storage, repo } = setup({
+      file: fileRow({ uploadId: 'upload-1', size: 20 * 1024 * 1024 }),
+    });
+    storage.completeMultipartUpload.mockRejectedValueOnce(
+      new AppException('FILE_UPLOAD_INCOMPLETE'),
+    );
+    await expectAppError(
+      service.completeUpload(FILE_ID, { parts: [{ partNumber: 1, etag: 'a' }] }, ALICE),
+      'FILE_UPLOAD_INCOMPLETE',
+    );
+    expect(repo.markReady).not.toHaveBeenCalled();
+  });
+
   it('complete：分塊上傳沒帶 parts → FILE_UPLOAD_PART_INVALID', async () => {
     const { service } = setup({ file: fileRow({ uploadId: 'upload-1' }) });
     await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_UPLOAD_PART_INVALID');
