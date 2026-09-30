@@ -51,13 +51,14 @@ export default defineConfig(({ command }) => ({
     },
   },
   server: {
-    port: 5173,
-    // 5173 被占用時直接失敗，不自動改用 5174：E2E、REALTIME_ALLOWED_ORIGINS 都寫死 5173。
+    // 預設 5173；並行跑第二組環境（例：E2E 用暫用 DB）時以 BACKSTAGE_DEV_PORT 換埠。
+    port: Number(process.env.BACKSTAGE_DEV_PORT ?? 5173),
+    // 被占用時直接失敗，不自動改用下一個埠：E2E、REALTIME_ALLOWED_ORIGINS、DEFAULT_TENANT_DOMAINS 都寫死這個埠。
     strictPort: true,
     proxy: {
       // 前端一律打 `/api`，不在程式碼裡寫死後端位址（docs/architecture/01-system.md §4.1）。
       '/api': {
-        target: 'http://localhost:3000',
+        target: process.env.DEV_API_PROXY_TARGET ?? 'http://localhost:3000',
         // 保留瀏覽器看到的 Host（含 port）：api 以它決定租戶（docs/adr/0020-physical-tenant-isolation.md D2）
         changeOrigin: false,
         // 即時推播的 WebSocket（`/api/socket.io` → `/socket.io`，同一個 rewrite）
