@@ -11,6 +11,7 @@ import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
+import { SettingService } from '@/core/settings';
 import { ObjectStorage } from '@/core/storage';
 import type { PresignedRequest } from '@/core/storage';
 import { diff } from '@/modules/audit-log/audit.diff';
@@ -47,6 +48,7 @@ import { decodeFileCursor, encodeFileCursor } from './file.cursor';
 import type { FileCursor } from './file.cursor';
 import type { FileWithUploader } from './file.repository';
 import { FileRepository } from './file.repository';
+import { FILE_UPLOAD_MAX_SIZE_SETTING } from './file.settings';
 
 /**
  * 檔案的業務規則（docs/architecture/backend/09-file.md）。
@@ -59,7 +61,6 @@ import { FileRepository } from './file.repository';
 @Injectable()
 export class FileService {
   private readonly logger = new Logger(FileService.name);
-  private readonly maxSize: number;
   private readonly urlTtl: number;
   private readonly multipartThreshold: number;
   private readonly partSize: number;
@@ -73,22 +74,22 @@ export class FileService {
     private readonly images: FileImageService,
     private readonly folders: FileFolderService,
     private readonly access: FileAccessService,
+    private readonly settings: SettingService,
     config: ConfigService<Env, true>,
   ) {
-    this.maxSize = config.get('FILE_UPLOAD_MAX_SIZE', { infer: true });
     this.urlTtl = config.get('FILE_URL_TTL', { infer: true });
     this.multipartThreshold = config.get('FILE_MULTIPART_THRESHOLD', { infer: true });
-    // 塊數不能超過 S3 的 10000：檔案上限很大時自動放大每塊的大小
+    // 塊數不能超過 S3 的 10000：檔案上限很大時自動放大每塊的大小（依部署上限算，租戶調小不影響）
     this.partSize = Math.max(
       config.get('FILE_MULTIPART_PART_SIZE', { infer: true }),
-      Math.ceil(this.maxSize / MAX_PART_COUNT),
+      Math.ceil(config.get('FILE_UPLOAD_MAX_SIZE', { infer: true }) / MAX_PART_COUNT),
     );
   }
 
   /** 前端上傳前的檢查與切塊策略（`GET /files/upload-policy`）。 */
-  getUploadPolicy(): FileUploadPolicyDto {
+  async getUploadPolicy(): Promise<FileUploadPolicyDto> {
     return {
-      maxSize: this.maxSize,
+      maxSize: await this.maxSize(),
       multipartThreshold: this.multipartThreshold,
       partSize: this.partSize,
       thumbnailMaxSize: THUMBNAIL_MAX_SIZE,
@@ -147,8 +148,9 @@ export class FileService {
   }
 
   async createUpload(dto: CreateFileUploadDto, actor: AuthUser): Promise<FileUploadDto> {
-    if (dto.size > this.maxSize) {
-      throw new AppException('FILE_TOO_LARGE', { maxSize: this.maxSize, size: dto.size });
+    const maxSize = await this.maxSize();
+    if (dto.size > maxSize) {
+      throw new AppException('FILE_TOO_LARGE', { maxSize, size: dto.size });
     }
     const ctx = await this.access.contextFor(actor);
     await this.access.assertCan(ctx, actor, 'create', dto.folderId ?? null);
@@ -449,6 +451,11 @@ export class FileService {
     }
     const readable = ctx.readableFolderIds();
     return readable ? { folderIds: readable } : undefined;
+  }
+
+  /** 租戶設定的單檔上限；設定的 schema 已限制它不超過 env 的上限。 */
+  private maxSize(): Promise<number> {
+    return this.settings.get(FILE_UPLOAD_MAX_SIZE_SETTING);
   }
 
   private publish(kind: ChangeKind, id: string): void {

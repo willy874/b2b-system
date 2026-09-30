@@ -269,8 +269,8 @@ PERMISSION_CACHE_TTL=60            # 秒
 AUTH_RATE_LIMIT=10                 # /auth/* 每分鐘每 IP（E2E 需調高）
 DEFAULT_RATE_LIMIT=120             # 其餘端點每分鐘每 IP
 TRUST_PROXY=false                  # Express trust proxy：反向代理後面設跳數或子網路（例：uniquelocal）
-LOGIN_MAX_ATTEMPTS=5
-LOGIN_LOCKOUT_SECONDS=900
+LOGIN_MAX_ATTEMPTS=5               # 只用於平台管理者；租戶使用者是系統設定 auth.loginMaxAttempts
+LOGIN_LOCKOUT_SECONDS=900          # 同上（租戶：auth.loginLockoutSeconds）
 
 SUPER_ADMIN_EMAIL=admin@example.com
 SUPER_ADMIN_PASSWORD=              # 留空則 seed 時隨機產生並印出一次
@@ -305,7 +305,7 @@ FILE_STORAGE_MAX_OBJECT_SIZE=5368709120      # 位元組（預設 5 GiB）
 # ── apps/api 連物件儲存（上面兩個 KEY 共用；docs/architecture/backend/09-file.md §8）
 FILE_STORAGE_ENDPOINT=http://127.0.0.1:9000/storage
 FILE_STORAGE_PUBLIC_ENDPOINT={tenantOrigin}/storage   # 目前租戶的 origin ＋ /storage；真正的 S3 填固定網址
-FILE_UPLOAD_MAX_SIZE=104857600
+FILE_UPLOAD_MAX_SIZE=104857600      # 部署上限；租戶可在系統設定 file.uploadMaxSize 調小
 FILE_URL_TTL=900
 FILE_MULTIPART_THRESHOLD=16777216   # 超過改用分塊上傳
 FILE_MULTIPART_PART_SIZE=8388608    # 每塊大小（≥ 5 MiB）

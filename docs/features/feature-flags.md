@@ -2,7 +2,7 @@
 
 - 優先度：P3
 - 狀態：提案
-- 依賴：[`system-settings.md`](./system-settings.md)
+- 依賴：系統設定（已完成，[`backend/12-settings.md`](../architecture/backend/12-settings.md)）
 - 相關：—
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
@@ -21,7 +21,7 @@
 
 ## 初步構想
 
-- 建在 [`system-settings.md`](./system-settings.md) 上：flag 是一種特殊的設定
+- 建在系統設定（[`backend/12-settings.md`](../architecture/backend/12-settings.md)）上：flag 是一種特殊的設定
 - 後端以 decorator 擋路由（flag 關閉時回 404，不是 403）
 - 前端在 `/auth/profile` 一併取得目前使用者生效的 flag
 

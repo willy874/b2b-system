@@ -91,6 +91,8 @@
 { "data": { "submitted": true } }
 ```
 
+- 租戶關閉了註冊（系統設定 `auth.registrationEnabled`）時回 `404 AUTH_REGISTRATION_DISABLED`；
+  密碼短於租戶的 `auth.passwordMinLength` 時回 `400 VALIDATION_FAILED`（[`../architecture/backend/12-settings.md`](../architecture/backend/12-settings.md) §3）。
 - 不建立帳號，只建立一筆 `user.register` 審批請求；核准後才以這組 email 與密碼建立 **已啟用** 的帳號。
 - 密碼在送出時就雜湊，只存在請求的 `private_payload`，審核後清空。
 - 速率限制：同 IP 每分鐘 `max(3, AUTH_RATE_LIMIT / 3)` 次。

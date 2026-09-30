@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { SettingService } from '@/core/settings';
 import { ApprovalModule } from '@/modules/approval/approval.module';
 import { ResourceGrantModule } from '@/modules/resource-grant/resource-grant.module';
 
@@ -17,6 +18,7 @@ import { FileSystemFolderService } from './file-system-folder.service';
 import { FileController } from './file.controller';
 import { FileRepository } from './file.repository';
 import { FileService } from './file.service';
+import { FILE_SETTINGS } from './file.settings';
 
 /**
  * 檔案的轉介層：對外只有 `files` 資料表的 id，物件儲存（`core/storage`）藏在後面。
@@ -40,4 +42,8 @@ import { FileService } from './file.service';
   ],
   exports: [FileService],
 })
-export class FileModule {}
+export class FileModule {
+  constructor(settings: SettingService) {
+    settings.register(FILE_SETTINGS);
+  }
+}

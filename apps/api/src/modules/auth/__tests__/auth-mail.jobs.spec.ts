@@ -23,7 +23,14 @@ function setup(user: Record<string, unknown> | undefined) {
   const jobs = {
     register: vi.fn((type: { name: string }, handler: never) => registered.set(type.name, handler)),
   };
-  const tokens = { issue: vi.fn(async () => ({ raw: 'raw-token', expiresAt: new Date() })) };
+  // 有效時數是租戶的設定（auth.activationTtlHours / auth.passwordResetTtlHours），由簽發 token 的一方決定
+  const tokens = {
+    issue: vi.fn(async (_userId: string, purpose: string) => ({
+      raw: 'raw-token',
+      expiresAt: new Date(),
+      validHours: purpose === 'activation' ? 48 : 2,
+    })),
+  };
   const sent: Array<{ to: string; content: MailContent }> = [];
   const mail = {
     // 帳號流程的連結在 apps/auth（docs/adr/0019-sso-identity-platform.md）
@@ -56,7 +63,7 @@ const PENDING = {
 };
 
 describe('AuthMailJobs（docs/architecture/backend/11-mail.md §4）', () => {
-  it('啟用信：寄出當下簽發 token，連結帶原文，稽核不含 token', async () => {
+  it('啟用信：寄出當下簽發 token，連結帶原文，信裡的時數與 token 一致，稽核不含 token', async () => {
     const { run, tokens, sent, audit } = setup(PENDING);
     await expect(run(ACTIVATION_MAIL_JOB.name)).resolves.toEqual({ messageId: '<m1@test>' });
 
@@ -65,7 +72,7 @@ describe('AuthMailJobs（docs/architecture/backend/11-mail.md §4）', () => {
     expect(sent[0]!.content.subject).toBe('Activate your B2B System account');
     const text = await render(sent[0]!.content.body, { plainText: true });
     expect(text).toContain('https://account.test/setup?token=raw-token');
-    expect(text).toContain('24 hours');
+    expect(text).toContain('48 hours');
 
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -100,7 +107,7 @@ describe('AuthMailJobs（docs/architecture/backend/11-mail.md §4）', () => {
     expect(sent[0]!.content.subject).toBe('重設你的 B2B System 密碼');
     const text = await render(sent[0]!.content.body, { plainText: true });
     expect(text).toContain('https://account.test/reset-password?token=raw-token');
-    expect(text).toContain('1 小時');
+    expect(text).toContain('2 小時');
   });
 
   it('寄送失敗 → 拋出讓佇列重試，不寫稽核', async () => {

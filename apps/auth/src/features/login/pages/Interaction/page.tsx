@@ -10,6 +10,7 @@ import { useTranslation } from '@/core/locales';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
 import { CLIENT_NAME_KEY } from '../../constants';
+import { useAccountPolicy } from '../../hooks/useAccountPolicy';
 import {
   useSsoDiscovery,
   useSsoInteraction,
@@ -40,6 +41,7 @@ export default function InteractionPage() {
   const { uid } = InteractionRoute.useParams();
   const search = InteractionRoute.useSearch();
   const interaction = useSsoInteraction(uid);
+  const policy = useAccountPolicy(interaction.data?.tenant?.code);
   const login = useSsoInteractionLoginMutation();
   const abort = useSsoInteractionAbortMutation();
   const external = useStartExternalLoginMutation();
@@ -130,13 +132,16 @@ export default function InteractionPage() {
             >
               {t('login.interaction.forgotPassword')}
             </a>
-            <a
-              className="text-[var(--color-brand)]"
-              href={`/register${tenantQuery}`}
-              data-testid="login-register-link"
-            >
-              {t('login.interaction.register')}
-            </a>
+            {/* 租戶關閉了註冊（auth.registrationEnabled）就不顯示；載入中先不顯示，免得出現後又消失 */}
+            {policy.registrationEnabled && !policy.isLoading && (
+              <a
+                className="text-[var(--color-brand)]"
+                href={`/register${tenantQuery}`}
+                data-testid="login-register-link"
+              >
+                {t('login.interaction.register')}
+              </a>
+            )}
           </div>
         ) : (
           <a

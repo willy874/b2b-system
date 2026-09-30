@@ -433,7 +433,7 @@ LIMIT $limit
 | 碼 | 狀態 | 時機 |
 | --- | --- | --- |
 | `FILE_NOT_FOUND` | 404 | 不存在、已刪除、別人的 `pending`、對 `pending` 改名／刪除 |
-| `FILE_TOO_LARGE` | 413 | 登記的大小超過 `FILE_UPLOAD_MAX_SIZE`（`details.maxSize`） |
+| `FILE_TOO_LARGE` | 413 | 登記的大小超過租戶的上限 `file.uploadMaxSize`（`details.maxSize`） |
 | `FILE_ALREADY_UPLOADED` | 409 | 對 `ready` 再 `complete` 或放棄；並行完成的較晚者 |
 | `FILE_UPLOAD_INCOMPLETE` | 409 | `complete` 時物件儲存裡還沒有內容、分塊不對；前端直傳被拒時也用它 |
 | `FILE_SIZE_MISMATCH` | 422 | 實際大小與登記不符（`details.expected` / `details.actual`） |
@@ -486,7 +486,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `FILE_STORAGE_PUBLIC_ENDPOINT` | `{tenantOrigin}/storage` | 瀏覽器看到的位址；presigned URL 以它簽章。`{tenantOrigin}` 換成目前租戶的 origin |
 | `FILE_STORAGE_REGION` | `us-east-1` | |
 | `FILE_STORAGE_ACCESS_KEY_ID` / `FILE_STORAGE_SECRET_ACCESS_KEY` | 必填 | 與 apps/file-storage 共用同名變數 |
-| `FILE_UPLOAD_MAX_SIZE` | `104857600`（100 MiB） | 單一檔案上限 |
+| `FILE_UPLOAD_MAX_SIZE` | `104857600`（100 MiB） | 單一檔案上限的 **部署上限**；每個租戶的生效值是系統設定 `file.uploadMaxSize`（預設等於這個值，只能調小；[`12-settings.md`](./12-settings.md) §2）。分塊大小依這個上限計算 |
 | `FILE_URL_TTL` | `900` | presigned 上傳／下載網址的有效秒數（60–604800）；下載網址在 `TTL / 2` 的時間窗內不變（§7.1） |
 | `FILE_MULTIPART_THRESHOLD` | `16777216`（16 MiB） | 超過這個大小改用分塊上傳（§5.2） |
 | `FILE_MULTIPART_PART_SIZE` | `8388608`（8 MiB） | 每塊大小（5 MiB–5 GiB）；檔案上限 / 10000 更大時自動放大 |

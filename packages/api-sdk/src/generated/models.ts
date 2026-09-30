@@ -768,6 +768,31 @@ export interface UpdateRolePermissionsRequest {
   remove: Array<PermissionKey>;
 }
 
+export interface SystemSetting {
+  key: string;
+  category: 'general' | 'auth' | 'file';
+  type: 'string' | 'number' | 'boolean';
+  value: string | number | boolean;
+  defaultValue: string | number | boolean;
+  isOverridden: boolean;
+  isPublic: boolean;
+  minimum: number | null;
+  maximum: number | null;
+  updatedAt: string | null;
+}
+
+export interface SystemSettingList {
+  items: Array<SystemSetting>;
+}
+
+export interface UpdateSystemSettingsRequest {
+  values: Record<string, (string | number | boolean) | null>;
+}
+
+export interface PublicSystemSettings {
+  values: Record<string, string | number | boolean>;
+}
+
 export interface PlatformTenant {
   id: string;
   code: string;

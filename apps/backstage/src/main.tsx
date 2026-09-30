@@ -21,6 +21,7 @@ import { identityProviderFeaturePlugin } from '@/features/identity-provider';
 import { jobFeaturePlugin } from '@/features/job';
 import { permissionFeaturePlugin } from '@/features/permission';
 import { roleFeaturePlugin } from '@/features/role';
+import { systemFeaturePlugin } from '@/features/system';
 import { userFeaturePlugin } from '@/features/user';
 import {
   batchQueuePlugin,
@@ -85,6 +86,7 @@ async function bootstrap(): Promise<void> {
     .use(fileFeaturePlugin())
     .use(jobFeaturePlugin())
     .use(identityProviderFeaturePlugin())
+    .use(systemFeaturePlugin())
     .use(accountFeaturePlugin())
     // 擴充 feature 的小外掛：往偏好頁插「表格欄位」分頁
     .use(tableColumnSettingsPlugin())

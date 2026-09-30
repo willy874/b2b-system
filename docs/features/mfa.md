@@ -30,7 +30,7 @@
 ## 開放問題
 
 1. WebAuthn／Passkey 要不要一起做？
-2. 「特定角色必須啟用」的設定放在角色上，還是 [`system-settings.md`](./system-settings.md)？
+2. 「特定角色必須啟用」的設定放在角色上，還是系統設定（[`backend/12-settings.md`](../architecture/backend/12-settings.md)）？
 
 ## 歸檔去向
 

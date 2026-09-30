@@ -1,7 +1,7 @@
 import { useForm } from '@tanstack/react-form';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { z } from 'zod';
 
 import { getResetPasswordMutationOptions } from '@/apis/auth/reset-password/mutation';
@@ -12,16 +12,20 @@ import { useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
+import { useAccountPolicy } from '../../hooks/useAccountPolicy';
 import { LoginRoute, ResetPasswordRoute } from '../../routes';
 import { goToTenantLogin } from '../../tenant';
 import { AuthShell } from '../AuthShell';
 
-const Schema = z
-  .object({ newPassword: z.string().min(12), confirmPassword: z.string().min(1) })
-  .refine((value) => value.newPassword === value.confirmPassword, {
-    path: ['confirmPassword'],
-    message: 'passwords do not match',
-  });
+/** 租戶帳號的密碼長度是租戶的設定（`auth.passwordMinLength`）。 */
+function createSchema(passwordMinLength: number) {
+  return z
+    .object({ newPassword: z.string().min(passwordMinLength), confirmPassword: z.string().min(1) })
+    .refine((value) => value.newPassword === value.confirmPassword, {
+      path: ['confirmPassword'],
+      message: 'passwords do not match',
+    });
+}
 
 export default function ResetPasswordPage() {
   const { t } = useTranslation();
@@ -30,10 +34,12 @@ export default function ResetPasswordPage() {
   const reset = useMutation(getResetPasswordMutationOptions());
   const toMessage = useErrorMessage();
   const [formError, setFormError] = useState<string>();
+  const { passwordMinLength } = useAccountPolicy(tenant);
+  const schema = useMemo(() => createSchema(passwordMinLength), [passwordMinLength]);
 
   const form = useForm({
     defaultValues: { newPassword: '', confirmPassword: '' },
-    validators: { onSubmit: zodFormValidator(Schema) },
+    validators: { onSubmit: zodFormValidator(schema) },
     onSubmit: async ({ value }) => {
       setFormError(undefined);
       try {
@@ -61,7 +67,10 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <AuthShell title={t('login.resetPassword.title')} description={t('login.password.hint')}>
+    <AuthShell
+      title={t('login.resetPassword.title')}
+      description={t('login.password.hint', { min: passwordMinLength })}
+    >
       <form
         className="flex flex-col gap-3"
         onSubmit={(event) => {

@@ -16,6 +16,7 @@ import { ImageModule } from './core/image';
 import { JobsModule } from './core/jobs';
 import { LoggerModule } from './core/logger';
 import { MailModule } from './core/mail';
+import { SettingsModule } from './core/settings';
 import { StorageModule } from './core/storage';
 import { TenancyModule, TenantMiddleware } from './core/tenant';
 import { ApprovalModule } from './modules/approval/approval.module';
@@ -42,6 +43,8 @@ import { UserModule } from './modules/user/user.module';
     // 依網域決定租戶、每租戶的連線池（docs/adr/0020-physical-tenant-isolation.md D2、D3）
     TenancyModule,
     CacheModule,
+    // 執行期可調的設定：定義由各模組登記，覆寫值在租戶 DB（docs/architecture/backend/12-settings.md）
+    SettingsModule,
     EventsModule,
     // 背景工作佇列（pg-boss）；handler 由各模組註冊（docs/architecture/backend/10-jobs.md）
     JobsModule,

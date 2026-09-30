@@ -18,7 +18,6 @@
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
 | P1 | 站內通知中心 | [`notification-center.md`](./notification-center.md) | 提案 | — |
-| P1 | 系統設定（執行期可調） | [`system-settings.md`](./system-settings.md) | 提案 | — |
 | P2 | 版本歷史與軟刪除 | [`entity-revisions.md`](./entity-revisions.md) | 提案 | — |
 | P2 | 服務帳號／API Token | [`api-tokens.md`](./api-tokens.md) | 提案 | — |
 | P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | — |
@@ -27,7 +26,7 @@
 | P2 | 全域搜尋 | [`global-search.md`](./global-search.md) | 提案 | — |
 | P3 | 使用者群組 | [`user-groups.md`](./user-groups.md) | 提案 | — |
 | P3 | MFA | [`mfa.md`](./mfa.md) | 提案 | — |
-| P3 | Feature Flag | [`feature-flags.md`](./feature-flags.md) | 提案 | `system-settings` |
+| P3 | Feature Flag | [`feature-flags.md`](./feature-flags.md) | 提案 | [系統設定](../architecture/backend/12-settings.md)（已完成） |
 | P3 | 可觀測性 | [`observability.md`](./observability.md) | 提案 | — |
 | P3 | 多實例部署 | [`multi-instance.md`](./multi-instance.md) | 提案 | — |
 

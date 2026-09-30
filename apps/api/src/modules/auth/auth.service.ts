@@ -13,6 +13,7 @@ import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { JobQueue } from '@/core/jobs';
+import { SettingService } from '@/core/settings';
 import { requireTenant } from '@/core/tenant';
 import type { UserRow } from '@/db/schema';
 import { ApprovalService } from '@/modules/approval/approval.service';
@@ -25,6 +26,12 @@ import { UserService, userUpdated } from '@/modules/user/user.service';
 
 import { FORGOT_PASSWORD_THROTTLE_SECONDS, PASSWORD_RESET_MAIL_JOB } from './auth-mail.constants';
 import { AuthTokenService } from './auth-token.service';
+import {
+  LOGIN_LOCKOUT_SECONDS_SETTING,
+  LOGIN_MAX_ATTEMPTS_SETTING,
+  PASSWORD_MIN_LENGTH_SETTING,
+  REGISTRATION_ENABLED_SETTING,
+} from './auth.settings';
 import type {
   ChangePasswordDto,
   ForgotPasswordDto,
@@ -74,6 +81,7 @@ export class AuthService {
     private readonly jobs: JobQueue,
     private readonly oidc: OidcProviderService,
     private readonly identityProviders: IdentityProviderService,
+    private readonly settings: SettingService,
   ) {}
 
   // ── 登入 ────────────────────────────────────────────────
@@ -143,8 +151,9 @@ export class AuthService {
 
   private async registerFailedAttempt(user: UserRow): Promise<void> {
     const count = user.failedLoginCount + 1;
-    const maxAttempts = this.config.get('LOGIN_MAX_ATTEMPTS', { infer: true });
-    const lockoutSeconds = this.config.get('LOGIN_LOCKOUT_SECONDS', { infer: true });
+    // 租戶的設定；平台管理者的鎖定仍讀 env（platform-admin.service.ts）
+    const maxAttempts = await this.settings.get(LOGIN_MAX_ATTEMPTS_SETTING);
+    const lockoutSeconds = await this.settings.get(LOGIN_LOCKOUT_SECONDS_SETTING);
     const shouldLock = count >= maxAttempts;
 
     await this.users.updateAccount(user.id, {
@@ -341,6 +350,7 @@ export class AuthService {
     const ok = await verifyPassword(user.passwordHash, dto.currentPassword);
     if (!ok) throw new AppException('AUTH_PASSWORD_MISMATCH');
     if (dto.currentPassword === dto.newPassword) throw new AppException('AUTH_PASSWORD_WEAK');
+    await this.assertPasswordLength(dto.newPassword, 'newPassword');
 
     await withTransaction(this.db, async (tx) => {
       await this.users.updateAccount(
@@ -368,6 +378,20 @@ export class AuthService {
     return { success: true };
   }
 
+  /**
+   * 租戶的密碼最短長度（設定 `auth.passwordMinLength`）。DTO 的 `PasswordSchema` 已經擋掉 12 以下與常見密碼，
+   * 這裡只處理租戶調高的部分；錯誤的形狀與 DTO 驗證相同，前端表單照樣依欄位回填。
+   */
+  private async assertPasswordLength(password: string, field: string): Promise<void> {
+    const minLength = await this.settings.get(PASSWORD_MIN_LENGTH_SETTING);
+    if (password.length < minLength) {
+      throw new AppException('VALIDATION_FAILED', {
+        fields: { [field]: 'AUTH_PASSWORD_WEAK' },
+        minLength,
+      });
+    }
+  }
+
   // ── 註冊（需審批）────────────────────────────────────────
 
   /**
@@ -375,6 +399,10 @@ export class AuthService {
    * email 已註冊或已在審核中都回同樣的結果（帳號列舉防護）；雜湊照算，讓回應時間一致。
    */
   async register(dto: RegisterDto): Promise<{ submitted: true }> {
+    if (!(await this.settings.get(REGISTRATION_ENABLED_SETTING))) {
+      throw new AppException('AUTH_REGISTRATION_DISABLED');
+    }
+    await this.assertPasswordLength(dto.password, 'password');
     const passwordHash = await this.hash(dto.password);
     if (await this.users.findAccountByEmail(dto.email)) return { submitted: true };
     await this.approvals.submit(
@@ -405,6 +433,7 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<{ success: true }> {
+    await this.assertPasswordLength(dto.newPassword, 'newPassword');
     const token = await this.authTokens.findUsable(dto.token, 'password_reset');
     if (!token) throw new AppException('AUTH_SETUP_TOKEN_INVALID');
     const user = await this.users.findAccountById(token.userId);
@@ -456,6 +485,7 @@ export class AuthService {
   }
 
   async setup(dto: SetupDto): Promise<{ success: true }> {
+    await this.assertPasswordLength(dto.password, 'password');
     const token = await this.authTokens.findUsable(dto.token, 'activation');
     if (!token) throw new AppException('AUTH_SETUP_TOKEN_INVALID');
     const user = await this.users.findAccountById(token.userId);

@@ -70,6 +70,10 @@ export const EnvSchema = z.object({
   ARGON2_TIME_COST: z.coerce.number().int().default(2),
 
   PERMISSION_CACHE_TTL: z.coerce.number().int().default(60),
+  /**
+   * 平台管理者的登入鎖定。租戶使用者改讀系統設定 `auth.loginMaxAttempts` / `auth.loginLockoutSeconds`
+   * （docs/architecture/backend/12-settings.md §3）。
+   */
   LOGIN_MAX_ATTEMPTS: z.coerce.number().int().default(5),
   /** 速率限制（次 / 分 / IP）。E2E 會把 AUTH_RATE_LIMIT 調高，避免測試自己撞到 429。 */
   AUTH_RATE_LIMIT: z.coerce.number().int().default(10),
@@ -118,7 +122,10 @@ export const EnvSchema = z.object({
   FILE_STORAGE_REGION: z.string().min(1).default('us-east-1'),
   FILE_STORAGE_ACCESS_KEY_ID: z.string().min(3),
   FILE_STORAGE_SECRET_ACCESS_KEY: z.string().min(8),
-  /** 單一檔案上限（位元組）。 */
+  /**
+   * 單一檔案上限（位元組）：這次部署允許的上限，也是系統設定 `file.uploadMaxSize` 的預設值；
+   * 租戶只能在這以內調小（docs/architecture/backend/12-settings.md §2）。
+   */
   FILE_UPLOAD_MAX_SIZE: z.coerce
     .number()
     .int()

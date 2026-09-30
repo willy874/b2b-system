@@ -234,13 +234,18 @@ async login(dto: LoginDto, ctx: RequestContext) {
 
 ### 3.3 鎖定
 
+次數與時間是租戶的系統設定 `auth.loginMaxAttempts`（預設 5）、`auth.loginLockoutSeconds`（預設 900）
+（[`12-settings.md`](./12-settings.md) §3）；平台管理者的鎖定仍讀 env `LOGIN_MAX_ATTEMPTS`、`LOGIN_LOCKOUT_SECONDS`。
+
 ```ts
 private async registerFailedAttempt(user: User, ctx: RequestContext) {
   const count = user.failedLoginCount + 1;
-  const shouldLock = count >= env.LOGIN_MAX_ATTEMPTS;   // 5
+  const shouldLock = count >= (await this.settings.get(LOGIN_MAX_ATTEMPTS_SETTING));
   await this.userRepo.update(user.id, {
     failedLoginCount: count,
-    lockedUntil: shouldLock ? addSeconds(new Date(), env.LOGIN_LOCKOUT_SECONDS) : null,
+    lockedUntil: shouldLock
+      ? addSeconds(new Date(), await this.settings.get(LOGIN_LOCKOUT_SECONDS_SETTING))
+      : null,
     status: shouldLock ? 'locked' : user.status,
   });
   await this.audit.loginFailure(user.email, shouldLock ? 'locked' : 'bad_password', ctx);
@@ -249,7 +254,7 @@ private async registerFailedAttempt(user: User, ctx: RequestContext) {
 
 解鎖途徑：
 
-1. 等 15 分鐘自動過期（下次成功登入時 `status` 回到 `active`）
+1. 等鎖定時間（預設 15 分鐘）過去（下次成功登入時 `status` 回到 `active`）
 2. 管理員 `POST /users/:id/unlock`（需要 `user:update`）
 
 ---
@@ -312,7 +317,7 @@ POST /auth/change-password { currentPassword, newPassword }
 |          | 啟用（activation） | 密碼重設（password_reset）                     |
 | -------- | ------------------ | ---------------------------------------------- |
 | 建立時機 | 管理員建立使用者   | 使用者請求 / 管理員代觸發                      |
-| 有效期   | 24 小時            | 1 小時                                         |
+| 有效期   | 24 小時（設定 `auth.activationTtlHours`） | 1 小時（設定 `auth.passwordResetTtlHours`）     |
 | 目標狀態 | `pending`          | `active`                                       |
 | 完成後   | `status → active`  | `token_version += 1` ＋ 撤銷所有 refresh token |
 
