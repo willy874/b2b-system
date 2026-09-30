@@ -5,7 +5,7 @@
 - 依賴：—
 - 相關：[ADR-0024](../adr/0024-relationship-based-access-control.md)（本功能的決策）、[ADR-0005](../adr/0005-permission-resolved-server-side.md)、[ADR-0006](../adr/0006-flat-permission-scope.md)、[ADR-0015](../adr/0015-file-folder-access.md)、
   [`rbac/01-domain-model.md`](../rbac/01-domain-model.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)、
-  [`backend/05-rbac.md`](../architecture/backend/05-rbac.md)；會吸收 [`user-groups.md`](./user-groups.md)；[`multi-instance.md`](./multi-instance.md)（快取失效廣播）
+  [`backend/05-rbac.md`](../architecture/backend/05-rbac.md)；已吸收原本獨立的「使用者群組」提案（G4）；[`multi-instance.md`](./multi-instance.md)（快取失效廣播）；[`entity-revisions.md`](./entity-revisions.md)（依賴 G3：刪除角色的還原）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -21,7 +21,7 @@
 
 這三套在下一批功能都會碰到上限：
 
-1. **群組**（[`user-groups.md`](./user-groups.md)）：開放問題 1「群組要不要帶角色」一旦答「要」，`PermissionService` 的解析與快取失效範圍都要改；
+1. **群組**（原本獨立的「使用者群組」提案，已併入本提案 G4）：「群組要不要帶角色」一旦答「要」，`PermissionService` 的解析與快取失效範圍都要改；
    巢狀群組更是 [`07-resource-grants.md`](../rbac/07-resource-grants.md) §10.2 自己寫下的「改用 Zanzibar 類服務」觸發條件。
 2. **專案**：專案要成為資料夾的上層（07 §10.1），專案成員要自動成為底下資料夾與關卡的某個等級——這是跨資源的關係，不是一棵樹。
 3. **快取失效要靠人工列清單**（[`05-rbac.md`](../architecture/backend/05-rbac.md) §5.1）：每多一種「會改變權限的事件」就要記得補一列；
@@ -41,7 +41,7 @@
 | 一張 `relation_tuples` 表取代 `user_roles`、`role_permissions`、`resource_grants` | deny／排除（`but not`）：維持「只有 allow」（D4） |
 | 全域 RBAC、資料夾授權、擁有者規則全部改用引擎；對外 API 不變 | 過期以外的條件式權限（ABAC、時段、IP） |
 | 以「租戶版本號」取代逐事件的快取失效清單 | 通用的 ListObjects（「列出我能讀的所有東西」）：資料夾仍整棵載入 |
-| 群組（含巢狀、群組持有角色），吸收 `user-groups.md` | 平台管理者（`platform_admins` 仍是固定對照，範圍小、不值得） |
+| 群組（含巢狀、群組持有角色），吸收原本的「使用者群組」提案 | 平台管理者（`platform_admins` 仍是固定對照，範圍小、不值得） |
 | 「為什麼能／不能」的說明 API 與使用者詳情頁的「有效權限」 | 角色繼承角色（見開放問題 3） |
 
 ## 使用者故事
@@ -500,7 +500,7 @@ ADR-0006「不要讓權限變成推理題」的精神不變；explain 讓剩下�
 | **G1** ✅ | `relation_tuples`；migration 從三張舊表回填；舊表仍是事實來源，**以 DB trigger 在同一交易雙寫**（service 不必改，也不會漏）；`authz_revision` 延到 G3；**影子比對**：開發與測試環境每次檢查兩套都跑，不一致就報錯 | 刪新表即可 |
 | **G2** ✅ | 讀取改走引擎，並啟用包含關係（§2.1；自訂角色多出的鍵由 `db:seed` 寫稽核 `role.permissionsImplied`）：`PermissionService`、`FileAccessService`、推播 room；`resource-grant.resolver.ts` 與舊的權限查詢只留給影子比對（兩邊都套閉包後比較），G3 刪除；快取仍逐事件失效（寫入還經過舊表，revision 失效隨 G3 的寫入切換一起做） | 切回舊讀取路徑 |
 | **G3** | 寫入只寫 tuple；刪 `user_roles`、`role_permissions`、`resource_grants` 與雙寫 | 需要反向回填，視為不可回退 |
-| **G4** | 群組（巢狀、持有角色）、`user:*`、explain API 與前端頁面；刪除 `user-groups.md` | — |
+| **G4** | 群組（巢狀、持有角色）、`user:*`、explain API 與前端頁面 | — |
 | **G5** | 隨專案功能：`project` 型別，`fileFolder` 的 `inherits_from` 可以指向專案 | — |
 
 G0～G2 與角色權限的技能樹已在 `feat/permission-graph` 完成（2026-09-30）；G3 起另開 branch。
@@ -551,6 +551,11 @@ G1～G3 對外沒有任何行為變化（G2 的依賴樹閉包除外，見 §2.2
 
     **結論**（2026-09-30）：`user:resetPassword` 是 `user:update` 的子能力（`update ⇒ resetPassword`，反之不成立）；
     跨資源開放，但只能是「依賴」且只能指向 read（`user:assignRole ┈▶ role:read`）。整份目錄的依賴樹與不變條件見 §2.2。
+11. **群組的管理要不要下放**（原「使用者群組」提案的開放問題，2026-09-30 併入）：群組擁有者能不能自己管成員，
+    而不必持有 `group:update`？在圖上就是 `group` 型別多一個 `owner` 關係；但群組持有角色時，擁有者加人等於指派角色，
+    要和問題 4 的反提權一起看。
+
+    **結論**：延到 G4。
 
 ## 歸檔去向
 

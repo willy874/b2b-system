@@ -17,8 +17,8 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P0 | 版本歷史、樂觀鎖與還原 | [`entity-revisions.md`](./entity-revisions.md) | 提案 | — |
-| P0 | 權限圖（ReBAC，收斂 RBAC／資源授權／群組） | [`permission-graph.md`](./permission-graph.md) | 實作中（G0～G2 與技能樹已上 main；G3、G4 待做） | — |
+| P0 | 版本歷史、樂觀鎖與還原 | [`entity-revisions.md`](./entity-revisions.md) | 提案 | `permission-graph` G3（刪除角色時持有者存在哪） |
+| P0 | 權限圖（ReBAC，收斂 RBAC／資源授權／群組） | [`permission-graph.md`](./permission-graph.md) | 實作中（G0～G2 與技能樹已上 main；G3 寫入切換與刪舊表、G4 群組與 explain 待做；原「使用者群組」提案併入 G4） | — |
 | P1 | 站內通知中心 | [`notification-center.md`](./notification-center.md) | 提案 | — |
 | P2 | 服務帳號／API Token | [`api-tokens.md`](./api-tokens.md) | 提案 | — |
 | P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | [背景工作](../architecture/backend/10-jobs.md)（已完成） |
@@ -26,7 +26,6 @@
 | P2 | 標籤、留言、關注 | [`tags-comments.md`](./tags-comments.md) | 提案 | `notification-center` |
 | P2 | 全域搜尋 | [`global-search.md`](./global-search.md) | 提案 | — |
 | P2 | 安全與容量的後續強化 | [`hardening-followups.md`](./hardening-followups.md) | 提案 | — |
-| P3 | 使用者群組 | [`user-groups.md`](./user-groups.md) | 提案 | — |
 | P3 | MFA | [`mfa.md`](./mfa.md) | 提案 | — |
 | P3 | 可觀測性 | [`observability.md`](./observability.md) | 提案 | — |
 | P3 | 多實例部署 | [`multi-instance.md`](./multi-instance.md) | 提案 | — |
@@ -43,10 +42,15 @@
 
 ### 1.1 建議的順序
 
-1. **`entity-revisions` 先寫 ADR**：樂觀鎖、快照、還原的模式會被每個編輯器實體沿用，要在第一個編輯器功能之前定。
-2. **`notification-center`**：匯入匯出、標籤留言直接依賴它；Webhook、MFA、API Token 的「通知建立者」也會用到。
-3. 之後依需求二選一：對外整合（`api-tokens` → `webhooks`），或編輯器的協作（`tags-comments`，需要第 1 步的命名決定）。
-4. `hardening-followups` 裡的小項目可以隨時穿插。
+1. **`permission-graph` G3**：寫入切換到 `relation_tuples`、刪掉三張舊表。雙寫 trigger ＋ 影子比對是過渡狀態，
+   拖越久，新功能越要同時照顧兩套。G3 不可回退，開工前先補上權限圖的 E2E，
+   並替延到 G3 的開放問題（`pg_notify` 的連線成本、revision 粒度）寫結論；前者與 `multi-instance` 的失效廣播一起決定。
+2. **`entity-revisions` 的 ADR，與 G3 並行**：樂觀鎖、快照、還原的模式會被每個編輯器實體沿用，要在第一個編輯器功能之前定。
+   它的開放問題 2（刪除角色時 `user_roles` 保留與否）在 G3 之後要改用 tuple 回答；`resource_type` 用 enum 或 text 也在這份 ADR 一次定，`tags-comments` 沿用。
+3. **`notification-center`**：匯入匯出、標籤留言直接依賴它；Webhook、MFA、API Token 的「通知建立者」也會用到。
+4. 之後依需求二選一：對外整合（`api-tokens` → `webhooks`），或編輯器的協作（`tags-comments`，需要第 2 步的命名決定）。
+5. **`permission-graph` G4**：群組（巢狀、持有角色）、explain API 與頁面。
+6. `hardening-followups` 裡的小項目可以隨時穿插。
 
 ### 1.2 撰寫提案時的架構前提
 

@@ -2,7 +2,7 @@
 
 - 優先度：P0
 - 狀態：提案
-- 依賴：—
+- 依賴：[`permission-graph.md`](./permission-graph.md) G3（刪除角色時持有者存在哪，見開放問題 2）
 - 相關：[`hardening-followups.md`](./hardening-followups.md)（刪除使用者後復原、`PATCH` 的版本控制）、[`tags-comments.md`](./tags-comments.md)（多型關聯的命名）、
   [`backend/02-database.md`](../architecture/backend/02-database.md) §1、[`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md)
 
