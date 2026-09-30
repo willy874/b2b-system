@@ -82,6 +82,11 @@
     }
   },
   "menu": {
+    "group": {
+      "feature": "功能管理",
+      "people": "人員管理",
+      "system": "系統管理"
+    },
     "home": "首頁",
     "user": "使用者",
     "role": "角色",

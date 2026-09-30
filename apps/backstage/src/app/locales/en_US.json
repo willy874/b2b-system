@@ -82,6 +82,11 @@
     }
   },
   "menu": {
+    "group": {
+      "feature": "Features",
+      "people": "People",
+      "system": "System"
+    },
     "home": "Home",
     "user": "Users",
     "role": "Roles",

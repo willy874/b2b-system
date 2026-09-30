@@ -42,7 +42,27 @@
   .ge-shell__nav {
     display: flex;
     flex-direction: column;
+    gap: var(--seed-space-3);
+  }
+
+  .ge-shell__nav-section {
+    display: flex;
+    flex-direction: column;
     gap: 2px;
+  }
+
+  .ge-shell__nav-heading {
+    padding: var(--seed-space-1) var(--seed-space-3);
+    color: var(--color-fg-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  /* 收合時沒有空間放標題，改用分隔線標出區塊邊界 */
+  .ge-shell__nav-divider {
+    margin: var(--seed-space-1) var(--seed-space-2);
+    border: 0;
+    border-top: 1px solid var(--color-border);
   }
 
   .ge-shell__nav-item {
