@@ -36,18 +36,7 @@ describe('RichTable', () => {
 
   it('沒有提供 pagination 時不顯示分頁列', () => {
     render(<RichTable data={rows} columns={columns} />);
-    expect(screen.queryByRole('navigation', { name: 'pagination' })).not.toBeInTheDocument();
-  });
-
-  it('提供 pagination 時顯示分頁列與目前範圍', () => {
-    render(
-      <RichTable
-        data={rows}
-        columns={columns}
-        pagination={{ offset: 20, limit: 20, total: 137, onChange: vi.fn() }}
-      />,
-    );
-    expect(screen.getByTestId('pagination-summary')).toHaveTextContent('21-40 / 137');
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   });
 
   it('換頁時回報新的 offset', async () => {

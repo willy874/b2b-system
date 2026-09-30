@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import type { UserSortField } from '@/apis/user/types';
 import { IconButton } from '@/components/Button';
 import { Chip } from '@/components/Chip';
+import { useConfirm } from '@/components/ConfirmDialog';
 import { Icon } from '@/components/Icon';
 import { Tooltip } from '@/components/Tooltip';
 import { RichTable } from '@/core/components';
@@ -12,13 +13,14 @@ import type {
   FilterBarProps,
   RichTableBatch,
   RichTablePagination,
+  TableSearchProps,
   TableSettingsConfig,
 } from '@/core/components';
 import { useTranslation } from '@/core/locales';
 import type { SortEntry } from '@/shared/constants';
 import { formatDateTime } from '@/shared/date';
 
-import { USER_STATUS_LABEL_KEY } from '../../../constants';
+import { USER_STATUS_LABEL_KEY, USER_STATUS_TONE } from '../../../constants';
 import {
   useUserResetPasswordMutation,
   useUserUnlockMutation,
@@ -29,13 +31,6 @@ import { USER_SORT_FIELDS, UserDetailRoute } from '../../../routes';
 import type { UserSearchQuery } from '../../../routes';
 import type { UserRowVM } from '../adapter';
 import type { UserFilterValues } from '../useUserFilters';
-
-const STATUS_TONE = {
-  active: 'success',
-  pending: 'warning',
-  inactive: 'neutral',
-  locked: 'danger',
-} as const;
 
 /** 欄位順序與顯示存在這台裝置（`core/store/tableColumnSettings`）；可設定的欄位登記在 `preference.ts`。 */
 const USER_TABLE_SETTINGS: TableSettingsConfig = { tableId: USER_LIST_TABLE_ID };
@@ -49,6 +44,11 @@ interface UserTableProps {
   onRowDoubleClick: (row: UserRowVM) => void;
   onDelete: (row: UserRowVM) => void;
   filters: FilterBarProps<UserFilterValues>;
+  /** 表格上方常駐的關鍵字搜尋。 */
+  searchBox: TableSearchProps;
+  /** 列表查詢失敗（顯示錯誤與重試，不落到「沒有資料」）。 */
+  error: unknown;
+  onRetry: () => void;
   batch: RichTableBatch<UserRowVM>;
   pagination: RichTablePagination;
 }
@@ -61,6 +61,9 @@ export function UserTable({
   onRowDoubleClick,
   onDelete,
   filters,
+  searchBox,
+  error,
+  onRetry,
   batch,
   pagination,
 }: UserTableProps) {
@@ -68,6 +71,7 @@ export function UserTable({
   const permission = useUserPermission();
   const unlockUser = useUserUnlockMutation();
   const resetPassword = useUserResetPasswordMutation();
+  const confirm = useConfirm();
 
   const columns = useMemo<Array<ColumnDef<UserRowVM, unknown>>>(
     () => [
@@ -92,7 +96,7 @@ export function UserTable({
         header: t('user.field.status'),
         enableSorting: false,
         cell: ({ row }) => (
-          <Chip tone={STATUS_TONE[row.original.status]}>
+          <Chip tone={USER_STATUS_TONE[row.original.status]}>
             {t(USER_STATUS_LABEL_KEY[row.original.status])}
           </Chip>
         ),
@@ -142,7 +146,22 @@ export function UserTable({
                 <IconButton
                   size="sm"
                   aria-label={t('user.resetPassword.action')}
-                  onClick={() => void resetPassword.mutate({ params: { userId: row.original.id } })}
+                  // 會寄信並留下稽核紀錄：先確認；確認框送出期間不能重按，列上的按鈕也轉圈（UX-06）
+                  loading={
+                    resetPassword.isPending &&
+                    resetPassword.variables?.params.userId === row.original.id
+                  }
+                  onClick={() =>
+                    void confirm({
+                      title: t('user.resetPassword.title'),
+                      description: t('user.resetPassword.confirm', { email: row.original.email }),
+                      confirmLabel: t('user.resetPassword.submit'),
+                      tone: 'primary',
+                      onConfirm: () =>
+                        resetPassword.mutateAsync({ params: { userId: row.original.id } }),
+                      'data-testid': 'user-reset-password-confirm',
+                    })
+                  }
                   data-testid="user-reset-password-button"
                 >
                   <Icon name="key" size={16} />
@@ -169,7 +188,7 @@ export function UserTable({
         ),
       },
     ],
-    [onDelete, permission, resetPassword, search, t, unlockUser],
+    [confirm, onDelete, permission, resetPassword, search, t, unlockUser],
   );
 
   return (
@@ -179,6 +198,9 @@ export function UserTable({
       loading={loading}
       getRowId={getRowId}
       filters={filters}
+      search={searchBox}
+      error={error}
+      onRetry={onRetry}
       batch={batch}
       settings={USER_TABLE_SETTINGS}
       pagination={pagination}

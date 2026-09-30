@@ -32,7 +32,7 @@ export default function UserListPage() {
   const profile = useQuery(getAuthProfileQueryOptions());
   const deleteUser = useUserDeleteMutation();
 
-  const { data, isPending } = useQuery(
+  const { data, isPending, error, refetch } = useQuery(
     getUserListQueryOptions({
       params: {
         offset: search.offset,
@@ -87,6 +87,13 @@ export default function UserListPage() {
         }
         onDelete={setPendingDelete}
         filters={filters}
+        searchBox={{
+          value: search.keyword,
+          onChange: (keyword) => filters.onSubmit({ ...filters.value, keyword }),
+          placeholder: t('user.list.searchPlaceholder'),
+        }}
+        error={error}
+        onRetry={() => void refetch()}
         batch={{ scope: USER_LIST_TABLE_ID, selection, actions: batchActions, getRowLabel }}
         pagination={{
           offset: search.offset,

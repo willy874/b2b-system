@@ -5,6 +5,7 @@ import { Chip } from '@/components/Chip';
 import { Field } from '@/components/Field';
 import { Input, Textarea } from '@/components/Input';
 import { useTranslation } from '@/core/locales';
+import { useUnsavedChangesGuard } from '@/core/router';
 import type { Role } from '@/shared/api-sdk';
 
 import { useRoleUpdateMutation } from '../../../hooks/useRoleMutations';
@@ -23,6 +24,9 @@ export function RoleBasicSection({ role, canEdit }: RoleBasicSectionProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const nameRef = useRef<HTMLInputElement>(null);
+  useUnsavedChangesGuard(
+    editing && (name !== role.name || description !== (role.description ?? '')),
+  );
 
   // 進入編輯時把游標放在名稱欄，鍵盤使用者不用再找（UX-20）
   useEffect(() => {

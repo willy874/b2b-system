@@ -2,6 +2,7 @@ import type { AppPluginFactory } from '@/core/app';
 import {
   addResourceBundle,
   changeLanguage,
+  configureZodErrorMap,
   GLOBAL_LOCALE_SCOPE,
   i18n,
   initI18n,
@@ -20,6 +21,8 @@ export function i18nPlugin(): AppPluginFactory {
       onInit: async () => {
         const { locale } = useLocaleStore.getState();
         await initI18n(locale);
+        // 表單驗證訊息（Zod）走語系檔，驗證當下以目前語系翻譯
+        configureZodErrorMap((key, options) => i18n.t(key, options ?? {}) as string);
         addResourceBundle(
           {
             [Languages.EN_US]: {

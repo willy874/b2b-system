@@ -29,7 +29,7 @@ export default function RoleListPage() {
   const [pendingDelete, setPendingDelete] = useState<RoleRowVM>();
   const deleteRole = useRoleDeleteMutation();
 
-  const { data, isPending } = useQuery(
+  const { data, isPending, error, refetch } = useQuery(
     getRoleListQueryOptions({
       params: {
         offset: search.offset,
@@ -84,6 +84,13 @@ export default function RoleListPage() {
         }
         onDelete={setPendingDelete}
         filters={filters}
+        searchBox={{
+          value: search.keyword,
+          onChange: (keyword) => filters.onSubmit({ ...filters.value, keyword }),
+          placeholder: t('role.list.searchPlaceholder'),
+        }}
+        error={error}
+        onRetry={() => void refetch()}
         batch={{ scope: ROLE_LIST_TABLE_ID, selection, actions: batchActions, getRowLabel }}
         pagination={{
           offset: search.offset,
