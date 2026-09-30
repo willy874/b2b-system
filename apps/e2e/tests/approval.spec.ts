@@ -1,17 +1,25 @@
 import { expect, test } from '@playwright/test';
 
-import { loginAndWaitForHome } from '../helpers/auth';
+import { expectIdpLogin, loginAndWaitForHome } from '../helpers/auth';
+import { linkIn, waitForMail } from '../helpers/mailpit';
 import { openMenuGroup } from '../helpers/menu';
 import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
-const APPLICANT_PASSWORD = 'Applicant!Password2026';
+// 密碼政策會擋常見密碼的字根（password）與 email／顯示名稱的片段（modules/credential）
+const APPLICANT_PASSWORD = 'Tq7!vRx#2mLp9w';
+// 啟用時設定的密碼（POST /auth/setup）取代申請時的密碼（docs/rbac/06-approval.md §5.1）
+const ACTIVATED_PASSWORD = 'Kd4$wNz8!qHs3v';
+const ACTIVATION_MAIL_SUBJECT = '啟用你的 B2B System 帳號';
 // 經過 backstage 的 /api 代理：api 以網域決定租戶（docs/adr/0020-physical-tenant-isolation.md D2）
 const API_URL =
   process.env.E2E_API_URL ?? `${process.env.E2E_BASE_URL ?? 'http://localhost:5173'}/api`;
 
 test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
-  test('申請帳號 → admin 核准並指派角色 → 申請人可以登入', async ({ page, browser }) => {
+  test('申請帳號 → admin 核准並指派角色 → 申請人從啟用信設定密碼後可以登入', async ({
+    page,
+    browser,
+  }) => {
     const email = `e2e-applicant-${Date.now()}@dev.local`;
 
     // ① 未登入：從 IdP 的登入頁（apps/auth）進入申請頁並送出
@@ -64,10 +72,25 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
     await snapshot(adminPage, 'approved');
     await adminContext.close();
 
-    // ③ 申請人用自己設定的密碼登入
+    // ③ 核准後帳號是 pending：啟用前以申請時的密碼登入被擋下（AUTH_ACCOUNT_PENDING）
     await page.goto('/auth/login');
     await page.getByTestId('login-email').fill(email);
     await page.getByTestId('login-password').fill(APPLICANT_PASSWORD);
+    await page.getByTestId('login-submit').click();
+    await expect(page.getByTestId('login-error')).toBeVisible();
+    await snapshot(page, 'login-before-activation');
+
+    // ④ 從信箱打開啟用信的連結設定密碼（同時會收到審核結果信，以主旨挑出啟用信）
+    const mail = await waitForMail(email, ACTIVATION_MAIL_SUBJECT);
+    await page.goto(linkIn(mail, '/setup'));
+    await page.getByTestId('setup-password').fill(ACTIVATED_PASSWORD);
+    await page.getByTestId('setup-confirm').fill(ACTIVATED_PASSWORD);
+    await page.getByTestId('setup-submit').click();
+    await expectIdpLogin(page);
+
+    // ⑤ 以啟用時設定的密碼登入
+    await page.getByTestId('login-email').fill(email);
+    await page.getByTestId('login-password').fill(ACTIVATED_PASSWORD);
     await page.getByTestId('login-submit').click();
     await expect(page.getByTestId('home-page')).toBeVisible();
     await snapshot(page, 'applicant-home');
