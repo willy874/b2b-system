@@ -236,6 +236,17 @@ gateway 以 `@UseGuards` 在自己的模組裡建立 guard（[`../../conventions
 - **副作用走領域事件，不反向依賴**：業務模組發佈 `DomainEventBus` 事件，
   推播這類「晚一點發生也沒關係」的副作用由訂閱的模組處理（[`08-realtime.md`](./08-realtime.md) §7）。
   業務模組不 import `RealtimeModule`。
+- **直接呼叫還是發事件**：事件是 fire-and-forget（不拋錯、不等待，[`08-realtime.md`](./08-realtime.md) §7.2），
+  所以只放「失敗了也不影響這次操作的結果」的副作用。操作本身的一部分、要知道成敗的步驟，直接呼叫對方 `exports` 的 service。
+
+  | 情境 | 做法 | 例 |
+  | --- | --- | --- |
+  | 失敗要讓操作失敗、或要回報給呼叫端 | 直接呼叫 | 停用租戶時撤銷 session、結束 IdP session：`PlatformTenantService.endEverything` 逐步呼叫並收集失敗的步驟 |
+  | 推播、快取預熱、補建衍生資料等「晚一點也沒關係」 | 發佈事件 | 權限變更 → 即時連線換 room、補建個人資料夾（`FileSystemFolderService` 訂閱 `permissions.changed`） |
+  | 兩者都要 | 先直接呼叫，成功後再發事件 | `endEverything` 撤銷完 session 之後發 `sessions.revoked`，讓 realtime 斷線 |
+
+  同一個效果不要兩條路都做：訂閱端要能分辨哪些情況已經由直接呼叫處理（例：`OidcProviderService` 訂閱
+  `sessions.revoked` 只處理帶 `userIds` 的，租戶層級的由 `endTenantSessions` 直接處理）。
 
 ### 4.1 一個實際的循環與它的解法
 
