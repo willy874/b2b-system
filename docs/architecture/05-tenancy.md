@@ -32,6 +32,9 @@
 | apps/auth 的網域（`AUTH_APP_URL` 的 host） | 沒有租戶；帳號流程以 `X-Tenant: <代碼>` 指定租戶（D26，這個標頭只在 apps/auth 的網域有效） |
 | 其他 | 沒有租戶；需要租戶的程式第一次存取 `TENANT_DB` 時拋 `404 TENANT_NOT_FOUND`，健康檢查照常 |
 
+平台管理者的端點（`/platform/*`）**只在 apps/auth 的網域有效**：租戶網域、未登記的網域、直接以 IP 連線一律在 `TenantMiddleware`
+回 `404 PLATFORM_ONLY`，只套在 apps/auth 網域上的網路控制（WAF、IP 白名單）才保護得到平台管理。
+
 - Host 取自 `requestHost()`：只有受信任的代理（`TRUST_PROXY`）帶來的 `X-Forwarded-Host` 才採用，不能靠標頭換租戶。
   所以受信任的代理 **必須覆寫** 這個標頭：兩份 nginx 設定都 `proxy_set_header X-Forwarded-Host $http_host`
   （[`01-system.md`](./01-system.md) §4.2）；前面另有 LB 時同樣要求。
