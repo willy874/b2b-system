@@ -1,9 +1,9 @@
 # 權限圖（Relationship-based Access Control）
 
 - 優先度：P0
-- 狀態：提案
+- 狀態：實作中（branch：`feat/permission-graph`；本 branch 做 G0～G2 與角色權限技能樹，G3 另開）
 - 依賴：—
-- 相關：[ADR-0005](../adr/0005-permission-resolved-server-side.md)、[ADR-0006](../adr/0006-flat-permission-scope.md)、[ADR-0015](../adr/0015-file-folder-access.md)、
+- 相關：[ADR-0024](../adr/0024-relationship-based-access-control.md)（本功能的決策）、[ADR-0005](../adr/0005-permission-resolved-server-side.md)、[ADR-0006](../adr/0006-flat-permission-scope.md)、[ADR-0015](../adr/0015-file-folder-access.md)、
   [`rbac/01-domain-model.md`](../rbac/01-domain-model.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)、
   [`backend/05-rbac.md`](../architecture/backend/05-rbac.md)；會吸收 [`user-groups.md`](./user-groups.md)；[`multi-instance.md`](./multi-instance.md)（快取失效廣播）
 
@@ -210,6 +210,8 @@ guard、`GET /auth/profile`、`can()` 看到的都是 **包含之後** 的集合
 - 反提權不需要改：操作者的集合本來就是包含之後的，持有 `file:delete` 的人授予 `file:update` 天經地義；
   授予 `file:delete` 時操作者必須持有 `file:delete`，而那已經蘊含其餘兩個。
 - 依賴樹是模型的一部分（跟權限目錄一起在 `db/seeds/permissions.ts` 宣告，§2.2），租戶不能改；不變條件在啟動時驗證。
+- **伺服器端的規則比 UI 寬**：同時是明確與隱含的鍵保持明確；移除一個仍被其他鍵包含的明確鍵是允許的（它繼續以隱含的身分生效）。
+  「要先取消上層才能取消前置」只是編輯器的互鎖，API 不因此拒絕請求。
 
 **資料夾等級也照同一條規則**：`can_update` 含 `can_delete`，`can_update_own` 含 `can_update` 與 `can_create`，`can_read` 含全部。
 
@@ -495,8 +497,8 @@ ADR-0006「不要讓權限變成推理題」的精神不變；explain 讓剩下�
 | 階段 | 內容 | 可回退 |
 | --- | --- | --- |
 | **G0** | ADR-0024；`core/authz` 引擎 ＋ 模型驗證 ＋ 單元測試（純記憶體 tuple，照 07 的每一條規則寫案例） | 不動任何既有程式 |
-| **G1** | `relation_tuples`、`authz_revision`；migration 從三張舊表回填；舊表仍是事實來源，service 同一交易雙寫；**影子比對**：開發與測試環境每次檢查兩套都跑，不一致就報錯 | 刪新表即可 |
-| **G2** | 讀取改走引擎，並啟用包含關係（§2.1；自訂角色多出的鍵由 migration 列出並寫稽核）：`PermissionService`、`FileAccessService`、推播 room；刪 `resource-grant.resolver.ts`、`PermissionCacheService` 的逐事件失效 | 切回舊讀取路徑 |
+| **G1** | `relation_tuples`；migration 從三張舊表回填；舊表仍是事實來源，**以 DB trigger 在同一交易雙寫**（service 不必改，也不會漏）；`authz_revision` 延到 G3；**影子比對**：開發與測試環境每次檢查兩套都跑，不一致就報錯 | 刪新表即可 |
+| **G2** | 讀取改走引擎，並啟用包含關係（§2.1；自訂角色多出的鍵由 migration 列出並寫稽核）：`PermissionService`、`FileAccessService`、推播 room；刪 `resource-grant.resolver.ts` 的解析；快取仍逐事件失效（寫入還經過舊表，revision 失效隨 G3 的寫入切換一起做） | 切回舊讀取路徑 |
 | **G3** | 寫入只寫 tuple；刪 `user_roles`、`role_permissions`、`resource_grants` 與雙寫 | 需要反向回填，視為不可回退 |
 | **G4** | 群組（巢狀、持有角色）、`user:*`、explain API 與前端頁面；刪除 `user-groups.md` | — |
 | **G5** | 隨專案功能：`project` 型別，`fileFolder` 的 `inherits_from` 可以指向專案 | — |
@@ -509,16 +511,32 @@ G1～G3 對外沒有任何行為變化，既有的權限測試（頁面三個權
 
 1. **這一版要不要真的換掉 `user_roles`／`role_permissions`？** 另一個選擇是只把 **資源授權與群組** 放進圖、全域 RBAC 維持兩張表
    （引擎把它們當作結構邊供應者讀進來）。改動小很多，但會留下兩種寫入路徑，也拿不到「群組持有角色」的統一失效。
+
+   **結論**（2026-09-30）：全部換，依 G1～G3 以雙寫＋影子比對逐步切換。`feat/permission-graph` 做到 G2，G3（寫入切換、刪舊表）另開 branch。
 2. **`pg_notify` 的連線成本**：LISTEN 要一條常駐連線；每租戶一條在租戶數多時不划算。改成平台 DB 上一個頻道、payload 帶租戶代碼？
    （與 [`multi-instance.md`](./multi-instance.md) 一起決定。）
+
+   **結論**：延到 G3（寫入改經 tuple 之後才有單一的失效點）；G2 之前沿用逐事件失效。
 3. **角色繼承角色**（`role:admin#holder` 包含 `role:editor#holder`）在圖上只是一種邊，要不要開放？
    ADR-0006 以「複製角色」取代繼承的理由（結果是明確清單）在有 explain 之後還成不成立？
+
+   **結論**：延到 G4；這一版模型不定義 role → role 的邊。
 4. **群組成員的反提權**：把人加進持有 `admin` 的群組，等於指派 `admin`。要比照 `assertRolesAssignable` 檢查群組持有的角色嗎？
    群組上的資料夾授權要不要一起檢查（現在指派角色時不檢查角色的資料夾授權）？
+
+   **結論**：延到 G4（群組）。
 5. **revision 的粒度**：一個資料夾授權的變更也讓整個租戶的全域權限閉包失效。要不要分成兩個 revision（`tenant`／角色／群組一組，資源授權一組）？
+
+   **結論**：延到 G3，與問題 2 一起。
 6. **explain 的揭露範圍**：路徑會經過使用者可能看不到的群組、資料夾名稱。沒有 `authz:explain` 的人查自己時，看不到的節點要遮成「某個群組」嗎？
+
+   **結論**：延到 G4；這一版的引擎有 `explain()`，但不開放 API。
 7. **外部 IdP 的群組對應**（[`04-sso.md`](../architecture/04-sso.md) §11）對應到群組之後，群組成員是否標記為「同步來源」、不允許手動編輯？
+
+   **結論**：延到 G4。
 8. **平台管理者**要不要一起進圖（`platform_admins.role` 目前是固定對照，10 個權限鍵）？傾向不要。
+
+   **結論**：不要。
 9. **`contributor` 等級怎麼處理**（§2.1）：它能在資料夾裡上傳（create），卻不能編輯別人的東西（只能改刪自己上傳的）。三個選項：
    - A. 把「自己上傳的」視為它的 edit 範圍：包含規則改成「`create` ⇒ 至少能編輯自己建立的」，`contributor` 保留原本語意（投件箱、共用上傳區仍可做）；
    - B. 嚴格套用：`contributor` 也能改名、移動別人的檔案，只差不能刪除；
