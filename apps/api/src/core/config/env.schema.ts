@@ -290,6 +290,9 @@ export const EnvSchema = z.object({
   /** 稽核日誌熱 → 冷搬移的 cron（UTC）；空字串停用（docs/architecture/backend/06-audit-log.md §8）。 */
   AUDIT_LOG_ARCHIVE_CRON: z.string().trim().default('30 3 * * *'),
 
+  /** 回收桶到期永久刪除的 cron（UTC）；空字串停用。保留天數是系統設定 `trash.retentionDays`（docs/architecture/backend/13-trash.md §4）。 */
+  TRASH_PURGE_CRON: z.string().trim().default('30 4 * * *'),
+
   /**
    * 第一位平台管理者（apps/auth 的租戶管理）：`db:seed` 在平台 DB 沒有任何管理者時建立。
    * 密碼留空 = seed 時隨機產生並印出一次。

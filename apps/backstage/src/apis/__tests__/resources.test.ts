@@ -107,11 +107,21 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     expect(keys).toContain('invalidate:AUTH_PROFILE_QUERY_KEY');
   });
 
-  it('建立不帶角色的使用者：角色端完全不受影響', () => {
+  it('建立不帶角色的使用者：角色端完全不受影響（還原也以 create 宣告，所以回收桶跟著失效）', () => {
     expect(keysOf({ resource: Resource.USER, kind: 'create', refs: { role: [] } })).toEqual([
       'invalidate:AUDIT_LOG_LIST_QUERY_KEY',
+      'invalidate:TRASH_LIST_QUERY_KEY',
       'invalidate:USER_LIST_QUERY_KEY',
     ]);
+  });
+
+  it('刪除使用者：回收桶的列表跟著失效；更新則不影響回收桶（ADR-0025 D9）', () => {
+    expect(keysOf({ resource: Resource.USER, kind: 'delete', id: 'u1' })).toContain(
+      'invalidate:TRASH_LIST_QUERY_KEY',
+    );
+    expect(keysOf({ resource: Resource.USER, kind: 'update', id: 'u1' })).not.toContain(
+      'invalidate:TRASH_LIST_QUERY_KEY',
+    );
   });
 
   it('改自己的 profile：等同 user(self) 更新，profile 跟著失效', () => {

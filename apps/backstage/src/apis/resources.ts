@@ -35,6 +35,7 @@ import { ROLE_PERMISSIONS_QUERY_KEY } from '@/apis/role/get-role-permissions/que
 import { ROLE_USERS_QUERY_KEY } from '@/apis/role/get-role-users/query';
 import { PUBLIC_SETTINGS_QUERY_KEY } from '@/apis/system/get-public-settings/query';
 import { SETTING_LIST_QUERY_KEY } from '@/apis/system/get-setting-list/query';
+import { TRASH_LIST_QUERY_KEY } from '@/apis/trash/get-trash-list/query';
 import { USER_DETAIL_QUERY_KEY } from '@/apis/user/get-user-detail/query';
 import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
 import { USER_ROLES_QUERY_KEY } from '@/apis/user/get-user-roles/query';
@@ -63,6 +64,8 @@ export const Resource = {
   SETTING: 'setting',
   /** 目前登入者的 session 視角（profile ＋ 有效權限） */
   PROFILE: 'profile',
+  /** 回收桶（已刪除的項目）；後端沒有這個來源，由各資源的建立（還原）與刪除衍生 */
+  TRASH: 'trash',
   // 關係：沒有自己的 query，只作為來源
   /** 使用者 ↔ 角色（`id` = userId，`refs.role` = 新舊角色） */
   USER_ROLE: 'userRole',
@@ -188,6 +191,13 @@ const graph = createResourceGraph<Resource>({
       { from: Resource.ROLE_PERMISSION, id: 'none', when: selfHoldsRole },
       // profile 帶著啟用的 feature 清單；重新取得後由 useSyncFeatures 安裝或卸載
       { from: Resource.TENANT_FEATURE, id: 'none' },
+    ],
+  },
+  [Resource.TRASH]: {
+    collection: [TRASH_LIST_QUERY_KEY],
+    derivesFrom: [
+      // 刪除＝進回收桶；還原以 create 宣告（重新出現在列表）；永久刪除以 delete 推播
+      { from: Resource.USER, kinds: ['create', 'delete'], id: 'none' },
     ],
   },
   [Resource.USER_ROLE]: {},

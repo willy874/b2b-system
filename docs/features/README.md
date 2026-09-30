@@ -17,7 +17,7 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P0 | 版本歷史、樂觀鎖與還原 | [`entity-revisions.md`](./entity-revisions.md) | 規劃中（[ADR-0025](../adr/0025-entity-revisions.md)，R1～R5） | — |
+| P0 | 版本歷史、樂觀鎖與還原 | [`entity-revisions.md`](./entity-revisions.md) | 進行中（[ADR-0025](../adr/0025-entity-revisions.md)；R1、R2 已實作，R1b、R3～R5 未做） | — |
 | P0 | 權限圖（ReBAC，收斂 RBAC／資源授權／群組） | [`permission-graph.md`](./permission-graph.md) | 實作中（G0～G3b 已上 main 並歸檔；G4 群組與 explain、G5 專案待做；原「使用者群組」提案併入 G4） | — |
 | P1 | 站內通知中心 | [`notification-center.md`](./notification-center.md) | 提案 | — |
 | P2 | 服務帳號／API Token | [`api-tokens.md`](./api-tokens.md) | 提案 | — |

@@ -1,0 +1,17 @@
+{
+  "trash": {
+    "title": "Trash",
+    "description": "Deleted items stay here for a while (the retention days in system settings) and can be restored in the meantime. After that a daily job deletes them permanently.",
+    "noType": "There is nothing you can restore",
+    "empty": "The trash is empty",
+    "field": {
+      "name": "Name",
+      "deletedAt": "Deleted at",
+      "deletedBy": "Deleted by",
+      "purgeAt": "Permanently deleted at"
+    },
+    "pagination": {
+      "summary": "{{from}}–{{to}} of {{total}}"
+    }
+  }
+}

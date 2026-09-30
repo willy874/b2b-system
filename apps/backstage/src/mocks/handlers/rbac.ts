@@ -54,6 +54,25 @@ function writeHandler(
 }
 
 const noContent = () => new HttpResponse(null, { status: 204 });
+
+/** mock 的回收桶：已刪除的使用者（id 與 email 不和 `USER_FIXTURES` 重複）。 */
+const DELETED_USER_FIXTURES = USER_FIXTURES.slice(0, 2).map((user) =>
+  Object.assign(structuredClone(user), {
+    id: `${user.id}-deleted`,
+    email: `deleted-${user.email}`,
+    username: null,
+  }),
+);
+
+const toTrashItem = (user: (typeof USER_FIXTURES)[number]) => ({
+  id: user.id,
+  type: 'user' as const,
+  name: user.displayName,
+  description: user.email,
+  deletedAt: user.updatedAt,
+  deletedBy: { id: SELF_ID, name: USER_FIXTURES[0]!.displayName },
+  purgeAt: new Date(Date.parse(user.updatedAt) + 30 * 24 * 60 * 60 * 1000).toISOString(),
+});
 const userResponse = (id: string) =>
   HttpResponse.json({ data: USER_FIXTURES.find((item) => item.id === id) });
 
@@ -217,6 +236,23 @@ export const rbacHandlers = [
   }),
 
   writeHandler('delete', '/users/:id', 'user:delete', (id) => checkUser(id), noContent),
+  // 回收桶（ADR-0025 D9）：mock 模式把第三位以後的 fixture 當成已刪除，只示範列表與還原
+  http.get(`${MOCK_API_BASE}/trash`, () => {
+    if (!mockState.permissions.includes('user:delete')) return forbidden('user:delete');
+    return HttpResponse.json({ data: paginate(DELETED_USER_FIXTURES.map(toTrashItem)) });
+  }),
+  writeHandler(
+    'post',
+    '/users/:id/restore',
+    'user:delete',
+    (id) => {
+      if (USER_FIXTURES.some((item) => item.id === id)) return { code: 'USER_NOT_DELETED' };
+      return DELETED_USER_FIXTURES.some((item) => item.id === id)
+        ? undefined
+        : { code: 'USER_NOT_FOUND' };
+    },
+    (id) => HttpResponse.json({ data: DELETED_USER_FIXTURES.find((item) => item.id === id) }),
+  ),
   // 樂觀鎖：帶的 version 與 fixture 不同 → 409（與後端相同；docs/architecture/backend/03-api-conventions.md §11）
   http.patch(`${MOCK_API_BASE}/users/:id`, async ({ params, request }) => {
     if (!mockState.permissions.includes('user:update')) return forbidden('user:update');

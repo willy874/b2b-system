@@ -10,6 +10,7 @@ import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
 import { JobQueue } from '@/core/jobs';
+import { RESOURCE_TYPE } from '@/core/resource';
 import type { AuditMetadata, UserInsert, UserRow, UserStatus } from '@/db/schema';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
@@ -270,6 +271,62 @@ export class UserService {
     });
   }
 
+  /**
+   * 還原刪除的使用者（ADR-0025 D6）：清 `deleted_at`，`status` 維持刪除前的值；refresh token、外部身分連結、
+   * 刪除時作廢的啟用／重設連結都不回復（要重新登入、重新連結；還沒啟用的人由「重設密碼」重寄啟用信）。
+   * 持有的角色中仍存在的那些隨著刪除時保留的邊自動生效，所以先以指派角色的反提權檢查它們；
+   * 個人資料夾由 `permissions.changed` 的訂閱者（檔案模組）補建。
+   */
+  async restore(id: string, actor: AuthUser): Promise<UserDto> {
+    const user = await this.repo.findDeletedById(id);
+    if (!user) {
+      throw new AppException(
+        (await this.repo.findById(id)) ? 'USER_NOT_DELETED' : 'USER_NOT_FOUND',
+      );
+    }
+    await this.assertRestorable(user);
+    // 不能藉還原讓別人取得自己給不了的角色（含 super-admin；docs/architecture/backend/05-rbac.md §4.1）
+    const roles = await this.repo.listRoles(id);
+    await this.permissionService.assertRolesAssignable(
+      actor.id,
+      roles.map((role) => role.id),
+    );
+
+    const restored = await withTransaction(this.db, async (tx) => {
+      const row = await this.repo.restore(id, actor.id, tx);
+      // 檢查之後被別人搶先還原
+      if (!row) throw new AppException('USER_NOT_DELETED');
+      await this.audit.record(
+        {
+          action: 'user.restore',
+          resourceType: RESOURCE_TYPE.USER,
+          resourceId: id,
+          resourceName: row.email,
+          changes: { after: { email: row.email, status: row.status } },
+          metadata: { deletedAt: user.deletedAt?.toISOString(), roles: roles.map((r) => r.slug) },
+        },
+        tx,
+      );
+      return row;
+    });
+
+    this.invalidateAccount(id);
+    // 持有者邊重新生效（而且個人資料夾的補建靠這個事件的 userIds）：不論有沒有角色都通知
+    await this.permissionService.permissionsChanged([id]);
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [
+        {
+          resource: ChangeSource.USER,
+          kind: ChangeKind.CREATE,
+          id,
+          refs: { [ChangeSource.ROLE]: roles.map((role) => role.id) },
+        },
+      ],
+      affectedUserIds: [id],
+    });
+    return toDto(restored, roles);
+  }
+
   /** PUT：整批取代語意。 */
   async replaceRoles(
     id: string,
@@ -513,6 +570,29 @@ export class UserService {
     if (!(await this.repo.hasRoleSlug(targetId, SUPER_ADMIN_SLUG))) return;
     if (await this.repo.hasRoleSlug(actor.id, SUPER_ADMIN_SLUG)) return;
     throw new AppException('AUTHZ_ESCALATION', { role: SUPER_ADMIN_SLUG, target: targetId });
+  }
+
+  /**
+   * 還原前的唯一值檢查：email 或 username 已被 **未刪除** 的帳號使用 → 409，`details.conflictingUserId`
+   * 帶佔用者，前端直接連過去（email 不能改，管理者只能先處理那個帳號；ADR-0025 D6）。
+   */
+  private async assertRestorable(user: UserRow): Promise<void> {
+    const emailTaken = await this.repo.findByEmail(user.email);
+    if (emailTaken) {
+      throw new AppException('USER_EMAIL_DUPLICATE', {
+        field: 'email',
+        value: user.email,
+        conflictingUserId: emailTaken.id,
+      });
+    }
+    const usernameTaken = user.username ? await this.repo.findByUsername(user.username) : undefined;
+    if (usernameTaken) {
+      throw new AppException('USER_USERNAME_DUPLICATE', {
+        field: 'username',
+        value: user.username,
+        conflictingUserId: usernameTaken.id,
+      });
+    }
   }
 
   private async assertEmailAvailable(email: string): Promise<void> {

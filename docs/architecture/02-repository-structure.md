@@ -93,6 +93,7 @@ apps/backstage/src/
 │   ├── notify/              useToast()：把提示發到 eventBus
 │   ├── permission/          ★ 權限註冊表、hooks、常數
 │   ├── preference/          偏好設定註冊表（讓 feature 擴充偏好頁）
+│   ├── trash/               回收桶的類型註冊表（docs/architecture/frontend/13-trash.md）
 │   ├── router/              RootRoute、Router Provider
 │   └── store/               全域 store（permission / layout / timezone / locale）
 │
@@ -106,6 +107,7 @@ apps/backstage/src/
 │   ├── approval/
 │   ├── file/                檔案管理器（docs/architecture/frontend/12-file-manager.md）
 │   ├── job/                 背景工作的管理頁（docs/architecture/backend/10-jobs.md §6）
+│   ├── trash/               回收桶頁；各類型由擁有資源的 feature 登記（docs/architecture/frontend/13-trash.md）
 │   └── home/
 │
 ├── apis/                    與後端對話的唯一入口
@@ -116,7 +118,8 @@ apps/backstage/src/
 │   ├── audit-log/
 │   ├── approval/
 │   ├── file/
-│   └── job/
+│   ├── job/
+│   └── trash/
 │
 ├── components/              ★ Base UI 封裝層（設計系統元件）
 │   ├── Button/  Input/  Select/  Dialog/  Table/  Toast/  Tooltip/ …
@@ -202,6 +205,7 @@ apps/api/src/
 │   ├── approval/
 │   ├── file/                檔案轉介表、上傳流程、資料夾授權的讀寫與等級規則（docs/architecture/backend/09-file.md）
 │   ├── job/                 背景工作的管理 API（docs/architecture/backend/10-jobs.md §6）
+│   ├── trash/               回收桶：TrashRegistry、GET /trash、trash.purge（docs/architecture/backend/13-trash.md）
 │   └── health/
 │
 └── db/
@@ -308,6 +312,7 @@ IDP_SECRET_KEY=                        # 加密外部 IdP client secret 的金�
 
 JOBS_WORKER_ENABLED=true            # 是否執行背景工作與排程；false 只入列（backend/10-jobs.md §5）
 AUDIT_LOG_ARCHIVE_CRON=30 3 * * *   # 稽核熱 → 冷搬移的 cron（UTC）；留空停用
+TRASH_PURGE_CRON=30 4 * * *         # 回收桶到期永久刪除的 cron（UTC）；保留天數是系統設定 trash.retentionDays（backend/13-trash.md §5）
 
 REALTIME_ALLOWED_ORIGINS=http://localhost:5173   # Socket.io handshake 的 Origin 白名單（逗號分隔）
 

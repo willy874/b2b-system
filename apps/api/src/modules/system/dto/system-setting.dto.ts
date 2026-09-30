@@ -15,7 +15,12 @@ export const SystemSettingSchema = defineSchema(
   'SystemSetting',
   z.object({
     key: z.string(),
-    category: z.enum([SettingCategory.GENERAL, SettingCategory.AUTH, SettingCategory.FILE]),
+    category: z.enum([
+      SettingCategory.GENERAL,
+      SettingCategory.AUTH,
+      SettingCategory.FILE,
+      SettingCategory.TRASH,
+    ]),
     type: z.enum(['string', 'number', 'boolean']),
     /** 生效值：有覆寫就是覆寫值，否則是預設值。 */
     value: SettingValueSchema,

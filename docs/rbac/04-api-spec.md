@@ -115,6 +115,7 @@
 | GET    | `/users/:id/permissions`    | 🛡 `user:read`          | 該使用者的有效權限集合（含依賴樹閉包；除錯／稽核用） |
 | POST   | `/users/:id/reset-password` | 🛡 `user:resetPassword` | 代觸發重設流程；`pending` 的人改寄啟用信 |
 | POST   | `/users/:id/unlock`         | 🛡 `user:update`        | 解除登入鎖定                           |
+| POST   | `/users/:id/restore`        | 🛡 `user:delete`        | 還原刪除的使用者（§2.5）               |
 
 ### 2.1 `GET /users`
 
@@ -196,7 +197,26 @@
 
 `PATCH /users/:id` 改狀態、`DELETE /users/:id` 同樣：目標持有 super-admin 時只有 super-admin 能做（`AUTHZ_ESCALATION`）。
 
-### 2.5 批次操作
+### 2.5 `POST /users/:id/restore`
+
+還原軟刪除的使用者（[ADR-0025](../adr/0025-entity-revisions.md) D6；能刪就能復原，所以權限是 `user:delete`）。
+`status` 維持刪除前的值；refresh token、外部身分連結、啟用／重設連結不回復；持有的角色中仍存在的那些跟著生效。
+
+```jsonc
+// 200 → { "data": { /* User */ } }
+// 409 → { "error": { "code": "USER_EMAIL_DUPLICATE", "details": { "field": "email", "value": "…", "conflictingUserId": "…" } } }
+```
+
+| 錯誤 | 何時 |
+| --- | --- |
+| `404 USER_NOT_FOUND` | 不存在，或已被永久刪除 |
+| `409 USER_NOT_DELETED` | 沒有被刪除（或被別人搶先還原） |
+| `409 USER_EMAIL_DUPLICATE`／`USER_USERNAME_DUPLICATE` | email／username 已被未刪除的帳號使用；`details.conflictingUserId` |
+| `403 AUTHZ_ESCALATION` | 他持有的角色中有 actor 指派不了的（反提權，§5） |
+
+回收桶的列表是 `GET /trash?type=user`（§7.2）。細節見 [`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md) §4。
+
+### 2.6 批次操作
 
 沒有批次端點：批次操作由前端逐筆呼叫單筆 API，見 [ADR-0012](../adr/0012-batch-queue-worker.md)。
 
@@ -357,6 +377,7 @@
 | `POST /users`                  | `roleIds` 各角色的權限集合聯集               |
 | `PUT /users/:id/roles`         | 同上                                         |
 | `POST /approvals/:id/approve`  | `roleIds`（`user.register`）同上             |
+| `POST /users/:id/restore`      | 他持有的、仍存在的角色（還原會讓它們重新生效） |
 | `PUT /file-folders/:id/grants`、`DELETE …/grants/:subjectType/:subjectId` | 該等級蘊含的檔案動作（以操作者 **在該資料夾** 的能力比對，見 [`07-resource-grants.md`](./07-resource-grants.md) §6.1） |
 
 規則：`待授予集合 ⊆ actor 的權限集合`，否則 `403 AUTHZ_ESCALATION`，
@@ -475,6 +496,18 @@
 撤銷資料夾授權後，已發出的網址在到期前仍有效。
 
 流程、欄位與錯誤碼見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md) §4–§6（資料夾 §4.2、存取控制 §11）。
+
+---
+
+## 7.2 Trash（回收桶）
+
+| Method | Path     | 授權 | 說明 |
+| ------ | -------- | ---- | ---- |
+| GET    | `/trash` | 🛡 任一種 `<resource>:delete`（目前 `user:delete`），再依 `type` 檢查該類型的權限 | 某一類已刪除的項目（`type` 必填，新刪除的在前；`offset`／`limit`／`keyword`） |
+
+每一列：`id`、`type`、`name`、`description`、`deletedAt`、`deletedBy`（`{ id, name }` 或 `null`）、`purgeAt`。
+還原端點在各資源（`POST /users/:id/restore`）；永久刪除只由排程 `trash.purge` 執行。
+見 [`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)。
 
 ---
 

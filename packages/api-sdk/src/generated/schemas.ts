@@ -105,6 +105,8 @@ import type {
   TenantFlagOverrides,
   TenantLookup,
   TenantLookupQuery,
+  TrashItem,
+  TrashResourceType,
   UpdateFeatureFlagRequest,
   UpdateFileFolderAccessRequest,
   UpdateFileFolderRequest,
@@ -328,6 +330,35 @@ export const PlatformAuditLogSchema = z.object({
   errorCode: z.string().nullable(),
   metadata: z.record(z.string(), z.unknown()).nullable(),
 }) satisfies z.ZodType<PlatformAuditLog>;
+
+export const TrashResourceTypeSchema = z.enum(['user']) satisfies z.ZodType<TrashResourceType>;
+
+export const TrashItemSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  type: TrashResourceTypeSchema,
+  name: z.string(),
+  description: z.string().nullable(),
+  deletedAt: z.string(),
+  deletedBy: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      name: z.string(),
+    })
+    .nullable(),
+  purgeAt: z.string(),
+}) satisfies z.ZodType<TrashItem>;
 
 export const CreateUserRequestSchema = z.object({
   email: z
@@ -1369,7 +1400,7 @@ export const UpdateRolePermissionsRequestSchema = z.object({
 
 export const SystemSettingSchema = z.object({
   key: z.string(),
-  category: z.enum(['general', 'auth', 'file']),
+  category: z.enum(['general', 'auth', 'file', 'trash']),
   type: z.enum(['string', 'number', 'boolean']),
   value: z.union([z.string().max(1000), z.number(), z.boolean()]),
   defaultValue: z.union([z.string().max(1000), z.number(), z.boolean()]),

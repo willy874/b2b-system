@@ -157,6 +157,24 @@ export interface PlatformAuditLog {
   metadata: Record<string, unknown> | null;
 }
 
+export const TrashResourceType = {
+  user: 'user',
+} as const;
+export type TrashResourceType = (typeof TrashResourceType)[keyof typeof TrashResourceType];
+
+export interface TrashItem {
+  id: string;
+  type: TrashResourceType;
+  name: string;
+  description: string | null;
+  deletedAt: string;
+  deletedBy: {
+    id: string;
+    name: string;
+  } | null;
+  purgeAt: string;
+}
+
 export interface CreateUserRequest {
   email: string;
   username?: string;
@@ -878,7 +896,7 @@ export interface UpdateRolePermissionsRequest {
 
 export interface SystemSetting {
   key: string;
-  category: 'general' | 'auth' | 'file';
+  category: 'general' | 'auth' | 'file' | 'trash';
   type: 'string' | 'number' | 'boolean';
   value: string | number | boolean;
   defaultValue: string | number | boolean;

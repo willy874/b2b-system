@@ -219,6 +219,7 @@ export const ErrorCode = {
   USER_NOT_LOCKED: { status: 409 },
   USER_ROLES_CONFLICT: { status: 409 },
   USER_VERSION_CONFLICT: { status: 409 },   // 樂觀鎖（§11）
+  USER_NOT_DELETED: { status: 409 },        // 還原沒有被刪除的使用者（13-trash.md §4.1）
 
   // ── 角色 ──
   ROLE_NOT_FOUND: { status: 404 },

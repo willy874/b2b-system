@@ -152,6 +152,7 @@
     "USER_EMAIL_DUPLICATE": "This email is already in use.",
     "USER_USERNAME_DUPLICATE": "This username is already in use.",
     "USER_NOT_LOCKED": "This account is not locked.",
+    "USER_NOT_DELETED": "This account is not deleted, so there is nothing to restore.",
     "USER_ROLES_CONFLICT": "This user's roles were just changed by someone else. Review the latest roles and try again.",
     "USER_VERSION_CONFLICT": "This user was changed by someone else. Reload to see the latest version, then edit again.",
     "ROLE_NOT_FOUND": "Role not found.",

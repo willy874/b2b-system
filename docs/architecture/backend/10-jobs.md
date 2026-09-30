@@ -91,6 +91,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | --- | --- | --- | --- |
 | `auditLog.archive` | `modules/audit-log` | `AUDIT_LOG_ARCHIVE_CRON` | `30 3 * * *`（每天 03:30 UTC） |
 | `file.maintenance` | `modules/file` | `FILE_MAINTENANCE_CRON` | `0 * * * *`（每小時整點） |
+| `trash.purge` | `modules/trash` | `TRASH_PURGE_CRON` | `30 4 * * *`（每天 04:30 UTC；回收桶到期永久刪除，保留天數是系統設定 `trash.retentionDays`，[`13-trash.md`](./13-trash.md) §5） |
 | `auth.activationMail`、`auth.passwordResetMail` | `modules/credential` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
 | `approval.resultMail` | `modules/approval` | — | 由程式入列 |
 | `oidc.cleanup`（平台） | `modules/oidc-provider` | `OIDC_CLEANUP_CRON` | `45 3 * * *`（每天 03:45 UTC；清除過期的 IdP 狀態） |
@@ -175,6 +176,7 @@ await withTransaction(this.db, async (tx) => {
 | `JOBS_OUTBOX_SWEEP_CRON` | `*/10 * * * *` | 補搬 outbox 的排程（UTC）；空字串停用 |
 | `AUDIT_LOG_ARCHIVE_CRON` | `30 3 * * *` | 稽核封存的排程（UTC）；空字串停用 |
 | `FILE_MAINTENANCE_CRON` | `0 * * * *` | 檔案維護的排程（UTC）；空字串停用 |
+| `TRASH_PURGE_CRON` | `30 4 * * *` | 回收桶到期永久刪除的排程（UTC）；空字串停用 |
 
 資料庫權限：pg-boss 啟動時要能在 `pgboss` schema 建表（第一次部署或升級 pg-boss 時）。
 應用程式與維運拆成不同 role 的部署，先以有權限的 role 啟動一次，或用 `getConstructionPlans()`
@@ -188,5 +190,6 @@ await withTransaction(this.db, async (tx) => {
 | `test/audit-log-tiering.spec.ts` | `archive_audit_logs()` 為 `SECURITY DEFINER`：沒有 DELETE 權限的 role 不能直接刪、但能透過函式搬移 |
 | `test/route-audit.spec.ts` | 四個端點的權限宣告 |
 | `src/modules/file/__tests__/file-maintenance.service.spec.ts` | 以 `FILE_MAINTENANCE_CRON` 註冊成排程工作 |
+| `src/modules/trash/__tests__/trash.service.spec.ts`、`test/trash.spec.ts` | `trash.purge` 以 `TRASH_PURGE_CRON` 註冊、每批一個交易、外鍵略過、依設定的保留天數硬刪除 |
 
 其他整合測試預設 `JOBS_WORKER_ENABLED=false`（`vitest.config.ts`）：排程與 worker 不在測試裡偷跑。

@@ -1,12 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, gt, ilike, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, ilike, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, containsPattern } from '@/core/database';
 import type { RoleRow, UserInsert, UserRow, UserStatus } from '@/db/schema';
 import {
+  fileFolders,
   isActiveRole,
+  isDeleted,
   isRoleHolderTuple,
   notDeleted,
   relationTuples,
@@ -19,6 +22,18 @@ import {
 } from '@/db/schema';
 
 import type { ListUserDto } from './dto/list-user.dto';
+
+/** 回收桶的一列（`listDeleted`）；刪除者取自刪除時寫入的 `updated_by`（刪除之後不再有人更新這一列）。 */
+export interface DeletedUserRow {
+  id: string;
+  email: string;
+  displayName: string;
+  deletedAt: Date;
+  deletedBy: { id: string; name: string } | null;
+}
+
+/** 刪除者：同一張 `users` 的別名（刪除者本人也可能已被刪除，仍顯示名字）。 */
+const deleter = alias(users, 'deleter');
 
 export interface UserRoleSummary {
   id: string;
@@ -372,5 +387,142 @@ export class UserRepository {
       .innerJoin(users, eq(sql`${users.id}::text`, relationTuples.subjectId))
       .where(and(isRoleHolderTuple(), ...conditions));
     return row?.total ?? 0;
+  }
+
+  // ── 回收桶與還原（ADR-0025 D6、D9、D11）：這一段故意讀已刪除的列，一律用 isDeleted() ──
+
+  /** 已刪除的使用者；不存在或沒有被刪除回 undefined。 */
+  async findDeletedById(id: string, tx?: DbOrTx): Promise<UserRow | undefined> {
+    const [row] = await (tx ?? this.db)
+      .select()
+      .from(users)
+      .where(and(eq(users.id, id), isDeleted(users)))
+      .limit(1);
+    return row;
+  }
+
+  /** 未刪除、username 相同（不分大小寫，citext）的帳號：還原前找佔用者。 */
+  async findByUsername(username: string, tx?: DbOrTx): Promise<UserRow | undefined> {
+    const [row] = await (tx ?? this.db)
+      .select()
+      .from(users)
+      .where(and(eq(users.username, username), notDeleted(users)))
+      .limit(1);
+    return row;
+  }
+
+  /**
+   * 清掉 `deleted_at`（只在仍是已刪除時；並行的兩個還原只有一個命中）。`status`、`token_version` 維持刪除時的值；
+   * `version` 不遞增——與刪除一樣不是編輯實體的欄位（docs/architecture/backend/03-api-conventions.md §11）。
+   */
+  async restore(id: string, actorId: string, tx: DbOrTx): Promise<UserRow | undefined> {
+    const [row] = await tx
+      .update(users)
+      .set({ deletedAt: null, updatedBy: actorId })
+      .where(and(eq(users.id, id), isDeleted(users)))
+      .returning();
+    return row;
+  }
+
+  async listDeleted(query: {
+    offset: number;
+    limit: number;
+    keyword?: string;
+  }): Promise<{ items: DeletedUserRow[]; total: number }> {
+    const conditions: SQL[] = [isDeleted(users)];
+    if (query.keyword) {
+      const pattern = containsPattern(query.keyword);
+      const matched = or(
+        ilike(sql`${users.email}::text`, pattern),
+        ilike(users.displayName, pattern),
+      );
+      if (matched) conditions.push(matched);
+    }
+    const where = and(...conditions);
+    const [rows, [counted]] = await Promise.all([
+      this.db
+        .select({
+          id: users.id,
+          email: users.email,
+          displayName: users.displayName,
+          deletedAt: users.deletedAt,
+          deleterId: deleter.id,
+          deleterName: deleter.displayName,
+        })
+        .from(users)
+        .leftJoin(deleter, eq(deleter.id, users.updatedBy))
+        .where(where)
+        .orderBy(desc(users.deletedAt), desc(users.id))
+        .limit(query.limit)
+        .offset(query.offset),
+      this.db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(users)
+        .where(where),
+    ]);
+    return {
+      items: rows.flatMap(({ deleterId, deleterName, deletedAt, ...row }) =>
+        deletedAt
+          ? [
+              {
+                ...row,
+                deletedAt,
+                deletedBy: deleterId && deleterName ? { id: deleterId, name: deleterName } : null,
+              },
+            ]
+          : [],
+      ),
+      total: counted?.total ?? 0,
+    };
+  }
+
+  /**
+   * 刪除超過保留期限、可以永久刪除的使用者（依 id 的 keyset）。還擁有資料夾（`file_folders.owner_id` 是
+   * `ON DELETE RESTRICT`，含已軟刪除、尚未永久刪除的個人資料夾）的人這一輪不取：等資料夾先被清掉（ADR-0025 D11）。
+   */
+  async findExpired(
+    cutoff: Date,
+    afterId: string | null,
+    limit: number,
+  ): Promise<Array<{ id: string; email: string; deletedAt: Date }>> {
+    const rows = await this.db
+      .select({ id: users.id, email: users.email, deletedAt: users.deletedAt })
+      .from(users)
+      .where(
+        and(
+          isDeleted(users),
+          lt(users.deletedAt, cutoff),
+          afterId ? gt(users.id, afterId) : undefined,
+          sql`NOT EXISTS (SELECT 1 FROM ${fileFolders} WHERE ${fileFolders.ownerId} = ${users.id})`,
+        ),
+      )
+      .orderBy(asc(users.id))
+      .limit(limit);
+    return rows.flatMap(({ deletedAt, ...row }) => (deletedAt ? [{ ...row, deletedAt }] : []));
+  }
+
+  /**
+   * 永久刪除一位已刪除的使用者（在呼叫端的交易內）。連帶處理（docs/architecture/backend/13-trash.md §4.2）：
+   * - 關係圖裡以他為主體或物件的邊（持有角色、資料夾授權）：多型沒有外鍵，要自己刪；
+   * - `refresh_tokens`、`auth_tokens`、`user_identities` 由外鍵 `ON DELETE CASCADE` 刪除；
+   * - 其他表的 `created_by`／`updated_by`、審批的申請人與審核者是 `SET NULL`；
+   * - `file_folders.owner_id` 是 `RESTRICT`：`findExpired` 已排除，並行建立的由呼叫端的 savepoint 當作略過。
+   * 回傳是否刪到（已被還原或已不在就是 false）。
+   */
+  async hardDelete(id: string, tx: DbOrTx): Promise<boolean> {
+    const [row] = await tx
+      .delete(users)
+      .where(and(eq(users.id, id), isDeleted(users)))
+      .returning({ id: users.id });
+    if (!row) return false;
+    await tx
+      .delete(relationTuples)
+      .where(
+        or(
+          and(eq(relationTuples.subjectType, USER_SUBJECT_TYPE), eq(relationTuples.subjectId, id)),
+          and(eq(relationTuples.objectType, USER_SUBJECT_TYPE), eq(relationTuples.objectId, id)),
+        ),
+      );
+    return true;
   }
 }

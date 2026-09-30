@@ -5,7 +5,8 @@
     "category": {
       "general": "General",
       "auth": "Accounts and sign-in",
-      "file": "Files"
+      "file": "Files",
+      "trash": "Trash"
     },
     "field": {
       "defaultTimezone": {
@@ -39,6 +40,10 @@
       "uploadMaxSize": {
         "label": "Maximum file size",
         "description": "The largest file that can be uploaded. Cannot exceed the limit set for this deployment."
+      },
+      "retentionDays": {
+        "label": "Retention",
+        "description": "Deleted items stay in the trash for this many days. After that the daily job deletes them permanently and they can no longer be restored."
       }
     },
     "unit": {
@@ -46,7 +51,8 @@
       "seconds": "seconds",
       "hours": "hours",
       "characters": "characters",
-      "mebibytes": "MiB"
+      "mebibytes": "MiB",
+      "days": "days"
     },
     "boolean": {
       "on": "On",

@@ -89,7 +89,8 @@ docs/
 │   │   ├── 09-state-and-storage.md    store 分類、持久化、跨分頁同步
 │   │   ├── 10-testing.md              Vitest / Testing Library / MSW / Playwright
 │   │   ├── 11-realtime.md             Socket.io、leader 分頁持有連線、推播 → 快取失效
-│   │   └── 12-file-manager.md         檔案管理器：排版、選取、上傳佇列、預覽擴充點
+│   │   ├── 12-file-manager.md         檔案管理器：排版、選取、上傳佇列、預覽擴充點
+│   │   └── 13-trash.md                回收桶頁：類型註冊表、權限、使用者的還原
 │   │
 │   └── backend/
 │       ├── README.md
@@ -104,7 +105,8 @@ docs/
 │       ├── 09-file.md                 檔案模組：物件儲存抽象層、上傳流程（含分塊）、keyset 分頁
 │       ├── 10-jobs.md                 背景工作：pg-boss 佇列、排程、重試、管理 API
 │       ├── 11-mail.md                 郵件：傳輸層、範本、寄送流程、Mailpit
-│       └── 12-settings.md             系統設定：執行期可調的值（租戶 DB）、env 與設定的分工
+│       ├── 12-settings.md             系統設定：執行期可調的值（租戶 DB）、env 與設定的分工
+│       └── 13-trash.md                回收桶：TrashRegistry、還原端點、trash.purge 與外鍵處理
 │
 ├── rbac/
 │   ├── 01-domain-model.md             實體、ER 圖、不變條件、關係圖的組成與模型

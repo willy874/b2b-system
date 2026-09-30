@@ -31,6 +31,8 @@
 |        | `user.assignRole`                                                 | **含前後角色清單**     |
 |        | `user.activate` / `user.unlock` / `user.reset_password_requested` |                        |
 |        | `user.activation_resent`                                          | 管理員對 `pending` 的人重寄啟用信 |
+|        | `user.restore`                                                    | 從回收桶還原；`metadata.deletedAt`、`metadata.roles`（[`13-trash.md`](./13-trash.md) §4.1） |
+| 回收桶 | `<resource>.purge`（目前 `user.purge`）                           | 到期永久刪除；排程執行，`actorId = null`、`actorEmail = 'system'`，`metadata.retentionDays`（[`13-trash.md`](./13-trash.md) §5） |
 | 角色   | `role.create` / `role.update` / `role.delete` / `role.duplicate`  |                        |
 |        | `role.grantPermission`                                            | **含前後權限清單**     |
 | 審批   | `approval.submit`                                                 | 匿名申請（註冊）的 actor 為申請人 email、`actorId = null` |

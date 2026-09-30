@@ -274,6 +274,57 @@ export function userControllerUpdate(
   return request<UserControllerUpdateResult>(userControllerUpdateOperation, input, options);
 }
 
+// POST /users/{id}/restore
+
+export interface UserControllerRestorePathParams {
+  id: string;
+}
+
+export interface UserControllerRestoreInput {
+  path: UserControllerRestorePathParams;
+}
+
+export interface UserControllerRestoreResponses {
+  200: {
+    data: User;
+  };
+}
+
+export type UserControllerRestoreResponse = UserControllerRestoreResponses[200];
+
+export type UserControllerRestoreResult = ApiResponse<200, UserControllerRestoreResponses[200]>;
+
+export const UserControllerRestoreSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: UserSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getUserControllerRestoreUrl(path: UserControllerRestorePathParams): string {
+  return buildUrl('/users/{id}/restore', path);
+}
+
+const userControllerRestoreOperation: OperationDefinition = {
+  id: 'UserController_restore',
+  method: 'POST',
+  path: '/users/{id}/restore',
+  responseTypes: { 200: 'json' },
+  schemas: UserControllerRestoreSchemas,
+};
+
+/** 還原刪除的使用者 */
+export function userControllerRestore(
+  input: UserControllerRestoreInput,
+  options?: RequestOptions,
+): Promise<UserControllerRestoreResult> {
+  return request<UserControllerRestoreResult>(userControllerRestoreOperation, input, options);
+}
+
 // GET /users/{id}/roles
 
 export interface UserControllerListRolesPathParams {

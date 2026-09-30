@@ -85,6 +85,8 @@ export const ErrorCode = {
   USER_ROLES_CONFLICT: { status: 409 },
   /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（ADR-0025 D3）。 */
   USER_VERSION_CONFLICT: { status: 409 },
+  /** 還原（`POST /users/:id/restore`）一個沒有被刪除的使用者（ADR-0025 D6）。 */
+  USER_NOT_DELETED: { status: 409 },
 
   // ── 角色 ──
   ROLE_NOT_FOUND: { status: 404 },

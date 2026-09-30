@@ -152,6 +152,7 @@
     "USER_EMAIL_DUPLICATE": "這個 Email 已被使用。",
     "USER_USERNAME_DUPLICATE": "這個使用者名稱已被使用。",
     "USER_NOT_LOCKED": "這個帳號目前沒有被鎖定。",
+    "USER_NOT_DELETED": "這個帳號沒有被刪除，不需要還原。",
     "USER_ROLES_CONFLICT": "這個人的角色剛被其他人修改過，請確認最新的角色後再指派。",
     "USER_VERSION_CONFLICT": "這位使用者的資料已經被其他人修改，請重新載入後再編輯。",
     "ROLE_NOT_FOUND": "找不到這個角色。",

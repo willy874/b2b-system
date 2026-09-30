@@ -1,7 +1,7 @@
 # 版本歷史、樂觀鎖與還原
 
 - 優先度：P0
-- 狀態：規劃中
+- 狀態：進行中（R1 樂觀鎖、R2 回收桶與使用者還原已實作：[`backend/13-trash.md`](../architecture/backend/13-trash.md)、[`frontend/13-trash.md`](../architecture/frontend/13-trash.md)；R1b、R3～R5 未做）
 - 依賴：—（[`permission-graph.md`](./permission-graph.md) G3a 已上線，開放問題 2 可以用 tuple 回答）
 - 相關：[`hardening-followups.md`](./hardening-followups.md)（刪除使用者後復原、`PATCH` 的版本控制）、[`tags-comments.md`](./tags-comments.md)（多型關聯的命名）、
   [`backend/02-database.md`](../architecture/backend/02-database.md) §1、[`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md)、

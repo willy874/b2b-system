@@ -17,9 +17,15 @@
     },
     "delete": {
       "title": "刪除使用者",
-      "confirm": "確定要刪除「{{name}}」嗎？帳號會被軟刪除並立即登出。",
+      "confirm": "確定要刪除「{{name}}」嗎？帳號會立即登出並移到回收桶，保留期限內可以還原。",
       "success": "使用者已刪除。",
-      "selfProtected": "不能刪除自己的帳號。"
+      "selfProtected": "不能刪除自己的帳號。",
+      "undo": "復原"
+    },
+    "restore": {
+      "action": "還原",
+      "success": "已還原「{{name}}」。",
+      "viewConflicting": "查看該帳號"
     },
     "assignRole": {
       "action": "儲存角色",

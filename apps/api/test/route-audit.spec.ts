@@ -170,6 +170,8 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /users/:id/permissions': 'user:read',
       'POST /users/:id/reset-password': 'user:resetPassword',
       'POST /users/:id/unlock': 'user:update',
+      'POST /users/:id/restore': 'user:delete',
+      'GET /trash': 'user:delete',
       'GET /roles': 'role:read',
       'POST /roles': 'role:create',
       'GET /roles/:id': 'role:read',

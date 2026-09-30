@@ -22,6 +22,7 @@ MUI 作法，最大的差異是 **UI 函式庫改用 Base UI**，因此 `src/com
 | 10  | [`10-testing.md`](./10-testing.md)                     | Vitest / Testing Library / MSW / Playwright |
 | 11  | [`11-realtime.md`](./11-realtime.md)                   | Socket.io、leader 分頁持有連線、推播 → 失效 |
 | 12  | [`12-file-manager.md`](./12-file-manager.md)           | 檔案管理器：排版、選取、上傳佇列、預覽擴充點 |
+| 13  | [`13-trash.md`](./13-trash.md)                         | 回收桶：類型註冊表、權限、使用者的還原與「復原」 |
 
 ## 三條必須記住的規則
 
