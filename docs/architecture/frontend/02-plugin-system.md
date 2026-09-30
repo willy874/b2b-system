@@ -365,9 +365,9 @@ export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 
 | 角色 | 位置 | 做什麼 |
 | --- | --- | --- |
-| catalog | `app/features.ts` 的 `FEATURE_CATALOG` | id → `{ plugin, routes }`；`satisfies Record<TenantFeature, …>` 對齊後端 |
+| catalog | `app/features.ts` 的 `FEATURE_CATALOG` | id → `{ plugin, routes, requires? }`；`satisfies Record<TenantFeature, …>` 對齊後端 |
 | 安裝器 | `core/feature/FeatureActivator.ts` | 比對清單，`install` / `uninstall`；狀態寫進 `featureStore` |
-| 同步 | `app/features.ts` 的 `useSyncFeatures()`（掛在 `SessionWatcher`） | 把 profile 的 `features` 交給安裝器 |
+| 同步 | `app/features.ts` 的 `useSyncFeatures()`（掛在 `SessionWatcher`） | 把 profile 的 `features` 與 `flags` 交給安裝器 |
 | route guard | 最上層 route 的 `beforeLoad: requireFeature(<ID>)` | 已安裝 → 通過；未定 → 等待；未啟用 → 404；安裝失敗 → 錯誤頁 |
 | 第二道防線 | `app/Layout.tsx` 的 `useFeatureGate()` | 同上的判斷，避免「頁面權限還沒註冊」被當成不受管而放行 |
 
@@ -383,3 +383,16 @@ export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 
 feature 被停用時：目前頁面屬於它就先導向首頁並 toast（`ignoreBlocker`），再卸載；
 各分頁向批次佇列重新宣告能執行的操作，佇列取消使用那些操作、尚未結束的工作。
+
+### 7.1 Feature flag
+
+[ADR-0022](../../adr/0022-feature-flags.md) D9；後端與平台管理見 [`../05-tenancy.md`](../05-tenancy.md) §5.2。
+`/auth/profile` 的 `flags` 是目前生效為開的 key，由 `useSyncFeatures()` 與 `features` 一起交給安裝器，存進 `featureStore.flags`。
+
+| 要擋的東西 | 做法 |
+| --- | --- |
+| feature 內的一塊 UI | `useFlag('<key>')`（`core/feature`）在渲染時判斷，flag 變更時自動更新；不影響註冊 |
+| 整個 feature 還在試行 | 登記進 `FEATURE_CATALOG` 並宣告 `requires: { flag: '<key>' }`：flag 開才安裝、關掉就卸載，其餘（`requireFeature`、`useFeatureGate`、卸載前導回首頁）照舊。flag 移除時從 catalog 拿掉、改回 `main.tsx` 的 `.use()` |
+| 可啟用 feature 裡的新版 | `requires: { feature: '<id>', flag: '<key>' }`：兩者都要成立 |
+
+`requires` 省略時等於 `{ feature: <catalog 的 id> }`（ADR-0021 的行為）。前端的隱藏只是體驗，對應的端點要標 `@RequireFlag`。

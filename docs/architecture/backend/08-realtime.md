@@ -241,7 +241,7 @@ super-admin 加入自己租戶的所有 perm room。
 | `file`             | `file:read`、`file:access`                 | —                                  | 檔案列表與詳情（`pending` 不推，完成上傳才算建立）。`file:access` 的人只看得到被授權的資料夾：收到看不到的變更只會多重抓一次 |
 | `fileFolder`       | `file:read`、`file:access`                 | —                                  | 資料夾樹、麵包屑、主區塊的資料夾；資料夾授權變更也以 `fileFolder update` 推出（能力旗標跟著變） |
 | `setting`          | `system:read`                              | —                                  | 系統設定頁；公開設定（登入頁、預設時區）下次載入時生效，不推給所有人（[`12-settings.md`](./12-settings.md) §4） |
-| `tenantFeature`    | —（不經這張表）                            | —                                  | 平台層的變更：由 `tenant.featuresChanged` 直接推給 `t:{tenantId}`（每個人都要重新取得 profile），見 §7.1。表裡的列是空的，只為了讓 `Record<ChangeSource, …>` 完整 |
+| `tenantFeature`    | —（不經這張表）                            | —                                  | 平台層的變更：由 `tenant.featuresChanged` 直接推給 `t:{tenantId}`（每個人都要重新取得 profile，含 `features` 與 `flags`），見 §7.1。表裡的列是空的，只為了讓 `Record<ChangeSource, …>` 完整 |
 | 任何來源           | `auditLog:read`                            | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）    |
 
 - `io.to([...rooms]).emit()` 會對多個 room 的聯集 **去重**，同一條連線只收到一次。
@@ -282,7 +282,7 @@ async refreshAudience(userIds: readonly string[]) {
 | `permissions.changed`  | `{ userIds }`                                             | 權限集合可能改變的寫入           | 同步這些人的 perm room（§6.2）              |
 | `resource.changed`     | `{ changes: ResourceChangeWire[], affectedUserIds? }`     | 所有會改變畫面資料的寫入         | 依 §6.1 算出 room，推 `resource.changed`    |
 | `sessions.revoked`     | `{ userIds, reason }`                                     | 遞增 `token_version` 的寫入      | 推 `session.revoked` 並斷線（§3.5）         |
-| `tenant.featuresChanged` | `{ tenantId }`                                          | 平台管理者改了租戶的 `features`（`PlatformTenantService.update`，`TenantDirectory.invalidate()` 之後） | 對 `t:{tenantId}` 推 `resource.changed`（`{ resource: 'tenantFeature', kind: 'update' }`，沒有 `origin`）；前端重新取得 profile（[ADR-0021](../../adr/0021-runtime-feature-activation.md) D8） |
+| `tenant.featuresChanged` | `{ tenantId }`                                          | 平台管理者改了租戶的 `features` 或 feature flag 的租戶覆寫（`PlatformTenantService.update`，`TenantDirectory.invalidate()` 之後）；改了 flag 的全平台覆寫時對每個 `active` 租戶各發一次（`PlatformFeatureFlagService.update`） | 對 `t:{tenantId}` 推 `resource.changed`（`{ resource: 'tenantFeature', kind: 'update' }`，沒有 `origin`）；前端重新取得 profile（[ADR-0021](../../adr/0021-runtime-feature-activation.md) D8） |
 
 事件描述的是 **領域上發生了什麼**，不是「要推給誰」；受眾的判斷只在 listener 裡。
 之後新增的訂閱者（例：寄通知信、webhook）不需要動到發佈端。

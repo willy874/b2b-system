@@ -48,7 +48,7 @@ ADR-0001 的 plugin 容器假設 **所有 feature 在 App 啟動時就確定**�
 | D8 | **啟用清單的來源**：平台 DB 的 `tenants.features`（可啟用 feature 的 id 陣列），由平台管理者在 apps/auth 的租戶詳情頁開關，與 `allowExternalIdp`（ADR-0020 D22）同一種平台層開關。api 在 `/auth/profile` 回傳 `features`，前端與權限一起水合（同一個 query），存進 `core/feature` 的 store。平台管理者變更時，api 對該租戶的所有連線推播 `resource.changed`（來源 `tenantFeature`），前端依資源依賴圖重新取得 profile。前端比對新舊清單，對新增的 `install`、對移除的 `uninstall` | 與權限同一個節奏（ADR-0005），不多一個請求、不多一種推播事件；決定「租戶買了哪些模組」的是平台，所以放平台 DB |
 | D9 | **停用時正在看的頁面**：卸載 **前** 若目前路由屬於該 feature，先導向首頁並 toast 說明；未儲存提醒（`useUnsavedChangesGuard`）**不** 攔（`ignoreBlocker`），與 session 結束時的處理一致。查詢快取不另外清除：離開頁面後沒有觀察者，由 `gcTime` 回收 | 被停用的 feature 的頁面已經不能操作（api 也會拒絕，見 D11），留在原頁只會一直報錯；先離開再卸載，頁面才不會在權限註冊撤回後以「未註冊」的狀態重新渲染 |
 | D10 | **批次佇列認不得的操作不判定失敗**：分頁連上佇列後宣告自己能執行的操作（`capabilities`），註冊表變動時重新宣告；佇列只把項目交給宣告支援的分頁，沒有分頁支援時該工作保持排隊（其他分頁安裝完成後接手）。分頁的操作 **減少**（feature 被卸載）時送 `cancel-operations`，佇列取消使用那些操作、尚未結束的工作（與使用者按取消相同，狀態 `cancelled`） | 解 P6。各分頁安裝的時間點不同（剛開的分頁要等 profile），不該因此讓工作失敗；卸載只會因為租戶停用了 feature，而那對所有分頁都成立 |
-| D11 | **前端的啟用狀態不是存取控制**：api 以 `@RequireFeature('<id>')` 標在 controller 上，由全域 guard 判斷；未啟用回 `FEATURE_DISABLED`（**404**，不暴露功能存在，與 [`../features/feature-flags.md`](../features/feature-flags.md) 的構想一致）。該 feature 的背景工作照常執行（資料仍在，重新啟用後要是一致的） | 前端的隱藏只是體驗；與權限「由伺服器判定」（ADR-0005）同一個原則 |
+| D11 | **前端的啟用狀態不是存取控制**：api 以 `@RequireFeature('<id>')` 標在 controller 上，由全域 guard 判斷；未啟用回 `FEATURE_DISABLED`（**404**，不暴露功能存在，與 [ADR-0022](./0022-feature-flags.md) 的 `@RequireFlag` 相同）。該 feature 的背景工作照常執行（資料仍在，重新啟用後要是一致的） | 前端的隱藏只是體驗；與權限「由伺服器判定」（ADR-0005）同一個原則 |
 | D12 | **完整性測試改寫**：`feature-registration.test.ts` 改為「對 catalog 裡每個 feature 執行 `install` 後，註冊的鍵集合 = 常駐 feature 的鍵 ∪ 該 feature 的鍵；`uninstall` 後回到常駐的集合」，並加上 install → uninstall → install 不丟例外的案例 | 保住 ADR-0001 用測試取代編譯期完整性的做法，並驗證 D4 的反註冊確實乾淨 |
 
 ## 流程
@@ -99,7 +99,7 @@ Layout 以 `useFeatureGate` 再擋一次（D7）：未定 → 骨架屏、未啟
    - `identity-provider`：已經由 `allowExternalIdp`（ADR-0020 D22）開關，不做第二套。
    - `auth`、`home`、`account`、`user`、`role`、`permission`、`system`：RBAC 骨架本身。
 3. **使用者層級的啟用**：不做；「同一個租戶裡只有部分人可用」由權限表達。
-4. **與 [`../features/feature-flags.md`](../features/feature-flags.md) 的關係**：這份 ADR 處理的是 **長期存在的模組**（商業上的開通），不會被移除；
+4. **與 feature flag（[ADR-0022](./0022-feature-flags.md)）的關係**：這份 ADR 處理的是 **長期存在的模組**（商業上的開通），不會被移除；
    feature flag 處理的是 **會被移除的暫時開關**。flag 提案實作時沿用這裡的前端機制（`install` / `uninstall`、可訂閱的註冊表），不必再「只在讀取時判斷」。
 
 ## 替代方案
