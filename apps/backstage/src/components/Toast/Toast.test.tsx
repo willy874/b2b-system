@@ -36,7 +36,7 @@ describe('Toast', () => {
     expect(screen.getByText('請聯絡管理員')).toBeVisible();
   });
 
-  it('動作鈕：按下執行動作並關閉提示（UX-34）', async () => {
+  it('動作鈕：按下執行動作並關閉提示', async () => {
     const toaster = renderToaster();
     const onUndo = vi.fn();
     act(() => {
@@ -51,7 +51,7 @@ describe('Toast', () => {
     await vi.waitFor(() => expect(screen.queryByText('已刪除')).not.toBeInTheDocument());
   });
 
-  it('關閉鈕的名稱用目前語系（ComponentLabelsContext），不是寫死的英文（UX-26）', async () => {
+  it('關閉鈕的名稱用目前語系（ComponentLabelsContext），不是寫死的英文', async () => {
     const toaster = createToaster();
     render(
       <ComponentLabelsContext value={{ ...DEFAULT_COMPONENT_LABELS, toastClose: 'Dismiss' }}>

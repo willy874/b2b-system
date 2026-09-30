@@ -34,7 +34,7 @@ async function put(store: DiskStore, key: string, body = key): Promise<void> {
 
 const keysOf = (store: DiskStore) => store.listObjects('b').map((object) => object.key);
 
-describe('DiskStore 的物件清單（PERF-18：寫入時就地維持排序）', () => {
+describe('DiskStore 的物件清單（寫入時就地維持排序）', () => {
   it('亂序寫入、覆寫、刪除之後，清單仍依 UTF-8 位元組序排列', async () => {
     const store = await DiskStore.open(root);
     await store.createBucket('b');

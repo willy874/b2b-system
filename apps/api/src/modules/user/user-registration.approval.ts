@@ -54,7 +54,7 @@ export function userRegistrationRequest(
  * （docs/rbac/06-approval.md §5）。等同審核者代為「建立使用者」，所以要求相同的權限與檢查。
  *
  * 申請時沒有驗證 email：任何人都能以別人的 email 申請。核准後要由那個信箱收到的啟用信設定密碼才會啟用，
- * 證明申請人真的擁有這個 email（docs/issues/02-security.md SEC-08）。申請時設定的密碼先存著，
+ * 證明申請人真的擁有這個 email。申請時設定的密碼先存著，
  * 啟用前以它登入會得到 `AUTH_ACCOUNT_PENDING`（提示去收信），而不是「帳密錯誤」。
  */
 @Injectable()

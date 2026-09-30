@@ -28,7 +28,7 @@ export function UserRoleSection({
   const assignRoles = useAssignUserRolesMutation(user);
   const { selectedRoleIds, toggleRole, isDirty, isStale, expectedRoleIds, discardDraft } =
     useUserRoleSelection(user.roles);
-  // 勾了角色還沒儲存就關閉詳情：先確認（EDGE-26）
+  // 勾了角色還沒儲存就關閉詳情：先確認
   useUnsavedChangesGuard(isDirty);
 
   return (

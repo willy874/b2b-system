@@ -178,7 +178,7 @@ export class PlatformTenantService {
 
   /**
    * 佈建失敗後重試：每一步都冪等，已建好的 database 與角色會沿用。
-   * 佈建途中程序被重啟的租戶（逾時仍在 `provisioning`）先改成 `failed`，一樣可以重試（EDGE-07）。
+   * 佈建途中程序被重啟的租戶（逾時仍在 `provisioning`）先改成 `failed`，一樣可以重試。
    */
   async retryProvisioning(id: string): Promise<PlatformTenantDto> {
     await this.provisioner.failStaleProvisioning();
@@ -230,7 +230,7 @@ export class PlatformTenantService {
    * 代碼之後可以給新的租戶用（新的 database 與 bucket）。
    */
   async remove(id: string): Promise<void> {
-    // 佈建途中程序被重啟的租戶先改成 failed，才能刪除（EDGE-07）
+    // 佈建途中程序被重啟的租戶先改成 failed，才能刪除
     await this.provisioner.failStaleProvisioning();
     const tenant = await this.getExisting(id);
     if (tenant.status === 'provisioning') throw new AppException('TENANT_STATUS_CONFLICT');
@@ -291,7 +291,7 @@ export class PlatformTenantService {
   async removeDomain(id: string, domain: string): Promise<PlatformTenantDto> {
     const tenant = await this.getExisting(id);
     if (!tenant.domains.includes(domain)) return toDto(tenant);
-    // 「至少留一個網域」要在鎖住租戶之後、同一個交易裡數：兩個請求同時各移除一個時，後到的要看到前一個的結果（EDGE-20）
+    // 「至少留一個網域」要在鎖住租戶之後、同一個交易裡數：兩個請求同時各移除一個時，後到的要看到前一個的結果
     await this.repo.transaction(async (tx) => {
       if (!(await this.repo.lock(id, tx))) throw new AppException('TENANT_NOT_FOUND');
       if ((await this.repo.countDomains(id, tx)) <= 1) {
@@ -338,7 +338,7 @@ export class PlatformTenantService {
     return tenant;
   }
 
-  /** 改狀態與平台稽核在同一個交易（EDGE-24）：稽核寫不進去，狀態也不會變。 */
+  /** 改狀態與平台稽核在同一個交易：稽核寫不進去，狀態也不會變。 */
   private async transitionAudited(
     id: string,
     from: readonly TenantStatus[],

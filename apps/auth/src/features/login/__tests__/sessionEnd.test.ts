@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { sessionEndMessageKey } from '../sessionEnd';
 
-describe('sessionEndMessageKey（登入頁說明 session 為什麼結束，UX-12）', () => {
+describe('sessionEndMessageKey（登入頁說明 session 為什麼結束）', () => {
   it.each([
     [undefined, 'login.signedOut'],
     ['logout', 'login.signedOut'],

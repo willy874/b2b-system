@@ -375,7 +375,7 @@ describe('SSO（docs/adr/0019-sso-identity-platform.md、0020 D5–D10）', () =
     expect(errorCode(replay)).toBe('AUTH_SSO_CODE_INVALID');
   });
 
-  it('同一個授權碼的併發兌換只有一個成功（docs/issues/02-security.md SEC-12）', async () => {
+  it('同一個授權碼的併發兌換只有一個成功', async () => {
     const jar = new CookieJar();
     const authorized = await authorize(jar, BACKSTAGE, USER);
     const responses = await Promise.all(

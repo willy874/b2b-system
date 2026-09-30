@@ -1,6 +1,6 @@
 /**
  * 跳脫 `LIKE`／`ILIKE` 的萬用字元（`%`、`_`）與跳脫字元本身（`\`，Postgres 預設的 ESCAPE）。
- * 使用者輸入的關鍵字一律先經過這裡：否則搜尋 `_` 會匹配所有列（docs/issues/03-edge-cases.md EDGE-21）。
+ * 使用者輸入的關鍵字一律先經過這裡：否則搜尋 `_` 會匹配所有列。
  */
 export function escapeLike(value: string): string {
   return value.replaceAll(/[\\%_]/g, (char) => `\\${char}`);

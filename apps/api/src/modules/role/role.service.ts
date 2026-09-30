@@ -24,7 +24,7 @@ import { RoleRepository } from './role.repository';
 
 /**
  * 管理角色所需的權限：管理者改自己持有的角色時不能把這些拿掉，否則連自己在內都改不回來
- * （docs/architecture/backend/05-rbac.md §8.4、docs/issues/03-edge-cases.md EDGE-12）。
+ * （docs/architecture/backend/05-rbac.md §8.4）。
  */
 const ROLE_MANAGEMENT_PERMISSIONS: readonly PermissionKey[] = [
   PERMISSION.ROLE_READ,
@@ -263,7 +263,7 @@ export class RoleService {
     await this.permissionService.assertNoSelfLockout(actor.id, id, [], ROLE_MANAGEMENT_PERMISSIONS);
 
     const affected = await withTransaction(this.db, async (tx) => {
-      // 鎖住角色列再計數（docs/issues/03-edge-cases.md EDGE-19）：併發的指派（`FOR SHARE`）會先提交、
+      // 鎖住角色列再計數：併發的指派（`FOR SHARE`）會先提交、
       // 被算進來；或是等這裡提交後看到角色已刪除而不插入。
       if (!(await this.repo.lockActive(id, tx))) throw new AppException('ROLE_NOT_FOUND');
       const count = await this.repo.countUsers(id, tx);

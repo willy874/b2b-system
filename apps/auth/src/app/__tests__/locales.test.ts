@@ -10,7 +10,7 @@ import zhTW from '../locales/zh_TW.json';
  * 缺翻譯會靜默降級成通用訊息，所以用測試擋下（docs/architecture/frontend/08-i18n.md §3.1）。
  *
  * 錯誤碼清單直接讀後端的 `ALL_ERROR_CODES`，不手抄：後端新增錯誤碼而前端忘了翻譯時這裡就會失敗
- * （docs/issues/04-user-experience.md UX-14）。以動態 import 載入，是因為前端的 tsc 專案不收 api 的原始碼；
+ * 以動態 import 載入，是因為前端的 tsc 專案不收 api 的原始碼；
  * 該檔沒有任何 import，vitest 可以直接轉譯。
  */
 const API_ERROR_CODE_MODULE = '../../../../api/src/core/errors/error-code.ts';

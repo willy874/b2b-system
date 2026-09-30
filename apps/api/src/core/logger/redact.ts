@@ -1,7 +1,6 @@
 /**
  * 查詢字串裡屬於憑證的參數：啟用、重設密碼的 `token`；外部 IdP 回來的授權碼 `code` 與 `state`；
  * 完成外部登入的 `ticket`（其實就是 state）；以及 OIDC 的 `code_verifier`、`id_token_hint`
- * （docs/issues/02-security.md SEC-15）。
  */
 const SENSITIVE_QUERY_PARAM =
   /([?&](?:token|code|state|ticket|code_verifier|id_token_hint)=)[^&#]*/g;

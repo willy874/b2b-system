@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { UpdateRolePermissionsSchema } from '../update-role.dto';
 
-describe('UpdateRolePermissionsSchema（docs/issues/03-edge-cases.md EDGE-18）', () => {
+describe('UpdateRolePermissionsSchema', () => {
   it('同一個權限同時在 add 與 remove → 驗證失敗', () => {
     const result = UpdateRolePermissionsSchema.safeParse({
       add: ['user:read'],

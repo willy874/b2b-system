@@ -70,7 +70,7 @@ export class OidcPayloadRepository {
 
   /**
    * 條件式消耗：只有尚未消耗時才成功，回傳是否搶到。一次性憑證（授權碼、外部登入的票）的「檢查 → 消耗」
-   * 以它收尾，兩個併發的兌換只有一個成功（docs/issues/02-security.md SEC-12）。
+   * 以它收尾，兩個併發的兌換只有一個成功。
    */
   async consumeOnce(type: string, id: string): Promise<boolean> {
     const rows = await this.db

@@ -137,7 +137,7 @@ export class FileRepository {
         .orderBy(...orderBy, desc(files.id))
         .limit(query.limit)
         .offset(after ? 0 : query.offset),
-      // 帶游標的頁（無限捲動往下捲）不重算總數（PERF-09）：前端只用第一頁的 total
+      // 帶游標的頁（無限捲動往下捲）不重算總數：前端只用第一頁的 total
       after
         ? Promise.resolve([])
         : this.db

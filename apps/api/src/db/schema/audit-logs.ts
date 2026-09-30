@@ -73,7 +73,6 @@ export const auditLogs = pgTable(
 /**
  * 冷資料：由 `archive_audit_logs()` 從熱表搬過來，`id` 沿用熱表的值。
  * 索引與熱表相同：冷表隨保留期一直長（千萬列級），`action` 前綴查詢只靠時間索引過濾會掃過整個 90 天範圍
- * （docs/issues/01-performance.md PERF-17）。
  */
 export const auditLogsArchive = pgTable(
   'audit_logs_archive',

@@ -98,7 +98,7 @@ export async function uploadFile(
     });
   } catch (error) {
     // `complete` 在伺服器端成功、回應卻遺失（網路中斷、逾時）：放棄會失敗，使用者重傳則多一個同名檔。
-    // 先確認狀態，已經 ready 就當作成功（EDGE-22）
+    // 先確認狀態，已經 ready 就當作成功
     if (isCompleting && !signal?.aborted) {
       const current = await fetchFileUploadStatusQuery({ params: { fileId } }).catch(
         () => undefined,

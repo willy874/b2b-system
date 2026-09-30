@@ -10,7 +10,7 @@ export const REALTIME_SOCKET_PATH = '/api/socket.io';
 
 /**
  * 重連的退避：api 重新部署時上千條連線同時斷線，預設的 1–5 秒會讓它們在幾秒內一起打回來（冷快取、每 IP 的
- * handshake 上限）。起點 2 秒、上限 30 秒、隨機 ±50%，把重連攤開到數十秒（docs/issues/01-performance.md PERF-11）。
+ * handshake 上限）。起點 2 秒、上限 30 秒、隨機 ±50%，把重連攤開到數十秒。
  */
 export const REALTIME_RECONNECTION = {
   reconnectionDelay: 2_000,

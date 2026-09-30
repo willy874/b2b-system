@@ -447,7 +447,7 @@ describe('外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D11）
       expect(await loginExternally(other, id)).toContain('error=AUTH_SSO_ACCOUNT_NOT_FOUND');
     });
 
-    describe('以 email 自動連結的限制（docs/issues/02-security.md SEC-01）', () => {
+    describe('以 email 自動連結的限制', () => {
       it('email 網域不是這個連線登記的網域 → AUTH_SSO_LINK_NOT_ALLOWED，不連結', async () => {
         // 持 identityProvider:create 的人自架 IdP，對別的網域的帳號簽出 email_verified
         const { id } = await createProvider({
@@ -549,7 +549,7 @@ describe('外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D11）
       });
     });
 
-    it('刪除帳號會一併刪除外部身分；同 email 重建的帳號可以用同一個 IdP 登入（EDGE-06）', async () => {
+    it('刪除帳號會一併刪除外部身分；同 email 重建的帳號可以用同一個 IdP 登入', async () => {
       const admin = await token(SUPER_ADMIN);
       await request(http)
         .delete(`/users/${aliceId}`)
@@ -576,7 +576,7 @@ describe('外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D11）
       aliceId = again!.id;
     });
 
-    it('連結指向已刪除的帳號（舊資料）：刪掉舊連結，改以 email 對應新帳號（EDGE-06）', async () => {
+    it('連結指向已刪除的帳號（舊資料）：刪掉舊連結，改以 email 對應新帳號', async () => {
       // 模擬修正前留下的資料：帳號軟刪除，但連結還在
       await db.update(users).set({ deletedAt: new Date() }).where(eq(users.id, aliceId));
       const [third] = await db

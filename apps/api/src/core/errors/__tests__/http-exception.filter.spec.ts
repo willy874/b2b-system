@@ -26,7 +26,7 @@ function uniqueViolation(constraint: string): Error {
   });
 }
 
-describe('HttpExceptionFilter（docs/issues/03-edge-cases.md EDGE-17）', () => {
+describe('HttpExceptionFilter', () => {
   it.each([
     [
       'ParseUUIDPipe 等 400',

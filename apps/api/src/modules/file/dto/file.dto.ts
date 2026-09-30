@@ -85,7 +85,7 @@ export const FileListSchema = defineSchema(
     pagination: z.object({
       offset: z.number().int(),
       limit: z.number().int(),
-      /** 篩選後的總數；帶 `cursor` 的頁不計算，為 null（第一頁才有，PERF-09）。 */
+      /** 篩選後的總數；帶 `cursor` 的頁不計算，為 null（第一頁才有）。 */
       total: z.number().int().nullable(),
     }),
     /** keyset 分頁：下一頁的游標（`GET /files?cursor=`）；沒有下一頁時為 null。 */

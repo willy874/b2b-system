@@ -57,7 +57,7 @@ export const users = pgTable(
       .where(sql`${t.deletedAt} IS NULL`),
     index('users_created_at_idx').on(t.createdAt.desc()),
     // 使用者列表的關鍵字（ILIKE '%…%'）：btree 用不上，改用 pg_trgm 的 GIN 索引。
-    // 運算式要與 user.repository 的查詢一致（docs/issues/01-performance.md PERF-19）
+    // 運算式要與 user.repository 的查詢一致
     index('users_email_trgm_idx')
       .using('gin', sql`(${t.email}::text) gin_trgm_ops`)
       .where(sql`${t.deletedAt} IS NULL`),

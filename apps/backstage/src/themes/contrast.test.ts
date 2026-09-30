@@ -79,7 +79,7 @@ describe.each(Object.entries(themes))('Design Token 對比度（WCAG AA）：%s'
     }
   }
 
-  // WCAG 1.4.11：辨識控制項所需的邊界 >= 3:1（docs/issues/04-user-experience.md UX-27）
+  // WCAG 1.4.11：辨識控制項所需的邊界 >= 3:1
   for (const surface of [...SURFACES, '--color-fill-subtle']) {
     it(`控制項邊框 --color-border-control 在 ${surface} 上 >= 3:1`, () => {
       const ratio = contrast(

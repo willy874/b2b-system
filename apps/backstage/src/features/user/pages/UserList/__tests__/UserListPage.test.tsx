@@ -45,7 +45,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('UserListPage（docs/issues/04-user-experience.md UX-06、UX-07、UX-23、UX-35）', () => {
+describe('UserListPage', () => {
   it('重設密碼先確認寄到哪個 Email；確認後才寄出，且只寄一次', async () => {
     renderRoute(routes, '/user', ADMIN);
     // 第一次載入 lazy 頁面比較久

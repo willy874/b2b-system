@@ -47,7 +47,7 @@ const inTenant = <T>(id: string, fn: () => T) =>
     fn,
   );
 
-describe('FileFolderTree（資料夾結構的程序內快取，PERF-05）', () => {
+describe('FileFolderTree（資料夾結構的程序內快取）', () => {
   it('交易外的讀取共用快取：連續兩個請求只查一次資料庫', async () => {
     const { tree, repo } = setup();
     await tree.nodes();

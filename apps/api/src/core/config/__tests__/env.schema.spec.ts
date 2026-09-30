@@ -16,7 +16,7 @@ describe('parseTrustProxy（TRUST_PROXY → Express trust proxy）', () => {
   });
 });
 
-describe('production 的金鑰與危險預設值（docs/issues/02-security.md SEC-10）', () => {
+describe('production 的金鑰與危險預設值', () => {
   const STRONG = 'Qm9vdHN0cmFwLXJhbmRvbS1rZXktZm9yLXRlc3RzLTEyMzQ1Njc4OTA=';
   const production = (overrides: Record<string, string> = {}) => ({
     NODE_ENV: 'production',
@@ -65,7 +65,7 @@ describe('production 的金鑰與危險預設值（docs/issues/02-security.md SE
   });
 });
 
-describe('FILE_URL_TTL（SEC-16：撤銷授權的延遲上限）', () => {
+describe('FILE_URL_TTL（撤銷授權的延遲上限）', () => {
   const ttl = EnvSchema.shape.FILE_URL_TTL;
 
   it('預設 900 秒', () => {

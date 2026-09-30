@@ -21,7 +21,7 @@ const DEFAULT_QUALITY = 82;
 const JPEG_BACKGROUND = '#ffffff';
 
 /**
- * libvips 的全域資源上限（PERF-07）：影像處理與服務 WebSocket 的是同一個程序。
+ * libvips 的全域資源上限：影像處理與服務 WebSocket 的是同一個程序。
  * - 每張圖的執行緒數：預設是 CPU 核心數，兩張大圖同時處理就會佔滿所有核心；
  * - 操作快取：預設 50 MB ／ 100 個操作 ／ 20 個檔案，變體每張只算一次，快取幾乎不會命中，只會佔記憶體。
  */
@@ -62,7 +62,7 @@ async function spoolToTempFile(input: Readable, maxBytes: number): Promise<strin
  * `ImageProcessor` 的 sharp（libvips）實作。sharp 是預編譯的原生套件，
  * 平台二進位檔隨 `@img/sharp-*` 選用依賴安裝，不需要編譯環境。
  *
- * 記憶體（PERF-07）：串流輸入先寫到暫存檔、再由 libvips 從檔案逐列解碼，而不是整份讀成 Buffer——
+ * 記憶體：串流輸入先寫到暫存檔、再由 libvips 從檔案逐列解碼，而不是整份讀成 Buffer——
  * 128 MiB 的原圖不會變成 128 MiB 的 heap，縮圖時 libvips 也只需要一小段列緩衝（JPEG 還會 shrink-on-load）。
  */
 @Injectable()

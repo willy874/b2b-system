@@ -236,7 +236,7 @@ export class ExternalLoginService {
   /**
    * 1. 已連結的外部身分（`provider ＋ subject`）→ 那個帳號（連結指向已刪除的帳號時刪掉舊連結，往下走）
    * 2. 外部 IdP 回報 **已驗證** 的 email 對上既有帳號 → 連結後登入；但 email 網域必須是這個連線登記的網域，
-   *    帳號也不能持有管理用的系統角色，否則拒絕（`AUTH_SSO_LINK_NOT_ALLOWED`，SEC-01）
+   *    帳號也不能持有管理用的系統角色，否則拒絕（`AUTH_SSO_LINK_NOT_ALLOWED`）
    * 3. 連線設為 `auto_create`，且 email 網域是這個連線登記的網域 → 建立沒有任何角色的已啟用帳號並連結
    * 4. 否則拒絕
    */
@@ -253,7 +253,7 @@ export class ExternalLoginService {
         return user;
       }
       // 連結指向已刪除的帳號（刪除帳號會一併刪連結，這是之前留下的）：
-      // `(provider, subject)` 唯一，不刪掉的話同 email 的新帳號永遠連不上（EDGE-06）
+      // `(provider, subject)` 唯一，不刪掉的話同 email 的新帳號永遠連不上
       await this.providers.unlinkIdentity(linked.id);
     }
 
@@ -333,7 +333,7 @@ export class ExternalLoginService {
   }
 
   /**
-   * 以 email 自動連結既有帳號的條件（docs/architecture/04-sso.md §3.3、SEC-01）：
+   * 以 email 自動連結既有帳號的條件（docs/architecture/04-sso.md §3.3）：
    * - email 網域必須登記在 **這個** 連線底下：持 `identityProvider:*` 的人可以自架 IdP、對任何 email 簽出
    *   `email_verified`，不限網域就能連到別人的帳號
    * - 帳號不能持有 `member` 以外的系統角色（super-admin、admin、auditor）：這些帳號被接管的代價太高，

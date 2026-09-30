@@ -297,7 +297,7 @@ const SelectRowView = memo(function SelectRowView<T extends string>({
  * - 選項有 `children` 時成為可展開的樹（role="tree"）。
  */
 export function Select<T extends string = string>(props: SelectProps<T>) {
-  // 沒有明確傳入的文案用目前語系（ComponentLabelsContext），英文介面不會漏出中文預設值（UX-36）
+  // 沒有明確傳入的文案用目前語系（ComponentLabelsContext），英文介面不會漏出中文預設值
   const labels = useComponentLabels();
   const {
     ref,

@@ -55,7 +55,7 @@ beforeEach(() => {
   vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 });
 
-describe('router 的預設 404／錯誤頁（docs/issues/04-user-experience.md UX-09、UX-32）', () => {
+describe('router 的預設 404／錯誤頁', () => {
   it('未知網址顯示本地化的 404，可以回首頁', async () => {
     const router = renderAt('/not-exist');
     expect(await screen.findByTestId('not-found-page')).toHaveTextContent('找不到頁面');

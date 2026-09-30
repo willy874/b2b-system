@@ -26,7 +26,7 @@ export interface LoginSearchAfterSessionEnd {
 /**
  * session 中途結束後導向登入頁的參數：
  * - `signedOut`：登入頁不自動跳到 IdP（單一登出可能還沒完成，見 features/login 的登入頁）
- * - `reason`：不是自己登出時，登入頁說明為什麼（逾時、帳號停用、憑證重用…，UX-12）
+ * - `reason`：不是自己登出時，登入頁說明為什麼（逾時、帳號停用、憑證重用…）
  * - `redirect`：連同查詢字串（列表的篩選、分頁），重新登入後回到同一個網址；公開頁面不記
  */
 export function loginSearchAfterSessionEnd(

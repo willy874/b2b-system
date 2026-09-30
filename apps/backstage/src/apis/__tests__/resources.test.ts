@@ -131,7 +131,7 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     expect(keys.some((key) => key.includes('AUDIT_LOG_DETAIL'))).toBe(false);
   });
 
-  describe('檔案的推播只重抓相關資料夾的列表（PERF-06）', () => {
+  describe('檔案的推播只重抓相關資料夾的列表', () => {
     it('帶了所在的資料夾：只失效那個資料夾與不分資料夾的列表', () => {
       const keys = keysOf({
         resource: Resource.FILE,

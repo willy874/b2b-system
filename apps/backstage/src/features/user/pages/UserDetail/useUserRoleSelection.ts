@@ -18,7 +18,6 @@ function sameIds(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean
  *
  * 草稿記下開始編輯時的角色：之後伺服器的角色被別人改了（推播更新了 `roles`），`isStale` 為 true，
  * 頁面提示「資料已被他人修改」；送出時帶上 `expectedRoleIds`，後端不符就回 409，不會蓋掉別人的變更
- * （docs/issues/03-edge-cases.md EDGE-11）。
  */
 export function useUserRoleSelection(roles: User['roles'] | undefined) {
   const serverRoleIds = useMemo<ReadonlySet<string>>(

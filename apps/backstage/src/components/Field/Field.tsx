@@ -58,7 +58,7 @@ export function Field({
               <span {...slot('required', styles.required)} aria-hidden="true">
                 *
               </span>
-              {/* 星號對報讀器沒有意義：另外念出「必填」（docs/issues/04-user-experience.md UX-25） */}
+              {/* 星號對報讀器沒有意義：另外念出「必填」 */}
               <span className={styles.srOnly}> {labels.required}</span>
             </>
           )}

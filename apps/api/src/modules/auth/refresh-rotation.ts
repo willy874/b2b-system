@@ -56,11 +56,11 @@ export interface RefreshTokenStore {
 
 export interface RotationOptions<TSubject> {
   ttlSeconds: number;
-  /** 家族的絕對壽命（秒）：從登入起算，超過就要重新登入，不論期間續期了幾次（SEC-16）。 */
+  /** 家族的絕對壽命（秒）：從登入起算，超過就要重新登入，不論期間續期了幾次。 */
   familyMaxAgeSeconds: number;
   /**
    * 重送寬限期（秒）：用過的 token 在被使用後這段時間內再出示，而且它就是家族的上一張，視為「回應在路上遺失」
-   * 而不是竊用——換發一張新的、不撤銷家族（EDGE-10）。0 停用。
+   * 而不是竊用——換發一張新的、不撤銷家族。0 停用。
    */
   reuseGraceSeconds: number;
   meta: RequestMeta;

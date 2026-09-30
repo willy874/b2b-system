@@ -8,7 +8,7 @@ import { useTranslation } from '@/core/locales';
 type PasswordInputProps = Omit<InputProps, 'type'>;
 
 /**
- * 登入用的密碼欄（UX-33）：可以切換顯示／隱藏，開著 Caps Lock 輸入時提示。
+ * 登入用的密碼欄：可以切換顯示／隱藏，開著 Caps Lock 輸入時提示。
  * 切換鈕是一般的 `<button type="button">`，鍵盤可操作，不會送出表單。
  */
 export function PasswordInput({ onKeyDown, onKeyUp, onBlur, ...rest }: PasswordInputProps) {

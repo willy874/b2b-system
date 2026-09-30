@@ -18,7 +18,6 @@ export interface QueryErrorProps {
 /**
  * 查詢失敗的畫面：本地化的錯誤訊息＋重試。
  * 用來取代「查詢失敗時落到空狀態」——後端 5xx 時顯示「沒有資料」會讓人以為資料被刪光了
- * （docs/issues/04-user-experience.md UX-07、UX-21）。
  */
 export function QueryError({
   error,

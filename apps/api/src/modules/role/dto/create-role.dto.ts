@@ -5,7 +5,7 @@ import { PermissionKeySchema } from '@/modules/permission/dto/permission.dto';
 
 /**
  * 角色名稱：Unicode 正規化成 NFC，組合方式不同的「é」才不會被當成兩個名稱
- * （唯一性另外不分大小寫，docs/issues/03-edge-cases.md EDGE-21）。
+ * （唯一性另外不分大小寫）。
  */
 export const RoleNameSchema = z.string().trim().normalize('NFC').min(1).max(64);
 

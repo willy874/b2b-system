@@ -42,7 +42,7 @@ interface BucketState {
   info: BucketInfo;
   objects: Map<string, StoredObject>;
   /**
-   * 依 UTF-8 位元組排序的物件清單，寫入與刪除時以二分搜尋就地插入／移除（PERF-18）：
+   * 依 UTF-8 位元組排序的物件清單，寫入與刪除時以二分搜尋就地插入／移除：
    * 不再每次寫入就作廢、下一次列表整桶重新排序。
    */
   sorted: StoredObject[];

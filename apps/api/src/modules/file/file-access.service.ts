@@ -42,7 +42,7 @@ export class FileAccessService {
         (action) => isSuperAdmin || permissions.has(FILE_ACTION_PERMISSION[action]),
       ),
     );
-    // 交易外讀快取（PERF-05）；交易內（持有樹鎖）直接查
+    // 交易外讀快取；交易內（持有樹鎖）直接查
     const nodes = await this.tree.nodes(tx);
     // 資料夾掛到專案底下之後，上層鏈多一種節點：這裡加上 'project'（ADR-0015 §延伸）
     const grants = await this.grants.grantsFor(actor.id, FILE_ACCESS_RESOURCE_TYPES, tx);

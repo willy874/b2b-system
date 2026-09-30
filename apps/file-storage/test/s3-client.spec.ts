@@ -702,7 +702,7 @@ describe('Presigned URL 與 CORS', () => {
     expect(got.headers.get('access-control-allow-origin')).toBe(ALLOWED_ORIGIN);
   });
 
-  it('下載一律帶 nosniff 與 sandbox CSP；response-content-type 可以把 HTML 改成 octet-stream（SEC-02）', async () => {
+  it('下載一律帶 nosniff 與 sandbox CSP；response-content-type 可以把 HTML 改成 octet-stream', async () => {
     const bucket = await newBucket();
     await client.send(
       new PutObjectCommand({

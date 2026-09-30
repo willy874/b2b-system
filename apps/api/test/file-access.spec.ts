@@ -698,7 +698,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       expect(await personalOf(busyOne.email)).toBeDefined();
     });
 
-    it('個人資料夾撞名：依序加上 email、編號，名稱經過清理；一個人失敗不影響同一批的其他人（EDGE-16）', async () => {
+    it('個人資料夾撞名：依序加上 email、編號，名稱經過清理；一個人失敗不影響同一批的其他人', async () => {
       const [privateRoot] = await db
         .select()
         .from(fileFolders)

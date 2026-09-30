@@ -91,7 +91,7 @@ describe('UserRegistrationApprovalHandler（docs/rbac/06-approval.md §5）', ()
     expect(users.assertCreatable).toHaveBeenCalledWith('Alice@Example.com', ['role-1'], REVIEWER);
   });
 
-  it('建立未啟用（pending）的帳號，稽核帶上審批 id（SEC-08：email 還沒驗證）', async () => {
+  it('建立未啟用（pending）的帳號，稽核帶上審批 id（email 還沒驗證）', async () => {
     const { handler, users } = setup();
     const tx = {} as never;
     await expect(handler.apply(context(['role-1']), tx)).resolves.toEqual({ resourceId: 'user-9' });

@@ -17,7 +17,7 @@ const SIGNED_OUT_REASONS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * session 結束的原因（`SessionStore.endSession(reason)`，多半是後端錯誤碼）→ 登入頁顯示的語系鍵（UX-12）。
+ * session 結束的原因（`SessionStore.endSession(reason)`，多半是後端錯誤碼）→ 登入頁顯示的語系鍵。
  * 逾時、帳號停用、偵測到憑證重用、租戶停用各有說明；不認得的原因用通用的「登入狀態已結束」。
  * 對照邏輯與 apps/auth 的 features/login/sessionEnd.ts 相同。
  */

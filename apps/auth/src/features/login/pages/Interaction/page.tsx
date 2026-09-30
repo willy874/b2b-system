@@ -66,7 +66,7 @@ export default function InteractionPage() {
   const provider = discovery.data?.provider ?? null;
   const ssoOnly = Boolean(provider && discovery.data?.ssoOnly);
 
-  // 互動載入後游標放在 Email 欄，進頁面就能直接輸入（UX-33）；不用 autoFocus：欄位在載入前還不存在
+  // 互動載入後游標放在 Email 欄，進頁面就能直接輸入；不用 autoFocus：欄位在載入前還不存在
   const emailRef = useRef<HTMLInputElement>(null);
   const ready = interaction.isSuccess;
   useEffect(() => {

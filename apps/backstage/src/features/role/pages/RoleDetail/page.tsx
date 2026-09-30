@@ -53,7 +53,7 @@ export default function RoleDetailPage() {
           <>
             {permission.canCreate && role.data && (
               <Button
-                // 失敗由 mutation 的 onError 顯示（UX-03）
+                // 失敗由 mutation 的 onError 顯示
                 onClick={() => duplicateRole.mutate({ params: { roleId, body: {} } })}
                 loading={duplicateRole.isPending}
                 data-testid="role-duplicate-button"
@@ -79,7 +79,7 @@ export default function RoleDetailPage() {
         }
       >
         {role.isPending && <Skeleton height={160} />}
-        {/* 深層連結指向已刪除的角色：說明原因並提供返回，不留一個空白對話框（UX-21） */}
+        {/* 深層連結指向已刪除的角色：說明原因並提供返回，不留一個空白對話框 */}
         {role.isError && (
           <QueryError
             error={role.error}

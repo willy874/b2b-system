@@ -259,7 +259,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     expect(response.body).toMatchObject({ error: { code: 'ROLE_SUPER_ADMIN_IMMUTABLE' } });
   });
 
-  describe('管理者不能把自己鎖在外面（ROLE_SELF_LOCKOUT，docs/issues/03-edge-cases.md EDGE-12）', () => {
+  describe('管理者不能把自己鎖在外面（ROLE_SELF_LOCKOUT）', () => {
     const MANAGER = { email: 'role-manager@example.com', password: 'RoleManager!2026' };
     let managerRoleId: string;
 
@@ -325,7 +325,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     });
   });
 
-  it('同一個權限同時在 add 與 remove → 400（docs/issues/03-edge-cases.md EDGE-18）', async () => {
+  it('同一個權限同時在 add 與 remove → 400', async () => {
     const token = await login(SUPER_ADMIN);
     const [role] = await db.select().from(roles).where(eq(roles.slug, 'member'));
     const response = await request(http)
@@ -336,7 +336,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     expect(response.body).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
   });
 
-  describe('刪除角色與指派角色同時發生（docs/issues/03-edge-cases.md EDGE-19）', () => {
+  describe('刪除角色與指派角色同時發生', () => {
     /** 等到有連線卡在列鎖上：確定 HTTP 請求已經走到交易裡、正在等測試持有的鎖。 */
     async function waitForLockWait(): Promise<void> {
       await vi.waitFor(
@@ -459,7 +459,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     expect(response.body).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
   });
 
-  describe('角色名稱不分大小寫、Unicode 正規化（docs/issues/03-edge-cases.md EDGE-21）', () => {
+  describe('角色名稱不分大小寫、Unicode 正規化', () => {
     it('只差大小寫的名稱 → ROLE_NAME_DUPLICATE', async () => {
       const token = await login(SUPER_ADMIN);
       await request(http)
@@ -507,7 +507,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     });
   });
 
-  describe('輸入錯誤回可理解的錯誤碼（docs/issues/03-edge-cases.md EDGE-17）', () => {
+  describe('輸入錯誤回可理解的錯誤碼', () => {
     it('重複的 roleIds → 400 VALIDATION_FAILED（不是 500）', async () => {
       const token = await login(SUPER_ADMIN);
       const targetId = await createActiveUser('dup-roles@example.com', 'DupRolesPassword!2026');

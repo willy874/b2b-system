@@ -9,7 +9,7 @@ function rolesOf(...ids: string[]): User['roles'] {
   return ids.map((id) => ({ id, slug: id, name: id, isSystem: false }));
 }
 
-describe('useUserRoleSelection（docs/issues/03-edge-cases.md EDGE-11）', () => {
+describe('useUserRoleSelection', () => {
   it('沒動過：跟著伺服器的角色走，不是 dirty', () => {
     const { result, rerender } = renderHook(({ roles }) => useUserRoleSelection(roles), {
       initialProps: { roles: rolesOf('member') },

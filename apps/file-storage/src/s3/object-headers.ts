@@ -73,7 +73,7 @@ const RESPONSE_OVERRIDES = {
 } as const;
 
 /**
- * 物件內容一律當成「不受信任的使用者內容」送出（SEC-02）：物件儲存常與應用程式同源（`/storage`），
+ * 物件內容一律當成「不受信任的使用者內容」送出：物件儲存常與應用程式同源（`/storage`），
  * 上傳的 HTML／SVG 若被直接開啟，`sandbox` 讓它落在不透明的 origin，腳本碰不到應用程式的 cookie 與 API。
  * 圖片與影音在 `<img>`／`<video>` 裡不受這個 CSP 影響（CSP 只作用在被當成文件開啟的回應）。
  */

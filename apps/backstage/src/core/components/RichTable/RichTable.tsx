@@ -52,7 +52,7 @@ export interface RichTableProps<
   search?: TableSearchProps;
   /**
    * 查詢失敗（通常是 query 的 `error`）。沒有資料時以錯誤畫面取代表格，有舊資料時保留表格並在上方提示；
-   * 不會落到「沒有資料」的空狀態（docs/issues/04-user-experience.md UX-07）。
+   * 不會落到「沒有資料」的空狀態。
    */
   error?: unknown;
   /** 錯誤畫面的「重試」（通常是 query 的 `refetch`）。 */
@@ -203,7 +203,7 @@ export function RichTable<TData, TFilters extends Record<string, unknown>>({
     }
   };
 
-  // 刪到最後一頁沒有資料時（offset 超過總數）退回最後一頁，而不是停在「沒有資料」（UX-22）
+  // 刪到最後一頁沒有資料時（offset 超過總數）退回最後一頁，而不是停在「沒有資料」
   const overflowOffset =
     pagination &&
     !loading &&
@@ -271,7 +271,7 @@ export function RichTable<TData, TFilters extends Record<string, unknown>>({
             rowPinning={pin.rowPinning}
             fillHeight={fillHeight}
             headerTrailing={tools}
-            // 有篩選卻沒有結果：說清楚是「沒有符合條件」並提供清除，不要和真的沒資料混在一起（UX-23）
+            // 有篩選卻沒有結果：說清楚是「沒有符合條件」並提供清除，不要和真的沒資料混在一起
             emptyTitle={emptyTitle ?? (filtered ? t('common.emptyFiltered') : t('common.empty'))}
             emptyDescription={
               emptyDescription ??

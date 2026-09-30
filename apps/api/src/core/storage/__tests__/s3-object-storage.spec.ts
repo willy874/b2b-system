@@ -119,7 +119,7 @@ describe('S3ObjectStorage：每個租戶一個 bucket（docs/adr/0020-physical-t
     expect(new URL(signed.url).origin).toBe('https://s3.example.net');
   });
 
-  it('presignDownload 帶 contentType 時簽進 response-content-type（SEC-02）', async () => {
+  it('presignDownload 帶 contentType 時簽進 response-content-type', async () => {
     const { storage } = setup();
     const signed = await inTenant('acme', () =>
       storage.presignDownload('files/1', {

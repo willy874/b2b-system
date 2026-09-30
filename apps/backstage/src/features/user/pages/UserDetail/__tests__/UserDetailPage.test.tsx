@@ -55,7 +55,7 @@ async function startEditing() {
   return screen.getByTestId('user-display-name-edit-input');
 }
 
-describe('UserDetailPage（docs/issues/04-user-experience.md UX-04、UX-05、UX-21、UX-35）', () => {
+describe('UserDetailPage', () => {
   it('鎖定的使用者只改顯示名稱：只送出名稱，不會順便解鎖', async () => {
     fetchUser.mockResolvedValue({ ...base, status: 'locked' });
     renderRoute(routes, PATH, EDITOR);

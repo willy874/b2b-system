@@ -128,7 +128,7 @@ describe('DomainEventBus', () => {
     expect(nested).toHaveBeenCalledTimes(1);
   });
 
-  describe('依租戶分開排隊（docs/issues/01-performance.md PERF-08、03-edge-cases.md EDGE-15）', () => {
+  describe('依租戶分開排隊', () => {
     it('一個租戶的 handler 卡住時，其他租戶的事件照常處理', async () => {
       const bus = new DomainEventBus();
       const gate = deferred();

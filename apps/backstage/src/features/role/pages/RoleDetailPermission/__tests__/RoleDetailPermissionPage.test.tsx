@@ -86,7 +86,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('RoleDetailPermissionPage（docs/issues/04-user-experience.md UX-02、UX-04、UX-17）', () => {
+describe('RoleDetailPermissionPage', () => {
   it('既有權限還在載入時不能勾選；載入後只送出實際的增減', async () => {
     const pending = deferred<{ permissions: { key: string }[] }>();
     fetchRolePermissions.mockReturnValue(pending.promise);

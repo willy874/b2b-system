@@ -154,7 +154,7 @@ export class IdentityProviderService {
       if (!updated) throw new AppException('IDENTITY_PROVIDER_NOT_FOUND');
       if (domains) await this.repo.replaceDomains(id, domains, tx);
       // 換了 issuer 或 client：舊的 subject 可能來自另一個 IdP，已連結的身分全部作廢，
-      // 否則改指向自架 IdP 就能沿用別人的連結登入（docs/issues/02-security.md SEC-01）
+      // 否則改指向自架 IdP 就能沿用別人的連結登入
       const identityChanged =
         updated.issuer !== before.issuer || updated.clientId !== before.clientId;
       const identitiesCleared = identityChanged
@@ -268,7 +268,7 @@ export class IdentityProviderService {
 
   /**
    * 刪除一個人的所有外部身分連結（刪除帳號時，在同一個交易內）。`(provider, subject)` 唯一：
-   * 連結留著的話，同 email 重建的帳號就再也連不上同一個外部身分（docs/issues/03-edge-cases.md EDGE-06）。
+   * 連結留著的話，同 email 重建的帳號就再也連不上同一個外部身分。
    */
   async unlinkUser(userId: string, tx: DbOrTx): Promise<number> {
     return this.repo.deleteIdentitiesOfUser(userId, tx);

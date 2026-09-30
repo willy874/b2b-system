@@ -10,7 +10,6 @@ import { useTranslation } from '@/core/locales';
  *
  * 表單類對話框都是路由（「對話框即路由」），所以關閉＝導覽，一個 blocker 就涵蓋所有關閉途徑。
  * 儲存成功後要離開時，導覽帶 `ignoreBlocker: true`，不必等 dirty 狀態更新。
- * （docs/issues/04-user-experience.md UX-17、03-edge-cases.md EDGE-26）
  */
 export function useUnsavedChangesGuard(isDirty: boolean): void {
   const { t } = useTranslation();

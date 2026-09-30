@@ -131,7 +131,7 @@ GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie�
 | 3 | 連線是 `auto_create`，且 email 網域是這個連線登記的網域 | 建立 **沒有任何角色** 的已啟用帳號並連結 |
 | 4 | 其他 | `AUTH_SSO_ACCOUNT_NOT_FOUND` |
 
-第 2 步的限制（docs/issues/02-security.md SEC-01）：持 `identityProvider:create`／`update` 的人可以自架 IdP（或把連線的 issuer
+第 2 步的限制：持 `identityProvider:create`／`update` 的人可以自架 IdP（或把連線的 issuer
 改成它），對任何 email 簽出 `email_verified = true`。不限網域的話，就能把自己的外部身分連到租戶裡任何人（包括 super-admin）的帳號。
 所以 email 網域必須屬於這個連線；持有 super-admin、admin、auditor 的帳號即使網域相符也不自動連結，要由本人以密碼登入（或由管理員處理）。
 修改連線的 `issuer` 或 `client_id` 會在同一個交易內刪除它所有的連結（稽核 `metadata.identitiesCleared`、`severity: high`）：
@@ -140,7 +140,7 @@ GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie�
 帳號是 `pending`／停用時回對應的 `AUTH_ACCOUNT_*`；登入失敗的自動鎖定（`locked_until`）不擋外部 IdP 登入。
 
 production 下對外部 IdP 的每個請求都先解析主機名稱，解析到私有、loopback、link-local（含雲端 metadata）位址就拒絕
-（`AUTH_SSO_PROVIDER_UNAVAILABLE`，SEC-11），逾時 10 秒；解析與連線之間仍有 DNS rebinding 的空窗。
+（`AUTH_SSO_PROVIDER_UNAVAILABLE`），逾時 10 秒；解析與連線之間仍有 DNS rebinding 的空窗。
 
 **網域**（`identity_provider_domains`）：一個網域只屬於一個連線。設為「只允許 SSO」時，互動頁不顯示密碼欄，
 `verifyCredentials` 在查帳號 **之前** 回 `AUTH_SSO_REQUIRED`（不洩漏帳號是否存在），`forgotPassword` 不寄信（回應不變）。

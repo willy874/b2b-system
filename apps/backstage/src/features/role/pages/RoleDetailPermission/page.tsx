@@ -42,7 +42,7 @@ export default function RoleDetailPermissionPage() {
   const dirty = add.length > 0 || remove.length > 0;
   useUnsavedChangesGuard(dirty);
 
-  // 既有權限回來之前不能勾選：以空集合為基準的草稿，儲存時會把角色原有的權限全部移除（UX-02）
+  // 既有權限回來之前不能勾選：以空集合為基準的草稿，儲存時會把角色原有的權限全部移除
   const loaded = current.isSuccess;
 
   const save = async () => {
@@ -51,7 +51,7 @@ export default function RoleDetailPermissionPage() {
         params: { roleId, body: { add: add as never, remove: remove as never } },
       });
     } catch {
-      // 錯誤由 mutation 的 onError 顯示；對話框與草稿保留，讓使用者修正後重送（UX-04）
+      // 錯誤由 mutation 的 onError 顯示；對話框與草稿保留，讓使用者修正後重送
       return;
     }
     close({ ignoreBlocker: true });

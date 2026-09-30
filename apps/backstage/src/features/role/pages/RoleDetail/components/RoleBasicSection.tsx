@@ -28,7 +28,7 @@ export function RoleBasicSection({ role, canEdit }: RoleBasicSectionProps) {
     editing && (name !== role.name || description !== (role.description ?? '')),
   );
 
-  // 進入編輯時把游標放在名稱欄，鍵盤使用者不用再找（UX-20）
+  // 進入編輯時把游標放在名稱欄，鍵盤使用者不用再找
   useEffect(() => {
     if (editing) nameRef.current?.focus();
   }, [editing]);
@@ -37,7 +37,7 @@ export function RoleBasicSection({ role, canEdit }: RoleBasicSectionProps) {
     try {
       await updateRole.mutateAsync({ params: { roleId: role.id, body: { name, description } } });
     } catch {
-      // 錯誤由 mutation 的 onError 顯示；編輯區與輸入保留，讓使用者修正後重送（UX-04）
+      // 錯誤由 mutation 的 onError 顯示；編輯區與輸入保留，讓使用者修正後重送
       return;
     }
     setEditing(false);
@@ -63,7 +63,7 @@ export function RoleBasicSection({ role, canEdit }: RoleBasicSectionProps) {
       </div>
 
       {editing ? (
-        // <form>：在欄位按 Enter 就能儲存（UX-20）
+        // <form>：在欄位按 Enter 就能儲存
         <form
           className="mt-2 flex flex-col gap-3"
           onSubmit={(event) => {

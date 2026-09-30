@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * offset 的上限。offset 分頁要先掃過前面的每一列，極大的 offset 等於全表掃描；
- * 超過 1 萬筆的瀏覽應該改用篩選條件縮小範圍（docs/issues/03-edge-cases.md EDGE-21）。
+ * 超過 1 萬筆的瀏覽應該改用篩選條件縮小範圍。
  * 上限也擋掉 `offset=1e19` 這種超出 bigint 的值。
  */
 export const MAX_OFFSET = 10_000;

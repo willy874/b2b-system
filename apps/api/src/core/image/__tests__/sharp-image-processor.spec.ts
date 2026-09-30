@@ -107,7 +107,7 @@ describe('SharpImageProcessor', () => {
     ).rejects.toBeInstanceOf(ImageDecodeError);
   });
 
-  it('串流輸入先寫到暫存檔再解碼（不整份讀進記憶體）；dispose 之後暫存檔被刪除（PERF-07）', async () => {
+  it('串流輸入先寫到暫存檔再解碼（不整份讀進記憶體）；dispose 之後暫存檔被刪除', async () => {
     const decoded = await processor.decode(Readable.from([await solid(40, 20).png().toBuffer()]), {
       maxBytes: MAX_BYTES,
     });

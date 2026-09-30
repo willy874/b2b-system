@@ -187,7 +187,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     expect(audit).toMatchObject({ resourceType: 'file', resourceId: file.id });
   });
 
-  it('HTML、SVG 不在租戶網域上 inline 提供（SEC-02）', async () => {
+  it('HTML、SVG 不在租戶網域上 inline 提供', async () => {
     const token = await login(ADMIN);
     const html = await uploadFile(token, { name: 'evil.html', contentType: 'text/html', size: 10 });
     expect(html.url).toContain('signed=attachment&type=application/octet-stream');
@@ -355,7 +355,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     expect(row?.uploadId).toBeNull();
   });
 
-  it('分塊上傳：物件儲存已組好、紀錄仍是 pending（上次在 markReady 前中斷）→ 重送 complete 成功（EDGE-22）', async () => {
+  it('分塊上傳：物件儲存已組好、紀錄仍是 pending（上次在 markReady 前中斷）→ 重送 complete 成功', async () => {
     const token = await login(ADMIN);
     const { file } = await startUpload(token, {
       name: 'crashed.pak',
@@ -484,7 +484,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     await uploadFile(token, { name: 'k5.txt', contentType: 'text/x-keyset', size: 1 });
     const second = await list({ cursor: first.nextCursor ?? '' });
     expect(second.items.map((f) => f.name)).toEqual(['k2.txt', 'k1.txt']);
-    // 帶游標的頁不重算總數（PERF-09）
+    // 帶游標的頁不重算總數
     expect(second.pagination.total).toBeNull();
 
     await request(http)
@@ -681,7 +681,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       );
     });
 
-    it('移動後超過深度上限 → 400 VALIDATION_FAILED（EDGE-13，子樹高度由遞迴 CTE 算出）', async () => {
+    it('移動後超過深度上限 → 400 VALIDATION_FAILED（子樹高度由遞迴 CTE 算出）', async () => {
       const token = await login(ADMIN);
       const ensure = async (path: string[]) => {
         const response = await request(http)
@@ -813,7 +813,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
   describe('files 資料表約束', () => {
     const base = { name: 'x', contentType: 'text/plain', storageKey: 'files/constraint' };
 
-    it('依上傳者篩選有部分索引（PERF-19，migration 0004）', async () => {
+    it('依上傳者篩選有部分索引（migration 0004）', async () => {
       const rows = await db.execute<{ indexdef: string }>(
         sql`SELECT indexdef FROM pg_indexes WHERE indexname = 'files_created_by_created_at_idx'`,
       );

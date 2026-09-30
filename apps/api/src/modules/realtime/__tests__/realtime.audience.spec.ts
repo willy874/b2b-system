@@ -141,7 +141,7 @@ describe('RealtimeAudience.refreshAudience（§6.2）', () => {
     expect(publisher.moveRooms).not.toHaveBeenCalled();
   });
 
-  it('多人一起批次解析權限，不是每人各查一次（docs/issues/01-performance.md PERF-08）', async () => {
+  it('多人一起批次解析權限，不是每人各查一次', async () => {
     const { audience, permissionService, publisher } = setup({
       't:t1:user:u1': 1,
       't:t1:user:u2': 2,

@@ -26,7 +26,7 @@ RUN pnpm --filter @b2b-system/utils build \
  && pnpm --filter @b2b-system/backstage build
 
 # ── runtime ──────────────────────────────────────────────────────────
-# 非 root（uid 101）的 nginx：pid 與暫存檔在 /tmp，listen 8080（docs/issues/02-security.md SEC-19）
+# 非 root（uid 101）的 nginx：pid 與暫存檔在 /tmp，listen 8080
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 COPY deploy/nginx.main.conf /etc/nginx/nginx.conf
 COPY deploy/nginx.security-headers.conf /etc/nginx/snippets/security-headers.conf

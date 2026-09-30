@@ -171,7 +171,7 @@ export class FileSystemFolderService
       for (const person of people.filter((user) => !owners.has(user.id))) {
         try {
           // 每人一個 savepoint：一個人失敗（例：名稱在競態下撞到唯一索引）只 rollback 他自己，
-          // 不讓同一批其他人的個人資料夾跟著建不成（EDGE-16）
+          // 不讓同一批其他人的個人資料夾跟著建不成
           // oxlint-disable-next-line no-await-in-loop -- 同一個交易依序寫入；只有新取得權限的人
           const row = await tx.transaction((savepoint) =>
             this.createPersonalFolder(person, privateRoot.id, savepoint),
@@ -239,7 +239,7 @@ export class FileSystemFolderService
 
   /** 能進檔案管理器（頁面的閘門：`file:access` 或 `file:read`，或 super-admin）。 */
   private async eligible(userIds: readonly string[]): Promise<string[]> {
-    // 一次批次解析：角色權限變更時受影響的可能是上千人（docs/issues/01-performance.md PERF-08）
+    // 一次批次解析：角色權限變更時受影響的可能是上千人
     const sets = await this.permissions.getPermissionSets(userIds);
     return [...sets]
       .filter(
@@ -314,7 +314,7 @@ function toFolderName(value: string): string {
 }
 
 /**
- * 個人資料夾的第 `attempt` 個候選名稱（EDGE-16）：顯示名稱 → 加上 email → 再加編號 → 最後用 user id。
+ * 個人資料夾的第 `attempt` 個候選名稱：顯示名稱 → 加上 email → 再加編號 → 最後用 user id。
  * 名稱一律符合資料夾名稱的規則（不含路徑分隔字元、控制字元，≤ 255）。
  */
 export function personalFolderName(

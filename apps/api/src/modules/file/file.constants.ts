@@ -58,7 +58,7 @@ export function isInlineSafe(contentType: string): boolean {
 }
 
 /**
- * 下載網址的 `Content-Disposition` 與回應型別（SEC-02）：白名單以外一律 attachment，
+ * 下載網址的 `Content-Disposition` 與回應型別：白名單以外一律 attachment，
  * 除了 SVG（保留型別給 `<img>` 用）都改成 `application/octet-stream`；`contentType` 為 undefined 是沿用物件的型別。
  */
 export function downloadPolicyOf(contentType: string): {
@@ -110,7 +110,7 @@ export const IMAGE_VARIANT_MAX_INPUT_SIZE = 128 * 1024 * 1024;
 export const IMAGE_VARIANT_CONCURRENCY = 2;
 
 /**
- * 上傳完成的圖片等變體多久才先推 `file create`（PERF-06）：通常變體在這之前就好了，
+ * 上傳完成的圖片等變體多久才先推 `file create`：通常變體在這之前就好了，
  * 「完成」與「變體好了」合併成一次推播；超過才先推 create，變體好了再推 update。
  */
 export const IMAGE_VARIANT_ANNOUNCE_WAIT_MS = 3_000;
@@ -153,7 +153,7 @@ export const ROOT_FOLDER_REF = 'root';
 
 /**
  * 一個檔案的變更推播：`refs.fileFolder` 帶所在的資料夾，前端只重抓正在看那個資料夾（與不分資料夾）的列表，
- * 其他資料夾的檔案管理器不動（PERF-06）。
+ * 其他資料夾的檔案管理器不動。
  */
 export function fileChange(
   kind: ChangeKind,

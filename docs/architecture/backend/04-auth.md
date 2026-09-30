@@ -146,7 +146,7 @@ async refresh(rawToken: string, ctx: RequestContext) {
 再發一張新的，稽核記 `auth.refresh.replayed`（一般嚴重度）。家族不會分岔（任何時候只有一張可用），
 被取代的那張再出示是 `AUTH_REFRESH_REVOKED`。超過寬限期、或家族在它之後又續期過，照舊判定為重用。
 取捨：寬限期內被偷的 token 可以換到新的一張（原本的主人下次續期會被登出），換來的是網路抖動不會登出使用者、
-也不會產生假的高嚴重度警報（docs/issues/03-edge-cases.md EDGE-10）。
+也不會產生假的高嚴重度警報。
 
 ### 2.4 Cookie
 
@@ -189,7 +189,7 @@ async refresh(@Req() req: Request) {
 
 每張 refresh token 帶 `family_created_at`（登入的時間，輪替時沿用）。超過 `REFRESH_FAMILY_MAX_AGE`
 （預設 30 天）就回 `AUTH_REFRESH_EXPIRED`，不論期間續期了幾次；快到期時新 token 與 cookie 的壽命也截短到家族的期限。
-被偷的 refresh cookie 不能靠持續續期永久使用（docs/issues/02-security.md SEC-16）。
+被偷的 refresh cookie 不能靠持續續期永久使用。
 
 ---
 
@@ -472,7 +472,7 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 - `auth_tokens`：到期或使用超過保留天數。
 
 保留過期後 30 天，讓安全事件調查時還查得到「這個 token 什麼時候被用過」。每次續期都會新增一列，
-不清的話表與索引一路膨脹、續期與登出越來越慢（docs/issues/01-performance.md PERF-04）；家族的絕對壽命（§2.6）
+不清的話表與索引一路膨脹、續期與登出越來越慢；家族的絕對壽命（§2.6）
 讓單一家族的列數也有上限。
 
 

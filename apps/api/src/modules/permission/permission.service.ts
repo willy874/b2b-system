@@ -28,7 +28,7 @@ export class PermissionService {
     const cached = this.cache.get(userId);
     if (cached) return cached;
 
-    // 查詢期間若被失效（撤銷權限的交易剛提交），讀到的可能是舊值：不寫回快取（EDGE-09）
+    // 查詢期間若被失效（撤銷權限的交易剛提交），讀到的可能是舊值：不寫回快取
     const ticket = this.cache.ticket();
     const [keys, isSuperAdmin] = await Promise.all([
       this.repo.findPermissionKeysByUser(userId),
@@ -42,7 +42,7 @@ export class PermissionService {
 
   /**
    * `getPermissionSet` 的批次版：快取命中的直接用，其餘每批兩條查詢（不是每人兩條）。
-   * 給一次影響很多人的地方用（例：角色權限變更後同步即時連線的 room；docs/issues/01-performance.md PERF-08）。
+   * 給一次影響很多人的地方用（例：角色權限變更後同步即時連線的 room）。
    * 回傳的 Map 含每個傳入的 id（沒有任何角色的人是空集合）。
    */
   async getPermissionSets(userIds: readonly string[]): Promise<Map<string, PermissionSet>> {

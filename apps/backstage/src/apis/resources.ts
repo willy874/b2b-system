@@ -154,7 +154,7 @@ const graph = createResourceGraph<Resource>({
     // 刪除後 LightBox 由詳情的 404 得知
     collection: [FILE_LIST_QUERY_KEY, FILE_INFINITE_LIST_QUERY_KEY],
     // 推播帶 `refs.fileFolder`（所在的資料夾）：只重抓正在看那個資料夾與不分資料夾的列表，
-    // 其他資料夾的檔案管理器不動（PERF-06）
+    // 其他資料夾的檔案管理器不動
     scopedCollection: {
       keys: [FILE_LIST_QUERY_KEY, FILE_INFINITE_LIST_QUERY_KEY],
       ref: Resource.FILE_FOLDER,

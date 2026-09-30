@@ -12,7 +12,7 @@ describe('日誌遮蔽（docs/conventions/03-backend.md §7）', () => {
     expect(redactUrl(undefined)).toBeUndefined();
   });
 
-  it('遮掉外部 IdP 回來的 code／state、完成外部登入的 ticket 與 OIDC 的 code_verifier／id_token_hint（SEC-15）', () => {
+  it('遮掉外部 IdP 回來的 code／state、完成外部登入的 ticket 與 OIDC 的 code_verifier／id_token_hint', () => {
     expect(redactUrl('/oidc-interaction/external/callback?code=c0de&state=st4te&iss=x')).toBe(
       '/oidc-interaction/external/callback?code=[Redacted]&state=[Redacted]&iss=x',
     );

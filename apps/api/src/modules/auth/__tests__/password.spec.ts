@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { containsContext, emailContext, isCommonPassword, PasswordSchema } from '../password';
 
-describe('密碼強度（docs/architecture/backend/04-auth.md §4.2、SEC-14）', () => {
+describe('密碼強度（docs/architecture/backend/04-auth.md §4.2）', () => {
   it.each([
     'password1234',
     'Password12345',

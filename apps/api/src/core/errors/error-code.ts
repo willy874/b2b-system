@@ -74,7 +74,7 @@ export const ErrorCode = {
   USER_EMAIL_DUPLICATE: { status: 409 },
   USER_USERNAME_DUPLICATE: { status: 409 },
   USER_NOT_LOCKED: { status: 409 },
-  /** 整批取代角色時，送出的草稿所依據的角色已被別人改過（docs/issues/03-edge-cases.md EDGE-11）。 */
+  /** 整批取代角色時，送出的草稿所依據的角色已被別人改過。 */
   USER_ROLES_CONFLICT: { status: 409 },
 
   // ── 角色 ──

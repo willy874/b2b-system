@@ -104,7 +104,7 @@ export default function RoleListPage() {
         open={Boolean(pendingDelete)}
         onOpenChange={(open) => !open && setPendingDelete(undefined)}
         title={t('role.delete.title')}
-        // 有人持有時先說清楚影響人數，並直接提供「仍要刪除」；不要等確認後才被 ROLE_IN_USE 擋下（UX-18）
+        // 有人持有時先說清楚影響人數，並直接提供「仍要刪除」；不要等確認後才被 ROLE_IN_USE 擋下
         description={
           pendingDelete && pendingDelete.userCount > 0
             ? t('role.delete.confirmInUse', {

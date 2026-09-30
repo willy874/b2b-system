@@ -144,7 +144,7 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     expect(screen.queryByTestId('tenant-external-idp-dialog')).toBeNull();
   });
 
-  it('外部 IdP 開關：關閉要先確認影響（UX-15），取消就不送出', async () => {
+  it('外部 IdP 開關：關閉要先確認影響，取消就不送出', async () => {
     const tenant = tenantFixture();
     update.mockResolvedValue({ ...tenant, allowExternalIdp: false });
     renderPage(tenant, ALL);
@@ -177,7 +177,7 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     expect(screen.queryByTestId('tenant-retry')).toBeNull();
   });
 
-  it('主要網域沒有移除鈕；其他網域移除前要確認（UX-01），取消後網域還在', async () => {
+  it('主要網域沒有移除鈕；其他網域移除前要確認，取消後網域還在', async () => {
     renderPage(tenantFixture(), ALL);
     expect(await screen.findByTestId('tenant-domain-primary')).toBeInTheDocument();
     const removeButtons = screen.getAllByTestId('tenant-domain-remove');
@@ -214,7 +214,7 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     await waitFor(() => expect(screen.queryByTestId('tenant-domain-remove-dialog')).toBeNull());
   });
 
-  it('刪除租戶要輸入租戶代碼才能確認（UX-15）', async () => {
+  it('刪除租戶要輸入租戶代碼才能確認', async () => {
     const tenant = tenantFixture();
     removeTenant.mockResolvedValue(undefined);
     const router = renderPage(tenant, ALL);

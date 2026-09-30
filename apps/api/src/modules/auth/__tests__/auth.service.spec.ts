@@ -27,7 +27,7 @@ function setup(user: { id: string; status: string; lockedUntil: Date | null } | 
 }
 
 describe('AuthService.forgotPassword（docs/architecture/backend/04-auth.md §5.2）', () => {
-  it('active（含登入失敗鎖定中）→ 寄重設信；重設會順帶解鎖（SEC-03）', async () => {
+  it('active（含登入失敗鎖定中）→ 寄重設信；重設會順帶解鎖', async () => {
     const { service, jobs } = setup({
       id: 'u1',
       status: 'active',
@@ -43,7 +43,7 @@ describe('AuthService.forgotPassword（docs/architecture/backend/04-auth.md §5.
     );
   });
 
-  it('pending → 改寄啟用信（啟用信過期或寄丟時的自助重寄，EDGE-14）', async () => {
+  it('pending → 改寄啟用信（啟用信過期或寄丟時的自助重寄）', async () => {
     const { service, jobs } = setup({ id: 'u2', status: 'pending', lockedUntil: null });
     await service.forgotPassword({ email: 'b@example.com' });
     expect(jobs.enqueue).toHaveBeenCalledWith(

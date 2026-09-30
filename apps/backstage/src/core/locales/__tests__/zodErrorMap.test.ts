@@ -18,7 +18,7 @@ function messageOf(schema: z.ZodType, value: unknown): string | undefined {
   return result.success ? undefined : result.error.issues[0]?.message;
 }
 
-describe('createZodErrorMap（表單驗證訊息走語系，docs/issues/04-user-experience.md UX-10）', () => {
+describe('createZodErrorMap（表單驗證訊息走語系）', () => {
   it.each([
     ['空字串（min(1)）', z.string().min(1), '', 'validation.required'],
     ['沒有值', z.string(), undefined, 'validation.required'],

@@ -48,7 +48,7 @@ async function fillPasswords(current: string, next: string, confirm: string) {
   fireEvent.change(screen.getByTestId('profile-confirm-password'), { target: { value: confirm } });
 }
 
-describe('ProfilePage 的變更密碼（docs/issues/04-user-experience.md UX-30）', () => {
+describe('ProfilePage 的變更密碼', () => {
   it('密碼欄位有 autocomplete，密碼管理器能產生與儲存新密碼', async () => {
     renderRoute(routes, '/profile', []);
     expect(await screen.findByTestId('profile-current-password')).toHaveAttribute(

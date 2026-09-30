@@ -187,12 +187,12 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
       ]);
     });
 
-    it('offset 超過上限回 400（深分頁要掃過 offset 筆，PERF-09）', async () => {
+    it('offset 超過上限回 400（深分頁要掃過 offset 筆）', async () => {
       const response = await list(`offset=${AUDIT_LOG_MAX_OFFSET + 1}`).expect(400);
       expect((response.body as { error: { code: string } }).error.code).toBe('VALIDATION_FAILED');
     });
 
-    it('total 最多數到 AUDIT_LOG_COUNT_CAP（不為了總數掃過整個 90 天，PERF-09）', async () => {
+    it('total 最多數到 AUDIT_LOG_COUNT_CAP（不為了總數掃過整個 90 天）', async () => {
       await db.execute(sql`
         INSERT INTO audit_logs (actor_email, action, resource_type, result)
         SELECT 'cap@example.com', 'cap.row', 'cap', 'success'
@@ -215,7 +215,7 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
     });
   });
 
-  it('冷表也有 action 前綴查詢的索引（text_pattern_ops；docs/issues/01-performance.md PERF-17）', async () => {
+  it('冷表也有 action 前綴查詢的索引（text_pattern_ops）', async () => {
     const rows = await db.execute<{ indexdef: string }>(
       sql`SELECT indexdef FROM pg_indexes WHERE indexname = 'audit_logs_archive_action_idx'`,
     );

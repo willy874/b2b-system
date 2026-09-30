@@ -170,7 +170,7 @@ export class UserService {
 
       if (deactivating) {
         // 停用：撤銷所有 refresh token 並讓既存 access token 失效；已寄出的啟用／重設連結一併作廢，
-        // 否則還沒啟用的人可以用啟用信把自己改回 active（docs/issues/03-edge-cases.md EDGE-02）
+        // 否則還沒啟用的人可以用啟用信把自己改回 active
         await this.repo.incrementTokenVersion(id, tx);
         await this.authTokens.revokeAllRefreshTokens(id, 'user_disabled', tx);
         await this.authTokens.revokeUnused(id, tx);
@@ -217,7 +217,7 @@ export class UserService {
       await this.repo.softDelete(id, actor.id, tx);
       await this.authTokens.revokeAllRefreshTokens(id, 'user_disabled', tx);
       await this.authTokens.revokeUnused(id, tx);
-      // 軟刪除不觸發 cascade：外部身分的連結要自己刪，同 email 重建的帳號才能再連結（EDGE-06）
+      // 軟刪除不觸發 cascade：外部身分的連結要自己刪，同 email 重建的帳號才能再連結
       const identitiesUnlinked = await this.identities.unlinkUser(id, tx);
       await this.audit.record(
         {
@@ -268,7 +268,7 @@ export class UserService {
       await this.repo.lockForUpdate(id, tx);
       const current = await this.repo.listRoles(id, tx);
       if (dto.expectedRoleIds && !sameIds(current, dto.expectedRoleIds)) {
-        // 送出的草稿是以舊的角色為基礎：別人剛改過，整批取代會把那次變更蓋掉（EDGE-11）
+        // 送出的草稿是以舊的角色為基礎：別人剛改過，整批取代會把那次變更蓋掉
         throw new AppException('USER_ROLES_CONFLICT', {
           currentRoleIds: current.map((role) => role.id),
         });
@@ -315,7 +315,7 @@ export class UserService {
 
   /**
    * 代為重設密碼：寄重設信。還沒啟用（`pending`）的人改寄 **啟用信**——重設不會把 `pending` 改成 `active`，
-   * 啟用信過期或寄送失敗後這是唯一的重寄路徑（docs/issues/03-edge-cases.md EDGE-14）。
+   * 啟用信過期或寄送失敗後這是唯一的重寄路徑。
    */
   async resetPassword(id: string, actor: AuthUser): Promise<{ sent: true }> {
     const user = await this.getExisting(id);
@@ -461,7 +461,7 @@ export class UserService {
 
   /**
    * 「永遠至少有一位可用的 super-admin」（docs/rbac/01-domain-model.md I8）。在寫入的交易內呼叫：
-   * 先取得 advisory lock 再計數，兩個並行的停用／刪除／拔角色不會同時看到「還剩一位」（EDGE-03）。
+   * 先取得 advisory lock 再計數，兩個並行的停用／刪除／拔角色不會同時看到「還剩一位」。
    * 是不是 super-admin 直接查 DB，不經權限快取。
    */
   private async assertNotLastSuperAdmin(userId: string, tx: DbOrTx): Promise<void> {
@@ -473,7 +473,7 @@ export class UserService {
 
   /**
    * 反提權（對「被操作的人」）：持有 super-admin 的人只有 super-admin 能停用、刪除或改角色
-   * （docs/architecture/backend/05-rbac.md §4.1、SEC-07／EDGE-08）。否則持 `user:*` 的 admin 就能排除上級。
+   * （docs/architecture/backend/05-rbac.md §4.1）。否則持 `user:*` 的 admin 就能排除上級。
    */
   private async assertCanManage(actor: AuthUser, targetId: string): Promise<void> {
     if (!(await this.repo.hasRoleSlug(targetId, SUPER_ADMIN_SLUG))) return;

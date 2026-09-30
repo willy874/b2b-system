@@ -245,7 +245,7 @@ describe('uploadFile（登記 → 直傳 → 完成）', () => {
     );
   });
 
-  it('complete 在伺服器端成功、回應遺失 → 查到已經 ready，當作成功、不放棄（EDGE-22）', async () => {
+  it('complete 在伺服器端成功、回應遺失 → 查到已經 ready，當作成功、不放棄', async () => {
     vi.mocked(fetchFileCompleteUploadMutation).mockRejectedValueOnce(new NetworkError(new Error()));
     vi.mocked(fetchFileUploadStatusQuery).mockResolvedValueOnce(storedFile('ready'));
     const result = uploadFile({ file: new File(['data'], 'a.png') });

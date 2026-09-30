@@ -45,7 +45,7 @@ export default function UserDetailPage() {
       }
     >
       {user.isPending && <Skeleton height={200} />}
-      {/* 深層連結指向已刪除的使用者：說明原因並提供返回，不留一個空白對話框（UX-21） */}
+      {/* 深層連結指向已刪除的使用者：說明原因並提供返回，不留一個空白對話框 */}
       {user.isError && (
         <QueryError
           error={user.error}

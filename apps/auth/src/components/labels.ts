@@ -5,7 +5,7 @@ import { createContext, use } from 'react';
  *
  * `components/` 不能依賴語系，所以預設值寫死成繁中；app 以 `ComponentLabelsContext` 傳入目前語系的 `t()`，
  * 元件在呼叫端沒有明確傳入時改用 context 的值。這樣英文介面不會漏出中文預設文案，
- * 也不必每個呼叫端各自傳（docs/issues/04-user-experience.md UX-26、UX-36）。
+ * 也不必每個呼叫端各自傳。
  */
 export interface ComponentLabels {
   /** `Field` 必填標記給報讀器的文字（星號本身是 aria-hidden）。 */

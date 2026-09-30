@@ -46,7 +46,7 @@ async function challengeOf(verifier: string): Promise<string> {
 
 /**
  * 只接受同 origin 的路徑，避免登入後被導到別的網站（open redirect）。以瀏覽器實際的解析結果判斷：
- * `/\evil.com` 字面上是 `/` 開頭，瀏覽器卻把 `\` 當成 `/`、解析成 `//evil.com`（docs/issues/02-security.md SEC-17）。
+ * `/\evil.com` 字面上是 `/` 開頭，瀏覽器卻把 `\` 當成 `/`、解析成 `//evil.com`。
  */
 export function safeReturnTo(value: string | undefined): string {
   if (!value?.startsWith('/')) return '/';

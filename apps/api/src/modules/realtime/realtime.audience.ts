@@ -92,7 +92,6 @@ export class RealtimeAudience {
    * 呼叫前權限快取必須已失效，否則會拿到舊集合。
    *
    * 一個角色可能有上千位持有者：權限以批次查詢（每批兩條 SQL），不是每人各查一次
-   * （docs/issues/01-performance.md PERF-08）。
    */
   async refreshAudience(userIds: readonly string[]): Promise<void> {
     // 沒有連線的人不必解析權限（省 DB）。只看本機的連線：

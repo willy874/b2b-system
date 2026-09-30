@@ -51,7 +51,6 @@ interface ActiveFiltersProps<TValues extends Record<string, unknown>> {
 
 /**
  * 以 Chip 列出套用中的篩選，每個都能單獨移除；不必打開篩選面板才知道目前的條件
- * （docs/issues/04-user-experience.md UX-23）。
  */
 export function ActiveFilters<TValues extends Record<string, unknown>>({
   filters,

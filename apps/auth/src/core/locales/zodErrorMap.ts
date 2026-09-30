@@ -26,7 +26,7 @@ function isValidationParams(params: unknown): params is ValidationParams {
 }
 
 /**
- * Zod 的 issue → 使用者看得懂的語系訊息（UX-10）。Zod 預設是 `Too small: expected string to have >=1 characters`
+ * Zod 的 issue → 使用者看得懂的語系訊息。Zod 預設是 `Too small: expected string to have >=1 characters`
  * 這種技術字串，而且是英文。翻譯在驗證當下才做，所以切換語系後下一次驗證就是新語言。
  */
 export function createZodErrorMap(translate: Translate): z.core.$ZodErrorMap {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { containsPattern, escapeLike, prefixPattern } from '../like';
 
-describe('escapeLike（docs/issues/03-edge-cases.md EDGE-21）', () => {
+describe('escapeLike', () => {
   it.each([
     ['一般文字不變', 'alice', 'alice'],
     ['底線', 'a_b', 'a\\_b'],

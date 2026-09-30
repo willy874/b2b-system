@@ -42,7 +42,7 @@ class RecordingMailTransport extends MailTransport {
 const AUTH_HOST = 'localhost:5175';
 /** 測試租戶的網域（test/global-setup.ts）。 */
 const HOME_HOST = '127.0.0.1';
-// 密碼不能含租戶代碼或 email 的帳號名稱（SEC-14）
+// 密碼不能含租戶代碼或 email 的帳號名稱
 const ADMIN_PASSWORD = 'FirstLogin!Pass2026';
 
 let app: INestApplication;
@@ -292,7 +292,7 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
 
     await platform('delete', `/platform/tenants/${acme!.id}/domains/portal.acme.test`).expect(200);
 
-    // 兩個請求同時各移除一個（共兩個）：後到的看到前一個的結果，不會把網域移光（EDGE-20）
+    // 兩個請求同時各移除一個（共兩個）：後到的看到前一個的結果，不會把網域移光
     await platform('post', `/platform/tenants/${acme!.id}/domains`)
       .send({ domain: 'second.acme.test' })
       .expect(200);
@@ -322,7 +322,7 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
     expect(errorCodeOf(last)).toBe('TENANT_LAST_DOMAIN');
   });
 
-  it('停用的平台稽核寫不進去時，狀態不變（稽核與狀態變更同一個交易，EDGE-24）', async () => {
+  it('停用的平台稽核寫不進去時，狀態不變（稽核與狀態變更同一個交易）', async () => {
     const acme = dataOf<{ items: TenantBody[] }>(
       await platform('get', '/platform/tenants').expect(200),
     ).items.find((t) => t.code === 'acme');
@@ -410,7 +410,7 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
     await waitForStatus(broken!.id, 'failed');
   });
 
-  it('清單：分頁、代碼／名稱／網域搜尋、狀態篩選（UX-29）', async () => {
+  it('清單：分頁、代碼／名稱／網域搜尋、狀態篩選', async () => {
     type List = {
       items: TenantBody[];
       pagination: { offset: number; limit: number; total: number };
@@ -447,7 +447,7 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
     expect(errorCodeOf(invalid)).toBe('VALIDATION_FAILED');
   });
 
-  it('佈建途中程序被重啟：逾時仍在 provisioning 的租戶改成 failed，可以重試或刪除（EDGE-07）', async () => {
+  it('佈建途中程序被重啟：逾時仍在 provisioning 的租戶改成 failed，可以重試或刪除', async () => {
     const box = SecretBox.fromConfig(inject('tenantSecretKey'), '', TENANT_SECRET_PURPOSE);
     const longAgo = new Date(Date.now() - PROVISION_STALE_MS - 60_000);
     const [stuck, fresh] = await platformDb

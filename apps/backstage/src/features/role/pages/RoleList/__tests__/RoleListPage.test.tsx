@@ -47,7 +47,7 @@ function deleteButtonOf(name: string): HTMLElement {
   return within(row).getByTestId('role-delete-button');
 }
 
-describe('RoleListPage（docs/issues/04-user-experience.md UX-18）', () => {
+describe('RoleListPage', () => {
   it('刪除有人持有的角色：確認框寫明人數，確認即強制刪除', async () => {
     renderRoute(routes, '/role', MANAGER);
     await screen.findByText('Editor', undefined, { timeout: 5000 });

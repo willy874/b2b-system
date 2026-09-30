@@ -52,7 +52,7 @@ function sizeOf(directory: TenantDirectory, cache: 'byHost' | 'byCode'): number 
   return caches[cache].size;
 }
 
-describe('TenantDirectory（docs/issues/01-performance.md PERF-12、02-security.md SEC-05）', () => {
+describe('TenantDirectory', () => {
   it('不在網域快照裡的 Host 直接視為找不到：不查平台 DB、不佔快取', async () => {
     const { directory, repo } = setup();
     await directory.onApplicationBootstrap();

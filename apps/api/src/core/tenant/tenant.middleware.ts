@@ -27,7 +27,7 @@ const PLATFORM_PATH = /^\/platform(\/|$)/;
  * - 找不到租戶時不擋：不需要租戶的路由（健康檢查）照常執行，
  *   需要租戶的程式第一次存取 `TENANT_DB` 時會拋 `TENANT_NOT_FOUND`。租戶停用時回 `TENANT_UNAVAILABLE`。
  * - **平台的端點只在 apps/auth 的網域有效**：其他網域（租戶的、未登記的、直接用 IP）一律 `404 PLATFORM_ONLY`，
- *   只在 apps/auth 網域做的網路控制（WAF、IP 白名單）才保護得到平台管理（docs/issues/02-security.md SEC-18）。
+ *   只在 apps/auth 網域做的網路控制（WAF、IP 白名單）才保護得到平台管理。
  */
 @Injectable()
 export class TenantMiddleware implements NestMiddleware {

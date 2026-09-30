@@ -1,8 +1,7 @@
--- 角色名稱不分大小寫唯一、使用者關鍵字的 trigram 索引、系統角色的軟刪除保護
--- （docs/issues/03-edge-cases.md EDGE-21、EDGE-25，01-performance.md PERF-19）。
+-- 角色名稱不分大小寫唯一、使用者關鍵字的 trigram 索引、系統角色的軟刪除保護。
 -- 索引由 drizzle-kit 產生；資料修補與 trigger 為手寫。
 
--- ── EDGE-21 角色名稱：先正規化、再處理大小寫衝突，最後才建不分大小寫的唯一索引 ──
+-- ── 角色名稱：先正規化、再處理大小寫衝突，最後才建不分大小寫的唯一索引 ──
 DROP INDEX "roles_name_key";--> statement-breakpoint
 -- 名稱統一成 NFC（API 之後也會正規化）；組合方式不同的「é」視為同一個名稱
 UPDATE "roles" SET "name" = normalize("name", NFC) WHERE "name" IS NOT NFC NORMALIZED;--> statement-breakpoint
@@ -20,12 +19,12 @@ FROM (
 WHERE r."id" = ranked."id" AND ranked.rank > 1;--> statement-breakpoint
 CREATE UNIQUE INDEX "roles_name_key" ON "roles" USING btree (lower("name")) WHERE "roles"."deleted_at" IS NULL;--> statement-breakpoint
 
--- ── PERF-19 使用者列表的關鍵字（ILIKE '%…%'）──
+-- ── 使用者列表的關鍵字（ILIKE '%…%'）──
 CREATE INDEX "users_email_trgm_idx" ON "users" USING gin (("email"::text) gin_trgm_ops) WHERE "users"."deleted_at" IS NULL;--> statement-breakpoint
 CREATE INDEX "users_username_trgm_idx" ON "users" USING gin (("username"::text) gin_trgm_ops) WHERE "users"."deleted_at" IS NULL;--> statement-breakpoint
 CREATE INDEX "users_display_name_trgm_idx" ON "users" USING gin ("display_name" gin_trgm_ops) WHERE "users"."deleted_at" IS NULL;--> statement-breakpoint
 
--- ── EDGE-25 I7 系統角色保護：實際的刪除路徑是軟刪除（UPDATE deleted_at），也要擋 ──
+-- ── I7 系統角色保護：實際的刪除路徑是軟刪除（UPDATE deleted_at），也要擋 ──
 CREATE OR REPLACE FUNCTION protect_system_roles() RETURNS trigger AS $$
 BEGIN
   IF TG_OP = 'DELETE' AND OLD.is_system THEN

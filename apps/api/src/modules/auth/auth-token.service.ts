@@ -78,7 +78,7 @@ export class AuthTokenService {
 
   /**
    * 條件式地標記為已使用：只有尚未使用、尚未過期才成功。回傳是否搶到——`false` 代表同一個連結被併發的請求
-   * （雙擊、兩個分頁）先用掉了，呼叫端要讓整個交易失敗（docs/issues/03-edge-cases.md EDGE-23）。
+   * （雙擊、兩個分頁）先用掉了，呼叫端要讓整個交易失敗。
    */
   async markUsed(id: string, tx?: DbOrTx): Promise<boolean> {
     const db = tx ?? this.db;
@@ -94,7 +94,7 @@ export class AuthTokenService {
 
   /**
    * 作廢使用者所有未使用的啟用／重設 token（停用、刪除帳號時，在同一個交易內）：
-   * 否則已寄出的連結在有效期內仍能把帳號改回 `active` 或設定密碼（docs/issues/03-edge-cases.md EDGE-02）。
+   * 否則已寄出的連結在有效期內仍能把帳號改回 `active` 或設定密碼。
    */
   async revokeUnused(userId: string, tx?: DbOrTx): Promise<void> {
     await (tx ?? this.db)

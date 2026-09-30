@@ -172,7 +172,7 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
       ).rejects.toMatchObject({ code: 'AUTH_INVALID_CREDENTIALS' });
 
       const token = linkToken(await waitForMail('pa-new@example.com'), '/setup');
-      // 不屬於任何租戶、也不是 apps/auth 的網域（例：直接用 IP 連反向代理）也不能用（SEC-18）
+      // 不屬於任何租戶、也不是 apps/auth 的網域（例：直接用 IP 連反向代理）也不能用
       for (const host of ['unknown.example.test', '10.0.0.5']) {
         // oxlint-disable-next-line no-await-in-loop -- 依序檢查兩種網域
         const elsewhere = await request(http)

@@ -48,7 +48,7 @@ export function i18nPlugin(): AppPluginFactory {
           }
         });
 
-        // 日期時間的顯示跟著偏好的語言與時區（UX-11）；列表等畫面下次渲染時就會套用
+        // 日期時間的顯示跟著偏好的語言與時區；列表等畫面下次渲染時就會套用
         setDateTimeDefaults({ locale, timeZone: useTimezoneStore.getState().timezone });
         offTimezone = useTimezoneStore.subscribe((state) =>
           setDateTimeDefaults({ timeZone: state.timezone }),

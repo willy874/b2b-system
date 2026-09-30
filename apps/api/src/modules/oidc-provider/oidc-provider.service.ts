@@ -376,7 +376,6 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * 用過即作廢：同一個 state 不能完成兩次互動。回傳是否搶到——併發的兩個請求只有一個會是 true
-   * （docs/issues/02-security.md SEC-12）。
    */
   async consumeExternalLogin(state: string): Promise<boolean> {
     return this.repo.consumeOnce(EXTERNAL_LOGIN, state);

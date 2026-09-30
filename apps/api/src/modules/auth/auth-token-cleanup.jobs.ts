@@ -42,7 +42,7 @@ export async function deleteInBatches(
 }
 
 /**
- * 清除過期的 token（PERF-04）：每次續期都新增一列，不清的話表與索引一路膨脹，續期與登出的成本跟著變高。
+ * 清除過期的 token：每次續期都新增一列，不清的話表與索引一路膨脹，續期與登出的成本跟著變高。
  * 過期後保留 `AUTH_TOKEN_RETENTION_DAYS` 天，讓安全事件調查時還查得到「這個 token 什麼時候被用過」。
  */
 @Injectable()

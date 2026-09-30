@@ -242,7 +242,7 @@ describe('IdP 的登入互動頁（docs/adr/0019-sso-identity-platform.md）', (
     });
   });
 
-  it('互動已經找不到（過期）→ 提供重新開始登入：進入租戶與平台管理者登入（UX-28）', async () => {
+  it('互動已經找不到（過期）→ 提供重新開始登入：進入租戶與平台管理者登入', async () => {
     details.mockRejectedValue(new AppError('AUTH_SSO_INTERACTION_INVALID', 400));
     renderInteraction();
     expect(await screen.findByTestId('interaction-invalid')).toBeInTheDocument();
@@ -250,7 +250,7 @@ describe('IdP 的登入互動頁（docs/adr/0019-sso-identity-platform.md）', (
     expect(screen.getByTestId('login-restart-platform')).toHaveAttribute('href', '/login');
   });
 
-  it('送出時才發現互動過期 → 回到那個租戶重新開始登入（UX-28）', async () => {
+  it('送出時才發現互動過期 → 回到那個租戶重新開始登入', async () => {
     login.mockRejectedValue(new AppError('AUTH_SSO_INTERACTION_INVALID', 400));
     renderInteraction();
     fireEvent.change(await screen.findByTestId('login-email'), {
@@ -268,7 +268,7 @@ describe('IdP 的登入互動頁（docs/adr/0019-sso-identity-platform.md）', (
     expect(screen.queryByTestId('login-submit')).toBeNull();
   });
 
-  it('進頁面後游標在 Email 欄；密碼欄可以切換顯示（UX-33）', async () => {
+  it('進頁面後游標在 Email 欄；密碼欄可以切換顯示', async () => {
     renderInteraction();
     const email = await screen.findByTestId('login-email');
     await waitFor(() => expect(email).toHaveFocus());

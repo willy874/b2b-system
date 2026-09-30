@@ -83,7 +83,7 @@ export class FileImageService {
    * 排入產生影像變體；同一個檔案已在佇列中就不重複排入。不等待完成——
    * 完成後發佈 `file` 的 UPDATE，前端重抓就拿到影像網址。
    *
-   * `announce`：剛完成上傳、還沒推過 `file create` 的檔案（PERF-06）。變體在
+   * `announce`：剛完成上傳、還沒推過 `file create` 的檔案。變體在
    * `IMAGE_VARIANT_ANNOUNCE_WAIT_MS` 內處理完（不論成敗）就只推一次 create；超過才先推 create，好了再推 update。
    */
   schedule(fileId: string, options: { announce?: { folderId: string | null } } = {}): void {
@@ -176,7 +176,7 @@ export class FileImageService {
       const canFallback =
         fallback !== undefined || !UNDISPLAYABLE_SOURCE_TYPES.has(file.contentType);
       if (query.format === 'auto' && canFallback && !(await this.storage.head(key))) {
-        // 協商出來的格式還沒轉出（PERF-07）：請求不等轉檔（AVIF 大圖要好幾秒、吃記憶體），
+        // 協商出來的格式還沒轉出：請求不等轉檔（AVIF 大圖要好幾秒、吃記憶體），
         // 先轉址到主格式（原圖則原封不動），轉檔在背景做；轉址只快取一下，之後再來就拿到新格式
         this.convertInBackground(file, variant, format, key);
         format = fallback;
@@ -222,7 +222,7 @@ export class FileImageService {
       let preview;
       let thumbnail;
       try {
-        // 依序而不是同時 render：兩個版本各自需要一份解碼緩衝，同時做會讓尖峰記憶體加倍（PERF-07）
+        // 依序而不是同時 render：兩個版本各自需要一份解碼緩衝，同時做會讓尖峰記憶體加倍
         preview = await decoded.render({ format, maxEdge: IMAGE_VARIANT_MAX_EDGE.preview });
         thumbnail = await decoded.render({ format, maxEdge: IMAGE_VARIANT_MAX_EDGE.thumbnail });
       } finally {

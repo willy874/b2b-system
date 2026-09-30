@@ -74,7 +74,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('DashboardLayout（docs/issues/04-user-experience.md UX-16、UX-24、UX-26）', () => {
+describe('DashboardLayout', () => {
   it('看得到目前的租戶；帳號選單以使用者名稱命名', async () => {
     renderShell();
     expect(await screen.findByTestId('current-tenant')).toHaveTextContent('Acme 股份有限公司');

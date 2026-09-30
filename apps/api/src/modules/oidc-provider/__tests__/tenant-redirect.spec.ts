@@ -16,7 +16,7 @@ const directory = {
 
 const CALLBACK = '/auth/callback';
 
-describe('isTenantRedirectAllowed（docs/issues/02-security.md SEC-17）', () => {
+describe('isTenantRedirectAllowed', () => {
   it.each([
     ['https://acme.example.com/auth/callback', true],
     ['https://acme.example.com:443/auth/callback', true],

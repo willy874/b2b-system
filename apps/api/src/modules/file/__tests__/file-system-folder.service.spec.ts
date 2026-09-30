@@ -9,7 +9,7 @@ const ALICE = {
   email: 'alice@example.com',
 };
 
-describe('personalFolderName（個人資料夾的候選名稱，EDGE-16）', () => {
+describe('personalFolderName（個人資料夾的候選名稱）', () => {
   it.each([
     [0, 'Alice'],
     [1, 'Alice (alice@example.com)'],

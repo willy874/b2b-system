@@ -23,7 +23,7 @@ export interface ServerFieldErrors<TField extends string> {
 }
 
 /**
- * 後端錯誤回填到欄位（docs/issues/04-user-experience.md UX-19）。
+ * 後端錯誤回填到欄位。
  * `details.fields` 的內容是後端 Zod 的英文訊息，不直接顯示，改用本地化的「格式不正確」。
  */
 export function useServerFieldErrors<TField extends string>(

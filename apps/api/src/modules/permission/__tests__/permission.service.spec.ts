@@ -95,7 +95,7 @@ function createBatchService(cached: Record<string, { keys: PermissionKey[] }> = 
   return { service, repo, cache };
 }
 
-describe('PermissionService.getPermissionSets（批次解析，docs/issues/01-performance.md PERF-08）', () => {
+describe('PermissionService.getPermissionSets（批次解析）', () => {
   it('多人只查一次：每人一個集合，沒有角色的人是空集合，super-admin 有標記', async () => {
     const { service, repo } = createBatchService();
 

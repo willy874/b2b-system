@@ -45,7 +45,7 @@ export function Layout() {
     <Outlet />
   ) : !hydrated ? (
     // profile 失敗（5xx、逾時、TENANT_UNAVAILABLE）時權限永遠不會水合：說明原因並提供重試，
-    // 不要停在骨架屏（docs/issues/04-user-experience.md UX-08）
+    // 不要停在骨架屏
     profile.isError ? (
       <UnexpectedErrorPage error={profile.error} onRetry={() => void profile.refetch()} />
     ) : (

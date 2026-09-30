@@ -117,7 +117,7 @@ export class FileService {
     const scope = await this.listScope(ctx, actor, query.folderId);
     const { items, total, lastCreatedAt } = await this.repo.list(query, after, scope);
     const dtos = await Promise.all(items.map((file) => this.toDto(file, ctx)));
-    // 帶游標的頁不計總數（null）：無限捲動每捲一頁就重算一次 count(*) 太貴（PERF-09）
+    // 帶游標的頁不計總數（null）：無限捲動每捲一頁就重算一次 count(*) 太貴
     const page =
       total === null
         ? { items: dtos, pagination: { offset: 0, limit: query.limit, total: null } }
@@ -257,7 +257,7 @@ export class FileService {
         await this.storage.completeMultipartUpload(file.storageKey, file.uploadId, parts);
       } catch (error) {
         // 物件儲存那一側已經組好了，uploadId 因此失效（NoSuchUpload）：並行的另一個 complete 先組好、
-        // 或上次組好之後在 markReady 前中斷。物件在、大小對就照常完成（EDGE-22），否則原樣拋出
+        // 或上次組好之後在 markReady 前中斷。物件在、大小對就照常完成，否則原樣拋出
         if (!(error instanceof AppException && error.code === 'FILE_UPLOAD_INCOMPLETE'))
           throw error;
         const assembled = await this.storage.head(file.storageKey);
@@ -313,7 +313,7 @@ export class FileService {
     });
 
     // 不等變體產生完：回應先帶瀏覽器縮圖（有的話）。圖片的 create 推播交給變體產生：
-    // 變體很快就好時「完成」與「變體好了」合併成一次推播（PERF-06）
+    // 變體很快就好時「完成」與「變體好了」合併成一次推播
     if (hasVariants) this.images.schedule(id, { announce: { folderId: file.folderId } });
     else this.publish(ChangeKind.CREATE, id, file.folderId);
     return this.findOne(id, actor);
@@ -479,7 +479,7 @@ export class FileService {
   }
 
   private async toDto(file: FileWithUploader, ctx: FileAccessContext): Promise<FileDto> {
-    // 白名單以外的型別不在租戶網域上 inline 顯示：`url` 也是 attachment（SEC-02，§7.2）
+    // 白名單以外的型別不在租戶網域上 inline 顯示：`url` 也是 attachment（§7.2）
     const policy = downloadPolicyOf(file.contentType);
     const links =
       file.status === 'ready'

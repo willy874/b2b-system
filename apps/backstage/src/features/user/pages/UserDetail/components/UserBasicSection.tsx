@@ -34,9 +34,9 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
   const [status, setStatus] = useState<EditableStatus>('active');
   const [editing, setEditing] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
-  // 鎖定不是可以「選」的狀態：只能解鎖。編輯時不動狀態，免得改個名字就順便把帳號解鎖（UX-05）
+  // 鎖定不是可以「選」的狀態：只能解鎖。編輯時不動狀態，免得改個名字就順便把帳號解鎖
   const isLocked = user.status === 'locked';
-  // 還沒啟用的人只能靠啟用信變成 active：不提供狀態選單（API 也不接受改回 pending，EDGE-14）
+  // 還沒啟用的人只能靠啟用信變成 active：不提供狀態選單（API 也不接受改回 pending）
   const canEditStatus = !isLocked && user.status !== 'pending';
   useUnsavedChangesGuard(
     editing && (displayName !== user.displayName || (canEditStatus && status !== user.status)),
@@ -73,7 +73,7 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
     try {
       await submit();
     } catch {
-      // 錯誤由 mutation 的 onError 顯示；編輯區與輸入保留，讓使用者修正後重送（UX-04）
+      // 錯誤由 mutation 的 onError 顯示；編輯區與輸入保留，讓使用者修正後重送
       return;
     }
     setEditing(false);
@@ -114,7 +114,7 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
       </div>
 
       {editing ? (
-        // <form>：在欄位按 Enter 就能儲存（UX-20）
+        // <form>：在欄位按 Enter 就能儲存
         <form
           className="mt-2 flex flex-col gap-3"
           onSubmit={(event) => {
@@ -172,7 +172,7 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
         <dl className="mt-2 grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
           <dt className="text-[var(--color-fg-muted)]">{t('user.field.status')}</dt>
           <dd className="m-0">
-            {/* 與列表共用同一組色調（UX-35） */}
+            {/* 與列表共用同一組色調 */}
             <Chip tone={USER_STATUS_TONE[user.status]} data-testid="user-status-chip">
               {t(USER_STATUS_LABEL_KEY[user.status])}
             </Chip>

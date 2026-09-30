@@ -16,7 +16,7 @@ export const AUDIT_LOG_HOT_RETENTION_DAYS = 90;
 export const AUDIT_LOG_ARCHIVE_BATCH_SIZE = 5000;
 
 /**
- * offset 分頁的上限：深分頁要掃過 offset + limit 筆（docs/issues/01-performance.md PERF-09）。
+ * offset 分頁的上限：深分頁要掃過 offset + limit 筆。
  * 再往後請縮小時間範圍或加篩選條件。
  */
 export const AUDIT_LOG_MAX_OFFSET = 10_000;

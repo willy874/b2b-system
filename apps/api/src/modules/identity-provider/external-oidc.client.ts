@@ -45,7 +45,7 @@ export interface OpenIdExternalOidcClientOptions {
   allowInsecureIssuer: boolean;
   /**
    * 擋下解析到私有、loopback、link-local 位址的連線（discovery、token、userinfo、JWKS 都算）：
-   * issuer 由租戶管理員填，不擋的話就能讓 api 代為探測內網（docs/issues/02-security.md SEC-11）。
+   * issuer 由租戶管理員填，不擋的話就能讓 api 代為探測內網。
    * 開發環境的模擬 IdP 在 localhost，只在 production 開。
    */
   blockPrivateNetworks: boolean;

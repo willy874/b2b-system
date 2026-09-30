@@ -300,7 +300,7 @@ describe('FileFolderService.move', () => {
     expect(repo.move).not.toHaveBeenCalled();
   });
 
-  it('移動後超過深度上限 → VALIDATION_FAILED(depth)，不做任何移動（EDGE-13）', async () => {
+  it('移動後超過深度上限 → VALIDATION_FAILED(depth)，不做任何移動', async () => {
     const { service, repo, idOf, folders } = setup([{ name: 'a' }, { name: 'b' }]);
     const half = Math.ceil(MAX_FOLDER_DEPTH / 2) + 1;
     const chain = (prefix: string) => Array.from({ length: half }, (_, i) => `${prefix}${i}`);

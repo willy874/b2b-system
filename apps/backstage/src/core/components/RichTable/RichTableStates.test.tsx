@@ -51,7 +51,7 @@ function statusFilters(value: Filters, onSubmit = vi.fn()): FilterBarProps<Filte
 beforeAll(() => initTestI18n());
 afterEach(() => vi.useRealTimers());
 
-describe('RichTable 的查詢失敗（docs/issues/04-user-experience.md UX-07）', () => {
+describe('RichTable 的查詢失敗', () => {
   it('沒有資料又失敗時顯示錯誤與重試，不顯示「沒有資料」', async () => {
     const onRetry = vi.fn();
     render(
@@ -83,7 +83,7 @@ describe('RichTable 的查詢失敗（docs/issues/04-user-experience.md UX-07）
   });
 });
 
-describe('RichTable 的篩選狀態（UX-23）', () => {
+describe('RichTable 的篩選狀態', () => {
   it('套用中的條件以 Chip 列出，移除只清該條件', async () => {
     const onSubmit = vi.fn();
     render(
@@ -148,7 +148,7 @@ describe('RichTable 的篩選狀態（UX-23）', () => {
   });
 });
 
-describe('RichTable 的分頁（UX-22）', () => {
+describe('RichTable 的分頁', () => {
   it('摘要用千分位與語系文案', () => {
     render(
       <RichTable

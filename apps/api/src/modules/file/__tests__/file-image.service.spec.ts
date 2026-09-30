@@ -177,7 +177,7 @@ describe('FileImageService：產生變體', () => {
     });
   });
 
-  it('剛上傳的圖片（announce）：變體很快就好 → 只推一次 create，不再推 update（PERF-06）', async () => {
+  it('剛上傳的圖片（announce）：變體很快就好 → 只推一次 create，不再推 update', async () => {
     const { service, storage, events, current } = setup(fileRow());
     storage.objects.set(storageKeyOf(FILE_ID), {
       data: await png(10, 10),
@@ -358,7 +358,7 @@ describe('FileImageService：影像 API', () => {
     expect(storage.putObject).toHaveBeenCalledTimes(1);
   });
 
-  it('format=auto 協商出的格式還沒轉出：先轉址到主格式、只短暫快取，背景轉完後再來就拿到新格式（PERF-07）', async () => {
+  it('format=auto 協商出的格式還沒轉出：先轉址到主格式、只短暫快取，背景轉完後再來就拿到新格式', async () => {
     const { service, storage } = setup(ready());
     storage.objects.set(storageKeyOf(FILE_ID), {
       data: await png(600, 400),

@@ -28,7 +28,7 @@ export function listPage<T extends { key: string }>(
   let lastItem: string | undefined;
   let isTruncated = false;
 
-  // 以二分搜尋跳到起點（PERF-18）：prefix 相同的 key 在位元組序裡是連續的一段，
+  // 以二分搜尋跳到起點：prefix 相同的 key 在位元組序裡是連續的一段，
   // 從「≥ prefix 且 > after」的第一個開始，離開 prefix 的範圍就停——不再從頭線性掃描整個 bucket
   const start = Math.max(
     lowerBoundUtf8(sorted, options.prefix, false),

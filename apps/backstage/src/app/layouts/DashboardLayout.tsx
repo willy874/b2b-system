@@ -41,7 +41,7 @@ const ACCOUNT_MENU: MenuItem[] = [
   },
 ];
 
-/** 與 DashboardLayout.css 的斷點一致：以下側欄改成覆蓋式抽屜（UX-24）。 */
+/** 與 DashboardLayout.css 的斷點一致：以下側欄改成覆蓋式抽屜。 */
 const NARROW_QUERY = '(max-width: 767px)';
 
 /** 換租戶＝換網域：回到 apps/auth 的「進入租戶」輸入代碼（docs/adr/0020-physical-tenant-isolation.md D11）。 */
@@ -88,7 +88,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           {!iconOnly && (
             <span className="ge-shell__brand-text">
               <span>{t('app.title')}</span>
-              {/* 目前在哪個租戶：同時管理多個租戶的人才不會在錯的地方刪人（UX-16） */}
+              {/* 目前在哪個租戶：同時管理多個租戶的人才不會在錯的地方刪人 */}
               {tenantName && (
                 <span className="ge-shell__tenant" data-testid="current-tenant">
                   {tenantName}

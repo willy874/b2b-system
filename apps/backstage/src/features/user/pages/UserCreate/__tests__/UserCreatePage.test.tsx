@@ -38,7 +38,7 @@ function fill(testId: string, value: string) {
   fireEvent.change(screen.getByTestId(testId), { target: { value } });
 }
 
-describe('UserCreatePage（docs/issues/04-user-experience.md UX-17、UX-19、UX-20、UX-25）', () => {
+describe('UserCreatePage', () => {
   it('在欄位按 Enter（送出表單）就會建立，送出鈕與表單相連', async () => {
     renderRoute(routes, '/user/create', CREATOR);
     await screen.findByTestId('user-email-input');
@@ -88,7 +88,7 @@ describe('UserCreatePage（docs/issues/04-user-experience.md UX-17、UX-19、UX-
     );
   });
 
-  it('空白送出時顯示中文的必填訊息，不是 Zod 的英文技術字串（UX-10）', async () => {
+  it('空白送出時顯示中文的必填訊息，不是 Zod 的英文技術字串', async () => {
     renderRoute(routes, '/user/create', CREATOR);
     fireEvent.click(await screen.findByTestId('user-create-submit'));
 

@@ -229,7 +229,7 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 - presigned PUT 無法限制大小，所以大小在 `complete` 時比對；不符就刪掉物件，單次 PUT 可用同一個網址（未過期時）重傳
   （分塊上傳的 uploadId 在組合後就失效了，只能放棄、重新登記）。
 - 並行的兩個 `complete`：`UPDATE … WHERE status='pending'` 只有一個成功，另一個 `409 FILE_ALREADY_UPLOADED`。
-- `complete` 的重送與中斷（EDGE-22）：分塊上傳的 `CompleteMultipartUpload` 回「塊不對」（含 `NoSuchUpload`）時先 HeadObject，
+- `complete` 的重送與中斷：分塊上傳的 `CompleteMultipartUpload` 回「塊不對」（含 `NoSuchUpload`）時先 HeadObject，
   物件已在而且大小相符（並行的另一個 `complete` 先組好、或上次組好之後在 `markReady` 前中斷）就照常完成。
   前端的 `uploadFile()` 在 `complete` 失敗（回應遺失、逾時）時先 `GET /files/:id`，已經 `ready` 就當作成功，不放棄上傳。
 
@@ -430,7 +430,7 @@ LIMIT $limit
 
 - 游標內容是 `[排序欄位, 方向, 值, id]` 的 base64url JSON；**排序條件寫進游標**，換了排序還拿舊游標回 `400 VALIDATION_FAILED`。
 - `createdAt` 的值由資料庫以 **微秒** 格式化（`to_char(… 'US')`）：JS 的 Date 只有毫秒，截掉會漏掉同一毫秒內的其他檔案。
-- 帶游標時只依 `sort` 的第一個條件（＋ id）排序、忽略 `offset`；`pagination.total` 為 `null`——每捲一頁都重算 `count(*)` 太貴（PERF-09），
+- 帶游標時只依 `sort` 的第一個條件（＋ id）排序、忽略 `offset`；`pagination.total` 為 `null`——每捲一頁都重算 `count(*)` 太貴，
   篩選後的總數只在第一頁（不帶游標）回傳，前端也只讀第一頁的 total。
 - 以 (排序欄位, id) 為鍵的索引（§4）讓每一頁都是索引範圍掃描，捲到第 100 頁也不會變慢（offset 要先掃過前面所有列）。
 
@@ -482,7 +482,7 @@ LIMIT $limit
 - 推播：`ChangeSource.FILE`，受眾 `file:read` 與 `file:access`（[`08-realtime.md`](./08-realtime.md) §6.1）；前端 `Resource.FILE`
   失效 `FILE_LIST_QUERY_KEY`、`FILE_INFINITE_LIST_QUERY_KEY` / `FILE_DETAIL_QUERY_KEY`。
   - 每筆帶 `refs.fileFolder` = 所在的資料夾（根目錄是 `root`，`fileChange()`）：前端只重抓 **正在看那個資料夾** 與不分資料夾的列表，
-    開著其他資料夾的人不動（PERF-06）。
+    開著其他資料夾的人不動。
   - 圖片的 `create` 交給變體產生（`FileImageService.schedule(id, { announce })`）：變體在 3 秒內處理完（不論成敗）就只推一次 `create`；
     超過才先推 `create`，變體好了再推 `update`。一般情況下「上傳完成」與「變體好了」只推一次。
   資料夾：`ChangeSource.FILE_FOLDER`（受眾相同）。遞迴刪除與批次移動無法逐筆列出受影響的檔案，

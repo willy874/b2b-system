@@ -130,7 +130,7 @@ describe('租戶清單（docs/adr/0020-physical-tenant-isolation.md D12）', () 
     await waitFor(() => expect(router.state.location.pathname).toBe(`/tenant/${created.id}`));
   });
 
-  it('預設第一頁、每頁 50 筆，不帶搜尋與篩選（UX-29）', async () => {
+  it('預設第一頁、每頁 50 筆，不帶搜尋與篩選', async () => {
     renderPage(['tenant:read']);
     expect(await screen.findByTestId('tenant-link')).toBeInTheDocument();
     expect(listTenants).toHaveBeenCalledWith({

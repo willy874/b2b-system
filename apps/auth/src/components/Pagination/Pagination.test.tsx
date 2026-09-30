@@ -37,7 +37,7 @@ describe('Pagination', () => {
     expect(onChange).toHaveBeenCalledWith({ offset: 0, limit: 50 });
   });
 
-  it('第一頁／最後一頁一步到位（UX-22）', async () => {
+  it('第一頁／最後一頁一步到位', async () => {
     const onChange = vi.fn();
     render(<Pagination offset={40} limit={20} total={1200} onChange={onChange} />);
     await userEvent.click(screen.getByTestId('pagination-last'));
@@ -58,7 +58,7 @@ describe('Pagination', () => {
     expect(onChange).toHaveBeenLastCalledWith({ offset: 1180, limit: 20 });
   });
 
-  it('導覽與每頁筆數的無障礙名稱跟著 ComponentLabelsContext 換語系（UX-26）', () => {
+  it('導覽與每頁筆數的無障礙名稱跟著 ComponentLabelsContext 換語系', () => {
     render(
       <ComponentLabelsContext
         value={{

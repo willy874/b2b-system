@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
       setFormError(undefined);
       try {
         // 不論 email 是否存在，後端都回 200（帳號列舉防護）；只有成功才顯示「已寄出」。
-        // 限流、租戶無法使用、網路錯誤等失敗要讓使用者知道信沒有寄出（UX-13），不會洩漏帳號是否存在
+        // 限流、租戶無法使用、網路錯誤等失敗要讓使用者知道信沒有寄出，不會洩漏帳號是否存在
         await forgot.mutateAsync({ params: { ...value, tenant: tenant ?? '' } });
         setSent(true);
       } catch (error) {

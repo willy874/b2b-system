@@ -169,7 +169,7 @@ export class AuthService {
   /**
    * 密碼錯誤（沒有鎖定中）：原子遞增失敗次數，達到上限就鎖定（docs/architecture/backend/04-auth.md §3.3）。
    * 鎖定只寫 `locked_until`、不改 `status`，也 **不** 撤銷既有 session：鎖定是擋猜密碼，
-   * 不能讓知道 email 的人藉此把已登入的人踢下線（docs/issues/03-edge-cases.md EDGE-01）。
+   * 不能讓知道 email 的人藉此把已登入的人踢下線。
    */
   private async registerFailedAttempt(user: UserRow): Promise<void> {
     // 租戶的設定；平台管理者的鎖定仍讀 env（platform-admin.service.ts）
@@ -445,7 +445,7 @@ export class AuthService {
   /**
    * 送出註冊申請，由管理員在審批頁核准後才建立帳號（docs/rbac/06-approval.md §5）。
    * email 已註冊或已在審核中都回同樣的結果（帳號列舉防護）；雜湊照算，讓回應時間一致。
-   * 核准後的帳號是 `pending`，要從寄到這個 email 的啟用信完成設定才能登入（email 所有權驗證，SEC-08）。
+   * 核准後的帳號是 `pending`，要從寄到這個 email 的啟用信完成設定才能登入（email 所有權驗證）。
    */
   async register(dto: RegisterDto): Promise<{ submitted: true }> {
     if (!(await this.settings.get(REGISTRATION_ENABLED_SETTING))) {
@@ -474,7 +474,7 @@ export class AuthService {
     const ssoOnly = await this.identityProviders.isSsoOnly(dto.email);
     const user = ssoOnly ? undefined : await this.users.findAccountByEmail(dto.email);
     // 登入失敗鎖定中的人也是 active（鎖定只寫 locked_until）：可以自助重設，重設會順帶解鎖。
-    // 還沒啟用的人改寄啟用信——啟用信過期或寄丟時的自助重寄（docs/issues/03-edge-cases.md EDGE-14）
+    // 還沒啟用的人改寄啟用信——啟用信過期或寄丟時的自助重寄
     const job =
       user?.status === 'active'
         ? PASSWORD_RESET_MAIL_JOB
@@ -503,7 +503,7 @@ export class AuthService {
     const passwordHash = await this.hash(dto.newPassword);
 
     await withTransaction(this.db, async (tx) => {
-      // 先搶 token：同一個連結被雙擊或兩個分頁同時送出時，只有一個會成功（EDGE-23）
+      // 先搶 token：同一個連結被雙擊或兩個分頁同時送出時，只有一個會成功
       await this.consumeToken(token.id, tx);
       await this.users.updateAccount(
         user.id,
@@ -552,7 +552,7 @@ export class AuthService {
     const token = await this.authTokens.findUsable(dto.token, 'activation');
     if (!token) throw new AppException('AUTH_SETUP_TOKEN_INVALID');
     const user = await this.users.findAccountById(token.userId);
-    // 啟用只把 `pending` 變成 `active`：被停用（或已啟用）的人不能用手上的啟用信把自己改回 active（EDGE-02）
+    // 啟用只把 `pending` 變成 `active`：被停用（或已啟用）的人不能用手上的啟用信把自己改回 active
     if (user?.status !== 'pending') throw new AppException('AUTH_SETUP_TOKEN_INVALID');
     await this.assertPasswordPolicy(dto.password, 'password', user.email);
     const passwordHash = await this.hash(dto.password);

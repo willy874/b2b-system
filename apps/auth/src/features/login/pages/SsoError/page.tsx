@@ -22,7 +22,7 @@ export default function SsoErrorPage() {
         >
           {t((error && SSO_ERROR_KEY[error]) ?? 'login.error.generic')}
         </p>
-        {/* 協定錯誤不能導回產品：至少給使用者一條重新開始的路（UX-28） */}
+        {/* 協定錯誤不能導回產品：至少給使用者一條重新開始的路 */}
         <RestartLogin />
       </div>
     </AuthShell>

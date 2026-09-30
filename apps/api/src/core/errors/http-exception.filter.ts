@@ -33,7 +33,7 @@ export function flattenZodError(error: ZodError): Record<string, string> {
 
 /**
  * 框架內建的 `HttpException`（`ParseUUIDPipe`、找不到路由、guard 回 false…）依狀態碼對應錯誤碼，
- * 前端才不會把一個錯的 id 顯示成「系統錯誤」（docs/issues/03-edge-cases.md EDGE-17）。
+ * 前端才不會把一個錯的 id 顯示成「系統錯誤」。
  */
 const HTTP_STATUS_TO_CODE: Readonly<Partial<Record<number, ErrorCode>>> = {
   400: 'VALIDATION_FAILED',

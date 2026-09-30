@@ -13,7 +13,7 @@ function resolvesTo(...addresses: string[]): HostLookup {
     addresses.map((address) => ({ address, family: address.includes(':') ? 6 : 4 }));
 }
 
-describe('外部 IdP 的對外連線檢查（docs/issues/02-security.md SEC-11）', () => {
+describe('外部 IdP 的對外連線檢查', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });

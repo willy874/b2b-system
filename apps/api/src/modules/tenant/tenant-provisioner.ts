@@ -29,7 +29,7 @@ export const TENANT_PROVISION_JOB = defineJob<{ tenantId: string }>('tenant.prov
 });
 
 /**
- * 佈建中斷的補救（EDGE-07）：程序在佈建途中被重啟時，工作被 pg-boss 在 `expireInSeconds` 後收回，
+ * 佈建中斷的補救：程序在佈建途中被重啟時，工作被 pg-boss 在 `expireInSeconds` 後收回，
  * 租戶卻還停在 `provisioning`。排程把這種租戶改成 `failed`，平台管理者就能重試或刪除。
  */
 export const TENANT_PROVISION_SWEEP_JOB = defineJob<Record<string, never>>(

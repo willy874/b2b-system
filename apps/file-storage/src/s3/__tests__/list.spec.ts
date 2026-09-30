@@ -65,7 +65,7 @@ describe('listPage（ListObjects 的分頁與 delimiter 折疊）', () => {
     expect(decodeContinuationToken(encodeContinuationToken('角色/圖 1.png'))).toBe('角色/圖 1.png');
   });
 
-  it('prefix 在中段：結果正確，而且只讀到 prefix 範圍附近的項目（二分搜尋定位，PERF-18）', () => {
+  it('prefix 在中段：結果正確，而且只讀到 prefix 範圍附近的項目（二分搜尋定位）', () => {
     let reads = 0;
     const many = Array.from({ length: 10_000 }, (_, i) => {
       const key = `files/${String(i).padStart(5, '0')}`;

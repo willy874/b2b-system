@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { isPublic, loginSearchAfterSessionEnd } from '../sessionRedirect';
 
-describe('loginSearchAfterSessionEnd（session 結束後的登入頁參數，UX-12）', () => {
+describe('loginSearchAfterSessionEnd（session 結束後的登入頁參數）', () => {
   it('帶上原因與完整網址（含查詢字串）', () => {
     expect(
       loginSearchAfterSessionEnd('AUTH_REFRESH_EXPIRED', {

@@ -8,7 +8,7 @@ function renderInput(props: Partial<Parameters<typeof PasswordInput>[0]> = {}) {
   return screen.getByTestId('pw');
 }
 
-describe('PasswordInput（登入表單的密碼欄，UX-33）', () => {
+describe('PasswordInput（登入表單的密碼欄）', () => {
   it('預設隱藏，按切換鈕顯示、再按一次隱藏', () => {
     const input = renderInput();
     const toggle = screen.getByTestId('password-visibility-toggle');

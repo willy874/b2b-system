@@ -201,7 +201,7 @@ describe('列表的多欄排序（docs/architecture/backend/03-api-conventions.m
     expect((response.body as { data: RoleItem }).data.userCount).toBe(1);
   });
 
-  describe('列表輸入邊界（docs/issues/03-edge-cases.md EDGE-21）', () => {
+  describe('列表輸入邊界', () => {
     async function total(path: string): Promise<number> {
       const response = await request(http)
         .get(path)
@@ -226,7 +226,7 @@ describe('列表的多欄排序（docs/architecture/backend/03-api-conventions.m
       expect(await total('/users?keyword=under_')).toBe(1);
     });
 
-    it('使用者關鍵字的三個運算式都用得上 trigram 索引（docs/issues/01-performance.md PERF-19）', async () => {
+    it('使用者關鍵字的三個運算式都用得上 trigram 索引', async () => {
       // 與 user.repository 的 buildFilters 相同的運算式。測試的資料量下 planner 會選循序掃描，
       // 所以在交易裡灌一批使用者、更新統計、關掉循序掃描，看完計畫就 rollback
       let text = '';

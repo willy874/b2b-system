@@ -75,7 +75,7 @@ describe('登入頁（docs/adr/0019-sso-identity-platform.md）', () => {
     expect(url.searchParams.get('tenant')).toBe('acme');
   });
 
-  it('跳轉前失敗（租戶無法使用）→ 顯示原因並可重試（UX-28）', async () => {
+  it('跳轉前失敗（租戶無法使用）→ 顯示原因並可重試', async () => {
     vi.mocked(fetchCurrentTenantQuery).mockRejectedValueOnce(
       new AppError('TENANT_UNAVAILABLE', 503),
     );
@@ -121,7 +121,7 @@ describe('SSO callback', () => {
     expect(exchange).not.toHaveBeenCalled();
   });
 
-  it('callback 失敗後重新登入，回到原本要去的頁面（UX-28）', async () => {
+  it('callback 失敗後重新登入，回到原本要去的頁面', async () => {
     const authorize = new URL(await createAuthorizationUrl(SSO_CLIENT, '/users?page=2'));
     const state = authorize.searchParams.get('state') ?? '';
     renderAt(`/auth/callback?error=access_denied&state=${state}`);

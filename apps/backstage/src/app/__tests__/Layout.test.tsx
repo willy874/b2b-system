@@ -64,7 +64,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('Layout：權限水合失敗（docs/issues/04-user-experience.md UX-08）', () => {
+describe('Layout：權限水合失敗', () => {
   it('profile 回 503 → 顯示原因與重試，不停在骨架屏；重試成功後進入頁面', async () => {
     fetchProfile.mockRejectedValue(new AppError('TENANT_UNAVAILABLE', 503));
     renderLayout();

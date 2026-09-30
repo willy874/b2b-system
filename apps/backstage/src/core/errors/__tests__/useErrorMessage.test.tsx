@@ -26,7 +26,7 @@ describe('useErrorMessage', () => {
     expect(message).not.toContain('error.SOMETHING_WEIRD');
   });
 
-  it('429 帶等待秒數時告訴使用者幾秒後可以再試（docs/issues/04-user-experience.md UX-31）', () => {
+  it('429 帶等待秒數時告訴使用者幾秒後可以再試', () => {
     const { result } = renderHook(() => useErrorMessage());
     const error = new AppError('RATE_LIMITED', 429, { retryAfterSeconds: 42 });
     expect(result.current(error)).toBe('操作太頻繁，請在 42 秒後再試。');

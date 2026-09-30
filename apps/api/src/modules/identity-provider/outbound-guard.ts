@@ -8,7 +8,7 @@ export const systemLookup: HostLookup = (hostname) => lookup(hostname, { all: tr
 
 /**
  * api 不應該代替租戶管理員去連的位址：私有網段、loopback、link-local（含雲端的 metadata 端點
- * `169.254.169.254`）、CGNAT、保留位址（docs/issues/02-security.md SEC-11）。
+ * `169.254.169.254`）、CGNAT、保留位址。
  */
 const BLOCKED = new BlockList();
 for (const [network, prefix] of [

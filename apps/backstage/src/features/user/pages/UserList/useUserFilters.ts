@@ -23,7 +23,7 @@ export function useUserFilters({
     value: { keyword: search.keyword, status: search.status, sort: search.sort },
     defaultValue: EMPTY_FILTERS,
     // 排序條件全部移除＝不指定，由後端套用預設排序。
-    // 關鍵字改由表格上方常駐的搜尋框輸入（UX-23），仍保留在 value 裡：面板送出與「清除篩選」時一起處理
+    // 關鍵字改由表格上方常駐的搜尋框輸入，仍保留在 value 裡：面板送出與「清除篩選」時一起處理
     onSubmit: setFilters,
     fields: [
       {

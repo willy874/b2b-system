@@ -176,7 +176,7 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
     await request(http).get('/approvals').set('authorization', `Bearer ${token}`).expect(403);
   });
 
-  it('admin 核准並指派 member → 建立未啟用（pending）的帳號，要從啟用信完成設定才能登入（SEC-08）', async () => {
+  it('admin 核准並指派 member → 建立未啟用（pending）的帳號，要從啟用信完成設定才能登入', async () => {
     const token = await login(ADMIN);
     const { id } = (await pendingRequestOf('alice@example.com'))!;
     const response = await request(http)
@@ -321,7 +321,7 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
     expect(response.body).toMatchObject({ error: { code: 'APPROVAL_NOT_FOUND' } });
   });
 
-  it('只允許 SSO 的網域不接受註冊（AUTH_SSO_REQUIRED），也不產生審批（SEC-08）', async () => {
+  it('只允許 SSO 的網域不接受註冊（AUTH_SSO_REQUIRED），也不產生審批', async () => {
     const token = await login(SUPER_ADMIN);
     await request(http)
       .post('/identity-providers')

@@ -43,7 +43,7 @@ export function isChunkLoadError(error: unknown): boolean {
   return error.name === 'ChunkLoadError' || CHUNK_ERROR_PATTERN.test(error.message);
 }
 
-/** 「回首頁」與「返回上一頁」：停在錯誤頁時不必靠側欄或網址列離開（UX-32）。 */
+/** 「回首頁」與「返回上一頁」：停在錯誤頁時不必靠側欄或網址列離開。 */
 function LeaveActions() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -77,7 +77,7 @@ export function ForbiddenPage() {
   );
 }
 
-/** 未知網址（打錯、書籤指向舊路由）：router 的 `defaultNotFoundComponent`（UX-09）。 */
+/** 未知網址（打錯、書籤指向舊路由）：router 的 `defaultNotFoundComponent`。 */
 export function NotFoundPage() {
   const { t } = useTranslation();
   return (
@@ -118,7 +118,7 @@ export function UnexpectedErrorPage({ error, onRetry }: UnexpectedErrorPageProps
 }
 
 /**
- * router 的 `defaultErrorComponent`：頁面載入或渲染失敗（UX-09）。chunk 載入失敗（部署了新版）提示重新整理；
+ * router 的 `defaultErrorComponent`：頁面載入或渲染失敗。chunk 載入失敗（部署了新版）提示重新整理；
  * 其他錯誤可以重試（重新執行 loader 並重畫）。不顯示技術訊息。
  */
 export function RouteErrorPage({ error, reset }: ErrorComponentProps) {

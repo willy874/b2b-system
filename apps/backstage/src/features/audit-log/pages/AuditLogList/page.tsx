@@ -31,7 +31,7 @@ export default function AuditLogListPage() {
         resourceType: search.resourceType,
         result: search.result,
         // 網址上的日期是使用者當地的日曆日：起日取當天 00:00、迄日取 23:59:59
-        // 日界線用偏好的時區，與列表顯示的時間一致（UX-11）
+        // 日界線用偏好的時區，與列表顯示的時間一致
         from: search.from ? zonedDayBoundary(search.from, 'start') : undefined,
         to: search.to ? zonedDayBoundary(search.to, 'end') : undefined,
       },

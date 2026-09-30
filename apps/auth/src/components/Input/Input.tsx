@@ -22,7 +22,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       data-size={size}
       {...rest}
       // Field 帶進來的錯誤（`<Field error>`）只會讓 Base UI 標上 data-invalid；
-      // 報讀器看的是 aria-invalid，所以依 Field 的狀態補上（docs/issues/04-user-experience.md UX-25）
+      // 報讀器看的是 aria-invalid，所以依 Field 的狀態補上
       render={(props, state) => (
         <input
           {...props}

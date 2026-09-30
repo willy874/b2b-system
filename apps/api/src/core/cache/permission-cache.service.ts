@@ -48,7 +48,7 @@ export class PermissionCacheService {
     return entry.value;
   }
 
-  /** 從 DB 載入前取一張票，載入後交給 `set()`：載入期間被失效過的結果不寫入（EDGE-09）。 */
+  /** 從 DB 載入前取一張票，載入後交給 `set()`：載入期間被失效過的結果不寫入。 */
   ticket(): number {
     return this.invalidations.ticket();
   }

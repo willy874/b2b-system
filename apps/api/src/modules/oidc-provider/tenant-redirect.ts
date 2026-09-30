@@ -5,7 +5,7 @@ import type { TenantDirectory } from '@/core/tenant';
  * （docs/adr/0020-physical-tenant-isolation.md D7）。
  *
  * `strict`（production）時只接受 `https:`，網址帶 port 時必須與登記的網域（含 port）完全相符：否則授權碼可能
- * 經明文 http 送出，或被同一台主機上其他 port 的服務收走（docs/issues/02-security.md SEC-17）。
+ * 經明文 http 送出，或被同一台主機上其他 port 的服務收走。
  * 開發與 E2E 的租戶網域常只登記 hostname（`localhost`），不 strict 時維持以 hostname 比對。
  */
 export function isTenantRedirectAllowed(

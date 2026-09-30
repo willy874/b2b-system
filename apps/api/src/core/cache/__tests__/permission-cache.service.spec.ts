@@ -69,7 +69,7 @@ describe('PermissionCacheService', () => {
     expect(cache.size).toBeLessThanOrEqual(10_000);
   });
 
-  describe('載入期間被失效（docs/issues/03-edge-cases.md EDGE-09）', () => {
+  describe('載入期間被失效', () => {
     it('取票之後被失效：載入結果不寫回，下一次請求重新查 DB', () => {
       const cache = createCache();
       const ticket = cache.ticket();

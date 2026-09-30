@@ -55,7 +55,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('RoleDetailPage（docs/issues/04-user-experience.md UX-03、UX-04、UX-20、UX-21）', () => {
+describe('RoleDetailPage', () => {
   it('改名撞名時顯示錯誤提示，編輯區與輸入保留', async () => {
     updateRole.mockRejectedValue(new AppError('ROLE_NAME_DUPLICATE', 409));
     renderRoute(routes, `/role/${ROLE_ID}`, MANAGER);

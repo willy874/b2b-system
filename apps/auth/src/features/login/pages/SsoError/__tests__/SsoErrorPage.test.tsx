@@ -30,7 +30,7 @@ beforeEach(() => {
 });
 
 describe('provider 的協定錯誤頁（docs/adr/0019-sso-identity-platform.md D7）', () => {
-  it('顯示錯誤並提供重新開始登入的出口（UX-28）', async () => {
+  it('顯示錯誤並提供重新開始登入的出口', async () => {
     renderAt('/error?error=invalid_client');
     expect(await screen.findByTestId('sso-error')).toHaveAttribute('data-value', 'invalid_client');
     expect(screen.getByTestId('login-restart')).toHaveAttribute('href', '/enter');

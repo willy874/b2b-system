@@ -96,7 +96,7 @@ export class UserRepository {
   private buildFilters(query: ListUserDto): SQL | undefined {
     const conditions: SQL[] = [isNull(users.deletedAt)];
     if (query.keyword) {
-      // 三個運算式與 pg_trgm 的 GIN 索引（users_*_trgm_idx）一致才用得上索引（docs/issues/01-performance.md PERF-19）
+      // 三個運算式與 pg_trgm 的 GIN 索引（users_*_trgm_idx）一致才用得上索引
       const pattern = containsPattern(query.keyword);
       const matched = or(
         ilike(sql`${users.email}::text`, pattern),
@@ -237,7 +237,7 @@ export class UserRepository {
   }
 
   /**
-   * 只插入仍未刪除的角色，並以 `FOR SHARE` 鎖住角色列到交易結束（docs/issues/03-edge-cases.md EDGE-19）：
+   * 只插入仍未刪除的角色，並以 `FOR SHARE` 鎖住角色列到交易結束：
    * 併發的刪除角色（`FOR UPDATE`）若先拿到鎖，這裡等它提交後重新判斷、看到 `deleted_at` 而略過，
    * 不會留下指向已刪除角色的指派；若這裡先拿到鎖，刪除要等指派提交，重新計數時就算得到這個人。
    */

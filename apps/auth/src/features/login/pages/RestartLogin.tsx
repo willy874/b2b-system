@@ -11,7 +11,7 @@ interface RestartLoginProps {
 }
 
 /**
- * 登入互動過期或 provider 的協定錯誤之後的下一步（UX-28）：不要讓使用者停在沒有出口的頁面。
+ * 登入互動過期或 provider 的協定錯誤之後的下一步：不要讓使用者停在沒有出口的頁面。
  * 不知道是哪一種登入時，主要動作是「進入租戶」，另附平台管理者的登入。
  */
 export function RestartLogin({ tenant, platform }: RestartLoginProps) {

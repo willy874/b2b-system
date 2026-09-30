@@ -269,7 +269,7 @@ const actionFilter = query.action?.endsWith("*")
 
 範圍一定存在，所以 `count(*)` 與排序的成本有上界，不會隨資料累積無限成長。
 
-90 天在 1000 人的租戶仍可能是數百萬列，所以再加兩個上限（docs/issues/01-performance.md PERF-09）：
+90 天在 1000 人的租戶仍可能是數百萬列，所以再加兩個上限：
 
 - `offset` 最多 `AUDIT_LOG_MAX_OFFSET`（10,000），超過回 `400 VALIDATION_FAILED`；再往後請縮小範圍或加篩選。
 - `total` 最多數到 `AUDIT_LOG_COUNT_CAP`（10,100，剛好涵蓋能翻到的最後一頁）：`count(*)` 包在 `LIMIT` 子查詢裡，

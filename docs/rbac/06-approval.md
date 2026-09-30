@@ -155,7 +155,7 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 | 回應永遠是 `202 { submitted: true }`，不透露 email 是否已存在    | 帳號列舉防護（同 `forgot-password`）                            |
 | 已存在的使用者、已在審核中的 email 都不建立新請求                | 避免重複；去重不分大小寫（`users.email` 是 citext）             |
 | 密碼在申請時就雜湊，只存在 `private_payload`，審核後清空         | 審核者看不到、稽核不記、資料庫不長期保留                       |
-| 核准後帳號是 `pending`，寄啟用信；從信中連結設定密碼後才是 `active` | 申請時沒有驗證 email：任何人都能用別人的 email 申請，審核者看到熟悉的名字就核准。收得到信才證明擁有這個 email（docs/issues/02-security.md SEC-08）。啟用前以申請時的密碼登入回 `AUTH_ACCOUNT_PENDING`（提示去收信） |
+| 核准後帳號是 `pending`，寄啟用信；從信中連結設定密碼後才是 `active` | 申請時沒有驗證 email：任何人都能用別人的 email 申請，審核者看到熟悉的名字就核准。收得到信才證明擁有這個 email。啟用前以申請時的密碼登入回 `AUTH_ACCOUNT_PENDING`（提示去收信） |
 | 只允許 SSO 的網域不接受申請（`403 AUTH_SSO_REQUIRED`，不建立請求） | 那些帳號應由外部 IdP 建立或連結；與密碼登入的回應相同，不多透露什麼 |
 | 核准或駁回都寄信通知申請人（`approval.resultMail`，審核的交易內入列） | 申請人不必一直試著登入才知道結果；駁回時附上審核意見           |
 | 申請後 email 被管理員直接建立 → 核准回 `409 USER_EMAIL_DUPLICATE`，請求保持 `pending` | 由審核者決定駁回；不自動改狀態                       |

@@ -38,7 +38,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('RoleCreatePage（docs/issues/04-user-experience.md UX-17、UX-19）', () => {
+describe('RoleCreatePage', () => {
   it('名稱重複時錯誤顯示在名稱欄並聚焦', async () => {
     createRole.mockRejectedValue(new AppError('ROLE_NAME_DUPLICATE', 409));
     renderRoute(routes, '/role/create', CREATOR);

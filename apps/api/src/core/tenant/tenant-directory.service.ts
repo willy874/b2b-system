@@ -40,7 +40,7 @@ const CODE_LIKE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
  * 所以結果快取 `TENANT_CACHE_TTL` 秒（「找不到」只快取數秒）；租戶的狀態改變由 `invalidate()` 立即生效。
  *
  * 網域的請求在 throttler 之前就會解析，而 Host 由客戶端決定：不在「網域 → 租戶」快照裡的 Host 直接視為找不到，
- * 不查平台 DB；快取有上限（docs/issues/01-performance.md PERF-12）。
+ * 不查平台 DB；快取有上限。
  */
 @Injectable()
 export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy {
@@ -97,7 +97,7 @@ export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy 
     return this.domains.get(normalized) ?? this.domains.get(hostnameOf(normalized));
   }
 
-  /** 只接受完全相符的 `host[:port]`（不退回只比 hostname）：redirect URI 的比對用（SEC-17）。 */
+  /** 只接受完全相符的 `host[:port]`（不退回只比 hostname）：redirect URI 的比對用。 */
   tenantIdOfExactHost(host: string): string | undefined {
     return this.domains.get(host.toLowerCase());
   }

@@ -7,7 +7,7 @@ import { useTranslation } from '@/core/locales';
 
 /**
  * 設計系統元件的預設文案改用目前語系：`components/` 不依賴語系，由這裡以 `t()` 傳入
- * （docs/issues/04-user-experience.md UX-26、UX-36）。切換語系時 `t` 換新，文案跟著更新。
+ * 切換語系時 `t` 換新，文案跟著更新。
  */
 export function ComponentLabelsHost({ children }: { children: ReactNode }) {
   const { t } = useTranslation();

@@ -32,7 +32,7 @@ export default function RoleCreatePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [formError, setFormError] = useState<string>();
   const formId = useId();
-  // 名稱重複、後端欄位驗證失敗 → 顯示在該欄位下方並聚焦（UX-19）
+  // 名稱重複、後端欄位驗證失敗 → 顯示在該欄位下方並聚焦
   const {
     errors: serverErrors,
     report: reportServerError,
@@ -66,7 +66,7 @@ export default function RoleCreatePage() {
     },
   });
   const isFormDirty = useStore(form.store, (state) => state.isDirty);
-  // 權限挑選器勾了幾十項，一個誤點遮罩就全部歸零：有改動時離開先確認（UX-17）
+  // 權限挑選器勾了幾十項，一個誤點遮罩就全部歸零：有改動時離開先確認
   useUnsavedChangesGuard(isFormDirty || selected.size > 0);
 
   return (
@@ -156,7 +156,7 @@ export default function RoleCreatePage() {
           />
         </div>
 
-        {/* role="alert"：送出失敗時報讀器會立即念出（UX-25） */}
+        {/* role="alert"：送出失敗時報讀器會立即念出 */}
         <p role="alert" className="m-0 text-sm text-[var(--color-danger-text)] empty:hidden">
           {formError}
         </p>

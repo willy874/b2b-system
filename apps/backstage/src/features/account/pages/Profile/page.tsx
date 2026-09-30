@@ -74,12 +74,12 @@ export default function ProfilePage() {
 
   const profileDirty =
     draftDisplayName !== undefined && draftDisplayName !== profile.data?.user.displayName;
-  // 頁面型表單：換頁與重新整理前提醒未儲存的修改（UX-17）
+  // 頁面型表單：換頁與重新整理前提醒未儲存的修改
   useUnsavedChangesGuard(profileDirty || currentPassword.length > 0 || newPassword.length > 0);
 
   const submitPassword = async () => {
     setPasswordError(undefined);
-    // 變更後所有裝置（包含這一個）都會登出：事先說清楚（UX-30）
+    // 變更後所有裝置（包含這一個）都會登出：事先說清楚
     await confirm({
       title: t('account.password.confirmTitle'),
       description: t('account.password.hint'),
@@ -113,7 +113,7 @@ export default function ProfilePage() {
         </p>
       </header>
 
-      {/* <form>：在欄位按 Enter 就能儲存（UX-20） */}
+      {/* <form>：在欄位按 Enter 就能儲存 */}
       <form
         className="flex flex-col gap-3"
         onSubmit={(event) => {
@@ -198,7 +198,7 @@ export default function ProfilePage() {
         <Field
           label={t('account.field.newPassword')}
           required
-          // 即時說明長度要求，而不是只把按鈕停用（UX-30）
+          // 即時說明長度要求，而不是只把按鈕停用
           description={t('account.password.lengthHint', {
             min: PASSWORD_MIN_LENGTH,
             count: newPassword.length,

@@ -65,7 +65,7 @@ export class AuditLogRepository {
     return and(...conditions);
   }
 
-  /** 最多數到 `AUDIT_LOG_COUNT_CAP`：只掃過那麼多列就停（PERF-09）。 */
+  /** 最多數到 `AUDIT_LOG_COUNT_CAP`：只掃過那麼多列就停。 */
   private count(table: AuditLogTable, where: SQL | undefined) {
     const capped = this.db
       .select({ one: sql`1`.as('one') })

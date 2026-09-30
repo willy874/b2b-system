@@ -8,7 +8,7 @@ afterEach(() => {
   setDateTimeDefaults({ locale: 'zh-TW', timeZone: 'Asia/Taipei' });
 });
 
-describe('formatDateTime 跟著偏好的時區與語言（docs/issues/04-user-experience.md UX-11）', () => {
+describe('formatDateTime 跟著偏好的時區與語言', () => {
   it('預設是台北時間、繁中格式', () => {
     expect(formatDateTime(INSTANT)).toContain('10月1日');
   });
@@ -31,7 +31,7 @@ describe('formatDateTime 跟著偏好的時區與語言（docs/issues/04-user-ex
   });
 });
 
-describe('不合法的時區不會讓畫面壞掉（docs/issues/03-edge-cases.md EDGE-26）', () => {
+describe('不合法的時區不會讓畫面壞掉', () => {
   it('isValidTimeZone', () => {
     expect(isValidTimeZone('Asia/Taipei')).toBe(true);
     expect(isValidTimeZone('Mars/Olympus')).toBe(false);

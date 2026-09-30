@@ -7,7 +7,7 @@ export interface DateTimeFormatOptions {
 
 /**
  * 沒有明確傳入時使用的語系與時區：由 i18n plugin 依使用者偏好（語言、時區）設定，
- * 全站 `formatDateTime()` 不必各自傳 options 就跟著偏好走（docs/issues/04-user-experience.md UX-11）。
+ * 全站 `formatDateTime()` 不必各自傳 options 就跟著偏好走。
  */
 const defaults: Required<DateTimeFormatOptions> = {
   locale: DEFAULT_LANGUAGE,
@@ -37,7 +37,7 @@ export function isValidTimeZone(timeZone: string): boolean {
 
 /**
  * 偏好裡的時區來自後端與 localStorage，可能不是合法值：`Intl` 會丟 RangeError 讓整頁壞掉，
- * 這裡退回預設時區（docs/issues/03-edge-cases.md EDGE-26）。
+ * 這裡退回預設時區。
  */
 function createFormat(
   options: DateTimeFormatOptions,
@@ -111,7 +111,7 @@ function startOfDay(day: string, timeZone: string): number {
 }
 
 /**
- * 日期篩選（`YYYY-MM-DD`）的日界線，以使用者偏好的時區計算，與列表顯示的時間一致（UX-11）。
+ * 日期篩選（`YYYY-MM-DD`）的日界線，以使用者偏好的時區計算，與列表顯示的時間一致。
  * `start` 是當天 00:00:00.000，`end` 是當天 23:59:59.999；回傳 ISO 字串。
  */
 export function zonedDayBoundary(

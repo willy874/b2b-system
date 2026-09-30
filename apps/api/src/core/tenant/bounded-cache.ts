@@ -1,7 +1,6 @@
 /**
  * 有上限、有期限的快取（LRU）：超過上限時淘汰最久沒用到的項目，過期的項目在讀到時刪除。
  * 租戶登記的 key 來自請求（Host、`X-Tenant`），不設上限的話送大量不同的值就能讓記憶體一直長
- * （docs/issues/02-security.md SEC-05）。
  */
 export class BoundedCache<K, V> {
   private readonly store = new Map<K, { value: V; expiresAt: number }>();

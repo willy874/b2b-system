@@ -19,7 +19,7 @@ export const UpdateRoleSchema = defineSchema(
 
 /**
  * 差異語意：整批取代在兩人同時編輯時會互相覆寫。
- * 同一個權限不能同時出現在 `add` 與 `remove`：意圖不明，結果也會跟稽核對不上（docs/issues/03-edge-cases.md EDGE-18）。
+ * 同一個權限不能同時出現在 `add` 與 `remove`：意圖不明，結果也會跟稽核對不上。
  */
 export const UpdateRolePermissionsSchema = defineSchema(
   'UpdateRolePermissionsRequest',

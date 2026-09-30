@@ -535,7 +535,7 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       await expect(disconnected).resolves.toBe('io server disconnect');
     });
 
-    it('登入失敗次數達上限被鎖定 → 既有連線 **不** 被撤銷（鎖定只擋猜密碼，docs/issues/03-edge-cases.md EDGE-01）', async () => {
+    it('登入失敗次數達上限被鎖定 → 既有連線 **不** 被撤銷（鎖定只擋猜密碼）', async () => {
       const { hashPassword } = await import('@/modules/auth/password');
       const email = 'lock-me@example.com';
       const [user] = await db

@@ -117,7 +117,7 @@ export class AccessTokenVerifier {
   }
 
   private async loadPlatformAdmin(adminId: string): Promise<CachedUser | undefined> {
-    // 查詢期間被失效（停用、刪除）時不寫回快取，否則舊的 active 會活到 TTL（EDGE-09）
+    // 查詢期間被失效（停用、刪除）時不寫回快取，否則舊的 active 會活到 TTL
     const ticket = this.userCache.ticket();
     const [row] = await this.platformDb
       .select({

@@ -14,7 +14,7 @@ function createAppRouter() {
     context: { queryClient },
     defaultPreload: 'intent',
     defaultPendingMs: 200,
-    // 未知網址、頁面載入失敗（含部署後舊 chunk 不見）與載入中顯示本地化的頁面，不用框架預設的英文畫面（UX-09）
+    // 未知網址、頁面載入失敗（含部署後舊 chunk 不見）與載入中顯示本地化的頁面，不用框架預設的英文畫面
     defaultNotFoundComponent: NotFoundPage,
     defaultErrorComponent: RouteErrorPage,
     defaultPendingComponent: PageSkeleton,

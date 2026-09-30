@@ -22,7 +22,7 @@ export function verifyPassword(passwordHash: string, password: string): Promise<
 /**
  * 帳號不存在時也要跑一次 argon2，讓登入的回應時間一致（時序攻擊防護）。
  * 以 **實際設定的** argon2 參數產生（每組參數第一次呼叫時計算、之後重複使用）：
- * 參數與真正的雜湊不同時，「帳號不存在」與「密碼錯」的耗時就不一樣（docs/issues/02-security.md SEC-14）。
+ * 參數與真正的雜湊不同時，「帳號不存在」與「密碼錯」的耗時就不一樣。
  */
 const dummyHashes = new Map<string, Promise<string>>();
 

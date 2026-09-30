@@ -17,7 +17,7 @@ export interface TableSearchProps {
 }
 
 /**
- * 列表上方常駐的搜尋框：找人是後台最常用的動作，不該藏在篩選浮層裡（docs/issues/04-user-experience.md UX-23）。
+ * 列表上方常駐的搜尋框：找人是後台最常用的動作，不該藏在篩選浮層裡。
  * 停止輸入 300ms 或按 Enter 才送出。
  */
 export function TableSearch({ value, onChange, placeholder }: TableSearchProps) {

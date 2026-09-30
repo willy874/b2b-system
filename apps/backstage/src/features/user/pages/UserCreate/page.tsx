@@ -46,7 +46,7 @@ export default function UserCreatePage() {
   const formId = useId();
   const [roleIds, setRoleIds] = useState<Set<string>>(new Set());
   const [formError, setFormError] = useState<string>();
-  // Email／使用者名稱重複、後端欄位驗證失敗 → 顯示在該欄位下方並聚焦（UX-19）
+  // Email／使用者名稱重複、後端欄位驗證失敗 → 顯示在該欄位下方並聚焦
   const {
     errors: serverErrors,
     report: reportServerError,
@@ -99,7 +99,7 @@ export default function UserCreatePage() {
           <Button onClick={() => close()} data-testid="user-create-cancel">
             {t('common.cancel')}
           </Button>
-          {/* 按鈕在 <form> 之外（Dialog 的 footer）：以 form 屬性連回表單，Enter 與點按都走同一個 submit（UX-20） */}
+          {/* 按鈕在 <form> 之外（Dialog 的 footer）：以 form 屬性連回表單，Enter 與點按都走同一個 submit */}
           <Button
             variant="primary"
             type="submit"
@@ -223,7 +223,7 @@ export default function UserCreatePage() {
         <p className="m-0 text-xs text-[var(--color-fg-muted)]">
           {t('user.create.activationHint')}
         </p>
-        {/* role="alert"：送出失敗時報讀器會立即念出（UX-25） */}
+        {/* role="alert"：送出失敗時報讀器會立即念出 */}
         <p role="alert" className="m-0 text-sm text-[var(--color-danger-text)] empty:hidden">
           {formError}
         </p>

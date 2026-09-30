@@ -14,7 +14,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('backstage 的登入頁：session 結束的原因（docs/issues/04-user-experience.md UX-12、UX-30）', () => {
+describe('backstage 的登入頁：session 結束的原因', () => {
   it('逾時結束 → 說明登入已過期，不顯示「你已登出」', async () => {
     renderRoute(routes, '/auth/login?signedOut=true&reason=AUTH_REFRESH_EXPIRED', []);
     expect(await screen.findByText(/過期/)).toBeInTheDocument();

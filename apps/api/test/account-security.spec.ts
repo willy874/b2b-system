@@ -79,7 +79,7 @@ function issueToken(userId: string, purpose: 'activation' | 'password_reset'): P
   );
 }
 
-describe('帳號安全（docs/issues：SEC-03、SEC-07、EDGE-01～03、EDGE-05、EDGE-08、EDGE-11、EDGE-14、EDGE-23）', () => {
+describe('帳號安全', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;
@@ -133,7 +133,7 @@ describe('帳號安全（docs/issues：SEC-03、SEC-07、EDGE-01～03、EDGE-05�
         .expect(200);
       expect((detail.body as { data: { status: string } }).data.status).toBe('locked');
 
-      // 鎖定不踢掉已登入的 session：鎖定是擋猜密碼，不能被拿來把人踢下線（EDGE-01）
+      // 鎖定不踢掉已登入的 session：鎖定是擋猜密碼，不能被拿來把人踢下線
       await request(http).get('/auth/profile').set('authorization', `Bearer ${token}`).expect(200);
     });
 
@@ -152,7 +152,7 @@ describe('帳號安全（docs/issues：SEC-03、SEC-07、EDGE-01～03、EDGE-05�
       });
     });
 
-    it('鎖定到期後自動解除：正確密碼可以登入，計數與到期時間歸零（SEC-03）', async () => {
+    it('鎖定到期後自動解除：正確密碼可以登入，計數與到期時間歸零', async () => {
       await db
         .update(users)
         .set({ lockedUntil: new Date(Date.now() - 1000) })
@@ -174,7 +174,7 @@ describe('帳號安全（docs/issues：SEC-03、SEC-07、EDGE-01～03、EDGE-05�
       await login(VICTIM).expect(200);
     });
 
-    it('併發的錯誤密碼每一次都算數：同時送出上限次數就鎖定（EDGE-05）', async () => {
+    it('併發的錯誤密碼每一次都算數：同時送出上限次數就鎖定', async () => {
       const racer = { email: 'racer@example.com', password: 'RacerPassword!2026' };
       await createUser(racer.email, racer.password);
       const responses = await Promise.all(
@@ -236,7 +236,7 @@ describe('帳號安全（docs/issues：SEC-03、SEC-07、EDGE-01～03、EDGE-05�
   });
 
   describe('啟用與重設 token', () => {
-    it('pending 被停用後，手上的啟用信不能把自己改回 active（EDGE-02）', async () => {
+    it('pending 被停用後，手上的啟用信不能把自己改回 active', async () => {
       const admin = await tokenOf(ADMIN);
       const id = await createUser('stopped@example.com', null, { status: 'pending' });
       const raw = await issueToken(id, 'activation');
@@ -273,7 +273,7 @@ describe('帳號安全（docs/issues：SEC-03、SEC-07、EDGE-01～03、EDGE-05�
       expect(errorCode(response)).toBe('AUTH_SETUP_TOKEN_INVALID');
     });
 
-    it('同一個重設連結被併發送出兩次：恰好一次成功（EDGE-23）', async () => {
+    it('同一個重設連結被併發送出兩次：恰好一次成功', async () => {
       const id = await createUser('double-click@example.com', 'DoubleClickPassword!2026');
       const raw = await issueToken(id, 'password_reset');
       const responses = await Promise.all(
@@ -289,7 +289,7 @@ describe('帳號安全（docs/issues：SEC-03、SEC-07、EDGE-01～03、EDGE-05�
       expect(resets).toHaveLength(1);
     });
 
-    it('密碼含 email 的帳號名稱或租戶代碼 → VALIDATION_FAILED（SEC-14）', async () => {
+    it('密碼含 email 的帳號名稱或租戶代碼 → VALIDATION_FAILED', async () => {
       const id = await createUser('winston@example.com', null, { status: 'pending' });
       const raw = await issueToken(id, 'activation');
       const response = await request(http)
@@ -305,7 +305,7 @@ describe('帳號安全（docs/issues：SEC-03、SEC-07、EDGE-01～03、EDGE-05�
     });
   });
 
-  describe('還沒啟用的人（EDGE-14）', () => {
+  describe('還沒啟用的人', () => {
     it('不能把人改回 pending（改了就再也沒有啟用 token）', async () => {
       const admin = await tokenOf(ADMIN);
       const target = await createUser('to-pending@example.com', 'ToPendingPassword!2026');
@@ -332,7 +332,7 @@ describe('帳號安全（docs/issues：SEC-03、SEC-07、EDGE-01～03、EDGE-05�
     });
   });
 
-  describe('管理 super-admin（SEC-07、EDGE-08、EDGE-03）', () => {
+  describe('管理 super-admin', () => {
     let rootId = '';
     let root2Id = '';
 
@@ -376,7 +376,7 @@ describe('帳號安全（docs/issues：SEC-03、SEC-07、EDGE-01～03、EDGE-05�
         .expect(200);
     });
 
-    it('兩位 super-admin 同時刪除對方：恰好一個 LAST_SUPER_ADMIN，至少留下一位（EDGE-03）', async () => {
+    it('兩位 super-admin 同時刪除對方：恰好一個 LAST_SUPER_ADMIN，至少留下一位', async () => {
       const [root, root2] = await Promise.all([tokenOf(ROOT), tokenOf(ROOT_2)]);
       const responses = await Promise.all([
         request(http).delete(`/users/${root2Id}`).set('authorization', `Bearer ${root}`),
@@ -398,7 +398,7 @@ describe('帳號安全（docs/issues：SEC-03、SEC-07、EDGE-01～03、EDGE-05�
     });
   });
 
-  describe('整批取代角色的衝突（EDGE-11）', () => {
+  describe('整批取代角色的衝突', () => {
     it('送出的草稿所依據的角色已被別人改過 → 409 USER_ROLES_CONFLICT，不覆寫', async () => {
       const admin = await tokenOf(ADMIN);
       const target = await createUser('draft@example.com', 'DraftPassword!2026', {

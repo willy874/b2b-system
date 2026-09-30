@@ -57,7 +57,7 @@ describe('忘記密碼頁（帳號屬於租戶，docs/adr/0020-physical-tenant-i
     ['限流（429）', new AppError('RATE_LIMITED', 429)],
     ['租戶無法使用（503）', new AppError('TENANT_UNAVAILABLE', 503)],
     ['網路錯誤', new NetworkError(new TypeError('Failed to fetch'))],
-  ])('%s → 顯示錯誤，不顯示「已寄出」（UX-13）', async (_label, error) => {
+  ])('%s → 顯示錯誤，不顯示「已寄出」', async (_label, error) => {
     forgot.mockRejectedValue(error);
     renderAt('/forgot-password?tenant=acme');
     fireEvent.change(await screen.findByTestId('forgot-password-email'), {

@@ -80,7 +80,7 @@ describe('isChunkLoadError（部署新版後舊 chunk 不見）', () => {
   });
 });
 
-describe('router 的預設 404 與錯誤頁（UX-09、UX-32）', () => {
+describe('router 的預設 404 與錯誤頁', () => {
   it('未知網址 → 本地化的 404，可以回首頁', async () => {
     const router = renderAt('/not-exist');
     expect(await screen.findByTestId('not-found-page')).toBeInTheDocument();

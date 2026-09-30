@@ -115,7 +115,7 @@ describe('refresh token 輪替的併發（docs/architecture/backend/04-auth.md�
     await postRefresh(survivor!).expect(200);
   });
 
-  describe('重送寬限期（docs/issues/03-edge-cases.md EDGE-10）', () => {
+  describe('重送寬限期', () => {
     it('續期的回應遺失、以舊 token 再續期 → 換發新的，不撤銷家族、不記重用', async () => {
       const { raw } = await loginForCookie();
       const lost = refreshCookieOf(await postRefresh(raw).expect(200));
@@ -153,7 +153,7 @@ describe('refresh token 輪替的併發（docs/architecture/backend/04-auth.md�
     });
   });
 
-  describe('session 的絕對壽命（docs/issues/02-security.md SEC-16）', () => {
+  describe('session 的絕對壽命', () => {
     it('家族建立超過 REFRESH_FAMILY_MAX_AGE → AUTH_REFRESH_EXPIRED，不論期間續期了幾次', async () => {
       const { raw } = await loginForCookie();
       const [row] = await db
@@ -197,7 +197,7 @@ describe('refresh token 輪替的併發（docs/architecture/backend/04-auth.md�
     });
   });
 
-  it('清理排程刪除過期超過保留期的 token，留下還在期限內的（PERF-04）', async () => {
+  it('清理排程刪除過期超過保留期的 token，留下還在期限內的', async () => {
     const [user] = await db.select().from(users).where(eq(users.email, USER.email));
     const old = new Date(Date.now() - 40 * DAY_MS);
     await db.insert(refreshTokens).values([

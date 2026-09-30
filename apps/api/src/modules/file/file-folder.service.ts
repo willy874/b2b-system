@@ -457,7 +457,7 @@ export class FileFolderService {
       }
       targetDepth = ancestors.size;
     }
-    // 移動後最深的一層 = 目的地的深度 ＋ 被移動的子樹高度（EDGE-13）：遞迴 CTE 與前端的樹都假設深度有上限
+    // 移動後最深的一層 = 目的地的深度 ＋ 被移動的子樹高度：遞迴 CTE 與前端的樹都假設深度有上限
     const height = await this.repo.findMaxSubtreeHeight(
       moving.map((folder) => folder.id),
       MAX_FOLDER_DEPTH + 1,

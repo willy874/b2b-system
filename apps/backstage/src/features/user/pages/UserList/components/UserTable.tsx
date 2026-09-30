@@ -146,7 +146,7 @@ export function UserTable({
                 <IconButton
                   size="sm"
                   aria-label={t('user.resetPassword.action')}
-                  // 會寄信並留下稽核紀錄：先確認；確認框送出期間不能重按，列上的按鈕也轉圈（UX-06）
+                  // 會寄信並留下稽核紀錄：先確認；確認框送出期間不能重按，列上的按鈕也轉圈
                   loading={
                     resetPassword.isPending &&
                     resetPassword.variables?.params.userId === row.original.id

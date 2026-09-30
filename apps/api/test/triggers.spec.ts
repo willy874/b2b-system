@@ -52,7 +52,7 @@ describe('DB 層的不變條件（docs/architecture/backend/02-database.md §3�
       );
     });
 
-    it('軟刪除系統角色（設定 deleted_at）也會被擋下（docs/issues/03-edge-cases.md EDGE-25）', async () => {
+    it('軟刪除系統角色（設定 deleted_at）也會被擋下', async () => {
       const [role] = await db
         .insert(roles)
         .values({ slug: 'trigger-soft', name: 'Trigger Soft', isSystem: true })
@@ -102,7 +102,7 @@ describe('DB 層的不變條件（docs/architecture/backend/02-database.md §3�
     });
   });
 
-  describe('I3 角色名稱唯一（不分大小寫，docs/issues/03-edge-cases.md EDGE-21）', () => {
+  describe('I3 角色名稱唯一（不分大小寫）', () => {
     it('只差大小寫的名稱不能並存', async () => {
       await db.insert(roles).values({ slug: 'case-a', name: 'Case Role' });
       await expectDbError(

@@ -22,7 +22,7 @@ async function bootstrap(): Promise<void> {
   // 在反向代理後面時才讀得到真正的客戶端 IP；realtime 的每 IP 限制也讀同一個設定
   app.set('trust proxy', config.get('TRUST_PROXY', { infer: true }));
 
-  // 不外露框架（docs/issues/02-security.md SEC-13）；其餘安全標頭由前面的 nginx 加
+  // 不外露框架；其餘安全標頭由前面的 nginx 加
   app.disable('x-powered-by');
   app.use(cookieParser());
   app.enableShutdownHooks();

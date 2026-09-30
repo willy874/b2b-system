@@ -55,7 +55,7 @@ afterEach(() => {
 });
 
 describe('apps/auth 的登入頁（平台管理者經 SSO 登入）', () => {
-  it('session 逾時結束 → 說明原因，不自動跳轉；重新登入回到原本的網址（UX-12）', async () => {
+  it('session 逾時結束 → 說明原因，不自動跳轉；重新登入回到原本的網址', async () => {
     renderAt(
       '/login?signedOut=true&reason=AUTH_REFRESH_EXPIRED&redirect=%2Ftenant%3Fstatus%3Dfailed',
     );
@@ -75,7 +75,7 @@ describe('apps/auth 的登入頁（平台管理者經 SSO 登入）', () => {
     expect(await screen.findByText('login.signedOut')).toBeInTheDocument();
   });
 
-  it('跳轉前失敗 → 顯示原因並可重試（UX-28）', async () => {
+  it('跳轉前失敗 → 顯示原因並可重試', async () => {
     createUrl.mockRejectedValueOnce(new Error('crypto unavailable'));
     renderAt('/login');
     expect(await screen.findByTestId('login-error')).toBeInTheDocument();

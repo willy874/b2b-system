@@ -62,7 +62,7 @@ const DEFAULT_PAGE_SIZES = [10, 20, 50, 100];
 
 /**
  * 伺服器端分頁：第一頁／上一頁／可輸入的頁碼／下一頁／最後一頁，
- * 千筆資料也能一步跳到任一頁（docs/issues/04-user-experience.md UX-22）。
+ * 千筆資料也能一步跳到任一頁。
  */
 export function Pagination({
   offset,
