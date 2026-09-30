@@ -267,6 +267,12 @@ const actionFilter = query.action?.endsWith("*")
 
 範圍一定存在，所以 `count(*)` 與排序的成本有上界，不會隨資料累積無限成長。
 
+90 天在 1000 人的租戶仍可能是數百萬列，所以再加兩個上限（docs/issues/01-performance.md PERF-09）：
+
+- `offset` 最多 `AUDIT_LOG_MAX_OFFSET`（10,000），超過回 `400 VALIDATION_FAILED`；再往後請縮小範圍或加篩選。
+- `total` 最多數到 `AUDIT_LOG_COUNT_CAP`（10,100，剛好涵蓋能翻到的最後一頁）：`count(*)` 包在 `LIMIT` 子查詢裡，
+  掃到上限就停。畫面上的總數等於上限時代表「至少這麼多」。keyset 分頁延後。
+
 **查哪張表**：搬移的 cutoff 只會早於 `now − 保留天數`，所以 `from ≥ now − 90 天`
 時資料一定全在熱表，只查熱表；否則熱表與冷表 `UNION ALL`（Postgres 以兩邊的
 `(occurred_at, id)` 索引 Merge Append，讀到 `offset + limit` 筆就停），總數是兩邊
