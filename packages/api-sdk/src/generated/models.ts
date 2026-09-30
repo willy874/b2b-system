@@ -167,13 +167,14 @@ export interface CreateUserRequest {
 export interface UpdateUserRequest {
   username?: string | null;
   displayName?: string;
-  status?: 'pending' | 'active' | 'inactive';
+  status?: 'active' | 'inactive';
   locale?: string;
   timezone?: string;
 }
 
 export interface ReplaceUserRolesRequest {
   roleIds: Array<string>;
+  expectedRoleIds?: Array<string>;
 }
 
 export const UserStatus = {

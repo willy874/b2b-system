@@ -349,7 +349,7 @@ export const CreateUserRequestSchema = z.object({
 export const UpdateUserRequestSchema = z.object({
   username: z.string().min(3).max(50).nullable().optional(),
   displayName: z.string().min(1).max(100).optional(),
-  status: z.enum(['pending', 'active', 'inactive']).optional(),
+  status: z.enum(['active', 'inactive']).optional(),
   locale: z.string().max(10).optional(),
   timezone: z.string().max(64).optional(),
 }) satisfies z.ZodType<UpdateUserRequest>;
@@ -366,6 +366,18 @@ export const ReplaceUserRolesRequestSchema = z.object({
         ),
     )
     .max(20),
+  expectedRoleIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(100)
+    .optional(),
 }) satisfies z.ZodType<ReplaceUserRolesRequest>;
 
 export const UserStatusSchema = z.enum([
