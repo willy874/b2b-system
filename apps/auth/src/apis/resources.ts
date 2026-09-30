@@ -9,6 +9,7 @@
  */
 import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
 import { PLATFORM_ADMIN_LIST_QUERY_KEY } from '@/apis/platform-admin/get-admin-list/query';
+import { FEATURE_FLAG_LIST_QUERY_KEY } from '@/apis/platform-feature-flag/get-feature-flag-list/query';
 import { PLATFORM_JOB_LIST_QUERY_KEY } from '@/apis/platform-job/get-job-list/query';
 import { PLATFORM_JOB_QUEUES_QUERY_KEY } from '@/apis/platform-job/get-job-queues/query';
 import { PLATFORM_JOB_DETAIL_QUERY_KEY } from '@/apis/platform-job/get-job/query';
@@ -26,6 +27,8 @@ export const Resource = {
   PLATFORM_ADMIN: 'platformAdmin',
   /** 所有租戶與平台的背景工作（重試後佇列計數、列表、詳情都變） */
   PLATFORM_JOB: 'platformJob',
+  /** feature flag 的全平台覆寫（docs/adr/0022-feature-flags.md D8）；租戶層的覆寫會改變列表上的租戶數 */
+  FEATURE_FLAG: 'featureFlag',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -42,6 +45,9 @@ const graph = createResourceGraph<Resource>({
   },
   [Resource.PLATFORM_ADMIN]: {
     collection: [PLATFORM_ADMIN_LIST_QUERY_KEY],
+  },
+  [Resource.FEATURE_FLAG]: {
+    collection: [FEATURE_FLAG_LIST_QUERY_KEY],
   },
   [Resource.PLATFORM_JOB]: {
     collection: [PLATFORM_JOB_QUEUES_QUERY_KEY, PLATFORM_JOB_LIST_QUERY_KEY],

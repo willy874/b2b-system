@@ -94,7 +94,8 @@
     "preference": "Preferences",
     "logout": "Sign out",
     "tenant": "Tenants",
-    "platformAdmin": "Administrators"
+    "platformAdmin": "Administrators",
+    "featureFlag": "Feature flags"
   },
   "app": {
     "title": "B2B System",
@@ -226,7 +227,8 @@
       "tenant": "Tenants",
       "platformAdmin": "Platform administrators",
       "platformAuditLog": "Platform audit log",
-      "platformJob": "Background jobs (all tenants)"
+      "platformJob": "Background jobs (all tenants)",
+      "featureFlag": "Feature flags"
     },
     "user": {
       "create": "Create user",
@@ -292,6 +294,10 @@
     "platformJob": {
       "read": "View background jobs",
       "retry": "Retry background jobs"
+    },
+    "featureFlag": {
+      "read": "View feature flags",
+      "update": "Change feature flags"
     }
   },
   "theme": {

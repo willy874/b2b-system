@@ -94,7 +94,8 @@
     "preference": "偏好設定",
     "logout": "登出",
     "tenant": "租戶",
-    "platformAdmin": "管理者"
+    "platformAdmin": "管理者",
+    "featureFlag": "試行開關"
   },
   "app": {
     "title": "B2B System",
@@ -226,7 +227,8 @@
       "tenant": "租戶",
       "platformAdmin": "平台管理者",
       "platformAuditLog": "平台稽核",
-      "platformJob": "背景工作（全平台）"
+      "platformJob": "背景工作（全平台）",
+      "featureFlag": "試行開關"
     },
     "user": {
       "create": "建立使用者",
@@ -292,6 +294,10 @@
     "platformJob": {
       "read": "檢視背景工作",
       "retry": "重試背景工作"
+    },
+    "featureFlag": {
+      "read": "檢視試行開關",
+      "update": "切換試行開關"
     }
   },
   "theme": {

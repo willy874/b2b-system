@@ -1,30 +1,41 @@
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { parseSearch, RootRoute, stringifySearch } from '@/core/router';
 import { usePermissionStore } from '@/core/store';
-import type { PlatformTenant } from '@/shared/api-sdk';
+import type { FeatureFlag, PlatformTenant } from '@/shared/api-sdk';
 import { AllProviders } from '@/test/renderWithPermissions';
 
 import { registerTenantPagePermissions, Routes } from '../../..';
 import { tenantFixture } from '../../../test-fixtures';
 
-const { getTenant, retry, disable, removeDomain, update, removeTenant } = vi.hoisted(() => ({
-  update: vi.fn(),
-  removeTenant: vi.fn(),
-  getTenant: vi.fn(),
-  retry: vi.fn(),
-  disable: vi.fn(),
-  removeDomain: vi.fn(),
-}));
+const { getTenant, retry, disable, removeDomain, update, removeTenant, listFlags } = vi.hoisted(
+  () => ({
+    listFlags: vi.fn(),
+    update: vi.fn(),
+    removeTenant: vi.fn(),
+    getTenant: vi.fn(),
+    retry: vi.fn(),
+    disable: vi.fn(),
+    removeDomain: vi.fn(),
+  }),
+);
 vi.mock('@/apis/platform-tenant/get-tenant/query', () => ({
   TENANT_DETAIL_QUERY_KEY: 'TENANT_DETAIL_QUERY_KEY',
   getTenantQueryOptions: (id: string) => ({
     queryKey: ['TENANT_DETAIL_QUERY_KEY', id],
     queryFn: () => getTenant(id),
+  }),
+}));
+vi.mock('@/apis/platform-feature-flag/get-feature-flag-list/query', () => ({
+  FEATURE_FLAG_LIST_QUERY_KEY: 'FEATURE_FLAG_LIST_QUERY_KEY',
+  getFeatureFlagListQueryOptions: () => ({
+    queryKey: ['FEATURE_FLAG_LIST_QUERY_KEY'],
+    queryFn: listFlags,
   }),
 }));
 vi.mock('@/apis/platform-tenant/retry-tenant-provisioning/mutation', () => ({
@@ -70,7 +81,39 @@ async function featureToggle(feature: string): Promise<HTMLElement> {
   return within(row).getByTestId('tenant-feature-toggle');
 }
 
+/** 某個 flag 的選單：固定的 testid 在列上，key 在 `data-value`。 */
+async function chooseFlag(key: string, choice: 'default' | 'on' | 'off') {
+  const rows = await screen.findAllByTestId('tenant-flag');
+  const row = rows.find((el) => el.dataset.value === key);
+  if (!row) throw new Error(`找不到 flag ${key}`);
+  await userEvent.click(within(row).getByTestId('tenant-flag-select'));
+  // 語系包由 route loader 載入，測試裡是 key：以選項的 `data-value` 挑
+  const option = (await screen.findAllByRole('option')).find((el) => el.dataset.value === choice);
+  await userEvent.click(option!);
+}
+
+function featureFlagFixture(overrides: Partial<FeatureFlag> = {}): FeatureFlag {
+  return {
+    key: 'levelEditor.v2',
+    description: '新版關卡編輯器',
+    defaultEnabled: false,
+    owner: 'content',
+    removeBy: '2099-12-31',
+    globalState: null,
+    tenantOverrides: { on: 0, off: 0 },
+    ...overrides,
+  };
+}
+
+const FLAG_ADMIN: PermissionKey[] = [...ALL, 'featureFlag:read'];
+
 beforeEach(() => {
+  listFlags.mockReset().mockResolvedValue({
+    items: [
+      featureFlagFixture(),
+      featureFlagFixture({ key: 'user.bulkInvite', globalState: 'off' }),
+    ],
+  });
   resetPagePermissionRegistry();
   registerTenantPagePermissions();
   getTenant.mockReset();
@@ -296,5 +339,76 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     // 刪除後回到清單
     await waitFor(() => expect(router.state.location.pathname).toBe('/tenant'));
     await waitFor(() => expect(router.state.status).toBe('idle'));
+  });
+
+  it('試行開關：沒有 featureFlag:read → 不顯示這一區（docs/adr/0022-feature-flags.md D8）', async () => {
+    renderPage(tenantFixture(), ALL);
+    expect(await screen.findByTestId('tenant-disable')).toBeInTheDocument();
+    expect(screen.queryByTestId('tenant-flag')).toBeNull();
+    expect(listFlags).not.toHaveBeenCalled();
+  });
+
+  it('試行開關：反映租戶的覆寫；全平台緊急關閉的 flag 標示出來', async () => {
+    renderPage(tenantFixture({ flags: { 'levelEditor.v2': true } }), FLAG_ADMIN);
+    await waitFor(() => expect(screen.getAllByTestId('tenant-flag')).toHaveLength(2));
+    const killed = screen.getAllByTestId('tenant-flag-killed');
+    expect(killed).toHaveLength(1);
+    expect(killed[0]?.closest('li')?.dataset.value).toBe('user.bulkInvite');
+  });
+
+  it('試行開關：打開直接送出完整的覆寫表（docs/adr/0022-feature-flags.md D7）', async () => {
+    const tenant = tenantFixture({ flags: { 'user.bulkInvite': false } });
+    update.mockResolvedValue(tenant);
+    renderPage(tenant, FLAG_ADMIN);
+
+    await chooseFlag('levelEditor.v2', 'on');
+
+    await waitFor(() =>
+      expect(update.mock.calls[0]?.[0]).toEqual({
+        params: {
+          id: tenant.id,
+          body: { flags: { 'user.bulkInvite': false, 'levelEditor.v2': true } },
+        },
+      }),
+    );
+  });
+
+  it('試行開關：回到「依全平台」→ 從覆寫表移除', async () => {
+    const tenant = tenantFixture({ flags: { 'levelEditor.v2': true } });
+    update.mockResolvedValue(tenant);
+    renderPage(tenant, FLAG_ADMIN);
+
+    await chooseFlag('levelEditor.v2', 'default');
+
+    await waitFor(() =>
+      expect(update.mock.calls[0]?.[0]).toEqual({ params: { id: tenant.id, body: { flags: {} } } }),
+    );
+  });
+
+  it('試行開關：關閉要先確認，取消就不送出', async () => {
+    const tenant = tenantFixture();
+    update.mockResolvedValue(tenant);
+    renderPage(tenant, FLAG_ADMIN);
+
+    await chooseFlag('levelEditor.v2', 'off');
+    fireEvent.click(await screen.findByTestId('alert-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('alert-dialog-confirm')).toBeNull());
+    expect(update).not.toHaveBeenCalled();
+
+    await chooseFlag('levelEditor.v2', 'off');
+    fireEvent.click(await screen.findByTestId('alert-dialog-confirm'));
+    await waitFor(() =>
+      expect(update.mock.calls[0]?.[0]).toEqual({
+        params: { id: tenant.id, body: { flags: { 'levelEditor.v2': false } } },
+      }),
+    );
+  });
+
+  it('試行開關：沒有 tenant:update → 看得到但不能切換', async () => {
+    renderPage(tenantFixture(), ['tenant:read', 'featureFlag:read']);
+    await waitFor(() => expect(screen.getAllByTestId('tenant-flag-select')).toHaveLength(2));
+    for (const select of screen.getAllByTestId('tenant-flag-select')) {
+      expect(select).toBeDisabled();
+    }
   });
 });

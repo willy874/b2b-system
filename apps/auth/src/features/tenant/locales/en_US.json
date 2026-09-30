@@ -101,6 +101,17 @@
       "disableConfirm": "After turning this off, {{code}} users immediately lose access to \"{{feature}}\" and anyone on its pages is sent back to the home page. Data is kept and comes back when you turn it on again.",
       "disableAction": "Turn off"
     },
+    "flag": {
+      "title": "Feature flags",
+      "description": "Turn trial features on or off for this tenant only. “Follow platform” uses the platform-wide setting and the default. While a flag is on the kill switch, this setting has no effect.",
+      "default": "Follow platform",
+      "on": "On",
+      "off": "Off",
+      "killed": "Kill switch is on for all tenants",
+      "offTitle": "Turn off trial feature",
+      "offConfirm": "After turning this off, {{code}} users immediately lose \"{{key}}\".",
+      "success": "Feature flags updated"
+    },
     "provisionWarning": "Provisioning finished, but a follow-up step didn't succeed (the tenant is usable; file storage is retried on the first upload): {{reason}}",
     "emptyFiltered": "No tenants match these filters",
     "filter": {

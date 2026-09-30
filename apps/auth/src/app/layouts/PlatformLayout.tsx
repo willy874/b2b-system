@@ -11,6 +11,7 @@ import { useTranslation } from '@/core/locales';
 import { usePageAccessChecker } from '@/core/permission';
 import type { PageKey } from '@/core/permission';
 import { AUDIT_LOG_PAGE } from '@/features/audit-log';
+import { FEATURE_FLAG_PAGE } from '@/features/feature-flag';
 import { HOME_PAGE } from '@/features/home';
 import { JOB_PAGE } from '@/features/job';
 import { useLogoutMutation } from '@/features/login';
@@ -48,6 +49,12 @@ const NAV: NavItem[] = [
     testId: 'menu-audit-log',
   },
   { pageKey: JOB_PAGE, to: '/job', labelKey: 'menu.job', testId: 'menu-job' },
+  {
+    pageKey: FEATURE_FLAG_PAGE,
+    to: '/feature-flag',
+    labelKey: 'menu.featureFlag',
+    testId: 'menu-feature-flag',
+  },
 ];
 
 /**

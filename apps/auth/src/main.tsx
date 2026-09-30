@@ -11,6 +11,7 @@ import { createAppContext } from '@/core/app';
 import { MAIN_BACKEND } from '@/core/client';
 import { hydratePreferences } from '@/core/store';
 import { auditLogFeaturePlugin } from '@/features/audit-log';
+import { featureFlagFeaturePlugin } from '@/features/feature-flag';
 import { homeFeaturePlugin } from '@/features/home';
 import { jobFeaturePlugin } from '@/features/job';
 import { loginFeaturePlugin } from '@/features/login';
@@ -58,6 +59,7 @@ async function bootstrap(): Promise<void> {
     .use(tenantFeaturePlugin())
     .use(platformAdminFeaturePlugin())
     .use(auditLogFeaturePlugin())
+    .use(featureFlagFeaturePlugin())
     .use(jobFeaturePlugin())
     // 最後：建立 router（此時所有 route 都已存在）
     .use(appContextPlugin());

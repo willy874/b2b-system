@@ -101,6 +101,17 @@
       "disableConfirm": "關閉後，{{code}} 的使用者立刻看不到「{{feature}}」，正在使用的頁面會被導回首頁。資料保留，重新打開即恢復。",
       "disableAction": "關閉"
     },
+    "flag": {
+      "title": "試行開關",
+      "description": "只對這個租戶開或關試行中的功能；「依全平台」表示跟著全平台的設定與預設值。全平台設為緊急關閉時，這裡的設定暫時不生效。",
+      "default": "依全平台",
+      "on": "開",
+      "off": "關",
+      "killed": "全平台緊急關閉中",
+      "offTitle": "關閉試行功能",
+      "offConfirm": "關閉後，{{code}} 的使用者立刻看不到「{{key}}」的功能。",
+      "success": "已更新試行開關"
+    },
     "provisionWarning": "佈建已完成，但有後續步驟沒有成功（租戶可以使用；檔案儲存會在第一次上傳時再試）：{{reason}}",
     "emptyFiltered": "沒有符合條件的租戶",
     "filter": {
