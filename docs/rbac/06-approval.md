@@ -90,7 +90,9 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
    │   └ 0 列 → APPROVAL_ALREADY_REVIEWED（併發核准的輸家在建立任何東西之前 rollback）
    ├ handler.apply(tx)             例：建立使用者 ＋ 指派角色 ＋ user.create 稽核
    ├ 寫回 result_resource_id
-   └ approval.approve 稽核
+   ├ approval.approve 稽核
+   ├ 入列結果信（approval.resultMail）
+   └ 站內通知給申請人（approval.result；匿名的註冊沒有收件人）
    COMMIT
 ③ handler.afterApply()             快取失效、該變更自己的領域事件（例：user create）
 ④ 發佈 approval update
@@ -100,6 +102,9 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 快取失效與事件在交易後。
 
 批次核准／駁回沒有專用端點，由前端逐筆呼叫單筆 API，見 [ADR-0012](../adr/0012-batch-queue-worker.md)。
+
+送出請求時，送出當下持有 `approval:review` 的人（不含申請人自己）在同一個交易內各收到一則站內通知 `approval.pending`
+（[ADR-0026](../adr/0026-notification-center.md) D5、D11；[`../architecture/backend/15-notification.md`](../architecture/backend/15-notification.md) §4）。
 
 ---
 
@@ -115,6 +120,8 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
    | `assertApprovable()`    | 交易前的業務檢查，與直接執行該操作的檢查相同             |
    | `apply(ctx, tx)`        | 在同一個交易內套用變更，含該變更自己的稽核               |
    | `afterApply()`          | 交易提交後的快取失效與領域事件                           |
+   | `summarize(payload)`    | 站內通知用的一行摘要（名稱快照，例：資料夾名稱）         |
+   | `resultLink?(request)`  | 審批結果通知的連結（前端 route id）；不提供時連到審批詳情 |
 
 3. handler 在 `onModuleInit` 呼叫 `ApprovalService.registerHandler(this)`；該模組 import `ApprovalModule`。
    `ApprovalModule` 是葉節點，不認識任何業務模組（沒有循環依賴）。

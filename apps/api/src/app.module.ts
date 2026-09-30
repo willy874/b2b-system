@@ -27,6 +27,7 @@ import { FeatureFlagModule } from './modules/feature-flag/feature-flag.module';
 import { FileModule } from './modules/file/file.module';
 import { HealthModule } from './modules/health/health.module';
 import { JobModule } from './modules/job/job.module';
+import { NotificationModule } from './modules/notification/notification.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
@@ -79,6 +80,8 @@ import { UserModule } from './modules/user/user.module';
     // 回收桶；各資源類型的 handler 由擁有資源的業務模組註冊（docs/architecture/backend/13-trash.md）
     TrashModule,
     RevisionModule,
+    // 站內通知；通知由擁有者模組在業務交易內寫入（docs/architecture/backend/15-notification.md）
+    NotificationModule,
 
     // 業務模組
     AuthModule,

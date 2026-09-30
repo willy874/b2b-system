@@ -14,6 +14,7 @@ export const SettingCategory = {
   FILE: 'file',
   TRASH: 'trash',
   REVISION: 'revision',
+  NOTIFICATION: 'notification',
 } as const;
 
 export type SettingCategory = (typeof SettingCategory)[keyof typeof SettingCategory];

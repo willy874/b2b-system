@@ -14,6 +14,11 @@ interface AudienceRule {
   perms: (change: ResourceChangeWire) => PermissionKey[];
   /** `change.id` 本人是否在受眾內（例：被改的那個人的 profile）。 */
   includesSubject: boolean;
+  /**
+   * 這個來源的寫入是否會新增稽核紀錄（`auditLog:read` 的人要重抓）。預設是；
+   * 通知的建立與已讀不寫稽核（ADR-0026 D9），不必讓稽核頁重抓。
+   */
+  recordsAudit?: false;
 }
 
 const READERS_OF_USER_AND_ROLE: PermissionKey[] = [PERMISSION.USER_READ, PERMISSION.ROLE_READ];
@@ -50,6 +55,9 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
   // 平台層的變更，不經 `resource.changed` 事件：`tenant.featuresChanged` 直接推給整個租戶的 room
   // （RealtimeListener.onTenantFeaturesChanged）。出現在這裡代表呼叫端用錯事件，不推給任何人
   [ChangeSource.TENANT_FEATURE]: { perms: () => [], includesSubject: false },
+  // 只推給收件人（呼叫端以 `affectedUserIds` 帶入；id 是通知 id，不是使用者 id）。
+  // 通知是個人的東西：沒有任何 perm room 要知道（docs/adr/0026-notification-center.md D8）
+  [ChangeSource.NOTIFICATION]: { perms: () => [], includesSubject: false, recordsAudit: false },
 };
 
 /** 每次寫入都會新增一筆稽核（前端 `derivesFromAnyChange`）。 */
@@ -61,11 +69,12 @@ export function resolveAudienceRooms(
   affectedUserIds: readonly string[] = [],
 ): string[] {
   if (!changes.length) return [];
-  const perms = new Set<PermissionKey>(ANY_CHANGE_PERMS);
+  const perms = new Set<PermissionKey>();
   const userIds = new Set(affectedUserIds);
 
   for (const change of changes) {
     const rule = AUDIENCE[change.resource];
+    if (rule.recordsAudit !== false) for (const key of ANY_CHANGE_PERMS) perms.add(key);
     for (const key of rule.perms(change)) perms.add(key);
     if (rule.includesSubject && change.id) userIds.add(change.id);
   }

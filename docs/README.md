@@ -108,7 +108,8 @@ docs/
 │       ├── 11-mail.md                 郵件：傳輸層、範本、寄送流程、Mailpit
 │       ├── 12-settings.md             系統設定：執行期可調的值（租戶 DB）、env 與設定的分工
 │       ├── 13-trash.md                回收桶：TrashRegistry、還原端點、trash.purge 與外鍵處理
-│       └── 14-revisions.md            版本歷史：revisions、RevisionService、還原到某一版、revision.prune
+│       ├── 14-revisions.md            版本歷史：revisions、RevisionService、還原到某一版、revision.prune
+│       └── 15-notification.md         站內通知：notifications、NotificationService.notify、收件人計算、route id、notification.cleanup
 │
 ├── rbac/
 │   ├── 01-domain-model.md             實體、ER 圖、不變條件、關係圖的組成與模型

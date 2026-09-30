@@ -9,7 +9,7 @@ import type { Database, DbOrTx } from '../database';
 import { parseSubjectKey, subjectKey } from './authz.checker';
 import type { SubjectKey } from './authz.checker';
 import type { TupleEntry } from './authz.snapshot';
-import { ROLE_HOLDER_RELATION } from './authz.types';
+import { ROLE_HOLDER_RELATION, TENANT_OBJECT } from './authz.types';
 
 /** 主體閉包的深度上限：巢狀群組（G4）之前只有「使用者 → 角色」一層，留一點餘裕。 */
 const MAX_CLOSURE_DEPTH = 8;
@@ -61,6 +61,45 @@ export class AuthzRepository {
     `);
     for (const row of rows) result.get(row.root)?.push(subjectKey(row.type, row.id, row.rel));
     return result;
+  }
+
+  /**
+   * 反向解析：在租戶節點上持有 `relations` 其中任一個（直接的邊，或經由「成員」類關係——目前只有 `role#holder`——
+   * 間接持有）的使用者 id。與 `subjectClosures` 走的是同一張圖、反方向：從租戶節點上的邊往主體展開，
+   * 過期的邊與已刪除（軟刪除）的角色不算。萬用字元主體（`user:*`）不展開：租戶型別的關係只允許 `role#holder`
+   * 當主體（`buildTenantType`），不會出現。結果是 **候選**：呼叫端再以正向解析確認（見 `PermissionService`）。
+   */
+  async usersWithTenantRelations(
+    relations: readonly string[],
+    now: Date,
+    tx?: DbOrTx,
+  ): Promise<string[]> {
+    if (relations.length === 0) return [];
+    const db = tx ?? this.db;
+    const wanted = sql.join(
+      relations.map((relation) => sql`${relation}`),
+      sql`, `,
+    );
+    const rows = await db.execute<{ id: string }>(sql`
+      WITH RECURSIVE holders(type, id, rel, depth) AS (
+        SELECT t.subject_type, t.subject_id, t.subject_relation, 0
+        FROM ${relationTuples} t
+        WHERE t.object_type = ${TENANT_OBJECT.type} AND t.object_id = ${TENANT_OBJECT.id}
+          AND t.relation IN (${wanted})
+          AND (t.expires_at IS NULL OR t.expires_at > ${now.toISOString()}::timestamptz)
+        UNION
+        SELECT t.subject_type, t.subject_id, t.subject_relation, h.depth + 1
+        FROM ${relationTuples} t
+        JOIN holders h ON t.object_type = h.type AND t.object_id = h.id AND t.relation = h.rel
+        WHERE h.depth < ${MAX_CLOSURE_DEPTH}
+          AND h.type = 'role' AND h.rel = ${ROLE_HOLDER_RELATION}
+          AND (t.expires_at IS NULL OR t.expires_at > ${now.toISOString()}::timestamptz)
+          -- 與 db/schema 的 notDeleted(roles)（isActiveRole()）同一個條件
+          AND EXISTS (SELECT 1 FROM roles r WHERE r.id::text = t.object_id AND r.deleted_at IS NULL /* notDeleted */)
+      )
+      SELECT DISTINCT id FROM holders WHERE type = 'user' AND rel = '' AND id <> '*' ORDER BY id
+    `);
+    return rows.map((row) => row.id);
   }
 
   /** 關係圖目前的版本號（`relation_tuples` 每條寫入語句 +1，migration 0009）。 */

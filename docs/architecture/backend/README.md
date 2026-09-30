@@ -23,6 +23,7 @@
 | 12  | [`12-settings.md`](./12-settings.md)               | 系統設定：執行期可調的值、env 與設定的分工   |
 | 13  | [`13-trash.md`](./13-trash.md)                     | 回收桶、還原、到期永久刪除（`trash.purge`）  |
 | 14  | [`14-revisions.md`](./14-revisions.md)             | 版本歷史：`revisions`、`RevisionService`、還原到某一版、`revision.prune` |
+| 15  | [`15-notification.md`](./15-notification.md)       | 站內通知：`notifications`、`NotificationService.notify()`、收件人、route id、`notification.cleanup` |
 
 ## 四條必須記住的規則
 

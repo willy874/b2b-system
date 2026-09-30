@@ -78,6 +78,8 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 | `trash.retentionDays` | 1–365（天） | 30 | 否 | `TrashService`：`trash.purge` 永久刪除的期限、回收桶列表的 `purgeAt`（[`13-trash.md`](./13-trash.md) §5）。調小後下一次排程就依新的天數清除 |
 | `revision.keepVersions` | 1–1000（版） | 50 | 否 | `RevisionService.prune`：每個資源至少保留最新的這麼多版（[`14-revisions.md`](./14-revisions.md) §5） |
 | `revision.keepDays` | 1–3650（天） | 90 | 否 | 同上：這麼多天內的版本一律保留；兩者之外的由 `revision.prune` 刪除 |
+| `notification.retentionDays` | 1–365（天） | 30 | 否 | `NotificationService.cleanup`：已讀超過這麼多天的通知由 `notification.cleanup` 刪除；未讀的不受影響（[`15-notification.md`](./15-notification.md) §8） |
+| `notification.maxPerUser` | 10–5000（則） | 500 | 否 | 同上：每人超過這個數量時刪除最舊的通知（不論已讀與否） |
 
 - **範圍寫在 schema 上**：下限擋住會削弱安全性的值（鎖定次數不能是 0、密碼不能短於 12），
   上限擋住超出部署能力的值。存得進去的值都安全，所以修改只寫稽核、不走審批。
@@ -115,7 +117,7 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 
 `features/system`，路由 `/system/settings`，頁面權限 `SETTING_PAGE`（`system:read`），側邊選單「系統管理 › 系統設定」。
 
-- 依分類（一般、帳號與登入、檔案、回收桶）各一張表單；只送出改過的 key，一個分類一次儲存。
+- 依分類（一般、帳號與登入、檔案、回收桶、版本紀錄、通知）各一張表單；只送出改過的 key，一個分類一次儲存。
 - 數值依 `minimum`／`maximum` 先擋；位元組以 MiB 顯示（`constants.ts` 的 `SETTING_FIELD` 定義標籤、說明與單位）。
   後端新增了前端沒有的 key 時，以 key 本身當標籤顯示，不會壞掉。
 - 有覆寫的設定顯示「已修改」與「恢復預設」；沒有 `system:update` 時整頁唯讀。

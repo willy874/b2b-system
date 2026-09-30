@@ -79,6 +79,11 @@ export const Resource = {
   USER_CREDENTIAL: 'userCredential',
   /** 平台管理者變更了這個租戶啟用的 feature（docs/adr/0021-runtime-feature-activation.md D8） */
   TENANT_FEATURE: 'tenantFeature',
+  /**
+   * 站內通知（`id` = 通知 id；docs/adr/0026-notification-center.md D8）。後端只推給收件人。
+   * 列表與未讀數的 query 在 N2（features/notification）加進依賴圖。
+   */
+  NOTIFICATION: 'notification',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -222,6 +227,7 @@ const graph = createResourceGraph<Resource>({
   [Resource.ROLE_PERMISSION]: {},
   [Resource.USER_CREDENTIAL]: {},
   [Resource.TENANT_FEATURE]: {},
+  [Resource.NOTIFICATION]: {},
 });
 
 /** 登入者改了自己的資料（profile / 偏好）：對系統而言就是一筆 user 更新。 */

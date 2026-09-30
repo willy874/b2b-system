@@ -6,6 +6,7 @@ export * from './file-folders';
 export * from './files';
 export * from './identity-providers';
 export * from './job-outbox';
+export * from './notifications';
 export * from './permissions';
 export * from './refresh-tokens';
 export * from './relation-tuples';

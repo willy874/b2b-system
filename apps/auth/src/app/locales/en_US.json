@@ -166,6 +166,7 @@
     "ROLE_NOT_DELETED": "This role is not deleted, so there is nothing to restore.",
     "REVISION_NOT_FOUND": "This version no longer exists. It may have been removed after the retention period.",
     "REVISION_UNAVAILABLE": "This version was too large to be saved, so it cannot be viewed or restored.",
+    "NOTIFICATION_NOT_FOUND": "This notification no longer exists. It may have been removed after the retention period.",
     "PERMISSION_UNKNOWN": "The request contains unknown permission keys.",
     "APPROVAL_NOT_FOUND": "This approval request does not exist.",
     "APPROVAL_ALREADY_REVIEWED": "This request has already been reviewed.",

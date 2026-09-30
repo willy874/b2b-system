@@ -21,6 +21,8 @@ import {
 import { AuthTokenService } from '@/modules/credential/auth-token.service';
 import { RefreshTokenService } from '@/modules/credential/refresh-token.service';
 import { IdentityProviderService } from '@/modules/identity-provider/identity-provider.service';
+import { notification } from '@/modules/notification/notification.definition';
+import { NotificationService } from '@/modules/notification/notification.service';
 import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
 import { PermissionService } from '@/modules/permission/permission.service';
 
@@ -29,6 +31,7 @@ import type { ListUserDto } from './dto/list-user.dto';
 import type { ReplaceUserRolesDto, UpdateUserDto } from './dto/update-user.dto';
 import type { UserDto } from './dto/user.dto';
 import { USER_AUDIT_FIELDS, USER_VERSIONED_FIELDS } from './user.constants';
+import { ACCOUNT_PROFILE_LINK, USER_ROLES_CHANGED_NOTIFICATION } from './user.notifications';
 import type { FailedLoginResult, UserRoleSummary, UserWithRoles } from './user.repository';
 import { UserRepository } from './user.repository';
 
@@ -109,6 +112,7 @@ export class UserService {
     private readonly userCache: UserCacheService,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
+    private readonly notifications: NotificationService,
   ) {}
 
   async list(query: ListUserDto) {
@@ -369,6 +373,22 @@ export class UserService {
         },
         tx,
       );
+      // 通知被改的那個人（ADR-0026 D11）；沒有實際增減（例：只是重送同一組）就不通知
+      const currentIds = new Set(current.map((role) => role.id));
+      const nextIds = new Set(roles.map((role) => role.id));
+      const added = roles.filter((role) => !currentIds.has(role.id)).map((role) => role.name);
+      const removed = current.filter((role) => !nextIds.has(role.id)).map((role) => role.name);
+      if (added.length || removed.length) {
+        await this.notifications.notify(
+          notification(USER_ROLES_CHANGED_NOTIFICATION, {
+            recipientId: id,
+            actorId: actor.id,
+            params: { added, removed },
+            link: ACCOUNT_PROFILE_LINK,
+          }),
+          tx,
+        );
+      }
       return current;
     });
 

@@ -108,6 +108,10 @@ export const ErrorCode = {
   /** 那一版的快照超過上限而未保存（`details.reason: 'tooLarge'`），無法還原（ADR-0025 D1）。 */
   REVISION_UNAVAILABLE: { status: 409 },
 
+  // ── 站內通知 ──
+  /** 通知不存在，或不是自己的（不透露別人的通知是否存在；ADR-0026 D9）。 */
+  NOTIFICATION_NOT_FOUND: { status: 404 },
+
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },
 

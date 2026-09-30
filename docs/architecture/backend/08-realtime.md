@@ -243,7 +243,8 @@ super-admin 加入自己租戶的所有 perm room。
 | `fileFolder`       | `file:read`、`file:access`                 | —                                  | 資料夾樹、麵包屑、主區塊的資料夾；資料夾授權變更也以 `fileFolder update` 推出（能力旗標跟著變） |
 | `setting`          | `system:read`                              | —                                  | 系統設定頁；公開設定（登入頁、預設時區）下次載入時生效，不推給所有人（[`12-settings.md`](./12-settings.md) §4） |
 | `tenantFeature`    | —（不經這張表）                            | —                                  | 平台層的變更：由 `tenant.featuresChanged` 直接推給 `t:{tenantId}`（每個人都要重新取得 profile，含 `features` 與 `flags`），見 §7.1。表裡的列是空的，只為了讓 `Record<ChangeSource, …>` 完整 |
-| 任何來源           | `auditLog:read`                            | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）    |
+| `notification`     | —                                          | 收件人（`affectedUserIds`；`id` 是通知 id，不是使用者 id） | 站內通知是個人的東西，只推給收件人自己的所有連線（[ADR-0026](../../adr/0026-notification-center.md) D8，[`15-notification.md`](./15-notification.md) §7）；不寫稽核，所以 **不** 加 `auditLog:read` |
+| 任何來源（`notification` 除外） | `auditLog:read`                 | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）；規則上標 `recordsAudit: false` 的來源不算 |
 
 - `io.to([...rooms]).emit()` 會對多個 room 的聯集 **去重**，同一條連線只收到一次。
 - 「持有該角色的所有人」由 service 查出（刪除角色時在軟刪除之前、交易內查出；持有者邊保留，ADR-0025 D2），
@@ -381,6 +382,8 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 | 還原資料夾                   | `fileFolder create`；有檔案一起還原時另發 `file create`（`id='*'`） | —                                          |
 | 檔案、資料夾永久刪除（`trash.purge`） | `file delete` / `fileFolder delete`（每個一筆；資料夾只有每批的根） | —                                   |
 | 修改或還原系統設定           | `setting update`（每個 key 一筆，id 是設定的 key）   | —                                                         |
+| 寫入站內通知（`NotificationService.notify()`） | 每位收件人各一則 `notification create`（id 是他自己的通知 id，一次超過 100 則時不帶 id），`affectedUserIds` = 那位收件人；由 `afterCommit` 在交易提交時就發出，早於同一個操作在交易後才發的事件 | —                                        |
+| 通知標為已讀／全部已讀       | `notification update`（單則帶 id；全部已讀不帶），`affectedUserIds` = 自己 | —                                    |
 | 平台管理者改了租戶啟用的 feature | 不發 `resource.changed`；發 `tenant.featuresChanged`（平台的請求沒有租戶脈絡，room 以 `tenantId` 組） | —                                  |
 
 登入失敗被鎖定 **不** 遞增 `token_version`，因此不撤銷既有連線：被鎖的人最遲在 access token 到期（§3.4）
@@ -462,6 +465,8 @@ export const ChangeSource = {
   SETTING: 'setting',
   /** 平台管理者變更了租戶啟用的 feature；前端據此重新取得 profile（ADR-0021 D8）。 */
   TENANT_FEATURE: 'tenantFeature',
+  /** 站內通知（id = 通知 id）；只推給收件人（ADR-0026 D8）。 */
+  NOTIFICATION: 'notification',
 } as const;
 
 export const resourceChangedSchema = z.object({
@@ -576,6 +581,7 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 | `channel.relay` 只到同使用者；非白名單頻道被略過                       | 整合   |
 | gateway 有未宣告授權的 `@SubscribeMessage` → 啟動失敗                  | 單元（route-audit） |
 | 來源 → 受眾對照（§6.1）                                               | 單元   |
+| 新的站內通知只推給收件人（payload 是通知 id），稽核的讀者收不到          | 整合   |
 | `DomainEventBus`：同租戶依序、跨租戶與 `sessions.revoked` 不互相阻塞、錯誤隔離、`meta` 在發佈當下擷取 | 單元   |
 | `realtime.listener`：四個領域事件各自的動作（假 bus ＋ 假 io）；`tenant.featuresChanged` 推給整個租戶的 room | 單元   |
 

@@ -20,7 +20,7 @@ import type { App } from 'supertest/types';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DomainEvent, DomainEventBus } from '@/core/events';
-import { relationTuples, roleHolderTuple, roles, users } from '@/db/schema';
+import { notifications, relationTuples, roleHolderTuple, roles, users } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { DEFAULT_REALTIME_LIMITS, REALTIME_LIMITS } from '@/modules/realtime/realtime.constants';
 import { RealtimeGateway } from '@/modules/realtime/realtime.gateway';
@@ -439,13 +439,17 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
         .send({ roleIds: [auditorId], expectedRoleIds: await currentRoleIds(db, target) })
         .expect(200);
       await barrier([socket]);
-      expect(got[0]).toEqual({
+      // 站內通知在交易提交時就推出（afterCommit），早於交易後的權限失效與 userRole（ADR-0026 D8）
+      expect(got[0]?.changes).toEqual([
+        { resource: 'notification', kind: 'create', id: expect.any(String) },
+      ]);
+      expect(got[1]).toEqual({
         changes: [
           { resource: 'userRole', kind: 'update', id: target, refs: { role: [auditorId] } },
         ],
       });
       // auditor 有 file:read：取得檔案管理器權限，同時建立了個人資料夾（docs/rbac/07-resource-grants.md §12）
-      expect(got.slice(1).map((event) => event.changes[0]?.resource)).toEqual(['fileFolder']);
+      expect(got.slice(2).map((event) => event.changes[0]?.resource)).toEqual(['fileFolder']);
 
       // 拿到 role:read（auditor）之後，別人的角色建立也會推過來
       got.length = 0;
@@ -456,6 +460,37 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
         .expect(201);
       await barrier([socket]);
       expect(got.map((event) => event.changes[0]?.resource)).toEqual(['role']);
+    });
+
+    it('新的站內通知只推給收件人：payload 只有通知 id，其他人（含稽核的讀者）收不到（ADR-0026 D8）', async () => {
+      const target = await createUser('notify-push-target@example.com');
+      const bystander = await createUser('notify-push-bystander@example.com', [
+        await roleIdOf('auditor'),
+      ]);
+      await bus.drain();
+      const targetSocket = await connect(await tokenFor(target));
+      const bystanderSocket = await connect(await tokenFor(bystander));
+      const toTarget = collect(targetSocket);
+      const toBystander = collect(bystanderSocket);
+
+      await request(http)
+        .put(`/users/${target}/roles`)
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send({ roleIds: [await roleIdOf('member')], expectedRoleIds: [] })
+        .expect(200);
+      await barrier([targetSocket, bystanderSocket]);
+
+      const [row] = await db
+        .select()
+        .from(notifications)
+        .where(eq(notifications.recipientId, target));
+      expect(toTarget[0]?.changes).toEqual([
+        { resource: 'notification', kind: 'create', id: row!.id },
+      ]);
+      const seenByBystander = toBystander.flatMap((event) => event.changes);
+      expect(seenByBystander.map((change) => change.resource)).not.toContain('notification');
+      // 稽核的讀者照常收到指派角色本身的變更
+      expect(seenByBystander.map((change) => change.resource)).toContain('userRole');
     });
 
     it('x-client-id 格式不合 → 不帶 origin', async () => {

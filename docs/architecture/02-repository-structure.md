@@ -207,6 +207,7 @@ apps/api/src/
 │   ├── job/                 背景工作的管理 API（docs/architecture/backend/10-jobs.md §6）
 │   ├── trash/               回收桶：TrashRegistry、GET /trash、trash.purge（docs/architecture/backend/13-trash.md）
 │   ├── revision/            版本歷史：RevisionService（寫入、讀取、保留清理）、revision.prune（docs/architecture/backend/14-revisions.md）
+│   ├── notification/        站內通知：NotificationService.notify、GET /notifications、notification.cleanup（docs/architecture/backend/15-notification.md）
 │   └── health/
 │
 └── db/
@@ -315,6 +316,7 @@ JOBS_WORKER_ENABLED=true            # 是否執行背景工作與排程；false 
 AUDIT_LOG_ARCHIVE_CRON=30 3 * * *   # 稽核熱 → 冷搬移的 cron（UTC）；留空停用
 TRASH_PURGE_CRON=30 4 * * *         # 回收桶到期永久刪除的 cron（UTC）；保留天數是系統設定 trash.retentionDays（backend/13-trash.md §5）
 REVISION_PRUNE_CRON=45 4 * * *      # 版本歷史保留清理的 cron（UTC）；保留條件是系統設定 revision.keepVersions／keepDays（backend/14-revisions.md §5）
+NOTIFICATION_CLEANUP_CRON=0 5 * * * # 站內通知保留清理的 cron（UTC）；保留條件是系統設定 notification.retentionDays／maxPerUser（backend/15-notification.md §6）
 
 REALTIME_ALLOWED_ORIGINS=http://localhost:5173   # Socket.io handshake 的 Origin 白名單（逗號分隔）
 

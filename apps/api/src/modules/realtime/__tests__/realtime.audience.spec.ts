@@ -88,6 +88,25 @@ describe('來源 → 受眾（docs/architecture/backend/08-realtime.md §6.1）'
     expect(rooms.length).toBe(new Set(rooms).size);
   });
 
+  it('notification：只推給收件人（affectedUserIds），不推 perm room，也不讓稽核的讀者重抓（ADR-0026 D8、D9）', () => {
+    const rooms = resolveAudienceRooms(
+      [{ resource: 'notification', kind: 'create', id: 'n1' }],
+      ['u1'],
+    );
+    expect(rooms).toEqual(['t:t1:user:u1']);
+  });
+
+  it('notification 與會寫稽核的來源一起推：稽核的讀者照樣收到', () => {
+    const rooms = resolveAudienceRooms(
+      [
+        { resource: 'notification', kind: 'create', id: 'n1' },
+        { resource: 'userCredential', kind: 'update', id: 'u1' },
+      ],
+      ['u1'],
+    );
+    expect(sorted(rooms)).toEqual(['t:t1:perm:auditLog:read', 't:t1:user:u1']);
+  });
+
   it('沒有變更就沒有受眾', () => {
     expect(resolveAudienceRooms([], ['u1'])).toEqual([]);
   });

@@ -1,6 +1,7 @@
 import type { AuthUser, PermissionKey } from '@/common/types';
 import type { Transaction } from '@/core/database';
 import type { ApprovalRequestRow } from '@/db/schema';
+import type { NotificationLink } from '@/modules/notification/notification.definition';
 
 import type { ApprovalType } from './approval.constants';
 
@@ -54,4 +55,14 @@ export interface ApprovalHandler {
   apply(ctx: ApprovalContext, tx: Transaction): Promise<ApprovalOutcome>;
   /** 交易提交後的副作用：快取失效、領域事件。 */
   afterApply(ctx: ApprovalContext, outcome: ApprovalOutcome): Promise<void>;
+  /**
+   * 站內通知用的一行摘要（名稱快照，不含敏感資料）：`payload` 是審核者看得到的內容。
+   * 解析不了（舊資料的形狀）時回傳空字串，前端只顯示類型。
+   */
+  summarize(payload: Record<string, unknown>): string;
+  /**
+   * 審批結果通知給申請人的連結。不提供時連到審批詳情（`approval.detail`）；
+   * 申請人通常沒有 `approval:read`，能連到自己看得到的頁面時由 handler 決定（例：申請的資料夾）。
+   */
+  resultLink?(request: ApprovalRequestRow): NotificationLink | null;
 }

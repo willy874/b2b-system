@@ -7,6 +7,7 @@ import type { DomainEventBus } from '@/core/events';
 import type { JobQueue } from '@/core/jobs';
 import type { ApprovalRequestRow } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
+import type { NotificationService } from '@/modules/notification/notification.service';
 import type { PermissionService } from '@/modules/permission/permission.service';
 
 import { ApprovalHandlerRegistry } from '../approval-handler.registry';
@@ -63,7 +64,11 @@ function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperA
     ),
     setResult: vi.fn(async () => undefined),
   };
-  const permissionService = { getPermissionSet: vi.fn(async () => permissionSet) };
+  const permissionService = {
+    getPermissionSet: vi.fn(async () => permissionSet),
+    findActiveUserIdsWithPermission: vi.fn(async () => ['reviewer-1', 'reviewer-2']),
+  };
+  const notifications = { notify: vi.fn(async () => []) };
   const audit = { record: vi.fn(async () => undefined) };
   const events = { publish: vi.fn() };
   const jobs = { enqueue: vi.fn(async () => 'job-1') };
@@ -73,6 +78,7 @@ function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperA
     assertApprovable: vi.fn(async () => undefined),
     apply: vi.fn(async () => ({ resourceId: 'user-9' })),
     afterApply: vi.fn(async () => undefined),
+    summarize: vi.fn(() => 'Alice'),
   } satisfies ApprovalHandler;
 
   const service = new ApprovalService(
@@ -83,9 +89,10 @@ function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperA
     audit as unknown as AuditService,
     events as unknown as DomainEventBus,
     jobs as unknown as JobQueue,
+    notifications as unknown as NotificationService,
   );
   service.registerHandler(handler);
-  return { service, repo, audit, events, handler, tx, jobs };
+  return { service, repo, audit, events, handler, tx, jobs, notifications, permissionService };
 }
 
 async function expectCode(operation: Promise<unknown>, code: string) {
@@ -114,10 +121,31 @@ describe('ApprovalService.submit', () => {
     });
   });
 
-  it('同對象已有待審請求 → 不建立、回傳 undefined', async () => {
+  it('在同一個交易內通知送出當下持有 approval:review 的人（ADR-0026 D5、D11）', async () => {
+    await ctx.service.submit({ ...SUBMIT, requester: { id: 'member-1', name: 'm@example.com' } });
+
+    expect(ctx.permissionService.findActiveUserIdsWithPermission).toHaveBeenCalledWith(
+      'approval:review',
+    );
+    expect(ctx.notifications.notify).toHaveBeenCalledWith(
+      ['reviewer-1', 'reviewer-2'].map((recipientId) => ({
+        type: 'approval.pending',
+        recipientId,
+        // 申請人自己也有審核權限時由 notify 略過（操作者＝收件人）
+        actorId: 'member-1',
+        params: { approvalType: 'user.register', requesterName: 'm@example.com', subject: 'Alice' },
+        link: { route: 'approval.detail', params: { approvalId: 'approval-1' } },
+      })),
+      ctx.tx,
+    );
+    expect(ctx.handler.summarize).toHaveBeenCalledWith(SUBMIT.payload);
+  });
+
+  it('同對象已有待審請求 → 不建立、回傳 undefined，也不通知', async () => {
     ctx.repo.findPending.mockResolvedValueOnce(row());
     await expect(ctx.service.submit(SUBMIT)).resolves.toBeUndefined();
     expect(ctx.repo.create).not.toHaveBeenCalled();
+    expect(ctx.notifications.notify).not.toHaveBeenCalled();
     expect(ctx.events.publish).not.toHaveBeenCalled();
   });
 
@@ -176,6 +204,40 @@ describe('ApprovalService.approve', () => {
       expect.objectContaining({ name: 'approval.resultMail' }),
       { approvalId: 'approval-1' },
       { tx: ctx.tx },
+    );
+  });
+
+  it('匿名的申請（註冊）沒有收件人：不寫審批結果通知', async () => {
+    const ctx = setup();
+    await ctx.service.approve('approval-1', { roleIds: [] }, REVIEWER);
+    expect(ctx.notifications.notify).not.toHaveBeenCalled();
+  });
+
+  it('有申請人：在同一個交易內通知申請人核准結果，連到審批詳情', async () => {
+    const ctx = setup();
+    ctx.repo.findById.mockResolvedValue(row({ requesterId: 'member-1' }));
+    await ctx.service.approve('approval-1', { roleIds: [] }, REVIEWER);
+    expect(ctx.notifications.notify).toHaveBeenCalledWith(
+      {
+        type: 'approval.result',
+        recipientId: 'member-1',
+        actorId: REVIEWER.id,
+        params: { approvalType: 'user.register', subject: 'Alice', status: 'approved' },
+        link: { route: 'approval.detail', params: { approvalId: 'approval-1' } },
+      },
+      ctx.tx,
+    );
+  });
+
+  it('handler 提供 resultLink 時結果通知用它的連結', async () => {
+    const ctx = setup();
+    ctx.repo.findById.mockResolvedValue(row({ requesterId: 'member-1' }));
+    const link = { route: 'file.folder', params: { folderId: 'f1' } };
+    Object.assign(ctx.handler, { resultLink: vi.fn(() => link) });
+    await ctx.service.approve('approval-1', { roleIds: [] }, REVIEWER);
+    expect(ctx.notifications.notify).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'approval.result', link }),
+      ctx.tx,
     );
   });
 
@@ -271,11 +333,26 @@ describe('ApprovalService.reject', () => {
     );
   });
 
+  it('有申請人：通知申請人駁回結果', async () => {
+    const ctx = setup();
+    ctx.repo.findById.mockResolvedValue(row({ requesterId: 'member-1' }));
+    await ctx.service.reject('approval-1', {}, REVIEWER);
+    expect(ctx.notifications.notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'approval.result',
+        recipientId: 'member-1',
+        params: { approvalType: 'user.register', subject: 'Alice', status: 'rejected' },
+      }),
+      ctx.tx,
+    );
+  });
+
   it('併發審核時沒搶到 → APPROVAL_ALREADY_REVIEWED', async () => {
     const ctx = setup();
     ctx.repo.review.mockResolvedValueOnce(undefined);
     await expectCode(ctx.service.reject('approval-1', {}, REVIEWER), 'APPROVAL_ALREADY_REVIEWED');
     expect(ctx.events.publish).not.toHaveBeenCalled();
+    expect(ctx.notifications.notify).not.toHaveBeenCalled();
   });
 });
 

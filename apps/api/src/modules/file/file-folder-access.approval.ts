@@ -7,6 +7,7 @@ import type { AuthUser, PermissionKey } from '@/common/types';
 import type { Transaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
+import type { ApprovalRequestRow } from '@/db/schema';
 import { ApprovalType } from '@/modules/approval/approval.constants';
 import { ApprovalService } from '@/modules/approval/approval.service';
 import type {
@@ -16,6 +17,7 @@ import type {
   SubmitApprovalInput,
 } from '@/modules/approval/approval.types';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import type { NotificationLink } from '@/modules/notification/notification.definition';
 
 import { FILE_ACTION_PERMISSION } from './file-access.context';
 import { FileAccessService } from './file-access.service';
@@ -142,5 +144,22 @@ export class FileFolderAccessApprovalHandler implements ApprovalHandler, OnModul
         { resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.UPDATE, id: outcome.resourceId },
       ],
     });
+  }
+
+  /** 申請的資料夾名稱（申請當下的快照）。 */
+  summarize(payload: Record<string, unknown>): string {
+    const parsed = FileFolderAccessPayloadSchema.safeParse(payload);
+    return parsed.success ? parsed.data.folderName : '';
+  }
+
+  /**
+   * 申請人通常沒有 `approval:read`：結果通知連到申請的資料夾（前端的檔案管理器 `?folder=`）。
+   * 被駁回時點進去照常經過權限檢查（看不到就是 403），與審批詳情一樣不授予任何東西（ADR-0026 D5）。
+   */
+  resultLink(request: ApprovalRequestRow): NotificationLink | null {
+    const parsed = FileFolderAccessPayloadSchema.safeParse(request.payload);
+    return parsed.success
+      ? { route: 'file.folder', params: { folderId: parsed.data.folderId } }
+      : null;
   }
 }

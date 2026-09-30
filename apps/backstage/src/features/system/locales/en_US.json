@@ -7,7 +7,8 @@
       "auth": "Accounts and sign-in",
       "file": "Files",
       "trash": "Trash",
-      "revision": "Version history"
+      "revision": "Version history",
+      "notification": "Notifications"
     },
     "field": {
       "defaultTimezone": {
@@ -53,6 +54,14 @@
       "keepDays": {
         "label": "Days to keep",
         "description": "Versions from the last this many days are always kept. Older versions beyond the version count are deleted by the daily job and can no longer be viewed or restored."
+      },
+      "notificationRetentionDays": {
+        "label": "Read notification retention",
+        "description": "Notifications read more than this many days ago are deleted by the daily job. Unread notifications are not affected."
+      },
+      "notificationMaxPerUser": {
+        "label": "Notifications kept per user",
+        "description": "When a user has more than this many notifications, the daily job deletes the oldest ones, read or not."
       }
     },
     "unit": {
@@ -62,7 +71,8 @@
       "characters": "characters",
       "mebibytes": "MiB",
       "days": "days",
-      "versions": "versions"
+      "versions": "versions",
+      "items": "notifications"
     },
     "boolean": {
       "on": "On",

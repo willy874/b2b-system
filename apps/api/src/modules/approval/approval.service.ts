@@ -2,7 +2,7 @@ import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser, PermissionKey } from '@/common/types';
-import type { Database } from '@/core/database';
+import type { Database, Transaction } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException, constraintNameOf, isUniqueViolation } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
@@ -10,12 +10,19 @@ import { paginated } from '@/core/http';
 import { JobQueue } from '@/core/jobs';
 import type { ApprovalRequestRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import { notification } from '@/modules/notification/notification.definition';
+import { NotificationService } from '@/modules/notification/notification.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 
 import { ApprovalHandlerRegistry } from './approval-handler.registry';
 import { APPROVAL_RESULT_MAIL_JOB } from './approval-mail.constants';
-import { PENDING_SUBJECT_CONSTRAINT } from './approval.constants';
+import { APPROVAL_PERMISSIONS, PENDING_SUBJECT_CONSTRAINT } from './approval.constants';
 import type { ApprovalType } from './approval.constants';
+import {
+  APPROVAL_PENDING_NOTIFICATION,
+  APPROVAL_RESULT_NOTIFICATION,
+  approvalDetailLink,
+} from './approval.notifications';
 import { ApprovalRepository } from './approval.repository';
 import type { ApprovalContext, ApprovalHandler, SubmitApprovalInput } from './approval.types';
 import type {
@@ -58,6 +65,7 @@ export class ApprovalService {
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
     private readonly jobs: JobQueue,
+    private readonly notifications: NotificationService,
   ) {}
 
   /** 擁有資源的模組在 `onModuleInit` 呼叫，登記自己負責的審批類型。 */
@@ -71,6 +79,11 @@ export class ApprovalService {
    */
   async submit(input: SubmitApprovalInput): Promise<ApprovalRequestDto | undefined> {
     if (await this.repo.findPending(input.type, input.subjectKey)) return undefined;
+    const handler = this.handlers.get(input.type);
+    // 審核者是送出當下的快照（ADR-0026 D5）：之後權限變動不補發也不收回
+    const reviewers = await this.permissionService.findActiveUserIdsWithPermission(
+      APPROVAL_PERMISSIONS.REVIEW,
+    );
 
     let created: ApprovalRequestRow;
     try {
@@ -98,6 +111,22 @@ export class ApprovalService {
             // private_payload 永不進稽核
             changes: { after: { type: input.type, payload: input.payload } },
           },
+          tx,
+        );
+        // 申請人自己也有審核權限時不通知他（操作者＝收件人，D7）；匿名的註冊沒有操作者
+        await this.notifications.notify(
+          reviewers.map((recipientId) =>
+            notification(APPROVAL_PENDING_NOTIFICATION, {
+              recipientId,
+              actorId: input.requester.id,
+              params: {
+                approvalType: input.type,
+                requesterName: input.requester.name,
+                subject: handler.summarize(input.payload),
+              },
+              link: approvalDetailLink(row.id),
+            }),
+          ),
           tx,
         );
         return row;
@@ -179,6 +208,7 @@ export class ApprovalService {
         tx,
       );
       await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId: id }, { tx });
+      await this.notifyResult(request, 'approved', reviewer, tx);
       return { reviewed: { ...row, resultResourceId: applied.resourceId }, outcome: applied };
     });
 
@@ -221,6 +251,7 @@ export class ApprovalService {
         tx,
       );
       await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId: id }, { tx });
+      await this.notifyResult(request, 'rejected', reviewer, tx);
       return row;
     });
 
@@ -251,6 +282,30 @@ export class ApprovalService {
     if (isSuperAdmin) return;
     const missing = keys.filter((key) => !permissions.has(key));
     if (missing.length) throw new AppException('AUTHZ_FORBIDDEN', { missing });
+  }
+
+  /** 審批結果通知給申請人（ADR-0026 D11）；匿名的申請（註冊）沒有收件人，只有結果信。 */
+  private async notifyResult(
+    request: ApprovalRequestRow,
+    status: 'approved' | 'rejected',
+    reviewer: AuthUser,
+    tx: Transaction,
+  ): Promise<void> {
+    if (!request.requesterId) return;
+    const handler = this.handlers.get(request.type);
+    await this.notifications.notify(
+      notification(APPROVAL_RESULT_NOTIFICATION, {
+        recipientId: request.requesterId,
+        actorId: reviewer.id,
+        params: {
+          approvalType: request.type as ApprovalType,
+          subject: handler.summarize(request.payload),
+          status,
+        },
+        link: handler.resultLink ? handler.resultLink(request) : approvalDetailLink(request.id),
+      }),
+      tx,
+    );
   }
 
   private publishChanged(id: string, kind: ChangeKind): void {

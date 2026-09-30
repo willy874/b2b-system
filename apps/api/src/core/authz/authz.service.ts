@@ -87,6 +87,17 @@ export class AuthzService {
   }
 
   /**
+   * 在租戶節點上持有 `relations` 其中任一個的使用者（反向解析的候選，見 `AuthzRepository.usersWithTenantRelations`）。
+   * 呼叫端要自己展開「哪些關係會讓目標成立」（權限鍵、帶來它的鍵、superAdmin），並以正向解析確認結果。
+   */
+  usersWithTenantRelations(
+    relations: readonly string[],
+    options: { now?: Date; tx?: DbOrTx } = {},
+  ): Promise<string[]> {
+    return this.repo.usersWithTenantRelations(relations, options.now ?? new Date(), options.tx);
+  }
+
+  /**
    * 建立一位操作者的判斷器：`objectTypes` 上的 tuple（與租戶節點上的）一次載入，
    * `providers` 供應結構邊。`subjects` 通常來自 `tenantPermissions`。
    */
