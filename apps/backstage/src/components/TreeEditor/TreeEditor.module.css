@@ -89,6 +89,74 @@
     outline: 1px solid var(--color-brand);
   }
 
+  /* 狀態（getNodeState）：技能樹的已啟用／被帶出／可啟用／不能操作 */
+  .node[data-state='active'] {
+    border-color: var(--color-brand);
+    background: color-mix(in srgb, var(--color-brand) 14%, var(--color-surface));
+    box-shadow:
+      0 0 0 1px var(--color-brand),
+      var(--shadow-tooltip);
+  }
+
+  .node[data-state='derived'] {
+    border-color: var(--color-brand);
+    border-style: dashed;
+    background: color-mix(in srgb, var(--color-brand) 6%, var(--color-surface));
+  }
+
+  .node[data-state='available'] {
+    border-style: dashed;
+  }
+
+  .node[data-state='locked'] {
+    border-style: dashed;
+    background: var(--color-fill-subtle);
+    color: var(--color-fg-muted);
+    box-shadow: none;
+  }
+
+  .node[data-highlighted] {
+    outline: 2px solid var(--color-warning);
+    outline-offset: 2px;
+  }
+
+  /* 分組背景（groups）：在節點底下，不接收滑鼠事件 */
+  .group {
+    width: 100%;
+    height: 100%;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-fill-subtle);
+  }
+
+  .groupLabel {
+    display: block;
+    padding: var(--seed-space-1) var(--seed-space-2);
+    color: var(--color-fg-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .root :global(.react-flow__node-group) {
+    pointer-events: none;
+  }
+
+  /* 連線的外觀（TreeEditorEdge.variant）、已啟用（activeEdgeIds）與強調（highlightedEdgeIds）；
+     多一層 .root：要蓋過最後一段的 React Flow 必要樣式 */
+  .root .edgeDashed :global(.react-flow__edge-path) {
+    stroke-dasharray: 6 4;
+  }
+
+  .root .edgeActive :global(.react-flow__edge-path) {
+    stroke: var(--color-brand);
+    stroke-width: 2;
+  }
+
+  .root .edgeHighlighted :global(.react-flow__edge-path) {
+    stroke: var(--color-warning);
+    stroke-width: 2.5;
+  }
+
   .nodeContent {
     flex: 1;
     min-width: 0;

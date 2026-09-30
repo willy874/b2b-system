@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeTreeLayout, placeChild, placeRoot } from './layout';
+import {
+  computeGroupBounds,
+  computeTreeLayout,
+  GROUP_LABEL_HEIGHT,
+  GROUP_PADDING,
+  placeChild,
+  placeRoot,
+} from './layout';
 import {
   addNode,
   checkConnection,
@@ -158,5 +165,35 @@ describe('排版', () => {
     expect(placeRoot({ nodes: [], edges: [] }, options)).toEqual({ x: 0, y: 0 });
     const placed = { nodes: [node('a', { x: 10, y: 5 }), node('b', { x: 300, y: 80 })], edges: [] };
     expect(placeRoot(placed, options)).toEqual({ x: 300 + 100 + 40, y: 5 });
+  });
+});
+
+describe('分組背景（computeGroupBounds）', () => {
+  const size = { width: 100, height: 40 };
+
+  it('包住所有有座標的成員，加上留白與標題列', () => {
+    const positions = new Map([
+      ['a', { x: 0, y: 100 }],
+      ['b', { x: 200, y: 180 }],
+      ['c', undefined],
+    ]);
+    expect(
+      computeGroupBounds(positions, [{ id: 'g', label: '分組', nodeIds: ['a', 'b', 'c'] }], size),
+    ).toEqual([
+      {
+        id: 'g',
+        label: '分組',
+        x: -GROUP_PADDING,
+        y: 100 - GROUP_PADDING - GROUP_LABEL_HEIGHT,
+        width: 300 + GROUP_PADDING * 2,
+        height: 120 + GROUP_PADDING * 2 + GROUP_LABEL_HEIGHT,
+      },
+    ]);
+  });
+
+  it('沒有任何成員有座標的分組不回傳', () => {
+    expect(computeGroupBounds(new Map(), [{ id: 'g', label: 'x', nodeIds: ['a'] }], size)).toEqual(
+      [],
+    );
   });
 });

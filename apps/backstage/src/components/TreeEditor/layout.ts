@@ -135,3 +135,57 @@ export function placeRoot(
     direction === 'LR' ? Math.min(...placed.map((p) => p.x)) : Math.max(...placed.map((p) => p.x));
   return { x, y };
 }
+
+/** 一組節點：在它們的範圍外畫出帶標題的背景（例：技能樹依資源分組）。 */
+export interface TreeEditorGroup {
+  id: string;
+  label: string;
+  nodeIds: readonly string[];
+}
+
+/** 分組背景在畫布上的位置與尺寸（左上角座標）。 */
+export interface TreeGroupBounds {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** 分組背景與成員節點之間的留白（px）。 */
+export const GROUP_PADDING = 16;
+/** 分組標題列的高度（px），畫在成員節點上方。 */
+export const GROUP_LABEL_HEIGHT = 28;
+
+/**
+ * 每個分組的背景範圍：包住所有 **有座標** 的成員節點，再加上留白與標題列。
+ * 沒有任何成員有座標的分組不回傳。
+ */
+export function computeGroupBounds(
+  positions: ReadonlyMap<string, TreeEditorPosition | undefined>,
+  groups: readonly TreeEditorGroup[],
+  nodeSize: TreeEditorNodeSize,
+): TreeGroupBounds[] {
+  return groups.flatMap((group) => {
+    const placed = group.nodeIds.flatMap((id) => {
+      const position = positions.get(id);
+      return position ? [position] : [];
+    });
+    if (placed.length === 0) return [];
+    const minX = Math.min(...placed.map((p) => p.x));
+    const minY = Math.min(...placed.map((p) => p.y));
+    const maxX = Math.max(...placed.map((p) => p.x)) + nodeSize.width;
+    const maxY = Math.max(...placed.map((p) => p.y)) + nodeSize.height;
+    return [
+      {
+        id: group.id,
+        label: group.label,
+        x: minX - GROUP_PADDING,
+        y: minY - GROUP_PADDING - GROUP_LABEL_HEIGHT,
+        width: maxX - minX + GROUP_PADDING * 2,
+        height: maxY - minY + GROUP_PADDING * 2 + GROUP_LABEL_HEIGHT,
+      },
+    ];
+  });
+}

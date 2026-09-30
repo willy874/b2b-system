@@ -566,12 +566,16 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | 刪除 | Delete / Backspace 或工具列；刪節點時連同它身上的連線，子節點變成根節點。`onBeforeDelete` 可非同步確認（例如 `useConfirm()`），回傳 `false` 取消 |
 | 復原 | 工具列、⌘/Ctrl + Z、⌘/Ctrl + Shift + Z（或 ⌘/Ctrl + Y），最多 100 步；外部換掉 `value`（不是元件剛回報的那一個參考）時清空 |
 | 節點內容 | `renderNode(node, { selected, readOnly })`；沒給時顯示 `getNodeLabel(node)`（預設 `id`，也是節點的無障礙名稱）。框內的輸入框取得焦點時，快捷鍵交還給輸入框 |
-| 選取 | `onSelectionChange(nodeIds)`：搭配旁邊的屬性面板，以 `updateNodeData` 改資料；`onNodeDoubleClick` |
+| 選取 | `onSelectionChange(nodeIds)`：搭配旁邊的屬性面板，以 `updateNodeData` 改資料；`onNodeClick`、`onNodeDoubleClick`。`selectable={false}`：節點與連線不能選取、不能聚焦（結構唯讀、互動放在 `renderNode` 裡的按鈕時用，Tab 只停在按鈕上） |
+| 狀態 | `getNodeState(node)` → `active`（已啟用）／`derived`（由其他節點帶出）／`available`（可啟用）／`locked`（不能操作），外框與底色由元件呈現（`data-state`）；`renderNode` 的第二個參數也拿得到 `state` |
+| 強調 | `highlightedNodeIds`（`data-highlighted`，例如滑過節點時標出前置）、`activeEdgeIds`（已啟用的路徑，品牌色）、`highlightedEdgeIds`（強調的路徑）；連線 id 是 `getEdgeId(edge)` |
+| 連線外觀 | `TreeEditorEdge.variant`：`solid`（預設）／`dashed`（例：跨分支的「需要」關係）；元件原樣保存 |
+| 分組 | `groups: { id, label, nodeIds }[]`：在成員節點外畫出帶標題的背景（`computeGroupBounds`，不可選、不可拖、不接收滑鼠事件、在連線底下）；搭配 `layout="manual"` 自己排好分組最整齊 |
 | 畫布 | 點陣背景、拖曳對齊 8px 格線、滾輪縮放（0.2–2 倍）、`showMinimap`（預設顯示）、`height`（預設 `32rem`）。初次顯示與「顯示全部」不放大超過 1 倍 |
 | 唯讀 | `readOnly`：只能平移、縮放、選取；工具列只剩縮放與顯示全部 |
 | 文案 | `labels`；`features/` 以 `t()` 傳入 |
-| slot | `toolbar` / `canvas` / `node` / `minimap` / `empty`；`className` / `data-testid` 落在最外層 |
-| testid | 工具列 `tree-editor-toolbar`、按鈕 `tree-editor-action` ＋ `data-value`（`add-root` / `add-child` / `delete` / `auto-layout` / `undo` / `redo` / `zoom-in` / `zoom-out` / `fit-view`）、畫布 `tree-editor-canvas`、節點 `tree-editor-item` ＋ `data-value`（節點 id）＋ `data-selected`、節點上的 `+` `tree-editor-add-child`、空狀態 `tree-editor-empty` |
+| slot | `toolbar` / `canvas` / `node` / `group` / `minimap` / `empty`；`className` / `data-testid` 落在最外層 |
+| testid | 工具列 `tree-editor-toolbar`、按鈕 `tree-editor-action` ＋ `data-value`（`add-root` / `add-child` / `delete` / `auto-layout` / `undo` / `redo` / `zoom-in` / `zoom-out` / `fit-view`）、畫布 `tree-editor-canvas`、節點 `tree-editor-item` ＋ `data-value`（節點 id）＋ `data-selected`＋ `data-state` ＋ `data-highlighted`、節點上的 `+` `tree-editor-add-child`、分組背景 `tree-editor-group` ＋ `data-value`（分組 id）、空狀態 `tree-editor-empty` |
 
 ```tsx
 <TreeEditor<Skill>
@@ -594,9 +598,9 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | 檔案 | 內容 |
 | ---- | ---- |
 | `TreeEditor/treeGraph.ts` | 型別與純函式：`checkConnection`、`connectNodes`、`addNode`、`removeElements`、`moveNodes`、`updateNodeData`、`getRootIds`、`getParentIds`、`getDescendantIds`、`getEdgeId` |
-| `TreeEditor/layout.ts` | dagre 排版（`computeTreeLayout`、`layoutTree`、`fillMissingPositions`）與新節點的就近位置（`placeChild`、`placeRoot`） |
+| `TreeEditor/layout.ts` | dagre 排版（`computeTreeLayout`、`layoutTree`、`fillMissingPositions`）、新節點的就近位置（`placeChild`、`placeRoot`）與分組背景的範圍（`computeGroupBounds`） |
 | `TreeEditor/useTreeHistory.ts` | 以整份快照記錄的復原／重做 |
-| `TreeEditor/TreeNode.tsx` | 畫布上的節點：外框、把手、`+`；經由 context 取得 `renderNode` 等設定 |
+| `TreeEditor/TreeNode.tsx` | 畫布上的節點：外框、狀態、把手、`+`；分組背景（`TreeGroupNode`）；經由 context 取得 `renderNode` 等設定 |
 | `TreeEditor/TreeEditor.module.css` | 元件樣式，以及改寫自 `@xyflow/react/dist/base.css` 的必要樣式（`--xy-*` 變數對應到 alias token） |
 
 **樣式**：不 import React Flow 的 `base.css`（不分層的全域 CSS 會蓋過 `@layer components`，而且寫死色碼），
@@ -604,7 +608,11 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 
 **測試**：jsdom 沒有布局，`TreeEditor.test.tsx` 補上 ResizeObserver、DOMMatrixReadOnly 與 `getBBox` 的替身；
 點節點用 `fireEvent.click`（`userEvent` 的 mousedown 沒有 `view`，d3-drag 會拋錯）。拖線連線與拖曳無法在 jsdom 模擬，
-規則在 `treeGraph.test.ts` 以純函式測，互動以 Storybook 確認。
+規則在 `treeGraph.test.ts` 以純函式測，互動以 Storybook 確認。jsdom 也不畫連線（需要量測把手位置），連線的 `variant`／強調同樣以 Storybook 確認。
+
+**可解鎖的技能樹**（story `UnlockableSkillTree`）：`readOnly` ＋ `selectable={false}`，互動是節點內的 `<button className="nodrag">`
+（原生焦點、Enter／Space、`disabled`）。React Flow 會對「不可選、不可拖、不可連、也沒有點擊處理」的節點設 `pointer-events: none`，
+所以元件一律傳 `onNodeClick` 給 React Flow，節點內的按鈕才點得到。實際用例：角色權限的技能樹（`features/role`）。
 
 **Bundle**：React Flow 約 67 KB gzip、dagre 約 17 KB gzip，只被 `TreeEditor` 匯入。
 
@@ -615,8 +623,8 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | ![AutoLayout](./images/tree-editor/auto-layout.png) | ![SkillTree](./images/tree-editor/skill-tree.png) |
 | **唯讀** | **技能樹（深色主題）** |
 | ![ReadOnly](./images/tree-editor/read-only.png) | ![SkillTree dark](./images/tree-editor/skill-tree-dark.png) |
-| **空狀態** | |
-| ![Empty](./images/tree-editor/empty.png) | |
+| **空狀態** | **可解鎖的技能樹**（學會「嚮導」、滑過時強調前置路徑；2026-09-30） |
+| ![Empty](./images/tree-editor/empty.png) | ![UnlockableSkillTree](./images/tree-editor/unlockable-skill-tree.jpg) |
 
 尚未實作：收合子樹、連線上的標籤、拖曳連線端點改接（React Flow 的 `onReconnect`）、複製／貼上節點。
 
