@@ -304,7 +304,9 @@ interface DomainEventMeta {
 | 語意                         | 為什麼                                                                                  |
 | ---------------------------- | --------------------------------------------------------------------------------------- |
 | **`meta` 在 publish 當下擷取** | handler 非同步執行時請求 context 可能已結束；`origin` 必須是發起請求的那個分頁          |
-| **依序處理**（單一 queue，逐一 await） | 同一次操作先發 `permissions.changed` 再發 `resource.changed`：room 一定先同步完才推播 |
+| **同一租戶內依序處理**（每個租戶一條 queue，逐一 await） | 同一次操作先發 `permissions.changed` 再發 `resource.changed`：room 一定先同步完才推播 |
+| **租戶之間互不阻塞** | queue 以發佈當下的租戶分開：一個租戶改了上千人持有的角色，其他租戶的推播不必等它（沒有租戶脈絡的平台事件另成一條） |
+| **`sessions.revoked` 走優先通道** | 每個租戶另有一條優先 queue：踢線不排在同租戶的大量 room 同步之後；它與其他事件沒有先後依賴（session 作廢由 `token_version` 保證） |
 | **handler 錯誤隔離**         | 記錄後吞掉；一個訂閱者壞掉不影響其他訂閱者，也不影響已經成功的寫入                      |
 | **不阻塞 HTTP 回應**         | 推播只是加速（原則 1）                                                                  |
 | **行程內、不持久化**         | Phase 0 單一執行個體；行程在事件處理前結束，事件就遺失——客戶端重連時會整批重新驗證      |
@@ -556,7 +558,7 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 | `channel.relay` 只到同使用者；非白名單頻道被略過                       | 整合   |
 | gateway 有未宣告授權的 `@SubscribeMessage` → 啟動失敗                  | 單元（route-audit） |
 | 來源 → 受眾對照（§6.1）                                               | 單元   |
-| `DomainEventBus`：依序處理、錯誤隔離、`meta` 在發佈當下擷取            | 單元   |
+| `DomainEventBus`：同租戶依序、跨租戶與 `sessions.revoked` 不互相阻塞、錯誤隔離、`meta` 在發佈當下擷取 | 單元   |
 | `realtime.listener`：三個領域事件各自的動作（假 bus ＋ 假 io）         | 單元   |
 
 ---

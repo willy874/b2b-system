@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { runWithRequestContext } from '@/core/http';
+import { currentTenant, runInTenantContext } from '@/core/tenant/tenant-context';
+import type { TenantContext } from '@/core/tenant/tenant-context';
 
 import { DomainEvent } from '../domain-events';
 import type { DomainEventPayloads } from '../domain-events';
@@ -10,6 +12,20 @@ const revoked: DomainEventPayloads[typeof DomainEvent.SESSIONS_REVOKED] = {
   userIds: ['u1'],
   reason: 'AUTH_TOKEN_STALE',
 };
+
+function inTenant(id: string, fn: () => void): void {
+  const context = { id, code: id, db: {}, storageBucket: id, allowExternalIdp: false };
+  runInTenantContext(context as unknown as TenantContext, fn);
+}
+
+/** 由測試決定何時放行的 promise：模擬被 DB 查詢卡住的 handler。 */
+function deferred(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
 
 describe('DomainEventBus', () => {
   it('依發佈順序處理：前一個事件的 handler await 完才輪到下一個', async () => {
@@ -110,5 +126,90 @@ describe('DomainEventBus', () => {
     bus.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: [] });
     await bus.drain();
     expect(nested).toHaveBeenCalledTimes(1);
+  });
+
+  describe('依租戶分開排隊（docs/issues/01-performance.md PERF-08、03-edge-cases.md EDGE-15）', () => {
+    it('一個租戶的 handler 卡住時，其他租戶的事件照常處理', async () => {
+      const bus = new DomainEventBus();
+      const gate = deferred();
+      const otherTenantDone = deferred();
+      bus.subscribe(DomainEvent.PERMISSIONS_CHANGED, () => gate.promise);
+      bus.subscribe(DomainEvent.RESOURCE_CHANGED, () => otherTenantDone.resolve());
+
+      inTenant('a', () => bus.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: ['u1'] }));
+      inTenant('b', () => bus.publish(DomainEvent.RESOURCE_CHANGED, { changes: [] }));
+
+      // 租戶 a 還卡著，租戶 b 的事件已經處理完（否則這裡會逾時）
+      await otherTenantDone.promise;
+      gate.resolve();
+      await bus.drain();
+    });
+
+    it('同一個租戶內仍依發佈順序處理', async () => {
+      const bus = new DomainEventBus();
+      const order: string[] = [];
+      bus.subscribe(DomainEvent.PERMISSIONS_CHANGED, async () => {
+        await new Promise((resolve) => setImmediate(resolve));
+        order.push('permissions');
+      });
+      bus.subscribe(DomainEvent.RESOURCE_CHANGED, () => {
+        order.push('resource');
+      });
+
+      inTenant('a', () => {
+        bus.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: ['u1'] });
+        bus.publish(DomainEvent.RESOURCE_CHANGED, { changes: [] });
+      });
+      await bus.drain();
+
+      expect(order).toEqual(['permissions', 'resource']);
+    });
+
+    it('sessions.revoked 走優先通道：不排在同租戶卡住的事件之後', async () => {
+      const bus = new DomainEventBus();
+      const gate = deferred();
+      const revokedDone = deferred();
+      bus.subscribe(DomainEvent.PERMISSIONS_CHANGED, () => gate.promise);
+      bus.subscribe(DomainEvent.SESSIONS_REVOKED, () => revokedDone.resolve());
+
+      inTenant('a', () => {
+        bus.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: ['u1'] });
+        bus.publish(DomainEvent.SESSIONS_REVOKED, revoked);
+      });
+
+      await revokedDone.promise;
+      gate.resolve();
+      await bus.drain();
+    });
+
+    it('handler 在發佈當下的租戶脈絡裡執行', async () => {
+      const bus = new DomainEventBus();
+      const seen: Array<string | undefined> = [];
+      bus.subscribe(DomainEvent.RESOURCE_CHANGED, () => {
+        seen.push(currentTenant()?.id);
+      });
+
+      inTenant('a', () => bus.publish(DomainEvent.RESOURCE_CHANGED, { changes: [] }));
+      inTenant('b', () => bus.publish(DomainEvent.RESOURCE_CHANGED, { changes: [] }));
+      bus.publish(DomainEvent.RESOURCE_CHANGED, { changes: [] });
+      await bus.drain();
+
+      expect(seen.toSorted()).toEqual(['a', 'b', undefined].toSorted());
+    });
+
+    it('drain 等所有租戶的佇列都處理完', async () => {
+      const bus = new DomainEventBus();
+      const handled: string[] = [];
+      bus.subscribe(DomainEvent.RESOURCE_CHANGED, async () => {
+        await new Promise((resolve) => setImmediate(resolve));
+        handled.push(currentTenant()?.id ?? '-');
+      });
+
+      inTenant('a', () => bus.publish(DomainEvent.RESOURCE_CHANGED, { changes: [] }));
+      inTenant('b', () => bus.publish(DomainEvent.RESOURCE_CHANGED, { changes: [] }));
+      await bus.drain();
+
+      expect(handled.toSorted()).toEqual(['a', 'b']);
+    });
   });
 });
