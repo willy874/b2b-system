@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { SettingService } from '@/core/settings';
 
 import { AuthMailJobs } from './auth-mail.jobs';
+import { AuthTokenCleanupJobs } from './auth-token-cleanup.jobs';
 import { AuthTokenService } from './auth-token.service';
 import { AUTH_SETTINGS } from './auth.settings';
 import { RefreshTokenRepository } from './refresh-token.repository';
@@ -14,7 +15,8 @@ import { RefreshTokenRepository } from './refresh-token.repository';
  */
 @Module({
   // AuthMailJobs：啟用與重設密碼信的背景工作（docs/architecture/backend/11-mail.md §4）
-  providers: [AuthTokenService, RefreshTokenRepository, AuthMailJobs],
+  // AuthTokenCleanupJobs：過期 token 的清理排程（docs/architecture/backend/04-auth.md §8）
+  providers: [AuthTokenService, RefreshTokenRepository, AuthMailJobs, AuthTokenCleanupJobs],
   exports: [AuthTokenService, RefreshTokenRepository],
 })
 export class AuthTokenModule {

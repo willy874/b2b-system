@@ -49,6 +49,16 @@ describe('UserCacheService', () => {
     expect(cache.get('user-1')?.email).toBe('b@example.com');
   });
 
+  it('載入期間被失效（停用）時，舊的 active 不寫回快取（EDGE-09）', () => {
+    const cache = new UserCacheService();
+    const ticket = cache.ticket();
+    cache.invalidate('user-1');
+    cache.set(user, ticket);
+    expect(cache.get('user-1')).toBeUndefined();
+    cache.set(user, cache.ticket());
+    expect(cache.get('user-1')).toBeDefined();
+  });
+
   it('超過上限時淘汰最舊的一筆', () => {
     const cache = new UserCacheService();
     for (let index = 0; index < 10_050; index += 1) {

@@ -23,7 +23,9 @@
     },
     "assignRole": {
       "action": "儲存角色",
-      "success": "角色指派已更新。"
+      "success": "角色指派已更新。",
+      "stale": "其他人剛修改了這個人的角色，你的勾選是以舊的資料為基礎。",
+      "discard": "改用最新的角色"
     },
     "unlock": {
       "action": "解鎖",

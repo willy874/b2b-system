@@ -63,6 +63,16 @@ export const EnvSchema = z.object({
   JWT_SECRET: z.string().min(32),
   JWT_ACCESS_TTL: z.coerce.number().int().default(300),
   REFRESH_TOKEN_TTL: z.coerce.number().int().default(604800),
+  /**
+   * session 的絕對壽命（秒）：從登入起算，不論期間續期了幾次，超過就要重新登入（docs/architecture/backend/04-auth.md §2.6）。
+   * 預設 30 天。
+   */
+  REFRESH_FAMILY_MAX_AGE: z.coerce.number().int().positive().default(2_592_000),
+  /**
+   * 重送寬限期（秒）：剛被用掉的 refresh token 在這段時間內再出示、而且它是家族的上一張，視為回應遺失而換發，
+   * 不撤銷家族（04-auth.md §2.3）。0 停用。
+   */
+  REFRESH_REUSE_GRACE_SECONDS: z.coerce.number().int().min(0).max(300).default(30),
   REFRESH_COOKIE_NAME: z.string().default('refresh_token'),
   /**
    * Cookie 的 Path 必須是「瀏覽器看到的」refresh 端點前綴。
@@ -271,6 +281,11 @@ export const EnvSchema = z.object({
 
   /** 清除過期 IdP 狀態（`oidc_payloads`）的 cron（UTC）；空字串停用。 */
   OIDC_CLEANUP_CRON: z.string().trim().default('45 3 * * *'),
+
+  /** 清除過期的 refresh token 與啟用／重設 token 的 cron（UTC）；空字串停用（docs/architecture/backend/04-auth.md §8）。 */
+  AUTH_TOKEN_CLEANUP_CRON: z.string().trim().default('15 4 * * *'),
+  /** 過期（或用過）的 token 保留幾天才刪除：留給安全事件調查（04-auth.md §8）。 */
+  AUTH_TOKEN_RETENTION_DAYS: z.coerce.number().int().min(1).default(30),
 
   /** 稽核日誌熱 → 冷搬移的 cron（UTC）；空字串停用（docs/architecture/backend/06-audit-log.md §8）。 */
   AUDIT_LOG_ARCHIVE_CRON: z.string().trim().default('30 3 * * *'),

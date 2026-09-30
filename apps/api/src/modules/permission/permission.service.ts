@@ -28,13 +28,15 @@ export class PermissionService {
     const cached = this.cache.get(userId);
     if (cached) return cached;
 
+    // 查詢期間若被失效（撤銷權限的交易剛提交），讀到的可能是舊值：不寫回快取（EDGE-09）
+    const ticket = this.cache.ticket();
     const [keys, isSuperAdmin] = await Promise.all([
       this.repo.findPermissionKeysByUser(userId),
       this.repo.isSuperAdmin(userId),
     ]);
 
     const value: PermissionSet = { permissions: new Set(keys), isSuperAdmin };
-    this.cache.set(userId, value);
+    this.cache.set(userId, value, ticket);
     return value;
   }
 

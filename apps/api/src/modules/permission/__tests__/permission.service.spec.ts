@@ -16,7 +16,7 @@ function createService(actor: { keys: PermissionKey[]; isSuperAdmin: boolean }) 
     findPermissionKeysByRoles: vi.fn().mockResolvedValue([]),
     includesSuperAdminRole: vi.fn().mockResolvedValue(false),
   };
-  const cache = { get: vi.fn(), set: vi.fn() };
+  const cache = { get: vi.fn(), set: vi.fn(), ticket: vi.fn(() => 0) };
   const service = new PermissionService(
     repo as unknown as PermissionRepository,
     cache as unknown as PermissionCacheService,

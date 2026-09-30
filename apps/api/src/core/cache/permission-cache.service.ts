@@ -5,6 +5,7 @@ import type { PermissionKey } from '@/db/seeds/permissions';
 
 import type { Env } from '../config';
 import { currentTenant } from '../tenant';
+import { InvalidationTracker } from './invalidation-tracker';
 
 export interface PermissionSet {
   permissions: Set<PermissionKey>;
@@ -30,6 +31,7 @@ function keyOf(userId: string): string {
 @Injectable()
 export class PermissionCacheService {
   private readonly store = new Map<string, Entry>();
+  private readonly invalidations = new InvalidationTracker(MAX_ENTRIES);
   private readonly ttl: number;
 
   constructor(config: ConfigService<Env, true>) {
@@ -46,7 +48,14 @@ export class PermissionCacheService {
     return entry.value;
   }
 
-  set(userId: string, value: PermissionSet): void {
+  /** 從 DB 載入前取一張票，載入後交給 `set()`：載入期間被失效過的結果不寫入（EDGE-09）。 */
+  ticket(): number {
+    return this.invalidations.ticket();
+  }
+
+  /** `ticket` 省略時無條件寫入（呼叫端確定讀到的是最新資料時）。 */
+  set(userId: string, value: PermissionSet, ticket?: number): void {
+    if (ticket !== undefined && !this.invalidations.isFresh(keyOf(userId), ticket)) return;
     if (this.store.size >= MAX_ENTRIES && !this.store.has(keyOf(userId))) {
       const oldest = this.store.keys().next();
       if (!oldest.done) this.store.delete(oldest.value);
@@ -55,14 +64,16 @@ export class PermissionCacheService {
   }
 
   invalidate(userId: string): void {
+    this.invalidations.invalidate(keyOf(userId));
     this.store.delete(keyOf(userId));
   }
 
   invalidateMany(userIds: readonly string[]): void {
-    for (const id of userIds) this.store.delete(keyOf(id));
+    for (const id of userIds) this.invalidate(id);
   }
 
   invalidateAll(): void {
+    this.invalidations.invalidateAll();
     this.store.clear();
   }
 

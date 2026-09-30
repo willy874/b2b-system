@@ -153,6 +153,13 @@ export class IdentityProviderService {
       );
       if (!updated) throw new AppException('IDENTITY_PROVIDER_NOT_FOUND');
       if (domains) await this.repo.replaceDomains(id, domains, tx);
+      // 換了 issuer 或 client：舊的 subject 可能來自另一個 IdP，已連結的身分全部作廢，
+      // 否則改指向自架 IdP 就能沿用別人的連結登入（docs/issues/02-security.md SEC-01）
+      const identityChanged =
+        updated.issuer !== before.issuer || updated.clientId !== before.clientId;
+      const identitiesCleared = identityChanged
+        ? await this.repo.deleteIdentitiesOfProvider(id, tx)
+        : 0;
       await this.audit.record(
         {
           action: 'identityProvider.update',
@@ -164,7 +171,13 @@ export class IdentityProviderService {
             after: { ...pick(updated), ...(domains && { domains }) },
           },
           // 只記「換過 secret」，不記內容
-          metadata: clientSecret !== undefined ? { clientSecretRotated: true } : undefined,
+          metadata:
+            clientSecret !== undefined || identityChanged
+              ? {
+                  ...(clientSecret !== undefined && { clientSecretRotated: true }),
+                  ...(identityChanged && { identitiesCleared, severity: 'high' }),
+                }
+              : undefined,
         },
         tx,
       );
@@ -251,6 +264,19 @@ export class IdentityProviderService {
     tx?: DbOrTx,
   ): Promise<void> {
     return this.repo.linkIdentity(values, tx);
+  }
+
+  /**
+   * 刪除一個人的所有外部身分連結（刪除帳號時，在同一個交易內）。`(provider, subject)` 唯一：
+   * 連結留著的話，同 email 重建的帳號就再也連不上同一個外部身分（docs/issues/03-edge-cases.md EDGE-06）。
+   */
+  async unlinkUser(userId: string, tx: DbOrTx): Promise<number> {
+    return this.repo.deleteIdentitiesOfUser(userId, tx);
+  }
+
+  /** 刪除單一連結（例：連結指向的帳號已被刪除）。 */
+  unlinkIdentity(id: string): Promise<void> {
+    return this.repo.deleteIdentity(id);
   }
 
   touchIdentity(id: string): Promise<void> {

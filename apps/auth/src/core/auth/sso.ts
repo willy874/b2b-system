@@ -44,9 +44,16 @@ async function challengeOf(verifier: string): Promise<string> {
   return toBase64Url(new Uint8Array(digest));
 }
 
-/** 只接受同 origin 的路徑，避免登入後被導到別的網站（open redirect）。 */
+/**
+ * 只接受同 origin 的路徑，避免登入後被導到別的網站（open redirect）。以瀏覽器實際的解析結果判斷：
+ * `/\evil.com` 字面上是 `/` 開頭，瀏覽器卻把 `\` 當成 `/`、解析成 `//evil.com`（docs/issues/02-security.md SEC-17）。
+ */
 export function safeReturnTo(value: string | undefined): string {
-  return value?.startsWith('/') && !value.startsWith('//') ? value : '/';
+  if (!value?.startsWith('/')) return '/';
+  const { origin } = globalThis.location;
+  if (!URL.canParse(value, origin)) return '/';
+  const url = new URL(value, origin);
+  return url.origin === origin ? `${url.pathname}${url.search}${url.hash}` : '/';
 }
 
 export function redirectUriOf(config: SsoClientConfig): string {

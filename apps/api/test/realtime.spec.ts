@@ -535,7 +535,7 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       await expect(disconnected).resolves.toBe('io server disconnect');
     });
 
-    it('登入失敗次數達上限被鎖定 → 既有連線收到 session.revoked 並被斷線', async () => {
+    it('登入失敗次數達上限被鎖定 → 既有連線 **不** 被撤銷（鎖定只擋猜密碼，docs/issues/03-edge-cases.md EDGE-01）', async () => {
       const { hashPassword } = await import('@/modules/auth/password');
       const email = 'lock-me@example.com';
       const [user] = await db
@@ -548,18 +548,24 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
         })
         .returning();
       const socket = await connect(await tokenFor(user!.id));
-      const revoked = waitFor(socket, ServerEvent.SESSION_REVOKED);
-      const disconnected = waitFor<string>(socket, 'disconnect');
+      let revoked = false;
+      socket.on(ServerEvent.SESSION_REVOKED, () => {
+        revoked = true;
+      });
 
-      const maxAttempts = Number(process.env.LOGIN_MAX_ATTEMPTS ?? 5);
+      // 租戶的預設門檻（系統設定 auth.loginMaxAttempts）
+      const maxAttempts = 5;
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         // 依序送出：每次失敗都要讀到上一次寫入的累計次數
         // oxlint-disable-next-line no-await-in-loop
         await request(http).post('/auth/login').send({ email, password: 'WrongPassword!2026' });
       }
+      const [locked] = await db.select().from(users).where(eq(users.id, user!.id));
+      expect(locked!.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
 
-      await expect(revoked).resolves.toEqual({ reason: 'AUTH_ACCOUNT_DISABLED' });
-      await expect(disconnected).resolves.toBe('io server disconnect');
+      await barrier([socket]);
+      expect(revoked).toBe(false);
+      expect(socket.connected).toBe(true);
     });
 
     it('token_version 被改（未經 service）→ 下一則訊息被 WsAuthGuard 拒絕並斷線', async () => {

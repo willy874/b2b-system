@@ -46,6 +46,7 @@
   4. 修改 `issuer`（或 `clientId`）時清除這個連線既有的 `user_identities`，並寫高嚴重度稽核。
   5. `start()` 檢查 `providerId` 與 `discover(email)` 的結果一致（互動頁已輸入 email 時）。
 - **驗收**：`sso-external.spec.ts` 加上三個案例：假 IdP 對「不在連線網域內」的既有帳號 email 回 `email_verified=true` → `AUTH_SSO_ACCOUNT_NOT_FOUND`；對 super-admin 的 email → 不連結；`admin` 呼叫 `POST /identity-providers` → 403（或依新規則處理）。修改 issuer 後，舊的 subject 不能再登入。
+- **狀態**：已修（fix/auth-account）：email 自動連結限定這個連線登記的網域、排除持有 member 以外系統角色的帳號（`AUTH_SSO_LINK_NOT_ALLOWED`）；修改 issuer／client id 清除既有連結。建議 3（把 `identityProvider:*` 收回給 super-admin）與建議 5 未做：網域限制已擋下自架 IdP 連到別的網域，權限調整屬產品決定
 
 ### SEC-02 上傳檔案以使用者自訂的 Content-Type 在租戶同源 `/storage` inline 提供：同源 HTML／SVG 可竊取 session、做同網域釣魚
 
@@ -76,6 +77,7 @@
   3. 鎖定改用「帳號 × 來源 IP」計數，或採漸進延遲，不做硬鎖；另加上帳號層級的全域速率（見 SEC-06）。
   4. 被鎖的帳號也能收到重設密碼信（重設本來就會解鎖）。
 - **驗收**：新增 `auth.service` 單元測試與整合測試：錯 5 次 → 鎖定 → 時間前進 15 分鐘 → 正確密碼可以登入且 `status=active`；對不存在與已鎖定的 email，錯誤碼與耗時都相同；鎖定中的帳號可以用「忘記密碼」。
+- **狀態**：已修（fix/auth-account）：與 EDGE-01、EDGE-05 一起修；鎖定只寫 `locked_until`、到期自動解除，狀態檢查移到密碼驗證之後，鎖定中的人可以忘記密碼。建議 3（帳號×IP 計數、漸進延遲）延後——屬速率限制的設計（SEC-06／PERF-01 那一組）
 
 ### SEC-04 nginx 不清除 `X-Forwarded-Host`，api 在 `TRUST_PROXY=uniquelocal` 下採信它：用標頭就能切換租戶
 
@@ -115,6 +117,7 @@
 - **利用情境**：持 `user:update`／`user:delete`／`user:assignRole` 的 `admin`（或自訂角色）可以停用、刪除其他 super-admin，或把對方的角色換成 `member`（只要系統裡還剩一位 super-admin）。惡意或帳號被盜的 admin 可以藉此排除上級、阻止事件處理，再配合 SEC-03 鎖住最後一位 super-admin。
 - **建議**：對「目標使用者」加反提權規則：目標的有效權限集合必須 ⊆ 操作者的權限集合（super-admin 例外），不符回 `AUTHZ_ESCALATION`；super-admin 只能由 super-admin 停用、刪除或降級。記進 `docs/rbac/01-domain-model.md` 的不變式。
 - **驗收**：`rbac-lifecycle.spec.ts` 新增：admin 對 super-admin 做 PATCH status／DELETE／PUT roles 都回 403 `AUTHZ_ESCALATION`；super-admin 對 super-admin 可以做。
+- **狀態**：已修（fix/auth-account）：與 EDGE-08、EDGE-03 一起修（只有 super-admin 能停用、刪除、改角色 super-admin）
 
 ### SEC-08 自助註冊不驗證 email 所有權，核准後直接用申請人設定的密碼啟用
 
@@ -124,6 +127,7 @@
 - **利用情境**：攻擊者以 `cfo@customer.com` 申請帳號並自己設定密碼；審核者看到熟悉的名字就核准（甚至指派角色），攻擊者便以 CFO 的身分登入，稽核紀錄上也是 CFO 的 email。之後真正的 CFO 經外部 IdP 登入時，第 2 步（SEC-01）會把他的外部身分連到攻擊者建立的這個帳號，攻擊者仍握有密碼。
 - **建議**：送出申請前先寄驗證信（或核准後改成寄啟用信讓本人設定密碼、丟掉申請時的密碼）；只允許 SSO 的網域不接受註冊；審批頁明確標示「email 尚未驗證」。
 - **驗收**：`approval-lifecycle.spec.ts`：核准後帳號是 `pending`，必須透過信中的 token 才能 `active`；SSO-only 網域的註冊不會產生審批。
+- **狀態**：已修（fix/auth-account）：核准後建立 `pending` 帳號並在同一個交易內寄啟用信，從信中連結設定密碼才啟用；只允許 SSO 的網域不接受註冊（`AUTH_SSO_REQUIRED`）。申請表單仍收密碼（先存著，啟用前以它登入得到 `AUTH_ACCOUNT_PENDING`）；拿掉表單的密碼欄與審批頁「email 尚未驗證」標示留給 apps/auth UX 組
 
 ### SEC-09 正式部署以 Postgres 超級使用者執行 api（平台 DB、預設租戶 DB、佈建）
 
@@ -156,6 +160,7 @@
 - **利用情境**：租戶 admin 把 issuer 設成 `https://10.0.0.5/`、`https://internal-admin.corp/`，在登入時觸發 api 對內網的 https 請求（回應雖然不會直接回給攻擊者，仍可用來探測內網與時間差）。開發或 staging 環境（非 production）連 http 的 metadata 端點都打得到。
 - **建議**：解析 issuer 與 discovery 端點的 DNS 後拒絕私有、loopback、link-local 位址（包括重新導向之後）；設逾時；discovery 快取改用 LRU、key 用 `providerId + updatedAt`，不放明文 secret。
 - **驗收**：單元測試：issuer 解析到 `10.x`／`127.x`／`169.254.x` 時回 `AUTH_SSO_PROVIDER_UNAVAILABLE`，並且沒有發出請求。
+- **狀態**：已修（fix/auth-account）：production 下對外部 IdP 的每個請求（discovery、token、userinfo、JWKS）先解析 DNS，私有／loopback／link-local 位址拒絕（`outbound-guard.ts`，openid-client 的 `customFetch`），逾時 10 秒；discovery 快取 key 改用 secret 的雜湊、有上限（LRU 200）。DNS rebinding 的空窗仍在（文件已註明）
 
 ### SEC-12 一次性憑證的「檢查 → 消耗」不是原子操作（授權碼、重設／啟用 token、外部登入 ticket）
 
@@ -165,6 +170,7 @@
 - **利用情境**：已經取得授權碼與 verifier（或重設 token）的人，以併發請求換到兩條 session，或讓重設 token 被用兩次。前提是憑證已經外洩，所以影響有限，但「重放時撤銷整個 grant」的保護會失效。
 - **建議**：消耗時以條件式更新（`WHERE consumed_at IS NULL RETURNING`／`WHERE used_at IS NULL`）判斷有沒有搶到，沒搶到就視為重放。
 - **驗收**：整合測試以 `Promise.all` 同時兌換同一個授權碼或重設 token，只有一個成功。
+- **狀態**：已修（fix/auth-account）：授權碼（BFF 兌換）、外部登入的 ticket、啟用／重設 token 都改成條件式消耗（`consumeOnce`／`markUsed` 回傳是否搶到）；oidc-provider 自己的 token 端點只給第三方 client，未改
 
 ### SEC-13 安全標頭不完整：沒有 HSTS、CSP 沒有 `form-action`、`style-src 'unsafe-inline'`、`X-Powered-By` 與 nginx 版本外露
 
@@ -184,6 +190,7 @@
 - **利用情境**：使用者可以設定 `Password12345`、`Company2026!!` 之類的弱密碼，搭配 SEC-06 做 password spraying；調過 argon2 參數的部署可以用時間差列舉帳號。
 - **建議**：載入 top-10k（或 HIBP k-anonymity 離線清單），並加入租戶名稱、email 本地部分等情境字；dummy hash 用設定值產生。
 - **驗收**：單元測試：清單中的密碼被拒；調整 `ARGON2_*` 後，兩條路徑的耗時差在誤差範圍內。
+- **狀態**：已修（fix/auth-account）：dummy hash 以實際設定的 argon2 參數產生；常見密碼改以字根＋前後綴剝除、替換字元還原、重複與鍵盤序列判斷，另擋含 email 帳號名稱／網域名稱／租戶代碼的密碼。完整 top-10k 清單需要下載外部清單，未引入
 
 ### SEC-15 日誌會記下外部 IdP 的 `code`／`state` 與 `complete` 的 `ticket`
 
@@ -193,6 +200,7 @@
 - **利用情境**：能讀日誌的人拿到 ticket 與外部授權碼。ticket 還要搭配互動 cookie 才能用，外部授權碼也有 PKCE，所以風險低，但這違反「日誌不記憑證」的規範。
 - **建議**：`SENSITIVE_QUERY_PARAM` 加上 `code`、`state`、`ticket`、`code_verifier`、`id_token_hint`；nginx 的 `log_format` 改成不記錄 query string，或另外遮罩。
 - **驗收**：`redact` 的單元測試涵蓋這些參數。
+- **狀態**：已修（fix/auth-account）：`redactUrl` 遮 `token`、`code`、`state`、`ticket`、`code_verifier`、`id_token_hint`。nginx 的 `log_format` 屬部署設定，留給基礎設施組
 
 ### SEC-16 session 沒有絕對上限；授權撤銷後 presigned／影像網址仍有效到過期
 
@@ -203,6 +211,7 @@
 - **建議**：家族記下 `created_at`，超過絕對上限（例如 30 天，或企業可設定）就要重新登入；`FILE_URL_TTL` 上限收斂到 1 小時以內，並在文件中說明撤銷的延遲。
 - **驗收**：refresh 整合測試：家族超過上限後回 `AUTH_REFRESH_EXPIRED`。
 - **狀態**：檔案部分已修（fix/file）：`FILE_URL_TTL` 上限收斂到 3600 秒，文件載明撤銷延遲的上限。session 絕對上限歸認證組
+- **狀態**：session 絕對期限的部分已修（fix/auth-account）：refresh 家族記 `family_created_at`，超過 `REFRESH_FAMILY_MAX_AGE`（預設 30 天）回 `AUTH_REFRESH_EXPIRED`，新 token 與 cookie 的壽命截短到家族期限（租戶與平台管理者都是）。presigned／影像網址的部分歸檔案組
 
 ### SEC-17 `safeReturnTo` 沒擋 `/\`；backstage 的 redirect URI 接受 `http:`，而且比對時可以不看 port
 
@@ -212,6 +221,7 @@
 - **利用情境**：目前沒有直接可利用的路徑；主要是降低未來改動時出錯的機會，並避免授權碼經明文 http 傳送。
 - **建議**：`safeReturnTo` 以 `new URL(value, location.origin).origin === location.origin` 判斷；production 下 redirect URI 只接受 `https:`，比對時要求 port 完全相符（沒寫 port 就等於預設 port）。
 - **驗收**：前端單元測試涵蓋 `/\\evil.com`、`/%5Cevil.com`；`sso.spec.ts` 加上「http 的 redirect URI → invalid_request」。
+- **狀態**：已修（fix/auth-account）：`safeReturnTo` 改以 `new URL(value, origin).origin` 判斷（兩個前端）；production 下 backstage 的 redirect URI 只接受 https、帶 port 時必須與登記的網域完全相符（`tenant-redirect.ts`）。開發與 E2E 仍接受 http 與只比 hostname（dev 的租戶網域常只登記 `localhost`）
 
 ### SEC-18 平台端點在任何不屬於租戶的網域都能用，不只 apps/auth 的網域
 

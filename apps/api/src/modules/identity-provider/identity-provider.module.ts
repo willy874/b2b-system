@@ -20,8 +20,13 @@ import { IdentityProviderService } from './identity-provider.service';
     {
       provide: ExternalOidcClient,
       inject: [ConfigService],
-      useFactory: (config: ConfigService<Env, true>) =>
-        new OpenIdExternalOidcClient(config.get('NODE_ENV', { infer: true }) !== 'production'),
+      useFactory: (config: ConfigService<Env, true>) => {
+        const production = config.get('NODE_ENV', { infer: true }) === 'production';
+        return new OpenIdExternalOidcClient({
+          allowInsecureIssuer: !production,
+          blockPrivateNetworks: production,
+        });
+      },
     },
   ],
   exports: [IdentityProviderService, ExternalOidcClient],

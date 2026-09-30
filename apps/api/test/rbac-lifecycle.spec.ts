@@ -408,7 +408,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     expect(response.body).toMatchObject({ error: { code: 'AUTHZ_SELF_MODIFY' } });
   });
 
-  it('不能停用最後一位 super-admin（LAST_SUPER_ADMIN）', async () => {
+  it('admin 不能停用 super-admin（AUTHZ_ESCALATION；最後一位的保護見 account-security.spec.ts）', async () => {
     const token = await login(ADMIN);
     const [root] = await db.select().from(users).where(eq(users.email, SUPER_ADMIN.email));
     const response = await request(http)
@@ -416,7 +416,9 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
       .set('authorization', `Bearer ${token}`)
       .send({ status: 'inactive' })
       .expect(403);
-    expect(response.body).toMatchObject({ error: { code: 'LAST_SUPER_ADMIN' } });
+    expect(response.body).toMatchObject({
+      error: { code: 'AUTHZ_ESCALATION', details: { role: 'super-admin' } },
+    });
   });
 
   it('使用者被停用後，既有 access token 立刻失效（AUTH_ACCOUNT_DISABLED）', async () => {

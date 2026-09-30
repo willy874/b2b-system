@@ -192,7 +192,7 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 | I5  | `user_roles` / `role_permissions` 無重複       | 複合主鍵                                             |
 | I6  | 刪除角色時連帶刪除其指派與授權                 | `ON DELETE CASCADE`                                  |
 | I7  | **系統角色不可刪除**                           | Service 層檢查 ＋ DB trigger（雙保險；硬刪除與軟刪除 `deleted_at` 都擋） |
-| I8  | **系統中永遠至少有一個可用的 super-admin**     | 刪除／停用最後一個 super-admin 時 Service 拒絕       |
+| I8  | **系統中永遠至少有一個可用的 super-admin**     | 刪除／停用／拔角色時，Service 在寫入的交易內以 advisory lock 序列化後計數（[`05-rbac.md`](../architecture/backend/05-rbac.md) §8.2）；只有 super-admin 能管理 super-admin；登入失敗的鎖定不改 `status`，不會讓 super-admin 變成不可用 |
 | I9  | 使用者不能修改／刪除自己的帳號狀態與角色       | Service 層檢查（`actorId === targetId` → 403）       |
 | I10 | 授予的權限必須存在於 `permissions`             | 外鍵                                                 |
 | I11 | 反提權：授予的權限必須 ⊆ 操作者的權限集合      | Service 層檢查（super-admin 豁免）                   |

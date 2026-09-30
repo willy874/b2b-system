@@ -126,12 +126,21 @@ GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie�
 
 | 順序 | 條件 | 結果 |
 | --- | --- | --- |
-| 1 | `(provider_id, subject)` 已連結 | 那個帳號（之後 email 變了、沒有 email 都一樣） |
-| 2 | 外部 IdP 回報 `email_verified = true` 的 email 對上既有帳號 | 連結後登入，稽核 `userIdentity.link` |
+| 1 | `(provider_id, subject)` 已連結 | 那個帳號（之後 email 變了、沒有 email 都一樣）；連結指向已刪除的帳號時刪掉舊連結，往下走 |
+| 2 | 外部 IdP 回報 `email_verified = true` 的 email 對上既有帳號 | email 網域是 **這個** 連線登記的網域、且帳號沒有 `member` 以外的系統角色 → 連結後登入，稽核 `userIdentity.link`；否則 `AUTH_SSO_LINK_NOT_ALLOWED` |
 | 3 | 連線是 `auto_create`，且 email 網域是這個連線登記的網域 | 建立 **沒有任何角色** 的已啟用帳號並連結 |
 | 4 | 其他 | `AUTH_SSO_ACCOUNT_NOT_FOUND` |
 
-帳號是 `pending`／`locked`／停用時回對應的 `AUTH_ACCOUNT_*`。
+第 2 步的限制（docs/issues/02-security.md SEC-01）：持 `identityProvider:create`／`update` 的人可以自架 IdP（或把連線的 issuer
+改成它），對任何 email 簽出 `email_verified = true`。不限網域的話，就能把自己的外部身分連到租戶裡任何人（包括 super-admin）的帳號。
+所以 email 網域必須屬於這個連線；持有 super-admin、admin、auditor 的帳號即使網域相符也不自動連結，要由本人以密碼登入（或由管理員處理）。
+修改連線的 `issuer` 或 `client_id` 會在同一個交易內刪除它所有的連結（稽核 `metadata.identitiesCleared`、`severity: high`）：
+新的 IdP 發的 `subject` 不代表同一個人。刪除帳號時也一併刪除它的連結（帳號是軟刪除，不會觸發 cascade），同 email 重建的帳號才能再連結。
+
+帳號是 `pending`／停用時回對應的 `AUTH_ACCOUNT_*`；登入失敗的自動鎖定（`locked_until`）不擋外部 IdP 登入。
+
+production 下對外部 IdP 的每個請求都先解析主機名稱，解析到私有、loopback、link-local（含雲端 metadata）位址就拒絕
+（`AUTH_SSO_PROVIDER_UNAVAILABLE`，SEC-11），逾時 10 秒；解析與連線之間仍有 DNS rebinding 的空窗。
 
 **網域**（`identity_provider_domains`）：一個網域只屬於一個連線。設為「只允許 SSO」時，互動頁不顯示密碼欄，
 `verifyCredentials` 在查帳號 **之前** 回 `AUTH_SSO_REQUIRED`（不洩漏帳號是否存在），`forgotPassword` 不寄信（回應不變）。
@@ -262,7 +271,7 @@ IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁
 | 互動過期、沒有互動 cookie | 互動頁顯示 `AUTH_SSO_INTERACTION_INVALID` |
 | 授權碼失效、重放、PKCE 不符 | 產品的 callback 頁顯示 `AUTH_SSO_CODE_INVALID`，可重新登入 |
 | 在互動頁按取消 | 產品的 callback 頁顯示「已取消」 |
-| 外部 IdP 失敗、找不到帳號、連線停用 | 回到互動頁並顯示 `AUTH_SSO_EXTERNAL_FAILED`／`AUTH_SSO_ACCOUNT_NOT_FOUND`／`AUTH_SSO_PROVIDER_UNAVAILABLE` |
+| 外部 IdP 失敗、找不到帳號、不能自動連結、連線停用 | 回到互動頁並顯示 `AUTH_SSO_EXTERNAL_FAILED`／`AUTH_SSO_ACCOUNT_NOT_FOUND`／`AUTH_SSO_LINK_NOT_ALLOWED`／`AUTH_SSO_PROVIDER_UNAVAILABLE` |
 | 只允許 SSO 的網域用密碼登入 | `AUTH_SSO_REQUIRED` |
 | backstage 的 authorize 沒帶 `tenant`、租戶不存在、或與 redirect URI 的網域不符 | 帶 `invalid_request` 導回那個 backstage 的 callback |
 | 平台的端點在租戶網域上呼叫 | `PLATFORM_ONLY` |

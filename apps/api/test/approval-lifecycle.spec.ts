@@ -18,6 +18,7 @@ import {
 import type { TestDatabase } from './db';
 import { createTestDatabase, expectDbError, truncateAll } from './db';
 import { listenOnLoopback } from './http';
+import { inTestTenant } from './tenant';
 
 let app: INestApplication;
 let http: App;
@@ -175,7 +176,7 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
     await request(http).get('/approvals').set('authorization', `Bearer ${token}`).expect(403);
   });
 
-  it('admin 核准並指派 member → 建立已啟用的帳號，申請人可以用自己的密碼登入', async () => {
+  it('admin 核准並指派 member → 建立未啟用（pending）的帳號，要從啟用信完成設定才能登入（SEC-08）', async () => {
     const token = await login(ADMIN);
     const { id } = (await pendingRequestOf('alice@example.com'))!;
     const response = await request(http)
@@ -192,7 +193,8 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
     });
 
     const [user] = await db.select().from(users).where(eq(users.email, 'alice@example.com'));
-    expect(user).toMatchObject({ status: 'active', displayName: 'Applicant alice@example.com' });
+    // email 還沒驗證：申請人不一定真的擁有這個信箱
+    expect(user).toMatchObject({ status: 'pending', displayName: 'Applicant alice@example.com' });
     expect(approved.resultResourceId).toBe(user!.id);
     const held = await db.select().from(userRoles).where(eq(userRoles.userId, user!.id));
     expect(held.map((item) => item.roleId)).toEqual([await roleIdOf('member')]);
@@ -201,6 +203,22 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
     const [row] = await db.select().from(approvalRequests).where(eq(approvalRequests.id, id));
     expect(row!.privatePayload).toBeNull();
 
+    // 啟用前以申請時的密碼登入：提示去收信，而不是「帳密錯誤」
+    const pending = await request(http)
+      .post('/auth/login')
+      .send({ email: 'alice@example.com', password: 'ApplicantPassword!2026' })
+      .expect(401);
+    expect(pending.body).toMatchObject({ error: { code: 'AUTH_ACCOUNT_PENDING' } });
+
+    // 啟用信的連結（寄信工作在寄出當下才簽發 token；這裡直接簽一張）→ 設定密碼 → 可以登入
+    const { AuthTokenService } = await import('@/modules/auth/auth-token.service');
+    const { raw } = await inTestTenant(app, () =>
+      app.get(AuthTokenService).issue(user!.id, 'activation'),
+    );
+    await request(http)
+      .post('/auth/setup')
+      .send({ token: raw, password: 'ApplicantPassword!2026' })
+      .expect(200);
     await request(http)
       .post('/auth/login')
       .send({ email: 'alice@example.com', password: 'ApplicantPassword!2026' })
@@ -301,6 +319,24 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
       .set('authorization', `Bearer ${token}`)
       .expect(404);
     expect(response.body).toMatchObject({ error: { code: 'APPROVAL_NOT_FOUND' } });
+  });
+
+  it('只允許 SSO 的網域不接受註冊（AUTH_SSO_REQUIRED），也不產生審批（SEC-08）', async () => {
+    const token = await login(SUPER_ADMIN);
+    await request(http)
+      .post('/identity-providers')
+      .set('authorization', `Bearer ${token}`)
+      .send({
+        name: 'Corp SSO',
+        issuer: 'https://idp.test',
+        clientId: 'b2b',
+        clientSecret: 'top-secret',
+        domains: [{ domain: 'sso-only.test', ssoOnly: true }],
+      })
+      .expect(201);
+    const response = await register('carol@sso-only.test').expect(403);
+    expect(response.body).toMatchObject({ error: { code: 'AUTH_SSO_REQUIRED' } });
+    expect(await pendingRequestOf('carol@sso-only.test')).toBeUndefined();
   });
 
   describe('DB 約束', () => {

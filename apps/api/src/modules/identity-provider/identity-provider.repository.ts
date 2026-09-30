@@ -137,6 +137,29 @@ export class IdentityProviderRepository {
     await db.insert(userIdentities).values({ ...values, lastLoginAt: new Date() });
   }
 
+  /** 刪除一個人的所有外部身分連結；回傳刪除筆數。 */
+  async deleteIdentitiesOfUser(userId: string, tx?: DbOrTx): Promise<number> {
+    const rows = await (tx ?? this.db)
+      .delete(userIdentities)
+      .where(eq(userIdentities.userId, userId))
+      .returning({ id: userIdentities.id });
+    return rows.length;
+  }
+
+  /** 刪除一個連線的所有外部身分連結（issuer 或 client 換了：舊的 subject 不再代表同一個人）；回傳刪除筆數。 */
+  async deleteIdentitiesOfProvider(providerId: string, tx?: DbOrTx): Promise<number> {
+    const rows = await (tx ?? this.db)
+      .delete(userIdentities)
+      .where(eq(userIdentities.providerId, providerId))
+      .returning({ id: userIdentities.id });
+    return rows.length;
+  }
+
+  /** 刪除單一連結（指向已刪除的帳號）。 */
+  async deleteIdentity(id: string): Promise<void> {
+    await this.db.delete(userIdentities).where(eq(userIdentities.id, id));
+  }
+
   async touchIdentity(id: string): Promise<void> {
     await this.db
       .update(userIdentities)

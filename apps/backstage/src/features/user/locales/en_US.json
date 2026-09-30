@@ -23,7 +23,9 @@
     },
     "assignRole": {
       "action": "Save roles",
-      "success": "Role assignment updated."
+      "success": "Role assignment updated.",
+      "stale": "Someone else just changed this user's roles; your selection is based on outdated data.",
+      "discard": "Use latest roles"
     },
     "unlock": {
       "action": "Unlock",

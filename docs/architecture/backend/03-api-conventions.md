@@ -211,6 +211,7 @@ export const ErrorCode = {
   USER_EMAIL_DUPLICATE: { status: 409 },
   USER_USERNAME_DUPLICATE: { status: 409 },
   USER_NOT_LOCKED: { status: 409 },
+  USER_ROLES_CONFLICT: { status: 409 },
 
   // ── 角色 ──
   ROLE_NOT_FOUND: { status: 404 },

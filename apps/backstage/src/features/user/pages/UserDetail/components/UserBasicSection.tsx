@@ -36,8 +36,10 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
   const nameRef = useRef<HTMLInputElement>(null);
   // 鎖定不是可以「選」的狀態：只能解鎖。編輯時不動狀態，免得改個名字就順便把帳號解鎖（UX-05）
   const isLocked = user.status === 'locked';
+  // 還沒啟用的人只能靠啟用信變成 active：不提供狀態選單（API 也不接受改回 pending，EDGE-14）
+  const canEditStatus = !isLocked && user.status !== 'pending';
   useUnsavedChangesGuard(
-    editing && (displayName !== user.displayName || (!isLocked && status !== user.status)),
+    editing && (displayName !== user.displayName || (canEditStatus && status !== user.status)),
   );
 
   useEffect(() => {
@@ -48,7 +50,7 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
     // 只送出有變動的欄位
     const body: UpdateUserRequest = {};
     if (displayName !== user.displayName) body.displayName = displayName;
-    if (!isLocked && status !== user.status) body.status = status;
+    if (canEditStatus && status !== user.status) body.status = status;
     if (Object.keys(body).length === 0) {
       setEditing(false);
       return;
@@ -99,7 +101,7 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
                 disabled={isSelf}
                 onClick={() => {
                   setDisplayName(user.displayName);
-                  setStatus(isLocked ? 'active' : (user.status as EditableStatus));
+                  setStatus(user.status === 'inactive' ? 'inactive' : 'active');
                   setEditing(true);
                 }}
                 data-testid="user-edit-button"
@@ -134,8 +136,10 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
             label={t('user.field.status')}
             description={isLocked ? t('user.detail.lockedHint') : undefined}
           >
-            {isLocked ? (
-              <Chip tone={USER_STATUS_TONE.locked}>{t(USER_STATUS_LABEL_KEY.locked)}</Chip>
+            {!canEditStatus ? (
+              <Chip tone={USER_STATUS_TONE[user.status]}>
+                {t(USER_STATUS_LABEL_KEY[user.status])}
+              </Chip>
             ) : (
               <Select
                 value={status}
@@ -143,7 +147,6 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
                 options={[
                   { value: 'active', label: t(USER_STATUS_LABEL_KEY.active) },
                   { value: 'inactive', label: t(USER_STATUS_LABEL_KEY.inactive) },
-                  { value: 'pending', label: t(USER_STATUS_LABEL_KEY.pending) },
                 ]}
                 data-testid="user-status-select"
               />

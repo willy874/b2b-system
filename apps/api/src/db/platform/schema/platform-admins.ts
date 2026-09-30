@@ -70,6 +70,8 @@ export const platformRefreshTokens = pgTable(
       .notNull()
       .references(() => platformAdmins.id, { onDelete: 'cascade' }),
     familyId: uuid('family_id').notNull(),
+    /** 家族建立（登入）的時間，輪替時沿用：session 的絕對壽命由它起算。 */
+    familyCreatedAt: timestamp('family_created_at', { withTimezone: true }).notNull().defaultNow(),
     tokenHash: text('token_hash').notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     usedAt: timestamp('used_at', { withTimezone: true }),
@@ -84,6 +86,9 @@ export const platformRefreshTokens = pgTable(
   (t) => [
     uniqueIndex('platform_refresh_tokens_hash_key').on(t.tokenHash),
     index('platform_refresh_tokens_family_idx').on(t.familyId),
+    index('platform_refresh_tokens_family_revoked_idx')
+      .on(t.familyId)
+      .where(sql`${t.revokedAt} IS NOT NULL`),
     index('platform_refresh_tokens_idp_session_idx')
       .on(t.idpSessionUid)
       .where(sql`${t.idpSessionUid} IS NOT NULL AND ${t.revokedAt} IS NULL`),
