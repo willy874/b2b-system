@@ -16,7 +16,7 @@ import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 
-import { CurrentUser, Public, RequireAnyPermission } from '@/common/decorators';
+import { CurrentUser, Public, RequireAnyPermission, RequireFeature } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
@@ -54,6 +54,7 @@ import { FileService } from './file.service';
 
 @ApiTags('files')
 @Controller('files')
+@RequireFeature('file')
 export class FileController {
   constructor(
     private readonly fileService: FileService,

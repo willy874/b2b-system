@@ -1,7 +1,7 @@
 import { Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { CurrentUser, RequirePermissions } from '@/common/decorators';
+import { CurrentUser, RequireFeature, RequirePermissions } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
 import { ApiZodListResponse, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
@@ -12,6 +12,7 @@ import { JobService } from './job.service';
 
 @ApiTags('jobs')
 @Controller('jobs')
+@RequireFeature('job')
 export class JobController {
   constructor(private readonly jobService: JobService) {}
 

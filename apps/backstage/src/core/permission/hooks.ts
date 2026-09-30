@@ -1,11 +1,17 @@
 import { useCallback, useMemo } from 'react';
 
 import { usePermissionStore } from '@/core/store/permission';
+import { useStore } from '@/shared/hooks';
 
 import { buildPermissionKey, evaluateAccess, PermissionAction, PermissionMatch } from './constants';
 import type { PageKey, PagePermissionRule } from './constants';
 import type { PermissionKey } from './enums';
-import { getPagePermission, requirePagePermission, resolvePageKey } from './registry';
+import { pagePermissionRegistry, requirePagePermission, resolvePageKey } from './registry';
+
+/** 註冊表的版本：feature 在執行期安裝或卸載時換新，依賴它的判斷跟著重算（ADR-0021 D4）。 */
+function usePageRegistrations() {
+  return useStore(pagePermissionRegistry.store, (state) => state.entries);
+}
 
 export interface PermissionFacade {
   hydrated: boolean;
@@ -73,13 +79,15 @@ export function usePageAccessChecker(): {
   canAccessPage: (page: PageKey) => boolean;
 } {
   const facade = usePermission();
+  const registrations = usePageRegistrations();
+  // 未註冊的頁面（所屬 feature 沒有啟用）一律不可進入：選單項目因此自動隱藏
   const canAccessPage = useCallback(
     (page: PageKey) => {
-      const registration = getPagePermission(page);
+      const registration = registrations.get(page);
       if (!registration) return false;
       return evaluateAccess(registration.rule, facade.canEvery, facade.canSome);
     },
-    [facade],
+    [facade, registrations],
   );
   return { hydrated: facade.hydrated, canAccessPage };
 }
@@ -94,8 +102,9 @@ export interface PageAccessState {
 /** 供 route guard 使用：未註冊或無限制的路徑回 `{ gated: false, canAccess: true }`。 */
 export function usePageAccess(pathname: string): PageAccessState {
   const facade = usePermission();
+  const registrations = usePageRegistrations();
   return useMemo(() => {
-    const page = resolvePageKey(pathname);
+    const page = resolvePageKey(pathname, registrations);
     if (!page) return { hydrated: facade.hydrated, gated: false, canAccess: true };
     const registration = requirePagePermission(page);
     if (registration.rule.access.length === 0) {
@@ -107,7 +116,7 @@ export function usePageAccess(pathname: string): PageAccessState {
       gated: true,
       canAccess: evaluateAccess(registration.rule, facade.canEvery, facade.canSome),
     };
-  }, [facade, pathname]);
+  }, [facade, pathname, registrations]);
 }
 
 export { PermissionMatch };

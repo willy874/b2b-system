@@ -110,7 +110,7 @@ repository ✗──▶ service  （單向）
             Set-Cookie: refresh_token=…; HttpOnly; Secure; SameSite=Lax; Path=/api/auth（backstage 的 host-only cookie）
   ◀─ SessionStore.setTokens()  （access token 只存在記憶體閉包）
   └─▶ GET /auth/profile
-        ◀── 200 { user, roles[], permissions: PermissionKey[] }
+        ◀── 200 { user, roles[], permissions: PermissionKey[], features: TenantFeature[] }（features：租戶啟用的功能，ADR-0021 D8）
   └─▶ usePermissionStore.setPermissions(permissions)   ← 權限集合水合完成
   └─▶ router.history.replace(returnTo)
 ```

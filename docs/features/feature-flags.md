@@ -16,9 +16,11 @@
 - **系統設定**：定義在程式碼（`defineSetting`），租戶 DB 的 `system_settings` 只存覆寫值，**只支援純量**、**只有租戶一層**
   （沒有依角色、依使用者的值），快取 30 秒，改了之後推播 `resource.changed`。
 - **前端**：`plugins/app/feature-flags.ts` 有一個 `featureFlagPlugin` 的空殼，`main.tsx` 傳 `{}`，沒有人讀。
-- **生命週期**：所有註冊（頁面權限、選單、頂列工具）都在 plugin 的 **同步** 階段，這時還沒有 `/auth/profile`，所以不知道目前使用者是誰
+- **生命週期**：plugin 可以在 App 啟動後 `install()` / `uninstall()`，註冊表可訂閱、可撤回；平台對租戶開關 **長期模組**（`tenants.features`）已經用這套機制實作
+  （[ADR-0021](../adr/0021-runtime-feature-activation.md)、[`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §7）。
+  flag 可以沿用：「依 flag 決定要不要註冊」已經做得到，不必只在讀取時判斷。
   （[`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §3.1）。「依 flag 決定要不要註冊」做不到，只能在 **讀取時** 判斷，和頁面權限檢查一樣。
-- **`/auth/profile`** 回 `{ user, roles, permissions }`，沒有 flag。
+- **`/auth/profile`** 回 `{ user, roles, permissions, features }`；`features` 是租戶啟用的模組，不是 flag。
 
 ## 範圍
 
@@ -41,7 +43,7 @@
 - 判斷：`FeatureFlagService.isEnabled(key, actor)` = 程式預設 → 平台對租戶的覆寫 → 租戶的角色限制；結果依租戶快取，變更時失效並推播。
 - 後端：`@RequireFeature('key')` 和 `@RequirePermissions` 並列；關閉時回 404，不是 403（不暴露功能存在）。
   路由稽核（`common/route-audit.ts`）不受影響，授權宣告仍然必填。
-- 前端：`/auth/profile` 加 `features: string[]`；`useFeature(key)` 與路由 guard 讀它。`featureFlagPlugin` 的空殼換成真正的實作或移除。
+- 前端：`/auth/profile` 加 `flags: string[]`（`features` 已被租戶啟用的模組使用）；`useFeature(key)` 與路由 guard 讀它，可沿用 `core/feature` 的 `requireFeature` 與 `FeatureActivator`。`featureFlagPlugin` 的空殼換成真正的實作或移除。
 - 清理：`removeBy` 過期的 flag 在 CI 以 lint 或測試報錯，避免永久殘留。
 
 ## 開放問題

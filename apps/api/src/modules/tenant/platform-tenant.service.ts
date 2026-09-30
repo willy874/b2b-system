@@ -11,7 +11,7 @@ import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { JobQueue } from '@/core/jobs';
 import { isValidBucketName } from '@/core/storage/object-storage';
-import { Tenancy, TenantDirectory } from '@/core/tenant';
+import { Tenancy, TenantDirectory, toTenantFeatures } from '@/core/tenant';
 import type { TenantStatus } from '@/db/platform/schema';
 import { AuthService } from '@/modules/auth/auth.service';
 import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
@@ -40,6 +40,7 @@ function toDto(tenant: TenantWithDomains): PlatformTenantDto {
     domains: tenant.domains,
     storageBucket: tenant.storageBucket,
     allowExternalIdp: tenant.allowExternalIdp,
+    features: toTenantFeatures(tenant.features),
     adminEmail: tenant.adminEmail,
     provisionError: tenant.provisionError,
     provisionedAt: tenant.provisionedAt?.toISOString() ?? null,
@@ -147,10 +148,15 @@ export class PlatformTenantService {
 
   async update(id: string, dto: UpdateTenantDto): Promise<PlatformTenantDto> {
     const before = await this.getExisting(id);
+    const beforeFeatures = toTenantFeatures(before.features);
+    // 存成 `TENANT_FEATURES` 的順序：比較、稽核的 before/after 都不受送出順序影響
+    const features = dto.features && toTenantFeatures(dto.features);
+    const featuresChanged =
+      features !== undefined && features.join(',') !== beforeFeatures.join(',');
     await this.repo.transaction(async (tx) => {
       await this.repo.update(
         id,
-        { name: dto.name, allowExternalIdp: dto.allowExternalIdp },
+        { name: dto.name, allowExternalIdp: dto.allowExternalIdp, features },
         undefined,
         tx,
       );
@@ -161,18 +167,25 @@ export class PlatformTenantService {
           resourceId: id,
           metadata: {
             code: before.code,
-            before: { name: before.name, allowExternalIdp: before.allowExternalIdp },
+            before: {
+              name: before.name,
+              allowExternalIdp: before.allowExternalIdp,
+              features: beforeFeatures,
+            },
             after: {
               name: dto.name ?? before.name,
               allowExternalIdp: dto.allowExternalIdp ?? before.allowExternalIdp,
+              features: features ?? beforeFeatures,
             },
           },
         },
         tx,
       );
     });
-    // 外部 IdP 的開關在租戶脈絡裡判斷：立即生效（多個執行個體時最多晚 TENANT_CACHE_TTL 秒）
+    // 外部 IdP 的開關、啟用的 feature 都在租戶脈絡裡判斷：立即生效（多個執行個體時最多晚 TENANT_CACHE_TTL 秒）
     this.directory.invalidate();
+    // 失效之後才通知：前端收到後重新取得的 profile 已經是新的清單（docs/adr/0021-runtime-feature-activation.md D8）
+    if (featuresChanged) this.events.publish(DomainEvent.TENANT_FEATURES_CHANGED, { tenantId: id });
     return this.get(id);
   }
 

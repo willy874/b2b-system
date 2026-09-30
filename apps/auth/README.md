@@ -39,13 +39,15 @@ pnpm --filter @b2b-system/auth build
 | --- | --- |
 | `core/` | `app`、`auth`、`cache`、`client`、`errors`、`locales`、`notify`、`permission`、`realtime`、`router`、`store`、`theme` |
 | `components/` | `AlertDialog`、`Button`、`Checkbox`、`ConfirmDialog`、`Dialog`、`Ellipsis`、`Empty`、`Field`、`Icon`、`Input`、`Menu`、`Pagination`、`Select`、`Skeleton`、`Spinner`、`Table`、`Toast`、`Tooltip`、`VirtualList`，以及 `slots.ts`、`useControllableState.ts`、`useLatestRef.ts`、`types.ts` |
-| `shared/` | `EventEmitter`、`api-sdk`、`channel`、`constants`、`context`、`date`、`hooks`、`storage`、`store`、`utils`、`websocket-sdk` |
+| `shared/` | `EventEmitter`、`api-sdk`、`channel`、`constants`、`context`、`date`、`hooks`、`registry`、`storage`、`store`、`utils`、`websocket-sdk` |
 | `plugins/` | `fetcher/`；`app/` 的 `cache`、`event-bus`、`http-context`、`i18n`、`theme` |
 | `apis/auth/` | `get-profile`、`login`、`logout`、`refresh`（apps/auth 改打 `/platform/auth/*`：平台管理者的 session） |
 | 其他 | `themes/`、`assets/icons/`、`index.css`、`public/theme-init.js`、`test/`（setup 與假物件）、`app/GlobalProvider.tsx`、`ToastHost.tsx`、`ConfirmDialogHost.tsx`、`plugin.ts`、`layouts/ThemeMenu.tsx`、`app/locales/*.json` |
 | `features/login` | `hooks/`（`useLogoutMutation`、`useSyncPermissions`、`useSsoCallbackMutation`）、`pages/AuthShell.tsx`、`pages/Login/page.tsx` 與 `pages/SsoCallback/page.tsx`（與 backstage `features/auth` 的同名頁面相同流程，改過文案鍵與路由）、`sso.ts`（client id 不同） |
 | 帳號流程（搬移，backstage 已刪除） | `features/login/pages/{ForgotPassword,ResetPassword,Setup,Register}`、`apis/auth/{forgot-password,reset-password,setup,register}`；只存在 apps/auth，不需要同步（`apis/auth/tenant.ts` 的 `X-Tenant`、`apis/tenant/lookup-tenant` 也是）。`apis/resources.ts` 是 apps/auth 自己的精簡版 |
 | SSO 的瀏覽器端 | `core/auth/sso.ts`（PKCE、授權網址、verifier）、`apis/auth/sso-callback/`、`shared/constants/env.ts` 的 `OIDC_ISSUER` |
+
+`core/feature`（執行期啟用 feature，[ADR-0021](../../docs/adr/0021-runtime-feature-activation.md)）只在 backstage；這裡只複製它依賴的機制（`shared/context` 的 `install` / `uninstall`、`shared/registry`、可訂閱的權限註冊表），apps/auth 沒有可啟用的 feature。
 
 `core/realtime` 與 `components/Table` 目前沒有畫面用到，是被 `core/cache`、`core/store` 依賴而一起帶進來的。
 

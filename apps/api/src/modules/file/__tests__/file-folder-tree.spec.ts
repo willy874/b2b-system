@@ -43,7 +43,14 @@ function setup() {
 
 const inTenant = <T>(id: string, fn: () => T) =>
   runInTenantContext(
-    { id, code: id, db: {} as Database, storageBucket: id, allowExternalIdp: true },
+    {
+      id,
+      code: id,
+      db: {} as Database,
+      storageBucket: id,
+      allowExternalIdp: true,
+      features: ['file', 'auditLog', 'job'],
+    },
     fn,
   );
 

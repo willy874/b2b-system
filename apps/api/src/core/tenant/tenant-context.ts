@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 import type { Database } from '../database';
 import { AppException } from '../errors';
+import type { TenantFeature } from './tenant-features';
 
 /** 目前執行的程式屬於哪個租戶，以及它的 database（docs/adr/0020-physical-tenant-isolation.md D3）。 */
 export interface TenantContext {
@@ -12,6 +13,8 @@ export interface TenantContext {
   storageBucket: string;
   /** 平台管理者是否允許這個租戶使用外部 IdP 連線（D22）。 */
   allowExternalIdp: boolean;
+  /** 平台管理者為這個租戶啟用的 feature（docs/adr/0021-runtime-feature-activation.md D8）。 */
+  features: readonly TenantFeature[];
 }
 
 const storage = new AsyncLocalStorage<TenantContext>();

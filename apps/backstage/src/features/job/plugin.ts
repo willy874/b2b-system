@@ -1,10 +1,11 @@
-import type { AppPluginFactory } from '@/core/app';
+import type { AppDynamicPluginFactory } from '@/core/app';
 import { LanguageNamespace, Languages } from '@/shared/constants/lang';
 
 import { JOB_LOCALE_SCOPE } from './locale';
 import { registerJobPagePermissions } from './permission';
 
-export function appContextPlugin(): AppPluginFactory {
+/** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/adr/0021-runtime-feature-activation.md D1）。 */
+export function appContextPlugin(): AppDynamicPluginFactory {
   return (context) => {
     registerJobPagePermissions();
     const app = context.getInstance();

@@ -307,6 +307,79 @@ describe('批次佇列：並行、進度與中止（docs/adr/0013-file-manager-u
   });
 });
 
+/** 分頁各自的操作清單（同一個程序裡的分頁共用註冊表，要模擬「只有某些分頁安裝了 feature」就用它）。 */
+function operationSource(initial: string[]) {
+  let ids = initial;
+  const listeners = new Set<() => void>();
+  return {
+    ids: () => ids,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    set(next: string[]) {
+      ids = next;
+      for (const listener of listeners) listener();
+    },
+  };
+}
+
+describe('批次佇列：分頁宣告能執行的操作（docs/adr/0021-runtime-feature-activation.md D10）', () => {
+  it('發起的分頁沒有安裝這個操作時，交給宣告支援的分頁執行', async () => {
+    const run = vi.fn(() => Promise.resolve());
+    registerBatchOperation({ id: 'op', labelKey: 'x', successKey: 'y', run });
+    const owner = queue.openTab('tab-a', { operations: operationSource([]) });
+    const other = queue.openTab('tab-b', { operations: operationSource(['op']) });
+    await owner.start();
+    await other.start();
+
+    owner.enqueue({ operation: 'op', scope: 'list', items: items('1') });
+    await waitFor(() => expect(run).toHaveBeenCalledOnce());
+    await waitFor(() => expect(owner.getJobs()[0]?.status).toBe('done'));
+  });
+
+  it('沒有分頁支援時工作保持排隊（不判定失敗），有分頁宣告支援後才執行', async () => {
+    const run = vi.fn(() => Promise.resolve());
+    registerBatchOperation({ id: 'op', labelKey: 'x', successKey: 'y', run });
+    const operations = operationSource([]);
+    const tab = queue.openTab('tab-a', { operations });
+    await tab.start();
+
+    tab.enqueue({ operation: 'op', scope: 'list', items: items('1') });
+    await waitFor(() => expect(tab.getJobs()[0]?.status).toBe('queued'));
+    expect(run).not.toHaveBeenCalled();
+
+    operations.set(['op']);
+    await waitFor(() => expect(tab.getJobs()[0]?.status).toBe('done'));
+    expect(tab.getJobs()[0]?.failures).toEqual([]);
+  });
+
+  it('分頁卸載了某個操作（feature 被停用）→ 佇列取消使用它的工作', async () => {
+    registerBatchOperation({
+      id: 'op',
+      labelKey: 'x',
+      successKey: 'y',
+      run: () => new Promise<void>(() => undefined),
+    });
+    const operations = operationSource(['other']);
+    const tab = queue.openTab('tab-a', { operations });
+    await tab.start();
+    operations.set(['other', 'op']);
+    // 先塞一個永遠等不到分頁的工作
+    tab.enqueue({ operation: 'missing', scope: 'list', items: items('1') });
+    tab.enqueue({ operation: 'op', scope: 'list', items: items('2') });
+    await waitFor(() => expect(tab.getJobs()).toHaveLength(2));
+
+    operations.set(['other']);
+    await waitFor(() =>
+      expect(tab.getJobs().map((job) => [job.operation, job.status])).toEqual([
+        ['missing', 'queued'],
+        ['op', 'cancelled'],
+      ]),
+    );
+  });
+});
+
 describe('jobProgressRatio', () => {
   const job = (overrides: Partial<BatchJob>): BatchJob => ({
     id: 'j',

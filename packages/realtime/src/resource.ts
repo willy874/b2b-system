@@ -16,6 +16,11 @@ export const ChangeSource = {
   FILE_FOLDER: 'fileFolder',
   /** 系統設定（`id` 是設定的 key）。 */
   SETTING: 'setting',
+  /**
+   * 平台管理者變更了租戶啟用的 feature；前端據此重新取得 profile（其中的 `features`），
+   * 再安裝或移除對應的 feature（docs/adr/0021-runtime-feature-activation.md D8）。推給整個租戶，沒有 `id`。
+   */
+  TENANT_FEATURE: 'tenantFeature',
 } as const;
 
 export type ChangeSource = (typeof ChangeSource)[keyof typeof ChangeSource];
@@ -43,6 +48,7 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.FILE,
   ChangeSource.FILE_FOLDER,
   ChangeSource.SETTING,
+  ChangeSource.TENANT_FEATURE,
 ]);
 
 export const ResourceChangeWireSchema = z.object({

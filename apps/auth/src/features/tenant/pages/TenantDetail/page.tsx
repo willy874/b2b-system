@@ -23,11 +23,13 @@ import { DeleteTenantDialog } from './components/DeleteTenantDialog';
 import { ExternalIdpSwitch } from './components/ExternalIdpSwitch';
 import { RenameTenantDialog } from './components/RenameTenantDialog';
 import { TenantDomains } from './components/TenantDomains';
+import { TenantFeatures } from './components/TenantFeatures';
 
 type Confirming = 'disable' | 'remove' | undefined;
 
 /**
- * 一個租戶（docs/adr/0020-physical-tenant-isolation.md D12、D13）：佈建狀態與失敗原因、網域、停用與刪除。
+ * 一個租戶（docs/adr/0020-physical-tenant-isolation.md D12、D13）：佈建狀態與失敗原因、網域、外部 IdP 與啟用的功能
+ * （docs/adr/0021-runtime-feature-activation.md D8）、停用與刪除。
  * 佈建中時詳情每 2 秒重抓一次（`getTenantQueryOptions`）。
  */
 export default function TenantDetailPage() {
@@ -162,6 +164,7 @@ export default function TenantDetailPage() {
 
       <TenantDomains tenant={tenant} canUpdate={permission.canUpdate} />
       <ExternalIdpSwitch tenant={tenant} canUpdate={permission.canUpdate} />
+      <TenantFeatures tenant={tenant} canUpdate={permission.canUpdate} />
 
       <RenameTenantDialog open={renaming} tenant={tenant} onClose={() => setRenaming(false)} />
       <AlertDialog

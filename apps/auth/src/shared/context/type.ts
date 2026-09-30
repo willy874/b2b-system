@@ -45,9 +45,30 @@ export type PluginFactory<Attrs, State extends PluginState, Events extends Liste
   context: PluginContext<Attrs, State, Events>,
 ) => PluginResults<Attrs>;
 
+/**
+ * 以 `install()` 在 App 啟動後安裝的 plugin：不能提供 `attrs`
+ * （docs/adr/0021-runtime-feature-activation.md D3）。
+ */
+export type DynamicPluginFactory<Attrs, State extends PluginState, Events extends ListenerDict> = (
+  context: PluginContext<Attrs, State, Events>,
+) => Omit<PluginResults<Attrs>, 'attrs'> & { attrs?: never };
+
+/** `registered`：已同步註冊、尚未初始化；`initializing`：`onInit` 進行中；`failed`：`onInit` 丟了例外。 */
+export type PluginStatus = 'registered' | 'initializing' | 'ready' | 'failed';
+
 export type CoreContext<Attrs, State extends PluginState, Events extends ListenerDict> = Attrs & {
   use: (factory: PluginFactory<Attrs, State, Events>) => CoreContext<Attrs, State, Events>;
+  /** 初始化所有尚未初始化的 plugin；可以重複呼叫，已初始化的不會重跑。 */
   load: () => Promise<CoreContext<Attrs, State, Events>>;
+  /**
+   * App 啟動後安裝一個 plugin：同步註冊後只初始化它自己；`onInit` 失敗時自動卸載並把例外往外拋。
+   * 同名的 plugin 會先被卸載再取代。回傳 plugin 的名稱（給 `uninstall` 用）。
+   */
+  install: (factory: DynamicPluginFactory<Attrs, State, Events>) => Promise<string>;
+  /** 卸載：執行 `onDestroy`、停止它的 watch、撤回它的註冊表登記。沒有這個 plugin 時什麼都不做。 */
+  uninstall: (name: string) => void;
+  /** 沒有這個 plugin 時回 `undefined`。 */
+  pluginStatus: (name: string) => PluginStatus | undefined;
   destroy: () => void;
   /** context 層級的狀態 store：framework-agnostic，React 端以 `useStore(context.state, …)` 讀取。 */
   state: StoreApi<Partial<State>>;

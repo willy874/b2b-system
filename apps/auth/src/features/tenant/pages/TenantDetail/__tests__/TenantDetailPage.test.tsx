@@ -1,5 +1,5 @@
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
@@ -60,6 +60,14 @@ function renderPage(tenant: PlatformTenant, permissions: PermissionKey[]) {
     </AllProviders>,
   );
   return router;
+}
+
+/** 某個 feature 的開關：固定的 testid 在列上，feature id 在 `data-value`（docs/conventions/06-literal-strings.md §3.3）。 */
+async function featureToggle(feature: string): Promise<HTMLElement> {
+  const rows = await screen.findAllByTestId('tenant-feature');
+  const row = rows.find((el) => el.dataset.value === feature);
+  if (!row) throw new Error(`找不到 feature ${feature}`);
+  return within(row).getByTestId('tenant-feature-toggle');
 }
 
 beforeEach(() => {
@@ -168,6 +176,55 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
   it('外部 IdP 開關：只有 tenant:read → 不能切換', async () => {
     renderPage(tenantFixture(), ['tenant:read']);
     expect(await screen.findByTestId('tenant-allow-external-idp')).toHaveAttribute('data-disabled');
+  });
+
+  it('啟用的功能：每個 feature 一個開關，反映目前的清單（docs/adr/0021-runtime-feature-activation.md D8）', async () => {
+    renderPage(tenantFixture({ features: ['auditLog'] }), ALL);
+    const rows = await screen.findAllByTestId('tenant-feature');
+    expect(rows.map((el) => el.dataset.value)).toEqual(['file', 'auditLog', 'job']);
+    expect(await featureToggle('file')).toHaveAttribute('aria-checked', 'false');
+    expect(await featureToggle('auditLog')).toHaveAttribute('aria-checked', 'true');
+    expect(await featureToggle('job')).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('啟用的功能：打開直接送出完整清單（固定順序）', async () => {
+    const tenant = tenantFixture({ features: ['job'] });
+    update.mockResolvedValue({ ...tenant, features: ['file', 'job'] });
+    renderPage(tenant, ALL);
+    fireEvent.click(await featureToggle('file'));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect(update.mock.calls[0]?.[0]).toEqual({
+      params: { id: tenant.id, body: { features: ['file', 'job'] } },
+    });
+    expect(screen.queryByTestId('tenant-feature-dialog')).toBeNull();
+  });
+
+  it('啟用的功能：關閉要先確認，取消就不送出；確認後送出去掉該 feature 的清單', async () => {
+    const tenant = tenantFixture();
+    update.mockResolvedValue({ ...tenant, features: ['auditLog', 'job'] });
+    renderPage(tenant, ALL);
+    const toggle = await featureToggle('file');
+
+    fireEvent.click(toggle);
+    expect(await screen.findByTestId('tenant-feature-dialog')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('alert-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('tenant-feature-dialog')).toBeNull());
+    expect(update).not.toHaveBeenCalled();
+
+    fireEvent.click(toggle);
+    fireEvent.click(await screen.findByTestId('alert-dialog-confirm'));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect(update.mock.calls[0]?.[0]).toEqual({
+      params: { id: tenant.id, body: { features: ['auditLog', 'job'] } },
+    });
+  });
+
+  it('啟用的功能：只有 tenant:read → 不能切換', async () => {
+    renderPage(tenantFixture(), ['tenant:read']);
+    await screen.findAllByTestId('tenant-feature');
+    const toggles = screen.getAllByTestId('tenant-feature-toggle');
+    expect(toggles).toHaveLength(3);
+    for (const toggle of toggles) expect(toggle).toHaveAttribute('data-disabled');
   });
 
   it('佈建完成但後續步驟失敗 → 顯示提醒（不是佈建失敗），沒有重試', async () => {

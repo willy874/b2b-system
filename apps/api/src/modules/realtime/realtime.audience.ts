@@ -47,6 +47,9 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
   [ChangeSource.FILE_FOLDER]: { perms: () => FILE_READERS, includesSubject: false },
   // 設定頁；公開設定（登入頁、預設時區）在下次載入時讀，不即時推給所有人
   [ChangeSource.SETTING]: { perms: () => [PERMISSION.SYSTEM_READ], includesSubject: false },
+  // 平台層的變更，不經 `resource.changed` 事件：`tenant.featuresChanged` 直接推給整個租戶的 room
+  // （RealtimeListener.onTenantFeaturesChanged）。出現在這裡代表呼叫端用錯事件，不推給任何人
+  [ChangeSource.TENANT_FEATURE]: { perms: () => [], includesSubject: false },
 };
 
 /** 每次寫入都會新增一筆稽核（前端 `derivesFromAnyChange`）。 */

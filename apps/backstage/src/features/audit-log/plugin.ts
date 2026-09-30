@@ -1,11 +1,12 @@
-import type { AppPluginFactory } from '@/core/app';
+import type { AppDynamicPluginFactory } from '@/core/app';
 import { LanguageNamespace, Languages } from '@/shared/constants/lang';
 
 import { AUDIT_LOG_LOCALE_SCOPE } from './locale';
 import { registerAuditLogPagePermissions } from './permission';
 import { registerAuditLogPreferences } from './preference';
 
-export function appContextPlugin(): AppPluginFactory {
+/** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/adr/0021-runtime-feature-activation.md D1）。 */
+export function appContextPlugin(): AppDynamicPluginFactory {
   return (context) => {
     registerAuditLogPagePermissions();
     registerAuditLogPreferences(); // 偏好頁的列表註冊表

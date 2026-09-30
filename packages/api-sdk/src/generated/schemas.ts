@@ -96,6 +96,7 @@ import type {
   StoredFileImage,
   SystemSetting,
   SystemSettingList,
+  TenantFeature,
   TenantLookup,
   TenantLookupQuery,
   UpdateFileFolderAccessRequest,
@@ -484,6 +485,86 @@ export const PermissionCatalogSchema = z.object({
   groups: z.array(PermissionGroupSchema),
 }) satisfies z.ZodType<PermissionCatalog>;
 
+export const TenantFeatureSchema = z.enum([
+  'file',
+  'auditLog',
+  'job',
+]) satisfies z.ZodType<TenantFeature>;
+
+export const PlatformTenantSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  code: z.string(),
+  name: z.string(),
+  status: z.enum(['provisioning', 'active', 'disabled', 'failed']),
+  domains: z.array(z.string()),
+  storageBucket: z.string(),
+  allowExternalIdp: z.boolean(),
+  features: z.array(TenantFeatureSchema),
+  adminEmail: z.string().nullable(),
+  provisionError: z.string().nullable(),
+  provisionedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}) satisfies z.ZodType<PlatformTenant>;
+
+export const PlatformTenantListSchema = z.object({
+  items: z.array(PlatformTenantSchema),
+  pagination: z.object({
+    offset: z.number(),
+    limit: z.number(),
+    total: z.number(),
+  }),
+  baseDomain: z.string(),
+}) satisfies z.ZodType<PlatformTenantList>;
+
+export const CreateTenantRequestSchema = z.object({
+  code: z.string().regex(new RegExp('^[a-z][a-z0-9-]{1,30}[a-z0-9]$')),
+  name: z.string().min(1).max(100),
+  adminEmail: z
+    .email()
+    .max(254)
+    .regex(
+      new RegExp(
+        "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+      ),
+    ),
+  adminName: z.string().min(1).max(100).optional(),
+  domains: z
+    .array(
+      z
+        .string()
+        .regex(
+          new RegExp(
+            '^(?=.{1,253}(?::\\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\\d{1,5})?$',
+          ),
+        ),
+    )
+    .max(10)
+    .default([]),
+}) satisfies z.ZodType<CreateTenantRequest>;
+
+export const UpdateTenantRequestSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  allowExternalIdp: z.boolean().optional(),
+  features: z.array(TenantFeatureSchema).max(3).optional(),
+}) satisfies z.ZodType<UpdateTenantRequest>;
+
+export const AddTenantDomainRequestSchema = z.object({
+  domain: z
+    .string()
+    .regex(
+      new RegExp(
+        '^(?=.{1,253}(?::\\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\\d{1,5})?$',
+      ),
+    ),
+}) satisfies z.ZodType<AddTenantDomainRequest>;
+
 export const LoginRequestSchema = z.object({
   email: z
     .email()
@@ -523,6 +604,7 @@ export const ProfileSchema = z.object({
   }),
   roles: z.array(RoleSummarySchema),
   permissions: z.array(PermissionKeySchema),
+  features: z.array(TenantFeatureSchema),
 }) satisfies z.ZodType<Profile>;
 
 export const PlatformPermissionKeySchema = z.enum([
@@ -1247,78 +1329,6 @@ export const UpdateSystemSettingsRequestSchema = z.object({
 export const PublicSystemSettingsSchema = z.object({
   values: z.record(z.string(), z.union([z.string().max(1000), z.number(), z.boolean()])),
 }) satisfies z.ZodType<PublicSystemSettings>;
-
-export const PlatformTenantSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  code: z.string(),
-  name: z.string(),
-  status: z.enum(['provisioning', 'active', 'disabled', 'failed']),
-  domains: z.array(z.string()),
-  storageBucket: z.string(),
-  allowExternalIdp: z.boolean(),
-  adminEmail: z.string().nullable(),
-  provisionError: z.string().nullable(),
-  provisionedAt: z.string().nullable(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-}) satisfies z.ZodType<PlatformTenant>;
-
-export const PlatformTenantListSchema = z.object({
-  items: z.array(PlatformTenantSchema),
-  pagination: z.object({
-    offset: z.number(),
-    limit: z.number(),
-    total: z.number(),
-  }),
-  baseDomain: z.string(),
-}) satisfies z.ZodType<PlatformTenantList>;
-
-export const CreateTenantRequestSchema = z.object({
-  code: z.string().regex(new RegExp('^[a-z][a-z0-9-]{1,30}[a-z0-9]$')),
-  name: z.string().min(1).max(100),
-  adminEmail: z
-    .email()
-    .max(254)
-    .regex(
-      new RegExp(
-        "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
-      ),
-    ),
-  adminName: z.string().min(1).max(100).optional(),
-  domains: z
-    .array(
-      z
-        .string()
-        .regex(
-          new RegExp(
-            '^(?=.{1,253}(?::\\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\\d{1,5})?$',
-          ),
-        ),
-    )
-    .max(10)
-    .default([]),
-}) satisfies z.ZodType<CreateTenantRequest>;
-
-export const UpdateTenantRequestSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  allowExternalIdp: z.boolean().optional(),
-}) satisfies z.ZodType<UpdateTenantRequest>;
-
-export const AddTenantDomainRequestSchema = z.object({
-  domain: z
-    .string()
-    .regex(
-      new RegExp(
-        '^(?=.{1,253}(?::\\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\\d{1,5})?$',
-      ),
-    ),
-}) satisfies z.ZodType<AddTenantDomainRequest>;
 
 export const CurrentTenantSchema = z.object({
   code: z.string(),

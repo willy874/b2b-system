@@ -4,7 +4,8 @@ import { Suspense } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { useHasSession } from '@/core/auth';
-import { ForbiddenPage, PageSkeleton, UnexpectedErrorPage } from '@/core/components';
+import { ForbiddenPage, NotFoundPage, PageSkeleton, UnexpectedErrorPage } from '@/core/components';
+import { useFeatureGate } from '@/core/feature';
 import { usePageAccess } from '@/core/permission';
 
 import { DashboardLayout } from './layouts';
@@ -35,27 +36,42 @@ function matches(pathname: string, matcher: LayoutMatcher): boolean {
 export function Layout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { hydrated, gated, canAccess } = usePageAccess(pathname);
+  // 第二道防線（docs/adr/0021-runtime-feature-activation.md D7）：可啟用 feature 的頁面在安裝前沒有權限註冊，
+  // usePageAccess 會當成「不受管」而放行，所以先看 feature 的狀態
+  const featureGate = useFeatureGate(pathname);
   // 與 useSyncPermissions 同一個 query（共用快取，不會多打一次）：只拿來判斷水合是否失敗
   const hasSession = useHasSession();
   const profile = useQuery({ ...getAuthProfileQueryOptions(), enabled: hasSession });
   const matcher = matchers.find((candidate) => matches(pathname, candidate));
   const Shell = matcher?.component;
 
-  const content = !gated ? (
-    <Outlet />
-  ) : !hydrated ? (
-    // profile 失敗（5xx、逾時、TENANT_UNAVAILABLE）時權限永遠不會水合：說明原因並提供重試，
-    // 不要停在骨架屏
-    profile.isError ? (
-      <UnexpectedErrorPage error={profile.error} onRetry={() => void profile.refetch()} />
+  const content =
+    featureGate === 'disabled' ? (
+      <NotFoundPage />
+    ) : featureGate === 'failed' ? (
+      <UnexpectedErrorPage onRetry={() => globalThis.location.reload()} />
+    ) : featureGate === 'pending' ? (
+      // 啟用清單跟著 profile 來：profile 失敗時清單永遠不會到
+      profile.isError ? (
+        <UnexpectedErrorPage error={profile.error} onRetry={() => void profile.refetch()} />
+      ) : (
+        <PageSkeleton />
+      )
+    ) : !gated ? (
+      <Outlet />
+    ) : !hydrated ? (
+      // profile 失敗（5xx、逾時、TENANT_UNAVAILABLE）時權限永遠不會水合：說明原因並提供重試，
+      // 不要停在骨架屏
+      profile.isError ? (
+        <UnexpectedErrorPage error={profile.error} onRetry={() => void profile.refetch()} />
+      ) : (
+        <PageSkeleton />
+      )
+    ) : canAccess ? (
+      <Outlet />
     ) : (
-      <PageSkeleton />
-    )
-  ) : canAccess ? (
-    <Outlet />
-  ) : (
-    <ForbiddenPage />
-  );
+      <ForbiddenPage />
+    );
 
   const wrapped = <Suspense fallback={<PageSkeleton />}>{content}</Suspense>;
   return Shell ? <Shell>{wrapped}</Shell> : wrapped;

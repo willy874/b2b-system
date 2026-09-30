@@ -1,4 +1,4 @@
-import type { AppPluginFactory } from '@/core/app';
+import type { AppDynamicPluginFactory } from '@/core/app';
 import {
   imageThumbnailGenerator,
   registerFileValidator,
@@ -13,7 +13,8 @@ import { registerBuiltinFilePreviewers } from './preview/builtins';
 import { UPLOAD_SOURCE_MAX_AGE_MS, uploadSources } from './upload/uploadSources';
 import { imageSignatureValidator, maxSizeValidator } from './upload/validators';
 
-export function appContextPlugin(): AppPluginFactory {
+/** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/adr/0021-runtime-feature-activation.md D1）。 */
+export function appContextPlugin(): AppDynamicPluginFactory {
   return (context) => {
     registerFilePagePermissions();
     // 批次佇列的操作：任何分頁都可能被交派執行（包括接手別的分頁排隊中的上傳）

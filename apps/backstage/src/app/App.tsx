@@ -7,12 +7,14 @@ import { queryClient } from '@/core/cache';
 import { usePermissionStore } from '@/core/store';
 import { useSyncPermissions } from '@/features/auth';
 
+import { useSyncFeatures } from './features';
 import { GlobalProvider } from './GlobalProvider';
 import { isPublic, loginSearchAfterSessionEnd } from './sessionRedirect';
 
 function SessionWatcher({ router }: { router: AppContext['router'] }) {
-  // 整個 app 只有一個權限水合實例
+  // 整個 app 只有一個權限水合實例；可啟用 feature 的清單跟著同一個 profile 走
   useSyncPermissions();
+  useSyncFeatures();
   const hasSession = useHasSession();
 
   // 完全沒有 session（例如直接貼受保護的網址）→ 導向登入頁並記住原本要去的地方

@@ -185,6 +185,12 @@ export const ErrorCode = {
   // ── 驗證 ──
   VALIDATION_FAILED: { status: 400 },
 
+  // ── 租戶（節錄；完整清單見程式） ──
+  TENANT_NOT_FOUND: { status: 404 },
+  TENANT_UNAVAILABLE: { status: 503 },
+  PLATFORM_ONLY: { status: 404 },     // 平台端點在租戶網域上等同不存在
+  FEATURE_DISABLED: { status: 404 },  // 端點屬於租戶沒有啟用的 feature（ADR-0021 D11）；不暴露功能存在
+
   // ── 認證 ──
   AUTH_INVALID_CREDENTIALS: { status: 401 },
   AUTH_ACCOUNT_PENDING: { status: 401 },
@@ -243,7 +249,8 @@ export type ErrorCode = keyof typeof ErrorCode;
 ### 5.1 新增錯誤碼的流程
 
 1. 加進上面的表
-2. 在 `apps/backstage/src/app/locales/{en_US,zh_TW}.json` 加 `error.<CODE>`
+2. 在 `apps/backstage/src/app/locales/{en_US,zh_TW}.json`、`apps/auth/src/app/locales/{en_US,zh_TW}.json` 加 `error.<CODE>`，
+   並加進兩個 app 的 `core/errors/errorMessageKey.ts`
 3. CI 檢查會驗證每個 code 都有兩個語系的翻譯
 
 ### 5.2 `AppException`

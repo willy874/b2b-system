@@ -1,13 +1,18 @@
 import { useMemo } from 'react';
 
 import { useHeaderToolbarStore } from '@/core/store';
+import { useStore } from '@/shared/hooks';
 
-import { getHeaderTools, resolveHeaderTools } from './registry';
+import { headerToolRegistry, resolveHeaderTools, sortHeaderTools } from './registry';
 import type { ResolvedHeaderTool } from './registry';
 
 /** 套用使用者設定後的頂列工具（含隱藏的，`visible` 標示）；設定在其他分頁改了也會跟著更新。 */
 export function useHeaderTools(): ResolvedHeaderTool[] {
   const settings = useHeaderToolbarStore((state) => state.settings);
-  // 登記只發生在 plugin 的同步階段，render 期間不會再變
-  return useMemo(() => resolveHeaderTools(getHeaderTools(), settings), [settings]);
+  // feature 可能在執行期安裝或卸載，登記的工具要訂閱（ADR-0021 D4）
+  const tools = useStore(headerToolRegistry.store, (state) => state.entries);
+  return useMemo(
+    () => resolveHeaderTools(sortHeaderTools(tools.values()), settings),
+    [settings, tools],
+  );
 }

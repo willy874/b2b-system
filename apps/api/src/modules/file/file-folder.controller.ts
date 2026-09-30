@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { CurrentUser, RequireAnyPermission } from '@/common/decorators';
+import { CurrentUser, RequireAnyPermission, RequireFeature } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
@@ -39,6 +39,7 @@ import { FileFolderService } from './file-folder.service';
  */
 @ApiTags('files')
 @Controller('file-folders')
+@RequireFeature('file')
 export class FileFolderController {
   constructor(private readonly folderService: FileFolderService) {}
 

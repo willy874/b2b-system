@@ -88,10 +88,12 @@ apps/api/src/
 │   │   ├── public.decorator.ts
 │   │   ├── authenticated.decorator.ts
 │   │   ├── require-permissions.decorator.ts
+│   │   ├── require-feature.decorator.ts  @RequireFeature：端點屬於可啟用的 feature（ADR-0021 D11）
 │   │   ├── current-user.decorator.ts
 │   │   └── audit.decorator.ts
 │   ├── guards/
 │   │   ├── jwt-auth.guard.ts
+│   │   ├── feature.guard.ts              租戶沒有啟用 → FEATURE_DISABLED（404）
 │   │   └── permissions.guard.ts
 │   └── types/
 │       └── authenticated-request.ts
@@ -151,6 +153,13 @@ HTTP Request
      檢查 deleted_at / status / token_version
      → request.user
   │
+  ▼ ③' FeatureGuard (APP_GUARD)
+     @RequireFeature('<id>')（class 或 handler）且在租戶脈絡裡：
+     租戶的 features 不含它 → 404 FEATURE_DISABLED（ADR-0021 D11；05-tenancy.md §5.1）
+     排在 JWT 之後：未登入照舊 401，不讓未登入者知道租戶開了哪些功能；
+     排在權限之前：功能沒開一律 404，不以 403 透露端點存在，也不寫 authz.denied
+     沒有租戶脈絡（平台的請求）不判斷；平台端點標了 @RequireFeature 由路由稽核擋下
+  │
   ▼ ④ PermissionsGuard (APP_GUARD)
      讀 metadata：@Public / @Authenticated / @RequirePermissions
      都沒有 → 拋 ROUTE_PERMISSION_NOT_DECLARED（開發期就該被路由稽核擋下）
@@ -184,6 +193,7 @@ HTTP Request
 providers: [
   { provide: APP_GUARD, useClass: ThrottlerGuard },
   { provide: APP_GUARD, useClass: JwtAuthGuard },
+  { provide: APP_GUARD, useClass: FeatureGuard },
   { provide: APP_GUARD, useClass: PermissionsGuard },
 ];
 ```

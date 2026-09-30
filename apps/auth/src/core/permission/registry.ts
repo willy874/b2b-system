@@ -1,3 +1,5 @@
+import { createRegistry } from '@/shared/registry';
+
 import type { PageKey, PagePermissionRule } from './constants';
 
 export interface PageRegistration {
@@ -9,21 +11,25 @@ export interface PageRegistration {
   route: string;
 }
 
-const registry = new Map<PageKey, PageRegistration>();
+/**
+ * 頁面權限的註冊表。可訂閱：feature 可能在 App 啟動後才安裝或被移除
+ * （docs/adr/0021-runtime-feature-activation.md D4），權限 hooks 以 `useStore(pagePermissionRegistry.store, …)` 跟著更新。
+ */
+export const pagePermissionRegistry = createRegistry<PageKey, PageRegistration>('Page permission');
 
-export function registerPagePermission(page: PageKey, registration: PageRegistration): void {
-  if (registry.has(page)) throw new Error(`Page permission already registered: ${page}`);
-  for (const [existing, value] of registry) {
+/** 回傳反註冊函式；在 plugin 的 factory 裡呼叫時由容器收集，不必自己保存。 */
+export function registerPagePermission(page: PageKey, registration: PageRegistration): () => void {
+  for (const [existing, value] of pagePermissionRegistry.store.getState().entries) {
     if (value.route === registration.route) {
       throw new Error(`Route "${registration.route}" is already registered by page ${existing}`);
     }
   }
-  registry.set(page, registration);
+  return pagePermissionRegistry.register(page, registration);
 }
 
 /** miss 時丟例外：所有呼叫點都在 plugin 註冊之後，miss 只可能是 feature 忘了註冊。 */
 export function requirePagePermission(page: PageKey): PageRegistration {
-  const registration = registry.get(page);
+  const registration = pagePermissionRegistry.get(page);
   if (!registration) {
     throw new Error(
       `Page permission not registered: ${page}. 請在擁有它的 feature 的 permission.ts 中註冊。`,
@@ -33,7 +39,7 @@ export function requirePagePermission(page: PageKey): PageRegistration {
 }
 
 export function getPagePermission(page: PageKey): PageRegistration | undefined {
-  return registry.get(page);
+  return pagePermissionRegistry.get(page);
 }
 
 /**
@@ -41,10 +47,13 @@ export function getPagePermission(page: PageKey): PageRegistration | undefined {
  * 命中多筆時取 **最長** 的 base path：`/user/create` 有自己的規則時，
  * 不應該被 `/user` 的規則蓋過去。
  */
-export function resolvePageKey(pathname: string): PageKey | undefined {
+export function resolvePageKey(
+  pathname: string,
+  entries: ReadonlyMap<PageKey, PageRegistration> = pagePermissionRegistry.store.getState().entries,
+): PageKey | undefined {
   let matched: { page: PageKey; length: number } | undefined;
 
-  for (const [page, { route }] of registry) {
+  for (const [page, { route }] of entries) {
     if (route === '/') {
       if (pathname === '/') return page;
       continue;
@@ -57,12 +66,12 @@ export function resolvePageKey(pathname: string): PageKey | undefined {
 }
 
 export function getRegisteredPageKeys(): PageKey[] {
-  return [...registry.keys()];
+  return pagePermissionRegistry.keys();
 }
 
-/** 測試專用。正式程式從不解除註冊。 */
+/** 測試專用。正式程式只經由 plugin 卸載解除註冊。 */
 export function resetPagePermissionRegistry(): void {
-  registry.clear();
+  pagePermissionRegistry.reset();
 }
 
 interface RouteLike {

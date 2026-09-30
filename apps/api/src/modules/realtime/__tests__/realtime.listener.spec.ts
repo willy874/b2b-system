@@ -59,17 +59,18 @@ function setup(openRooms: Record<string, number> = {}) {
 }
 
 describe('RealtimeListener（領域事件 → 推播）', () => {
-  it('啟動時訂閱三個事件，關閉時全部取消', () => {
+  it('啟動時訂閱四個事件，關閉時全部取消', () => {
     const { listener, bus, unsubscribe } = setup();
     expect(bus.subscribe.mock.calls.map(([type]) => type).toSorted()).toEqual(
       [
         DomainEvent.PERMISSIONS_CHANGED,
         DomainEvent.RESOURCE_CHANGED,
         DomainEvent.SESSIONS_REVOKED,
+        DomainEvent.TENANT_FEATURES_CHANGED,
       ].toSorted(),
     );
     listener.onModuleDestroy();
-    expect(unsubscribe).toHaveBeenCalledTimes(3);
+    expect(unsubscribe).toHaveBeenCalledTimes(4);
   });
 
   it('permissions.changed → 同步這些人的 room', async () => {
@@ -140,5 +141,19 @@ describe('RealtimeListener（領域事件 → 推播）', () => {
       { rooms: 't:t2', event: 'session.revoked', payload: { reason: 'TENANT_UNAVAILABLE' } },
     ]);
     expect(disconnected).toEqual(['t:t2']);
+  });
+
+  it('租戶的 feature 變更 → 對整個租戶的 room 推 tenantFeature update，不帶 origin（docs/adr/0021-runtime-feature-activation.md D8）', () => {
+    const { fire, emits, disconnected } = setup({ 't:t2': 2 });
+    fire(DomainEvent.TENANT_FEATURES_CHANGED, { tenantId: 't2' }, { clientId: 'platform-tab' });
+
+    expect(emits).toEqual([
+      {
+        rooms: 't:t2',
+        event: 'resource.changed',
+        payload: { changes: [{ resource: 'tenantFeature', kind: 'update' }] },
+      },
+    ]);
+    expect(disconnected).toEqual([]);
   });
 });

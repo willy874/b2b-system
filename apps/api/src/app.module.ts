@@ -3,7 +3,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, DiscoveryModule } from '@nestjs
 import { ThrottlerModule } from '@nestjs/throttler';
 
 import { AccessTokenModule } from './common/auth';
-import { JwtAuthGuard, PermissionsGuard, RateLimitGuard } from './common/guards';
+import { FeatureGuard, JwtAuthGuard, PermissionsGuard, RateLimitGuard } from './common/guards';
 import { CacheModule } from './core/cache';
 import { ConfigModule } from './core/config';
 import { DatabaseModule } from './core/database';
@@ -81,6 +81,8 @@ import { UserModule } from './modules/user/user.module';
     // 全域註冊 ＋ 預設拒絕：忘記宣告權限的後果是「啟動失敗」而不是「開了一個無保護的端點」
     { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // 未啟用的 feature → 404：在驗證之後（未登入照舊 401）、權限之前（不以 403 透露端點存在）
+    { provide: APP_GUARD, useClass: FeatureGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
     { provide: APP_FILTER, useClass: HttpExceptionFilter },

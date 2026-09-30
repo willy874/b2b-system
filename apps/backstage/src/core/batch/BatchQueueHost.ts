@@ -60,7 +60,8 @@ const runningKey = (jobId: string, itemId: string) => `${jobId}\u0000${itemId}`;
  * 同時處理數筆（docs/adr/0013-file-manager-upload.md）。實際的 HTTP 請求由分頁以一般 API 送出：token、續期、錯誤轉換只在分頁的 `apis/` 一處，
  * access token 不必離開分頁的記憶體。
  *
- * 執行者：優先交給發起的分頁；它關掉了就交給任一個還在的分頁（每個分頁都註冊了所有操作）。
+ * 執行者：優先交給發起的分頁；它關掉了就交給任一個還在、且宣告支援這個操作的分頁
+ * （feature 在執行期安裝，各分頁的操作可能暫時不同，docs/adr/0021-runtime-feature-activation.md D10）。
  * 執行中的分頁消失時，同一筆改交給其他分頁重送（單筆 API 已處理過的會以 `*_NOT_FOUND` 等錯誤回來）。
  */
 export class BatchQueueHost {
@@ -69,6 +70,8 @@ export class BatchQueueHost {
   private readonly watchClient: WatchClient | undefined;
   private readonly now: () => number;
   private readonly clients = new Map<string, BatchPort>();
+  /** 分頁宣告能執行的操作；沒有宣告過的分頁視為全部支援。 */
+  private readonly capabilities = new Map<string, ReadonlySet<string>>();
   private readonly detachers = new Set<() => void>();
   private jobs: BatchJob[] = [];
   /** 處理中的項目（`runningKey(jobId, itemId)` → 由哪個分頁處理）。 */
@@ -128,6 +131,7 @@ export class BatchQueueHost {
     // 同一個 clientId 可能已經以新的 port 重新連上（從 bfcache 回來）
     if (this.clients.get(clientId) !== port) return;
     this.clients.delete(clientId);
+    this.capabilities.delete(clientId);
     const orphaned = [...this.running.entries()].filter(([, run]) => run.clientId === clientId);
     if (orphaned.length === 0) return;
     // 這些項目沒有結果：交給其他分頁重送；已被取消的工作不再送，最後一筆收回時通知結束
@@ -191,6 +195,17 @@ export class BatchQueueHost {
         this.jobs = this.jobs.filter(isActive);
         this.broadcast();
         return;
+      case 'capabilities':
+        if (!clientId) return;
+        this.capabilities.set(clientId, new Set(message.operations));
+        // 可能剛有分頁能接手等待中的工作
+        this.pump();
+        return;
+      case 'cancel-operations': {
+        const operations = new Set(message.operations);
+        this.cancel((job) => operations.has(job.operation));
+        return;
+      }
       default:
         return;
     }
@@ -214,7 +229,8 @@ export class BatchQueueHost {
       return;
     }
     const executor = this.pickExecutor(job);
-    // 沒有任何分頁連著：等下一個分頁 hello 時再繼續
+    // 沒有任何分頁連著、或連著的分頁都還沒安裝這個操作所屬的 feature：
+    // 等下一個分頁 hello 或宣告支援時再繼續
     if (!executor) return;
     if (job.status === 'queued') {
       job.status = 'running';
@@ -301,15 +317,26 @@ export class BatchQueueHost {
 
   /** 結束通知只送一個分頁：發起的分頁還在就給它，否則給任一個分頁。 */
   private notifyFinished(job: BatchJob): void {
-    const target = this.pickExecutor(job);
-    if (target) this.send(target.port, { type: 'finished', job: structuredClone(job) });
+    const owner = this.clients.get(job.ownerId);
+    const [first] = this.clients;
+    const port = owner ?? first?.[1];
+    if (port) this.send(port, { type: 'finished', job: structuredClone(job) });
   }
 
+  private supports(clientId: string, operation: string): boolean {
+    return this.capabilities.get(clientId)?.has(operation) ?? true;
+  }
+
+  /** 執行者：發起的分頁還在且支援就給它，否則給任一個支援這個操作的分頁。 */
   private pickExecutor(job: BatchJob): { clientId: string; port: BatchPort } | undefined {
     const owner = this.clients.get(job.ownerId);
-    if (owner) return { clientId: job.ownerId, port: owner };
-    const [first] = this.clients;
-    return first ? { clientId: first[0], port: first[1] } : undefined;
+    if (owner && this.supports(job.ownerId, job.operation)) {
+      return { clientId: job.ownerId, port: owner };
+    }
+    for (const [clientId, port] of this.clients) {
+      if (this.supports(clientId, job.operation)) return { clientId, port };
+    }
+    return undefined;
   }
 
   private trimFinished(): void {

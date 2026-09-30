@@ -28,6 +28,11 @@ export const ErrorCode = {
   PLATFORM_ADMIN_NOT_FOUND: { status: 404 },
   /** 租戶不允許設定外部 IdP 連線（平台管理者關掉了，D22）。 */
   IDENTITY_PROVIDER_NOT_ALLOWED: { status: 403 },
+  /**
+   * 這個端點屬於租戶沒有啟用的 feature（docs/adr/0021-runtime-feature-activation.md D11）。
+   * 404：不暴露功能存在，與路徑不存在一樣。
+   */
+  FEATURE_DISABLED: { status: 404 },
 
   // ── 認證 ──
   AUTH_INVALID_CREDENTIALS: { status: 401 },

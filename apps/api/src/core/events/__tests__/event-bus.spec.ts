@@ -14,7 +14,14 @@ const revoked: DomainEventPayloads[typeof DomainEvent.SESSIONS_REVOKED] = {
 };
 
 function inTenant(id: string, fn: () => void): void {
-  const context = { id, code: id, db: {}, storageBucket: id, allowExternalIdp: false };
+  const context = {
+    id,
+    code: id,
+    db: {},
+    storageBucket: id,
+    allowExternalIdp: false,
+    features: ['file', 'auditLog', 'job'],
+  };
   runInTenantContext(context as unknown as TenantContext, fn);
 }
 

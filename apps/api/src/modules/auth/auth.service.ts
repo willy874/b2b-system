@@ -363,6 +363,7 @@ export class AuthService {
       },
       roles,
       permissions,
+      features: [...requireTenant().features],
     };
   }
 

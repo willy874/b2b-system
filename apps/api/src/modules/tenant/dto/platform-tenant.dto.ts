@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-import { defineSchema } from '@/core/validation';
+import { TENANT_FEATURES } from '@/core/tenant';
+import { defineSchema, uniqueItems } from '@/core/validation';
 
 /**
  * 租戶代碼：網域的第一段（`{code}.<TENANT_BASE_DOMAIN>`）與「進入租戶」頁輸入的值，
@@ -28,6 +29,12 @@ export const TenantDomainSchema = z.string().trim().toLowerCase().regex(HOST_PAT
 
 export const TenantStatusSchema = z.enum(['provisioning', 'active', 'disabled', 'failed']);
 
+/**
+ * 可由平台管理者開關的 feature id（docs/adr/0021-runtime-feature-activation.md D8）：以 `TenantFeature` 出現在 OpenAPI，
+ * 前端由 api-sdk 取得型別與常數（與權限鍵同一個做法，ADR-0007）。
+ */
+export const TenantFeatureSchema = defineSchema('TenantFeature', z.enum(TENANT_FEATURES));
+
 /** 平台管理者看到的租戶（docs/adr/0020-physical-tenant-isolation.md D12、D13）：不含連線字串。 */
 export const PlatformTenantSchema = defineSchema(
   'PlatformTenant',
@@ -41,6 +48,8 @@ export const PlatformTenantSchema = defineSchema(
     storageBucket: z.string(),
     /** 是否允許租戶設定外部 IdP 連線（D22）。 */
     allowExternalIdp: z.boolean(),
+    /** 啟用的 feature（ADR-0021 D8），依 `TENANT_FEATURES` 的順序。 */
+    features: z.array(TenantFeatureSchema),
     /** 佈建時建立的第一位管理員；`db:migrate` 登記的租戶沒有。 */
     adminEmail: z.string().nullable(),
     /** 最近一次佈建失敗的原因（`failed` 時才有）。 */
@@ -93,8 +102,17 @@ export const UpdateTenantSchema = defineSchema(
     .object({
       name: z.string().trim().min(1).max(100).optional(),
       allowExternalIdp: z.boolean().optional(),
+      /**
+       * 啟用的 feature 的 **完整清單**（不是增減）：沒列出的就停用，空陣列 = 全部停用（ADR-0021 D8）。
+       * 重複的值與其他陣列欄位一樣直接拒絕（`uniqueItems`），所以長度上限就是 id 的總數。
+       */
+      features: uniqueItems(z.array(TenantFeatureSchema).max(TENANT_FEATURES.length)).optional(),
     })
-    .refine((dto) => dto.name !== undefined || dto.allowExternalIdp !== undefined, 'empty'),
+    .refine(
+      (dto) =>
+        dto.name !== undefined || dto.allowExternalIdp !== undefined || dto.features !== undefined,
+      'empty',
+    ),
 );
 
 export const AddTenantDomainSchema = defineSchema(
