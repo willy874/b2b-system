@@ -35,7 +35,14 @@ export type BatchClientMessage =
   | { type: 'cancel'; jobId: string }
   | { type: 'cancel-all' }
   | { type: 'dismiss'; jobId: string }
-  | { type: 'clear-finished' };
+  | { type: 'clear-finished' }
+  /**
+   * 這個分頁能執行哪些操作（docs/adr/0021-runtime-feature-activation.md D10）：feature 在執行期安裝或卸載，
+   * 各分頁的註冊表可能暫時不同。佇列只把項目交給宣告過支援的分頁；沒送過的分頁視為全部支援。
+   */
+  | { type: 'capabilities'; operations: string[] }
+  /** 這些操作所屬的 feature 被停用了：取消使用它們、尚未結束的工作。 */
+  | { type: 'cancel-operations'; operations: string[] };
 
 /** 佇列 → 分頁。 */
 export type BatchHostMessage =

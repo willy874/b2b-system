@@ -3,7 +3,7 @@ import type { Channel } from '@/shared/channel';
 import { EventEmitter } from '@/shared/EventEmitter';
 
 import { serializeBatchError } from './errors';
-import { getBatchOperation } from './operations';
+import { batchOperationRegistry, getBatchOperation } from './operations';
 import {
   BATCH_CLIENT_LOCK_PREFIX,
   createBatchQueueChannel,
@@ -26,6 +26,17 @@ export type BatchQueueClientEvents = {
 /** 讓 host 能偵測分頁消失：持有鎖直到 `release()`。不支援 Web Locks 時回 `undefined`。 */
 export type HoldClientLock = (name: string) => Promise<{ release: () => void }> | undefined;
 
+/** 這個分頁能執行的操作，以及它們何時改變（feature 在執行期安裝或卸載）。 */
+export interface BatchOperationSource {
+  ids: () => string[];
+  subscribe: (listener: () => void) => () => void;
+}
+
+const registryOperationSource: BatchOperationSource = {
+  ids: () => batchOperationRegistry.keys(),
+  subscribe: (listener) => batchOperationRegistry.store.subscribe(() => listener()),
+};
+
 export interface BatchQueueClientOptions {
   port: BatchPort;
   /** 本分頁的 `CLIENT_ID`。 */
@@ -34,6 +45,11 @@ export interface BatchQueueClientOptions {
   channel?: Channel<BatchQueueMessages>;
   /** 預設查 `registerBatchOperation` 的註冊表。 */
   resolveOperation?: (id: string) => BatchOperation | undefined;
+  /**
+   * 向佇列宣告能執行哪些操作。沒給 `resolveOperation` 時預設是同一個註冊表；
+   * 給了 `resolveOperation` 卻沒給這個時不宣告（佇列視為全部支援）。
+   */
+  operations?: BatchOperationSource;
   /** 預設用 Web Locks。 */
   holdLock?: HoldClientLock;
   /**
@@ -80,6 +96,10 @@ export class BatchQueueClient {
   private readonly clientId: string;
   private readonly channel: Channel<BatchQueueMessages>;
   private readonly resolveOperation: (id: string) => BatchOperation | undefined;
+  private readonly operations: BatchOperationSource | undefined;
+  private readonly stopOperations: (() => void) | undefined;
+  /** 上一次宣告的操作：比對出被卸載的，請佇列取消它們的工作。 */
+  private declared = new Set<string>();
   private readonly holdLock: HoldClientLock;
   private readonly ownsHost: boolean;
   private readonly hosts = new Map<string, { version: number; jobs: readonly BatchJob[] }>();
@@ -96,6 +116,9 @@ export class BatchQueueClient {
     this.clientId = options.clientId;
     this.channel = options.channel ?? createBatchQueueChannel();
     this.resolveOperation = options.resolveOperation ?? getBatchOperation;
+    this.operations =
+      options.operations ?? (options.resolveOperation ? undefined : registryOperationSource);
+    this.stopOperations = this.operations?.subscribe(() => this.declareOperations());
     this.holdLock = options.holdLock ?? webLocksHold();
     this.ownsHost = options.ownsHost ?? false;
 
@@ -122,6 +145,7 @@ export class BatchQueueClient {
       return;
     }
     this.send({ type: 'hello', clientId: this.clientId });
+    this.declareOperations();
     this.channel.post('snapshot-request', {});
   }
 
@@ -135,6 +159,7 @@ export class BatchQueueClient {
   }
 
   dispose(): void {
+    this.stopOperations?.();
     for (const controller of this.executions.values()) controller.abort();
     this.executions.clear();
     this.stop();
@@ -230,6 +255,19 @@ export class BatchQueueClient {
     } finally {
       this.executions.delete(key);
     }
+  }
+
+  /**
+   * 向佇列宣告目前能執行的操作；比上一次少了的，代表所屬 feature 被停用（清單對整個租戶一致），
+   * 請佇列取消使用它們的工作，否則那些工作會一直等不到能執行的分頁（ADR-0021 D10）。
+   */
+  private declareOperations(): void {
+    if (!this.operations || !this.started) return;
+    const next = new Set(this.operations.ids());
+    const removed = [...this.declared].filter((id) => !next.has(id));
+    this.declared = next;
+    this.send({ type: 'capabilities', operations: [...next] });
+    if (removed.length > 0) this.send({ type: 'cancel-operations', operations: removed });
   }
 
   private recompute(): void {

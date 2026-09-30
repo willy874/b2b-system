@@ -1,4 +1,5 @@
 import { BatchQueueClient, BatchQueueHost, createBatchQueueChannel } from '@/core/batch';
+import type { BatchOperationSource } from '@/core/batch';
 
 import { createFakeChannelHub } from './fakeChannelHub';
 
@@ -15,7 +16,15 @@ export function createFakeBatchQueue() {
   });
   const tabs: BatchQueueClient[] = [];
 
-  function openTab(clientId: string, options: { ownsHost?: boolean; host?: BatchQueueHost } = {}) {
+  function openTab(
+    clientId: string,
+    options: {
+      ownsHost?: boolean;
+      host?: BatchQueueHost;
+      /** 這個分頁能執行的操作；預設是共用的註冊表（同一個程序裡所有分頁相同）。 */
+      operations?: BatchOperationSource;
+    } = {},
+  ) {
     const { port1, port2 } = new MessageChannel();
     (options.host ?? host).connect(port2);
     const client = new BatchQueueClient({
@@ -24,6 +33,7 @@ export function createFakeBatchQueue() {
       channel: createBatchQueueChannel({ transport: hub.transport() }),
       holdLock: () => undefined,
       ownsHost: options.ownsHost,
+      operations: options.operations,
     });
     tabs.push(client);
     return client;
