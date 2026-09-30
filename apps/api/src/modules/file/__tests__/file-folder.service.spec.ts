@@ -9,6 +9,7 @@ import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { LevelGrant } from '@/modules/resource-grant/resource-grant.resolver';
 
 import type { FileAccessRequestService } from '../file-access-request.service';
+import { FileFolderTree } from '../file-folder-tree';
 import type { FileFolderRepository } from '../file-folder.repository';
 import { FileFolderService } from '../file-folder.service';
 import { MAX_FOLDER_DEPTH } from '../file.constants';
@@ -167,6 +168,7 @@ function setup(
     events as unknown as DomainEventBus,
     fixture.access,
     requests as unknown as FileAccessRequestService,
+    new FileFolderTree(db as unknown as Database, repo as unknown as FileFolderRepository),
   );
   return { service, repo, audit, events, idOf, folders: live, denials: fixture.audit };
 }

@@ -23,6 +23,7 @@ import type {
 import { FileAccessRequestService } from './file-access-request.service';
 import type { FileAccessContext } from './file-access.context';
 import { FileAccessService } from './file-access.service';
+import { FileFolderTree } from './file-folder-tree';
 import { FileFolderRepository } from './file-folder.repository';
 import { MAX_FOLDER_DEPTH } from './file.constants';
 
@@ -52,6 +53,7 @@ export class FileFolderService {
     private readonly events: DomainEventBus,
     private readonly access: FileAccessService,
     private readonly requests: FileAccessRequestService,
+    private readonly tree: FileFolderTree,
   ) {}
 
   /**
@@ -404,10 +406,7 @@ export class FileFolderService {
   /** 結構的寫入：交易內先排隊；同名的競態（鎖以外的寫入）也轉成業務錯誤。 */
   private async writeTree<T>(work: (tx: DbOrTx) => Promise<T>): Promise<T> {
     try {
-      return await withTransaction(this.db, async (tx) => {
-        await this.repo.lockTree(tx);
-        return work(tx);
-      });
+      return await this.tree.write(work);
     } catch (error) {
       if (isUniqueViolation(error)) throw new AppException('FILE_FOLDER_NAME_CONFLICT');
       throw error;

@@ -243,7 +243,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | --- | --- |
 | 路由宣告 | 檔案相關路由改成 `@RequireAnyPermission('file:access', 'file:<動作>')`：guard 只當閘門，範圍由 service 判斷（[`05-rbac.md`](../architecture/backend/05-rbac.md) §1 原則 3 的例外） |
 | 推播 | `file` / `fileFolder` 的受眾加上 `file:access` 的 room。Payload 只有 id（[`08-realtime.md`](../architecture/backend/08-realtime.md) §6.1），看不到的資料夾有變更時只會多重抓一次，不會外洩名稱。授權變更推 `fileFolder update`（id 是該資料夾） |
-| 權限快取 | 資料夾授權 **不進** 權限快取：每個請求重新解析（一次取整棵資料夾結構 ＋ 相關授權）。角色指派、授權變更都不需要失效任何東西 |
+| 權限快取 | 資料夾授權 **不進** 權限快取：每個請求重新解析（一次取整棵資料夾結構 ＋ 相關授權）。角色指派、授權變更都不需要失效任何東西；資料夾結構本身有程序內快取，由結構的寫入在提交後失效（backend 09 §11.1） |
 | 簽章網址 | 影像 API 與 presigned 下載網址發出後到期前都有效：撤銷授權的延遲上限是網址的 TTL（`FILE_URL_TTL`，預設 15 分鐘，env 最多只接受 1 小時）；列表的網址因簽章時間取整（backend 09 §7.1），實際剩餘效期介於 TTL/2 與 TTL 之間 |
 
 ---

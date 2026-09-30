@@ -1,11 +1,10 @@
 import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import type { ResourceChangeWire } from '@b2b-system/realtime';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { OnApplicationBootstrap, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
 import { PERMISSION } from '@/common/types';
-import type { Database, DbOrTx } from '@/core/database';
-import { TENANT_DB, withTransaction } from '@/core/database';
+import type { DbOrTx } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { Tenancy } from '@/core/tenant';
 import type { FileFolderRow } from '@/db/schema';
@@ -14,6 +13,7 @@ import { AuditService } from '@/modules/audit-log/audit.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 import { ResourceGrantService } from '@/modules/resource-grant/resource-grant.service';
 
+import { FileFolderTree } from './file-folder-tree';
 import { FileFolderRepository } from './file-folder.repository';
 
 /** 系統資料夾的名稱（建立時；之後不能改名）。 */
@@ -36,7 +36,7 @@ export class FileSystemFolderService
   private unsubscribers: Array<() => void> = [];
 
   constructor(
-    @Inject(TENANT_DB) private readonly db: Database,
+    private readonly tree: FileFolderTree,
     private readonly repo: FileFolderRepository,
     private readonly grants: ResourceGrantService,
     private readonly permissions: PermissionService,
@@ -277,10 +277,7 @@ export class FileSystemFolderService
 
   /** 與資料夾的其他結構寫入排隊（docs/architecture/backend/09-file.md §4.2）。 */
   private writeTree<T>(work: (tx: DbOrTx) => Promise<T>): Promise<T> {
-    return withTransaction(this.db, async (tx) => {
-      await this.repo.lockTree(tx);
-      return work(tx);
-    });
+    return this.tree.write(work);
   }
 
   private publish(): void {

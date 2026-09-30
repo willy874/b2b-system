@@ -563,6 +563,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `src/modules/file/__tests__/file-folder.service.spec.ts` | 資料夾規則（以記憶體裡的樹模擬 repository）：同名（不分大小寫、只限同一層）、循環、目的地同名、遞迴刪除、上傳資料夾的沿用與深度上限 |
 | `src/modules/resource-grant/__tests__/resource-grant.resolver.spec.ts` | 等級解析：繼承、取最高、中斷繼承、記憶化、壞資料的循環 |
 | `src/modules/resource-grant/__tests__/resource-grant.levels.spec.ts` | 通用的等級 → 動作、反提權比對（以假的資源驗證不依賴檔案） |
+| `src/modules/file/__tests__/file-folder-tree.spec.ts` | 資料夾結構的快取：共用、交易內直接查、寫入提交後失效（含 rollback 與進行中的讀取）、失敗不快取、依租戶區分 |
 | `src/modules/file/__tests__/file-access.service.spec.ts` | 能力規則：全域 × 等級 × 擁有者的組合、根目錄、鎖住的資料夾、反提權 |
 | `src/modules/file/__tests__/file-folder-access.approval.spec.ts` | 申請存取的審批 handler：已有權限不能申請、核准者要能 share 且授予得起、套用寫入授權與稽核 |
 | `src/modules/file/__tests__/file-folder.service.spec.ts`（授權段落） | 鎖住的資料夾（canRead=false）、根目錄不能建立、鎖住的回 403、擁有者改名、遞迴刪除的 not-owner 與 protected-subfolder、移動的目的地 |
@@ -594,7 +595,7 @@ service      FileService / FileFolderService / FileFolderGrantService
     ▼
 FileAccessService（modules/file）
     ├─ PermissionService.getPermissionSet(actor)                   全域 file:*（有快取）
-    ├─ FileFolderRepository.listTreeNodes()                        整棵樹：id / parent_id / inherit_grants / created_by
+    ├─ FileFolderTree.nodes()                                     整棵樹：id / parent_id / inherit_grants / created_by（程序內快取）
     └─ ResourceGrantService.grantsFor(actor, ['fileFolder'])         本人 ＋ 持有角色的未過期授權
             │
             └─ resolveHierarchyLevels(nodes, grants)               modules/resource-grant：通用、純函式
@@ -602,13 +603,26 @@ FileAccessService（modules/file）
 
 | 項目 | 做法 |
 | --- | --- |
-| 解析範圍 | 每個請求載入一次整棵資料夾結構（四個欄位）與操作者的授權，在記憶體算出每個資料夾的有效等級（記憶化，每個資料夾只算一次） |
+| 解析範圍 | 每個請求取一次整棵資料夾結構（四個欄位）與操作者的授權，在記憶體算出每個資料夾的有效等級（記憶化，每個資料夾只算一次）。結構以租戶為 key 快取在程序內（§11.1），授權每次查（只有操作者本人與其角色的列） |
 | 列表過濾 | `GET /files` 不帶 `folderId` 且沒有全域 `file:read`：以看得到的資料夾 id 限制 `folder_id = ANY(…)`，根目錄的檔案不列 |
 | 能力旗標 | `toDto` 時由 context 算出 `capabilities`；列表一次算完，不逐筆查詢 |
 | 移動、遞迴刪除 | 在 `writeTree` 的交易（取得樹鎖）**之內** 建立 context：檢查與寫入之間結構不會變 |
 | 授權寫入 | `resource_grants` 的 upsert／delete 與稽核在同一個交易；交易後推 `fileFolder update` |
 | 中斷繼承 | `file_folders.inherit_grants`；設成 `false` 時在同一個交易內把目前繼承到的授權複製成直接授權 |
 | 授權對象 | 解析與清單都 join 未刪除的 `roles` / `users`：刪除角色或使用者不必清授權列 |
+
+### 11.1 資料夾結構的快取（`FileFolderTree`）
+
+每位使用者一個個人資料夾，1000 人的租戶至少有上千個節點；每個檔案請求都讀一次整棵樹太貴，而結構只在建立、移動、刪除、
+中斷繼承時改變，所以以 **租戶** 為 key 快取在程序內：
+
+| 規則 | 理由 |
+| --- | --- |
+| 結構的寫入一律經過 `FileFolderTree.write()`：交易內先取樹鎖（§4.2），**提交後** 才失效（rollback 也失效） | 失效早於提交的話，並行的讀取會把舊結構重新放回快取；三個寫入者（資料夾、授權、系統資料夾）都走同一個入口 |
+| 失效時連同進行中的讀取一起丟掉 | 它可能讀到提交前的結構 |
+| 交易內（`contextFor(actor, tx)`）一律直接查資料庫 | 移動、遞迴刪除的檢查與寫入之間結構不能變 |
+| 60 秒存活時間 | 只是防漏網（例：直接改資料庫）；正常的寫入都會主動失效 |
+| 單一執行個體的前提 | 失效只在本程序；api 目前固定單一執行個體（[`../01-system.md`](../01-system.md)），水平擴展時要改成跨程序的失效通知 |
 
 資料表：`resource_grants`、`file_folders.inherit_grants`、
 系統資料夾 `file_folders.kind` / `owner_id` 與授權對象 `everyone`（schema 在 `db/schema/`，migration 見 [`02-database.md`](./02-database.md) §5.2）。
