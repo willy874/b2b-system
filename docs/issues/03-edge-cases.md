@@ -322,6 +322,7 @@
   - 使用者偏好的 `timezone` 後端只驗 `max(64)`，未驗證是否為合法 IANA 名稱（前端時間格式化會 `RangeError`，**待驗證** 是否有使用後端值）。
 - **建議**：編輯頁加 `useBlocker`；補權限撤銷的 E2E；resync 的 jitter 依在線人數放大或分批；`timezone` 以 `Intl.supportedValuesOf('timeZone')` 驗證。
 - **驗收**：E2E「管理員移除權限 → 對方開著的頁面在推播後隱藏該選單」。
+- **狀態**：已修（fix/backstage-ux）（前端部分）——使用者／角色編輯表單加上未儲存提醒（`useUnsavedChangesGuard`）；前端遇到不合法的時區不再丟 RangeError（退回預設時區）。延後：後端以 `Intl.supportedValuesOf` 驗證 timezone（後端組）、權限撤銷的 E2E（本次不跑 E2E）、重連 jitter 依在線人數放大（realtime／基礎設施）
 
 ## 已處理得好的地方
 
