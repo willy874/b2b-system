@@ -1,6 +1,6 @@
 # ADR-0025 — 版本歷史、樂觀鎖與還原：`version` 欄 ＋ 整份快照 ＋ 保留關聯的軟刪除
 
-- 狀態：**採用**（2026-09-30 全部實作並合併：R1～R5 於 a3066d1，R1b、R4b 於下一次部署（branch `feat/entity-revisions-final`）；見文末「實作紀錄」）
+- 狀態：**採用**（2026-09-30 全部實作並合併：R1～R5 於 a3066d1，R1b、R4b 於下一次部署（d958900）；見文末「實作紀錄」）
 - 日期：2026-09-30
 - 相關：規格 [`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11（樂觀鎖）、
   [`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)（回收桶與還原）、[`../architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md)（版本歷史）、

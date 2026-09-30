@@ -40,17 +40,18 @@
 
 ### 1.1 建議的順序
 
-1. **`permission-graph` G3b** ✅：G3a（讀寫只走 `relation_tuples`、`authz_revision` ＋ 平台 DB 廣播失效）與 G3b（刪三張舊表與雙寫 trigger，migration 0010）
-   都已上 main 並歸檔進正式文件，順便做出了 `multi-instance` 的 `core/broadcast`。
-2. **`entity-revisions`** ✅：[ADR-0025](../adr/0025-entity-revisions.md) 的 R1～R5（含 R1b 的 `version` 必填、R4b 的刪除保留物件）都已上 main 並歸檔進正式文件
-   （[`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11、[`backend/13-trash.md`](../architecture/backend/13-trash.md)、
-   [`backend/14-revisions.md`](../architecture/backend/14-revisions.md)）。
-3. **`notification-center`** ✅：[ADR-0026](../adr/0026-notification-center.md) 的 N1（後端）與 N2（前端）都已上 main 並歸檔進正式文件
-   （[`backend/15-notification.md`](../architecture/backend/15-notification.md)、[`frontend/15-notification.md`](../architecture/frontend/15-notification.md)）；
-   匯入匯出、標籤留言、Webhook、MFA、API Token 要「通知某人」時，照後端 §9 加一種通知類型。
-4. 之後依需求二選一：對外整合（`api-tokens` → `webhooks`），或編輯器的協作（`tags-comments`；多型關聯的命名已由 [ADR-0025](../adr/0025-entity-revisions.md) D7 決定）。
-5. **`permission-graph` G4**：群組（巢狀、持有角色）、explain API 與頁面。
-6. `hardening-followups` 裡的小項目可以隨時穿插。
+已完成並歸檔（細節見各 ADR 與正式文件）：
+
+- `permission-graph` G0～G3b：[ADR-0024](../adr/0024-relationship-based-access-control.md)、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4、[`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.2、§5
+- `entity-revisions`：[ADR-0025](../adr/0025-entity-revisions.md)、[`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11、[`backend/13-trash.md`](../architecture/backend/13-trash.md)、[`backend/14-revisions.md`](../architecture/backend/14-revisions.md)
+- `notification-center`：[ADR-0026](../adr/0026-notification-center.md)、[`backend/15-notification.md`](../architecture/backend/15-notification.md)、[`frontend/15-notification.md`](../architecture/frontend/15-notification.md)；
+  其他功能要「通知某人」時，照後端 §9 加一種通知類型
+
+接下來：
+
+1. 依需求二選一：對外整合（`api-tokens` → `webhooks`），或編輯器的協作（`tags-comments`；多型關聯的命名已由 [ADR-0025](../adr/0025-entity-revisions.md) D7 決定）。
+2. **`permission-graph` G4**：群組（巢狀、持有角色）、explain API 與頁面。
+3. `hardening-followups` 裡的小項目可以隨時穿插。
 
 ### 1.2 撰寫提案時的架構前提
 
@@ -66,6 +67,10 @@
 | 前端 feature 之間不共用元件；共用 UI 放 `components/`、`core/`，或經註冊表注入。註冊在 plugin 同步階段，那時還沒有使用者資料 | [`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §3.1、§6 |
 | 軟刪除（`deleted_at` ＋ partial unique index）已是慣例；多型關聯用 `resource_type ＋ resource_id` | [`backend/02-database.md`](../architecture/backend/02-database.md) §1、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) |
 | 系統設定是租戶層、只存純量覆寫值 | [`backend/12-settings.md`](../architecture/backend/12-settings.md) |
+| 可編輯的實體要有 `version` 欄，更新必須帶 `version`（樂觀鎖，衝突 409） | [`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11 |
+| 軟刪除的查詢一律用 `notDeleted()`；要能還原的資源在 `onModuleInit` 註冊 `TrashHandler` 並提供 `POST /<resource>/:id/restore` | [`backend/13-trash.md`](../architecture/backend/13-trash.md) §1、§2 |
+| 要版本歷史的實體由擁有者模組在業務交易內呼叫 `RevisionService.record` | [`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §6 |
+| 「通知某人」由擁有者模組在業務交易內呼叫 `NotificationService.notify`，不訂閱 `DomainEventBus` | [`backend/15-notification.md`](../architecture/backend/15-notification.md) §9 |
 
 ---
 
