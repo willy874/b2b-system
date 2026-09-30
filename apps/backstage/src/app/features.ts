@@ -1,0 +1,94 @@
+import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+
+import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
+import { GlobalEvents, useAppContext } from '@/core/app';
+import type { AppPluginFactory } from '@/core/app';
+import { useHasSession } from '@/core/auth';
+import { FeatureActivator } from '@/core/feature';
+import type { FeatureDefinition } from '@/core/feature';
+import { i18n } from '@/core/locales';
+import {
+  AUDIT_LOG_FEATURE,
+  auditLogFeaturePlugin,
+  Routes as AuditLogRoutes,
+} from '@/features/audit-log';
+import { FILE_FEATURE, fileFeaturePlugin, Routes as FileRoutes } from '@/features/file';
+import { JOB_FEATURE, jobFeaturePlugin, Routes as JobRoutes } from '@/features/job';
+import type { Profile } from '@/shared/api-sdk';
+
+export type TenantFeature = Profile['features'][number];
+
+/**
+ * 可啟用的 feature（docs/adr/0021-runtime-feature-activation.md D1）：由平台管理者對每個租戶開關，
+ * 登入後依 `/auth/profile` 的 `features` 安裝。其餘 feature 是常駐的，照舊在 `main.tsx` 同步 `use()`。
+ *
+ * `satisfies Record<TenantFeature, …>`：後端新增可啟用的 feature 而這裡沒跟上時編譯失敗。
+ * 每個 feature 的最上層 route 自己宣告 `beforeLoad: requireFeature(<id>)`（D6）；`routes` 列的就是那些 route。
+ */
+export const FEATURE_CATALOG = {
+  [FILE_FEATURE]: { plugin: fileFeaturePlugin(), routes: [FileRoutes.FileListRoute] },
+  [AUDIT_LOG_FEATURE]: {
+    plugin: auditLogFeaturePlugin(),
+    routes: [AuditLogRoutes.AuditLogListRoute],
+  },
+  [JOB_FEATURE]: { plugin: jobFeaturePlugin(), routes: [JobRoutes.JobListRoute] },
+} as const satisfies Record<TenantFeature, FeatureDefinition>;
+
+/** 建立安裝器；卸載時要用到 router（`appContextPlugin` 建立），所以到執行期才讀 `app.router`。 */
+export function featureActivationPlugin(): AppPluginFactory {
+  return (context) => {
+    const app = context.getInstance();
+    const isViewing = (basePaths: readonly string[]) => {
+      const { pathname } = app.router.state.location;
+      return basePaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+    };
+    const activator = new FeatureActivator({
+      context: app,
+      catalog: FEATURE_CATALOG,
+      // D9：先離開再卸載；未儲存提醒留不住（功能已經不能用），與 session 結束時一致
+      beforeDisable: async (_id, basePaths) => {
+        if (!isViewing(basePaths)) return;
+        app.eventBus.emit(GlobalEvents.TOAST_SHOW, {
+          type: 'info',
+          title: i18n.t('app.featureDisabled'),
+        });
+        await app.router.navigate({ to: '/', replace: true, ignoreBlocker: true });
+      },
+      // 停在這個 feature 的 404 時重新跑 route 的 requireFeature，頁面才會出現
+      afterEnable: (_id, basePaths) => {
+        if (isViewing(basePaths)) void app.router.invalidate();
+      },
+      onInstallError: () => {
+        app.eventBus.emit(GlobalEvents.TOAST_SHOW, {
+          type: 'error',
+          title: i18n.t('app.featureInstallFailed'),
+        });
+      },
+    });
+
+    return { name: 'feature-activation', attrs: { features: activator } };
+  };
+}
+
+/**
+ * 把 profile 的啟用清單交給安裝器。與 `useSyncPermissions` 用同一個 query：
+ * 清單變更時後端推播 `tenantFeature`，依賴圖讓 profile 重新取得（`apis/resources.ts`）。
+ * 掛在 `app/App.tsx`，整個 app 只有一個實例。
+ */
+export function useSyncFeatures(): void {
+  const { features } = useAppContext();
+  const hasSession = useHasSession();
+  const { data } = useQuery({ ...getAuthProfileQueryOptions(), enabled: hasSession });
+  const enabled = data?.features;
+
+  useEffect(() => {
+    if (enabled) void features.apply(enabled);
+  }, [enabled, features]);
+}
+
+declare module '@/core/app/context' {
+  interface AppPluginProperties {
+    features: FeatureActivator;
+  }
+}

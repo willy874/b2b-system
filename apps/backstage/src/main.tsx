@@ -7,18 +7,16 @@ import './index.css';
 import { fetchRefreshMutation } from '@/apis/auth/refresh/fetcher';
 import { applyResourceChanges } from '@/apis/resources';
 import { App } from '@/app/App';
+import { featureActivationPlugin } from '@/app/features';
 import { appContextPlugin } from '@/app/plugin';
 import { createAppContext } from '@/core/app';
 import { MAIN_BACKEND } from '@/core/client';
 import { hydratePreferences } from '@/core/store';
 import { accountFeaturePlugin } from '@/features/account';
 import { approvalFeaturePlugin } from '@/features/approval';
-import { auditLogFeaturePlugin } from '@/features/audit-log';
 import { authFeaturePlugin } from '@/features/auth';
-import { fileFeaturePlugin } from '@/features/file';
 import { homeFeaturePlugin } from '@/features/home';
 import { identityProviderFeaturePlugin } from '@/features/identity-provider';
-import { jobFeaturePlugin } from '@/features/job';
 import { permissionFeaturePlugin } from '@/features/permission';
 import { roleFeaturePlugin } from '@/features/role';
 import { systemFeaturePlugin } from '@/features/system';
@@ -77,21 +75,21 @@ async function bootstrap(): Promise<void> {
   }
 
   context
-    // 每個 feature 的 plugin factory —— ★ 在此「同步」註冊頁面權限
+    // 常駐 feature 的 plugin factory —— ★ 在此「同步」註冊頁面權限。
+    // 可啟用的 feature（檔案、稽核紀錄、背景工作）不在這裡：登入後依租戶的啟用清單安裝（app/features.ts）
     .use(authFeaturePlugin())
     .use(homeFeaturePlugin())
     .use(userFeaturePlugin())
     .use(roleFeaturePlugin())
     .use(permissionFeaturePlugin())
-    .use(auditLogFeaturePlugin())
     .use(approvalFeaturePlugin())
-    .use(fileFeaturePlugin())
-    .use(jobFeaturePlugin())
     .use(identityProviderFeaturePlugin())
     .use(systemFeaturePlugin())
     .use(accountFeaturePlugin())
     // 擴充 feature 的小外掛：往偏好頁插「表格欄位」分頁
     .use(tableColumnSettingsPlugin())
+    // 可啟用 feature 的安裝器（登入後依租戶的啟用清單安裝，docs/adr/0021-runtime-feature-activation.md）
+    .use(featureActivationPlugin())
     // 最後：建立 router（此時所有 route 都已存在）
     .use(appContextPlugin());
 

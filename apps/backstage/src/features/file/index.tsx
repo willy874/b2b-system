@@ -4,5 +4,6 @@ import * as Routes from './routes';
 Routes.FileListRoute.update({ component: Pages.AsyncFileManagerPage });
 
 export { Routes };
+export { FILE_FEATURE } from './routes';
 export { FILE_PAGE, registerFilePagePermissions } from './permission';
 export { appContextPlugin as fileFeaturePlugin } from './plugin';
