@@ -169,51 +169,17 @@ export class FileSystemFolderService
       const owners = await this.repo.findPersonalOwnerIds(missing, tx);
       const rows: FileFolderRow[] = [];
       for (const person of people.filter((user) => !owners.has(user.id))) {
-        // 同一層不可同名（不分大小寫）：同名的人加上 email 區分
-        // oxlint-disable-next-line no-await-in-loop -- 同一個交易依序寫入；只有新取得權限的人
-        const taken = await this.repo.hasSibling(privateRoot.id, person.displayName, undefined, tx);
-        const name = taken ? `${person.displayName} (${person.email})` : person.displayName;
-        // oxlint-disable-next-line no-await-in-loop -- 同上
-        const [row] = await this.repo.create(
-          [
-            {
-              name,
-              parentId: privateRoot.id,
-              kind: 'personal',
-              ownerId: person.id,
-              inheritGrants: false,
-              createdBy: person.id,
-              updatedBy: person.id,
-            },
-          ],
-          tx,
-        );
-        if (!row) continue;
-        // oxlint-disable-next-line no-await-in-loop -- 同上
-        await this.grants.set(
-          {
-            resourceType: 'fileFolder',
-            resourceId: row.id,
-            subjectType: 'user',
-            subjectId: person.id,
-          },
-          { level: 'manager', expiresAt: null, grantedBy: null },
-          tx,
-        );
-        // oxlint-disable-next-line no-await-in-loop -- 同上
-        await this.audit.record(
-          {
-            action: 'fileFolder.create',
-            resourceType: 'fileFolder',
-            resourceId: row.id,
-            resourceName: row.name,
-            actorId: null,
-            actorEmail: 'system',
-            changes: { after: { name: row.name, kind: 'personal', ownerId: person.id } },
-          },
-          tx,
-        );
-        rows.push(row);
+        try {
+          // 每人一個 savepoint：一個人失敗（例：名稱在競態下撞到唯一索引）只 rollback 他自己，
+          // 不讓同一批其他人的個人資料夾跟著建不成（EDGE-16）
+          // oxlint-disable-next-line no-await-in-loop -- 同一個交易依序寫入；只有新取得權限的人
+          const row = await tx.transaction((savepoint) =>
+            this.createPersonalFolder(person, privateRoot.id, savepoint),
+          );
+          rows.push(row);
+        } catch (error) {
+          this.logger.warn({ err: error, userId: person.id }, '建立個人資料夾失敗，其他人照常建立');
+        }
       }
       return rows;
     });
@@ -221,6 +187,54 @@ export class FileSystemFolderService
       this.logger.log({ count: created.length }, '建立個人資料夾');
       this.publish();
     }
+  }
+
+  /** 一個人的個人資料夾：挑一個同一層沒人用的名稱、授予本人 manager、寫稽核。 */
+  private async createPersonalFolder(
+    person: { id: string; displayName: string; email: string },
+    parentId: string,
+    tx: DbOrTx,
+  ): Promise<FileFolderRow> {
+    let name = personalFolderName(person, 0);
+    for (let attempt = 1; attempt <= MAX_NUMBERED_NAME + 1; attempt += 1) {
+      // 同一層不可同名（不分大小寫）：依序加上 email、編號，直到沒人用
+      // oxlint-disable-next-line no-await-in-loop -- 同一個交易依序查詢；碰撞的機會很小
+      if (!(await this.repo.hasSibling(parentId, name, undefined, tx))) break;
+      name = personalFolderName(person, attempt);
+    }
+    const [row] = await this.repo.create(
+      [
+        {
+          name,
+          parentId,
+          kind: 'personal',
+          ownerId: person.id,
+          inheritGrants: false,
+          createdBy: person.id,
+          updatedBy: person.id,
+        },
+      ],
+      tx,
+    );
+    if (!row) throw new Error('建立個人資料夾失敗');
+    await this.grants.set(
+      { resourceType: 'fileFolder', resourceId: row.id, subjectType: 'user', subjectId: person.id },
+      { level: 'manager', expiresAt: null, grantedBy: null },
+      tx,
+    );
+    await this.audit.record(
+      {
+        action: 'fileFolder.create',
+        resourceType: 'fileFolder',
+        resourceId: row.id,
+        resourceName: row.name,
+        actorId: null,
+        actorEmail: 'system',
+        changes: { after: { name: row.name, kind: 'personal', ownerId: person.id } },
+      },
+      tx,
+    );
+    return row;
   }
 
   /** 能進檔案管理器（頁面的閘門：`file:access` 或 `file:read`，或 super-admin）。 */
@@ -285,6 +299,45 @@ export class FileSystemFolderService
       changes: [{ resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.CREATE }],
     });
   }
+}
+
+/** 資料夾名稱的長度上限（同 `FileFolderNameSchema`）。 */
+const MAX_FOLDER_NAME_LENGTH = 255;
+/** 編號試到這裡還撞名就改用 user id（一定唯一）。 */
+const MAX_NUMBERED_NAME = 20;
+
+/** 顯示名稱不經過資料夾名稱的驗證：把 `/`、`\`、控制字元換成空白，`.`、`..` 視為沒有名稱。 */
+function toFolderName(value: string): string {
+  const cleaned = value
+    // oxlint-disable-next-line no-control-regex -- 就是要排除控制字元
+    .replaceAll(/[/\\\u0000-\u001f\u007f]+/g, ' ')
+    .replaceAll(/\s+/g, ' ')
+    .trim();
+  return cleaned === '.' || cleaned === '..' ? '' : cleaned;
+}
+
+/**
+ * 個人資料夾的第 `attempt` 個候選名稱（EDGE-16）：顯示名稱 → 加上 email → 再加編號 → 最後用 user id。
+ * 名稱一律符合資料夾名稱的規則（不含路徑分隔字元、控制字元，≤ 255）。
+ */
+export function personalFolderName(
+  person: { id: string; displayName: string; email: string },
+  attempt: number,
+): string {
+  const base = toFolderName(person.displayName) || toFolderName(person.email) || person.id;
+  const email = toFolderName(person.email);
+  const suffix =
+    attempt === 0
+      ? ''
+      : attempt > MAX_NUMBERED_NAME
+        ? ` (${person.id})`
+        : attempt === 1
+          ? ` (${email})`
+          : ` (${email}) ${attempt}`;
+  return `${base.slice(0, Math.max(1, MAX_FOLDER_NAME_LENGTH - suffix.length))}${suffix}`.slice(
+    0,
+    MAX_FOLDER_NAME_LENGTH,
+  );
 }
 
 /** 這批變更裡被刪除的使用者。 */
