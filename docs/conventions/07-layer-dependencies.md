@@ -131,9 +131,11 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 2. 跨模組只能 import 對方的 `*.module.ts`、`*.service.ts`、`dto/`、`*.constants.ts`、`*.types.ts`（只限 `import type`）與純函式；
    **不可 import 對方的 `*.repository.ts`、`*.controller.ts`**；不用 `forwardRef`。
 3. 只能 import 不依賴 DI 的純函式（例：`modules/credential/password.ts`）。
-4. 只有 `common/guards/permissions.guard.ts` 可以注入葉節點模組的 service：
-   `PermissionService`（`modules/permission`）與 `AuditService`（`modules/audit-log`）。
-   這是 [`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §3 的設計；其他 `common/` 檔案不可 import `modules/`。
+4. 只有 `common/guards/permissions.guard.ts` 可以注入 **全域葉節點** 模組的 service：
+   `PermissionService`（`modules/permission`）、`AuditService`（`modules/audit-log`），
+   以及平台端點用的 `PlatformAdminService`、`PlatformAuditService`（`modules/platform-admin`）。
+   這是 [`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §3、§3.2 的設計；其他 `common/` 檔案不可 import `modules/`。
+   這三個模組因此必須保持葉節點（不依賴其他業務模組的 DI），否則 guard 會把整串依賴帶進每個模組。
 
 `core/` 不 import `modules/` 是硬規則（見 [`03-backend.md`](./03-backend.md) §1）。
 
@@ -152,8 +154,8 @@ git grep -nE "from '@/(features|app|apis|plugins)" -- apps/backstage/src/core ':
 git grep -nE "from '@/features/[a-z-]+/" -- apps/backstage/src/features ':!*/routes/external.ts' ':!*__tests__*'
 # api：core 依賴 modules / common
 git grep -nE "from '@/(modules|common)" -- apps/api/src/core ':!*__tests__*'
-# api：common 依賴 modules（排除 §3.2 註 4 允許的兩個 service）
-git grep -nE "from '@/modules/" -- apps/api/src/common ':!*__tests__*' | grep -vE "permission/permission\.service|audit-log/audit\.service" 
+# api：common 依賴 modules（排除 §3.2 註 4 允許的四個 service）
+git grep -nE "from '@/modules/" -- apps/api/src/common ':!*__tests__*' | grep -vE "permissions\.guard\.ts:.*(permission/permission|audit-log/audit|platform-admin/platform-admin|platform-admin/platform-audit)\.service'" 
 # api：跨模組 import repository / controller
 git grep -nE "from '@/modules/[a-z-]+/[a-z.-]+\.(repository|controller)'" -- apps/api/src/modules ':!*__tests__*'
 ```

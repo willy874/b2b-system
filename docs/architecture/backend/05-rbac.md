@@ -149,6 +149,9 @@ apps/auth 的平台管理者與租戶的使用者是兩份帳號（[ADR-0020](..
 | 缺任何一個 | `403 AUTHZ_FORBIDDEN`（帶 `missing`），拒絕寫 **平台** 稽核 `platform_audit_logs` |
 
 路由稽核（§7）把它算成一種宣告；WebSocket 的處理器不能用它（平台管理者不連 WebSocket）。
+guard 因此注入 `PlatformAdminService`（查管理者的角色）與 `PlatformAuditService`（拒絕時寫平台稽核）；
+`PlatformAdminModule` 與 `PermissionModule`、`AuditLogModule` 一樣是 `@Global` 的葉節點
+（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2 註 4）。
 
 ---
 
