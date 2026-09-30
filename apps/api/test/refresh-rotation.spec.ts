@@ -14,6 +14,7 @@ import { sha256 } from '@/modules/auth/token-hash';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 
 let app: INestApplication;
 let http: App;
@@ -71,7 +72,7 @@ describe('refresh token 輪替的併發（docs/architecture/backend/04-auth.md�
     app = await NestFactory.create(AppModule, { logger: false });
     app.use(cookieParser());
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
   });
 
   beforeEach(async () => {

@@ -50,6 +50,8 @@ export class FileSystemFolderService
       this.events.subscribe(DomainEvent.PERMISSIONS_CHANGED, ({ userIds }) =>
         this.ensurePersonalFolders(userIds, { onlyEligible: true }),
       ),
+      // 新佈建或重新啟用的租戶：不等重啟就補上系統資料夾（事件在那個租戶的脈絡裡發佈）
+      this.events.subscribe(DomainEvent.TENANT_ACTIVATED, () => this.prepareTenant()),
       // 使用者被刪除：空的個人資料夾跟著刪除（有東西的保留給管理者整理）
       this.events.subscribe(DomainEvent.RESOURCE_CHANGED, ({ changes }) =>
         this.removeEmptyPersonalFolders(deletedUserIds(changes)),
@@ -64,12 +66,14 @@ export class FileSystemFolderService
 
   /** 每個 `active` 的租戶各一套系統資料夾（docs/adr/0020-physical-tenant-isolation.md D3）。 */
   async onApplicationBootstrap(): Promise<void> {
-    await this.tenancy.forEachActive(async () => {
-      await this.ensureSystemFolders();
-      await this.ensurePersonalFolders(await this.repo.findFileManagerUserIds());
-      // 服務沒在跑時刪除的使用者：啟動時補做
-      await this.removeEmptyPersonalFolders();
-    });
+    await this.tenancy.forEachActive(() => this.prepareTenant());
+  }
+
+  /** 目前租戶的系統資料夾與個人資料夾；服務沒在跑時刪除的使用者也在這時補做。冪等。 */
+  async prepareTenant(): Promise<void> {
+    await this.ensureSystemFolders();
+    await this.ensurePersonalFolders(await this.repo.findFileManagerUserIds());
+    await this.removeEmptyPersonalFolders();
   }
 
   /**

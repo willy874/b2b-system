@@ -13,6 +13,7 @@ import { auditLogs, jobOutbox, roles, userRoles, users } from '@/db/schema';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 import { inTestTenant, testTenantContext } from './tenant';
 
 /** 第一次執行失敗、之後成功：用來走一遍「失敗 → 手動重試 → 完成」。 */
@@ -104,7 +105,7 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
     }).compile();
     app = moduleRef.createNestApplication({ logger: false });
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
     jobs = app.get(JobQueue);
     store = app.get(JobStore);
     tenantId = (await testTenantContext(app)).id;

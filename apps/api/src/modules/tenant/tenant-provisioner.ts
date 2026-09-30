@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '@/core/config';
 import { SecretBox, TENANT_SECRET_PURPOSE } from '@/core/crypto';
+import { DomainEvent, DomainEventBus } from '@/core/events';
 import { defineJob, JobQueue } from '@/core/jobs';
 import { ObjectStorage } from '@/core/storage';
 import { Tenancy, TenantDirectory } from '@/core/tenant';
@@ -43,6 +44,7 @@ export class TenantProvisioner implements OnModuleInit {
     private readonly directory: TenantDirectory,
     private readonly storage: ObjectStorage,
     private readonly audit: PlatformAuditService,
+    private readonly events: DomainEventBus,
     config: ConfigService<Env, true>,
   ) {
     this.secrets = SecretBox.fromConfig(
@@ -115,6 +117,8 @@ export class TenantProvisioner implements OnModuleInit {
           );
         }
         await attempt('storageBucket', () => this.storage.ensureBucket());
+        // 每個租戶一份的初始資料（檔案的系統資料夾…）由擁有它的模組訂閱處理
+        this.events.publish(DomainEvent.TENANT_ACTIVATED, {});
         return failures.length ? failures.join('; ').slice(0, MAX_ERROR_LENGTH) : undefined;
       })
       .catch((error: unknown) => this.describe(error));

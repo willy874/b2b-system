@@ -17,12 +17,22 @@ describe('來源 → 受眾（docs/architecture/backend/08-realtime.md §6.1）'
     {
       name: 'user：user:read、role:read 與被改的那個人',
       change: { resource: 'user', kind: 'update', id: 'u1' },
-      rooms: ['t:t1:perm:auditLog:read', 't:t1:perm:role:read', 't:t1:perm:user:read', 'user:u1'],
+      rooms: [
+        't:t1:perm:auditLog:read',
+        't:t1:perm:role:read',
+        't:t1:perm:user:read',
+        't:t1:user:u1',
+      ],
     },
     {
       name: 'userRole：user:read、role:read 與被指派的那個人',
       change: { resource: 'userRole', kind: 'update', id: 'u1', refs: { role: ['r1'] } },
-      rooms: ['t:t1:perm:auditLog:read', 't:t1:perm:role:read', 't:t1:perm:user:read', 'user:u1'],
+      rooms: [
+        't:t1:perm:auditLog:read',
+        't:t1:perm:role:read',
+        't:t1:perm:user:read',
+        't:t1:user:u1',
+      ],
     },
     {
       name: 'role create：只有 role:read',
@@ -60,8 +70,8 @@ describe('來源 → 受眾（docs/architecture/backend/08-realtime.md §6.1）'
       [{ resource: 'rolePermission', kind: 'update', id: 'r1' }],
       ['u1', 'u2'],
     );
-    expect(rooms).toContain('user:u1');
-    expect(rooms).toContain('user:u2');
+    expect(rooms).toContain('t:t1:user:u1');
+    expect(rooms).toContain('t:t1:user:u2');
   });
 
   it('多筆變更的 room 取聯集且不重複', () => {
@@ -110,12 +120,12 @@ function setup(openRooms: Record<string, number>) {
 
 describe('RealtimeAudience.refreshAudience（§6.2）', () => {
   it('有連線的人：移出所有 perm room、再加入目前權限對應的', async () => {
-    const { audience, publisher } = setup({ 'user:u1': 1 });
+    const { audience, publisher } = setup({ 't:t1:user:u1': 1 });
 
     await audience.refreshAudience(['u1', 'u1']);
 
     expect(publisher.moveRooms).toHaveBeenCalledTimes(1);
-    expect(publisher.moveRooms).toHaveBeenCalledWith('user:u1', allPermRooms(), [
+    expect(publisher.moveRooms).toHaveBeenCalledWith('t:t1:user:u1', allPermRooms(), [
       't:t1:perm:role:read',
     ]);
   });

@@ -34,12 +34,14 @@ export class MailService {
 
   /**
    * 信裡連到產品的連結：目前租戶的主要網域 ＋ 前端路徑 ＋ 查詢字串（每個租戶的 backstage 在自己的網域，
-   * docs/adr/0020-physical-tenant-isolation.md D2）。協定沿用 `APP_PUBLIC_URL`；沒有租戶時退回 `APP_PUBLIC_URL`。
+   * docs/adr/0020-physical-tenant-isolation.md D2）。協定沿用 `APP_PUBLIC_URL`；沒有租戶時（平台的信）用 `APP_PUBLIC_URL`。
+   * 在租戶裡卻找不到網域時拋錯（寄信的工作會重試），不退回 `APP_PUBLIC_URL`——那是別的租戶的網域。
    */
-  link(path: string, query: Record<string, string> = {}): string {
+  async link(path: string, query: Record<string, string> = {}): Promise<string> {
     const tenant = currentTenant();
-    const domain = tenant && this.directory.primaryDomainOf(tenant.id);
-    const base = domain ? `${new URL(this.appUrl).protocol}//${domain}` : this.appUrl;
+    const base = tenant
+      ? `${new URL(this.appUrl).protocol}//${await this.directory.requirePrimaryDomain(tenant.id)}`
+      : this.appUrl;
     return this.build(base, path, query);
   }
 

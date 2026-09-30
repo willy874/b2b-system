@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -40,6 +40,8 @@ import { sha256 } from './token-hash';
  */
 @Injectable()
 export class PlatformAuthService implements OnModuleInit {
+  private readonly logger = new Logger(PlatformAuthService.name);
+
   constructor(
     private readonly config: ConfigService<Env, true>,
     private readonly jwt: JwtService,
@@ -53,7 +55,11 @@ export class PlatformAuthService implements OnModuleInit {
   onModuleInit(): void {
     // 第三方 RP 走 provider 的 end-session：平台管理者的 IdP session 由這裡撤銷
     this.oidc.onSessionEnded((sessionUid, account) => {
-      if (account?.realm === 'platform') void this.endIdpSession(sessionUid);
+      if (account?.realm !== 'platform') return;
+      // 事件監聽器裡的非同步錯誤沒有人接：一定要自己收
+      this.endIdpSession(sessionUid).catch((error: unknown) =>
+        this.logger.warn({ err: error }, '結束 IdP session 時無法撤銷平台管理者的 app session'),
+      );
     });
   }
 

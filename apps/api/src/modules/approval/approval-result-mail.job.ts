@@ -60,7 +60,9 @@ export class ApprovalResultMailJob implements OnModuleInit {
         approved,
         subjectName: typeof folderName === 'string' ? folderName : null,
         comment: request.reviewComment,
-        link: this.mail.link(approved ? (RESULT_PATH[request.type as ApprovalType] ?? '/') : '/'),
+        link: await this.mail.link(
+          approved ? (RESULT_PATH[request.type as ApprovalType] ?? '/') : '/',
+        ),
       }),
     );
     await this.audit.record({

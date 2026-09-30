@@ -18,6 +18,7 @@ import {
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, expectDbError, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
 
 let app: INestApplication;
@@ -200,7 +201,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       .compile();
     app = moduleRef.createNestApplication({ logger: false });
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
 
     const admin = await login(ADMIN);
     art = await createFolder(admin, '美術');

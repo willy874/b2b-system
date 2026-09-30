@@ -6,6 +6,8 @@ import { PLATFORM_DB } from '@/core/database';
 import type { OidcPayloadRow } from '@/db/platform/schema';
 import { oidcPayloads } from '@/db/platform/schema';
 
+import { tenantAccountPrefix } from './oidc-account';
+
 export interface UpsertOidcPayload {
   type: string;
   id: string;
@@ -88,6 +90,18 @@ export class OidcPayloadRepository {
           inArray(sql<string>`${oidcPayloads.payload}->>'accountId'`, [...accountIds]),
         ),
       )
+      .returning({ id: oidcPayloads.id });
+    return rows.length;
+  }
+
+  /**
+   * 某個租戶的所有帳號在 IdP 留下的東西：session、grant、授權碼、token（帳號 id 是 `t:{tenantId}:{userId}`）。
+   * 停用、刪除租戶時用：重新啟用後不能靠舊的 IdP session 直接登回來。回傳刪除筆數。
+   */
+  async destroyAllOfTenant(tenantId: string): Promise<number> {
+    const rows = await this.db
+      .delete(oidcPayloads)
+      .where(sql`${oidcPayloads.payload}->>'accountId' LIKE ${`${tenantAccountPrefix(tenantId)}%`}`)
       .returning({ id: oidcPayloads.id });
     return rows.length;
   }

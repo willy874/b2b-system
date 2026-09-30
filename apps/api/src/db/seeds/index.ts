@@ -1,7 +1,12 @@
 import { and, eq, inArray, isNull, notInArray } from 'drizzle-orm';
 
 import type { ScriptDatabase } from '../client';
-import { createPlatformScriptClient, forEachScriptTenant, loadScriptEnv } from '../client';
+import {
+  createPlatformScriptClient,
+  forEachScriptTenant,
+  loadScriptEnv,
+  seedTenantCode,
+} from '../client';
 import { permissions, rolePermissions, roles } from '../schema';
 import type { PermissionKey } from './permissions';
 import { PERMISSION_SEED } from './permissions';
@@ -98,7 +103,17 @@ export async function runSeed(db: ScriptDatabase): Promise<void> {
   await seedSuperAdmin(db);
 }
 
-/** 先建平台管理者，再在每個 `active` 的租戶跑一次（權限目錄與系統角色是每個租戶各一份）。 */
+/** 權限目錄與系統角色（每個租戶都要有；新增權限後 `db:seed` 會補上）。 */
+export async function seedCatalog(db: ScriptDatabase): Promise<void> {
+  await seedPermissions(db);
+  await seedRoles(db);
+}
+
+/**
+ * 先建平台管理者，再在每個租戶補上權限目錄與系統角色（每個租戶各一份；停用中的也補，重新啟用時才不會缺權限）。
+ * `SUPER_ADMIN_EMAIL` 的 super-admin **只** 建在 `SEED_TENANT`（預設 `default`）：其他租戶的第一位管理員由佈建建立，
+ * 不能讓營運方共用的帳密出現在客戶的租戶裡（docs/adr/0020-physical-tenant-isolation.md D12）。
+ */
 async function main(): Promise<void> {
   loadScriptEnv();
   const platform = createPlatformScriptClient();
@@ -107,7 +122,11 @@ async function main(): Promise<void> {
   } finally {
     await platform.client.end();
   }
-  await forEachScriptTenant((db) => runSeed(db));
+  const seedTenant = seedTenantCode();
+  await forEachScriptTenant(
+    (db, tenant) => (tenant.code === seedTenant ? runSeed(db) : seedCatalog(db)),
+    { includeDisabled: true },
+  );
   console.info('seed 完成');
 }
 

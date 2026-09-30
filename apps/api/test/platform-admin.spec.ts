@@ -20,6 +20,7 @@ import { PlatformAdminService } from '@/modules/platform-admin/platform-admin.se
 
 import type { PlatformTestDatabase, TestDatabase } from './db';
 import { createPlatformTestDatabase, createTestDatabase, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
 import { testTenantContext } from './tenant';
 
@@ -138,7 +139,7 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
       .compile();
     app = moduleRef.createNestApplication({ logger: false });
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
     root = await signPlatformToken('pa-super-admin@example.com');
   });
 

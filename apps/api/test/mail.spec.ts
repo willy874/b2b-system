@@ -11,6 +11,7 @@ import { auditLogs } from '@/db/schema';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 
 /** 收下所有寄出的信，測試從這裡取連結。 */
 class RecordingMailTransport extends MailTransport {
@@ -88,7 +89,7 @@ describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
       .compile();
     app = moduleRef.createNestApplication({ logger: false });
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
   });
 
   afterAll(async () => {

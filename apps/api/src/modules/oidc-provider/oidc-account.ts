@@ -11,7 +11,12 @@ const TENANT_ACCOUNT = new RegExp(`^t:(${UUID}):(${UUID})$`, 'i');
 const PLATFORM_ACCOUNT = new RegExp(`^p:(${UUID})$`, 'i');
 
 export function tenantAccountId(tenantId: string, userId: string): string {
-  return `t:${tenantId}:${userId}`;
+  return `${tenantAccountPrefix(tenantId)}${userId}`;
+}
+
+/** 某個租戶所有帳號 id 的共同前綴。 */
+export function tenantAccountPrefix(tenantId: string): string {
+  return `t:${tenantId}:`;
 }
 
 export function platformAccountId(adminId: string): string {

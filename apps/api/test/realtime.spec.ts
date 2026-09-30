@@ -28,6 +28,7 @@ import { userRoom } from '@/modules/realtime/realtime.rooms';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 import { inTestTenant, testTenantContext } from './tenant';
 
 type ClientSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -209,8 +210,7 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       })
       .compile();
     app = moduleRef.createNestApplication({ logger: false });
-    await app.listen(0);
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
     url = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
     bus = app.get(DomainEventBus);
     jwt = app.get(JwtService);
@@ -310,10 +310,8 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       expect(result).toEqual({ ok: true });
 
       // 伺服器端的授權期限已換成新 token 的 exp（計時器依它重設）
-      const [serverSocket] = await app
-        .get(RealtimeGateway)
-        .server!.in(userRoom(userId))
-        .fetchSockets();
+      const room = await inTestTenant(app, async () => userRoom(userId));
+      const [serverSocket] = await app.get(RealtimeGateway).server!.in(room).fetchSockets();
       expect(serverSocket?.data.expiresAt).toBeGreaterThan(Date.now() + 200_000);
     });
   });
@@ -513,6 +511,22 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
         'io server disconnect',
         'io server disconnect',
       ]);
+    });
+
+    it('租戶被停用 → 這個租戶的所有連線收到 session.revoked（TENANT_UNAVAILABLE）並被斷線', async () => {
+      const token = await tokenFor(await createUser('tenant-down@example.com'));
+      const socket = await connect(token);
+      const revoked = waitFor(socket, ServerEvent.SESSION_REVOKED);
+      const disconnected = waitFor<string>(socket, 'disconnect');
+
+      // PlatformTenantService 停用租戶時發佈（在平台的請求裡，沒有租戶脈絡）
+      app.get(DomainEventBus).publish(DomainEvent.SESSIONS_REVOKED, {
+        tenantIds: [tenantId],
+        reason: 'TENANT_UNAVAILABLE',
+      });
+
+      await expect(revoked).resolves.toEqual({ reason: 'TENANT_UNAVAILABLE' });
+      await expect(disconnected).resolves.toBe('io server disconnect');
     });
 
     it('登入失敗次數達上限被鎖定 → 既有連線收到 session.revoked 並被斷線', async () => {

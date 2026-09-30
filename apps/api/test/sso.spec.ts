@@ -15,6 +15,7 @@ import { upsertPlatformAdmin } from '@/db/seeds/platform-admin';
 
 import type { PlatformTestDatabase, TestDatabase } from './db';
 import { createPlatformTestDatabase, createTestDatabase, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
 import { createExtraTenant, testTenantContext } from './tenant';
 
@@ -276,7 +277,7 @@ describe('SSO（docs/adr/0019-sso-identity-platform.md、0020 D5–D10）', () =
     // 與 main.ts 相同：refresh 與 logout 從 cookie 讀 refresh token
     app.use(cookieParser());
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
     tenantId = (await testTenantContext(app)).id;
   });
 

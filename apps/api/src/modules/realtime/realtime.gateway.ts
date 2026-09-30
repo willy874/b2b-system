@@ -28,7 +28,7 @@ import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
 import type { ErrorCode } from '@/core/errors';
 import { requestHost } from '@/core/http';
-import { runInTenantContext, Tenancy, TenantDirectory } from '@/core/tenant';
+import { requireTenant, runInTenantContext, Tenancy, TenantDirectory } from '@/core/tenant';
 import type { TenantContext } from '@/core/tenant';
 
 import { RealtimeAudience } from './realtime.audience';
@@ -38,7 +38,7 @@ import { RealtimeExpiry } from './realtime.expiry';
 import { SocketIoRealtimePublisher } from './realtime.publisher';
 import { clientIpOf, FixedWindowCounter } from './realtime.rate-limit';
 import type { TrustProxyFn } from './realtime.rate-limit';
-import { idpSessionRoom, userRoom } from './realtime.rooms';
+import { idpSessionRoom, tenantRoom, userRoom } from './realtime.rooms';
 import type { RealtimeServer, RealtimeSocket } from './realtime.types';
 
 const SessionRenewSchema = z.object({ token: z.string().min(1).max(4096) });
@@ -158,6 +158,7 @@ export class RealtimeGateway
 
     try {
       await socket.join(userRoom(userId));
+      await socket.join(tenantRoom(requireTenant().id));
       if (socket.data.idpSessionUid) await socket.join(idpSessionRoom(socket.data.idpSessionUid));
       await socket.join(await this.audience.roomsFor(userId));
     } catch (error) {

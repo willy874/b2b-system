@@ -17,14 +17,15 @@ import { fullSchema } from '@/core/database';
 import { MailTransport } from '@/core/mail';
 import type { MailMessage, SentMail } from '@/core/mail';
 import { ObjectStorage } from '@/core/storage';
-import { platformAdmins, tenants } from '@/db/platform/schema';
+import { oidcPayloads, platformAdmins, tenants } from '@/db/platform/schema';
 import type { PlatformAdminRole } from '@/db/platform/schema';
-import { permissions, refreshTokens, roles, users } from '@/db/schema';
+import { fileFolders, permissions, refreshTokens, roles, users } from '@/db/schema';
 import { upsertPlatformAdmin } from '@/db/seeds/platform-admin';
 import { TenantProvisioner } from '@/modules/tenant/tenant-provisioner';
 
 import type { PlatformTestDatabase } from './db';
 import { createPlatformTestDatabase } from './db';
+import { listenOnLoopback } from './http';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
 
 class RecordingMailTransport extends MailTransport {
@@ -143,7 +144,7 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
       .compile();
     app = moduleRef.createNestApplication({ logger: false });
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
     for (const role of ['super-admin', 'auditor'] as const) {
       tokens.set(role, await signPlatformToken(`tenant-${role}@example.com`));
     }
@@ -200,6 +201,14 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
       );
       const [owner] = await acme.db.select().from(users).where(eq(users.email, 'owner@acme.test'));
       expect(owner?.status).toBe('pending');
+      // 每個租戶一份的初始資料在佈建完成時就準備好，不必等重啟（TENANT_ACTIVATED）
+      await vi.waitFor(async () => {
+        const folders = await acme.db
+          .select()
+          .from(fileFolders)
+          .where(eq(fileFolders.kind, 'shared'));
+        expect(folders.length).toBeGreaterThan(0);
+      });
     } finally {
       await acme.close();
     }
@@ -286,7 +295,17 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
     ).items.find((t) => t.code === 'acme');
     const id = acme!.id;
 
+    // 這個租戶的帳號在 IdP 留下的 session 與 grant（重新啟用後不能靠它們直接登回來）；別的租戶的不受影響
+    await platformDb.insert(oidcPayloads).values([
+      { type: 'Session', id: 'acme-session', payload: { accountId: `t:${id}:someone` } },
+      { type: 'Grant', id: 'acme-grant', payload: { accountId: `t:${id}:someone` } },
+      { type: 'Session', id: 'other-session', payload: { accountId: 't:other-tenant:someone' } },
+    ]);
     await platform('post', `/platform/tenants/${id}/disable`).expect(200);
+    const left = await platformDb.select({ id: oidcPayloads.id }).from(oidcPayloads);
+    expect(left.map((row) => row.id)).toContain('other-session');
+    expect(left.map((row) => row.id)).not.toContain('acme-session');
+    expect(left.map((row) => row.id)).not.toContain('acme-grant');
     const down = await request(http)
       .post('/auth/login')
       .set('Host', 'acme.localhost:5173')

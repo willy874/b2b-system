@@ -8,6 +8,7 @@ import { permissions, rolePermissions, roles, userRoles, users } from '@/db/sche
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 
 let app: INestApplication;
 let http: App;
@@ -131,7 +132,7 @@ describe('列表的多欄排序（docs/architecture/backend/03-api-conventions.m
     const { AppModule } = await import('@/app.module');
     app = await NestFactory.create(AppModule, { logger: false });
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
 
     const login = await request(http).post('/auth/login').send(SUPER_ADMIN).expect(200);
     token = (login.body as { data: { accessToken: string } }).data.accessToken;

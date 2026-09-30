@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '@/modules/auth/auth.module';
+import { OidcProviderModule } from '@/modules/oidc-provider/oidc-provider.module';
 import { PlatformAdminModule } from '@/modules/platform-admin/platform-admin.module';
 
 import { PlatformTenantController } from './platform-tenant.controller';
@@ -15,7 +16,7 @@ import { TenantService } from './tenant.service';
  * （docs/adr/0020-physical-tenant-isolation.md D11–D13）。
  */
 @Module({
-  imports: [AuthModule, PlatformAdminModule],
+  imports: [AuthModule, OidcProviderModule, PlatformAdminModule],
   controllers: [TenantController, PlatformTenantController],
   providers: [TenantService, PlatformTenantService, PlatformTenantRepository, TenantProvisioner],
 })

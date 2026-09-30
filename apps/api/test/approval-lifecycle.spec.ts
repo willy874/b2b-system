@@ -17,6 +17,7 @@ import {
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, expectDbError, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 
 let app: INestApplication;
 let http: App;
@@ -100,7 +101,7 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
     const { AppModule } = await import('@/app.module');
     app = await NestFactory.create(AppModule, { logger: false });
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
   });
 
   afterAll(async () => {

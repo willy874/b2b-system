@@ -18,6 +18,7 @@ import type {
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
 
 let app: INestApplication;
@@ -245,7 +246,7 @@ describe('外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D11）
     app = moduleRef.createNestApplication({ logger: false });
     app.use(cookieParser());
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
   });
 
   afterAll(async () => {

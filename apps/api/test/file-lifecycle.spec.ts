@@ -13,6 +13,7 @@ import { FileMaintenanceService } from '@/modules/file/file-maintenance.service'
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, expectDbError, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
 import { inTestTenant } from './tenant';
 
@@ -137,7 +138,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       .compile();
     app = moduleRef.createNestApplication({ logger: false });
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
   });
 
   afterAll(async () => {

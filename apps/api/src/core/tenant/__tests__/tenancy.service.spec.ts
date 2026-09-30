@@ -26,18 +26,29 @@ function tenant(overrides: Partial<TenantRecord> = {}): TenantRecord {
   } as TenantRecord;
 }
 
-function setup(active: TenantRecord[] = []) {
-  const directory = { listActive: vi.fn(async () => active) } as unknown as TenantDirectory;
+function setup(active: TenantRecord[] = [], byId: TenantRecord[] = active) {
+  const directory = {
+    listActive: vi.fn(async () => active),
+    findById: vi.fn(async (id: string) => byId.find((record) => record.id === id)),
+  } as unknown as TenantDirectory;
   const config = { get: vi.fn(() => 2) } as unknown as ConfigService<Env, true>;
   return new Tenancy(directory, config);
 }
 
 async function codeOf(promise: Promise<unknown>): Promise<string | undefined> {
+  return (await errorOf(promise))?.code;
+}
+
+async function errorOf(
+  promise: Promise<unknown>,
+): Promise<{ code: string; reason?: unknown } | undefined> {
   try {
     await promise;
     return undefined;
   } catch (error) {
-    return error instanceof AppException ? error.code : 'OTHER';
+    return error instanceof AppException
+      ? { code: error.code, reason: error.details?.reason }
+      : { code: 'OTHER' };
   }
 }
 
@@ -151,5 +162,38 @@ describe('Tenancy：租戶的 migration 版本檢查（docs/adr/0020-physical-te
     });
     expect(visited).toEqual(['acme']);
     expect(failed).toEqual(['behind']);
+  });
+
+  it('TENANT_UNAVAILABLE 帶原因：停用是 inactive（重試沒用），落後是 maintenance（暫時的）', async () => {
+    tenancy = setup();
+    expect(await errorOf(tenancy.enter(tenant({ status: 'disabled' })))).toEqual({
+      code: 'TENANT_UNAVAILABLE',
+      reason: 'inactive',
+    });
+    applied.mockResolvedValue(100);
+    expect(await errorOf(tenancy.enter(tenant()))).toEqual({
+      code: 'TENANT_UNAVAILABLE',
+      reason: 'maintenance',
+    });
+  });
+
+  it('runForMaintenance：停用的租戶也能進入（停用之後撤銷 session 用），仍檢查版本', async () => {
+    const disabled = tenant({ status: 'disabled' });
+    tenancy = setup([], [disabled]);
+    applied.mockResolvedValue(200);
+    await expect(tenancy.runForMaintenance(disabled.id, async () => 'ok')).resolves.toBe('ok');
+    expect(await codeOf(tenancy.run(disabled.id, async () => 'ok'))).toBe('TENANT_UNAVAILABLE');
+    expect(await codeOf(tenancy.runForMaintenance('missing', async () => 'ok'))).toBe(
+      'TENANT_NOT_FOUND',
+    );
+  });
+
+  it('evict：丟掉連線池與版本檢查的結果，下次進入重新檢查', async () => {
+    tenancy = setup();
+    applied.mockResolvedValue(200);
+    await tenancy.enter(tenant());
+    await tenancy.evict(tenant().id);
+    await tenancy.enter(tenant());
+    expect(applied).toHaveBeenCalledTimes(2);
   });
 });

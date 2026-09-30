@@ -322,10 +322,12 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     try {
       return await this.tenancy.run(envelope.tenantId, () => handler(envelope.payload, context));
     } catch (error) {
-      // 租戶在入列之後被停用或刪除：重試也不會成功，直接結束
+      // 租戶在入列之後被刪除或停用：重試也不會成功，直接結束（停用就是暫停服務，排隊的工作不保留）。
+      // migration 落後、DB 連不上是暫時的：照一般失敗處理，由 pg-boss 重試
       if (
         error instanceof AppException &&
-        (error.code === 'TENANT_NOT_FOUND' || error.code === 'TENANT_UNAVAILABLE')
+        (error.code === 'TENANT_NOT_FOUND' ||
+          (error.code === 'TENANT_UNAVAILABLE' && error.details?.reason === 'inactive'))
       ) {
         this.logger.warn({ job: type.name, tenantId: envelope.tenantId }, '租戶無法使用，略過工作');
         return { skipped: error.code };

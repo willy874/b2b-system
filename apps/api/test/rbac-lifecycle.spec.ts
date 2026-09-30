@@ -9,6 +9,7 @@ import { roles, userRoles, users } from '@/db/schema';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 
 let app: INestApplication;
 let http: App;
@@ -77,7 +78,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     const { AppModule } = await import('@/app.module');
     app = await NestFactory.create(AppModule, { logger: false });
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
   });
 
   afterAll(async () => {

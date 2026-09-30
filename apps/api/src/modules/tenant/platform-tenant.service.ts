@@ -1,16 +1,19 @@
 import { randomBytes } from 'node:crypto';
 
+import { SessionRevokedReason } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '@/core/config';
 import { SecretBox, TENANT_SECRET_PURPOSE } from '@/core/crypto';
 import { AppException } from '@/core/errors';
+import { DomainEvent, DomainEventBus } from '@/core/events';
 import { JobQueue } from '@/core/jobs';
 import { isValidBucketName } from '@/core/storage/object-storage';
 import { Tenancy, TenantDirectory } from '@/core/tenant';
 import type { TenantStatus } from '@/db/platform/schema';
 import { AuthService } from '@/modules/auth/auth.service';
+import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
 import { PlatformAuditService } from '@/modules/platform-admin/platform-audit.service';
 
 import type {
@@ -61,6 +64,8 @@ export class PlatformTenantService {
     private readonly tenancy: Tenancy,
     private readonly directory: TenantDirectory,
     private readonly auth: AuthService,
+    private readonly oidc: OidcProviderService,
+    private readonly events: DomainEventBus,
     private readonly audit: PlatformAuditService,
     config: ConfigService<Env, true>,
   ) {
@@ -163,8 +168,9 @@ export class PlatformTenantService {
   async disable(id: string): Promise<PlatformTenantDto> {
     const tenant = await this.getExisting(id);
     if (tenant.status !== 'active') throw new AppException('TENANT_STATUS_CONFLICT');
-    await this.revokeSessions(tenant);
+    // 先停用再收尾：停用之後就不會再有新的 session 產生
     await this.transition(id, ['active'], { status: 'disabled' });
+    await this.endEverything(tenant);
     await this.audit.record({
       action: 'tenant.disable',
       resourceType: 'tenant',
@@ -176,6 +182,12 @@ export class PlatformTenantService {
 
   async enable(id: string): Promise<PlatformTenantDto> {
     const tenant = await this.transition(id, ['disabled'], { status: 'active' });
+    // 停用期間程序可能重啟過（啟動時只準備 active 的租戶）：補上每個租戶一份的初始資料
+    await this.tenancy
+      .run(id, async () => this.events.publish(DomainEvent.TENANT_ACTIVATED, {}))
+      .catch((error: unknown) =>
+        this.logger.warn({ err: error, tenant: tenant.code }, '重新啟用後無法進入租戶'),
+      );
     await this.audit.record({
       action: 'tenant.enable',
       resourceType: 'tenant',
@@ -192,11 +204,10 @@ export class PlatformTenantService {
   async remove(id: string): Promise<void> {
     const tenant = await this.getExisting(id);
     if (tenant.status === 'provisioning') throw new AppException('TENANT_STATUS_CONFLICT');
-    if (tenant.status === 'active') await this.revokeSessions(tenant);
-    await this.transition(id, ['active', 'disabled', 'failed'], {
-      status: 'disabled',
-      deletedAt: new Date(),
-    });
+    // 先停用、收尾，再標記刪除：刪除之後就找不到這個租戶，連不上它的 DB 撤銷 session
+    await this.transition(id, ['active', 'disabled', 'failed'], { status: 'disabled' });
+    await this.endEverything(tenant);
+    await this.transition(id, ['disabled'], { status: 'disabled', deletedAt: new Date() });
     await this.repo.removeAllDomains(id);
     this.directory.invalidate();
     await this.audit.record({
@@ -276,12 +287,28 @@ export class PlatformTenantService {
   }
 
   /** 撤銷租戶的所有 session；租戶的 DB 連不上時不擋停用（停用後網域一律 503，session 也用不了）。 */
-  private async revokeSessions(tenant: TenantWithDomains): Promise<void> {
-    try {
-      await this.tenancy.run(tenant.id, () => this.auth.revokeAllSessions());
-    } catch (error) {
-      this.logger.warn({ err: error, tenant: tenant.code }, '停用租戶時無法撤銷 session');
-    }
+  /**
+   * 停用、刪除之後的收尾（D13）：撤銷租戶的 app session、結束它的帳號在 IdP 的 session 與 grant
+   * （重新啟用後不能靠舊的 IdP session 直接登回來）、斷掉它的即時連線、關掉連線池。
+   * 每一步各自獨立：租戶的 DB 連不上時仍然結束 IdP session 與連線（停用後網域一律 503，app session 本來就用不了）。
+   */
+  private async endEverything(tenant: TenantWithDomains): Promise<void> {
+    const attempt = async (step: string, fn: () => Promise<unknown>) => {
+      try {
+        await fn();
+      } catch (error) {
+        this.logger.warn({ err: error, tenant: tenant.code, step }, '停用租戶的收尾步驟失敗');
+      }
+    };
+    await attempt('refreshTokens', () =>
+      this.tenancy.runForMaintenance(tenant.id, () => this.auth.revokeAllSessions()),
+    );
+    await attempt('idpSessions', () => this.oidc.endTenantSessions(tenant.id));
+    this.events.publish(DomainEvent.SESSIONS_REVOKED, {
+      tenantIds: [tenant.id],
+      reason: SessionRevokedReason.TENANT_UNAVAILABLE,
+    });
+    await attempt('pool', () => this.tenancy.evict(tenant.id));
   }
 
   private async assertDomainsAvailable(domains: string[]): Promise<void> {

@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 
 import { config as loadEnv } from 'dotenv';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
@@ -57,7 +57,7 @@ export interface ScriptTenant {
 /** 未刪除的租戶；給了 `code` 就只回傳那一個（找不到時拋錯）。 */
 export async function listScriptTenants(
   platform: PlatformScriptDatabase,
-  options: { code?: string; activeOnly?: boolean } = {},
+  options: { code?: string; activeOnly?: boolean; includeDisabled?: boolean } = {},
 ): Promise<ScriptTenant[]> {
   const { tenants } = platformSchema;
   const rows = await platform
@@ -67,7 +67,11 @@ export async function listScriptTenants(
       and(
         isNull(tenants.deletedAt),
         options.code ? eq(tenants.code, options.code) : undefined,
-        options.activeOnly ? eq(tenants.status, 'active') : undefined,
+        options.activeOnly
+          ? options.includeDisabled
+            ? inArray(tenants.status, ['active', 'disabled'])
+            : eq(tenants.status, 'active')
+          : undefined,
       ),
     )
     .orderBy(tenants.code);
@@ -81,10 +85,13 @@ export async function listScriptTenants(
   }));
 }
 
-/** 依序在每個租戶的 DB 執行 `fn`（給了 `code` 就只有那一個）。 */
+/**
+ * 依序在每個 `active` 租戶的 DB 執行 `fn`（給了 `code` 就只有那一個）。`includeDisabled`：停用中的也算
+ * （它的 DB 還在，例：補權限目錄）；佈建中、佈建失敗的 DB 可能不完整，一律不算。
+ */
 export async function forEachScriptTenant(
   fn: (db: ScriptDatabase, tenant: ScriptTenant) => Promise<void>,
-  options: { code?: string } = {},
+  options: { code?: string; includeDisabled?: boolean } = {},
 ): Promise<void> {
   const platform = createPlatformScriptClient();
   try {

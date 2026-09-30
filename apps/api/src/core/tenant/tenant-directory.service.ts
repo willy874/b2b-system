@@ -81,6 +81,19 @@ export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy 
     return undefined;
   }
 
+  /**
+   * 租戶的主要網域，快照裡沒有時重新載入一次（剛新增網域、或這個程序的快照還沒更新）。仍然沒有就拋錯：
+   * 呼叫端（寄信的背景工作）重試，而不是寄出一個指到別的網域的連結。
+   */
+  async requirePrimaryDomain(tenantId: string): Promise<string> {
+    const cached = this.primaryDomainOf(tenantId);
+    if (cached) return cached;
+    await this.refreshDomains();
+    const domain = this.primaryDomainOf(tenantId);
+    if (!domain) throw new Error(`租戶 ${tenantId} 沒有任何網域`);
+    return domain;
+  }
+
   async findByCode(code: string): Promise<TenantRecord | undefined> {
     const key = code.toLowerCase();
     const cached = this.fresh(this.byCode.get(key));

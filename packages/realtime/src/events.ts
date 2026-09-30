@@ -26,6 +26,8 @@ export const SessionRevokedReason = {
   TOKEN_INVALID: 'AUTH_TOKEN_INVALID',
   /** 單一登出：同一個 IdP session 的某個產品登出了（docs/adr/0019-sso-identity-platform.md D5）。 */
   SIGNED_OUT: 'AUTH_REFRESH_REVOKED',
+  /** 平台管理者停用或刪除了這個租戶（docs/adr/0020-physical-tenant-isolation.md D13）。 */
+  TENANT_UNAVAILABLE: 'TENANT_UNAVAILABLE',
 } as const;
 
 export type SessionRevokedReason = (typeof SessionRevokedReason)[keyof typeof SessionRevokedReason];

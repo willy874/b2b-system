@@ -8,7 +8,7 @@ import type { DomainEventMeta, DomainEventPayloads } from '@/core/events';
 
 import { RealtimeAudience, resolveAudienceRooms } from './realtime.audience';
 import { RealtimePublisher } from './realtime.publisher';
-import { idpSessionRoom, userRoom } from './realtime.rooms';
+import { idpSessionRoom, tenantRoom, userRoom } from './realtime.rooms';
 
 /**
  * 領域事件 → 推播（docs/architecture/backend/08-realtime.md §3.5、§6.2、§7）。
@@ -81,12 +81,14 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
   onSessionsRevoked({
     userIds = [],
     idpSessionUids = [],
+    tenantIds = [],
     reason,
   }: DomainEventPayloads[typeof DomainEvent.SESSIONS_REVOKED]): void {
     const rooms = [
       ...[...new Set(userIds)].map(userRoom),
       // 單一登出：只有同一個 IdP session 的連線，同一個人的其他裝置不受影響（ADR-0019 D5）
       ...[...new Set(idpSessionUids)].map(idpSessionRoom),
+      ...[...new Set(tenantIds)].map(tenantRoom),
     ];
     for (const room of rooms) {
       const sockets = this.publisher.countConnections(room);

@@ -123,6 +123,10 @@ auth /login（沒有 tenant）→ 授權（client auth、無 tenant 參數）→
 | 背景工作監控頁搬到 auth（開放問題 3） | apps/auth 加上 **全平台** 的監控（`/platform/jobs`，看得到每個租戶與平台工作）；backstage 的 `/job` 保留，只看自己租戶的 | 租戶的管理者仍需要看自己的匯出、寄信是否卡住；佇列查詢本來就以 `tenantId` 過濾，保留不會洩漏別的租戶。拿掉租戶的 `job:*` 要另寫 migration 清權限，好處不大 |
 | 平台管理者由其他平台管理者建立（D5） | 建立成 `pending`、寄啟用信（`platform_auth_tokens`、平台工作 `platformAdmin.accountMail`）；忘記密碼沒有自助流程，由其他平台管理者「寄設定密碼的連結」 | 平台管理者人數少、權限大；自助的忘記密碼等於多一個對外的入口。連結不帶 `?tenant=`，apps/auth 的 `/setup`、`/reset-password` 據此走平台的端點 |
 | 平台管理者開關外部 IdP（開放問題 2） | `tenants.allow_external_idp`，隨租戶脈絡帶著走：關掉時租戶不能新增或啟用連線，登入時當作沒有連線（包括「只允許 SSO」的網域回到密碼登入）；既有連線保留 | 關掉的理由通常是暫停而不是刪除；登入時不走連線才是真的關掉。只靠外部 IdP 登入、沒有密碼的帳號要用重設密碼 |
+| 停用 = 網域回 503、撤銷所有 session（D13） | 停用與刪除都 **先改狀態再收尾**：撤銷 app session（`Tenancy.runForMaintenance`，不看狀態進入）、刪除帳號 id 是 `t:{tenantId}:*` 的 IdP session／grant／授權碼、斷掉 `t:{tenantId}` room 的即時連線、關掉連線池。排隊中的工作：租戶已刪除或停用時略過；migration 落後或 DB 連不上（`TENANT_UNAVAILABLE` 的 `details.reason = maintenance`）時交給 pg-boss 重試 | 只撤銷 refresh token 的話，重新啟用後使用者會靠還留著的 IdP session 直接登回來；先撤銷再停用則留下一個空窗，期間新發的 token 撤銷不到。暫時性的故障不該把寄信之類的工作丟掉 |
+| 租戶的狀態改變立即生效（D2 的快取） | 只在本程序立即生效（`TenantDirectory.invalidate()`）；其他執行個體最多晚 `TENANT_CACHE_TTL` 秒 | 目前只部署一個 api 執行個體（WebSocket 也是單機的 adapter）。擴成多個執行個體時，改用平台 DB 的 `LISTEN/NOTIFY` 廣播失效，與 Socket.io 的 adapter 一起處理 |
+| 每個租戶一份的初始資料在啟動時準備（`forEachActive`） | 另外發佈 `DomainEvent.TENANT_ACTIVATED`（佈建完成、重新啟用時，在那個租戶的脈絡裡），檔案模組據此建立系統資料夾 | 新佈建的租戶不必等程序重啟才有共用資料夾與私人根目錄 |
+| `db:seed` 在每個租戶跑一樣的 seed | `SUPER_ADMIN_EMAIL` 的 super-admin 只建在 `SEED_TENANT`（預設 `default`）；其他租戶（含停用中的）只補權限目錄與系統角色 | 營運方共用的帳密不能出現在客戶的租戶；停用中的租戶也要補新增的權限，重新啟用時才不會缺 |
 | refresh 輪替的規則寫在租戶的 `AuthService` | 抽成 `rotateRefreshToken`，租戶與平台各提供自己的 token 表 | 平台管理者的 session 用同一套規則（一次性使用、重用偵測、併發只有一個成功），安全相關的邏輯只有一份 |
 
 ## 替代方案

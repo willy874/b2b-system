@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 
 import { AppException } from '@/core/errors';
@@ -35,6 +35,8 @@ import type { LoginDto, SsoCallbackDto, SsoInteractionDto, SsoRedirectDto } from
  */
 @Injectable()
 export class SsoService implements OnModuleInit {
+  private readonly logger = new Logger(SsoService.name);
+
   constructor(
     private readonly auth: AuthService,
     private readonly oidc: OidcProviderService,
@@ -49,7 +51,16 @@ export class SsoService implements OnModuleInit {
     // （租戶帳號在那個租戶裡撤銷；平台管理者的由 PlatformAuthService 處理）
     this.oidc.onSessionEnded((sessionUid, account) => {
       if (account?.realm !== 'tenant') return;
-      void this.tenancy.run(account.tenantId, () => this.auth.endIdpSession(sessionUid));
+      // 事件監聽器裡的非同步錯誤沒有人接：一定要自己收（否則未處理的 rejection 會讓程序結束）。
+      // 租戶已停用或刪除時進不去：它的 session 在停用時已經撤銷（PlatformTenantService），這裡只記錄
+      this.tenancy
+        .run(account.tenantId, () => this.auth.endIdpSession(sessionUid))
+        .catch((error: unknown) =>
+          this.logger.warn(
+            { err: error, tenantId: account.tenantId },
+            '結束 IdP session 時無法撤銷租戶的 app session',
+          ),
+        );
     });
   }
 

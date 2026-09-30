@@ -27,6 +27,12 @@ interface SchemaCheck {
   state: Promise<SchemaState>;
 }
 
+export type TenantUnavailableReason = 'inactive' | 'maintenance';
+
+function unavailable(reason: TenantUnavailableReason): AppException {
+  return new AppException('TENANT_UNAVAILABLE', { reason });
+}
+
 /** 落後的租戶多久重新檢查一次：補跑 `db:migrate` 之後不必重啟程序就會恢復。 */
 export const SCHEMA_RECHECK_MS = 30_000;
 
@@ -67,13 +73,34 @@ export class Tenancy implements OnApplicationBootstrap, OnApplicationShutdown {
     }
   }
 
-  /** 已解析的租戶 → 脈絡。租戶不是 `active`、或 migration 落後時拋 `TENANT_UNAVAILABLE`。 */
+  /**
+   * 已解析的租戶 → 脈絡。不能進入時拋 `TENANT_UNAVAILABLE`，`details.reason` 分兩種：
+   * `inactive`（停用、佈建中、佈建失敗：平台管理者的決定，重試沒有用）與
+   * `maintenance`（migration 落後、DB 連不上：暫時的，稍後重試會好）。背景工作依此決定略過或重試。
+   */
   async enter(tenant: TenantRecord): Promise<TenantContext> {
-    if (tenant.status !== 'active') throw new AppException('TENANT_UNAVAILABLE');
-    if ((await this.schemaStateOf(tenant)) !== 'current') {
-      throw new AppException('TENANT_UNAVAILABLE');
-    }
+    if (tenant.status !== 'active') throw unavailable('inactive');
+    if ((await this.schemaStateOf(tenant)) !== 'current') throw unavailable('maintenance');
     return this.contextOf(tenant);
+  }
+
+  /**
+   * 不看租戶狀態進入（仍檢查 migration 版本）：只給平台管理者對租戶本身的維運動作用，例如停用 **之後**
+   * 撤銷 session——那時租戶已經不能用一般的 `run` 進入。
+   */
+  async runForMaintenance<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
+    const tenant = await this.directory.findById(tenantId);
+    if (!tenant) throw new AppException('TENANT_NOT_FOUND');
+    if ((await this.schemaStateOf(tenant)) !== 'current') throw unavailable('maintenance');
+    return runInTenantContext(this.contextOf(tenant), fn);
+  }
+
+  /** 關掉租戶的連線池（停用、刪除之後）；下次進入時重建。 */
+  async evict(tenantId: string): Promise<void> {
+    const pool = this.pools.get(tenantId);
+    this.pools.delete(tenantId);
+    this.schemaChecks.delete(tenantId);
+    await pool?.close();
   }
 
   /** 以 id 進入租戶（背景工作、腳本）。租戶不存在或不能進入時拋錯。 */

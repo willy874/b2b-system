@@ -4,11 +4,14 @@ import {
   ListObjectsV2Command,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import postgres from 'postgres';
 
+import { JOB_SCHEMA } from '@/core/jobs/job-queue';
+import { tenantAccountPrefix } from '@/modules/oidc-provider/oidc-account';
+
 import { createPlatformScriptClient, loadScriptEnv, tenantSecretBox } from './client';
-import { platformAuditLogs, tenants } from './platform/schema';
+import { oidcPayloads, platformAuditLogs, tenants } from './platform/schema';
 
 /**
  * 清除 **已刪除** 的租戶（docs/adr/0020-physical-tenant-isolation.md D13）：`DROP DATABASE`、`DROP ROLE`、
@@ -71,6 +74,15 @@ async function main(): Promise<void> {
       await admin.end();
     }
     await platform.db.transaction(async (tx) => {
+      // 殘留在平台 DB、指向這個租戶的東西：帳號在 IdP 的 session／grant、佇列裡的工作
+      await tx
+        .delete(oidcPayloads)
+        .where(
+          sql`${oidcPayloads.payload}->>'accountId' LIKE ${`${tenantAccountPrefix(tenant.id)}%`}`,
+        );
+      await tx.execute(
+        sql`DELETE FROM ${sql.raw(JOB_SCHEMA)}.job WHERE data->>'tenantId' = ${tenant.id}`,
+      );
       await tx.delete(tenants).where(eq(tenants.id, tenant.id));
       await tx.insert(platformAuditLogs).values({
         action: 'tenant.purge',

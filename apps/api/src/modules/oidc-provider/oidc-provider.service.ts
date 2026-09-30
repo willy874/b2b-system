@@ -243,7 +243,8 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
     if (clientId === OIDC_CLIENT.AUTH) return { realm: 'platform' };
     const code = params?.tenant;
     const tenant = typeof code === 'string' ? await this.directory.findByCode(code) : undefined;
-    return tenant ? { realm: 'tenant', tenant } : undefined;
+    // 互動進行到一半時租戶被停用：當作互動無效（authorize 時已擋下非 active 的租戶）
+    return tenant?.status === 'active' ? { realm: 'tenant', tenant } : undefined;
   }
 
   isFirstParty(clientId: string): clientId is OidcClientId {
@@ -382,6 +383,11 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
   async destroySession(sessionUid: string): Promise<void> {
     const session = await this.provider.Session.findByUid(sessionUid);
     if (session) await session.destroy();
+  }
+
+  /** 結束某個租戶所有帳號的 IdP session 與 grant（停用、刪除租戶，docs/adr/0020-physical-tenant-isolation.md D13）。 */
+  async endTenantSessions(tenantId: string): Promise<number> {
+    return this.repo.destroyAllOfTenant(tenantId);
   }
 
   /** provider 自己的 end-session（第三方 RP 用）結束時：交給呼叫端撤銷那個身分的 app session。 */

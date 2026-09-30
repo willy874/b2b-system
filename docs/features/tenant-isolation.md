@@ -144,6 +144,15 @@ ADR-0018 的工作區是「共用資料表 ＋ `workspace_id`」，帳號跨工�
     只看自己租戶的，見 ADR-0020 實作調整）；外部 IdP 開關（`tenants.allow_external_idp`）；`pnpm db:drop-tenant <代碼> --confirm`
     清除已刪除租戶的 database、DB 角色與 bucket。apps/auth 的 `/admin`、`/audit-log`、`/job` 頁面。整合測試 `test/platform-admin.spec.ts`。
 
+- ✅ 第 5 步（周邊改為租戶感知）：清單上的背景工作、推播 room、快取 key、bucket、外部 IdP、信件連結、稽核分流在第 2–4 步已完成；
+  這一步是全面盤點後補上的缺口（設計見 ADR-0020 實作調整）：停用與刪除先改狀態再收尾（app session、IdP session 與 grant、
+  `t:{tenantId}` room 的即時連線、連線池）；`TENANT_UNAVAILABLE` 帶 `reason`，背景工作只在租戶停用或刪除時略過、暫時性故障交給重試；
+  IdP 的 end-session 監聽器不再有未處理的 rejection（租戶已停用時會讓程序結束）；互動進行中租戶被停用視為互動無效；
+  使用者的 room 帶租戶；`TENANT_ACTIVATED` 讓新佈建、重新啟用的租戶立即有檔案的系統資料夾；信中連結找不到租戶網域時拋錯重試
+  （不退回 `APP_PUBLIC_URL`）；`db:seed` 的 super-admin 只建在 `SEED_TENANT`、其他租戶（含停用中的）只補權限目錄；
+  `db:reset` 補清外部 IdP 的表與平台的帳號 token；`db:drop-tenant` 一併清除 IdP 的殘留與佇列裡的工作。
+  **已知限制**：租戶狀態的變更只在本程序立即生效，多個 api 執行個體時其他執行個體最多晚 `TENANT_CACHE_TTL` 秒（目前只部署一個）。
+
 ## 交付順序
 
 每一步結束時 `pnpm typecheck && pnpm test` 通過、既有 E2E 在單一租戶 `default` 下通過。

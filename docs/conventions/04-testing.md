@@ -57,6 +57,10 @@
 | 後端 repository、DB 約束、trigger  | 整合測試，Testcontainers 起真 Postgres；**不用 sqlite / mock DB**             |
 | 跨前後端的使用者流程               | Playwright，只放關鍵路徑                                                      |
 
+後端的 HTTP 整合測試以 `listenOnLoopback(app)`（`apps/api/test/http.ts`）取得給 supertest 的 server，
+**不要** 直接把 `app.getHttpServer()` 交給 supertest：supertest 會替每個請求 `listen(0)`（綁在 `::`）再連 `127.0.0.1`，
+macOS 上那個埠可能已被別的程序綁在 `127.0.0.1`，請求會被它接走，測試偶發地拿到 401、404 或逾時。
+
 MSW handler 要模擬權限行為（無權限回 403），不能一律回 200。見
 [`architecture/frontend/10-testing.md`](../architecture/frontend/10-testing.md) §3.5。
 

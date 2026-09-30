@@ -9,6 +9,7 @@ import { auditLogs, auditLogsArchive } from '@/db/schema';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, expectDbError, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 
 let app: INestApplication;
 let http: App;
@@ -70,7 +71,7 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
     const { AppModule } = await import('@/app.module');
     app = await NestFactory.create(AppModule, { logger: false });
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
 
     const login = await request(http).post('/auth/login').send(SUPER_ADMIN).expect(200);
     token = (login.body as { data: { accessToken: string } }).data.accessToken;

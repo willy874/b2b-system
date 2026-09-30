@@ -20,6 +20,7 @@ import { users } from '@/db/schema';
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
 import { databaseUrlOf } from './global-setup';
+import { listenOnLoopback } from './http';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
 
 let app: INestApplication;
@@ -149,7 +150,7 @@ describe('租戶實體隔離（docs/adr/0020-physical-tenant-isolation.md D1–D
     app = moduleRef.createNestApplication({ logger: false });
     app.use(cookieParser());
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
   });
 
   afterAll(async () => {
