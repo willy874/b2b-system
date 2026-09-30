@@ -157,6 +157,7 @@
   2. 或改為只載入需要的部分：列表只需要 `readableFolderIds`，可以用遞迴 CTE 由授權往下展開；單一資源只需要它的祖先鏈（`findAncestorIds` 已存在）。
   3. 個人資料夾不必出現在每個人的樹裡：一般使用者只需要自己的個人資料夾與被授權的節點。
 - **驗收**：5000 個資料夾的租戶中，`GET /files` 的 DB 讀取列數 < 200、p95 < 50 ms；以 `pg_stat_statements` 確認 `listTreeNodes` 的呼叫次數遠低於檔案 API 的請求數。
+- **狀態**：已修（fix/file）：建議 1——資料夾結構以租戶為 key 快取在程序內（`FileFolderTree`），結構寫入統一經 `write()` 在提交後失效；授權仍每次查（只有操作者本人與角色的列）。建議 3（個人資料夾不出現在別人的樹）延後——rbac/07 §5.1 規定別人的個人資料夾要列出但鎖住，需產品決策。快取只在本程序失效，api 水平擴展時要改跨程序通知（已寫進 backend/09 §11.1）
 
 ### PERF-06 檔案變更的推播放大：所有檔案讀者重抓、無限捲動重抓全部頁、一次上傳推兩次
 
@@ -176,6 +177,7 @@
   3. 同一檔案在短時間內的 `CREATE` 與變體 `UPDATE` 由後端合併（debounce 500 ms），或變體 `UPDATE` 只推給上傳者與正在看該資料夾的人。
   4. 後端為推播觸發的列表請求提供便宜的路徑（例如以 `If-None-Match` / 版本號回 304）。
 - **驗收**：壓測 200 個檔案管理器分頁 ＋ 每秒 1 次上傳，`GET /files` 的 rps 與上傳 rps 的比值 < 20（目前推估約 1200）。
+- **狀態**：已修（fix/file）：建議 1——推播帶 `refs.fileFolder`，前端依賴圖新增 `scopedCollection`，只重抓那個資料夾與不分資料夾的列表；建議 3——圖片的 create 等變體最多 3 秒，合併成一次推播。建議 2（`maxPages`）延後——游標只能往後、列表是虛擬捲動，丟掉前面的頁要有反向游標與捲動錨定，否則往上捲的內容會消失；建議 4（304）延後。`derivesFromAnyChange` 的稽核重抓屬 PERF-09／稽核範圍
 
 ### PERF-07 影像變體在 API 程序內整檔讀進記憶體處理，單次可達數百 MB
 
@@ -193,6 +195,7 @@
   3. 設 `sharp.concurrency()` 與 `sharp.cache()` 上限；降低 `limitInputPixels`（例如 5000 萬）或對超過門檻的圖只產縮圖。
   4. 非主格式的轉檔改為背景產生，請求路徑先回主格式。
 - **驗收**：同時上傳 10 張 8000×8000 PNG，API 程序 RSS 增量 < 300 MB、同時段 WebSocket 心跳沒有逾時、一般 API p99 不受影響。
+- **狀態**：已修（fix/file，部分）：原圖串流先寫暫存檔、libvips 從檔案逐列解碼，兩個版本依序 render，libvips 執行緒 2、快取 16 MB，`format=auto` 的未轉出格式改背景轉出（先回主格式、快取 30 秒）。移到獨立 worker 容器（建議 1）延後——要等背景工作能分開部署（PERF-10，基礎設施組）；`limitInputPixels` 維持 1 億（改為逐列解碼後尖峰不再與像素數成正比）；RSS 實測未做
 
 ### PERF-08 權限大量變更時，全域序列化的事件匯流排被逐人查詢卡住，所有租戶的推播一起延遲
 
@@ -229,6 +232,7 @@
   2. 檔案游標分頁時不回 total（或只在第一頁回）。
   3. `offset` 設上限（例如 10,000），超過改要求縮小範圍。
 - **驗收**：300 萬列的稽核熱表，稽核列表第一頁與第 100 頁的 p95 都 < 100 ms；`pg_stat_statements` 中稽核 count 的總耗時占比下降。
+- **狀態**：檔案列表部分已修（fix/file）：帶游標的頁不再 `count(*)`，`FileListPage.pagination.total` 改為 nullable（已重新產生 SDK）。稽核 keyset、offset 上限與其他列表不在檔案組
 
 ### PERF-10 背景工作、排程、影像處理都在同一個 API 程序；寄信無 SMTP 連線池、並行 1
 
@@ -353,6 +357,7 @@
 - **影響**：物件數到數十萬時，每次刪檔都是 O(n log n) 的排序與 O(n) 掃描、啟動時間線性增加；上傳與刪除交錯時排序快取幾乎無效。資料本體有串流（見「做得好的地方」），所以不影響上傳下載吞吐。
 - **建議**：正式環境以真正的 S3 / MinIO 取代（設計上已可替換）；若保留，改用有序結構（例如 sorted array ＋ 二分插入，或按 prefix 分組），`listPage` 以二分搜尋定位起點。
 - **驗收**：50 萬物件的 bucket，交錯執行 PUT 與 `ListObjectsV2(prefix=variants/<id>/)` 時 p99 < 20 ms。
+- **狀態**：已修（fix/file）：排序清單在寫入／刪除時以二分搜尋就地維持，`listPage` 以二分搜尋定位起點、離開 prefix 範圍就停。插入仍是 O(n) 陣列搬移；大量物件時正式環境仍建議換 S3／MinIO
 
 ### PERF-19 部分篩選欄位沒有索引（`files.created_by`、使用者關鍵字 `%kw%`）
 
@@ -366,6 +371,7 @@
 - **影響**：使用者數在數千以內時都是毫秒級，1000 人不會出事；使用者或檔案數成長到數十萬後才會退化。
 - **建議**：`files (created_by, created_at) WHERE deleted_at IS NULL`；`users` 三欄的 `gin_trgm_ops`（或合成一個 `search_text` 欄）；使用者列表先分頁再聚合角色（子查詢 `LIMIT` 後 join）。
 - **驗收**：`EXPLAIN ANALYZE` 顯示上述查詢使用索引；10 萬使用者時關鍵字搜尋 p95 < 50 ms。
+- **狀態**：`files.created_by` 部分已修（fix/file）：`files_created_by_created_at_idx`（created_by, created_at）WHERE deleted_at IS NULL，tenant migration `0004_files_created_by_idx`。使用者關鍵字 trigram 與先分頁再聚合不在檔案組
 
 ### PERF-20 容器沒有記憶體上限與 Node heap 設定；健康檢查只看 liveness
 

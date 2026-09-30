@@ -59,6 +59,7 @@
   3. nginx 的 `/storage/` location 另設 `Content-Security-Policy: default-src 'none'; sandbox; frame-ancestors 'none'` 與 `X-Content-Type-Options: nosniff`（在 location 裡寫 `add_header` 要把其他安全標頭一併重寫）。
   4. 長期：把物件儲存放在獨立的 cookieless 網域（例如 `files-<tenant>.example-usercontent.com`）。
 - **驗收**：上傳 `text/html`、`image/svg+xml` 後，`url` 是 null 或回應標頭是 `attachment`／`application/octet-stream`；`curl -I` 下載網址看得到 `sandbox` CSP。E2E：以瀏覽器開上傳的 HTML，腳本不執行。
+- **狀態**：已修（fix/file）：`url` 只對白名單型別 inline，SVG 保留型別但 attachment，其他一律 attachment ＋ `application/octet-stream`；apps/file-storage 與 nginx `/storage/` 都送 `nosniff` 與 `sandbox` CSP；影像 API 的 302 帶 `nosniff`。PDF 不 inline（sandbox 會擋瀏覽器的 PDF 檢視器）。獨立 cookieless 網域（建議 4）延後——需要部署與 DNS 決策
 
 ### SEC-03 租戶帳號鎖定永不自動解除，任何人輸錯 5 次就能鎖住任意帳號（含 super-admin）；狀態檢查早於密碼驗證，可列舉帳號
 
@@ -195,6 +196,7 @@
 - **利用情境**：被偷的 refresh cookie 只要定期續期就不會過期；離職或被撤銷授權的人，在網址有效期內仍能下載檔案。
 - **建議**：家族記下 `created_at`，超過絕對上限（例如 30 天，或企業可設定）就要重新登入；`FILE_URL_TTL` 上限收斂到 1 小時以內，並在文件中說明撤銷的延遲。
 - **驗收**：refresh 整合測試：家族超過上限後回 `AUTH_REFRESH_EXPIRED`。
+- **狀態**：檔案部分已修（fix/file）：`FILE_URL_TTL` 上限收斂到 3600 秒，文件載明撤銷延遲的上限。session 絕對上限歸認證組
 
 ### SEC-17 `safeReturnTo` 沒擋 `/\`；backstage 的 redirect URI 接受 `http:`，而且比對時可以不看 port
 
