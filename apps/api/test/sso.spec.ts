@@ -375,6 +375,18 @@ describe('SSO（docs/adr/0019-sso-identity-platform.md、0020 D5–D10）', () =
     expect(errorCode(replay)).toBe('AUTH_SSO_CODE_INVALID');
   });
 
+  it('同一個授權碼的併發兌換只有一個成功（docs/issues/02-security.md SEC-12）', async () => {
+    const jar = new CookieJar();
+    const authorized = await authorize(jar, BACKSTAGE, USER);
+    const responses = await Promise.all(
+      Array.from({ length: 4 }, () => callback(BACKSTAGE, authorized)),
+    );
+    expect(responses.map((response) => response.status).toSorted()).toEqual([200, 400, 400, 400]);
+    for (const response of responses.filter((item) => item.status === 400)) {
+      expect(errorCode(response)).toBe('AUTH_SSO_CODE_INVALID');
+    }
+  });
+
   describe('authorize 的 tenant 參數（D7）', () => {
     async function authorizeError(client: Client, overrides: Record<string, string | null>) {
       const query = authorizeQuery(client, pkce().challenge, 'x');
@@ -515,7 +527,11 @@ describe('SSO（docs/adr/0019-sso-identity-platform.md、0020 D5–D10）', () =
         .set('x-refresh-request', '1')
         .set('cookie', refreshCookieOf(session))
         .expect(200);
-      // 舊的再用一次 = 重用，整條家族撤銷
+      // 舊的在寬限期過後再用一次 = 重用，整條家族撤銷（寬限期內的重送見 refresh-rotation.spec.ts）
+      await platformDb
+        .update(platformRefreshTokens)
+        .set({ usedAt: new Date(Date.now() - 5 * 60_000) })
+        .where(eq(platformRefreshTokens.tokenHash, sha256Of(refreshCookieOf(session))));
       const reused = await request(http)
         .post('/platform/auth/refresh')
         .set('Host', AUTH_HOST)

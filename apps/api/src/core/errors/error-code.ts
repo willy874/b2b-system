@@ -51,6 +51,11 @@ export const ErrorCode = {
   AUTH_SSO_REQUIRED: { status: 403 },
   /** 外部 IdP 登入成功，但沒有對應的帳號，而連線設定為拒絕（D10）。 */
   AUTH_SSO_ACCOUNT_NOT_FOUND: { status: 403 },
+  /**
+   * 外部 IdP 回報的 email 對上既有帳號，但不能自動連結：email 網域不是這個連線登記的網域，或帳號持有系統的
+   * 管理角色（super-admin、admin、auditor）。要由本人以密碼登入，或請管理員處理（docs/architecture/04-sso.md §3.3）。
+   */
+  AUTH_SSO_LINK_NOT_ALLOWED: { status: 403 },
   /** 外部 IdP 連線不存在、已停用，或無法連線（discovery 失敗）。 */
   AUTH_SSO_PROVIDER_UNAVAILABLE: { status: 400 },
   /** 外部 IdP 回來的結果無效：state 不對、已過期、授權碼兌換失敗、ID token 驗證失敗。 */
@@ -67,6 +72,8 @@ export const ErrorCode = {
   USER_EMAIL_DUPLICATE: { status: 409 },
   USER_USERNAME_DUPLICATE: { status: 409 },
   USER_NOT_LOCKED: { status: 409 },
+  /** 整批取代角色時，送出的草稿所依據的角色已被別人改過（docs/issues/03-edge-cases.md EDGE-11）。 */
+  USER_ROLES_CONFLICT: { status: 409 },
 
   // ── 角色 ──
   ROLE_NOT_FOUND: { status: 404 },

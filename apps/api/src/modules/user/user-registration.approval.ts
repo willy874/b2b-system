@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { PERMISSION } from '@/common/types';
 import type { PermissionKey } from '@/common/types';
 import type { Transaction } from '@/core/database';
+import { JobQueue } from '@/core/jobs';
 import { ApprovalType } from '@/modules/approval/approval.constants';
 import { ApprovalService } from '@/modules/approval/approval.service';
 import type {
@@ -13,6 +14,7 @@ import type {
   ApprovalOutcome,
   SubmitApprovalInput,
 } from '@/modules/approval/approval.types';
+import { ACTIVATION_MAIL_JOB } from '@/modules/auth/auth-mail.constants';
 
 import { UserService } from './user.service';
 
@@ -48,8 +50,12 @@ export function userRegistrationRequest(
 }
 
 /**
- * `user.register` 的核准：以申請時設定的密碼建立 **已啟用** 的帳號，並指派審核者選的角色
+ * `user.register` 的核准：建立 **未啟用**（`pending`）的帳號並指派審核者選的角色，同一個交易內入列啟用信
  * （docs/rbac/06-approval.md §5）。等同審核者代為「建立使用者」，所以要求相同的權限與檢查。
+ *
+ * 申請時沒有驗證 email：任何人都能以別人的 email 申請。核准後要由那個信箱收到的啟用信設定密碼才會啟用，
+ * 證明申請人真的擁有這個 email（docs/issues/02-security.md SEC-08）。申請時設定的密碼先存著，
+ * 啟用前以它登入會得到 `AUTH_ACCOUNT_PENDING`（提示去收信），而不是「帳密錯誤」。
  */
 @Injectable()
 export class UserRegistrationApprovalHandler implements ApprovalHandler, OnModuleInit {
@@ -58,6 +64,7 @@ export class UserRegistrationApprovalHandler implements ApprovalHandler, OnModul
   constructor(
     private readonly approvals: ApprovalService,
     private readonly users: UserService,
+    private readonly jobs: JobQueue,
   ) {}
 
   onModuleInit(): void {
@@ -87,14 +94,15 @@ export class UserRegistrationApprovalHandler implements ApprovalHandler, OnModul
         email: payload.email,
         displayName: payload.displayName,
         passwordHash: secret.passwordHash,
-        // 申請人已設定密碼，核准即可登入，不再走啟用信
-        status: 'active',
+        status: 'pending',
         roleIds: options.roleIds,
       },
       reviewer,
       tx,
       { approvalId: request.id },
     );
+    // 與帳號同生共死：核准失敗就不會寄出啟用信（docs/architecture/backend/11-mail.md §4）
+    await this.jobs.enqueue(ACTIVATION_MAIL_JOB, { userId: user.id }, { tx });
     return { resourceId: user.id };
   }
 

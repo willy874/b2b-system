@@ -168,7 +168,8 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
         app
           .get(PlatformAdminService)
           .verifyCredentials({ email: 'pa-new@example.com', password: PASSWORD }),
-      ).rejects.toMatchObject({ code: 'AUTH_ACCOUNT_PENDING' });
+        // 還沒設定密碼：密碼驗證不會通過，狀態不外露（與帳號不存在相同，docs/architecture/backend/04-auth.md §3.2）
+      ).rejects.toMatchObject({ code: 'AUTH_INVALID_CREDENTIALS' });
 
       const token = linkToken(await waitForMail('pa-new@example.com'), '/setup');
       // 租戶網域上不能用

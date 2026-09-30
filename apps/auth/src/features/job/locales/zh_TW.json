@@ -13,6 +13,8 @@
       "activationMail": "帳號啟用信",
       "tenantProvision": "租戶佈建",
       "oidcCleanup": "OIDC 資料清理",
+      "tokenCleanup": "過期登入憑證清理",
+      "platformTokenCleanup": "平台管理者的過期登入憑證清理",
       "outboxSweep": "事件外送補送",
       "passwordResetMail": "重設密碼信",
       "platformAdminAccountMail": "平台管理者的啟用／重設密碼信"

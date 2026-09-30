@@ -8,7 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { AuthUser } from '@/common/types';
 import { UserCacheService } from '@/core/cache';
 import type { Env } from '@/core/config';
-import type { Database } from '@/core/database';
+import type { Database, Transaction } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
@@ -22,9 +22,13 @@ import { IdentityProviderService } from '@/modules/identity-provider/identity-pr
 import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 import { userRegistrationRequest } from '@/modules/user/user-registration.approval';
-import { UserService, userUpdated } from '@/modules/user/user.service';
+import { isLoginLocked, UserService, userUpdated } from '@/modules/user/user.service';
 
-import { FORGOT_PASSWORD_THROTTLE_SECONDS, PASSWORD_RESET_MAIL_JOB } from './auth-mail.constants';
+import {
+  ACTIVATION_MAIL_JOB,
+  FORGOT_PASSWORD_THROTTLE_SECONDS,
+  PASSWORD_RESET_MAIL_JOB,
+} from './auth-mail.constants';
 import { AuthTokenService } from './auth-token.service';
 import {
   LOGIN_LOCKOUT_SECONDS_SETTING,
@@ -43,8 +47,15 @@ import type {
   SetupDto,
   UpdateProfileDto,
 } from './dto/auth.dto';
-import { hashPassword, verifyAgainstDummy, verifyPassword } from './password';
-import { rotateRefreshToken } from './refresh-rotation';
+import type { Argon2Options } from './password';
+import {
+  containsContext,
+  emailContext,
+  hashPassword,
+  verifyAgainstDummy,
+  verifyPassword,
+} from './password';
+import { rotateRefreshToken, secondsUntil } from './refresh-rotation';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import { sha256 } from './token-hash';
 
@@ -104,7 +115,7 @@ export class AuthService {
 
     // 時序攻擊防護：帳號不存在時也跑一次 argon2
     if (!user) {
-      await verifyAgainstDummy(dto.password);
+      await verifyAgainstDummy(dto.password, this.argon2Options());
       await this.audit.recordSafely({
         action: 'auth.login.failure',
         resourceType: 'auth',
@@ -116,21 +127,27 @@ export class AuthService {
       throw new AppException('AUTH_INVALID_CREDENTIALS');
     }
 
-    if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
-      throw new AppException('AUTH_ACCOUNT_LOCKED', {
-        retryAfterSeconds: Math.ceil((user.lockedUntil.getTime() - Date.now()) / 1000),
-      });
-    }
-
-    if (user.status === 'pending') throw new AppException('AUTH_ACCOUNT_PENDING');
-    if (user.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
-
-    const ok = user.passwordHash ? await verifyPassword(user.passwordHash, dto.password) : false;
+    // 狀態與鎖定都在驗證密碼 **之後** 才判斷：不知道密碼的人一律只看到 AUTH_INVALID_CREDENTIALS，
+    // 無法藉「鎖定中／未啟用／停用」的不同錯誤碼列舉帳號（docs/architecture/backend/04-auth.md §3.2）
+    const ok = user.passwordHash
+      ? await verifyPassword(user.passwordHash, dto.password)
+      : await verifyAgainstDummy(dto.password, this.argon2Options());
+    const lockedUntil = isLoginLocked(user) ? user.lockedUntil : null;
     if (!ok) {
-      await this.registerFailedAttempt(user);
+      if (lockedUntil) await this.recordLockedAttempt(user);
+      else await this.registerFailedAttempt(user);
       throw new AppException('AUTH_INVALID_CREDENTIALS');
     }
 
+    if (lockedUntil) {
+      throw new AppException('AUTH_ACCOUNT_LOCKED', {
+        retryAfterSeconds: Math.ceil((lockedUntil.getTime() - Date.now()) / 1000),
+      });
+    }
+    if (user.status === 'pending') throw new AppException('AUTH_ACCOUNT_PENDING');
+    if (user.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
+
+    // 鎖定到期後的成功登入也在這裡歸零：計數與到期時間一起清掉
     await this.users.updateAccount(user.id, {
       failedLoginCount: 0,
       lockedUntil: null,
@@ -149,27 +166,22 @@ export class AuthService {
     return user;
   }
 
+  /**
+   * 密碼錯誤（沒有鎖定中）：原子遞增失敗次數，達到上限就鎖定（docs/architecture/backend/04-auth.md §3.3）。
+   * 鎖定只寫 `locked_until`、不改 `status`，也 **不** 撤銷既有 session：鎖定是擋猜密碼，
+   * 不能讓知道 email 的人藉此把已登入的人踢下線（docs/issues/03-edge-cases.md EDGE-01）。
+   */
   private async registerFailedAttempt(user: UserRow): Promise<void> {
-    const count = user.failedLoginCount + 1;
     // 租戶的設定；平台管理者的鎖定仍讀 env（platform-admin.service.ts）
     const maxAttempts = await this.settings.get(LOGIN_MAX_ATTEMPTS_SETTING);
     const lockoutSeconds = await this.settings.get(LOGIN_LOCKOUT_SECONDS_SETTING);
-    const shouldLock = count >= maxAttempts;
+    const result = await this.users.recordFailedLogin(user.id, maxAttempts, lockoutSeconds);
+    // undefined：並行的另一個失敗剛好把帳號鎖上了，這一次不再計數
+    if (!result) return this.recordLockedAttempt(user);
+    const locked = result.lockedUntil !== null;
 
-    await this.users.updateAccount(user.id, {
-      failedLoginCount: count,
-      lockedUntil: shouldLock ? new Date(Date.now() + lockoutSeconds * 1000) : null,
-      status: shouldLock ? 'locked' : user.status,
-    });
-    this.userCache.invalidate(user.id);
-    if (shouldLock && user.status !== 'locked') {
-      // 鎖定不遞增 token_version，但 status 已非 active：既有 access token 的下一次 HTTP 請求
-      // 本來就會被 AUTH_ACCOUNT_DISABLED 擋下，即時連線也同樣立刻撤銷，不等 token 到期
-      this.events.publish(DomainEvent.SESSIONS_REVOKED, {
-        userIds: [user.id],
-        reason: SessionRevokedReason.ACCOUNT_DISABLED,
-      });
-      // 狀態欄會出現在使用者列表
+    if (locked) {
+      // 列表的狀態欄顯示為 locked（`displayStatusOf`）
       this.events.publish(DomainEvent.RESOURCE_CHANGED, {
         changes: [userUpdated(user.id, await this.users.listRoleSummaries(user.id))],
         affectedUserIds: [user.id],
@@ -177,14 +189,28 @@ export class AuthService {
     }
 
     await this.audit.recordSafely({
-      action: shouldLock ? 'auth.account_locked' : 'auth.login.failure',
+      action: locked ? 'auth.account_locked' : 'auth.login.failure',
       resourceType: 'auth',
       resourceId: user.id,
       result: 'failure',
       actorId: user.id,
       actorEmail: user.email,
-      errorCode: shouldLock ? 'AUTH_ACCOUNT_LOCKED' : 'AUTH_INVALID_CREDENTIALS',
-      metadata: { failedLoginCount: count },
+      errorCode: locked ? 'AUTH_ACCOUNT_LOCKED' : 'AUTH_INVALID_CREDENTIALS',
+      metadata: { failedLoginCount: result.failedLoginCount },
+    });
+  }
+
+  /** 鎖定期間的錯誤密碼：不計數、不延長鎖定，只留稽核。 */
+  private async recordLockedAttempt(user: UserRow): Promise<void> {
+    await this.audit.recordSafely({
+      action: 'auth.login.failure',
+      resourceType: 'auth',
+      resourceId: user.id,
+      result: 'failure',
+      actorId: user.id,
+      actorEmail: user.email,
+      errorCode: 'AUTH_INVALID_CREDENTIALS',
+      metadata: { reason: 'locked' },
     });
   }
 
@@ -193,7 +219,7 @@ export class AuthService {
     const refreshTtl = this.config.get('REFRESH_TOKEN_TTL', { infer: true });
     const { raw } = await this.refreshTokens.issue({
       userId: user.id,
-      ttlSeconds: refreshTtl,
+      expiresAt: new Date(Date.now() + refreshTtl * 1000),
       clientId: sso?.clientId ?? null,
       idpSessionUid: sso?.idpSessionUid ?? null,
       userAgent: meta.userAgent ?? null,
@@ -228,36 +254,50 @@ export class AuthService {
   // ── 續期 ────────────────────────────────────────────────
 
   async refresh(rawToken: string, meta: RequestMeta): Promise<IssuedSession> {
-    const refreshTtl = this.config.get('REFRESH_TOKEN_TTL', { infer: true });
-    const { row, subject, raw } = await rotateRefreshToken(this.refreshTokens.store, rawToken, {
-      ttlSeconds: refreshTtl,
-      meta,
-      loadSubject: async (userId) => {
-        const user = await this.users.findAccountById(userId);
-        if (!user || user.deletedAt) throw new AppException('AUTH_REFRESH_INVALID');
-        if (user.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
-        return user;
+    const { row, subject, raw, expiresAt } = await rotateRefreshToken(
+      this.refreshTokens.store,
+      rawToken,
+      {
+        ttlSeconds: this.config.get('REFRESH_TOKEN_TTL', { infer: true }),
+        familyMaxAgeSeconds: this.config.get('REFRESH_FAMILY_MAX_AGE', { infer: true }),
+        reuseGraceSeconds: this.config.get('REFRESH_REUSE_GRACE_SECONDS', { infer: true }),
+        meta,
+        loadSubject: async (userId) => {
+          const user = await this.users.findAccountById(userId);
+          if (!user || user.deletedAt) throw new AppException('AUTH_REFRESH_INVALID');
+          if (user.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
+          return user;
+        },
+        onReuse: (reused) =>
+          this.audit.recordSafely({
+            action: 'auth.refresh.reuse_detected',
+            resourceType: 'auth',
+            resourceId: reused.subjectId,
+            result: 'failure',
+            actorId: reused.subjectId,
+            errorCode: 'AUTH_REFRESH_REUSED',
+            metadata: {
+              familyId: reused.familyId,
+              severity: 'high',
+              ip: meta.ip ?? undefined,
+              userAgent: meta.userAgent ?? undefined,
+            },
+          }),
+        // 回應遺失後的重送：不是攻擊，只留一般紀錄
+        onGraceReplay: (replayed) =>
+          this.audit.recordSafely({
+            action: 'auth.refresh.replayed',
+            resourceType: 'auth',
+            resourceId: replayed.subjectId,
+            actorId: replayed.subjectId,
+            metadata: { familyId: replayed.familyId, ip: meta.ip ?? undefined },
+          }),
       },
-      onReuse: (reused) =>
-        this.audit.recordSafely({
-          action: 'auth.refresh.reuse_detected',
-          resourceType: 'auth',
-          resourceId: reused.subjectId,
-          result: 'failure',
-          actorId: reused.subjectId,
-          errorCode: 'AUTH_REFRESH_REUSED',
-          metadata: {
-            familyId: reused.familyId,
-            severity: 'high',
-            ip: meta.ip ?? undefined,
-            userAgent: meta.userAgent ?? undefined,
-          },
-        }),
-    });
+    );
     return {
       ...(await this.signAccessToken(subject, row.idpSessionUid)),
       refreshToken: raw,
-      refreshTtlSeconds: refreshTtl,
+      refreshTtlSeconds: secondsUntil(expiresAt),
     };
   }
 
@@ -350,7 +390,7 @@ export class AuthService {
     const ok = await verifyPassword(user.passwordHash, dto.currentPassword);
     if (!ok) throw new AppException('AUTH_PASSWORD_MISMATCH');
     if (dto.currentPassword === dto.newPassword) throw new AppException('AUTH_PASSWORD_WEAK');
-    await this.assertPasswordLength(dto.newPassword, 'newPassword');
+    await this.assertPasswordPolicy(dto.newPassword, 'newPassword', user.email);
 
     await withTransaction(this.db, async (tx) => {
       await this.users.updateAccount(
@@ -379,16 +419,24 @@ export class AuthService {
   }
 
   /**
-   * 租戶的密碼最短長度（設定 `auth.passwordMinLength`）。DTO 的 `PasswordSchema` 已經擋掉 12 以下與常見密碼，
-   * 這裡只處理租戶調高的部分；錯誤的形狀與 DTO 驗證相同，前端表單照樣依欄位回填。
+   * DTO 的 `PasswordSchema` 已經擋掉 12 以下與常見密碼；這裡處理需要脈絡的部分：
+   * 租戶的密碼最短長度（設定 `auth.passwordMinLength`），以及密碼裡不能有 email 的帳號、網域名稱或租戶代碼
+   * （docs/architecture/backend/04-auth.md §4.2）。錯誤的形狀與 DTO 驗證相同，前端表單照樣依欄位回填。
    */
-  private async assertPasswordLength(password: string, field: string): Promise<void> {
+  private async assertPasswordPolicy(
+    password: string,
+    field: string,
+    email: string,
+  ): Promise<void> {
     const minLength = await this.settings.get(PASSWORD_MIN_LENGTH_SETTING);
     if (password.length < minLength) {
       throw new AppException('VALIDATION_FAILED', {
         fields: { [field]: 'AUTH_PASSWORD_WEAK' },
         minLength,
       });
+    }
+    if (containsContext(password, [...emailContext(email), requireTenant().code])) {
+      throw new AppException('VALIDATION_FAILED', { fields: { [field]: 'AUTH_PASSWORD_WEAK' } });
     }
   }
 
@@ -397,12 +445,17 @@ export class AuthService {
   /**
    * 送出註冊申請，由管理員在審批頁核准後才建立帳號（docs/rbac/06-approval.md §5）。
    * email 已註冊或已在審核中都回同樣的結果（帳號列舉防護）；雜湊照算，讓回應時間一致。
+   * 核准後的帳號是 `pending`，要從寄到這個 email 的啟用信完成設定才能登入（email 所有權驗證，SEC-08）。
    */
   async register(dto: RegisterDto): Promise<{ submitted: true }> {
     if (!(await this.settings.get(REGISTRATION_ENABLED_SETTING))) {
       throw new AppException('AUTH_REGISTRATION_DISABLED');
     }
-    await this.assertPasswordLength(dto.password, 'password');
+    // 只允許 SSO 的網域：帳號應該由外部 IdP 建立或連結，不接受以密碼申請（與密碼登入相同的錯誤碼）
+    if (await this.identityProviders.isSsoOnly(dto.email)) {
+      throw new AppException('AUTH_SSO_REQUIRED');
+    }
+    await this.assertPasswordPolicy(dto.password, 'password', dto.email);
     const passwordHash = await this.hash(dto.password);
     if (await this.users.findAccountByEmail(dto.email)) return { submitted: true };
     await this.approvals.submit(
@@ -420,10 +473,18 @@ export class AuthService {
     // 只允許 SSO 的網域不寄重設信（密碼本來就不能用）；回應照舊，不透露帳號是否存在
     const ssoOnly = await this.identityProviders.isSsoOnly(dto.email);
     const user = ssoOnly ? undefined : await this.users.findAccountByEmail(dto.email);
-    if (user && user.status === 'active') {
+    // 登入失敗鎖定中的人也是 active（鎖定只寫 locked_until）：可以自助重設，重設會順帶解鎖。
+    // 還沒啟用的人改寄啟用信——啟用信過期或寄丟時的自助重寄（docs/issues/03-edge-cases.md EDGE-14）
+    const job =
+      user?.status === 'active'
+        ? PASSWORD_RESET_MAIL_JOB
+        : user?.status === 'pending'
+          ? ACTIVATION_MAIL_JOB
+          : undefined;
+    if (user && job) {
       // 入列即回應：寄信慢或 SMTP 暫時失敗都不影響這個請求，也不會從回應時間看出帳號是否存在
       await this.jobs.enqueue(
-        PASSWORD_RESET_MAIL_JOB,
+        job,
         { userId: user.id },
         { throttle: { key: user.id, seconds: FORGOT_PASSWORD_THROTTLE_SECONDS } },
       );
@@ -433,17 +494,21 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<{ success: true }> {
-    await this.assertPasswordLength(dto.newPassword, 'newPassword');
     const token = await this.authTokens.findUsable(dto.token, 'password_reset');
     if (!token) throw new AppException('AUTH_SETUP_TOKEN_INVALID');
     const user = await this.users.findAccountById(token.userId);
     if (!user) throw new AppException('AUTH_SETUP_TOKEN_INVALID');
+    await this.assertPasswordPolicy(dto.newPassword, 'newPassword', user.email);
+    const wasLocked = user.status === 'locked' || isLoginLocked(user);
+    const passwordHash = await this.hash(dto.newPassword);
 
     await withTransaction(this.db, async (tx) => {
+      // 先搶 token：同一個連結被雙擊或兩個分頁同時送出時，只有一個會成功（EDGE-23）
+      await this.consumeToken(token.id, tx);
       await this.users.updateAccount(
         user.id,
         {
-          passwordHash: await this.hash(dto.newPassword),
+          passwordHash,
           failedLoginCount: 0,
           lockedUntil: null,
           status: user.status === 'locked' ? 'active' : user.status,
@@ -452,7 +517,6 @@ export class AuthService {
       );
       await this.users.incrementTokenVersion(user.id, tx);
       await this.refreshTokens.revokeAllForUser(user.id, 'password_reset', tx);
-      await this.authTokens.markUsed(token.id, tx);
       await this.audit.record(
         {
           action: 'auth.password_reset',
@@ -467,7 +531,7 @@ export class AuthService {
 
     this.userCache.invalidate(user.id);
     this.publishCredentialChanged(user.id);
-    if (user.status === 'locked') {
+    if (wasLocked) {
       // 重設密碼順帶解鎖：狀態變了
       this.events.publish(DomainEvent.RESOURCE_CHANGED, {
         changes: [userUpdated(user.id, await this.users.listRoleSummaries(user.id))],
@@ -481,23 +545,21 @@ export class AuthService {
     const row = await this.authTokens.findUsable(token, 'activation');
     if (!row) return { valid: false };
     const user = await this.users.findAccountById(row.userId);
-    return user ? { valid: true, email: user.email } : { valid: false };
+    return user?.status === 'pending' ? { valid: true, email: user.email } : { valid: false };
   }
 
   async setup(dto: SetupDto): Promise<{ success: true }> {
-    await this.assertPasswordLength(dto.password, 'password');
     const token = await this.authTokens.findUsable(dto.token, 'activation');
     if (!token) throw new AppException('AUTH_SETUP_TOKEN_INVALID');
     const user = await this.users.findAccountById(token.userId);
-    if (!user) throw new AppException('AUTH_SETUP_TOKEN_INVALID');
+    // 啟用只把 `pending` 變成 `active`：被停用（或已啟用）的人不能用手上的啟用信把自己改回 active（EDGE-02）
+    if (user?.status !== 'pending') throw new AppException('AUTH_SETUP_TOKEN_INVALID');
+    await this.assertPasswordPolicy(dto.password, 'password', user.email);
+    const passwordHash = await this.hash(dto.password);
 
     await withTransaction(this.db, async (tx) => {
-      await this.users.updateAccount(
-        user.id,
-        { passwordHash: await this.hash(dto.password), status: 'active' },
-        tx,
-      );
-      await this.authTokens.markUsed(token.id, tx);
+      await this.consumeToken(token.id, tx);
+      await this.users.updateAccount(user.id, { passwordHash, status: 'active' }, tx);
       await this.audit.record(
         {
           action: 'user.activate',
@@ -520,6 +582,13 @@ export class AuthService {
     return { success: true };
   }
 
+  /** 在交易內消耗一次性 token；沒搶到（已被併發的請求用掉）就讓整個交易失敗。 */
+  private async consumeToken(id: string, tx: Transaction): Promise<void> {
+    if (!(await this.authTokens.markUsed(id, tx))) {
+      throw new AppException('AUTH_SETUP_TOKEN_INVALID');
+    }
+  }
+
   /** 改密碼／重設密碼：`token_version` 已遞增，既有 session 全部作廢。 */
   private publishCredentialChanged(userId: string): void {
     this.events.publish(DomainEvent.SESSIONS_REVOKED, {
@@ -532,9 +601,13 @@ export class AuthService {
   }
 
   private hash(password: string): Promise<string> {
-    return hashPassword(password, {
+    return hashPassword(password, this.argon2Options());
+  }
+
+  private argon2Options(): Argon2Options {
+    return {
       memoryCost: this.config.get('ARGON2_MEMORY_COST', { infer: true }),
       timeCost: this.config.get('ARGON2_TIME_COST', { infer: true }),
-    });
+    };
   }
 }

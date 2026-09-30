@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB } from '@/core/database';
@@ -76,8 +76,48 @@ export class AuthTokenService {
     return row;
   }
 
-  async markUsed(id: string, tx?: DbOrTx): Promise<void> {
+  /**
+   * 條件式地標記為已使用：只有尚未使用、尚未過期才成功。回傳是否搶到——`false` 代表同一個連結被併發的請求
+   * （雙擊、兩個分頁）先用掉了，呼叫端要讓整個交易失敗（docs/issues/03-edge-cases.md EDGE-23）。
+   */
+  async markUsed(id: string, tx?: DbOrTx): Promise<boolean> {
     const db = tx ?? this.db;
-    await db.update(authTokens).set({ usedAt: new Date() }).where(eq(authTokens.id, id));
+    const rows = await db
+      .update(authTokens)
+      .set({ usedAt: new Date() })
+      .where(
+        and(eq(authTokens.id, id), isNull(authTokens.usedAt), gt(authTokens.expiresAt, sql`now()`)),
+      )
+      .returning({ id: authTokens.id });
+    return rows.length > 0;
+  }
+
+  /**
+   * 作廢使用者所有未使用的啟用／重設 token（停用、刪除帳號時，在同一個交易內）：
+   * 否則已寄出的連結在有效期內仍能把帳號改回 `active` 或設定密碼（docs/issues/03-edge-cases.md EDGE-02）。
+   */
+  async revokeUnused(userId: string, tx?: DbOrTx): Promise<void> {
+    await (tx ?? this.db)
+      .update(authTokens)
+      .set({ usedAt: new Date() })
+      .where(and(eq(authTokens.userId, userId), isNull(authTokens.usedAt)));
+  }
+
+  /**
+   * 清理排程的一批：刪除過期或用過超過 `retentionDays` 天的列，最多 `batchSize` 筆（docs/architecture/backend/04-auth.md §8）。
+   * 保留一段時間是為了事後調查「這個連結什麼時候被用過」。回傳這一批刪除的筆數。
+   */
+  async deleteStaleBatch(retentionDays: number, batchSize: number): Promise<number> {
+    const cutoff = sql`now() - make_interval(days => ${retentionDays}::int)`;
+    const stale = this.db
+      .select({ id: authTokens.id })
+      .from(authTokens)
+      .where(or(lt(authTokens.expiresAt, cutoff), lt(authTokens.usedAt, cutoff)))
+      .limit(batchSize);
+    const rows = await this.db
+      .delete(authTokens)
+      .where(inArray(authTokens.id, stale))
+      .returning({ id: authTokens.id });
+    return rows.length;
   }
 }

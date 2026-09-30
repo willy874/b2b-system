@@ -1,0 +1,432 @@
+import type { INestApplication } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { and, eq, isNull } from 'drizzle-orm';
+import request from 'supertest';
+import type { Response } from 'supertest';
+import type { App } from 'supertest/types';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { auditLogs, authTokens, roles, userRoles, users } from '@/db/schema';
+import { AuthTokenService } from '@/modules/auth/auth-token.service';
+import { hashPassword } from '@/modules/auth/password';
+
+import type { TestDatabase } from './db';
+import { createTestDatabase, truncateAll } from './db';
+import { listenOnLoopback } from './http';
+import { inTestTenant } from './tenant';
+
+let app: INestApplication;
+let http: App;
+let db: TestDatabase;
+let closeDb: () => Promise<void>;
+
+const ROOT = { email: 'sec-root@example.com', password: 'RootPassword!2026' };
+const ROOT_2 = { email: 'sec-root2@example.com', password: 'SecondRootPassword!2026' };
+const ADMIN = { email: 'sec-admin@example.com', password: 'AdminPassword!2026' };
+/** 租戶的預設鎖定門檻（系統設定 auth.loginMaxAttempts）。 */
+const MAX_ATTEMPTS = 5;
+
+function errorCode(response: Response): string | undefined {
+  return (response.body as { error?: { code?: string } }).error?.code;
+}
+
+async function roleIdOf(slug: string): Promise<string> {
+  const [role] = await db.select().from(roles).where(eq(roles.slug, slug));
+  return role!.id;
+}
+
+async function createUser(
+  email: string,
+  password: string | null,
+  options: { roleSlug?: string; status?: 'pending' | 'active' | 'inactive' } = {},
+): Promise<string> {
+  const [user] = await db
+    .insert(users)
+    .values({
+      email,
+      displayName: email,
+      passwordHash: password ? await hashPassword(password) : null,
+      status: options.status ?? 'active',
+    })
+    .returning();
+  if (options.roleSlug) {
+    await db
+      .insert(userRoles)
+      .values({ userId: user!.id, roleId: await roleIdOf(options.roleSlug) });
+  }
+  return user!.id;
+}
+
+async function userOf(email: string) {
+  const [user] = await db.select().from(users).where(eq(users.email, email));
+  return user!;
+}
+
+function login(credentials: { email: string; password: string }) {
+  return request(http).post('/auth/login').send(credentials);
+}
+
+async function tokenOf(credentials: { email: string; password: string }): Promise<string> {
+  const response = await login(credentials).expect(200);
+  return (response.body as { data: { accessToken: string } }).data.accessToken;
+}
+
+/** 啟用／重設信裡的 token（寄信工作在寄出當下才簽發；這裡直接簽一張）。 */
+function issueToken(userId: string, purpose: 'activation' | 'password_reset'): Promise<string> {
+  return inTestTenant(
+    app,
+    async () => (await app.get(AuthTokenService).issue(userId, purpose)).raw,
+  );
+}
+
+describe('帳號安全（docs/issues：SEC-03、SEC-07、EDGE-01～03、EDGE-05、EDGE-08、EDGE-11、EDGE-14、EDGE-23）', () => {
+  beforeAll(async () => {
+    process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
+    process.env.SUPER_ADMIN_EMAIL = ROOT.email;
+    process.env.SUPER_ADMIN_PASSWORD = ROOT.password;
+    // 這裡會連續送出大量登入請求；限流不是這個檔案要測的
+    process.env.AUTH_RATE_LIMIT = '1000';
+
+    const created = createTestDatabase();
+    db = created.db;
+    closeDb = async () => created.client.end();
+    await truncateAll(db);
+    const { runSeed } = await import('@/db/seeds/index');
+    await runSeed(db as never);
+    await createUser(ADMIN.email, ADMIN.password, { roleSlug: 'admin' });
+
+    const { AppModule } = await import('@/app.module');
+    app = await NestFactory.create(AppModule, { logger: false });
+    await app.init();
+    http = await listenOnLoopback(app);
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await closeDb();
+    delete process.env.AUTH_RATE_LIMIT;
+  });
+
+  describe('登入鎖定（docs/architecture/backend/04-auth.md §3.3）', () => {
+    const VICTIM = { email: 'victim@example.com', password: 'VictimPassword!2026' };
+    const wrong = { email: VICTIM.email, password: 'WrongPassword!2026' };
+
+    beforeAll(async () => {
+      await createUser(VICTIM.email, VICTIM.password, { roleSlug: 'member' });
+    });
+
+    it('錯滿上限次數後鎖定：status 不變、只寫 locked_until；列表顯示為 locked', async () => {
+      const token = await tokenOf(VICTIM);
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+        // oxlint-disable-next-line no-await-in-loop -- 依序送出才有確定的次數
+        expect(errorCode(await login(wrong).expect(401))).toBe('AUTH_INVALID_CREDENTIALS');
+      }
+      const victim = await userOf(VICTIM.email);
+      expect(victim.status).toBe('active');
+      expect(victim.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
+      expect(victim.failedLoginCount).toBe(MAX_ATTEMPTS);
+
+      const admin = await tokenOf(ADMIN);
+      const detail = await request(http)
+        .get(`/users/${victim.id}`)
+        .set('authorization', `Bearer ${admin}`)
+        .expect(200);
+      expect((detail.body as { data: { status: string } }).data.status).toBe('locked');
+
+      // 鎖定不踢掉已登入的 session：鎖定是擋猜密碼，不能被拿來把人踢下線（EDGE-01）
+      await request(http).get('/auth/profile').set('authorization', `Bearer ${token}`).expect(200);
+    });
+
+    it('鎖定中：錯的密碼一律 AUTH_INVALID_CREDENTIALS（不透露鎖定），也不延長鎖定', async () => {
+      const before = await userOf(VICTIM.email);
+      expect(errorCode(await login(wrong).expect(401))).toBe('AUTH_INVALID_CREDENTIALS');
+      const after = await userOf(VICTIM.email);
+      expect(after.lockedUntil).toEqual(before.lockedUntil);
+      expect(after.failedLoginCount).toBe(before.failedLoginCount);
+    });
+
+    it('鎖定中：正確的密碼才會看到 AUTH_ACCOUNT_LOCKED 與剩餘秒數', async () => {
+      const response = await login(VICTIM).expect(403);
+      expect(response.body).toMatchObject({
+        error: { code: 'AUTH_ACCOUNT_LOCKED', details: { retryAfterSeconds: expect.any(Number) } },
+      });
+    });
+
+    it('鎖定到期後自動解除：正確密碼可以登入，計數與到期時間歸零（SEC-03）', async () => {
+      await db
+        .update(users)
+        .set({ lockedUntil: new Date(Date.now() - 1000) })
+        .where(eq(users.email, VICTIM.email));
+      await login(VICTIM).expect(200);
+      const victim = await userOf(VICTIM.email);
+      expect(victim).toMatchObject({ status: 'active', failedLoginCount: 0, lockedUntil: null });
+    });
+
+    it('鎖定到期後再錯一次不會立刻重鎖（從 1 重新計算）', async () => {
+      await db
+        .update(users)
+        .set({ failedLoginCount: MAX_ATTEMPTS, lockedUntil: new Date(Date.now() - 1000) })
+        .where(eq(users.email, VICTIM.email));
+      await login(wrong).expect(401);
+      const victim = await userOf(VICTIM.email);
+      expect(victim.failedLoginCount).toBe(1);
+      expect(victim.lockedUntil).toBeNull();
+      await login(VICTIM).expect(200);
+    });
+
+    it('併發的錯誤密碼每一次都算數：同時送出上限次數就鎖定（EDGE-05）', async () => {
+      const racer = { email: 'racer@example.com', password: 'RacerPassword!2026' };
+      await createUser(racer.email, racer.password);
+      const responses = await Promise.all(
+        Array.from({ length: MAX_ATTEMPTS }, () =>
+          login({ email: racer.email, password: 'WrongPassword!2026' }),
+        ),
+      );
+      expect(responses.every((response) => response.status === 401)).toBe(true);
+      const row = await userOf(racer.email);
+      expect(row.failedLoginCount).toBe(MAX_ATTEMPTS);
+      expect(row.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
+    });
+
+    it('鎖定中的人可以用「忘記密碼」寄出的重設連結解鎖', async () => {
+      await db
+        .update(users)
+        .set({ failedLoginCount: MAX_ATTEMPTS, lockedUntil: new Date(Date.now() + 60_000) })
+        .where(eq(users.email, VICTIM.email));
+      await request(http).post('/auth/forgot-password').send({ email: VICTIM.email }).expect(200);
+      const victim = await userOf(VICTIM.email);
+      const raw = await issueToken(victim.id, 'password_reset');
+      await request(http)
+        .post('/auth/reset-password')
+        .send({ token: raw, newPassword: 'FreshStartPassword!2026' })
+        .expect(200);
+      await login({ email: VICTIM.email, password: 'FreshStartPassword!2026' }).expect(200);
+    });
+  });
+
+  describe('帳號列舉防護：狀態在驗證密碼之後才判斷（docs/architecture/backend/04-auth.md §3.2）', () => {
+    it('未啟用、停用的帳號，密碼錯時與不存在的帳號同樣是 AUTH_INVALID_CREDENTIALS', async () => {
+      await createUser('pending-enum@example.com', 'PendingPassword!2026', { status: 'pending' });
+      await createUser('inactive-enum@example.com', 'InactivePassword!2026', {
+        status: 'inactive',
+      });
+      for (const email of [
+        'pending-enum@example.com',
+        'inactive-enum@example.com',
+        'nobody@example.com',
+      ]) {
+        // oxlint-disable-next-line no-await-in-loop -- 逐一比對
+        const response = await login({ email, password: 'NotThePassword!2026' }).expect(401);
+        expect(errorCode(response)).toBe('AUTH_INVALID_CREDENTIALS');
+      }
+    });
+
+    it('密碼正確時才告知狀態（使用者需要知道怎麼辦）', async () => {
+      const pending = await login({
+        email: 'pending-enum@example.com',
+        password: 'PendingPassword!2026',
+      }).expect(401);
+      expect(errorCode(pending)).toBe('AUTH_ACCOUNT_PENDING');
+      const inactive = await login({
+        email: 'inactive-enum@example.com',
+        password: 'InactivePassword!2026',
+      }).expect(403);
+      expect(errorCode(inactive)).toBe('AUTH_ACCOUNT_DISABLED');
+    });
+  });
+
+  describe('啟用與重設 token', () => {
+    it('pending 被停用後，手上的啟用信不能把自己改回 active（EDGE-02）', async () => {
+      const admin = await tokenOf(ADMIN);
+      const id = await createUser('stopped@example.com', null, { status: 'pending' });
+      const raw = await issueToken(id, 'activation');
+
+      await request(http)
+        .patch(`/users/${id}`)
+        .set('authorization', `Bearer ${admin}`)
+        .send({ status: 'inactive' })
+        .expect(200);
+      // 停用時未使用的 token 一併作廢
+      const unused = await db
+        .select()
+        .from(authTokens)
+        .where(and(eq(authTokens.userId, id), eq(authTokens.purpose, 'activation')));
+      expect(unused.every((row) => row.usedAt !== null)).toBe(true);
+
+      const verify = await request(http).get(`/auth/setup/verify?token=${raw}`).expect(200);
+      expect((verify.body as { data: { valid: boolean } }).data.valid).toBe(false);
+      const setup = await request(http)
+        .post('/auth/setup')
+        .send({ token: raw, password: 'StoppedPassword!2026' })
+        .expect(400);
+      expect(errorCode(setup)).toBe('AUTH_SETUP_TOKEN_INVALID');
+      expect((await userOf('stopped@example.com')).status).toBe('inactive');
+    });
+
+    it('就算 token 沒被作廢，setup 也只接受 pending 的人', async () => {
+      const id = await createUser('already-active@example.com', 'ActivePassword!2026');
+      const raw = await issueToken(id, 'activation');
+      const response = await request(http)
+        .post('/auth/setup')
+        .send({ token: raw, password: 'AnotherPassword!2026' })
+        .expect(400);
+      expect(errorCode(response)).toBe('AUTH_SETUP_TOKEN_INVALID');
+    });
+
+    it('同一個重設連結被併發送出兩次：恰好一次成功（EDGE-23）', async () => {
+      const id = await createUser('double-click@example.com', 'DoubleClickPassword!2026');
+      const raw = await issueToken(id, 'password_reset');
+      const responses = await Promise.all(
+        ['FirstResetPassword!2026', 'SecondResetPassword!2026'].map((newPassword) =>
+          request(http).post('/auth/reset-password').send({ token: raw, newPassword }),
+        ),
+      );
+      expect(responses.map((response) => response.status).toSorted()).toEqual([200, 400]);
+      const resets = await db
+        .select()
+        .from(auditLogs)
+        .where(and(eq(auditLogs.action, 'auth.password_reset'), eq(auditLogs.resourceId, id)));
+      expect(resets).toHaveLength(1);
+    });
+
+    it('密碼含 email 的帳號名稱或租戶代碼 → VALIDATION_FAILED（SEC-14）', async () => {
+      const id = await createUser('winston@example.com', null, { status: 'pending' });
+      const raw = await issueToken(id, 'activation');
+      const response = await request(http)
+        .post('/auth/setup')
+        .send({ token: raw, password: 'Winston-Churchill-1940' })
+        .expect(400);
+      expect(response.body).toMatchObject({
+        error: {
+          code: 'VALIDATION_FAILED',
+          details: { fields: { password: 'AUTH_PASSWORD_WEAK' } },
+        },
+      });
+    });
+  });
+
+  describe('還沒啟用的人（EDGE-14）', () => {
+    it('不能把人改回 pending（改了就再也沒有啟用 token）', async () => {
+      const admin = await tokenOf(ADMIN);
+      const target = await createUser('to-pending@example.com', 'ToPendingPassword!2026');
+      const response = await request(http)
+        .patch(`/users/${target}`)
+        .set('authorization', `Bearer ${admin}`)
+        .send({ status: 'pending' })
+        .expect(400);
+      expect(errorCode(response)).toBe('VALIDATION_FAILED');
+    });
+
+    it('管理員對 pending 的人按「重設密碼」＝重寄啟用信', async () => {
+      const admin = await tokenOf(ADMIN);
+      const id = await createUser('resend@example.com', null, { status: 'pending' });
+      await request(http)
+        .post(`/users/${id}/reset-password`)
+        .set('authorization', `Bearer ${admin}`)
+        .expect(200);
+      const [log] = await db
+        .select()
+        .from(auditLogs)
+        .where(and(eq(auditLogs.resourceId, id), eq(auditLogs.action, 'user.activation_resent')));
+      expect(log).toBeDefined();
+    });
+  });
+
+  describe('管理 super-admin（SEC-07、EDGE-08、EDGE-03）', () => {
+    let rootId = '';
+    let root2Id = '';
+
+    beforeAll(async () => {
+      rootId = (await userOf(ROOT.email)).id;
+      root2Id = await createUser(ROOT_2.email, ROOT_2.password, { roleSlug: 'super-admin' });
+    });
+
+    it.each([
+      ['停用', 'patch', (id: string) => `/users/${id}`, { status: 'inactive' }],
+      ['刪除', 'delete', (id: string) => `/users/${id}`, undefined],
+      ['改角色', 'put', (id: string) => `/users/${id}/roles`, 'member'],
+    ] as const)(
+      'admin %s super-admin → 403 AUTHZ_ESCALATION',
+      async (_label, method, path, body) => {
+        const admin = await tokenOf(ADMIN);
+        const payload = body === 'member' ? { roleIds: [await roleIdOf('member')] } : body;
+        const agent = request(http);
+        const response = await agent[method](path(root2Id))
+          .set('authorization', `Bearer ${admin}`)
+          .send(payload ?? {})
+          .expect(403);
+        expect(response.body).toMatchObject({
+          error: { code: 'AUTHZ_ESCALATION', details: { role: 'super-admin' } },
+        });
+        expect((await userOf(ROOT_2.email)).status).toBe('active');
+      },
+    );
+
+    it('super-admin 可以管理另一位 super-admin', async () => {
+      const root = await tokenOf(ROOT);
+      await request(http)
+        .patch(`/users/${root2Id}`)
+        .set('authorization', `Bearer ${root}`)
+        .send({ status: 'inactive' })
+        .expect(200);
+      await request(http)
+        .patch(`/users/${root2Id}`)
+        .set('authorization', `Bearer ${root}`)
+        .send({ status: 'active' })
+        .expect(200);
+    });
+
+    it('兩位 super-admin 同時刪除對方：恰好一個 LAST_SUPER_ADMIN，至少留下一位（EDGE-03）', async () => {
+      const [root, root2] = await Promise.all([tokenOf(ROOT), tokenOf(ROOT_2)]);
+      const responses = await Promise.all([
+        request(http).delete(`/users/${root2Id}`).set('authorization', `Bearer ${root}`),
+        request(http).delete(`/users/${rootId}`).set('authorization', `Bearer ${root2}`),
+      ]);
+      const statuses = responses.map((response) => response.status).toSorted();
+      expect(statuses).toEqual([204, 403]);
+      expect(responses.map(errorCode)).toContain('LAST_SUPER_ADMIN');
+
+      const remaining = await db
+        .select({ id: users.id })
+        .from(users)
+        .innerJoin(userRoles, eq(userRoles.userId, users.id))
+        .innerJoin(roles, eq(roles.id, userRoles.roleId))
+        .where(
+          and(eq(roles.slug, 'super-admin'), eq(users.status, 'active'), isNull(users.deletedAt)),
+        );
+      expect(remaining).toHaveLength(1);
+    });
+  });
+
+  describe('整批取代角色的衝突（EDGE-11）', () => {
+    it('送出的草稿所依據的角色已被別人改過 → 409 USER_ROLES_CONFLICT，不覆寫', async () => {
+      const admin = await tokenOf(ADMIN);
+      const target = await createUser('draft@example.com', 'DraftPassword!2026', {
+        roleSlug: 'member',
+      });
+      const [memberId, auditorId] = await Promise.all([roleIdOf('member'), roleIdOf('auditor')]);
+
+      // B 先把角色改成 member ＋ auditor
+      await request(http)
+        .put(`/users/${target}/roles`)
+        .set('authorization', `Bearer ${admin}`)
+        .send({ roleIds: [memberId, auditorId], expectedRoleIds: [memberId] })
+        .expect(200);
+
+      // A 的草稿還是以「只有 member」為基礎
+      const response = await request(http)
+        .put(`/users/${target}/roles`)
+        .set('authorization', `Bearer ${admin}`)
+        .send({ roleIds: [], expectedRoleIds: [memberId] })
+        .expect(409);
+      expect(response.body).toMatchObject({
+        error: {
+          code: 'USER_ROLES_CONFLICT',
+          details: { currentRoleIds: expect.arrayContaining([memberId, auditorId]) },
+        },
+      });
+      const held = await db.select().from(userRoles).where(eq(userRoles.userId, target));
+      expect(held).toHaveLength(2);
+    });
+  });
+});

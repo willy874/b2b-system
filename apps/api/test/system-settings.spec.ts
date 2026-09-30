@@ -206,6 +206,8 @@ describe('系統設定（docs/architecture/backend/12-settings.md）', () => {
       await request(http).post('/auth/login').send(wrong).expect(401);
     }
     const [victim] = await db.select().from(users).where(eq(users.email, VICTIM.email));
-    expect(victim).toMatchObject({ status: 'locked', failedLoginCount: 3 });
+    // 自動鎖定只寫 locked_until、不改 status（docs/architecture/backend/04-auth.md §3.3）
+    expect(victim).toMatchObject({ status: 'active', failedLoginCount: 3 });
+    expect(victim!.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
   });
 });

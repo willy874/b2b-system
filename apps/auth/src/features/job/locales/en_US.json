@@ -13,6 +13,8 @@
       "activationMail": "Account activation email",
       "tenantProvision": "Tenant provisioning",
       "oidcCleanup": "OIDC data cleanup",
+      "tokenCleanup": "Expired sign-in token cleanup",
+      "platformTokenCleanup": "Platform admin sign-in token cleanup",
       "outboxSweep": "Event outbox sweep",
       "passwordResetMail": "Password reset email",
       "platformAdminAccountMail": "Platform administrator account email"

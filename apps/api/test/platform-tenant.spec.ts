@@ -41,7 +41,8 @@ class RecordingMailTransport extends MailTransport {
 const AUTH_HOST = 'localhost:5175';
 /** 測試租戶的網域（test/global-setup.ts）。 */
 const HOME_HOST = '127.0.0.1';
-const ADMIN_PASSWORD = 'AcmeAdmin!Pass2026';
+// 密碼不能含租戶代碼或 email 的帳號名稱（SEC-14）
+const ADMIN_PASSWORD = 'FirstLogin!Pass2026';
 
 let app: INestApplication;
 let http: App;

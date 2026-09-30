@@ -7,7 +7,8 @@
     "scheduledAt": "Scheduled for {{time}}",
     "name": {
       "auditLogArchive": "Audit log archiving",
-      "fileMaintenance": "File maintenance"
+      "fileMaintenance": "File maintenance",
+      "tokenCleanup": "Expired sign-in token cleanup"
     },
     "queues": {
       "title": "Job types",
