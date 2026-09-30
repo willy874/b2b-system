@@ -457,6 +457,40 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     expect(response.body).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
   });
 
+  describe('輸入錯誤回可理解的錯誤碼（docs/issues/03-edge-cases.md EDGE-17）', () => {
+    it('重複的 roleIds → 400 VALIDATION_FAILED（不是 500）', async () => {
+      const token = await login(SUPER_ADMIN);
+      const targetId = await createActiveUser('dup-roles@example.com', 'DupRolesPassword!2026');
+      const [memberRole] = await db.select().from(roles).where(eq(roles.slug, 'member'));
+      const response = await request(http)
+        .put(`/users/${targetId}/roles`)
+        .set('authorization', `Bearer ${token}`)
+        .send({ roleIds: [memberRole!.id, memberRole!.id] })
+        .expect(400);
+      expect(response.body).toMatchObject({
+        error: { code: 'VALIDATION_FAILED', details: { fields: { roleIds: 'duplicate items' } } },
+      });
+    });
+
+    it('路徑上的 id 不是 uuid → 400 VALIDATION_FAILED', async () => {
+      const token = await login(SUPER_ADMIN);
+      const response = await request(http)
+        .get('/users/not-a-uuid')
+        .set('authorization', `Bearer ${token}`)
+        .expect(400);
+      expect(response.body).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+    });
+
+    it('不存在的路徑 → 404 NOT_FOUND', async () => {
+      const token = await login(SUPER_ADMIN);
+      const response = await request(http)
+        .get('/no-such-endpoint')
+        .set('authorization', `Bearer ${token}`)
+        .expect(404);
+      expect(response.body).toMatchObject({ error: { code: 'NOT_FOUND' } });
+    });
+  });
+
   it('未帶 token 一律 401', async () => {
     await request(http).get('/roles').expect(401);
   });

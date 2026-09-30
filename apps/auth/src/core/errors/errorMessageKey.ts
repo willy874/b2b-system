@@ -98,6 +98,8 @@ export const ERROR_MESSAGE_KEY = {
 
   // ── 通用 ──
   SETTING_NOT_FOUND: 'error.SETTING_NOT_FOUND',
+  NOT_FOUND: 'error.NOT_FOUND',
+  CONFLICT: 'error.CONFLICT',
   RATE_LIMITED: 'error.RATE_LIMITED',
   INTERNAL_ERROR: 'error.INTERNAL_ERROR',
 } as const;

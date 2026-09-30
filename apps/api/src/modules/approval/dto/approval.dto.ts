@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { PaginationSchema, SortSchema } from '@/core/http';
-import { defineSchema } from '@/core/validation';
+import { defineSchema, uniqueItems } from '@/core/validation';
 
 import { APPROVAL_STATUSES, APPROVAL_TYPES } from '../approval.constants';
 
@@ -51,7 +51,7 @@ export const ApproveApprovalSchema = defineSchema(
   z.object({
     comment: CommentSchema.optional(),
     /** `user.register`：核准時一併指派的角色（受反提權限制）；其他類型忽略。 */
-    roleIds: z.array(z.string().uuid()).max(20).default([]),
+    roleIds: uniqueItems(z.array(z.string().uuid()).max(20)).default([]),
   }),
 );
 

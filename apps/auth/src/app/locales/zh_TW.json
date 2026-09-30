@@ -177,6 +177,8 @@
     "FILE_GRANT_SUBJECT_NOT_FOUND": "授權對象不存在或已被刪除。",
     "FILE_GRANT_NOT_FOUND": "這筆授權已不存在。",
     "SETTING_NOT_FOUND": "找不到這個設定。",
+    "NOT_FOUND": "找不到這個頁面或資源。",
+    "CONFLICT": "資料剛被其他操作變更，請重新整理後再試。",
     "RATE_LIMITED": "操作太頻繁，請稍後再試。",
     "INTERNAL_ERROR": "伺服器發生錯誤，請稍後再試。",
     "page": {

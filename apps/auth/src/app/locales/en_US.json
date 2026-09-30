@@ -177,6 +177,8 @@
     "FILE_GRANT_SUBJECT_NOT_FOUND": "The person or role no longer exists.",
     "FILE_GRANT_NOT_FOUND": "This access entry no longer exists.",
     "SETTING_NOT_FOUND": "This setting does not exist.",
+    "NOT_FOUND": "The page or resource was not found.",
+    "CONFLICT": "The data was just changed by another request. Refresh and try again.",
     "RATE_LIMITED": "Too many requests. Please slow down.",
     "INTERNAL_ERROR": "Server error. Please try again later.",
     "page": {

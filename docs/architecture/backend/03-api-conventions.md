@@ -222,6 +222,8 @@ export const ErrorCode = {
   APPROVAL_SELF_REVIEW: { status: 403 },
 
   // ── 通用 ──
+  NOT_FOUND: { status: 404 },   // 框架層的 404（路徑不存在）
+  CONFLICT: { status: 409 },    // 沒有對應業務錯誤碼的唯一鍵衝突
   RATE_LIMITED: { status: 429 },
   INTERNAL_ERROR: { status: 500 },
 } as const;
@@ -312,6 +314,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
 **唯一鍵衝突的處理不是多餘的**：service 的「名稱是否重複」預檢查與實際 INSERT
 之間有時間差，兩個同時的請求會有一個撞到 DB 約束。把它對應回正確的
 `*_DUPLICATE` 錯誤碼，使用者看到的仍是「名稱重複」而不是 500。
+
+沒有登記在 `CONSTRAINT_TO_CODE` 的約束回通用的 `409 CONFLICT`（並記一筆 warn 日誌），不是 500：
+衝突是請求與現有資料的問題，不是伺服器壞了。
+
+框架內建的 `HttpException`（`ParseUUIDPipe`、找不到路由、guard 回 false）依狀態碼對應錯誤碼：
+400 → `VALIDATION_FAILED`、401 → `AUTH_TOKEN_INVALID`、403 → `AUTHZ_FORBIDDEN`、404 → `NOT_FOUND`、
+409 → `CONFLICT`、429 → `RATE_LIMITED`；其餘 4xx 視為 `VALIDATION_FAILED`，5xx 為 `INTERNAL_ERROR`（`codeOfHttpStatus`）。
+
+陣列欄位的 id 清單以 `uniqueItems()`（`core/validation`）禁止重複，在入口就回 `VALIDATION_FAILED`。
 
 ---
 

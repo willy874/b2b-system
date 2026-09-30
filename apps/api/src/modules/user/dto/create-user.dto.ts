@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { defineSchema } from '@/core/validation';
+import { defineSchema, uniqueItems } from '@/core/validation';
 
 export const CreateUserSchema = defineSchema(
   'CreateUserRequest',
@@ -8,7 +8,7 @@ export const CreateUserSchema = defineSchema(
     email: z.string().trim().email().max(255),
     username: z.string().trim().min(3).max(50).optional(),
     displayName: z.string().trim().min(1).max(100),
-    roleIds: z.array(z.string().uuid()).max(20).default([]),
+    roleIds: uniqueItems(z.array(z.string().uuid()).max(20)).default([]),
   }),
 );
 
