@@ -12,6 +12,7 @@ import type { Database, Transaction } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
+import { FeatureFlagService } from '@/core/feature-flags';
 import { JobQueue } from '@/core/jobs';
 import { SettingService } from '@/core/settings';
 import { requireTenant } from '@/core/tenant';
@@ -93,6 +94,7 @@ export class AuthService {
     private readonly oidc: OidcProviderService,
     private readonly identityProviders: IdentityProviderService,
     private readonly settings: SettingService,
+    private readonly flags: FeatureFlagService,
   ) {}
 
   // ── 登入 ────────────────────────────────────────────────
@@ -364,6 +366,7 @@ export class AuthService {
       roles,
       permissions,
       features: [...requireTenant().features],
+      flags: this.flags.enabledKeys(),
     };
   }
 

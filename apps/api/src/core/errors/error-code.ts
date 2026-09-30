@@ -33,6 +33,8 @@ export const ErrorCode = {
    * 404：不暴露功能存在，與路徑不存在一樣。
    */
   FEATURE_DISABLED: { status: 404 },
+  /** 目錄裡沒有這個 feature flag（docs/adr/0022-feature-flags.md D1）：已移除或拼錯。 */
+  FEATURE_FLAG_NOT_FOUND: { status: 404 },
 
   // ── 認證 ──
   AUTH_INVALID_CREDENTIALS: { status: 401 },

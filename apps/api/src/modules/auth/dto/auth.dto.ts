@@ -44,6 +44,11 @@ export const ProfileSchema = defineSchema(
      * 據此安裝或移除可啟用的 feature。平台管理者變更時推 `resource.changed`（`tenantFeature`）。
      */
     features: z.array(TenantFeatureSchema),
+    /**
+     * 目前生效為開的 feature flag（docs/adr/0022-feature-flags.md D6），依目錄的順序。與 `features` 一起水合，
+     * 平台管理者變更租戶層或全平台層時同樣推 `resource.changed`（`tenantFeature`）。
+     */
+    flags: z.array(z.string()),
   }),
 );
 

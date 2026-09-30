@@ -172,6 +172,7 @@ describe('PermissionsGuard：平台管理者的端點（docs/adr/0020-physical-t
     storageBucket: 'b',
     allowExternalIdp: true,
     features: ['file', 'auditLog', 'job'],
+    flags: {},
   } as unknown as TenantContext;
 
   it('持有平台權限時放行（不查租戶的權限）', async () => {

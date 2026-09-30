@@ -50,6 +50,7 @@ function tenant(id: string): TenantContext {
     storageBucket: `b2b-${id}`,
     allowExternalIdp: false,
     features: ['file', 'auditLog', 'job'],
+    flags: {},
   };
 }
 

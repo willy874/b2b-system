@@ -9,6 +9,12 @@ import { SecretBox, TENANT_SECRET_PURPOSE } from '@/core/crypto';
 import type { PlatformTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
+import {
+  FeatureFlagService,
+  pickKnownOverrides,
+  toFeatureFlagOverrides,
+} from '@/core/feature-flags';
+import type { FeatureFlagDefinition } from '@/core/feature-flags';
 import { JobQueue } from '@/core/jobs';
 import { isValidBucketName } from '@/core/storage/object-storage';
 import { Tenancy, TenantDirectory, toTenantFeatures } from '@/core/tenant';
@@ -31,7 +37,10 @@ import { TENANT_PROVISION_JOB, TenantProvisioner } from './tenant-provisioner';
 /** 新租戶的 bucket：`b2b-{code}`；被用過（含刪除的租戶）就加上序號。 */
 const BUCKET_PREFIX = 'b2b-';
 
-function toDto(tenant: TenantWithDomains): PlatformTenantDto {
+function toDto(
+  tenant: TenantWithDomains,
+  flagCatalog: readonly FeatureFlagDefinition[],
+): PlatformTenantDto {
   return {
     id: tenant.id,
     code: tenant.code,
@@ -41,12 +50,18 @@ function toDto(tenant: TenantWithDomains): PlatformTenantDto {
     storageBucket: tenant.storageBucket,
     allowExternalIdp: tenant.allowExternalIdp,
     features: toTenantFeatures(tenant.features),
+    flags: pickKnownOverrides(toFeatureFlagOverrides(tenant.flags), flagCatalog),
     adminEmail: tenant.adminEmail,
     provisionError: tenant.provisionError,
     provisionedAt: tenant.provisionedAt?.toISOString() ?? null,
     createdAt: tenant.createdAt.toISOString(),
     updatedAt: tenant.updatedAt.toISOString(),
   };
+}
+
+/** 兩張覆寫表是否相同（兩者都已依目錄的順序整理）。 */
+function sameOverrides(a: Record<string, boolean>, b: Record<string, boolean>): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 /**
@@ -70,6 +85,7 @@ export class PlatformTenantService {
     private readonly oidc: OidcProviderService,
     private readonly events: DomainEventBus,
     private readonly audit: PlatformAuditService,
+    private readonly flags: FeatureFlagService,
     config: ConfigService<Env, true>,
   ) {
     this.secrets = SecretBox.fromConfig(
@@ -86,14 +102,14 @@ export class PlatformTenantService {
   async list(query: ListPlatformTenantDto): Promise<PlatformTenantListDto> {
     const { items, total } = await this.repo.list(query);
     return {
-      items: items.map(toDto),
+      items: items.map((item) => toDto(item, this.flags.catalog)),
       pagination: { offset: query.offset, limit: query.limit, total },
       baseDomain: this.baseDomain,
     };
   }
 
   async get(id: string): Promise<PlatformTenantDto> {
-    return toDto(await this.getExisting(id));
+    return toDto(await this.getExisting(id), this.flags.catalog);
   }
 
   /** 登記租戶（`provisioning`）並把佈建交給背景工作；回應時 database 還沒建好。 */
@@ -153,10 +169,16 @@ export class PlatformTenantService {
     const features = dto.features && toTenantFeatures(dto.features);
     const featuresChanged =
       features !== undefined && features.join(',') !== beforeFeatures.join(',');
+    const beforeFlags = pickKnownOverrides(
+      toFeatureFlagOverrides(before.flags),
+      this.flags.catalog,
+    );
+    const flags = dto.flags && this.knownFlagOverrides(dto.flags);
+    const flagsChanged = flags !== undefined && !sameOverrides(flags, beforeFlags);
     await this.repo.transaction(async (tx) => {
       await this.repo.update(
         id,
-        { name: dto.name, allowExternalIdp: dto.allowExternalIdp, features },
+        { name: dto.name, allowExternalIdp: dto.allowExternalIdp, features, flags },
         undefined,
         tx,
       );
@@ -171,11 +193,13 @@ export class PlatformTenantService {
               name: before.name,
               allowExternalIdp: before.allowExternalIdp,
               features: beforeFeatures,
+              flags: beforeFlags,
             },
             after: {
               name: dto.name ?? before.name,
               allowExternalIdp: dto.allowExternalIdp ?? before.allowExternalIdp,
               features: features ?? beforeFeatures,
+              flags: flags ?? beforeFlags,
             },
           },
         },
@@ -185,8 +209,25 @@ export class PlatformTenantService {
     // 外部 IdP 的開關、啟用的 feature 都在租戶脈絡裡判斷：立即生效（多個執行個體時最多晚 TENANT_CACHE_TTL 秒）
     this.directory.invalidate();
     // 失效之後才通知：前端收到後重新取得的 profile 已經是新的清單（docs/adr/0021-runtime-feature-activation.md D8）
-    if (featuresChanged) this.events.publish(DomainEvent.TENANT_FEATURES_CHANGED, { tenantId: id });
+    // flag 的變更走同一個事件：前端同樣是重新取得 profile（docs/adr/0022-feature-flags.md D7）
+    if (featuresChanged || flagsChanged) {
+      this.events.publish(DomainEvent.TENANT_FEATURES_CHANGED, { tenantId: id });
+    }
     return this.get(id);
+  }
+
+  /**
+   * 送來的覆寫表只接受目錄裡的 key（ADR-0022 D1），依目錄的順序存：比較、稽核的 before/after 不受送出順序影響。
+   * DB 裡殘留的舊 key（flag 已移除）不在目錄裡，整張表取代時自然被清掉。
+   */
+  private knownFlagOverrides(overrides: Record<string, boolean>): Record<string, boolean> {
+    const unknown = Object.keys(overrides).filter((key) => !this.flags.has(key));
+    if (unknown.length) {
+      throw new AppException('VALIDATION_FAILED', {
+        fields: Object.fromEntries(unknown.map((key) => [`flags.${key}`, 'unknown feature flag'])),
+      });
+    }
+    return pickKnownOverrides(overrides, this.flags.catalog);
   }
 
   /**
@@ -275,7 +316,7 @@ export class PlatformTenantService {
 
   async addDomain(id: string, domain: string): Promise<PlatformTenantDto> {
     const tenant = await this.getExisting(id);
-    if (tenant.domains.includes(domain)) return toDto(tenant);
+    if (tenant.domains.includes(domain)) return toDto(tenant, this.flags.catalog);
     await this.assertDomainsAvailable([domain]);
     await this.repo
       .transaction(async (tx) => {
@@ -303,7 +344,7 @@ export class PlatformTenantService {
 
   async removeDomain(id: string, domain: string): Promise<PlatformTenantDto> {
     const tenant = await this.getExisting(id);
-    if (!tenant.domains.includes(domain)) return toDto(tenant);
+    if (!tenant.domains.includes(domain)) return toDto(tenant, this.flags.catalog);
     // 「至少留一個網域」要在鎖住租戶之後、同一個交易裡數：兩個請求同時各移除一個時，後到的要看到前一個的結果
     await this.repo.transaction(async (tx) => {
       if (!(await this.repo.lock(id, tx))) throw new AppException('TENANT_NOT_FOUND');

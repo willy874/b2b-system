@@ -9,6 +9,7 @@ import { ConfigModule } from './core/config';
 import { DatabaseModule } from './core/database';
 import { HttpExceptionFilter } from './core/errors';
 import { EventsModule } from './core/events';
+import { FeatureFlagsModule } from './core/feature-flags';
 import { RequestIdMiddleware, TransformInterceptor } from './core/http';
 import { ImageModule } from './core/image';
 import { JobsModule } from './core/jobs';
@@ -20,6 +21,7 @@ import { TenancyModule, TenantMiddleware } from './core/tenant';
 import { ApprovalModule } from './modules/approval/approval.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { FeatureFlagModule } from './modules/feature-flag/feature-flag.module';
 import { FileModule } from './modules/file/file.module';
 import { HealthModule } from './modules/health/health.module';
 import { JobModule } from './modules/job/job.module';
@@ -40,6 +42,8 @@ import { UserModule } from './modules/user/user.module';
     DatabaseModule,
     // 依網域決定租戶、每租戶的連線池（docs/adr/0020-physical-tenant-isolation.md D2、D3）
     TenancyModule,
+    // feature flag 的目錄與判斷；租戶層覆寫隨租戶登記載入（docs/adr/0022-feature-flags.md）
+    FeatureFlagsModule,
     CacheModule,
     // 執行期可調的設定：定義由各模組登記，覆寫值在租戶 DB（docs/architecture/backend/12-settings.md）
     SettingsModule,
@@ -73,6 +77,7 @@ import { UserModule } from './modules/user/user.module';
     RoleModule,
     SystemModule,
     FileModule,
+    FeatureFlagModule,
     JobModule,
     HealthModule,
     TenantModule,

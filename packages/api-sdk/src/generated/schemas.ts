@@ -25,6 +25,9 @@ import type {
   CurrentTenant,
   DuplicateRoleRequest,
   EnsureFileFolderPathsRequest,
+  FeatureFlag,
+  FeatureFlagGlobalState,
+  FeatureFlagList,
   FileAccessRequest,
   FileAccessRequestList,
   FileAccessRequestSubmitted,
@@ -97,8 +100,10 @@ import type {
   SystemSetting,
   SystemSettingList,
   TenantFeature,
+  TenantFlagOverrides,
   TenantLookup,
   TenantLookupQuery,
+  UpdateFeatureFlagRequest,
   UpdateFileFolderAccessRequest,
   UpdateFileFolderRequest,
   UpdateFileRequest,
@@ -491,6 +496,11 @@ export const TenantFeatureSchema = z.enum([
   'job',
 ]) satisfies z.ZodType<TenantFeature>;
 
+export const TenantFlagOverridesSchema = z.record(
+  z.string(),
+  z.boolean(),
+) satisfies z.ZodType<TenantFlagOverrides>;
+
 export const PlatformTenantSchema = z.object({
   id: z
     .uuid()
@@ -506,6 +516,7 @@ export const PlatformTenantSchema = z.object({
   storageBucket: z.string(),
   allowExternalIdp: z.boolean(),
   features: z.array(TenantFeatureSchema),
+  flags: TenantFlagOverridesSchema,
   adminEmail: z.string().nullable(),
   provisionError: z.string().nullable(),
   provisionedAt: z.string().nullable(),
@@ -553,6 +564,7 @@ export const UpdateTenantRequestSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   allowExternalIdp: z.boolean().optional(),
   features: z.array(TenantFeatureSchema).max(3).optional(),
+  flags: TenantFlagOverridesSchema.optional(),
 }) satisfies z.ZodType<UpdateTenantRequest>;
 
 export const AddTenantDomainRequestSchema = z.object({
@@ -605,6 +617,7 @@ export const ProfileSchema = z.object({
   roles: z.array(RoleSummarySchema),
   permissions: z.array(PermissionKeySchema),
   features: z.array(TenantFeatureSchema),
+  flags: z.array(z.string()),
 }) satisfies z.ZodType<Profile>;
 
 export const PlatformPermissionKeySchema = z.enum([
@@ -618,6 +631,8 @@ export const PlatformPermissionKeySchema = z.enum([
   'platformAuditLog:read',
   'platformJob:read',
   'platformJob:retry',
+  'featureFlag:read',
+  'featureFlag:update',
 ]) satisfies z.ZodType<PlatformPermissionKey>;
 
 export const PlatformProfileSchema = z.object({
@@ -742,6 +757,32 @@ export const SsoCallbackRequestSchema = z.object({
   clientId: z.string().min(1).max(64),
   redirectUri: z.url().max(500),
 }) satisfies z.ZodType<SsoCallbackRequest>;
+
+export const FeatureFlagGlobalStateSchema = z.enum([
+  'on',
+  'off',
+]) satisfies z.ZodType<FeatureFlagGlobalState>;
+
+export const FeatureFlagSchema = z.object({
+  key: z.string(),
+  description: z.string(),
+  defaultEnabled: z.boolean(),
+  owner: z.string(),
+  removeBy: z.string(),
+  globalState: FeatureFlagGlobalStateSchema.nullable(),
+  tenantOverrides: z.object({
+    on: z.int().min(-9007199254740991).max(9007199254740991),
+    off: z.int().min(-9007199254740991).max(9007199254740991),
+  }),
+}) satisfies z.ZodType<FeatureFlag>;
+
+export const FeatureFlagListSchema = z.object({
+  items: z.array(FeatureFlagSchema),
+}) satisfies z.ZodType<FeatureFlagList>;
+
+export const UpdateFeatureFlagRequestSchema = z.object({
+  state: z.enum(['default', 'on', 'off']),
+}) satisfies z.ZodType<UpdateFeatureFlagRequest>;
 
 export const SetFileFolderGrantRequestSchema = z.object({
   subjectType: z.enum(['role', 'user', 'everyone']),

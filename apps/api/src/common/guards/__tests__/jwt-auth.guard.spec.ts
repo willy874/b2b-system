@@ -29,6 +29,7 @@ const TENANT = {
   storageBucket: 'b2b-test',
   allowExternalIdp: true,
   features: ['file', 'auditLog', 'job'] as const,
+  flags: {},
 };
 
 const activeUser: CachedUser = {

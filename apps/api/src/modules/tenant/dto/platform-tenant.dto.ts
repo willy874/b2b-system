@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { FEATURE_FLAG_KEY_PATTERN } from '@/core/feature-flags';
 import { TENANT_FEATURES } from '@/core/tenant';
 import { defineSchema, uniqueItems } from '@/core/validation';
 
@@ -35,6 +36,15 @@ export const TenantStatusSchema = z.enum(['provisioning', 'active', 'disabled', 
  */
 export const TenantFeatureSchema = defineSchema('TenantFeature', z.enum(TENANT_FEATURES));
 
+/**
+ * 租戶層的 feature flag 覆寫（docs/adr/0022-feature-flags.md D2）：`{ [key]: boolean }`，沒列出 = 不覆寫。
+ * key 在 OpenAPI 上是字串（目錄常常是空的，空 enum 產不出可用的型別），由伺服器依目錄驗證。
+ */
+export const TenantFlagOverridesSchema = defineSchema(
+  'TenantFlagOverrides',
+  z.record(z.string().regex(FEATURE_FLAG_KEY_PATTERN).max(100), z.boolean()),
+);
+
 /** 平台管理者看到的租戶（docs/adr/0020-physical-tenant-isolation.md D12、D13）：不含連線字串。 */
 export const PlatformTenantSchema = defineSchema(
   'PlatformTenant',
@@ -50,6 +60,8 @@ export const PlatformTenantSchema = defineSchema(
     allowExternalIdp: z.boolean(),
     /** 啟用的 feature（ADR-0021 D8），依 `TENANT_FEATURES` 的順序。 */
     features: z.array(TenantFeatureSchema),
+    /** feature flag 的租戶層覆寫（ADR-0022 D2），只含目錄裡有的 key。 */
+    flags: TenantFlagOverridesSchema,
     /** 佈建時建立的第一位管理員；`db:migrate` 登記的租戶沒有。 */
     adminEmail: z.string().nullable(),
     /** 最近一次佈建失敗的原因（`failed` 時才有）。 */
@@ -107,10 +119,18 @@ export const UpdateTenantSchema = defineSchema(
        * 重複的值與其他陣列欄位一樣直接拒絕（`uniqueItems`），所以長度上限就是 id 的總數。
        */
       features: uniqueItems(z.array(TenantFeatureSchema).max(TENANT_FEATURES.length)).optional(),
+      /**
+       * feature flag 覆寫的 **完整表**（取代而非增減；ADR-0022 D7）：沒列出的 key 回到全平台層與預設值，
+       * `{}` = 全部不覆寫。不在目錄裡的 key 回 `VALIDATION_FAILED`。
+       */
+      flags: TenantFlagOverridesSchema.optional(),
     })
     .refine(
       (dto) =>
-        dto.name !== undefined || dto.allowExternalIdp !== undefined || dto.features !== undefined,
+        dto.name !== undefined ||
+        dto.allowExternalIdp !== undefined ||
+        dto.features !== undefined ||
+        dto.flags !== undefined,
       'empty',
     ),
 );

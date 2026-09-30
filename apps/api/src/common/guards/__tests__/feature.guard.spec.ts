@@ -2,10 +2,11 @@ import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { describe, expect, it } from 'vitest';
 
-import { RequireFeature } from '@/common/decorators';
+import { RequireFeature, RequireFlag } from '@/common/decorators';
 import type { Database } from '@/core/database';
 import { AppException } from '@/core/errors';
-import { runInTenantContext } from '@/core/tenant';
+import type { FeatureFlagService } from '@/core/feature-flags';
+import { currentTenant, runInTenantContext } from '@/core/tenant';
 import type { TenantContext, TenantFeature } from '@/core/tenant';
 
 import { FeatureGuard } from '../feature.guard';
@@ -23,8 +24,17 @@ class PlainController {
   list(): void {}
 }
 
+@RequireFlag('levelEditor.v2')
+class TrialController {
+  list(): void {}
+
+  /** 兩者並存：feature 與 flag 都要成立 */
+  @RequireFeature('file')
+  logs(): void {}
+}
+
 function contextOf(
-  controller: typeof FileController | typeof PlainController,
+  controller: typeof FileController | typeof PlainController | typeof TrialController,
   method: 'list' | 'logs',
   type = 'http',
 ): ExecutionContext {
@@ -36,7 +46,7 @@ function contextOf(
   } as unknown as ExecutionContext;
 }
 
-function tenantWith(features: TenantFeature[]): TenantContext {
+function tenantWith(features: TenantFeature[], flags: Record<string, boolean> = {}): TenantContext {
   return {
     id: 't1',
     code: 't1',
@@ -44,13 +54,23 @@ function tenantWith(features: TenantFeature[]): TenantContext {
     storageBucket: 'b2b-t1',
     allowExternalIdp: true,
     features,
+    flags,
   };
 }
 
-const guard = new FeatureGuard(new Reflector());
+/** 判斷交給 FeatureFlagService（生效值的規則在它的測試裡）；這裡只看租戶層的覆寫。 */
+const flagService = {
+  isEnabled: (key: string) => currentTenant()?.flags[key] === true,
+} as unknown as FeatureFlagService;
 
-function inTenant(features: TenantFeature[], context: ExecutionContext): boolean {
-  return runInTenantContext(tenantWith(features), () => guard.canActivate(context));
+const guard = new FeatureGuard(new Reflector(), flagService);
+
+function inTenant(
+  features: TenantFeature[],
+  context: ExecutionContext,
+  flags: Record<string, boolean> = {},
+): boolean {
+  return runInTenantContext(tenantWith(features, flags), () => guard.canActivate(context));
 }
 
 function codeOf(fn: () => unknown): string | undefined {
@@ -91,5 +111,30 @@ describe('FeatureGuard（docs/adr/0021-runtime-feature-activation.md D11）', ()
 
   it('WebSocket 不經過這裡 → 通過', () => {
     expect(inTenant([], contextOf(FileController, 'list', 'ws'))).toBe(true);
+  });
+});
+
+describe('FeatureGuard 的 @RequireFlag（docs/adr/0022-feature-flags.md D5）', () => {
+  it('flag 開啟 → 通過', () => {
+    expect(inTenant([], contextOf(TrialController, 'list'), { 'levelEditor.v2': true })).toBe(true);
+  });
+
+  it('flag 關閉 → FEATURE_DISABLED', () => {
+    expect(codeOf(() => inTenant([], contextOf(TrialController, 'list')))).toBe('FEATURE_DISABLED');
+  });
+
+  it('與 @RequireFeature 並存時兩者都要成立', () => {
+    const on = { 'levelEditor.v2': true };
+    expect(inTenant(['file'], contextOf(TrialController, 'logs'), on)).toBe(true);
+    expect(codeOf(() => inTenant([], contextOf(TrialController, 'logs'), on))).toBe(
+      'FEATURE_DISABLED',
+    );
+    expect(codeOf(() => inTenant(['file'], contextOf(TrialController, 'logs')))).toBe(
+      'FEATURE_DISABLED',
+    );
+  });
+
+  it('沒有租戶脈絡 → 通過', () => {
+    expect(guard.canActivate(contextOf(TrialController, 'list'))).toBe(true);
   });
 });
