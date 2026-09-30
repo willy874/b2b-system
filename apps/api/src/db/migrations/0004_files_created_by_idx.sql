@@ -1,0 +1,1 @@
+CREATE INDEX "files_created_by_created_at_idx" ON "files" USING btree ("created_by","created_at") WHERE "files"."deleted_at" IS NULL;

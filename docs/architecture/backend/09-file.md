@@ -147,6 +147,7 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 | --- | --- |
 | `files_status_created_at_idx`（status, created_at） | 預設排序與 keyset 分頁 |
 | `files_status_name_idx`（status, name, id）、`files_status_size_idx`（status, size, id） | 依檔名／大小排序與 keyset 分頁：索引直接給出順序，不必排序整張表 |
+| `files_created_by_created_at_idx`（created_by, created_at） | 依上傳者篩選（`uploaderId`，`0004`） |
 | `files_status_content_type_idx`（status, content_type） | 分類篩選（`content_type LIKE 'image/%'` 等前綴比對） |
 | `files_name_trgm_idx`（GIN, `gin_trgm_ops`） | 檔名的部分比對 `ILIKE '%…%'`：btree 用不上。需要 `pg_trgm`（PG 13 起為 trusted extension） |
 | `files_variant_pending_idx`（uploaded_at，只涵蓋 `variant_status = 'pending'`） | 維護排程找卡住的影像變體（`0008`）；絕大多數列不是 pending，索引很小 |

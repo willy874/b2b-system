@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import sharp from 'sharp';
 import request from 'supertest';
 import type { App } from 'supertest/types';
@@ -803,6 +803,13 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
 
   describe('files 資料表約束', () => {
     const base = { name: 'x', contentType: 'text/plain', storageKey: 'files/constraint' };
+
+    it('依上傳者篩選有部分索引（PERF-19，migration 0004）', async () => {
+      const rows = await db.execute<{ indexdef: string }>(
+        sql`SELECT indexdef FROM pg_indexes WHERE indexname = 'files_created_by_created_at_idx'`,
+      );
+      expect(rows[0]?.indexdef).toMatch(/\(created_by, created_at\) WHERE \(deleted_at IS NULL\)/);
+    });
 
     it('ready 必須有 etag 與 uploaded_at', async () => {
       await expectDbError(
