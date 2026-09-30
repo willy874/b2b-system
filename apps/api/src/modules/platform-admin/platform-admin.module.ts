@@ -9,6 +9,9 @@ import { PlatformAdminService } from './platform-admin.service';
 import { PlatformAuditLogRepository } from './platform-audit-log.repository';
 import { PlatformAuditService } from './platform-audit.service';
 import { PlatformAuthTokenRepository } from './platform-auth-token.repository';
+import { PlatformRefreshTokenRepository } from './platform-refresh-token.repository';
+import { PlatformRefreshTokenService } from './platform-refresh-token.service';
+import { PlatformTokenCleanupJobs } from './platform-token-cleanup.jobs';
 
 /**
  * 平台管理者、他們的帳號流程與平台稽核（docs/adr/0020-physical-tenant-isolation.md D5、D19）。葉節點：只依賴平台 DB 與 core。
@@ -26,7 +29,15 @@ import { PlatformAuthTokenRepository } from './platform-auth-token.repository';
     PlatformAccountService,
     PlatformAuditService,
     PlatformAccountMailJobs,
+    PlatformRefreshTokenRepository,
+    PlatformRefreshTokenService,
+    PlatformTokenCleanupJobs,
   ],
-  exports: [PlatformAdminService, PlatformAccountService, PlatformAuditService],
+  exports: [
+    PlatformAdminService,
+    PlatformAccountService,
+    PlatformAuditService,
+    PlatformRefreshTokenService,
+  ],
 })
 export class PlatformAdminModule {}

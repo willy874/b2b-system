@@ -240,7 +240,7 @@ describe('SSO（docs/adr/0019-sso-identity-platform.md、0020 D5–D10）', () =
     const { runSeed } = await import('@/db/seeds/index');
     await runSeed(db as never);
 
-    const { hashPassword } = await import('@/modules/auth/password');
+    const { hashPassword } = await import('@/modules/credential/password');
     const [user] = await db
       .insert(users)
       .values({

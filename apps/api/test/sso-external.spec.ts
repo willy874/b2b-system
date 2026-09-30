@@ -219,7 +219,7 @@ describe('外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D11）
     const { runSeed } = await import('@/db/seeds/index');
     await runSeed(db as never);
 
-    const { hashPassword } = await import('@/modules/auth/password');
+    const { hashPassword } = await import('@/modules/credential/password');
     const insert = async (email: string, password: string | null) => {
       const [row] = await db
         .insert(users)

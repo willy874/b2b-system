@@ -6,30 +6,19 @@ import { and, eq, gt, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB } from '@/core/database';
 import { SettingService } from '@/core/settings';
-import type { AuthTokenPurpose, AuthTokenRow, RevokedReason } from '@/db/schema';
+import type { AuthTokenPurpose, AuthTokenRow } from '@/db/schema';
 import { authTokens } from '@/db/schema';
 
 import { ACTIVATION_TTL_HOURS_SETTING, PASSWORD_RESET_TTL_HOURS_SETTING } from './auth.settings';
-import { RefreshTokenRepository } from './refresh-token.repository';
 import { sha256 } from './token-hash';
 
-/**
- * 啟用 / 密碼重設 token。
- * 獨立成一個 service 讓 `UserModule` 可以發啟用信而不必依賴 `AuthModule`
- * （否則 AuthModule → UserModule → AuthModule 形成循環）。
- */
+/** 啟用 / 密碼重設 token（`auth_tokens`）。 */
 @Injectable()
 export class AuthTokenService {
   constructor(
     @Inject(TENANT_DB) private readonly db: Database,
-    private readonly refreshTokens: RefreshTokenRepository,
     private readonly settings: SettingService,
   ) {}
-
-  /** 撤銷使用者所有未撤銷的 refresh token（停用、刪除帳號時用）。 */
-  async revokeAllRefreshTokens(userId: string, reason: RevokedReason, tx?: DbOrTx): Promise<void> {
-    await this.refreshTokens.revokeAllForUser(userId, reason, tx);
-  }
 
   /**
    * 發新 token 前先作廢同使用者同用途的既有未使用 token。

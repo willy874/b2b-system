@@ -298,6 +298,7 @@ Fixture **直接寫資料庫**，不經 API——測試的前置條件不應該�
 | ---------------------------------------- | --------- |
 | `common/guards/**`                       | **100%**  |
 | `modules/auth/**`                        | **≥ 95%** |
+| `modules/credential/**`                  | **≥ 95%** |
 | `modules/permission/**`                  | **≥ 95%** |
 | `core/cache/permission-cache.service.ts` | **100%**  |
 | `modules/role/role.service.ts`           | ≥ 90%     |

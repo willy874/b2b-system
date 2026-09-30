@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { UserCacheService } from '@/core/cache';
 import { AppException } from '@/core/errors';
-import { hashPassword } from '@/modules/auth/password';
+import { hashPassword } from '@/modules/credential/password';
 
 import { PlatformAdminRepository } from './platform-admin.repository';
 import { PlatformAuditService } from './platform-audit.service';

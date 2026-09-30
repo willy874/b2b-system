@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { ApprovalModule } from '@/modules/approval/approval.module';
-import { AuthTokenModule } from '@/modules/auth/auth-token.module';
+import { CredentialModule } from '@/modules/credential/credential.module';
 import { IdentityProviderModule } from '@/modules/identity-provider/identity-provider.module';
 
 import { UserRegistrationApprovalHandler } from './user-registration.approval';
@@ -10,7 +10,7 @@ import { UserRepository } from './user.repository';
 import { UserService } from './user.service';
 
 @Module({
-  imports: [AuthTokenModule, ApprovalModule, IdentityProviderModule],
+  imports: [CredentialModule, ApprovalModule, IdentityProviderModule],
   controllers: [UserController],
   providers: [UserService, UserRepository, UserRegistrationApprovalHandler],
   exports: [UserService],

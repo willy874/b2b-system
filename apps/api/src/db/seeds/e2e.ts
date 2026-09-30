@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
 
-import { hashPassword } from '@/modules/auth/password';
+import { hashPassword } from '@/modules/credential/password';
 
 import type { ScriptDatabase } from '../client';
 import {

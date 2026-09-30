@@ -13,8 +13,12 @@ import { JobQueue } from '@/core/jobs';
 import type { AuditMetadata, UserInsert, UserRow, UserStatus } from '@/db/schema';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
-import { ACTIVATION_MAIL_JOB, PASSWORD_RESET_MAIL_JOB } from '@/modules/auth/auth-mail.constants';
-import { AuthTokenService } from '@/modules/auth/auth-token.service';
+import {
+  ACTIVATION_MAIL_JOB,
+  PASSWORD_RESET_MAIL_JOB,
+} from '@/modules/credential/auth-mail.constants';
+import { AuthTokenService } from '@/modules/credential/auth-token.service';
+import { RefreshTokenService } from '@/modules/credential/refresh-token.service';
 import { IdentityProviderService } from '@/modules/identity-provider/identity-provider.service';
 import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
 import { PermissionService } from '@/modules/permission/permission.service';
@@ -92,6 +96,7 @@ export class UserService {
     private readonly repo: UserRepository,
     private readonly permissionService: PermissionService,
     private readonly authTokens: AuthTokenService,
+    private readonly refreshTokens: RefreshTokenService,
     private readonly identities: IdentityProviderService,
     private readonly jobs: JobQueue,
     private readonly userCache: UserCacheService,
@@ -172,7 +177,7 @@ export class UserService {
         // 停用：撤銷所有 refresh token 並讓既存 access token 失效；已寄出的啟用／重設連結一併作廢，
         // 否則還沒啟用的人可以用啟用信把自己改回 active
         await this.repo.incrementTokenVersion(id, tx);
-        await this.authTokens.revokeAllRefreshTokens(id, 'user_disabled', tx);
+        await this.refreshTokens.revokeAllForUser(id, 'user_disabled', tx);
         await this.authTokens.revokeUnused(id, tx);
       }
 
@@ -215,7 +220,7 @@ export class UserService {
     await withTransaction(this.db, async (tx) => {
       await this.assertNotLastSuperAdmin(id, tx);
       await this.repo.softDelete(id, actor.id, tx);
-      await this.authTokens.revokeAllRefreshTokens(id, 'user_disabled', tx);
+      await this.refreshTokens.revokeAllForUser(id, 'user_disabled', tx);
       await this.authTokens.revokeUnused(id, tx);
       // 軟刪除不觸發 cascade：外部身分的連結要自己刪，同 email 重建的帳號才能再連結
       const identitiesUnlinked = await this.identities.unlinkUser(id, tx);

@@ -11,6 +11,8 @@ import { AppException } from '@/core/errors';
 import { currentTenant } from '@/core/tenant';
 import type { PlatformAdminRow } from '@/db/platform/schema';
 import { PLATFORM_ROLE_PERMISSIONS } from '@/db/seeds/platform-permissions';
+import { secondsUntil } from '@/modules/credential/refresh-rotation';
+import type { RequestMeta } from '@/modules/credential/refresh-rotation';
 import { parseAccountId } from '@/modules/oidc-provider/oidc-account';
 import {
   OidcProviderService,
@@ -19,17 +21,15 @@ import {
 import { PlatformAccountService } from '@/modules/platform-admin/platform-account.service';
 import { PlatformAdminService } from '@/modules/platform-admin/platform-admin.service';
 import { PlatformAuditService } from '@/modules/platform-admin/platform-audit.service';
+import { PlatformRefreshTokenService } from '@/modules/platform-admin/platform-refresh-token.service';
 
-import type { IssuedSession, RequestMeta } from './auth.service';
+import type { IssuedSession } from './auth.service';
 import type {
   PlatformProfileDto,
   ResetPasswordDto,
   SetupDto,
   SsoCallbackDto,
 } from './dto/auth.dto';
-import { PlatformRefreshTokenRepository } from './platform-refresh-token.repository';
-import { rotateRefreshToken, secondsUntil } from './refresh-rotation';
-import { sha256 } from './token-hash';
 
 /**
  * 平台管理者在 apps/auth 的 app session（docs/adr/0020-physical-tenant-isolation.md D5）：
@@ -45,7 +45,7 @@ export class PlatformAuthService implements OnModuleInit {
   constructor(
     private readonly config: ConfigService<Env, true>,
     private readonly jwt: JwtService,
-    private readonly refreshTokens: PlatformRefreshTokenRepository,
+    private readonly refreshTokens: PlatformRefreshTokenService,
     private readonly admins: PlatformAdminService,
     private readonly audit: PlatformAuditService,
     private readonly oidc: OidcProviderService,
@@ -98,33 +98,29 @@ export class PlatformAuthService implements OnModuleInit {
 
   async refresh(rawToken: string, meta: RequestMeta): Promise<IssuedSession> {
     this.assertPlatformHost();
-    const { row, subject, raw, expiresAt } = await rotateRefreshToken(
-      this.refreshTokens.store,
-      rawToken,
-      {
-        ttlSeconds: this.config.get('REFRESH_TOKEN_TTL', { infer: true }),
-        familyMaxAgeSeconds: this.config.get('REFRESH_FAMILY_MAX_AGE', { infer: true }),
-        reuseGraceSeconds: this.config.get('REFRESH_REUSE_GRACE_SECONDS', { infer: true }),
-        meta,
-        loadSubject: async (adminId) => {
-          const admin = await this.admins.findById(adminId);
-          if (!admin) throw new AppException('AUTH_REFRESH_INVALID');
-          if (admin.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
-          return admin;
-        },
-        onReuse: (reused) =>
-          this.audit.recordSafely({
-            action: 'platformAuth.refresh.reuse_detected',
-            resourceType: 'platformAuth',
-            resourceId: reused.subjectId,
-            result: 'failure',
-            actorId: reused.subjectId,
-            actorEmail: 'unknown',
-            errorCode: 'AUTH_REFRESH_REUSED',
-            metadata: { familyId: reused.familyId, severity: 'high' },
-          }),
+    const { row, subject, raw, expiresAt } = await this.refreshTokens.rotate(rawToken, {
+      ttlSeconds: this.config.get('REFRESH_TOKEN_TTL', { infer: true }),
+      familyMaxAgeSeconds: this.config.get('REFRESH_FAMILY_MAX_AGE', { infer: true }),
+      reuseGraceSeconds: this.config.get('REFRESH_REUSE_GRACE_SECONDS', { infer: true }),
+      meta,
+      loadSubject: async (adminId) => {
+        const admin = await this.admins.findById(adminId);
+        if (!admin) throw new AppException('AUTH_REFRESH_INVALID');
+        if (admin.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
+        return admin;
       },
-    );
+      onReuse: (reused) =>
+        this.audit.recordSafely({
+          action: 'platformAuth.refresh.reuse_detected',
+          resourceType: 'platformAuth',
+          resourceId: reused.subjectId,
+          result: 'failure',
+          actorId: reused.subjectId,
+          actorEmail: 'unknown',
+          errorCode: 'AUTH_REFRESH_REUSED',
+          metadata: { familyId: reused.familyId, severity: 'high' },
+        }),
+    });
     return {
       ...(await this.signAccessToken(subject, row.idpSessionUid)),
       refreshToken: raw,
@@ -135,8 +131,7 @@ export class PlatformAuthService implements OnModuleInit {
   /** 登出：撤銷家族；經 SSO 登入的一併結束 IdP session（ADR-0019 D5）。 */
   async logout(rawToken: string | undefined, actor: AuthUser): Promise<{ success: true }> {
     this.assertPlatformHost();
-    const row = rawToken ? await this.refreshTokens.findByHash(sha256(rawToken)) : undefined;
-    if (row) await this.refreshTokens.revokeFamily(row.familyId, 'logout');
+    const row = rawToken ? await this.refreshTokens.revokeFamilyOf(rawToken, 'logout') : undefined;
     const idpSessionUid = row?.adminId === actor.id ? row.idpSessionUid : null;
     if (idpSessionUid) await this.endIdpSession(idpSessionUid);
     await this.audit.recordSafely({

@@ -7,7 +7,7 @@ import type { DomainEventBus } from '@/core/events';
 import type { FeatureFlagDefinition, FeatureFlagService } from '@/core/feature-flags';
 import type { JobQueue } from '@/core/jobs';
 import type { Tenancy, TenantDirectory } from '@/core/tenant';
-import type { AuthService } from '@/modules/auth/auth.service';
+import type { RefreshTokenService } from '@/modules/credential/refresh-token.service';
 import type { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
 import type { PlatformAuditService } from '@/modules/platform-admin/platform-audit.service';
 
@@ -102,7 +102,7 @@ function setup(initial: TenantWithDomains = tenantRow()) {
     {} as JobQueue,
     {} as Tenancy,
     directory as unknown as TenantDirectory,
-    {} as AuthService,
+    {} as RefreshTokenService,
     {} as OidcProviderService,
     events as unknown as DomainEventBus,
     audit as unknown as PlatformAuditService,

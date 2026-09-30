@@ -47,7 +47,7 @@ async function roleIdOf(slug: string): Promise<string> {
 }
 
 async function createActiveUser(email: string, password: string, roleSlug: string) {
-  const { hashPassword } = await import('@/modules/auth/password');
+  const { hashPassword } = await import('@/modules/credential/password');
   const [user] = await db
     .insert(users)
     .values({
@@ -211,7 +211,7 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
     expect(pending.body).toMatchObject({ error: { code: 'AUTH_ACCOUNT_PENDING' } });
 
     // 啟用信的連結（寄信工作在寄出當下才簽發 token；這裡直接簽一張）→ 設定密碼 → 可以登入
-    const { AuthTokenService } = await import('@/modules/auth/auth-token.service');
+    const { AuthTokenService } = await import('@/modules/credential/auth-token.service');
     const { raw } = await inTestTenant(app, () =>
       app.get(AuthTokenService).issue(user!.id, 'activation'),
     );

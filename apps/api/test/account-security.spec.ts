@@ -7,8 +7,8 @@ import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { auditLogs, authTokens, roles, userRoles, users } from '@/db/schema';
-import { AuthTokenService } from '@/modules/auth/auth-token.service';
-import { hashPassword } from '@/modules/auth/password';
+import { AuthTokenService } from '@/modules/credential/auth-token.service';
+import { hashPassword } from '@/modules/credential/password';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';

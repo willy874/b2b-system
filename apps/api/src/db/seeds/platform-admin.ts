@@ -1,6 +1,6 @@
 import { isNull, sql } from 'drizzle-orm';
 
-import { generateStrongPassword, hashPassword } from '@/modules/auth/password';
+import { generateStrongPassword, hashPassword } from '@/modules/credential/password';
 
 import type { PlatformScriptDatabase } from '../client';
 import { platformAdmins, platformAuditLogs } from '../platform/schema';

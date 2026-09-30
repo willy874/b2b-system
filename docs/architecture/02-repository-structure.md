@@ -188,6 +188,9 @@ apps/api/src/
 │
 ├── modules/                 ★ 業務模組
 │   ├── auth/                登入、app session、SSO 的互動端點與 BFF、外部 IdP 登入（docs/architecture/04-sso.md）
+│   ├── credential/          憑證的基礎設施：refresh／啟用／重設 token、密碼雜湊與政策、帳號連結信（葉節點）
+│   ├── platform-admin/      平台管理者、平台端的帳號流程與 refresh token、平台稽核（平台 DB 的表都在這裡）
+│   ├── tenant/              租戶的公開資訊、平台端的管理與佈建（docs/architecture/05-tenancy.md）
 │   ├── oidc-provider/       oidc-provider 掛在 /oidc、oidc_payloads adapter
 │   ├── identity-provider/   外部 IdP 連線、openid-client、帳號 ↔ 外部身分
 │   ├── user/

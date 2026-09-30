@@ -18,9 +18,9 @@ modules/system/                    設定頁的 API：驗證、稽核、推播�
 
 - **定義在程式碼，資料庫只存覆寫值**。定義包含 key、分類、Zod schema（允許的範圍）、預設值、是否公開。
   `system_settings` 沒有列的 key 就是預設值；還原預設 = 刪掉那一列。
-- **各模組登記自己的設定**：`AuthTokenModule`、`FileModule`、`SystemModule` 的 constructor 呼叫
+- **各模組登記自己的設定**：`CredentialModule`、`FileModule`、`SystemModule` 的 constructor 呼叫
   `settings.register([...])`。重複的 key、預設值不符合自己的 schema 都讓程序啟動失敗。
-  帳號政策登記在 `AuthTokenModule` 而不是 `AuthModule`：`UserModule` 只匯入前者，也要讀得到。
+  帳號政策登記在 `CredentialModule` 而不是 `AuthModule`：`UserModule` 只匯入前者，也要讀得到。
 - **讀取**：`await settings.get(LOGIN_MAX_ATTEMPTS_SETTING)`，型別由定義推導。
   第一次讀取時把整張表（一個 key 最多一列）載入快取，key 是租戶 id（與權限快取一樣帶租戶，ADR-0020 D17）。
 - **存的值不合目前的 schema**（例如之後收緊了範圍）時退回預設值並記 warn，不讓請求失敗。

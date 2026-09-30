@@ -8,18 +8,35 @@ import type { PlatformDatabase, PlatformDbOrTx } from '@/core/database';
 import type { PlatformRefreshTokenRow } from '@/db/platform/schema';
 import { platformRefreshTokens } from '@/db/platform/schema';
 import type { RevokedReason } from '@/db/schema';
-
-import type { NextRefreshToken, RefreshTokenRecord, RefreshTokenStore } from './refresh-rotation';
-import { sha256 } from './token-hash';
+import type {
+  NextRefreshToken,
+  RefreshTokenRecord,
+  RefreshTokenStore,
+} from '@/modules/credential/refresh-rotation';
+import { sha256 } from '@/modules/credential/token-hash';
 
 function toRecord(row: PlatformRefreshTokenRow): RefreshTokenRecord {
   return { ...row, subjectId: row.adminId };
 }
 
+export interface IssuePlatformRefreshTokenInput {
+  adminId: string;
+  familyId?: string;
+  familyCreatedAt?: Date;
+  clientId?: string | null;
+  idpSessionUid?: string | null;
+  expiresAt: Date;
+  userAgent?: string | null;
+  ipAddress?: string | null;
+}
+
 /** 寬限期內被取代的那張：不算「家族已撤銷」（refresh-rotation.ts 的 `supersede`）。 */
 const SUPERSEDED: RevokedReason = 'superseded';
 
-/** 平台管理者的 refresh token（平台 DB）；查詢形狀與租戶的 `RefreshTokenRepository` 相同。 */
+/**
+ * 平台管理者的 refresh token（平台 DB）；查詢形狀與租戶的 `RefreshTokenRepository` 相同。
+ * 停用、重設密碼時的撤銷在 `PlatformAdminRepository.updateAndEndSessions`（同一個交易裡改帳號欄位）。
+ */
 @Injectable()
 export class PlatformRefreshTokenRepository {
   constructor(@Inject(PLATFORM_DB) private readonly db: PlatformDatabase) {}
@@ -128,16 +145,7 @@ export class PlatformRefreshTokenRepository {
   }
 
   async issue(
-    input: {
-      adminId: string;
-      familyId?: string;
-      familyCreatedAt?: Date;
-      clientId?: string | null;
-      idpSessionUid?: string | null;
-      expiresAt: Date;
-      userAgent?: string | null;
-      ipAddress?: string | null;
-    },
+    input: IssuePlatformRefreshTokenInput,
     tx?: PlatformDbOrTx,
   ): Promise<{ raw: string }> {
     const db = tx ?? this.db;

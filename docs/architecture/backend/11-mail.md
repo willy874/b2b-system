@@ -17,7 +17,7 @@ core/mail/
 ├── mail-locale.ts           信件語系、共用頁尾
 └── mail.module.ts           @Global；依 MAIL_TRANSPORT 選實作
 
-modules/auth/
+modules/credential/
 ├── auth-mail.constants.ts   工作：auth.activationMail、auth.passwordResetMail
 ├── auth-mail.jobs.ts        寄出（簽發 token → 產生信 → 寄 → 稽核）
 └── mails/account-link.mail.tsx
@@ -49,7 +49,7 @@ modules/approval/
 ## 3. 範本
 
 ```tsx
-// modules/auth/mails/account-link.mail.tsx
+// modules/credential/mails/account-link.mail.tsx
 export function accountLinkMail({ purpose, locale, displayName, link, validHours }): MailContent {
   const copy = COPY[purpose][locale];
   return {
@@ -128,7 +128,7 @@ handler 執行時才呼叫 `AuthTokenService.issue()`、把原文放進連結、
 | 測試 | 內容 |
 | --- | --- |
 | `test/mail.spec.ts` | 真 Postgres ＋ worker ＋ 記錄用的傳輸層：建立帳號 → 啟用信 → 用連結設定密碼 → 登入；稽核不含 token；忘記密碼的節流與重設；不存在的 email 不寄；註冊被駁回 → 申請人收到意見 |
-| `src/modules/auth/__tests__/auth-mail.jobs.spec.ts` | 寄出當下簽發、狀態不符不寄、依語系、寄送失敗拋出且不寫稽核 |
+| `src/modules/credential/__tests__/auth-mail.jobs.spec.ts` | 寄出當下簽發、狀態不符不寄、依語系、寄送失敗拋出且不寫稽核 |
 | `src/modules/approval/__tests__/approval.service.spec.ts` | 核准／駁回時在交易內入列，搶輸時不入列 |
 | `src/core/mail/__tests__/mail.service.spec.ts` | 連結編碼、HTML 與純文字 |
 | `src/core/logger/__tests__/redact.spec.ts` | 網址與 Referer 的 token 遮蔽 |

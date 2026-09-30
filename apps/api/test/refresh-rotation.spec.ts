@@ -10,8 +10,8 @@ import type { App } from 'supertest/types';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { auditLogs, authTokens, refreshTokens, users } from '@/db/schema';
-import { AuthTokenCleanupJobs } from '@/modules/auth/auth-token-cleanup.jobs';
-import { sha256 } from '@/modules/auth/token-hash';
+import { AuthTokenCleanupJobs } from '@/modules/credential/auth-token-cleanup.jobs';
+import { sha256 } from '@/modules/credential/token-hash';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
@@ -63,7 +63,7 @@ describe('refresh token 輪替的併發（docs/architecture/backend/04-auth.md�
     closeDb = async () => created.client.end();
     await truncateAll(db);
 
-    const { hashPassword } = await import('@/modules/auth/password');
+    const { hashPassword } = await import('@/modules/credential/password');
     await db.insert(users).values({
       email: USER.email,
       displayName: USER.email,

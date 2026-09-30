@@ -6,6 +6,7 @@ import type { OnModuleInit } from '@nestjs/common';
 import { AppException } from '@/core/errors';
 import { requireTenant, Tenancy } from '@/core/tenant';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import type { RequestMeta } from '@/modules/credential/refresh-rotation';
 import {
   parseAccountId,
   platformAccountId,
@@ -23,7 +24,7 @@ import { PlatformAdminService } from '@/modules/platform-admin/platform-admin.se
 import { UserService } from '@/modules/user/user.service';
 
 import { AuthService } from './auth.service';
-import type { IssuedSession, RequestMeta } from './auth.service';
+import type { IssuedSession } from './auth.service';
 import type { LoginDto, SsoCallbackDto, SsoInteractionDto, SsoRedirectDto } from './dto/auth.dto';
 
 /**

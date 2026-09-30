@@ -130,7 +130,7 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 1. 只允許 import **權限目錄** `db/seeds/permissions.ts`（它是權限鍵的唯一來源）。
 2. 跨模組只能 import 對方的 `*.module.ts`、`*.service.ts`、`dto/`、`*.constants.ts`、`*.types.ts`（只限 `import type`）與純函式；
    **不可 import 對方的 `*.repository.ts`、`*.controller.ts`**；不用 `forwardRef`。
-3. 只能 import 不依賴 DI 的純函式（例：`modules/auth/password.ts`）。
+3. 只能 import 不依賴 DI 的純函式（例：`modules/credential/password.ts`）。
 4. 只有 `common/guards/permissions.guard.ts` 可以注入葉節點模組的 service：
    `PermissionService`（`modules/permission`）與 `AuditService`（`modules/audit-log`）。
    這是 [`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §3 的設計；其他 `common/` 檔案不可 import `modules/`。

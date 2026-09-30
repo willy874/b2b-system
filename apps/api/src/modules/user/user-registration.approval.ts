@@ -14,7 +14,7 @@ import type {
   ApprovalOutcome,
   SubmitApprovalInput,
 } from '@/modules/approval/approval.types';
-import { ACTIVATION_MAIL_JOB } from '@/modules/auth/auth-mail.constants';
+import { ACTIVATION_MAIL_JOB } from '@/modules/credential/auth-mail.constants';
 
 import { UserService } from './user.service';
 
