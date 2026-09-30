@@ -73,7 +73,7 @@ async function createActiveUser(
   credentials: { email: string; password: string },
   roleIds: string[],
 ): Promise<string> {
-  const { hashPassword } = await import('@/modules/auth/password');
+  const { hashPassword } = await import('@/modules/credential/password');
   const [user] = await db
     .insert(users)
     .values({

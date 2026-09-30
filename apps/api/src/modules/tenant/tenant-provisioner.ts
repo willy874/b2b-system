@@ -13,7 +13,7 @@ import type { TenantRow } from '@/db/platform/schema';
 import { ensureTenantDatabase, migrateTenantDatabase } from '@/db/provision';
 import { seedPermissions, seedRoles } from '@/db/seeds';
 import { seedTenantAdmin } from '@/db/seeds/super-admin';
-import { ACTIVATION_MAIL_JOB } from '@/modules/auth/auth-mail.constants';
+import { ACTIVATION_MAIL_JOB } from '@/modules/credential/auth-mail.constants';
 import { PlatformAuditService } from '@/modules/platform-admin/platform-audit.service';
 
 import { PlatformTenantRepository } from './platform-tenant.repository';

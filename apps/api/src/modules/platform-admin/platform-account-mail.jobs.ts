@@ -4,7 +4,7 @@ import type { OnModuleInit } from '@nestjs/common';
 import { JobQueue } from '@/core/jobs';
 import type { JobContext } from '@/core/jobs';
 import { DEFAULT_MAIL_LOCALE, MailService } from '@/core/mail';
-import { accountLinkMail } from '@/modules/auth/mails/account-link.mail';
+import { accountLinkMail } from '@/modules/credential/mails/account-link.mail';
 
 import {
   PLATFORM_ACCOUNT_MAIL_JOB,

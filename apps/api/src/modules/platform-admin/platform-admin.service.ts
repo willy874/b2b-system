@@ -6,7 +6,7 @@ import { AppException } from '@/core/errors';
 import type { PlatformAdminRow } from '@/db/platform/schema';
 import { PLATFORM_ROLE_PERMISSIONS } from '@/db/seeds/platform-permissions';
 import type { PlatformPermissionKey } from '@/db/seeds/platform-permissions';
-import { verifyAgainstDummy, verifyPassword } from '@/modules/auth/password';
+import { verifyAgainstDummy, verifyPassword } from '@/modules/credential/password';
 
 import { PlatformAdminRepository } from './platform-admin.repository';
 import { PlatformAuditService } from './platform-audit.service';

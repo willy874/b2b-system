@@ -9,9 +9,13 @@ import { PlatformAdminService } from './platform-admin.service';
 import { PlatformAuditLogRepository } from './platform-audit-log.repository';
 import { PlatformAuditService } from './platform-audit.service';
 import { PlatformAuthTokenRepository } from './platform-auth-token.repository';
+import { PlatformRefreshTokenRepository } from './platform-refresh-token.repository';
+import { PlatformRefreshTokenService } from './platform-refresh-token.service';
+import { PlatformTokenCleanupJobs } from './platform-token-cleanup.jobs';
 
 /**
- * 平台管理者、他們的帳號流程與平台稽核（docs/adr/0020-physical-tenant-isolation.md D5、D19）。葉節點：只依賴平台 DB 與 core。
+ * 平台管理者、他們的帳號流程、refresh token 與平台稽核（docs/adr/0020-physical-tenant-isolation.md D5、D19）。
+ * 平台 DB 的表都歸這個模組。葉節點：只依賴平台 DB、core 與 `credential/` 的純函式，不依賴其他業務模組的 DI。
  * global：`PermissionsGuard` 判斷平台端點的權限時要用，而 gateway 以 `@UseGuards` 在自己的模組裡建立 guard。
  */
 @Global()
@@ -26,7 +30,15 @@ import { PlatformAuthTokenRepository } from './platform-auth-token.repository';
     PlatformAccountService,
     PlatformAuditService,
     PlatformAccountMailJobs,
+    PlatformRefreshTokenRepository,
+    PlatformRefreshTokenService,
+    PlatformTokenCleanupJobs,
   ],
-  exports: [PlatformAdminService, PlatformAccountService, PlatformAuditService],
+  exports: [
+    PlatformAdminService,
+    PlatformAccountService,
+    PlatformAuditService,
+    PlatformRefreshTokenService,
+  ],
 })
 export class PlatformAdminModule {}

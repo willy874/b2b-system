@@ -7,19 +7,27 @@ import { AuthTokenCleanupJobs } from './auth-token-cleanup.jobs';
 import { AuthTokenService } from './auth-token.service';
 import { AUTH_SETTINGS } from './auth.settings';
 import { RefreshTokenRepository } from './refresh-token.repository';
+import { RefreshTokenService } from './refresh-token.service';
 
 /**
- * 葉節點：`AuthModule` 與 `UserModule` 都需要簽發 / 撤銷 token，
- * 但 `UserModule` 不該依賴 `AuthModule`（那會與 AuthModule → UserModule 形成循環）。
- * 把 token 的儲存層抽成獨立模組是那個循環的解法。
+ * 憑證的基礎設施：租戶的 refresh token 與啟用／重設密碼 token、帳號連結信、密碼雜湊與政策。
+ * 葉節點（只依賴 core 與 audit-log）：`AuthModule`（登入流程）、`UserModule`（帳號管理）、`TenantModule`
+ * （停用租戶）都依賴它；`platform-admin` 只 import 這裡的純函式（`password`、`token-hash`、`refresh-rotation`、
+ * `mails/`）。登入流程依賴 `UserModule`，所以這些不能放在 `AuthModule`，否則會形成循環。
  */
 @Module({
   // AuthMailJobs：啟用與重設密碼信的背景工作（docs/architecture/backend/11-mail.md §4）
   // AuthTokenCleanupJobs：過期 token 的清理排程（docs/architecture/backend/04-auth.md §8）
-  providers: [AuthTokenService, RefreshTokenRepository, AuthMailJobs, AuthTokenCleanupJobs],
-  exports: [AuthTokenService, RefreshTokenRepository],
+  providers: [
+    AuthTokenService,
+    RefreshTokenService,
+    RefreshTokenRepository,
+    AuthMailJobs,
+    AuthTokenCleanupJobs,
+  ],
+  exports: [AuthTokenService, RefreshTokenService],
 })
-export class AuthTokenModule {
+export class CredentialModule {
   // 帳號政策的設定在這裡登記：`UserModule` 只匯入這個模組、不匯入 `AuthModule`，也要讀得到
   constructor(settings: SettingService) {
     settings.register(AUTH_SETTINGS);

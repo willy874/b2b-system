@@ -11,7 +11,14 @@ import type {
   ResourceGrantRow,
   ResourceType,
 } from '@/db/schema';
-import { EVERYONE_SUBJECT_ID, resourceGrants, roles, userRoles, users } from '@/db/schema';
+import {
+  EVERYONE_SUBJECT_ID,
+  isActiveRole,
+  resourceGrants,
+  roles,
+  userRoles,
+  users,
+} from '@/db/schema';
 
 /** 一筆授權的識別：資源 × 對象。 */
 export interface GrantKey {
@@ -51,7 +58,7 @@ function active(now: Date): SQL | undefined {
 const LIVE_SUBJECT = sql`(
   ${resourceGrants.subjectType} = 'everyone'
   OR (${resourceGrants.subjectType} = 'role' AND EXISTS (
-    SELECT 1 FROM ${roles} WHERE ${roles.id} = ${resourceGrants.subjectId} AND ${roles.deletedAt} IS NULL))
+    SELECT 1 FROM ${roles} WHERE ${roles.id} = ${resourceGrants.subjectId} AND ${isActiveRole()}))
   OR (${resourceGrants.subjectType} = 'user' AND EXISTS (
     SELECT 1 FROM ${users} WHERE ${users.id} = ${resourceGrants.subjectId} AND ${users.deletedAt} IS NULL))
 )`;
@@ -66,7 +73,7 @@ export class ResourceGrantRepository {
     const rows = await db
       .select({ id: userRoles.roleId })
       .from(userRoles)
-      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
+      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isActiveRole()))
       .where(eq(userRoles.userId, userId));
     return rows.map((row) => row.id);
   }
@@ -116,7 +123,7 @@ export class ResourceGrantRepository {
         and(
           eq(resourceGrants.subjectType, 'role'),
           eq(roles.id, resourceGrants.subjectId),
-          isNull(roles.deletedAt),
+          isActiveRole(),
         ),
       )
       .leftJoin(
@@ -223,7 +230,7 @@ export class ResourceGrantRepository {
       const rows = await this.db
         .select({ id: roles.id, name: roles.name, hint: roles.slug })
         .from(roles)
-        .where(and(isNull(roles.deletedAt), pattern ? ilike(roles.name, pattern) : undefined))
+        .where(and(isActiveRole(), pattern ? ilike(roles.name, pattern) : undefined))
         .orderBy(asc(roles.name), asc(roles.id))
         .limit(limit);
       return rows.map((row) => ({ subjectType, id: row.id, name: row.name, hint: row.hint }));

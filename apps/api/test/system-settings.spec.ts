@@ -33,7 +33,7 @@ async function login(credentials: { email: string; password: string }): Promise<
 }
 
 async function createActiveUser(email: string, password: string, roleSlug?: string) {
-  const { hashPassword } = await import('@/modules/auth/password');
+  const { hashPassword } = await import('@/modules/credential/password');
   const [user] = await db
     .insert(users)
     .values({

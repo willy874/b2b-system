@@ -222,29 +222,40 @@ providers: [
 
 ```
 app.module
-  ├─ CoreModule（global）: Config · Database · Cache · Logger · Events（DomainEventBus）
-  ├─ AuthModule      ──▶ UserModule(exports UserService)
-  │                  ──▶ PermissionModule(exports PermissionService)
-  │                  ──▶ AuditLogModule(exports AuditService)
-  ├─ UserModule      ──▶ RoleModule(exports RoleService)
-  │                  ──▶ PermissionModule
-  │                  ──▶ AuditLogModule
-  ├─ RoleModule      ──▶ PermissionModule
-  │                  ──▶ AuditLogModule
-  ├─ PermissionModule
-  ├─ AuditLogModule
-  ├─ RealtimeModule  ──▶ PermissionModule（訂閱 DomainEventBus；沒有模組依賴它）
-  └─ HealthModule
+  ├─ core（global）: Config · Database · Cache · Logger · Events（DomainEventBus）· Jobs · Mail · Settings · Authz …
+  ├─ AuthModule          ──▶ Credential · User · Approval · OidcProvider · IdentityProvider · PlatformAdmin
+  ├─ TenantModule        ──▶ Credential · OidcProvider · PlatformAdmin
+  ├─ OidcProviderModule  ──▶ User · PlatformAdmin
+  ├─ UserModule          ──▶ Credential · Approval · IdentityProvider
+  ├─ FileModule          ──▶ ResourceGrant · Approval
+  ├─ RealtimeModule      ──▶ Permission（訂閱 DomainEventBus；沒有模組依賴它）
+  ├─ 葉節點：Credential · IdentityProvider · Approval · ResourceGrant · Role · FeatureFlag · Job · System · Health
+  └─ 全域葉節點（@Global）：Permission · AuditLog · PlatformAdmin
 ```
+
+全域葉節點不必寫進 `imports` 也注入得到（上圖省略）：`PermissionsGuard` 在每個模組裡都要用它們，
+gateway 以 `@UseGuards` 在自己的模組裡建立 guard（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2 註 4）。
 
 規則：
 
 - **跨模組只注入對方 `exports` 的 service**，不注入 repository。
-- `PermissionModule` 與 `AuditLogModule` 是葉節點，被很多人依賴，自己不依賴業務模組。
+- 葉節點被很多人依賴，自己不依賴業務模組的 DI（只可以 import 別人的純函式與型別）。
+  `PlatformAdminModule` 用 `credential/` 的 `password`、`token-hash`、`refresh-rotation`、`mails/`。
 - 循環依賴一律用重構解決，**不用 `forwardRef`**。出現循環代表職責畫錯了。
 - **副作用走領域事件，不反向依賴**：業務模組發佈 `DomainEventBus` 事件，
   推播這類「晚一點發生也沒關係」的副作用由訂閱的模組處理（[`08-realtime.md`](./08-realtime.md) §7）。
   業務模組不 import `RealtimeModule`。
+- **直接呼叫還是發事件**：事件是 fire-and-forget（不拋錯、不等待，[`08-realtime.md`](./08-realtime.md) §7.2），
+  所以只放「失敗了也不影響這次操作的結果」的副作用。操作本身的一部分、要知道成敗的步驟，直接呼叫對方 `exports` 的 service。
+
+  | 情境 | 做法 | 例 |
+  | --- | --- | --- |
+  | 失敗要讓操作失敗、或要回報給呼叫端 | 直接呼叫 | 停用租戶時撤銷 session、結束 IdP session：`PlatformTenantService.endEverything` 逐步呼叫並收集失敗的步驟 |
+  | 推播、快取預熱、補建衍生資料等「晚一點也沒關係」 | 發佈事件 | 權限變更 → 即時連線換 room、補建個人資料夾（`FileSystemFolderService` 訂閱 `permissions.changed`） |
+  | 兩者都要 | 先直接呼叫，成功後再發事件 | `endEverything` 撤銷完 session 之後發 `sessions.revoked`，讓 realtime 斷線 |
+
+  同一個效果不要兩條路都做：訂閱端要能分辨哪些情況已經由直接呼叫處理（例：`OidcProviderService` 訂閱
+  `sessions.revoked` 只處理帶 `userIds` 的，租戶層級的由 `endTenantSessions` 直接處理）。
 
 ### 4.1 一個實際的循環與它的解法
 
@@ -255,6 +266,16 @@ app.module
 解法：把「查某角色有多少人持有」放進 `RoleRepository`（它可以 join `user_roles`，
 那是它自己的關聯表），`RoleService` 不需要 `UserService`。
 單向依賴：`UserModule → RoleModule`。
+
+### 4.2 憑證基礎設施與登入流程
+
+登入流程（`AuthModule`）要用 `UserService` 找帳號；帳號管理（`UserModule`）停用人時要撤銷他的 refresh token、
+寄啟用信要簽發 token。若 token 的儲存也放在 `AuthModule`，就成了 `Auth → User → Auth`。
+
+解法：把「token 的儲存、密碼雜湊與政策、帳號連結信」抽成葉節點 `CredentialModule`，
+`AuthModule`、`UserModule`、`TenantModule`（停用租戶時撤銷所有 session）都往下依賴它；
+`AuthModule` 只留下流程（登入、續期、SSO、外部 IdP）。平台端同理：平台 DB 的表（含 `platform_refresh_tokens`）
+都歸 `PlatformAdminModule`，平台的登入流程經 `PlatformRefreshTokenService` 存取。
 
 ---
 

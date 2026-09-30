@@ -4,17 +4,7 @@ import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB } from '@/core/database';
 import type { FileFolderInsert, FileFolderKind, FileFolderRow } from '@/db/schema';
-import {
-  fileFolders,
-  files,
-  permissions,
-  rolePermissions,
-  roles,
-  userRoles,
-  users,
-} from '@/db/schema';
-import { ALL_PERMISSION_KEYS, permissionClosure } from '@/db/seeds/permissions';
-import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
+import { fileFolders, files, users } from '@/db/schema';
 
 import type { FolderNode } from './file-access.context';
 
@@ -24,11 +14,6 @@ import type { FolderNode } from './file-access.context';
  * 資料夾的寫入不頻繁，整棵樹共用一把鎖就夠了。
  */
 const FOLDER_TREE_LOCK_KEY = 'file_folders_tree';
-
-/** 閉包含 `file:access` 的權限鍵：持有任一個就能進檔案管理器。 */
-const FILE_MANAGER_KEYS = ALL_PERMISSION_KEYS.filter((key) =>
-  permissionClosure([key]).has('file:access'),
-);
 
 @Injectable()
 export class FileFolderRepository {
@@ -191,25 +176,9 @@ export class FileFolderRepository {
       .where(and(inArray(users.id, [...userIds]), isNull(users.deletedAt)));
   }
 
-  /**
-   * 能進檔案管理器的使用者（持有「閉包含 `file:access`」的權限鍵的角色，或 super-admin）：
-   * 啟動時補建個人資料夾用。與權限解析同樣只看未刪除的角色。
-   * 權限依賴樹之後，`file:create`／`file:update`… 都帶來 `file:access`（docs/rbac/02-permission-catalog.md §9）。
-   */
-  async findFileManagerUserIds(): Promise<string[]> {
-    const rows = await this.db
-      .selectDistinct({ id: users.id })
-      .from(users)
-      .innerJoin(userRoles, eq(userRoles.userId, users.id))
-      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
-      .leftJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
-      .leftJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
-      .where(
-        and(
-          isNull(users.deletedAt),
-          or(eq(roles.slug, SUPER_ADMIN_SLUG), inArray(permissions.key, FILE_MANAGER_KEYS)),
-        ),
-      );
+  /** 未刪除的使用者：啟動時補建個人資料夾的候選人（能不能進檔案管理器由權限解析決定）。 */
+  async findActiveUserIds(): Promise<string[]> {
+    const rows = await this.db.select({ id: users.id }).from(users).where(isNull(users.deletedAt));
     return rows.map((row) => row.id);
   }
 

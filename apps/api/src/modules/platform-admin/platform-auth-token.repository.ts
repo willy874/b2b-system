@@ -7,7 +7,7 @@ import { PLATFORM_DB } from '@/core/database';
 import type { PlatformDatabase, PlatformDbOrTx } from '@/core/database';
 import type { PlatformAuthTokenPurpose } from '@/db/platform/schema';
 import { platformAuthTokens } from '@/db/platform/schema';
-import { sha256 } from '@/modules/auth/token-hash';
+import { sha256 } from '@/modules/credential/token-hash';
 
 import {
   PLATFORM_ACTIVATION_TTL_SECONDS,

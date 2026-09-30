@@ -1,11 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 
 import type { PermissionKey } from '@/common/types';
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB } from '@/core/database';
 import type { PermissionRow } from '@/db/schema';
-import { permissions, rolePermissions, roles, userRoles } from '@/db/schema';
+import { isActiveRole, permissions, rolePermissions, roles, userRoles } from '@/db/schema';
 
 import { SUPER_ADMIN_SLUG } from './permission.constants';
 
@@ -21,7 +21,7 @@ export class PermissionRepository {
     const rows = await this.db
       .selectDistinct({ key: permissions.key })
       .from(userRoles)
-      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
+      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isActiveRole()))
       .innerJoin(rolePermissions, eq(rolePermissions.roleId, userRoles.roleId))
       .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
       .where(and(eq(userRoles.userId, userId), ne(userRoles.roleId, roleId)));
@@ -50,7 +50,7 @@ export class PermissionRepository {
     const rows = await db
       .selectDistinct({ userId: userRoles.userId, key: permissions.key })
       .from(userRoles)
-      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
+      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isActiveRole()))
       .innerJoin(rolePermissions, eq(rolePermissions.roleId, userRoles.roleId))
       .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
       .where(inArray(userRoles.userId, [...userIds]));
@@ -68,7 +68,7 @@ export class PermissionRepository {
         and(
           inArray(userRoles.userId, [...userIds]),
           eq(roles.slug, SUPER_ADMIN_SLUG),
-          isNull(roles.deletedAt),
+          isActiveRole(),
         ),
       );
     return rows.map((row) => row.userId);

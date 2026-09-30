@@ -124,7 +124,7 @@ describe('租戶實體隔離（docs/adr/0020-physical-tenant-isolation.md D1–D
     await platformClient.end();
 
     const { runSeed } = await import('@/db/seeds/index');
-    const { hashPassword } = await import('@/modules/auth/password');
+    const { hashPassword } = await import('@/modules/credential/password');
     const homeDb = createTestDatabase();
     home = homeDb.db;
     closers.push(async () => homeDb.client.end());

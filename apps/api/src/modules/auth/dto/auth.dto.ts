@@ -2,11 +2,10 @@ import { z } from 'zod';
 
 import { defineSchema } from '@/core/validation';
 import { ALL_PLATFORM_PERMISSION_KEYS } from '@/db/seeds/platform-permissions';
+import { PasswordSchema } from '@/modules/credential/password';
 import { PermissionKeySchema } from '@/modules/permission/dto/permission.dto';
 import { TenantFeatureSchema } from '@/modules/tenant/dto/platform-tenant.dto';
 import { RoleSummarySchema, UserStatusSchema } from '@/modules/user/dto/user.dto';
-
-import { PasswordSchema } from '../password';
 
 export const LoginSchema = defineSchema(
   'LoginRequest',

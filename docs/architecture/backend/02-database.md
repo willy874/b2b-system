@@ -105,7 +105,15 @@ export const roles = pgTable(
       .where(sql`${t.deletedAt} IS NULL`),
   ],
 );
+
+/** 還有效（未軟刪除）的角色：查到 roles 的模組一律用它，不各自寫 isNull(roles.deletedAt)。 */
+export function isActiveRole(): SQL {
+  return isNull(roles.deletedAt);
+}
 ```
+
+`roles` 被 user、role、permission、resource-grant 多個模組 join；「有效的角色」集中在 `isActiveRole()`，
+軟刪除的語意之後改了（例如加上停用狀態）只改一處。`core/authz` 的遞迴 CTE 是手寫 SQL，同一個條件寫在那裡並註明。
 
 ### 2.3 `permissions`
 

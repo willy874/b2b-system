@@ -143,7 +143,8 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
     this.provider = provider;
 
     // 帳號停用、刪除、改密碼（token_version 遞增）時，這些人的 IdP session 一起結束：
-    // 否則 IdP 上還留著一個指向不能用的帳號的 session（單一登出只帶 idpSessionUids，這裡不處理）
+    // 否則 IdP 上還留著一個指向不能用的帳號的 session（單一登出只帶 idpSessionUids、停用租戶只帶 tenantIds，
+    // 這兩種由發佈端直接處理：`destroySession`、`endTenantSessions`，docs/architecture/backend/01-architecture.md §4）
     // 事件在租戶的脈絡裡發佈：userIds 是這個租戶的使用者，IdP 上的帳號 id 要帶上租戶（D6）
     this.unsubscribe = this.events.subscribe(DomainEvent.SESSIONS_REVOKED, ({ userIds }) => {
       const tenant = currentTenant();

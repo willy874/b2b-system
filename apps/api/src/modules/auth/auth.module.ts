@@ -4,25 +4,23 @@ import { JwtModule } from '@nestjs/jwt';
 
 import type { Env } from '@/core/config';
 import { ApprovalModule } from '@/modules/approval/approval.module';
+import { CredentialModule } from '@/modules/credential/credential.module';
 import { IdentityProviderModule } from '@/modules/identity-provider/identity-provider.module';
 import { OidcProviderModule } from '@/modules/oidc-provider/oidc-provider.module';
 import { PlatformAdminModule } from '@/modules/platform-admin/platform-admin.module';
 import { UserModule } from '@/modules/user/user.module';
 
-import { PlatformTokenCleanupJobs } from './auth-token-cleanup.jobs';
-import { AuthTokenModule } from './auth-token.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { ExternalLoginService } from './external-login.service';
 import { PlatformAuthController } from './platform-auth.controller';
 import { PlatformAuthService } from './platform-auth.service';
-import { PlatformRefreshTokenRepository } from './platform-refresh-token.repository';
 import { SsoInteractionController } from './sso-interaction.controller';
 import { SsoService } from './sso.service';
 
 @Module({
   imports: [
-    AuthTokenModule,
+    CredentialModule,
     UserModule,
     ApprovalModule,
     OidcProviderModule,
@@ -38,14 +36,7 @@ import { SsoService } from './sso.service';
     }),
   ],
   controllers: [AuthController, SsoInteractionController, PlatformAuthController],
-  providers: [
-    AuthService,
-    SsoService,
-    ExternalLoginService,
-    PlatformAuthService,
-    PlatformRefreshTokenRepository,
-    PlatformTokenCleanupJobs,
-  ],
+  providers: [AuthService, SsoService, ExternalLoginService, PlatformAuthService],
   exports: [AuthService],
 })
 export class AuthModule {}

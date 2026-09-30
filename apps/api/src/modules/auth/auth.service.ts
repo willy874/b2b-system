@@ -19,24 +19,35 @@ import { requireTenant } from '@/core/tenant';
 import type { UserRow } from '@/db/schema';
 import { ApprovalService } from '@/modules/approval/approval.service';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import {
+  ACTIVATION_MAIL_JOB,
+  FORGOT_PASSWORD_THROTTLE_SECONDS,
+  PASSWORD_RESET_MAIL_JOB,
+} from '@/modules/credential/auth-mail.constants';
+import { AuthTokenService } from '@/modules/credential/auth-token.service';
+import {
+  LOGIN_LOCKOUT_SECONDS_SETTING,
+  LOGIN_MAX_ATTEMPTS_SETTING,
+  PASSWORD_MIN_LENGTH_SETTING,
+  REGISTRATION_ENABLED_SETTING,
+} from '@/modules/credential/auth.settings';
+import type { Argon2Options } from '@/modules/credential/password';
+import {
+  containsContext,
+  emailContext,
+  hashPassword,
+  verifyAgainstDummy,
+  verifyPassword,
+} from '@/modules/credential/password';
+import { secondsUntil } from '@/modules/credential/refresh-rotation';
+import type { RequestMeta } from '@/modules/credential/refresh-rotation';
+import { RefreshTokenService } from '@/modules/credential/refresh-token.service';
 import { IdentityProviderService } from '@/modules/identity-provider/identity-provider.service';
 import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 import { userRegistrationRequest } from '@/modules/user/user-registration.approval';
 import { isLoginLocked, UserService, userUpdated } from '@/modules/user/user.service';
 
-import {
-  ACTIVATION_MAIL_JOB,
-  FORGOT_PASSWORD_THROTTLE_SECONDS,
-  PASSWORD_RESET_MAIL_JOB,
-} from './auth-mail.constants';
-import { AuthTokenService } from './auth-token.service';
-import {
-  LOGIN_LOCKOUT_SECONDS_SETTING,
-  LOGIN_MAX_ATTEMPTS_SETTING,
-  PASSWORD_MIN_LENGTH_SETTING,
-  REGISTRATION_ENABLED_SETTING,
-} from './auth.settings';
 import type {
   ChangePasswordDto,
   ForgotPasswordDto,
@@ -48,22 +59,6 @@ import type {
   SetupDto,
   UpdateProfileDto,
 } from './dto/auth.dto';
-import type { Argon2Options } from './password';
-import {
-  containsContext,
-  emailContext,
-  hashPassword,
-  verifyAgainstDummy,
-  verifyPassword,
-} from './password';
-import { rotateRefreshToken, secondsUntil } from './refresh-rotation';
-import { RefreshTokenRepository } from './refresh-token.repository';
-import { sha256 } from './token-hash';
-
-export interface RequestMeta {
-  ip?: string | null;
-  userAgent?: string | null;
-}
 
 export interface IssuedSession extends SessionDto {
   refreshToken: string;
@@ -83,7 +78,7 @@ export class AuthService {
     private readonly config: ConfigService<Env, true>,
     private readonly jwt: JwtService,
     private readonly users: UserService,
-    private readonly refreshTokens: RefreshTokenRepository,
+    private readonly refreshTokens: RefreshTokenService,
     private readonly authTokens: AuthTokenService,
     private readonly permissionService: PermissionService,
     private readonly userCache: UserCacheService,
@@ -256,46 +251,42 @@ export class AuthService {
   // ── 續期 ────────────────────────────────────────────────
 
   async refresh(rawToken: string, meta: RequestMeta): Promise<IssuedSession> {
-    const { row, subject, raw, expiresAt } = await rotateRefreshToken(
-      this.refreshTokens.store,
-      rawToken,
-      {
-        ttlSeconds: this.config.get('REFRESH_TOKEN_TTL', { infer: true }),
-        familyMaxAgeSeconds: this.config.get('REFRESH_FAMILY_MAX_AGE', { infer: true }),
-        reuseGraceSeconds: this.config.get('REFRESH_REUSE_GRACE_SECONDS', { infer: true }),
-        meta,
-        loadSubject: async (userId) => {
-          const user = await this.users.findAccountById(userId);
-          if (!user || user.deletedAt) throw new AppException('AUTH_REFRESH_INVALID');
-          if (user.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
-          return user;
-        },
-        onReuse: (reused) =>
-          this.audit.recordSafely({
-            action: 'auth.refresh.reuse_detected',
-            resourceType: 'auth',
-            resourceId: reused.subjectId,
-            result: 'failure',
-            actorId: reused.subjectId,
-            errorCode: 'AUTH_REFRESH_REUSED',
-            metadata: {
-              familyId: reused.familyId,
-              severity: 'high',
-              ip: meta.ip ?? undefined,
-              userAgent: meta.userAgent ?? undefined,
-            },
-          }),
-        // 回應遺失後的重送：不是攻擊，只留一般紀錄
-        onGraceReplay: (replayed) =>
-          this.audit.recordSafely({
-            action: 'auth.refresh.replayed',
-            resourceType: 'auth',
-            resourceId: replayed.subjectId,
-            actorId: replayed.subjectId,
-            metadata: { familyId: replayed.familyId, ip: meta.ip ?? undefined },
-          }),
+    const { row, subject, raw, expiresAt } = await this.refreshTokens.rotate(rawToken, {
+      ttlSeconds: this.config.get('REFRESH_TOKEN_TTL', { infer: true }),
+      familyMaxAgeSeconds: this.config.get('REFRESH_FAMILY_MAX_AGE', { infer: true }),
+      reuseGraceSeconds: this.config.get('REFRESH_REUSE_GRACE_SECONDS', { infer: true }),
+      meta,
+      loadSubject: async (userId) => {
+        const user = await this.users.findAccountById(userId);
+        if (!user || user.deletedAt) throw new AppException('AUTH_REFRESH_INVALID');
+        if (user.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
+        return user;
       },
-    );
+      onReuse: (reused) =>
+        this.audit.recordSafely({
+          action: 'auth.refresh.reuse_detected',
+          resourceType: 'auth',
+          resourceId: reused.subjectId,
+          result: 'failure',
+          actorId: reused.subjectId,
+          errorCode: 'AUTH_REFRESH_REUSED',
+          metadata: {
+            familyId: reused.familyId,
+            severity: 'high',
+            ip: meta.ip ?? undefined,
+            userAgent: meta.userAgent ?? undefined,
+          },
+        }),
+      // 回應遺失後的重送：不是攻擊，只留一般紀錄
+      onGraceReplay: (replayed) =>
+        this.audit.recordSafely({
+          action: 'auth.refresh.replayed',
+          resourceType: 'auth',
+          resourceId: replayed.subjectId,
+          actorId: replayed.subjectId,
+          metadata: { familyId: replayed.familyId, ip: meta.ip ?? undefined },
+        }),
+    });
     return {
       ...(await this.signAccessToken(subject, row.idpSessionUid)),
       refreshToken: raw,
@@ -305,15 +296,9 @@ export class AuthService {
 
   // ── 登出 ────────────────────────────────────────────────
 
-  /** 撤銷目前租戶的所有 session（平台管理者停用或刪除租戶，docs/adr/0020-physical-tenant-isolation.md D13）。 */
-  async revokeAllSessions(): Promise<void> {
-    await this.refreshTokens.revokeAll('tenant_disabled');
-  }
-
   async logout(rawToken: string | undefined, actor: AuthUser): Promise<{ success: true }> {
-    const row = rawToken ? await this.refreshTokens.findByHash(sha256(rawToken)) : undefined;
     // 撤銷整條家族，而不只是當前這一條
-    if (row) await this.refreshTokens.revokeFamily(row.familyId, 'logout');
+    const row = rawToken ? await this.refreshTokens.revokeFamilyOf(rawToken, 'logout') : undefined;
     // 經 SSO 登入的 session：同一個 IdP session 的所有產品一起登出（ADR-0019 D5）
     const idpSessionUid = row?.userId === actor.id ? row.idpSessionUid : null;
     if (idpSessionUid) await this.endIdpSession(idpSessionUid);

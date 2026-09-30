@@ -1,8 +1,13 @@
 import { AppException } from '@/core/errors';
 import type { RevokedReason } from '@/db/schema';
 
-import type { RequestMeta } from './auth.service';
 import { sha256 } from './token-hash';
+
+/** 發出 session 的請求資訊（寫進 token 列，稽核與安全事件調查用）。 */
+export interface RequestMeta {
+  ip?: string | null;
+  userAgent?: string | null;
+}
 
 /** cookie 的 Max-Age：新 token 的剩餘秒數（可能被家族的絕對壽命截短）。 */
 export function secondsUntil(date: Date): number {

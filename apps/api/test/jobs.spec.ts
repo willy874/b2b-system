@@ -86,7 +86,7 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
     const { runSeed } = await import('@/db/seeds/index');
     await runSeed(db as never);
 
-    const { hashPassword } = await import('@/modules/auth/password');
+    const { hashPassword } = await import('@/modules/credential/password');
     const [auditor] = await db
       .insert(users)
       .values({

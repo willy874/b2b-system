@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
-import { hashPassword, generateStrongPassword } from '@/modules/auth/password';
+import { hashPassword, generateStrongPassword } from '@/modules/credential/password';
 
 import type { ScriptDatabase } from '../client';
 import { auditLogs, roles, userRoles, users } from '../schema';

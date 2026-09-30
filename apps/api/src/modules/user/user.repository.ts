@@ -5,7 +5,7 @@ import type { SQL } from 'drizzle-orm';
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, containsPattern } from '@/core/database';
 import type { RoleRow, UserInsert, UserRow, UserStatus } from '@/db/schema';
-import { roles, userRoles, users } from '@/db/schema';
+import { isActiveRole, roles, userRoles, users } from '@/db/schema';
 
 import type { ListUserDto } from './dto/list-user.dto';
 
@@ -86,7 +86,7 @@ export class UserRepository {
       .select({ user: users, roles: ROLE_AGGREGATE })
       .from(users)
       .leftJoin(userRoles, eq(userRoles.userId, users.id))
-      .leftJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
+      .leftJoin(roles, and(eq(roles.id, userRoles.roleId), isActiveRole()))
       .where(and(eq(users.id, id), isNull(users.deletedAt)))
       .groupBy(users.id)
       .limit(1);
@@ -129,7 +129,7 @@ export class UserRepository {
         .select({ user: users, roles: ROLE_AGGREGATE })
         .from(users)
         .leftJoin(userRoles, eq(userRoles.userId, users.id))
-        .leftJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
+        .leftJoin(roles, and(eq(roles.id, userRoles.roleId), isActiveRole()))
         .where(where)
         .groupBy(users.id)
         .orderBy(...orderBy, desc(users.id))
@@ -210,7 +210,7 @@ export class UserRepository {
     const rows = await (tx ?? this.db)
       .select({ id: roles.id, slug: roles.slug, name: roles.name, isSystem: roles.isSystem })
       .from(userRoles)
-      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
+      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isActiveRole()))
       .where(eq(userRoles.userId, userId))
       .orderBy(asc(roles.slug));
     return rows;
@@ -251,7 +251,7 @@ export class UserRepository {
     const active = await tx
       .select({ id: roles.id })
       .from(roles)
-      .where(and(inArray(roles.id, [...new Set(roleIds)]), isNull(roles.deletedAt)))
+      .where(and(inArray(roles.id, [...new Set(roleIds)]), isActiveRole()))
       .for('share');
     if (!active.length) return;
     await tx
@@ -265,7 +265,7 @@ export class UserRepository {
     return this.db
       .select()
       .from(roles)
-      .where(and(inArray(roles.id, [...roleIds]), isNull(roles.deletedAt)));
+      .where(and(inArray(roles.id, [...roleIds]), isActiveRole()));
   }
 
   /** 使用者（未刪除）是否持有某個（未刪除的）角色；直接查 DB，不經權限快取。 */
@@ -273,7 +273,7 @@ export class UserRepository {
     const [row] = await (tx ?? this.db)
       .select({ id: userRoles.userId })
       .from(userRoles)
-      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
+      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isActiveRole()))
       .where(and(eq(userRoles.userId, userId), eq(roles.slug, slug)))
       .limit(1);
     return row !== undefined;
@@ -301,7 +301,7 @@ export class UserRepository {
   ): Promise<number> {
     const conditions: SQL[] = [
       eq(roles.slug, slug),
-      isNull(roles.deletedAt),
+      isActiveRole(),
       isNull(users.deletedAt),
       eq(users.status, 'active'),
     ];

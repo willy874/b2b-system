@@ -19,7 +19,7 @@ import { JobQueue } from '@/core/jobs';
 import { isValidBucketName } from '@/core/storage/object-storage';
 import { Tenancy, TenantDirectory, toTenantFeatures } from '@/core/tenant';
 import type { TenantStatus } from '@/db/platform/schema';
-import { AuthService } from '@/modules/auth/auth.service';
+import { RefreshTokenService } from '@/modules/credential/refresh-token.service';
 import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
 import { PlatformAuditService } from '@/modules/platform-admin/platform-audit.service';
 
@@ -81,7 +81,7 @@ export class PlatformTenantService {
     private readonly jobs: JobQueue,
     private readonly tenancy: Tenancy,
     private readonly directory: TenantDirectory,
-    private readonly auth: AuthService,
+    private readonly refreshTokens: RefreshTokenService,
     private readonly oidc: OidcProviderService,
     private readonly events: DomainEventBus,
     private readonly audit: PlatformAuditService,
@@ -452,7 +452,9 @@ export class PlatformTenantService {
       }
     };
     await attempt('refreshTokens', () =>
-      this.tenancy.runForMaintenance(tenant.id, () => this.auth.revokeAllSessions()),
+      this.tenancy.runForMaintenance(tenant.id, () =>
+        this.refreshTokens.revokeAll('tenant_disabled'),
+      ),
     );
     await attempt('idpSessions', () => this.oidc.endTenantSessions(tenant.id));
     this.events.publish(DomainEvent.SESSIONS_REVOKED, {
