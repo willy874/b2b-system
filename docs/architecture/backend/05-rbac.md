@@ -292,6 +292,10 @@ this.permissionService.invalidateUsers(holders);
 反過來的話 `user_roles` 已被 cascade 刪除，查不到任何人，快取永遠不會失效——
 直到 TTL 過期為止那些人還保有已被刪除角色的權限。
 
+刪除角色的實作在交易內先 `SELECT … FOR UPDATE` 鎖住角色列、重新計數，再以
+`DELETE FROM user_roles … RETURNING user_id` 在 **同一條語句** 取得受影響的人：
+取得與刪除之間沒有空檔，併發的指派（`FOR SHARE` 鎖住角色列）也不會被漏掉。
+
 ### 5.2 為什麼是 in-memory 而不是 Redis
 
 Phase 0 是單一 API 執行個體。in-memory Map 的失效是即時且確定的。

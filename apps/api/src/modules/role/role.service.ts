@@ -157,18 +157,21 @@ export class RoleService {
     const ids = await this.permissionService.assertKeysExist(touched);
     await this.permissionService.assertGrantable(actor.id, dto.add as PermissionKey[]);
 
-    const before = await this.repo.listPermissionKeys(id);
-    const after = [...new Set([...before, ...dto.add])].filter(
-      (key) => !dto.remove.includes(key as PermissionKey),
-    );
+    // 自我鎖定的預估用交易外的讀取；稽核的 before／after 在交易內讀，才是實際寫入的前後
+    const predicted = [
+      ...new Set([...(await this.repo.listPermissionKeys(id)), ...dto.add]),
+    ].filter((key) => !dto.remove.includes(key as PermissionKey));
     await this.permissionService.assertNoSelfLockout(
       actor.id,
       id,
-      after,
+      predicted,
       ROLE_MANAGEMENT_PERMISSIONS,
     );
 
     await withTransaction(this.db, async (tx) => {
+      // 鎖住角色列：同一個角色的權限變更依序進行，before／after 不會被併發的另一筆交錯
+      if (!(await this.repo.lockActive(id, tx))) throw new AppException('ROLE_NOT_FOUND');
+      const before = await this.repo.listPermissionKeys(id, tx);
       if (dto.remove.length) {
         await this.repo.removePermissions(
           id,
@@ -184,6 +187,7 @@ export class RoleService {
           tx,
         );
       }
+      const after = await this.repo.listPermissionKeys(id, tx);
       await this.audit.record(
         {
           action: 'role.grantPermission',
@@ -253,17 +257,18 @@ export class RoleService {
     const role = await this.getExisting(id);
     if (role.isSystem) throw new AppException('ROLE_SYSTEM_PROTECTED');
 
-    const userCount = await this.repo.countUsers(id);
-    if (userCount > 0 && !query.force) {
-      throw new AppException('ROLE_IN_USE', { userCount });
-    }
     await this.permissionService.assertNoSelfLockout(actor.id, id, [], ROLE_MANAGEMENT_PERMISSIONS);
 
-    // ★ 順序陷阱：先查出受影響的使用者，再刪角色
-    const affected = await this.repo.findUserIdsByRole(id);
-
-    await withTransaction(this.db, async (tx) => {
-      await this.repo.softDelete(id, actor.id, tx);
+    const affected = await withTransaction(this.db, async (tx) => {
+      // 鎖住角色列再計數（docs/issues/03-edge-cases.md EDGE-19）：併發的指派（`FOR SHARE`）會先提交、
+      // 被算進來；或是等這裡提交後看到角色已刪除而不插入。
+      if (!(await this.repo.lockActive(id, tx))) throw new AppException('ROLE_NOT_FOUND');
+      const count = await this.repo.countUsers(id, tx);
+      if (count > 0 && !query.force) {
+        throw new AppException('ROLE_IN_USE', { userCount: count });
+      }
+      // ★ 受影響的使用者由刪除指派的同一條語句（`RETURNING`）取得：不會漏掉、也不會在刪除後才查而查不到
+      const holders = await this.repo.softDelete(id, actor.id, tx);
       await this.audit.record(
         {
           action: 'role.delete',
@@ -271,10 +276,11 @@ export class RoleService {
           resourceId: id,
           resourceName: role.name,
           changes: { before: { name: role.name, slug: role.slug } },
-          metadata: { forced: query.force === true, userCount },
+          metadata: { forced: query.force === true, userCount: count },
         },
         tx,
       );
+      return holders;
     });
 
     this.permissionService.invalidateUsers(affected);

@@ -171,11 +171,7 @@ export class UserRepository {
     tx: DbOrTx,
   ): Promise<void> {
     await tx.delete(userRoles).where(eq(userRoles.userId, userId));
-    if (roleIds.length) {
-      await tx
-        .insert(userRoles)
-        .values(roleIds.map((roleId) => ({ userId, roleId, grantedBy: actorId })));
-    }
+    await this.insertActiveRoles(userId, roleIds, actorId, tx);
   }
 
   async assignRoles(
@@ -184,10 +180,30 @@ export class UserRepository {
     actorId: string | null,
     tx: DbOrTx,
   ): Promise<void> {
+    await this.insertActiveRoles(userId, roleIds, actorId, tx);
+  }
+
+  /**
+   * 只插入仍未刪除的角色，並以 `FOR SHARE` 鎖住角色列到交易結束（docs/issues/03-edge-cases.md EDGE-19）：
+   * 併發的刪除角色（`FOR UPDATE`）若先拿到鎖，這裡等它提交後重新判斷、看到 `deleted_at` 而略過，
+   * 不會留下指向已刪除角色的指派；若這裡先拿到鎖，刪除要等指派提交，重新計數時就算得到這個人。
+   */
+  private async insertActiveRoles(
+    userId: string,
+    roleIds: readonly string[],
+    actorId: string | null,
+    tx: DbOrTx,
+  ): Promise<void> {
     if (!roleIds.length) return;
+    const active = await tx
+      .select({ id: roles.id })
+      .from(roles)
+      .where(and(inArray(roles.id, [...new Set(roleIds)]), isNull(roles.deletedAt)))
+      .for('share');
+    if (!active.length) return;
     await tx
       .insert(userRoles)
-      .values(roleIds.map((roleId) => ({ userId, roleId, grantedBy: actorId })))
+      .values(active.map(({ id: roleId }) => ({ userId, roleId, grantedBy: actorId })))
       .onConflictDoNothing();
   }
 
