@@ -47,11 +47,12 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     ]);
   });
 
-  it('建立角色：角色列表與選項，不碰任何角色詳情', () => {
+  it('建立角色：角色列表與選項，不碰任何角色詳情（還原也以 create 宣告，所以回收桶跟著失效）', () => {
     expect(keysOf({ resource: Resource.ROLE, kind: 'create' })).toEqual([
       'invalidate:AUDIT_LOG_LIST_QUERY_KEY',
       'invalidate:ROLE_LIST_QUERY_KEY',
       'invalidate:ROLE_OPTIONS_QUERY_KEY',
+      'invalidate:TRASH_LIST_QUERY_KEY',
     ]);
   });
 
@@ -120,6 +121,15 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
       'invalidate:TRASH_LIST_QUERY_KEY',
     );
     expect(keysOf({ resource: Resource.USER, kind: 'update', id: 'u1' })).not.toContain(
+      'invalidate:TRASH_LIST_QUERY_KEY',
+    );
+  });
+
+  it('刪除角色：回收桶跟著失效（還原以 create 宣告，見上一個案例；ADR-0025 R3）', () => {
+    expect(keysOf({ resource: Resource.ROLE, kind: 'delete', id: 'r1' })).toContain(
+      'invalidate:TRASH_LIST_QUERY_KEY',
+    );
+    expect(keysOf({ resource: Resource.ROLE, kind: 'update', id: 'r1' })).not.toContain(
       'invalidate:TRASH_LIST_QUERY_KEY',
     );
   });

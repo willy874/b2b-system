@@ -5,6 +5,7 @@ import { registerRoleBatchOperations } from './batch';
 import { ROLE_LOCALE_SCOPE } from './locale';
 import { registerRolePagePermissions } from './permission';
 import { registerRolePreferences } from './preference';
+import { registerRoleTrashType } from './trash';
 
 export function appContextPlugin(): AppPluginFactory {
   return (context) => {
@@ -12,6 +13,7 @@ export function appContextPlugin(): AppPluginFactory {
     registerRolePagePermissions();
     registerRolePreferences(); // 偏好頁的列表註冊表
     registerRoleBatchOperations(); // 批次佇列的操作：任何分頁都可能被交派執行
+    registerRoleTrashType(); // 回收桶的「角色」分頁
     const app = context.getInstance();
 
     return {

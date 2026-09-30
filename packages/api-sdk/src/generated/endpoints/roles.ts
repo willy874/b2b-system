@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type {
   CreateRoleRequest,
   DuplicateRoleRequest,
+  RestoredRole,
   Role,
   RoleHolder,
   RolePermissions,
@@ -22,6 +23,7 @@ import type {
 import {
   CreateRoleRequestSchema,
   DuplicateRoleRequestSchema,
+  RestoredRoleSchema,
   RoleHolderSchema,
   RolePermissionsSchema,
   RoleSchema,
@@ -274,6 +276,57 @@ export function roleControllerUpdate(
   options?: RequestOptions,
 ): Promise<RoleControllerUpdateResult> {
   return request<RoleControllerUpdateResult>(roleControllerUpdateOperation, input, options);
+}
+
+// POST /roles/{id}/restore
+
+export interface RoleControllerRestorePathParams {
+  id: string;
+}
+
+export interface RoleControllerRestoreInput {
+  path: RoleControllerRestorePathParams;
+}
+
+export interface RoleControllerRestoreResponses {
+  200: {
+    data: RestoredRole;
+  };
+}
+
+export type RoleControllerRestoreResponse = RoleControllerRestoreResponses[200];
+
+export type RoleControllerRestoreResult = ApiResponse<200, RoleControllerRestoreResponses[200]>;
+
+export const RoleControllerRestoreSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: RestoredRoleSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getRoleControllerRestoreUrl(path: RoleControllerRestorePathParams): string {
+  return buildUrl('/roles/{id}/restore', path);
+}
+
+const roleControllerRestoreOperation: OperationDefinition = {
+  id: 'RoleController_restore',
+  method: 'POST',
+  path: '/roles/{id}/restore',
+  responseTypes: { 200: 'json' },
+  schemas: RoleControllerRestoreSchemas,
+};
+
+/** 還原刪除的角色（原本的持有者一併恢復） */
+export function roleControllerRestore(
+  input: RoleControllerRestoreInput,
+  options?: RequestOptions,
+): Promise<RoleControllerRestoreResult> {
+  return request<RoleControllerRestoreResult>(roleControllerRestoreOperation, input, options);
 }
 
 // GET /roles/{id}/permissions

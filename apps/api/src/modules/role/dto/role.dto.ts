@@ -23,6 +23,15 @@ export const RoleSchema = defineSchema(
   }),
 );
 
+/** `POST /roles/:id/restore` 的回應：還原後的角色 ＋ 重新生效的持有者人數（ADR-0025 R3）。 */
+export const RestoredRoleSchema = defineSchema(
+  'RestoredRole',
+  RoleSchema.extend({
+    /** 刪除時保留的持有者邊中仍存在的使用者；R3 之前刪除的角色沒有保留的邊，是 0。 */
+    holdersRestored: z.number().int(),
+  }),
+);
+
 export const RolePermissionsSchema = defineSchema(
   'RolePermissions',
   z.object({
@@ -46,3 +55,4 @@ export const RoleHolderSchema = defineSchema(
 );
 
 export type RoleDto = z.infer<typeof RoleSchema>;
+export type RestoredRoleDto = z.infer<typeof RestoredRoleSchema>;

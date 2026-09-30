@@ -230,6 +230,7 @@ export const ErrorCode = {
   LAST_SUPER_ADMIN: { status: 403 },
   ROLE_SELF_LOCKOUT: { status: 403 },
   ROLE_VERSION_CONFLICT: { status: 409 },   // 樂觀鎖（§11）
+  ROLE_NOT_DELETED: { status: 409 },        // 還原沒有被刪除的角色（13-trash.md §6.1）
 
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },

@@ -1,14 +1,24 @@
 import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 
 import { invalidateResources, Resource } from '@/apis/resources';
 import { getRoleCreateMutationOptions } from '@/apis/role/create-role/mutation';
 import { getRoleDeleteMutationOptions } from '@/apis/role/delete-role/mutation';
 import { getRoleDuplicateMutationOptions } from '@/apis/role/duplicate-role/mutation';
 import { getGrantRolePermissionsMutationOptions } from '@/apis/role/grant-role-permissions/mutation';
+import { getRoleRestoreMutationOptions } from '@/apis/role/restore-role/mutation';
 import { getRoleUpdateMutationOptions } from '@/apis/role/update-role/mutation';
-import { isVersionConflict, useErrorToast } from '@/core/errors';
+import {
+  ErrorCodes,
+  isAppError,
+  isVersionConflict,
+  useErrorMessage,
+  useErrorToast,
+} from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
+
+import { DEFAULT_ROLE_SEARCH, RoleDetailRoute } from '../routes';
 
 export function useRoleCreateMutation() {
   const toast = useToast();
@@ -48,18 +58,90 @@ export function useRoleUpdateMutation() {
   });
 }
 
+/**
+ * 刪除角色。成功的提示附「復原」：刪除只是移到回收桶（ADR-0025 R3），按下就呼叫還原端點，原本的持有者一併回來。
+ * 刪除與還原都要 `role:delete`，所以刪得掉的人一定按得了復原（反提權仍可能擋下：角色帶了自己沒有的權限鍵）。
+ */
 export function useRoleDeleteMutation() {
   const toast = useToast();
   const { t } = useTranslation();
   const showError = useErrorToast();
+  const restore = useRoleRestoreMutation();
 
   return useMutation({
     ...getRoleDeleteMutationOptions(),
     onSuccess: (_, { params }) => {
       invalidateResources([{ resource: Resource.ROLE, kind: 'delete', id: params.roleId }]);
-      toast.success(t('role.delete.success'));
+      toast.show({
+        type: 'success',
+        title: t('role.delete.success'),
+        action: {
+          label: t('role.delete.undo'),
+          onClick: () => restore.mutate({ params: { roleId: params.roleId } }),
+        },
+      });
     },
     onError: showError,
+  });
+}
+
+/** 還原被名稱或 slug 佔用擋下時，錯誤帶佔用的角色（`details.conflictingRoleId`）。 */
+function conflictingRoleIdOf(error: unknown): string | undefined {
+  if (!isAppError(error)) return undefined;
+  const id = error.details?.conflictingRoleId;
+  return typeof id === 'string' ? id : undefined;
+}
+
+/**
+ * 還原刪除的角色（`POST /roles/:id/restore`，ADR-0025 R3）。名稱或 slug 已被別的角色使用時，
+ * 提示附「查看該角色」直接連過去（先改名或刪除它）；角色帶了自己沒有的權限鍵（反提權）時說明原因。
+ */
+export function useRoleRestoreMutation() {
+  const toast = useToast();
+  const { t } = useTranslation();
+  const toMessage = useErrorMessage();
+  const showError = useErrorToast();
+  const navigate = useNavigate();
+
+  return useMutation({
+    ...getRoleRestoreMutationOptions(),
+    onSuccess: (role) => {
+      // 重新出現在列表：以 create 宣告（回收桶由依賴圖跟著失效）；持有者的角色摘要以 update 宣告。
+      // 自己的 profile 不必重抓：反提權保證角色的鍵自己都已持有。其他持有者由伺服器推 userRole update
+      invalidateResources([
+        { resource: Resource.ROLE, kind: 'create', id: role.id },
+        { resource: Resource.ROLE, kind: 'update', id: role.id },
+      ]);
+      toast.success(
+        role.holdersRestored > 0
+          ? t('role.restore.successWithHolders', { name: role.name, count: role.holdersRestored })
+          : t('role.restore.success', { name: role.name }),
+      );
+    },
+    onError: (error) => {
+      if (isAppError(error) && error.code === ErrorCodes.AUTHZ_ESCALATION) {
+        toast.error(t('role.restore.escalation'));
+        return;
+      }
+      const conflictingRoleId = conflictingRoleIdOf(error);
+      if (!conflictingRoleId) {
+        showError(error);
+        return;
+      }
+      toast.show({
+        type: 'error',
+        title: toMessage(error),
+        action: {
+          label: t('role.restore.viewConflicting'),
+          onClick: () =>
+            void navigate({
+              to: RoleDetailRoute.to,
+              params: { roleId: conflictingRoleId },
+              search: DEFAULT_ROLE_SEARCH,
+            }),
+        },
+      });
+    },
   });
 }
 

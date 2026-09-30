@@ -83,6 +83,7 @@ import type {
   RejectApprovalRequest,
   ReplaceUserRolesRequest,
   ResetPasswordRequest,
+  RestoredRole,
   ReviewFileAccessRequest,
   Role,
   RoleHolder,
@@ -331,7 +332,10 @@ export const PlatformAuditLogSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).nullable(),
 }) satisfies z.ZodType<PlatformAuditLog>;
 
-export const TrashResourceTypeSchema = z.enum(['user']) satisfies z.ZodType<TrashResourceType>;
+export const TrashResourceTypeSchema = z.enum([
+  'user',
+  'role',
+]) satisfies z.ZodType<TrashResourceType>;
 
 export const TrashItemSchema = z.object({
   id: z
@@ -1367,6 +1371,26 @@ export const RoleSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 }) satisfies z.ZodType<Role>;
+
+export const RestoredRoleSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  isSystem: z.boolean(),
+  permissionCount: z.int().min(-9007199254740991).max(9007199254740991),
+  userCount: z.int().min(-9007199254740991).max(9007199254740991),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  holdersRestored: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<RestoredRole>;
 
 export const RolePermissionsSchema = z.object({
   permissions: z.array(PermissionSchema),

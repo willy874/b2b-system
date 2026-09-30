@@ -17,7 +17,7 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P0 | 版本歷史、樂觀鎖與還原 | [`entity-revisions.md`](./entity-revisions.md) | 進行中（[ADR-0025](../adr/0025-entity-revisions.md)；R1、R2 已實作，R1b、R3～R5 未做） | — |
+| P0 | 版本歷史、樂觀鎖與還原 | [`entity-revisions.md`](./entity-revisions.md) | 實作中（branch feat/entity-revisions；R1～R3 已實作，R1b、R4、R5 未做；[ADR-0025](../adr/0025-entity-revisions.md)） | — |
 | P0 | 權限圖（ReBAC，收斂 RBAC／資源授權／群組） | [`permission-graph.md`](./permission-graph.md) | 實作中（G0～G3b 已上 main 並歸檔；G4 群組與 explain、G5 專案待做；原「使用者群組」提案併入 G4） | — |
 | P1 | 站內通知中心 | [`notification-center.md`](./notification-center.md) | 提案 | — |
 | P2 | 服務帳號／API Token | [`api-tokens.md`](./api-tokens.md) | 提案 | — |
@@ -45,7 +45,7 @@
 1. **`permission-graph` G3b** ✅：G3a（讀寫只走 `relation_tuples`、`authz_revision` ＋ 平台 DB 廣播失效）與 G3b（刪三張舊表與雙寫 trigger，migration 0010）
    都已上 main 並歸檔進正式文件，順便做出了 `multi-instance` 的 `core/broadcast`。
 2. **`entity-revisions`**：[ADR-0025](../adr/0025-entity-revisions.md) 已採用（刪除角色時保留持有者邊、`resource_type` 用 text ＋ 程式常數、
-   `version` 樂觀鎖分兩步收緊）。可以開 branch 從 R1（`PATCH /users/:id`、`PATCH /roles/:id` 的樂觀鎖）做起；要在第一個編輯器功能之前完成。
+   `version` 樂觀鎖分兩步收緊）。R1～R3 已在 branch `feat/entity-revisions` 實作，接著是 R1b、R4（檔案還原）與 R5；要在第一個編輯器功能之前完成。
 3. **`notification-center`**：匯入匯出、標籤留言直接依賴它；Webhook、MFA、API Token 的「通知建立者」也會用到。
 4. 之後依需求二選一：對外整合（`api-tokens` → `webhooks`），或編輯器的協作（`tags-comments`，需要第 2 步的命名決定）。
 5. **`permission-graph` G4**：群組（巢狀、持有角色）、explain API 與頁面。

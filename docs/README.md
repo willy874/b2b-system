@@ -90,7 +90,7 @@ docs/
 │   │   ├── 10-testing.md              Vitest / Testing Library / MSW / Playwright
 │   │   ├── 11-realtime.md             Socket.io、leader 分頁持有連線、推播 → 快取失效
 │   │   ├── 12-file-manager.md         檔案管理器：排版、選取、上傳佇列、預覽擴充點
-│   │   └── 13-trash.md                回收桶頁：類型註冊表、權限、使用者的還原
+│   │   └── 13-trash.md                回收桶頁：類型註冊表、權限、使用者與角色的還原
 │   │
 │   └── backend/
 │       ├── README.md

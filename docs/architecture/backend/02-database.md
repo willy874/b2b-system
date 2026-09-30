@@ -339,7 +339,12 @@ export const auditLogsArchive = pgTable(
 | `tenant:self#superAdmin@role:<r>#holder` | super-admin 角色（它沒有權限鍵的邊） | seed（`seedRoles` → `ensureSuperAdminTuple`，冪等） |
 | `fileFolder:<id>#<level>@(role:<r>#holder \| user:<u> \| user:*)` | 資料夾授權 | `FileFolderGrantRepository`（[`09-file.md`](./09-file.md)） |
 
-- 刪除角色：軟刪除角色、刪掉它的持有者邊（`RETURNING` 原本的持有者，只用來推播）；它的權限鍵邊與它作為主體的資料夾授權留著，解析時略過已刪除的角色。
+- 刪除角色：只軟刪除角色列，**持有者邊、權限鍵邊、它作為主體的資料夾授權都留著**（ADR-0025 D2，R3 起）。
+  已刪除角色的持有者邊是 **休眠的邊**：主體閉包、使用者的角色（`HELD_ROLE`）、依角色篩選使用者都 join 未刪除的角色而略過它們，
+  角色還原時原本的持有者自動回來；`PUT /users/:id/roles` 只刪未刪除角色的邊，不會清掉它們。
+  以角色為起點的查詢（`countUsers`、`listUsers`、`findUserIdsByRole`…）不看角色是否刪除，呼叫端先確認角色的狀態。
+  永久刪除角色（`trash.purge`）時才把以它為物件與主體的邊全部刪掉（[`13-trash.md`](./13-trash.md) §6）。
+  R3 之前的版本刪除角色時會刪持有者邊，那些角色還原後沒有持有者。
 - 「每個主體在一個資料夾只有一個等級」不是 DB 的唯一索引（六欄唯一包含等級），由 `FileFolderGrantRepository.set` 先刪後插維持；
   授權的寫入經 `FileFolderTree.write` 序列化。
 
@@ -354,6 +359,8 @@ G1～G2 期間由舊表上的 trigger 同步寫入這張表（migration 0008，�
 - 寫入者在這一列的鎖上排隊，所以 **提交順序＝版本順序**。
 - 一條語句寫多列只 +1；沒影響任何列的語句也 +1（只是多一次失效）。
 - 程式在交易提交後讀它，連同租戶代碼在平台 DB 廣播（`core/authz/authz.revision.ts`，[`05-rbac.md`](./05-rbac.md) §5.1）。
+- `roles.deleted_at` 改變（刪除、還原角色）也 +1：migration 0012 的列層級 trigger（`AFTER UPDATE OF deleted_at … WHEN (OLD.deleted_at IS DISTINCT FROM NEW.deleted_at)`，
+  同一個 `authz_revision_bump()`）。R3 起刪除與還原角色不寫 `relation_tuples`，但主體閉包會排除已刪除的角色，等於關係圖變了。
 
 ---
 
@@ -530,6 +537,7 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0009_authz_revision.sql             authz_revision 與遞增 trigger（§2.11）
 ├── 0010_drop_legacy_authz_tables.sql   G3b：刪 0008 的 trigger 與函式、user_roles、role_permissions、resource_grants 與三個 enum
 ├── 0011_entity_version.sql             users.version、roles.version（樂觀鎖，ADR-0025 R1；純加法）
+├── 0012_roles_authz_revision.sql       手寫：roles.deleted_at 改變時 authz_revision +1（§2.11，ADR-0025 R3）
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

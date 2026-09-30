@@ -159,6 +159,7 @@ export interface PlatformAuditLog {
 
 export const TrashResourceType = {
   user: 'user',
+  role: 'role',
 } as const;
 export type TrashResourceType = (typeof TrashResourceType)[keyof typeof TrashResourceType];
 
@@ -868,6 +869,20 @@ export interface Role {
   version: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RestoredRole {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  permissionCount: number;
+  userCount: number;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  holdersRestored: number;
 }
 
 export interface RolePermissions {

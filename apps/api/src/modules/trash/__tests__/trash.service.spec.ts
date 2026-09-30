@@ -206,7 +206,7 @@ describe('TrashRegistry', () => {
 
   it('權限不在 TRASH_PERMISSIONS（路由宣告不到）→ 啟動失敗', () => {
     const registry = new TrashRegistry();
-    expect(() => registry.register(fakeHandler({ permission: 'role:delete' }))).toThrow(
+    expect(() => registry.register(fakeHandler({ permission: 'user:read' }))).toThrow(
       /TRASH_PERMISSIONS/,
     );
   });
@@ -217,8 +217,9 @@ describe('TrashRegistry', () => {
 
   it('inPurgeOrder 依 purgeOrder 由小到大', () => {
     const registry = new TrashRegistry();
+    registry.register(fakeHandler({ type: 'role', permission: 'role:delete', purgeOrder: 40 }));
     registry.register(fakeHandler({ purgeOrder: 30 }));
-    expect(registry.inPurgeOrder().map((handler) => handler.purgeOrder)).toEqual([30]);
+    expect(registry.inPurgeOrder().map((handler) => handler.type)).toEqual(['user', 'role']);
   });
 });
 

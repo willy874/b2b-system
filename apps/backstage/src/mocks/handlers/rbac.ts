@@ -64,6 +64,29 @@ const DELETED_USER_FIXTURES = USER_FIXTURES.slice(0, 2).map((user) =>
   }),
 );
 
+/** mock 的回收桶：已刪除的角色（自訂角色的複本，id 與名稱不和 `ROLE_FIXTURES` 重複）。 */
+const DELETED_ROLE_FIXTURES = ROLE_FIXTURES.filter((role) => !role.isSystem)
+  .slice(0, 1)
+  .map((role) =>
+    Object.assign(structuredClone(role), {
+      id: `${role.id}-deleted`,
+      slug: `${role.slug}-deleted`,
+      name: `${role.name}（已刪除）`,
+    }),
+  );
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+const toRoleTrashItem = (role: (typeof ROLE_FIXTURES)[number]) => ({
+  id: role.id,
+  type: 'role' as const,
+  name: role.name,
+  description: role.description,
+  deletedAt: role.updatedAt,
+  deletedBy: { id: SELF_ID, name: USER_FIXTURES[0]!.displayName },
+  purgeAt: new Date(Date.parse(role.updatedAt) + THIRTY_DAYS_MS).toISOString(),
+});
+
 const toTrashItem = (user: (typeof USER_FIXTURES)[number]) => ({
   id: user.id,
   type: 'user' as const,
@@ -71,7 +94,7 @@ const toTrashItem = (user: (typeof USER_FIXTURES)[number]) => ({
   description: user.email,
   deletedAt: user.updatedAt,
   deletedBy: { id: SELF_ID, name: USER_FIXTURES[0]!.displayName },
-  purgeAt: new Date(Date.parse(user.updatedAt) + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  purgeAt: new Date(Date.parse(user.updatedAt) + THIRTY_DAYS_MS).toISOString(),
 });
 const userResponse = (id: string) =>
   HttpResponse.json({ data: USER_FIXTURES.find((item) => item.id === id) });
@@ -236,11 +259,33 @@ export const rbacHandlers = [
   }),
 
   writeHandler('delete', '/users/:id', 'user:delete', (id) => checkUser(id), noContent),
-  // 回收桶（ADR-0025 D9）：mock 模式把第三位以後的 fixture 當成已刪除，只示範列表與還原
-  http.get(`${MOCK_API_BASE}/trash`, () => {
-    if (!mockState.permissions.includes('user:delete')) return forbidden('user:delete');
-    return HttpResponse.json({ data: paginate(DELETED_USER_FIXTURES.map(toTrashItem)) });
+  // 回收桶（ADR-0025 D9）：mock 模式以 fixture 的複本當成已刪除的使用者與角色，只示範列表與還原
+  http.get(`${MOCK_API_BASE}/trash`, ({ request }) => {
+    const type = new URL(request.url).searchParams.get('type');
+    const permission = type === 'role' ? 'role:delete' : 'user:delete';
+    if (!mockState.permissions.includes(permission)) return forbidden(permission);
+    return HttpResponse.json({
+      data:
+        type === 'role'
+          ? paginate(DELETED_ROLE_FIXTURES.map(toRoleTrashItem))
+          : paginate(DELETED_USER_FIXTURES.map(toTrashItem)),
+    });
   }),
+  writeHandler(
+    'post',
+    '/roles/:id/restore',
+    'role:delete',
+    (id) => {
+      if (ROLE_FIXTURES.some((item) => item.id === id)) return { code: 'ROLE_NOT_DELETED' };
+      return DELETED_ROLE_FIXTURES.some((item) => item.id === id)
+        ? undefined
+        : { code: 'ROLE_NOT_FOUND' };
+    },
+    (id) => {
+      const role = DELETED_ROLE_FIXTURES.find((item) => item.id === id);
+      return HttpResponse.json({ data: { ...role, holdersRestored: role?.userCount ?? 0 } });
+    },
+  ),
   writeHandler(
     'post',
     '/users/:id/restore',

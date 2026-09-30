@@ -26,7 +26,12 @@ import { CreateRoleSchema, DuplicateRoleSchema } from './dto/create-role.dto';
 import type { CreateRoleDto, DuplicateRoleDto } from './dto/create-role.dto';
 import { DeleteRoleSchema, ListRoleSchema, ListRoleUsersSchema } from './dto/list-role.dto';
 import type { DeleteRoleDto, ListRoleDto, ListRoleUsersDto } from './dto/list-role.dto';
-import { RoleHolderSchema, RolePermissionsSchema, RoleSchema } from './dto/role.dto';
+import {
+  RestoredRoleSchema,
+  RoleHolderSchema,
+  RolePermissionsSchema,
+  RoleSchema,
+} from './dto/role.dto';
 import { UpdateRolePermissionsSchema, UpdateRoleSchema } from './dto/update-role.dto';
 import type { UpdateRoleDto, UpdateRolePermissionsDto } from './dto/update-role.dto';
 import { RoleService } from './role.service';
@@ -82,6 +87,19 @@ export class RoleController {
     @CurrentUser() actor: AuthUser,
   ) {
     await this.roleService.remove(id, query, actor);
+  }
+
+  /**
+   * 還原刪除的角色（ADR-0025 D2、D10：能刪就能復原）。名稱或 slug 已被別的角色使用時 409 `ROLE_NAME_DUPLICATE`，
+   * `details.conflictingRoleId` 帶佔用者；沒有被刪除 409 `ROLE_NOT_DELETED`；角色的權限鍵有 actor 沒有的 403。
+   */
+  @Post(':id/restore')
+  @HttpCode(200)
+  @RequirePermissions(PERMISSION.ROLE_DELETE)
+  @ApiOperation({ summary: '還原刪除的角色（原本的持有者一併恢復）' })
+  @ApiZodResponse(200, RestoredRoleSchema)
+  restore(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
+    return this.roleService.restore(id, actor);
   }
 
   @Get(':id/permissions')

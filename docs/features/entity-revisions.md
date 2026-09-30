@@ -1,7 +1,8 @@
 # 版本歷史、樂觀鎖與還原
 
 - 優先度：P0
-- 狀態：進行中（R1 樂觀鎖、R2 回收桶與使用者還原已實作：[`backend/13-trash.md`](../architecture/backend/13-trash.md)、[`frontend/13-trash.md`](../architecture/frontend/13-trash.md)；R1b、R3～R5 未做）
+- 狀態：實作中（branch feat/entity-revisions；R1～R3 已實作）
+- 進度：R1 樂觀鎖、R2 回收桶與使用者還原、R3 角色還原（刪除保留持有者邊）已實作：[`backend/13-trash.md`](../architecture/backend/13-trash.md)、[`frontend/13-trash.md`](../architecture/frontend/13-trash.md)；R1b、R4、R5 未做
 - 依賴：—（[`permission-graph.md`](./permission-graph.md) G3a 已上線，開放問題 2 可以用 tuple 回答）
 - 相關：[`hardening-followups.md`](./hardening-followups.md)（刪除使用者後復原、`PATCH` 的版本控制）、[`tags-comments.md`](./tags-comments.md)（多型關聯的命名）、
   [`backend/02-database.md`](../architecture/backend/02-database.md) §1、[`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md)、
@@ -26,7 +27,7 @@
 刪除時的連帶變更讓「還原」比想像中難：
 
 - **刪除角色**：軟刪除角色，但 **硬刪除它的持有者邊**（`relation_tuples` 的 `role:<id>#holder@user:*`，`role.repository.ts` 的 `softDelete`），權限鍵的邊留著。
-  還原角色回不來「誰原本有這個角色」。
+  還原角色回不來「誰原本有這個角色」。（R3 已改成保留持有者邊，見 [`backend/13-trash.md`](../architecture/backend/13-trash.md) §6。）
 - **刪除使用者**：軟刪除、`token_version` 加一、撤銷 refresh token 與未使用的 auth token、**解除外部身分連結**（因為軟刪除不觸發 cascade）。
   持有角色的邊留著。還原後外部 IdP 連結要重新建立。
 - **刪除資料夾**：同一個交易內軟刪除所有子孫；物件儲存的檔案之後由 `file.maintenance` 清除。還原要在物件被清之前。

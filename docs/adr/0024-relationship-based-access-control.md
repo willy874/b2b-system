@@ -92,6 +92,7 @@ G0～G2 與提案不同的地方：快取仍逐事件失效（`authz_revision` �
 - 雙寫 trigger（migration `0008`，含 `roles_mirror_super_admin`）沒有在 G3a 刪除，保留到 G3b 與舊表一起刪——
   `backend/02-database.md` 要求 migration 與前一版程式相容，滾動部署期間舊版程序仍寫舊表。
 - 刪除角色是軟刪除並刪掉它的持有者邊；它的權限鍵邊、它作為主體的資料夾授權保留，解析時略過已刪除的角色。
+  （[ADR-0025](./0025-entity-revisions.md) D2、R3 起改成持有者邊也保留，還原角色時原本的持有者自動回來；永久刪除時才刪。）
 - 「每個主體在一個資料夾只有一個等級」不再是 DB 的唯一索引，由 `FileFolderGrantRepository.set`（先刪後插）維持；
   授權的寫入經 `FileFolderTree.write` 序列化。
 

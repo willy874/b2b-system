@@ -235,6 +235,7 @@
 | PATCH  | `/roles/:id/permissions` | 🛡 `role:grantPermission`           | 增減權限（差異語意）       |
 | GET    | `/roles/:id/users`       | 🛡 `role:read` ＋ `user:read`       | 持有此角色的使用者         |
 | POST   | `/roles/:id/duplicate`   | 🛡 `role:create`                    | 以既有角色為範本建立新角色 |
+| POST   | `/roles/:id/restore`     | 🛡 `role:delete`                    | 還原刪除的角色（原本的持有者一併恢復） |
 
 ### 3.1 `GET /roles`
 
@@ -312,9 +313,11 @@
 - `isSystem` → `403 ROLE_SYSTEM_PROTECTED`（DB trigger 也擋系統角色的軟刪除）
 - actor 持有這個角色、且刪除後會失去管理角色所需的權限 → `403 ROLE_SELF_LOCKOUT`
 - 尚有（未刪除的）使用者持有 → 預設拒絕 `409 ROLE_IN_USE`，帶 `details.userCount`
-  - 可加 `?force=true`（仍需 `role:delete`）強制刪除並連帶移除指派（刪掉角色的持有者邊），
+  - 可加 `?force=true`（仍需 `role:delete`）強制刪除，持有者立即失去這個角色的權限，
     此時稽核紀錄 `metadata.forced = true`
-- 角色是軟刪除；它的權限鍵與它作為對象的資料夾授權留著，解析時略過已刪除的角色。交易後整個租戶的權限快取失效（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.1）
+- 角色是軟刪除，移到回收桶；它的持有者邊、權限鍵與它作為對象的資料夾授權都留著，解析時略過已刪除的角色。
+  保留期限內還原（§3.6），原本的持有者自動回來（[ADR-0025](../adr/0025-entity-revisions.md) D2）。
+  交易後整個租戶的權限快取失效（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.1）
 - 計數與刪除在同一個交易裡、先以 `FOR UPDATE` 鎖住角色列；指派角色以 `FOR SHARE` 鎖住角色列再插入。
   兩者同時發生時，後到的一方看得到先提交的結果（不會留下指向已刪除角色的指派）
 
@@ -326,6 +329,26 @@
 
 複製來源的權限集合，但仍受 **反提權** 限制：操作者持有的權限才會被複製過去，
 其餘略過，回應中以 `data.skippedPermissions` 列出，讓 UI 可以提示。
+
+### 3.6 `POST /roles/:id/restore`
+
+還原軟刪除的角色（[ADR-0025](../adr/0025-entity-revisions.md) D2、R3；能刪就能復原，所以權限是 `role:delete`）。
+刪除時保留的持有者邊、權限鍵、資料夾授權隨之生效：原本的持有者（仍存在的使用者）自動拿回這個角色。
+
+```jsonc
+// 200 → { "data": { /* Role */, "holdersRestored": 3 } }
+// 409 → { "error": { "code": "ROLE_NAME_DUPLICATE", "details": { "field": "name", "value": "…", "conflictingRoleId": "…" } } }
+```
+
+| 錯誤 | 何時 |
+| --- | --- |
+| `404 ROLE_NOT_FOUND` | 不存在，或已被永久刪除 |
+| `409 ROLE_NOT_DELETED` | 沒有被刪除（或被別人搶先還原） |
+| `409 ROLE_NAME_DUPLICATE` | 名稱或 slug 已被未刪除的角色使用；`details.field`（`name`／`slug`）、`details.conflictingRoleId` |
+| `403 AUTHZ_ESCALATION` | 角色帶了 actor 沒有的權限鍵（與指派角色相同的反提權，§5） |
+
+- `holdersRestored`：重新生效的持有者人數（等於還原後的 `userCount`）。R3 之前刪除的角色已經沒有持有者邊，是 0。
+- 回收桶的列表是 `GET /trash?type=role`（§7.2）。細節見 [`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md) §6。
 
 ---
 
@@ -503,10 +526,10 @@
 
 | Method | Path     | 授權 | 說明 |
 | ------ | -------- | ---- | ---- |
-| GET    | `/trash` | 🛡 任一種 `<resource>:delete`（目前 `user:delete`），再依 `type` 檢查該類型的權限 | 某一類已刪除的項目（`type` 必填，新刪除的在前；`offset`／`limit`／`keyword`） |
+| GET    | `/trash` | 🛡 任一種 `<resource>:delete`（`user:delete`、`role:delete`），再依 `type`（`user`、`role`）檢查該類型的權限 | 某一類已刪除的項目（`type` 必填，新刪除的在前；`offset`／`limit`／`keyword`） |
 
 每一列：`id`、`type`、`name`、`description`、`deletedAt`、`deletedBy`（`{ id, name }` 或 `null`）、`purgeAt`。
-還原端點在各資源（`POST /users/:id/restore`）；永久刪除只由排程 `trash.purge` 執行。
+還原端點在各資源（`POST /users/:id/restore`、`POST /roles/:id/restore`）；永久刪除只由排程 `trash.purge` 執行。
 見 [`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)。
 
 ---

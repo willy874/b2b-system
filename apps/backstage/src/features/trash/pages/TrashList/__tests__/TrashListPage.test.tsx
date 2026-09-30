@@ -83,6 +83,23 @@ describe('回收桶頁（docs/architecture/frontend/13-trash.md）', () => {
     await waitFor(() => expect(fetchTrash).not.toHaveBeenCalled());
   });
 
+  it('只有 role:delete → 進得去，只看到角色分頁（頁面權限是任一種 <resource>:delete）', async () => {
+    registerTrashType({
+      type: 'role',
+      order: 20,
+      labelI18nKey: 'menu.role',
+      permission: 'role:delete' as PermissionKey,
+      RestoreAction: FakeRestoreAction,
+    });
+    fetchTrash.mockResolvedValue({
+      items: [{ ...ITEM, type: 'role', name: 'Deleted Role', description: null }],
+      pagination: { offset: 0, limit: 20, total: 1 },
+    });
+    renderRoute(routes, '/trash', ['role:read', 'role:delete'] as PermissionKey[]);
+    expect(await screen.findByText('Deleted Role')).toBeInTheDocument();
+    expect(fetchTrash.mock.calls[0]![0].params.type).toBe('role');
+  });
+
   it('網址上的類型看不到時改看第一個看得到的類型', async () => {
     renderRoute(routes, '/trash?type=role', ['user:delete'] as PermissionKey[]);
     expect(await screen.findByText('Deleted Person')).toBeInTheDocument();

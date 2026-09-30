@@ -1,9 +1,9 @@
 # 後端 13 — 回收桶、還原與到期永久刪除
 
 刪除的東西先進回收桶，保留期限內可以還原，到期後由排程永久刪除。
-決策見 [ADR-0025](../../adr/0025-entity-revisions.md) D5、D6、D8～D11；前端見 [`../frontend/13-trash.md`](../frontend/13-trash.md)。
+決策見 [ADR-0025](../../adr/0025-entity-revisions.md) D2、D5、D6、D8～D11；前端見 [`../frontend/13-trash.md`](../frontend/13-trash.md)。
 
-目前（R2）只有 **使用者** 進回收桶；角色（R3）、檔案與資料夾（R4）依 ADR 的分階段加入。
+目前（R3）**使用者**（§4）與 **角色**（§6）進回收桶；檔案與資料夾（R4）依 ADR 的分階段加入。
 
 ---
 
@@ -24,6 +24,9 @@ modules/trash/                    通用模組：不 import 任何業務模組
 
 modules/user/user-trash.handler.ts   使用者的 TrashHandler（onModuleInit 註冊）
 modules/user/user.service.ts         restore()：POST /users/:id/restore
+modules/role/role-trash.handler.ts   角色的 TrashHandler
+modules/role/role.service.ts         restore()：POST /roles/:id/restore
+db/migrations/0012_*.sql             roles.deleted_at 改變時關係圖的 revision +1（§6.1）
 ```
 
 - **擁有者模組實作、通用模組排程**（D9）：與審批的 `ApprovalHandler` 同一個模式。擁有者 import `TrashModule`，
@@ -64,13 +67,14 @@ modules/user/user.service.ts         restore()：POST /users/:id/restore
 
 | 參數 | 說明 |
 | --- | --- |
-| `type` | 必填，`TrashResourceType`（目前只有 `user`）。一次只列一種類型，不跨類型合併分頁（D9） |
+| `type` | 必填，`TrashResourceType`（`user`、`role`）。一次只列一種類型，不跨類型合併分頁（D9） |
 | `offset`、`limit` | 一般的分頁（[`03-api-conventions.md`](./03-api-conventions.md) §2） |
-| `keyword` | 選填；使用者比對 email 與顯示名稱 |
+| `keyword` | 選填；使用者比對 email 與顯示名稱，角色比對名稱與 slug |
 
-回應的每一列（`TrashItem`）：`id`、`type`、`name`（使用者：顯示名稱）、`description`（使用者：email）、`deletedAt`、
-`deletedBy`（`{ id, name }` 或 `null`）、`purgeAt`（`deletedAt` ＋ 目前的保留天數）。
-使用者的刪除者取自刪除時寫入的 `updated_by`：刪除之後沒有任何路徑會再更新那一列。
+回應的每一列（`TrashItem`）：`id`、`type`、`name`（使用者：顯示名稱；角色：名稱）、`description`（使用者：email；角色：說明，可能是 `null`）、
+`deletedAt`、`deletedBy`（`{ id, name }` 或 `null`）、`purgeAt`（`deletedAt` ＋ 目前的保留天數）。
+刪除者取自刪除時寫入的 `updated_by`（使用者與角色都一樣）：刪除之後沒有任何路徑會再更新那一列。
+角色的持有者人數不在列表裡（`TrashItem` 是各類型共用的形狀）；還原的回應帶 `holdersRestored`。
 
 **權限的兩層檢查**：
 
@@ -148,7 +152,7 @@ modules/user/user.service.ts         restore()：POST /users/:id/restore
 | 對象 | 依 `purgeOrder` 逐類處理 `deleted_at < now - retentionDays` 的列 |
 | 交易 | 每批（`TRASH_PURGE_BATCH_SIZE` = 100）一個交易；每一列一個 savepoint：外鍵違反只略過那一列，其他錯誤讓整個工作失敗、依設定重試 |
 | 稽核 | 每一列一筆 `<resource>.purge`，與刪除同一個 savepoint：`actorId: null`、`actorEmail: 'system'`、`metadata: { retentionDays, deletedAt }` |
-| 結果 | 工作的 `output`：`{ retentionDays, cutoff, purged: { user: n }, skipped: { user: n } }` |
+| 結果 | 工作的 `output`：`{ retentionDays, cutoff, purged: { user: n, role: n }, skipped: { … } }` |
 
 - 分批以 `id` 的 keyset 往後走：略過的列不會在同一輪被重複取到，一輪一定會結束。
 - 中途失敗也安全：已提交的批次已經刪掉，重做時只剩還沒處理的列。
@@ -156,22 +160,79 @@ modules/user/user.service.ts         restore()：POST /users/:id/restore
 
 ---
 
-## 6. 錯誤碼
+## 6. 角色（R3）
+
+### 6.0 刪除保留持有者邊
+
+刪除角色（`DELETE /roles/:id`）只軟刪除角色列，**不刪** 持有者邊 `role:<id>#holder@user:*`（D2）。權限鍵的邊與
+以角色為主體的資料夾授權本來就保留。持有者在軟刪除之前查出（`findHolderIds`），只用來推播。
+
+| 讀取 | 為什麼休眠的邊不生效 |
+| --- | --- |
+| 關係圖的主體閉包（權限集合） | 遞迴 CTE 只走未刪除的角色（`authz.repository.ts`） |
+| 使用者的角色（`HELD_ROLE`：列表、詳情、`GET /users/:id/roles`）、`hasRoleSlug`、`countActiveUsersByRoleSlug`（最後一位 super-admin） | join `roles` 時加 `notDeleted(roles)`；super-admin 是系統角色、本來就刪不掉 |
+| `GET /users?roleId=` | 子查詢只認未刪除的角色（以刪除的角色篩選是空的，不會列出休眠的持有者） |
+| 以角色為起點的查詢（`countUsers`、`listUsers`、`userCountOf`、`findHolderIds`、`findUserIdsByRole`、`userHasRole`） | **不看** 角色是否刪除；呼叫端先確認角色的狀態（`findById`／`lockActive`），程式碼註解寫明這個前提（D2 ②）。還原時故意用 `countUsers` 算休眠的持有者 |
+
+- `PUT /users/:id/roles`（`replaceRoles`）只刪 **未刪除角色** 的持有者邊（D2 ①）：改一次某人的角色不會清掉他在已刪除角色上的休眠邊。
+- 刪除與還原都不寫 `relation_tuples`，但會改變權限的解析結果，所以 migration 0012 在 `roles.deleted_at` 改變時讓
+  `authz_revision` +1（與 `relation_tuples` 的 trigger 同一個函式）。沒有它，其他程序收到的廣播 revision 沒前進、會被略過，
+  刪除的角色的權限要等 TTL 才消失（[`05-rbac.md`](./05-rbac.md) §5.1）。
+- 滾動部署期間舊版程式刪除角色時仍會刪邊；新版不依賴「刪除的角色一定有邊」，兩者並存無誤。**R3 之前刪除的角色已經沒有持有者邊**。
+
+### 6.1 還原：`POST /roles/:id/restore`
+
+權限 `role:delete`（D10）。回應是 `RestoredRole`：還原後的 `Role` ＋ `holdersRestored`（重新生效的持有者人數，等於還原後的 `userCount`）。
+
+1. 找已刪除的列；找不到 → 角色存在但沒被刪除 `409 ROLE_NOT_DELETED`，不存在或已被永久刪除 `404 ROLE_NOT_FOUND`。
+   系統角色刪不掉（service 與 DB trigger 都擋，[`../../rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §5），所以不會走到還原。
+2. 唯一值（D5）：名稱（不分大小寫）或 slug 已被 **未刪除** 的角色使用 → `409 ROLE_NAME_DUPLICATE`，
+   `details: { field: 'name' | 'slug', value, conflictingRoleId }`。slug 建立後不可變：撞 slug 時只能先刪除佔用的角色；撞名稱時也可以先把它改名。
+   檢查與寫入之間的競態由 partial unique index 擋下（同一個錯誤碼，不帶 `conflictingRoleId`）。
+3. 反提權：`assertRolesAssignable(actor, [id])`——與指派角色同一個檢查。還原等於把這個角色（連同它的權限鍵）重新交給每一位原本的持有者，
+   所以角色帶的鍵都要是 actor 持有的（`403 AUTHZ_ESCALATION`，`details.missing`）；super-admin 豁免。
+   只比對權限鍵（`assertGrantable`）與它的差別只在 super-admin 角色的特判，而系統角色不會被刪除；選指派的檢查是讓規則的語意與效果（持有者重新生效）一致。
+4. 交易內：`UPDATE roles SET deleted_at = NULL, updated_by = <actor> WHERE id = $id AND deleted_at IS NOT NULL`
+   （並行的兩個還原只有一個命中，另一個 `409 ROLE_NOT_DELETED`）→ 計算 `holdersRestored`（休眠的邊中仍存在的使用者）→
+   稽核 `role.restore`（`changes.after: { name, slug }`、`metadata: { deletedAt, holdersRestored }`）。
+5. 交易後：`permissionsChanged(持有者)`（權限快取失效、個人資料夾補建）→ `resource.changed`：`role` / `create`（重新出現在列表、回收桶失效），
+   加上每位持有者一筆 `userRole` / `update`（`refs.role`；他們的角色摘要與本人的 profile 重抓）。
+
+`version` 不遞增（與刪除相同）。R3 之前刪除的角色沒有持有者邊，還原後沒有持有者：回應與稽核的 `holdersRestored` 是 0，這是預期的（ADR-0025 R3）。
+
+### 6.2 永久刪除
+
+沒有任何表以外鍵參照 `roles`；`purgeOrder` 40（最後），只是照 D11 的順序。`findExpired` 不排除任何列（系統角色刪不掉，不會出現）。
+
+| 參照 | 處理 |
+| --- | --- |
+| `relation_tuples` 以角色為物件：持有者邊 `role:<id>#holder@user:*` | `purge` 內明確刪除（多型，沒有外鍵） |
+| `relation_tuples` 以角色為主體：權限鍵 `tenant:self#<key>@role:<id>#holder`、資料夾授權 `fileFolder:<f>#<等級>@role:<id>#holder` | 同上 |
+| `audit_logs.resource_id` | 保留：稽核不依賴角色存在（刻意反正規化，`resource_name` 存了名稱） |
+
+`afterPurge`：`permissionsChanged()`（刪了邊，照 05-rbac §5.1 的規則通知）、`resource.changed`（`role` / `delete`，每個一筆）。
+
+---
+
+## 7. 錯誤碼
 
 | 錯誤碼 | HTTP | 何時 |
 | --- | --- | --- |
 | `USER_NOT_DELETED` | 409 | 還原一個沒有被刪除的使用者，或被別人搶先還原 |
 | `USER_EMAIL_DUPLICATE`／`USER_USERNAME_DUPLICATE` | 409 | 還原時 email／username 已被未刪除的帳號使用；`details.conflictingUserId` |
-| `AUTHZ_ESCALATION` | 403 | 還原會讓人取得 actor 指派不了的角色 |
+| `ROLE_NOT_DELETED` | 409 | 還原一個沒有被刪除的角色，或被別人搶先還原 |
+| `ROLE_NAME_DUPLICATE` | 409 | 還原時名稱或 slug 已被未刪除的角色使用；`details.field`、`details.conflictingRoleId` |
+| `AUTHZ_ESCALATION` | 403 | 還原會讓人取得 actor 指派不了的角色（使用者），或角色帶了 actor 沒有的權限鍵（角色） |
 | `AUTHZ_FORBIDDEN` | 403 | 看回收桶的某一類卻沒有該類型的 `<resource>:delete` |
 
 ---
 
-## 7. 測試
+## 8. 測試
 
 | 對象 | 檔案 |
 | --- | --- |
 | 列表的權限檢查、永久刪除的稽核、外鍵略過、keyset 分批、註冊檢查、排程註冊 | `src/modules/trash/__tests__/trash.service.spec.ts` |
 | HTTP：還原（狀態保留、refresh token 不回復、個人資料夾補建、稽核）、409 帶 `conflictingUserId`、反提權、`USER_NOT_DELETED`／404、權限；`GET /trash` 的排序、刪除者、`purgeAt`、權限；`trash.purge` 的硬刪除與連帶資料、擁有資料夾時略過、依設定的保留天數 | `test/trash.spec.ts` |
+| 角色：刪除保留持有者邊但權限立刻消失、依角色篩選與使用者的角色看不到刪除的角色、revision +1、`replaceRoles` 保留休眠的邊；還原（持有者回來、`holdersRestored`、R3 之前刪除的是 0、稽核）、名稱／slug 的 409 帶 `conflictingRoleId`、反提權、`ROLE_NOT_DELETED`／404、權限；`GET /trash?type=role`；`trash.purge` 刪除角色與所有邊 | `test/role-trash.spec.ts` |
 | `notDeleted` 的掃描 | `src/__tests__/soft-delete-scan.spec.ts` |
 | 端點的權限宣告 | `test/route-audit.spec.ts` |

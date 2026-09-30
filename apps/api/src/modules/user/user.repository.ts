@@ -154,8 +154,11 @@ export class UserRepository {
       if (matched) conditions.push(matched);
     }
     if (query.roleId?.length) {
+      // 已刪除的角色保留持有者邊（ADR-0025 D2）：只認未刪除的角色，否則以刪除的角色篩選會列出它休眠的持有者。
+      // 子查詢用別名手寫條件：計數的查詢是單表 select，Drizzle 會把 ${roles.id} 輸出成不帶表名的 "id"
       conditions.push(
         sql`EXISTS (SELECT 1 FROM ${relationTuples} t
+          INNER JOIN ${roles} r ON r.id::text = t.object_id AND r.deleted_at IS NULL /* notDeleted */
           WHERE t.object_type = ${ROLE_OBJECT_TYPE} AND t.relation = ${ROLE_HOLDER_RELATION}
             AND t.subject_type = ${USER_SUBJECT_TYPE} AND t.subject_relation = ''
             AND t.subject_id = ${users.id}::text AND t.object_id IN ${query.roleId})`,
@@ -290,14 +293,24 @@ export class UserRepository {
     return rows;
   }
 
-  /** 整批取代語意（PUT /users/:id/roles）。 */
+  /**
+   * 整批取代語意（PUT /users/:id/roles）。只刪 **未刪除角色** 的持有者邊：已刪除角色的邊是休眠的
+   * （讀取時被排除），留著讓角色還原時這個人一起回來；否則改一次某人的角色就會把它們一起清掉
+   * （docs/adr/0025-entity-revisions.md D2 ①）。
+   */
   async replaceRoles(
     userId: string,
     roleIds: readonly string[],
     actorId: string | null,
     tx: DbOrTx,
   ): Promise<void> {
-    await tx.delete(relationTuples).where(heldBy(userId));
+    const activeRoleIds = tx
+      .select({ id: sql`${roles.id}::text` })
+      .from(roles)
+      .where(isActiveRole());
+    await tx
+      .delete(relationTuples)
+      .where(and(heldBy(userId), inArray(relationTuples.objectId, activeRoleIds)));
     await this.insertActiveRoles(userId, roleIds, actorId, tx);
   }
 

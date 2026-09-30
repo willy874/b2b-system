@@ -246,7 +246,7 @@ super-admin 加入自己租戶的所有 perm room。
 | 任何來源           | `auditLog:read`                            | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）    |
 
 - `io.to([...rooms]).emit()` 會對多個 room 的聯集 **去重**，同一條連線只收到一次。
-- 「持有該角色的所有人」由 service 在交易後查出（刪除角色時是刪除持有者邊的那條語句 `RETURNING` 的結果），
+- 「持有該角色的所有人」由 service 查出（刪除角色時在軟刪除之前、交易內查出；持有者邊保留，ADR-0025 D2），
   只用來讓他們的畫面重抓；權限快取的失效與 room 的同步不依賴這份清單（[05 §5.1](./05-rbac.md)）。
 - Payload 只有 id，不含名稱或內容；即使受眾稍微放寬也不會外洩資料。
 
@@ -359,7 +359,9 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 | 角色建立／複製               | `role create`（帶 `id`）                             | —                                                         |
 | 角色更新                     | `role update`，持有者                                | —                                                         |
 | 角色權限增減                 | `rolePermission update`，持有者                      | 先發 `permissions.changed`                                |
-| 角色刪除                     | `role delete`，原本的持有者（刪除持有者邊時 `RETURNING`）| 先發 `permissions.changed`                           |
+| 角色刪除                     | `role delete`，原本的持有者（軟刪除前查出）          | 先發 `permissions.changed`                                |
+| 角色還原                     | `role create` ＋ 每位持有者一筆 `userRole update`（`refs.role`），持有者 | 先發 `permissions.changed`（`userIds` = 持有者） |
+| 角色永久刪除（`trash.purge`）| `role delete`（每個一筆）                            | 先發 `permissions.changed`                                |
 | 使用者建立                   | `user create`，`refs.role`                           | 帶角色時先發 `permissions.changed`（`userIds` = 本人）    |
 | 使用者更新／解鎖             | `user update`，`refs.role`                           | 停用時 `sessions.revoked`（`AUTH_ACCOUNT_DISABLED`）      |
 | 使用者刪除                   | `user delete`，`refs.role`（刪除前查出）             | `sessions.revoked`（`AUTH_TOKEN_INVALID`）                |

@@ -99,6 +99,8 @@ export const ErrorCode = {
   ROLE_SELF_LOCKOUT: { status: 403 },
   /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（ADR-0025 D3）。 */
   ROLE_VERSION_CONFLICT: { status: 409 },
+  /** 還原（`POST /roles/:id/restore`）一個沒有被刪除的角色（ADR-0025 R3）。 */
+  ROLE_NOT_DELETED: { status: 409 },
 
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },

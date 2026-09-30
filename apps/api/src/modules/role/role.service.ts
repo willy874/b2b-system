@@ -8,6 +8,8 @@ import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
+import { RESOURCE_TYPE } from '@/core/resource';
+import type { RoleRow } from '@/db/schema';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
@@ -19,7 +21,7 @@ import type {
 
 import type { CreateRoleDto, DuplicateRoleDto } from './dto/create-role.dto';
 import type { DeleteRoleDto, ListRoleDto, ListRoleUsersDto } from './dto/list-role.dto';
-import type { RoleDto } from './dto/role.dto';
+import type { RestoredRoleDto, RoleDto } from './dto/role.dto';
 import type { UpdateRoleDto, UpdateRolePermissionsDto } from './dto/update-role.dto';
 import { ROLE_AUDIT_FIELDS, slugify } from './role.constants';
 import type { RoleWithCounts } from './role.repository';
@@ -293,8 +295,9 @@ export class RoleService {
       if (count > 0 && !query.force) {
         throw new AppException('ROLE_IN_USE', { userCount: count });
       }
-      // 原本的持有者由刪除邊的同一條語句（`RETURNING`）取得，只用來推播讓他們的畫面重抓
-      const holders = await this.repo.softDelete(id, actor.id, tx);
+      // 持有者邊保留（還原時原本的持有者自動回來，ADR-0025 D2）；持有者在刪除前查出，只用來推播讓他們的畫面重抓
+      const holders = await this.repo.findHolderIds(id, tx);
+      await this.repo.softDelete(id, actor.id, tx);
       await this.audit.record(
         {
           action: 'role.delete',
@@ -316,7 +319,91 @@ export class RoleService {
     });
   }
 
+  /**
+   * 還原刪除的角色（ADR-0025 D2、D5、D10）：清 `deleted_at`。刪除時保留的持有者邊、權限鍵、資料夾授權隨之生效，
+   * 原本的持有者（仍存在的使用者）自動拿回這個角色。R3 之前刪除的角色已經沒有持有者邊，`holdersRestored` 是 0。
+   *
+   * 反提權：還原等於「把這個角色（連同它的權限鍵）重新交給每一位原本的持有者」，所以與指派角色同一個檢查
+   * （`assertRolesAssignable`：角色帶的鍵都要是 actor 持有的；super-admin 另外特判，但系統角色刪不掉，不會走到）。
+   * 只檢查權限鍵（`assertGrantable`）不夠嚴格的地方只有 super-admin，兩者在這裡等價；用指派的檢查是讓規則的
+   * 語意與實際效果（持有者重新生效）一致，之後若角色能帶其他關係也不會漏。
+   */
+  async restore(id: string, actor: AuthUser): Promise<RestoredRoleDto> {
+    const role = await this.repo.findDeletedById(id);
+    if (!role) {
+      throw new AppException(
+        (await this.repo.findById(id)) ? 'ROLE_NOT_DELETED' : 'ROLE_NOT_FOUND',
+      );
+    }
+    await this.assertRestorable(role);
+    await this.permissionService.assertRolesAssignable(actor.id, [id]);
+
+    const holdersRestored = await withTransaction(this.db, async (tx) => {
+      const row = await this.repo.restore(id, actor.id, tx);
+      // 檢查之後被別人搶先還原
+      if (!row) throw new AppException('ROLE_NOT_DELETED');
+      // 休眠的持有者邊中仍存在的使用者：還原之後就是這個角色的持有者（與 userCount 同一個計數）
+      const restoredHolders = await this.repo.countUsers(id, tx);
+      await this.audit.record(
+        {
+          action: 'role.restore',
+          resourceType: RESOURCE_TYPE.ROLE,
+          resourceId: id,
+          resourceName: row.name,
+          changes: { after: { name: row.name, slug: row.slug } },
+          metadata: { deletedAt: role.deletedAt?.toISOString(), holdersRestored: restoredHolders },
+        },
+        tx,
+      );
+      return restoredHolders;
+    });
+
+    // ★ 交易之後：權限快取失效（持有者重新拿到角色的權限鍵）→ 推播。持有者只用來補建個人資料夾與推播
+    const holders = await this.permissionService.findUserIdsByRole(id);
+    await this.permissionService.permissionsChanged(holders);
+    // 重新出現在列表：以 create 宣告（與使用者的還原相同；回收桶由前端的依賴圖跟著失效）。
+    // 每位持有者的角色也變了：以 userRole update 宣告，他們的使用者詳情與本人的 profile 才會重抓
+    // （還原的角色不在他們的 profile 裡，前端無法從 role 的變更判斷自己是不是持有者）
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [
+        { resource: ChangeSource.ROLE, kind: ChangeKind.CREATE, id },
+        ...holders.map((userId) => ({
+          resource: ChangeSource.USER_ROLE,
+          kind: ChangeKind.UPDATE,
+          id: userId,
+          refs: { [ChangeSource.ROLE]: [id] },
+        })),
+      ],
+      affectedUserIds: holders,
+    });
+    return { ...(await this.findOne(id)), holdersRestored };
+  }
+
   // ── 業務規則 ─────────────────────────────────────────────
+
+  /**
+   * 還原前的唯一值檢查（ADR-0025 D5）：名稱或 slug 已被 **未刪除** 的角色使用 → `409 ROLE_NAME_DUPLICATE`，
+   * `details.conflictingRoleId` 帶佔用者，前端直接連過去。slug 建立後不可變，撞 slug 時只能先處理佔用的角色；
+   * 撞名稱時也可以先把佔用的角色改名。檢查與寫入之間的競態由 partial unique index 擋下（同一個錯誤碼，不帶佔用者）。
+   */
+  private async assertRestorable(role: RoleRow): Promise<void> {
+    const nameTaken = await this.repo.findByName(role.name);
+    if (nameTaken) {
+      throw new AppException('ROLE_NAME_DUPLICATE', {
+        field: 'name',
+        value: role.name,
+        conflictingRoleId: nameTaken.id,
+      });
+    }
+    const slugTaken = await this.repo.findBySlug(role.slug);
+    if (slugTaken) {
+      throw new AppException('ROLE_NAME_DUPLICATE', {
+        field: 'slug',
+        value: role.slug,
+        conflictingRoleId: slugTaken.id,
+      });
+    }
+  }
 
   /**
    * 條件式 UPDATE 沒有命中：沒帶版本、或列已不在 → 404；還在就是版本被搶先改過 → 409 並帶重讀的目前版本

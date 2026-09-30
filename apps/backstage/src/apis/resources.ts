@@ -198,6 +198,8 @@ const graph = createResourceGraph<Resource>({
     derivesFrom: [
       // 刪除＝進回收桶；還原以 create 宣告（重新出現在列表）；永久刪除以 delete 推播
       { from: Resource.USER, kinds: ['create', 'delete'], id: 'none' },
+      // 角色同理（ADR-0025 R3）；還原的持有者由伺服器另外推 userRole update（本人的 profile 跟著失效）
+      { from: Resource.ROLE, kinds: ['create', 'delete'], id: 'none' },
     ],
   },
   [Resource.USER_ROLE]: {},

@@ -32,9 +32,10 @@
 |        | `user.activate` / `user.unlock` / `user.reset_password_requested` |                        |
 |        | `user.activation_resent`                                          | 管理員對 `pending` 的人重寄啟用信 |
 |        | `user.restore`                                                    | 從回收桶還原；`metadata.deletedAt`、`metadata.roles`（[`13-trash.md`](./13-trash.md) §4.1） |
-| 回收桶 | `<resource>.purge`（目前 `user.purge`）                           | 到期永久刪除；排程執行，`actorId = null`、`actorEmail = 'system'`，`metadata.retentionDays`（[`13-trash.md`](./13-trash.md) §5） |
+| 回收桶 | `<resource>.purge`（`user.purge`、`role.purge`）                  | 到期永久刪除；排程執行，`actorId = null`、`actorEmail = 'system'`，`metadata.retentionDays`（[`13-trash.md`](./13-trash.md) §5） |
 | 角色   | `role.create` / `role.update` / `role.delete` / `role.duplicate`  |                        |
 |        | `role.grantPermission`                                            | **含前後權限清單**     |
+|        | `role.restore`                                                    | 從回收桶還原；`metadata.deletedAt`、`metadata.holdersRestored`（[`13-trash.md`](./13-trash.md) §6.1） |
 | 審批   | `approval.submit`                                                 | 匿名申請（註冊）的 actor 為申請人 email、`actorId = null` |
 |        | `approval.approve` / `approval.reject`                            | 含審核意見；核准另記該變更本身（例：`user.create`，`metadata.approvalId`） |
 | 郵件   | `mail.send`                                                       | 寄出的信；只記範本、收件人、jobId、messageId，不記內容與 token（[`11-mail.md`](./11-mail.md) §5） |

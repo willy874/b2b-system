@@ -243,7 +243,8 @@ export class PermissionService {
                "details": { "missing": ["system:update", "…"], "role": "super-admin" } } }
   ```
 
-- 走這個檢查的端點：`POST /users`（`roleIds`）、`PUT /users/:id/roles`，以及審批核准時帶入的 `roleIds`。
+- 走這個檢查的端點：`POST /users`（`roleIds`）、`PUT /users/:id/roles`，審批核准時帶入的 `roleIds`，
+  以及還原（`POST /users/:id/restore` 檢查他仍存在的角色、`POST /roles/:id/restore` 檢查被還原的角色；[`13-trash.md`](./13-trash.md)）。
   新增任何會指派角色的端點都必須呼叫 `assertRolesAssignable()`，不可自行只比對權限鍵。
 
 **反方向：被操作的人是 super-admin**（`UserService.assertCanManage`）。
@@ -322,7 +323,7 @@ export class PermissionCacheService {
 
 | 事件 | 呼叫 | 範圍 |
 | --- | --- | --- |
-| 指派／移除使用者的角色、角色的權限變更、刪除角色、帶角色建立使用者 | 交易提交後 `permissionService.permissionsChanged()` | 整個租戶（本機 ＋ 廣播） |
+| 指派／移除使用者的角色、角色的權限變更、刪除或還原角色、帶角色建立使用者 | 交易提交後 `permissionService.permissionsChanged()` | 整個租戶（本機 ＋ 廣播） |
 | 資料夾授權的寫入 | 不呼叫：資料夾授權不在權限快取裡（`FileAccessService` 每次解析） | 不失效、不廣播；revision 仍 +1，下一次廣播的 revision 涵蓋它 |
 | 停用／刪除使用者、`token_version` 遞增 | `permissionService.invalidateUser(id)`（不是關係圖的變更） | 該使用者（本機） |
 | 權限目錄變更（seed / migration） | 無：`db:seed` 在另一個程序執行、不送廣播（revision 仍 +1） | 靠 TTL 或重啟 |
@@ -337,8 +338,10 @@ await this.permissionService.permissionsChanged(holders);
 
 - `permissionsChanged(userIds?)` 的 `userIds` 是已知直接受影響的人，只給需要逐人處理的訂閱者（補建個人資料夾）；
   它不是完整清單，也不影響失效範圍。
-- 刪除角色是軟刪除，並在同一條語句刪掉它的持有者邊（`RETURNING` 原本的持有者，只用來推播）。
-  失效不需要事先查出受影響的人，所以沒有「先查再刪」的順序問題。
+- 刪除角色是軟刪除，**持有者邊保留**（休眠，還原角色時原本的持有者自動回來；[ADR-0025](../../adr/0025-entity-revisions.md) D2、
+  [`13-trash.md`](./13-trash.md) §6）。原本的持有者在軟刪除前查出，只用來推播。刪除與還原不寫 `relation_tuples`，
+  revision 由 `roles.deleted_at` 的 trigger +1（migration 0012，[`02-database.md`](./02-database.md) §2.11），否則其他程序會把廣播當成舊的略過。
+- 還原角色（`POST /roles/:id/restore`）的反提權與指派角色相同（`assertRolesAssignable`）：角色帶的鍵都要是 actor 持有的。
 - 送出廣播是 best-effort：失敗只記 log；提交之後、送出之前程序結束也會漏一次。其他程序最遲在 TTL（60 秒）後重新解析；
   revision 單調遞增，下一次通知也會補上。
 - 粒度是整個租戶：一次授權變更讓那個租戶的每個人下一次請求重算一次（每人一句 CTE，按需）。拆粒度的條件見 ADR-0024 D8。
@@ -609,7 +612,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/users/:id/reset-password` | `user:resetPassword`             |
 | POST   | `/users/:id/unlock`         | `user:update`                    |
 | POST   | `/users/:id/restore`        | `user:delete`                    |
-| GET    | `/trash`                    | `user:delete`⁴                   |
+| GET    | `/trash`                    | `user:delete` \| `role:delete`⁴  |
 | GET    | `/roles`                    | `role:read`                      |
 | POST   | `/roles`                    | `role:create`                    |
 | GET    | `/roles/:id`                | `role:read`                      |
@@ -619,6 +622,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | PATCH  | `/roles/:id/permissions`    | `role:grantPermission`           |
 | GET    | `/roles/:id/users`          | `role:read` ＋ `user:read`       |
 | POST   | `/roles/:id/duplicate`      | `role:create`                    |
+| POST   | `/roles/:id/restore`        | `role:delete`                    |
 | GET    | `/permissions`              | `permission:read`                |
 | GET    | `/audit-logs`               | `auditLog:read`                  |
 | GET    | `/audit-logs/:id`           | `auditLog:read`                  |
@@ -666,7 +670,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 `FileAccessService` 依資料夾授權判斷（§1 原則 3 的例外，見 [`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)）。
 路由稽核測試把 SOME 寫成 `a|b`、EVERY 寫成 `a+b`。
 
-⁴ `@RequireAnyPermission(...TRASH_PERMISSIONS)`：回收桶支援的每一類的 `<resource>:delete`（目前只有 `user:delete`）；
+⁴ `@RequireAnyPermission(...TRASH_PERMISSIONS)`：回收桶支援的每一類的 `<resource>:delete`（`user:delete`、`role:delete`）；
 指定的 `type` 再由 `TrashService` 以該類型的權限檢查（[`./13-trash.md`](./13-trash.md) §3）。
 
 **這張表必須與 `docs/rbac/04-api-spec.md` 一致**，且有一支測試從 metadata
