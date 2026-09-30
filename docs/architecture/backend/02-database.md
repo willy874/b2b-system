@@ -156,8 +156,7 @@ export const userRoles = pgTable(
 );
 ```
 
-> **未來加作用域時**：在這裡加 `scopeType text` / `scopeId uuid`，主鍵擴成
-> 四欄。見 [ADR-0006](../../adr/0006-flat-permission-scope.md)。
+> 作用域改由關係圖表達（`relation_tuples`，§2.10），不在這張表加欄位。
 
 ### 2.5 `role_permissions`
 
@@ -314,6 +313,27 @@ export const auditLogsArchive = pgTable(
 `key`（text PK）、`value`（jsonb，純量）、`updated_at`、`updated_by`（→ `users`，`ON DELETE SET NULL`）。
 只存覆寫值，沒有列的 key 用程式碼裡的預設值；定義、範圍與快取見 [`12-settings.md`](./12-settings.md)。
 
+### 2.10 `relation_tuples`（關係圖的邊）
+
+權限解析的資料來源（[ADR-0024](../../adr/0024-relationship-based-access-control.md)、[`../../rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §6）。
+一列是一條 `物件#關係@主體`：
+
+| 欄位 | 說明 |
+| --- | --- |
+| `object_type` / `object_id` | `role`、`tenant`（id 固定 `self`）、`fileFolder`…；id 是 text（租戶節點 `self`、萬用字元 `*`） |
+| `relation` | `holder`、權限鍵（`role:update`）、`superAdmin`、資料夾等級（`editor`）… |
+| `subject_type` / `subject_id` / `subject_relation` | 節點本身（`subject_relation = ''`，不能是 NULL，否則唯一索引擋不住重複）、節點的關係（`role:<id>#holder`）或萬用字元（`user:*`） |
+| `expires_at` | null ＝ 不過期；過期的邊在解析時以 app 端的時間忽略 |
+| `created_at` / `created_by` | `created_by` → `users`（`ON DELETE SET NULL`） |
+
+索引：六欄唯一（`relation_tuples_key`）、`(subject_type, subject_id, subject_relation)`（主體閉包往外走）、
+`(object_type, object_id, relation)`（從物件往回查）。多型關聯沒有外鍵，解析時 join 未刪除的節點（例：主體閉包只走未刪除的角色）。
+
+**G1～G2 由舊表同步**（migration 0008，手寫）：`user_roles`、`role_permissions`、`resource_grants` 上的 AFTER trigger
+在同一個交易裡寫入／刪除對應的邊（`resource_grants` 改等級時先刪舊的邊再插新的；`everyone` 對應 `user:*`）；
+`roles` 建立 slug 為 `super-admin` 的角色時補上 `tenant:self#superAdmin@role:<id>#holder`。migration 同時回填既有資料。
+**TRUNCATE 不會觸發 row trigger**：清空舊表的地方（`test/db.ts`、`db/reset.ts`）要一併清空 `relation_tuples`。G3 起改由程式直接寫入並刪除舊表。
+
 ---
 
 ## 3. 不變條件的 DB 層強制
@@ -400,6 +420,10 @@ CREATE TRIGGER roles_set_updated_at BEFORE UPDATE ON roles
 ## 4. 核心查詢
 
 ### 4.1 使用者的權限集合（最熱的查詢）
+
+> **G2 起改由關係圖解析**（`core/authz/authz.repository.ts`）：一條遞迴 CTE 從 `user:<id>`、`user:*` 沿 `role#holder`
+> 走出主體閉包（只走未刪除的角色、深度上限 8，多人一次查），再一條查詢取這些主體在 `tenant:self` 上的邊，
+> 閉包（權限依賴樹）在記憶體算。下面的三表 join 是舊的解析，G2 期間只給影子比對用（[`05-rbac.md`](./05-rbac.md) §4.2），G3 刪除。
 
 ```ts
 async getPermissionKeys(userId: string): Promise<string[]> {

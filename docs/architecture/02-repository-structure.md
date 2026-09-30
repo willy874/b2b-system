@@ -174,6 +174,7 @@ apps/api/src/
 │   ├── config/              @nestjs/config ＋ Zod 驗證 env
 │   ├── database/            DrizzleModule、DB provider、交易輔助
 │   ├── cache/               PermissionCacheService（in-memory + TTL + 明確失效）
+│   ├── authz/               關係圖權限引擎：模型、判斷器、relation_tuples（docs/adr/0024-relationship-based-access-control.md）
 │   ├── errors/              ErrorCode enum、AppException、HttpExceptionFilter
 │   ├── http/                TransformInterceptor、分頁 DTO、RequestId middleware
 │   ├── logger/              Pino 設定
@@ -274,6 +275,7 @@ ARGON2_MEMORY_COST=19456
 ARGON2_TIME_COST=2
 
 PERMISSION_CACHE_TTL=60            # 秒
+AUTHZ_SHADOW=                      # 權限圖的影子比對：off | log | throw；留空＝依 NODE_ENV（test→throw、development→log、production→off）
 # 速率限制（次 / 分；docs/architecture/backend/03-api-conventions.md §8）：已登入以使用者計、未登入以 IP 計
 DEFAULT_RATE_LIMIT=600             # 每個已登入的使用者（所有端點合計）
 ANONYMOUS_RATE_LIMIT=3000          # 每個 IP 的未登入請求（1000 人共用一個 NAT 出口）

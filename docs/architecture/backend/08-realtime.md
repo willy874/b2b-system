@@ -134,8 +134,9 @@ function connectError(code: ErrorCode): Error {
 ```ts
 async handleConnection(socket: RealtimeSocket) {
   this.expiry.schedule(socket);                                 // §3.4
-  await socket.join(userRoom(socket.data.userId));              // 先加 user room：連線數上限依它計算
-  await socket.join(await this.audience.roomsFor(socket.data.userId)); // 依權限集合加入 perm:<key>
+  // 先解析完權限（可能要查 DB）再一次加入所有 room：看得到連線在 user room 裡，就代表 perm room 也已就緒
+  const permRooms = await this.audience.roomsFor(socket.data.userId); // 依權限集合（含依賴樹閉包）的 perm:<key>
+  await socket.join([userRoom(socket.data.userId), tenantRoom(tenantId), ...permRooms]);
 }
 
 handleDisconnect(socket: RealtimeSocket) {
@@ -257,14 +258,15 @@ super-admin 加入自己租戶的所有 perm room。
 async refreshAudience(userIds: readonly string[]) {
   const connected = [...new Set(userIds)].filter((id) => this.publisher.countConnections(userRoom(id)));
   for (const batch of chunks(connected, 200)) {
-    const sets = await this.permissionService.getPermissionSets(batch); // 每批兩條 SQL
+    const sets = await this.permissionService.getPermissionSets(batch); // 每批兩條 SQL（主體閉包 CTE ＋ 租戶節點上的邊）
     for (const id of batch) this.publisher.moveRooms(userRoom(id), allPermRooms(), permRoomsFor(sets.get(id)));
   }
 }
 ```
 
 一個角色可能有上千位持有者：權限以 `PermissionService.getPermissionSets` **批次** 解析（快取命中的不查；其餘每批
-`WHERE user_id IN (…)` 兩條查詢），不是每人各查一次。檔案模組補建個人資料夾前篩選「能進檔案管理器的人」也用同一個批次方法。
+兩條查詢：多人一次的主體閉包 CTE、這些主體在租戶節點上的邊，[`05-rbac.md`](./05-rbac.md) §4），不是每人各查一次。
+權限集合含依賴樹閉包，所以持有 `file:delete` 的人也在 `perm:file:read` 的 room 裡。檔案模組補建個人資料夾前篩選「能進檔案管理器的人」也用同一個批次方法。
 
 `moveRooms` 的 Socket.io 實作是 `io.in(room).socketsLeave(…)` / `socketsJoin(…)`，經由 adapter 作用在所有節點上的連線（§10）。
 

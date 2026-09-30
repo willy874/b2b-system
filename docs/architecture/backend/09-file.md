@@ -605,20 +605,25 @@ service      FileService / FileFolderService / FileFolderGrantService
     │  access.assertCan(ctx, action, location, resource?)          ← 不能就 404 / 403 ＋ authz.denied
     ▼
 FileAccessService（modules/file）
-    ├─ PermissionService.getPermissionSet(actor)                   全域 file:*（有快取）
+    ├─ PermissionService.getPermissionSet(actor)                   全域 file:*（含依賴樹閉包）＋ 主體閉包（有快取）
     ├─ FileFolderTree.nodes()                                     整棵樹：id / parent_id / inherit_grants / created_by（程序內快取）
-    └─ ResourceGrantService.grantsFor(actor, ['fileFolder'])         本人 ＋ 持有角色的未過期授權
-            │
-            └─ resolveHierarchyLevels(nodes, grants)               modules/resource-grant：通用、純函式
+    └─ AuthzService.checkerFor(subjects, ['fileFolder'], [folderEdgeProvider])
+            │                                                    主體在 tenant 與資料夾上的未過期邊（relation_tuples）
+            └─ FileAccessContext：以 file.authz.ts 的模型判斷 can_* ／ can_rename ／ can_remove（core/authz 的判斷器）
 ```
+
+模型與規則見 [`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md) §2.1。結構邊（上層、繼承、建立者）由
+`folderEdgeProvider` 從同一份 `FileFolderTree` 節點供應，不存進 `relation_tuples`；檔案項目本身的邊以 `withEdges` 臨時補上。
+G2 期間影子比對開著時，同一個請求也以舊的方式（`grantsFor` ＋ `resolveHierarchyLevels`）判斷一次並比較
+（[`05-rbac.md`](./05-rbac.md) §4.2）。
 
 | 項目 | 做法 |
 | --- | --- |
-| 解析範圍 | 每個請求取一次整棵資料夾結構（四個欄位）與操作者的授權，在記憶體算出每個資料夾的有效等級（記憶化，每個資料夾只算一次）。結構以租戶為 key 快取在程序內（§11.1），授權每次查（只有操作者本人與其角色的列） |
+| 解析範圍 | 每個請求取一次整棵資料夾結構（四個欄位）與操作者的邊，在記憶體判斷（記憶化，同一個 `物件#關係` 只算一次）。結構以租戶為 key 快取在程序內（§11.1），邊每次查（只有操作者主體閉包裡的主體） |
 | 列表過濾 | `GET /files` 不帶 `folderId` 且沒有全域 `file:read`：以看得到的資料夾 id 限制 `folder_id = ANY(…)`，根目錄的檔案不列 |
 | 能力旗標 | `toDto` 時由 context 算出 `capabilities`；列表一次算完，不逐筆查詢 |
 | 移動、遞迴刪除 | 在 `writeTree` 的交易（取得樹鎖）**之內** 建立 context：檢查與寫入之間結構不會變 |
-| 授權寫入 | `resource_grants` 的 upsert／delete 與稽核在同一個交易；交易後推 `fileFolder update` |
+| 授權寫入 | `resource_grants` 的 upsert／delete 與稽核在同一個交易（trigger 在同一個交易同步 `relation_tuples`）；交易後推 `fileFolder update` |
 | 中斷繼承 | `file_folders.inherit_grants`；設成 `false` 時在同一個交易內把目前繼承到的授權複製成直接授權 |
 | 授權對象 | 解析與清單都 join 未刪除的 `roles` / `users`：刪除角色或使用者不必清授權列 |
 
@@ -635,7 +640,7 @@ FileAccessService（modules/file）
 | 60 秒存活時間 | 只是防漏網（例：直接改資料庫）；正常的寫入都會主動失效 |
 | 單一執行個體的前提 | 失效只在本程序；api 目前固定單一執行個體（[`../01-system.md`](../01-system.md)），水平擴展時要改成跨程序的失效通知 |
 
-資料表：`resource_grants`、`file_folders.inherit_grants`、
+資料表：`resource_grants`（→ `relation_tuples`）、`file_folders.inherit_grants`、
 系統資料夾 `file_folders.kind` / `owner_id` 與授權對象 `everyone`（schema 在 `db/schema/`，migration 見 [`02-database.md`](./02-database.md) §5.2）。
 
 系統資料夾由 `FileSystemFolderService` 維護：`onApplicationBootstrap` 確保共用／私人資料夾存在並補建個人資料夾；

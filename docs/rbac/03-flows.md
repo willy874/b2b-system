@@ -176,7 +176,7 @@ PermissionsGuard
   │      → 見下方「預設策略」
   ├─ PermissionService.getPermissionSet(userId)
   │    ├─ 命中 cache（key = `${tenantId}:${userId}`，TTL 60s）→ 回傳
-  │    └─ miss → 一次 SQL 解析 → 寫入 cache
+  │    └─ miss → 關係圖解析（主體閉包 CTE ＋ 租戶節點上的邊，套權限依賴樹閉包；01 §6）→ 寫入 cache
   ├─ super-admin？ → 放行
   ├─ match = EVERY → keys.every(k => set.has(k))
   │  match = SOME  → keys.some(k => set.has(k))
@@ -238,6 +238,7 @@ ZodValidationPipe → Controller → Service → Repository
   │               │                    │    否 → 403 AUTHZ_ESCALATION    │
   │               │                    │ 4. INSERT roles                 │
   │               │                    │ 5. INSERT role_permissions[]    │
+  │               │                    │    （trigger 同步 relation_tuples）│
   │               │                    │ 6. audit(role.create, {...})    │
   │               │                    │ 交易提交                        │
   │               │                    └─────────┬──────────────────────┘
@@ -248,6 +249,22 @@ ZodValidationPipe → Controller → Service → Repository
 ```
 
 > **前端過濾不是安全機制**，只是體驗。後端的第 3 步才是真正的防線。兩邊都要有。
+
+權限的挑選是 **技能樹**（`features/role/components/PermissionSkillTree.tsx`，[`02-permission-catalog.md`](./02-permission-catalog.md) §9）：
+
+```
+點「刪除使用者」（可授予）
+  └─ 明確的鍵 += user:delete
+       └─ 前置 user:update、user:resetPassword、user:read 自動成為「已包含」（鎖住，不送出）
+點「編輯使用者」（已包含）
+  └─ 擋下：「要取消『編輯使用者』，先取消包含它的：刪除使用者」（aria-live 念出）
+點「刪除使用者」（明確、沒有上層）
+  └─ 取消；只由它帶出的前置跟著熄滅，原本明確點選的保留
+操作者沒有的鍵 → 停用（反提權）；super-admin 角色 → 整棵唯讀
+送出 → 只有明確點選的鍵（POST /roles 的 permissionKeys、PATCH 的 add／remove）
+```
+
+「有上層就不能取消前置」只是編輯器的互鎖；API 不因此拒絕（[`04-api-spec.md`](./04-api-spec.md) §3.3）。
 
 ---
 
@@ -265,6 +282,7 @@ PATCH /roles/:id/permissions  { add: [], remove: ['user:delete'] }
   ├─ ★ 檢查 I8：若 R 是最後一個帶 super-admin 等效權限的角色 → 拒絕
   ├─ 查出持有 R 的所有 user_id（holders）
   ├─ 交易：DELETE role_permissions WHERE role_id = R AND permission_id IN (...)
+  │         （trigger 同一個交易刪掉 tenant:self#<key>@role:R#holder）
   ├─ audit(role.grantPermission, { before, after })
   │
   ▼  交易之後
@@ -274,6 +292,7 @@ DomainEventBus.publish(permissions.changed / resource.changed)
   │
   ▼  下一次這些使用者的請求
 PermissionsGuard → cache miss → 重新解析 → 不含 'user:delete' → 403
+（若 R 其他的鍵經依賴樹帶出被移除的鍵——例如移除 user:update、但保留 user:delete——它仍然成立）
 ```
 
 **前端何時知道？**
@@ -301,7 +320,7 @@ PUT /users/:id/roles  { roleIds: [...] }    ← 整批取代語意，非增量
   │     （否則我可以把一個我做不到的角色指派給別人，等同提權）
   ├─ 檢查 I8：若此次操作會移除系統最後一個 super-admin → 403 LAST_SUPER_ADMIN
   ├─ 交易：DELETE user_roles WHERE user_id = :id
-  │         INSERT user_roles (新集合)
+  │         INSERT user_roles (新集合)       （trigger 同步 role:<id>#holder@user:<id>）
   ├─ audit(user.assignRole, { before: [...], after: [...] })
   └─ PermissionCacheService.invalidate(userId)
 ```

@@ -1,6 +1,6 @@
 # ADR-0015 — 檔案管理器：資料夾層級授權（RBAC 閘門 ＋ 繼承式 ACL ＋ 擁有者規則）
 
-- 狀態：**採用**；部分取代 [ADR-0006](./0006-flat-permission-scope.md)（檔案不再是扁平範圍，其餘資源不變）
+- 狀態：**採用**；部分取代 [ADR-0006](./0006-flat-permission-scope.md)（檔案不再是扁平範圍，其餘資源不變）；解析方式（`resolveHierarchyLevels`）由 [ADR-0024](./0024-relationship-based-access-control.md) 的關係圖取代，等級與規則不變
 - 日期：2026-09-29
 - 相關：[`../rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)、[`../architecture/backend/09-file.md`](../architecture/backend/09-file.md) §11、
   [`../architecture/frontend/12-file-manager.md`](../architecture/frontend/12-file-manager.md) §13

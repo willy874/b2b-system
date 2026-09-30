@@ -1,6 +1,6 @@
 # ADR-0005 — 權限在伺服器端即時解析，不放進 Token
 
-- 狀態：**提案中（待確認）**
+- 狀態：**提案中（待確認）**；解析方式由 [ADR-0024](./0024-relationship-based-access-control.md) 延伸（改由關係圖解析、權限集合含依賴樹閉包），「不放進 token、伺服器端即時解析、主動失效快取」不變
 - 日期：2026-09-19
 - 相關：[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md)、[`../rbac/03-flows.md`](../rbac/03-flows.md)
 

@@ -287,7 +287,7 @@ return <Outlet />;
 | -------------------------------------------------------------- | --------------------------- | ------------------------------ |
 | 使用者永遠不會有這個權限（例如 auditor 看刪除鍵）              | **隱藏**                    | 少一個噪音                     |
 | 使用者有權限，但當下狀態不允許（選到的列都不適用、目標是系統角色） | **disable ＋ tooltip 說明** | 使用者需要知道為什麼           |
-| 反提權導致某個權限不能授予                                     | **disable ＋ tooltip**      | 隱藏會讓人以為系統沒有這個權限 |
+| 反提權導致某個權限不能授予                                     | **disable ＋ 說明**         | 隱藏會讓人以為系統沒有這個權限（技能樹上是 `locked` 節點，面板寫出原因） |
 
 判準：**「為什麼不能按」對使用者有意義就 disable，沒意義就隱藏。**
 
@@ -314,7 +314,7 @@ return <Outlet />;
 | 使用者列表            | `user:read`                      | 建立鈕 → `user:create`；編輯 → `user:update`；刪除 → `user:delete` ＋ 非自己；重設密碼 → `user:resetPassword`；解鎖 → `user:update` ＋ `status === 'locked'` |
 | 使用者詳情 · 角色分頁 | `user:read`                      | 編輯角色 → `user:assignRole` ＋ 非自己；可選角色清單受反提權過濾                                                                                             |
 | 角色列表              | `role:read`                      | 建立 → `role:create`；複製 → `role:create`；編輯 → `role:update` ＋ 非系統角色；刪除 → `role:delete` ＋ 非系統角色                                           |
-| 角色詳情 · 權限分頁   | `role:read` ＋ `permission:read` | 增減權限 → `role:grantPermission` ＋ 非 super-admin；可選權限受反提權過濾                                                                                    |
+| 角色詳情 · 權限分頁   | `role:read` ＋ `permission:read` | 增減權限 → `role:grantPermission` ＋ 非 super-admin；以 **技能樹** 挑選（點上層自動點亮前置、有上層時不能取消前置；未持有的鍵停用，§8） |
 | 權限目錄              | `permission:read`                | 全唯讀                                                                                                                                                       |
 | 稽核日誌              | `auditLog:read`                  | 全唯讀                                                                                                                                                       |
 | 檔案管理器            | `file:access` 或 `file:read`     | 資料夾層級授權：按鈕看後端回傳的 `capabilities`，不看全域權限鍵（[`12-file-manager.md`](./12-file-manager.md) §13）                                           |
@@ -367,3 +367,19 @@ describe("RoleListToolbar", () => {
 第三個案例常被忘記，但它對應一個真實的體驗缺陷：水合前若 `can()` 回 `false`
 而 UI 直接渲染，使用者會看到按鈕在載入後突然出現；若 UI 用 `hydrated` 擋住，
 就不會。
+
+---
+
+## 8. 權限依賴樹與角色權限的技能樹
+
+- `GET /auth/profile` 的 `permissions` 已套用 **權限依賴樹的閉包**（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §9）：
+  只被授予 `file:delete` 的人，`can('file:read')` 也是 true。前端不需要自己展開，也不要再寫「有 A 或 B 就顯示」的特判。
+- 角色的權限在 `features/role/components/PermissionSkillTree.tsx` 以技能樹挑選（建立角色、管理角色權限兩個對話框）：
+  - 版面：每個資源一組、基礎在下（`TreeEditor` 的 `direction="BT"`、`groups`）；子能力是實線、跨資源的依賴是虛線。
+  - 狀態：已授予（`explicit`）／已包含（`implied`，由上層帶出、鎖住）／可授予（`available`）／無法授予（`unavailable`，反提權）。
+  - 互鎖：點上層 → 前置成為已包含；點已包含的（或還有上層的明確鍵）→ 擋下並念出「先取消包含它的 …」；只送出明確點選的鍵。
+  - 規則是純函式（`features/role/hooks/permissionSkillTree.ts`），狀態在 `usePermissionSkillTree`；節點內是 `aria-pressed` 的按鈕
+    （`data-testid="role-permission-node"`、`data-value` 是權限鍵、`data-state` 是狀態），鍵盤以 Tab 移動、Enter／Space 切換。
+  - 目錄的依賴來自 `GET /permissions` 每一項的 `includes`／`requires`；super-admin 角色由 `GET /roles/:id/permissions` 的 `isSuperAdmin` 判斷、整棵唯讀。
+- 已知：對話框關閉時 React Flow 卸載，開發模式的 console 會出現一次 React 的 `flushSync` 警告，不影響功能。
+

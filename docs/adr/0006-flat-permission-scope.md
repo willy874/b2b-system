@@ -1,6 +1,6 @@
 # ADR-0006 — Phase 0 採用扁平權限，不做資源作用域與角色階層
 
-- 狀態：**採用**；檔案的部分由 [ADR-0015](./0015-file-folder-access.md) 取代（資料夾層級授權），其餘資源仍是扁平範圍
+- 狀態：**採用**；檔案的部分由 [ADR-0015](./0015-file-folder-access.md) 取代（資料夾層級授權），其餘資源仍是扁平範圍；「延伸路徑」一節由 [ADR-0024](./0024-relationship-based-access-control.md)（關係圖）取代
 - 日期：2026-09-19
 - 相關：[`../rbac/01-domain-model.md`](../rbac/01-domain-model.md)
 

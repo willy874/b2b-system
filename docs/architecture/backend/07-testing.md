@@ -37,7 +37,7 @@ export async function setupTestDatabase() {
 export async function truncateAll() {
   // 保留 permissions 與 roles（seed 資料），只清業務資料
   await testDb.execute(sql`
-    TRUNCATE users, user_roles, refresh_tokens, auth_tokens, audit_logs
+    TRUNCATE users, user_roles, relation_tuples, refresh_tokens, auth_tokens, audit_logs
     RESTART IDENTITY CASCADE
   `);
 }
@@ -45,6 +45,13 @@ export async function truncateAll() {
 
 一個容器供整個測試檔案共用（`beforeAll` 啟動），每個 `it` 之間
 `truncateAll()`。啟動一次容器約 3 秒，每次 truncate 約 5 ms。
+
+**TRUNCATE 不觸發 row trigger**：`relation_tuples` 由舊表的 trigger 同步（[`02-database.md`](./02-database.md) §2.10），
+清空舊表時一定要一起清空它，否則殘留的邊會讓下一個測試的權限判斷出錯。
+
+**影子比對**：測試環境的 `AUTHZ_SHADOW` 預設 `throw`（[`05-rbac.md`](./05-rbac.md) §4.2）：每次解析權限，新（關係圖）舊兩套都跑，
+結果不一致就讓請求失敗。所以整合測試全數通過本身就是新舊一致的驗收；以假物件組裝 `PermissionService`／`FileAccessService` 的單元測試傳入
+`{ enabled: false }` 的 shadow。
 
 ---
 
@@ -104,25 +111,26 @@ describe("RoleService.updatePermissions", () => {
 ## 4. 整合測試：Repository 與 DB 約束
 
 ```ts
-describe("PermissionRepository.findPermissionKeysByUser", () => {
-  it("回傳所有角色的權限聯集且去重", async () => {
-    const u = await createUser();
-    const r1 = await createRole({ permissions: ["user:read", "role:read"] });
-    const r2 = await createRole({ permissions: ["role:read", "role:update"] });
-    await assignRoles(u.id, [r1.id, r2.id]);
-
-    const keys = await repo.findPermissionKeysByUser(u.id);
-    expect(new Set(keys)).toEqual(new Set(["user:read", "role:read", "role:update"]));
+describe("relation_tuples 與舊表的同步（test/relation-tuples.spec.ts）", () => {
+  it("指派與移除角色 → role:<id>#holder@user:<id>", async () => {
+    const [alice, editor] = [await createUser("alice@x"), await createRole("editor")];
+    await db.insert(userRoles).values({ userId: alice, roleId: editor });
+    expect(await tuples()).toEqual([`role:${editor}#holder@user:${alice}`]);
+    await db.delete(userRoles).where(eq(userRoles.userId, alice));
+    expect(await tuples()).toEqual([]);
   });
 
-  it("已軟刪除的角色不計入", async () => {
-    const u = await createUser();
-    const r = await createRole({ permissions: ["user:delete"] });
-    await assignRoles(u.id, [r.id]);
-    await softDeleteRole(r.id);
-    expect(await repo.findPermissionKeysByUser(u.id)).toEqual([]);
+  it("混合的寫入之後，relation_tuples 與舊表推導的結果一致", async () => {
+    // … 指派、授權、資料夾授權、刪除 …
+    await expectMirrored(); // 以 SQL 由三張舊表推導「應該有的」邊，與實際內容比較
   });
 });
+```
+
+關係圖的規則（等級、繼承、擁有者規則、依賴樹閉包）以純記憶體的 tuple 在單元測試驗證
+（`core/authz/__tests__`、`modules/file/__tests__/file.authz.spec.ts`），不需要資料庫。
+
+```ts
 ```
 
 ### 4.1 DB 約束也要測

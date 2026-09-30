@@ -97,7 +97,7 @@ docs/
 │       ├── 02-database.md             Drizzle schema 慣例、migration 流程
 │       ├── 03-api-conventions.md      REST、分頁、排序、錯誤碼、驗證
 │       ├── 04-auth.md                 登入、JWT、refresh rotation、重用偵測、SSO 的後端部分
-│       ├── 05-rbac.md                 Guard / Decorator / 權限快取 / 反提權
+│       ├── 05-rbac.md                 Guard / Decorator / 權限快取 / 反提權 / 關係圖解析與影子比對
 │       ├── 06-audit-log.md            稽核日誌設計
 │       ├── 07-testing.md              單元 / 整合 / e2e 測試策略
 │       ├── 08-realtime.md             Socket.io gateway、room 與受眾、推播時機
@@ -108,12 +108,12 @@ docs/
 │
 ├── rbac/
 │   ├── 01-domain-model.md             實體、ER 圖、不變條件
-│   ├── 02-permission-catalog.md       權限清單（resource × action）
+│   ├── 02-permission-catalog.md       權限清單（resource × action）、權限依賴樹（§9）
 │   ├── 03-flows.md                    登入、授權檢查、角色指派、權限變更生效
 │   ├── 04-api-spec.md                 RBAC 相關 API 規格
 │   ├── 05-seed-and-bootstrap.md       預設角色與系統初始化
 │   ├── 06-approval.md                 審批：請求 → 核准 → 套用；使用者註冊
-│   └── 07-resource-grants.md          資源授權：資料夾層級（等級、繼承、擁有者規則）
+│   └── 07-resource-grants.md          資源授權：資料夾層級（等級、繼承、擁有者規則；關係圖上的模型）
 │
 ├── conventions/                       寫程式時每天要遵守的規則
 │   ├── README.md                      規則強度標記（🔒 工具 / 👀 Review）
@@ -151,7 +151,8 @@ docs/
     ├── 0020-physical-tenant-isolation.md
     ├── 0021-runtime-feature-activation.md
     ├── 0022-feature-flags.md
-    └── 0023-react-flow-tree-editor.md
+    ├── 0023-react-flow-tree-editor.md
+    └── 0024-relationship-based-access-control.md
 ```
 
 ---

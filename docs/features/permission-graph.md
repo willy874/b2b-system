@@ -1,7 +1,7 @@
 # 權限圖（Relationship-based Access Control）
 
 - 優先度：P0
-- 狀態：實作中（branch：`feat/permission-graph`；本 branch 做 G0～G2 與角色權限技能樹，G3 另開）
+- 狀態：實作中（G0～G2 與角色權限技能樹 2026-09-30 合併進 main，32427b4；G3 寫入切換與刪舊表、G4 群組與 explain 待做）
 - 依賴：—
 - 相關：[ADR-0024](../adr/0024-relationship-based-access-control.md)（本功能的決策）、[ADR-0005](../adr/0005-permission-resolved-server-side.md)、[ADR-0006](../adr/0006-flat-permission-scope.md)、[ADR-0015](../adr/0015-file-folder-access.md)、
   [`rbac/01-domain-model.md`](../rbac/01-domain-model.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)、

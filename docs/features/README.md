@@ -18,7 +18,7 @@
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
 | P0 | 版本歷史、樂觀鎖與還原 | [`entity-revisions.md`](./entity-revisions.md) | 提案 | — |
-| P0 | 權限圖（ReBAC，收斂 RBAC／資源授權／群組） | [`permission-graph.md`](./permission-graph.md) | 實作中 | — |
+| P0 | 權限圖（ReBAC，收斂 RBAC／資源授權／群組） | [`permission-graph.md`](./permission-graph.md) | 實作中（G0～G2 與技能樹已上 main；G3、G4 待做） | — |
 | P1 | 站內通知中心 | [`notification-center.md`](./notification-center.md) | 提案 | — |
 | P2 | 服務帳號／API Token | [`api-tokens.md`](./api-tokens.md) | 提案 | — |
 | P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | [背景工作](../architecture/backend/10-jobs.md)（已完成） |

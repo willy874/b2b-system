@@ -36,13 +36,14 @@
 │                                                                     │
 │  modules/  auth · user · role · permission · audit-log · health     │
 │            realtime（Socket.io gateway：推播、session 撤銷）         │
-│  core/     database(Drizzle) · config · cache · logger · errors     │
+│  core/     database(Drizzle) · config · cache · authz · logger · …  │
 └────────────────────────────────┬────────────────────────────────────┘
                                  │ SQL (postgres-js / node-postgres)
                                  ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │ PostgreSQL 17                                                       │
 │   users · roles · permissions · user_roles · role_permissions       │
+│   resource_grants · relation_tuples（關係圖的邊）                   │
 │   refresh_tokens · audit_logs                                       │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -131,6 +132,7 @@ repository ✗──▶ service  （單向）
         [api] JwtAuthGuard        驗簽 → 取出 sub → 載入 user（含 status 檢查）
               PermissionsGuard    讀 @RequirePermissions('role:update') metadata
                                   → PermissionService.getPermissionSet(userId)
+                                    （關係圖解析、含權限依賴樹閉包、有快取；ADR-0024）
                                   → 集合是否包含 'role:update'？否 → 403
               ZodValidationPipe   body 驗證
               RolesController.update

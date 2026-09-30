@@ -78,6 +78,14 @@ apps/api/src/
 │   │   ├── mail-transport.ts             ★ MailTransport 抽象類別（smtp / console，見 11-mail.md）
 │   │   ├── mail.service.ts               範本 → HTML ＋ 純文字 → 傳輸層；信裡的連結
 │   │   └── mail-layout.tsx               所有信共用的外框（React Email）
+│   ├── authz/                            ★ 關係圖權限引擎（ADR-0024；rbac/01-domain-model.md §6）
+│   │   ├── authz.model.ts                型別 DSL（direct／computed／from／聯集／交集）、模型驗證、靜態蘊含
+│   │   ├── authz.checker.ts              記憶化判斷器（check／explain／withEdges）
+│   │   ├── authz.types.ts                核心型別 user、role、由權限目錄產生的 tenant
+│   │   ├── authz.registry.ts             業務模組在 onModuleInit 註冊自己的型別（例：file.authz.ts）
+│   │   ├── authz.repository.ts           relation_tuples 查詢、主體閉包遞迴 CTE
+│   │   ├── authz.service.ts              批次解析權限集合、建立判斷器
+│   │   └── authz.shadow.ts               新舊解析的影子比對（AUTHZ_SHADOW，05-rbac.md §4.2）
 │   └── jobs/
 │       ├── job-type.ts                   defineJob()：工作名稱 ＋ 資料型別 ＋ 重試設定
 │       ├── job-queue.ts                  ★ JobQueue：register / enqueue / retry（底層 pg-boss，見 10-jobs.md）
@@ -109,7 +117,7 @@ apps/api/src/
 │   ├── file/                             files 轉介表 ＋ 直傳上傳、影像變體、維護排程、資料夾授權（09-file.md）
 │   ├── job/                              背景工作的管理 API（10-jobs.md §6）
 │   ├── feature-flag/                     feature flag 的平台管理 API（05-tenancy.md §5.2）
-│   ├── resource-grant/                   資源授權：resource_grants ＋ 通用的等級解析（rbac/07-resource-grants.md）
+│   ├── resource-grant/                   資源授權：resource_grants 的讀寫、等級全序與反提權比對；等級解析 G2 起只給影子比對（rbac/07-resource-grants.md）
 │   └── health/
 │
 ├── db/
@@ -119,6 +127,7 @@ apps/api/src/
 │   │   ├── permissions.ts
 │   │   ├── user-roles.ts
 │   │   ├── role-permissions.ts
+│   │   ├── relation-tuples.ts            關係圖的邊（G1～G2 由舊表的 trigger 同步，ADR-0024）
 │   │   ├── refresh-tokens.ts
 │   │   ├── audit-logs.ts
 │   │   ├── auth-tokens.ts                啟用 / 密碼重設 token

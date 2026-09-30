@@ -11,7 +11,7 @@ RBAC 有一個雞生蛋問題：**要建立使用者需要 `user:create` 權限�
 ## 2. 執行順序
 
 ```
-pnpm db:migrate        平台 DB，再依序每個租戶的 DB（含約束、索引、trigger）；登記預設租戶
+pnpm db:migrate        平台 DB，再依序每個租戶的 DB（含約束、索引、trigger；relation_tuples 的回填與同步 trigger）；登記預設租戶
       │
       ▼
 pnpm db:seed           ⓪ 平台管理者（平台 DB；沒有任何管理者時依 PLATFORM_ADMIN_EMAIL 建立，角色 super-admin）
@@ -19,7 +19,8 @@ pnpm db:seed           ⓪ 平台管理者（平台 DB；沒有任何管理者�
       │                ① permissions   （冪等 upsert）
       │                ② roles         （冪等 upsert，is_system = true）
       │                ③ role_permissions（依對照表 upsert）
-      │                ④ super-admin 使用者（僅 SEED_TENANT，預設 default；僅當不存在時建立）
+      │                ④ role.permissionsImplied 稽核（權限依賴樹讓角色多出鍵時，每個角色寫一次；冪等）
+      │                ⑤ super-admin 使用者（僅 SEED_TENANT，預設 default；僅當不存在時建立）
       ▼
 pnpm dev
 ```
@@ -282,4 +283,8 @@ pnpm --filter @b2b-system/api cli:reset-super-admin --email admin@example.com
 - [ ] `admin` 的權限集合 = `ROLE_SEED` 中宣告的 24 筆
 - [ ] 恰有一位使用者持有 `super-admin`
 - [ ] 連續執行 `db:seed` 兩次，所有表的筆數不變
+- [ ] 權限依賴樹多出鍵的角色各有一筆 `role.permissionsImplied`（預設角色只有 auditor：`file:read ⇒ file:access`），重跑不重複
 - [ ] `GET /auth/profile`（以 super-admin 登入）回傳的 `permissions` 長度 = 25
+
+> seed 寫入 `user_roles`、`role_permissions` 時，trigger 在同一個交易裡同步 `relation_tuples`（[`../architecture/backend/02-database.md`](../architecture/backend/02-database.md) §2.10），
+> 權限解析讀的是後者；super-admin 角色建立時也會自動補上 `tenant:self#superAdmin` 的邊。
