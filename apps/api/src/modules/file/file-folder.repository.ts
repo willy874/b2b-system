@@ -13,6 +13,7 @@ import {
   userRoles,
   users,
 } from '@/db/schema';
+import { ALL_PERMISSION_KEYS, permissionClosure } from '@/db/seeds/permissions';
 import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
 
 import type { FolderNode } from './file-access.context';
@@ -23,6 +24,11 @@ import type { FolderNode } from './file-access.context';
  * 資料夾的寫入不頻繁，整棵樹共用一把鎖就夠了。
  */
 const FOLDER_TREE_LOCK_KEY = 'file_folders_tree';
+
+/** 閉包含 `file:access` 的權限鍵：持有任一個就能進檔案管理器。 */
+const FILE_MANAGER_KEYS = ALL_PERMISSION_KEYS.filter((key) =>
+  permissionClosure([key]).has('file:access'),
+);
 
 @Injectable()
 export class FileFolderRepository {
@@ -186,8 +192,9 @@ export class FileFolderRepository {
   }
 
   /**
-   * 能進檔案管理器的使用者（持有 `file:access` 或 `file:read` 的角色，或 super-admin）：
-   * 啟動時補建個人資料夾用。與權限解析（PermissionRepository）同樣只看未刪除的角色。
+   * 能進檔案管理器的使用者（持有「閉包含 `file:access`」的權限鍵的角色，或 super-admin）：
+   * 啟動時補建個人資料夾用。與權限解析同樣只看未刪除的角色。
+   * 權限依賴樹之後，`file:create`／`file:update`… 都帶來 `file:access`（docs/rbac/02-permission-catalog.md §9）。
    */
   async findFileManagerUserIds(): Promise<string[]> {
     const rows = await this.db
@@ -200,10 +207,7 @@ export class FileFolderRepository {
       .where(
         and(
           isNull(users.deletedAt),
-          or(
-            eq(roles.slug, SUPER_ADMIN_SLUG),
-            inArray(permissions.key, ['file:access', 'file:read']),
-          ),
+          or(eq(roles.slug, SUPER_ADMIN_SLUG), inArray(permissions.key, FILE_MANAGER_KEYS)),
         ),
       );
     return rows.map((row) => row.id);

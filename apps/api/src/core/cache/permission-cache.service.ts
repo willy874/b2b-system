@@ -8,8 +8,14 @@ import { currentTenant } from '../tenant';
 import { InvalidationTracker } from './invalidation-tracker';
 
 export interface PermissionSet {
+  /** 持有的權限鍵；由關係圖解析時含權限依賴樹的閉包（docs/rbac/02-permission-catalog.md §9）。 */
   permissions: Set<PermissionKey>;
   isSuperAdmin: boolean;
+  /**
+   * 關係圖的主體閉包（本人、`user:*`、`role:<id>#holder`…）：解析資源授權時沿用，不必再查一次。
+   * 由舊的解析產生時沒有。
+   */
+  subjects?: readonly string[];
 }
 
 interface Entry {

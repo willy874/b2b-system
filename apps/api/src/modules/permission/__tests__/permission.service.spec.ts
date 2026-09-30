@@ -1,21 +1,42 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/common/types';
-import type { AuthzService, AuthzShadow } from '@/core/authz';
+import type { AuthzService, AuthzShadow, TenantPermissions } from '@/core/authz';
 import type { PermissionCacheService } from '@/core/cache';
+import { permissionClosure } from '@/db/seeds/permissions';
 
 import type { PermissionRepository } from '../permission.repository';
 import { PermissionService } from '../permission.service';
 
-/** 影子比對另有整合測試；這裡只測舊的解析與業務規則。 */
+/** 影子比對另有整合測試；這裡只測業務規則。 */
 const SHADOW_OFF = { enabled: false } as AuthzShadow;
+
+/** 假的關係圖：每個人的明確鍵由 `keysOf` 決定，解析結果是它的依賴閉包。 */
+function fakeAuthz(keysOf: (userId: string) => { keys: PermissionKey[]; isSuperAdmin: boolean }) {
+  return {
+    tenantPermissionsOf: vi.fn(async (ids: readonly string[]) => {
+      return new Map<string, TenantPermissions>(
+        ids.map((id) => {
+          const { keys, isSuperAdmin } = keysOf(id);
+          return [
+            id,
+            {
+              explicit: new Set(keys),
+              effective: permissionClosure(keys),
+              isSuperAdmin,
+              subjects: [`user:${id}`],
+            },
+          ];
+        }),
+      );
+    }),
+  };
+}
 
 const ALL_KEYS = ['user:read', 'user:assignRole', 'system:update'] as PermissionKey[];
 
 function createService(actor: { keys: PermissionKey[]; isSuperAdmin: boolean }) {
   const repo = {
-    findPermissionKeysByUser: vi.fn().mockResolvedValue(actor.keys),
-    isSuperAdmin: vi.fn().mockResolvedValue(actor.isSuperAdmin),
     findAllPermissionKeys: vi.fn().mockResolvedValue(ALL_KEYS),
     findPermissionKeysByRoles: vi.fn().mockResolvedValue([]),
     includesSuperAdminRole: vi.fn().mockResolvedValue(false),
@@ -24,7 +45,7 @@ function createService(actor: { keys: PermissionKey[]; isSuperAdmin: boolean }) 
   const service = new PermissionService(
     repo as unknown as PermissionRepository,
     cache as unknown as PermissionCacheService,
-    {} as AuthzService,
+    fakeAuthz(() => actor) as unknown as AuthzService,
     SHADOW_OFF,
   );
   return { service, repo };
@@ -80,14 +101,10 @@ describe('PermissionService.assertRolesAssignable（docs/architecture/backend/05
 });
 
 function createBatchService(cached: Record<string, { keys: PermissionKey[] }> = {}) {
-  const repo = {
-    findPermissionKeysByUsers: vi.fn(async (ids: readonly string[]) =>
-      ids.includes('u1') ? [{ userId: 'u1', key: 'user:read' as PermissionKey }] : [],
-    ),
-    findSuperAdminUserIds: vi.fn(async (ids: readonly string[]) =>
-      ids.filter((id) => id === 'root'),
-    ),
-  };
+  const authz = fakeAuthz((id) => ({
+    keys: id === 'u1' ? ['user:read'] : [],
+    isSuperAdmin: id === 'root',
+  }));
   const cache = {
     get: vi.fn((id: string) =>
       cached[id] ? { permissions: new Set(cached[id].keys), isSuperAdmin: false } : undefined,
@@ -96,57 +113,73 @@ function createBatchService(cached: Record<string, { keys: PermissionKey[] }> = 
     ticket: vi.fn(() => 0),
   };
   const service = new PermissionService(
-    repo as unknown as PermissionRepository,
+    {} as PermissionRepository,
     cache as unknown as PermissionCacheService,
-    {} as AuthzService,
+    authz as unknown as AuthzService,
     SHADOW_OFF,
   );
-  return { service, repo, cache };
+  return { service, authz, cache };
 }
 
 describe('PermissionService.getPermissionSets（批次解析）', () => {
-  it('多人只查一次：每人一個集合，沒有角色的人是空集合，super-admin 有標記', async () => {
-    const { service, repo } = createBatchService();
+  it('多人一次解析：每人一個集合，沒有角色的人是空集合，super-admin 有標記', async () => {
+    const { service, authz } = createBatchService();
 
     const sets = await service.getPermissionSets(['u1', 'u2', 'root', 'u1']);
 
-    expect(repo.findPermissionKeysByUsers).toHaveBeenCalledTimes(1);
-    expect(repo.findPermissionKeysByUsers).toHaveBeenCalledWith(['u1', 'u2', 'root'], undefined);
+    expect(authz.tenantPermissionsOf).toHaveBeenCalledTimes(1);
+    expect(authz.tenantPermissionsOf.mock.calls[0]?.[0]).toEqual(['u1', 'u2', 'root']);
     expect([...sets.keys()]).toEqual(['u1', 'u2', 'root']);
     expect([...sets.get('u1')!.permissions]).toEqual(['user:read']);
-    expect(sets.get('u2')).toEqual({ permissions: new Set(), isSuperAdmin: false });
+    expect(sets.get('u2')?.permissions).toEqual(new Set());
     expect(sets.get('root')?.isSuperAdmin).toBe(true);
   });
 
+  it('權限是依賴樹的閉包：file:delete 帶來 file:update、file:read、file:access', async () => {
+    const authz = fakeAuthz(() => ({ keys: ['file:delete'], isSuperAdmin: false }));
+    const service = new PermissionService(
+      {} as PermissionRepository,
+      { get: vi.fn(), set: vi.fn(), ticket: vi.fn(() => 0) } as unknown as PermissionCacheService,
+      authz as unknown as AuthzService,
+      SHADOW_OFF,
+    );
+    const { permissions } = await service.getPermissionSet('u1');
+    expect([...permissions].toSorted()).toEqual([
+      'file:access',
+      'file:delete',
+      'file:read',
+      'file:update',
+    ]);
+  });
+
   it('快取命中的人不查 DB，查到的寫回快取', async () => {
-    const { service, repo, cache } = createBatchService({ u1: { keys: ['role:read'] } });
+    const { service, authz, cache } = createBatchService({ u1: { keys: ['role:read'] } });
 
     const sets = await service.getPermissionSets(['u1', 'u2']);
 
-    expect(repo.findPermissionKeysByUsers).toHaveBeenCalledWith(['u2'], undefined);
+    expect(authz.tenantPermissionsOf.mock.calls[0]?.[0]).toEqual(['u2']);
     expect([...sets.get('u1')!.permissions]).toEqual(['role:read']);
     expect(cache.set).toHaveBeenCalledTimes(1);
     expect(cache.set).toHaveBeenCalledWith(
       'u2',
-      { permissions: new Set(), isSuperAdmin: false },
+      expect.objectContaining({ permissions: new Set(), isSuperAdmin: false }),
       0,
     );
   });
 
   it('全部命中快取時不查 DB', async () => {
-    const { service, repo } = createBatchService({ u1: { keys: [] } });
+    const { service, authz } = createBatchService({ u1: { keys: [] } });
     await service.getPermissionSets(['u1']);
-    expect(repo.findPermissionKeysByUsers).not.toHaveBeenCalled();
-    expect(repo.findSuperAdminUserIds).not.toHaveBeenCalled();
+    expect(authz.tenantPermissionsOf).not.toHaveBeenCalled();
   });
 
   it('超過一批的上限就分批查詢', async () => {
-    const { service, repo } = createBatchService();
+    const { service, authz } = createBatchService();
     const ids = Array.from({ length: 1200 }, (_, index) => `x${index}`);
 
     const sets = await service.getPermissionSets(ids);
 
-    const batches = repo.findPermissionKeysByUsers.mock.calls.map(([batch]) => batch.length);
+    const batches = authz.tenantPermissionsOf.mock.calls.map(([batch]) => batch.length);
     expect(batches).toEqual([500, 500, 200]);
     expect(sets.size).toBe(1200);
   });
@@ -188,6 +221,13 @@ describe('PermissionService.assertNoSelfLockout（docs/architecture/backend/05-r
     await expect(service.assertNoSelfLockout('actor', 'r1', [], GUARDED)).rejects.toMatchObject({
       code: 'ROLE_SELF_LOCKOUT',
     });
+  });
+
+  it('剩下的鍵經依賴樹仍帶回被拿掉的權限 → 通過（role:delete 包含 role:update）', async () => {
+    const { service } = createLockoutService({ keys: ['role:update', 'role:delete'] });
+    await expect(
+      service.assertNoSelfLockout('actor', 'r1', ['role:delete'], ['role:update']),
+    ).resolves.toBeUndefined();
   });
 
   it('其他角色仍提供同樣的權限 → 通過', async () => {

@@ -7,6 +7,7 @@ import { PermissionCacheService } from '@/core/cache';
 import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 import type { PermissionRow } from '@/db/schema';
+import { permissionClosure } from '@/db/seeds/permissions';
 
 import { SUPER_ADMIN_SLUG } from './permission.constants';
 import { PermissionRepository } from './permission.repository';
@@ -34,49 +35,10 @@ export class PermissionService {
 
     // 查詢期間若被失效（撤銷權限的交易剛提交），讀到的可能是舊值：不寫回快取
     const ticket = this.cache.ticket();
-    const value = this.shadow.enabled
-      ? await this.authz.readConsistently(async (tx) => {
-          const legacy = await this.loadLegacy(userId, tx);
-          await this.compareWithGraph(userId, legacy, tx);
-          return legacy;
-        })
-      : await this.loadLegacy(userId);
+    const loaded = await this.loadBatch([userId]);
+    const value = loaded.get(userId) as PermissionSet;
     this.cache.set(userId, value, ticket);
     return value;
-  }
-
-  private async loadLegacy(userId: string, db?: DbOrTx): Promise<PermissionSet> {
-    // 同一個交易的查詢依序執行；交易外可以並行
-    if (db) {
-      const keys = await this.repo.findPermissionKeysByUser(userId, db);
-      const isSuperAdmin = await this.repo.isSuperAdmin(userId, db);
-      return { permissions: new Set(keys), isSuperAdmin };
-    }
-    const [keys, isSuperAdmin] = await Promise.all([
-      this.repo.findPermissionKeysByUser(userId),
-      this.repo.isSuperAdmin(userId),
-    ]);
-    return { permissions: new Set(keys), isSuperAdmin };
-  }
-
-  /**
-   * G1 影子比對：以關係圖（不含依賴樹）解析同一個人，應該與舊的解析完全一致
-   * （docs/adr/0024-relationship-based-access-control.md）。不一致時依 `AUTHZ_SHADOW` 記錄或丟錯。
-   */
-  private async compareWithGraph(userId: string, legacy: PermissionSet, tx: DbOrTx): Promise<void> {
-    const engine = await this.authz.tenantPermissions(userId, { withDependencies: false, tx });
-    const keys = setDiff(legacy.permissions, engine.explicit);
-    const superAdmin = legacy.isSuperAdmin !== engine.isSuperAdmin;
-    this.shadow.report(
-      'permissionSet',
-      keys || superAdmin
-        ? {
-            userId,
-            keys,
-            isSuperAdmin: { legacy: legacy.isSuperAdmin, engine: engine.isSuperAdmin },
-          }
-        : null,
-    );
   }
 
   /**
@@ -107,22 +69,40 @@ export class PermissionService {
     return result;
   }
 
-  /** 一批人的權限；影子比對開啟時在一致讀取的交易裡逐人與關係圖比較。 */
+  /**
+   * 一批人的權限：由關係圖解析，含權限依賴樹的閉包（docs/adr/0024-relationship-based-access-control.md G2）。
+   * 影子比對開啟時，在一致讀取的交易裡與舊的解析（套上同一個閉包）比較。
+   */
   private loadBatch(batch: readonly string[]): Promise<Map<string, PermissionSet>> {
-    if (!this.shadow.enabled) return this.loadLegacyBatch(batch);
+    if (!this.shadow.enabled) return this.loadFromGraph(batch);
     return this.authz.readConsistently(async (tx) => {
-      const sets = await this.loadLegacyBatch(batch, tx);
-      for (const [id, set] of sets) {
-        // oxlint-disable-next-line no-await-in-loop -- 同一個交易的查詢依序執行
-        await this.compareWithGraph(id, set, tx);
-      }
+      const sets = await this.loadFromGraph(batch, tx);
+      const legacy = await this.loadLegacyBatch(batch, tx);
+      for (const [id, set] of sets) this.compareWithLegacy(id, set, legacy.get(id));
       return sets;
     });
   }
 
+  private async loadFromGraph(
+    batch: readonly string[],
+    tx?: DbOrTx,
+  ): Promise<Map<string, PermissionSet>> {
+    const resolved = await this.authz.tenantPermissionsOf(batch, { withDependencies: true, tx });
+    return new Map(
+      [...resolved].map(([id, { effective, isSuperAdmin, subjects }]) => [
+        id,
+        { permissions: effective, isSuperAdmin, subjects },
+      ]),
+    );
+  }
+
+  /**
+   * 舊的解析（`user_roles` ⋈ `role_permissions`）：G2 期間只給影子比對用，G3 刪除。
+   * 同一個交易的查詢依序執行。
+   */
   private async loadLegacyBatch(
     batch: readonly string[],
-    db?: DbOrTx,
+    db: DbOrTx,
   ): Promise<Map<string, PermissionSet>> {
     const rows = await this.repo.findPermissionKeysByUsers(batch, db);
     const superAdminIds = new Set(await this.repo.findSuperAdminUserIds(batch, db));
@@ -131,8 +111,29 @@ export class PermissionService {
     return new Map(
       [...keysByUser].map(([id, keys]) => [
         id,
-        { permissions: keys, isSuperAdmin: superAdminIds.has(id) },
+        { permissions: permissionClosure(keys), isSuperAdmin: superAdminIds.has(id) },
       ]),
+    );
+  }
+
+  /** 影子比對：兩邊都套上依賴樹的閉包之後應該一致；不一致時依 `AUTHZ_SHADOW` 記錄或丟錯。 */
+  private compareWithLegacy(
+    userId: string,
+    engine: PermissionSet,
+    legacy: PermissionSet | undefined,
+  ): void {
+    const expected = legacy ?? { permissions: new Set<PermissionKey>(), isSuperAdmin: false };
+    const keys = setDiff(expected.permissions, engine.permissions);
+    const superAdmin = expected.isSuperAdmin !== engine.isSuperAdmin;
+    this.shadow.report(
+      'permissionSet',
+      keys || superAdmin
+        ? {
+            userId,
+            keys,
+            isSuperAdmin: { legacy: expected.isSuperAdmin, engine: engine.isSuperAdmin },
+          }
+        : null,
     );
   }
 
@@ -189,9 +190,10 @@ export class PermissionService {
     if (held.length === 0) return;
     if (!(await this.repo.userHasRole(actorId, roleId))) return;
 
-    const remaining = new Set<string>([
+    // 剩下的鍵也要套上依賴樹的閉包：拿掉 file:update 時，file:delete 仍會帶回它
+    const remaining = permissionClosure([
       ...(await this.repo.findPermissionKeysByUserExcludingRole(actorId, roleId)),
-      ...nextRoleKeys,
+      ...(nextRoleKeys as PermissionKey[]),
     ]);
     const lost = held.filter((key) => !remaining.has(key));
     if (lost.length) throw new AppException('ROLE_SELF_LOCKOUT', { lost });

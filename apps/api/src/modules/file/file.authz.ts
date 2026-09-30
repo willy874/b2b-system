@@ -1,7 +1,5 @@
-import { and, computed, defineType, direct, from, union } from '@/core/authz';
-import type { TypeDefinition } from '@/core/authz';
-
-import type { FileAction } from './file-access.context';
+import { and, computed, defineType, direct, from, subjectKey, union } from '@/core/authz';
+import type { ObjectRef, TypeDefinition } from '@/core/authz';
 
 /**
  * 檔案管理器在關係圖上的型別（docs/rbac/07-resource-grants.md、docs/features/permission-graph.md §2）。
@@ -25,15 +23,6 @@ const LOCATION_ACTIONS = {
   can_delete: 'file:delete',
   can_share: 'file:share',
 } as const;
-
-/** 檔案動作 ↔ 位置上的關係。 */
-export const FILE_ACTION_RELATION = {
-  read: 'can_read',
-  create: 'can_create',
-  update: 'can_update',
-  delete: 'can_delete',
-  share: 'can_share',
-} as const satisfies Record<FileAction, keyof typeof LOCATION_ACTIONS>;
 
 /** 項目本身（檔案、資料夾）的改名／移動與刪除。 */
 const ITEM_RELATIONS = {
@@ -84,3 +73,19 @@ export const FILE_TYPE: TypeDefinition = defineType('file', {
 });
 
 export const FILE_AUTHZ_TYPES = [FILE_ROOT_TYPE, FILE_FOLDER_TYPE, FILE_TYPE] as const;
+
+const ROOT_KEY = subjectKey(FILE_ROOT_OBJECT.type, FILE_ROOT_OBJECT.id);
+
+/** 位置（資料夾 id；null 是根目錄）在圖上的物件。 */
+export function locationObject(location: string | null): ObjectRef {
+  return location === null ? FILE_ROOT_OBJECT : { type: 'fileFolder', id: location };
+}
+
+/** 項目（檔案或資料夾）本身的臨時邊：所在位置與建立者。 */
+export function itemEdges(
+  location: string | null,
+  createdBy: string | null,
+): Record<string, string[]> {
+  const parent = location === null ? ROOT_KEY : subjectKey('fileFolder', location);
+  return { parent: [parent], owner: createdBy ? [subjectKey('user', createdBy)] : [] };
+}

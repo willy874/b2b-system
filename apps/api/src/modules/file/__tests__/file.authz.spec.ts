@@ -13,7 +13,8 @@ import {
 import type { TupleEntry } from '@/core/authz';
 
 import type { FolderNode } from '../file-access.context';
-import { folderEdgeProvider, itemEdges, locationObject } from '../file-access.snapshot';
+import { folderEdgeProvider } from '../file-access.snapshot';
+import { itemEdges, locationObject } from '../file.authz';
 import { FILE_AUTHZ_TYPES } from '../file.authz';
 
 const ALICE = 'alice';

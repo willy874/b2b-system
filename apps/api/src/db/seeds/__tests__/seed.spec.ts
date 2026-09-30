@@ -1,7 +1,7 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { permissions, rolePermissions, roles, userRoles, users } from '@/db/schema';
+import { auditLogs, permissions, rolePermissions, roles, userRoles, users } from '@/db/schema';
 
 import type { TestDatabase } from '../../../../test/db';
 import { createTestDatabase, truncateAll } from '../../../../test/db';
@@ -110,5 +110,18 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
     // 對應 GET /auth/profile 的展開行為（PermissionService.getEffectivePermissionKeys）
     const all = await db.select({ key: permissions.key }).from(permissions);
     expect(all).toHaveLength(29);
+  });
+
+  it('⑨ 權限依賴樹多出鍵的角色寫一筆 role.permissionsImplied；重跑不重複（§9.3）', async () => {
+    const implied = async () =>
+      db.select().from(auditLogs).where(eq(auditLogs.action, 'role.permissionsImplied'));
+    const [auditor] = await db.select().from(roles).where(eq(roles.slug, 'auditor'));
+    const rows = await implied();
+    // 預設角色只有 auditor 多出鍵：file:read ⇒ file:access
+    expect(rows.map((row) => [row.resourceId, row.metadata])).toEqual([
+      [auditor!.id, expect.objectContaining({ implied: ['file:access'] })],
+    ]);
+    await runSeed(db as never);
+    expect(await implied()).toHaveLength(1);
   });
 });

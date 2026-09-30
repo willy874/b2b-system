@@ -241,14 +241,15 @@ export class FileSystemFolderService
   private async eligible(userIds: readonly string[]): Promise<string[]> {
     // 一次批次解析：角色權限變更時受影響的可能是上千人
     const sets = await this.permissions.getPermissionSets(userIds);
-    return [...sets]
-      .filter(
-        ([, { permissions, isSuperAdmin }]) =>
-          isSuperAdmin ||
-          permissions.has(PERMISSION.FILE_ACCESS) ||
-          permissions.has(PERMISSION.FILE_READ),
-      )
-      .map(([id]) => id);
+    return (
+      [...sets]
+        // 權限集合是依賴樹的閉包：任何 file:* 都帶來 file:access（docs/rbac/02-permission-catalog.md §9）
+        .filter(
+          ([, { permissions, isSuperAdmin }]) =>
+            isSuperAdmin || permissions.has(PERMISSION.FILE_ACCESS),
+        )
+        .map(([id]) => id)
+    );
   }
 
   /** 找到就用；根目錄已有同名的一般資料夾就把它標成系統資料夾；都沒有就建立。 */

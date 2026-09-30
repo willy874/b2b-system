@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, notInArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, ne, notInArray } from 'drizzle-orm';
 
 import type { ScriptDatabase } from '../client';
 import {
@@ -7,9 +7,9 @@ import {
   loadScriptEnv,
   seedTenantCode,
 } from '../client';
-import { permissions, rolePermissions, roles } from '../schema';
+import { auditLogs, permissions, rolePermissions, roles } from '../schema';
 import type { PermissionKey } from './permissions';
-import { PERMISSION_SEED } from './permissions';
+import { PERMISSION_SEED, permissionClosure } from './permissions';
 import { seedPlatformAdmin } from './platform-admin';
 import { ROLE_SEED } from './roles';
 import { seedSuperAdmin } from './super-admin';
@@ -97,9 +97,60 @@ export async function grantPermissions(
     .onConflictDoNothing();
 }
 
+/**
+ * ④ 權限依賴樹讓角色實際持有的鍵多於明確授予的（docs/rbac/02-permission-catalog.md §9.3）：
+ * 每個多出鍵的角色寫一筆稽核 `role.permissionsImplied`，不靜默改變。冪等：同一個角色、同一組多出的鍵只寫一次。
+ */
+export async function recordImpliedPermissions(db: ScriptDatabase): Promise<void> {
+  const rows = await db
+    .select({ roleId: roles.id, roleName: roles.name, key: permissions.key })
+    .from(roles)
+    .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+    .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+    .where(and(isNull(roles.deletedAt), ne(roles.slug, 'super-admin')));
+  const byRole = new Map<string, { name: string; keys: PermissionKey[] }>();
+  for (const row of rows) {
+    const entry = byRole.get(row.roleId) ?? { name: row.roleName, keys: [] };
+    entry.keys.push(row.key as PermissionKey);
+    byRole.set(row.roleId, entry);
+  }
+
+  for (const [roleId, { name, keys }] of byRole) {
+    const explicit = new Set(keys);
+    const implied = [...permissionClosure(keys)].filter((key) => !explicit.has(key)).toSorted();
+    if (implied.length === 0) continue;
+    // oxlint-disable-next-line no-await-in-loop -- seed 腳本，角色數量少，依序執行
+    const [last] = await db
+      .select({ metadata: auditLogs.metadata })
+      .from(auditLogs)
+      .where(and(eq(auditLogs.action, 'role.permissionsImplied'), eq(auditLogs.resourceId, roleId)))
+      .orderBy(desc(auditLogs.occurredAt))
+      .limit(1);
+    const previous = (last?.metadata as { implied?: string[] } | null)?.implied;
+    if (previous && previous.join(',') === implied.join(',')) continue;
+    // oxlint-disable-next-line no-await-in-loop -- 同上
+    await db.insert(auditLogs).values({
+      action: 'role.permissionsImplied',
+      actorId: null,
+      actorEmail: 'system',
+      resourceType: 'role',
+      resourceId: roleId,
+      resourceName: name,
+      result: 'success',
+      metadata: {
+        reason: 'permission dependency tree',
+        explicit: [...explicit].toSorted(),
+        implied,
+      },
+    });
+    console.info(`角色 ${name} 經權限依賴樹多出：${implied.join(', ')}`);
+  }
+}
+
 export async function runSeed(db: ScriptDatabase): Promise<void> {
   await seedPermissions(db);
   await seedRoles(db);
+  await recordImpliedPermissions(db);
   await seedSuperAdmin(db);
 }
 
@@ -107,6 +158,7 @@ export async function runSeed(db: ScriptDatabase): Promise<void> {
 export async function seedCatalog(db: ScriptDatabase): Promise<void> {
   await seedPermissions(db);
   await seedRoles(db);
+  await recordImpliedPermissions(db);
 }
 
 /**

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { ALL_PERMISSION_KEYS } from '@/db/seeds/permissions';
+import { ALL_PERMISSION_KEYS, isPermissionKey, permissionClosure } from '@/db/seeds/permissions';
 import type { PermissionKey } from '@/db/seeds/permissions';
 
 import type { DbOrTx } from '../database';
@@ -42,23 +42,48 @@ export class AuthzService {
   ) {}
 
   async tenantPermissions(userId: string, options: ResolveOptions): Promise<TenantPermissions> {
-    const now = options.now ?? new Date();
-    const subjects = await this.repo.subjectClosure(userId, now, options.tx);
-    const tuples = await this.repo.tuplesForSubjects(TENANT_OBJECT.type, subjects, now, options.tx);
-    const checker = this.checker(subjects, tuples, [], options.withDependencies);
+    const result = await this.tenantPermissionsOf([userId], options);
+    return result.get(userId) as TenantPermissions;
+  }
 
-    const explicit = new Set<PermissionKey>();
-    for (const tuple of tuples) {
-      if ((ALL_PERMISSION_KEYS as string[]).includes(tuple.relation)) {
-        explicit.add(tuple.relation as PermissionKey);
+  /**
+   * 多人一次解析：主體閉包一條查詢、租戶節點上的 tuple 一條查詢，再逐人在記憶體判斷。
+   * 回傳的 Map 含每個傳入的 id。
+   */
+  async tenantPermissionsOf(
+    userIds: readonly string[],
+    options: ResolveOptions,
+  ): Promise<Map<string, TenantPermissions>> {
+    const now = options.now ?? new Date();
+    const closures = await this.repo.subjectClosures(userIds, now, options.tx);
+    const allSubjects = [...new Set([...closures.values()].flat())];
+    const tuples = await this.repo.tuplesForSubjects(
+      TENANT_OBJECT.type,
+      allSubjects,
+      now,
+      options.tx,
+    );
+    const model = this.registry.model(options.withDependencies);
+
+    const result = new Map<string, TenantPermissions>();
+    for (const [userId, subjects] of closures) {
+      const own = new Set(subjects);
+      const mine = tuples.filter((tuple) => own.has(tuple.subject));
+      const checker = createChecker(model, createSnapshot(subjects, mine, [tenantEdgeProvider]));
+      const explicit = new Set<PermissionKey>();
+      for (const tuple of mine) {
+        if (isPermissionKey(tuple.relation)) explicit.add(tuple.relation);
       }
+      const isSuperAdmin = mine.some((tuple) => tuple.relation === SUPER_ADMIN_RELATION);
+      // super-admin 讓每個權限關係都成立：這裡不展開成全集（呼叫端看 isSuperAdmin），與舊的 PermissionSet 形狀一致
+      const effective = isSuperAdmin
+        ? options.withDependencies
+          ? permissionClosure(explicit)
+          : new Set(explicit)
+        : new Set(ALL_PERMISSION_KEYS.filter((key) => checker.check(TENANT_OBJECT, key)));
+      result.set(userId, { explicit, effective, isSuperAdmin, subjects });
     }
-    const isSuperAdmin = tuples.some((tuple) => tuple.relation === SUPER_ADMIN_RELATION);
-    // super-admin 讓每個權限關係都成立；這裡不展開，讓結果與舊的 PermissionSet 形狀一致
-    const effective = isSuperAdmin
-      ? new Set(explicit)
-      : new Set(ALL_PERMISSION_KEYS.filter((key) => checker.check(TENANT_OBJECT, key)));
-    return { explicit, effective, isSuperAdmin, subjects };
+    return result;
   }
 
   /**

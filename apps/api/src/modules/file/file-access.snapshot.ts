@@ -29,17 +29,3 @@ export function folderEdgeProvider(folders: ReadonlyMap<string, FolderNode>): Ed
     }
   };
 }
-
-/** 位置（資料夾 id；null 是根目錄）在圖上的物件。 */
-export function locationObject(location: string | null): { type: string; id: string } {
-  return location === null ? FILE_ROOT_OBJECT : { type: 'fileFolder', id: location };
-}
-
-/** 項目（檔案或資料夾）本身的臨時邊：所在位置與建立者。 */
-export function itemEdges(
-  location: string | null,
-  createdBy: string | null,
-): Record<string, string[]> {
-  const parent = location === null ? ROOT_KEY : subjectKey('fileFolder', location);
-  return { parent: [parent], owner: createdBy ? [subjectKey('user', createdBy)] : [] };
-}

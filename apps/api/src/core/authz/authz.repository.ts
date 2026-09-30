@@ -24,18 +24,30 @@ export class AuthzRepository {
   constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
   /**
-   * 使用者的主體閉包：本人、`user:*`，以及沿著「成員」類關係（目前只有 `role#holder`）走得到的使用者集合。
+   * 每位使用者的主體閉包：本人、`user:*`，以及沿著「成員」類關係（目前只有 `role#holder`）走得到的使用者集合。
    * 已刪除（軟刪除）的角色不算，比照舊的解析（docs/architecture/backend/05-rbac.md §4）。
+   * 回傳的 Map 含每個傳入的 id；多人一次一條查詢。
    */
-  async subjectClosure(userId: string, now: Date, tx?: DbOrTx): Promise<SubjectKey[]> {
+  async subjectClosures(
+    userIds: readonly string[],
+    now: Date,
+    tx?: DbOrTx,
+  ): Promise<Map<string, SubjectKey[]>> {
+    const result = new Map<string, SubjectKey[]>(userIds.map((id) => [id, []]));
+    if (userIds.length === 0) return result;
     const db = tx ?? this.db;
-    const rows = await db.execute<{ type: string; id: string; rel: string }>(sql`
-      WITH RECURSIVE closure(type, id, rel, depth) AS (
-        SELECT 'user'::text, ${userId}::text, ''::text, 0
+    const seeds = sql.join(
+      userIds.flatMap((id) => [
+        sql`(${id}::text, 'user'::text, ${id}::text, ''::text, 0)`,
+        sql`(${id}::text, 'user'::text, '*'::text, ''::text, 0)`,
+      ]),
+      sql`, `,
+    );
+    const rows = await db.execute<{ root: string; type: string; id: string; rel: string }>(sql`
+      WITH RECURSIVE closure(root, type, id, rel, depth) AS (
+        SELECT * FROM (VALUES ${seeds}) AS seed(root, type, id, rel, depth)
         UNION
-        SELECT 'user'::text, '*'::text, ''::text, 0
-        UNION
-        SELECT t.object_type, t.object_id, t.relation, c.depth + 1
+        SELECT c.root, t.object_type, t.object_id, t.relation, c.depth + 1
         FROM ${relationTuples} t
         JOIN closure c
           ON t.subject_type = c.type AND t.subject_id = c.id AND t.subject_relation = c.rel
@@ -44,9 +56,10 @@ export class AuthzRepository {
           AND (t.expires_at IS NULL OR t.expires_at > ${now.toISOString()}::timestamptz)
           AND EXISTS (SELECT 1 FROM roles r WHERE r.id::text = t.object_id AND r.deleted_at IS NULL)
       )
-      SELECT DISTINCT type, id, rel FROM closure
+      SELECT DISTINCT root, type, id, rel FROM closure
     `);
-    return rows.map((row) => subjectKey(row.type, row.id, row.rel));
+    for (const row of rows) result.get(row.root)?.push(subjectKey(row.type, row.id, row.rel));
+    return result;
   }
 
   /** 這些主體在某種物件上所有未過期的直接 tuple（例：操作者在租戶節點上的權限鍵、在資料夾上的等級）。 */

@@ -1,13 +1,13 @@
 import type { PermissionKey } from '@/common/types';
 import { PERMISSION } from '@/common/types';
+import { TENANT_OBJECT } from '@/core/authz';
+import type { AuthzChecker } from '@/core/authz';
 import type { FileFolderKind, GrantLevel } from '@/db/schema';
-import {
-  assignableLevels,
-  levelAllows,
-  missingActions,
-} from '@/modules/resource-grant/resource-grant.levels';
+import { assignableLevels, missingActions } from '@/modules/resource-grant/resource-grant.levels';
 import type { LevelActions } from '@/modules/resource-grant/resource-grant.levels';
 import type { HierarchyNode } from '@/modules/resource-grant/resource-grant.resolver';
+
+import { itemEdges, locationObject } from './file.authz';
 
 /** 檔案動作；與全域權限鍵 `file:<動作>` 一一對應（docs/rbac/07-resource-grants.md §2）。 */
 export const FILE_ACTIONS = ['read', 'create', 'update', 'delete', 'share'] as const;
@@ -21,11 +21,21 @@ export const FILE_ACTION_PERMISSION = {
   share: PERMISSION.FILE_SHARE,
 } as const satisfies Record<FileAction, PermissionKey>;
 
+/** 檔案動作 ↔ 位置（資料夾、根目錄）上的關係（file.authz.ts）。 */
+export const FILE_ACTION_RELATION = {
+  read: 'can_read',
+  create: 'can_create',
+  update: 'can_update',
+  delete: 'can_delete',
+  share: 'can_share',
+} as const satisfies Record<FileAction, string>;
+
 /**
- * 等級蘊含的動作。`contributor` 對「自己建立的」項目還能改名、移動、刪除——那是擁有者規則（§4），
- * 不是等級本身的動作，所以不列在這裡。
+ * 舊的解析用的「等級 → 動作」對照：G2 起正式判斷改由關係圖的靜態蘊含算出，這份只給影子比對用
+ * （docs/adr/0024-relationship-based-access-control.md），G3 刪除。
+ * `contributor` 對「自己建立的」項目還能改名、移動、刪除——那是擁有者規則（§4），不是等級本身的動作。
  */
-export const LEVEL_ACTIONS = {
+export const LEGACY_LEVEL_ACTIONS = {
   viewer: ['read'],
   contributor: ['read', 'create'],
   editor: ['read', 'create', 'update', 'delete'],
@@ -60,45 +70,41 @@ export type FileLocation = string | null;
 
 /**
  * 一個操作者在一次請求內的檔案存取判斷（docs/rbac/07-resource-grants.md §3、§4）。
- * 純計算：全域動作、整棵資料夾結構與已解析的等級都在建構時給定，方法不查資料庫。
+ * 判斷交給關係圖（`file.authz.ts` 的模型）；資料在建構前已載入，方法不查資料庫。
  */
 export class FileAccessContext {
   constructor(
     readonly actorId: string,
-    private readonly globalActions: ReadonlySet<FileAction>,
     readonly folders: ReadonlyMap<string, FolderNode>,
-    private readonly levelOf: (folderId: string) => GrantLevel | null,
+    private readonly checker: AuthzChecker,
+    /** 每個等級蘊含的動作（由模型的靜態蘊含算出，反提權用）。 */
+    private readonly levelActions: LevelActions<FileAction>,
   ) {}
 
   /** 全域權限鍵就能做（不受資料夾授權影響，含中斷繼承的資料夾）。 */
   hasGlobal(action: FileAction): boolean {
-    return this.globalActions.has(action);
-  }
-
-  /** 資料夾授權的有效等級；根目錄、不存在的資料夾是 null。 */
-  levelAt(location: FileLocation): GrantLevel | null {
-    return location === null ? null : this.levelOf(location);
+    return this.checker.check(TENANT_OBJECT, FILE_ACTION_PERMISSION[action]);
   }
 
   /** `has(u, 動作, 位置)`：全域有該權限鍵，或位置的有效等級蘊含該動作。根目錄只看全域。 */
   can(action: FileAction, location: FileLocation): boolean {
-    if (this.globalActions.has(action)) return true;
-    if (location === null || !this.folders.has(location)) return false;
-    return levelAllows<FileAction>(LEVEL_ACTIONS, this.levelOf(location), action);
+    return this.checker.check(locationObject(location), FILE_ACTION_RELATION[action]);
   }
 
   /**
    * 項目本身的改名／移動（`update`）或刪除（`delete`）：看它所在的位置；
-   * 本人建立的，只要還能在那個位置上傳也可以（擁有者規則）。
+   * 本人建立的，只要還能在那個位置上傳也可以（擁有者規則，規則 A）。
    */
   canModify(
     action: 'update' | 'delete',
     location: FileLocation,
     createdBy: string | null,
   ): boolean {
-    return (
-      this.can(action, location) || (createdBy === this.actorId && this.can('create', location))
-    );
+    // 結果只取決於「所在位置 × 建立者」：以它當臨時物件的 id，同一個組合只算一次
+    const item = { type: 'file', id: `${location ?? 'root'}|${createdBy ?? ''}` };
+    return this.checker
+      .withEdges(item, itemEdges(location, createdBy))
+      .check(item, action === 'update' ? 'can_rename' : 'can_remove');
   }
 
   fileCapabilities(file: { folderId: string | null; createdBy: string | null }): FileCapabilities {
@@ -136,7 +142,7 @@ export class FileAccessContext {
 
   /** 讀得到的資料夾；持有全域 `file:read` 時是 undefined（全部，含根目錄）。 */
   readableFolderIds(): string[] | undefined {
-    if (this.globalActions.has('read')) return undefined;
+    if (this.hasGlobal('read')) return undefined;
     return [...this.folders.keys()].filter((id) => this.can('read', id));
   }
 
@@ -144,14 +150,14 @@ export class FileAccessContext {
    * 反提權（§6.1）：授予、變更或移除等級 `levels` 的授權時，這些等級蘊含、而操作者在 `location` 沒有的動作。
    */
   missingActions(levels: readonly GrantLevel[], location: FileLocation): FileAction[] {
-    return missingActions<FileAction>(LEVEL_ACTIONS, levels, FILE_ACTIONS, (action) =>
+    return missingActions<FileAction>(this.levelActions, levels, FILE_ACTIONS, (action) =>
       this.can(action, location),
     );
   }
 
   /** 操作者在 `location` 授予得起的等級（前端的等級選單；後端仍會再檢查）。 */
   assignableLevels(location: FileLocation): GrantLevel[] {
-    return assignableLevels<FileAction>(LEVEL_ACTIONS, FILE_ACTIONS, (action) =>
+    return assignableLevels<FileAction>(this.levelActions, FILE_ACTIONS, (action) =>
       this.can(action, location),
     );
   }
