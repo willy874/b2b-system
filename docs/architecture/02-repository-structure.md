@@ -339,3 +339,5 @@ VITE_ENABLE_MOCK=false
 
 env 由 `core/config` 以 Zod schema 驗證，**缺少必要變數時啟動即失敗**，不容許
 執行到一半才發現。
+`NODE_ENV=production` 另外檢查：`JWT_SECRET`、`FILE_STORAGE_*` 不能是上面的範例值或低熵字串（含 `change-me`、不同字元少於 10 個），
+`MAIL_TRANSPORT` 必須是 `smtp`（`console` 會把啟用／重設連結寫進日誌），OIDC 與加密金鑰必填。

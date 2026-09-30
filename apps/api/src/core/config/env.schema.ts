@@ -290,9 +290,53 @@ export const EnvSchema = z.object({
   ),
 });
 
+/**
+ * `.env.example` 與文件裡出現過的範例值：複製範例檔直接上線時，任何人都能用公開的值偽造 token
+ * 或讀寫物件儲存（docs/issues/02-security.md SEC-10）。
+ */
+const EXAMPLE_SECRETS: ReadonlySet<string> = new Set([
+  'change-me-in-production',
+  'change-me-in-production-min-32-chars',
+  'test-secret-that-is-long-enough-32ch',
+  'b2b-system-dev',
+  'b2b-system-dev-secret',
+]);
+
+/** 看起來不是隨機產生的金鑰：範例值、含 change-me、或不同的字元太少（例：32 個 a）。 */
+export function isWeakSecret(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return (
+    EXAMPLE_SECRETS.has(normalized) ||
+    normalized.includes('change-me') ||
+    normalized.includes('changeme') ||
+    new Set(normalized).size < 10
+  );
+}
+
 /** production 不接受開發用的預設值：沒有金鑰就不能簽 ID token 與 IdP cookie。 */
 const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
   if (env.NODE_ENV !== 'production') return;
+  const secrets = {
+    JWT_SECRET: env.JWT_SECRET,
+    FILE_STORAGE_ACCESS_KEY_ID: env.FILE_STORAGE_ACCESS_KEY_ID,
+    FILE_STORAGE_SECRET_ACCESS_KEY: env.FILE_STORAGE_SECRET_ACCESS_KEY,
+  };
+  for (const [key, value] of Object.entries(secrets)) {
+    // access key id 不是祕密（常是短的識別字），只擋範例值
+    const weak =
+      key === 'FILE_STORAGE_ACCESS_KEY_ID' ? EXAMPLE_SECRETS.has(value) : isWeakSecret(value);
+    if (weak) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [key],
+        message: 'production 不能用範例值或低熵的字串（請以 openssl rand -base64 48 之類產生）',
+      });
+    }
+  }
+  if (env.MAIL_TRANSPORT !== 'smtp') {
+    // console 會把能登入的啟用／重設連結寫進日誌
+    ctx.addIssue({ code: 'custom', path: ['MAIL_TRANSPORT'], message: 'production 必須是 smtp' });
+  }
   if (!env.OIDC_JWKS) {
     ctx.addIssue({ code: 'custom', path: ['OIDC_JWKS'], message: 'production 必須設定簽章金鑰' });
   }
