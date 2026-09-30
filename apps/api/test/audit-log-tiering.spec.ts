@@ -200,6 +200,13 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
     });
   });
 
+  it('冷表也有 action 前綴查詢的索引（text_pattern_ops；docs/issues/01-performance.md PERF-17）', async () => {
+    const rows = await db.execute<{ indexdef: string }>(
+      sql`SELECT indexdef FROM pg_indexes WHERE indexname = 'audit_logs_archive_action_idx'`,
+    );
+    expect(rows[0]?.indexdef).toContain('action text_pattern_ops');
+  });
+
   describe('GET /audit-logs/:id', () => {
     it('熱表與冷表的紀錄都查得到，且含 changes', async () => {
       const [hot] = await db
