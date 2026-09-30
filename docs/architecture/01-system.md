@@ -42,8 +42,8 @@
                                  ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │ PostgreSQL 17                                                       │
-│   users · roles · permissions · user_roles · role_permissions       │
-│   resource_grants · relation_tuples（關係圖的邊）                   │
+│   users · roles · permissions                                       │
+│   relation_tuples（關係圖的邊：角色持有者、權限鍵、資料夾授權）     │
 │   refresh_tokens · audit_logs                                       │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -140,7 +140,7 @@ repository ✗──▶ service  （單向）
                      ├─ 系統角色保護檢查（is_system → 403）
                      ├─ 反提權檢查（若變更權限）
                      ├─ RoleRepository.update ＋ AuditService.record('role.update', diff)（交易內）
-                     ├─ PermissionService.invalidateUsers(holders)（交易後；holders 在交易前查出）
+                     ├─ PermissionService.permissionsChanged()（交易後；僅權限／持有者變更，整個租戶失效並廣播）
                      └─ DomainEventBus.publish('resource.changed')（→ 其他人的畫面即時更新）
         ◀── 200 { data: Role }
 
@@ -155,7 +155,7 @@ repository ✗──▶ service  （單向）
 
 | 層           | 機制                                                                                            | 最壞延遲                      |
 | ------------ | ----------------------------------------------------------------------------------------------- | ----------------------------- |
-| 後端授權判斷 | `PermissionCacheService`（in-memory，TTL 60s）＋ 角色/指派變更時 **主動失效**                   | 主動失效 < 1s；漏網情況 ≤ 60s |
+| 後端授權判斷 | `PermissionCacheService`（in-memory，TTL 60s）＋ 關係圖寫入後 **整個租戶主動失效**，經平台 DB 廣播到其他程序（`authz_revision`，[`backend/05-rbac.md`](./backend/05-rbac.md) §5.1） | 主動失效 < 1s；漏網情況 ≤ 60s |
 | Access Token | **不內嵌權限**（只有 `sub`、`jti`、`ver`、`tid`）→ 不會有 token 內的陳舊權限                           | 不適用                        |
 | 前端 UI      | 伺服器推 `resource.changed`（`userRole` / `role` / `rolePermission`）→ 依賴圖衍生失效 `PROFILE` → 重抓 `GET /auth/profile`；推播斷線時退回：登入後、window focus 時、每 5 分鐘重新取得 | 推播 < 1s；斷線時 ≤ 5 min |
 | 強制登出     | 使用者被停用或刪除 → `users.token_version` +1 → 推 `session.revoked` 並斷線；既存 access token 驗簽時因 `ver` 不符而失效 | 推播 < 1s；否則下一次請求 |
@@ -269,8 +269,8 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 **api 水平擴展（`replicas > 1`）要同時具備四件事**，缺一就會出錯，所以 compose 目前固定單一執行個體：
 
 1. Socket.io 跨節點廣播：`@socket.io/postgres-adapter`（[`backend/08-realtime.md`](./backend/08-realtime.md) §10.3）。
-2. 權限／使用者快取跨節點失效：同一條 `LISTEN/NOTIFY`（[`backend/05-rbac.md`](./backend/05-rbac.md) §5.2）。
-   否則某節點上被拿掉權限的人，最多還能用 60 秒。
+2. 權限／使用者快取跨節點失效：權限快取 **已完成**（平台 DB 的 `LISTEN/NOTIFY`，`core/broadcast`，[`backend/05-rbac.md`](./backend/05-rbac.md) §5.1）；
+   使用者快取（TTL 30 秒）尚未接上，否則某節點上被停用的人最多還能用 30 秒。
 3. 租戶登記的快取跨節點失效（停用、網域的變更）：同一條 `LISTEN/NOTIFY`；否則其他節點最多晚 `TENANT_CACHE_TTL` 秒
    （[`05-tenancy.md`](./05-tenancy.md) §7）。
 4. nginx 的 upstream 要能看到每個執行個體（`resolver 127.0.0.11` ＋ 變數化的 `proxy_pass`，或改用 LB）；

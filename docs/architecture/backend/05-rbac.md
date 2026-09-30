@@ -157,8 +157,7 @@ guard 因此注入 `PlatformAdminService`（查管理者的角色）與 `Platfor
 
 ## 4. `PermissionService`
 
-> **G2 起（[ADR-0024](../../adr/0024-relationship-based-access-control.md)）**：`getPermissionSet(s)` 不再查 `user_roles` ⋈ `role_permissions`，
-> 改由 `core/authz` 的 `AuthzService.tenantPermissionsOf()` 批次解析（主體閉包一條遞迴 CTE、租戶節點上的邊一條查詢，再在記憶體判斷），
+> **G2 起（[ADR-0024](../../adr/0024-relationship-based-access-control.md)）**：`getPermissionSet(s)` 由 `core/authz` 的 `AuthzService.tenantPermissionsOf()` 批次解析（主體閉包一條遞迴 CTE、租戶節點上的邊一條查詢，再在記憶體判斷），
 > `permissions` 是 **權限依賴樹的閉包**（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §9），並多帶 `subjects`（主體閉包，
 > 給 `FileAccessService` 解析資料夾授權時沿用）。下面的程式碼是介面與業務規則的形狀；反提權因為 actor 的集合已是閉包，
 > 只要比「明確鍵 ⊆ actor 閉包」；自我鎖定要比「剩下的鍵的閉包」。
@@ -220,7 +219,7 @@ export class PermissionService {
 
 ### 4.1 反提權與 super-admin 角色
 
-`super-admin` 是 **隱含全集**：它在 `role_permissions` 裡沒有任何列
+`super-admin` 是 **隱含全集**：它沒有任何權限鍵的邊，只有 `tenant:self#superAdmin@role:<id>#holder`
 （[`rbac/05-seed-and-bootstrap.md`](../../rbac/05-seed-and-bootstrap.md) §4、
 [`rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §4）。
 只用 `findPermissionKeysByRoles()` 比對會查出空陣列、檢查直接通過——
@@ -253,21 +252,6 @@ export class PermissionService {
 整批取代他的角色，否則 `403 AUTHZ_ESCALATION`（`details: { role: 'super-admin', target }`）。
 是不是 super-admin 直接查 DB（`UserRepository.hasRoleSlug`），不經權限快取。重設密碼、解鎖不在此限（信寄到本人信箱；解鎖是幫忙）。
 
-### 4.2 影子比對（`AUTHZ_SHADOW`）
-
-G1～G2 期間新舊兩套解析並存（ADR-0024）：
-
-| 模式 | 行為 | 預設 |
-| --- | --- | --- |
-| `off` | 只跑關係圖 | production |
-| `log` | 快取未命中時也跑舊的解析（`user_roles` ⋈ `role_permissions`、`resource_grants` ＋ `resolveHierarchyLevels`，兩邊都套依賴樹閉包），不一致記錄 error log | development |
-| `throw` | 同上，但不一致時丟 `AuthzShadowMismatchError`，讓請求失敗 | test |
-
-- 新舊兩邊在同一個 `repeatable read, read only` 交易裡讀（`AuthzService.readConsistently`），併發的寫入不會造成假的不一致；
-  不一致時不寫快取。在呼叫端的交易裡（例：持有資料夾樹鎖）就沿用那個交易。
-- 比對範圍：權限集合與 `isSuperAdmin`；檔案管理器是每個位置（所有資料夾 ＋ 根目錄）× 5 個動作，以及每個資料夾本身的改名／刪除。
-- 整合測試在 `throw` 模式下全數通過＝新舊一致的驗收。G3 刪除舊的解析與這個開關。
-
 ---
 
 ## 5. 權限快取
@@ -275,67 +259,75 @@ G1～G2 期間新舊兩套解析並存（ADR-0024）：
 ```ts
 @Injectable()
 export class PermissionCacheService {
+  // key 是「租戶 × 使用者」（`<tenantId>:<userId>`）：一個程序服務所有租戶
   private readonly store = new Map<string, { value: PermissionSet; expiresAt: number }>();
   private readonly ttl = env.PERMISSION_CACHE_TTL * 1000; // 預設 60 秒
 
-  get(userId: string): PermissionSet | undefined {
-    const entry = this.store.get(userId);
-    if (!entry) return undefined;
-    if (entry.expiresAt < Date.now()) {
-      this.store.delete(userId);
-      return undefined;
-    }
-    return entry.value;
-  }
+  get(userId: string): PermissionSet | undefined { /* 過期就刪 */ }
 
-  set(userId: string, value: PermissionSet): void {
-    this.store.set(userId, { value, expiresAt: Date.now() + this.ttl });
-  }
+  /** 開始載入前取票；`set` 帶票時，載入期間被失效的結果不寫回 */
+  ticket(): number { /* … */ }
+  set(userId: string, value: PermissionSet, ticket?: number): void { /* … */ }
 
-  invalidate(userId: string): void {
-    this.store.delete(userId);
-  }
-  invalidateAll(): void {
-    this.store.clear();
-  }
+  invalidate(userId: string): void { /* 一個人（目前的租戶） */ }
+  invalidateTenant(tenantId?: string): void { /* 一個租戶的所有人；省略時是目前的租戶 */ }
+  invalidateAll(): void { /* 全部 */ }
 }
 ```
 
-### 5.1 失效時機（必須完整）
+**取票**：`getPermissionSet` 在查 DB 之前取票，寫回時帶上。載入期間若那個人、他的租戶（`invalidateTenant`）或全部被失效，
+結果就不寫回——否則正在進行的舊讀取會把剛失效的值寫回去，直到 TTL 過期（`core/cache/invalidation-tracker.ts`）。
 
-| 事件                             | 失效對象                       |
-| -------------------------------- | ------------------------------ |
-| 指派 / 移除使用者的角色          | 該使用者                       |
-| 角色的權限變更                   | **持有該角色的所有使用者**     |
-| 刪除角色                         | 同上（先查出使用者，再刪角色） |
-| 停用 / 刪除使用者                | 該使用者                       |
-| 權限目錄變更（seed / migration） | **全部**                       |
+### 5.1 失效時機：以租戶的 revision 為單位
 
-```ts
-// RoleService：持有者在交易「之前」查出，交易之後失效
-const holders = await this.repo.findUserIdsByRole(roleId);
-await withTransaction(this.db, async (tx) => { /* 寫入 ＋ 稽核 */ });
-this.permissionService.invalidateUsers(holders);
+[ADR-0024](../../adr/0024-relationship-based-access-control.md) D7、D8。角色的持有者、角色的權限鍵、資料夾授權都是
+租戶 DB `relation_tuples` 的邊；**任何** 寫入都讓同一個租戶的所有人的權限快取失效，不再逐事件列出「要失效誰」。
+
+```
+寫入 relation_tuples 的交易
+  └─ trigger（每條語句）：authz_revision.revision + 1        ← 同一個交易；寫入者在這一列排隊，提交順序＝版本順序
+提交之後：permissionService.permissionsChanged(userIds?)
+  └─ AuthzRevision.changed()
+       1. 本機 PermissionCacheService.invalidateTenant()
+       2. 發 permissions.changed（推播重算 room，08-realtime.md §6.2）
+       3. 讀 revision，在平台 DB 的 `authz_revision` 頻道 NOTIFY { tenant, revision }
+其他程序收到（core/broadcast，每個程序一條 LISTEN 連線）
+  └─ revision 比那個租戶已知的新才處理：invalidateTenant(tenant)，並在那個租戶的脈絡（Tenancy.run）發 permissions.changed
+     自己送的、亂序晚到的都略過
+監聽連線重連 → invalidateAll()（中間的通知可能漏了）
 ```
 
-**順序陷阱**：刪除角色時必須 **先** 查出受影響的使用者，**再** 執行刪除。
-反過來的話 `user_roles` 已被 cascade 刪除，查不到任何人，快取永遠不會失效——
-直到 TTL 過期為止那些人還保有已被刪除角色的權限。
+| 事件 | 呼叫 | 範圍 |
+| --- | --- | --- |
+| 指派／移除使用者的角色、角色的權限變更、刪除角色、帶角色建立使用者 | 交易提交後 `permissionService.permissionsChanged()` | 整個租戶（本機 ＋ 廣播） |
+| 資料夾授權的寫入 | 不呼叫：資料夾授權不在權限快取裡（`FileAccessService` 每次解析） | 不失效、不廣播；revision 仍 +1，下一次廣播的 revision 涵蓋它 |
+| 停用／刪除使用者、`token_version` 遞增 | `permissionService.invalidateUser(id)`（不是關係圖的變更） | 該使用者（本機） |
+| 權限目錄變更（seed / migration） | 無：`db:seed` 在另一個程序執行、不送廣播（revision 仍 +1） | 靠 TTL 或重啟 |
 
-刪除角色的實作在交易內先 `SELECT … FOR UPDATE` 鎖住角色列、重新計數，再以
-`DELETE FROM user_roles … RETURNING user_id` 在 **同一條語句** 取得受影響的人：
-取得與刪除之間沒有空檔，併發的指派（`FOR SHARE` 鎖住角色列）也不會被漏掉。
+```ts
+// RoleService：寫入與稽核在交易內，失效在交易「之後」
+await withTransaction(this.db, async (tx) => { /* 寫 relation_tuples ＋ 稽核 */ });
+// 持有者不是失效的依據：給剛取得檔案權限的人補建個人資料夾、讓他們的畫面重抓（RESOURCE_CHANGED 的 affectedUserIds）
+const holders = await this.permissionService.findUserIdsByRole(roleId);
+await this.permissionService.permissionsChanged(holders);
+```
+
+- `permissionsChanged(userIds?)` 的 `userIds` 是已知直接受影響的人，只給需要逐人處理的訂閱者（補建個人資料夾）；
+  它不是完整清單，也不影響失效範圍。
+- 刪除角色是軟刪除，並在同一條語句刪掉它的持有者邊（`RETURNING` 原本的持有者，只用來推播）。
+  失效不需要事先查出受影響的人，所以沒有「先查再刪」的順序問題。
+- 送出廣播是 best-effort：失敗只記 log；提交之後、送出之前程序結束也會漏一次。其他程序最遲在 TTL（60 秒）後重新解析；
+  revision 單調遞增，下一次通知也會補上。
+- 粒度是整個租戶：一次授權變更讓那個租戶的每個人下一次請求重算一次（每人一句 CTE，按需）。拆粒度的條件見 ADR-0024 D8。
 
 ### 5.2 為什麼是 in-memory 而不是 Redis
 
-Phase 0 是單一 API 執行個體。in-memory Map 的失效是即時且確定的。
+快取在各程序的記憶體裡；跨程序的一致性靠上面的廣播（平台 DB 的 `LISTEN`／`NOTIFY`，`core/broadcast`），
+不另外部署 Redis。60 秒 TTL 是最後防線：即使某個程序漏收通知，最遲 60 秒後也會重新解析。
+其他快取（租戶目錄、資料夾樹、系統設定、使用者快取）之後共用同一條頻道（[`../../features/multi-instance.md`](../../features/multi-instance.md)）。
 
-**多執行個體時的升級路徑**：換成 Redis（或加一個 Postgres `LISTEN/NOTIFY`
-的失效廣播）。`PermissionCacheService` 的介面不變，只換實作。
-60 秒 TTL 在那之前就是安全網：即使某個節點漏收失效通知，最遲 60 秒後也會重新解析。
-
-快取失效之後，同一處發佈領域事件（`DomainEventBus`）；`modules/realtime` 的 listener 收到後
-同步受影響使用者的 room、把變更推給他們（[`08-realtime.md`](./08-realtime.md) §6.2、§7）。
+快取失效之後由 `AuthzRevision` 發佈 `permissions.changed`（`DomainEventBus`）；`modules/realtime` 的 listener 收到後
+重算那個租戶在本機的所有連線的 room（[`08-realtime.md`](./08-realtime.md) §6.2、§7）。
 
 ### 5.3 快取值的大小
 
@@ -661,7 +653,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | Controller 裡寫 `if (!user.can(...))` | 用 `@RequirePermissions`               |
 | 沒宣告權限就當成公開                  | 沒宣告 = 啟動失敗                      |
 | 把權限寫進 JWT                        | 每次查（有快取）                       |
-| 刪除角色後才失效快取                  | **先查出受影響的使用者**，再刪         |
+| 權限寫入後逐一列出要失效的使用者      | 交易提交後呼叫 `permissionsChanged()`，整個租戶失效 |
 | 只檢查後端反提權 / 只檢查前端         | **兩邊都要**（前端是體驗，後端是安全） |
 | `super-admin` 在前端也要特判          | profile 展開成全集，前端無特例         |
 | 快取失效寫在交易內                    | 寫在交易 **之後**（交易可能 rollback） |

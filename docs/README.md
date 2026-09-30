@@ -97,7 +97,7 @@ docs/
 │       ├── 02-database.md             Drizzle schema 慣例、migration 流程
 │       ├── 03-api-conventions.md      REST、分頁、排序、錯誤碼、驗證
 │       ├── 04-auth.md                 登入、JWT、refresh rotation、重用偵測、SSO 的後端部分
-│       ├── 05-rbac.md                 Guard / Decorator / 權限快取 / 反提權 / 關係圖解析與影子比對
+│       ├── 05-rbac.md                 Guard / Decorator / 權限快取與 revision 失效 / 反提權 / 關係圖解析
 │       ├── 06-audit-log.md            稽核日誌設計
 │       ├── 07-testing.md              單元 / 整合 / e2e 測試策略
 │       ├── 08-realtime.md             Socket.io gateway、room 與受眾、推播時機

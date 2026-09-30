@@ -14,8 +14,9 @@
 
 可以參考的既有模式：
 
-- **`resource_grants` 已經是多型關聯**：`resource_type`（Postgres enum，目前只有 `fileFolder`）＋ `resource_id`（uuid，無外鍵）。
-  通用模組只提供儲存與解析，擁有者模組（`modules/file`）提供「上層鏈」「等級對應的動作」與 API（[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) §10.1）。
+- **資源授權已經是多型關聯**：權限圖 G3a 起存在 `relation_tuples`（`object_type` ＋ `object_id`，都是 text、無外鍵；
+  舊的 `resource_grants` 用 Postgres enum `resource_type`，G3b 刪除）。關係圖引擎（`core/authz`）是通用的，
+  擁有者模組（`modules/file`）在模型裡宣告型別、提供結構邊與授權的讀寫、API（[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) §10.1）。
 - **模組把 handler 註冊進通用模組**：審批（`approvals.registerHandler`）、背景工作、系統設定都是這樣，通用模組不 import 業務模組。
 - **前端的 feature 不能互相 import 元件**：共用 UI 要放 `components/`、`core/`，或經註冊表注入（[`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md) §2.2）。
 
@@ -23,7 +24,7 @@
 
 | 做 | 不做（這一版） |
 | --- | --- |
-| 多型關聯：`resource_type ＋ resource_id`（與 `resource_grants`、稽核同一組命名） | 留言的富文本編輯器（先純文字 ＋ @提及） |
+| 多型關聯：`resource_type ＋ resource_id`（與稽核同一組命名） | 留言的富文本編輯器（先純文字 ＋ @提及） |
 | 標籤：租戶內的標籤定義、指派、依標籤篩選 | 標籤階層 |
 | 留言：新增、編輯、刪除、@提及 | 留言的附件 |
 | 關注：關注資源，資源變更或有新留言時收到通知 | |
@@ -71,7 +72,7 @@ watches         resource_type, resource_id, user_id, created_at        pk(resour
 ## 開放問題
 
 1. 留言、標籤的權限都跟著目標，那目標模組的「能不能看」要多便宜？列表頁要一次判斷上百個目標，需要批次介面。
-2. `resource_type` 要用 Postgres enum（和 `resource_grants` 一致）還是 text？enum 有資料庫層的保護，但每加一種資源就要一個 migration。
+2. `resource_type` 要用 Postgres enum 還是 text（`relation_tuples`、稽核都是 text；舊的 `resource_grants` 是 enum）？enum 有資料庫層的保護，但每加一種資源就要一個 migration。
    這個決定也適用於 [`entity-revisions.md`](./entity-revisions.md) 的 `revisions`。
 3. 標籤要全租戶共用一組，還是依資源類型分開？
 4. 第一個接上的資源是檔案與資料夾嗎？還是等編輯器的第一個資源？

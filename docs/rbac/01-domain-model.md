@@ -46,12 +46,10 @@
                                │
                                │ N
                     ┌──────────▼───────────┐
-                    │     user_roles       │
-                    │──────────────────────│
-                    │ user_id  uuid fk pk  │
-                    │ role_id  uuid fk pk  │
-                    │ granted_at    tstz   │
-                    │ granted_by    uuid   │
+                    │ 持有角色（邊）       │  relation_tuples：
+                    │──────────────────────│  role:<r>#holder@user:<u>
+                    │ created_at    tstz   │
+                    │ created_by    uuid   │
                     └──────────┬───────────┘
                                │ N
                                │
@@ -72,12 +70,10 @@
                                │
                                │ N
                     ┌──────────▼───────────┐
-                    │  role_permissions    │
-                    │──────────────────────│
-                    │ role_id       uuid pk│
-                    │ permission_id uuid pk│
-                    │ granted_at    tstz   │
-                    │ granted_by    uuid   │
+                    │ 角色的權限鍵（邊）   │  relation_tuples：
+                    │──────────────────────│  tenant:self#<key>@role:<r>#holder
+                    │ created_at    tstz   │  （以 key 對應 permissions，沒有外鍵）
+                    │ created_by    uuid   │
                     └──────────┬───────────┘
                                │ N
                                │
@@ -190,12 +186,12 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 | I2  | `permissions.key` = `resource                  |                                                      | ':' |     | action` | `CHECK` 約束 |
 | I3  | 未刪除的 `roles.slug` / `roles.name` 唯一（name 不分大小寫） | partial `UNIQUE INDEX ... WHERE deleted_at IS NULL`（name 用 `lower(name)`） |
 | I4  | 未刪除的 `users.email` / `users.username` 唯一 | 同上                                                 |
-| I5  | `user_roles` / `role_permissions` 無重複       | 複合主鍵                                             |
-| I6  | 刪除角色時連帶刪除其指派與授權                 | `ON DELETE CASCADE`                                  |
+| I5  | 持有角色、角色的權限鍵無重複                   | `relation_tuples` 的六欄唯一索引                     |
+| I6  | 刪除角色時連帶撤銷其指派                       | 角色軟刪除，同一個交易刪掉它的持有者邊；權限鍵邊與資料夾授權留著，解析時略過已刪除的角色 |
 | I7  | **系統角色不可刪除**                           | Service 層檢查 ＋ DB trigger（雙保險；硬刪除與軟刪除 `deleted_at` 都擋） |
 | I8  | **系統中永遠至少有一個可用的 super-admin**     | 刪除／停用／拔角色時，Service 在寫入的交易內以 advisory lock 序列化後計數（[`05-rbac.md`](../architecture/backend/05-rbac.md) §8.2）；只有 super-admin 能管理 super-admin；登入失敗的鎖定不改 `status`，不會讓 super-admin 變成不可用 |
 | I9  | 使用者不能修改／刪除自己的帳號狀態與角色       | Service 層檢查（`actorId === targetId` → 403）       |
-| I10 | 授予的權限必須存在於 `permissions`             | 外鍵                                                 |
+| I10 | 授予的權限必須存在於 `permissions`             | Service 層檢查（`assertKeysExist`）；邊沒有外鍵      |
 | I11 | 反提權：授予的權限必須 ⊆ 操作者的權限集合      | Service 層檢查（super-admin 豁免）                   |
 | I12 | `audit_logs` 不可 UPDATE / DELETE              | DB role 權限 ＋ `BEFORE UPDATE/DELETE` trigger raise |
 
@@ -220,14 +216,15 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 
 ### 6.1 定義
 
-權限由 **關係圖** 解析（[ADR-0024](../adr/0024-relationship-based-access-control.md)、`apps/api/src/core/authz/`）：
-`user_roles`、`role_permissions`、`resource_grants` 由 trigger 同步成 `relation_tuples` 的邊（G1～G2 期間舊表仍是事實來源）：
+權限由 **關係圖** 解析（[ADR-0024](../adr/0024-relationship-based-access-control.md)、`apps/api/src/core/authz/`）。
+角色的持有者、角色的權限鍵、資料夾授權只存在 `relation_tuples`（形狀與查詢條件在 `apps/api/src/db/schema/relation-tuples.ts`）：
 
-| 舊表 | 關係圖上的邊 |
-| --- | --- |
-| `user_roles (u, r)` | `role:r#holder@user:u` |
-| `role_permissions (r, p)` | `tenant:self#<p.key>@role:r#holder` |
-| super-admin 角色 | `tenant:self#superAdmin@role:<id>#holder` |
+| 關係 | 關係圖上的邊 | 取代的舊表（G3b 刪除；程式已不讀寫） |
+| --- | --- | --- |
+| 使用者 u 持有角色 r | `role:r#holder@user:u` | `user_roles` |
+| 角色 r 帶權限鍵 p | `tenant:self#<p.key>@role:r#holder` | `role_permissions` |
+| super-admin 角色 | `tenant:self#superAdmin@role:<id>#holder`（seed 寫入） | — |
+| 資料夾授權 | `fileFolder:F#<等級>@(role:r#holder \| user:u \| user:*)` | `resource_grants` |
 
 使用者 `u` 的 **權限集合** ＝ 租戶節點上對 `u` 成立的權限關係：
 
@@ -238,12 +235,12 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 
 guard、`GET /auth/profile`、反提權、即時推播的 room 看到的都是閉包。角色只儲存明確授予的鍵。
 
-G2 期間，開發與測試環境每次解析也跑一次舊的解析（`user_roles` ⋈ `role_permissions` 再套閉包）並比對（`AUTHZ_SHADOW`，
-[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.2）。
+權限集合有快取；任何邊的寫入都讓那個租戶的快取整個失效（`authz_revision`，
+[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.1）。
 
 ### 6.2 super-admin 旁路
 
-若使用者持有 `slug = 'super-admin'` 的角色，權限集合視為 **全集**：
+若使用者持有 super-admin 角色（`tenant:self#superAdmin` 的邊），權限集合視為 **全集**：
 `PermissionsGuard` 直接放行，前端 `can()` 恆回 `true`。
 
 實作上 `GET /auth/profile` 仍回傳完整的權限鍵陣列（把所有 `permissions.key`
@@ -266,9 +263,9 @@ deny 規則會讓「為什麼這個人不能做 X」變成需要推理的問題�
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | **資源作用域**（「只能編輯自己專案」） | 已由檔案資料夾先行實作，並改由關係圖解析（資料夾的等級是模型裡的關係，沿 `inherits_from` 繼承）。專案、關卡以同樣方式加入型別，見 [`07-resource-grants.md`](./07-resource-grants.md) §10 |
 | **角色階層**                           | 關係圖上是一種 `role#holder` 包含 `role#holder` 的邊；是否開放延到 G4（[`../features/permission-graph.md`](../features/permission-graph.md) 開放問題 3） |
-| **條件式權限（ABAC）**                 | `role_permissions` 增加 `condition jsonb`，Guard 端加入條件評估器                                               |
+| **條件式權限（ABAC）**                 | `relation_tuples` 的邊增加條件欄位（`condition jsonb`），Guard 端加入條件評估器                                 |
 | **MFA**                                | `users.mfa_enabled` / 新表 `user_mfa_secrets`                                                                   |
-| **API Token / 服務帳號**               | 新增 `service_accounts` 表，同樣掛 `user_roles`（Subject 抽象化）                                               |
+| **API Token / 服務帳號**               | 新增 `service_accounts` 表，以新的主體型別持有角色（`role:r#holder@serviceAccount:s`）                          |
 
 多租戶已經做了，方式不是 `tenant_id` 加 RLS，而是 **每個租戶一個 database**：這份領域模型整份存在每個租戶的 DB 裡，
 各租戶各一套權限目錄、角色與使用者（[`../architecture/05-tenancy.md`](../architecture/05-tenancy.md)、[ADR-0020](../adr/0020-physical-tenant-isolation.md)）。

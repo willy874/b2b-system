@@ -85,7 +85,9 @@ apps/api/src/
 │   │   ├── authz.registry.ts             業務模組在 onModuleInit 註冊自己的型別（例：file.authz.ts）
 │   │   ├── authz.repository.ts           relation_tuples 查詢、主體閉包遞迴 CTE
 │   │   ├── authz.service.ts              批次解析權限集合、建立判斷器
-│   │   └── authz.shadow.ts               新舊解析的影子比對（AUTHZ_SHADOW，05-rbac.md §4.2）
+│   │   └── authz.revision.ts             關係圖的 revision：寫入後失效整個租戶的權限快取並廣播（05-rbac.md §5.1）
+│   ├── broadcast/
+│   │   └── broadcast.service.ts          程序之間的失效廣播：平台 DB 的 LISTEN／NOTIFY，每個程序一條監聽連線
 │   └── jobs/
 │       ├── job-type.ts                   defineJob()：工作名稱 ＋ 資料型別 ＋ 重試設定
 │       ├── job-queue.ts                  ★ JobQueue：register / enqueue / retry（底層 pg-boss，見 10-jobs.md）
@@ -114,10 +116,9 @@ apps/api/src/
 │   ├── role/
 │   ├── permission/
 │   ├── audit-log/                        含熱 → 冷搬移的排程工作（06-audit-log.md §8）
-│   ├── file/                             files 轉介表 ＋ 直傳上傳、影像變體、維護排程、資料夾授權（09-file.md）
+│   ├── file/                             files 轉介表 ＋ 直傳上傳、影像變體、維護排程、資料夾授權的讀寫與等級規則（09-file.md）
 │   ├── job/                              背景工作的管理 API（10-jobs.md §6）
 │   ├── feature-flag/                     feature flag 的平台管理 API（05-tenancy.md §5.2）
-│   ├── resource-grant/                   資源授權：resource_grants 的讀寫、等級全序與反提權比對；等級解析 G2 起只給影子比對（rbac/07-resource-grants.md）
 │   └── health/
 │
 ├── db/
@@ -125,9 +126,9 @@ apps/api/src/
 │   │   ├── users.ts
 │   │   ├── roles.ts
 │   │   ├── permissions.ts
-│   │   ├── user-roles.ts
-│   │   ├── role-permissions.ts
-│   │   ├── relation-tuples.ts            關係圖的邊（G1～G2 由舊表的 trigger 同步，ADR-0024）
+│   │   ├── user-roles.ts                 G3b 刪除；程式已不讀寫（02-database.md §2.4）
+│   │   ├── role-permissions.ts           同上
+│   │   ├── relation-tuples.ts            關係圖的邊與 authz_revision；邊的建構函式與查詢條件（ADR-0024）
 │   │   ├── refresh-tokens.ts
 │   │   ├── audit-logs.ts
 │   │   ├── auth-tokens.ts                啟用 / 密碼重設 token
@@ -263,8 +264,8 @@ gateway 以 `@UseGuards` 在自己的模組裡建立 guard（[`../../conventions
 那在 `RoleService` 裡。而 `RoleService.delete()` 需要知道「還有多少使用者持有
 這個角色」——那在 `UserService` 裡。
 
-解法：把「查某角色有多少人持有」放進 `RoleRepository`（它可以 join `user_roles`，
-那是它自己的關聯表），`RoleService` 不需要 `UserService`。
+解法：把「查某角色有多少人持有」放進 `RoleRepository`（它查 `relation_tuples` 上角色的持有者邊
+`role:<id>#holder@user:*`，邊的形狀在 `db/schema/relation-tuples.ts`），`RoleService` 不需要 `UserService`。
 單向依賴：`UserModule → RoleModule`。
 
 ### 4.2 憑證基礎設施與登入流程
@@ -302,7 +303,6 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
   await this.permissionService.assertGrantable(actor.id, dto.add);   // 反提權
 
   const before = await this.roleRepo.listPermissionKeys(roleId);
-  const holders = await this.roleRepo.findUserIdsByRole(roleId);
 
   await withTransaction(this.db, async (tx) => {
     if (dto.remove.length) await this.roleRepo.removePermissions(roleId, dto.remove, tx);
@@ -313,8 +313,8 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
     }, tx);                                        // ★ 稽核在同一個交易裡
   });
 
-  // ★ 快取失效在交易「之後」——交易可能 rollback
-  this.permissionService.invalidateUsers(holders); // holders 在交易前查出（05-rbac §5.1）
+  // ★ 快取失效在交易「之後」——交易可能 rollback；整個租戶失效並廣播（05-rbac §5.1）
+  await this.permissionService.permissionsChanged();
 }
 ```
 

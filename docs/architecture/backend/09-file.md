@@ -572,13 +572,13 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | --- | --- |
 | `src/modules/file/__tests__/file.service.spec.ts` | 業務規則：每個 `AppException` 分支、可見性、交易後才刪物件；分塊上傳、放棄上傳、縮圖、樂觀鎖、游標 |
 | `src/modules/file/__tests__/file-folder.service.spec.ts` | 資料夾規則（以記憶體裡的樹模擬 repository）：同名（不分大小寫、只限同一層）、循環、目的地同名、遞迴刪除、上傳資料夾的沿用與深度上限 |
-| `src/modules/resource-grant/__tests__/resource-grant.resolver.spec.ts` | 等級解析：繼承、取最高、中斷繼承、記憶化、壞資料的循環 |
-| `src/modules/resource-grant/__tests__/resource-grant.levels.spec.ts` | 通用的等級 → 動作、反提權比對（以假的資源驗證不依賴檔案） |
+| `src/modules/file/__tests__/file.authz.spec.ts` | 關係模型：繼承、取最高、中斷繼承、everyone、規則 A、依賴樹閉包、等級蘊含的動作 |
+| `src/modules/file/__tests__/file-grant.levels.spec.ts` | 等級規則（`file-grant.levels.ts`）：反提權比對（`missingActions`、`assignableLevels`）、繼承鏈（含壞資料的循環）、`maxLevel` |
 | `src/modules/file/__tests__/file-folder-tree.spec.ts` | 資料夾結構的快取：共用、交易內直接查、寫入提交後失效（含 rollback 與進行中的讀取）、失敗不快取、依租戶區分 |
 | `src/modules/file/__tests__/file-access.service.spec.ts` | 能力規則：全域 × 等級 × 擁有者的組合、根目錄、鎖住的資料夾、反提權 |
 | `src/modules/file/__tests__/file-folder-access.approval.spec.ts` | 申請存取的審批 handler：已有權限不能申請、核准者要能 share 且授予得起、套用寫入授權與稽核 |
 | `src/modules/file/__tests__/file-folder.service.spec.ts`（授權段落） | 鎖住的資料夾（canRead=false）、根目錄不能建立、鎖住的回 403、擁有者改名、遞迴刪除的 not-owner 與 protected-subfolder、移動的目的地 |
-| `test/file-access.spec.ts` | 真 Postgres：只有 `file:access` 的成員經角色／個人授權看到的資料夾與檔案、擁有者規則、中斷繼承與複製、授權過期、遞迴刪除的附加條件、`resource_grants` 唯一約束；存取申請；系統資料夾（啟動時建立、別人的個人資料夾鎖住、不能改名刪除移動、指派角色後自動建立、刪除使用者時空的個人資料夾跟著刪除） |
+| `test/file-access.spec.ts` | 真 Postgres：只有 `file:access` 的成員經角色／個人授權看到的資料夾與檔案、擁有者規則、中斷繼承與複製、授權過期、遞迴刪除的附加條件、同一對象只有一個等級（再次授予是覆寫）；存取申請；系統資料夾（啟動時建立、別人的個人資料夾鎖住、不能改名刪除移動、指派角色後自動建立、刪除使用者時空的個人資料夾跟著刪除） |
 | `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除時清變體）、維護排程（dry run 與清除）、樂觀鎖、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束；資料夾：上傳到資料夾與依 `folderId` 列出、移動、循環與同名（真的唯一索引）、上傳資料夾重送得到同樣的 id、遞迴刪除後可再建同名、`file_folders_not_own_parent` |
 | `src/core/storage/__tests__/content-disposition.spec.ts` | 中文檔名的 `Content-Disposition` |
 | `src/core/storage/__tests__/stable-signing-date.spec.ts` | 下載網址在時間窗內不變、剩餘效期範圍 |
@@ -614,8 +614,12 @@ FileAccessService（modules/file）
 
 模型與規則見 [`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md) §2.1。結構邊（上層、繼承、建立者）由
 `folderEdgeProvider` 從同一份 `FileFolderTree` 節點供應，不存進 `relation_tuples`；檔案項目本身的邊以 `withEdges` 臨時補上。
-G2 期間影子比對開著時，同一個請求也以舊的方式（`grantsFor` ＋ `resolveHierarchyLevels`）判斷一次並比較
-（[`05-rbac.md`](./05-rbac.md) §4.2）。
+
+| 檔案（`modules/file/`） | 內容 |
+| --- | --- |
+| `file-folder-grant.repository.ts` | 資料夾授權的讀寫：`fileFolder:<id>#<level>@(role:<r>#holder \| user:<u> \| user:*)`（原 `modules/resource-grant`，G3a 刪除） |
+| `file-grant.levels.ts` | 等級規則：`levelRank`、`maxLevel`、`missingActions`、`assignableLevels`、`inheritanceChain`、`HierarchyNode`、`LevelActions` |
+| `file-folder-grant.service.ts` | 授權 API 的業務規則、反提權、稽核 |
 
 | 項目 | 做法 |
 | --- | --- |
@@ -623,7 +627,7 @@ G2 期間影子比對開著時，同一個請求也以舊的方式（`grantsFor`
 | 列表過濾 | `GET /files` 不帶 `folderId` 且沒有全域 `file:read`：以看得到的資料夾 id 限制 `folder_id = ANY(…)`，根目錄的檔案不列 |
 | 能力旗標 | `toDto` 時由 context 算出 `capabilities`；列表一次算完，不逐筆查詢 |
 | 移動、遞迴刪除 | 在 `writeTree` 的交易（取得樹鎖）**之內** 建立 context：檢查與寫入之間結構不會變 |
-| 授權寫入 | `resource_grants` 的 upsert／delete 與稽核在同一個交易（trigger 在同一個交易同步 `relation_tuples`）；交易後推 `fileFolder update` |
+| 授權寫入 | `relation_tuples` 的寫入與稽核在同一個交易，經 `FileFolderTree.write` 序列化；「一個對象在一個資料夾只有一個等級」由 `FileFolderGrantRepository.set` 先刪後插維持（不是 DB 唯一索引）。交易後推 `fileFolder update`；不呼叫 `permissionsChanged`（資料夾授權不在權限快取裡），`authz_revision` 仍 +1 |
 | 中斷繼承 | `file_folders.inherit_grants`；設成 `false` 時在同一個交易內把目前繼承到的授權複製成直接授權 |
 | 授權對象 | 解析與清單都 join 未刪除的 `roles` / `users`：刪除角色或使用者不必清授權列 |
 
@@ -640,10 +644,10 @@ G2 期間影子比對開著時，同一個請求也以舊的方式（`grantsFor`
 | 60 秒存活時間 | 只是防漏網（例：直接改資料庫）；正常的寫入都會主動失效 |
 | 單一執行個體的前提 | 失效只在本程序；api 目前固定單一執行個體（[`../01-system.md`](../01-system.md)），水平擴展時要改成跨程序的失效通知 |
 
-資料表：`resource_grants`（→ `relation_tuples`）、`file_folders.inherit_grants`、
+資料表：`relation_tuples`（資料夾授權的邊；舊表 `resource_grants` G3b 刪除，程式已不讀寫）、`file_folders.inherit_grants`、
 系統資料夾 `file_folders.kind` / `owner_id` 與授權對象 `everyone`（schema 在 `db/schema/`，migration 見 [`02-database.md`](./02-database.md) §5.2）。
 
 系統資料夾由 `FileSystemFolderService` 維護：`onApplicationBootstrap` 確保共用／私人資料夾存在並補建個人資料夾；
-訂閱 `permissions.changed` 為取得檔案管理器權限的使用者建立個人資料夾；訂閱 `resource.changed` 的 `user delete`，
+訂閱 `permissions.changed`，為事件帶的 `userIds`（只在發起寫入的程序上有）中取得檔案管理器權限的人建立個人資料夾；訂閱 `resource.changed` 的 `user delete`，
 擁有者被刪除時把空的個人資料夾軟刪除（rbac/07 §12）。
 

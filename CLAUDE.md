@@ -47,7 +47,8 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 5. Service 拋 `AppException(ErrorCode)`，不拋 `HttpException`。
 6. 稽核寫入在交易 **內**；快取失效在交易 **後**；領域事件（`DomainEventBus`）在快取失效 **後** 發佈。
    Service 不直接碰 Socket.io，推播由 `modules/realtime` 訂閱事件處理。
-7. 刪除角色前 **先** 查出受影響的使用者，再刪（否則 cascade 之後查不到人）。
+7. 寫入角色的持有者或權限鍵（`relation_tuples`）後，交易提交後呼叫 `permissionService.permissionsChanged()`
+   （整個租戶失效並廣播給其他程序，不必事先查出受影響的人；`docs/architecture/backend/05-rbac.md` §5.1）。
 
 ### 前端
 
@@ -106,5 +107,5 @@ pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法�
 | 建立對話框的權限 | 沿用列表頁的 page key | `USER_CREATE` / `ROLE_CREATE` 各自註冊 | 才能讓 auditor 直接貼 `/user/create` 時看到 403 |
 | `resolvePageKey` | 前綴命中 | 前綴命中取 **最長** | 有了上一列的子頁面規則之後才不會被父規則蓋掉 |
 | `Select` / `Menu` 的底層 | Base UI `Select` / `Menu`（另有 `Combobox`） | Base UI `Popover` ＋ 自製列表（`aria-activedescendant`）＋ TanStack Virtual；`Combobox` 併入 `Select` 的 `searchable` | Base UI 的列表元件需要所有項目都在 DOM 上，無法虛擬捲動；見 `docs/architecture/frontend/07-ui-system.md` §3.10 |
-| 權限圖的快取失效 | ADR-0024：`relation_tuples` 寫入時以 revision ＋ `pg_notify` 失效 | G2 仍逐事件失效（`05-rbac.md` §5.1 的清單照舊）；舊的解析保留給影子比對（`AUTHZ_SHADOW`） | G1～G2 的寫入仍經舊表、由 trigger 同步，沒有單一的寫入點；revision 與刪舊表隨 G3 一起做 |
+| 權限圖的雙寫 trigger | ADR-0024 原計畫：G3a 刪雙寫 trigger，G3b 刪舊表 | G3a 保留 migration 0008 的 trigger（含 `roles_mirror_super_admin`）與舊表 `user_roles`、`role_permissions`、`resource_grants`；程式已不讀寫舊表。G3b 一起刪 trigger、舊表、schema 檔與 `db/relations.ts` 的項目 | migration 要與前一版程式相容（`02-database.md` §5.1）：滾動部署期間舊版（G2）程序仍寫舊表，靠 trigger 同步到 `relation_tuples` |
 | WebSocket 的 guard | 全域 guard 同時保護 HTTP 與 WS | gateway 以 `@UseGuards(WsAuthGuard, PermissionsGuard)` 掛在 class 上 | Nest 的 WS context 不套用 `APP_GUARD` / `APP_INTERCEPTOR`；throttler 也不作用，限流在 `realtime.rate-limit.ts` |

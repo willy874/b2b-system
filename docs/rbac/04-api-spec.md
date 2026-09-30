@@ -288,10 +288,11 @@
 - `isSystem` → `403 ROLE_SYSTEM_PROTECTED`（DB trigger 也擋系統角色的軟刪除）
 - actor 持有這個角色、且刪除後會失去管理角色所需的權限 → `403 ROLE_SELF_LOCKOUT`
 - 尚有（未刪除的）使用者持有 → 預設拒絕 `409 ROLE_IN_USE`，帶 `details.userCount`
-  - 可加 `?force=true`（仍需 `role:delete`）強制刪除並連帶移除指派，
+  - 可加 `?force=true`（仍需 `role:delete`）強制刪除並連帶移除指派（刪掉角色的持有者邊），
     此時稽核紀錄 `metadata.forced = true`
+- 角色是軟刪除；它的權限鍵與它作為對象的資料夾授權留著，解析時略過已刪除的角色。交易後整個租戶的權限快取失效（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.1）
 - 計數與刪除在同一個交易裡、先以 `FOR UPDATE` 鎖住角色列；指派角色以 `FOR SHARE` 鎖住角色列再插入。
-  兩者同時發生時，後到的一方看得到先提交的結果（不會刪掉剛指派的人卻沒失效他的快取，也不會留下指向已刪除角色的指派）
+  兩者同時發生時，後到的一方看得到先提交的結果（不會留下指向已刪除角色的指派）
 
 ### 3.5 `POST /roles/:id/duplicate`
 

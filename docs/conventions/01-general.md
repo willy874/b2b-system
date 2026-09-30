@@ -63,7 +63,7 @@
 | 前端 hook                          | `use` + PascalCase                            | `useRolePermission.ts`    |
 | 前端頁面                           | `pages/<PageName>/page.tsx`                   | `pages/RoleList/page.tsx` |
 | 後端檔案                           | kebab-case ＋ NestJS 後綴                     | `role.service.ts`         |
-| DB 表                              | 複數 snake_case                               | `role_permissions`        |
+| DB 表                              | 複數 snake_case                               | `relation_tuples`         |
 | DB 欄位                            | snake_case                                    | `created_at`              |
 | Drizzle 變數                       | camelCase 複數                                | `rolePermissions`         |
 | 權限鍵                             | `camelCaseResource:camelCaseAction`           | `auditLog:read`           |

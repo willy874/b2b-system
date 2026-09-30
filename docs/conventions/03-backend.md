@@ -15,7 +15,7 @@
 | 4   | 每個路由宣告 `@Public()` / `@Authenticated()` / `@RequirePermissions()` 其中之一               | 預設拒絕；漏宣告不能變成公開                     | 🔒 啟動檢查（`common/route-audit.ts`） |
 | 5   | Service 拋 `AppException(ErrorCode)`，不拋 `HttpException`                                     | Service 不依賴 HTTP 語境                         | 👀 Review     |
 | 6   | 稽核寫入在交易 **內**；快取失效、領域事件發佈在交易 **後**（先失效再發佈）                     | 業務與紀錄同生共死；rollback 時不留下錯的快取，也不推出不存在的變更 | 👀 Review     |
-| 7   | 刪除角色前 **先** 查出受影響的使用者，再刪                                                     | cascade 之後就查不到人，快取無從失效             | 👀 Review     |
+| 7   | 寫入角色的持有者或權限鍵（`relation_tuples`）後，交易提交後呼叫 `permissionService.permissionsChanged()` | 整個租戶的權限快取失效並廣播給其他程序；不必事先查出受影響的人（[`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.1） | 👀 Review     |
 | 8   | 跨模組只注入對方 `exports` 的 service，不注入 repository；不用 `forwardRef`；模組之間（以資料夾計）不循環 | 循環依賴代表職責畫錯了                           | 🔒 測試（`layer-dependencies.spec.ts`；「只注入 exports」仍靠 👀 Review） |
 | 9   | 推播等副作用由 service 發佈 `DomainEventBus` 事件，不直接注入 `RealtimeModule` 或 Socket.io     | 業務模組不依賴推播；受眾判斷集中在 listener（[`architecture/backend/08-realtime.md`](../architecture/backend/08-realtime.md) §7） | 👀 Review     |
 | 10  | Socket.io 的型別只在 `modules/realtime` 的傳輸層（types / gateway / publisher / expiry）；listener、audience 經 `RealtimePublisher`，`common/` 的 guard 經 `WsClient` | 換掉 Socket.io 只換傳輸層（[`architecture/backend/08-realtime.md`](../architecture/backend/08-realtime.md) §2.1） | 🔒 測試（`transport-boundary.spec.ts`） |
@@ -41,8 +41,9 @@
 
 - 業務規則、交易邊界、跨 repository 協調都在這一層。
 - 需要多個寫入時用 `withTransaction()`；稽核的 `record(…, tx)` 放在同一個交易內。
-- 會影響權限的寫入，交易結束後呼叫 `permissionCache.invalidate()` / `invalidateMany()`。
-  失效時機清單見 [`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.1。
+- 會影響權限的寫入（角色的持有者、角色的權限鍵），交易結束後呼叫 `permissionService.permissionsChanged(userIds?)`：
+  整個租戶失效、發 `permissions.changed`、廣播給其他程序。帳號狀態或 `token_version` 的變更（不是關係圖）用 `invalidateUser(id)`。
+  不要自己列「要失效誰」；見 [`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.1。
 - 不碰 `Request` / `Response`。
 
 ### 2.3 Repository

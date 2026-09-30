@@ -11,14 +11,14 @@ RBAC 有一個雞生蛋問題：**要建立使用者需要 `user:create` 權限�
 ## 2. 執行順序
 
 ```
-pnpm db:migrate        平台 DB，再依序每個租戶的 DB（含約束、索引、trigger；relation_tuples 的回填與同步 trigger）；登記預設租戶
+pnpm db:migrate        平台 DB，再依序每個租戶的 DB（含約束、索引、trigger；relation_tuples 的回填、authz_revision）；登記預設租戶
       │
       ▼
 pnpm db:seed           ⓪ 平台管理者（平台 DB；沒有任何管理者時依 PLATFORM_ADMIN_EMAIL 建立，角色 super-admin）
       │                每個 active、disabled 的租戶各跑一次：
       │                ① permissions   （冪等 upsert）
-      │                ② roles         （冪等 upsert，is_system = true）
-      │                ③ role_permissions（依對照表 upsert）
+      │                ② roles         （冪等 upsert，is_system = true；super-admin 補上 tenant:self#superAdmin 的邊，冪等）
+      │                ③ 角色的權限鍵（relation_tuples 的 tenant:self#<key>@role:<id>#holder，僅新建立的角色）
       │                ④ role.permissionsImplied 稽核（權限依賴樹讓角色多出鍵時，每個角色寫一次；冪等）
       │                ⑤ super-admin 使用者（僅 SEED_TENANT，預設 default；僅當不存在時建立）
       ▼
@@ -59,8 +59,8 @@ if (orphans.length) {
 }
 ```
 
-**為什麼不自動刪孤兒**：刪一筆 `permissions` 會連帶 cascade 掉
-`role_permissions`，等於無聲地撤掉某些角色的授權。這種事必須是明確的 migration。
+**為什麼不自動刪孤兒**：角色的權限鍵是 `relation_tuples` 上以鍵為關係的邊（沒有外鍵），刪一筆 `permissions`
+等於無聲地撤掉某些角色的授權，還會留下指向不存在的鍵的邊。這種事必須是明確的 migration（一併刪掉那些邊）。
 
 ---
 
@@ -73,7 +73,7 @@ export const ROLE_SEED = [
     name: "超級管理員",
     description: "系統最高權限，繞過所有權限檢查。不可刪除、不可調整權限。",
     isSystem: true,
-    permissions: "*", // 隱含全集，不寫入 role_permissions
+    permissions: "*", // 隱含全集：只寫 tenant:self#superAdmin 的邊，沒有任何權限鍵的邊
   },
   {
     slug: "admin",
@@ -138,7 +138,7 @@ export const ROLE_SEED = [
 | `slug`                 | 作為 upsert 的 conflict target，永不變更       |
 | `name` / `description` | **不覆寫**（管理員可能已在 UI 中改過顯示名稱） |
 | `is_system`            | 強制設為 `true`（防止被誤改）                  |
-| `role_permissions`     | 見下方                                         |
+| 權限鍵的邊             | 見下方                                         |
 
 ### 4.2 系統角色的權限如何同步
 
@@ -240,7 +240,7 @@ if (!env.SUPER_ADMIN_PASSWORD) {
 pnpm db:seed:dev
 ├─ 50 位使用者（狀態分布：active 35 / inactive 8 / pending 5 / locked 2）
 ├─ 5 個自訂角色（非系統），權限組合各異
-├─ 隨機的 user_roles 指派
+├─ 隨機的角色指派（role:<id>#holder@user:<id>）
 └─ 300 筆 audit_logs（跨 90 天，涵蓋各種 action 與 result）
 ```
 
@@ -279,12 +279,13 @@ pnpm --filter @b2b-system/api cli:reset-super-admin --email admin@example.com
 - [ ] `permissions` 表筆數 = `PERMISSION_SEED.length`（25）
 - [ ] 每筆 `permissions.key` = `resource || ':' || action`
 - [ ] `roles` 中恰有 4 筆 `is_system = true`
-- [ ] `super-admin` 在 `role_permissions` 中 **沒有任何列**（隱含全集）
+- [ ] `super-admin` 只有 `tenant:self#superAdmin` 一條邊，**沒有任何權限鍵的邊**（隱含全集）
 - [ ] `admin` 的權限集合 = `ROLE_SEED` 中宣告的 24 筆
 - [ ] 恰有一位使用者持有 `super-admin`
 - [ ] 連續執行 `db:seed` 兩次，所有表的筆數不變
 - [ ] 權限依賴樹多出鍵的角色各有一筆 `role.permissionsImplied`（預設角色只有 auditor：`file:read ⇒ file:access`），重跑不重複
 - [ ] `GET /auth/profile`（以 super-admin 登入）回傳的 `permissions` 長度 = 25
 
-> seed 寫入 `user_roles`、`role_permissions` 時，trigger 在同一個交易裡同步 `relation_tuples`（[`../architecture/backend/02-database.md`](../architecture/backend/02-database.md) §2.10），
-> 權限解析讀的是後者；super-admin 角色建立時也會自動補上 `tenant:self#superAdmin` 的邊。
+> seed 直接寫 `relation_tuples`（邊的形狀在 `db/schema/relation-tuples.ts`，[`../architecture/backend/02-database.md`](../architecture/backend/02-database.md) §2.10），
+> 不寫舊表 `user_roles`、`role_permissions`（G3b 刪除）。super-admin 的 `tenant:self#superAdmin` 邊由 `seedRoles` → `ensureSuperAdminTuple`
+> 明確寫入（冪等；角色已存在時也補一次）。seed 在另一個程序執行、不送失效廣播，執行中的 api 以權限快取的 TTL 反映。
