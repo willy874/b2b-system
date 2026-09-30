@@ -60,6 +60,6 @@ pnpm --filter @b2b-system/auth build
 ### 同步規則
 
 - 在任一邊修改上表的檔案時，**同一批** 檢查另一邊要不要一起改；安全相關（`core/auth`（含 `sso.ts`）、`core/client`、`plugins/fetcher`）與 `app/App.tsx` 的 `SessionWatcher`（登出後不自動跳回 IdP，ADR-0019 D5）一律一起改。
-- **新增錯誤碼**：除了 backstage 的 `ERROR_MESSAGE_KEY` 與語系檔，這裡的 `core/errors/errorMessageKey.ts`、`app/locales/*.json`、
-  `app/__tests__/locales.test.ts` 的錯誤碼清單也要加。兩邊的測試各有一份清單，只更新 backstage 那份時這裡不會失敗，要靠 review。
+- **新增錯誤碼**：除了 backstage 的 `ERROR_MESSAGE_KEY` 與語系檔，這裡的 `core/errors/errorMessageKey.ts`、`app/locales/*.json` 也要加。
+  兩邊的 `app/__tests__/locales.test.ts` 都直接讀後端的 `ALL_ERROR_CODES`，漏了任一邊都會失敗。
 - 出現第三個前端時，評估把上表抽成 `packages/`（ADR-0019 D14）。
