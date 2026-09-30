@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { loginAndWaitForHome } from '../helpers/auth';
+import { expectIdpLogin, loginAndWaitForHome } from '../helpers/auth';
 
 test.describe('路由守衛與選單過濾', () => {
   // ⑤ auditor 直接輸入無權限的網址 → 看到 403 頁（不是被彈回首頁）
@@ -30,8 +30,8 @@ test.describe('路由守衛與選單過濾', () => {
     await expect(page.getByTestId('user-create-button')).toHaveCount(0);
   });
 
-  test('未登入時進入受保護頁面會被導向登入頁', async ({ page }) => {
+  test('未登入時進入受保護頁面會被導向 IdP 的登入頁', async ({ page }) => {
     await page.goto('/role');
-    await expect(page).toHaveURL(/\/auth\/login/);
+    await expectIdpLogin(page);
   });
 });

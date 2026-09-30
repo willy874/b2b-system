@@ -3,16 +3,9 @@ import { and, asc, desc, eq, ilike, inArray, isNull, like, sql } from 'drizzle-o
 import type { SQL, SQLWrapper } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type { PermissionRow, RoleInsert, RoleRow } from '@/db/schema';
-import {
-  permissions,
-  rolePermissions,
-  roles,
-  userRoles,
-  users,
-  workspaceMemberRoles,
-} from '@/db/schema';
+import { permissions, rolePermissions, roles, userRoles, users } from '@/db/schema';
 
 import type { ListRoleDto } from './dto/list-role.dto';
 
@@ -24,17 +17,9 @@ export interface RoleWithCounts extends RoleRow {
 const permissionCountOf = (roleId: SQLWrapper | string) =>
   sql<number>`(SELECT count(*)::int FROM ${rolePermissions} rp WHERE rp.role_id = ${roleId})`;
 
-/**
- * 角色的持有者：全域角色在 `user_roles`，工作區角色在各工作區的 `workspace_member_roles`
- * （同一個人在多個工作區持有只算一次；docs/adr/0018-workspace-tenancy.md D11）。
- */
-const holderIdsOf = (roleId: SQLWrapper | string) =>
-  sql`(SELECT ur.user_id FROM ${userRoles} ur WHERE ur.role_id = ${roleId}
-       UNION SELECT wr.user_id FROM ${workspaceMemberRoles} wr WHERE wr.role_id = ${roleId})`;
-
-// 軟刪除使用者不會清掉指派，計數要排除已刪除的使用者（與 listUsers 一致）
+// 軟刪除使用者不會清掉 user_roles，計數要排除已刪除的使用者（與 listUsers 一致）
 const userCountOf = (roleId: SQLWrapper | string) =>
-  sql<number>`(SELECT count(*)::int FROM ${users} u WHERE u.deleted_at IS NULL AND u.id IN ${holderIdsOf(roleId)})`;
+  sql<number>`(SELECT count(*)::int FROM ${userRoles} ur INNER JOIN ${users} u ON u.id = ur.user_id WHERE ur.role_id = ${roleId} AND u.deleted_at IS NULL)`;
 
 // 單表 select 時 Drizzle 會把 ${roles.id} 輸出成不帶表名的 "id"，在子查詢裡會被解析成 users.id；
 // 明確寫出表名才會關聯到外層的角色
@@ -52,7 +37,7 @@ const SORT_COLUMNS = {
 
 @Injectable()
 export class RoleRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
   async findById(id: string): Promise<RoleRow | undefined> {
     const [row] = await this.db
@@ -114,7 +99,6 @@ export class RoleRepository {
       conditions.push(sql`(${roles.name} ILIKE ${pattern} OR ${roles.slug} ILIKE ${pattern})`);
     }
     if (query.isSystem !== undefined) conditions.push(eq(roles.isSystem, query.isSystem));
-    if (query.scope) conditions.push(eq(roles.scope, query.scope));
     const where = and(...conditions);
     // 依 sort 陣列的順序排；最後以 id 收尾，讓同值的列在分頁之間順序穩定
     const orderBy = query.sort.map(({ sort, order }) =>
@@ -168,7 +152,6 @@ export class RoleRepository {
       .set({ deletedAt: new Date(), updatedBy: actorId })
       .where(eq(roles.id, id));
     await tx.delete(userRoles).where(eq(userRoles.roleId, id));
-    await tx.delete(workspaceMemberRoles).where(eq(workspaceMemberRoles.roleId, id));
   }
 
   async listPermissions(roleId: string): Promise<PermissionRow[]> {
@@ -178,7 +161,6 @@ export class RoleRepository {
         key: permissions.key,
         resource: permissions.resource,
         action: permissions.action,
-        scope: permissions.scope,
         nameI18nKey: permissions.nameI18nKey,
         description: permissions.description,
         sortOrder: permissions.sortOrder,
@@ -226,16 +208,14 @@ export class RoleRepository {
 
   async countUsers(roleId: string): Promise<number> {
     const [row] = await this.db
-      .select({ total: userCountOf(roleId) })
-      .from(roles)
-      .where(eq(roles.id, roleId))
-      .limit(1);
+      .select({ total: sql<number>`count(*)::int` })
+      .from(userRoles)
+      .innerJoin(users, and(eq(users.id, userRoles.userId), isNull(users.deletedAt)))
+      .where(eq(userRoles.roleId, roleId));
     return row?.total ?? 0;
   }
 
-  /** 持有者（全域與所有工作區，去重）。 */
   async listUsers(roleId: string, offset: number, limit: number) {
-    const where = and(isNull(users.deletedAt), sql`${users.id} IN ${holderIdsOf(roleId)}`);
     const [items, [counted]] = await Promise.all([
       this.db
         .select({
@@ -244,23 +224,27 @@ export class RoleRepository {
           displayName: users.displayName,
           status: users.status,
         })
-        .from(users)
-        .where(where)
+        .from(userRoles)
+        .innerJoin(users, and(eq(users.id, userRoles.userId), isNull(users.deletedAt)))
+        .where(eq(userRoles.roleId, roleId))
         .orderBy(asc(users.email))
         .limit(limit)
         .offset(offset),
       this.db
         .select({ total: sql<number>`count(*)::int` })
-        .from(users)
-        .where(where),
+        .from(userRoles)
+        .innerJoin(users, and(eq(users.id, userRoles.userId), isNull(users.deletedAt)))
+        .where(eq(userRoles.roleId, roleId)),
     ]);
     return { items, total: counted?.total ?? 0 };
   }
 
-  /** 持有者的 id（含已刪除的使用者：快取失效不必分辨）。 */
   async findUserIdsByRole(roleId: string): Promise<string[]> {
-    const rows = await this.db.execute<{ user_id: string }>(holderIdsOf(roleId));
-    return rows.map((row) => row.user_id);
+    const rows = await this.db
+      .select({ userId: userRoles.userId })
+      .from(userRoles)
+      .where(eq(userRoles.roleId, roleId));
+    return rows.map((row) => row.userId);
   }
 
   async searchByName(keyword: string): Promise<RoleRow[]> {

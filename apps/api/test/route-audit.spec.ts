@@ -2,16 +2,18 @@ import { Controller, Get, Module } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DiscoveryModule } from '@nestjs/core';
-import { afterAll, beforeAll, describe, expect, it, inject } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { Public, RequirePermissions, WorkspaceScoped } from '@/common/decorators';
+import { Public, RequirePermissions } from '@/common/decorators';
 import {
   auditRoutes,
   collectDeclaredPermissionKeys,
+  collectDeclaredPlatformPermissionKeys,
   collectGatewayDeclarations,
   collectRouteDeclarations,
 } from '@/common/route-audit';
 import { ALL_PERMISSION_KEYS } from '@/db/seeds/permissions';
+import { ALL_PLATFORM_PERMISSION_KEYS } from '@/db/seeds/platform-permissions';
 
 let app: INestApplication;
 
@@ -32,47 +34,14 @@ class UndeclaredController {
   oops(): void {}
 }
 
-/** 工作區的鍵宣告在平台路由上：P(u) 永遠不會有它。 */
-@Controller('misplaced')
-class MisplacedController {
-  @Get()
-  @RequirePermissions('file:read')
-  list(): void {}
-}
-
-/** 平台的鍵宣告在工作區路由上。 */
-@WorkspaceScoped()
-@Controller('workspaces/:workspaceId/misplaced')
-class MisplacedWorkspaceController {
-  @Get()
-  @RequirePermissions('user:read')
-  list(): void {}
-}
-
-/** 工作區路由的路徑沒有 :workspaceId。 */
-@WorkspaceScoped()
-@Controller('no-param')
-class NoParamController {
-  @Get()
-  @RequirePermissions('file:read')
-  list(): void {}
-}
-
 @Module({ imports: [DiscoveryModule], controllers: [DeclaredController] })
 class DeclaredModule {}
-
-@Module({
-  imports: [DiscoveryModule],
-  controllers: [MisplacedController, MisplacedWorkspaceController, NoParamController],
-})
-class MisplacedModule {}
 
 @Module({ imports: [DiscoveryModule], controllers: [DeclaredController, UndeclaredController] })
 class UndeclaredModule {}
 
 describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
   beforeAll(async () => {
-    process.env.DATABASE_URL = inject('databaseUrl');
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = 'route-audit@example.com';
     const { AppModule } = await import('@/app.module');
@@ -96,17 +65,6 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
     await bad.close();
   });
 
-  it('權限鍵的範圍與路由不符 → 稽核失敗（docs/adr/0018-workspace-tenancy.md D9）', async () => {
-    const bad = await NestFactory.create(MisplacedModule, { logger: false });
-    await bad.init();
-    expect(() => auditRoutes(bad)).toThrow(/GET \/misplaced（平台路由；範圍不符的鍵：file:read）/);
-    expect(() => auditRoutes(bad)).toThrow(
-      /GET \/workspaces\/:workspaceId\/misplaced（工作區路由；範圍不符的鍵：user:read）/,
-    );
-    expect(() => auditRoutes(bad)).toThrow(/GET \/no-param（工作區路由；路徑缺少 :workspaceId）/);
-    await bad.close();
-  });
-
   it('全部宣告時不拋錯', async () => {
     const good = await NestFactory.create(DeclaredModule, { logger: false });
     await good.init();
@@ -120,13 +78,21 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
     for (const key of declared) expect(ALL_PERMISSION_KEYS).toContain(key);
   });
 
+  it('@RequirePlatformPermissions 使用的鍵全部存在於平台的權限目錄', () => {
+    const declared = collectDeclaredPlatformPermissionKeys(app);
+    expect(declared.length).toBeGreaterThan(0);
+    for (const key of declared) expect(ALL_PLATFORM_PERMISSION_KEYS).toContain(key);
+  });
+
   it('端點 × 權限總表與 docs/architecture/backend/05-rbac.md §9 一致', () => {
     const actual = new Map(
       collectRouteDeclarations(app).map((route) => [
         `${route.method} ${route.path}`,
         route.declaration === 'permissions'
           ? route.keys.join(route.match === 'some' ? '|' : '+')
-          : route.declaration,
+          : route.declaration === 'platformPermissions'
+            ? `platform ${route.platformKeys.join('+')}`
+            : route.declaration,
       ]),
     );
 
@@ -139,10 +105,51 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'POST /auth/reset-password': 'public',
       'GET /auth/setup/verify': 'public',
       'POST /auth/setup': 'public',
+      'POST /auth/sso/callback': 'public',
+      'POST /platform/auth/sso/callback': 'public',
+      'POST /platform/auth/refresh': 'public',
+      'POST /platform/auth/logout': 'authenticated',
+      'GET /platform/auth/profile': 'authenticated',
+      'GET /platform/auth/setup/verify': 'public',
+      'POST /platform/auth/setup': 'public',
+      'POST /platform/auth/reset-password': 'public',
+      'GET /platform/admins': 'platform platformAdmin:read',
+      'POST /platform/admins': 'platform platformAdmin:create',
+      'PATCH /platform/admins/:id': 'platform platformAdmin:update',
+      'POST /platform/admins/:id/password-link': 'platform platformAdmin:update',
+      'GET /platform/audit-logs': 'platform platformAuditLog:read',
+      'GET /platform/jobs/queues': 'platform platformJob:read',
+      'GET /platform/jobs': 'platform platformJob:read',
+      'GET /platform/jobs/:id': 'platform platformJob:read',
+      'POST /platform/jobs/:id/retry': 'platform platformJob:retry',
+      'GET /platform/tenants': 'platform tenant:read',
+      'GET /platform/tenants/:id': 'platform tenant:read',
+      'POST /platform/tenants': 'platform tenant:create',
+      'PATCH /platform/tenants/:id': 'platform tenant:update',
+      'POST /platform/tenants/:id/provision': 'platform tenant:create',
+      'POST /platform/tenants/:id/disable': 'platform tenant:update',
+      'POST /platform/tenants/:id/enable': 'platform tenant:update',
+      'DELETE /platform/tenants/:id': 'platform tenant:delete',
+      'POST /platform/tenants/:id/domains': 'platform tenant:update',
+      'DELETE /platform/tenants/:id/domains/:domain': 'platform tenant:update',
+      'GET /tenant/current': 'public',
+      'GET /tenants/lookup': 'public',
+      'GET /oidc-interaction/:uid': 'public',
+      'GET /oidc-interaction/:uid/details': 'public',
+      'POST /oidc-interaction/:uid/login': 'public',
+      'POST /oidc-interaction/:uid/abort': 'public',
+      'GET /oidc-interaction/external/callback': 'public',
+      'GET /oidc-interaction/:uid/discover': 'public',
+      'POST /oidc-interaction/:uid/external': 'public',
+      'GET /oidc-interaction/:uid/external/complete': 'public',
       'POST /auth/logout': 'authenticated',
       'GET /auth/profile': 'authenticated',
       'PATCH /auth/profile': 'authenticated',
       'POST /auth/change-password': 'authenticated',
+      'GET /identity-providers': 'identityProvider:read',
+      'POST /identity-providers': 'identityProvider:create',
+      'PATCH /identity-providers/:id': 'identityProvider:update',
+      'DELETE /identity-providers/:id': 'identityProvider:delete',
       'GET /users': 'user:read',
       'POST /users': 'user:create',
       'GET /users/:id': 'user:read',
@@ -176,46 +183,31 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /jobs': 'job:read',
       'GET /jobs/:id': 'job:read',
       'POST /jobs/:id/retry': 'job:retry',
-      'GET /workspaces/:workspaceId/files': 'file:access|file:read',
-      'POST /workspaces/:workspaceId/files': 'file:access|file:create',
-      'GET /workspaces/:workspaceId/files/upload-policy': 'file:access|file:create',
-      'POST /workspaces/:workspaceId/files/:id/parts': 'file:access|file:create',
-      'POST /workspaces/:workspaceId/files/:id/complete': 'file:access|file:create',
-      'DELETE /workspaces/:workspaceId/files/:id/upload': 'file:access|file:create',
-      'GET /workspaces/:workspaceId/files/:id': 'file:access|file:read',
-      'PATCH /workspaces/:workspaceId/files/:id': 'file:access|file:update',
-      'DELETE /workspaces/:workspaceId/files/:id': 'file:access|file:delete',
-      'POST /workspaces/:workspaceId/files/move': 'file:access|file:update',
-      'GET /workspaces/:workspaceId/file-folders': 'file:access|file:read',
-      'POST /workspaces/:workspaceId/file-folders': 'file:access|file:create',
-      'POST /workspaces/:workspaceId/file-folders/paths': 'file:access|file:create',
-      'PATCH /workspaces/:workspaceId/file-folders/:id': 'file:access|file:update',
-      'DELETE /workspaces/:workspaceId/file-folders/:id': 'file:access|file:delete',
-      'GET /workspaces/:workspaceId/file-folders/:id/grants': 'file:access|file:share',
-      'PUT /workspaces/:workspaceId/file-folders/:id/grants': 'file:access|file:share',
-      'DELETE /workspaces/:workspaceId/file-folders/:id/grants/:subjectType/:subjectId':
-        'file:access|file:share',
-      'GET /workspaces/:workspaceId/file-folders/:id/grant-subjects': 'file:access|file:share',
-      'PATCH /workspaces/:workspaceId/file-folders/:id/access': 'file:access|file:share',
-      'POST /workspaces/:workspaceId/file-folders/:id/access-requests': 'file:access|file:read',
-      'GET /workspaces/:workspaceId/file-folders/:id/access-requests': 'file:access|file:share',
-      'POST /workspaces/:workspaceId/file-folders/:id/access-requests/:requestId/approve':
-        'file:access|file:share',
-      'POST /workspaces/:workspaceId/file-folders/:id/access-requests/:requestId/reject':
-        'file:access|file:share',
+      'GET /files': 'file:access|file:read',
+      'POST /files': 'file:access|file:create',
+      'GET /files/upload-policy': 'file:access|file:create',
+      'POST /files/:id/parts': 'file:access|file:create',
+      'POST /files/:id/complete': 'file:access|file:create',
+      'DELETE /files/:id/upload': 'file:access|file:create',
       'GET /files/:id/image/:variant': 'public',
-      'GET /workspaces': 'workspace:read',
-      'POST /workspaces': 'workspace:create',
-      'GET /workspaces/mine': 'authenticated',
-      'GET /workspaces/:workspaceId': 'workspace:read',
-      'PATCH /workspaces/:workspaceId': 'workspace:update',
-      'DELETE /workspaces/:workspaceId': 'workspace:delete',
-      'POST /workspaces/:workspaceId/admins': 'workspace:update',
-      'GET /workspaces/:workspaceId/me': 'authenticated',
-      'GET /workspaces/:workspaceId/members': 'workspaceMember:read',
-      'PUT /workspaces/:workspaceId/members/:userId/roles': 'workspaceMember:assignRole',
-      'DELETE /workspaces/:workspaceId/members/:userId': 'workspaceMember:delete',
-      'GET /workspaces/:workspaceId/roles': 'workspaceMember:read',
+      'GET /files/:id': 'file:access|file:read',
+      'PATCH /files/:id': 'file:access|file:update',
+      'DELETE /files/:id': 'file:access|file:delete',
+      'POST /files/move': 'file:access|file:update',
+      'GET /file-folders': 'file:access|file:read',
+      'POST /file-folders': 'file:access|file:create',
+      'POST /file-folders/paths': 'file:access|file:create',
+      'PATCH /file-folders/:id': 'file:access|file:update',
+      'DELETE /file-folders/:id': 'file:access|file:delete',
+      'GET /file-folders/:id/grants': 'file:access|file:share',
+      'PUT /file-folders/:id/grants': 'file:access|file:share',
+      'DELETE /file-folders/:id/grants/:subjectType/:subjectId': 'file:access|file:share',
+      'GET /file-folders/:id/grant-subjects': 'file:access|file:share',
+      'PATCH /file-folders/:id/access': 'file:access|file:share',
+      'POST /file-folders/:id/access-requests': 'file:access|file:read',
+      'GET /file-folders/:id/access-requests': 'file:access|file:share',
+      'POST /file-folders/:id/access-requests/:requestId/approve': 'file:access|file:share',
+      'POST /file-folders/:id/access-requests/:requestId/reject': 'file:access|file:share',
     };
 
     for (const [route, declaration] of Object.entries(expected)) {

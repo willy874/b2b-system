@@ -1,4 +1,4 @@
-# Game Editor
+# B2B System
 
 以 Web 為載體的遊戲內容編輯與管理平台。**Phase 0 只建置 RBAC 骨架**，
 架構規格見 [`docs/`](./docs/README.md)，實作進度見 [`docs/overview/03-roadmap.md`](./docs/overview/03-roadmap.md)。
@@ -28,7 +28,7 @@ pnpm db:up
 pnpm db:migrate
 pnpm db:seed          # 首次會印出 super-admin 的密碼（只印這一次）
 
-# 5. 啟動（postgres + api:3000 + web:5173）
+# 5. 啟動（postgres + api:3000 + backstage:5173）
 pnpm dev
 ```
 
@@ -38,11 +38,11 @@ pnpm dev
 
 | 指令 | 作用 |
 | --- | --- |
-| `pnpm dev` / `pnpm dev:api` / `pnpm dev:web` | 開發模式 |
-| `pnpm build` | 依序建置 api-sdk → api → web |
+| `pnpm dev` / `pnpm dev:api` / `pnpm dev:backstage` | 開發模式 |
+| `pnpm build` | 依序建置 api-sdk → api → backstage |
 | `pnpm lint` / `pnpm format` / `pnpm format:check` / `pnpm typecheck` | 全 workspace 檢查 |
-| `pnpm test` | 單元測試（apps/api、apps/web） |
-| `pnpm test:e2e` | Playwright（首次需 `pnpm --filter @game-editor/e2e install:browsers`） |
+| `pnpm test` | 單元測試（apps/api、apps/backstage） |
+| `pnpm test:e2e` | Playwright（首次需 `pnpm --filter @b2b-system/e2e install:browsers`） |
 | `pnpm db:up` / `pnpm db:down` | 啟停本機 PostgreSQL |
 | `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:seed` / `pnpm db:studio` | 資料庫 |
 | `pnpm db:seed:dev` | 50 位假使用者、5 個自訂角色、300 筆稽核日誌（固定亂數種子） |
@@ -54,7 +54,7 @@ pnpm dev
 ## 專案結構
 
 ```
-apps/web     React 前端（feature-first + plugin-based AppContext）
+apps/backstage     React 前端（feature-first + plugin-based AppContext）
 apps/api     NestJS 後端（modules / core / common / db）
 apps/e2e     Playwright
 packages/api-sdk   由 OpenAPI 產生的型別與 client（後端是唯一事實來源）
@@ -68,7 +68,7 @@ docs/        架構規格（唯一事實來源，改程式必須同步改文件�
 
 ```bash
 pnpm test        # 單元 ＋ 整合（後端整合測試會用 Testcontainers 起一個 postgres）
-pnpm test:e2e    # Playwright：需要 api 與 web 已啟動，且 DB 有 E2E 帳號
+pnpm test:e2e    # Playwright：需要 api 與 backstage 已啟動，且 DB 有 E2E 帳號
 ```
 
 E2E 的完整前置：
@@ -76,7 +76,7 @@ E2E 的完整前置：
 ```bash
 pnpm db:reset && pnpm db:seed && pnpm db:seed:e2e
 pnpm dev:e2e      # 另一個終端機：api（放寬速率限制）
-pnpm dev:web      # 另一個終端機
+pnpm dev:backstage      # 另一個終端機
 pnpm test:e2e
 ```
 
@@ -90,6 +90,6 @@ POSTGRES_PASSWORD=... JWT_SECRET=... SUPER_ADMIN_EMAIL=... \
   docker compose -f docker-compose.prod.yml up --build
 ```
 
-- 前端映像：`apps/web/Dockerfile`（多階段 build → nginx，設定見 `deploy/nginx.conf`）
+- 前端映像：`apps/backstage/Dockerfile`（多階段 build → nginx，設定見 `deploy/nginx.conf`）
 - 後端映像：`apps/api/Dockerfile`（多階段 build → `node dist/main.js`）
 - `REFRESH_COOKIE_PATH` 必須與反向代理對外的前綴一致（預設 `/api/auth`）

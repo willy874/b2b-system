@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { ChangeKind, ChangeSource, SessionRevokedReason } from '@game-editor/realtime';
+import { ChangeKind, ChangeSource, SessionRevokedReason } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -9,13 +9,16 @@ import type { AuthUser } from '@/common/types';
 import { UserCacheService } from '@/core/cache';
 import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
-import { DRIZZLE, withTransaction } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { JobQueue } from '@/core/jobs';
-import type { RefreshTokenRow, UserRow } from '@/db/schema';
+import { requireTenant } from '@/core/tenant';
+import type { UserRow } from '@/db/schema';
 import { ApprovalService } from '@/modules/approval/approval.service';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import { IdentityProviderService } from '@/modules/identity-provider/identity-provider.service';
+import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 import { userRegistrationRequest } from '@/modules/user/user-registration.approval';
 import { UserService, userUpdated } from '@/modules/user/user.service';
@@ -34,6 +37,7 @@ import type {
   UpdateProfileDto,
 } from './dto/auth.dto';
 import { hashPassword, verifyAgainstDummy, verifyPassword } from './password';
+import { rotateRefreshToken } from './refresh-rotation';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import { sha256 } from './token-hash';
 
@@ -47,10 +51,16 @@ export interface IssuedSession extends SessionDto {
   refreshTtlSeconds: number;
 }
 
+/** 經 SSO 發出的 app session 帶的來源（docs/adr/0019-sso-identity-platform.md D4）。 */
+export interface SsoOrigin {
+  clientId: string;
+  idpSessionUid: string | null;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly config: ConfigService<Env, true>,
     private readonly jwt: JwtService,
     private readonly users: UserService,
@@ -62,11 +72,26 @@ export class AuthService {
     private readonly events: DomainEventBus,
     private readonly approvals: ApprovalService,
     private readonly jobs: JobQueue,
+    private readonly oidc: OidcProviderService,
+    private readonly identityProviders: IdentityProviderService,
   ) {}
 
   // ── 登入 ────────────────────────────────────────────────
 
   async login(dto: LoginDto, meta: RequestMeta): Promise<IssuedSession> {
+    const user = await this.verifyCredentials(dto);
+    return this.issueSession(user, meta);
+  }
+
+  /**
+   * 帳密檢查：列舉防護、鎖定、狀態、失敗計數與稽核。密碼直接登入與 IdP 的登入互動共用
+   * （docs/adr/0019-sso-identity-platform.md：密碼驗證只有一套）。
+   */
+  async verifyCredentials(dto: LoginDto): Promise<UserRow> {
+    // 只允許 SSO 的網域（ADR-0019 D9）：先於查帳號判斷，回應只透露網域設定、不透露帳號是否存在
+    if (await this.identityProviders.isSsoOnly(dto.email)) {
+      throw new AppException('AUTH_SSO_REQUIRED');
+    }
     const user = await this.users.findAccountByEmail(dto.email);
 
     // 時序攻擊防護：帳號不存在時也跑一次 argon2
@@ -113,7 +138,7 @@ export class AuthService {
       actorEmail: user.email,
     });
 
-    return this.issueSession(user, meta);
+    return user;
   }
 
   private async registerFailedAttempt(user: UserRow): Promise<void> {
@@ -154,30 +179,38 @@ export class AuthService {
     });
   }
 
-  private async issueSession(
-    user: UserRow,
-    meta: RequestMeta,
-    familyId?: string,
-  ): Promise<IssuedSession> {
+  /** 發一條新的 refresh 家族與 access token；`sso` 有值時記下產品與 IdP session。 */
+  async issueSession(user: UserRow, meta: RequestMeta, sso?: SsoOrigin): Promise<IssuedSession> {
     const refreshTtl = this.config.get('REFRESH_TOKEN_TTL', { infer: true });
     const { raw } = await this.refreshTokens.issue({
       userId: user.id,
-      familyId,
       ttlSeconds: refreshTtl,
+      clientId: sso?.clientId ?? null,
+      idpSessionUid: sso?.idpSessionUid ?? null,
       userAgent: meta.userAgent ?? null,
       ipAddress: meta.ip ?? null,
     });
     return {
-      ...(await this.signAccessToken(user)),
+      ...(await this.signAccessToken(user, sso?.idpSessionUid ?? null)),
       refreshToken: raw,
       refreshTtlSeconds: refreshTtl,
     };
   }
 
-  private async signAccessToken(user: UserRow): Promise<SessionDto> {
+  /**
+   * `sid`：經 SSO 登入時的 IdP session。即時連線依它加入 session 專屬的 room，
+   * 單一登出只推給同一個 IdP session 的分頁，不影響同一個人的其他裝置（ADR-0019 D5）。
+   */
+  private async signAccessToken(user: UserRow, idpSessionUid: string | null): Promise<SessionDto> {
     const expiresIn = this.config.get('JWT_ACCESS_TTL', { infer: true });
     const accessToken = await this.jwt.signAsync(
-      { sub: user.id, ver: user.tokenVersion, jti: randomUUID() },
+      {
+        sub: user.id,
+        ver: user.tokenVersion,
+        jti: randomUUID(),
+        tid: requireTenant().id,
+        ...(idpSessionUid && { sid: idpSessionUid }),
+      },
       { secret: this.config.get('JWT_SECRET', { infer: true }), expiresIn },
     );
     return { accessToken, tokenType: 'Bearer', expiresIn };
@@ -186,98 +219,78 @@ export class AuthService {
   // ── 續期 ────────────────────────────────────────────────
 
   async refresh(rawToken: string, meta: RequestMeta): Promise<IssuedSession> {
-    const row = await this.refreshTokens.findByHash(sha256(rawToken));
-
-    if (!row) throw new AppException('AUTH_REFRESH_INVALID');
-    // 也看整個家族：登出與續期同時提交時，續期新發的那張可能沒被撤銷到
-    if (row.revokedAt || (await this.refreshTokens.isFamilyRevoked(row.familyId))) {
-      // 已被用過的 token 再出示就是重用，即使家族已被撤銷：同一張 token 的併發請求裡，
-      // 先失敗的那個已撤銷整條家族，後到的仍要判定為重用（docs/architecture/backend/04-auth.md §2.3）
-      if (await this.wasUsed(row)) return this.rejectReuse(row, meta);
-      throw new AppException('AUTH_REFRESH_REVOKED');
-    }
-    if (row.expiresAt.getTime() < Date.now()) throw new AppException('AUTH_REFRESH_EXPIRED');
-    if (row.usedAt) return this.rejectReuse(row, meta);
-
-    const user = await this.users.findAccountById(row.userId);
-    if (!user || user.deletedAt) throw new AppException('AUTH_REFRESH_INVALID');
-    if (user.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
-
     const refreshTtl = this.config.get('REFRESH_TOKEN_TTL', { infer: true });
-
-    // markUsed 與 create 必須同一個交易，否則使用者會被無故登出
-    const raw = await withTransaction(this.db, async (tx) => {
-      // 條件式標記：同一張 token 的兩個併發請求只有一個搶得到，另一個不能也發出新 token
-      if (!(await this.refreshTokens.markUsed(row.id, tx))) return undefined;
-      const next = await this.refreshTokens.issue(
-        {
-          userId: user.id,
-          familyId: row.familyId,
-          ttlSeconds: refreshTtl,
-          userAgent: meta.userAgent ?? null,
-          ipAddress: meta.ip ?? null,
-        },
-        tx,
-      );
-      return next.raw;
+    const { row, subject, raw } = await rotateRefreshToken(this.refreshTokens.store, rawToken, {
+      ttlSeconds: refreshTtl,
+      meta,
+      loadSubject: async (userId) => {
+        const user = await this.users.findAccountById(userId);
+        if (!user || user.deletedAt) throw new AppException('AUTH_REFRESH_INVALID');
+        if (user.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
+        return user;
+      },
+      onReuse: (reused) =>
+        this.audit.recordSafely({
+          action: 'auth.refresh.reuse_detected',
+          resourceType: 'auth',
+          resourceId: reused.subjectId,
+          result: 'failure',
+          actorId: reused.subjectId,
+          errorCode: 'AUTH_REFRESH_REUSED',
+          metadata: {
+            familyId: reused.familyId,
+            severity: 'high',
+            ip: meta.ip ?? undefined,
+            userAgent: meta.userAgent ?? undefined,
+          },
+        }),
     });
-
-    if (raw === undefined) {
-      // 沒搶到：被另一個請求用掉 → 重用；沒被用掉而是被撤銷（例：同時登出）→ 撤銷
-      if (await this.wasUsed(row)) return this.rejectReuse(row, meta);
-      throw new AppException('AUTH_REFRESH_REVOKED');
-    }
-
     return {
-      ...(await this.signAccessToken(user)),
+      ...(await this.signAccessToken(subject, row.idpSessionUid)),
       refreshToken: raw,
       refreshTtlSeconds: refreshTtl,
     };
   }
 
-  /** 讀取當下的狀態：`row` 是請求一開始讀到的，併發請求可能已經把它用掉。 */
-  private async wasUsed(row: RefreshTokenRow): Promise<boolean> {
-    if (row.usedAt) return true;
-    const latest = await this.refreshTokens.findByHash(row.tokenHash);
-    return Boolean(latest?.usedAt);
-  }
-
-  /** 重用偵測：整條家族失效並記錄高嚴重度稽核。 */
-  private async rejectReuse(row: RefreshTokenRow, meta: RequestMeta): Promise<never> {
-    await this.refreshTokens.revokeFamily(row.familyId, 'reuse_detected');
-    await this.audit.recordSafely({
-      action: 'auth.refresh.reuse_detected',
-      resourceType: 'auth',
-      resourceId: row.userId,
-      result: 'failure',
-      actorId: row.userId,
-      errorCode: 'AUTH_REFRESH_REUSED',
-      metadata: {
-        familyId: row.familyId,
-        severity: 'high',
-        ip: meta.ip ?? undefined,
-        userAgent: meta.userAgent ?? undefined,
-      },
-    });
-    throw new AppException('AUTH_REFRESH_REUSED');
-  }
-
   // ── 登出 ────────────────────────────────────────────────
 
+  /** 撤銷目前租戶的所有 session（平台管理者停用或刪除租戶，docs/adr/0020-physical-tenant-isolation.md D13）。 */
+  async revokeAllSessions(): Promise<void> {
+    await this.refreshTokens.revokeAll('tenant_disabled');
+  }
+
   async logout(rawToken: string | undefined, actor: AuthUser): Promise<{ success: true }> {
-    if (rawToken) {
-      const row = await this.refreshTokens.findByHash(sha256(rawToken));
-      // 撤銷整條家族，而不只是當前這一條
-      if (row) await this.refreshTokens.revokeFamily(row.familyId, 'logout');
-    }
+    const row = rawToken ? await this.refreshTokens.findByHash(sha256(rawToken)) : undefined;
+    // 撤銷整條家族，而不只是當前這一條
+    if (row) await this.refreshTokens.revokeFamily(row.familyId, 'logout');
+    // 經 SSO 登入的 session：同一個 IdP session 的所有產品一起登出（ADR-0019 D5）
+    const idpSessionUid = row?.userId === actor.id ? row.idpSessionUid : null;
+    if (idpSessionUid) await this.endIdpSession(idpSessionUid);
     await this.audit.recordSafely({
       action: 'auth.logout',
       resourceType: 'auth',
       resourceId: actor.id,
       actorId: actor.id,
       actorEmail: actor.email,
+      metadata: row?.clientId
+        ? { clientId: row.clientId, singleLogout: Boolean(idpSessionUid) }
+        : undefined,
     });
     return { success: true };
+  }
+
+  /**
+   * 單一登出（ADR-0019 D5）：銷毀 IdP session（apps/auth 上的 cookie 之後指向不存在的 session），
+   * 撤銷它底下所有產品的 refresh 家族，並推播給同一個 IdP session 的分頁。全部在伺服器端完成，
+   * 不需要碰其他 origin 的 cookie；**不** 遞增 `token_version`（那會連其他裝置一起登出）。
+   */
+  async endIdpSession(idpSessionUid: string): Promise<void> {
+    await this.oidc.destroySession(idpSessionUid);
+    await this.refreshTokens.revokeByIdpSession(idpSessionUid, 'sso_logout');
+    this.events.publish(DomainEvent.SESSIONS_REVOKED, {
+      idpSessionUids: [idpSessionUid],
+      reason: SessionRevokedReason.SIGNED_OUT,
+    });
   }
 
   // ── 個人資料 ────────────────────────────────────────────
@@ -376,7 +389,9 @@ export class AuthService {
   // ── 忘記密碼 / 重設 / 啟用 ───────────────────────────────
 
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ sent: true }> {
-    const user = await this.users.findAccountByEmail(dto.email);
+    // 只允許 SSO 的網域不寄重設信（密碼本來就不能用）；回應照舊，不透露帳號是否存在
+    const ssoOnly = await this.identityProviders.isSsoOnly(dto.email);
+    const user = ssoOnly ? undefined : await this.users.findAccountByEmail(dto.email);
     if (user && user.status === 'active') {
       // 入列即回應：寄信慢或 SMTP 暫時失敗都不影響這個請求，也不會從回應時間看出帳號是否存在
       await this.jobs.enqueue(

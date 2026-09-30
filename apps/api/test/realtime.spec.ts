@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 
-import { CLIENT_ID_HEADER, ClientEvent, ServerEvent } from '@game-editor/realtime';
+import { CLIENT_ID_HEADER, ClientEvent, ServerEvent } from '@b2b-system/realtime';
 import type {
   ChannelEnvelopeWire,
   ClientToServerEvents,
   ResourceChanged,
   ServerToClientEvents,
   SessionRenewResult,
-} from '@game-editor/realtime';
+} from '@b2b-system/realtime';
 import type { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
@@ -17,7 +17,7 @@ import { io } from 'socket.io-client';
 import type { Socket } from 'socket.io-client';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { afterAll, afterEach, beforeAll, describe, expect, inject, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { roles, userRoles, users } from '@/db/schema';
@@ -28,7 +28,8 @@ import { userRoom } from '@/modules/realtime/realtime.rooms';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
-import { assignRoles, createWorkspace, workspacePath } from './workspace';
+import { listenOnLoopback } from './http';
+import { inTestTenant, testTenantContext } from './tenant';
 
 type ClientSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -44,6 +45,8 @@ let db: TestDatabase;
 let closeDb: () => Promise<void>;
 let bus: DomainEventBus;
 let jwt: JwtService;
+/** 測試租戶的 id：直接簽的 token 要帶上（docs/adr/0020-physical-tenant-isolation.md D10）。 */
+let tenantId: string;
 
 const opened: ClientSocket[] = [];
 
@@ -72,6 +75,7 @@ async function tokenFor(
     sub: userId,
     ver: options.ver ?? 0,
     jti: randomUUID(),
+    tid: tenantId,
   };
   if (options.exp !== undefined) payload.exp = options.exp;
   return jwt.signAsync(payload, {
@@ -184,7 +188,6 @@ let superAdminToken: string;
 
 describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () => {
   beforeAll(async () => {
-    process.env.DATABASE_URL = inject('databaseUrl');
     process.env.JWT_SECRET = JWT_SECRET;
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN_EMAIL;
     process.env.SUPER_ADMIN_PASSWORD = 'RealtimeRoot!2026';
@@ -207,11 +210,11 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       })
       .compile();
     app = moduleRef.createNestApplication({ logger: false });
-    await app.listen(0);
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
     url = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
     bus = app.get(DomainEventBus);
     jwt = app.get(JwtService);
+    tenantId = (await testTenantContext(app)).id;
 
     const [root] = await db.select().from(users).where(eq(users.email, SUPER_ADMIN_EMAIL));
     superAdminToken = await tokenFor(root!.id);
@@ -258,6 +261,12 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
 
       const allowed = openSocket(token, { origin: 'http://localhost:5173' });
       await expect(waitFor(allowed, 'connect')).resolves.toBeUndefined();
+    });
+
+    it('同源（Origin 的 host 就是連線的網域）→ 不必列在清單裡（每個租戶在自己的網域，ADR-0020 D2）', async () => {
+      const token = await tokenFor(await createUser('hs-same-origin@example.com'));
+      const sameOrigin = openSocket(token, { origin: url });
+      await expect(waitFor(sameOrigin, 'connect')).resolves.toBeUndefined();
     });
 
     it(`每個使用者最多 ${CONNECTIONS_PER_USER} 條連線 → 超過回 RATE_LIMITED`, async () => {
@@ -307,10 +316,8 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       expect(result).toEqual({ ok: true });
 
       // 伺服器端的授權期限已換成新 token 的 exp（計時器依它重設）
-      const [serverSocket] = await app
-        .get(RealtimeGateway)
-        .server!.in(userRoom(userId))
-        .fetchSockets();
+      const room = await inTestTenant(app, async () => userRoom(userId));
+      const [serverSocket] = await app.get(RealtimeGateway).server!.in(room).fetchSockets();
       expect(serverSocket?.data.expiresAt).toBeGreaterThan(Date.now() + 200_000);
     });
   });
@@ -428,8 +435,8 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
           { resource: 'userRole', kind: 'update', id: target, refs: { role: [auditorId] } },
         ],
       });
-      // auditor 是平台角色：不帶檔案權限，不會建立個人資料夾（docs/adr/0018-workspace-tenancy.md D2）
-      expect(got.slice(1)).toEqual([]);
+      // auditor 有 file:read：取得檔案管理器權限，同時建立了個人資料夾（docs/rbac/07-resource-grants.md §12）
+      expect(got.slice(1).map((event) => event.changes[0]?.resource)).toEqual(['fileFolder']);
 
       // 拿到 role:read（auditor）之後，別人的角色建立也會推過來
       got.length = 0;
@@ -486,94 +493,6 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
     });
   });
 
-  // ── 工作區 ─────────────────────────────────────────────────
-
-  describe('工作區的推播（docs/adr/0018-workspace-tenancy.md D16）', () => {
-    let wsA = '';
-    let wsB = '';
-    let wsC = '';
-    let member = '';
-    let memberRole = '';
-
-    beforeAll(async () => {
-      wsA = await createWorkspace(db, 'realtime-a');
-      wsB = await createWorkspace(db, 'realtime-b');
-      wsC = await createWorkspace(db, 'realtime-c');
-      memberRole = await roleIdOf('workspace-member');
-      member = await createUser('realtime-ws-member@example.com');
-      // A、B 的成員，不是 C 的
-      await assignRoles(db, member, [memberRole], wsA);
-      await assignRoles(db, member, [memberRole], wsB);
-    });
-
-    /** handshake 通過（客戶端的 connect）時，伺服器可能還在查權限、加入 room：等它加入。 */
-    const joined = (workspaceId: string) =>
-      expect
-        .poll(
-          () =>
-            app
-              .get(RealtimeGateway)
-              .server!.sockets.adapter.rooms.get(`ws:${workspaceId}:perm:file:access`)?.size ?? 0,
-        )
-        .toBeGreaterThan(0);
-
-    const fileChanged = (workspaceId: string) =>
-      bus.publish(DomainEvent.RESOURCE_CHANGED, {
-        changes: [{ resource: 'file', kind: 'update', id: randomUUID() }],
-        workspaceId,
-      });
-
-    it('收到所屬每個工作區的變更（leader 分頁代表所有分頁），不屬於的收不到', async () => {
-      const socket = await connect(await tokenFor(member));
-      const got = collect(socket);
-      await joined(wsA);
-      await joined(wsB);
-
-      fileChanged(wsA);
-      fileChanged(wsB);
-      fileChanged(wsC);
-      await barrier([socket]);
-      expect(got).toHaveLength(2);
-    });
-
-    it('被移出工作區 → 立刻收不到它的變更', async () => {
-      const leaver = await createUser('realtime-ws-leaver@example.com');
-      await assignRoles(db, leaver, [memberRole], wsA);
-      // 讓 wsA 有一位管理員，移除成員時才不會違反「至少一位管理員」
-      const admin = await createUser('realtime-ws-admin@example.com');
-      await assignRoles(db, admin, [await roleIdOf('workspace-admin')], wsA);
-
-      const socket = await connect(await tokenFor(leaver));
-      const got = collect(socket);
-      await joined(wsA);
-      fileChanged(wsA);
-      await barrier([socket]);
-      expect(got).toHaveLength(1);
-
-      await request(http)
-        .delete(`${workspacePath(wsA)}/members/${leaver}`)
-        .set('Authorization', `Bearer ${await tokenFor(admin)}`)
-        .expect(204);
-      await barrier([socket]);
-      got.length = 0;
-
-      fileChanged(wsA);
-      await barrier([socket]);
-      expect(got).toEqual([]);
-    });
-
-    it('沒帶 workspaceId 的工作區變更：誰都不推（寧可漏推也不跨工作區）', async () => {
-      const socket = await connect(await tokenFor(member));
-      const got = collect(socket);
-      bus.publish(DomainEvent.RESOURCE_CHANGED, {
-        changes: [{ resource: 'fileFolder', kind: 'create' }],
-      });
-      await barrier([socket]);
-      // 只剩 auditLog:read 的 room，member 不在裡面
-      expect(got).toEqual([]);
-    });
-  });
-
   // ── 撤銷 ───────────────────────────────────────────────────
 
   describe('撤銷（§3.5）', () => {
@@ -598,6 +517,22 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
         'io server disconnect',
         'io server disconnect',
       ]);
+    });
+
+    it('租戶被停用 → 這個租戶的所有連線收到 session.revoked（TENANT_UNAVAILABLE）並被斷線', async () => {
+      const token = await tokenFor(await createUser('tenant-down@example.com'));
+      const socket = await connect(token);
+      const revoked = waitFor(socket, ServerEvent.SESSION_REVOKED);
+      const disconnected = waitFor<string>(socket, 'disconnect');
+
+      // PlatformTenantService 停用租戶時發佈（在平台的請求裡，沒有租戶脈絡）
+      app.get(DomainEventBus).publish(DomainEvent.SESSIONS_REVOKED, {
+        tenantIds: [tenantId],
+        reason: 'TENANT_UNAVAILABLE',
+      });
+
+      await expect(revoked).resolves.toEqual({ reason: 'TENANT_UNAVAILABLE' });
+      await expect(disconnected).resolves.toBe('io server disconnect');
     });
 
     it('登入失敗次數達上限被鎖定 → 既有連線收到 session.revoked 並被斷線', async () => {
@@ -631,9 +566,9 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       const userId = await createUser('stale-ws@example.com');
       const socket = await connect(await tokenFor(userId));
       await db.update(users).set({ tokenVersion: 1 }).where(eq(users.id, userId));
-      // UserCacheService 的 30 秒 TTL：模擬快取已過期
+      // UserCacheService 的 30 秒 TTL：模擬快取已過期（快取以租戶區分，要在租戶裡失效）
       const { UserCacheService } = await import('@/core/cache');
-      app.get(UserCacheService).invalidate(userId);
+      await inTestTenant(app, async () => app.get(UserCacheService).invalidate(userId));
 
       const disconnected = waitFor<string>(socket, 'disconnect');
       socket.emit(ClientEvent.CHANNEL_RELAY, relayEnvelope('ge:store:preference:theme'));

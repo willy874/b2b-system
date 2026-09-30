@@ -1,5 +1,5 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
-// 來源：Game Editor API 0.0.0（OpenAPI 3.0.0）
+// 來源：B2B System API 0.0.0（OpenAPI 3.0.0）
 
 export const ApprovalStatus = {
   pending: 'pending',
@@ -65,6 +65,95 @@ export interface AuditLog {
   result: 'success' | 'failure';
   errorCode: string | null;
   changes: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface IdentityProviderDomain {
+  domain: string;
+  ssoOnly: boolean;
+}
+
+export interface IdentityProvider {
+  id: string;
+  name: string;
+  issuer: string;
+  clientId: string;
+  scopes: string;
+  enabled: boolean;
+  unmatchedPolicy: 'reject' | 'auto_create';
+  domains: Array<IdentityProviderDomain>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IdentityProviderList {
+  items: Array<IdentityProvider>;
+  callbackUrl: string;
+  allowed: boolean;
+}
+
+export interface CreateIdentityProviderRequest {
+  name: string;
+  issuer: string;
+  clientId: string;
+  clientSecret: string;
+  scopes: string;
+  enabled: boolean;
+  unmatchedPolicy: 'reject' | 'auto_create';
+  domains: Array<IdentityProviderDomain>;
+}
+
+export interface UpdateIdentityProviderRequest {
+  name?: string;
+  issuer?: string;
+  clientId?: string;
+  clientSecret?: string;
+  scopes?: string;
+  enabled?: boolean;
+  unmatchedPolicy?: 'reject' | 'auto_create';
+  domains?: Array<IdentityProviderDomain>;
+}
+
+export interface PlatformAdmin {
+  id: string;
+  email: string;
+  displayName: string;
+  role: 'super-admin' | 'operator' | 'auditor';
+  status: 'active' | 'inactive' | 'locked' | 'pending';
+  lastLoginAt: string | null;
+  createdAt: string;
+}
+
+export interface PlatformAdminList {
+  items: Array<PlatformAdmin>;
+}
+
+export interface CreatePlatformAdminRequest {
+  email: string;
+  displayName: string;
+  role: 'super-admin' | 'operator' | 'auditor';
+}
+
+export interface UpdatePlatformAdminRequest {
+  displayName?: string;
+  role?: 'super-admin' | 'operator' | 'auditor';
+  status?: 'active' | 'inactive';
+}
+
+export interface PlatformAdminPasswordLink {
+  purpose: 'activation' | 'passwordReset';
+}
+
+export interface PlatformAuditLog {
+  id: string;
+  occurredAt: string;
+  actorId: string | null;
+  actorEmail: string;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  result: 'success' | 'failure';
+  errorCode: string | null;
   metadata: Record<string, unknown> | null;
 }
 
@@ -147,29 +236,18 @@ export const PermissionKey = {
   'file:share': 'file:share',
   'job:read': 'job:read',
   'job:retry': 'job:retry',
-  'workspace:create': 'workspace:create',
-  'workspace:read': 'workspace:read',
-  'workspace:update': 'workspace:update',
-  'workspace:delete': 'workspace:delete',
-  'workspaceMember:read': 'workspaceMember:read',
-  'workspaceMember:create': 'workspaceMember:create',
-  'workspaceMember:delete': 'workspaceMember:delete',
-  'workspaceMember:assignRole': 'workspaceMember:assignRole',
+  'identityProvider:create': 'identityProvider:create',
+  'identityProvider:read': 'identityProvider:read',
+  'identityProvider:update': 'identityProvider:update',
+  'identityProvider:delete': 'identityProvider:delete',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
-
-export const PermissionScope = {
-  platform: 'platform',
-  workspace: 'workspace',
-} as const;
-export type PermissionScope = (typeof PermissionScope)[keyof typeof PermissionScope];
 
 export interface Permission {
   id: string;
   key: PermissionKey;
   resource: string;
   action: string;
-  scope: PermissionScope;
   nameI18nKey: string;
   description: string | null;
   sortOrder: number;
@@ -214,6 +292,33 @@ export interface Profile {
   permissions: Array<PermissionKey>;
 }
 
+export const PlatformPermissionKey = {
+  'tenant:read': 'tenant:read',
+  'tenant:create': 'tenant:create',
+  'tenant:update': 'tenant:update',
+  'tenant:delete': 'tenant:delete',
+  'platformAdmin:read': 'platformAdmin:read',
+  'platformAdmin:create': 'platformAdmin:create',
+  'platformAdmin:update': 'platformAdmin:update',
+  'platformAuditLog:read': 'platformAuditLog:read',
+  'platformJob:read': 'platformJob:read',
+  'platformJob:retry': 'platformJob:retry',
+} as const;
+export type PlatformPermissionKey =
+  (typeof PlatformPermissionKey)[keyof typeof PlatformPermissionKey];
+
+export interface PlatformProfile {
+  admin: {
+    id: string;
+    email: string;
+    displayName: string;
+    status: 'active' | 'inactive' | 'locked' | 'pending';
+    lastLoginAt: string | null;
+    role: 'super-admin' | 'operator' | 'auditor';
+  };
+  permissions: Array<PlatformPermissionKey>;
+}
+
 export interface UpdateProfileRequest {
   displayName?: string;
   preferences?: {
@@ -250,6 +355,41 @@ export interface RegisterRequest {
 
 export interface RegisterResult {
   submitted: true;
+}
+
+export interface SsoInteraction {
+  uid: string;
+  prompt: string;
+  clientId: string;
+  clientName: string;
+  loginHint: string | null;
+  tenant: {
+    code: string;
+    name: string;
+  } | null;
+}
+
+export interface SsoRedirect {
+  redirectTo: string;
+}
+
+export interface SsoDiscovery {
+  provider: {
+    id: string;
+    name: string;
+  } | null;
+  ssoOnly: boolean;
+}
+
+export interface StartExternalLoginRequest {
+  providerId: string;
+}
+
+export interface SsoCallbackRequest {
+  code: string;
+  codeVerifier: string;
+  clientId: string;
+  redirectUri: string;
 }
 
 export interface SetFileFolderGrantRequest {
@@ -401,12 +541,6 @@ export interface MoveFileItemsResult {
   movedFolders: number;
 }
 
-export interface GetFileImageQuery {
-  exp: number;
-  sig: string;
-  format?: 'jpeg' | 'webp' | 'avif' | 'png' | 'auto';
-}
-
 export interface FileUploader {
   id: string;
   displayName: string;
@@ -495,6 +629,12 @@ export interface FileUploadPolicy {
   thumbnailContentTypes: Array<string>;
 }
 
+export interface GetFileImageQuery {
+  exp: number;
+  sig: string;
+  format?: 'jpeg' | 'webp' | 'avif' | 'png' | 'auto';
+}
+
 export interface UpdateFileRequest {
   name: string;
   version?: number;
@@ -540,10 +680,54 @@ export interface Job {
   output: Record<string, unknown> | null;
 }
 
+export interface PlatformJobQueue {
+  name: string;
+  cron: string | null;
+  readyCount: number;
+  deferredCount: number;
+  activeCount: number;
+  failedCount: number;
+  completedCount: number;
+  scope: 'tenant' | 'platform';
+}
+
+export interface PlatformJobQueueList {
+  items: Array<PlatformJobQueue>;
+}
+
+export interface PlatformJobSummary {
+  id: string;
+  name: string;
+  state: 'created' | 'retry' | 'active' | 'completed' | 'cancelled' | 'failed';
+  retryCount: number;
+  retryLimit: number;
+  createdOn: string;
+  startAfter: string;
+  startedOn: string | null;
+  completedOn: string | null;
+  tenantId: string | null;
+  tenantCode: string | null;
+}
+
+export interface PlatformJob {
+  id: string;
+  name: string;
+  state: 'created' | 'retry' | 'active' | 'completed' | 'cancelled' | 'failed';
+  retryCount: number;
+  retryLimit: number;
+  createdOn: string;
+  startAfter: string;
+  startedOn: string | null;
+  completedOn: string | null;
+  tenantId: string | null;
+  tenantCode: string | null;
+  data: Record<string, unknown> | null;
+  output: Record<string, unknown> | null;
+}
+
 export interface CreateRoleRequest {
   name: string;
   description?: string;
-  scope: PermissionScope;
   permissionKeys: Array<PermissionKey>;
 }
 
@@ -557,7 +741,6 @@ export interface Role {
   name: string;
   description: string | null;
   isSystem: boolean;
-  scope: PermissionScope;
   permissionCount: number;
   userCount: number;
   createdAt: string;
@@ -585,94 +768,54 @@ export interface UpdateRolePermissionsRequest {
   remove: Array<PermissionKey>;
 }
 
-export interface Workspace {
+export interface PlatformTenant {
   id: string;
-  slug: string;
+  code: string;
   name: string;
-  description: string | null;
-  memberCount: number;
+  status: 'provisioning' | 'active' | 'disabled' | 'failed';
+  domains: Array<string>;
+  storageBucket: string;
+  allowExternalIdp: boolean;
+  adminEmail: string | null;
+  provisionError: string | null;
+  provisionedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface WorkspaceAdmin {
-  id: string;
-  email: string;
-  displayName: string;
+export interface PlatformTenantList {
+  items: Array<PlatformTenant>;
+  baseDomain: string;
 }
 
-export interface WorkspaceDetail {
-  id: string;
-  slug: string;
+export interface CreateTenantRequest {
+  code: string;
   name: string;
-  description: string | null;
-  memberCount: number;
-  createdAt: string;
-  updatedAt: string;
-  admins: Array<WorkspaceAdmin>;
+  adminEmail: string;
+  adminName?: string;
+  domains: Array<string>;
 }
 
-export interface CreateWorkspaceRequest {
-  name: string;
-  slug?: string;
-  description?: string;
-  adminUserId: string;
-}
-
-export interface UpdateWorkspaceRequest {
+export interface UpdateTenantRequest {
   name?: string;
-  description?: string | null;
+  allowExternalIdp?: boolean;
 }
 
-export interface AssignWorkspaceAdminRequest {
-  userId: string;
+export interface AddTenantDomainRequest {
+  domain: string;
 }
 
-export interface MyWorkspace {
-  id: string;
-  slug: string;
+export interface CurrentTenant {
+  code: string;
   name: string;
-  description: string | null;
-  isMember: boolean;
-  lastAccessedAt: string | null;
 }
 
-export interface MyWorkspaceList {
-  items: Array<MyWorkspace>;
+export interface TenantLookupQuery {
+  code: string;
 }
 
-export interface WorkspaceMe {
-  workspace: MyWorkspace;
-  roles: Array<RoleSummary>;
-  permissions: Array<PermissionKey>;
-}
-
-export interface WorkspaceMember {
-  id: string;
-  email: string;
-  displayName: string;
-  status: UserStatus;
-  roles: Array<RoleSummary>;
-  joinedAt: string;
-}
-
-export interface UpdateWorkspaceMemberRolesRequest {
-  roleIds: Array<string>;
-}
-
-export interface WorkspaceMemberRoles {
-  roles: Array<RoleSummary>;
-}
-
-export interface WorkspaceRole {
-  id: string;
-  slug: string;
+export interface TenantLookup {
+  code: string;
   name: string;
-  description: string | null;
-  isSystem: boolean;
-  permissions: Array<PermissionKey>;
-}
-
-export interface WorkspaceRoleList {
-  items: Array<WorkspaceRole>;
+  loginUrl: string;
 }

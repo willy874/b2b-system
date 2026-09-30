@@ -307,7 +307,7 @@ pnpm db:archive-audit-logs   # 與排程工作呼叫同一個函式（modules/au
 短交易（鎖定 → 複製 → 刪除），兩個排程重疊時 `SKIP LOCKED` 讓它們不互搶。
 搬移中斷也安全：沒搬完的列還在熱表，查詢規則（§7.2）本來就會把它們算進去。
 
-`archive_audit_logs()` 是 `SECURITY DEFINER`（migration `0014`，[ADR-0016](../../adr/0016-background-jobs.md) D8）：
+`archive_audit_logs()` 是 `SECURITY DEFINER`（migration `0001_functions_and_triggers.sql`，[ADR-0016](../../adr/0016-background-jobs.md) D8）：
 以擁有資料表的 role 執行，所以應用程式的 role 不需要 `audit_logs` 的 DELETE 就能搬移；
 熱表的刪除 trigger 仍要求冷表有完全相同的副本，函式也做不了別的事。`search_path` 固定為
 `public, pg_temp`，避免呼叫端以同名物件劫持。`EXECUTE` 維持預設的 `PUBLIC`（role 名稱依部署而定）；
@@ -322,6 +322,22 @@ pnpm db:archive-audit-logs   # 與排程工作呼叫同一個函式（modules/au
 | 估算         | 100 位活躍管理員 × 每天 50 次寫入操作 ≈ 180 萬筆/年 → 熱表約 45 萬筆          |
 
 ---
+
+## 8.1 平台稽核（`platform_audit_logs`）
+
+每個租戶一個 database（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D19）：上面描述的 `audit_logs` 是 **租戶** 的稽核，
+在各租戶的 DB 裡，只記錄那個租戶裡發生的事。平台管理者（apps/auth）做的事另外寫在平台 DB 的 `platform_audit_logs`：
+
+| 項目 | 租戶的 `audit_logs` | 平台的 `platform_audit_logs` |
+| --- | --- | --- |
+| 寫入 | `AuditService` | `PlatformAuditService`（`modules/platform-admin`） |
+| 內容 | 使用者、角色、檔案、審批… | 平台管理者的登入、租戶的建立／佈建／停用／刪除／清除、平台管理者的管理、平台的背景工作重試、平台端點的 `authz.denied` |
+| 欄位 | §3 | 精簡版：`occurred_at`、`actor_*`、`action`、`resource_type`、`resource_id`、`result`、`error_code`、`metadata`（沒有 `changes`，前後值放在 `metadata.before`／`after`） |
+| 查詢 | `GET /audit-logs`（`auditLog:read`） | `GET /platform/audit-logs`（`platformAuditLog:read`）：同樣固定 `occurred_at DESC`、最多 90 天、`action` 支援 `x.*` 前綴；筆數少，列表直接帶 `metadata` |
+| 冷熱分層 | §8 | 沒有（量小） |
+
+兩邊互相看不到：平台管理者看不到租戶的稽核（要看就得在那個租戶有帳號），租戶也看不到平台做過什麼。
+平台稽核同樣 append-only：trigger `platform_audit_logs_immutable` 阻擋 `UPDATE`／`DELETE`（平台 migration 0002）。
 
 ## 9. 檢查清單
 

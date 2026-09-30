@@ -18,6 +18,13 @@ export const refreshTokens = pgTable(
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     revokedReason: text('revoked_reason'), // logout | reuse_detected | user_disabled | password_reset
 
+    /**
+     * 經 SSO 發出的 app session（docs/adr/0019-sso-identity-platform.md D4）：哪個產品（OIDC client）、
+     * 哪個 IdP session。單一登出以 `idp_session_uid` 找出同一個瀏覽器所有產品的家族。密碼直接登入時兩者皆為 null。
+     */
+    clientId: text('client_id'),
+    idpSessionUid: text('idp_session_uid'),
+
     userAgent: text('user_agent'),
     ipAddress: text('ip_address'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -29,8 +36,18 @@ export const refreshTokens = pgTable(
       .on(t.userId)
       .where(sql`${t.revokedAt} IS NULL`),
     index('refresh_tokens_expires_idx').on(t.expiresAt), // 清理排程用
+    index('refresh_tokens_idp_session_idx')
+      .on(t.idpSessionUid)
+      .where(sql`${t.idpSessionUid} IS NOT NULL AND ${t.revokedAt} IS NULL`),
   ],
 );
 
 export type RefreshTokenRow = typeof refreshTokens.$inferSelect;
-export type RevokedReason = 'logout' | 'reuse_detected' | 'user_disabled' | 'password_reset';
+export type RevokedReason =
+  | 'logout'
+  | 'sso_logout'
+  | 'reuse_detected'
+  | 'user_disabled'
+  | 'password_reset'
+  /** 平台管理者停用或刪除了租戶（docs/adr/0020-physical-tenant-isolation.md D13）。 */
+  | 'tenant_disabled';

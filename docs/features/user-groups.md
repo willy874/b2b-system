@@ -3,7 +3,7 @@
 - 優先度：P3
 - 狀態：提案
 - 依賴：—
-- 相關：[`workspace.md`](./workspace.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)
+- 相關：[`../architecture/05-tenancy.md`](../architecture/05-tenancy.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -18,11 +18,11 @@
 | 做 | 不做（這一版） |
 | --- | --- |
 | 群組 CRUD、成員管理 | 巢狀群組 |
-| 群組可當角色指派與資源授權的對象 | 從 SSO／LDAP 同步群組（等 [`sso-oidc.md`](./sso-oidc.md)） |
+| 群組可當角色指派與資源授權的對象 | 從 SSO／LDAP 同步群組（SSO 見 [`../architecture/04-sso.md`](../architecture/04-sso.md)；外部 IdP 的群組對應是後續工作） |
 
 ## 開放問題
 
-1. 若 [`workspace.md`](./workspace.md) 採用工作區角色，群組是否還有必要？
+1. 若 [租戶實體隔離](../architecture/05-tenancy.md) 之後每個租戶的使用者變少，群組是否還有必要？（工作區角色已隨 ADR-0020 取消）
 2. 群組指派角色後，權限快取的失效範圍怎麼算？
 
 ## 歸檔去向

@@ -161,7 +161,7 @@ interface DictStorage {
 }
 ```
 
-- 命名空間前綴 `game-editor:`，避免與同網域的其他東西衝突
+- 命名空間前綴 `b2b-system:`，避免與同網域的其他東西衝突
 - 所有讀取都包 `try/catch`：私密瀏覽模式、儲存空間已滿、使用者關閉 cookie
   都會讓 `localStorage` 拋例外。**拋例外時回 fallback，絕不讓 app 掛掉**
 - `subscribe` 只通知 **其他參與者** 的修改（本實例自己的寫入不通知）：
@@ -176,7 +176,7 @@ interface DictStorage {
 | 表格欄位設定、預設篩選                             | 任何個人識別資訊         |
 | 「不要再顯示這個提示」的旗標                       | 權限集合（每次重新取得） |
 | Refresh Token 的 **傳輸方式標記**（非 token 本身） | 任何伺服器資料的複本     |
-| 跨分頁 leader 選舉的任期 counter（`game-editor:leader:*:counter`，[11 §3.3](./11-realtime.md)） |                          |
+| 跨分頁 leader 選舉的任期 counter（`b2b-system:leader:*:counter`，[11 §3.3](./11-realtime.md)） |                          |
 
 ### 4.3 Token 的儲存
 
@@ -363,7 +363,7 @@ const stop = shareStore(
 續期結果與登出放在 **同一個頻道**：同一頻道的訊息依序送達，登出之後才到的續期結果不會排在登出前面。
 
 `SessionStore` 每個後端一個實例（[05 §3.5](./05-data-layer.md)），頻道名稱與
-localStorage 的 `hasSession` 旗標（`game-editor:auth:<後端>:hasSession`）都帶後端名稱：
+localStorage 的 `hasSession` 旗標（`b2b-system:auth:<後端>:hasSession`）都帶後端名稱：
 同一後端在不同分頁之間協調，不同後端之間完全不互相收訊息。
 
 ### 5.1 Token 續期的單飛（最重要的一個）

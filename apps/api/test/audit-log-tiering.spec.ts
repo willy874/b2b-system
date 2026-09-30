@@ -3,12 +3,13 @@ import { NestFactory } from '@nestjs/core';
 import { eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { auditLogs, auditLogsArchive } from '@/db/schema';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, expectDbError, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 
 let app: INestApplication;
 let http: App;
@@ -55,7 +56,6 @@ async function archive(cutoff: Date, batchSize = 1000): Promise<number> {
 
 describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md §8）', () => {
   beforeAll(async () => {
-    process.env.DATABASE_URL = inject('databaseUrl');
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN.email;
     process.env.SUPER_ADMIN_PASSWORD = SUPER_ADMIN.password;
@@ -71,7 +71,7 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
     const { AppModule } = await import('@/app.module');
     app = await NestFactory.create(AppModule, { logger: false });
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
 
     const login = await request(http).post('/auth/login').send(SUPER_ADMIN).expect(200);
     token = (login.body as { data: { accessToken: string } }).data.accessToken;

@@ -1,0 +1,54 @@
+{
+  "platformAdmin": {
+    "title": "Platform administrators",
+    "description": "Accounts that can sign in to the platform console. New administrators get an activation email to set their own password.",
+    "empty": "No platform administrators yet",
+    "self": "You",
+    "role": {
+      "superAdmin": "Super admin",
+      "operator": "Operator",
+      "auditor": "Auditor"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "locked": "Locked",
+      "pending": "Pending activation"
+    },
+    "field": {
+      "email": "Email",
+      "displayName": "Name",
+      "role": "Role",
+      "status": "Status",
+      "lastLoginAt": "Last sign-in"
+    },
+    "hint": {
+      "email": "The activation email goes to this address.",
+      "self": "You can't change your own role or status.",
+      "pending": "The status can be changed after they activate their account.",
+      "locked": "Locked after too many failed sign-ins. Set it to Active to unlock."
+    },
+    "error": {
+      "emailInvalid": "Enter a valid email",
+      "displayNameRequired": "Enter a name"
+    },
+    "create": {
+      "action": "Add administrator",
+      "title": "Add platform administrator",
+      "success": "Added. An activation email has been sent"
+    },
+    "edit": {
+      "action": "Edit",
+      "title": "Edit platform administrator",
+      "success": "Updated"
+    },
+    "passwordLink": {
+      "action": "Send password link",
+      "title": "Send password link",
+      "confirm": "Send an email to {{email}}: accounts not yet activated get an activation email, others get a password reset email.",
+      "send": "Send",
+      "activationSent": "Activation email sent",
+      "passwordResetSent": "Password reset email sent"
+    }
+  }
+}

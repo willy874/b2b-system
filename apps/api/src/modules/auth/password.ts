@@ -47,7 +47,7 @@ const COMMON_PASSWORDS = new Set([
   'letmein12345',
   'welcome12345',
   'iloveyou1234',
-  'gameeditor123',
+  'b2bsystem123',
 ]);
 
 export const PasswordSchema = z

@@ -1,5 +1,5 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
-// 來源：Game Editor API 0.0.0（OpenAPI 3.0.0）
+// 來源：B2B System API 0.0.0（OpenAPI 3.0.0）
 
 import { z } from 'zod';
 
@@ -65,15 +65,7 @@ import {
   UpdateFileRequestSchema,
 } from '../schemas';
 
-// GET /workspaces/{workspaceId}/files
-
-export interface FileControllerListPathParams {
-  workspaceId: unknown;
-}
-
-export interface FileControllerListInput {
-  path: FileControllerListPathParams;
-}
+// GET /files
 
 export interface FileControllerListResponses {
   200: {
@@ -86,9 +78,6 @@ export type FileControllerListResponse = FileControllerListResponses[200];
 export type FileControllerListResult = ApiResponse<200, FileControllerListResponses[200]>;
 
 export const FileControllerListSchemas = {
-  path: z.object({
-    workspaceId: z.unknown(),
-  }),
   responses: {
     200: z.object({
       data: FileListPageSchema,
@@ -96,35 +85,27 @@ export const FileControllerListSchemas = {
   },
 } satisfies OperationSchemas;
 
-export function getFileControllerListUrl(path: FileControllerListPathParams): string {
-  return buildUrl('/workspaces/{workspaceId}/files', path);
+export function getFileControllerListUrl(): string {
+  return buildUrl('/files');
 }
 
 const fileControllerListOperation: OperationDefinition = {
   id: 'FileController_list',
   method: 'GET',
-  path: '/workspaces/{workspaceId}/files',
+  path: '/files',
   responseTypes: { 200: 'json' },
   schemas: FileControllerListSchemas,
 };
 
-export function fileControllerList(
-  input: FileControllerListInput,
-  options?: RequestOptions,
-): Promise<FileControllerListResult> {
-  return request<FileControllerListResult>(fileControllerListOperation, input, options);
+export function fileControllerList(options?: RequestOptions): Promise<FileControllerListResult> {
+  return request<FileControllerListResult>(fileControllerListOperation, {}, options);
 }
 
-// POST /workspaces/{workspaceId}/files
-
-export interface FileControllerCreateUploadPathParams {
-  workspaceId: unknown;
-}
+// POST /files
 
 export type FileControllerCreateUploadBody = CreateFileUploadRequest;
 
 export interface FileControllerCreateUploadInput {
-  path: FileControllerCreateUploadPathParams;
   body: FileControllerCreateUploadBody;
 }
 
@@ -142,9 +123,6 @@ export type FileControllerCreateUploadResult = ApiResponse<
 >;
 
 export const FileControllerCreateUploadSchemas = {
-  path: z.object({
-    workspaceId: z.unknown(),
-  }),
   body: CreateFileUploadRequestSchema,
   responses: {
     201: z.object({
@@ -153,16 +131,14 @@ export const FileControllerCreateUploadSchemas = {
   },
 } satisfies OperationSchemas;
 
-export function getFileControllerCreateUploadUrl(
-  path: FileControllerCreateUploadPathParams,
-): string {
-  return buildUrl('/workspaces/{workspaceId}/files', path);
+export function getFileControllerCreateUploadUrl(): string {
+  return buildUrl('/files');
 }
 
 const fileControllerCreateUploadOperation: OperationDefinition = {
   id: 'FileController_createUpload',
   method: 'POST',
-  path: '/workspaces/{workspaceId}/files',
+  path: '/files',
   bodyType: 'json',
   contentType: 'application/json',
   responseTypes: { 201: 'json' },
@@ -181,15 +157,7 @@ export function fileControllerCreateUpload(
   );
 }
 
-// GET /workspaces/{workspaceId}/files/upload-policy
-
-export interface FileControllerGetUploadPolicyPathParams {
-  workspaceId: unknown;
-}
-
-export interface FileControllerGetUploadPolicyInput {
-  path: FileControllerGetUploadPolicyPathParams;
-}
+// GET /files/upload-policy
 
 export interface FileControllerGetUploadPolicyResponses {
   200: {
@@ -205,9 +173,6 @@ export type FileControllerGetUploadPolicyResult = ApiResponse<
 >;
 
 export const FileControllerGetUploadPolicySchemas = {
-  path: z.object({
-    workspaceId: z.unknown(),
-  }),
   responses: {
     200: z.object({
       data: FileUploadPolicySchema,
@@ -215,42 +180,34 @@ export const FileControllerGetUploadPolicySchemas = {
   },
 } satisfies OperationSchemas;
 
-export function getFileControllerGetUploadPolicyUrl(
-  path: FileControllerGetUploadPolicyPathParams,
-): string {
-  return buildUrl('/workspaces/{workspaceId}/files/upload-policy', path);
+export function getFileControllerGetUploadPolicyUrl(): string {
+  return buildUrl('/files/upload-policy');
 }
 
 const fileControllerGetUploadPolicyOperation: OperationDefinition = {
   id: 'FileController_getUploadPolicy',
   method: 'GET',
-  path: '/workspaces/{workspaceId}/files/upload-policy',
+  path: '/files/upload-policy',
   responseTypes: { 200: 'json' },
   schemas: FileControllerGetUploadPolicySchemas,
 };
 
 /** 上傳前的檢查與切塊策略（大小上限、分塊門檻、每塊大小） */
 export function fileControllerGetUploadPolicy(
-  input: FileControllerGetUploadPolicyInput,
   options?: RequestOptions,
 ): Promise<FileControllerGetUploadPolicyResult> {
   return request<FileControllerGetUploadPolicyResult>(
     fileControllerGetUploadPolicyOperation,
-    input,
+    {},
     options,
   );
 }
 
-// POST /workspaces/{workspaceId}/files/move
-
-export interface FileControllerMovePathParams {
-  workspaceId: unknown;
-}
+// POST /files/move
 
 export type FileControllerMoveBody = MoveFileItemsRequest;
 
 export interface FileControllerMoveInput {
-  path: FileControllerMovePathParams;
   body: FileControllerMoveBody;
 }
 
@@ -265,9 +222,6 @@ export type FileControllerMoveResponse = FileControllerMoveResponses[200];
 export type FileControllerMoveResult = ApiResponse<200, FileControllerMoveResponses[200]>;
 
 export const FileControllerMoveSchemas = {
-  path: z.object({
-    workspaceId: z.unknown(),
-  }),
   body: MoveFileItemsRequestSchema,
   responses: {
     200: z.object({
@@ -276,14 +230,14 @@ export const FileControllerMoveSchemas = {
   },
 } satisfies OperationSchemas;
 
-export function getFileControllerMoveUrl(path: FileControllerMovePathParams): string {
-  return buildUrl('/workspaces/{workspaceId}/files/move', path);
+export function getFileControllerMoveUrl(): string {
+  return buildUrl('/files/move');
 }
 
 const fileControllerMoveOperation: OperationDefinition = {
   id: 'FileController_move',
   method: 'POST',
-  path: '/workspaces/{workspaceId}/files/move',
+  path: '/files/move',
   bodyType: 'json',
   contentType: 'application/json',
   responseTypes: { 200: 'json' },
@@ -298,11 +252,10 @@ export function fileControllerMove(
   return request<FileControllerMoveResult>(fileControllerMoveOperation, input, options);
 }
 
-// POST /workspaces/{workspaceId}/files/{id}/parts
+// POST /files/{id}/parts
 
 export interface FileControllerCreateUploadPartsPathParams {
   id: string;
-  workspaceId: unknown;
 }
 
 export type FileControllerCreateUploadPartsBody = CreateFileUploadPartsRequest;
@@ -328,7 +281,6 @@ export type FileControllerCreateUploadPartsResult = ApiResponse<
 export const FileControllerCreateUploadPartsSchemas = {
   path: z.object({
     id: z.string(),
-    workspaceId: z.unknown(),
   }),
   body: CreateFileUploadPartsRequestSchema,
   responses: {
@@ -341,13 +293,13 @@ export const FileControllerCreateUploadPartsSchemas = {
 export function getFileControllerCreateUploadPartsUrl(
   path: FileControllerCreateUploadPartsPathParams,
 ): string {
-  return buildUrl('/workspaces/{workspaceId}/files/{id}/parts', path);
+  return buildUrl('/files/{id}/parts', path);
 }
 
 const fileControllerCreateUploadPartsOperation: OperationDefinition = {
   id: 'FileController_createUploadParts',
   method: 'POST',
-  path: '/workspaces/{workspaceId}/files/{id}/parts',
+  path: '/files/{id}/parts',
   bodyType: 'json',
   contentType: 'application/json',
   responseTypes: { 200: 'json' },
@@ -366,11 +318,10 @@ export function fileControllerCreateUploadParts(
   );
 }
 
-// POST /workspaces/{workspaceId}/files/{id}/complete
+// POST /files/{id}/complete
 
 export interface FileControllerCompleteUploadPathParams {
   id: string;
-  workspaceId: unknown;
 }
 
 export type FileControllerCompleteUploadBody = CompleteFileUploadRequest;
@@ -396,7 +347,6 @@ export type FileControllerCompleteUploadResult = ApiResponse<
 export const FileControllerCompleteUploadSchemas = {
   path: z.object({
     id: z.string(),
-    workspaceId: z.unknown(),
   }),
   body: CompleteFileUploadRequestSchema,
   responses: {
@@ -409,13 +359,13 @@ export const FileControllerCompleteUploadSchemas = {
 export function getFileControllerCompleteUploadUrl(
   path: FileControllerCompleteUploadPathParams,
 ): string {
-  return buildUrl('/workspaces/{workspaceId}/files/{id}/complete', path);
+  return buildUrl('/files/{id}/complete', path);
 }
 
 const fileControllerCompleteUploadOperation: OperationDefinition = {
   id: 'FileController_completeUpload',
   method: 'POST',
-  path: '/workspaces/{workspaceId}/files/{id}/complete',
+  path: '/files/{id}/complete',
   bodyType: 'json',
   contentType: 'application/json',
   responseTypes: { 200: 'json' },
@@ -434,11 +384,10 @@ export function fileControllerCompleteUpload(
   );
 }
 
-// DELETE /workspaces/{workspaceId}/files/{id}/upload
+// DELETE /files/{id}/upload
 
 export interface FileControllerAbortUploadPathParams {
   id: string;
-  workspaceId: unknown;
 }
 
 export interface FileControllerAbortUploadInput {
@@ -459,18 +408,17 @@ export type FileControllerAbortUploadResult = ApiResponse<
 export const FileControllerAbortUploadSchemas = {
   path: z.object({
     id: z.string(),
-    workspaceId: z.unknown(),
   }),
 } satisfies OperationSchemas;
 
 export function getFileControllerAbortUploadUrl(path: FileControllerAbortUploadPathParams): string {
-  return buildUrl('/workspaces/{workspaceId}/files/{id}/upload', path);
+  return buildUrl('/files/{id}/upload', path);
 }
 
 const fileControllerAbortUploadOperation: OperationDefinition = {
   id: 'FileController_abortUpload',
   method: 'DELETE',
-  path: '/workspaces/{workspaceId}/files/{id}/upload',
+  path: '/files/{id}/upload',
   responseTypes: { 204: 'none' },
   schemas: FileControllerAbortUploadSchemas,
 };
@@ -487,11 +435,56 @@ export function fileControllerAbortUpload(
   );
 }
 
-// GET /workspaces/{workspaceId}/files/{id}
+// GET /files/{id}/image/{variant}
+
+export interface FileControllerGetImagePathParams {
+  id: string;
+  variant: 'original' | 'preview' | 'thumbnail';
+}
+
+export interface FileControllerGetImageInput {
+  path: FileControllerGetImagePathParams;
+}
+
+export interface FileControllerGetImageResponses {
+  302: undefined;
+}
+
+export type FileControllerGetImageResponse = undefined;
+
+export type FileControllerGetImageResult = ApiResponse<number, undefined>;
+
+export const FileControllerGetImageSchemas = {
+  path: z.object({
+    id: z.string(),
+    variant: z.enum(['original', 'preview', 'thumbnail']),
+  }),
+} satisfies OperationSchemas;
+
+export function getFileControllerGetImageUrl(path: FileControllerGetImagePathParams): string {
+  return buildUrl('/files/{id}/image/{variant}', path);
+}
+
+const fileControllerGetImageOperation: OperationDefinition = {
+  id: 'FileController_getImage',
+  method: 'GET',
+  path: '/files/{id}/image/{variant}',
+  responseTypes: { 302: 'none' },
+  schemas: FileControllerGetImageSchemas,
+};
+
+/** 取得圖片的原圖／全螢幕預覽／圖示預覽（302 轉址到物件儲存） */
+export function fileControllerGetImage(
+  input: FileControllerGetImageInput,
+  options?: RequestOptions,
+): Promise<FileControllerGetImageResult> {
+  return request<FileControllerGetImageResult>(fileControllerGetImageOperation, input, options);
+}
+
+// GET /files/{id}
 
 export interface FileControllerFindOnePathParams {
   id: string;
-  workspaceId: unknown;
 }
 
 export interface FileControllerFindOneInput {
@@ -511,7 +504,6 @@ export type FileControllerFindOneResult = ApiResponse<200, FileControllerFindOne
 export const FileControllerFindOneSchemas = {
   path: z.object({
     id: z.string(),
-    workspaceId: z.unknown(),
   }),
   responses: {
     200: z.object({
@@ -521,13 +513,13 @@ export const FileControllerFindOneSchemas = {
 } satisfies OperationSchemas;
 
 export function getFileControllerFindOneUrl(path: FileControllerFindOnePathParams): string {
-  return buildUrl('/workspaces/{workspaceId}/files/{id}', path);
+  return buildUrl('/files/{id}', path);
 }
 
 const fileControllerFindOneOperation: OperationDefinition = {
   id: 'FileController_findOne',
   method: 'GET',
-  path: '/workspaces/{workspaceId}/files/{id}',
+  path: '/files/{id}',
   responseTypes: { 200: 'json' },
   schemas: FileControllerFindOneSchemas,
 };
@@ -539,11 +531,10 @@ export function fileControllerFindOne(
   return request<FileControllerFindOneResult>(fileControllerFindOneOperation, input, options);
 }
 
-// DELETE /workspaces/{workspaceId}/files/{id}
+// DELETE /files/{id}
 
 export interface FileControllerRemovePathParams {
   id: string;
-  workspaceId: unknown;
 }
 
 export interface FileControllerRemoveInput {
@@ -561,18 +552,17 @@ export type FileControllerRemoveResult = ApiResponse<204, FileControllerRemoveRe
 export const FileControllerRemoveSchemas = {
   path: z.object({
     id: z.string(),
-    workspaceId: z.unknown(),
   }),
 } satisfies OperationSchemas;
 
 export function getFileControllerRemoveUrl(path: FileControllerRemovePathParams): string {
-  return buildUrl('/workspaces/{workspaceId}/files/{id}', path);
+  return buildUrl('/files/{id}', path);
 }
 
 const fileControllerRemoveOperation: OperationDefinition = {
   id: 'FileController_remove',
   method: 'DELETE',
-  path: '/workspaces/{workspaceId}/files/{id}',
+  path: '/files/{id}',
   responseTypes: { 204: 'none' },
   schemas: FileControllerRemoveSchemas,
 };
@@ -584,11 +574,10 @@ export function fileControllerRemove(
   return request<FileControllerRemoveResult>(fileControllerRemoveOperation, input, options);
 }
 
-// PATCH /workspaces/{workspaceId}/files/{id}
+// PATCH /files/{id}
 
 export interface FileControllerUpdatePathParams {
   id: string;
-  workspaceId: unknown;
 }
 
 export type FileControllerUpdateBody = UpdateFileRequest;
@@ -611,7 +600,6 @@ export type FileControllerUpdateResult = ApiResponse<200, FileControllerUpdateRe
 export const FileControllerUpdateSchemas = {
   path: z.object({
     id: z.string(),
-    workspaceId: z.unknown(),
   }),
   body: UpdateFileRequestSchema,
   responses: {
@@ -622,13 +610,13 @@ export const FileControllerUpdateSchemas = {
 } satisfies OperationSchemas;
 
 export function getFileControllerUpdateUrl(path: FileControllerUpdatePathParams): string {
-  return buildUrl('/workspaces/{workspaceId}/files/{id}', path);
+  return buildUrl('/files/{id}', path);
 }
 
 const fileControllerUpdateOperation: OperationDefinition = {
   id: 'FileController_update',
   method: 'PATCH',
-  path: '/workspaces/{workspaceId}/files/{id}',
+  path: '/files/{id}',
   bodyType: 'json',
   contentType: 'application/json',
   responseTypes: { 200: 'json' },
@@ -642,67 +630,7 @@ export function fileControllerUpdate(
   return request<FileControllerUpdateResult>(fileControllerUpdateOperation, input, options);
 }
 
-// GET /files/{id}/image/{variant}
-
-export interface FileImageControllerGetImagePathParams {
-  id: string;
-  variant: 'original' | 'preview' | 'thumbnail';
-}
-
-export interface FileImageControllerGetImageInput {
-  path: FileImageControllerGetImagePathParams;
-}
-
-export interface FileImageControllerGetImageResponses {
-  302: undefined;
-}
-
-export type FileImageControllerGetImageResponse = undefined;
-
-export type FileImageControllerGetImageResult = ApiResponse<number, undefined>;
-
-export const FileImageControllerGetImageSchemas = {
-  path: z.object({
-    id: z.string(),
-    variant: z.enum(['original', 'preview', 'thumbnail']),
-  }),
-} satisfies OperationSchemas;
-
-export function getFileImageControllerGetImageUrl(
-  path: FileImageControllerGetImagePathParams,
-): string {
-  return buildUrl('/files/{id}/image/{variant}', path);
-}
-
-const fileImageControllerGetImageOperation: OperationDefinition = {
-  id: 'FileImageController_getImage',
-  method: 'GET',
-  path: '/files/{id}/image/{variant}',
-  responseTypes: { 302: 'none' },
-  schemas: FileImageControllerGetImageSchemas,
-};
-
-/** 取得圖片的原圖／全螢幕預覽／圖示預覽（302 轉址到物件儲存） */
-export function fileImageControllerGetImage(
-  input: FileImageControllerGetImageInput,
-  options?: RequestOptions,
-): Promise<FileImageControllerGetImageResult> {
-  return request<FileImageControllerGetImageResult>(
-    fileImageControllerGetImageOperation,
-    input,
-    options,
-  );
-}
-
-// GET /workspaces/{workspaceId}/file-folders
-
-export interface FileFolderControllerListPathParams {
-  workspaceId: unknown;
-}
-
-export interface FileFolderControllerListInput {
-  path: FileFolderControllerListPathParams;
-}
+// GET /file-folders
 
 export interface FileFolderControllerListResponses {
   200: {
@@ -718,9 +646,6 @@ export type FileFolderControllerListResult = ApiResponse<
 >;
 
 export const FileFolderControllerListSchemas = {
-  path: z.object({
-    workspaceId: z.unknown(),
-  }),
   responses: {
     200: z.object({
       data: FileFolderListSchema,
@@ -728,36 +653,30 @@ export const FileFolderControllerListSchemas = {
   },
 } satisfies OperationSchemas;
 
-export function getFileFolderControllerListUrl(path: FileFolderControllerListPathParams): string {
-  return buildUrl('/workspaces/{workspaceId}/file-folders', path);
+export function getFileFolderControllerListUrl(): string {
+  return buildUrl('/file-folders');
 }
 
 const fileFolderControllerListOperation: OperationDefinition = {
   id: 'FileFolderController_list',
   method: 'GET',
-  path: '/workspaces/{workspaceId}/file-folders',
+  path: '/file-folders',
   responseTypes: { 200: 'json' },
   schemas: FileFolderControllerListSchemas,
 };
 
 /** 全部的資料夾（扁平清單，前端自行組成樹） */
 export function fileFolderControllerList(
-  input: FileFolderControllerListInput,
   options?: RequestOptions,
 ): Promise<FileFolderControllerListResult> {
-  return request<FileFolderControllerListResult>(fileFolderControllerListOperation, input, options);
+  return request<FileFolderControllerListResult>(fileFolderControllerListOperation, {}, options);
 }
 
-// POST /workspaces/{workspaceId}/file-folders
-
-export interface FileFolderControllerCreatePathParams {
-  workspaceId: unknown;
-}
+// POST /file-folders
 
 export type FileFolderControllerCreateBody = CreateFileFolderRequest;
 
 export interface FileFolderControllerCreateInput {
-  path: FileFolderControllerCreatePathParams;
   body: FileFolderControllerCreateBody;
 }
 
@@ -775,9 +694,6 @@ export type FileFolderControllerCreateResult = ApiResponse<
 >;
 
 export const FileFolderControllerCreateSchemas = {
-  path: z.object({
-    workspaceId: z.unknown(),
-  }),
   body: CreateFileFolderRequestSchema,
   responses: {
     201: z.object({
@@ -786,16 +702,14 @@ export const FileFolderControllerCreateSchemas = {
   },
 } satisfies OperationSchemas;
 
-export function getFileFolderControllerCreateUrl(
-  path: FileFolderControllerCreatePathParams,
-): string {
-  return buildUrl('/workspaces/{workspaceId}/file-folders', path);
+export function getFileFolderControllerCreateUrl(): string {
+  return buildUrl('/file-folders');
 }
 
 const fileFolderControllerCreateOperation: OperationDefinition = {
   id: 'FileFolderController_create',
   method: 'POST',
-  path: '/workspaces/{workspaceId}/file-folders',
+  path: '/file-folders',
   bodyType: 'json',
   contentType: 'application/json',
   responseTypes: { 201: 'json' },
@@ -813,16 +727,11 @@ export function fileFolderControllerCreate(
   );
 }
 
-// POST /workspaces/{workspaceId}/file-folders/paths
-
-export interface FileFolderControllerEnsurePathsPathParams {
-  workspaceId: unknown;
-}
+// POST /file-folders/paths
 
 export type FileFolderControllerEnsurePathsBody = EnsureFileFolderPathsRequest;
 
 export interface FileFolderControllerEnsurePathsInput {
-  path: FileFolderControllerEnsurePathsPathParams;
   body: FileFolderControllerEnsurePathsBody;
 }
 
@@ -840,9 +749,6 @@ export type FileFolderControllerEnsurePathsResult = ApiResponse<
 >;
 
 export const FileFolderControllerEnsurePathsSchemas = {
-  path: z.object({
-    workspaceId: z.unknown(),
-  }),
   body: EnsureFileFolderPathsRequestSchema,
   responses: {
     200: z.object({
@@ -851,16 +757,14 @@ export const FileFolderControllerEnsurePathsSchemas = {
   },
 } satisfies OperationSchemas;
 
-export function getFileFolderControllerEnsurePathsUrl(
-  path: FileFolderControllerEnsurePathsPathParams,
-): string {
-  return buildUrl('/workspaces/{workspaceId}/file-folders/paths', path);
+export function getFileFolderControllerEnsurePathsUrl(): string {
+  return buildUrl('/file-folders/paths');
 }
 
 const fileFolderControllerEnsurePathsOperation: OperationDefinition = {
   id: 'FileFolderController_ensurePaths',
   method: 'POST',
-  path: '/workspaces/{workspaceId}/file-folders/paths',
+  path: '/file-folders/paths',
   bodyType: 'json',
   contentType: 'application/json',
   responseTypes: { 200: 'json' },
@@ -879,11 +783,10 @@ export function fileFolderControllerEnsurePaths(
   );
 }
 
-// DELETE /workspaces/{workspaceId}/file-folders/{id}
+// DELETE /file-folders/{id}
 
 export interface FileFolderControllerRemovePathParams {
   id: string;
-  workspaceId: unknown;
 }
 
 export interface FileFolderControllerRemoveInput {
@@ -904,20 +807,19 @@ export type FileFolderControllerRemoveResult = ApiResponse<
 export const FileFolderControllerRemoveSchemas = {
   path: z.object({
     id: z.string(),
-    workspaceId: z.unknown(),
   }),
 } satisfies OperationSchemas;
 
 export function getFileFolderControllerRemoveUrl(
   path: FileFolderControllerRemovePathParams,
 ): string {
-  return buildUrl('/workspaces/{workspaceId}/file-folders/{id}', path);
+  return buildUrl('/file-folders/{id}', path);
 }
 
 const fileFolderControllerRemoveOperation: OperationDefinition = {
   id: 'FileFolderController_remove',
   method: 'DELETE',
-  path: '/workspaces/{workspaceId}/file-folders/{id}',
+  path: '/file-folders/{id}',
   responseTypes: { 204: 'none' },
   schemas: FileFolderControllerRemoveSchemas,
 };
@@ -934,11 +836,10 @@ export function fileFolderControllerRemove(
   );
 }
 
-// PATCH /workspaces/{workspaceId}/file-folders/{id}
+// PATCH /file-folders/{id}
 
 export interface FileFolderControllerRenamePathParams {
   id: string;
-  workspaceId: unknown;
 }
 
 export type FileFolderControllerRenameBody = UpdateFileFolderRequest;
@@ -964,7 +865,6 @@ export type FileFolderControllerRenameResult = ApiResponse<
 export const FileFolderControllerRenameSchemas = {
   path: z.object({
     id: z.string(),
-    workspaceId: z.unknown(),
   }),
   body: UpdateFileFolderRequestSchema,
   responses: {
@@ -977,13 +877,13 @@ export const FileFolderControllerRenameSchemas = {
 export function getFileFolderControllerRenameUrl(
   path: FileFolderControllerRenamePathParams,
 ): string {
-  return buildUrl('/workspaces/{workspaceId}/file-folders/{id}', path);
+  return buildUrl('/file-folders/{id}', path);
 }
 
 const fileFolderControllerRenameOperation: OperationDefinition = {
   id: 'FileFolderController_rename',
   method: 'PATCH',
-  path: '/workspaces/{workspaceId}/file-folders/{id}',
+  path: '/file-folders/{id}',
   bodyType: 'json',
   contentType: 'application/json',
   responseTypes: { 200: 'json' },
@@ -1001,11 +901,10 @@ export function fileFolderControllerRename(
   );
 }
 
-// GET /workspaces/{workspaceId}/file-folders/{id}/access-requests
+// GET /file-folders/{id}/access-requests
 
 export interface FileFolderGrantControllerListAccessRequestsPathParams {
   id: string;
-  workspaceId: unknown;
 }
 
 export interface FileFolderGrantControllerListAccessRequestsInput {
@@ -1029,7 +928,6 @@ export type FileFolderGrantControllerListAccessRequestsResult = ApiResponse<
 export const FileFolderGrantControllerListAccessRequestsSchemas = {
   path: z.object({
     id: z.string(),
-    workspaceId: z.unknown(),
   }),
   responses: {
     200: z.object({
@@ -1041,13 +939,13 @@ export const FileFolderGrantControllerListAccessRequestsSchemas = {
 export function getFileFolderGrantControllerListAccessRequestsUrl(
   path: FileFolderGrantControllerListAccessRequestsPathParams,
 ): string {
-  return buildUrl('/workspaces/{workspaceId}/file-folders/{id}/access-requests', path);
+  return buildUrl('/file-folders/{id}/access-requests', path);
 }
 
 const fileFolderGrantControllerListAccessRequestsOperation: OperationDefinition = {
   id: 'FileFolderGrantController_listAccessRequests',
   method: 'GET',
-  path: '/workspaces/{workspaceId}/file-folders/{id}/access-requests',
+  path: '/file-folders/{id}/access-requests',
   responseTypes: { 200: 'json' },
   schemas: FileFolderGrantControllerListAccessRequestsSchemas,
 };
@@ -1064,11 +962,10 @@ export function fileFolderGrantControllerListAccessRequests(
   );
 }
 
-// POST /workspaces/{workspaceId}/file-folders/{id}/access-requests
+// POST /file-folders/{id}/access-requests
 
 export interface FileFolderGrantControllerRequestAccessPathParams {
   id: string;
-  workspaceId: unknown;
 }
 
 export type FileFolderGrantControllerRequestAccessBody = CreateFileAccessRequest;
@@ -1095,7 +992,6 @@ export type FileFolderGrantControllerRequestAccessResult = ApiResponse<
 export const FileFolderGrantControllerRequestAccessSchemas = {
   path: z.object({
     id: z.string(),
-    workspaceId: z.unknown(),
   }),
   body: CreateFileAccessRequestSchema,
   responses: {
@@ -1108,13 +1004,13 @@ export const FileFolderGrantControllerRequestAccessSchemas = {
 export function getFileFolderGrantControllerRequestAccessUrl(
   path: FileFolderGrantControllerRequestAccessPathParams,
 ): string {
-  return buildUrl('/workspaces/{workspaceId}/file-folders/{id}/access-requests', path);
+  return buildUrl('/file-folders/{id}/access-requests', path);
 }
 
 const fileFolderGrantControllerRequestAccessOperation: OperationDefinition = {
   id: 'FileFolderGrantController_requestAccess',
   method: 'POST',
-  path: '/workspaces/{workspaceId}/file-folders/{id}/access-requests',
+  path: '/file-folders/{id}/access-requests',
   bodyType: 'json',
   contentType: 'application/json',
   responseTypes: { 202: 'json' },
@@ -1133,12 +1029,11 @@ export function fileFolderGrantControllerRequestAccess(
   );
 }
 
-// POST /workspaces/{workspaceId}/file-folders/{id}/access-requests/{requestId}/approve
+// POST /file-folders/{id}/access-requests/{requestId}/approve
 
 export interface FileFolderGrantControllerApproveAccessRequestPathParams {
   id: string;
   requestId: string;
-  workspaceId: unknown;
 }
 
 export type FileFolderGrantControllerApproveAccessRequestBody = ReviewFileAccessRequest;
@@ -1164,7 +1059,6 @@ export const FileFolderGrantControllerApproveAccessRequestSchemas = {
   path: z.object({
     id: z.string(),
     requestId: z.string(),
-    workspaceId: z.unknown(),
   }),
   body: ReviewFileAccessRequestSchema,
 } satisfies OperationSchemas;
@@ -1172,16 +1066,13 @@ export const FileFolderGrantControllerApproveAccessRequestSchemas = {
 export function getFileFolderGrantControllerApproveAccessRequestUrl(
   path: FileFolderGrantControllerApproveAccessRequestPathParams,
 ): string {
-  return buildUrl(
-    '/workspaces/{workspaceId}/file-folders/{id}/access-requests/{requestId}/approve',
-    path,
-  );
+  return buildUrl('/file-folders/{id}/access-requests/{requestId}/approve', path);
 }
 
 const fileFolderGrantControllerApproveAccessRequestOperation: OperationDefinition = {
   id: 'FileFolderGrantController_approveAccessRequest',
   method: 'POST',
-  path: '/workspaces/{workspaceId}/file-folders/{id}/access-requests/{requestId}/approve',
+  path: '/file-folders/{id}/access-requests/{requestId}/approve',
   bodyType: 'json',
   contentType: 'application/json',
   responseTypes: { 204: 'none' },
@@ -1200,12 +1091,11 @@ export function fileFolderGrantControllerApproveAccessRequest(
   );
 }
 
-// POST /workspaces/{workspaceId}/file-folders/{id}/access-requests/{requestId}/reject
+// POST /file-folders/{id}/access-requests/{requestId}/reject
 
 export interface FileFolderGrantControllerRejectAccessRequestPathParams {
   id: string;
   requestId: string;
-  workspaceId: unknown;
 }
 
 export type FileFolderGrantControllerRejectAccessRequestBody = ReviewFileAccessRequest;
@@ -1231,7 +1121,6 @@ export const FileFolderGrantControllerRejectAccessRequestSchemas = {
   path: z.object({
     id: z.string(),
     requestId: z.string(),
-    workspaceId: z.unknown(),
   }),
   body: ReviewFileAccessRequestSchema,
 } satisfies OperationSchemas;
@@ -1239,16 +1128,13 @@ export const FileFolderGrantControllerRejectAccessRequestSchemas = {
 export function getFileFolderGrantControllerRejectAccessRequestUrl(
   path: FileFolderGrantControllerRejectAccessRequestPathParams,
 ): string {
-  return buildUrl(
-    '/workspaces/{workspaceId}/file-folders/{id}/access-requests/{requestId}/reject',
-    path,
-  );
+  return buildUrl('/file-folders/{id}/access-requests/{requestId}/reject', path);
 }
 
 const fileFolderGrantControllerRejectAccessRequestOperation: OperationDefinition = {
   id: 'FileFolderGrantController_rejectAccessRequest',
   method: 'POST',
-  path: '/workspaces/{workspaceId}/file-folders/{id}/access-requests/{requestId}/reject',
+  path: '/file-folders/{id}/access-requests/{requestId}/reject',
   bodyType: 'json',
   contentType: 'application/json',
   responseTypes: { 204: 'none' },
@@ -1267,11 +1153,10 @@ export function fileFolderGrantControllerRejectAccessRequest(
   );
 }
 
-// GET /workspaces/{workspaceId}/file-folders/{id}/grants
+// GET /file-folders/{id}/grants
 
 export interface FileFolderGrantControllerListPathParams {
   id: string;
-  workspaceId: unknown;
 }
 
 export interface FileFolderGrantControllerListInput {
@@ -1294,7 +1179,6 @@ export type FileFolderGrantControllerListResult = ApiResponse<
 export const FileFolderGrantControllerListSchemas = {
   path: z.object({
     id: z.string(),
-    workspaceId: z.unknown(),
   }),
   responses: {
     200: z.object({
@@ -1306,13 +1190,13 @@ export const FileFolderGrantControllerListSchemas = {
 export function getFileFolderGrantControllerListUrl(
   path: FileFolderGrantControllerListPathParams,
 ): string {
-  return buildUrl('/workspaces/{workspaceId}/file-folders/{id}/grants', path);
+  return buildUrl('/file-folders/{id}/grants', path);
 }
 
 const fileFolderGrantControllerListOperation: OperationDefinition = {
   id: 'FileFolderGrantController_list',
   method: 'GET',
-  path: '/workspaces/{workspaceId}/file-folders/{id}/grants',
+  path: '/file-folders/{id}/grants',
   responseTypes: { 200: 'json' },
   schemas: FileFolderGrantControllerListSchemas,
 };
@@ -1329,11 +1213,10 @@ export function fileFolderGrantControllerList(
   );
 }
 
-// PUT /workspaces/{workspaceId}/file-folders/{id}/grants
+// PUT /file-folders/{id}/grants
 
 export interface FileFolderGrantControllerSetPathParams {
   id: string;
-  workspaceId: unknown;
 }
 
 export type FileFolderGrantControllerSetBody = SetFileFolderGrantRequest;
@@ -1359,7 +1242,6 @@ export type FileFolderGrantControllerSetResult = ApiResponse<
 export const FileFolderGrantControllerSetSchemas = {
   path: z.object({
     id: z.string(),
-    workspaceId: z.unknown(),
   }),
   body: SetFileFolderGrantRequestSchema,
   responses: {
@@ -1372,13 +1254,13 @@ export const FileFolderGrantControllerSetSchemas = {
 export function getFileFolderGrantControllerSetUrl(
   path: FileFolderGrantControllerSetPathParams,
 ): string {
-  return buildUrl('/workspaces/{workspaceId}/file-folders/{id}/grants', path);
+  return buildUrl('/file-folders/{id}/grants', path);
 }
 
 const fileFolderGrantControllerSetOperation: OperationDefinition = {
   id: 'FileFolderGrantController_set',
   method: 'PUT',
-  path: '/workspaces/{workspaceId}/file-folders/{id}/grants',
+  path: '/file-folders/{id}/grants',
   bodyType: 'json',
   contentType: 'application/json',
   responseTypes: { 200: 'json' },
@@ -1397,13 +1279,12 @@ export function fileFolderGrantControllerSet(
   );
 }
 
-// DELETE /workspaces/{workspaceId}/file-folders/{id}/grants/{subjectType}/{subjectId}
+// DELETE /file-folders/{id}/grants/{subjectType}/{subjectId}
 
 export interface FileFolderGrantControllerRevokePathParams {
   id: string;
   subjectId: string;
   subjectType: 'role' | 'user' | 'everyone';
-  workspaceId: unknown;
 }
 
 export interface FileFolderGrantControllerRevokeInput {
@@ -1426,23 +1307,19 @@ export const FileFolderGrantControllerRevokeSchemas = {
     id: z.string(),
     subjectId: z.string(),
     subjectType: z.enum(['role', 'user', 'everyone']),
-    workspaceId: z.unknown(),
   }),
 } satisfies OperationSchemas;
 
 export function getFileFolderGrantControllerRevokeUrl(
   path: FileFolderGrantControllerRevokePathParams,
 ): string {
-  return buildUrl(
-    '/workspaces/{workspaceId}/file-folders/{id}/grants/{subjectType}/{subjectId}',
-    path,
-  );
+  return buildUrl('/file-folders/{id}/grants/{subjectType}/{subjectId}', path);
 }
 
 const fileFolderGrantControllerRevokeOperation: OperationDefinition = {
   id: 'FileFolderGrantController_revoke',
   method: 'DELETE',
-  path: '/workspaces/{workspaceId}/file-folders/{id}/grants/{subjectType}/{subjectId}',
+  path: '/file-folders/{id}/grants/{subjectType}/{subjectId}',
   responseTypes: { 204: 'none' },
   schemas: FileFolderGrantControllerRevokeSchemas,
 };
@@ -1459,11 +1336,10 @@ export function fileFolderGrantControllerRevoke(
   );
 }
 
-// PATCH /workspaces/{workspaceId}/file-folders/{id}/access
+// PATCH /file-folders/{id}/access
 
 export interface FileFolderGrantControllerSetInheritancePathParams {
   id: string;
-  workspaceId: unknown;
 }
 
 export type FileFolderGrantControllerSetInheritanceBody = UpdateFileFolderAccessRequest;
@@ -1490,7 +1366,6 @@ export type FileFolderGrantControllerSetInheritanceResult = ApiResponse<
 export const FileFolderGrantControllerSetInheritanceSchemas = {
   path: z.object({
     id: z.string(),
-    workspaceId: z.unknown(),
   }),
   body: UpdateFileFolderAccessRequestSchema,
   responses: {
@@ -1503,13 +1378,13 @@ export const FileFolderGrantControllerSetInheritanceSchemas = {
 export function getFileFolderGrantControllerSetInheritanceUrl(
   path: FileFolderGrantControllerSetInheritancePathParams,
 ): string {
-  return buildUrl('/workspaces/{workspaceId}/file-folders/{id}/access', path);
+  return buildUrl('/file-folders/{id}/access', path);
 }
 
 const fileFolderGrantControllerSetInheritanceOperation: OperationDefinition = {
   id: 'FileFolderGrantController_setInheritance',
   method: 'PATCH',
-  path: '/workspaces/{workspaceId}/file-folders/{id}/access',
+  path: '/file-folders/{id}/access',
   bodyType: 'json',
   contentType: 'application/json',
   responseTypes: { 200: 'json' },
@@ -1528,11 +1403,10 @@ export function fileFolderGrantControllerSetInheritance(
   );
 }
 
-// GET /workspaces/{workspaceId}/file-folders/{id}/grant-subjects
+// GET /file-folders/{id}/grant-subjects
 
 export interface FileFolderGrantControllerSearchSubjectsPathParams {
   id: string;
-  workspaceId: unknown;
 }
 
 export interface FileFolderGrantControllerSearchSubjectsInput {
@@ -1556,7 +1430,6 @@ export type FileFolderGrantControllerSearchSubjectsResult = ApiResponse<
 export const FileFolderGrantControllerSearchSubjectsSchemas = {
   path: z.object({
     id: z.string(),
-    workspaceId: z.unknown(),
   }),
   responses: {
     200: z.object({
@@ -1568,13 +1441,13 @@ export const FileFolderGrantControllerSearchSubjectsSchemas = {
 export function getFileFolderGrantControllerSearchSubjectsUrl(
   path: FileFolderGrantControllerSearchSubjectsPathParams,
 ): string {
-  return buildUrl('/workspaces/{workspaceId}/file-folders/{id}/grant-subjects', path);
+  return buildUrl('/file-folders/{id}/grant-subjects', path);
 }
 
 const fileFolderGrantControllerSearchSubjectsOperation: OperationDefinition = {
   id: 'FileFolderGrantController_searchSubjects',
   method: 'GET',
-  path: '/workspaces/{workspaceId}/file-folders/{id}/grant-subjects',
+  path: '/file-folders/{id}/grant-subjects',
   responseTypes: { 200: 'json' },
   schemas: FileFolderGrantControllerSearchSubjectsSchemas,
 };

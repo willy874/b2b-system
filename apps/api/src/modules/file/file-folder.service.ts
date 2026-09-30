@@ -1,10 +1,10 @@
-import { ChangeKind, ChangeSource } from '@game-editor/realtime';
-import type { ResourceChangeWire } from '@game-editor/realtime';
+import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
+import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
-import type { AuthUser, WorkspaceScope } from '@/common/types';
+import type { AuthUser } from '@/common/types';
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE, withTransaction } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException, isUniqueViolation } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import type { FileFolderRow } from '@/db/schema';
@@ -46,7 +46,7 @@ interface PathNode {
 @Injectable()
 export class FileFolderService {
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly repo: FileFolderRepository,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
@@ -58,11 +58,11 @@ export class FileFolderService {
    * 全部的資料夾與操作者對每一個的能力：沒有權限的也列出，`canRead = false`（鎖住），
    * 申請中的標 `hasPendingAccessRequest`（docs/rbac/07-resource-grants.md §5.1、§6.5）。
    */
-  async list(ws: WorkspaceScope, actor: AuthUser): Promise<FileFolderListDto> {
+  async list(actor: AuthUser): Promise<FileFolderListDto> {
     const [ctx, rows, requested] = await Promise.all([
-      this.access.contextFor(ws, actor),
-      this.repo.listAll(ws),
-      this.requests.pendingFolderIdsOf(ws, actor),
+      this.access.contextFor(actor),
+      this.repo.listAll(),
+      this.requests.pendingFolderIdsOf(actor),
     ]);
     return {
       // 別人的個人資料夾與其他資料夾一致：列出但鎖住（§5.1）
@@ -78,40 +78,27 @@ export class FileFolderService {
    * 不會把檔案放進剛被刪除的資料夾。`folderId` 為 null / undefined 是根目錄，不必排隊。
    */
   async insideFolder<T>(
-    ws: WorkspaceScope,
     folderId: string | null | undefined,
     work: (tx: DbOrTx) => Promise<T>,
   ): Promise<T> {
     if (!folderId) return work(this.db);
     return withTransaction(this.db, async (tx) => {
-      await this.repo.lockTree(ws, tx);
-      await this.getOrThrow(ws, folderId, tx);
+      await this.repo.lockTree(tx);
+      await this.getOrThrow(folderId, tx);
       return work(tx);
     });
   }
 
-  async create(
-    ws: WorkspaceScope,
-    dto: CreateFileFolderDto,
-    actor: AuthUser,
-  ): Promise<FileFolderDto> {
-    const { created, ctx } = await this.writeTree(ws, async (tx) => {
-      const context = await this.access.contextFor(ws, actor, tx);
+  async create(dto: CreateFileFolderDto, actor: AuthUser): Promise<FileFolderDto> {
+    const { created, ctx } = await this.writeTree(async (tx) => {
+      const context = await this.access.contextFor(actor, tx);
       await this.access.assertCan(context, actor, 'create', dto.parentId);
-      await this.assertDepth(ws, dto.parentId, 1, tx);
-      if (await this.repo.hasSibling(ws, dto.parentId, dto.name, undefined, tx)) {
+      await this.assertDepth(dto.parentId, 1, tx);
+      if (await this.repo.hasSibling(dto.parentId, dto.name, undefined, tx)) {
         throw new AppException('FILE_FOLDER_NAME_CONFLICT', { name: dto.name });
       }
       const [row] = await this.repo.create(
-        [
-          {
-            workspaceId: ws.workspaceId,
-            name: dto.name,
-            parentId: dto.parentId,
-            createdBy: actor.id,
-            updatedBy: actor.id,
-          },
-        ],
+        [{ name: dto.name, parentId: dto.parentId, createdBy: actor.id, updatedBy: actor.id }],
         tx,
       );
       if (!row) throw new Error('建立資料夾失敗');
@@ -127,9 +114,7 @@ export class FileFolderService {
       );
       return { created: row, ctx: context };
     });
-    this.publish(ws, [
-      { resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.CREATE, id: created.id },
-    ]);
+    this.publish([{ resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.CREATE, id: created.id }]);
     // 新資料夾繼承上層的授權、建立者是自己：能力以上層推得（context 建立時它還不存在）
     return toDto(created, ctx, false, {
       canRead: true,
@@ -144,11 +129,7 @@ export class FileFolderService {
    * 上傳資料夾：確保每條路徑（從 `parentId` 起算）都存在，已存在的同名資料夾直接沿用。
    * 一層一層處理：每層一次查出既有的子資料夾、一次建立缺少的，深度 32 也只有幾十個查詢。
    */
-  async ensurePaths(
-    ws: WorkspaceScope,
-    dto: EnsureFileFolderPathsDto,
-    actor: AuthUser,
-  ): Promise<FileFolderPathsDto> {
+  async ensurePaths(dto: EnsureFileFolderPathsDto, actor: AuthUser): Promise<FileFolderPathsDto> {
     const root: PathNode = { name: '', children: new Map() };
     for (const path of dto.paths) {
       let node = root;
@@ -163,11 +144,11 @@ export class FileFolderService {
       }
     }
 
-    const created = await this.writeTree(ws, async (tx) => {
-      const ctx = await this.access.contextFor(ws, actor, tx);
+    const created = await this.writeTree(async (tx) => {
+      const ctx = await this.access.contextFor(actor, tx);
       await this.access.assertCan(ctx, actor, 'create', dto.parentId);
       const maxDepth = Math.max(...dto.paths.map((path) => path.length));
-      await this.assertDepth(ws, dto.parentId, maxDepth, tx);
+      await this.assertDepth(dto.parentId, maxDepth, tx);
 
       const inserted: FileFolderRow[] = [];
       let level: { parentId: string | null; node: PathNode }[] = [
@@ -177,7 +158,6 @@ export class FileFolderService {
         // 下一層的上層 id 要等這一層建好才知道；同一個交易的查詢也只能依序執行
         // oxlint-disable-next-line no-await-in-loop -- 見上
         const existing = await this.repo.findChildren(
-          ws,
           level.map((entry) => entry.parentId),
           tx,
         );
@@ -200,7 +180,6 @@ export class FileFolderService {
         // oxlint-disable-next-line no-await-in-loop -- 同上：逐層建立
         const rows = await this.repo.create(
           missing.map(({ parentId, node }) => ({
-            workspaceId: ws.workspaceId,
             name: node.name,
             parentId,
             createdBy: actor.id,
@@ -240,7 +219,7 @@ export class FileFolderService {
     });
 
     if (created.length > 0) {
-      this.publish(ws, [{ resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.CREATE }]);
+      this.publish([{ resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.CREATE }]);
     }
     return {
       items: dto.paths.map((path) => {
@@ -252,24 +231,19 @@ export class FileFolderService {
     };
   }
 
-  async rename(
-    ws: WorkspaceScope,
-    id: string,
-    dto: UpdateFileFolderDto,
-    actor: AuthUser,
-  ): Promise<FileFolderDto> {
-    const { renamed, ctx } = await this.writeTree(ws, async (tx) => {
-      const context = await this.access.contextFor(ws, actor, tx);
-      const folder = await this.getReadableOrThrow(ws, context, actor, id, tx);
+  async rename(id: string, dto: UpdateFileFolderDto, actor: AuthUser): Promise<FileFolderDto> {
+    const { renamed, ctx } = await this.writeTree(async (tx) => {
+      const context = await this.access.contextFor(actor, tx);
+      const folder = await this.getReadableOrThrow(context, actor, id, tx);
       assertNotSystem([folder]);
       if (!context.canModify('update', folder.parentId, folder.createdBy)) {
         throw await this.access.deny(actor, 'update', 'fileFolder', id);
       }
       if (folder.name === dto.name) return { renamed: folder, ctx: context };
-      if (await this.repo.hasSibling(ws, folder.parentId, dto.name, id, tx)) {
+      if (await this.repo.hasSibling(folder.parentId, dto.name, id, tx)) {
         throw new AppException('FILE_FOLDER_NAME_CONFLICT', { name: dto.name });
       }
-      const row = await this.repo.rename(ws, id, { name: dto.name, updatedBy: actor.id }, tx);
+      const row = await this.repo.rename(id, { name: dto.name, updatedBy: actor.id }, tx);
       if (!row) throw new AppException('FILE_FOLDER_NOT_FOUND');
       await this.audit.record(
         {
@@ -283,7 +257,7 @@ export class FileFolderService {
       );
       return { renamed: row, ctx: context };
     });
-    this.publish(ws, [{ resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.UPDATE, id }]);
+    this.publish([{ resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.UPDATE, id }]);
     return toDto(renamed, ctx);
   }
 
@@ -293,20 +267,16 @@ export class FileFolderService {
    * 目的地已有同名資料夾（含這次一起移進去的彼此同名）回 `FILE_FOLDER_NAME_CONFLICT`。
    * 檔案：已刪除的略過（批次移動途中有人刪除不讓整批失敗）。
    */
-  async move(
-    ws: WorkspaceScope,
-    dto: MoveFileItemsDto,
-    actor: AuthUser,
-  ): Promise<MoveFileItemsResultDto> {
+  async move(dto: MoveFileItemsDto, actor: AuthUser): Promise<MoveFileItemsResultDto> {
     const { targetFolderId } = dto;
-    const result = await this.writeTree(ws, async (tx) => {
-      const ctx = await this.access.contextFor(ws, actor, tx);
+    const result = await this.writeTree(async (tx) => {
+      const ctx = await this.access.contextFor(actor, tx);
       const target = targetFolderId
-        ? await this.getReadableOrThrow(ws, ctx, actor, targetFolderId, tx)
+        ? await this.getReadableOrThrow(ctx, actor, targetFolderId, tx)
         : undefined;
       await this.access.assertCan(ctx, actor, 'create', targetFolderId);
 
-      const folders = await this.repo.findByIds(ws, dto.folderIds, tx);
+      const folders = await this.repo.findByIds(dto.folderIds, tx);
       assertNotSystem(folders);
       if (folders.length !== dto.folderIds.length) {
         const found = new Set(folders.map((folder) => folder.id));
@@ -321,7 +291,7 @@ export class FileFolderService {
         }
       }
       // 檔案：已刪除、上傳中、看不到的略過（同「途中被刪除」）；看得到但不能移動的拒絕整批
-      const files = (await this.repo.findMovableFiles(ws, dto.fileIds, tx)).filter((file) =>
+      const files = (await this.repo.findMovableFiles(dto.fileIds, tx)).filter((file) =>
         ctx.can('read', file.folderId),
       );
       for (const file of files) {
@@ -333,17 +303,16 @@ export class FileFolderService {
       const fileIds = files.map((file) => file.id);
       const moving = folders.filter((folder) => folder.parentId !== targetFolderId);
       if (moving.length > 0) {
-        await this.assertMovable(ws, moving, targetFolderId, tx);
+        await this.assertMovable(moving, targetFolderId, tx);
       }
 
       const movedFolders = await this.repo.move(
-        ws,
         moving.map((folder) => folder.id),
         targetFolderId,
         actor.id,
         tx,
       );
-      const movedFiles = await this.repo.moveFiles(ws, fileIds, targetFolderId, actor.id, tx);
+      const movedFiles = await this.repo.moveFiles(fileIds, targetFolderId, actor.id, tx);
       if (movedFolders.length + movedFiles > 0) {
         await this.audit.record(
           {
@@ -372,20 +341,20 @@ export class FileFolderService {
     if (result.movedFiles > 0) {
       changes.push({ resource: ChangeSource.FILE, kind: ChangeKind.UPDATE, id: ANY_ID });
     }
-    this.publish(ws, changes);
+    this.publish(changes);
     return result;
   }
 
   /** 遞迴刪除：資料夾、所有子孫資料夾、其中的檔案。 */
-  async remove(ws: WorkspaceScope, id: string, actor: AuthUser): Promise<void> {
-    const removed = await this.writeTree(ws, async (tx) => {
-      const ctx = await this.access.contextFor(ws, actor, tx);
-      const folder = await this.getReadableOrThrow(ws, ctx, actor, id, tx);
+  async remove(id: string, actor: AuthUser): Promise<void> {
+    const removed = await this.writeTree(async (tx) => {
+      const ctx = await this.access.contextFor(actor, tx);
+      const folder = await this.getReadableOrThrow(ctx, actor, id, tx);
       assertNotSystem([folder]);
       if (!ctx.canModify('delete', folder.parentId, folder.createdBy)) {
         throw await this.access.deny(actor, 'delete', 'fileFolder', id);
       }
-      const folderIds = await this.repo.findDescendantIds(ws, [id], tx);
+      const folderIds = await this.repo.findDescendantIds([id], tx);
       // 只靠擁有者規則時：子樹裡有別人的東西，本人不能刪（docs/rbac/07-resource-grants.md §4）
       if (
         !ctx.can('delete', folder.parentId) &&
@@ -429,14 +398,14 @@ export class FileFolderService {
     if (removed.fileCount > 0) {
       changes.push({ resource: ChangeSource.FILE, kind: ChangeKind.DELETE, id: ANY_ID });
     }
-    this.publish(ws, changes);
+    this.publish(changes);
   }
 
   /** 結構的寫入：交易內先排隊；同名的競態（鎖以外的寫入）也轉成業務錯誤。 */
-  private async writeTree<T>(ws: WorkspaceScope, work: (tx: DbOrTx) => Promise<T>): Promise<T> {
+  private async writeTree<T>(work: (tx: DbOrTx) => Promise<T>): Promise<T> {
     try {
       return await withTransaction(this.db, async (tx) => {
-        await this.repo.lockTree(ws, tx);
+        await this.repo.lockTree(tx);
         return work(tx);
       });
     } catch (error) {
@@ -447,31 +416,25 @@ export class FileFolderService {
 
   /** 存在（否則 404）而且讀得到（鎖住的資料夾 → 403，docs/rbac/07-resource-grants.md §5.1）。 */
   private async getReadableOrThrow(
-    ws: WorkspaceScope,
     ctx: FileAccessContext,
     actor: AuthUser,
     id: string,
     tx: DbOrTx,
   ): Promise<FileFolderRow> {
-    const folder = await this.getOrThrow(ws, id, tx);
+    const folder = await this.getOrThrow(id, tx);
     if (!ctx.can('read', id)) throw await this.access.deny(actor, 'read', 'fileFolder', id);
     return folder;
   }
 
-  private async getOrThrow(ws: WorkspaceScope, id: string, tx: DbOrTx): Promise<FileFolderRow> {
-    const folder = await this.repo.findById(ws, id, tx);
+  private async getOrThrow(id: string, tx: DbOrTx): Promise<FileFolderRow> {
+    const folder = await this.repo.findById(id, tx);
     if (!folder) throw new AppException('FILE_FOLDER_NOT_FOUND', { folderId: id });
     return folder;
   }
 
   /** 在 `parentId` 底下再加 `levels` 層是否超過深度上限。 */
-  private async assertDepth(
-    ws: WorkspaceScope,
-    parentId: string | null,
-    levels: number,
-    tx: DbOrTx,
-  ): Promise<void> {
-    const depth = parentId ? (await this.repo.findAncestorIds(ws, parentId, tx)).length : 0;
+  private async assertDepth(parentId: string | null, levels: number, tx: DbOrTx): Promise<void> {
+    const depth = parentId ? (await this.repo.findAncestorIds(parentId, tx)).length : 0;
     if (parentId && depth === 0) {
       throw new AppException('FILE_FOLDER_NOT_FOUND', { folderId: parentId });
     }
@@ -481,14 +444,13 @@ export class FileFolderService {
   }
 
   private async assertMovable(
-    ws: WorkspaceScope,
     moving: readonly FileFolderRow[],
     targetFolderId: string | null,
     tx: DbOrTx,
   ): Promise<void> {
     if (targetFolderId) {
       // 目的地往上的鏈上出現任何一個要移動的資料夾 → 移進自己或自己的子孫
-      const ancestors = new Set(await this.repo.findAncestorIds(ws, targetFolderId, tx));
+      const ancestors = new Set(await this.repo.findAncestorIds(targetFolderId, tx));
       const cyclic = moving.filter((folder) => ancestors.has(folder.id));
       if (cyclic.length > 0) {
         throw new AppException('FILE_FOLDER_CYCLE', { folderIds: cyclic.map((f) => f.id) });
@@ -502,15 +464,15 @@ export class FileFolderService {
         names.has(key) ||
         // 交易內的查詢依序執行；一次移動的資料夾數有上限（MAX_MOVE_ITEMS）
         // oxlint-disable-next-line no-await-in-loop -- 見上
-        (await this.repo.hasSibling(ws, targetFolderId, folder.name, folder.id, tx));
+        (await this.repo.hasSibling(targetFolderId, folder.name, folder.id, tx));
       if (duplicated) throw new AppException('FILE_FOLDER_NAME_CONFLICT', { name: folder.name });
       names.add(key);
     }
   }
 
-  private publish(ws: WorkspaceScope, changes: ResourceChangeWire[]): void {
+  private publish(changes: ResourceChangeWire[]): void {
     if (changes.length === 0) return;
-    this.events.publish(DomainEvent.RESOURCE_CHANGED, { changes, workspaceId: ws.workspaceId });
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, { changes });
   }
 }
 

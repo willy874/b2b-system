@@ -1,0 +1,61 @@
+{
+  "role": {
+    "list": {
+      "title": "Roles",
+      "description": "Manage authorization by responsibility, not by person.",
+      "searchPlaceholder": "Search by name or slug"
+    },
+    "create": {
+      "action": "Create role",
+      "title": "Create role",
+      "description": "A role is a named set of permissions. You can only grant permissions you hold.",
+      "permissions": "Grant permissions",
+      "success": "Role \"{{name}}\" created."
+    },
+    "update": { "success": "Role updated." },
+    "delete": {
+      "title": "Delete role",
+      "confirm": "Delete role \"{{name}}\"? This cannot be undone.",
+      "success": "Role deleted.",
+      "systemProtected": "System roles are protected and cannot be deleted."
+    },
+    "batch": {
+      "delete": {
+        "action": "Delete",
+        "title": "Delete roles",
+        "confirm": "Delete {{count}} roles? This cannot be undone. Roles still assigned to users are not deleted.",
+        "success": "Deleted {{count}} roles.",
+        "ineligible": "System roles and roles still assigned to users cannot be deleted in bulk."
+      }
+    },
+    "duplicate": {
+      "action": "Duplicate",
+      "success": "Duplicated as \"{{name}}\".",
+      "partial": "Duplicated, but {{count}} permissions you do not hold were skipped."
+    },
+    "detail": {
+      "title": "Role detail",
+      "basic": "Basics",
+      "permissions": "Granted permissions",
+      "holders": "Users holding this role",
+      "managePermission": "Manage permissions",
+      "allPermissions": "All permissions (implicit)"
+    },
+    "permission": {
+      "title": "Manage role permissions",
+      "description": "Select the permissions to grant. You cannot grant permissions you do not hold.",
+      "notGrantable": "You do not hold this permission, so you cannot grant it.",
+      "success": "Role permissions updated."
+    },
+    "field": {
+      "name": "Name",
+      "slug": "Slug",
+      "description": "Description",
+      "type": "Type",
+      "permissionCount": "Permissions",
+      "userCount": "Users",
+      "createdAt": "Created"
+    },
+    "type": { "system": "System", "custom": "Custom" }
+  }
+}

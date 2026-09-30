@@ -3,9 +3,8 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { hashPassword } from '@/modules/auth/password';
 
 import type { ScriptDatabase } from '../client';
-import { createScriptClient, loadScriptEnv } from '../client';
+import { forEachScriptTenant, loadScriptEnv, seedTenantCode } from '../client';
 import { auditLogs, permissions, rolePermissions, roles, userRoles, users } from '../schema';
-import { DEFAULT_WORKSPACE_SLUG, seedWorkspaceMember } from './workspace';
 
 /** 固定亂數種子，確保 E2E fixture 可重現。 */
 function mulberry32(seed: number): () => number {
@@ -130,16 +129,6 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
     }
   }
 
-  // ── 預設工作區的成員：前 10 位是工作區管理員，其他是一般成員 ─────
-  for (const [index, userId] of createdUserIds.entries()) {
-    await seedWorkspaceMember(
-      db,
-      DEFAULT_WORKSPACE_SLUG,
-      userId,
-      index < 10 ? 'workspace-admin' : 'workspace-member',
-    );
-  }
-
   // ── 300 筆稽核日誌（跨 90 天）───────────────────────────
   const [{ total } = { total: 0 }] = await db
     .select({ total: sql<number>`count(*)::int` })
@@ -174,9 +163,7 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
 
 async function main(): Promise<void> {
   loadScriptEnv();
-  const { client, db } = createScriptClient();
-  await seedDevData(db);
-  await client.end();
+  await forEachScriptTenant((db) => seedDevData(db), { code: seedTenantCode() });
 }
 
 if (require.main === module) {

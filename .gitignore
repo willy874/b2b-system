@@ -20,3 +20,4 @@ packages/api-sdk/codegen/__tests__/.output/
 storybook-static/
 # apps/file-storage 的本機資料（模擬的 S3 bucket）
 apps/file-storage/.data/
+prompt.txt

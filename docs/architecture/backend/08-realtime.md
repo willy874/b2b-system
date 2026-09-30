@@ -168,6 +168,11 @@ this.events.publish(DomainEvent.SESSIONS_REVOKED, {
 //                   → io.in(userRoom(id)).disconnectSockets(true)
 ```
 
+單一登出（[ADR-0019](../../adr/0019-sso-identity-platform.md) D5）改帶 `idpSessionUids`：只撤銷 `sid:{uid}` room 的連線，
+同一個人的其他裝置不受影響；`reason` 是 `SessionRevokedReason.SIGNED_OUT`（`AUTH_REFRESH_REVOKED`）。
+平台管理者停用或刪除租戶時帶 `tenantIds`：撤銷 `t:{tenantId}` room 的所有連線，`reason` 是 `TENANT_UNAVAILABLE`
+（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D13；這個事件在平台的請求裡發佈，沒有租戶脈絡）。
+
 之前被停用的人要等到「下一次 HTTP 請求」才會被擋下；現在是即時的。
 單一裝置的登出不遞增 `token_version`，由該分頁自己斷線（前端 `SessionStore` 的 `ended`）。
 
@@ -206,10 +211,19 @@ WebSocket 另有三道防線：
 
 | Room                   | 誰在裡面                                   | 名稱來源                     |
 | ---------------------- | ------------------------------------------ | ---------------------------- |
-| `user:{userId}`        | 該使用者的所有連線（所有裝置、所有分頁）   | `userRoom(id)`               |
-| `perm:{permissionKey}` | 持有該權限的使用者的連線                   | `permRoom(key)`（例 `perm:role:read`） |
+| `t:{tenantId}:user:{userId}` | 該使用者的所有連線（所有裝置、所有分頁）   | `userRoom(id)`（租戶取自目前的租戶脈絡） |
+| `t:{tenantId}`         | 這個租戶的所有連線（停用、刪除租戶時一次斷掉） | `tenantRoom(tenantId)`（ADR-0020 D13） |
+| `t:{tenantId}:perm:{permissionKey}` | 目前租戶裡持有該權限的使用者的連線 | `permRoom(key)`（例 `t:…:perm:role:read`；租戶取自目前的租戶脈絡） |
+| `sid:{idpSessionUid}`  | 同一個 IdP session 的連線（經 SSO 登入、token 帶 `sid` 時才加入） | `idpSessionRoom(uid)`（ADR-0019 D5） |
 
-super-admin 加入所有 `perm:` room。
+super-admin 加入自己租戶的所有 perm room。
+
+- **perm room 帶租戶**（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D17）：一個程序服務所有租戶，
+  權限鍵的名稱各租戶都一樣，不帶租戶的話 A 租戶的變更會推給 B 租戶持有同一權限的人。
+  使用者的 room 也帶租戶：使用者 id 只在自己的租戶 DB 裡唯一（從備份還原或複製出來的租戶會有相同的 id）。
+  `sid:` 用的是 IdP 全域唯一的 uid，不必帶租戶。
+- **連線屬於一個租戶**：handshake 時依網域決定（找不到回 `connect_error` 的 `TENANT_NOT_FOUND`），
+  之後這條連線上的每則訊息都在該租戶的脈絡裡處理（`socket.use` 包一層 `runInTenantContext`）。
 
 ### 6.1 來源 → 受眾
 
@@ -490,7 +504,7 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 
 | 項目                     | 限制                                              | 超過時               |
 | ------------------------ | ------------------------------------------------- | -------------------- |
-| Origin                   | `allowRequest` 檢查 `Origin` 屬於 `REALTIME_ALLOWED_ORIGINS` | 拒絕 handshake |
+| Origin                   | `allowRequest` 檢查 `Origin` 屬於 `REALTIME_ALLOWED_ORIGINS`，或與連線的網域同源（每個租戶自己的網域，ADR-0020 D2） | 拒絕 handshake |
 | 每個 IP 的 handshake     | 每分鐘 30 次                                      | 拒絕 handshake       |
 | 每條連線的訊息           | 每 10 秒 30 則                                    | 略過；持續超過就斷線 |
 | 單一 frame               | `maxHttpBufferSize` = 16 KB                       | Socket.io 直接斷線   |

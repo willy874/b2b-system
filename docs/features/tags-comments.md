@@ -26,7 +26,7 @@
 
 - 權限跟著目標實體走：看得到目標才看得到留言；由目標的模組提供「能不能看」的判斷
 - 模組註冊 `target_type`，`modules/comment` 不 import 其他模組
-- 標籤屬於工作區（等 [`workspace.md`](./workspace.md)）
+- 標籤屬於租戶：租戶 DB 已天然隔離（[`../architecture/05-tenancy.md`](../architecture/05-tenancy.md)）
 
 ## 開放問題
 

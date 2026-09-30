@@ -18,7 +18,7 @@
 ```
 
 Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/components/` 是我們把它
-變成「Game Editor 的樣子」的地方。這一層會比搭配 MUI 時厚得多——搭 MUI 時
+變成「B2B System 的樣子」的地方。這一層會比搭配 MUI 時厚得多——搭 MUI 時
 `components/Select` 只是薄包裝，我們的要自己寫完整外觀。
 
 這是有意識的成本，換來的是：**沒有要對抗的既有樣式**，而且未來畫布、屬性面板、
@@ -756,8 +756,10 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 | `rowPinning` | TanStack `RowPinningState` | 資料列貼在頂端（`top`）或底端（`bottom`），捲動時留在原位；需要 `getRowId`，列必須在 `data` 裡 |
 | `stickyHeader` | `boolean` | 表頭在垂直捲動時留在上方；頂端的釘選列排在表頭下緣 |
 | `maxHeight` | CSS 長度 | 固定表頭或有釘選列時外框的最大高度，預設 `70vh` |
+| `fillHeight` | `boolean` | 填滿父層（有高度上限的 flex 欄）的剩餘高度：外框 `flex: 1`、最矮 `12rem`，固定是雙向捲動框，不套 `maxHeight` |
 
-頁面本身捲動時 sticky 無效（外框為了水平捲動已經是捲動容器），所以 **固定表頭或有釘選列時，外框改成雙向捲動、最高 `maxHeight`**。
+頁面本身捲動時 sticky 無效（外框為了水平捲動已經是捲動容器），所以 **固定表頭或有釘選列時，外框改成雙向捲動、最高 `maxHeight`**
+（`fillHeight` 時高度由父層決定，外框一律是捲動框）。
 疊放順序：固定欄 < 釘選列 < 釘選列 × 固定欄 < 表頭 < 表頭 × 固定欄。
 
 `RichTable` 把這些固定都記在每張表的偏好裡（§6.1）。
@@ -777,6 +779,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 | 功能 | 元件 | 說明 |
 | ---- | ---- | ---- |
 | 分頁 | `Pagination` | `pagination={{ offset, limit, total, onChange }}`，文案走 `t()` |
+| 版面 | `fillHeight`（預設 `true`） | 表格延展填滿剩餘高度、資料多時在表格內捲動，分頁列固定在底部。`DashboardLayout` 的主內容是一個視窗高的 flex 欄（側邊選單與主內容各自捲動），列表頁的根元素給 `flex min-h-0 flex-1 flex-col` 才接得到高度 |
 | 篩選 | `FilterBar` | 篩選圖示按鈕（`IconButton`，只有圖示，名稱走 `aria-label`）點開的下拉表單；欄位型別 `text` / `select` / `multiSelect` / `dateRange` / `sort`（多欄排序，`SortEntry[]`，拖曳調整優先順序）/ `custom`。`value` ＋ `onSubmit` 以泛型型別化，一次送出整份值（只更新一次網址） |
 | 欄位設定 | `TableSettings` | 齒輪按鈕點開的下拉清單：拖曳（dnd-kit，含鍵盤）排序、勾選顯示；依 `tableId` 存在 `core/store/tableColumnSettings`，偏好頁的「表格欄位」分頁改的是同一份 |
 
@@ -934,16 +937,16 @@ const batchActions = useUserBatchActions();
 
 ```bash
 pnpm storybook          # http://localhost:6006
-pnpm storybook:build    # 靜態站輸出到 apps/web/storybook-static/（已 gitignore）
+pnpm storybook:build    # 靜態站輸出到 apps/backstage/storybook-static/（已 gitignore）
 ```
 
 | 檔案 | 內容 |
 | --- | --- |
-| `apps/web/.storybook/main.ts` | 收 `src/components/**/*.stories.tsx`；addon：docs、a11y |
-| `apps/web/.storybook/preview.tsx` | 載入 `virtual:uno.css` 與 `src/index.css`（token）；全域 `autodocs`；`router` decorator |
-| `apps/web/.storybook/preview-head.html` | 與 `index.html` 相同的 `@layer` 順序宣告（§3.4），否則工具類蓋不過元件預設值 |
+| `apps/backstage/.storybook/main.ts` | 收 `src/components/**/*.stories.tsx`；addon：docs、a11y |
+| `apps/backstage/.storybook/preview.tsx` | 載入 `virtual:uno.css` 與 `src/index.css`（token）；全域 `autodocs`；`router` decorator |
+| `apps/backstage/.storybook/preview-head.html` | 與 `index.html` 相同的 `@layer` 順序宣告（§3.4），否則工具類蓋不過元件預設值 |
 
-Vite 設定直接沿用 `apps/web/vite.config.ts`（UnoCSS、svgr、`@/` alias、CSS Module 命名），不另外維護一份。
+Vite 設定直接沿用 `apps/backstage/vite.config.ts`（UnoCSS、svgr、`@/` alias、CSS Module 命名），不另外維護一份。
 
 ### 9.1 寫法
 

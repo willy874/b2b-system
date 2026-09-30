@@ -1,0 +1,7 @@
+{
+  "home": {
+    "title": "B2B System 帳號",
+    "description": "全平台共用的帳號與租戶管理。各產品的登入都會經過這裡。",
+    "you": { "title": "目前登入的身分", "displayName": "顯示名稱", "email": "Email" }
+  }
+}

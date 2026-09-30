@@ -1,6 +1,6 @@
-# Game Editor — 架構文件
+# B2B System — 架構文件
 
-本目錄是 **Game Editor** 的架構規格書。目前專案尚未有主功能，第一階段只建置
+本目錄是 **B2B System** 的架構規格書。目前專案尚未有主功能，第一階段只建置
 **完整的 RBAC（Role-Based Access Control）能力與流程**，作為之後所有功能的地基。
 
 > 狀態：**待確認（Draft）**。程式碼尚未開始撰寫。
@@ -28,6 +28,7 @@
 1. [`overview/01-overview.md`](./overview/01-overview.md) — 目標、範圍、角色定義
 2. [`overview/02-technology-selection.md`](./overview/02-technology-selection.md) — 技術選型與理由
 3. [`architecture/01-system.md`](./architecture/01-system.md) — 系統全貌與資料流
+   （登入與身分見 [`architecture/04-sso.md`](./architecture/04-sso.md)；每個租戶一個 database 與網域見 [`architecture/05-tenancy.md`](./architecture/05-tenancy.md)）
 4. [`rbac/01-domain-model.md`](./rbac/01-domain-model.md) — RBAC 領域模型
 5. [`overview/03-roadmap.md`](./overview/03-roadmap.md) — 實作階段與驗收條件
 
@@ -72,6 +73,8 @@ docs/
 │   ├── 01-system.md                   系統架構、部署拓撲、端到端資料流
 │   ├── 02-repository-structure.md     monorepo 結構、目錄佈局、環境變數
 │   ├── 03-file-storage.md             apps/file-storage：S3 相容的本機檔案儲存
+│   ├── 04-sso.md                      SSO：apps/api 當 OIDC Provider、apps/auth、外部 IdP、單一登出
+│   ├── 05-tenancy.md                  租戶：每個租戶一個 database 與網域、佈建與生命週期、部署
 │   │
 │   ├── frontend/
 │   │   ├── README.md
@@ -93,7 +96,7 @@ docs/
 │       ├── 01-architecture.md         NestJS 模組分層與相依方向
 │       ├── 02-database.md             Drizzle schema 慣例、migration 流程
 │       ├── 03-api-conventions.md      REST、分頁、排序、錯誤碼、驗證
-│       ├── 04-auth.md                 登入、JWT、refresh rotation、重用偵測
+│       ├── 04-auth.md                 登入、JWT、refresh rotation、重用偵測、SSO 的後端部分
 │       ├── 05-rbac.md                 Guard / Decorator / 權限快取 / 反提權
 │       ├── 06-audit-log.md            稽核日誌設計
 │       ├── 07-testing.md              單元 / 整合 / e2e 測試策略
@@ -142,7 +145,9 @@ docs/
     ├── 0015-file-folder-access.md
     ├── 0016-background-jobs.md
     ├── 0017-mail-delivery.md
-    └── 0018-workspace-tenancy.md
+    ├── 0018-workspace-tenancy.md
+    ├── 0019-sso-identity-platform.md
+    └── 0020-physical-tenant-isolation.md
 ```
 
 ---
@@ -157,7 +162,7 @@ docs/
   `conventions/` 講寫程式規則、`adr/` 講決策理由。新文件依此歸位。
 - **還沒實作的功能** 寫在 `features/`，不要寫進上述分區；那些分區只描述已存在的系統。
   流程見 [`features/README.md`](./features/README.md)。
-- 檔案路徑用相對於 repo 根目錄的形式（`apps/web/src/...`）。
+- 檔案路徑用相對於 repo 根目錄的形式（`apps/backstage/src/...`）。
 
 ---
 
@@ -165,7 +170,7 @@ docs/
 
 以下三處必須永遠同步，任一處變更時必須同一批修改另外兩處：
 
-1. `apps/web/src/features/<name>/` — 前端功能原始碼
+1. `apps/backstage/src/features/<name>/`（平台層級的頁面在 `apps/auth/src/features/<name>/`）— 前端功能原始碼
 2. `apps/api/src/modules/<name>/` — 後端模組原始碼
 3. `docs/` 對應章節 — 規格文件
 

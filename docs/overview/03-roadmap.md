@@ -41,12 +41,12 @@ M0–M5 的功能全部實作完成並跑通；以下是與驗收清單的落差
 ### 產出
 
 ```
-game-editor/
+b2b-system/
 ├── package.json / pnpm-workspace.yaml / tsconfig.base.json
 ├── docker-compose.yml               postgres:17-alpine
 ├── .env.example
 ├── lefthook.yml / .oxlintrc.json / .oxfmtrc.jsonc
-├── apps/web/        Vite + React 19 + TS，空白頁能跑
+├── apps/backstage/        Vite + React 19 + TS，空白頁能跑
 ├── apps/api/        NestJS 11，/health 能回應
 ├── apps/e2e/        Playwright 設定
 └── packages/
@@ -57,7 +57,7 @@ game-editor/
 ### 驗收
 
 - [ ] `pnpm install` 成功
-- [ ] `pnpm dev` 同時起 postgres、api（:3000）、web（:5173）
+- [ ] `pnpm dev` 同時起 postgres、api（:3000）、backstage（:5173）
 - [ ] `curl localhost:5173/api/health` 經 Vite proxy 回到 api
 - [ ] `pnpm lint` / `pnpm format:check` / `pnpm typecheck` 全部通過
 - [ ] pre-commit hook 會擋下未格式化的檔案
@@ -214,7 +214,7 @@ game-editor/
 
 **架構**
 
-- [ ] `grep -r "features/" apps/web/src/core/` 為空
+- [ ] `grep -r "features/" apps/backstage/src/core/` 為空
 - [ ] `grep -r "modules/" apps/api/src/core/` 為空
 - [ ] 註解掉 `main.tsx` 任一 feature plugin，app 仍能啟動
 - [ ] 所有 lint 相依規則通過
@@ -258,10 +258,13 @@ game-editor/
 2. ~~Dark Mode~~（已完成，見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §4.4）
 3. MFA（`users.mfa_enabled` 已預留）
 4. 批次匯入 / 匯出
-5. SSO（OIDC）
+5. ~~SSO（OIDC）~~（已完成：`apps/auth` ＋ `apps/api` 當 OIDC Provider、外部 IdP、單一登出；見 [`architecture/04-sso.md`](../architecture/04-sso.md)、
+   [ADR-0019](../adr/0019-sso-identity-platform.md)）
 6. 稽核日誌分區表
 7. 多執行個體部署（權限快取換 Redis）
 8. 服務帳號 / API Token
 9. ~~`JsonEditor`~~（已完成：CodeMirror 6 編輯器——語法上色、行號、摺疊、復原重做、搜尋、JSON Schema 驗證；
    `JsonViewer` 外觀與它一致；見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.12、
    [ADR-0011](../adr/0011-codemirror-json-editor.md)）。後續視需要補取代（`@codemirror/search` 已支援）、摺疊處的驗證錯誤標記
+10. ~~多租戶~~（已完成：每個租戶一個 database 與網域、平台管理者在 apps/auth 管理租戶；見
+    [`architecture/05-tenancy.md`](../architecture/05-tenancy.md)、[ADR-0020](../adr/0020-physical-tenant-isolation.md)）

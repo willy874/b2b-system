@@ -112,6 +112,195 @@
         "tags": ["audit-logs"]
       }
     },
+    "/platform/admins": {
+      "get": {
+        "operationId": "PlatformAdminController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformAdminList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-admins"]
+      },
+      "post": {
+        "operationId": "PlatformAdminController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePlatformAdminRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformAdmin"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "新增平台管理者：建立成 pending，寄啟用信讓本人設定密碼",
+        "tags": ["platform-admins"]
+      }
+    },
+    "/platform/admins/{id}": {
+      "patch": {
+        "operationId": "PlatformAdminController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlatformAdminRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformAdmin"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "改名、換角色、停用／啟用（停用即撤銷 session；locked 改回 active 即解鎖）",
+        "tags": ["platform-admins"]
+      }
+    },
+    "/platform/admins/{id}/password-link": {
+      "post": {
+        "operationId": "PlatformAdminController_sendPasswordLink",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformAdminPasswordLink"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "寄設定密碼的連結：還沒啟用的寄啟用信，其他人寄重設密碼信",
+        "tags": ["platform-admins"]
+      }
+    },
+    "/platform/audit-logs": {
+      "get": {
+        "operationId": "PlatformAdminController_auditLogs",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/PlatformAuditLog"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "平台稽核（固定 occurred_at DESC；時間範圍預設且最多 90 天）",
+        "tags": ["platform-admins"]
+      }
+    },
     "/approvals": {
       "get": {
         "operationId": "ApprovalController_list",
@@ -522,6 +711,42 @@
         "tags": ["auth"]
       }
     },
+    "/auth/sso/callback": {
+      "post": {
+        "operationId": "AuthController_ssoCallback",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoCallbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Session"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "產品的 BFF：授權碼 ＋ PKCE verifier 換 app session（docs/adr/0019-sso-identity-platform.md D3）",
+        "tags": ["auth"]
+      }
+    },
     "/auth/setup/verify": {
       "get": {
         "operationId": "AuthController_verifySetup",
@@ -554,6 +779,417 @@
           }
         },
         "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/external/callback": {
+      "get": {
+        "operationId": "SsoInteractionController_externalCallback",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "外部 IdP 的 redirect URI（固定路徑）：驗證後跳到互動路徑底下完成互動",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}": {
+      "get": {
+        "operationId": "SsoInteractionController_toPage",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "轉到 apps/auth 的登入互動頁（互動 cookie 已設在這個路徑）",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/details": {
+      "get": {
+        "operationId": "SsoInteractionController_details",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoInteraction"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "登入互動的資訊（哪個產品要求登入）",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/login": {
+      "post": {
+        "operationId": "SsoInteractionController_login",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoRedirect"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "密碼登入；回傳要頂層跳轉的 resume 網址",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/discover": {
+      "get": {
+        "operationId": "SsoInteractionController_discover",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoDiscovery"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "以 email 網域查詢外部 IdP 連線（home realm discovery）",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/external": {
+      "post": {
+        "operationId": "SsoInteractionController_startExternal",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartExternalLoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoRedirect"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "以外部 IdP 登入：回傳要頂層跳轉的外部授權網址",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/external/complete": {
+      "get": {
+        "operationId": "SsoInteractionController_completeExternal",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "外部 IdP 登入的最後一步（帶得到互動 cookie）：完成互動並跳回 provider",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/abort": {
+      "post": {
+        "operationId": "SsoInteractionController_abort",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoRedirect"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "取消登入；產品收到 error=access_denied",
+        "tags": ["auth"]
+      }
+    },
+    "/platform/auth/sso/callback": {
+      "post": {
+        "operationId": "PlatformAuthController_ssoCallback",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoCallbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Session"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "apps/auth 的 BFF：授權碼 ＋ PKCE verifier 換平台管理者的 session",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/refresh": {
+      "post": {
+        "operationId": "PlatformAuthController_refresh",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Session"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "以 refresh token 續期（需 x-refresh-request: 1）",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/logout": {
+      "post": {
+        "operationId": "PlatformAuthController_logout",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/setup/verify": {
+      "get": {
+        "operationId": "PlatformAuthController_verifySetup",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "檢查平台管理者的啟用 token（回傳 email 供畫面顯示）",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/setup": {
+      "post": {
+        "operationId": "PlatformAuthController_setup",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "平台管理者以啟用信設定密碼",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/reset-password": {
+      "post": {
+        "operationId": "PlatformAuthController_resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "平台管理者以重設密碼信設定新密碼（結束所有 session）",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/profile": {
+      "get": {
+        "operationId": "PlatformAuthController_profile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformProfile"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "平台管理者自己的身分",
+        "tags": ["platform-auth"]
       }
     },
     "/users": {
@@ -887,6 +1523,129 @@
           }
         },
         "tags": ["users"]
+      }
+    },
+    "/identity-providers": {
+      "get": {
+        "operationId": "IdentityProviderController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/IdentityProviderList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "所有連線（不含 client secret）與要登記在外部 IdP 的 redirect URI",
+        "tags": ["identity-providers"]
+      },
+      "post": {
+        "operationId": "IdentityProviderController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateIdentityProviderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/IdentityProvider"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["identity-providers"]
+      }
+    },
+    "/identity-providers/{id}": {
+      "patch": {
+        "operationId": "IdentityProviderController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateIdentityProviderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/IdentityProvider"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "更新；clientSecret 有給才更換，domains 有給就整批取代",
+        "tags": ["identity-providers"]
+      },
+      "delete": {
+        "operationId": "IdentityProviderController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": ["identity-providers"]
       }
     },
     "/roles": {
@@ -1246,465 +2005,6 @@
         "tags": ["roles"]
       }
     },
-    "/workspaces/mine": {
-      "get": {
-        "operationId": "WorkspaceController_listMine",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/MyWorkspaceList"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "自己能進入的工作區（super-admin 是全部）",
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces": {
-      "get": {
-        "operationId": "WorkspaceController_list",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "required": ["items", "pagination"],
-                      "properties": {
-                        "items": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Workspace"
-                          }
-                        },
-                        "pagination": {
-                          "type": "object",
-                          "required": ["offset", "limit", "total"],
-                          "properties": {
-                            "offset": {
-                              "type": "integer"
-                            },
-                            "limit": {
-                              "type": "integer"
-                            },
-                            "total": {
-                              "type": "integer"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": ["workspaces"]
-      },
-      "post": {
-        "operationId": "WorkspaceController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateWorkspaceRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceDetail"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "建立工作區並指定第一位管理員",
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}": {
-      "get": {
-        "operationId": "WorkspaceController_findOne",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceDetail"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": ["workspaces"]
-      },
-      "patch": {
-        "operationId": "WorkspaceController_update",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateWorkspaceRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceDetail"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": ["workspaces"]
-      },
-      "delete": {
-        "operationId": "WorkspaceController_remove",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}/admins": {
-      "post": {
-        "operationId": "WorkspaceController_assignAdmin",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AssignWorkspaceAdminRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceDetail"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "指定管理員（加入成員並給 workspace-admin；留下稽核）",
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}/me": {
-      "get": {
-        "operationId": "WorkspaceMemberController_me",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceMe"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "自己在這個工作區的角色與權限鍵（進入工作區時呼叫）",
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}/members": {
-      "get": {
-        "operationId": "WorkspaceMemberController_listMembers",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "required": ["items", "pagination"],
-                      "properties": {
-                        "items": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/WorkspaceMember"
-                          }
-                        },
-                        "pagination": {
-                          "type": "object",
-                          "required": ["offset", "limit", "total"],
-                          "properties": {
-                            "offset": {
-                              "type": "integer"
-                            },
-                            "limit": {
-                              "type": "integer"
-                            },
-                            "total": {
-                              "type": "integer"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}/members/{userId}/roles": {
-      "put": {
-        "operationId": "WorkspaceMemberController_updateRoles",
-        "parameters": [
-          {
-            "name": "userId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateWorkspaceMemberRolesRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceMemberRoles"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "整批取代成員的工作區角色（受反提權限制）",
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}/members/{userId}": {
-      "delete": {
-        "operationId": "WorkspaceMemberController_removeMember",
-        "parameters": [
-          {
-            "name": "userId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "tags": ["workspaces"]
-      }
-    },
-    "/workspaces/{workspaceId}/roles": {
-      "get": {
-        "operationId": "WorkspaceMemberController_listRoles",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WorkspaceRoleList"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "可以指派的工作區角色（不需要平台的 role:read）",
-        "tags": ["workspaces"]
-      }
-    },
     "/system/info": {
       "get": {
         "operationId": "SystemController_info",
@@ -1718,19 +2018,10 @@
         "tags": ["system"]
       }
     },
-    "/workspaces/{workspaceId}/files": {
+    "/files": {
       "get": {
         "operationId": "FileController_list",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "responses": {
           "200": {
             "description": "",
@@ -1753,16 +2044,7 @@
       },
       "post": {
         "operationId": "FileController_createUpload",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
@@ -1795,19 +2077,10 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/files/upload-policy": {
+    "/files/upload-policy": {
       "get": {
         "operationId": "FileController_getUploadPolicy",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "responses": {
           "200": {
             "description": "",
@@ -1830,19 +2103,10 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/files/move": {
+    "/files/move": {
       "post": {
         "operationId": "FileController_move",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
@@ -1875,7 +2139,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/files/{id}/parts": {
+    "/files/{id}/parts": {
       "post": {
         "operationId": "FileController_createUploadParts",
         "parameters": [
@@ -1885,14 +2149,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -1928,7 +2184,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/files/{id}/complete": {
+    "/files/{id}/complete": {
       "post": {
         "operationId": "FileController_completeUpload",
         "parameters": [
@@ -1938,14 +2194,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -1981,7 +2229,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/files/{id}/upload": {
+    "/files/{id}/upload": {
       "delete": {
         "operationId": "FileController_abortUpload",
         "parameters": [
@@ -1991,14 +2239,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -2011,9 +2251,9 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/files/{id}": {
+    "/files/{id}/image/{variant}": {
       "get": {
-        "operationId": "FileController_findOne",
+        "operationId": "FileController_getImage",
         "parameters": [
           {
             "name": "id",
@@ -2024,11 +2264,34 @@
             }
           },
           {
-            "name": "workspaceId",
+            "name": "variant",
             "required": true,
             "in": "path",
             "schema": {
-              "format": "uuid"
+              "enum": ["original", "preview", "thumbnail"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "轉址到該版本、該格式的內容"
+          }
+        },
+        "summary": "取得圖片的原圖／全螢幕預覽／圖示預覽（302 轉址到物件儲存）",
+        "tags": ["files"]
+      }
+    },
+    "/files/{id}": {
+      "get": {
+        "operationId": "FileController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -2061,14 +2324,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -2112,14 +2367,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
           }
         ],
         "responses": {
@@ -2130,50 +2377,10 @@
         "tags": ["files"]
       }
     },
-    "/files/{id}/image/{variant}": {
-      "get": {
-        "operationId": "FileImageController_getImage",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "variant",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "enum": ["original", "preview", "thumbnail"],
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "302": {
-            "description": "轉址到該版本、該格式的內容"
-          }
-        },
-        "summary": "取得圖片的原圖／全螢幕預覽／圖示預覽（302 轉址到物件儲存）",
-        "tags": ["files"]
-      }
-    },
-    "/workspaces/{workspaceId}/file-folders": {
+    "/file-folders": {
       "get": {
         "operationId": "FileFolderController_list",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "responses": {
           "200": {
             "description": "",
@@ -2197,16 +2404,7 @@
       },
       "post": {
         "operationId": "FileFolderController_create",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
@@ -2238,19 +2436,10 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/paths": {
+    "/file-folders/paths": {
       "post": {
         "operationId": "FileFolderController_ensurePaths",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
@@ -2283,7 +2472,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}": {
+    "/file-folders/{id}": {
       "patch": {
         "operationId": "FileFolderController_rename",
         "parameters": [
@@ -2293,14 +2482,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -2344,14 +2525,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
           }
         ],
         "responses": {
@@ -2363,7 +2536,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}/access-requests": {
+    "/file-folders/{id}/access-requests": {
       "post": {
         "operationId": "FileFolderGrantController_requestAccess",
         "parameters": [
@@ -2373,14 +2546,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -2425,14 +2590,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
           }
         ],
         "responses": {
@@ -2457,7 +2614,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}/access-requests/{requestId}/approve": {
+    "/file-folders/{id}/access-requests/{requestId}/approve": {
       "post": {
         "operationId": "FileFolderGrantController_approveAccessRequest",
         "parameters": [
@@ -2475,14 +2632,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -2505,7 +2654,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}/access-requests/{requestId}/reject": {
+    "/file-folders/{id}/access-requests/{requestId}/reject": {
       "post": {
         "operationId": "FileFolderGrantController_rejectAccessRequest",
         "parameters": [
@@ -2523,14 +2672,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -2553,7 +2694,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}/grants": {
+    "/file-folders/{id}/grants": {
       "get": {
         "operationId": "FileFolderGrantController_list",
         "parameters": [
@@ -2563,14 +2704,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -2604,14 +2737,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -2647,7 +2772,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}/grants/{subjectType}/{subjectId}": {
+    "/file-folders/{id}/grants/{subjectType}/{subjectId}": {
       "delete": {
         "operationId": "FileFolderGrantController_revoke",
         "parameters": [
@@ -2675,14 +2800,6 @@
               "enum": ["role", "user", "everyone"],
               "type": "string"
             }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
-            }
           }
         ],
         "responses": {
@@ -2694,7 +2811,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}/access": {
+    "/file-folders/{id}/access": {
       "patch": {
         "operationId": "FileFolderGrantController_setInheritance",
         "parameters": [
@@ -2704,14 +2821,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -2747,7 +2856,7 @@
         "tags": ["files"]
       }
     },
-    "/workspaces/{workspaceId}/file-folders/{id}/grant-subjects": {
+    "/file-folders/{id}/grant-subjects": {
       "get": {
         "operationId": "FileFolderGrantController_searchSubjects",
         "parameters": [
@@ -2757,14 +2866,6 @@
             "in": "path",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid"
             }
           }
         ],
@@ -2936,6 +3037,150 @@
         "tags": ["jobs"]
       }
     },
+    "/platform/jobs/queues": {
+      "get": {
+        "operationId": "PlatformJobController_queues",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformJobQueueList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "每種工作的佇列狀態（所有租戶合計）",
+        "tags": ["platform-jobs"]
+      }
+    },
+    "/platform/jobs": {
+      "get": {
+        "operationId": "PlatformJobController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/PlatformJobSummary"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "背景工作列表（固定 createdOn DESC；tenant=代碼或 platform）",
+        "tags": ["platform-jobs"]
+      }
+    },
+    "/platform/jobs/{id}": {
+      "get": {
+        "operationId": "PlatformJobController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformJob"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-jobs"]
+      }
+    },
+    "/platform/jobs/{id}/retry": {
+      "post": {
+        "operationId": "PlatformJobController_retry",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformJob"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-jobs"]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_live",
@@ -2961,10 +3206,408 @@
         "summary": "Readiness probe（含 DB ping）",
         "tags": ["health"]
       }
+    },
+    "/tenant/current": {
+      "get": {
+        "operationId": "TenantController_current",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CurrentTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "目前網域的租戶（backstage 跳去登入時帶上它的代碼）",
+        "tags": ["tenants"]
+      }
+    },
+    "/tenants/lookup": {
+      "get": {
+        "operationId": "TenantController_lookup",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TenantLookup"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "以代碼找租戶的登入入口（apps/auth 的進入租戶、帳號流程完成後）",
+        "tags": ["tenants"]
+      }
+    },
+    "/platform/tenants": {
+      "get": {
+        "operationId": "PlatformTenantController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenantList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "所有租戶（未刪除）與預設網域的上層",
+        "tags": ["platform-tenants"]
+      },
+      "post": {
+        "operationId": "PlatformTenantController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "建立租戶：登記後由背景工作佈建（database、migration、第一位管理員與啟用信）",
+        "tags": ["platform-tenants"]
+      }
+    },
+    "/platform/tenants/{id}": {
+      "get": {
+        "operationId": "PlatformTenantController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-tenants"]
+      },
+      "patch": {
+        "operationId": "PlatformTenantController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-tenants"]
+      },
+      "delete": {
+        "operationId": "PlatformTenantController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "標記刪除並停用、釋出網域；database 與 bucket 由手動步驟清除",
+        "tags": ["platform-tenants"]
+      }
+    },
+    "/platform/tenants/{id}/provision": {
+      "post": {
+        "operationId": "PlatformTenantController_retryProvisioning",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "重試失敗的佈建",
+        "tags": ["platform-tenants"]
+      }
+    },
+    "/platform/tenants/{id}/disable": {
+      "post": {
+        "operationId": "PlatformTenantController_disable",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "停用：網域回 503，撤銷所有 session",
+        "tags": ["platform-tenants"]
+      }
+    },
+    "/platform/tenants/{id}/enable": {
+      "post": {
+        "operationId": "PlatformTenantController_enable",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-tenants"]
+      }
+    },
+    "/platform/tenants/{id}/domains": {
+      "post": {
+        "operationId": "PlatformTenantController_addDomain",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddTenantDomainRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-tenants"]
+      }
+    },
+    "/platform/tenants/{id}/domains/{domain}": {
+      "delete": {
+        "operationId": "PlatformTenantController_removeDomain",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "domain",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformTenant"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-tenants"]
+      }
     }
   },
   "info": {
-    "title": "Game Editor API",
+    "title": "B2B System API",
     "description": "RBAC 骨架 API",
     "version": "0.0.0",
     "contact": {}
@@ -3215,6 +3858,349 @@
         ],
         "additionalProperties": false
       },
+      "IdentityProviderDomain": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "maxLength": 253,
+            "pattern": "^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\\.(?!-)[a-z0-9-]{1,63}(?<!-))+$"
+          },
+          "ssoOnly": {
+            "type": "boolean"
+          }
+        },
+        "required": ["domain", "ssoOnly"],
+        "additionalProperties": false
+      },
+      "IdentityProvider": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "unmatchedPolicy": {
+            "type": "string",
+            "enum": ["reject", "auto_create"]
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdentityProviderDomain"
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "issuer",
+          "clientId",
+          "scopes",
+          "enabled",
+          "unmatchedPolicy",
+          "domains",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "IdentityProviderList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdentityProvider"
+            }
+          },
+          "callbackUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "allowed": {
+            "type": "boolean"
+          }
+        },
+        "required": ["items", "callbackUrl", "allowed"],
+        "additionalProperties": false
+      },
+      "CreateIdentityProviderRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "issuer": {
+            "type": "string",
+            "maxLength": 500,
+            "format": "uri"
+          },
+          "clientId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "clientSecret": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "scopes": {
+            "default": "openid email profile",
+            "type": "string",
+            "maxLength": 500
+          },
+          "enabled": {
+            "default": true,
+            "type": "boolean"
+          },
+          "unmatchedPolicy": {
+            "default": "reject",
+            "type": "string",
+            "enum": ["reject", "auto_create"]
+          },
+          "domains": {
+            "default": [],
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdentityProviderDomain"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "issuer",
+          "clientId",
+          "clientSecret",
+          "scopes",
+          "enabled",
+          "unmatchedPolicy",
+          "domains"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateIdentityProviderRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "issuer": {
+            "type": "string",
+            "maxLength": 500,
+            "format": "uri"
+          },
+          "clientId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "clientSecret": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "scopes": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "unmatchedPolicy": {
+            "type": "string",
+            "enum": ["reject", "auto_create"]
+          },
+          "domains": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdentityProviderDomain"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlatformAdmin": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["super-admin", "operator", "auditor"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "inactive", "locked", "pending"]
+          },
+          "lastLoginAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "email", "displayName", "role", "status", "lastLoginAt", "createdAt"],
+        "additionalProperties": false
+      },
+      "PlatformAdminList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformAdmin"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "CreatePlatformAdminRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "role": {
+            "type": "string",
+            "enum": ["super-admin", "operator", "auditor"]
+          }
+        },
+        "required": ["email", "displayName", "role"],
+        "additionalProperties": false
+      },
+      "UpdatePlatformAdminRequest": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "role": {
+            "type": "string",
+            "enum": ["super-admin", "operator", "auditor"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "inactive"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlatformAdminPasswordLink": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": ["activation", "passwordReset"]
+          }
+        },
+        "required": ["purpose"],
+        "additionalProperties": false
+      },
+      "PlatformAuditLog": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string"
+          },
+          "actorId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "actorEmail": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "resourceId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": ["success", "failure"]
+          },
+          "errorCode": {
+            "nullable": true,
+            "type": "string"
+          },
+          "metadata": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "id",
+          "occurredAt",
+          "actorId",
+          "actorEmail",
+          "action",
+          "resourceType",
+          "resourceId",
+          "result",
+          "errorCode",
+          "metadata"
+        ],
+        "additionalProperties": false
+      },
       "CreateUserRequest": {
         "type": "object",
         "properties": {
@@ -3423,19 +4409,11 @@
           "file:share",
           "job:read",
           "job:retry",
-          "workspace:create",
-          "workspace:read",
-          "workspace:update",
-          "workspace:delete",
-          "workspaceMember:read",
-          "workspaceMember:create",
-          "workspaceMember:delete",
-          "workspaceMember:assignRole"
+          "identityProvider:create",
+          "identityProvider:read",
+          "identityProvider:update",
+          "identityProvider:delete"
         ]
-      },
-      "PermissionScope": {
-        "type": "string",
-        "enum": ["platform", "workspace"]
       },
       "Permission": {
         "type": "object",
@@ -3454,9 +4432,6 @@
           "action": {
             "type": "string"
           },
-          "scope": {
-            "$ref": "#/components/schemas/PermissionScope"
-          },
           "nameI18nKey": {
             "type": "string"
           },
@@ -3470,16 +4445,7 @@
             "maximum": 9007199254740991
           }
         },
-        "required": [
-          "id",
-          "key",
-          "resource",
-          "action",
-          "scope",
-          "nameI18nKey",
-          "description",
-          "sortOrder"
-        ],
+        "required": ["id", "key", "resource", "action", "nameI18nKey", "description", "sortOrder"],
         "additionalProperties": false
       },
       "PermissionGroup": {
@@ -3626,6 +4592,64 @@
         "required": ["user", "roles", "permissions"],
         "additionalProperties": false
       },
+      "PlatformPermissionKey": {
+        "type": "string",
+        "enum": [
+          "tenant:read",
+          "tenant:create",
+          "tenant:update",
+          "tenant:delete",
+          "platformAdmin:read",
+          "platformAdmin:create",
+          "platformAdmin:update",
+          "platformAuditLog:read",
+          "platformJob:read",
+          "platformJob:retry"
+        ]
+      },
+      "PlatformProfile": {
+        "type": "object",
+        "properties": {
+          "admin": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "email": {
+                "type": "string"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["active", "inactive", "locked", "pending"]
+              },
+              "lastLoginAt": {
+                "nullable": true,
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": ["super-admin", "operator", "auditor"]
+              }
+            },
+            "required": ["id", "email", "displayName", "status", "lastLoginAt", "role"],
+            "additionalProperties": false
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformPermissionKey"
+            }
+          }
+        },
+        "required": ["admin", "permissions"],
+        "additionalProperties": false
+      },
       "UpdateProfileRequest": {
         "type": "object",
         "properties": {
@@ -3751,6 +4775,119 @@
           }
         },
         "required": ["submitted"],
+        "additionalProperties": false
+      },
+      "SsoInteraction": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "clientName": {
+            "type": "string"
+          },
+          "loginHint": {
+            "nullable": true,
+            "type": "string"
+          },
+          "tenant": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": ["code", "name"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["uid", "prompt", "clientId", "clientName", "loginHint", "tenant"],
+        "additionalProperties": false
+      },
+      "SsoRedirect": {
+        "type": "object",
+        "properties": {
+          "redirectTo": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": ["redirectTo"],
+        "additionalProperties": false
+      },
+      "SsoDiscovery": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "name"],
+            "additionalProperties": false
+          },
+          "ssoOnly": {
+            "type": "boolean"
+          }
+        },
+        "required": ["provider", "ssoOnly"],
+        "additionalProperties": false
+      },
+      "StartExternalLoginRequest": {
+        "type": "object",
+        "properties": {
+          "providerId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": ["providerId"],
+        "additionalProperties": false
+      },
+      "SsoCallbackRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 500
+          },
+          "codeVerifier": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 128
+          },
+          "clientId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "redirectUri": {
+            "type": "string",
+            "maxLength": 500,
+            "format": "uri"
+          }
+        },
+        "required": ["code", "codeVerifier", "clientId", "redirectUri"],
         "additionalProperties": false
       },
       "SetFileFolderGrantRequest": {
@@ -4321,28 +5458,6 @@
         "required": ["movedFiles", "movedFolders"],
         "additionalProperties": false
       },
-      "GetFileImageQuery": {
-        "type": "object",
-        "properties": {
-          "exp": {
-            "type": "integer",
-            "minimum": 0,
-            "exclusiveMinimum": true,
-            "maximum": 9007199254740991
-          },
-          "sig": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "format": {
-            "type": "string",
-            "enum": ["jpeg", "webp", "avif", "png", "auto"]
-          }
-        },
-        "required": ["exp", "sig"],
-        "additionalProperties": false
-      },
       "FileUploader": {
         "type": "object",
         "properties": {
@@ -4694,6 +5809,28 @@
         ],
         "additionalProperties": false
       },
+      "GetFileImageQuery": {
+        "type": "object",
+        "properties": {
+          "exp": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          },
+          "sig": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "format": {
+            "type": "string",
+            "enum": ["jpeg", "webp", "avif", "png", "auto"]
+          }
+        },
+        "required": ["exp", "sig"],
+        "additionalProperties": false
+      },
       "UpdateFileRequest": {
         "type": "object",
         "properties": {
@@ -4886,6 +6023,205 @@
         ],
         "additionalProperties": false
       },
+      "PlatformJobQueue": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "cron": {
+            "nullable": true,
+            "type": "string"
+          },
+          "readyCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "deferredCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "activeCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failedCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "completedCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["tenant", "platform"]
+          }
+        },
+        "required": [
+          "name",
+          "cron",
+          "readyCount",
+          "deferredCount",
+          "activeCount",
+          "failedCount",
+          "completedCount",
+          "scope"
+        ],
+        "additionalProperties": false
+      },
+      "PlatformJobQueueList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformJobQueue"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "PlatformJobSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["created", "retry", "active", "completed", "cancelled", "failed"]
+          },
+          "retryCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "retryLimit": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdOn": {
+            "type": "string"
+          },
+          "startAfter": {
+            "type": "string"
+          },
+          "startedOn": {
+            "nullable": true,
+            "type": "string"
+          },
+          "completedOn": {
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantCode": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "state",
+          "retryCount",
+          "retryLimit",
+          "createdOn",
+          "startAfter",
+          "startedOn",
+          "completedOn",
+          "tenantId",
+          "tenantCode"
+        ],
+        "additionalProperties": false
+      },
+      "PlatformJob": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["created", "retry", "active", "completed", "cancelled", "failed"]
+          },
+          "retryCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "retryLimit": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdOn": {
+            "type": "string"
+          },
+          "startAfter": {
+            "type": "string"
+          },
+          "startedOn": {
+            "nullable": true,
+            "type": "string"
+          },
+          "completedOn": {
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantCode": {
+            "nullable": true,
+            "type": "string"
+          },
+          "data": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "output": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "state",
+          "retryCount",
+          "retryLimit",
+          "createdOn",
+          "startAfter",
+          "startedOn",
+          "completedOn",
+          "tenantId",
+          "tenantCode",
+          "data",
+          "output"
+        ],
+        "additionalProperties": false
+      },
       "CreateRoleRequest": {
         "type": "object",
         "properties": {
@@ -4898,14 +6234,6 @@
             "type": "string",
             "maxLength": 500
           },
-          "scope": {
-            "default": "platform",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/PermissionScope"
-              }
-            ]
-          },
           "permissionKeys": {
             "default": [],
             "maxItems": 100,
@@ -4915,7 +6243,7 @@
             }
           }
         },
-        "required": ["name", "scope", "permissionKeys"],
+        "required": ["name", "permissionKeys"],
         "additionalProperties": false
       },
       "DuplicateRoleRequest": {
@@ -4950,9 +6278,6 @@
           "isSystem": {
             "type": "boolean"
           },
-          "scope": {
-            "$ref": "#/components/schemas/PermissionScope"
-          },
           "permissionCount": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -4976,7 +6301,6 @@
           "name",
           "description",
           "isSystem",
-          "scope",
           "permissionCount",
           "userCount",
           "createdAt",
@@ -5058,7 +6382,7 @@
         "required": ["add", "remove"],
         "additionalProperties": false
       },
-      "Workspace": {
+      "PlatformTenant": {
         "type": "object",
         "properties": {
           "id": {
@@ -5066,315 +6390,179 @@
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
-          "slug": {
+          "code": {
             "type": "string"
           },
           "name": {
             "type": "string"
           },
-          "description": {
-            "nullable": true,
-            "type": "string"
-          },
-          "memberCount": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "updatedAt": {
-            "type": "string"
-          }
-        },
-        "required": ["id", "slug", "name", "description", "memberCount", "createdAt", "updatedAt"],
-        "additionalProperties": false
-      },
-      "WorkspaceAdmin": {
-        "type": "object",
-        "properties": {
-          "id": {
+          "status": {
             "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            "enum": ["provisioning", "active", "disabled", "failed"]
           },
-          "email": {
-            "type": "string"
-          },
-          "displayName": {
-            "type": "string"
-          }
-        },
-        "required": ["id", "email", "displayName"],
-        "additionalProperties": false
-      },
-      "WorkspaceDetail": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "nullable": true,
-            "type": "string"
-          },
-          "memberCount": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "updatedAt": {
-            "type": "string"
-          },
-          "admins": {
+          "domains": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/WorkspaceAdmin"
+              "type": "string"
             }
+          },
+          "storageBucket": {
+            "type": "string"
+          },
+          "allowExternalIdp": {
+            "type": "boolean"
+          },
+          "adminEmail": {
+            "nullable": true,
+            "type": "string"
+          },
+          "provisionError": {
+            "nullable": true,
+            "type": "string"
+          },
+          "provisionedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
           }
         },
         "required": [
           "id",
-          "slug",
+          "code",
           "name",
-          "description",
-          "memberCount",
+          "status",
+          "domains",
+          "storageBucket",
+          "allowExternalIdp",
+          "adminEmail",
+          "provisionError",
+          "provisionedAt",
           "createdAt",
-          "updatedAt",
-          "admins"
+          "updatedAt"
         ],
         "additionalProperties": false
       },
-      "CreateWorkspaceRequest": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64
-          },
-          "slug": {
-            "type": "string",
-            "pattern": "^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$"
-          },
-          "description": {
-            "type": "string",
-            "maxLength": 500
-          },
-          "adminUserId": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          }
-        },
-        "required": ["name", "adminUserId"],
-        "additionalProperties": false
-      },
-      "UpdateWorkspaceRequest": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64
-          },
-          "description": {
-            "nullable": true,
-            "type": "string",
-            "maxLength": 500
-          }
-        },
-        "additionalProperties": false
-      },
-      "AssignWorkspaceAdminRequest": {
-        "type": "object",
-        "properties": {
-          "userId": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          }
-        },
-        "required": ["userId"],
-        "additionalProperties": false
-      },
-      "MyWorkspace": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "nullable": true,
-            "type": "string"
-          },
-          "isMember": {
-            "type": "boolean"
-          },
-          "lastAccessedAt": {
-            "nullable": true,
-            "type": "string"
-          }
-        },
-        "required": ["id", "slug", "name", "description", "isMember", "lastAccessedAt"],
-        "additionalProperties": false
-      },
-      "MyWorkspaceList": {
+      "PlatformTenantList": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/MyWorkspace"
-            }
-          }
-        },
-        "required": ["items"],
-        "additionalProperties": false
-      },
-      "WorkspaceMe": {
-        "type": "object",
-        "properties": {
-          "workspace": {
-            "$ref": "#/components/schemas/MyWorkspace"
-          },
-          "roles": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RoleSummary"
+              "$ref": "#/components/schemas/PlatformTenant"
             }
           },
-          "permissions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PermissionKey"
-            }
+          "baseDomain": {
+            "type": "string"
           }
         },
-        "required": ["workspace", "roles", "permissions"],
+        "required": ["items", "baseDomain"],
         "additionalProperties": false
       },
-      "WorkspaceMember": {
+      "CreateTenantRequest": {
         "type": "object",
         "properties": {
-          "id": {
+          "code": {
             "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            "pattern": "^[a-z][a-z0-9-]{1,30}[a-z0-9]$"
           },
-          "email": {
-            "type": "string"
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
           },
-          "displayName": {
-            "type": "string"
+          "adminEmail": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
           },
-          "status": {
-            "$ref": "#/components/schemas/UserStatus"
+          "adminName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
           },
-          "roles": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RoleSummary"
-            }
-          },
-          "joinedAt": {
-            "type": "string"
-          }
-        },
-        "required": ["id", "email", "displayName", "status", "roles", "joinedAt"],
-        "additionalProperties": false
-      },
-      "UpdateWorkspaceMemberRolesRequest": {
-        "type": "object",
-        "properties": {
-          "roleIds": {
-            "maxItems": 50,
+          "domains": {
+            "default": [],
+            "maxItems": 10,
             "type": "array",
             "items": {
               "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              "pattern": "^(?=.{1,253}(?::\\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\\d{1,5})?$"
             }
           }
         },
-        "required": ["roleIds"],
+        "required": ["code", "name", "adminEmail", "domains"],
         "additionalProperties": false
       },
-      "WorkspaceMemberRoles": {
+      "UpdateTenantRequest": {
         "type": "object",
         "properties": {
-          "roles": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RoleSummary"
-            }
-          }
-        },
-        "required": ["roles"],
-        "additionalProperties": false
-      },
-      "WorkspaceRole": {
-        "type": "object",
-        "properties": {
-          "id": {
+          "name": {
             "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            "minLength": 1,
+            "maxLength": 100
           },
-          "slug": {
+          "allowExternalIdp": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AddTenantDomainRequest": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "pattern": "^(?=.{1,253}(?::\\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\\d{1,5})?$"
+          }
+        },
+        "required": ["domain"],
+        "additionalProperties": false
+      },
+      "CurrentTenant": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["code", "name"],
+        "additionalProperties": false
+      },
+      "TenantLookupQuery": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 63
+          }
+        },
+        "required": ["code"],
+        "additionalProperties": false
+      },
+      "TenantLookup": {
+        "type": "object",
+        "properties": {
+          "code": {
             "type": "string"
           },
           "name": {
             "type": "string"
           },
-          "description": {
-            "nullable": true,
+          "loginUrl": {
             "type": "string"
-          },
-          "isSystem": {
-            "type": "boolean"
-          },
-          "permissions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PermissionKey"
-            }
           }
         },
-        "required": ["id", "slug", "name", "description", "isSystem", "permissions"],
-        "additionalProperties": false
-      },
-      "WorkspaceRoleList": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkspaceRole"
-            }
-          }
-        },
-        "required": ["items"],
+        "required": ["code", "name", "loginUrl"],
         "additionalProperties": false
       }
     }

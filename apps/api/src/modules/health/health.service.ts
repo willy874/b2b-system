@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 
-import type { Database } from '@/core/database';
-import { DRIZZLE } from '@/core/database';
+import type { PlatformDatabase } from '@/core/database';
+import { PLATFORM_DB } from '@/core/database';
 import { ObjectStorage } from '@/core/storage';
 
 export interface HealthStatus {
@@ -15,7 +15,7 @@ export interface HealthStatus {
 @Injectable()
 export class HealthService {
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(PLATFORM_DB) private readonly db: PlatformDatabase,
     private readonly storage: ObjectStorage,
   ) {}
 

@@ -28,7 +28,6 @@ export const THUMBNAIL_MAX_SIZE = 512 * 1024;
 /**
  * 伺服器會為這些型別產生影像變體（sharp 預編譯版本能解碼的格式）。
  * SVG 不在內：向量圖由瀏覽器直接顯示即可，也不讓 api 解析使用者給的 XML。
- * migration `0008_file_image_variants.sql` 的補產生條件用同一份清單，改這裡要一起改。
  */
 export const IMAGE_VARIANT_SOURCE_TYPES = [
   'image/jpeg',
@@ -108,7 +107,7 @@ export const MAX_PART_COUNT = 10_000;
 
 /**
  * 列表的分類篩選（`GET /files?category=`）。`other` 是「不屬於其他任何一類」。
- * 前端的圖示與分類標籤依同一張表（`apps/web/src/core/file/fileType.ts`），改這裡要一起改。
+ * 前端的圖示與分類標籤依同一張表（`apps/backstage/src/core/file/fileType.ts`），改這裡要一起改。
  */
 export const FILE_CATEGORIES = [
   'image',

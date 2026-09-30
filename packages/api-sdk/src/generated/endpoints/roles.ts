@@ -1,5 +1,5 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
-// 來源：Game Editor API 0.0.0（OpenAPI 3.0.0）
+// 來源：B2B System API 0.0.0（OpenAPI 3.0.0）
 
 import { z } from 'zod';
 

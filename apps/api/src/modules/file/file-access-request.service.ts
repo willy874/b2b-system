@@ -1,7 +1,7 @@
-import { ChangeKind, ChangeSource } from '@game-editor/realtime';
+import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Injectable } from '@nestjs/common';
 
-import type { AuthUser, WorkspaceScope } from '@/common/types';
+import type { AuthUser } from '@/common/types';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { ApprovalType } from '@/modules/approval/approval.constants';
@@ -37,47 +37,40 @@ export class FileAccessRequestService {
 
   /** 已經有這個等級 → `FILE_ACCESS_ALREADY_GRANTED`；已有待審 → 不另建（`submitted: false`）。 */
   async submit(
-    ws: WorkspaceScope,
     folderId: string,
     dto: CreateFileAccessRequestDto,
     actor: AuthUser,
   ): Promise<{ submitted: boolean }> {
-    const folder = await this.folders.findById(ws, folderId);
+    const folder = await this.folders.findById(folderId);
     if (!folder) throw new AppException('FILE_FOLDER_NOT_FOUND', { folderId });
-    const ctx = await this.access.contextFor(ws, actor);
+    const ctx = await this.access.contextFor(actor);
     if (ctx.missingActions([dto.level], folderId).length === 0) {
       throw new AppException('FILE_ACCESS_ALREADY_GRANTED', { level: dto.level });
     }
     const created = await this.approvals.submit(
-      fileFolderAccessRequest(ws, folder, dto.level, actor, dto.reason),
+      fileFolderAccessRequest(folder, dto.level, actor, dto.reason),
     );
     // 資料夾的管理者不一定在審批的受眾裡：以資料夾變更通知他們（與申請人自己的「申請中」）
-    if (created) this.publish(ws, folderId);
+    if (created) this.publish(folderId);
     return { submitted: Boolean(created) };
   }
 
-  /** 操作者自己在這個工作區有待審申請的資料夾（資料夾清單的 `hasPendingAccessRequest`）。 */
-  async pendingFolderIdsOf(ws: WorkspaceScope, actor: AuthUser): Promise<Set<string>> {
+  /** 操作者自己有待審申請的資料夾（資料夾清單的 `hasPendingAccessRequest`）。 */
+  async pendingFolderIdsOf(actor: AuthUser): Promise<Set<string>> {
     const pending = await this.approvals.listPendingBy(ApprovalType.FILE_FOLDER_ACCESS, {
       requesterId: actor.id,
     });
     return new Set(
       pending.flatMap((request) => {
         const payload = FileFolderAccessPayloadSchema.safeParse(request.payload);
-        return payload.success && payload.data.workspaceId === ws.workspaceId
-          ? [payload.data.folderId]
-          : [];
+        return payload.success ? [payload.data.folderId] : [];
       }),
     );
   }
 
-  async list(
-    ws: WorkspaceScope,
-    folderId: string,
-    actor: AuthUser,
-  ): Promise<FileAccessRequestListDto> {
-    const ctx = await this.access.contextFor(ws, actor);
-    await this.grantService.assertCanShare(ws, ctx, actor, folderId);
+  async list(folderId: string, actor: AuthUser): Promise<FileAccessRequestListDto> {
+    const ctx = await this.access.contextFor(actor);
+    await this.grantService.assertCanShare(ctx, actor, folderId);
     const pending = await this.approvals.listPendingBy(ApprovalType.FILE_FOLDER_ACCESS, {
       subjectKeyPrefix: fileFolderAccessSubjectKey(folderId),
     });
@@ -101,37 +94,34 @@ export class FileAccessRequestService {
 
   /** 核准：handler 另外檢查 share 與反提權（同一套規則也用在審批頁）。 */
   async approve(
-    ws: WorkspaceScope,
     folderId: string,
     requestId: string,
     dto: ReviewFileAccessRequestDto,
     actor: AuthUser,
   ): Promise<void> {
-    await this.assertReviewable(ws, folderId, requestId, actor);
+    await this.assertReviewable(folderId, requestId, actor);
     await this.approvals.approve(requestId, { roleIds: [], comment: dto.comment }, actor);
   }
 
   async reject(
-    ws: WorkspaceScope,
     folderId: string,
     requestId: string,
     dto: ReviewFileAccessRequestDto,
     actor: AuthUser,
   ): Promise<void> {
-    await this.assertReviewable(ws, folderId, requestId, actor);
+    await this.assertReviewable(folderId, requestId, actor);
     await this.approvals.reject(requestId, { comment: dto.comment }, actor);
-    this.publish(ws, folderId);
+    this.publish(folderId);
   }
 
   /** 操作者能管理這個資料夾的授權，而且這筆是這個資料夾、還在待審的存取申請。 */
   private async assertReviewable(
-    ws: WorkspaceScope,
     folderId: string,
     requestId: string,
     actor: AuthUser,
   ): Promise<void> {
-    const ctx = await this.access.contextFor(ws, actor);
-    await this.grantService.assertCanShare(ws, ctx, actor, folderId);
+    const ctx = await this.access.contextFor(actor);
+    await this.grantService.assertCanShare(ctx, actor, folderId);
     // 不存在（APPROVAL_NOT_FOUND）與「不是這個資料夾的」一樣回 FILE_ACCESS_REQUEST_NOT_FOUND
     const request = await this.approvals.findOne(requestId).catch((error: unknown) => {
       if (error instanceof AppException) return undefined;
@@ -146,10 +136,9 @@ export class FileAccessRequestService {
     if (!matches) throw new AppException('FILE_ACCESS_REQUEST_NOT_FOUND', { requestId });
   }
 
-  private publish(ws: WorkspaceScope, folderId: string): void {
+  private publish(folderId: string): void {
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [{ resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.UPDATE, id: folderId }],
-      workspaceId: ws.workspaceId,
     });
   }
 }

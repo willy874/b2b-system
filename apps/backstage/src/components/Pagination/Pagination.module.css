@@ -1,0 +1,27 @@
+@layer components {
+  .root {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--seed-space-4);
+    padding: var(--seed-space-2) 0;
+    font-size: 0.8125rem;
+    color: var(--color-fg-muted);
+    flex-wrap: wrap;
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-2);
+  }
+
+  .pageSize {
+    width: 5rem;
+  }
+
+  .page {
+    min-width: 4rem;
+    text-align: center;
+  }
+}

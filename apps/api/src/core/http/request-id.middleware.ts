@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { CLIENT_ID_HEADER, isValidClientId } from '@game-editor/realtime';
+import { CLIENT_ID_HEADER, isValidClientId } from '@b2b-system/realtime';
 import { Injectable } from '@nestjs/common';
 import type { NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';

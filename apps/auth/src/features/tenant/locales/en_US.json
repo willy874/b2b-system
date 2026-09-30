@@ -1,0 +1,85 @@
+{
+  "tenant": {
+    "title": "Tenants",
+    "description": "Each tenant has its own database, domains, and admin accounts. Provisioning runs in the background and emails an activation link to the first administrator when it finishes.",
+    "empty": "No tenants yet",
+    "back": "← Back to tenants",
+    "notFound": "This tenant doesn't exist or has been deleted.",
+    "provisioningHint": "Creating the database and first administrator. This page updates automatically when it's done.",
+    "provisionError": "Provisioning failed: {{reason}}",
+    "status": {
+      "provisioning": "Provisioning",
+      "active": "Active",
+      "disabled": "Disabled",
+      "failed": "Provisioning failed"
+    },
+    "field": {
+      "code": "Code",
+      "name": "Name",
+      "status": "Status",
+      "primaryDomain": "Primary domain",
+      "createdAt": "Created",
+      "adminEmail": "First administrator",
+      "adminName": "Administrator name",
+      "storageBucket": "File storage",
+      "provisionedAt": "Provisioned"
+    },
+    "hint": {
+      "code": "Lowercase letters, digits, and hyphens. Can't be changed later. The default domain is {{domain}}.",
+      "adminEmail": "An activation email goes here after provisioning; this person sets a password and manages the tenant."
+    },
+    "error": {
+      "codeRequired": "Enter a code",
+      "codeInvalid": "Use 3–32 lowercase letters, digits, or hyphens, starting with a letter",
+      "codeReserved": "This code is reserved by the system",
+      "nameRequired": "Enter a name",
+      "adminEmailInvalid": "Enter a valid email",
+      "domainInvalid": "Invalid domain"
+    },
+    "create": {
+      "action": "Create tenant",
+      "title": "Create tenant",
+      "success": "Created. Provisioning has started"
+    },
+    "rename": {
+      "action": "Rename",
+      "title": "Rename tenant",
+      "success": "Name updated"
+    },
+    "retry": {
+      "action": "Retry provisioning",
+      "success": "Provisioning restarted"
+    },
+    "disable": {
+      "action": "Disable",
+      "title": "Disable tenant",
+      "confirm": "All of {{code}}'s domains will become unavailable and everyone signed in will be signed out. You can enable it again later.",
+      "success": "Disabled"
+    },
+    "enable": {
+      "action": "Enable",
+      "success": "Enabled"
+    },
+    "remove": {
+      "action": "Delete",
+      "title": "Delete tenant",
+      "confirm": "Delete {{code}}: the tenant is disabled and removed from the list, and its domains are released. The database and files aren't removed right away; that's a separate manual step.",
+      "success": "Deleted"
+    },
+    "domain": {
+      "title": "Domains",
+      "primary": "Primary",
+      "add": "Add domain",
+      "addAction": "Add",
+      "remove": "Remove this domain",
+      "addSuccess": "Domain added",
+      "removeSuccess": "Domain removed"
+    },
+    "externalIdp": {
+      "title": "External IdP",
+      "allow": "Allow this tenant to configure external IdP connections",
+      "description": "When off, the tenant can't add or enable connections and sign-in never redirects to an external IdP. Existing connections are kept and come back when you turn this on again."
+    },
+    "provisionWarning": "Provisioning finished, but a follow-up step didn't succeed (the tenant is usable; file storage is retried on the first upload): {{reason}}"
+  }
+}

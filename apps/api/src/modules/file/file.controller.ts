@@ -3,23 +3,22 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
+import type { Response } from 'express';
 
-import {
-  CurrentUser,
-  CurrentWorkspace,
-  RequireAnyPermission,
-  WorkspaceScoped,
-} from '@/common/decorators';
+import { CurrentUser, Public, RequireAnyPermission } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
-import type { AuthUser, WorkspaceScope } from '@/common/types';
+import type { AuthUser } from '@/common/types';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
 
 import {
@@ -41,19 +40,24 @@ import {
   FileUploadPolicySchema,
   FileUploadSchema,
 } from './dto/file.dto';
+import { GetFileImageSchema, ImageVariantSchema } from './dto/get-file-image.dto';
+import type { GetFileImageDto } from './dto/get-file-image.dto';
 import { ListFileSchema } from './dto/list-file.dto';
 import type { ListFileDto } from './dto/list-file.dto';
 import { UpdateFileSchema } from './dto/update-file.dto';
 import type { UpdateFileDto } from './dto/update-file.dto';
 import { FileFolderService } from './file-folder.service';
+import { FileImageService } from './file-image.service';
+import { IMAGE_VARIANTS } from './file.constants';
+import type { ImageVariant } from './file.constants';
 import { FileService } from './file.service';
 
 @ApiTags('files')
-@WorkspaceScoped()
-@Controller('workspaces/:workspaceId/files')
+@Controller('files')
 export class FileController {
   constructor(
     private readonly fileService: FileService,
+    private readonly fileImageService: FileImageService,
     private readonly folderService: FileFolderService,
   ) {}
 
@@ -62,10 +66,9 @@ export class FileController {
   @ApiZodResponse(200, FileListSchema)
   list(
     @Query(new ZodValidationPipe(ListFileSchema)) query: ListFileDto,
-    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.fileService.list(ws, query, actor);
+    return this.fileService.list(query, actor);
   }
 
   // 宣告在 `:id` 之前：否則會被當成 id 交給 ParseUUIDPipe
@@ -84,10 +87,9 @@ export class FileController {
   @ApiZodResponse(201, FileUploadSchema)
   createUpload(
     @Body(new ZodValidationPipe(CreateFileUploadSchema)) dto: CreateFileUploadDto,
-    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.fileService.createUpload(ws, dto, actor);
+    return this.fileService.createUpload(dto, actor);
   }
 
   @Post('move')
@@ -98,10 +100,9 @@ export class FileController {
   @ApiZodResponse(200, MoveFileItemsResultSchema)
   move(
     @Body(new ZodValidationPipe(MoveFileItemsSchema)) dto: MoveFileItemsDto,
-    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.folderService.move(ws, dto, actor);
+    return this.folderService.move(dto, actor);
   }
 
   @Post(':id/parts')
@@ -113,10 +114,9 @@ export class FileController {
   createUploadParts(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(CreateFileUploadPartsSchema)) dto: CreateFileUploadPartsDto,
-    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.fileService.createUploadParts(ws, id, dto, actor);
+    return this.fileService.createUploadParts(id, dto, actor);
   }
 
   @Post(':id/complete')
@@ -129,33 +129,49 @@ export class FileController {
     @Param('id', ParseUUIDPipe) id: string,
     // 單次 PUT 上傳不帶 body（Express 5 此時 req.body 是 undefined）
     @Body(new ZodValidationPipe(CompleteFileUploadSchema.default({}))) dto: CompleteFileUploadDto,
-    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.fileService.completeUpload(ws, id, dto, actor);
+    return this.fileService.completeUpload(id, dto, actor);
   }
 
   @Delete(':id/upload')
   @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_CREATE)
   @HttpCode(204)
   @ApiOperation({ summary: '放棄上傳中的檔案：清掉已上傳的內容與分塊' })
-  async abortUpload(
+  async abortUpload(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
+    await this.fileService.abortUpload(id, actor);
+  }
+
+  /**
+   * 影像 API：`<img src>` 帶不了 access token，所以是 `@Public()`，改以網址簽章授權
+   * （網址只從看得到該檔案的回應拿得到，docs/architecture/backend/09-file.md §5.4）。
+   * 不限流：一頁的圖示預覽就有數十個請求，轉址又會被瀏覽器快取；格式轉換只在第一次發生。
+   */
+  @Get(':id/image/:variant')
+  @Public()
+  @SkipThrottle()
+  @ApiOperation({ summary: '取得圖片的原圖／全螢幕預覽／圖示預覽（302 轉址到物件儲存）' })
+  @ApiParam({ name: 'variant', enum: IMAGE_VARIANTS })
+  @ApiResponse({ status: 302, description: '轉址到該版本、該格式的內容' })
+  async getImage(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentWorkspace() ws: WorkspaceScope,
-    @CurrentUser() actor: AuthUser,
+    @Param('variant', new ZodValidationPipe(ImageVariantSchema)) variant: ImageVariant,
+    @Query(new ZodValidationPipe(GetFileImageSchema)) query: GetFileImageDto,
+    @Headers('accept') accept: string | undefined,
+    @Res() res: Response,
   ) {
-    await this.fileService.abortUpload(ws, id, actor);
+    const target = await this.fileImageService.resolve(id, variant, query, accept);
+    // 轉址本身也快取：同一個時間窗內重抓列表，瀏覽器不必再問 api
+    res
+      .set({ 'Cache-Control': `private, max-age=${target.maxAge}`, Vary: 'Accept' })
+      .redirect(302, target.url);
   }
 
   @Get(':id')
   @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_READ)
   @ApiZodResponse(200, FileSchema)
-  findOne(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentWorkspace() ws: WorkspaceScope,
-    @CurrentUser() actor: AuthUser,
-  ) {
-    return this.fileService.findOne(ws, id, actor);
+  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
+    return this.fileService.findOne(id, actor);
   }
 
   @Patch(':id')
@@ -165,20 +181,15 @@ export class FileController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(UpdateFileSchema)) dto: UpdateFileDto,
-    @CurrentWorkspace() ws: WorkspaceScope,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.fileService.update(ws, id, dto, actor);
+    return this.fileService.update(id, dto, actor);
   }
 
   @Delete(':id')
   @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_DELETE)
   @HttpCode(204)
-  async remove(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentWorkspace() ws: WorkspaceScope,
-    @CurrentUser() actor: AuthUser,
-  ) {
-    await this.fileService.remove(ws, id, actor);
+  async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
+    await this.fileService.remove(id, actor);
   }
 }

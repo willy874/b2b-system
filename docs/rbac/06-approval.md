@@ -6,7 +6,7 @@
 
 > 程式碼：後端 `apps/api/src/modules/approval/`（狀態機）＋ 各類型的 handler
 > （`user.register` 在 `apps/api/src/modules/user/user-registration.approval.ts`）；
-> 前端 `apps/web/src/features/approval/`、註冊頁 `apps/web/src/features/auth/pages/Register/`。
+> 前端 `apps/backstage/src/features/approval/`、註冊頁 `apps/backstage/src/features/auth/pages/Register/`。
 
 ---
 

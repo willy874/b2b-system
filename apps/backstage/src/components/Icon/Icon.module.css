@@ -1,0 +1,8 @@
+@layer components {
+  .root {
+    display: inline-block;
+    flex-shrink: 0;
+    color: currentcolor;
+    vertical-align: middle;
+  }
+}

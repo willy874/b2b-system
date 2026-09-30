@@ -1,0 +1,23 @@
+import { createRoute } from '@tanstack/react-router';
+
+import { localeScopeLoader } from '@/core/locales';
+import { RootRoute } from '@/core/router';
+
+import { TENANT_LOCALE_SCOPE } from '../locale';
+
+/**
+ * 平台管理者的租戶管理（`tenant:read`，docs/adr/0020-physical-tenant-isolation.md D12、D13）。
+ * feature 的入口 route 必須直掛 RootRoute 且用絕對路徑（routeBasePath 依賴這一點）。
+ */
+export const TenantListRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: '/tenant',
+  loader: localeScopeLoader(TENANT_LOCALE_SCOPE),
+});
+
+/** 一個租戶：狀態、網域、佈建失敗的原因與停用／刪除。權限沿用列表頁（`/tenant` 前綴）。 */
+export const TenantDetailRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: '/tenant/$id',
+  loader: localeScopeLoader(TENANT_LOCALE_SCOPE),
+});

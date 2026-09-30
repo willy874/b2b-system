@@ -11,10 +11,10 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc tsconfig.base.json .
 # 根目錄的 prepare 是 lefthook install：映像裡沒有 git，也不需要 git hooks
 RUN npm pkg delete scripts.prepare
 COPY apps/file-storage/package.json apps/file-storage/
-RUN pnpm install --frozen-lockfile --filter @game-editor/file-storage
+RUN pnpm install --frozen-lockfile --filter @b2b-system/file-storage
 
 COPY apps/file-storage ./apps/file-storage
-RUN pnpm --filter @game-editor/file-storage build
+RUN pnpm --filter @b2b-system/file-storage build
 
 # ── runtime ──────────────────────────────────────────────────────────
 FROM node:24-alpine AS runtime

@@ -327,23 +327,30 @@ feature。
 
 ```tsx
 // app/layouts/DashboardLayout.tsx
-const MENU = [
-  { pageKey: HOME_PAGE, to: "/", labelKey: "menu.home", icon: HomeIcon },
-  { pageKey: USER_PAGE, to: "/user", labelKey: "menu.user", icon: UserIcon },
-  { pageKey: ROLE_PAGE, to: "/role", labelKey: "menu.role", icon: ShieldIcon },
-  { pageKey: PERMISSION_PAGE, to: "/permission", labelKey: "menu.permission", icon: KeyIcon },
-  { pageKey: AUDIT_LOG_PAGE, to: "/audit-log", labelKey: "menu.auditLog", icon: ListIcon },
-  { pageKey: APPROVAL_PAGE, to: "/approval", labelKey: "menu.approval", icon: CheckIcon },
+const MENU: NavSection[] = [
+  { key: "home", items: [{ pageKey: HOME_PAGE, to: "/", labelKey: "menu.home", icon: "home" }] },
+  { key: "feature", labelKey: "menu.group.feature", items: [/* 檔案 */] },
+  { key: "people", labelKey: "menu.group.people", items: [/* 使用者、角色、權限目錄 */] },
+  { key: "system", labelKey: "menu.group.system", items: [/* 稽核日誌、審批、背景工作、外部 IdP */] },
 ];
 
-function useMenuItems() {
+function useMenuSections(sections: NavSection[]) {
   const { hydrated, canAccessPage } = usePageAccessChecker();
   return useMemo(
-    () => (hydrated ? MENU.filter((item) => canAccessPage(item.pageKey)) : []),
-    [hydrated, canAccessPage],
+    () =>
+      hydrated
+        ? sections
+            .map((s) => ({ ...s, items: s.items.filter((item) => canAccessPage(item.pageKey)) }))
+            .filter((s) => s.items.length > 0)
+        : [],
+    [hydrated, canAccessPage, sections],
   );
 }
 ```
+
+選單分成「首頁（無標題）／功能管理／人員管理／系統管理」幾個區塊，標題的翻譯鍵是
+`menu.group.<key>`。區塊內一個能進的頁面都沒有時，**連標題一起隱藏**，不留空殼。
+側邊欄收合時放不下標題，改以分隔線標出區塊邊界。
 
 `usePageAccessChecker()` 回傳的是一個 **穩定的 predicate**，可以在 `filter`
 迴圈裡呼叫（hook 不能在迴圈裡呼叫，所以不能用 `usePagePermission`）。

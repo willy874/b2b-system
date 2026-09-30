@@ -26,8 +26,9 @@ function setup(user: Record<string, unknown> | undefined) {
   const tokens = { issue: vi.fn(async () => ({ raw: 'raw-token', expiresAt: new Date() })) };
   const sent: Array<{ to: string; content: MailContent }> = [];
   const mail = {
-    link: (path: string, query: Record<string, string>) =>
-      `https://app.test${path}?token=${query.token}`,
+    // 帳號流程的連結在 apps/auth（docs/adr/0019-sso-identity-platform.md）
+    accountLink: (path: string, query: Record<string, string>) =>
+      `https://account.test${path}?token=${query.token}`,
     send: vi.fn(async (to: string, content: MailContent) => {
       sent.push({ to, content });
       return { messageId: '<m1@test>' };
@@ -61,9 +62,9 @@ describe('AuthMailJobs（docs/architecture/backend/11-mail.md §4）', () => {
 
     expect(tokens.issue).toHaveBeenCalledWith('u1', 'activation');
     expect(sent[0]!.to).toBe('alice@example.com');
-    expect(sent[0]!.content.subject).toBe('Activate your Game Editor account');
+    expect(sent[0]!.content.subject).toBe('Activate your B2B System account');
     const text = await render(sent[0]!.content.body, { plainText: true });
-    expect(text).toContain('https://app.test/auth/setup?token=raw-token');
+    expect(text).toContain('https://account.test/setup?token=raw-token');
     expect(text).toContain('24 hours');
 
     expect(audit.record).toHaveBeenCalledWith(
@@ -96,9 +97,9 @@ describe('AuthMailJobs（docs/architecture/backend/11-mail.md §4）', () => {
     const { run, tokens, sent } = setup({ ...PENDING, status: 'locked', locale: 'zh-TW' });
     await run(PASSWORD_RESET_MAIL_JOB.name);
     expect(tokens.issue).toHaveBeenCalledWith('u1', 'password_reset');
-    expect(sent[0]!.content.subject).toBe('重設你的 Game Editor 密碼');
+    expect(sent[0]!.content.subject).toBe('重設你的 B2B System 密碼');
     const text = await render(sent[0]!.content.body, { plainText: true });
-    expect(text).toContain('https://app.test/auth/reset-password?token=raw-token');
+    expect(text).toContain('https://account.test/reset-password?token=raw-token');
     expect(text).toContain('1 小時');
   });
 

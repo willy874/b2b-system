@@ -1,0 +1,283 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "create": "Create",
+    "edit": "Edit",
+    "search": "Search",
+    "reset": "Reset",
+    "retry": "Retry",
+    "close": "Close",
+    "back": "Back",
+    "loading": "Loading…",
+    "empty": "No data",
+    "yes": "Yes",
+    "no": "No",
+    "actions": "Actions",
+    "previous": "Previous",
+    "next": "Next",
+    "total": "{{total}} items",
+    "none": "None",
+    "all": "All",
+    "filter": "Filter",
+    "filterActive": "Filter ({{count}} active)",
+    "tableSettings": "Columns",
+    "dragToReorder": "Drag to reorder {{name}}",
+    "clear": "Clear",
+    "apply": "Apply",
+    "restoreDefault": "Restore defaults",
+    "sort": "Sort",
+    "sortAsc": "Ascending",
+    "sortDesc": "Descending",
+    "addSort": "Add sort",
+    "removeSort": "Remove sort by {{name}}",
+    "sortField": "Sort field {{index}}",
+    "sortDirection": "Sort direction for {{name}}",
+    "sortEmpty": "No sort conditions; the default order is used after you search.",
+    "pinning": "Pinning",
+    "pinColumnStart": "Pin \"{{name}}\" to the left",
+    "pinColumnEnd": "Pin \"{{name}}\" to the right",
+    "stickyHeader": "Sticky header",
+    "pinRow": "Pin row",
+    "pinRowTop": "Pin to top",
+    "pinRowBottom": "Pin to bottom",
+    "unpinRow": "Unpin row",
+    "pinnedColumnsSummary": "{{count}} pinned columns",
+    "pinnedRowsSummary": "{{count}} pinned rows",
+    "clearPinnedRows": "Clear pinned rows",
+    "selectColumn": "Select",
+    "selectAll": "Select all on this page",
+    "selectRow": "Select row",
+    "pinColumn": "Pin",
+    "batch": {
+      "toolbar": "Bulk actions",
+      "selected": "{{count}} selected",
+      "clear": "Clear selection",
+      "noneEligible": "None of the selected items support this action.",
+      "skipped": "{{count}} of them don't apply and will be skipped.",
+      "queuedNote": "Items are processed one by one in the background. Track progress from the queue in the top bar.",
+      "progressLabel": "Bulk action progress",
+      "progress": {
+        "queued": "Queued ({{total}} items)",
+        "running": "Processing {{done}} / {{total}}",
+        "done": "Done {{done}} / {{total}}",
+        "cancelled": "Cancelled after {{done}} / {{total}}",
+        "failed": "{{count}} failed"
+      },
+      "queue": {
+        "title": "Bulk action queue",
+        "trigger": "Bulk action queue",
+        "triggerActive": "Bulk action queue ({{count}} in progress)",
+        "empty": "No bulk actions yet.",
+        "clearFinished": "Clear finished"
+      },
+      "viewFailures": "View failed items",
+      "dismiss": "Remove",
+      "resultTitle": "Some items in “{{name}}” were not completed",
+      "resultSummary": "{{succeeded}} succeeded, {{failed}} failed. Failed items stay selected.",
+      "cancelledToast": "“{{name}}” cancelled; the {{count}} completed items are kept",
+      "doneToast": "“{{name}}” completed {{count}} items"
+    }
+  },
+  "menu": {
+    "home": "Home",
+    "user": "Users",
+    "role": "Roles",
+    "permission": "Permissions",
+    "auditLog": "Audit log",
+    "approval": "Approvals",
+    "file": "Files",
+    "job": "Background jobs",
+    "profile": "Profile",
+    "preference": "Preferences",
+    "logout": "Sign out",
+    "tenant": "Tenants",
+    "platformAdmin": "Administrators"
+  },
+  "app": {
+    "title": "B2B System",
+    "subtitle": "RBAC console",
+    "platform": "Account platform"
+  },
+  "error": {
+    "unknown": "Something went wrong. Please try again.",
+    "unknown_with_id": "Something went wrong (code {{requestId}}). Please contact an administrator.",
+    "network": "Unable to reach the server. Check your connection and try again.",
+    "timeout": "The request timed out. Please check your connection and try again.",
+    "aborted": "The request was cancelled.",
+    "permission_changed": "Your permissions just changed; the page has been re-synced.",
+    "VALIDATION_FAILED": "Some fields are invalid. Please review and try again.",
+    "TENANT_NOT_FOUND": "This address does not belong to any tenant. Check that the URL is correct.",
+    "TENANT_UNAVAILABLE": "This tenant is currently unavailable. Contact the platform administrator.",
+    "PLATFORM_ONLY": "This is only available on the platform administration site.",
+    "TENANT_CODE_TAKEN": "This tenant code is already in use.",
+    "TENANT_DOMAIN_TAKEN": "This domain already belongs to another tenant.",
+    "TENANT_STATUS_CONFLICT": "This action isn't available in the tenant's current state. Refresh and try again.",
+    "TENANT_LAST_DOMAIN": "A tenant must keep at least one domain.",
+    "PLATFORM_ADMIN_NOT_FOUND": "This platform administrator doesn't exist or has been deleted.",
+    "IDENTITY_PROVIDER_NOT_ALLOWED": "The platform administrator has turned off external IdPs for this tenant.",
+    "AUTH_INVALID_CREDENTIALS": "Incorrect email or password.",
+    "AUTH_ACCOUNT_PENDING": "This account is not activated yet.",
+    "AUTH_ACCOUNT_DISABLED": "This account has been disabled.",
+    "AUTH_ACCOUNT_LOCKED": "Too many failed attempts; the account is temporarily locked.",
+    "AUTH_TOKEN_INVALID": "Your session is invalid. Please sign in again.",
+    "AUTH_TOKEN_STALE": "Your session was terminated by an administrator. Please sign in again.",
+    "AUTH_REFRESH_INVALID": "Your session has expired. Please sign in again.",
+    "AUTH_REFRESH_EXPIRED": "Your session has expired. Please sign in again.",
+    "AUTH_REFRESH_REVOKED": "Your session was revoked. Please sign in again.",
+    "AUTH_REFRESH_REUSED": "Credential reuse detected; you have been signed out everywhere.",
+    "AUTH_PASSWORD_MISMATCH": "Current password is incorrect.",
+    "AUTH_PASSWORD_WEAK": "Password too weak: at least 12 characters and not a common password.",
+    "AUTH_SETUP_TOKEN_INVALID": "This link is invalid or has expired.",
+    "AUTH_SSO_INTERACTION_INVALID": "This sign-in page has expired. Go back to the site and sign in again.",
+    "AUTH_SSO_CODE_INVALID": "Sign-in did not complete; the link may have expired or already been used. Please sign in again.",
+    "AUTH_SSO_REQUIRED": "This email domain only allows signing in with your company account (SSO).",
+    "AUTH_SSO_ACCOUNT_NOT_FOUND": "No matching account was found. Ask an administrator to create one for you.",
+    "AUTH_SSO_PROVIDER_UNAVAILABLE": "This sign-in option is unavailable right now. Try again later or use another option.",
+    "AUTH_SSO_EXTERNAL_FAILED": "External sign-in did not complete. Please sign in again.",
+    "AUTHZ_FORBIDDEN": "You do not have permission to do that.",
+    "AUTHZ_ESCALATION": "You cannot grant permissions you do not hold.",
+    "AUTHZ_SELF_MODIFY": "You cannot perform this action on your own account.",
+    "ROUTE_PERMISSION_NOT_DECLARED": "Configuration error: this endpoint declares no authorization policy.",
+    "USER_NOT_FOUND": "User not found.",
+    "USER_EMAIL_DUPLICATE": "This email is already in use.",
+    "USER_USERNAME_DUPLICATE": "This username is already in use.",
+    "USER_NOT_LOCKED": "This account is not locked.",
+    "ROLE_NOT_FOUND": "Role not found.",
+    "ROLE_NAME_DUPLICATE": "Role name already exists.",
+    "ROLE_SYSTEM_PROTECTED": "System roles cannot be deleted or renamed.",
+    "ROLE_SUPER_ADMIN_IMMUTABLE": "Permissions of the super admin role cannot be changed.",
+    "ROLE_IN_USE": "Some users still hold this role.",
+    "LAST_SUPER_ADMIN": "The system must keep at least one active super admin.",
+    "PERMISSION_UNKNOWN": "The request contains unknown permission keys.",
+    "APPROVAL_NOT_FOUND": "This approval request does not exist.",
+    "APPROVAL_ALREADY_REVIEWED": "This request has already been reviewed.",
+    "APPROVAL_SELF_REVIEW": "You cannot review your own request. Ask another administrator.",
+    "IDENTITY_PROVIDER_NOT_FOUND": "This identity provider connection was not found; it may have been deleted.",
+    "IDENTITY_PROVIDER_NAME_DUPLICATE": "A connection with this name already exists.",
+    "IDENTITY_PROVIDER_DOMAIN_TAKEN": "This domain already belongs to another connection.",
+    "JOB_NOT_FOUND": "This job does not exist or has been cleaned up.",
+    "JOB_NOT_RETRYABLE": "Only failed jobs can be retried. It may already have been retried by someone else.",
+    "FILE_NOT_FOUND": "This file does not exist or has been deleted.",
+    "FILE_TOO_LARGE": "The file exceeds the maximum allowed size.",
+    "FILE_ALREADY_UPLOADED": "This file has already been uploaded.",
+    "FILE_UPLOAD_INCOMPLETE": "The upload did not finish. Please upload again.",
+    "FILE_SIZE_MISMATCH": "The uploaded content does not match the file size. Please upload again.",
+    "FILE_STORAGE_UNAVAILABLE": "File storage is temporarily unavailable. Please try again later.",
+    "FILE_UPLOAD_PART_INVALID": "The uploaded parts are invalid. Please upload the file again.",
+    "FILE_VERSION_CONFLICT": "This file was changed by someone else. Refresh and try again.",
+    "FILE_IMAGE_URL_INVALID": "This image link has expired. Refresh and try again.",
+    "FILE_FOLDER_NOT_FOUND": "The folder does not exist or has been deleted.",
+    "FILE_FOLDER_NAME_CONFLICT": "A folder with this name already exists here.",
+    "FILE_FOLDER_CYCLE": "A folder cannot be moved into itself or one of its subfolders.",
+    "FILE_GRANT_SUBJECT_NOT_FOUND": "The person or role no longer exists.",
+    "FILE_GRANT_NOT_FOUND": "This access entry no longer exists.",
+    "RATE_LIMITED": "Too many requests. Please slow down.",
+    "INTERNAL_ERROR": "Server error. Please try again later.",
+    "page": {
+      "forbidden": {
+        "title": "You do not have access to this page",
+        "description": "If you think this is a mistake, ask an administrator to grant you access."
+      },
+      "notFound": {
+        "title": "Page not found",
+        "description": "This URL does not exist or has been removed."
+      },
+      "unexpected": {
+        "title": "Unexpected error",
+        "description": "Please retry or contact an administrator."
+      }
+    }
+  },
+  "permission": {
+    "resource": {
+      "user": "Users",
+      "role": "Roles",
+      "permission": "Permissions",
+      "auditLog": "Audit log",
+      "system": "System",
+      "approval": "Approvals",
+      "file": "Files",
+      "job": "Background jobs",
+      "identityProvider": "Identity providers",
+      "tenant": "Tenants",
+      "platformAdmin": "Platform administrators",
+      "platformAuditLog": "Platform audit log",
+      "platformJob": "Background jobs (all tenants)"
+    },
+    "user": {
+      "create": "Create user",
+      "read": "View users",
+      "update": "Edit user",
+      "delete": "Delete user",
+      "assignRole": "Assign roles",
+      "resetPassword": "Reset password"
+    },
+    "role": {
+      "create": "Create role",
+      "read": "View roles",
+      "update": "Edit role",
+      "delete": "Delete role",
+      "grantPermission": "Grant / revoke permissions"
+    },
+    "permission": {
+      "read": "View permission catalog"
+    },
+    "auditLog": {
+      "read": "View audit log"
+    },
+    "system": {
+      "read": "View system info",
+      "update": "Change system settings"
+    },
+    "approval": {
+      "read": "View approvals",
+      "review": "Review requests"
+    },
+    "file": {
+      "create": "Upload files",
+      "read": "View files",
+      "update": "Edit files",
+      "delete": "Delete files",
+      "access": "Use the file manager",
+      "share": "Manage file access"
+    },
+    "job": {
+      "read": "View background jobs",
+      "retry": "Retry background jobs"
+    },
+    "identityProvider": {
+      "create": "Create identity providers",
+      "read": "View identity providers",
+      "update": "Edit identity providers",
+      "delete": "Delete identity providers"
+    },
+    "tenant": {
+      "read": "View tenants",
+      "create": "Create tenants",
+      "update": "Edit tenants",
+      "delete": "Delete tenants"
+    },
+    "platformAdmin": {
+      "read": "View platform administrators",
+      "create": "Add platform administrators",
+      "update": "Manage platform administrators"
+    },
+    "platformAuditLog": {
+      "read": "View platform audit log"
+    },
+    "platformJob": {
+      "read": "View background jobs",
+      "retry": "Retry background jobs"
+    }
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "current": "Current"
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "job": {
+    "title": "背景工作",
+    "description": "所有租戶與平台本身在背景執行的工作：排程（稽核封存、檔案維護、OIDC 清理）、租戶佈建與程式入列的工作。失敗會自動重試，重試用完後停在「失敗」，可在這裡手動重試。完成的工作保留 7 天。",
+    "empty": "沒有符合條件的工作",
+    "expand": "展開",
+    "collapse": "收合",
+    "scheduledAt": "預定 {{time}}",
+    "name": {
+      "auditLogArchive": "稽核日誌封存",
+      "fileMaintenance": "檔案維護",
+      "approvalResultMail": "審批結果通知信",
+      "activationMail": "帳號啟用信",
+      "tenantProvision": "租戶佈建",
+      "oidcCleanup": "OIDC 資料清理",
+      "outboxSweep": "事件外送補送",
+      "passwordResetMail": "重設密碼信",
+      "platformAdminAccountMail": "平台管理者的啟用／重設密碼信"
+    },
+    "scope": {
+      "tenant": "每個租戶",
+      "platform": "平台"
+    },
+    "queues": {
+      "title": "工作種類",
+      "cron": "排程：{{cron}}（UTC）",
+      "onDemand": "由程式入列",
+      "ready": "等待 {{count}}",
+      "deferred": "排定 {{count}}",
+      "active": "執行中 {{count}}",
+      "completed": "完成 {{count}}",
+      "failed": "失敗 {{count}}"
+    },
+    "filter": {
+      "allNames": "全部工作",
+      "allStates": "全部狀態",
+      "tenantPlaceholder": "租戶代碼，空白 = 全部",
+      "platformOnly": "只看平台",
+      "apply": "套用"
+    },
+    "field": {
+      "createdAt": "建立時間",
+      "name": "工作",
+      "tenant": "租戶",
+      "state": "狀態",
+      "retries": "重試次數",
+      "completedAt": "結束時間"
+    },
+    "tenant": {
+      "platform": "平台"
+    },
+    "state": {
+      "created": "等待中",
+      "retry": "等待重試",
+      "active": "執行中",
+      "completed": "完成",
+      "cancelled": "已取消",
+      "failed": "失敗"
+    },
+    "retry": {
+      "action": "重試",
+      "title": "重試這筆工作？",
+      "confirm": "「{{name}}」會重新排入佇列，由 worker 再執行一次。",
+      "success": "已重新排入"
+    },
+    "pagination": {
+      "summary": "第 {{from}}–{{to}} 筆，共 {{total}} 筆"
+    },
+    "detail": {
+      "title": "工作詳情",
+      "error": "失敗原因：{{message}}",
+      "data": "工作資料",
+      "output": "執行結果",
+      "noOutput": "尚無結果"
+    }
+  }
+}

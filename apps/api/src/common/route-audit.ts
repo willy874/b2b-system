@@ -8,26 +8,23 @@ import {
   MESSAGE_METADATA,
 } from '@nestjs/websockets/constants';
 
-import { PERMISSION_SCOPE_OF } from '@/db/seeds/permissions';
-
 import {
   IS_AUTHENTICATED,
   IS_PUBLIC,
-  IS_WORKSPACE_SCOPED,
   REQUIRED_PERMISSIONS,
-  WORKSPACE_ID_PARAM,
+  REQUIRED_PLATFORM_PERMISSIONS,
 } from './decorators';
-import type { PermissionRequirement } from './decorators';
-import type { PermissionKey } from './types';
+import type { PermissionRequirement, PlatformPermissionRequirement } from './decorators';
+import type { PermissionKey, PlatformPermissionKey } from './types';
 
 export interface RouteDeclaration {
   method: string;
   path: string;
-  declaration: 'public' | 'authenticated' | 'permissions' | 'none';
+  declaration: 'public' | 'authenticated' | 'permissions' | 'platformPermissions' | 'none';
   keys: PermissionKey[];
+  /** `@RequirePlatformPermissions` 的鍵（平台的權限目錄，ADR-0020 D5）。 */
+  platformKeys: PlatformPermissionKey[];
   match?: 'every' | 'some';
-  /** `@WorkspaceScoped()`：guard 先確認成員資格，權限鍵以 P(u, W) 判斷。 */
-  workspaceScoped: boolean;
 }
 
 /** Gateway 的 `@SubscribeMessage` 處理器（docs/architecture/backend/08-realtime.md §5）。 */
@@ -36,10 +33,11 @@ export interface GatewayMessageDeclaration {
   event: string;
   declaration: RouteDeclaration['declaration'];
   keys: PermissionKey[];
+  platformKeys: PlatformPermissionKey[];
   match?: 'every' | 'some';
 }
 
-type Declaration = Pick<RouteDeclaration, 'declaration' | 'keys' | 'match'>;
+type Declaration = Pick<RouteDeclaration, 'declaration' | 'keys' | 'platformKeys' | 'match'>;
 
 function declarationOf(reflector: Reflector, handler: object, metatype: object): Declaration {
   const targets = [handler, metatype] as Array<() => void>;
@@ -49,6 +47,10 @@ function declarationOf(reflector: Reflector, handler: object, metatype: object):
     REQUIRED_PERMISSIONS,
     targets,
   );
+  const platform = reflector.getAllAndOverride<PlatformPermissionRequirement>(
+    REQUIRED_PLATFORM_PERMISSIONS,
+    targets,
+  );
   return {
     declaration: isPublic
       ? 'public'
@@ -56,9 +58,12 @@ function declarationOf(reflector: Reflector, handler: object, metatype: object):
         ? 'authenticated'
         : requirement
           ? 'permissions'
-          : 'none',
+          : platform
+            ? 'platformPermissions'
+            : 'none',
     keys: requirement?.keys ?? [],
-    match: requirement?.match,
+    platformKeys: platform?.keys ?? [],
+    match: requirement?.match ?? (platform ? 'every' : undefined),
   };
 }
 
@@ -93,11 +98,6 @@ export function collectRouteDeclarations(app: INestApplication): RouteDeclaratio
         method: RequestMethod[verb] ?? 'GET',
         path: joinPath(controllerPath, subPath),
         ...declarationOf(reflector, handler, metatype),
-        workspaceScoped: Boolean(
-          reflector.getAllAndOverride<boolean>(IS_WORKSPACE_SCOPED, [handler, metatype] as Array<
-            () => void
-          >),
-        ),
       });
     }
   }
@@ -143,47 +143,26 @@ export function collectGatewayDeclarations(app: INestApplication): GatewayMessag
  * 於 `app.listen()` 之前呼叫（docs/architecture/backend/05-rbac.md §7）。
  */
 export function auditRoutes(app: INestApplication): void {
-  const routes = collectRouteDeclarations(app);
-  const undeclared = routes.filter((r) => r.declaration === 'none');
+  const undeclared = collectRouteDeclarations(app).filter((r) => r.declaration === 'none');
   if (undeclared.length) {
     throw new Error(
-      '以下路由未宣告授權策略（需要 @Public / @Authenticated / @RequirePermissions 其中之一）：\n' +
+      '以下路由未宣告授權策略（需要 @Public / @Authenticated / @RequirePermissions / @RequirePlatformPermissions 其中之一）：\n' +
         undeclared.map((r) => `  - ${r.method} ${r.path}`).join('\n'),
-    );
-  }
-
-  // 權限鍵的範圍要與路由一致（docs/adr/0018-workspace-tenancy.md D9）：工作區範圍的鍵只存在於
-  // P(u, W)，宣告在平台路由上永遠不會通過；反過來，平台的鍵宣告在工作區路由上代表放錯了地方
-  const misplaced = routes.flatMap((r) => {
-    const expected = r.workspaceScoped ? 'workspace' : 'platform';
-    const wrongKeys = r.keys.filter((key) => PERMISSION_SCOPE_OF[key] !== expected);
-    const missingParam = r.workspaceScoped && !r.path.includes(`:${WORKSPACE_ID_PARAM}`);
-    const unexpectedPublic = r.workspaceScoped && r.declaration === 'public';
-    return wrongKeys.length || missingParam || unexpectedPublic
-      ? [
-          `  - ${r.method} ${r.path}（${r.workspaceScoped ? '工作區' : '平台'}路由` +
-            (wrongKeys.length ? `；範圍不符的鍵：${wrongKeys.join(', ')}` : '') +
-            (missingParam ? `；路徑缺少 :${WORKSPACE_ID_PARAM}` : '') +
-            (unexpectedPublic ? '；不可 @Public' : '') +
-            '）',
-        ]
-      : [];
-  });
-  if (misplaced.length) {
-    throw new Error(
-      '以下路由的工作區範圍宣告錯誤（工作區的鍵只能用在 @WorkspaceScoped 路由，平台的鍵只能用在其他路由）：\n' +
-        misplaced.join('\n'),
     );
   }
 
   // WebSocket 連線本身一定已驗證，`@Public()` 在這裡沒有意義，出現即視為寫錯
   // （docs/architecture/backend/08-realtime.md §5）。
+  // 平台管理者不經 WebSocket（只有租戶網域上的 backstage 會連），`@RequirePlatformPermissions` 也不該出現
   const invalid = collectGatewayDeclarations(app).filter(
-    (m) => m.declaration === 'none' || m.declaration === 'public',
+    (m) =>
+      m.declaration === 'none' ||
+      m.declaration === 'public' ||
+      m.declaration === 'platformPermissions',
   );
   if (invalid.length) {
     throw new Error(
-      '以下 WebSocket 訊息處理器未宣告授權策略（需要 @Authenticated / @RequirePermissions；不可用 @Public）：\n' +
+      '以下 WebSocket 訊息處理器未宣告授權策略（需要 @Authenticated / @RequirePermissions；不可用 @Public / @RequirePlatformPermissions）：\n' +
         invalid.map((m) => `  - WS ${m.gateway} ${m.event}（${m.declaration}）`).join('\n'),
     );
   }
@@ -194,4 +173,10 @@ export function collectDeclaredPermissionKeys(app: INestApplication): Permission
     (r) => r.keys,
   );
   return [...new Set(keys)];
+}
+
+export function collectDeclaredPlatformPermissionKeys(
+  app: INestApplication,
+): PlatformPermissionKey[] {
+  return [...new Set(collectRouteDeclarations(app).flatMap((r) => r.platformKeys))];
 }

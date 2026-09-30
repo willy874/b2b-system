@@ -1,4 +1,4 @@
-import { ChangeKind, ChangeSource } from '@game-editor/realtime';
+import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -135,7 +135,7 @@ export class FileImageService {
     if (query.exp * 1000 <= now || !verifyImageUrl(this.urlKey, claims, query.sig)) {
       throw new AppException('FILE_IMAGE_URL_INVALID');
     }
-    const file = await this.repo.findAnyById(id);
+    const file = await this.repo.findById(id);
     const master = file?.variantFormat as ImageFormat | null | undefined;
     if (!file || file.status !== 'ready' || file.variantStatus !== 'ready' || !master) {
       throw new AppException('FILE_NOT_FOUND');
@@ -165,7 +165,7 @@ export class FileImageService {
   }
 
   private async generate(fileId: string): Promise<void> {
-    const file = await this.repo.findAnyById(fileId);
+    const file = await this.repo.findById(fileId);
     if (!file || file.status !== 'ready' || file.variantStatus !== 'pending') return;
 
     let described: { imageWidth: number; imageHeight: number; variantFormat: ImageFormat };
@@ -214,7 +214,6 @@ export class FileImageService {
     }
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [{ resource: ChangeSource.FILE, kind: ChangeKind.UPDATE, id: fileId }],
-      workspaceId: updated.workspaceId,
     });
   }
 

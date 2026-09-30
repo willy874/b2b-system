@@ -1,0 +1,40 @@
+{
+  "auditLog": {
+    "title": "平台稽核",
+    "description": "平台管理者對租戶、平台管理者等資源的操作紀錄，依時間由新到舊。只查詢最近 {{days}} 天。",
+    "empty": "沒有符合條件的紀錄",
+    "expand": "展開明細",
+    "collapse": "收合明細",
+    "field": {
+      "occurredAt": "時間",
+      "actor": "操作者",
+      "action": "動作",
+      "resource": "資源",
+      "result": "結果"
+    },
+    "result": {
+      "success": "成功",
+      "failure": "失敗"
+    },
+    "filter": {
+      "action": "動作",
+      "actionPlaceholder": "例：tenant.create 或 tenant.*",
+      "actorEmail": "操作者信箱",
+      "actorEmailPlaceholder": "輸入部分信箱",
+      "result": "結果",
+      "all": "全部",
+      "search": "搜尋",
+      "reset": "重設"
+    },
+    "detail": {
+      "metadata": "附加資訊",
+      "errorCode": "錯誤碼",
+      "noMetadata": "這筆紀錄沒有附加資訊"
+    },
+    "pagination": {
+      "previous": "上一頁",
+      "next": "下一頁",
+      "summary": "第 {{from}}–{{to}} 筆，共 {{total}} 筆"
+    }
+  }
+}

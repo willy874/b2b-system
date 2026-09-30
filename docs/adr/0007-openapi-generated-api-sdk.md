@@ -19,14 +19,14 @@ apps/api  ──(@nestjs/swagger + zod-openapi)──▶  openapi.json
                                           packages/api-sdk
                                                      │
                                                      ▼
-                                    apps/web/src/shared/api-sdk (re-export)
+                                    apps/backstage/src/shared/api-sdk (re-export)
 ```
 
 - **後端是唯一事實來源**
 - 權限鍵透過一個 `z.enum(ALL_PERMISSION_KEYS).openapi({ ref: 'PermissionKey' })`
   出現在 spec 裡，於是 SDK 會產生對應的 const 物件
 - 前端的 `core/permission/enums.ts` 只做一層 re-export
-- `apps/web/src/shared/api-sdk/index.ts` 是整個前端對 SDK 的 **唯一** 引用點
+- `apps/backstage/src/shared/api-sdk/index.ts` 是整個前端對 SDK 的 **唯一** 引用點
 - CI 檢查：重新產生 `openapi.json` 後 `git diff` 必須為空
 
 ## 理由
@@ -74,7 +74,7 @@ apps/api  ──(@nestjs/swagger + zod-openapi)──▶  openapi.json
 **為什麼換掉 orval**
 
 1. **只要 fetch、不要 middleware。** 攔截器（token、續期、重試、錯誤轉換）已經在
-   `apps/web/src/core/client` 的 `HttpContext` 實作；SDK 再帶一套 mutator / interceptor 只會重疊。
+   `apps/backstage/src/core/client` 的 `HttpContext` 實作；SDK 再帶一套 mutator / interceptor 只會重疊。
    新產生器的執行期只有 `fetch`，需要客製傳輸時以 `options.fetch` 注入，不提供攔截器鏈。
 2. **同時產出 zod schema。** 表單驗證與（可選的）回應驗證可以直接用 spec 產生的 schema，
    不必手寫一份「長得一樣」的 zod。

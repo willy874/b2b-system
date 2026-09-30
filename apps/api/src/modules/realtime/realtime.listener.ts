@@ -1,14 +1,14 @@
-import { ServerEvent } from '@game-editor/realtime';
-import type { ResourceChanged } from '@game-editor/realtime';
+import { ServerEvent } from '@b2b-system/realtime';
+import type { ResourceChanged } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import type { DomainEventMeta, DomainEventPayloads } from '@/core/events';
 
-import { missingWorkspace, RealtimeAudience, resolveAudienceRooms } from './realtime.audience';
+import { RealtimeAudience, resolveAudienceRooms } from './realtime.audience';
 import { RealtimePublisher } from './realtime.publisher';
-import { userRoom } from './realtime.rooms';
+import { idpSessionRoom, tenantRoom, userRoom } from './realtime.rooms';
 
 /**
  * 領域事件 → 推播（docs/architecture/backend/08-realtime.md §3.5、§6.2、§7）。
@@ -58,23 +58,12 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
 
   /** 依來源 → 受眾表推播；`origin` 讓發起的分頁略過（§6.1、§7.1）。 */
   onResourceChanged(
-    {
-      changes,
-      affectedUserIds,
-      workspaceId,
-    }: DomainEventPayloads[typeof DomainEvent.RESOURCE_CHANGED],
+    { changes, affectedUserIds }: DomainEventPayloads[typeof DomainEvent.RESOURCE_CHANGED],
     meta: DomainEventMeta,
   ): void {
     if (!changes.length) return;
-    if (missingWorkspace(changes, workspaceId)) {
-      // 發佈端漏帶 workspaceId：寧可不推給工作區的讀者，也不要推錯工作區
-      this.logger.warn(
-        { resources: changes.map((c) => c.resource) },
-        '工作區範圍的變更沒有 workspaceId，略過工作區的受眾',
-      );
-    }
 
-    const rooms = resolveAudienceRooms(changes, affectedUserIds, workspaceId);
+    const rooms = resolveAudienceRooms(changes, affectedUserIds);
     // 沒有受眾就不推（原則 4：只推給看得到的人）
     if (!rooms.length) return;
     const payload: ResourceChanged = meta.clientId
@@ -90,17 +79,24 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
 
   /** 推 `session.revoked` 並斷掉這些使用者的所有連線（§3.5）。 */
   onSessionsRevoked({
-    userIds,
+    userIds = [],
+    idpSessionUids = [],
+    tenantIds = [],
     reason,
   }: DomainEventPayloads[typeof DomainEvent.SESSIONS_REVOKED]): void {
-    for (const userId of new Set(userIds)) {
-      const room = userRoom(userId);
+    const rooms = [
+      ...[...new Set(userIds)].map(userRoom),
+      // 單一登出：只有同一個 IdP session 的連線，同一個人的其他裝置不受影響（ADR-0019 D5）
+      ...[...new Set(idpSessionUids)].map(idpSessionRoom),
+      ...[...new Set(tenantIds)].map(tenantRoom),
+    ];
+    for (const room of rooms) {
       const sockets = this.publisher.countConnections(room);
       if (!sockets) continue;
       this.publisher.emit(room, ServerEvent.SESSION_REVOKED, { reason });
       // publisher 保證斷線前已 emit 的事件會先送到
       this.publisher.disconnect(room);
-      this.logger.log({ userId, reason, sockets }, '撤銷即時連線');
+      this.logger.log({ room, reason, sockets }, '撤銷即時連線');
     }
   }
 }

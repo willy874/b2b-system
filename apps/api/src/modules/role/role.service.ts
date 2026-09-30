@@ -1,9 +1,9 @@
-import { ChangeKind, ChangeSource } from '@game-editor/realtime';
+import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser, PermissionKey } from '@/common/types';
 import type { Database } from '@/core/database';
-import { DRIZZLE, withTransaction } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
@@ -28,7 +28,6 @@ function toDto(role: RoleWithCounts): RoleDto {
     name: role.name,
     description: role.description,
     isSystem: role.isSystem,
-    scope: role.scope,
     permissionCount: role.permissionCount,
     userCount: role.userCount,
     createdAt: role.createdAt.toISOString(),
@@ -39,7 +38,7 @@ function toDto(role: RoleWithCounts): RoleDto {
 @Injectable()
 export class RoleService {
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly repo: RoleRepository,
     private readonly permissionService: PermissionService,
     private readonly audit: AuditService,
@@ -70,7 +69,6 @@ export class RoleService {
 
   async create(dto: CreateRoleDto, actor: AuthUser): Promise<RoleDto> {
     await this.assertNameAvailable(dto.name);
-    this.permissionService.assertKeyScope(dto.permissionKeys as PermissionKey[], dto.scope);
     await this.permissionService.assertGrantable(actor.id, dto.permissionKeys as PermissionKey[]);
     const permissionIds = await this.permissionService.assertKeysExist(dto.permissionKeys);
 
@@ -81,7 +79,6 @@ export class RoleService {
           name: dto.name,
           description: dto.description ?? null,
           isSystem: false,
-          scope: dto.scope,
           createdBy: actor.id,
           updatedBy: actor.id,
         },
@@ -94,9 +91,7 @@ export class RoleService {
           resourceType: 'role',
           resourceId: created.id,
           resourceName: created.name,
-          changes: {
-            after: { name: created.name, scope: dto.scope, permissions: dto.permissionKeys },
-          },
+          changes: { after: { name: created.name, permissions: dto.permissionKeys } },
         },
         tx,
       );
@@ -148,7 +143,6 @@ export class RoleService {
     if (role.slug === SUPER_ADMIN_SLUG) throw new AppException('ROLE_SUPER_ADMIN_IMMUTABLE');
 
     const touched = [...dto.add, ...dto.remove];
-    this.permissionService.assertKeyScope(dto.add as PermissionKey[], role.scope);
     const ids = await this.permissionService.assertKeysExist(touched);
     await this.permissionService.assertGrantable(actor.id, dto.add as PermissionKey[]);
 
@@ -212,7 +206,6 @@ export class RoleService {
           name,
           description: source.description,
           isSystem: false,
-          scope: source.scope,
           createdBy: actor.id,
           updatedBy: actor.id,
         },

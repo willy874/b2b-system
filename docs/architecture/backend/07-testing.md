@@ -24,8 +24,10 @@ let container: StartedPostgreSqlContainer;
 export let testDb: Database;
 
 export async function setupTestDatabase() {
+  // 實際的做法見 test/global-setup.ts：平台 DB 是 container 的預設 database，
+  // 另建一個測試租戶的 database 並登記在平台 DB（網域 127.0.0.1／localhost）
   container = await new PostgreSqlContainer("postgres:17-alpine").start();
-  process.env.DATABASE_URL = container.getConnectionUri();
+  process.env.PLATFORM_DATABASE_URL = container.getConnectionUri();
   testDb = createDb(container.getConnectionUri());
   await migrate(testDb, { migrationsFolder: "src/db/migrations" });
   await seedPermissions(testDb);

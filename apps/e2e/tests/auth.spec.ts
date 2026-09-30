@@ -1,16 +1,44 @@
 import { expect, test } from '@playwright/test';
 
-import { ACCOUNTS } from '../fixtures/accounts';
-import { login, loginAndWaitForHome, logout } from '../helpers/auth';
+import { ACCOUNTS, E2E_PASSWORD, PLATFORM_ADMIN } from '../fixtures/accounts';
+import {
+  AUTH_URL,
+  expectIdpLogin,
+  expectSignedOut,
+  login,
+  loginAndWaitForHome,
+  logout,
+} from '../helpers/auth';
 
 test.describe('認證流程', () => {
   // ① 登入 → 首頁 → 登出
-  test('登入後進入首頁，登出後回到登入頁', async ({ page }) => {
+  test('登入後進入首頁，登出後停在「已登出」頁', async ({ page }) => {
     await loginAndWaitForHome(page, 'superAdmin');
     await expect(page.getByTestId('menu-role')).toBeVisible();
 
     await logout(page);
-    await expect(page).toHaveURL(/\/auth\/login/);
+    await expectSignedOut(page);
+  });
+
+  // 身分分屬租戶與平台（docs/adr/0020-physical-tenant-isolation.md D5、D9）：租戶帳號的 IdP session
+  // 不能直接進 apps/auth；以平台管理者登入 apps/auth 之後，backstage 仍維持登入
+  test('租戶的使用者打開 apps/auth 要以平台管理者重新登入；backstage 不受影響', async ({
+    page,
+  }) => {
+    await loginAndWaitForHome(page, 'superAdmin');
+
+    await page.goto(AUTH_URL);
+    await expectIdpLogin(page);
+    await page.getByTestId('login-email').fill(PLATFORM_ADMIN);
+    await page.getByTestId('login-password').fill(E2E_PASSWORD);
+    await page.getByTestId('login-submit').click();
+    await expect(page.getByTestId('home-display-name')).toHaveText('E2E Platform Admin');
+    await expect(page).toHaveURL(`${AUTH_URL}/`);
+
+    await page.goto('/');
+    await expect(page.getByTestId('home-page')).toBeVisible();
+    await logout(page);
+    await expectSignedOut(page);
   });
 
   test('access token 不進 localStorage（只有 session 旗標）', async ({ page }) => {

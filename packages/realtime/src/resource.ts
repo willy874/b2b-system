@@ -14,10 +14,6 @@ export const ChangeSource = {
   FILE: 'file',
   /** 檔案管理器的資料夾（建立、改名、移動、刪除）。 */
   FILE_FOLDER: 'fileFolder',
-  /** 工作區本身（建立、改名、刪除）。 */
-  WORKSPACE: 'workspace',
-  /** 工作區的成員與成員的工作區角色；`id` 是使用者 id。 */
-  WORKSPACE_MEMBER: 'workspaceMember',
 } as const;
 
 export type ChangeSource = (typeof ChangeSource)[keyof typeof ChangeSource];
@@ -44,8 +40,6 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.APPROVAL,
   ChangeSource.FILE,
   ChangeSource.FILE_FOLDER,
-  ChangeSource.WORKSPACE,
-  ChangeSource.WORKSPACE_MEMBER,
 ]);
 
 export const ResourceChangeWireSchema = z.object({

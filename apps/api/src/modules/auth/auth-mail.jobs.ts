@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type { Database } from '@/core/database';
 import { JobQueue } from '@/core/jobs';
 import type { JobContext } from '@/core/jobs';
@@ -34,14 +34,14 @@ const SPECS = {
   activation: {
     purpose: 'activation',
     tokenPurpose: 'activation',
-    path: '/auth/setup',
+    path: '/setup',
     ttlSeconds: ACTIVATION_TTL_SECONDS,
     shouldSend: (status) => status === 'pending',
   },
   passwordReset: {
     purpose: 'passwordReset',
     tokenPurpose: 'password_reset',
-    path: '/auth/reset-password',
+    path: '/reset-password',
     ttlSeconds: PASSWORD_RESET_TTL_SECONDS,
     // 與 POST /auth/reset-password 一致：任何狀態都能重設（鎖定的會順帶解鎖）
     shouldSend: () => true,
@@ -54,7 +54,7 @@ export class AuthMailJobs implements OnModuleInit {
   private readonly logger = new Logger(AuthMailJobs.name);
 
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly jobs: JobQueue,
     private readonly tokens: AuthTokenService,
     private readonly mail: MailService,
@@ -95,7 +95,7 @@ export class AuthMailJobs implements OnModuleInit {
         purpose: spec.purpose,
         locale: toMailLocale(user.locale),
         displayName: user.displayName,
-        link: this.mail.link(spec.path, { token: raw }),
+        link: this.mail.accountLink(spec.path, { token: raw }),
         validHours: spec.ttlSeconds / 3600,
       }),
     );

@@ -1,0 +1,67 @@
+{
+  "identityProvider": {
+    "title": "Identity providers",
+    "description": "Let people sign in with their company account (Google Workspace, Azure AD or any OIDC service). The email domain decides which connection is used.",
+    "callbackUrl": "Redirect URI to register with the identity provider",
+    "empty": "No identity providers yet",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "ssoOnlyBadge": "SSO only",
+    "field": {
+      "name": "Name",
+      "issuer": "Issuer",
+      "clientId": "Client ID",
+      "clientSecret": "Client secret",
+      "scopes": "Scopes",
+      "enabled": "Enable this connection",
+      "unmatchedPolicy": "When no account matches",
+      "domains": "Email domains",
+      "status": "Status",
+      "updatedAt": "Updated"
+    },
+    "hint": {
+      "name": "Shown on the sign-in button, e.g. “Acme Azure AD”.",
+      "issuer": "OIDC issuer URL; endpoints are read from /.well-known/openid-configuration.",
+      "clientSecret": "Write-only: it is never shown again after saving.",
+      "clientSecretKeep": "Leave empty to keep the current secret.",
+      "domains": "People with these email domains see this connection after entering their email. A domain can belong to only one connection."
+    },
+    "policy": {
+      "reject": "Reject sign-in",
+      "auto_create": "Create an account (with no roles)",
+      "autoCreateHint": "Accounts are only created for the domains registered above."
+    },
+    "domain": {
+      "placeholder": "example.com",
+      "ssoOnly": "SSO only",
+      "add": "Add domain",
+      "remove": "Remove domain"
+    },
+    "create": {
+      "action": "Add connection",
+      "title": "Add identity provider",
+      "success": "Connection added"
+    },
+    "edit": {
+      "action": "Edit",
+      "title": "Edit identity provider",
+      "success": "Connection updated"
+    },
+    "remove": {
+      "action": "Delete",
+      "title": "Delete identity provider",
+      "confirm": "Delete “{{name}}”? Its domains are released and linked people can no longer sign in with it.",
+      "success": "Connection deleted"
+    },
+    "error": {
+      "nameRequired": "Enter a name",
+      "issuerInvalid": "Enter a full URL",
+      "clientIdRequired": "Enter the client ID",
+      "clientSecretRequired": "Enter the client secret",
+      "scopesInvalid": "Must include openid",
+      "domainInvalid": "Invalid domain",
+      "domainDuplicate": "Duplicate domain"
+    },
+    "notAllowed": "The platform administrator has turned off external IdPs for this tenant: connections can't be added or enabled, and sign-in doesn't redirect to an external IdP."
+  }
+}

@@ -4,50 +4,44 @@
  * （有測試比對兩者）。
  */
 export const PERMISSION_SEED = [
-  // resource, action, i18n key, sort, scope（docs/adr/0018-workspace-tenancy.md D2）
-  ['user', 'create', 'permission.user.create', 100, 'platform'],
-  ['user', 'read', 'permission.user.read', 101, 'platform'],
-  ['user', 'update', 'permission.user.update', 102, 'platform'],
-  ['user', 'delete', 'permission.user.delete', 103, 'platform'],
-  ['user', 'assignRole', 'permission.user.assignRole', 104, 'platform'],
-  ['user', 'resetPassword', 'permission.user.resetPassword', 105, 'platform'],
+  // resource, action, i18n key, sort
+  ['user', 'create', 'permission.user.create', 100],
+  ['user', 'read', 'permission.user.read', 101],
+  ['user', 'update', 'permission.user.update', 102],
+  ['user', 'delete', 'permission.user.delete', 103],
+  ['user', 'assignRole', 'permission.user.assignRole', 104],
+  ['user', 'resetPassword', 'permission.user.resetPassword', 105],
 
-  ['role', 'create', 'permission.role.create', 200, 'platform'],
-  ['role', 'read', 'permission.role.read', 201, 'platform'],
-  ['role', 'update', 'permission.role.update', 202, 'platform'],
-  ['role', 'delete', 'permission.role.delete', 203, 'platform'],
-  ['role', 'grantPermission', 'permission.role.grantPermission', 204, 'platform'],
+  ['role', 'create', 'permission.role.create', 200],
+  ['role', 'read', 'permission.role.read', 201],
+  ['role', 'update', 'permission.role.update', 202],
+  ['role', 'delete', 'permission.role.delete', 203],
+  ['role', 'grantPermission', 'permission.role.grantPermission', 204],
 
-  ['permission', 'read', 'permission.permission.read', 300, 'platform'],
-  ['auditLog', 'read', 'permission.auditLog.read', 400, 'platform'],
-  ['system', 'read', 'permission.system.read', 500, 'platform'],
-  ['system', 'update', 'permission.system.update', 501, 'platform'],
+  ['permission', 'read', 'permission.permission.read', 300],
+  ['auditLog', 'read', 'permission.auditLog.read', 400],
+  ['system', 'read', 'permission.system.read', 500],
+  ['system', 'update', 'permission.system.update', 501],
 
-  ['approval', 'read', 'permission.approval.read', 600, 'platform'],
-  ['approval', 'review', 'permission.approval.review', 601, 'platform'],
+  ['approval', 'read', 'permission.approval.read', 600],
+  ['approval', 'review', 'permission.approval.review', 601],
 
-  ['file', 'create', 'permission.file.create', 700, 'workspace'],
-  ['file', 'read', 'permission.file.read', 701, 'workspace'],
-  ['file', 'update', 'permission.file.update', 702, 'workspace'],
-  ['file', 'delete', 'permission.file.delete', 703, 'workspace'],
-  ['file', 'access', 'permission.file.access', 704, 'workspace'],
-  ['file', 'share', 'permission.file.share', 705, 'workspace'],
+  ['file', 'create', 'permission.file.create', 700],
+  ['file', 'read', 'permission.file.read', 701],
+  ['file', 'update', 'permission.file.update', 702],
+  ['file', 'delete', 'permission.file.delete', 703],
+  ['file', 'access', 'permission.file.access', 704],
+  ['file', 'share', 'permission.file.share', 705],
 
-  ['job', 'read', 'permission.job.read', 800, 'platform'],
-  ['job', 'retry', 'permission.job.retry', 801, 'platform'],
+  ['job', 'read', 'permission.job.read', 800],
+  ['job', 'retry', 'permission.job.retry', 801],
 
-  ['workspace', 'create', 'permission.workspace.create', 900, 'platform'],
-  ['workspace', 'read', 'permission.workspace.read', 901, 'platform'],
-  ['workspace', 'update', 'permission.workspace.update', 902, 'platform'],
-  ['workspace', 'delete', 'permission.workspace.delete', 903, 'platform'],
-
-  ['workspaceMember', 'read', 'permission.workspaceMember.read', 1000, 'workspace'],
-  ['workspaceMember', 'create', 'permission.workspaceMember.create', 1001, 'workspace'],
-  ['workspaceMember', 'delete', 'permission.workspaceMember.delete', 1002, 'workspace'],
-  ['workspaceMember', 'assignRole', 'permission.workspaceMember.assignRole', 1003, 'workspace'],
-] as const satisfies ReadonlyArray<
-  readonly [string, string, string, number, 'platform' | 'workspace']
->;
+  // 外部 IdP 連線（docs/adr/0019-sso-identity-platform.md D8、D9）
+  ['identityProvider', 'create', 'permission.identityProvider.create', 1100],
+  ['identityProvider', 'read', 'permission.identityProvider.read', 1101],
+  ['identityProvider', 'update', 'permission.identityProvider.update', 1102],
+  ['identityProvider', 'delete', 'permission.identityProvider.delete', 1103],
+] as const satisfies ReadonlyArray<readonly [string, string, string, number]>;
 
 type SeedList = typeof PERMISSION_SEED;
 
@@ -65,19 +59,6 @@ export type PermissionKey = {
 export const ALL_PERMISSION_KEYS = PERMISSION_SEED.map(
   ([resource, action]) => `${resource}:${action}`,
 ) as PermissionKey[];
-
-/** 權限鍵 → 範圍（`platform` 由全域角色持有；`workspace` 只在指派的工作區有效）。 */
-export const PERMISSION_SCOPE_OF = Object.fromEntries(
-  PERMISSION_SEED.map(([resource, action, , , scope]) => [`${resource}:${action}`, scope]),
-) as Record<PermissionKey, 'platform' | 'workspace'>;
-
-export const PLATFORM_PERMISSION_KEYS = ALL_PERMISSION_KEYS.filter(
-  (key) => PERMISSION_SCOPE_OF[key] === 'platform',
-);
-
-export const WORKSPACE_PERMISSION_KEYS = ALL_PERMISSION_KEYS.filter(
-  (key) => PERMISSION_SCOPE_OF[key] === 'workspace',
-);
 
 export const PERMISSION_RESOURCES = [...new Set(PERMISSION_SEED.map(([resource]) => resource))];
 

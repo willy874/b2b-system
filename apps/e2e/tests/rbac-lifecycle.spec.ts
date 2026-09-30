@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { ACCOUNTS } from '../fixtures/accounts';
 import { apiLogin, apiRequest } from '../helpers/api';
-import { loginAndWaitForHome } from '../helpers/auth';
+import { expectIdpLogin, loginAndWaitForHome } from '../helpers/auth';
 import { getByTestIdAndValue } from '../helpers/selectors';
 
 const ROLE_NAME = `E2E 檢視者 ${Date.now()}`;
@@ -129,9 +129,9 @@ test.describe('RBAC 生命週期', () => {
     const afterDisable = await apiRequest(victimToken, 'get', '/auth/profile');
     expect([401, 403]).toContain(afterDisable.status);
 
-    // UI：下一次操作被導回登入頁
+    // UI：下一次操作被導回登入頁（IdP 的 session 也一起結束，不會被直接登回來）
     await page.goto('/profile');
-    await expect(page).toHaveURL(/\/auth\/login/, { timeout: 15_000 });
+    await expectIdpLogin(page);
 
     await context.close();
   });

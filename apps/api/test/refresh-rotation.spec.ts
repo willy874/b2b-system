@@ -7,13 +7,14 @@ import { eq } from 'drizzle-orm';
 import request from 'supertest';
 import type { Response } from 'supertest';
 import type { App } from 'supertest/types';
-import { afterAll, beforeAll, beforeEach, describe, expect, inject, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { refreshTokens, users } from '@/db/schema';
 import { sha256 } from '@/modules/auth/token-hash';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 
 let app: INestApplication;
 let http: App;
@@ -50,7 +51,6 @@ function errorCodeOf(response: Response): string | undefined {
 
 describe('refresh token 輪替的併發（docs/architecture/backend/04-auth.md）', () => {
   beforeAll(async () => {
-    process.env.DATABASE_URL = inject('databaseUrl');
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = 'root@example.com';
     process.env.SUPER_ADMIN_PASSWORD = 'RootPassword!2026';
@@ -72,7 +72,7 @@ describe('refresh token 輪替的併發（docs/architecture/backend/04-auth.md�
     app = await NestFactory.create(AppModule, { logger: false });
     app.use(cookieParser());
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
   });
 
   beforeEach(async () => {

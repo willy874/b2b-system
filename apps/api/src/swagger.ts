@@ -8,7 +8,7 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
   const document = SwaggerModule.createDocument(
     app,
     new DocumentBuilder()
-      .setTitle('Game Editor API')
+      .setTitle('B2B System API')
       .setDescription('RBAC 骨架 API')
       .setVersion('0.0.0')
       .addBearerAuth()

@@ -1,9 +1,9 @@
-import { ChangeKind, ChangeSource } from '@game-editor/realtime';
+import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser, PermissionKey } from '@/common/types';
 import type { Database } from '@/core/database';
-import { DRIZZLE, withTransaction } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException, constraintNameOf, isUniqueViolation } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
@@ -51,7 +51,7 @@ function toDto(row: ApprovalRequestRow): ApprovalRequestDto {
 @Injectable()
 export class ApprovalService {
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly repo: ApprovalRepository,
     private readonly handlers: ApprovalHandlerRegistry,
     private readonly permissionService: PermissionService,

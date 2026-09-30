@@ -3,24 +3,29 @@ import { Test } from '@nestjs/testing';
 import { and, desc, eq } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { ObjectStorage } from '@/core/storage';
-import { auditLogs, permissions, resourceGrants, rolePermissions, roles, users } from '@/db/schema';
+import {
+  auditLogs,
+  permissions,
+  resourceGrants,
+  rolePermissions,
+  roles,
+  userRoles,
+  users,
+} from '@/db/schema';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, expectDbError, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
-import { assignRoles, defaultWorkspaceId, workspacePath } from './workspace';
 
 let app: INestApplication;
 let http: App;
 let db: TestDatabase;
 let closeDb: () => Promise<void>;
 const storage = new InMemoryObjectStorage();
-/** 工作區範圍 API 的前綴（beforeAll 裡設定）。 */
-let WS = '';
-let workspaceId = '';
 
 const SUPER_ADMIN = { email: 'access-root@example.com', password: 'RootPassword!2026' };
 const ADMIN = { email: 'access-admin@example.com', password: 'AdminPassword!2026' };
@@ -47,12 +52,8 @@ async function roleId(slug: string): Promise<string> {
   return role.id;
 }
 
-/** 資料夾授權的對象與檔案權限都在工作區裡：測試建立的角色是工作區角色。 */
 async function createRole(slug: string, keys: string[] = []): Promise<string> {
-  const [role] = await db
-    .insert(roles)
-    .values({ slug, name: slug, scope: 'workspace' })
-    .returning();
+  const [role] = await db.insert(roles).values({ slug, name: slug }).returning();
   if (!role) throw new Error('建立角色失敗');
   for (const key of keys) {
     // oxlint-disable-next-line no-await-in-loop -- 測試資料，筆數很少
@@ -79,8 +80,9 @@ async function createActiveUser(
     })
     .returning();
   if (!user) throw new Error('建立使用者失敗');
-  // 都是預設工作區的成員；角色依範圍分進全域或工作區
-  await assignRoles(db, user.id, roleIds, workspaceId);
+  if (roleIds.length > 0) {
+    await db.insert(userRoles).values(roleIds.map((id) => ({ userId: user.id, roleId: id })));
+  }
   return user.id;
 }
 
@@ -126,23 +128,23 @@ function api(token: string) {
 }
 
 async function createFolder(token: string, name: string, parentId: string | null = null) {
-  const response = await api(token).post(`${WS}/file-folders`, { name, parentId }).expect(201);
+  const response = await api(token).post('/file-folders', { name, parentId }).expect(201);
   return (response.body as { data: FolderBody }).data;
 }
 
 async function uploadFile(token: string, name: string, folderId: string | null) {
   const started = await api(token)
-    .post(`${WS}/files`, { name, contentType: 'text/plain', size: 10, folderId })
+    .post('/files', { name, contentType: 'text/plain', size: 10, folderId })
     .expect(201);
   const { file, upload } = (started.body as { data: { file: FileBody; upload: { url: string } } })
     .data;
   storage.simulateBrowserUpload(upload.url, 10);
-  const completed = await api(token).post(`${WS}/files/${file.id}/complete`, {}).expect(200);
+  const completed = await api(token).post(`/files/${file.id}/complete`, {}).expect(200);
   return (completed.body as { data: FileBody }).data;
 }
 
 async function listFolders(token: string) {
-  const response = await api(token).get(`${WS}/file-folders`).expect(200);
+  const response = await api(token).get('/file-folders').expect(200);
   return (
     response.body as { data: { items: FolderBody[]; rootCapabilities: { canCreate: boolean } } }
   ).data;
@@ -158,7 +160,7 @@ async function readableNames(token: string): Promise<string[]> {
 }
 
 async function listFiles(token: string, query = '') {
-  const response = await api(token).get(`${WS}/files${query}`).expect(200);
+  const response = await api(token).get(`/files${query}`).expect(200);
   return (response.body as { data: { items: FileBody[] } }).data.items;
 }
 
@@ -174,7 +176,6 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
   let adminArtFile: FileBody;
 
   beforeAll(async () => {
-    process.env.DATABASE_URL = inject('databaseUrl');
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN.email;
     process.env.SUPER_ADMIN_PASSWORD = SUPER_ADMIN.password;
@@ -185,14 +186,12 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
     await truncateAll(db);
     const { runSeed } = await import('@/db/seeds/index');
     await runSeed(db as never);
-    workspaceId = await defaultWorkspaceId(db);
-    WS = workspacePath(workspaceId);
 
     artTeam = await createRole('art-team');
     const sharer = await createRole('sharer', ['file:read', 'file:share']);
-    await createActiveUser(ADMIN, [await roleId('admin'), await roleId('workspace-admin')]);
-    await createActiveUser(ARTIST, [await roleId('workspace-member'), artTeam]);
-    await createActiveUser(OUTSIDER, [await roleId('workspace-member')]);
+    await createActiveUser(ADMIN, [await roleId('admin')]);
+    await createActiveUser(ARTIST, [await roleId('member'), artTeam]);
+    await createActiveUser(OUTSIDER, [await roleId('member')]);
     await createActiveUser(SHARER, [sharer]);
 
     const { AppModule } = await import('@/app.module');
@@ -202,7 +201,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       .compile();
     app = moduleRef.createNestApplication({ logger: false });
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
 
     const admin = await login(ADMIN);
     art = await createFolder(admin, '美術');
@@ -231,7 +230,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
   it('授權給角色 → 角色的持有者看到該資料夾與子孫、其中的檔案；其他資料夾鎖住（403）', async () => {
     const admin = await login(ADMIN);
     const granted = await api(admin)
-      .put(`${WS}/file-folders/${art.id}/grants`, {
+      .put(`/file-folders/${art.id}/grants`, {
         subjectType: 'role',
         subjectId: artTeam,
         level: 'contributor',
@@ -252,7 +251,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       canShare: false,
     });
     expect((await listFiles(artist)).map((file) => file.name)).toEqual(['admin.txt']);
-    const locked = await api(artist).get(`${WS}/files?folderId=${plan.id}`).expect(403);
+    const locked = await api(artist).get(`/files?folderId=${plan.id}`).expect(403);
     expect(errorCode(locked)).toBe('AUTHZ_FORBIDDEN');
 
     // 沒有授權的成員：資料夾都鎖住
@@ -263,17 +262,17 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
     const artist = await login(ARTIST);
     const mine = await uploadFile(artist, 'mine.txt', art.id);
     expect(mine.capabilities).toEqual({ canUpdate: true, canDelete: true });
-    await api(artist).patch(`${WS}/files/${mine.id}`, { name: 'mine2.txt' }).expect(200);
+    await api(artist).patch(`/files/${mine.id}`, { name: 'mine2.txt' }).expect(200);
 
     const theirs = (await listFiles(artist, `?folderId=${art.id}`)).find(
       (file) => file.id === adminArtFile.id,
     );
     expect(theirs?.capabilities).toEqual({ canUpdate: false, canDelete: false });
     const denied = await api(artist)
-      .patch(`${WS}/files/${adminArtFile.id}`, { name: 'hacked.txt' })
+      .patch(`/files/${adminArtFile.id}`, { name: 'hacked.txt' })
       .expect(403);
     expect(errorCode(denied)).toBe('AUTHZ_FORBIDDEN');
-    await api(artist).delete(`${WS}/files/${adminArtFile.id}`).expect(403);
+    await api(artist).delete(`/files/${adminArtFile.id}`).expect(403);
 
     const [record] = await db
       .select()
@@ -281,33 +280,33 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       .where(and(eq(auditLogs.action, 'authz.denied'), eq(auditLogs.errorCode, 'AUTHZ_FORBIDDEN')));
     expect(record?.metadata).toMatchObject({ resourceType: 'file', resourceId: adminArtFile.id });
 
-    await api(artist).delete(`${WS}/files/${mine.id}`).expect(204);
+    await api(artist).delete(`/files/${mine.id}`).expect(204);
   });
 
   it('鎖住的資料夾裡的檔案：詳情 404（檔案不公開）；上傳到鎖住的資料夾 403', async () => {
     const artist = await login(ARTIST);
     const plans = await listFiles(await login(ADMIN), `?folderId=${plan.id}`);
-    const response = await api(artist).get(`${WS}/files/${plans[0]?.id}`).expect(404);
+    const response = await api(artist).get(`/files/${plans[0]?.id}`).expect(404);
     expect(errorCode(response)).toBe('FILE_NOT_FOUND');
     await api(artist)
-      .post(`${WS}/files`, { name: 'x.txt', contentType: 'text/plain', size: 1, folderId: plan.id })
+      .post('/files', { name: 'x.txt', contentType: 'text/plain', size: 1, folderId: plan.id })
       .expect(403);
   });
 
   it('contributor 不能管理授權；manager 可以，並看得到繼承來的授權與來源', async () => {
     const artist = await login(ARTIST);
-    await api(artist).get(`${WS}/file-folders/${art.id}/grants`).expect(403);
+    await api(artist).get(`/file-folders/${art.id}/grants`).expect(403);
 
     const admin = await login(ADMIN);
     await api(admin)
-      .put(`${WS}/file-folders/${artUi.id}/grants`, {
+      .put(`/file-folders/${artUi.id}/grants`, {
         subjectType: 'role',
         subjectId: artTeam,
         level: 'manager',
       })
       .expect(200);
 
-    const list = await api(artist).get(`${WS}/file-folders/${artUi.id}/grants`).expect(200);
+    const list = await api(artist).get(`/file-folders/${artUi.id}/grants`).expect(200);
     const body = (list.body as { data: GrantListBody }).data;
     expect(body.assignableLevels).toEqual(['viewer', 'contributor', 'editor', 'manager']);
     expect(body.items).toEqual([
@@ -321,16 +320,16 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
 
     // manager 可以把 ui 分享給 member 角色（viewer）
     await api(artist)
-      .put(`${WS}/file-folders/${artUi.id}/grants`, {
+      .put(`/file-folders/${artUi.id}/grants`, {
         subjectType: 'role',
-        subjectId: await roleId('workspace-member'),
+        subjectId: await roleId('member'),
         level: 'viewer',
       })
       .expect(200);
     expect(await readableNames(await login(OUTSIDER))).toEqual(['ui']);
 
     const subjects = await api(artist)
-      .get(`${WS}/file-folders/${artUi.id}/grant-subjects?keyword=art`)
+      .get(`/file-folders/${artUi.id}/grant-subjects?keyword=art`)
       .expect(200);
     expect((subjects.body as { data: { items: { id: string }[] } }).data.items).toEqual([
       expect.objectContaining({ id: artTeam }),
@@ -339,11 +338,11 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
 
   it('反提權：只有全域 file:read ＋ file:share 的人能授予 viewer，不能授予 contributor', async () => {
     const sharer = await login(SHARER);
-    const list = await api(sharer).get(`${WS}/file-folders/${plan.id}/grants`).expect(200);
+    const list = await api(sharer).get(`/file-folders/${plan.id}/grants`).expect(200);
     expect((list.body as { data: GrantListBody }).data.assignableLevels).toEqual(['viewer']);
 
     const escalated = await api(sharer)
-      .put(`${WS}/file-folders/${plan.id}/grants`, {
+      .put(`/file-folders/${plan.id}/grants`, {
         subjectType: 'role',
         subjectId: artTeam,
         level: 'contributor',
@@ -357,21 +356,21 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
     );
 
     await api(sharer)
-      .put(`${WS}/file-folders/${plan.id}/grants`, {
+      .put(`/file-folders/${plan.id}/grants`, {
         subjectType: 'role',
         subjectId: artTeam,
         level: 'viewer',
       })
       .expect(200);
     // 也不能把別人授予的較高等級降級或移除
-    await api(sharer).delete(`${WS}/file-folders/${art.id}/grants/role/${artTeam}`).expect(403);
+    await api(sharer).delete(`/file-folders/${art.id}/grants/role/${artTeam}`).expect(403);
   });
 
   it('移除授權：上層的授權沒了，上層鎖住、被直接授權的子資料夾仍讀得到', async () => {
     const admin = await login(ADMIN);
-    await api(admin).delete(`${WS}/file-folders/${art.id}/grants/role/${artTeam}`).expect(204);
+    await api(admin).delete(`/file-folders/${art.id}/grants/role/${artTeam}`).expect(204);
     const missing = await api(admin)
-      .delete(`${WS}/file-folders/${art.id}/grants/role/${artTeam}`)
+      .delete(`/file-folders/${art.id}/grants/role/${artTeam}`)
       .expect(404);
     expect(errorCode(missing)).toBe('FILE_GRANT_NOT_FOUND');
 
@@ -387,7 +386,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
 
   it('授權對象不存在 → FILE_GRANT_SUBJECT_NOT_FOUND', async () => {
     const response = await api(await login(ADMIN))
-      .put(`${WS}/file-folders/${art.id}/grants`, {
+      .put(`/file-folders/${art.id}/grants`, {
         subjectType: 'role',
         subjectId: '00000000-0000-4000-8000-000000000000',
         level: 'viewer',
@@ -416,14 +415,14 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
     const admin = await login(ADMIN);
     const [outsiderUser] = await db.select().from(users).where(eq(users.email, OUTSIDER.email));
     const subjects = await api(admin)
-      .get(`${WS}/file-folders/${plan.id}/grant-subjects?subjectType=user&keyword=outsider`)
+      .get(`/file-folders/${plan.id}/grant-subjects?subjectType=user&keyword=outsider`)
       .expect(200);
     expect((subjects.body as { data: { items: { id: string }[] } }).data.items).toEqual([
       expect.objectContaining({ id: outsiderUser?.id, subjectType: 'user' }),
     ]);
 
     const past = await api(admin)
-      .put(`${WS}/file-folders/${plan.id}/grants`, {
+      .put(`/file-folders/${plan.id}/grants`, {
         subjectType: 'user',
         subjectId: outsiderUser?.id,
         level: 'viewer',
@@ -433,7 +432,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
     expect(errorCode(past)).toBe('VALIDATION_FAILED');
 
     await api(admin)
-      .put(`${WS}/file-folders/${plan.id}/grants`, {
+      .put(`/file-folders/${plan.id}/grants`, {
         subjectType: 'user',
         subjectId: outsiderUser?.id,
         level: 'viewer',
@@ -449,7 +448,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       .set({ expiresAt: new Date(Date.now() - 1000) })
       .where(and(eq(resourceGrants.resourceId, plan.id), eq(resourceGrants.subjectType, 'user')));
     expect(await readableNames(outsider)).not.toContain('企劃');
-    const list = await api(admin).get(`${WS}/file-folders/${plan.id}/grants`).expect(200);
+    const list = await api(admin).get(`/file-folders/${plan.id}/grants`).expect(200);
     expect(
       (list.body as { data: GrantListBody & { items: { isExpired: boolean }[] } }).data.items,
     ).toContainEqual(expect.objectContaining({ subjectType: 'user', isExpired: true }));
@@ -458,7 +457,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
   it('P2：中斷繼承 → 複製目前繼承到的授權；移除之後上層的人看不到，全域權限者仍看得到', async () => {
     const admin = await login(ADMIN);
     await api(admin)
-      .put(`${WS}/file-folders/${art.id}/grants`, {
+      .put(`/file-folders/${art.id}/grants`, {
         subjectType: 'role',
         subjectId: artTeam,
         level: 'contributor',
@@ -469,7 +468,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
     expect(await readableNames(artist)).toContain('私人');
 
     const broken = await api(admin)
-      .patch(`${WS}/file-folders/${secret.id}/access`, { inheritGrants: false })
+      .patch(`/file-folders/${secret.id}/access`, { inheritGrants: false })
       .expect(200);
     const body = (broken.body as { data: GrantListBody & { inheritGrants: boolean } }).data;
     expect(body.inheritGrants).toBe(false);
@@ -479,7 +478,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
     // 複製之後還看得到
     expect(await readableNames(artist)).toContain('私人');
 
-    await api(admin).delete(`${WS}/file-folders/${secret.id}/grants/role/${artTeam}`).expect(204);
+    await api(admin).delete(`/file-folders/${secret.id}/grants/role/${artTeam}`).expect(204);
     const visible = await readableNames(artist);
     expect(visible).toContain('美術');
     expect(visible).not.toContain('私人');
@@ -497,7 +496,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
 
     // 恢復繼承：上層的授權又流下來
     await api(admin)
-      .patch(`${WS}/file-folders/${secret.id}/access`, { inheritGrants: true })
+      .patch(`/file-folders/${secret.id}/access`, { inheritGrants: true })
       .expect(200);
     expect(await readableNames(artist)).toContain('私人');
   });
@@ -505,7 +504,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
   describe('申請存取（docs/rbac/07-resource-grants.md §6.5）', () => {
     async function pendingRequests(token: string, folderId: string) {
       const response = await api(token)
-        .get(`${WS}/file-folders/${folderId}/access-requests`)
+        .get(`/file-folders/${folderId}/access-requests`)
         .expect(200);
       return (response.body as { data: { items: { id: string; level: string }[] } }).data.items;
     }
@@ -513,14 +512,11 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
     it('申請 → 重送不另建 → 清單標出申請中 → 資料夾管理者核准 → 讀得到', async () => {
       const outsider = await login(OUTSIDER);
       const first = await api(outsider)
-        .post(`${WS}/file-folders/${plan.id}/access-requests`, {
-          level: 'viewer',
-          reason: '需要看企劃',
-        })
+        .post(`/file-folders/${plan.id}/access-requests`, { level: 'viewer', reason: '需要看企劃' })
         .expect(202);
       expect((first.body as { data: { submitted: boolean } }).data.submitted).toBe(true);
       const again = await api(outsider)
-        .post(`${WS}/file-folders/${plan.id}/access-requests`, { level: 'viewer' })
+        .post(`/file-folders/${plan.id}/access-requests`, { level: 'viewer' })
         .expect(202);
       expect((again.body as { data: { submitted: boolean } }).data.submitted).toBe(false);
 
@@ -532,7 +528,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
 
       // 只有 viewer 的人不能審
       await api(await login(ARTIST))
-        .get(`${WS}/file-folders/${plan.id}/access-requests`)
+        .get(`/file-folders/${plan.id}/access-requests`)
         .expect(403);
 
       const admin = await login(ADMIN);
@@ -540,10 +536,10 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       expect(request).toMatchObject({ level: 'viewer' });
       // 不是這個資料夾的申請
       await api(admin)
-        .post(`${WS}/file-folders/${art.id}/access-requests/${request?.id}/approve`, {})
+        .post(`/file-folders/${art.id}/access-requests/${request?.id}/approve`, {})
         .expect(404);
       await api(admin)
-        .post(`${WS}/file-folders/${plan.id}/access-requests/${request?.id}/approve`, {})
+        .post(`/file-folders/${plan.id}/access-requests/${request?.id}/approve`, {})
         .expect(204);
 
       expect(await readableNames(outsider)).toContain('企劃');
@@ -558,7 +554,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
 
       // 已經有這個等級
       const granted = await api(outsider)
-        .post(`${WS}/file-folders/${plan.id}/access-requests`, { level: 'viewer' })
+        .post(`/file-folders/${plan.id}/access-requests`, { level: 'viewer' })
         .expect(409);
       expect(errorCode(granted)).toBe('FILE_ACCESS_ALREADY_GRANTED');
     });
@@ -566,12 +562,12 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
     it('駁回：申請消失、權限不變', async () => {
       const outsider = await login(OUTSIDER);
       await api(outsider)
-        .post(`${WS}/file-folders/${plan.id}/access-requests`, { level: 'contributor' })
+        .post(`/file-folders/${plan.id}/access-requests`, { level: 'contributor' })
         .expect(202);
       const admin = await login(ADMIN);
       const [request] = await pendingRequests(admin, plan.id);
       await api(admin)
-        .post(`${WS}/file-folders/${plan.id}/access-requests/${request?.id}/reject`, {
+        .post(`/file-folders/${plan.id}/access-requests/${request?.id}/reject`, {
           comment: '不需要',
         })
         .expect(204);
@@ -583,7 +579,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
     it('也可以從審批頁核准（approval:review）；申請人自己沒有 approval:review 不能核准', async () => {
       const outsider = await login(OUTSIDER);
       await api(outsider)
-        .post(`${WS}/file-folders/${art.id}/access-requests`, { level: 'editor' })
+        .post(`/file-folders/${art.id}/access-requests`, { level: 'editor' })
         .expect(202);
       const admin = await login(ADMIN);
       const [request] = await pendingRequests(admin, art.id);
@@ -632,11 +628,11 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       // 共用資料夾：誰都能上傳；上傳的檔案別人也能改（editor）
       const file = await uploadFile(artist, 'shared.txt', shared?.id ?? null);
       const outsider = await login(OUTSIDER);
-      await api(outsider).patch(`${WS}/files/${file.id}`, { name: 'shared-2.txt' }).expect(200);
+      await api(outsider).patch(`/files/${file.id}`, { name: 'shared-2.txt' }).expect(200);
 
       // 個人資料夾：別人看不到裡面的檔案
       const mine = await uploadFile(artist, 'mine.txt', personal[0]?.id ?? null);
-      await api(outsider).get(`${WS}/files/${mine.id}`).expect(404);
+      await api(outsider).get(`/files/${mine.id}`).expect(404);
     });
 
     it('系統資料夾不能改名、移動、刪除（管理員也一樣）', async () => {
@@ -644,12 +640,12 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       const { items } = await listFolders(admin);
       const [shared] = byKind(items, 'shared');
       const renamed = await api(admin)
-        .patch(`${WS}/file-folders/${shared?.id}`, { name: 'x' })
+        .patch(`/file-folders/${shared?.id}`, { name: 'x' })
         .expect(403);
       expect(errorCode(renamed)).toBe('FILE_FOLDER_SYSTEM_PROTECTED');
-      await api(admin).delete(`${WS}/file-folders/${shared?.id}`).expect(403);
+      await api(admin).delete(`/file-folders/${shared?.id}`).expect(403);
       await api(admin)
-        .post(`${WS}/files/move`, { fileIds: [], folderIds: [shared?.id], targetFolderId: art.id })
+        .post('/files/move', { fileIds: [], folderIds: [shared?.id], targetFolderId: art.id })
         .expect(403);
       // 全域 file:read：看得到每個人的個人資料夾
       expect(byKind(items, 'personal').length).toBeGreaterThan(1);
@@ -660,7 +656,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       const id = await createActiveUser(newcomer, []);
       const admin = await login(ADMIN);
       await api(admin)
-        .put(`${WS}/members/${id}/roles`, { roleIds: [await roleId('workspace-member')] })
+        .put(`/users/${id}/roles`, { roleIds: [await roleId('member')] })
         .expect(200);
       // 事件在回應之後處理：等它落地
       await expect
@@ -676,13 +672,13 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       const admin = await login(ADMIN);
       const emptyOne = { email: 'access-empty@example.com', password: 'EmptyPassword!2026' };
       const busyOne = { email: 'access-busy@example.com', password: 'BusyPassword!2026' };
-      const member = await roleId('workspace-member');
+      const member = await roleId('member');
       const emptyId = await createActiveUser(emptyOne, []);
       const busyId = await createActiveUser(busyOne, []);
       for (const id of [emptyId, busyId]) {
         // oxlint-disable-next-line no-await-in-loop -- 依序指派，等各自的個人資料夾建好
         await api(admin)
-          .put(`${WS}/members/${id}/roles`, { roleIds: [member] })
+          .put(`/users/${id}/roles`, { roleIds: [member] })
           .expect(200);
       }
       const personalOf = async (email: string) =>

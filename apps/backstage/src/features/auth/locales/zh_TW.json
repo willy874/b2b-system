@@ -1,0 +1,17 @@
+{
+  "auth": {
+    "login": {
+      "title": "登入",
+      "submit": "登入",
+      "redirecting": "正在前往登入頁…",
+      "signedOut": "你已登出。所有產品共用同一組登入，登出後其他產品也會一起登出。"
+    },
+    "logout": { "success": "已登出。" },
+    "callback": {
+      "title": "登入",
+      "working": "正在完成登入…",
+      "failed": "登入沒有完成，連結可能已過期或已使用過。請重新登入。",
+      "cancelled": "已取消登入。"
+    }
+  }
+}

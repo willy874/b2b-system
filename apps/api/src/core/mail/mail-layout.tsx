@@ -23,7 +23,7 @@ export function MailLayout({ locale, preview, footer, children }: MailLayoutProp
       <Preview>{preview}</Preview>
       <Body style={body}>
         <Container style={container}>
-          <Text style={brand}>Game Editor</Text>
+          <Text style={brand}>B2B System</Text>
           <Section>{children}</Section>
           <Hr style={divider} />
           <Text style={footerText}>{footer}</Text>

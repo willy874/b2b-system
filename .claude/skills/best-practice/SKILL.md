@@ -1,6 +1,6 @@
 ---
 name: best-practice
-description: 套用本 repo 的寫程式規範（docs/conventions/）。在這個專案撰寫、修改、重構或 review 任何程式碼（apps/web、apps/api、apps/e2e、packages/*）之前使用；也在使用者問「這樣寫符合規範嗎」「幫我檢查規範」「best practice」時使用。
+description: 套用本 repo 的寫程式規範（docs/conventions/）。在這個專案撰寫、修改、重構或 review 任何程式碼（apps/backstage、apps/api、apps/e2e、packages/*）之前使用；也在使用者問「這樣寫符合規範嗎」「幫我檢查規範」「best practice」時使用。
 ---
 
 # best-practice

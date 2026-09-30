@@ -6,8 +6,8 @@ import {
   isRelayableChannel,
   MAX_RELAY_ENVELOPE_BYTES,
   ServerEvent,
-} from '@game-editor/realtime';
-import type { RealtimeConnectErrorData, SessionRenewResult } from '@game-editor/realtime';
+} from '@b2b-system/realtime';
+import type { RealtimeConnectErrorData, SessionRenewResult } from '@b2b-system/realtime';
 import { Inject, Logger, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpAdapterHost } from '@nestjs/core';
@@ -25,7 +25,11 @@ import { AccessTokenVerifier } from '@/common/auth';
 import { Authenticated } from '@/common/decorators';
 import { PermissionsGuard, WsAuthGuard } from '@/common/guards';
 import type { Env } from '@/core/config';
+import { AppException } from '@/core/errors';
 import type { ErrorCode } from '@/core/errors';
+import { requestHost } from '@/core/http';
+import { requireTenant, runInTenantContext, Tenancy, TenantDirectory } from '@/core/tenant';
+import type { TenantContext } from '@/core/tenant';
 
 import { RealtimeAudience } from './realtime.audience';
 import { REALTIME_LIMITS, REALTIME_MAX_FRAME_BYTES } from './realtime.constants';
@@ -34,7 +38,7 @@ import { RealtimeExpiry } from './realtime.expiry';
 import { SocketIoRealtimePublisher } from './realtime.publisher';
 import { clientIpOf, FixedWindowCounter } from './realtime.rate-limit';
 import type { TrustProxyFn } from './realtime.rate-limit';
-import { userRoom } from './realtime.rooms';
+import { idpSessionRoom, tenantRoom, userRoom } from './realtime.rooms';
 import type { RealtimeServer, RealtimeSocket } from './realtime.types';
 
 const SessionRenewSchema = z.object({ token: z.string().min(1).max(4096) });
@@ -48,7 +52,9 @@ function connectError(code: ErrorCode): Error {
  * 連線的入口（docs/architecture/backend/08-realtime.md §3、§8、§11）。與 `RealtimePublisher` 的
  * Socket.io 實作一起構成傳輸層；listener 與 audience 不直接碰這裡的 `server`。
  *
- * - 連線：`allowRequest`（Origin ＋ 每 IP handshake 次數）→ `io.use` 驗 access token → 加入 room。
+ * - 連線：`allowRequest`（Origin ＋ 每 IP handshake 次數）→ `io.use` 以網域決定租戶、驗 access token → 加入 room。
+ * - 租戶：handshake 的網域決定這條連線屬於哪個租戶，之後這條連線上的每則訊息都在該租戶的脈絡裡處理
+ *   （docs/adr/0020-physical-tenant-isolation.md D2、D3）。
  * - 訊息：`WsAuthGuard` 重驗使用者 → `PermissionsGuard` 看宣告；每個處理器都要有授權宣告
  *   （`common/route-audit.ts`）。
  * - Nest 的 APP_GUARD / APP_INTERCEPTOR **不會** 套用到 gateway（WebSocket 的 context creator
@@ -74,6 +80,8 @@ export class RealtimeGateway
   private readonly allowMissingOrigin: boolean;
   private readonly handshakes: FixedWindowCounter;
   private readonly messages: FixedWindowCounter;
+  /** 連線 → 它的租戶脈絡（handshake 時決定，連線期間不變）。 */
+  private readonly tenants = new WeakMap<RealtimeSocket, TenantContext>();
 
   constructor(
     private readonly verifier: AccessTokenVerifier,
@@ -83,6 +91,8 @@ export class RealtimeGateway
     @Inject(REALTIME_LIMITS) private readonly limits: RealtimeLimits,
     private readonly adapterHost: HttpAdapterHost,
     private readonly publisher: SocketIoRealtimePublisher,
+    private readonly directory: TenantDirectory,
+    private readonly tenancy: Tenancy,
   ) {
     this.allowedOrigins = new Set(config.get('REALTIME_ALLOWED_ORIGINS', { infer: true }));
     // 瀏覽器一定帶 Origin；沒帶的只會是 Node 客戶端（整合測試、腳本），production 一律拒絕
@@ -108,7 +118,7 @@ export class RealtimeGateway
 
     // 驗證失敗就不建立連線，不會有「先連上再踢掉」的空窗
     io.use((socket, next) => {
-      this.authenticate(io, socket).then(
+      this.enterTenant(io, socket).then(
         (code) => {
           if (!code) return next();
           this.logger.warn({ ip: socket.handshake.address, code }, 'WebSocket handshake 驗證失敗');
@@ -123,6 +133,18 @@ export class RealtimeGateway
   }
 
   async handleConnection(socket: RealtimeSocket): Promise<void> {
+    const tenant = this.tenants.get(socket);
+    if (!tenant) {
+      socket.disconnect(true);
+      return;
+    }
+    // 之後這條連線上的每則訊息都在同一個租戶裡處理；socket.io 在 middleware 鏈之後以 nextTick 分派，
+    // AsyncLocalStorage 會跟著傳過去
+    socket.use((_packet, next) => runInTenantContext(tenant, () => next()));
+    await runInTenantContext(tenant, () => this.onConnected(socket));
+  }
+
+  private async onConnected(socket: RealtimeSocket): Promise<void> {
     const { userId } = socket.data;
     socket.data.connectedAt = Date.now();
     this.limitMessages(socket);
@@ -136,6 +158,8 @@ export class RealtimeGateway
 
     try {
       await socket.join(userRoom(userId));
+      await socket.join(tenantRoom(requireTenant().id));
+      if (socket.data.idpSessionUid) await socket.join(idpSessionRoom(socket.data.idpSessionUid));
       await socket.join(await this.audience.roomsFor(userId));
     } catch (error) {
       this.logger.error({ err: error, socketId: socket.id, userId }, '加入 room 失敗，斷線');
@@ -208,8 +232,41 @@ export class RealtimeGateway
       return 'RATE_LIMITED' satisfies ErrorCode;
     }
     const origin = req.headers.origin;
-    const allowed = origin ? this.allowedOrigins.has(origin) : this.allowMissingOrigin;
+    const allowed = origin
+      ? this.allowedOrigins.has(origin) || this.isSameOrigin(origin, req)
+      : this.allowMissingOrigin;
     return allowed ? undefined : 'ORIGIN_NOT_ALLOWED';
+  }
+
+  /**
+   * 頁面與連線同源：每個租戶的 backstage 在自己的網域，連的是同網域的 `/api/socket.io`
+   * （docs/adr/0020-physical-tenant-isolation.md D2），不必把每個租戶的網域都列進 `REALTIME_ALLOWED_ORIGINS`。
+   * 跨站 WebSocket 劫持的頁面在別的網域，Origin 的 host 一定對不上。
+   */
+  private isSameOrigin(origin: string, req: IncomingMessage): boolean {
+    if (!URL.canParse(origin)) return false;
+    const host = requestHost(req.headers, req.socket.remoteAddress, this.trustProxy());
+    return Boolean(host) && new URL(origin).host.toLowerCase() === host;
+  }
+
+  /** 以 handshake 的網域決定租戶，在該租戶裡驗 token；回傳拒絕的錯誤碼。 */
+  private async enterTenant(
+    io: RealtimeServer,
+    socket: RealtimeSocket,
+  ): Promise<ErrorCode | undefined> {
+    const req = socket.request;
+    const host = requestHost(req.headers, req.socket.remoteAddress, this.trustProxy());
+    const record = host ? await this.directory.resolveHost(host) : undefined;
+    if (!record) return 'TENANT_NOT_FOUND';
+    let tenant: TenantContext;
+    try {
+      tenant = await this.tenancy.enter(record);
+    } catch (error) {
+      if (error instanceof AppException) return error.code;
+      throw error;
+    }
+    this.tenants.set(socket, tenant);
+    return runInTenantContext(tenant, () => this.authenticate(io, socket));
   }
 
   /** 驗 token 並把身分寫進 `socket.data`；回傳拒絕的錯誤碼。 */
@@ -231,6 +288,7 @@ export class RealtimeGateway
       email: result.user.email,
       tokenVersion: result.payload.ver,
       expiresAt: result.payload.exp * 1000,
+      idpSessionUid: result.payload.sid,
       connectedAt: Date.now(),
     });
     return undefined;

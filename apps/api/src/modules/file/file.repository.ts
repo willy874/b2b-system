@@ -17,9 +17,8 @@ import {
 } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
-import type { WorkspaceScope } from '@/common/types';
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type { FileInsert, FileRow, FileVariantStatus } from '@/db/schema';
 import { files, users } from '@/db/schema';
 
@@ -45,7 +44,7 @@ function escapeLike(value: string): string {
 
 @Injectable()
 export class FileRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
   private selectWithUploader() {
     return this.db
@@ -72,19 +71,8 @@ export class FileRepository {
     };
   }
 
-  /** 這個工作區未刪除的檔案（含 pending）；別的工作區的 id 一律當作不存在。 */
-  async findById(ws: WorkspaceScope, id: string): Promise<FileWithUploader | undefined> {
-    const [row] = await this.selectWithUploader()
-      .where(and(eq(files.workspaceId, ws.workspaceId), eq(files.id, id), isNull(files.deletedAt)))
-      .limit(1);
-    return row && FileRepository.toFileWithUploader(row);
-  }
-
-  /**
-   * 不限工作區（系統路徑：簽章網址已證明看得到、背景工作以 id 處理）。
-   * 使用者的請求一律用 `findById(ws, id)`。
-   */
-  async findAnyById(id: string): Promise<FileWithUploader | undefined> {
+  /** 未刪除的檔案（含 pending）。 */
+  async findById(id: string): Promise<FileWithUploader | undefined> {
     const [row] = await this.selectWithUploader()
       .where(and(eq(files.id, id), isNull(files.deletedAt)))
       .limit(1);
@@ -98,17 +86,12 @@ export class FileRepository {
    * `scope.folderIds`：只列這些資料夾裡的檔案（根目錄不含在內）；不帶則不限（資料夾層級授權的範圍）。
    */
   async list(
-    ws: WorkspaceScope,
     query: ListFileDto,
     after?: FileCursor,
     scope?: { folderIds: readonly string[] },
   ): Promise<{ items: FileWithUploader[]; total: number; lastCreatedAt: string | undefined }> {
     if (scope?.folderIds.length === 0) return { items: [], total: 0, lastCreatedAt: undefined };
-    const conditions: SQL[] = [
-      eq(files.workspaceId, ws.workspaceId),
-      isNull(files.deletedAt),
-      eq(files.status, 'ready'),
-    ];
+    const conditions: SQL[] = [isNull(files.deletedAt), eq(files.status, 'ready')];
     if (scope) conditions.push(inArray(files.folderId, [...scope.folderIds]));
     if (query.keyword) conditions.push(ilike(files.name, `%${escapeLike(query.keyword)}%`));
     if (query.contentType) {

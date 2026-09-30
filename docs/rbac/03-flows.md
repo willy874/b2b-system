@@ -7,7 +7,7 @@
 ## 1. 登入
 
 ```
-使用者        apps/web                 apps/api                      DB
+使用者        apps/backstage                 apps/api                      DB
   │              │                        │                           │
   │─ 輸入帳密 ──▶│                        │                           │
   │              │─ POST /auth/login ────▶│                           │
@@ -162,7 +162,7 @@ JwtAuthGuard
   ├─ @Public？ → 放行
   ├─ 取 Authorization: Bearer → 驗簽
   │    失敗 → 401 AUTH_TOKEN_INVALID
-  ├─ 讀 payload { sub, ver, jti }
+  ├─ 讀 payload { sub, ver, jti, tid }（tid 要等於網域決定的租戶）
   ├─ 載入 user（快取 30s）
   │    ├─ 不存在 / deleted_at → 401 AUTH_TOKEN_INVALID
   │    ├─ status ≠ active     → 403 AUTH_ACCOUNT_DISABLED
@@ -175,7 +175,7 @@ PermissionsGuard
   │    無宣告 → ★ 預設拒絕？放行？
   │      → 見下方「預設策略」
   ├─ PermissionService.getPermissionSet(userId)
-  │    ├─ 命中 cache（key = `perm:${userId}`，TTL 60s）→ 回傳
+  │    ├─ 命中 cache（key = `${tenantId}:${userId}`，TTL 60s）→ 回傳
   │    └─ miss → 一次 SQL 解析 → 寫入 cache
   ├─ super-admin？ → 放行
   ├─ match = EVERY → keys.every(k => set.has(k))
@@ -206,7 +206,7 @@ ZodValidationPipe → Controller → Service → Repository
 ## 4. 建立角色並授予權限（含反提權）
 
 ```
-管理員         apps/web                       apps/api
+管理員         apps/backstage                       apps/api
   │               │                              │
   │─ 進入 /role ─▶│                              │
   │               │  usePagePermission(ROLE_PAGE)
@@ -342,7 +342,7 @@ PATCH /users/:id { status: 'inactive' }   或   DELETE /users/:id
 ```
 ① 管理員建立使用者（status = pending，password_hash = NULL）
      └─ 產生 activation token（24h）→ 寄信
-② 使用者點連結 /auth/setup?token=xxx
+② 使用者點連結 {AUTH_APP_URL}/setup?token=xxx（apps/auth 的頁面，docs/architecture/04-sso.md §6.2）
      └─ GET  /auth/setup/verify?token=xxx   → 200 { email } | 400 TOKEN_INVALID
      └─ POST /auth/setup { token, password }
            ├─ 密碼強度檢查（≥ 12 字元、非常見密碼）

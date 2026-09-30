@@ -9,6 +9,7 @@ import {
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
+  ListBucketsCommand,
   ListMultipartUploadsCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -23,7 +24,10 @@ import type { OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/comm
 import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '../config';
+// 直接取 env.schema：從 `../config` 取值會載入 config.module（`ConfigModule.forRoot` 在載入時就驗證並快取環境變數）
+import { TENANT_ORIGIN_PLACEHOLDER } from '../config/env.schema';
 import { AppException } from '../errors';
+import { currentTenant, requireTenant, TenantDirectory } from '../tenant';
 import { contentDisposition } from './content-disposition';
 import { ObjectStorage, stableSigningDate } from './object-storage';
 import type {
@@ -62,6 +66,10 @@ function stripQuotes(etag: string | undefined): string {
 /**
  * `ObjectStorage` 的 S3 實作（`@aws-sdk/client-s3`）。
  * 本機連 apps/file-storage，正式環境可直接指向 S3 / MinIO / R2——只改環境變數。
+ *
+ * **每個租戶一個 bucket**（docs/adr/0020-physical-tenant-isolation.md D16）：每個操作都用目前租戶的 bucket
+ * （`TenantContext.storageBucket`），沒有租戶脈絡時拋 `TENANT_NOT_FOUND`，不會退回任何共用的 bucket。
+ * 業務模組的 key 不必帶租戶；檔案維護的對帳只列得到自己租戶的物件。
  */
 @Injectable()
 export class S3ObjectStorage
@@ -69,20 +77,25 @@ export class S3ObjectStorage
   implements OnApplicationBootstrap, OnApplicationShutdown
 {
   private readonly logger = new Logger(S3ObjectStorage.name);
-  private readonly bucket: string;
   private readonly isTest: boolean;
   /** api 自己發請求用（容器內網位址）。 */
   private readonly client: S3Client;
   /**
-   * 只用來簽 presigned URL（瀏覽器看到的位址）。簽章包含 host 與路徑，
-   * 所以不能拿內網的 client 簽完再換網址。
+   * 只用來簽 presigned URL（瀏覽器看到的位址）。簽章包含 host 與路徑，所以不能拿內網的 client 簽完再換網址。
+   * 每個租戶在自己的網域：endpoint 含 `{tenantOrigin}` 時依目前租戶換成它的 origin，每個 endpoint 一個 client。
    */
-  private readonly presigner: S3Client;
-  private bucketReady: Promise<void> | undefined;
+  private readonly presigners = new Map<string, S3Client>();
+  private readonly publicEndpoint: string;
+  private readonly appOrigin: URL;
+  private readonly presignerConfig: S3ClientConfig;
+  /** bucket → 確認（或建立）中的 Promise；失敗時移除，下一次再試。 */
+  private readonly bucketsReady = new Map<string, Promise<void>>();
 
-  constructor(config: ConfigService<Env, true>) {
+  constructor(
+    config: ConfigService<Env, true>,
+    private readonly directory: TenantDirectory,
+  ) {
     super();
-    this.bucket = config.get('FILE_STORAGE_BUCKET', { infer: true });
     this.isTest = config.get('NODE_ENV', { infer: true }) === 'test';
     const common: S3ClientConfig = {
       region: config.get('FILE_STORAGE_REGION', { infer: true }),
@@ -101,46 +114,88 @@ export class S3ObjectStorage
       ...common,
       endpoint: config.get('FILE_STORAGE_ENDPOINT', { infer: true }),
     });
-    this.presigner = new S3Client({
-      ...common,
-      endpoint: config.get('FILE_STORAGE_PUBLIC_ENDPOINT', { infer: true }),
-    });
+    this.presignerConfig = common;
+    this.publicEndpoint = config.get('FILE_STORAGE_PUBLIC_ENDPOINT', { infer: true });
+    this.appOrigin = new URL(config.get('APP_PUBLIC_URL', { infer: true }));
+  }
+
+  /** 目前租戶的 presigner（瀏覽器看到的 endpoint）；沒有租戶時（平台）用 `APP_PUBLIC_URL` 的 origin。 */
+  private async presigner(): Promise<S3Client> {
+    let endpoint = this.publicEndpoint;
+    if (endpoint.includes(TENANT_ORIGIN_PLACEHOLDER)) {
+      const tenant = currentTenant();
+      const origin = tenant
+        ? `${this.appOrigin.protocol}//${await this.directory.requirePrimaryDomain(tenant.id)}`
+        : this.appOrigin.origin;
+      endpoint = endpoint.replace(TENANT_ORIGIN_PLACEHOLDER, origin);
+    }
+    let client = this.presigners.get(endpoint);
+    if (!client) {
+      client = new S3Client({ ...this.presignerConfig, endpoint });
+      this.presigners.set(endpoint, client);
+    }
+    return client;
   }
 
   onApplicationBootstrap(): void {
     // 儲存服務還沒起來不該擋住整個 api（RBAC 與檔案無關）；第一次用到檔案時會再試
     if (this.isTest) return;
-    this.ensureBucket().catch((error: unknown) => {
+    this.ensureTenantBuckets().catch((error: unknown) => {
       this.logger.warn({ err: error }, '啟動時無法確認 bucket，第一次存取檔案時會重試');
     });
   }
 
   onApplicationShutdown(): void {
     this.client.destroy();
-    this.presigner.destroy();
+    for (const presigner of this.presigners.values()) presigner.destroy();
+    this.presigners.clear();
   }
 
+  /** 確認目前租戶的 bucket 存在，不存在就建立。 */
   ensureBucket(): Promise<void> {
-    this.bucketReady ??= this.createBucketIfMissing().catch((error: unknown) => {
-      this.bucketReady = undefined;
-      throw error;
-    });
-    return this.bucketReady;
+    return this.ensure(this.bucket());
   }
 
+  /**
+   * 健康檢查：儲存服務連得上（`ListBuckets`）。不看任何一個租戶的 bucket——健康檢查沒有租戶，
+   * 各租戶的 bucket 在第一次用到時確認。
+   */
   async ping(): Promise<boolean> {
     try {
-      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      await this.client.send(new ListBucketsCommand({}));
       return true;
     } catch {
       return false;
     }
   }
 
+  /** 目前租戶的 bucket；沒有租戶脈絡時拋 `TENANT_NOT_FOUND`。 */
+  private bucket(): string {
+    return requireTenant().storageBucket;
+  }
+
+  private ensure(bucket: string): Promise<void> {
+    let ready = this.bucketsReady.get(bucket);
+    if (!ready) {
+      ready = this.createBucketIfMissing(bucket).catch((error: unknown) => {
+        this.bucketsReady.delete(bucket);
+        throw error;
+      });
+      this.bucketsReady.set(bucket, ready);
+    }
+    return ready;
+  }
+
+  /** 啟動時先確認每個 `active` 租戶的 bucket（檔案維護的對帳一開始就要列得到）。 */
+  private async ensureTenantBuckets(): Promise<void> {
+    const tenants = await this.directory.listActive();
+    await Promise.all(tenants.map((tenant) => this.ensure(tenant.storageBucket)));
+  }
+
   async head(key: string): Promise<StoredObjectHead | undefined> {
     try {
       const result = await this.client.send(
-        new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
+        new HeadObjectCommand({ Bucket: this.bucket(), Key: key }),
       );
       return {
         size: result.ContentLength ?? 0,
@@ -155,7 +210,7 @@ export class S3ObjectStorage
 
   async delete(key: string): Promise<void> {
     try {
-      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket(), Key: key }));
     } catch (error) {
       if (isNotFound(error)) return;
       throw this.unavailable(error, 'delete');
@@ -165,7 +220,7 @@ export class S3ObjectStorage
   async getObject(key: string): Promise<Readable | undefined> {
     try {
       const result = await this.client.send(
-        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+        new GetObjectCommand({ Bucket: this.bucket(), Key: key }),
       );
       // Node.js 執行環境下 Body 是 IncomingMessage（Readable）
       return result.Body as Readable | undefined;
@@ -179,7 +234,7 @@ export class S3ObjectStorage
     try {
       await this.client.send(
         new PutObjectCommand({
-          Bucket: this.bucket,
+          Bucket: this.bucket(),
           Key: key,
           Body: body,
           ContentType: options.contentType,
@@ -198,7 +253,7 @@ export class S3ObjectStorage
         // oxlint-disable-next-line no-await-in-loop -- 下一頁要用這一頁的 continuation token
         page = await this.client.send(
           new ListObjectsV2Command({
-            Bucket: this.bucket,
+            Bucket: this.bucket(),
             Prefix: prefix,
             ContinuationToken: continuationToken,
           }),
@@ -220,8 +275,8 @@ export class S3ObjectStorage
 
   async presignUpload(key: string, options: PresignUploadOptions): Promise<PresignedRequest> {
     const url = await getSignedUrl(
-      this.presigner,
-      new PutObjectCommand({ Bucket: this.bucket, Key: key, ContentType: options.contentType }),
+      await this.presigner(),
+      new PutObjectCommand({ Bucket: this.bucket(), Key: key, ContentType: options.contentType }),
       // 把 Content-Type 簽進去：瀏覽器換了型別就上傳失敗，存下來的型別一定是登記的那個
       { expiresIn: options.expiresIn, signableHeaders: new Set(['content-type']) },
     );
@@ -237,9 +292,9 @@ export class S3ObjectStorage
     const signingDate = stableSigningDate(Date.now(), options.expiresIn);
     const expiresAt = new Date(signingDate.getTime() + options.expiresIn * 1000);
     const url = await getSignedUrl(
-      this.presigner,
+      await this.presigner(),
       new GetObjectCommand({
-        Bucket: this.bucket,
+        Bucket: this.bucket(),
         Key: key,
         ResponseContentDisposition: contentDisposition(options.disposition, options.fileName),
         // 物件內容以 id 為 key、永不覆寫：在網址有效期間內可以放心快取
@@ -254,7 +309,7 @@ export class S3ObjectStorage
     try {
       const result = await this.client.send(
         new CreateMultipartUploadCommand({
-          Bucket: this.bucket,
+          Bucket: this.bucket(),
           Key: key,
           ContentType: options.contentType,
         }),
@@ -273,9 +328,9 @@ export class S3ObjectStorage
     options: { expiresIn: number },
   ): Promise<PresignedRequest> {
     const url = await getSignedUrl(
-      this.presigner,
+      await this.presigner(),
       new UploadPartCommand({
-        Bucket: this.bucket,
+        Bucket: this.bucket(),
         Key: key,
         UploadId: uploadId,
         PartNumber: partNumber,
@@ -298,7 +353,7 @@ export class S3ObjectStorage
     try {
       await this.client.send(
         new CompleteMultipartUploadCommand({
-          Bucket: this.bucket,
+          Bucket: this.bucket(),
           Key: key,
           UploadId: uploadId,
           MultipartUpload: {
@@ -321,7 +376,7 @@ export class S3ObjectStorage
   async abortMultipartUpload(key: string, uploadId: string): Promise<void> {
     try {
       await this.client.send(
-        new AbortMultipartUploadCommand({ Bucket: this.bucket, Key: key, UploadId: uploadId }),
+        new AbortMultipartUploadCommand({ Bucket: this.bucket(), Key: key, UploadId: uploadId }),
       );
     } catch (error) {
       if (isNotFound(error)) return;
@@ -338,7 +393,7 @@ export class S3ObjectStorage
         // oxlint-disable-next-line no-await-in-loop -- 下一頁要用這一頁的 marker
         page = await this.client.send(
           new ListMultipartUploadsCommand({
-            Bucket: this.bucket,
+            Bucket: this.bucket(),
             Prefix: prefix,
             KeyMarker: keyMarker,
             UploadIdMarker: uploadIdMarker,
@@ -361,25 +416,31 @@ export class S3ObjectStorage
     } while (keyMarker);
   }
 
-  private async createBucketIfMissing(): Promise<void> {
+  private async createBucketIfMissing(bucket: string): Promise<void> {
     try {
-      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      await this.client.send(new HeadBucketCommand({ Bucket: bucket }));
       return;
     } catch (error) {
-      if (!isNotFound(error)) throw this.unavailable(error, 'headBucket');
+      if (!isNotFound(error)) throw this.unavailable(error, 'headBucket', bucket);
     }
     try {
-      await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
-      this.logger.log({ bucket: this.bucket }, '已建立 bucket');
+      await this.client.send(new CreateBucketCommand({ Bucket: bucket }));
+      this.logger.log({ bucket }, '已建立 bucket');
     } catch (error) {
       // 另一個執行個體剛好同時建立
       if (error instanceof S3ServiceException && error.name === 'BucketAlreadyOwnedByYou') return;
-      throw this.unavailable(error, 'createBucket');
+      throw this.unavailable(error, 'createBucket', bucket);
     }
   }
 
-  private unavailable(error: unknown, operation: string): AppException {
-    this.logger.error({ err: error, operation, bucket: this.bucket }, '物件儲存操作失敗');
+  private unavailable(
+    error: unknown,
+    operation: string,
+    bucket = currentTenant()?.storageBucket,
+  ): AppException {
+    // 已經是業務錯誤（例：沒有租戶脈絡的 TENANT_NOT_FOUND）：不是儲存服務故障，原樣拋出
+    if (error instanceof AppException) return error;
+    this.logger.error({ err: error, operation, bucket }, '物件儲存操作失敗');
     return new AppException('FILE_STORAGE_UNAVAILABLE');
   }
 }

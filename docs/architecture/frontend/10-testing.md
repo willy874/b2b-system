@@ -17,7 +17,7 @@
 ## 2. 設定
 
 ```
-apps/web/src/test/
+apps/backstage/src/test/
 ├── setup.ts              全域 setup（MSW server、jest-dom、清理）
 ├── render.tsx            AllProviders ＋ renderWithPermissions
 ├── fixtures/             固定的測試資料

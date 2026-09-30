@@ -4,6 +4,9 @@ import { createElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Env } from '@/core/config';
+import type { Database } from '@/core/database';
+import { runInTenantContext } from '@/core/tenant';
+import type { TenantDirectory } from '@/core/tenant';
 
 import { toMailLocale } from '../mail-locale';
 import type { MailMessage, MailTransport } from '../mail-transport';
@@ -18,17 +21,61 @@ function setup() {
     }),
   };
   const config = { get: vi.fn(() => 'https://editor.example.com') };
+  const directory = {
+    primaryDomainOf: (id: string) => (id === 't1' ? 'acme.example.com' : undefined),
+    requirePrimaryDomain: async (id: string) => {
+      if (id !== 't1') throw new Error('no domain');
+      return 'acme.example.com';
+    },
+  };
   const service = new MailService(
     transport as unknown as MailTransport,
+    directory as unknown as TenantDirectory,
     config as unknown as ConfigService<Env, true>,
   );
   return { service, sent };
 }
 
 describe('MailService（docs/architecture/backend/11-mail.md §3）', () => {
-  it('link() 以 APP_PUBLIC_URL 開頭並編碼查詢字串', () => {
+  const inTenant = <T>(fn: () => T) =>
+    runInTenantContext(
+      {
+        id: 't1',
+        code: 'acme',
+        db: {} as Database,
+        storageBucket: 'b2b-acme',
+        allowExternalIdp: true,
+      },
+      fn,
+    );
+
+  it('link() 在租戶裡以租戶的主要網域開頭（協定沿用 APP_PUBLIC_URL）', async () => {
     const { service } = setup();
-    expect(service.link('/auth/setup', { token: 'a+b/c=' })).toBe(
+    await expect(inTenant(() => service.link('/approval', { id: '1' }))).resolves.toBe(
+      'https://acme.example.com/approval?id=1',
+    );
+  });
+
+  it('link() 在租戶裡找不到網域 → 拋錯（不退回別的網域）', async () => {
+    const { service } = setup();
+    await expect(
+      runInTenantContext(
+        { id: 't2', code: 'b', db: {} as Database, storageBucket: 'b', allowExternalIdp: true },
+        () => service.link('/approval'),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('accountLink() 帶上租戶代碼（apps/auth 的頁面以它指定租戶）', () => {
+    const { service } = setup();
+    expect(inTenant(() => service.accountLink('/setup', { token: 'x' }))).toBe(
+      'https://editor.example.com/setup?token=x&tenant=acme',
+    );
+  });
+
+  it('沒有租戶時 link() 以 APP_PUBLIC_URL 開頭並編碼查詢字串', async () => {
+    const { service } = setup();
+    await expect(service.link('/auth/setup', { token: 'a+b/c=' })).resolves.toBe(
       'https://editor.example.com/auth/setup?token=a%2Bb%2Fc%3D',
     );
   });

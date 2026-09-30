@@ -1,13 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { Database } from '@/core/database';
+import type { PlatformDatabase } from '@/core/database';
 import type { ObjectStorage } from '@/core/storage';
 
 import { HealthService } from '../health.service';
 
 function createService(execute: () => Promise<unknown>, isStorageUp = true) {
   const storage = { ping: vi.fn(async () => isStorageUp) };
-  return new HealthService({ execute } as unknown as Database, storage as unknown as ObjectStorage);
+  return new HealthService(
+    { execute } as unknown as PlatformDatabase,
+    storage as unknown as ObjectStorage,
+  );
 }
 
 describe('HealthService', () => {

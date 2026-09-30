@@ -26,7 +26,7 @@ const COPY = {
       approved ? `你送出的${label}已經核准。` : `你送出的${label}未通過審核。`,
     subjectLabel: '申請項目：',
     comment: '審核意見：',
-    open: '開啟 Game Editor',
+    open: '開啟 B2B System',
   },
   'en-US': {
     subject: (label: string, approved: boolean) =>
@@ -35,7 +35,7 @@ const COPY = {
       approved ? `Your ${label} has been approved.` : `Your ${label} was not approved.`,
     subjectLabel: 'Request: ',
     comment: 'Reviewer comment: ',
-    open: 'Open Game Editor',
+    open: 'Open B2B System',
   },
 } as const;
 

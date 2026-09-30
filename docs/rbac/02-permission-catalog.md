@@ -27,23 +27,9 @@
 | 跨資源的關聯操作歸屬「被改變的那一邊」 | 指派角色給使用者 → `user:assignRole`（改變的是使用者）              |
 | 具名動作只在 CRUD 無法表達時才新增     | 「停用使用者」是改狀態 → 用 `user:update`，不新增 `user:deactivate` |
 
-### 1.2 範圍（scope）
-
-每個權限鍵屬於一個範圍（[ADR-0018](../adr/0018-workspace-tenancy.md) D2）：
-
-| 範圍 | 由誰持有 | 在哪裡有效 | 權限鍵 |
-| --- | --- | --- | --- |
-| `platform` | 全域角色（`user_roles`） | 全站 | `user:*`、`role:*`、`permission:*`、`auditLog:*`、`system:*`、`approval:*`、`job:*`、`workspace:*` |
-| `workspace` | 工作區角色（`workspace_member_roles`） | 只在指派的那個工作區 | `file:*`、`workspaceMember:*` |
-
-- 角色也有範圍，只能含同範圍的鍵（service 檢查 ＋ DB trigger）；範圍建立後不可變。
-- 使用者在工作區 W 的權限集合 = 平台的鍵 ∪ 在 W 的工作區角色的鍵。
-- 工作區範圍的鍵只能宣告在 `@WorkspaceScoped()` 路由上，平台的鍵只能宣告在其他路由上（`route-audit` 啟動檢查）。
-- super-admin 是兩個範圍的全集，而且能進入任何工作區（D5）。
-
 ---
 
-## 2. 權限清單（共 33 項：平台 23、工作區 10）
+## 2. 權限清單（共 29 項）
 
 ### 2.1 `user` — 使用者
 
@@ -95,18 +81,18 @@
 > 為什麼不是 `approval:update`：核准與駁回是具名的「審核」決定，不是修改請求內容；
 > 也讓「能看不能審」（auditor）與「能審」清楚分開。
 
-### 2.7 `file` — 檔案（工作區範圍）
+### 2.7 `file` — 檔案
 
 | 權限鍵        | 顯示名稱（zh-TW） | 說明                                                         |
 | ------------- | ----------------- | ------------------------------------------------------------ |
-| `file:create` | 上傳檔案          | **這個工作區的所有資料夾**：登記上傳並取得直傳網址、確認上傳完成；建立資料夾（含上傳資料夾時建出的結構） |
-| `file:read`   | 檢視檔案          | **這個工作區的所有資料夾**：檔案列表與詳情，並取得預覽／下載網址         |
-| `file:update` | 編輯檔案          | **這個工作區的所有資料夾**：改名（內容不可改；要換內容就上傳新檔）；資料夾改名；移動檔案與資料夾 |
-| `file:delete` | 刪除檔案          | **這個工作區的所有資料夾**：軟刪除紀錄並刪除物件儲存中的內容；遞迴刪除資料夾（連同其中的檔案與子資料夾） |
+| `file:create` | 上傳檔案          | **所有資料夾**：登記上傳並取得直傳網址、確認上傳完成；建立資料夾（含上傳資料夾時建出的結構） |
+| `file:read`   | 檢視檔案          | **所有資料夾**：檔案列表與詳情，並取得預覽／下載網址         |
+| `file:update` | 編輯檔案          | **所有資料夾**：改名（內容不可改；要換內容就上傳新檔）；資料夾改名；移動檔案與資料夾 |
+| `file:delete` | 刪除檔案          | **所有資料夾**：軟刪除紀錄並刪除物件儲存中的內容；遞迴刪除資料夾（連同其中的檔案與子資料夾） |
 | `file:access` | 使用檔案管理器    | 進入檔案管理器；能看到、能做什麼 **由資料夾授權決定**（不含任何資料夾） |
-| `file:share`  | 管理檔案授權      | **這個工作區的所有資料夾**：檢視與變更資料夾的授權、中斷繼承。**受反提權限制** |
+| `file:share`  | 管理檔案授權      | **所有資料夾**：檢視與變更資料夾的授權、中斷繼承。**受反提權限制** |
 
-> 上面四個 CRUD 鍵在 **工作區內** 是全域的：持有者對這個工作區的所有資料夾（含中斷繼承的私人資料夾）都有該動作。
+> 上面四個 CRUD 鍵是 **全域** 的：持有者對所有資料夾（含中斷繼承的私人資料夾）都有該動作。
 > 一般成員拿 `file:access`，再由資料夾授權（viewer / contributor / editor / manager）決定範圍，
 > 另有「能上傳的人可以改名、移動、刪除自己上傳的東西」的擁有者規則。
 > 模型、等級與解析規則見 [`07-resource-grants.md`](./07-resource-grants.md)（[ADR-0015](../adr/0015-file-folder-access.md)）。
@@ -124,25 +110,19 @@
 > 重試是具名動作，理由同 `approval:review`。工作資料不放機密（token、密碼），
 > 因此 `job:read` 不會看到憑證，見 [`../architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md) §4。
 
-### 2.9 `workspace` — 工作區（平台範圍）
+### 2.9 `identityProvider` — 外部 IdP 連線
 
-| 權限鍵             | 顯示名稱（zh-TW） | 說明 |
-| ------------------ | ----------------- | ---- |
-| `workspace:create` | 建立工作區        | 建立工作區並指定第一位管理員（取得 `workspace-admin`；這一步豁免反提權，ADR-0018 D13） |
-| `workspace:read`   | 檢視工作區        | 所有工作區的清單、成員數與管理員；**看不到工作區裡的內容**（D5） |
-| `workspace:update` | 編輯工作區        | 改名稱與說明；指定管理員（加入成員並給 `workspace-admin`，留下稽核，D12） |
-| `workspace:delete` | 刪除工作區        | 軟刪除；成員立刻進不去 |
+| 權限鍵                     | 顯示名稱（zh-TW） | 說明 |
+| -------------------------- | ----------------- | ---- |
+| `identityProvider:create`  | 建立外部 IdP 連線 | 新增 OIDC 連線（issuer、client id／secret、網域、找不到帳號時的處理方式）；寫稽核 `identityProvider.create`（不含 secret） |
+| `identityProvider:read`    | 檢視外部 IdP 連線 | 連線清單、網域與要登記在外部 IdP 的 redirect URI；**client secret 永遠不回傳**（ADR-0019 D11） |
+| `identityProvider:update`  | 編輯外部 IdP 連線 | 改設定、網域、啟用狀態與輪替 secret；稽核只記「換過 secret」 |
+| `identityProvider:delete`  | 刪除外部 IdP 連線 | 軟刪除並釋出網域；已連結的外部身分留著，但不能再以這個連線登入 |
 
-### 2.10 `workspaceMember` — 工作區成員（工作區範圍）
+> 網域設為「只允許 SSO」後，那個網域的帳號不能用密碼登入、不能申請重設密碼（ADR-0019 D9）。
+> 連線屬於租戶（[ADR-0020](../adr/0020-physical-tenant-isolation.md) D18），管理頁在 backstage 的 `/identity-provider`。
 
-| 權限鍵                        | 顯示名稱（zh-TW） | 說明 |
-| ----------------------------- | ----------------- | ---- |
-| `workspaceMember:read`        | 檢視成員          | 這個工作區的成員與他們的工作區角色；可以指派的工作區角色清單 |
-| `workspaceMember:create`      | 邀請成員          | 以 email 邀請成員（ADR-0018 D14，實作中） |
-| `workspaceMember:delete`      | 移除成員          | 移出工作區（工作區角色一起消失）。拿掉的角色受反提權限制；不能移除自己、不能移除最後一位管理員 |
-| `workspaceMember:assignRole`  | 指派工作區角色    | 整批取代成員的工作區角色。**受反提權限制**（加上與拿掉的角色都比對操作者在這個工作區的權限） |
-
-### 2.11 個人範圍（不需要權限）
+### 2.10 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
@@ -150,7 +130,6 @@
 - 變更自己的密碼（`POST /auth/change-password`）
 - 檢視／修改自己的偏好設定（語系、時區）
 - 登出
-- 自己能進入的工作區（`GET /workspaces/mine`）、自己在某個工作區的身分（`GET /workspaces/:id/me`，需要是成員）
 
 ---
 
@@ -168,14 +147,11 @@
 | `approval`        |   —    |  ✓   |   —    |   —    | `review`                      |
 | `file`            |   ✓    |  ✓   |   ✓    |   ✓    | `access`, `share`             |
 | `job`             |   —    |  ✓   |   —    |   —    | `retry`                       |
-| `workspace`       |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
-| `workspaceMember` |   ✓    |  ✓   |   —    |   ✓    | `assignRole`                  |
+| `identityProvider`|   ✓    |  ✓   |   ✓    |   ✓    | —                             |
 
 ---
 
 ## 4. 預設角色 × 權限對照
-
-### 4.1 平台角色（`scope = platform`）
 
 | 權限鍵                 | `super-admin` | `admin` | `auditor` | `member` |
 | ---------------------- | :-----------: | :-----: | :-------: | :------: |
@@ -196,39 +172,26 @@
 | `system:update`        |      ✓*       |         |           |          |
 | `approval:read`        |      ✓*       |    ✓    |     ✓     |          |
 | `approval:review`      |      ✓*       |    ✓    |           |          |
+| `file:create`          |      ✓*       |    ✓    |           |          |
+| `file:read`            |      ✓*       |    ✓    |     ✓     |          |
+| `file:update`          |      ✓*       |    ✓    |           |          |
+| `file:delete`          |      ✓*       |    ✓    |           |          |
+| `file:access`          |      ✓*       |    ✓    |           |    ✓     |
+| `file:share`           |      ✓*       |    ✓    |           |          |
 | `job:read`             |      ✓*       |    ✓    |     ✓     |          |
 | `job:retry`            |      ✓*       |    ✓    |           |          |
-| `workspace:create`     |      ✓*       |    ✓    |           |          |
-| `workspace:read`       |      ✓*       |    ✓    |     ✓     |          |
-| `workspace:update`     |      ✓*       |    ✓    |           |          |
-| `workspace:delete`     |      ✓*       |    ✓    |           |          |
+| `identityProvider:create` |   ✓*       |    ✓    |           |          |
+| `identityProvider:read`   |   ✓*       |    ✓    |     ✓     |          |
+| `identityProvider:update` |   ✓*       |    ✓    |           |          |
+| `identityProvider:delete` |   ✓*       |    ✓    |           |          |
 
-`*` super-admin 是 **隱含全集**（兩個範圍都是），不在 `role_permissions` 中逐筆登錄；
-`GET /auth/profile` 回傳時展開成平台範圍的全集，`GET /workspaces/:id/me` 展開成工作區範圍的全集。
+`*` super-admin 是 **隱含全集**，不在 `role_permissions` 中逐筆登錄；
+`GET /auth/profile` 回傳時才展開成完整清單。
 
-`member` 沒有任何平台的鍵：只能存取個人範圍的頁面。它是未來平台功能的權限掛載點；
-工作區裡能做什麼由工作區角色決定。
-
-### 4.2 工作區角色（`scope = workspace`）
-
-| 權限鍵                        | `workspace-admin` | `workspace-member` | `workspace-viewer` |
-| ----------------------------- | :---------------: | :----------------: | :----------------: |
-| `file:create`                 |         ✓         |                    |                    |
-| `file:read`                   |         ✓         |                    |         ✓          |
-| `file:update`                 |         ✓         |                    |                    |
-| `file:delete`                 |         ✓         |                    |                    |
-| `file:access`                 |         ✓         |         ✓          |                    |
-| `file:share`                  |         ✓         |                    |                    |
-| `workspaceMember:read`        |         ✓         |         ✓          |         ✓          |
-| `workspaceMember:create`      |         ✓         |                    |                    |
-| `workspaceMember:delete`      |         ✓         |                    |                    |
-| `workspaceMember:assignRole`  |         ✓         |                    |                    |
-
-`workspace-member` 只有 `file:access`：進得了檔案管理器，看得到資料夾但鎖住，被授權之後才讀得到。
-`workspace-admin` 也持有 `file:access`：不擴大能力（已有 `file:*`），但指派 `workspace-member` 受反提權限制，要持有它的每個權限鍵。
-
-> 工作區範圍的鍵在 **角色定義** 上不檢查反提權（平台管理員定義工作區角色時，自己在任何工作區都可能沒有這些鍵）；
-> 真正的授予發生在 **指派** 到某個工作區時，以指派者在那個工作區的權限比對（ADR-0018 D3）。
+`member` 只有 `file:access`：進得了檔案管理器，看得到資料夾但全部鎖住，被授權之後才讀得到。
+`admin` 也持有 `file:access`：不擴大能力（已有全域 `file:*`），但指派 `member` 受反提權限制，要持有它的每個權限鍵。
+其餘只能存取個人範圍的頁面（首頁、個人資料）。
+這是刻意的：它是未來編輯器功能的權限掛載點。
 
 ---
 
@@ -237,8 +200,7 @@
 | 頁面         | 路由                       | Page Key        | 進入所需權限                     | 判定  |
 | ------------ | -------------------------- | --------------- | -------------------------------- | ----- |
 | 首頁         | `/`                        | `HOME`          | 無                               | —     |
-| 登入         | `/auth/login`              | 不受管          | 無（未登入可進）                 | —     |
-| 申請帳號     | `/auth/register`           | 不受管          | 無（未登入可進）                 | —     |
+| 登入         | `/auth/login`（跳到 apps/auth 的 IdP）、`/auth/callback` | 不受管 | 無（未登入可進）   | —     |
 | 個人資料     | `/profile`                 | `PROFILE`       | 無                               | —     |
 | 偏好設定     | `/preference`              | `PREFERENCE`    | 無                               | —     |
 | 使用者列表   | `/user`                    | `USER`          | `user:read`                      | EVERY |
@@ -250,12 +212,11 @@
 | 稽核日誌     | `/audit-log`               | `AUDIT_LOG`     | `auditLog:read`                  | EVERY |
 | 審批         | `/approval`（含 `/approval/$approvalId` 對話框） | `APPROVAL` | `approval:read`           | EVERY |
 | 背景工作     | `/job`（含 `/job/$jobId` 對話框） | `JOB` | `job:read`                      | EVERY |
-| 工作區管理   | `/workspace`               | `WORKSPACE_ADMIN` | `workspace:read`               | EVERY |
-| 檔案         | `/w/$workspaceSlug/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | 工作區範圍：`file:access` 或 `file:read`（按鈕層級看後端回傳的 `capabilities`，見 [`07-resource-grants.md`](./07-resource-grants.md) §7） | SOME |
-| 工作區成員   | `/w/$workspaceSlug/members` | `WORKSPACE_MEMBER` | 工作區範圍：`workspaceMember:read` | EVERY |
+| 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:access` 或 `file:read`（按鈕層級看後端回傳的 `capabilities`，見 [`07-resource-grants.md`](./07-resource-grants.md) §7） | SOME |
+| 外部 IdP 連線 | `/identity-provider`      | `IDENTITY_PROVIDER` | `identityProvider:read`        | EVERY |
 
-> 工作區頁面（`/w/:workspaceSlug/…`）由工作區的版面把關：先確認是成員（不是回「找不到這個工作區」），
-> 載入在這個工作區的權限之後才判斷頁面權限（[ADR-0018](../adr/0018-workspace-tenancy.md) D17）。
+apps/auth 只給平台管理者登入（[`../architecture/04-sso.md`](../architecture/04-sso.md) §1.1、§6.2），這個目錄的權限不適用；
+平台管理者的權限目錄在交付順序第 4 步加上租戶管理時建立。帳號流程（申請帳號、啟用、重設密碼）也在 apps/auth，未登入可進。
 
 > 頁面內的 **按鈕層級** gating 另由 `usePagePermission()` 派生的
 > `canCreate/canRead/canUpdate/canDelete` 決定，見
@@ -269,47 +230,42 @@
 
 ```ts
 export const PERMISSION_SEED = [
-  // resource, action, i18n key, sort, scope（docs/adr/0018-workspace-tenancy.md D2）
-  ["user", "create", "permission.user.create", 100, "platform"],
-  ["user", "read", "permission.user.read", 101, "platform"],
-  ["user", "update", "permission.user.update", 102, "platform"],
-  ["user", "delete", "permission.user.delete", 103, "platform"],
-  ["user", "assignRole", "permission.user.assignRole", 104, "platform"],
-  ["user", "resetPassword", "permission.user.resetPassword", 105, "platform"],
+  // resource, action, i18n key, sort
+  ["user", "create", "permission.user.create", 100],
+  ["user", "read", "permission.user.read", 101],
+  ["user", "update", "permission.user.update", 102],
+  ["user", "delete", "permission.user.delete", 103],
+  ["user", "assignRole", "permission.user.assignRole", 104],
+  ["user", "resetPassword", "permission.user.resetPassword", 105],
 
-  ["role", "create", "permission.role.create", 200, "platform"],
-  ["role", "read", "permission.role.read", 201, "platform"],
-  ["role", "update", "permission.role.update", 202, "platform"],
-  ["role", "delete", "permission.role.delete", 203, "platform"],
-  ["role", "grantPermission", "permission.role.grantPermission", 204, "platform"],
+  ["role", "create", "permission.role.create", 200],
+  ["role", "read", "permission.role.read", 201],
+  ["role", "update", "permission.role.update", 202],
+  ["role", "delete", "permission.role.delete", 203],
+  ["role", "grantPermission", "permission.role.grantPermission", 204],
 
-  ["permission", "read", "permission.permission.read", 300, "platform"],
-  ["auditLog", "read", "permission.auditLog.read", 400, "platform"],
-  ["system", "read", "permission.system.read", 500, "platform"],
-  ["system", "update", "permission.system.update", 501, "platform"],
+  ["permission", "read", "permission.permission.read", 300],
+  ["auditLog", "read", "permission.auditLog.read", 400],
+  ["system", "read", "permission.system.read", 500],
+  ["system", "update", "permission.system.update", 501],
 
-  ["approval", "read", "permission.approval.read", 600, "platform"],
-  ["approval", "review", "permission.approval.review", 601, "platform"],
+  ["approval", "read", "permission.approval.read", 600],
+  ["approval", "review", "permission.approval.review", 601],
 
-  ["file", "create", "permission.file.create", 700, "workspace"],
-  ["file", "read", "permission.file.read", 701, "workspace"],
-  ["file", "update", "permission.file.update", 702, "workspace"],
-  ["file", "delete", "permission.file.delete", 703, "workspace"],
-  ["file", "access", "permission.file.access", 704, "workspace"],
-  ["file", "share", "permission.file.share", 705, "workspace"],
+  ["file", "create", "permission.file.create", 700],
+  ["file", "read", "permission.file.read", 701],
+  ["file", "update", "permission.file.update", 702],
+  ["file", "delete", "permission.file.delete", 703],
+  ["file", "access", "permission.file.access", 704],
+  ["file", "share", "permission.file.share", 705],
 
-  ["job", "read", "permission.job.read", 800, "platform"],
-  ["job", "retry", "permission.job.retry", 801, "platform"],
+  ["job", "read", "permission.job.read", 800],
+  ["job", "retry", "permission.job.retry", 801],
 
-  ["workspace", "create", "permission.workspace.create", 900, "platform"],
-  ["workspace", "read", "permission.workspace.read", 901, "platform"],
-  ["workspace", "update", "permission.workspace.update", 902, "platform"],
-  ["workspace", "delete", "permission.workspace.delete", 903, "platform"],
-
-  ["workspaceMember", "read", "permission.workspaceMember.read", 1000, "workspace"],
-  ["workspaceMember", "create", "permission.workspaceMember.create", 1001, "workspace"],
-  ["workspaceMember", "delete", "permission.workspaceMember.delete", 1002, "workspace"],
-  ["workspaceMember", "assignRole", "permission.workspaceMember.assignRole", 1003, "workspace"],
+  ["identityProvider", "create", "permission.identityProvider.create", 1100],
+  ["identityProvider", "read", "permission.identityProvider.read", 1101],
+  ["identityProvider", "update", "permission.identityProvider.update", 1102],
+  ["identityProvider", "delete", "permission.identityProvider.delete", 1103],
 ] as const;
 ```
 
@@ -332,3 +288,49 @@ Seed 行為：
 6. `pnpm db:seed` → `pnpm sdk:generate`。
 7. 若這個權限會影響某個頁面的進入條件，更新該 feature 的 `permission.ts` 與本文件 §5。
 8. 更新 §4 的預設角色對照表，並在 seed 中把它加進該角色。
+
+---
+
+## 8. 平台的權限目錄（apps/auth 的平台管理者）
+
+平台管理者（[ADR-0020](../adr/0020-physical-tenant-isolation.md) D5）與租戶的使用者是兩份帳號，權限目錄也是兩份：
+上面 §1–§7 是 **租戶** 的目錄（存在每個租戶的 DB）；這一節是 **平台** 的目錄，只在 apps/auth 的網域有效。
+
+- 端點以 `@RequirePlatformPermissions(...)` 宣告（所有鍵都要有），租戶網域上一律 `404 PLATFORM_ONLY`；
+  拒絕寫平台稽核 `platform_audit_logs`（`authz.denied`）。
+- 平台的權限 **不寫進資料庫**：角色固定三種（`platform_admins.role`），角色 × 權限的對照在
+  `apps/api/src/db/seeds/platform-permissions.ts`。平台的權限範圍很小，每個管理者一個角色就夠，不提供自訂角色。
+- 前端從 `GET /platform/auth/profile` 的 `permissions` 取得目前管理者的權限。
+
+### 8.1 權限清單（共 10 項）
+
+| 權限鍵                  | 顯示名稱（zh-TW） | 說明 |
+| ----------------------- | ----------------- | ---- |
+| `tenant:read`           | 檢視租戶          | 租戶清單、狀態、網域、佈建失敗的原因（不含連線字串） |
+| `tenant:create`         | 建立租戶          | 建立並佈建新租戶（database、migration、第一位管理員與啟用信）、重試失敗的佈建 |
+| `tenant:update`         | 編輯租戶          | 改名稱、新增／移除網域、停用與啟用（停用會撤銷該租戶的所有 session）、是否允許外部 IdP |
+| `tenant:delete`         | 刪除租戶          | 標記刪除並釋出網域；database 與 bucket 由 `pnpm db:drop-tenant` 手動清除（D13） |
+| `platformAdmin:read`    | 檢視平台管理者    | 管理者清單、角色與狀態 |
+| `platformAdmin:create`  | 新增平台管理者    | 建立成 `pending`，寄啟用信讓本人設定密碼（不接受密碼） |
+| `platformAdmin:update`  | 管理平台管理者    | 改名、換角色、停用／啟用（停用即撤銷 session，`locked` 改回 `active` 即解鎖）、寄設定密碼的連結；不能改自己的角色與狀態 |
+| `platformAuditLog:read` | 檢視平台稽核      | `platform_audit_logs`：平台管理者做過的事（D19）；看不到租戶的稽核 |
+| `platformJob:read`      | 檢視背景工作      | 所有租戶與平台自己的工作（D23）；租戶的後台只看得到自己的 |
+| `platformJob:retry`     | 重試背景工作      | 把重試用完、停在失敗的工作重新排入；寫平台稽核 `platformJob.retry` |
+
+### 8.2 角色 × 權限
+
+| 權限                    | `super-admin` | `operator` | `auditor` |
+| ----------------------- | :-----------: | :--------: | :-------: |
+| `tenant:read`           | ✅ | ✅ | ✅ |
+| `tenant:create`         | ✅ | ✅ |    |
+| `tenant:update`         | ✅ | ✅ |    |
+| `tenant:delete`         | ✅ |    |    |
+| `platformAdmin:read`    | ✅ | ✅ | ✅ |
+| `platformAdmin:create`  | ✅ |    |    |
+| `platformAdmin:update`  | ✅ |    |    |
+| `platformAuditLog:read` | ✅ | ✅ | ✅ |
+| `platformJob:read`      | ✅ | ✅ | ✅ |
+| `platformJob:retry`     | ✅ | ✅ |    |
+
+只有 `super-admin` 能管理平台管理者，所以不需要反提權規則（`operator` 不能把自己升成 `super-admin`）。
+`db:seed` 依 `PLATFORM_ADMIN_EMAIL` 建立的第一位平台管理者是 `super-admin`；之後新增的管理者預設是 `auditor`。

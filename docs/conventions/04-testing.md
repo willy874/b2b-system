@@ -11,7 +11,7 @@
 
 | 範圍                | 放哪裡                                           | 副檔名          | 🔒 由誰收進來                   |
 | ------------------- | ------------------------------------------------ | --------------- | ------------------------------- |
-| web 單元／元件      | 受測檔旁的 `__tests__/`，或元件資料夾內同層       | `*.test.ts(x)`  | `apps/web/vitest.config.ts`     |
+| backstage 單元／元件 | 受測檔旁的 `__tests__/`，或元件資料夾內同層       | `*.test.ts(x)`  | `apps/backstage/vitest.config.ts`     |
 | api 單元            | 受測檔旁的 `__tests__/`                           | `*.spec.ts`     | `apps/api/vitest.config.ts`     |
 | api 整合（真 DB）   | `apps/api/test/`                                 | `*.spec.ts`     | `apps/api/vitest.config.ts`     |
 | file-storage 單元   | 受測檔旁的 `__tests__/`                           | `*.spec.ts`     | `apps/file-storage/vitest.config.ts` |
@@ -19,7 +19,7 @@
 | E2E（瀏覽器）       | `apps/e2e/tests/`                                | `*.spec.ts`     | `apps/e2e/playwright.config.ts` |
 
 - 檔名跟受測對象同名：`useRolePermission.ts` → `__tests__/useRolePermission.test.tsx`。
-- 副檔名寫錯（web 用 `.spec`、api 用 `.test`）不會被執行，等於沒寫。
+- 副檔名寫錯（backstage 用 `.spec`、api 用 `.test`）不會被執行，等於沒寫。
 
 ---
 
@@ -57,6 +57,10 @@
 | 後端 repository、DB 約束、trigger  | 整合測試，Testcontainers 起真 Postgres；**不用 sqlite / mock DB**             |
 | 跨前後端的使用者流程               | Playwright，只放關鍵路徑                                                      |
 
+後端的 HTTP 整合測試以 `listenOnLoopback(app)`（`apps/api/test/http.ts`）取得給 supertest 的 server，
+**不要** 直接把 `app.getHttpServer()` 交給 supertest：supertest 會替每個請求 `listen(0)`（綁在 `::`）再連 `127.0.0.1`，
+macOS 上那個埠可能已被別的程序綁在 `127.0.0.1`，請求會被它接走，測試偶發地拿到 401、404 或逾時。
+
 MSW handler 要模擬權限行為（無權限回 403），不能一律回 200。見
 [`architecture/frontend/10-testing.md`](../architecture/frontend/10-testing.md) §3.5。
 
@@ -81,8 +85,8 @@ MSW handler 要模擬權限行為（無權限回 403），不能一律回 200。
 ## 5. 執行
 
 ```bash
-pnpm test         # web ＋ api（api 整合測試需要 Docker）
-pnpm test:e2e     # 先跑 pnpm dev:e2e 與 web
+pnpm test         # backstage ＋ api（api 整合測試需要 Docker）
+pnpm test:e2e     # 先跑 pnpm dev:e2e 與 backstage
 ```
 
 測試失敗時修程式或修測試，**不** 用 `it.skip` / `it.only` 提交。

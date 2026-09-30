@@ -4,7 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, isNull } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import type { AuthTokenPurpose, AuthTokenRow, RevokedReason } from '@/db/schema';
 import { authTokens } from '@/db/schema';
 
@@ -22,7 +22,7 @@ export const PASSWORD_RESET_TTL_SECONDS = 60 * 60; // 1 小時
 @Injectable()
 export class AuthTokenService {
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly refreshTokens: RefreshTokenRepository,
   ) {}
 

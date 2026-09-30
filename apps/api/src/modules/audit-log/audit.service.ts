@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE } from '@/core/database';
+import { TENANT_DB } from '@/core/database';
 import { getRequestContext } from '@/core/http';
 import { auditLogs } from '@/db/schema';
 
@@ -11,7 +11,7 @@ import type { AuditInput } from './audit.types';
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
 
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
   /**
    * 業務變更的稽核 **必須** 傳入 `tx`，與變更同生共死。

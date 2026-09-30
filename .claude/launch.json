@@ -15,24 +15,30 @@
       "runtimeExecutable": "zsh",
       "runtimeArgs": [
         "-c",
-        "unset PORT; export PATH=$HOME/.nvm/versions/node/v24.21.0/bin:$PATH && pnpm db:up && pnpm mail:up && MAIL_TRANSPORT=smtp AUTH_RATE_LIMIT=1000 DEFAULT_RATE_LIMIT=10000 pnpm -r --parallel --filter ./apps/api --filter ./apps/web --filter ./apps/file-storage dev"
+        "unset PORT; export PATH=$HOME/.nvm/versions/node/v24.21.0/bin:$PATH && pnpm db:up && pnpm mail:up && MAIL_TRANSPORT=smtp AUTH_RATE_LIMIT=1000 DEFAULT_RATE_LIMIT=10000 pnpm -r --parallel --filter ./apps/api --filter ./apps/backstage --filter ./apps/file-storage dev"
       ],
       "port": 5173
     },
     {
-      "name": "web",
+      "name": "backstage",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev:web"],
+      "runtimeArgs": ["dev:backstage"],
       "port": 5173
     },
     {
-      "name": "web-mock",
+      "name": "auth",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev:auth"],
+      "port": 5175
+    },
+    {
+      "name": "backstage-mock",
       "runtimeExecutable": "env",
       "runtimeArgs": [
         "VITE_ENABLE_MOCK=true",
         "pnpm",
         "--filter",
-        "@game-editor/web",
+        "@b2b-system/backstage",
         "exec",
         "vite",
         "--port",
@@ -52,7 +58,7 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [
         "--filter",
-        "@game-editor/web",
+        "@b2b-system/backstage",
         "exec",
         "storybook",
         "dev",

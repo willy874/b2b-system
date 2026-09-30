@@ -1,11 +1,11 @@
-import { ChangeKind, ChangeSource, SessionRevokedReason } from '@game-editor/realtime';
-import type { ResourceChangeWire } from '@game-editor/realtime';
+import { ChangeKind, ChangeSource, SessionRevokedReason } from '@b2b-system/realtime';
+import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
 import { UserCacheService } from '@/core/cache';
 import type { Database, DbOrTx } from '@/core/database';
-import { DRIZZLE, withTransaction } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
@@ -69,7 +69,7 @@ export function userUpdated(
 @Injectable()
 export class UserService {
   constructor(
-    @Inject(DRIZZLE) private readonly db: Database,
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly repo: UserRepository,
     private readonly permissionService: PermissionService,
     private readonly authTokens: AuthTokenService,
@@ -346,11 +346,12 @@ export class UserService {
 
   /**
    * 在呼叫端的交易內建立帳號、指派角色並寫稽核。呼叫前先 `assertCreatable()`；
-   * 交易提交後呼叫 `publishCreated()`。
+   * 交易提交後呼叫 `publishCreated()`。`actor` 為 null：沒有人代為建立
+   * （外部 IdP 登入時自動建立的帳號）。
    */
   async createAccount(
     input: NewAccount,
-    actor: AuthUser,
+    actor: AuthUser | null,
     tx: DbOrTx,
     metadata?: AuditMetadata,
   ): Promise<UserRow> {
@@ -361,12 +362,12 @@ export class UserService {
         displayName: input.displayName,
         passwordHash: input.passwordHash ?? null,
         status: input.status,
-        createdBy: actor.id,
-        updatedBy: actor.id,
+        createdBy: actor?.id ?? null,
+        updatedBy: actor?.id ?? null,
       },
       tx,
     );
-    await this.repo.assignRoles(user.id, input.roleIds, actor.id, tx);
+    await this.repo.assignRoles(user.id, input.roleIds, actor?.id ?? null, tx);
     await this.audit.record(
       {
         action: 'user.create',
@@ -437,9 +438,10 @@ export class UserService {
     }
   }
 
-  /** 角色存在，而且是全域角色：工作區角色只能在工作區裡指派（docs/adr/0018-workspace-tenancy.md D3）。 */
   private async assertRolesExist(roleIds: readonly string[]): Promise<void> {
-    await this.permissionService.assertRoleScope(roleIds, 'platform');
+    if (!roleIds.length) return;
+    const found = await this.repo.findActiveRolesByIds(roleIds);
+    if (found.length !== new Set(roleIds).size) throw new AppException('ROLE_NOT_FOUND');
   }
 
   // ── 帳號狀態與憑證：供 AuthModule 使用 ─────────────────────

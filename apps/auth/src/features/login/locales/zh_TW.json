@@ -1,0 +1,79 @@
+{
+  "login": {
+    "title": "登入",
+    "submit": "登入",
+    "redirecting": "正在前往登入頁…",
+    "signedOut": "你已登出。所有產品共用同一組登入，登出後其他產品也會一起登出。",
+    "callback": {
+      "title": "登入",
+      "working": "正在完成登入…",
+      "failed": "登入沒有完成，連結可能已過期或已使用過。請重新登入。",
+      "cancelled": "已取消登入。"
+    },
+    "field": {
+      "email": "Email",
+      "password": "密碼",
+      "displayName": "顯示名稱",
+      "newPassword": "新密碼",
+      "confirmPassword": "確認新密碼",
+      "currentPassword": "目前密碼"
+    },
+    "interaction": {
+      "for": "登入以繼續使用「{{client}}」。所有產品共用這一組帳號。",
+      "forTenant": "登入「{{tenant}}」以繼續使用「{{client}}」。",
+      "forPlatform": "以平台管理者的帳號登入。",
+      "cancel": "取消",
+      "forgotPassword": "忘記密碼？",
+      "register": "申請帳號",
+      "external": "使用 {{name}} 登入",
+      "ssoOnly": "你的組織使用 {{name}} 登入。",
+      "or": "或",
+      "enterTenant": "要登入你的後台？輸入租戶代碼"
+    },
+    "client": {
+      "backstage": "管理後台",
+      "auth": "帳號平台",
+      "unknown": "應用程式"
+    },
+    "error": {
+      "title": "無法登入",
+      "invalidRedirectUri": "這個網站沒有登記為可以使用平台登入的應用程式。",
+      "invalidClient": "不認識的應用程式。",
+      "invalidRequest": "登入請求的格式不正確，請回到原本的網站重新登入。",
+      "generic": "登入時發生錯誤，請回到原本的網站重新登入。"
+    },
+    "forgotPassword": {
+      "title": "忘記密碼",
+      "description": "輸入你的 Email，我們會寄出重設連結。",
+      "submit": "送出",
+      "sent": "如果這個 Email 存在於系統中，重設連結已寄出。"
+    },
+    "resetPassword": {
+      "title": "重設密碼"
+    },
+    "setup": {
+      "title": "設定初始密碼",
+      "submit": "啟用帳號"
+    },
+    "register": {
+      "title": "申請帳號",
+      "description": "送出後由管理員審核，核准後即可用這組 Email 與密碼登入。",
+      "reason": "申請理由",
+      "reasonPlaceholder": "例：所屬團隊、需要使用的功能（選填）",
+      "submit": "送出申請",
+      "submitted": "申請已送出。管理員核准後，你就能用剛才設定的 Email 與密碼登入。"
+    },
+    "password": {
+      "hint": "至少 12 個字元，不可為常見密碼。"
+    },
+    "backToLogin": "返回登入",
+    "tenantRequired": "找不到這是哪個租戶的帳號。請從租戶的登入頁或信中的連結進入。",
+    "enterTenant": {
+      "title": "進入租戶",
+      "description": "輸入你的租戶代碼，前往你的後台登入。",
+      "code": "租戶代碼",
+      "required": "請輸入租戶代碼",
+      "submit": "前往"
+    }
+  }
+}

@@ -1,0 +1,131 @@
+/* 放進 components 層，呼叫端的 UnoCSS 工具類才蓋得過（層的順序見 index.html）。 */
+@layer components {
+  /*
+   * 外殼固定為一個視窗高，側邊選單與主內容各自捲動：主內容往下捲時側邊選單留在原位。
+   * 主內容是 flex 欄，頁面根元素給 `flex-1 min-h-0` 就能把剩餘高度交給表格（見 RichTable 的 fillHeight）。
+   */
+  .ge-shell {
+    display: grid;
+    grid-template-columns: 15rem 1fr;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /*
+   * 兩個捲動區都要是定位元素：否則內容裡的 absolute 元素（例如 sr-only）以視窗為包含區塊，
+   * 跳出捲動區撐高整份文件，視窗本身又能捲動、側邊選單跟著被捲走。
+   */
+  .ge-shell__sidebar,
+  .ge-shell__content {
+    position: relative;
+  }
+
+  .ge-shell--collapsed {
+    grid-template-columns: 3.5rem 1fr;
+  }
+
+  .ge-shell__sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--seed-space-4);
+    padding: var(--seed-space-4) var(--seed-space-2);
+    min-height: 0;
+    overflow-y: auto;
+    border-inline-end: 1px solid var(--color-border);
+    background: var(--color-surface);
+  }
+
+  .ge-shell__brand {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-2);
+    padding-inline: var(--seed-space-2);
+    font-weight: 600;
+  }
+
+  .ge-shell__brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--radius-md);
+    background: var(--color-brand);
+    color: var(--color-brand-fg);
+    font-size: 0.75rem;
+  }
+
+  .ge-shell__nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--seed-space-3);
+  }
+
+  .ge-shell__nav-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .ge-shell__nav-heading {
+    padding: var(--seed-space-1) var(--seed-space-3);
+    color: var(--color-fg-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  /* 收合時沒有空間放標題，改用分隔線標出區塊邊界 */
+  .ge-shell__nav-divider {
+    margin: var(--seed-space-1) var(--seed-space-2);
+    border: 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .ge-shell__nav-item {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-2);
+    padding: var(--seed-space-2) var(--seed-space-3);
+    border-radius: var(--radius-md);
+    color: var(--color-fg);
+    text-decoration: none;
+    font-size: 0.875rem;
+  }
+
+  .ge-shell__nav-item:hover {
+    background: var(--color-bg);
+  }
+
+  .ge-shell__nav-item--active {
+    background: color-mix(in srgb, var(--color-brand) 12%, transparent);
+    color: var(--color-brand);
+    font-weight: 600;
+  }
+
+  .ge-shell__main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .ge-shell__topbar {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-2);
+    flex-shrink: 0;
+    height: 3rem;
+    padding-inline: var(--seed-space-4);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+  }
+
+  .ge-shell__content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    padding: var(--seed-space-6);
+    overflow: auto;
+  }
+}

@@ -44,9 +44,10 @@ apps/api/src/
 │   │   ├── config.module.ts
 │   │   └── env.schema.ts                 Zod 驗證環境變數，缺就啟動失敗
 │   ├── database/
-│   │   ├── database.module.ts            全域 module，提供 DRIZZLE token
-│   │   ├── database.provider.ts          建立連線池 ＋ drizzle 實例
-│   │   └── transaction.ts                withTransaction() 輔助
+│   │   ├── database.module.ts            全域 module，提供 PLATFORM_DB（平台 DB 的連線池）
+│   │   ├── database.provider.ts          建立連線池 ＋ drizzle 實例；TENANT_DB / PLATFORM_DB token
+│   │   └── transaction.ts                withTransaction()、afterCommit()
+│   ├── tenant/                           依網域決定租戶、每租戶的連線池、TENANT_DB（02-database.md §6）
 │   ├── cache/
 │   │   ├── cache.module.ts
 │   │   ├── permission-cache.service.ts   ★ 權限集合快取
@@ -299,7 +300,7 @@ async addPermissions(roleId: string, keys: string[], actorId: string, tx?: Trans
 export const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().default(3000),
-  DATABASE_URL: z.string().url(),
+  PLATFORM_DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
   JWT_ACCESS_TTL: z.coerce.number().int().default(300),
   REFRESH_TOKEN_TTL: z.coerce.number().int().default(604800),

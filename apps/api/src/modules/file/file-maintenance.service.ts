@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '@/core/config';
 import { defineJob, JobQueue } from '@/core/jobs';
 import { ObjectStorage } from '@/core/storage';
+import { currentTenant } from '@/core/tenant';
 
 import { FileImageService } from './file-image.service';
 import {
@@ -66,7 +67,8 @@ export class FileMaintenanceService implements OnModuleInit {
   private readonly cron: string;
   private readonly pendingTtlMs: number;
   private readonly dryRun: boolean;
-  private running: Promise<FileMaintenanceReport> | undefined;
+  /** 每個租戶各自的「執行中那一輪」：不同租戶的維護互不影響。 */
+  private readonly running = new Map<string, Promise<FileMaintenanceReport>>();
 
   constructor(
     private readonly repo: FileRepository,
@@ -86,12 +88,17 @@ export class FileMaintenanceService implements OnModuleInit {
 
   /** 執行一輪維護；上一輪還沒結束時直接回傳那一輪的結果，不重疊執行。 */
   sweep(options: { dryRun?: boolean; now?: Date } = {}): Promise<FileMaintenanceReport> {
-    this.running ??= this.doSweep(options.dryRun ?? this.dryRun, options.now ?? new Date()).finally(
+    // 只用來分辨「同一個租戶的上一輪」；沒有租戶脈絡（單元測試直接呼叫）時視為同一組
+    const tenantId = currentTenant()?.id ?? '-';
+    const existing = this.running.get(tenantId);
+    if (existing) return existing;
+    const run = this.doSweep(options.dryRun ?? this.dryRun, options.now ?? new Date()).finally(
       () => {
-        this.running = undefined;
+        this.running.delete(tenantId);
       },
     );
-    return this.running;
+    this.running.set(tenantId, run);
+    return run;
   }
 
   /** 背景工作的 handler：報告存成工作的 output，管理頁看得到；整輪失敗就拋出讓佇列重試。 */

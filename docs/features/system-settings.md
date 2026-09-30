@@ -18,7 +18,7 @@
 
 | 做 | 不做（這一版） |
 | --- | --- |
-| key-value 設定表，每個 key 有 Zod schema 與預設值 | 依工作區覆寫的設定（等 [`workspace.md`](./workspace.md)） |
+| key-value 設定表，每個 key 有 Zod schema 與預設值 | 依租戶覆寫的設定：設定表本身就在各租戶 DB（[`../architecture/05-tenancy.md`](../architecture/05-tenancy.md)） |
 | 設定頁：依分類列出、編輯、還原預設 | 設定的版本歷史（稽核已有前後差異） |
 | 修改寫稽核（前後差異），並經 realtime 通知 | |
 | 前端可讀的公開設定（例如「是否開放註冊」） | |

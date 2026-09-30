@@ -19,7 +19,8 @@
     // 郵件範本用 React Email 寫（docs/adr/0017-mail-delivery.md D5）；只有 *.mail.tsx 使用
     "jsx": "react-jsx"
   },
-  "include": ["src/**/*", "test/**/*", "scripts/**/*"],
+  // 租戶 migration 的 journal：啟動時比對每個租戶的版本（src/core/tenant/tenant-schema.ts）
+  "include": ["src/**/*", "src/db/migrations/meta/_journal.json", "test/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "dist"],
   "references": [{ "path": "../../packages/utils" }, { "path": "../../packages/realtime" }]
 }

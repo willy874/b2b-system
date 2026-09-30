@@ -27,7 +27,7 @@
 | --- | --- | --- |
 | 前端 `apis/file/` | 檔案 id、`url` / `downloadUrl`、`uploadFile()` | bucket、key、SigV4 |
 | `modules/file` | `files` 資料表、`ObjectStorage` 介面 | `@aws-sdk/*` |
-| `core/storage` | S3 協定、bucket、presign | `files` 資料表、權限、任何 module |
+| `core/storage` | S3 協定、bucket（目前租戶的）、presign | `files` 資料表、權限、任何 module |
 | `core/image` | 解碼、縮放、編碼（sharp） | 物件儲存、`files` 資料表、變體的尺寸與格式政策 |
 
 ---
@@ -69,7 +69,7 @@ export abstract class ObjectStorage {
 | client | endpoint | 用途 |
 | --- | --- | --- |
 | `client` | `FILE_STORAGE_ENDPOINT`（內網，例：`http://file-storage:9000/storage`） | api 自己發的請求：HeadObject、DeleteObject、建 bucket |
-| `presigner` | `FILE_STORAGE_PUBLIC_ENDPOINT`（瀏覽器看到的，例：`https://example.com/storage`） | 只簽 presigned URL，不發請求 |
+| `presigner` | `FILE_STORAGE_PUBLIC_ENDPOINT`（瀏覽器看到的，例：`{tenantOrigin}/storage` → `https://acme.example.com/storage`） | 只簽 presigned URL，不發請求；每個 endpoint 一個 client |
 
 SigV4 的簽章包含 **host 與路徑**，所以不能用內網 client 簽完再把網址換成對外位址。
 
@@ -88,13 +88,26 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 
 | 環境 | 瀏覽器打 | 轉給 | 設定 |
 | --- | --- | --- | --- |
-| 本機 | `http://localhost:5173/storage/…` | Vite proxy → `localhost:9000` | 不 `changeOrigin`、不 `rewrite`（`apps/web/vite.config.ts`） |
+| 本機 | `http://localhost:5173/storage/…` | Vite proxy → `localhost:9000` | 不 `changeOrigin`、不 `rewrite`（`apps/backstage/vite.config.ts`） |
 | Docker | `${PUBLIC_ORIGIN}/storage/…` | nginx → `file-storage:9000` | `proxy_set_header Host $http_host`、`proxy_pass` 不帶 URI（`deploy/nginx.conf`） |
 
 兩者都 **保留 `/storage` 前綴**，由 file-storage 的 `FILE_STORAGE_BASE_PATH=/storage` 去掉後再解析 bucket / key
 （[`../03-file-storage.md`](../03-file-storage.md) §3.1）。同源的好處：不需要 CORS，CSP 的 `img-src 'self'`、`connect-src 'self'` 不必放寬。
 
 換成真正的 S3 時，`FILE_STORAGE_PUBLIC_ENDPOINT` 設成 S3 的 endpoint，並在 bucket 上設定 CORS 與放寬 CSP。
+
+每個租戶的 backstage 在自己的網域（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D2），CSP 的 `connect-src 'self'` 只允許同源，
+所以預設值 `{tenantOrigin}/storage` 的佔位符會換成 **目前租戶主要網域** 的 origin（協定沿用 `APP_PUBLIC_URL`）：
+acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域的反向代理轉給 file-storage（Host 原樣轉發，SigV4 的簽章才對得上）。
+
+### 3.1 每個租戶一個 bucket（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D16）
+
+- bucket 記在平台 DB 的 `tenants.storage_bucket`（唯一，刪除的租戶也算），隨租戶脈絡帶著走；`S3ObjectStorage` 的每個操作都用
+  **目前租戶** 的 bucket，沒有租戶脈絡時拋 `TENANT_NOT_FOUND`，不會退回任何共用的 bucket。業務模組的 key 不帶租戶。
+- 檔案維護（§9）在每個租戶裡各跑一次，「沒有紀錄的物件」只在自己的 bucket 對帳，不會刪到別的租戶的檔案。
+- 啟動時確認每個 `active` 租戶的 bucket，不存在就建立；上傳前再確認一次（`ensureBucket`）。健康檢查只看儲存服務連不連得上（`ListBuckets`）。
+- 預設租戶沿用租戶化之前共用的 bucket（`DEFAULT_TENANT_STORAGE_BUCKET`，預設 `b2b-system`），既有檔案不必搬；
+  之後的租戶由佈建（交付順序第 4 步）指定，命名規則由 `isValidBucketName` 檢查。
 
 ---
 
@@ -121,14 +134,14 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 | `version` | integer | 樂觀鎖，每次改名遞增（§6.2）。不用 `updated_at` 比對：它是微秒精度，經過 JSON（毫秒）來回就對不上 |
 | `created_*` / `updated_*` / `deleted_at` | | 慣例欄位；`updated_at` 由 trigger 維護；刪除是軟刪除 |
 
-約束（migration `0006_files.sql`，整合測試證明擋得住）：
+約束（schema 的 `check()`，在 migration `0000_baseline.sql`；整合測試證明擋得住）：
 
 - `files_size_non_negative`：`size >= 0`
 - `files_ready_confirmed`：`status = 'pending'` 或（`etag` 與 `uploaded_at` 都有值）——沒經過物件儲存確認的 `ready` 不可能存在
 - `files_storage_key_key`：`storage_key` 唯一
-- `files_variant_ready_described`：`variant_status <> 'ready'` 或（尺寸與主格式都有值）（migration `0008_file_image_variants.sql`）
+- `files_variant_ready_described`：`variant_status <> 'ready'` 或（尺寸與主格式都有值）
 
-索引（migration `0007_file_manager.sql`；都只涵蓋 `deleted_at IS NULL`）：
+索引（都只涵蓋 `deleted_at IS NULL`）：
 
 | 索引 | 用途 |
 | --- | --- |
@@ -152,7 +165,7 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 
 ### 4.2 資料夾：`file_folders`
 
-檔案管理器的分類（migration `0009_file_folders.sql`）。資料夾只是分類：與物件儲存的 key 無關，移動、改名都不必搬物件。
+檔案管理器的分類。資料夾只是分類：與物件儲存的 key 無關，移動、改名都不必搬物件。
 
 | 欄位 | 型別 | 說明 |
 | --- | --- | --- |
@@ -215,7 +228,7 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 - presigned PUT 無法限制大小，所以大小在 `complete` 時比對；不符就刪掉物件，使用者可用同一個網址（未過期時）重傳。
 - 並行的兩個 `complete`：`UPDATE … WHERE status='pending'` 只有一個成功，另一個 `409 FILE_ALREADY_UPLOADED`。
 
-前端不自己編排這些步驟，呼叫 `apps/web/src/apis/file/upload-file/` 的 `uploadFile()`：
+前端不自己編排這些步驟，呼叫 `apps/backstage/src/apis/file/upload-file/` 的 `uploadFile()`：
 
 ```ts
 const file = await uploadFile({ file: input.files[0], thumbnail, onProgress: ({ loaded, total }) => … }, signal);
@@ -290,7 +303,7 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   在那之前 `thumbnailUrl` 是瀏覽器縮圖（有的話），LightBox 用原圖。
 - **失敗**：解碼失敗（損毀、超過 128 MiB 或 1 億像素）→ `failed`，不再重試，前端退回瀏覽器縮圖或類型圖示；
   儲存服務暫時不可用 → 維持 `pending`，由維護排程（§9）在 5 分鐘後重新排入。執行個體在產生途中重啟同理。
-- **既有資料**：migration `0008` 把已完成的圖片標成 `pending`，由維護排程逐批補產生。
+- **補產生**：`variant_status = 'pending'` 的圖片由維護排程逐批補產生。
 - **影像處理在 api 內**（`core/image` 的 `ImageProcessor`，實作是 sharp）：sharp 是預編譯的原生套件，
   平台二進位檔隨 `@img/sharp-*` 安裝（macOS、Linux glibc / musl 都有），不需要編譯環境。取捨見 [ADR-0014](../../adr/0014-server-image-variants.md)。
 
@@ -367,8 +380,8 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   "size": 12345,
   "status": "ready",
   "folderId": null,                                                    // 所在的資料夾；null 是根目錄
-  "url": "https://…/storage/game-editor/files/<id>?X-Amz-…",          // inline：直接顯示
-  "downloadUrl": "https://…/storage/game-editor/files/<id>?X-Amz-…",  // attachment：以 name 下載
+  "url": "https://…/storage/b2b-system/files/<id>?X-Amz-…",          // inline：直接顯示
+  "downloadUrl": "https://…/storage/b2b-system/files/<id>?X-Amz-…",  // attachment：以 name 下載
   "thumbnailUrl": "/api/files/<id>/image/thumbnail?exp=…&sig=…",       // 伺服器圖示預覽 → 瀏覽器縮圖 → null
   "image": {                                                           // 不是圖片、或變體還沒產生時為 null（§5.4）
     "width": 4000, "height": 3000,                                     // 套用 EXIF 方向後的原圖尺寸
@@ -470,9 +483,8 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | 變數 | 預設 | 說明 |
 | --- | --- | --- |
 | `FILE_STORAGE_ENDPOINT` | `http://127.0.0.1:9000/storage` | api 連線用 |
-| `FILE_STORAGE_PUBLIC_ENDPOINT` | `http://localhost:5173/storage` | 瀏覽器看到的位址；presigned URL 以它簽章 |
+| `FILE_STORAGE_PUBLIC_ENDPOINT` | `{tenantOrigin}/storage` | 瀏覽器看到的位址；presigned URL 以它簽章。`{tenantOrigin}` 換成目前租戶的 origin |
 | `FILE_STORAGE_REGION` | `us-east-1` | |
-| `FILE_STORAGE_BUCKET` | `game-editor` | 不存在時自動建立 |
 | `FILE_STORAGE_ACCESS_KEY_ID` / `FILE_STORAGE_SECRET_ACCESS_KEY` | 必填 | 與 apps/file-storage 共用同名變數 |
 | `FILE_UPLOAD_MAX_SIZE` | `104857600`（100 MiB） | 單一檔案上限 |
 | `FILE_URL_TTL` | `900` | presigned 上傳／下載網址的有效秒數（60–604800）；下載網址在 `TTL / 2` 的時間窗內不變（§7.1） |
@@ -531,7 +543,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `src/core/image/__tests__/sharp-image-processor.spec.ts` | progressive JPEG、等比縮放不放大、透明圖鋪白底、EXIF 轉正、串流讀入、位元組上限 |
 | `src/modules/file/__tests__/file-image.service.spec.ts` | 真的 sharp ＋ 記憶體儲存：實體化兩個變體、WebP 主格式、失敗與重試的分界、途中刪除、影像 API 的簽章／格式協商／依請求轉出並快取 |
 | `src/modules/file/__tests__/file-maintenance.service.spec.ts` | 四類殘留的偵測與清除、dry run、與 complete 並行、失敗不中斷、不重疊執行 |
-| `apps/web/src/apis/file/upload-file/__tests__/uploadFile.test.ts` | 編排、進度、直傳失敗、取消與放棄上傳、縮圖；分塊：並行、ETag 排序、單塊重試、4xx 不重試 |
+| `apps/backstage/src/apis/file/upload-file/__tests__/uploadFile.test.ts` | 編排、進度、直傳失敗、取消與放棄上傳、縮圖；分塊：並行、ETag 排序、單塊重試、4xx 不重試 |
 
 與真實 S3 協定的相容性由 apps/file-storage 的測試（官方 SDK）負責；api 端的 `S3ObjectStorage` 另以 Docker 整套
 （`docker-compose.prod.yml`）手動驗證過 presigned 直傳、Content-Type 綁定、中文檔名下載與刪除。
@@ -568,8 +580,8 @@ FileAccessService（modules/file）
 | 中斷繼承 | `file_folders.inherit_grants`；設成 `false` 時在同一個交易內把目前繼承到的授權複製成直接授權 |
 | 授權對象 | 解析與清單都 join 未刪除的 `roles` / `users`：刪除角色或使用者不必清授權列 |
 
-資料表：`resource_grants`（migration `0010_resource_grants.sql`）、`file_folders.inherit_grants`（`0011_file_folder_access.sql`）、
-系統資料夾 `file_folders.kind` / `owner_id` 與授權對象 `everyone`（`0013_file_system_folders.sql`）。
+資料表：`resource_grants`、`file_folders.inherit_grants`、
+系統資料夾 `file_folders.kind` / `owner_id` 與授權對象 `everyone`（schema 在 `db/schema/`，migration 見 [`02-database.md`](./02-database.md) §5.2）。
 
 系統資料夾由 `FileSystemFolderService` 維護：`onApplicationBootstrap` 確保共用／私人資料夾存在並補建個人資料夾；
 訂閱 `permissions.changed` 為取得檔案管理器權限的使用者建立個人資料夾；訂閱 `resource.changed` 的 `user delete`，

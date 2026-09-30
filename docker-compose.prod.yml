@@ -1,34 +1,42 @@
 # 生產拓撲（docs/architecture/01-system.md §4.2）：
-#   web（nginx：靜態檔 ＋ /api、/api/socket.io、/storage 反向代理）→ api（REST ＋ Socket.io）→ postgres
+#   backstage（nginx：靜態檔 ＋ /api、/api/socket.io、/storage 反向代理）→ api（REST ＋ Socket.io）→ postgres
 #                                                         └──────→ file-storage（S3 相容）
 #   migrate 是一次性工作：migration ＋ 冪等 seed 跑完才啟動 api。
-# 網路切三段：web 碰不到 postgres；file-storage 與 postgres 互不相通。
+# 網路切三段：backstage 碰不到 postgres；file-storage 與 postgres 互不相通。
 services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-gameeditor}
+      POSTGRES_USER: ${POSTGRES_USER:-b2bsystem}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
-      POSTGRES_DB: ${POSTGRES_DB:-game_editor}
+      POSTGRES_DB: ${POSTGRES_DB:-b2b_system}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks: [data]
     healthcheck:
-      test:
-        ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-gameeditor} -d ${POSTGRES_DB:-game_editor}']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-b2bsystem} -d ${POSTGRES_DB:-b2b_system}']
       interval: 10s
       timeout: 5s
       retries: 10
 
   migrate:
-    image: game-editor-api
+    image: b2b-system-api
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: 'no'
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-gameeditor}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-game_editor}
+      # 平台 DB 不存在時 migrate 會建立；預設租戶的 DB 沿用 POSTGRES_DB（docs/adr/0020-physical-tenant-isolation.md）
+      PLATFORM_DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
+      TENANT_SECRET_KEY: ${TENANT_SECRET_KEY:?required}
+      DEFAULT_TENANT_DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-b2b_system}
+      # 瀏覽器看到的 host（含 port）；apps/auth（:8081）不屬於任何租戶
+      DEFAULT_TENANT_DOMAINS: ${DEFAULT_TENANT_DOMAINS:-localhost:8080}
+      # 每個租戶一個 bucket（D16）；預設租戶沿用租戶化之前的 bucket（舊部署設過 FILE_STORAGE_BUCKET 的照舊）
+      DEFAULT_TENANT_STORAGE_BUCKET: ${DEFAULT_TENANT_STORAGE_BUCKET:-${FILE_STORAGE_BUCKET:-b2b-system}}
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:?required}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
     # seed 是冪等的（權限目錄 upsert、系統角色已存在就略過），每次部署都跑
@@ -40,24 +48,30 @@ services:
 
   api:
     # 與 migrate 共用同一個映像（由 migrate 的 build 產生），不另外 build 也不 pull
-    image: game-editor-api
+    image: b2b-system-api
     pull_policy: never
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER:-gameeditor}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-game_editor}
+      PLATFORM_DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
+      TENANT_SECRET_KEY: ${TENANT_SECRET_KEY:?required}
+      # 佈建新租戶（ADR-0020 D4、D12）：留空時用 PLATFORM_DATABASE_URL（postgres 映像的 POSTGRES_USER 是超級使用者）
+      TENANT_PROVISIONING_DATABASE_URL: ${TENANT_PROVISIONING_DATABASE_URL:-}
+      # 新租戶的預設網域 {code}.<值>；留空 = APP_PUBLIC_URL 的 host。wildcard 網域的反向代理在交付順序第 6 步
+      TENANT_BASE_DOMAIN: ${TENANT_BASE_DOMAIN:-}
       JWT_SECRET: ${JWT_SECRET:?required}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
       REFRESH_COOKIE_PATH: /api/auth
       # nginx 在同一個 docker 網路（私有網段）：信任它帶的 X-Forwarded-For，限流才看得到真實 IP
       TRUST_PROXY: uniquelocal
       # 瀏覽器看到的 origin；Socket.io handshake 的 Origin 檢查（backend/08-realtime.md §11）
+      # 同源（每個租戶自己的網域）一律允許；這裡只需要列出額外允許的 origin
       REALTIME_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost:8080}
       # 物件儲存：api 走內網，presigned URL 以瀏覽器看到的位址簽章（backend/09-file.md §3）。
       # 換成真正的 S3 時只改這幾個變數，並拿掉下面的 file-storage 服務。
       FILE_STORAGE_ENDPOINT: http://file-storage:9000/storage
-      FILE_STORAGE_PUBLIC_ENDPOINT: ${PUBLIC_ORIGIN:-http://localhost:8080}/storage
-      FILE_STORAGE_BUCKET: ${FILE_STORAGE_BUCKET:-game-editor}
+      # {tenantOrigin}：每個租戶在自己的網域，presigned URL 簽成同源的 /storage（ADR-0020 D2）
+      FILE_STORAGE_PUBLIC_ENDPOINT: '{tenantOrigin}/storage'
       FILE_STORAGE_ACCESS_KEY_ID: ${FILE_STORAGE_ACCESS_KEY_ID:?required}
       FILE_STORAGE_SECRET_ACCESS_KEY: ${FILE_STORAGE_SECRET_ACCESS_KEY:?required}
       # 郵件（backend/11-mail.md）：正式環境一律 smtp，日誌不會出現連結；
@@ -65,8 +79,15 @@ services:
       MAIL_TRANSPORT: smtp
       MAIL_SMTP_URL: ${MAIL_SMTP_URL:?required}
       MAIL_FROM: ${MAIL_FROM:?required}
-      # 信裡的連結（啟用、重設密碼）以瀏覽器看到的 origin 開頭
+      # 信裡的產品連結以瀏覽器看到的 origin 開頭；也是第一方 client `backstage` 的 redirect URI 開頭
       APP_PUBLIC_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      # SSO（docs/architecture/04-sso.md）：apps/auth 是獨立的 origin，issuer 在它底下的 /api/oidc。
+      # 帳號流程的信中連結（啟用、重設密碼、邀請）以 AUTH_APP_URL 開頭
+      AUTH_APP_URL: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}
+      OIDC_ISSUER: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}/api/oidc
+      OIDC_JWKS: ${OIDC_JWKS:?required}
+      OIDC_COOKIE_KEYS: ${OIDC_COOKIE_KEYS:?required}
+      IDP_SECRET_KEY: ${IDP_SECRET_KEY:?required}
     networks: [edge, data, storage]
     # 單一執行個體：權限快取與 Socket.io room 都在記憶體。擴展前提見 01-system.md §4.3
     depends_on:
@@ -77,7 +98,7 @@ services:
 
   # S3 相容的檔案儲存（apps/file-storage）；資料在 volume，映像本身無狀態
   file-storage:
-    image: game-editor-file-storage
+    image: b2b-system-file-storage
     build:
       context: .
       dockerfile: apps/file-storage/Dockerfile
@@ -93,13 +114,32 @@ services:
     # edge：nginx 轉發瀏覽器的直傳／下載；storage：api 的伺服器端呼叫
     networks: [edge, storage]
 
-  web:
+  backstage:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
+      dockerfile: apps/backstage/Dockerfile
+      args:
+        VITE_OIDC_ISSUER: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}/api/oidc
+        VITE_AUTH_APP_URL: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}
     restart: unless-stopped
     ports:
       - '8080:80'
+    networks: [edge]
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # 全平台共用的身分與租戶入口（docs/adr/0019-sso-identity-platform.md）：獨立的 origin，同樣反向代理到 api
+  auth:
+    build:
+      context: .
+      dockerfile: apps/auth/Dockerfile
+      args:
+        VITE_OIDC_ISSUER: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}/api/oidc
+        VITE_AUTH_APP_URL: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}
+    restart: unless-stopped
+    ports:
+      - '8081:80'
     networks: [edge]
     depends_on:
       api:

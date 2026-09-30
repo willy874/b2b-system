@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 import { defineSchema } from '@/core/validation';
-import { PERMISSION_SCOPES } from '@/db/schema';
 import { ALL_PERMISSION_KEYS } from '@/db/seeds/permissions';
 
 /**
@@ -13,9 +12,6 @@ export const PermissionKeySchema = defineSchema(
   z.enum(ALL_PERMISSION_KEYS as [string, ...string[]]),
 );
 
-/** 權限鍵與角色的範圍（docs/adr/0018-workspace-tenancy.md D2）。 */
-export const PermissionScopeSchema = defineSchema('PermissionScope', z.enum(PERMISSION_SCOPES));
-
 export const PermissionSchema = defineSchema(
   'Permission',
   z.object({
@@ -23,7 +19,6 @@ export const PermissionSchema = defineSchema(
     key: PermissionKeySchema,
     resource: z.string(),
     action: z.string(),
-    scope: PermissionScopeSchema,
     nameI18nKey: z.string(),
     description: z.string().nullable(),
     sortOrder: z.number().int(),

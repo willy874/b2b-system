@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { workspaceScopeOf } from '@/common/types';
 import type { AuthUser } from '@/common/types';
 import type { Database } from '@/core/database';
 import { AppException } from '@/core/errors';
@@ -22,8 +21,6 @@ const ALICE: AuthUser = {
   status: 'active',
 };
 const BOB_ID = '22222222-2222-4222-8222-222222222222';
-/** 測試用的工作區範圍（docs/adr/0018-workspace-tenancy.md D10）。 */
-const WS = workspaceScopeOf('99999999-9999-4999-8999-999999999999');
 
 let sequence = 0;
 function uuid(): string {
@@ -51,7 +48,6 @@ function setup(
   ): FileFolderRow {
     const row: FileFolderRow = {
       id: uuid(),
-      workspaceId: WS.workspaceId,
       name,
       parentId,
       inheritGrants,
@@ -79,22 +75,20 @@ function setup(
 
   const repo = {
     lockTree: vi.fn(async () => undefined),
-    findMovableFiles: vi.fn(async (_ws: unknown, ids: string[]) =>
+    findMovableFiles: vi.fn(async (ids: string[]) =>
       ids.map((id) => ({ id, folderId: null as string | null, createdBy: ALICE.id })),
     ),
     hasItemsNotCreatedBy: vi.fn(
       async (ids: string[], actorId: string) =>
         foreignFiles || live().some((row) => ids.includes(row.id) && row.createdBy !== actorId),
     ),
-    listAll: vi.fn(async (_ws: unknown) => live()),
-    findById: vi.fn(async (_ws: unknown, id: string) => live().find((row) => row.id === id)),
-    findByIds: vi.fn(async (_ws: unknown, ids: string[]) =>
-      live().filter((row) => ids.includes(row.id)),
-    ),
-    findChildren: vi.fn(async (_ws: unknown, parentIds: (string | null)[]) =>
+    listAll: vi.fn(async () => live()),
+    findById: vi.fn(async (id: string) => live().find((row) => row.id === id)),
+    findByIds: vi.fn(async (ids: string[]) => live().filter((row) => ids.includes(row.id))),
+    findChildren: vi.fn(async (parentIds: (string | null)[]) =>
       live().filter((row) => parentIds.includes(row.parentId)),
     ),
-    findAncestorIds: vi.fn(async (_ws: unknown, id: string) => {
+    findAncestorIds: vi.fn(async (id: string) => {
       const chain: string[] = [];
       let current = live().find((row) => row.id === id);
       while (current) {
@@ -104,7 +98,7 @@ function setup(
       }
       return chain;
     }),
-    findDescendantIds: vi.fn(async (_ws: unknown, ids: string[]) => {
+    findDescendantIds: vi.fn(async (ids: string[]) => {
       const result = new Set(ids);
       let grew = true;
       while (grew) {
@@ -121,12 +115,12 @@ function setup(
     create: vi.fn(async (values: { name: string; parentId?: string | null }[]) =>
       values.map((value) => insert(value.name, value.parentId ?? null)),
     ),
-    rename: vi.fn(async (_ws: unknown, id: string, values: { name: string }) => {
+    rename: vi.fn(async (id: string, values: { name: string }) => {
       const row = folders.get(id);
       if (row) row.name = values.name;
       return row;
     }),
-    move: vi.fn(async (_ws: unknown, ids: string[], parentId: string | null) =>
+    move: vi.fn(async (ids: string[], parentId: string | null) =>
       ids.flatMap((id) => {
         const row = folders.get(id);
         if (!row || row.parentId === parentId) return [];
@@ -134,7 +128,7 @@ function setup(
         return [row];
       }),
     ),
-    moveFiles: vi.fn(async (_ws: unknown, fileIds: string[]) => fileIds.length),
+    moveFiles: vi.fn(async (fileIds: string[]) => fileIds.length),
     softDelete: vi.fn(async (ids: string[]) => {
       for (const id of ids) {
         const row = folders.get(id);
@@ -143,14 +137,13 @@ function setup(
       return ids.length;
     }),
     softDeleteFilesIn: vi.fn(async (_folderIds: string[]) => 3),
-    hasSibling: vi.fn(
-      async (_ws: unknown, parentId: string | null, name: string, exceptId?: string) =>
-        live().some(
-          (row) =>
-            row.parentId === parentId &&
-            row.name.toLowerCase() === name.toLowerCase() &&
-            row.id !== exceptId,
-        ),
+    hasSibling: vi.fn(async (parentId: string | null, name: string, exceptId?: string) =>
+      live().some(
+        (row) =>
+          row.parentId === parentId &&
+          row.name.toLowerCase() === name.toLowerCase() &&
+          row.id !== exceptId,
+      ),
     ),
   };
   const audit = { record: vi.fn(async () => undefined) };
@@ -190,7 +183,7 @@ async function expectAppError(promise: Promise<unknown>, code: string) {
 describe('FileFolderService.create（docs/architecture/backend/09-file.md §4.2）', () => {
   it('在交易內排隊後建立、寫稽核、發推播', async () => {
     const { service, repo, audit, events } = setup();
-    const folder = await service.create(WS, { name: '角色', parentId: null }, ALICE);
+    const folder = await service.create({ name: '角色', parentId: null }, ALICE);
 
     expect(folder).toMatchObject({ name: '角色', parentId: null });
     expect(repo.lockTree).toHaveBeenCalled();
@@ -204,23 +197,23 @@ describe('FileFolderService.create（docs/architecture/backend/09-file.md §4.2�
   it('同一層已有同名（不分大小寫）回 FILE_FOLDER_NAME_CONFLICT', async () => {
     const { service } = setup([{ name: 'Sprites' }]);
     await expectAppError(
-      service.create(WS, { name: 'sprites', parentId: null }, ALICE),
+      service.create({ name: 'sprites', parentId: null }, ALICE),
       'FILE_FOLDER_NAME_CONFLICT',
     );
   });
 
   it('不同層可以同名', async () => {
     const { service, idOf } = setup([{ name: 'a' }, { name: 'b' }]);
-    await service.create(WS, { name: 'shared', parentId: idOf('a') }, ALICE);
+    await service.create({ name: 'shared', parentId: idOf('a') }, ALICE);
     await expect(
-      service.create(WS, { name: 'shared', parentId: idOf('b') }, ALICE),
+      service.create({ name: 'shared', parentId: idOf('b') }, ALICE),
     ).resolves.toMatchObject({ name: 'shared' });
   });
 
   it('上層不存在回 FILE_FOLDER_NOT_FOUND', async () => {
     const { service } = setup();
     await expectAppError(
-      service.create(WS, { name: 'x', parentId: uuid() }, ALICE),
+      service.create({ name: 'x', parentId: uuid() }, ALICE),
       'FILE_FOLDER_NOT_FOUND',
     );
   });
@@ -233,7 +226,6 @@ describe('FileFolderService.ensurePaths（上傳資料夾）', () => {
       { name: 'img', parent: 'assets' },
     ]);
     const result = await service.ensurePaths(
-      WS,
       {
         parentId: null,
         paths: [
@@ -256,9 +248,9 @@ describe('FileFolderService.ensurePaths（上傳資料夾）', () => {
   it('根目錄起算剛好到深度上限可以；在一層資料夾底下再加滿就回 VALIDATION_FAILED', async () => {
     const { service, idOf } = setup([{ name: 'a' }]);
     const deep = Array.from({ length: MAX_FOLDER_DEPTH }, (_, i) => `d${i}`);
-    await service.ensurePaths(WS, { parentId: null, paths: [deep] }, ALICE);
+    await service.ensurePaths({ parentId: null, paths: [deep] }, ALICE);
     await expectAppError(
-      service.ensurePaths(WS, { parentId: idOf('a'), paths: [deep] }, ALICE),
+      service.ensurePaths({ parentId: idOf('a'), paths: [deep] }, ALICE),
       'VALIDATION_FAILED',
     );
   });
@@ -268,10 +260,10 @@ describe('FileFolderService.rename', () => {
   it('同一層已有同名回 FILE_FOLDER_NAME_CONFLICT；改成自己原本的名稱不算衝突', async () => {
     const { service, idOf } = setup([{ name: 'a' }, { name: 'b' }]);
     await expectAppError(
-      service.rename(WS, idOf('a'), { name: 'B' }, ALICE),
+      service.rename(idOf('a'), { name: 'B' }, ALICE),
       'FILE_FOLDER_NAME_CONFLICT',
     );
-    await expect(service.rename(WS, idOf('a'), { name: 'A' }, ALICE)).resolves.toMatchObject({
+    await expect(service.rename(idOf('a'), { name: 'A' }, ALICE)).resolves.toMatchObject({
       name: 'A',
     });
   });
@@ -285,11 +277,11 @@ describe('FileFolderService.move', () => {
       { name: 'c', parent: 'b' },
     ]);
     await expectAppError(
-      service.move(WS, { fileIds: [], folderIds: [idOf('a')], targetFolderId: idOf('c') }, ALICE),
+      service.move({ fileIds: [], folderIds: [idOf('a')], targetFolderId: idOf('c') }, ALICE),
       'FILE_FOLDER_CYCLE',
     );
     await expectAppError(
-      service.move(WS, { fileIds: [], folderIds: [idOf('a')], targetFolderId: idOf('a') }, ALICE),
+      service.move({ fileIds: [], folderIds: [idOf('a')], targetFolderId: idOf('a') }, ALICE),
       'FILE_FOLDER_CYCLE',
     );
     expect(repo.move).not.toHaveBeenCalled();
@@ -303,7 +295,7 @@ describe('FileFolderService.move', () => {
       { name: 'X', parent: 'p' },
     ]);
     await expectAppError(
-      service.move(WS, { fileIds: [], folderIds: [idOf('X')], targetFolderId: idOf('dst') }, ALICE),
+      service.move({ fileIds: [], folderIds: [idOf('X')], targetFolderId: idOf('dst') }, ALICE),
       'FILE_FOLDER_NAME_CONFLICT',
     );
   });
@@ -311,7 +303,7 @@ describe('FileFolderService.move', () => {
   it('資料夾不存在回 FILE_FOLDER_NOT_FOUND', async () => {
     const { service } = setup();
     await expectAppError(
-      service.move(WS, { fileIds: [], folderIds: [uuid()], targetFolderId: null }, ALICE),
+      service.move({ fileIds: [], folderIds: [uuid()], targetFolderId: null }, ALICE),
       'FILE_FOLDER_NOT_FOUND',
     );
   });
@@ -324,14 +316,13 @@ describe('FileFolderService.move', () => {
     ]);
     const fileIds = [uuid(), uuid()];
     const result = await service.move(
-      WS,
       { fileIds, folderIds: [idOf('b')], targetFolderId: idOf('dst') },
       ALICE,
     );
 
     expect(result).toEqual({ movedFiles: 2, movedFolders: 1 });
     expect(folders().find((row) => row.name === 'b')?.parentId).toBe(idOf('dst'));
-    expect(repo.moveFiles).toHaveBeenCalledWith(WS, fileIds, idOf('dst'), ALICE.id, 'tx');
+    expect(repo.moveFiles).toHaveBeenCalledWith(fileIds, idOf('dst'), ALICE.id, 'tx');
     expect(audit.record).toHaveBeenCalledTimes(1);
     const [[event, payload]] = events.publish.mock.calls as [[unknown, { changes: unknown[] }]];
     expect(event).toBeDefined();
@@ -344,7 +335,6 @@ describe('FileFolderService.move', () => {
   it('本來就在目的地的資料夾不檢查也不移動', async () => {
     const { service, repo, idOf } = setup([{ name: 'a' }]);
     const result = await service.move(
-      WS,
       { fileIds: [], folderIds: [idOf('a')], targetFolderId: null },
       ALICE,
     );
@@ -361,7 +351,7 @@ describe('FileFolderService.remove', () => {
       { name: 'c', parent: 'b' },
       { name: 'other' },
     ]);
-    await service.remove(WS, idOf('a'), ALICE);
+    await service.remove(idOf('a'), ALICE);
 
     expect(folders().map((row) => row.name)).toEqual(['other']);
     expect(repo.softDeleteFilesIn.mock.calls[0]?.[0]).toHaveLength(3);
@@ -378,7 +368,7 @@ describe('FileFolderService.remove', () => {
 
   it('不存在回 FILE_FOLDER_NOT_FOUND', async () => {
     const { service } = setup();
-    await expectAppError(service.remove(WS, uuid(), ALICE), 'FILE_FOLDER_NOT_FOUND');
+    await expectAppError(service.remove(uuid(), ALICE), 'FILE_FOLDER_NOT_FOUND');
   });
 });
 
@@ -407,7 +397,7 @@ describe('FileFolderService 的資料夾層級授權（docs/rbac/07-resource-gra
       ],
       () => [{ name: 'art', level: 'contributor' }],
     );
-    const list = await service.list(WS, ALICE);
+    const list = await service.list(ALICE);
 
     expect(list.items.map((item) => [item.name, item.capabilities.canRead])).toEqual([
       ['root-a', false],
@@ -431,13 +421,10 @@ describe('FileFolderService 的資料夾層級授權（docs/rbac/07-resource-gra
       { name: 'art', level: 'contributor' },
     ]);
     await expect(
-      service.create(WS, { name: 'ui', parentId: idOf('art') }, ALICE),
+      service.create({ name: 'ui', parentId: idOf('art') }, ALICE),
     ).resolves.toMatchObject({ capabilities: { canCreate: true, canUpdate: true } });
 
-    await expectAppError(
-      service.create(WS, { name: 'x', parentId: null }, ALICE),
-      'AUTHZ_FORBIDDEN',
-    );
+    await expectAppError(service.create({ name: 'x', parentId: null }, ALICE), 'AUTHZ_FORBIDDEN');
     expect(denials.recordSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'authz.denied',
@@ -450,16 +437,13 @@ describe('FileFolderService 的資料夾層級授權（docs/rbac/07-resource-gra
     const { service, idOf } = scoped([{ name: 'art' }, { name: 'secret' }], () => [
       { name: 'art', level: 'editor' },
     ]);
+    await expectAppError(service.rename(idOf('secret'), { name: 'y' }, ALICE), 'AUTHZ_FORBIDDEN');
+    await expectAppError(service.remove(idOf('secret'), ALICE), 'AUTHZ_FORBIDDEN');
     await expectAppError(
-      service.rename(WS, idOf('secret'), { name: 'y' }, ALICE),
+      service.move({ fileIds: [], folderIds: [], targetFolderId: idOf('secret') }, ALICE),
       'AUTHZ_FORBIDDEN',
     );
-    await expectAppError(service.remove(WS, idOf('secret'), ALICE), 'AUTHZ_FORBIDDEN');
-    await expectAppError(
-      service.move(WS, { fileIds: [], folderIds: [], targetFolderId: idOf('secret') }, ALICE),
-      'AUTHZ_FORBIDDEN',
-    );
-    await expectAppError(service.remove(WS, uuid(), ALICE), 'FILE_FOLDER_NOT_FOUND');
+    await expectAppError(service.remove(uuid(), ALICE), 'FILE_FOLDER_NOT_FOUND');
   });
 
   it('contributor 能改名自己建立的資料夾，不能改名別人建立的；editor 都可以', async () => {
@@ -469,15 +453,15 @@ describe('FileFolderService 的資料夾層級授權（docs/rbac/07-resource-gra
       { name: 'theirs', parent: 'art', createdBy: BOB_ID },
     ];
     const contributor = scoped(initial, () => [{ name: 'art', level: 'contributor' }]);
-    await contributor.service.rename(WS, contributor.idOf('mine'), { name: 'mine2' }, ALICE);
+    await contributor.service.rename(contributor.idOf('mine'), { name: 'mine2' }, ALICE);
     await expectAppError(
-      contributor.service.rename(WS, contributor.idOf('theirs'), { name: 'x' }, ALICE),
+      contributor.service.rename(contributor.idOf('theirs'), { name: 'x' }, ALICE),
       'AUTHZ_FORBIDDEN',
     );
 
     const editor = scoped(initial, () => [{ name: 'art', level: 'editor' }]);
     await expect(
-      editor.service.rename(WS, editor.idOf('theirs'), { name: 'x' }, ALICE),
+      editor.service.rename(editor.idOf('theirs'), { name: 'x' }, ALICE),
     ).resolves.toMatchObject({ name: 'x' });
   });
 
@@ -486,7 +470,7 @@ describe('FileFolderService 的資料夾層級授權（docs/rbac/07-resource-gra
       [{ name: 'art' }, { name: 'mine', parent: 'art' }, { name: 'sub', parent: 'mine' }],
       () => [{ name: 'art', level: 'contributor' }],
     );
-    await mine.service.remove(WS, mine.idOf('mine'), ALICE);
+    await mine.service.remove(mine.idOf('mine'), ALICE);
     expect(mine.folders().map((row) => row.name)).toEqual(['art']);
 
     const mixed = scoped(
@@ -497,9 +481,7 @@ describe('FileFolderService 的資料夾層級授權（docs/rbac/07-resource-gra
       ],
       () => [{ name: 'art', level: 'contributor' }],
     );
-    const error = await mixed.service
-      .remove(WS, mixed.idOf('mine'), ALICE)
-      .catch((e: unknown) => e);
+    const error = await mixed.service.remove(mixed.idOf('mine'), ALICE).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(AppException);
     expect((error as AppException).details).toMatchObject({ reason: 'not-owner' });
 
@@ -513,7 +495,7 @@ describe('FileFolderService 的資料夾層級授權（docs/rbac/07-resource-gra
       () => [{ name: 'art', level: 'editor' }],
       true,
     );
-    await editor.service.remove(WS, editor.idOf('mine'), ALICE);
+    await editor.service.remove(editor.idOf('mine'), ALICE);
   });
 
   it('移動：目的地要能建立、每個項目要能改名；viewer 的目的地 → AUTHZ_FORBIDDEN', async () => {
@@ -525,11 +507,7 @@ describe('FileFolderService 的資料夾層級授權（docs/rbac/07-resource-gra
       ],
     );
     await expectAppError(
-      service.move(
-        WS,
-        { fileIds: [], folderIds: [idOf('mine')], targetFolderId: idOf('view') },
-        ALICE,
-      ),
+      service.move({ fileIds: [], folderIds: [idOf('mine')], targetFolderId: idOf('view') }, ALICE),
       'AUTHZ_FORBIDDEN',
     );
     expect(repo.move).not.toHaveBeenCalled();
@@ -544,7 +522,7 @@ describe('FileFolderService 的資料夾層級授權（docs/rbac/07-resource-gra
       ],
       () => [{ name: 'art', level: 'editor' }],
     );
-    const error = await service.remove(WS, idOf('sub'), ALICE).catch((e: unknown) => e);
+    const error = await service.remove(idOf('sub'), ALICE).catch((e: unknown) => e);
     expect((error as AppException).details).toMatchObject({ reason: 'protected-subfolder' });
     expect(folders()).toHaveLength(3);
   });

@@ -1,1 +1,0 @@
-ALTER TABLE "file_folders" ADD COLUMN "inherit_grants" boolean DEFAULT true NOT NULL;

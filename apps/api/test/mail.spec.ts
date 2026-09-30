@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { and, eq } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { afterAll, beforeAll, describe, expect, inject, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { MailTransport } from '@/core/mail';
 import type { MailMessage, SentMail } from '@/core/mail';
@@ -11,6 +11,7 @@ import { auditLogs } from '@/db/schema';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
+import { listenOnLoopback } from './http';
 
 /** 收下所有寄出的信，測試從這裡取連結。 */
 class RecordingMailTransport extends MailTransport {
@@ -64,7 +65,6 @@ function tokenIn(message: MailMessage, path: string): string {
 
 describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
   beforeAll(async () => {
-    process.env.DATABASE_URL = inject('databaseUrl');
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN.email;
     process.env.SUPER_ADMIN_PASSWORD = SUPER_ADMIN.password;
@@ -73,6 +73,7 @@ describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
     process.env.FILE_MAINTENANCE_CRON = '';
     process.env.AUTH_RATE_LIMIT = '1000';
     process.env.APP_PUBLIC_URL = 'https://editor.example.com';
+    process.env.AUTH_APP_URL = 'https://account.example.com';
 
     const created = createTestDatabase();
     db = created.db;
@@ -88,7 +89,7 @@ describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
       .compile();
     app = moduleRef.createNestApplication({ logger: false });
     await app.init();
-    http = app.getHttpServer() as App;
+    http = await listenOnLoopback(app);
   });
 
   afterAll(async () => {
@@ -100,6 +101,7 @@ describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
       'FILE_MAINTENANCE_CRON',
       'AUTH_RATE_LIMIT',
       'APP_PUBLIC_URL',
+      'AUTH_APP_URL',
     ]) {
       delete process.env[key];
     }
@@ -115,9 +117,9 @@ describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
     const userId = (created.body as { data: { id: string } }).data.id;
 
     const mail = await waitForMail('new-member@example.com');
-    expect(mail.subject).toBe('啟用你的 Game Editor 帳號');
-    expect(mail.text).toContain('https://editor.example.com/auth/setup?token=');
-    const setupToken = tokenIn(mail, '/auth/setup');
+    expect(mail.subject).toBe('啟用你的 B2B System 帳號');
+    expect(mail.text).toContain('https://account.example.com/setup?token=');
+    const setupToken = tokenIn(mail, '/setup');
 
     await request(http)
       .post('/auth/setup')
@@ -145,8 +147,8 @@ describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
 
     // 第 1 封是啟用信
     const mail = await waitForMail(email, 2);
-    expect(mail.subject).toBe('重設你的 Game Editor 密碼');
-    const resetToken = tokenIn(mail, '/auth/reset-password');
+    expect(mail.subject).toBe('重設你的 B2B System 密碼');
+    const resetToken = tokenIn(mail, '/reset-password');
 
     await request(http)
       .post('/auth/reset-password')

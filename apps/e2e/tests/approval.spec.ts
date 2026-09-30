@@ -4,13 +4,15 @@ import { loginAndWaitForHome } from '../helpers/auth';
 import { getByTestIdAndValue } from '../helpers/selectors';
 
 const APPLICANT_PASSWORD = 'Applicant!Password2026';
-const API_URL = process.env.E2E_API_URL ?? 'http://localhost:3000';
+// 經過 backstage 的 /api 代理：api 以網域決定租戶（docs/adr/0020-physical-tenant-isolation.md D2）
+const API_URL =
+  process.env.E2E_API_URL ?? `${process.env.E2E_BASE_URL ?? 'http://localhost:5173'}/api`;
 
 test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
   test('申請帳號 → admin 核准並指派角色 → 申請人可以登入', async ({ page, browser }) => {
     const email = `e2e-applicant-${Date.now()}@dev.local`;
 
-    // ① 未登入：從登入頁進入申請頁並送出
+    // ① 未登入：從 IdP 的登入頁（apps/auth）進入申請頁並送出
     await page.goto('/auth/login');
     await page.getByTestId('login-register-link').click();
     await page.getByTestId('register-email').fill(email);

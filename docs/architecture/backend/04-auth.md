@@ -10,7 +10,7 @@
 | 壽命           | **5 分鐘**                    | **7 天**                           |
 | 存放（客戶端） | **記憶體**（JS 閉包）         | `httpOnly` cookie                  |
 | 存放（伺服器） | 不存                          | SHA-256 雜湊後存 `refresh_tokens`  |
-| 內容           | `{ sub, ver, jti, iat, exp }` | 無語意                             |
+| 內容           | `{ sub, ver, jti, tid, iat, exp }`；經 SSO 登入時多 `sid`（IdP session） | 無語意；經 SSO 發出時記 `client_id`、`idp_session_uid` |
 | 輪替           | 不適用                        | **每次使用即輪替**                 |
 | 撤銷           | 靠 `token_version` 比對       | DB 標記 `revoked_at`               |
 
@@ -23,11 +23,13 @@ JWT 一旦簽出就無法撤回其內容。若權限寫在 token 裡，管理員
 代價是一次快取查詢（命中時 < 1 ms）。詳見
 [ADR-0005](../../adr/0005-permission-resolved-server-side.md)。
 
-Token 裡因此只有三樣東西：
+Token 裡因此只有這幾樣東西：
 
 - `sub` — 使用者 ID
 - `ver` — 簽發時的 `users.token_version`
 - `jti` — 供稽核追蹤
+- `tid` — 簽發時的租戶 id（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D10）：使用者 id 只在自己的租戶 DB 有意義，
+  驗證時 `tid` 必須等於請求網域決定的租戶，否則 `AUTH_TOKEN_INVALID`，不會拿去查別的租戶的使用者
 
 ### 1.2 `token_version` 的角色
 
@@ -431,6 +433,30 @@ async cleanupExpiredTokens() {
 ```
 
 保留過期後 30 天，讓安全事件調查時還查得到「這個 token 什麼時候被用過」。
+
+
+---
+
+## 8.1 SSO（apps/api 當 OIDC Provider）
+
+流程、端點、資料模型與部署見 [`../04-sso.md`](../04-sso.md)；決定與理由見 [ADR-0019](../../adr/0019-sso-identity-platform.md)。這裡只列與本文件各節的關係。
+
+- `modules/oidc-provider`：[`oidc-provider`](https://github.com/panva/node-oidc-provider) 掛在本程序的 `/oidc`（瀏覽器看到 `OIDC_ISSUER`，
+  apps/auth origin 底下的 `/api/oidc`）；狀態存在 `oidc_payloads`，過期的列由背景工作 `oidc.cleanup` 清除。
+- 登入互動（`AuthModule` 的 `SsoInteractionController`）：密碼檢查與 `POST /auth/login` 同一套（§3，`AuthService.verifyCredentials`）。
+- 產品的 BFF（`POST /auth/sso/callback`）：在本程序內兌換授權碼後，照 §1、§2 發 app session，refresh token 多記 `client_id`、`idp_session_uid`；
+  輪替時沿用。access token 帶 `sid`。
+- 單一登出（§7 的延伸）：登出的家族有 `idp_session_uid` 時，銷毀 IdP session、撤銷同一個 IdP session 的所有家族（`revoked_reason = sso_logout`），
+  並推播 `SESSIONS_REVOKED { idpSessionUids }`（[`08-realtime.md`](./08-realtime.md) §3.5）。
+- 帳號停用、刪除、改密碼（`SESSIONS_REVOKED { userIds }`）時，這些人的 IdP session 一起結束（ADR-0019 D17）。
+- 外部 IdP（`modules/identity-provider` ＋ `AuthModule` 的 `ExternalLoginService`，ADR-0019 D8–D11）：
+  1. 互動頁以 email 查網域（`GET /oidc-interaction/:uid/discover`），`POST …/:uid/external` 回傳外部 IdP 的授權網址（PKCE、state、nonce 存在 `oidc_payloads`，10 分鐘）
+  2. 外部 IdP 跳回固定的 `GET /oidc-interaction/external/callback`：兌換授權碼、驗 ID token（email 不在 ID token 時查 userinfo）、對應帳號，
+     跳到 `…/:uid/external/complete?ticket=`；失敗時帶錯誤碼回到 apps/auth 的互動頁。這一步 **不拋例外**，任何錯誤都變成跳轉
+  3. `complete` 帶得到互動 cookie：消耗 ticket、完成互動（`amr = ['ext']`），之後與密碼登入相同
+  - 只允許 SSO 的網域（`identity_provider_domains.sso_only`）：`verifyCredentials` 在查帳號之前回 `AUTH_SSO_REQUIRED`（不洩漏帳號是否存在）；
+    `forgotPassword` 不寄信（回應不變，§5.2）
+  - client secret 以 `IDP_SECRET_KEY`（AES-256-GCM）加密；沒設時由 `JWT_SECRET` 以 HKDF 推導，只給開發用，production 必填
 
 ---
 

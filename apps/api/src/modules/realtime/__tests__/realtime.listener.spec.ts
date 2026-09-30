@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
+// perm room 帶租戶（docs/adr/0020-physical-tenant-isolation.md D17）：固定在租戶 t1
+vi.mock('@/core/tenant', () => ({ requireTenant: () => ({ id: 't1' }) }));
+
 // 讓個別案例可以把受眾換成空集合；其餘案例走真實的對照表
 vi.mock('../realtime.audience', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../realtime.audience')>();
@@ -36,9 +39,6 @@ function setup(openRooms: Record<string, number> = {}) {
       return openRooms[room] ?? 0;
     }
     moveRooms(): void {}
-    roomsOf(): string[] {
-      return [];
-    }
     disconnect(room: string): void {
       disconnected.push(room);
     }
@@ -89,7 +89,7 @@ describe('RealtimeListener（領域事件 → 推播）', () => {
       payload: { changes, origin: 'tab-1' },
     });
     expect(emits[0]?.rooms).toEqual(
-      expect.arrayContaining(['perm:role:read', 'perm:auditLog:read', 'user:u1']),
+      expect.arrayContaining(['t:t1:perm:role:read', 't:t1:perm:auditLog:read', 't:t1:user:u1']),
     );
   });
 
@@ -109,12 +109,36 @@ describe('RealtimeListener（領域事件 → 推播）', () => {
   });
 
   it('sessions.revoked → 先推 session.revoked 再斷線；沒有連線的人略過', () => {
-    const { fire, emits, disconnected } = setup({ 'user:u1': 2 });
+    const { fire, emits, disconnected } = setup({ 't:t1:user:u1': 2 });
     fire(DomainEvent.SESSIONS_REVOKED, { userIds: ['u1', 'u2'], reason: 'AUTH_ACCOUNT_DISABLED' });
 
     expect(emits).toEqual([
-      { rooms: 'user:u1', event: 'session.revoked', payload: { reason: 'AUTH_ACCOUNT_DISABLED' } },
+      {
+        rooms: 't:t1:user:u1',
+        event: 'session.revoked',
+        payload: { reason: 'AUTH_ACCOUNT_DISABLED' },
+      },
     ]);
-    expect(disconnected).toEqual(['user:u1']);
+    expect(disconnected).toEqual(['t:t1:user:u1']);
+  });
+
+  it('單一登出只撤銷同一個 IdP session 的連線，不動同一個人的其他裝置（docs/adr/0019-sso-identity-platform.md D5）', () => {
+    const { fire, emits, disconnected } = setup({ 't:t1:user:u1': 3, 'sid:s1': 1 });
+    fire(DomainEvent.SESSIONS_REVOKED, { idpSessionUids: ['s1'], reason: 'AUTH_REFRESH_REVOKED' });
+
+    expect(emits).toEqual([
+      { rooms: 'sid:s1', event: 'session.revoked', payload: { reason: 'AUTH_REFRESH_REVOKED' } },
+    ]);
+    expect(disconnected).toEqual(['sid:s1']);
+  });
+
+  it('租戶停用 → 撤銷整個租戶的連線（docs/adr/0020-physical-tenant-isolation.md D13）', () => {
+    const { fire, emits, disconnected } = setup({ 't:t2': 5 });
+    fire(DomainEvent.SESSIONS_REVOKED, { tenantIds: ['t2'], reason: 'TENANT_UNAVAILABLE' });
+
+    expect(emits).toEqual([
+      { rooms: 't:t2', event: 'session.revoked', payload: { reason: 'TENANT_UNAVAILABLE' } },
+    ]);
+    expect(disconnected).toEqual(['t:t2']);
   });
 });

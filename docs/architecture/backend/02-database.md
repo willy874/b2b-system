@@ -366,13 +366,13 @@ CREATE TRIGGER audit_logs_archive_no_delete BEFORE DELETE ON audit_logs_archive
 `audit_logs_guard_delete()` 比對冷表同 `id` 那一列的 **所有欄位**
 （`IS NOT DISTINCT FROM`），不一致就 `RAISE`。所以「先在冷表塞一筆假副本，再刪熱表」
 這種竄改也會被擋下——任何從熱表消失的紀錄，冷表都有原封不動的一份。
-完整 SQL 見 `db/migrations/0003_audit_logs_archive_functions.sql`。
+完整 SQL 見 `db/migrations/0001_functions_and_triggers.sql`。
 
 另外，應用程式使用的 DB role 只授予 `INSERT, SELECT`（冷表只有 `SELECT`）：
 
 ```sql
-REVOKE UPDATE, DELETE ON audit_logs FROM game_editor_app;
-REVOKE INSERT, UPDATE, DELETE ON audit_logs_archive FROM game_editor_app;
+REVOKE UPDATE, DELETE ON audit_logs FROM b2b_system_app;
+REVOKE INSERT, UPDATE, DELETE ON audit_logs_archive FROM b2b_system_app;
 ```
 
 > **熱 → 冷搬移** 與 **冷表的保留期清理** 都由另一個具備 `DELETE` 權限的維運
@@ -493,40 +493,67 @@ pnpm db:migrate
 | 已套用到任何共用環境的 migration **不可修改**       | 要改就發新的一支                                         |
 | 破壞性變更拆成兩次部署                              | 先加新欄位並雙寫 → 部署 → 再移除舊欄位                   |
 
-### 5.2 手寫 migration 的位置
+### 5.2 兩條 migration 線
 
 ```
-db/migrations/
-├── 0000_init.sql                  drizzle-kit 產生
-├── 0001_triggers.sql              手寫：protect_system_roles / audit append-only
-├── 0002_add_system_update.sql     drizzle-kit 產生
-└── 0003_grant_system_update.ts    手寫：把新權限授予 admin 角色
+db/migrations/                          租戶 DB（每個租戶都跑；schema 在 db/schema/，drizzle.config.ts）
+├── 0000_baseline.sql                   drizzle-kit 產生（開頭手動加上 pg_trgm）
+├── 0001_functions_and_triggers.sql     手寫（drizzle-kit generate --custom）：protect_system_roles、
+│                                       audit append-only 與冷熱分層、set_updated_at 的各表 trigger
+└── 0002_…                              之後的變更接著編號
+db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
+├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads
+└── 0001_functions_and_triggers.sql     tenants 的 updated_at
 ```
 
-`.ts` 的資料 migration 由一個小 runner 依序執行，與 `.sql` 共用同一張
-`__drizzle_migrations` 記錄表。
+產生 migration：租戶 DB `pnpm db:generate`；平台 DB `pnpm --filter @b2b-system/api exec drizzle-kit generate --config drizzle.platform.config.ts`。
+
+2026-09-29 移除工作區、分出平台 DB 時重新建立了基準點（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D20），
+當時還沒有正式環境資料。既有的開發資料庫要重建：`.env` 改用 `PLATFORM_DATABASE_URL`、`DEFAULT_TENANT_*`（見 `.env.example`），再 `pnpm db:migrate`；
+預設租戶的 database 若留著舊的 migration 紀錄，刪掉重建後再 `pnpm db:seed`（[`../05-tenancy.md`](../05-tenancy.md) §8）。
+新增權限不需要資料 migration：seed 會 upsert 權限目錄；已存在的系統角色要補新權限時，再寫一支手寫 migration。
+
+### 5.3 啟動時檢查每個租戶的版本（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D14）
+
+`pnpm db:migrate` 先跑平台 DB，再依序跑每個 `active` 租戶；單一租戶失敗不影響其他租戶，最後列出失敗的租戶並以非零結束。
+api 不自己跑 migration，而是比對版本（`core/tenant/tenant-schema.ts`）：
+
+| 情況 | 行為 |
+| --- | --- |
+| 租戶 DB 的最後一筆套用紀錄（`drizzle.__drizzle_migrations.created_at`）等於程式的 journal 最新的 `when` | 照常服務；結果沿用到連線字串改變為止 |
+| 比程式新（滾動部署時的舊執行個體、程式回滾） | 照常服務並記 warn——所以 migration 必須對上一版程式相容（§5.1「破壞性變更拆成兩次部署」） |
+| 落後、或從沒跑過 migration | 該租戶回 `503 TENANT_UNAVAILABLE`（HTTP、WebSocket、背景工作都是），其他租戶照常；每 30 秒重新檢查，補跑 `db:migrate` 後不必重啟 |
+| 檢查失敗（DB 連不上） | 這次回 503，不沿用結果，下一次進入就重試 |
+
+檢查在 `Tenancy.enter()`：啟動時（`onApplicationBootstrap`）逐一檢查每個 `active` 租戶並把落後的列在 error log，
+之後登記的租戶在第一次進入時檢查。啟動不會因為某個租戶落後而失敗。平台 DB 由部署流程保證先 migrate（prod compose 的 `migrate` 服務）。
 
 ---
 
 ## 6. 連線
 
-```ts
-// core/database/database.provider.ts
-import postgres from "postgres";
-import { drizzle } from "drizzle-orm/postgres-js";
+資料庫分兩種（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D1）：
 
-const client = postgres(env.DATABASE_URL, {
-  max: env.NODE_ENV === "production" ? 20 : 5,
-  idle_timeout: 30,
-  connect_timeout: 10,
-  onnotice: () => {}, // 靜音 NOTICE
-});
+| | 內容 | 連線 | DI token |
+| --- | --- | --- | --- |
+| 平台 DB（一個） | `tenants`、`tenant_domains`、`oidc_payloads`、pg-boss | `PLATFORM_DATABASE_URL`；`DatabaseModule` 建一個連線池 | `PLATFORM_DB`（`PlatformDatabase`） |
+| 租戶 DB（每租戶一個） | 其餘所有業務表 | 連線字串以 `TENANT_SECRET_KEY` 加密存在 `tenants`；`core/tenant` 的 `Tenancy` 在第一次用到時建立小連線池（`TENANT_POOL_MAX`，閒置 60 秒關閉） | `TENANT_DB`（`Database`） |
 
-export const db = drizzle(client, { schema, logger: env.NODE_ENV === "development" });
-```
+- **`TENANT_DB` 永遠指向「目前的租戶」**：它是一個 Proxy，每次存取都轉到目前租戶脈絡（`AsyncLocalStorage`）的 database。
+  repository 照常 `@Inject(TENANT_DB) private readonly db: Database`、`withTransaction(this.db, …)`，不必知道有多個租戶。
+- **沒有租戶脈絡時存取 `TENANT_DB` 拋 `TENANT_NOT_FOUND`**，不會退回任何預設 database。
+- 租戶脈絡的來源：HTTP 由 `TenantMiddleware` 依請求的網域決定；WebSocket 由 gateway 依 handshake 的網域決定；
+  背景工作依工作的 `tenantId`（[`10-jobs.md`](./10-jobs.md) §1.1）；啟動時的初始化用 `Tenancy.forEachActive()`。
+  直接呼叫 service 的測試用 `test/tenant.ts` 的 `inTestTenant()`。
+- `withTransaction` 開的交易可以登記 `afterCommit(tx, hook)`，提交後才執行（背景工作的 outbox 用它）。
+- 關閉時平台連線池與每個租戶的連線池都 `client.end({ timeout: 5 })`。
 
-`DatabaseModule` 是 `@Global()`，提供 `DRIZZLE` injection token。
-應用程式關閉時（`OnApplicationShutdown`）呼叫 `client.end({ timeout: 5 })`。
+### 6.1 腳本
+
+`db:migrate`、`db:seed`、`db:reset`、`db:archive-audit-logs` 走遍平台 DB 登記的每個租戶（`db/client.ts` 的 `forEachScriptTenant`）；
+`db:seed:dev`、`db:seed:e2e` 只跑 `SEED_TENANT`（預設 `DEFAULT_TENANT_CODE`）。`db:migrate` 先跑平台 DB，
+設定了 `DEFAULT_TENANT_DATABASE_URL` 時登記預設租戶（`DEFAULT_TENANT_CODE`、`DEFAULT_TENANT_DOMAINS`），
+資料庫不存在時嘗試建立；單一租戶失敗不影響其他租戶，結束時列出失敗的租戶並以非零結束。
 
 ---
 
@@ -534,7 +561,7 @@ export const db = drizzle(client, { schema, logger: env.NODE_ENV === "developmen
 
 稽核分成熱表 `audit_logs`（最近 90 天）與冷表 `audit_logs_archive`（更早），
 每天由背景工作 `auditLog.archive`（[`10-jobs.md`](./10-jobs.md)；手動補跑用 `pnpm db:archive-audit-logs`）
-呼叫 `archive_audit_logs(cutoff, batch_size)` 搬移；函式是 `SECURITY DEFINER`（`0014`，[`06-audit-log.md`](./06-audit-log.md) §8）：
+呼叫 `archive_audit_logs(cutoff, batch_size)` 搬移；函式是 `SECURITY DEFINER`（`0001_functions_and_triggers.sql`，[`06-audit-log.md`](./06-audit-log.md) §8）：
 
 ```sql
 -- 一次搬一批最舊的；呼叫端重複呼叫到回傳值 < batch_size 為止

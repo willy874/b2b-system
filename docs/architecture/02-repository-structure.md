@@ -3,7 +3,7 @@
 ## 1. Monorepo 佈局
 
 ```
-game-editor/
+b2b-system/
 ├── package.json                 root scripts、devDependencies
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json           共用 compilerOptions 與 path alias 基準
@@ -13,15 +13,16 @@ game-editor/
 ├── .env.example
 │
 ├── apps/
-│   ├── web/                     @game-editor/web — React 前端
-│   ├── api/                     @game-editor/api — NestJS 後端
-│   ├── file-storage/            @game-editor/file-storage — S3 相容的本機檔案儲存（見 03-file-storage.md）
-│   └── e2e/                     @game-editor/e2e — Playwright
+│   ├── backstage/               @b2b-system/backstage — React 前端（RBAC 管理後台）
+│   ├── auth/                    @b2b-system/auth — 全平台共用的身分與租戶入口（React，ADR-0019；見該目錄的 README）
+│   ├── api/                     @b2b-system/api — NestJS 後端
+│   ├── file-storage/            @b2b-system/file-storage — S3 相容的本機檔案儲存（見 03-file-storage.md）
+│   └── e2e/                     @b2b-system/e2e — Playwright
 │
 ├── packages/
-│   ├── api-sdk/                 @game-editor/api-sdk — 由 OpenAPI 產生的型別、zod schema 與 fetch client
-│   ├── realtime/                @game-editor/realtime — Socket.io 事件合約（事件名稱、zod schema、型別）
-│   └── utils/                   @game-editor/utils — 前後端共用的純函式
+│   ├── api-sdk/                 @b2b-system/api-sdk — 由 OpenAPI 產生的型別、zod schema 與 fetch client
+│   ├── realtime/                @b2b-system/realtime — Socket.io 事件合約（事件名稱、zod schema、型別）
+│   └── utils/                   @b2b-system/utils — 前後端共用的純函式
 │
 └── docs/                        本文件集
 ```
@@ -38,12 +39,13 @@ packages:
 
 | script                                         | 作用                                                     |
 | ---------------------------------------------- | -------------------------------------------------------- |
-| `pnpm dev`                                     | `docker compose up -d postgres` ＋ Mailpit ＋ 並行啟動 api、web、file-storage |
-| `pnpm dev:api` / `pnpm dev:web`                | 單獨啟動                                                 |
+| `pnpm dev`                                     | `docker compose up -d postgres` ＋ Mailpit ＋ 並行啟動 api、backstage（:5173）、auth（:5175）、file-storage |
+| `pnpm dev:api` / `pnpm dev:backstage` / `pnpm dev:auth` | 單獨啟動                                                 |
 | `pnpm dev:e2e`                                 | 啟動 Mailpit，以放寬的速率限制、`MAIL_TRANSPORT=smtp` 啟動 api |
 | `pnpm mail:up`                                 | `docker compose up -d mailpit`（SMTP :1025、網頁 :8025） |
 | `pnpm dev:storage`                             | 啟動 `apps/file-storage`（S3 相容，:9000）               |
-| `pnpm build`                                   | 依序 `api-sdk` → `api` → `web`                           |
+| `pnpm dev:mock-idp`                            | 模擬的外部 IdP（:4455）；外部 IdP 登入的開發與 E2E 用（[`04-sso.md`](./04-sso.md) §10） |
+| `pnpm build`                                   | 依序 `api-sdk` → `api` → `backstage` → `auth`                  |
 | `pnpm db:generate`                             | drizzle-kit 產生 migration                               |
 | `pnpm db:migrate`                              | 套用 migration                                           |
 | `pnpm db:seed`                                 | 灌入權限目錄與系統角色                                   |
@@ -52,16 +54,16 @@ packages:
 | `pnpm lint` / `pnpm format` / `pnpm typecheck` | 全 workspace                                             |
 | `pnpm test`                                    | 全 workspace 單元測試                                    |
 | `pnpm test:e2e`                                | Playwright                                               |
-| `pnpm storybook` / `pnpm storybook:build`      | 設計系統元件的 Storybook（:6006）／輸出靜態站到 `apps/web/storybook-static/` |
+| `pnpm storybook` / `pnpm storybook:build`      | 設計系統元件的 Storybook（:6006）／輸出靜態站到 `apps/backstage/storybook-static/` |
 
 ---
 
-## 2. `apps/web` 內部結構
+## 2. `apps/backstage` 內部結構
 
 檔案佈局如下（各層職責見 [`frontend/01-architecture.md`](./frontend/01-architecture.md)）：
 
 ```
-apps/web/src/
+apps/backstage/src/
 ├── main.tsx                 AppContext plugin chain ＋ createRoot
 ├── index.css
 │
@@ -118,7 +120,7 @@ apps/web/src/
 │
 ├── components/              ★ Base UI 封裝層（設計系統元件）
 │   ├── Button/  Input/  Select/  Dialog/  Table/  Toast/  Tooltip/ …
-│   │   └── Xxx.stories.tsx  每個元件的 Storybook story（設定在 apps/web/.storybook/）
+│   │   └── Xxx.stories.tsx  每個元件的 Storybook story（設定在 apps/backstage/.storybook/）
 │   └── …
 │
 ├── plugins/                 可插拔的能力（非業務、非核心）
@@ -150,6 +152,13 @@ apps/web/src/
 
 匯入一律用 `@/`，**禁止** `../../../`（超過一層）。
 
+### 2.2 `apps/auth`
+
+資料夾分層與上面相同（`main.tsx` → `app/` → `features/` → `apis/` → `core/` → `components/` → `shared/`）。
+features 是 `login`（IdP 互動頁、帳號流程）、`home`、`identity-provider`；`core/`、`components/`、`shared/`
+大多從 backstage **複製**（ADR-0019 D14），複製清單與同步規則見 [`apps/auth/README.md`](../../apps/auth/README.md)，
+路由與登入流程見 [`04-sso.md`](./04-sso.md) §6。
+
 ---
 
 ## 3. `apps/api` 內部結構
@@ -178,7 +187,9 @@ apps/api/src/
 │   └── types/
 │
 ├── modules/                 ★ 業務模組
-│   ├── auth/
+│   ├── auth/                登入、app session、SSO 的互動端點與 BFF、外部 IdP 登入（docs/architecture/04-sso.md）
+│   ├── oidc-provider/       oidc-provider 掛在 /oidc、oidc_payloads adapter
+│   ├── identity-provider/   外部 IdP 連線、openid-client、帳號 ↔ 外部身分
 │   ├── user/
 │   ├── role/
 │   ├── permission/
@@ -230,7 +241,16 @@ modules/role/
 
 ```bash
 # ── apps/api ─────────────────────────────────────────
-DATABASE_URL=postgres://gameeditor:gameeditor@localhost:5432/game_editor
+PLATFORM_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_platform
+TENANT_SECRET_KEY=                 # 留空 = 由 JWT_SECRET 推導（production 必填）
+DEFAULT_TENANT_CODE=default
+DEFAULT_TENANT_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_system
+DEFAULT_TENANT_DOMAINS=localhost:5173   # apps/auth（:5175）不屬於任何租戶
+DEFAULT_TENANT_STORAGE_BUCKET=b2b-system # 預設租戶的 bucket（每個租戶一個）
+TENANT_PROVISIONING_DATABASE_URL=        # 佈建新租戶用（CREATEDB＋CREATEROLE）；留空 = PLATFORM_DATABASE_URL
+TENANT_BASE_DOMAIN=                      # 新租戶的預設網域 {code}.<值>；留空 = APP_PUBLIC_URL 的 host
+PLATFORM_ADMIN_EMAIL=platform@example.com   # 第一位平台管理者（apps/auth 的登入）
+PLATFORM_ADMIN_PASSWORD=
 PORT=3000
 NODE_ENV=development
 
@@ -257,8 +277,14 @@ SUPER_ADMIN_PASSWORD=              # 留空則 seed 時隨機產生並印出一�
 
 MAIL_TRANSPORT=smtp                 # smtp / console（backend/11-mail.md §2）
 MAIL_SMTP_URL=smtp://localhost:1025 # 本機是 Mailpit
-MAIL_FROM="Game Editor <no-reply@localhost>"
-APP_PUBLIC_URL=http://localhost:5173  # 信裡連結的開頭
+MAIL_FROM="B2B System <no-reply@localhost>"
+APP_PUBLIC_URL=http://localhost:5173  # 信裡連結的開頭；也是第一方 client `backstage` 的 redirect URI 開頭
+AUTH_APP_URL=http://localhost:5175     # apps/auth（IdP 的登入互動頁）
+OIDC_ISSUER=http://localhost:5175/api/oidc
+OIDC_JWKS=                             # 簽 ID token 的私鑰 JWKS；留空 = 臨時金鑰（production 必填）
+OIDC_COOKIE_KEYS=                      # 簽 IdP cookie 的金鑰（production 必填）
+OIDC_CLEANUP_CRON=45 3 * * *
+IDP_SECRET_KEY=                        # 加密外部 IdP client secret 的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填，ADR-0019 D11）
 
 JOBS_WORKER_ENABLED=true            # 是否執行背景工作與排程；false 只入列（backend/10-jobs.md §5）
 AUDIT_LOG_ARCHIVE_CRON=30 3 * * *   # 稽核熱 → 冷搬移的 cron（UTC）；留空停用
@@ -271,15 +297,14 @@ FILE_STORAGE_PORT=9000
 FILE_STORAGE_BASE_PATH=/storage              # Vite 以 /storage 轉發且不去掉前綴
 FILE_STORAGE_DATA_DIR=.data                  # 相對於 apps/file-storage/
 FILE_STORAGE_REGION=us-east-1
-FILE_STORAGE_ACCESS_KEY_ID=game-editor-dev
-FILE_STORAGE_SECRET_ACCESS_KEY=game-editor-dev-secret
+FILE_STORAGE_ACCESS_KEY_ID=b2b-system-dev
+FILE_STORAGE_SECRET_ACCESS_KEY=b2b-system-dev-secret
 FILE_STORAGE_ALLOWED_ORIGINS=http://localhost:5173   # presigned URL 直傳 / 下載的 CORS
 FILE_STORAGE_MAX_OBJECT_SIZE=5368709120      # 位元組（預設 5 GiB）
 
 # ── apps/api 連物件儲存（上面兩個 KEY 共用；docs/architecture/backend/09-file.md §8）
 FILE_STORAGE_ENDPOINT=http://127.0.0.1:9000/storage
-FILE_STORAGE_PUBLIC_ENDPOINT=http://localhost:5173/storage
-FILE_STORAGE_BUCKET=game-editor
+FILE_STORAGE_PUBLIC_ENDPOINT={tenantOrigin}/storage   # 目前租戶的 origin ＋ /storage；真正的 S3 填固定網址
 FILE_UPLOAD_MAX_SIZE=104857600
 FILE_URL_TTL=900
 FILE_MULTIPART_THRESHOLD=16777216   # 超過改用分塊上傳
@@ -288,8 +313,10 @@ FILE_PENDING_TTL=86400              # 登記後超過這個秒數仍未完成的
 FILE_MAINTENANCE_CRON=0 * * * *     # 檔案維護排程的 cron（UTC）；留空停用
 FILE_MAINTENANCE_DRY_RUN=false      # true：只偵測並記錄殘留，不刪除
 
-# ── apps/web（VITE_ 前綴才會進 bundle）─────────────────
+# ── apps/backstage、apps/auth（VITE_ 前綴才會進 bundle；兩者各自讀自己目錄的 env）──
 VITE_API_BASE_URL=/api
+VITE_OIDC_ISSUER=http://localhost:5175/api/oidc   # SSO 的 issuer（兩個前端相同）
+VITE_AUTH_APP_URL=http://localhost:5175            # backstage：帳號流程與平台管理在 apps/auth
 VITE_ENABLE_MOCK=false
 ```
 

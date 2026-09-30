@@ -39,7 +39,7 @@ docs/restructure
 
 ### 2.2 scope
 
-用 workspace 名稱：`api`、`web`、`api-sdk`、`utils`、`e2e`、`deploy`。
+用 workspace 名稱：`api`、`backstage`、`api-sdk`、`utils`、`e2e`、`deploy`。
 跨多個 workspace 或純文件時省略 scope。
 
 ### 2.3 摘要
@@ -49,11 +49,11 @@ docs/restructure
 
 ```
 ✅ feat(api): user 與 role 模組
-✅ fix(web): 停用狀態保留焦點，Button 改包 Base UI
+✅ fix(backstage): 停用狀態保留焦點，Button 改包 Base UI
 ✅ chore: 忽略 tsc 產生的設定檔編譯產物
 ❌ update
 ❌ fix bug
-❌ feat(web): 修改了一些東西。
+❌ feat(backstage): 修改了一些東西。
 ```
 
 ### 2.4 粒度

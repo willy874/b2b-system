@@ -25,14 +25,11 @@ export interface AccessFixtureOptions {
  */
 export function createFileAccess(options: AccessFixtureOptions = {}) {
   const global = options.global ?? FILE_ACTIONS;
-  const permissionSet = async () => ({
-    permissions: new Set(global.map((action) => FILE_ACTION_PERMISSION[action])),
-    isSuperAdmin: false,
-    canEnter: true,
-  });
   const permissions = {
-    getPermissionSet: vi.fn(permissionSet),
-    getWorkspacePermissionSet: vi.fn(permissionSet),
+    getPermissionSet: vi.fn(async () => ({
+      permissions: new Set(global.map((action) => FILE_ACTION_PERMISSION[action])),
+      isSuperAdmin: false,
+    })),
   };
   const grants = { grantsFor: vi.fn(async () => options.grants ?? []) };
   const folders = { listTreeNodes: vi.fn(async () => options.nodes?.() ?? []) };

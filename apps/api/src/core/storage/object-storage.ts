@@ -65,6 +65,11 @@ export interface PresignDownloadOptions {
   disposition: 'inline' | 'attachment';
 }
 
+/** S3 的 bucket 命名規則（小寫英數、`.`、`-`，3–63 字）。租戶登記時檢查（docs/adr/0020-physical-tenant-isolation.md D16）。 */
+export function isValidBucketName(name: string): boolean {
+  return /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(name) && !name.includes('..');
+}
+
 export abstract class ObjectStorage {
   /** 確認 bucket 存在，不存在就建立。重複呼叫只會真的檢查一次（失敗後會重試）。 */
   abstract ensureBucket(): Promise<void>;

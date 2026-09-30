@@ -1,0 +1,286 @@
+@layer components {
+  .root {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    overflow-x: auto;
+  }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .head {
+    background: var(--color-bg);
+  }
+
+  .headerCell {
+    padding: var(--seed-space-2) var(--seed-space-3);
+    text-align: start;
+    font-weight: 600;
+    color: var(--color-fg-muted);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  /*
+   * 有 trailing 的表頭：標題在左、trailing 固定在右側，兩者垂直置中
+   * （trailing 是 icon 按鈕、比文字高，靠底對齊會讓標題比其他欄的表頭低）。
+   * 標題與按鈕都算進最小欄寬（不裁切）：儲存格不換行、寬度不夠時整張表水平捲動，
+   * 欄位不會被擠到比內容窄，裁掉標題（「操...」）只會少資訊。
+   */
+  .headerInner {
+    display: grid;
+    grid-template-columns: max-content auto;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--seed-space-2);
+  }
+
+  .headerInner .headerLabel {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 被裁切的容器會吃掉外側的 focus ring，改畫在內側 */
+  .headerInner .sortButton:focus-visible {
+    outline-offset: -2px;
+  }
+
+  .headerTrailing {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: var(--seed-space-1);
+    margin-inline-start: auto;
+  }
+
+  .sortButton {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    gap: var(--seed-space-1);
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .sortLabel {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sortButton:hover {
+    color: var(--color-fg);
+  }
+
+  .sortButton:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+
+  /* 未排序的欄位：圖示淡化，滑過時才明顯 */
+  .sortIndicator {
+    flex-shrink: 0;
+    opacity: 0.4;
+  }
+
+  .sortButton:hover .sortIndicator,
+  .sortButton[data-order] .sortIndicator {
+    opacity: 1;
+  }
+
+  .sortButton[data-order] {
+    color: var(--color-fg);
+  }
+
+  .sortPriority {
+    min-width: 1rem;
+    padding: 0 var(--seed-space-1);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-brand) 12%, transparent);
+    color: var(--color-brand);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1rem;
+    text-align: center;
+  }
+
+  .row {
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .row:last-child {
+    border-bottom: none;
+  }
+
+  .row:hover {
+    background: var(--color-bg);
+  }
+
+  .row[data-selected] {
+    background: color-mix(in srgb, var(--color-brand) 8%, transparent);
+  }
+
+  /* 展開列與它的主列視為一體：中間不畫分隔線，展開內容用略深的底色區隔 */
+  .row[data-expanded] {
+    border-bottom: none;
+  }
+
+  .expandedRow {
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+
+  .expandedRow:last-child {
+    border-bottom: none;
+  }
+
+  /*
+   * 展開列不能影響欄寬：自動版面下，跨欄儲存格的內容寬度會被分攤回它橫跨的欄位，
+   * 內容一寬（長字串、JSON）整張表就重新分配欄寬，展開／收合時欄位左右跳動。
+   *
+   * - 外框（expandedFrame）以 `contain: inline-size` 讓內容對欄寬的貢獻為 0，寬度只跟著表格。
+   * - 內容（expandedContent）寬度等於表格外框（.root，inline-size container）的可視寬度 100cqi，
+   *   並 sticky 貼在左緣：表格水平捲動時展開內容留在可視範圍內，不會一半被捲出去。
+   *   寬內容在內容自己的區塊裡捲動（例如 JsonViewer），不撐開表格。
+   */
+  .root[data-expandable] {
+    container-type: inline-size;
+  }
+
+  .expandedCell {
+    padding: 0;
+  }
+
+  .expandedFrame {
+    contain: inline-size;
+  }
+
+  .expandedContent {
+    position: sticky;
+    white-space: normal;
+    left: 0;
+    box-sizing: border-box;
+    width: 100cqi;
+    padding: var(--seed-space-3);
+  }
+
+  /*
+   * 儲存格預設不換行：自動版面在寬度不夠時會把「可斷行」的欄（中文日期、描述，每個字都能斷）
+   * 擠成一字一行，不能斷的欄（email）卻保持原寬——版面看起來變形。
+   * 不換行之後，寬度不夠就整張表水平捲動（外框本來就是捲動容器，左右固定欄留在原位）。
+   * 真的要換行的欄位宣告 `meta.wrap`（通常再給 `size`）；長文字改用 TextEllipsis 限制寬度。
+   */
+  .cell {
+    padding: var(--seed-space-2) var(--seed-space-3);
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  .cell[data-wrap] {
+    white-space: normal;
+  }
+
+  /*
+   * 固定（pinning）：固定欄位、釘選列、固定表頭都是 sticky 貼在外框（捲動容器）的邊上，
+   * 需要不透明底色蓋住底下捲過的內容，因此列的 hover / 選取底色要在 sticky 儲存格上再畫一次
+   * （選取色是半透明，疊在 surface 上）。
+   *
+   * 疊放順序：固定欄 1 < 釘選列 2 < 釘選列 × 固定欄 3 < 表頭 4 < 表頭 × 固定欄 5。
+   * 交界的分隔線用兩個變數組合：欄的交界（--pin-edge-x）與列的交界（--pin-edge-y）可能落在同一格。
+   */
+  .headerCell,
+  .cell {
+    --pin-edge-x: 0 0 transparent;
+    --pin-edge-y: 0 0 transparent;
+  }
+
+  .headerCell[data-pinned],
+  .cell[data-pinned],
+  .row[data-pinned-row] > .cell {
+    position: sticky;
+    box-shadow: var(--pin-edge-x), var(--pin-edge-y);
+  }
+
+  .cell[data-pinned] {
+    z-index: 1;
+    background: var(--color-surface);
+  }
+
+  .row[data-pinned-row] > .cell {
+    z-index: 2;
+    background: color-mix(in srgb, var(--color-brand) 4%, var(--color-surface));
+  }
+
+  .row[data-pinned-row] > .cell[data-pinned] {
+    z-index: 3;
+  }
+
+  .row:hover > .cell[data-pinned],
+  .row[data-pinned-row]:hover > .cell {
+    background: var(--color-bg);
+  }
+
+  .row[data-selected] > .cell[data-pinned],
+  .row[data-pinned-row][data-selected] > .cell {
+    background:
+      linear-gradient(
+        color-mix(in srgb, var(--color-brand) 8%, transparent),
+        color-mix(in srgb, var(--color-brand) 8%, transparent)
+      ),
+      var(--color-surface);
+  }
+
+  .headerCell[data-pinned] {
+    z-index: 4;
+    background: var(--color-bg);
+  }
+
+  [data-pinned='right'][data-pinned-edge] {
+    --pin-edge-x: inset 1px 0 0 var(--color-border);
+  }
+
+  [data-pinned='left'][data-pinned-edge] {
+    --pin-edge-x: inset -1px 0 0 var(--color-border);
+  }
+
+  .row[data-pinned-row='top'][data-pinned-row-edge] > .cell {
+    --pin-edge-y: inset 0 -2px 0 var(--color-border);
+  }
+
+  .row[data-pinned-row='bottom'][data-pinned-row-edge] > .cell {
+    --pin-edge-y: inset 0 2px 0 var(--color-border);
+  }
+
+  /* 固定表頭或有釘選列時：外框改成雙向捲動、有最大高度（inline style） */
+  .root[data-scrollable] {
+    overflow: auto;
+  }
+
+  /* 填滿父層剩餘高度（fillHeight）：高度由父層決定，太矮時保留幾列的高度、改由頁面捲動 */
+  .root[data-fill-height] {
+    flex: 1 1 0;
+    min-height: 12rem;
+  }
+
+  .root[data-sticky-header] .headerCell {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background: var(--color-bg);
+  }
+
+  .root[data-sticky-header] .headerCell[data-pinned] {
+    z-index: 5;
+  }
+}

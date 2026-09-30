@@ -1,10 +1,9 @@
-import { ChangeKind, ChangeSource } from '@game-editor/realtime';
+import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Injectable } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 import { z } from 'zod';
 
-import { workspaceScopeOf } from '@/common/types';
-import type { AuthUser, PermissionKey, WorkspaceScope } from '@/common/types';
+import type { AuthUser, PermissionKey } from '@/common/types';
 import type { Transaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
@@ -28,8 +27,6 @@ import { FileFolderRepository } from './file-folder.repository';
 
 /** 審核者看得到的申請內容。 */
 export const FileFolderAccessPayloadSchema = z.object({
-  /** 資料夾所在的工作區；審核者要在這個工作區能管理該資料夾（docs/adr/0018-workspace-tenancy.md D7）。 */
-  workspaceId: z.string().uuid(),
   folderId: z.string().uuid(),
   folderName: z.string(),
   level: z.enum(GRANT_LEVELS),
@@ -43,7 +40,6 @@ export function fileFolderAccessSubjectKey(folderId: string, userId = ''): strin
 
 /** 申請資料夾存取 → 一筆 `fileFolder.access` 審批請求。 */
 export function fileFolderAccessRequest(
-  ws: WorkspaceScope,
   folder: { id: string; name: string },
   level: GrantLevel,
   requester: AuthUser,
@@ -53,7 +49,6 @@ export function fileFolderAccessRequest(
     type: ApprovalType.FILE_FOLDER_ACCESS,
     subjectKey: fileFolderAccessSubjectKey(folder.id, requester.id),
     payload: {
-      workspaceId: ws.workspaceId,
       folderId: folder.id,
       folderName: folder.name,
       level,
@@ -91,19 +86,13 @@ export class FileFolderAccessApprovalHandler implements ApprovalHandler, OnModul
 
   async assertApprovable({ request, reviewer }: ApprovalContext): Promise<void> {
     const payload = FileFolderAccessPayloadSchema.parse(request.payload);
-    const ws = workspaceScopeOf(payload.workspaceId);
-    if (!(await this.folders.findById(ws, payload.folderId))) {
+    if (!(await this.folders.findById(payload.folderId))) {
       throw new AppException('FILE_FOLDER_NOT_FOUND', { folderId: payload.folderId });
     }
-    // 申請人要還是這個工作區的成員（離開之後的申請不能再核准）
-    if (
-      !request.requesterId ||
-      !(await this.grants.subjectExists('user', request.requesterId, ws.workspaceId))
-    ) {
+    if (!request.requesterId || !(await this.grants.subjectExists('user', request.requesterId))) {
       throw new AppException('FILE_GRANT_SUBJECT_NOT_FOUND', { subjectType: 'user' });
     }
-    // 審核者的能力以他在該工作區的權限判斷：審批頁的入口也一樣，非成員（super-admin 以外）做不到
-    const ctx = await this.access.contextFor(ws, reviewer);
+    const ctx = await this.access.contextFor(reviewer);
     if (!ctx.can('share', payload.folderId)) {
       throw await this.access.deny(reviewer, 'share', 'fileFolder', payload.folderId);
     }
@@ -148,14 +137,12 @@ export class FileFolderAccessApprovalHandler implements ApprovalHandler, OnModul
     return { resourceId: payload.folderId };
   }
 
-  async afterApply({ request }: ApprovalContext, outcome: ApprovalOutcome): Promise<void> {
+  async afterApply(_: ApprovalContext, outcome: ApprovalOutcome): Promise<void> {
     if (!outcome.resourceId) return;
-    const payload = FileFolderAccessPayloadSchema.parse(request.payload);
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [
         { resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.UPDATE, id: outcome.resourceId },
       ],
-      workspaceId: payload.workspaceId,
     });
   }
 }

@@ -1,0 +1,67 @@
+{
+  "identityProvider": {
+    "title": "外部 IdP 連線",
+    "description": "讓使用者以公司帳號（Google Workspace、Azure AD 等 OIDC 服務）登入。email 網域決定使用哪一個連線。",
+    "callbackUrl": "在外部 IdP 登記的 redirect URI",
+    "empty": "還沒有任何外部 IdP 連線",
+    "enabled": "啟用",
+    "disabled": "停用",
+    "ssoOnlyBadge": "只允許 SSO",
+    "field": {
+      "name": "名稱",
+      "issuer": "Issuer",
+      "clientId": "Client ID",
+      "clientSecret": "Client secret",
+      "scopes": "Scopes",
+      "enabled": "啟用這個連線",
+      "unmatchedPolicy": "找不到對應帳號時",
+      "domains": "Email 網域",
+      "status": "狀態",
+      "updatedAt": "更新時間"
+    },
+    "hint": {
+      "name": "顯示在登入頁的按鈕上，例：「Acme Azure AD」。",
+      "issuer": "OIDC issuer 網址，會從 /.well-known/openid-configuration 取得端點。",
+      "clientSecret": "只寫不讀：儲存後不會再顯示。",
+      "clientSecretKeep": "留空表示不變更。",
+      "domains": "這些網域的使用者在登入頁輸入 email 後會看到這個連線；一個網域只能屬於一個連線。"
+    },
+    "policy": {
+      "reject": "拒絕登入",
+      "auto_create": "自動建立帳號（沒有任何角色）",
+      "autoCreateHint": "只有上面登記的網域會自動建立帳號。"
+    },
+    "domain": {
+      "placeholder": "example.com",
+      "ssoOnly": "只允許 SSO",
+      "add": "新增網域",
+      "remove": "移除網域"
+    },
+    "create": {
+      "action": "新增連線",
+      "title": "新增外部 IdP 連線",
+      "success": "已新增連線"
+    },
+    "edit": {
+      "action": "編輯",
+      "title": "編輯外部 IdP 連線",
+      "success": "已更新連線"
+    },
+    "remove": {
+      "action": "刪除",
+      "title": "刪除外部 IdP 連線",
+      "confirm": "要刪除「{{name}}」嗎？這個連線的網域會被釋出，已連結的使用者不能再以它登入。",
+      "success": "已刪除連線"
+    },
+    "error": {
+      "nameRequired": "請輸入名稱",
+      "issuerInvalid": "請輸入完整的網址",
+      "clientIdRequired": "請輸入 Client ID",
+      "clientSecretRequired": "請輸入 Client secret",
+      "scopesInvalid": "必須包含 openid",
+      "domainInvalid": "網域格式不正確",
+      "domainDuplicate": "網域重複"
+    },
+    "notAllowed": "平台管理者已停用這個租戶的外部 IdP：不能新增或啟用連線，登入時也不會導向外部 IdP。"
+  }
+}

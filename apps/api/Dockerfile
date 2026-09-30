@@ -11,15 +11,15 @@ COPY packages/utils/package.json packages/utils/
 COPY packages/api-sdk/package.json packages/api-sdk/
 COPY packages/realtime/package.json packages/realtime/
 COPY apps/api/package.json apps/api/
-RUN pnpm install --frozen-lockfile --filter @game-editor/api...
+RUN pnpm install --frozen-lockfile --filter @b2b-system/api...
 
 COPY packages ./packages
 COPY apps/api ./apps/api
-RUN pnpm --filter @game-editor/utils build \
- && pnpm --filter @game-editor/realtime build \
- && pnpm --filter @game-editor/api build
+RUN pnpm --filter @b2b-system/utils build \
+ && pnpm --filter @b2b-system/realtime build \
+ && pnpm --filter @b2b-system/api build
 # pnpm 10 的 deploy 預設要求 inject-workspace-packages；--legacy 會把 workspace 依賴（realtime）實體複製進去
-RUN pnpm --filter @game-editor/api deploy --prod --legacy /app
+RUN pnpm --filter @b2b-system/api deploy --prod --legacy /app
 
 # ── runtime ──────────────────────────────────────────────────────────
 FROM node:24-alpine AS runtime
@@ -31,8 +31,7 @@ RUN addgroup -S app && adduser -S app -G app
 COPY --from=build --chown=app:app /app/node_modules ./node_modules
 COPY --from=build --chown=app:app /repo/apps/api/dist ./dist
 COPY --from=build --chown=app:app /repo/apps/api/package.json ./package.json
-# tsconfig 的 rootDir 是 apps/api，產物在 dist/src/；migrate.js 以 __dirname/migrations 找 SQL
-COPY --from=build --chown=app:app /repo/apps/api/src/db/migrations ./dist/src/db/migrations
+# migration 的 SQL 由 nest-cli.json 的 assets 在 build 時複製到 dist/src/db/（租戶與平台兩條線；src/db/provision.ts）
 
 USER app
 EXPOSE 3000

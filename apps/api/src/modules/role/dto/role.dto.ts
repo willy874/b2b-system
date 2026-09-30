@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { defineSchema } from '@/core/validation';
-import { PermissionSchema, PermissionScopeSchema } from '@/modules/permission/dto/permission.dto';
+import { PermissionSchema } from '@/modules/permission/dto/permission.dto';
 
 export const RoleSchema = defineSchema(
   'Role',
@@ -11,7 +11,6 @@ export const RoleSchema = defineSchema(
     name: z.string(),
     description: z.string().nullable(),
     isSystem: z.boolean(),
-    scope: PermissionScopeSchema,
     permissionCount: z.number().int(),
     userCount: z.number().int(),
     createdAt: z.string(),

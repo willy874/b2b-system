@@ -70,12 +70,12 @@
 | 客製成本       | 需要對抗既有樣式           | 從零寫，但沒有對抗成本                  |
 | 與 UnoCSS 搭配 | 衝突（兩套樣式引擎）       | **天然契合**（`className` 直接給）      |
 
-Game Editor 會有大量非標準 UI（畫布、屬性面板、時間軸），一套 opinionated 的
+B2B System 會有大量非標準 UI（畫布、屬性面板、時間軸），一套 opinionated 的
 設計系統在這種場景是負擔而不是助力。Base UI 提供的是 **行為與可近性**，
 外觀完全由我們的 Design Token 決定。詳見
 [ADR-0002](../adr/0002-base-ui-over-mui.md)。
 
-> 影響：`apps/web/src/components/` 這層封裝會比搭配 MUI 時更重要也更厚。搭 MUI 時
+> 影響：`apps/backstage/src/components/` 這層封裝會比搭配 MUI 時更重要也更厚。搭 MUI 時
 > `components/Select` 只是 MUI Select 的薄包裝；我們的 `components/Select` 會是
 > Base UI primitive ＋ 我們自己的完整樣式。這是有意的成本。
 
@@ -148,7 +148,7 @@ NestJS，再用 `zod-openapi` 讓 schema 自動出現在 Swagger 文件裡。
 apps/api  ──(@nestjs/swagger)──▶  openapi.json
                                        │
                                        ▼ (packages/api-sdk/codegen)
-                            packages/api-sdk  ──▶  apps/web
+                            packages/api-sdk  ──▶  apps/backstage
 ```
 
 `PermissionKey` 這個 enum 定義在後端，經由 OpenAPI 傳到 `packages/api-sdk`，
