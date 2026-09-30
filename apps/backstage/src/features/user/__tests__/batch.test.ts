@@ -82,7 +82,12 @@ describe('使用者的批次操作（每筆呼叫一次單筆 API）', () => {
 
   it('單筆 API 失敗時直接拋出，交給佇列記錄為失敗、不失效快取', async () => {
     updateUser.mockRejectedValue(new Error('boom'));
-    await expect(run(UserBatchOperation.ACTIVATE, 'u1')).rejects.toThrow('boom');
+    await expect(run(UserBatchOperation.ACTIVATE, 'u1', 1)).rejects.toThrow('boom');
     expect(invalidateResources).not.toHaveBeenCalled();
+  });
+
+  it('沒有列表那一列的 version → 這一筆失敗、不送出（version 必填，不自己讀最新的而後寫者勝）', async () => {
+    await expect(run(UserBatchOperation.DEACTIVATE, 'u1')).rejects.toThrow();
+    expect(updateUser).not.toHaveBeenCalled();
   });
 });

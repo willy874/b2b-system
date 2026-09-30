@@ -212,22 +212,20 @@ export class FileRepository {
   }
 
   /**
-   * 改名並遞增版本。帶 `expectedVersion` 時只在版本相符才更新（比對與寫入在同一個 UPDATE，
+   * 改名並遞增版本。只在版本相符才更新（比對與寫入在同一個 UPDATE，
    * 不會有「讀到舊版本後別人搶先寫入」的空窗）；不符回 undefined。
    */
   async update(
     id: string,
     values: Pick<FileInsert, 'name' | 'updatedBy'>,
-    expectedVersion?: number,
+    expectedVersion: number,
     tx?: DbOrTx,
   ): Promise<FileRow | undefined> {
     const db = tx ?? this.db;
-    const conditions = [eq(files.id, id), notDeleted(files)];
-    if (expectedVersion !== undefined) conditions.push(eq(files.version, expectedVersion));
     const [row] = await db
       .update(files)
       .set({ ...values, version: sql`${files.version} + 1` })
-      .where(and(...conditions))
+      .where(and(eq(files.id, id), notDeleted(files), eq(files.version, expectedVersion)))
       .returning();
     return row;
   }

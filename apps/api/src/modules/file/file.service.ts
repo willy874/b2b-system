@@ -345,7 +345,7 @@ export class FileService {
 
   async update(id: string, dto: UpdateFileDto, actor: AuthUser): Promise<FileDto> {
     const { file, ctx } = await this.getModifiable(id, actor, 'update');
-    if (dto.version !== undefined && dto.version !== file.version) {
+    if (dto.version !== file.version) {
       throw new AppException('FILE_VERSION_CONFLICT', { current: file.version });
     }
     const changes = diff(file, { name: dto.name }, FILE_AUDIT_FIELDS);
@@ -360,7 +360,7 @@ export class FileService {
       );
       // 讀到之後、寫入之前被別人改名（版本變了）或刪除：重讀一次，還在就帶目前的版本（ADR-0025 D3）
       if (!updated) {
-        const current = dto.version === undefined ? undefined : await this.repo.findVersion(id, tx);
+        const current = await this.repo.findVersion(id, tx);
         throw current === undefined
           ? new AppException('FILE_NOT_FOUND')
           : new AppException('FILE_VERSION_CONFLICT', { current });
@@ -383,6 +383,7 @@ export class FileService {
 
   /**
    * 刪除＝移到回收桶（docs/architecture/backend/13-trash.md §7）：軟刪除並帶這一次刪除的 `deletion_id`（ADR-0025 D5）。
+   * 物件（原檔、縮圖、變體）保留到 `trash.purge` 永久刪除之後才刪（ADR-0025 D11），保留期限內可以還原。
    */
   async remove(id: string, actor: AuthUser): Promise<void> {
     const { file } = await this.getModifiable(id, actor, 'delete');
@@ -404,13 +405,6 @@ export class FileService {
       );
     });
 
-    // ADR-0025 R4 的兩次部署：R4a（這一版）仍在交易「之後」立刻刪物件——滾動部署期間舊版的維護排程會把
-    // 「紀錄已刪除」的物件當孤兒刪掉，保留也沒用。R4b 刪掉這一步，物件留到 trash.purge 永久刪除之後
-    // （13-trash.md §7.5）。交易 rollback 時紀錄還在、內容也要在，所以一定在交易之後；失敗只記 warn。
-    await this.objects.deleteAll(id, {
-      hasThumbnail: file.hasThumbnail,
-      hasVariants: file.variantStatus !== 'none',
-    });
     this.publish(ChangeKind.DELETE, id, file.folderId);
   }
 
@@ -420,8 +414,8 @@ export class FileService {
    * - 權限與刪除相同：所在的資料夾讀得到（否則 404），而且能刪除這個檔案（`can_remove`：資料夾的 `can_delete`，
    *   或本人上傳而仍能在那裡上傳）。路由的閘門同樣是 `file:access` 或 `file:delete`。
    * - 所在的資料夾已刪除 → `409 FILE_RESTORE_CONFLICT`（`reason: 'parentDeleted'`），先還原資料夾。
-   * - 原檔已不在物件儲存 → `409 FILE_RESTORE_CONFLICT`（`reason: 'objectMissing'`）：R4a 刪除檔案時仍會立刻刪物件，
-   *   這一版個別刪除的檔案通常救不回來；R4b 之後只剩維護排程或人為刪除會造成。縮圖或變體不在只修正紀錄。
+   * - 原檔已不在物件儲存 → `409 FILE_RESTORE_CONFLICT`（`reason: 'objectMissing'`）：刪除時物件會保留，
+   *   只剩人為刪除、維護排程誤判，或 R4b 之前（刪除時仍立刻刪物件）個別刪除的檔案會造成。縮圖或變體不在只修正紀錄。
    * - 檔名沒有唯一性，沒有同名衝突。`version` 不遞增（與刪除相同）。
    */
   async restore(id: string, actor: AuthUser): Promise<FileDto> {

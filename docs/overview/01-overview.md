@@ -33,6 +33,7 @@
 | 個人帳號   | 個人資料檢視／編輯、變更密碼、偏好設定（語系、時區）                                          |
 | 稽核日誌   | 所有寫入操作與授權決策的記錄、列表與篩選                                                      |
 | 系統設定（Phase 0 之後加入） | 每個租戶執行期可調的帳號政策、上傳上限、預設時區（[`architecture/backend/12-settings.md`](../architecture/backend/12-settings.md)） |
+| 回收桶與版本歷史（Phase 0 之後加入） | 編輯的樂觀鎖（`version` 必填）；使用者、角色、檔案與資料夾刪除後進回收桶、保留期限內可還原、到期永久刪除；角色的版本紀錄與還原到某一版（[`architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)、[`architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md)） |
 | 前端骨架   | App Shell、側邊選單（依權限過濾）、路由守衛、錯誤頁、i18n、主題                               |
 
 ### 2.2 Out of scope（Phase 0 明確不做）

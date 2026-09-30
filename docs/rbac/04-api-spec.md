@@ -175,8 +175,8 @@
 // 409 → { "error": { "code": "USER_VERSION_CONFLICT", "details": { "current": 4 } } }
 ```
 
-- `version`（選填，樂觀鎖）：編輯開始時的版本；與目前不同回 `409 USER_VERSION_CONFLICT`（`details.current`），
-  不帶則後寫者勝（[`architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11）。只帶 `version` 沒有其他欄位 → `400`
+- `version`（必填，樂觀鎖）：編輯開始時的版本；與目前不同回 `409 USER_VERSION_CONFLICT`（`details.current`），
+  不帶 → `400 VALIDATION_FAILED`（[`architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11）。只帶 `version` 沒有其他欄位 → `400`
 
 - 改 `status` 為 `inactive` → 撤銷該使用者所有 refresh token 並 `token_version + 1`
 - `actorId === :id` → `403 AUTHZ_SELF_MODIFY`
@@ -191,7 +191,8 @@
 // 409 → { "error": { "code": "USER_ROLES_CONFLICT", "details": { "currentRoleIds": [ ... ] } } }
 ```
 
-`expectedRoleIds`（選填）：編輯開始時的角色。與目前的角色不同時回 `409 USER_ROLES_CONFLICT`，不覆寫別人剛做的變更。
+`expectedRoleIds`（必填）：編輯開始時的角色（沒有角色時是 `[]`）。與目前的角色不同時回 `409 USER_ROLES_CONFLICT`，不覆寫別人剛做的變更；
+不帶 → `400 VALIDATION_FAILED`（[ADR-0025](../adr/0025-entity-revisions.md) D4）。
 
 檢查：反提權（§5；目標持有 super-admin 時只有 super-admin 能改）、`AUTHZ_SELF_MODIFY`、`LAST_SUPER_ADMIN`（交易內加鎖）、`USER_ROLES_CONFLICT`。
 
@@ -229,7 +230,7 @@
 | GET    | `/roles`                 | 🛡 `role:read`                      | 列表                       |
 | POST   | `/roles`                 | 🛡 `role:create`                    | 建立（可同時授予權限）     |
 | GET    | `/roles/:id`             | 🛡 `role:read`                      | 詳情                       |
-| PATCH  | `/roles/:id`             | 🛡 `role:update`                    | 修改名稱／描述（super-admin 拒絕：`ROLE_SUPER_ADMIN_IMMUTABLE`）；帶 `version`（選填）時為樂觀鎖，不符回 `409 ROLE_VERSION_CONFLICT`（`details.current`） |
+| PATCH  | `/roles/:id`             | 🛡 `role:update`                    | 修改名稱／描述（super-admin 拒絕：`ROLE_SUPER_ADMIN_IMMUTABLE`）；`version` 必填（樂觀鎖），不符回 `409 ROLE_VERSION_CONFLICT`（`details.current`） |
 | DELETE | `/roles/:id`             | 🛡 `role:delete`                    | 刪除（系統角色拒絕）       |
 | GET    | `/roles/:id/permissions` | 🛡 `role:read` ＋ `permission:read` | 該角色的權限               |
 | PATCH  | `/roles/:id/permissions` | 🛡 `role:grantPermission`           | 增減權限（差異語意）       |
@@ -373,7 +374,7 @@
 // POST /roles/:id/revisions/1/revert  { "version": 4 } → 200 { "data": { /* Role，version 5 */ } }
 ```
 
-還原當成一次新的更新：名稱、說明照 `PATCH /roles/:id`（樂觀鎖、撞名），權限鍵照 `PATCH /roles/:id/permissions`（反提權、自我鎖定），
+還原當成一次新的更新：名稱、說明照 `PATCH /roles/:id`（本體的 `version` 是角色的版本、必填；樂觀鎖、撞名），權限鍵照 `PATCH /roles/:id/permissions`（反提權、自我鎖定），
 稽核 `role.update` 帶 `metadata.revertedFrom`。
 
 | 錯誤 | 何時 |
@@ -535,8 +536,8 @@
 | DELETE | `/files/:id/upload`   | 🛡 `file:access` \| `file:create` | 放棄上傳中的檔案（只有上傳者本人）           |
 | GET    | `/files/:id/image/:variant` | 🔓 `@Public` ＋ 網址簽章 | 圖片的原圖／全螢幕預覽／圖示預覽（302）；網址只從看得到該檔案的回應拿得到² |
 | GET    | `/files/:id`          | 🛡 `file:access` \| `file:read`   | 詳情（`pending` 只有上傳者看得到）            |
-| PATCH  | `/files/:id`          | 🛡 `file:access` \| `file:update` | 改名（`{ name }`）；擁有者規則適用           |
-| DELETE | `/files/:id`          | 🛡 `file:access` \| `file:delete` | 移到回收桶（R4a 仍當下刪物件）；擁有者規則適用 |
+| PATCH  | `/files/:id`          | 🛡 `file:access` \| `file:update` | 改名（`{ name, version }`，`version` 必填的樂觀鎖）；擁有者規則適用 |
+| DELETE | `/files/:id`          | 🛡 `file:access` \| `file:delete` | 移到回收桶（物件保留到永久刪除）；擁有者規則適用 |
 | POST   | `/files/:id/restore`  | 🛡 `file:access` \| `file:delete` | 還原刪除的檔案；權限與刪除相同³              |
 | POST   | `/files/move`         | 🛡 `file:access` \| `file:update` | 把檔案與資料夾移到另一個資料夾（擋下移進自己的子孫） |
 | GET    | `/file-folders`       | 🛡 `file:access` \| `file:read`   | 全部資料夾（扁平清單；沒有權限的 `capabilities.canRead = false`，申請中的 `hasPendingAccessRequest`，系統資料夾的 `kind`；別人的個人資料夾不列）、根目錄的能力、自己的 `personalFolderId` |

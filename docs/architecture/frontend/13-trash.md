@@ -1,6 +1,6 @@
 # 前端 13 — 回收桶
 
-> 狀態：**已實作**（`features/trash`，路由 `/trash`；「使用者」（R2）、「角色」（R3）、「檔案」與「資料夾」（R4a）四類）。後端的回收桶、還原與永久刪除見
+> 狀態：**已實作**（`features/trash`，路由 `/trash`；「使用者」（R2）、「角色」（R3）、「檔案」與「資料夾」（R4）四類）。後端的回收桶、還原與永久刪除見
 > [`../backend/13-trash.md`](../backend/13-trash.md)；決策見 [ADR-0025](../../adr/0025-entity-revisions.md) D9、D10。
 
 ## 1. 組成
@@ -89,9 +89,9 @@ apis/file/restore-file-folder/     POST /file-folders/:id/restore
 - `useFolderRestoreMutation()`（`useFolderMutations.ts`）：成功時以 `fileFolder` / `create` 與 `file` / `create`（`id='*'`）宣告；
   回應的 `filesSkipped` > 0 時以警告提示「其中 n 個檔案的內容已不存在」。`409 FILE_FOLDER_NAME_CONFLICT` → 「先把同名的資料夾改名或移走」；
   `409 FILE_FOLDER_RESTORE_CONFLICT`（上層已刪除）用通用訊息。
-- **刪除後的「復原」**：刪除資料夾的提示附「復原」（還原整批）；確認文字改成「移到回收桶，保留期限內可以還原」。
-  **刪除檔案的提示在 R4a 不附「復原」**（`features/file/constants.ts` 的 `CAN_UNDO_FILE_DELETE = false`）：R4a 的後端仍在刪除當下刪掉物件，
-  還原一定是 `objectMissing`。R4b 部署後改成 `true` 並改確認文字（後端 13-trash §7.5）。
+- **刪除後的「復原」**：刪除檔案的提示附「復原」（還原那個檔案）、刪除資料夾的提示附「復原」（還原整批）；
+  確認文字（單筆、多選、含資料夾的多選）都說「移到回收桶，保留期限內可以還原」。後端刪除檔案時保留物件（R4b，後端 13-trash §7.5），
+  所以剛刪的檔案一定救得回來。
 - 只有資料夾授權的人（`file:access`）看不到回收桶，但能以「復原」還原自己剛刪的資料夾（還原端點的權限與刪除相同）。
 
 ## 5. 系統設定
@@ -110,6 +110,6 @@ apis/file/restore-file-folder/     POST /file-folders/:id/restore
 | 使用者的還原、409 的「查看該帳號」、刪除提示的「復原」 | `features/user/components/__tests__/UserRestoreAction.test.tsx` |
 | 角色的還原（持有者人數）、409 的「查看該角色」、反提權的說明、刪除提示的「復原」 | `features/role/components/__tests__/RoleRestoreAction.test.tsx` |
 | 頁面：只有 `role:delete` 也進得去、只看到角色分頁 | `features/trash/pages/TrashList/__tests__/TrashListPage.test.tsx` |
-| 檔案與資料夾的還原、`parentDeleted`／`objectMissing` 的說明、`filesSkipped` 的提示、同名的說明、資料夾刪除提示的「復原」、R4a 檔案刪除提示不附「復原」 | `features/file/components/__tests__/FileRestoreAction.test.tsx` |
+| 檔案與資料夾的還原、`parentDeleted`／`objectMissing` 的說明、`filesSkipped` 的提示、同名的說明、檔案與資料夾刪除提示的「復原」 | `features/file/components/__tests__/FileRestoreAction.test.tsx` |
 | 頁面：只有 `file:delete` 也進得去、只看到檔案分頁 | `features/trash/pages/TrashList/__tests__/TrashListPage.test.tsx` |
 | 依賴圖：`user`、`role`、`file`、`fileFolder` 的 create／delete 讓回收桶失效 | `apis/__tests__/resources.test.ts` |

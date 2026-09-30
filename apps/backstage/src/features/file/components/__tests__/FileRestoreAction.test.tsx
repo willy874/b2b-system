@@ -121,11 +121,14 @@ describe('檔案的還原（docs/architecture/frontend/13-trash.md §4.2、ADR-0
     expect(await screen.findByText('這個檔案的內容已不存在，無法還原。')).toBeInTheDocument();
   });
 
-  it('R4a：刪除檔案的提示不附「復原」（刪除當下物件已被刪掉，還原一定失敗）', async () => {
+  it('刪除檔案的提示附「復原」，按下就還原剛刪除的檔案（R4b：刪除時物件保留）', async () => {
     renderRoute(routes, '/delete', PERMISSIONS);
     fireEvent.click(await screen.findByRole('button', { name: 'delete-file' }));
     expect(await screen.findByText('已刪除檔案')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '復原' })).toBeNull();
+
+    fireEvent.click(await screen.findByRole('button', { name: '復原' }));
+    await waitFor(() => expect(restoreFile).toHaveBeenCalledTimes(1));
+    expect(restoreFile.mock.calls[0]![0].params).toEqual({ fileId: FILE_ID });
   });
 });
 

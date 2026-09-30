@@ -8,7 +8,7 @@
   [`rbac/02-permission-catalog.md`](../rbac/02-permission-catalog.md) §9（權限依賴樹）、
   [`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) §2.1（資料夾在圖上）、
   [`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.2（引擎）、§5（revision 失效）；
-  已吸收原本獨立的「使用者群組」提案（G4）；[`entity-revisions.md`](./entity-revisions.md)（刪除角色的還原）
+  已吸收原本獨立的「使用者群組」提案（G4）；[`backend/13-trash.md`](../architecture/backend/13-trash.md) §6（刪除角色的還原、休眠的持有者邊）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 

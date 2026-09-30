@@ -3,7 +3,7 @@
 - 優先度：P2
 - 狀態：提案
 - 依賴：[`notification-center.md`](./notification-center.md)（留言、@提及、關注都要通知）
-- 相關：[`entity-revisions.md`](./entity-revisions.md)（多型關聯的命名、刪除與還原）、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)
+- 相關：[ADR-0025](../adr/0025-entity-revisions.md) D7（多型關聯的命名）、[`backend/13-trash.md`](../architecture/backend/13-trash.md)（刪除、還原與永久刪除）、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -62,7 +62,7 @@ watches         resource_type, resource_id, user_id, created_at        pk(resour
   關注的資源 **被修改** 時的通知由擁有者模組在自己的交易內觸發，不靠 `resource.changed`（事件不保證送達）。
 - 推播：新增 `ChangeSource.comment`，受眾是「看得到目標的人」，由擁有者模組決定（和 `fileFolder` 的受眾一樣）。
 - 目標被刪除：現在都是軟刪除，目標消失的情況很少；標籤、留言、關注保留，查詢時跟著目標的可見性過濾。
-  永久刪除（[`entity-revisions.md`](./entity-revisions.md) 的回收桶）時由擁有者模組呼叫清理。
+  永久刪除（[`backend/13-trash.md`](../architecture/backend/13-trash.md) 的 `trash.purge`，擁有者模組的 `TrashHandler.purge`）時由擁有者模組呼叫清理。
 
 ### 權限
 
@@ -73,7 +73,7 @@ watches         resource_type, resource_id, user_id, created_at        pk(resour
 
 1. 留言、標籤的權限都跟著目標，那目標模組的「能不能看」要多便宜？列表頁要一次判斷上百個目標，需要批次介面。
 2. `resource_type` 要用 Postgres enum 還是 text（`relation_tuples`、稽核都是 text；舊的 `resource_grants` 是 enum）？enum 有資料庫層的保護，但每加一種資源就要一個 migration。
-   這個決定也適用於 [`entity-revisions.md`](./entity-revisions.md) 的 `revisions`。
+   這個決定也適用於版本歷史的 `revisions`（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md)）。
 
    **結論**：text ＋ 程式常數（[ADR-0025](../adr/0025-entity-revisions.md) D7；[`backend/02-database.md`](../architecture/backend/02-database.md) §1 的例外）。
 3. 標籤要全租戶共用一組，還是依資源類型分開？

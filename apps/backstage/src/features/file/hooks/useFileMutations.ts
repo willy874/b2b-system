@@ -8,8 +8,6 @@ import { isAppError, useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
 
-import { CAN_UNDO_FILE_DELETE } from '../constants';
-
 /**
  * 改名：帶上畫面看到的 `version`（樂觀鎖）。別人搶先改過時後端回 `FILE_VERSION_CONFLICT`，
  * 這裡失效該檔案讓畫面拿到最新的名稱與版本，錯誤仍交給呼叫端（對話框顯示並保留輸入）。
@@ -32,8 +30,8 @@ export function useFileRenameMutation() {
 }
 
 /**
- * 刪除檔案。刪除只是移到回收桶（ADR-0025 R4），但 R4a 的後端仍在刪除當下刪掉物件，還原一定是 `objectMissing`：
- * 所以「復原」等 R4b 部署後才打開（`CAN_UNDO_FILE_DELETE`）。刪除與還原的權限相同，刪得掉的人一定按得了。
+ * 刪除檔案。刪除只是移到回收桶（ADR-0025 R4，物件保留到永久刪除），成功的提示附「復原」，按下就還原這個檔案。
+ * 刪除與還原的權限相同，刪得掉的人一定按得了。
  */
 export function useFileDeleteMutation() {
   const toast = useToast();
@@ -44,10 +42,6 @@ export function useFileDeleteMutation() {
     ...getFileDeleteMutationOptions(),
     onSuccess: (_, { params }) => {
       invalidateResources([{ resource: Resource.FILE, kind: 'delete', id: params.fileId }]);
-      if (!CAN_UNDO_FILE_DELETE) {
-        toast.success(t('file.delete.success'));
-        return;
-      }
       toast.show({
         type: 'success',
         title: t('file.delete.success'),
@@ -83,7 +77,7 @@ function restoreConflictKeyOf(error: unknown): string | undefined {
 
 /**
  * 還原刪除的檔案（`POST /files/:id/restore`，ADR-0025 R4）。所在的資料夾已刪除時提示先還原資料夾；
- * 物件已不在時說明無法救回（R4a 個別刪除的檔案都是這樣）。
+ * 物件已不在（人為刪除、R4b 之前個別刪除的檔案）時說明無法救回。
  */
 export function useFileRestoreMutation() {
   const toast = useToast();

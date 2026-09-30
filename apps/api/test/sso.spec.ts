@@ -18,6 +18,7 @@ import { createPlatformTestDatabase, createTestDatabase, truncateAll } from './d
 import { listenOnLoopback } from './http';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
 import { createExtraTenant, testTenantContext } from './tenant';
+import { userVersion } from './versions';
 
 let app: INestApplication;
 let http: App;
@@ -569,12 +570,12 @@ describe('SSO（docs/adr/0019-sso-identity-platform.md、0020 D5–D10）', () =
       .send(SUPER_ADMIN)
       .expect(200);
     const admin = tokenOf(login);
-    const setStatus = (status: 'inactive' | 'active') =>
+    const setStatus = async (status: 'inactive' | 'active') =>
       request(http)
         .patch(`/users/${userId}`)
         .set('Host', BACKSTAGE.host)
         .set('authorization', `Bearer ${admin}`)
-        .send({ status })
+        .send({ status, version: await userVersion(db, userId) })
         .expect(200);
 
     await setStatus('inactive');

@@ -20,14 +20,16 @@ const unlockUser = getUserUnlockMutationOptions().mutationFn;
 const deleteUser = getUserDeleteMutationOptions().mutationFn;
 
 /**
- * 帶列表那一列的 `version`：列表資料過時（別人剛改過這個人）時這一筆以 `USER_VERSION_CONFLICT` 失敗、
- * 列在結果對話框，而不是蓋掉別人的變更（ADR-0025 D4、ADR-0009）。
+ * 帶列表那一列的 `version`（必填）：列表資料過時（別人剛改過這個人）時這一筆以 `USER_VERSION_CONFLICT` 失敗、
+ * 列在結果對話框，而不是蓋掉別人的變更（ADR-0025 D4、ADR-0009）。使用者列表一定提供版本（`getRowVersion`）；
+ * 沒有版本時不自己去讀最新的：那等於後寫者勝，正是樂觀鎖要防的情況。
  */
 async function updateStatus(
   userId: string,
   status: 'active' | 'inactive',
   version: number | undefined,
 ): Promise<void> {
+  if (version === undefined) throw new Error('批次啟用／停用使用者需要列表那一列的 version');
   const user = await updateUser({ params: { userId, body: { status, version } } });
   invalidateResources([
     { resource: Resource.USER, kind: 'update', id: user.id, refs: roleRefs(user) },

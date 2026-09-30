@@ -20,7 +20,7 @@ const PROBE_CONCURRENCY = 16;
 
 /**
  * 一個檔案在物件儲存裡的所有東西：原檔、瀏覽器縮圖、影像變體（docs/architecture/backend/09-file.md §5）。
- * 刪除檔案（R4a 仍在刪除當下刪）與永久刪除（`trash.purge`）共用同一個刪法；還原前以 `probe` 確認還在
+ * 永久刪除（`trash.purge`）時刪掉；刪除檔案只軟刪除紀錄、物件保留到永久刪除。還原前以 `probe` 確認還在
  * （docs/architecture/backend/13-trash.md §7）。
  */
 @Injectable()

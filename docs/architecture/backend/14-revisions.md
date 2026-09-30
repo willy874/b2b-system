@@ -119,9 +119,9 @@ migration 當下的名稱、說明與權限鍵（`COLLATE "C"` 排序，與 JS �
 ### 4.3 還原到某一版：`POST /roles/:id/revisions/:version/revert`
 
 把那一版的快照當成 **一次新的更新**（D1）：名稱、說明照 `PATCH /roles/:id`，權限鍵照 `PATCH /roles/:id/permissions`，寫入之後產生新的一版，歷史不改寫。
-請求本體 `{ version? }`：確認還原時看到的 **角色的** `version`（樂觀鎖，與 `PATCH /roles/:id` 相同，R1 選填、R1b 之後必填）。回應是還原後的 `Role`。
+請求本體 `{ version }`：確認還原時看到的 **角色的** `version`（樂觀鎖，必填，與 `PATCH /roles/:id` 相同；不帶 → `400 VALIDATION_FAILED`）。回應是還原後的 `Role`。
 
-1. 角色不存在或已刪除 → `404 ROLE_NOT_FOUND`；帶了 `version` 而不是目前的 → `409 ROLE_VERSION_CONFLICT`（`details.current`）；
+1. 角色不存在或已刪除 → `404 ROLE_NOT_FOUND`；`version` 不是目前的 → `409 ROLE_VERSION_CONFLICT`（`details.current`）；
    super-admin → `403 ROLE_SUPER_ADMIN_IMMUTABLE`。
 2. 取那一版：不存在（或已被保留清理刪除）→ `404 REVISION_NOT_FOUND`；過大未保存 → `409 REVISION_UNAVAILABLE`（`reason: 'tooLarge'`）；
    形狀對不上 `RoleRevisionSnapshotSchema`（白名單之後改過）→ 同一個錯誤碼（`reason: 'incompatible'`）。
@@ -202,6 +202,6 @@ migration 當下的名稱、說明與權限鍵（`COLLATE "C"` 排序，與 JS �
 
 | 對象 | 檔案 |
 | --- | --- |
-| 建立、改名稱說明、改權限鍵、複製各產生一版（權限鍵不遞增角色的 `version`）；rollback 不留下；超過 1 MiB 存 null 並記 warn、列表標 `tooLarge`、還原 409；列表分頁與作者、單版、`REVISION_NOT_FOUND`、已刪除的角色 404、權限；還原（`version + 1`、新的一版、稽核 `revertedFrom`、持有者的權限立刻跟著變、樂觀鎖衝突、反提權、要 `role:grantPermission`、super-admin、撞名、目錄已不存在的鍵）；保留清理（最新 N ∪ N 天、依設定）；永久刪除角色時刪掉版本；migration 的基準版本與 seed 的第 1 版 | `test/role-revisions.spec.ts` |
+| 建立、改名稱說明、改權限鍵、複製各產生一版（權限鍵不遞增角色的 `version`）；rollback 不留下；超過 1 MiB 存 null 並記 warn、列表標 `tooLarge`、還原 409；列表分頁與作者、單版、`REVISION_NOT_FOUND`、已刪除的角色 404、權限；還原（`version + 1`、新的一版、稽核 `revertedFrom`、持有者的權限立刻跟著變、樂觀鎖衝突、不帶 `version` → 400、反提權、要 `role:grantPermission`、super-admin、撞名、目錄已不存在的鍵）；保留清理（最新 N ∪ N 天、依設定）；永久刪除角色時刪掉版本；migration 的基準版本與 seed 的第 1 版 | `test/role-revisions.spec.ts` |
 | `record` 的上限與位元組計算、`get`／`getSnapshot` 的錯誤、`prune` 的分批與截止時間、排程註冊 | `src/modules/revision/__tests__/revision.service.spec.ts` |
 | 端點的權限宣告 | `test/route-audit.spec.ts` |

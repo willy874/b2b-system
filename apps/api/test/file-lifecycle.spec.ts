@@ -271,14 +271,14 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     );
   });
 
-  it('改名與刪除；刪除後 404 且物件被移除', async () => {
+  it('改名與刪除；刪除後 404，物件保留到永久刪除（ADR-0025 D11）', async () => {
     const token = await login(ADMIN);
     const file = await uploadFile(token, { name: 'old.txt', contentType: 'text/plain', size: 3 });
 
     const renamed = await request(http)
       .patch(`/files/${file.id}`)
       .set('authorization', `Bearer ${token}`)
-      .send({ name: 'new.txt' })
+      .send({ name: 'new.txt', version: file.version })
       .expect(200);
     expect((renamed.body as { data: FileBody }).data.name).toBe('new.txt');
 
@@ -290,7 +290,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       .get(`/files/${file.id}`)
       .set('authorization', `Bearer ${token}`)
       .expect(404);
-    expect(storage.deleted).toContain(`files/${file.id}`);
+    expect(storage.deleted).not.toContain(`files/${file.id}`);
   });
 
   it('auditor 能讀不能上傳；member 只有 file:access：進得來但什麼都看不到', async () => {
@@ -465,6 +465,17 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     });
   });
 
+  it('改名不帶 version → 400 VALIDATION_FAILED（ADR-0025 D4 的 R1b：必填）', async () => {
+    const token = await login(ADMIN);
+    const file = await uploadFile(token, { name: 'nv.txt', contentType: 'text/plain', size: 1 });
+    const response = await request(http)
+      .patch(`/files/${file.id}`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ name: 'nv2.txt' })
+      .expect(400);
+    expect(response.body).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+  });
+
   it('keyset 游標：捲動途中有新檔案插入也不重複、不漏', async () => {
     const token = await login(ADMIN);
     for (const name of ['k1.txt', 'k2.txt', 'k3.txt', 'k4.txt']) {
@@ -575,13 +586,13 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       'FILE_IMAGE_URL_INVALID',
     );
 
-    // 刪除時一併刪除變體與轉出的格式
+    // 刪除後影像網址失效；變體與轉出的格式保留到永久刪除（ADR-0025 D11，還原時不必重新產生）
     await request(http)
       .delete(`/files/${file.id}`)
       .set('authorization', `Bearer ${token}`)
       .expect(204);
     expect([...storage.objects.keys()].some((key) => key.startsWith(`variants/${file.id}/`))).toBe(
-      false,
+      true,
     );
     await request(http).get(previewPath).expect(404);
   });

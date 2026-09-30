@@ -13,10 +13,10 @@ export const UpdateUserSchema = defineSchema(
       locale: z.string().max(10).optional(),
       timezone: z.string().max(64).optional(),
       /**
-       * 樂觀鎖：編輯開始時看到的 `version`。與目前版本不同（別人已經改過）回 409 `USER_VERSION_CONFLICT`
-       * （`details.current`）；不帶則後寫者勝（ADR-0025 D3、D4：R1 選填，之後改必填）。
+       * 樂觀鎖：編輯開始時看到的 `version`（必填）。與目前版本不同（別人已經改過）回 409 `USER_VERSION_CONFLICT`
+       * （`details.current`）。要後寫者勝的腳本先讀一次目前的版本（ADR-0025 D3、D4）。
        */
-      version: z.number().int().min(1).optional(),
+      version: z.number().int().min(1),
     })
     // `version` 不是要改的欄位：只帶它等於什麼都沒改
     .refine(({ version: _version, ...fields }) => Object.keys(fields).length > 0, {
@@ -29,10 +29,10 @@ export const ReplaceUserRolesSchema = defineSchema(
   z.object({
     roleIds: uniqueItems(z.array(z.string().uuid()).max(20)),
     /**
-     * 草稿所依據的角色（編輯開始時伺服器上的角色）。有帶時，與目前的角色不同就回 409 `USER_ROLES_CONFLICT`，
-     * 不會蓋掉別人剛做的變更。
+     * 草稿所依據的角色（編輯開始時伺服器上的角色，必填）。與目前的角色不同就回 409 `USER_ROLES_CONFLICT`，
+     * 不會蓋掉別人剛做的變更（ADR-0025 D4）。
      */
-    expectedRoleIds: z.array(z.string().uuid()).max(100).optional(),
+    expectedRoleIds: z.array(z.string().uuid()).max(100),
   }),
 );
 

@@ -190,24 +190,20 @@ export class RoleRepository {
   }
 
   /**
-   * 改名稱或說明並遞增樂觀鎖的 `version`（角色自己的欄位只有這兩個會被編輯）。帶 `expectedVersion` 時
-   * 只在版本相符、且未刪除時才更新（比對與寫入在同一個 UPDATE）；不符回 undefined。
+   * 改名稱或說明並遞增樂觀鎖的 `version`（角色自己的欄位只有這兩個會被編輯）。只在版本相符、且未刪除時才更新
+   * （比對與寫入在同一個 UPDATE）；不符回 undefined。
    */
   async update(
     id: string,
     values: Partial<Pick<RoleInsert, 'name' | 'description' | 'updatedBy'>>,
-    expectedVersion?: number,
+    expectedVersion: number,
     tx?: DbOrTx,
   ): Promise<RoleRow | undefined> {
     const db = tx ?? this.db;
-    const conditions = [eq(roles.id, id)];
-    if (expectedVersion !== undefined) {
-      conditions.push(eq(roles.version, expectedVersion), isActiveRole());
-    }
     const [row] = await db
       .update(roles)
       .set({ ...values, version: sql`${roles.version} + 1` })
-      .where(and(...conditions))
+      .where(and(eq(roles.id, id), eq(roles.version, expectedVersion), isActiveRole()))
       .returning();
     return row;
   }

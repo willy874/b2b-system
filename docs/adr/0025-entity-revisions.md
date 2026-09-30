@@ -1,9 +1,11 @@
 # ADR-0025 — 版本歷史、樂觀鎖與還原：`version` 欄 ＋ 整份快照 ＋ 保留關聯的軟刪除
 
-- 狀態：**採用**（2026-09-30 確認；R1～R3、R4a、R5 已在 branch `feat/entity-revisions` 實作，R1b、R4b 待下一次部署；見文末「實作紀錄」）
+- 狀態：**採用**（2026-09-30 全部實作並合併：R1～R5 於 a3066d1，R1b、R4b 於下一次部署（branch `feat/entity-revisions-final`）；見文末「實作紀錄」）
 - 日期：2026-09-30
-- 相關：提案 [`../features/entity-revisions.md`](../features/entity-revisions.md)；
-  [ADR-0024](./0024-relationship-based-access-control.md)（關係圖；刪除角色時持有者邊的處理）、
+- 相關：規格 [`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11（樂觀鎖）、
+  [`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)（回收桶與還原）、[`../architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md)（版本歷史）、
+  前端 [`../architecture/frontend/13-trash.md`](../architecture/frontend/13-trash.md)、[`../architecture/frontend/14-revisions.md`](../architecture/frontend/14-revisions.md)；
+    [ADR-0024](./0024-relationship-based-access-control.md)（關係圖；刪除角色時持有者邊的處理）、
   [ADR-0009](./0009-table-batch-operations.md)（批次操作逐筆回報失敗）、[ADR-0016](./0016-background-jobs.md)（背景工作）；
   規格 [`../architecture/backend/02-database.md`](../architecture/backend/02-database.md) §1、§5.1、
   [`../architecture/backend/06-audit-log.md`](../architecture/backend/06-audit-log.md)、
@@ -14,7 +16,7 @@
 ## 背景
 
 編輯器實體一定會被要求「兩個人同時改不要互相蓋掉」「還原到上一版」「救回誤刪的東西」。這三件事的模式要在第一個編輯器功能之前定，
-否則每個功能各做一套（需求與現有零件見提案）。影響決定的程式現況（2026-09-30 確認）：
+否則每個功能各做一套（原本的提案已在歸檔時刪除，需求寫進上列規格）。影響決定的程式現況（2026-09-30 確認）：
 
 | 現況 | 位置 |
 | --- | --- |
@@ -36,7 +38,7 @@
 
 | # | 決定 | 理由 |
 | --- | --- | --- |
-| D1 | **快照存整份、不存差異**（提案開放問題 1）。`revisions` 表（每個租戶 DB 一張，欄位見提案）是 **選擇性加入**：擁有者模組以白名單函式 `toRevision(row)` 產生快照（只含可編輯的欄位，不含 id、時間戳、`deleted_at`、`version`、雜湊與 token 之類的機密），在 **同一個業務交易內** 經 `RevisionWriter.record(tx, …)` 寫入。每一版存的是 **寫入之後** 的狀態（建立時就是第 1 版），最新一版等於目前的內容。還原到某一版＝把那版的快照當成一次新的更新（`version + 1`），歷史不改寫。單版快照上限 1 MiB：超過時業務寫入照常成功，那一版 `snapshot = null` 並記 warn log，列表標示「過大未保存」。保留「最新 N 版」∪「N 天內」，兩者之外的由 `revision.prune`（`scope: 'tenant'`，每天）刪除；N 與天數是系統設定 | 整份快照讓還原與差異檢視都不必重播，`JsonDiff` 直接比兩版；目前沒有會超過上限的實體。業務寫入不能因為版本歷史失敗。巨大的編輯器資料（關卡）之後可以改成「差異 ＋ 定期整份」，那是加入時的個別決定，不在這一版 |
+| D1 | **快照存整份、不存差異**（提案開放問題 1）。`revisions` 表（每個租戶 DB 一張，欄位見 `14-revisions.md` §2）是 **選擇性加入**：擁有者模組以白名單函式 `toRevision(row)` 產生快照（只含可編輯的欄位，不含 id、時間戳、`deleted_at`、`version`、雜湊與 token 之類的機密），在 **同一個業務交易內** 經 `RevisionWriter.record(tx, …)` 寫入。每一版存的是 **寫入之後** 的狀態（建立時就是第 1 版），最新一版等於目前的內容。還原到某一版＝把那版的快照當成一次新的更新（`version + 1`），歷史不改寫。單版快照上限 1 MiB：超過時業務寫入照常成功，那一版 `snapshot = null` 並記 warn log，列表標示「過大未保存」。保留「最新 N 版」∪「N 天內」，兩者之外的由 `revision.prune`（`scope: 'tenant'`，每天）刪除；N 與天數是系統設定 | 整份快照讓還原與差異檢視都不必重播，`JsonDiff` 直接比兩版；目前沒有會超過上限的實體。業務寫入不能因為版本歷史失敗。巨大的編輯器資料（關卡）之後可以改成「差異 ＋ 定期整份」，那是加入時的個別決定，不在這一版 |
 | D2 | **刪除角色時保留持有者邊**（提案開放問題 2）：`softDelete` 不再刪 `role:<id>#holder@user:*`，持有者改用刪除前的查詢取得（仍只用來推播）。還原角色＝清 `deleted_at` ＋ `permissionsChanged()`，原本的持有者自動回來。必要的配套：① `replaceRoles` 只刪 **未刪除角色** 的持有者邊，否則改一次某人的角色就會把休眠的邊一起清掉；② 以角色為起點的查詢維持「呼叫端先確認角色存在」，並加註解；③ 永久刪除角色時刪掉它作為物件與主體的所有邊（持有者、權限鍵、資料夾授權） | 使用者端的讀取與關係圖的閉包 **已經** 排除已刪除的角色（背景的表），權限鍵邊也早就是這樣保留的；持有者邊比照辦理，還原不需要任何重建邏輯。快照後重播要處理「期間被刪除的使用者」「已改過角色的人」，而且結果也不會比保留的邊更正確 |
 | D3 | **樂觀鎖的形狀**：`version integer not null default 1`；更新 DTO 帶 `version`；`UPDATE … SET version = version + 1 WHERE id = $id AND version = $v AND deleted_at IS NULL`。讀到時就不同、或 UPDATE 沒命中而列仍存在，都回 `409 <RESOURCE>_VERSION_CONFLICT`，**兩條路徑都帶** `details.current`（沒命中時重讀一次；`files` 一併補上）。列已被刪除回 `404 <RESOURCE>_NOT_FOUND`。只有實體自己欄位的寫入會遞增 `version`；關聯的寫入（角色的使用者、角色的權限鍵）沿用「預期的集合」（`expectedRoleIds`）或增減語意，不遞增。**這一輪不用 `ETag`／`If-Match`**（提案開放問題 3）；「列表的 304／ETag」留在 `hardening-followups`，將來做時以同一個欄位產生 `ETag: W/"<version>"`，不必改資料模型 | 把 `files` 已經驗證過的做法寫成慣例；`updated_at` 經 JSON 來回會失去精度（`09-file.md` §6.2）。標頭要讓 OpenAPI 產生器、SDK、每個 mutation hook 都處理，而請求本體裡的欄位現有的 DTO 流程就支援 |
 | D4 | **`version` 最終必填，分兩步到位**：第一步（R1）新增欄位與選填的 `version`，前端的表單開始帶；下一次部署改成必填。批次操作也要帶：列表的 DTO 從 R1 起帶 `version`，批次以列表那一列的版本送出，衝突以 ADR-0009 的逐筆失敗回報。`files` 的選填 `version`、`expectedRoleIds` 在同一步改成必填 | 滾動部署期間舊版前端不會送 `version`，一次改成必填會讓它的每個儲存都失敗（`02-database.md` §5.1 的「破壞性變更拆兩次」同一個道理）。選填會永遠留下「忘了帶就後寫者勝」的洞；腳本要後寫者勝就先讀一次版本 |
@@ -98,14 +100,16 @@ R2、R3 與 `permission-graph` G3b 互不依賴；G3b 刪的是舊表與雙寫 t
 | repository 的預設排除（D8 的替代） | 見 D8 的理由 |
 | 通用的 `POST /trash/:type/:id/restore`（D9 的替代） | 權限宣告與錯誤碼會集中到通用模組，而還原規則每種資源都不同 |
 
-## 實作紀錄（R1～R5）
+## 實作紀錄（R1～R5、R1b、R4b）
 
 決定不改寫；以下是實作時與上文不同、或上文沒寫到的地方（程式碼註解與根目錄 `CLAUDE.md` 的「與文件不同的實作決定」表有同樣的紀錄）。
 
 | 階段 | 與上文的差異或補充 |
 | --- | --- |
-| R1 | D4 寫「列表的 DTO 從 R1 起帶 `version`，批次以列表那一列的版本送出」，分階段表卻把「批次帶列的版本」列在 R1b：實作照 D4，批次啟用／停用在 R1 就帶列的版本；R1b 只剩「改必填」 |
+| R1 | D4 寫「列表的 DTO 從 R1 起帶 `version`，批次以列表那一列的版本送出」，分階段表卻把「批次帶列的版本」列在 R1b：以 D4 為準，批次啟用／停用在 R1 就帶列的版本（分階段表 R1b 列的「批次帶列的版本」因此在 R1 已完成），R1b 只做「改必填」 |
 | R2 | `notDeleted()`／`isDeleted()` 放在 `db/schema/soft-delete.ts`，不是 D8 寫的 `db/soft-delete.ts`（`isActiveRole()` 在 `db/schema/` 要用它，`db/schema/` 只依賴同層）。`TrashHandler` 不是 D9 的 `purge(ids, tx)`，而是 `findExpired(cutoff, afterId, limit)` ＋ 逐列 `purge(item, tx)`（每列一個 savepoint）＋ `afterPurge(ids)`：一列因外鍵刪不掉只略過它自己。使用者還原的唯一值衝突用 `details.conflictingUserId`（D5 寫 `conflictingId`）；角色是 `conflictingRoleId`、資料夾是 `conflictingId` |
 | R3 | 刪除與還原角色都不寫 `relation_tuples`，但會改變權限的解析結果，所以加了 migration 0012：`roles.deleted_at` 改變時 `authz_revision` +1（否則其他程序會把廣播當成舊的而略過） |
-| R4 | 分成兩次部署：R4a（`deletion_id`、維護排程不刪已刪除紀錄的物件、還原端點、回收桶與永久刪除）已實作；R4b（刪除檔案不再立刻刪物件）要等 R4a 的維護排程全部上線之後（`13-trash.md` §7.5）。R4a 期間刪除 **單一檔案** 的提示不附「復原」（物件已經刪了，還原只會得到 `objectMissing`），R4b 才打開 |
-| R5 | 第一個加入的實體是角色（D12 的候選）：快照 `{ name, description, permissionKeys }`。**版本號是每個資源自己的流水號**，不是實體的 `version`：權限鍵是關聯的寫入、不遞增 `roles.version`（D3），卻要產生新的一版；`RevisionService.record(tx, …)` 在交易內以 `max + 1` 產生、不收版本號，呼叫端先鎖住實體列（`14-revisions.md` §3.1）。**`RevisionWriter` 就是 `modules/revision` 的 `RevisionService`**（通用模組，與 `modules/trash` 同一種）。既有角色的基準版本由 migration 0014 以 SQL 寫第 1 版（actor null），新租戶由 seed 寫；不採用「第一次寫入時補一版寫入前的狀態」。**還原到某一版** 的路由是 D10 的 `role:update`，但權限鍵會改變時 service 另要 `role:grantPermission`（改權限的端點要它，否則能藉還原拿掉角色的鍵）；目錄裡已不存在的權限鍵略過（`metadata.skippedPermissions`）。還原的請求帶 **角色的** `version`（選填，與 R1 相同）。保留設定 `revision.keepVersions`（預設 50）、`revision.keepDays`（預設 90）。另外補上 R4a 的遺漏：`GET /trash?type=file|fileFolder` 在租戶停用 `file` feature 時回 `404 FEATURE_DISABLED`（`TrashHandler.feature`，`13-trash.md` §3） |
+| R4 | 分成兩次部署：R4a（`deletion_id`、維護排程不刪已刪除紀錄的物件、還原端點、回收桶與永久刪除）已實作；R4b（刪除檔案不再立刻刪物件）在 R4a 的維護排程全部上線之後的下一次部署（`13-trash.md` §7.5，見下方 R4b 列）。R4a 期間刪除 **單一檔案** 的提示不附「復原」（物件已經刪了，還原只會得到 `objectMissing`），R4b 才打開 |
+| R5 | 第一個加入的實體是角色（D12 的候選）：快照 `{ name, description, permissionKeys }`。**版本號是每個資源自己的流水號**，不是實體的 `version`：權限鍵是關聯的寫入、不遞增 `roles.version`（D3），卻要產生新的一版；`RevisionService.record(tx, …)` 在交易內以 `max + 1` 產生、不收版本號，呼叫端先鎖住實體列（`14-revisions.md` §3.1）。**`RevisionWriter` 就是 `modules/revision` 的 `RevisionService`**（通用模組，與 `modules/trash` 同一種）。既有角色的基準版本由 migration 0014 以 SQL 寫第 1 版（actor null），新租戶由 seed 寫；不採用「第一次寫入時補一版寫入前的狀態」。**還原到某一版** 的路由是 D10 的 `role:update`，但權限鍵會改變時 service 另要 `role:grantPermission`（改權限的端點要它，否則能藉還原拿掉角色的鍵）；目錄裡已不存在的權限鍵略過（`metadata.skippedPermissions`）。還原的請求帶 **角色的** `version`（R5 時與 R1 相同是選填，R1b 起必填）。保留設定 `revision.keepVersions`（預設 50）、`revision.keepDays`（預設 90）。另外補上 R4a 的遺漏：`GET /trash?type=file|fileFolder` 在租戶停用 `file` feature 時回 `404 FEATURE_DISABLED`（`TrashHandler.feature`，`13-trash.md` §3） |
+| R1b | `version` 在 `PATCH /users/:id`、`PATCH /roles/:id`、`PATCH /files/:id`、`POST /roles/:id/revisions/:version/revert` 改必填，`PUT /users/:id/roles` 的 `expectedRoleIds` 也是；不帶回 `400 VALIDATION_FAILED`。「沒帶就後寫者勝」的路徑（service 的 `version !== undefined` 判斷、repository 的選填 `expectedVersion`）一併刪除；使用者的 repository 仍保留選填的 `expectedVersion`，因為解鎖、個人資料等不收 `version` 的寫入也經過它。前端的呼叫端在 R1 已全部帶版本；批次啟用／停用在列表沒有提供版本時讓那一筆失敗，不自己讀最新的版本（那等於後寫者勝） |
+| R4b | `FileService.remove()` 不再刪物件，留到 `trash.purge`；前端刪除檔案的提示附「復原」、確認文字改成「移到回收桶」。R4a 的 `CAN_UNDO_FILE_DELETE` 開關直接刪除（部署後恆為 true，留著只是死碼），不是改成 `true`。系統沒有依紀錄計算儲存用量或配額的地方，保留的物件不影響任何計算（`13-trash.md` §7.5） |

@@ -9,10 +9,10 @@ export const UpdateFileSchema = defineSchema(
   z.object({
     name: FileNameSchema,
     /**
-     * 樂觀鎖：畫面上看到的 `version`。帶了而與目前版本不同（別人已經改過）回 `FILE_VERSION_CONFLICT`；
-     * 不帶則後寫者勝（批次、腳本）。
+     * 樂觀鎖：畫面上看到的 `version`（必填）。與目前版本不同（別人已經改過）回 409 `FILE_VERSION_CONFLICT`
+     * （`details.current`）。要後寫者勝的腳本先讀一次目前的版本（ADR-0025 D4）。
      */
-    version: z.number().int().min(1).optional(),
+    version: z.number().int().min(1),
   }),
 );
 

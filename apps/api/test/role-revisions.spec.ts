@@ -110,7 +110,7 @@ async function roleVersion(roleId: string): Promise<number> {
   return row!.version;
 }
 
-function revert(roleId: string, version: number, body: object = {}, token = rootToken) {
+function revert(roleId: string, version: number, body: { version: number }, token = rootToken) {
   return request(http)
     .post(`/roles/${roleId}/revisions/${version}/revert`)
     .set(auth(token))
@@ -162,7 +162,7 @@ describe('角色的版本歷史（docs/architecture/backend/14-revisions.md、AD
       await request(http)
         .patch(`/roles/${id}`)
         .set(auth())
-        .send({ name: '版本 A2', description: '說明' })
+        .send({ name: '版本 A2', description: '說明', version: await roleVersion(id) })
         .expect(200);
       expect(await roleVersion(id)).toBe(2);
       await grantPermissions(id, ['role:read'], ['user:read']);
@@ -237,7 +237,7 @@ describe('角色的版本歷史（docs/architecture/backend/14-revisions.md、AD
       const detail = await request(http).get(`/roles/${id}/revisions/2`).set(auth()).expect(200);
       expect(dataOf<{ snapshot: unknown }>(detail).snapshot).toBeNull();
 
-      const response = await revert(id, 2).expect(409);
+      const response = await revert(id, 2, { version: await roleVersion(id) }).expect(409);
       expect(response.body).toMatchObject({
         error: { code: 'REVISION_UNAVAILABLE', details: { version: 2, reason: 'tooLarge' } },
       });
@@ -247,8 +247,16 @@ describe('角色的版本歷史（docs/architecture/backend/14-revisions.md、AD
   describe('讀取', () => {
     it('GET /roles/:id/revisions：新的在前、分頁、帶作者；GET /:version 帶快照', async () => {
       const id = await createRole('讀取 E', ['user:read']);
-      await request(http).patch(`/roles/${id}`).set(auth()).send({ description: '一' }).expect(200);
-      await request(http).patch(`/roles/${id}`).set(auth()).send({ description: '二' }).expect(200);
+      await request(http)
+        .patch(`/roles/${id}`)
+        .set(auth())
+        .send({ description: '一', version: 1 })
+        .expect(200);
+      await request(http)
+        .patch(`/roles/${id}`)
+        .set(auth())
+        .send({ description: '二', version: 2 })
+        .expect(200);
 
       const page = await request(http)
         .get(`/roles/${id}/revisions`)
@@ -302,7 +310,7 @@ describe('角色的版本歷史（docs/architecture/backend/14-revisions.md、AD
       await request(http)
         .patch(`/roles/${id}`)
         .set(auth())
-        .send({ name: '還原 H 改', description: null })
+        .send({ name: '還原 H 改', description: null, version: await roleVersion(id) })
         .expect(200);
       await grantPermissions(id, ['auditLog:read'], ['user:read']);
       const before = await roleVersion(id);
@@ -335,19 +343,34 @@ describe('角色的版本歷史（docs/architecture/backend/14-revisions.md、AD
       await grantPermissions(id, [], ['auditLog:read']);
       await request(http).get('/audit-logs').set(auth(holder)).expect(403);
 
-      await revert(id, 1).expect(200);
+      await revert(id, 1, { version: await roleVersion(id) }).expect(200);
       await request(http).get('/audit-logs').set(auth(holder)).expect(200);
     });
 
     it('樂觀鎖：帶過時的 version → 409 ROLE_VERSION_CONFLICT（details.current），沒有新的一版', async () => {
       const id = await createRole('衝突 J', []);
-      await request(http).patch(`/roles/${id}`).set(auth()).send({ description: '改' }).expect(200);
+      await request(http)
+        .patch(`/roles/${id}`)
+        .set(auth())
+        .send({ description: '改', version: 1 })
+        .expect(200);
 
       const response = await revert(id, 1, { version: 1 }).expect(409);
       expect(response.body).toMatchObject({
         error: { code: 'ROLE_VERSION_CONFLICT', details: { current: 2 } },
       });
       expect(await revisionRows(id)).toHaveLength(2);
+    });
+
+    it('不帶 version → 400 VALIDATION_FAILED（ADR-0025 D4 的 R1b：必填），沒有新的一版', async () => {
+      const id = await createRole('必填 J2', []);
+      const response = await request(http)
+        .post(`/roles/${id}/revisions/1/revert`)
+        .set(auth())
+        .send({})
+        .expect(400);
+      expect(response.body).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+      expect(await revisionRows(id)).toHaveLength(1);
     });
 
     it('反提權：加回 actor 沒有的鍵 → 403 AUTHZ_ESCALATION，角色與版本都不變', async () => {
@@ -357,7 +380,12 @@ describe('角色的版本歷史（docs/architecture/backend/14-revisions.md、AD
         await createRole('角色管理 K', ['role:read', 'role:update', 'role:grantPermission']),
       ]);
 
-      const response = await revert(target, 1, {}, manager).expect(403);
+      const response = await revert(
+        target,
+        1,
+        { version: await roleVersion(target) },
+        manager,
+      ).expect(403);
       expect(response.body).toMatchObject({
         error: { code: 'AUTHZ_ESCALATION', details: { missing: ['auditLog:read'] } },
       });
@@ -371,7 +399,9 @@ describe('角色的版本歷史（docs/architecture/backend/14-revisions.md、AD
       ]);
       const keys = await createRole('鍵 L', ['user:read']);
       await grantPermissions(keys, [], ['user:read']);
-      const denied = await revert(keys, 1, {}, editor).expect(403);
+      const denied = await revert(keys, 1, { version: await roleVersion(keys) }, editor).expect(
+        403,
+      );
       expect(denied.body).toMatchObject({
         error: { code: 'AUTHZ_FORBIDDEN', details: { required: ['role:grantPermission'] } },
       });
@@ -380,9 +410,9 @@ describe('角色的版本歷史（docs/architecture/backend/14-revisions.md、AD
       await request(http)
         .patch(`/roles/${named}`)
         .set(auth())
-        .send({ name: '名稱 L2' })
+        .send({ name: '名稱 L2', version: await roleVersion(named) })
         .expect(200);
-      const ok = await revert(named, 1, {}, editor).expect(200);
+      const ok = await revert(named, 1, { version: await roleVersion(named) }, editor).expect(200);
       expect(dataOf<{ name: string }>(ok).name).toBe('名稱 L');
     });
 
@@ -390,18 +420,24 @@ describe('角色的版本歷史（docs/architecture/backend/14-revisions.md、AD
       const id = await createRole('權限 M', []);
       const [auditorRole] = await db.select().from(roles).where(eq(roles.slug, 'auditor'));
       const auditor = await tokenWithRole('auditor-m@example.com', [auditorRole!.id]);
-      await revert(id, 1, {}, auditor).expect(403);
+      await revert(id, 1, { version: await roleVersion(id) }, auditor).expect(403);
 
       const [superAdmin] = await db.select().from(roles).where(eq(roles.slug, 'super-admin'));
-      const response = await revert(superAdmin!.id, 1).expect(403);
+      const response = await revert(superAdmin!.id, 1, {
+        version: await roleVersion(superAdmin!.id),
+      }).expect(403);
       expect(response.body).toMatchObject({ error: { code: 'ROLE_SUPER_ADMIN_IMMUTABLE' } });
     });
 
     it('名稱已被別的角色使用 → 409 ROLE_NAME_DUPLICATE', async () => {
       const id = await createRole('撞名 N', []);
-      await request(http).patch(`/roles/${id}`).set(auth()).send({ name: '撞名 N2' }).expect(200);
+      await request(http)
+        .patch(`/roles/${id}`)
+        .set(auth())
+        .send({ name: '撞名 N2', version: 1 })
+        .expect(200);
       await createRole('撞名 N', []);
-      const response = await revert(id, 1).expect(409);
+      const response = await revert(id, 1, { version: await roleVersion(id) }).expect(409);
       expect(response.body).toMatchObject({ error: { code: 'ROLE_NAME_DUPLICATE' } });
     });
 
@@ -419,7 +455,7 @@ describe('角色的版本歷史（docs/architecture/backend/14-revisions.md、AD
         .where(and(eq(revisions.resourceId, id), eq(revisions.version, 1)));
       await grantPermissions(id, [], ['user:read']);
 
-      await revert(id, 1).expect(200);
+      await revert(id, 1, { version: await roleVersion(id) }).expect(200);
       const [audit] = await db
         .select()
         .from(auditLogs)
@@ -498,7 +534,11 @@ describe('角色的版本歷史（docs/architecture/backend/14-revisions.md、AD
 
     it('永久刪除角色（trash.purge）時一起刪掉它的版本', async () => {
       const id = await createRole('清除 P', []);
-      await request(http).patch(`/roles/${id}`).set(auth()).send({ description: '改' }).expect(200);
+      await request(http)
+        .patch(`/roles/${id}`)
+        .set(auth())
+        .send({ description: '改', version: 1 })
+        .expect(200);
       await request(http).delete(`/roles/${id}?force=true`).set(auth()).expect(204);
       await db
         .update(roles)
@@ -550,7 +590,7 @@ describe('角色的版本歷史（docs/architecture/backend/14-revisions.md、AD
       await request(http)
         .patch(`/roles/${role!.id}`)
         .set(auth())
-        .send({ name: '基準 Q2' })
+        .send({ name: '基準 Q2', version: await roleVersion(role!.id) })
         .expect(200);
       expect((await revisionRows(role!.id)).map((row) => row.version)).toEqual([1, 2]);
     });

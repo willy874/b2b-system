@@ -152,7 +152,7 @@ function purge() {
   return inTestTenant(app, () => app.get(TrashService).purgeExpired());
 }
 
-describe('檔案與資料夾的還原與回收桶（docs/architecture/backend/13-trash.md §7、ADR-0025 D5、R4a）', () => {
+describe('檔案與資料夾的還原與回收桶（docs/architecture/backend/13-trash.md §7、ADR-0025 D5、R4）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;
@@ -209,29 +209,12 @@ describe('檔案與資料夾的還原與回收桶（docs/architecture/backend/13
   });
 
   describe('POST /files/:id/restore', () => {
-    it('R4a：個別刪除時物件已被刪掉 → 409 FILE_RESTORE_CONFLICT（objectMissing）', async () => {
-      const token = await rootToken();
-      const file = await uploadFile(token, 'gone.bin');
-      await api(token).delete(`/files/${file.id}`).expect(204);
-      expect(storage.objects.has(`files/${file.id}`)).toBe(false);
-
-      const response = await api(token).post(`/files/${file.id}/restore`).expect(409);
-      expect(errorOf(response)).toMatchObject({
-        code: 'FILE_RESTORE_CONFLICT',
-        details: { reason: 'objectMissing' },
-      });
-      expect((await fileRow(file.id))?.deletedAt).not.toBeNull();
-    });
-
-    it('物件還在（模擬 R4b 之後的刪除）→ 還原、重新出現在列表、稽核 file.restore', async () => {
+    it('刪除時物件保留（R4b）→ 還原、重新出現在列表、稽核 file.restore', async () => {
       const token = await rootToken();
       const folder = await createFolder(token, '還原檔案');
       const file = await uploadFile(token, 'kept.bin', folder.id);
-      // 只軟刪除紀錄、不刪物件：R4b 之後刪除檔案的樣子
-      await db
-        .update(files)
-        .set({ deletedAt: new Date(), deletionId: randomUUID() })
-        .where(eq(files.id, file.id));
+      await api(token).delete(`/files/${file.id}`).expect(204);
+      expect(storage.objects.has(`files/${file.id}`)).toBe(true);
 
       const restored = await api(token).post(`/files/${file.id}/restore`).expect(200);
       expect(dataOf<FileBody>(restored)).toMatchObject({ id: file.id, folderId: folder.id });
@@ -240,6 +223,20 @@ describe('檔案與資料夾的還原與回收桶（docs/architecture/backend/13
       expect(row?.deletionId).toBeNull();
       await api(token).get(`/files/${file.id}`).expect(200);
       expect(await auditOf(file.id, 'file.restore')).toBeDefined();
+    });
+
+    it('原檔已不在物件儲存（人為刪除、R4b 之前的刪除）→ 409 FILE_RESTORE_CONFLICT（objectMissing）', async () => {
+      const token = await rootToken();
+      const file = await uploadFile(token, 'gone.bin');
+      await api(token).delete(`/files/${file.id}`).expect(204);
+      storage.objects.delete(`files/${file.id}`);
+
+      const response = await api(token).post(`/files/${file.id}/restore`).expect(409);
+      expect(errorOf(response)).toMatchObject({
+        code: 'FILE_RESTORE_CONFLICT',
+        details: { reason: 'objectMissing' },
+      });
+      expect((await fileRow(file.id))?.deletedAt).not.toBeNull();
     });
 
     it('所在的資料夾已刪除 → 409 FILE_RESTORE_CONFLICT（parentDeleted，帶上層）', async () => {

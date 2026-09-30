@@ -441,14 +441,13 @@ LIMIT $limit
 
 ### 6.2 改名的樂觀鎖
 
-`PATCH /files/:id` 帶 `version`（畫面上看到的版本）時，比對與寫入在同一個 `UPDATE … WHERE version = $v`：
+`PATCH /files/:id` 必須帶 `version`（畫面上看到的版本；不帶 → `400 VALIDATION_FAILED`），比對與寫入在同一個 `UPDATE … WHERE version = $v`：
 
 | 情況 | 結果 |
 | --- | --- |
 | 版本相符 | 改名、`version + 1`，回新的 `StoredFile` |
 | 讀到之前就不同（別人已改過） | `409 FILE_VERSION_CONFLICT`（`details.current`） |
 | 讀到之後、寫入之前被搶先 | UPDATE 沒命中 → 同一個交易內重讀：還在 → `409 FILE_VERSION_CONFLICT`（`details.current` 是重讀到的版本）；已刪除 → `404 FILE_NOT_FOUND` |
-| 不帶 `version` | 後寫者勝（腳本、批次）；下一次部署改必填（[ADR-0025](../../adr/0025-entity-revisions.md) D4 的 R1b） |
 
 通用的樂觀鎖慣例（其他實體同一個形狀）見 [`03-api-conventions.md`](./03-api-conventions.md) §11。
 
@@ -484,9 +483,9 @@ LIMIT $limit
 ## 7. 刪除、稽核、推播
 
 - 刪除＝移到回收桶（[`13-trash.md`](./13-trash.md) §7）：交易內軟刪除（帶新的 `deletion_id`）＋ 稽核 `file.delete`。
-  **R4a（這一版）仍在交易後立刻刪物件**（原檔、瀏覽器縮圖、`variants/<id>/` 底下的所有變體與轉出的格式；`FileObjectsService.deleteAll`），
-  所以個別刪除的檔案還原會得到 `objectMissing`；R4b 起物件保留到 `trash.purge` 永久刪除之後（ADR-0025 的 R4 兩次部署，13-trash §7.5）。
-  物件一律在交易 **之後** 刪：交易 rollback 時紀錄還在，內容也要在。刪除失敗只記 warn，不讓使用者的刪除失敗。
+  **物件保留**（原檔、瀏覽器縮圖、`variants/<id>/` 底下的所有變體與轉出的格式），保留期限內還原不必重新上傳或產生；
+  `trash.purge` 永久刪除紀錄之後才以 `FileObjectsService.deleteAll` 刪（交易 **之後**，失敗只記 warn；13-trash §7.3）。
+  放棄上傳、逾時的 `pending` 從未可見，當下就刪物件（§5.3、§9 第 1 類）。
 - 還原：`POST /files/:id/restore`、`POST /file-folders/:id/restore`（13-trash §7.1、§7.2）；稽核 `file.restore`、`fileFolder.restore`，推播以 `create` 宣告。
 - 變體產生途中檔案被刪除：`markVariantsReady` 的 `WHERE deleted_at IS NULL` 不命中，剛寫入的變體立即刪除。
 - 稽核：`file.upload`（完成時，不是登記時）、`file.update`（只記有變的欄位）、`file.delete`；`resourceType = 'file'`。
@@ -564,7 +563,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | 3 | 孤兒物件 | 放棄上傳、永久刪除之後的物件刪除失敗；紀錄已不存在 | `ListObjectsV2` 列出 `files/`、`thumbnails/`、`variants/`，由 key 取出 id，查不到 **任何** 紀錄（含已軟刪除的） | 刪除 |
 | 4 | 卡住的影像變體 | 產生途中重啟、儲存服務暫時不可用；migration 補產生 | `variant_status='pending' AND uploaded_at < now - 5 分鐘` | 重新排入（§5.4） |
 
-- **已刪除紀錄的物件不是孤兒**（R4a 起，[ADR-0025](../../adr/0025-entity-revisions.md) D11）：紀錄還在回收桶裡，保留期限內可以還原；
+- **已刪除紀錄的物件不是孤兒**（[ADR-0025](../../adr/0025-entity-revisions.md) D11）：紀錄還在回收桶裡，保留期限內可以還原；
   物件由 `trash.purge` 在永久刪除之後刪（[`13-trash.md`](./13-trash.md) §7.3）。R4a 之前這一類是「查不到 **未刪除** 紀錄」，遞迴刪除資料夾的物件靠它清除。
 - **不誤判**：2、3 只看建立早於 `now - FILE_PENDING_TTL` 的東西——剛登記、INSERT 還沒提交的上傳不會被當成孤兒；
   不是這個模組產生的 key（前綴不對、id 不是 uuid）一律不碰。
@@ -585,7 +584,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 
 | 檔案 | 內容 |
 | --- | --- |
-| `src/modules/file/__tests__/file.service.spec.ts` | 業務規則：每個 `AppException` 分支、可見性、交易後才刪物件；分塊上傳、放棄上傳、縮圖、樂觀鎖、游標 |
+| `src/modules/file/__tests__/file.service.spec.ts` | 業務規則：每個 `AppException` 分支、可見性、刪除時不刪物件（保留到永久刪除）；分塊上傳、放棄上傳、縮圖、樂觀鎖、游標 |
 | `src/modules/file/__tests__/file-folder.service.spec.ts` | 資料夾規則（以記憶體裡的樹模擬 repository）：同名（不分大小寫、只限同一層）、循環、目的地同名、遞迴刪除、上傳資料夾的沿用與深度上限 |
 | `src/modules/file/__tests__/file.authz.spec.ts` | 關係模型：繼承、取最高、中斷繼承、everyone、規則 A、依賴樹閉包、等級蘊含的動作 |
 | `src/modules/file/__tests__/file-grant.levels.spec.ts` | 等級規則（`file-grant.levels.ts`）：反提權比對（`missingActions`、`assignableLevels`）、繼承鏈（含壞資料的循環）、`maxLevel` |
@@ -595,7 +594,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `src/modules/file/__tests__/file-folder.service.spec.ts`（授權段落） | 鎖住的資料夾（canRead=false）、根目錄不能建立、鎖住的回 403、擁有者改名、遞迴刪除的 not-owner 與 protected-subfolder、移動的目的地 |
 | `test/file-access.spec.ts` | 真 Postgres：只有 `file:access` 的成員經角色／個人授權看到的資料夾與檔案、擁有者規則、中斷繼承與複製、授權過期、遞迴刪除的附加條件、同一對象只有一個等級（再次授予是覆寫）；存取申請；系統資料夾（啟動時建立、別人的個人資料夾鎖住、不能改名刪除移動、指派角色後自動建立、刪除使用者時空的個人資料夾跟著刪除） |
 | `test/file-trash.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：刪除的 `deletion_id`、檔案與資料夾的還原與衝突、回收桶列表、維護排程不刪已刪除紀錄的物件、`trash.purge`（[`13-trash.md`](./13-trash.md) §9） |
-| `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除時清變體）、維護排程（dry run 與清除）、樂觀鎖、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束；資料夾：上傳到資料夾與依 `folderId` 列出、移動、循環與同名（真的唯一索引）、上傳資料夾重送得到同樣的 id、遞迴刪除後可再建同名、`file_folders_not_own_parent` |
+| `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除後變體保留到永久刪除）、維護排程（dry run 與清除）、樂觀鎖（含不帶 `version` → 400）、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束；資料夾：上傳到資料夾與依 `folderId` 列出、移動、循環與同名（真的唯一索引）、上傳資料夾重送得到同樣的 id、遞迴刪除後可再建同名、`file_folders_not_own_parent` |
 | `src/core/storage/__tests__/content-disposition.spec.ts` | 中文檔名的 `Content-Disposition` |
 | `src/core/storage/__tests__/stable-signing-date.spec.ts` | 下載網址在時間窗內不變、剩餘效期範圍 |
 | `src/core/image/__tests__/sharp-image-processor.spec.ts` | progressive JPEG、等比縮放不放大、透明圖鋪白底、EXIF 轉正、串流讀入（經暫存檔、dispose 後刪除）、位元組上限、libvips 資源上限 |

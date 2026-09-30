@@ -268,3 +268,6 @@ b2b-system/
    [ADR-0011](../adr/0011-codemirror-json-editor.md)）。後續視需要補取代（`@codemirror/search` 已支援）、摺疊處的驗證錯誤標記
 10. ~~多租戶~~（已完成：每個租戶一個 database 與網域、平台管理者在 apps/auth 管理租戶；見
     [`architecture/05-tenancy.md`](../architecture/05-tenancy.md)、[ADR-0020](../adr/0020-physical-tenant-isolation.md)）
+11. ~~版本歷史、樂觀鎖與回收桶~~（已完成：`version` 必填的樂觀鎖、使用者／角色／檔案／資料夾的回收桶與還原、到期永久刪除、角色的版本紀錄；見
+    [`architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)、[`architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md)、
+    [ADR-0025](../adr/0025-entity-revisions.md)）

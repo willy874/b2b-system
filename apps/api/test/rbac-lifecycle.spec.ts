@@ -19,6 +19,7 @@ import { heldRoleIds } from './authz';
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
+import { currentRoleIds, roleVersion, userVersion } from './versions';
 
 let app: INestApplication;
 let http: App;
@@ -154,7 +155,10 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
       const response = await request(http)
         .put(`/users/${targetId}/roles`)
         .set('authorization', `Bearer ${token}`)
-        .send({ roleIds: [await superAdminRoleId()] })
+        .send({
+          roleIds: [await superAdminRoleId()],
+          expectedRoleIds: await currentRoleIds(db, targetId),
+        })
         .expect(403);
       expect(response.body).toMatchObject({
         error: {
@@ -191,7 +195,10 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
       await request(http)
         .put(`/users/${targetId}/roles`)
         .set('authorization', `Bearer ${token}`)
-        .send({ roleIds: [await superAdminRoleId()] })
+        .send({
+          roleIds: [await superAdminRoleId()],
+          expectedRoleIds: await currentRoleIds(db, targetId),
+        })
         .expect(200);
 
       // 還原：後面的 LAST_SUPER_ADMIN 測試假設 root 是唯一的 super-admin
@@ -199,7 +206,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
       await request(http)
         .put(`/users/${targetId}/roles`)
         .set('authorization', `Bearer ${token}`)
-        .send({ roleIds: [memberRole!.id] })
+        .send({ roleIds: [memberRole!.id], expectedRoleIds: await currentRoleIds(db, targetId) })
         .expect(200);
     });
   });
@@ -218,7 +225,10 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     await request(http)
       .put(`/users/${member!.id}/roles`)
       .set('authorization', `Bearer ${adminToken}`)
-      .send({ roleIds: [roleId, memberRole!.id] })
+      .send({
+        roleIds: [roleId, memberRole!.id],
+        expectedRoleIds: await currentRoleIds(db, member!.id),
+      })
       .expect(200);
 
     const memberToken = await login(MEMBER);
@@ -273,7 +283,11 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     const response = await request(http)
       .patch(`/roles/${role!.id}`)
       .set('authorization', `Bearer ${token}`)
-      .send({ name: '改掉的名稱', description: '改掉的說明' })
+      .send({
+        name: '改掉的名稱',
+        description: '改掉的說明',
+        version: await roleVersion(db, role!.id),
+      })
       .expect(403);
     expect(response.body).toMatchObject({ error: { code: 'ROLE_SUPER_ADMIN_IMMUTABLE' } });
 
@@ -287,12 +301,12 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     await request(http)
       .patch(`/roles/${role!.id}`)
       .set('authorization', `Bearer ${token}`)
-      .send({ description: '稽核人員（已調整說明）' })
+      .send({ description: '稽核人員（已調整說明）', version: await roleVersion(db, role!.id) })
       .expect(200);
     await request(http)
       .patch(`/roles/${role!.id}`)
       .set('authorization', `Bearer ${token}`)
-      .send({ description: role!.description })
+      .send({ description: role!.description, version: await roleVersion(db, role!.id) })
       .expect(200);
   });
 
@@ -398,7 +412,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
         assignment = request(http)
           .put(`/users/${userId}/roles`)
           .set('authorization', `Bearer ${token}`)
-          .send({ roleIds: [role!.id] })
+          .send({ roleIds: [role!.id], expectedRoleIds: await currentRoleIds(db, userId) })
           .then((response) => response);
         await waitForLockWait();
       });
@@ -449,7 +463,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     const response = await request(http)
       .patch(`/users/${root!.id}`)
       .set('authorization', `Bearer ${token}`)
-      .send({ status: 'inactive' })
+      .send({ status: 'inactive', version: await userVersion(db, root!.id) })
       .expect(403);
     expect(response.body).toMatchObject({
       error: { code: 'AUTHZ_ESCALATION', details: { role: 'super-admin' } },
@@ -472,7 +486,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     await request(http)
       .patch(`/users/${victimId}`)
       .set('authorization', `Bearer ${adminToken}`)
-      .send({ status: 'inactive' })
+      .send({ status: 'inactive', version: await userVersion(db, victimId) })
       .expect(200);
 
     const response = await request(http)
@@ -536,7 +550,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
       const response = await request(http)
         .patch(`/roles/${id}`)
         .set('authorization', `Bearer ${token}`)
-        .send({ name: 'Recase Me' })
+        .send({ name: 'Recase Me', version: await roleVersion(db, id) })
         .expect(200);
       expect((response.body as { data: { name: string } }).data.name).toBe('Recase Me');
     });
@@ -550,7 +564,10 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
       const response = await request(http)
         .put(`/users/${targetId}/roles`)
         .set('authorization', `Bearer ${token}`)
-        .send({ roleIds: [memberRole!.id, memberRole!.id] })
+        .send({
+          roleIds: [memberRole!.id, memberRole!.id],
+          expectedRoleIds: await currentRoleIds(db, targetId),
+        })
         .expect(400);
       expect(response.body).toMatchObject({
         error: { code: 'VALIDATION_FAILED', details: { fields: { roleIds: 'duplicate items' } } },

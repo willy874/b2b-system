@@ -26,6 +26,7 @@ import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
 import { inTestTenant } from './tenant';
+import { currentRoleIds } from './versions';
 
 let app: INestApplication;
 let http: App;
@@ -187,7 +188,7 @@ describe('角色的還原與回收桶（docs/architecture/backend/13-trash.md §
       await request(http)
         .put(`/users/${holder}/roles`)
         .set(auth())
-        .send({ roleIds: [added] })
+        .send({ roleIds: [added], expectedRoleIds: await currentRoleIds(db, holder) })
         .expect(200);
       expect(await holderEdges(deleted)).toEqual([holder]);
       expect(await holderEdges(replaced)).toEqual([]);

@@ -13,7 +13,7 @@ import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { FileFolderService } from '../file-folder.service';
 import type { FileImageService } from '../file-image.service';
 import { FileObjectsService } from '../file-objects.service';
-import { storageKeyOf, thumbnailKeyOf, variantKeyOf, variantPrefixOf } from '../file.constants';
+import { storageKeyOf, thumbnailKeyOf, variantKeyOf } from '../file.constants';
 import { decodeFileCursor, encodeFileCursor } from '../file.cursor';
 import type { FileRepository, FileWithUploader } from '../file.repository';
 import { FileService } from '../file.service';
@@ -361,10 +361,10 @@ describe('FileService.update / remove', () => {
 
   it('改名只記有變的欄位；名稱沒變時不寫入', async () => {
     const { service, repo, audit } = setup({ file: ready() });
-    await service.update(FILE_ID, { name: 'hero.png' }, ALICE);
+    await service.update(FILE_ID, { name: 'hero.png', version: 1 }, ALICE);
     expect(repo.update).not.toHaveBeenCalled();
 
-    await service.update(FILE_ID, { name: 'villain.png' }, ALICE);
+    await service.update(FILE_ID, { name: 'villain.png', version: 1 }, ALICE);
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'file.update',
@@ -376,12 +376,23 @@ describe('FileService.update / remove', () => {
 
   it('pending 不能改名或刪除 → FILE_NOT_FOUND', async () => {
     const { service } = setup({ file: fileRow() });
-    await expectAppError(service.update(FILE_ID, { name: 'x.png' }, ALICE), 'FILE_NOT_FOUND');
+    await expectAppError(
+      service.update(FILE_ID, { name: 'x.png', version: 1 }, ALICE),
+      'FILE_NOT_FOUND',
+    );
     await expectAppError(service.remove(FILE_ID, ALICE), 'FILE_NOT_FOUND');
   });
 
-  it('刪除：交易內軟刪除＋稽核，交易後才刪物件', async () => {
-    const { service, repo, storage, audit } = setup({ file: ready() });
+  it('刪除：交易內軟刪除＋稽核；物件（原檔、縮圖、變體）保留到永久刪除（ADR-0025 D11）', async () => {
+    const { service, repo, storage, audit } = setup({
+      file: fileRow({
+        status: 'ready',
+        etag: 'abc',
+        uploadedAt: new Date(),
+        hasThumbnail: true,
+        variantStatus: 'ready',
+      }),
+    });
     await service.remove(FILE_ID, ALICE);
     expect(repo.softDelete).toHaveBeenCalledWith(
       FILE_ID,
@@ -392,16 +403,8 @@ describe('FileService.update / remove', () => {
       expect.objectContaining({ action: 'file.delete' }),
       'tx',
     );
-    expect(storage.delete).toHaveBeenCalledWith(storageKeyOf(FILE_ID));
-    expect(repo.softDelete.mock.invocationCallOrder[0]).toBeLessThan(
-      storage.delete.mock.invocationCallOrder[0] ?? 0,
-    );
-  });
-
-  it('物件刪除失敗不影響刪除結果（留下孤兒物件）', async () => {
-    const { service, storage } = setup({ file: ready() });
-    storage.delete.mockRejectedValueOnce(new AppException('FILE_STORAGE_UNAVAILABLE'));
-    await expect(service.remove(FILE_ID, ALICE)).resolves.toBeUndefined();
+    expect(storage.delete).not.toHaveBeenCalled();
+    expect(storage.listObjects).not.toHaveBeenCalled();
   });
 });
 
@@ -589,14 +592,12 @@ describe('FileService：縮圖', () => {
     );
   });
 
-  it('有縮圖的檔案帶 thumbnailUrl，刪除時一併刪縮圖', async () => {
-    const { service, storage } = setup({
+  it('有縮圖的檔案帶 thumbnailUrl', async () => {
+    const { service } = setup({
       file: fileRow({ status: 'ready', etag: 'a', uploadedAt: new Date(), hasThumbnail: true }),
     });
     const file = await service.findOne(FILE_ID, BOB);
     expect(file.thumbnailUrl).toContain(thumbnailKeyOf(FILE_ID));
-    await service.remove(FILE_ID, ALICE);
-    expect(storage.delete).toHaveBeenCalledWith(thumbnailKeyOf(FILE_ID));
   });
 });
 
@@ -663,26 +664,6 @@ describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.
     const file = await service.findOne(FILE_ID, BOB);
     expect(file.image).toBeNull();
     expect(file.thumbnailUrl).toContain(thumbnailKeyOf(FILE_ID));
-  });
-
-  it('刪除時一併刪除變體；沒有變體的檔案不必列物件', async () => {
-    const withVariants = setup({
-      file: fileRow({
-        status: 'ready',
-        etag: 'a',
-        uploadedAt: new Date(),
-        variantStatus: 'failed',
-      }),
-    });
-    await withVariants.service.remove(FILE_ID, ALICE);
-    expect(withVariants.storage.listObjects).toHaveBeenCalledWith(variantPrefixOf(FILE_ID));
-    expect(withVariants.storage.delete).toHaveBeenCalledWith(
-      `${variantPrefixOf(FILE_ID)}preview.jpeg`,
-    );
-
-    const plain = setup({ file: fileRow({ status: 'ready', etag: 'a', uploadedAt: new Date() }) });
-    await plain.service.remove(FILE_ID, ALICE);
-    expect(plain.storage.listObjects).not.toHaveBeenCalled();
   });
 });
 
@@ -812,12 +793,12 @@ describe('FileService 的資料夾層級授權（docs/rbac/07-resource-grants.md
   it('擁有者規則：contributor 能改名自己上傳的，不能改名別人的（AUTHZ_FORBIDDEN）', async () => {
     const ready = { status: 'ready' as const, etag: 'e', uploadedAt: new Date(), folderId: FOLDER };
     const mine = setup({ access: contributor, file: fileRow({ ...ready, createdBy: ALICE.id }) });
-    await mine.service.update(FILE_ID, { name: 'new.png' }, ALICE);
+    await mine.service.update(FILE_ID, { name: 'new.png', version: 1 }, ALICE);
     expect(mine.repo.update).toHaveBeenCalled();
 
     const theirs = setup({ access: contributor, file: fileRow({ ...ready, createdBy: BOB.id }) });
     await expectAppError(
-      theirs.service.update(FILE_ID, { name: 'x.png' }, ALICE),
+      theirs.service.update(FILE_ID, { name: 'x.png', version: 1 }, ALICE),
       'AUTHZ_FORBIDDEN',
     );
     await expectAppError(theirs.service.remove(FILE_ID, ALICE), 'AUTHZ_FORBIDDEN');

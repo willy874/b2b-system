@@ -9,6 +9,12 @@ import { snapshot } from '../helpers/snapshot';
 
 const ROLE_NAME = `E2E 檢視者 ${Date.now()}`;
 
+/** 使用者列表的一列：`expectedRoleIds`（必填，ADR-0025 D4）以列表上看到的角色為基礎。 */
+interface UserWithRoles {
+  id: string;
+  roles: Array<{ id: string }>;
+}
+
 /** 建立只有 user:read 的角色並指派給 revokeTarget；回傳移除權限與清理用的 id。 */
 async function grantUserRead(token: string): Promise<{ roleId: string }> {
   const created = await apiRequest(token, 'post', '/roles', {
@@ -19,13 +25,15 @@ async function grantUserRead(token: string): Promise<{ roleId: string }> {
   const roleId = (created.body as { data: { id: string } }).data.id;
 
   const users = (await apiRequest(token, 'get', `/users?keyword=${ACCOUNTS.revokeTarget}`))
-    .body as { data: { items: Array<{ id: string }> } };
+    .body as { data: { items: UserWithRoles[] } };
   const roles = (await apiRequest(token, 'get', '/roles?limit=100')).body as {
     data: { items: Array<{ id: string; slug: string }> };
   };
   const memberRole = roles.data.items.find((role) => role.slug === 'member')!;
-  const assigned = await apiRequest(token, 'put', `/users/${users.data.items[0]!.id}/roles`, {
+  const target = users.data.items[0]!;
+  const assigned = await apiRequest(token, 'put', `/users/${target.id}/roles`, {
     roleIds: [roleId, memberRole.id],
+    expectedRoleIds: target.roles.map((role) => role.id),
   });
   expect(assigned.status).toBe(200);
   return { roleId };
@@ -56,16 +64,17 @@ test.describe('RBAC 生命週期', () => {
     // 指派給 member
     const token = await apiLogin('admin');
     const list = (await apiRequest(token, 'get', '/users?keyword=e2e-member')).body as {
-      data: { items: Array<{ id: string }> };
+      data: { items: UserWithRoles[] };
     };
-    const memberId = list.data.items[0]!.id;
+    const member = list.data.items[0]!;
     const roles = (await apiRequest(token, 'get', '/roles?limit=100')).body as {
       data: { items: Array<{ id: string; name: string; slug: string }> };
     };
     const newRole = roles.data.items.find((role) => role.name === ROLE_NAME)!;
     const memberRole = roles.data.items.find((role) => role.slug === 'member')!;
-    const assigned = await apiRequest(token, 'put', `/users/${memberId}/roles`, {
+    const assigned = await apiRequest(token, 'put', `/users/${member.id}/roles`, {
       roleIds: [newRole.id, memberRole.id],
+      expectedRoleIds: member.roles.map((role) => role.id),
     });
     expect(assigned.status).toBe(200);
 
@@ -155,11 +164,13 @@ test.describe('RBAC 生命週期', () => {
 
     const victimToken = await apiLogin('disableTarget');
     const users = (await apiRequest(adminToken, 'get', `/users?keyword=${ACCOUNTS.disableTarget}`))
-      .body as { data: { items: Array<{ id: string }> } };
-    const victimId = users.data.items[0]!.id;
+      .body as { data: { items: Array<{ id: string; version: number }> } };
+    const victim = users.data.items[0]!;
 
-    const disabled = await apiRequest(adminToken, 'patch', `/users/${victimId}`, {
+    // version 必填（樂觀鎖，ADR-0025 D4）：帶列表上看到的版本
+    const disabled = await apiRequest(adminToken, 'patch', `/users/${victim.id}`, {
       status: 'inactive',
+      version: victim.version,
     });
     expect(disabled.status).toBe(200);
 

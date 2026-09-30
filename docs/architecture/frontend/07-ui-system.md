@@ -955,7 +955,8 @@ const batchActions = useUserBatchActions();
 <UserTable batch={{ scope: USER_LIST_TABLE_ID, selection, actions: batchActions, getRowLabel: (row) => row.email,
                     getRowVersion: (row) => row.version }} … />
 // getRowVersion（選填）：該列的樂觀鎖版本隨項目進佇列，操作從 run 的第二個參數取得（`{ version }`），
-// 列表資料過時的列以 `<RESOURCE>_VERSION_CONFLICT` 逐筆失敗（backend/03-api-conventions.md §11）
+// 列表資料過時的列以 `<RESOURCE>_VERSION_CONFLICT` 逐筆失敗（backend/03-api-conventions.md §11）。
+// 會改動實體欄位的操作一定要給：`version` 必填，操作拿不到版本時讓那一筆失敗，不自己讀最新的版本
 
 // useUserBatchActions.ts（節錄）
 {

@@ -452,6 +452,7 @@ async login(...) {}
 後端不提供批次端點。列表勾選多筆後的操作由前端逐筆呼叫單筆 API，見 [ADR-0012](../../adr/0012-batch-queue-worker.md)。
 會改動實體欄位的批次（例：使用者的批次啟用／停用）帶 **列表那一列的 `version`**（§11）：列表資料過時的那幾筆以
 `<RESOURCE>_VERSION_CONFLICT` 逐筆失敗、列在結果對話框（[ADR-0009](../../adr/0009-table-batch-operations.md)），不會蓋掉別人的變更。
+`version` 必填：批次拿不到列的版本時那一筆失敗，不改成先讀最新的版本（那等於後寫者勝）。
 
 ---
 
@@ -463,18 +464,18 @@ async login(...) {}
 | 項目 | 約定 |
 | ---- | ---- |
 | 欄位 | `version integer NOT NULL DEFAULT 1`；詳情與列表的回應都帶 `version` |
-| 請求 | 更新的請求本體帶 `version`（編輯 **開始時** 看到的版本）。不用 `ETag`／`If-Match`、不用 `updated_at` 比對（毫秒精度經 JSON 來回後對不上） |
+| 請求 | 更新的請求本體帶 `version`（**必填**，編輯 **開始時** 看到的版本；不帶 → `400 VALIDATION_FAILED`）。不用 `ETag`／`If-Match`、不用 `updated_at` 比對（毫秒精度經 JSON 來回後對不上） |
 | 寫入 | 讀到時先比對；寫入是條件式 `UPDATE … SET version = version + 1 WHERE id = $id AND version = $v AND deleted_at IS NULL`，比對與寫入在同一條語句 |
 | 衝突 | `409 <RESOURCE>_VERSION_CONFLICT`，`details: { current }`。「讀到時就不同」與「UPDATE 沒命中而列仍存在」**兩條路徑都帶** `current`：沒命中時在同一個交易內重讀一次 |
 | 已刪除 | UPDATE 沒命中而列已刪除 → 既有的 `404 <RESOURCE>_NOT_FOUND`，不是衝突 |
-| 不帶 `version` | 目前（R1）為選填：不帶則後寫者勝，`version` 照樣遞增。下一次部署（R1b）改必填；腳本要後寫者勝就先讀一次版本 |
-| 遞增時機 | **實體自己的可編輯欄位** 被寫入時遞增，不論有沒有帶 `version`；關聯的寫入不遞增（見下表） |
+| 批次、腳本 | 批次以列表那一列的 `version` 逐筆送出，衝突逐筆失敗（[ADR-0009](../../adr/0009-table-batch-operations.md)）。沒有「不帶就後寫者勝」的路徑；腳本要後寫者勝就先讀一次目前的版本再送出（ADR-0025 D4） |
+| 遞增時機 | **實體自己的可編輯欄位** 被寫入時遞增（包括不收 `version` 的端點，例如解鎖、個人資料）；關聯的寫入不遞增（見下表） |
 
 哪些寫入遞增 `version`：
 
 | 實體 | 遞增 | 不遞增 |
 | ---- | ---- | ------ |
-| `users` | `PATCH /users/:id`、解鎖、個人資料（`PATCH /auth/profile`）、啟用（`pending` → `active`）、重設密碼順帶解除 `locked` 狀態——即 `username`、`displayName`、`status`、`locale`、`timezone`（`USER_VERSIONED_FIELDS`） | 登入（`last_login_at`、失敗計數、`locked_until`）、改密碼、`token_version`、刪除；角色指派（`PUT /users/:id/roles`，關聯，沿用 `expectedRoleIds`） |
+| `users` | `PATCH /users/:id`、解鎖、個人資料（`PATCH /auth/profile`）、啟用（`pending` → `active`）、重設密碼順帶解除 `locked` 狀態——即 `username`、`displayName`、`status`、`locale`、`timezone`（`USER_VERSIONED_FIELDS`） | 登入（`last_login_at`、失敗計數、`locked_until`）、改密碼、`token_version`、刪除；角色指派（`PUT /users/:id/roles`，關聯，沿用必填的 `expectedRoleIds`） |
 | `roles` | `PATCH /roles/:id`（名稱、說明）、還原到某一版（`POST /roles/:id/revisions/:version/revert`，當成一次更新；[`14-revisions.md`](./14-revisions.md) §4.3） | 權限鍵（`PATCH /roles/:id/permissions`，差異語意）、持有者、刪除 |
 | `files` | 改名（`PATCH /files/:id`） | 上傳流程的狀態、變體、移動（見 09 §6.2） |
 

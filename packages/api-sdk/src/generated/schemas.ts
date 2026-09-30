@@ -402,7 +402,7 @@ export const UpdateUserRequestSchema = z.object({
   status: z.enum(['active', 'inactive']).optional(),
   locale: z.string().max(10).optional(),
   timezone: z.string().max(64).optional(),
-  version: z.int().min(1).max(9007199254740991).optional(),
+  version: z.int().min(1).max(9007199254740991),
 }) satisfies z.ZodType<UpdateUserRequest>;
 
 export const ReplaceUserRolesRequestSchema = z.object({
@@ -427,8 +427,7 @@ export const ReplaceUserRolesRequestSchema = z.object({
           ),
         ),
     )
-    .max(100)
-    .optional(),
+    .max(100),
 }) satisfies z.ZodType<ReplaceUserRolesRequest>;
 
 export const UserStatusSchema = z.enum([
@@ -1290,7 +1289,7 @@ export const GetFileImageQuerySchema = z.object({
 
 export const UpdateFileRequestSchema = z.object({
   name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
-  version: z.int().min(1).max(9007199254740991).optional(),
+  version: z.int().min(1).max(9007199254740991),
 }) satisfies z.ZodType<UpdateFileRequest>;
 
 export const JobQueueSchema = z.object({
@@ -1378,16 +1377,6 @@ export const PlatformJobSchema = z.object({
   output: z.record(z.string(), z.unknown()).nullable(),
 }) satisfies z.ZodType<PlatformJob>;
 
-export const CreateRoleRequestSchema = z.object({
-  name: z.string().min(1).max(64),
-  description: z.string().max(500).optional(),
-  permissionKeys: z.array(PermissionKeySchema).max(100).default([]),
-}) satisfies z.ZodType<CreateRoleRequest>;
-
-export const DuplicateRoleRequestSchema = z.object({
-  name: z.string().min(1).max(64).optional(),
-}) satisfies z.ZodType<DuplicateRoleRequest>;
-
 export const RevisionSummarySchema = z.object({
   version: z.int().min(-9007199254740991).max(9007199254740991),
   createdAt: z.string(),
@@ -1405,6 +1394,16 @@ export const RevisionSummarySchema = z.object({
     .nullable(),
   tooLarge: z.boolean(),
 }) satisfies z.ZodType<RevisionSummary>;
+
+export const CreateRoleRequestSchema = z.object({
+  name: z.string().min(1).max(64),
+  description: z.string().max(500).optional(),
+  permissionKeys: z.array(PermissionKeySchema).max(100).default([]),
+}) satisfies z.ZodType<CreateRoleRequest>;
+
+export const DuplicateRoleRequestSchema = z.object({
+  name: z.string().min(1).max(64).optional(),
+}) satisfies z.ZodType<DuplicateRoleRequest>;
 
 export const RoleRevisionSnapshotSchema = z.object({
   name: z.string(),
@@ -1432,7 +1431,7 @@ export const RoleRevisionSchema = z.object({
 }) satisfies z.ZodType<RoleRevision>;
 
 export const RevertRoleRevisionRequestSchema = z.object({
-  version: z.int().min(1).max(9007199254740991).optional(),
+  version: z.int().min(1).max(9007199254740991),
 }) satisfies z.ZodType<RevertRoleRevisionRequest>;
 
 export const RoleSchema = z.object({
@@ -1496,7 +1495,7 @@ export const RoleHolderSchema = z.object({
 export const UpdateRoleRequestSchema = z.object({
   name: z.string().min(1).max(64).optional(),
   description: z.string().max(500).nullable().optional(),
-  version: z.int().min(1).max(9007199254740991).optional(),
+  version: z.int().min(1).max(9007199254740991),
 }) satisfies z.ZodType<UpdateRoleRequest>;
 
 export const UpdateRolePermissionsRequestSchema = z.object({

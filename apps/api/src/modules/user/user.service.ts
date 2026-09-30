@@ -164,7 +164,7 @@ export class UserService {
     const { version, ...fields } = dto;
     const user = await this.getExisting(id);
     // 讀到時就不同：別人已經改過，不必再做後面的檢查（ADR-0025 D3）
-    if (version !== undefined && version !== user.version) {
+    if (version !== user.version) {
       throw new AppException('USER_VERSION_CONFLICT', { current: user.version });
     }
 
@@ -187,7 +187,7 @@ export class UserService {
         bumpVersion: true,
       });
       // 讀到之後、寫入之前被別人改過（版本變了）或刪除
-      if (!next) throw await this.missedUpdate(id, version, tx);
+      if (!next) throw await this.missedUpdate(id, tx);
 
       if (deactivating) {
         // 停用：撤銷所有 refresh token 並讓既存 access token 失效；已寄出的啟用／重設連結一併作廢，
@@ -344,7 +344,7 @@ export class UserService {
       // 同一個人的並行指派依序執行；`current` 在鎖內讀，稽核與衝突判斷才是真正被取代的那一份
       await this.repo.lockForUpdate(id, tx);
       const current = await this.repo.listRoles(id, tx);
-      if (dto.expectedRoleIds && !sameIds(current, dto.expectedRoleIds)) {
+      if (!sameIds(current, dto.expectedRoleIds)) {
         // 送出的草稿是以舊的角色為基礎：別人剛改過，整批取代會把那次變更蓋掉
         throw new AppException('USER_ROLES_CONFLICT', {
           currentRoleIds: current.map((role) => role.id),
@@ -526,15 +526,11 @@ export class UserService {
   // ── 業務規則 ─────────────────────────────────────────────
 
   /**
-   * 條件式 UPDATE 沒有命中：沒帶版本、或列已不在 → 404；還在就是版本被搶先改過 → 409 並帶重讀的目前版本
+   * 條件式 UPDATE 沒有命中：列已不在 → 404；還在就是版本被搶先改過 → 409 並帶重讀的目前版本
    * （ADR-0025 D3）。在同一個交易內重讀，看得到搶先的那一筆已提交的版本。
    */
-  private async missedUpdate(
-    id: string,
-    version: number | undefined,
-    tx: DbOrTx,
-  ): Promise<AppException> {
-    const current = version === undefined ? undefined : await this.repo.findVersion(id, tx);
+  private async missedUpdate(id: string, tx: DbOrTx): Promise<AppException> {
+    const current = await this.repo.findVersion(id, tx);
     return current === undefined
       ? new AppException('USER_NOT_FOUND')
       : new AppException('USER_VERSION_CONFLICT', { current });

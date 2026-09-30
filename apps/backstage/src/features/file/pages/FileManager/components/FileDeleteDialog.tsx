@@ -11,7 +11,7 @@ interface FileDeleteDialogProps {
   onConfirm: () => Promise<void>;
 }
 
-/** 刪除確認。包含資料夾時明講「其中的檔案與子資料夾一併刪除」：遞迴刪除無法復原。 */
+/** 刪除確認。刪除＝移到回收桶；包含資料夾時明講「其中的檔案與子資料夾一併移到回收桶」。 */
 export function FileDeleteDialog({ items, loading, onCancel, onConfirm }: FileDeleteDialogProps) {
   const { t } = useTranslation();
   const count = items?.length ?? 0;
