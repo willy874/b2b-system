@@ -76,7 +76,8 @@ pnpm db:migrate / db:seed / db:seed:dev / db:seed:e2e / db:reset
                     # 平台 DB ＋ 每個租戶的 DB（docs/architecture/backend/02-database.md §6.1）；seed:dev/e2e 只跑 SEED_TENANT（預設 default）
 pnpm db:archive-audit-logs   # 稽核熱表 → 冷表搬移的手動補跑（平常由背景工作 auditLog.archive 每天跑）
 pnpm db:drop-tenant <代碼> [--confirm]   # 清除 apps/auth 已刪除的租戶（database、DB 角色、bucket）；不加 --confirm 只列出
-pnpm openapi:generate && pnpm sdk:generate   # 改動 controller / DTO 之後必跑
+pnpm --filter @b2b-system/api openapi:generate && pnpm exec oxfmt apps/api/openapi.json && pnpm sdk:generate
+                    # 改動 controller / DTO／權限鍵之後必跑；openapi.json 不經 oxfmt 會多出整份的格式 diff，pre-commit 也會擋
 pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法見 docs/architecture/frontend/07-ui-system.md §9
 ```
 
@@ -85,7 +86,7 @@ pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法�
 1. `docs/rbac/02-permission-catalog.md` 加權限 →
    `apps/api/src/db/seeds/permissions.ts` 加 seed
 2. 後端：`modules/<name>/`（controller / service / repository / dto）
-3. `pnpm db:seed && pnpm openapi:generate && pnpm sdk:generate`
+3. `pnpm db:seed`，再依上方「常用指令」重新產生 openapi 與 SDK
 4. 前端 API 層：`apis/<domain>/<operation>/`
 5. 前端 feature：`locale.ts` → `routes/` → `permission.ts` → `plugin.ts` →
    `hooks/` → `pages/` → `index.tsx`
