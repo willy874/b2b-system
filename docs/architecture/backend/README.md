@@ -20,6 +20,7 @@
 | 09  | [`09-file.md`](./09-file.md)                       | 物件儲存抽象層、`files` 轉介表、直傳上傳流程 |
 | 10  | [`10-jobs.md`](./10-jobs.md)                       | 背景工作佇列（pg-boss）、排程、管理 API      |
 | 11  | [`11-mail.md`](./11-mail.md)                       | 郵件：SMTP / console 傳輸、React Email 範本  |
+| 12  | [`12-settings.md`](./12-settings.md)               | 系統設定：執行期可調的值、env 與設定的分工   |
 
 ## 四條必須記住的規則
 

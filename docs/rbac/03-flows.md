@@ -345,7 +345,7 @@ PATCH /users/:id { status: 'inactive' }   或   DELETE /users/:id
 ② 使用者點連結 {AUTH_APP_URL}/setup?token=xxx（apps/auth 的頁面，docs/architecture/04-sso.md §6.2）
      └─ GET  /auth/setup/verify?token=xxx   → 200 { email } | 400 TOKEN_INVALID
      └─ POST /auth/setup { token, password }
-           ├─ 密碼強度檢查（≥ 12 字元、非常見密碼）
+           ├─ 密碼強度檢查（≥ 租戶設定的長度 `auth.passwordMinLength`，至少 12 字元；非常見密碼）
            ├─ argon2 雜湊 → users.password_hash
            ├─ status: pending → active
            ├─ 標記 token 已使用

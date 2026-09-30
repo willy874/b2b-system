@@ -103,7 +103,8 @@ docs/
 │       ├── 08-realtime.md             Socket.io gateway、room 與受眾、推播時機
 │       ├── 09-file.md                 檔案模組：物件儲存抽象層、上傳流程（含分塊）、keyset 分頁
 │       ├── 10-jobs.md                 背景工作：pg-boss 佇列、排程、重試、管理 API
-│       └── 11-mail.md                 郵件：傳輸層、範本、寄送流程、Mailpit
+│       ├── 11-mail.md                 郵件：傳輸層、範本、寄送流程、Mailpit
+│       └── 12-settings.md             系統設定：執行期可調的值（租戶 DB）、env 與設定的分工
 │
 ├── rbac/
 │   ├── 01-domain-model.md             實體、ER 圖、不變條件

@@ -32,6 +32,7 @@
 | 權限目錄   | 唯讀的權限清單 API 與 UI（resource × action），供角色編輯時挑選                               |
 | 個人帳號   | 個人資料檢視／編輯、變更密碼、偏好設定（語系、時區）                                          |
 | 稽核日誌   | 所有寫入操作與授權決策的記錄、列表與篩選                                                      |
+| 系統設定（Phase 0 之後加入） | 每個租戶執行期可調的帳號政策、上傳上限、預設時區（[`architecture/backend/12-settings.md`](../architecture/backend/12-settings.md)） |
 | 前端骨架   | App Shell、側邊選單（依權限過濾）、路由守衛、錯誤頁、i18n、主題                               |
 
 ### 2.2 Out of scope（Phase 0 明確不做）

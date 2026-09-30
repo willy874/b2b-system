@@ -309,6 +309,11 @@ export const auditLogsArchive = pgTable(
 **沒有外鍵指向 `users`**：使用者被硬刪除時稽核紀錄必須留著。`actor_id` 只是
 一個值，不是關聯。
 
+### 2.9 `system_settings`（系統設定的覆寫值）
+
+`key`（text PK）、`value`（jsonb，純量）、`updated_at`、`updated_by`（→ `users`，`ON DELETE SET NULL`）。
+只存覆寫值，沒有列的 key 用程式碼裡的預設值；定義、範圍與快取見 [`12-settings.md`](./12-settings.md)。
+
 ---
 
 ## 3. 不變條件的 DB 層強制

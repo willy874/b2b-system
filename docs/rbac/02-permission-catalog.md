@@ -68,8 +68,8 @@
 
 | 權限鍵          | 顯示名稱（zh-TW） | 說明                                     |
 | --------------- | ----------------- | ---------------------------------------- |
-| `system:read`   | 檢視系統資訊      | 版本、健康狀態、設定摘要                 |
-| `system:update` | 變更系統設定      | 全域設定（Phase 0 尚無可設定項，先佔位） |
+| `system:read`   | 檢視系統資訊      | 版本、健康狀態、系統設定頁（唯讀）       |
+| `system:update` | 變更系統設定      | 修改與還原系統設定（[`../architecture/backend/12-settings.md`](../architecture/backend/12-settings.md)） |
 
 ### 2.6 `approval` — 審批
 
@@ -214,6 +214,7 @@
 | 背景工作     | `/job`（含 `/job/$jobId` 對話框） | `JOB` | `job:read`                      | EVERY |
 | 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:access` 或 `file:read`（按鈕層級看後端回傳的 `capabilities`，見 [`07-resource-grants.md`](./07-resource-grants.md) §7） | SOME |
 | 外部 IdP 連線 | `/identity-provider`      | `IDENTITY_PROVIDER` | `identityProvider:read`        | EVERY |
+| 系統設定     | `/system/settings`（`system:update` 才能修改） | `SETTING` | `system:read`             | EVERY |
 
 apps/auth 只給平台管理者登入（[`../architecture/04-sso.md`](../architecture/04-sso.md) §1.1、§6.2），這個目錄的權限不適用；
 平台管理者的權限目錄在交付順序第 4 步加上租戶管理時建立。帳號流程（申請帳號、啟用、重設密碼）也在 apps/auth，未登入可進。
