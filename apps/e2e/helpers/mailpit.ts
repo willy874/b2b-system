@@ -16,8 +16,9 @@ export interface ReceivedMail {
 /**
  * 等到寄給 `to` 的信出現，回傳最新一封。寄信在背景工作裡跑，要輪詢。
  * 每個測試用獨一無二的收件地址，就不必清空信箱、也不會互相干擾。
+ * 同一個地址會收到多封信（例：註冊核准同時寄審核結果與啟用信）時，以 `subject` 指定要哪一封。
  */
-export async function waitForMail(to: string): Promise<ReceivedMail> {
+export async function waitForMail(to: string, subject?: string): Promise<ReceivedMail> {
   const context = await request.newContext({ baseURL: MAILPIT_URL });
   let latest: MailpitSummary | undefined;
   await expect
@@ -27,10 +28,14 @@ export async function waitForMail(to: string): Promise<ReceivedMail> {
           params: { query: `to:"${to}"` },
         });
         const body = (await response.json()) as { messages: MailpitSummary[] };
-        latest = body.messages[0];
-        return body.messages.length;
+        const matched = body.messages.filter((m) => subject === undefined || m.Subject === subject);
+        latest = matched[0];
+        return matched.length;
       },
-      { timeout: 20_000, message: `等待寄給 ${to} 的信` },
+      {
+        timeout: 20_000,
+        message: `等待寄給 ${to} 的信${subject === undefined ? '' : `「${subject}」`}`,
+      },
     )
     .toBeGreaterThan(0);
   const detail = await context.get(`/api/v1/message/${latest!.ID}`);
