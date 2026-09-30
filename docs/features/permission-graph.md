@@ -496,14 +496,16 @@ ADR-0006「不要讓權限變成推理題」的精神不變；explain 讓剩下�
 
 | 階段 | 內容 | 可回退 |
 | --- | --- | --- |
-| **G0** | ADR-0024；`core/authz` 引擎 ＋ 模型驗證 ＋ 單元測試（純記憶體 tuple，照 07 的每一條規則寫案例） | 不動任何既有程式 |
-| **G1** | `relation_tuples`；migration 從三張舊表回填；舊表仍是事實來源，**以 DB trigger 在同一交易雙寫**（service 不必改，也不會漏）；`authz_revision` 延到 G3；**影子比對**：開發與測試環境每次檢查兩套都跑，不一致就報錯 | 刪新表即可 |
-| **G2** | 讀取改走引擎，並啟用包含關係（§2.1；自訂角色多出的鍵由 migration 列出並寫稽核）：`PermissionService`、`FileAccessService`、推播 room；刪 `resource-grant.resolver.ts` 的解析；快取仍逐事件失效（寫入還經過舊表，revision 失效隨 G3 的寫入切換一起做） | 切回舊讀取路徑 |
+| **G0** ✅ | ADR-0024；`core/authz` 引擎 ＋ 模型驗證 ＋ 單元測試（純記憶體 tuple，照 07 的每一條規則寫案例） | 不動任何既有程式 |
+| **G1** ✅ | `relation_tuples`；migration 從三張舊表回填；舊表仍是事實來源，**以 DB trigger 在同一交易雙寫**（service 不必改，也不會漏）；`authz_revision` 延到 G3；**影子比對**：開發與測試環境每次檢查兩套都跑，不一致就報錯 | 刪新表即可 |
+| **G2** ✅ | 讀取改走引擎，並啟用包含關係（§2.1；自訂角色多出的鍵由 `db:seed` 寫稽核 `role.permissionsImplied`）：`PermissionService`、`FileAccessService`、推播 room；`resource-grant.resolver.ts` 與舊的權限查詢只留給影子比對（兩邊都套閉包後比較），G3 刪除；快取仍逐事件失效（寫入還經過舊表，revision 失效隨 G3 的寫入切換一起做） | 切回舊讀取路徑 |
 | **G3** | 寫入只寫 tuple；刪 `user_roles`、`role_permissions`、`resource_grants` 與雙寫 | 需要反向回填，視為不可回退 |
 | **G4** | 群組（巢狀、持有角色）、`user:*`、explain API 與前端頁面；刪除 `user-groups.md` | — |
 | **G5** | 隨專案功能：`project` 型別，`fileFolder` 的 `inherits_from` 可以指向專案 | — |
 
-G1～G3 對外沒有任何行為變化，既有的權限測試（頁面三個權限案例、E2E 的「移除權限後下一次請求即 403」）全部要原封不動通過。
+G0～G2 與角色權限的技能樹已在 `feat/permission-graph` 完成（2026-09-30）；G3 起另開 branch。
+
+G1～G3 對外沒有任何行為變化（G2 的依賴樹閉包除外，見 §2.2 對預設角色的影響），既有的權限測試（頁面三個權限案例、E2E 的「移除權限後下一次請求即 403」）全部要原封不動通過。
 
 ## 開放問題
 

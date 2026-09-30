@@ -48,6 +48,29 @@
   所以「權限鍵的字串格式不變」（[ADR-0006](../adr/0006-flat-permission-scope.md) 的承諾）仍然成立：
   等級只是「在某個範圍內持有哪些權限鍵」的簡寫。
 
+### 2.1 在關係圖上（[ADR-0024](../adr/0024-relationship-based-access-control.md)）
+
+等級、動作與擁有者規則都寫成模型裡的關係（`apps/api/src/modules/file/file.authz.ts`），由 `core/authz` 的判斷器解析：
+
+```
+fileFolder
+  manager     = 直接授予 ∪ manager from inherits_from
+  editor      = 直接授予 ∪ manager ∪ editor from inherits_from
+  contributor = 直接授予 ∪ editor ∪ contributor from inherits_from
+  viewer      = 直接授予 ∪ contributor ∪ viewer from inherits_from
+  can_read / can_create / can_update / can_delete / can_share = 對應等級 ∪ tenant 上的 file:<動作>
+  can_update_own = can_update ∪ can_create                       ← 規則 A：能在這裡建立 ⇒ 能編輯自己建立的
+  can_rename = can_update from parent ∪ (owner ∩ can_update_own from parent)
+  can_remove = can_delete from parent ∪ (owner ∩ can_update_own from parent)
+fileRoot（根目錄）：can_* 只由 tenant 上的 file:<動作> 決定
+```
+
+- 授權是 `relation_tuples` 的邊 `fileFolder:F#<等級>@(role:r#holder | user:u | user:*)`（由 `resource_grants` 的 trigger 同步）；
+  結構邊（`parent`、`inherits_from`、`owner`）由 `file_folders` 供應，不存。中斷繼承的資料夾沒有 `inherits_from` 邊。
+- 「等級蘊含哪些動作」（反提權、`assignableLevels`）由模型的 **靜態蘊含** 算出（`impliedRelations`），不再寫死對照表。
+- 全域的 `file:*` 已套用權限依賴樹（[`02-permission-catalog.md`](./02-permission-catalog.md) §9）：`file:delete ⇒ file:update ⇒ file:read ⇒ file:access`、
+  `file:create ⇒ file:read`、`file:share ⇒ file:read`。所以只持有全域 `file:share` 的人也能授予 `viewer`（§6.1 的例子隨之改變）。
+
 ---
 
 ## 3. 有效等級的解析
@@ -147,8 +170,7 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 
 - 授予、變更、移除等級 `L` 的授權：操作者必須 `has(share, F)`，而且 **`L` 蘊含的每個動作操作者在 `F` 都有**
   （來源可以是全域權限鍵或資料夾等級）。違反回 `403 AUTHZ_ESCALATION`（`details.missing`）。
-- 例：只持有全域 `file:share` 的人不能授予任何等級（連 `viewer` 都蘊含他沒有的 `read`）；
-  持有全域 `file:read` ＋ `file:share` 的人可以授予 `viewer`，不能授予 `contributor` 以上。
+- 例：持有全域 `file:share` 的人（依賴樹帶來 `file:read`）可以授予 `viewer`，不能授予 `contributor` 以上。
 
 ### 6.2 對象
 
@@ -254,8 +276,8 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 
 檔案之外的資源（未來的專案、關卡）沿用同一套：
 
-- `resource_grants` 與等級（`modules/resource-grant`）是通用的；每種資源只提供「上層鏈」與「等級 → 動作」的對照。
-- 解析函式 `resolveHierarchyLevels(nodes, grants)` 只認識「節點、上層、是否繼承」，不認識資料夾。
+- 關係圖（`core/authz`）是通用的；每種資源在模型裡宣告自己的型別（等級、動作、`from` 上層），並提供結構邊的供應者。
+- `resolveHierarchyLevels`（`modules/resource-grant`）在 G2 起只給影子比對用，G3 刪除。
 - **專案會成為資料夾的上層**：資料夾掛在專案底下之後，資料夾的上層鏈延伸到專案節點，
   專案上的授權自然往下繼承到它的資料夾。屆時根目錄的角色由專案取代（每個專案一棵樹）。
   掛載方式與遷移步驟見 [ADR-0015](../adr/0015-file-folder-access.md) §延伸。

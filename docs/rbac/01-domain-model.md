@@ -12,6 +12,7 @@
 | 職責分離（SoD / Constrained RBAC） | ❌         | Phase 0 不做互斥角色                                                        |
 | 資源作用域（Scoped / ABAC）        | ◐ 檔案     | 檔案管理器的資料夾層級授權，見 [`07-resource-grants.md`](./07-resource-grants.md)；其餘資源見 §7 延伸點 |
 | **反提權**                         | ✅（強化） | 授權者不能授予自己沒有的權限                                                |
+| **權限依賴樹**                     | ✅（強化） | 同資源的子能力與只指向 read 的依賴：持有一個鍵就持有它帶來的鍵（[`02-permission-catalog.md`](./02-permission-catalog.md) §9、[ADR-0024](../adr/0024-relationship-based-access-control.md) D6） |
 | **系統角色保護**                   | ✅（強化） | `is_system` 角色不可刪除、不可改 `slug`（顯示名稱可改，見 §5）               |
 
 > 「權限是目錄，不是自由文字」是這個模型最重要的性質。`permissions` 表的內容
@@ -219,16 +220,26 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 
 ### 6.1 定義
 
-使用者 `u` 的 **權限集合**：
+權限由 **關係圖** 解析（[ADR-0024](../adr/0024-relationship-based-access-control.md)、`apps/api/src/core/authz/`）：
+`user_roles`、`role_permissions`、`resource_grants` 由 trigger 同步成 `relation_tuples` 的邊（G1～G2 期間舊表仍是事實來源）：
 
-```sql
-SELECT DISTINCT p.key
-FROM user_roles ur
-JOIN role_permissions rp ON rp.role_id = ur.role_id
-JOIN permissions p        ON p.id = rp.permission_id
-JOIN roles r              ON r.id = ur.role_id AND r.deleted_at IS NULL
-WHERE ur.user_id = $1;
-```
+| 舊表 | 關係圖上的邊 |
+| --- | --- |
+| `user_roles (u, r)` | `role:r#holder@user:u` |
+| `role_permissions (r, p)` | `tenant:self#<p.key>@role:r#holder` |
+| super-admin 角色 | `tenant:self#superAdmin@role:<id>#holder` |
+
+使用者 `u` 的 **權限集合** ＝ 租戶節點上對 `u` 成立的權限關係：
+
+1. 主體閉包 `S(u)` ＝ `{ user:u, user:* } ∪ { role:r#holder | u 持有未刪除的角色 r }`（一條遞迴 CTE）。
+2. `S(u)` 在 `tenant:self` 上直接擁有的關係 ＝ 明確授予的鍵。
+3. 每個權限關係的定義是「直接授予 ∪ superAdmin ∪ 包含它的鍵」，所以結果是明確鍵的 **依賴樹閉包**
+   （[`02-permission-catalog.md`](./02-permission-catalog.md) §9）：持有 `file:delete` 就同時持有 `file:update`、`file:read`、`file:access`。
+
+guard、`GET /auth/profile`、反提權、即時推播的 room 看到的都是閉包。角色只儲存明確授予的鍵。
+
+G2 期間，開發與測試環境每次解析也跑一次舊的解析（`user_roles` ⋈ `role_permissions` 再套閉包）並比對（`AUTHZ_SHADOW`，
+[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.2）。
 
 ### 6.2 super-admin 旁路
 
@@ -253,8 +264,8 @@ deny 規則會讓「為什麼這個人不能做 X」變成需要推理的問題�
 
 | 延伸                                   | 預留方式                                                                                                        |
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| **資源作用域**（「只能編輯自己專案」） | 已由檔案資料夾先行實作：通用的 `resource_grants`（資源 × 對象 × 等級，沿上層鏈繼承），不改 `user_roles`。專案、關卡沿用同一張表，見 [`07-resource-grants.md`](./07-resource-grants.md) §10 |
-| **角色階層**                           | 新增 `role_inherits (parent_id, child_id)`，解析時做遞迴 CTE                                                    |
+| **資源作用域**（「只能編輯自己專案」） | 已由檔案資料夾先行實作，並改由關係圖解析（資料夾的等級是模型裡的關係，沿 `inherits_from` 繼承）。專案、關卡以同樣方式加入型別，見 [`07-resource-grants.md`](./07-resource-grants.md) §10 |
+| **角色階層**                           | 關係圖上是一種 `role#holder` 包含 `role#holder` 的邊；是否開放延到 G4（[`../features/permission-graph.md`](../features/permission-graph.md) 開放問題 3） |
 | **條件式權限（ABAC）**                 | `role_permissions` 增加 `condition jsonb`，Guard 端加入條件評估器                                               |
 | **MFA**                                | `users.mfa_enabled` / 新表 `user_mfa_secrets`                                                                   |
 | **API Token / 服務帳號**               | 新增 `service_accounts` 表，同樣掛 `user_roles`（Subject 抽象化）                                               |

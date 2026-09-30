@@ -1,6 +1,6 @@
 # ADR-0024 — 權限改成關係圖（ReBAC），以雙寫＋影子比對逐步切換
 
-- 狀態：**提案中**（`feat/permission-graph` 完成 G2 時改為採用）
+- 狀態：**採用**（G0～G2 已實作，`feat/permission-graph`；G3 另開）
 - 日期：2026-09-30
 - 相關：提案 [`../features/permission-graph.md`](../features/permission-graph.md)；
   延伸 [ADR-0005](./0005-permission-resolved-server-side.md)（權限在伺服器端解析）；
@@ -48,3 +48,18 @@
 | OpenFGA／SpiceDB | 見理由 1 |
 | 直接切換（不雙寫） | 使用者選擇較保守的切換方式；影子比對也能在開發環境持續驗證 |
 | 只把資源授權放進圖、全域 RBAC 不動 | 留下兩種寫入路徑，群組持有角色時失效範圍要兩邊各算一次 |
+
+## 實作紀錄（G0～G2）
+
+| 項目 | 位置 |
+| --- | --- |
+| 權限依賴樹與 G1–G4 不變條件（啟動時驗證） | `apps/api/src/db/seeds/permissions.ts`（`PERMISSION_DEPENDENCIES`）、`docs/rbac/02-permission-catalog.md` §9 |
+| 關係圖引擎（模型 DSL、判斷器、靜態蘊含、主體閉包 CTE） | `apps/api/src/core/authz/` |
+| 檔案管理器的型別 | `apps/api/src/modules/file/file.authz.ts` |
+| `relation_tuples` 與同步 trigger、回填 | migration `0007`、`0008` |
+| 影子比對 | `AUTHZ_SHADOW`（`docs/architecture/backend/05-rbac.md` §4.2） |
+| 角色權限的技能樹（互鎖） | `apps/backstage/src/features/role/components/PermissionSkillTree.tsx`、`components/TreeEditor` 的狀態／分組擴充 |
+
+與提案不同的地方：快取仍逐事件失效（`authz_revision` 與 `pg_notify` 延到 G3，寫入改經 tuple 之後才有單一的失效點）；
+`resolveHierarchyLevels` 與舊的權限查詢保留到 G3，只給影子比對用。
+

@@ -154,6 +154,12 @@ apps/auth 的平台管理者與租戶的使用者是兩份帳號（[ADR-0020](..
 
 ## 4. `PermissionService`
 
+> **G2 起（[ADR-0024](../../adr/0024-relationship-based-access-control.md)）**：`getPermissionSet(s)` 不再查 `user_roles` ⋈ `role_permissions`，
+> 改由 `core/authz` 的 `AuthzService.tenantPermissionsOf()` 批次解析（主體閉包一條遞迴 CTE、租戶節點上的邊一條查詢，再在記憶體判斷），
+> `permissions` 是 **權限依賴樹的閉包**（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §9），並多帶 `subjects`（主體閉包，
+> 給 `FileAccessService` 解析資料夾授權時沿用）。下面的程式碼是介面與業務規則的形狀；反提權因為 actor 的集合已是閉包，
+> 只要比「明確鍵 ⊆ actor 閉包」；自我鎖定要比「剩下的鍵的閉包」。
+
 ```ts
 export interface PermissionSet {
   permissions: Set<PermissionKey>;
@@ -243,6 +249,21 @@ export class PermissionService {
 或把他的角色換成 member，藉此排除上級。所以目標持有 super-admin 時，只有 super-admin 能改他的狀態、刪除他、
 整批取代他的角色，否則 `403 AUTHZ_ESCALATION`（`details: { role: 'super-admin', target }`）。
 是不是 super-admin 直接查 DB（`UserRepository.hasRoleSlug`），不經權限快取。重設密碼、解鎖不在此限（信寄到本人信箱；解鎖是幫忙）。
+
+### 4.2 影子比對（`AUTHZ_SHADOW`）
+
+G1～G2 期間新舊兩套解析並存（ADR-0024）：
+
+| 模式 | 行為 | 預設 |
+| --- | --- | --- |
+| `off` | 只跑關係圖 | production |
+| `log` | 快取未命中時也跑舊的解析（`user_roles` ⋈ `role_permissions`、`resource_grants` ＋ `resolveHierarchyLevels`，兩邊都套依賴樹閉包），不一致記錄 error log | development |
+| `throw` | 同上，但不一致時丟 `AuthzShadowMismatchError`，讓請求失敗 | test |
+
+- 新舊兩邊在同一個 `repeatable read, read only` 交易裡讀（`AuthzService.readConsistently`），併發的寫入不會造成假的不一致；
+  不一致時不寫快取。在呼叫端的交易裡（例：持有資料夾樹鎖）就沿用那個交易。
+- 比對範圍：權限集合與 `isSuperAdmin`；檔案管理器是每個位置（所有資料夾 ＋ 根目錄）× 5 個動作，以及每個資料夾本身的改名／刪除。
+- 整合測試在 `throw` 模式下全數通過＝新舊一致的驗收。G3 刪除舊的解析與這個開關。
 
 ---
 
