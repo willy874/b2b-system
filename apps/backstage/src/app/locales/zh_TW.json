@@ -156,6 +156,7 @@
     "ROLE_SUPER_ADMIN_IMMUTABLE": "超級管理員角色的權限不可變更。",
     "ROLE_IN_USE": "仍有使用者持有這個角色。",
     "LAST_SUPER_ADMIN": "系統必須保留至少一位可用的超級管理員。",
+    "ROLE_SELF_LOCKOUT": "這個變更會讓你失去管理角色所需的權限，請改由其他管理者操作。",
     "PERMISSION_UNKNOWN": "包含系統未定義的權限鍵。",
     "APPROVAL_NOT_FOUND": "找不到這筆審批申請。",
     "APPROVAL_ALREADY_REVIEWED": "這筆申請已經被審核過了。",

@@ -1,6 +1,7 @@
 import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { PERMISSION } from '@/common/types';
 import type { AuthUser, PermissionKey } from '@/common/types';
 import type { Database } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
@@ -20,6 +21,16 @@ import type { UpdateRoleDto, UpdateRolePermissionsDto } from './dto/update-role.
 import { ROLE_AUDIT_FIELDS, slugify } from './role.constants';
 import type { RoleWithCounts } from './role.repository';
 import { RoleRepository } from './role.repository';
+
+/**
+ * 管理角色所需的權限：管理者改自己持有的角色時不能把這些拿掉，否則連自己在內都改不回來
+ * （docs/architecture/backend/05-rbac.md §8.4、docs/issues/03-edge-cases.md EDGE-12）。
+ */
+const ROLE_MANAGEMENT_PERMISSIONS: readonly PermissionKey[] = [
+  PERMISSION.ROLE_READ,
+  PERMISSION.ROLE_UPDATE,
+  PERMISSION.ROLE_GRANT_PERMISSION,
+];
 
 function toDto(role: RoleWithCounts): RoleDto {
   return {
@@ -150,6 +161,12 @@ export class RoleService {
     const after = [...new Set([...before, ...dto.add])].filter(
       (key) => !dto.remove.includes(key as PermissionKey),
     );
+    await this.permissionService.assertNoSelfLockout(
+      actor.id,
+      id,
+      after,
+      ROLE_MANAGEMENT_PERMISSIONS,
+    );
 
     await withTransaction(this.db, async (tx) => {
       if (dto.remove.length) {
@@ -240,6 +257,7 @@ export class RoleService {
     if (userCount > 0 && !query.force) {
       throw new AppException('ROLE_IN_USE', { userCount });
     }
+    await this.permissionService.assertNoSelfLockout(actor.id, id, [], ROLE_MANAGEMENT_PERMISSIONS);
 
     // ★ 順序陷阱：先查出受影響的使用者，再刪角色
     const affected = await this.repo.findUserIdsByRole(id);

@@ -75,6 +75,8 @@ export const ErrorCode = {
   ROLE_SUPER_ADMIN_IMMUTABLE: { status: 403 },
   ROLE_IN_USE: { status: 409 },
   LAST_SUPER_ADMIN: { status: 403 },
+  /** 改自己持有的角色的權限或刪除它，會讓自己失去管理角色所需的權限（docs/architecture/backend/05-rbac.md §8.4）。 */
+  ROLE_SELF_LOCKOUT: { status: 403 },
 
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },

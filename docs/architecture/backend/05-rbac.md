@@ -438,6 +438,7 @@ it("權限目錄與 @RequirePermissions 使用的鍵完全一致", async () => {
 | 不能修改自己的狀態 / 角色              | `UserService`                             | `AUTHZ_SELF_MODIFY`          |
 | 不能刪除自己                           | `UserService`                             | `AUTHZ_SELF_MODIFY`          |
 | 不能移除最後一個 super-admin           | `UserService` / `RoleService`             | `LAST_SUPER_ADMIN`           |
+| 不能讓自己失去管理角色的權限（§8.4）  | `RoleService` → `PermissionService.assertNoSelfLockout` | `ROLE_SELF_LOCKOUT` |
 
 ### 8.2 `assertNotLastSuperAdmin`
 
@@ -465,6 +466,16 @@ private assertNotSelf(actorId: string, targetId: string): void {
 
 適用於：改自己的 `status`、改自己的角色、刪除自己。
 **不適用** 於：改自己的 `displayName`（那有專門的 `PATCH /auth/profile`）。
+
+### 8.4 不能把自己鎖在外面
+
+管理者改 **自己持有的** 角色的權限（`PATCH /roles/:id/permissions`）或刪除它（`DELETE /roles/:id`，含 `force`）時，
+若變更之後自己會失去目前持有的 `role:read`、`role:update`、`role:grantPermission` 其中之一
+（其他角色也沒有提供），回 `ROLE_SELF_LOCKOUT`（403，`details.lost` 列出會失去的權限）。
+
+- super-admin 豁免（權限是隱含全集，也沒有角色能拿掉它）。
+- 只看操作者本人：同一個角色的其他持有者失去權限是正常的業務操作。
+- 沒有持有該角色、或本來就沒有那些權限時不擋。
 
 ---
 

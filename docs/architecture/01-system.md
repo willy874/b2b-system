@@ -287,6 +287,6 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | CSRF          | refresh 端點是唯一吃 cookie 的端點，額外要求 `x-refresh-request: 1` 自訂標頭（簡單請求無法跨站帶自訂標頭） |
 | 暴力破解      | 同帳號連續 5 次失敗鎖定 15 分鐘；同 IP 速率限制（`@nestjs/throttler`）                                     |
 | 反提權        | 授予權限／指派角色時檢查「操作者是否持有該權限」                                                           |
-| 自我保護      | 使用者不能刪除自己、不能移除自己最後一個具 `role:update` 的角色                                            |
+| 自我保護      | 使用者不能刪除自己、不能改自己的角色；改自己持有的角色時不能拿掉自己管理角色所需的權限（`ROLE_SELF_LOCKOUT`） |
 | SQL injection | Drizzle 參數化查詢；禁止字串拼接 SQL                                                                       |
 | 稽核不可變    | `audit_logs` 只有 INSERT 權限的 DB role；無 UPDATE / DELETE                                                |

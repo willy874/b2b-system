@@ -138,3 +138,65 @@ describe('PermissionService.getPermissionSets（批次解析，docs/issues/01-pe
     expect(sets.size).toBe(1200);
   });
 });
+
+describe('PermissionService.assertNoSelfLockout（docs/architecture/backend/05-rbac.md §8.4）', () => {
+  const GUARDED = ['role:update', 'role:grantPermission'] as PermissionKey[];
+
+  function createLockoutService(options: {
+    keys: PermissionKey[];
+    isSuperAdmin?: boolean;
+    holdsRole?: boolean;
+    otherRoleKeys?: PermissionKey[];
+  }) {
+    const { service, repo } = createService({
+      keys: options.keys,
+      isSuperAdmin: options.isSuperAdmin ?? false,
+    });
+    const extra = {
+      userHasRole: vi.fn().mockResolvedValue(options.holdsRole ?? true),
+      findPermissionKeysByUserExcludingRole: vi.fn().mockResolvedValue(options.otherRoleKeys ?? []),
+    };
+    Object.assign(repo, extra);
+    return { service, repo: { ...repo, ...extra } };
+  }
+
+  it('移除自己角色上唯一來源的管理權限 → ROLE_SELF_LOCKOUT 帶出失去的權限', async () => {
+    const { service } = createLockoutService({ keys: GUARDED });
+    await expect(
+      service.assertNoSelfLockout('actor', 'r1', ['role:update'], GUARDED),
+    ).rejects.toMatchObject({
+      code: 'ROLE_SELF_LOCKOUT',
+      details: { lost: ['role:grantPermission'] },
+    });
+  });
+
+  it('刪除（變成空集合）自己唯一的管理角色 → ROLE_SELF_LOCKOUT', async () => {
+    const { service } = createLockoutService({ keys: GUARDED });
+    await expect(service.assertNoSelfLockout('actor', 'r1', [], GUARDED)).rejects.toMatchObject({
+      code: 'ROLE_SELF_LOCKOUT',
+    });
+  });
+
+  it('其他角色仍提供同樣的權限 → 通過', async () => {
+    const { service } = createLockoutService({ keys: GUARDED, otherRoleKeys: GUARDED });
+    await expect(service.assertNoSelfLockout('actor', 'r1', [], GUARDED)).resolves.toBeUndefined();
+  });
+
+  it('沒有持有這個角色 → 通過，不查其他角色', async () => {
+    const { service, repo } = createLockoutService({ keys: GUARDED, holdsRole: false });
+    await expect(service.assertNoSelfLockout('actor', 'r1', [], GUARDED)).resolves.toBeUndefined();
+    expect(repo.findPermissionKeysByUserExcludingRole).not.toHaveBeenCalled();
+  });
+
+  it('本來就沒有那些管理權限 → 通過，不查角色', async () => {
+    const { service, repo } = createLockoutService({ keys: ['user:read'] });
+    await expect(service.assertNoSelfLockout('actor', 'r1', [], GUARDED)).resolves.toBeUndefined();
+    expect(repo.userHasRole).not.toHaveBeenCalled();
+  });
+
+  it('super-admin 豁免', async () => {
+    const { service, repo } = createLockoutService({ keys: [], isSuperAdmin: true });
+    await expect(service.assertNoSelfLockout('actor', 'r1', [], GUARDED)).resolves.toBeUndefined();
+    expect(repo.userHasRole).not.toHaveBeenCalled();
+  });
+});

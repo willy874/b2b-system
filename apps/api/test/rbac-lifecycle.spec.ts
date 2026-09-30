@@ -1,11 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { roles, userRoles, users } from '@/db/schema';
+import { permissions, rolePermissions, roles, userRoles, users } from '@/db/schema';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
@@ -256,6 +256,72 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
       .send({ add: ['user:read'], remove: [] })
       .expect(403);
     expect(response.body).toMatchObject({ error: { code: 'ROLE_SUPER_ADMIN_IMMUTABLE' } });
+  });
+
+  describe('管理者不能把自己鎖在外面（ROLE_SELF_LOCKOUT，docs/issues/03-edge-cases.md EDGE-12）', () => {
+    const MANAGER = { email: 'role-manager@example.com', password: 'RoleManager!2026' };
+    let managerRoleId: string;
+
+    beforeAll(async () => {
+      const [role] = await db
+        .insert(roles)
+        .values({ slug: 'role-manager', name: '角色管理員' })
+        .returning();
+      managerRoleId = role!.id;
+      const keys = ['role:read', 'role:update', 'role:delete', 'role:grantPermission', 'user:read'];
+      const rows = await db.select().from(permissions).where(inArray(permissions.key, keys));
+      await db
+        .insert(rolePermissions)
+        .values(rows.map((row) => ({ roleId: managerRoleId, permissionId: row.id })));
+      const managerId = await createActiveUser(MANAGER.email, MANAGER.password);
+      await db.insert(userRoles).values({ userId: managerId, roleId: managerRoleId });
+    });
+
+    it('移除自己唯一管理角色上的 role:grantPermission → 403，權限不變', async () => {
+      const token = await login(MANAGER);
+      const response = await request(http)
+        .patch(`/roles/${managerRoleId}/permissions`)
+        .set('authorization', `Bearer ${token}`)
+        .send({ add: [], remove: ['role:grantPermission'] })
+        .expect(403);
+      expect(response.body).toMatchObject({
+        error: { code: 'ROLE_SELF_LOCKOUT', details: { lost: ['role:grantPermission'] } },
+      });
+      const kept = await db
+        .select()
+        .from(rolePermissions)
+        .where(eq(rolePermissions.roleId, managerRoleId));
+      expect(kept).toHaveLength(5);
+    });
+
+    it('移除自己角色上與管理角色無關的權限 → 200', async () => {
+      const token = await login(MANAGER);
+      await request(http)
+        .patch(`/roles/${managerRoleId}/permissions`)
+        .set('authorization', `Bearer ${token}`)
+        .send({ add: [], remove: ['user:read'] })
+        .expect(200);
+    });
+
+    it('force 刪除自己持有的唯一管理角色 → 403，角色仍在', async () => {
+      const token = await login(MANAGER);
+      const response = await request(http)
+        .delete(`/roles/${managerRoleId}?force=true`)
+        .set('authorization', `Bearer ${token}`)
+        .expect(403);
+      expect(response.body).toMatchObject({ error: { code: 'ROLE_SELF_LOCKOUT' } });
+      const [role] = await db.select().from(roles).where(eq(roles.id, managerRoleId));
+      expect(role?.deletedAt).toBeNull();
+    });
+
+    it('super-admin 豁免：可以改任何角色', async () => {
+      const token = await login(SUPER_ADMIN);
+      await request(http)
+        .patch(`/roles/${managerRoleId}/permissions`)
+        .set('authorization', `Bearer ${token}`)
+        .send({ add: [], remove: ['role:grantPermission'] })
+        .expect(200);
+    });
   });
 
   it('不能刪除自己（AUTHZ_SELF_MODIFY）', async () => {

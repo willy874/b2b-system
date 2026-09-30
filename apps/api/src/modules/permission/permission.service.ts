@@ -107,6 +107,31 @@ export class PermissionService {
     await this.assertGrantable(actorId, keys);
   }
 
+  /**
+   * 自我鎖定保護：actor 持有 `roleId`，而這個角色的權限變成 `nextRoleKeys`（刪除角色時是空陣列）之後，
+   * actor 會失去目前持有的 `guarded` 權限 → `ROLE_SELF_LOCKOUT`。super-admin 豁免（權限是隱含全集）。
+   * 沒有持有該角色、或本來就沒有那些權限時不擋（docs/architecture/backend/05-rbac.md §8.4）。
+   */
+  async assertNoSelfLockout(
+    actorId: string,
+    roleId: string,
+    nextRoleKeys: readonly string[],
+    guarded: readonly PermissionKey[],
+  ): Promise<void> {
+    const { permissions, isSuperAdmin } = await this.getPermissionSet(actorId);
+    if (isSuperAdmin) return;
+    const held = guarded.filter((key) => permissions.has(key));
+    if (held.length === 0) return;
+    if (!(await this.repo.userHasRole(actorId, roleId))) return;
+
+    const remaining = new Set<string>([
+      ...(await this.repo.findPermissionKeysByUserExcludingRole(actorId, roleId)),
+      ...nextRoleKeys,
+    ]);
+    const lost = held.filter((key) => !remaining.has(key));
+    if (lost.length) throw new AppException('ROLE_SELF_LOCKOUT', { lost });
+  }
+
   /** 反提權的「略過」版本：回傳 actor 可以授予的子集（角色複製用）。 */
   async filterGrantable(
     actorId: string,

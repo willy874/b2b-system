@@ -156,6 +156,7 @@
     "ROLE_SUPER_ADMIN_IMMUTABLE": "Permissions of the super admin role cannot be changed.",
     "ROLE_IN_USE": "Some users still hold this role.",
     "LAST_SUPER_ADMIN": "The system must keep at least one active super admin.",
+    "ROLE_SELF_LOCKOUT": "This change would remove the permissions you need to manage roles. Ask another administrator to make it.",
     "PERMISSION_UNKNOWN": "The request contains unknown permission keys.",
     "APPROVAL_NOT_FOUND": "This approval request does not exist.",
     "APPROVAL_ALREADY_REVIEWED": "This request has already been reviewed.",
