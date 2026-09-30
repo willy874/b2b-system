@@ -48,6 +48,7 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 | --- | --- |
 | `type` | `TRASH_RESOURCE_TYPES` 的一個值（`RESOURCE_TYPE`） |
 | `permission` | 看這一類與還原所需的權限：`<resource>:delete`（D10：能刪就能復原） |
+| `feature` | 選填：這一類所屬的租戶 feature（[ADR-0021](../../adr/0021-runtime-feature-activation.md)）。檔案與資料夾是 `file`；使用者、角色是常駐的，沒有 |
 | `purgeOrder` | 永久刪除的順序，小的先：檔案 10 → 資料夾 20 → 使用者 30 → 角色 40（D11，外鍵的 `RESTRICT` 靠順序滿足） |
 | `listDeleted(query)` | 已刪除的列（`deleted_at` 新的在前），回傳共用的 `TrashItem` 形狀：`name`、`description`、`deletedAt`、`deletedBy` |
 | `findExpired(cutoff, afterId, limit)` | `deleted_at < cutoff`、依 `id` 的 keyset 取下一批；已知這一輪刪不掉的直接不回傳 |
@@ -92,6 +93,12 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
    `403 AUTHZ_FORBIDDEN`（`details.required`），並寫 `authz.denied`（`metadata.type`）。super-admin 豁免。
 
 不用 `@Authenticated()` ＋ 只在 service 檢查：那樣沒有任何刪除權限的人也會進到 service，路由總表也看不出端點的權限。
+
+**租戶 feature**：handler 宣告了 `feature` 而租戶停用了它（例：停用檔案功能時的 `type=file`／`fileFolder`）→ `404 FEATURE_DISABLED`，
+與那一類的端點（`@RequireFeature('file')`）一致，不暴露功能存在。`GET /trash` 本身是常駐的端點，無法以 `@RequireFeature` 標在路由上，
+所以 `TrashService` 依類型判斷，並排在權限檢查 **之前**（與 `FeatureGuard` 排在 `PermissionsGuard` 之前同一個理由：功能沒開時一律 404，
+不寫 `authz.denied`）。前端在 feature 停用時已經卸載該類型的分頁（[`../frontend/13-trash.md`](../frontend/13-trash.md)），這裡才是存取控制。
+**到期永久刪除照常進行**：保留期限是資料的規則，與功能是否開著無關。
 
 ---
 
@@ -143,6 +150,7 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 | `file_folders.owner_id` | `RESTRICT` | `findExpired` 排除；並行建立的由 savepoint 捕捉外鍵違反，當作略過 |
 | `file_folders.created_by`／`updated_by`、`files.created_by`／`updated_by` | `SET NULL` | 自動 |
 | `identity_providers.created_by`／`updated_by`、`system_settings.updated_by` | `SET NULL` | 自動 |
+| `revisions.actor_id`（版本的作者，[`14-revisions.md`](./14-revisions.md) §2） | `SET NULL` | 自動；版本保留，作者顯示為「系統」 |
 | `approval_requests.requester_id`／`reviewer_id` | `SET NULL` | 自動；申請人與審核者的名字另存成文字，列表照樣顯示 |
 | `users.created_by`／`updated_by`、`roles.created_by`／`updated_by` | 沒有外鍵 | 保留原值（只剩 id，查不到名字） |
 | `audit_logs.actor_id`、`resource_id` | 沒有外鍵（刻意反正規化） | 保留：稽核本來就不依賴使用者存在 |
@@ -219,6 +227,7 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 | --- | --- |
 | `relation_tuples` 以角色為物件：持有者邊 `role:<id>#holder@user:*` | `purge` 內明確刪除（多型，沒有外鍵） |
 | `relation_tuples` 以角色為主體：權限鍵 `tenant:self#<key>@role:<id>#holder`、資料夾授權 `fileFolder:<f>#<等級>@role:<id>#holder` | 同上 |
+| `revisions`（`resource_type = 'role'`，[`14-revisions.md`](./14-revisions.md) §5.1） | `purge` 內以 `RevisionService.deleteAll()` 刪除（多型，沒有外鍵） |
 | `audit_logs.resource_id` | 保留：稽核不依賴角色存在（刻意反正規化，`resource_name` 存了名稱） |
 
 `afterPurge`：`permissionsChanged()`（刪了邊，照 05-rbac §5.1 的規則通知）、`resource.changed`（`role` / `delete`，每個一筆）。
@@ -337,6 +346,7 @@ R4a 上線、確認 **所有** 程序都已換成新版的維護排程（孤兒�
 | `FILE_RESTORE_CONFLICT` | 409 | 還原檔案：`details.reason` 是 `parentDeleted`（帶 `parentType`、`parentId`）或 `objectMissing` |
 | `FILE_FOLDER_RESTORE_CONFLICT` | 409 | 還原資料夾：上層已刪除（`reason: 'parentDeleted'`） |
 | `FILE_FOLDER_NAME_CONFLICT` | 409 | 還原資料夾時同一層已有同名的資料夾；`details.conflictingId` |
+| `FEATURE_DISABLED` | 404 | `GET /trash?type=` 的類型所屬的租戶 feature 已停用（§3） |
 
 ---
 
@@ -344,7 +354,7 @@ R4a 上線、確認 **所有** 程序都已換成新版的維護排程（孤兒�
 
 | 對象 | 檔案 |
 | --- | --- |
-| 列表的權限檢查、永久刪除的稽核、外鍵略過、keyset 分批、註冊檢查、排程註冊 | `src/modules/trash/__tests__/trash.service.spec.ts` |
+| 列表的權限檢查、租戶 feature 停用時 `FEATURE_DISABLED`（到期永久刪除照常）、永久刪除的稽核、外鍵略過、keyset 分批、註冊檢查、排程註冊 | `src/modules/trash/__tests__/trash.service.spec.ts` |
 | HTTP：還原（狀態保留、refresh token 不回復、個人資料夾補建、稽核）、409 帶 `conflictingUserId`、反提權、`USER_NOT_DELETED`／404、權限；`GET /trash` 的排序、刪除者、`purgeAt`、權限；`trash.purge` 的硬刪除與連帶資料、擁有資料夾時略過、依設定的保留天數 | `test/trash.spec.ts` |
 | 角色：刪除保留持有者邊但權限立刻消失、依角色篩選與使用者的角色看不到刪除的角色、revision +1、`replaceRoles` 保留休眠的邊；還原（持有者回來、`holdersRestored`、R3 之前刪除的是 0、稽核）、名稱／slug 的 409 帶 `conflictingRoleId`、反提權、`ROLE_NOT_DELETED`／404、權限；`GET /trash?type=role`；`trash.purge` 刪除角色與所有邊 | `test/role-trash.spec.ts` |
 | 檔案與資料夾：`deletion_id` 的批次、只還原同一批、物件不在的檔案略過、`parentDeleted`、同名的 `conflictingId`、`*_NOT_DELETED`／404、權限（只能讀的人 403、資料夾授權的成員還原自己的檔案但看不到回收桶）、資料夾授權還原後生效；`GET /trash` 只列批次的根與個別刪除的檔案（帶路徑）；維護排程不刪已刪除紀錄的物件；`trash.purge` 刪列、授權的邊、物件，個人資料夾清掉後同一輪刪除使用者 | `test/file-trash.spec.ts` |

@@ -208,6 +208,7 @@
 | 角色列表     | `/role`                    | `ROLE`          | `role:read`                      | EVERY |
 | 建立角色     | `/role/create`             | `ROLE_CREATE`   | `role:read` ＋ `role:create`     | EVERY |
 | 角色權限管理 | `/role/$roleId/permission` | （沿用 `ROLE`） | `role:read` ＋ `permission:read` | EVERY |
+| 角色版本紀錄 | `/role/$roleId/revision`   | （沿用 `ROLE`） | `role:read`（「還原到這一版」另看 `role:update`） | EVERY |
 | 權限目錄     | `/permission`              | `PERMISSION`    | `permission:read`                | EVERY |
 | 稽核日誌     | `/audit-log`               | `AUDIT_LOG`     | `auditLog:read`                  | EVERY |
 | 審批         | `/approval`（含 `/approval/$approvalId` 對話框） | `APPROVAL` | `approval:read`           | EVERY |

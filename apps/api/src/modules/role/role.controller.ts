@@ -21,11 +21,19 @@ import {
   ApiZodResponse,
   ZodValidationPipe,
 } from '@/core/validation';
+import {
+  ListRevisionSchema,
+  RevisionSummarySchema,
+  RevisionVersionSchema,
+} from '@/modules/revision/dto/revision.dto';
+import type { ListRevisionDto } from '@/modules/revision/dto/revision.dto';
 
 import { CreateRoleSchema, DuplicateRoleSchema } from './dto/create-role.dto';
 import type { CreateRoleDto, DuplicateRoleDto } from './dto/create-role.dto';
 import { DeleteRoleSchema, ListRoleSchema, ListRoleUsersSchema } from './dto/list-role.dto';
 import type { DeleteRoleDto, ListRoleDto, ListRoleUsersDto } from './dto/list-role.dto';
+import { RevertRoleRevisionSchema, RoleRevisionSchema } from './dto/role-revision.dto';
+import type { RevertRoleRevisionDto } from './dto/role-revision.dto';
 import {
   RestoredRoleSchema,
   RoleHolderSchema,
@@ -100,6 +108,48 @@ export class RoleController {
   @ApiZodResponse(200, RestoredRoleSchema)
   restore(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
     return this.roleService.restore(id, actor);
+  }
+
+  /** 版本歷史（ADR-0025 D10：看版本＝看得到角色）。新的在前；過大未保存的版本 `tooLarge: true`。 */
+  @Get(':id/revisions')
+  @RequirePermissions(PERMISSION.ROLE_READ)
+  @ApiOperation({ summary: '角色的版本歷史（新的在前）' })
+  @ApiZodListResponse(200, RevisionSummarySchema)
+  listRevisions(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query(new ZodValidationPipe(ListRevisionSchema)) query: ListRevisionDto,
+  ) {
+    return this.roleService.listRevisions(id, query);
+  }
+
+  @Get(':id/revisions/:version')
+  @RequirePermissions(PERMISSION.ROLE_READ)
+  @ApiOperation({ summary: '角色的某一版（含快照）' })
+  @ApiZodResponse(200, RoleRevisionSchema)
+  getRevision(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('version', new ZodValidationPipe(RevisionVersionSchema)) version: number,
+  ) {
+    return this.roleService.getRevision(id, version);
+  }
+
+  /**
+   * 還原到某一版（ADR-0025 D10：`role:update`；權限鍵會改變時 service 另外要求 `role:grantPermission` 並做反提權）。
+   * 當成一次新的更新：角色的 `version` + 1、產生新的一版；過大未保存的版本 409 `REVISION_UNAVAILABLE`。
+   */
+  @Post(':id/revisions/:version/revert')
+  @HttpCode(200)
+  @RequirePermissions(PERMISSION.ROLE_UPDATE)
+  @ApiOperation({ summary: '把角色還原到某一版（產生新的一版）' })
+  @ApiZodBody(RevertRoleRevisionSchema)
+  @ApiZodResponse(200, RoleSchema)
+  revertToRevision(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('version', new ZodValidationPipe(RevisionVersionSchema)) version: number,
+    @Body(new ZodValidationPipe(RevertRoleRevisionSchema)) dto: RevertRoleRevisionDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.roleService.revertToRevision(id, version, dto, actor);
   }
 
   @Get(':id/permissions')

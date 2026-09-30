@@ -22,6 +22,7 @@
 | 11  | [`11-mail.md`](./11-mail.md)                       | 郵件：SMTP / console 傳輸、React Email 範本  |
 | 12  | [`12-settings.md`](./12-settings.md)               | 系統設定：執行期可調的值、env 與設定的分工   |
 | 13  | [`13-trash.md`](./13-trash.md)                     | 回收桶、還原、到期永久刪除（`trash.purge`）  |
+| 14  | [`14-revisions.md`](./14-revisions.md)             | 版本歷史：`revisions`、`RevisionService`、還原到某一版、`revision.prune` |
 
 ## 四條必須記住的規則
 

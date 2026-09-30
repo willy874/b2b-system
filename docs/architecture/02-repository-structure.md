@@ -206,6 +206,7 @@ apps/api/src/
 │   ├── file/                檔案轉介表、上傳流程、資料夾授權的讀寫與等級規則（docs/architecture/backend/09-file.md）
 │   ├── job/                 背景工作的管理 API（docs/architecture/backend/10-jobs.md §6）
 │   ├── trash/               回收桶：TrashRegistry、GET /trash、trash.purge（docs/architecture/backend/13-trash.md）
+│   ├── revision/            版本歷史：RevisionService（寫入、讀取、保留清理）、revision.prune（docs/architecture/backend/14-revisions.md）
 │   └── health/
 │
 └── db/
@@ -313,6 +314,7 @@ IDP_SECRET_KEY=                        # 加密外部 IdP client secret 的金�
 JOBS_WORKER_ENABLED=true            # 是否執行背景工作與排程；false 只入列（backend/10-jobs.md §5）
 AUDIT_LOG_ARCHIVE_CRON=30 3 * * *   # 稽核熱 → 冷搬移的 cron（UTC）；留空停用
 TRASH_PURGE_CRON=30 4 * * *         # 回收桶到期永久刪除的 cron（UTC）；保留天數是系統設定 trash.retentionDays（backend/13-trash.md §5）
+REVISION_PRUNE_CRON=45 4 * * *      # 版本歷史保留清理的 cron（UTC）；保留條件是系統設定 revision.keepVersions／keepDays（backend/14-revisions.md §5）
 
 REALTIME_ALLOWED_ORIGINS=http://localhost:5173   # Socket.io handshake 的 Origin 白名單（逗號分隔）
 

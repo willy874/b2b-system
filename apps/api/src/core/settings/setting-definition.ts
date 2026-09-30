@@ -13,6 +13,7 @@ export const SettingCategory = {
   AUTH: 'auth',
   FILE: 'file',
   TRASH: 'trash',
+  REVISION: 'revision',
 } as const;
 
 export type SettingCategory = (typeof SettingCategory)[keyof typeof SettingCategory];

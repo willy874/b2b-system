@@ -875,6 +875,37 @@ export interface DuplicateRoleRequest {
   name?: string;
 }
 
+export interface RevisionSummary {
+  version: number;
+  createdAt: string;
+  actor: {
+    id: string;
+    name: string;
+  } | null;
+  tooLarge: boolean;
+}
+
+export interface RoleRevisionSnapshot {
+  name: string;
+  description: string | null;
+  permissionKeys: Array<string>;
+}
+
+export interface RoleRevision {
+  version: number;
+  createdAt: string;
+  actor: {
+    id: string;
+    name: string;
+  } | null;
+  tooLarge: boolean;
+  snapshot: RoleRevisionSnapshot | null;
+}
+
+export interface RevertRoleRevisionRequest {
+  version?: number;
+}
+
 export interface Role {
   id: string;
   slug: string;
@@ -928,7 +959,7 @@ export interface UpdateRolePermissionsRequest {
 
 export interface SystemSetting {
   key: string;
-  category: 'general' | 'auth' | 'file' | 'trash';
+  category: 'general' | 'auth' | 'file' | 'trash' | 'revision';
   type: 'string' | 'number' | 'boolean';
   value: string | number | boolean;
   defaultValue: string | number | boolean;

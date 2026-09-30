@@ -363,6 +363,22 @@ G1～G2 期間由舊表上的 trigger 同步寫入這張表（migration 0008，�
 - `roles.deleted_at` 改變（刪除、還原角色）也 +1：migration 0012 的列層級 trigger（`AFTER UPDATE OF deleted_at … WHEN (OLD.deleted_at IS DISTINCT FROM NEW.deleted_at)`，
   同一個 `authz_revision_bump()`）。R3 起刪除與還原角色不寫 `relation_tuples`，但主體閉包會排除已刪除的角色，等於關係圖變了。
 
+### 2.12 `revisions`（版本歷史）
+
+選擇性加入的實體每次寫入後的整份快照（[ADR-0025](../../adr/0025-entity-revisions.md) D1；完整說明見 [`14-revisions.md`](./14-revisions.md) §2）。
+
+| 欄位 | 型別 | 說明 |
+| --- | --- | --- |
+| `id` | `uuid` PK | |
+| `resource_type` | `text` | `RESOURCE_TYPE` 的值（§1「列舉的例外」） |
+| `resource_id` | `uuid` | 多型，沒有外鍵；永久刪除實體時由擁有者一起刪 |
+| `version` | `integer` | 每個資源自己的流水號，與實體的 `version`（樂觀鎖）無關 |
+| `snapshot` | `jsonb NULL` | 寫入之後的狀態；超過 1 MiB 時是 null |
+| `actor_id` | `uuid NULL` → `users.id` `ON DELETE SET NULL` | 系統寫入是 null |
+| `created_at` | `timestamptz` | |
+
+`UNIQUE (resource_type, resource_id, version)`、`INDEX (created_at)`。沒有 `updated_at`、`deleted_at`：版本寫入後不改，只會被保留清理或永久刪除刪掉。
+
 ---
 
 ## 3. 不變條件的 DB 層強制
@@ -541,6 +557,8 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0012_roles_authz_revision.sql       手寫：roles.deleted_at 改變時 authz_revision +1（§2.11，ADR-0025 R3）
 ├── 0013_file_deletion_id.sql           files.deletion_id、file_folders.deletion_id ＋ 只涵蓋已刪除列的索引
 │                                       （一次刪除操作的識別，ADR-0025 D5、R4a；純加法，既有的已刪除列是 null）
+├── 0014_revisions.sql                  revisions 表（§2.12）＋ 手寫：每個既有角色的基準版本（第 1 版，actor null；
+│                                       ADR-0025 R5、14-revisions.md §4.2；純加法）
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

@@ -9,6 +9,7 @@ export * from './job-outbox';
 export * from './permissions';
 export * from './refresh-tokens';
 export * from './relation-tuples';
+export * from './revisions';
 export * from './roles';
 export * from './soft-delete';
 export * from './system-settings';

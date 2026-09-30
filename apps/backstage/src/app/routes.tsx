@@ -27,7 +27,10 @@ export const routeTree = RootRoute.addChildren([
 
   RoleRoutes.RoleListRoute.addChildren([
     RoleRoutes.RoleCreateRoute,
-    RoleRoutes.RoleDetailRoute.addChildren([RoleRoutes.RoleDetailPermissionRoute]),
+    RoleRoutes.RoleDetailRoute.addChildren([
+      RoleRoutes.RoleDetailPermissionRoute,
+      RoleRoutes.RoleDetailRevisionRoute,
+    ]),
   ]),
 
   PermissionRoutes.PermissionListRoute,

@@ -10,6 +10,7 @@ import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
 import { RESOURCE_TYPE } from '@/core/resource';
 import type { RoleRow } from '@/db/schema';
+import { isPermissionKey } from '@/db/seeds/permissions';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
@@ -18,11 +19,16 @@ import type {
   EffectivePermission,
   PermissionCatalogItem,
 } from '@/modules/permission/permission.service';
+import type { ListRevisionDto } from '@/modules/revision/dto/revision.dto';
+import { RevisionService } from '@/modules/revision/revision.service';
 
 import type { CreateRoleDto, DuplicateRoleDto } from './dto/create-role.dto';
 import type { DeleteRoleDto, ListRoleDto, ListRoleUsersDto } from './dto/list-role.dto';
+import type { RevertRoleRevisionDto, RoleRevisionDto } from './dto/role-revision.dto';
 import type { RestoredRoleDto, RoleDto } from './dto/role.dto';
 import type { UpdateRoleDto, UpdateRolePermissionsDto } from './dto/update-role.dto';
+import { RoleRevisionSnapshotSchema, toRoleRevision } from './role-revision';
+import type { RoleRevisionSnapshot } from './role-revision';
 import { ROLE_AUDIT_FIELDS, slugify } from './role.constants';
 import type { RoleWithCounts } from './role.repository';
 import { RoleRepository } from './role.repository';
@@ -67,6 +73,7 @@ export class RoleService {
     private readonly permissionService: PermissionService,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
+    private readonly revisions: RevisionService,
   ) {}
 
   async list(query: ListRoleDto) {
@@ -122,6 +129,7 @@ export class RoleService {
         tx,
       );
       await this.repo.addPermissions(created.id, dto.permissionKeys, actor.id, tx);
+      await this.recordRevision(created, actor.id, tx);
       await this.audit.record(
         {
           action: 'role.create',
@@ -161,6 +169,8 @@ export class RoleService {
       const updated = await this.repo.update(id, { ...fields, updatedBy: actor.id }, version, tx);
       // 讀到之後、寫入之前被別人改過（版本變了）或刪除
       if (!updated) throw await this.missedUpdate(id, version, tx);
+      // UPDATE 已經鎖住角色列：同一個角色的版本號依序產生
+      await this.recordRevision(updated, actor.id, tx);
       await this.audit.record(
         {
           action: 'role.update',
@@ -206,8 +216,9 @@ export class RoleService {
     );
 
     await withTransaction(this.db, async (tx) => {
-      // 鎖住角色列：同一個角色的權限變更依序進行，before／after 不會被併發的另一筆交錯
-      if (!(await this.repo.lockActive(id, tx))) throw new AppException('ROLE_NOT_FOUND');
+      // 鎖住角色列：同一個角色的權限變更依序進行，before／after 與版本號不會被併發的另一筆交錯
+      const locked = await this.repo.lockActiveRow(id, tx);
+      if (!locked) throw new AppException('ROLE_NOT_FOUND');
       const before = await this.repo.listPermissionKeys(id, tx);
       if (dto.remove.length) {
         await this.repo.removePermissions(id, dto.remove, tx);
@@ -216,6 +227,13 @@ export class RoleService {
         await this.repo.addPermissions(id, dto.add, actor.id, tx);
       }
       const after = await this.repo.listPermissionKeys(id, tx);
+      // 權限鍵是關聯的寫入，不遞增角色的 `version`（ADR-0025 D3），但會產生新的一版
+      await this.revisions.record(tx, {
+        resourceType: RESOURCE_TYPE.ROLE,
+        resourceId: id,
+        snapshot: toRoleRevision(locked, after),
+        actorId: actor.id,
+      });
       await this.audit.record(
         {
           action: 'role.grantPermission',
@@ -261,6 +279,7 @@ export class RoleService {
         tx,
       );
       await this.repo.addPermissions(role.id, granted, actor.id, tx);
+      await this.recordRevision(role, actor.id, tx);
       await this.audit.record(
         {
           action: 'role.duplicate',
@@ -377,6 +396,173 @@ export class RoleService {
       affectedUserIds: holders,
     });
     return { ...(await this.findOne(id)), holdersRestored };
+  }
+
+  // ── 版本歷史（docs/architecture/backend/14-revisions.md §4、ADR-0025 D1、D10） ──
+
+  /** 角色的版本，新的在前。看版本＝看得到角色（`role:read`）；已刪除的角色 404。 */
+  async listRevisions(id: string, query: ListRevisionDto) {
+    await this.getExisting(id);
+    return this.revisions.list(RESOURCE_TYPE.ROLE, id, query);
+  }
+
+  async getRevision(id: string, version: number): Promise<RoleRevisionDto> {
+    await this.getExisting(id);
+    const revision = await this.revisions.get(RESOURCE_TYPE.ROLE, id, version);
+    const parsed = RoleRevisionSnapshotSchema.safeParse(revision.snapshot);
+    // 形狀對不上（白名單之後改過）的舊版本當成沒有內容，與過大未保存相同
+    return { ...revision, snapshot: parsed.success ? parsed.data : null };
+  }
+
+  /**
+   * 還原到某一版（ADR-0025 D1、D10）：把那一版的快照當成一次新的更新——名稱、說明照一般的 `PATCH /roles/:id`
+   * （`version` + 1、樂觀鎖、名稱唯一），權限鍵照 `PATCH /roles/:id/permissions`（反提權、自我鎖定），寫入之後產生新的一版，
+   * 歷史不改寫。稽核記 `role.update`，`metadata.revertedFrom` 帶來源版本。
+   *
+   * 權限：路由要 `role:update`；權限鍵會改變時另外要 `role:grantPermission`（與改權限的端點相同，
+   * 否則沒有授權權限的人能藉還原拿掉角色的鍵）。加回的鍵要是 actor 持有的（`assertGrantable`）。
+   * 目錄裡已經不存在的鍵略過（`metadata.skippedPermissions`），不讓舊版本因為目錄改過而無法還原。
+   */
+  async revertToRevision(
+    id: string,
+    version: number,
+    dto: RevertRoleRevisionDto,
+    actor: AuthUser,
+  ): Promise<RoleDto> {
+    const role = await this.getExisting(id);
+    if (dto.version !== undefined && dto.version !== role.version) {
+      throw new AppException('ROLE_VERSION_CONFLICT', { current: role.version });
+    }
+    if (role.slug === SUPER_ADMIN_SLUG) throw new AppException('ROLE_SUPER_ADMIN_IMMUTABLE');
+    const target = await this.snapshotOf(id, version);
+    const targetKeys = target.permissionKeys.filter(isPermissionKey);
+    const targetSet = new Set<string>(targetKeys);
+    const skippedPermissions = target.permissionKeys.filter((key) => !isPermissionKey(key));
+    if (target.name.toLowerCase() !== role.name.toLowerCase()) {
+      await this.assertNameAvailable(target.name);
+    }
+
+    const keysChanged = await withTransaction(this.db, async (tx) => {
+      // 鎖住角色列之後才算權限鍵的差異與做反提權的檢查：交易外讀到的集合可能已被別人改過
+      const locked = await this.repo.lockActiveRow(id, tx);
+      if (!locked) throw new AppException('ROLE_NOT_FOUND');
+      const before = await this.repo.listPermissionKeys(id, tx);
+      const add = targetKeys.filter((key) => !before.includes(key));
+      const remove = before.filter((key) => !targetSet.has(key));
+      const changesKeys = add.length > 0 || remove.length > 0;
+      if (changesKeys) {
+        await this.assertCanGrantPermissions(actor, id);
+        await this.permissionService.assertGrantable(actor.id, add);
+        await this.permissionService.assertNoSelfLockout(
+          actor.id,
+          id,
+          targetKeys,
+          ROLE_MANAGEMENT_PERMISSIONS,
+        );
+      }
+
+      const fields = { name: target.name, description: target.description };
+      const updated = await this.repo.update(
+        id,
+        { ...fields, updatedBy: actor.id },
+        dto.version,
+        tx,
+      );
+      if (!updated) throw await this.missedUpdate(id, dto.version, tx);
+      await this.repo.removePermissions(id, remove, tx);
+      await this.repo.addPermissions(id, add, actor.id, tx);
+      const after = await this.repo.listPermissionKeys(id, tx);
+
+      const fieldChanges = diff(locked, fields, [...ROLE_AUDIT_FIELDS]);
+      await this.audit.record(
+        {
+          action: 'role.update',
+          resourceType: RESOURCE_TYPE.ROLE,
+          resourceId: id,
+          resourceName: updated.name,
+          changes: {
+            before: { ...fieldChanges?.before, ...(changesKeys && { permissions: before }) },
+            after: { ...fieldChanges?.after, ...(changesKeys && { permissions: after }) },
+          },
+          metadata: {
+            revertedFrom: version,
+            ...(skippedPermissions.length > 0 && { skippedPermissions }),
+          },
+        },
+        tx,
+      );
+      await this.revisions.record(tx, {
+        resourceType: RESOURCE_TYPE.ROLE,
+        resourceId: id,
+        snapshot: toRoleRevision(updated, after),
+        actorId: actor.id,
+      });
+      return changesKeys;
+    });
+
+    // ★ 交易之後：權限快取失效（改了權限鍵時）→ 推播；與 update／updatePermissions 相同的順序
+    const holders = await this.permissionService.findUserIdsByRole(id);
+    if (keysChanged) await this.permissionService.permissionsChanged(holders);
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [
+        { resource: ChangeSource.ROLE, kind: ChangeKind.UPDATE, id },
+        ...(keysChanged
+          ? [{ resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id }]
+          : []),
+      ],
+      affectedUserIds: holders,
+    });
+    return this.findOne(id);
+  }
+
+  /** 還原用的快照：過大未保存 → 409 `REVISION_UNAVAILABLE`；形狀對不上（白名單之後改過）同樣無法還原。 */
+  private async snapshotOf(id: string, version: number): Promise<RoleRevisionSnapshot> {
+    const snapshot = await this.revisions.getSnapshot(RESOURCE_TYPE.ROLE, id, version);
+    const parsed = RoleRevisionSnapshotSchema.safeParse(snapshot);
+    if (!parsed.success) {
+      throw new AppException('REVISION_UNAVAILABLE', { version, reason: 'incompatible' });
+    }
+    return parsed.data;
+  }
+
+  /**
+   * 還原會改變權限鍵時，另外要有 `role:grantPermission`（與 `PATCH /roles/:id/permissions` 的路由宣告相同）。
+   * 拒絕照 `PermissionsGuard` 的形狀：`403 AUTHZ_FORBIDDEN` ＋ `authz.denied` 稽核。
+   */
+  private async assertCanGrantPermissions(actor: AuthUser, roleId: string): Promise<void> {
+    const { permissions, isSuperAdmin } = await this.permissionService.getPermissionSet(actor.id);
+    if (isSuperAdmin || permissions.has(PERMISSION.ROLE_GRANT_PERMISSION)) return;
+    const required = [PERMISSION.ROLE_GRANT_PERMISSION];
+    await this.audit.recordSafely({
+      action: 'authz.denied',
+      result: 'failure',
+      actorId: actor.id,
+      actorEmail: actor.email,
+      resourceType: 'authz',
+      errorCode: 'AUTHZ_FORBIDDEN',
+      metadata: {
+        route: 'POST /roles/:id/revisions/:version/revert',
+        roleId,
+        required,
+        missing: required,
+      },
+    });
+    throw new AppException('AUTHZ_FORBIDDEN', { required, missing: required });
+  }
+
+  /** 寫入之後的狀態存成一版（在呼叫端的交易內，角色列已被鎖住或剛建立）。 */
+  private async recordRevision(
+    role: Pick<RoleRow, 'id' | 'name' | 'description'>,
+    actorId: string,
+    tx: DbOrTx,
+  ): Promise<void> {
+    const keys = await this.repo.listPermissionKeys(role.id, tx);
+    await this.revisions.record(tx, {
+      resourceType: RESOURCE_TYPE.ROLE,
+      resourceId: role.id,
+      snapshot: toRoleRevision(role, keys),
+      actorId,
+    });
   }
 
   // ── 業務規則 ─────────────────────────────────────────────

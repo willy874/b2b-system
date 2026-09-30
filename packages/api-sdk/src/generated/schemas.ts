@@ -85,10 +85,14 @@ import type {
   ResetPasswordRequest,
   RestoredFileFolder,
   RestoredRole,
+  RevertRoleRevisionRequest,
   ReviewFileAccessRequest,
+  RevisionSummary,
   Role,
   RoleHolder,
   RolePermissions,
+  RoleRevision,
+  RoleRevisionSnapshot,
   RoleSummary,
   Session,
   SetFileFolderGrantRequest,
@@ -1384,6 +1388,53 @@ export const DuplicateRoleRequestSchema = z.object({
   name: z.string().min(1).max(64).optional(),
 }) satisfies z.ZodType<DuplicateRoleRequest>;
 
+export const RevisionSummarySchema = z.object({
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  actor: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      name: z.string(),
+    })
+    .nullable(),
+  tooLarge: z.boolean(),
+}) satisfies z.ZodType<RevisionSummary>;
+
+export const RoleRevisionSnapshotSchema = z.object({
+  name: z.string(),
+  description: z.string().nullable(),
+  permissionKeys: z.array(z.string()),
+}) satisfies z.ZodType<RoleRevisionSnapshot>;
+
+export const RoleRevisionSchema = z.object({
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  actor: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      name: z.string(),
+    })
+    .nullable(),
+  tooLarge: z.boolean(),
+  snapshot: RoleRevisionSnapshotSchema.nullable(),
+}) satisfies z.ZodType<RoleRevision>;
+
+export const RevertRoleRevisionRequestSchema = z.object({
+  version: z.int().min(1).max(9007199254740991).optional(),
+}) satisfies z.ZodType<RevertRoleRevisionRequest>;
+
 export const RoleSchema = z.object({
   id: z
     .uuid()
@@ -1455,7 +1506,7 @@ export const UpdateRolePermissionsRequestSchema = z.object({
 
 export const SystemSettingSchema = z.object({
   key: z.string(),
-  category: z.enum(['general', 'auth', 'file', 'trash']),
+  category: z.enum(['general', 'auth', 'file', 'trash', 'revision']),
   type: z.enum(['string', 'number', 'boolean']),
   value: z.union([z.string().max(1000), z.number(), z.boolean()]),
   defaultValue: z.union([z.string().max(1000), z.number(), z.boolean()]),

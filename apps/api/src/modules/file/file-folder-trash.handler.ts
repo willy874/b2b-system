@@ -26,6 +26,8 @@ export class FileFolderTrashHandler implements TrashHandler, OnModuleInit {
   readonly type = RESOURCE_TYPE.FILE_FOLDER;
   /** 與檔案相同：全域的 `file:delete`（13-trash.md §7.4）。 */
   readonly permission = PERMISSION.FILE_DELETE;
+  /** 租戶停用檔案功能時看不到這一類的回收桶（`GET /trash` 回 `FEATURE_DISABLED`，與檔案端點的 `@RequireFeature('file')` 一致）。 */
+  readonly feature = 'file' as const;
   /**
    * 檔案（10）之後、使用者（30）之前：資料夾裡的檔案要先清掉（`files.folder_id` 是 `RESTRICT`）；
    * 系統刪除的個人資料夾清掉之後，擁有者才能被永久刪除（`file_folders.owner_id` 是 `RESTRICT`）。

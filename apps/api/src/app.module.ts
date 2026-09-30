@@ -30,6 +30,7 @@ import { JobModule } from './modules/job/job.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
+import { RevisionModule } from './modules/revision/revision.module';
 import { RoleModule } from './modules/role/role.module';
 import { SystemModule } from './modules/system/system.module';
 import { TenantModule } from './modules/tenant/tenant.module';
@@ -77,6 +78,7 @@ import { UserModule } from './modules/user/user.module';
     ApprovalModule,
     // 回收桶；各資源類型的 handler 由擁有資源的業務模組註冊（docs/architecture/backend/13-trash.md）
     TrashModule,
+    RevisionModule,
 
     // 業務模組
     AuthModule,

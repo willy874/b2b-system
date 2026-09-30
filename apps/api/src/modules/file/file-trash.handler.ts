@@ -31,6 +31,8 @@ export class FileTrashHandler implements TrashHandler, OnModuleInit {
   readonly type = RESOURCE_TYPE.FILE;
   /** 回收桶看的是全域的 `file:delete`：只有資料夾層級刪除權的人由刪除提示的「復原」還原（13-trash.md §7.4）。 */
   readonly permission = PERMISSION.FILE_DELETE;
+  /** 租戶停用檔案功能時看不到這一類的回收桶（`GET /trash` 回 `FEATURE_DISABLED`，與檔案端點的 `@RequireFeature('file')` 一致）。 */
+  readonly feature = 'file' as const;
   /** 最先：`files.folder_id` 是 `RESTRICT`，資料夾（20）要等檔案清掉才刪得掉。 */
   readonly purgeOrder = 10;
 

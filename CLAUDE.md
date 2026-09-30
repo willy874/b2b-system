@@ -111,3 +111,5 @@ pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法�
 | 軟刪除條件的位置 | ADR-0025 D8：`db/soft-delete.ts` | `db/schema/soft-delete.ts`（`@/db/schema`、`@/db/platform/schema` 匯出） | `isActiveRole()` 在 `db/schema/roles.ts` 要用它，而 `db/schema/` 只依賴同層 |
 | `TrashHandler` 的形狀 | ADR-0025 D9：`purge(ids, tx)` | `findExpired(cutoff, afterId, limit)` ＋ 逐列 `purge(item, tx)`（每列一個 savepoint）＋ `afterPurge(ids)` | 一列因外鍵刪不掉時只略過它自己；keyset 讓略過的列不會在同一輪被重複取到；交易後的副作用（權限失效、推播）要與交易內的刪除分開 |
 | 還原時唯一值衝突的 details | ADR-0025 D5：`details.conflictingId` | 使用者用 `details.conflictingUserId` | 依 D6 與使用者的錯誤碼；R3／R4 的角色、資料夾各自決定欄位名 |
+| 版本歷史的版本號 | 提案的 `revisions` 草圖：`version` 對應實體的 `version` | 每個資源自己的流水號（`RevisionService.record()` 在交易內以 `max + 1` 產生，`record()` 不收 `version`） | 權限鍵是關聯的寫入、不遞增 `roles.version`（R1），卻要產生新的一版；見 `docs/architecture/backend/14-revisions.md` §3.1 |
+| 還原到某一版的權限 | ADR-0025 D10：`role:update` ＋ 反提權 | 路由 `role:update`；權限鍵會改變時 service 另要 `role:grantPermission`（`403 AUTHZ_FORBIDDEN`） | 否則只有 `role:update` 的人能藉還原拿掉角色的權限鍵（改權限的端點要 `role:grantPermission`）；見 `14-revisions.md` §4.3 |

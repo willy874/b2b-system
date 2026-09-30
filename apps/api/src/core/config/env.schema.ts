@@ -293,6 +293,9 @@ export const EnvSchema = z.object({
   /** 回收桶到期永久刪除的 cron（UTC）；空字串停用。保留天數是系統設定 `trash.retentionDays`（docs/architecture/backend/13-trash.md §5）。 */
   TRASH_PURGE_CRON: z.string().trim().default('30 4 * * *'),
 
+  /** 版本歷史保留清理的 cron（UTC）；空字串停用。保留條件是系統設定 `revision.keepVersions`、`revision.keepDays`（docs/architecture/backend/14-revisions.md §5）。 */
+  REVISION_PRUNE_CRON: z.string().trim().default('45 4 * * *'),
+
   /**
    * 第一位平台管理者（apps/auth 的租戶管理）：`db:seed` 在平台 DB 沒有任何管理者時建立。
    * 密碼留空 = seed 時隨機產生並印出一次。

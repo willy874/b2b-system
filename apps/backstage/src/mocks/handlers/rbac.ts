@@ -132,6 +132,30 @@ function rolePermissionsBody(id: string) {
   };
 }
 
+/** 角色的 mock 版本：第 1 版少一個權限、第 2 版等於目前的內容（新的在後）。 */
+function roleRevisions(id: string) {
+  const role = ROLE_FIXTURES.find((item) => item.id === id);
+  if (!role) return [];
+  const keys = roleExplicitKeys(id).toSorted();
+  const actor = { id: USER_FIXTURES[0]!.id, name: USER_FIXTURES[0]!.displayName };
+  return [
+    {
+      version: 1,
+      createdAt: role.createdAt,
+      actor: null,
+      tooLarge: false,
+      snapshot: { name: role.name, description: null, permissionKeys: keys.slice(1) },
+    },
+    {
+      version: 2,
+      createdAt: role.updatedAt,
+      actor,
+      tooLarge: false,
+      snapshot: { name: role.name, description: role.description, permissionKeys: keys },
+    },
+  ];
+}
+
 export const rbacHandlers = [
   http.get(`${MOCK_API_BASE}/users`, () => HttpResponse.json({ data: paginate(USER_FIXTURES) })),
   http.get(`${MOCK_API_BASE}/users/:id`, ({ params }) => {
@@ -170,6 +194,36 @@ export const rbacHandlers = [
     return HttpResponse.json({ data: rolePermissionsBody(id) });
   }),
   http.get(`${MOCK_API_BASE}/roles/:id/users`, () => HttpResponse.json({ data: paginate([]) })),
+  // 版本紀錄（ADR-0025 R5）：每個角色兩版，第 2 版等於目前的內容；讀要 role:read、還原要 role:update
+  http.get(`${MOCK_API_BASE}/roles/:id/revisions`, ({ params }) => {
+    if (!mockState.permissions.includes('role:read')) return forbidden('role:read');
+    return HttpResponse.json({
+      data: paginate(
+        roleRevisions(String(params.id))
+          .toReversed()
+          .map(({ snapshot: _snapshot, ...summary }) => summary),
+      ),
+    });
+  }),
+  http.get(`${MOCK_API_BASE}/roles/:id/revisions/:version`, ({ params }) => {
+    if (!mockState.permissions.includes('role:read')) return forbidden('role:read');
+    const revision = roleRevisions(String(params.id)).find(
+      (item) => item.version === Number(params.version),
+    );
+    return revision
+      ? HttpResponse.json({ data: revision })
+      : HttpResponse.json(
+          { error: { code: 'REVISION_NOT_FOUND', message: 'not found' } },
+          { status: 404 },
+        );
+  }),
+  writeHandler(
+    'post',
+    '/roles/:id/revisions/:version/revert',
+    'role:update',
+    (id) => (ROLE_FIXTURES.some((item) => item.id === id) ? undefined : { code: 'ROLE_NOT_FOUND' }),
+    (id) => HttpResponse.json({ data: ROLE_FIXTURES.find((item) => item.id === id) }),
+  ),
 
   http.get(`${MOCK_API_BASE}/permissions`, () =>
     HttpResponse.json({

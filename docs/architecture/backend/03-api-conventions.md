@@ -475,10 +475,12 @@ async login(...) {}
 | 實體 | 遞增 | 不遞增 |
 | ---- | ---- | ------ |
 | `users` | `PATCH /users/:id`、解鎖、個人資料（`PATCH /auth/profile`）、啟用（`pending` → `active`）、重設密碼順帶解除 `locked` 狀態——即 `username`、`displayName`、`status`、`locale`、`timezone`（`USER_VERSIONED_FIELDS`） | 登入（`last_login_at`、失敗計數、`locked_until`）、改密碼、`token_version`、刪除；角色指派（`PUT /users/:id/roles`，關聯，沿用 `expectedRoleIds`） |
-| `roles` | `PATCH /roles/:id`（名稱、說明） | 權限鍵（`PATCH /roles/:id/permissions`，差異語意）、持有者、刪除 |
+| `roles` | `PATCH /roles/:id`（名稱、說明）、還原到某一版（`POST /roles/:id/revisions/:version/revert`，當成一次更新；[`14-revisions.md`](./14-revisions.md) §4.3） | 權限鍵（`PATCH /roles/:id/permissions`，差異語意）、持有者、刪除 |
 | `files` | 改名（`PATCH /files/:id`） | 上傳流程的狀態、變體、移動（見 09 §6.2） |
 
 帳號的運作狀態不遞增：否則每次有人登入，別人開著的編輯表單就會衝突。
+
+版本歷史（[`14-revisions.md`](./14-revisions.md)）的版本號是另一個號碼：每個資源自己的流水號，關聯的寫入（權限鍵）也會產生新的一版，但不遞增這裡的 `version`。
 
 前端：編輯表單在 **開始編輯時** 記下 `version` 並在送出時帶上（編輯途中推播讓資料重抓，也不能換成最新的版本，
 否則等於默默覆寫）。收到 `*_VERSION_CONFLICT`（`isVersionConflict(error)`）時 mutation hook 失效該資源、不彈 toast，

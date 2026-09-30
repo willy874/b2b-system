@@ -491,7 +491,7 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | 可近性 | 捲動框是 `<section>`，傳 `aria-label` 即成為 `region` 地標；箭頭是 `<button aria-expanded>`；行號 `aria-hidden` |
 | testid | 行：`json-viewer-item` ＋ `data-value`（節點路徑，如 `$["a"][0]`）＋ `data-line-number`；箭頭：`json-viewer-toggle` |
 
-**`JsonDiff`**（`components/JsonDiff/`）：兩份 JSON 的逐行差異（unified diff），稽核日誌的「變更前後」用它。
+**`JsonDiff`**（`components/JsonDiff/`）：兩份 JSON 的逐行差異（unified diff），稽核日誌的「變更前後」與版本紀錄的比較（[`14-revisions.md`](./14-revisions.md) §3）用它。
 
 | 功能 | props / 行為 |
 | ---- | ---- |

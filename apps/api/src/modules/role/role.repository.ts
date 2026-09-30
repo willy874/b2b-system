@@ -222,6 +222,19 @@ export class RoleRepository {
     return row?.version;
   }
 
+  /**
+   * 在交易內以 `FOR UPDATE` 鎖住並讀出未刪除的角色列；不存在（或已刪除）時回 undefined。
+   * 版本歷史的快照要讀鎖住之後的名稱與說明（docs/architecture/backend/14-revisions.md §4.1）。
+   */
+  async lockActiveRow(id: string, tx: DbOrTx): Promise<RoleRow | undefined> {
+    const [row] = await tx
+      .select()
+      .from(roles)
+      .where(and(eq(roles.id, id), isActiveRole()))
+      .for('update');
+    return row;
+  }
+
   /** 在交易內以 `FOR UPDATE` 鎖住未刪除的角色列；不存在（或已刪除）時回 false。 */
   async lockActive(id: string, tx: DbOrTx): Promise<boolean> {
     const [row] = await tx

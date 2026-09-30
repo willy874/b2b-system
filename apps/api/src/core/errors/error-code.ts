@@ -102,6 +102,12 @@ export const ErrorCode = {
   /** 還原（`POST /roles/:id/restore`）一個沒有被刪除的角色（ADR-0025 R3）。 */
   ROLE_NOT_DELETED: { status: 409 },
 
+  // ── 版本歷史（docs/architecture/backend/14-revisions.md） ──
+  /** 指定的版本不存在（或已被保留清理刪除）。 */
+  REVISION_NOT_FOUND: { status: 404 },
+  /** 那一版的快照超過上限而未保存（`details.reason: 'tooLarge'`），無法還原（ADR-0025 D1）。 */
+  REVISION_UNAVAILABLE: { status: 409 },
+
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },
 

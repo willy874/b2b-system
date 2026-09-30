@@ -76,6 +76,8 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 | `auth.passwordResetTtlHours` | 1–24 | 1 | 否 | 同上，重設密碼連結 |
 | `file.uploadMaxSize` | 1 MiB – env 上限（位元組） | env 值 | 否 | `FileService`：`createUpload` 的檢查與 `GET /files/upload-policy` |
 | `trash.retentionDays` | 1–365（天） | 30 | 否 | `TrashService`：`trash.purge` 永久刪除的期限、回收桶列表的 `purgeAt`（[`13-trash.md`](./13-trash.md) §5）。調小後下一次排程就依新的天數清除 |
+| `revision.keepVersions` | 1–1000（版） | 50 | 否 | `RevisionService.prune`：每個資源至少保留最新的這麼多版（[`14-revisions.md`](./14-revisions.md) §5） |
+| `revision.keepDays` | 1–3650（天） | 90 | 否 | 同上：這麼多天內的版本一律保留；兩者之外的由 `revision.prune` 刪除 |
 
 - **範圍寫在 schema 上**：下限擋住會削弱安全性的值（鎖定次數不能是 0、密碼不能短於 12），
   上限擋住超出部署能力的值。存得進去的值都安全，所以修改只寫稽核、不走審批。

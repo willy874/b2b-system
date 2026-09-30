@@ -7,6 +7,7 @@ import { AppException, isForeignKeyViolation } from '@/core/errors';
 import { paginated } from '@/core/http';
 import type { PaginatedResult } from '@/core/http';
 import { SettingService } from '@/core/settings';
+import { currentTenant } from '@/core/tenant';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 
@@ -65,6 +66,8 @@ export class TrashService {
 
   async list(query: ListTrashDto, actor: AuthUser): Promise<PaginatedResult<TrashItemDto>> {
     const handler = this.registry.get(query.type);
+    // 先看 feature 再看權限：與 FeatureGuard 排在 PermissionsGuard 之前同一個理由（功能沒開時一律 404，不寫 authz.denied）
+    this.assertFeatureEnabled(handler);
     await this.assertCanView(handler, actor);
     const [{ items, total }, retentionDays] = await Promise.all([
       handler.listDeleted(query),
@@ -160,6 +163,17 @@ export class TrashService {
       if (!isForeignKeyViolation(error)) throw error;
       this.logger.warn({ type: handler.type, id: item.id }, '仍被其他資料參照，這一輪略過永久刪除');
       return false;
+    }
+  }
+
+  /**
+   * 租戶停用了這一類所屬的 feature → `404 FEATURE_DISABLED`（ADR-0021 D11）。`GET /trash` 本身是常駐的端點，
+   * 無法以 `@RequireFeature` 標在路由上，所以依類型在這裡判斷。沒有租戶脈絡時不判斷（與 `FeatureGuard` 相同）。
+   */
+  private assertFeatureEnabled(handler: TrashHandler): void {
+    const tenant = currentTenant();
+    if (handler.feature && tenant && !tenant.features.includes(handler.feature)) {
+      throw new AppException('FEATURE_DISABLED');
     }
   }
 

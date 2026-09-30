@@ -236,6 +236,9 @@
 | GET    | `/roles/:id/users`       | 🛡 `role:read` ＋ `user:read`       | 持有此角色的使用者         |
 | POST   | `/roles/:id/duplicate`   | 🛡 `role:create`                    | 以既有角色為範本建立新角色 |
 | POST   | `/roles/:id/restore`     | 🛡 `role:delete`                    | 還原刪除的角色（原本的持有者一併恢復） |
+| GET    | `/roles/:id/revisions`   | 🛡 `role:read`                      | 版本歷史（新的在前，分頁） |
+| GET    | `/roles/:id/revisions/:version` | 🛡 `role:read`               | 某一版（含快照） |
+| POST   | `/roles/:id/revisions/:version/revert` | 🛡 `role:update`（權限鍵會改變時另要 `role:grantPermission`） | 還原到某一版（產生新的一版） |
 
 ### 3.1 `GET /roles`
 
@@ -350,6 +353,41 @@
 - `holdersRestored`：重新生效的持有者人數（等於還原後的 `userCount`）。R3 之前刪除的角色已經沒有持有者邊，是 0。
 - 回收桶的列表是 `GET /trash?type=role`（§7.2）。細節見 [`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md) §6。
 
+### 3.7 版本歷史：`/roles/:id/revisions`
+
+每次建立、複製、改名稱或說明、增減權限鍵、還原到某一版都產生一版（[ADR-0025](../adr/0025-entity-revisions.md) D1、R5）。
+快照是 `{ name, description, permissionKeys }`（權限鍵排序過）。版本號是這個角色自己的流水號，與角色的 `version`（樂觀鎖）無關。
+細節見 [`../architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md) §4。
+
+```jsonc
+// GET /roles/:id/revisions?offset=0&limit=20 → 200
+{ "data": { "items": [
+  { "version": 3, "createdAt": "…", "actor": { "id": "…", "name": "Alice" }, "tooLarge": false },
+  { "version": 1, "createdAt": "…", "actor": null, "tooLarge": false }   // actor null：系統（基準版本）
+], "pagination": { "offset": 0, "limit": 20, "total": 3 } } }
+
+// GET /roles/:id/revisions/1 → 200
+{ "data": { "version": 1, "createdAt": "…", "actor": null, "tooLarge": false,
+  "snapshot": { "name": "Editor", "description": null, "permissionKeys": ["role:read", "user:read"] } } }
+
+// POST /roles/:id/revisions/1/revert  { "version": 4 } → 200 { "data": { /* Role，version 5 */ } }
+```
+
+還原當成一次新的更新：名稱、說明照 `PATCH /roles/:id`（樂觀鎖、撞名），權限鍵照 `PATCH /roles/:id/permissions`（反提權、自我鎖定），
+稽核 `role.update` 帶 `metadata.revertedFrom`。
+
+| 錯誤 | 何時 |
+| --- | --- |
+| `404 ROLE_NOT_FOUND` | 角色不存在或已刪除 |
+| `404 REVISION_NOT_FOUND` | 那一版不存在（或已被保留清理刪除） |
+| `409 REVISION_UNAVAILABLE` | 那一版過大未保存（`details.reason: 'tooLarge'`），或形狀對不上（`'incompatible'`） |
+| `409 ROLE_VERSION_CONFLICT` | 帶的 `version` 不是角色目前的版本（`details.current`） |
+| `409 ROLE_NAME_DUPLICATE` | 那一版的名稱已被別的角色使用 |
+| `403 ROLE_SUPER_ADMIN_IMMUTABLE` | super-admin 角色 |
+| `403 AUTHZ_FORBIDDEN` | 權限鍵會改變而沒有 `role:grantPermission`（`details.required`） |
+| `403 AUTHZ_ESCALATION` | 會加回 actor 沒有的權限鍵（§5） |
+| `403 ROLE_SELF_LOCKOUT` | 還原後自己會失去管理角色所需的權限 |
+
 ---
 
 ## 4. Permissions
@@ -401,6 +439,7 @@
 | `PUT /users/:id/roles`         | 同上                                         |
 | `POST /approvals/:id/approve`  | `roleIds`（`user.register`）同上             |
 | `POST /users/:id/restore`      | 他持有的、仍存在的角色（還原會讓它們重新生效） |
+| `POST /roles/:id/revisions/:version/revert` | 那一版比目前多出的權限鍵（加回的部分） |
 | `PUT /file-folders/:id/grants`、`DELETE …/grants/:subjectType/:subjectId` | 該等級蘊含的檔案動作（以操作者 **在該資料夾** 的能力比對，見 [`07-resource-grants.md`](./07-resource-grants.md) §6.1） |
 
 規則：`待授予集合 ⊆ actor 的權限集合`，否則 `403 AUTHZ_ESCALATION`，
@@ -533,7 +572,7 @@
 
 | Method | Path     | 授權 | 說明 |
 | ------ | -------- | ---- | ---- |
-| GET    | `/trash` | 🛡 任一種 `<resource>:delete`（`user:delete`、`role:delete`、`file:delete`），再依 `type`（`user`、`role`、`file`、`fileFolder`）檢查該類型的權限（檔案與資料夾看 **全域** `file:delete`） | 某一類已刪除的項目（`type` 必填，新刪除的在前；`offset`／`limit`／`keyword`） |
+| GET    | `/trash` | 🛡 任一種 `<resource>:delete`（`user:delete`、`role:delete`、`file:delete`），再依 `type`（`user`、`role`、`file`、`fileFolder`）檢查該類型的權限（檔案與資料夾看 **全域** `file:delete`） | 某一類已刪除的項目（`type` 必填，新刪除的在前；`offset`／`limit`／`keyword`）。類型所屬的租戶 feature 停用時（`file`、`fileFolder` 屬於 `file`）回 `404 FEATURE_DISABLED` |
 
 每一列：`id`、`type`、`name`、`description`、`deletedAt`、`deletedBy`（`{ id, name }` 或 `null`）、`purgeAt`。
 還原端點在各資源（`POST /users/:id/restore`、`POST /roles/:id/restore`、`POST /files/:id/restore`、`POST /file-folders/:id/restore`）；永久刪除只由排程 `trash.purge` 執行。

@@ -209,6 +209,7 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 | 改 `slug`                 | ❌                              | ❌                                       |
 | 改 `name` / `description` | ❌ `ROLE_SUPER_ADMIN_IMMUTABLE` | ✅                                       |
 | 改權限                    | ❌ `ROLE_SUPER_ADMIN_IMMUTABLE` | ✅（仍受反提權限制）                     |
+| 還原到某一版（`POST /roles/:id/revisions/:version/revert`） | ❌ `ROLE_SUPER_ADMIN_IMMUTABLE` | ✅ API 允許（前端不提供，與編輯按鈕相同） |
 | 指派給使用者              | ✅                              | ✅                                       |
 | 複製成新角色              | ✅（複本是一般角色）            | ✅                                       |
 

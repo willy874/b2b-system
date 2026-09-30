@@ -7,6 +7,7 @@ import { getRoleDeleteMutationOptions } from '@/apis/role/delete-role/mutation';
 import { getRoleDuplicateMutationOptions } from '@/apis/role/duplicate-role/mutation';
 import { getGrantRolePermissionsMutationOptions } from '@/apis/role/grant-role-permissions/mutation';
 import { getRoleRestoreMutationOptions } from '@/apis/role/restore-role/mutation';
+import { getRoleRevertRevisionMutationOptions } from '@/apis/role/revert-role-revision/mutation';
 import { getRoleUpdateMutationOptions } from '@/apis/role/update-role/mutation';
 import {
   ErrorCodes,
@@ -180,5 +181,38 @@ export function useGrantRolePermissionsMutation() {
       toast.success(t('role.permission.success'));
     },
     onError: showError,
+  });
+}
+
+/**
+ * 還原到某一版（`POST /roles/:id/revisions/:version/revert`，ADR-0025 R5）。帶確認時看到的角色 `version`（樂觀鎖）：
+ * 別人搶先改過時失效該角色、不彈 toast，由頁面的 `VersionConflictAlert` 說明；權限鍵帶了自己沒有的（反提權）時說明原因。
+ */
+export function useRoleRevertRevisionMutation() {
+  const toast = useToast();
+  const { t } = useTranslation();
+  const showError = useErrorToast();
+
+  return useMutation({
+    ...getRoleRevertRevisionMutationOptions(),
+    onSuccess: (role, { params }) => {
+      // 名稱、說明與權限鍵都可能變了：權限鍵的變更也要宣告（自己持有這個角色時 profile 跟著重抓）
+      invalidateResources([
+        { resource: Resource.ROLE, kind: 'update', id: role.id },
+        { resource: Resource.ROLE_PERMISSION, kind: 'update', id: role.id },
+      ]);
+      toast.success(t('role.revision.revert.success', { version: params.version }));
+    },
+    onError: (error, { params }) => {
+      if (isVersionConflict(error)) {
+        invalidateResources([{ resource: Resource.ROLE, kind: 'update', id: params.roleId }]);
+        return;
+      }
+      if (isAppError(error) && error.code === ErrorCodes.AUTHZ_ESCALATION) {
+        toast.error(t('role.revision.revert.escalation'));
+        return;
+      }
+      showError(error);
+    },
   });
 }

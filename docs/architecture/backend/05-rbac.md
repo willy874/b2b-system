@@ -342,6 +342,7 @@ await this.permissionService.permissionsChanged(holders);
   [`13-trash.md`](./13-trash.md) §6）。原本的持有者在軟刪除前查出，只用來推播。刪除與還原不寫 `relation_tuples`，
   revision 由 `roles.deleted_at` 的 trigger +1（migration 0012，[`02-database.md`](./02-database.md) §2.11），否則其他程序會把廣播當成舊的略過。
 - 還原角色（`POST /roles/:id/restore`）的反提權與指派角色相同（`assertRolesAssignable`）：角色帶的鍵都要是 actor 持有的。
+- 還原角色到某一版（`POST /roles/:id/revisions/:version/revert`）照改權限的規則：加回的鍵過 `assertGrantable`、`assertNoSelfLockout`，交易後 `permissionsChanged()`（[`14-revisions.md`](./14-revisions.md) §4.3）。
 - 送出廣播是 best-effort：失敗只記 log；提交之後、送出之前程序結束也會漏一次。其他程序最遲在 TTL（60 秒）後重新解析；
   revision 單調遞增，下一次通知也會補上。
 - 粒度是整個租戶：一次授權變更讓那個租戶的每個人下一次請求重算一次（每人一句 CTE，按需）。拆粒度的條件見 ADR-0024 D8。
@@ -623,6 +624,9 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/roles/:id/users`          | `role:read` ＋ `user:read`       |
 | POST   | `/roles/:id/duplicate`      | `role:create`                    |
 | POST   | `/roles/:id/restore`        | `role:delete`                    |
+| GET    | `/roles/:id/revisions`      | `role:read`                      |
+| GET    | `/roles/:id/revisions/:version` | `role:read`                  |
+| POST   | `/roles/:id/revisions/:version/revert` | `role:update`（權限鍵會改變時 service 另要 `role:grantPermission`） |
 | GET    | `/permissions`              | `permission:read`                |
 | GET    | `/audit-logs`               | `auditLog:read`                  |
 | GET    | `/audit-logs/:id`           | `auditLog:read`                  |

@@ -41,6 +41,9 @@
 
 - 業務規則、交易邊界、跨 repository 協調都在這一層。
 - 需要多個寫入時用 `withTransaction()`；稽核的 `record(…, tx)` 放在同一個交易內。
+- 加入版本歷史的實體（目前是角色）：每個會改變快照內容的寫入，在 **同一個交易** 內、鎖住實體列之後呼叫 `revisions.record(tx, …)`，
+  傳擁有者白名單函式（`toXxxRevision()`）產生的 **寫入之後** 的狀態；不要自己算版本號。加入一個新實體的步驟見
+  [`architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md) §6。
 - 會影響權限的寫入（角色的持有者、角色的權限鍵），交易結束後呼叫 `permissionService.permissionsChanged(userIds?)`：
   整個租戶失效、發 `permissions.changed`、廣播給其他程序。帳號狀態或 `token_version` 的變更（不是關係圖）用 `invalidateUser(id)`。
   不要自己列「要失效誰」；見 [`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.1。

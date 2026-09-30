@@ -8,6 +8,8 @@ import type { Database, Transaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import type { JobQueue } from '@/core/jobs';
 import type { SettingService } from '@/core/settings';
+import { runInTenantContext } from '@/core/tenant';
+import type { TenantContext, TenantFeature } from '@/core/tenant';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { PermissionService } from '@/modules/permission/permission.service';
 
@@ -118,6 +120,50 @@ describe('TrashService（docs/architecture/backend/13-trash.md）', () => {
       await expect(
         service.list({ type: 'user', offset: 0, limit: 20 }, ACTOR),
       ).resolves.toBeDefined();
+    });
+  });
+
+  describe('list：租戶 feature（docs/architecture/backend/13-trash.md §3）', () => {
+    function inTenant<T>(features: readonly TenantFeature[], fn: () => Promise<T>): Promise<T> {
+      return runInTenantContext({ features } as unknown as TenantContext, fn);
+    }
+
+    it('handler 所屬的 feature 停用 → FEATURE_DISABLED，不檢查權限也不寫 authz.denied', async () => {
+      const handler = fakeHandler({ type: 'file', permission: 'file:delete', feature: 'file' });
+      service.registerHandler(handler);
+      grant();
+      const listing = inTenant(['auditLog', 'job'], () =>
+        service.list({ type: 'file', offset: 0, limit: 20 }, ACTOR),
+      );
+      await expect(listing).rejects.toMatchObject({ code: 'FEATURE_DISABLED' });
+      expect(audit.recordSafely).not.toHaveBeenCalled();
+      expect(handler.listDeleted).not.toHaveBeenCalled();
+    });
+
+    it('feature 啟用時照常列出；沒有 feature 的類型不受影響', async () => {
+      service.registerHandler(
+        fakeHandler({ type: 'file', permission: 'file:delete', feature: 'file' }),
+      );
+      service.registerHandler(fakeHandler());
+      grant('file:delete', 'user:delete');
+      await expect(
+        inTenant(['file'], () => service.list({ type: 'file', offset: 0, limit: 20 }, ACTOR)),
+      ).resolves.toBeDefined();
+      await expect(
+        inTenant([], () => service.list({ type: 'user', offset: 0, limit: 20 }, ACTOR)),
+      ).resolves.toBeDefined();
+    });
+
+    it('feature 停用時到期永久刪除照常進行（保留期限是資料的規則）', async () => {
+      const handler = fakeHandler({
+        type: 'file',
+        permission: 'file:delete',
+        feature: 'file',
+        findExpired: vi.fn(async () => [expired('f')]),
+      });
+      service.registerHandler(handler);
+      const report = await inTenant([], () => service.purgeExpired(NOW));
+      expect(report.purged).toEqual({ file: 1 });
     });
   });
 

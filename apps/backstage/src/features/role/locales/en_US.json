@@ -52,7 +52,8 @@
       "holders": "Users holding this role",
       "managePermission": "Manage permissions",
       "allPermissions": "All permissions (implicit)",
-      "backToList": "Back to roles"
+      "backToList": "Back to roles",
+      "revisions": "Version history"
     },
     "permission": {
       "title": "Manage role permissions",
@@ -90,6 +91,35 @@
     "type": {
       "system": "System",
       "custom": "Custom"
+    },
+    "revision": {
+      "title": "Version history",
+      "description": "Every change to the role's name, description or permissions is kept as a version. Pick one to compare it with the current content or the previous version, or restore it (this creates a new version; history is never rewritten).",
+      "list": "Versions",
+      "version": "Version {{version}}",
+      "current": "Current",
+      "tooLarge": "Too large to save",
+      "tooLargeDetail": "This version was too large to be saved, so it cannot be viewed or restored.",
+      "system": "System",
+      "empty": "No versions yet. Versions are recorded from the next change to this role.",
+      "diff": "Differences",
+      "noChanges": "Same as the compared version",
+      "expandUnchanged": "Show {{count}} unchanged lines",
+      "previousMissing": "There is no previous version (this is the first one, or it was removed after the retention period), so the whole content is shown.",
+      "compare": {
+        "current": "Compare with current",
+        "previous": "Compare with previous"
+      },
+      "revert": {
+        "action": "Restore this version",
+        "title": "Restore version {{version}}",
+        "confirm": "The role's name, description and permissions will change back to version {{version}}, and the permissions of everyone holding this role change immediately. This creates a new version, so you can restore again later.",
+        "success": "Restored version {{version}}.",
+        "escalation": "This version includes permissions you don't have, so it cannot be restored.",
+        "isCurrent": "This version is the current content.",
+        "unavailable": "This version's content was not saved, so it cannot be restored.",
+        "needGrantPermission": "This version's permissions differ from the current ones. Restoring it requires the permission to grant role permissions."
+      }
     }
   }
 }

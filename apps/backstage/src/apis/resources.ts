@@ -32,6 +32,8 @@ import { PERMISSION_LIST_QUERY_KEY } from '@/apis/permission/get-permission-list
 import { ROLE_DETAIL_QUERY_KEY } from '@/apis/role/get-role-detail/query';
 import { ROLE_LIST_QUERY_KEY, ROLE_OPTIONS_QUERY_KEY } from '@/apis/role/get-role-list/query';
 import { ROLE_PERMISSIONS_QUERY_KEY } from '@/apis/role/get-role-permissions/query';
+import { ROLE_REVISION_DETAIL_QUERY_KEY } from '@/apis/role/get-role-revision/query';
+import { ROLE_REVISIONS_QUERY_KEY } from '@/apis/role/get-role-revisions/query';
 import { ROLE_USERS_QUERY_KEY } from '@/apis/role/get-role-users/query';
 import { PUBLIC_SETTINGS_QUERY_KEY } from '@/apis/system/get-public-settings/query';
 import { SETTING_LIST_QUERY_KEY } from '@/apis/system/get-setting-list/query';
@@ -66,6 +68,8 @@ export const Resource = {
   PROFILE: 'profile',
   /** 回收桶（已刪除的項目）；後端沒有這個來源，由各資源的建立（還原）與刪除衍生 */
   TRASH: 'trash',
+  /** 角色的版本歷史（`id` = roleId）；後端沒有這個來源，由角色與它的權限鍵的更新衍生 */
+  ROLE_REVISION: 'roleRevision',
   // 關係：沒有自己的 query，只作為來源
   /** 使用者 ↔ 角色（`id` = userId，`refs.role` = 新舊角色） */
   USER_ROLE: 'userRole',
@@ -203,6 +207,15 @@ const graph = createResourceGraph<Resource>({
       // 檔案與資料夾同理（ADR-0025 R4）：上傳完成也是 file create，多一次回收桶的重抓無害
       { from: Resource.FILE, kinds: ['create', 'delete'], id: 'none' },
       { from: Resource.FILE_FOLDER, kinds: ['create', 'delete'], id: 'none' },
+    ],
+  },
+  [Resource.ROLE_REVISION]: {
+    entity: [ROLE_REVISIONS_QUERY_KEY, ROLE_REVISION_DETAIL_QUERY_KEY],
+    derivesFrom: [
+      // 改名稱或說明、還原到某一版都產生新的一版（ADR-0025 R5）；持有者的變更不在快照裡，不影響
+      { from: Resource.ROLE, kinds: ['update'], id: 'self' },
+      // 增減權限鍵也產生新的一版
+      { from: Resource.ROLE_PERMISSION, id: 'self' },
     ],
   },
   [Resource.USER_ROLE]: {},

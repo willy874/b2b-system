@@ -7,6 +7,7 @@ import type { Transaction } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { RESOURCE_TYPE } from '@/core/resource';
 import { PermissionService } from '@/modules/permission/permission.service';
+import { RevisionService } from '@/modules/revision/revision.service';
 import { TrashService } from '@/modules/trash/trash.service';
 import type {
   ExpiredTrashItem,
@@ -33,6 +34,7 @@ export class RoleTrashHandler implements TrashHandler, OnModuleInit {
     private readonly repo: RoleRepository,
     private readonly permissionService: PermissionService,
     private readonly events: DomainEventBus,
+    private readonly revisions: RevisionService,
   ) {}
 
   onModuleInit(): void {
@@ -62,8 +64,11 @@ export class RoleTrashHandler implements TrashHandler, OnModuleInit {
     return rows.map((row) => ({ id: row.id, name: row.name, deletedAt: row.deletedAt }));
   }
 
-  purge(item: ExpiredTrashItem, tx: Transaction): Promise<boolean> {
-    return this.repo.hardDelete(item.id, tx);
+  /** 硬刪除角色與它的邊，版本歷史一起刪（同一個 savepoint；docs/architecture/backend/14-revisions.md §5.1）。 */
+  async purge(item: ExpiredTrashItem, tx: Transaction): Promise<boolean> {
+    if (!(await this.repo.hardDelete(item.id, tx))) return false;
+    await this.revisions.deleteAll(RESOURCE_TYPE.ROLE, item.id, tx);
+    return true;
   }
 
   async afterPurge(ids: readonly string[]): Promise<void> {

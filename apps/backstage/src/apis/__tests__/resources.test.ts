@@ -66,6 +66,21 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     expect(keys).not.toContain('invalidate:AUTH_PROFILE_QUERY_KEY');
   });
 
+  it('角色的版本歷史：改名稱說明、增減權限鍵時失效該角色的版本；持有者的變更不影響（ADR-0025 R5）', () => {
+    const updated = keysOf({ resource: Resource.ROLE, kind: 'update', id: 'r1' });
+    expect(updated).toContain('invalidate:ROLE_REVISIONS_QUERY_KEY:r1');
+    expect(updated).toContain('invalidate:ROLE_REVISION_DETAIL_QUERY_KEY:r1');
+    const permissions = keysOf({ resource: Resource.ROLE_PERMISSION, kind: 'update', id: 'r1' });
+    expect(permissions).toContain('invalidate:ROLE_REVISIONS_QUERY_KEY:r1');
+    const holders = keysOf({
+      resource: Resource.USER_ROLE,
+      kind: 'update',
+      id: 'u1',
+      refs: { role: ['r1'] },
+    });
+    expect(holders.some((key) => key.includes('REVISION'))).toBe(false);
+  });
+
   it('變更角色權限：只影響該角色；自己持有該角色時才失效 profile', () => {
     signInAs();
     const other = keysOf({ resource: Resource.ROLE_PERMISSION, kind: 'update', id: 'r1' });
