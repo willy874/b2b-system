@@ -6,13 +6,13 @@ import { AppException } from '@/core/errors';
 import type { DomainEventBus } from '@/core/events';
 import type { FileFolderRow, GrantLevel } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
-import type { LevelGrant } from '@/modules/resource-grant/resource-grant.resolver';
 
 import type { FileAccessRequestService } from '../file-access-request.service';
 import { FileFolderTree } from '../file-folder-tree';
 import type { FileFolderRepository } from '../file-folder.repository';
 import { FileFolderService } from '../file-folder.service';
 import { MAX_FOLDER_DEPTH } from '../file.constants';
+import type { LevelGrant } from './file-access.fixture';
 import { createFileAccess } from './file-access.fixture';
 import type { AccessFixtureOptions } from './file-access.fixture';
 

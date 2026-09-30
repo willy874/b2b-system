@@ -8,10 +8,10 @@ import type { ApprovalRequestRow } from '@/db/schema';
 import type { ApprovalService } from '@/modules/approval/approval.service';
 import type { ApprovalContext } from '@/modules/approval/approval.types';
 import type { AuditService } from '@/modules/audit-log/audit.service';
-import type { ResourceGrantService } from '@/modules/resource-grant/resource-grant.service';
 
 import type { FolderNode } from '../file-access.context';
 import { FileFolderAccessApprovalHandler } from '../file-folder-access.approval';
+import type { FileFolderGrantRepository } from '../file-folder-grant.repository';
 import type { FileFolderRepository } from '../file-folder.repository';
 import { createFileAccess } from './file-access.fixture';
 import type { AccessFixtureOptions } from './file-access.fixture';
@@ -38,7 +38,7 @@ function setup(access: AccessFixtureOptions, existingLevel?: 'manager') {
     {
       findById: vi.fn(async () => ({ id: FOLDER, name: '企劃' })),
     } as unknown as FileFolderRepository,
-    grants as unknown as ResourceGrantService,
+    grants as unknown as FileFolderGrantRepository,
     audit as unknown as AuditService,
     { publish: vi.fn() } as unknown as DomainEventBus,
   );

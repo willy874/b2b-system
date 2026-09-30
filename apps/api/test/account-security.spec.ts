@@ -1,15 +1,24 @@
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import request from 'supertest';
 import type { Response } from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { auditLogs, authTokens, roles, userRoles, users } from '@/db/schema';
+import {
+  auditLogs,
+  authTokens,
+  isRoleHolderTuple,
+  relationTuples,
+  roleHolderTuple,
+  roles,
+  users,
+} from '@/db/schema';
 import { AuthTokenService } from '@/modules/credential/auth-token.service';
 import { hashPassword } from '@/modules/credential/password';
 
+import { heldRoleIds } from './authz';
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
@@ -51,8 +60,8 @@ async function createUser(
     .returning();
   if (options.roleSlug) {
     await db
-      .insert(userRoles)
-      .values({ userId: user!.id, roleId: await roleIdOf(options.roleSlug) });
+      .insert(relationTuples)
+      .values(roleHolderTuple(await roleIdOf(options.roleSlug), user!.id));
   }
   return user!.id;
 }
@@ -389,8 +398,11 @@ describe('帳號安全', () => {
       const remaining = await db
         .select({ id: users.id })
         .from(users)
-        .innerJoin(userRoles, eq(userRoles.userId, users.id))
-        .innerJoin(roles, eq(roles.id, userRoles.roleId))
+        .innerJoin(
+          relationTuples,
+          and(isRoleHolderTuple(), eq(relationTuples.subjectId, sql`${users.id}::text`)),
+        )
+        .innerJoin(roles, eq(sql`${roles.id}::text`, relationTuples.objectId))
         .where(
           and(eq(roles.slug, 'super-admin'), eq(users.status, 'active'), isNull(users.deletedAt)),
         );
@@ -425,8 +437,7 @@ describe('帳號安全', () => {
           details: { currentRoleIds: expect.arrayContaining([memberId, auditorId]) },
         },
       });
-      const held = await db.select().from(userRoles).where(eq(userRoles.userId, target));
-      expect(held).toHaveLength(2);
+      expect(await heldRoleIds(db, target)).toHaveLength(2);
     });
   });
 });

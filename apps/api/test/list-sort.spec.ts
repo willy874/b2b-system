@@ -5,7 +5,14 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { permissions, rolePermissions, roles, userRoles, users } from '@/db/schema';
+import {
+  permissions,
+  relationTuples,
+  roleHolderTuple,
+  rolePermissionTuple,
+  roles,
+  users,
+} from '@/db/schema';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
@@ -66,24 +73,24 @@ function holder(email: string, deletedAt: Date | null) {
 }
 
 async function seedRoleFixtures(): Promise<void> {
-  const permissionRows = await db.select({ id: permissions.id }).from(permissions).limit(3);
+  const permissionRows = await db.select({ key: permissions.key }).from(permissions).limit(3);
   await Promise.all(ROLE_FIXTURES.map((fixture) => seedRoleFixture(fixture, permissionRows)));
 }
 
 async function seedRoleFixture(
   fixture: (typeof ROLE_FIXTURES)[number],
-  permissionRows: Array<{ id: string }>,
+  permissionRows: Array<{ key: string }>,
 ): Promise<void> {
   const slug = fixture.name.toLowerCase().replace(' ', '-');
   const [role] = await db.insert(roles).values({ slug, name: fixture.name }).returning();
   const roleId = role!.id;
   if (fixture.permissions) {
     await db
-      .insert(rolePermissions)
+      .insert(relationTuples)
       .values(
         permissionRows
           .slice(0, fixture.permissions)
-          .map((permission) => ({ roleId, permissionId: permission.id })),
+          .map((permission) => rolePermissionTuple(roleId, permission.key)),
       );
   }
   const holders = [
@@ -96,7 +103,7 @@ async function seedRoleFixture(
   ];
   if (!holders.length) return;
   const inserted = await db.insert(users).values(holders).returning({ id: users.id });
-  await db.insert(userRoles).values(inserted.map((user) => ({ userId: user.id, roleId })));
+  await db.insert(relationTuples).values(inserted.map((user) => roleHolderTuple(roleId, user.id)));
 }
 
 describe('列表的多欄排序（docs/architecture/backend/03-api-conventions.md §2.1）', () => {

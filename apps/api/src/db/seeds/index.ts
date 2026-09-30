@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, ne, notInArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, ne, notInArray, sql } from 'drizzle-orm';
 
 import type { ScriptDatabase } from '../client';
 import {
@@ -7,7 +7,15 @@ import {
   loadScriptEnv,
   seedTenantCode,
 } from '../client';
-import { auditLogs, permissions, rolePermissions, roles } from '../schema';
+import {
+  auditLogs,
+  isRolePermissionTuple,
+  permissions,
+  relationTuples,
+  rolePermissionTuple,
+  roles,
+  superAdminTuple,
+} from '../schema';
 import type { PermissionKey } from './permissions';
 import { PERMISSION_SEED, permissionClosure } from './permissions';
 import { seedPlatformAdmin } from './platform-admin';
@@ -55,6 +63,7 @@ export async function seedRoles(db: ScriptDatabase): Promise<void> {
       if (!existing.isSystem) {
         await db.update(roles).set({ isSystem: true }).where(eq(roles.id, existing.id));
       }
+      if (seed.permissions === '*') await ensureSuperAdminTuple(db, existing.id);
       console.info(`系統角色 ${seed.slug} 已存在，略過權限同步`);
       continue;
     }
@@ -70,11 +79,18 @@ export async function seedRoles(db: ScriptDatabase): Promise<void> {
       .returning();
     if (!created) throw new Error(`建立系統角色失敗：${seed.slug}`);
 
-    if (seed.permissions !== '*' && seed.permissions.length) {
-      await grantPermissions(db, created.id, seed.permissions);
-    }
+    if (seed.permissions === '*') await ensureSuperAdminTuple(db, created.id);
+    else if (seed.permissions.length) await grantPermissions(db, created.id, seed.permissions);
     console.info(`系統角色 ${seed.slug} 已建立`);
   }
+}
+
+/**
+ * super-admin 是隱含全集：租戶節點上一條 `superAdmin` 的邊，沒有任何權限鍵的邊。
+ * 冪等；角色已存在時也補一次（G3 之前由 roles 上的 trigger 寫入）。
+ */
+async function ensureSuperAdminTuple(db: ScriptDatabase, roleId: string): Promise<void> {
+  await db.insert(relationTuples).values(superAdminTuple(roleId)).onConflictDoNothing();
 }
 
 export async function grantPermissions(
@@ -92,8 +108,8 @@ export async function grantPermissions(
   if (missing.length) throw new Error(`權限不存在：${missing.join(', ')}`);
 
   await db
-    .insert(rolePermissions)
-    .values(rows.map((row) => ({ roleId, permissionId: row.id })))
+    .insert(relationTuples)
+    .values(rows.map((row) => rolePermissionTuple(roleId, row.key)))
     .onConflictDoNothing();
 }
 
@@ -105,8 +121,11 @@ export async function recordImpliedPermissions(db: ScriptDatabase): Promise<void
   const rows = await db
     .select({ roleId: roles.id, roleName: roles.name, key: permissions.key })
     .from(roles)
-    .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
-    .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+    .innerJoin(
+      relationTuples,
+      and(isRolePermissionTuple(), eq(relationTuples.subjectId, sql`${roles.id}::text`)),
+    )
+    .innerJoin(permissions, eq(permissions.key, relationTuples.relation))
     .where(and(isNull(roles.deletedAt), ne(roles.slug, 'super-admin')));
   const byRole = new Map<string, { name: string; keys: PermissionKey[] }>();
   for (const row of rows) {

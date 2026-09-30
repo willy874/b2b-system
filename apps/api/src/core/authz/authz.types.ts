@@ -1,3 +1,9 @@
+import {
+  ROLE_HOLDER_RELATION,
+  SUPER_ADMIN_RELATION,
+  TENANT_OBJECT_ID,
+  TENANT_OBJECT_TYPE,
+} from '@/db/schema';
 import type { PermissionDependencyMap } from '@/db/seeds/permissions';
 import {
   ALL_PERMISSION_KEYS,
@@ -9,14 +15,10 @@ import { computed, defineType, direct, union } from './authz.model';
 import type { Rewrite, TypeDefinition } from './authz.model';
 import type { EdgeProvider } from './authz.snapshot';
 
+export { ROLE_HOLDER_RELATION, SUPER_ADMIN_RELATION } from '@/db/schema';
+
 /** 每個租戶 DB 只有一個租戶節點（docs/features/permission-graph.md §1）。 */
-export const TENANT_OBJECT = { type: 'tenant', id: 'self' } as const;
-
-/** super-admin 在租戶節點上的關係：目錄產生的每個權限關係都含它（隱含全集）。 */
-export const SUPER_ADMIN_RELATION = 'superAdmin';
-
-/** 使用者集合「角色的持有者」：`role:<id>#holder`。 */
-export const ROLE_HOLDER_RELATION = 'holder';
+export const TENANT_OBJECT = { type: TENANT_OBJECT_TYPE, id: TENANT_OBJECT_ID } as const;
 
 export const USER_TYPE: TypeDefinition = defineType('user', {});
 

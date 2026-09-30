@@ -21,7 +21,7 @@ export interface ResolveOptions {
 
 /** 一位使用者在租戶節點上的權限。 */
 export interface TenantPermissions {
-  /** 直接授予的鍵（角色的 `role_permissions`），不含依賴樹帶來的。 */
+  /** 直接授予的鍵（角色帶的權限鍵的邊），不含依賴樹帶來的。 */
   explicit: Set<PermissionKey>;
   /** 成立的權限關係；`withDependencies` 時含依賴樹的閉包。super-admin 不展開（呼叫端判斷 `isSuperAdmin`）。 */
   effective: Set<PermissionKey>;
@@ -103,10 +103,6 @@ export class AuthzService {
       tuples.push(...(await this.repo.tuplesForSubjects(type, subjects, now, options.tx)));
     }
     return this.checker(subjects, tuples, providers, options.withDependencies);
-  }
-
-  readConsistently<T>(fn: (tx: DbOrTx) => Promise<T>): Promise<T> {
-    return this.repo.readConsistently(fn);
   }
 
   private checker(

@@ -20,7 +20,7 @@ import type { App } from 'supertest/types';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DomainEvent, DomainEventBus } from '@/core/events';
-import { roles, userRoles, users } from '@/db/schema';
+import { relationTuples, roleHolderTuple, roles, users } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { DEFAULT_REALTIME_LIMITS, REALTIME_LIMITS } from '@/modules/realtime/realtime.constants';
 import { RealtimeGateway } from '@/modules/realtime/realtime.gateway';
@@ -57,7 +57,9 @@ async function createUser(email: string, roleIds: string[] = []): Promise<string
     .insert(users)
     .values({ email, displayName: email, status: 'active' })
     .returning();
-  for (const roleId of roleIds) await db.insert(userRoles).values({ userId: user!.id, roleId });
+  for (const roleId of roleIds) {
+    await db.insert(relationTuples).values(roleHolderTuple(roleId, user!.id));
+  }
   return user!.id;
 }
 

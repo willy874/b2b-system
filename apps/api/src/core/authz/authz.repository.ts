@@ -96,15 +96,4 @@ export class AuthzRepository {
       subject: subjectKey(row.subjectType, row.subjectId, row.subjectRelation),
     }));
   }
-
-  /**
-   * 在一個 `repeatable read`、唯讀的交易裡執行：影子比對時新舊兩套讀到同一個時間點的資料，
-   * 併發的寫入不會造成假的不一致。
-   */
-  readConsistently<T>(fn: (tx: DbOrTx) => Promise<T>): Promise<T> {
-    return this.db.transaction(async (tx) => fn(tx), {
-      isolationLevel: 'repeatable read',
-      accessMode: 'read only',
-    });
-  }
 }

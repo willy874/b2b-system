@@ -3,10 +3,9 @@ import { PERMISSION } from '@/common/types';
 import { TENANT_OBJECT } from '@/core/authz';
 import type { AuthzChecker } from '@/core/authz';
 import type { FileFolderKind, GrantLevel } from '@/db/schema';
-import { assignableLevels, missingActions } from '@/modules/resource-grant/resource-grant.levels';
-import type { LevelActions } from '@/modules/resource-grant/resource-grant.levels';
-import type { HierarchyNode } from '@/modules/resource-grant/resource-grant.resolver';
 
+import { assignableLevels, missingActions } from './file-grant.levels';
+import type { HierarchyNode, LevelActions } from './file-grant.levels';
 import { itemEdges, locationObject } from './file.authz';
 
 /** 檔案動作；與全域權限鍵 `file:<動作>` 一一對應（docs/rbac/07-resource-grants.md §2）。 */
@@ -29,18 +28,6 @@ export const FILE_ACTION_RELATION = {
   delete: 'can_delete',
   share: 'can_share',
 } as const satisfies Record<FileAction, string>;
-
-/**
- * 舊的解析用的「等級 → 動作」對照：G2 起正式判斷改由關係圖的靜態蘊含算出，這份只給影子比對用
- * （docs/adr/0024-relationship-based-access-control.md），G3 刪除。
- * `contributor` 對「自己建立的」項目還能改名、移動、刪除——那是擁有者規則（§4），不是等級本身的動作。
- */
-export const LEGACY_LEVEL_ACTIONS = {
-  viewer: ['read'],
-  contributor: ['read', 'create'],
-  editor: ['read', 'create', 'update', 'delete'],
-  manager: ['read', 'create', 'update', 'delete', 'share'],
-} as const satisfies LevelActions<FileAction>;
 
 /** 資料夾結構的一個節點：解析等級用的欄位 ＋ 擁有者。 */
 export interface FolderNode extends HierarchyNode {

@@ -11,8 +11,8 @@ import type { FileFolderRow } from '@/db/schema';
 import { EVERYONE_SUBJECT_ID } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { PermissionService } from '@/modules/permission/permission.service';
-import { ResourceGrantService } from '@/modules/resource-grant/resource-grant.service';
 
+import { FileFolderGrantRepository } from './file-folder-grant.repository';
 import { FileFolderTree } from './file-folder-tree';
 import { FileFolderRepository } from './file-folder.repository';
 
@@ -38,7 +38,7 @@ export class FileSystemFolderService
   constructor(
     private readonly tree: FileFolderTree,
     private readonly repo: FileFolderRepository,
-    private readonly grants: ResourceGrantService,
+    private readonly grants: FileFolderGrantRepository,
     private readonly permissions: PermissionService,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
@@ -127,12 +127,7 @@ export class FileSystemFolderService
       const shared = await this.ensureSingleton('shared', SHARED_FOLDER_NAME, tx, createdIds);
       if (createdIds.includes(shared.id)) {
         await this.grants.set(
-          {
-            resourceType: 'fileFolder',
-            resourceId: shared.id,
-            subjectType: 'everyone',
-            subjectId: EVERYONE_SUBJECT_ID,
-          },
+          { folderId: shared.id, subjectType: 'everyone', subjectId: EVERYONE_SUBJECT_ID },
           { level: 'editor', expiresAt: null, grantedBy: null },
           tx,
         );
@@ -219,7 +214,7 @@ export class FileSystemFolderService
     );
     if (!row) throw new Error('建立個人資料夾失敗');
     await this.grants.set(
-      { resourceType: 'fileFolder', resourceId: row.id, subjectType: 'user', subjectId: person.id },
+      { folderId: row.id, subjectType: 'user', subjectId: person.id },
       { level: 'manager', expiresAt: null, grantedBy: null },
       tx,
     );

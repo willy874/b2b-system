@@ -7,7 +7,15 @@ import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { ObjectStorage } from '@/core/storage';
-import { auditLogs, fileFolders, files, roles, userRoles, users } from '@/db/schema';
+import {
+  auditLogs,
+  fileFolders,
+  files,
+  relationTuples,
+  roleHolderTuple,
+  roles,
+  users,
+} from '@/db/schema';
 import { FileImageService } from '@/modules/file/file-image.service';
 import { FileMaintenanceService } from '@/modules/file/file-maintenance.service';
 
@@ -50,7 +58,7 @@ async function createActiveUser(email: string, password: string, roleSlug: strin
     })
     .returning();
   const [role] = await db.select().from(roles).where(eq(roles.slug, roleSlug));
-  await db.insert(userRoles).values({ userId: user!.id, roleId: role!.id });
+  await db.insert(relationTuples).values(roleHolderTuple(role!.id, user!.id));
 }
 
 interface FileBody {

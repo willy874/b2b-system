@@ -1,10 +1,9 @@
 import { Injectable } from '@nestjs/common';
 
 import type { PermissionKey } from '@/common/types';
-import { AuthzService, AuthzShadow, setDiff } from '@/core/authz';
+import { AuthzService } from '@/core/authz';
 import type { PermissionSet } from '@/core/cache';
 import { PermissionCacheService } from '@/core/cache';
-import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 import type { PermissionRow } from '@/db/schema';
 import {
@@ -44,7 +43,6 @@ export class PermissionService {
     private readonly repo: PermissionRepository,
     private readonly cache: PermissionCacheService,
     private readonly authz: AuthzService,
-    private readonly shadow: AuthzShadow,
   ) {}
 
   async getPermissionSet(userId: string): Promise<PermissionSet> {
@@ -87,71 +85,14 @@ export class PermissionService {
     return result;
   }
 
-  /**
-   * 一批人的權限：由關係圖解析，含權限依賴樹的閉包（docs/adr/0024-relationship-based-access-control.md G2）。
-   * 影子比對開啟時，在一致讀取的交易裡與舊的解析（套上同一個閉包）比較。
-   */
-  private loadBatch(batch: readonly string[]): Promise<Map<string, PermissionSet>> {
-    if (!this.shadow.enabled) return this.loadFromGraph(batch);
-    return this.authz.readConsistently(async (tx) => {
-      const sets = await this.loadFromGraph(batch, tx);
-      const legacy = await this.loadLegacyBatch(batch, tx);
-      for (const [id, set] of sets) this.compareWithLegacy(id, set, legacy.get(id));
-      return sets;
-    });
-  }
-
-  private async loadFromGraph(
-    batch: readonly string[],
-    tx?: DbOrTx,
-  ): Promise<Map<string, PermissionSet>> {
-    const resolved = await this.authz.tenantPermissionsOf(batch, { withDependencies: true, tx });
+  /** 一批人的權限：由關係圖解析，含權限依賴樹的閉包（docs/adr/0024-relationship-based-access-control.md）。 */
+  private async loadBatch(batch: readonly string[]): Promise<Map<string, PermissionSet>> {
+    const resolved = await this.authz.tenantPermissionsOf(batch, { withDependencies: true });
     return new Map(
       [...resolved].map(([id, { effective, isSuperAdmin, subjects }]) => [
         id,
         { permissions: effective, isSuperAdmin, subjects },
       ]),
-    );
-  }
-
-  /**
-   * 舊的解析（`user_roles` ⋈ `role_permissions`）：G2 期間只給影子比對用，G3 刪除。
-   * 同一個交易的查詢依序執行。
-   */
-  private async loadLegacyBatch(
-    batch: readonly string[],
-    db: DbOrTx,
-  ): Promise<Map<string, PermissionSet>> {
-    const rows = await this.repo.findPermissionKeysByUsers(batch, db);
-    const superAdminIds = new Set(await this.repo.findSuperAdminUserIds(batch, db));
-    const keysByUser = new Map<string, Set<PermissionKey>>(batch.map((id) => [id, new Set()]));
-    for (const row of rows) keysByUser.get(row.userId)?.add(row.key);
-    return new Map(
-      [...keysByUser].map(([id, keys]) => [
-        id,
-        { permissions: permissionClosure(keys), isSuperAdmin: superAdminIds.has(id) },
-      ]),
-    );
-  }
-
-  /** 影子比對：兩邊都套上依賴樹的閉包之後應該一致；不一致時依 `AUTHZ_SHADOW` 記錄或丟錯。 */
-  private compareWithLegacy(
-    userId: string,
-    engine: PermissionSet,
-    legacy: PermissionSet | undefined,
-  ): void {
-    const expected = legacy ?? { permissions: new Set<PermissionKey>(), isSuperAdmin: false };
-    const keys = setDiff(expected.permissions, engine.permissions);
-    const superAdmin = expected.isSuperAdmin !== engine.isSuperAdmin;
-    this.shadow.report(
-      'permissionSet',
-      keys || superAdmin
-        ? {
-            userId,
-            keys,
-            isSuperAdmin: { legacy: expected.isSuperAdmin, engine: engine.isSuperAdmin },
-          }
-        : null,
     );
   }
 
@@ -174,7 +115,7 @@ export class PermissionService {
 
   /**
    * 指派角色前：該角色帶的權限必須全部是 actor 已持有的。
-   * super-admin 在 role_permissions 沒有列，只看權限鍵會查出空集合而放行，
+   * super-admin 沒有任何權限鍵的邊，只看權限鍵會查出空集合而放行，
    * 所以用 slug 特判：只有 super-admin 能指派 super-admin（docs/architecture/backend/05-rbac.md §4.1）。
    */
   async assertRolesAssignable(actorId: string, roleIds: readonly string[]): Promise<void> {

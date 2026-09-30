@@ -104,7 +104,7 @@ export class RoleService {
   async create(dto: CreateRoleDto, actor: AuthUser): Promise<RoleDto> {
     await this.assertNameAvailable(dto.name);
     await this.permissionService.assertGrantable(actor.id, dto.permissionKeys as PermissionKey[]);
-    const permissionIds = await this.permissionService.assertKeysExist(dto.permissionKeys);
+    await this.permissionService.assertKeysExist(dto.permissionKeys);
 
     const role = await withTransaction(this.db, async (tx) => {
       const created = await this.repo.create(
@@ -118,7 +118,7 @@ export class RoleService {
         },
         tx,
       );
-      await this.repo.addPermissions(created.id, [...permissionIds.values()], actor.id, tx);
+      await this.repo.addPermissions(created.id, dto.permissionKeys, actor.id, tx);
       await this.audit.record(
         {
           action: 'role.create',
@@ -182,7 +182,7 @@ export class RoleService {
     if (role.slug === SUPER_ADMIN_SLUG) throw new AppException('ROLE_SUPER_ADMIN_IMMUTABLE');
 
     const touched = [...dto.add, ...dto.remove];
-    const ids = await this.permissionService.assertKeysExist(touched);
+    await this.permissionService.assertKeysExist(touched);
     await this.permissionService.assertGrantable(actor.id, dto.add as PermissionKey[]);
 
     // 自我鎖定的預估用交易外的讀取；稽核的 before／after 在交易內讀，才是實際寫入的前後
@@ -201,19 +201,10 @@ export class RoleService {
       if (!(await this.repo.lockActive(id, tx))) throw new AppException('ROLE_NOT_FOUND');
       const before = await this.repo.listPermissionKeys(id, tx);
       if (dto.remove.length) {
-        await this.repo.removePermissions(
-          id,
-          dto.remove.map((key) => ids.get(key)!),
-          tx,
-        );
+        await this.repo.removePermissions(id, dto.remove, tx);
       }
       if (dto.add.length) {
-        await this.repo.addPermissions(
-          id,
-          dto.add.map((key) => ids.get(key)!),
-          actor.id,
-          tx,
-        );
+        await this.repo.addPermissions(id, dto.add, actor.id, tx);
       }
       const after = await this.repo.listPermissionKeys(id, tx);
       await this.audit.record(
@@ -246,7 +237,7 @@ export class RoleService {
 
     const sourceKeys = (await this.repo.listPermissionKeys(id)) as PermissionKey[];
     const { granted, skipped } = await this.permissionService.filterGrantable(actor.id, sourceKeys);
-    const permissionIds = await this.permissionService.assertKeysExist(granted);
+    await this.permissionService.assertKeysExist(granted);
 
     const created = await withTransaction(this.db, async (tx) => {
       const role = await this.repo.create(
@@ -260,7 +251,7 @@ export class RoleService {
         },
         tx,
       );
-      await this.repo.addPermissions(role.id, [...permissionIds.values()], actor.id, tx);
+      await this.repo.addPermissions(role.id, granted, actor.id, tx);
       await this.audit.record(
         {
           action: 'role.duplicate',

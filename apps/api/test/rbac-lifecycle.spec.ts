@@ -1,13 +1,21 @@
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import type { Response } from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { permissions, rolePermissions, roles, userRoles, users } from '@/db/schema';
+import {
+  isRolePermissionTuple,
+  relationTuples,
+  roleHolderTuple,
+  rolePermissionTuple,
+  roles,
+  users,
+} from '@/db/schema';
 
+import { heldRoleIds } from './authz';
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
@@ -53,7 +61,7 @@ async function createActiveUser(
     .returning();
   if (roleSlug) {
     const [role] = await db.select().from(roles).where(eq(roles.slug, roleSlug));
-    await db.insert(userRoles).values({ userId: user!.id, roleId: role!.id });
+    await db.insert(relationTuples).values(roleHolderTuple(role!.id, user!.id));
   }
   return user!.id;
 }
@@ -134,7 +142,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     });
   });
 
-  describe('指派 super-admin 角色（隱含全集，role_permissions 沒有列）', () => {
+  describe('指派 super-admin 角色（隱含全集，沒有任何權限鍵的邊）', () => {
     async function superAdminRoleId(): Promise<string> {
       const [role] = await db.select().from(roles).where(eq(roles.slug, 'super-admin'));
       return role!.id;
@@ -299,12 +307,11 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
         .returning();
       managerRoleId = role!.id;
       const keys = ['role:read', 'role:update', 'role:delete', 'role:grantPermission', 'user:read'];
-      const rows = await db.select().from(permissions).where(inArray(permissions.key, keys));
       await db
-        .insert(rolePermissions)
-        .values(rows.map((row) => ({ roleId: managerRoleId, permissionId: row.id })));
+        .insert(relationTuples)
+        .values(keys.map((key) => rolePermissionTuple(managerRoleId, key)));
       const managerId = await createActiveUser(MANAGER.email, MANAGER.password);
-      await db.insert(userRoles).values({ userId: managerId, roleId: managerRoleId });
+      await db.insert(relationTuples).values(roleHolderTuple(managerRoleId, managerId));
     });
 
     it('移除自己唯一管理角色上的 role:grantPermission → 403，權限不變', async () => {
@@ -319,8 +326,8 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
       });
       const kept = await db
         .select()
-        .from(rolePermissions)
-        .where(eq(rolePermissions.roleId, managerRoleId));
+        .from(relationTuples)
+        .where(and(isRolePermissionTuple(), eq(relationTuples.subjectId, managerRoleId)));
       expect(kept).toHaveLength(5);
     });
 
@@ -397,8 +404,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
       });
 
       expect((await assignment)?.status).toBe(200);
-      const rows = await db.select().from(userRoles).where(eq(userRoles.userId, userId));
-      expect(rows).toEqual([]);
+      expect(await heldRoleIds(db, userId)).toEqual([]);
     });
 
     it('指派先鎖住角色 → 同時的刪除（沒有 force）重新計數後回 ROLE_IN_USE', async () => {
@@ -409,7 +415,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
       let deletion: Promise<Response> | undefined;
       await db.transaction(async (tx) => {
         await tx.select({ id: roles.id }).from(roles).where(eq(roles.id, role!.id)).for('share');
-        await tx.insert(userRoles).values({ userId, roleId: role!.id });
+        await tx.insert(relationTuples).values(roleHolderTuple(role!.id, userId));
         deletion = request(http)
           .delete(`/roles/${role!.id}`)
           .set('authorization', `Bearer ${token}`)

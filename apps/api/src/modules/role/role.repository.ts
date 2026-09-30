@@ -5,7 +5,22 @@ import type { SQL, SQLWrapper } from 'drizzle-orm';
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, containsPattern, prefixPattern } from '@/core/database';
 import type { PermissionRow, RoleInsert, RoleRow } from '@/db/schema';
-import { isActiveRole, permissions, rolePermissions, roles, userRoles, users } from '@/db/schema';
+import {
+  isActiveRole,
+  isRoleHolderTuple,
+  isRolePermissionTuple,
+  permissions,
+  relationTuples,
+  ROLE_HOLDER_RELATION,
+  ROLE_OBJECT_TYPE,
+  rolePermissionTuple,
+  roles,
+  SUPER_ADMIN_RELATION,
+  TENANT_OBJECT_ID,
+  TENANT_OBJECT_TYPE,
+  USER_SUBJECT_TYPE,
+  users,
+} from '@/db/schema';
 
 import type { ListRoleDto } from './dto/list-role.dto';
 
@@ -14,19 +29,32 @@ export interface RoleWithCounts extends RoleRow {
   userCount: number;
 }
 
+// 子查詢裡的邊以別名 t 表示；條件與 db/schema 的 isRolePermissionTuple()／isRoleHolderTuple() 相同
 const permissionCountOf = (roleId: SQLWrapper | string) =>
-  sql<number>`(SELECT count(*)::int FROM ${rolePermissions} rp WHERE rp.role_id = ${roleId})`;
+  sql<number>`(SELECT count(*)::int FROM ${relationTuples} t
+    WHERE t.object_type = ${TENANT_OBJECT_TYPE} AND t.object_id = ${TENANT_OBJECT_ID}
+      AND t.subject_type = ${ROLE_OBJECT_TYPE} AND t.subject_relation = ${ROLE_HOLDER_RELATION}
+      AND t.relation <> ${SUPER_ADMIN_RELATION} AND t.subject_id = ${roleId}::text)`;
 
-// 軟刪除使用者不會清掉 user_roles，計數要排除已刪除的使用者（與 listUsers 一致）
+// 軟刪除使用者不會清掉持有角色的邊，計數要排除已刪除的使用者（與 listUsers 一致）
 const userCountOf = (roleId: SQLWrapper | string) =>
-  sql<number>`(SELECT count(*)::int FROM ${userRoles} ur INNER JOIN ${users} u ON u.id = ur.user_id WHERE ur.role_id = ${roleId} AND u.deleted_at IS NULL)`;
+  sql<number>`(SELECT count(*)::int FROM ${relationTuples} t INNER JOIN ${users} u ON u.id::text = t.subject_id
+    WHERE t.object_type = ${ROLE_OBJECT_TYPE} AND t.relation = ${ROLE_HOLDER_RELATION}
+      AND t.subject_type = ${USER_SUBJECT_TYPE} AND t.subject_relation = ''
+      AND t.object_id = ${roleId}::text AND u.deleted_at IS NULL)`;
+
+/** 持有這個角色的邊（`role:<roleId>#holder@user:*`）。 */
+const holdersOf = (roleId: string) => and(isRoleHolderTuple(), eq(relationTuples.objectId, roleId));
+/** 這個角色帶的權限鍵的邊（`tenant:self#<key>@role:<roleId>#holder`）。 */
+const permissionsOf = (roleId: string) =>
+  and(isRolePermissionTuple(), eq(relationTuples.subjectId, roleId));
 
 // 單表 select 時 Drizzle 會把 ${roles.id} 輸出成不帶表名的 "id"，在子查詢裡會被解析成 users.id；
 // 明確寫出表名才會關聯到外層的角色
 const OUTER_ROLE_ID = sql`${roles}.${sql.identifier(roles.id.name)}`;
 
-// 按數量排序時每個符合條件的角色都要先算完子查詢才能排；兩個子查詢都走 role_id 開頭的索引，
-// 角色數量級（數十～數百）下成本可忽略。user_roles 成長到百萬級再考慮反正規化成計數欄位。
+// 按數量排序時每個符合條件的角色都要先算完子查詢才能排；權限數走 relation_tuples 的主體索引、
+// 持有者數走物件索引，角色數量級（數十～數百）下成本可忽略。持有者成長到百萬級再考慮反正規化成計數欄位。
 const SORT_COLUMNS = {
   createdAt: roles.createdAt,
   name: roles.name,
@@ -157,16 +185,19 @@ export class RoleRepository {
     return Boolean(row);
   }
 
-  /** 軟刪除角色並刪掉它的指派；回傳被刪掉指派的使用者（刪除與取得在同一條語句）。 */
+  /**
+   * 軟刪除角色並刪掉「持有這個角色」的邊；回傳原本的持有者（刪除與取得在同一條語句）。
+   * 角色帶的權限鍵、以角色為對象的資料夾授權留著：解析時已排除刪除的角色。
+   */
   async softDelete(id: string, actorId: string, tx: DbOrTx): Promise<string[]> {
     await tx
       .update(roles)
       .set({ deletedAt: new Date(), updatedBy: actorId })
       .where(eq(roles.id, id));
     const removed = await tx
-      .delete(userRoles)
-      .where(eq(userRoles.roleId, id))
-      .returning({ userId: userRoles.userId });
+      .delete(relationTuples)
+      .where(holdersOf(id))
+      .returning({ userId: relationTuples.subjectId });
     return removed.map((row) => row.userId);
   }
 
@@ -182,9 +213,9 @@ export class RoleRepository {
         sortOrder: permissions.sortOrder,
         createdAt: permissions.createdAt,
       })
-      .from(rolePermissions)
-      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
-      .where(eq(rolePermissions.roleId, roleId))
+      .from(relationTuples)
+      .innerJoin(permissions, eq(permissions.key, relationTuples.relation))
+      .where(permissionsOf(roleId))
       .orderBy(asc(permissions.sortOrder));
   }
 
@@ -193,45 +224,44 @@ export class RoleRepository {
     return rows.map((row) => row.key);
   }
 
+  /** 呼叫端先以 `PermissionService.assertKeysExist` 確認鍵都在目錄裡。 */
   async addPermissions(
     roleId: string,
-    permissionIds: readonly string[],
+    keys: readonly string[],
     actorId: string | null,
     tx: DbOrTx,
   ): Promise<void> {
-    if (!permissionIds.length) return;
+    if (!keys.length) return;
     await tx
-      .insert(rolePermissions)
-      .values(permissionIds.map((permissionId) => ({ roleId, permissionId, grantedBy: actorId })))
+      .insert(relationTuples)
+      .values(keys.map((key) => rolePermissionTuple(roleId, key, actorId)))
       .onConflictDoNothing();
   }
 
-  async removePermissions(
-    roleId: string,
-    permissionIds: readonly string[],
-    tx: DbOrTx,
-  ): Promise<void> {
-    if (!permissionIds.length) return;
+  async removePermissions(roleId: string, keys: readonly string[], tx: DbOrTx): Promise<void> {
+    if (!keys.length) return;
     await tx
-      .delete(rolePermissions)
-      .where(
-        and(
-          eq(rolePermissions.roleId, roleId),
-          inArray(rolePermissions.permissionId, [...permissionIds]),
-        ),
-      );
+      .delete(relationTuples)
+      .where(and(permissionsOf(roleId), inArray(relationTuples.relation, [...keys])));
   }
 
   async countUsers(roleId: string, db: DbOrTx = this.db): Promise<number> {
     const [row] = await db
       .select({ total: sql<number>`count(*)::int` })
-      .from(userRoles)
-      .innerJoin(users, and(eq(users.id, userRoles.userId), isNull(users.deletedAt)))
-      .where(eq(userRoles.roleId, roleId));
+      .from(relationTuples)
+      .innerJoin(
+        users,
+        and(eq(sql`${users.id}::text`, relationTuples.subjectId), isNull(users.deletedAt)),
+      )
+      .where(holdersOf(roleId));
     return row?.total ?? 0;
   }
 
   async listUsers(roleId: string, offset: number, limit: number) {
+    const holderOf = and(
+      eq(sql`${users.id}::text`, relationTuples.subjectId),
+      isNull(users.deletedAt),
+    );
     const [items, [counted]] = await Promise.all([
       this.db
         .select({
@@ -240,17 +270,17 @@ export class RoleRepository {
           displayName: users.displayName,
           status: users.status,
         })
-        .from(userRoles)
-        .innerJoin(users, and(eq(users.id, userRoles.userId), isNull(users.deletedAt)))
-        .where(eq(userRoles.roleId, roleId))
+        .from(relationTuples)
+        .innerJoin(users, holderOf)
+        .where(holdersOf(roleId))
         .orderBy(asc(users.email))
         .limit(limit)
         .offset(offset),
       this.db
         .select({ total: sql<number>`count(*)::int` })
-        .from(userRoles)
-        .innerJoin(users, and(eq(users.id, userRoles.userId), isNull(users.deletedAt)))
-        .where(eq(userRoles.roleId, roleId)),
+        .from(relationTuples)
+        .innerJoin(users, holderOf)
+        .where(holdersOf(roleId)),
     ]);
     return { items, total: counted?.total ?? 0 };
   }

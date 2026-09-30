@@ -12,21 +12,25 @@ import {
 import type {
   AuthzRegistry,
   AuthzService,
-  AuthzShadow,
   EdgeProvider,
   SubjectKey,
   TupleEntry,
 } from '@/core/authz';
+import type { GrantLevel } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { PermissionService } from '@/modules/permission/permission.service';
-import type { LevelGrant } from '@/modules/resource-grant/resource-grant.resolver';
-import type { ResourceGrantService } from '@/modules/resource-grant/resource-grant.service';
 
 import { FILE_ACTION_PERMISSION, FILE_ACTIONS } from '../file-access.context';
 import type { FileAction, FolderNode } from '../file-access.context';
 import { FileAccessService } from '../file-access.service';
 import type { FileFolderTree } from '../file-folder-tree';
 import { FILE_AUTHZ_TYPES } from '../file.authz';
+
+/** 操作者（經由假角色）在某個資料夾上的直接授權。 */
+export interface LevelGrant {
+  resourceId: string;
+  level: GrantLevel;
+}
 
 export interface AccessFixtureOptions {
   /** 操作者的全域檔案動作；預設全部（管理員）。 */
@@ -80,18 +84,14 @@ export function createFileAccess(options: AccessFixtureOptions = {}) {
         ),
     ),
   };
-  const grants = { grantsFor: vi.fn(async () => options.grants ?? []) };
   const tree = { nodes: vi.fn(async () => options.nodes?.() ?? []) };
   const audit = { recordSafely: vi.fn(async () => undefined) };
   const access = new FileAccessService(
     permissions as unknown as PermissionService,
-    grants as unknown as ResourceGrantService,
     tree as unknown as FileFolderTree,
     audit as unknown as AuditService,
     authz as unknown as AuthzService,
-    // 影子比對另有整合測試
-    { enabled: false } as AuthzShadow,
     { register: vi.fn(), model: () => model } as unknown as AuthzRegistry,
   );
-  return { access, audit, permissions, grants };
+  return { access, audit, permissions };
 }

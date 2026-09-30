@@ -8,13 +8,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   approvalRequests,
   auditLogs,
-  permissions,
-  rolePermissions,
+  relationTuples,
+  roleHolderTuple,
+  rolePermissionTuple,
   roles,
-  userRoles,
   users,
 } from '@/db/schema';
 
+import { heldRoleIds } from './authz';
 import type { TestDatabase } from './db';
 import { createTestDatabase, expectDbError, truncateAll } from './db';
 import { listenOnLoopback } from './http';
@@ -57,7 +58,7 @@ async function createActiveUser(email: string, password: string, roleSlug: strin
       status: 'active',
     })
     .returning();
-  await db.insert(userRoles).values({ userId: user!.id, roleId: await roleIdOf(roleSlug) });
+  await db.insert(relationTuples).values(roleHolderTuple(await roleIdOf(roleSlug), user!.id));
 }
 
 function register(email: string, overrides: Record<string, unknown> = {}) {
@@ -196,8 +197,7 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
     // email 還沒驗證：申請人不一定真的擁有這個信箱
     expect(user).toMatchObject({ status: 'pending', displayName: 'Applicant alice@example.com' });
     expect(approved.resultResourceId).toBe(user!.id);
-    const held = await db.select().from(userRoles).where(eq(userRoles.userId, user!.id));
-    expect(held.map((item) => item.roleId)).toEqual([await roleIdOf('member')]);
+    expect(await heldRoleIds(db, user!.id)).toEqual([await roleIdOf('member')]);
 
     // 審核後不再保留密碼雜湊
     const [row] = await db.select().from(approvalRequests).where(eq(approvalRequests.id, id));
@@ -295,11 +295,7 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
       .insert(roles)
       .values({ slug: 'approval-system-operator', name: 'System Operator' })
       .returning();
-    const [systemUpdate] = await db
-      .select()
-      .from(permissions)
-      .where(eq(permissions.key, 'system:update'));
-    await db.insert(rolePermissions).values({ roleId: custom!.id, permissionId: systemUpdate!.id });
+    await db.insert(relationTuples).values(rolePermissionTuple(custom!.id, 'system:update'));
 
     await register('dave@example.com').expect(202);
     const token = await login(ADMIN);
