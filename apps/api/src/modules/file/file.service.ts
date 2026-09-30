@@ -36,6 +36,7 @@ import { FileAccessService } from './file-access.service';
 import { FileFolderService } from './file-folder.service';
 import { FileImageService } from './file-image.service';
 import {
+  downloadPolicyOf,
   FILE_AUDIT_FIELDS,
   isImageVariantSource,
   MAX_PART_COUNT,
@@ -465,18 +466,22 @@ export class FileService {
   }
 
   private async toDto(file: FileWithUploader, ctx: FileAccessContext): Promise<FileDto> {
+    // 白名單以外的型別不在租戶網域上 inline 顯示：`url` 也是 attachment（SEC-02，§7.2）
+    const policy = downloadPolicyOf(file.contentType);
     const links =
       file.status === 'ready'
         ? await Promise.all([
             this.storage.presignDownload(file.storageKey, {
               expiresIn: this.urlTtl,
               fileName: file.name,
-              disposition: 'inline',
+              disposition: policy.disposition,
+              contentType: policy.contentType,
             }),
             this.storage.presignDownload(file.storageKey, {
               expiresIn: this.urlTtl,
               fileName: file.name,
               disposition: 'attachment',
+              contentType: policy.contentType,
             }),
             file.hasThumbnail
               ? this.storage.presignDownload(thumbnailKeyOf(file.id), {

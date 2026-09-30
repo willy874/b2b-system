@@ -187,6 +187,22 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     expect(audit).toMatchObject({ resourceType: 'file', resourceId: file.id });
   });
 
+  it('HTML、SVG 不在租戶網域上 inline 提供（SEC-02）', async () => {
+    const token = await login(ADMIN);
+    const html = await uploadFile(token, { name: 'evil.html', contentType: 'text/html', size: 10 });
+    expect(html.url).toContain('signed=attachment&type=application/octet-stream');
+    expect(html.downloadUrl).toContain('signed=attachment&type=application/octet-stream');
+    const svg = await uploadFile(token, { name: 'a.svg', contentType: 'image/svg+xml', size: 10 });
+    expect(svg.url).toContain('signed=attachment');
+    expect(svg.url).not.toContain('type=');
+    // 不留給後面依列表內容斷言的測試
+    await Promise.all(
+      [html.id, svg.id].map((id) =>
+        request(http).delete(`/files/${id}`).set('authorization', `Bearer ${token}`).expect(204),
+      ),
+    );
+  });
+
   it('上傳大小與登記不符 → 422，物件被刪除', async () => {
     const token = await login(ADMIN);
     const { file, upload } = await startUpload(token, {

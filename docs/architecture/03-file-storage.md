@@ -77,6 +77,11 @@ http://<host>:<port>/<bucket>/<key>      object（key 可含 /，URL 編碼）
 
 不在前綴底下的路徑回 `400 InvalidURI`。
 
+物件內容與應用程式同源，一律當成不受信任的使用者內容送出：`GetObject` / `HeadObject` 的回應固定帶
+`X-Content-Type-Options: nosniff` 與 `Content-Security-Policy: default-src 'none'; …; sandbox; frame-ancestors 'none'`
+（`OBJECT_CONTENT_SECURITY_POLICY`，`src/s3/object-headers.ts`）。這是真正的 S3 沒有的強化；
+為什麼需要見 [`backend/09-file.md`](./backend/09-file.md) §7.2。
+
 ### 3.2 健康檢查
 
 `GET /_health`（或 `/<base path>/_health`）不需要簽章，回 `200 ok`，給容器的 healthcheck 用。

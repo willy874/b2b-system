@@ -92,12 +92,14 @@ function setup(
       headers: { 'Content-Type': 'image/png' },
       expiresAt: new Date('2026-09-27T00:15:00Z'),
     })),
-    presignDownload: vi.fn(async (key: string, opts: { disposition: string }) => ({
-      url: `http://storage/${key}?${opts.disposition}`,
-      method: 'GET' as const,
-      headers: {},
-      expiresAt: new Date('2026-09-27T00:15:00Z'),
-    })),
+    presignDownload: vi.fn(
+      async (key: string, opts: { disposition: string; contentType?: string }) => ({
+        url: `http://storage/${key}?${opts.disposition}${opts.contentType ? `&type=${opts.contentType}` : ''}`,
+        method: 'GET' as const,
+        headers: {},
+        expiresAt: new Date('2026-09-27T00:15:00Z'),
+      }),
+    ),
     createMultipartUpload: vi.fn(async () => 'upload-1'),
     presignUploadPart: vi.fn(async (key: string, uploadId: string, partNumber: number) => ({
       url: `http://storage/${key}?uploadId=${uploadId}&partNumber=${partNumber}`,
@@ -271,6 +273,48 @@ describe('FileService.findOne', () => {
     expect(file.downloadUrl).toContain('attachment');
     expect(file.urlExpiresAt).toBe('2026-09-27T00:15:00.000Z');
   });
+
+  it.each([
+    ['text/html', 'index.html'],
+    ['application/javascript', 'a.js'],
+    ['application/xhtml+xml', 'a.xhtml'],
+    ['application/pdf', 'a.pdf'],
+  ])(
+    '%s 不 inline：url 也是 attachment、回應型別改成 octet-stream（SEC-02）',
+    async (contentType, name) => {
+      const { service } = setup({
+        file: fileRow({ name, contentType, status: 'ready', etag: 'abc', uploadedAt: new Date() }),
+      });
+      const file = await service.findOne(FILE_ID, BOB);
+      expect(file.url).toContain('attachment&type=application/octet-stream');
+      expect(file.downloadUrl).toContain('attachment&type=application/octet-stream');
+    },
+  );
+
+  it('SVG 保留型別（<img> 才畫得出來）但一律 attachment（SEC-02）', async () => {
+    const { service } = setup({
+      file: fileRow({
+        name: 'a.svg',
+        contentType: 'image/svg+xml',
+        status: 'ready',
+        etag: 'abc',
+        uploadedAt: new Date(),
+      }),
+    });
+    const file = await service.findOne(FILE_ID, BOB);
+    expect(file.url).toBe(`http://storage/${storageKeyOf(FILE_ID)}?attachment`);
+  });
+
+  it.each(['image/png', 'text/plain', 'video/mp4', 'audio/mpeg'])(
+    '白名單型別 %s 維持 inline，不覆寫回應型別',
+    async (contentType) => {
+      const { service } = setup({
+        file: fileRow({ contentType, status: 'ready', etag: 'abc', uploadedAt: new Date() }),
+      });
+      const file = await service.findOne(FILE_ID, BOB);
+      expect(file.url).toBe(`http://storage/${storageKeyOf(FILE_ID)}?inline`);
+    },
+  );
 
   it('pending 只有上傳者看得到', async () => {
     const { service } = setup({ file: fileRow() });

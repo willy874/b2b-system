@@ -23,6 +23,52 @@ export function thumbnailKeyOf(fileId: string): string {
 export const THUMBNAIL_CONTENT_TYPES = ['image/webp', 'image/jpeg', 'image/png'] as const;
 export const THUMBNAIL_MAX_SIZE = 512 * 1024;
 
+// ── 下載網址的型別政策（docs/architecture/backend/09-file.md §7.2） ──
+
+/**
+ * 可以在租戶網域上 inline 顯示的型別：瀏覽器只會把它們當成被動內容（圖片、影音、純文字），不會執行。
+ * `/storage` 與 backstage 同源，HTML、SVG、JS 若 inline 提供就能在租戶網域上執行腳本、偷 session。
+ * PDF 不在內：瀏覽器的 PDF 檢視器在 `sandbox` CSP 下會被擋，改為下載。
+ */
+const INLINE_SAFE_CONTENT_TYPES: ReadonlySet<string> = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/avif',
+  'image/bmp',
+  'text/plain',
+]);
+const INLINE_SAFE_PREFIXES = ['audio/', 'video/'] as const;
+
+/** 在 `<img>` 裡顯示得出來、直接開啟卻會執行腳本的型別：保留型別（`<img>` 才畫得出來）但一律 attachment。 */
+const IMAGE_ONLY_CONTENT_TYPES: ReadonlySet<string> = new Set(['image/svg+xml']);
+
+/** 其他型別下載時一律以這個型別回應：瀏覽器不會解析、也不會執行。 */
+export const OPAQUE_CONTENT_TYPE = 'application/octet-stream';
+
+export function isInlineSafe(contentType: string): boolean {
+  return (
+    INLINE_SAFE_CONTENT_TYPES.has(contentType) ||
+    INLINE_SAFE_PREFIXES.some((prefix) => contentType.startsWith(prefix))
+  );
+}
+
+/**
+ * 下載網址的 `Content-Disposition` 與回應型別（SEC-02）：白名單以外一律 attachment，
+ * 除了 SVG（保留型別給 `<img>` 用）都改成 `application/octet-stream`；`contentType` 為 undefined 是沿用物件的型別。
+ */
+export function downloadPolicyOf(contentType: string): {
+  disposition: 'inline' | 'attachment';
+  contentType: string | undefined;
+} {
+  if (isInlineSafe(contentType)) return { disposition: 'inline', contentType: undefined };
+  if (IMAGE_ONLY_CONTENT_TYPES.has(contentType)) {
+    return { disposition: 'attachment', contentType: undefined };
+  }
+  return { disposition: 'attachment', contentType: OPAQUE_CONTENT_TYPE };
+}
+
 // ── 影像變體（docs/architecture/backend/09-file.md §5.4） ──
 
 /**

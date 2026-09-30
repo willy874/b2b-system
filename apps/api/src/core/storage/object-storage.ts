@@ -63,6 +63,8 @@ export interface PresignDownloadOptions {
   fileName: string;
   /** `inline`：瀏覽器直接顯示（`<img src>`）；`attachment`：觸發下載。 */
   disposition: 'inline' | 'attachment';
+  /** 覆寫回應的 `Content-Type`（例：可執行的型別改成 `application/octet-stream`）；省略時沿用物件的型別。 */
+  contentType?: string;
 }
 
 /** S3 的 bucket 命名規則（小寫英數、`.`、`-`，3–63 字）。租戶登記時檢查（docs/adr/0020-physical-tenant-isolation.md D16）。 */

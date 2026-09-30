@@ -380,7 +380,7 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   "size": 12345,
   "status": "ready",
   "folderId": null,                                                    // 所在的資料夾；null 是根目錄
-  "url": "https://…/storage/b2b-system/files/<id>?X-Amz-…",          // inline：直接顯示
+  "url": "https://…/storage/b2b-system/files/<id>?X-Amz-…",          // inline：直接顯示（白名單以外的型別也是 attachment，§7.2）
   "downloadUrl": "https://…/storage/b2b-system/files/<id>?X-Amz-…",  // attachment：以 name 下載
   "thumbnailUrl": "/api/files/<id>/image/thumbnail?exp=…&sig=…",       // 伺服器圖示預覽 → 瀏覽器縮圖 → null
   "image": {                                                           // 不是圖片、或變體還沒產生時為 null（§5.4）
@@ -475,6 +475,26 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 - 同一個時間窗內對同一個物件簽出一模一樣的網址，`<img>` 與 HTTP 快取直接命中；
 - 回應帶 `Cache-Control: private, max-age=<TTL/2>, immutable`（`response-cache-control`）：物件以 id 為 key、從不覆寫；
 - 代價：網址的剩餘效期介於 `TTL / 2` 與 `TTL` 之間。`urlExpiresAt` 反映真正的失效時間，前端在失效前 60 秒重抓列表。
+
+### 7.2 下載網址的型別政策（使用者上傳的內容與 backstage 同源）
+
+`/storage` 與 backstage 在同一個租戶網域（§3）：上傳的 HTML、SVG、JS 若 inline 提供，直接開啟就能在租戶網域上執行腳本，
+帶著 refresh cookie 呼叫 `/api/auth/refresh`。所以 `contentType` 雖然可以是任何 MIME（檔案管理器要能存任何檔案），
+**提供** 時一律依型別決定（`downloadPolicyOf`，`file.constants.ts`）：
+
+| 型別 | `url` | `downloadUrl` | 回應的 `Content-Type` |
+| --- | --- | --- | --- |
+| `image/png`、`jpeg`、`gif`、`webp`、`avif`、`bmp`、`text/plain`、`audio/*`、`video/*` | inline | attachment | 原型別 |
+| `image/svg+xml` | attachment | attachment | 原型別（`<img>` 才畫得出來；直接開啟是下載） |
+| 其他（含 `text/html`、`application/javascript`、`application/pdf`） | attachment | attachment | `application/octet-stream`（`response-content-type` 覆寫） |
+
+- PDF 不 inline：下方的 `sandbox` CSP 會擋掉瀏覽器的 PDF 檢視器，乾脆下載。
+- 文字預覽以 `fetch(url)` 讀內容，不受 `Content-Disposition` 與型別影響。
+- 物件儲存的回應另外帶 `X-Content-Type-Options: nosniff` 與
+  `Content-Security-Policy: default-src 'none'; …; sandbox; frame-ancestors 'none'`：apps/file-storage 自己送，
+  `deploy/nginx.conf` 的 `/storage/` 也統一加（換成 S3／MinIO 時那是唯一的防線）。`sandbox` 讓被直接開啟的文件落在不透明的 origin，
+  即使型別被繞過，腳本也碰不到 cookie 與 API；圖片、影音在 `<img>`／`<video>` 裡不受影響。影像 API 的 302 也帶 `nosniff`。
+- 長期：物件儲存放到獨立、不帶 cookie 的網域，就不必依賴型別政策。
 
 ---
 
