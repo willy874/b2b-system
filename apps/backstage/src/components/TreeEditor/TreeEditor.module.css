@@ -1,0 +1,443 @@
+/*
+ * React Flow 的必要樣式也寫在這裡，不 import `@xyflow/react/dist/base.css`：
+ * 那份是不分層的全域 CSS，會蓋過 @layer 裡的所有規則（docs/architecture/frontend/07-ui-system.md §3.4），
+ * 而且顏色是寫死的色碼。這裡只保留用得到的部分（沒有 Controls、NodeResizer、浮水印），顏色一律走 token。
+ */
+@layer components {
+  .root {
+    --xy-edge-stroke: var(--color-border-control);
+    --xy-edge-stroke-width: 1.5;
+    --xy-edge-stroke-selected: var(--color-brand);
+    --xy-connectionline-stroke: var(--color-brand);
+    --xy-connectionline-stroke-width: 1.5;
+    --xy-background-pattern-color: var(--color-border);
+    --xy-minimap-background-color: var(--color-surface);
+    --xy-minimap-mask-background-color: var(--color-fill-subtle);
+    --xy-minimap-node-background-color: var(--color-fill);
+    --xy-selection-background-color: var(--color-fill-subtle);
+    --xy-selection-border: 1px dashed var(--color-brand);
+
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+  }
+
+  /* 工具列：新增／刪除／排版在左，復原與縮放在右 */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--seed-space-1);
+    padding: var(--seed-space-1) var(--seed-space-2);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+
+  .toolbarEnd {
+    display: inline-flex;
+    gap: var(--seed-space-1);
+    margin-inline-start: auto;
+  }
+
+  .canvas {
+    position: relative;
+    height: var(--tree-editor-height);
+    min-height: 0;
+  }
+
+  .canvas:focus-within {
+    outline: 2px solid var(--color-brand);
+    outline-offset: -2px;
+  }
+
+  .empty {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .empty > * {
+    pointer-events: auto;
+  }
+
+  /* ── 節點 ─────────────────────────────────────────── */
+
+  .node {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    padding: var(--seed-space-2) var(--seed-space-3);
+    border: 1px solid var(--color-border-control);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-fg);
+    font-size: 0.875rem;
+    box-shadow: var(--shadow-tooltip);
+  }
+
+  .node[data-selected] {
+    border-color: var(--color-brand);
+    outline: 1px solid var(--color-brand);
+  }
+
+  .nodeContent {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .nodeLabel {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .handle {
+    width: 0.625rem;
+    height: 0.625rem;
+    border: 2px solid var(--color-surface);
+    border-radius: 50%;
+    background: var(--color-border-control);
+  }
+
+  .root[data-readonly] .handle {
+    visibility: hidden;
+  }
+
+  .node:hover .handle,
+  .node[data-selected] .handle {
+    background: var(--color-brand);
+  }
+
+  /* 新增子節點：浮在連出把手的外側，滑過或選取時才出現 */
+  .addChild {
+    position: absolute;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    border: 1px solid var(--color-brand);
+    border-radius: 50%;
+    background: var(--color-surface);
+    color: var(--color-brand);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 120ms;
+  }
+
+  .node:hover .addChild,
+  .node[data-selected] .addChild,
+  .addChild:focus-visible {
+    opacity: 1;
+  }
+
+  .addChild:hover {
+    background: var(--color-brand);
+    color: var(--color-brand-fg);
+  }
+
+  .addChild[data-side='bottom'] {
+    bottom: -1.75rem;
+    left: 50%;
+    translate: -50% 0;
+  }
+
+  .addChild[data-side='top'] {
+    top: -1.75rem;
+    left: 50%;
+    translate: -50% 0;
+  }
+
+  .addChild[data-side='right'] {
+    right: -1.75rem;
+    top: 50%;
+    translate: 0 -50%;
+  }
+
+  .addChild[data-side='left'] {
+    left: -1.75rem;
+    top: 50%;
+    translate: 0 -50%;
+  }
+
+  .minimap {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  /* ── React Flow 必要樣式（改寫自 @xyflow/react/dist/base.css） ── */
+
+  .root :global(.react-flow) {
+    direction: ltr;
+    background-color: transparent;
+  }
+
+  .root :global(.react-flow__container) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .root :global(.react-flow__pane) {
+    z-index: 1;
+    touch-action: none;
+  }
+
+  .root :global(.react-flow__pane.draggable) {
+    cursor: grab;
+  }
+
+  .root :global(.react-flow__pane.dragging) {
+    cursor: grabbing;
+  }
+
+  .root :global(.react-flow__pane.selection) {
+    cursor: pointer;
+  }
+
+  .root :global(.react-flow__viewport) {
+    z-index: 2;
+    transform-origin: 0 0;
+    pointer-events: none;
+  }
+
+  .root :global(.react-flow__renderer) {
+    z-index: 4;
+  }
+
+  .root :global(.react-flow__selection) {
+    z-index: 6;
+  }
+
+  .root :global(.react-flow__nodesselection-rect),
+  .root :global(.react-flow__selection) {
+    border: var(--xy-selection-border);
+    background: var(--xy-selection-background-color);
+  }
+
+  .root :global(.react-flow__nodesselection-rect:focus),
+  .root :global(.react-flow__nodesselection-rect:focus-visible) {
+    outline: none;
+  }
+
+  .root :global(.react-flow__background) {
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .root :global(.react-flow__background-pattern.dots) {
+    fill: var(--xy-background-pattern-color);
+  }
+
+  .root :global(.react-flow__edges) {
+    position: absolute;
+  }
+
+  .root :global(.react-flow__edges svg) {
+    position: absolute;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .root :global(.react-flow__edge) {
+    pointer-events: visibleStroke;
+  }
+
+  .root :global(.react-flow__edge.selectable) {
+    cursor: pointer;
+  }
+
+  .root :global(.react-flow__edge.selected),
+  .root :global(.react-flow__edge:focus),
+  .root :global(.react-flow__edge:focus-visible) {
+    outline: none;
+  }
+
+  .root :global(.react-flow__edge-path) {
+    fill: none;
+    stroke: var(--xy-edge-stroke);
+    stroke-width: var(--xy-edge-stroke-width);
+  }
+
+  .root :global(.react-flow__edge.selected .react-flow__edge-path),
+  .root :global(.react-flow__edge.selectable:focus-visible .react-flow__edge-path) {
+    stroke: var(--xy-edge-stroke-selected);
+    stroke-width: 2.5;
+  }
+
+  .root :global(.react-flow__connection) {
+    pointer-events: none;
+  }
+
+  .root :global(.react-flow__connection-path) {
+    fill: none;
+    stroke: var(--xy-connectionline-stroke);
+    stroke-width: var(--xy-connectionline-stroke-width);
+    stroke-dasharray: 5;
+  }
+
+  .root :global(svg.react-flow__connectionline) {
+    position: absolute;
+    z-index: 1001;
+    overflow: visible;
+  }
+
+  .root :global(.react-flow__nodes) {
+    transform-origin: 0 0;
+    pointer-events: none;
+  }
+
+  .root :global(.react-flow__node) {
+    position: absolute;
+    box-sizing: border-box;
+    transform-origin: 0 0;
+    cursor: default;
+    pointer-events: all;
+    user-select: none;
+  }
+
+  .root :global(.react-flow__node.selectable) {
+    cursor: pointer;
+  }
+
+  .root :global(.react-flow__node.draggable) {
+    cursor: grab;
+  }
+
+  .root :global(.react-flow__node.draggable.dragging) {
+    cursor: grabbing;
+  }
+
+  .root :global(.react-flow__node:focus-visible) {
+    outline: none;
+  }
+
+  .root :global(.react-flow__node:focus-visible) .node {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+
+  .root :global(.react-flow__nodesselection) {
+    z-index: 3;
+    transform-origin: left top;
+    pointer-events: none;
+  }
+
+  .root :global(.react-flow__nodesselection-rect) {
+    position: absolute;
+    cursor: grab;
+    pointer-events: all;
+  }
+
+  .root :global(.react-flow__handle) {
+    position: absolute;
+    min-width: 5px;
+    min-height: 5px;
+    pointer-events: none;
+  }
+
+  .root :global(.react-flow__handle.connectingfrom),
+  .root :global(.react-flow__handle.connectionindicator) {
+    pointer-events: all;
+  }
+
+  .root :global(.react-flow__handle.connectionindicator) {
+    cursor: crosshair;
+  }
+
+  .root :global(.react-flow__handle.connectingto.valid) {
+    background: var(--color-success);
+  }
+
+  .root :global(.react-flow__handle-bottom) {
+    top: auto;
+    bottom: 0;
+    left: 50%;
+    transform: translate(-50%, 50%);
+  }
+
+  .root :global(.react-flow__handle-top) {
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .root :global(.react-flow__handle-left) {
+    top: 50%;
+    left: 0;
+    transform: translate(-50%, -50%);
+  }
+
+  .root :global(.react-flow__handle-right) {
+    top: 50%;
+    right: 0;
+    transform: translate(50%, -50%);
+  }
+
+  .root :global(.react-flow__panel) {
+    position: absolute;
+    z-index: 5;
+    margin: var(--seed-space-3);
+  }
+
+  .root :global(.react-flow__panel.top) {
+    top: 0;
+  }
+
+  .root :global(.react-flow__panel.bottom) {
+    bottom: 0;
+  }
+
+  .root :global(.react-flow__panel.left) {
+    left: 0;
+  }
+
+  .root :global(.react-flow__panel.right) {
+    right: 0;
+  }
+
+  .root :global(.react-flow__minimap) {
+    background: var(--xy-minimap-background-color);
+  }
+
+  .root :global(.react-flow__minimap-svg) {
+    display: block;
+  }
+
+  .root :global(.react-flow__minimap-mask) {
+    fill: var(--xy-minimap-mask-background-color);
+  }
+
+  .root :global(.react-flow__minimap-node) {
+    fill: var(--xy-minimap-node-background-color);
+  }
+
+  .root :global(.react-flow__edgelabel-renderer),
+  .root :global(.react-flow__viewport-portal) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    user-select: none;
+  }
+
+  .root :global(.react-flow__edgelabel-renderer) {
+    pointer-events: none;
+  }
+}
