@@ -124,6 +124,7 @@ export default function UserListPage() {
             .catch(() => undefined);
           setPendingDelete(undefined);
         }}
+        data-testid="user-delete-confirm"
       />
 
       <Outlet />

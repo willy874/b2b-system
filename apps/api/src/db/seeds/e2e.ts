@@ -30,6 +30,8 @@ export const E2E_ACCOUNTS = [
   { email: 'e2e-disableme@dev.local', displayName: 'E2E Disable Target', role: 'member' },
   // 專門給「權限在使用中被撤銷」的測試用：角色會被整批改寫，不能和其他測試共用
   { email: 'e2e-revokeme@dev.local', displayName: 'E2E Revoke Target', role: 'member' },
+  // 專門給「角色刪除 → 還原」的測試用：持有的自訂角色會被刪掉再還原（tests/trash-and-revisions.spec.ts）
+  { email: 'e2e-roleholder@dev.local', displayName: 'E2E Role Holder', role: 'member' },
 ] as const;
 
 export async function seedE2eData(db: ScriptDatabase): Promise<void> {

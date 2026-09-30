@@ -205,6 +205,8 @@ export const authHandlers = [
 | 9   | 切換語系 → 已造訪的頁面文字全部跟著換                                  | i18n scope 補載           |
 | 10  | 系統角色的刪除按鈕不存在 / 被 disable                                  | 保護規則                  |
 | 11  | 持有者停在頁面上時權限被移除 → 不重新整理也變成 403；推播漏掉時，下一次操作收到 403 後自我修正 | 推播與 `PermissionDriftWatcher` 兩條路 |
+| 12  | 刪除使用者／角色／資料夾 → 提示的「復原」或回收桶還原；角色還原後持有者恢復權限 | 軟刪除、持有者邊與檔案物件跨前後端（ADR-0025） |
+| 13  | 角色的版本紀錄看差異 → 還原到某一版；兩人同時編輯同一筆 → 後送出的看到衝突提示 | 版本歷史與樂觀鎖（ADR-0025） |
 
 ### 4.2 結構
 
@@ -235,7 +237,7 @@ e2e-member@dev.local       member
 密碼統一：E2E!Password123
 ```
 
-會改變帳號狀態（鎖定、停用、整批改寫角色）的案例各有專用帳號（`e2e-lockme`、`e2e-disableme`、`e2e-revokeme`，
+會改變帳號狀態（鎖定、停用、整批改寫角色）的案例各有專用帳號（`e2e-lockme`、`e2e-disableme`、`e2e-revokeme`、`e2e-roleholder`，
 見 `apps/api/src/db/seeds/e2e.ts`），不和其他並行的案例共用。
 
 #### 與正在跑的 dev 環境並行
@@ -255,12 +257,21 @@ export AUTH_APP_URL=http://localhost:5275 OIDC_ISSUER=http://localhost:5275/api/
   VITE_AUTH_APP_URL=http://localhost:5275 VITE_OIDC_ISSUER=http://localhost:5275/api/oidc
 export AUTH_RATE_LIMIT=1000 DEFAULT_RATE_LIMIT=10000 MAIL_TRANSPORT=smtp
 export E2E_BASE_URL=http://localhost:5273 E2E_AUTH_URL=http://localhost:5275
+# 外部 IdP（pnpm dev:mock-idp，Playwright 會起）登記的 callback 跟著換埠
+export MOCK_IDP_CALLBACK_URL=http://localhost:5275/api/oidc-interaction/external/callback
+# 物件儲存另起一份（:9100、資料放暫存目錄），不寫進 dev 的 :9000 與它的 .data
+export FILE_STORAGE_PORT=9100 FILE_STORAGE_DATA_DIR=/tmp/b2b-e2e-storage \
+  FILE_STORAGE_ENDPOINT=http://127.0.0.1:9100/storage FILE_STORAGE_PUBLIC_ENDPOINT=http://localhost:9100/storage
 ```
 
 - api **不要** 在同一個目錄再跑 `nest start --watch`：`deleteOutDir` 會刪掉另一個程序正在用的 `dist`。
   改成 `cd apps/api && node --enable-source-maps dist/src/main`（沿用 dev 的 watch 已建置好的產物）。
 - backstage、auth 照常 `pnpm --filter … dev`，吃上面的環境變數換埠；Playwright 的 `webServer` 以 `E2E_BASE_URL`／`E2E_AUTH_URL` 沿用它們。
-- `tenancy`、`sso`、`mail` 三個 spec 仍寫死 5173，只能在標準埠上跑。
+- file-storage 以 `cd apps/file-storage && pnpm exec tsx src/main.ts` 吃上面的變數起在 :9100。backstage 的 `/storage` 代理寫死 :9000，
+  所以 `FILE_STORAGE_PUBLIC_ENDPOINT` 直接給 :9100：presigned URL 讓瀏覽器直連，CORS 由 `FILE_STORAGE_ALLOWED_ORIGINS` 放行 :5273。
+  共用 :9000 的話，E2E 的檔案會寫進 dev 的 bucket，E2E 資料庫的維護排程也會把 dev 的物件當成殘留。
+- `tenancy`、`sso`、`mail` 三個 spec 仍寫死 5173，只能在標準埠上跑；`sso-external` 第一個案例最後斷言網址是 5173，
+  換埠時只有那一行失敗（流程本身有走完）。
 
 ### 4.4 選擇器
 
