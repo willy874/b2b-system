@@ -24,6 +24,7 @@
 | P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | — |
 | P2 | 標籤、留言、關注 | [`tags-comments.md`](./tags-comments.md) | 提案 | `notification-center` |
 | P2 | 全域搜尋 | [`global-search.md`](./global-search.md) | 提案 | — |
+| P2 | 安全與容量的後續強化 | [`hardening-followups.md`](./hardening-followups.md) | 提案 | — |
 | P3 | 使用者群組 | [`user-groups.md`](./user-groups.md) | 提案 | — |
 | P3 | MFA | [`mfa.md`](./mfa.md) | 提案 | — |
 | P3 | Feature Flag | [`feature-flags.md`](./feature-flags.md) | 提案 | [系統設定](../architecture/backend/12-settings.md)（已完成） |

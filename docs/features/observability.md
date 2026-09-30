@@ -3,7 +3,7 @@
 - 優先度：P3
 - 狀態：提案
 - 依賴：—
-- 相關：[`multi-instance.md`](./multi-instance.md)
+- 相關：[`multi-instance.md`](./multi-instance.md)、[`hardening-followups.md`](./hardening-followups.md)
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -20,6 +20,9 @@
 | `/metrics`（Prometheus 格式）：請求量、延遲、錯誤率、快取命中率 | |
 | OpenTelemetry tracing：HTTP → service → DB | |
 | 前端錯誤回報（未捕捉例外、API 失敗） | |
+| 容量指標：event loop lag、連線池使用率與等待、背景工作佇列深度 | |
+| 健康檢查加上 event loop lag 門檻（目前只看程序存活，完全卡住時靠 HEALTHCHECK 逾時） | |
+| CI 的 bundle 大小預算 | |
 
 ## 開放問題
 

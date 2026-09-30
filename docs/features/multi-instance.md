@@ -17,9 +17,7 @@ api 目前假設只有一個程序：
 
 水平擴展之前，這三件事都要改成共享的。
 
-### 2026-09-30 檢查報告補充（docs/issues/01-performance.md PERF-10、PERF-11）
-
-單一執行個體在 1000 人在線時的具體代價：
+### 單一執行個體在 1000 人在線時的代價
 
 - **部署即全員斷線**：每次部署或重啟，約 1000 條 WebSocket 同時重連，每條在冷快取下做使用者與權限查詢，接著每個分頁重抓畫面上的
   query；沒有滾動部署的可能。已先做的緩解：前端重連退避改成 2–30 秒加隨機（`REALTIME_RECONNECTION`）、每 IP 的 handshake 上限可調
@@ -38,6 +36,8 @@ api 目前假設只有一個程序：
 | WebSocket 每 IP handshake、每人連線數 | gateway 記憶體裡的計數 | 同上，或接受「每實例」的語意並把上限除以實例數 |
 | 租戶登記快取 | `TenantDirectory` 本程序失效，其他實例晚 `TENANT_CACHE_TTL` 秒 | 失效廣播（同一條 `LISTEN/NOTIFY`） |
 | 連線預算 | 每個 api 程序各有平台池＋每租戶的池 | `max_connections` 的估算乘上程序數；程序多時在前面加 PgBouncer（backend/02-database.md §6.2） |
+| 資料夾樹快取 | `FileFolderTree` 以租戶為 key 快取在程序內，只在本程序失效 | 失效廣播（同上）；見 backend/09-file.md §11.1 |
+| 影像處理 | 在 api 程序內處理 | 隨 worker 一起拆出 |
 | nginx upstream | `api_backend` 固定一台 | 列出每個實例或 `resolver` ＋ 變數化的 `proxy_pass`；keepalive 照舊 |
 
 ## 範圍
