@@ -74,7 +74,7 @@ describe('JobQueue：租戶不能進入時的工作（docs/adr/0020-physical-ten
 describe('JobQueue：worker 的並行數（docs/architecture/backend/10-jobs.md §3）', () => {
   it('以工作類型的 concurrency 設定 pg-boss 的 localConcurrency（預設 1）', async () => {
     const { queue } = setupQueue();
-    const work = vi.fn(async () => 'worker-id');
+    const work = vi.fn(async (_name: string, _options: object, _handler: unknown) => 'worker-id');
     (queue as unknown as { boss: { work: typeof work } }).boss.work = work;
     const start = (type: ReturnType<typeof defineJob>) =>
       (

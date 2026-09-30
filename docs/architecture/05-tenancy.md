@@ -35,8 +35,11 @@
 - Host 取自 `requestHost()`：只有受信任的代理（`TRUST_PROXY`）帶來的 `X-Forwarded-Host` 才採用，不能靠標頭換租戶。
   所以受信任的代理 **必須覆寫** 這個標頭：兩份 nginx 設定都 `proxy_set_header X-Forwarded-Host $http_host`
   （[`01-system.md`](./01-system.md) §4.2）；前面另有 LB 時同樣要求。
-- `TenantDirectory` 快取查詢結果（含「找不到」）`TENANT_CACHE_TTL` 秒；租戶管理改了登記時 `invalidate()` 立即生效。
-  另有「網域 → 租戶 id」的同步快照，給 oidc-provider 的同步判斷（redirect URI 是否屬於租戶）用。
+- `TenantDirectory` 快取查詢結果 `TENANT_CACHE_TTL` 秒（「找不到」最多 5 秒）；租戶管理改了登記時 `invalidate()` 立即生效。
+  另有「網域 → 租戶 id」的同步快照（每 `TENANT_CACHE_TTL` 秒重載），給 oidc-provider 的同步判斷（redirect URI 是否屬於租戶）用。
+- **Host 由客戶端決定、而且在速率限制之前解析**：不在快照裡的 Host 直接視為找不到，不查平台 DB；格式不像網域或租戶代碼的值
+  （`X-Tenant`、`/tenants/lookup?code=`）也不查。三個快取（網域、id、代碼）都是有上限的 LRU（`bounded-cache.ts`，各 5000 筆）。
+  代價：另一個執行個體剛新增的網域，這裡最多晚 `TENANT_CACHE_TTL` 秒才認得（與 §7 的多執行個體限制相同）。
 - 租戶不能進入時回 `503 TENANT_UNAVAILABLE`，`details.reason` 分兩種：`inactive`（停用、佈建中、佈建失敗）與
   `maintenance`（migration 落後、DB 連不上）。背景工作依此決定略過或重試（§6）。
 
