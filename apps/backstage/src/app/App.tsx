@@ -45,6 +45,8 @@ function SessionWatcher({ router }: { router: AppContext['router'] }) {
           to: '/auth/login',
           search: loginSearchAfterSessionEnd(reason, globalThis.location),
           replace: true,
+          // session 已經結束：未儲存提醒（useUnsavedChangesGuard）留不住使用者，直接離開
+          ignoreBlocker: true,
         });
       }),
     [router],

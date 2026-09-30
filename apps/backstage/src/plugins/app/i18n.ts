@@ -8,13 +8,15 @@ import {
   initI18n,
   loadLocaleScope,
 } from '@/core/locales';
-import { syncPreferencesAcrossTabs, useLocaleStore } from '@/core/store';
+import { syncPreferencesAcrossTabs, useLocaleStore, useTimezoneStore } from '@/core/store';
 import { LanguageNamespace, Languages } from '@/shared/constants/lang';
+import { setDateTimeDefaults } from '@/shared/date';
 
 export function i18nPlugin(): AppPluginFactory {
   return () => {
     let stopSync: (() => void) | undefined;
     let offLocale: (() => void) | undefined;
+    let offTimezone: (() => void) | undefined;
     return {
       name: 'i18n',
       attrs: { i18n, addResourceBundle, changeLanguage },
@@ -40,13 +42,21 @@ export function i18nPlugin(): AppPluginFactory {
         // 其他分頁改了語系：store 由跨分頁同步更新，這裡跟著切換
         stopSync = syncPreferencesAcrossTabs();
         offLocale = useLocaleStore.subscribe((state, previous) => {
+          if (state.locale !== previous.locale) setDateTimeDefaults({ locale: state.locale });
           if (state.locale !== previous.locale && state.locale !== i18n.language) {
             void changeLanguage(state.locale);
           }
         });
+
+        // 日期時間的顯示跟著偏好的語言與時區（UX-11）；列表等畫面下次渲染時就會套用
+        setDateTimeDefaults({ locale, timeZone: useTimezoneStore.getState().timezone });
+        offTimezone = useTimezoneStore.subscribe((state) =>
+          setDateTimeDefaults({ timeZone: state.timezone }),
+        );
       },
       onDestroy: () => {
         offLocale?.();
+        offTimezone?.();
         stopSync?.();
       },
     };
