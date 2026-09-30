@@ -43,6 +43,39 @@
     font-weight: 600;
   }
 
+  .ge-shell__brand-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.2;
+  }
+
+  .ge-shell__tenant {
+    overflow: hidden;
+    color: var(--color-fg-muted);
+    font-size: 0.75rem;
+    font-weight: 400;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ge-shell__user-name {
+    margin-inline-start: var(--seed-space-2);
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ge-shell__scrim {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-drawer-scrim);
+    border: 0;
+    padding: 0;
+    background: var(--color-backdrop);
+  }
+
   .ge-shell__brand-mark {
     display: inline-flex;
     align-items: center;
@@ -178,5 +211,52 @@
     min-height: 0;
     padding: var(--seed-space-6);
     overflow: auto;
+  }
+
+  /*
+   * 窄螢幕（手機直向）：側欄改成覆蓋式抽屜，預設收起，由頂列的選單鈕打開；主內容佔滿寬度、內距縮小
+   * （docs/issues/04-user-experience.md UX-24）。斷點與 DashboardLayout.tsx 的 NARROW_QUERY 一致。
+   */
+  @media (max-width: 767px) {
+    .ge-shell,
+    .ge-shell--collapsed {
+      grid-template-columns: 1fr;
+    }
+
+    .ge-shell__sidebar {
+      position: fixed;
+      inset-block: 0;
+      inset-inline-start: 0;
+      z-index: var(--z-drawer);
+      width: min(16rem, 85vw);
+      transform: translateX(-100%);
+      visibility: hidden;
+      transition:
+        transform 200ms ease,
+        visibility 200ms;
+    }
+
+    .ge-shell--drawer-open .ge-shell__sidebar {
+      transform: none;
+      visibility: visible;
+    }
+
+    .ge-shell__topbar {
+      padding-inline: var(--seed-space-2);
+    }
+
+    .ge-shell__user-name {
+      display: none;
+    }
+
+    .ge-shell__content {
+      padding: var(--seed-space-3);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ge-shell__sidebar {
+        transition: none;
+      }
+    }
   }
 }

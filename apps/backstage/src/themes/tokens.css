@@ -133,6 +133,9 @@
    * 且高於所有對話框：它們常被放在對話框或另一個浮層「裡面」。
    * 同一層之間由 DOM 順序決定——Base UI 開啟時才 portal 到 body 尾端，後開的（巢狀的子浮層）自然在上。
    */
+  /* 窄螢幕的側欄抽屜與遮罩：在內容之上、對話框之下 */
+  --z-drawer-scrim: 55;
+  --z-drawer: 60;
   --z-dialog: 70;
   --z-alert-dialog: 80;
   --z-floating: 85;

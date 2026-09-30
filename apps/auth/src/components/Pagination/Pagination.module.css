@@ -12,6 +12,7 @@
 
   .controls {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--seed-space-2);
   }

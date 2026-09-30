@@ -111,7 +111,8 @@
     "setting": "System settings",
     "profile": "Profile",
     "preference": "Preferences",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "switchTenant": "Switch tenant"
   },
   "app": {
     "title": "B2B System",
@@ -321,5 +322,10 @@
       "last": "Last",
       "page": "Page number"
     }
+  },
+  "layout": {
+    "toggleSidebar": "Side menu",
+    "closeSidebar": "Close side menu",
+    "accountMenu": "Account menu ({{name}})"
   }
 }

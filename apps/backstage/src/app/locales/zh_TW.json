@@ -111,7 +111,8 @@
     "setting": "系統設定",
     "profile": "個人資料",
     "preference": "偏好設定",
-    "logout": "登出"
+    "logout": "登出",
+    "switchTenant": "切換租戶"
   },
   "app": {
     "title": "B2B System",
@@ -321,5 +322,10 @@
       "last": "最後一頁",
       "page": "頁碼"
     }
+  },
+  "layout": {
+    "toggleSidebar": "側邊選單",
+    "closeSidebar": "關閉側邊選單",
+    "accountMenu": "帳號選單（{{name}}）"
   }
 }
