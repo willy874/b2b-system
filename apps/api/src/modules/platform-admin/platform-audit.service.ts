@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { PLATFORM_DB } from '@/core/database';
-import type { PlatformDatabase } from '@/core/database';
+import type { PlatformDatabase, PlatformDbOrTx } from '@/core/database';
 import { getRequestContext, paginated } from '@/core/http';
 import type { PaginatedResult } from '@/core/http';
 import { platformAuditLogs } from '@/db/platform/schema';
@@ -56,9 +56,10 @@ export class PlatformAuditService {
     );
   }
 
-  async record(input: PlatformAuditInput): Promise<void> {
+  /** 帶 `tx` 時與狀態變更同一個交易（CLAUDE.md 後端規則 6：稽核寫入在交易內）。 */
+  async record(input: PlatformAuditInput, tx: PlatformDbOrTx = this.db): Promise<void> {
     const ctx = getRequestContext();
-    await this.db.insert(platformAuditLogs).values({
+    await tx.insert(platformAuditLogs).values({
       action: input.action,
       resourceType: input.resourceType,
       resourceId: input.resourceId ?? null,

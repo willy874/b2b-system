@@ -545,7 +545,7 @@ api 不自己跑 migration，而是比對版本（`core/tenant/tenant-schema.ts`
 | | 內容 | 連線 | DI token |
 | --- | --- | --- | --- |
 | 平台 DB（一個） | `tenants`、`tenant_domains`、`oidc_payloads`、pg-boss | `PLATFORM_DATABASE_URL`；`DatabaseModule` 建一個連線池 | `PLATFORM_DB`（`PlatformDatabase`） |
-| 租戶 DB（每租戶一個） | 其餘所有業務表 | 連線字串以 `TENANT_SECRET_KEY` 加密存在 `tenants`；`core/tenant` 的 `Tenancy` 在第一次用到時建立小連線池（`TENANT_POOL_MAX`，閒置 60 秒關閉） | `TENANT_DB`（`Database`） |
+| 租戶 DB（每租戶一個） | 其餘所有業務表 | 連線字串以 `TENANT_SECRET_KEY` 加密存在 `tenants`；`core/tenant` 的 `Tenancy` 在第一次用到時建立小連線池（`TENANT_POOL_MAX`，閒置 `TENANT_POOL_IDLE_TIMEOUT` 秒關閉） | `TENANT_DB`（`Database`） |
 
 - **`TENANT_DB` 永遠指向「目前的租戶」**：它是一個 Proxy，每次存取都轉到目前租戶脈絡（`AsyncLocalStorage`）的 database。
   repository 照常 `@Inject(TENANT_DB) private readonly db: Database`、`withTransaction(this.db, …)`，不必知道有多個租戶。
@@ -555,6 +555,37 @@ api 不自己跑 migration，而是比對版本（`core/tenant/tenant-schema.ts`
   直接呼叫 service 的測試用 `test/tenant.ts` 的 `inTestTenant()`。
 - `withTransaction` 開的交易可以登記 `afterCommit(tx, hook)`，提交後才執行（背景工作的 outbox 用它）。
 - 關閉時平台連線池與每個租戶的連線池都 `client.end({ timeout: 5 })`。
+
+### 6.2 連線預算與逾時
+
+postgres 的連線是有限資源（`max_connections`，每條約數 MB 記憶體）。api 程序會開的連線：
+
+| 連線池 | 上限 | 環境變數 |
+| --- | --- | --- |
+| 平台 DB | 10（production）／3（其他） | `PLATFORM_POOL_MAX` |
+| pg-boss（平台 DB） | 4 | —（`core/jobs/job-queue.ts`） |
+| 每個租戶 | 10，閒置 30 秒關閉 | `TENANT_POOL_MAX`、`TENANT_POOL_IDLE_TIMEOUT` |
+
+**預算**：`(平台池 ＋ 4 ＋ 同時活躍的租戶數 × TENANT_POOL_MAX) × api 程序數 ＋ migrate／腳本 ＜ max_connections − superuser_reserved_connections（3）`。
+
+- 「同時活躍」是 `TENANT_POOL_IDLE_TIMEOUT` 內有請求或背景工作的租戶；租戶的池是按需建立連線，平常遠低於上限。
+  `jobs.outboxSweep` 會進入每個 `active` 租戶，所以它的間隔（預設 10 分鐘）要遠大於閒置逾時，否則所有租戶的池永遠不會關。
+- 估算（單一 api 程序、`max_connections=200`，compose 的預設）：14 ＋ 10 × N ＜ 197 → **約 18 個租戶同時滿載**。
+  實際上一個租戶的穩態只用 1–3 條（1000 人、約 600 qps × 2–5 ms），尖峰才會用到 10 條；超過這個規模時在 postgres
+  前面加 PgBouncer（transaction mode；只能用交易層級的 `pg_advisory_xact_lock`），或提高 `max_connections` 並加記憶體。
+- 1000 人集中在一個租戶時，`TENANT_POOL_MAX` 是那個租戶的並行查詢上限：慢查詢會讓其他請求在池裡排隊。
+  postgres.js 沒有「排隊逾時」，所以每條連線都設下面的逾時，讓一條失控的查詢不會一直佔住連線。
+
+每條連線建立時以連線參數設定（`database.provider.ts` 的 `postgresOptionsOf`，平台與租戶的池都一樣；migration 與腳本不設）：
+
+| 參數 | 預設 | 環境變數 | 超過時 |
+| --- | --- | --- | --- |
+| `statement_timeout` | 15 秒 | `DB_STATEMENT_TIMEOUT_MS`（0 = 不限制） | 該語句被取消（`57014`），請求回 500 |
+| `idle_in_transaction_session_timeout` | 30 秒 | `DB_IDLE_IN_TRANSACTION_TIMEOUT_MS`（0 = 不限制） | postgres 結束該連線 |
+| `connect_timeout` | 10 秒 | `DB_CONNECT_TIMEOUT` | 建立連線失敗 |
+
+postgres 端的調校（`docker-compose.prod.yml` 的 `command`）：`max_connections`、`shared_buffers`（約記憶體 25%）、
+`effective_cache_size`（約 75%）、`work_mem`、`pg_stat_statements`、`log_min_duration_statement=500`。
 
 ### 6.1 腳本
 

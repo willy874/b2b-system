@@ -2,11 +2,15 @@ import { z } from 'zod';
 
 import { defineSchema } from '@/core/validation';
 
-import { AUDIT_LOG_MAX_RANGE_DAYS, AUDIT_LOG_MAX_RANGE_MS } from '../audit-log.constants';
+import {
+  AUDIT_LOG_MAX_OFFSET,
+  AUDIT_LOG_MAX_RANGE_DAYS,
+  AUDIT_LOG_MAX_RANGE_MS,
+} from '../audit-log.constants';
 
 export const ListAuditLogSchema = z
   .object({
-    offset: z.coerce.number().int().min(0).default(0),
+    offset: z.coerce.number().int().min(0).max(AUDIT_LOG_MAX_OFFSET).default(0),
     limit: z.coerce.number().int().min(1).max(100).default(50),
     actorId: z.string().uuid().optional(),
     action: z.string().trim().max(100).optional(), // 支援前綴比對：`role.*`

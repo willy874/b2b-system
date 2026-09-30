@@ -49,6 +49,7 @@ export const JOB_NAME_LABEL_KEY: Readonly<Record<string, string>> = {
   'auth.passwordResetMail': 'job.name.passwordResetMail',
   'platformAdmin.accountMail': 'job.name.platformAdminAccountMail',
   'tenant.provision': 'job.name.tenantProvision',
+  'tenant.provisionSweep': 'job.name.tenantProvisionSweep',
   'oidc.cleanup': 'job.name.oidcCleanup',
   'jobs.outboxSweep': 'job.name.outboxSweep',
 };

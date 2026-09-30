@@ -1,4 +1,5 @@
 import { defineJob } from '@/core/jobs';
+import { MAIL_JOB_OPTIONS } from '@/core/mail';
 
 export interface ApprovalResultMailJobData {
   approvalId: string;
@@ -10,5 +11,5 @@ export interface ApprovalResultMailJobData {
  */
 export const APPROVAL_RESULT_MAIL_JOB = defineJob<ApprovalResultMailJobData>(
   'approval.resultMail',
-  { retryLimit: 8, retryDelaySeconds: 60, retryDelayMaxSeconds: 60 * 60 },
+  MAIL_JOB_OPTIONS,
 );

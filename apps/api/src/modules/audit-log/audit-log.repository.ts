@@ -7,6 +7,7 @@ import { TENANT_DB } from '@/core/database';
 import type { AuditLogRow } from '@/db/schema';
 import { auditLogs, auditLogsArchive } from '@/db/schema';
 
+import { AUDIT_LOG_COUNT_CAP } from './audit-log.constants';
 import type { AuditLogRange } from './audit-log.constants';
 import type { ListAuditLogDto } from './dto/list-audit-log.dto';
 
@@ -64,11 +65,17 @@ export class AuditLogRepository {
     return and(...conditions);
   }
 
+  /** 最多數到 `AUDIT_LOG_COUNT_CAP`：只掃過那麼多列就停（PERF-09）。 */
   private count(table: AuditLogTable, where: SQL | undefined) {
-    return this.db
-      .select({ total: sql<number>`count(*)::int` })
+    const capped = this.db
+      .select({ one: sql`1`.as('one') })
       .from(table)
       .where(where)
+      .limit(AUDIT_LOG_COUNT_CAP)
+      .as('capped');
+    return this.db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(capped)
       .then(([row]) => row?.total ?? 0);
   }
 
@@ -108,7 +115,7 @@ export class AuditLogRepository {
       this.count(auditLogs, hotWhere),
       this.count(auditLogsArchive, coldWhere),
     ]);
-    return { items, total: hotTotal + coldTotal };
+    return { items, total: Math.min(hotTotal + coldTotal, AUDIT_LOG_COUNT_CAP) };
   }
 
   /** 先熱後冷，一次來回：`UNION ALL … LIMIT 1` 在熱表命中時不會去碰冷表。 */

@@ -9,6 +9,14 @@ export class AppError extends Error {
     this.name = 'AppError';
   }
 
+  /** `429` 時伺服器建議的等待秒數（`details.retryAfterSeconds`，或 `Retry-After` 標頭）。 */
+  get retryAfterSeconds(): number | undefined {
+    const value = this.details?.retryAfterSeconds;
+    return typeof value === 'number' && Number.isFinite(value) && value > 0
+      ? Math.ceil(value)
+      : undefined;
+  }
+
   /** 欄位層級錯誤（表單回填用）。 */
   get fieldErrors(): Record<string, string> | undefined {
     const fields = this.details?.fields;
@@ -32,6 +40,7 @@ export const ErrorCodes = {
   AUTH_REFRESH_REUSED: 'AUTH_REFRESH_REUSED',
   AUTHZ_FORBIDDEN: 'AUTHZ_FORBIDDEN',
   AUTHZ_ESCALATION: 'AUTHZ_ESCALATION',
+  RATE_LIMITED: 'RATE_LIMITED',
 } as const;
 
 /** 收到這些碼代表 session 已被終止：不要嘗試續期，直接登出。 */

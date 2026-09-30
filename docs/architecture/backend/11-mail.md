@@ -40,8 +40,10 @@ modules/approval/
 | `console`（預設） | 不寄出；收件人、主旨與純文字內容寫進日誌 | 單元／整合測試、沒有收信工具的環境 |
 
 - 只講 SMTP、不綁服務商 SDK：SES、Postmark、Resend、自架 relay 都只是換 `MAIL_SMTP_URL`。
-- **正式環境一律 `smtp`**（`docker-compose.prod.yml` 寫死）：`console` 會把能登入的連結寫進日誌。
+- **正式環境一律 `smtp`**（`docker-compose.prod.yml` 寫死；`NODE_ENV=production` 設成 `console` 會啟動失敗）：`console` 會把能登入的連結寫進日誌。
 - 寄件網域要設好 SPF、DKIM、DMARC，否則信會進垃圾信匣。
+- **連線池**：`smtp` 以 nodemailer 的 pool 模式連線（`MAIL_SMTP_POOL_SIZE`，預設 5 條），連續寄信時沿用已建立（含 TLS 握手）的連線。
+  寄信工作共用 `MAIL_JOB_OPTIONS`（`core/mail`）：重試 8 次、間隔最多 1 小時，每個程序同時跑 5 筆（pg-boss 的 `localConcurrency`）。
 - 預設 `console` 是為了讓沒有 SMTP 的環境（測試、CI）不會因為連不上而讓工作一直重試。
 
 ## 3. 範本

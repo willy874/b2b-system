@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
+import type { Env } from '@/core/config';
 import { PermissionModule } from '@/modules/permission/permission.module';
 
 import { RealtimeAudience } from './realtime.audience';
-import { DEFAULT_REALTIME_LIMITS, REALTIME_LIMITS } from './realtime.constants';
+import { REALTIME_LIMITS, realtimeLimitsOf } from './realtime.constants';
 import { RealtimeExpiry } from './realtime.expiry';
 import { RealtimeGateway } from './realtime.gateway';
 import { RealtimeListener } from './realtime.listener';
@@ -23,7 +25,17 @@ import { RealtimePublisher, SocketIoRealtimePublisher } from './realtime.publish
     RealtimeExpiry,
     SocketIoRealtimePublisher,
     { provide: RealtimePublisher, useExisting: SocketIoRealtimePublisher },
-    { provide: REALTIME_LIMITS, useValue: DEFAULT_REALTIME_LIMITS },
+    {
+      provide: REALTIME_LIMITS,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>) =>
+        realtimeLimitsOf({
+          REALTIME_HANDSHAKES_PER_IP: config.get('REALTIME_HANDSHAKES_PER_IP', { infer: true }),
+          REALTIME_CONNECTIONS_PER_USER: config.get('REALTIME_CONNECTIONS_PER_USER', {
+            infer: true,
+          }),
+        }),
+    },
   ],
 })
 export class RealtimeModule {}

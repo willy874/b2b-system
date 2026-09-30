@@ -80,6 +80,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `retryDelaySeconds` / `retryDelayMaxSeconds` | 退避的起點與上限 |
 | `expireInSeconds` | 執行超過這個秒數視為失敗（worker 當掉也會被收回重試） |
 | `exclusive` | 同時最多一筆排隊、一筆執行（pg-boss 的 `stately`）。排程工作用它避免越積越多；寄信這類每筆都要做的不能開 |
+| `concurrency` | 這個程序同時執行幾筆（pg-boss 的 `localConcurrency`，預設 1）。寄信（`MAIL_JOB_OPTIONS`）是 5；吃 CPU／記憶體的工作維持 1，免得拖慢同一個程序上的 API |
 
 - `exclusive` 在佇列建立時決定，之後不能改；要改就換工作名稱。其他選項每次啟動同步到佇列。
 - 排程（`cron`，UTC）由註冊時的 `{ cron }` 決定；空字串代表不排程，啟動時會移除之前的排程。
@@ -93,7 +94,8 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `auth.activationMail`、`auth.passwordResetMail` | `modules/auth` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
 | `approval.resultMail` | `modules/approval` | — | 由程式入列 |
 | `oidc.cleanup`（平台） | `modules/oidc-provider` | `OIDC_CLEANUP_CRON` | `45 3 * * *`（每天 03:45 UTC；清除過期的 IdP 狀態） |
-| `jobs.outboxSweep`（平台） | `core/jobs` | `JOBS_OUTBOX_SWEEP_CRON` | `* * * * *`（每分鐘；補搬各租戶 outbox 裡沒搬成的工作，§4.1） |
+| `tenant.provisionSweep`（平台） | `modules/tenant` | — | `*/5 * * * *`（每 5 分鐘；佈建逾時仍在 `provisioning` 的租戶改成 `failed`，[`../05-tenancy.md`](../05-tenancy.md) §5） |
+| `jobs.outboxSweep`（平台） | `core/jobs` | `JOBS_OUTBOX_SWEEP_CRON` | `*/10 * * * *`（每 10 分鐘；補搬各租戶 outbox 裡沒搬成的工作，§4.1） |
 
 ## 4. 入列
 
@@ -119,7 +121,9 @@ await withTransaction(this.db, async (tx) => {
 帶 `tx` 的入列寫進租戶 DB 的 `job_outbox`（同一個交易），回傳的 id 在提交後就是佇列裡的工作 id：
 
 1. 交易提交後（`afterCommit`）立刻把目前租戶 outbox 裡的列搬進佇列並刪除（`SELECT … FOR UPDATE SKIP LOCKED`，一批 100 筆）。
-2. 搬移失敗或程序剛好在提交與搬移之間當掉：每分鐘的 `jobs.outboxSweep` 走遍每個 `active` 租戶補搬。
+2. 搬移失敗或程序剛好在提交與搬移之間當掉：每 10 分鐘的 `jobs.outboxSweep` 走遍每個 `active` 租戶補搬。
+   它會在每個租戶開一條連線，所以間隔要遠大於 `TENANT_POOL_IDLE_TIMEOUT`（30 秒），閒置租戶的連線池才會關掉
+   （[`02-database.md`](./02-database.md) §6.2）。
 3. 以 outbox 的 id 當 pg-boss 的工作 id（`ON CONFLICT DO NOTHING`）：送出後、刪除前當掉而重搬，也只會有一筆工作。
 
 交易回滾時 outbox 的列跟著消失，工作不存在——與 ADR-0016 D2 的保證相同，只是多了「提交後最多一分鐘才入列」的極端情況。
@@ -167,7 +171,7 @@ await withTransaction(this.db, async (tx) => {
 | 環境變數 | 預設 | 說明 |
 | --- | --- | --- |
 | `JOBS_WORKER_ENABLED` | `true` | 這個程序是否執行工作與排程；`false` 只入列 |
-| `JOBS_OUTBOX_SWEEP_CRON` | `* * * * *` | 補搬 outbox 的排程（UTC）；空字串停用 |
+| `JOBS_OUTBOX_SWEEP_CRON` | `*/10 * * * *` | 補搬 outbox 的排程（UTC）；空字串停用 |
 | `AUDIT_LOG_ARCHIVE_CRON` | `30 3 * * *` | 稽核封存的排程（UTC）；空字串停用 |
 | `FILE_MAINTENANCE_CRON` | `0 * * * *` | 檔案維護的排程（UTC）；空字串停用 |
 

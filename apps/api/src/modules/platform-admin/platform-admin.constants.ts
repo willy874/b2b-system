@@ -1,4 +1,5 @@
 import { defineJob } from '@/core/jobs';
+import { MAIL_JOB_OPTIONS } from '@/core/mail';
 
 export const PLATFORM_ACTIVATION_TTL_SECONDS = 24 * 60 * 60; // 24 小時
 export const PLATFORM_PASSWORD_RESET_TTL_SECONDS = 60 * 60; // 1 小時
@@ -12,9 +13,6 @@ export const PLATFORM_ACCOUNT_MAIL_JOB = defineJob<{
   adminId: string;
   purpose: 'activation' | 'passwordReset';
 }>('platformAdmin.accountMail', {
+  ...MAIL_JOB_OPTIONS,
   scope: 'platform',
-  // 寄信失敗多半是 SMTP 暫時不可用：多重試幾次、間隔拉長（同租戶的寄信工作）
-  retryLimit: 8,
-  retryDelaySeconds: 60,
-  retryDelayMaxSeconds: 60 * 60,
 });

@@ -23,8 +23,24 @@ export const EnvSchema = z.object({
     (value) => (value === '' ? undefined : value),
     z.string().optional(),
   ),
-  /** 每個租戶的連線池上限；閒置 60 秒的連線會關閉（D3）。 */
-  TENANT_POOL_MAX: z.coerce.number().int().min(1).default(5),
+  /**
+   * 每個租戶的連線池上限（D3）。連線預算：平台池 ＋ pg-boss（4）＋ 活躍租戶數 × 這個值（× api 程序數）
+   * 要小於 postgres 的 `max_connections`（docs/architecture/backend/02-database.md §6.2）。
+   */
+  TENANT_POOL_MAX: z.coerce.number().int().min(1).default(10),
+  /** 租戶連線池的閒置連線幾秒後關閉：沒人用的租戶不佔連線（要比 outbox 清掃的間隔短）。 */
+  TENANT_POOL_IDLE_TIMEOUT: z.coerce.number().int().min(1).default(30),
+  /** 平台 DB 的連線池上限；沒設定時 production 10、其他環境 3。 */
+  PLATFORM_POOL_MAX: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.coerce.number().int().min(1).optional(),
+  ),
+  /** 建立 DB 連線的逾時（秒）。 */
+  DB_CONNECT_TIMEOUT: z.coerce.number().int().min(1).default(10),
+  /** 單一 SQL 語句的上限（毫秒；每條連線的 `statement_timeout`）；0 = 不限制。 */
+  DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(0).default(15_000),
+  /** 交易開著卻閒置的上限（毫秒；`idle_in_transaction_session_timeout`）；0 = 不限制。 */
+  DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: z.coerce.number().int().min(0).default(30_000),
   /** 網域 → 租戶的快取秒數。 */
   TENANT_CACHE_TTL: z.coerce.number().int().min(0).default(30),
   /**
@@ -75,9 +91,24 @@ export const EnvSchema = z.object({
    * （docs/architecture/backend/12-settings.md §3）。
    */
   LOGIN_MAX_ATTEMPTS: z.coerce.number().int().default(5),
-  /** 速率限制（次 / 分 / IP）。E2E 會把 AUTH_RATE_LIMIT 調高，避免測試自己撞到 429。 */
-  AUTH_RATE_LIMIT: z.coerce.number().int().default(10),
-  DEFAULT_RATE_LIMIT: z.coerce.number().int().default(120),
+  // 速率限制（次 / 分；docs/architecture/backend/03-api-conventions.md §8）。已登入的請求以使用者計，
+  // 未登入以 IP 計；預設值按「1000 人共用一個 NAT 出口 IP」估算。E2E 會把 AUTH_RATE_LIMIT 調高。
+  /** 每個已登入的使用者（所有端點合計）。 */
+  DEFAULT_RATE_LIMIT: z.coerce.number().int().min(1).default(600),
+  /** 每個 IP 的未登入請求（所有端點合計）。 */
+  ANONYMOUS_RATE_LIMIT: z.coerce.number().int().min(1).default(3000),
+  /** 登入類端點：每個「帳號 ＋ IP」。忘記密碼、註冊是它的 1/3（至少 3）。 */
+  AUTH_RATE_LIMIT: z.coerce.number().int().min(1).default(10),
+  /** 登入類端點：每個 IP（整間公司的早上登入尖峰）。忘記密碼、註冊是它的 1/10。 */
+  AUTH_IP_RATE_LIMIT: z.coerce.number().int().min(1).default(300),
+  /** `/auth/refresh`：每個 refresh session。 */
+  REFRESH_RATE_LIMIT: z.coerce.number().int().min(1).default(30),
+  /** `/auth/refresh`：每個 IP（1000 人每 5 分鐘續期一次 ≈ 200 次 / 分，重啟後會集中）。 */
+  REFRESH_IP_RATE_LIMIT: z.coerce.number().int().min(1).default(2000),
+  /** WebSocket handshake：每個 IP（重新部署後整間公司同時重連）。 */
+  REALTIME_HANDSHAKES_PER_IP: z.coerce.number().int().min(1).default(1200),
+  /** WebSocket：每個使用者同時的連線數（所有裝置、所有分頁）。 */
+  REALTIME_CONNECTIONS_PER_USER: z.coerce.number().int().min(1).default(20),
   LOGIN_LOCKOUT_SECONDS: z.coerce.number().int().default(900),
 
   /**
@@ -173,9 +204,10 @@ export const EnvSchema = z.object({
     .transform((value) => value === 'true'),
   /**
    * 清掃租戶 outbox 的 cron（UTC）：交易提交後會立刻搬進佇列，這裡只補救搬移途中程序當掉的情況
-   * （docs/adr/0020-physical-tenant-isolation.md D15）。空字串停用。
+   * （docs/adr/0020-physical-tenant-isolation.md D15）。它會進入每個 active 租戶：間隔要比
+   * `TENANT_POOL_IDLE_TIMEOUT` 長得多，閒置租戶的連線池才會真的關掉。空字串停用。
    */
-  JOBS_OUTBOX_SWEEP_CRON: z.string().trim().default('* * * * *'),
+  JOBS_OUTBOX_SWEEP_CRON: z.string().trim().default('*/10 * * * *'),
   /**
    * 郵件寄送方式（docs/architecture/backend/11-mail.md）：`smtp` 經 nodemailer 寄出（本機寄給 Mailpit）；
    * `console` 只寫日誌（含連結），給測試與沒有收信工具的環境用。
@@ -183,6 +215,8 @@ export const EnvSchema = z.object({
   MAIL_TRANSPORT: z.enum(['smtp', 'console']).default('console'),
   /** SMTP 連線網址，例：`smtp://localhost:1025`、`smtps://user:pass@smtp.example.com:465`。 */
   MAIL_SMTP_URL: z.string().default('smtp://localhost:1025'),
+  /** SMTP 連線池的連線數（同時寄出的信；docs/architecture/backend/11-mail.md §2）。 */
+  MAIL_SMTP_POOL_SIZE: z.coerce.number().int().min(1).default(5),
   MAIL_FROM: z.string().min(3).default('B2B System <no-reply@localhost>'),
   /** 瀏覽器看到的前端網址；信裡的連結（啟用、重設密碼）以它開頭。 */
   APP_PUBLIC_URL: z
@@ -256,9 +290,53 @@ export const EnvSchema = z.object({
   ),
 });
 
+/**
+ * `.env.example` 與文件裡出現過的範例值：複製範例檔直接上線時，任何人都能用公開的值偽造 token
+ * 或讀寫物件儲存（docs/issues/02-security.md SEC-10）。
+ */
+const EXAMPLE_SECRETS: ReadonlySet<string> = new Set([
+  'change-me-in-production',
+  'change-me-in-production-min-32-chars',
+  'test-secret-that-is-long-enough-32ch',
+  'b2b-system-dev',
+  'b2b-system-dev-secret',
+]);
+
+/** 看起來不是隨機產生的金鑰：範例值、含 change-me、或不同的字元太少（例：32 個 a）。 */
+export function isWeakSecret(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return (
+    EXAMPLE_SECRETS.has(normalized) ||
+    normalized.includes('change-me') ||
+    normalized.includes('changeme') ||
+    new Set(normalized).size < 10
+  );
+}
+
 /** production 不接受開發用的預設值：沒有金鑰就不能簽 ID token 與 IdP cookie。 */
 const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
   if (env.NODE_ENV !== 'production') return;
+  const secrets = {
+    JWT_SECRET: env.JWT_SECRET,
+    FILE_STORAGE_ACCESS_KEY_ID: env.FILE_STORAGE_ACCESS_KEY_ID,
+    FILE_STORAGE_SECRET_ACCESS_KEY: env.FILE_STORAGE_SECRET_ACCESS_KEY,
+  };
+  for (const [key, value] of Object.entries(secrets)) {
+    // access key id 不是祕密（常是短的識別字），只擋範例值
+    const weak =
+      key === 'FILE_STORAGE_ACCESS_KEY_ID' ? EXAMPLE_SECRETS.has(value) : isWeakSecret(value);
+    if (weak) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [key],
+        message: 'production 不能用範例值或低熵的字串（請以 openssl rand -base64 48 之類產生）',
+      });
+    }
+  }
+  if (env.MAIL_TRANSPORT !== 'smtp') {
+    // console 會把能登入的啟用／重設連結寫進日誌
+    ctx.addIssue({ code: 'custom', path: ['MAIL_TRANSPORT'], message: 'production 必須是 smtp' });
+  }
   if (!env.OIDC_JWKS) {
     ctx.addIssue({ code: 'custom', path: ['OIDC_JWKS'], message: 'production 必須設定簽章金鑰' });
   }

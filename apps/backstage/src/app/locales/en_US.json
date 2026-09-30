@@ -110,6 +110,7 @@
     "unknown_with_id": "Something went wrong (code {{requestId}}). Please contact an administrator.",
     "network": "Unable to reach the server. Check your connection and try again.",
     "timeout": "The request timed out. Please check your connection and try again.",
+    "rate_limited_retry": "Too many requests. Please try again in {{seconds}} seconds.",
     "aborted": "The request was cancelled.",
     "permission_changed": "Your permissions just changed; the page has been re-synced.",
     "VALIDATION_FAILED": "Some fields are invalid. Please review and try again.",

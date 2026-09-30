@@ -248,6 +248,12 @@ DEFAULT_TENANT_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_sy
 DEFAULT_TENANT_DOMAINS=localhost:5173   # apps/auth（:5175）不屬於任何租戶
 DEFAULT_TENANT_STORAGE_BUCKET=b2b-system # 預設租戶的 bucket（每個租戶一個）
 TENANT_PROVISIONING_DATABASE_URL=        # 佈建新租戶用（CREATEDB＋CREATEROLE）；留空 = PLATFORM_DATABASE_URL
+TENANT_POOL_MAX=10                 # 每個租戶的連線池上限（連線預算見 docs/architecture/backend/02-database.md §6.2）
+TENANT_POOL_IDLE_TIMEOUT=30        # 租戶連線池的閒置連線幾秒後關閉
+PLATFORM_POOL_MAX=                 # 平台 DB 的連線池上限；留空 = production 10、其他 3
+DB_CONNECT_TIMEOUT=10              # 建立連線的逾時（秒）
+DB_STATEMENT_TIMEOUT_MS=15000      # 每條連線的 statement_timeout（毫秒）；0 = 不限制
+DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=30000   # 交易開著卻閒置的上限（毫秒）；0 = 不限制
 TENANT_BASE_DOMAIN=                      # 新租戶的預設網域 {code}.<值>；留空 = APP_PUBLIC_URL 的 host
 PLATFORM_ADMIN_EMAIL=platform@example.com   # 第一位平台管理者（apps/auth 的登入）
 PLATFORM_ADMIN_PASSWORD=
@@ -266,8 +272,15 @@ ARGON2_MEMORY_COST=19456
 ARGON2_TIME_COST=2
 
 PERMISSION_CACHE_TTL=60            # 秒
-AUTH_RATE_LIMIT=10                 # /auth/* 每分鐘每 IP（E2E 需調高）
-DEFAULT_RATE_LIMIT=120             # 其餘端點每分鐘每 IP
+# 速率限制（次 / 分；docs/architecture/backend/03-api-conventions.md §8）：已登入以使用者計、未登入以 IP 計
+DEFAULT_RATE_LIMIT=600             # 每個已登入的使用者（所有端點合計）
+ANONYMOUS_RATE_LIMIT=3000          # 每個 IP 的未登入請求（1000 人共用一個 NAT 出口）
+AUTH_RATE_LIMIT=10                 # 登入類端點：每個「帳號 ＋ IP」（E2E 需調高）；忘記密碼、註冊是 1/3
+AUTH_IP_RATE_LIMIT=300             # 登入類端點：每個 IP；忘記密碼、註冊是 1/10
+REFRESH_RATE_LIMIT=30              # /auth/refresh：每個 refresh session
+REFRESH_IP_RATE_LIMIT=2000         # /auth/refresh：每個 IP
+REALTIME_HANDSHAKES_PER_IP=1200    # WebSocket handshake：每個 IP
+REALTIME_CONNECTIONS_PER_USER=20   # WebSocket：每個使用者同時的連線數
 TRUST_PROXY=false                  # Express trust proxy：反向代理後面設跳數或子網路（例：uniquelocal）
 LOGIN_MAX_ATTEMPTS=5               # 只用於平台管理者；租戶使用者是系統設定 auth.loginMaxAttempts
 LOGIN_LOCKOUT_SECONDS=900          # 同上（租戶：auth.loginLockoutSeconds）
@@ -277,6 +290,7 @@ SUPER_ADMIN_PASSWORD=              # 留空則 seed 時隨機產生並印出一�
 
 MAIL_TRANSPORT=smtp                 # smtp / console（backend/11-mail.md §2）
 MAIL_SMTP_URL=smtp://localhost:1025 # 本機是 Mailpit
+MAIL_SMTP_POOL_SIZE=5               # SMTP 連線池的連線數（同時寄出的信）
 MAIL_FROM="B2B System <no-reply@localhost>"
 APP_PUBLIC_URL=http://localhost:5173  # 信裡連結的開頭；也是第一方 client `backstage` 的 redirect URI 開頭
 AUTH_APP_URL=http://localhost:5175     # apps/auth（IdP 的登入互動頁）
@@ -325,3 +339,5 @@ VITE_ENABLE_MOCK=false
 
 env 由 `core/config` 以 Zod schema 驗證，**缺少必要變數時啟動即失敗**，不容許
 執行到一半才發現。
+`NODE_ENV=production` 另外檢查：`JWT_SECRET`、`FILE_STORAGE_*` 不能是上面的範例值或低熵字串（含 `change-me`、不同字元少於 10 個），
+`MAIL_TRANSPORT` 必須是 `smtp`（`console` 會把啟用／重設連結寫進日誌），OIDC 與加密金鑰必填。

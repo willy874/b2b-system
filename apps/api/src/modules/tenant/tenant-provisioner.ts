@@ -28,6 +28,20 @@ export const TENANT_PROVISION_JOB = defineJob<{ tenantId: string }>('tenant.prov
   expireInSeconds: 15 * 60,
 });
 
+/**
+ * 佈建中斷的補救（EDGE-07）：程序在佈建途中被重啟時，工作被 pg-boss 在 `expireInSeconds` 後收回，
+ * 租戶卻還停在 `provisioning`。排程把這種租戶改成 `failed`，平台管理者就能重試或刪除。
+ */
+export const TENANT_PROVISION_SWEEP_JOB = defineJob<Record<string, never>>(
+  'tenant.provisionSweep',
+  { scope: 'platform', exclusive: true, retryLimit: 0, expireInSeconds: 60 },
+);
+const PROVISION_SWEEP_CRON = '*/5 * * * *';
+
+/** 超過佈建工作的逾時再多 5 分鐘仍在 `provisioning`，視為中斷。 */
+export const PROVISION_STALE_MS = (TENANT_PROVISION_JOB.options.expireInSeconds + 5 * 60) * 1000;
+const INTERRUPTED_REASON = '佈建中斷（程序在佈建途中停止），請重試';
+
 /** 佈建失敗的原因最多存多長（給平台管理者看，不是完整的堆疊）。 */
 const MAX_ERROR_LENGTH = 500;
 
@@ -59,6 +73,35 @@ export class TenantProvisioner implements OnModuleInit {
 
   onModuleInit(): void {
     this.jobs.register(TENANT_PROVISION_JOB, ({ tenantId }) => this.provision(tenantId));
+    this.jobs.register(
+      TENANT_PROVISION_SWEEP_JOB,
+      async () => ({ interrupted: await this.failStaleProvisioning() }),
+      { cron: PROVISION_SWEEP_CRON },
+    );
+  }
+
+  /** 逾時仍在 `provisioning` 的租戶改成 `failed`（條件式更新，多個程序同時跑也安全）；回傳改了幾個。 */
+  async failStaleProvisioning(now = new Date()): Promise<number> {
+    const stale = await this.repo.failStaleProvisioning(
+      new Date(now.getTime() - PROVISION_STALE_MS),
+      INTERRUPTED_REASON,
+    );
+    if (!stale.length) return 0;
+    this.directory.invalidate();
+    for (const tenant of stale) {
+      this.logger.warn({ tenant: tenant.code }, '佈建中斷，改成 failed');
+      // oxlint-disable-next-line no-await-in-loop -- 數量很少
+      await this.audit.recordSafely({
+        action: 'tenant.provision',
+        resourceType: 'tenant',
+        resourceId: tenant.id,
+        actorEmail: 'system',
+        result: 'failure',
+        errorCode: 'TENANT_PROVISION_INTERRUPTED',
+        metadata: { code: tenant.code, reason: INTERRUPTED_REASON },
+      });
+    }
+    return stale.length;
   }
 
   /** 新租戶的連線字串：與佈建用的連線同一台伺服器，角色、密碼、database 都是這個租戶自己的。 */

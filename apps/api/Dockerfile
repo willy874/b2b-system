@@ -25,6 +25,8 @@ RUN pnpm --filter @b2b-system/api deploy --prod --legacy /app
 FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+# argon2、sharp、DNS 查詢共用 libuv 的執行緒池（Node 預設 4）；compose 可依 CPU 數覆寫
+ENV UV_THREADPOOL_SIZE=16
 
 RUN addgroup -S app && adduser -S app -G app
 

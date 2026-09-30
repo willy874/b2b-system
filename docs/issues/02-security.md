@@ -79,6 +79,7 @@
 ### SEC-04 nginx 不清除 `X-Forwarded-Host`，api 在 `TRUST_PROXY=uniquelocal` 下採信它：用標頭就能切換租戶
 
 - **嚴重度**：P2（部署環境待驗證：前面若有 LB 覆寫這個標頭，影響會變小）
+- **狀態**：已修（fix/infra-tenancy）：兩份 nginx 設定每個轉給 api 的 location 都以 $http_host 覆寫 X-Forwarded-Host；deploy/check-nginx.sh 以偽造的 XFH 驗證。前面另有 LB 時的要求寫進 01-system.md §4.2、05-tenancy.md §2
 - **位置**：[`request-host.ts:16-22`](../../apps/api/src/core/http/request-host.ts)、[`tenant.middleware.ts:47-56`](../../apps/api/src/core/tenant/tenant.middleware.ts)、[`nginx.conf:27-35、58-66`](../../deploy/nginx.conf)、[`nginx.auth.conf:34-42`](../../deploy/nginx.auth.conf)、[`docker-compose.prod.yml:66`](../../docker-compose.prod.yml)
 - **現況**：只要直接上一跳是受信任的代理，`requestHost()` 就採用 `X-Forwarded-Host`。compose 設 `TRUST_PROXY: uniquelocal`，nginx 在 docker 私有網段，所以被信任；但 nginx 只設了 `Host`、`X-Forwarded-For`、`X-Forwarded-Proto`，**沒有覆寫或清空** `X-Forwarded-Host`，客戶端送來的值會原樣轉給 api。`05-tenancy.md` §2 宣稱「不能靠標頭換租戶」，實際上可以。
 - **利用情境**：對任一網域（包括只開放公網 IP 直連的 nginx）送 `X-Forwarded-Host: beta.example.com`，請求就在租戶 beta 的脈絡裡處理。因為 access token 綁定 `tid`，這一步本身拿不到別的租戶的資料，但會：① 繞過以網域為單位的網路控制（例如只對內網或 WAF 白名單開放的租戶網域）；② 送 `X-Forwarded-Host: <apps/auth 的 host>` 加上 `X-Tenant`，從任何網域觸發 apps/auth 專屬的行為；③ 讓稽核、日誌的租戶判斷不可信；④ 配合 SEC-05 灌爆快取。
@@ -88,6 +89,7 @@
 ### SEC-05 租戶查詢快取沒有上限，每個新的 Host 都查一次平台 DB：記憶體與 DB 可被灌爆
 
 - **嚴重度**：P2
+- **狀態**：已修（fix/infra-tenancy）：同 PERF-12
 - **位置**：[`tenant-directory.service.ts:38-40、97-119、169-171`](../../apps/api/src/core/tenant/tenant-directory.service.ts)、[`tenant.middleware.ts:51-55`](../../apps/api/src/core/tenant/tenant.middleware.ts)
 - **現況**：`byHost`、`byCode`、`byId` 是沒有上限的 `Map`；「找不到」的結果也會存。`fresh()` 過期時不刪除 entry，只有 `invalidate()` 才會清空。每個沒看過的 Host（或 apps/auth 上的 `X-Tenant` 代碼、`/tenants/lookup?code=`）都會觸發一次 `findByDomains`／`findByCode` 查平台 DB。
 - **利用情境**：攻擊者以隨機 Host（nginx 是 `server_name _`）或隨機 `X-Tenant` 大量發請求，每個請求多一筆常駐記憶體的 entry 和一次平台 DB 查詢，最後耗盡 api 記憶體，並拖慢所有租戶都依賴的平台 DB（單一執行個體，1000 人同時在線時影響全部租戶）。
@@ -97,6 +99,7 @@
 ### SEC-06 速率限制只以 IP 計、在記憶體、數值不適合企業 NAT；分散式暴力破解只剩鎖定擋
 
 - **嚴重度**：P2（可用性，以及暴力破解防護）
+- **狀態**：已修（fix/infra-tenancy）：同 PERF-01（登入類以 email＋IP 計，分散 IP 的 password spraying 另有帳號鎖定）。共享儲存的計數、每租戶上限與 IP 白名單延後
 - **位置**：[`rate-limit.ts:17-39`](../../apps/api/src/common/rate-limit.ts)、[`app.module.ts:57-62、87`](../../apps/api/src/app.module.ts)、[`auth.controller.ts:59、78、169-172`](../../apps/api/src/modules/auth/auth.controller.ts)、[`env.schema.ts:75-76`](../../apps/api/src/core/config/env.schema.ts)
 - **現況**：`ThrottlerGuard` 以 `req.ip` 計數、存在程序記憶體；登入與 `sso/callback` 每 IP 每分鐘 10 次、refresh 30 次、全域 120 次。沒有以帳號（email）或租戶為單位的限制。
 - **利用情境**：① 企業客戶 1000 人通常共用少數幾個 NAT 出口 IP；access token 5 分鐘就要續期，1000 人每分鐘約 200 次 refresh，遠超過 30/分，早上同時登入也會撞 `sso/callback` 的 10/分，結果是大量 429，等於自己 DoS 自己。② 攻擊者用大量 IP 做 password spraying（每個帳號試 4 次，停在鎖定門檻之下），IP 限制完全無效。
@@ -124,6 +127,7 @@
 ### SEC-09 正式部署以 Postgres 超級使用者執行 api（平台 DB、預設租戶 DB、佈建）
 
 - **嚴重度**：P2（縱深防禦：一旦出現 SQL injection 或 RCE，就沒有跨租戶的最後一道牆）
+- **狀態**：已修（fix/infra-tenancy）：deploy/postgres/10-roles.sh 建立 b2b_platform／b2b_tenant_default／b2b_provisioner（CREATEDB＋CREATEROLE、NOSUPERUSER、createrole_self_grant），compose 的 api 與 migrate 不再用超級使用者；既有部署的切換步驟在 05-tenancy.md §7.1。test/database-roles.spec.ts 驗證非超級使用者能佈建、租戶角色連不上別的租戶
 - **位置**：[`docker-compose.prod.yml:31-33、56-59`](../../docker-compose.prod.yml)、[`tenant-provisioner.ts:55-57`](../../apps/api/src/modules/tenant/tenant-provisioner.ts)
 - **現況**：`PLATFORM_DATABASE_URL`、`DEFAULT_TENANT_DATABASE_URL` 都用 `POSTGRES_USER`（postgres 映像的超級使用者）；`TENANT_PROVISIONING_DATABASE_URL` 留空時也退回同一組。預設租戶的連線池因此是 superuser，api 程序整天握著 superuser 的密碼。ADR-0020 D4 的「每個租戶有自己的 DB 角色，只能連自己的 database」對預設租戶不成立。
 - **利用情境**：任何一處 SQL injection（目前沒發現，但這是多人長期維護的專案）或 api 的 RCE，就能讀寫所有租戶的 database、平台 DB（包括加密的連線字串與 `oidc_payloads`），甚至透過 `COPY ... PROGRAM` 在 DB 容器上執行指令。
@@ -133,6 +137,7 @@
 ### SEC-10 production 不擋已知的範例金鑰與危險預設值；所有租戶共用一把 HS256 金鑰
 
 - **嚴重度**：P2
+- **狀態**：部分修正（fix/infra-tenancy）：production 拒絕範例值與低熵的 JWT_SECRET／FILE_STORAGE_*，MAIL_TRANSPORT 必須是 smtp。每個租戶各自的簽章金鑰（kid、非對稱簽章）延後——影響 token 格式與所有驗證端，需另開設計
 - **位置**：[`env.schema.ts:47、176、253-267`](../../apps/api/src/core/config/env.schema.ts)、[`.env.example:23、69-70`](../../.env.example)、[`auth.service.ts:204-217`](../../apps/api/src/modules/auth/auth.service.ts)、[`access-token.verifier.ts:67-82`](../../apps/api/src/common/auth/access-token.verifier.ts)
 - **現況**：
   - `JWT_SECRET` 只要求 32 個字元以上；`.env.example` 的 `change-me-in-production-min-32-chars` 剛好通過，`ProductionEnvSchema` 也沒有拒絕它。`FILE_STORAGE_*` 的範例金鑰同樣沒被擋。
@@ -163,6 +168,7 @@
 ### SEC-13 安全標頭不完整：沒有 HSTS、CSP 沒有 `form-action`、`style-src 'unsafe-inline'`、`X-Powered-By` 與 nginx 版本外露
 
 - **嚴重度**：P3
+- **狀態**：已修（fix/infra-tenancy）：HSTS、CSP form-action／object-src、server_tokens off、api 關閉 x-powered-by；安全標頭抽成共用片段（順帶修正 backstage 的 / 與 /assets/ 原本沒有安全標頭）。style-src 'unsafe-inline' 保留（元件庫需要，移除要先盤點）；helmet 未加（直連 api 不是支援的部署方式）
 - **位置**：[`nginx.conf:10-13`](../../deploy/nginx.conf)、[`nginx.auth.conf:12-15`](../../deploy/nginx.auth.conf)、[`main.ts:16-24`](../../apps/api/src/main.ts)
 - **現況**：兩份 nginx 設定都沒有 `Strict-Transport-Security`（TLS 在前面的 LB 終結，文件也沒要求 LB 加）；CSP 沒有 `form-action`、`object-src`；`style-src 'unsafe-inline'`；沒有 `server_tokens off`；api 沒關 `x-powered-by`，也沒有 helmet（直連 api 的環境就沒有任何安全標頭）。另外 `REFRESH_COOKIE_DOMAIN` 定義了卻沒用到，容易誤導。
 - **利用情境**：第一次以 http 連線時可能被降級或 SSL strip；配合 SEC-02 可以用表單把資料送到外部；版本資訊方便攻擊者挑已知漏洞。
@@ -208,6 +214,7 @@
 ### SEC-18 平台端點在任何不屬於租戶的網域都能用，不只 apps/auth 的網域
 
 - **嚴重度**：P3
+- **狀態**：已修（fix/infra-tenancy）：TenantMiddleware 對 apps/auth 以外的網域一律回 404 PLATFORM_ONLY
 - **位置**：[`access-token.verifier.ts:78-82`](../../apps/api/src/common/auth/access-token.verifier.ts)、[`permissions.guard.ts:102`](../../apps/api/src/common/guards/permissions.guard.ts)、[`jwt-auth.guard.ts:35-42`](../../apps/api/src/common/guards/jwt-auth.guard.ts)
 - **現況**：判斷條件是「沒有租戶脈絡」，而不是「Host 等於 `AUTH_APP_URL` 的 host」。直接用 IP 連 nginx、或任何沒有登記的網域，都能呼叫 `/platform/*`（包括 `sso/callback`、`refresh`），並在那個網域上設 cookie。
 - **利用情境**：需要平台管理者的 token 或授權碼才有實際影響，但這擴大了平台管理介面的暴露面，也讓「只在 apps/auth 網域的 WAF 或 IP 白名單保護平台」這類部署措施失效（配合 SEC-04 更明顯）。
@@ -217,6 +224,7 @@
 ### SEC-19 前端 nginx 容器以 root 執行
 
 - **嚴重度**：P3
+- **狀態**：已修（fix/infra-tenancy）：映像改 nginxinc/nginx-unprivileged（uid 101、listen 8080），compose 唯讀根目錄、cap_drop ALL、no-new-privileges
 - **位置**：[`apps/backstage/Dockerfile:29-31`](../../apps/backstage/Dockerfile)、[`apps/auth/Dockerfile:29-31`](../../apps/auth/Dockerfile)
 - **現況**：`nginx:1.27-alpine` 的 master process 以 root 執行（api 與 file-storage 都已經有 `USER app`）。
 - **利用情境**：nginx 或它的模組出現漏洞時，容器內會直接拿到 root。

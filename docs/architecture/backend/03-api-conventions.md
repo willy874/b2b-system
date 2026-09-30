@@ -389,36 +389,34 @@ CI 會檢查 `openapi.json` 與原始碼一致（重新產生後 `git diff` 必�
 
 ## 8. 速率限制
 
-```ts
-// app.module.ts —— 只註冊「一個」全域桶
-ThrottlerModule.forRootAsync({
-  inject: [ConfigService],
-  useFactory: (config) => [
-    { name: "default", ttl: 60_000, limit: config.get("DEFAULT_RATE_LIMIT") }, // 120
-  ],
-});
-```
+前提是 B2B：一間公司的上千人常經由同一個 NAT 出口 IP 連線，所以 **已登入的請求以使用者（含租戶）計，
+只有未登入的請求以 IP 計**。實作是 `common/guards/rate-limit.guard.ts`（全域 guard，在 `JwtAuthGuard` 之前）：
+它自己驗 access token 的簽章取出使用者（不查 DB），規則與桶的組合在 `common/rate-limit.ts`（純函式，單元測試）。
 
 ```ts
 @Post('login')
 @Public()
-@Throttle({ default: AUTH_THROTTLE })   // 10 次 / 分，覆寫全域桶
+@RateLimit('auth')        // 端點類別；數值由環境變數決定
 async login(...) {}
 ```
 
-> **為什麼不用具名的 `auth` throttler**：`@nestjs/throttler` 會把 **每一個**
-> 具名 throttler 都套到 **所有** 路由上，因此多加一個 limit=10 的桶等於把整個
-> API 限制成 10 次/分。正確作法是單一全域桶 ＋ 敏感端點以 `@Throttle()` 覆寫。
-> 限制值由 `AUTH_RATE_LIMIT` / `DEFAULT_RATE_LIMIT` 設定（E2E 會調高）。
+| 端點                                   | 計數對象（每分鐘）                                       | 環境變數（預設）                                   |
+| -------------------------------------- | -------------------------------------------------------- | -------------------------------------------------- |
+| 一般端點，已登入                       | 每個使用者，所有端點合計                                 | `DEFAULT_RATE_LIMIT`（600）                        |
+| 一般端點，未登入（或 token 無效）      | 每個 IP，所有未登入請求合計                              | `ANONYMOUS_RATE_LIMIT`（3000）                     |
+| `@RateLimit('auth')`：登入、SSO 回呼、啟用／重設、外部 IdP、租戶代碼查詢 | 每個「email ＋ IP」（body 有 `email` 時）＋ 每個 IP | `AUTH_RATE_LIMIT`（10）、`AUTH_IP_RATE_LIMIT`（300） |
+| `@RateLimit('authMail')`：忘記密碼、註冊 | 每個「email ＋ IP」＋ 每個 IP                            | 上一列的 1/3（至少 3）、1/10                       |
+| `@RateLimit('refresh')`：`/auth/refresh`、`/platform/auth/refresh` | 每個 refresh session（cookie 的雜湊）＋ 每個 IP | `REFRESH_RATE_LIMIT`（30）、`REFRESH_IP_RATE_LIMIT`（2000） |
+| `@SkipThrottle()`（影像 API）           | 不計                                                     | —                                                  |
 
-| 端點                    | 限制                                       |
-| ----------------------- | ------------------------------------------ |
-| `/auth/login`           | 10 次 / 分 / IP（另有同帳號 5 次失敗鎖定） |
-| `/auth/forgot-password` | 3 次 / 分 / IP                             |
-| `/auth/refresh`         | 30 次 / 分 / IP                            |
-| 其餘                    | 120 次 / 分 / IP                           |
-
-超過回 `429` ＋ `Retry-After` 標頭。
+- **數值的估算**（1000 人在同一個出口 IP）：access token 5 分鐘 → 續期約 200 次/分（重啟後會集中，IP 桶留 10 倍）；
+  早上登入尖峰約 100 次/分 → 登入 IP 桶 300；每人平均每 10 秒一個請求，推播後集體重抓 → 每人 600/分。
+  帳號層級的暴力破解另有帳號鎖定（連續失敗 N 次）；「帳號 ＋ IP」桶讓攻擊者無法用大量請求鎖住整間公司的 IP。
+- IP 桶不會比帳號桶嚴格（`AUTH_IP_RATE_LIMIT` 小於 `AUTH_RATE_LIMIT` 時取後者），E2E 只要調高 `AUTH_RATE_LIMIT`。
+- 超過回 `429 RATE_LIMITED`，帶 `Retry-After` 標頭與 `details.retryAfterSeconds`（前端顯示「請在 N 秒後再試」）。
+- 計數在程序記憶體（`@nestjs/throttler` 的 storage）：單一執行個體的假設；多實例要換共享儲存（[`../../features/multi-instance.md`](../../features/multi-instance.md)）。
+- 客戶端 IP 依 `TRUST_PROXY` 判定（見 [`../01-system.md`](../01-system.md) §4.2）；IPv6 以 /64 子網路計。
+- WebSocket 不經過這個 guard：handshake 每 IP 與每使用者連線數見 [`08-realtime.md`](./08-realtime.md) §11。
 
 ---
 

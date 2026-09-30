@@ -333,6 +333,7 @@
 ### UX-31 429 訊息不帶可重試時間
 
 - **嚴重度**：P3
+- **狀態**：部分修正（fix/infra-tenancy）：後端 429 帶 Retry-After 與 details.retryAfterSeconds，兩個前端顯示「請在 N 秒後再試」。登入表單倒數期間停用送出鈕屬於前端表單，交給 UX 組
 - **位置**：[plugins/fetcher/api-adapter.ts:14](../../apps/backstage/src/plugins/fetcher/api-adapter.ts)、[app/locales/zh_TW.json](../../apps/backstage/src/app/locales/zh_TW.json)（`error.RATE_LIMITED`）
 - **現況**：`AppError` 只保留 code、status、details、requestId，沒有讀取 `Retry-After`。文案是「操作太頻繁，請稍後再試」。後端是否送出 `Retry-After` 標頭**待驗證**。
 - **影響**：使用者不知道「稍後」是多久，會一直重試，讓限流持續更久。

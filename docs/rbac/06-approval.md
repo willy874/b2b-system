@@ -156,7 +156,7 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 | 核准或駁回都寄信通知申請人（`approval.resultMail`，審核的交易內入列） | 申請人不必一直試著登入才知道結果；駁回時附上審核意見           |
 | 申請後 email 被管理員直接建立 → 核准回 `409 USER_EMAIL_DUPLICATE`，請求保持 `pending` | 由審核者決定駁回；不自動改狀態                       |
 | 核准前登入 → `401 AUTH_INVALID_CREDENTIALS`（帳號不存在）        | 不另外提示「審核中」，同樣是帳號列舉防護                       |
-| 速率限制：同 IP 每分鐘 `max(3, AUTH_RATE_LIMIT / 3)` 次          | 每一筆都會進管理員的待審清單                                   |
+| 速率限制：同一個 email ＋ IP 每分鐘 `max(3, AUTH_RATE_LIMIT / 3)` 次，同 IP 另有總上限 | 每一筆都會進管理員的待審清單                                   |
 
 ### 5.3 稽核
 

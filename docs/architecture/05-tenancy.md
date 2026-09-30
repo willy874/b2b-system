@@ -32,9 +32,17 @@
 | apps/auth 的網域（`AUTH_APP_URL` 的 host） | 沒有租戶；帳號流程以 `X-Tenant: <代碼>` 指定租戶（D26，這個標頭只在 apps/auth 的網域有效） |
 | 其他 | 沒有租戶；需要租戶的程式第一次存取 `TENANT_DB` 時拋 `404 TENANT_NOT_FOUND`，健康檢查照常 |
 
+平台管理者的端點（`/platform/*`）**只在 apps/auth 的網域有效**：租戶網域、未登記的網域、直接以 IP 連線一律在 `TenantMiddleware`
+回 `404 PLATFORM_ONLY`，只套在 apps/auth 網域上的網路控制（WAF、IP 白名單）才保護得到平台管理。
+
 - Host 取自 `requestHost()`：只有受信任的代理（`TRUST_PROXY`）帶來的 `X-Forwarded-Host` 才採用，不能靠標頭換租戶。
-- `TenantDirectory` 快取查詢結果（含「找不到」）`TENANT_CACHE_TTL` 秒；租戶管理改了登記時 `invalidate()` 立即生效。
-  另有「網域 → 租戶 id」的同步快照，給 oidc-provider 的同步判斷（redirect URI 是否屬於租戶）用。
+  所以受信任的代理 **必須覆寫** 這個標頭：兩份 nginx 設定都 `proxy_set_header X-Forwarded-Host $http_host`
+  （[`01-system.md`](./01-system.md) §4.2）；前面另有 LB 時同樣要求。
+- `TenantDirectory` 快取查詢結果 `TENANT_CACHE_TTL` 秒（「找不到」最多 5 秒）；租戶管理改了登記時 `invalidate()` 立即生效。
+  另有「網域 → 租戶 id」的同步快照（每 `TENANT_CACHE_TTL` 秒重載），給 oidc-provider 的同步判斷（redirect URI 是否屬於租戶）用。
+- **Host 由客戶端決定、而且在速率限制之前解析**：不在快照裡的 Host 直接視為找不到，不查平台 DB；格式不像網域或租戶代碼的值
+  （`X-Tenant`、`/tenants/lookup?code=`）也不查。三個快取（網域、id、代碼）都是有上限的 LRU（`bounded-cache.ts`，各 5000 筆）。
+  代價：另一個執行個體剛新增的網域，這裡最多晚 `TENANT_CACHE_TTL` 秒才認得（與 §7 的多執行個體限制相同）。
 - 租戶不能進入時回 `503 TENANT_UNAVAILABLE`，`details.reason` 分兩種：`inactive`（停用、佈建中、佈建失敗）與
   `maintenance`（migration 落後、DB 連不上）。背景工作依此決定略過或重試（§6）。
 
@@ -51,7 +59,7 @@
 | `Tenancy.runForMaintenance(id, fn)` | 不看狀態進入（仍檢查版本）：停用 **之後** 撤銷 session 用 |
 | `Tenancy.evict(id)` | 關掉連線池（停用、刪除之後） |
 
-- 每個租戶一個小連線池（`TENANT_POOL_MAX`，閒置連線 60 秒關閉）。連線字串以 `TENANT_SECRET_KEY` 加密存在
+- 每個租戶一個小連線池（`TENANT_POOL_MAX`，閒置連線 `TENANT_POOL_IDLE_TIMEOUT` 秒關閉；連線預算見 [`backend/02-database.md`](./backend/02-database.md) §6.2）。連線字串以 `TENANT_SECRET_KEY` 加密存在
   `tenants.database_url_encrypted`（D4），每個租戶有自己的 DB 角色，只能連自己的 database。
 - WebSocket 在 handshake 時依網域決定租戶，之後這條連線上的每則訊息都在那個租戶的脈絡裡處理
   （[`backend/08-realtime.md`](./backend/08-realtime.md)）。
@@ -78,13 +86,17 @@
 | 建立 | `POST /platform/tenants`（`tenant:create`） | 登記租戶（`provisioning`）：代碼、名稱、第一位管理員的 email；預設網域 `{code}.<TENANT_BASE_DOMAIN>`（D24）；產生 database 與 DB 角色的名稱（`tenant_{code}_{8 位隨機}`）與密碼、bucket（`b2b-{code}`，用過就加序號）；排入佈建工作 |
 | 佈建 | 背景工作 `tenant.provision`（平台工作，不自動重試） | ① 建立 DB 角色與 database（`TENANT_PROVISIONING_DATABASE_URL`，要有 `CREATEDB` 與 `CREATEROLE`）② 跑租戶 migration ③ 權限目錄、系統角色、第一位 super-admin（`pending`）④ 改成 `active` ⑤ 在租戶脈絡裡寄啟用信、確認 bucket、發佈 `TENANT_ACTIVATED`（檔案的系統資料夾）。①–④ 失敗停在 `failed`（原因記在 `provision_error`）；⑤ 的失敗不改狀態，只記原因 |
 | 重試佈建 | `POST /platform/tenants/:id/provision`（`tenant:create`） | 只接受 `failed`；每一步都冪等（角色存在就把密碼改回來、database 存在就沿用） |
+| 佈建中斷 | 背景工作 `tenant.provisionSweep`（每 5 分鐘）；重試與刪除前也先跑一次 | 程序在佈建途中被重啟時，工作在逾時（15 分鐘）後被收回，租戶卻停在 `provisioning`：超過逾時 5 分鐘的改成 `failed`（`provision_error` 寫「佈建中斷」），之後就能重試或刪除 |
 | 改名、網域、外部 IdP 開關 | `PATCH /platform/tenants/:id`、`POST|DELETE …/domains`（`tenant:update`） | 網域一個只屬於一個租戶、不能移除最後一個與主要網域（第一個，`TENANT_PRIMARY_DOMAIN`）、apps/auth 的網域不能登記；`allowExternalIdp` 關掉時租戶不能新增或啟用外部 IdP 連線，登入時也不走連線（D22） |
 | 停用 | `POST /platform/tenants/:id/disable`（`tenant:update`） | **先改狀態再收尾**：撤銷 app session、刪除這個租戶帳號（`t:{tenantId}:*`）在 IdP 的 session／grant、斷掉 `t:{tenantId}` room 的即時連線、關掉連線池。網域之後一律 503 |
 | 啟用 | `POST /platform/tenants/:id/enable` | 回到 `active`，發佈 `TENANT_ACTIVATED` |
 | 刪除 | `DELETE /platform/tenants/:id`（`tenant:delete`） | 停用並收尾、標記刪除、釋出網域；代碼之後可以給新租戶。database 與 bucket 留著 |
 | 清除 | `pnpm db:drop-tenant <代碼或 id> [--confirm]` | 只處理已刪除、database 名稱是佈建產生的租戶：清空並刪除 bucket、`DROP DATABASE … WITH (FORCE)`、`DROP ROLE`、刪除 IdP 殘留與佇列裡的工作、移除登記。不加 `--confirm` 只列出 |
 
-每個動作都寫平台稽核（`platform_audit_logs`，D19）。管理頁在 apps/auth 的 `/tenant`、`/tenant/$id`。
+每個動作都寫平台稽核（`platform_audit_logs`，D19），**與狀態或網域的變更在同一個平台 DB 交易**：稽核寫不進去，變更也不生效。
+停用、刪除的收尾（撤銷 session、IdP、連線池）在交易之後，失敗的步驟另外記一筆 `tenant.disable.cleanup`（或寫進 `tenant.delete` 的
+`cleanupFailed`）。網域的增刪先鎖住租戶列（`FOR UPDATE`）再數網域，同時移除兩個網域不會把網域移光。
+管理頁在 apps/auth 的 `/tenant`、`/tenant/$id`。
 
 ## 6. 周邊元件怎麼分租戶
 
@@ -114,13 +126,33 @@
 | --- | --- |
 | `PLATFORM_DATABASE_URL` | 平台 DB |
 | `TENANT_SECRET_KEY` | 加密租戶連線字串（production 必填；開發時由 `JWT_SECRET` 推導） |
-| `TENANT_POOL_MAX`、`TENANT_CACHE_TTL` | 每個租戶的連線池上限、租戶登記的快取秒數 |
+| `TENANT_POOL_MAX`、`TENANT_POOL_IDLE_TIMEOUT`、`TENANT_CACHE_TTL` | 每個租戶的連線池上限、閒置連線關閉的秒數、租戶登記的快取秒數 |
 | `TENANT_PROVISIONING_DATABASE_URL` | 佈建新租戶用（`CREATEDB`＋`CREATEROLE`）；留空用 `PLATFORM_DATABASE_URL` |
 | `TENANT_BASE_DOMAIN` | 新租戶預設網域的上層；留空用 `APP_PUBLIC_URL` 的 host（開發：`acme.localhost:5173`） |
 | `DEFAULT_TENANT_CODE`／`NAME`／`DATABASE_URL`／`DOMAINS`／`STORAGE_BUCKET` | `db:migrate` 在平台 DB 還沒有租戶時登記的預設租戶 |
 | `PLATFORM_ADMIN_EMAIL`、`PLATFORM_ADMIN_PASSWORD` | `db:seed` 建立的第一位平台管理者（`super-admin`） |
 | `SEED_TENANT` | `db:seed` 建立 `SUPER_ADMIN_EMAIL` 的租戶、`db:seed:dev`／`e2e` 的目標租戶（預設 `default`） |
 | `FILE_STORAGE_PUBLIC_ENDPOINT` | 預設 `{tenantOrigin}/storage`；真正的 S3 填固定網址 |
+
+### 7.1 DB 角色：api 不用超級使用者
+
+`docker-compose.prod.yml` 的 postgres 在 **第一次初始化資料目錄** 時執行 `deploy/postgres/10-roles.sh`，建立三個角色；
+api 與 migrate 都不再以 `POSTGRES_USER`（超級使用者）連線：
+
+| 角色 | 權限 | 用在 | 密碼（compose 變數） |
+| --- | --- | --- | --- |
+| `b2b_platform` | 擁有平台 DB（含 pg-boss 的 schema） | api、migrate 的 `PLATFORM_DATABASE_URL` | `POSTGRES_PLATFORM_PASSWORD` |
+| `b2b_tenant_default` | 擁有預設租戶的 DB（`POSTGRES_DB`） | `DEFAULT_TENANT_DATABASE_URL`：與佈建出來的租戶同一種模式（角色擁有自己的 DB，別人連不進來） | `POSTGRES_TENANT_PASSWORD` |
+| `b2b_provisioner` | `CREATEDB`、`CREATEROLE`，**不是** 超級使用者；`createrole_self_grant = 'set, inherit'` | `TENANT_PROVISIONING_DATABASE_URL`（佈建）、`pnpm db:drop-tenant` | `POSTGRES_PROVISIONER_PASSWORD` |
+
+- 每個 database 都 `REVOKE ALL … FROM PUBLIC`：一個角色的密碼外洩只碰得到自己的 database。
+- `createrole_self_grant` 讓佈建角色取得它建立的租戶角色的 `SET`，`CREATE DATABASE … OWNER <租戶角色>` 與
+  `DROP DATABASE … WITH (FORCE)` 才能在非超級使用者下執行（PG 16 起的規則）。
+- 密碼會放進連線字串，請用 URL 安全的字元（例：`openssl rand -hex 24`）。
+- **既有部署**（資料目錄已初始化過，腳本不會再跑）：以超級使用者手動執行 `10-roles.sh` 裡的 SQL（`CREATE DATABASE` 那一行
+  改成 `ALTER DATABASE <平台 DB> OWNER TO b2b_platform`），再把兩個 database 裡的物件交給新角色
+  （在各 database 執行 `REASSIGN OWNED BY <POSTGRES_USER> TO <角色>`），最後在平台 DB 以新的連線字串更新預設租戶的
+  `tenants.database_url_encrypted`（以 `TENANT_SECRET_KEY` 加密）。沒切換之前保留舊的 compose 設定即可，兩者可以並存。
 
 ## 8. 腳本
 

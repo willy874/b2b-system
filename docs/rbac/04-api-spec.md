@@ -95,7 +95,7 @@
   密碼短於租戶的 `auth.passwordMinLength` 時回 `400 VALIDATION_FAILED`（[`../architecture/backend/12-settings.md`](../architecture/backend/12-settings.md) §3）。
 - 不建立帳號，只建立一筆 `user.register` 審批請求；核准後才以這組 email 與密碼建立 **已啟用** 的帳號。
 - 密碼在送出時就雜湊，只存在請求的 `private_payload`，審核後清空。
-- 速率限制：同 IP 每分鐘 `max(3, AUTH_RATE_LIMIT / 3)` 次。
+- 速率限制：同一個 email ＋ IP 每分鐘 `max(3, AUTH_RATE_LIMIT / 3)` 次；同 IP 另有總上限（[`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §8）。
 - 流程與規則見 [`06-approval.md`](./06-approval.md) §5。
 
 ---
