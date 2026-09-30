@@ -64,6 +64,16 @@ services:
       REFRESH_COOKIE_PATH: /api/auth
       # nginx 在同一個 docker 網路（私有網段）：信任它帶的 X-Forwarded-For，限流才看得到真實 IP
       TRUST_PROXY: uniquelocal
+      # 速率限制（次 / 分；backend/03-api-conventions.md §8）：已登入以使用者計，未登入與登入類端點的 IP 桶
+      # 按「整間公司共用一個 NAT 出口 IP」估算
+      DEFAULT_RATE_LIMIT: ${DEFAULT_RATE_LIMIT:-600}
+      ANONYMOUS_RATE_LIMIT: ${ANONYMOUS_RATE_LIMIT:-3000}
+      AUTH_RATE_LIMIT: ${AUTH_RATE_LIMIT:-10}
+      AUTH_IP_RATE_LIMIT: ${AUTH_IP_RATE_LIMIT:-300}
+      REFRESH_RATE_LIMIT: ${REFRESH_RATE_LIMIT:-30}
+      REFRESH_IP_RATE_LIMIT: ${REFRESH_IP_RATE_LIMIT:-2000}
+      REALTIME_HANDSHAKES_PER_IP: ${REALTIME_HANDSHAKES_PER_IP:-1200}
+      REALTIME_CONNECTIONS_PER_USER: ${REALTIME_CONNECTIONS_PER_USER:-20}
       # 瀏覽器看到的 origin；Socket.io handshake 的 Origin 檢查（backend/08-realtime.md §11）
       # 同源（每個租戶自己的網域）一律允許；這裡只需要列出額外允許的 origin
       REALTIME_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost:8080}

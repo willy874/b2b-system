@@ -1,12 +1,11 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Query, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 
 import { Public } from '@/common/decorators';
-import { AUTH_THROTTLE } from '@/common/rate-limit';
+import { RateLimit } from '@/common/rate-limit';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
@@ -53,7 +52,7 @@ export class SsoInteractionController {
 
   @Get('external/callback')
   @Public()
-  @Throttle({ default: AUTH_THROTTLE })
+  @RateLimit('auth')
   @ApiOperation({ summary: '外部 IdP 的 redirect URI（固定路徑）：驗證後跳到互動路徑底下完成互動' })
   async externalCallback(
     @Query(new ZodValidationPipe(ExternalCallbackQuerySchema)) query: ExternalCallbackQueryDto,
@@ -89,7 +88,7 @@ export class SsoInteractionController {
   @Post(':uid/login')
   @HttpCode(200)
   @Public()
-  @Throttle({ default: AUTH_THROTTLE })
+  @RateLimit('auth')
   @ApiOperation({ summary: '密碼登入；回傳要頂層跳轉的 resume 網址' })
   @ApiZodBody(LoginSchema)
   @ApiZodResponse(200, SsoRedirectSchema)
@@ -104,7 +103,7 @@ export class SsoInteractionController {
 
   @Get(':uid/discover')
   @Public()
-  @Throttle({ default: AUTH_THROTTLE })
+  @RateLimit('auth')
   @ApiOperation({ summary: '以 email 網域查詢外部 IdP 連線（home realm discovery）' })
   @ApiZodResponse(200, SsoDiscoverySchema)
   discover(
@@ -119,7 +118,7 @@ export class SsoInteractionController {
   @Post(':uid/external')
   @HttpCode(200)
   @Public()
-  @Throttle({ default: AUTH_THROTTLE })
+  @RateLimit('auth')
   @ApiOperation({ summary: '以外部 IdP 登入：回傳要頂層跳轉的外部授權網址' })
   @ApiZodBody(StartExternalLoginSchema)
   @ApiZodResponse(200, SsoRedirectSchema)

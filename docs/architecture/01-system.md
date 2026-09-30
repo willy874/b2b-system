@@ -238,6 +238,9 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 - TLS 由前面的 LB / ingress 終結；Socket.io 的 Origin 與連線同源（租戶自己的網域）一律允許，`PUBLIC_ORIGIN` 只是額外的白名單。
 - api 設 `TRUST_PROXY=uniquelocal`：只信任私有網段（nginx）帶來的 `X-Forwarded-For`，
   HTTP 與 WebSocket 的每 IP 限流才看得到真實客戶端；外部自帶的標頭無法偽造 IP。
+- **NAT 的設計假設**：企業客戶的上千名員工常共用一個出口 IP。已登入的請求以使用者計、未登入與登入類端點的 IP 桶
+  按「整間公司在同一個 IP」估算（[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8）；
+  數值不夠時調環境變數，不必改程式。
 
 ### 4.3 為什麼不拆成更多服務，以及何時要拆
 
@@ -285,7 +288,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | Refresh Token | 不透明隨機值，**雜湊後**入庫，7 天，每次使用即輪替，**重用偵測 → 整條家族撤銷**                            |
 | Cookie        | `HttpOnly; Secure; SameSite=Lax; Path=/api/auth`；一律 host-only（不設 `Domain`），不使用跨域 cookie（[`04-sso.md`](./04-sso.md) §2） |
 | CSRF          | refresh 端點是唯一吃 cookie 的端點，額外要求 `x-refresh-request: 1` 自訂標頭（簡單請求無法跨站帶自訂標頭） |
-| 暴力破解      | 同帳號連續 5 次失敗鎖定 15 分鐘；同 IP 速率限制（`@nestjs/throttler`）                                     |
+| 暴力破解      | 同帳號連續 5 次失敗鎖定 15 分鐘；登入類端點以「帳號 ＋ IP」與 IP 限流（[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8） |
 | 反提權        | 授予權限／指派角色時檢查「操作者是否持有該權限」                                                           |
 | 自我保護      | 使用者不能刪除自己、不能移除自己最後一個具 `role:update` 的角色                                            |
 | SQL injection | Drizzle 參數化查詢；禁止字串拼接 SQL                                                                       |

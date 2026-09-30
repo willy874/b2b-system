@@ -1,16 +1,10 @@
 import { Body, Controller, Get, HttpCode, Patch, Post, Query, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 
 import { Authenticated, CurrentUser, Public } from '@/common/decorators';
-import {
-  AUTH_THROTTLE,
-  FORGOT_PASSWORD_THROTTLE,
-  REFRESH_THROTTLE,
-  REGISTER_THROTTLE,
-} from '@/common/rate-limit';
+import { RateLimit } from '@/common/rate-limit';
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
@@ -56,7 +50,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(200)
   @Public()
-  @Throttle({ default: AUTH_THROTTLE })
+  @RateLimit('auth')
   @ApiOperation({ summary: '帳密登入' })
   @ApiZodBody(LoginSchema)
   @ApiZodResponse(200, SessionSchema)
@@ -75,7 +69,7 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(200)
   @Public()
-  @Throttle({ default: REFRESH_THROTTLE })
+  @RateLimit('refresh')
   @ApiOperation({ summary: '以 refresh token 續期（需 x-refresh-request: 1）' })
   @ApiZodResponse(200, SessionSchema)
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
@@ -139,7 +133,7 @@ export class AuthController {
   @Post('register')
   @HttpCode(202)
   @Public()
-  @Throttle({ default: REGISTER_THROTTLE })
+  @RateLimit('authMail')
   @ApiOperation({ summary: '送出註冊申請，待管理員審批（永遠回 202）' })
   @ApiZodBody(RegisterSchema)
   @ApiZodResponse(202, RegisterResultSchema)
@@ -150,7 +144,7 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(200)
   @Public()
-  @Throttle({ default: FORGOT_PASSWORD_THROTTLE })
+  @RateLimit('authMail')
   @ApiOperation({ summary: '請求密碼重設信（永遠回 200）' })
   @ApiZodBody(ForgotPasswordSchema)
   forgotPassword(@Body(new ZodValidationPipe(ForgotPasswordSchema)) dto: ForgotPasswordDto) {
@@ -160,7 +154,7 @@ export class AuthController {
   @Post('reset-password')
   @HttpCode(200)
   @Public()
-  @Throttle({ default: AUTH_THROTTLE })
+  @RateLimit('auth')
   @ApiZodBody(ResetPasswordSchema)
   resetPassword(@Body(new ZodValidationPipe(ResetPasswordSchema)) dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
@@ -169,7 +163,7 @@ export class AuthController {
   @Post('sso/callback')
   @HttpCode(200)
   @Public()
-  @Throttle({ default: AUTH_THROTTLE })
+  @RateLimit('auth')
   @ApiOperation({
     summary:
       '產品的 BFF：授權碼 ＋ PKCE verifier 換 app session（docs/adr/0019-sso-identity-platform.md D3）',
@@ -197,7 +191,7 @@ export class AuthController {
   @Post('setup')
   @HttpCode(200)
   @Public()
-  @Throttle({ default: AUTH_THROTTLE })
+  @RateLimit('auth')
   @ApiZodBody(SetupSchema)
   setup(@Body(new ZodValidationPipe(SetupSchema)) dto: SetupDto) {
     return this.authService.setup(dto);

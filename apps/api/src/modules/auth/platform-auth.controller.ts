@@ -1,11 +1,10 @@
 import { Body, Controller, Get, HttpCode, Post, Query, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 
 import { Authenticated, CurrentUser, Public } from '@/common/decorators';
-import { AUTH_THROTTLE, REFRESH_THROTTLE } from '@/common/rate-limit';
+import { RateLimit } from '@/common/rate-limit';
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
@@ -39,7 +38,7 @@ export class PlatformAuthController {
   @Post('sso/callback')
   @HttpCode(200)
   @Public()
-  @Throttle({ default: AUTH_THROTTLE })
+  @RateLimit('auth')
   @ApiOperation({ summary: 'apps/auth 的 BFF：授權碼 ＋ PKCE verifier 換平台管理者的 session' })
   @ApiZodBody(SsoCallbackSchema)
   @ApiZodResponse(200, SessionSchema)
@@ -58,7 +57,7 @@ export class PlatformAuthController {
   @Post('refresh')
   @HttpCode(200)
   @Public()
-  @Throttle({ default: REFRESH_THROTTLE })
+  @RateLimit('refresh')
   @ApiOperation({ summary: '以 refresh token 續期（需 x-refresh-request: 1）' })
   @ApiZodResponse(200, SessionSchema)
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
@@ -90,7 +89,7 @@ export class PlatformAuthController {
 
   @Get('setup/verify')
   @Public()
-  @Throttle({ default: AUTH_THROTTLE })
+  @RateLimit('auth')
   @ApiOperation({ summary: '檢查平台管理者的啟用 token（回傳 email 供畫面顯示）' })
   verifySetup(@Query(new ZodValidationPipe(VerifySetupSchema)) query: { token: string }) {
     return this.platformAuth.verifySetupToken(query.token);
@@ -99,7 +98,7 @@ export class PlatformAuthController {
   @Post('setup')
   @HttpCode(200)
   @Public()
-  @Throttle({ default: AUTH_THROTTLE })
+  @RateLimit('auth')
   @ApiOperation({ summary: '平台管理者以啟用信設定密碼' })
   @ApiZodBody(SetupSchema)
   setup(@Body(new ZodValidationPipe(SetupSchema)) dto: SetupDto) {
@@ -109,7 +108,7 @@ export class PlatformAuthController {
   @Post('reset-password')
   @HttpCode(200)
   @Public()
-  @Throttle({ default: AUTH_THROTTLE })
+  @RateLimit('auth')
   @ApiOperation({ summary: '平台管理者以重設密碼信設定新密碼（結束所有 session）' })
   @ApiZodBody(ResetPasswordSchema)
   resetPassword(@Body(new ZodValidationPipe(ResetPasswordSchema)) dto: ResetPasswordDto) {

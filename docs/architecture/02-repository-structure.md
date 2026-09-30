@@ -266,8 +266,15 @@ ARGON2_MEMORY_COST=19456
 ARGON2_TIME_COST=2
 
 PERMISSION_CACHE_TTL=60            # 秒
-AUTH_RATE_LIMIT=10                 # /auth/* 每分鐘每 IP（E2E 需調高）
-DEFAULT_RATE_LIMIT=120             # 其餘端點每分鐘每 IP
+# 速率限制（次 / 分；docs/architecture/backend/03-api-conventions.md §8）：已登入以使用者計、未登入以 IP 計
+DEFAULT_RATE_LIMIT=600             # 每個已登入的使用者（所有端點合計）
+ANONYMOUS_RATE_LIMIT=3000          # 每個 IP 的未登入請求（1000 人共用一個 NAT 出口）
+AUTH_RATE_LIMIT=10                 # 登入類端點：每個「帳號 ＋ IP」（E2E 需調高）；忘記密碼、註冊是 1/3
+AUTH_IP_RATE_LIMIT=300             # 登入類端點：每個 IP；忘記密碼、註冊是 1/10
+REFRESH_RATE_LIMIT=30              # /auth/refresh：每個 refresh session
+REFRESH_IP_RATE_LIMIT=2000         # /auth/refresh：每個 IP
+REALTIME_HANDSHAKES_PER_IP=1200    # WebSocket handshake：每個 IP
+REALTIME_CONNECTIONS_PER_USER=20   # WebSocket：每個使用者同時的連線數
 TRUST_PROXY=false                  # Express trust proxy：反向代理後面設跳數或子網路（例：uniquelocal）
 LOGIN_MAX_ATTEMPTS=5               # 只用於平台管理者；租戶使用者是系統設定 auth.loginMaxAttempts
 LOGIN_LOCKOUT_SECONDS=900          # 同上（租戶：auth.loginLockoutSeconds）

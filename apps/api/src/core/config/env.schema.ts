@@ -75,9 +75,24 @@ export const EnvSchema = z.object({
    * （docs/architecture/backend/12-settings.md §3）。
    */
   LOGIN_MAX_ATTEMPTS: z.coerce.number().int().default(5),
-  /** 速率限制（次 / 分 / IP）。E2E 會把 AUTH_RATE_LIMIT 調高，避免測試自己撞到 429。 */
-  AUTH_RATE_LIMIT: z.coerce.number().int().default(10),
-  DEFAULT_RATE_LIMIT: z.coerce.number().int().default(120),
+  // 速率限制（次 / 分；docs/architecture/backend/03-api-conventions.md §8）。已登入的請求以使用者計，
+  // 未登入以 IP 計；預設值按「1000 人共用一個 NAT 出口 IP」估算。E2E 會把 AUTH_RATE_LIMIT 調高。
+  /** 每個已登入的使用者（所有端點合計）。 */
+  DEFAULT_RATE_LIMIT: z.coerce.number().int().min(1).default(600),
+  /** 每個 IP 的未登入請求（所有端點合計）。 */
+  ANONYMOUS_RATE_LIMIT: z.coerce.number().int().min(1).default(3000),
+  /** 登入類端點：每個「帳號 ＋ IP」。忘記密碼、註冊是它的 1/3（至少 3）。 */
+  AUTH_RATE_LIMIT: z.coerce.number().int().min(1).default(10),
+  /** 登入類端點：每個 IP（整間公司的早上登入尖峰）。忘記密碼、註冊是它的 1/10。 */
+  AUTH_IP_RATE_LIMIT: z.coerce.number().int().min(1).default(300),
+  /** `/auth/refresh`：每個 refresh session。 */
+  REFRESH_RATE_LIMIT: z.coerce.number().int().min(1).default(30),
+  /** `/auth/refresh`：每個 IP（1000 人每 5 分鐘續期一次 ≈ 200 次 / 分，重啟後會集中）。 */
+  REFRESH_IP_RATE_LIMIT: z.coerce.number().int().min(1).default(2000),
+  /** WebSocket handshake：每個 IP（重新部署後整間公司同時重連）。 */
+  REALTIME_HANDSHAKES_PER_IP: z.coerce.number().int().min(1).default(1200),
+  /** WebSocket：每個使用者同時的連線數（所有裝置、所有分頁）。 */
+  REALTIME_CONNECTIONS_PER_USER: z.coerce.number().int().min(1).default(20),
   LOGIN_LOCKOUT_SECONDS: z.coerce.number().int().default(900),
 
   /**

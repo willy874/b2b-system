@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { AbortReason, isNetworkError, isRequestAborted } from '@/core/client';
 import { useTranslation } from '@/core/locales';
 
-import { AppError } from './AppError';
+import { AppError, ErrorCodes } from './AppError';
 import { getErrorMessageKey } from './errorMessageKey';
 
 /**
@@ -23,6 +23,11 @@ export function useErrorMessage(): (error: unknown) => string {
       }
       if (isNetworkError(error)) return t('error.network');
       if (!(error instanceof AppError)) return t('error.unknown');
+      // 限流：告訴使用者要等多久，而不是「稍後」（一直重試只會讓限流持續更久）
+      const { retryAfterSeconds } = error;
+      if (error.code === ErrorCodes.RATE_LIMITED && retryAfterSeconds !== undefined) {
+        return t('error.rate_limited_retry', { seconds: retryAfterSeconds });
+      }
       const key = getErrorMessageKey(error.code);
       const message = key ? t(key) : undefined;
       // 不認得的碼、或沒有對應翻譯時，退回通用訊息＋requestId，不在畫面上顯示原始 key

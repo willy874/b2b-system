@@ -508,10 +508,10 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 | 項目                     | 限制                                              | 超過時               |
 | ------------------------ | ------------------------------------------------- | -------------------- |
 | Origin                   | `allowRequest` 檢查 `Origin` 屬於 `REALTIME_ALLOWED_ORIGINS`，或與連線的網域同源（每個租戶自己的網域，ADR-0020 D2） | 拒絕 handshake |
-| 每個 IP 的 handshake     | 每分鐘 30 次                                      | 拒絕 handshake       |
+| 每個 IP 的 handshake     | 每分鐘 1200 次（`REALTIME_HANDSHAKES_PER_IP`；整間公司共用一個 NAT 出口、部署後同時重連） | 拒絕 handshake       |
 | 每條連線的訊息           | 每 10 秒 30 則                                    | 略過；持續超過就斷線 |
 | 單一 frame               | `maxHttpBufferSize` = 16 KB                       | Socket.io 直接斷線   |
-| 每個使用者的連線數       | 20                                                | 拒絕新的 handshake   |
+| 每個使用者的連線數       | 20（`REALTIME_CONNECTIONS_PER_USER`）              | 拒絕新的 handshake   |
 
 前端同一個瀏覽器只有 leader 分頁連線（[前端 11 §3.3](../frontend/11-realtime.md)），
 所以 20 條大約對應 20 個瀏覽器／裝置，而不是 20 個分頁。

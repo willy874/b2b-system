@@ -41,6 +41,23 @@ describe('api-adapter 攔截器', () => {
     expect(result.data).toEqual({ id: 'role-1' });
   });
 
+  it('429 以 details.retryAfterSeconds 為準，沒帶時讀 Retry-After 標頭', async () => {
+    const limited = (details: Record<string, unknown> | undefined, retryAfter?: string) => ({
+      ...response(429, { error: { code: 'RATE_LIMITED', details } }),
+      headers: new Headers(retryAfter ? { 'retry-after': retryAfter } : {}),
+    });
+    await expect(
+      apiAdapterInterceptor(limited({ retryAfterSeconds: 12 }, '30'), request),
+    ).rejects.toMatchObject({ retryAfterSeconds: 12 });
+    await expect(apiAdapterInterceptor(limited(undefined, '30'), request)).rejects.toMatchObject({
+      retryAfterSeconds: 30,
+    });
+    await expect(apiAdapterInterceptor(limited(undefined), request)).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
+      details: undefined,
+    });
+  });
+
   it('把錯誤信封轉成 AppError（含 code / details / requestId）', async () => {
     const envelope = {
       error: {
