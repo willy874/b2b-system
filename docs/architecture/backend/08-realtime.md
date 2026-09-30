@@ -254,12 +254,16 @@ super-admin 加入自己租戶的所有 perm room。
 
 ```ts
 async refreshAudience(userIds: readonly string[]) {
-  for (const id of new Set(userIds)) {
-    if (!this.publisher.countConnections(userRoom(id))) continue;
-    this.publisher.moveRooms(userRoom(id), ALL_PERM_ROOMS, await this.roomsFor(id));
+  const connected = [...new Set(userIds)].filter((id) => this.publisher.countConnections(userRoom(id)));
+  for (const batch of chunks(connected, 200)) {
+    const sets = await this.permissionService.getPermissionSets(batch); // 每批兩條 SQL
+    for (const id of batch) this.publisher.moveRooms(userRoom(id), allPermRooms(), permRoomsFor(sets.get(id)));
   }
 }
 ```
+
+一個角色可能有上千位持有者：權限以 `PermissionService.getPermissionSets` **批次** 解析（快取命中的不查；其餘每批
+`WHERE user_id IN (…)` 兩條查詢），不是每人各查一次。檔案模組補建個人資料夾前篩選「能進檔案管理器的人」也用同一個批次方法。
 
 `moveRooms` 的 Socket.io 實作是 `io.in(room).socketsLeave(…)` / `socketsJoin(…)`，經由 adapter 作用在所有節點上的連線（§10）。
 

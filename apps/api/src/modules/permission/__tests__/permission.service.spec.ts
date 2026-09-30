@@ -72,3 +72,69 @@ describe('PermissionService.assertRolesAssignable（docs/architecture/backend/05
     expect(admin.repo.includesSuperAdminRole).not.toHaveBeenCalled();
   });
 });
+
+describe('PermissionService.getPermissionSets（批次解析，docs/issues/01-performance.md PERF-08）', () => {
+  function createBatchService(cached: Record<string, { keys: PermissionKey[] }> = {}) {
+    const repo = {
+      findPermissionKeysByUsers: vi.fn(async (ids: readonly string[]) =>
+        ids.includes('u1') ? [{ userId: 'u1', key: 'user:read' as PermissionKey }] : [],
+      ),
+      findSuperAdminUserIds: vi.fn(async (ids: readonly string[]) =>
+        ids.filter((id) => id === 'root'),
+      ),
+    };
+    const cache = {
+      get: vi.fn((id: string) =>
+        cached[id] ? { permissions: new Set(cached[id].keys), isSuperAdmin: false } : undefined,
+      ),
+      set: vi.fn(),
+    };
+    const service = new PermissionService(
+      repo as unknown as PermissionRepository,
+      cache as unknown as PermissionCacheService,
+    );
+    return { service, repo, cache };
+  }
+
+  it('多人只查一次：每人一個集合，沒有角色的人是空集合，super-admin 有標記', async () => {
+    const { service, repo } = createBatchService();
+
+    const sets = await service.getPermissionSets(['u1', 'u2', 'root', 'u1']);
+
+    expect(repo.findPermissionKeysByUsers).toHaveBeenCalledTimes(1);
+    expect(repo.findPermissionKeysByUsers).toHaveBeenCalledWith(['u1', 'u2', 'root']);
+    expect([...sets.keys()]).toEqual(['u1', 'u2', 'root']);
+    expect([...sets.get('u1')!.permissions]).toEqual(['user:read']);
+    expect(sets.get('u2')).toEqual({ permissions: new Set(), isSuperAdmin: false });
+    expect(sets.get('root')?.isSuperAdmin).toBe(true);
+  });
+
+  it('快取命中的人不查 DB，查到的寫回快取', async () => {
+    const { service, repo, cache } = createBatchService({ u1: { keys: ['role:read'] } });
+
+    const sets = await service.getPermissionSets(['u1', 'u2']);
+
+    expect(repo.findPermissionKeysByUsers).toHaveBeenCalledWith(['u2']);
+    expect([...sets.get('u1')!.permissions]).toEqual(['role:read']);
+    expect(cache.set).toHaveBeenCalledTimes(1);
+    expect(cache.set).toHaveBeenCalledWith('u2', { permissions: new Set(), isSuperAdmin: false });
+  });
+
+  it('全部命中快取時不查 DB', async () => {
+    const { service, repo } = createBatchService({ u1: { keys: [] } });
+    await service.getPermissionSets(['u1']);
+    expect(repo.findPermissionKeysByUsers).not.toHaveBeenCalled();
+    expect(repo.findSuperAdminUserIds).not.toHaveBeenCalled();
+  });
+
+  it('超過一批的上限就分批查詢', async () => {
+    const { service, repo } = createBatchService();
+    const ids = Array.from({ length: 1200 }, (_, index) => `x${index}`);
+
+    const sets = await service.getPermissionSets(ids);
+
+    const batches = repo.findPermissionKeysByUsers.mock.calls.map(([batch]) => batch.length);
+    expect(batches).toEqual([500, 500, 200]);
+    expect(sets.size).toBe(1200);
+  });
+});

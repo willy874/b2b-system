@@ -102,10 +102,12 @@ describe('permRoomsFor', () => {
 
 function setup(openRooms: Record<string, number>) {
   const permissionService = {
-    getPermissionSet: vi.fn(async () => ({
-      permissions: new Set(['role:read']),
-      isSuperAdmin: false,
-    })),
+    getPermissionSets: vi.fn(
+      async (ids: readonly string[]) =>
+        new Map(
+          ids.map((id) => [id, { permissions: new Set(['role:read']), isSuperAdmin: false }]),
+        ),
+    ),
   };
   const publisher = {
     countConnections: vi.fn((room: string) => openRooms[room] ?? 0),
@@ -135,7 +137,33 @@ describe('RealtimeAudience.refreshAudience（§6.2）', () => {
 
     await audience.refreshAudience(['u2']);
 
-    expect(permissionService.getPermissionSet).not.toHaveBeenCalled();
+    expect(permissionService.getPermissionSets).not.toHaveBeenCalled();
     expect(publisher.moveRooms).not.toHaveBeenCalled();
+  });
+
+  it('多人一起批次解析權限，不是每人各查一次（docs/issues/01-performance.md PERF-08）', async () => {
+    const { audience, permissionService, publisher } = setup({
+      't:t1:user:u1': 1,
+      't:t1:user:u2': 2,
+    });
+
+    await audience.refreshAudience(['u1', 'u2', 'u3']);
+
+    expect(permissionService.getPermissionSets).toHaveBeenCalledTimes(1);
+    expect(permissionService.getPermissionSets).toHaveBeenCalledWith(['u1', 'u2']);
+    expect(publisher.moveRooms).toHaveBeenCalledTimes(2);
+  });
+
+  it('上千人分批解析，每批有上限', async () => {
+    const ids = Array.from({ length: 450 }, (_, index) => `u${index}`);
+    const { audience, permissionService, publisher } = setup(
+      Object.fromEntries(ids.map((id) => [`t:t1:user:${id}`, 1])),
+    );
+
+    await audience.refreshAudience(ids);
+
+    const batches = permissionService.getPermissionSets.mock.calls.map(([batch]) => batch.length);
+    expect(batches).toEqual([200, 200, 50]);
+    expect(publisher.moveRooms).toHaveBeenCalledTimes(450);
   });
 });

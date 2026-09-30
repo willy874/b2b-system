@@ -25,6 +25,38 @@ export class PermissionRepository {
     return rows.map((row) => row.key as PermissionKey);
   }
 
+  /** `findPermissionKeysByUser` 的批次版：一條查詢取得多人的權限鍵（沒有任何權限的人不會出現）。 */
+  async findPermissionKeysByUsers(
+    userIds: readonly string[],
+  ): Promise<Array<{ userId: string; key: PermissionKey }>> {
+    if (userIds.length === 0) return [];
+    const rows = await this.db
+      .selectDistinct({ userId: userRoles.userId, key: permissions.key })
+      .from(userRoles)
+      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
+      .innerJoin(rolePermissions, eq(rolePermissions.roleId, userRoles.roleId))
+      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+      .where(inArray(userRoles.userId, [...userIds]));
+    return rows.map((row) => ({ userId: row.userId, key: row.key as PermissionKey }));
+  }
+
+  /** `isSuperAdmin` 的批次版：這些人之中持有 super-admin 的。 */
+  async findSuperAdminUserIds(userIds: readonly string[]): Promise<string[]> {
+    if (userIds.length === 0) return [];
+    const rows = await this.db
+      .selectDistinct({ userId: userRoles.userId })
+      .from(userRoles)
+      .innerJoin(roles, eq(roles.id, userRoles.roleId))
+      .where(
+        and(
+          inArray(userRoles.userId, [...userIds]),
+          eq(roles.slug, SUPER_ADMIN_SLUG),
+          isNull(roles.deletedAt),
+        ),
+      );
+    return rows.map((row) => row.userId);
+  }
+
   async isSuperAdmin(userId: string): Promise<boolean> {
     const [row] = await this.db
       .select({ one: sql<number>`1` })
