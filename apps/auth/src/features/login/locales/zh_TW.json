@@ -79,6 +79,7 @@
     "restart": {
       "action": "重新開始登入",
       "platform": "平台管理者登入"
-    }
+    },
+    "sessionEnded": "登入狀態已結束，請重新登入。"
   }
 }

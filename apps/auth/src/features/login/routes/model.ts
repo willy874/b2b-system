@@ -10,6 +10,8 @@ export const LoginSearchSchema = z.object({
       z.literal(true).optional(),
     )
     .catch(undefined),
+  /** session 為什麼結束（多半是後端錯誤碼，例：`AUTH_REFRESH_EXPIRED`）；登入頁依它說明（UX-12）。 */
+  reason: z.string().max(64).optional().catch(undefined),
 });
 export type LoginSearch = z.infer<typeof LoginSearchSchema>;
 

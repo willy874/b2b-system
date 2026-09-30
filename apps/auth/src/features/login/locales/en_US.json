@@ -79,6 +79,7 @@
     "restart": {
       "action": "Start signing in again",
       "platform": "Platform admin sign-in"
-    }
+    },
+    "sessionEnded": "Your session has ended. Please sign in again."
   }
 }
