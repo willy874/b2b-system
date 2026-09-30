@@ -21,11 +21,11 @@
 
 | 項目 | 現況 | 為什麼延後 |
 | --- | --- | --- |
-| 每個租戶各自的 token 簽章金鑰（`kid`、非對稱簽章） | 所有租戶共用一把 HS256 `JWT_SECRET`；production 已拒絕範例值與低熵金鑰 | 影響 token 格式與所有驗證端，需另開設計（ADR） |
+| 每個租戶各自的 token 簽章金鑰（`kid`、非對稱簽章） | 租戶與平台的 access token 共用一把 HS256 `JWT_SECRET`（production 已拒絕範例值與低熵金鑰），租戶之間靠 `tid` 與網域比對隔離；OIDC 的 ID token 已是 RS256（`OIDC_JWKS`） | 影響 token 格式與所有驗證端，需另開設計（ADR） |
 | 使用者上傳檔案改由獨立、不帶 cookie 的網域提供 | `/storage` 與租戶同源，以 `sandbox` CSP、`nosniff`、非白名單一律 attachment 防護 | 需要部署與 DNS 決策 |
 | 「帳號 × IP」計數與漸進延遲、每租戶上限、IP 白名單 | 登入以「email＋IP」與 IP 各一個桶，另有帳號鎖定 | 屬速率限制的第二版設計；共享計數見 multi-instance |
-| 外部 IdP 的 DNS rebinding | production 對 discovery／token／userinfo／JWKS 先查 DNS 擋私有位址 | 查詢與連線之間仍有空窗，要改成連線時綁定已驗證的 IP |
-| 完整的常見密碼清單（top-10k） | 以字根、前後綴、替換字元、鍵盤序列判斷 | 需要引入外部資料檔 |
+| 外部 IdP 的 DNS rebinding | production 對 discovery／token／userinfo／JWKS 先查 DNS 擋私有位址 | 查詢與連線之間仍有空窗，要改成連線時綁定已驗證的 IP；[Webhook](./webhooks.md) 投遞需要同一個 helper |
+| 完整的常見密碼清單（top-10k） | `common-passwords.ts` 收錄取自常見清單的字根，以字根、前後綴、替換字元、鍵盤序列判斷 | 需要引入外部資料檔 |
 | 註冊表單拿掉密碼欄；審批頁標示「email 尚未驗證」 | 核准後寄啟用信才啟用，申請時的密碼先存著 | apps/auth 與審批頁的 UX 調整 |
 | nginx 的 `log_format` 不記 query string | api 的日誌已遮掉 `code`／`state`／`ticket` | 部署設定，與存取日誌的需求一起決定 |
 
@@ -49,11 +49,11 @@
 
 | 項目 | 現況 | 為什麼延後 |
 | --- | --- | --- |
-| `PATCH /users/:id`、`PATCH /roles/:id` 的版本控制 | 只有 `PUT /users/:id/roles` 以 `expectedRoleIds` 防覆寫 | 需要 `version` 欄與前端全面配合 |
+| `PATCH /users/:id`、`PATCH /roles/:id` 的版本控制 | 只有 `PUT /users/:id/roles` 以 `expectedRoleIds` 防覆寫 | 需要 `version` 欄與前端全面配合；通用的樂觀鎖規則見 [`entity-revisions.md`](./entity-revisions.md) |
 | 列表「選取全部符合的 N 筆」 | 批次只能選本頁 | 需要後端依條件批次處理的 API |
 | 刪除使用者後「復原」 | Toast 已支援動作鈕 | 後端沒有 restore API，見 [`entity-revisions.md`](./entity-revisions.md) |
 | 登入被 429 時倒數並停用送出鈕 | 訊息已帶「請在 N 秒後再試」 | 前端表單的小改動 |
-| 關閉外部 IdP 前顯示受影響的連線數 | 確認對話框已說明影響 | 要跨租戶查詢 |
+| 平台關閉租戶的外部 IdP（`allowExternalIdp`）前顯示受影響的連線數 | 確認對話框已說明影響 | 平台端點要以 `Tenancy.run` 進入那個租戶查連線，是單一租戶的查詢，但目前平台端點都不進租戶 DB |
 | session 結束時保留表單草稿 | 未儲存提醒降低損失 | 需要草稿儲存機制 |
 | 後端驗證 timezone（`Intl.supportedValuesOf`） | 前端遇到不合法時區退回預設 | 小改動，與偏好設定的後端驗證一起做 |
 | `assertUsernameAvailable` 改精確查詢；資料夾名稱 NFC 正規化 | 唯一索引兜底，結果正確 | 小改動 |
@@ -62,8 +62,10 @@
 ## 開放問題
 
 1. super-admin 的名稱與說明能不能改？[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §5 寫不可改，
-   但 `RoleService.update` 沒有擋（其他系統角色的顯示名稱可改是既定決定）。
-2. `identityProvider:*` 要不要只給 super-admin？目前自動連結已限定連線登記的網域，並排除持有系統特權角色的帳號。
+   但 `RoleService.update` 沒有擋（2026-09-30 確認：只有 `updatePermissions` 以 `ROLE_SUPER_ADMIN_IMMUTABLE` 擋權限變更；
+   其他系統角色的顯示名稱可改是既定決定）。
+2. `identityProvider:*` 要不要只給 super-admin？目前 seed 給 `admin` 全部四個、`auditor` 給 `read`；
+   自動連結已限定連線登記的網域，並排除持有 `member` 以外系統角色的帳號。
 3. 上傳檔案的獨立網域要用每個租戶一個子網域，還是全平台共用一個？
 
 ## 歸檔去向

@@ -17,11 +17,11 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
+| P0 | 版本歷史、樂觀鎖與還原 | [`entity-revisions.md`](./entity-revisions.md) | 提案 | — |
 | P1 | 站內通知中心 | [`notification-center.md`](./notification-center.md) | 提案 | — |
-| P2 | 版本歷史與軟刪除 | [`entity-revisions.md`](./entity-revisions.md) | 提案 | — |
 | P2 | 服務帳號／API Token | [`api-tokens.md`](./api-tokens.md) | 提案 | — |
-| P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | — |
-| P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | — |
+| P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | [背景工作](../architecture/backend/10-jobs.md)（已完成） |
+| P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | `notification-center`、[背景工作](../architecture/backend/10-jobs.md)（已完成） |
 | P2 | 標籤、留言、關注 | [`tags-comments.md`](./tags-comments.md) | 提案 | `notification-center` |
 | P2 | 全域搜尋 | [`global-search.md`](./global-search.md) | 提案 | — |
 | P2 | 安全與容量的後續強化 | [`hardening-followups.md`](./hardening-followups.md) | 提案 | — |
@@ -40,6 +40,28 @@
 | 實作中 | 有 branch 在做；文件中寫上 branch 名稱 |
 
 做完的功能 **不留在這張表**：文件刪除時一併刪掉這一列（§3）。
+
+### 1.1 建議的順序
+
+1. **`entity-revisions` 先寫 ADR**：樂觀鎖、快照、還原的模式會被每個編輯器實體沿用，要在第一個編輯器功能之前定。
+2. **`notification-center`**：匯入匯出、標籤留言直接依賴它；Webhook、MFA、API Token 的「通知建立者」也會用到。
+3. 之後依需求二選一：對外整合（`api-tokens` → `webhooks`），或編輯器的協作（`tags-comments`，需要第 1 步的命名決定）。
+4. `hardening-followups` 裡的小項目可以隨時穿插。
+
+### 1.2 撰寫提案時的架構前提
+
+提案的「初步構想」要符合現在的架構；以下是最常被寫錯的地方：
+
+| 前提 | 出處 |
+| --- | --- |
+| 業務資料在 **租戶 DB**（每個租戶一個 database）；平台 DB 只有租戶登記、平台管理者、佇列、OIDC 狀態。新表先決定放哪一邊 | [`05-tenancy.md`](../architecture/05-tenancy.md) §1 |
+| 身分分兩份：租戶的 `users`（backstage）與 `platform_admins`（apps/auth），同一個 email 是兩個帳號 | [`04-sso.md`](../architecture/04-sso.md) §1.1 |
+| 登入在 apps/auth 的 OIDC 登入互動裡，backstage 沒有登入頁；access token 帶 `tid` 或 `realm: 'platform'` | [`04-sso.md`](../architecture/04-sso.md) §3 |
+| `DomainEventBus` 是程序內、fire-and-forget，**不保證送達**；要可靠就在交易內 `JobQueue.enqueue(..., { tx })`（走 `job_outbox`） | [`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §7、[`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §4.1 |
+| 通用模組不 import 業務模組：業務模組在 `onModuleInit` 把 handler 註冊進去（審批、背景工作、系統設定） | [`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md) §3.2 |
+| 前端 feature 之間不共用元件；共用 UI 放 `components/`、`core/`，或經註冊表注入。註冊在 plugin 同步階段，那時還沒有使用者資料 | [`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §3.1、§6 |
+| 軟刪除（`deleted_at` ＋ partial unique index）已是慣例；多型關聯用 `resource_type ＋ resource_id` | [`backend/02-database.md`](../architecture/backend/02-database.md) §1、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) |
+| 系統設定是租戶層、只存純量覆寫值 | [`backend/12-settings.md`](../architecture/backend/12-settings.md) |
 
 ---
 

@@ -285,7 +285,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | Request ID   | `RequestIdMiddleware` 產生 `x-request-id`，出現在回應 header、日誌與稽核紀錄中                                                                                    |
 | 結構化日誌   | Pino（JSON），欄位含 `requestId` / `userId` / `route` / `durationMs` / `statusCode`                                                                               |
 | 授權失敗     | 每一次 403 都寫入 `audit_logs`（`action = 'authz.denied'`），含缺少的權限鍵                                                                                       |
-| 健康檢查     | `GET /health`（liveness）、`GET /health/ready`（含 DB ping）                                                                                                      |
+| 健康檢查     | `GET /health`（liveness）、`GET /health/ready`（平台 DB ping ＋ 物件儲存 ping，失敗回 `degraded`）                                                                  |
 
 ---
 

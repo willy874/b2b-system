@@ -45,7 +45,7 @@ CREATE TABLE system_settings (
 | 放哪裡 | 什麼值 | 例 |
 | --- | --- | --- |
 | env | 部署相關：連線字串、密鑰、以整台主機為單位的值 | `ARGON2_*`、`TENANT_POOL_MAX`、`TRUST_PROXY`、所有 `*_CRON` |
-| env | 在解析出租戶之前就要生效的值 | 速率限制（以 IP 計算；`@Throttle()` 在 class 定義時就求值，無法在執行期改） |
+| env | 在解析出租戶之前就要生效的值 | 速率限制（`*_RATE_LIMIT`；`RateLimitGuard` 在驗證 access token 之前執行，依主體、IP 或「email＋IP」計數；未登記的網域與未登入的請求也要擋，不能依賴租戶的設定） |
 | env | 安全邊界、平台管理者也共用的值 | `JWT_ACCESS_TTL`、`REFRESH_TOKEN_TTL` |
 | env ＋ 設定 | 與基礎設施有關、但租戶可以調小的值：**env 是上限與預設值** | `FILE_UPLOAD_MAX_SIZE` → `file.uploadMaxSize` |
 | 設定 | 租戶的業務政策 | 鎖定次數、密碼長度、是否開放註冊 |

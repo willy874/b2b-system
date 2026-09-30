@@ -3,36 +3,80 @@
 - 優先度：P2
 - 狀態：提案
 - 依賴：[`notification-center.md`](./notification-center.md)（留言、@提及、關注都要通知）
-- 相關：[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)
+- 相關：[`entity-revisions.md`](./entity-revisions.md)（多型關聯的命名、刪除與還原）、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
 ## 背景
 
-內容編輯器上的每一種資源（關卡、素材、腳本）都會需要分類、討論、關注變更。
+內容編輯器上的每一種資源（關卡、素材、腳本；現在只有檔案與資料夾）都會需要分類、討論、關注變更。
 若每個功能各做一套，資料表與 UI 都會重複。
+
+可以參考的既有模式：
+
+- **`resource_grants` 已經是多型關聯**：`resource_type`（Postgres enum，目前只有 `fileFolder`）＋ `resource_id`（uuid，無外鍵）。
+  通用模組只提供儲存與解析，擁有者模組（`modules/file`）提供「上層鏈」「等級對應的動作」與 API（[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) §10.1）。
+- **模組把 handler 註冊進通用模組**：審批（`approvals.registerHandler`）、背景工作、系統設定都是這樣，通用模組不 import 業務模組。
+- **前端的 feature 不能互相 import 元件**：共用 UI 要放 `components/`、`core/`，或經註冊表注入（[`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md) §2.2）。
 
 ## 範圍
 
 | 做 | 不做（這一版） |
 | --- | --- |
-| 多型關聯：`target_type ＋ target_id` 掛在任何實體上 | 留言的富文本編輯器（先純文字 ＋ @提及） |
-| 標籤：建立、指派、依標籤篩選 | 標籤階層 |
-| 留言：新增、編輯、刪除、@提及 | |
-| 關注：關注實體，實體變更時收到通知 | |
-| 前端通用元件：`features/<name>/components` 可以直接嵌入 | |
+| 多型關聯：`resource_type ＋ resource_id`（與 `resource_grants`、稽核同一組命名） | 留言的富文本編輯器（先純文字 ＋ @提及） |
+| 標籤：租戶內的標籤定義、指派、依標籤篩選 | 標籤階層 |
+| 留言：新增、編輯、刪除、@提及 | 留言的附件 |
+| 關注：關注資源，資源變更或有新留言時收到通知 | |
+| 擁有者模組註冊資源類型與「能不能看／改」的判斷 | |
+| 前端：留言面板、標籤選擇器放 `core/` 或 `components/`，feature 在自己的詳情頁嵌入 | |
 
 ## 初步構想
 
-- 權限跟著目標實體走：看得到目標才看得到留言；由目標的模組提供「能不能看」的判斷
-- 模組註冊 `target_type`，`modules/comment` 不 import 其他模組
-- 標籤屬於租戶：租戶 DB 已天然隔離（[`../architecture/05-tenancy.md`](../architecture/05-tenancy.md)）
+### 資料模型（租戶 DB）
+
+```
+tags            id, name, color(token 名稱), created_by, deleted_at   unique(lower(name)) where deleted_at is null
+resource_tags   resource_type, resource_id, tag_id                     pk(resource_type, resource_id, tag_id)
+comments        id, resource_type, resource_id, author_id, body, mentions uuid[], edited_at, deleted_at, created_at
+watches         resource_type, resource_id, user_id, created_at        pk(resource_type, resource_id, user_id)
+```
+
+- `resource_type` 用 text ＋ 程式常數（見開放問題 2）。
+- 標籤顏色存 Design Token 的名稱，不存色碼（前端規則 6）。
+
+### 後端
+
+- `modules/tag`、`modules/comment`、`modules/watch`（或合成一個 `modules/collaboration`），都不 import 業務模組。
+- 擁有者模組在 `onModuleInit` 註冊資源類型：
+  ```ts
+  collaboration.registerResource({
+    type: 'fileFolder',
+    canView: (actor, ids) => ...,   // 批次判斷，列表用
+    canEdit: (actor, id) => ...,
+    describe: (ids) => ...,         // 通知用的名稱快照
+  });
+  ```
+  權限跟著目標走：看得到目標才看得到留言與標籤；能改目標才能改標籤。留言本身再加「只有作者能改、刪」。
+- 通知：@提及、關注的資源有新留言時，在同一個交易內呼叫通知模組（[`notification-center.md`](./notification-center.md)）。
+  關注的資源 **被修改** 時的通知由擁有者模組在自己的交易內觸發，不靠 `resource.changed`（事件不保證送達）。
+- 推播：新增 `ChangeSource.comment`，受眾是「看得到目標的人」，由擁有者模組決定（和 `fileFolder` 的受眾一樣）。
+- 目標被刪除：現在都是軟刪除，目標消失的情況很少；標籤、留言、關注保留，查詢時跟著目標的可見性過濾。
+  永久刪除（[`entity-revisions.md`](./entity-revisions.md) 的回收桶）時由擁有者模組呼叫清理。
+
+### 權限
+
+- `tag:create`、`tag:update`、`tag:delete`（管理標籤定義）；指派標籤跟著目標的編輯權限
+- 留言、關注：跟著目標的可見性，不另外開權限鍵
 
 ## 開放問題
 
-1. 多型關聯沒有外鍵，目標刪除時怎麼清理？（事件訂閱或排程掃描）
-2. 資源授權（`resource_grants`）要不要也泛化成同一個多型模式？
+1. 留言、標籤的權限都跟著目標，那目標模組的「能不能看」要多便宜？列表頁要一次判斷上百個目標，需要批次介面。
+2. `resource_type` 要用 Postgres enum（和 `resource_grants` 一致）還是 text？enum 有資料庫層的保護，但每加一種資源就要一個 migration。
+   這個決定也適用於 [`entity-revisions.md`](./entity-revisions.md) 的 `revisions`。
+3. 標籤要全租戶共用一組，還是依資源類型分開？
+4. 第一個接上的資源是檔案與資料夾嗎？還是等編輯器的第一個資源？
 
 ## 歸檔去向
 
-- `docs/architecture/backend/NN-tag-comment.md`、前端對應章節
+- `docs/architecture/backend/NN-collaboration.md`、`docs/architecture/frontend/` 對應章節
+- `docs/rbac/02-permission-catalog.md`
