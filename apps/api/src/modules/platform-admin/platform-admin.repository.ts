@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, lte, ne, or, sql } from 'drizzle-orm';
 
 import { PLATFORM_DB, withTransaction } from '@/core/database';
 import type { PlatformDatabase, PlatformDbOrTx } from '@/core/database';
@@ -62,6 +62,39 @@ export class PlatformAdminRepository {
       .values({ ...input, status: 'pending' })
       .returning();
     if (!row) throw new Error('建立平台管理者失敗');
+    return row;
+  }
+
+  /**
+   * 登入失敗：原子遞增失敗次數，達到 `maxAttempts` 時鎖定（`status = locked`，平台管理介面以它顯示與解鎖）。
+   * 上一次鎖定已過期時從 1 重新計算；鎖定中不更新（回傳 undefined）。規則與租戶的 `UserRepository.recordFailedLogin` 相同。
+   */
+  async recordFailedLogin(
+    id: string,
+    maxAttempts: number,
+    lockoutSeconds: number,
+  ): Promise<{ failedLoginCount: number; lockedUntil: Date | null } | undefined> {
+    const lockExpired = sql`(${platformAdmins.lockedUntil} IS NOT NULL AND ${platformAdmins.lockedUntil} <= now())`;
+    const nextCount = sql`(CASE WHEN ${lockExpired} THEN 1 ELSE ${platformAdmins.failedLoginCount} + 1 END)`;
+    const reached = sql`${nextCount} >= ${maxAttempts}::int`;
+    const [row] = await this.db
+      .update(platformAdmins)
+      .set({
+        failedLoginCount: sql`${nextCount}`,
+        lockedUntil: sql`CASE WHEN ${reached} THEN now() + make_interval(secs => ${lockoutSeconds}::int) ELSE NULL END`,
+        status: sql`CASE WHEN ${reached} THEN 'locked'::platform_admin_status ELSE ${platformAdmins.status} END`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(platformAdmins.id, id),
+          or(isNull(platformAdmins.lockedUntil), lte(platformAdmins.lockedUntil, sql`now()`)),
+        ),
+      )
+      .returning({
+        failedLoginCount: platformAdmins.failedLoginCount,
+        lockedUntil: platformAdmins.lockedUntil,
+      });
     return row;
   }
 

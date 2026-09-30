@@ -15,6 +15,18 @@ export const AUDIT_LOG_HOT_RETENTION_DAYS = 90;
 /** 每次搬移的筆數：一批一個短交易，避免長時間鎖住熱表。 */
 export const AUDIT_LOG_ARCHIVE_BATCH_SIZE = 5000;
 
+/**
+ * offset 分頁的上限：深分頁要掃過 offset + limit 筆（docs/issues/01-performance.md PERF-09）。
+ * 再往後請縮小時間範圍或加篩選條件。
+ */
+export const AUDIT_LOG_MAX_OFFSET = 10_000;
+
+/**
+ * `total` 最多數到這裡（`count(*)` 包在 `LIMIT` 子查詢裡）：90 天數百萬列時每頁都精算太貴，
+ * 能翻到的最後一頁（`AUDIT_LOG_MAX_OFFSET` ＋ 一頁）之後的數字沒有用處。
+ */
+export const AUDIT_LOG_COUNT_CAP = AUDIT_LOG_MAX_OFFSET + 100;
+
 export const AUDIT_LOG_MAX_RANGE_MS = AUDIT_LOG_MAX_RANGE_DAYS * DAY_MS;
 export const AUDIT_LOG_HOT_RETENTION_MS = AUDIT_LOG_HOT_RETENTION_DAYS * DAY_MS;
 

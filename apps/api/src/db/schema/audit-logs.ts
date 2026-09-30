@@ -72,8 +72,8 @@ export const auditLogs = pgTable(
 
 /**
  * 冷資料：由 `archive_audit_logs()` 從熱表搬過來，`id` 沿用熱表的值。
- * 只留「依時間」與「查某人／某資源的歷史」兩種查詢的索引；`action` 前綴查詢在
- * 90 天範圍內靠時間索引過濾即可，不值得為冷資料多養一份索引。
+ * 索引與熱表相同：冷表隨保留期一直長（千萬列級），`action` 前綴查詢只靠時間索引過濾會掃過整個 90 天範圍
+ * （docs/issues/01-performance.md PERF-17）。
  */
 export const auditLogsArchive = pgTable(
   'audit_logs_archive',
@@ -90,6 +90,10 @@ export const auditLogsArchive = pgTable(
     index('audit_logs_archive_resource_idx').on(
       t.resourceType,
       t.resourceId,
+      t.occurredAt.desc().nullsFirst(),
+    ),
+    index('audit_logs_archive_action_idx').on(
+      t.action.op('text_pattern_ops'),
       t.occurredAt.desc().nullsFirst(),
     ),
   ],

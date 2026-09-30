@@ -10,6 +10,11 @@ import { fetchFileListQuery } from './fetcher';
 export const FILE_LIST_QUERY_KEY = 'FILE_LIST_QUERY_KEY';
 /** 無限捲動的列表：資料形狀（多頁）與分頁列表不同，不能共用 key。 */
 export const FILE_INFINITE_LIST_QUERY_KEY = 'FILE_INFINITE_LIST_QUERY_KEY';
+/**
+ * key 的第二個元素是資料夾（`root` 是根目錄）；不分資料夾的列表放這個值。
+ * 檔案的推播帶所在的資料夾，只重抓那個資料夾與不分資料夾的列表（`apis/resources.ts`）。
+ */
+export const FILE_LIST_ANY_FOLDER = '*';
 
 const filterKeys = (filters: FileListFilters) =>
   [
@@ -17,15 +22,25 @@ const filterKeys = (filters: FileListFilters) =>
     filters.contentType,
     filters.category,
     filters.uploaderId,
-    filters.folderId,
     filters.sort ? toSortParams(filters.sort).join(',') : '',
   ] as const;
 
 const getFileListQueryKeys = (params: FileListParams) =>
-  [FILE_LIST_QUERY_KEY, params.offset, params.limit, ...filterKeys(params)] as const;
+  [
+    FILE_LIST_QUERY_KEY,
+    params.folderId ?? FILE_LIST_ANY_FOLDER,
+    params.offset,
+    params.limit,
+    ...filterKeys(params),
+  ] as const;
 
 const getFileInfiniteListQueryKeys = (filters: FileListFilters, limit: number) =>
-  [FILE_INFINITE_LIST_QUERY_KEY, limit, ...filterKeys(filters)] as const;
+  [
+    FILE_INFINITE_LIST_QUERY_KEY,
+    filters.folderId ?? FILE_LIST_ANY_FOLDER,
+    limit,
+    ...filterKeys(filters),
+  ] as const;
 
 export const getFileListQueryOptions = (options: HttpRequestDTO<FileListParams>) =>
   queryOptions({

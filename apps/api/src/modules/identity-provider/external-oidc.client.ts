@@ -1,5 +1,10 @@
+import { createHash } from 'node:crypto';
+
 import { Injectable } from '@nestjs/common';
 import * as client from 'openid-client';
+
+import { guardedFetch, systemLookup } from './outbound-guard';
+import type { HostLookup } from './outbound-guard';
 
 /** 連線到外部 IdP 需要的設定（client secret 已解密）。 */
 export interface ExternalProviderConfig {
@@ -35,13 +40,33 @@ export abstract class ExternalOidcClient {
   ): Promise<ExternalIdentity>;
 }
 
+export interface OpenIdExternalOidcClientOptions {
+  /** 開發環境的模擬 IdP 是 http；production 只接受 https。 */
+  allowInsecureIssuer: boolean;
+  /**
+   * 擋下解析到私有、loopback、link-local 位址的連線（discovery、token、userinfo、JWKS 都算）：
+   * issuer 由租戶管理員填，不擋的話就能讓 api 代為探測內網（docs/issues/02-security.md SEC-11）。
+   * 開發環境的模擬 IdP 在 localhost，只在 production 開。
+   */
+  blockPrivateNetworks: boolean;
+  resolve?: HostLookup;
+}
+
+/** discovery 快取的上限：連線數量本來就少，超過代表 secret 或 issuer 一直在換，丟掉最舊的。 */
+const MAX_CACHED_CONFIGS = 200;
+/** 對外部 IdP 每個請求的逾時（秒）：卡住的 IdP 不能拖住登入的請求。 */
+const REQUEST_TIMEOUT_SECONDS = 10;
+
 /** 以 [`openid-client`](https://github.com/panva/openid-client)（OpenID Certified）實作。 */
 @Injectable()
 export class OpenIdExternalOidcClient extends ExternalOidcClient {
-  /** discovery 的結果快取（issuer ＋ client）：不必每次登入都抓一次 `.well-known`。 */
+  /**
+   * discovery 的結果快取（issuer ＋ client ＋ secret 的雜湊）：不必每次登入都抓一次 `.well-known`。
+   * key 不放 secret 原文；有上限，換 secret 之後舊的 entry 會被擠掉。
+   */
   private readonly configs = new Map<string, Promise<client.Configuration>>();
 
-  constructor(private readonly allowInsecureIssuer: boolean) {
+  constructor(private readonly options: OpenIdExternalOidcClientOptions) {
     super();
   }
 
@@ -89,23 +114,31 @@ export class OpenIdExternalOidcClient extends ExternalOidcClient {
   }
 
   private configOf(provider: ExternalProviderConfig): Promise<client.Configuration> {
-    const key = `${provider.issuer}\n${provider.clientId}\n${provider.clientSecret}`;
-    let config = this.configs.get(key);
-    if (!config) {
-      config = client
-        .discovery(
-          new URL(provider.issuer),
-          provider.clientId,
-          provider.clientSecret,
-          undefined,
-          // 開發環境的模擬 IdP 是 http；production 只接受 https
-          this.allowInsecureIssuer ? { execute: [client.allowInsecureRequests] } : undefined,
-        )
-        .catch((error: unknown) => {
-          this.configs.delete(key);
-          throw error;
-        });
-      this.configs.set(key, config);
+    const secretHash = createHash('sha256').update(provider.clientSecret).digest('base64url');
+    const key = `${provider.issuer}\n${provider.clientId}\n${secretHash}`;
+    const cached = this.configs.get(key);
+    if (cached) {
+      // LRU：用到的移到最後
+      this.configs.delete(key);
+      this.configs.set(key, cached);
+      return cached;
+    }
+    const config = client
+      .discovery(new URL(provider.issuer), provider.clientId, provider.clientSecret, undefined, {
+        timeout: REQUEST_TIMEOUT_SECONDS,
+        ...(this.options.blockPrivateNetworks && {
+          [client.customFetch]: guardedFetch(this.options.resolve ?? systemLookup),
+        }),
+        ...(this.options.allowInsecureIssuer && { execute: [client.allowInsecureRequests] }),
+      })
+      .catch((error: unknown) => {
+        this.configs.delete(key);
+        throw error;
+      });
+    this.configs.set(key, config);
+    if (this.configs.size > MAX_CACHED_CONFIGS) {
+      const oldest = this.configs.keys().next();
+      if (!oldest.done) this.configs.delete(oldest.value);
     }
     return config;
   }

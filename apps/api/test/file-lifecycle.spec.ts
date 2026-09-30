@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import sharp from 'sharp';
 import request from 'supertest';
 import type { App } from 'supertest/types';
@@ -187,6 +187,22 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     expect(audit).toMatchObject({ resourceType: 'file', resourceId: file.id });
   });
 
+  it('HTML、SVG 不在租戶網域上 inline 提供（SEC-02）', async () => {
+    const token = await login(ADMIN);
+    const html = await uploadFile(token, { name: 'evil.html', contentType: 'text/html', size: 10 });
+    expect(html.url).toContain('signed=attachment&type=application/octet-stream');
+    expect(html.downloadUrl).toContain('signed=attachment&type=application/octet-stream');
+    const svg = await uploadFile(token, { name: 'a.svg', contentType: 'image/svg+xml', size: 10 });
+    expect(svg.url).toContain('signed=attachment');
+    expect(svg.url).not.toContain('type=');
+    // 不留給後面依列表內容斷言的測試
+    await Promise.all(
+      [html.id, svg.id].map((id) =>
+        request(http).delete(`/files/${id}`).set('authorization', `Bearer ${token}`).expect(204),
+      ),
+    );
+  });
+
   it('上傳大小與登記不符 → 422，物件被刪除', async () => {
     const token = await login(ADMIN);
     const { file, upload } = await startUpload(token, {
@@ -339,6 +355,45 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     expect(row?.uploadId).toBeNull();
   });
 
+  it('分塊上傳：物件儲存已組好、紀錄仍是 pending（上次在 markReady 前中斷）→ 重送 complete 成功（EDGE-22）', async () => {
+    const token = await login(ADMIN);
+    const { file } = await startUpload(token, {
+      name: 'crashed.pak',
+      contentType: 'application/octet-stream',
+      size: 600,
+    });
+    const parts = await request(http)
+      .post(`/files/${file.id}/parts`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ partNumbers: [1] })
+      .expect(200);
+    const [part] = (parts.body as { data: { parts: Array<{ url: string }> } }).data.parts;
+    storage.simulateBrowserUpload(part?.url ?? '', 600);
+    const [row] = await db.select().from(files).where(eq(files.id, file.id));
+    // 模擬「CompleteMultipartUpload 成功、markReady 之前程序當掉」：uploadId 在物件儲存那一側已失效
+    await storage.completeMultipartUpload(row?.storageKey ?? '', row?.uploadId ?? '', [
+      { partNumber: 1, etag: 'etag-1' },
+    ]);
+
+    const done = await request(http)
+      .post(`/files/${file.id}/complete`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ parts: [{ partNumber: 1, etag: 'etag-1' }] })
+      .expect(200);
+    expect((done.body as { data: FileBody }).data).toMatchObject({ status: 'ready', size: 600 });
+    // 再重送一次：已經完成
+    const again = await request(http)
+      .post(`/files/${file.id}/complete`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ parts: [{ partNumber: 1, etag: 'etag-1' }] })
+      .expect(409);
+    expect((again.body as { error: { code: string } }).error.code).toBe('FILE_ALREADY_UPLOADED');
+    await request(http)
+      .delete(`/files/${file.id}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(204);
+  });
+
   it('放棄上傳：pending 消失、分塊被清掉；已完成的不能放棄', async () => {
     const token = await login(ADMIN);
     const { file } = await startUpload(token, {
@@ -413,15 +468,24 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
             .query({ contentType: 'text/x-keyset', limit: '2', ...query })
             .set('authorization', `Bearer ${token}`)
             .expect(200)
-        ).body as { data: { items: FileBody[]; nextCursor: string | null } }
+        ).body as {
+          data: {
+            items: FileBody[];
+            nextCursor: string | null;
+            pagination: { total: number | null };
+          };
+        }
       ).data;
 
     const first = await list({});
     expect(first.items.map((f) => f.name)).toEqual(['k4.txt', 'k3.txt']);
+    expect(first.pagination.total).toBe(4);
     // 第一頁之後插入一筆較新的：offset 分頁會讓 k3 重複出現在第二頁
     await uploadFile(token, { name: 'k5.txt', contentType: 'text/x-keyset', size: 1 });
     const second = await list({ cursor: first.nextCursor ?? '' });
     expect(second.items.map((f) => f.name)).toEqual(['k2.txt', 'k1.txt']);
+    // 帶游標的頁不重算總數（PERF-09）
+    expect(second.pagination.total).toBeNull();
 
     await request(http)
       .get('/files')
@@ -617,6 +681,35 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       );
     });
 
+    it('移動後超過深度上限 → 400 VALIDATION_FAILED（EDGE-13，子樹高度由遞迴 CTE 算出）', async () => {
+      const token = await login(ADMIN);
+      const ensure = async (path: string[]) => {
+        const response = await request(http)
+          .post('/file-folders/paths')
+          .set('authorization', `Bearer ${token}`)
+          .send({ parentId: null, paths: [path] })
+          .expect(200);
+        return (response.body as { data: { items: { id: string }[] } }).data.items[0]?.id ?? '';
+      };
+      const a = Array.from({ length: 20 }, (_, i) => `depth-a-${i}`);
+      const b = Array.from({ length: 20 }, (_, i) => `depth-b-${i}`);
+      const deepestA = await ensure(a);
+      await ensure(b);
+      const [rootB] = await db.select().from(fileFolders).where(eq(fileFolders.name, 'depth-b-0'));
+
+      const tooDeep = await request(http)
+        .post('/files/move')
+        .set('authorization', `Bearer ${token}`)
+        .send({ folderIds: [rootB?.id], targetFolderId: deepestA })
+        .expect(400);
+      expect((tooDeep.body as { error: { code: string } }).error.code).toBe('VALIDATION_FAILED');
+      const [unchanged] = await db
+        .select()
+        .from(fileFolders)
+        .where(eq(fileFolders.id, rootB?.id ?? ''));
+      expect(unchanged?.parentId).toBeNull();
+    });
+
     it('上傳資料夾：確保路徑時沿用同名資料夾，重送得到同樣的 id', async () => {
       const token = await login(ADMIN);
       const body = { parentId: null, paths: [['pack'], ['pack', 'sfx'], ['Pack', 'bgm', 'loop']] };
@@ -719,6 +812,13 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
 
   describe('files 資料表約束', () => {
     const base = { name: 'x', contentType: 'text/plain', storageKey: 'files/constraint' };
+
+    it('依上傳者篩選有部分索引（PERF-19，migration 0004）', async () => {
+      const rows = await db.execute<{ indexdef: string }>(
+        sql`SELECT indexdef FROM pg_indexes WHERE indexname = 'files_created_by_created_at_idx'`,
+      );
+      expect(rows[0]?.indexdef).toMatch(/\(created_by, created_at\) WHERE \(deleted_at IS NULL\)/);
+    });
 
     it('ready 必須有 etag 與 uploaded_at', async () => {
       await expectDbError(

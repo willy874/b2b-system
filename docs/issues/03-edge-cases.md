@@ -63,6 +63,7 @@
   3. `forgotPassword` 允許 `locked`（`resetPassword` 本來就會順帶解鎖）。
   4. 考慮以「帳號 × IP」累計失敗，或在最後一位 active super-admin 上改用漸進延遲而不是鎖定。
 - **驗收**：整合測試——鎖定後把 `lockedUntil` 調到過去，正確密碼登入成功且 `status` 回到 `active`；鎖定期間既有 access token 仍可用；`locked` 狀態的人可收到重設信；SSO 登入在鎖定到期後可通過。
+- **狀態**：已修（fix/auth-account）：見 SEC-03；鎖定不撤銷既有 session、不推 `session.revoked`，外部 IdP 登入不受鎖定影響，migration `0003` 把舊的 `status = locked` 改回 `active`
 
 ### EDGE-02 被停用的 `pending` 使用者仍能用啟用信把自己改回 `active`
 
@@ -76,6 +77,7 @@
 - **預期 vs 實際**：預期停用後啟用連結失效（或 setup 只接受 `pending`）；實際帳號被自行啟用。
 - **建議**：`setup()` 只接受 `user.status === 'pending'`，其餘回 `AUTH_SETUP_TOKEN_INVALID`；並在 `UserService.update` 的停用、`remove` 時於同一交易作廢該使用者所有未使用的 `auth_tokens`。同理 `resetPassword` 對 `inactive` 的人雖不改狀態，也應作廢 token。
 - **驗收**：整合測試「pending → inactive 後以原 activation token setup → 400 且狀態仍為 inactive」；「刪除使用者後 reset token 失效」。
+- **狀態**：已修（fix/auth-account）：`setup` 只接受 `pending`；停用、刪除帳號在同一個交易內作廢未使用的啟用／重設 token
 
 ### EDGE-03 「最後一位 super-admin」保護是 check-then-act
 
@@ -89,10 +91,12 @@
 - **預期 vs 實際**：預期後到者 `LAST_SUPER_ADMIN`；實際兩者都成功。
 - **建議**：在寫入交易內先 `SELECT pg_advisory_xact_lock(hashtext('super_admin_guard'))`（或 `SELECT … FROM users JOIN user_roles … FOR UPDATE` 鎖住所有 super-admin 持有者列），**在交易內**重新計數再寫入；`isSuper` 改直接查 DB 不走快取。
 - **驗收**：整合測試以 `Promise.all` 同時送兩個互刪請求，斷言恰好一個 `LAST_SUPER_ADMIN`、DB 內仍有一位 active super-admin。
+- **狀態**：已修（fix/auth-account）：「最後一位 super-admin」的檢查移進寫入的交易，先取 `pg_advisory_xact_lock` 再計數；是否 super-admin 直接查 DB
 
 ### EDGE-04 速率限制以 IP 計算，企業 NAT 後共用一個額度
 
 - **嚴重度**：P1（在前提「企業、1000 人同時在線」下常態觸發）
+- **狀態**：已修（fix/infra-tenancy）：同 PERF-01；rate-limit.guard.spec 驗證同一 IP 兩個使用者各自有獨立額度
 - **位置**：[rate-limit.ts:18-27](../../apps/api/src/common/rate-limit.ts#L18)、[app.module.ts:57-61](../../apps/api/src/app.module.ts#L57)、[env.schema.ts:76](../../apps/api/src/core/config/env.schema.ts#L76)
 - **現況**：`ThrottlerGuard` 使用預設 tracker（`req.ip`），沒有覆寫 `getTracker`。預設 `DEFAULT_RATE_LIMIT = 120/分/IP`、`/auth/login` 10/分/IP、`/auth/refresh` 30/分/IP。Access token 5 分鐘，一千人約每分鐘 200 次續期。
 - **重現步驟**：
@@ -112,6 +116,7 @@
 - **預期 vs 實際**：預期累計 20、第 5 次起鎖定；實際只算幾次。
 - **建議**：改成原子更新 `SET failed_login_count = failed_login_count + 1 … RETURNING failed_login_count`，依回傳值決定是否寫 `locked_until`（可用 `CASE WHEN failed_login_count + 1 >= $max`）；平台管理者（[platform-admin.service.ts:90-99](../../apps/api/src/modules/platform-admin/platform-admin.service.ts#L90)）同樣修。
 - **驗收**：整合測試併發 10 個錯誤密碼後 `failed_login_count = 10` 且已鎖定。
+- **狀態**：已修（fix/auth-account）：失敗計數改成原子的 `UPDATE … SET failed_login_count = failed_login_count + 1 … RETURNING`（租戶與平台管理者）
 
 ### EDGE-06 軟刪除使用者不清 `user_identities`
 
@@ -122,10 +127,12 @@
 - **預期 vs 實際**：預期 A' 可登入（依 email 重新連結）；實際永遠被拒。
 - **建議**：刪除使用者的交易內一併刪除其 `user_identities`（稽核保留紀錄）；或 `resolveAccount` 發現連結指向已刪除帳號時刪掉舊連結、落回 email 比對。
 - **驗收**：`sso-external.spec.ts` 加「刪除後重建同 email → SSO 登入成功並連結到新帳號」。
+- **狀態**：已修（fix/auth-account）：刪除帳號的交易內一併刪除 `user_identities`；登入時連結指向已刪除的帳號會刪掉舊連結、改以 email 對應
 
 ### EDGE-07 佈建途中程序當掉，租戶永久卡在 `provisioning`
 
 - **嚴重度**：P1（該租戶無法再由平台管理）
+- **狀態**：已修（fix/infra-tenancy）：新排程 tenant.provisionSweep（每 5 分鐘）把逾時仍在 provisioning 的租戶改成 failed，重試與刪除前也先檢查
 - **位置**：[tenant-provisioner.ts:25-29](../../apps/api/src/modules/tenant/tenant-provisioner.ts#L25)、[tenant-provisioner.ts:73-96](../../apps/api/src/modules/tenant/tenant-provisioner.ts#L73)、[platform-tenant.service.ts:156](../../apps/api/src/modules/tenant/platform-tenant.service.ts#L156)、[platform-tenant.service.ts:206](../../apps/api/src/modules/tenant/platform-tenant.service.ts#L206)
 - **現況**：`tenant.provision` 設 `retryLimit: 0`；只有 handler 內 `catch` 會把狀態改成 `failed`。程序在 `ensureTenantDatabase`/migration 途中被 kill、OOM、部署重啟時，pg-boss 在 `expireInSeconds` 後把工作標成失敗，但 **租戶狀態仍是 `provisioning`**。`retryProvisioning` 只接受 `failed`、`remove` 拒絕 `provisioning`，全 repo 沒有清掃卡住狀態的機制。從管理頁手動重試工作（`job:retry`）可以救，但需要人知道。
 - **重現步驟**：1. 建立租戶。2. 佈建工作執行中（例：在 migration 時）`kill -9` api。3. 重啟後租戶頁面永遠顯示「佈建中」，重試與刪除按鈕都回 `TENANT_STATUS_CONFLICT`。
@@ -142,6 +149,7 @@
 - **預期 vs 實際**：一般預期「不能管理權限比自己高的人」；實際可以。
 - **建議**：新增規則「目標持有 super-admin 時，只有 super-admin 能改其狀態、角色、刪除、重設密碼、解鎖」（`AUTHZ_ESCALATION` 帶 `role: 'super-admin'`），寫進 05-rbac §4.1 與權限目錄文件。
 - **驗收**：`rbac-lifecycle.spec.ts` 加「admin 停用／刪除／降級 super-admin → 403」。
+- **狀態**：已修（fix/auth-account）：產品決定為「只有 super-admin 能停用、刪除 super-admin 或增減他人的 super-admin 角色」；其他人 `AUTHZ_ESCALATION`（`details.role = super-admin`）
 
 ### EDGE-09 權限／使用者快取的「讀後寫」競態
 
@@ -152,6 +160,7 @@
 - **預期 vs 實際**：預期撤銷後立即生效；實際偶發延遲到 TTL。
 - **建議**：快取加世代號（每個 key 一個 `version`，`invalidate` 時遞增；`get→load→set` 時若版本已變就不寫入）；或 `invalidate` 寫入「墓碑」到期前拒絕 `set`。`role.remove` 在交易內以 `DELETE … RETURNING user_id` 取得受影響者。
 - **驗收**：單元測試模擬「load 期間 invalidate」後快取為空；壓力測試撤銷後 1 秒內無 200。
+- **狀態**：已修（fix/auth-account）：`PermissionCacheService`／`UserCacheService` 加上失效世代（`InvalidationTracker`），載入期間被失效過的結果不寫回。`role.remove` 以 `DELETE … RETURNING` 取得受影響者的部分延後——屬角色模組（角色／事件組）
 
 ### EDGE-10 refresh 回應遺失 → 被判重用並撤銷整條家族
 
@@ -162,6 +171,7 @@
 - **預期 vs 實際**：預期網路抖動不導致登出與假警報；實際兩者都發生。
 - **建議**：加入短寬限期（例：同一張 token 在 `usedAt` 後 10–30 秒內再出示、且家族最新一張尚未被用過 → 回傳那張的替代品或要求重登但不撤銷家族、不記 high）；或把寬限期內的重用降為 `warning`。refresh 請求不套用一般逾時（或放長）。
 - **驗收**：`refresh-rotation.spec.ts` 加「輪替後 5 秒內以舊 token 再續期 → 不撤銷家族」；「超過寬限期 → 仍判重用」。
+- **狀態**：已修（fix/auth-account）：`REFRESH_REUSE_GRACE_SECONDS`（預設 30 秒）內重送「上一張」會換發新的並取代原本的最新一張（`superseded`），不撤銷家族、稽核記一般嚴重度的 `auth.refresh.replayed`。前端 refresh 的逾時未調整（寬限期已涵蓋逾時重送）
 
 ### EDGE-11 `PUT /users/:id/roles` 無版本控制，前端草稿不隨推播更新
 
@@ -172,6 +182,7 @@
 - **預期 vs 實際**：預期 A 收到衝突提示；實際靜默覆寫。
 - **建議**：`users`/`roles` 加 `version` 欄（或以 `updated_at` 作 ETag），PUT/PATCH 帶 `version`，不符回 `409 *_VERSION_CONFLICT`；前端在草稿存在且伺服器值改變時提示「資料已被他人修改」。
 - **驗收**：整合測試兩個以同一 version 的 PUT，第二個 409；前端 hook 測試推播後出現衝突提示。
+- **狀態**：已修（fix/auth-account）：`PUT /users/:id/roles` 接受 `expectedRoleIds`，交易內鎖住使用者列、不符回 `409 USER_ROLES_CONFLICT`，稽核的 before 在鎖內讀；前端 `useUserRoleSelection` 記下草稿依據的角色、推播改變時提示並可改用最新角色。`PATCH /users/:id`、`PATCH /roles/:id` 的版本控制延後——需要 `version` 欄與前端全面配合，範圍較大
 
 ### EDGE-12 管理者可把自己鎖在外面
 
@@ -182,6 +193,7 @@
 - **預期 vs 實際**：預期拒絕或至少二次確認；實際直接生效。
 - **建議**：`updatePermissions`/`remove` 若 actor 持有該角色、且變更會讓 actor 失去 `role:update` 或 `role:grantPermission`，回 `AUTHZ_SELF_MODIFY`（super-admin 豁免）；前端顯示警告。
 - **驗收**：整合測試「admin 移除自己角色的 role:grantPermission → 403」、「force 刪除自己持有的角色 → 403」。
+- **狀態**：已修（fix/role-events）——改用新錯誤碼 `ROLE_SELF_LOCKOUT`（403，`details.lost`）而非 `AUTHZ_SELF_MODIFY`，訊息較明確；受保護的權限為 `role:read`、`role:update`、`role:grantPermission`，super-admin 豁免（docs/architecture/backend/05-rbac.md §8.4）。前端只補錯誤訊息翻譯，沒有另做事前警告。
 
 ### EDGE-13 資料夾移動沒有檢查深度上限
 
@@ -192,6 +204,7 @@
 - **預期 vs 實際**：預期移動被拒；實際成功。
 - **建議**：`assertMovable` 內計算每個 `moving` 的子樹高度（遞迴 CTE 取 max depth），`ancestors.length + height > MAX_FOLDER_DEPTH` 時拒絕。
 - **驗收**：`file-folder.service.spec.ts` 加「移動後超過深度 → VALIDATION_FAILED(depth)」。
+- **狀態**：已修（fix/file）：移動時以遞迴 CTE 取被移動子樹的最大高度，目的地深度 ＋ 高度超過 32 回 `VALIDATION_FAILED(depth)`
 
 ### EDGE-14 `pending` 使用者的啟用信過期或寄送失敗後沒有重寄路徑
 
@@ -202,6 +215,7 @@
 - **預期 vs 實際**：預期可重寄啟用信；實際只能刪除重建或手動改 `active` 再走忘記密碼。
 - **建議**：新增 `POST /users/:id/resend-activation`（只接受 `pending`），或讓 `resetPassword` 對 `pending` 的人改寄啟用信；`UpdateUserSchema.status` 移除 `pending`。
 - **驗收**：整合測試重寄後舊 token 失效、新 token 可用；PATCH `status: 'pending'` → 400。
+- **狀態**：已修（fix/auth-account）：管理員對 `pending` 的人「重設密碼」改寄啟用信（稽核 `user.activation_resent`），`pending` 的人按「忘記密碼」也會收到啟用信；`PATCH /users/:id` 不再接受 `status: pending`
 
 ### EDGE-15 領域事件是全程序單一序列佇列
 
@@ -212,6 +226,7 @@
 - **預期 vs 實際**：預期租戶間互不影響、踢線即時；實際排隊。
 - **建議**：佇列以租戶分開（`Map<tenantId, Promise>`），`SESSIONS_REVOKED` 走優先通道；`refreshAudience` 批次查權限（一次查所有 userId）並以有限並行處理。
 - **驗收**：單元測試兩個租戶的事件可並行；壓測 1000 人的角色變更在 N 秒內完成且不阻塞其他租戶。
+- **狀態**：已修（fix/role-events）——同 PERF-08：佇列依租戶分開（`Map<lane, Promise>`，處理完即移除）、`SESSIONS_REVOKED` 每個租戶另有優先通道、權限批次查詢；單元測試驗證兩個租戶的事件可並行、踢線不排在同租戶卡住的事件之後。事件只在記憶體（程序當掉會遺失）維持現狀，影響如現況所述有限。
 
 ### EDGE-16 個人資料夾命名碰撞會讓整批建立失敗
 
@@ -222,6 +237,7 @@
 - **預期 vs 實際**：預期總能得到一個不衝突的名稱、且單人失敗不影響其他人；實際整批失敗。
 - **建議**：命名改為遞增後綴直到不衝突（或以 user id 前綴），名稱經 `FileFolderNameSchema` 清理；每人一個 savepoint 或逐人交易，單人失敗只記錄。
 - **驗收**：單元測試連續三次同名建立都成功；一人衝突時其他人仍建立。
+- **狀態**：已修（fix/file）：候選名稱依序加 email、編號、最後退回 user id，顯示名稱先清掉 `/`、`\`、控制字元；每人一個 savepoint，一人失敗只記錄
 
 ### EDGE-17 未對應的唯一鍵衝突回 500、Nest 內建 400 回 `INTERNAL_ERROR` 碼
 
@@ -232,6 +248,7 @@
 - **預期 vs 實際**：預期 400 `VALIDATION_FAILED`；實際 500／錯誤碼誤導。
 - **建議**：陣列 DTO 一律 `.refine(unique)` 或在 service 去重；未對應的 23505 回 409 `CONFLICT` 而非 500；`HttpException` 依狀態碼對應（400 → `VALIDATION_FAILED`、404 → `NOT_FOUND`）。
 - **驗收**：`rbac-lifecycle.spec.ts` 加重複 roleIds 與非法 UUID 的案例。
+- **狀態**：已修（fix/role-events）——未對應的 23505 回 409 `CONFLICT`（並記 warn）；`HttpException` 依狀態碼對應（400 `VALIDATION_FAILED`、401 `AUTH_TOKEN_INVALID`、403 `AUTHZ_FORBIDDEN`、404 `NOT_FOUND`、409 `CONFLICT`、429；其餘 4xx `VALIDATION_FAILED`）；`roleIds`（建立使用者、替換角色、審批核准）以 `uniqueItems()` 禁止重複，repository 的插入也去重並 `onConflictDoNothing`。
 
 ### EDGE-18 同一權限同時在 `add` 與 `remove`：結果與稽核相反
 
@@ -242,6 +259,7 @@
 - **預期 vs 實際**：預期 400 或兩者一致；實際不一致。
 - **建議**：DTO `.refine` 禁止交集；或 `after` 在交易內以 `listPermissionKeys(tx)` 重新查出。
 - **驗收**：DTO 單元測試交集 → 400。
+- **狀態**：已修（fix/role-events）——DTO 禁止 `add`／`remove` 交集（400）；稽核的 `before`／`after` 在交易內（鎖住角色列後）讀取。
 
 ### EDGE-19 角色刪除的檢查在交易外
 
@@ -252,10 +270,12 @@
 - **預期 vs 實際**：預期其中一個以 `ROLE_IN_USE`／`ROLE_NOT_FOUND` 失敗；實際兩者都成功、狀態不一致。
 - **建議**：刪除交易內 `SELECT … FROM roles WHERE id=$1 FOR UPDATE` 後重新計數，並以 `DELETE … RETURNING user_id` 取得受影響者；指派交易內以 `FOR SHARE` 鎖住角色列再插入。
 - **驗收**：整合測試併發刪除與指派。
+- **狀態**：已修（fix/role-events）——刪除：交易內 `FOR UPDATE` 鎖角色列後重新計數，受影響者以 `DELETE … RETURNING` 取得；指派：`user.repository` 在交易內以 `FOR SHARE` 鎖角色列、只插入未刪除的角色。整合測試以測試端持有列鎖重現兩種先後順序。`user.service` 的 `assertRolesExist` 仍在交易外（認證帳號組負責的檔案），但交易內的 `FOR SHARE` 已保證不留下指向已刪除角色的指派。
 
 ### EDGE-20 並行移除網域可把網域移光
 
 - **嚴重度**：P3（平台管理者操作、機率低，但結果是租戶完全無法進入）
+- **狀態**：已修（fix/infra-tenancy）：網域增刪先 FOR UPDATE 鎖住租戶列再數網域；platform-tenant.spec 加併發移除案例
 - **位置**：[platform-tenant.service.ts:241-254](../../apps/api/src/modules/tenant/platform-tenant.service.ts#L241)、[platform-tenant.repository.ts:122-128](../../apps/api/src/modules/tenant/platform-tenant.repository.ts#L122)
 - **現況**：`domains.length <= 1` 以交易前讀到的清單判斷；兩個請求各移除一個（共兩個網域）都會通過。移除網域時，正在那個網域上的使用者（host-only cookie）會失去 session，沒有提示。
 - **重現步驟**：租戶有 d1、d2；同時 `DELETE …/domains/d1` 與 `…/d2` → 兩者 200，租戶沒有網域。
@@ -274,6 +294,7 @@
   - 已正確處理：全空白（`trim().min(1)`）、長度上限、排序欄位白名單、非法 enum、`from > to` 與 90 天範圍、非法日期（`z.coerce.date` 產生 Invalid Date 會被拒絕）。
 - **建議**：共用 `escapeLike()`；`offset` 設上限（例：10 000，超過要求改用游標）；角色名稱改 `citext` 或以 `lower(name)` 建唯一索引；名稱統一 `normalize('NFC')`。`assertUsernameAvailable` 改精確查詢。
 - **驗收**：`list-sort.spec.ts` 加 `keyword=_`、`offset=99999999999` 案例。
+- **狀態**：已修（fix/role-events）——`core/database` 的 `escapeLike`／`containsPattern`／`prefixPattern`（角色、使用者、審批改用；檔案、稽核、平台稽核、資源授權已有各自的私有 `escapeLike`，未合併以免與其他組衝突）；`PaginationSchema` 的 offset 上限 10 000（`OffsetSchema` 也套到背景工作列表；稽核與平台稽核列表的 DTO 有自己的 offset，留給基礎設施組的 PERF-09 一併處理）；`roles_name_key` 改 `lower(name)`（migration 0006：既有名稱先 NFC 正規化，只差大小寫的保留最早建立的、其餘改名「<原名> (<slug>)」），API 端角色名稱 `normalize('NFC')`。延後：`assertUsernameAvailable` 改精確查詢（在 `user.service`，屬認證帳號組；唯一索引兜底，行為正確）；資料夾名稱的 NFC 正規化（檔案組）。
 
 ### EDGE-22 分塊上傳 `complete` 的併發與中斷
 
@@ -286,6 +307,7 @@
   - 前端：`complete` 已在伺服器成功但回應遺失時，走 `catch` → `abortUpload` 回 `FILE_ALREADY_UPLOADED`（被忽略）→ UI 顯示失敗，使用者重傳會產生同名重複檔（檔案允許同名）。
 - **建議**：`NoSuchUpload` 時先 `head()` 物件，存在且大小相符就繼續 `markReady`；前端在 `complete` 失敗後先 `GET /files/:id` 確認狀態再決定要不要 abort。
 - **驗收**：`file.service.spec.ts` 加「S3 已完成、紀錄仍 pending → complete 成功」。
+- **狀態**：已修（fix/file）：`CompleteMultipartUpload` 回「塊不對」時先 HeadObject，已組好且大小相符就照常完成；前端 `complete` 失敗時先 `GET /files/:id`，已 ready 就當成功；修正分塊上傳「可用同一網址重傳」的錯誤說明
 
 ### EDGE-23 啟用／重設 token 的 `markUsed` 不是條件式
 
@@ -294,10 +316,12 @@
 - **現況**：`findUsable` 在交易外檢查 `usedAt`，`markUsed` 無條件 `UPDATE`。同一個重設連結被雙擊或兩個分頁同時送出，兩次都成功（後者的密碼生效），稽核兩筆。refresh token 有正確的條件式 `markUsed`，這裡沒有沿用。
 - **建議**：`markUsed` 加 `WHERE used_at IS NULL AND expires_at > now()` 並回傳是否成功，失敗時 rollback 回 `AUTH_SETUP_TOKEN_INVALID`。
 - **驗收**：整合測試併發兩次 reset，恰一次成功。
+- **狀態**：已修（fix/auth-account）：見 SEC-12
 
 ### EDGE-24 平台的租戶操作：稽核不在同一交易
 
 - **嚴重度**：P3
+- **狀態**：已修（fix/infra-tenancy）：狀態／網域變更與平台稽核同一個交易，收尾失敗另記稽核
 - **位置**：[platform-tenant.service.ts:168-219](../../apps/api/src/modules/tenant/platform-tenant.service.ts#L168)
 - **現況**：`disable`、`enable`、`remove`、網域增刪都是「狀態變更 → 收尾 → `audit.record`」分開執行，違反 CLAUDE.md 規則 6「稽核寫入在交易內」。`endEverything` 的每一步錯誤只記 log；`remove` 在第二次 `transition` 前失敗會留下「已停用、未刪除、session 已撤銷」的中間狀態（可重做，影響小）。
 - **建議**：狀態變更與平台稽核包成同一個平台 DB 交易；收尾步驟的失敗寫進稽核 metadata。
@@ -310,6 +334,7 @@
 - **現況**：刪除角色實作是 `UPDATE roles SET deleted_at`（軟刪除），trigger 只擋 `DELETE` 與 slug／`is_system` 變更，所以 I7 的「DB trigger 雙保險」對實際的刪除路徑無效，只剩 service 檢查。`update()` 不檢查 `isSystem`，系統角色的 `name`／`description` 可改；[01-domain-model.md §1](../rbac/01-domain-model.md) 寫「`is_system` 角色不可刪除／改名」，§3.2 又說 name 可改，文件本身不一致。
 - **建議**：trigger 加 `IF OLD.is_system AND NEW.deleted_at IS NOT NULL THEN RAISE`；釐清「改名」的定義並補測試。
 - **驗收**：`triggers.spec.ts` 加「軟刪除系統角色被擋」。
+- **狀態**：已修（fix/role-events）——migration 0006 的 `protect_system_roles` 也擋 `deleted_at` 由 NULL 變非 NULL；service 層原本就擋。系統角色的顯示名稱維持可改（既定決定），`01-domain-model.md` §1 已改為「不可刪除、不可改 slug」。註記：同文件 §5 表格寫 super-admin 的 name／description 不可改，但 `RoleService.update` 沒有擋，依既定決定未動程式，文件與實作的差異待產品確認。
 
 ### EDGE-26 前端：離開未儲存、權限撤銷時的 UI、重連尖峰
 
@@ -322,6 +347,7 @@
   - 使用者偏好的 `timezone` 後端只驗 `max(64)`，未驗證是否為合法 IANA 名稱（前端時間格式化會 `RangeError`，**待驗證** 是否有使用後端值）。
 - **建議**：編輯頁加 `useBlocker`；補權限撤銷的 E2E；resync 的 jitter 依在線人數放大或分批；`timezone` 以 `Intl.supportedValuesOf('timeZone')` 驗證。
 - **驗收**：E2E「管理員移除權限 → 對方開著的頁面在推播後隱藏該選單」。
+- **狀態**：已修（fix/backstage-ux）（前端部分）——使用者／角色編輯表單加上未儲存提醒（`useUnsavedChangesGuard`）；前端遇到不合法的時區不再丟 RangeError（退回預設時區）。延後：後端以 `Intl.supportedValuesOf` 驗證 timezone（後端組）、權限撤銷的 E2E（本次不跑 E2E）、重連 jitter 依在線人數放大（realtime／基礎設施）
 
 ## 已處理得好的地方
 

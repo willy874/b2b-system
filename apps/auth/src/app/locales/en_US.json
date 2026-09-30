@@ -106,6 +106,7 @@
     "unknown_with_id": "Something went wrong (code {{requestId}}). Please contact an administrator.",
     "network": "Unable to reach the server. Check your connection and try again.",
     "timeout": "The request timed out. Please check your connection and try again.",
+    "rate_limited_retry": "Too many requests. Please try again in {{seconds}} seconds.",
     "aborted": "The request was cancelled.",
     "permission_changed": "Your permissions just changed; the page has been re-synced.",
     "VALIDATION_FAILED": "Some fields are invalid. Please review and try again.",
@@ -116,6 +117,7 @@
     "TENANT_DOMAIN_TAKEN": "This domain already belongs to another tenant.",
     "TENANT_STATUS_CONFLICT": "This action isn't available in the tenant's current state. Refresh and try again.",
     "TENANT_LAST_DOMAIN": "A tenant must keep at least one domain.",
+    "TENANT_PRIMARY_DOMAIN": "The primary domain cannot be removed: email links and tenant sign-in use it.",
     "PLATFORM_ADMIN_NOT_FOUND": "This platform administrator doesn't exist or has been deleted.",
     "IDENTITY_PROVIDER_NOT_ALLOWED": "The platform administrator has turned off external IdPs for this tenant.",
     "AUTH_INVALID_CREDENTIALS": "Incorrect email or password.",
@@ -136,6 +138,7 @@
     "AUTH_SSO_CODE_INVALID": "Sign-in did not complete; the link may have expired or already been used. Please sign in again.",
     "AUTH_SSO_REQUIRED": "This email domain only allows signing in with your company account (SSO).",
     "AUTH_SSO_ACCOUNT_NOT_FOUND": "No matching account was found. Ask an administrator to create one for you.",
+    "AUTH_SSO_LINK_NOT_ALLOWED": "This account cannot be linked to external sign-in automatically. Sign in with your password or ask an administrator for help.",
     "AUTH_SSO_PROVIDER_UNAVAILABLE": "This sign-in option is unavailable right now. Try again later or use another option.",
     "AUTH_SSO_EXTERNAL_FAILED": "External sign-in did not complete. Please sign in again.",
     "AUTHZ_FORBIDDEN": "You do not have permission to do that.",
@@ -146,12 +149,14 @@
     "USER_EMAIL_DUPLICATE": "This email is already in use.",
     "USER_USERNAME_DUPLICATE": "This username is already in use.",
     "USER_NOT_LOCKED": "This account is not locked.",
+    "USER_ROLES_CONFLICT": "This user's roles were just changed by someone else. Review the latest roles and try again.",
     "ROLE_NOT_FOUND": "Role not found.",
     "ROLE_NAME_DUPLICATE": "Role name already exists.",
     "ROLE_SYSTEM_PROTECTED": "System roles cannot be deleted or renamed.",
     "ROLE_SUPER_ADMIN_IMMUTABLE": "Permissions of the super admin role cannot be changed.",
-    "ROLE_IN_USE": "Some users still hold this role.",
+    "ROLE_IN_USE": "{{userCount}} users still hold this role.",
     "LAST_SUPER_ADMIN": "The system must keep at least one active super admin.",
+    "ROLE_SELF_LOCKOUT": "This change would remove the permissions you need to manage roles. Ask another administrator to make it.",
     "PERMISSION_UNKNOWN": "The request contains unknown permission keys.",
     "APPROVAL_NOT_FOUND": "This approval request does not exist.",
     "APPROVAL_ALREADY_REVIEWED": "This request has already been reviewed.",
@@ -175,7 +180,12 @@
     "FILE_FOLDER_CYCLE": "A folder cannot be moved into itself or one of its subfolders.",
     "FILE_GRANT_SUBJECT_NOT_FOUND": "The person or role no longer exists.",
     "FILE_GRANT_NOT_FOUND": "This access entry no longer exists.",
+    "FILE_FOLDER_SYSTEM_PROTECTED": "System folders (shared, private, personal) cannot be renamed, moved, or deleted.",
+    "FILE_ACCESS_ALREADY_GRANTED": "You already have this access to the folder. No need to request it again.",
+    "FILE_ACCESS_REQUEST_NOT_FOUND": "This access request no longer exists. It may have been handled or withdrawn.",
     "SETTING_NOT_FOUND": "This setting does not exist.",
+    "NOT_FOUND": "The page or resource was not found.",
+    "CONFLICT": "The data was just changed by another request. Refresh and try again.",
     "RATE_LIMITED": "Too many requests. Please slow down.",
     "INTERNAL_ERROR": "Server error. Please try again later.",
     "page": {
@@ -190,6 +200,13 @@
       "unexpected": {
         "title": "Unexpected error",
         "description": "Please retry or contact an administrator."
+      },
+      "backHome": "Go to home",
+      "goBack": "Go back",
+      "reload": "Reload",
+      "updated": {
+        "title": "A new version is available",
+        "description": "This page has been updated. Reload to continue."
       }
     }
   },
@@ -281,5 +298,27 @@
     "dark": "Dark",
     "system": "System",
     "current": "Current"
+  },
+  "validation": {
+    "required": "This field is required",
+    "email": "Enter a valid email address",
+    "tooShort": "Must be at least {{min}} characters",
+    "tooLong": "Must be at most {{max}} characters",
+    "format": "The format is invalid",
+    "invalid": "The value is invalid",
+    "passwordMismatch": "The passwords don't match"
+  },
+  "components": {
+    "required": "required",
+    "selectSearch": "Search…",
+    "selectNoMatch": "No matching items",
+    "selectAll": "Select all",
+    "pagination": {
+      "nav": "Pagination",
+      "pageSize": "Rows per page",
+      "first": "First",
+      "last": "Last",
+      "page": "Page number"
+    }
   }
 }

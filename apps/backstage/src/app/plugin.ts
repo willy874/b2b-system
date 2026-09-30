@@ -2,6 +2,7 @@ import { createRouter } from '@tanstack/react-router';
 
 import type { AppPluginFactory } from '@/core/app';
 import { queryClient } from '@/core/cache';
+import { NotFoundPage, PageSkeleton, RouteErrorPage } from '@/core/components';
 import { parseSearch, stringifySearch } from '@/core/router';
 
 import { registerBuiltinHeaderTools } from './layouts/headerTools';
@@ -13,6 +14,10 @@ function createAppRouter() {
     context: { queryClient },
     defaultPreload: 'intent',
     defaultPendingMs: 200,
+    // 未知網址、頁面載入失敗（含部署後舊 chunk 不見）與載入中顯示本地化的頁面，不用框架預設的英文畫面（UX-09）
+    defaultNotFoundComponent: NotFoundPage,
+    defaultErrorComponent: RouteErrorPage,
+    defaultPendingComponent: PageSkeleton,
     parseSearch,
     stringifySearch,
   });

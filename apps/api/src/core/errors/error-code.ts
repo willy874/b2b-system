@@ -22,6 +22,8 @@ export const ErrorCode = {
   TENANT_STATUS_CONFLICT: { status: 409 },
   /** 不能移除租戶的最後一個網域（沒有網域就沒有入口）。 */
   TENANT_LAST_DOMAIN: { status: 409 },
+  /** 不能移除租戶的主要網域（信中的連結與「進入租戶」都用它）。 */
+  TENANT_PRIMARY_DOMAIN: { status: 409 },
   /** 平台管理者不存在（或已刪除）。 */
   PLATFORM_ADMIN_NOT_FOUND: { status: 404 },
   /** 租戶不允許設定外部 IdP 連線（平台管理者關掉了，D22）。 */
@@ -51,6 +53,11 @@ export const ErrorCode = {
   AUTH_SSO_REQUIRED: { status: 403 },
   /** 外部 IdP 登入成功，但沒有對應的帳號，而連線設定為拒絕（D10）。 */
   AUTH_SSO_ACCOUNT_NOT_FOUND: { status: 403 },
+  /**
+   * 外部 IdP 回報的 email 對上既有帳號，但不能自動連結：email 網域不是這個連線登記的網域，或帳號持有系統的
+   * 管理角色（super-admin、admin、auditor）。要由本人以密碼登入，或請管理員處理（docs/architecture/04-sso.md §3.3）。
+   */
+  AUTH_SSO_LINK_NOT_ALLOWED: { status: 403 },
   /** 外部 IdP 連線不存在、已停用，或無法連線（discovery 失敗）。 */
   AUTH_SSO_PROVIDER_UNAVAILABLE: { status: 400 },
   /** 外部 IdP 回來的結果無效：state 不對、已過期、授權碼兌換失敗、ID token 驗證失敗。 */
@@ -67,6 +74,8 @@ export const ErrorCode = {
   USER_EMAIL_DUPLICATE: { status: 409 },
   USER_USERNAME_DUPLICATE: { status: 409 },
   USER_NOT_LOCKED: { status: 409 },
+  /** 整批取代角色時，送出的草稿所依據的角色已被別人改過（docs/issues/03-edge-cases.md EDGE-11）。 */
+  USER_ROLES_CONFLICT: { status: 409 },
 
   // ── 角色 ──
   ROLE_NOT_FOUND: { status: 404 },
@@ -75,6 +84,8 @@ export const ErrorCode = {
   ROLE_SUPER_ADMIN_IMMUTABLE: { status: 403 },
   ROLE_IN_USE: { status: 409 },
   LAST_SUPER_ADMIN: { status: 403 },
+  /** 改自己持有的角色的權限或刪除它，會讓自己失去管理角色所需的權限（docs/architecture/backend/05-rbac.md §8.4）。 */
+  ROLE_SELF_LOCKOUT: { status: 403 },
 
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },
@@ -118,6 +129,10 @@ export const ErrorCode = {
   SETTING_NOT_FOUND: { status: 404 },
 
   // ── 通用 ──
+  /** 路徑不存在（框架層的 404；業務上找不到資源用各自的 `<DOMAIN>_NOT_FOUND`）。 */
+  NOT_FOUND: { status: 404 },
+  /** 沒有對應到業務錯誤碼的唯一鍵衝突：多半是併發的重複寫入，重試或重新整理即可。 */
+  CONFLICT: { status: 409 },
   RATE_LIMITED: { status: 429 },
   INTERNAL_ERROR: { status: 500 },
 } as const;

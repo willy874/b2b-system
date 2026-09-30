@@ -297,6 +297,7 @@ export class S3ObjectStorage
         Bucket: this.bucket(),
         Key: key,
         ResponseContentDisposition: contentDisposition(options.disposition, options.fileName),
+        ResponseContentType: options.contentType,
         // 物件內容以 id 為 key、永不覆寫：在網址有效期間內可以放心快取
         ResponseCacheControl: `private, max-age=${Math.floor(options.expiresIn / 2)}, immutable`,
       }),

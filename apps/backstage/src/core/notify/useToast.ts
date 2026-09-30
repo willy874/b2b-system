@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import type { ToastType } from '@/components/Toast';
+import type { ToastOptions, ToastType } from '@/components/Toast';
 import { GlobalEvents, useAppContext } from '@/core/app';
 
 export interface ToastApi {
@@ -8,6 +8,8 @@ export interface ToastApi {
   error: (title: string, description?: string) => void;
   warning: (title: string, description?: string) => void;
   info: (title: string, description?: string) => void;
+  /** 完整選項，例如附上動作鈕：`show({ type: 'success', title, action: { label, onClick } })`。 */
+  show: (options: ToastOptions) => void;
 }
 
 /**
@@ -26,6 +28,7 @@ export function useToast(): ToastApi {
       error: show('error'),
       warning: show('warning'),
       info: show('info'),
+      show: (options) => eventBus.emit(GlobalEvents.TOAST_SHOW, options),
     };
   }, [eventBus]);
 }

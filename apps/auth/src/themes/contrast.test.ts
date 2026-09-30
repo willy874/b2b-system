@@ -79,6 +79,27 @@ describe.each(Object.entries(themes))('Design Token 對比度（WCAG AA）：%s'
     }
   }
 
+  // WCAG 1.4.11：辨識控制項所需的邊界 >= 3:1（docs/issues/04-user-experience.md UX-27）
+  for (const surface of [...SURFACES, '--color-fill-subtle']) {
+    it(`控制項邊框 --color-border-control 在 ${surface} 上 >= 3:1`, () => {
+      const ratio = contrast(
+        resolveToken(tokens, '--color-border-control'),
+        resolveToken(tokens, surface),
+      );
+      expect(ratio, `border-control on ${surface} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(
+        3,
+      );
+    });
+  }
+
+  // 停用欄位、中性 Chip 等以填色為底的次要文字
+  for (const fill of ['--color-fill-subtle', '--color-fill']) {
+    it(`--color-fg-muted 在 ${fill} 上 >= 4.5:1`, () => {
+      const ratio = contrast(resolveToken(tokens, '--color-fg-muted'), resolveToken(tokens, fill));
+      expect(ratio, `fg-muted on ${fill} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+
   it('主色按鈕的前景／背景 >= 4.5:1', () => {
     const ratio = contrast(
       resolveToken(tokens, '--color-brand-fg'),

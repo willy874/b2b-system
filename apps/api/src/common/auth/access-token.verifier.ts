@@ -62,7 +62,23 @@ export class AccessTokenVerifier {
 
   /** 驗證 token 並回傳使用者；不拋例外，由呼叫端決定要回 HTTP 錯誤或 connect_error。 */
   async verify(token: string | undefined): Promise<AccessTokenVerifyResult> {
-    if (!token) return { ok: false, code: 'AUTH_TOKEN_INVALID' };
+    const payload = await this.verifyClaims(token);
+    if (!payload) return { ok: false, code: 'AUTH_TOKEN_INVALID' };
+
+    const checked = currentTenant()
+      ? await this.checkUser(payload.sub, payload.ver)
+      : await this.checkIdentity(payload.sub, payload.ver, () =>
+          this.loadPlatformAdmin(payload.sub),
+        );
+    return checked.ok ? { ok: true, user: checked.user, payload } : checked;
+  }
+
+  /**
+   * 只驗簽與身分範圍（不查使用者）：token 是這個網域簽的、沒過期就回傳 payload。
+   * 給不需要使用者狀態、但要便宜地知道「這是誰」的地方用（速率限制以使用者為 key）。
+   */
+  async verifyClaims(token: string | undefined): Promise<VerifiedAccessTokenPayload | undefined> {
+    if (!token) return undefined;
 
     let payload: VerifiedAccessTokenPayload;
     try {
@@ -70,7 +86,7 @@ export class AccessTokenVerifier {
         secret: this.config.get('JWT_SECRET', { infer: true }),
       });
     } catch {
-      return { ok: false, code: 'AUTH_TOKEN_INVALID' };
+      return undefined;
     }
 
     // 身分範圍由網域決定：租戶網域只接受那個租戶簽的 token（使用者 id 只在自己的租戶 DB 有意義）；
@@ -79,14 +95,7 @@ export class AccessTokenVerifier {
     const matches = tenant
       ? payload.tid === tenant.id
       : payload.realm === 'platform' && !payload.tid;
-    if (!matches) return { ok: false, code: 'AUTH_TOKEN_INVALID' };
-
-    const checked = tenant
-      ? await this.checkUser(payload.sub, payload.ver)
-      : await this.checkIdentity(payload.sub, payload.ver, () =>
-          this.loadPlatformAdmin(payload.sub),
-        );
-    return checked.ok ? { ok: true, user: checked.user, payload } : checked;
+    return matches ? payload : undefined;
   }
 
   /** 已驗過簽的身分（例：socket 上的 `userId` ＋ `tokenVersion`）是否仍有效。 */
@@ -108,6 +117,8 @@ export class AccessTokenVerifier {
   }
 
   private async loadPlatformAdmin(adminId: string): Promise<CachedUser | undefined> {
+    // 查詢期間被失效（停用、刪除）時不寫回快取，否則舊的 active 會活到 TTL（EDGE-09）
+    const ticket = this.userCache.ticket();
     const [row] = await this.platformDb
       .select({
         id: platformAdmins.id,
@@ -120,11 +131,12 @@ export class AccessTokenVerifier {
       .where(eq(platformAdmins.id, adminId))
       .limit(1);
     if (!row) return undefined;
-    this.userCache.set(row);
+    this.userCache.set(row, ticket);
     return row;
   }
 
   private async loadUser(userId: string): Promise<CachedUser | undefined> {
+    const ticket = this.userCache.ticket();
     const [row] = await this.db
       .select({
         id: users.id,
@@ -137,7 +149,7 @@ export class AccessTokenVerifier {
       .where(eq(users.id, userId))
       .limit(1);
     if (!row) return undefined;
-    this.userCache.set(row);
+    this.userCache.set(row, ticket);
     return row;
   }
 }

@@ -5,6 +5,7 @@ import {
   getFileControllerCompleteUploadUrl,
   getFileControllerCreateUploadPartsUrl,
   getFileControllerCreateUploadUrl,
+  getFileControllerFindOneUrl,
 } from '@/shared/api-sdk';
 import type {
   CompleteFileUploadRequest,
@@ -55,4 +56,12 @@ export const fetchFileAbortUploadMutation = defineAuthFetcher<
   http.request(getFileControllerAbortUploadUrl({ id: request.params.fileId }), {
     method: 'DELETE',
   }),
+);
+
+/** 查詢這次上傳的目前狀態（`complete` 的回應遺失時，確認伺服器端其實已經完成）。 */
+export const fetchFileUploadStatusQuery = defineAuthFetcher<
+  HttpRequestDTO<{ fileId: string }>,
+  StoredFile
+>((http, request) =>
+  http.request(getFileControllerFindOneUrl({ id: request.params.fileId }), { method: 'GET' }),
 );

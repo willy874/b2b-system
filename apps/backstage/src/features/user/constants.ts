@@ -1,3 +1,4 @@
+import type { ChipTone } from '@/components/Chip';
 import type { UserStatus } from '@/shared/api-sdk';
 
 /**
@@ -10,3 +11,11 @@ export const USER_STATUS_LABEL_KEY = {
   inactive: 'user.status.inactive',
   locked: 'user.status.locked',
 } as const satisfies Record<UserStatus, string>;
+
+/** 使用者狀態 → 色調。列表與詳情共用，同一個狀態不會在兩處顯示不同顏色（UX-35）。 */
+export const USER_STATUS_TONE = {
+  active: 'success',
+  pending: 'warning',
+  inactive: 'neutral',
+  locked: 'danger',
+} as const satisfies Record<UserStatus, ChipTone>;

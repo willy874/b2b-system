@@ -312,6 +312,7 @@ mutation 成功
      id: 'ref'     → change.refs[本資源]；沒給就退回整個前綴
      id: 'none'    → 只有 collection
 ③ derivesFromAnyChange（稽核列表）
+④ scopedCollection：自己的變更帶了 refs[範圍]，collection 只失效 [KEY, 範圍] 與 [KEY, 不分範圍]
   │
   ▼
 去重（前綴已失效就不列單筆）→ invalidate / remove → 廣播
@@ -334,7 +335,7 @@ mutation 成功
 | `profile`：`AUTH_PROFILE`                                                      | `user` 更新（自己）、`userRole`（自己）、`role` 更新／刪除與 `rolePermission`（自己持有的角色） |
 | `auditLog`：`AUDIT_LOG_LIST` ／ `AUDIT_LOG_DETAIL`                              | **任何寫入**（只影響列表；既有紀錄不可變）                                            |
 | `approval`：`APPROVAL_LIST` ／ `APPROVAL_DETAIL`                                | 無（只有自己的寫入）                                                                  |
-| `file`：`FILE_LIST`、`FILE_INFINITE_LIST` ／ `FILE_DETAIL`                      | 無（只有自己的寫入）；檔案內容 `FILE_TEXT` 刻意不列——以 id 為 key、不可變             |
+| `file`：`FILE_LIST`、`FILE_INFINITE_LIST` ／ `FILE_DETAIL`                      | `fileFolder` 更新／刪除（全部列表）；檔案內容 `FILE_TEXT` 刻意不列——以 id 為 key、不可變。列表的 key 第二個元素是資料夾（`scopedCollection`）：推播帶 `refs.fileFolder` 時只重抓那個資料夾與不分資料夾的列表 |
 | `permission`：`PERMISSION_LIST`                                                | 無（一個部署版本內不變）                                                              |
 
 `userRole`、`rolePermission`、`userCredential` 是 **關係／純來源**：沒有自己的 query，只用來描述寫入。
@@ -359,7 +360,8 @@ mutation 成功
 #### 新增一支 query 或一種寫入
 
 1. 新 query：把 key 放進 `apis/resources.ts` 對應資源的 `collection` 或 `entity`
-   （`entity` 的 key 第二個元素必須是 id）。
+   （`entity` 的 key 第二個元素必須是 id）。列表天生分範圍、而且變更知道自己落在哪個範圍時（例：檔案 → 資料夾），
+   把範圍放在 key 的第二個元素並宣告 `scopedCollection`，別的範圍的列表就不會跟著重抓。
 2. 新的衍生關係：在 **被影響的資源** 上加 `derivesFrom`，並註解「為什麼」。
 3. 新寫入：在 feature hook 的 `onSuccess` 呼叫 `invalidateResources()`，只描述後端改了什麼。
 4. `apis/__tests__/resources.test.ts` 補一個案例，鎖住換算結果。

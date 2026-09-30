@@ -9,6 +9,7 @@ import { OidcProviderModule } from '@/modules/oidc-provider/oidc-provider.module
 import { PlatformAdminModule } from '@/modules/platform-admin/platform-admin.module';
 import { UserModule } from '@/modules/user/user.module';
 
+import { PlatformTokenCleanupJobs } from './auth-token-cleanup.jobs';
 import { AuthTokenModule } from './auth-token.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -43,6 +44,7 @@ import { SsoService } from './sso.service';
     ExternalLoginService,
     PlatformAuthService,
     PlatformRefreshTokenRepository,
+    PlatformTokenCleanupJobs,
   ],
   exports: [AuthService],
 })

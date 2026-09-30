@@ -23,6 +23,7 @@ import type {
 import { FileAccessRequestService } from './file-access-request.service';
 import type { FileAccessContext } from './file-access.context';
 import { FileAccessService } from './file-access.service';
+import { FileFolderTree } from './file-folder-tree';
 import { FileFolderRepository } from './file-folder.repository';
 import { MAX_FOLDER_DEPTH } from './file.constants';
 
@@ -52,6 +53,7 @@ export class FileFolderService {
     private readonly events: DomainEventBus,
     private readonly access: FileAccessService,
     private readonly requests: FileAccessRequestService,
+    private readonly tree: FileFolderTree,
   ) {}
 
   /**
@@ -404,10 +406,7 @@ export class FileFolderService {
   /** 結構的寫入：交易內先排隊；同名的競態（鎖以外的寫入）也轉成業務錯誤。 */
   private async writeTree<T>(work: (tx: DbOrTx) => Promise<T>): Promise<T> {
     try {
-      return await withTransaction(this.db, async (tx) => {
-        await this.repo.lockTree(tx);
-        return work(tx);
-      });
+      return await this.tree.write(work);
     } catch (error) {
       if (isUniqueViolation(error)) throw new AppException('FILE_FOLDER_NAME_CONFLICT');
       throw error;
@@ -448,6 +447,7 @@ export class FileFolderService {
     targetFolderId: string | null,
     tx: DbOrTx,
   ): Promise<void> {
+    let targetDepth = 0;
     if (targetFolderId) {
       // 目的地往上的鏈上出現任何一個要移動的資料夾 → 移進自己或自己的子孫
       const ancestors = new Set(await this.repo.findAncestorIds(targetFolderId, tx));
@@ -455,6 +455,16 @@ export class FileFolderService {
       if (cyclic.length > 0) {
         throw new AppException('FILE_FOLDER_CYCLE', { folderIds: cyclic.map((f) => f.id) });
       }
+      targetDepth = ancestors.size;
+    }
+    // 移動後最深的一層 = 目的地的深度 ＋ 被移動的子樹高度（EDGE-13）：遞迴 CTE 與前端的樹都假設深度有上限
+    const height = await this.repo.findMaxSubtreeHeight(
+      moving.map((folder) => folder.id),
+      MAX_FOLDER_DEPTH + 1,
+      tx,
+    );
+    if (targetDepth + height > MAX_FOLDER_DEPTH) {
+      throw new AppException('VALIDATION_FAILED', { field: 'depth', max: MAX_FOLDER_DEPTH });
     }
 
     const names = new Set<string>();

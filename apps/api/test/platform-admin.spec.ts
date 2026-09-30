@@ -168,9 +168,27 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
         app
           .get(PlatformAdminService)
           .verifyCredentials({ email: 'pa-new@example.com', password: PASSWORD }),
-      ).rejects.toMatchObject({ code: 'AUTH_ACCOUNT_PENDING' });
+        // 還沒設定密碼：密碼驗證不會通過，狀態不外露（與帳號不存在相同，docs/architecture/backend/04-auth.md §3.2）
+      ).rejects.toMatchObject({ code: 'AUTH_INVALID_CREDENTIALS' });
 
       const token = linkToken(await waitForMail('pa-new@example.com'), '/setup');
+      // 不屬於任何租戶、也不是 apps/auth 的網域（例：直接用 IP 連反向代理）也不能用（SEC-18）
+      for (const host of ['unknown.example.test', '10.0.0.5']) {
+        // oxlint-disable-next-line no-await-in-loop -- 依序檢查兩種網域
+        const elsewhere = await request(http)
+          .post('/platform/auth/setup')
+          .set('Host', host)
+          .send({ token, password: PASSWORD })
+          .expect(404);
+        expect(errorCodeOf(elsewhere)).toBe('PLATFORM_ONLY');
+        // oxlint-disable-next-line no-await-in-loop -- 同上
+        const admins = await request(http)
+          .get('/platform/admins')
+          .set('Host', host)
+          .set('authorization', `Bearer ${root}`)
+          .expect(404);
+        expect(errorCodeOf(admins)).toBe('PLATFORM_ONLY');
+      }
       // 租戶網域上不能用
       const onTenant = await request(http)
         .post('/platform/auth/setup')

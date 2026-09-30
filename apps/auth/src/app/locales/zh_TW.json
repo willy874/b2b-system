@@ -106,6 +106,7 @@
     "unknown_with_id": "發生未預期的錯誤（代碼 {{requestId}}），請聯絡管理員。",
     "network": "無法連線到伺服器，請檢查網路後再試。",
     "timeout": "請求逾時，請檢查網路連線後再試。",
+    "rate_limited_retry": "操作太頻繁，請在 {{seconds}} 秒後再試。",
     "aborted": "請求已取消。",
     "permission_changed": "你的權限剛剛變更了，畫面已重新同步。",
     "VALIDATION_FAILED": "輸入內容不正確，請檢查後再試。",
@@ -116,6 +117,7 @@
     "TENANT_DOMAIN_TAKEN": "這個網域已屬於另一個租戶。",
     "TENANT_STATUS_CONFLICT": "租戶目前的狀態不能執行這個動作，請重新整理後再試。",
     "TENANT_LAST_DOMAIN": "租戶至少要保留一個網域。",
+    "TENANT_PRIMARY_DOMAIN": "主要網域不能移除：信中的連結與「進入租戶」都使用它。",
     "PLATFORM_ADMIN_NOT_FOUND": "找不到這位平台管理者，可能已被刪除。",
     "IDENTITY_PROVIDER_NOT_ALLOWED": "平台管理者已停用這個租戶的外部 IdP。",
     "AUTH_INVALID_CREDENTIALS": "帳號或密碼錯誤。",
@@ -136,6 +138,7 @@
     "AUTH_SSO_CODE_INVALID": "登入沒有完成，連結可能已過期或已使用過。請重新登入。",
     "AUTH_SSO_REQUIRED": "這個信箱的網域只允許以公司帳號（SSO）登入。",
     "AUTH_SSO_ACCOUNT_NOT_FOUND": "找不到對應的帳號，請聯絡管理員為你建立帳號。",
+    "AUTH_SSO_LINK_NOT_ALLOWED": "這個帳號不能自動連結到外部登入，請改用密碼登入，或請管理員協助。",
     "AUTH_SSO_PROVIDER_UNAVAILABLE": "這個登入方式目前無法使用，請稍後再試或改用其他方式登入。",
     "AUTH_SSO_EXTERNAL_FAILED": "外部登入沒有完成，請重新登入。",
     "AUTHZ_FORBIDDEN": "你沒有執行這個操作的權限。",
@@ -146,12 +149,14 @@
     "USER_EMAIL_DUPLICATE": "這個 Email 已被使用。",
     "USER_USERNAME_DUPLICATE": "這個使用者名稱已被使用。",
     "USER_NOT_LOCKED": "這個帳號目前沒有被鎖定。",
+    "USER_ROLES_CONFLICT": "這個人的角色剛被其他人修改過，請確認最新的角色後再指派。",
     "ROLE_NOT_FOUND": "找不到這個角色。",
     "ROLE_NAME_DUPLICATE": "角色名稱重複。",
     "ROLE_SYSTEM_PROTECTED": "系統角色受保護，不可刪除或改名。",
     "ROLE_SUPER_ADMIN_IMMUTABLE": "超級管理員角色的權限不可變更。",
-    "ROLE_IN_USE": "仍有使用者持有這個角色。",
+    "ROLE_IN_USE": "仍有 {{userCount}} 位使用者持有這個角色。",
     "LAST_SUPER_ADMIN": "系統必須保留至少一位可用的超級管理員。",
+    "ROLE_SELF_LOCKOUT": "這個變更會讓你失去管理角色所需的權限，請改由其他管理者操作。",
     "PERMISSION_UNKNOWN": "包含系統未定義的權限鍵。",
     "APPROVAL_NOT_FOUND": "找不到這筆審批申請。",
     "APPROVAL_ALREADY_REVIEWED": "這筆申請已經被審核過了。",
@@ -175,7 +180,12 @@
     "FILE_FOLDER_CYCLE": "資料夾不能移到自己或自己的子資料夾裡。",
     "FILE_GRANT_SUBJECT_NOT_FOUND": "授權對象不存在或已被刪除。",
     "FILE_GRANT_NOT_FOUND": "這筆授權已不存在。",
+    "FILE_FOLDER_SYSTEM_PROTECTED": "系統資料夾（共用、私人、個人）不能改名、移動或刪除。",
+    "FILE_ACCESS_ALREADY_GRANTED": "你已經有這個資料夾的存取權，不需要再申請。",
+    "FILE_ACCESS_REQUEST_NOT_FOUND": "這筆存取申請已不存在，可能已被處理或撤回。",
     "SETTING_NOT_FOUND": "找不到這個設定。",
+    "NOT_FOUND": "找不到這個頁面或資源。",
+    "CONFLICT": "資料剛被其他操作變更，請重新整理後再試。",
     "RATE_LIMITED": "操作太頻繁，請稍後再試。",
     "INTERNAL_ERROR": "伺服器發生錯誤，請稍後再試。",
     "page": {
@@ -190,6 +200,13 @@
       "unexpected": {
         "title": "發生未預期的錯誤",
         "description": "請重試，或聯絡系統管理員。"
+      },
+      "backHome": "回首頁",
+      "goBack": "返回上一頁",
+      "reload": "重新整理",
+      "updated": {
+        "title": "系統已更新",
+        "description": "這個頁面有新版本，請重新整理後再繼續。"
       }
     }
   },
@@ -281,5 +298,27 @@
     "dark": "深色",
     "system": "跟隨系統",
     "current": "目前選擇"
+  },
+  "validation": {
+    "required": "請填寫這個欄位",
+    "email": "請輸入有效的 Email",
+    "tooShort": "至少需要 {{min}} 個字元",
+    "tooLong": "最多 {{max}} 個字元",
+    "format": "格式不正確",
+    "invalid": "輸入的值不正確",
+    "passwordMismatch": "兩次輸入的密碼不一致"
+  },
+  "components": {
+    "required": "必填",
+    "selectSearch": "搜尋…",
+    "selectNoMatch": "沒有符合的項目",
+    "selectAll": "全選",
+    "pagination": {
+      "nav": "分頁",
+      "pageSize": "每頁筆數",
+      "first": "第一頁",
+      "last": "最後一頁",
+      "page": "頁碼"
+    }
   }
 }

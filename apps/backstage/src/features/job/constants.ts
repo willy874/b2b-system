@@ -36,4 +36,5 @@ export const JOB_STATE_TONE = {
 export const JOB_NAME_LABEL_KEY: Readonly<Record<string, string>> = {
   'auditLog.archive': 'job.name.auditLogArchive',
   'file.maintenance': 'job.name.fileMaintenance',
+  'auth.tokenCleanup': 'job.name.tokenCleanup',
 };

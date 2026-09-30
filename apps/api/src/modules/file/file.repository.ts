@@ -89,8 +89,14 @@ export class FileRepository {
     query: ListFileDto,
     after?: FileCursor,
     scope?: { folderIds: readonly string[] },
-  ): Promise<{ items: FileWithUploader[]; total: number; lastCreatedAt: string | undefined }> {
-    if (scope?.folderIds.length === 0) return { items: [], total: 0, lastCreatedAt: undefined };
+  ): Promise<{
+    items: FileWithUploader[];
+    total: number | null;
+    lastCreatedAt: string | undefined;
+  }> {
+    if (scope?.folderIds.length === 0) {
+      return { items: [], total: after ? null : 0, lastCreatedAt: undefined };
+    }
     const conditions: SQL[] = [isNull(files.deletedAt), eq(files.status, 'ready')];
     if (scope) conditions.push(inArray(files.folderId, [...scope.folderIds]));
     if (query.keyword) conditions.push(ilike(files.name, `%${escapeLike(query.keyword)}%`));
@@ -131,14 +137,17 @@ export class FileRepository {
         .orderBy(...orderBy, desc(files.id))
         .limit(query.limit)
         .offset(after ? 0 : query.offset),
-      this.db
-        .select({ total: sql<number>`count(*)::int` })
-        .from(files)
-        .where(where),
+      // 帶游標的頁（無限捲動往下捲）不重算總數（PERF-09）：前端只用第一頁的 total
+      after
+        ? Promise.resolve([])
+        : this.db
+            .select({ total: sql<number>`count(*)::int` })
+            .from(files)
+            .where(where),
     ]);
     return {
       items: rows.map(FileRepository.toFileWithUploader),
-      total: counted?.total ?? 0,
+      total: after ? null : (counted?.total ?? 0),
       lastCreatedAt: rows.at(-1)?.createdAtExact,
     };
   }

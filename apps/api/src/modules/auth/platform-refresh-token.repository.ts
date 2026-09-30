@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNotNull, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm';
 
 import { PLATFORM_DB, withTransaction } from '@/core/database';
 import type { PlatformDatabase, PlatformDbOrTx } from '@/core/database';
@@ -9,12 +9,15 @@ import type { PlatformRefreshTokenRow } from '@/db/platform/schema';
 import { platformRefreshTokens } from '@/db/platform/schema';
 import type { RevokedReason } from '@/db/schema';
 
-import type { RefreshTokenRecord, RefreshTokenStore } from './refresh-rotation';
+import type { NextRefreshToken, RefreshTokenRecord, RefreshTokenStore } from './refresh-rotation';
 import { sha256 } from './token-hash';
 
 function toRecord(row: PlatformRefreshTokenRow): RefreshTokenRecord {
   return { ...row, subjectId: row.adminId };
 }
+
+/** 寬限期內被取代的那張：不算「家族已撤銷」（refresh-rotation.ts 的 `supersede`）。 */
+const SUPERSEDED: RevokedReason = 'superseded';
 
 /** 平台管理者的 refresh token（平台 DB）；查詢形狀與租戶的 `RefreshTokenRepository` 相同。 */
 @Injectable()
@@ -35,6 +38,10 @@ export class PlatformRefreshTokenRepository {
           and(
             eq(platformRefreshTokens.familyId, familyId),
             isNotNull(platformRefreshTokens.revokedAt),
+            or(
+              isNull(platformRefreshTokens.revokedReason),
+              ne(platformRefreshTokens.revokedReason, SUPERSEDED),
+            ),
           ),
         )
         .limit(1);
@@ -55,19 +62,61 @@ export class PlatformRefreshTokenRepository {
           )
           .returning({ id: platformRefreshTokens.id });
         if (!marked.length) return undefined;
-        const issued = await this.issue(
-          {
-            adminId: row.subjectId,
-            familyId: row.familyId,
-            clientId: row.clientId,
-            idpSessionUid: row.idpSessionUid,
-            ...next,
-          },
-          tx,
-        );
-        return issued.raw;
+        return (await this.issueNext(row, next, tx)).raw;
+      }),
+    // 規則與租戶的 RefreshTokenRepository.store.supersede 相同
+    supersede: (row, next) =>
+      withTransaction(this.db, async (tx) => {
+        await tx
+          .select({ id: platformRefreshTokens.id })
+          .from(platformRefreshTokens)
+          .where(eq(platformRefreshTokens.id, row.id))
+          .for('update');
+        const [lastUsed] = await tx
+          .select({ id: platformRefreshTokens.id })
+          .from(platformRefreshTokens)
+          .where(
+            and(
+              eq(platformRefreshTokens.familyId, row.familyId),
+              isNotNull(platformRefreshTokens.usedAt),
+            ),
+          )
+          .orderBy(desc(platformRefreshTokens.usedAt))
+          .limit(1);
+        if (lastUsed?.id !== row.id) return undefined;
+        const superseded = await tx
+          .update(platformRefreshTokens)
+          .set({ revokedAt: new Date(), revokedReason: SUPERSEDED })
+          .where(
+            and(
+              eq(platformRefreshTokens.familyId, row.familyId),
+              isNull(platformRefreshTokens.usedAt),
+              isNull(platformRefreshTokens.revokedAt),
+            ),
+          )
+          .returning({ id: platformRefreshTokens.id });
+        if (!superseded.length) return undefined;
+        return (await this.issueNext(row, next, tx)).raw;
       }),
   };
+
+  private issueNext(
+    row: RefreshTokenRecord,
+    next: NextRefreshToken,
+    tx: PlatformDbOrTx,
+  ): Promise<{ raw: string }> {
+    return this.issue(
+      {
+        adminId: row.subjectId,
+        familyId: row.familyId,
+        familyCreatedAt: row.familyCreatedAt,
+        clientId: row.clientId,
+        idpSessionUid: row.idpSessionUid,
+        ...next,
+      },
+      tx,
+    );
+  }
 
   async findByHash(hash: string): Promise<PlatformRefreshTokenRow | undefined> {
     const [row] = await this.db
@@ -82,9 +131,10 @@ export class PlatformRefreshTokenRepository {
     input: {
       adminId: string;
       familyId?: string;
+      familyCreatedAt?: Date;
       clientId?: string | null;
       idpSessionUid?: string | null;
-      ttlSeconds: number;
+      expiresAt: Date;
       userAgent?: string | null;
       ipAddress?: string | null;
     },
@@ -95,14 +145,34 @@ export class PlatformRefreshTokenRepository {
     await db.insert(platformRefreshTokens).values({
       adminId: input.adminId,
       familyId: input.familyId ?? randomUUID(),
+      ...(input.familyCreatedAt && { familyCreatedAt: input.familyCreatedAt }),
       tokenHash: sha256(raw),
-      expiresAt: new Date(Date.now() + input.ttlSeconds * 1000),
+      expiresAt: input.expiresAt,
       clientId: input.clientId ?? null,
       idpSessionUid: input.idpSessionUid ?? null,
       userAgent: input.userAgent ?? null,
       ipAddress: input.ipAddress ?? null,
     });
     return { raw };
+  }
+
+  /** 清理排程的一批：刪除過期超過 `retentionDays` 天的列（規則同租戶的 `RefreshTokenRepository.deleteExpiredBatch`）。 */
+  async deleteExpiredBatch(retentionDays: number, batchSize: number): Promise<number> {
+    const expired = this.db
+      .select({ id: platformRefreshTokens.id })
+      .from(platformRefreshTokens)
+      .where(
+        lt(
+          platformRefreshTokens.expiresAt,
+          sql`now() - make_interval(days => ${retentionDays}::int)`,
+        ),
+      )
+      .limit(batchSize);
+    const rows = await this.db
+      .delete(platformRefreshTokens)
+      .where(inArray(platformRefreshTokens.id, expired))
+      .returning({ id: platformRefreshTokens.id });
+    return rows.length;
   }
 
   async revokeFamily(familyId: string, reason: RevokedReason): Promise<void> {

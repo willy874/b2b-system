@@ -15,6 +15,7 @@ import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { ACTIVATION_MAIL_JOB, PASSWORD_RESET_MAIL_JOB } from '@/modules/auth/auth-mail.constants';
 import { AuthTokenService } from '@/modules/auth/auth-token.service';
+import { IdentityProviderService } from '@/modules/identity-provider/identity-provider.service';
 import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
 import { PermissionService } from '@/modules/permission/permission.service';
 
@@ -23,7 +24,7 @@ import type { ListUserDto } from './dto/list-user.dto';
 import type { ReplaceUserRolesDto, UpdateUserDto } from './dto/update-user.dto';
 import type { UserDto } from './dto/user.dto';
 import { USER_AUDIT_FIELDS } from './user.constants';
-import type { UserRoleSummary, UserWithRoles } from './user.repository';
+import type { FailedLoginResult, UserRoleSummary, UserWithRoles } from './user.repository';
 import { UserRepository } from './user.repository';
 
 /** `createAccount()` 的輸入：`passwordHash` 為 null 時帳號必須走啟用信流程（status = pending）。 */
@@ -36,13 +37,26 @@ export interface NewAccount {
   roleIds: readonly string[];
 }
 
+/** 登入失敗的自動鎖定是否還在生效（`locked_until` 還沒到期；docs/architecture/backend/04-auth.md §3.3）。 */
+export function isLoginLocked(user: Pick<UserRow, 'lockedUntil'>, now = Date.now()): boolean {
+  return user.lockedUntil !== null && user.lockedUntil.getTime() > now;
+}
+
+/**
+ * 對外顯示的狀態：自動鎖定只寫 `locked_until`、不改 `status`（鎖定不踢掉已登入的 session），
+ * 鎖定中的 `active` 顯示為 `locked`，到期後自動回到 `active`。
+ */
+export function displayStatusOf(user: Pick<UserRow, 'status' | 'lockedUntil'>): UserStatus {
+  return user.status === 'active' && isLoginLocked(user) ? 'locked' : user.status;
+}
+
 function toDto(user: UserRow, roles: UserRoleSummary[]): UserDto {
   return {
     id: user.id,
     email: user.email,
     username: user.username,
     displayName: user.displayName,
-    status: user.status,
+    status: displayStatusOf(user),
     roles,
     locale: user.locale,
     timezone: user.timezone,
@@ -66,6 +80,11 @@ export function userUpdated(
   };
 }
 
+function sameIds(roles: readonly Pick<UserRoleSummary, 'id'>[], ids: readonly string[]): boolean {
+  const expected = new Set(ids);
+  return roles.length === expected.size && roles.every((role) => expected.has(role.id));
+}
+
 @Injectable()
 export class UserService {
   constructor(
@@ -73,6 +92,7 @@ export class UserService {
     private readonly repo: UserRepository,
     private readonly permissionService: PermissionService,
     private readonly authTokens: AuthTokenService,
+    private readonly identities: IdentityProviderService,
     private readonly jobs: JobQueue,
     private readonly userCache: UserCacheService,
     private readonly audit: AuditService,
@@ -131,9 +151,10 @@ export class UserService {
   async update(id: string, dto: UpdateUserDto, actor: AuthUser): Promise<UserDto> {
     const user = await this.getExisting(id);
 
-    if (dto.status && dto.status !== user.status) {
+    const statusChanging = dto.status !== undefined && dto.status !== user.status;
+    if (statusChanging) {
       this.assertNotSelf(actor.id, id);
-      if (dto.status !== 'active') await this.assertNotLastSuperAdmin(id);
+      await this.assertCanManage(actor, id);
     }
     if (dto.username && dto.username !== user.username) {
       await this.assertUsernameAvailable(dto.username);
@@ -143,13 +164,16 @@ export class UserService {
     const deactivating = dto.status !== undefined && dto.status !== 'active';
 
     const updated = await withTransaction(this.db, async (tx) => {
+      if (statusChanging && deactivating) await this.assertNotLastSuperAdmin(id, tx);
       const next = await this.repo.update(id, { ...dto, updatedBy: actor.id }, tx);
       if (!next) throw new AppException('USER_NOT_FOUND');
 
       if (deactivating) {
-        // 停用：撤銷所有 refresh token 並讓既存 access token 失效
+        // 停用：撤銷所有 refresh token 並讓既存 access token 失效；已寄出的啟用／重設連結一併作廢，
+        // 否則還沒啟用的人可以用啟用信把自己改回 active（docs/issues/03-edge-cases.md EDGE-02）
         await this.repo.incrementTokenVersion(id, tx);
         await this.authTokens.revokeAllRefreshTokens(id, 'user_disabled', tx);
+        await this.authTokens.revokeUnused(id, tx);
       }
 
       await this.audit.record(
@@ -184,13 +208,17 @@ export class UserService {
   async remove(id: string, actor: AuthUser): Promise<void> {
     const user = await this.getExisting(id);
     this.assertNotSelf(actor.id, id);
-    await this.assertNotLastSuperAdmin(id);
+    await this.assertCanManage(actor, id);
     // 先查角色再刪：推播要帶上受影響的角色（userCount）
     const roles = await this.repo.listRoles(id);
 
     await withTransaction(this.db, async (tx) => {
+      await this.assertNotLastSuperAdmin(id, tx);
       await this.repo.softDelete(id, actor.id, tx);
       await this.authTokens.revokeAllRefreshTokens(id, 'user_disabled', tx);
+      await this.authTokens.revokeUnused(id, tx);
+      // 軟刪除不觸發 cascade：外部身分的連結要自己刪，同 email 重建的帳號才能再連結（EDGE-06）
+      const identitiesUnlinked = await this.identities.unlinkUser(id, tx);
       await this.audit.record(
         {
           action: 'user.delete',
@@ -198,6 +226,7 @@ export class UserService {
           resourceId: id,
           resourceName: user.email,
           changes: { before: { email: user.email, status: user.status } },
+          metadata: identitiesUnlinked ? { identitiesUnlinked } : undefined,
         },
         tx,
       );
@@ -229,17 +258,26 @@ export class UserService {
   ): Promise<{ roles: UserRoleSummary[] }> {
     const user = await this.getExisting(id);
     this.assertNotSelf(actor.id, id);
+    await this.assertCanManage(actor, id);
     await this.permissionService.assertRolesAssignable(actor.id, dto.roleIds);
     await this.assertRolesExist(dto.roleIds);
-
-    const before = await this.repo.listRoles(id);
     const roles = await this.repo.findActiveRolesByIds(dto.roleIds);
-    const losingSuperAdmin =
-      before.some((role) => role.slug === SUPER_ADMIN_SLUG) &&
-      !roles.some((role) => role.slug === SUPER_ADMIN_SLUG);
-    if (losingSuperAdmin) await this.assertNotLastSuperAdmin(id);
 
-    await withTransaction(this.db, async (tx) => {
+    const before = await withTransaction(this.db, async (tx) => {
+      // 同一個人的並行指派依序執行；`current` 在鎖內讀，稽核與衝突判斷才是真正被取代的那一份
+      await this.repo.lockForUpdate(id, tx);
+      const current = await this.repo.listRoles(id, tx);
+      if (dto.expectedRoleIds && !sameIds(current, dto.expectedRoleIds)) {
+        // 送出的草稿是以舊的角色為基礎：別人剛改過，整批取代會把那次變更蓋掉（EDGE-11）
+        throw new AppException('USER_ROLES_CONFLICT', {
+          currentRoleIds: current.map((role) => role.id),
+        });
+      }
+      const losingSuperAdmin =
+        current.some((role) => role.slug === SUPER_ADMIN_SLUG) &&
+        !roles.some((role) => role.slug === SUPER_ADMIN_SLUG);
+      if (losingSuperAdmin) await this.assertNotLastSuperAdmin(id, tx);
+
       await this.repo.replaceRoles(id, dto.roleIds, actor.id, tx);
       await this.audit.record(
         {
@@ -248,12 +286,13 @@ export class UserService {
           resourceId: id,
           resourceName: user.email,
           changes: {
-            before: { roles: before.map((role) => role.slug) },
+            before: { roles: current.map((role) => role.slug) },
             after: { roles: roles.map((role) => role.slug) },
           },
         },
         tx,
       );
+      return current;
     });
 
     this.permissionService.invalidateUser(id);
@@ -274,13 +313,19 @@ export class UserService {
     return { roles: await this.repo.listRoles(id) };
   }
 
+  /**
+   * 代為重設密碼：寄重設信。還沒啟用（`pending`）的人改寄 **啟用信**——重設不會把 `pending` 改成 `active`，
+   * 啟用信過期或寄送失敗後這是唯一的重寄路徑（docs/issues/03-edge-cases.md EDGE-14）。
+   */
   async resetPassword(id: string, actor: AuthUser): Promise<{ sent: true }> {
     const user = await this.getExisting(id);
+    const activation = user.status === 'pending';
+    const job = activation ? ACTIVATION_MAIL_JOB : PASSWORD_RESET_MAIL_JOB;
     await withTransaction(this.db, async (tx) => {
-      await this.jobs.enqueue(PASSWORD_RESET_MAIL_JOB, { userId: id }, { tx });
+      await this.jobs.enqueue(job, { userId: id }, { tx });
       await this.audit.record(
         {
-          action: 'user.reset_password_requested',
+          action: activation ? 'user.activation_resent' : 'user.reset_password_requested',
           resourceType: 'user',
           resourceId: id,
           resourceName: user.email,
@@ -298,7 +343,7 @@ export class UserService {
 
   async unlock(id: string, actor: AuthUser): Promise<UserDto> {
     const user = await this.getExisting(id);
-    const locked = user.status === 'locked' || (user.lockedUntil?.getTime() ?? 0) > Date.now();
+    const locked = user.status === 'locked' || isLoginLocked(user);
     if (!locked) throw new AppException('USER_NOT_LOCKED');
     const roles = await this.repo.listRoles(id);
 
@@ -414,10 +459,26 @@ export class UserService {
     if (actorId === targetId) throw new AppException('AUTHZ_SELF_MODIFY');
   }
 
-  private async assertNotLastSuperAdmin(userId: string): Promise<void> {
-    const remaining = await this.repo.countActiveUsersByRoleSlug(SUPER_ADMIN_SLUG, userId);
-    const isSuper = (await this.permissionService.getPermissionSet(userId)).isSuperAdmin;
-    if (isSuper && remaining < 1) throw new AppException('LAST_SUPER_ADMIN');
+  /**
+   * 「永遠至少有一位可用的 super-admin」（docs/rbac/01-domain-model.md I8）。在寫入的交易內呼叫：
+   * 先取得 advisory lock 再計數，兩個並行的停用／刪除／拔角色不會同時看到「還剩一位」（EDGE-03）。
+   * 是不是 super-admin 直接查 DB，不經權限快取。
+   */
+  private async assertNotLastSuperAdmin(userId: string, tx: DbOrTx): Promise<void> {
+    await this.repo.lockSuperAdminGuard(tx);
+    if (!(await this.repo.hasRoleSlug(userId, SUPER_ADMIN_SLUG, tx))) return;
+    const remaining = await this.repo.countActiveUsersByRoleSlug(SUPER_ADMIN_SLUG, userId, tx);
+    if (remaining < 1) throw new AppException('LAST_SUPER_ADMIN');
+  }
+
+  /**
+   * 反提權（對「被操作的人」）：持有 super-admin 的人只有 super-admin 能停用、刪除或改角色
+   * （docs/architecture/backend/05-rbac.md §4.1、SEC-07／EDGE-08）。否則持 `user:*` 的 admin 就能排除上級。
+   */
+  private async assertCanManage(actor: AuthUser, targetId: string): Promise<void> {
+    if (!(await this.repo.hasRoleSlug(targetId, SUPER_ADMIN_SLUG))) return;
+    if (await this.repo.hasRoleSlug(actor.id, SUPER_ADMIN_SLUG)) return;
+    throw new AppException('AUTHZ_ESCALATION', { role: SUPER_ADMIN_SLUG, target: targetId });
   }
 
   private async assertEmailAvailable(email: string): Promise<void> {
@@ -465,6 +526,15 @@ export class UserService {
 
   incrementTokenVersion(id: string, tx?: DbOrTx): Promise<void> {
     return this.repo.incrementTokenVersion(id, tx);
+  }
+
+  /** 登入失敗的原子計數與鎖定（`UserRepository.recordFailedLogin`）。 */
+  recordFailedLogin(
+    id: string,
+    maxAttempts: number,
+    lockoutSeconds: number,
+  ): Promise<FailedLoginResult | undefined> {
+    return this.repo.recordFailedLogin(id, maxAttempts, lockoutSeconds);
   }
 
   listRoleSummaries(id: string): Promise<UserRoleSummary[]> {

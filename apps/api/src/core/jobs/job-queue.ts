@@ -360,7 +360,8 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
 
   private async startWorker(registration: Registration): Promise<void> {
     const { type } = registration;
-    await this.boss.work<JobEnvelope | null>(type.name, { batchSize: 1 }, async ([job]) => {
+    const options = { batchSize: 1, localConcurrency: type.options.concurrency };
+    await this.boss.work<JobEnvelope | null>(type.name, options, async ([job]) => {
       if (!job) return;
       try {
         return await this.execute(registration, job.data, {

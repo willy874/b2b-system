@@ -685,10 +685,11 @@ Base UI 已處理焦點陷阱、roving tabindex、ARIA 角色與鍵盤互動。�
 
 | 項目     | 要求                                                               |
 | -------- | ------------------------------------------------------------------ |
-| 對比度   | 文字 ≥ 4.5:1，大字與圖示 ≥ 3:1（`contrast.test.ts` 驗證）          |
+| 對比度   | 文字 ≥ 4.5:1，大字與圖示 ≥ 3:1；表單控制項的外框用 `--color-border-control`（≥ 3:1，WCAG 1.4.11），裝飾性分隔線才用 `--color-border`（`contrast.test.ts` 驗證） |
 | 焦點可見 | 每個互動元素有 `:focus-visible` 外框，`--ge-color-focus-ring` 2px  |
 | 表單標籤 | 一律用 Base UI `Field.Label`，不用純視覺標籤                       |
-| 錯誤訊息 | `Field.Error` 帶 `aria-describedby` 連到輸入元素                   |
+| 錯誤訊息 | `Field.Error` 帶 `aria-describedby` 連到輸入元素；`Input` 依 Field 的錯誤狀態補 `aria-invalid`；表單層級的錯誤區用 `role="alert"` |
+| 必填     | `Field` 的 `required` 除了 aria-hidden 的星號，另有給報讀器的「必填」文字（`ComponentLabelsContext`） |
 | 圖示按鈕 | 必須有 `aria-label`                                                |
 | 停用說明 | 原生 `disabled` 的按鈕收不到 hover／focus，提示出不來。`Button` / `IconButton` 的 `focusableWhenDisabled` 改用 `aria-disabled`（仍可聚焦、hover，點擊與 Enter／Space 被擋下）；包在 `Tooltip` 裡的停用按鈕自動打開，「為什麼不能按」一定看得到（[06-permission.md](./06-permission.md) §6.1）；`loading` 一律隱含開啟（送出中焦點不被踢回 `<body>`）。日曆超出 min / max 的日子同樣用 `aria-disabled`（roving tabindex 要能把焦點移過去）。Base UI 的 `Checkbox` 沒有這個開關，停用理由改寫進常駐的 `description`（例：`PermissionPicker` 的「不可授予」）。其他元素用原生 `disabled` 時提示不會顯示 |
 | 動態內容 | toast 用 Base UI Toast（已含 `aria-live`）；表格載入用 `aria-busy` |
@@ -778,9 +779,12 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 
 | 功能 | 元件 | 說明 |
 | ---- | ---- | ---- |
-| 分頁 | `Pagination` | `pagination={{ offset, limit, total, onChange }}`，文案走 `t()` |
+| 分頁 | `Pagination` | `pagination={{ offset, limit, total, onChange }}`，文案走 `t()`；第一頁／最後一頁／可輸入頁碼，摘要用千分位；刪到最後一頁沒資料時自動退回最後一頁 |
 | 版面 | `fillHeight`（預設 `true`） | 表格延展填滿剩餘高度、資料多時在表格內捲動，分頁列固定在底部。`DashboardLayout` 的主內容是一個視窗高的 flex 欄（側邊選單與主內容各自捲動），列表頁的根元素給 `flex min-h-0 flex-1 flex-col` 才接得到高度 |
 | 篩選 | `FilterBar` | 篩選圖示按鈕（`IconButton`，只有圖示，名稱走 `aria-label`）點開的下拉表單；欄位型別 `text` / `select` / `multiSelect` / `dateRange` / `sort`（多欄排序，`SortEntry[]`，拖曳調整優先順序）/ `custom`。`value` ＋ `onSubmit` 以泛型型別化，一次送出整份值（只更新一次網址） |
+| 搜尋 | `search` | `search={{ value, onChange, placeholder }}`：表格上方常駐的搜尋框，停止輸入 300ms 或按 Enter 才送出 |
+| 篩選 Chip | `ActiveFilters` | 套用中的篩選（排序除外）以可移除的 Chip 列在表格上方；有篩選卻沒有結果時空狀態改成「沒有符合條件的結果」並提供「清除篩選」 |
+| 查詢失敗 | `error` ＋ `onRetry` | 沒有資料時以錯誤訊息＋重試取代表格（不會落到「沒有資料」）；有舊資料時保留表格並在上方提示 |
 | 欄位設定 | `TableSettings` | 齒輪按鈕點開的下拉清單：拖曳（dnd-kit，含鍵盤）排序、勾選顯示；依 `tableId` 存在 `core/store/tableColumnSettings`，偏好頁的「表格欄位」分頁改的是同一份 |
 
 表頭可以直接設定多欄排序：`sorting` 是 `TableSorting[]`（陣列順序即優先順序），每一欄循環

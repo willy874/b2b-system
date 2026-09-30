@@ -132,15 +132,18 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 
 ```
 申請人（未登入）                     API                                   管理員
-  │ POST /auth/register ─────────────▶│ 雜湊密碼（不論結果都算，耗時一致）
-  │ { email, displayName,             │ email 已是使用者？→ 不建立請求
+  │ POST /auth/register ─────────────▶│ 只允許 SSO 的網域？→ 403 AUTH_SSO_REQUIRED
+  │ { email, displayName,             │ 雜湊密碼（不論結果都算，耗時一致）
+  │                                   │ email 已是使用者？→ 不建立請求
   │   password, reason? }             │ 同 email 已有待審？→ 不建立請求
   │                                   │ 否則建立 user.register（pending）
   │◀──── 202 { submitted: true } ─────│ 推播 approval create ──────────────▶│ 列表更新
   │                                   │                                     │
   │                                   │◀── POST /approvals/:id/approve ─────│ { roleIds?, comment? }
-  │                                   │ 建立 status=active 的帳號（申請時的密碼）
-  │                                   │ 指派角色、清空 private_payload
+  │                                   │ 建立 status=pending 的帳號（先存申請時的密碼）
+  │                                   │ 指派角色、清空 private_payload、入列啟用信
+  │◀──── 啟用信（寄到申請的 email）───│
+  │ POST /auth/setup { token, password } ─▶│ pending → active
   │ POST /auth/login ────────────────▶│
   │◀──── 200（可以登入）──────────────│
 ```
@@ -152,11 +155,12 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 | 回應永遠是 `202 { submitted: true }`，不透露 email 是否已存在    | 帳號列舉防護（同 `forgot-password`）                            |
 | 已存在的使用者、已在審核中的 email 都不建立新請求                | 避免重複；去重不分大小寫（`users.email` 是 citext）             |
 | 密碼在申請時就雜湊，只存在 `private_payload`，審核後清空         | 審核者看不到、稽核不記、資料庫不長期保留                       |
-| 核准後帳號直接是 `active`，不走啟用信                            | 申請人已經設過密碼；改寄審核結果通知，告知可以登入             |
+| 核准後帳號是 `pending`，寄啟用信；從信中連結設定密碼後才是 `active` | 申請時沒有驗證 email：任何人都能用別人的 email 申請，審核者看到熟悉的名字就核准。收得到信才證明擁有這個 email（docs/issues/02-security.md SEC-08）。啟用前以申請時的密碼登入回 `AUTH_ACCOUNT_PENDING`（提示去收信） |
+| 只允許 SSO 的網域不接受申請（`403 AUTH_SSO_REQUIRED`，不建立請求） | 那些帳號應由外部 IdP 建立或連結；與密碼登入的回應相同，不多透露什麼 |
 | 核准或駁回都寄信通知申請人（`approval.resultMail`，審核的交易內入列） | 申請人不必一直試著登入才知道結果；駁回時附上審核意見           |
 | 申請後 email 被管理員直接建立 → 核准回 `409 USER_EMAIL_DUPLICATE`，請求保持 `pending` | 由審核者決定駁回；不自動改狀態                       |
 | 核准前登入 → `401 AUTH_INVALID_CREDENTIALS`（帳號不存在）        | 不另外提示「審核中」，同樣是帳號列舉防護                       |
-| 速率限制：同 IP 每分鐘 `max(3, AUTH_RATE_LIMIT / 3)` 次          | 每一筆都會進管理員的待審清單                                   |
+| 速率限制：同一個 email ＋ IP 每分鐘 `max(3, AUTH_RATE_LIMIT / 3)` 次，同 IP 另有總上限 | 每一筆都會進管理員的待審清單                                   |
 
 ### 5.3 稽核
 

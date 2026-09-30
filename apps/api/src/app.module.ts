@@ -1,13 +1,11 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 
 import { AccessTokenModule } from './common/auth';
-import { JwtAuthGuard, PermissionsGuard } from './common/guards';
+import { JwtAuthGuard, PermissionsGuard, RateLimitGuard } from './common/guards';
 import { CacheModule } from './core/cache';
 import { ConfigModule } from './core/config';
-import type { Env } from './core/config';
 import { DatabaseModule } from './core/database';
 import { HttpExceptionFilter } from './core/errors';
 import { EventsModule } from './core/events';
@@ -55,14 +53,8 @@ import { UserModule } from './modules/user/user.module';
     // 影像處理的抽象層（ImageProcessor）；實作是 sharp（docs/architecture/backend/09-file.md §5.4）
     ImageModule,
     AccessTokenModule,
-    // 只有一個全域桶；`/auth/*` 以 @Throttle() 覆寫成更嚴格的值。
-    // （多個具名 throttler 會「同時」套用到每個路由，那會讓最嚴格的那個變成全域限制。）
-    ThrottlerModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService<Env, true>) => [
-        { name: 'default', ttl: 60_000, limit: config.get('DEFAULT_RATE_LIMIT', { infer: true }) },
-      ],
-    }),
+    // 只借用 @nestjs/throttler 的記憶體計數；規則在 RateLimitGuard（common/rate-limit.ts）
+    ThrottlerModule.forRoot([]),
 
     // 葉節點模組（被很多人依賴）
     PermissionModule,
@@ -87,7 +79,7 @@ import { UserModule } from './modules/user/user.module';
   ],
   providers: [
     // 全域註冊 ＋ 預設拒絕：忘記宣告權限的後果是「啟動失敗」而不是「開了一個無保護的端點」
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },

@@ -8,23 +8,7 @@ import { usePermissionStore } from '@/core/store';
 import { useSyncPermissions } from '@/features/login';
 
 import { GlobalProvider } from './GlobalProvider';
-
-/** 不需要 session 的頁面：SSO 的起點與 callback、IdP 的登入互動與錯誤頁、帳號流程、進入租戶。 */
-const PUBLIC_PREFIXES = [
-  '/login',
-  '/callback',
-  '/interaction',
-  '/error',
-  '/forgot-password',
-  '/reset-password',
-  '/setup',
-  '/register',
-  '/enter',
-];
-
-function isPublic(pathname: string): boolean {
-  return PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
+import { isPublic, loginSearchAfterSessionEnd } from './sessionRedirect';
 
 function SessionWatcher({ router }: { router: AppContext['router'] }) {
   // 整個 app 只有一個權限水合實例
@@ -42,21 +26,24 @@ function SessionWatcher({ router }: { router: AppContext['router'] }) {
     // 這裡若也導向，登入頁會立刻跳去 IdP——頁面卸載會取消還在路上的登出請求，
     // IdP session 沒被銷毀，使用者又被直接登回來（docs/adr/0019-sso-identity-platform.md D5）
     if (hadSession.current) return;
-    const pathname = globalThis.location.pathname;
+    const { pathname, search } = globalThis.location;
     if (isPublic(pathname)) return;
-    void router.navigate({ to: '/login', search: { redirect: pathname }, replace: true });
+    // 連同查詢字串（列表的篩選、分頁）一起記住
+    void router.navigate({
+      to: '/login',
+      search: { redirect: `${pathname}${search}` },
+      replace: true,
+    });
   }, [hasSession, router]);
 
   useEffect(
     () =>
-      sessionStore.events.on('ended', () => {
+      sessionStore.events.on('ended', (reason) => {
         usePermissionStore.getState().clear();
         queryClient.clear();
-        const redirect = globalThis.location.pathname;
-        // signedOut：登入頁不自動跳到 IdP（單一登出可能還沒完成，見 features/login 的登入頁）
         void router.navigate({
           to: '/login',
-          search: isPublic(redirect) ? { signedOut: true } : { redirect, signedOut: true },
+          search: loginSearchAfterSessionEnd(reason, globalThis.location),
           replace: true,
         });
       }),

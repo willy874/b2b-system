@@ -1,4 +1,4 @@
-import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
+import { ChangeKind } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -14,6 +14,8 @@ import type { FileImageDto } from './dto/file.dto';
 import type { GetFileImageDto } from './dto/get-file-image.dto';
 import { deriveImageUrlKey, signImageUrl, verifyImageUrl } from './file-image-url';
 import {
+  fileChange,
+  IMAGE_VARIANT_ANNOUNCE_WAIT_MS,
   IMAGE_VARIANT_CONCURRENCY,
   IMAGE_VARIANT_MAX_EDGE,
   IMAGE_VARIANT_MAX_INPUT_SIZE,
@@ -30,6 +32,12 @@ export interface ImageRedirect {
   /** 轉址本身可以快取的秒數（不超過網址與轉址目標中較早的失效時間）。 */
   maxAge: number;
 }
+
+/** 瀏覽器顯示不了的原圖型別：協商出來的格式還沒轉出時不能退回原圖，只能等轉完。 */
+const UNDISPLAYABLE_SOURCE_TYPES: ReadonlySet<string> = new Set(['image/tiff']);
+
+/** 格式還在背景轉出時，退回主格式的轉址只快取這麼久（秒），之後再問就拿到新格式。 */
+const PENDING_CONVERSION_MAX_AGE = 30;
 
 /** 副檔名：JPEG 慣用 `.jpg`。 */
 const FORMAT_EXTENSION: Record<ImageFormat, string> = {
@@ -74,22 +82,40 @@ export class FileImageService {
   /**
    * 排入產生影像變體；同一個檔案已在佇列中就不重複排入。不等待完成——
    * 完成後發佈 `file` 的 UPDATE，前端重抓就拿到影像網址。
+   *
+   * `announce`：剛完成上傳、還沒推過 `file create` 的檔案（PERF-06）。變體在
+   * `IMAGE_VARIANT_ANNOUNCE_WAIT_MS` 內處理完（不論成敗）就只推一次 create；超過才先推 create，好了再推 update。
    */
-  schedule(fileId: string): void {
-    if (this.generating.has(fileId)) return;
+  schedule(fileId: string, options: { announce?: { folderId: string | null } } = {}): void {
+    const announce = options.announce
+      ? this.announcement(fileId, options.announce.folderId)
+      : undefined;
+    if (this.generating.has(fileId)) {
+      announce?.now();
+      return;
+    }
     const task = this.limit(() => this.generate(fileId))
+      .then((ready) => {
+        // 還沒推過 create：這一次就涵蓋了變體（前端重抓時已經是 ready）
+        if (announce && !announce.isDone()) announce.now();
+        else if (ready) this.publish(ChangeKind.UPDATE, ready);
+      })
       .catch((error: unknown) => {
         this.logger.error({ err: error, fileId }, '產生影像變體時發生未預期的錯誤');
       })
-      .finally(() => this.generating.delete(fileId));
+      .finally(() => {
+        // 失敗也要讓其他人看得到這個檔案
+        announce?.now();
+        this.generating.delete(fileId);
+      });
     this.generating.set(fileId, task);
   }
 
-  /** 等排入的變體全部處理完（測試與關機用）。 */
+  /** 等排入的變體與背景轉檔全部處理完（測試與關機用）。 */
   async whenIdle(): Promise<void> {
-    while (this.generating.size > 0) {
+    while (this.generating.size > 0 || this.converting.size > 0) {
       // oxlint-disable-next-line no-await-in-loop -- 等待途中可能又排入新的
-      await Promise.allSettled(this.generating.values());
+      await Promise.allSettled([...this.generating.values(), ...this.converting.values()]);
     }
   }
 
@@ -141,10 +167,26 @@ export class FileImageService {
       throw new AppException('FILE_NOT_FOUND');
     }
 
-    const format = negotiateFormat(query.format, accept, variant, master, file.contentType);
-    const key = format === undefined ? file.storageKey : variantKeyOf(id, variant, format);
+    let format = negotiateFormat(query.format, accept, variant, master, file.contentType);
+    let key = format === undefined ? file.storageKey : variantKeyOf(id, variant, format);
+    let maxAgeCap = Number.POSITIVE_INFINITY;
     const isMaster = variant !== 'original' && format === master;
-    if (format !== undefined && !isMaster) await this.ensureConverted(file, variant, format, key);
+    if (format !== undefined && !isMaster) {
+      const fallback = variant === 'original' ? undefined : master;
+      const canFallback =
+        fallback !== undefined || !UNDISPLAYABLE_SOURCE_TYPES.has(file.contentType);
+      if (query.format === 'auto' && canFallback && !(await this.storage.head(key))) {
+        // 協商出來的格式還沒轉出（PERF-07）：請求不等轉檔（AVIF 大圖要好幾秒、吃記憶體），
+        // 先轉址到主格式（原圖則原封不動），轉檔在背景做；轉址只快取一下，之後再來就拿到新格式
+        this.convertInBackground(file, variant, format, key);
+        format = fallback;
+        key = fallback === undefined ? file.storageKey : variantKeyOf(id, variant, fallback);
+        maxAgeCap = PENDING_CONVERSION_MAX_AGE;
+      } else {
+        // 明確指定的格式（下載某種格式）照舊等它轉完
+        await this.ensureConverted(file, variant, format, key);
+      }
+    }
 
     const signed = await this.storage.presignDownload(key, {
       expiresIn: this.urlTtl,
@@ -152,7 +194,8 @@ export class FileImageService {
       disposition: 'inline',
     });
     const until = Math.min(query.exp * 1000, signed.expiresAt.getTime());
-    return { url: signed.url, maxAge: Math.max(0, Math.floor((until - now) / 1000)) };
+    const maxAge = Math.max(0, Math.floor((until - now) / 1000));
+    return { url: signed.url, maxAge: Math.min(maxAge, maxAgeCap) };
   }
 
   /** 刪除這個檔案的所有變體與轉出的格式。 */
@@ -164,9 +207,10 @@ export class FileImageService {
     await Promise.all(keys.map((key) => this.storage.delete(key)));
   }
 
-  private async generate(fileId: string): Promise<void> {
+  /** 產生變體；變體因此變成 ready 時回傳更新後的紀錄（要推 update），其他情況 undefined。 */
+  private async generate(fileId: string): Promise<FileRow | undefined> {
     const file = await this.repo.findById(fileId);
-    if (!file || file.status !== 'ready' || file.variantStatus !== 'pending') return;
+    if (!file || file.status !== 'ready' || file.variantStatus !== 'pending') return undefined;
 
     let described: { imageWidth: number; imageHeight: number; variantFormat: ImageFormat };
     try {
@@ -175,10 +219,15 @@ export class FileImageService {
       const decoded = await this.images.decode(source, { maxBytes: IMAGE_VARIANT_MAX_INPUT_SIZE });
       // JPEG 沒有透明度：透明的圖改用 WebP，免得鋪上底色
       const format: ImageFormat = decoded.info.hasAlpha ? 'webp' : 'jpeg';
-      const [preview, thumbnail] = await Promise.all([
-        decoded.render({ format, maxEdge: IMAGE_VARIANT_MAX_EDGE.preview }),
-        decoded.render({ format, maxEdge: IMAGE_VARIANT_MAX_EDGE.thumbnail }),
-      ]);
+      let preview;
+      let thumbnail;
+      try {
+        // 依序而不是同時 render：兩個版本各自需要一份解碼緩衝，同時做會讓尖峰記憶體加倍（PERF-07）
+        preview = await decoded.render({ format, maxEdge: IMAGE_VARIANT_MAX_EDGE.preview });
+        thumbnail = await decoded.render({ format, maxEdge: IMAGE_VARIANT_MAX_EDGE.thumbnail });
+      } finally {
+        await decoded.dispose();
+      }
       await Promise.all([
         this.storage.putObject(variantKeyOf(fileId, 'preview', format), preview.data, {
           contentType: preview.contentType,
@@ -196,12 +245,12 @@ export class FileImageService {
       // 儲存服務暫時不可用：維持 pending，由維護排程稍後重試
       if (error instanceof AppException && error.code === 'FILE_STORAGE_UNAVAILABLE') {
         this.logger.warn({ fileId }, '儲存服務不可用，影像變體稍後重試');
-        return;
+        return undefined;
       }
       // 解碼失敗（損毀、超過上限）不會因為重試而成功：標為 failed，前端退回瀏覽器縮圖或類型圖示
       this.logger.warn({ err: error, fileId }, '無法產生影像變體');
       await this.repo.markVariantsFailed(fileId);
-      return;
+      return undefined;
     }
 
     const updated = await this.repo.markVariantsReady(fileId, described);
@@ -210,10 +259,41 @@ export class FileImageService {
       await this.deleteVariants(fileId).catch((error: unknown) => {
         this.logger.warn({ err: error, fileId }, '清除已刪除檔案的影像變體失敗，留下孤兒物件');
       });
-      return;
+      return undefined;
     }
+    return updated;
+  }
+
+  /** 至多推一次 `file create`：到期、或呼叫 `now()` 時（先到者）。 */
+  private announcement(fileId: string, folderId: string | null) {
+    let isDone = false;
+    const now = () => {
+      if (isDone) return;
+      isDone = true;
+      clearTimeout(timer);
+      this.publish(ChangeKind.CREATE, { id: fileId, folderId });
+    };
+    const timer = setTimeout(now, IMAGE_VARIANT_ANNOUNCE_WAIT_MS);
+    // 關機時不必等它
+    timer.unref();
+    return { now, isDone: () => isDone };
+  }
+
+  private publish(kind: ChangeKind, file: Pick<FileRow, 'id' | 'folderId'>): void {
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: [{ resource: ChangeSource.FILE, kind: ChangeKind.UPDATE, id: fileId }],
+      changes: [fileChange(kind, file.id, file.folderId)],
+    });
+  }
+
+  /** 背景轉出其他格式；失敗只記錄（下一次請求會再試）。 */
+  private convertInBackground(
+    file: FileRow,
+    variant: ImageVariant,
+    format: ImageFormat,
+    key: string,
+  ): void {
+    this.ensureConverted(file, variant, format, key).catch((error: unknown) => {
+      this.logger.warn({ err: error, fileId: file.id, format }, '背景轉出影像格式失敗');
     });
   }
 
@@ -233,10 +313,15 @@ export class FileImageService {
         const decoded = await this.images.decode(source, {
           maxBytes: IMAGE_VARIANT_MAX_INPUT_SIZE,
         });
-        const rendered = await decoded.render({
-          format,
-          maxEdge: variant === 'original' ? undefined : IMAGE_VARIANT_MAX_EDGE[variant],
-        });
+        let rendered;
+        try {
+          rendered = await decoded.render({
+            format,
+            maxEdge: variant === 'original' ? undefined : IMAGE_VARIANT_MAX_EDGE[variant],
+          });
+        } finally {
+          await decoded.dispose();
+        }
         await this.storage.putObject(key, rendered.data, { contentType: rendered.contentType });
       }).finally(() => this.converting.delete(key));
       this.converting.set(key, task);

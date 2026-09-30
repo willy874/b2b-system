@@ -27,7 +27,7 @@ pnpm --filter @b2b-system/auth build
 | `features/audit-log` | `/audit-log`：平台稽核（平台管理者做過的事；看不到租戶的稽核） |
 | `features/job` | `/job`：所有租戶與平台自己的背景工作（backstage 的 `/job` 只看自己租戶的） |
 | `features/home` | `/`：目前登入的平台管理者 |
-| `app/` | 自己寫的 App Shell：`App.tsx`（沒有 session 時導向 `/login`；登出後停在「已登出」頁）、`Layout.tsx`（頁面權限守衛）、`layouts/PlatformLayout.tsx` |
+| `app/` | 自己寫的 App Shell：`App.tsx`（沒有 session 時導向 `/login`；登出後停在「已登出」頁，帶上結束原因與原本的網址，見 `sessionRedirect.ts`）、`Layout.tsx`（頁面權限守衛）、`ErrorPages.tsx`（403／404、router 的預設錯誤頁與載入中；部署後舊 chunk 載入失敗提示重新整理）、`layouts/PlatformLayout.tsx` |
 
 沒有推播、批次佇列、feature flag、MSW mock 與 Storybook；需要時再從 backstage 帶過來。
 
@@ -60,6 +60,6 @@ pnpm --filter @b2b-system/auth build
 ### 同步規則
 
 - 在任一邊修改上表的檔案時，**同一批** 檢查另一邊要不要一起改；安全相關（`core/auth`（含 `sso.ts`）、`core/client`、`plugins/fetcher`）與 `app/App.tsx` 的 `SessionWatcher`（登出後不自動跳回 IdP，ADR-0019 D5）一律一起改。
-- **新增錯誤碼**：除了 backstage 的 `ERROR_MESSAGE_KEY` 與語系檔，這裡的 `core/errors/errorMessageKey.ts`、`app/locales/*.json`、
-  `app/__tests__/locales.test.ts` 的錯誤碼清單也要加。兩邊的測試各有一份清單，只更新 backstage 那份時這裡不會失敗，要靠 review。
+- **新增錯誤碼**：除了 backstage 的 `ERROR_MESSAGE_KEY` 與語系檔，這裡的 `core/errors/errorMessageKey.ts`、`app/locales/*.json` 也要加。
+  兩邊的 `app/__tests__/locales.test.ts` 都直接讀後端的 `ALL_ERROR_CODES`，漏了任一邊都會失敗。
 - 出現第三個前端時，評估把上表抽成 `packages/`（ADR-0019 D14）。

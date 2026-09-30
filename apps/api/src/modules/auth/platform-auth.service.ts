@@ -28,7 +28,7 @@ import type {
   SsoCallbackDto,
 } from './dto/auth.dto';
 import { PlatformRefreshTokenRepository } from './platform-refresh-token.repository';
-import { rotateRefreshToken } from './refresh-rotation';
+import { rotateRefreshToken, secondsUntil } from './refresh-rotation';
 import { sha256 } from './token-hash';
 
 /**
@@ -98,32 +98,37 @@ export class PlatformAuthService implements OnModuleInit {
 
   async refresh(rawToken: string, meta: RequestMeta): Promise<IssuedSession> {
     this.assertPlatformHost();
-    const refreshTtl = this.config.get('REFRESH_TOKEN_TTL', { infer: true });
-    const { row, subject, raw } = await rotateRefreshToken(this.refreshTokens.store, rawToken, {
-      ttlSeconds: refreshTtl,
-      meta,
-      loadSubject: async (adminId) => {
-        const admin = await this.admins.findById(adminId);
-        if (!admin) throw new AppException('AUTH_REFRESH_INVALID');
-        if (admin.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
-        return admin;
+    const { row, subject, raw, expiresAt } = await rotateRefreshToken(
+      this.refreshTokens.store,
+      rawToken,
+      {
+        ttlSeconds: this.config.get('REFRESH_TOKEN_TTL', { infer: true }),
+        familyMaxAgeSeconds: this.config.get('REFRESH_FAMILY_MAX_AGE', { infer: true }),
+        reuseGraceSeconds: this.config.get('REFRESH_REUSE_GRACE_SECONDS', { infer: true }),
+        meta,
+        loadSubject: async (adminId) => {
+          const admin = await this.admins.findById(adminId);
+          if (!admin) throw new AppException('AUTH_REFRESH_INVALID');
+          if (admin.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
+          return admin;
+        },
+        onReuse: (reused) =>
+          this.audit.recordSafely({
+            action: 'platformAuth.refresh.reuse_detected',
+            resourceType: 'platformAuth',
+            resourceId: reused.subjectId,
+            result: 'failure',
+            actorId: reused.subjectId,
+            actorEmail: 'unknown',
+            errorCode: 'AUTH_REFRESH_REUSED',
+            metadata: { familyId: reused.familyId, severity: 'high' },
+          }),
       },
-      onReuse: (reused) =>
-        this.audit.recordSafely({
-          action: 'platformAuth.refresh.reuse_detected',
-          resourceType: 'platformAuth',
-          resourceId: reused.subjectId,
-          result: 'failure',
-          actorId: reused.subjectId,
-          actorEmail: 'unknown',
-          errorCode: 'AUTH_REFRESH_REUSED',
-          metadata: { familyId: reused.familyId, severity: 'high' },
-        }),
-    });
+    );
     return {
       ...(await this.signAccessToken(subject, row.idpSessionUid)),
       refreshToken: raw,
-      refreshTtlSeconds: refreshTtl,
+      refreshTtlSeconds: secondsUntil(expiresAt),
     };
   }
 
@@ -177,7 +182,7 @@ export class PlatformAuthService implements OnModuleInit {
     const refreshTtl = this.config.get('REFRESH_TOKEN_TTL', { infer: true });
     const { raw } = await this.refreshTokens.issue({
       adminId: admin.id,
-      ttlSeconds: refreshTtl,
+      expiresAt: new Date(Date.now() + refreshTtl * 1000),
       clientId,
       idpSessionUid,
       userAgent: meta.userAgent ?? null,

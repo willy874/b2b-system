@@ -6,6 +6,7 @@ import {
   fetchFileAbortUploadMutation,
   fetchFileCompleteUploadMutation,
   fetchFileCreateUploadMutation,
+  fetchFileUploadStatusQuery,
 } from './steps';
 import { uploadParts } from './uploadParts';
 
@@ -73,6 +74,7 @@ export async function uploadFile(
     signal,
   });
   const fileId = registered.file.id;
+  let isCompleting = false;
 
   try {
     // 縮圖與本體並行；縮圖失敗只是沒有預覽，不讓上傳失敗
@@ -89,11 +91,20 @@ export async function uploadFile(
     }
     await thumbnailDone;
 
+    isCompleting = true;
     return await fetchFileCompleteUploadMutation({
       params: { fileId, body: parts ? { parts } : undefined },
       signal,
     });
   } catch (error) {
+    // `complete` 在伺服器端成功、回應卻遺失（網路中斷、逾時）：放棄會失敗，使用者重傳則多一個同名檔。
+    // 先確認狀態，已經 ready 就當作成功（EDGE-22）
+    if (isCompleting && !signal?.aborted) {
+      const current = await fetchFileUploadStatusQuery({ params: { fileId } }).catch(
+        () => undefined,
+      );
+      if (current?.status === 'ready') return current;
+    }
     // 不用傳進來的 signal：被中止時它已經 aborted，清理請求也會被取消
     void fetchFileAbortUploadMutation({ params: { fileId } }).catch(() => undefined);
     throw error;

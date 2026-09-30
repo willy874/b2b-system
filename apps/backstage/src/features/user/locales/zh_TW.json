@@ -12,16 +12,32 @@
       "activationHint": "不接受由管理員設定密碼：一律走啟用信流程。",
       "success": "已建立使用者 {{email}}。"
     },
-    "update": { "success": "使用者已更新。" },
+    "update": {
+      "success": "使用者已更新。"
+    },
     "delete": {
       "title": "刪除使用者",
       "confirm": "確定要刪除「{{name}}」嗎？帳號會被軟刪除並立即登出。",
       "success": "使用者已刪除。",
       "selfProtected": "不能刪除自己的帳號。"
     },
-    "assignRole": { "action": "儲存角色", "success": "角色指派已更新。" },
-    "unlock": { "action": "解鎖", "success": "帳號已解鎖。" },
-    "resetPassword": { "action": "重設密碼", "success": "重設連結已寄出。" },
+    "assignRole": {
+      "action": "儲存角色",
+      "success": "角色指派已更新。",
+      "stale": "其他人剛修改了這個人的角色，你的勾選是以舊的資料為基礎。",
+      "discard": "改用最新的角色"
+    },
+    "unlock": {
+      "action": "解鎖",
+      "success": "帳號已解鎖。"
+    },
+    "resetPassword": {
+      "action": "重設密碼",
+      "success": "重設連結已寄出。",
+      "title": "重設密碼",
+      "confirm": "會寄送重設密碼的連結到 {{email}}，並留下稽核紀錄。確定要寄出嗎？",
+      "submit": "寄出重設連結"
+    },
     "batch": {
       "delete": {
         "action": "刪除",
@@ -56,7 +72,9 @@
       "title": "使用者詳情",
       "basic": "基本資料",
       "roles": "角色",
-      "selfHint": "不能修改自己的狀態或角色，請由其他管理員操作。"
+      "selfHint": "不能修改自己的狀態或角色，請由其他管理員操作。",
+      "backToList": "回到使用者列表",
+      "lockedHint": "帳號因多次登入失敗而鎖定。編輯不會改變鎖定狀態，要恢復登入請按「解鎖」。"
     },
     "field": {
       "email": "Email",
@@ -73,6 +91,11 @@
       "active": "啟用",
       "inactive": "停用",
       "locked": "鎖定"
+    },
+    "deactivate": {
+      "title": "停用使用者",
+      "confirm": "確定要停用「{{name}}」嗎？對方會立即被登出。",
+      "action": "停用"
     }
   }
 }

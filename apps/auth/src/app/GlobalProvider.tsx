@@ -11,6 +11,7 @@ import { AppError, ErrorCodes } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
 
+import { ComponentLabelsHost } from './ComponentLabelsHost';
 import { ConfirmDialogHost } from './ConfirmDialogHost';
 import { ToastHost } from './ToastHost';
 
@@ -68,14 +69,16 @@ export function GlobalProvider({
   return (
     <AppContextProvider context={context}>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <ToastHost>
-            <ConfirmDialogHost>
-              <PermissionDriftWatcher />
-              {children}
-            </ConfirmDialogHost>
-          </ToastHost>
-        </TooltipProvider>
+        <ComponentLabelsHost>
+          <TooltipProvider>
+            <ToastHost>
+              <ConfirmDialogHost>
+                <PermissionDriftWatcher />
+                {children}
+              </ConfirmDialogHost>
+            </ToastHost>
+          </TooltipProvider>
+        </ComponentLabelsHost>
       </QueryClientProvider>
     </AppContextProvider>
   );

@@ -243,8 +243,8 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | --- | --- |
 | 路由宣告 | 檔案相關路由改成 `@RequireAnyPermission('file:access', 'file:<動作>')`：guard 只當閘門，範圍由 service 判斷（[`05-rbac.md`](../architecture/backend/05-rbac.md) §1 原則 3 的例外） |
 | 推播 | `file` / `fileFolder` 的受眾加上 `file:access` 的 room。Payload 只有 id（[`08-realtime.md`](../architecture/backend/08-realtime.md) §6.1），看不到的資料夾有變更時只會多重抓一次，不會外洩名稱。授權變更推 `fileFolder update`（id 是該資料夾） |
-| 權限快取 | 資料夾授權 **不進** 權限快取：每個請求重新解析（一次取整棵資料夾結構 ＋ 相關授權）。角色指派、授權變更都不需要失效任何東西 |
-| 簽章網址 | 影像 API 與 presigned 下載網址發出後到期前都有效：撤銷授權的延遲上限是網址的 TTL（`FILE_URL_TTL`） |
+| 權限快取 | 資料夾授權 **不進** 權限快取：每個請求重新解析（一次取整棵資料夾結構 ＋ 相關授權）。角色指派、授權變更都不需要失效任何東西；資料夾結構本身有程序內快取，由結構的寫入在提交後失效（backend 09 §11.1） |
+| 簽章網址 | 影像 API 與 presigned 下載網址發出後到期前都有效：撤銷授權的延遲上限是網址的 TTL（`FILE_URL_TTL`，預設 15 分鐘，env 最多只接受 1 小時）；列表的網址因簽章時間取整（backend 09 §7.1），實際剩餘效期介於 TTL/2 與 TTL 之間 |
 
 ---
 
@@ -301,7 +301,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | --- | --- |
 | 建立時機 | api 啟動時確保共用資料夾與私人資料夾存在（冪等）；並為每個 **能進檔案管理器** 的使用者（`file:access` 或 `file:read`，或 super-admin）補建個人資料夾 |
 | 自動建立個人資料夾 | 權限改變時（`permissions.changed`：指派角色、角色權限變更、建立帶角色的使用者、核准註冊）檢查受影響的使用者，取得檔案管理器權限而還沒有個人資料夾的就建立 |
-| 個人資料夾 | 名稱是顯示名稱（同名時加上 email）；`owner_id` 是本人；本人是 `manager`、不繼承上層：只有本人（與全域權限者）讀得到，本人可以自己分享；別人看得到它但鎖住（§5.1） |
+| 個人資料夾 | 名稱是顯示名稱（`/`、`\`、控制字元換成空白；同名時依序加上 email、再加編號，最後退回 user id，一定能建立）；一批建立時每人一個 savepoint，一人失敗不影響其他人；`owner_id` 是本人；本人是 `manager`、不繼承上層：只有本人（與全域權限者）讀得到，本人可以自己分享；別人看得到它但鎖住（§5.1） |
 | 保護 | 三種系統資料夾不能改名、移動、刪除（`403 FILE_FOLDER_SYSTEM_PROTECTED`）；也不能把它們移進別處 |
 | 預設位置 | 前端進入檔案管理器、網址沒有指定資料夾時，開在自己的個人資料夾（`FileFolderList.personalFolderId`），管理員也一樣；之後點「所有檔案」仍可回到根目錄 |
 | 使用者被刪除 | 個人資料夾 **是空的**（沒有子資料夾、沒有檔案，含上傳中的）就自動軟刪除（稽核 `fileFolder.delete`，`metadata.reason = owner-deleted`）；有東西的保留，由管理者整理。api 啟動時也會補做服務停機期間刪除的使用者 |

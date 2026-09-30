@@ -26,6 +26,20 @@ describe('useErrorMessage', () => {
     expect(message).not.toContain('error.SOMETHING_WEIRD');
   });
 
+  it('429 帶等待秒數時告訴使用者幾秒後可以再試（docs/issues/04-user-experience.md UX-31）', () => {
+    const { result } = renderHook(() => useErrorMessage());
+    const error = new AppError('RATE_LIMITED', 429, { retryAfterSeconds: 42 });
+    expect(result.current(error)).toBe('操作太頻繁，請在 42 秒後再試。');
+    expect(result.current(new AppError('RATE_LIMITED', 429))).toBe('操作太頻繁，請稍後再試。');
+  });
+
+  it('details 的純量值帶進訊息（例：ROLE_IN_USE 的持有人數）', () => {
+    const { result } = renderHook(() => useErrorMessage());
+    expect(result.current(new AppError('ROLE_IN_USE', 409, { userCount: 3 }))).toBe(
+      '仍有 3 位使用者持有這個角色。',
+    );
+  });
+
   it('非 AppError 一律通用訊息', () => {
     const { result } = renderHook(() => useErrorMessage());
     expect(result.current(new Error('boom'))).toBe('發生未預期的錯誤，請稍後再試。');

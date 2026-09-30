@@ -24,7 +24,8 @@ import type {
   ExternalLoginState,
   InteractionSummary,
 } from '@/modules/oidc-provider/oidc-provider.service';
-import { UserService } from '@/modules/user/user.service';
+import { MEMBER_SLUG } from '@/modules/permission/permission.constants';
+import { isLoginLocked, UserService } from '@/modules/user/user.service';
 
 import type { SsoDiscoveryDto, SsoRedirectDto } from './dto/auth.dto';
 
@@ -214,7 +215,10 @@ export class ExternalLoginService {
       throw new AppException('AUTH_SSO_EXTERNAL_FAILED');
     }
     await this.assertInteraction(req, res, uid);
-    await this.oidc.consumeExternalLogin(ticket);
+    // 沒搶到：同一張票被併發的請求用掉了
+    if (!(await this.oidc.consumeExternalLogin(ticket))) {
+      throw new AppException('AUTH_SSO_EXTERNAL_FAILED');
+    }
     return this.oidc.finishInteraction(req, res, {
       login: { accountId: pending.accountId, amr: ['ext'] },
     });
@@ -230,8 +234,9 @@ export class ExternalLoginService {
   // ── 帳號對應（D8、D10）────────────────────────────────────
 
   /**
-   * 1. 已連結的外部身分（`provider ＋ subject`）→ 那個帳號
-   * 2. 外部 IdP 回報 **已驗證** 的 email 對上既有帳號 → 連結後登入
+   * 1. 已連結的外部身分（`provider ＋ subject`）→ 那個帳號（連結指向已刪除的帳號時刪掉舊連結，往下走）
+   * 2. 外部 IdP 回報 **已驗證** 的 email 對上既有帳號 → 連結後登入；但 email 網域必須是這個連線登記的網域，
+   *    帳號也不能持有管理用的系統角色，否則拒絕（`AUTH_SSO_LINK_NOT_ALLOWED`，SEC-01）
    * 3. 連線設為 `auto_create`，且 email 網域是這個連線登記的網域 → 建立沒有任何角色的已啟用帳號並連結
    * 4. 否則拒絕
    */
@@ -242,9 +247,14 @@ export class ExternalLoginService {
     const linked = await this.providers.findIdentity(provider.id, identity.subject);
     if (linked) {
       const user = await this.users.findAccountById(linked.userId);
-      this.assertUsable(user);
-      await this.providers.touchIdentity(linked.id);
-      return user;
+      if (user) {
+        this.assertUsable(user);
+        await this.providers.touchIdentity(linked.id);
+        return user;
+      }
+      // 連結指向已刪除的帳號（刪除帳號會一併刪連結，這是之前留下的）：
+      // `(provider, subject)` 唯一，不刪掉的話同 email 的新帳號永遠連不上（EDGE-06）
+      await this.providers.unlinkIdentity(linked.id);
     }
 
     if (!identity.email || !identity.emailVerified) {
@@ -254,6 +264,7 @@ export class ExternalLoginService {
     const existing = await this.users.findAccountByEmail(email);
     if (existing) {
       this.assertUsable(existing);
+      await this.assertLinkable(provider, existing);
       await withTransaction(this.db, async (tx) => {
         await this.providers.linkIdentity(
           { userId: existing.id, providerId: provider.id, subject: identity.subject, email },
@@ -308,11 +319,38 @@ export class ExternalLoginService {
     }
   }
 
+  /**
+   * 登入失敗的自動鎖定（`locked_until`）不擋外部 IdP：鎖定是擋猜密碼，外部 IdP 已經驗過本人
+   * （docs/architecture/backend/04-auth.md §3.3）。`status = locked` 是舊版鎖定留下的值，視同停用。
+   */
   private assertUsable(user: UserRow | undefined): asserts user is UserRow {
     if (!user || user.deletedAt) throw new AppException('AUTH_SSO_ACCOUNT_NOT_FOUND');
     if (user.status === 'pending') throw new AppException('AUTH_ACCOUNT_PENDING');
-    if (user.status === 'locked') throw new AppException('AUTH_ACCOUNT_LOCKED');
+    if (user.status === 'locked') {
+      throw new AppException(isLoginLocked(user) ? 'AUTH_ACCOUNT_LOCKED' : 'AUTH_ACCOUNT_DISABLED');
+    }
     if (user.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
+  }
+
+  /**
+   * 以 email 自動連結既有帳號的條件（docs/architecture/04-sso.md §3.3、SEC-01）：
+   * - email 網域必須登記在 **這個** 連線底下：持 `identityProvider:*` 的人可以自架 IdP、對任何 email 簽出
+   *   `email_verified`，不限網域就能連到別人的帳號
+   * - 帳號不能持有 `member` 以外的系統角色（super-admin、admin、auditor）：這些帳號被接管的代價太高，
+   *   要由本人以密碼登入（或由管理員處理），不自動連結
+   */
+  private async assertLinkable(
+    provider: { id: string; domains: { domain: string }[] },
+    user: UserRow,
+  ): Promise<void> {
+    const domain = domainOf(user.email);
+    if (!provider.domains.some((item) => item.domain === domain)) {
+      throw new AppException('AUTH_SSO_LINK_NOT_ALLOWED');
+    }
+    const roles = await this.users.listRoleSummaries(user.id);
+    if (roles.some((role) => role.isSystem && role.slug !== MEMBER_SLUG)) {
+      throw new AppException('AUTH_SSO_LINK_NOT_ALLOWED');
+    }
   }
 
   private async assertInteraction(

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { isNetworkError, isRequestAborted } from '@/core/client';
+import { isNetworkError, isRequestAborted, NetworkError } from '@/core/client';
 import { isAppError } from '@/core/errors';
 import type { FileUpload, StoredFile } from '@/shared/api-sdk';
 
@@ -11,6 +11,7 @@ import {
   fetchFileCompleteUploadMutation,
   fetchFileCreateUploadMutation,
   fetchFileCreateUploadPartsMutation,
+  fetchFileUploadStatusQuery,
 } from '../steps';
 import { uploadParts } from '../uploadParts';
 
@@ -19,6 +20,7 @@ vi.mock('../steps', () => ({
   fetchFileCreateUploadPartsMutation: vi.fn(),
   fetchFileCompleteUploadMutation: vi.fn(),
   fetchFileAbortUploadMutation: vi.fn(),
+  fetchFileUploadStatusQuery: vi.fn(),
 }));
 
 const storedFile = (status: StoredFile['status']): StoredFile => ({
@@ -241,6 +243,37 @@ describe('uploadFile（登記 → 直傳 → 完成）', () => {
     expect(vi.mocked(fetchFileCreateUploadMutation).mock.calls[0]?.[0].params).not.toHaveProperty(
       'thumbnail',
     );
+  });
+
+  it('complete 在伺服器端成功、回應遺失 → 查到已經 ready，當作成功、不放棄（EDGE-22）', async () => {
+    vi.mocked(fetchFileCompleteUploadMutation).mockRejectedValueOnce(new NetworkError(new Error()));
+    vi.mocked(fetchFileUploadStatusQuery).mockResolvedValueOnce(storedFile('ready'));
+    const result = uploadFile({ file: new File(['data'], 'a.png') });
+    await untilXhrSent();
+    currentXhr().respond(200);
+
+    await expect(result).resolves.toMatchObject({ id: 'file-1', status: 'ready' });
+    expect(fetchFileUploadStatusQuery).toHaveBeenCalledWith({ params: { fileId: 'file-1' } });
+    expect(fetchFileAbortUploadMutation).not.toHaveBeenCalled();
+  });
+
+  it('complete 失敗而檔案仍是 pending（或查不到）→ 照常放棄並拋出原本的錯誤', async () => {
+    vi.mocked(fetchFileCompleteUploadMutation).mockRejectedValueOnce(new NetworkError(new Error()));
+    vi.mocked(fetchFileUploadStatusQuery).mockResolvedValueOnce(storedFile('pending'));
+    const result = uploadFile({ file: new File(['data'], 'a.png') });
+    await untilXhrSent();
+    currentXhr().respond(200);
+
+    expect(isNetworkError(await result.catch((reason: unknown) => reason))).toBe(true);
+    expect(fetchFileAbortUploadMutation).toHaveBeenCalledWith({ params: { fileId: 'file-1' } });
+  });
+
+  it('直傳就失敗：不查狀態（還沒呼叫 complete）', async () => {
+    const result = uploadFile({ file: new File(['data'], 'a.png') });
+    await untilXhrSent();
+    currentXhr().respond(500);
+    await result.catch(() => undefined);
+    expect(fetchFileUploadStatusQuery).not.toHaveBeenCalled();
   });
 
   it('連線失敗 → NetworkError', async () => {

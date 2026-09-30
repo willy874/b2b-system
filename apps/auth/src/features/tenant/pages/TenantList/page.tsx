@@ -5,26 +5,48 @@ import { useMemo, useState } from 'react';
 
 import { getTenantListQueryOptions } from '@/apis/platform-tenant/get-tenant-list/query';
 import { Button } from '@/components/Button';
+import { Pagination } from '@/components/Pagination';
 import { Table } from '@/components/Table';
 import { useTranslation } from '@/core/locales';
 import type { PlatformTenant } from '@/shared/api-sdk';
 import { formatDateTime } from '@/shared/date';
 
 import { TenantStatus } from '../../components/TenantStatus';
+import { TENANT_PAGE_SIZE_OPTIONS } from '../../constants';
 import { useTenantPermission } from '../../hooks/useTenantPermission';
-import { TenantDetailRoute } from '../../routes';
+import { TenantDetailRoute, TenantListRoute } from '../../routes';
+import type { TenantSearchQuery } from '../../routes';
 import { CreateTenantDialog } from './components/CreateTenantDialog';
+import { TenantFilterBar } from './components/TenantFilterBar';
+import type { TenantFilterValues } from './components/TenantFilterBar';
 
 /**
  * 平台管理者的租戶清單（docs/adr/0020-physical-tenant-isolation.md D12、D13）：
  * 代碼、名稱、狀態、主要網域；點進去看詳情與停用、刪除。
+ * 伺服器分頁、代碼／名稱／網域搜尋與狀態篩選，條件放在網址上（routes/model.ts）。
  */
 export default function TenantListPage() {
   const { t } = useTranslation();
   const permission = useTenantPermission();
   const navigate = useNavigate();
+  const search = TenantListRoute.useSearch();
   const [creating, setCreating] = useState(false);
-  const { data, isPending } = useQuery(getTenantListQueryOptions());
+  const { data, isPending } = useQuery(
+    getTenantListQueryOptions({
+      offset: search.offset,
+      limit: search.limit,
+      q: search.q,
+      status: search.status,
+    }),
+  );
+  const filtered = Boolean(search.q || search.status);
+
+  const patch = (next: Partial<TenantSearchQuery>) =>
+    void navigate({ to: TenantListRoute.to, search: { ...search, ...next } });
+  // 條件一起覆寫（重設時全部是 undefined）；條件變了就回第一頁
+  const applyFilters = ({ q, status }: TenantFilterValues) => patch({ q, status, offset: 0 });
+  const setPage = ({ offset, limit }: { offset: number; limit: number }) =>
+    patch({ offset, limit });
 
   const columns = useMemo<Array<ColumnDef<PlatformTenant, unknown>>>(
     () => [
@@ -83,12 +105,29 @@ export default function TenantListPage() {
         )}
       </header>
 
+      <TenantFilterBar key={search.q ?? ''} search={search} onChange={applyFilters} />
+
       <Table
         data={data?.items ?? []}
         columns={columns}
         getRowId={(row) => row.id}
         loading={isPending}
-        emptyTitle={t('tenant.empty')}
+        emptyTitle={filtered ? t('tenant.emptyFiltered') : t('tenant.empty')}
+        data-testid="tenant-table"
+      />
+
+      <Pagination
+        offset={search.offset}
+        limit={search.limit}
+        total={data?.pagination.total ?? 0}
+        pageSizeOptions={TENANT_PAGE_SIZE_OPTIONS}
+        onChange={setPage}
+        labels={{
+          previous: t('common.previous'),
+          next: t('common.next'),
+          summary: ({ from, to, total }) => t('tenant.pagination.summary', { from, to, total }),
+        }}
+        data-testid="tenant-pagination"
       />
 
       <CreateTenantDialog

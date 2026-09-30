@@ -3367,7 +3367,7 @@
             }
           }
         },
-        "summary": "所有租戶（未刪除）與預設網域的上層",
+        "summary": "租戶（未刪除）與預設網域的上層；分頁、代碼／名稱／網域搜尋（q）、狀態篩選（status）",
         "tags": ["platform-tenants"]
       },
       "post": {
@@ -4336,7 +4336,7 @@
           },
           "status": {
             "type": "string",
-            "enum": ["pending", "active", "inactive"]
+            "enum": ["active", "inactive"]
           },
           "locale": {
             "type": "string",
@@ -4354,6 +4354,15 @@
         "properties": {
           "roleIds": {
             "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "expectedRoleIds": {
+            "maxItems": 100,
             "type": "array",
             "items": {
               "type": "string",
@@ -5725,6 +5734,7 @@
                 "maximum": 9007199254740991
               },
               "total": {
+                "nullable": true,
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
@@ -6679,11 +6689,27 @@
               "$ref": "#/components/schemas/PlatformTenant"
             }
           },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "offset": {
+                "type": "number"
+              },
+              "limit": {
+                "type": "number"
+              },
+              "total": {
+                "type": "number"
+              }
+            },
+            "required": ["offset", "limit", "total"],
+            "additionalProperties": false
+          },
           "baseDomain": {
             "type": "string"
           }
         },
-        "required": ["items", "baseDomain"],
+        "required": ["items", "pagination", "baseDomain"],
         "additionalProperties": false
       },
       "CreateTenantRequest": {

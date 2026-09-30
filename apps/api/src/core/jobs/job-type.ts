@@ -18,6 +18,11 @@ export interface JobTypeOptions {
    * （docs/adr/0020-physical-tenant-isolation.md D15）。
    */
   scope: 'tenant' | 'platform';
+  /**
+   * 這個程序同時執行幾筆（pg-boss 的 `localConcurrency`）。預設 1；等待外部服務為主的工作（寄信）調高，
+   * 吃 CPU 或記憶體的工作（影像、封存）維持 1，免得拖慢同一個程序上的 API。
+   */
+  concurrency: number;
 }
 
 /**
@@ -40,6 +45,7 @@ const DEFAULT_JOB_OPTIONS: JobTypeOptions = {
   expireInSeconds: 15 * 60,
   exclusive: false,
   scope: 'tenant',
+  concurrency: 1,
 };
 
 const JOB_NAME_PATTERN = /^[a-z][A-Za-z0-9]*\.[a-z][A-Za-z0-9]*$/;

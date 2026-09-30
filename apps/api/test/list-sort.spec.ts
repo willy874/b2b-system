@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { TransactionRollbackError, sql } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -198,6 +199,74 @@ describe('列表的多欄排序（docs/architecture/backend/03-api-conventions.m
       .set('authorization', `Bearer ${token}`)
       .expect(200);
     expect((response.body as { data: RoleItem }).data.userCount).toBe(1);
+  });
+
+  describe('列表輸入邊界（docs/issues/03-edge-cases.md EDGE-21）', () => {
+    async function total(path: string): Promise<number> {
+      const response = await request(http)
+        .get(path)
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+      return (response.body as { data: { pagination: { total: number } } }).data.pagination.total;
+    }
+
+    it.each([
+      ['使用者：_ 不是萬用字元', '/users?keyword=_'],
+      ['使用者：% 不是萬用字元', '/users?keyword=%25'],
+      ['角色：_ 不是萬用字元', '/roles?keyword=_'],
+      ['角色：\\ 不會讓 pattern 失效', '/roles?keyword=%5C'],
+    ])('%s', async (_name, path) => {
+      // 測試資料的 email、名稱、slug 都沒有這些字元
+      expect(await total(path)).toBe(0);
+    });
+
+    it('關鍵字裡的底線照字面比對', async () => {
+      await db.insert(users).values(holder('under_score@example.com', null));
+      expect(await total('/users?keyword=under_s')).toBe(1);
+      expect(await total('/users?keyword=under_')).toBe(1);
+    });
+
+    it('使用者關鍵字的三個運算式都用得上 trigram 索引（docs/issues/01-performance.md PERF-19）', async () => {
+      // 與 user.repository 的 buildFilters 相同的運算式。測試的資料量下 planner 會選循序掃描，
+      // 所以在交易裡灌一批使用者、更新統計、關掉循序掃描，看完計畫就 rollback
+      let text = '';
+      await db
+        .transaction(async (tx) => {
+          await tx.execute(
+            sql`INSERT INTO users (email, username, display_name, status) SELECT 'bulk' || g || '@example.com', 'bulk' || g, 'Bulk ' || g, 'active' FROM generate_series(1, 5000) AS g`,
+          );
+          // 新插入的列在 GIN 的 pending list 裡，planner 會把掃它的成本估得很高；先併進索引本體
+          await tx.execute(
+            sql`SELECT gin_clean_pending_list(name::regclass) FROM unnest(ARRAY['users_email_trgm_idx', 'users_username_trgm_idx', 'users_display_name_trgm_idx']) AS name`,
+          );
+          await tx.execute(sql`ANALYZE users`);
+          // 只排除循序掃描：還是要讓 planner 在各索引之間自己挑
+          await tx.execute(sql`SET LOCAL enable_seqscan = off`);
+          const plan = await tx.execute<{ 'QUERY PLAN': string }>(
+            sql`EXPLAIN SELECT id FROM users WHERE deleted_at IS NULL AND (email::text ILIKE '%keyword%' OR username::text ILIKE '%keyword%' OR display_name ILIKE '%keyword%')`,
+          );
+          text = plan.map((row) => row['QUERY PLAN']).join('\n');
+          tx.rollback();
+        })
+        .catch((error: unknown) => {
+          if (!(error instanceof TransactionRollbackError)) throw error;
+        });
+      expect(text).toContain('users_email_trgm_idx');
+      expect(text).toContain('users_username_trgm_idx');
+      expect(text).toContain('users_display_name_trgm_idx');
+    });
+
+    it('offset 上限 10000：剛好上限可以，超過回 400', async () => {
+      expect(await total('/users?offset=10000')).toBeGreaterThan(0);
+      for (const offset of ['10001', '99999999999', '1e19']) {
+        // oxlint-disable-next-line no-await-in-loop -- 依序送出，失敗時看得出是哪一個
+        const response = await request(http)
+          .get(`/users?offset=${offset}`)
+          .set('authorization', `Bearer ${token}`)
+          .expect(400);
+        expect(response.body).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+      }
+    });
   });
 
   it('只剩已軟刪除的使用者持有時，刪除角色不回 ROLE_IN_USE', async () => {

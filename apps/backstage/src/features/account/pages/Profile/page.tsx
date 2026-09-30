@@ -7,18 +7,33 @@ import { getUpdateProfileMutationOptions } from '@/apis/auth/update-profile/muta
 import { invalidateResources, selfUpdated } from '@/apis/resources';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
+import { useConfirm } from '@/components/ConfirmDialog';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/Input';
 import { Separator } from '@/components/Separator';
 import { sessionStore } from '@/core/auth';
-import { useErrorToast } from '@/core/errors';
+import { useErrorMessage, useErrorToast, useServerFieldErrors } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
+import { useUnsavedChangesGuard } from '@/core/router';
+
+/** 與後端的密碼規則一致（apps/api/src/modules/auth/password.ts）。 */
+const PASSWORD_MIN_LENGTH = 12;
+const PASSWORD_MAX_LENGTH = 128;
+const PASSWORD_FIELDS = ['currentPassword', 'newPassword'] as const;
+
+/**
+ * 變更密碼會撤銷所有 refresh token；登入頁依這個原因說明「密碼已變更，請用新密碼登入」
+ * （與 features/auth 的 PASSWORD_CHANGED_REASON 相同；feature 之間不直接 import）。
+ */
+const PASSWORD_CHANGED_REASON = 'password_changed';
 
 export default function ProfilePage() {
   const { t } = useTranslation();
   const toast = useToast();
+  const confirm = useConfirm();
   const showError = useErrorToast();
+  const toMessage = useErrorMessage();
   const profile = useQuery(getAuthProfileQueryOptions());
 
   // 草稿為 undefined 時顯示伺服器上的值（不用 effect 同步）
@@ -28,6 +43,7 @@ export default function ProfilePage() {
   const updateProfile = useMutation({
     ...getUpdateProfileMutationOptions(),
     onSuccess: (updated) => {
+      setDisplayName(undefined);
       invalidateResources([selfUpdated(updated)]);
       toast.success(t('account.profile.saved'));
     },
@@ -36,17 +52,57 @@ export default function ProfilePage() {
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const changePassword = useMutation({
-    ...getChangePasswordMutationOptions(),
-    onSuccess: () => {
-      toast.success(t('account.password.changed'));
-      setCurrentPassword('');
-      setNewPassword('');
-      // 變更密碼會撤銷所有 refresh token，包含當前這一條
-      sessionStore.endSession('password_changed');
-    },
-    onError: showError,
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string>();
+  const {
+    errors: serverErrors,
+    report: reportServerError,
+    clear: clearServerError,
+    formRef: passwordFormRef,
+  } = useServerFieldErrors(PASSWORD_FIELDS, {
+    AUTH_PASSWORD_MISMATCH: 'currentPassword',
+    AUTH_PASSWORD_WEAK: 'newPassword',
   });
+  const changePassword = useMutation(getChangePasswordMutationOptions());
+
+  const tooShort = newPassword.length > 0 && newPassword.length < PASSWORD_MIN_LENGTH;
+  const mismatch = confirmPassword.length > 0 && confirmPassword !== newPassword;
+  const canChangePassword =
+    currentPassword.length > 0 &&
+    newPassword.length >= PASSWORD_MIN_LENGTH &&
+    confirmPassword === newPassword;
+
+  const profileDirty =
+    draftDisplayName !== undefined && draftDisplayName !== profile.data?.user.displayName;
+  // 頁面型表單：換頁與重新整理前提醒未儲存的修改（UX-17）
+  useUnsavedChangesGuard(profileDirty || currentPassword.length > 0 || newPassword.length > 0);
+
+  const submitPassword = async () => {
+    setPasswordError(undefined);
+    // 變更後所有裝置（包含這一個）都會登出：事先說清楚（UX-30）
+    await confirm({
+      title: t('account.password.confirmTitle'),
+      description: t('account.password.hint'),
+      confirmLabel: t('account.password.submit'),
+      tone: 'primary',
+      'data-testid': 'profile-change-password-confirm',
+      onConfirm: async () => {
+        try {
+          await changePassword.mutateAsync({ params: { currentPassword, newPassword } });
+        } catch (error) {
+          // 目前密碼錯、新密碼太弱 → 顯示在欄位下方；其他錯誤顯示在表單底部
+          if (!reportServerError(error)) setPasswordError(toMessage(error));
+          return;
+        }
+        toast.success(t('account.password.changed'));
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        // 變更密碼會撤銷所有 refresh token，包含當前這一條
+        sessionStore.endSession(PASSWORD_CHANGED_REASON);
+      },
+    });
+  };
 
   return (
     <div className="flex max-w-2xl flex-col gap-6" data-testid="profile-page">
@@ -57,13 +113,21 @@ export default function ProfilePage() {
         </p>
       </header>
 
-      <section className="flex flex-col gap-3">
+      {/* <form>：在欄位按 Enter 就能儲存（UX-20） */}
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          updateProfile.mutate({ params: { displayName } });
+        }}
+      >
         <Field label={t('account.field.email')}>
           <Input value={profile.data?.user.email ?? ''} disabled />
         </Field>
         <Field label={t('account.field.displayName')}>
           <Input
             value={displayName}
+            maxLength={100}
             onChange={(event) => setDisplayName(event.target.value)}
             data-testid="profile-display-name"
           />
@@ -81,48 +145,110 @@ export default function ProfilePage() {
         <div className="flex justify-end">
           <Button
             variant="primary"
+            type="submit"
+            disabled={!displayName.trim()}
             loading={updateProfile.isPending}
-            onClick={() => updateProfile.mutate({ params: { displayName } })}
             data-testid="profile-save"
           >
             {t('common.save')}
           </Button>
         </div>
-      </section>
+      </form>
 
       <Separator />
 
-      <section className="flex flex-col gap-3">
+      <form
+        ref={passwordFormRef}
+        className="flex flex-col gap-3"
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (canChangePassword) void submitPassword();
+        }}
+        data-testid="profile-password-form"
+      >
         <h2 className="m-0 text-base font-medium">{t('account.password.title')}</h2>
         <p className="m-0 text-sm text-[var(--color-fg-muted)]">{t('account.password.hint')}</p>
-        <Field label={t('account.field.currentPassword')} required>
+        {/* 讓密碼管理器知道是哪個帳號的密碼，才會提示儲存新密碼 */}
+        <input
+          type="text"
+          name="username"
+          autoComplete="username"
+          value={profile.data?.user.email ?? ''}
+          readOnly
+          hidden
+        />
+        <Field
+          label={t('account.field.currentPassword')}
+          required
+          error={serverErrors.currentPassword}
+        >
           <Input
             type="password"
+            autoComplete="current-password"
+            maxLength={PASSWORD_MAX_LENGTH}
             value={currentPassword}
-            onChange={(event) => setCurrentPassword(event.target.value)}
+            onChange={(event) => {
+              clearServerError('currentPassword');
+              setCurrentPassword(event.target.value);
+            }}
             data-testid="profile-current-password"
           />
         </Field>
-        <Field label={t('account.field.newPassword')} required>
+        <Field
+          label={t('account.field.newPassword')}
+          required
+          // 即時說明長度要求，而不是只把按鈕停用（UX-30）
+          description={t('account.password.lengthHint', {
+            min: PASSWORD_MIN_LENGTH,
+            count: newPassword.length,
+          })}
+          error={
+            serverErrors.newPassword ??
+            (tooShort ? t('validation.tooShort', { min: PASSWORD_MIN_LENGTH }) : undefined)
+          }
+        >
           <Input
             type="password"
+            autoComplete="new-password"
+            maxLength={PASSWORD_MAX_LENGTH}
             value={newPassword}
-            onChange={(event) => setNewPassword(event.target.value)}
+            onChange={(event) => {
+              clearServerError('newPassword');
+              setNewPassword(event.target.value);
+            }}
             data-testid="profile-new-password"
           />
         </Field>
+        <Field
+          label={t('account.field.confirmPassword')}
+          required
+          error={mismatch ? t('validation.passwordMismatch') : undefined}
+        >
+          <Input
+            type="password"
+            autoComplete="new-password"
+            maxLength={PASSWORD_MAX_LENGTH}
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            data-testid="profile-confirm-password"
+          />
+        </Field>
+        <p role="alert" className="m-0 text-sm text-[var(--color-danger-text)] empty:hidden">
+          {passwordError}
+        </p>
         <div className="flex justify-end">
           <Button
             variant="primary"
+            type="submit"
             loading={changePassword.isPending}
-            disabled={!currentPassword || newPassword.length < 12}
-            onClick={() => changePassword.mutate({ params: { currentPassword, newPassword } })}
+            disabled={!canChangePassword}
             data-testid="profile-change-password"
           >
             {t('account.password.submit')}
           </Button>
         </div>
-      </section>
+      </form>
     </div>
   );
 }

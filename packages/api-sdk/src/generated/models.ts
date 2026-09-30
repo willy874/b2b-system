@@ -167,13 +167,14 @@ export interface CreateUserRequest {
 export interface UpdateUserRequest {
   username?: string | null;
   displayName?: string;
-  status?: 'pending' | 'active' | 'inactive';
+  status?: 'active' | 'inactive';
   locale?: string;
   timezone?: string;
 }
 
 export interface ReplaceUserRolesRequest {
   roleIds: Array<string>;
+  expectedRoleIds?: Array<string>;
 }
 
 export const UserStatus = {
@@ -585,7 +586,7 @@ export interface FileListPage {
   pagination: {
     offset: number;
     limit: number;
-    total: number;
+    total: number | null;
   };
   nextCursor: string | null;
 }
@@ -810,6 +811,11 @@ export interface PlatformTenant {
 
 export interface PlatformTenantList {
   items: Array<PlatformTenant>;
+  pagination: {
+    offset: number;
+    limit: number;
+    total: number;
+  };
   baseDomain: string;
 }
 

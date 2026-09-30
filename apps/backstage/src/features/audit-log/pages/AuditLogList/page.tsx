@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { getAuditLogListQueryOptions } from '@/apis/audit-log/get-audit-log-list/query';
 import { useTranslation } from '@/core/locales';
+import { zonedDayBoundary } from '@/shared/date';
 
 import { AUDIT_LOG_MAX_RANGE_DAYS } from '../../constants';
 import { toAuditLogRowVM } from './adapter';
@@ -30,8 +31,9 @@ export default function AuditLogListPage() {
         resourceType: search.resourceType,
         result: search.result,
         // 網址上的日期是使用者當地的日曆日：起日取當天 00:00、迄日取 23:59:59
-        from: search.from ? new Date(`${search.from}T00:00:00`).toISOString() : undefined,
-        to: search.to ? new Date(`${search.to}T23:59:59`).toISOString() : undefined,
+        // 日界線用偏好的時區，與列表顯示的時間一致（UX-11）
+        from: search.from ? zonedDayBoundary(search.from, 'start') : undefined,
+        to: search.to ? zonedDayBoundary(search.to, 'end') : undefined,
       },
     }),
   );

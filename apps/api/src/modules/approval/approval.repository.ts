@@ -3,7 +3,7 @@ import { and, asc, desc, eq, ilike, inArray, isNull, like } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { TENANT_DB } from '@/core/database';
+import { TENANT_DB, containsPattern, prefixPattern } from '@/core/database';
 import type { ApprovalRequestInsert, ApprovalRequestRow } from '@/db/schema';
 import { approvalRequests, users } from '@/db/schema';
 
@@ -78,8 +78,7 @@ export class ApprovalRepository {
       eq(approvalRequests.status, 'pending'),
     ];
     if (filter.subjectKeyPrefix !== undefined) {
-      const escaped = filter.subjectKeyPrefix.replaceAll(/[\\%_]/g, (char) => `\\${char}`);
-      conditions.push(like(approvalRequests.subjectKey, `${escaped}%`));
+      conditions.push(like(approvalRequests.subjectKey, prefixPattern(filter.subjectKeyPrefix)));
     }
     if (filter.requesterId !== undefined) {
       conditions.push(eq(approvalRequests.requesterId, filter.requesterId));
@@ -94,7 +93,7 @@ export class ApprovalRepository {
   async list(query: ListApprovalDto): Promise<{ items: ApprovalRequestRow[]; total: number }> {
     const conditions: SQL[] = [];
     if (query.keyword) {
-      conditions.push(ilike(approvalRequests.requesterName, `%${query.keyword}%`));
+      conditions.push(ilike(approvalRequests.requesterName, containsPattern(query.keyword)));
     }
     if (query.status?.length) conditions.push(inArray(approvalRequests.status, query.status));
     if (query.type?.length) conditions.push(inArray(approvalRequests.type, query.type));

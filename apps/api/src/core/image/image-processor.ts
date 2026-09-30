@@ -49,6 +49,10 @@ export interface DecodedImage {
    * 一律套用 EXIF 方向並移除中繼資料（GPS 等）；JPEG 一律是 progressive，有透明度時鋪白底。
    */
   render(options: RenderOptions): Promise<RenderedImage>;
+  /**
+   * 釋放解碼用的暫存資源（串流輸入會先寫到暫存檔，不整份放進記憶體）。用完一定要呼叫；重複呼叫無害。
+   */
+  dispose(): Promise<void>;
 }
 
 export interface DecodeOptions {
@@ -65,6 +69,6 @@ export class ImageDecodeError extends Error {
 }
 
 export abstract class ImageProcessor {
-  /** 讀入並解碼；失敗拋 `ImageDecodeError`。 */
+  /** 讀入並解碼；失敗拋 `ImageDecodeError`。回傳的 `DecodedImage` 用完要 `dispose()`。 */
   abstract decode(input: Readable | Buffer, options: DecodeOptions): Promise<DecodedImage>;
 }

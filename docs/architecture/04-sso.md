@@ -126,12 +126,21 @@ GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie�
 
 | 順序 | 條件 | 結果 |
 | --- | --- | --- |
-| 1 | `(provider_id, subject)` 已連結 | 那個帳號（之後 email 變了、沒有 email 都一樣） |
-| 2 | 外部 IdP 回報 `email_verified = true` 的 email 對上既有帳號 | 連結後登入，稽核 `userIdentity.link` |
+| 1 | `(provider_id, subject)` 已連結 | 那個帳號（之後 email 變了、沒有 email 都一樣）；連結指向已刪除的帳號時刪掉舊連結，往下走 |
+| 2 | 外部 IdP 回報 `email_verified = true` 的 email 對上既有帳號 | email 網域是 **這個** 連線登記的網域、且帳號沒有 `member` 以外的系統角色 → 連結後登入，稽核 `userIdentity.link`；否則 `AUTH_SSO_LINK_NOT_ALLOWED` |
 | 3 | 連線是 `auto_create`，且 email 網域是這個連線登記的網域 | 建立 **沒有任何角色** 的已啟用帳號並連結 |
 | 4 | 其他 | `AUTH_SSO_ACCOUNT_NOT_FOUND` |
 
-帳號是 `pending`／`locked`／停用時回對應的 `AUTH_ACCOUNT_*`。
+第 2 步的限制（docs/issues/02-security.md SEC-01）：持 `identityProvider:create`／`update` 的人可以自架 IdP（或把連線的 issuer
+改成它），對任何 email 簽出 `email_verified = true`。不限網域的話，就能把自己的外部身分連到租戶裡任何人（包括 super-admin）的帳號。
+所以 email 網域必須屬於這個連線；持有 super-admin、admin、auditor 的帳號即使網域相符也不自動連結，要由本人以密碼登入（或由管理員處理）。
+修改連線的 `issuer` 或 `client_id` 會在同一個交易內刪除它所有的連結（稽核 `metadata.identitiesCleared`、`severity: high`）：
+新的 IdP 發的 `subject` 不代表同一個人。刪除帳號時也一併刪除它的連結（帳號是軟刪除，不會觸發 cascade），同 email 重建的帳號才能再連結。
+
+帳號是 `pending`／停用時回對應的 `AUTH_ACCOUNT_*`；登入失敗的自動鎖定（`locked_until`）不擋外部 IdP 登入。
+
+production 下對外部 IdP 的每個請求都先解析主機名稱，解析到私有、loopback、link-local（含雲端 metadata）位址就拒絕
+（`AUTH_SSO_PROVIDER_UNAVAILABLE`，SEC-11），逾時 10 秒；解析與連線之間仍有 DNS rebinding 的空窗。
 
 **網域**（`identity_provider_domains`）：一個網域只屬於一個連線。設為「只允許 SSO」時，互動頁不顯示密碼欄，
 `verifyCredentials` 在查帳號 **之前** 回 `AUTH_SSO_REQUIRED`（不洩漏帳號是否存在），`forgotPassword` 不寄信（回應不變）。
@@ -200,9 +209,9 @@ GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie�
 | 位置 | 內容 |
 | --- | --- |
 | `core/auth/sso.ts` | `createAuthorizationUrl`（state、PKCE S256）、`readPendingLogin`／`discardPendingLogin`（verifier 以 state 為鍵存本分頁 sessionStorage）、`safeReturnTo`（只接受同源相對路徑） |
-| `features/auth/pages/Login` | `/auth/login`：取得這個網域的租戶代碼（`GET /tenant/current`）後跳到 IdP；`?signedOut=true` 時不自動跳，顯示「再次登入」 |
+| `features/auth/pages/Login` | `/auth/login`：取得這個網域的租戶代碼（`GET /tenant/current`）後跳到 IdP；`?signedOut=true` 時不自動跳，顯示「再次登入」；跳轉前失敗（租戶停用、網址打錯）顯示原因並可重試 |
 | `features/identity-provider` | `/identity-provider`：這個租戶的外部 IdP 連線（`identityProvider:*`，ADR-0020 D18）；顯示要登記在外部 IdP 的 redirect URI |
-| `features/auth/pages/SsoCallback` | `/auth/callback`：換 session 後 `router.history.replace(returnTo)`；`error=access_denied` 顯示「已取消」 |
+| `features/auth/pages/SsoCallback` | `/auth/callback`：換 session 後 `router.history.replace(returnTo)`；`error=access_denied` 顯示「已取消」；失敗後的「登入」帶上原本的 `returnTo` |
 | `app/App.tsx` 的 `SessionWatcher` | 單一登出或續期失敗時導向 `/auth/login?signedOut=true` |
 
 ### 6.2 apps/auth
@@ -220,6 +229,9 @@ GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie�
 （由其他平台管理者新增與寄重設連結），所以 `/forgot-password`、`/register` 沒有 `?tenant=` 時仍顯示「請從租戶的登入頁或信中的連結進入」。
 backstage 已經沒有這些頁面：SSO 之前寄出、指向 backstage `/auth/setup` 等的舊連結會是找不到頁面，要請管理員重寄。
 apps/auth 這一版沒有推播：寫入後的快取失效只在本分頁與其他分頁（BroadcastChannel）。
+IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁提供「重新開始登入」：知道租戶時到 `/enter?tenant=<代碼>`
+（自動前往那個租戶的登入），不知道時給「進入租戶」與平台管理者登入。apps/auth 的 `SessionWatcher` 在 session 中途結束時導向
+`/login?signedOut=true&reason=<原因>&redirect=<路徑＋查詢字串>`，登入頁依原因說明（逾時、帳號停用、憑證重用…；自己登出與單一登出顯示「已登出」）。
 
 ## 7. 設定與部署
 
@@ -259,7 +271,7 @@ apps/auth 這一版沒有推播：寫入後的快取失效只在本分頁與其�
 | 互動過期、沒有互動 cookie | 互動頁顯示 `AUTH_SSO_INTERACTION_INVALID` |
 | 授權碼失效、重放、PKCE 不符 | 產品的 callback 頁顯示 `AUTH_SSO_CODE_INVALID`，可重新登入 |
 | 在互動頁按取消 | 產品的 callback 頁顯示「已取消」 |
-| 外部 IdP 失敗、找不到帳號、連線停用 | 回到互動頁並顯示 `AUTH_SSO_EXTERNAL_FAILED`／`AUTH_SSO_ACCOUNT_NOT_FOUND`／`AUTH_SSO_PROVIDER_UNAVAILABLE` |
+| 外部 IdP 失敗、找不到帳號、不能自動連結、連線停用 | 回到互動頁並顯示 `AUTH_SSO_EXTERNAL_FAILED`／`AUTH_SSO_ACCOUNT_NOT_FOUND`／`AUTH_SSO_LINK_NOT_ALLOWED`／`AUTH_SSO_PROVIDER_UNAVAILABLE` |
 | 只允許 SSO 的網域用密碼登入 | `AUTH_SSO_REQUIRED` |
 | backstage 的 authorize 沒帶 `tenant`、租戶不存在、或與 redirect URI 的網域不符 | 帶 `invalid_request` 導回那個 backstage 的 callback |
 | 平台的端點在租戶網域上呼叫 | `PLATFORM_ONLY` |

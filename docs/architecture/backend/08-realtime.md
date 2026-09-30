@@ -254,12 +254,16 @@ super-admin 加入自己租戶的所有 perm room。
 
 ```ts
 async refreshAudience(userIds: readonly string[]) {
-  for (const id of new Set(userIds)) {
-    if (!this.publisher.countConnections(userRoom(id))) continue;
-    this.publisher.moveRooms(userRoom(id), ALL_PERM_ROOMS, await this.roomsFor(id));
+  const connected = [...new Set(userIds)].filter((id) => this.publisher.countConnections(userRoom(id)));
+  for (const batch of chunks(connected, 200)) {
+    const sets = await this.permissionService.getPermissionSets(batch); // 每批兩條 SQL
+    for (const id of batch) this.publisher.moveRooms(userRoom(id), allPermRooms(), permRoomsFor(sets.get(id)));
   }
 }
 ```
+
+一個角色可能有上千位持有者：權限以 `PermissionService.getPermissionSets` **批次** 解析（快取命中的不查；其餘每批
+`WHERE user_id IN (…)` 兩條查詢），不是每人各查一次。檔案模組補建個人資料夾前篩選「能進檔案管理器的人」也用同一個批次方法。
 
 `moveRooms` 的 Socket.io 實作是 `io.in(room).socketsLeave(…)` / `socketsJoin(…)`，經由 adapter 作用在所有節點上的連線（§10）。
 
@@ -304,7 +308,9 @@ interface DomainEventMeta {
 | 語意                         | 為什麼                                                                                  |
 | ---------------------------- | --------------------------------------------------------------------------------------- |
 | **`meta` 在 publish 當下擷取** | handler 非同步執行時請求 context 可能已結束；`origin` 必須是發起請求的那個分頁          |
-| **依序處理**（單一 queue，逐一 await） | 同一次操作先發 `permissions.changed` 再發 `resource.changed`：room 一定先同步完才推播 |
+| **同一租戶內依序處理**（每個租戶一條 queue，逐一 await） | 同一次操作先發 `permissions.changed` 再發 `resource.changed`：room 一定先同步完才推播 |
+| **租戶之間互不阻塞** | queue 以發佈當下的租戶分開：一個租戶改了上千人持有的角色，其他租戶的推播不必等它（沒有租戶脈絡的平台事件另成一條） |
+| **`sessions.revoked` 走優先通道** | 每個租戶另有一條優先 queue：踢線不排在同租戶的大量 room 同步之後；它與其他事件沒有先後依賴（session 作廢由 `token_version` 保證） |
 | **handler 錯誤隔離**         | 記錄後吞掉；一個訂閱者壞掉不影響其他訂閱者，也不影響已經成功的寫入                      |
 | **不阻塞 HTTP 回應**         | 推播只是加速（原則 1）                                                                  |
 | **行程內、不持久化**         | Phase 0 單一執行個體；行程在事件處理前結束，事件就遺失——客戶端重連時會整批重新驗證      |
@@ -358,7 +364,7 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 | 送出註冊申請                 | `approval create`                                    | —                                                         |
 | 核准審批                     | `approval update`；`user.register` 另發 `user create`，`refs.role` | —                                           |
 | 駁回審批                     | `approval update`                                    | —                                                         |
-| 檔案上傳完成／改名／刪除     | `file create` / `file update` / `file delete`        | —                                                         |
+| 檔案上傳完成／改名／刪除     | `file create` / `file update` / `file delete`，`refs.fileFolder` = 所在的資料夾（根目錄是 `root`）；圖片的 create 等變體最多 3 秒，與變體完成合併成一次 | —                                                         |
 | 建立／改名資料夾             | `fileFolder create` / `fileFolder update`            | —                                                         |
 | 移動檔案與資料夾             | `fileFolder update`（`id='*'`）、`file update`（`id='*'`） | —                                                   |
 | 遞迴刪除資料夾               | `fileFolder delete`；有檔案一起刪除時另發 `file delete`（`id='*'`） | —                                         |
@@ -508,10 +514,10 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 | 項目                     | 限制                                              | 超過時               |
 | ------------------------ | ------------------------------------------------- | -------------------- |
 | Origin                   | `allowRequest` 檢查 `Origin` 屬於 `REALTIME_ALLOWED_ORIGINS`，或與連線的網域同源（每個租戶自己的網域，ADR-0020 D2） | 拒絕 handshake |
-| 每個 IP 的 handshake     | 每分鐘 30 次                                      | 拒絕 handshake       |
+| 每個 IP 的 handshake     | 每分鐘 1200 次（`REALTIME_HANDSHAKES_PER_IP`；整間公司共用一個 NAT 出口、部署後同時重連） | 拒絕 handshake       |
 | 每條連線的訊息           | 每 10 秒 30 則                                    | 略過；持續超過就斷線 |
 | 單一 frame               | `maxHttpBufferSize` = 16 KB                       | Socket.io 直接斷線   |
-| 每個使用者的連線數       | 20                                                | 拒絕新的 handshake   |
+| 每個使用者的連線數       | 20（`REALTIME_CONNECTIONS_PER_USER`）              | 拒絕新的 handshake   |
 
 前端同一個瀏覽器只有 leader 分頁連線（[前端 11 §3.3](../frontend/11-realtime.md)），
 所以 20 條大約對應 20 個瀏覽器／裝置，而不是 20 個分頁。
@@ -556,7 +562,7 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 | `channel.relay` 只到同使用者；非白名單頻道被略過                       | 整合   |
 | gateway 有未宣告授權的 `@SubscribeMessage` → 啟動失敗                  | 單元（route-audit） |
 | 來源 → 受眾對照（§6.1）                                               | 單元   |
-| `DomainEventBus`：依序處理、錯誤隔離、`meta` 在發佈當下擷取            | 單元   |
+| `DomainEventBus`：同租戶依序、跨租戶與 `sessions.revoked` 不互相阻塞、錯誤隔離、`meta` 在發佈當下擷取 | 單元   |
 | `realtime.listener`：三個領域事件各自的動作（假 bus ＋ 假 io）         | 單元   |
 
 ---

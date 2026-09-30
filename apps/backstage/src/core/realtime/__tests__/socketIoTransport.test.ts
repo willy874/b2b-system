@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { REALTIME_SOCKET_PATH, socketIoRealtimeTransport } from '../socketIoTransport';
+import {
+  REALTIME_RECONNECTION,
+  REALTIME_SOCKET_PATH,
+  socketIoRealtimeTransport,
+} from '../socketIoTransport';
 import type { CreateSocketIo } from '../socketIoTransport';
 import type { RealtimeTransportHooks } from '../transport';
 
@@ -85,6 +89,12 @@ describe('socketIoRealtimeTransport：連線設定（docs/architecture/frontend/
       transports: ['websocket'],
       autoConnect: false,
     });
+  });
+
+  it('重連退避拉長並加隨機：部署後上千條連線不會在幾秒內一起打回來', () => {
+    const { socket } = setup();
+    expect(socket.options).toMatchObject(REALTIME_RECONNECTION);
+    expect(REALTIME_RECONNECTION.reconnectionDelayMax).toBeGreaterThanOrEqual(30_000);
   });
 
   it('★ auth 是函式：每次 handshake 都向 authenticate() 取目前的值', async () => {

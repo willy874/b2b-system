@@ -5,30 +5,24 @@ import { useState } from 'react';
 import { getTenantQueryOptions } from '@/apis/platform-tenant/get-tenant/query';
 import { AlertDialog } from '@/components/AlertDialog';
 import { Button, IconButton } from '@/components/Button';
-import { Checkbox } from '@/components/Checkbox';
-import { Dialog } from '@/components/Dialog';
-import { Field } from '@/components/Field';
 import { Icon } from '@/components/Icon';
-import { Input } from '@/components/Input';
 import { Tooltip } from '@/components/Tooltip';
-import { useErrorMessage, useErrorToast } from '@/core/errors';
+import { useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
-import type { PlatformTenant } from '@/shared/api-sdk';
 import { formatDateTime } from '@/shared/date';
 
 import { TenantStatus } from '../../components/TenantStatus';
-import { TENANT_DOMAIN_PATTERN } from '../../constants';
 import {
-  useAddTenantDomainMutation,
-  useDeleteTenantMutation,
   useDisableTenantMutation,
   useEnableTenantMutation,
-  useRemoveTenantDomainMutation,
   useRetryTenantProvisioningMutation,
-  useUpdateTenantMutation,
 } from '../../hooks/useTenantMutations';
 import { useTenantPermission } from '../../hooks/useTenantPermission';
-import { TenantDetailRoute, TenantListRoute } from '../../routes';
+import { DEFAULT_TENANT_SEARCH, TenantDetailRoute, TenantListRoute } from '../../routes';
+import { DeleteTenantDialog } from './components/DeleteTenantDialog';
+import { ExternalIdpSwitch } from './components/ExternalIdpSwitch';
+import { RenameTenantDialog } from './components/RenameTenantDialog';
+import { TenantDomains } from './components/TenantDomains';
 
 type Confirming = 'disable' | 'remove' | undefined;
 
@@ -46,7 +40,6 @@ export default function TenantDetailPage() {
   const retry = useRetryTenantProvisioningMutation();
   const disable = useDisableTenantMutation();
   const enable = useEnableTenantMutation();
-  const remove = useDeleteTenantMutation();
   const [renaming, setRenaming] = useState(false);
   const [confirming, setConfirming] = useState<Confirming>();
 
@@ -62,7 +55,12 @@ export default function TenantDetailPage() {
 
   return (
     <div className="flex flex-col gap-4" data-testid="tenant-detail-page">
-      <Link to={TenantListRoute.to} className="text-sm" data-testid="tenant-back">
+      <Link
+        to={TenantListRoute.to}
+        search={DEFAULT_TENANT_SEARCH}
+        className="text-sm"
+        data-testid="tenant-back"
+      >
         {t('tenant.back')}
       </Link>
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -165,7 +163,7 @@ export default function TenantDetailPage() {
       <TenantDomains tenant={tenant} canUpdate={permission.canUpdate} />
       <ExternalIdpSwitch tenant={tenant} canUpdate={permission.canUpdate} />
 
-      <RenameDialog open={renaming} tenant={tenant} onClose={() => setRenaming(false)} />
+      <RenameTenantDialog open={renaming} tenant={tenant} onClose={() => setRenaming(false)} />
       <AlertDialog
         open={confirming === 'disable'}
         onOpenChange={(open) => !open && setConfirming(undefined)}
@@ -179,214 +177,15 @@ export default function TenantDetailPage() {
           setConfirming(undefined);
         }}
       />
-      <AlertDialog
+      <DeleteTenantDialog
         open={confirming === 'remove'}
-        onOpenChange={(open) => !open && setConfirming(undefined)}
-        title={t('tenant.remove.title')}
-        description={t('tenant.remove.confirm', { code: tenant.code })}
-        confirmLabel={t('common.delete')}
-        cancelLabel={t('common.cancel')}
-        loading={remove.isPending}
-        onConfirm={async () => {
-          try {
-            await remove.mutateAsync({ params: { id } });
-            setConfirming(undefined);
-            void navigate({ to: TenantListRoute.to });
-          } catch (caught) {
-            showError(caught);
-            setConfirming(undefined);
-          }
+        tenant={tenant}
+        onClose={() => setConfirming(undefined)}
+        onDeleted={() => {
+          setConfirming(undefined);
+          void navigate({ to: TenantListRoute.to, search: DEFAULT_TENANT_SEARCH });
         }}
       />
     </div>
-  );
-}
-
-/** 網域：第一個是主要網域（信中連結與進入租戶用它）；至少保留一個。 */
-function TenantDomains({ tenant, canUpdate }: { tenant: PlatformTenant; canUpdate: boolean }) {
-  const { t } = useTranslation();
-  const showError = useErrorToast();
-  const toMessage = useErrorMessage();
-  const add = useAddTenantDomainMutation();
-  const removeDomain = useRemoveTenantDomainMutation();
-  const [domain, setDomain] = useState('');
-  const [error, setError] = useState<string>();
-
-  const submit = async () => {
-    const value = domain.trim().toLowerCase();
-    if (!TENANT_DOMAIN_PATTERN.test(value)) {
-      setError(t('tenant.error.domainInvalid'));
-      return;
-    }
-    setError(undefined);
-    try {
-      await add.mutateAsync({ params: { id: tenant.id, body: { domain: value } } });
-      setDomain('');
-    } catch (caught) {
-      setError(toMessage(caught));
-    }
-  };
-
-  return (
-    <section className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-      <h2 className="m-0 text-base font-medium">{t('tenant.domain.title')}</h2>
-      <ul className="m-0 flex list-none flex-col gap-1 p-0">
-        {tenant.domains.map((item, index) => (
-          <li
-            key={item}
-            className="flex items-center gap-2 text-sm"
-            data-testid="tenant-domain"
-            data-value={item}
-          >
-            <code className="font-mono">{item}</code>
-            {index === 0 && (
-              <span className="text-xs text-[var(--color-fg-muted)]">
-                {t('tenant.domain.primary')}
-              </span>
-            )}
-            {canUpdate && tenant.domains.length > 1 && (
-              <Tooltip content={t('tenant.domain.remove')}>
-                <IconButton
-                  size="sm"
-                  aria-label={t('tenant.domain.remove')}
-                  onClick={() =>
-                    void removeDomain
-                      .mutateAsync({ params: { id: tenant.id, domain: item } })
-                      .catch(showError)
-                  }
-                  data-testid="tenant-domain-remove"
-                  data-value={item}
-                >
-                  <Icon name="trash" size={16} />
-                </IconButton>
-              </Tooltip>
-            )}
-          </li>
-        ))}
-      </ul>
-      {canUpdate && (
-        <form
-          className="flex items-start gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void submit();
-          }}
-        >
-          <Field label={t('tenant.domain.add')} error={error} className="flex-1">
-            <Input
-              value={domain}
-              onChange={(event) => setDomain(event.target.value)}
-              placeholder="portal.example.com"
-              data-testid="tenant-domain-input"
-            />
-          </Field>
-          <Button type="submit" loading={add.isPending} data-testid="tenant-domain-add">
-            {t('tenant.domain.addAction')}
-          </Button>
-        </form>
-      )}
-    </section>
-  );
-}
-
-/**
- * 是否允許租戶設定外部 IdP 連線（docs/adr/0020-physical-tenant-isolation.md D22）：
- * 連線本身由租戶的管理者在自己的 backstage 設定，平台只能開關。
- */
-function ExternalIdpSwitch({ tenant, canUpdate }: { tenant: PlatformTenant; canUpdate: boolean }) {
-  const { t } = useTranslation();
-  const showError = useErrorToast();
-  const update = useUpdateTenantMutation();
-  return (
-    <section className="flex flex-col gap-2 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-      <h2 className="m-0 text-base font-medium">{t('tenant.externalIdp.title')}</h2>
-      <Checkbox
-        checked={tenant.allowExternalIdp}
-        disabled={!canUpdate || update.isPending}
-        onCheckedChange={(checked) =>
-          void update
-            .mutateAsync({ params: { id: tenant.id, body: { allowExternalIdp: checked } } })
-            .catch(showError)
-        }
-        label={t('tenant.externalIdp.allow')}
-        description={t('tenant.externalIdp.description')}
-        data-testid="tenant-allow-external-idp"
-      />
-    </section>
-  );
-}
-
-function RenameDialog({
-  open,
-  tenant,
-  onClose,
-}: {
-  open: boolean;
-  tenant: PlatformTenant;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const toMessage = useErrorMessage();
-  const update = useUpdateTenantMutation();
-  const [name, setName] = useState(tenant.name);
-  const [error, setError] = useState<string>();
-  const [wasOpen, setWasOpen] = useState(false);
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) {
-      setName(tenant.name);
-      setError(undefined);
-    }
-  }
-
-  const submit = async () => {
-    if (!name.trim()) {
-      setError(t('tenant.error.nameRequired'));
-      return;
-    }
-    try {
-      await update.mutateAsync({ params: { id: tenant.id, body: { name: name.trim() } } });
-      onClose();
-    } catch (caught) {
-      setError(toMessage(caught));
-    }
-  };
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => !next && onClose()}
-      title={t('tenant.rename.title')}
-      data-testid="tenant-rename-dialog"
-      footer={
-        <>
-          <Button onClick={onClose}>{t('common.cancel')}</Button>
-          <Button
-            variant="primary"
-            loading={update.isPending}
-            onClick={() => void submit()}
-            data-testid="tenant-rename-submit"
-          >
-            {t('common.save')}
-          </Button>
-        </>
-      }
-    >
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void submit();
-        }}
-      >
-        <Field label={t('tenant.field.name')} required error={error}>
-          <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            maxLength={100}
-            data-testid="tenant-rename-input"
-          />
-        </Field>
-      </form>
-    </Dialog>
   );
 }

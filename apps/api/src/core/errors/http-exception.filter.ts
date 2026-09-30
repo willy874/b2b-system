@@ -31,6 +31,24 @@ export function flattenZodError(error: ZodError): Record<string, string> {
   return fields;
 }
 
+/**
+ * 框架內建的 `HttpException`（`ParseUUIDPipe`、找不到路由、guard 回 false…）依狀態碼對應錯誤碼，
+ * 前端才不會把一個錯的 id 顯示成「系統錯誤」（docs/issues/03-edge-cases.md EDGE-17）。
+ */
+const HTTP_STATUS_TO_CODE: Readonly<Partial<Record<number, ErrorCode>>> = {
+  400: 'VALIDATION_FAILED',
+  401: 'AUTH_TOKEN_INVALID',
+  403: 'AUTHZ_FORBIDDEN',
+  404: 'NOT_FOUND',
+  409: 'CONFLICT',
+  429: 'RATE_LIMITED',
+};
+
+/** 沒列在表裡的 4xx 都是請求本身的問題（例：415、413），一律視為驗證失敗；5xx 才是伺服器錯誤。 */
+export function codeOfHttpStatus(status: number): ErrorCode {
+  return HTTP_STATUS_TO_CODE[status] ?? (status < 500 ? 'VALIDATION_FAILED' : 'INTERNAL_ERROR');
+}
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
@@ -65,7 +83,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     // Postgres 唯一鍵衝突：競態下 service 的預檢查沒擋住
     if (isUniqueViolation(exception)) {
-      const code = mapConstraintToCode(constraintNameOf(exception));
+      const constraint = constraintNameOf(exception);
+      const code = mapConstraintToCode(constraint);
+      // 沒對應到業務錯誤碼的約束：記下來，之後可以補進 CONSTRAINT_TO_CODE 或在 service 預先檢查
+      if (code === 'CONFLICT') this.logger.warn({ constraint, requestId }, '未對應的唯一鍵衝突');
       this.send(res, code in ErrorCode ? statusOf(code as ErrorCode) : 409, {
         error: { code, message: 'Conflict', requestId },
       });
@@ -86,7 +107,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       const status = exception.getStatus();
       this.send(res, status, {
         error: {
-          code: status === 429 ? 'RATE_LIMITED' : 'INTERNAL_ERROR',
+          code: codeOfHttpStatus(status),
           message: exception.message,
           requestId,
         },

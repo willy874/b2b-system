@@ -1,9 +1,8 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 
 import { Public } from '@/common/decorators';
-import { AUTH_THROTTLE } from '@/common/rate-limit';
+import { RateLimit } from '@/common/rate-limit';
 import { ApiZodResponse, ZodValidationPipe } from '@/core/validation';
 
 import { CurrentTenantSchema, TenantLookupQuerySchema, TenantLookupSchema } from './dto/tenant.dto';
@@ -27,7 +26,7 @@ export class TenantController {
   @Get('tenants/lookup')
   @Public()
   // 可以用來猜租戶代碼：與登入同一個速率限制
-  @Throttle({ default: AUTH_THROTTLE })
+  @RateLimit('auth')
   @ApiOperation({ summary: '以代碼找租戶的登入入口（apps/auth 的進入租戶、帳號流程完成後）' })
   @ApiZodResponse(200, TenantLookupSchema)
   lookup(@Query(new ZodValidationPipe(TenantLookupQuerySchema)) query: TenantLookupQueryDto) {

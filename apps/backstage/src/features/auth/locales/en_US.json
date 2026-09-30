@@ -4,9 +4,13 @@
       "title": "Sign in",
       "submit": "Sign in",
       "redirecting": "Taking you to the sign-in page…",
-      "signedOut": "You are signed out. All products share one sign-in, so the other products are signed out too."
+      "signedOut": "You are signed out. All products share one sign-in, so the other products are signed out too.",
+      "sessionEnded": "Your session has ended. Please sign in again.",
+      "passwordChanged": "Your password was changed and every device was signed out. Sign in again with the new password."
     },
-    "logout": { "success": "Signed out." },
+    "logout": {
+      "success": "Signed out."
+    },
     "callback": {
       "title": "Sign in",
       "working": "Finishing sign-in…",

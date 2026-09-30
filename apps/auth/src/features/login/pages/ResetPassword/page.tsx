@@ -23,7 +23,7 @@ function createSchema(passwordMinLength: number) {
     .object({ newPassword: z.string().min(passwordMinLength), confirmPassword: z.string().min(1) })
     .refine((value) => value.newPassword === value.confirmPassword, {
       path: ['confirmPassword'],
-      message: 'passwords do not match',
+      params: { messageKey: 'validation.passwordMismatch' },
     });
 }
 

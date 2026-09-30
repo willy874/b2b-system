@@ -7,6 +7,7 @@ import type { TenantRow, TenantStatus } from '@/db/platform/schema';
 import type { Env } from '../config';
 import { SecretBox, TENANT_SECRET_PURPOSE } from '../crypto';
 import { hostnameOf } from '../http';
+import { BoundedCache } from './bounded-cache';
 import { TenantRepository } from './tenant.repository';
 
 /** 解密後的租戶登記。`databaseUrl` 只在建立連線池時使用，不寫進日誌。 */
@@ -21,25 +22,46 @@ export interface TenantRecord {
   allowExternalIdp: boolean;
 }
 
-interface Cached<T> {
-  value: T;
-  expiresAt: number;
-}
+/** 每種查詢最多快取幾筆（租戶數遠小於這個值；上限只是防止被灌爆）。 */
+export const TENANT_CACHE_MAX_ENTRIES = 5_000;
+/** 「找不到」的結果快取多久：key 可能是攻擊者隨意產生的，不必久留。 */
+const NEGATIVE_TTL_MS = 5_000;
+
+/**
+ * 看起來像網域（含 port、IPv6）的字串才查；其他（超長、怪字元）直接當成找不到。
+ * 故意比 `TenantDomainSchema` 寬：舊資料或預設租戶的網域可能不完全符合登記時的規則。
+ */
+const HOST_LIKE = /^[a-z0-9.\-:[\]]{1,260}$/;
+/** 同上，租戶代碼（`X-Tenant`、`/tenants/lookup?code=`）。 */
+const CODE_LIKE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
 
 /**
  * 租戶登記的查詢與快取（docs/adr/0020-physical-tenant-isolation.md D2）。每個請求都要以網域找租戶，
- * 所以結果（含「找不到」）快取 `TENANT_CACHE_TTL` 秒；租戶的狀態改變由 `invalidate()` 立即生效。
+ * 所以結果快取 `TENANT_CACHE_TTL` 秒（「找不到」只快取數秒）；租戶的狀態改變由 `invalidate()` 立即生效。
+ *
+ * 網域的請求在 throttler 之前就會解析，而 Host 由客戶端決定：不在「網域 → 租戶」快照裡的 Host 直接視為找不到，
+ * 不查平台 DB；快取有上限（docs/issues/01-performance.md PERF-12）。
  */
 @Injectable()
 export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(TenantDirectory.name);
   private readonly secrets: SecretBox;
   private readonly ttlMs: number;
-  private readonly byHost = new Map<string, Cached<TenantRecord | undefined>>();
-  private readonly byId = new Map<string, Cached<TenantRecord | undefined>>();
-  private readonly byCode = new Map<string, Cached<TenantRecord | undefined>>();
+  private readonly byHost = new BoundedCache<string, TenantRecord | undefined>(
+    TENANT_CACHE_MAX_ENTRIES,
+  );
+  private readonly byId = new BoundedCache<string, TenantRecord | undefined>(
+    TENANT_CACHE_MAX_ENTRIES,
+  );
+  private readonly byCode = new BoundedCache<string, TenantRecord | undefined>(
+    TENANT_CACHE_MAX_ENTRIES,
+  );
   /** 網域 → 租戶 id 的快照（同步讀取用），每 `TENANT_CACHE_TTL` 秒與 `invalidate()` 時重新載入。 */
   private domains = new Map<string, string>();
+  /** 快照是否載入過；還沒有（啟動失敗、DB 暫時連不上）時退回查 DB。 */
+  private domainsLoaded = false;
+  /** 進行中的重新載入：`invalidate()` 之後的查詢要等它完成，剛登記的網域才找得到。 */
+  private refreshing?: Promise<void>;
   private refreshTimer?: NodeJS.Timeout;
 
   constructor(
@@ -75,6 +97,11 @@ export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy 
     return this.domains.get(normalized) ?? this.domains.get(hostnameOf(normalized));
   }
 
+  /** 只接受完全相符的 `host[:port]`（不退回只比 hostname）：redirect URI 的比對用（SEC-17）。 */
+  tenantIdOfExactHost(host: string): string | undefined {
+    return this.domains.get(host.toLowerCase());
+  }
+
   /** 租戶的主要網域（第一個登記的）；「進入租戶」與帳號流程完成後的登入入口用它。 */
   primaryDomainOf(tenantId: string): string | undefined {
     for (const [domain, owner] of this.domains) if (owner === tenantId) return domain;
@@ -96,35 +123,36 @@ export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy 
 
   async findByCode(code: string): Promise<TenantRecord | undefined> {
     const key = code.toLowerCase();
-    const cached = this.fresh(this.byCode.get(key));
+    if (!CODE_LIKE.test(key)) return undefined;
+    const cached = this.byCode.get(key);
     if (cached) return cached.value;
     const row = await this.repo.findByCode(key);
-    const record = row ? this.toRecord(row) : undefined;
-    this.byCode.set(key, this.entry(record));
-    return record;
+    return this.remember(this.byCode, key, row ? this.toRecord(row) : undefined);
   }
 
   /** 先比對 `host:port`，再比對主機名稱（正式環境的網域通常不帶 port）。 */
   async resolveHost(host: string): Promise<TenantRecord | undefined> {
-    const cached = this.fresh(this.byHost.get(host));
+    const normalized = host.toLowerCase();
+    if (!HOST_LIKE.test(normalized)) return undefined;
+    const cached = this.byHost.get(normalized);
     if (cached) return cached.value;
-    const candidates = [...new Set([host, hostnameOf(host)])];
+    // 快照裡沒有的網域一定不屬於任何租戶：不查 DB、也不佔快取（任意 Host 都會轉進來）
+    await this.refreshing;
+    if (this.domainsLoaded && this.tenantIdOfHost(normalized) === undefined) return undefined;
+
+    const candidates = [...new Set([normalized, hostnameOf(normalized)])];
     const rows = await this.repo.findByDomains(candidates);
     const match = candidates
       .map((candidate) => rows.find((row) => row.domain.toLowerCase() === candidate))
       .find(Boolean);
-    const record = match ? this.toRecord(match.tenant) : undefined;
-    this.byHost.set(host, this.entry(record));
-    return record;
+    return this.remember(this.byHost, normalized, match ? this.toRecord(match.tenant) : undefined);
   }
 
   async findById(id: string): Promise<TenantRecord | undefined> {
-    const cached = this.fresh(this.byId.get(id));
+    const cached = this.byId.get(id);
     if (cached) return cached.value;
     const row = await this.repo.findById(id);
-    const record = row ? this.toRecord(row) : undefined;
-    this.byId.set(id, this.entry(record));
-    return record;
+    return this.remember(this.byId, id, row ? this.toRecord(row) : undefined);
   }
 
   /** 所有 `active` 的租戶（排程工作展開、清掃 outbox 用）；不快取。 */
@@ -140,10 +168,19 @@ export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy 
     void this.refreshDomains();
   }
 
-  private async refreshDomains(): Promise<void> {
+  private refreshDomains(): Promise<void> {
+    const refreshing = this.loadDomains().finally(() => {
+      if (this.refreshing === refreshing) this.refreshing = undefined;
+    });
+    this.refreshing = refreshing;
+    return refreshing;
+  }
+
+  private async loadDomains(): Promise<void> {
     try {
       const rows = await this.repo.listDomains();
       this.domains = new Map(rows.map((row) => [row.domain.toLowerCase(), row.tenantId]));
+      this.domainsLoaded = true;
     } catch (error) {
       // 沿用上一份快照；下一輪再試
       this.logger.error({ err: error }, '載入租戶網域失敗');
@@ -162,11 +199,12 @@ export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy 
     };
   }
 
-  private entry<T>(value: T): Cached<T> {
-    return { value, expiresAt: Date.now() + this.ttlMs };
-  }
-
-  private fresh<T>(cached: Cached<T> | undefined): Cached<T> | undefined {
-    return cached && cached.expiresAt > Date.now() ? cached : undefined;
+  private remember(
+    cache: BoundedCache<string, TenantRecord | undefined>,
+    key: string,
+    record: TenantRecord | undefined,
+  ): TenantRecord | undefined {
+    cache.set(key, record, record ? this.ttlMs : Math.min(this.ttlMs, NEGATIVE_TTL_MS));
+    return record;
   }
 }

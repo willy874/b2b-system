@@ -106,6 +106,10 @@ export const files = pgTable(
     index('files_folder_created_at_idx')
       .on(t.folderId, t.createdAt, t.id)
       .where(sql`${t.deletedAt} IS NULL`),
+    // 依上傳者篩選（`GET /files?uploaderId=`）：沒有它就要掃過所有未刪除的檔案（PERF-19）
+    index('files_created_by_created_at_idx')
+      .on(t.createdBy, t.createdAt)
+      .where(sql`${t.deletedAt} IS NULL`),
     index('files_status_content_type_idx')
       .on(t.status, t.contentType)
       .where(sql`${t.deletedAt} IS NULL`),

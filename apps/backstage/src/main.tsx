@@ -40,7 +40,9 @@ async function bootstrap(): Promise<void> {
   // 偏好在 render 前水合，避免「先閃英文再變中文」
   hydratePreferences();
 
-  if (ENV.ENABLE_MOCK) {
+  // 直接比對 import.meta.env（不經 ENV 物件）：Vite 換成字面值後打包器才能把這段與 MSW 的 chunk（約 430 KB）
+  // 整個拿掉；經過物件屬性時不會被常數折疊，正式產物會多帶一個用不到的 chunk
+  if (import.meta.env.VITE_ENABLE_MOCK === 'true') {
     const { startMockWorker } = await import('@/mocks/browser');
     await startMockWorker();
   }

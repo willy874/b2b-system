@@ -20,8 +20,9 @@ export const roles = pgTable(
     uniqueIndex('roles_slug_key')
       .on(t.slug)
       .where(sql`${t.deletedAt} IS NULL`),
+    // 名稱不分大小寫唯一：`Admin` 與 `admin` 不能並存（docs/issues/03-edge-cases.md EDGE-21）
     uniqueIndex('roles_name_key')
-      .on(t.name)
+      .on(sql`lower(${t.name})`)
       .where(sql`${t.deletedAt} IS NULL`),
   ],
 );

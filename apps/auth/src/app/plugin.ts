@@ -4,6 +4,7 @@ import type { AppPluginFactory } from '@/core/app';
 import { queryClient } from '@/core/cache';
 import { parseSearch, stringifySearch } from '@/core/router';
 
+import { ROUTER_DEFAULT_COMPONENTS } from './ErrorPages';
 import { routeTree } from './routes';
 
 function createAppRouter() {
@@ -14,6 +15,8 @@ function createAppRouter() {
     defaultPendingMs: 200,
     parseSearch,
     stringifySearch,
+    // 載入中、未知網址與頁面載入失敗（含部署後舊 chunk 不見）顯示本地化的頁面，不用框架預設的英文畫面
+    ...ROUTER_DEFAULT_COMPONENTS,
   });
 }
 

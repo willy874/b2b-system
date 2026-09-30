@@ -17,6 +17,11 @@ export const TENANT_STATUS_DOT_CLASS = {
   failed: 'bg-[var(--color-danger)]',
 } as const satisfies Record<TenantStatus, string>;
 
+export const TENANT_PAGE_SIZE_OPTIONS = [25, 50, 100];
+
+/** 狀態篩選的「全部」：不帶 `status` 參數。 */
+export const TENANT_STATUS_ALL = 'all';
+
 /** 與後端 `TENANT_CODE_PATTERN` 相同：小寫英數與連字號，3–32 字元，開頭是字母。 */
 export const TENANT_CODE_PATTERN = /^[a-z][a-z0-9-]{1,30}[a-z0-9]$/;
 

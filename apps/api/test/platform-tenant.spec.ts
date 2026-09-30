@@ -21,7 +21,8 @@ import { oidcPayloads, platformAdmins, tenants } from '@/db/platform/schema';
 import type { PlatformAdminRole } from '@/db/platform/schema';
 import { fileFolders, permissions, refreshTokens, roles, users } from '@/db/schema';
 import { upsertPlatformAdmin } from '@/db/seeds/platform-admin';
-import { TenantProvisioner } from '@/modules/tenant/tenant-provisioner';
+import { PlatformAuditService } from '@/modules/platform-admin/platform-audit.service';
+import { PROVISION_STALE_MS, TenantProvisioner } from '@/modules/tenant/tenant-provisioner';
 
 import type { PlatformTestDatabase } from './db';
 import { createPlatformTestDatabase } from './db';
@@ -41,7 +42,8 @@ class RecordingMailTransport extends MailTransport {
 const AUTH_HOST = 'localhost:5175';
 /** 測試租戶的網域（test/global-setup.ts）。 */
 const HOME_HOST = '127.0.0.1';
-const ADMIN_PASSWORD = 'AcmeAdmin!Pass2026';
+// 密碼不能含租戶代碼或 email 的帳號名稱（SEC-14）
+const ADMIN_PASSWORD = 'FirstLogin!Pass2026';
 
 let app: INestApplication;
 let http: App;
@@ -265,7 +267,7 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
     expect(errorCodeOf(reserved)).toBe('VALIDATION_FAILED');
   });
 
-  it('網域：新增的網域立即生效；不能移除最後一個', async () => {
+  it('網域：新增的網域立即生效；不能移除主要網域與最後一個', async () => {
     const acme = dataOf<{ items: TenantBody[] }>(
       await platform('get', '/platform/tenants').expect(200),
     ).items.find((t) => t.code === 'acme');
@@ -281,12 +283,60 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
       .send({ email: 'owner@acme.test', password: ADMIN_PASSWORD })
       .expect(200);
 
+    // 主要網域（第一個）不能移除，即使還有其他網域
+    const primary = await platform(
+      'delete',
+      `/platform/tenants/${acme!.id}/domains/acme.localhost:5173`,
+    ).expect(409);
+    expect(errorCodeOf(primary)).toBe('TENANT_PRIMARY_DOMAIN');
+
     await platform('delete', `/platform/tenants/${acme!.id}/domains/portal.acme.test`).expect(200);
+
+    // 兩個請求同時各移除一個（共兩個）：後到的看到前一個的結果，不會把網域移光（EDGE-20）
+    await platform('post', `/platform/tenants/${acme!.id}/domains`)
+      .send({ domain: 'second.acme.test' })
+      .expect(200);
+    const racing = await Promise.all([
+      platform('delete', `/platform/tenants/${acme!.id}/domains/acme.localhost:5173`),
+      platform('delete', `/platform/tenants/${acme!.id}/domains/second.acme.test`),
+    ]);
+    expect(racing.map((response) => response.status).toSorted()).toEqual([200, 409]);
+    const afterRace = dataOf<TenantBody>(
+      await platform('get', `/platform/tenants/${acme!.id}`).expect(200),
+    );
+    expect(afterRace.domains).toHaveLength(1);
+    // 恢復成只有預設網域，後面的測試以它登入
+    if (afterRace.domains[0] !== 'acme.localhost:5173') {
+      await platform('post', `/platform/tenants/${acme!.id}/domains`)
+        .send({ domain: 'acme.localhost:5173' })
+        .expect(200);
+      await platform('delete', `/platform/tenants/${acme!.id}/domains/second.acme.test`).expect(
+        200,
+      );
+    }
+
     const last = await platform(
       'delete',
       `/platform/tenants/${acme!.id}/domains/acme.localhost:5173`,
     ).expect(409);
     expect(errorCodeOf(last)).toBe('TENANT_LAST_DOMAIN');
+  });
+
+  it('停用的平台稽核寫不進去時，狀態不變（稽核與狀態變更同一個交易，EDGE-24）', async () => {
+    const acme = dataOf<{ items: TenantBody[] }>(
+      await platform('get', '/platform/tenants').expect(200),
+    ).items.find((t) => t.code === 'acme');
+    const audit = app.get(PlatformAuditService);
+    const record = vi.spyOn(audit, 'record').mockRejectedValueOnce(new Error('audit down'));
+    try {
+      await platform('post', `/platform/tenants/${acme!.id}/disable`).expect(500);
+    } finally {
+      record.mockRestore();
+    }
+    const unchanged = dataOf<TenantBody>(
+      await platform('get', `/platform/tenants/${acme!.id}`).expect(200),
+    );
+    expect(unchanged.status).toBe('active');
   });
 
   it('停用：網域回 503、session 全部撤銷；啟用後恢復', async () => {
@@ -358,6 +408,75 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
     );
     expect(retried.status).toBe('provisioning');
     await waitForStatus(broken!.id, 'failed');
+  });
+
+  it('清單：分頁、代碼／名稱／網域搜尋、狀態篩選（UX-29）', async () => {
+    type List = {
+      items: TenantBody[];
+      pagination: { offset: number; limit: number; total: number };
+    };
+    const codes = (list: List) => list.items.map((t) => t.code);
+
+    const all = dataOf<List>(await platform('get', '/platform/tenants').expect(200));
+    expect(all.pagination).toMatchObject({ offset: 0, limit: 50 });
+    expect(all.pagination.total).toBe(all.items.length);
+    expect(codes(all)).toEqual(expect.arrayContaining(['acme', 'broken']));
+
+    const failed = dataOf<List>(
+      await platform('get', '/platform/tenants?status=failed').expect(200),
+    );
+    expect(codes(failed)).toEqual(['broken']);
+
+    // 代碼與名稱不分大小寫；網域也能搜
+    expect(codes(dataOf<List>(await platform('get', '/platform/tenants?q=ACM')))).toEqual(['acme']);
+    expect(codes(dataOf<List>(await platform('get', '/platform/tenants?q=Broken')))).toEqual([
+      'broken',
+    ]);
+    expect(
+      codes(dataOf<List>(await platform('get', '/platform/tenants?q=acme.localhost'))),
+    ).toEqual(['acme']);
+    // LIKE 的萬用字元當成字面
+    expect(dataOf<List>(await platform('get', '/platform/tenants?q=%25')).items).toEqual([]);
+
+    const page = dataOf<List>(await platform('get', '/platform/tenants?limit=1&offset=1'));
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]!.code).toBe(all.items[1]!.code);
+    expect(page.pagination).toEqual({ offset: 1, limit: 1, total: all.pagination.total });
+
+    const invalid = await platform('get', '/platform/tenants?status=gone').expect(400);
+    expect(errorCodeOf(invalid)).toBe('VALIDATION_FAILED');
+  });
+
+  it('佈建途中程序被重啟：逾時仍在 provisioning 的租戶改成 failed，可以重試或刪除（EDGE-07）', async () => {
+    const box = SecretBox.fromConfig(inject('tenantSecretKey'), '', TENANT_SECRET_PURPOSE);
+    const longAgo = new Date(Date.now() - PROVISION_STALE_MS - 60_000);
+    const [stuck, fresh] = await platformDb
+      .insert(tenants)
+      .values(
+        ['stuck', 'fresh'].map((code) => ({
+          code,
+          name: code,
+          status: 'provisioning' as const,
+          databaseUrlEncrypted: box.encrypt(
+            `postgres://tenant_${code}:x@127.0.0.1:1/tenant_${code}`,
+          ),
+          storageBucket: `b2b-${code}`,
+          updatedAt: code === 'stuck' ? longAgo : new Date(),
+        })),
+      )
+      .returning();
+
+    // 排程的清掃：只改卡住的，剛開始佈建的不動
+    expect(await app.get(TenantProvisioner).failStaleProvisioning()).toBe(1);
+    const stillRunning = await platform('delete', `/platform/tenants/${fresh!.id}`).expect(409);
+    expect(errorCodeOf(stillRunning)).toBe('TENANT_STATUS_CONFLICT');
+    const failed = dataOf<TenantBody>(
+      await platform('get', `/platform/tenants/${stuck!.id}`).expect(200),
+    );
+    expect(failed).toMatchObject({ status: 'failed' });
+    expect(failed.provisionError).toContain('佈建中斷');
+    await platform('delete', `/platform/tenants/${stuck!.id}`).expect(204);
+    await platformDb.delete(tenants).where(eq(tenants.id, fresh!.id));
   });
 
   it('刪除：從清單消失、網域釋出（回 TENANT_NOT_FOUND）；代碼可以再用', async () => {

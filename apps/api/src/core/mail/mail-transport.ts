@@ -13,6 +13,17 @@ export interface SentMail {
 }
 
 /**
+ * 寄信工作共用的設定（各模組以 `defineJob(name, MAIL_JOB_OPTIONS)` 宣告）：失敗多半是 SMTP 暫時不可用，
+ * 多重試幾次、間隔拉長；等待 SMTP 為主，同時寄幾封（SMTP 連線池見 `MAIL_SMTP_POOL_SIZE`）。
+ */
+export const MAIL_JOB_OPTIONS = {
+  retryLimit: 8,
+  retryDelaySeconds: 60,
+  retryDelayMaxSeconds: 60 * 60,
+  concurrency: 5,
+} as const;
+
+/**
  * 寄信的抽象層（同時是 DI token），與 `ObjectStorage` 同構：實作由 `MAIL_TRANSPORT` 決定，
  * 注入端只認這個類別（docs/architecture/backend/11-mail.md §2）。
  */

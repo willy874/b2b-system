@@ -95,7 +95,7 @@
   密碼短於租戶的 `auth.passwordMinLength` 時回 `400 VALIDATION_FAILED`（[`../architecture/backend/12-settings.md`](../architecture/backend/12-settings.md) §3）。
 - 不建立帳號，只建立一筆 `user.register` 審批請求；核准後才以這組 email 與密碼建立 **已啟用** 的帳號。
 - 密碼在送出時就雜湊，只存在請求的 `private_payload`，審核後清空。
-- 速率限制：同 IP 每分鐘 `max(3, AUTH_RATE_LIMIT / 3)` 次。
+- 速率限制：同一個 email ＋ IP 每分鐘 `max(3, AUTH_RATE_LIMIT / 3)` 次；同 IP 另有總上限（[`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §8）。
 - 流程與規則見 [`06-approval.md`](./06-approval.md) §5。
 
 ---
@@ -107,12 +107,12 @@
 | GET    | `/users`                    | 🛡 `user:read`          | 列表（分頁／搜尋／排序／篩選）         |
 | POST   | `/users`                    | 🛡 `user:create`        | 建立（status = `pending`，寄啟用信）   |
 | GET    | `/users/:id`                | 🛡 `user:read`          | 詳情（含角色）                         |
-| PATCH  | `/users/:id`                | 🛡 `user:update`        | 修改基本資料 / 狀態                    |
+| PATCH  | `/users/:id`                | 🛡 `user:update`        | 修改基本資料 / 狀態（`active`／`inactive`；不能改回 `pending`） |
 | DELETE | `/users/:id`                | 🛡 `user:delete`        | 軟刪除                                 |
 | GET    | `/users/:id/roles`          | 🛡 `user:read`          | 該使用者的角色                         |
 | PUT    | `/users/:id/roles`          | 🛡 `user:assignRole`    | **整批取代** 角色                      |
 | GET    | `/users/:id/permissions`    | 🛡 `user:read`          | 該使用者的有效權限集合（除錯／稽核用） |
-| POST   | `/users/:id/reset-password` | 🛡 `user:resetPassword` | 代觸發重設流程                         |
+| POST   | `/users/:id/reset-password` | 🛡 `user:resetPassword` | 代觸發重設流程；`pending` 的人改寄啟用信 |
 | POST   | `/users/:id/unlock`         | 🛡 `user:update`        | 解除登入鎖定                           |
 
 ### 2.1 `GET /users`
@@ -179,12 +179,17 @@
 
 ```jsonc
 // Request — 整批取代語意
-{ "roleIds": ["role-a", "role-b"] }
+{ "roleIds": ["role-a", "role-b"], "expectedRoleIds": ["role-a"] }
 
 // 200 → { "data": { "roles": [ ... ] } }
+// 409 → { "error": { "code": "USER_ROLES_CONFLICT", "details": { "currentRoleIds": [ ... ] } } }
 ```
 
-檢查：反提權（§5）、`AUTHZ_SELF_MODIFY`、`LAST_SUPER_ADMIN`。
+`expectedRoleIds`（選填）：編輯開始時的角色。與目前的角色不同時回 `409 USER_ROLES_CONFLICT`，不覆寫別人剛做的變更。
+
+檢查：反提權（§5；目標持有 super-admin 時只有 super-admin 能改）、`AUTHZ_SELF_MODIFY`、`LAST_SUPER_ADMIN`（交易內加鎖）、`USER_ROLES_CONFLICT`。
+
+`PATCH /users/:id` 改狀態、`DELETE /users/:id` 同樣：目標持有 super-admin 時只有 super-admin 能做（`AUTHZ_ESCALATION`）。
 
 ### 2.5 批次操作
 
@@ -253,19 +258,24 @@
 
 檢查順序：
 
+0. 同一個鍵同時在 `add` 與 `remove` → `400 VALIDATION_FAILED`（意圖不明，結果也會與稽核對不上）
 1. 角色存在且未刪除
 2. `isSystem && slug === 'super-admin'` → `403 ROLE_SUPER_ADMIN_IMMUTABLE`
 3. `add` 的鍵全部存在 → 否則 `400 PERMISSION_UNKNOWN`
 4. 反提權：`add ⊆ actor 權限集合` → 否則 `403 AUTHZ_ESCALATION`
-5. `LAST_SUPER_ADMIN` 檢查
-6. 交易寫入 → 失效快取 → 稽核
+5. 自我鎖定：actor 持有這個角色、且變更後會失去管理角色所需的權限 → `403 ROLE_SELF_LOCKOUT`
+   （[`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §8.4）
+6. 交易（先 `FOR UPDATE` 鎖住角色列）寫入 ＋ 稽核（`before`／`after` 在交易內讀取）→ 失效快取
 
 ### 3.4 `DELETE /roles/:id`
 
-- `isSystem` → `403 ROLE_SYSTEM_PROTECTED`
+- `isSystem` → `403 ROLE_SYSTEM_PROTECTED`（DB trigger 也擋系統角色的軟刪除）
+- actor 持有這個角色、且刪除後會失去管理角色所需的權限 → `403 ROLE_SELF_LOCKOUT`
 - 尚有（未刪除的）使用者持有 → 預設拒絕 `409 ROLE_IN_USE`，帶 `details.userCount`
   - 可加 `?force=true`（仍需 `role:delete`）強制刪除並連帶移除指派，
     此時稽核紀錄 `metadata.forced = true`
+- 計數與刪除在同一個交易裡、先以 `FOR UPDATE` 鎖住角色列；指派角色以 `FOR SHARE` 鎖住角色列再插入。
+  兩者同時發生時，後到的一方看得到先提交的結果（不會刪掉剛指派的人卻沒失效他的快取，也不會留下指向已刪除角色的指派）
 
 ### 3.5 `POST /roles/:id/duplicate`
 

@@ -8,11 +8,43 @@ services:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
+      # 超級使用者只給初始化腳本與人工維運用；api 與 migrate 用 deploy/postgres/10-roles.sh 建立的角色
+      # （docs/architecture/05-tenancy.md §7.1）。密碼會放進連線字串，請用 URL 安全的字元（例：openssl rand -hex 24）
       POSTGRES_USER: ${POSTGRES_USER:-b2bsystem}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
       POSTGRES_DB: ${POSTGRES_DB:-b2b_system}
+      PLATFORM_POSTGRES_DB: ${PLATFORM_POSTGRES_DB:-b2b_platform}
+      POSTGRES_PLATFORM_PASSWORD: ${POSTGRES_PLATFORM_PASSWORD:?required}
+      POSTGRES_TENANT_PASSWORD: ${POSTGRES_TENANT_PASSWORD:?required}
+      POSTGRES_PROVISIONER_PASSWORD: ${POSTGRES_PROVISIONER_PASSWORD:?required}
+    # 連線預算與調校（docs/architecture/backend/02-database.md §6.2）：
+    #   平台池 ＋ pg-boss（4）＋ 同時活躍的租戶數 × TENANT_POOL_MAX（× api 程序數）＜ max_connections − 保留
+    # 記憶體：shared_buffers 約為容器記憶體的 25%、effective_cache_size 約 75%
+    command:
+      - postgres
+      - -c
+      - max_connections=${POSTGRES_MAX_CONNECTIONS:-200}
+      - -c
+      - shared_buffers=${POSTGRES_SHARED_BUFFERS:-512MB}
+      - -c
+      - effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-1536MB}
+      - -c
+      - work_mem=${POSTGRES_WORK_MEM:-8MB}
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - log_min_duration_statement=500
+      # 連線斷了卻沒關掉的交易、忘了結束的 session 由 postgres 收掉（api 另外在每條連線設 statement_timeout）
+      - -c
+      - idle_in_transaction_session_timeout=60000
+    shm_size: 256mb
+    mem_limit: ${POSTGRES_MEM_LIMIT:-2g}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # 只在第一次初始化資料目錄時執行
+      - ./deploy/postgres/10-roles.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
     networks: [data]
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-b2bsystem} -d ${POSTGRES_DB:-b2b_system}']
@@ -27,10 +59,10 @@ services:
       dockerfile: apps/api/Dockerfile
     restart: 'no'
     environment:
-      # 平台 DB 不存在時 migrate 會建立；預設租戶的 DB 沿用 POSTGRES_DB（docs/adr/0020-physical-tenant-isolation.md）
-      PLATFORM_DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
+      # 平台 DB 與預設租戶的 DB 都由 10-roles.sh 建立，擁有者是各自的角色（不是超級使用者；05-tenancy.md §7.1）
+      PLATFORM_DATABASE_URL: postgres://b2b_platform:${POSTGRES_PLATFORM_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
       TENANT_SECRET_KEY: ${TENANT_SECRET_KEY:?required}
-      DEFAULT_TENANT_DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-b2b_system}
+      DEFAULT_TENANT_DATABASE_URL: postgres://b2b_tenant_default:${POSTGRES_TENANT_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-b2b_system}
       # 瀏覽器看到的 host（含 port）；apps/auth（:8081）不屬於任何租戶
       DEFAULT_TENANT_DOMAINS: ${DEFAULT_TENANT_DOMAINS:-localhost:8080}
       # 每個租戶一個 bucket（D16）；預設租戶沿用租戶化之前的 bucket（舊部署設過 FILE_STORAGE_BUCKET 的照舊）
@@ -53,10 +85,21 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      PLATFORM_DATABASE_URL: postgres://${POSTGRES_USER:-b2bsystem}:${POSTGRES_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
+      PLATFORM_DATABASE_URL: postgres://b2b_platform:${POSTGRES_PLATFORM_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
       TENANT_SECRET_KEY: ${TENANT_SECRET_KEY:?required}
-      # 佈建新租戶（ADR-0020 D4、D12）：留空時用 PLATFORM_DATABASE_URL（postgres 映像的 POSTGRES_USER 是超級使用者）
-      TENANT_PROVISIONING_DATABASE_URL: ${TENANT_PROVISIONING_DATABASE_URL:-}
+      # 佈建新租戶（ADR-0020 D4、D12）：CREATEDB＋CREATEROLE、不是超級使用者的角色（10-roles.sh）
+      TENANT_PROVISIONING_DATABASE_URL: postgres://b2b_provisioner:${POSTGRES_PROVISIONER_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
+      # 連線預算（backend/02-database.md §6.2）：每個租戶的池、閒置關閉、每條連線的逾時
+      TENANT_POOL_MAX: ${TENANT_POOL_MAX:-10}
+      TENANT_POOL_IDLE_TIMEOUT: ${TENANT_POOL_IDLE_TIMEOUT:-30}
+      PLATFORM_POOL_MAX: ${PLATFORM_POOL_MAX:-10}
+      DB_CONNECT_TIMEOUT: ${DB_CONNECT_TIMEOUT:-10}
+      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-15000}
+      DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: ${DB_IDLE_IN_TRANSACTION_TIMEOUT_MS:-30000}
+      # argon2、sharp、DNS 查詢共用 libuv 的執行緒池（預設 4）；依 CPU 數調整
+      UV_THREADPOOL_SIZE: ${UV_THREADPOOL_SIZE:-16}
+      # V8 heap 上限約為容器記憶體上限的 75%，留給 sharp 等原生記憶體與 Buffer
+      NODE_OPTIONS: --max-old-space-size=${API_HEAP_MB:-1536}
       # 新租戶的預設網域 {code}.<值>；留空 = APP_PUBLIC_URL 的 host。wildcard 網域的反向代理在交付順序第 6 步
       TENANT_BASE_DOMAIN: ${TENANT_BASE_DOMAIN:-}
       JWT_SECRET: ${JWT_SECRET:?required}
@@ -64,6 +107,16 @@ services:
       REFRESH_COOKIE_PATH: /api/auth
       # nginx 在同一個 docker 網路（私有網段）：信任它帶的 X-Forwarded-For，限流才看得到真實 IP
       TRUST_PROXY: uniquelocal
+      # 速率限制（次 / 分；backend/03-api-conventions.md §8）：已登入以使用者計，未登入與登入類端點的 IP 桶
+      # 按「整間公司共用一個 NAT 出口 IP」估算
+      DEFAULT_RATE_LIMIT: ${DEFAULT_RATE_LIMIT:-600}
+      ANONYMOUS_RATE_LIMIT: ${ANONYMOUS_RATE_LIMIT:-3000}
+      AUTH_RATE_LIMIT: ${AUTH_RATE_LIMIT:-10}
+      AUTH_IP_RATE_LIMIT: ${AUTH_IP_RATE_LIMIT:-300}
+      REFRESH_RATE_LIMIT: ${REFRESH_RATE_LIMIT:-30}
+      REFRESH_IP_RATE_LIMIT: ${REFRESH_IP_RATE_LIMIT:-2000}
+      REALTIME_HANDSHAKES_PER_IP: ${REALTIME_HANDSHAKES_PER_IP:-1200}
+      REALTIME_CONNECTIONS_PER_USER: ${REALTIME_CONNECTIONS_PER_USER:-20}
       # 瀏覽器看到的 origin；Socket.io handshake 的 Origin 檢查（backend/08-realtime.md §11）
       # 同源（每個租戶自己的網域）一律允許；這裡只需要列出額外允許的 origin
       REALTIME_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost:8080}
@@ -78,6 +131,8 @@ services:
       # MAIL_SMTP_URL 指向 SES、Postmark 等服務商的 SMTP，寄件網域要設好 SPF / DKIM / DMARC
       MAIL_TRANSPORT: smtp
       MAIL_SMTP_URL: ${MAIL_SMTP_URL:?required}
+      # SMTP 連線池（同時寄出的信）；寄信工作每個程序同時跑 5 筆
+      MAIL_SMTP_POOL_SIZE: ${MAIL_SMTP_POOL_SIZE:-5}
       MAIL_FROM: ${MAIL_FROM:?required}
       # 信裡的產品連結以瀏覽器看到的 origin 開頭；也是第一方 client `backstage` 的 redirect URI 開頭
       APP_PUBLIC_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
@@ -89,6 +144,8 @@ services:
       OIDC_COOKIE_KEYS: ${OIDC_COOKIE_KEYS:?required}
       IDP_SECRET_KEY: ${IDP_SECRET_KEY:?required}
     networks: [edge, data, storage]
+    mem_limit: ${API_MEM_LIMIT:-2g}
+    security_opt: ['no-new-privileges:true']
     # 單一執行個體：權限快取與 Socket.io room 都在記憶體。擴展前提見 01-system.md §4.3
     depends_on:
       migrate:
@@ -111,6 +168,8 @@ services:
       FILE_STORAGE_MAX_OBJECT_SIZE: ${FILE_STORAGE_MAX_OBJECT_SIZE:-5368709120}
     volumes:
       - file-storage-data:/data
+    mem_limit: ${FILE_STORAGE_MEM_LIMIT:-512m}
+    security_opt: ['no-new-privileges:true']
     # edge：nginx 轉發瀏覽器的直傳／下載；storage：api 的伺服器端呼叫
     networks: [edge, storage]
 
@@ -123,7 +182,16 @@ services:
         VITE_AUTH_APP_URL: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}
     restart: unless-stopped
     ports:
-      - '8080:80'
+      - '8080:8080'
+    # 非 root 的 nginx（listen 8080）、唯讀的根檔案系統：pid 與暫存檔在 /tmp（deploy/nginx.main.conf）
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    # 每條 WebSocket 在 nginx 佔兩個 fd；配合 worker_rlimit_nofile
+    ulimits:
+      nofile: { soft: 65535, hard: 65535 }
+    mem_limit: 256m
     networks: [edge]
     depends_on:
       api:
@@ -139,7 +207,16 @@ services:
         VITE_AUTH_APP_URL: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}
     restart: unless-stopped
     ports:
-      - '8081:80'
+      - '8081:8080'
+    # 非 root 的 nginx（listen 8080）、唯讀的根檔案系統：pid 與暫存檔在 /tmp（deploy/nginx.main.conf）
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    # 每條 WebSocket 在 nginx 佔兩個 fd；配合 worker_rlimit_nofile
+    ulimits:
+      nofile: { soft: 65535, hard: 65535 }
+    mem_limit: 256m
     networks: [edge]
     depends_on:
       api:

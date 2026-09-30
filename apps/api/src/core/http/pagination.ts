@@ -1,7 +1,17 @@
 import { z } from 'zod';
 
+/**
+ * offset 的上限。offset 分頁要先掃過前面的每一列，極大的 offset 等於全表掃描；
+ * 超過 1 萬筆的瀏覽應該改用篩選條件縮小範圍（docs/issues/03-edge-cases.md EDGE-21）。
+ * 上限也擋掉 `offset=1e19` 這種超出 bigint 的值。
+ */
+export const MAX_OFFSET = 10_000;
+
+/** 列表的 `offset`：0 ～ `MAX_OFFSET`。自訂 limit 範圍的列表（稽核、背景工作）也用這個。 */
+export const OffsetSchema = z.coerce.number().int().min(0).max(MAX_OFFSET).default(0);
+
 export const PaginationSchema = z.object({
-  offset: z.coerce.number().int().min(0).default(0),
+  offset: OffsetSchema,
   limit: z.coerce.number().int().min(1).max(200).default(20),
 });
 

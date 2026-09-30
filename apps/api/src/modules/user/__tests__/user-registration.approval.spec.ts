@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AuthUser } from '@/common/types';
+import type { JobQueue } from '@/core/jobs';
 import type { ApprovalRequestRow } from '@/db/schema';
 import type { ApprovalService } from '@/modules/approval/approval.service';
 import type { ApprovalContext } from '@/modules/approval/approval.types';
@@ -42,11 +43,13 @@ function setup() {
     publishCreated: vi.fn(),
   };
   const approvals = { registerHandler: vi.fn() };
+  const jobs = { enqueue: vi.fn(async () => undefined) };
   const handler = new UserRegistrationApprovalHandler(
     approvals as unknown as ApprovalService,
     users as unknown as UserService,
+    jobs as unknown as JobQueue,
   );
-  return { handler, users, approvals };
+  return { handler, users, approvals, jobs };
 }
 
 describe('userRegistrationRequest', () => {
@@ -88,7 +91,7 @@ describe('UserRegistrationApprovalHandler（docs/rbac/06-approval.md §5）', ()
     expect(users.assertCreatable).toHaveBeenCalledWith('Alice@Example.com', ['role-1'], REVIEWER);
   });
 
-  it('以申請時的密碼建立已啟用的帳號，稽核帶上審批 id', async () => {
+  it('建立未啟用（pending）的帳號，稽核帶上審批 id（SEC-08：email 還沒驗證）', async () => {
     const { handler, users } = setup();
     const tx = {} as never;
     await expect(handler.apply(context(['role-1']), tx)).resolves.toEqual({ resourceId: 'user-9' });
@@ -97,12 +100,23 @@ describe('UserRegistrationApprovalHandler（docs/rbac/06-approval.md §5）', ()
         email: 'Alice@Example.com',
         displayName: 'Alice',
         passwordHash: 'argon2-hash',
-        status: 'active',
+        status: 'pending',
         roleIds: ['role-1'],
       },
       REVIEWER,
       tx,
       { approvalId: 'approval-1' },
+    );
+  });
+
+  it('在同一個交易內入列啟用信：要從申請的信箱完成啟用才能登入', async () => {
+    const { handler, jobs } = setup();
+    const tx = {} as never;
+    await handler.apply(context(), tx);
+    expect(jobs.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'auth.activationMail' }),
+      { userId: 'user-9' },
+      { tx },
     );
   });
 

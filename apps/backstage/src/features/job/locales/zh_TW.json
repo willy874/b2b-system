@@ -7,7 +7,8 @@
     "scheduledAt": "預定 {{time}}",
     "name": {
       "auditLogArchive": "稽核日誌封存",
-      "fileMaintenance": "檔案維護"
+      "fileMaintenance": "檔案維護",
+      "tokenCleanup": "過期登入憑證清理"
     },
     "queues": {
       "title": "工作種類",

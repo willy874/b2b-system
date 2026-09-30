@@ -50,11 +50,19 @@
 
 ```ts
 // core/http/pagination.ts
+export const MAX_OFFSET = 10_000;
+export const OffsetSchema = z.coerce.number().int().min(0).max(MAX_OFFSET).default(0);
 export const PaginationSchema = z.object({
-  offset: z.coerce.number().int().min(0).default(0),
+  offset: OffsetSchema,
   limit: z.coerce.number().int().min(1).max(200).default(20),
 });
 ```
+
+`offset` 上限 1 萬：offset 分頁要先掃過前面每一列，極大的 offset 等於全表掃描；超過時回 `400 VALIDATION_FAILED`，
+該用篩選條件縮小範圍。自訂 `limit` 範圍的列表（背景工作…）也用 `OffsetSchema`。
+
+關鍵字搜尋（`ILIKE`／`LIKE`）的使用者輸入一律經過 `core/database` 的 `containsPattern()`／`prefixPattern()`
+（`escapeLike()` 跳脫 `%`、`_`、`\`）：否則搜尋 `_` 會匹配所有列。
 
 **offset/limit 而非 cursor**：管理後台需要「跳到第 5 頁」與「共 137 筆」，
 cursor 分頁做不到。資料規模（使用者、角色）也遠不到 offset 分頁會變慢的量級。
@@ -203,6 +211,7 @@ export const ErrorCode = {
   USER_EMAIL_DUPLICATE: { status: 409 },
   USER_USERNAME_DUPLICATE: { status: 409 },
   USER_NOT_LOCKED: { status: 409 },
+  USER_ROLES_CONFLICT: { status: 409 },
 
   // ── 角色 ──
   ROLE_NOT_FOUND: { status: 404 },
@@ -211,6 +220,7 @@ export const ErrorCode = {
   ROLE_SUPER_ADMIN_IMMUTABLE: { status: 403 },
   ROLE_IN_USE: { status: 409 },
   LAST_SUPER_ADMIN: { status: 403 },
+  ROLE_SELF_LOCKOUT: { status: 403 },
 
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },
@@ -221,6 +231,8 @@ export const ErrorCode = {
   APPROVAL_SELF_REVIEW: { status: 403 },
 
   // ── 通用 ──
+  NOT_FOUND: { status: 404 },   // 框架層的 404（路徑不存在）
+  CONFLICT: { status: 409 },    // 沒有對應業務錯誤碼的唯一鍵衝突
   RATE_LIMITED: { status: 429 },
   INTERNAL_ERROR: { status: 500 },
 } as const;
@@ -312,6 +324,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
 之間有時間差，兩個同時的請求會有一個撞到 DB 約束。把它對應回正確的
 `*_DUPLICATE` 錯誤碼，使用者看到的仍是「名稱重複」而不是 500。
 
+沒有登記在 `CONSTRAINT_TO_CODE` 的約束回通用的 `409 CONFLICT`（並記一筆 warn 日誌），不是 500：
+衝突是請求與現有資料的問題，不是伺服器壞了。
+
+框架內建的 `HttpException`（`ParseUUIDPipe`、找不到路由、guard 回 false）依狀態碼對應錯誤碼：
+400 → `VALIDATION_FAILED`、401 → `AUTH_TOKEN_INVALID`、403 → `AUTHZ_FORBIDDEN`、404 → `NOT_FOUND`、
+409 → `CONFLICT`、429 → `RATE_LIMITED`；其餘 4xx 視為 `VALIDATION_FAILED`，5xx 為 `INTERNAL_ERROR`（`codeOfHttpStatus`）。
+
+陣列欄位的 id 清單以 `uniqueItems()`（`core/validation`）禁止重複，在入口就回 `VALIDATION_FAILED`。
+
 ---
 
 ## 7. OpenAPI
@@ -369,36 +390,34 @@ CI 會檢查 `openapi.json` 與原始碼一致（重新產生後 `git diff` 必�
 
 ## 8. 速率限制
 
-```ts
-// app.module.ts —— 只註冊「一個」全域桶
-ThrottlerModule.forRootAsync({
-  inject: [ConfigService],
-  useFactory: (config) => [
-    { name: "default", ttl: 60_000, limit: config.get("DEFAULT_RATE_LIMIT") }, // 120
-  ],
-});
-```
+前提是 B2B：一間公司的上千人常經由同一個 NAT 出口 IP 連線，所以 **已登入的請求以使用者（含租戶）計，
+只有未登入的請求以 IP 計**。實作是 `common/guards/rate-limit.guard.ts`（全域 guard，在 `JwtAuthGuard` 之前）：
+它自己驗 access token 的簽章取出使用者（不查 DB），規則與桶的組合在 `common/rate-limit.ts`（純函式，單元測試）。
 
 ```ts
 @Post('login')
 @Public()
-@Throttle({ default: AUTH_THROTTLE })   // 10 次 / 分，覆寫全域桶
+@RateLimit('auth')        // 端點類別；數值由環境變數決定
 async login(...) {}
 ```
 
-> **為什麼不用具名的 `auth` throttler**：`@nestjs/throttler` 會把 **每一個**
-> 具名 throttler 都套到 **所有** 路由上，因此多加一個 limit=10 的桶等於把整個
-> API 限制成 10 次/分。正確作法是單一全域桶 ＋ 敏感端點以 `@Throttle()` 覆寫。
-> 限制值由 `AUTH_RATE_LIMIT` / `DEFAULT_RATE_LIMIT` 設定（E2E 會調高）。
+| 端點                                   | 計數對象（每分鐘）                                       | 環境變數（預設）                                   |
+| -------------------------------------- | -------------------------------------------------------- | -------------------------------------------------- |
+| 一般端點，已登入                       | 每個使用者，所有端點合計                                 | `DEFAULT_RATE_LIMIT`（600）                        |
+| 一般端點，未登入（或 token 無效）      | 每個 IP，所有未登入請求合計                              | `ANONYMOUS_RATE_LIMIT`（3000）                     |
+| `@RateLimit('auth')`：登入、SSO 回呼、啟用／重設、外部 IdP、租戶代碼查詢 | 每個「email ＋ IP」（body 有 `email` 時）＋ 每個 IP | `AUTH_RATE_LIMIT`（10）、`AUTH_IP_RATE_LIMIT`（300） |
+| `@RateLimit('authMail')`：忘記密碼、註冊 | 每個「email ＋ IP」＋ 每個 IP                            | 上一列的 1/3（至少 3）、1/10                       |
+| `@RateLimit('refresh')`：`/auth/refresh`、`/platform/auth/refresh` | 每個 refresh session（cookie 的雜湊）＋ 每個 IP | `REFRESH_RATE_LIMIT`（30）、`REFRESH_IP_RATE_LIMIT`（2000） |
+| `@SkipThrottle()`（影像 API）           | 不計                                                     | —                                                  |
 
-| 端點                    | 限制                                       |
-| ----------------------- | ------------------------------------------ |
-| `/auth/login`           | 10 次 / 分 / IP（另有同帳號 5 次失敗鎖定） |
-| `/auth/forgot-password` | 3 次 / 分 / IP                             |
-| `/auth/refresh`         | 30 次 / 分 / IP                            |
-| 其餘                    | 120 次 / 分 / IP                           |
-
-超過回 `429` ＋ `Retry-After` 標頭。
+- **數值的估算**（1000 人在同一個出口 IP）：access token 5 分鐘 → 續期約 200 次/分（重啟後會集中，IP 桶留 10 倍）；
+  早上登入尖峰約 100 次/分 → 登入 IP 桶 300；每人平均每 10 秒一個請求，推播後集體重抓 → 每人 600/分。
+  帳號層級的暴力破解另有帳號鎖定（連續失敗 N 次）；「帳號 ＋ IP」桶讓攻擊者無法用大量請求鎖住整間公司的 IP。
+- IP 桶不會比帳號桶嚴格（`AUTH_IP_RATE_LIMIT` 小於 `AUTH_RATE_LIMIT` 時取後者），E2E 只要調高 `AUTH_RATE_LIMIT`。
+- 超過回 `429 RATE_LIMITED`，帶 `Retry-After` 標頭與 `details.retryAfterSeconds`（前端顯示「請在 N 秒後再試」）。
+- 計數在程序記憶體（`@nestjs/throttler` 的 storage）：單一執行個體的假設；多實例要換共享儲存（[`../../features/multi-instance.md`](../../features/multi-instance.md)）。
+- 客戶端 IP 依 `TRUST_PROXY` 判定（見 [`../01-system.md`](../01-system.md) §4.2）；IPv6 以 /64 子網路計。
+- WebSocket 不經過這個 guard：handshake 每 IP 與每使用者連線數見 [`08-realtime.md`](./08-realtime.md) §11。
 
 ---
 

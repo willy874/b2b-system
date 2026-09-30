@@ -238,6 +238,12 @@ export class PermissionService {
 - 走這個檢查的端點：`POST /users`（`roleIds`）、`PUT /users/:id/roles`，以及審批核准時帶入的 `roleIds`。
   新增任何會指派角色的端點都必須呼叫 `assertRolesAssignable()`，不可自行只比對權限鍵。
 
+**反方向：被操作的人是 super-admin**（`UserService.assertCanManage`，docs/issues/02-security.md SEC-07）。
+上面只檢查「新授予的」角色；持 `user:update`／`user:delete`／`user:assignRole` 的 admin 仍能停用、刪除 super-admin，
+或把他的角色換成 member，藉此排除上級。所以目標持有 super-admin 時，只有 super-admin 能改他的狀態、刪除他、
+整批取代他的角色，否則 `403 AUTHZ_ESCALATION`（`details: { role: 'super-admin', target }`）。
+是不是 super-admin 直接查 DB（`UserRepository.hasRoleSlug`），不經權限快取。重設密碼、解鎖不在此限（信寄到本人信箱；解鎖是幫忙）。
+
 ---
 
 ## 5. 權限快取
@@ -291,6 +297,10 @@ this.permissionService.invalidateUsers(holders);
 **順序陷阱**：刪除角色時必須 **先** 查出受影響的使用者，**再** 執行刪除。
 反過來的話 `user_roles` 已被 cascade 刪除，查不到任何人，快取永遠不會失效——
 直到 TTL 過期為止那些人還保有已被刪除角色的權限。
+
+刪除角色的實作在交易內先 `SELECT … FOR UPDATE` 鎖住角色列、重新計數，再以
+`DELETE FROM user_roles … RETURNING user_id` 在 **同一條語句** 取得受影響的人：
+取得與刪除之間沒有空檔，併發的指派（`FOR SHARE` 鎖住角色列）也不會被漏掉。
 
 ### 5.2 為什麼是 in-memory 而不是 Redis
 
@@ -438,19 +448,28 @@ it("權限目錄與 @RequirePermissions 使用的鍵完全一致", async () => {
 | 不能修改自己的狀態 / 角色              | `UserService`                             | `AUTHZ_SELF_MODIFY`          |
 | 不能刪除自己                           | `UserService`                             | `AUTHZ_SELF_MODIFY`          |
 | 不能移除最後一個 super-admin           | `UserService` / `RoleService`             | `LAST_SUPER_ADMIN`           |
+| 不能讓自己失去管理角色的權限（§8.4）  | `RoleService` → `PermissionService.assertNoSelfLockout` | `ROLE_SELF_LOCKOUT` |
 
 ### 8.2 `assertNotLastSuperAdmin`
 
 ```ts
-private async assertNotLastSuperAdmin(userId: string): Promise<void> {
-  const isSuper = await this.permissionRepo.isSuperAdmin(userId);
-  if (!isSuper) return;
-  const count = await this.roleRepo.countActiveUsersByRoleSlug('super-admin');
-  if (count <= 1) throw new AppException(ErrorCode.LAST_SUPER_ADMIN);
+// 在寫入的交易內呼叫：先取 advisory lock，再計數、再寫入
+private async assertNotLastSuperAdmin(userId: string, tx: DbOrTx): Promise<void> {
+  await this.repo.lockSuperAdminGuard(tx);        // pg_advisory_xact_lock(hashtext('super_admin_guard'))
+  if (!(await this.repo.hasRoleSlug(userId, SUPER_ADMIN_SLUG, tx))) return;
+  const remaining = await this.repo.countActiveUsersByRoleSlug(SUPER_ADMIN_SLUG, userId, tx);
+  if (remaining < 1) throw new AppException('LAST_SUPER_ADMIN');
 }
 ```
 
-呼叫點：停用使用者、刪除使用者、`PUT /users/:id/roles`（新清單不含 super-admin 時）。
+呼叫點：停用使用者、刪除使用者、`PUT /users/:id/roles`（新清單不含 super-admin 時），都在寫入的交易內。
+在交易外先計數再寫入是 check-then-act：兩位 super-admin 同時刪除對方，兩邊都看到「還剩一位」，
+結果一位都不剩（docs/issues/03-edge-cases.md EDGE-03）。advisory lock 讓這些寫入依序執行；
+每個租戶是自己的 database，不會跨租戶互鎖。是不是 super-admin 直接查 DB，不經權限快取。
+
+`PUT /users/:id/roles` 也在同一個交易內先鎖住使用者列、讀出目前的角色：稽核的 `before` 是真正被取代的那一份；
+請求帶 `expectedRoleIds`（前端草稿所依據的角色）時，與目前的角色不同就回 `409 USER_ROLES_CONFLICT`，
+不會蓋掉別人剛做的變更（EDGE-11）。
 
 `countActiveUsersByRoleSlug` 只算 `status = 'active'` 且未刪除的使用者——
 把 super-admin 全部停用而不刪除，一樣會讓系統無人可管。
@@ -465,6 +484,16 @@ private assertNotSelf(actorId: string, targetId: string): void {
 
 適用於：改自己的 `status`、改自己的角色、刪除自己。
 **不適用** 於：改自己的 `displayName`（那有專門的 `PATCH /auth/profile`）。
+
+### 8.4 不能把自己鎖在外面
+
+管理者改 **自己持有的** 角色的權限（`PATCH /roles/:id/permissions`）或刪除它（`DELETE /roles/:id`，含 `force`）時，
+若變更之後自己會失去目前持有的 `role:read`、`role:update`、`role:grantPermission` 其中之一
+（其他角色也沒有提供），回 `ROLE_SELF_LOCKOUT`（403，`details.lost` 列出會失去的權限）。
+
+- super-admin 豁免（權限是隱含全集，也沒有角色能拿掉它）。
+- 只看操作者本人：同一個角色的其他持有者失去權限是正常的業務操作。
+- 沒有持有該角色、或本來就沒有那些權限時不擋。
 
 ---
 

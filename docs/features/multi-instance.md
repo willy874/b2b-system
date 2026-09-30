@@ -17,6 +17,29 @@ api 目前假設只有一個程序：
 
 水平擴展之前，這三件事都要改成共享的。
 
+### 2026-09-30 檢查報告補充（docs/issues/01-performance.md PERF-10、PERF-11）
+
+單一執行個體在 1000 人在線時的具體代價：
+
+- **部署即全員斷線**：每次部署或重啟，約 1000 條 WebSocket 同時重連，每條在冷快取下做使用者與權限查詢，接著每個分頁重抓畫面上的
+  query；沒有滾動部署的可能。已先做的緩解：前端重連退避改成 2–30 秒加隨機（`REALTIME_RECONNECTION`）、每 IP 的 handshake 上限可調
+  （`REALTIME_HANDSHAKES_PER_IP`，預設 1200/分）。
+- **背景工作與 API 同一個 event loop**：pg-boss worker、排程、稽核封存、檔案維護、影像處理、寄信都在 api 程序。compose 可以用同一個映像
+  另起 `JOBS_WORKER_ENABLED=true` 的 worker、api 設 `false`，**但目前不能拆**：工作裡發佈的領域事件（佈建完成、影像變體產生、權限變更後的推播）
+  只會送到 worker 自己的 Socket.io，api 上的使用者收不到——這與「Socket.io 跨實例」是同一個前提。已先做的緩解：SMTP 連線池、寄信工作並行 5
+  （`MAIL_SMTP_POOL_SIZE`、`defineJob` 的 `concurrency`）、`UV_THREADPOOL_SIZE=16`。
+
+拆 worker 與 `replicas > 1` 前要一起具備的（除了下表）：
+
+| 項目 | 現在 | 要改成 |
+| --- | --- | --- |
+| 領域事件 → 推播 | 程序內的 `DomainEventBus` | 跨程序（`LISTEN/NOTIFY` 或 `@socket.io/postgres-adapter` 的 `serverSideEmit`），worker 發佈的事件也送得到 |
+| 速率限制計數 | `RateLimitGuard` 用 `@nestjs/throttler` 的記憶體 storage | 共享 storage（Postgres／Redis 的 `ThrottlerStorage` 實作）；否則每個實例各算一份，上限變成 N 倍 |
+| WebSocket 每 IP handshake、每人連線數 | gateway 記憶體裡的計數 | 同上，或接受「每實例」的語意並把上限除以實例數 |
+| 租戶登記快取 | `TenantDirectory` 本程序失效，其他實例晚 `TENANT_CACHE_TTL` 秒 | 失效廣播（同一條 `LISTEN/NOTIFY`） |
+| 連線預算 | 每個 api 程序各有平台池＋每租戶的池 | `max_connections` 的估算乘上程序數；程序多時在前面加 PgBouncer（backend/02-database.md §6.2） |
+| nginx upstream | `api_backend` 固定一台 | 列出每個實例或 `resolver` ＋ 變數化的 `proxy_pass`；keepalive 照舊 |
+
 ## 範圍
 
 | 做 | 不做（這一版） |

@@ -12,16 +12,32 @@
       "activationHint": "Admins never set passwords: activation email only.",
       "success": "User {{email}} created."
     },
-    "update": { "success": "User updated." },
+    "update": {
+      "success": "User updated."
+    },
     "delete": {
       "title": "Delete user",
       "confirm": "Delete \"{{name}}\"? The account is soft-deleted and signed out immediately.",
       "success": "User deleted.",
       "selfProtected": "You cannot delete your own account."
     },
-    "assignRole": { "action": "Save roles", "success": "Role assignment updated." },
-    "unlock": { "action": "Unlock", "success": "Account unlocked." },
-    "resetPassword": { "action": "Reset password", "success": "Reset link sent." },
+    "assignRole": {
+      "action": "Save roles",
+      "success": "Role assignment updated.",
+      "stale": "Someone else just changed this user's roles; your selection is based on outdated data.",
+      "discard": "Use latest roles"
+    },
+    "unlock": {
+      "action": "Unlock",
+      "success": "Account unlocked."
+    },
+    "resetPassword": {
+      "action": "Reset password",
+      "success": "Reset link sent.",
+      "title": "Reset password",
+      "confirm": "A password reset link will be sent to {{email}} and recorded in the audit log. Send it?",
+      "submit": "Send reset link"
+    },
     "batch": {
       "delete": {
         "action": "Delete",
@@ -56,7 +72,9 @@
       "title": "User detail",
       "basic": "Basics",
       "roles": "Roles",
-      "selfHint": "You cannot change your own status or roles; ask another administrator."
+      "selfHint": "You cannot change your own status or roles; ask another administrator.",
+      "backToList": "Back to users",
+      "lockedHint": "This account is locked after too many failed sign-ins. Editing does not change that; use Unlock to restore sign-in."
     },
     "field": {
       "email": "Email",
@@ -73,6 +91,11 @@
       "active": "Active",
       "inactive": "Inactive",
       "locked": "Locked"
+    },
+    "deactivate": {
+      "title": "Deactivate user",
+      "confirm": "Deactivate \"{{name}}\"? They will be signed out immediately.",
+      "action": "Deactivate"
     }
   }
 }

@@ -6,6 +6,7 @@ import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { auditLogs, auditLogsArchive } from '@/db/schema';
+import { AUDIT_LOG_COUNT_CAP, AUDIT_LOG_MAX_OFFSET } from '@/modules/audit-log/audit-log.constants';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, expectDbError, truncateAll } from './db';
@@ -186,6 +187,20 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
       ]);
     });
 
+    it('offset 超過上限回 400（深分頁要掃過 offset 筆，PERF-09）', async () => {
+      const response = await list(`offset=${AUDIT_LOG_MAX_OFFSET + 1}`).expect(400);
+      expect((response.body as { error: { code: string } }).error.code).toBe('VALIDATION_FAILED');
+    });
+
+    it('total 最多數到 AUDIT_LOG_COUNT_CAP（不為了總數掃過整個 90 天，PERF-09）', async () => {
+      await db.execute(sql`
+        INSERT INTO audit_logs (actor_email, action, resource_type, result)
+        SELECT 'cap@example.com', 'cap.row', 'cap', 'success'
+        FROM generate_series(1, ${AUDIT_LOG_COUNT_CAP + 50})`);
+      const response = await list('action=cap.*&limit=1').expect(200);
+      expect((response.body as ListBody).data.pagination.total).toBe(AUDIT_LOG_COUNT_CAP);
+    });
+
     it('範圍超過 90 天回 400', async () => {
       const from = daysAgo(200).toISOString();
       const to = daysAgo(1).toISOString();
@@ -198,6 +213,13 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
       const response = await list('action=tier_*').expect(200);
       expect((response.body as ListBody).data.items).toHaveLength(0);
     });
+  });
+
+  it('冷表也有 action 前綴查詢的索引（text_pattern_ops；docs/issues/01-performance.md PERF-17）', async () => {
+    const rows = await db.execute<{ indexdef: string }>(
+      sql`SELECT indexdef FROM pg_indexes WHERE indexname = 'audit_logs_archive_action_idx'`,
+    );
+    expect(rows[0]?.indexdef).toContain('action text_pattern_ops');
   });
 
   describe('GET /audit-logs/:id', () => {

@@ -29,6 +29,7 @@ import { DrizzleOidcAdapter } from './oidc-adapter';
 import { OidcPayloadRepository } from './oidc-payload.repository';
 import { OIDC_CLIENT, OIDC_CLIENT_PATHS, OIDC_SCOPES, OIDC_TTL } from './oidc-provider.constants';
 import type { OidcClientId } from './oidc-provider.constants';
+import { isTenantRedirectAllowed } from './tenant-redirect';
 
 /**
  * 外部 IdP 登入的暫存（以 `state` 為鍵）：發起時記下互動、PKCE verifier 與 nonce；
@@ -192,12 +193,9 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
       postLogoutRedirectUriAllowed: UriCheck;
     };
     const paths = OIDC_CLIENT_PATHS[OIDC_CLIENT.BACKSTAGE];
-    const onTenantDomain = (value: string, path: string): boolean => {
-      const url = URL.canParse(value) ? new URL(value) : undefined;
-      if (!url || !['http:', 'https:'].includes(url.protocol)) return false;
-      if (url.pathname !== path || url.search || url.hash || url.username) return false;
-      return this.directory.tenantIdOfHost(url.host) !== undefined;
-    };
+    const strict = this.config.get('NODE_ENV', { infer: true }) === 'production';
+    const onTenantDomain = (value: string, path: string): boolean =>
+      isTenantRedirectAllowed(value, path, this.directory, strict);
     const redirectAllowed = proto.redirectUriAllowed;
     proto.redirectUriAllowed = function (value) {
       return this.clientId === OIDC_CLIENT.BACKSTAGE
@@ -336,7 +334,11 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
       throw new OidcRedeemError('pkce');
     }
     if (!code.accountId) throw new OidcRedeemError('invalid_code');
-    await code.consume();
+    // 條件式消耗：同一個碼的併發兌換只有一個搶得到，另一個照重放處理（撤銷整個 grant）
+    if (!(await this.repo.consumeOnce('AuthorizationCode', code.jti))) {
+      if (code.grantId) await this.repo.destroyByGrantId(code.grantId);
+      throw new OidcRedeemError('invalid_code');
+    }
     return {
       accountId: code.accountId,
       clientId: code.clientId,
@@ -372,9 +374,12 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
     return parsed.success ? parsed.data : undefined;
   }
 
-  /** 用過即作廢：同一個 state 不能完成兩次互動。 */
-  async consumeExternalLogin(state: string): Promise<void> {
-    await this.repo.consume(EXTERNAL_LOGIN, state);
+  /**
+   * 用過即作廢：同一個 state 不能完成兩次互動。回傳是否搶到——併發的兩個請求只有一個會是 true
+   * （docs/issues/02-security.md SEC-12）。
+   */
+  async consumeExternalLogin(state: string): Promise<boolean> {
+    return this.repo.consumeOnce(EXTERNAL_LOGIN, state);
   }
 
   // ── 單一登出（D5）───────────────────────────────────────

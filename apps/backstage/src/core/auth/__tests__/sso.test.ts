@@ -53,6 +53,12 @@ describe('SSO 的瀏覽器端（docs/adr/0019-sso-identity-platform.md）', () =
     ['/users?keyword=a', '/users?keyword=a'],
     ['//evil.example.com', '/'],
     ['https://evil.example.com', '/'],
+    // 瀏覽器把 `\` 當成 `/`：字面上是 `/` 開頭，實際上是 `//evil.example.com`（SEC-17）
+    ['/\\evil.example.com', '/'],
+    ['/\\/evil.example.com', '/'],
+    // 編碼過的反斜線只是路徑的一部分，留在同一個 origin
+    ['/%5Cevil.example.com', '/%5Cevil.example.com'],
+    ['/users#row-1', '/users#row-1'],
     [undefined, '/'],
   ])('safeReturnTo(%s) → %s（只接受同 origin 的路徑）', (input, expected) => {
     expect(safeReturnTo(input)).toBe(expected);

@@ -9,6 +9,7 @@ import { FileAccessService } from './file-access.service';
 import { FileFolderAccessApprovalHandler } from './file-folder-access.approval';
 import { FileFolderGrantController } from './file-folder-grant.controller';
 import { FileFolderGrantService } from './file-folder-grant.service';
+import { FileFolderTree } from './file-folder-tree';
 import { FileFolderController } from './file-folder.controller';
 import { FileFolderRepository } from './file-folder.repository';
 import { FileFolderService } from './file-folder.service';
@@ -39,6 +40,7 @@ import { FILE_SETTINGS } from './file.settings';
     FileRepository,
     FileFolderService,
     FileFolderRepository,
+    FileFolderTree,
   ],
   exports: [FileService],
 })

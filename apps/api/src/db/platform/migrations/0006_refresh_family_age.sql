@@ -1,0 +1,2 @@
+ALTER TABLE "platform_refresh_tokens" ADD COLUMN "family_created_at" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
+CREATE INDEX "platform_refresh_tokens_family_revoked_idx" ON "platform_refresh_tokens" USING btree ("family_id") WHERE "platform_refresh_tokens"."revoked_at" IS NOT NULL;

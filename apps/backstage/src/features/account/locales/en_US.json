@@ -9,7 +9,9 @@
       "title": "Change password",
       "hint": "Changing your password signs you out of every device.",
       "submit": "Change password",
-      "changed": "Password changed. Please sign in again."
+      "changed": "Password changed. Please sign in again.",
+      "confirmTitle": "Change your password?",
+      "lengthHint": "At least {{min}} characters ({{count}} so far)."
     },
     "preference": {
       "title": "Preferences",
@@ -28,7 +30,8 @@
       "timezone": "Timezone",
       "currentPassword": "Current password",
       "newPassword": "New password",
-      "theme": "Theme"
+      "theme": "Theme",
+      "confirmPassword": "Confirm new password"
     }
   }
 }

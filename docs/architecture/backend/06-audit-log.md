@@ -23,12 +23,14 @@
 | 認證   | `auth.login.success` / `auth.login.failure`                       | 含 IP、UA              |
 |        | `auth.logout`                                                     |                        |
 |        | `auth.refresh.reuse_detected`                                     | **高嚴重度**           |
+|        | `auth.refresh.replayed`                                           | 寬限期內重送上一張（回應遺失），一般嚴重度 |
 |        | `auth.password_change` / `auth.password_reset`                    |                        |
 |        | `auth.account_locked`                                             |                        |
 | 授權   | `authz.denied`                                                    | 含所需權限與缺少的權限 |
 | 使用者 | `user.create` / `user.update` / `user.delete`                     | 含 before/after        |
 |        | `user.assignRole`                                                 | **含前後角色清單**     |
 |        | `user.activate` / `user.unlock` / `user.reset_password_requested` |                        |
+|        | `user.activation_resent`                                          | 管理員對 `pending` 的人重寄啟用信 |
 | 角色   | `role.create` / `role.update` / `role.delete` / `role.duplicate`  |                        |
 |        | `role.grantPermission`                                            | **含前後權限清單**     |
 | 審批   | `approval.submit`                                                 | 匿名申請（註冊）的 actor 為申請人 email、`actorId = null` |
@@ -266,6 +268,12 @@ const actionFilter = query.action?.endsWith("*")
 | 都帶 | 原樣；`from > to` 或跨度超過 90 天 → `400 VALIDATION_FAILED`（`fields.from`） |
 
 範圍一定存在，所以 `count(*)` 與排序的成本有上界，不會隨資料累積無限成長。
+
+90 天在 1000 人的租戶仍可能是數百萬列，所以再加兩個上限（docs/issues/01-performance.md PERF-09）：
+
+- `offset` 最多 `AUDIT_LOG_MAX_OFFSET`（10,000），超過回 `400 VALIDATION_FAILED`；再往後請縮小範圍或加篩選。
+- `total` 最多數到 `AUDIT_LOG_COUNT_CAP`（10,100，剛好涵蓋能翻到的最後一頁）：`count(*)` 包在 `LIMIT` 子查詢裡，
+  掃到上限就停。畫面上的總數等於上限時代表「至少這麼多」。keyset 分頁延後。
 
 **查哪張表**：搬移的 cutoff 只會早於 `now − 保留天數`，所以 `from ≥ now − 90 天`
 時資料一定全在熱表，只查熱表；否則熱表與冷表 `UNION ALL`（Postgres 以兩邊的

@@ -447,6 +447,149 @@ describe('外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D11）
       expect(await loginExternally(other, id)).toContain('error=AUTH_SSO_ACCOUNT_NOT_FOUND');
     });
 
+    describe('以 email 自動連結的限制（docs/issues/02-security.md SEC-01）', () => {
+      it('email 網域不是這個連線登記的網域 → AUTH_SSO_LINK_NOT_ALLOWED，不連結', async () => {
+        // 持 identityProvider:create 的人自架 IdP，對別的網域的帳號簽出 email_verified
+        const { id } = await createProvider({
+          name: 'Rogue',
+          domains: [{ domain: 'rogue.test', ssoOnly: false }],
+        });
+        external.nextIdentity = {
+          subject: 'rogue-1',
+          email: MEMBER.email,
+          emailVerified: true,
+          name: null,
+        };
+        const interaction = await beginInteraction();
+        expect(await loginExternally(interaction, id)).toBe(
+          `http://localhost:5175/interaction/${interaction.uid}?error=AUTH_SSO_LINK_NOT_ALLOWED`,
+        );
+        const linked = await db
+          .select()
+          .from(userIdentities)
+          .where(eq(userIdentities.subject, 'rogue-1'));
+        expect(linked).toEqual([]);
+      });
+
+      it('網域相符，但帳號持有 super-admin → 不連結（不能藉外部 IdP 接管管理者）', async () => {
+        const { id } = await createProvider({
+          name: 'Example',
+          domains: [{ domain: 'example.com', ssoOnly: false }],
+        });
+        external.nextIdentity = {
+          subject: 'takeover-root',
+          email: SUPER_ADMIN.email,
+          emailVerified: true,
+          name: null,
+        };
+        const interaction = await beginInteraction();
+        expect(await loginExternally(interaction, id)).toContain('error=AUTH_SSO_LINK_NOT_ALLOWED');
+        const linked = await db
+          .select()
+          .from(userIdentities)
+          .where(eq(userIdentities.subject, 'takeover-root'));
+        expect(linked).toEqual([]);
+      });
+
+      it('持有 admin（member 以外的系統角色）一樣不自動連結', async () => {
+        const [boss] = await db
+          .insert(users)
+          .values({ email: 'boss@acme.test', displayName: 'Boss', status: 'active' })
+          .returning();
+        await db.insert(userRoles).values({ userId: boss!.id, roleId: await roleIdOf('admin') });
+        external.nextIdentity = {
+          subject: 'acme-boss',
+          email: 'boss@acme.test',
+          emailVerified: true,
+          name: null,
+        };
+        const interaction = await beginInteraction();
+        expect(await loginExternally(interaction, acmeId)).toContain(
+          'error=AUTH_SSO_LINK_NOT_ALLOWED',
+        );
+      });
+
+      it('換掉連線的 issuer：既有的連結全部作廢，舊的 subject 不能再登入', async () => {
+        const { id } = await createProvider({
+          name: 'Gamma',
+          domains: [{ domain: 'gamma.test', ssoOnly: false }],
+        });
+        const [gina] = await db
+          .insert(users)
+          .values({ email: 'gina@gamma.test', displayName: 'Gina', status: 'active' })
+          .returning();
+        external.nextIdentity = {
+          subject: 'gamma-1',
+          email: 'gina@gamma.test',
+          emailVerified: true,
+          name: null,
+        };
+        const first = await beginInteraction();
+        expect(await finishToProduct(first, await loginExternally(first, id))).toBe(gina!.id);
+
+        const admin = await token(SUPER_ADMIN);
+        await request(http)
+          .patch(`/identity-providers/${id}`)
+          .set('authorization', `Bearer ${admin}`)
+          .send({ issuer: 'https://other-idp.test' })
+          .expect(200);
+        expect(
+          await db.select().from(userIdentities).where(eq(userIdentities.providerId, id)),
+        ).toEqual([]);
+
+        // 新的 IdP 以同一個 subject、沒有 email 登入：不會被當成 Gina
+        external.nextIdentity = {
+          subject: 'gamma-1',
+          email: null,
+          emailVerified: false,
+          name: null,
+        };
+        const second = await beginInteraction();
+        expect(await loginExternally(second, id)).toContain('error=AUTH_SSO_ACCOUNT_NOT_FOUND');
+      });
+    });
+
+    it('刪除帳號會一併刪除外部身分；同 email 重建的帳號可以用同一個 IdP 登入（EDGE-06）', async () => {
+      const admin = await token(SUPER_ADMIN);
+      await request(http)
+        .delete(`/users/${aliceId}`)
+        .set('authorization', `Bearer ${admin}`)
+        .expect(204);
+      expect(
+        await db.select().from(userIdentities).where(eq(userIdentities.userId, aliceId)),
+      ).toEqual([]);
+
+      const [again] = await db
+        .insert(users)
+        .values({ email: ALICE, displayName: 'Alice 2', status: 'active' })
+        .returning();
+      external.nextIdentity = {
+        subject: 'acme-sub-1',
+        email: ALICE,
+        emailVerified: true,
+        name: 'Alice',
+      };
+      const interaction = await beginInteraction();
+      expect(await finishToProduct(interaction, await loginExternally(interaction, acmeId))).toBe(
+        again!.id,
+      );
+      aliceId = again!.id;
+    });
+
+    it('連結指向已刪除的帳號（舊資料）：刪掉舊連結，改以 email 對應新帳號（EDGE-06）', async () => {
+      // 模擬修正前留下的資料：帳號軟刪除，但連結還在
+      await db.update(users).set({ deletedAt: new Date() }).where(eq(users.id, aliceId));
+      const [third] = await db
+        .insert(users)
+        .values({ email: ALICE, displayName: 'Alice 3', status: 'active' })
+        .returning();
+      const interaction = await beginInteraction();
+      expect(await finishToProduct(interaction, await loginExternally(interaction, acmeId))).toBe(
+        third!.id,
+      );
+      aliceId = third!.id;
+    });
+
     it('state 只能用一次；兌換失敗回到互動頁', async () => {
       external.nextIdentity = new Error('invalid_grant');
       const interaction = await beginInteraction();
