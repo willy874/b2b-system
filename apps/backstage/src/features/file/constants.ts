@@ -129,10 +129,3 @@ export const FILE_FOLDER_KIND_ICON = {
 
 /** `subject_type = everyone` 的 `subject_id`（後端 `EVERYONE_SUBJECT_ID`）。 */
 export const EVERYONE_SUBJECT_ID = '00000000-0000-0000-0000-000000000000';
-
-/**
- * 刪除檔案的提示要不要附「復原」（ADR-0025 R4）。R4a 的後端仍在刪除當下刪掉物件，還原一定回
- * `FILE_RESTORE_CONFLICT`（`objectMissing`），附了只會讓人以為救得回來；R4b（刪除改成不立即刪物件）部署後改成 true
- * （docs/architecture/backend/13-trash.md §7.5）。資料夾的刪除本來就不刪物件，一律附「復原」。
- */
-export const CAN_UNDO_FILE_DELETE = false;

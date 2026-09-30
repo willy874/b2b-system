@@ -176,6 +176,16 @@ describe('樂觀鎖（docs/adr/0025-entity-revisions.md D3、docs/architecture/b
       expect(await versionOfUser(id)).toBe(2);
     });
 
+    it('PUT /users/:id/roles 不帶 expectedRoleIds → 400 VALIDATION_FAILED（R1b：必填）', async () => {
+      const holder = await createUser('lock-expected@example.com');
+      const response = await request(http)
+        .put(`/users/${holder}/roles`)
+        .set('authorization', `Bearer ${token}`)
+        .send({ roleIds: [] })
+        .expect(400);
+      expect(response.body).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+    });
+
     it('讀到之後、寫入之前被搶先改過（UPDATE 沒命中）→ 409，details.current 是重讀的版本', async () => {
       const id = await createUser('lock-h@example.com');
       const response = await raceAfterRead(
@@ -206,11 +216,12 @@ describe('樂觀鎖（docs/adr/0025-entity-revisions.md D3、docs/architecture/b
       expect(response.body).toMatchObject({ error: { code: 'USER_NOT_FOUND' } });
     });
 
-    it('不帶 version：後寫者勝，version 照樣加一', async () => {
+    it('不帶 version → 400 VALIDATION_FAILED，不寫入（ADR-0025 D4 的 R1b：必填）', async () => {
       const id = await createUser('lock-d@example.com');
-      await patchUser(id, { displayName: 'D-1' }).expect(200);
-      const second = await patchUser(id, { displayName: 'D-2' }).expect(200);
-      expect(dataOf<VersionedBody>(second).version).toBe(3);
+      const response = await patchUser(id, { displayName: 'D-1' }).expect(400);
+      expect(response.body).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+      const [row] = await db.select().from(users).where(eq(users.id, id));
+      expect(row).toMatchObject({ displayName: 'lock-d@example.com', version: 1 });
     });
 
     it('只帶 version、沒有要改的欄位 → 400 VALIDATION_FAILED', async () => {
@@ -240,7 +251,7 @@ describe('樂觀鎖（docs/adr/0025-entity-revisions.md D3、docs/architecture/b
       await request(http)
         .put(`/users/${id}/roles`)
         .set('authorization', `Bearer ${token}`)
-        .send({ roleIds: [member!.id] })
+        .send({ roleIds: [member!.id], expectedRoleIds: [] })
         .expect(200);
       expect(await versionOfUser(id)).toBe(1);
 
@@ -317,11 +328,11 @@ describe('樂觀鎖（docs/adr/0025-entity-revisions.md D3、docs/architecture/b
       });
     });
 
-    it('不帶 version：後寫者勝，version 照樣加一', async () => {
+    it('不帶 version → 400 VALIDATION_FAILED，不寫入（ADR-0025 D4 的 R1b：必填）', async () => {
       const id = await createRole('Lock Role D');
-      await patchRole(id, { description: 'd1' }).expect(200);
-      const second = await patchRole(id, { description: 'd2' }).expect(200);
-      expect(dataOf<VersionedBody>(second).version).toBe(3);
+      const response = await patchRole(id, { description: 'd1' }).expect(400);
+      expect(response.body).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+      expect(await versionOfRole(id)).toBe(1);
     });
 
     it('已刪除的角色 → 404 ROLE_NOT_FOUND（不是版本衝突）', async () => {
@@ -346,7 +357,7 @@ describe('樂觀鎖（docs/adr/0025-entity-revisions.md D3、docs/architecture/b
       await request(http)
         .put(`/users/${holder}/roles`)
         .set('authorization', `Bearer ${token}`)
-        .send({ roleIds: [] })
+        .send({ roleIds: [], expectedRoleIds: [id] })
         .expect(200);
       expect(await versionOfRole(id)).toBe(1);
     });

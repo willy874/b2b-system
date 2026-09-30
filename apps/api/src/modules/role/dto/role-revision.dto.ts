@@ -18,10 +18,10 @@ export const RevertRoleRevisionSchema = defineSchema(
   'RevertRoleRevisionRequest',
   z.object({
     /**
-     * 樂觀鎖：確認還原時看到的角色 `version`。與目前版本不同回 409 `ROLE_VERSION_CONFLICT`（`details.current`）；
-     * 不帶則後寫者勝（與 `PATCH /roles/:id` 相同，ADR-0025 D4 的 R1 選填）。
+     * 樂觀鎖：確認還原時看到的角色 `version`（必填，與 `PATCH /roles/:id` 相同）。與目前版本不同回 409
+     * `ROLE_VERSION_CONFLICT`（`details.current`）。
      */
-    version: z.number().int().min(1).optional(),
+    version: z.number().int().min(1),
   }),
 );
 

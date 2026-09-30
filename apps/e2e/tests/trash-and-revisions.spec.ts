@@ -141,13 +141,16 @@ test.describe('回收桶（ADR-0025 D6–D10）', () => {
     const roleName = unique('E2E 回收桶角色');
     const roleId = await createRole(token, roleName, ['user:read']);
     const users = (await apiRequest(token, 'get', `/users?keyword=${ACCOUNTS.roleHolder}`))
-      .body as { data: { items: Array<{ id: string }> } };
+      .body as { data: { items: Array<{ id: string; roles: Array<{ id: string }> }> } };
     const roles = (await apiRequest(token, 'get', '/roles?limit=100')).body as {
       data: { items: RoleSummary[] };
     };
     const memberRole = roles.data.items.find((role) => role.slug === 'member')!;
-    const assigned = await apiRequest(token, 'put', `/users/${users.data.items[0]!.id}/roles`, {
+    const holderUser = users.data.items[0]!;
+    // expectedRoleIds 必填（ADR-0025 D4）：以列表上看到的角色為基礎整批取代
+    const assigned = await apiRequest(token, 'put', `/users/${holderUser.id}/roles`, {
       roleIds: [roleId, memberRole.id],
+      expectedRoleIds: holderUser.roles.map((role) => role.id),
     });
     expect(assigned.status).toBe(200);
 

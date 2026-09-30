@@ -61,8 +61,10 @@ export default function RoleDetailRevisionPage() {
           : undefined;
 
   const startRevert = (version: number) => {
-    // 樂觀鎖：帶「確認時」看到的角色版本；確認期間被別人改過就回 409，不默默蓋掉
-    const baseVersion = role.data?.version;
+    // 樂觀鎖：帶「確認時」看到的角色版本；確認期間被別人改過就回 409，不默默蓋掉。
+    // 角色還沒載入時不會出現還原按鈕（canRevert）
+    if (!role.data) return;
+    const baseVersion = role.data.version;
     void confirm({
       title: t('role.revision.revert.title', { version }),
       description: t('role.revision.revert.confirm', { version }),

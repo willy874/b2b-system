@@ -4816,6 +4816,7 @@
             "maximum": 9007199254740991
           }
         },
+        "required": ["version"],
         "additionalProperties": false
       },
       "ReplaceUserRolesRequest": {
@@ -4840,7 +4841,7 @@
             }
           }
         },
-        "required": ["roleIds"],
+        "required": ["roleIds", "expectedRoleIds"],
         "additionalProperties": false
       },
       "UserStatus": {
@@ -6820,7 +6821,7 @@
             "maximum": 9007199254740991
           }
         },
-        "required": ["name"],
+        "required": ["name", "version"],
         "additionalProperties": false
       },
       "JobQueue": {
@@ -7196,6 +7197,40 @@
         ],
         "additionalProperties": false
       },
+      "RevisionSummary": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "actor": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "name"],
+            "additionalProperties": false
+          },
+          "tooLarge": {
+            "type": "boolean"
+          }
+        },
+        "required": ["version", "createdAt", "actor", "tooLarge"],
+        "additionalProperties": false
+      },
       "CreateRoleRequest": {
         "type": "object",
         "properties": {
@@ -7229,40 +7264,6 @@
             "maxLength": 64
           }
         },
-        "additionalProperties": false
-      },
-      "RevisionSummary": {
-        "type": "object",
-        "properties": {
-          "version": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "actor": {
-            "nullable": true,
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              },
-              "name": {
-                "type": "string"
-              }
-            },
-            "required": ["id", "name"],
-            "additionalProperties": false
-          },
-          "tooLarge": {
-            "type": "boolean"
-          }
-        },
-        "required": ["version", "createdAt", "actor", "tooLarge"],
         "additionalProperties": false
       },
       "RoleRevisionSnapshot": {
@@ -7336,6 +7337,7 @@
             "maximum": 9007199254740991
           }
         },
+        "required": ["version"],
         "additionalProperties": false
       },
       "Role": {
@@ -7521,6 +7523,7 @@
             "maximum": 9007199254740991
           }
         },
+        "required": ["version"],
         "additionalProperties": false
       },
       "UpdateRolePermissionsRequest": {

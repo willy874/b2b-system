@@ -191,12 +191,12 @@ export interface UpdateUserRequest {
   status?: 'active' | 'inactive';
   locale?: string;
   timezone?: string;
-  version?: number;
+  version: number;
 }
 
 export interface ReplaceUserRolesRequest {
   roleIds: Array<string>;
-  expectedRoleIds?: Array<string>;
+  expectedRoleIds: Array<string>;
 }
 
 export const UserStatus = {
@@ -777,7 +777,7 @@ export interface GetFileImageQuery {
 
 export interface UpdateFileRequest {
   name: string;
-  version?: number;
+  version: number;
 }
 
 export interface JobQueue {
@@ -865,16 +865,6 @@ export interface PlatformJob {
   output: Record<string, unknown> | null;
 }
 
-export interface CreateRoleRequest {
-  name: string;
-  description?: string;
-  permissionKeys: Array<PermissionKey>;
-}
-
-export interface DuplicateRoleRequest {
-  name?: string;
-}
-
 export interface RevisionSummary {
   version: number;
   createdAt: string;
@@ -883,6 +873,16 @@ export interface RevisionSummary {
     name: string;
   } | null;
   tooLarge: boolean;
+}
+
+export interface CreateRoleRequest {
+  name: string;
+  description?: string;
+  permissionKeys: Array<PermissionKey>;
+}
+
+export interface DuplicateRoleRequest {
+  name?: string;
 }
 
 export interface RoleRevisionSnapshot {
@@ -903,7 +903,7 @@ export interface RoleRevision {
 }
 
 export interface RevertRoleRevisionRequest {
-  version?: number;
+  version: number;
 }
 
 export interface Role {
@@ -949,7 +949,7 @@ export interface RoleHolder {
 export interface UpdateRoleRequest {
   name?: string;
   description?: string | null;
-  version?: number;
+  version: number;
 }
 
 export interface UpdateRolePermissionsRequest {

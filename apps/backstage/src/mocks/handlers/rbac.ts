@@ -25,6 +25,7 @@ const forbidden = (permission: string) =>
   );
 
 function failureStatus(code: string): number {
+  if (code === 'VALIDATION_FAILED') return 400;
   if (code.endsWith('_NOT_FOUND')) return 404;
   if (code.startsWith('AUTHZ_')) return 403;
   return 409;
@@ -359,15 +360,17 @@ export const rbacHandlers = [
     },
     (id) => HttpResponse.json({ data: DELETED_USER_FIXTURES.find((item) => item.id === id) }),
   ),
-  // 樂觀鎖：帶的 version 與 fixture 不同 → 409（與後端相同；docs/architecture/backend/03-api-conventions.md §11）
+  // 樂觀鎖：不帶 version → 400；帶的 version 與 fixture 不同 → 409（與後端相同；docs/architecture/backend/03-api-conventions.md §11）
   http.patch(`${MOCK_API_BASE}/users/:id`, async ({ params, request }) => {
     if (!mockState.permissions.includes('user:update')) return forbidden('user:update');
     const id = String(params.id);
-    const failure = checkUser(id);
-    const current = USER_FIXTURES.find((item) => item.id === id)?.version;
     const { version } = (await request.json()) as { version?: number };
+    const invalid: Failure | undefined =
+      version === undefined ? { code: 'VALIDATION_FAILED' } : undefined;
+    const failure = invalid ?? checkUser(id);
+    const current = USER_FIXTURES.find((item) => item.id === id)?.version;
     const conflict: Failure | undefined =
-      !failure && version !== undefined && version !== current
+      !failure && version !== current
         ? { code: 'USER_VERSION_CONFLICT', details: { current } }
         : undefined;
     const error: Failure | undefined = failure ?? conflict;

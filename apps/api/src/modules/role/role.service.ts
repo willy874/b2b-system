@@ -153,7 +153,7 @@ export class RoleService {
     const { version, ...fields } = dto;
     const role = await this.getExisting(id);
     // 讀到時就不同：別人已經改過（ADR-0025 D3）
-    if (version !== undefined && version !== role.version) {
+    if (version !== role.version) {
       throw new AppException('ROLE_VERSION_CONFLICT', { current: role.version });
     }
     // super-admin 的名稱與說明也不可改；其他系統角色的顯示名稱可改（docs/rbac/01-domain-model.md §5）
@@ -168,7 +168,7 @@ export class RoleService {
     await withTransaction(this.db, async (tx) => {
       const updated = await this.repo.update(id, { ...fields, updatedBy: actor.id }, version, tx);
       // 讀到之後、寫入之前被別人改過（版本變了）或刪除
-      if (!updated) throw await this.missedUpdate(id, version, tx);
+      if (!updated) throw await this.missedUpdate(id, tx);
       // UPDATE 已經鎖住角色列：同一個角色的版本號依序產生
       await this.recordRevision(updated, actor.id, tx);
       await this.audit.record(
@@ -430,7 +430,7 @@ export class RoleService {
     actor: AuthUser,
   ): Promise<RoleDto> {
     const role = await this.getExisting(id);
-    if (dto.version !== undefined && dto.version !== role.version) {
+    if (dto.version !== role.version) {
       throw new AppException('ROLE_VERSION_CONFLICT', { current: role.version });
     }
     if (role.slug === SUPER_ADMIN_SLUG) throw new AppException('ROLE_SUPER_ADMIN_IMMUTABLE');
@@ -468,7 +468,7 @@ export class RoleService {
         dto.version,
         tx,
       );
-      if (!updated) throw await this.missedUpdate(id, dto.version, tx);
+      if (!updated) throw await this.missedUpdate(id, tx);
       await this.repo.removePermissions(id, remove, tx);
       await this.repo.addPermissions(id, add, actor.id, tx);
       const after = await this.repo.listPermissionKeys(id, tx);
@@ -592,15 +592,11 @@ export class RoleService {
   }
 
   /**
-   * 條件式 UPDATE 沒有命中：沒帶版本、或列已不在 → 404；還在就是版本被搶先改過 → 409 並帶重讀的目前版本
+   * 條件式 UPDATE 沒有命中：列已不在 → 404；還在就是版本被搶先改過 → 409 並帶重讀的目前版本
    * （ADR-0025 D3）。
    */
-  private async missedUpdate(
-    id: string,
-    version: number | undefined,
-    tx: DbOrTx,
-  ): Promise<AppException> {
-    const current = version === undefined ? undefined : await this.repo.findVersion(id, tx);
+  private async missedUpdate(id: string, tx: DbOrTx): Promise<AppException> {
+    const current = await this.repo.findVersion(id, tx);
     return current === undefined
       ? new AppException('ROLE_NOT_FOUND')
       : new AppException('ROLE_VERSION_CONFLICT', { current });

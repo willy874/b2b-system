@@ -23,6 +23,7 @@ import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
 import { inTestTenant } from './tenant';
+import { currentRoleIds, userVersion } from './versions';
 
 let app: INestApplication;
 let http: App;
@@ -253,7 +254,7 @@ describe('帳號安全', () => {
       await request(http)
         .patch(`/users/${id}`)
         .set('authorization', `Bearer ${admin}`)
-        .send({ status: 'inactive' })
+        .send({ status: 'inactive', version: await userVersion(db, id) })
         .expect(200);
       // 停用時未使用的 token 一併作廢
       const unused = await db
@@ -321,7 +322,7 @@ describe('帳號安全', () => {
       const response = await request(http)
         .patch(`/users/${target}`)
         .set('authorization', `Bearer ${admin}`)
-        .send({ status: 'pending' })
+        .send({ status: 'pending', version: await userVersion(db, target) })
         .expect(400);
       expect(errorCode(response)).toBe('VALIDATION_FAILED');
     });
@@ -358,7 +359,13 @@ describe('帳號安全', () => {
       'admin %s super-admin → 403 AUTHZ_ESCALATION',
       async (_label, method, path, body) => {
         const admin = await tokenOf(ADMIN);
-        const payload = body === 'member' ? { roleIds: [await roleIdOf('member')] } : body;
+        const payload =
+          body === 'member'
+            ? {
+                roleIds: [await roleIdOf('member')],
+                expectedRoleIds: await currentRoleIds(db, root2Id),
+              }
+            : body && { ...body, version: await userVersion(db, root2Id) };
         const agent = request(http);
         const response = await agent[method](path(root2Id))
           .set('authorization', `Bearer ${admin}`)
@@ -376,12 +383,12 @@ describe('帳號安全', () => {
       await request(http)
         .patch(`/users/${root2Id}`)
         .set('authorization', `Bearer ${root}`)
-        .send({ status: 'inactive' })
+        .send({ status: 'inactive', version: await userVersion(db, root2Id) })
         .expect(200);
       await request(http)
         .patch(`/users/${root2Id}`)
         .set('authorization', `Bearer ${root}`)
-        .send({ status: 'active' })
+        .send({ status: 'active', version: await userVersion(db, root2Id) })
         .expect(200);
     });
 

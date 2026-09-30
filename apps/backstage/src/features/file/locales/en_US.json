@@ -97,7 +97,7 @@
     },
     "delete": {
       "title": "Delete file",
-      "confirm": "Delete “{{name}}”? This cannot be undone.",
+      "confirm": "Delete “{{name}}”? It will be moved to the trash and can be restored within the retention period.",
       "success": "File deleted",
       "undo": "Undo"
     },
@@ -108,13 +108,13 @@
       },
       "delete": {
         "title": "Delete files",
-        "confirm": "Delete {{count}} files? They are deleted one by one in the background and cannot be restored.",
+        "confirm": "Delete {{count}} files? They are deleted one by one in the background and moved to the trash, where they can be restored within the retention period.",
         "success": "Deleted {{count}} files"
       },
       "deleteFolder": {
         "title": "Delete folders",
         "success": "Deleted {{count}} folders",
-        "confirm": "Delete {{count}} items? Selected folders will be deleted together with their files and subfolders. Deletion runs in the background and cannot be undone."
+        "confirm": "Delete {{count}} items? Selected folders will be moved to the trash together with their files and subfolders. Deletion runs in the background, and items can be restored within the retention period."
       }
     },
     "preview": {

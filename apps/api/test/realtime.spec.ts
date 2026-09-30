@@ -30,6 +30,7 @@ import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
 import { inTestTenant, testTenantContext } from './tenant';
+import { currentRoleIds, roleVersion, userVersion } from './versions';
 
 type ClientSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -382,7 +383,7 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       await request(http)
         .patch(`/users/${outsider}`)
         .set('Authorization', `Bearer ${superAdminToken}`)
-        .send({ displayName: '改個名字' })
+        .send({ displayName: '改個名字', version: await userVersion(db, outsider) })
         .expect(200);
       await barrier([holderSocket]);
       expect(holderGot.map((event) => event.changes[0]?.resource)).toEqual(['user']);
@@ -435,7 +436,7 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       await request(http)
         .put(`/users/${target}/roles`)
         .set('Authorization', `Bearer ${superAdminToken}`)
-        .send({ roleIds: [auditorId] })
+        .send({ roleIds: [auditorId], expectedRoleIds: await currentRoleIds(db, target) })
         .expect(200);
       await barrier([socket]);
       expect(got[0]).toEqual({
@@ -492,7 +493,7 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       await request(http)
         .patch(`/roles/${roleId}`)
         .set('Authorization', `Bearer ${superAdminToken}`)
-        .send({ name: '不會成功的新名字' })
+        .send({ name: '不會成功的新名字', version: await roleVersion(db, roleId) })
         .expect(500);
       await barrier([socket]);
 
@@ -514,7 +515,7 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       await request(http)
         .patch(`/users/${userId}`)
         .set('Authorization', `Bearer ${superAdminToken}`)
-        .send({ status: 'inactive' })
+        .send({ status: 'inactive', version: await userVersion(db, userId) })
         .expect(200);
 
       await expect(Promise.all(revoked)).resolves.toEqual([

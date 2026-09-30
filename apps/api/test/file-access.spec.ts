@@ -108,6 +108,7 @@ interface FileBody {
   id: string;
   name: string;
   folderId: string | null;
+  version: number;
   capabilities: { canUpdate: boolean; canDelete: boolean };
 }
 interface GrantListBody {
@@ -266,14 +267,16 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
     const artist = await login(ARTIST);
     const mine = await uploadFile(artist, 'mine.txt', art.id);
     expect(mine.capabilities).toEqual({ canUpdate: true, canDelete: true });
-    await api(artist).patch(`/files/${mine.id}`, { name: 'mine2.txt' }).expect(200);
+    await api(artist)
+      .patch(`/files/${mine.id}`, { name: 'mine2.txt', version: mine.version })
+      .expect(200);
 
     const theirs = (await listFiles(artist, `?folderId=${art.id}`)).find(
       (file) => file.id === adminArtFile.id,
     );
     expect(theirs?.capabilities).toEqual({ canUpdate: false, canDelete: false });
     const denied = await api(artist)
-      .patch(`/files/${adminArtFile.id}`, { name: 'hacked.txt' })
+      .patch(`/files/${adminArtFile.id}`, { name: 'hacked.txt', version: adminArtFile.version })
       .expect(403);
     expect(errorCode(denied)).toBe('AUTHZ_FORBIDDEN');
     await api(artist).delete(`/files/${adminArtFile.id}`).expect(403);
@@ -643,7 +646,9 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       // 共用資料夾：誰都能上傳；上傳的檔案別人也能改（editor）
       const file = await uploadFile(artist, 'shared.txt', shared?.id ?? null);
       const outsider = await login(OUTSIDER);
-      await api(outsider).patch(`/files/${file.id}`, { name: 'shared-2.txt' }).expect(200);
+      await api(outsider)
+        .patch(`/files/${file.id}`, { name: 'shared-2.txt', version: file.version })
+        .expect(200);
 
       // 個人資料夾：別人看不到裡面的檔案
       const mine = await uploadFile(artist, 'mine.txt', personal[0]?.id ?? null);
@@ -671,7 +676,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       const id = await createActiveUser(newcomer, []);
       const admin = await login(ADMIN);
       await api(admin)
-        .put(`/users/${id}/roles`, { roleIds: [await roleId('member')] })
+        .put(`/users/${id}/roles`, { roleIds: [await roleId('member')], expectedRoleIds: [] })
         .expect(200);
       // 事件在回應之後處理：等它落地
       await expect
@@ -711,7 +716,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       for (const id of [emptyId, busyId]) {
         // oxlint-disable-next-line no-await-in-loop -- 依序指派，等各自的個人資料夾建好
         await api(admin)
-          .put(`/users/${id}/roles`, { roleIds: [member] })
+          .put(`/users/${id}/roles`, { roleIds: [member], expectedRoleIds: [] })
           .expect(200);
       }
       const personalOf = async (email: string) =>

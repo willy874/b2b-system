@@ -33,12 +33,15 @@ describe('UpdateRoleSchema', () => {
     expect(UpdateRoleSchema.safeParse({ version: 2 }).success).toBe(false);
   });
 
-  it('欄位 ＋ version → 通過；version 選填（ADR-0025 D4 的 R1）', () => {
+  it('欄位 ＋ version → 通過', () => {
     expect(UpdateRoleSchema.parse({ name: 'Editor', version: 2 })).toEqual({
       name: 'Editor',
       version: 2,
     });
-    expect(UpdateRoleSchema.safeParse({ name: 'Editor' }).success).toBe(true);
+  });
+
+  it('不帶 version → 驗證失敗（ADR-0025 D4 的 R1b：必填）', () => {
+    expect(UpdateRoleSchema.safeParse({ name: 'Editor' }).success).toBe(false);
   });
 
   it('version 必須是 ≥ 1 的整數', () => {
