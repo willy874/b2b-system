@@ -3,7 +3,7 @@ import { and, asc, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm
 import type { SQL } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { TENANT_DB } from '@/core/database';
+import { TENANT_DB, containsPattern } from '@/core/database';
 import type { RoleRow, UserInsert, UserRow } from '@/db/schema';
 import { roles, userRoles, users } from '@/db/schema';
 
@@ -73,10 +73,11 @@ export class UserRepository {
   private buildFilters(query: ListUserDto): SQL | undefined {
     const conditions: SQL[] = [isNull(users.deletedAt)];
     if (query.keyword) {
-      const pattern = `%${query.keyword}%`;
+      // 三個運算式與 pg_trgm 的 GIN 索引（users_*_trgm_idx）一致才用得上索引（docs/issues/01-performance.md PERF-19）
+      const pattern = containsPattern(query.keyword);
       const matched = or(
         ilike(sql`${users.email}::text`, pattern),
-        ilike(sql`coalesce(${users.username}::text, '')`, pattern),
+        ilike(sql`${users.username}::text`, pattern),
         ilike(users.displayName, pattern),
       );
       if (matched) conditions.push(matched);

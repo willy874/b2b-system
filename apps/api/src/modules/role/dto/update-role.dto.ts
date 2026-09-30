@@ -3,11 +3,13 @@ import { z } from 'zod';
 import { defineSchema } from '@/core/validation';
 import { PermissionKeySchema } from '@/modules/permission/dto/permission.dto';
 
+import { RoleNameSchema } from './create-role.dto';
+
 export const UpdateRoleSchema = defineSchema(
   'UpdateRoleRequest',
   z
     .object({
-      name: z.string().trim().min(1).max(64).optional(),
+      name: RoleNameSchema.optional(),
       description: z.string().trim().max(500).nullable().optional(),
     })
     .refine((value) => Object.keys(value).length > 0, {

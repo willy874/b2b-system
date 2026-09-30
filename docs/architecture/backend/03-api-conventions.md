@@ -50,11 +50,19 @@
 
 ```ts
 // core/http/pagination.ts
+export const MAX_OFFSET = 10_000;
+export const OffsetSchema = z.coerce.number().int().min(0).max(MAX_OFFSET).default(0);
 export const PaginationSchema = z.object({
-  offset: z.coerce.number().int().min(0).default(0),
+  offset: OffsetSchema,
   limit: z.coerce.number().int().min(1).max(200).default(20),
 });
 ```
+
+`offset` 上限 1 萬：offset 分頁要先掃過前面每一列，極大的 offset 等於全表掃描；超過時回 `400 VALIDATION_FAILED`，
+該用篩選條件縮小範圍。自訂 `limit` 範圍的列表（背景工作…）也用 `OffsetSchema`。
+
+關鍵字搜尋（`ILIKE`／`LIKE`）的使用者輸入一律經過 `core/database` 的 `containsPattern()`／`prefixPattern()`
+（`escapeLike()` 跳脫 `%`、`_`、`\`）：否則搜尋 `_` 會匹配所有列。
 
 **offset/limit 而非 cursor**：管理後台需要「跳到第 5 頁」與「共 137 筆」，
 cursor 分頁做不到。資料規模（使用者、角色）也遠不到 offset 分頁會變慢的量級。

@@ -457,6 +457,54 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     expect(response.body).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
   });
 
+  describe('角色名稱不分大小寫、Unicode 正規化（docs/issues/03-edge-cases.md EDGE-21）', () => {
+    it('只差大小寫的名稱 → ROLE_NAME_DUPLICATE', async () => {
+      const token = await login(SUPER_ADMIN);
+      await request(http)
+        .post('/roles')
+        .set('authorization', `Bearer ${token}`)
+        .send({ name: 'Editor Case' })
+        .expect(201);
+      const response = await request(http)
+        .post('/roles')
+        .set('authorization', `Bearer ${token}`)
+        .send({ name: 'editor CASE' })
+        .expect(409);
+      expect(response.body).toMatchObject({ error: { code: 'ROLE_NAME_DUPLICATE' } });
+    });
+
+    it('NFC 與 NFD 的同一個名稱 → ROLE_NAME_DUPLICATE，存成 NFC', async () => {
+      const token = await login(SUPER_ADMIN);
+      const created = await request(http)
+        .post('/roles')
+        .set('authorization', `Bearer ${token}`)
+        .send({ name: 'Café 角色' })
+        .expect(201);
+      expect((created.body as { data: { name: string } }).data.name).toBe('Café 角色');
+      await request(http)
+        .post('/roles')
+        .set('authorization', `Bearer ${token}`)
+        .send({ name: 'Café 角色' })
+        .expect(409);
+    });
+
+    it('只改自己名稱的大小寫不算撞名', async () => {
+      const token = await login(SUPER_ADMIN);
+      const created = await request(http)
+        .post('/roles')
+        .set('authorization', `Bearer ${token}`)
+        .send({ name: 'recase me' })
+        .expect(201);
+      const id = (created.body as { data: { id: string } }).data.id;
+      const response = await request(http)
+        .patch(`/roles/${id}`)
+        .set('authorization', `Bearer ${token}`)
+        .send({ name: 'Recase Me' })
+        .expect(200);
+      expect((response.body as { data: { name: string } }).data.name).toBe('Recase Me');
+    });
+  });
+
   describe('輸入錯誤回可理解的錯誤碼（docs/issues/03-edge-cases.md EDGE-17）', () => {
     it('重複的 roleIds → 400 VALIDATION_FAILED（不是 500）', async () => {
       const token = await login(SUPER_ADMIN);

@@ -117,7 +117,10 @@ export class RoleService {
 
   async update(id: string, dto: UpdateRoleDto, actor: AuthUser): Promise<RoleDto> {
     const role = await this.getExisting(id);
-    if (dto.name && dto.name !== role.name) await this.assertNameAvailable(dto.name);
+    // 只改大小寫（`admin` → `Admin`）不算撞名：唯一性不分大小寫，撞到的是自己
+    if (dto.name && dto.name.toLowerCase() !== role.name.toLowerCase()) {
+      await this.assertNameAvailable(dto.name);
+    }
 
     const changes = diff(role, dto, [...ROLE_AUDIT_FIELDS]);
 
@@ -316,11 +319,14 @@ export class RoleService {
   }
 
   private async uniqueName(base: string): Promise<string> {
-    const existing = new Set((await this.repo.searchByName(base)).map((role) => role.name));
-    if (!existing.has(base)) return base;
+    // 名稱唯一性不分大小寫：比對也用小寫
+    const existing = new Set(
+      (await this.repo.searchByName(base)).map((role) => role.name.toLowerCase()),
+    );
+    if (!existing.has(base.toLowerCase())) return base;
     for (let index = 2; index < 1000; index += 1) {
       const candidate = `${base} ${index}`;
-      if (!existing.has(candidate)) return candidate;
+      if (!existing.has(candidate.toLowerCase())) return candidate;
     }
     throw new AppException('ROLE_NAME_DUPLICATE', { field: 'name' });
   }

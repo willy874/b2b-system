@@ -3,7 +3,7 @@ import { and, asc, desc, eq, ilike, inArray, isNull, like, sql } from 'drizzle-o
 import type { SQL, SQLWrapper } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { TENANT_DB } from '@/core/database';
+import { TENANT_DB, containsPattern, prefixPattern } from '@/core/database';
 import type { PermissionRow, RoleInsert, RoleRow } from '@/db/schema';
 import { permissions, rolePermissions, roles, userRoles, users } from '@/db/schema';
 
@@ -57,11 +57,12 @@ export class RoleRepository {
     return row;
   }
 
+  /** 名稱不分大小寫（與唯一索引 `roles_name_key` 的 `lower(name)` 一致）。 */
   async findByName(name: string): Promise<RoleRow | undefined> {
     const [row] = await this.db
       .select()
       .from(roles)
-      .where(and(eq(roles.name, name), isNull(roles.deletedAt)))
+      .where(and(sql`lower(${roles.name}) = lower(${name})`, isNull(roles.deletedAt)))
       .limit(1);
     return row;
   }
@@ -70,7 +71,7 @@ export class RoleRepository {
     const rows = await this.db
       .select({ slug: roles.slug })
       .from(roles)
-      .where(and(like(roles.slug, `${prefix}%`), isNull(roles.deletedAt)));
+      .where(and(like(roles.slug, prefixPattern(prefix)), isNull(roles.deletedAt)));
     return rows.map((row) => row.slug);
   }
 
@@ -95,7 +96,7 @@ export class RoleRepository {
   async list(query: ListRoleDto): Promise<{ items: RoleWithCounts[]; total: number }> {
     const conditions: SQL[] = [isNull(roles.deletedAt)];
     if (query.keyword) {
-      const pattern = `%${query.keyword}%`;
+      const pattern = containsPattern(query.keyword);
       conditions.push(sql`(${roles.name} ILIKE ${pattern} OR ${roles.slug} ILIKE ${pattern})`);
     }
     if (query.isSystem !== undefined) conditions.push(eq(roles.isSystem, query.isSystem));
@@ -258,6 +259,6 @@ export class RoleRepository {
     return this.db
       .select()
       .from(roles)
-      .where(and(ilike(roles.name, `${keyword}%`), isNull(roles.deletedAt)));
+      .where(and(ilike(roles.name, prefixPattern(keyword)), isNull(roles.deletedAt)));
   }
 }
