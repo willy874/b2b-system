@@ -28,9 +28,17 @@ export function listPage<T extends { key: string }>(
   let lastItem: string | undefined;
   let isTruncated = false;
 
-  for (const object of sorted) {
+  // 以二分搜尋跳到起點（PERF-18）：prefix 相同的 key 在位元組序裡是連續的一段，
+  // 從「≥ prefix 且 > after」的第一個開始，離開 prefix 的範圍就停——不再從頭線性掃描整個 bucket
+  const start = Math.max(
+    lowerBoundUtf8(sorted, options.prefix, false),
+    options.after === undefined ? 0 : lowerBoundUtf8(sorted, options.after, true),
+  );
+  for (let index = start; index < sorted.length; index += 1) {
+    const object = sorted[index];
+    if (!object) break;
     const { key } = object;
-    if (!key.startsWith(options.prefix)) continue;
+    if (!key.startsWith(options.prefix)) break;
     if (options.after !== undefined && !isAfterUtf8(key, options.after)) continue;
 
     const rest = key.slice(options.prefix.length);
@@ -57,6 +65,27 @@ export function listPage<T extends { key: string }>(
   }
 
   return { contents, commonPrefixes, isTruncated, lastItem };
+}
+
+/**
+ * 第一個 key ≥ `target`（`strict` 時是 > `target`）的位置，以 UTF-8 位元組序比較。
+ * `sorted` 必須已依同樣的順序排序。
+ */
+export function lowerBoundUtf8(
+  sorted: readonly { key: string }[],
+  target: string,
+  strict: boolean,
+): number {
+  const needle = Buffer.from(target, 'utf8');
+  let low = 0;
+  let high = sorted.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    const order = Buffer.compare(Buffer.from(sorted[middle]?.key ?? '', 'utf8'), needle);
+    if (order < 0 || (strict && order === 0)) low = middle + 1;
+    else high = middle;
+  }
+  return low;
 }
 
 /** `after` 的比較要用 UTF-8 位元組序，與排序一致（JS 字串比較是 UTF-16，遇到補充平面字元會不同）。 */

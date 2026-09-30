@@ -7,6 +7,7 @@ import { pipeline } from 'node:stream/promises';
 
 import { etagMatches } from '@/s3/conditions';
 import { S3Error } from '@/s3/errors';
+import { lowerBoundUtf8 } from '@/s3/list';
 
 import { KeyedLock } from './keyed-lock';
 import type {
@@ -40,8 +41,11 @@ import type {
 interface BucketState {
   info: BucketInfo;
   objects: Map<string, StoredObject>;
-  /** 依 UTF-8 位元組排序的物件清單快取；有寫入就作廢。 */
-  sorted: StoredObject[] | undefined;
+  /**
+   * 依 UTF-8 位元組排序的物件清單，寫入與刪除時以二分搜尋就地插入／移除（PERF-18）：
+   * 不再每次寫入就作廢、下一次列表整桶重新排序。
+   */
+  sorted: StoredObject[];
 }
 
 interface PersistedObject {
@@ -104,6 +108,18 @@ function compareUtf8(a: string, b: string): number {
   return Buffer.compare(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
 }
 
+/** 依 key 插入或取代（`sorted` 依 UTF-8 位元組序）。 */
+function upsertSorted(sorted: StoredObject[], object: StoredObject): void {
+  const index = lowerBoundUtf8(sorted, object.key, false);
+  if (sorted[index]?.key === object.key) sorted[index] = object;
+  else sorted.splice(index, 0, object);
+}
+
+function removeSorted(sorted: StoredObject[], key: string): void {
+  const index = lowerBoundUtf8(sorted, key, false);
+  if (sorted[index]?.key === key) sorted.splice(index, 1);
+}
+
 function sha256Hex(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
@@ -161,7 +177,7 @@ export class DiskStore {
       throw new S3Error('BucketAlreadyOwnedByYou', undefined, { BucketName: name });
     const info: BucketInfo = { name, createdAt: new Date() };
     // 先佔位，避免兩個並行的 CreateBucket 都以為自己是第一個
-    this.buckets.set(name, { info, objects: new Map(), sorted: undefined });
+    this.buckets.set(name, { info, objects: new Map(), sorted: [] });
     try {
       await mkdir(join(this.bucketDir(name), 'objects'), { recursive: true });
       await mkdir(join(this.bucketDir(name), 'blobs'), { recursive: true });
@@ -195,9 +211,7 @@ export class DiskStore {
 
   /** 依 UTF-8 位元組排序（與 S3 的 ListObjects 順序相同）。 */
   listObjects(bucket: string): readonly StoredObject[] {
-    const state = this.requireBucket(bucket);
-    state.sorted ??= [...state.objects.values()].toSorted((a, b) => compareUtf8(a.key, b.key));
-    return state.sorted;
+    return this.requireBucket(bucket).sorted;
   }
 
   getObject(bucket: string, key: string): StoredObject {
@@ -285,7 +299,7 @@ export class DiskStore {
       if (!state || !previous) return;
       await rm(this.metaPath(bucket, key), { force: true });
       state.objects.delete(key);
-      state.sorted = undefined;
+      removeSorted(state.sorted, key);
       await rm(this.blobPath(bucket, previous.blob), { force: true });
     });
   }
@@ -554,7 +568,7 @@ export class DiskStore {
       }
 
       state.objects.set(key, object);
-      state.sorted = undefined;
+      upsertSorted(state.sorted, object);
       if (previous) await rm(this.blobPath(bucket, previous.blob), { force: true });
       return object;
     });
@@ -587,7 +601,7 @@ export class DiskStore {
       this.buckets.set(name, {
         info: { name, createdAt: new Date(persisted.createdAt) },
         objects,
-        sorted: undefined,
+        sorted: [...objects.values()].toSorted((a, b) => compareUtf8(a.key, b.key)),
       });
       await this.sweepOrphanBlobs(name, objects);
     }
