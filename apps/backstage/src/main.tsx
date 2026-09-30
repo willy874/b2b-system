@@ -18,6 +18,7 @@ import { approvalFeaturePlugin } from '@/features/approval';
 import { authFeaturePlugin } from '@/features/auth';
 import { homeFeaturePlugin } from '@/features/home';
 import { identityProviderFeaturePlugin } from '@/features/identity-provider';
+import { notificationFeaturePlugin } from '@/features/notification';
 import { permissionFeaturePlugin } from '@/features/permission';
 import { roleFeaturePlugin } from '@/features/role';
 import { systemFeaturePlugin } from '@/features/system';
@@ -90,6 +91,7 @@ async function bootstrap(): Promise<void> {
     .use(systemFeaturePlugin())
     .use(trashFeaturePlugin())
     .use(accountFeaturePlugin())
+    .use(notificationFeaturePlugin())
     // 擴充 feature 的小外掛：往偏好頁插「表格欄位」分頁
     .use(tableColumnSettingsPlugin())
     // 可啟用 feature 的安裝器（登入後依租戶的啟用清單安裝，docs/adr/0021-runtime-feature-activation.md）

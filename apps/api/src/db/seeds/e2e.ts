@@ -32,6 +32,8 @@ export const E2E_ACCOUNTS = [
   { email: 'e2e-revokeme@dev.local', displayName: 'E2E Revoke Target', role: 'member' },
   // 專門給「角色刪除 → 還原」的測試用：持有的自訂角色會被刪掉再還原（tests/trash-and-revisions.spec.ts）
   { email: 'e2e-roleholder@dev.local', displayName: 'E2E Role Holder', role: 'member' },
+  // 專門給站內通知的測試用：角色會被增減（user.rolesChanged），未讀數要能精確斷言，不能和其他測試共用（tests/notification.spec.ts）
+  { email: 'e2e-notifyme@dev.local', displayName: 'E2E Notify Target', role: 'member' },
 ] as const;
 
 export async function seedE2eData(db: ScriptDatabase): Promise<void> {

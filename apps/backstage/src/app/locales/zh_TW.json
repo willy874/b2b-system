@@ -355,5 +355,10 @@
     "toggleSidebar": "側邊選單",
     "closeSidebar": "關閉側邊選單",
     "accountMenu": "帳號選單（{{name}}）"
+  },
+  "notification": {
+    "label": "通知",
+    "trigger": "通知",
+    "triggerUnread": "通知：{{count}} 則未讀"
   }
 }

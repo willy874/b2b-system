@@ -1,0 +1,38 @@
+{
+  "notification": {
+    "title": "通知",
+    "description": "有事等你處理、你的東西被動了，都會出現在這裡。已讀超過保留期限的通知會自動清除。",
+    "unread": "未讀：",
+    "empty": "目前沒有通知",
+    "emptyUnread": "沒有未讀的通知",
+    "viewAll": "查看全部",
+    "filter": {
+      "all": "全部",
+      "unread": "未讀"
+    },
+    "markAllRead": {
+      "action": "全部已讀",
+      "success": "已將 {{count}} 則通知標為已讀"
+    },
+    "actor": {
+      "system": "系統"
+    },
+    "message": {
+      "approvalPending": "{{requester}} 送出了{{type}}申請，等待審核",
+      "approvalApproved": "你的{{type}}申請已核准",
+      "approvalRejected": "你的{{type}}申請已被駁回",
+      "userRolesChanged": "你的角色已變更",
+      "unknown": "你有一則新通知"
+    },
+    "detail": {
+      "subject": "{{subject}}",
+      "rolesAdded": "新增：{{roles}}",
+      "rolesRemoved": "移除：{{roles}}"
+    },
+    "approvalType": {
+      "userRegister": "帳號註冊",
+      "fileFolderAccess": "資料夾存取",
+      "unknown": "審批"
+    }
+  }
+}

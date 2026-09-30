@@ -355,5 +355,10 @@
     "toggleSidebar": "Side menu",
     "closeSidebar": "Close side menu",
     "accountMenu": "Account menu ({{name}})"
+  },
+  "notification": {
+    "label": "Notifications",
+    "trigger": "Notifications",
+    "triggerUnread": "Notifications: {{count}} unread"
   }
 }

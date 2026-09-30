@@ -77,6 +77,40 @@ export function formatDate(
   return createFormat(options, { dateStyle: 'medium' }).format(date);
 }
 
+const RELATIVE_UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+  ['year', 365 * 24 * 60 * 60 * 1000],
+  ['month', 30 * 24 * 60 * 60 * 1000],
+  ['week', 7 * 24 * 60 * 60 * 1000],
+  ['day', 24 * 60 * 60 * 1000],
+  ['hour', 60 * 60 * 1000],
+  ['minute', 60 * 1000],
+];
+
+/**
+ * 相對時間（「3 分鐘前」「昨天」），以偏好的語系顯示；一分鐘內是「現在」。未來的時間同樣適用（「5 分鐘後」）。
+ * 取最大且至少一個單位的時間單位，四捨五入到整數（`numeric: 'auto'` 讓 1 天前顯示成「昨天」）。
+ */
+export function formatRelativeTime(
+  value: Date | string | null | undefined,
+  now: number = Date.now(),
+  options: Pick<DateTimeFormatOptions, 'locale'> = {},
+): string {
+  const date = toDate(value);
+  if (!date) return '-';
+  const diff = date.getTime() - now;
+  let format: Intl.RelativeTimeFormat;
+  try {
+    format = new Intl.RelativeTimeFormat(options.locale ?? defaults.locale, { numeric: 'auto' });
+  } catch {
+    // 語系不合法：退回預設語系
+    format = new Intl.RelativeTimeFormat(DEFAULT_LANGUAGE, { numeric: 'auto' });
+  }
+  for (const [unit, size] of RELATIVE_UNITS) {
+    if (Math.abs(diff) >= size) return format.format(Math.round(diff / size), unit);
+  }
+  return format.format(0, 'second');
+}
+
 /** `timeZone` 在 `instant` 這一刻相對 UTC 的位移（毫秒，東區為正）。 */
 function offsetOf(instant: number, timeZone: string): number {
   const parts = new Intl.DateTimeFormat('en-US', {

@@ -3,10 +3,12 @@ import { LanguageNamespace, Languages } from '@/shared/constants/lang';
 
 import { ACCOUNT_LOCALE_SCOPE } from './locale';
 import { registerAccountPagePermissions } from './permission';
+import { registerAccountRouteLinks } from './routeLinks';
 
 export function appContextPlugin(): AppPluginFactory {
   return (context) => {
     registerAccountPagePermissions();
+    registerAccountRouteLinks(); // 站內通知等後端連結的 route id
     const app = context.getInstance();
 
     return {

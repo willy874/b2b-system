@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { formatDateTime, isValidTimeZone, setDateTimeDefaults, zonedDayBoundary } from '../index';
+import {
+  formatDateTime,
+  formatRelativeTime,
+  isValidTimeZone,
+  setDateTimeDefaults,
+  zonedDayBoundary,
+} from '../index';
 
 const INSTANT = '2026-09-30T16:30:00.000Z';
 
@@ -70,5 +76,30 @@ describe('zonedDayBoundary（稽核篩選的日界線）', () => {
   it('沒傳時區時用偏好的時區', () => {
     setDateTimeDefaults({ timeZone: 'UTC' });
     expect(zonedDayBoundary('2026-10-01', 'start')).toBe('2026-10-01T00:00:00.000Z');
+  });
+});
+
+describe('formatRelativeTime（通知的相對時間）', () => {
+  const now = Date.parse(INSTANT);
+  const ago = (ms: number) => new Date(now - ms).toISOString();
+
+  it('一分鐘內是「現在」', () => {
+    expect(formatRelativeTime(ago(30_000), now)).toBe('現在');
+  });
+
+  it('取最大且至少一個單位的時間單位', () => {
+    expect(formatRelativeTime(ago(5 * 60_000), now)).toBe('5 分鐘前');
+    expect(formatRelativeTime(ago(3 * 60 * 60_000), now)).toBe('3 小時前');
+    expect(formatRelativeTime(ago(24 * 60 * 60_000), now)).toBe('昨天');
+  });
+
+  it('跟著偏好的語言', () => {
+    setDateTimeDefaults({ locale: 'en-US' });
+    expect(formatRelativeTime(ago(5 * 60_000), now)).toBe('5 minutes ago');
+  });
+
+  it('不合法的值顯示 -', () => {
+    expect(formatRelativeTime('not a date', now)).toBe('-');
+    expect(formatRelativeTime(null, now)).toBe('-');
   });
 });
