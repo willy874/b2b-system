@@ -1,9 +1,9 @@
 import { Outlet, useRouterState } from '@tanstack/react-router';
 import { Suspense } from 'react';
 
-import { useTranslation } from '@/core/locales';
 import { usePageAccess } from '@/core/permission';
 
+import { ForbiddenPage, PageFallback } from './ErrorPages';
 import { PlatformLayout } from './layouts/PlatformLayout';
 
 /** 不套平台外框的頁面：登入相關的頁面自己置中顯示。 */
@@ -17,22 +17,6 @@ const BARE_PREFIXES = [
   '/setup',
   '/register',
 ];
-
-function PageFallback() {
-  return <div className="p-6 text-sm text-[var(--color-fg-muted)]" aria-busy="true" />;
-}
-
-function Forbidden() {
-  const { t } = useTranslation();
-  return (
-    <div className="p-6" data-testid="forbidden-page">
-      <h1 className="m-0 text-lg font-semibold">{t('error.page.forbidden.title')}</h1>
-      <p className="mt-2 text-sm text-[var(--color-fg-muted)]">
-        {t('error.page.forbidden.description')}
-      </p>
-    </div>
-  );
-}
 
 /**
  * 權限守衛在 Layout 而不在每個 route 的 beforeLoad（同 apps/backstage）：
@@ -52,7 +36,7 @@ export function Layout() {
   ) : canAccess ? (
     <Outlet />
   ) : (
-    <Forbidden />
+    <ForbiddenPage />
   );
 
   const wrapped = <Suspense fallback={<PageFallback />}>{content}</Suspense>;
