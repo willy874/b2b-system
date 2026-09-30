@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { expectIdpLogin, loginAndWaitForHome } from '../helpers/auth';
+import { openMenuGroup } from '../helpers/menu';
 
 test.describe('路由守衛與選單過濾', () => {
   // ⑤ auditor 直接輸入無權限的網址 → 看到 403 頁（不是被彈回首頁）
@@ -22,7 +23,9 @@ test.describe('路由守衛與選單過濾', () => {
 
   test('auditor 看得到唯讀選單，但沒有建立按鈕', async ({ page }) => {
     await loginAndWaitForHome(page, 'auditor');
+    await openMenuGroup(page, 'menu-group-people');
     await expect(page.getByTestId('menu-user')).toBeVisible();
+    await openMenuGroup(page, 'menu-group-system');
     await expect(page.getByTestId('menu-auditLog')).toBeVisible();
 
     await page.goto('/user');

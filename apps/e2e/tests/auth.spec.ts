@@ -9,11 +9,13 @@ import {
   loginAndWaitForHome,
   logout,
 } from '../helpers/auth';
+import { openMenuGroup } from '../helpers/menu';
 
 test.describe('認證流程', () => {
   // ① 登入 → 首頁 → 登出
   test('登入後進入首頁，登出後停在「已登出」頁', async ({ page }) => {
     await loginAndWaitForHome(page, 'superAdmin');
+    await openMenuGroup(page, 'menu-group-people');
     await expect(page.getByTestId('menu-role')).toBeVisible();
 
     await logout(page);

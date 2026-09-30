@@ -1,125 +1,23 @@
-import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
-import { useMemo } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
 import { Avatar } from '@/components/Avatar';
 import { Button } from '@/components/Button';
 import { IconButton } from '@/components/Button';
-import { Icon } from '@/components/Icon';
-import type { IconName } from '@/components/Icon';
 import { Menu } from '@/components/Menu';
 import { BatchQueueIndicator, BatchQueueNotifier } from '@/core/batch';
 import { useTranslation } from '@/core/locales';
-import { usePageAccessChecker } from '@/core/permission';
-import type { PageKey } from '@/core/permission';
 import { useLayoutStore } from '@/core/store';
 import { PREFERENCE_PAGE, PROFILE_PAGE } from '@/features/account';
-import { APPROVAL_PAGE } from '@/features/approval';
-import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { useLogoutMutation } from '@/features/auth';
-import { FILE_PAGE } from '@/features/file';
-import { HOME_PAGE } from '@/features/home';
-import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
-import { JOB_PAGE } from '@/features/job';
-import { PERMISSION_PAGE } from '@/features/permission';
-import { ROLE_PAGE } from '@/features/role';
-import { USER_PAGE } from '@/features/user';
 import { cn } from '@/shared/utils';
 
+import { useMenuItems } from './menu';
+import type { MenuItem } from './menu';
+import { SidebarNav } from './SidebarNav';
 import { ThemeMenu } from './ThemeMenu';
 
 import './DashboardLayout.css';
-
-interface MenuItem {
-  pageKey: PageKey;
-  to: string;
-  labelKey: string;
-  icon: IconName;
-}
-
-interface NavItem extends MenuItem {
-  /** 完整字面量（docs/conventions/06-literal-strings.md §3.3），E2E 以此定位側邊選單項 */
-  testId: string;
-}
-
-interface NavSection {
-  key: string;
-  /** 沒有標題的區塊（首頁）直接列在最上方 */
-  labelKey?: string;
-  items: NavItem[];
-}
-
-/** `app/` 是唯一知道所有 feature 的地方，這是組裝層的本分。 */
-const MENU: NavSection[] = [
-  {
-    key: 'home',
-    items: [
-      { pageKey: HOME_PAGE, to: '/', labelKey: 'menu.home', testId: 'menu-home', icon: 'home' },
-    ],
-  },
-  {
-    key: 'feature',
-    labelKey: 'menu.group.feature',
-    items: [
-      { pageKey: FILE_PAGE, to: '/file', labelKey: 'menu.file', testId: 'menu-file', icon: 'file' },
-    ],
-  },
-  {
-    key: 'people',
-    labelKey: 'menu.group.people',
-    items: [
-      {
-        pageKey: USER_PAGE,
-        to: '/user',
-        labelKey: 'menu.user',
-        testId: 'menu-user',
-        icon: 'users',
-      },
-      {
-        pageKey: ROLE_PAGE,
-        to: '/role',
-        labelKey: 'menu.role',
-        testId: 'menu-role',
-        icon: 'shield',
-      },
-      {
-        pageKey: PERMISSION_PAGE,
-        to: '/permission',
-        labelKey: 'menu.permission',
-        testId: 'menu-permission',
-        icon: 'key',
-      },
-    ],
-  },
-  {
-    key: 'system',
-    labelKey: 'menu.group.system',
-    items: [
-      {
-        pageKey: AUDIT_LOG_PAGE,
-        to: '/audit-log',
-        labelKey: 'menu.auditLog',
-        testId: 'menu-auditLog',
-        icon: 'list',
-      },
-      {
-        pageKey: APPROVAL_PAGE,
-        to: '/approval',
-        labelKey: 'menu.approval',
-        testId: 'menu-approval',
-        icon: 'check',
-      },
-      { pageKey: JOB_PAGE, to: '/job', labelKey: 'menu.job', testId: 'menu-job', icon: 'monitor' },
-      {
-        pageKey: IDENTITY_PROVIDER_PAGE,
-        to: '/identity-provider',
-        labelKey: 'menu.identityProvider',
-        testId: 'menu-identity-provider',
-        icon: 'key',
-      },
-    ],
-  },
-];
 
 const ACCOUNT_MENU: MenuItem[] = [
   {
@@ -136,39 +34,11 @@ const ACCOUNT_MENU: MenuItem[] = [
   },
 ];
 
-function useMenuItems<T extends MenuItem>(items: T[]): T[] {
-  const { hydrated, canAccessPage } = usePageAccessChecker();
-  // 未水合時回空陣列，而不是顯示全部再消失
-  return useMemo(
-    () => (hydrated ? items.filter((item) => canAccessPage(item.pageKey)) : []),
-    [canAccessPage, hydrated, items],
-  );
-}
-
-/** 區塊裡一個能進的頁面都沒有時，連標題一起隱藏。 */
-function useMenuSections(sections: NavSection[]): NavSection[] {
-  const { hydrated, canAccessPage } = usePageAccessChecker();
-  return useMemo(
-    () =>
-      hydrated
-        ? sections
-            .map((section) => ({
-              ...section,
-              items: section.items.filter((item) => canAccessPage(item.pageKey)),
-            }))
-            .filter((section) => section.items.length > 0)
-        : [],
-    [canAccessPage, hydrated, sections],
-  );
-}
-
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const collapsed = useLayoutStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useLayoutStore((state) => state.toggleSidebar);
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const sections = useMenuSections(MENU);
   const accountItems = useMenuItems(ACCOUNT_MENU);
   const logout = useLogoutMutation();
 
@@ -179,35 +49,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           <span className="ge-shell__brand-mark">GE</span>
           {!collapsed && <span>{t('app.title')}</span>}
         </div>
-        <nav className="ge-shell__nav">
-          {sections.map((section) => (
-            <div key={section.key} className="ge-shell__nav-section">
-              {section.labelKey &&
-                (collapsed ? (
-                  <hr className="ge-shell__nav-divider" />
-                ) : (
-                  <div className="ge-shell__nav-heading">{t(section.labelKey)}</div>
-                ))}
-              {section.items.map((item) => (
-                <Link
-                  key={item.testId}
-                  to={item.to}
-                  className={cn(
-                    'ge-shell__nav-item',
-                    (pathname === item.to ||
-                      (item.to !== '/' && pathname.startsWith(`${item.to}/`))) &&
-                      'ge-shell__nav-item--active',
-                  )}
-                  data-testid={item.testId}
-                  title={collapsed ? t(item.labelKey) : undefined}
-                >
-                  <Icon name={item.icon} size={16} />
-                  {!collapsed && <span>{t(item.labelKey)}</span>}
-                </Link>
-              ))}
-            </div>
-          ))}
-        </nav>
+        <SidebarNav collapsed={collapsed} />
       </aside>
 
       <div className="ge-shell__main">

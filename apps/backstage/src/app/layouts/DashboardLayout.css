@@ -58,23 +58,74 @@
   .ge-shell__nav {
     display: flex;
     flex-direction: column;
-    gap: var(--seed-space-3);
+    gap: 2px;
   }
 
-  .ge-shell__nav-section {
+  .ge-shell__nav-group {
     display: flex;
     flex-direction: column;
     gap: 2px;
   }
 
-  .ge-shell__nav-heading {
-    padding: var(--seed-space-1) var(--seed-space-3);
+  /* 父選單：只負責展開／收合子選單，本身不是連結 */
+  .ge-shell__nav-parent {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-2);
+    margin-top: var(--seed-space-2);
+    padding: var(--seed-space-2) var(--seed-space-3);
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
     color: var(--color-fg-muted);
+    font: inherit;
     font-size: 0.75rem;
     font-weight: 600;
+    text-align: start;
+    cursor: pointer;
   }
 
-  /* 收合時沒有空間放標題，改用分隔線標出區塊邊界 */
+  .ge-shell__nav-parent:hover {
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+
+  .ge-shell__nav-parent:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: -2px;
+  }
+
+  /* 收起來的分類裡有當前頁面 */
+  .ge-shell__nav-parent--active {
+    color: var(--color-brand);
+  }
+
+  .ge-shell__nav-chevron {
+    transform: rotate(-90deg);
+    transition: transform 150ms ease;
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+
+  .ge-shell__nav-chevron--open {
+    transform: none;
+  }
+
+  .ge-shell__nav-children {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-inline-start: var(--seed-space-2);
+  }
+
+  /* display: flex 會蓋掉 hidden 屬性的 display: none */
+  .ge-shell__nav-children[hidden] {
+    display: none;
+  }
+
+  /* 收合成圖示欄時沒有父選單，改用分隔線標出分類邊界 */
   .ge-shell__nav-divider {
     margin: var(--seed-space-1) var(--seed-space-2);
     border: 0;

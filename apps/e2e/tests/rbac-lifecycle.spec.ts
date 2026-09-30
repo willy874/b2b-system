@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 import { ACCOUNTS } from '../fixtures/accounts';
 import { apiLogin, apiRequest } from '../helpers/api';
 import { expectIdpLogin, loginAndWaitForHome } from '../helpers/auth';
+import { openMenuGroup } from '../helpers/menu';
 import { getByTestIdAndValue } from '../helpers/selectors';
 
 const ROLE_NAME = `E2E 檢視者 ${Date.now()}`;
@@ -40,6 +41,7 @@ test.describe('RBAC 生命週期', () => {
     const memberContext = await browser.newContext();
     const memberPage = await memberContext.newPage();
     await loginAndWaitForHome(memberPage, 'member');
+    await openMenuGroup(memberPage, 'menu-group-people');
     await expect(memberPage.getByTestId('menu-user')).toBeVisible();
     await memberPage.goto('/user');
     await expect(memberPage.getByTestId('user-list-page')).toBeVisible();

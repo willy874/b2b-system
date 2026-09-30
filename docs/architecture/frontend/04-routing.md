@@ -326,31 +326,38 @@ feature。
 ## 9. 側邊選單如何依權限過濾
 
 ```tsx
-// app/layouts/DashboardLayout.tsx
-const MENU: NavSection[] = [
-  { key: "home", items: [{ pageKey: HOME_PAGE, to: "/", labelKey: "menu.home", icon: "home" }] },
+// app/layouts/SidebarNav.tsx
+const TOP_ITEMS: NavItem[] = [{ pageKey: HOME_PAGE, to: "/", labelKey: "menu.home", icon: "home" }];
+
+const MENU_GROUPS: NavGroup[] = [
   { key: "feature", labelKey: "menu.group.feature", items: [/* 檔案 */] },
   { key: "people", labelKey: "menu.group.people", items: [/* 使用者、角色、權限目錄 */] },
   { key: "system", labelKey: "menu.group.system", items: [/* 稽核日誌、審批、背景工作、外部 IdP */] },
 ];
 
-function useMenuSections(sections: NavSection[]) {
+function useMenuGroups(groups: NavGroup[]) {
   const { hydrated, canAccessPage } = usePageAccessChecker();
   return useMemo(
     () =>
       hydrated
-        ? sections
-            .map((s) => ({ ...s, items: s.items.filter((item) => canAccessPage(item.pageKey)) }))
-            .filter((s) => s.items.length > 0)
+        ? groups
+            .map((g) => ({ ...g, items: g.items.filter((item) => canAccessPage(item.pageKey)) }))
+            .filter((g) => g.items.length > 0)
         : [],
-    [hydrated, canAccessPage, sections],
+    [hydrated, canAccessPage, groups],
   );
 }
 ```
 
-選單分成「首頁（無標題）／功能管理／人員管理／系統管理」幾個區塊，標題的翻譯鍵是
-`menu.group.<key>`。區塊內一個能進的頁面都沒有時，**連標題一起隱藏**，不留空殼。
-側邊欄收合時放不下標題，改以分隔線標出區塊邊界。
+選單是兩層：首頁固定在最上方，其餘頁面分在「功能管理／人員管理／系統管理」三個 **父選單**
+底下，父選單的翻譯鍵是 `menu.group.<key>`。
+
+- 分類內一個能進的頁面都沒有時，**連父選單一起隱藏**，不留空殼。
+- 父選單是展開／收合的按鈕（`aria-expanded`），本身不是連結。**預設只展開當前頁面所在的分類**，
+  其他分類收合；使用者手動展開／收合的狀態保留到「當前分類」改變為止，換到別的分類（或回首頁）時回到預設。
+- 收合的子選單仍留在 DOM（`hidden`），所以「沒有權限就不渲染」與「收合」是兩件事——E2E 要點其他分類的
+  子項前先用 `helpers/menu.ts` 的 `openMenuGroup()` 展開。
+- 側邊欄收合成圖示欄時放不下父選單，子項全部列出、以分隔線標出分類邊界。
 
 `usePageAccessChecker()` 回傳的是一個 **穩定的 predicate**，可以在 `filter`
 迴圈裡呼叫（hook 不能在迴圈裡呼叫，所以不能用 `usePagePermission`）。
