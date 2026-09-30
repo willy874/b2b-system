@@ -468,15 +468,24 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
             .query({ contentType: 'text/x-keyset', limit: '2', ...query })
             .set('authorization', `Bearer ${token}`)
             .expect(200)
-        ).body as { data: { items: FileBody[]; nextCursor: string | null } }
+        ).body as {
+          data: {
+            items: FileBody[];
+            nextCursor: string | null;
+            pagination: { total: number | null };
+          };
+        }
       ).data;
 
     const first = await list({});
     expect(first.items.map((f) => f.name)).toEqual(['k4.txt', 'k3.txt']);
+    expect(first.pagination.total).toBe(4);
     // 第一頁之後插入一筆較新的：offset 分頁會讓 k3 重複出現在第二頁
     await uploadFile(token, { name: 'k5.txt', contentType: 'text/x-keyset', size: 1 });
     const second = await list({ cursor: first.nextCursor ?? '' });
     expect(second.items.map((f) => f.name)).toEqual(['k2.txt', 'k1.txt']);
+    // 帶游標的頁不重算總數（PERF-09）
+    expect(second.pagination.total).toBeNull();
 
     await request(http)
       .get('/files')

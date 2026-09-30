@@ -708,6 +708,16 @@ describe('FileService.list：keyset 游標', () => {
     expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), cursor, undefined);
   });
 
+  it('帶游標的頁不計總數：pagination.total 為 null（PERF-09）', async () => {
+    const { service, repo } = setup();
+    repo.list.mockResolvedValue({ items: rows, total: 5, lastCreatedAt: undefined });
+    const first = await service.list(query, ALICE);
+    expect(first.pagination.total).toBe(5);
+    repo.list.mockResolvedValue({ items: rows, total: null, lastCreatedAt: undefined });
+    const next = await service.list({ ...query, cursor: first.nextCursor ?? '' }, ALICE);
+    expect(next.pagination).toEqual({ offset: 0, limit: 2, total: null });
+  });
+
   it('不滿一頁 → nextCursor 為 null', async () => {
     const { service, repo } = setup();
     repo.list.mockResolvedValue({ items: rows.slice(0, 1), total: 1, lastCreatedAt: undefined });

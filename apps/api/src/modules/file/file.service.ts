@@ -116,11 +116,12 @@ export class FileService {
     const ctx = await this.access.contextFor(actor);
     const scope = await this.listScope(ctx, actor, query.folderId);
     const { items, total, lastCreatedAt } = await this.repo.list(query, after, scope);
-    const page = paginated(
-      await Promise.all(items.map((file) => this.toDto(file, ctx))),
-      total,
-      after ? { offset: 0, limit: query.limit } : query,
-    );
+    const dtos = await Promise.all(items.map((file) => this.toDto(file, ctx)));
+    // 帶游標的頁不計總數（null）：無限捲動每捲一頁就重算一次 count(*) 太貴（PERF-09）
+    const page =
+      total === null
+        ? { items: dtos, pagination: { offset: 0, limit: query.limit, total: null } }
+        : paginated(dtos, total, query);
 
     const last = items.at(-1);
     const [sort] = after ? [after.sort] : query.sort;
