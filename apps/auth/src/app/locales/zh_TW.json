@@ -150,7 +150,7 @@
     "ROLE_NAME_DUPLICATE": "角色名稱重複。",
     "ROLE_SYSTEM_PROTECTED": "系統角色受保護，不可刪除或改名。",
     "ROLE_SUPER_ADMIN_IMMUTABLE": "超級管理員角色的權限不可變更。",
-    "ROLE_IN_USE": "仍有使用者持有這個角色。",
+    "ROLE_IN_USE": "仍有 {{userCount}} 位使用者持有這個角色。",
     "LAST_SUPER_ADMIN": "系統必須保留至少一位可用的超級管理員。",
     "PERMISSION_UNKNOWN": "包含系統未定義的權限鍵。",
     "APPROVAL_NOT_FOUND": "找不到這筆審批申請。",

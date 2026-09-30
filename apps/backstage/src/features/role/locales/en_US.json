@@ -12,12 +12,16 @@
       "permissions": "Grant permissions",
       "success": "Role \"{{name}}\" created."
     },
-    "update": { "success": "Role updated." },
+    "update": {
+      "success": "Role updated."
+    },
     "delete": {
       "title": "Delete role",
       "confirm": "Delete role \"{{name}}\"? This cannot be undone.",
       "success": "Role deleted.",
-      "systemProtected": "System roles are protected and cannot be deleted."
+      "systemProtected": "System roles are protected and cannot be deleted.",
+      "confirmInUse": "{{count}} users currently hold the role \"{{name}}\". Deleting it removes its permissions from them immediately. This cannot be undone; to see who they are first, cancel and open the role details.",
+      "force": "Delete anyway ({{count}} will lose this role)"
     },
     "batch": {
       "delete": {
@@ -39,13 +43,15 @@
       "permissions": "Granted permissions",
       "holders": "Users holding this role",
       "managePermission": "Manage permissions",
-      "allPermissions": "All permissions (implicit)"
+      "allPermissions": "All permissions (implicit)",
+      "backToList": "Back to roles"
     },
     "permission": {
       "title": "Manage role permissions",
       "description": "Select the permissions to grant. You cannot grant permissions you do not hold.",
       "notGrantable": "You do not hold this permission, so you cannot grant it.",
-      "success": "Role permissions updated."
+      "success": "Role permissions updated.",
+      "summary": "{{add}} to add, {{remove}} to remove"
     },
     "field": {
       "name": "Name",
@@ -56,6 +62,9 @@
       "userCount": "Users",
       "createdAt": "Created"
     },
-    "type": { "system": "System", "custom": "Custom" }
+    "type": {
+      "system": "System",
+      "custom": "Custom"
+    }
   }
 }

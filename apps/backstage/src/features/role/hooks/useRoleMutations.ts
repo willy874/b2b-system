@@ -26,6 +26,7 @@ export function useRoleCreateMutation() {
 export function useRoleUpdateMutation() {
   const toast = useToast();
   const { t } = useTranslation();
+  const showError = useErrorToast();
 
   return useMutation({
     ...getRoleUpdateMutationOptions(),
@@ -33,6 +34,7 @@ export function useRoleUpdateMutation() {
       invalidateResources([{ resource: Resource.ROLE, kind: 'update', id: role.id }]);
       toast.success(t('role.update.success'));
     },
+    onError: showError,
   });
 }
 
@@ -54,6 +56,7 @@ export function useRoleDeleteMutation() {
 export function useRoleDuplicateMutation() {
   const toast = useToast();
   const { t } = useTranslation();
+  const showError = useErrorToast();
 
   return useMutation({
     ...getRoleDuplicateMutationOptions(),
@@ -66,6 +69,7 @@ export function useRoleDuplicateMutation() {
         toast.success(t('role.duplicate.success', { name: role.name }));
       }
     },
+    onError: showError,
   });
 }
 

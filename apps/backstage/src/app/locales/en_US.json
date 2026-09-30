@@ -79,6 +79,12 @@
       "resultSummary": "{{succeeded}} succeeded, {{failed}} failed. Failed items stay selected.",
       "cancelledToast": "“{{name}}” cancelled; the {{count}} completed items are kept",
       "doneToast": "“{{name}}” completed {{count}} items"
+    },
+    "unsaved": {
+      "title": "Discard unsaved changes?",
+      "description": "If you leave now, your changes will be lost.",
+      "discard": "Discard changes",
+      "keepEditing": "Keep editing"
     }
   },
   "menu": {
@@ -154,7 +160,7 @@
     "ROLE_NAME_DUPLICATE": "Role name already exists.",
     "ROLE_SYSTEM_PROTECTED": "System roles cannot be deleted or renamed.",
     "ROLE_SUPER_ADMIN_IMMUTABLE": "Permissions of the super admin role cannot be changed.",
-    "ROLE_IN_USE": "Some users still hold this role.",
+    "ROLE_IN_USE": "{{userCount}} users still hold this role.",
     "LAST_SUPER_ADMIN": "The system must keep at least one active super admin.",
     "PERMISSION_UNKNOWN": "The request contains unknown permission keys.",
     "APPROVAL_NOT_FOUND": "This approval request does not exist.",

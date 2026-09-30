@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
@@ -22,6 +22,22 @@ export function RoleBasicSection({ role, canEdit }: RoleBasicSectionProps) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  // 進入編輯時把游標放在名稱欄，鍵盤使用者不用再找（UX-20）
+  useEffect(() => {
+    if (editing) nameRef.current?.focus();
+  }, [editing]);
+
+  const save = async () => {
+    try {
+      await updateRole.mutateAsync({ params: { roleId: role.id, body: { name, description } } });
+    } catch {
+      // 錯誤由 mutation 的 onError 顯示；編輯區與輸入保留，讓使用者修正後重送（UX-04）
+      return;
+    }
+    setEditing(false);
+  };
 
   return (
     <section>
@@ -43,13 +59,28 @@ export function RoleBasicSection({ role, canEdit }: RoleBasicSectionProps) {
       </div>
 
       {editing ? (
-        <div className="mt-2 flex flex-col gap-3">
+        // <form>：在欄位按 Enter 就能儲存（UX-20）
+        <form
+          className="mt-2 flex flex-col gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+          data-testid="role-edit-form"
+        >
           <Field label={t('role.field.name')} required>
-            <Input value={name} onChange={(event) => setName(event.target.value)} />
+            <Input
+              value={name}
+              maxLength={64}
+              ref={nameRef}
+              onChange={(event) => setName(event.target.value)}
+              data-testid="role-name-edit-input"
+            />
           </Field>
           <Field label={t('role.field.description')}>
             <Textarea
               value={description}
+              maxLength={500}
               onChange={(event) => setDescription(event.target.value)}
             />
           </Field>
@@ -60,19 +91,15 @@ export function RoleBasicSection({ role, canEdit }: RoleBasicSectionProps) {
             <Button
               size="sm"
               variant="primary"
+              type="submit"
+              disabled={!name.trim()}
               loading={updateRole.isPending}
-              onClick={async () => {
-                await updateRole
-                  .mutateAsync({ params: { roleId: role.id, body: { name, description } } })
-                  .catch(() => undefined);
-                setEditing(false);
-              }}
               data-testid="role-save-button"
             >
               {t('common.save')}
             </Button>
           </div>
-        </div>
+        </form>
       ) : (
         <dl className="mt-2 grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
           <dt className="text-[var(--color-fg-muted)]">{t('role.field.description')}</dt>

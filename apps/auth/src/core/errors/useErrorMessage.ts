@@ -24,12 +24,23 @@ export function useErrorMessage(): (error: unknown) => string {
       if (isNetworkError(error)) return t('error.network');
       if (!(error instanceof AppError)) return t('error.unknown');
       const key = getErrorMessageKey(error.code);
-      const message = key ? t(key) : undefined;
+      // details 的純量值當插值參數（例：ROLE_IN_USE 的 userCount），讓訊息說得出「幾位」「哪一個」
+      const message = key ? t(key, interpolationOf(error.details)) : undefined;
       // 不認得的碼、或沒有對應翻譯時，退回通用訊息＋requestId，不在畫面上顯示原始 key
       return message && message !== key
         ? message
         : t('error.unknown_with_id', { requestId: error.requestId ?? '-' });
     },
     [t],
+  );
+}
+
+/** 只取 details 的字串與數字：物件（例：`fields`）不是給人看的文字。 */
+function interpolationOf(details: Record<string, unknown> | undefined): Record<string, unknown> {
+  if (!details) return {};
+  return Object.fromEntries(
+    Object.entries(details).filter(
+      ([, value]) => typeof value === 'string' || typeof value === 'number',
+    ),
   );
 }

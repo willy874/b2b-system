@@ -26,6 +26,13 @@ describe('useErrorMessage', () => {
     expect(message).not.toContain('error.SOMETHING_WEIRD');
   });
 
+  it('details 的純量值帶進訊息（例：ROLE_IN_USE 的持有人數）', () => {
+    const { result } = renderHook(() => useErrorMessage());
+    expect(result.current(new AppError('ROLE_IN_USE', 409, { userCount: 3 }))).toBe(
+      '仍有 3 位使用者持有這個角色。',
+    );
+  });
+
   it('非 AppError 一律通用訊息', () => {
     const { result } = renderHook(() => useErrorMessage());
     expect(result.current(new Error('boom'))).toBe('發生未預期的錯誤，請稍後再試。');

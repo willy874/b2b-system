@@ -97,17 +97,35 @@ export default function RoleListPage() {
         open={Boolean(pendingDelete)}
         onOpenChange={(open) => !open && setPendingDelete(undefined)}
         title={t('role.delete.title')}
-        description={t('role.delete.confirm', { name: pendingDelete?.name ?? '' })}
-        confirmLabel={t('common.delete')}
+        // 有人持有時先說清楚影響人數，並直接提供「仍要刪除」；不要等確認後才被 ROLE_IN_USE 擋下（UX-18）
+        description={
+          pendingDelete && pendingDelete.userCount > 0
+            ? t('role.delete.confirmInUse', {
+                name: pendingDelete.name,
+                count: pendingDelete.userCount,
+              })
+            : t('role.delete.confirm', { name: pendingDelete?.name ?? '' })
+        }
+        confirmLabel={
+          pendingDelete && pendingDelete.userCount > 0
+            ? t('role.delete.force', { count: pendingDelete.userCount })
+            : t('common.delete')
+        }
         cancelLabel={t('common.cancel')}
         loading={deleteRole.isPending}
         onConfirm={async () => {
           if (!pendingDelete) return;
-          await deleteRole
-            .mutateAsync({ params: { roleId: pendingDelete.id } })
-            .catch(() => undefined);
+          try {
+            await deleteRole.mutateAsync({
+              params: { roleId: pendingDelete.id, force: pendingDelete.userCount > 0 },
+            });
+          } catch {
+            // 錯誤由 mutation 的 onError 顯示；對話框留著讓使用者重試或取消
+            return;
+          }
           setPendingDelete(undefined);
         }}
+        data-testid="role-delete-confirm"
       />
 
       {/* 對話框子路由（建立／詳情）掛在列表頁內，列表在背後保持掛載 */}
