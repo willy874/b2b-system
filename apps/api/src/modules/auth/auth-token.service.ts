@@ -5,14 +5,13 @@ import { and, eq, isNull } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB } from '@/core/database';
+import { SettingService } from '@/core/settings';
 import type { AuthTokenPurpose, AuthTokenRow, RevokedReason } from '@/db/schema';
 import { authTokens } from '@/db/schema';
 
+import { ACTIVATION_TTL_HOURS_SETTING, PASSWORD_RESET_TTL_HOURS_SETTING } from './auth.settings';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import { sha256 } from './token-hash';
-
-export const ACTIVATION_TTL_SECONDS = 24 * 60 * 60; // 24 小時
-export const PASSWORD_RESET_TTL_SECONDS = 60 * 60; // 1 小時
 
 /**
  * 啟用 / 密碼重設 token。
@@ -24,6 +23,7 @@ export class AuthTokenService {
   constructor(
     @Inject(TENANT_DB) private readonly db: Database,
     private readonly refreshTokens: RefreshTokenRepository,
+    private readonly settings: SettingService,
   ) {}
 
   /** 撤銷使用者所有未撤銷的 refresh token（停用、刪除帳號時用）。 */
@@ -39,7 +39,7 @@ export class AuthTokenService {
     userId: string,
     purpose: AuthTokenPurpose,
     tx?: DbOrTx,
-  ): Promise<{ raw: string; expiresAt: Date }> {
+  ): Promise<{ raw: string; expiresAt: Date; validHours: number }> {
     const db = tx ?? this.db;
     await db
       .update(authTokens)
@@ -53,12 +53,15 @@ export class AuthTokenService {
       );
 
     const raw = randomBytes(32).toString('base64url');
-    const ttl = purpose === 'activation' ? ACTIVATION_TTL_SECONDS : PASSWORD_RESET_TTL_SECONDS;
-    const expiresAt = new Date(Date.now() + ttl * 1000);
+    // 有效時數是租戶的設定；信裡寫的時數與實際到期時間出自同一個值
+    const validHours = await this.settings.get(
+      purpose === 'activation' ? ACTIVATION_TTL_HOURS_SETTING : PASSWORD_RESET_TTL_HOURS_SETTING,
+    );
+    const expiresAt = new Date(Date.now() + validHours * 60 * 60 * 1000);
 
     await db.insert(authTokens).values({ userId, purpose, tokenHash: sha256(raw), expiresAt });
     // 原文只回給寄信的工作放進連結，不寫日誌（docs/adr/0017-mail-delivery.md D7）
-    return { raw, expiresAt };
+    return { raw, expiresAt, validHours };
   }
 
   async findUsable(raw: string, purpose: AuthTokenPurpose): Promise<AuthTokenRow | undefined> {

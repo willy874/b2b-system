@@ -27,7 +27,7 @@ export type PlatformTestDatabase = ReturnType<typeof createPlatformTestDatabase>
 /** 每個 suite 之間清空業務資料（保留 schema 與 migration 紀錄）。 */
 export async function truncateAll(db: TestDatabase): Promise<void> {
   await db.execute(
-    sql`TRUNCATE approval_requests, files, file_folders, resource_grants, users, roles, permissions, user_roles, role_permissions, refresh_tokens, auth_tokens, audit_logs, audit_logs_archive RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE approval_requests, files, file_folders, resource_grants, users, roles, permissions, user_roles, role_permissions, refresh_tokens, auth_tokens, audit_logs, audit_logs_archive, system_settings RESTART IDENTITY CASCADE`,
   );
 }
 

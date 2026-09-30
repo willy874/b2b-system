@@ -12,6 +12,7 @@ import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
 import { JOB_PAGE } from '@/features/job';
 import { PERMISSION_PAGE } from '@/features/permission';
 import { ROLE_PAGE } from '@/features/role';
+import { SETTING_PAGE } from '@/features/system';
 import { USER_PAGE } from '@/features/user';
 import { cn } from '@/shared/utils';
 
@@ -100,6 +101,13 @@ const MENU_GROUPS: NavGroup[] = [
         labelKey: 'menu.identityProvider',
         testId: 'menu-identity-provider',
         icon: 'key',
+      },
+      {
+        pageKey: SETTING_PAGE,
+        to: '/system/settings',
+        labelKey: 'menu.setting',
+        testId: 'menu-setting',
+        icon: 'settings',
       },
     ],
   },

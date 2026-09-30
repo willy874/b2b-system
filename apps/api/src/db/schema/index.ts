@@ -11,5 +11,6 @@ export * from './refresh-tokens';
 export * from './resource-grants';
 export * from './role-permissions';
 export * from './roles';
+export * from './system-settings';
 export * from './user-roles';
 export * from './users';

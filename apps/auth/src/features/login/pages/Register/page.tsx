@@ -1,5 +1,5 @@
 import { useForm } from '@tanstack/react-form';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { z } from 'zod';
 
 import { Button } from '@/components/Button';
@@ -9,23 +9,27 @@ import { useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
+import { useAccountPolicy } from '../../hooks/useAccountPolicy';
 import { useRegisterMutation } from '../../hooks/useRegisterMutation';
 import { RegisterRoute } from '../../routes';
 import { AuthShell } from '../AuthShell';
 import { BackToTenantLogin, TenantRequired } from '../TenantLinks';
 
-const Schema = z
-  .object({
-    email: z.string().trim().min(1).email(),
-    displayName: z.string().trim().min(1).max(100),
-    password: z.string().min(12),
-    confirmPassword: z.string().min(1),
-    reason: z.string().trim().max(500),
-  })
-  .refine((value) => value.password === value.confirmPassword, {
-    path: ['confirmPassword'],
-    message: 'passwords do not match',
-  });
+/** 密碼長度是租戶的設定（`auth.passwordMinLength`）。 */
+function createSchema(passwordMinLength: number) {
+  return z
+    .object({
+      email: z.string().trim().min(1).email(),
+      displayName: z.string().trim().min(1).max(100),
+      password: z.string().min(passwordMinLength),
+      confirmPassword: z.string().min(1),
+      reason: z.string().trim().max(500),
+    })
+    .refine((value) => value.password === value.confirmPassword, {
+      path: ['confirmPassword'],
+      message: 'passwords do not match',
+    });
+}
 
 /**
  * 註冊申請：送出後由管理員在審批頁核准才會建立帳號（docs/rbac/06-approval.md §5）。
@@ -38,10 +42,12 @@ export default function RegisterPage() {
   const toMessage = useErrorMessage();
   const [submitted, setSubmitted] = useState(false);
   const [formError, setFormError] = useState<string>();
+  const policy = useAccountPolicy(tenant);
+  const schema = useMemo(() => createSchema(policy.passwordMinLength), [policy.passwordMinLength]);
 
   const form = useForm({
     defaultValues: { email: '', displayName: '', password: '', confirmPassword: '', reason: '' },
-    validators: { onSubmit: zodFormValidator(Schema) },
+    validators: { onSubmit: zodFormValidator(schema) },
     onSubmit: async ({ value }) => {
       setFormError(undefined);
       try {
@@ -63,6 +69,15 @@ export default function RegisterPage() {
   });
 
   if (!tenant) return <TenantRequired title={t('login.register.title')} />;
+  if (!policy.isLoading && !policy.registrationEnabled) {
+    return (
+      <AuthShell title={t('login.register.title')} footer={<BackToTenantLogin tenant={tenant} />}>
+        <p className="m-0 text-sm" data-testid="register-closed">
+          {t('login.register.closed')}
+        </p>
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell
@@ -123,7 +138,7 @@ export default function RegisterPage() {
             {(field) => (
               <Field
                 label={t('login.field.password')}
-                description={t('login.password.hint')}
+                description={t('login.password.hint', { min: policy.passwordMinLength })}
                 required
                 error={firstError(field.state.meta.errors)}
               >

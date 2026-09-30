@@ -72,6 +72,7 @@ import type {
   PlatformTenant,
   PlatformTenantList,
   Profile,
+  PublicSystemSettings,
   RegisterRequest,
   RegisterResult,
   RejectApprovalRequest,
@@ -93,6 +94,8 @@ import type {
   StoredFile,
   StoredFileCapabilities,
   StoredFileImage,
+  SystemSetting,
+  SystemSettingList,
   TenantLookup,
   TenantLookupQuery,
   UpdateFileFolderAccessRequest,
@@ -103,6 +106,7 @@ import type {
   UpdateProfileRequest,
   UpdateRolePermissionsRequest,
   UpdateRoleRequest,
+  UpdateSystemSettingsRequest,
   UpdateTenantRequest,
   UpdateUserRequest,
   User,
@@ -1206,6 +1210,31 @@ export const UpdateRolePermissionsRequestSchema = z.object({
   add: z.array(PermissionKeySchema).max(100).default([]),
   remove: z.array(PermissionKeySchema).max(100).default([]),
 }) satisfies z.ZodType<UpdateRolePermissionsRequest>;
+
+export const SystemSettingSchema = z.object({
+  key: z.string(),
+  category: z.enum(['general', 'auth', 'file']),
+  type: z.enum(['string', 'number', 'boolean']),
+  value: z.union([z.string().max(1000), z.number(), z.boolean()]),
+  defaultValue: z.union([z.string().max(1000), z.number(), z.boolean()]),
+  isOverridden: z.boolean(),
+  isPublic: z.boolean(),
+  minimum: z.number().nullable(),
+  maximum: z.number().nullable(),
+  updatedAt: z.string().nullable(),
+}) satisfies z.ZodType<SystemSetting>;
+
+export const SystemSettingListSchema = z.object({
+  items: z.array(SystemSettingSchema),
+}) satisfies z.ZodType<SystemSettingList>;
+
+export const UpdateSystemSettingsRequestSchema = z.object({
+  values: z.record(z.string(), z.union([z.string().max(1000), z.number(), z.boolean()]).nullable()),
+}) satisfies z.ZodType<UpdateSystemSettingsRequest>;
+
+export const PublicSystemSettingsSchema = z.object({
+  values: z.record(z.string(), z.union([z.string().max(1000), z.number(), z.boolean()])),
+}) satisfies z.ZodType<PublicSystemSettings>;
 
 export const PlatformTenantSchema = z.object({
   id: z

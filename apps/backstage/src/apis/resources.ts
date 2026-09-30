@@ -29,6 +29,8 @@ import { ROLE_DETAIL_QUERY_KEY } from '@/apis/role/get-role-detail/query';
 import { ROLE_LIST_QUERY_KEY, ROLE_OPTIONS_QUERY_KEY } from '@/apis/role/get-role-list/query';
 import { ROLE_PERMISSIONS_QUERY_KEY } from '@/apis/role/get-role-permissions/query';
 import { ROLE_USERS_QUERY_KEY } from '@/apis/role/get-role-users/query';
+import { PUBLIC_SETTINGS_QUERY_KEY } from '@/apis/system/get-public-settings/query';
+import { SETTING_LIST_QUERY_KEY } from '@/apis/system/get-setting-list/query';
 import { USER_DETAIL_QUERY_KEY } from '@/apis/user/get-user-detail/query';
 import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
 import { USER_ROLES_QUERY_KEY } from '@/apis/user/get-user-roles/query';
@@ -53,6 +55,8 @@ export const Resource = {
   JOB: 'job',
   /** 外部 IdP 連線（`id` = 連線 id）；只有本分頁與其他分頁會失效，後端沒有推播 */
   IDENTITY_PROVIDER: 'identityProvider',
+  /** 系統設定（`id` = 設定的 key） */
+  SETTING: 'setting',
   /** 目前登入者的 session 視角（profile ＋ 有效權限） */
   PROFILE: 'profile',
   // 關係：沒有自己的 query，只作為來源
@@ -117,6 +121,10 @@ const graph = createResourceGraph<Resource>({
   },
   [Resource.IDENTITY_PROVIDER]: {
     collection: [IDENTITY_PROVIDER_LIST_QUERY_KEY],
+  },
+  [Resource.SETTING]: {
+    // 公開設定是同一批值的子集
+    collection: [SETTING_LIST_QUERY_KEY, PUBLIC_SETTINGS_QUERY_KEY],
   },
   [Resource.PERMISSION]: {
     // 權限目錄在一個部署版本內不會變，沒有任何來源

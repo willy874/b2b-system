@@ -131,6 +131,7 @@
     "AUTH_PASSWORD_MISMATCH": "目前密碼不正確。",
     "AUTH_PASSWORD_WEAK": "密碼強度不足：至少 12 個字元，且不可為常見密碼。",
     "AUTH_SETUP_TOKEN_INVALID": "連結無效或已過期，請重新索取。",
+    "AUTH_REGISTRATION_DISABLED": "目前不開放註冊申請。",
     "AUTH_SSO_INTERACTION_INVALID": "登入頁已過期，請回到原本的網站重新登入。",
     "AUTH_SSO_CODE_INVALID": "登入沒有完成，連結可能已過期或已使用過。請重新登入。",
     "AUTH_SSO_REQUIRED": "這個信箱的網域只允許以公司帳號（SSO）登入。",
@@ -174,6 +175,7 @@
     "FILE_FOLDER_CYCLE": "資料夾不能移到自己或自己的子資料夾裡。",
     "FILE_GRANT_SUBJECT_NOT_FOUND": "授權對象不存在或已被刪除。",
     "FILE_GRANT_NOT_FOUND": "這筆授權已不存在。",
+    "SETTING_NOT_FOUND": "找不到這個設定。",
     "RATE_LIMITED": "操作太頻繁，請稍後再試。",
     "INTERNAL_ERROR": "伺服器發生錯誤，請稍後再試。",
     "page": {

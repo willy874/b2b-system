@@ -13,11 +13,7 @@ import { AuditService } from '@/modules/audit-log/audit.service';
 
 import { ACTIVATION_MAIL_JOB, PASSWORD_RESET_MAIL_JOB } from './auth-mail.constants';
 import type { AccountMailJobData } from './auth-mail.constants';
-import {
-  ACTIVATION_TTL_SECONDS,
-  AuthTokenService,
-  PASSWORD_RESET_TTL_SECONDS,
-} from './auth-token.service';
+import { AuthTokenService } from './auth-token.service';
 import { accountLinkMail } from './mails/account-link.mail';
 import type { AccountLinkPurpose } from './mails/account-link.mail';
 
@@ -25,7 +21,6 @@ interface AccountMailSpec {
   purpose: AccountLinkPurpose;
   tokenPurpose: AuthTokenPurpose;
   path: string;
-  ttlSeconds: number;
   /** 寄出前再確認一次：入列之後狀態可能已經變了（例：使用者已經自行啟用） */
   shouldSend: (status: string) => boolean;
 }
@@ -35,14 +30,12 @@ const SPECS = {
     purpose: 'activation',
     tokenPurpose: 'activation',
     path: '/setup',
-    ttlSeconds: ACTIVATION_TTL_SECONDS,
     shouldSend: (status) => status === 'pending',
   },
   passwordReset: {
     purpose: 'passwordReset',
     tokenPurpose: 'password_reset',
     path: '/reset-password',
-    ttlSeconds: PASSWORD_RESET_TTL_SECONDS,
     // 與 POST /auth/reset-password 一致：任何狀態都能重設（鎖定的會順帶解鎖）
     shouldSend: () => true,
   },
@@ -88,7 +81,7 @@ export class AuthMailJobs implements OnModuleInit {
     if (!spec.shouldSend(user.status)) return { skipped: `user_${user.status}` };
 
     // 每次寄出都簽新的：重試時前一封的連結跟著失效，信箱裡只有最後一封能用
-    const { raw } = await this.tokens.issue(userId, spec.tokenPurpose);
+    const { raw, validHours } = await this.tokens.issue(userId, spec.tokenPurpose);
     const { messageId } = await this.mail.send(
       user.email,
       accountLinkMail({
@@ -96,7 +89,7 @@ export class AuthMailJobs implements OnModuleInit {
         locale: toMailLocale(user.locale),
         displayName: user.displayName,
         link: this.mail.accountLink(spec.path, { token: raw }),
-        validHours: spec.ttlSeconds / 3600,
+        validHours,
       }),
     );
     // 只記「寄了哪一種信給誰」，不記內容與 token（docs/adr/0017-mail-delivery.md D8）

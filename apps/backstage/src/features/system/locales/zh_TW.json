@@ -1,0 +1,71 @@
+{
+  "setting": {
+    "title": "系統設定",
+    "description": "執行期可調的設定，修改後立即生效並記錄在稽核日誌。允許的範圍由系統決定，不能設出會削弱安全性的值。",
+    "category": {
+      "general": "一般",
+      "auth": "帳號與登入",
+      "file": "檔案"
+    },
+    "field": {
+      "defaultTimezone": {
+        "label": "預設時區",
+        "description": "使用者沒有設定時區偏好時，用這個時區顯示時間。"
+      },
+      "loginMaxAttempts": {
+        "label": "登入失敗鎖定次數",
+        "description": "連續輸錯密碼達到這個次數就鎖定帳號。"
+      },
+      "loginLockoutSeconds": {
+        "label": "鎖定時間",
+        "description": "帳號被鎖定後，多久之後可以再嘗試登入。"
+      },
+      "passwordMinLength": {
+        "label": "密碼最短長度",
+        "description": "設定、重設、變更密碼與註冊時要求的最少字元數。只能比系統下限（12）更嚴。"
+      },
+      "registrationEnabled": {
+        "label": "開放註冊申請",
+        "description": "關閉後登入頁不顯示註冊入口，也不接受新的註冊申請。"
+      },
+      "activationTtlHours": {
+        "label": "啟用信連結有效期",
+        "description": "新帳號的啟用連結在寄出後多久內有效。"
+      },
+      "passwordResetTtlHours": {
+        "label": "重設密碼連結有效期",
+        "description": "重設密碼信的連結在寄出後多久內有效。"
+      },
+      "uploadMaxSize": {
+        "label": "單一檔案上限",
+        "description": "上傳檔案的大小上限，不能超過部署設定的上限。"
+      }
+    },
+    "unit": {
+      "times": "次",
+      "seconds": "秒",
+      "hours": "小時",
+      "characters": "個字元",
+      "mebibytes": "MiB"
+    },
+    "boolean": {
+      "on": "開啟",
+      "off": "關閉"
+    },
+    "defaultValue": "預設：{{value}}",
+    "range": "允許 {{min}} – {{max}}",
+    "overridden": "已修改",
+    "resetToDefault": "恢復預設",
+    "discard": "放棄變更",
+    "increment": "增加",
+    "decrement": "減少",
+    "error": {
+      "required": "請輸入數值",
+      "integer": "只能是整數",
+      "range": "超出允許的範圍"
+    },
+    "save": {
+      "success": "已儲存設定"
+    }
+  }
+}

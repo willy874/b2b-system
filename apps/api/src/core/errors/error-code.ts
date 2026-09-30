@@ -41,6 +41,8 @@ export const ErrorCode = {
   AUTH_PASSWORD_MISMATCH: { status: 400 },
   AUTH_PASSWORD_WEAK: { status: 400 },
   AUTH_SETUP_TOKEN_INVALID: { status: 400 },
+  /** 租戶關閉了註冊申請（設定 `auth.registrationEnabled`）：端點等同不存在。 */
+  AUTH_REGISTRATION_DISABLED: { status: 404 },
   /** 登入互動不存在、已過期，或瀏覽器沒有帶互動 cookie（docs/adr/0019-sso-identity-platform.md）。 */
   AUTH_SSO_INTERACTION_INVALID: { status: 400 },
   /** 授權碼無效：不存在、已用過、過期、client 或 redirect URI 不符、PKCE 不符（不細分，不洩漏哪一項）。 */
@@ -110,6 +112,10 @@ export const ErrorCode = {
   FILE_GRANT_NOT_FOUND: { status: 404 },
   FILE_ACCESS_ALREADY_GRANTED: { status: 409 },
   FILE_ACCESS_REQUEST_NOT_FOUND: { status: 404 },
+
+  // ── 系統設定 ──
+  /** 沒有登記這個 key 的設定（docs/architecture/backend/12-settings.md）。 */
+  SETTING_NOT_FOUND: { status: 404 },
 
   // ── 通用 ──
   RATE_LIMITED: { status: 429 },

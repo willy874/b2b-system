@@ -45,6 +45,8 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
   [ChangeSource.FILE]: { perms: () => FILE_READERS, includesSubject: false },
   // 資料夾樹與麵包屑；資料夾授權變更也以 fileFolder update 推出
   [ChangeSource.FILE_FOLDER]: { perms: () => FILE_READERS, includesSubject: false },
+  // 設定頁；公開設定（登入頁、預設時區）在下次載入時讀，不即時推給所有人
+  [ChangeSource.SETTING]: { perms: () => [PERMISSION.SYSTEM_READ], includesSubject: false },
 };
 
 /** 每次寫入都會新增一筆稽核（前端 `derivesFromAnyChange`）。 */

@@ -7,7 +7,8 @@ import { AllProviders } from '@/test/renderWithPermissions';
 
 import { Routes } from '../../..';
 
-const { details, login, abort, discover, startExternal } = vi.hoisted(() => ({
+const { details, login, abort, discover, startExternal, publicSettings } = vi.hoisted(() => ({
+  publicSettings: vi.fn(),
   details: vi.fn(),
   login: vi.fn(),
   abort: vi.fn(),
@@ -21,6 +22,13 @@ vi.mock('@/apis/sso-interaction/get-sso-interaction/query', () => ({
     queryKey: ['SSO_INTERACTION_QUERY_KEY', uid],
     queryFn: details,
     retry: false,
+  }),
+}));
+vi.mock('@/apis/auth/get-public-settings/query', () => ({
+  PUBLIC_SETTINGS_QUERY_KEY: 'PUBLIC_SETTINGS_QUERY_KEY',
+  getPublicSettingsQueryOptions: (tenant: string) => ({
+    queryKey: ['PUBLIC_SETTINGS_QUERY_KEY', tenant],
+    queryFn: () => publicSettings(tenant),
   }),
 }));
 vi.mock('@/apis/sso-interaction/login-sso-interaction/mutation', () => ({
@@ -71,6 +79,9 @@ beforeEach(() => {
     loginHint: null,
     tenant: { code: 'acme', name: 'Acme 股份有限公司' },
   });
+  publicSettings.mockReset().mockResolvedValue({
+    values: { 'auth.registrationEnabled': true, 'auth.passwordMinLength': 12 },
+  });
   login.mockReset().mockResolvedValue({ redirectTo: RESUME });
   abort.mockReset().mockResolvedValue({ redirectTo: `${RESUME}?aborted` });
   discover.mockReset().mockResolvedValue({ provider: null, ssoOnly: false });
@@ -97,6 +108,14 @@ describe('IdP 的登入互動頁（docs/adr/0019-sso-identity-platform.md）', (
       'href',
       '/forgot-password?tenant=acme',
     );
+  });
+
+  it('租戶關閉了註冊（auth.registrationEnabled）→ 沒有註冊連結，忘記密碼照常', async () => {
+    publicSettings.mockResolvedValue({ values: { 'auth.registrationEnabled': false } });
+    renderInteraction();
+    expect(await screen.findByTestId('login-forgot-password-link')).toBeInTheDocument();
+    await waitFor(() => expect(publicSettings).toHaveBeenCalledWith('acme'));
+    expect(screen.queryByTestId('login-register-link')).not.toBeInTheDocument();
   });
 
   it('平台管理者的互動（沒有租戶）：沒有註冊與忘記密碼的連結，有進入租戶的連結', async () => {

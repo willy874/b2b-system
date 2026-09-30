@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 
+import { SettingService } from '@/core/settings';
+
 import { AuthMailJobs } from './auth-mail.jobs';
 import { AuthTokenService } from './auth-token.service';
+import { AUTH_SETTINGS } from './auth.settings';
 import { RefreshTokenRepository } from './refresh-token.repository';
 
 /**
@@ -14,4 +17,9 @@ import { RefreshTokenRepository } from './refresh-token.repository';
   providers: [AuthTokenService, RefreshTokenRepository, AuthMailJobs],
   exports: [AuthTokenService, RefreshTokenRepository],
 })
-export class AuthTokenModule {}
+export class AuthTokenModule {
+  // 帳號政策的設定在這裡登記：`UserModule` 只匯入這個模組、不匯入 `AuthModule`，也要讀得到
+  constructor(settings: SettingService) {
+    settings.register(AUTH_SETTINGS);
+  }
+}

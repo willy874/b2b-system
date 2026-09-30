@@ -15,6 +15,14 @@ vi.mock('@/apis/auth/reset-password/mutation', () => ({
   getResetPasswordMutationOptions: () => ({ mutationFn: reset }),
 }));
 vi.mock('@/features/login/tenant', () => ({ goToTenantLogin }));
+// 租戶沒有調整密碼長度
+vi.mock('@/apis/auth/get-public-settings/query', () => ({
+  PUBLIC_SETTINGS_QUERY_KEY: 'PUBLIC_SETTINGS_QUERY_KEY',
+  getPublicSettingsQueryOptions: (tenant: string) => ({
+    queryKey: ['PUBLIC_SETTINGS_QUERY_KEY', tenant],
+    queryFn: () => Promise.resolve({ values: { 'auth.passwordMinLength': 12 } }),
+  }),
+}));
 // 完成後導向 /login：那一頁會頂層跳轉到 IdP，測試裡不需要
 vi.mock('@/features/login/sso', () => ({ startSsoLogin: () => Promise.resolve() }));
 

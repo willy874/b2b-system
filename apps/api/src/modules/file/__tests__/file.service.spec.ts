@@ -6,6 +6,7 @@ import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
 import { AppException } from '@/core/errors';
 import type { DomainEventBus } from '@/core/events';
+import type { SettingService } from '@/core/settings';
 import type { ObjectStorage, StoredObjectHead } from '@/core/storage';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 
@@ -153,6 +154,8 @@ function setup(
     images as unknown as FileImageService,
     folders as unknown as FileFolderService,
     createFileAccess(options.access).access,
+    // 租戶沒有覆寫上限：生效值等於 env 的上限
+    { get: vi.fn(async () => MAX_SIZE) } as unknown as SettingService,
     config as unknown as ConfigService<Env, true>,
   );
   return { service, repo, storage, audit, events, images };

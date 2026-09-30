@@ -1,7 +1,7 @@
 import { useForm } from '@tanstack/react-form';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { z } from 'zod';
 
 import { getSetupMutationOptions } from '@/apis/auth/setup/mutation';
@@ -13,16 +13,20 @@ import { useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
+import { useAccountPolicy } from '../../hooks/useAccountPolicy';
 import { LoginRoute, SetupRoute } from '../../routes';
 import { goToTenantLogin } from '../../tenant';
 import { AuthShell } from '../AuthShell';
 
-const Schema = z
-  .object({ password: z.string().min(12), confirmPassword: z.string().min(1) })
-  .refine((value) => value.password === value.confirmPassword, {
-    path: ['confirmPassword'],
-    message: 'passwords do not match',
-  });
+/** 租戶帳號的密碼長度是租戶的設定（`auth.passwordMinLength`）。 */
+function createSchema(passwordMinLength: number) {
+  return z
+    .object({ password: z.string().min(passwordMinLength), confirmPassword: z.string().min(1) })
+    .refine((value) => value.password === value.confirmPassword, {
+      path: ['confirmPassword'],
+      message: 'passwords do not match',
+    });
+}
 
 export default function SetupPage() {
   const { t } = useTranslation();
@@ -35,10 +39,12 @@ export default function SetupPage() {
   const setup = useMutation(getSetupMutationOptions());
   const toMessage = useErrorMessage();
   const [formError, setFormError] = useState<string>();
+  const { passwordMinLength } = useAccountPolicy(tenant);
+  const schema = useMemo(() => createSchema(passwordMinLength), [passwordMinLength]);
 
   const form = useForm({
     defaultValues: { password: '', confirmPassword: '' },
-    validators: { onSubmit: zodFormValidator(Schema) },
+    validators: { onSubmit: zodFormValidator(schema) },
     onSubmit: async ({ value }) => {
       setFormError(undefined);
       try {
@@ -68,7 +74,7 @@ export default function SetupPage() {
   return (
     <AuthShell
       title={t('login.setup.title')}
-      description={verify.data?.email ?? t('login.password.hint')}
+      description={verify.data?.email ?? t('login.password.hint', { min: passwordMinLength })}
     >
       <form
         className="flex flex-col gap-3"

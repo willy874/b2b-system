@@ -1,0 +1,71 @@
+{
+  "setting": {
+    "title": "System settings",
+    "description": "Settings that can be changed at runtime. Changes take effect immediately and are recorded in the audit log. The allowed ranges are fixed by the system, so no value can weaken security.",
+    "category": {
+      "general": "General",
+      "auth": "Accounts and sign-in",
+      "file": "Files"
+    },
+    "field": {
+      "defaultTimezone": {
+        "label": "Default time zone",
+        "description": "Used to display times for users who have not chosen a time zone."
+      },
+      "loginMaxAttempts": {
+        "label": "Failed sign-ins before lockout",
+        "description": "The account is locked after this many consecutive wrong passwords."
+      },
+      "loginLockoutSeconds": {
+        "label": "Lockout duration",
+        "description": "How long a locked account must wait before trying again."
+      },
+      "passwordMinLength": {
+        "label": "Minimum password length",
+        "description": "Required when setting, resetting or changing a password and when registering. Can only be stricter than the system minimum (12)."
+      },
+      "registrationEnabled": {
+        "label": "Accept registration requests",
+        "description": "When off, the sign-in page hides the registration link and new requests are rejected."
+      },
+      "activationTtlHours": {
+        "label": "Activation link lifetime",
+        "description": "How long the activation link for a new account stays valid after it is sent."
+      },
+      "passwordResetTtlHours": {
+        "label": "Password reset link lifetime",
+        "description": "How long the password reset link stays valid after it is sent."
+      },
+      "uploadMaxSize": {
+        "label": "Maximum file size",
+        "description": "The largest file that can be uploaded. Cannot exceed the limit set for this deployment."
+      }
+    },
+    "unit": {
+      "times": "times",
+      "seconds": "seconds",
+      "hours": "hours",
+      "characters": "characters",
+      "mebibytes": "MiB"
+    },
+    "boolean": {
+      "on": "On",
+      "off": "Off"
+    },
+    "defaultValue": "Default: {{value}}",
+    "range": "Allowed {{min}} – {{max}}",
+    "overridden": "Changed",
+    "resetToDefault": "Restore default",
+    "discard": "Discard changes",
+    "increment": "Increase",
+    "decrement": "Decrease",
+    "error": {
+      "required": "Enter a number",
+      "integer": "Must be a whole number",
+      "range": "Outside the allowed range"
+    },
+    "save": {
+      "success": "Settings saved"
+    }
+  }
+}
