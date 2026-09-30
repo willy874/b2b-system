@@ -1,7 +1,7 @@
 # Feature Flag（暫時的上線開關）
 
 - 優先度：P3
-- 狀態：規劃中（設計見 [ADR-0022](../adr/0022-feature-flags.md)，提案中（待確認））
+- 狀態：實作中（branch `feat/feature-flags`；設計見 [ADR-0022](../adr/0022-feature-flags.md)）
 - 依賴：可啟用的 feature（已完成，[ADR-0021](../adr/0021-runtime-feature-activation.md)、[`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §7）
 - 相關：[`../architecture/05-tenancy.md`](../architecture/05-tenancy.md) §5.1（平台層開關）、[`multi-instance.md`](./multi-instance.md)（快取失效的延遲）
 

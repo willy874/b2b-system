@@ -1,6 +1,6 @@
 # ADR-0022 — Feature flag：程式裡的目錄 ＋ 平台層的兩級覆寫，沿用 ADR-0021 的啟用機制
 
-- 狀態：**提案中（待確認）**
+- 狀態：**採用**（實作中，branch `feat/feature-flags`）
 - 日期：2026-09-30
 - 相關：延伸 [ADR-0021](./0021-runtime-feature-activation.md)（可啟用的 feature）；[ADR-0020](./0020-physical-tenant-isolation.md) D22（平台層開關）；
   [ADR-0005](./0005-permission-resolved-server-side.md)（由伺服器判定）；[ADR-0007](./0007-openapi-generated-api-sdk.md)（id 經 OpenAPI 產進 SDK）；
