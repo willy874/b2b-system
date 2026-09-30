@@ -51,10 +51,20 @@ export const PlatformTenantSchema = defineSchema(
   }),
 );
 
+/** 租戶清單的查詢：伺服器分頁、代碼／名稱／網域搜尋、狀態篩選（依建立時間舊到新）。 */
+export const ListPlatformTenantSchema = z.object({
+  offset: z.coerce.number().int().min(0).default(0),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  /** 代碼、名稱或任一網域的部分相符（不分大小寫）。 */
+  q: z.string().trim().max(100).optional(),
+  status: TenantStatusSchema.optional(),
+});
+
 export const PlatformTenantListSchema = defineSchema(
   'PlatformTenantList',
   z.object({
     items: z.array(PlatformTenantSchema),
+    pagination: z.object({ offset: z.number(), limit: z.number(), total: z.number() }),
     /** 建立時預設網域的上層：租戶 `acme` 的預設網域是 `acme.<baseDomain>`。 */
     baseDomain: z.string(),
   }),
@@ -94,6 +104,7 @@ export const AddTenantDomainSchema = defineSchema(
 
 export type PlatformTenantDto = z.infer<typeof PlatformTenantSchema>;
 export type PlatformTenantListDto = z.infer<typeof PlatformTenantListSchema>;
+export type ListPlatformTenantDto = z.infer<typeof ListPlatformTenantSchema>;
 export type CreateTenantDto = z.infer<typeof CreateTenantSchema>;
 export type UpdateTenantDto = z.infer<typeof UpdateTenantSchema>;
 export type AddTenantDomainDto = z.infer<typeof AddTenantDomainSchema>;

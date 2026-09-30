@@ -63,7 +63,8 @@ export default function SsoCallbackPage() {
         <Button
           variant="primary"
           block
-          onClick={() => void startSsoLogin(undefined)}
+          // 重新登入後回到原本要去的頁面（這次 callback 的 returnTo），不是首頁
+          onClick={() => void startSsoLogin(pending?.returnTo)}
           data-testid="sso-callback-retry"
         >
           {t('auth.login.submit')}

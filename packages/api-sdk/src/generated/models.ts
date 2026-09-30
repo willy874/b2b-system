@@ -810,6 +810,11 @@ export interface PlatformTenant {
 
 export interface PlatformTenantList {
   items: Array<PlatformTenant>;
+  pagination: {
+    offset: number;
+    limit: number;
+    total: number;
+  };
   baseDomain: string;
 }
 

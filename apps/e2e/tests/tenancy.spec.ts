@@ -71,7 +71,9 @@ test.describe('租戶實體隔離（兩個租戶）', () => {
       const remove = platform.getByTestId('tenant-remove');
       if (await remove.isVisible().catch(() => false)) {
         await remove.click();
-        await platform.getByTestId('alert-dialog-confirm').click();
+        // 刪除租戶要輸入代碼才能確認
+        await platform.getByTestId('tenant-remove-confirm-input').fill(CODE);
+        await platform.getByTestId('tenant-remove-submit').click();
         await expect(platform.getByTestId('tenant-page')).toBeVisible();
       }
     }

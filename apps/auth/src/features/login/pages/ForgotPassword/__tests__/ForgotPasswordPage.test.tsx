@@ -2,6 +2,8 @@ import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/rea
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { NetworkError } from '@/core/client';
+import { AppError } from '@/core/errors';
 import { parseSearch, RootRoute, stringifySearch } from '@/core/router';
 import { AllProviders } from '@/test/renderWithPermissions';
 
@@ -49,5 +51,22 @@ describe('忘記密碼頁（帳號屬於租戶，docs/adr/0020-physical-tenant-i
       params: { tenant: 'acme', email: 'alice@example.com' },
     });
     expect(await screen.findByTestId('forgot-password-sent')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['限流（429）', new AppError('RATE_LIMITED', 429)],
+    ['租戶無法使用（503）', new AppError('TENANT_UNAVAILABLE', 503)],
+    ['網路錯誤', new NetworkError(new TypeError('Failed to fetch'))],
+  ])('%s → 顯示錯誤，不顯示「已寄出」（UX-13）', async (_label, error) => {
+    forgot.mockRejectedValue(error);
+    renderAt('/forgot-password?tenant=acme');
+    fireEvent.change(await screen.findByTestId('forgot-password-email'), {
+      target: { value: 'alice@example.com' },
+    });
+    fireEvent.click(screen.getByTestId('forgot-password-submit'));
+    expect(await screen.findByTestId('forgot-password-error')).toBeInTheDocument();
+    expect(screen.queryByTestId('forgot-password-sent')).toBeNull();
+    // 表單留著，可以再送一次
+    expect(screen.getByTestId('forgot-password-submit')).toBeInTheDocument();
   });
 });

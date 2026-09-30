@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -17,6 +18,7 @@ import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation
 import {
   AddTenantDomainSchema,
   CreateTenantSchema,
+  ListPlatformTenantSchema,
   PlatformTenantListSchema,
   PlatformTenantSchema,
   TenantDomainSchema,
@@ -25,6 +27,7 @@ import {
 import type {
   AddTenantDomainDto,
   CreateTenantDto,
+  ListPlatformTenantDto,
   UpdateTenantDto,
 } from './dto/platform-tenant.dto';
 import { PlatformTenantService } from './platform-tenant.service';
@@ -40,10 +43,12 @@ export class PlatformTenantController {
 
   @Get()
   @RequirePlatformPermissions('tenant:read')
-  @ApiOperation({ summary: '所有租戶（未刪除）與預設網域的上層' })
+  @ApiOperation({
+    summary: '租戶（未刪除）與預設網域的上層；分頁、代碼／名稱／網域搜尋（q）、狀態篩選（status）',
+  })
   @ApiZodResponse(200, PlatformTenantListSchema)
-  list() {
-    return this.tenants.list();
+  list(@Query(new ZodValidationPipe(ListPlatformTenantSchema)) query: ListPlatformTenantDto) {
+    return this.tenants.list(query);
   }
 
   @Get(':id')

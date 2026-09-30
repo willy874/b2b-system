@@ -18,6 +18,7 @@ import { PlatformAuditService } from '@/modules/platform-admin/platform-audit.se
 
 import type {
   CreateTenantDto,
+  ListPlatformTenantDto,
   PlatformTenantDto,
   PlatformTenantListDto,
   UpdateTenantDto,
@@ -80,8 +81,13 @@ export class PlatformTenantService {
     this.authHost = new URL(config.get('AUTH_APP_URL', { infer: true })).host.toLowerCase();
   }
 
-  async list(): Promise<PlatformTenantListDto> {
-    return { items: (await this.repo.list()).map(toDto), baseDomain: this.baseDomain };
+  async list(query: ListPlatformTenantDto): Promise<PlatformTenantListDto> {
+    const { items, total } = await this.repo.list(query);
+    return {
+      items: items.map(toDto),
+      pagination: { offset: query.offset, limit: query.limit, total },
+      baseDomain: this.baseDomain,
+    };
   }
 
   async get(id: string): Promise<PlatformTenantDto> {
@@ -242,6 +248,8 @@ export class PlatformTenantService {
     const tenant = await this.getExisting(id);
     if (!tenant.domains.includes(domain)) return toDto(tenant);
     if (tenant.domains.length <= 1) throw new AppException('TENANT_LAST_DOMAIN');
+    // 第一個是主要網域：信中的連結與「進入租戶」都導向它，移除後這些入口全部失效
+    if (tenant.domains[0] === domain) throw new AppException('TENANT_PRIMARY_DOMAIN');
     await this.repo.removeDomain(id, domain);
     this.directory.invalidate();
     await this.audit.record({

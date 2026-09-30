@@ -1,9 +1,10 @@
-import { createRoute } from '@tanstack/react-router';
+import { createRoute, stripSearchParams } from '@tanstack/react-router';
 
 import { localeScopeLoader } from '@/core/locales';
 import { RootRoute } from '@/core/router';
 
 import { TENANT_LOCALE_SCOPE } from '../locale';
+import { DEFAULT_TENANT_SEARCH, TenantSearchQuerySchema } from './model';
 
 /**
  * 平台管理者的租戶管理（`tenant:read`，docs/adr/0020-physical-tenant-isolation.md D12、D13）。
@@ -13,6 +14,9 @@ export const TenantListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/tenant',
   loader: localeScopeLoader(TENANT_LOCALE_SCOPE),
+  // 分頁、搜尋與狀態篩選放在網址上：重新整理或分享連結都保留；等於預設值的參數不寫進網址
+  validateSearch: TenantSearchQuerySchema,
+  search: { middlewares: [stripSearchParams(DEFAULT_TENANT_SEARCH)] },
 });
 
 /** 一個租戶：狀態、網域、佈建失敗的原因與停用／刪除。權限沿用列表頁（`/tenant` 前綴）。 */

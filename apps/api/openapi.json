@@ -3367,7 +3367,7 @@
             }
           }
         },
-        "summary": "所有租戶（未刪除）與預設網域的上層",
+        "summary": "租戶（未刪除）與預設網域的上層；分頁、代碼／名稱／網域搜尋（q）、狀態篩選（status）",
         "tags": ["platform-tenants"]
       },
       "post": {
@@ -6679,11 +6679,27 @@
               "$ref": "#/components/schemas/PlatformTenant"
             }
           },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "offset": {
+                "type": "number"
+              },
+              "limit": {
+                "type": "number"
+              },
+              "total": {
+                "type": "number"
+              }
+            },
+            "required": ["offset", "limit", "total"],
+            "additionalProperties": false
+          },
           "baseDomain": {
             "type": "string"
           }
         },
-        "required": ["items", "baseDomain"],
+        "required": ["items", "pagination", "baseDomain"],
         "additionalProperties": false
       },
       "CreateTenantRequest": {

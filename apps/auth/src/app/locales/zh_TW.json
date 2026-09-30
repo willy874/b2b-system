@@ -116,6 +116,7 @@
     "TENANT_DOMAIN_TAKEN": "這個網域已屬於另一個租戶。",
     "TENANT_STATUS_CONFLICT": "租戶目前的狀態不能執行這個動作，請重新整理後再試。",
     "TENANT_LAST_DOMAIN": "租戶至少要保留一個網域。",
+    "TENANT_PRIMARY_DOMAIN": "主要網域不能移除：信中的連結與「進入租戶」都使用它。",
     "PLATFORM_ADMIN_NOT_FOUND": "找不到這位平台管理者，可能已被刪除。",
     "IDENTITY_PROVIDER_NOT_ALLOWED": "平台管理者已停用這個租戶的外部 IdP。",
     "AUTH_INVALID_CREDENTIALS": "帳號或密碼錯誤。",
@@ -193,6 +194,13 @@
       "unexpected": {
         "title": "發生未預期的錯誤",
         "description": "請重試，或聯絡系統管理員。"
+      },
+      "backHome": "回首頁",
+      "goBack": "返回上一頁",
+      "reload": "重新整理",
+      "updated": {
+        "title": "系統已更新",
+        "description": "這個頁面有新版本，請重新整理後再繼續。"
       }
     }
   },
@@ -284,5 +292,14 @@
     "dark": "深色",
     "system": "跟隨系統",
     "current": "目前選擇"
+  },
+  "validation": {
+    "required": "請填寫這個欄位",
+    "email": "請輸入有效的 Email",
+    "tooShort": "至少需要 {{min}} 個字元",
+    "tooLong": "最多 {{max}} 個字元",
+    "format": "格式不正確",
+    "invalid": "輸入的值不正確",
+    "passwordMismatch": "兩次輸入的密碼不一致"
   }
 }

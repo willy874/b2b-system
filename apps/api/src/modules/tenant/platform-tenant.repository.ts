@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, exists, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import { PLATFORM_DB } from '@/core/database';
 import type { PlatformDatabase } from '@/core/database';
@@ -23,18 +23,58 @@ export type TenantPatch = Partial<
   >
 >;
 
+export interface TenantListFilter {
+  offset: number;
+  limit: number;
+  /** 代碼、名稱或任一網域的部分相符。 */
+  q?: string;
+  status?: TenantStatus;
+}
+
+/** `%`、`_` 在 LIKE 裡是萬用字元：使用者輸入的要跳脫。 */
+function escapeLike(value: string): string {
+  return value.replaceAll(/[\\%_]/g, (char) => `\\${char}`);
+}
+
 /** 平台管理者對租戶登記的讀寫（平台 DB，docs/adr/0020-physical-tenant-isolation.md D12、D13）。 */
 @Injectable()
 export class PlatformTenantRepository {
   constructor(@Inject(PLATFORM_DB) private readonly db: PlatformDatabase) {}
 
-  async list(): Promise<TenantWithDomains[]> {
-    const rows = await this.db
-      .select()
-      .from(tenants)
-      .where(isNull(tenants.deletedAt))
-      .orderBy(asc(tenants.createdAt), asc(tenants.code));
-    return this.withDomains(rows);
+  async list(filter: TenantListFilter): Promise<{ items: TenantWithDomains[]; total: number }> {
+    const pattern = filter.q ? `%${escapeLike(filter.q)}%` : undefined;
+    const where = and(
+      isNull(tenants.deletedAt),
+      filter.status ? eq(tenants.status, filter.status) : undefined,
+      pattern
+        ? or(
+            ilike(tenants.code, pattern),
+            ilike(tenants.name, pattern),
+            exists(
+              this.db
+                .select({ one: sql`1` })
+                .from(tenantDomains)
+                .where(
+                  and(eq(tenantDomains.tenantId, tenants.id), ilike(tenantDomains.domain, pattern)),
+                ),
+            ),
+          )
+        : undefined,
+    );
+    const [rows, [count]] = await Promise.all([
+      this.db
+        .select()
+        .from(tenants)
+        .where(where)
+        .orderBy(asc(tenants.createdAt), asc(tenants.code))
+        .limit(filter.limit)
+        .offset(filter.offset),
+      this.db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(tenants)
+        .where(where),
+    ]);
+    return { items: await this.withDomains(rows), total: count?.total ?? 0 };
   }
 
   async findById(id: string): Promise<TenantWithDomains | undefined> {

@@ -7,6 +7,7 @@ import { getForgotPasswordMutationOptions } from '@/apis/auth/forgot-password/mu
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/Input';
+import { useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
@@ -20,17 +21,24 @@ export default function ForgotPasswordPage() {
   const { t } = useTranslation();
   const { tenant } = ForgotPasswordRoute.useSearch();
   const [sent, setSent] = useState(false);
+  // 物件而不是字串：訊息可能是空字串（語系尚未載入），不能拿它判斷有沒有失敗
+  const [formError, setFormError] = useState<{ message: string }>();
   const forgot = useMutation(getForgotPasswordMutationOptions());
+  const toMessage = useErrorMessage();
 
   const form = useForm({
     defaultValues: { email: '' },
     validators: { onSubmit: zodFormValidator(Schema) },
     onSubmit: async ({ value }) => {
-      // 不論 email 是否存在，後端都回 200（帳號列舉防護）
-      await forgot
-        .mutateAsync({ params: { ...value, tenant: tenant ?? '' } })
-        .catch(() => undefined);
-      setSent(true);
+      setFormError(undefined);
+      try {
+        // 不論 email 是否存在，後端都回 200（帳號列舉防護）；只有成功才顯示「已寄出」。
+        // 限流、租戶無法使用、網路錯誤等失敗要讓使用者知道信沒有寄出（UX-13），不會洩漏帳號是否存在
+        await forgot.mutateAsync({ params: { ...value, tenant: tenant ?? '' } });
+        setSent(true);
+      } catch (error) {
+        setFormError({ message: toMessage(error) });
+      }
     },
   });
 
@@ -71,6 +79,15 @@ export default function ForgotPasswordPage() {
               </Field>
             )}
           </form.Field>
+          {formError !== undefined && (
+            <p
+              className="m-0 text-sm text-[var(--color-danger-text)]"
+              role="alert"
+              data-testid="forgot-password-error"
+            >
+              {formError.message}
+            </p>
+          )}
           <Button
             type="submit"
             variant="primary"
