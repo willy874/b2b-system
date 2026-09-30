@@ -295,6 +295,47 @@ describe('FileImageService：影像 API', () => {
     expect(storage.putObject).toHaveBeenCalledTimes(1);
   });
 
+  it('format=auto 協商出的格式還沒轉出：先轉址到主格式、只短暫快取，背景轉完後再來就拿到新格式（PERF-07）', async () => {
+    const { service, storage } = setup(ready());
+    storage.objects.set(storageKeyOf(FILE_ID), {
+      data: await png(600, 400),
+      contentType: 'image/png',
+    });
+    const query = {
+      ...queryOf(service.signedUrls(ready())?.previewUrl ?? ''),
+      format: 'auto' as const,
+    };
+    const accept = 'image/avif,image/webp,*/*';
+
+    const first = await service.resolve(FILE_ID, 'preview', query, accept);
+    expect(first.url).toBe(`http://storage/${variantKeyOf(FILE_ID, 'preview', 'jpeg')}`);
+    expect(first.maxAge).toBeLessThanOrEqual(30);
+
+    await service.whenIdle();
+    const avif = variantKeyOf(FILE_ID, 'preview', 'avif');
+    expect(storage.objects.get(avif)?.contentType).toBe('image/avif');
+    const second = await service.resolve(FILE_ID, 'preview', query, accept);
+    expect(second.url).toBe(`http://storage/${avif}`);
+    expect(second.maxAge).toBeGreaterThan(30);
+  });
+
+  it('format=auto 的原圖是瀏覽器顯示不了的 TIFF：不退回原圖，等轉完', async () => {
+    const tiff = () => fileRow({ ...ready(), contentType: 'image/tiff', name: 'scan.tiff' });
+    const { service, storage } = setup(tiff());
+    storage.objects.set(storageKeyOf(FILE_ID), {
+      data: await sharp({ create: { width: 30, height: 20, channels: 3, background: '#000' } })
+        .tiff()
+        .toBuffer(),
+      contentType: 'image/tiff',
+    });
+    const query = {
+      ...queryOf(service.signedUrls(tiff())?.originalUrl ?? ''),
+      format: 'auto' as const,
+    };
+    const result = await service.resolve(FILE_ID, 'original', query, 'image/webp,*/*');
+    expect(result.url).toBe(`http://storage/${variantKeyOf(FILE_ID, 'original', 'webp')}`);
+  });
+
   it('原圖也能要求 progressive JPEG', async () => {
     const { service, storage } = setup(ready());
     storage.objects.set(storageKeyOf(FILE_ID), {

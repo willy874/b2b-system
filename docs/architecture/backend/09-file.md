@@ -306,6 +306,12 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 - **補產生**：`variant_status = 'pending'` 的圖片由維護排程逐批補產生。
 - **影像處理在 api 內**（`core/image` 的 `ImageProcessor`，實作是 sharp）：sharp 是預編譯的原生套件，
   平台二進位檔隨 `@img/sharp-*` 安裝（macOS、Linux glibc / musl 都有），不需要編譯環境。取捨見 [ADR-0014](../../adr/0014-server-image-variants.md)。
+- **記憶體**（與服務 WebSocket 的是同一個程序）：
+  - 原圖串流先寫到暫存檔（`os.tmpdir()`，超過 128 MiB 就中斷），libvips 再從檔案逐列解碼（`sequentialRead`），不整份讀成 Buffer；
+    用完 `DecodedImage.dispose()` 刪掉暫存檔；
+  - 全螢幕預覽與圖示預覽 **依序** render，尖峰只有一份解碼緩衝；
+  - libvips 每張圖最多 2 條執行緒、操作快取 16 MB（`sharp.concurrency` / `sharp.cache`）；
+  - 還是在同一個程序：移到獨立 worker 容器要等背景工作能分開部署（見 [`10-jobs.md`](./10-jobs.md) §5），目前以上面的限制壓住尖峰。
 
 #### 影像 API：`GET /files/:id/image/:variant`
 
@@ -335,6 +341,10 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 
 主格式以外的格式 **第一次被要求時才轉出**（從原圖轉，畫質比從主格式再轉一次好），存成 `variants/<id>/<variant>.<格式>`，
 之後直接轉址。同時多個請求只轉一次；轉換與變體產生共用同一個並行上限。
+
+`format=auto` 協商出來的格式還沒轉出時，請求 **不等** 轉檔（AVIF 大圖要好幾秒）：先轉址到主格式（`original` 則原封不動），
+轉址只快取 30 秒，轉檔在背景做，之後再來就拿到新格式。原圖是瀏覽器顯示不了的格式（TIFF）時沒有東西可以退回，照舊等轉完。
+明確指定的格式（`jpeg` / `webp` / `avif` / `png`）一律等轉完。
 
 ---
 
@@ -560,8 +570,8 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除時清變體）、維護排程（dry run 與清除）、樂觀鎖、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束；資料夾：上傳到資料夾與依 `folderId` 列出、移動、循環與同名（真的唯一索引）、上傳資料夾重送得到同樣的 id、遞迴刪除後可再建同名、`file_folders_not_own_parent` |
 | `src/core/storage/__tests__/content-disposition.spec.ts` | 中文檔名的 `Content-Disposition` |
 | `src/core/storage/__tests__/stable-signing-date.spec.ts` | 下載網址在時間窗內不變、剩餘效期範圍 |
-| `src/core/image/__tests__/sharp-image-processor.spec.ts` | progressive JPEG、等比縮放不放大、透明圖鋪白底、EXIF 轉正、串流讀入、位元組上限 |
-| `src/modules/file/__tests__/file-image.service.spec.ts` | 真的 sharp ＋ 記憶體儲存：實體化兩個變體、WebP 主格式、失敗與重試的分界、途中刪除、影像 API 的簽章／格式協商／依請求轉出並快取 |
+| `src/core/image/__tests__/sharp-image-processor.spec.ts` | progressive JPEG、等比縮放不放大、透明圖鋪白底、EXIF 轉正、串流讀入（經暫存檔、dispose 後刪除）、位元組上限、libvips 資源上限 |
+| `src/modules/file/__tests__/file-image.service.spec.ts` | 真的 sharp ＋ 記憶體儲存：實體化兩個變體、WebP 主格式、失敗與重試的分界、途中刪除、影像 API 的簽章／格式協商／依請求轉出並快取、`auto` 背景轉出前先回主格式 |
 | `src/modules/file/__tests__/file-maintenance.service.spec.ts` | 四類殘留的偵測與清除、dry run、與 complete 並行、失敗不中斷、不重疊執行 |
 | `apps/backstage/src/apis/file/upload-file/__tests__/uploadFile.test.ts` | 編排、進度、直傳失敗、取消與放棄上傳、縮圖；分塊：並行、ETag 排序、單塊重試、4xx 不重試 |
 

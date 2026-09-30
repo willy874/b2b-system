@@ -31,6 +31,12 @@ export interface ImageRedirect {
   maxAge: number;
 }
 
+/** 瀏覽器顯示不了的原圖型別：協商出來的格式還沒轉出時不能退回原圖，只能等轉完。 */
+const UNDISPLAYABLE_SOURCE_TYPES: ReadonlySet<string> = new Set(['image/tiff']);
+
+/** 格式還在背景轉出時，退回主格式的轉址只快取這麼久（秒），之後再問就拿到新格式。 */
+const PENDING_CONVERSION_MAX_AGE = 30;
+
 /** 副檔名：JPEG 慣用 `.jpg`。 */
 const FORMAT_EXTENSION: Record<ImageFormat, string> = {
   jpeg: 'jpg',
@@ -85,11 +91,11 @@ export class FileImageService {
     this.generating.set(fileId, task);
   }
 
-  /** 等排入的變體全部處理完（測試與關機用）。 */
+  /** 等排入的變體與背景轉檔全部處理完（測試與關機用）。 */
   async whenIdle(): Promise<void> {
-    while (this.generating.size > 0) {
+    while (this.generating.size > 0 || this.converting.size > 0) {
       // oxlint-disable-next-line no-await-in-loop -- 等待途中可能又排入新的
-      await Promise.allSettled(this.generating.values());
+      await Promise.allSettled([...this.generating.values(), ...this.converting.values()]);
     }
   }
 
@@ -141,10 +147,26 @@ export class FileImageService {
       throw new AppException('FILE_NOT_FOUND');
     }
 
-    const format = negotiateFormat(query.format, accept, variant, master, file.contentType);
-    const key = format === undefined ? file.storageKey : variantKeyOf(id, variant, format);
+    let format = negotiateFormat(query.format, accept, variant, master, file.contentType);
+    let key = format === undefined ? file.storageKey : variantKeyOf(id, variant, format);
+    let maxAgeCap = Number.POSITIVE_INFINITY;
     const isMaster = variant !== 'original' && format === master;
-    if (format !== undefined && !isMaster) await this.ensureConverted(file, variant, format, key);
+    if (format !== undefined && !isMaster) {
+      const fallback = variant === 'original' ? undefined : master;
+      const canFallback =
+        fallback !== undefined || !UNDISPLAYABLE_SOURCE_TYPES.has(file.contentType);
+      if (query.format === 'auto' && canFallback && !(await this.storage.head(key))) {
+        // 協商出來的格式還沒轉出（PERF-07）：請求不等轉檔（AVIF 大圖要好幾秒、吃記憶體），
+        // 先轉址到主格式（原圖則原封不動），轉檔在背景做；轉址只快取一下，之後再來就拿到新格式
+        this.convertInBackground(file, variant, format, key);
+        format = fallback;
+        key = fallback === undefined ? file.storageKey : variantKeyOf(id, variant, fallback);
+        maxAgeCap = PENDING_CONVERSION_MAX_AGE;
+      } else {
+        // 明確指定的格式（下載某種格式）照舊等它轉完
+        await this.ensureConverted(file, variant, format, key);
+      }
+    }
 
     const signed = await this.storage.presignDownload(key, {
       expiresIn: this.urlTtl,
@@ -152,7 +174,8 @@ export class FileImageService {
       disposition: 'inline',
     });
     const until = Math.min(query.exp * 1000, signed.expiresAt.getTime());
-    return { url: signed.url, maxAge: Math.max(0, Math.floor((until - now) / 1000)) };
+    const maxAge = Math.max(0, Math.floor((until - now) / 1000));
+    return { url: signed.url, maxAge: Math.min(maxAge, maxAgeCap) };
   }
 
   /** 刪除這個檔案的所有變體與轉出的格式。 */
@@ -175,10 +198,15 @@ export class FileImageService {
       const decoded = await this.images.decode(source, { maxBytes: IMAGE_VARIANT_MAX_INPUT_SIZE });
       // JPEG 沒有透明度：透明的圖改用 WebP，免得鋪上底色
       const format: ImageFormat = decoded.info.hasAlpha ? 'webp' : 'jpeg';
-      const [preview, thumbnail] = await Promise.all([
-        decoded.render({ format, maxEdge: IMAGE_VARIANT_MAX_EDGE.preview }),
-        decoded.render({ format, maxEdge: IMAGE_VARIANT_MAX_EDGE.thumbnail }),
-      ]);
+      let preview;
+      let thumbnail;
+      try {
+        // 依序而不是同時 render：兩個版本各自需要一份解碼緩衝，同時做會讓尖峰記憶體加倍（PERF-07）
+        preview = await decoded.render({ format, maxEdge: IMAGE_VARIANT_MAX_EDGE.preview });
+        thumbnail = await decoded.render({ format, maxEdge: IMAGE_VARIANT_MAX_EDGE.thumbnail });
+      } finally {
+        await decoded.dispose();
+      }
       await Promise.all([
         this.storage.putObject(variantKeyOf(fileId, 'preview', format), preview.data, {
           contentType: preview.contentType,
@@ -217,6 +245,18 @@ export class FileImageService {
     });
   }
 
+  /** 背景轉出其他格式；失敗只記錄（下一次請求會再試）。 */
+  private convertInBackground(
+    file: FileRow,
+    variant: ImageVariant,
+    format: ImageFormat,
+    key: string,
+  ): void {
+    this.ensureConverted(file, variant, format, key).catch((error: unknown) => {
+      this.logger.warn({ err: error, fileId: file.id, format }, '背景轉出影像格式失敗');
+    });
+  }
+
   /** 其他格式第一次被要求時才轉出（從原圖轉，畫質比從主格式再轉一次好），之後直接用存下來的。 */
   private async ensureConverted(
     file: FileRow,
@@ -233,10 +273,15 @@ export class FileImageService {
         const decoded = await this.images.decode(source, {
           maxBytes: IMAGE_VARIANT_MAX_INPUT_SIZE,
         });
-        const rendered = await decoded.render({
-          format,
-          maxEdge: variant === 'original' ? undefined : IMAGE_VARIANT_MAX_EDGE[variant],
-        });
+        let rendered;
+        try {
+          rendered = await decoded.render({
+            format,
+            maxEdge: variant === 'original' ? undefined : IMAGE_VARIANT_MAX_EDGE[variant],
+          });
+        } finally {
+          await decoded.dispose();
+        }
         await this.storage.putObject(key, rendered.data, { contentType: rendered.contentType });
       }).finally(() => this.converting.delete(key));
       this.converting.set(key, task);
