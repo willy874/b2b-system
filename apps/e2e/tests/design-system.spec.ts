@@ -14,13 +14,11 @@ test('稽核日誌的日期篩選在表頭的篩選面板內選取，選取後�
   await page.getByTestId('audit-log-table').getByTestId('filter-bar-trigger').click();
   const rangePicker = page.getByTestId('filter-bar-date-range');
   await rangePicker.click();
-  const firstDay = page
-    .getByTestId('calendar-day')
-    .and(page.locator(':not([data-disabled])'))
-    .nth(10);
-  const picked = await firstDay.getAttribute('data-value');
+  // 篩選的上限是今天，今天之後的日子都停用；選「今天」才不會在月初找不到可點的日子
+  const today = page.getByTestId('calendar-day').and(page.locator('[data-today]'));
+  const picked = await today.getAttribute('data-value');
   if (!picked) throw new Error('calendar-day 缺少 data-value');
-  await firstDay.click();
+  await today.click();
   // 篩選面板只改草稿，按「搜尋」才寫進網址
   await page.getByTestId('filter-bar-submit').click();
 
