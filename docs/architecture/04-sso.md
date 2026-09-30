@@ -291,6 +291,6 @@ IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁
 
 - 找不到帳號時「走審批」沒有做：現有審批以密碼建立帳號，SSO 帳號沒有密碼（ADR-0019 D10）。
 - 網域所有權沒有驗證（DNS TXT）：由平台管理員自行確認。
-- 外部 IdP 的群組不對應到角色（等 [權限圖](../features/permission-graph.md) G4 的群組）；沒有解除外部身分連結的畫面。
+- 外部 IdP 的群組不對應到角色或群組：權限圖 G4 的群組只有手動成員，IdP 群組對應另開提案、與 SCIM 一起評估（[ADR-0024](../adr/0024-relationship-based-access-control.md) D15）；沒有解除外部身分連結的畫面。
 - Azure AD 預設不回 `email_verified`：以 email 連結既有帳號不會成立，只能靠 `auto_create` 或已連結的身分。
 - 登入互動預留了第二步（MFA，D15），這一版沒有實作。

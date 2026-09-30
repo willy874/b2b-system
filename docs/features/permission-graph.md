@@ -1,7 +1,7 @@
 # 權限圖（Relationship-based Access Control）：G4 以後
 
 - 優先度：P0
-- 狀態：實作中（G0～G3b 已上 main 並歸檔；G4 群組與 explain、G5 專案待做）
+- 狀態：實作中（G0～G3b 已上 main 並歸檔）；**G4 規劃中**（開放問題已結論，見 ADR-0024 D10～D16）；G5 專案待做
 - 依賴：—
 - 相關：[ADR-0024](../adr/0024-relationship-based-access-control.md)（本功能的決策）、
   [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4（圖的組成與模型）、
@@ -80,7 +80,7 @@ type group
 
 type role
   relations
-    define holder: [user, group#member]                   # 群組可以持有角色（現在只有 user）
+    define holder: [user, group#member]                   # 群組可以持有角色（現在只有 user）；super-admin 除外（D12）
 
 type fileFolder
   relations
@@ -114,9 +114,9 @@ authz
 | 寫入的邊 | 多出的能力 | 操作者要有 |
 | --- | --- | --- |
 | `tenant:self#<key>@role:r#holder` | `<key>` | `<key>`（＋ `role:grantPermission`） |
-| `role:r#holder@user:u`（或 `@group:g#member`） | 角色 r 的所有權限鍵；r 是 super-admin 時 **一律拒絕**（05-rbac §4.1 照舊） | 全部（＋ `user:assignRole`／`group:assignRole`） |
+| `role:r#holder@user:u`（或 `@group:g#member`） | 角色 r 的所有權限鍵；r 是 super-admin 時：指派給使用者只有 super-admin 能做（05-rbac §4.1 照舊），指派給群組 **一律拒絕**（D12） | 全部（＋ `user:assignRole`／`group:assignRole`） |
 | `fileFolder:F#editor@…` | `editor` 蘊含的 `can_*` | 在 F 上都有（＋ `can_share`） |
-| `group:g#member@user:u` | 群組 g 持有的角色的權限鍵 | 見開放問題 4 |
+| `group:g#member@user:u`（或 `@group:h#member`） | g 與它所有上層群組持有的角色的權限鍵；不含群組的資料夾授權（D13） | 全部（＋ `group:update`）；不能加自己或自己所屬的群組（D11） |
 
 每種關係在模型裡宣告「誰能寫這條邊」（`grantedBy: 'can_share'` 之類），引擎統一檢查，錯誤仍是 `403 AUTHZ_ESCALATION`（`details.missing`）。
 同一步加上寫入時的模型驗證：「這個型別能不能有這個關係、主體型別對不對」（現在由 `db/schema/relation-tuples.ts` 的建構函式保證形狀）。
@@ -174,24 +174,80 @@ user:alice
 已結案的問題（切換策略、廣播頻道、revision 粒度、平台管理者不進圖、`contributor` 採規則 A、包含表的邊界）的結論寫在
 ADR-0024 D1～D9、`rbac/01-domain-model.md` §6.4 與 `rbac/02-permission-catalog.md` §9。以下是還沒結論的（編號沿用原本的，其他文件以編號引用）：
 
+> 以下各題已於 2026-10-01 結論，決策寫在 [ADR-0024](../adr/0024-relationship-based-access-control.md) D10～D16。
+> 選項表保留下來，review 時看得到當初的取捨。
+
 3. **角色繼承角色**（`role:admin#holder` 包含 `role:editor#holder`）在圖上只是一種邊，要不要開放？
    ADR-0006 以「複製角色」取代繼承的理由（結果是明確清單）在有 explain 之後還成不成立？
 
-   延到 G4。
+   | 選項 | 做法 | 好處 | 代價 |
+   | --- | --- | --- | --- |
+   | **A. 不開放** | 維持「複製角色」（`POST /roles/:id/duplicate`） | 角色的權限永遠是明確清單；反提權、自我鎖定（`assertNoSelfLockout`）、I8 都只看一個角色；技能樹不變 | 基底角色加鍵時，複製出來的角色要手動跟上 |
+   | B. 開放 | `role:R#holder` 可以是另一個角色 holder 的主體；`subjectClosures` 本來就沿 `role#holder` 遞迴，引擎幾乎不用改 | 基底角色的變更自動傳下去 | 反提權、自我鎖定、I8 的計數都要展開閉包；改一個角色的影響範圍要跨角色計算（explain 回答「為什麼」，但不回答「改這個會影響誰」）；要擋循環與 super-admin 參與繼承；角色詳情頁要分「自己的鍵」與「繼承的鍵」 |
+   | C. A ＋ 來源提示 | 複製時記下來源角色；來源角色的鍵變了，在複製品的詳情頁提示差異 | 保留明確清單，也解決「忘了跟上」 | 多一個欄位與一個提示；不是繼承，不會自動套用 |
+
+   **結論**：A，不開放（ADR-0024 D10）。G4 的群組已經涵蓋「分組」這個需求，角色繼承剩下的好處只是少維護幾個角色；ADR-0006 理由 3 仍然成立。
+   C 可以之後有需要時再加，不影響模型。ADR-0006「延伸路徑」的「角色階層」一列已註明否決。
 4. **群組成員的反提權**：把人加進持有 `admin` 的群組，等於指派 `admin`。要比照 `assertRolesAssignable` 檢查群組持有的角色嗎？
    群組上的資料夾授權要不要一起檢查（現在指派角色時不檢查角色的資料夾授權）？
 
-   延到 G4（群組）。
+   **(a) 全域權限鍵**
+
+   | 選項 | 做法 | 評估 |
+   | --- | --- | --- |
+   | **A. 比照指派角色** | 加成員（`group:G#member@user:u` 或 `@group:H#member`）時，G **以及 G 的所有上層群組** 持有的角色都要通過 `assertRolesAssignable`；其中有 super-admin 就只有 super-admin 能加 | 與 §3 一般化的規則一致：寫入一條邊時，檢查它讓主體多出的能力。巢狀時要往上展開 |
+   | B. 不檢查，靠 `group:update` 把關 | 只要有 `group:update` 就能加人 | `group:update` 會變成繞過 `user:assignRole` 反提權的後門，**不建議** |
+
+   A 的附帶規則：
+   - 操作者不能把自己加進群組、也不能把自己所屬的群組加進另一個群組（I9 的延伸：等於改自己的角色）。
+   - 移除成員不檢查反提權（拿掉能力不是提權）；但目標是 super-admin 時只有 super-admin 能操作（比照 `UserService.assertCanManage`）。
+   - 從回收桶還原群組時，群組持有的角色會隨保留的邊重新生效，要先以問題 4 (a) 的規則檢查（比照 `UserService.restore`）。
+   - **「是不是 super-admin」要改成看主體閉包**：現在的 `hasRoleSlug`、`includesSuperAdminRole`、I8 的計數都只看直接持有的角色，
+     群組持有 super-admin 之後會漏算。→ **結論：禁止群組持有 super-admin**（super-admin 一律直接指派；ADR-0024 D12），這幾處就不用改。
+
+   **(b) 資料夾授權**
+
+   | 選項 | 做法 | 評估 |
+   | --- | --- | --- |
+   | A. 一併檢查 | 加成員時，G 在每個資料夾上的等級，操作者在那個資料夾都要有 | 要掃出 G 的所有資料夾授權並逐一判斷，成本隨資料夾數成長；錯誤的 `details.missing` 還會透露操作者看不到的資料夾 |
+   | **B. 不檢查** | 與現在「指派角色時不檢查角色的資料夾授權」一致 | 資料夾授權在「授予給群組」時，已經由持有 `can_share` 的人檢查過一次 |
+
+   **結論**：(a) 選 A（ADR-0024 D11）、(b) 選 B（D13），並寫成一條規則：**反提權檢查的是「授予給一個主體」的能力；把人放進一個主體（角色、群組）時，只檢查那個主體帶的全域權限鍵。**
+   這條規則要寫進 `rbac/08-groups.md`；§3 表格的第四列已依此填上。將來若下放群組管理（問題 11），(b) 要重新評估。
 6. **explain 的揭露範圍**：路徑會經過使用者可能看不到的群組、資料夾名稱。沒有 `authz:explain` 的人查自己時，看不到的節點要遮成「某個群組」嗎？
 
-   延到 G4。
+   | 選項 | 做法 | 評估 |
+   | --- | --- | --- |
+   | A. 不遮 | 查自己時顯示完整路徑 | 巢狀群組的上層（使用者只知道自己在「角色設計」，不知道它在「美術」裡）與繼承鏈上的資料夾名稱會外洩 |
+   | **B. 逐節點遮蔽** | 路徑上的每個節點，操作者沒有讀取權（`group:read`、`role:read`、資料夾的 `can_read`）時，只回型別（「某個群組」），不回 id 與名稱；段數與關係照樣顯示 | 使用者知道「經過幾層、是什麼型別」，可以拿去問管理員；每個節點多一次判斷，但路徑很短 |
+   | C. 只給第一段 | 查自己時只回「經由哪個角色／群組」，不回完整路徑 | 最簡單，但資料夾繼承的情況幾乎沒有資訊 |
+
+   **結論**：B（ADR-0024 D14）。例外：使用者 **直接所屬** 的群組、直接持有的角色一律顯示（本來就該知道自己在哪些群組）。
+   實作要注意：`AuthzChecker.explain()` 的路徑從主體閉包裡的主體開始（例：`role:r#holder`），
+   閉包是怎麼來的（`user → group → group → role`）目前沒有記錄。`subjectClosures` 的遞迴 CTE 要多帶一個路徑陣列欄，explain 才能串出完整路徑。
 7. **外部 IdP 的群組對應**（[`04-sso.md`](../architecture/04-sso.md) §11）對應到群組之後，群組成員是否標記為「同步來源」、不允許手動編輯？
 
-   延到 G4。
+   現況：外部 IdP 登入只做帳號連結與 `auto_create`（建立 **沒有任何角色** 的帳號），不讀群組 claim。
+
+   | 選項 | 做法 | 評估 |
+   | --- | --- | --- |
+   | A. 同步群組 | 群組標記來源（`source = idp:<連線 id>`、`external_key`）；每次登入以群組 claim 覆寫成員；同步來源的群組 **不能手動改成員**，只能改它持有的角色與授權 | 語意清楚，但只在登入時更新：在 IdP 被移出群組的人，要等下次登入才會失去權限（完整的做法是 SCIM） |
+   | B. 對應規則 | 另一張對應表「IdP 群組 → 本地群組」；登入時只增減「由對應加入」的成員，手動加入的不動 | 可以混用，但要能區分成員邊的來源（`relation_tuples` 加欄，或另存一張表），UI 也要標示 |
+   | **C. G4 不做** | G4 的群組只有手動成員；IdP 對應另開提案，與 SCIM 一起評估 | 控制範圍；G4 的 `groups` 表不必預留欄位，之後以 migration 加上 |
+
+   **結論**：C（ADR-0024 D15）。目前沒有客戶需求指明要用哪一家 IdP 的群組 claim（Azure AD 的群組 claim 是 object id、有數量上限，各家差異大），
+   現在設計的欄位多半會猜錯。另開提案時，預設走 A（整個群組由 IdP 管理），因為 B 的「混合來源」會讓 explain 與稽核更難讀。
 11. **群組的管理要不要下放**：群組擁有者能不能自己管成員，而不必持有 `group:update`？在圖上就是 `group` 型別多一個 `owner` 關係；
     但群組持有角色時，擁有者加人等於指派角色，要和問題 4 的反提權一起看。
 
-    延到 G4。
+    | 選項 | 做法 | 評估 |
+    | --- | --- | --- |
+    | **A. 不下放** | 只有 `group:update` 能管成員 | 最簡單；群組數量少時足夠 |
+    | B. `owner` 關係 ＋ 反提權 | `group:G#owner@user:u`；owner 可以管成員，但加人仍套用問題 4 (a) 的檢查 | 持有 `admin` 角色的群組，owner 若不是 admin 就加不了人，全域權限鍵是安全的；但依問題 4 (b)，**owner 可以把群組的資料夾授權擴散給任何人**，等於把 `can_share` 下放給 owner |
+    | C. 只下放「不持有角色」的群組 | 同 B，但群組持有任何角色時，owner 不能管成員 | 適合「專案小組」這種只拿來做資料夾授權的群組；規則多一條，UI 要說明為什麼有時不能改 |
+
+    **結論**：G4 選 A（ADR-0024 D16）。反提權一般化之後，B 或 C 只是模型多一個關係、`grantedBy` 多一種寫法，可以之後再加；
+    屆時要先決定問題 4 (b) 的資料夾授權是否仍然不檢查（B 會讓它變成實際的擴權路徑）。G5 的專案成員管理大概會是第一個需要下放的地方，到時再一起評估。
 
 ## 歸檔去向
 

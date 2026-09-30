@@ -42,7 +42,7 @@ Phase 0 **只做扁平的全域 RBAC**：
 | 延伸           | 作法                                                                                                                                                           |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 資源作用域     | `user_roles` 加 `scope_type` / `scope_id`（預設 `NULL` = 全域），主鍵擴成四欄。`PermissionSet` 從 `Set<key>` 變成 `Map<key, Scope[]>`，Guard 多一層 scope 比對 |
-| 角色階層       | 新增 `role_inherits(parent_id, child_id)`，權限解析改用遞迴 CTE                                                                                                |
+| 角色階層       | ~~新增 `role_inherits(parent_id, child_id)`，權限解析改用遞迴 CTE~~ **否決**：關係圖上仍不開放角色繼承角色，維持「複製角色」（[ADR-0024](./0024-relationship-based-access-control.md) D10） |
 | 條件式（ABAC） | `role_permissions` 加 `condition jsonb`，Guard 加條件評估器                                                                                                    |
 | 多租戶         | 各表加 `tenant_id` ＋ Postgres Row Level Security                                                                                                              |
 
