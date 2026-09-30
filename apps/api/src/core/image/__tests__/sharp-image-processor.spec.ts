@@ -1,13 +1,21 @@
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Readable } from 'node:stream';
 
 import sharp from 'sharp';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { ImageDecodeError } from '../image-processor';
 import { SharpImageProcessor } from '../sharp-image-processor';
 
 const processor = new SharpImageProcessor();
 const MAX_BYTES = 10 * 1024 * 1024;
+
+/** 解碼時寫出的暫存檔（`b2b-image-<uuid>`）；暫存目錄每個測試各自一個，不受其他程序影響。 */
+async function spooled(): Promise<string[]> {
+  return (await readdir(tmpdir())).filter((name) => name.startsWith('b2b-image-'));
+}
 
 function solid(width: number, height: number, alpha = false) {
   return sharp({
@@ -21,6 +29,18 @@ function solid(width: number, height: number, alpha = false) {
 }
 
 describe('SharpImageProcessor', () => {
+  const originalTmpdir = process.env.TMPDIR;
+  let scratch: string;
+  beforeEach(async () => {
+    scratch = await mkdtemp(join(tmpdir(), 'sharp-spec-'));
+    // os.tmpdir() 每次呼叫都讀 TMPDIR
+    process.env.TMPDIR = scratch;
+  });
+  afterEach(async () => {
+    process.env.TMPDIR = originalTmpdir;
+    await rm(scratch, { recursive: true, force: true });
+  });
+
   it('輸出的 JPEG 是 progressive，並等比縮到長邊上限', async () => {
     const decoded = await processor.decode(await solid(4000, 2000).png().toBuffer(), {
       maxBytes: MAX_BYTES,
@@ -85,5 +105,34 @@ describe('SharpImageProcessor', () => {
     await expect(
       processor.decode(Readable.from([buffer]), { maxBytes: 10 }),
     ).rejects.toBeInstanceOf(ImageDecodeError);
+  });
+
+  it('串流輸入先寫到暫存檔再解碼（不整份讀進記憶體）；dispose 之後暫存檔被刪除（PERF-07）', async () => {
+    const decoded = await processor.decode(Readable.from([await solid(40, 20).png().toBuffer()]), {
+      maxBytes: MAX_BYTES,
+    });
+    expect(await spooled()).toHaveLength(1);
+    await expect(decoded.render({ format: 'webp', maxEdge: 10 })).resolves.toMatchObject({
+      width: 10,
+      height: 5,
+    });
+    await decoded.dispose();
+    await decoded.dispose();
+    expect(await spooled()).toEqual([]);
+  });
+
+  it('超過位元組上限或無法解碼時不留下暫存檔', async () => {
+    await expect(
+      processor.decode(Readable.from([await solid(20, 10).png().toBuffer()]), { maxBytes: 10 }),
+    ).rejects.toBeInstanceOf(ImageDecodeError);
+    await expect(
+      processor.decode(Readable.from([Buffer.from('not an image')]), { maxBytes: MAX_BYTES }),
+    ).rejects.toBeInstanceOf(ImageDecodeError);
+    expect(await spooled()).toEqual([]);
+  });
+
+  it('限制 libvips 的執行緒數與操作快取：與 WebSocket 同一個程序，不能吃滿核心與記憶體', () => {
+    expect(sharp.concurrency()).toBeLessThanOrEqual(2);
+    expect(sharp.cache().memory.max).toBeLessThanOrEqual(16);
   });
 });

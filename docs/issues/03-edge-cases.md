@@ -195,6 +195,7 @@
 - **預期 vs 實際**：預期移動被拒；實際成功。
 - **建議**：`assertMovable` 內計算每個 `moving` 的子樹高度（遞迴 CTE 取 max depth），`ancestors.length + height > MAX_FOLDER_DEPTH` 時拒絕。
 - **驗收**：`file-folder.service.spec.ts` 加「移動後超過深度 → VALIDATION_FAILED(depth)」。
+- **狀態**：已修（fix/file）：移動時以遞迴 CTE 取被移動子樹的最大高度，目的地深度 ＋ 高度超過 32 回 `VALIDATION_FAILED(depth)`
 
 ### EDGE-14 `pending` 使用者的啟用信過期或寄送失敗後沒有重寄路徑
 
@@ -226,6 +227,7 @@
 - **預期 vs 實際**：預期總能得到一個不衝突的名稱、且單人失敗不影響其他人；實際整批失敗。
 - **建議**：命名改為遞增後綴直到不衝突（或以 user id 前綴），名稱經 `FileFolderNameSchema` 清理；每人一個 savepoint 或逐人交易，單人失敗只記錄。
 - **驗收**：單元測試連續三次同名建立都成功；一人衝突時其他人仍建立。
+- **狀態**：已修（fix/file）：候選名稱依序加 email、編號、最後退回 user id，顯示名稱先清掉 `/`、`\`、控制字元；每人一個 savepoint，一人失敗只記錄
 
 ### EDGE-17 未對應的唯一鍵衝突回 500、Nest 內建 400 回 `INTERNAL_ERROR` 碼
 
@@ -295,6 +297,7 @@
   - 前端：`complete` 已在伺服器成功但回應遺失時，走 `catch` → `abortUpload` 回 `FILE_ALREADY_UPLOADED`（被忽略）→ UI 顯示失敗，使用者重傳會產生同名重複檔（檔案允許同名）。
 - **建議**：`NoSuchUpload` 時先 `head()` 物件，存在且大小相符就繼續 `markReady`；前端在 `complete` 失敗後先 `GET /files/:id` 確認狀態再決定要不要 abort。
 - **驗收**：`file.service.spec.ts` 加「S3 已完成、紀錄仍 pending → complete 成功」。
+- **狀態**：已修（fix/file）：`CompleteMultipartUpload` 回「塊不對」時先 HeadObject，已組好且大小相符就照常完成；前端 `complete` 失敗時先 `GET /files/:id`，已 ready 就當成功；修正分塊上傳「可用同一網址重傳」的錯誤說明
 
 ### EDGE-23 啟用／重設 token 的 `markUsed` 不是條件式
 

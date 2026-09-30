@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isWeakSecret, parseTrustProxy, validateEnv } from '../env.schema';
+import { EnvSchema, isWeakSecret, parseTrustProxy, validateEnv } from '../env.schema';
 
 describe('parseTrustProxy（TRUST_PROXY → Express trust proxy）', () => {
   it.each([
@@ -62,5 +62,19 @@ describe('production 的金鑰與危險預設值（docs/issues/02-security.md SE
     expect(isWeakSecret('CHANGE-ME-please-0123456789')).toBe(true);
     expect(isWeakSecret('abababababababababababababababab')).toBe(true);
     expect(isWeakSecret(STRONG)).toBe(false);
+  });
+});
+
+describe('FILE_URL_TTL（SEC-16：撤銷授權的延遲上限）', () => {
+  const ttl = EnvSchema.shape.FILE_URL_TTL;
+
+  it('預設 900 秒', () => {
+    expect(ttl.parse(undefined)).toBe(900);
+  });
+
+  it('最長 1 小時：更長的網址在授權撤銷後仍可下載太久', () => {
+    expect(ttl.parse('3600')).toBe(3600);
+    expect(ttl.safeParse('3601').success).toBe(false);
+    expect(ttl.safeParse('604800').success).toBe(false);
   });
 });

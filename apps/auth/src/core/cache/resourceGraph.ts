@@ -47,10 +47,23 @@ interface ResourceKeys {
   entity?: readonly string[];
 }
 
+/**
+ * collection 中以「範圍」區分的查詢（key 第二個元素是範圍，例：檔案列表的資料夾）。
+ * 本資源自己的變更帶了 `refs[ref]` 時，只失效 `[KEY, 範圍]` 與 `[KEY, unscoped]`（不分範圍的查詢）；
+ * 沒帶、或是從其他來源衍生來的變更，照舊以 `[KEY]` 前綴全部失效。
+ */
+export interface ScopedCollection<R extends string> {
+  keys: readonly string[];
+  ref: R;
+  /** 不分範圍的查詢放在 key 第二個元素的值。 */
+  unscoped: string;
+}
+
 export interface ResourceDefinition<R extends string> extends ResourceKeys {
   derivesFrom?: readonly Derivation<R>[];
   /** 任何來源變更都會影響（例：稽核日誌）。只影響 collection。 */
   derivesFromAnyChange?: boolean;
+  scopedCollection?: ScopedCollection<R>;
 }
 
 export type InvalidationAction = 'invalidate' | 'remove';
@@ -93,7 +106,8 @@ export function createResourceGraph<R extends string>(
     resolve(changes) {
       const plan = new InvalidationPlan();
       for (const change of changes) {
-        plan.addOwn(definitions[change.resource], change.kind, change.id);
+        const definition = definitions[change.resource];
+        plan.addOwn(definition, change.kind, change.id, scopesOf(definition, change));
         for (const { target, derivation } of rulesBySource.get(change.resource) ?? []) {
           if (derivation.kinds && !derivation.kinds.includes(change.kind)) continue;
           if (derivation.when && !derivation.when(change)) continue;
@@ -108,6 +122,17 @@ export function createResourceGraph<R extends string>(
       return plan.toTargets();
     },
   };
+}
+
+/** 本資源的變更落在哪些範圍（`ScopedCollection`）；undefined 代表不分範圍、全部失效。 */
+function scopesOf<R extends string>(
+  definition: ResourceDefinition<R>,
+  change: ResourceChange<R>,
+): { keys: readonly string[]; scopes: readonly string[] } | undefined {
+  const scoped = definition.scopedCollection;
+  const refs = scoped && change.refs?.[scoped.ref];
+  if (!scoped || !refs) return undefined;
+  return { keys: scoped.keys, scopes: [...refs, scoped.unscoped] };
 }
 
 function mapIds<R extends string>(
@@ -130,11 +155,18 @@ function mapIds<R extends string>(
 /** 收集目標並去重：`[KEY]` 已失效時，`[KEY, id]` 的失效是多餘的。 */
 class InvalidationPlan {
   private readonly prefixes = new Set<string>();
+  /** 只失效某些範圍的 collection（`[KEY, 範圍]`）。 */
+  private readonly scoped = new Map<string, Set<string>>();
   private readonly entities = new Map<string, Set<string>>();
   private readonly removals = new Map<string, Set<string>>();
 
-  addOwn(definition: ResourceKeys, kind: ChangeKind, id: string | undefined): void {
-    this.addCollection(definition);
+  addOwn(
+    definition: ResourceKeys,
+    kind: ChangeKind,
+    id: string | undefined,
+    scope?: { keys: readonly string[]; scopes: readonly string[] },
+  ): void {
+    this.addCollection(definition, scope);
     if (kind === 'create' || id === undefined) return;
     if (kind === 'delete' && id !== ANY_ID) {
       for (const key of definition.entity ?? []) add(this.removals, key, id);
@@ -148,8 +180,15 @@ class InvalidationPlan {
     if (id !== undefined) this.addEntity(definition, id);
   }
 
-  private addCollection(definition: ResourceKeys): void {
-    for (const key of definition.collection ?? []) this.prefixes.add(key);
+  private addCollection(
+    definition: ResourceKeys,
+    scope?: { keys: readonly string[]; scopes: readonly string[] },
+  ): void {
+    for (const key of definition.collection ?? []) {
+      if (scope?.keys.includes(key)) {
+        for (const value of scope.scopes) add(this.scoped, key, value);
+      } else this.prefixes.add(key);
+    }
   }
 
   private addEntity(definition: ResourceKeys, id: string): void {
@@ -166,6 +205,10 @@ class InvalidationPlan {
       for (const id of ids) targets.push({ queryKey: [key, id], action: 'remove' });
     }
     for (const key of this.prefixes) targets.push({ queryKey: [key], action: 'invalidate' });
+    for (const [key, scopes] of this.scoped) {
+      if (this.prefixes.has(key)) continue;
+      for (const scope of scopes) targets.push({ queryKey: [key, scope], action: 'invalidate' });
+    }
     for (const [key, ids] of this.entities) {
       if (this.prefixes.has(key)) continue;
       for (const id of ids) {

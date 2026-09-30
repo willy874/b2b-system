@@ -3,11 +3,12 @@ import { Test } from '@nestjs/testing';
 import { and, desc, eq } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { ObjectStorage } from '@/core/storage';
 import {
   auditLogs,
+  fileFolders,
   permissions,
   resourceGrants,
   rolePermissions,
@@ -15,11 +16,14 @@ import {
   userRoles,
   users,
 } from '@/db/schema';
+import { FileFolderRepository } from '@/modules/file/file-folder.repository';
+import { FileSystemFolderService } from '@/modules/file/file-system-folder.service';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, expectDbError, truncateAll } from './db';
 import { listenOnLoopback } from './http';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
+import { inTestTenant } from './tenant';
 
 let app: INestApplication;
 let http: App;
@@ -692,6 +696,67 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       await api(admin).delete(`/users/${busyId}`).expect(204);
       await expect.poll(async () => Boolean(await personalOf(emptyOne.email))).toBe(false);
       expect(await personalOf(busyOne.email)).toBeDefined();
+    });
+
+    it('個人資料夾撞名：依序加上 email、編號，名稱經過清理；一個人失敗不影響同一批的其他人（EDGE-16）', async () => {
+      const [privateRoot] = await db
+        .select()
+        .from(fileFolders)
+        .where(eq(fileFolders.kind, 'privateRoot'));
+      if (!privateRoot) throw new Error('沒有私人資料夾');
+      // 前兩個候選名稱都被佔用（例：同名的人被刪除後留下有內容的個人資料夾）
+      await db.insert(fileFolders).values([
+        { name: 'Dup', parentId: privateRoot.id },
+        { name: 'Dup (dup@example.com)', parentId: privateRoot.id },
+      ]);
+      const [dup, slash] = await db
+        .insert(users)
+        .values([
+          { email: 'dup@example.com', displayName: 'Dup', status: 'active' },
+          { email: 'slash@example.com', displayName: '../a/b', status: 'active' },
+        ])
+        .returning();
+      if (!dup || !slash) throw new Error('建立使用者失敗');
+
+      await inTestTenant(app, () =>
+        app.get(FileSystemFolderService).ensurePersonalFolders([dup.id, slash.id]),
+      );
+      const personal = await db
+        .select()
+        .from(fileFolders)
+        .where(and(eq(fileFolders.kind, 'personal'), eq(fileFolders.parentId, privateRoot.id)));
+      const nameOf = (ownerId: string) => personal.find((row) => row.ownerId === ownerId)?.name;
+      expect(nameOf(dup.id)).toBe('Dup (dup@example.com) 2');
+      expect(nameOf(slash.id)).toBe('.. a b');
+    });
+
+    it('同一批裡一個人的個人資料夾建立失敗，只 rollback 他自己（savepoint）', async () => {
+      const [broken, fine] = await db
+        .insert(users)
+        .values([
+          { email: 'broken-owner@example.com', displayName: 'Broken', status: 'active' },
+          { email: 'fine-owner@example.com', displayName: 'Fine', status: 'active' },
+        ])
+        .returning();
+      if (!broken || !fine) throw new Error('建立使用者失敗');
+      const repo = app.get(FileFolderRepository);
+      const original = repo.create.bind(repo);
+      const spy = vi.spyOn(repo, 'create').mockImplementation(async (values, tx) => {
+        if (values[0]?.ownerId === broken.id) throw new Error('模擬的寫入失敗');
+        return original(values, tx);
+      });
+      try {
+        await inTestTenant(app, () =>
+          app.get(FileSystemFolderService).ensurePersonalFolders([broken.id, fine.id]),
+        );
+      } finally {
+        spy.mockRestore();
+      }
+      const owners = (
+        await db.select().from(fileFolders).where(eq(fileFolders.kind, 'personal'))
+      ).map((row) => row.ownerId);
+      expect(owners).toContain(fine.id);
+      expect(owners).not.toContain(broken.id);
     });
   });
 });

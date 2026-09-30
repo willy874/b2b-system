@@ -301,6 +301,28 @@ export class FileFolderRepository {
     return rows.map((row) => row.id);
   }
 
+  /**
+   * 這些資料夾的子樹高度中最大的一個（只有自己 = 1；不存在 = 0）。`limit` 擋住壞資料的循環。
+   */
+  async findMaxSubtreeHeight(ids: readonly string[], limit: number, tx?: DbOrTx): Promise<number> {
+    if (ids.length === 0) return 0;
+    const db = tx ?? this.db;
+    const [row] = await db.execute<{ height: number }>(sql`
+      WITH RECURSIVE tree(id, depth) AS (
+        SELECT id, 1 FROM file_folders
+        WHERE id IN (${sql.join(
+          ids.map((id) => sql`${id}::uuid`),
+          sql`, `,
+        )}) AND deleted_at IS NULL
+        UNION ALL
+        SELECT f.id, t.depth + 1 FROM file_folders f JOIN tree t ON f.parent_id = t.id
+        WHERE f.deleted_at IS NULL AND t.depth < ${limit}
+      )
+      SELECT coalesce(max(depth), 0)::int AS height FROM tree
+    `);
+    return row?.height ?? 0;
+  }
+
   async create(values: FileFolderInsert[], tx?: DbOrTx): Promise<FileFolderRow[]> {
     if (values.length === 0) return [];
     const db = tx ?? this.db;

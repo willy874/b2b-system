@@ -21,6 +21,16 @@ const graph = createResourceGraph<'post' | 'comment' | 'tag' | 'log' | 'link'>({
   link: {},
 });
 
+const scopedGraph = createResourceGraph<'item' | 'box'>({
+  item: {
+    collection: ['ITEM_LIST', 'ITEM_COUNT'],
+    entity: ['ITEM_DETAIL'],
+    scopedCollection: { keys: ['ITEM_LIST'], ref: 'box', unscoped: '*' },
+    derivesFrom: [{ from: 'box', kinds: ['delete'], id: 'none' }],
+  },
+  box: { collection: ['BOX_LIST'] },
+});
+
 const keysOf = (targets: ReturnType<typeof graph.resolve>) =>
   targets.map((target) => `${target.action}:${target.queryKey.join('/')}`).toSorted();
 
@@ -106,5 +116,33 @@ describe('createResourceGraph（資源依賴圖）', () => {
     expect(() =>
       createResourceGraph<'a'>({ a: { derivesFrom: [{ from: 'a', id: 'self' }] } }),
     ).toThrow();
+  });
+
+  describe('scopedCollection（以範圍區分的 collection）', () => {
+    it('變更帶了範圍：只失效那個範圍與不分範圍的查詢，其他 collection 照舊', () => {
+      const targets = scopedGraph.resolve([
+        { resource: 'item', kind: 'create', id: 'i1', refs: { box: ['b1'] } },
+      ]);
+      expect(keysOf(targets)).toEqual([
+        'invalidate:ITEM_COUNT',
+        'invalidate:ITEM_LIST/*',
+        'invalidate:ITEM_LIST/b1',
+      ]);
+    });
+
+    it('沒帶範圍：整個 collection 失效', () => {
+      expect(keysOf(scopedGraph.resolve([{ resource: 'item', kind: 'update', id: 'i1' }]))).toEqual(
+        ['invalidate:ITEM_COUNT', 'invalidate:ITEM_DETAIL/i1', 'invalidate:ITEM_LIST'],
+      );
+    });
+
+    it('同一批裡有不分範圍的變更：前綴已失效，不再列出範圍', () => {
+      const targets = scopedGraph.resolve([
+        { resource: 'item', kind: 'create', id: 'i1', refs: { box: ['b1'] } },
+        { resource: 'box', kind: 'delete', id: 'b2' },
+      ]);
+      expect(keysOf(targets)).toContain('invalidate:ITEM_LIST');
+      expect(keysOf(targets)).not.toContain('invalidate:ITEM_LIST/b1');
+    });
   });
 });

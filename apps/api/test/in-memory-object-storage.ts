@@ -85,7 +85,7 @@ export class InMemoryObjectStorage extends ObjectStorage {
 
   async presignDownload(key: string, options: PresignDownloadOptions): Promise<PresignedRequest> {
     return {
-      url: `http://storage.test/${key}?signed=${options.disposition}`,
+      url: `http://storage.test/${key}?signed=${options.disposition}${options.contentType ? `&type=${options.contentType}` : ''}`,
       method: 'GET',
       headers: {},
       expiresAt: new Date(Date.now() + options.expiresIn * 1000),

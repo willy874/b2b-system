@@ -216,7 +216,7 @@ registerFilePreviewer({
 
 | 情境 | 處理 |
 | --- | --- |
-| 別人上傳、改名、刪除 | 推播 `file` 變更 → 依賴圖失效列表與詳情（`Resource.FILE`）；沒有推播時靠自己的寫入失效與 window focus |
+| 別人上傳、改名、刪除 | 推播 `file` 變更 → 依賴圖失效列表與詳情（`Resource.FILE`）；推播帶所在的資料夾，只重抓正在看那個資料夾的列表（列表 key 的第二個元素是資料夾）；沒有推播時靠自己的寫入失效與 window focus |
 | 別人建立、改名、移動、刪除資料夾 | 推播 `fileFolder` 變更 → 失效資料夾清單（`Resource.FILE_FOLDER`）；移動與刪除也失效檔案列表（`derivesFrom`） |
 | 所在的資料夾被別人刪除 | 資料夾清單裡找不到網址上的 `folder` → 以 `replace` 回到根目錄 |
 | 拖放時別人剛好改了結構 | 前端先依自己的資料夾清單擋下明顯的循環；後端在排隊的交易內再檢查一次（`FILE_FOLDER_CYCLE` / `NAME_CONFLICT`），失敗以 toast 顯示並重抓資料夾 |

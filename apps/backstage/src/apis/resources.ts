@@ -19,7 +19,11 @@ import { FILE_ACCESS_REQUEST_LIST_QUERY_KEY } from '@/apis/file/get-file-access-
 import { FILE_DETAIL_QUERY_KEY } from '@/apis/file/get-file-detail/query';
 import { FILE_FOLDER_GRANT_LIST_QUERY_KEY } from '@/apis/file/get-file-folder-grants/query';
 import { FILE_FOLDER_LIST_QUERY_KEY } from '@/apis/file/get-file-folder-list/query';
-import { FILE_INFINITE_LIST_QUERY_KEY, FILE_LIST_QUERY_KEY } from '@/apis/file/get-file-list/query';
+import {
+  FILE_INFINITE_LIST_QUERY_KEY,
+  FILE_LIST_ANY_FOLDER,
+  FILE_LIST_QUERY_KEY,
+} from '@/apis/file/get-file-list/query';
 import { IDENTITY_PROVIDER_LIST_QUERY_KEY } from '@/apis/identity-provider/get-identity-provider-list/query';
 import { JOB_DETAIL_QUERY_KEY } from '@/apis/job/get-job-detail/query';
 import { JOB_LIST_QUERY_KEY } from '@/apis/job/get-job-list/query';
@@ -149,6 +153,13 @@ const graph = createResourceGraph<Resource>({
     // 檔案內容（FILE_TEXT_QUERY_KEY）刻意不列：內容以 id 為 key、上傳後不可變，改名不必重抓；
     // 刪除後 LightBox 由詳情的 404 得知
     collection: [FILE_LIST_QUERY_KEY, FILE_INFINITE_LIST_QUERY_KEY],
+    // 推播帶 `refs.fileFolder`（所在的資料夾）：只重抓正在看那個資料夾與不分資料夾的列表，
+    // 其他資料夾的檔案管理器不動（PERF-06）
+    scopedCollection: {
+      keys: [FILE_LIST_QUERY_KEY, FILE_INFINITE_LIST_QUERY_KEY],
+      ref: Resource.FILE_FOLDER,
+      unscoped: FILE_LIST_ANY_FOLDER,
+    },
     entity: [FILE_DETAIL_QUERY_KEY],
     derivesFrom: [
       // 遞迴刪除資料夾時其中的檔案一起消失；移動資料夾讓「目前資料夾」的列表內容改變

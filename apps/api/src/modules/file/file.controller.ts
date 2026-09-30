@@ -163,7 +163,11 @@ export class FileController {
     const target = await this.fileImageService.resolve(id, variant, query, accept);
     // 轉址本身也快取：同一個時間窗內重抓列表，瀏覽器不必再問 api
     res
-      .set({ 'Cache-Control': `private, max-age=${target.maxAge}`, Vary: 'Accept' })
+      .set({
+        'Cache-Control': `private, max-age=${target.maxAge}`,
+        Vary: 'Accept',
+        'X-Content-Type-Options': 'nosniff',
+      })
       .redirect(302, target.url);
   }
 

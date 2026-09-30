@@ -147,6 +147,7 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 | --- | --- |
 | `files_status_created_at_idx`（status, created_at） | 預設排序與 keyset 分頁 |
 | `files_status_name_idx`（status, name, id）、`files_status_size_idx`（status, size, id） | 依檔名／大小排序與 keyset 分頁：索引直接給出順序，不必排序整張表 |
+| `files_created_by_created_at_idx`（created_by, created_at） | 依上傳者篩選（`uploaderId`，`0004`） |
 | `files_status_content_type_idx`（status, content_type） | 分類篩選（`content_type LIKE 'image/%'` 等前綴比對） |
 | `files_name_trgm_idx`（GIN, `gin_trgm_ops`） | 檔名的部分比對 `ILIKE '%…%'`：btree 用不上。需要 `pg_trgm`（PG 13 起為 trusted extension） |
 | `files_variant_pending_idx`（uploaded_at，只涵蓋 `variant_status = 'pending'`） | 維護排程找卡住的影像變體（`0008`）；絕大多數列不是 pending，索引很小 |
@@ -191,7 +192,7 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 | 不可移到自己或自己的子孫底下 | 交易內以遞迴 CTE 取目的地往上的鏈（`findAncestorIds`），鏈上出現任何一個要移動的資料夾 → `422 FILE_FOLDER_CYCLE` |
 | 結構的寫入不互相穿插 | 建立、改名、移動、刪除在交易開頭取 `pg_advisory_xact_lock(hashtext('file_folders_tree'))`：兩個人同時把 A 移進 B、把 B 移進 A，各自檢查時都看不到循環，排隊之後第二個就看得到。資料夾的寫入不頻繁，整棵樹共用一把鎖就夠了 |
 | 同名 | 預檢查回 `409 FILE_FOLDER_NAME_CONFLICT`；競態下撞到唯一索引也轉成同一個錯誤。一起移進同一個目的地的資料夾彼此同名也算 |
-| 深度上限 32 層（`MAX_FOLDER_DEPTH`） | 建立、上傳資料夾時檢查；超過回 `400 VALIDATION_FAILED` |
+| 深度上限 32 層（`MAX_FOLDER_DEPTH`） | 建立、上傳資料夾時檢查；移動時以「目的地的深度 ＋ 被移動子樹的高度」（遞迴 CTE，`findMaxSubtreeHeight`）檢查。超過回 `400 VALIDATION_FAILED`（`details.field = 'depth'`） |
 | 刪除是遞迴的 | 取出所有子孫（遞迴 CTE），同一個交易內軟刪除這些資料夾與其中的檔案（含上傳中的）；物件儲存的內容交給維護排程清除（紀錄已刪除的物件視為孤兒，§9），不在請求內逐一刪物件 |
 | 上傳到資料夾 | 登記上傳（`POST /files` 帶 `folderId`）時，資料夾存在的檢查與 INSERT 在同一個排隊的交易內：不會把檔案放進剛被遞迴刪除的資料夾 |
 
@@ -225,8 +226,12 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 ```
 
 - 檔案內容 **不經過 api**：大檔不佔 api 的頻寬與記憶體，也不受 api 的 body 上限限制。
-- presigned PUT 無法限制大小，所以大小在 `complete` 時比對；不符就刪掉物件，使用者可用同一個網址（未過期時）重傳。
+- presigned PUT 無法限制大小，所以大小在 `complete` 時比對；不符就刪掉物件，單次 PUT 可用同一個網址（未過期時）重傳
+  （分塊上傳的 uploadId 在組合後就失效了，只能放棄、重新登記）。
 - 並行的兩個 `complete`：`UPDATE … WHERE status='pending'` 只有一個成功，另一個 `409 FILE_ALREADY_UPLOADED`。
+- `complete` 的重送與中斷（EDGE-22）：分塊上傳的 `CompleteMultipartUpload` 回「塊不對」（含 `NoSuchUpload`）時先 HeadObject，
+  物件已在而且大小相符（並行的另一個 `complete` 先組好、或上次組好之後在 `markReady` 前中斷）就照常完成。
+  前端的 `uploadFile()` 在 `complete` 失敗（回應遺失、逾時）時先 `GET /files/:id`，已經 `ready` 就當作成功，不放棄上傳。
 
 前端不自己編排這些步驟，呼叫 `apps/backstage/src/apis/file/upload-file/` 的 `uploadFile()`：
 
@@ -298,14 +303,21 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   SVG 不處理（向量圖由瀏覽器直接顯示，也不讓 api 解析使用者給的 XML）；其他檔案 `variant_status = 'none'`。
 - **主格式**：**progressive JPEG**（mozjpeg，品質 82）——大圖在下載途中就由模糊到清楚逐步顯示；
   有透明度的圖改用 WebP（JPEG 沒有透明度）。一律依 EXIF 轉正、移除中繼資料（GPS 等）、等比縮小不放大。
-- **何時產生**：`complete` 的交易與推播之後排入 `FileImageService.schedule()`（同一個 api 執行個體同時最多 2 張，
-  同一個檔案不重複排入），**不等它完成**。完成後 `variant_status = 'ready'` 並推播 `file` 的 UPDATE，前端重抓就拿到網址。
+- **何時產生**：`complete` 的交易之後排入 `FileImageService.schedule()`（同一個 api 執行個體同時最多 2 張，
+  同一個檔案不重複排入），**不等它完成**。完成後 `variant_status = 'ready'` 並推播，前端重抓就拿到網址
+  （剛上傳的圖片與 `create` 合併成一次推播，§7）。
   在那之前 `thumbnailUrl` 是瀏覽器縮圖（有的話），LightBox 用原圖。
 - **失敗**：解碼失敗（損毀、超過 128 MiB 或 1 億像素）→ `failed`，不再重試，前端退回瀏覽器縮圖或類型圖示；
   儲存服務暫時不可用 → 維持 `pending`，由維護排程（§9）在 5 分鐘後重新排入。執行個體在產生途中重啟同理。
 - **補產生**：`variant_status = 'pending'` 的圖片由維護排程逐批補產生。
 - **影像處理在 api 內**（`core/image` 的 `ImageProcessor`，實作是 sharp）：sharp 是預編譯的原生套件，
   平台二進位檔隨 `@img/sharp-*` 安裝（macOS、Linux glibc / musl 都有），不需要編譯環境。取捨見 [ADR-0014](../../adr/0014-server-image-variants.md)。
+- **記憶體**（與服務 WebSocket 的是同一個程序）：
+  - 原圖串流先寫到暫存檔（`os.tmpdir()`，超過 128 MiB 就中斷），libvips 再從檔案逐列解碼（`sequentialRead`），不整份讀成 Buffer；
+    用完 `DecodedImage.dispose()` 刪掉暫存檔；
+  - 全螢幕預覽與圖示預覽 **依序** render，尖峰只有一份解碼緩衝；
+  - libvips 每張圖最多 2 條執行緒、操作快取 16 MB（`sharp.concurrency` / `sharp.cache`）；
+  - 還是在同一個程序：移到獨立 worker 容器要等背景工作能分開部署（見 [`10-jobs.md`](./10-jobs.md) §5），目前以上面的限制壓住尖峰。
 
 #### 影像 API：`GET /files/:id/image/:variant`
 
@@ -335,6 +347,10 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 
 主格式以外的格式 **第一次被要求時才轉出**（從原圖轉，畫質比從主格式再轉一次好），存成 `variants/<id>/<variant>.<格式>`，
 之後直接轉址。同時多個請求只轉一次；轉換與變體產生共用同一個並行上限。
+
+`format=auto` 協商出來的格式還沒轉出時，請求 **不等** 轉檔（AVIF 大圖要好幾秒）：先轉址到主格式（`original` 則原封不動），
+轉址只快取 30 秒，轉檔在背景做，之後再來就拿到新格式。原圖是瀏覽器顯示不了的格式（TIFF）時沒有東西可以退回，照舊等轉完。
+明確指定的格式（`jpeg` / `webp` / `avif` / `png`）一律等轉完。
 
 ---
 
@@ -380,7 +396,7 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   "size": 12345,
   "status": "ready",
   "folderId": null,                                                    // 所在的資料夾；null 是根目錄
-  "url": "https://…/storage/b2b-system/files/<id>?X-Amz-…",          // inline：直接顯示
+  "url": "https://…/storage/b2b-system/files/<id>?X-Amz-…",          // inline：直接顯示（白名單以外的型別也是 attachment，§7.2）
   "downloadUrl": "https://…/storage/b2b-system/files/<id>?X-Amz-…",  // attachment：以 name 下載
   "thumbnailUrl": "/api/files/<id>/image/thumbnail?exp=…&sig=…",       // 伺服器圖示預覽 → 瀏覽器縮圖 → null
   "image": {                                                           // 不是圖片、或變體還沒產生時為 null（§5.4）
@@ -414,7 +430,8 @@ LIMIT $limit
 
 - 游標內容是 `[排序欄位, 方向, 值, id]` 的 base64url JSON；**排序條件寫進游標**，換了排序還拿舊游標回 `400 VALIDATION_FAILED`。
 - `createdAt` 的值由資料庫以 **微秒** 格式化（`to_char(… 'US')`）：JS 的 Date 只有毫秒，截掉會漏掉同一毫秒內的其他檔案。
-- 帶游標時只依 `sort` 的第一個條件（＋ id）排序、忽略 `offset`；`pagination.total` 照常回傳（篩選後的總數）。
+- 帶游標時只依 `sort` 的第一個條件（＋ id）排序、忽略 `offset`；`pagination.total` 為 `null`——每捲一頁都重算 `count(*)` 太貴（PERF-09），
+  篩選後的總數只在第一頁（不帶游標）回傳，前端也只讀第一頁的 total。
 - 以 (排序欄位, id) 為鍵的索引（§4）讓每一頁都是索引範圍掃描，捲到第 100 頁也不會變慢（offset 要先掃過前面所有列）。
 
 ### 6.2 改名的樂觀鎖
@@ -464,6 +481,10 @@ LIMIT $limit
   `file.move`（一次移動一筆，`resourceId` 是目的地，`changes.after` 列出移動的檔案與資料夾）；`resourceType = 'fileFolder'`。
 - 推播：`ChangeSource.FILE`，受眾 `file:read` 與 `file:access`（[`08-realtime.md`](./08-realtime.md) §6.1）；前端 `Resource.FILE`
   失效 `FILE_LIST_QUERY_KEY`、`FILE_INFINITE_LIST_QUERY_KEY` / `FILE_DETAIL_QUERY_KEY`。
+  - 每筆帶 `refs.fileFolder` = 所在的資料夾（根目錄是 `root`，`fileChange()`）：前端只重抓 **正在看那個資料夾** 與不分資料夾的列表，
+    開著其他資料夾的人不動（PERF-06）。
+  - 圖片的 `create` 交給變體產生（`FileImageService.schedule(id, { announce })`）：變體在 3 秒內處理完（不論成敗）就只推一次 `create`；
+    超過才先推 `create`，變體好了再推 `update`。一般情況下「上傳完成」與「變體好了」只推一次。
   資料夾：`ChangeSource.FILE_FOLDER`（受眾相同）。遞迴刪除與批次移動無法逐筆列出受影響的檔案，
   另推一筆 `file` 的 `delete` / `update`、`id = '*'`：前端退回以前綴失效所有檔案的詳情。
 
@@ -476,6 +497,26 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 - 回應帶 `Cache-Control: private, max-age=<TTL/2>, immutable`（`response-cache-control`）：物件以 id 為 key、從不覆寫；
 - 代價：網址的剩餘效期介於 `TTL / 2` 與 `TTL` 之間。`urlExpiresAt` 反映真正的失效時間，前端在失效前 60 秒重抓列表。
 
+### 7.2 下載網址的型別政策（使用者上傳的內容與 backstage 同源）
+
+`/storage` 與 backstage 在同一個租戶網域（§3）：上傳的 HTML、SVG、JS 若 inline 提供，直接開啟就能在租戶網域上執行腳本，
+帶著 refresh cookie 呼叫 `/api/auth/refresh`。所以 `contentType` 雖然可以是任何 MIME（檔案管理器要能存任何檔案），
+**提供** 時一律依型別決定（`downloadPolicyOf`，`file.constants.ts`）：
+
+| 型別 | `url` | `downloadUrl` | 回應的 `Content-Type` |
+| --- | --- | --- | --- |
+| `image/png`、`jpeg`、`gif`、`webp`、`avif`、`bmp`、`text/plain`、`audio/*`、`video/*` | inline | attachment | 原型別 |
+| `image/svg+xml` | attachment | attachment | 原型別（`<img>` 才畫得出來；直接開啟是下載） |
+| 其他（含 `text/html`、`application/javascript`、`application/pdf`） | attachment | attachment | `application/octet-stream`（`response-content-type` 覆寫） |
+
+- PDF 不 inline：下方的 `sandbox` CSP 會擋掉瀏覽器的 PDF 檢視器，乾脆下載。
+- 文字預覽以 `fetch(url)` 讀內容，不受 `Content-Disposition` 與型別影響。
+- 物件儲存的回應另外帶 `X-Content-Type-Options: nosniff` 與
+  `Content-Security-Policy: default-src 'none'; …; sandbox; frame-ancestors 'none'`：apps/file-storage 自己送，
+  `deploy/nginx.conf` 的 `/storage/` 也統一加（換成 S3／MinIO 時那是唯一的防線）。`sandbox` 讓被直接開啟的文件落在不透明的 origin，
+  即使型別被繞過，腳本也碰不到 cookie 與 API；圖片、影音在 `<img>`／`<video>` 裡不受影響。影像 API 的 302 也帶 `nosniff`。
+- 長期：物件儲存放到獨立、不帶 cookie 的網域，就不必依賴型別政策。
+
 ---
 
 ## 8. 環境變數
@@ -487,7 +528,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `FILE_STORAGE_REGION` | `us-east-1` | |
 | `FILE_STORAGE_ACCESS_KEY_ID` / `FILE_STORAGE_SECRET_ACCESS_KEY` | 必填 | 與 apps/file-storage 共用同名變數 |
 | `FILE_UPLOAD_MAX_SIZE` | `104857600`（100 MiB） | 單一檔案上限的 **部署上限**；每個租戶的生效值是系統設定 `file.uploadMaxSize`（預設等於這個值，只能調小；[`12-settings.md`](./12-settings.md) §2）。分塊大小依這個上限計算 |
-| `FILE_URL_TTL` | `900` | presigned 上傳／下載網址的有效秒數（60–604800）；下載網址在 `TTL / 2` 的時間窗內不變（§7.1） |
+| `FILE_URL_TTL` | `900` | presigned 上傳／下載網址與影像網址的有效秒數（60–3600）；下載網址在 `TTL / 2` 的時間窗內不變（§7.1）。網址發出後收不回來，這也是撤銷授權的延遲上限，所以最多 1 小時 |
 | `FILE_MULTIPART_THRESHOLD` | `16777216`（16 MiB） | 超過這個大小改用分塊上傳（§5.2） |
 | `FILE_MULTIPART_PART_SIZE` | `8388608`（8 MiB） | 每塊大小（5 MiB–5 GiB）；檔案上限 / 10000 更大時自動放大 |
 | `FILE_PENDING_TTL` | `86400` | 登記後超過這個秒數仍未完成的上傳視為放棄（§9）；大檔會邊傳邊要新的分塊網址，所以遠長於 `FILE_URL_TTL` |
@@ -533,6 +574,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `src/modules/file/__tests__/file-folder.service.spec.ts` | 資料夾規則（以記憶體裡的樹模擬 repository）：同名（不分大小寫、只限同一層）、循環、目的地同名、遞迴刪除、上傳資料夾的沿用與深度上限 |
 | `src/modules/resource-grant/__tests__/resource-grant.resolver.spec.ts` | 等級解析：繼承、取最高、中斷繼承、記憶化、壞資料的循環 |
 | `src/modules/resource-grant/__tests__/resource-grant.levels.spec.ts` | 通用的等級 → 動作、反提權比對（以假的資源驗證不依賴檔案） |
+| `src/modules/file/__tests__/file-folder-tree.spec.ts` | 資料夾結構的快取：共用、交易內直接查、寫入提交後失效（含 rollback 與進行中的讀取）、失敗不快取、依租戶區分 |
 | `src/modules/file/__tests__/file-access.service.spec.ts` | 能力規則：全域 × 等級 × 擁有者的組合、根目錄、鎖住的資料夾、反提權 |
 | `src/modules/file/__tests__/file-folder-access.approval.spec.ts` | 申請存取的審批 handler：已有權限不能申請、核准者要能 share 且授予得起、套用寫入授權與稽核 |
 | `src/modules/file/__tests__/file-folder.service.spec.ts`（授權段落） | 鎖住的資料夾（canRead=false）、根目錄不能建立、鎖住的回 403、擁有者改名、遞迴刪除的 not-owner 與 protected-subfolder、移動的目的地 |
@@ -540,10 +582,10 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除時清變體）、維護排程（dry run 與清除）、樂觀鎖、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束；資料夾：上傳到資料夾與依 `folderId` 列出、移動、循環與同名（真的唯一索引）、上傳資料夾重送得到同樣的 id、遞迴刪除後可再建同名、`file_folders_not_own_parent` |
 | `src/core/storage/__tests__/content-disposition.spec.ts` | 中文檔名的 `Content-Disposition` |
 | `src/core/storage/__tests__/stable-signing-date.spec.ts` | 下載網址在時間窗內不變、剩餘效期範圍 |
-| `src/core/image/__tests__/sharp-image-processor.spec.ts` | progressive JPEG、等比縮放不放大、透明圖鋪白底、EXIF 轉正、串流讀入、位元組上限 |
-| `src/modules/file/__tests__/file-image.service.spec.ts` | 真的 sharp ＋ 記憶體儲存：實體化兩個變體、WebP 主格式、失敗與重試的分界、途中刪除、影像 API 的簽章／格式協商／依請求轉出並快取 |
+| `src/core/image/__tests__/sharp-image-processor.spec.ts` | progressive JPEG、等比縮放不放大、透明圖鋪白底、EXIF 轉正、串流讀入（經暫存檔、dispose 後刪除）、位元組上限、libvips 資源上限 |
+| `src/modules/file/__tests__/file-image.service.spec.ts` | 真的 sharp ＋ 記憶體儲存：實體化兩個變體、WebP 主格式、失敗與重試的分界、途中刪除、影像 API 的簽章／格式協商／依請求轉出並快取、`auto` 背景轉出前先回主格式 |
 | `src/modules/file/__tests__/file-maintenance.service.spec.ts` | 四類殘留的偵測與清除、dry run、與 complete 並行、失敗不中斷、不重疊執行 |
-| `apps/backstage/src/apis/file/upload-file/__tests__/uploadFile.test.ts` | 編排、進度、直傳失敗、取消與放棄上傳、縮圖；分塊：並行、ETag 排序、單塊重試、4xx 不重試 |
+| `apps/backstage/src/apis/file/upload-file/__tests__/uploadFile.test.ts` | 編排、進度、直傳失敗、取消與放棄上傳、縮圖、`complete` 回應遺失時查狀態；分塊：並行、ETag 排序、單塊重試、4xx 不重試 |
 
 與真實 S3 協定的相容性由 apps/file-storage 的測試（官方 SDK）負責；api 端的 `S3ObjectStorage` 另以 Docker 整套
 （`docker-compose.prod.yml`）手動驗證過 presigned 直傳、Content-Type 綁定、中文檔名下載與刪除。
@@ -564,7 +606,7 @@ service      FileService / FileFolderService / FileFolderGrantService
     ▼
 FileAccessService（modules/file）
     ├─ PermissionService.getPermissionSet(actor)                   全域 file:*（有快取）
-    ├─ FileFolderRepository.listTreeNodes()                        整棵樹：id / parent_id / inherit_grants / created_by
+    ├─ FileFolderTree.nodes()                                     整棵樹：id / parent_id / inherit_grants / created_by（程序內快取）
     └─ ResourceGrantService.grantsFor(actor, ['fileFolder'])         本人 ＋ 持有角色的未過期授權
             │
             └─ resolveHierarchyLevels(nodes, grants)               modules/resource-grant：通用、純函式
@@ -572,13 +614,26 @@ FileAccessService（modules/file）
 
 | 項目 | 做法 |
 | --- | --- |
-| 解析範圍 | 每個請求載入一次整棵資料夾結構（四個欄位）與操作者的授權，在記憶體算出每個資料夾的有效等級（記憶化，每個資料夾只算一次） |
+| 解析範圍 | 每個請求取一次整棵資料夾結構（四個欄位）與操作者的授權，在記憶體算出每個資料夾的有效等級（記憶化，每個資料夾只算一次）。結構以租戶為 key 快取在程序內（§11.1），授權每次查（只有操作者本人與其角色的列） |
 | 列表過濾 | `GET /files` 不帶 `folderId` 且沒有全域 `file:read`：以看得到的資料夾 id 限制 `folder_id = ANY(…)`，根目錄的檔案不列 |
 | 能力旗標 | `toDto` 時由 context 算出 `capabilities`；列表一次算完，不逐筆查詢 |
 | 移動、遞迴刪除 | 在 `writeTree` 的交易（取得樹鎖）**之內** 建立 context：檢查與寫入之間結構不會變 |
 | 授權寫入 | `resource_grants` 的 upsert／delete 與稽核在同一個交易；交易後推 `fileFolder update` |
 | 中斷繼承 | `file_folders.inherit_grants`；設成 `false` 時在同一個交易內把目前繼承到的授權複製成直接授權 |
 | 授權對象 | 解析與清單都 join 未刪除的 `roles` / `users`：刪除角色或使用者不必清授權列 |
+
+### 11.1 資料夾結構的快取（`FileFolderTree`）
+
+每位使用者一個個人資料夾，1000 人的租戶至少有上千個節點；每個檔案請求都讀一次整棵樹太貴，而結構只在建立、移動、刪除、
+中斷繼承時改變，所以以 **租戶** 為 key 快取在程序內：
+
+| 規則 | 理由 |
+| --- | --- |
+| 結構的寫入一律經過 `FileFolderTree.write()`：交易內先取樹鎖（§4.2），**提交後** 才失效（rollback 也失效） | 失效早於提交的話，並行的讀取會把舊結構重新放回快取；三個寫入者（資料夾、授權、系統資料夾）都走同一個入口 |
+| 失效時連同進行中的讀取一起丟掉 | 它可能讀到提交前的結構 |
+| 交易內（`contextFor(actor, tx)`）一律直接查資料庫 | 移動、遞迴刪除的檢查與寫入之間結構不能變 |
+| 60 秒存活時間 | 只是防漏網（例：直接改資料庫）；正常的寫入都會主動失效 |
+| 單一執行個體的前提 | 失效只在本程序；api 目前固定單一執行個體（[`../01-system.md`](../01-system.md)），水平擴展時要改成跨程序的失效通知 |
 
 資料表：`resource_grants`、`file_folders.inherit_grants`、
 系統資料夾 `file_folders.kind` / `owner_id` 與授權對象 `everyone`（schema 在 `db/schema/`，migration 見 [`02-database.md`](./02-database.md) §5.2）。

@@ -92,12 +92,14 @@ function setup(
       headers: { 'Content-Type': 'image/png' },
       expiresAt: new Date('2026-09-27T00:15:00Z'),
     })),
-    presignDownload: vi.fn(async (key: string, opts: { disposition: string }) => ({
-      url: `http://storage/${key}?${opts.disposition}`,
-      method: 'GET' as const,
-      headers: {},
-      expiresAt: new Date('2026-09-27T00:15:00Z'),
-    })),
+    presignDownload: vi.fn(
+      async (key: string, opts: { disposition: string; contentType?: string }) => ({
+        url: `http://storage/${key}?${opts.disposition}${opts.contentType ? `&type=${opts.contentType}` : ''}`,
+        method: 'GET' as const,
+        headers: {},
+        expiresAt: new Date('2026-09-27T00:15:00Z'),
+      }),
+    ),
     createMultipartUpload: vi.fn(async () => 'upload-1'),
     presignUploadPart: vi.fn(async (key: string, uploadId: string, partNumber: number) => ({
       url: `http://storage/${key}?uploadId=${uploadId}&partNumber=${partNumber}`,
@@ -203,10 +205,10 @@ describe('FileService.createUpload（docs/architecture/backend/09-file.md §4）
 });
 
 describe('FileService.completeUpload', () => {
-  it('物件存在且大小相符 → ready、寫稽核、發事件', async () => {
+  it('物件存在且大小相符 → ready、寫稽核、發事件（帶所在的資料夾）', async () => {
     const { service, repo, audit, events } = setup({
-      file: fileRow(),
-      head: { size: 10, etag: 'abc', contentType: 'image/png' },
+      file: fileRow({ name: 'a.pdf', contentType: 'application/pdf' }),
+      head: { size: 10, etag: 'abc', contentType: 'application/pdf' },
     });
     await service.completeUpload(FILE_ID, {}, ALICE);
 
@@ -220,7 +222,24 @@ describe('FileService.completeUpload', () => {
       'tx',
     );
     expect(events.publish).toHaveBeenCalledWith('resource.changed', {
-      changes: [{ resource: 'file', kind: 'create', id: FILE_ID }],
+      changes: [{ resource: 'file', kind: 'create', id: FILE_ID, refs: { fileFolder: ['root'] } }],
+    });
+  });
+
+  it('推播的 refs.fileFolder 是檔案所在的資料夾：前端只重抓正在看那個資料夾的列表（PERF-06）', async () => {
+    const folderId = '44444444-4444-4444-8444-444444444444';
+    const { service, events } = setup({
+      file: fileRow({ name: 'a.txt', contentType: 'text/plain', folderId }),
+      head: { size: 10, etag: 'abc', contentType: 'text/plain' },
+      access: {
+        nodes: () => [{ id: folderId, parentId: null, inheritGrants: true, createdBy: null }],
+      },
+    });
+    await service.completeUpload(FILE_ID, {}, ALICE);
+    expect(events.publish).toHaveBeenCalledWith('resource.changed', {
+      changes: [
+        { resource: 'file', kind: 'create', id: FILE_ID, refs: { fileFolder: [folderId] } },
+      ],
     });
   });
 
@@ -271,6 +290,48 @@ describe('FileService.findOne', () => {
     expect(file.downloadUrl).toContain('attachment');
     expect(file.urlExpiresAt).toBe('2026-09-27T00:15:00.000Z');
   });
+
+  it.each([
+    ['text/html', 'index.html'],
+    ['application/javascript', 'a.js'],
+    ['application/xhtml+xml', 'a.xhtml'],
+    ['application/pdf', 'a.pdf'],
+  ])(
+    '%s 不 inline：url 也是 attachment、回應型別改成 octet-stream（SEC-02）',
+    async (contentType, name) => {
+      const { service } = setup({
+        file: fileRow({ name, contentType, status: 'ready', etag: 'abc', uploadedAt: new Date() }),
+      });
+      const file = await service.findOne(FILE_ID, BOB);
+      expect(file.url).toContain('attachment&type=application/octet-stream');
+      expect(file.downloadUrl).toContain('attachment&type=application/octet-stream');
+    },
+  );
+
+  it('SVG 保留型別（<img> 才畫得出來）但一律 attachment（SEC-02）', async () => {
+    const { service } = setup({
+      file: fileRow({
+        name: 'a.svg',
+        contentType: 'image/svg+xml',
+        status: 'ready',
+        etag: 'abc',
+        uploadedAt: new Date(),
+      }),
+    });
+    const file = await service.findOne(FILE_ID, BOB);
+    expect(file.url).toBe(`http://storage/${storageKeyOf(FILE_ID)}?attachment`);
+  });
+
+  it.each(['image/png', 'text/plain', 'video/mp4', 'audio/mpeg'])(
+    '白名單型別 %s 維持 inline，不覆寫回應型別',
+    async (contentType) => {
+      const { service } = setup({
+        file: fileRow({ contentType, status: 'ready', etag: 'abc', uploadedAt: new Date() }),
+      });
+      const file = await service.findOne(FILE_ID, BOB);
+      expect(file.url).toBe(`http://storage/${storageKeyOf(FILE_ID)}?inline`);
+    },
+  );
 
   it('pending 只有上傳者看得到', async () => {
     const { service } = setup({ file: fileRow() });
@@ -408,6 +469,32 @@ describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.
     expect(repo.markReady).toHaveBeenCalled();
   });
 
+  it('complete：物件儲存已經組好（NoSuchUpload）、紀錄仍是 pending → 照常完成（EDGE-22）', async () => {
+    const { service, storage, repo } = setup({
+      file: fileRow({ uploadId: 'upload-1', size: 20 * 1024 * 1024 }),
+      head: { size: 20 * 1024 * 1024, etag: 'abc-3', contentType: 'image/png' },
+    });
+    storage.completeMultipartUpload.mockRejectedValueOnce(
+      new AppException('FILE_UPLOAD_INCOMPLETE'),
+    );
+    await service.completeUpload(FILE_ID, { parts: [{ partNumber: 1, etag: 'a' }] }, ALICE);
+    expect(repo.markReady).toHaveBeenCalled();
+  });
+
+  it('complete：塊不對、物件也不在 → FILE_UPLOAD_INCOMPLETE', async () => {
+    const { service, storage, repo } = setup({
+      file: fileRow({ uploadId: 'upload-1', size: 20 * 1024 * 1024 }),
+    });
+    storage.completeMultipartUpload.mockRejectedValueOnce(
+      new AppException('FILE_UPLOAD_INCOMPLETE'),
+    );
+    await expectAppError(
+      service.completeUpload(FILE_ID, { parts: [{ partNumber: 1, etag: 'a' }] }, ALICE),
+      'FILE_UPLOAD_INCOMPLETE',
+    );
+    expect(repo.markReady).not.toHaveBeenCalled();
+  });
+
   it('complete：分塊上傳沒帶 parts → FILE_UPLOAD_PART_INVALID', async () => {
     const { service } = setup({ file: fileRow({ uploadId: 'upload-1' }) });
     await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_UPLOAD_PART_INVALID');
@@ -496,7 +583,7 @@ describe('FileService：縮圖', () => {
 describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.4）', () => {
   const head = { size: 10, etag: 'abc', contentType: 'image/png' };
 
-  it('complete：伺服器能處理的圖片 → 變體 pending，交易與推播之後才排入產生', async () => {
+  it('complete：伺服器能處理的圖片 → 變體 pending，交易後排入產生；create 推播交給變體產生（PERF-06）', async () => {
     const { service, repo, images, events } = setup({ file: fileRow(), head });
     await service.completeUpload(FILE_ID, {}, ALICE);
     expect(repo.markReady).toHaveBeenCalledWith(
@@ -504,10 +591,8 @@ describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.
       expect.objectContaining({ variantStatus: 'pending' }),
       'tx',
     );
-    expect(images.schedule).toHaveBeenCalledWith(FILE_ID);
-    expect(images.schedule.mock.invocationCallOrder[0]).toBeGreaterThan(
-      events.publish.mock.invocationCallOrder[0] ?? Infinity,
-    );
+    expect(images.schedule).toHaveBeenCalledWith(FILE_ID, { announce: { folderId: null } });
+    expect(events.publish).not.toHaveBeenCalled();
   });
 
   it('complete：其他型別（含 SVG）→ 變體 none，不排入', async () => {
@@ -621,6 +706,16 @@ describe('FileService.list：keyset 游標', () => {
 
     await service.list({ ...query, cursor: page.nextCursor ?? '' }, ALICE);
     expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), cursor, undefined);
+  });
+
+  it('帶游標的頁不計總數：pagination.total 為 null（PERF-09）', async () => {
+    const { service, repo } = setup();
+    repo.list.mockResolvedValue({ items: rows, total: 5, lastCreatedAt: undefined });
+    const first = await service.list(query, ALICE);
+    expect(first.pagination.total).toBe(5);
+    repo.list.mockResolvedValue({ items: rows, total: null, lastCreatedAt: undefined });
+    const next = await service.list({ ...query, cursor: first.nextCursor ?? '' }, ALICE);
+    expect(next.pagination).toEqual({ offset: 0, limit: 2, total: null });
   });
 
   it('不滿一頁 → nextCursor 為 null', async () => {

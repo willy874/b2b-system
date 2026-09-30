@@ -10,7 +10,7 @@ import { ResourceGrantService } from '@/modules/resource-grant/resource-grant.se
 
 import { FileAccessContext, FILE_ACTION_PERMISSION, FILE_ACTIONS } from './file-access.context';
 import type { FileAction, FileLocation } from './file-access.context';
-import { FileFolderRepository } from './file-folder.repository';
+import { FileFolderTree } from './file-folder-tree';
 
 /** 檔案的上層鏈上會出現的資源種類。 */
 const FILE_ACCESS_RESOURCE_TYPES = ['fileFolder'] as const;
@@ -20,14 +20,14 @@ const FILE_ACCESS_RESOURCE_TYPES = ['fileFolder'] as const;
  *
  * Guard 只當閘門（`file:access` 或全域 `file:<動作>`），範圍在這裡判斷——Guard 看不到資源
  * （docs/architecture/backend/05-rbac.md §1 原則 3 的例外）。資料夾授權不進權限快取：
- * 每個請求載入一次整棵資料夾結構與操作者的授權，在記憶體解析。
+ * 每個請求取一次整棵資料夾結構（程序內快取，`FileFolderTree`）與操作者的授權，在記憶體解析。
  */
 @Injectable()
 export class FileAccessService {
   constructor(
     private readonly permissions: PermissionService,
     private readonly grants: ResourceGrantService,
-    private readonly folders: FileFolderRepository,
+    private readonly tree: FileFolderTree,
     private readonly audit: AuditService,
   ) {}
 
@@ -42,7 +42,8 @@ export class FileAccessService {
         (action) => isSuperAdmin || permissions.has(FILE_ACTION_PERMISSION[action]),
       ),
     );
-    const nodes = await this.folders.listTreeNodes(tx);
+    // 交易外讀快取（PERF-05）；交易內（持有樹鎖）直接查
+    const nodes = await this.tree.nodes(tx);
     // 資料夾掛到專案底下之後，上層鏈多一種節點：這裡加上 'project'（ADR-0015 §延伸）
     const grants = await this.grants.grantsFor(actor.id, FILE_ACCESS_RESOURCE_TYPES, tx);
     const levelOf = resolveHierarchyLevels(nodes, grants);

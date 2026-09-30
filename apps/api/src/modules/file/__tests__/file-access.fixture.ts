@@ -8,7 +8,7 @@ import type { ResourceGrantService } from '@/modules/resource-grant/resource-gra
 import { FILE_ACTION_PERMISSION, FILE_ACTIONS } from '../file-access.context';
 import type { FileAction, FolderNode } from '../file-access.context';
 import { FileAccessService } from '../file-access.service';
-import type { FileFolderRepository } from '../file-folder.repository';
+import type { FileFolderTree } from '../file-folder-tree';
 
 export interface AccessFixtureOptions {
   /** 操作者的全域檔案動作；預設全部（管理員）。 */
@@ -32,12 +32,12 @@ export function createFileAccess(options: AccessFixtureOptions = {}) {
     })),
   };
   const grants = { grantsFor: vi.fn(async () => options.grants ?? []) };
-  const folders = { listTreeNodes: vi.fn(async () => options.nodes?.() ?? []) };
+  const tree = { nodes: vi.fn(async () => options.nodes?.() ?? []) };
   const audit = { recordSafely: vi.fn(async () => undefined) };
   const access = new FileAccessService(
     permissions as unknown as PermissionService,
     grants as unknown as ResourceGrantService,
-    folders as unknown as FileFolderRepository,
+    tree as unknown as FileFolderTree,
     audit as unknown as AuditService,
   );
   return { access, audit, permissions, grants };

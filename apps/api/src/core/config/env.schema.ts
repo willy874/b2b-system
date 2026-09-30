@@ -162,8 +162,11 @@ export const EnvSchema = z.object({
     .int()
     .positive()
     .default(100 * 1024 * 1024),
-  /** presigned 上傳 / 下載網址的有效秒數。 */
-  FILE_URL_TTL: z.coerce.number().int().min(60).max(604_800).default(900),
+  /**
+   * presigned 上傳 / 下載網址與影像網址的有效秒數。網址發出後到期前都有效，資料夾授權撤銷、帳號停用也收不回來，
+   * 所以上限是 1 小時：撤銷的延遲不超過這個值（SEC-16，docs/rbac/07-resource-grants.md §9）。
+   */
+  FILE_URL_TTL: z.coerce.number().int().min(60).max(3600).default(900),
   /**
    * 超過這個大小（位元組）改用分塊上傳（S3 multipart upload），瀏覽器可以逐塊追蹤進度、失敗只重傳那一塊。
    * 見 docs/architecture/backend/09-file.md §5.2。

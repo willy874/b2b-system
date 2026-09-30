@@ -702,6 +702,34 @@ describe('Presigned URL 與 CORS', () => {
     expect(got.headers.get('access-control-allow-origin')).toBe(ALLOWED_ORIGIN);
   });
 
+  it('下載一律帶 nosniff 與 sandbox CSP；response-content-type 可以把 HTML 改成 octet-stream（SEC-02）', async () => {
+    const bucket = await newBucket();
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: 'evil.html',
+        Body: '<script>alert(1)</script>',
+        ContentType: 'text/html',
+      }),
+    );
+    const url = await getSignedUrl(
+      client,
+      new GetObjectCommand({
+        Bucket: bucket,
+        Key: 'evil.html',
+        ResponseContentType: 'application/octet-stream',
+        ResponseContentDisposition: 'attachment; filename="evil.html"',
+      }),
+      { expiresIn: 60 },
+    );
+    const got = await fetch(url);
+    expect(got.status).toBe(200);
+    expect(got.headers.get('content-type')).toBe('application/octet-stream');
+    expect(got.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(got.headers.get('content-security-policy')).toMatch(/(^|; )sandbox(;|$)/);
+    expect(got.headers.get('content-security-policy')).toContain("default-src 'none'");
+  });
+
   it('presigned URL 被竄改回 SignatureDoesNotMatch', async () => {
     const bucket = await newBucket();
     const url = await getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: 'a' }), {

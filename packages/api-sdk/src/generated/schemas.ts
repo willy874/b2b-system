@@ -1016,7 +1016,7 @@ export const FileListPageSchema = z.object({
   pagination: z.object({
     offset: z.int().min(-9007199254740991).max(9007199254740991),
     limit: z.int().min(-9007199254740991).max(9007199254740991),
-    total: z.int().min(-9007199254740991).max(9007199254740991),
+    total: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
   }),
   nextCursor: z.string().nullable(),
 }) satisfies z.ZodType<FileListPage>;

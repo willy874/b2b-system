@@ -1,9 +1,8 @@
 import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
-import type { Database, DbOrTx } from '@/core/database';
-import { TENANT_DB, withTransaction } from '@/core/database';
+import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import type { FileFolderRow, GrantLevel, ResourceGrantInsert } from '@/db/schema';
@@ -28,6 +27,7 @@ import type {
 import { FILE_ACTION_PERMISSION } from './file-access.context';
 import type { FileAccessContext } from './file-access.context';
 import { FileAccessService } from './file-access.service';
+import { FileFolderTree } from './file-folder-tree';
 import { FileFolderRepository } from './file-folder.repository';
 
 /** 授權對象候選清單一次最多幾筆（挑選用，不分頁）。 */
@@ -41,7 +41,7 @@ const SUBJECT_SEARCH_LIMIT = 20;
 @Injectable()
 export class FileFolderGrantService {
   constructor(
-    @Inject(TENANT_DB) private readonly db: Database,
+    private readonly tree: FileFolderTree,
     private readonly folders: FileFolderRepository,
     private readonly grants: ResourceGrantService,
     private readonly access: FileAccessService,
@@ -315,10 +315,7 @@ export class FileFolderGrantService {
 
   /** 授權的寫入與資料夾結構的寫入排隊：解析等級時看到的上層鏈不會在途中改變。 */
   private writeGrants<T>(work: (tx: DbOrTx) => Promise<T>): Promise<T> {
-    return withTransaction(this.db, async (tx) => {
-      await this.folders.lockTree(tx);
-      return work(tx);
-    });
+    return this.tree.write(work);
   }
 
   private keyOf(folderId: string, subjectType: FileGrantSubjectType, subjectId: string): GrantKey {

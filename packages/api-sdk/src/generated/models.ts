@@ -585,7 +585,7 @@ export interface FileListPage {
   pagination: {
     offset: number;
     limit: number;
-    total: number;
+    total: number | null;
   };
   nextCursor: string | null;
 }

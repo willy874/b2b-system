@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
+import { ChangeKind } from '@b2b-system/realtime';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -36,7 +36,9 @@ import { FileAccessService } from './file-access.service';
 import { FileFolderService } from './file-folder.service';
 import { FileImageService } from './file-image.service';
 import {
+  downloadPolicyOf,
   FILE_AUDIT_FIELDS,
+  fileChange,
   isImageVariantSource,
   MAX_PART_COUNT,
   storageKeyOf,
@@ -114,11 +116,12 @@ export class FileService {
     const ctx = await this.access.contextFor(actor);
     const scope = await this.listScope(ctx, actor, query.folderId);
     const { items, total, lastCreatedAt } = await this.repo.list(query, after, scope);
-    const page = paginated(
-      await Promise.all(items.map((file) => this.toDto(file, ctx))),
-      total,
-      after ? { offset: 0, limit: query.limit } : query,
-    );
+    const dtos = await Promise.all(items.map((file) => this.toDto(file, ctx)));
+    // 帶游標的頁不計總數（null）：無限捲動每捲一頁就重算一次 count(*) 太貴（PERF-09）
+    const page =
+      total === null
+        ? { items: dtos, pagination: { offset: 0, limit: query.limit, total: null } }
+        : paginated(dtos, total, query);
 
     const last = items.at(-1);
     const [sort] = after ? [after.sort] : query.sort;
@@ -250,7 +253,16 @@ export class FileService {
       }
       // 各塊的完整性由物件儲存檢查（缺塊、ETag 不符 → FILE_UPLOAD_INCOMPLETE）
       const parts = dto.parts.toSorted((a, b) => a.partNumber - b.partNumber);
-      await this.storage.completeMultipartUpload(file.storageKey, file.uploadId, parts);
+      try {
+        await this.storage.completeMultipartUpload(file.storageKey, file.uploadId, parts);
+      } catch (error) {
+        // 物件儲存那一側已經組好了，uploadId 因此失效（NoSuchUpload）：並行的另一個 complete 先組好、
+        // 或上次組好之後在 markReady 前中斷。物件在、大小對就照常完成（EDGE-22），否則原樣拋出
+        if (!(error instanceof AppException && error.code === 'FILE_UPLOAD_INCOMPLETE'))
+          throw error;
+        const assembled = await this.storage.head(file.storageKey);
+        if (assembled?.size !== file.size) throw error;
+      }
     }
 
     const [stored, thumbnail] = await Promise.all([
@@ -259,7 +271,8 @@ export class FileService {
     ]);
     if (!stored) throw new AppException('FILE_UPLOAD_INCOMPLETE');
     if (stored.size !== file.size) {
-      // 刪掉不符的內容，讓使用者能用同一個網址（未過期時）重傳
+      // 刪掉不符的內容：單次 PUT 可以用同一個網址（未過期時）重傳；
+      // 分塊上傳的 uploadId 在組合後就失效了，只能放棄這次上傳、重新登記
       await this.storage.delete(file.storageKey);
       throw new AppException('FILE_SIZE_MISMATCH', { expected: file.size, actual: stored.size });
     }
@@ -299,9 +312,10 @@ export class FileService {
       );
     });
 
-    this.publish(ChangeKind.CREATE, id);
-    // 不等變體產生完：回應先帶瀏覽器縮圖（有的話），變體好了再以 UPDATE 推播
-    if (hasVariants) this.images.schedule(id);
+    // 不等變體產生完：回應先帶瀏覽器縮圖（有的話）。圖片的 create 推播交給變體產生：
+    // 變體很快就好時「完成」與「變體好了」合併成一次推播（PERF-06）
+    if (hasVariants) this.images.schedule(id, { announce: { folderId: file.folderId } });
+    else this.publish(ChangeKind.CREATE, id, file.folderId);
     return this.findOne(id, actor);
   }
 
@@ -359,7 +373,7 @@ export class FileService {
       );
     });
 
-    this.publish(ChangeKind.UPDATE, id);
+    this.publish(ChangeKind.UPDATE, id, file.folderId);
     return this.findOne(id, actor);
   }
 
@@ -393,7 +407,7 @@ export class FileService {
         this.logger.warn({ err: result.reason, fileId: id }, '物件刪除失敗，留下孤兒物件');
       }
     }
-    this.publish(ChangeKind.DELETE, id);
+    this.publish(ChangeKind.DELETE, id, file.folderId);
   }
 
   /** 別人的 `pending`、看不到所在資料夾的 `ready`：一律當作不存在。 */
@@ -458,25 +472,29 @@ export class FileService {
     return this.settings.get(FILE_UPLOAD_MAX_SIZE_SETTING);
   }
 
-  private publish(kind: ChangeKind, id: string): void {
+  private publish(kind: ChangeKind, id: string, folderId: string | null): void {
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: [{ resource: ChangeSource.FILE, kind, id }],
+      changes: [fileChange(kind, id, folderId)],
     });
   }
 
   private async toDto(file: FileWithUploader, ctx: FileAccessContext): Promise<FileDto> {
+    // 白名單以外的型別不在租戶網域上 inline 顯示：`url` 也是 attachment（SEC-02，§7.2）
+    const policy = downloadPolicyOf(file.contentType);
     const links =
       file.status === 'ready'
         ? await Promise.all([
             this.storage.presignDownload(file.storageKey, {
               expiresIn: this.urlTtl,
               fileName: file.name,
-              disposition: 'inline',
+              disposition: policy.disposition,
+              contentType: policy.contentType,
             }),
             this.storage.presignDownload(file.storageKey, {
               expiresIn: this.urlTtl,
               fileName: file.name,
               disposition: 'attachment',
+              contentType: policy.contentType,
             }),
             file.hasThumbnail
               ? this.storage.presignDownload(thumbnailKeyOf(file.id), {

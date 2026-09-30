@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
+import { getFileListQueryOptions } from '@/apis/file/get-file-list/query';
 import { queryClient } from '@/core/cache';
-import type { Profile } from '@/shared/api-sdk';
+import type { FileListPage, Profile } from '@/shared/api-sdk';
 
-import { resolveResourceChanges, Resource } from '../resources';
+import { applyResourceChanges, resolveResourceChanges, Resource } from '../resources';
 import type { ResourceChangeEvent } from '../resources';
 
 const SELF_ID = 'self-user';
@@ -17,6 +18,16 @@ function signInAs() {
     permissions: [],
   });
 }
+
+/** 某個資料夾（undefined = 不分資料夾）的檔案列表 query key。 */
+const fileListIn = (folderId: string | undefined) =>
+  getFileListQueryOptions({ params: { folderId, offset: 0, limit: 60 } }).queryKey;
+
+const EMPTY_FILE_PAGE: FileListPage = {
+  items: [],
+  pagination: { offset: 0, limit: 60, total: 0 },
+  nextCursor: null,
+};
 
 const keysOf = (...changes: ResourceChangeEvent[]) =>
   resolveResourceChanges(changes)
@@ -118,5 +129,39 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     const keys = keysOf({ resource: Resource.ROLE, kind: 'update', id: 'r1' });
     expect(keys).toContain('invalidate:AUDIT_LOG_LIST_QUERY_KEY');
     expect(keys.some((key) => key.includes('AUDIT_LOG_DETAIL'))).toBe(false);
+  });
+
+  describe('檔案的推播只重抓相關資料夾的列表（PERF-06）', () => {
+    it('帶了所在的資料夾：只失效那個資料夾與不分資料夾的列表', () => {
+      const keys = keysOf({
+        resource: Resource.FILE,
+        kind: 'create',
+        id: 'f1',
+        refs: { fileFolder: ['folder-a'] },
+      });
+      expect(keys).toContain('invalidate:FILE_LIST_QUERY_KEY:folder-a');
+      expect(keys).toContain('invalidate:FILE_LIST_QUERY_KEY:*');
+      expect(keys).toContain('invalidate:FILE_INFINITE_LIST_QUERY_KEY:folder-a');
+      expect(keys).not.toContain('invalidate:FILE_LIST_QUERY_KEY');
+    });
+
+    it('套用到快取：其他資料夾的列表不被標成 stale', () => {
+      for (const folderId of ['folder-a', 'folder-b', undefined]) {
+        queryClient.setQueryData(fileListIn(folderId), EMPTY_FILE_PAGE);
+      }
+      applyResourceChanges(
+        [{ resource: Resource.FILE, kind: 'update', id: 'f1', refs: { fileFolder: ['folder-a'] } }],
+        { refetch: false },
+      );
+      expect(queryClient.getQueryState(fileListIn('folder-a'))?.isInvalidated).toBe(true);
+      expect(queryClient.getQueryState(fileListIn(undefined))?.isInvalidated).toBe(true);
+      expect(queryClient.getQueryState(fileListIn('folder-b'))?.isInvalidated).toBe(false);
+    });
+
+    it('沒帶資料夾（批次移動、遞迴刪除）：所有檔案列表都失效', () => {
+      const keys = keysOf({ resource: Resource.FILE, kind: 'update', id: '*' });
+      expect(keys).toContain('invalidate:FILE_LIST_QUERY_KEY');
+      expect(keys).toContain('invalidate:FILE_INFINITE_LIST_QUERY_KEY');
+    });
   });
 });
