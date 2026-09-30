@@ -33,6 +33,11 @@ function expired(id: string): ExpiredTrashItem {
   return { id, name: `${id}@example.com`, deletedAt: new Date(NOW.getTime() - 40 * DAY_MS) };
 }
 
+/** 只帶 feature 清單的租戶脈絡：TrashService 只讀 `features`。 */
+function inTenant<T>(features: readonly TenantFeature[], fn: () => Promise<T>): Promise<T> {
+  return runInTenantContext({ features } as unknown as TenantContext, fn);
+}
+
 function fakeHandler(overrides: Partial<TrashHandler> = {}): TrashHandler {
   return {
     type: 'user',
@@ -124,10 +129,6 @@ describe('TrashService（docs/architecture/backend/13-trash.md）', () => {
   });
 
   describe('list：租戶 feature（docs/architecture/backend/13-trash.md §3）', () => {
-    function inTenant<T>(features: readonly TenantFeature[], fn: () => Promise<T>): Promise<T> {
-      return runInTenantContext({ features } as unknown as TenantContext, fn);
-    }
-
     it('handler 所屬的 feature 停用 → FEATURE_DISABLED，不檢查權限也不寫 authz.denied', async () => {
       const handler = fakeHandler({ type: 'file', permission: 'file:delete', feature: 'file' });
       service.registerHandler(handler);
