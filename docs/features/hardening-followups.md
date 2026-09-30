@@ -64,6 +64,7 @@
 1. super-admin 的名稱與說明能不能改？[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §5 寫不可改，
    但 `RoleService.update` 沒有擋（2026-09-30 確認：只有 `updatePermissions` 以 `ROLE_SUPER_ADMIN_IMMUTABLE` 擋權限變更；
    其他系統角色的顯示名稱可改是既定決定）。
+   **結論**：依規格不可改。`RoleService.update` 對 super-admin 回 `403 ROLE_SUPER_ADMIN_IMMUTABLE`（前端本來就不提供編輯）。
 2. `identityProvider:*` 要不要只給 super-admin？目前 seed 給 `admin` 全部四個、`auditor` 給 `read`；
    自動連結已限定連線登記的網域，並排除持有 `member` 以外系統角色的帳號。
 3. 上傳檔案的獨立網域要用每個租戶一個子網域，還是全平台共用一個？

@@ -204,7 +204,7 @@
 | GET    | `/roles`                 | 🛡 `role:read`                      | 列表                       |
 | POST   | `/roles`                 | 🛡 `role:create`                    | 建立（可同時授予權限）     |
 | GET    | `/roles/:id`             | 🛡 `role:read`                      | 詳情                       |
-| PATCH  | `/roles/:id`             | 🛡 `role:update`                    | 修改名稱／描述             |
+| PATCH  | `/roles/:id`             | 🛡 `role:update`                    | 修改名稱／描述（super-admin 拒絕：`ROLE_SUPER_ADMIN_IMMUTABLE`） |
 | DELETE | `/roles/:id`             | 🛡 `role:delete`                    | 刪除（系統角色拒絕）       |
 | GET    | `/roles/:id/permissions` | 🛡 `role:read` ＋ `permission:read` | 該角色的權限               |
 | PATCH  | `/roles/:id/permissions` | 🛡 `role:grantPermission`           | 增減權限（差異語意）       |

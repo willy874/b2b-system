@@ -259,6 +259,35 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     expect(response.body).toMatchObject({ error: { code: 'ROLE_SUPER_ADMIN_IMMUTABLE' } });
   });
 
+  it('super-admin 角色的名稱與說明不可變更（docs/rbac/01-domain-model.md §5）', async () => {
+    const token = await login(SUPER_ADMIN);
+    const [role] = await db.select().from(roles).where(eq(roles.slug, 'super-admin'));
+    const response = await request(http)
+      .patch(`/roles/${role!.id}`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ name: '改掉的名稱', description: '改掉的說明' })
+      .expect(403);
+    expect(response.body).toMatchObject({ error: { code: 'ROLE_SUPER_ADMIN_IMMUTABLE' } });
+
+    const [after] = await db.select().from(roles).where(eq(roles.id, role!.id));
+    expect(after).toMatchObject({ name: role!.name, description: role!.description });
+  });
+
+  it('其他系統角色的顯示名稱可以改', async () => {
+    const token = await login(SUPER_ADMIN);
+    const [role] = await db.select().from(roles).where(eq(roles.slug, 'auditor'));
+    await request(http)
+      .patch(`/roles/${role!.id}`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ description: '稽核人員（已調整說明）' })
+      .expect(200);
+    await request(http)
+      .patch(`/roles/${role!.id}`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ description: role!.description })
+      .expect(200);
+  });
+
   describe('管理者不能把自己鎖在外面（ROLE_SELF_LOCKOUT）', () => {
     const MANAGER = { email: 'role-manager@example.com', password: 'RoleManager!2026' };
     let managerRoleId: string;

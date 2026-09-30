@@ -208,7 +208,7 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 | ------------------------- | ------------------------------- | ---------------------------------------- |
 | 刪除                      | ❌ `ROLE_SYSTEM_PROTECTED`      | ❌ `ROLE_SYSTEM_PROTECTED`               |
 | 改 `slug`                 | ❌                              | ❌                                       |
-| 改 `name` / `description` | ❌                              | ✅                                       |
+| 改 `name` / `description` | ❌ `ROLE_SUPER_ADMIN_IMMUTABLE` | ✅                                       |
 | 改權限                    | ❌ `ROLE_SUPER_ADMIN_IMMUTABLE` | ✅（仍受反提權限制）                     |
 | 指派給使用者              | ✅                              | ✅                                       |
 | 複製成新角色              | ✅（複本是一般角色）            | ✅                                       |

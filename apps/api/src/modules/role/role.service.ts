@@ -117,6 +117,8 @@ export class RoleService {
 
   async update(id: string, dto: UpdateRoleDto, actor: AuthUser): Promise<RoleDto> {
     const role = await this.getExisting(id);
+    // super-admin 的名稱與說明也不可改；其他系統角色的顯示名稱可改（docs/rbac/01-domain-model.md §5）
+    if (role.slug === SUPER_ADMIN_SLUG) throw new AppException('ROLE_SUPER_ADMIN_IMMUTABLE');
     // 只改大小寫（`admin` → `Admin`）不算撞名：唯一性不分大小寫，撞到的是自己
     if (dto.name && dto.name.toLowerCase() !== role.name.toLowerCase()) {
       await this.assertNameAvailable(dto.name);

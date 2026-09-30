@@ -154,7 +154,7 @@
     "ROLE_NOT_FOUND": "找不到這個角色。",
     "ROLE_NAME_DUPLICATE": "角色名稱重複。",
     "ROLE_SYSTEM_PROTECTED": "系統角色受保護，不可刪除或改名。",
-    "ROLE_SUPER_ADMIN_IMMUTABLE": "超級管理員角色的權限不可變更。",
+    "ROLE_SUPER_ADMIN_IMMUTABLE": "超級管理員角色不可變更（名稱、說明與權限）。",
     "ROLE_IN_USE": "仍有 {{userCount}} 位使用者持有這個角色。",
     "LAST_SUPER_ADMIN": "系統必須保留至少一位可用的超級管理員。",
     "ROLE_SELF_LOCKOUT": "這個變更會讓你失去管理角色所需的權限，請改由其他管理者操作。",
