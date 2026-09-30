@@ -43,8 +43,8 @@
 ### 1.1 建議的順序
 
 1. **`permission-graph` G3**：寫入切換到 `relation_tuples`、刪掉三張舊表。雙寫 trigger ＋ 影子比對是過渡狀態，
-   拖越久，新功能越要同時照顧兩套。G3 不可回退，開工前先補上權限圖的 E2E，
-   並替延到 G3 的開放問題（`pg_notify` 的連線成本、revision 粒度）寫結論；前者與 `multi-instance` 的失效廣播一起決定。
+   拖越久，新功能越要同時照顧兩套。開工前先補上權限圖的 E2E。延到 G3 的開放問題已有結論（ADR-0024 D7～D9）：
+   分成 G3a（切換寫入與失效）、G3b（下一次部署刪舊表）；失效廣播走平台 DB 的單一頻道，順便做出 `multi-instance` 的 `core/broadcast`。
 2. **`entity-revisions` 的 ADR，與 G3 並行**：樂觀鎖、快照、還原的模式會被每個編輯器實體沿用，要在第一個編輯器功能之前定。
    它的開放問題 2（刪除角色時 `user_roles` 保留與否）在 G3 之後要改用 tuple 回答；`resource_type` 用 enum 或 text 也在這份 ADR 一次定，`tags-comments` 沿用。
 3. **`notification-center`**：匯入匯出、標籤留言直接依賴它；Webhook、MFA、API Token 的「通知建立者」也會用到。

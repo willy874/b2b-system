@@ -400,7 +400,7 @@ modules/resource-grant/             刪除（解析併入引擎；等級變成�
 | 檔案、資料夾的 `capabilities` | 無；由 `can_*` 關係算出 |
 | `GET/PUT /roles/:id/permissions`、`PUT /users/:id/roles`、資料夾授權 API | 請求與回應不變；底層改寫 tuple |
 
-**反提權一般化**（取代 `assertGrantable`、`assertRolesAssignable`、`missingActions`）：
+**反提權一般化**（取代 `assertGrantable`、`assertRolesAssignable`、`missingActions`；**G4 才做**，G3 保留既有的檢查函式、只把資料來源換成 tuple）：
 寫入 `物件#關係@主體` 時，這條邊會讓主體多出的能力，操作者必須全部都有。
 
 | 寫入的邊 | 多出的能力 | 操作者要有 |
@@ -427,8 +427,9 @@ modules/resource-grant/             刪除（解析併入引擎；等級變成�
 - **全域權限**：`tenant:self` 上的關係只有一層，閉包算出來之後直接得到 `Set<PermissionKey>`——與現在的 `PermissionSet` 一樣，guard 仍是 O(1)。
 - **資料夾**：沿用「整棵結構一次載入 ＋ 記憶化」（現在的 `resolveHierarchyLevels`），只是一般化成「對任意 `X from Y` 關係做記憶化展開」；
   結構邊由 file module 的供應者從 `file_folders` 提供，不另存一份（D3）。
-- **快取失效**：`relation_tuples` 的任何寫入都讓 `authz_revision` +1（trigger，同一交易），提交後以 `pg_notify` 廣播；
-  各程序收到就丟掉該租戶的閉包快取，TTL 60 秒仍是安全網。
+- **快取失效**：`relation_tuples` 的任何寫入都讓租戶 DB 的 `authz_revision` +1（trigger，同一交易）；提交後由程式在 **平台 DB** 的
+  單一頻道送 `NOTIFY`（payload `{ tenant, revision }`），每個程序一條 LISTEN 連線（`core/broadcast`，見開放問題 2）。
+  各程序收到就丟掉該租戶的閉包快取；提交後、送出前程序掛掉會漏一次失效，TTL 60 秒是安全網。
   **05-rbac §5.1 的失效清單整張消失**，刪角色的「先查再刪」陷阱也跟著消失（失效不需要事先算出受影響的人）。
   代價是粒度變粗：一次授權變更讓整個租戶的閉包重算一次（每人一句 CTE，按需、lazy），見開放問題 5。
 - **推播的 room**：revision 變動時，對該租戶已連線的使用者重算權限集合、比對舊的 room 後換 room；不再需要事件帶「受影響的使用者」。
@@ -499,11 +500,12 @@ ADR-0006「不要讓權限變成推理題」的精神不變；explain 讓剩下�
 | **G0** ✅ | ADR-0024；`core/authz` 引擎 ＋ 模型驗證 ＋ 單元測試（純記憶體 tuple，照 07 的每一條規則寫案例） | 不動任何既有程式 |
 | **G1** ✅ | `relation_tuples`；migration 從三張舊表回填；舊表仍是事實來源，**以 DB trigger 在同一交易雙寫**（service 不必改，也不會漏）；`authz_revision` 延到 G3；**影子比對**：開發與測試環境每次檢查兩套都跑，不一致就報錯 | 刪新表即可 |
 | **G2** ✅ | 讀取改走引擎，並啟用包含關係（§2.1；自訂角色多出的鍵由 `db:seed` 寫稽核 `role.permissionsImplied`）：`PermissionService`、`FileAccessService`、推播 room；`resource-grant.resolver.ts` 與舊的權限查詢只留給影子比對（兩邊都套閉包後比較），G3 刪除；快取仍逐事件失效（寫入還經過舊表，revision 失效隨 G3 的寫入切換一起做） | 切回舊讀取路徑 |
-| **G3** | 寫入只寫 tuple；刪 `user_roles`、`role_permissions`、`resource_grants` 與雙寫 | 需要反向回填，視為不可回退 |
+| **G3a** | 寫入只寫 tuple、讀取不再碰舊表；`authz_revision` ＋ `core/broadcast` 失效（取代逐事件失效與 05-rbac §5.1 的清單）；刪雙寫 trigger、影子比對、`resource-grant.resolver.ts`、`modules/resource-grant`；反提權沿用既有函式 | 舊表還在，但 G3a 之後的寫入不會同步回去，回退要反向回填 |
+| **G3b** | 下一次部署才刪 `user_roles`、`role_permissions`、`resource_grants`（`02-database.md` §5.1：破壞性變更拆成兩次部署） | 不可回退 |
 | **G4** | 群組（巢狀、持有角色）、`user:*`、explain API 與前端頁面 | — |
 | **G5** | 隨專案功能：`project` 型別，`fileFolder` 的 `inherits_from` 可以指向專案 | — |
 
-G0～G2 與角色權限的技能樹已在 `feat/permission-graph` 完成（2026-09-30）；G3 起另開 branch。
+G0～G2 與角色權限的技能樹已在 `feat/permission-graph` 完成（2026-09-30）；G3 起另開 branch（預計 `feat/permission-graph-g3`，G3a 與 G3b 分兩次合併）。
 
 G1～G3 對外沒有任何行為變化（G2 的依賴樹閉包除外，見 §2.2 對預設角色的影響），既有的權限測試（頁面三個權限案例、E2E 的「移除權限後下一次請求即 403」）全部要原封不動通過。
 
@@ -519,6 +521,12 @@ G1～G3 對外沒有任何行為變化（G2 的依賴樹閉包除外，見 §2.2
    （與 [`multi-instance.md`](./multi-instance.md) 一起決定。）
 
    **結論**：延到 G3（寫入改經 tuple 之後才有單一的失效點）；G2 之前沿用逐事件失效。
+
+   **G3 的結論**（2026-09-30）：平台 DB 單一頻道。`NOTIFY` 只送得到同一個 database 的 listener，`relation_tuples` 在租戶 DB，
+   照原寫法每個租戶都要一條常駐 LISTEN 連線。改成：revision 仍由租戶 DB 的 trigger 遞增（事實來源），
+   提交後（`afterCommit`）由程式在平台 DB 送 `NOTIFY`，payload `{ tenant, revision }`（只送 key，不超過 8000 位元組）。
+   這條頻道就是 [`multi-instance.md`](./multi-instance.md) 的失效廣播（`core/broadcast`），G3 先做出來，之後租戶目錄、資料夾樹、系統設定共用。
+   收到的 revision 不大於已知值就忽略（冪等，也涵蓋自己送出的訊息）。
 3. **角色繼承角色**（`role:admin#holder` 包含 `role:editor#holder`）在圖上只是一種邊，要不要開放？
    ADR-0006 以「複製角色」取代繼承的理由（結果是明確清單）在有 explain 之後還成不成立？
 
@@ -530,6 +538,9 @@ G1～G3 對外沒有任何行為變化（G2 的依賴樹閉包除外，見 §2.2
 5. **revision 的粒度**：一個資料夾授權的變更也讓整個租戶的全域權限閉包失效。要不要分成兩個 revision（`tenant`／角色／群組一組，資源授權一組）？
 
    **結論**：延到 G3，與問題 2 一起。
+
+   **G3 的結論**（2026-09-30）：先用一個 revision。一個租戶頂多上千人，重算閉包是每人一句 CTE、用到才算；
+   拆成兩個會讓快取鍵與失效邏輯都變複雜。等 [`observability.md`](./observability.md) 的快取命中率指標顯示資料夾授權的變更造成重算壓力，再拆。
 6. **explain 的揭露範圍**：路徑會經過使用者可能看不到的群組、資料夾名稱。沒有 `authz:explain` 的人查自己時，看不到的節點要遮成「某個群組」嗎？
 
    **結論**：延到 G4；這一版的引擎有 `explain()`，但不開放 API。

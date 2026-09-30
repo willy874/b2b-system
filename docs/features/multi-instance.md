@@ -5,7 +5,7 @@
 - 依賴：—
 - 相關：[`../architecture/01-system.md`](../architecture/01-system.md) §4.2–§4.3（擴展前提）、[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §10.3、
   [ADR-0016](../adr/0016-background-jobs.md)（背景工作）、[`observability.md`](./observability.md)、[`hardening-followups.md`](./hardening-followups.md)、
-  [`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 6、7 項
+  [`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 6、7 項、[`permission-graph.md`](./permission-graph.md) G3（先做出 `core/broadcast`，權限快取第一個用）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -43,7 +43,7 @@ api 目前假設只有一個程序服務所有租戶。[`01-system.md`](../archi
 
 | 做 | 不做（這一版） |
 | --- | --- |
-| 失效廣播：一條 `LISTEN/NOTIFY` 頻道，快取、租戶目錄、資料夾樹、系統設定共用 | 跨區域部署 |
+| 失效廣播：一條 `LISTEN/NOTIFY` 頻道，快取、租戶目錄、資料夾樹、系統設定共用（頻道本身與權限快取隨權限圖 G3 先做；這裡把其餘快取接上） | 跨區域部署 |
 | Socket.io 跨實例（postgres adapter），worker 發佈的事件也送得到 | Redis |
 | 速率限制共享計數（Postgres） | |
 | 影像變體改成背景工作 | |
