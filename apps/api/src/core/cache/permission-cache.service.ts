@@ -80,10 +80,6 @@ export class PermissionCacheService {
     this.store.delete(keyOf(userId));
   }
 
-  invalidateMany(userIds: readonly string[]): void {
-    for (const id of userIds) this.invalidate(id);
-  }
-
   /**
    * 一個租戶的所有人（關係圖的 revision 變了，docs/adr/0024-relationship-based-access-control.md D8）。
    * 收到其他程序的廣播時沒有租戶脈絡，所以以參數指明；省略時是目前的租戶。

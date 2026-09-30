@@ -683,6 +683,24 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
         .toBe(newcomer.email);
     });
 
+    it('角色的權限加上檔案權限 → 持有者自動建立個人資料夾', async () => {
+      const holder = { email: 'access-promoted@example.com', password: 'PromotedPassword!2026' };
+      const noFiles = await createRole('access-no-files', ['user:read']);
+      await createActiveUser(holder, [noFiles]);
+      const root = await login(SUPER_ADMIN);
+      await api(root)
+        .patch(`/roles/${noFiles}/permissions`, { add: ['file:access'], remove: [] })
+        .expect(200);
+      // 事件在回應之後處理：等它落地
+      await expect
+        .poll(async () => {
+          const list = await listFolders(await login(holder));
+          const { personalFolderId } = list as unknown as { personalFolderId: string | null };
+          return list.items.find((f) => f.id === personalFolderId)?.name;
+        })
+        .toBe(holder.email);
+    });
+
     it('刪除使用者：空的個人資料夾自動刪除；有東西的保留', async () => {
       const admin = await login(ADMIN);
       const emptyOne = { email: 'access-empty@example.com', password: 'EmptyPassword!2026' };

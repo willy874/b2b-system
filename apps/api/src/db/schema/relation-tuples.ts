@@ -20,7 +20,8 @@ import { users } from './users';
  *
  * - 主體是節點（`subject_relation = ''`）、節點的關係（`role:<id>#holder`），或萬用字元（`subject_id = '*'`）。
  * - id 用 text：租戶節點是 `self`、萬用字元是 `*`；多型關聯沒有外鍵，解析時 join 未刪除的節點。
- * - G3 起由程式直接寫入（G1～G2 由舊表上的 trigger 同步，migration 0008；trigger 在 0009 刪除）。
+ * - G3 起由程式直接寫入。G1～G2 由舊表上的 trigger 同步（migration 0008）；trigger 與舊表留到 G3b 一起刪，
+ *   讓滾動部署期間舊版程式對舊表的寫入仍同步過來。
  */
 export const relationTuples = pgTable(
   'relation_tuples',

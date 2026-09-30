@@ -374,8 +374,8 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
         DomainEvent.PERMISSIONS_CHANGED,
         DomainEvent.RESOURCE_CHANGED,
       ]);
-      // 不帶名單：room 以整個租戶的連線重算（docs/adr/0024-relationship-based-access-control.md D8）
-      expect(publish.mock.calls[0]?.[1]).toEqual({});
+      // 名單只給逐人處理的訂閱者（個人資料夾）；room 以整個租戶的連線重算（ADR-0024 D8）
+      expect(publish.mock.calls[0]?.[1]).toEqual({ userIds: [holder] });
 
       // 持有者剛拿到 user:read：下一筆使用者變更就會收到（room 已同步）
       holderGot.length = 0;

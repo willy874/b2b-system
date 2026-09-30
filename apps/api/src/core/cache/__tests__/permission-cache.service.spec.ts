@@ -49,17 +49,6 @@ describe('PermissionCacheService', () => {
     expect(cache.get('user-2')).toBeDefined();
   });
 
-  it('invalidateMany 清掉一整批（角色權限變更的用法）', () => {
-    const cache = createCache();
-    cache.set('user-1', value([]));
-    cache.set('user-2', value([]));
-    cache.set('user-3', value([]));
-    cache.invalidateMany(['user-1', 'user-3']);
-    expect(cache.get('user-1')).toBeUndefined();
-    expect(cache.get('user-2')).toBeDefined();
-    expect(cache.get('user-3')).toBeUndefined();
-  });
-
   it('invalidateAll 清空（權限目錄變更的用法）', () => {
     const cache = createCache();
     cache.set('user-1', value([]));

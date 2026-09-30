@@ -219,10 +219,10 @@ export class RoleService {
       );
     });
 
-    // ★ 快取失效在交易「之後」——交易可能 rollback；推播的 room 同步在失效之後
-    await this.permissionService.permissionsChanged();
-    // 持有者只用來讓他們的畫面重抓（本人的有效權限），不是失效的依據
+    // ★ 快取失效在交易「之後」——交易可能 rollback；推播的 room 同步在失效之後。
+    // 持有者不是失效的依據（整個租戶都失效）：給剛取得檔案權限的人補建個人資料夾、讓他們的畫面重抓
     const holders = await this.permissionService.findUserIdsByRole(id);
+    await this.permissionService.permissionsChanged(holders);
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [{ resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id }],
       affectedUserIds: holders,
