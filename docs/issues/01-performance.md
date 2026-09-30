@@ -58,6 +58,7 @@
 ### PERF-01 所有速率限制都以「每個 IP」計算，企業 NAT 後的 1000 人共用一份額度
 
 - **嚴重度**：P0
+- **狀態**：已修（fix/infra-tenancy）：已登入以「租戶＋使用者」計、未登入以 IP；登入類另以「帳號＋IP」、續期以 refresh session；各上限（含 WebSocket handshake）可由環境變數調整，預設值與估算在 backend/03-api-conventions.md §8。限流計數仍在記憶體（多實例見 docs/features/multi-instance.md）
 - **位置**：
   [apps/api/src/app.module.ts:57-61](../../apps/api/src/app.module.ts#L57-L61)、
   [apps/api/src/common/rate-limit.ts:18-27](../../apps/api/src/common/rate-limit.ts#L18-L27)、
@@ -91,6 +92,7 @@
 ### PERF-02 nginx 沿用預設 `worker_connections 1024`，1000 條 WebSocket 經代理要 2000 個連線
 
 - **嚴重度**：P0
+- **狀態**：已修（fix/infra-tenancy）：deploy/nginx.main.conf（worker_connections 8192、worker_rlimit_nofile 65535、multi_accept）、compose 的 ulimits
 - **位置**：[apps/backstage/Dockerfile:29-30](../../apps/backstage/Dockerfile#L29-L30)、[deploy/nginx.conf:27-38](../../deploy/nginx.conf#L27-L38)
 - **現況**：映像只覆蓋 `conf.d/default.conf`，主設定沿用 `nginx:1.27-alpine` 的預設（`worker_processes auto`、`events { worker_connections 1024; }`，待驗證映像內的實際值）。每條 WebSocket 在 nginx 佔兩個連線（client 端 ＋ upstream 端），`/storage/` 的大檔傳輸（`proxy_read_timeout 300s`）也長時間佔用。
 - **影響**：1000 條 WebSocket ≈ 2000 個連線，再加上同時的 HTTP 請求。1 核的主機只有 1024，約 500 人就會出現 `worker_connections are not enough`、新連線被拒；2 核也只有約 2048，而且預設 `accept_mutex off` 讓連線在 worker 之間分布不均，單一 worker 先爆的機率很高。
@@ -100,6 +102,7 @@
 ### PERF-03 連線預算：一個租戶只有 5 條連線、postgres 沒有調校 `max_connections`、沒有排隊逾時
 
 - **嚴重度**：P1
+- **狀態**：已修（fix/infra-tenancy）：TENANT_POOL_MAX 預設 10、平台池可設定、連線預算公式寫進 backend/02-database.md §6.2；compose 調校 postgres（max_connections、shared_buffers…、pg_stat_statements）。每個租戶各自覆寫池大小、PgBouncer 延後——預算公式寫明何時需要
 - **位置**：
   [apps/api/src/core/config/env.schema.ts:27](../../apps/api/src/core/config/env.schema.ts#L27)、
   [apps/api/src/core/tenant/tenancy.service.ts:191-205](../../apps/api/src/core/tenant/tenancy.service.ts#L191-L205)、
@@ -216,6 +219,7 @@
 ### PERF-09 列表每一頁都 `count(*)`，稽核最長 90 天範圍、檔案游標分頁也算，offset 沒有上限
 
 - **嚴重度**：P2
+- **狀態**：部分修正（fix/infra-tenancy）：稽核列表 offset 上限 10,000、total 最多數到 10,100（LIMIT 子查詢）。keyset 分頁、檔案游標分頁不回 total、其他列表的 offset 上限不在本組範圍，延後
 - **位置**：
   [apps/api/src/modules/audit-log/audit-log.repository.ts:67-112](../../apps/api/src/modules/audit-log/audit-log.repository.ts#L67-L112)、
   [apps/api/src/modules/audit-log/dto/list-audit-log.dto.ts:9-18](../../apps/api/src/modules/audit-log/dto/list-audit-log.dto.ts#L9-L18)、
@@ -233,6 +237,7 @@
 ### PERF-10 背景工作、排程、影像處理都在同一個 API 程序；寄信無 SMTP 連線池、並行 1
 
 - **嚴重度**：P2
+- **狀態**：部分修正（fix/infra-tenancy）：SMTP 連線池（MAIL_SMTP_POOL_SIZE）、寄信工作每程序並行 5（defineJob 的 concurrency）。拆出 worker 容器延後——工作裡發佈的領域事件只送得到 worker 自己的 Socket.io，要先有跨程序的事件（docs/features/multi-instance.md 已補充）
 - **位置**：
   [apps/api/src/core/config/env.schema.ts:163-166](../../apps/api/src/core/config/env.schema.ts#L163-L166)、
   [apps/api/src/core/jobs/job-queue.ts:103-112](../../apps/api/src/core/jobs/job-queue.ts#L103-L112)、
@@ -250,6 +255,7 @@
 ### PERF-11 單一執行個體：每次部署／重啟 1000 條連線同時重連，快取全冷
 
 - **嚴重度**：P2
+- **狀態**：部分修正（fix/infra-tenancy）：前端重連退避改 2–30 秒加隨機、handshake 上限可調。多實例與滾動部署延後，前提已補進 docs/features/multi-instance.md
 - **位置**：
   [docker-compose.prod.yml:86](../../docker-compose.prod.yml#L86)、
   [apps/api/src/modules/realtime/realtime.gateway.ts:120-132](../../apps/api/src/modules/realtime/realtime.gateway.ts#L120-L132)、
@@ -266,6 +272,7 @@
 ### PERF-12 租戶網域快取沒有上限，未命中也在 throttler 之前查平台 DB
 
 - **嚴重度**：P2
+- **狀態**：已修（fix/infra-tenancy）：三個快取改為有上限的 LRU，快照裡沒有的 Host 不查平台 DB，格式不對的 Host／代碼直接略過。nginx 對未知 Host 回 444 未做：客戶自訂網域是動態登記的，nginx 無法列舉
 - **位置**：
   [apps/api/src/core/tenant/tenant-directory.service.ts:38-40](../../apps/api/src/core/tenant/tenant-directory.service.ts#L38-L40)、
   [apps/api/src/core/tenant/tenant-directory.service.ts:108-119](../../apps/api/src/core/tenant/tenant-directory.service.ts#L108-L119)、
@@ -279,6 +286,7 @@
 ### PERF-13 outbox 清掃每分鐘進入每一個租戶，所有租戶的連線池永遠不會閒置關閉
 
 - **嚴重度**：P2
+- **狀態**：已修（fix/infra-tenancy）：outbox 清掃預設改每 10 分鐘、租戶池閒置 30 秒關閉（TENANT_POOL_IDLE_TIMEOUT）。「只清掃有寫入的租戶」與「relay 移出交易」延後（目前頻率下影響已小）
 - **位置**：
   [apps/api/src/core/config/env.schema.ts:171](../../apps/api/src/core/config/env.schema.ts#L171)、
   [apps/api/src/core/jobs/job-queue.ts:195-233](../../apps/api/src/core/jobs/job-queue.ts#L195-L233)、
@@ -296,6 +304,7 @@
 ### PERF-14 libuv threadpool 維持預設 4：argon2、sharp、DNS 查詢互相排隊
 
 - **嚴重度**：P2
+- **狀態**：已修（fix/infra-tenancy）：映像與 compose 設 UV_THREADPOOL_SIZE=16。登入端點的 argon2 並行上限延後
 - **位置**：
   [apps/api/src/modules/auth/password.ts:12-18](../../apps/api/src/modules/auth/password.ts#L12-L18)、
   [apps/api/src/core/image/sharp-image-processor.ts:43-51](../../apps/api/src/core/image/sharp-image-processor.ts#L43-L51)、
@@ -308,6 +317,7 @@
 ### PERF-15 nginx 對 api 沒有 upstream keepalive，每個 API 請求都開新的 TCP
 
 - **嚴重度**：P2
+- **狀態**：已修（fix/infra-tenancy）：upstream api_backend ＋ keepalive、/api/ 清掉 Connection 標頭、gzip_proxied any；api 的 keepAliveTimeout 65 秒
 - **位置**：[deploy/nginx.conf:57-66](../../deploy/nginx.conf#L57-L66)、[deploy/nginx.auth.conf:33-42](../../deploy/nginx.auth.conf#L33-L42)、[deploy/nginx.conf:15-17](../../deploy/nginx.conf#L15-L17)
 - **現況**：`proxy_pass http://api:3000/;` 直接寫主機，沒有 `upstream { keepalive N; }`，也沒有清掉 `Connection` 標頭（`proxy_set_header Connection "";`）；因此 nginx → api 每個請求都新建 TCP。`gzip_proxied` 沒設（預設 `off`），前面若有會加 `Via` 標頭的 LB / CDN，API 回應與靜態檔不會被壓縮（待驗證實際 LB 行為）。
 - **影響**：300–500 rps 尖峰時每秒數百次 TCP 建立／關閉、nginx 與 api 兩端累積大量 `TIME_WAIT`，增加延遲與 CPU；在容器的 ephemeral port 範圍內有耗盡風險。
@@ -322,6 +332,7 @@
 ### PERF-16 缺少容量相關的防護與指標：沒有 `statement_timeout`、pool 等待、event loop lag
 
 - **嚴重度**：P2
+- **狀態**：部分修正（fix/infra-tenancy）：每條連線的 statement_timeout／idle_in_transaction_session_timeout／connect_timeout 可設定（integration test 驗證 pg_sleep 被中止）；postgres 開 pg_stat_statements 與 log_min_duration_statement。metrics 端點（event loop、池使用率、佇列深度）延後——需要選定監控方案
 - **位置**：
   [apps/api/src/core/database/database.provider.ts:24-31](../../apps/api/src/core/database/database.provider.ts#L24-L31)、
   [apps/api/src/modules/health/health.service.ts:30-49](../../apps/api/src/modules/health/health.service.ts#L30-L49)、
@@ -334,6 +345,7 @@
 ### PERF-17 稽核冷表沒有保留期限，且缺 `action` 索引
 
 - **嚴重度**：P3
+- **狀態**：部分修正（fix/infra-tenancy）：租戶 migration 0005 補冷表的 action 索引。保留期限（按月分區、DROP PARTITION）延後——需要先訂法規上的保留年限
 - **位置**：[apps/api/src/db/migrations/0000_baseline.sql:274-280](../../apps/api/src/db/migrations/0000_baseline.sql#L274-L280)、[apps/api/src/modules/audit-log/audit-log.archive.ts:14-32](../../apps/api/src/modules/audit-log/audit-log.archive.ts#L14-L32)
 - **現況**：熱表有 `audit_logs_action_idx`（`text_pattern_ops`），冷表只有 occurred / actor / resource 三個索引。封存只搬移不清除，冷表永遠成長。
 - **影響**：查超過 90 天、以 `action` 前綴篩選的查詢在冷表只能用時間索引再過濾；冷表數年後的容量與備份時間持續增加。短期不影響 1000 人在線。
@@ -370,6 +382,7 @@
 ### PERF-20 容器沒有記憶體上限與 Node heap 設定；健康檢查只看 liveness
 
 - **嚴重度**：P3
+- **狀態**：已修（fix/infra-tenancy）：compose 每個服務設 mem_limit、api 的 NODE_OPTIONS=--max-old-space-size。健康檢查的 event loop lag 門檻延後（完全卡住時 HEALTHCHECK 的 3 秒逾時已會失敗）
 - **位置**：[docker-compose.prod.yml:47-86](../../docker-compose.prod.yml#L47-L86)、[apps/api/Dockerfile:39-42](../../apps/api/Dockerfile#L39-L42)
 - **現況**：compose 所有服務都沒有 `mem_limit` / `deploy.resources`；api 沒有 `NODE_OPTIONS=--max-old-space-size`。Docker `HEALTHCHECK` 打 `/health`（永遠 ok），不反映 DB、event loop 是否正常。
 - **影響**：記憶體尖峰（PERF-07）時沒有明確的界線，可能拖垮同機的 postgres；event loop 卡死或 DB 斷線時容器仍被視為健康、不會被重啟。
@@ -379,6 +392,7 @@
 ### PERF-21 前端正式產物帶 sourcemap 與 MSW chunk
 
 - **嚴重度**：P3
+- **狀態**：已修（fix/infra-tenancy）：正式 build 不產生 sourcemap（BUILD_SOURCEMAP=hidden 可選），MSW chunk 不再進產物。bundle 大小預算的 CI 檢查延後
 - **位置**：[apps/backstage/vite.config.ts:46-49](../../apps/backstage/vite.config.ts#L46-L49)、[apps/backstage/src/main.tsx:42-45](../../apps/backstage/src/main.tsx#L42-L45)
 - **現況**：`build.sourcemap: true`，所有 `.map` 由 nginx 公開提供（9/29 的 `dist/` 中 `index-*.js.map` 1.9 MB）。MSW（`browser-*.js` 約 430 KB）以動態 import 打包進產物，只有 `ENV.ENABLE_MOCK` 時才下載。入口 `index-*.js` 約 420 KB（未壓縮，gzip 後約 1/3，待以最新 build 驗證）。
 - **影響**：對一般使用者的載入時間影響很小（`.map` 只有開 DevTools 才下載、MSW chunk 不會被載入），主要是產物體積與原始碼外流；入口 chunk 大小尚可。

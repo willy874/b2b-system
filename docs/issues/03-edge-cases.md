@@ -93,6 +93,7 @@
 ### EDGE-04 速率限制以 IP 計算，企業 NAT 後共用一個額度
 
 - **嚴重度**：P1（在前提「企業、1000 人同時在線」下常態觸發）
+- **狀態**：已修（fix/infra-tenancy）：同 PERF-01；rate-limit.guard.spec 驗證同一 IP 兩個使用者各自有獨立額度
 - **位置**：[rate-limit.ts:18-27](../../apps/api/src/common/rate-limit.ts#L18)、[app.module.ts:57-61](../../apps/api/src/app.module.ts#L57)、[env.schema.ts:76](../../apps/api/src/core/config/env.schema.ts#L76)
 - **現況**：`ThrottlerGuard` 使用預設 tracker（`req.ip`），沒有覆寫 `getTracker`。預設 `DEFAULT_RATE_LIMIT = 120/分/IP`、`/auth/login` 10/分/IP、`/auth/refresh` 30/分/IP。Access token 5 分鐘，一千人約每分鐘 200 次續期。
 - **重現步驟**：
@@ -126,6 +127,7 @@
 ### EDGE-07 佈建途中程序當掉，租戶永久卡在 `provisioning`
 
 - **嚴重度**：P1（該租戶無法再由平台管理）
+- **狀態**：已修（fix/infra-tenancy）：新排程 tenant.provisionSweep（每 5 分鐘）把逾時仍在 provisioning 的租戶改成 failed，重試與刪除前也先檢查
 - **位置**：[tenant-provisioner.ts:25-29](../../apps/api/src/modules/tenant/tenant-provisioner.ts#L25)、[tenant-provisioner.ts:73-96](../../apps/api/src/modules/tenant/tenant-provisioner.ts#L73)、[platform-tenant.service.ts:156](../../apps/api/src/modules/tenant/platform-tenant.service.ts#L156)、[platform-tenant.service.ts:206](../../apps/api/src/modules/tenant/platform-tenant.service.ts#L206)
 - **現況**：`tenant.provision` 設 `retryLimit: 0`；只有 handler 內 `catch` 會把狀態改成 `failed`。程序在 `ensureTenantDatabase`/migration 途中被 kill、OOM、部署重啟時，pg-boss 在 `expireInSeconds` 後把工作標成失敗，但 **租戶狀態仍是 `provisioning`**。`retryProvisioning` 只接受 `failed`、`remove` 拒絕 `provisioning`，全 repo 沒有清掃卡住狀態的機制。從管理頁手動重試工作（`job:retry`）可以救，但需要人知道。
 - **重現步驟**：1. 建立租戶。2. 佈建工作執行中（例：在 migration 時）`kill -9` api。3. 重啟後租戶頁面永遠顯示「佈建中」，重試與刪除按鈕都回 `TENANT_STATUS_CONFLICT`。
@@ -256,6 +258,7 @@
 ### EDGE-20 並行移除網域可把網域移光
 
 - **嚴重度**：P3（平台管理者操作、機率低，但結果是租戶完全無法進入）
+- **狀態**：已修（fix/infra-tenancy）：網域增刪先 FOR UPDATE 鎖住租戶列再數網域；platform-tenant.spec 加併發移除案例
 - **位置**：[platform-tenant.service.ts:241-254](../../apps/api/src/modules/tenant/platform-tenant.service.ts#L241)、[platform-tenant.repository.ts:122-128](../../apps/api/src/modules/tenant/platform-tenant.repository.ts#L122)
 - **現況**：`domains.length <= 1` 以交易前讀到的清單判斷；兩個請求各移除一個（共兩個網域）都會通過。移除網域時，正在那個網域上的使用者（host-only cookie）會失去 session，沒有提示。
 - **重現步驟**：租戶有 d1、d2；同時 `DELETE …/domains/d1` 與 `…/d2` → 兩者 200，租戶沒有網域。
@@ -298,6 +301,7 @@
 ### EDGE-24 平台的租戶操作：稽核不在同一交易
 
 - **嚴重度**：P3
+- **狀態**：已修（fix/infra-tenancy）：狀態／網域變更與平台稽核同一個交易，收尾失敗另記稽核
 - **位置**：[platform-tenant.service.ts:168-219](../../apps/api/src/modules/tenant/platform-tenant.service.ts#L168)
 - **現況**：`disable`、`enable`、`remove`、網域增刪都是「狀態變更 → 收尾 → `audit.record`」分開執行，違反 CLAUDE.md 規則 6「稽核寫入在交易內」。`endEverything` 的每一步錯誤只記 log；`remove` 在第二次 `transition` 前失敗會留下「已停用、未刪除、session 已撤銷」的中間狀態（可重做，影響小）。
 - **建議**：狀態變更與平台稽核包成同一個平台 DB 交易；收尾步驟的失敗寫進稽核 metadata。
