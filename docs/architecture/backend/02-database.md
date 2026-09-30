@@ -10,8 +10,14 @@
 | 時間         | `timestamptz`，一律存 UTC                                                |
 | 布林         | `NOT NULL DEFAULT false`，不允許三態                                     |
 | 軟刪除       | `deleted_at timestamptz`，唯一索引都帶 `WHERE deleted_at IS NULL`        |
-| Drizzle 變數 | camelCase 複數：`rolePermissions`                                        |
-| 列舉         | Postgres `enum` 型別（不是 `text` + `CHECK`），因為它會出現在 OpenAPI    |
+| Drizzle 變數 | camelCase 複數：`relationTuples`                                         |
+| 列舉         | Postgres `enum` 型別（不是 `text` + `CHECK`），因為它會出現在 OpenAPI；例外見下方 |
+
+**列舉的例外：多型關聯的類型欄位用 `text` ＋ 程式常數**（[ADR-0025](../../adr/0025-entity-revisions.md) D7）。
+`resource_type`（`audit_logs`、`revisions`、回收桶、標籤／留言）與 `relation_tuples.object_type`／`subject_type` 這類
+「指向哪一種資源」的欄位，每新增一種資源就要多一個值；用 enum 就得每次 `ALTER TYPE … ADD VALUE`，而且這個語句不能與使用新值的語句放在同一個交易。
+值集中在程式的常數（camelCase，與稽核、關係圖同一組字串），DTO 以同一份常數產生 `z.enum`，OpenAPI 與 SDK 照樣有型別。
+一般欄位的狀態、種類（例如 `users.status`）仍用 enum。
 
 必要擴充：
 

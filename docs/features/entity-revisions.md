@@ -1,10 +1,11 @@
 # 版本歷史、樂觀鎖與還原
 
 - 優先度：P0
-- 狀態：提案
-- 依賴：[`permission-graph.md`](./permission-graph.md) G3（刪除角色時持有者存在哪，見開放問題 2）
+- 狀態：規劃中
+- 依賴：—（[`permission-graph.md`](./permission-graph.md) G3a 已上線，開放問題 2 可以用 tuple 回答）
 - 相關：[`hardening-followups.md`](./hardening-followups.md)（刪除使用者後復原、`PATCH` 的版本控制）、[`tags-comments.md`](./tags-comments.md)（多型關聯的命名）、
-  [`backend/02-database.md`](../architecture/backend/02-database.md) §1、[`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md)
+  [`backend/02-database.md`](../architecture/backend/02-database.md) §1、[`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md)、
+  [ADR-0025](../adr/0025-entity-revisions.md)（已採用：開放問題的建議結論與分階段）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -84,13 +85,18 @@ revisions（租戶 DB）
 ## 開放問題
 
 1. 快照存整份還是存差異？編輯器的資料可能很大。整份比較簡單、還原不必重播；差異省空間但要定期存完整版。
+   **結論**：存整份，由擁有者模組的白名單產生、同交易寫入；單版上限 1 MiB、保留「最新 N 版 ∪ N 天內」；大型實體之後個別改用差異。見 [ADR-0025](../adr/0025-entity-revisions.md) D1
 2. 刪除角色時持有者的邊（`role:<id>#holder@user:<u>`）要改成保留，還是刪除前把持有者寫進快照、還原時補回？
    權限圖 G3a 之後，解析已經略過已刪除的角色（權限鍵的邊本來就保留），失效也以整個租戶為單位、不必事先查人；
    保留的話要確認其他讀持有者邊的查詢（使用者列表、持有者計數）都排除已刪除的角色。
+   **結論**：保留。使用者端的讀取與關係圖閉包已排除已刪除的角色；`replaceRoles` 要改成只刪未刪除角色的邊；永久刪除時清邊。見 [ADR-0025](../adr/0025-entity-revisions.md) D2
 3. 樂觀鎖要不要走 HTTP 標準的 `ETag`／`If-Match`？好處是快取與 304 一起解決（[`hardening-followups.md`](./hardening-followups.md) 的「列表的 304／ETag」），
    壞處是 SDK 產生與前端都要處理標頭。
+   **結論**：這一輪不用；`version` 放在請求本體，衝突 409 帶 `details.current`，最終必填（分兩步）；304／ETag 留在 `hardening-followups`，將來以同一欄產生。見 [ADR-0025](../adr/0025-entity-revisions.md) D3、D4
 4. 還原時參照的東西已經不在（檔案的資料夾被刪、使用者的角色被刪），一律拒絕，還是還原到預設位置？
+   **結論**：結構上的上層不在 → 拒絕（`<RESOURCE>_RESTORE_CONFLICT`）；關聯（角色）不在 → 略過；唯一值衝突沿用 `_DUPLICATE`。見 [ADR-0025](../adr/0025-entity-revisions.md) D5
 5. 使用者軟刪除後 email 可以被新帳號使用（partial index）。這時還原舊帳號要怎麼處理？
+   **結論**：拒絕，`409 USER_EMAIL_DUPLICATE`（帶佔用的帳號）；email 目前不能改，管理者要先刪除新帳號。見 [ADR-0025](../adr/0025-entity-revisions.md) D6
 
 ## 歸檔去向
 

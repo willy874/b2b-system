@@ -74,6 +74,8 @@ watches         resource_type, resource_id, user_id, created_at        pk(resour
 1. 留言、標籤的權限都跟著目標，那目標模組的「能不能看」要多便宜？列表頁要一次判斷上百個目標，需要批次介面。
 2. `resource_type` 要用 Postgres enum 還是 text（`relation_tuples`、稽核都是 text；舊的 `resource_grants` 是 enum）？enum 有資料庫層的保護，但每加一種資源就要一個 migration。
    這個決定也適用於 [`entity-revisions.md`](./entity-revisions.md) 的 `revisions`。
+
+   **結論**：text ＋ 程式常數（[ADR-0025](../adr/0025-entity-revisions.md) D7；[`backend/02-database.md`](../architecture/backend/02-database.md) §1 的例外）。
 3. 標籤要全租戶共用一組，還是依資源類型分開？
 4. 第一個接上的資源是檔案與資料夾嗎？還是等編輯器的第一個資源？
 
