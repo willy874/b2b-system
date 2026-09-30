@@ -73,29 +73,29 @@ describe('PermissionService.assertRolesAssignable（docs/architecture/backend/05
   });
 });
 
-describe('PermissionService.getPermissionSets（批次解析，docs/issues/01-performance.md PERF-08）', () => {
-  function createBatchService(cached: Record<string, { keys: PermissionKey[] }> = {}) {
-    const repo = {
-      findPermissionKeysByUsers: vi.fn(async (ids: readonly string[]) =>
-        ids.includes('u1') ? [{ userId: 'u1', key: 'user:read' as PermissionKey }] : [],
-      ),
-      findSuperAdminUserIds: vi.fn(async (ids: readonly string[]) =>
-        ids.filter((id) => id === 'root'),
-      ),
-    };
-    const cache = {
-      get: vi.fn((id: string) =>
-        cached[id] ? { permissions: new Set(cached[id].keys), isSuperAdmin: false } : undefined,
-      ),
-      set: vi.fn(),
-    };
-    const service = new PermissionService(
-      repo as unknown as PermissionRepository,
-      cache as unknown as PermissionCacheService,
-    );
-    return { service, repo, cache };
-  }
+function createBatchService(cached: Record<string, { keys: PermissionKey[] }> = {}) {
+  const repo = {
+    findPermissionKeysByUsers: vi.fn(async (ids: readonly string[]) =>
+      ids.includes('u1') ? [{ userId: 'u1', key: 'user:read' as PermissionKey }] : [],
+    ),
+    findSuperAdminUserIds: vi.fn(async (ids: readonly string[]) =>
+      ids.filter((id) => id === 'root'),
+    ),
+  };
+  const cache = {
+    get: vi.fn((id: string) =>
+      cached[id] ? { permissions: new Set(cached[id].keys), isSuperAdmin: false } : undefined,
+    ),
+    set: vi.fn(),
+  };
+  const service = new PermissionService(
+    repo as unknown as PermissionRepository,
+    cache as unknown as PermissionCacheService,
+  );
+  return { service, repo, cache };
+}
 
+describe('PermissionService.getPermissionSets（批次解析，docs/issues/01-performance.md PERF-08）', () => {
   it('多人只查一次：每人一個集合，沒有角色的人是空集合，super-admin 有標記', async () => {
     const { service, repo } = createBatchService();
 
