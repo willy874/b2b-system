@@ -67,6 +67,7 @@
 - **影響**：網路慢時（1000 人同時在線的尖峰很常見），管理者打開對話框立刻勾一個權限再按儲存，角色原本的所有權限都會被撤掉，持有這個角色的所有人瞬間失去權限。
 - **建議**：`current.isPending` 時不渲染 picker（改顯示 Skeleton），或把 `disabled` 設為 `!current.data`。另外可以把「將新增 N 項、移除 M 項」列在 footer，讓使用者送出前看清楚。
 - **驗收**：用 MSW 延遲 `get-role-permissions` 3 秒，這段時間內 picker 不可操作；儲存前畫面顯示新增與移除的數量。
+- **狀態**：已修（fix/backstage-ux）——已驗證屬實：頁面測試讓 `get-role-permissions` 延遲回應，舊程式在載入中就渲染勾選框。改為載入完成前顯示骨架、不能儲存，footer 顯示將新增／移除幾項
 
 ### UX-03 角色「編輯」「複製」失敗完全沒有提示
 
@@ -76,6 +77,7 @@
 - **影響**：角色改名撞到 `ROLE_NAME_DUPLICATE`、名稱留空觸發 `VALIDATION_FAILED`、網路中斷時，畫面什麼都不說：編輯區關掉、名稱變回原樣，或複製按鈕轉一圈就停了。使用者只能猜。
 - **建議**：比照同檔的 `useRoleDeleteMutation`，補上 `onError: useErrorToast()`。長期可以在 `MutationCache` 設一個全域 `onError`，`meta.silent` 用來讓呼叫端自己處理錯誤的情況退出。
 - **驗收**：讓 update／duplicate 回 409／500，都會出現本地化的錯誤 toast。
+- **狀態**：已修（fix/backstage-ux）——`useRoleUpdateMutation`、`useRoleDuplicateMutation` 補 `onError: useErrorToast()`
 
 ### UX-04 就地編輯失敗時仍關閉編輯區／對話框，使用者輸入直接丟失
 
@@ -85,6 +87,7 @@
 - **影響**：在權限挑選器勾了幾十個權限，儲存失敗（例如 `AUTHZ_ESCALATION`）後對話框直接關掉，全部要重來。
 - **建議**：只在成功時關閉，失敗時保留草稿並就地顯示錯誤。可以參考 `ApprovalRowActions` 的 `reportError` 重拋模式，或 `UserCreate` 的 `formError`。
 - **驗收**：讓 API 回 409，編輯區維持開啟、輸入值不變，並顯示錯誤訊息。
+- **狀態**：已修（fix/backstage-ux）——角色／使用者就地編輯與權限對話框只在成功時關閉，失敗保留輸入並提示（apps/auth 的 TenantDetail 由 apps/auth 組處理）
 
 ### UX-05 編輯被鎖定使用者的顯示名稱會順便把帳號解鎖；改成停用沒有確認
 
@@ -94,6 +97,7 @@
 - **影響**：管理者只想改名字，卻把一個因為暴力嘗試而被鎖的帳號解鎖了，而且不會察覺。改成停用時，對方正在做的事會被立刻中斷，管理者事先也不知道。
 - **建議**：只送出有變動的欄位。鎖定狀態下把下拉顯示為「鎖定」，並另外提供明確的「解鎖」按鈕。狀態改成停用時跳出確認，文案沿用批次停用的說明。
 - **驗收**：鎖定的使用者只改顯示名稱，儲存後仍是鎖定；active 改成 inactive 會先確認。
+- **狀態**：已修（fix/backstage-ux）——只送出有變動的欄位；鎖定時狀態顯示為「鎖定」並提供「解鎖」鈕；改成停用先確認
 
 ### UX-06 「重設密碼」單擊即寄信，沒有確認，緊貼刪除鈕
 
@@ -103,6 +107,7 @@
 - **影響**：誤點就會寄信給使用者並留下稽核紀錄，連點會寄出多封。這顆圖示和刪除鈕並排，都是只有圖示的按鈕，很容易點錯。
 - **建議**：加上 `useConfirm`（「會寄送重設連結到 `{{email}}`」），並以列為單位追蹤 pending（例如 `mutation.variables?.params.userId === row.id`）。
 - **驗收**：點鑰匙會先確認；送出中按鈕是 loading 狀態；連點只送出一次。
+- **狀態**：已修（fix/backstage-ux）——先確認寄到哪個 Email；以列為單位顯示 loading，確認框送出中不能重按
 
 ### UX-07 列表查詢失敗時顯示「沒有資料」，沒有錯誤狀態與重試
 
@@ -112,6 +117,7 @@
 - **影響**：後端 5xx、逾時或 429 時，管理者看到「沒有資料」，會以為使用者或角色被刪光了，這在企業後台很嚇人。而且除了切回視窗觸發 refetch 之外，沒有重試入口。
 - **建議**：`RichTable` 加上 `error` 與 `onRetry`，用 `Empty` 顯示 `useErrorMessage(error)` 加一顆「重試」按鈕。有舊資料時（`keepPreviousData`）保留舊資料，在上方顯示警示列。
 - **驗收**：讓 `get-user-list` 回 500，表格顯示錯誤訊息與重試鈕，不會顯示「沒有資料」。
+- **狀態**：已修（fix/backstage-ux）——`RichTable` 新增 `error`／`onRetry`；使用者與角色列表已接上（其他列表可比照傳入）
 
 ### UX-08 `/auth/profile` 失敗時整個 app 停在骨架屏，沒有出路
 
@@ -121,6 +127,7 @@
 - **影響**：上線尖峰、租戶佈建中或維護時，使用者看到的是永遠在轉的骨架屏，沒有錯誤說明，也沒有重試入口。
 - **建議**：`useSyncPermissions` 回傳 `isError` 與 `refetch`，Layout 在 gated 且失敗時顯示錯誤頁（可沿用 `UnexpectedErrorPage onRetry`）。`TENANT_UNAVAILABLE` 用它自己的說明文案。
 - **驗收**：讓 `/auth/profile` 回 503，畫面顯示錯誤頁與重試鈕，按下重試成功後進入頁面。
+- **狀態**：已修（fix/backstage-ux）——Layout 在 profile 查詢失敗時顯示原因（例：`TENANT_UNAVAILABLE`）與重試
 
 ### UX-09 Router 沒設定 404／錯誤頁：未知網址與 chunk 載入失敗顯示框架預設英文畫面
 
@@ -131,6 +138,7 @@
 - **建議**：兩個 app 都設定 `defaultNotFoundComponent: NotFoundPage`、`defaultErrorComponent`。錯誤元件要辨識 chunk 載入失敗（`Failed to fetch dynamically imported module`），這種情況提示「系統已更新，請重新整理」並附一顆重新整理按鈕。
 - **驗收**：進入 `/not-exist` 顯示本地化的 404；把 chunk 檔刪掉後切換頁面，顯示「重新整理」提示。
 - **狀態**：已修 apps/auth 部分（fix/auth-ux）——`defaultNotFoundComponent`／`defaultErrorComponent`／`defaultPendingComponent`（`app/ErrorPages.tsx`），chunk 載入失敗提示重新整理；backstage 部分由 backstage 組處理
+- **狀態**：已修（fix/backstage-ux）（backstage）——router 設定預設的 404、錯誤頁與載入中；舊 chunk 載入失敗提示「系統已更新」（apps/auth 由 apps/auth 組處理）
 
 ### UX-10 表單驗證訊息是 Zod 的英文技術字串
 
@@ -141,6 +149,7 @@
 - **建議**：在 i18n plugin 初始化時用 `z.config({ customError })` 依 issue code（`too_small`、`too_big`、`invalid_format`）對應到 `validation.*` 語系鍵，並跟著語系切換。refine 的 message 改成語系鍵，在 `firstError` 裡翻譯。
 - **驗收**：繁中介面下，登入頁空白送出顯示「請輸入 Email」之類的中文；切到英文後顯示英文友善訊息。畫面上不再出現 `>=`。
 - **狀態**：已修 apps/auth 部分（fix/auth-ux）——`core/locales/zodErrorMap.ts` 設為 Zod 全域 `customError`（`validation.*`），三個密碼頁的不一致訊息改用 `params.messageKey`；`shared/hooks/form.ts` 不必改（`issue.message` 已是語系文字）。backstage 可照同一個檔案同步
+- **狀態**：已修（fix/backstage-ux）——`core/locales/zodErrorMap.ts`（與 apps/auth 相同）由 i18n plugin 設定 Zod 全域 customError；`shared/hooks/form.ts` 不需要改（訊息在 Zod 產生 issue 時就已翻譯）
 
 ### UX-11 偏好頁的「時區」「語言」對日期顯示完全無效
 
@@ -150,6 +159,7 @@
 - **影響**：海外分公司的使用者把時區改成 UTC 或 America/New_York，列表仍顯示台北時間，英文介面也顯示中文格式的日期。稽核日誌「篩選用本機時區、顯示用台北時區」，查事件時間軸時可能差一天。
 - **建議**：提供 `useFormatDateTime()`，從 `useTimezoneStore` 與 `useLocaleStore` 取值後呼叫 `formatDateTime`。稽核篩選的日界線改用同一個時區轉換。
 - **驗收**：偏好時區改成 UTC 後，列表時間立即位移 8 小時；語言切成英文後日期是英文格式。
+- **狀態**：已修（fix/backstage-ux）——`shared/date` 的預設語系與時區由 i18n plugin 依偏好設定；稽核篩選的日界線改用同一個時區（`zonedDayBoundary`）
 
 ### UX-12 Session 結束：不說原因（一律「你已登出」）、只保留 pathname、未存資料全失
 
@@ -160,6 +170,7 @@
 - **建議**：把 reason 帶到登入頁（例如 `?reason=AUTH_REFRESH_EXPIRED`），用 `getErrorMessageKey` 顯示對應文案，`logout`／`password_changed` 用各自的文案。`redirect` 改帶 `pathname + search`。長期可以考慮在 access token 快過期前提示，或把建立與編輯表單的草稿暫存在 sessionStorage。
 - **驗收**：讓 refresh 回 `AUTH_REFRESH_EXPIRED`，登入頁顯示「登入已過期」；在 `/user?status=locked&offset=40` 被登出，重新登入後回到同一個網址。
 - **狀態**：已修 apps/auth 部分（fix/auth-ux）——`SessionWatcher` 帶 `?reason=`、`redirect` 改帶 pathname＋search，登入頁依原因說明（`features/login/sessionEnd.ts`）；backstage 部分由 backstage 組處理
+- **狀態**：已修（fix/backstage-ux）——登入頁依 `?reason=` 說明原因（對照同 apps/auth 的 `sessionEnd.ts`，另有「密碼已變更」）；`redirect` 帶 pathname＋search。表單草稿暫存（sessionStorage）未做：改以未儲存提醒（UX-17）降低損失
 
 ### UX-13 忘記密碼在 429／網路錯誤時仍顯示「已寄出」
 
@@ -179,6 +190,7 @@
 - **影響**：刪除或改名系統資料夾、重複申請已有的存取權時，使用者看到的是「發生未預期的錯誤（代碼 xxx），請聯絡管理員」，而實際上這是可以預期、可以自行排除的業務錯誤。
 - **建議**：補上三個鍵與中英文文案。測試改成直接 import 後端的 `ErrorCode`（或由 openapi／SDK 匯出錯誤碼清單），不要再手抄。
 - **驗收**：`locales.test.ts` 以後端清單為來源；對系統資料夾執行刪除時顯示明確的中文說明。
+- **狀態**：已修（fix/backstage-ux）——兩個 app 的 `locales.test.ts` 改讀後端 `ALL_ERROR_CODES`；補上三個錯誤碼的鍵與中英文案（apps/auth 的 `core/errors` 與語系檔依同步規則一併補）
 
 ### UX-15 刪除租戶與關閉外部 IdP 這類高影響操作，確認強度不足
 
@@ -198,6 +210,7 @@
 - **影響**：需要管理多個租戶的顧問或 MSP 人員開著好幾個分頁時，分不清自己在哪個租戶，可能在錯的租戶刪人或改權限。螢幕報讀器把帳號選單讀成「M 按鈕」。
 - **建議**：頂列或側欄品牌區顯示租戶名稱（`get-current-tenant` 已經有 API），Avatar 用 profile 的 displayName，觸發鈕加 `aria-label={t('menu.account', { name })}`。帳號選單加「切換租戶」連到 apps/auth 的 `/enter`。
 - **驗收**：任何頁面都看得到目前租戶名稱；報讀器唸出使用者名稱；帳號選單有切換租戶的入口。
+- **狀態**：已修（fix/backstage-ux）——品牌區顯示租戶名稱；帳號選單以使用者名稱命名並顯示頭像與名稱；加上「切換租戶」連到 apps/auth 的 `/enter`
 
 ### UX-17 表單對話框點遮罩／Esc 就關閉，全站沒有「未儲存離開」提醒
 
@@ -207,6 +220,7 @@
 - **影響**：在權限挑選器勾了幾十項，一個誤點遮罩就全部歸零。
 - **建議**：表單類對話框改用 `dismissible={false}`，並在 dirty 時用 `useConfirm` 詢問「放棄變更？」。route 層面用 TanStack Router 的 `useBlocker` 攔截返回與換頁，頁面型表單（Profile）另外處理 `beforeunload`。
 - **驗收**：RoleCreate 勾選後點遮罩或按 Esc，會跳出放棄確認；沒有改動時直接關閉。
+- **狀態**：已修（fix/backstage-ux）——`core/router` 的 `useUnsavedChangesGuard`（`useBlocker`＋`beforeunload`）：建立使用者／角色、權限對話框、就地編輯、角色指派、個人資料頁有改動時離開先確認。遮罩與 Esc 也是導覽，一起被攔下，所以不必改 `dismissible`
 
 ### UX-18 刪除角色的確認不說明持有人數；`ROLE_IN_USE` 之後沒有下一步
 
@@ -216,6 +230,7 @@
 - **影響**：使用者確認後才被拒絕，而且不知道有幾個人持有、要去哪裡處理。
 - **建議**：確認框直接顯示「目前有 N 位使用者持有」。N > 0 時，提供「前往持有者清單」或需要二次確認的「仍要刪除（N 人將失去此角色）」。`useErrorMessage` 把 `error.details` 當作插值參數。
 - **驗收**：刪除一個有 3 位持有者的角色，確認框寫明 3 人，並提供後續動作。
+- **狀態**：已修（fix/backstage-ux）——確認框寫明持有人數並直接提供「仍要刪除（N 人將失去此角色）」（`force`）；`useErrorMessage` 以 `details` 插值
 
 ### UX-19 後端欄位錯誤（`details.fields`）沒有回填到欄位
 
@@ -225,6 +240,7 @@
 - **影響**：使用者看到「輸入內容不正確，請檢查後再試」，卻不知道是哪一欄。Email 重複時，錯誤顯示在離 Email 欄很遠的底部。
 - **建議**：送出失敗時，用 `form.setFieldMeta` 把 `fieldErrors` 與已知的欄位衝突碼（`USER_EMAIL_DUPLICATE` → email）回填到欄位並聚焦第一個錯誤欄位。前端 schema 對齊後端上限，並設定 `maxLength`。
 - **驗收**：建立使用者時用已存在的 email，錯誤出現在 Email 欄下方，焦點也移到該欄。
+- **狀態**：已修（fix/backstage-ux）——`core/errors` 的 `useServerFieldErrors`：衝突碼與 `details.fields` 回填到欄位並聚焦；schema 與 `maxLength` 對齊後端上限（email 255、名稱 100、角色最多 20 個）
 
 ### UX-20 建立使用者按 Enter 不送出；就地編輯區不是 `<form>`
 
@@ -234,6 +250,7 @@
 - **影響**：鍵盤使用者填完表單按 Enter 沒有反應，要切到滑鼠。RoleCreate 只有一個 input，所以 Enter 有效，兩個頁面行為不一致。
 - **建議**：footer 的送出鈕加 `form={formId}` 與 `type="submit"`，或讓 Dialog 支援 `as="form"`。就地編輯改用 `<form onSubmit>`。對話框打開時聚焦第一個欄位（Base UI Dialog 的 `initialFocus`）。
 - **驗收**：建立使用者在任一欄按 Enter 都會觸發驗證並送出；開啟時游標在 Email 欄。
+- **狀態**：已修（fix/backstage-ux）——已驗證屬實（送出鈕在 `<form>` 外）。送出鈕以 `form` 屬性連回表單；就地編輯與個人資料改用 `<form>`；就地編輯進入時聚焦第一欄（對話框本來就由 Base UI 聚焦第一個可聚焦元素）
 
 ### UX-21 詳情對話框的深層連結指向已刪除資源時是一個空白對話框
 
@@ -243,6 +260,7 @@
 - **影響**：同事貼來的連結、瀏覽器歷史，或另一個分頁剛刪掉的資源，開起來都是一個空白框，看不出發生什麼事。
 - **建議**：錯誤時在對話框內用 `Empty` 顯示 `useErrorMessage(error)`，附「回到列表」按鈕。404 時可以自動關閉並跳一則 toast。
 - **驗收**：開啟 `/user/<不存在的 id>`，顯示「找不到這個使用者」與返回按鈕。
+- **狀態**：已修（fix/backstage-ux）——錯誤時顯示原因與「回到列表」（404 不提供重試）
 
 ### UX-22 分頁只有上一頁／下一頁，千筆資料難以操作；刪到空頁不回退
 
@@ -252,6 +270,7 @@
 - **影響**：1,200 位使用者、每頁 20 筆就是 60 頁，要看最早建立的帳號得按 59 次（或改排序）。刪除後落到空頁，容易誤以為資料消失了。
 - **建議**：加上首頁、末頁與可輸入的頁碼（或數字頁碼加省略號），摘要用 `Intl.NumberFormat`。資料回來後若 `offset >= total && total > 0`，自動 `setPage` 到最後一頁。
 - **驗收**：60 頁的列表可以一步跳到第 60 頁；刪掉最後一頁唯一的一筆後回到上一頁；總數顯示 `1,200`。
+- **狀態**：已修（fix/backstage-ux）——`Pagination` 加上第一頁、最後一頁與可輸入的頁碼；摘要用千分位；刪到空頁自動退回最後一頁
 
 ### UX-23 搜尋藏在篩選浮層；空結果不提供清除篩選；批次只能全選本頁
 
@@ -261,6 +280,7 @@
 - **影響**：後台最常用的動作是找人，現在每次都要多點兩下。把 300 位離職者批次停用，得一頁一頁勾（每頁上限 200）。
 - **建議**：列表上方常駐搜尋框（debounce 後寫進網址），套用中的篩選以可移除的 Chip 列出。空結果時顯示「沒有符合條件的結果」加上「清除篩選」。批次操作加上「選取全部符合的 N 筆」，交給後端依條件批次處理（或在佇列逐頁展開）。
 - **驗收**：不開浮層就能搜尋；有篩選但沒結果時可以一鍵清除；可以對整個篩選結果執行批次停用。
+- **狀態**：已修（fix/backstage-ux）（部分）——使用者與角色列表常駐搜尋框、套用中的篩選以 Chip 列出、空結果可清除篩選。「選取全部符合的 N 筆」延後——需要後端依條件批次處理的 API
 
 ### UX-24 沒有 RWD：側欄固定 15rem，小螢幕無法使用
 
@@ -270,6 +290,7 @@
 - **影響**：375px 寬的手機上主內容只剩約 135px，列表、對話框都擠在一起。主管在手機上審批申請、臨時停用帳號之類的情境幾乎做不到。
 - **建議**：`< 768px` 時側欄改成覆蓋式抽屜（預設收起），頂列漢堡鈕控制，內距縮小。列表在窄螢幕改用卡片或允許水平捲動，並固定第一欄。
 - **驗收**：375×812 下側欄預設隱藏，審批列表與詳情可以完成核准。
+- **狀態**：已修（fix/backstage-ux）——< 768px 側欄改成覆蓋式抽屜（預設收起），內距縮小；表格本來就可水平捲動、對話框寬度隨視窗。未改成卡片式列表
 
 ### UX-25 表單錯誤不會被報讀；必填只有 `aria-hidden` 的星號
 
@@ -279,6 +300,7 @@
 - **影響**：螢幕報讀器使用者按下登入後聽不到「帳號或密碼錯誤」，也不知道哪些欄位必填。
 - **建議**：表單錯誤區加 `role="alert"`。`Field` 的 `required` 透過 Base UI Field 的 context 或 props 設到 control 上（`required` 或 `aria-required`），並對報讀器提供「必填」文字。
 - **驗收**：在 VoiceOver 下送出錯誤的登入資料，會即時唸出錯誤訊息；必填欄位唸出「必填」。
+- **狀態**：已修（fix/backstage-ux）——表單層級錯誤區加 `role="alert"`；`Field` 必填另有給報讀器的「必填」；`Input` 依 Field 錯誤補 `aria-invalid`
 
 ### UX-26 英文硬編碼的 aria-label 與「☰」文字圖示
 
@@ -288,6 +310,7 @@
 - **影響**：繁中報讀器使用者會聽到英文的「toggle sidebar」「page size」，而且無從得知側欄目前是展開還是收合。
 - **建議**：用 `t()` 傳入。Pagination 的 `labels` 擴充 `nav` 與 `pageSize`，Toast 的 close 由 `ToastHost` 傳入。側欄開關改用 `Icon` 並加上 `aria-expanded={!collapsed}`。
 - **驗收**：`grep 'aria-label="[a-z]'` 在 features、app、components 為零；報讀器唸出中文與展開狀態。
+- **狀態**：已修（fix/backstage-ux）——側欄開關改用 Icon、語系 aria-label 與 `aria-expanded`；Pagination、Toast 的名稱改走 `ComponentLabelsContext`（apps/auth 的元件複本已同步，app 層的 Host 待 apps/auth 接上）
 
 ### UX-27 輸入框邊框對比 1.30:1，未達 WCAG 1.4.11 的 3:1
 
@@ -297,6 +320,7 @@
 - **影響**：低視力使用者或在戶外強光下，很難看出輸入框在哪裡。
 - **建議**：新增 `--color-border-control`（淺色約 `#8a929b`，≥ 3:1），給 Input／Select／Checkbox 使用。contrast test 增加「控制項邊框 × surface ≥ 3:1」以及「fg-muted × fill-subtle／fill ≥ 4.5」。
 - **驗收**：contrast test 新增的斷言通過；深淺兩種主題下輸入框輪廓都清楚。
+- **狀態**：已修（fix/backstage-ux）——新增 `--color-border-control`（淺色 3.67:1、深色 4.09:1），`--color-fg-muted` 微調到在 fill 上 ≥ 4.5:1；contrast test 新增斷言
 
 ### UX-28 登入流程的失敗回饋不完整（跳轉失敗、callback 重試、互動過期）
 
@@ -329,6 +353,7 @@
 - **影響**：新密碼打錯一個字就會把自己鎖在外面。密碼管理器無法產生或儲存新密碼。改完密碼突然被登出，也沒有說明為什麼。
 - **建議**：加上確認欄與強度或長度的即時提示，設定 autocomplete。送出前告知「變更後所有裝置都會登出」，登入頁顯示「密碼已變更，請用新密碼登入」。
 - **驗收**：確認欄不一致時無法送出並顯示原因；Chrome 會提示儲存新密碼；改完後登入頁顯示對應說明。
+- **狀態**：已修（fix/backstage-ux）——確認欄、autocomplete、長度即時說明、送出前確認「所有裝置都會登出」，登入頁顯示「密碼已變更」
 
 ### UX-31 429 訊息不帶可重試時間
 
@@ -349,6 +374,7 @@
 - **建議**：403／404 提供「回首頁」與「返回上一頁」，403 可以再附「複製網址給管理員」。apps/auth 的 fallback 改用 Skeleton 或 Spinner。
 - **驗收**：403 頁有可點的返回動作；apps/auth 的慢速載入有視覺回饋。
 - **狀態**：已修 apps/auth 部分（fix/auth-ux）——403／404 有「回首頁」「返回上一頁」，載入中改成 Spinner；backstage 的 `ErrorPage` 由 backstage 組處理
+- **狀態**：已修（fix/backstage-ux）（backstage 部分）——403／404 有「回首頁」與「返回上一頁」
 
 ### UX-33 登入表單缺顯示密碼、Caps Lock 提示、自動聚焦；沒有「記住我」
 
@@ -368,6 +394,7 @@
 - **影響**：刪錯人只能請工程師進資料庫處理。錯誤 toast 也不能直接按「重試」。
 - **建議**：`ToastOptions` 增加 `action: { label, onClick }`。刪除使用者成功後的 toast 提供「復原」（需要後端 restore API），或者在使用者列表加上「已刪除」篩選。
 - **驗收**：刪除使用者後 8 秒內可以一鍵復原。
+- **狀態**：已修（fix/backstage-ux）（部分）——`ToastOptions.action` 支援動作鈕，`useToast().show()` 可附上。刪除使用者的「復原」延後——後端沒有 restore API
 
 ### UX-35 同一狀態在列表與詳情用不同色調
 
@@ -377,6 +404,7 @@
 - **影響**：同一個「鎖定」狀態，在列表是紅色，進到詳情變成灰色，會讓人誤判嚴重程度。
 - **建議**：把 `STATUS_TONE` 移到 `features/user/constants.ts` 共用，或做成 `UserStatusChip` 業務元件。
 - **驗收**：兩處同一個狀態顏色一致。
+- **狀態**：已修（fix/backstage-ux）——`USER_STATUS_TONE` 移到 `features/user/constants.ts`，列表與詳情共用
 
 ### UX-36 設計系統元件的中文預設文案在英文介面漏出
 
@@ -388,6 +416,7 @@
 - **驗收**：英文介面下所有 Select 的空結果與載入文案都是英文。
 
 ---
+- **狀態**：已修（fix/backstage-ux）——`components/labels.ts` 的 `ComponentLabelsContext`，app 以 `t()` 提供 Select 等元件的預設文案
 
 ## 已做得好的地方
 

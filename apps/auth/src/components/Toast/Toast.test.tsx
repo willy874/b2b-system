@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import { ComponentLabelsContext, DEFAULT_COMPONENT_LABELS } from '../labels';
 import { ToastProvider, createToaster } from './index';
 import type { Toaster } from './index';
 
@@ -33,6 +34,36 @@ describe('Toast', () => {
     expect(toast).toHaveAttribute('data-value', 'error');
     expect(toast).toHaveAttribute('data-type', 'error');
     expect(screen.getByText('請聯絡管理員')).toBeVisible();
+  });
+
+  it('動作鈕：按下執行動作並關閉提示（UX-34）', async () => {
+    const toaster = renderToaster();
+    const onUndo = vi.fn();
+    act(() => {
+      toaster.show({
+        type: 'success',
+        title: '已刪除',
+        action: { label: '復原', onClick: onUndo },
+      });
+    });
+    await userEvent.click(await screen.findByRole('button', { name: '復原' }));
+    expect(onUndo).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(screen.queryByText('已刪除')).not.toBeInTheDocument());
+  });
+
+  it('關閉鈕的名稱用目前語系（ComponentLabelsContext），不是寫死的英文（UX-26）', async () => {
+    const toaster = createToaster();
+    render(
+      <ComponentLabelsContext value={{ ...DEFAULT_COMPONENT_LABELS, toastClose: 'Dismiss' }}>
+        <ToastProvider toaster={toaster}>
+          <p>內容</p>
+        </ToastProvider>
+      </ComponentLabelsContext>,
+    );
+    act(() => {
+      toaster.show({ title: '已同步' });
+    });
+    expect(await screen.findByTestId('toast-close')).toHaveAttribute('aria-label', 'Dismiss');
   });
 
   it('沒給 type 時視為 info', async () => {

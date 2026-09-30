@@ -79,7 +79,19 @@
       "resultSummary": "{{succeeded}} succeeded, {{failed}} failed. Failed items stay selected.",
       "cancelledToast": "“{{name}}” cancelled; the {{count}} completed items are kept",
       "doneToast": "“{{name}}” completed {{count}} items"
-    }
+    },
+    "unsaved": {
+      "title": "Discard unsaved changes?",
+      "description": "If you leave now, your changes will be lost.",
+      "discard": "Discard changes",
+      "keepEditing": "Keep editing"
+    },
+    "removeFilter": "Remove filter \"{{name}}\"",
+    "filterChip": "{{label}}: {{value}}",
+    "staleData": "Could not refresh the data ({{message}}). Showing the previous results.",
+    "emptyFiltered": "No results match the current filters",
+    "clearFilters": "Clear filters",
+    "paginationSummary": "{{from}}–{{to}} of {{total}}"
   },
   "menu": {
     "group": {
@@ -99,7 +111,8 @@
     "setting": "System settings",
     "profile": "Profile",
     "preference": "Preferences",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "switchTenant": "Switch tenant"
   },
   "app": {
     "title": "B2B System",
@@ -156,7 +169,7 @@
     "ROLE_NAME_DUPLICATE": "Role name already exists.",
     "ROLE_SYSTEM_PROTECTED": "System roles cannot be deleted or renamed.",
     "ROLE_SUPER_ADMIN_IMMUTABLE": "Permissions of the super admin role cannot be changed.",
-    "ROLE_IN_USE": "Some users still hold this role.",
+    "ROLE_IN_USE": "{{userCount}} users still hold this role.",
     "LAST_SUPER_ADMIN": "The system must keep at least one active super admin.",
     "ROLE_SELF_LOCKOUT": "This change would remove the permissions you need to manage roles. Ask another administrator to make it.",
     "PERMISSION_UNKNOWN": "The request contains unknown permission keys.",
@@ -182,6 +195,9 @@
     "FILE_FOLDER_CYCLE": "A folder cannot be moved into itself or one of its subfolders.",
     "FILE_GRANT_SUBJECT_NOT_FOUND": "The person or role no longer exists.",
     "FILE_GRANT_NOT_FOUND": "This access entry no longer exists.",
+    "FILE_FOLDER_SYSTEM_PROTECTED": "System folders (shared, private, personal) cannot be renamed, moved, or deleted.",
+    "FILE_ACCESS_ALREADY_GRANTED": "You already have this access to the folder. No need to request it again.",
+    "FILE_ACCESS_REQUEST_NOT_FOUND": "This access request no longer exists. It may have been handled or withdrawn.",
     "SETTING_NOT_FOUND": "This setting does not exist.",
     "NOT_FOUND": "The page or resource was not found.",
     "CONFLICT": "The data was just changed by another request. Refresh and try again.",
@@ -199,6 +215,13 @@
       "unexpected": {
         "title": "Unexpected error",
         "description": "Please retry or contact an administrator."
+      },
+      "backHome": "Go to home",
+      "goBack": "Go back",
+      "reload": "Reload",
+      "updated": {
+        "title": "A new version is available",
+        "description": "This page has been updated. Reload to continue."
       }
     }
   },
@@ -281,5 +304,33 @@
     "dark": "Dark",
     "system": "System",
     "current": "Current"
+  },
+  "validation": {
+    "required": "This field is required",
+    "email": "Enter a valid email address",
+    "tooShort": "Must be at least {{min}} characters",
+    "tooLong": "Must be at most {{max}} characters",
+    "format": "The format is invalid",
+    "invalid": "The value is invalid",
+    "passwordMismatch": "The passwords don't match",
+    "usernameTooShort": "Must be at least 3 characters"
+  },
+  "components": {
+    "required": "required",
+    "selectSearch": "Search…",
+    "selectNoMatch": "No matching items",
+    "selectAll": "Select all",
+    "pagination": {
+      "nav": "Pagination",
+      "pageSize": "Rows per page",
+      "first": "First",
+      "last": "Last",
+      "page": "Page number"
+    }
+  },
+  "layout": {
+    "toggleSidebar": "Side menu",
+    "closeSidebar": "Close side menu",
+    "accountMenu": "Account menu ({{name}})"
   }
 }

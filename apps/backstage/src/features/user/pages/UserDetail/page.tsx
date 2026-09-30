@@ -7,6 +7,8 @@ import { getUserDetailQueryOptions } from '@/apis/user/get-user-detail/query';
 import { Button } from '@/components/Button';
 import { Dialog } from '@/components/Dialog';
 import { Skeleton } from '@/components/Skeleton';
+import { QueryError } from '@/core/components';
+import { isNotFound } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 
 import { useUserPermission } from '../../hooks/useUserPermission';
@@ -43,6 +45,19 @@ export default function UserDetailPage() {
       }
     >
       {user.isPending && <Skeleton height={200} />}
+      {/* 深層連結指向已刪除的使用者：說明原因並提供返回，不留一個空白對話框（UX-21） */}
+      {user.isError && (
+        <QueryError
+          error={user.error}
+          onRetry={isNotFound(user.error) ? undefined : () => void user.refetch()}
+          action={
+            <Button onClick={close} data-testid="user-detail-back">
+              {t('user.detail.backToList')}
+            </Button>
+          }
+          data-testid="user-detail-error"
+        />
+      )}
 
       {user.data && (
         <div className="flex flex-col gap-5">

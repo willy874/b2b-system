@@ -13,6 +13,7 @@ import type {
   FilterBarProps,
   RichTableBatch,
   RichTablePagination,
+  TableSearchProps,
   TableSettingsConfig,
 } from '@/core/components';
 import { useTranslation } from '@/core/locales';
@@ -38,6 +39,11 @@ interface RoleTableProps {
   onRowDoubleClick: (row: RoleRowVM) => void;
   onDelete: (row: RoleRowVM) => void;
   filters: FilterBarProps<RoleFilterValues>;
+  /** 表格上方常駐的關鍵字搜尋。 */
+  searchBox: TableSearchProps;
+  /** 列表查詢失敗（顯示錯誤與重試，不落到「沒有資料」）。 */
+  error: unknown;
+  onRetry: () => void;
   batch: RichTableBatch<RoleRowVM>;
   pagination: RichTablePagination;
 }
@@ -50,6 +56,9 @@ export function RoleTable({
   onRowDoubleClick,
   onDelete,
   filters,
+  searchBox,
+  error,
+  onRetry,
   batch,
   pagination,
 }: RoleTableProps) {
@@ -150,6 +159,9 @@ export function RoleTable({
       loading={loading}
       getRowId={getRowId}
       filters={filters}
+      search={searchBox}
+      error={error}
+      onRetry={onRetry}
       batch={batch}
       settings={ROLE_TABLE_SETTINGS}
       pagination={pagination}

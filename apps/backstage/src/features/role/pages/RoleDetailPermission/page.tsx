@@ -5,7 +5,10 @@ import { useMemo, useState } from 'react';
 import { getRolePermissionsQueryOptions } from '@/apis/role/get-role-permissions/query';
 import { Button } from '@/components/Button';
 import { Dialog } from '@/components/Dialog';
+import { Skeleton } from '@/components/Skeleton';
+import { QueryError } from '@/core/components';
 import { useTranslation } from '@/core/locales';
+import { useUnsavedChangesGuard } from '@/core/router';
 
 import { PermissionPicker } from '../../components';
 import { useGrantRolePermissionsMutation } from '../../hooks/useRoleMutations';
@@ -31,11 +34,28 @@ export default function RoleDetailPermissionPage() {
   const setSelected = (updater: (previous: Set<string>) => Set<string>) =>
     setDraft((previous) => updater(previous ?? initial));
 
-  const close = () => void navigate({ to: RoleDetailRoute.to, params: { roleId }, search });
+  const close = (options?: { ignoreBlocker?: boolean }) =>
+    void navigate({ to: RoleDetailRoute.to, params: { roleId }, search, ...options });
 
   const add = [...selected].filter((key) => !initial.has(key));
   const remove = [...initial].filter((key) => !selected.has(key));
   const dirty = add.length > 0 || remove.length > 0;
+  useUnsavedChangesGuard(dirty);
+
+  // 既有權限回來之前不能勾選：以空集合為基準的草稿，儲存時會把角色原有的權限全部移除（UX-02）
+  const loaded = current.isSuccess;
+
+  const save = async () => {
+    try {
+      await grant.mutateAsync({
+        params: { roleId, body: { add: add as never, remove: remove as never } },
+      });
+    } catch {
+      // 錯誤由 mutation 的 onError 顯示；對話框與草稿保留，讓使用者修正後重送（UX-04）
+      return;
+    }
+    close({ ignoreBlocker: true });
+  };
 
   return (
     <Dialog
@@ -47,19 +67,23 @@ export default function RoleDetailPermissionPage() {
       data-testid="role-permission-dialog"
       footer={
         <>
-          <Button onClick={close}>{t('common.cancel')}</Button>
+          {dirty && (
+            <p
+              className="m-0 me-auto text-sm text-[var(--color-fg-muted)]"
+              aria-live="polite"
+              data-testid="role-permission-summary"
+            >
+              {t('role.permission.summary', { add: add.length, remove: remove.length })}
+            </p>
+          )}
+          <Button onClick={() => close()} data-testid="role-permission-cancel">
+            {t('common.cancel')}
+          </Button>
           <Button
             variant="primary"
-            disabled={!dirty || !permission.canGrantPermission}
+            disabled={!loaded || !dirty || !permission.canGrantPermission}
             loading={grant.isPending}
-            onClick={async () => {
-              await grant
-                .mutateAsync({
-                  params: { roleId, body: { add: add as never, remove: remove as never } },
-                })
-                .catch(() => undefined);
-              close();
-            }}
+            onClick={() => void save()}
             data-testid="role-permission-save"
           >
             {t('common.save')}
@@ -67,19 +91,25 @@ export default function RoleDetailPermissionPage() {
         </>
       }
     >
-      <PermissionPicker
-        selected={selected}
-        disabled={!permission.canGrantPermission}
-        onToggle={(key, checked) =>
-          setSelected((prev) => {
-            const next = new Set(prev);
-            if (checked) next.add(key);
-            else next.delete(key);
-            return next;
-          })
-        }
-        data-testid="role-permission-picker"
-      />
+      {current.isPending && <Skeleton height={240} data-testid="role-permission-loading" />}
+      {current.isError && (
+        <QueryError error={current.error} onRetry={() => void current.refetch()} />
+      )}
+      {loaded && (
+        <PermissionPicker
+          selected={selected}
+          disabled={!permission.canGrantPermission}
+          onToggle={(key, checked) =>
+            setSelected((prev) => {
+              const next = new Set(prev);
+              if (checked) next.add(key);
+              else next.delete(key);
+              return next;
+            })
+          }
+          data-testid="role-permission-picker"
+        />
+      )}
     </Dialog>
   );
 }

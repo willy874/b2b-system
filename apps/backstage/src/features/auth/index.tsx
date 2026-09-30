@@ -8,3 +8,4 @@ export { Routes };
 export { appContextPlugin as authFeaturePlugin } from './plugin';
 export { useSyncPermissions } from './hooks/useSyncPermissions';
 export { useLogoutMutation } from './hooks/useLogoutMutation';
+export { LOGOUT_REASON, PASSWORD_CHANGED_REASON, sessionEndMessageKey } from './sessionEnd';

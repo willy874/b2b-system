@@ -1,6 +1,7 @@
 import { Toast as BaseToast } from '@base-ui-components/react/toast';
 import type { ReactNode } from 'react';
 
+import { useComponentLabels } from '../labels';
 import { createSlots } from '../slots';
 import type { SlotOverrides, SlotResolver } from '../slots';
 
@@ -34,6 +35,13 @@ export interface ToastOptions {
   description?: string;
   /** 毫秒；`0` 表示不自動關閉。省略時用 `DEFAULT_TOAST_TIMEOUT[type]`。 */
   timeout?: number;
+  /** 提示上的動作鈕（例：「復原」「重試」）；按下後執行並關閉提示。 */
+  action?: ToastAction;
+}
+
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
 }
 
 /** 在 React 樹之外也能顯示提示的控制器；由 `createToaster()` 建立，交給 `ToastProvider` 渲染。 */
@@ -51,8 +59,28 @@ const managers = new WeakMap<Toaster, ToastManager>();
 export function createToaster(): Toaster {
   const manager = BaseToast.createToastManager();
   const toaster: Toaster = {
-    show: ({ type = 'info', title, description, timeout = DEFAULT_TOAST_TIMEOUT[type] }) =>
-      manager.add({ type, title, description, timeout }),
+    show: ({
+      type = 'info',
+      title,
+      description,
+      timeout = DEFAULT_TOAST_TIMEOUT[type],
+      action,
+    }) => {
+      const id = manager.add({
+        type,
+        title,
+        description,
+        timeout,
+        actionProps: action && {
+          children: action.label,
+          onClick: () => {
+            action.onClick();
+            manager.close(id);
+          },
+        },
+      });
+      return id;
+    },
     close: (id) => manager.close(id),
   };
   managers.set(toaster, manager);
@@ -66,7 +94,7 @@ function getManager(toaster: Toaster): ToastManager {
 }
 
 /** 各層用 `classNames` / `styles` / `testIds` 覆寫（套用到每一則 toast）。 */
-export type ToastSlot = 'viewport' | 'toast' | 'title' | 'description' | 'close';
+export type ToastSlot = 'viewport' | 'toast' | 'title' | 'description' | 'action' | 'close';
 
 interface ToastProviderProps extends SlotOverrides<ToastSlot> {
   /** 由 `createToaster()` 建立；呼叫它的 `show()` 就會出現在這個 Provider 的 viewport。 */
@@ -97,6 +125,7 @@ export function ToastProvider({
 
 function ToastList({ slot }: { slot: SlotResolver<ToastSlot> }) {
   const { toasts } = BaseToast.useToastManager();
+  const labels = useComponentLabels();
   return (
     <>
       {toasts.map((toast) => {
@@ -110,9 +139,12 @@ function ToastList({ slot }: { slot: SlotResolver<ToastSlot> }) {
           >
             <BaseToast.Title {...slot('title', styles.title)} />
             <BaseToast.Description {...slot('description', styles.description)} />
+            {toast.actionProps && (
+              <BaseToast.Action {...slot('action', styles.action, { testId: 'toast-action' })} />
+            )}
             <BaseToast.Close
               {...slot('close', styles.close, { testId: 'toast-close' })}
-              aria-label="close"
+              aria-label={labels.toastClose}
             >
               ✕
             </BaseToast.Close>

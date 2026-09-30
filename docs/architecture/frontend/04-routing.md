@@ -71,6 +71,10 @@ RootRoute  (core/router/root.tsx)
 代價：子路由必須也宣告 `validateSearch: RoleSearchQuerySchema`，否則導覽進
 對話框時列表的篩選條件會從網址消失。這是必須記住的一點。
 
+**未儲存提醒**：關閉路由對話框（點遮罩、Esc、取消、上一頁）都是導覽，所以表單在 dirty 時呼叫
+`useUnsavedChangesGuard(isDirty)`（`core/router`，TanStack Router 的 `useBlocker` ＋ `beforeunload`）即可攔下所有途徑。
+儲存成功後的關閉帶 `ignoreBlocker: true`；session 結束導向登入頁時也略過。
+
 ### 2.2 `create/$roleId` 為何不掛在 `create` 之下
 
 「以角色 X 為範本建立」如果做成 `RoleCreateRoute` 的子路由，TanStack Router 會
@@ -223,10 +227,18 @@ pathname '/role/abc/permission'
   → 主後端的 SessionStore 判定 session 結束（latched，只觸發一次；網路錯誤、5xx 不算）
   → emit SESSION_ENDED
   → app 層監聽：清空 permission store、清空 query cache、
-     navigate({ to: '/auth/login', search: { redirect: currentPath } })
+     navigate({ to: '/auth/login', search: { signedOut, reason, redirect: pathname + search } })
 ```
 
-登入成功後讀 `search.redirect` 導回原本要去的頁面。
+登入成功後讀 `search.redirect` 導回原本要去的頁面（含查詢字串）。`reason` 是 `endSession(reason)` 的原因，
+登入頁以 `features/auth/sessionEnd.ts` 對到說明（逾時、帳號停用、憑證重用、密碼已變更…；自己登出不帶）。
+
+### 4.4 404、錯誤頁與載入中
+
+`app/plugin.ts` 的 `createRouter` 設定 `defaultNotFoundComponent: NotFoundPage`、`defaultErrorComponent: RouteErrorPage`、
+`defaultPendingComponent: PageSkeleton`（`core/components/ErrorPage`）。部署新版後舊分頁 lazy 載入舊 chunk 失敗時，
+`RouteErrorPage` 提示「系統已更新」並提供重新整理；403／404 有「回首頁」與「返回上一頁」。
+權限水合失敗（`/auth/profile` 5xx、`TENANT_UNAVAILABLE`）時 Layout 顯示原因與重試，不停在骨架屏。
 
 只有 **主後端**（`MAIN_BACKEND`）的 session 會觸發這個流程。其他後端的 session 結束
 只中止該後端的請求，由使用它的 feature 自行訂閱 `getSessionStore('<後端>').events` 決定 UI

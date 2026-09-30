@@ -1,14 +1,15 @@
-import { useForm } from '@tanstack/react-form';
+import { useForm, useStore } from '@tanstack/react-form';
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { z } from 'zod';
 
 import { Button } from '@/components/Button';
 import { Dialog } from '@/components/Dialog';
 import { Field } from '@/components/Field';
 import { Input, Textarea } from '@/components/Input';
-import { useErrorMessage } from '@/core/errors';
+import { useErrorMessage, useServerFieldErrors } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
+import { useUnsavedChangesGuard } from '@/core/router';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
 import { PermissionPicker } from '../../components';
@@ -20,6 +21,8 @@ const Schema = z.object({
   description: z.string().trim().max(500).optional(),
 });
 
+const FIELDS = ['name', 'description', 'permissionKeys'] as const;
+
 export default function RoleCreatePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -28,14 +31,25 @@ export default function RoleCreatePage() {
   const toMessage = useErrorMessage();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [formError, setFormError] = useState<string>();
+  const formId = useId();
+  // 名稱重複、後端欄位驗證失敗 → 顯示在該欄位下方並聚焦（UX-19）
+  const {
+    errors: serverErrors,
+    report: reportServerError,
+    clear: clearServerError,
+    reset: resetServerErrors,
+    formRef,
+  } = useServerFieldErrors(FIELDS, { ROLE_NAME_DUPLICATE: 'name' });
 
-  const close = () => void navigate({ to: RoleListRoute.to, search });
+  const close = (options?: { ignoreBlocker?: boolean }) =>
+    void navigate({ to: RoleListRoute.to, search, ...options });
 
   const form = useForm({
     defaultValues: { name: '', description: '' },
     validators: { onSubmit: zodFormValidator(Schema) },
     onSubmit: async ({ value }) => {
       setFormError(undefined);
+      resetServerErrors();
       try {
         await createRole.mutateAsync({
           params: {
@@ -44,12 +58,16 @@ export default function RoleCreatePage() {
             permissionKeys: [...selected] as never,
           },
         });
-        close();
       } catch (error) {
-        setFormError(toMessage(error));
+        if (!reportServerError(error)) setFormError(toMessage(error));
+        return;
       }
+      close({ ignoreBlocker: true });
     },
   });
+  const isFormDirty = useStore(form.store, (state) => state.isDirty);
+  // 權限挑選器勾了幾十項，一個誤點遮罩就全部歸零：有改動時離開先確認（UX-17）
+  useUnsavedChangesGuard(isFormDirty || selected.size > 0);
 
   return (
     <Dialog
@@ -61,11 +79,14 @@ export default function RoleCreatePage() {
       data-testid="role-create-dialog"
       footer={
         <>
-          <Button onClick={close}>{t('common.cancel')}</Button>
+          <Button onClick={() => close()} data-testid="role-create-cancel">
+            {t('common.cancel')}
+          </Button>
           <Button
             variant="primary"
+            type="submit"
+            form={formId}
             loading={createRole.isPending}
-            onClick={() => void form.handleSubmit()}
             data-testid="role-create-submit"
           >
             {t('common.create')}
@@ -74,7 +95,10 @@ export default function RoleCreatePage() {
       }
     >
       <form
+        id={formId}
+        ref={formRef}
         className="flex flex-col gap-4"
+        noValidate
         onSubmit={(event) => {
           event.preventDefault();
           void form.handleSubmit();
@@ -85,11 +109,15 @@ export default function RoleCreatePage() {
             <Field
               label={t('role.field.name')}
               required
-              error={firstError(field.state.meta.errors)}
+              error={firstError(field.state.meta.errors) ?? serverErrors.name}
             >
               <Input
+                maxLength={64}
                 value={field.state.value}
-                onChange={(event) => field.handleChange(event.target.value)}
+                onChange={(event) => {
+                  clearServerError('name');
+                  field.handleChange(event.target.value);
+                }}
                 onBlur={field.handleBlur}
                 data-testid="role-name-input"
               />
@@ -99,8 +127,12 @@ export default function RoleCreatePage() {
 
         <form.Field name="description">
           {(field) => (
-            <Field label={t('role.field.description')} error={firstError(field.state.meta.errors)}>
+            <Field
+              label={t('role.field.description')}
+              error={firstError(field.state.meta.errors) ?? serverErrors.description}
+            >
               <Textarea
+                maxLength={500}
                 value={field.state.value}
                 onChange={(event) => field.handleChange(event.target.value)}
                 onBlur={field.handleBlur}
@@ -124,7 +156,10 @@ export default function RoleCreatePage() {
           />
         </div>
 
-        {formError && <p className="m-0 text-sm text-[var(--color-danger-text)]">{formError}</p>}
+        {/* role="alert"：送出失敗時報讀器會立即念出（UX-25） */}
+        <p role="alert" className="m-0 text-sm text-[var(--color-danger-text)] empty:hidden">
+          {formError}
+        </p>
       </form>
     </Dialog>
   );

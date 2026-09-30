@@ -79,7 +79,19 @@
       "resultSummary": "成功 {{succeeded}} 筆，失敗 {{failed}} 筆。失敗的項目仍保持勾選。",
       "cancelledToast": "已取消「{{name}}」，完成的 {{count}} 筆不受影響",
       "doneToast": "「{{name}}」已完成 {{count}} 筆"
-    }
+    },
+    "unsaved": {
+      "title": "要放棄尚未儲存的變更嗎？",
+      "description": "離開後，這次的修改都不會保留。",
+      "discard": "放棄變更",
+      "keepEditing": "繼續編輯"
+    },
+    "removeFilter": "移除篩選條件「{{name}}」",
+    "filterChip": "{{label}}：{{value}}",
+    "staleData": "資料沒有更新成功（{{message}}），目前顯示的是先前的結果。",
+    "emptyFiltered": "沒有符合條件的結果",
+    "clearFilters": "清除篩選",
+    "paginationSummary": "第 {{from}}–{{to}} 筆，共 {{total}} 筆"
   },
   "menu": {
     "group": {
@@ -99,7 +111,8 @@
     "setting": "系統設定",
     "profile": "個人資料",
     "preference": "偏好設定",
-    "logout": "登出"
+    "logout": "登出",
+    "switchTenant": "切換租戶"
   },
   "app": {
     "title": "B2B System",
@@ -156,7 +169,7 @@
     "ROLE_NAME_DUPLICATE": "角色名稱重複。",
     "ROLE_SYSTEM_PROTECTED": "系統角色受保護，不可刪除或改名。",
     "ROLE_SUPER_ADMIN_IMMUTABLE": "超級管理員角色的權限不可變更。",
-    "ROLE_IN_USE": "仍有使用者持有這個角色。",
+    "ROLE_IN_USE": "仍有 {{userCount}} 位使用者持有這個角色。",
     "LAST_SUPER_ADMIN": "系統必須保留至少一位可用的超級管理員。",
     "ROLE_SELF_LOCKOUT": "這個變更會讓你失去管理角色所需的權限，請改由其他管理者操作。",
     "PERMISSION_UNKNOWN": "包含系統未定義的權限鍵。",
@@ -182,6 +195,9 @@
     "FILE_FOLDER_CYCLE": "資料夾不能移到自己或自己的子資料夾裡。",
     "FILE_GRANT_SUBJECT_NOT_FOUND": "授權對象不存在或已被刪除。",
     "FILE_GRANT_NOT_FOUND": "這筆授權已不存在。",
+    "FILE_FOLDER_SYSTEM_PROTECTED": "系統資料夾（共用、私人、個人）不能改名、移動或刪除。",
+    "FILE_ACCESS_ALREADY_GRANTED": "你已經有這個資料夾的存取權，不需要再申請。",
+    "FILE_ACCESS_REQUEST_NOT_FOUND": "這筆存取申請已不存在，可能已被處理或撤回。",
     "SETTING_NOT_FOUND": "找不到這個設定。",
     "NOT_FOUND": "找不到這個頁面或資源。",
     "CONFLICT": "資料剛被其他操作變更，請重新整理後再試。",
@@ -192,8 +208,21 @@
         "title": "你沒有權限看這一頁",
         "description": "如果你認為這是錯誤，請聯絡系統管理員為你開通權限。"
       },
-      "notFound": { "title": "找不到頁面", "description": "這個網址不存在或已被移除。" },
-      "unexpected": { "title": "發生未預期的錯誤", "description": "請重試，或聯絡系統管理員。" }
+      "notFound": {
+        "title": "找不到頁面",
+        "description": "這個網址不存在或已被移除。"
+      },
+      "unexpected": {
+        "title": "發生未預期的錯誤",
+        "description": "請重試，或聯絡系統管理員。"
+      },
+      "backHome": "回首頁",
+      "goBack": "返回上一頁",
+      "reload": "重新整理",
+      "updated": {
+        "title": "系統已更新",
+        "description": "這個頁面有新版本，請重新整理後再繼續。"
+      }
     }
   },
   "permission": {
@@ -223,10 +252,20 @@
       "delete": "刪除角色",
       "grantPermission": "授予／移除權限"
     },
-    "permission": { "read": "檢視權限目錄" },
-    "auditLog": { "read": "檢視稽核日誌" },
-    "system": { "read": "檢視系統資訊", "update": "變更系統設定" },
-    "approval": { "read": "檢視審批", "review": "審核申請" },
+    "permission": {
+      "read": "檢視權限目錄"
+    },
+    "auditLog": {
+      "read": "檢視稽核日誌"
+    },
+    "system": {
+      "read": "檢視系統資訊",
+      "update": "變更系統設定"
+    },
+    "approval": {
+      "read": "檢視審批",
+      "review": "審核申請"
+    },
     "file": {
       "create": "上傳檔案",
       "read": "檢視檔案",
@@ -235,7 +274,10 @@
       "access": "使用檔案管理器",
       "share": "管理檔案授權"
     },
-    "job": { "read": "檢視背景工作", "retry": "重試背景工作" },
+    "job": {
+      "read": "檢視背景工作",
+      "retry": "重試背景工作"
+    },
     "identityProvider": {
       "create": "建立外部 IdP 連線",
       "read": "檢視外部 IdP 連線",
@@ -262,5 +304,33 @@
     "dark": "深色",
     "system": "跟隨系統",
     "current": "目前選擇"
+  },
+  "validation": {
+    "required": "請填寫這個欄位",
+    "email": "請輸入有效的 Email",
+    "tooShort": "至少需要 {{min}} 個字元",
+    "tooLong": "最多 {{max}} 個字元",
+    "format": "格式不正確",
+    "invalid": "輸入的值不正確",
+    "passwordMismatch": "兩次輸入的密碼不一致",
+    "usernameTooShort": "至少需要 3 個字元"
+  },
+  "components": {
+    "required": "必填",
+    "selectSearch": "搜尋…",
+    "selectNoMatch": "沒有符合的項目",
+    "selectAll": "全選",
+    "pagination": {
+      "nav": "分頁",
+      "pageSize": "每頁筆數",
+      "first": "第一頁",
+      "last": "最後一頁",
+      "page": "頁碼"
+    }
+  },
+  "layout": {
+    "toggleSidebar": "側邊選單",
+    "closeSidebar": "關閉側邊選單",
+    "accountMenu": "帳號選單（{{name}}）"
   }
 }

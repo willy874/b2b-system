@@ -7,6 +7,8 @@ import { getRoleUsersQueryOptions } from '@/apis/role/get-role-users/query';
 import { Button, ButtonLink } from '@/components/Button';
 import { Dialog } from '@/components/Dialog';
 import { Skeleton } from '@/components/Skeleton';
+import { QueryError } from '@/core/components';
+import { isNotFound } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 
 import { useRoleDuplicateMutation } from '../../hooks/useRoleMutations';
@@ -51,11 +53,8 @@ export default function RoleDetailPage() {
           <>
             {permission.canCreate && role.data && (
               <Button
-                onClick={() =>
-                  void duplicateRole
-                    .mutateAsync({ params: { roleId, body: {} } })
-                    .catch(() => undefined)
-                }
+                // 失敗由 mutation 的 onError 顯示（UX-03）
+                onClick={() => duplicateRole.mutate({ params: { roleId, body: {} } })}
                 loading={duplicateRole.isPending}
                 data-testid="role-duplicate-button"
               >
@@ -80,6 +79,19 @@ export default function RoleDetailPage() {
         }
       >
         {role.isPending && <Skeleton height={160} />}
+        {/* 深層連結指向已刪除的角色：說明原因並提供返回，不留一個空白對話框（UX-21） */}
+        {role.isError && (
+          <QueryError
+            error={role.error}
+            onRetry={isNotFound(role.error) ? undefined : () => void role.refetch()}
+            action={
+              <Button onClick={close} data-testid="role-detail-back">
+                {t('role.detail.backToList')}
+              </Button>
+            }
+            data-testid="role-detail-error"
+          />
+        )}
 
         {role.data && (
           <div className="flex flex-col gap-5">

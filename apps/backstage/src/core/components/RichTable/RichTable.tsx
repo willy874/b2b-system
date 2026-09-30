@@ -1,19 +1,26 @@
 import type { ColumnPinningState } from '@tanstack/react-table';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
+import { Button } from '@/components/Button';
 import { Pagination } from '@/components/Pagination';
 import { createSelectColumn, Table, useTableSelection } from '@/components/Table';
 import type { TableProps } from '@/components/Table';
+import { useLatestRef } from '@/components/useLatestRef';
+import { useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { ACTIONS_COLUMN_ID } from '@/core/store';
 import type { ColumnPinSide } from '@/core/store';
 import { cn } from '@/shared/utils';
 
+import { QueryError } from '../QueryError';
+import { activeFilterFields, ActiveFilters } from './ActiveFilters';
 import { BatchBar } from './BatchBar';
 import type { RichTableBatch } from './BatchBar';
 import { FilterBar } from './FilterBar';
 import type { FilterBarProps } from './FilterBar';
 import { createPinColumn, RowPinContext, useRowPinning } from './RowPin';
+import { TableSearch } from './TableSearch';
+import type { TableSearchProps } from './TableSearch';
 import { TableSettings } from './TableSettings';
 import { useTableSettings } from './TableSettings/useTableSettings';
 import type { TableSettingsConfig } from './TableSettings/useTableSettings';
@@ -39,8 +46,17 @@ export interface RichTableProps<
   TableProps<TData>,
   'ref' | 'className' | 'classNames' | 'styles' | 'testIds' | 'data-testid' | 'rowPinning'
 > {
-  /** 不提供時不顯示篩選按鈕。 */
+  /** 不提供時不顯示篩選按鈕。套用中的條件會以可移除的 Chip 列在表格上方。 */
   filters?: FilterBarProps<TFilters>;
+  /** 常駐在表格上方的關鍵字搜尋（輸入停頓後才送出）；不提供時不顯示。 */
+  search?: TableSearchProps;
+  /**
+   * 查詢失敗（通常是 query 的 `error`）。沒有資料時以錯誤畫面取代表格，有舊資料時保留表格並在上方提示；
+   * 不會落到「沒有資料」的空狀態（docs/issues/04-user-experience.md UX-07）。
+   */
+  error?: unknown;
+  /** 錯誤畫面的「重試」（通常是 query 的 `refetch`）。 */
+  onRetry?: () => void;
   /** 不提供時不顯示欄位設定按鈕，欄位照 `columns` 原樣顯示。 */
   settings?: TableSettingsConfig;
   /**
@@ -87,11 +103,16 @@ export function RichTable<TData, TFilters extends Record<string, unknown>>({
   fillHeight = true,
   batch,
   emptyTitle,
+  emptyDescription,
+  search,
+  error,
+  onRetry,
   className,
   'data-testid': testId,
   ...tableProps
 }: RichTableProps<TData, TFilters>) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
+  const toMessage = useErrorMessage();
   const pin = useRowPinning({
     tableId: settings?.tableId,
     enabled: enableRowPinning,
@@ -164,28 +185,105 @@ export function RichTable<TData, TFilters extends Record<string, unknown>>({
     </>
   ) : null;
 
+  const hasError = error !== undefined && error !== null;
+  const loading = tableProps.loading ?? false;
+  const filtered = activeFilterFields(filters).length > 0 || Boolean(search?.value);
+  const clearFilters = () => {
+    if (filters?.defaultValue) {
+      // 排序不是篩選：保留目前的排序，只清掉條件
+      const kept = Object.fromEntries(
+        filters.fields.flatMap((field) =>
+          field.type === 'sort' ? [[field.key, filters.value[field.key]]] : [],
+        ),
+      );
+      // 關鍵字通常也在 filters.value 裡，一次送出；分兩次導覽會互相蓋掉
+      filters.onSubmit({ ...filters.defaultValue, ...kept });
+    } else {
+      search?.onChange(undefined);
+    }
+  };
+
+  // 刪到最後一頁沒有資料時（offset 超過總數）退回最後一頁，而不是停在「沒有資料」（UX-22）
+  const overflowOffset =
+    pagination &&
+    !loading &&
+    !hasError &&
+    pagination.total > 0 &&
+    pagination.offset >= pagination.total
+      ? Math.floor((pagination.total - 1) / pagination.limit) * pagination.limit
+      : undefined;
+  const pageLimit = pagination?.limit;
+  const onPageChange = useLatestRef(pagination?.onChange);
+  useEffect(() => {
+    if (overflowOffset === undefined || pageLimit === undefined) return;
+    onPageChange.current?.({ offset: overflowOffset, limit: pageLimit });
+  }, [onPageChange, overflowOffset, pageLimit]);
+
+  const numberFormat = useMemo(() => new Intl.NumberFormat(language || undefined), [language]);
+
   return (
     <div
       className={cn('flex flex-col gap-4', fillHeight && 'min-h-0 flex-1', className)}
       data-testid={testId}
     >
+      {(search || filtered) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {search && <TableSearch {...search} />}
+          {filters && <ActiveFilters filters={filters} />}
+        </div>
+      )}
       {batch && selectable && <BatchBar batch={batch} getRowId={rowId} />}
-      <RowPinContext value={pin.contextValue}>
-        <Table
-          // 呼叫端明確傳入 columnPinning / stickyHeader 時以它為準
-          columnPinning={columnPinning}
-          stickyHeader={tableSettings.stickyHeader}
-          {...tableProps}
-          data={pin.data}
-          rowSelection={selectable ? rowSelection : tableProps.rowSelection}
-          onRowSelectionChange={selectable ? onRowSelectionChange : tableProps.onRowSelectionChange}
-          columns={displayedColumns}
-          rowPinning={pin.rowPinning}
-          fillHeight={fillHeight}
-          headerTrailing={tools}
-          emptyTitle={emptyTitle ?? t('common.empty')}
+      {hasError && pin.data.length > 0 && (
+        // 有舊資料（keepPreviousData）時保留表格，只提示這次沒有更新成功
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-2 rounded-[var(--radius-md)] border border-[var(--color-warning)] px-3 py-2 text-sm"
+          data-testid="rich-table-stale"
+        >
+          <span>{t('common.staleData', { message: toMessage(error) })}</span>
+          {onRetry && (
+            <Button size="sm" onClick={onRetry} data-testid="query-error-retry">
+              {t('common.retry')}
+            </Button>
+          )}
+        </div>
+      )}
+      {hasError && pin.data.length === 0 ? (
+        <QueryError
+          error={error}
+          onRetry={onRetry}
+          className="flex-1"
+          data-testid="rich-table-error"
         />
-      </RowPinContext>
+      ) : (
+        <RowPinContext value={pin.contextValue}>
+          <Table
+            // 呼叫端明確傳入 columnPinning / stickyHeader 時以它為準
+            columnPinning={columnPinning}
+            stickyHeader={tableSettings.stickyHeader}
+            {...tableProps}
+            data={pin.data}
+            rowSelection={selectable ? rowSelection : tableProps.rowSelection}
+            onRowSelectionChange={
+              selectable ? onRowSelectionChange : tableProps.onRowSelectionChange
+            }
+            columns={displayedColumns}
+            rowPinning={pin.rowPinning}
+            fillHeight={fillHeight}
+            headerTrailing={tools}
+            // 有篩選卻沒有結果：說清楚是「沒有符合條件」並提供清除，不要和真的沒資料混在一起（UX-23）
+            emptyTitle={emptyTitle ?? (filtered ? t('common.emptyFiltered') : t('common.empty'))}
+            emptyDescription={
+              emptyDescription ??
+              (filtered && (filters?.defaultValue || search) ? (
+                <Button size="sm" onClick={clearFilters} data-testid="rich-table-clear-filters">
+                  {t('common.clearFilters')}
+                </Button>
+              ) : undefined)
+            }
+          />
+        </RowPinContext>
+      )}
 
       {pagination && (
         <Pagination
@@ -196,9 +294,12 @@ export function RichTable<TData, TFilters extends Record<string, unknown>>({
           onChange={pagination.onChange}
           pageSizeOptions={pagination.pageSizeOptions}
           labels={{
-            previous: t('common.previous'),
-            next: t('common.next'),
-            summary: ({ from, to, total }) => `${from}-${to} / ${total}`,
+            summary: ({ from, to, total }) =>
+              t('common.paginationSummary', {
+                from: numberFormat.format(from),
+                to: numberFormat.format(to),
+                total: numberFormat.format(total),
+              }),
           }}
         />
       )}

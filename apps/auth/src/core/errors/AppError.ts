@@ -28,6 +28,11 @@ export function isAppError(error: unknown): error is AppError {
   return error instanceof AppError;
 }
 
+/** 資源不存在（404）：重試沒有意義，改提供返回等後續動作。 */
+export function isNotFound(error: unknown): boolean {
+  return error instanceof AppError && error.status === 404;
+}
+
 export const ErrorCodes = {
   VALIDATION_FAILED: 'VALIDATION_FAILED',
   AUTH_INVALID_CREDENTIALS: 'AUTH_INVALID_CREDENTIALS',
