@@ -27,7 +27,7 @@
 | P2 | 安全與容量的後續強化 | [`hardening-followups.md`](./hardening-followups.md) | 提案 | — |
 | P3 | 使用者群組 | [`user-groups.md`](./user-groups.md) | 提案 | — |
 | P3 | MFA | [`mfa.md`](./mfa.md) | 提案 | — |
-| P3 | Feature Flag（暫時的上線開關） | [`feature-flags.md`](./feature-flags.md) | 提案 | [可啟用的 feature](../adr/0021-runtime-feature-activation.md)（已完成） |
+| P3 | Feature Flag（暫時的上線開關） | [`feature-flags.md`](./feature-flags.md) | 規劃中 | [可啟用的 feature](../adr/0021-runtime-feature-activation.md)（已完成） |
 | P3 | 可觀測性 | [`observability.md`](./observability.md) | 提案 | — |
 | P3 | 多實例部署 | [`multi-instance.md`](./multi-instance.md) | 提案 | — |
 

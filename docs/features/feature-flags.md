@@ -1,102 +1,118 @@
 # Feature Flag（暫時的上線開關）
 
 - 優先度：P3
-- 狀態：提案
+- 狀態：規劃中（設計見 [ADR-0022](../adr/0022-feature-flags.md)，提案中（待確認））
 - 依賴：可啟用的 feature（已完成，[ADR-0021](../adr/0021-runtime-feature-activation.md)、[`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §7）
-- 相關：[`../architecture/05-tenancy.md`](../architecture/05-tenancy.md) §5.1（平台層開關）、[`backend/12-settings.md`](../architecture/backend/12-settings.md)
+- 相關：[`../architecture/05-tenancy.md`](../architecture/05-tenancy.md) §5.1（平台層開關）、[`multi-instance.md`](./multi-instance.md)（快取失效的延遲）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
 ## 背景
 
-「平台管理者為每個租戶開關模組」已經由 ADR-0021 做完：
+「平台管理者為每個租戶開關模組」已經由 ADR-0021 做完（`tenants.features`、`@RequireFeature` ＋ `FeatureGuard`、
+`/auth/profile` 的 `features`、前端執行期 `install`／`uninstall`）。它刻意只處理 **長期存在的模組**。
 
-| 已有 | 位置 |
-| --- | --- |
-| 可啟用 feature 的 id：`TENANT_FEATURES = ['file', 'auditLog', 'job']` | `apps/api/src/core/tenant/tenant-features.ts` |
-| 平台 DB 的 `tenants.features`（`text[]`，預設全部），apps/auth 的租戶詳情頁開關 | [`05-tenancy.md`](../architecture/05-tenancy.md) §5.1 |
-| `@RequireFeature('<id>')` ＋ `FeatureGuard`：未啟用回 `404 FEATURE_DISABLED`（JWT 之後、權限之前） | `common/decorators/require-feature.decorator.ts`、`common/guards/feature.guard.ts` |
-| `/auth/profile` 回 `features`；變更時推播 `resource.changed`（`tenantFeature`） | ADR-0021 D8 |
-| 前端執行期 `install` / `uninstall`、可訂閱可撤回的註冊表、`requireFeature` route guard、`useFeatureGate` | `core/feature/`、`app/features.ts` 的 `FEATURE_CATALOG` |
+還沒有的是 **暫時的上線開關**：新功能先合進 `main`、先給一兩個租戶試、穩定後全面開放、出事時不部署就能關掉，
+最後把開關連同舊的程式碼路徑一起刪除。兩者的差異與設計取捨見 [ADR-0022](../adr/0022-feature-flags.md) 的「背景」。
 
-ADR-0021 刻意只處理 **長期存在的模組**（商業上的開通，不會被移除）。
-還沒有的是 **暫時的上線開關**：編輯器的新功能要先合進 `main`、先給一兩個租戶試、穩定後全面開放，最後把開關連同舊的程式碼路徑一起刪掉。
-這和 `features` 的差異：
-
-| | 可啟用的 feature（ADR-0021） | Feature flag（本提案） |
-| --- | --- | --- |
-| 壽命 | 永久 | 暫時，一定會被移除 |
-| 顆粒 | 整個 feature（plugin ＋ route ＋ controller） | 整個 feature，**或** feature 內的一個按鈕、一支端點、一段分支 |
-| 新租戶的預設 | 全部啟用 | 關閉（直到全面開放） |
-| 誰決定 | 平台（租戶買了什麼） | 平台（這個租戶是不是試用對象）；全面開放時改程式預設值 |
-
-另外還有一個沒用到的空殼：`plugins/app/feature-flags.ts` 的 `featureFlagPlugin` 把靜態的 `featureFlags` 掛成 `attrs`，`main.tsx` 傳 `{}`，沒有人讀。
-ADR-0021 D3 已經規定可啟用的 feature 不得依賴 `attrs`，這個空殼應該換掉或刪掉。
+另外 `plugins/app/feature-flags.ts` 的 `featureFlagPlugin` 是沒人用的空殼（以 `attrs` 傳靜態值，ADR-0021 D3 已不允許），這次一併移除。
 
 ## 範圍
 
 | 做 | 不做（這一版） |
 | --- | --- |
-| flag 定義在程式碼：`key`、說明、預設值、擁有者、`removeBy`（預計移除日期） | 租戶內依角色開放（ADR-0021 已定：「部分人可用」由權限表達） |
-| 平台層的覆寫：每個租戶可以把某個 flag 開或關（apps/auth 的租戶詳情頁，與 `features` 並列） | 依單一使用者開放 |
-| 後端：`@RequireFlag('<key>')`（整支端點）與 `FeatureFlagService.isEnabled()`（分支內判斷） | A/B 實驗、百分比漸進釋出 |
-| `/auth/profile` 帶 `flags`（目前租戶生效的 flag），變更時推播讓 profile 重新取得 | 登入前頁面（apps/auth 的登入互動）讀 flag |
-| 前端：整個 feature 用 flag 擋時沿用 ADR-0021 的 `install` / `uninstall`；feature 內的局部 UI 用 `useFlag(key)` | |
-| `removeBy` 過期時 CI 失敗 | |
-| 移除 `featureFlagPlugin` 的空殼 | |
+| flag 目錄集中在 `core/feature-flags/feature-flags.ts`：`key`、說明、預設值、擁有者、`removeBy` | 租戶內依角色、依單一使用者開放（由權限表達） |
+| 兩級覆寫（平台 DB）：租戶層 `tenants.flags`、全平台層 `feature_flag_overrides`（含緊急關閉） | 百分比漸進釋出、A/B 實驗 |
+| 後端 `@RequireFlag('<key>')`（併入 `FeatureGuard`，404）與 `FeatureFlagService.isEnabled()` | apps/auth 自己的頁面、登入前的頁面讀 flag |
+| `/auth/profile` 帶 `flags`（生效為開的 key），所有租戶都帶，常駐 feature 也能用 | 外部 flag 服務 |
+| apps/auth：全平台的 flag 列表頁、租戶詳情頁的覆寫區 | |
+| backstage：`useFlag(key)`；`FEATURE_CATALOG` 的項目可以要求 flag | |
+| `removeBy` 過期時測試失敗 | |
+| 移除 `featureFlagPlugin` | |
 
-## 初步構想
+## 生效值
 
-### 定義與判斷（api）
-
-```ts
-// modules/<擁有者>/<擁有者>.flags.ts
-export const LEVEL_EDITOR_V2 = defineFeatureFlag({
-  key: 'levelEditor.v2',
-  description: '新版關卡編輯器',
-  defaultEnabled: false,
-  owner: 'content',
-  removeBy: '2026-12-31',
-});
+```
+全平台 off        → 關（緊急開關，蓋過租戶層）
+租戶層有值        → 用租戶層
+全平台 on         → 開
+都沒有            → defaultEnabled
 ```
 
-- `core/feature-flags/`：`defineFeatureFlag`、註冊表（模組在 `onModuleInit` 註冊，和 `defineSetting`、`defineJob` 同一種模式）、`FeatureFlagService`。
-- 生效值 = 平台對這個租戶的覆寫 ?? 程式預設值。沒有租戶層、沒有角色層。
-- 儲存：平台 DB。兩種做法見開放問題 1。讀取放進 `TenantContext`（和 `features` 一樣，進入租戶時一併載入），判斷不查 DB。
-- `@RequireFlag('<key>')`：沿用 `FeatureGuard` 的位置與語意（JWT 之後、權限之前，關閉時回 `404 FEATURE_DISABLED`），
-  可以直接擴充 `FeatureGuard` 同時認得兩種 metadata；授權宣告照樣必填，路由稽核不變。
-- 平台管理者變更覆寫：沿用 `features` 的流程（[`05-tenancy.md`](../architecture/05-tenancy.md) §5.1）——同一個交易寫平台稽核
-  （`tenant.update` 的 `before`／`after` 多帶 flag）、`TenantDirectory.invalidate()`，再發佈 `TENANT_FEATURES_CHANGED`，
-  推播對該租戶的 `t:{tenantId}` room `resource.changed`（沿用 `tenantFeature` 來源），前端重新取得 profile。
+| 全平台 | 租戶層 | 結果 | 情境 |
+| --- | --- | --- | --- |
+| — | — | `defaultEnabled` | 剛合進 `main`，預設關 |
+| — | `true` | 開 | 只給試用租戶 |
+| `on` | — | 開 | 全面開放 |
+| `on` | `false` | 關 | 全面開放，但某個租戶先不要 |
+| `off` | `true` | 關 | 緊急關閉，連試用租戶也關 |
 
-### 前端（backstage）
+## 資料與 API
 
-- `core/feature` 的 store 多存一份 `flags`，由同一個 profile 水合（`useSyncFeatures` 一併處理）。
-- **整個 feature 還在試用**：把它當成可啟用的 feature 放進 `FEATURE_CATALOG`，安裝條件改成「`features` 有它 **且** 對應的 flag 開啟」，
-  其餘（`requireFeature`、`useFeatureGate`、卸載時導回首頁）全部沿用。
-- **feature 內的局部 UI**：`useFlag(key)` 在渲染時判斷（訂閱 store，flag 變更時自動更新）。不影響註冊。
-- flag 的 key 由 api 定義並經 OpenAPI 產進 `@b2b-system/api-sdk`（和 `TenantFeature` 同一個做法），前端不寫裸字串。
+### 平台 DB
 
-### 平台管理頁（apps/auth）
+| 表／欄位 | 內容 |
+| --- | --- |
+| `tenants.flags` | `jsonb not null default '{}'`；`{ [key]: boolean }`，沒列出＝不覆寫。讀取時濾掉不認得的 key |
+| `feature_flag_overrides` | `key text pk`、`state text check in ('on','off')`、`updated_by uuid`、`updated_at`；沒有列＝不覆寫 |
 
-- 租戶詳情頁在「可啟用的 feature」旁加一區「試用中的功能」：列出所有 flag（說明、預設值、`removeBy`），每個可選「預設／開／關」。
+### 端點（apps/auth，平台權限）
 
-### 移除
+| 方法 | 路徑 | 權限 | 說明 |
+| --- | --- | --- | --- |
+| GET | `/platform/feature-flags` | `featureFlag:read` | 目錄（說明、預設值、擁有者、`removeBy`）、全平台狀態、覆寫為開／關的租戶數 |
+| PUT | `/platform/feature-flags/:key` | `featureFlag:update` | `{ state: 'default' \| 'on' \| 'off' }`；平台稽核 `featureFlag.update`；之後對每個 `active` 租戶發佈 `TENANT_FEATURES_CHANGED` |
+| PATCH | `/platform/tenants/:id` | `tenant:update` | 新增 `flags`：**完整的覆寫表**（取代而非增減）；不認得的 key 回 `VALIDATION_FAILED`；稽核沿用 `tenant.update` |
+| GET | `/platform/tenants/:id` | `tenant:read` | 回應加 `flags` |
 
-- 測試（或 lint）列出所有 `removeBy` 已過的 flag 就失敗，逼著在期限前處理。
-- 移除步驟：程式預設改成 `true` → 所有租戶都跑新路徑一段時間 → 刪掉判斷、舊路徑、`defineFeatureFlag`；DB 殘留的覆寫以 `toTenantFeatures` 同一種方式在讀取時忽略，不必另外清。
+平台權限：`featureFlag:read` 給 super-admin、operator、auditor；`featureFlag:update` 給 super-admin、operator（緊急關閉要讓值班的人做得到）。
+
+### 端點（backstage）
+
+| 方法 | 路徑 | 變更 |
+| --- | --- | --- |
+| GET | `/auth/profile` | 加 `flags: FeatureFlagKey[]` |
+
+## 實作清單
+
+依 [`../../CLAUDE.md`](../../CLAUDE.md)「新增一個功能的順序」，在 `feat/feature-flags` 上：
+
+1. **目錄與型別**：`core/feature-flags/feature-flags.ts`（`FEATURE_FLAGS`、`FeatureFlagKey`、`toFeatureFlags()` 過濾）；目錄為空時 schema 只接受空物件。
+2. **平台 DB migration**：`tenants.flags`、`feature_flag_overrides`。
+3. **讀取**：`TenantContext.flags`（`TenantDirectory` 一起載入）；`FeatureFlagService`（全平台覆寫的快取、`isEnabled` 同步判斷）。
+4. **guard**：`@RequireFlag` 的 decorator；`FeatureGuard` 同時認得兩種 metadata；`route-audit` 擋平台端點標 `@RequireFlag`。
+5. **平台端點**：`modules/tenant` 的 `flags`；新的 `modules/feature-flag`（或放 `modules/tenant`）提供列表與全平台切換；平台權限 seed 與 `docs/rbac/02-permission-catalog.md` §8。
+6. **profile**：`ProfileSchema` 加 `flags`；`pnpm openapi:generate && pnpm sdk:generate`。
+7. **backstage**：`core/feature` 的 store 加 `flags`、`useFlag`；`FEATURE_CATALOG` 的 `requires: { feature?, flag? }`；刪除 `featureFlagPlugin`。
+8. **apps/auth**：`features/feature-flag/`（列表頁、切換確認對話框，`off` 要二次確認）；`features/tenant` 詳情頁的覆寫區；兩個語系檔。
+9. **文件**：`05-tenancy.md` §5.1、`frontend/02-plugin-system.md` §7、`backend/05-rbac.md`（guard 順序）、ADR-0022 改「採用」。
+
+## 必測清單
+
+- [ ] 生效值：上表五種情境（`FeatureFlagService` 單元測試，table-driven）
+- [ ] `FeatureGuard`：flag 關閉 → 404 `FEATURE_DISABLED`，且不寫 `authz.denied`；未登入 → 401；`@RequireFeature` 與 `@RequireFlag` 並存時兩者都要成立
+- [ ] `PATCH /platform/tenants/:id` 的 `flags`：取代語意、不認得的 key 回 `VALIDATION_FAILED`、稽核帶 `before`／`after`、推播到該租戶
+- [ ] `PUT /platform/feature-flags/:key`：三種 state、稽核、推播到每個 `active` 租戶、`auditor` 被拒
+- [ ] `/auth/profile` 的 `flags` 只含生效為開的 key
+- [ ] DB 殘留不認得的 key 不會出現在 context、profile、列表
+- [ ] `removeBy` 到期的測試：以假的「今天」驗證會失敗
+- [ ] backstage：`useFlag` 隨 profile 更新；`requires.flag` 的 feature 在 flag 關閉時卸載並導回首頁
+- [ ] apps/auth：列表頁與租戶覆寫區的三個權限案例（有權限／無權限／未水合）
 
 ## 開放問題
 
 1. 平台層的覆寫存哪裡？
-   - A：`tenants.flags jsonb`（`{ key: boolean }`），和 `features` 同一列，讀取時一起載入
-   - B：`tenant_feature_flags`（`tenant_id`、`key`、`enabled`）表，查詢「哪些租戶開了某個 flag」比較方便
-2. 要不要一個 **全平台** 的覆寫（不改程式、不重新部署就對所有租戶開放）？沒有的話，全面開放一定要部署一次。
-3. flag 可不可以擋 **常駐** feature 裡的東西？可以的話，`/auth/profile` 對所有使用者都要帶 `flags`，而不只是有可啟用 feature 的租戶。
-4. `featureFlagPlugin` 直接刪除，還是改成 `core/feature` 的 `useFlag` 的 re-export？
+   **結論**：租戶層放 `tenants.flags jsonb`，與 `features` 同一列、同一次載入；另加全平台層的 `feature_flag_overrides`（見問題 2）。ADR-0022 D2。
+2. 要不要一個全平台的覆寫？
+   **結論**：要。三種狀態（預設／`on`／`off`），`off` 是緊急開關、蓋過租戶層。ADR-0022 D2、D3。
+3. flag 可不可以擋常駐 feature 裡的東西？
+   **結論**：可以。`/auth/profile` 對所有租戶都帶 `flags`（只列生效為開的 key）。ADR-0022 D6。
+4. `featureFlagPlugin` 直接刪除，還是改成 `useFlag` 的 re-export？
+   **結論**：直接刪除；`useFlag` 放在 `core/feature`。ADR-0022 D10。
 
 ## 歸檔去向
 
-- `docs/adr/NNNN-feature-flags.md`（或併入 ADR-0021 的延伸）
-- `docs/architecture/frontend/02-plugin-system.md` §7、`docs/architecture/05-tenancy.md` §5.1
+- ADR-0022 改「採用」
+- `docs/architecture/05-tenancy.md` §5.1（平台層開關）、`docs/architecture/frontend/02-plugin-system.md` §7
+- `docs/rbac/02-permission-catalog.md` §8（`featureFlag:*`）
 - `docs/conventions/`：flag 的命名、`removeBy` 與移除流程
