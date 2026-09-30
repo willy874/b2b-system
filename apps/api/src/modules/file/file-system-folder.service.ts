@@ -72,7 +72,8 @@ export class FileSystemFolderService
   /** 目前租戶的系統資料夾與個人資料夾；服務沒在跑時刪除的使用者也在這時補做。冪等。 */
   async prepareTenant(): Promise<void> {
     await this.ensureSystemFolders();
-    await this.ensurePersonalFolders(await this.repo.findFileManagerUserIds());
+    // 權限由關係圖解析（含 user:* 與依賴樹）：不在這裡另寫一套查詢，交給 PermissionService 篩
+    await this.ensurePersonalFolders(await this.repo.findActiveUserIds(), { onlyEligible: true });
     await this.removeEmptyPersonalFolders();
   }
 
