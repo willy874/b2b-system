@@ -50,6 +50,13 @@
       "when": 1790741757201,
       "tag": "0006_refresh_family_age",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790750218434,
+      "tag": "0007_tenant_features",
+      "breakpoints": true
     }
   ]
 }

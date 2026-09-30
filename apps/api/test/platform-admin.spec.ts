@@ -381,4 +381,62 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
     const [row] = await platformDb.select().from(tenants).where(eq(tenants.id, tenantId));
     expect(row?.allowExternalIdp).toBe(true);
   });
+
+  it('啟用的 feature：關掉 file 後租戶的 /files 回 404 FEATURE_DISABLED、profile 不含 file；打開後恢復（docs/adr/0021-runtime-feature-activation.md D8、D11）', async () => {
+    const tenantId = (await testTenantContext(app)).id;
+    const login = await request(http)
+      .post('/auth/login')
+      .set('Host', HOME_HOST)
+      .send(ROOT)
+      .expect(200);
+    const tenantToken = (login.body as { data: { accessToken: string } }).data.accessToken;
+    const tenantGet = (path: string) =>
+      request(http).get(path).set('Host', HOME_HOST).set('authorization', `Bearer ${tenantToken}`);
+    const featuresOfProfile = async () =>
+      dataOf<{ features: string[] }>(await tenantGet('/auth/profile').expect(200)).features;
+
+    expect(await featuresOfProfile()).toEqual(['file', 'auditLog', 'job']);
+
+    const off = dataOf<{ features: string[] }>(
+      await as(root, 'patch', `/platform/tenants/${tenantId}`)
+        .send({ features: ['job', 'auditLog'] })
+        .expect(200),
+    );
+    expect(off.features).toEqual(['auditLog', 'job']);
+
+    const disabled = await tenantGet('/files').expect(404);
+    expect(errorCodeOf(disabled)).toBe('FEATURE_DISABLED');
+    expect(errorCodeOf(await tenantGet('/file-folders').expect(404))).toBe('FEATURE_DISABLED');
+    // 未登入照舊 401：不讓未登入者知道這個租戶有沒有開這個功能
+    await request(http).get('/files').set('Host', HOME_HOST).expect(401);
+    // 其他 feature 與常駐的端點不受影響
+    await tenantGet('/audit-logs').expect(200);
+    await tenantGet('/users').expect(200);
+    expect(await featuresOfProfile()).toEqual(['auditLog', 'job']);
+
+    const audits = dataOf<{ items: Array<{ action: string; metadata: Record<string, unknown> }> }>(
+      await as(root, 'get', '/platform/audit-logs').query({ action: 'tenant.update' }).expect(200),
+    );
+    expect(
+      audits.items.find(
+        (entry) => (entry.metadata.after as { features?: string[] }).features?.length === 2,
+      )?.metadata.before,
+    ).toMatchObject({ features: ['file', 'auditLog', 'job'] });
+
+    // 重複的值直接拒絕；未知的 id 也拒絕
+    await as(root, 'patch', `/platform/tenants/${tenantId}`)
+      .send({ features: ['file', 'file'] })
+      .expect(400);
+    await as(root, 'patch', `/platform/tenants/${tenantId}`)
+      .send({ features: ['nope'] })
+      .expect(400);
+
+    await as(root, 'patch', `/platform/tenants/${tenantId}`)
+      .send({ features: ['file', 'auditLog', 'job'] })
+      .expect(200);
+    await tenantGet('/files').expect(200);
+    expect(await featuresOfProfile()).toEqual(['file', 'auditLog', 'job']);
+    const [row] = await platformDb.select().from(tenants).where(eq(tenants.id, tenantId));
+    expect(row?.features).toEqual(['file', 'auditLog', 'job']);
+  });
 });

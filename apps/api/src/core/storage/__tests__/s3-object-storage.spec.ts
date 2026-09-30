@@ -58,7 +58,14 @@ function setup(existingBuckets: string[] = [], publicEndpoint = 'http://localhos
 
 const inTenant = <T>(bucket: string, fn: () => T) =>
   runInTenantContext(
-    { id: bucket, code: bucket, db: {} as Database, storageBucket: bucket, allowExternalIdp: true },
+    {
+      id: bucket,
+      code: bucket,
+      db: {} as Database,
+      storageBucket: bucket,
+      allowExternalIdp: true,
+      features: ['file', 'auditLog', 'job'],
+    },
     fn,
   );
 

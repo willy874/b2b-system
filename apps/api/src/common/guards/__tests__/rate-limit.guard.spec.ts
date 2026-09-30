@@ -41,6 +41,7 @@ const tenantOf = (id: string) => ({
   db: {} as Database,
   storageBucket: `b2b-${id}`,
   allowExternalIdp: true,
+  features: ['file', 'auditLog', 'job'] as const,
 });
 
 interface FakeRequest {

@@ -88,6 +88,19 @@
       "disableConfirm": "After turning this off, {{code}} users can no longer sign in with an external IdP, and SSO-only domains fall back to password sign-in. Users who only ever signed in through the external IdP and have no password must reset their password first. Existing connections are kept and come back when you turn this on again.",
       "disableAction": "Turn off"
     },
+    "feature": {
+      "title": "Enabled features",
+      "description": "Tenant users only see enabled features; the API treats turned-off features as nonexistent. Data is kept and comes back when you turn a feature on again.",
+      "file": "Files",
+      "fileDescription": "File manager, folders and access grants.",
+      "auditLog": "Audit log",
+      "auditLogDescription": "Browse the tenant's activity (entries are still recorded).",
+      "job": "Background jobs",
+      "jobDescription": "View and retry the tenant's background jobs (jobs still run).",
+      "disableTitle": "Turn off feature",
+      "disableConfirm": "After turning this off, {{code}} users immediately lose access to \"{{feature}}\" and anyone on its pages is sent back to the home page. Data is kept and comes back when you turn it on again.",
+      "disableAction": "Turn off"
+    },
     "provisionWarning": "Provisioning finished, but a follow-up step didn't succeed (the tenant is usable; file storage is retried on the first upload): {{reason}}",
     "emptyFiltered": "No tenants match these filters",
     "filter": {

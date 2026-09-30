@@ -16,6 +16,7 @@ function signInAs() {
     user: { id: SELF_ID } as Profile['user'],
     roles: [{ id: SELF_ROLE, slug: 'admin', name: 'Admin', isSystem: true }],
     permissions: [],
+    features: [],
   });
 }
 
@@ -117,6 +118,13 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     const keys = keysOf({ resource: Resource.USER, kind: 'update', id: SELF_ID });
     expect(keys).toContain('invalidate:AUTH_PROFILE_QUERY_KEY');
     expect(keys).toContain('invalidate:USER_DETAIL_QUERY_KEY:' + SELF_ID);
+  });
+
+  it('平台管理者改了租戶啟用的 feature：profile 重新取得（docs/adr/0021-runtime-feature-activation.md D8）', () => {
+    signInAs();
+    expect(keysOf({ resource: Resource.TENANT_FEATURE, kind: 'update' })).toContain(
+      'invalidate:AUTH_PROFILE_QUERY_KEY',
+    );
   });
 
   it('重設密碼：畫面資料不變，只失效稽核列表', () => {

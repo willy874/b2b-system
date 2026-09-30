@@ -1,0 +1,1 @@
+ALTER TABLE "tenants" ADD COLUMN "features" text[] DEFAULT '{file,auditLog,job}'::text[] NOT NULL;

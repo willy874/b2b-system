@@ -45,6 +45,7 @@ describe('MailService（docs/architecture/backend/11-mail.md §3）', () => {
         db: {} as Database,
         storageBucket: 'b2b-acme',
         allowExternalIdp: true,
+        features: ['file', 'auditLog', 'job'],
       },
       fn,
     );
@@ -60,7 +61,14 @@ describe('MailService（docs/architecture/backend/11-mail.md §3）', () => {
     const { service } = setup();
     await expect(
       runInTenantContext(
-        { id: 't2', code: 'b', db: {} as Database, storageBucket: 'b', allowExternalIdp: true },
+        {
+          id: 't2',
+          code: 'b',
+          db: {} as Database,
+          storageBucket: 'b',
+          allowExternalIdp: true,
+          features: ['file', 'auditLog', 'job'],
+        },
         () => service.link('/approval'),
       ),
     ).rejects.toThrow();

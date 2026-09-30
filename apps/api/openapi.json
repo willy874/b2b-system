@@ -4581,6 +4581,182 @@
         "required": ["items", "groups"],
         "additionalProperties": false
       },
+      "TenantFeature": {
+        "type": "string",
+        "enum": ["file", "auditLog", "job"]
+      },
+      "PlatformTenant": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["provisioning", "active", "disabled", "failed"]
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "storageBucket": {
+            "type": "string"
+          },
+          "allowExternalIdp": {
+            "type": "boolean"
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantFeature"
+            }
+          },
+          "adminEmail": {
+            "nullable": true,
+            "type": "string"
+          },
+          "provisionError": {
+            "nullable": true,
+            "type": "string"
+          },
+          "provisionedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "status",
+          "domains",
+          "storageBucket",
+          "allowExternalIdp",
+          "features",
+          "adminEmail",
+          "provisionError",
+          "provisionedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "PlatformTenantList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformTenant"
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "offset": {
+                "type": "number"
+              },
+              "limit": {
+                "type": "number"
+              },
+              "total": {
+                "type": "number"
+              }
+            },
+            "required": ["offset", "limit", "total"],
+            "additionalProperties": false
+          },
+          "baseDomain": {
+            "type": "string"
+          }
+        },
+        "required": ["items", "pagination", "baseDomain"],
+        "additionalProperties": false
+      },
+      "CreateTenantRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{1,30}[a-z0-9]$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "adminEmail": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "adminName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "domains": {
+            "default": [],
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?=.{1,253}(?::\\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\\d{1,5})?$"
+            }
+          }
+        },
+        "required": ["code", "name", "adminEmail", "domains"],
+        "additionalProperties": false
+      },
+      "UpdateTenantRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "allowExternalIdp": {
+            "type": "boolean"
+          },
+          "features": {
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantFeature"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "AddTenantDomainRequest": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "pattern": "^(?=.{1,253}(?::\\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\\d{1,5})?$"
+          }
+        },
+        "required": ["domain"],
+        "additionalProperties": false
+      },
       "LoginRequest": {
         "type": "object",
         "properties": {
@@ -4682,9 +4858,15 @@
             "items": {
               "$ref": "#/components/schemas/PermissionKey"
             }
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantFeature"
+            }
           }
         },
-        "required": ["user", "roles", "permissions"],
+        "required": ["user", "roles", "permissions", "features"],
         "additionalProperties": false
       },
       "PlatformPermissionKey": {
@@ -6613,164 +6795,6 @@
           }
         },
         "required": ["values"],
-        "additionalProperties": false
-      },
-      "PlatformTenant": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "code": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": ["provisioning", "active", "disabled", "failed"]
-          },
-          "domains": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "storageBucket": {
-            "type": "string"
-          },
-          "allowExternalIdp": {
-            "type": "boolean"
-          },
-          "adminEmail": {
-            "nullable": true,
-            "type": "string"
-          },
-          "provisionError": {
-            "nullable": true,
-            "type": "string"
-          },
-          "provisionedAt": {
-            "nullable": true,
-            "type": "string"
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "updatedAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "code",
-          "name",
-          "status",
-          "domains",
-          "storageBucket",
-          "allowExternalIdp",
-          "adminEmail",
-          "provisionError",
-          "provisionedAt",
-          "createdAt",
-          "updatedAt"
-        ],
-        "additionalProperties": false
-      },
-      "PlatformTenantList": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PlatformTenant"
-            }
-          },
-          "pagination": {
-            "type": "object",
-            "properties": {
-              "offset": {
-                "type": "number"
-              },
-              "limit": {
-                "type": "number"
-              },
-              "total": {
-                "type": "number"
-              }
-            },
-            "required": ["offset", "limit", "total"],
-            "additionalProperties": false
-          },
-          "baseDomain": {
-            "type": "string"
-          }
-        },
-        "required": ["items", "pagination", "baseDomain"],
-        "additionalProperties": false
-      },
-      "CreateTenantRequest": {
-        "type": "object",
-        "properties": {
-          "code": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9-]{1,30}[a-z0-9]$"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "adminEmail": {
-            "type": "string",
-            "maxLength": 254,
-            "format": "email",
-            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
-          },
-          "adminName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "domains": {
-            "default": [],
-            "maxItems": 10,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "pattern": "^(?=.{1,253}(?::\\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\\d{1,5})?$"
-            }
-          }
-        },
-        "required": ["code", "name", "adminEmail", "domains"],
-        "additionalProperties": false
-      },
-      "UpdateTenantRequest": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "allowExternalIdp": {
-            "type": "boolean"
-          }
-        },
-        "additionalProperties": false
-      },
-      "AddTenantDomainRequest": {
-        "type": "object",
-        "properties": {
-          "domain": {
-            "type": "string",
-            "pattern": "^(?=.{1,253}(?::\\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\\d{1,5})?$"
-          }
-        },
-        "required": ["domain"],
         "additionalProperties": false
       },
       "CurrentTenant": {

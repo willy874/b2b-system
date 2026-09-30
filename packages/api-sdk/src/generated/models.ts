@@ -265,6 +265,57 @@ export interface PermissionCatalog {
   groups: Array<PermissionGroup>;
 }
 
+export const TenantFeature = {
+  file: 'file',
+  auditLog: 'auditLog',
+  job: 'job',
+} as const;
+export type TenantFeature = (typeof TenantFeature)[keyof typeof TenantFeature];
+
+export interface PlatformTenant {
+  id: string;
+  code: string;
+  name: string;
+  status: 'provisioning' | 'active' | 'disabled' | 'failed';
+  domains: Array<string>;
+  storageBucket: string;
+  allowExternalIdp: boolean;
+  features: Array<TenantFeature>;
+  adminEmail: string | null;
+  provisionError: string | null;
+  provisionedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlatformTenantList {
+  items: Array<PlatformTenant>;
+  pagination: {
+    offset: number;
+    limit: number;
+    total: number;
+  };
+  baseDomain: string;
+}
+
+export interface CreateTenantRequest {
+  code: string;
+  name: string;
+  adminEmail: string;
+  adminName?: string;
+  domains: Array<string>;
+}
+
+export interface UpdateTenantRequest {
+  name?: string;
+  allowExternalIdp?: boolean;
+  features?: Array<TenantFeature>;
+}
+
+export interface AddTenantDomainRequest {
+  domain: string;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -291,6 +342,7 @@ export interface Profile {
   };
   roles: Array<RoleSummary>;
   permissions: Array<PermissionKey>;
+  features: Array<TenantFeature>;
 }
 
 export const PlatformPermissionKey = {
@@ -792,48 +844,6 @@ export interface UpdateSystemSettingsRequest {
 
 export interface PublicSystemSettings {
   values: Record<string, string | number | boolean>;
-}
-
-export interface PlatformTenant {
-  id: string;
-  code: string;
-  name: string;
-  status: 'provisioning' | 'active' | 'disabled' | 'failed';
-  domains: Array<string>;
-  storageBucket: string;
-  allowExternalIdp: boolean;
-  adminEmail: string | null;
-  provisionError: string | null;
-  provisionedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface PlatformTenantList {
-  items: Array<PlatformTenant>;
-  pagination: {
-    offset: number;
-    limit: number;
-    total: number;
-  };
-  baseDomain: string;
-}
-
-export interface CreateTenantRequest {
-  code: string;
-  name: string;
-  adminEmail: string;
-  adminName?: string;
-  domains: Array<string>;
-}
-
-export interface UpdateTenantRequest {
-  name?: string;
-  allowExternalIdp?: boolean;
-}
-
-export interface AddTenantDomainRequest {
-  domain: string;
 }
 
 export interface CurrentTenant {

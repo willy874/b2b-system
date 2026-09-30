@@ -50,7 +50,7 @@
 
 | 元件 | 做什麼 |
 | --- | --- |
-| `TenantContext`（AsyncLocalStorage） | `{ id, code, db, storageBucket, allowExternalIdp }`；`currentTenant()`、`requireTenant()` 讀取 |
+| `TenantContext`（AsyncLocalStorage） | `{ id, code, db, storageBucket, allowExternalIdp, features }`；`currentTenant()`、`requireTenant()` 讀取 |
 | `TENANT_DB` | repository 注入的 Proxy：每次存取都轉到 **目前租戶** 的 `db`；沒有脈絡時拋 `TENANT_NOT_FOUND`，不會退回任何預設 DB |
 | `PLATFORM_DB` | 平台 DB（租戶登記、平台管理者、佇列、OIDC 的協定狀態） |
 | `Tenancy.enter(record)` | 進入租戶的唯一入口：檢查狀態與 migration 版本，建立（或沿用）那個租戶的連線池 |
@@ -87,7 +87,7 @@
 | 佈建 | 背景工作 `tenant.provision`（平台工作，不自動重試） | ① 建立 DB 角色與 database（`TENANT_PROVISIONING_DATABASE_URL`，要有 `CREATEDB` 與 `CREATEROLE`）② 跑租戶 migration ③ 權限目錄、系統角色、第一位 super-admin（`pending`）④ 改成 `active` ⑤ 在租戶脈絡裡寄啟用信、確認 bucket、發佈 `TENANT_ACTIVATED`（檔案的系統資料夾）。①–④ 失敗停在 `failed`（原因記在 `provision_error`）；⑤ 的失敗不改狀態，只記原因 |
 | 重試佈建 | `POST /platform/tenants/:id/provision`（`tenant:create`） | 只接受 `failed`；每一步都冪等（角色存在就把密碼改回來、database 存在就沿用） |
 | 佈建中斷 | 背景工作 `tenant.provisionSweep`（每 5 分鐘）；重試與刪除前也先跑一次 | 程序在佈建途中被重啟時，工作在逾時（15 分鐘）後被收回，租戶卻停在 `provisioning`：超過逾時 5 分鐘的改成 `failed`（`provision_error` 寫「佈建中斷」），之後就能重試或刪除 |
-| 改名、網域、外部 IdP 開關 | `PATCH /platform/tenants/:id`、`POST|DELETE …/domains`（`tenant:update`） | 網域一個只屬於一個租戶、不能移除最後一個與主要網域（第一個，`TENANT_PRIMARY_DOMAIN`）、apps/auth 的網域不能登記；`allowExternalIdp` 關掉時租戶不能新增或啟用外部 IdP 連線，登入時也不走連線（D22） |
+| 改名、網域、平台層開關 | `PATCH /platform/tenants/:id`、`POST|DELETE …/domains`（`tenant:update`） | 網域一個只屬於一個租戶、不能移除最後一個與主要網域（第一個，`TENANT_PRIMARY_DOMAIN`）、apps/auth 的網域不能登記；`allowExternalIdp`、`features` 見 §5.1 |
 | 停用 | `POST /platform/tenants/:id/disable`（`tenant:update`） | **先改狀態再收尾**：撤銷 app session、刪除這個租戶帳號（`t:{tenantId}:*`）在 IdP 的 session／grant、斷掉 `t:{tenantId}` room 的即時連線、關掉連線池。網域之後一律 503 |
 | 啟用 | `POST /platform/tenants/:id/enable` | 回到 `active`，發佈 `TENANT_ACTIVATED` |
 | 刪除 | `DELETE /platform/tenants/:id`（`tenant:delete`） | 停用並收尾、標記刪除、釋出網域；代碼之後可以給新租戶。database 與 bucket 留著 |
@@ -97,6 +97,26 @@
 停用、刪除的收尾（撤銷 session、IdP、連線池）在交易之後，失敗的步驟另外記一筆 `tenant.disable.cleanup`（或寫進 `tenant.delete` 的
 `cleanupFailed`）。網域的增刪先鎖住租戶列（`FOR UPDATE`）再數網域，同時移除兩個網域不會把網域移光。
 管理頁在 apps/auth 的 `/tenant`、`/tenant/$id`。
+
+### 5.1 平台層開關
+
+平台管理者在租戶詳情頁開關、存在平台 DB 的 `tenants`，經 `TenantDirectory` 進到每個請求的 `TenantContext`。
+租戶自己的管理者看得到結果，但不能改。
+
+| 欄位 | 值 | 效果 | 出處 |
+| --- | --- | --- | --- |
+| `allow_external_idp` | boolean，預設 `true` | 關掉時租戶不能新增或啟用外部 IdP 連線，登入時也不走連線（`IDENTITY_PROVIDER_NOT_ALLOWED`） | ADR-0020 D22 |
+| `features` | `text[]`，預設全部（`{file,auditLog,job}`） | 可啟用 feature 的 id（`core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`）。沒列出的 feature：api 以 `@RequireFeature()` 標的端點回 `404 FEATURE_DISABLED`（`common/guards/feature.guard.ts`）；`/auth/profile` 的 `features` 不含它，前端不安裝它。該 feature 的背景工作照常執行，資料保留 | [ADR-0021](../adr/0021-runtime-feature-activation.md) D8、D11 |
+
+- `PATCH /platform/tenants/:id` 的 `features` 是 **完整清單**（不是增減）；重複或不認得的 id 回 `VALIDATION_FAILED`，
+  存進 DB 時依 `TENANT_FEATURES` 的順序。DB 裡殘留不認得的值（程式移除某個 feature 之後）讀取時濾掉。
+- 變更與平台稽核（`tenant.update`，`before`／`after` 帶兩個開關）在同一個交易；之後 `TenantDirectory.invalidate()`，
+  本機立即生效，其他執行個體最多晚 `TENANT_CACHE_TTL` 秒。
+- `features` 真的改變時，失效之後發佈 `TENANT_FEATURES_CHANGED`（`{ tenantId }`），`modules/realtime` 對該租戶的
+  `t:{tenantId}` room 推 `resource.changed`（來源 `tenantFeature`），前端據此重新取得 profile
+  （[`backend/08-realtime.md`](./backend/08-realtime.md) §7）。平台的請求沒有租戶脈絡，所以事件以 `tenantId` 指明對象。
+- 新增一個可啟用的 feature：`TENANT_FEATURES` 加 id → 決定既有租戶要不要啟用（要的話寫一支資料 migration，
+  預設值也一併調整）→ controller 標 `@RequireFeature()` → `test/route-audit.spec.ts` 的前綴對照 → 前端的 catalog。
 
 ## 6. 周邊元件怎麼分租戶
 
@@ -108,7 +128,8 @@
 | 物件儲存 | 每個租戶一個 bucket（`tenants.storage_bucket`）；presigned URL 以 `FILE_STORAGE_PUBLIC_ENDPOINT` 的 `{tenantOrigin}` 簽成租戶自己網域的 `/storage` | [`backend/09-file.md`](./backend/09-file.md) §3、§3.1 |
 | 寄信 | 產品頁面的連結用租戶的主要網域（找不到就拋錯重試）；帳號流程的連結在 apps/auth、帶 `?tenant=` | [`backend/11-mail.md`](./backend/11-mail.md) |
 | 稽核 | 租戶內的動作寫租戶的 `audit_logs`；平台管理者的動作寫 `platform_audit_logs`，兩邊互相看不到 | [`backend/06-audit-log.md`](./backend/06-audit-log.md) |
-| 外部 IdP | 連線在租戶 DB，由租戶的管理者在 backstage 設定；平台只有開關 | [`04-sso.md`](./04-sso.md) |
+| 外部 IdP | 連線在租戶 DB，由租戶的管理者在 backstage 設定；平台只有開關（§5.1） | [`04-sso.md`](./04-sso.md) |
+| 可啟用的 feature | 平台 DB 的 `tenants.features`；api 以全域的 `FeatureGuard` 擋下未啟用的端點 | §5.1 |
 | 領域事件 | 在發佈者的租戶脈絡裡傳給訂閱者；`TENANT_ACTIVATED` 讓每個租戶一份的初始資料在佈建、重新啟用時補上 | `core/events` |
 | Access token | 帶 `tid`（租戶）或 `realm: 'platform'`；拿到別的網域一律無效 | [`backend/04-auth.md`](./backend/04-auth.md) |
 
@@ -169,8 +190,8 @@ api 與 migrate 都不再以 `POSTGRES_USER`（超級使用者）連線：
 
 | 層 | 涵蓋 |
 | --- | --- |
-| 單元 | `Tenancy`（狀態、版本檢查與重新檢查、`runForMaintenance`、`evict`）、`JobQueue` 對租戶不能進入的處理、`S3ObjectStorage` 的每租戶 bucket 與 presigned 網域、`MailService` 的租戶網域 |
-| 整合（`apps/api/test`） | `tenancy.spec.ts`（兩個租戶的帳號、token、資料互不相通；未知網域、停用、migration 落後）、`platform-tenant.spec.ts`（建立 → 佈建 → 啟用信 → 登入；網域；停用清掉 IdP 的 session；刪除後網域釋出）、`platform-admin.spec.ts`（平台管理者、稽核、背景工作、外部 IdP 開關）、`sso.spec.ts`（OIDC 帶租戶） |
+| 單元 | `Tenancy`（狀態、版本檢查與重新檢查、`runForMaintenance`、`evict`）、`JobQueue` 對租戶不能進入的處理、`S3ObjectStorage` 的每租戶 bucket 與 presigned 網域、`MailService` 的租戶網域、`FeatureGuard`、`PlatformTenantService.update` 的 `features`（稽核、失效後發佈事件） |
+| 整合（`apps/api/test`） | `tenancy.spec.ts`（兩個租戶的帳號、token、資料互不相通；未知網域、停用、migration 落後）、`platform-tenant.spec.ts`（建立 → 佈建 → 啟用信 → 登入；網域；停用清掉 IdP 的 session；刪除後網域釋出）、`platform-admin.spec.ts`（平台管理者、稽核、背景工作、外部 IdP 開關、關掉 `file` 後 `/files` 回 404 `FEATURE_DISABLED` 與 profile 的 `features`）、`route-audit.spec.ts`（`@RequireFeature` 標在哪些端點）、`sso.spec.ts`（OIDC 帶租戶） |
 | E2E（`apps/e2e/tests/tenancy.spec.ts`） | 平台管理者在 apps/auth 建立租戶，第一位管理員從啟用信進入 `{code}.localhost:5173`；同一個 IdP session 換租戶要重新登入；授權碼送到別的租戶的 BFF → `AUTH_SSO_CODE_INVALID`；authorize 的租戶與 redirect URI 不一致 → `invalid_request`、沒有授權碼；停用後網域 503 |
 
 HTTP 整合測試一律以 `listenOnLoopback(app)` 取得 server（[`../conventions/04-testing.md`](../conventions/04-testing.md) §3）。

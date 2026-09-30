@@ -23,6 +23,7 @@ function tenantRow(id: string, code: string): TenantRow {
     databaseUrlEncrypted: box.encrypt(`postgres://u:p@127.0.0.1:5432/${code}`),
     storageBucket: `b2b-${code}`,
     allowExternalIdp: true,
+    features: ['file', 'auditLog', 'job'],
   } as TenantRow;
 }
 

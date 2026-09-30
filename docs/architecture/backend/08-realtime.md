@@ -212,7 +212,7 @@ WebSocket 另有三道防線：
 | Room                   | 誰在裡面                                   | 名稱來源                     |
 | ---------------------- | ------------------------------------------ | ---------------------------- |
 | `t:{tenantId}:user:{userId}` | 該使用者的所有連線（所有裝置、所有分頁）   | `userRoom(id)`（租戶取自目前的租戶脈絡） |
-| `t:{tenantId}`         | 這個租戶的所有連線（停用、刪除租戶時一次斷掉） | `tenantRoom(tenantId)`（ADR-0020 D13） |
+| `t:{tenantId}`         | 這個租戶的所有連線（停用、刪除租戶時一次斷掉；租戶啟用的 feature 變更時推 `tenantFeature`） | `tenantRoom(tenantId)`（ADR-0020 D13、ADR-0021 D8） |
 | `t:{tenantId}:perm:{permissionKey}` | 目前租戶裡持有該權限的使用者的連線 | `permRoom(key)`（例 `t:…:perm:role:read`；租戶取自目前的租戶脈絡） |
 | `sid:{idpSessionUid}`  | 同一個 IdP session 的連線（經 SSO 登入、token 帶 `sid` 時才加入） | `idpSessionRoom(uid)`（ADR-0019 D5） |
 
@@ -241,6 +241,7 @@ super-admin 加入自己租戶的所有 perm room。
 | `file`             | `file:read`、`file:access`                 | —                                  | 檔案列表與詳情（`pending` 不推，完成上傳才算建立）。`file:access` 的人只看得到被授權的資料夾：收到看不到的變更只會多重抓一次 |
 | `fileFolder`       | `file:read`、`file:access`                 | —                                  | 資料夾樹、麵包屑、主區塊的資料夾；資料夾授權變更也以 `fileFolder update` 推出（能力旗標跟著變） |
 | `setting`          | `system:read`                              | —                                  | 系統設定頁；公開設定（登入頁、預設時區）下次載入時生效，不推給所有人（[`12-settings.md`](./12-settings.md) §4） |
+| `tenantFeature`    | —（不經這張表）                            | —                                  | 平台層的變更：由 `tenant.featuresChanged` 直接推給 `t:{tenantId}`（每個人都要重新取得 profile），見 §7.1。表裡的列是空的，只為了讓 `Record<ChangeSource, …>` 完整 |
 | 任何來源           | `auditLog:read`                            | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）    |
 
 - `io.to([...rooms]).emit()` 會對多個 room 的聯集 **去重**，同一條連線只收到一次。
@@ -281,6 +282,7 @@ async refreshAudience(userIds: readonly string[]) {
 | `permissions.changed`  | `{ userIds }`                                             | 權限集合可能改變的寫入           | 同步這些人的 perm room（§6.2）              |
 | `resource.changed`     | `{ changes: ResourceChangeWire[], affectedUserIds? }`     | 所有會改變畫面資料的寫入         | 依 §6.1 算出 room，推 `resource.changed`    |
 | `sessions.revoked`     | `{ userIds, reason }`                                     | 遞增 `token_version` 的寫入      | 推 `session.revoked` 並斷線（§3.5）         |
+| `tenant.featuresChanged` | `{ tenantId }`                                          | 平台管理者改了租戶的 `features`（`PlatformTenantService.update`，`TenantDirectory.invalidate()` 之後） | 對 `t:{tenantId}` 推 `resource.changed`（`{ resource: 'tenantFeature', kind: 'update' }`，沒有 `origin`）；前端重新取得 profile（[ADR-0021](../../adr/0021-runtime-feature-activation.md) D8） |
 
 事件描述的是 **領域上發生了什麼**，不是「要推給誰」；受眾的判斷只在 listener 裡。
 之後新增的訂閱者（例：寄通知信、webhook）不需要動到發佈端。
@@ -370,6 +372,7 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 | 遞迴刪除資料夾               | `fileFolder delete`；有檔案一起刪除時另發 `file delete`（`id='*'`） | —                                         |
 | 資料夾授權變更、中斷繼承     | `fileFolder update`（id 是該資料夾）                 | —                                                         |
 | 修改或還原系統設定           | `setting update`（每個 key 一筆，id 是設定的 key）   | —                                                         |
+| 平台管理者改了租戶啟用的 feature | 不發 `resource.changed`；發 `tenant.featuresChanged`（平台的請求沒有租戶脈絡，room 以 `tenantId` 組） | —                                  |
 
 登入失敗被鎖定 **不** 遞增 `token_version`，因此不撤銷既有連線：被鎖的人最遲在 access token 到期（§3.4）
 或下一則客戶端訊息（`WsAuthGuard`）時斷線。
@@ -448,6 +451,8 @@ export const ChangeSource = {
   FILE: 'file',
   FILE_FOLDER: 'fileFolder',
   SETTING: 'setting',
+  /** 平台管理者變更了租戶啟用的 feature；前端據此重新取得 profile（ADR-0021 D8）。 */
+  TENANT_FEATURE: 'tenantFeature',
 } as const;
 
 export const resourceChangedSchema = z.object({
@@ -563,7 +568,7 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 | gateway 有未宣告授權的 `@SubscribeMessage` → 啟動失敗                  | 單元（route-audit） |
 | 來源 → 受眾對照（§6.1）                                               | 單元   |
 | `DomainEventBus`：同租戶依序、跨租戶與 `sessions.revoked` 不互相阻塞、錯誤隔離、`meta` 在發佈當下擷取 | 單元   |
-| `realtime.listener`：三個領域事件各自的動作（假 bus ＋ 假 io）         | 單元   |
+| `realtime.listener`：四個領域事件各自的動作（假 bus ＋ 假 io）；`tenant.featuresChanged` 推給整個租戶的 room | 單元   |
 
 ---
 

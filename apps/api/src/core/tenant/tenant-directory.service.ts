@@ -8,6 +8,8 @@ import type { Env } from '../config';
 import { SecretBox, TENANT_SECRET_PURPOSE } from '../crypto';
 import { hostnameOf } from '../http';
 import { BoundedCache } from './bounded-cache';
+import { toTenantFeatures } from './tenant-features';
+import type { TenantFeature } from './tenant-features';
 import { TenantRepository } from './tenant.repository';
 
 /** 解密後的租戶登記。`databaseUrl` 只在建立連線池時使用，不寫進日誌。 */
@@ -20,6 +22,8 @@ export interface TenantRecord {
   /** 物件儲存的 bucket（D16）。 */
   storageBucket: string;
   allowExternalIdp: boolean;
+  /** 啟用的 feature（ADR-0021 D8）；DB 裡不認得的值已濾掉。 */
+  features: readonly TenantFeature[];
 }
 
 /** 每種查詢最多快取幾筆（租戶數遠小於這個值；上限只是防止被灌爆）。 */
@@ -196,6 +200,7 @@ export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy 
       databaseUrl: this.secrets.decrypt(row.databaseUrlEncrypted),
       storageBucket: row.storageBucket,
       allowExternalIdp: row.allowExternalIdp,
+      features: toTenantFeatures(row.features),
     };
   }
 

@@ -49,6 +49,7 @@ function tenant(id: string): TenantContext {
     db: {} as Database,
     storageBucket: `b2b-${id}`,
     allowExternalIdp: false,
+    features: ['file', 'auditLog', 'job'],
   };
 }
 

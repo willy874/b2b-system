@@ -8,9 +8,12 @@ import {
   MESSAGE_METADATA,
 } from '@nestjs/websockets/constants';
 
+import type { TenantFeature } from '@/core/tenant';
+
 import {
   IS_AUTHENTICATED,
   IS_PUBLIC,
+  REQUIRED_FEATURE,
   REQUIRED_PERMISSIONS,
   REQUIRED_PLATFORM_PERMISSIONS,
 } from './decorators';
@@ -25,6 +28,8 @@ export interface RouteDeclaration {
   /** `@RequirePlatformPermissions` 的鍵（平台的權限目錄，ADR-0020 D5）。 */
   platformKeys: PlatformPermissionKey[];
   match?: 'every' | 'some';
+  /** `@RequireFeature` 標的 feature（docs/adr/0021-runtime-feature-activation.md D11）；沒有標就是常駐的端點。 */
+  feature?: TenantFeature;
 }
 
 /** Gateway 的 `@SubscribeMessage` 處理器（docs/architecture/backend/08-realtime.md §5）。 */
@@ -94,10 +99,15 @@ export function collectRouteDeclarations(app: INestApplication): RouteDeclaratio
       if (subPath === undefined) continue;
 
       const verb = Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod;
+      const feature = reflector.getAllAndOverride<TenantFeature | undefined>(REQUIRED_FEATURE, [
+        handler as () => void,
+        metatype,
+      ]);
       declarations.push({
         method: RequestMethod[verb] ?? 'GET',
         path: joinPath(controllerPath, subPath),
         ...declarationOf(reflector, handler, metatype),
+        ...(feature && { feature }),
       });
     }
   }
@@ -143,11 +153,21 @@ export function collectGatewayDeclarations(app: INestApplication): GatewayMessag
  * 於 `app.listen()` 之前呼叫（docs/architecture/backend/05-rbac.md §7）。
  */
 export function auditRoutes(app: INestApplication): void {
-  const undeclared = collectRouteDeclarations(app).filter((r) => r.declaration === 'none');
+  const routes = collectRouteDeclarations(app);
+  const undeclared = routes.filter((r) => r.declaration === 'none');
   if (undeclared.length) {
     throw new Error(
       '以下路由未宣告授權策略（需要 @Public / @Authenticated / @RequirePermissions / @RequirePlatformPermissions 其中之一）：\n' +
         undeclared.map((r) => `  - ${r.method} ${r.path}`).join('\n'),
+    );
+  }
+
+  // 平台的請求沒有租戶脈絡，FeatureGuard 不判斷：標在平台端點上的 @RequireFeature 永遠不生效，視為寫錯
+  const misplaced = routes.filter((r) => r.feature && r.declaration === 'platformPermissions');
+  if (misplaced.length) {
+    throw new Error(
+      '以下平台端點標了 @RequireFeature（feature 以租戶為單位，平台端點不適用）：\n' +
+        misplaced.map((r) => `  - ${r.method} ${r.path}（${r.feature}）`).join('\n'),
     );
   }
 

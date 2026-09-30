@@ -10,6 +10,7 @@ export function tenantFixture(overrides: Partial<PlatformTenant> = {}): Platform
     domains: ['acme.localhost:5173', 'portal.acme.test'],
     storageBucket: 'b2b-acme',
     allowExternalIdp: true,
+    features: ['file', 'auditLog', 'job'],
     adminEmail: 'owner@acme.test',
     provisionError: null,
     provisionedAt: '2026-09-30T00:00:00.000Z',

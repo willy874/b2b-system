@@ -70,6 +70,8 @@ export const Resource = {
   ROLE_PERMISSION: 'rolePermission',
   /** 密碼、邀請等不出現在任何畫面上的憑證寫入（`id` = userId） */
   USER_CREDENTIAL: 'userCredential',
+  /** 平台管理者變更了這個租戶啟用的 feature（docs/adr/0021-runtime-feature-activation.md D8） */
+  TENANT_FEATURE: 'tenantFeature',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -184,11 +186,14 @@ const graph = createResourceGraph<Resource>({
       // 自己持有的角色改名、被刪或權限被改，有效權限可能變了
       { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'none', when: selfHoldsRole },
       { from: Resource.ROLE_PERMISSION, id: 'none', when: selfHoldsRole },
+      // profile 帶著啟用的 feature 清單；重新取得後由 useSyncFeatures 安裝或卸載
+      { from: Resource.TENANT_FEATURE, id: 'none' },
     ],
   },
   [Resource.USER_ROLE]: {},
   [Resource.ROLE_PERMISSION]: {},
   [Resource.USER_CREDENTIAL]: {},
+  [Resource.TENANT_FEATURE]: {},
 });
 
 /** 登入者改了自己的資料（profile / 偏好）：對系統而言就是一筆 user 更新。 */

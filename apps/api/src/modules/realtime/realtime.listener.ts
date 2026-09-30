@@ -1,4 +1,4 @@
-import { ServerEvent } from '@b2b-system/realtime';
+import { ChangeKind, ChangeSource, ServerEvent } from '@b2b-system/realtime';
 import type { ResourceChanged } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
@@ -39,6 +39,9 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
       ),
       this.bus.subscribe(DomainEvent.SESSIONS_REVOKED, (payload) =>
         this.onSessionsRevoked(payload),
+      ),
+      this.bus.subscribe(DomainEvent.TENANT_FEATURES_CHANGED, (payload) =>
+        this.onTenantFeaturesChanged(payload),
       ),
     ];
   }
@@ -98,5 +101,22 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
       this.publisher.disconnect(room);
       this.logger.log({ room, reason, sockets }, '撤銷即時連線');
     }
+  }
+
+  /**
+   * 租戶啟用的 feature 變了（docs/adr/0021-runtime-feature-activation.md D8）：推給這個租戶的 **所有** 連線，
+   * 每個人都要重新取得 profile。事件在平台的請求裡發佈（沒有租戶脈絡），所以 room 以 `tenantId` 組，
+   * 與停用租戶時撤銷連線的做法相同；也沒有 `origin`——發起的平台管理者不在租戶的連線裡。
+   */
+  onTenantFeaturesChanged({
+    tenantId,
+  }: DomainEventPayloads[typeof DomainEvent.TENANT_FEATURES_CHANGED]): void {
+    // 不先以 countConnections 略過：它只看本機的連線，裝了跨節點 adapter 之後會漏推（08-realtime.md §10.3）
+    const room = tenantRoom(tenantId);
+    const payload: ResourceChanged = {
+      changes: [{ resource: ChangeSource.TENANT_FEATURE, kind: ChangeKind.UPDATE }],
+    };
+    this.publisher.emit(room, ServerEvent.RESOURCE_CHANGED, payload);
+    this.logger.debug({ room }, '推播租戶的 feature 變更');
   }
 }

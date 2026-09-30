@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { RequirePermissions } from '@/common/decorators';
+import { RequireFeature, RequirePermissions } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
 import { ApiZodListResponse, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
 
@@ -15,6 +15,7 @@ import type { ListAuditLogDto } from './dto/list-audit-log.dto';
 
 @ApiTags('audit-logs')
 @Controller('audit-logs')
+@RequireFeature('auditLog')
 export class AuditLogController {
   constructor(private readonly auditLogService: AuditLogService) {}
 

@@ -1,15 +1,22 @@
-import { Module } from '@nestjs/common';
+import { Controller, Get, Module } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { DiscoveryModule, NestFactory } from '@nestjs/core';
 import { SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { Authenticated, Public, RequirePermissions } from '@/common/decorators';
+import {
+  Authenticated,
+  Public,
+  RequireFeature,
+  RequirePermissions,
+  RequirePlatformPermissions,
+} from '@/common/decorators';
 
 import {
   auditRoutes,
   collectDeclaredPermissionKeys,
   collectGatewayDeclarations,
+  collectRouteDeclarations,
 } from '../route-audit';
 
 @WebSocketGateway({ path: '/socket.io' })
@@ -47,6 +54,34 @@ class UndeclaredModule {}
 
 @Module({ imports: [DiscoveryModule], providers: [PublicGateway] })
 class PublicModule {}
+
+@Controller('featured')
+@RequireFeature('file')
+class FeaturedController {
+  @Get()
+  @RequirePermissions('file:read')
+  list(): void {}
+
+  /** handler 的宣告蓋過 class 的 */
+  @Get('logs')
+  @RequireFeature('auditLog')
+  @RequirePermissions('auditLog:read')
+  logs(): void {}
+}
+
+@Controller('platform-featured')
+class PlatformFeaturedController {
+  @Get()
+  @RequireFeature('job')
+  @RequirePlatformPermissions('platformJob:read')
+  list(): void {}
+}
+
+@Module({ imports: [DiscoveryModule], controllers: [FeaturedController] })
+class FeaturedModule {}
+
+@Module({ imports: [DiscoveryModule], controllers: [PlatformFeaturedController] })
+class PlatformFeaturedModule {}
 
 let app: INestApplication | undefined;
 
@@ -99,5 +134,22 @@ describe('路由稽核延伸到 gateway（docs/architecture/backend/08-realtime.
   it('@Public() 在 WebSocket 上不允許 → 稽核失敗', async () => {
     const bad = await boot(PublicModule);
     expect(() => auditRoutes(bad)).toThrow(/PublicGateway open（public）/);
+  });
+});
+
+describe('路由稽核的 @RequireFeature（docs/adr/0021-runtime-feature-activation.md D11）', () => {
+  it('收集每個路由的 feature；handler 的宣告蓋過 class 的', async () => {
+    const featured = await boot(FeaturedModule);
+    const routes = collectRouteDeclarations(featured);
+    expect(routes.map((r) => [r.path, r.feature])).toEqual([
+      ['/featured', 'file'],
+      ['/featured/logs', 'auditLog'],
+    ]);
+    expect(() => auditRoutes(featured)).not.toThrow();
+  });
+
+  it('平台端點標了 @RequireFeature → 稽核失敗（平台的請求沒有租戶，標了也不生效）', async () => {
+    const bad = await boot(PlatformFeaturedModule);
+    expect(() => auditRoutes(bad)).toThrow(/GET \/platform-featured（job）/);
   });
 });

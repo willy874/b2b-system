@@ -116,7 +116,9 @@
   },
   "app": {
     "title": "B2B System",
-    "subtitle": "RBAC console"
+    "subtitle": "RBAC console",
+    "featureDisabled": "The feature of this page has been disabled",
+    "featureInstallFailed": "Failed to load a feature. Please reload the page"
   },
   "error": {
     "unknown": "Something went wrong. Please try again.",
@@ -129,6 +131,7 @@
     "VALIDATION_FAILED": "Some fields are invalid. Please review and try again.",
     "TENANT_NOT_FOUND": "This address does not belong to any tenant. Check that the URL is correct.",
     "TENANT_UNAVAILABLE": "This tenant is currently unavailable. Contact the platform administrator.",
+    "FEATURE_DISABLED": "This feature is not enabled for the current tenant.",
     "PLATFORM_ONLY": "This is only available on the platform administration site.",
     "TENANT_CODE_TAKEN": "This tenant code is already in use.",
     "TENANT_DOMAIN_TAKEN": "This domain already belongs to another tenant.",

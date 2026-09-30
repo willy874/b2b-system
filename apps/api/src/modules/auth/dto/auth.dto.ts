@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { defineSchema } from '@/core/validation';
 import { ALL_PLATFORM_PERMISSION_KEYS } from '@/db/seeds/platform-permissions';
 import { PermissionKeySchema } from '@/modules/permission/dto/permission.dto';
+import { TenantFeatureSchema } from '@/modules/tenant/dto/platform-tenant.dto';
 import { RoleSummarySchema, UserStatusSchema } from '@/modules/user/dto/user.dto';
 
 import { PasswordSchema } from '../password';
@@ -38,6 +39,11 @@ export const ProfileSchema = defineSchema(
     }),
     roles: z.array(RoleSummarySchema),
     permissions: z.array(PermissionKeySchema),
+    /**
+     * 目前租戶啟用的 feature（docs/adr/0021-runtime-feature-activation.md D8）：前端與權限一起水合，
+     * 據此安裝或移除可啟用的 feature。平台管理者變更時推 `resource.changed`（`tenantFeature`）。
+     */
+    features: z.array(TenantFeatureSchema),
   }),
 );
 

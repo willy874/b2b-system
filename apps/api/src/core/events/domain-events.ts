@@ -22,6 +22,11 @@ export const DomainEvent = {
    * 不必等程序重啟時的 `forEachActive`。
    */
   TENANT_ACTIVATED: 'tenant.activated',
+  /**
+   * 平台管理者變更了租戶啟用的 feature（docs/adr/0021-runtime-feature-activation.md D8）。平台的請求沒有租戶脈絡，
+   * 所以以 `tenantId` 指明對象；在 `TenantDirectory.invalidate()` 之後發佈。
+   */
+  TENANT_FEATURES_CHANGED: 'tenant.featuresChanged',
 } as const;
 
 export type DomainEvent = (typeof DomainEvent)[keyof typeof DomainEvent];
@@ -45,6 +50,7 @@ export interface DomainEventPayloads {
     reason: SessionRevokedReason;
   };
   [DomainEvent.TENANT_ACTIVATED]: Record<string, never>;
+  [DomainEvent.TENANT_FEATURES_CHANGED]: { tenantId: string };
 }
 
 /** 發佈當下從請求 context 擷取的資訊；handler 執行時請求可能已經結束。 */

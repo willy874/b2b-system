@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 
-import { CurrentUser, RequireAnyPermission } from '@/common/decorators';
+import { CurrentUser, RequireAnyPermission, RequireFeature } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
@@ -52,6 +52,7 @@ import { FileFolderGrantService } from './file-folder-grant.service';
  */
 @ApiTags('files')
 @Controller('file-folders/:id')
+@RequireFeature('file')
 export class FileFolderGrantController {
   constructor(
     private readonly grantService: FileFolderGrantService,

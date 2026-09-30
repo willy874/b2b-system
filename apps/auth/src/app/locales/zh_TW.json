@@ -120,6 +120,7 @@
     "TENANT_PRIMARY_DOMAIN": "主要網域不能移除：信中的連結與「進入租戶」都使用它。",
     "PLATFORM_ADMIN_NOT_FOUND": "找不到這位平台管理者，可能已被刪除。",
     "IDENTITY_PROVIDER_NOT_ALLOWED": "平台管理者已停用這個租戶的外部 IdP。",
+    "FEATURE_DISABLED": "這個功能目前沒有開放給這個租戶。",
     "AUTH_INVALID_CREDENTIALS": "帳號或密碼錯誤。",
     "AUTH_ACCOUNT_PENDING": "此帳號尚未啟用，請先完成啟用流程。",
     "AUTH_ACCOUNT_DISABLED": "此帳號已被停用。",

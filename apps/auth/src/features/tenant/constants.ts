@@ -1,3 +1,4 @@
+import { TenantFeature } from '@/shared/api-sdk';
 import type { PlatformTenant } from '@/shared/api-sdk';
 
 type TenantStatus = PlatformTenant['status'];
@@ -40,3 +41,21 @@ export const RESERVED_TENANT_CODES: ReadonlySet<string> = new Set([
 /** 與後端 `TenantDomainSchema` 相同：主機名稱，可以帶 port。 */
 export const TENANT_DOMAIN_PATTERN =
   /^(?=.{1,253}(?::\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\d{1,5})?$/;
+
+/**
+ * 可由平台管理者開關的 feature（docs/adr/0021-runtime-feature-activation.md D8），依 api 的 `TENANT_FEATURES` 順序。
+ * 值來自 api-sdk：api 新增一個 id 時，下面兩張表的 `satisfies` 會讓編譯失敗。
+ */
+export const TENANT_FEATURES: readonly TenantFeature[] = Object.values(TenantFeature);
+
+export const TENANT_FEATURE_LABEL_KEY = {
+  file: 'tenant.feature.file',
+  auditLog: 'tenant.feature.auditLog',
+  job: 'tenant.feature.job',
+} as const satisfies Record<TenantFeature, string>;
+
+export const TENANT_FEATURE_DESCRIPTION_KEY = {
+  file: 'tenant.feature.fileDescription',
+  auditLog: 'tenant.feature.auditLogDescription',
+  job: 'tenant.feature.jobDescription',
+} as const satisfies Record<TenantFeature, string>;
