@@ -15,7 +15,10 @@
       "title": "Preferences",
       "description": "Language and timezone are synced to your account.",
       "saved": "Preferences saved.",
-      "themeHint": "Theme is saved on this device only and is not synced to your account."
+      "themeHint": "Theme is saved on this device only and is not synced to your account.",
+      "headerToolbar": "Header tools",
+      "headerToolbarHint": "Drag to reorder and toggle which tools appear in the header. Saved on this device only.",
+      "headerToolbarShow": "Show \"{{name}}\" in the header"
     },
     "field": {
       "email": "Email",

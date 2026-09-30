@@ -35,6 +35,7 @@ core/realtime/
 ├── activeClient.ts                        目前的連線與協調者（isRealtimeAvailable）：core/cache 不必認識 plugin
 ├── clientId.ts                            分頁的 instance id（也用在 x-client-id）
 ├── useRealtimeEvent.ts                    feature 訂閱伺服器事件的唯一入口
+├── useRealtimeStatus.ts                   連線狀態（connected／disconnected／disabled）；頂列的連線燈號用
 └── index.ts
 core/cache/AppQueryClient.ts               推播可用時不再跨分頁廣播；applyInvalidation 支援只標 stale
 shared/channel/leader/                     ★ 跨分頁 leader 選舉（純引擎，adapters 可注入）
@@ -293,6 +294,15 @@ useRealtimeEvent(ServerEvent.SOMETHING, (payload) => { … });
 - **只有 leader 分頁收得到**（follower 沒有連線）。所有分頁都需要的低頻事件，要在 `RealtimeCoordinator`
   加一種 control 訊息轉發（像 `resource-changed`）；高頻事件不轉發——BroadcastChannel 不是資料匯流排，
   需要的分頁應該自己成為 leader（使用者正在看的分頁本來就是）。
+
+### 8.1 連線狀態
+
+`useRealtimeStatus()` 回傳 `connected`／`disconnected`／`disabled`（沒有註冊推播，例如 mock 模式），
+底層是 `isRealtimeAvailable()` ＋ `subscribeRealtimeAvailability()`：follower 分頁看的是 leader 回報的狀態，
+所有分頁顯示一致。頂列的連線燈號（`app/layouts/RealtimeStatusIndicator.tsx`，頂列工具 `realtimeStatus`，
+[02 §4.4](./02-plugin-system.md)）只顯示、不能操作。
+
+隱藏的分頁不參與選舉：只開著一個背景分頁時沒有 leader，燈號會是 `disconnected`，這是預期行為。
 
 ---
 

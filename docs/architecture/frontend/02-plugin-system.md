@@ -218,6 +218,26 @@ export function tableColumnSettingsPlugin(): AppPluginFactory {
 `id` 與 `RichTable` 的 `settings.tableId` 相同，兩邊讀寫同一份 `core/store/tableColumnSettings`。
 偏好頁的 route loader 是 `preferenceLocaleLoader()`：各分頁與各列表名稱所在的 scope 都會先載入。
 
+### 4.4 頂列工具（`core/toolbar`）
+
+頂列（Header）的工具（語言、主題切換……）也是註冊表：在 plugin 的同步階段呼叫
+`registerHeaderTool({ key, order, labelI18nKey, icon, Component })`，頂列（`app/layouts/HeaderToolbar.tsx`）
+與偏好頁的「頂列工具」區塊（`features/account/components/HeaderToolbarSettings.tsx`）都只讀註冊表，
+**追加工具不必改這兩處**。內建工具在 `app/layouts/headerTools.ts` 登記，由 `app/plugin.ts` 呼叫；
+屬於某個 feature 的工具在該 feature 的 plugin 登記。
+
+| 項目 | 規則 |
+| --- | --- |
+| 使用者設定 | 偏好頁拖曳排序、開關顯示，立即生效；存在 `preference` dictStorage 的 `headerToolbar` 鍵（`useHeaderToolbarStore`），**只存本機**、跨分頁同步 |
+| 存的內容 | `{ order, hidden }`；沒調整過是 `null`，照 `order` 欄位的預設順序全部顯示 |
+| 新追加的工具 | 不在已存 `order` 裡的工具接在最後、預設顯示（`resolveHeaderTools`），不必遷移使用者的設定 |
+| 移除的工具 | 已存設定裡找不到的 key 直接略過 |
+| `key` | 存進設定的鍵，發佈後不要改名 |
+| `labelI18nKey` | 放在全域語系包（`app/locales`），偏好頁之外的 scope 未必載入 |
+
+內建工具依序是批次佇列（`batchQueue`，關掉只是不顯示按鈕，批次結果仍由 `BatchQueueNotifier` 彈出）、即時連線狀態（`realtimeStatus`，[11 §8.1](./11-realtime.md)）、語言（`language`）、主題（`theme`）。
+帳號選單是身分入口，固定顯示在最右側，不在註冊表裡。
+
 ---
 
 ## 5. 一個 feature plugin 的標準形狀

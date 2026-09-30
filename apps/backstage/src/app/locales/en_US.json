@@ -254,6 +254,19 @@
       "delete": "Delete identity providers"
     }
   },
+  "language": {
+    "label": "Language",
+    "switchTo": "Switch to {{language}}",
+    "current": "Current"
+  },
+  "realtime": {
+    "status": {
+      "label": "Live connection status",
+      "connected": "Live connection: connected",
+      "disconnected": "Live connection: offline, data refreshes periodically",
+      "disabled": "Live connection: disabled"
+    }
+  },
   "theme": {
     "label": "Theme",
     "light": "Light",

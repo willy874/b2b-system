@@ -9,16 +9,19 @@ import { useToast } from '@/core/notify';
 import { getPreferenceSections } from '@/core/preference';
 import { useLocaleStore, useThemeStore, useTimezoneStore } from '@/core/store';
 import { THEME_OPTIONS } from '@/core/theme';
-import { Languages } from '@/shared/constants/lang';
+import { LANGUAGE_LABELS, SUPPORTED_LANGUAGES } from '@/shared/constants/lang';
 import type { Language } from '@/shared/constants/lang';
+
+import { HeaderToolbarSettings } from '../../components/HeaderToolbarSettings';
+import { useChangeLocale } from '../../hooks/useChangeLocale';
 
 const TIMEZONES = ['Asia/Taipei', 'Asia/Tokyo', 'UTC', 'America/Los_Angeles'];
 
 export default function PreferencePage() {
-  const { t, changeLanguage } = useTranslation();
+  const { t } = useTranslation();
   const toast = useToast();
   const locale = useLocaleStore((state) => state.locale);
-  const setLocale = useLocaleStore((state) => state.setLocale);
+  const changeLocale = useChangeLocale();
   const timezone = useTimezoneStore((state) => state.timezone);
   const setTimezone = useTimezoneStore((state) => state.setTimezone);
   const theme = useThemeStore((state) => state.theme);
@@ -45,16 +48,13 @@ export default function PreferencePage() {
         <Select
           value={locale}
           onValueChange={(value) => {
-            const next = value as Language;
-            setLocale(next);
-            void changeLanguage(next);
-            sync.mutate({ params: { preferences: { locale: next } } });
+            changeLocale(value as Language);
             toast.success(t('account.preference.saved'));
           }}
-          options={[
-            { value: Languages.ZH_TW, label: '繁體中文' },
-            { value: Languages.EN_US, label: 'English' },
-          ]}
+          options={SUPPORTED_LANGUAGES.map((language) => ({
+            value: language,
+            label: LANGUAGE_LABELS[language],
+          }))}
           data-testid="preference-locale"
         />
       </Field>
@@ -89,6 +89,17 @@ export default function PreferencePage() {
           data-testid="preference-theme"
         />
       </Field>
+
+      {/* 不用 Field：Field 的 label 會綁到清單裡的第一個控制項（拖曳把手） */}
+      <section aria-labelledby="preference-header-toolbar">
+        <h2 id="preference-header-toolbar" className="m-0 text-base font-medium">
+          {t('account.preference.headerToolbar')}
+        </h2>
+        <p className="mt-1 mb-2 text-sm text-[var(--color-fg-muted)]">
+          {t('account.preference.headerToolbarHint')}
+        </p>
+        <HeaderToolbarSettings />
+      </section>
 
       {sections.map((section) => (
         <section key={section.key} data-testid="preference-section" data-value={section.key}>
