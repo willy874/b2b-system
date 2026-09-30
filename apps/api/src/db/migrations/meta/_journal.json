@@ -64,6 +64,13 @@
       "when": 1790758613370,
       "tag": "0008_relation_tuples_mirror",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790766677642,
+      "tag": "0009_authz_revision",
+      "breakpoints": true
     }
   ]
 }

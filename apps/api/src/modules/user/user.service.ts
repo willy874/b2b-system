@@ -149,7 +149,7 @@ export class UserService {
       return account;
     });
 
-    this.publishCreated(created.id, dto.roleIds);
+    await this.publishCreated(created.id, dto.roleIds);
     return toDto(created, await this.repo.listRoles(created.id));
   }
 
@@ -300,10 +300,9 @@ export class UserService {
       return current;
     });
 
-    this.permissionService.invalidateUser(id);
+    await this.permissionService.permissionsChanged([id]);
     // 新舊角色都要通知：兩邊的 userCount 與持有者清單都變了
     const roleIds = [...new Set([...before.map((role) => role.id), ...dto.roleIds])];
-    this.events.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: [id] });
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [
         {
@@ -435,11 +434,9 @@ export class UserService {
     return user;
   }
 
-  publishCreated(userId: string, roleIds: readonly string[]): void {
+  async publishCreated(userId: string, roleIds: readonly string[]): Promise<void> {
     // 帶角色建立＝權限從無到有：訂閱者（例：檔案模組建立個人資料夾）跟著反應
-    if (roleIds.length > 0) {
-      this.events.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: [userId] });
-    }
+    if (roleIds.length > 0) await this.permissionService.permissionsChanged([userId]);
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [
         {

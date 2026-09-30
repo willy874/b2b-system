@@ -47,8 +47,9 @@ export class FileSystemFolderService
 
   onModuleInit(): void {
     this.unsubscribers = [
+      // 只有發起寫入的程序知道是誰（其他程序收到的廣播沒有名單）：個人資料夾建在 DB，建一次就夠
       this.events.subscribe(DomainEvent.PERMISSIONS_CHANGED, ({ userIds }) =>
-        this.ensurePersonalFolders(userIds, { onlyEligible: true }),
+        userIds ? this.ensurePersonalFolders(userIds, { onlyEligible: true }) : undefined,
       ),
       // 新佈建或重新啟用的租戶：不等重啟就補上系統資料夾（事件在那個租戶的脈絡裡發佈）
       this.events.subscribe(DomainEvent.TENANT_ACTIVATED, () => this.prepareTenant()),

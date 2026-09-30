@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
 // perm room 帶租戶（docs/adr/0020-physical-tenant-isolation.md D17）：固定在租戶 t1
-vi.mock('@/core/tenant', () => ({ requireTenant: () => ({ id: 't1' }) }));
+vi.mock('@/core/tenant', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/core/tenant')>()),
+  requireTenant: () => ({ id: 't1' }),
+}));
 
 // 讓個別案例可以把受眾換成空集合；其餘案例走真實的對照表
 vi.mock('../realtime.audience', async (importOriginal) => {
@@ -19,7 +22,7 @@ import { RealtimePublisher } from '../realtime.publisher';
 
 type Handler = (payload: unknown, meta: DomainEventMeta) => unknown;
 
-function setup(openRooms: Record<string, number> = {}) {
+function setup(openRooms: Record<string, number> = {}, usersInRoom: Record<string, string[]> = {}) {
   const handlers = new Map<string, Handler>();
   const unsubscribe = vi.fn();
   const bus = {
@@ -37,6 +40,9 @@ function setup(openRooms: Record<string, number> = {}) {
     }
     countConnections(room: string): number {
       return openRooms[room] ?? 0;
+    }
+    connectedUserIds(room: string): string[] {
+      return usersInRoom[room] ?? [];
     }
     moveRooms(): void {}
     disconnect(room: string): void {
@@ -73,10 +79,10 @@ describe('RealtimeListener（領域事件 → 推播）', () => {
     expect(unsubscribe).toHaveBeenCalledTimes(4);
   });
 
-  it('permissions.changed → 同步這些人的 room', async () => {
-    const { fire, audience } = setup();
-    await fire(DomainEvent.PERMISSIONS_CHANGED, { userIds: ['u1', 'u2'] });
-    expect(audience.refreshAudience).toHaveBeenCalledWith(['u1', 'u2']);
+  it('permissions.changed → 這個租戶在本機的所有連線重算 room，不看事件帶的名單', async () => {
+    const { fire, audience } = setup({}, { 't:t1': ['u1', 'u2', 'u3'] });
+    await fire(DomainEvent.PERMISSIONS_CHANGED, { userIds: ['u1'] });
+    expect(audience.refreshAudience).toHaveBeenCalledWith(['u1', 'u2', 'u3']);
   });
 
   it('resource.changed → 推到受眾 room，origin 取自 meta.clientId', () => {

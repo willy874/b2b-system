@@ -5,6 +5,7 @@ import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import type { DomainEventMeta, DomainEventPayloads } from '@/core/events';
+import { requireTenant } from '@/core/tenant';
 
 import { RealtimeAudience, resolveAudienceRooms } from './realtime.audience';
 import { RealtimePublisher } from './realtime.publisher';
@@ -31,9 +32,7 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     this.unsubscribers = [
-      this.bus.subscribe(DomainEvent.PERMISSIONS_CHANGED, (payload) =>
-        this.onPermissionsChanged(payload),
-      ),
+      this.bus.subscribe(DomainEvent.PERMISSIONS_CHANGED, () => this.onPermissionsChanged()),
       this.bus.subscribe(DomainEvent.RESOURCE_CHANGED, (payload, meta) =>
         this.onResourceChanged(payload, meta),
       ),
@@ -51,12 +50,14 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
     this.unsubscribers = [];
   }
 
-  /** 權限集合改變的人換 room（§6.2）。權限快取在發佈前已失效。 */
-  async onPermissionsChanged({
-    userIds,
-  }: DomainEventPayloads[typeof DomainEvent.PERMISSIONS_CHANGED]): Promise<void> {
-    if (!userIds.length) return;
-    await this.audience.refreshAudience(userIds);
+  /**
+   * 關係圖變了：這個租戶在本機的所有連線重算 room（§6.2）。事件不帶「受影響的人」——
+   * 失效以整個租戶為單位（docs/adr/0024-relationship-based-access-control.md D8），權限快取在發佈前已失效。
+   */
+  async onPermissionsChanged(): Promise<void> {
+    await this.audience.refreshAudience(
+      this.publisher.connectedUserIds(tenantRoom(requireTenant().id)),
+    );
   }
 
   /** 依來源 → 受眾表推播；`origin` 讓發起的分頁略過（§6.1、§7.1）。 */

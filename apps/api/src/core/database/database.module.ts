@@ -3,7 +3,12 @@ import type { OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '../config';
-import { connectionLimitsOf, createPlatformDatabase, PLATFORM_DB } from './database.provider';
+import {
+  connectionLimitsOf,
+  createPlatformDatabase,
+  PLATFORM_DB,
+  PLATFORM_SQL,
+} from './database.provider';
 
 type CreatedPlatformDatabase = ReturnType<typeof createPlatformDatabase>;
 
@@ -40,8 +45,13 @@ const PLATFORM_CLIENT = Symbol('PLATFORM_CLIENT');
       inject: [PLATFORM_CLIENT],
       useFactory: (created: CreatedPlatformDatabase) => created.db,
     },
+    {
+      provide: PLATFORM_SQL,
+      inject: [PLATFORM_CLIENT],
+      useFactory: (created: CreatedPlatformDatabase) => created.client,
+    },
   ],
-  exports: [PLATFORM_DB],
+  exports: [PLATFORM_DB, PLATFORM_SQL],
 })
 export class DatabaseModule implements OnApplicationShutdown {
   private readonly logger = new Logger(DatabaseModule.name);

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import type { PermissionKey } from '@/common/types';
-import { AuthzService } from '@/core/authz';
+import { AuthzRevision, AuthzService } from '@/core/authz';
 import type { PermissionSet } from '@/core/cache';
 import { PermissionCacheService } from '@/core/cache';
 import { AppException } from '@/core/errors';
@@ -43,6 +43,7 @@ export class PermissionService {
     private readonly repo: PermissionRepository,
     private readonly cache: PermissionCacheService,
     private readonly authz: AuthzService,
+    private readonly revision: AuthzRevision,
   ) {}
 
   async getPermissionSet(userId: string): Promise<PermissionSet> {
@@ -234,12 +235,13 @@ export class PermissionService {
     this.cache.invalidate(userId);
   }
 
-  invalidateUsers(userIds: readonly string[]): void {
-    this.cache.invalidateMany(userIds);
-  }
-
-  invalidateAll(): void {
-    this.cache.invalidateAll();
+  /**
+   * 角色的持有者或角色的權限變了：在寫入的交易 **提交之後** 呼叫。整個租戶的權限快取失效、
+   * 推播重算 room，並廣播給其他程序（docs/adr/0024-relationship-based-access-control.md D7、D8）——
+   * 不必事先查出受影響的人。`userIds` 見 `AuthzRevision.changed`。
+   */
+  permissionsChanged(userIds?: readonly string[]): Promise<void> {
+    return this.revision.changed(userIds);
   }
 
   findUserIdsByRole(roleId: string): Promise<string[]> {

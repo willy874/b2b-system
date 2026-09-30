@@ -11,6 +11,8 @@ export class InvalidationTracker {
   private generation = 0;
   private floor = 0;
   private readonly invalidatedAt = new Map<string, number>();
+  /** 整組（例：一個租戶的所有使用者）最後一次失效的世代；組數很少（租戶數），不設上限。 */
+  private readonly groupInvalidatedAt = new Map<string, number>();
 
   constructor(private readonly maxEntries: number) {}
 
@@ -19,9 +21,10 @@ export class InvalidationTracker {
     return this.generation;
   }
 
-  /** 以 `ticket` 那一刻開始的載入結果，現在還能不能寫進快取。 */
-  isFresh(key: string, ticket: number): boolean {
-    return (this.invalidatedAt.get(key) ?? this.floor) <= ticket;
+  /** 以 `ticket` 那一刻開始的載入結果，現在還能不能寫進快取；`group` 是 key 所屬的組。 */
+  isFresh(key: string, ticket: number, group?: string): boolean {
+    const groupAt = group === undefined ? 0 : (this.groupInvalidatedAt.get(group) ?? 0);
+    return Math.max(this.invalidatedAt.get(key) ?? this.floor, groupAt) <= ticket;
   }
 
   invalidate(key: string): void {
@@ -37,6 +40,12 @@ export class InvalidationTracker {
         this.invalidatedAt.delete(evicted);
       }
     }
+  }
+
+  /** 整組失效：取票在這之前的載入，只要 key 屬於這一組就不寫。 */
+  invalidateGroup(group: string): void {
+    this.generation += 1;
+    this.groupInvalidatedAt.set(group, this.generation);
   }
 
   invalidateAll(): void {

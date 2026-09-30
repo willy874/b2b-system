@@ -1,6 +1,16 @@
-import { and, eq, ne } from 'drizzle-orm';
+import { and, eq, ne, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
-import { index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  boolean,
+  check,
+  index,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 
 import { users } from './users';
@@ -46,6 +56,20 @@ export const relationTuples = pgTable(
 
 export type RelationTupleRow = typeof relationTuples.$inferSelect;
 export type RelationTupleInsert = typeof relationTuples.$inferInsert;
+
+/**
+ * 關係圖的版本號（單列，docs/adr/0024-relationship-based-access-control.md D7）：`relation_tuples` 的每一條寫入語句
+ * 由 trigger 在同一個交易內 +1（migration 0009）。寫入之間因此以這一列的鎖排隊，提交順序＝版本順序；
+ * 各程序以它判斷收到的失效通知是不是比已知的新。
+ */
+export const authzRevision = pgTable(
+  'authz_revision',
+  {
+    id: boolean('id').primaryKey().default(true),
+    revision: bigint('revision', { mode: 'number' }).notNull().default(0),
+  },
+  (t) => [check('authz_revision_single_row', sql`${t.id}`)],
+);
 
 // ── 核心的邊（docs/features/permission-graph.md §2）──────────────────────
 // G3 起取代 user_roles、role_permissions、resource_grants；repository、seed、測試共用下面的

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/db/seeds/permissions';
 
+import { runInTenantContext } from '../../tenant/tenant-context';
+import type { TenantContext } from '../../tenant/tenant-context';
 import { PermissionCacheService } from '../permission-cache.service';
 
 function createCache(ttlSeconds = 60): PermissionCacheService {
@@ -14,6 +16,9 @@ const value = (keys: PermissionKey[], isSuperAdmin = false) => ({
   permissions: new Set(keys),
   isSuperAdmin,
 });
+
+const inTenant = <T>(id: string, fn: () => T): T =>
+  runInTenantContext({ id } as unknown as TenantContext, fn);
 
 describe('PermissionCacheService', () => {
   beforeEach(() => {
@@ -109,6 +114,48 @@ describe('PermissionCacheService', () => {
       for (let index = 0; index < 10_050; index += 1) cache.invalidate(`user-${index}`);
       cache.set('user-0', value([]), ticket);
       expect(cache.get('user-0')).toBeUndefined();
+    });
+  });
+
+  describe('invalidateTenant（關係圖的 revision 變了，docs/adr/0024-relationship-based-access-control.md D8）', () => {
+    it('只清掉那個租戶的所有人，其他租戶不受影響', () => {
+      const cache = createCache();
+      inTenant('t1', () => {
+        cache.set('user-1', value([]));
+        cache.set('user-2', value([]));
+      });
+      inTenant('t2', () => cache.set('user-1', value([])));
+
+      cache.invalidateTenant('t1');
+
+      inTenant('t1', () => {
+        expect(cache.get('user-1')).toBeUndefined();
+        expect(cache.get('user-2')).toBeUndefined();
+      });
+      inTenant('t2', () => expect(cache.get('user-1')).toBeDefined());
+    });
+
+    it('省略參數時是目前的租戶', () => {
+      const cache = createCache();
+      inTenant('t1', () => {
+        cache.set('user-1', value([]));
+        cache.invalidateTenant();
+        expect(cache.get('user-1')).toBeUndefined();
+      });
+    });
+
+    it('取票之後整個租戶被失效：那個租戶的載入結果不寫回，其他租戶照常', () => {
+      const cache = createCache();
+      const ticket = cache.ticket();
+      cache.invalidateTenant('t1');
+      inTenant('t1', () => {
+        cache.set('user-1', value(['user:read']), ticket);
+        expect(cache.get('user-1')).toBeUndefined();
+      });
+      inTenant('t2', () => {
+        cache.set('user-1', value(['user:read']), ticket);
+        expect(cache.get('user-1')).toBeDefined();
+      });
     });
   });
 

@@ -107,6 +107,6 @@ export class UserRegistrationApprovalHandler implements ApprovalHandler, OnModul
   }
 
   async afterApply({ options }: ApprovalContext, { resourceId }: ApprovalOutcome): Promise<void> {
-    if (resourceId) this.users.publishCreated(resourceId, options.roleIds);
+    if (resourceId) await this.users.publishCreated(resourceId, options.roleIds);
   }
 }

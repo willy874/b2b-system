@@ -219,10 +219,10 @@ export class RoleService {
       );
     });
 
-    // ★ 快取失效在交易「之後」——交易可能 rollback；之後才發事件（room 同步要讀到新權限）
+    // ★ 快取失效在交易「之後」——交易可能 rollback；推播的 room 同步在失效之後
+    await this.permissionService.permissionsChanged();
+    // 持有者只用來讓他們的畫面重抓（本人的有效權限），不是失效的依據
     const holders = await this.permissionService.findUserIdsByRole(id);
-    this.permissionService.invalidateUsers(holders);
-    this.events.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: holders });
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [{ resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id }],
       affectedUserIds: holders,
@@ -286,7 +286,7 @@ export class RoleService {
       if (count > 0 && !query.force) {
         throw new AppException('ROLE_IN_USE', { userCount: count });
       }
-      // ★ 受影響的使用者由刪除指派的同一條語句（`RETURNING`）取得：不會漏掉、也不會在刪除後才查而查不到
+      // 原本的持有者由刪除邊的同一條語句（`RETURNING`）取得，只用來推播讓他們的畫面重抓
       const holders = await this.repo.softDelete(id, actor.id, tx);
       await this.audit.record(
         {
@@ -302,8 +302,7 @@ export class RoleService {
       return holders;
     });
 
-    this.permissionService.invalidateUsers(affected);
-    this.events.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: affected });
+    await this.permissionService.permissionsChanged();
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [{ resource: ChangeSource.ROLE, kind: ChangeKind.DELETE, id }],
       affectedUserIds: affected,
