@@ -25,7 +25,9 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
   const { t } = useTranslation();
   const updateUser = useUserUpdateMutation();
   const [displayName, setDisplayName] = useState('');
-  const [status, setStatus] = useState<'pending' | 'active' | 'inactive'>('active');
+  const [status, setStatus] = useState<'active' | 'inactive'>('active');
+  // 還沒啟用的人只能靠啟用信變成 active：不提供狀態選單（API 也不接受改回 pending，EDGE-14）
+  const canEditStatus = user.status !== 'pending';
   const [editing, setEditing] = useState(false);
 
   return (
@@ -39,7 +41,7 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
               disabled={isSelf}
               onClick={() => {
                 setDisplayName(user.displayName);
-                setStatus(user.status === 'locked' ? 'active' : user.status);
+                setStatus(user.status === 'inactive' ? 'inactive' : 'active');
                 setEditing(true);
               }}
               data-testid="user-edit-button"
@@ -55,17 +57,18 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
           <Field label={t('user.field.displayName')} required>
             <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
           </Field>
-          <Field label={t('user.field.status')}>
-            <Select
-              value={status}
-              onValueChange={(value) => setStatus(value as typeof status)}
-              options={[
-                { value: 'active', label: t('user.status.active') },
-                { value: 'inactive', label: t('user.status.inactive') },
-                { value: 'pending', label: t('user.status.pending') },
-              ]}
-            />
-          </Field>
+          {canEditStatus && (
+            <Field label={t('user.field.status')}>
+              <Select
+                value={status}
+                onValueChange={(value) => setStatus(value as typeof status)}
+                options={[
+                  { value: 'active', label: t('user.status.active') },
+                  { value: 'inactive', label: t('user.status.inactive') },
+                ]}
+              />
+            </Field>
+          )}
           <div className="flex justify-end gap-2">
             <Button size="sm" onClick={() => setEditing(false)}>
               {t('common.cancel')}
@@ -76,7 +79,12 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
               loading={updateUser.isPending}
               onClick={async () => {
                 await updateUser
-                  .mutateAsync({ params: { userId: user.id, body: { displayName, status } } })
+                  .mutateAsync({
+                    params: {
+                      userId: user.id,
+                      body: canEditStatus ? { displayName, status } : { displayName },
+                    },
+                  })
                   .catch(() => undefined);
                 setEditing(false);
               }}

@@ -25,7 +25,8 @@ export function UserRoleSection({
 }: UserRoleSectionProps) {
   const { t } = useTranslation();
   const assignRoles = useAssignUserRolesMutation(user);
-  const { selectedRoleIds, toggleRole, isDirty } = useUserRoleSelection(user.roles);
+  const { selectedRoleIds, toggleRole, isDirty, isStale, expectedRoleIds, discardDraft } =
+    useUserRoleSelection(user.roles);
 
   return (
     <section>
@@ -43,6 +44,17 @@ export function UserRoleSection({
               data-value={role.slug}
             />
           ))}
+          {isStale && (
+            <div
+              className="flex items-center justify-between gap-2 text-xs text-[var(--color-fg-muted)]"
+              data-testid="user-role-stale"
+            >
+              <span>{t('user.assignRole.stale')}</span>
+              <Button size="sm" onClick={discardDraft} data-testid="user-role-discard-button">
+                {t('user.assignRole.discard')}
+              </Button>
+            </div>
+          )}
           <div className="flex justify-end">
             <Button
               size="sm"
@@ -52,8 +64,12 @@ export function UserRoleSection({
               onClick={() =>
                 void assignRoles
                   .mutateAsync({
-                    params: { userId: user.id, body: { roleIds: [...selectedRoleIds] } },
+                    params: {
+                      userId: user.id,
+                      body: { roleIds: [...selectedRoleIds], expectedRoleIds },
+                    },
                   })
+                  .then(discardDraft)
                   .catch(() => undefined)
               }
               data-testid="user-assign-roles-button"

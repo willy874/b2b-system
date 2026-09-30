@@ -19,7 +19,12 @@
       "success": "User deleted.",
       "selfProtected": "You cannot delete your own account."
     },
-    "assignRole": { "action": "Save roles", "success": "Role assignment updated." },
+    "assignRole": {
+      "action": "Save roles",
+      "success": "Role assignment updated.",
+      "stale": "Someone else just changed this user's roles; your selection is based on outdated data.",
+      "discard": "Use latest roles"
+    },
     "unlock": { "action": "Unlock", "success": "Account unlocked." },
     "resetPassword": { "action": "Reset password", "success": "Reset link sent." },
     "batch": {
