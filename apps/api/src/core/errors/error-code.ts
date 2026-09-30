@@ -138,6 +138,14 @@ export const ErrorCode = {
   FILE_GRANT_NOT_FOUND: { status: 404 },
   FILE_ACCESS_ALREADY_GRANTED: { status: 409 },
   FILE_ACCESS_REQUEST_NOT_FOUND: { status: 404 },
+  /** 還原（`POST /files/:id/restore`）一個沒有被刪除的檔案（ADR-0025 R4）。 */
+  FILE_NOT_DELETED: { status: 409 },
+  /** 還原的檔案所在的資料夾已刪除（`details.reason = 'parentDeleted'`）或物件已不在（`'objectMissing'`）。 */
+  FILE_RESTORE_CONFLICT: { status: 409 },
+  /** 還原（`POST /file-folders/:id/restore`）一個沒有被刪除的資料夾。 */
+  FILE_FOLDER_NOT_DELETED: { status: 409 },
+  /** 還原的資料夾的上層已刪除（`details.reason = 'parentDeleted'`）。 */
+  FILE_FOLDER_RESTORE_CONFLICT: { status: 409 },
 
   // ── 系統設定 ──
   /** 沒有登記這個 key 的設定（docs/architecture/backend/12-settings.md）。 */

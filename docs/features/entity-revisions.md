@@ -1,8 +1,10 @@
 # 版本歷史、樂觀鎖與還原
 
 - 優先度：P0
-- 狀態：實作中（branch feat/entity-revisions；R1～R3 已實作）
-- 進度：R1 樂觀鎖、R2 回收桶與使用者還原、R3 角色還原（刪除保留持有者邊）已實作：[`backend/13-trash.md`](../architecture/backend/13-trash.md)、[`frontend/13-trash.md`](../architecture/frontend/13-trash.md)；R1b、R4、R5 未做
+- 狀態：實作中（branch feat/entity-revisions；R1～R4a 已實作）
+- 進度：R1 樂觀鎖、R2 回收桶與使用者還原、R3 角色還原（刪除保留持有者邊）、R4a 檔案與資料夾還原的第一次部署（`deletion_id`、
+  維護排程不刪已刪除紀錄的物件、還原端點、回收桶與永久刪除）已實作：[`backend/13-trash.md`](../architecture/backend/13-trash.md)（R4a 見 §7）、
+  [`frontend/13-trash.md`](../architecture/frontend/13-trash.md)；R1b、R4b（刪除檔案不再立刻刪物件，13-trash §7.5）、R5 未做
 - 依賴：—（[`permission-graph.md`](./permission-graph.md) G3a 已上線，開放問題 2 可以用 tuple 回答）
 - 相關：[`hardening-followups.md`](./hardening-followups.md)（刪除使用者後復原、`PATCH` 的版本控制）、[`tags-comments.md`](./tags-comments.md)（多型關聯的命名）、
   [`backend/02-database.md`](../architecture/backend/02-database.md) §1、[`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md)、

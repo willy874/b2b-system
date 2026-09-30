@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
@@ -91,7 +93,11 @@ export class FileSystemFolderService
         // oxlint-disable-next-line no-await-in-loop -- 同一個交易依序；只有被刪除的使用者
         if (!(await this.repo.isEmpty(folder.id, tx))) continue;
         // oxlint-disable-next-line no-await-in-loop -- 同上
-        await this.repo.softDelete([folder.id], null, tx);
+        await this.repo.softDelete(
+          [folder.id],
+          { actorId: null, deletionId: randomUUID(), deletedAt: new Date() },
+          tx,
+        );
         // oxlint-disable-next-line no-await-in-loop -- 同上
         await this.audit.record(
           {

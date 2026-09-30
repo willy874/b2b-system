@@ -23,6 +23,7 @@ import type {
   FileUploadPolicy,
   MoveFileItemsRequest,
   MoveFileItemsResult,
+  RestoredFileFolder,
   ReviewFileAccessRequest,
   SetFileFolderGrantRequest,
   StoredFile,
@@ -57,6 +58,7 @@ import {
   FileUploadSchema,
   MoveFileItemsRequestSchema,
   MoveFileItemsResultSchema,
+  RestoredFileFolderSchema,
   ReviewFileAccessRequestSchema,
   SetFileFolderGrantRequestSchema,
   StoredFileSchema,
@@ -630,6 +632,57 @@ export function fileControllerUpdate(
   return request<FileControllerUpdateResult>(fileControllerUpdateOperation, input, options);
 }
 
+// POST /files/{id}/restore
+
+export interface FileControllerRestorePathParams {
+  id: string;
+}
+
+export interface FileControllerRestoreInput {
+  path: FileControllerRestorePathParams;
+}
+
+export interface FileControllerRestoreResponses {
+  200: {
+    data: StoredFile;
+  };
+}
+
+export type FileControllerRestoreResponse = FileControllerRestoreResponses[200];
+
+export type FileControllerRestoreResult = ApiResponse<200, FileControllerRestoreResponses[200]>;
+
+export const FileControllerRestoreSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: StoredFileSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileControllerRestoreUrl(path: FileControllerRestorePathParams): string {
+  return buildUrl('/files/{id}/restore', path);
+}
+
+const fileControllerRestoreOperation: OperationDefinition = {
+  id: 'FileController_restore',
+  method: 'POST',
+  path: '/files/{id}/restore',
+  responseTypes: { 200: 'json' },
+  schemas: FileControllerRestoreSchemas,
+};
+
+/** 還原刪除的檔案 */
+export function fileControllerRestore(
+  input: FileControllerRestoreInput,
+  options?: RequestOptions,
+): Promise<FileControllerRestoreResult> {
+  return request<FileControllerRestoreResult>(fileControllerRestoreOperation, input, options);
+}
+
 // GET /file-folders
 
 export interface FileFolderControllerListResponses {
@@ -896,6 +949,66 @@ export function fileFolderControllerRename(
 ): Promise<FileFolderControllerRenameResult> {
   return request<FileFolderControllerRenameResult>(
     fileFolderControllerRenameOperation,
+    input,
+    options,
+  );
+}
+
+// POST /file-folders/{id}/restore
+
+export interface FileFolderControllerRestorePathParams {
+  id: string;
+}
+
+export interface FileFolderControllerRestoreInput {
+  path: FileFolderControllerRestorePathParams;
+}
+
+export interface FileFolderControllerRestoreResponses {
+  200: {
+    data: RestoredFileFolder;
+  };
+}
+
+export type FileFolderControllerRestoreResponse = FileFolderControllerRestoreResponses[200];
+
+export type FileFolderControllerRestoreResult = ApiResponse<
+  200,
+  FileFolderControllerRestoreResponses[200]
+>;
+
+export const FileFolderControllerRestoreSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: RestoredFileFolderSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileFolderControllerRestoreUrl(
+  path: FileFolderControllerRestorePathParams,
+): string {
+  return buildUrl('/file-folders/{id}/restore', path);
+}
+
+const fileFolderControllerRestoreOperation: OperationDefinition = {
+  id: 'FileFolderController_restore',
+  method: 'POST',
+  path: '/file-folders/{id}/restore',
+  responseTypes: { 200: 'json' },
+  schemas: FileFolderControllerRestoreSchemas,
+};
+
+/** 還原刪除的資料夾（同一次刪除的子資料夾與檔案一併還原） */
+export function fileFolderControllerRestore(
+  input: FileFolderControllerRestoreInput,
+  options?: RequestOptions,
+): Promise<FileFolderControllerRestoreResult> {
+  return request<FileFolderControllerRestoreResult>(
+    fileFolderControllerRestoreOperation,
     input,
     options,
   );

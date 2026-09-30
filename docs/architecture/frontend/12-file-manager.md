@@ -38,7 +38,7 @@ features/file/                       業務：頁面、上傳入口、內建的�
 ├── upload/                          uploadSources（IndexedDB 暫存）、內建驗證器、collectEntries（展開拖放／選取的資料夾）
 ├── preview/                         內建解析器：ImagePreview、TextPreview
 ├── hooks/                           useFilePermission、useFileUpload、useFileRenameMutation / useFileDeleteMutation、
-│                                    useFolderMutations（建立、改名、遞迴刪除、移動）
+│                                    useFolderMutations（建立、改名、遞迴刪除、還原、移動）
 └── pages/FileManager/               page.tsx ＋ 版面計算、資料、選取、框選、拖放、資料夾樹（folderTree）、拖曳移動（useItemDrag）的 hooks ＋ 元件
 
 core/file/                           機制：檔案類型、三個擴充點的註冊表、圖片縮圖產生器（不認識任何 feature）
@@ -168,6 +168,7 @@ registerFilePreviewer({
 - 選取列常駐（沒有選取時顯示操作提示）：框選途中它若突然出現，主區塊會被往下推、框跟著跳動。
 - 多選的刪除送進全域佇列逐筆處理（檔案 `file.delete`、資料夾 `file.deleteFolder` 各一個工作）；單一項目直接呼叫單筆 API。
   資料夾是遞迴刪除，確認對話框明講「其中的檔案與子資料夾一併刪除」。
+  刪除是移到回收桶：單一資料夾的刪除提示附「復原」（還原整批）；單一檔案在 R4a 不附（刪除當下物件已被刪掉），見 [`13-trash.md`](./13-trash.md) §4.2。
 - 選取列：只選一個時可改名（檔案與資料夾各自的對話框）、「移動」、下載（只下載選取中的檔案）、刪除。多選下載以 250 ms 間隔依序觸發（同一瞬間觸發多個，瀏覽器只處理第一個）。
 
 ---

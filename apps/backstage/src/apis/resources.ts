@@ -200,6 +200,9 @@ const graph = createResourceGraph<Resource>({
       { from: Resource.USER, kinds: ['create', 'delete'], id: 'none' },
       // 角色同理（ADR-0025 R3）；還原的持有者由伺服器另外推 userRole update（本人的 profile 跟著失效）
       { from: Resource.ROLE, kinds: ['create', 'delete'], id: 'none' },
+      // 檔案與資料夾同理（ADR-0025 R4）：上傳完成也是 file create，多一次回收桶的重抓無害
+      { from: Resource.FILE, kinds: ['create', 'delete'], id: 'none' },
+      { from: Resource.FILE_FOLDER, kinds: ['create', 'delete'], id: 'none' },
     ],
   },
   [Resource.USER_ROLE]: {},

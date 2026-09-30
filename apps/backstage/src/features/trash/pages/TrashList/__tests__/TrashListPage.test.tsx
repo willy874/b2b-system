@@ -100,6 +100,24 @@ describe('回收桶頁（docs/architecture/frontend/13-trash.md）', () => {
     expect(fetchTrash.mock.calls[0]![0].params.type).toBe('role');
   });
 
+  it('只有 file:delete → 進得去，只看到檔案分頁（ADR-0025 R4）', async () => {
+    registerTrashType({
+      type: 'file',
+      order: 30,
+      labelI18nKey: 'menu.file',
+      permission: 'file:delete' as PermissionKey,
+      RestoreAction: FakeRestoreAction,
+    });
+    fetchTrash.mockResolvedValue({
+      items: [{ ...ITEM, type: 'file', name: 'hero.png', description: '/素材' }],
+      pagination: { offset: 0, limit: 20, total: 1 },
+    });
+    renderRoute(routes, '/trash', ['file:read', 'file:delete'] as PermissionKey[]);
+    expect(await screen.findByText('hero.png')).toBeInTheDocument();
+    expect(screen.getByText('/素材')).toBeInTheDocument();
+    expect(fetchTrash.mock.calls[0]![0].params.type).toBe('file');
+  });
+
   it('網址上的類型看不到時改看第一個看得到的類型', async () => {
     renderRoute(routes, '/trash?type=role', ['user:delete'] as PermissionKey[]);
     expect(await screen.findByText('Deleted Person')).toBeInTheDocument();

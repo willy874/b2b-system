@@ -2583,6 +2583,41 @@
         "tags": ["files"]
       }
     },
+    "/files/{id}/restore": {
+      "post": {
+        "operationId": "FileController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/StoredFile"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "還原刪除的檔案",
+        "tags": ["files"]
+      }
+    },
     "/file-folders": {
       "get": {
         "operationId": "FileFolderController_list",
@@ -2739,6 +2774,41 @@
           }
         },
         "summary": "遞迴刪除資料夾：子資料夾與其中的檔案一起刪除",
+        "tags": ["files"]
+      }
+    },
+    "/file-folders/{id}/restore": {
+      "post": {
+        "operationId": "FileFolderController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RestoredFileFolder"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "還原刪除的資料夾（同一次刪除的子資料夾與檔案一併還原）",
         "tags": ["files"]
       }
     },
@@ -4480,7 +4550,7 @@
       },
       "TrashResourceType": {
         "type": "string",
-        "enum": ["user", "role"]
+        "enum": ["user", "role", "file", "fileFolder"]
       },
       "TrashItem": {
         "type": "object",
@@ -5965,6 +6035,74 @@
           "capabilities",
           "createdAt",
           "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "RestoredFileFolder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parentId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["normal", "shared", "privateRoot", "personal"]
+          },
+          "inheritGrants": {
+            "type": "boolean"
+          },
+          "hasPendingAccessRequest": {
+            "type": "boolean"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/FileFolderCapabilities"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "foldersRestored": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "filesRestored": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "filesSkipped": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "parentId",
+          "kind",
+          "inheritGrants",
+          "hasPendingAccessRequest",
+          "capabilities",
+          "createdAt",
+          "updatedAt",
+          "foldersRestored",
+          "filesRestored",
+          "filesSkipped"
         ],
         "additionalProperties": false
       },

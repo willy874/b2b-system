@@ -377,6 +377,9 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 | 移動檔案與資料夾             | `fileFolder update`（`id='*'`）、`file update`（`id='*'`） | —                                                   |
 | 遞迴刪除資料夾               | `fileFolder delete`；有檔案一起刪除時另發 `file delete`（`id='*'`） | —                                         |
 | 資料夾授權變更、中斷繼承     | `fileFolder update`（id 是該資料夾）                 | —                                                         |
+| 還原檔案                     | `file create`，`refs.fileFolder` = 所在的資料夾      | —                                                         |
+| 還原資料夾                   | `fileFolder create`；有檔案一起還原時另發 `file create`（`id='*'`） | —                                          |
+| 檔案、資料夾永久刪除（`trash.purge`） | `file delete` / `fileFolder delete`（每個一筆；資料夾只有每批的根） | —                                   |
 | 修改或還原系統設定           | `setting update`（每個 key 一筆，id 是設定的 key）   | —                                                         |
 | 平台管理者改了租戶啟用的 feature | 不發 `resource.changed`；發 `tenant.featuresChanged`（平台的請求沒有租戶脈絡，room 以 `tenantId` 組） | —                                  |
 

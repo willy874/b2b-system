@@ -83,6 +83,7 @@ import type {
   RejectApprovalRequest,
   ReplaceUserRolesRequest,
   ResetPasswordRequest,
+  RestoredFileFolder,
   RestoredRole,
   ReviewFileAccessRequest,
   Role,
@@ -335,6 +336,8 @@ export const PlatformAuditLogSchema = z.object({
 export const TrashResourceTypeSchema = z.enum([
   'user',
   'role',
+  'file',
+  'fileFolder',
 ]) satisfies z.ZodType<TrashResourceType>;
 
 export const TrashItemSchema = z.object({
@@ -1031,6 +1034,34 @@ export const FileFolderSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 }) satisfies z.ZodType<FileFolder>;
+
+export const RestoredFileFolderSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+  parentId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  kind: z.enum(['normal', 'shared', 'privateRoot', 'personal']),
+  inheritGrants: z.boolean(),
+  hasPendingAccessRequest: z.boolean(),
+  capabilities: FileFolderCapabilitiesSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  foldersRestored: z.int().min(-9007199254740991).max(9007199254740991),
+  filesRestored: z.int().min(-9007199254740991).max(9007199254740991),
+  filesSkipped: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<RestoredFileFolder>;
 
 export const FileFolderListSchema = z.object({
   items: z.array(FileFolderSchema),

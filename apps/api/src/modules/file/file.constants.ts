@@ -148,6 +148,14 @@ export const MAINTENANCE_BATCH_SIZE = 500;
 
 // ── 推播（docs/architecture/backend/09-file.md §7） ──
 
+/** 回收桶顯示「原本在哪裡」：由根往下的資料夾名稱 → `/素材/ui`；根目錄是 `/`。 */
+export function folderPathOf(names: readonly string[] | undefined): string {
+  return `/${(names ?? []).join('/')}`;
+}
+
+/** 無法逐筆列出受影響的 id 時（遞迴刪除、批次移動、還原資料夾）：前端退回失效該資源的所有實體。 */
+export const ANY_ID = '*';
+
 /** 根目錄在推播 `refs.fileFolder` 裡的代號（與 `GET /files?folderId=root` 相同）。 */
 export const ROOT_FOLDER_REF = 'root';
 

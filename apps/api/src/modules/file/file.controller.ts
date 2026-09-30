@@ -197,4 +197,17 @@ export class FileController {
   async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
     await this.fileService.remove(id, actor);
   }
+
+  /**
+   * 還原刪除的檔案（ADR-0025 D10：能刪就能復原）。閘門與刪除相同，資料夾範圍的判斷也與刪除相同（service）。
+   * 所在的資料夾已刪除或物件已不在時 409 `FILE_RESTORE_CONFLICT`（`details.reason`）；沒有被刪除 409 `FILE_NOT_DELETED`。
+   */
+  @Post(':id/restore')
+  @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_DELETE)
+  @HttpCode(200)
+  @ApiOperation({ summary: '還原刪除的檔案' })
+  @ApiZodResponse(200, FileSchema)
+  restore(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
+    return this.fileService.restore(id, actor);
+  }
 }

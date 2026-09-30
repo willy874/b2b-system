@@ -10,6 +10,7 @@
 | 時間         | `timestamptz`，一律存 UTC                                                |
 | 布林         | `NOT NULL DEFAULT false`，不允許三態                                     |
 | 軟刪除       | `deleted_at timestamptz`，唯一索引都帶 `WHERE deleted_at IS NULL`；查詢條件一律用 `notDeleted(table)`（見下方） |
+| 連帶的軟刪除 | 一次操作連帶刪除多列（遞迴刪除資料夾）時帶同一個 `deletion_id uuid`，還原時只還原同一批（[ADR-0025](../../adr/0025-entity-revisions.md) D5；目前 `files`、`file_folders`） |
 | Drizzle 變數 | camelCase 複數：`relationTuples`                                         |
 | 列舉         | Postgres `enum` 型別（不是 `text` + `CHECK`），因為它會出現在 OpenAPI；例外見下方 |
 
@@ -538,6 +539,8 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0010_drop_legacy_authz_tables.sql   G3b：刪 0008 的 trigger 與函式、user_roles、role_permissions、resource_grants 與三個 enum
 ├── 0011_entity_version.sql             users.version、roles.version（樂觀鎖，ADR-0025 R1；純加法）
 ├── 0012_roles_authz_revision.sql       手寫：roles.deleted_at 改變時 authz_revision +1（§2.11，ADR-0025 R3）
+├── 0013_file_deletion_id.sql           files.deletion_id、file_folders.deletion_id ＋ 只涵蓋已刪除列的索引
+│                                       （一次刪除操作的識別，ADR-0025 D5、R4a；純加法，既有的已刪除列是 null）
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

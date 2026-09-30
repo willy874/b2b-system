@@ -132,7 +132,8 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 | `variant_format` | text | 變體的主格式：`jpeg`（progressive）或 `webp`（有透明度的圖） |
 | `folder_id` | uuid（FK → `file_folders`） | 所在的資料夾；null 是根目錄（§4.2） |
 | `version` | integer | 樂觀鎖，每次改名遞增（§6.2）。不用 `updated_at` 比對：它是微秒精度，經過 JSON（毫秒）來回就對不上 |
-| `created_*` / `updated_*` / `deleted_at` | | 慣例欄位；`updated_at` 由 trigger 維護；刪除是軟刪除 |
+| `deletion_id` | uuid | 一次刪除操作的識別：遞迴刪除資料夾時與資料夾同一個值，還原資料夾時只還原同一批（[ADR-0025](../../adr/0025-entity-revisions.md) D5、[`13-trash.md`](./13-trash.md) §7.0）；未刪除時是 null |
+| `created_*` / `updated_*` / `deleted_at` | | 慣例欄位；`updated_at` 由 trigger 維護；刪除是軟刪除（移到回收桶，[`13-trash.md`](./13-trash.md) §7） |
 
 約束（schema 的 `check()`，在 migration `0000_baseline.sql`；整合測試證明擋得住）：
 
@@ -152,6 +153,7 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 | `files_name_trgm_idx`（GIN, `gin_trgm_ops`） | 檔名的部分比對 `ILIKE '%…%'`：btree 用不上。需要 `pg_trgm`（PG 13 起為 trusted extension） |
 | `files_variant_pending_idx`（uploaded_at，只涵蓋 `variant_status = 'pending'`） | 維護排程找卡住的影像變體（`0008`）；絕大多數列不是 pending，索引很小 |
 | `files_folder_created_at_idx`（folder_id, created_at, id） | 檔案管理器一次只列一個資料夾（`GET /files?folderId=`），先以資料夾縮小範圍（`0009`） |
+| `files_deletion_id_idx`（deletion_id，只涵蓋 `deleted_at IS NOT NULL`） | 還原資料夾時找同一批刪除的檔案（`0013`） |
 
 ### 4.1 可見性
 
@@ -176,7 +178,8 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 | `inherit_grants` | boolean | false = 中斷繼承（私人資料夾，rbac/07 §3.3） |
 | `kind` | `file_folder_kind` | `normal` / `shared` / `privateRoot` / `personal`：系統資料夾（rbac/07 §12） |
 | `owner_id` | uuid（FK → users） | `personal` 的擁有者；其他為 null |
-| `created_*` / `updated_*` / `deleted_at` | | 慣例欄位；刪除是軟刪除 |
+| `deletion_id` | uuid | 一次刪除操作的識別（同 `files.deletion_id`）；索引 `file_folders_deletion_id_idx`（只涵蓋已刪除的列，`0013`） |
+| `created_*` / `updated_*` / `deleted_at` | | 慣例欄位；刪除是軟刪除（移到回收桶） |
 
 約束與索引（都只涵蓋 `deleted_at IS NULL`）：
 
@@ -193,7 +196,7 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 | 結構的寫入不互相穿插 | 建立、改名、移動、刪除在交易開頭取 `pg_advisory_xact_lock(hashtext('file_folders_tree'))`：兩個人同時把 A 移進 B、把 B 移進 A，各自檢查時都看不到循環，排隊之後第二個就看得到。資料夾的寫入不頻繁，整棵樹共用一把鎖就夠了 |
 | 同名 | 預檢查回 `409 FILE_FOLDER_NAME_CONFLICT`；競態下撞到唯一索引也轉成同一個錯誤。一起移進同一個目的地的資料夾彼此同名也算 |
 | 深度上限 32 層（`MAX_FOLDER_DEPTH`） | 建立、上傳資料夾時檢查；移動時以「目的地的深度 ＋ 被移動子樹的高度」（遞迴 CTE，`findMaxSubtreeHeight`）檢查。超過回 `400 VALIDATION_FAILED`（`details.field = 'depth'`） |
-| 刪除是遞迴的 | 取出所有子孫（遞迴 CTE），同一個交易內軟刪除這些資料夾與其中的檔案（含上傳中的）；物件儲存的內容交給維護排程清除（紀錄已刪除的物件視為孤兒，§9），不在請求內逐一刪物件 |
+| 刪除是遞迴的 | 取出所有子孫（遞迴 CTE），同一個交易內軟刪除這些資料夾與其中的檔案（含上傳中的），全部帶同一個 `deletion_id` 與刪除時間；物件儲存的內容保留到回收桶的永久刪除（`trash.purge`，[`13-trash.md`](./13-trash.md) §7.3），還原資料夾時整批回來（§7.1） |
 | 上傳到資料夾 | 登記上傳（`POST /files` 帶 `folderId`）時，資料夾存在的檢查與 INSERT 在同一個排隊的交易內：不會把檔案放進剛被遞迴刪除的資料夾 |
 
 **上傳資料夾**（`POST /file-folders/paths`）：前端把整個資料夾的相對路徑送上來（`[["素材"], ["素材","ui"], …]`，從 `parentId` 起算），
@@ -367,13 +370,15 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 | GET | `/files/:id/image/:variant` | `@Public`（網址簽章） | `302` 轉址（§5.4）；`variant` = `original` / `preview` / `thumbnail` |
 | GET | `/files/:id` | `file:read` | `200 StoredFile` |
 | PATCH | `/files/:id` | `file:update` | `200 StoredFile`（`{ name, version? }`，§6.2） |
-| DELETE | `/files/:id` | `file:delete` | `204` |
+| DELETE | `/files/:id` | `file:delete` | `204`；移到回收桶 |
+| POST | `/files/:id/restore` | `file:delete` | `200 StoredFile`；還原（[`13-trash.md`](./13-trash.md) §7.2） |
 | POST | `/files/move` | `file:update` | `200 MoveFileItemsResult`：`{ movedFiles, movedFolders }`（`{ fileIds, folderIds, targetFolderId }`，§4.2） |
 | GET | `/file-folders` | `file:read` | `FileFolderList`：全部資料夾的扁平清單（`{ id, name, parentId, createdAt, updatedAt }`），前端自行組成樹 |
 | POST | `/file-folders` | `file:create` | `201 FileFolder`（`{ name, parentId }`） |
 | POST | `/file-folders/paths` | `file:create` | `200 FileFolderPaths`：上傳資料夾時確保各路徑存在（§4.2） |
 | PATCH | `/file-folders/:id` | `file:update` | `200 FileFolder`（`{ name }`） |
-| DELETE | `/file-folders/:id` | `file:delete` | `204`；遞迴刪除子資料夾與其中的檔案 |
+| DELETE | `/file-folders/:id` | `file:delete` | `204`；遞迴刪除子資料夾與其中的檔案（移到回收桶） |
+| POST | `/file-folders/:id/restore` | `file:delete` | `200 RestoredFileFolder`：還原同一次刪除的子資料夾與檔案（[`13-trash.md`](./13-trash.md) §7.1） |
 
 `GET /files` 的 query：`offset` / `limit`、`keyword`（檔名部分比對）、`contentType`（`image/png` 或 `image/*`）、
 `category`（`image` / `video` / `audio` / `text` / `document` / `archive` / `other`，對照表在 `file.constants.ts` 的
@@ -470,13 +475,19 @@ LIMIT $limit
 | `FILE_ACCESS_ALREADY_GRANTED` | 409 | 申請的等級已經有了（§11、rbac/07 §6.5） |
 | `FILE_ACCESS_REQUEST_NOT_FOUND` | 404 | 存取申請不存在、不是這個資料夾的、或已審核 |
 | `FILE_GRANT_NOT_FOUND` | 404 | 要移除的直接授權不存在（繼承來的要到來源資料夾移除） |
+| `FILE_NOT_DELETED`／`FILE_FOLDER_NOT_DELETED` | 409 | 還原一個沒有被刪除的檔案／資料夾（[`13-trash.md`](./13-trash.md) §7） |
+| `FILE_RESTORE_CONFLICT` | 409 | 還原檔案時所在的資料夾已刪除（`reason: 'parentDeleted'`）或原檔已不在（`'objectMissing'`） |
+| `FILE_FOLDER_RESTORE_CONFLICT` | 409 | 還原資料夾時上層已刪除（`reason: 'parentDeleted'`）；同名沿用 `FILE_FOLDER_NAME_CONFLICT`（`details.conflictingId`） |
 
 ---
 
 ## 7. 刪除、稽核、推播
 
-- 刪除：交易內軟刪除 ＋ 稽核 `file.delete`；**交易後** 才刪物件（原檔、瀏覽器縮圖、`variants/<id>/` 底下的所有變體與轉出的格式；
-  交易 rollback 時紀錄還在，內容也要在）。物件刪除失敗只留下孤兒物件並記 warn，不讓使用者的刪除失敗——維護排程會再清（§9）。
+- 刪除＝移到回收桶（[`13-trash.md`](./13-trash.md) §7）：交易內軟刪除（帶新的 `deletion_id`）＋ 稽核 `file.delete`。
+  **R4a（這一版）仍在交易後立刻刪物件**（原檔、瀏覽器縮圖、`variants/<id>/` 底下的所有變體與轉出的格式；`FileObjectsService.deleteAll`），
+  所以個別刪除的檔案還原會得到 `objectMissing`；R4b 起物件保留到 `trash.purge` 永久刪除之後（ADR-0025 的 R4 兩次部署，13-trash §7.5）。
+  物件一律在交易 **之後** 刪：交易 rollback 時紀錄還在，內容也要在。刪除失敗只記 warn，不讓使用者的刪除失敗。
+- 還原：`POST /files/:id/restore`、`POST /file-folders/:id/restore`（13-trash §7.1、§7.2）；稽核 `file.restore`、`fileFolder.restore`，推播以 `create` 宣告。
 - 變體產生途中檔案被刪除：`markVariantsReady` 的 `WHERE deleted_at IS NULL` 不命中，剛寫入的變體立即刪除。
 - 稽核：`file.upload`（完成時，不是登記時）、`file.update`（只記有變的欄位）、`file.delete`；`resourceType = 'file'`。
   資料夾：`fileFolder.create`（上傳資料夾時每個新建的資料夾一筆）、`fileFolder.update`、`fileFolder.delete`（`before` 記下遞迴刪除的資料夾數與檔案數）、
@@ -550,9 +561,11 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | --- | --- | --- | --- | --- |
 | 1 | 逾時的 `pending` 紀錄 | 分頁當掉、網路中斷，沒呼叫放棄上傳 | `status='pending' AND created_at < now - FILE_PENDING_TTL`（依 id 分頁） | 軟刪除紀錄（`WHERE status='pending'` 決勝，並行完成的不刪）→ AbortMultipartUpload、刪原檔與縮圖 |
 | 2 | 沒有紀錄的分塊上傳 | `CreateMultipartUpload` 成功而 INSERT 失敗；放棄時 abort 失敗 | `ListMultipartUploads(files/)` 中 uploadId 不屬於任何未刪除紀錄 | AbortMultipartUpload |
-| 3 | 孤兒物件 | 刪除、放棄時物件刪除失敗；紀錄已刪除 | `ListObjectsV2` 列出 `files/`、`thumbnails/`、`variants/`，由 key 取出 id，查不到未刪除紀錄 | 刪除 |
+| 3 | 孤兒物件 | 放棄上傳、永久刪除之後的物件刪除失敗；紀錄已不存在 | `ListObjectsV2` 列出 `files/`、`thumbnails/`、`variants/`，由 key 取出 id，查不到 **任何** 紀錄（含已軟刪除的） | 刪除 |
 | 4 | 卡住的影像變體 | 產生途中重啟、儲存服務暫時不可用；migration 補產生 | `variant_status='pending' AND uploaded_at < now - 5 分鐘` | 重新排入（§5.4） |
 
+- **已刪除紀錄的物件不是孤兒**（R4a 起，[ADR-0025](../../adr/0025-entity-revisions.md) D11）：紀錄還在回收桶裡，保留期限內可以還原；
+  物件由 `trash.purge` 在永久刪除之後刪（[`13-trash.md`](./13-trash.md) §7.3）。R4a 之前這一類是「查不到 **未刪除** 紀錄」，遞迴刪除資料夾的物件靠它清除。
 - **不誤判**：2、3 只看建立早於 `now - FILE_PENDING_TTL` 的東西——剛登記、INSERT 還沒提交的上傳不會被當成孤兒；
   不是這個模組產生的 key（前綴不對、id 不是 uuid）一律不碰。
 - **偵測**：每一輪回傳 `FileMaintenanceReport`（四類各偵測到幾筆、處理失敗幾筆），有發現時記 info log；
@@ -581,6 +594,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `src/modules/file/__tests__/file-folder-access.approval.spec.ts` | 申請存取的審批 handler：已有權限不能申請、核准者要能 share 且授予得起、套用寫入授權與稽核 |
 | `src/modules/file/__tests__/file-folder.service.spec.ts`（授權段落） | 鎖住的資料夾（canRead=false）、根目錄不能建立、鎖住的回 403、擁有者改名、遞迴刪除的 not-owner 與 protected-subfolder、移動的目的地 |
 | `test/file-access.spec.ts` | 真 Postgres：只有 `file:access` 的成員經角色／個人授權看到的資料夾與檔案、擁有者規則、中斷繼承與複製、授權過期、遞迴刪除的附加條件、同一對象只有一個等級（再次授予是覆寫）；存取申請；系統資料夾（啟動時建立、別人的個人資料夾鎖住、不能改名刪除移動、指派角色後自動建立、刪除使用者時空的個人資料夾跟著刪除） |
+| `test/file-trash.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：刪除的 `deletion_id`、檔案與資料夾的還原與衝突、回收桶列表、維護排程不刪已刪除紀錄的物件、`trash.purge`（[`13-trash.md`](./13-trash.md) §9） |
 | `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除時清變體）、維護排程（dry run 與清除）、樂觀鎖、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束；資料夾：上傳到資料夾與依 `folderId` 列出、移動、循環與同名（真的唯一索引）、上傳資料夾重送得到同樣的 id、遞迴刪除後可再建同名、`file_folders_not_own_parent` |
 | `src/core/storage/__tests__/content-disposition.spec.ts` | 中文檔名的 `Content-Disposition` |
 | `src/core/storage/__tests__/stable-signing-date.spec.ts` | 下載網址在時間窗內不變、剩餘效期範圍 |

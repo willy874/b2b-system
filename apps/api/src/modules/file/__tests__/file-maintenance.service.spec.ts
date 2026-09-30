@@ -19,9 +19,12 @@ const LIVE = '11111111-1111-4111-8111-111111111111';
 const STALE = '22222222-2222-4222-8222-222222222222';
 const GONE = '33333333-3333-4333-8333-333333333333';
 const FRESH = '44444444-4444-4444-8444-444444444444';
+/** 紀錄已軟刪除（在回收桶裡）：物件要留到永久刪除。 */
+const TRASHED = '66666666-6666-4666-8666-666666666666';
 
 function setup() {
   const liveIds = new Set([LIVE, STALE, FRESH]);
+  const deletedIds = new Set([TRASHED]);
   const repo = {
     findStalePending: vi.fn(async (_before: Date, afterId: string | undefined) =>
       afterId ? [] : [{ id: STALE, storageKey: storageKeyOf(STALE), uploadId: 'upload-stale' }],
@@ -30,7 +33,10 @@ function setup() {
       liveIds.delete(id);
       return { id };
     }),
-    findLiveIds: vi.fn(async (ids: string[]) => new Set(ids.filter((id) => liveIds.has(id)))),
+    // 有紀錄（含已軟刪除）的 id：已刪除紀錄的物件留給 trash.purge（ADR-0025 R4a）
+    findRecordedIds: vi.fn(
+      async (ids: string[]) => new Set(ids.filter((id) => liveIds.has(id) || deletedIds.has(id))),
+    ),
     findLiveUploadIds: vi.fn(
       async (uploadIds: string[]) =>
         new Set(uploadIds.filter((uploadId) => uploadId === 'upload-live')),
@@ -42,6 +48,9 @@ function setup() {
     { key: storageKeyOf(GONE), lastModified: OLD },
     { key: thumbnailKeyOf(GONE), lastModified: OLD },
     { key: variantKeyOf(GONE, 'preview', 'jpeg'), lastModified: OLD },
+    // 紀錄在回收桶裡：不是孤兒
+    { key: storageKeyOf(TRASHED), lastModified: OLD },
+    { key: thumbnailKeyOf(TRASHED), lastModified: OLD },
     // 剛寫入的物件：紀錄可能還沒提交，不能當孤兒
     { key: storageKeyOf('55555555-5555-4555-8555-555555555555'), lastModified: RECENT },
     // 不是檔案模組產生的 key：不碰
@@ -132,6 +141,9 @@ describe('FileMaintenanceService（docs/architecture/backend/09-file.md §9）',
     expect(storage.delete).toHaveBeenCalledWith(variantKeyOf(GONE, 'preview', 'jpeg'));
     expect(storage.delete).not.toHaveBeenCalledWith(storageKeyOf(LIVE));
     expect(storage.delete).not.toHaveBeenCalledWith('files/readme.txt');
+    // 紀錄在回收桶裡（已軟刪除）的物件留給 trash.purge（ADR-0025 R4a）
+    expect(storage.delete).not.toHaveBeenCalledWith(storageKeyOf(TRASHED));
+    expect(storage.delete).not.toHaveBeenCalledWith(thumbnailKeyOf(TRASHED));
     // 卡住的變體重新排入
     expect(images.schedule).toHaveBeenCalledWith(LIVE);
   });

@@ -260,16 +260,23 @@ export const rbacHandlers = [
 
   writeHandler('delete', '/users/:id', 'user:delete', (id) => checkUser(id), noContent),
   // 回收桶（ADR-0025 D9）：mock 模式以 fixture 的複本當成已刪除的使用者與角色，只示範列表與還原
+  // 檔案與資料夾（R4）：mock 模式沒有檔案管理器的資料，只示範權限與空的分頁
   http.get(`${MOCK_API_BASE}/trash`, ({ request }) => {
     const type = new URL(request.url).searchParams.get('type');
-    const permission = type === 'role' ? 'role:delete' : 'user:delete';
+    const permission =
+      type === 'role'
+        ? 'role:delete'
+        : type === 'file' || type === 'fileFolder'
+          ? 'file:delete'
+          : 'user:delete';
     if (!mockState.permissions.includes(permission)) return forbidden(permission);
-    return HttpResponse.json({
-      data:
-        type === 'role'
-          ? paginate(DELETED_ROLE_FIXTURES.map(toRoleTrashItem))
-          : paginate(DELETED_USER_FIXTURES.map(toTrashItem)),
-    });
+    const items: Array<ReturnType<typeof toTrashItem> | ReturnType<typeof toRoleTrashItem>> =
+      type === 'role'
+        ? DELETED_ROLE_FIXTURES.map(toRoleTrashItem)
+        : type === 'user' || type === null
+          ? DELETED_USER_FIXTURES.map(toTrashItem)
+          : [];
+    return HttpResponse.json({ data: paginate(items) });
   }),
   writeHandler(
     'post',

@@ -7,7 +7,12 @@ import { RESOURCE_TYPE } from '@/core/resource';
  * 擁有資源的模組加入回收桶時（R3 角色、R4 檔案）在這裡加一個值，並在 `onModuleInit` 註冊 `TrashHandler`；
  * 列在這裡卻沒有 handler、或 handler 的類型不在這裡，都讓程序啟動失敗（`TrashRegistry`）。
  */
-export const TRASH_RESOURCE_TYPES = [RESOURCE_TYPE.USER, RESOURCE_TYPE.ROLE] as const;
+export const TRASH_RESOURCE_TYPES = [
+  RESOURCE_TYPE.USER,
+  RESOURCE_TYPE.ROLE,
+  RESOURCE_TYPE.FILE,
+  RESOURCE_TYPE.FILE_FOLDER,
+] as const;
 
 export type TrashResourceType = (typeof TRASH_RESOURCE_TYPES)[number];
 
@@ -19,6 +24,8 @@ export type TrashResourceType = (typeof TRASH_RESOURCE_TYPES)[number];
 export const TRASH_PERMISSIONS: readonly PermissionKey[] = [
   PERMISSION.USER_DELETE,
   PERMISSION.ROLE_DELETE,
+  // 檔案與資料夾共用：回收桶只看全域的 file:delete（資料夾層級的刪除權不算，13-trash.md §7.4）
+  PERMISSION.FILE_DELETE,
 ];
 
 /** 永久刪除一批的筆數：一批一個交易（ADR-0025 D11）。也是一次推播的變更數上限。 */

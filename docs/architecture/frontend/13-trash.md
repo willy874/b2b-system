@@ -1,6 +1,6 @@
 # 前端 13 — 回收桶
 
-> 狀態：**已實作**（`features/trash`，路由 `/trash`；「使用者」（R2）與「角色」（R3）兩類）。後端的回收桶、還原與永久刪除見
+> 狀態：**已實作**（`features/trash`，路由 `/trash`；「使用者」（R2）、「角色」（R3）、「檔案」與「資料夾」（R4a）四類）。後端的回收桶、還原與永久刪除見
 > [`../backend/13-trash.md`](../backend/13-trash.md)；決策見 [ADR-0025](../../adr/0025-entity-revisions.md) D9、D10。
 
 ## 1. 組成
@@ -19,9 +19,14 @@ features/user/trash.ts             登記「使用者」類型（plugin 的同�
 features/user/components/UserRestoreAction.tsx
 features/role/trash.ts             登記「角色」類型
 features/role/components/RoleRestoreAction.tsx
+features/file/trash.ts             登記「檔案」「資料夾」兩類（可在執行期停用的 feature：卸載時分頁跟著消失）
+features/file/components/FileRestoreAction.tsx、FolderRestoreAction.tsx
+features/role/components/RoleRestoreAction.tsx
 apis/trash/get-trash-list/         GET /trash
 apis/user/restore-user/            POST /users/:id/restore
 apis/role/restore-role/            POST /roles/:id/restore
+apis/file/restore-file/            POST /files/:id/restore
+apis/file/restore-file-folder/     POST /file-folders/:id/restore
 ```
 
 與後端對稱：後端的 `modules/trash` 以 `TrashRegistry` 收各模組的 handler、還原端點在擁有者；
@@ -37,7 +42,7 @@ apis/role/restore-role/            POST /roles/:id/restore
 | --- | --- |
 | `type` | 後端 `GET /trash?type=` 的值（`TrashResourceType`，由 SDK 產生）；也是分頁與網址 `?type=` 的鍵 |
 | `order` | 分頁順序 |
-| `labelI18nKey` | 分頁標題；放 **全域** 語系包（使用者用 `menu.user`、角色用 `menu.role`） |
+| `labelI18nKey` | 分頁標題；放 **全域** 語系包（使用者用 `menu.user`、角色用 `menu.role`、檔案用 `menu.file`、資料夾用 `menu.fileFolder`） |
 | `permission` | 看這一類與還原的權限：`<resource>:delete`，與後端 handler 的 `permission` 相同 |
 | `localeScope` | 還原操作用到的 scope；回收桶的 route loader（`trashLocaleLoader`）一併載入 |
 | `RestoreAction` | 每一列的還原操作元件（`{ item: TrashItem }`）：呼叫擁有者的還原 API、自己呈現錯誤 |
@@ -49,7 +54,7 @@ apis/role/restore-role/            POST /roles/:id/restore
 
 | 層 | 規則 |
 | --- | --- |
-| 頁面（`TRASH_PAGE`） | `match: SOME` 的 `TRASH_PAGE_PERMISSIONS`（`[user:delete, role:delete]`）：至少能刪一種才進得去、選單才出現。與後端 `TRASH_PERMISSIONS` 是同一組鍵，新類型兩邊一起加 |
+| 頁面（`TRASH_PAGE`） | `match: SOME` 的 `TRASH_PAGE_PERMISSIONS`（`[user:delete, role:delete, file:delete]`）：至少能刪一種才進得去、選單才出現。與後端 `TRASH_PERMISSIONS` 是同一組鍵，新類型兩邊一起加 |
 | 分頁 | `useTrashPermission()`：登記的類型中 `can(type.permission)` 的那些；未水合時為空（不閃現） |
 | 網址 `?type=` | 不存在或看不到時改看第一個看得到的分頁 |
 | 後端 | 仍會以該類型的權限再檢查一次（[`../backend/13-trash.md`](../backend/13-trash.md) §3） |
@@ -75,6 +80,20 @@ apis/role/restore-role/            POST /roles/:id/restore
 - **刪除後的「復原」**：`useRoleDeleteMutation()` 成功的提示附「復原」，按下呼叫同一個還原端點；刪除與還原都要 `role:delete`。
   刪除的確認文字改成「移到回收桶，保留期限內可以還原」。
 
+## 4.2 檔案與資料夾的還原
+
+- 分頁「檔案」（`file`）與「資料夾」（`fileFolder`）都要 **全域** `file:delete`（後端 13-trash §7.4）。列的說明（`description`）是原本所在的路徑（`/素材/ui`）。
+  「資料夾」分頁只列每一次刪除的根；跟著資料夾一起刪的檔案不在「檔案」分頁，還原資料夾時一起回來。
+- `useFileRestoreMutation()`（`features/file/hooks/useFileMutations.ts`）：成功時以 `file` / `create` 宣告（列表重抓、回收桶失效）。
+  `409 FILE_RESTORE_CONFLICT` 依 `details.reason` 說明：`parentDeleted` → 先到「資料夾」分頁還原資料夾；`objectMissing` → 內容已不存在、無法還原。
+- `useFolderRestoreMutation()`（`useFolderMutations.ts`）：成功時以 `fileFolder` / `create` 與 `file` / `create`（`id='*'`）宣告；
+  回應的 `filesSkipped` > 0 時以警告提示「其中 n 個檔案的內容已不存在」。`409 FILE_FOLDER_NAME_CONFLICT` → 「先把同名的資料夾改名或移走」；
+  `409 FILE_FOLDER_RESTORE_CONFLICT`（上層已刪除）用通用訊息。
+- **刪除後的「復原」**：刪除資料夾的提示附「復原」（還原整批）；確認文字改成「移到回收桶，保留期限內可以還原」。
+  **刪除檔案的提示在 R4a 不附「復原」**（`features/file/constants.ts` 的 `CAN_UNDO_FILE_DELETE = false`）：R4a 的後端仍在刪除當下刪掉物件，
+  還原一定是 `objectMissing`。R4b 部署後改成 `true` 並改確認文字（後端 13-trash §7.5）。
+- 只有資料夾授權的人（`file:access`）看不到回收桶，但能以「復原」還原自己剛刪的資料夾（還原端點的權限與刪除相同）。
+
 ## 5. 系統設定
 
 保留天數 `trash.retentionDays` 在系統設定頁的「回收桶」分類（`features/system/constants.ts`，單位「天」）；
@@ -91,4 +110,6 @@ apis/role/restore-role/            POST /roles/:id/restore
 | 使用者的還原、409 的「查看該帳號」、刪除提示的「復原」 | `features/user/components/__tests__/UserRestoreAction.test.tsx` |
 | 角色的還原（持有者人數）、409 的「查看該角色」、反提權的說明、刪除提示的「復原」 | `features/role/components/__tests__/RoleRestoreAction.test.tsx` |
 | 頁面：只有 `role:delete` 也進得去、只看到角色分頁 | `features/trash/pages/TrashList/__tests__/TrashListPage.test.tsx` |
-| 依賴圖：`user`、`role` 的 create／delete 讓回收桶失效 | `apis/__tests__/resources.test.ts` |
+| 檔案與資料夾的還原、`parentDeleted`／`objectMissing` 的說明、`filesSkipped` 的提示、同名的說明、資料夾刪除提示的「復原」、R4a 檔案刪除提示不附「復原」 | `features/file/components/__tests__/FileRestoreAction.test.tsx` |
+| 頁面：只有 `file:delete` 也進得去、只看到檔案分頁 | `features/trash/pages/TrashList/__tests__/TrashListPage.test.tsx` |
+| 依賴圖：`user`、`role`、`file`、`fileFolder` 的 create／delete 讓回收桶失效 | `apis/__tests__/resources.test.ts` |

@@ -3,7 +3,8 @@
 刪除的東西先進回收桶，保留期限內可以還原，到期後由排程永久刪除。
 決策見 [ADR-0025](../../adr/0025-entity-revisions.md) D2、D5、D6、D8～D11；前端見 [`../frontend/13-trash.md`](../frontend/13-trash.md)。
 
-目前（R3）**使用者**（§4）與 **角色**（§6）進回收桶；檔案與資料夾（R4）依 ADR 的分階段加入。
+目前（R4a）**使用者**（§4）、**角色**（§6）、**檔案** 與 **資料夾**（§7）進回收桶。檔案還原分兩次部署（ADR 的 R4）：
+這一版（R4a）刪除個別檔案時仍會立刻刪物件，下一版（R4b，§7.5）才改成保留到永久刪除。
 
 ---
 
@@ -26,7 +27,13 @@ modules/user/user-trash.handler.ts   使用者的 TrashHandler（onModuleInit �
 modules/user/user.service.ts         restore()：POST /users/:id/restore
 modules/role/role-trash.handler.ts   角色的 TrashHandler
 modules/role/role.service.ts         restore()：POST /roles/:id/restore
+modules/file/file-trash.handler.ts         檔案的 TrashHandler
+modules/file/file-folder-trash.handler.ts  資料夾的 TrashHandler
+modules/file/file.service.ts               restore()：POST /files/:id/restore
+modules/file/file-folder.service.ts        restore()：POST /file-folders/:id/restore
+modules/file/file-objects.service.ts       一個檔案的所有物件：刪除（刪除檔案、永久刪除共用）、還原前確認還在
 db/migrations/0012_*.sql             roles.deleted_at 改變時關係圖的 revision +1（§6.1）
+db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_id（§7.0）
 ```
 
 - **擁有者模組實作、通用模組排程**（D9）：與審批的 `ApprovalHandler` 同一個模式。擁有者 import `TrashModule`，
@@ -67,19 +74,20 @@ db/migrations/0012_*.sql             roles.deleted_at 改變時關係圖的 revi
 
 | 參數 | 說明 |
 | --- | --- |
-| `type` | 必填，`TrashResourceType`（`user`、`role`）。一次只列一種類型，不跨類型合併分頁（D9） |
+| `type` | 必填，`TrashResourceType`（`user`、`role`、`file`、`fileFolder`）。一次只列一種類型，不跨類型合併分頁（D9） |
 | `offset`、`limit` | 一般的分頁（[`03-api-conventions.md`](./03-api-conventions.md) §2） |
-| `keyword` | 選填；使用者比對 email 與顯示名稱，角色比對名稱與 slug |
+| `keyword` | 選填；使用者比對 email 與顯示名稱，角色比對名稱與 slug，檔案與資料夾比對名稱 |
 
-回應的每一列（`TrashItem`）：`id`、`type`、`name`（使用者：顯示名稱；角色：名稱）、`description`（使用者：email；角色：說明，可能是 `null`）、
+回應的每一列（`TrashItem`）：`id`、`type`、`name`（使用者：顯示名稱；角色、檔案、資料夾：名稱）、
+`description`（使用者：email；角色：說明，可能是 `null`；檔案：原本所在的資料夾路徑，例 `/素材/ui`，根目錄是 `/`；資料夾：原本的上層路徑）、
 `deletedAt`、`deletedBy`（`{ id, name }` 或 `null`）、`purgeAt`（`deletedAt` ＋ 目前的保留天數）。
-刪除者取自刪除時寫入的 `updated_by`（使用者與角色都一樣）：刪除之後沒有任何路徑會再更新那一列。
+刪除者取自刪除時寫入的 `updated_by`（每一類都一樣）：刪除之後沒有任何路徑會再更新那一列。
 角色的持有者人數不在列表裡（`TrashItem` 是各類型共用的形狀）；還原的回應帶 `holdersRestored`。
 
 **權限的兩層檢查**：
 
 1. 路由宣告 `@RequireAnyPermission(...TRASH_PERMISSIONS)`：一種都不能刪的人由 `PermissionsGuard` 擋下
-   （`403 AUTHZ_FORBIDDEN`、`authz.denied` 稽核），`route-audit` 的總表也看得到這個端點要哪些鍵。
+   （`403 AUTHZ_FORBIDDEN`、`authz.denied` 稽核），`route-audit` 的總表也看得到這個端點要哪些鍵（`user:delete`、`role:delete`、`file:delete`）。
 2. `TrashService` 再以該類型 handler 的 `permission` 檢查一次：持有 `role:delete` 卻要看 `type=user` 時同樣
    `403 AUTHZ_FORBIDDEN`（`details.required`），並寫 `authz.denied`（`metadata.type`）。super-admin 豁免。
 
@@ -120,8 +128,10 @@ db/migrations/0012_*.sql             roles.deleted_at 改變時關係圖的 revi
 ### 4.2 永久刪除
 
 `findExpired` 排除 **還擁有資料夾** 的人（`file_folders.owner_id` 是 `ON DELETE RESTRICT`，含已軟刪除、尚未永久刪除的個人資料夾）：
-他們這一輪略過，等資料夾先被清掉（R4 之後由檔案的 handler 以較小的 `purgeOrder` 先處理）。在那之前，
-刪除時個人資料夾有內容、或曾經有過個人資料夾的人不會被永久刪除——這是 D11 的「本輪略過、下一輪再處理」，不是錯誤。
+他們這一輪略過，等資料夾先被清掉：資料夾的 handler（`purgeOrder` 20）排在使用者（30）之前，系統在刪除使用者時軟刪除的空個人資料夾
+與使用者一起到期，**同一輪** 就先被清掉，使用者接著就能刪（§7.3）。個人資料夾比使用者晚一點點被刪（刪除使用者之後的事件），
+截止時間剛好落在兩者之間時使用者這一輪略過、下一輪再刪。刪除時個人資料夾 **有內容** 的人，資料夾不會被刪（留給管理者整理），
+他也就不會被永久刪除——這是 D11 的「本輪略過、下一輪再處理」，不是錯誤。
 
 每一個指向 `users` 的參照（租戶 DB）與處理方式：
 
@@ -152,7 +162,8 @@ db/migrations/0012_*.sql             roles.deleted_at 改變時關係圖的 revi
 | 對象 | 依 `purgeOrder` 逐類處理 `deleted_at < now - retentionDays` 的列 |
 | 交易 | 每批（`TRASH_PURGE_BATCH_SIZE` = 100）一個交易；每一列一個 savepoint：外鍵違反只略過那一列，其他錯誤讓整個工作失敗、依設定重試 |
 | 稽核 | 每一列一筆 `<resource>.purge`，與刪除同一個 savepoint：`actorId: null`、`actorEmail: 'system'`、`metadata: { retentionDays, deletedAt }` |
-| 結果 | 工作的 `output`：`{ retentionDays, cutoff, purged: { user: n, role: n }, skipped: { … } }` |
+| 結果 | 工作的 `output`：`{ retentionDays, cutoff, purged: { file: n, fileFolder: n, user: n, role: n }, skipped: { … } }` |
+| 順序 | 檔案（10）→ 資料夾（20）→ 使用者（30）→ 角色（40）：`files.folder_id`、`file_folders.parent_id`、`file_folders.owner_id` 都是 `RESTRICT` |
 
 - 分批以 `id` 的 keyset 往後走：略過的列不會在同一輪被重複取到，一輪一定會結束。
 - 中途失敗也安全：已提交的批次已經刪掉，重做時只剩還沒處理的列。
@@ -214,7 +225,105 @@ db/migrations/0012_*.sql             roles.deleted_at 改變時關係圖的 revi
 
 ---
 
-## 7. 錯誤碼
+## 7. 檔案與資料夾（R4a）
+
+### 7.0 刪除：`deletion_id` 與物件
+
+| 操作 | 軟刪除的列 | `deletion_id` | 物件儲存的內容 |
+| --- | --- | --- | --- |
+| `DELETE /files/:id` | 那個檔案 | 新的一個 | **R4a：交易後立刻刪**（原檔、瀏覽器縮圖、變體）；R4b 起保留到永久刪除（§7.5） |
+| `DELETE /file-folders/:id`（遞迴） | 資料夾、所有子孫資料夾、其中的檔案（含上傳中的） | 同一個（刪除時間也相同） | 保留（本來就不在請求內刪） |
+| 放棄上傳、維護排程清掉逾時的上傳 | 那個 `pending` 檔案 | 新的一個 | 當下刪（從未可見，不進回收桶） |
+| 系統刪除擁有者已刪除的空個人資料夾 | 那個個人資料夾 | 新的一個 | 沒有內容 |
+
+- `files.deletion_id`、`file_folders.deletion_id`（`uuid NULL`，migration 0013；[`02-database.md`](./02-database.md) §5.2）：未刪除時是 null，還原時清掉。
+  **R4a 之前刪除的列是 null**：以 `IS NOT DISTINCT FROM` 比對，舊的遞迴刪除（資料夾與檔案都是 null）整棵視為同一批。
+- **資料夾授權不動**：刪除資料夾不刪 `relation_tuples` 上以它為物件的授權邊。刪除的資料夾不在資料夾結構（`FileFolderTree`，只載入未刪除的）裡，
+  沒有上層、繼承與建立者的結構邊，授權也就流不到任何地方（與 D2「保留的邊休眠」同一個道理）；還原後結構回來，授權隨之生效。永久刪除時才刪邊（§7.3）。
+- **維護排程的孤兒**（[`09-file.md`](./09-file.md) §9 第 3 類）：R4a 起改成「查不到 **任何** 紀錄（含已軟刪除的）」的物件，
+  已刪除紀錄的物件留給 `trash.purge`。這是 R4 兩次部署的第一步：舊版的維護排程仍會把「紀錄已刪除」的物件當孤兒刪掉，
+  所以要等新版的維護排程上線之後，刪除檔案才能停止立刻刪物件（§7.5）。
+
+### 7.1 還原資料夾：`POST /file-folders/:id/restore`
+
+閘門 `file:access` 或 `file:delete`（與刪除相同）。回應是 `RestoredFileFolder`：還原後的 `FileFolder` ＋ `foldersRestored`（含自己）、
+`filesRestored`、`filesSkipped`。
+
+1. 找已刪除的列；找不到 → 資料夾存在但沒被刪除 `409 FILE_FOLDER_NOT_DELETED`，不存在或已被永久刪除 `404 FILE_FOLDER_NOT_FOUND`。
+   系統資料夾（共用、私人、個人）只由系統刪除 → `403 FILE_FOLDER_SYSTEM_PROTECTED`（還原別人的個人資料夾會與補建的新個人資料夾衝突）。
+2. 上層已刪除 → `409 FILE_FOLDER_RESTORE_CONFLICT`，`details: { reason: 'parentDeleted', parentType: 'fileFolder', parentId }`（D5：先還原上層）。
+3. **同一批**：從這個資料夾往下，只走已刪除、`deletion_id` 相同的子資料夾（遞迴 CTE）；之前個別刪掉的子資料夾（連同它底下的）與檔案 `deletion_id` 不同，維持刪除。
+   同一批的檔案只取已完成上傳的（`pending` 的直傳網址早已過期，只能重新上傳）。
+4. 在排隊之前逐一 HeadObject 確認檔案的物件還在（並行上限 16）。**原檔不在的檔案維持刪除**（`filesSkipped`），不讓整個資料夾的還原失敗：
+   資料夾本身沒有內容，擋下來只會讓其他檔案也救不回來；那些檔案之後以個別項目出現在回收桶的「檔案」分頁（所在的資料夾已還原），還原會得到 `objectMissing`。
+   瀏覽器縮圖不在 → `has_thumbnail = false`；影像變體不在 → `variant_status = 'pending'`，交易後重新排入產生。
+5. `FileFolderTree.write` 的交易（樹鎖）內：重新確認上層還在 → 同一層同名（不分大小寫、未刪除）→ `409 FILE_FOLDER_NAME_CONFLICT`，
+   `details: { name, conflictingId }`（D5，唯一值衝突沿用建立時的錯誤碼）；競態由 partial unique index 擋下，轉成同一個錯誤碼（不帶 `conflictingId`）→
+   `UPDATE … SET deleted_at = NULL, deletion_id = NULL WHERE id = ANY(同一批) AND deleted_at IS NOT NULL AND deletion_id IS NOT DISTINCT FROM $d`
+   （並行的兩個還原只有一個命中，另一個 `409 FILE_FOLDER_NOT_DELETED`）→ 深度上限（上層可能在刪除後被移得更深）→ 還原確認過的檔案。
+6. **權限以還原之後的結構判斷**：同一個交易內建立存取判斷（此時結構已含還原的資料夾），照 **刪除** 的規則檢查「現在能不能刪掉它」——
+   讀得到這個資料夾（否則 403）、`can_remove`、只靠擁有者規則時子樹沒有別人的東西（`not-owner`）、子樹裡的私人資料夾要另外有刪除權（`protected-subfolder`）。
+   不能就整個 rollback（拒絕照常寫 `authz.denied`，在交易外）。授權是沿結構繼承的，資料夾不在結構裡時無法判斷；還原之後判斷才與刪除完全一致。
+7. 稽核 `fileFolder.restore`（`changes.after: { name, parentId }`、`metadata: { deletedAt, deletionId, folderCount, fileCount, filesSkipped }`）與還原同一個交易。
+8. 交易後：結構快取失效（`FileFolderTree.write`）→ 重新排入變體 → `resource.changed`：`fileFolder` / `create`、有檔案時加一筆 `file` / `create`（`id = '*'`）。
+
+### 7.2 還原檔案：`POST /files/:id/restore`
+
+閘門 `file:access` 或 `file:delete`。回應是還原後的 `StoredFile`。
+
+1. 找已刪除、已完成上傳的列；找不到 → 檔案存在、沒被刪除而且看得到 `409 FILE_NOT_DELETED`，否則（不存在、已被永久刪除、放棄的上傳、
+   看不到所在的資料夾）`404 FILE_NOT_FOUND`。
+2. 所在的資料夾已刪除 → `409 FILE_RESTORE_CONFLICT`，`details: { reason: 'parentDeleted', parentType: 'fileFolder', parentId }`。
+3. 權限與刪除相同：讀得到所在的資料夾（否則 `404 FILE_NOT_FOUND`），而且 `can_remove`（資料夾的 `can_delete`，或本人上傳而仍能在那裡上傳；否則 `403 AUTHZ_FORBIDDEN`）。
+4. 原檔已不在物件儲存 → `409 FILE_RESTORE_CONFLICT`，`details: { reason: 'objectMissing' }`。**R4a 個別刪除的檔案都是這樣**（刪除當下就刪了物件）；
+   R4b 之後只剩人為刪除或維護排程誤判會造成。這個檢查永久保留。縮圖、變體不在時與 §7.1 第 4 步相同，只修正紀錄。
+5. 交易內（與遞迴刪除排隊：資料夾在檢查之後才被刪時同樣回 `parentDeleted`）：以 `deletion_id` 為條件清 `deleted_at`、`deletion_id`（被搶先 → `FILE_NOT_DELETED`）＋
+   稽核 `file.restore`（`changes.after: { name, folderId }`、`metadata: { deletedAt, deletionId }`）。
+6. 交易後：`file` / `create`（`refs.fileFolder` 是所在的資料夾）。
+
+檔名沒有唯一性，沒有同名衝突。`version` 不遞增（與刪除相同）。
+
+### 7.3 永久刪除
+
+| 類型 | `purgeOrder` | `findExpired` | `purge` | `afterPurge` |
+| --- | --- | --- | --- | --- |
+| `file` | 10 | 所有到期的已刪除檔案（含放棄的上傳、跟著資料夾刪的） | 硬刪除列 ＋ 以它為物件的 `relation_tuples` | **提交之後** 刪物件（原檔、縮圖、`variants/<id>/`，並行上限 16，失敗只記 warn）→ `file` / `delete` |
+| `fileFolder` | 20 | 到期子樹的 **根**（上層也到期的不回傳，由上層一起刪） | 子樹所有已刪除的資料夾由最深一層往上硬刪（`parent_id` 是 `RESTRICT`）＋ 以它們為物件或主體的 `relation_tuples`（資料夾授權） | `fileFolder` / `delete`；不必 `permissionsChanged()`（資料夾授權不在權限快取裡，09-file §11），revision 由 `relation_tuples` 的 trigger +1 |
+
+- 上層到期 ⇒ 子孫也到期：子孫不是與上層同時刪除，就是更早個別刪除（上層被刪之後不可能再有東西被刪）。
+- 資料夾裡還有沒清掉的檔案（例：這一輪檔案的 purge 失敗）→ 外鍵違反，savepoint 當作這一輪略過。
+- 系統刪除的個人資料夾也在這裡清掉，擁有者（`owner_id` 是 `RESTRICT`）才能被永久刪除（§4.2）。
+- 物件在交易 **之後** 才刪：交易 rollback 時紀錄還在、內容也要在。提交後、刪物件前中斷 → 物件查不到任何紀錄，由維護排程的孤兒對帳清掉。
+- 存取申請（`approval_requests` 的 payload 帶資料夾 id）沒有外鍵，不清；審核時資料夾不存在會回 `FILE_FOLDER_NOT_FOUND`。
+
+### 7.4 權限：回收桶與還原
+
+| 入口 | 規則 |
+| --- | --- |
+| 回收桶（`GET /trash?type=file`／`fileFolder`） | **全域** `file:delete`（handler 的 `permission`），與使用者、角色相同的兩層檢查（§3） |
+| 還原端點 | 與刪除相同：閘門 `file:access` 或 `file:delete`，範圍由資料夾授權與擁有者規則判斷（§7.1 第 6 步、§7.2 第 3 步） |
+
+只有資料夾層級刪除權的人（`file:access` ＋ 資料夾的 `editor`，或擁有者規則）看不到回收桶，但能以刪除提示的「復原」還原自己剛刪的東西，
+也能直接呼叫還原端點。回收桶不做「只列你還原得了的項目」：那要為每一列建立存取判斷（已刪除的資料夾不在結構裡，還要模擬還原後的結構），
+而且列表的分頁與總數會隨權限變動；全域權限的持有者才是清理回收桶的角色。這與 D10「能刪就能復原」一致——回收桶是全域的管理介面，
+對應全域的刪除權。
+
+### 7.5 R4b 待做（下一次部署，另開 branch）
+
+R4a 上線、確認 **所有** 程序都已換成新版的維護排程（孤兒＝查不到任何紀錄）之後才做；滾動部署期間舊版的維護排程仍會刪掉「紀錄已刪除」的物件：
+
+1. `FileService.remove()`：刪掉交易後的 `this.objects.deleteAll(...)` 那一步（程式碼註解標了 R4b），物件留到 `trash.purge`。
+   `FileMaintenanceService` 第 1 類（逾時的 `pending`）與放棄上傳維持當下刪物件（從未可見，不進回收桶）。
+2. 前端：`features/file/constants.ts` 的 `CAN_UNDO_FILE_DELETE` 改成 `true`（刪除檔案的提示附「復原」）；
+   `file.delete.confirm`、`file.batch.delete.confirm`、`file.batch.deleteFolder.confirm` 改成「移到回收桶，保留期限內可以還原」。
+3. 文件：本節改成「已完成」、§7.0 表格第一列與 [`09-file.md`](./09-file.md) §7 的刪除說明、ADR-0025 的 R4 狀態、提案狀態。
+4. 測試：`test/file-trash.spec.ts` 的「R4a：個別刪除時物件已被刪掉」改成「刪除後物件保留、還原成功」；`file.service.spec.ts` 的刪除案例改成不刪物件。
+
+不需要改：`objectMissing` 的檢查（永久保留）、`trash.purge` 的交易後刪物件、維護排程的孤兒判定、migration。
+
+---
+
+## 8. 錯誤碼
 
 | 錯誤碼 | HTTP | 何時 |
 | --- | --- | --- |
@@ -223,16 +332,24 @@ db/migrations/0012_*.sql             roles.deleted_at 改變時關係圖的 revi
 | `ROLE_NOT_DELETED` | 409 | 還原一個沒有被刪除的角色，或被別人搶先還原 |
 | `ROLE_NAME_DUPLICATE` | 409 | 還原時名稱或 slug 已被未刪除的角色使用；`details.field`、`details.conflictingRoleId` |
 | `AUTHZ_ESCALATION` | 403 | 還原會讓人取得 actor 指派不了的角色（使用者），或角色帶了 actor 沒有的權限鍵（角色） |
-| `AUTHZ_FORBIDDEN` | 403 | 看回收桶的某一類卻沒有該類型的 `<resource>:delete` |
+| `AUTHZ_FORBIDDEN` | 403 | 看回收桶的某一類卻沒有該類型的 `<resource>:delete`；還原檔案或資料夾時不能刪除它（§7.1、§7.2） |
+| `FILE_NOT_DELETED`／`FILE_FOLDER_NOT_DELETED` | 409 | 還原一個沒有被刪除的檔案／資料夾，或被別人搶先還原 |
+| `FILE_RESTORE_CONFLICT` | 409 | 還原檔案：`details.reason` 是 `parentDeleted`（帶 `parentType`、`parentId`）或 `objectMissing` |
+| `FILE_FOLDER_RESTORE_CONFLICT` | 409 | 還原資料夾：上層已刪除（`reason: 'parentDeleted'`） |
+| `FILE_FOLDER_NAME_CONFLICT` | 409 | 還原資料夾時同一層已有同名的資料夾；`details.conflictingId` |
 
 ---
 
-## 8. 測試
+## 9. 測試
 
 | 對象 | 檔案 |
 | --- | --- |
 | 列表的權限檢查、永久刪除的稽核、外鍵略過、keyset 分批、註冊檢查、排程註冊 | `src/modules/trash/__tests__/trash.service.spec.ts` |
 | HTTP：還原（狀態保留、refresh token 不回復、個人資料夾補建、稽核）、409 帶 `conflictingUserId`、反提權、`USER_NOT_DELETED`／404、權限；`GET /trash` 的排序、刪除者、`purgeAt`、權限；`trash.purge` 的硬刪除與連帶資料、擁有資料夾時略過、依設定的保留天數 | `test/trash.spec.ts` |
 | 角色：刪除保留持有者邊但權限立刻消失、依角色篩選與使用者的角色看不到刪除的角色、revision +1、`replaceRoles` 保留休眠的邊；還原（持有者回來、`holdersRestored`、R3 之前刪除的是 0、稽核）、名稱／slug 的 409 帶 `conflictingRoleId`、反提權、`ROLE_NOT_DELETED`／404、權限；`GET /trash?type=role`；`trash.purge` 刪除角色與所有邊 | `test/role-trash.spec.ts` |
+| 檔案與資料夾：`deletion_id` 的批次、只還原同一批、物件不在的檔案略過、`parentDeleted`、同名的 `conflictingId`、`*_NOT_DELETED`／404、權限（只能讀的人 403、資料夾授權的成員還原自己的檔案但看不到回收桶）、資料夾授權還原後生效；`GET /trash` 只列批次的根與個別刪除的檔案（帶路徑）；維護排程不刪已刪除紀錄的物件；`trash.purge` 刪列、授權的邊、物件，個人資料夾清掉後同一輪刪除使用者 | `test/file-trash.spec.ts` |
+| 檔案的還原規則（每個 `AppException` 分支、縮圖與變體的修正、擁有者規則） | `src/modules/file/__tests__/file.service.spec.ts` |
+| 資料夾的還原規則（同一批、略過、衝突、系統資料夾、以還原後的結構判斷權限） | `src/modules/file/__tests__/file-folder.service.spec.ts` |
+| 維護排程不把已刪除紀錄的物件當孤兒 | `src/modules/file/__tests__/file-maintenance.service.spec.ts` |
 | `notDeleted` 的掃描 | `src/__tests__/soft-delete-scan.spec.ts` |
 | 端點的權限宣告 | `test/route-audit.spec.ts` |

@@ -12,7 +12,8 @@ import type { AuditService } from '@/modules/audit-log/audit.service';
 
 import type { FileFolderService } from '../file-folder.service';
 import type { FileImageService } from '../file-image.service';
-import { storageKeyOf, thumbnailKeyOf } from '../file.constants';
+import { FileObjectsService } from '../file-objects.service';
+import { storageKeyOf, thumbnailKeyOf, variantKeyOf, variantPrefixOf } from '../file.constants';
 import { decodeFileCursor, encodeFileCursor } from '../file.cursor';
 import type { FileRepository, FileWithUploader } from '../file.repository';
 import { FileService } from '../file.service';
@@ -58,6 +59,7 @@ function fileRow(overrides: Partial<FileWithUploader> = {}): FileWithUploader {
     updatedAt: now,
     updatedBy: ALICE.id,
     deletedAt: null,
+    deletionId: null,
     uploader: { id: ALICE.id, displayName: 'Alice' },
     ...overrides,
   };
@@ -66,6 +68,8 @@ function fileRow(overrides: Partial<FileWithUploader> = {}): FileWithUploader {
 function setup(
   options: {
     file?: FileWithUploader;
+    /** 已刪除的列（還原）。 */
+    deleted?: FileWithUploader;
     head?: StoredObjectHead;
     thumbnailHead?: StoredObjectHead;
     access?: AccessFixtureOptions;
@@ -80,6 +84,10 @@ function setup(
     softDelete: vi.fn(async () => fileRow({ status: 'ready' })),
     discardPending: vi.fn(async () => fileRow({ deletedAt: new Date() })),
     list: vi.fn(),
+    findDeletedById: vi.fn(async () => options.deleted),
+    restore: vi.fn(async () => (options.deleted ? [options.deleted] : [])),
+    clearThumbnail: vi.fn(async () => undefined),
+    resetVariants: vi.fn(async () => undefined),
   };
   const storage = {
     ensureBucket: vi.fn(async () => undefined),
@@ -87,6 +95,11 @@ function setup(
       key.startsWith('thumbnails/') ? options.thumbnailHead : options.head,
     ),
     delete: vi.fn(async () => undefined),
+    listObjects: vi.fn((prefix: string) =>
+      (async function* () {
+        yield { key: `${prefix}preview.jpeg`, size: 1, lastModified: new Date() };
+      })(),
+    ),
     presignUpload: vi.fn(async (key: string) => ({
       url: `http://storage/${key}?put`,
       method: 'PUT' as const,
@@ -136,6 +149,9 @@ function setup(
     insideFolder: vi.fn(async (_folderId: unknown, work: (tx: unknown) => unknown) =>
       work(undefined),
     ),
+    withinLiveFolder: vi.fn(
+      async (_folderId: unknown, _missing: unknown, work: (tx: unknown) => unknown) => work('tx'),
+    ),
   };
   const config = {
     get: vi.fn(
@@ -159,9 +175,10 @@ function setup(
     createFileAccess(options.access).access,
     // 租戶沒有覆寫上限：生效值等於 env 的上限
     { get: vi.fn(async () => MAX_SIZE) } as unknown as SettingService,
+    new FileObjectsService(storage as unknown as ObjectStorage),
     config as unknown as ConfigService<Env, true>,
   );
-  return { service, repo, storage, audit, events, images };
+  return { service, repo, storage, audit, events, images, folders };
 }
 
 async function expectAppError(promise: Promise<unknown>, code: string) {
@@ -366,7 +383,11 @@ describe('FileService.update / remove', () => {
   it('刪除：交易內軟刪除＋稽核，交易後才刪物件', async () => {
     const { service, repo, storage, audit } = setup({ file: ready() });
     await service.remove(FILE_ID, ALICE);
-    expect(repo.softDelete).toHaveBeenCalledWith(FILE_ID, ALICE.id, 'tx');
+    expect(repo.softDelete).toHaveBeenCalledWith(
+      FILE_ID,
+      { actorId: ALICE.id, deletionId: expect.any(String) },
+      'tx',
+    );
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'file.delete' }),
       'tx',
@@ -654,11 +675,14 @@ describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.
       }),
     });
     await withVariants.service.remove(FILE_ID, ALICE);
-    expect(withVariants.images.deleteVariants).toHaveBeenCalledWith(FILE_ID);
+    expect(withVariants.storage.listObjects).toHaveBeenCalledWith(variantPrefixOf(FILE_ID));
+    expect(withVariants.storage.delete).toHaveBeenCalledWith(
+      `${variantPrefixOf(FILE_ID)}preview.jpeg`,
+    );
 
     const plain = setup({ file: fileRow({ status: 'ready', etag: 'a', uploadedAt: new Date() }) });
     await plain.service.remove(FILE_ID, ALICE);
-    expect(plain.images.deleteVariants).not.toHaveBeenCalled();
+    expect(plain.storage.listObjects).not.toHaveBeenCalled();
   });
 });
 
@@ -825,5 +849,120 @@ describe('FileService 的資料夾層級授權（docs/rbac/07-resource-grants.md
       'AUTHZ_FORBIDDEN',
     );
     expect(viewer.repo.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('FileService.restore（docs/architecture/backend/13-trash.md §7.2、ADR-0025 D5）', () => {
+  const FOLDER = '66666666-6666-4666-8666-666666666666';
+  const deleted = (overrides: Partial<FileWithUploader> = {}) =>
+    fileRow({
+      status: 'ready',
+      etag: 'e',
+      uploadedAt: new Date(),
+      deletedAt: new Date('2026-09-28T00:00:00Z'),
+      deletionId: '99999999-9999-4999-8999-999999999999',
+      ...overrides,
+    });
+  const present = { size: 10, etag: 'e', contentType: 'image/png' };
+
+  it('沒有被刪除 → FILE_NOT_DELETED；不存在或是放棄的上傳 → FILE_NOT_FOUND', async () => {
+    const live = setup({ file: fileRow({ status: 'ready', etag: 'e', uploadedAt: new Date() }) });
+    await expectAppError(live.service.restore(FILE_ID, ALICE), 'FILE_NOT_DELETED');
+    await expectAppError(setup().service.restore(FILE_ID, ALICE), 'FILE_NOT_FOUND');
+    const abandoned = setup({ deleted: deleted({ status: 'pending' }) });
+    await expectAppError(abandoned.service.restore(FILE_ID, ALICE), 'FILE_NOT_FOUND');
+  });
+
+  it('所在的資料夾已刪除 → FILE_RESTORE_CONFLICT（parentDeleted，帶上層）', async () => {
+    const { service, repo } = setup({ deleted: deleted({ folderId: FOLDER }), head: present });
+    const error = await expectAppError(service.restore(FILE_ID, ALICE), 'FILE_RESTORE_CONFLICT');
+    expect(error.details).toEqual({
+      reason: 'parentDeleted',
+      parentType: 'fileFolder',
+      parentId: FOLDER,
+    });
+    expect(repo.restore).not.toHaveBeenCalled();
+  });
+
+  it('原檔已不在物件儲存 → FILE_RESTORE_CONFLICT（objectMissing），不寫入', async () => {
+    const { service, repo } = setup({ deleted: deleted() });
+    const error = await expectAppError(service.restore(FILE_ID, ALICE), 'FILE_RESTORE_CONFLICT');
+    expect(error.details).toEqual({ reason: 'objectMissing' });
+    expect(repo.restore).not.toHaveBeenCalled();
+  });
+
+  it('成功：同一批的 deletion_id 為條件還原、稽核 file.restore、推 create；縮圖與變體不在時修正紀錄並重新產生', async () => {
+    const row = deleted({ hasThumbnail: true, variantStatus: 'ready', variantFormat: 'jpeg' });
+    const { service, repo, audit, events, images, storage } = setup({
+      deleted: row,
+      head: present,
+    });
+    storage.head.mockImplementation(async (key: string) =>
+      key === storageKeyOf(FILE_ID) ? present : undefined,
+    );
+    repo.findById.mockResolvedValue(
+      fileRow({ status: 'ready', etag: 'e', uploadedAt: new Date() }),
+    );
+    await service.restore(FILE_ID, ALICE);
+
+    expect(repo.restore).toHaveBeenCalledWith(
+      [FILE_ID],
+      { actorId: ALICE.id, deletionId: row.deletionId },
+      'tx',
+    );
+    expect(repo.clearThumbnail).toHaveBeenCalledWith([FILE_ID], 'tx');
+    expect(repo.resetVariants).toHaveBeenCalledWith([FILE_ID], 'tx');
+    expect(storage.head).toHaveBeenCalledWith(variantKeyOf(FILE_ID, 'thumbnail', 'jpeg'));
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'file.restore', resourceId: FILE_ID }),
+      'tx',
+    );
+    expect(images.schedule).toHaveBeenCalledWith(FILE_ID);
+    expect(events.publish).toHaveBeenCalledWith(
+      'resource.changed',
+      expect.objectContaining({
+        changes: [expect.objectContaining({ resource: 'file', kind: 'create', id: FILE_ID })],
+      }),
+    );
+  });
+
+  it('被別人搶先還原（UPDATE 沒命中）→ FILE_NOT_DELETED', async () => {
+    const { service, repo } = setup({ deleted: deleted(), head: present });
+    repo.restore.mockResolvedValue([]);
+    await expectAppError(service.restore(FILE_ID, ALICE), 'FILE_NOT_DELETED');
+  });
+
+  it('權限與刪除相同：contributor 能還原自己上傳的、不能還原別人的（AUTHZ_FORBIDDEN）；看不到資料夾 → 404', async () => {
+    const nodes = () => [{ id: FOLDER, parentId: null, inheritGrants: true, createdBy: null }];
+    const contributor = {
+      global: [],
+      nodes,
+      grants: [{ resourceId: FOLDER, level: 'contributor' as const }],
+    };
+    const mine = setup({
+      access: contributor,
+      deleted: deleted({ folderId: FOLDER, createdBy: ALICE.id }),
+      head: present,
+    });
+    mine.repo.findById.mockResolvedValue(
+      fileRow({ status: 'ready', etag: 'e', uploadedAt: new Date(), folderId: FOLDER }),
+    );
+    await mine.service.restore(FILE_ID, ALICE);
+    expect(mine.repo.restore).toHaveBeenCalled();
+
+    const theirs = setup({
+      access: contributor,
+      deleted: deleted({ folderId: FOLDER, createdBy: BOB.id }),
+      head: present,
+    });
+    await expectAppError(theirs.service.restore(FILE_ID, ALICE), 'AUTHZ_FORBIDDEN');
+    expect(theirs.repo.restore).not.toHaveBeenCalled();
+
+    const locked = setup({
+      access: { global: [], nodes },
+      deleted: deleted({ folderId: FOLDER, createdBy: ALICE.id }),
+      head: present,
+    });
+    await expectAppError(locked.service.restore(FILE_ID, ALICE), 'FILE_NOT_FOUND');
   });
 });

@@ -134,6 +134,20 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     );
   });
 
+  it('檔案與資料夾的刪除、還原（create）讓回收桶失效；改名不會（ADR-0025 R4）', () => {
+    for (const resource of [Resource.FILE, Resource.FILE_FOLDER]) {
+      expect(keysOf({ resource, kind: 'delete', id: 'x1' })).toContain(
+        'invalidate:TRASH_LIST_QUERY_KEY',
+      );
+      expect(keysOf({ resource, kind: 'create', id: 'x1' })).toContain(
+        'invalidate:TRASH_LIST_QUERY_KEY',
+      );
+      expect(keysOf({ resource, kind: 'update', id: 'x1' })).not.toContain(
+        'invalidate:TRASH_LIST_QUERY_KEY',
+      );
+    }
+  });
+
   it('改自己的 profile：等同 user(self) 更新，profile 跟著失效', () => {
     signInAs();
     const keys = keysOf({ resource: Resource.USER, kind: 'update', id: SELF_ID });

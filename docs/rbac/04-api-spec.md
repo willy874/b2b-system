@@ -497,13 +497,15 @@
 | GET    | `/files/:id/image/:variant` | 🔓 `@Public` ＋ 網址簽章 | 圖片的原圖／全螢幕預覽／圖示預覽（302）；網址只從看得到該檔案的回應拿得到² |
 | GET    | `/files/:id`          | 🛡 `file:access` \| `file:read`   | 詳情（`pending` 只有上傳者看得到）            |
 | PATCH  | `/files/:id`          | 🛡 `file:access` \| `file:update` | 改名（`{ name }`）；擁有者規則適用           |
-| DELETE | `/files/:id`          | 🛡 `file:access` \| `file:delete` | 軟刪除紀錄並刪除物件；擁有者規則適用         |
+| DELETE | `/files/:id`          | 🛡 `file:access` \| `file:delete` | 移到回收桶（R4a 仍當下刪物件）；擁有者規則適用 |
+| POST   | `/files/:id/restore`  | 🛡 `file:access` \| `file:delete` | 還原刪除的檔案；權限與刪除相同³              |
 | POST   | `/files/move`         | 🛡 `file:access` \| `file:update` | 把檔案與資料夾移到另一個資料夾（擋下移進自己的子孫） |
 | GET    | `/file-folders`       | 🛡 `file:access` \| `file:read`   | 全部資料夾（扁平清單；沒有權限的 `capabilities.canRead = false`，申請中的 `hasPendingAccessRequest`，系統資料夾的 `kind`；別人的個人資料夾不列）、根目錄的能力、自己的 `personalFolderId` |
 | POST   | `/file-folders`       | 🛡 `file:access` \| `file:create` | 建立資料夾（同一層不可同名）                 |
 | POST   | `/file-folders/paths` | 🛡 `file:access` \| `file:create` | 上傳資料夾：確保各路徑存在（同名的沿用）     |
 | PATCH  | `/file-folders/:id`   | 🛡 `file:access` \| `file:update` | 資料夾改名                                   |
-| DELETE | `/file-folders/:id`   | 🛡 `file:access` \| `file:delete` | 遞迴刪除資料夾（連同其中的檔案與子資料夾）   |
+| DELETE | `/file-folders/:id`   | 🛡 `file:access` \| `file:delete` | 遞迴刪除資料夾（連同其中的檔案與子資料夾，移到回收桶） |
+| POST   | `/file-folders/:id/restore` | 🛡 `file:access` \| `file:delete` | 還原同一次刪除的子資料夾與檔案；權限以還原後的結構照刪除的規則判斷³ |
 | GET    | `/file-folders/:id/grants` | 🛡 `file:access` \| `file:share` | 授權清單：直接授權 ＋ 繼承自上層的（標出來源資料夾）；需要 `share` |
 | PUT    | `/file-folders/:id/grants` | 🛡 `file:access` \| `file:share` | 新增或變更一筆授權（`{ subjectType, subjectId, level, expiresAt? }`）；**受反提權限制** |
 | DELETE | `/file-folders/:id/grants/:subjectType/:subjectId` | 🛡 `file:access` \| `file:share` | 移除一筆直接授權；**受反提權限制** |
@@ -518,6 +520,11 @@
 簽章不符或過期回 `403 FILE_IMAGE_URL_INVALID`。見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md) §5.4。
 撤銷資料夾授權後，已發出的網址在到期前仍有效。
 
+³ 還原＝能刪就能復原（[ADR-0025](../adr/0025-entity-revisions.md) D10）：所在位置的 `can_delete` 或擁有者規則，與刪除完全相同。
+所在的資料夾（上層）已刪除回 `409 FILE_RESTORE_CONFLICT`／`FILE_FOLDER_RESTORE_CONFLICT`（`details.reason = 'parentDeleted'`），
+檔案的原檔已不在回 `409 FILE_RESTORE_CONFLICT`（`'objectMissing'`），資料夾同名回 `409 FILE_FOLDER_NAME_CONFLICT`（`details.conflictingId`）。
+回收桶（§7.2）只看全域的 `file:delete`。見 [`architecture/backend/13-trash.md`](../architecture/backend/13-trash.md) §7。
+
 流程、欄位與錯誤碼見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md) §4–§6（資料夾 §4.2、存取控制 §11）。
 
 ---
@@ -526,10 +533,10 @@
 
 | Method | Path     | 授權 | 說明 |
 | ------ | -------- | ---- | ---- |
-| GET    | `/trash` | 🛡 任一種 `<resource>:delete`（`user:delete`、`role:delete`），再依 `type`（`user`、`role`）檢查該類型的權限 | 某一類已刪除的項目（`type` 必填，新刪除的在前；`offset`／`limit`／`keyword`） |
+| GET    | `/trash` | 🛡 任一種 `<resource>:delete`（`user:delete`、`role:delete`、`file:delete`），再依 `type`（`user`、`role`、`file`、`fileFolder`）檢查該類型的權限（檔案與資料夾看 **全域** `file:delete`） | 某一類已刪除的項目（`type` 必填，新刪除的在前；`offset`／`limit`／`keyword`） |
 
 每一列：`id`、`type`、`name`、`description`、`deletedAt`、`deletedBy`（`{ id, name }` 或 `null`）、`purgeAt`。
-還原端點在各資源（`POST /users/:id/restore`、`POST /roles/:id/restore`）；永久刪除只由排程 `trash.purge` 執行。
+還原端點在各資源（`POST /users/:id/restore`、`POST /roles/:id/restore`、`POST /files/:id/restore`、`POST /file-folders/:id/restore`）；永久刪除只由排程 `trash.purge` 執行。
 見 [`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)。
 
 ---

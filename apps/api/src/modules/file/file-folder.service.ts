@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
@@ -7,6 +9,7 @@ import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException, isUniqueViolation } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
+import { RESOURCE_TYPE } from '@/core/resource';
 import type { FileFolderRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 
@@ -18,6 +21,7 @@ import type {
   FileFolderPathsDto,
   MoveFileItemsDto,
   MoveFileItemsResultDto,
+  RestoredFileFolderDto,
   UpdateFileFolderDto,
 } from './dto/file-folder.dto';
 import { FileAccessRequestService } from './file-access-request.service';
@@ -25,10 +29,10 @@ import type { FileAccessContext } from './file-access.context';
 import { FileAccessService } from './file-access.service';
 import { FileFolderTree } from './file-folder-tree';
 import { FileFolderRepository } from './file-folder.repository';
-import { MAX_FOLDER_DEPTH } from './file.constants';
-
-/** 無法逐筆列出受影響的 id 時（遞迴刪除、批次移動）：前端退回失效該資源的所有實體。 */
-const ANY_ID = '*';
+import { FileImageService } from './file-image.service';
+import { FileObjectsService } from './file-objects.service';
+import { ANY_ID, MAX_FOLDER_DEPTH } from './file.constants';
+import { FileRepository } from './file.repository';
 
 /** 路徑樹的一個節點（`ensurePaths`）。 */
 interface PathNode {
@@ -54,6 +58,9 @@ export class FileFolderService {
     private readonly access: FileAccessService,
     private readonly requests: FileAccessRequestService,
     private readonly tree: FileFolderTree,
+    private readonly files: FileRepository,
+    private readonly objects: FileObjectsService,
+    private readonly images: FileImageService,
   ) {}
 
   /**
@@ -87,6 +94,24 @@ export class FileFolderService {
     return withTransaction(this.db, async (tx) => {
       await this.repo.lockTree(tx);
       await this.getOrThrow(folderId, tx);
+      return work(tx);
+    });
+  }
+
+  /**
+   * 在「資料夾確定還在」的交易內執行（還原檔案）：與遞迴刪除排隊，檢查之後資料夾才被刪除時拋 `missing()`。
+   * `folderId` 為 null 是根目錄，不必排隊，但仍在交易內。
+   */
+  async withinLiveFolder<T>(
+    folderId: string | null,
+    missing: () => AppException,
+    work: (tx: DbOrTx) => Promise<T>,
+  ): Promise<T> {
+    return withTransaction(this.db, async (tx) => {
+      if (folderId) {
+        await this.repo.lockTree(tx);
+        if (!(await this.repo.findById(folderId, tx))) throw missing();
+      }
       return work(tx);
     });
   }
@@ -347,37 +372,26 @@ export class FileFolderService {
     return result;
   }
 
-  /** 遞迴刪除：資料夾、所有子孫資料夾、其中的檔案。 */
+  /**
+   * 遞迴刪除＝移到回收桶：資料夾、所有子孫資料夾、其中的檔案帶同一個 `deletion_id`（ADR-0025 D5），
+   * 還原時整批回來。物件儲存的內容保留到永久刪除（docs/architecture/backend/13-trash.md §7）。
+   */
   async remove(id: string, actor: AuthUser): Promise<void> {
+    const deletionId = randomUUID();
     const removed = await this.writeTree(async (tx) => {
       const ctx = await this.access.contextFor(actor, tx);
       const folder = await this.getReadableOrThrow(ctx, actor, id, tx);
       assertNotSystem([folder]);
-      if (!ctx.canModify('delete', folder.parentId, folder.createdBy)) {
-        throw await this.access.deny(actor, 'delete', 'fileFolder', id);
-      }
       const folderIds = await this.repo.findDescendantIds([id], tx);
-      // 只靠擁有者規則時：子樹裡有別人的東西，本人不能刪（docs/rbac/07-resource-grants.md §4）
-      if (
-        !ctx.can('delete', folder.parentId) &&
-        (await this.repo.hasItemsNotCreatedBy(folderIds, actor.id, tx))
-      ) {
-        throw await this.access.deny(actor, 'delete', 'fileFolder', id, 'not-owner');
-      }
-      // 子樹裡的私人資料夾（中斷繼承）：對上層有刪除權不代表對它有（§4）
-      const protectedFolder = folderIds.find(
-        (folderId) =>
-          ctx.folders.get(folderId)?.inheritGrants === false && !ctx.can('delete', folderId),
-      );
-      if (protectedFolder) {
-        throw await this.access.deny(actor, 'delete', 'fileFolder', id, 'protected-subfolder');
-      }
-      const fileCount = await this.repo.softDeleteFilesIn(folderIds, actor.id, tx);
-      await this.repo.softDelete(folderIds, actor.id, tx);
+      await this.assertRemovable(ctx, actor, folder, folderIds, tx);
+      // 資料夾與檔案同一個時間與 deletion_id：回收桶以它們判斷「同一次刪除」
+      const stamp = { actorId: actor.id, deletionId, deletedAt: new Date() };
+      const fileCount = await this.repo.softDeleteFilesIn(folderIds, stamp, tx);
+      await this.repo.softDelete(folderIds, stamp, tx);
       await this.audit.record(
         {
           action: 'fileFolder.delete',
-          resourceType: 'fileFolder',
+          resourceType: RESOURCE_TYPE.FILE_FOLDER,
           resourceId: id,
           resourceName: folder.name,
           changes: {
@@ -388,6 +402,7 @@ export class FileFolderService {
               fileCount,
             },
           },
+          metadata: { deletionId },
         },
         tx,
       );
@@ -401,6 +416,150 @@ export class FileFolderService {
       changes.push({ resource: ChangeSource.FILE, kind: ChangeKind.DELETE, id: ANY_ID });
     }
     this.publish(changes);
+  }
+
+  /**
+   * 還原刪除的資料夾（`POST /file-folders/:id/restore`，ADR-0025 D5、D10；docs/architecture/backend/13-trash.md §7.1）。
+   *
+   * - 只還原 **同一次刪除** 的子樹（`deletion_id` 相同）：之前個別刪掉的子資料夾與檔案維持刪除。
+   * - 上層資料夾已刪除 → `409 FILE_FOLDER_RESTORE_CONFLICT`（`reason: 'parentDeleted'`）；同一層已有同名的資料夾 →
+   *   `409 FILE_FOLDER_NAME_CONFLICT`（`details.conflictingId`）。系統資料夾只由系統刪除，不能還原。
+   * - 同一批的檔案逐一確認物件還在：不在的維持刪除（`filesSkipped`），不讓整個資料夾還原失敗——資料夾本身沒有內容，
+   *   擋下來只會讓其他檔案也救不回來；那些檔案之後在回收桶的「檔案」分頁個別出現（原本的資料夾已還原）。
+   * - 權限與刪除相同，而且以 **還原之後** 的結構判斷：在同一個交易內先還原，再照刪除的檢查（讀得到、能刪除、
+   *   子樹沒有別人的東西或權限不足的私人資料夾）確認「現在能不能刪掉它」，不能就 rollback。授權是繼承的，
+   *   資料夾不在結構裡時無法判斷，還原之後判斷才與刪除完全一致。
+   */
+  async restore(id: string, actor: AuthUser): Promise<RestoredFileFolderDto> {
+    const folder = await this.repo.findDeletedById(id);
+    if (!folder) {
+      throw new AppException(
+        (await this.repo.findById(id)) ? 'FILE_FOLDER_NOT_DELETED' : 'FILE_FOLDER_NOT_FOUND',
+      );
+    }
+    assertNotSystem([folder]);
+    if (folder.parentId && (await this.repo.isDeletedOrGone(folder.parentId))) {
+      throw folderParentDeleted(folder.parentId);
+    }
+    // 物件的確認在排隊之前（HeadObject 可能很多）：之後在交易內只還原確認過的檔案
+    const batchIds = await this.repo.findDeletedBatchIds(id, folder.deletionId);
+    const candidates = await this.files.findDeletedInBatch(batchIds, folder.deletionId);
+    const probes = await this.objects.probe(candidates);
+    const restorable = candidates.filter((file) => probes.get(file.id)?.original);
+
+    const result = await this.writeTree(async (tx) => {
+      if (folder.parentId && !(await this.repo.findById(folder.parentId, tx))) {
+        throw folderParentDeleted(folder.parentId);
+      }
+      const conflictingId = await this.repo.findSiblingId(folder.parentId, folder.name, id, tx);
+      if (conflictingId) {
+        throw new AppException('FILE_FOLDER_NAME_CONFLICT', { name: folder.name, conflictingId });
+      }
+      const restoredFolders = await this.repo.restore(
+        batchIds,
+        { actorId: actor.id, deletionId: folder.deletionId },
+        tx,
+      );
+      const root = restoredFolders.find((row) => row.id === id);
+      // 檢查之後被別人搶先還原
+      if (!root) throw new AppException('FILE_FOLDER_NOT_DELETED');
+      await this.assertDepth(folder.parentId, await this.subtreeHeight(id, tx), tx);
+
+      const restoredFiles = await this.files.restore(
+        restorable.map((file) => file.id),
+        { actorId: actor.id, deletionId: folder.deletionId },
+        tx,
+      );
+      const restoredFileIds = new Set(restoredFiles.map((file) => file.id));
+      const lost = (key: 'thumbnailLost' | 'variantsLost') =>
+        [...restoredFileIds].filter((fileId) => probes.get(fileId)?.[key]);
+      const variantsLost = lost('variantsLost');
+      await this.files.clearThumbnail(lost('thumbnailLost'), tx);
+      await this.files.resetVariants(variantsLost, tx);
+
+      // 以還原之後的結構照刪除的規則檢查（見上方說明）；不能就整個 rollback
+      const ctx = await this.access.contextFor(actor, tx);
+      if (!ctx.can('read', id)) throw await this.access.deny(actor, 'read', 'fileFolder', id);
+      const folderIds = restoredFolders.map((row) => row.id);
+      await this.assertRemovable(ctx, actor, root, folderIds, tx);
+
+      const filesSkipped = candidates.length - restoredFiles.length;
+      await this.audit.record(
+        {
+          action: 'fileFolder.restore',
+          resourceType: RESOURCE_TYPE.FILE_FOLDER,
+          resourceId: id,
+          resourceName: root.name,
+          changes: { after: { name: root.name, parentId: root.parentId } },
+          metadata: {
+            deletedAt: folder.deletedAt?.toISOString(),
+            deletionId: folder.deletionId,
+            folderCount: folderIds.length,
+            fileCount: restoredFiles.length,
+            filesSkipped,
+          },
+        },
+        tx,
+      );
+      return {
+        dto: toDto(root, ctx),
+        foldersRestored: folderIds.length,
+        filesRestored: restoredFiles.length,
+        filesSkipped,
+        variantsLost,
+      };
+    });
+
+    for (const fileId of result.variantsLost) this.images.schedule(fileId);
+    const changes: ResourceChangeWire[] = [
+      // 重新出現：以 create 宣告（回收桶由前端的依賴圖跟著失效）
+      { resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.CREATE, id },
+    ];
+    if (result.filesRestored > 0) {
+      changes.push({ resource: ChangeSource.FILE, kind: ChangeKind.CREATE, id: ANY_ID });
+    }
+    this.publish(changes);
+    return {
+      ...result.dto,
+      foldersRestored: result.foldersRestored,
+      filesRestored: result.filesRestored,
+      filesSkipped: result.filesSkipped,
+    };
+  }
+
+  /**
+   * 刪除一個資料夾子樹的附加條件（docs/rbac/07-resource-grants.md §4）；刪除與還原共用。
+   * 能刪除這個資料夾本身（`can_remove`）之外：只靠擁有者規則時子樹裡不能有別人的東西；子樹裡的私人資料夾
+   * （中斷繼承）要另外有刪除權。
+   */
+  private async assertRemovable(
+    ctx: FileAccessContext,
+    actor: AuthUser,
+    folder: FileFolderRow,
+    folderIds: readonly string[],
+    tx: DbOrTx,
+  ): Promise<void> {
+    if (!ctx.canModify('delete', folder.parentId, folder.createdBy)) {
+      throw await this.access.deny(actor, 'delete', 'fileFolder', folder.id);
+    }
+    if (
+      !ctx.can('delete', folder.parentId) &&
+      (await this.repo.hasItemsNotCreatedBy(folderIds, actor.id, tx))
+    ) {
+      throw await this.access.deny(actor, 'delete', 'fileFolder', folder.id, 'not-owner');
+    }
+    const protectedFolder = folderIds.find(
+      (folderId) =>
+        ctx.folders.get(folderId)?.inheritGrants === false && !ctx.can('delete', folderId),
+    );
+    if (protectedFolder) {
+      throw await this.access.deny(actor, 'delete', 'fileFolder', folder.id, 'protected-subfolder');
+    }
+  }
+
+  /** 以 `id` 為根的子樹高度（只有自己 = 1）。 */
+  private subtreeHeight(id: string, tx: DbOrTx): Promise<number> {
+    return this.repo.findMaxSubtreeHeight([id], MAX_FOLDER_DEPTH + 1, tx);
   }
 
   /** 結構的寫入：交易內先排隊；同名的競態（鎖以外的寫入）也轉成業務錯誤。 */
@@ -484,6 +643,15 @@ export class FileFolderService {
     if (changes.length === 0) return;
     this.events.publish(DomainEvent.RESOURCE_CHANGED, { changes });
   }
+}
+
+/** 上層資料夾已刪除：先還原上層（ADR-0025 D5）。 */
+function folderParentDeleted(parentId: string): AppException {
+  return new AppException('FILE_FOLDER_RESTORE_CONFLICT', {
+    reason: 'parentDeleted',
+    parentType: RESOURCE_TYPE.FILE_FOLDER,
+    parentId,
+  });
 }
 
 /** 系統資料夾（共用、私人、個人）不能改名、移動、刪除（docs/rbac/07-resource-grants.md §12）。 */

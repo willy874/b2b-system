@@ -160,6 +160,8 @@ export interface PlatformAuditLog {
 export const TrashResourceType = {
   user: 'user',
   role: 'role',
+  file: 'file',
+  fileFolder: 'fileFolder',
 } as const;
 export type TrashResourceType = (typeof TrashResourceType)[keyof typeof TrashResourceType];
 
@@ -622,6 +624,21 @@ export interface FileFolder {
   capabilities: FileFolderCapabilities;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RestoredFileFolder {
+  id: string;
+  name: string;
+  parentId: string | null;
+  kind: 'normal' | 'shared' | 'privateRoot' | 'personal';
+  inheritGrants: boolean;
+  hasPendingAccessRequest: boolean;
+  capabilities: FileFolderCapabilities;
+  createdAt: string;
+  updatedAt: string;
+  foldersRestored: number;
+  filesRestored: number;
+  filesSkipped: number;
 }
 
 export interface FileFolderList {
