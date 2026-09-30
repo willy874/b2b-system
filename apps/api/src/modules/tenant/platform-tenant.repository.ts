@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 
-import { PLATFORM_DB } from '@/core/database';
-import type { PlatformDatabase } from '@/core/database';
+import { PLATFORM_DB, withTransaction } from '@/core/database';
+import type { PlatformDatabase, PlatformDbOrTx, PlatformTransaction } from '@/core/database';
 import { tenantDomains, tenants } from '@/db/platform/schema';
 import type { TenantRow, TenantStatus } from '@/db/platform/schema';
 
@@ -27,6 +27,46 @@ export type TenantPatch = Partial<
 @Injectable()
 export class PlatformTenantRepository {
   constructor(@Inject(PLATFORM_DB) private readonly db: PlatformDatabase) {}
+
+  transaction<T>(fn: (tx: PlatformTransaction) => Promise<T>): Promise<T> {
+    return withTransaction(this.db, fn);
+  }
+
+  /** 交易內鎖住租戶列（`FOR UPDATE`）：同一個租戶的網域增刪、狀態變更依序執行。回傳是否存在。 */
+  async lock(id: string, tx: PlatformTransaction): Promise<boolean> {
+    const [row] = await tx
+      .select({ id: tenants.id })
+      .from(tenants)
+      .where(and(eq(tenants.id, id), isNull(tenants.deletedAt)))
+      .for('update');
+    return row !== undefined;
+  }
+
+  async countDomains(tenantId: string, tx: PlatformDbOrTx = this.db): Promise<number> {
+    const [row] = await tx
+      .select({ total: count() })
+      .from(tenantDomains)
+      .where(eq(tenantDomains.tenantId, tenantId));
+    return row?.total ?? 0;
+  }
+
+  /**
+   * 佈建中斷（程序在佈建途中被重啟、OOM）：`updated_at` 早於 `cutoff` 仍在 `provisioning` 的租戶改成 `failed`，
+   * 平台管理者才能重試或刪除。回傳被改掉的租戶。
+   */
+  async failStaleProvisioning(cutoff: Date, reason: string): Promise<TenantRow[]> {
+    return this.db
+      .update(tenants)
+      .set({ status: 'failed', provisionError: reason, updatedAt: new Date() })
+      .where(
+        and(
+          eq(tenants.status, 'provisioning'),
+          lt(tenants.updatedAt, cutoff),
+          isNull(tenants.deletedAt),
+        ),
+      )
+      .returning();
+  }
 
   async list(): Promise<TenantWithDomains[]> {
     const rows = await this.db
@@ -73,8 +113,12 @@ export class PlatformTenantRepository {
     return rows.map((row) => row.domain);
   }
 
-  async create(tenant: NewTenant, domains: string[]): Promise<TenantRow> {
-    return this.db.transaction(async (tx) => {
+  async create(
+    tenant: NewTenant,
+    domains: string[],
+    executor: PlatformDbOrTx = this.db,
+  ): Promise<TenantRow> {
+    return executor.transaction(async (tx) => {
       const [row] = await tx
         .insert(tenants)
         .values({ ...tenant, status: 'provisioning' })
@@ -100,8 +144,9 @@ export class PlatformTenantRepository {
     id: string,
     patch: TenantPatch,
     from?: readonly TenantStatus[],
+    tx: PlatformDbOrTx = this.db,
   ): Promise<TenantRow | undefined> {
-    const [row] = await this.db
+    const [row] = await tx
       .update(tenants)
       .set({ ...patch, updatedAt: new Date() })
       .where(
@@ -115,12 +160,16 @@ export class PlatformTenantRepository {
     return row;
   }
 
-  async addDomain(tenantId: string, domain: string): Promise<void> {
-    await this.db.insert(tenantDomains).values({ domain, tenantId });
+  async addDomain(tenantId: string, domain: string, tx: PlatformDbOrTx = this.db): Promise<void> {
+    await tx.insert(tenantDomains).values({ domain, tenantId });
   }
 
-  async removeDomain(tenantId: string, domain: string): Promise<boolean> {
-    const removed = await this.db
+  async removeDomain(
+    tenantId: string,
+    domain: string,
+    tx: PlatformDbOrTx = this.db,
+  ): Promise<boolean> {
+    const removed = await tx
       .delete(tenantDomains)
       .where(and(eq(tenantDomains.tenantId, tenantId), eq(tenantDomains.domain, domain)))
       .returning({ domain: tenantDomains.domain });
@@ -128,8 +177,8 @@ export class PlatformTenantRepository {
   }
 
   /** 刪除租戶時釋出它的網域（之後可以登記給別的租戶）。 */
-  async removeAllDomains(tenantId: string): Promise<void> {
-    await this.db.delete(tenantDomains).where(eq(tenantDomains.tenantId, tenantId));
+  async removeAllDomains(tenantId: string, tx: PlatformDbOrTx = this.db): Promise<void> {
+    await tx.delete(tenantDomains).where(eq(tenantDomains.tenantId, tenantId));
   }
 
   private async withDomains(rows: TenantRow[]): Promise<TenantWithDomains[]> {

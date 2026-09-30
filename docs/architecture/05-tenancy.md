@@ -85,13 +85,17 @@
 | 建立 | `POST /platform/tenants`（`tenant:create`） | 登記租戶（`provisioning`）：代碼、名稱、第一位管理員的 email；預設網域 `{code}.<TENANT_BASE_DOMAIN>`（D24）；產生 database 與 DB 角色的名稱（`tenant_{code}_{8 位隨機}`）與密碼、bucket（`b2b-{code}`，用過就加序號）；排入佈建工作 |
 | 佈建 | 背景工作 `tenant.provision`（平台工作，不自動重試） | ① 建立 DB 角色與 database（`TENANT_PROVISIONING_DATABASE_URL`，要有 `CREATEDB` 與 `CREATEROLE`）② 跑租戶 migration ③ 權限目錄、系統角色、第一位 super-admin（`pending`）④ 改成 `active` ⑤ 在租戶脈絡裡寄啟用信、確認 bucket、發佈 `TENANT_ACTIVATED`（檔案的系統資料夾）。①–④ 失敗停在 `failed`（原因記在 `provision_error`）；⑤ 的失敗不改狀態，只記原因 |
 | 重試佈建 | `POST /platform/tenants/:id/provision`（`tenant:create`） | 只接受 `failed`；每一步都冪等（角色存在就把密碼改回來、database 存在就沿用） |
+| 佈建中斷 | 背景工作 `tenant.provisionSweep`（每 5 分鐘）；重試與刪除前也先跑一次 | 程序在佈建途中被重啟時，工作在逾時（15 分鐘）後被收回，租戶卻停在 `provisioning`：超過逾時 5 分鐘的改成 `failed`（`provision_error` 寫「佈建中斷」），之後就能重試或刪除 |
 | 改名、網域、外部 IdP 開關 | `PATCH /platform/tenants/:id`、`POST|DELETE …/domains`（`tenant:update`） | 網域一個只屬於一個租戶、不能移除最後一個、apps/auth 的網域不能登記；`allowExternalIdp` 關掉時租戶不能新增或啟用外部 IdP 連線，登入時也不走連線（D22） |
 | 停用 | `POST /platform/tenants/:id/disable`（`tenant:update`） | **先改狀態再收尾**：撤銷 app session、刪除這個租戶帳號（`t:{tenantId}:*`）在 IdP 的 session／grant、斷掉 `t:{tenantId}` room 的即時連線、關掉連線池。網域之後一律 503 |
 | 啟用 | `POST /platform/tenants/:id/enable` | 回到 `active`，發佈 `TENANT_ACTIVATED` |
 | 刪除 | `DELETE /platform/tenants/:id`（`tenant:delete`） | 停用並收尾、標記刪除、釋出網域；代碼之後可以給新租戶。database 與 bucket 留著 |
 | 清除 | `pnpm db:drop-tenant <代碼或 id> [--confirm]` | 只處理已刪除、database 名稱是佈建產生的租戶：清空並刪除 bucket、`DROP DATABASE … WITH (FORCE)`、`DROP ROLE`、刪除 IdP 殘留與佇列裡的工作、移除登記。不加 `--confirm` 只列出 |
 
-每個動作都寫平台稽核（`platform_audit_logs`，D19）。管理頁在 apps/auth 的 `/tenant`、`/tenant/$id`。
+每個動作都寫平台稽核（`platform_audit_logs`，D19），**與狀態或網域的變更在同一個平台 DB 交易**：稽核寫不進去，變更也不生效。
+停用、刪除的收尾（撤銷 session、IdP、連線池）在交易之後，失敗的步驟另外記一筆 `tenant.disable.cleanup`（或寫進 `tenant.delete` 的
+`cleanupFailed`）。網域的增刪先鎖住租戶列（`FOR UPDATE`）再數網域，同時移除兩個網域不會把網域移光。
+管理頁在 apps/auth 的 `/tenant`、`/tenant/$id`。
 
 ## 6. 周邊元件怎麼分租戶
 

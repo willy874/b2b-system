@@ -94,6 +94,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `auth.activationMail`、`auth.passwordResetMail` | `modules/auth` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
 | `approval.resultMail` | `modules/approval` | — | 由程式入列 |
 | `oidc.cleanup`（平台） | `modules/oidc-provider` | `OIDC_CLEANUP_CRON` | `45 3 * * *`（每天 03:45 UTC；清除過期的 IdP 狀態） |
+| `tenant.provisionSweep`（平台） | `modules/tenant` | — | `*/5 * * * *`（每 5 分鐘；佈建逾時仍在 `provisioning` 的租戶改成 `failed`，[`../05-tenancy.md`](../05-tenancy.md) §5） |
 | `jobs.outboxSweep`（平台） | `core/jobs` | `JOBS_OUTBOX_SWEEP_CRON` | `*/10 * * * *`（每 10 分鐘；補搬各租戶 outbox 裡沒搬成的工作，§4.1） |
 
 ## 4. 入列

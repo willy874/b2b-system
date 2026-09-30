@@ -14,6 +14,7 @@
       "tenantProvision": "Tenant provisioning",
       "oidcCleanup": "OIDC data cleanup",
       "outboxSweep": "Event outbox sweep",
+      "tenantProvisionSweep": "Interrupted tenant provisioning check",
       "passwordResetMail": "Password reset email",
       "platformAdminAccountMail": "Platform administrator account email"
     },

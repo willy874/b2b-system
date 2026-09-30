@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '@/core/config';
 import { SecretBox, TENANT_SECRET_PURPOSE } from '@/core/crypto';
+import type { PlatformTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { JobQueue } from '@/core/jobs';
@@ -100,18 +101,32 @@ export class PlatformTenantService {
       databaseName,
       randomBytes(24).toString('hex'),
     );
+    const storageBucket = await this.nextBucket(dto.code);
     const created = await this.repo
-      .create(
-        {
-          code: dto.code,
-          name: dto.name,
-          databaseUrlEncrypted: this.secrets.encrypt(databaseUrl),
-          storageBucket: await this.nextBucket(dto.code),
-          adminEmail: dto.adminEmail,
-          adminName: dto.adminName ?? null,
-        },
-        domains,
-      )
+      .transaction(async (tx) => {
+        const row = await this.repo.create(
+          {
+            code: dto.code,
+            name: dto.name,
+            databaseUrlEncrypted: this.secrets.encrypt(databaseUrl),
+            storageBucket,
+            adminEmail: dto.adminEmail,
+            adminName: dto.adminName ?? null,
+          },
+          domains,
+          tx,
+        );
+        await this.audit.record(
+          {
+            action: 'tenant.create',
+            resourceType: 'tenant',
+            resourceId: row.id,
+            metadata: { code: row.code, name: row.name, domains, adminEmail: dto.adminEmail },
+          },
+          tx,
+        );
+        return row;
+      })
       .catch((error: unknown) => {
         // 同時建立同一個代碼或網域：唯一索引擋下
         if ((error as { code?: string }).code === '23505') {
@@ -120,47 +135,58 @@ export class PlatformTenantService {
         throw error;
       });
     this.directory.invalidate();
-    await this.audit.record({
-      action: 'tenant.create',
-      resourceType: 'tenant',
-      resourceId: created.id,
-      metadata: { code: created.code, name: created.name, domains, adminEmail: dto.adminEmail },
-    });
     await this.startProvisioning(created.id);
     return this.get(created.id);
   }
 
   async update(id: string, dto: UpdateTenantDto): Promise<PlatformTenantDto> {
     const before = await this.getExisting(id);
-    await this.repo.update(id, { name: dto.name, allowExternalIdp: dto.allowExternalIdp });
+    await this.repo.transaction(async (tx) => {
+      await this.repo.update(
+        id,
+        { name: dto.name, allowExternalIdp: dto.allowExternalIdp },
+        undefined,
+        tx,
+      );
+      await this.audit.record(
+        {
+          action: 'tenant.update',
+          resourceType: 'tenant',
+          resourceId: id,
+          metadata: {
+            code: before.code,
+            before: { name: before.name, allowExternalIdp: before.allowExternalIdp },
+            after: {
+              name: dto.name ?? before.name,
+              allowExternalIdp: dto.allowExternalIdp ?? before.allowExternalIdp,
+            },
+          },
+        },
+        tx,
+      );
+    });
     // 外部 IdP 的開關在租戶脈絡裡判斷：立即生效（多個執行個體時最多晚 TENANT_CACHE_TTL 秒）
     this.directory.invalidate();
-    await this.audit.record({
-      action: 'tenant.update',
-      resourceType: 'tenant',
-      resourceId: id,
-      metadata: {
-        code: before.code,
-        before: { name: before.name, allowExternalIdp: before.allowExternalIdp },
-        after: {
-          name: dto.name ?? before.name,
-          allowExternalIdp: dto.allowExternalIdp ?? before.allowExternalIdp,
-        },
-      },
-    });
     return this.get(id);
   }
 
-  /** 佈建失敗後重試：每一步都冪等，已建好的 database 與角色會沿用。 */
+  /**
+   * 佈建失敗後重試：每一步都冪等，已建好的 database 與角色會沿用。
+   * 佈建途中程序被重啟的租戶（逾時仍在 `provisioning`）先改成 `failed`，一樣可以重試（EDGE-07）。
+   */
   async retryProvisioning(id: string): Promise<PlatformTenantDto> {
-    const tenant = await this.transition(id, ['failed'], { status: 'provisioning' });
-    await this.audit.record({
-      action: 'tenant.provision.retry',
-      resourceType: 'tenant',
-      resourceId: id,
-      metadata: { code: tenant.code, previousError: tenant.provisionError },
-    });
-    await this.startProvisioning(id);
+    await this.provisioner.failStaleProvisioning();
+    const tenant = await this.transitionAudited(
+      id,
+      ['failed'],
+      { status: 'provisioning' },
+      (t) => ({
+        action: 'tenant.provision.retry',
+        metadata: { code: t.code, previousError: t.provisionError },
+      }),
+    );
+    this.directory.invalidate();
+    await this.startProvisioning(tenant.id);
     return this.get(id);
   }
 
@@ -169,31 +195,27 @@ export class PlatformTenantService {
     const tenant = await this.getExisting(id);
     if (tenant.status !== 'active') throw new AppException('TENANT_STATUS_CONFLICT');
     // 先停用再收尾：停用之後就不會再有新的 session 產生
-    await this.transition(id, ['active'], { status: 'disabled' });
-    await this.endEverything(tenant);
-    await this.audit.record({
+    await this.transitionAudited(id, ['active'], { status: 'disabled' }, (t) => ({
       action: 'tenant.disable',
-      resourceType: 'tenant',
-      resourceId: id,
-      metadata: { code: tenant.code },
-    });
+      metadata: { code: t.code },
+    }));
+    this.directory.invalidate();
+    await this.recordCleanup(tenant, 'tenant.disable', await this.endEverything(tenant));
     return this.get(id);
   }
 
   async enable(id: string): Promise<PlatformTenantDto> {
-    const tenant = await this.transition(id, ['disabled'], { status: 'active' });
+    const tenant = await this.transitionAudited(id, ['disabled'], { status: 'active' }, (t) => ({
+      action: 'tenant.enable',
+      metadata: { code: t.code },
+    }));
+    this.directory.invalidate();
     // 停用期間程序可能重啟過（啟動時只準備 active 的租戶）：補上每個租戶一份的初始資料
     await this.tenancy
       .run(id, async () => this.events.publish(DomainEvent.TENANT_ACTIVATED, {}))
       .catch((error: unknown) =>
         this.logger.warn({ err: error, tenant: tenant.code }, '重新啟用後無法進入租戶'),
       );
-    await this.audit.record({
-      action: 'tenant.enable',
-      resourceType: 'tenant',
-      resourceId: id,
-      metadata: { code: tenant.code },
-    });
     return this.get(id);
   }
 
@@ -202,54 +224,85 @@ export class PlatformTenantService {
    * 代碼之後可以給新的租戶用（新的 database 與 bucket）。
    */
   async remove(id: string): Promise<void> {
+    // 佈建途中程序被重啟的租戶先改成 failed，才能刪除（EDGE-07）
+    await this.provisioner.failStaleProvisioning();
     const tenant = await this.getExisting(id);
     if (tenant.status === 'provisioning') throw new AppException('TENANT_STATUS_CONFLICT');
     // 先停用、收尾，再標記刪除：刪除之後就找不到這個租戶，連不上它的 DB 撤銷 session
     await this.transition(id, ['active', 'disabled', 'failed'], { status: 'disabled' });
-    await this.endEverything(tenant);
-    await this.transition(id, ['disabled'], { status: 'disabled', deletedAt: new Date() });
-    await this.repo.removeAllDomains(id);
     this.directory.invalidate();
-    await this.audit.record({
-      action: 'tenant.delete',
-      resourceType: 'tenant',
-      resourceId: id,
-      metadata: { code: tenant.code, domains: tenant.domains, storageBucket: tenant.storageBucket },
+    const failedSteps = await this.endEverything(tenant);
+    // 標記刪除、釋出網域與稽核同一個交易：不會留下「已刪除但網域還佔著」的中間狀態
+    await this.repo.transaction(async (tx) => {
+      await this.transition(id, ['disabled'], { status: 'disabled', deletedAt: new Date() }, tx);
+      await this.repo.removeAllDomains(id, tx);
+      await this.audit.record(
+        {
+          action: 'tenant.delete',
+          resourceType: 'tenant',
+          resourceId: id,
+          metadata: {
+            code: tenant.code,
+            domains: tenant.domains,
+            storageBucket: tenant.storageBucket,
+            ...(failedSteps.length && { cleanupFailed: failedSteps }),
+          },
+        },
+        tx,
+      );
     });
+    this.directory.invalidate();
   }
 
   async addDomain(id: string, domain: string): Promise<PlatformTenantDto> {
     const tenant = await this.getExisting(id);
     if (tenant.domains.includes(domain)) return toDto(tenant);
     await this.assertDomainsAvailable([domain]);
-    await this.repo.addDomain(id, domain).catch((error: unknown) => {
-      if ((error as { code?: string }).code === '23505') {
-        throw new AppException('TENANT_DOMAIN_TAKEN', { domains: [domain] });
-      }
-      throw error;
-    });
+    await this.repo
+      .transaction(async (tx) => {
+        if (!(await this.repo.lock(id, tx))) throw new AppException('TENANT_NOT_FOUND');
+        await this.repo.addDomain(id, domain, tx);
+        await this.audit.record(
+          {
+            action: 'tenant.domain.add',
+            resourceType: 'tenant',
+            resourceId: id,
+            metadata: { code: tenant.code, domain },
+          },
+          tx,
+        );
+      })
+      .catch((error: unknown) => {
+        if ((error as { code?: string }).code === '23505') {
+          throw new AppException('TENANT_DOMAIN_TAKEN', { domains: [domain] });
+        }
+        throw error;
+      });
     this.directory.invalidate();
-    await this.audit.record({
-      action: 'tenant.domain.add',
-      resourceType: 'tenant',
-      resourceId: id,
-      metadata: { code: tenant.code, domain },
-    });
     return this.get(id);
   }
 
   async removeDomain(id: string, domain: string): Promise<PlatformTenantDto> {
     const tenant = await this.getExisting(id);
     if (!tenant.domains.includes(domain)) return toDto(tenant);
-    if (tenant.domains.length <= 1) throw new AppException('TENANT_LAST_DOMAIN');
-    await this.repo.removeDomain(id, domain);
-    this.directory.invalidate();
-    await this.audit.record({
-      action: 'tenant.domain.remove',
-      resourceType: 'tenant',
-      resourceId: id,
-      metadata: { code: tenant.code, domain },
+    // 「至少留一個網域」要在鎖住租戶之後、同一個交易裡數：兩個請求同時各移除一個時，後到的要看到前一個的結果（EDGE-20）
+    await this.repo.transaction(async (tx) => {
+      if (!(await this.repo.lock(id, tx))) throw new AppException('TENANT_NOT_FOUND');
+      if ((await this.repo.countDomains(id, tx)) <= 1) {
+        throw new AppException('TENANT_LAST_DOMAIN');
+      }
+      if (!(await this.repo.removeDomain(id, domain, tx))) return;
+      await this.audit.record(
+        {
+          action: 'tenant.domain.remove',
+          resourceType: 'tenant',
+          resourceId: id,
+          metadata: { code: tenant.code, domain },
+        },
+        tx,
+      );
     });
+    this.directory.invalidate();
     return this.get(id);
   }
 
@@ -261,17 +314,51 @@ export class PlatformTenantService {
     return tenant;
   }
 
-  /** 條件式地改狀態：目前狀態不在 `from` 裡（或併發被改掉）就 `TENANT_STATUS_CONFLICT`。 */
+  /**
+   * 條件式地改狀態：目前狀態不在 `from` 裡（或併發被改掉）就 `TENANT_STATUS_CONFLICT`。
+   * 快取的失效由呼叫端在交易 **之後** 做（CLAUDE.md 後端規則 6）。
+   */
   private async transition(
     id: string,
     from: readonly TenantStatus[],
     patch: { status: TenantStatus; deletedAt?: Date },
+    tx?: PlatformTransaction,
   ): Promise<TenantWithDomains> {
     const tenant = await this.getExisting(id);
-    const updated = await this.repo.update(id, patch, from);
+    const updated = await this.repo.update(id, patch, from, tx);
     if (!updated) throw new AppException('TENANT_STATUS_CONFLICT');
-    this.directory.invalidate();
     return tenant;
+  }
+
+  /** 改狀態與平台稽核在同一個交易（EDGE-24）：稽核寫不進去，狀態也不會變。 */
+  private async transitionAudited(
+    id: string,
+    from: readonly TenantStatus[],
+    patch: { status: TenantStatus },
+    audit: (tenant: TenantWithDomains) => { action: string; metadata: Record<string, unknown> },
+  ): Promise<TenantWithDomains> {
+    return this.repo.transaction(async (tx) => {
+      const tenant = await this.transition(id, from, patch, tx);
+      const { action, metadata } = audit(tenant);
+      await this.audit.record({ action, resourceType: 'tenant', resourceId: id, metadata }, tx);
+      return tenant;
+    });
+  }
+
+  /** 收尾步驟有失敗時補一筆稽核（狀態已經改好，收尾可以重做）。 */
+  private async recordCleanup(
+    tenant: TenantWithDomains,
+    action: string,
+    failedSteps: string[],
+  ): Promise<void> {
+    if (!failedSteps.length) return;
+    await this.audit.recordSafely({
+      action: `${action}.cleanup`,
+      resourceType: 'tenant',
+      resourceId: tenant.id,
+      result: 'failure',
+      metadata: { code: tenant.code, failedSteps },
+    });
   }
 
   private async startProvisioning(id: string): Promise<void> {
@@ -292,12 +379,14 @@ export class PlatformTenantService {
    * （重新啟用後不能靠舊的 IdP session 直接登回來）、斷掉它的即時連線、關掉連線池。
    * 每一步各自獨立：租戶的 DB 連不上時仍然結束 IdP session 與連線（停用後網域一律 503，app session 本來就用不了）。
    */
-  private async endEverything(tenant: TenantWithDomains): Promise<void> {
+  private async endEverything(tenant: TenantWithDomains): Promise<string[]> {
+    const failed: string[] = [];
     const attempt = async (step: string, fn: () => Promise<unknown>) => {
       try {
         await fn();
       } catch (error) {
         this.logger.warn({ err: error, tenant: tenant.code, step }, '停用租戶的收尾步驟失敗');
+        failed.push(step);
       }
     };
     await attempt('refreshTokens', () =>
@@ -309,6 +398,7 @@ export class PlatformTenantService {
       reason: SessionRevokedReason.TENANT_UNAVAILABLE,
     });
     await attempt('pool', () => this.tenancy.evict(tenant.id));
+    return failed;
   }
 
   private async assertDomainsAvailable(domains: string[]): Promise<void> {
