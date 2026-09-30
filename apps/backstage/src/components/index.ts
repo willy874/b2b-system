@@ -36,5 +36,6 @@ export * from './Table';
 export * from './Tabs';
 export * from './Toast';
 export * from './Tooltip';
+export * from './TreeEditor';
 export * from './Typography';
 export * from './VirtualList';

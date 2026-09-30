@@ -36,11 +36,13 @@ import Key from '@/assets/icons/key.svg?react';
 import List from '@/assets/icons/list.svg?react';
 import Lock from '@/assets/icons/lock.svg?react';
 import Logout from '@/assets/icons/logout.svg?react';
+import Maximize from '@/assets/icons/maximize.svg?react';
 import Menu from '@/assets/icons/menu.svg?react';
 import Minus from '@/assets/icons/minus.svg?react';
 import Monitor from '@/assets/icons/monitor.svg?react';
 import Moon from '@/assets/icons/moon.svg?react';
 import More from '@/assets/icons/more.svg?react';
+import Network from '@/assets/icons/network.svg?react';
 import PinOff from '@/assets/icons/pin-off.svg?react';
 import Pin from '@/assets/icons/pin.svg?react';
 import Plus from '@/assets/icons/plus.svg?react';
@@ -104,11 +106,13 @@ export const ICONS = {
   list: List,
   lock: Lock,
   logout: Logout,
+  maximize: Maximize,
   menu: Menu,
   minus: Minus,
   monitor: Monitor,
   moon: Moon,
   more: More,
+  network: Network,
   pin: Pin,
   'pin-off': PinOff,
   plus: Plus,

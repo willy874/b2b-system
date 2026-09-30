@@ -72,6 +72,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `Typography` / `Title` / `Text` / `Paragraph` | 自製；`copyable` 的複製按鈕用 `Tooltip` ＋ `navigator.clipboard`（§3.9） |
 | `JsonViewer` / `JsonEditor`      | `JsonEditor` 是 CodeMirror 6；`JsonViewer` 自製（逐行渲染 ＋ `useVirtualRows`），外觀對齊 CodeMirror（§3.12、[ADR-0011](../../adr/0011-codemirror-json-editor.md)） |
 | `JsonDiff`                       | 自製：Myers 逐行差異 ＋ `useVirtualRows`，外觀沿用 `JsonViewer`（§3.12） |
+| `TreeEditor`                     | React Flow（`@xyflow/react`）＋ dagre 自動排版；樣式改寫進 CSS Module，工具列用設計系統元件（§3.13、[ADR-0023](../../adr/0023-react-flow-tree-editor.md)） |
 
 > **DatePicker 是最大的一塊自製工作**，排入
 > [`../../overview/03-roadmap.md`](../../overview/03-roadmap.md) 的 M2，已完成：`components/DatePicker/` 底下是
@@ -547,6 +548,77 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 - 評估過 `@cfworker/json-schema`（不用 eval、體積小），但屬性本身驗證失敗時會被誤報成 `additionalProperties`，不採用（[ADR-0010](../../adr/0010-self-built-json-editor.md)）。
 
 尚未實作：取代（`@codemirror/search` 已支援，需要時在 `JsonSearchBar` 加欄位）、摺疊處的驗證錯誤標記。
+
+### 3.13 樹狀圖：`TreeEditor`
+
+在可平移、縮放的畫布上編輯樹狀／分層結構：技能樹、目錄、組織圖、流程。
+底層是 React Flow（`@xyflow/react`）＋ dagre，決策見 [ADR-0023](../../adr/0023-react-flow-tree-editor.md)。
+
+![TreeEditor Playground](./images/tree-editor/playground.png)
+
+| 功能 | props / 行為 |
+| ---- | ---- |
+| 值 | `value` / `defaultValue` / `onChange`（受控／非受控）：`{ nodes: { id, data, position? }[], edges: { source, target }[] }`。`data` 是呼叫端自己的型別（泛型 `TData`），元件原樣保存。每一次編輯回報一整份新值；拖曳只在放開時回報 |
+| 結構 | `mode`：`tree`（預設，單一父節點；連到已有父節點的節點＝換父節點）／`dag`（多個前置）。自己連自己、重複連線、形成循環一律擋下；`isValidConnection` 加額外規則 |
+| 方向 | `direction`：`TB`（預設）/ `BT`（技能樹常見）/ `LR` / `RL`；決定排版方向與把手位置 |
+| 排版 | `layout`：`manual`（預設，可拖曳、座標存在 `value`，沒有座標的節點自動補上）／`auto`（每次結構改變都重排、不能拖）。`manual` 的工具列有「自動排版」。`nodeSize`（預設 180 × 56）、`nodeGap`、`rankGap` |
+| 新增 | 給 `createNode({ parentId? })` 才出現：工具列的新增根節點／子節點、節點外側的 `+`、Tab（選取一個節點時）。新節點就近放置（`placeChild` / `placeRoot`）並被選取 |
+| 刪除 | Delete / Backspace 或工具列；刪節點時連同它身上的連線，子節點變成根節點。`onBeforeDelete` 可非同步確認（例如 `useConfirm()`），回傳 `false` 取消 |
+| 復原 | 工具列、⌘/Ctrl + Z、⌘/Ctrl + Shift + Z（或 ⌘/Ctrl + Y），最多 100 步；外部換掉 `value`（不是元件剛回報的那一個參考）時清空 |
+| 節點內容 | `renderNode(node, { selected, readOnly })`；沒給時顯示 `getNodeLabel(node)`（預設 `id`，也是節點的無障礙名稱）。框內的輸入框取得焦點時，快捷鍵交還給輸入框 |
+| 選取 | `onSelectionChange(nodeIds)`：搭配旁邊的屬性面板，以 `updateNodeData` 改資料；`onNodeDoubleClick` |
+| 畫布 | 點陣背景、拖曳對齊 8px 格線、滾輪縮放（0.2–2 倍）、`showMinimap`（預設顯示）、`height`（預設 `32rem`）。初次顯示與「顯示全部」不放大超過 1 倍 |
+| 唯讀 | `readOnly`：只能平移、縮放、選取；工具列只剩縮放與顯示全部 |
+| 文案 | `labels`；`features/` 以 `t()` 傳入 |
+| slot | `toolbar` / `canvas` / `node` / `minimap` / `empty`；`className` / `data-testid` 落在最外層 |
+| testid | 工具列 `tree-editor-toolbar`、按鈕 `tree-editor-action` ＋ `data-value`（`add-root` / `add-child` / `delete` / `auto-layout` / `undo` / `redo` / `zoom-in` / `zoom-out` / `fit-view`）、畫布 `tree-editor-canvas`、節點 `tree-editor-item` ＋ `data-value`（節點 id）＋ `data-selected`、節點上的 `+` `tree-editor-add-child`、空狀態 `tree-editor-empty` |
+
+```tsx
+<TreeEditor<Skill>
+  value={value}
+  onChange={setValue}
+  mode="dag"
+  direction="BT"
+  getNodeLabel={(node) => node.data.name}
+  renderNode={(node) => <SkillCard skill={node.data} />}
+  createNode={() => ({ id: crypto.randomUUID(), data: { name: t('skill.untitled'), cost: 1 } })}
+  onBeforeDelete={() => confirm({ title: t('skill.deleteConfirm') })}
+  onSelectionChange={(ids) => setSelectedId(ids[0])}
+  labels={{ addRoot: t('skill.addRoot'), /* … */ }}
+  aria-label={t('skill.tree')}
+/>
+```
+
+檔案分工：
+
+| 檔案 | 內容 |
+| ---- | ---- |
+| `TreeEditor/treeGraph.ts` | 型別與純函式：`checkConnection`、`connectNodes`、`addNode`、`removeElements`、`moveNodes`、`updateNodeData`、`getRootIds`、`getParentIds`、`getDescendantIds`、`getEdgeId` |
+| `TreeEditor/layout.ts` | dagre 排版（`computeTreeLayout`、`layoutTree`、`fillMissingPositions`）與新節點的就近位置（`placeChild`、`placeRoot`） |
+| `TreeEditor/useTreeHistory.ts` | 以整份快照記錄的復原／重做 |
+| `TreeEditor/TreeNode.tsx` | 畫布上的節點：外框、把手、`+`；經由 context 取得 `renderNode` 等設定 |
+| `TreeEditor/TreeEditor.module.css` | 元件樣式，以及改寫自 `@xyflow/react/dist/base.css` 的必要樣式（`--xy-*` 變數對應到 alias token） |
+
+**樣式**：不 import React Flow 的 `base.css`（不分層的全域 CSS 會蓋過 `@layer components`，而且寫死色碼），
+用得到的規則改寫在 `TreeEditor.module.css` 最後一段，以 `.root :global(.react-flow__*)` 限定範圍。升級 React Flow 大版本時對照它的 base.css。
+
+**測試**：jsdom 沒有布局，`TreeEditor.test.tsx` 補上 ResizeObserver、DOMMatrixReadOnly 與 `getBBox` 的替身；
+點節點用 `fireEvent.click`（`userEvent` 的 mousedown 沒有 `view`，d3-drag 會拋錯）。拖線連線與拖曳無法在 jsdom 模擬，
+規則在 `treeGraph.test.ts` 以純函式測，互動以 Storybook 確認。
+
+**Bundle**：React Flow 約 67 KB gzip、dagre 約 17 KB gzip，只被 `TreeEditor` 匯入。
+
+**Storybook 截圖**（2026-09-30，`docs/architecture/frontend/images/tree-editor/`）：
+
+| 自動排版（`layout="auto"`、`LR`） | 技能樹（`dag`、`BT`、自訂內容 ＋ 屬性面板） |
+| --- | --- |
+| ![AutoLayout](./images/tree-editor/auto-layout.png) | ![SkillTree](./images/tree-editor/skill-tree.png) |
+| **唯讀** | **技能樹（深色主題）** |
+| ![ReadOnly](./images/tree-editor/read-only.png) | ![SkillTree dark](./images/tree-editor/skill-tree-dark.png) |
+| **空狀態** | |
+| ![Empty](./images/tree-editor/empty.png) | |
+
+尚未實作：收合子樹、連線上的標籤、拖曳連線端點改接（React Flow 的 `onReconnect`）、複製／貼上節點。
 
 ---
 
