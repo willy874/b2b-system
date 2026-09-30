@@ -18,7 +18,10 @@ const { listTenants, createTenant, getTenant } = vi.hoisted(() => ({
 }));
 vi.mock('@/apis/platform-tenant/get-tenant-list/query', () => ({
   TENANT_LIST_QUERY_KEY: 'TENANT_LIST_QUERY_KEY',
-  getTenantListQueryOptions: () => ({ queryKey: ['TENANT_LIST_QUERY_KEY'], queryFn: listTenants }),
+  getTenantListQueryOptions: (params: Record<string, unknown>) => ({
+    queryKey: ['TENANT_LIST_QUERY_KEY', params.offset, params.limit, params.q, params.status],
+    queryFn: () => listTenants(params),
+  }),
 }));
 vi.mock('@/apis/platform-tenant/get-tenant/query', () => ({
   TENANT_DETAIL_QUERY_KEY: 'TENANT_DETAIL_QUERY_KEY',
@@ -33,7 +36,7 @@ vi.mock('@/apis/platform-tenant/create-tenant/mutation', () => ({
 
 const TENANT = tenantFixture();
 
-function renderPage(permissions: PermissionKey[] | 'unhydrated') {
+function renderPage(permissions: PermissionKey[] | 'unhydrated', url = '/tenant') {
   usePermissionStore.setState(
     permissions === 'unhydrated'
       ? { permissions: new Set(), hydrated: false }
@@ -41,7 +44,7 @@ function renderPage(permissions: PermissionKey[] | 'unhydrated') {
   );
   const router = createRouter({
     routeTree: RootRoute.addChildren([Routes.TenantListRoute, Routes.TenantDetailRoute]),
-    history: createMemoryHistory({ initialEntries: ['/tenant'] }),
+    history: createMemoryHistory({ initialEntries: [url] }),
     parseSearch,
     stringifySearch,
   });
@@ -56,7 +59,11 @@ function renderPage(permissions: PermissionKey[] | 'unhydrated') {
 beforeEach(() => {
   resetPagePermissionRegistry();
   registerTenantPagePermissions();
-  listTenants.mockReset().mockResolvedValue({ items: [TENANT], baseDomain: 'localhost:5173' });
+  listTenants.mockReset().mockResolvedValue({
+    items: [TENANT],
+    pagination: { offset: 0, limit: 50, total: 1 },
+    baseDomain: 'localhost:5173',
+  });
   getTenant.mockReset().mockResolvedValue(TENANT);
   createTenant.mockReset();
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
@@ -116,5 +123,62 @@ describe('租戶清單（docs/adr/0020-physical-tenant-isolation.md D12）', () 
       },
     });
     await waitFor(() => expect(router.state.location.pathname).toBe(`/tenant/${created.id}`));
+  });
+
+  it('預設第一頁、每頁 50 筆，不帶搜尋與篩選（UX-29）', async () => {
+    renderPage(['tenant:read']);
+    expect(await screen.findByTestId('tenant-link')).toBeInTheDocument();
+    expect(listTenants).toHaveBeenCalledWith({
+      offset: 0,
+      limit: 50,
+      q: undefined,
+      status: undefined,
+    });
+  });
+
+  it('網址上的條件（重新整理後）直接套用到查詢', async () => {
+    renderPage(['tenant:read'], '/tenant?status=failed&q=acme&offset=25&limit=25');
+    await waitFor(() =>
+      expect(listTenants).toHaveBeenCalledWith({
+        offset: 25,
+        limit: 25,
+        q: 'acme',
+        status: 'failed',
+      }),
+    );
+    expect(screen.getByTestId('tenant-filter-q')).toHaveValue('acme');
+  });
+
+  it('搜尋：寫進網址並回到第一頁；重設清掉條件', async () => {
+    const router = renderPage(['tenant:read'], '/tenant?offset=50');
+    fireEvent.change(await screen.findByTestId('tenant-filter-q'), {
+      target: { value: ' portal ' },
+    });
+    fireEvent.click(screen.getByTestId('tenant-filter-submit'));
+    await waitFor(() => expect(router.state.location.search).toEqual({ q: 'portal' }));
+    await waitFor(() =>
+      expect(listTenants).toHaveBeenLastCalledWith({
+        offset: 0,
+        limit: 50,
+        q: 'portal',
+        status: undefined,
+      }),
+    );
+
+    fireEvent.click(screen.getByTestId('tenant-filter-reset'));
+    await waitFor(() => expect(router.state.location.search).toEqual({}));
+    expect(screen.getByTestId('tenant-filter-q')).toHaveValue('');
+  });
+
+  it('分頁：下一頁帶 offset', async () => {
+    listTenants.mockResolvedValue({
+      items: [TENANT],
+      pagination: { offset: 0, limit: 50, total: 120 },
+      baseDomain: 'localhost:5173',
+    });
+    const router = renderPage(['tenant:read']);
+    expect(await screen.findByTestId('tenant-link')).toBeInTheDocument();
+    fireEvent.click(await screen.findByTestId('pagination-next'));
+    await waitFor(() => expect(router.state.location.searchStr).toBe('?offset=50'));
   });
 });

@@ -88,6 +88,15 @@
       "disableConfirm": "After turning this off, {{code}} users can no longer sign in with an external IdP, and SSO-only domains fall back to password sign-in. Users who only ever signed in through the external IdP and have no password must reset their password first. Existing connections are kept and come back when you turn this on again.",
       "disableAction": "Turn off"
     },
-    "provisionWarning": "Provisioning finished, but a follow-up step didn't succeed (the tenant is usable; file storage is retried on the first upload): {{reason}}"
+    "provisionWarning": "Provisioning finished, but a follow-up step didn't succeed (the tenant is usable; file storage is retried on the first upload): {{reason}}",
+    "emptyFiltered": "No tenants match these filters",
+    "filter": {
+      "q": "Search",
+      "qPlaceholder": "Code, name or domain",
+      "all": "All"
+    },
+    "pagination": {
+      "summary": "{{from}}–{{to}} of {{total}}"
+    }
   }
 }

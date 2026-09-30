@@ -18,7 +18,7 @@ import {
   useRetryTenantProvisioningMutation,
 } from '../../hooks/useTenantMutations';
 import { useTenantPermission } from '../../hooks/useTenantPermission';
-import { TenantDetailRoute, TenantListRoute } from '../../routes';
+import { DEFAULT_TENANT_SEARCH, TenantDetailRoute, TenantListRoute } from '../../routes';
 import { DeleteTenantDialog } from './components/DeleteTenantDialog';
 import { ExternalIdpSwitch } from './components/ExternalIdpSwitch';
 import { RenameTenantDialog } from './components/RenameTenantDialog';
@@ -55,7 +55,12 @@ export default function TenantDetailPage() {
 
   return (
     <div className="flex flex-col gap-4" data-testid="tenant-detail-page">
-      <Link to={TenantListRoute.to} className="text-sm" data-testid="tenant-back">
+      <Link
+        to={TenantListRoute.to}
+        search={DEFAULT_TENANT_SEARCH}
+        className="text-sm"
+        data-testid="tenant-back"
+      >
         {t('tenant.back')}
       </Link>
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -178,7 +183,7 @@ export default function TenantDetailPage() {
         onClose={() => setConfirming(undefined)}
         onDeleted={() => {
           setConfirming(undefined);
-          void navigate({ to: TenantListRoute.to });
+          void navigate({ to: TenantListRoute.to, search: DEFAULT_TENANT_SEARCH });
         }}
       />
     </div>
