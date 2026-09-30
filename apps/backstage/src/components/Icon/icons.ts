@@ -1,6 +1,7 @@
 import ArrowDown from '@/assets/icons/arrow-down.svg?react';
 import ArrowUpDown from '@/assets/icons/arrow-up-down.svg?react';
 import ArrowUp from '@/assets/icons/arrow-up.svg?react';
+import Bell from '@/assets/icons/bell.svg?react';
 import Calendar from '@/assets/icons/calendar.svg?react';
 import Check from '@/assets/icons/check.svg?react';
 import ChevronDown from '@/assets/icons/chevron-down.svg?react';
@@ -71,6 +72,7 @@ export const ICONS = {
   'arrow-down': ArrowDown,
   'arrow-up': ArrowUp,
   'arrow-up-down': ArrowUpDown,
+  bell: Bell,
   calendar: Calendar,
   check: Check,
   'chevron-down': ChevronDown,

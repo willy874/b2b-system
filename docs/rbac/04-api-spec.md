@@ -196,6 +196,8 @@
 
 檢查：反提權（§5；目標持有 super-admin 時只有 super-admin 能改）、`AUTHZ_SELF_MODIFY`、`LAST_SUPER_ADMIN`（交易內加鎖）、`USER_ROLES_CONFLICT`。
 
+角色有實際增減時，同一個交易內給被改的人一則站內通知 `user.rolesChanged`（增減的角色名稱；§7.3）。
+
 `PATCH /users/:id` 改狀態、`DELETE /users/:id` 同樣：目標持有 super-admin 時只有 super-admin 能做（`AUTHZ_ESCALATION`）。
 
 ### 2.5 `POST /users/:id/restore`
@@ -517,6 +519,9 @@
 
 **批次**：沒有批次端點，由前端逐筆呼叫單筆 API，見 [ADR-0012](../adr/0012-batch-queue-worker.md)。
 
+**站內通知**（§7.3）：送出請求時，送出當下持有 `approval:review` 的人（不含申請人自己）各收到一則 `approval.pending`；
+核准或駁回時申請人收到 `approval.result`（匿名的註冊沒有收件人，只有結果信）。都與審批的寫入在同一個交易。
+
 ---
 
 ## 7.1 Files
@@ -578,6 +583,50 @@
 每一列：`id`、`type`、`name`、`description`、`deletedAt`、`deletedBy`（`{ id, name }` 或 `null`）、`purgeAt`。
 還原端點在各資源（`POST /users/:id/restore`、`POST /roles/:id/restore`、`POST /files/:id/restore`、`POST /file-folders/:id/restore`）；永久刪除只由排程 `trash.purge` 執行。
 見 [`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)。
+
+---
+
+## 7.3 Notifications（站內通知）
+
+| Method | Path                           | 授權 | 說明 |
+| ------ | ------------------------------ | ---- | ---- |
+| GET    | `/notifications`               | 🔑 登入即可（只看自己的） | 新的在前；keyset 分頁 |
+| GET    | `/notifications/unread-count`  | 🔑 登入即可 | 自己的未讀數 |
+| POST   | `/notifications/:id/read`      | 🔑 登入即可（只能改自己的） | 標為已讀 |
+| POST   | `/notifications/read-all`      | 🔑 登入即可 | 自己所有未讀的標為已讀 |
+
+不新增權限鍵：看自己的通知只需要登入（[ADR-0026](../adr/0026-notification-center.md) D9）。已讀不寫稽核。
+
+```jsonc
+// GET /notifications?limit=20&unread=true&cursor=<上一頁的 nextCursor> → 200
+{
+  "data": {
+    "items": [
+      {
+        "id": "uuid",
+        "type": "approval.pending",
+        "params": { "approvalType": "user.register", "requesterName": "a@example.com", "subject": "Alice" },
+        "link": { "route": "approval.detail", "params": { "approvalId": "uuid" } },
+        "actor": null,                    // 觸發的人 { id, name }；系統為 null
+        "readAt": null,
+        "createdAt": "2026-10-01T00:00:00.000Z"
+      }
+    ],
+    "nextCursor": "…"                    // 沒有下一頁時為 null；不計總數
+  }
+}
+
+// GET /notifications/unread-count → 200 { "data": { "count": 3 } }
+// POST /notifications/:id/read → 200 { "data": { /* Notification，readAt 已設定 */ } }
+// POST /notifications/read-all → 200 { "data": { "updated": 3 } }
+```
+
+| 錯誤 | 時機 |
+| ---- | ---- |
+| `404 NOTIFICATION_NOT_FOUND` | 標為已讀的通知不存在或不是自己的（不透露別人的通知是否存在） |
+| `400 VALIDATION_FAILED` | `cursor` 格式不對（`details.field: 'cursor'`）、`limit` 不在 1～100 |
+
+類型、參數、route id 與收件人見 [`../architecture/backend/15-notification.md`](../architecture/backend/15-notification.md) §4。
 
 ---
 

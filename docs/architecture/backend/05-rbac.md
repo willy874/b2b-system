@@ -217,6 +217,12 @@ export class PermissionService {
 }
 ```
 
+**反方向：誰持有某個權限**。`findActiveUserIdsWithPermission(key)` 給「要通知有某個權限的人」用（審批送出時的審核者，
+[ADR-0026](../../adr/0026-notification-center.md) D5）：先以 `AuthzService.usersWithTenantRelations()` 的反向遞迴 CTE 找出候選
+（在租戶節點上持有 `key`、帶來它的鍵或 `superAdmin` 的角色的持有者；過期的邊與已刪除的角色不算），
+去掉停用與刪除的人，再以上面的 `getPermissionSets` 確認——判斷仍由正向解析決定，反向查詢只縮小範圍。
+細節見 [`15-notification.md`](./15-notification.md) §5。
+
 ### 4.1 反提權與 super-admin 角色
 
 `super-admin` 是 **隱含全集**：它沒有任何權限鍵的邊，只有 `tenant:self#superAdmin@role:<id>#holder`
@@ -598,6 +604,10 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/auth/profile`             | `@Authenticated`                 |
 | PATCH  | `/auth/profile`             | `@Authenticated`                 |
 | POST   | `/auth/change-password`     | `@Authenticated`                 |
+| GET    | `/notifications`            | `@Authenticated`（只看自己的，ADR-0026 D9） |
+| GET    | `/notifications/unread-count` | `@Authenticated`               |
+| POST   | `/notifications/read-all`   | `@Authenticated`                 |
+| POST   | `/notifications/:id/read`   | `@Authenticated`（不是自己的回 404） |
 | GET    | `/identity-providers`       | `identityProvider:read`          |
 | POST   | `/identity-providers`       | `identityProvider:create`        |
 | PATCH  | `/identity-providers/:id`   | `identityProvider:update`        |

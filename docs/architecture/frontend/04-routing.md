@@ -30,6 +30,7 @@ RootRoute  (core/router/root.tsx)
 │
 ├── /profile                       ProfileRoute
 ├── /preference                    PreferenceRoute
+├── /notification                  NotificationListRoute （站內通知；?filter=unread）
 │
 ├── /user                          UserListRoute
 │   ├── create                     UserCreateRoute        （對話框）

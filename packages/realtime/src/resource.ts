@@ -21,6 +21,11 @@ export const ChangeSource = {
    * 再安裝或移除對應的 feature（docs/adr/0021-runtime-feature-activation.md D8）。推給整個租戶，沒有 `id`。
    */
   TENANT_FEATURE: 'tenantFeature',
+  /**
+   * 站內通知（`id` = 通知 id）：只推給收件人自己的 user room（docs/adr/0026-notification-center.md D8）。
+   * 新通知是 `create`；在另一個裝置或分頁標為已讀是 `update`（全部已讀沒有 `id`）。
+   */
+  NOTIFICATION: 'notification',
 } as const;
 
 export type ChangeSource = (typeof ChangeSource)[keyof typeof ChangeSource];
@@ -49,6 +54,7 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.FILE_FOLDER,
   ChangeSource.SETTING,
   ChangeSource.TENANT_FEATURE,
+  ChangeSource.NOTIFICATION,
 ]);
 
 export const ResourceChangeWireSchema = z.object({

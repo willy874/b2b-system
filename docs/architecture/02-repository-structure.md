@@ -93,6 +93,7 @@ apps/backstage/src/
 │   ├── notify/              useToast()：把提示發到 eventBus
 │   ├── permission/          ★ 權限註冊表、hooks、常數
 │   ├── preference/          偏好設定註冊表（讓 feature 擴充偏好頁）
+│   ├── route-link/          route id → route 的註冊表：後端存的連結（例：通知）由擁有頁面的 feature 登記（docs/architecture/frontend/15-notification.md §3）
 │   ├── trash/               回收桶的類型註冊表（docs/architecture/frontend/13-trash.md）
 │   ├── router/              RootRoute、Router Provider
 │   └── store/               全域 store（permission / layout / timezone / locale）
@@ -108,6 +109,7 @@ apps/backstage/src/
 │   ├── file/                檔案管理器（docs/architecture/frontend/12-file-manager.md）
 │   ├── job/                 背景工作的管理頁（docs/architecture/backend/10-jobs.md §6）
 │   ├── trash/               回收桶頁；各類型由擁有資源的 feature 登記（docs/architecture/frontend/13-trash.md）
+│   ├── notification/        站內通知：頂列鈴鐺、列表頁（docs/architecture/frontend/15-notification.md）
 │   └── home/
 │
 ├── apis/                    與後端對話的唯一入口
@@ -119,6 +121,7 @@ apps/backstage/src/
 │   ├── approval/
 │   ├── file/
 │   ├── job/
+│   ├── notification/
 │   └── trash/
 │
 ├── components/              ★ Base UI 封裝層（設計系統元件）
@@ -207,6 +210,7 @@ apps/api/src/
 │   ├── job/                 背景工作的管理 API（docs/architecture/backend/10-jobs.md §6）
 │   ├── trash/               回收桶：TrashRegistry、GET /trash、trash.purge（docs/architecture/backend/13-trash.md）
 │   ├── revision/            版本歷史：RevisionService（寫入、讀取、保留清理）、revision.prune（docs/architecture/backend/14-revisions.md）
+│   ├── notification/        站內通知：NotificationService.notify、GET /notifications、notification.cleanup（docs/architecture/backend/15-notification.md）
 │   └── health/
 │
 └── db/
@@ -315,6 +319,7 @@ JOBS_WORKER_ENABLED=true            # 是否執行背景工作與排程；false 
 AUDIT_LOG_ARCHIVE_CRON=30 3 * * *   # 稽核熱 → 冷搬移的 cron（UTC）；留空停用
 TRASH_PURGE_CRON=30 4 * * *         # 回收桶到期永久刪除的 cron（UTC）；保留天數是系統設定 trash.retentionDays（backend/13-trash.md §5）
 REVISION_PRUNE_CRON=45 4 * * *      # 版本歷史保留清理的 cron（UTC）；保留條件是系統設定 revision.keepVersions／keepDays（backend/14-revisions.md §5）
+NOTIFICATION_CLEANUP_CRON=0 5 * * * # 站內通知保留清理的 cron（UTC）；保留條件是系統設定 notification.retentionDays／maxPerUser（backend/15-notification.md §6）
 
 REALTIME_ALLOWED_ORIGINS=http://localhost:5173   # Socket.io handshake 的 Origin 白名單（逗號分隔）
 

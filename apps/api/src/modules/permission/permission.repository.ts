@@ -10,9 +10,11 @@ import {
   isActiveRole,
   isRoleHolderTuple,
   isRolePermissionTuple,
+  notDeleted,
   permissions,
   relationTuples,
   roles,
+  users,
 } from '@/db/schema';
 
 import { SUPER_ADMIN_SLUG } from './permission.constants';
@@ -108,5 +110,16 @@ export class PermissionRepository {
       .from(relationTuples)
       .where(and(isRoleHolderTuple(), eq(relationTuples.objectId, roleId)));
     return rows.map((row) => row.userId);
+  }
+
+  /** 這些人之中未刪除、`active` 的（依 id 排序）。 */
+  async filterActiveUserIds(userIds: readonly string[]): Promise<string[]> {
+    if (userIds.length === 0) return [];
+    const rows = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(inArray(users.id, [...userIds]), eq(users.status, 'active'), notDeleted(users)))
+      .orderBy(asc(users.id));
+    return rows.map((row) => row.id);
   }
 }

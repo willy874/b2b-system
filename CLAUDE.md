@@ -112,3 +112,4 @@ pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法�
 | `TrashHandler` 的形狀 | ADR-0025 D9：`purge(ids, tx)` | `findExpired(cutoff, afterId, limit)` ＋ 逐列 `purge(item, tx)`（每列一個 savepoint）＋ `afterPurge(ids)` | 一列因外鍵刪不掉時只略過它自己；keyset 讓略過的列不會在同一輪被重複取到；交易後的副作用（權限失效、推播）要與交易內的刪除分開 |
 | 還原時唯一值衝突的 details | ADR-0025 D5：`details.conflictingId` | 使用者用 `details.conflictingUserId` | 依 D6 與使用者的錯誤碼；R3／R4 的角色、資料夾各自決定欄位名 |
 | 還原到某一版的權限 | ADR-0025 D10：`role:update` ＋ 反提權 | 路由 `role:update`；權限鍵會改變時 service 另要 `role:grantPermission`（`403 AUTHZ_FORBIDDEN`） | 否則只有 `role:update` 的人能藉還原拿掉角色的權限鍵（改權限的端點要 `role:grantPermission`）；見 `14-revisions.md` §4.3 |
+| `notifications` 的索引 | ADR-0026 D1：`(recipient_id, read_at, created_at desc)` | `(recipient_id, created_at, id)` ＋ 部分索引 `… WHERE read_at IS NULL` ＋ `(read_at) WHERE read_at IS NOT NULL` | 「全部」的列表不必在 `read_at` 之後再排序、keyset 以 id 收尾、清理的「已讀過期」跨收件人；升冪欄位由反向掃描服務 `DESC` 查詢。見 `docs/architecture/backend/15-notification.md` §2 |

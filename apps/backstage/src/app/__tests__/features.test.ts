@@ -5,6 +5,8 @@ import { resetBatchOperations } from '@/core/batch';
 import { resetFileRegistry } from '@/core/file';
 import { getRegisteredPageKeys, resetPagePermissionRegistry } from '@/core/permission';
 import { getPreferenceTables, resetPreferenceRegistry } from '@/core/preference';
+import { resetRouteLinkRegistry, routeLinkRegistry } from '@/core/route-link';
+import { resetTrashRegistry } from '@/core/trash';
 import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { FILE_PAGE } from '@/features/file';
 import { JOB_PAGE } from '@/features/job';
@@ -36,6 +38,9 @@ describe('可啟用 feature 的 catalog', () => {
     resetPreferenceRegistry();
     resetBatchOperations();
     resetFileRegistry();
+    resetRouteLinkRegistry();
+    // 上一個案例最後重新安裝的 feature 沒有卸載：它登記的回收桶類型、route id 要清掉
+    resetTrashRegistry();
   });
 
   it.each(Object.entries(EXPECTED_PAGES))(
@@ -54,4 +59,13 @@ describe('可啟用 feature 的 catalog', () => {
       await expect(context.install(definition.plugin)).resolves.toBe(name);
     },
   );
+
+  it('file：安裝後登記 route id file.folder（通知連到資料夾），卸載後撤回——連結變成不可點（ADR-0026 D3）', async () => {
+    const context = createContext();
+    const name = await context.install(FEATURE_CATALOG.file.plugin);
+    expect(routeLinkRegistry.keys()).toEqual(['file.folder']);
+
+    context.uninstall(name);
+    expect(routeLinkRegistry.keys()).toEqual([]);
+  });
 });

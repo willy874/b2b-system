@@ -1,6 +1,37 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
 // 來源：B2B System API 0.0.0（OpenAPI 3.0.0）
 
+export interface NotificationLink {
+  route: string;
+  params: Record<string, string>;
+}
+
+export interface Notification {
+  id: string;
+  type: string;
+  params: Record<string, unknown>;
+  link: NotificationLink | null;
+  actor: {
+    id: string;
+    name: string;
+  } | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface NotificationPage {
+  items: Array<Notification>;
+  nextCursor: string | null;
+}
+
+export interface NotificationUnreadCount {
+  count: number;
+}
+
+export interface NotificationReadAllResult {
+  updated: number;
+}
+
 export const ApprovalStatus = {
   pending: 'pending',
   approved: 'approved',
@@ -959,7 +990,7 @@ export interface UpdateRolePermissionsRequest {
 
 export interface SystemSetting {
   key: string;
-  category: 'general' | 'auth' | 'file' | 'trash' | 'revision';
+  category: 'general' | 'auth' | 'file' | 'trash' | 'revision' | 'notification';
   type: 'string' | 'number' | 'boolean';
   value: string | number | boolean;
   defaultValue: string | number | boolean;

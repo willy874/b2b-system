@@ -93,6 +93,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `file.maintenance` | `modules/file` | `FILE_MAINTENANCE_CRON` | `0 * * * *`（每小時整點） |
 | `trash.purge` | `modules/trash` | `TRASH_PURGE_CRON` | `30 4 * * *`（每天 04:30 UTC；回收桶到期永久刪除，保留天數是系統設定 `trash.retentionDays`，[`13-trash.md`](./13-trash.md) §5） |
 | `revision.prune` | `modules/revision` | `REVISION_PRUNE_CRON` | `45 4 * * *`（每天 04:45 UTC；版本歷史的保留清理，保留條件是系統設定 `revision.keepVersions`／`revision.keepDays`，[`14-revisions.md`](./14-revisions.md) §5） |
+| `notification.cleanup` | `modules/notification` | `NOTIFICATION_CLEANUP_CRON` | `0 5 * * *`（每天 05:00 UTC；站內通知的保留清理：已讀超過 `notification.retentionDays` 天、每人超過 `notification.maxPerUser` 則的最舊通知，[`15-notification.md`](./15-notification.md) §8） |
 | `auth.activationMail`、`auth.passwordResetMail` | `modules/credential` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
 | `approval.resultMail` | `modules/approval` | — | 由程式入列 |
 | `oidc.cleanup`（平台） | `modules/oidc-provider` | `OIDC_CLEANUP_CRON` | `45 3 * * *`（每天 03:45 UTC；清除過期的 IdP 狀態） |
@@ -194,5 +195,6 @@ await withTransaction(this.db, async (tx) => {
 | `src/modules/file/__tests__/file-maintenance.service.spec.ts` | 以 `FILE_MAINTENANCE_CRON` 註冊成排程工作 |
 | `src/modules/trash/__tests__/trash.service.spec.ts`、`test/trash.spec.ts` | `trash.purge` 以 `TRASH_PURGE_CRON` 註冊、每批一個交易、外鍵略過、依設定的保留天數硬刪除 |
 | `src/modules/revision/__tests__/revision.service.spec.ts`、`test/role-revisions.spec.ts` | `revision.prune` 以 `REVISION_PRUNE_CRON` 註冊、分批刪除、保留「最新 N 版」∪「N 天內」、依設定 |
+| `src/modules/notification/__tests__/notification.service.spec.ts`、`test/notifications.spec.ts` | `notification.cleanup` 以 `NOTIFICATION_CLEANUP_CRON` 註冊、分批刪除、依設定刪除已讀過期與每人超過上限的通知 |
 
 其他整合測試預設 `JOBS_WORKER_ENABLED=false`（`vitest.config.ts`）：排程與 worker 不在測試裡偷跑。

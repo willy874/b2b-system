@@ -1,0 +1,38 @@
+{
+  "notification": {
+    "title": "Notifications",
+    "description": "Things waiting for you and changes to your account show up here. Read notifications are removed after the retention period.",
+    "unread": "Unread: ",
+    "empty": "No notifications yet",
+    "emptyUnread": "No unread notifications",
+    "viewAll": "View all",
+    "filter": {
+      "all": "All",
+      "unread": "Unread"
+    },
+    "markAllRead": {
+      "action": "Mark all as read",
+      "success": "Marked {{count}} notifications as read"
+    },
+    "actor": {
+      "system": "System"
+    },
+    "message": {
+      "approvalPending": "{{requester}} submitted a {{type}} request for review",
+      "approvalApproved": "Your {{type}} request was approved",
+      "approvalRejected": "Your {{type}} request was rejected",
+      "userRolesChanged": "Your roles were changed",
+      "unknown": "You have a new notification"
+    },
+    "detail": {
+      "subject": "{{subject}}",
+      "rolesAdded": "Added: {{roles}}",
+      "rolesRemoved": "Removed: {{roles}}"
+    },
+    "approvalType": {
+      "userRegister": "account registration",
+      "fileFolderAccess": "folder access",
+      "unknown": "approval"
+    }
+  }
+}

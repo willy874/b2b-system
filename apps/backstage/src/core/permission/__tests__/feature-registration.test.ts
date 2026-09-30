@@ -8,6 +8,7 @@ import {
   IDENTITY_PROVIDER_PAGE,
   registerIdentityProviderPagePermissions,
 } from '@/features/identity-provider';
+import { NOTIFICATION_PAGE, registerNotificationPagePermissions } from '@/features/notification';
 import { PERMISSION_PAGE, registerPermissionPagePermissions } from '@/features/permission';
 import { registerRolePagePermissions, ROLE_CREATE_PAGE, ROLE_PAGE } from '@/features/role';
 import { registerTrashPagePermissions, TRASH_PAGE } from '@/features/trash';
@@ -31,6 +32,7 @@ describe('註冊表完整性', () => {
     registerFilePagePermissions();
     registerIdentityProviderPagePermissions();
     registerTrashPagePermissions();
+    registerNotificationPagePermissions();
 
     expect(new Set(getRegisteredPageKeys())).toEqual(
       new Set([
@@ -46,6 +48,7 @@ describe('註冊表完整性', () => {
         FILE_PAGE,
         IDENTITY_PROVIDER_PAGE,
         TRASH_PAGE,
+        NOTIFICATION_PAGE,
       ]),
     );
   });

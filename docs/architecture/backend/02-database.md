@@ -379,6 +379,24 @@ G1～G2 期間由舊表上的 trigger 同步寫入這張表（migration 0008，�
 
 `UNIQUE (resource_type, resource_id, version)`、`INDEX (created_at)`。沒有 `updated_at`、`deleted_at`：版本寫入後不改，只會被保留清理或永久刪除刪掉。
 
+### 2.13 `notifications`（站內通知）
+
+每位收件人一筆（[ADR-0026](../../adr/0026-notification-center.md) D1；完整說明見 [`15-notification.md`](./15-notification.md) §2）。
+
+| 欄位 | 型別 | 說明 |
+| --- | --- | --- |
+| `id` | `uuid` PK | |
+| `recipient_id` | `uuid` → `users.id` `ON DELETE CASCADE` | 收件人；永久刪除使用者時通知一起刪掉 |
+| `type` | `text` | `<模組>.<事件>`；text ＋ 擁有者模組的常數（§1「列舉的例外」） |
+| `params` | `jsonb` | 組句子用的名稱快照 |
+| `link` | `jsonb NULL` | `{ route, params }`：前端的 route id ＋ 參數 |
+| `actor_id` | `uuid NULL` → `users.id` `ON DELETE SET NULL` | 觸發的人；null＝系統 |
+| `read_at` | `timestamptz NULL` | null＝未讀 |
+| `created_at` | `timestamptz` | |
+
+`INDEX (recipient_id, created_at, id)`（列表、keyset、每人上限的清理）、`INDEX (recipient_id, created_at, id) WHERE read_at IS NULL`（未讀數與未讀列表）、
+`INDEX (read_at) WHERE read_at IS NOT NULL`（已讀過期的清理）。沒有 `updated_at`、`deleted_at`：除了 `read_at` 不改，清除是硬刪除。
+
 ---
 
 ## 3. 不變條件的 DB 層強制
@@ -559,6 +577,7 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 │                                       （一次刪除操作的識別，ADR-0025 D5、R4a；純加法，既有的已刪除列是 null）
 ├── 0014_revisions.sql                  revisions 表（§2.12）＋ 手寫：每個既有角色的基準版本（第 1 版，actor null；
 │                                       ADR-0025 R5、14-revisions.md §4.2；純加法）
+├── 0015_notifications.sql              notifications 表與三個索引（§2.13，ADR-0026 N1；純加法）
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

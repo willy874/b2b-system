@@ -129,6 +129,7 @@
 - 檢視／編輯自己的個人資料（`GET|PATCH /auth/profile`）
 - 變更自己的密碼（`POST /auth/change-password`）
 - 檢視／修改自己的偏好設定（語系、時區）
+- 檢視自己的站內通知、標為已讀（`GET /notifications`、`POST /notifications/:id/read`、`POST /notifications/read-all`；[ADR-0026](../adr/0026-notification-center.md) D9）
 - 登出
 
 ---
@@ -203,6 +204,7 @@
 | 登入         | `/auth/login`（跳到 apps/auth 的 IdP）、`/auth/callback` | 不受管 | 無（未登入可進）   | —     |
 | 個人資料     | `/profile`                 | `PROFILE`       | 無                               | —     |
 | 偏好設定     | `/preference`              | `PREFERENCE`    | 無                               | —     |
+| 通知         | `/notification`（`?filter=unread`） | `NOTIFICATION` | 無（只看得到自己的；[`../architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md) §4） | — |
 | 使用者列表   | `/user`                    | `USER`          | `user:read`                      | EVERY |
 | 建立使用者   | `/user/create`             | `USER_CREATE`   | `user:read` ＋ `user:create`     | EVERY |
 | 角色列表     | `/role`                    | `ROLE`          | `role:read`                      | EVERY |

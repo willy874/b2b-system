@@ -1,4 +1,11 @@
-import type { ApprovalRequest, AuditLog, Permission, Role, User } from '@/shared/api-sdk';
+import type {
+  ApprovalRequest,
+  AuditLog,
+  Notification,
+  Permission,
+  Role,
+  User,
+} from '@/shared/api-sdk';
 
 /**
  * 權限目錄（對應 apps/api/src/db/seeds/permissions.ts）。
@@ -337,5 +344,54 @@ export const APPROVAL_FIXTURES: ApprovalRequest[] = [
     resultResourceId: null,
     createdAt: '2026-09-23T08:00:00.000Z',
     updatedAt: '2026-09-23T09:00:00.000Z',
+  },
+];
+
+/**
+ * 站內通知（docs/architecture/backend/15-notification.md §4 的三種類型，外加一種前端不認得的類型）。
+ * 新的在前；時間相對於載入 mock 的時刻，相對時間才有意義。
+ */
+const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+
+export const NOTIFICATION_FIXTURES: Notification[] = [
+  {
+    id: 'notification-pending',
+    type: 'approval.pending',
+    params: {
+      approvalType: 'user.register',
+      requesterName: 'carol@example.com',
+      subject: 'Carol',
+    },
+    link: { route: 'approval.detail', params: { approvalId: 'approval-pending' } },
+    actor: null,
+    readAt: null,
+    createdAt: minutesAgo(5),
+  },
+  {
+    id: 'notification-roles',
+    type: 'user.rolesChanged',
+    params: { added: ['內容編輯'], removed: ['稽核人員'] },
+    link: { route: 'account.profile', params: {} },
+    actor: { id: 'user-admin', name: 'Super Admin' },
+    readAt: null,
+    createdAt: minutesAgo(90),
+  },
+  {
+    id: 'notification-result',
+    type: 'approval.result',
+    params: { approvalType: 'fileFolder.access', subject: '設計稿', status: 'approved' },
+    link: { route: 'file.folder', params: { folderId: '11111111-1111-4111-8111-111111111111' } },
+    actor: { id: 'user-admin', name: 'Super Admin' },
+    readAt: minutesAgo(60),
+    createdAt: minutesAgo(26 * 60),
+  },
+  {
+    id: 'notification-unknown',
+    type: 'webhook.disabled',
+    params: {},
+    link: null,
+    actor: null,
+    readAt: minutesAgo(60),
+    createdAt: minutesAgo(3 * 24 * 60),
   },
 ];

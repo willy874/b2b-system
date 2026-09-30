@@ -7,6 +7,7 @@ import { Routes as FileRoutes } from '@/features/file';
 import { Routes as HomeRoutes } from '@/features/home';
 import { Routes as IdentityProviderRoutes } from '@/features/identity-provider';
 import { Routes as JobRoutes } from '@/features/job';
+import { Routes as NotificationRoutes } from '@/features/notification';
 import { Routes as PermissionRoutes } from '@/features/permission';
 import { Routes as RoleRoutes } from '@/features/role';
 import { Routes as SystemRoutes } from '@/features/system';
@@ -43,4 +44,5 @@ export const routeTree = RootRoute.addChildren([
   TrashRoutes.TrashListRoute,
   AccountRoutes.ProfileRoute,
   AccountRoutes.PreferenceRoute,
+  NotificationRoutes.NotificationListRoute,
 ]);

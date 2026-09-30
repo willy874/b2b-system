@@ -61,8 +61,11 @@ export interface ScopedCollection<R extends string> {
 
 export interface ResourceDefinition<R extends string> extends ResourceKeys {
   derivesFrom?: readonly Derivation<R>[];
-  /** 任何來源變更都會影響（例：稽核日誌）。只影響 collection。 */
-  derivesFromAnyChange?: boolean;
+  /**
+   * 任何來源變更都會影響（例：稽核日誌）。只影響 collection。
+   * `except` 列出不算數的來源（例：不寫稽核的站內通知）。
+   */
+  derivesFromAnyChange?: boolean | { except: readonly R[] };
   scopedCollection?: ScopedCollection<R>;
 }
 
@@ -87,11 +90,14 @@ export function createResourceGraph<R extends string>(
 ): ResourceGraph<R> {
   const resources = Object.keys(definitions) as R[];
   const rulesBySource = new Map<R, Rule<R>[]>();
-  const anyChangeTargets: R[] = [];
+  const anyChangeTargets: Array<{ target: R; except: readonly R[] }> = [];
 
   for (const target of resources) {
     const definition = definitions[target];
-    if (definition.derivesFromAnyChange) anyChangeTargets.push(target);
+    const anyChange = definition.derivesFromAnyChange;
+    if (anyChange) {
+      anyChangeTargets.push({ target, except: anyChange === true ? [] : anyChange.except });
+    }
     for (const derivation of definition.derivesFrom ?? []) {
       if (derivation.from === target) {
         throw new Error(`resource "${target}" 不能衍生自自己`);
@@ -115,8 +121,9 @@ export function createResourceGraph<R extends string>(
             plan.addDerived(definitions[target], id);
           }
         }
-        for (const target of anyChangeTargets) {
-          if (target !== change.resource) plan.addDerived(definitions[target], undefined);
+        for (const { target, except } of anyChangeTargets) {
+          if (target === change.resource || except.includes(change.resource)) continue;
+          plan.addDerived(definitions[target], undefined);
         }
       }
       return plan.toTargets();

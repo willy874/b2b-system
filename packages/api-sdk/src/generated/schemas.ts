@@ -59,6 +59,11 @@ import type {
   LoginRequest,
   MoveFileItemsRequest,
   MoveFileItemsResult,
+  Notification,
+  NotificationLink,
+  NotificationPage,
+  NotificationReadAllResult,
+  NotificationUnreadCount,
   Permission,
   PermissionCatalog,
   PermissionGroup,
@@ -129,6 +134,51 @@ import type {
   UserRoles,
   UserStatus,
 } from './models';
+
+export const NotificationLinkSchema = z.object({
+  route: z.string(),
+  params: z.record(z.string(), z.string()),
+}) satisfies z.ZodType<NotificationLink>;
+
+export const NotificationSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  type: z.string(),
+  params: z.record(z.string(), z.unknown()),
+  link: NotificationLinkSchema.nullable(),
+  actor: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      name: z.string(),
+    })
+    .nullable(),
+  readAt: z.string().nullable(),
+  createdAt: z.string(),
+}) satisfies z.ZodType<Notification>;
+
+export const NotificationPageSchema = z.object({
+  items: z.array(NotificationSchema),
+  nextCursor: z.string().nullable(),
+}) satisfies z.ZodType<NotificationPage>;
+
+export const NotificationUnreadCountSchema = z.object({
+  count: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<NotificationUnreadCount>;
+
+export const NotificationReadAllResultSchema = z.object({
+  updated: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<NotificationReadAllResult>;
 
 export const ApprovalStatusSchema = z.enum([
   'pending',
@@ -1505,7 +1555,7 @@ export const UpdateRolePermissionsRequestSchema = z.object({
 
 export const SystemSettingSchema = z.object({
   key: z.string(),
-  category: z.enum(['general', 'auth', 'file', 'trash', 'revision']),
+  category: z.enum(['general', 'auth', 'file', 'trash', 'revision', 'notification']),
   type: z.enum(['string', 'number', 'boolean']),
   value: z.union([z.string().max(1000), z.number(), z.boolean()]),
   defaultValue: z.union([z.string().max(1000), z.number(), z.boolean()]),

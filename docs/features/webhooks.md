@@ -3,7 +3,7 @@
 - 優先度：P2
 - 狀態：提案
 - 依賴：背景工作（已完成，[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)）
-- 相關：[`api-tokens.md`](./api-tokens.md)（接收端回查細節）、[`notification-center.md`](./notification-center.md)（訂閱被自動停用時通知）
+- 相關：[`api-tokens.md`](./api-tokens.md)（接收端回查細節）、站內通知（[`backend/15-notification.md`](../architecture/backend/15-notification.md)；訂閱被自動停用時通知）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 

@@ -189,6 +189,24 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     expect(keys.some((key) => key.includes('AUDIT_LOG_DETAIL'))).toBe(false);
   });
 
+  it('站內通知的推播（新通知、已讀、全部已讀）：列表與未讀數，不碰稽核列表（通知不寫稽核，ADR-0026 D9）', () => {
+    const expected = [
+      'invalidate:NOTIFICATION_LIST_QUERY_KEY',
+      'invalidate:NOTIFICATION_UNREAD_COUNT_QUERY_KEY',
+    ];
+    expect(keysOf({ resource: Resource.NOTIFICATION, kind: 'create', id: 'n1' })).toEqual(expected);
+    expect(keysOf({ resource: Resource.NOTIFICATION, kind: 'update', id: 'n1' })).toEqual(expected);
+    expect(keysOf({ resource: Resource.NOTIFICATION, kind: 'update' })).toEqual(expected);
+  });
+
+  it('其他資源的寫入不影響通知（通知由後端另外推給收件人）', () => {
+    const keys = keysOf(
+      { resource: Resource.APPROVAL, kind: 'create' },
+      { resource: Resource.USER_ROLE, kind: 'update', id: 'u1' },
+    );
+    expect(keys.some((key) => key.includes('NOTIFICATION'))).toBe(false);
+  });
+
   describe('檔案的推播只重抓相關資料夾的列表', () => {
     it('帶了所在的資料夾：只失效那個資料夾與不分資料夾的列表', () => {
       const keys = keysOf({

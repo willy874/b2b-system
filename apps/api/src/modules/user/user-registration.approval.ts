@@ -109,4 +109,10 @@ export class UserRegistrationApprovalHandler implements ApprovalHandler, OnModul
   async afterApply({ options }: ApprovalContext, { resourceId }: ApprovalOutcome): Promise<void> {
     if (resourceId) await this.users.publishCreated(resourceId, options.roleIds);
   }
+
+  /** 審核者看到的「誰申請」：申請人填的顯示名稱（email 已在 `requesterName`）。 */
+  summarize(payload: Record<string, unknown>): string {
+    const parsed = RegistrationPayloadSchema.safeParse(payload);
+    return parsed.success ? parsed.data.displayName : '';
+  }
 }

@@ -5,12 +5,14 @@ import { registerApprovalBatchOperations } from './batch';
 import { APPROVAL_LOCALE_SCOPE } from './locale';
 import { registerApprovalPagePermissions } from './permission';
 import { registerApprovalPreferences } from './preference';
+import { registerApprovalRouteLinks } from './routeLinks';
 
 export function appContextPlugin(): AppPluginFactory {
   return (context) => {
     registerApprovalPagePermissions();
     registerApprovalPreferences(); // 偏好頁的列表註冊表
     registerApprovalBatchOperations(); // 批次佇列的操作：任何分頁都可能被交派執行
+    registerApprovalRouteLinks(); // 站內通知等後端連結的 route id
     const app = context.getInstance();
 
     return {

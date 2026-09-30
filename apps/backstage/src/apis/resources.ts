@@ -28,6 +28,8 @@ import { IDENTITY_PROVIDER_LIST_QUERY_KEY } from '@/apis/identity-provider/get-i
 import { JOB_DETAIL_QUERY_KEY } from '@/apis/job/get-job-detail/query';
 import { JOB_LIST_QUERY_KEY } from '@/apis/job/get-job-list/query';
 import { JOB_QUEUE_LIST_QUERY_KEY } from '@/apis/job/get-job-queue-list/query';
+import { NOTIFICATION_LIST_QUERY_KEY } from '@/apis/notification/get-notification-list/query';
+import { NOTIFICATION_UNREAD_COUNT_QUERY_KEY } from '@/apis/notification/get-notification-unread-count/query';
 import { PERMISSION_LIST_QUERY_KEY } from '@/apis/permission/get-permission-list/query';
 import { ROLE_DETAIL_QUERY_KEY } from '@/apis/role/get-role-detail/query';
 import { ROLE_LIST_QUERY_KEY, ROLE_OPTIONS_QUERY_KEY } from '@/apis/role/get-role-list/query';
@@ -79,6 +81,11 @@ export const Resource = {
   USER_CREDENTIAL: 'userCredential',
   /** 平台管理者變更了這個租戶啟用的 feature（docs/adr/0021-runtime-feature-activation.md D8） */
   TENANT_FEATURE: 'tenantFeature',
+  /**
+   * 站內通知（`id` = 通知 id；docs/adr/0026-notification-center.md D8）。後端只推給收件人自己，
+   * 新通知是 create、已讀與全部已讀是 update。
+   */
+  NOTIFICATION: 'notification',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -146,8 +153,10 @@ const graph = createResourceGraph<Resource>({
   [Resource.AUDIT_LOG]: {
     collection: [AUDIT_LOG_LIST_QUERY_KEY],
     entity: [AUDIT_LOG_DETAIL_QUERY_KEY],
-    // 任何寫入都會產生稽核紀錄；既有紀錄不可變，所以只影響列表
-    derivesFromAnyChange: true,
+    // 任何寫入都會產生稽核紀錄；既有紀錄不可變，所以只影響列表。
+    // 站內通知不寫稽核（ADR-0026 D9），後端也不把它推給 auditLog:read（08-realtime.md §6.1 的 recordsAudit: false）：
+    // 收到自己的通知、標為已讀時不重抓稽核列表
+    derivesFromAnyChange: { except: [Resource.NOTIFICATION] },
   },
   [Resource.APPROVAL]: {
     collection: [APPROVAL_LIST_QUERY_KEY],
@@ -222,6 +231,11 @@ const graph = createResourceGraph<Resource>({
   [Resource.ROLE_PERMISSION]: {},
   [Resource.USER_CREDENTIAL]: {},
   [Resource.TENANT_FEATURE]: {},
+  [Resource.NOTIFICATION]: {
+    // 列表與未讀數都只看自己的：新通知、已讀、全部已讀都會改變兩者。列表只有 collection——
+    // 已讀一則也要讓「未讀」篩選的列表少一筆，逐筆更新快取不如整個重抓（keyset，只抓已載入的頁數）
+    collection: [NOTIFICATION_LIST_QUERY_KEY, NOTIFICATION_UNREAD_COUNT_QUERY_KEY],
+  },
 });
 
 /** 登入者改了自己的資料（profile / 偏好）：對系統而言就是一筆 user 更新。 */

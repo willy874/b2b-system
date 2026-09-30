@@ -207,6 +207,7 @@ export const authHandlers = [
 | 11  | 持有者停在頁面上時權限被移除 → 不重新整理也變成 403；推播漏掉時，下一次操作收到 403 後自我修正 | 推播與 `PermissionDriftWatcher` 兩條路 |
 | 12  | 刪除使用者／角色／資料夾 → 提示的「復原」或回收桶還原；角色還原後持有者恢復權限 | 軟刪除、持有者邊與檔案物件跨前後端（ADR-0025） |
 | 13  | 角色的版本紀錄看差異 → 還原到某一版；兩人同時編輯同一筆 → 後送出的看到衝突提示 | 版本歷史與樂觀鎖（ADR-0025） |
+| 14  | 註冊申請 → 審核者的鈴鐺（推播）→ 點開到審批詳情並標為已讀；角色被改 → 本人收到通知 → 全部已讀 | 業務交易內寫入、推播到 user room、route id 連結（ADR-0026） |
 
 ### 4.2 結構
 
@@ -237,7 +238,8 @@ e2e-member@dev.local       member
 密碼統一：E2E!Password123
 ```
 
-會改變帳號狀態（鎖定、停用、整批改寫角色）的案例各有專用帳號（`e2e-lockme`、`e2e-disableme`、`e2e-revokeme`、`e2e-roleholder`，
+會改變帳號狀態（鎖定、停用、整批改寫角色）的案例各有專用帳號（`e2e-lockme`、`e2e-disableme`、`e2e-revokeme`、`e2e-roleholder`、
+`e2e-notifyme`（站內通知：角色被增減、未讀數要精確斷言；同一個案例不能並行跑兩份，`--repeat-each` 要搭配 `--workers=1`），
 見 `apps/api/src/db/seeds/e2e.ts`），不和其他並行的案例共用。
 
 #### 與正在跑的 dev 環境並行

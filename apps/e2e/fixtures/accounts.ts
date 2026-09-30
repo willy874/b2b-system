@@ -9,6 +9,7 @@ export const ACCOUNTS = {
   disableTarget: 'e2e-disableme@dev.local',
   revokeTarget: 'e2e-revokeme@dev.local',
   roleHolder: 'e2e-roleholder@dev.local',
+  notifyTarget: 'e2e-notifyme@dev.local',
 } as const;
 
 export type AccountKey = keyof typeof ACCOUNTS;

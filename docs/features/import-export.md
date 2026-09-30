@@ -2,7 +2,7 @@
 
 - 優先度：P2
 - 狀態：提案
-- 依賴：[`notification-center.md`](./notification-center.md)（完成通知）、背景工作（已完成，[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)）
+- 依賴：站內通知（已完成，[`backend/15-notification.md`](../architecture/backend/15-notification.md)；完成通知）、背景工作（已完成，[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)）
 - 相關：[`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 4 項、[ADR-0012](../adr/0012-batch-queue-worker.md)（前端批次佇列）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
@@ -41,7 +41,7 @@
   - 匯入逐列（或小批次）走 **和 API 相同的 service**，每列一個交易、各自寫稽核，不繞過業務規則。
   - 工作資料與 `output` 只放 transfer id 與計數，不放個資（`job:read` 的人看得到，[`backend/11-mail.md`](../architecture/backend/11-mail.md) 的前例）。
 - 檔案放租戶 bucket 的 `transfers/` 前綴；過期的檔案由排程清理（沿用 `file.maintenance` 的做法或另開工作）。
-- 完成、失敗時通知建立者（[`notification-center.md`](./notification-center.md)）。
+- 完成、失敗時通知建立者（`NotificationService.notify()`，[`backend/15-notification.md`](../architecture/backend/15-notification.md) §9）。
 
 ### 前端（backstage）
 

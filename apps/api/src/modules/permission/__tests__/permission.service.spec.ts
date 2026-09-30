@@ -278,3 +278,62 @@ describe('PermissionService.describeRolePermissions（技能樹用，docs/rbac/0
     expect(effective.every((entry) => entry.source === 'implied')).toBe(true);
   });
 });
+
+describe('PermissionService.findActiveUserIdsWithPermission（ADR-0026 D5）', () => {
+  /** 候選來自反向查詢；每個人的權限由假的關係圖決定（正向解析）。 */
+  function createHolderService(
+    candidates: string[],
+    active: string[],
+    keysOf: Record<string, { keys: PermissionKey[]; isSuperAdmin: boolean }>,
+  ) {
+    const authz = {
+      ...fakeAuthz((id) => keysOf[id] ?? { keys: [], isSuperAdmin: false }),
+      usersWithTenantRelations: vi.fn(async (_relations: readonly string[]) => candidates),
+    };
+    const repo = { filterActiveUserIds: vi.fn(async () => active) };
+    const cache = { get: vi.fn(), set: vi.fn(), ticket: vi.fn(() => 0) };
+    const service = new PermissionService(
+      repo as unknown as PermissionRepository,
+      cache as unknown as PermissionCacheService,
+      authz as unknown as AuthzService,
+      REVISION,
+    );
+    return { service, authz, repo };
+  }
+
+  it('反向查詢帶上權限鍵、帶來它的鍵與 superAdmin', async () => {
+    const { service, authz } = createHolderService([], [], {});
+    await service.findActiveUserIdsWithPermission('user:read');
+    const relations = authz.usersWithTenantRelations.mock.calls[0]?.[0];
+    expect(relations).toEqual(
+      expect.arrayContaining(['user:read', 'user:update', 'user:create', 'superAdmin']),
+    );
+    expect(relations).not.toContain('role:read');
+  });
+
+  it('只留下可登入的人，再以正向解析確認：直接持有、依賴樹帶來、super-admin 都算', async () => {
+    const { service, repo } = createHolderService(
+      ['direct', 'implied', 'root', 'stale', 'inactive'],
+      ['direct', 'implied', 'root', 'stale'],
+      {
+        direct: { keys: ['user:read'], isSuperAdmin: false },
+        implied: { keys: ['user:update'], isSuperAdmin: false },
+        root: { keys: [], isSuperAdmin: true },
+        // 候選查詢之後權限剛被拿掉：以正向解析為準
+        stale: { keys: ['role:read'], isSuperAdmin: false },
+      },
+    );
+    await expect(service.findActiveUserIdsWithPermission('user:read')).resolves.toEqual([
+      'direct',
+      'implied',
+      'root',
+    ]);
+    expect(repo.filterActiveUserIds).toHaveBeenCalledWith([
+      'direct',
+      'implied',
+      'root',
+      'stale',
+      'inactive',
+    ]);
+  });
+});

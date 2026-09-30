@@ -7,7 +7,8 @@
       "auth": "帳號與登入",
       "file": "檔案",
       "trash": "回收桶",
-      "revision": "版本紀錄"
+      "revision": "版本紀錄",
+      "notification": "通知"
     },
     "field": {
       "defaultTimezone": {
@@ -53,6 +54,14 @@
       "keepDays": {
         "label": "保留天數",
         "description": "這麼多天內的版本一律保留。同時超過版本數與天數的舊版本由每天的排程刪除，刪除後無法再檢視或還原。"
+      },
+      "notificationRetentionDays": {
+        "label": "已讀通知保留天數",
+        "description": "已讀超過這麼多天的通知由每天的排程刪除；未讀的通知不受影響。"
+      },
+      "notificationMaxPerUser": {
+        "label": "每人最多保留的通知數",
+        "description": "超過這個數量時，每天的排程會刪除最舊的通知（不論是否已讀）。"
       }
     },
     "unit": {
@@ -62,7 +71,8 @@
       "characters": "個字元",
       "mebibytes": "MiB",
       "days": "天",
-      "versions": "版"
+      "versions": "版",
+      "items": "則"
     },
     "boolean": {
       "on": "開啟",

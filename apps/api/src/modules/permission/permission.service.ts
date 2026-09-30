@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import type { PermissionKey } from '@/common/types';
-import { AuthzRevision, AuthzService } from '@/core/authz';
+import { AuthzRevision, AuthzService, SUPER_ADMIN_RELATION } from '@/core/authz';
 import type { PermissionSet } from '@/core/cache';
 import { PermissionCacheService } from '@/core/cache';
 import { AppException } from '@/core/errors';
@@ -246,5 +246,25 @@ export class PermissionService {
 
   findUserIdsByRole(roleId: string): Promise<string[]> {
     return this.repo.findUserIdsByRole(roleId);
+  }
+
+  /**
+   * 目前持有 `key` 的 **可登入** 使用者（未刪除、`active`；登入失敗鎖定中的仍算，鎖定會自己到期），含 super-admin
+   * 與經由權限依賴樹帶來它的鍵（持有 `user:update` 的人也持有 `user:read`）。給「要通知有某個權限的人」用
+   * （例：審批送出時的審核者，docs/adr/0026-notification-center.md D5）；結果是當下的快照。
+   *
+   * 兩段：關係圖的反向查詢找出候選（持有 `key`、帶來它的鍵或 superAdmin 的角色的持有者，一條 SQL），
+   * 過濾掉停用與刪除的人之後，再以與授權相同的正向解析（`getPermissionSets`，批次）確認——
+   * 反向查詢只負責縮小範圍，是否持有由同一個判斷器決定，模型之後改變也不會算錯。
+   */
+  async findActiveUserIdsWithPermission(key: PermissionKey): Promise<string[]> {
+    const relations = [key, ...implyingPermissions(key, ALL_PERMISSION_KEYS), SUPER_ADMIN_RELATION];
+    const candidates = await this.authz.usersWithTenantRelations(relations);
+    const active = await this.repo.filterActiveUserIds(candidates);
+    const sets = await this.getPermissionSets(active);
+    return active.filter((id) => {
+      const set = sets.get(id);
+      return Boolean(set && (set.isSuperAdmin || set.permissions.has(key)));
+    });
   }
 }
