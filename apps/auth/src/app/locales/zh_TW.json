@@ -235,6 +235,7 @@
       "file": "檔案",
       "job": "背景工作",
       "identityProvider": "外部 IdP 連線",
+      "group": "群組",
       "tenant": "租戶",
       "platformAdmin": "平台管理者",
       "platformAuditLog": "平台稽核",
@@ -287,6 +288,13 @@
       "read": "檢視外部 IdP 連線",
       "update": "編輯外部 IdP 連線",
       "delete": "刪除外部 IdP 連線"
+    },
+    "group": {
+      "create": "建立群組",
+      "read": "檢視群組",
+      "update": "編輯群組",
+      "delete": "刪除群組",
+      "assignRole": "讓群組持有角色"
     },
     "tenant": {
       "read": "檢視租戶",

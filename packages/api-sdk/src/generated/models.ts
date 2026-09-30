@@ -295,6 +295,11 @@ export const PermissionKey = {
   'identityProvider:read': 'identityProvider:read',
   'identityProvider:update': 'identityProvider:update',
   'identityProvider:delete': 'identityProvider:delete',
+  'group:create': 'group:create',
+  'group:read': 'group:read',
+  'group:update': 'group:update',
+  'group:delete': 'group:delete',
+  'group:assignRole': 'group:assignRole',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 

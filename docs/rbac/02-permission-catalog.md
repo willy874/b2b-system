@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 29 項）
+## 2. 權限清單（共 34 項）
 
 ### 2.1 `user` — 使用者
 
@@ -122,7 +122,21 @@
 > 網域設為「只允許 SSO」後，那個網域的帳號不能用密碼登入、不能申請重設密碼（ADR-0019 D9）。
 > 連線屬於租戶（[ADR-0020](../adr/0020-physical-tenant-isolation.md) D18），管理頁在 backstage 的 `/identity-provider`。
 
-### 2.10 個人範圍（不需要權限）
+### 2.10 `group` — 群組
+
+| 權限鍵             | 顯示名稱（zh-TW） | 說明 |
+| ------------------ | ----------------- | ---- |
+| `group:create`     | 建立群組          | 建立群組（名稱、說明） |
+| `group:read`       | 檢視群組          | 群組列表與詳情、成員、群組持有的角色 |
+| `group:update`     | 編輯群組          | 修改名稱與說明；**增減成員**（含把群組加進另一個群組）。加成員等於指派群組持有的角色，受反提權限制（[ADR-0024](../adr/0024-relationship-based-access-control.md) D11） |
+| `group:delete`     | 刪除群組          | 軟刪除群組；成員與持有角色的邊保留，還原時一起回來 |
+| `group:assignRole` | 讓群組持有角色    | 增減群組持有的角色。**受反提權限制**；super-admin 不能由群組持有（D12） |
+
+> 群組是「純分組」：授權給群組、群組持有角色，人員異動只改成員。群組可以巢狀（成員可以是另一個群組）。
+> `group:update` 本身不列為受反提權限制的鍵：加成員時檢查的是 **那個群組帶來的能力**（群組與它所有上層群組持有的角色），
+> 操作者全部都有才放行，所以「能編輯群組」不會等於「能指派任何角色」。
+
+### 2.11 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
@@ -149,6 +163,7 @@
 | `file`            |   ✓    |  ✓   |   ✓    |   ✓    | `access`, `share`             |
 | `job`             |   —    |  ✓   |   —    |   —    | `retry`                       |
 | `identityProvider`|   ✓    |  ✓   |   ✓    |   ✓    | —                             |
+| `group`           |   ✓    |  ✓   |   ✓    |   ✓    | `assignRole`                  |
 
 ---
 
@@ -185,6 +200,11 @@
 | `identityProvider:read`   |   ✓*       |    ✓    |     ✓     |          |
 | `identityProvider:update` |   ✓*       |    ✓    |           |          |
 | `identityProvider:delete` |   ✓*       |    ✓    |           |          |
+| `group:create`         |      ✓*       |    ✓    |           |          |
+| `group:read`           |      ✓*       |    ✓    |     ✓     |          |
+| `group:update`         |      ✓*       |    ✓    |           |          |
+| `group:delete`         |      ✓*       |    ✓    |           |          |
+| `group:assignRole`     |      ✓*       |    ✓    |           |          |
 
 `*` super-admin 是 **隱含全集**，不逐筆登錄權限鍵的邊（只有 `tenant:self#superAdmin` 一條邊）；
 `GET /auth/profile` 回傳時才展開成完整清單。
@@ -271,6 +291,12 @@ export const PERMISSION_SEED = [
   ["identityProvider", "read", "permission.identityProvider.read", 1101],
   ["identityProvider", "update", "permission.identityProvider.update", 1102],
   ["identityProvider", "delete", "permission.identityProvider.delete", 1103],
+
+  ["group", "create", "permission.group.create", 1200],
+  ["group", "read", "permission.group.read", 1201],
+  ["group", "update", "permission.group.update", 1202],
+  ["group", "delete", "permission.group.delete", 1203],
+  ["group", "assignRole", "permission.group.assignRole", 1204],
 ] as const;
 ```
 
@@ -360,7 +386,7 @@ Seed 行為：
 
 - `delete ⇒ update ⇒ read`。
 - 規則 A：`create ⇒ 編輯自己建立的 ⇒ read`。「編輯自己建立的」不是權限鍵，是資源上的關係（檔案的擁有者規則，
-  [`07-resource-grants.md`](./07-resource-grants.md) §4）；沒有擁有者概念的資源（`user`、`role`、`identityProvider`）退化成 `create ⇒ update`。
+  [`07-resource-grants.md`](./07-resource-grants.md) §4）；沒有擁有者概念的資源（`user`、`role`、`identityProvider`、`group`）退化成 `create ⇒ update`。
 - 角色只儲存 **明確授予** 的鍵，包含的鍵是算出來的；同時是明確與隱含的鍵保持明確。
 
 ### 9.1 清單
@@ -387,6 +413,10 @@ Seed 行為：
 | `identityProvider:create` | `identityProvider:update` | |
 | `identityProvider:delete` | `identityProvider:update` | |
 | `identityProvider:update` | `identityProvider:read` | |
+| `group:create` | `group:update` | |
+| `group:delete` | `group:update` | |
+| `group:update` | `group:read` | `user:read` |
+| `group:assignRole` | `group:read` | `role:read` |
 
 沒有列出的鍵是葉節點（`permission:read`、`auditLog:read`、各資源的 `read`、`file:access`）。
 
@@ -399,7 +429,7 @@ Seed 行為：
 | G1 | 沒有循環 | 閉包要有定義 |
 | G2 | 子能力只能在同一個資源內 | 跨資源的關係一律是「依賴」 |
 | G3 | 依賴只能指向 `<r>:read`（或閘門 `file:access`） | 依賴是為了完整操作而補上的，不能因此多出寫入能力 |
-| G4 | 受反提權限制的鍵（`user:assignRole`、`role:grantPermission`、`file:share`）不能被任何鍵包含 | 否則「能編輯使用者」會悄悄等於「能指派角色」 |
+| G4 | 受反提權限制的鍵（`user:assignRole`、`role:grantPermission`、`file:share`、`group:assignRole`）不能被任何鍵包含 | 否則「能編輯使用者」會悄悄等於「能指派角色」 |
 
 ### 9.3 對預設角色的影響
 

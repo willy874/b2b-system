@@ -5203,7 +5203,12 @@
           "identityProvider:create",
           "identityProvider:read",
           "identityProvider:update",
-          "identityProvider:delete"
+          "identityProvider:delete",
+          "group:create",
+          "group:read",
+          "group:update",
+          "group:delete",
+          "group:assignRole"
         ]
       },
       "Permission": {

@@ -46,6 +46,11 @@ const PERMISSION_KEYS = [
   ['identityProvider', 'read'],
   ['identityProvider', 'update'],
   ['identityProvider', 'delete'],
+  ['group', 'create'],
+  ['group', 'read'],
+  ['group', 'update'],
+  ['group', 'delete'],
+  ['group', 'assignRole'],
   // 平台的權限目錄（docs/rbac/02-permission-catalog.md §8）：apps/auth 的頁面實際用到的是這幾個
   ['tenant', 'read'],
   ['tenant', 'create'],

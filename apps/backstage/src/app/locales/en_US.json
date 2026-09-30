@@ -258,7 +258,8 @@
       "approval": "Approvals",
       "file": "Files",
       "job": "Background jobs",
-      "identityProvider": "Identity providers"
+      "identityProvider": "Identity providers",
+      "group": "Groups"
     },
     "user": {
       "create": "Create user",
@@ -306,6 +307,13 @@
       "read": "View identity providers",
       "update": "Edit identity providers",
       "delete": "Delete identity providers"
+    },
+    "group": {
+      "create": "Create groups",
+      "read": "View groups",
+      "update": "Edit groups",
+      "delete": "Delete groups",
+      "assignRole": "Assign roles to groups"
     }
   },
   "language": {

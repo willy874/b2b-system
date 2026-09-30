@@ -46,6 +46,11 @@ const PERMISSION_KEYS = [
   ['identityProvider', 'read'],
   ['identityProvider', 'update'],
   ['identityProvider', 'delete'],
+  ['group', 'create'],
+  ['group', 'read'],
+  ['group', 'update'],
+  ['group', 'delete'],
+  ['group', 'assignRole'],
 ] as const;
 
 const bundles = { zh_TW: zhTW, en_US: enUS } as Record<string, Record<string, unknown>>;

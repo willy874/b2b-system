@@ -52,12 +52,17 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'identityProvider:read',
       'identityProvider:update',
       'identityProvider:delete',
+      'group:create',
+      'group:read',
+      'group:update',
+      'group:delete',
+      'group:assignRole',
     ],
   },
   {
     slug: 'auditor',
     name: '稽核人員',
-    description: '唯讀存取使用者、角色、外部 IdP 連線與稽核日誌。',
+    description: '唯讀存取使用者、角色、群組、外部 IdP 連線與稽核日誌。',
     isSystem: true,
     permissions: [
       'user:read',
@@ -69,6 +74,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'file:read',
       'job:read',
       'identityProvider:read',
+      'group:read',
     ],
   },
   {

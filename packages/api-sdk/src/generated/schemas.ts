@@ -556,6 +556,11 @@ export const PermissionKeySchema = z.enum([
   'identityProvider:read',
   'identityProvider:update',
   'identityProvider:delete',
+  'group:create',
+  'group:read',
+  'group:update',
+  'group:delete',
+  'group:assignRole',
 ]) satisfies z.ZodType<PermissionKey>;
 
 export const PermissionSchema = z.object({

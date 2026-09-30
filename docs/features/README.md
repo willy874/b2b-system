@@ -17,7 +17,7 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P0 | 權限圖（ReBAC，收斂 RBAC／資源授權／群組） | [`permission-graph.md`](./permission-graph.md) | 實作中（G0～G3b 已上 main 並歸檔）；G4 群組與 explain **規劃中**（開放問題已結論，ADR-0024 D10～D16）；G5 專案待做；原「使用者群組」提案併入 G4 | — |
+| P0 | 權限圖（ReBAC，收斂 RBAC／資源授權／群組） | [`permission-graph.md`](./permission-graph.md) | 實作中（G0～G3b 已上 main 並歸檔）；G4a 群組與反提權 **實作中**（`feat/permission-graph-g4a`）、G4b explain 規劃中（ADR-0024 D10～D16）；G5 專案待做；原「使用者群組」提案併入 G4 | — |
 | P2 | 服務帳號／API Token | [`api-tokens.md`](./api-tokens.md) | 提案 | — |
 | P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | [背景工作](../architecture/backend/10-jobs.md)（已完成） |
 | P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[背景工作](../architecture/backend/10-jobs.md)（已完成） |
