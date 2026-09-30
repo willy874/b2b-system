@@ -133,7 +133,15 @@ services:
         VITE_AUTH_APP_URL: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}
     restart: unless-stopped
     ports:
-      - '8080:80'
+      - '8080:8080'
+    # 非 root 的 nginx（listen 8080）、唯讀的根檔案系統：pid 與暫存檔在 /tmp（deploy/nginx.main.conf）
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    # 每條 WebSocket 在 nginx 佔兩個 fd；配合 worker_rlimit_nofile
+    ulimits:
+      nofile: { soft: 65535, hard: 65535 }
     networks: [edge]
     depends_on:
       api:
@@ -149,7 +157,15 @@ services:
         VITE_AUTH_APP_URL: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}
     restart: unless-stopped
     ports:
-      - '8081:80'
+      - '8081:8080'
+    # 非 root 的 nginx（listen 8080）、唯讀的根檔案系統：pid 與暫存檔在 /tmp（deploy/nginx.main.conf）
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    # 每條 WebSocket 在 nginx 佔兩個 fd；配合 worker_rlimit_nofile
+    ulimits:
+      nofile: { soft: 65535, hard: 65535 }
     networks: [edge]
     depends_on:
       api:

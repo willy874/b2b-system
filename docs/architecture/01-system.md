@@ -192,7 +192,7 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 
 ```
                          ┌──────────────────────────────┐
-  Internet ─────────────▶│ backstage（nginx） :8080 → 80│  network: edge
+  Internet ─────────────▶│ backstage（nginx）:8080→8080 │  network: edge
                          │  /               → 靜態檔     │
                          │  /api/socket.io/ → api（Upgrade）│
                          │  /api/*          → api（去掉前綴）│
@@ -234,7 +234,16 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
   換成真正的 S3 時拿掉 `file-storage` 服務，改 api 的 `FILE_STORAGE_*` 即可。
 - `migrate` 與 `api` 共用映像：部署時 schema 一定先於新版程式就位，api 不在啟動時自己跑 migration
   （多執行個體時會互搶）。
-- CSP：`default-src 'self'`，不允許 inline script（Vite build 產物符合）；`connect-src 'self'` 同時涵蓋同源的 `wss:`。
+- CSP：`default-src 'self'`，不允許 inline script（Vite build 產物符合）；`connect-src 'self'` 同時涵蓋同源的 `wss:`；
+  `form-action 'self'`、`object-src 'none'`。另有 HSTS、`X-Frame-Options`、`nosniff`，全部在 `deploy/nginx.security-headers.conf`
+  （有自己 `add_header` 的 location 要再 include 一次，nginx 不會繼承）。
+- **nginx 的容量與強化**（`deploy/nginx.main.conf`）：每條 WebSocket 佔兩個連線，`worker_connections 8192`、
+  `worker_rlimit_nofile 65535`（compose 的 `ulimits` 同步放寬）；對 api 用 `upstream` ＋ `keepalive`（`/api/` 清掉
+  `Connection` 標頭，api 的 `keepAliveTimeout` 65 秒大於 nginx 的 60 秒）；`server_tokens off`、`gzip_proxied any`。
+  映像是 `nginxinc/nginx-unprivileged`（uid 101、listen 8080），compose 以唯讀根目錄、`cap_drop: [ALL]` 執行。
+  改設定後跑 `sh deploy/check-nginx.sh`（Docker：`nginx -t` ＋ 實際轉發的標頭檢查）。
+- **`X-Forwarded-Host` 一律由 nginx 以 `Host` 覆寫**：api 信任這一跳帶來的 `X-Forwarded-Host`（`requestHost()`），不覆寫的話
+  客戶端自帶的值會被拿來決定租戶。nginx 前面若還有 LB，LB 也要覆寫（或清掉）這個標頭。
 - TLS 由前面的 LB / ingress 終結；Socket.io 的 Origin 與連線同源（租戶自己的網域）一律允許，`PUBLIC_ORIGIN` 只是額外的白名單。
 - api 設 `TRUST_PROXY=uniquelocal`：只信任私有網段（nginx）帶來的 `X-Forwarded-For`，
   HTTP 與 WebSocket 的每 IP 限流才看得到真實客戶端；外部自帶的標頭無法偽造 IP。

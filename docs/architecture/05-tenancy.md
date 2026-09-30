@@ -33,6 +33,8 @@
 | 其他 | 沒有租戶；需要租戶的程式第一次存取 `TENANT_DB` 時拋 `404 TENANT_NOT_FOUND`，健康檢查照常 |
 
 - Host 取自 `requestHost()`：只有受信任的代理（`TRUST_PROXY`）帶來的 `X-Forwarded-Host` 才採用，不能靠標頭換租戶。
+  所以受信任的代理 **必須覆寫** 這個標頭：兩份 nginx 設定都 `proxy_set_header X-Forwarded-Host $http_host`
+  （[`01-system.md`](./01-system.md) §4.2）；前面另有 LB 時同樣要求。
 - `TenantDirectory` 快取查詢結果（含「找不到」）`TENANT_CACHE_TTL` 秒；租戶管理改了登記時 `invalidate()` 立即生效。
   另有「網域 → 租戶 id」的同步快照，給 oidc-provider 的同步判斷（redirect URI 是否屬於租戶）用。
 - 租戶不能進入時回 `503 TENANT_UNAVAILABLE`，`details.reason` 分兩種：`inactive`（停用、佈建中、佈建失敗）與
