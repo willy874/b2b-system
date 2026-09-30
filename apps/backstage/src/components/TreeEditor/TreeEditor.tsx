@@ -21,8 +21,14 @@ import type { SlotOverrides } from '../slots';
 import { Tooltip } from '../Tooltip';
 import { useControllableState } from '../useControllableState';
 import { useLatestRef } from '../useLatestRef';
-import { fillMissingPositions, layoutTree, placeChild, placeRoot } from './layout';
-import type { TreeEditorNodeSize, TreeLayoutOptions } from './layout';
+import {
+  computeGroupBounds,
+  fillMissingPositions,
+  layoutTree,
+  placeChild,
+  placeRoot,
+} from './layout';
+import type { TreeEditorGroup, TreeEditorNodeSize, TreeLayoutOptions } from './layout';
 import {
   addNode,
   checkConnection,
@@ -40,14 +46,20 @@ import type {
   TreeEditorPosition,
   TreeEditorValue,
 } from './treeGraph';
-import { TreeNode, TreeNodeContext } from './TreeNode';
-import type { TreeEditorRenderState, TreeFlowNode, TreeNodeContextValue } from './TreeNode';
+import { TreeGroupNode, TreeNode, TreeNodeContext } from './TreeNode';
+import type {
+  TreeEditorNodeState,
+  TreeEditorRenderState,
+  TreeFlowNode,
+  TreeGroupFlowNode,
+  TreeNodeContextValue,
+} from './TreeNode';
 import { useTreeHistory } from './useTreeHistory';
 
 import styles from './TreeEditor.module.css';
 
 /** `className` / `data-testid` 落在最外層；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
-export type TreeEditorSlot = 'toolbar' | 'canvas' | 'node' | 'minimap' | 'empty';
+export type TreeEditorSlot = 'toolbar' | 'canvas' | 'node' | 'group' | 'minimap' | 'empty';
 
 /**
  * - `manual`：節點可以拖曳，座標存在 `value` 裡（技能樹這類需要擺位置的）。
@@ -101,6 +113,24 @@ export interface TreeEditorProps<TData> extends SlotOverrides<TreeEditorSlot> {
   renderNode?: (node: TreeEditorNode<TData>, state: TreeEditorRenderState) => ReactNode;
   /** 節點的名稱（預設內容與報讀器用），預設是 `id`。 */
   getNodeLabel?: (node: TreeEditorNode<TData>) => string;
+  /** 節點的外觀狀態（`data-state`）；外框與底色由元件依狀態呈現。 */
+  getNodeState?: (node: TreeEditorNode<TData>) => TreeEditorNodeState | undefined;
+  /** 強調的節點（`data-highlighted`），例如滑過某個節點時標出它的前置。 */
+  highlightedNodeIds?: ReadonlySet<string>;
+  /** 已啟用的連線（id 為 `getEdgeId(edge)`），例如技能樹裡兩端都學會的路徑。 */
+  activeEdgeIds?: ReadonlySet<string>;
+  /** 強調的連線（id 為 `getEdgeId(edge)`），例如滑過某個節點時它的前置路徑。 */
+  highlightedEdgeIds?: ReadonlySet<string>;
+  /**
+   * 在成員節點的範圍外畫出帶標題的分組背景（不可選、不可拖）。
+   * 位置由成員節點的座標算出，搭配 `layout="manual"` 自己排好分組時最整齊。
+   */
+  groups?: readonly TreeEditorGroup[];
+  /**
+   * 節點與連線能不能被選取、聚焦（預設 true）。結構唯讀、互動放在 `renderNode` 裡的按鈕時設成 false，
+   * 就不會多出選取框，Tab 也只停在節點內的按鈕。
+   */
+  selectable?: boolean;
   /**
    * 建立新節點（不必給 `position`）。沒給時工具列與節點上不出現「新增」。
    * `parentId` 是要接在哪個節點底下；新增根節點時為 `undefined`。
@@ -112,6 +142,8 @@ export interface TreeEditorProps<TData> extends SlotOverrides<TreeEditorSlot> {
   onBeforeDelete?: (request: TreeEditorDeleteRequest) => boolean | Promise<boolean>;
   /** 選取的節點改變時通知（例如在旁邊的屬性面板編輯它）。 */
   onSelectionChange?: (nodeIds: string[]) => void;
+  /** 點一下節點（不論能不能選取）。 */
+  onNodeClick?: (node: TreeEditorNode<TData>) => void;
   onNodeDoubleClick?: (node: TreeEditorNode<TData>) => void;
   /** 只能看、平移與縮放，不能改。 */
   readOnly?: boolean;
@@ -144,7 +176,9 @@ const DEFAULT_LABELS: Required<TreeEditorLabels> = {
 export const DEFAULT_TREE_NODE_SIZE: TreeEditorNodeSize = { width: 180, height: 56 };
 export const DEFAULT_TREE_EDITOR_HEIGHT = '32rem';
 
-const NODE_TYPES = { tree: TreeNode };
+const NODE_TYPES = { tree: TreeNode, group: TreeGroupNode };
+
+const EMPTY_IDS: ReadonlySet<string> = new Set();
 
 const EDGE_TYPE = {
   smoothstep: 'smoothstep',
@@ -230,10 +264,17 @@ function TreeEditorCanvas<TData>({
   edgeType = 'smoothstep',
   renderNode,
   getNodeLabel,
+  getNodeState,
+  highlightedNodeIds = EMPTY_IDS,
+  activeEdgeIds = EMPTY_IDS,
+  highlightedEdgeIds = EMPTY_IDS,
+  groups,
+  selectable = true,
   createNode,
   isValidConnection,
   onBeforeDelete,
   onSelectionChange,
+  onNodeClick,
   onNodeDoubleClick,
   readOnly = false,
   showMinimap = true,
@@ -299,22 +340,56 @@ function TreeEditorCanvas<TData>({
   const editable = !readOnly;
   const draggable = editable && layout === 'manual';
 
-  const flowNodes = useMemo<TreeFlowNode[]>(
-    () =>
-      display.nodes.map((node) => ({
-        id: node.id,
-        type: 'tree',
-        position: dragPositions.get(node.id) ?? node.position ?? ORIGIN,
-        data: { source: node },
-        width: nodeWidth,
-        height: nodeHeight,
-        selected: selectedNodeIds.has(node.id),
-        draggable,
-        connectable: editable,
-        deletable: editable,
-      })),
-    [display, dragPositions, nodeWidth, nodeHeight, selectedNodeIds, draggable, editable],
-  );
+  const flowNodes = useMemo<Array<TreeFlowNode | TreeGroupFlowNode>>(() => {
+    const positionOf = (node: TreeEditorNode<TData>) =>
+      dragPositions.get(node.id) ?? node.position ?? ORIGIN;
+    const treeNodes: TreeFlowNode[] = display.nodes.map((node) => ({
+      id: node.id,
+      type: 'tree',
+      position: positionOf(node),
+      data: { source: node },
+      width: nodeWidth,
+      height: nodeHeight,
+      selected: selectable && selectedNodeIds.has(node.id),
+      selectable,
+      draggable,
+      connectable: editable,
+      deletable: editable,
+    }));
+    if (!groups?.length) return treeNodes;
+    // 分組背景排在最前面：React Flow 依陣列順序繪製，才會在節點底下
+    const bounds = computeGroupBounds(
+      new Map(display.nodes.map((node) => [node.id, positionOf(node)])),
+      groups,
+      { width: nodeWidth, height: nodeHeight },
+    );
+    const groupNodes: TreeGroupFlowNode[] = bounds.map((group) => ({
+      id: group.id,
+      type: 'group',
+      position: { x: group.x, y: group.y },
+      data: { label: group.label },
+      width: group.width,
+      height: group.height,
+      selectable: false,
+      draggable: false,
+      connectable: false,
+      deletable: false,
+      focusable: false,
+      // 在連線底下：React Flow 的連線圖層排在節點圖層之前，背景不壓低就會蓋住組內的連線
+      zIndex: -1,
+    }));
+    return [...groupNodes, ...treeNodes];
+  }, [
+    display,
+    dragPositions,
+    nodeWidth,
+    nodeHeight,
+    selectedNodeIds,
+    selectable,
+    draggable,
+    editable,
+    groups,
+  ]);
 
   const flowEdges = useMemo<Edge[]>(
     () =>
@@ -325,14 +400,21 @@ function TreeEditorCanvas<TData>({
           source: edge.source,
           target: edge.target,
           type: EDGE_TYPE[edgeType],
-          selected: selectedEdgeIds.has(id),
+          className: cn(
+            edge.variant === 'dashed' && styles.edgeDashed,
+            activeEdgeIds.has(id) && styles.edgeActive,
+            highlightedEdgeIds.has(id) && styles.edgeHighlighted,
+          ),
+          selected: selectable && selectedEdgeIds.has(id),
+          selectable,
+          focusable: selectable,
           deletable: editable,
         };
       }),
-    [display, edgeType, selectedEdgeIds, editable],
+    [display, edgeType, selectedEdgeIds, selectable, activeEdgeIds, highlightedEdgeIds, editable],
   );
 
-  const handleNodesChange = (changes: NodeChange<TreeFlowNode>[]) => {
+  const handleNodesChange = (changes: NodeChange<TreeFlowNode | TreeGroupFlowNode>[]) => {
     let nextSelection: Set<string> | undefined;
     let nextDrag: Map<string, TreeEditorPosition> | undefined;
     let dropped = false;
@@ -378,7 +460,10 @@ function TreeEditorCanvas<TData>({
     history.commit(connectNodes(display, connection.source, connection.target, mode));
   };
 
-  const handleBeforeDelete: OnBeforeDelete<TreeFlowNode> = async ({ nodes, edges }) => {
+  const handleBeforeDelete: OnBeforeDelete<TreeFlowNode | TreeGroupFlowNode> = async ({
+    nodes,
+    edges,
+  }) => {
     if (!editable) return false;
     if (!onBeforeDelete) return true;
     return onBeforeDelete({
@@ -389,7 +474,13 @@ function TreeEditorCanvas<TData>({
 
   // onBeforeDelete 可能等使用者確認很久；刪除時以當下最新的值為準
   const latestDisplay = useLatestRef(display);
-  const handleDelete = ({ nodes, edges }: { nodes: TreeFlowNode[]; edges: Edge[] }) => {
+  const handleDelete = ({
+    nodes,
+    edges,
+  }: {
+    nodes: Array<TreeFlowNode | TreeGroupFlowNode>;
+    edges: Edge[];
+  }) => {
     history.commit(
       removeElements(
         latestDisplay.current,
@@ -456,15 +547,18 @@ function TreeEditorCanvas<TData>({
   };
 
   const nodeSlot = useMemo(
-    () => createSlots<'node'>({ classNames, styles: styleOverrides, testIds }),
+    () => createSlots<'node' | 'group'>({ classNames, styles: styleOverrides, testIds }),
     [classNames, styleOverrides, testIds],
   );
   const getLabel = getNodeLabel as TreeNodeContextValue['getNodeLabel'] | undefined;
+  const getState = getNodeState as TreeNodeContextValue['getNodeState'];
   const nodeContext = useMemo<TreeNodeContextValue>(
     () => ({
       renderNode: renderNode as TreeNodeContextValue['renderNode'],
       getNodeLabel: getLabel ?? ((node) => node.id),
       readOnly,
+      getNodeState: getState,
+      highlightedNodeIds,
       onAddChild: createNode ? handleAddChild : undefined,
       addChildLabel: labels.addChild,
       direction,
@@ -474,6 +568,8 @@ function TreeEditorCanvas<TData>({
       renderNode,
       getLabel,
       readOnly,
+      getState,
+      highlightedNodeIds,
       createNode,
       handleAddChild,
       labels.addChild,
@@ -576,7 +672,7 @@ function TreeEditorCanvas<TData>({
           aria-label={ariaLabel}
           {...slot('canvas', styles.canvas, { testId: 'tree-editor-canvas' })}
         >
-          <ReactFlow<TreeFlowNode>
+          <ReactFlow<TreeFlowNode | TreeGroupFlowNode>
             nodes={flowNodes}
             edges={flowEdges}
             nodeTypes={NODE_TYPES}
@@ -586,12 +682,20 @@ function TreeEditorCanvas<TData>({
             isValidConnection={(edge) => canConnect(edge.source, edge.target)}
             onBeforeDelete={handleBeforeDelete}
             onDelete={handleDelete}
-            onNodeDoubleClick={(_, node) =>
-              onNodeDoubleClick?.(node.data.source as TreeEditorNode<TData>)
-            }
+            // 一定要給：React Flow 對「不可選、不可拖、不可連、也沒有點擊處理」的節點設 pointer-events: none，
+            // selectable={false} 時節點內的按鈕就點不到
+            onNodeClick={(_, node) => {
+              if (node.type === 'tree') onNodeClick?.(node.data.source as TreeEditorNode<TData>);
+            }}
+            onNodeDoubleClick={(_, node) => {
+              if (node.type === 'tree')
+                onNodeDoubleClick?.(node.data.source as TreeEditorNode<TData>);
+            }}
             nodesDraggable={draggable}
             nodesConnectable={editable}
-            elementsSelectable
+            elementsSelectable={selectable}
+            nodesFocusable={selectable}
+            edgesFocusable={selectable}
             deleteKeyCode={editable ? ['Delete', 'Backspace'] : null}
             snapToGrid
             snapGrid={SNAP_GRID}

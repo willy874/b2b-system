@@ -48,10 +48,27 @@
     },
     "permission": {
       "title": "Manage role permissions",
-      "description": "Select the permissions to grant. You cannot grant permissions you do not hold.",
-      "notGrantable": "You do not hold this permission, so you cannot grant it.",
+      "description": "Click a permission to grant it; the permissions it includes light up as \"included\". To remove a prerequisite, first remove the permissions that include it. You cannot grant permissions you do not hold.",
       "success": "Role permissions updated.",
-      "summary": "{{add}} to add, {{remove}} to remove"
+      "summary": "{{add}} to add, {{remove}} to remove",
+      "skillTree": {
+        "label": "Role permission skill tree",
+        "legend": "Legend",
+        "hint": "Hover or focus a permission to see the prerequisites it includes.",
+        "empty": "Select a permission to see details",
+        "includes": "Includes",
+        "requires": "Requires",
+        "impliedBy": "Included by \"{{names}}\"",
+        "blocked": "To remove \"{{name}}\", first remove the permissions that include it: {{names}}",
+        "unavailable": "You do not hold \"{{name}}\", so you cannot grant it.",
+        "superAdmin": "super-admin implicitly holds every permission and cannot be changed.",
+        "state": {
+          "explicit": "Granted",
+          "implied": "Included",
+          "available": "Grantable",
+          "unavailable": "Not grantable"
+        }
+      }
     },
     "field": {
       "name": "Name",

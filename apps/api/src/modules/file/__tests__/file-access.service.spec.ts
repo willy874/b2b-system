@@ -105,7 +105,8 @@ describe('FileAccessContext（docs/rbac/07-resource-grants.md §3、§4）', () 
       global: ['share'],
       nodes: () => NODES,
     }).access.contextFor(ALICE);
-    expect(onlyShare.assignableLevels('art')).toEqual([]);
+    // 權限依賴樹：file:share ⇒ file:read（docs/rbac/02-permission-catalog.md §9），所以只給 share 也授予得起 viewer
+    expect(onlyShare.assignableLevels('art')).toEqual(['viewer']);
 
     const readShare = await createFileAccess({
       global: ['read', 'share'],

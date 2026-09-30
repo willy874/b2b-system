@@ -4609,9 +4609,54 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "includes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionKey"
+            }
+          },
+          "requires": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionKey"
+            }
           }
         },
-        "required": ["id", "key", "resource", "action", "nameI18nKey", "description", "sortOrder"],
+        "required": [
+          "id",
+          "key",
+          "resource",
+          "action",
+          "nameI18nKey",
+          "description",
+          "sortOrder",
+          "includes",
+          "requires"
+        ],
+        "additionalProperties": false
+      },
+      "PermissionSource": {
+        "type": "string",
+        "enum": ["explicit", "implied"]
+      },
+      "EffectivePermission": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/PermissionKey"
+          },
+          "source": {
+            "$ref": "#/components/schemas/PermissionSource"
+          },
+          "impliedBy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionKey"
+            }
+          }
+        },
+        "required": ["key", "source", "impliedBy"],
         "additionalProperties": false
       },
       "PermissionGroup": {
@@ -6773,9 +6818,18 @@
             "items": {
               "$ref": "#/components/schemas/Permission"
             }
+          },
+          "effective": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EffectivePermission"
+            }
+          },
+          "isSuperAdmin": {
+            "type": "boolean"
           }
         },
-        "required": ["permissions"],
+        "required": ["permissions", "effective", "isSuperAdmin"],
         "additionalProperties": false
       },
       "RoleHolder": {

@@ -4,6 +4,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 
 import { AccessTokenModule } from './common/auth';
 import { FeatureGuard, JwtAuthGuard, PermissionsGuard, RateLimitGuard } from './common/guards';
+import { AuthzModule } from './core/authz';
 import { CacheModule } from './core/cache';
 import { ConfigModule } from './core/config';
 import { DatabaseModule } from './core/database';
@@ -45,6 +46,7 @@ import { UserModule } from './modules/user/user.module';
     // feature flag 的目錄與判斷；租戶層覆寫隨租戶登記載入（docs/adr/0022-feature-flags.md）
     FeatureFlagsModule,
     CacheModule,
+    AuthzModule,
     // 執行期可調的設定：定義由各模組登記，覆寫值在租戶 DB（docs/architecture/backend/12-settings.md）
     SettingsModule,
     EventsModule,

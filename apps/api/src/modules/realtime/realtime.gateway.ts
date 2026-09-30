@@ -157,10 +157,15 @@ export class RealtimeGateway
     });
 
     try {
-      await socket.join(userRoom(userId));
-      await socket.join(tenantRoom(requireTenant().id));
-      if (socket.data.idpSessionUid) await socket.join(idpSessionRoom(socket.data.idpSessionUid));
-      await socket.join(await this.audience.roomsFor(userId));
+      // 先解析完權限再一次加入所有 room：看得到這條連線在 user room 裡，就代表 perm room 也已就緒
+      // （解析權限可能要查 DB，分開加入時會有一段「在 user room、還不在 perm room」的空窗）
+      const permRooms = await this.audience.roomsFor(userId);
+      await socket.join([
+        userRoom(userId),
+        tenantRoom(requireTenant().id),
+        ...(socket.data.idpSessionUid ? [idpSessionRoom(socket.data.idpSessionUid)] : []),
+        ...permRooms,
+      ]);
     } catch (error) {
       this.logger.error({ err: error, socketId: socket.id, userId }, '加入 room 失敗，斷線');
       socket.disconnect(true);

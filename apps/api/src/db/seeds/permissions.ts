@@ -65,3 +65,164 @@ export const PERMISSION_RESOURCES = [...new Set(PERMISSION_SEED.map(([resource])
 export function isPermissionKey(value: string): value is PermissionKey {
   return (ALL_PERMISSION_KEYS as string[]).includes(value);
 }
+
+// ── 權限依賴樹（docs/rbac/02-permission-catalog.md §9、docs/adr/0024-relationship-based-access-control.md D6）──
+
+/**
+ * 一個權限鍵帶來的其他鍵：
+ * - `includes`（子能力）：同一個資源；上層的能力包含它，它也可以單獨授予（`user:update` ⇒ `user:resetPassword`）。
+ * - `requires`（依賴）：少了它就無法完整操作；可以跨資源，但只能指向 read（`user:assignRole` ⇒ `role:read`）。
+ * 兩者在解析時一視同仁：持有左邊 ⇒ 也持有右邊。
+ */
+export interface PermissionDependency {
+  includes?: readonly PermissionKey[];
+  requires?: readonly PermissionKey[];
+}
+
+/**
+ * 依賴樹本身。規則 A：`create ⇒ 編輯自己建立的 ⇒ read`；沒有擁有者概念的資源退化成 `create ⇒ update`。
+ * 「編輯自己建立的」不是權限鍵，是資源模型上的關係（file 的 `can_update_own`），所以 `file:create` 只帶 `file:read`。
+ */
+export const PERMISSION_DEPENDENCIES = {
+  'user:create': { includes: ['user:update'] },
+  'user:delete': { includes: ['user:update'] },
+  'user:update': { includes: ['user:resetPassword', 'user:read'] },
+  'user:resetPassword': { includes: ['user:read'] },
+  'user:assignRole': { includes: ['user:read'], requires: ['role:read'] },
+
+  'role:create': { includes: ['role:update'] },
+  'role:delete': { includes: ['role:update'] },
+  'role:update': { includes: ['role:read'] },
+  'role:grantPermission': { includes: ['role:read'], requires: ['permission:read'] },
+
+  'system:update': { includes: ['system:read'] },
+  'approval:review': { includes: ['approval:read'] },
+
+  'file:create': { includes: ['file:read'] },
+  'file:delete': { includes: ['file:update'] },
+  'file:update': { includes: ['file:read'] },
+  'file:share': { includes: ['file:read'] },
+  'file:read': { includes: ['file:access'] },
+
+  'job:retry': { includes: ['job:read'] },
+
+  'identityProvider:create': { includes: ['identityProvider:update'] },
+  'identityProvider:delete': { includes: ['identityProvider:update'] },
+  'identityProvider:update': { includes: ['identityProvider:read'] },
+} as const satisfies Partial<Record<PermissionKey, PermissionDependency>>;
+
+export type PermissionDependencyMap = Partial<Record<PermissionKey, PermissionDependency>>;
+
+/**
+ * 受反提權限制的鍵：不能被任何鍵包含（不變條件 G4），只能是根。
+ * 否則「能編輯使用者」就會悄悄等於「能指派角色」，繞過反提權的檢查點。
+ */
+export const ESCALATION_GUARDED_PERMISSIONS = [
+  'user:assignRole',
+  'role:grantPermission',
+  'file:share',
+] as const satisfies readonly PermissionKey[];
+
+/** 依賴只能指向 read；`file:access` 是檔案管理器的閘門，也只帶來「能進入」。 */
+function isReadLike(key: string): boolean {
+  return key.endsWith(':read') || key === 'file:access';
+}
+
+function resourceOf(key: string): string {
+  return key.slice(0, key.indexOf(':'));
+}
+
+/** 直接帶來的鍵（子能力 ∪ 依賴）。 */
+export function directlyImplied(
+  key: PermissionKey,
+  dependencies: PermissionDependencyMap = PERMISSION_DEPENDENCIES,
+): readonly PermissionKey[] {
+  const entry = dependencies[key];
+  return entry ? [...(entry.includes ?? []), ...(entry.requires ?? [])] : [];
+}
+
+/** 閉包：這些鍵加上它們（遞迴）帶來的所有鍵。 */
+export function permissionClosure(
+  keys: Iterable<PermissionKey>,
+  dependencies: PermissionDependencyMap = PERMISSION_DEPENDENCIES,
+): Set<PermissionKey> {
+  const result = new Set<PermissionKey>();
+  const stack = [...keys];
+  while (stack.length > 0) {
+    const key = stack.pop() as PermissionKey;
+    if (result.has(key)) continue;
+    result.add(key);
+    stack.push(...directlyImplied(key, dependencies));
+  }
+  return result;
+}
+
+/**
+ * `explicit` 之中（遞迴）帶來 `key` 的鍵，不含 `key` 自己；依 `explicit` 的順序。
+ * 角色權限編輯器顯示「已包含（由 …）」用。
+ */
+export function implyingPermissions(
+  key: PermissionKey,
+  explicit: Iterable<PermissionKey>,
+  dependencies: PermissionDependencyMap = PERMISSION_DEPENDENCIES,
+): PermissionKey[] {
+  return [...explicit].filter(
+    (candidate) =>
+      candidate !== key &&
+      permissionClosure(directlyImplied(candidate, dependencies), dependencies).has(key),
+  );
+}
+
+/**
+ * 依賴樹的不變條件 G1–G4（docs/rbac/02-permission-catalog.md §9.2）；回傳違反的說明，空陣列表示通過。
+ * `keys` 是目錄裡的所有鍵：指到目錄外的鍵也算違反。
+ */
+export function validatePermissionDependencies(
+  dependencies: PermissionDependencyMap = PERMISSION_DEPENDENCIES,
+  keys: readonly string[] = ALL_PERMISSION_KEYS,
+  guarded: readonly string[] = ESCALATION_GUARDED_PERMISSIONS,
+): string[] {
+  const errors: string[] = [];
+  const known = new Set(keys);
+  const guardedSet = new Set(guarded);
+  for (const [key, entry] of Object.entries(dependencies) as [
+    PermissionKey,
+    PermissionDependency,
+  ][]) {
+    if (!known.has(key)) errors.push(`${key} 不在權限目錄裡`);
+    for (const target of entry.includes ?? []) {
+      if (!known.has(target)) errors.push(`${key} 的子能力 ${target} 不在權限目錄裡`);
+      if (resourceOf(target) !== resourceOf(key)) {
+        errors.push(`G2：${key} 的子能力 ${target} 不是同一個資源（跨資源要寫成依賴）`);
+      }
+    }
+    for (const target of entry.requires ?? []) {
+      if (!known.has(target)) errors.push(`${key} 的依賴 ${target} 不在權限目錄裡`);
+      if (!isReadLike(target)) errors.push(`G3：${key} 的依賴 ${target} 不是 read`);
+    }
+    for (const target of [...(entry.includes ?? []), ...(entry.requires ?? [])]) {
+      if (guardedSet.has(target)) {
+        errors.push(`G4：${target} 受反提權限制，不能被 ${key} 包含`);
+      }
+    }
+  }
+
+  // G1：沿著邊走回自己就是循環
+  for (const key of Object.keys(dependencies) as PermissionKey[]) {
+    if (permissionClosure(directlyImplied(key, dependencies), dependencies).has(key)) {
+      errors.push(`G1：${key} 的依賴形成循環`);
+    }
+  }
+  return errors;
+}
+
+/** 啟動時呼叫：依賴樹違反不變條件就讓程序啟動失敗（與路由稽核同一個層級）。 */
+export function assertPermissionDependencies(): void {
+  const errors = validatePermissionDependencies();
+  if (errors.length) {
+    throw new Error(
+      '權限依賴樹違反不變條件（db/seeds/permissions.ts 的 PERMISSION_DEPENDENCIES）：\n' +
+        errors.map((error) => `  - ${error}`).join('\n'),
+    );
+  }
+}

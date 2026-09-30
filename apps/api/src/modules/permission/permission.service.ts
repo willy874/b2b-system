@@ -1,10 +1,19 @@
 import { Injectable } from '@nestjs/common';
 
 import type { PermissionKey } from '@/common/types';
+import { AuthzService, AuthzShadow, setDiff } from '@/core/authz';
 import type { PermissionSet } from '@/core/cache';
 import { PermissionCacheService } from '@/core/cache';
+import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 import type { PermissionRow } from '@/db/schema';
+import {
+  ALL_PERMISSION_KEYS,
+  implyingPermissions,
+  PERMISSION_DEPENDENCIES,
+  permissionClosure,
+} from '@/db/seeds/permissions';
+import type { PermissionDependency } from '@/db/seeds/permissions';
 
 import { SUPER_ADMIN_SLUG } from './permission.constants';
 import { PermissionRepository } from './permission.repository';
@@ -12,9 +21,21 @@ import { PermissionRepository } from './permission.repository';
 /** 批次解析權限時一條查詢帶多少人（`IN` 清單的長度上限，也限制單次結果的大小）。 */
 const PERMISSION_BATCH_SIZE = 500;
 
+export interface PermissionCatalogItem extends PermissionRow {
+  includes: PermissionKey[];
+  requires: PermissionKey[];
+}
+
 export interface PermissionCatalog {
-  items: PermissionRow[];
+  items: PermissionCatalogItem[];
   groups: Array<{ resource: string; nameI18nKey: string; keys: string[] }>;
+}
+
+/** 角色實際持有的一個鍵（docs/rbac/02-permission-catalog.md §9）。 */
+export interface EffectivePermission {
+  key: PermissionKey;
+  source: 'explicit' | 'implied';
+  impliedBy: PermissionKey[];
 }
 
 @Injectable()
@@ -22,6 +43,8 @@ export class PermissionService {
   constructor(
     private readonly repo: PermissionRepository,
     private readonly cache: PermissionCacheService,
+    private readonly authz: AuthzService,
+    private readonly shadow: AuthzShadow,
   ) {}
 
   async getPermissionSet(userId: string): Promise<PermissionSet> {
@@ -30,12 +53,8 @@ export class PermissionService {
 
     // 查詢期間若被失效（撤銷權限的交易剛提交），讀到的可能是舊值：不寫回快取
     const ticket = this.cache.ticket();
-    const [keys, isSuperAdmin] = await Promise.all([
-      this.repo.findPermissionKeysByUser(userId),
-      this.repo.isSuperAdmin(userId),
-    ]);
-
-    const value: PermissionSet = { permissions: new Set(keys), isSuperAdmin };
+    const loaded = await this.loadBatch([userId]);
+    const value = loaded.get(userId) as PermissionSet;
     this.cache.set(userId, value, ticket);
     return value;
   }
@@ -56,21 +75,84 @@ export class PermissionService {
 
     for (let start = 0; start < missing.length; start += PERMISSION_BATCH_SIZE) {
       const batch = missing.slice(start, start + PERMISSION_BATCH_SIZE);
+      // 與 getPermissionSet 相同：載入期間被失效過的人不寫回快取
+      const ticket = this.cache.ticket();
       // oxlint-disable-next-line no-await-in-loop -- 分批依序，避免一次佔用多條連線
-      const [rows, superAdmins] = await Promise.all([
-        this.repo.findPermissionKeysByUsers(batch),
-        this.repo.findSuperAdminUserIds(batch),
-      ]);
-      const superAdminIds = new Set(superAdmins);
-      const keysByUser = new Map<string, Set<PermissionKey>>(batch.map((id) => [id, new Set()]));
-      for (const row of rows) keysByUser.get(row.userId)?.add(row.key);
-      for (const [id, keys] of keysByUser) {
-        const value: PermissionSet = { permissions: keys, isSuperAdmin: superAdminIds.has(id) };
-        this.cache.set(id, value);
+      const loaded = await this.loadBatch(batch);
+      for (const [id, value] of loaded) {
+        this.cache.set(id, value, ticket);
         result.set(id, value);
       }
     }
     return result;
+  }
+
+  /**
+   * 一批人的權限：由關係圖解析，含權限依賴樹的閉包（docs/adr/0024-relationship-based-access-control.md G2）。
+   * 影子比對開啟時，在一致讀取的交易裡與舊的解析（套上同一個閉包）比較。
+   */
+  private loadBatch(batch: readonly string[]): Promise<Map<string, PermissionSet>> {
+    if (!this.shadow.enabled) return this.loadFromGraph(batch);
+    return this.authz.readConsistently(async (tx) => {
+      const sets = await this.loadFromGraph(batch, tx);
+      const legacy = await this.loadLegacyBatch(batch, tx);
+      for (const [id, set] of sets) this.compareWithLegacy(id, set, legacy.get(id));
+      return sets;
+    });
+  }
+
+  private async loadFromGraph(
+    batch: readonly string[],
+    tx?: DbOrTx,
+  ): Promise<Map<string, PermissionSet>> {
+    const resolved = await this.authz.tenantPermissionsOf(batch, { withDependencies: true, tx });
+    return new Map(
+      [...resolved].map(([id, { effective, isSuperAdmin, subjects }]) => [
+        id,
+        { permissions: effective, isSuperAdmin, subjects },
+      ]),
+    );
+  }
+
+  /**
+   * 舊的解析（`user_roles` ⋈ `role_permissions`）：G2 期間只給影子比對用，G3 刪除。
+   * 同一個交易的查詢依序執行。
+   */
+  private async loadLegacyBatch(
+    batch: readonly string[],
+    db: DbOrTx,
+  ): Promise<Map<string, PermissionSet>> {
+    const rows = await this.repo.findPermissionKeysByUsers(batch, db);
+    const superAdminIds = new Set(await this.repo.findSuperAdminUserIds(batch, db));
+    const keysByUser = new Map<string, Set<PermissionKey>>(batch.map((id) => [id, new Set()]));
+    for (const row of rows) keysByUser.get(row.userId)?.add(row.key);
+    return new Map(
+      [...keysByUser].map(([id, keys]) => [
+        id,
+        { permissions: permissionClosure(keys), isSuperAdmin: superAdminIds.has(id) },
+      ]),
+    );
+  }
+
+  /** 影子比對：兩邊都套上依賴樹的閉包之後應該一致；不一致時依 `AUTHZ_SHADOW` 記錄或丟錯。 */
+  private compareWithLegacy(
+    userId: string,
+    engine: PermissionSet,
+    legacy: PermissionSet | undefined,
+  ): void {
+    const expected = legacy ?? { permissions: new Set<PermissionKey>(), isSuperAdmin: false };
+    const keys = setDiff(expected.permissions, engine.permissions);
+    const superAdmin = expected.isSuperAdmin !== engine.isSuperAdmin;
+    this.shadow.report(
+      'permissionSet',
+      keys || superAdmin
+        ? {
+            userId,
+            keys,
+            isSuperAdmin: { legacy: expected.isSuperAdmin, engine: engine.isSuperAdmin },
+          }
+        : null,
+    );
   }
 
   /** 供 /auth/profile 使用：super-admin 展開成全集，讓前端沒有特例。 */
@@ -126,9 +208,10 @@ export class PermissionService {
     if (held.length === 0) return;
     if (!(await this.repo.userHasRole(actorId, roleId))) return;
 
-    const remaining = new Set<string>([
+    // 剩下的鍵也要套上依賴樹的閉包：拿掉 file:update 時，file:delete 仍會帶回它
+    const remaining = permissionClosure([
       ...(await this.repo.findPermissionKeysByUserExcludingRole(actorId, roleId)),
-      ...nextRoleKeys,
+      ...(nextRoleKeys as PermissionKey[]),
     ]);
     const lost = held.filter((key) => !remaining.has(key));
     if (lost.length) throw new AppException('ROLE_SELF_LOCKOUT', { lost });
@@ -155,8 +238,41 @@ export class PermissionService {
     return found;
   }
 
+  /**
+   * 角色實際持有的鍵：明確授予的 ＋ 依賴樹帶出的，依目錄順序。super-admin 是全集（都算隱含、`impliedBy` 為空）。
+   * 角色權限編輯器（技能樹）以此顯示「已包含（由 …）」。
+   */
+  describeRolePermissions(
+    explicitKeys: readonly PermissionKey[],
+    isSuperAdmin: boolean,
+  ): EffectivePermission[] {
+    if (isSuperAdmin) {
+      return ALL_PERMISSION_KEYS.map((key) => ({ key, source: 'implied', impliedBy: [] }));
+    }
+    const explicit = new Set(explicitKeys);
+    const closure = permissionClosure(explicitKeys);
+    return ALL_PERMISSION_KEYS.filter((key) => closure.has(key)).map((key) => ({
+      key,
+      source: explicit.has(key) ? 'explicit' : 'implied',
+      impliedBy: implyingPermissions(key, explicitKeys),
+    }));
+  }
+
+  /** 目錄的列加上依賴樹的子能力與依賴（從程式碼供應，不存 DB）。 */
+  withDependencies(rows: readonly PermissionRow[]): PermissionCatalogItem[] {
+    return rows.map((row) => {
+      const entry: PermissionDependency | undefined =
+        PERMISSION_DEPENDENCIES[row.key as keyof typeof PERMISSION_DEPENDENCIES];
+      return {
+        ...row,
+        includes: [...(entry?.includes ?? [])],
+        requires: [...(entry?.requires ?? [])],
+      };
+    });
+  }
+
   async getCatalog(): Promise<PermissionCatalog> {
-    const items = await this.repo.listCatalog();
+    const items = this.withDependencies(await this.repo.listCatalog());
     const byResource = new Map<string, string[]>();
     for (const item of items) {
       const keys = byResource.get(item.resource) ?? [];

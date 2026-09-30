@@ -5,7 +5,7 @@ import { fn } from 'storybook/test';
 import { Chip } from '../Chip';
 import { Input } from '../Input';
 import { TreeEditor } from './TreeEditor';
-import { updateNodeData } from './treeGraph';
+import { getEdgeId, updateNodeData } from './treeGraph';
 import type { TreeEditorNode, TreeEditorValue } from './treeGraph';
 
 interface Topic {
@@ -164,4 +164,129 @@ function SkillTreeDemo() {
 /** `dag`：「大師」需要「重擊」與「閃避」兩個前置；選取節點後在右側編輯資料。 */
 export const SkillTree: Story = {
   render: () => <SkillTreeDemo />,
+};
+
+// ── 可解鎖的技能樹：結構唯讀、點節點內的按鈕學會／取消，前置自動點亮（derived）──
+
+interface Perk {
+  name: string;
+}
+
+/** 連線由前置指向後續；虛線是「需要、但不屬於同一支」的關係。 */
+const perks: TreeEditorValue<Perk> = {
+  nodes: [
+    { id: 'look', data: { name: '觀察' }, position: { x: 40, y: 272 } },
+    { id: 'edit', data: { name: '修改' }, position: { x: 40, y: 144 } },
+    { id: 'remove', data: { name: '移除' }, position: { x: -60, y: 16 } },
+    { id: 'create', data: { name: '建造' }, position: { x: 140, y: 16 } },
+    { id: 'map', data: { name: '地圖' }, position: { x: 360, y: 272 } },
+    { id: 'guide', data: { name: '嚮導' }, position: { x: 360, y: 144 } },
+  ],
+  edges: [
+    { source: 'look', target: 'edit' },
+    { source: 'edit', target: 'remove' },
+    { source: 'edit', target: 'create' },
+    { source: 'map', target: 'guide' },
+    { source: 'look', target: 'guide', variant: 'dashed' },
+  ],
+};
+
+const PERK_GROUPS = [
+  { id: 'craft', label: '工藝', nodeIds: ['look', 'edit', 'remove', 'create'] },
+  { id: 'travel', label: '旅行', nodeIds: ['map', 'guide'] },
+];
+
+/** 「建造」不能學（示範 locked）。 */
+const LOCKED_PERKS = new Set(['create']);
+
+function prerequisitesOf(id: string): Set<string> {
+  const result = new Set<string>();
+  const stack = [id];
+  while (stack.length > 0) {
+    const current = stack.pop() as string;
+    for (const edge of perks.edges) {
+      if (edge.target === current && !result.has(edge.source)) {
+        result.add(edge.source);
+        stack.push(edge.source);
+      }
+    }
+  }
+  return result;
+}
+
+function UnlockableSkillTreeDemo() {
+  const [learned, setLearned] = useState<ReadonlySet<string>>(new Set(['remove']));
+  const [hovered, setHovered] = useState<string>();
+  const derived = new Set<string>();
+  for (const id of learned)
+    for (const prerequisite of prerequisitesOf(id)) derived.add(prerequisite);
+  const lit = (id: string) => learned.has(id) || derived.has(id);
+  const path = hovered ? prerequisitesOf(hovered) : new Set<string>();
+
+  return (
+    <TreeEditor<Perk>
+      value={perks}
+      mode="dag"
+      direction="BT"
+      readOnly
+      selectable={false}
+      showMinimap={false}
+      groups={PERK_GROUPS}
+      nodeSize={{ width: 160, height: 56 }}
+      getNodeLabel={(node) => node.data.name}
+      getNodeState={(node) =>
+        learned.has(node.id)
+          ? 'active'
+          : derived.has(node.id)
+            ? 'derived'
+            : LOCKED_PERKS.has(node.id)
+              ? 'locked'
+              : 'available'
+      }
+      highlightedNodeIds={path}
+      activeEdgeIds={
+        new Set(perks.edges.filter((e) => lit(e.source) && lit(e.target)).map(getEdgeId))
+      }
+      highlightedEdgeIds={
+        new Set(
+          perks.edges
+            .filter(
+              (e) => hovered && path.has(e.source) && (path.has(e.target) || e.target === hovered),
+            )
+            .map(getEdgeId),
+        )
+      }
+      renderNode={(node, state) => (
+        <button
+          type="button"
+          className="nodrag w-full cursor-pointer border-0 bg-transparent p-0 text-start text-inherit disabled:cursor-not-allowed"
+          disabled={state.state === 'locked' || state.state === 'derived'}
+          aria-pressed={learned.has(node.id)}
+          onMouseEnter={() => setHovered(node.id)}
+          onMouseLeave={() => setHovered(undefined)}
+          onFocus={() => setHovered(node.id)}
+          onBlur={() => setHovered(undefined)}
+          onClick={() =>
+            setLearned((prev) => {
+              const next = new Set(prev);
+              if (next.has(node.id)) next.delete(node.id);
+              else next.add(node.id);
+              return next;
+            })
+          }
+        >
+          {node.data.name}
+        </button>
+      )}
+      aria-label="可解鎖的技能樹"
+    />
+  );
+}
+
+/**
+ * 結構唯讀（`readOnly` ＋ `selectable={false}`），互動放在節點內的按鈕：學會「移除」就點亮前置「修改」「觀察」（`derived`）；
+ * 滑過節點強調它的前置路徑；分組背景、虛線連線、`locked` 狀態。
+ */
+export const UnlockableSkillTree: Story = {
+  render: () => <UnlockableSkillTreeDemo />,
 };

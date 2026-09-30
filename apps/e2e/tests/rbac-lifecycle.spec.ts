@@ -18,7 +18,7 @@ test.describe('RBAC 生命週期', () => {
     await page.goto('/role');
     await page.getByTestId('role-create-button').click();
     await page.getByTestId('role-name-input').fill(ROLE_NAME);
-    await getByTestIdAndValue(page, 'permission-checkbox', 'user:read').click();
+    await getByTestIdAndValue(page, 'role-permission-node', 'user:read').click();
     await page.getByTestId('role-create-submit').click();
     await expect(page.getByTestId('role-list-page')).toContainText(ROLE_NAME);
     await snapshot(page, 'role-created');
@@ -69,15 +69,15 @@ test.describe('RBAC 生命週期', () => {
   });
 
   // ⑥ 反提權：admin 嘗試授予自己沒有的權限 → 被擋下
-  test('反提權：未持有的權限在挑選器中是 disabled', async ({ page }) => {
+  test('反提權：未持有的權限在技能樹中是 disabled', async ({ page }) => {
     await loginAndWaitForHome(page, 'admin');
     await page.goto('/role');
     await page.getByTestId('role-create-button').click();
 
     // admin 沒有 system:update
-    await expect(getByTestIdAndValue(page, 'permission-checkbox', 'system:update')).toBeDisabled();
+    await expect(getByTestIdAndValue(page, 'role-permission-node', 'system:update')).toBeDisabled();
     // 但有 user:read
-    await expect(getByTestIdAndValue(page, 'permission-checkbox', 'user:read')).toBeEnabled();
+    await expect(getByTestIdAndValue(page, 'role-permission-node', 'user:read')).toBeEnabled();
     await snapshot(page, 'escalation-disabled');
   });
 

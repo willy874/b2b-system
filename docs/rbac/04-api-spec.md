@@ -68,7 +68,8 @@
 }
 ```
 
-`permissions` 是 **扁平、已去重、已展開 super-admin** 的字串陣列。
+`permissions` 是 **扁平、已去重、已展開 super-admin、已套用權限依賴樹閉包**（[`02-permission-catalog.md`](./02-permission-catalog.md) §9）的字串陣列：
+只被授予 `file:delete` 的人，這裡也會有 `file:update`、`file:read`、`file:access`。
 前端 `usePermissionStore` 直接以此建立 `Set`。
 
 ### 1.4 `PATCH /auth/profile`
@@ -111,7 +112,7 @@
 | DELETE | `/users/:id`                | 🛡 `user:delete`        | 軟刪除                                 |
 | GET    | `/users/:id/roles`          | 🛡 `user:read`          | 該使用者的角色                         |
 | PUT    | `/users/:id/roles`          | 🛡 `user:assignRole`    | **整批取代** 角色                      |
-| GET    | `/users/:id/permissions`    | 🛡 `user:read`          | 該使用者的有效權限集合（除錯／稽核用） |
+| GET    | `/users/:id/permissions`    | 🛡 `user:read`          | 該使用者的有效權限集合（含依賴樹閉包；除錯／稽核用） |
 | POST   | `/users/:id/reset-password` | 🛡 `user:resetPassword` | 代觸發重設流程；`pending` 的人改寄啟用信 |
 | POST   | `/users/:id/unlock`         | 🛡 `user:update`        | 解除登入鎖定                           |
 
@@ -252,9 +253,24 @@
 // Request — 差異語意，避免整批取代造成的競態覆寫
 { "add": ["role:read"], "remove": ["user:delete"] }
 
-// 200
-{ "data": { "permissions": [ { "key": "...", "name": "..." } ] } }
+// 200（GET 的回應相同）
+{
+  "data": {
+    "permissions": [ { "key": "file:delete", "includes": ["file:update"], "requires": [], "...": "..." } ],
+    // 實際持有的鍵：明確的 ＋ 依賴樹帶出的，依目錄順序（角色權限的技能樹用）
+    "effective": [
+      { "key": "file:read",   "source": "implied",  "impliedBy": ["file:delete"] },
+      { "key": "file:update", "source": "implied",  "impliedBy": ["file:delete"] },
+      { "key": "file:delete", "source": "explicit", "impliedBy": [] },
+      { "key": "file:access", "source": "implied",  "impliedBy": ["file:delete"] }
+    ],
+    "isSuperAdmin": false   // super-admin：effective 是全集、都算 implied、impliedBy 為空
+  }
+}
 ```
+
+- `permissions` 只含 **明確授予** 的鍵；同時是明確與隱含的鍵算 `explicit`。
+- 伺服器不因為「移除的鍵仍被其他鍵包含」而拒絕：它繼續以隱含的身分生效。「先取消上層才能取消前置」是技能樹的互鎖（UI）。
 
 檢查順序：
 
@@ -262,8 +278,8 @@
 1. 角色存在且未刪除
 2. `isSystem && slug === 'super-admin'` → `403 ROLE_SUPER_ADMIN_IMMUTABLE`
 3. `add` 的鍵全部存在 → 否則 `400 PERMISSION_UNKNOWN`
-4. 反提權：`add ⊆ actor 權限集合` → 否則 `403 AUTHZ_ESCALATION`
-5. 自我鎖定：actor 持有這個角色、且變更後會失去管理角色所需的權限 → `403 ROLE_SELF_LOCKOUT`
+4. 反提權：`add ⊆ actor 權限集合`（actor 的集合已含依賴樹閉包）→ 否則 `403 AUTHZ_ESCALATION`
+5. 自我鎖定：actor 持有這個角色、且變更後（剩下的鍵套上閉包之後）會失去管理角色所需的權限 → `403 ROLE_SELF_LOCKOUT`
    （[`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §8.4）
 6. 交易（先 `FOR UPDATE` 鎖住角色列）寫入 ＋ 稽核（`before`／`after` 在交易內讀取）→ 失效快取
 
@@ -292,7 +308,7 @@
 
 | Method | Path           | 授權                | 說明                               |
 | ------ | -------------- | ------------------- | ---------------------------------- |
-| GET    | `/permissions` | 🛡 `permission:read` | 全部權限目錄（不分頁，固定 17 筆） |
+| GET    | `/permissions` | 🛡 `permission:read` | 全部權限目錄（不分頁）；每一項帶 `includes`（子能力）與 `requires`（依賴），見 [`02-permission-catalog.md`](./02-permission-catalog.md) §9 |
 
 ```jsonc
 // 200

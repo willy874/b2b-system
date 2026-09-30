@@ -1,10 +1,11 @@
 import { Outlet } from '@tanstack/react-router';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppError } from '@/core/errors';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
+import { installFlowDom } from '@/test/flowDom';
 import { initTestI18n } from '@/test/i18n';
 import { renderRoute } from '@/test/renderRoute';
 
@@ -27,12 +28,26 @@ const routes = [Routes.RoleListRoute.addChildren([Routes.RoleCreateRoute])];
 
 beforeAll(() => initTestI18n(roleZhTW));
 
+beforeAll(installFlowDom);
+afterAll(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
 beforeEach(() => {
   resetPagePermissionRegistry();
   registerRolePagePermissions();
   createRole.mockReset().mockResolvedValue({ id: 'r1', name: 'Editor' });
   fetchPermissionList.mockReset().mockResolvedValue({
-    items: [{ key: 'user:read', nameI18nKey: 'permission.user.read' }],
+    items: [
+      {
+        key: 'user:read',
+        resource: 'user',
+        nameI18nKey: 'permission.user.read',
+        includes: [],
+        requires: [],
+      },
+    ],
     groups: [{ resource: 'user', nameI18nKey: 'permission.resource.user', keys: ['user:read'] }],
   });
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
@@ -55,7 +70,9 @@ describe('RoleCreatePage', () => {
   it('勾了權限後點取消會先確認；選放棄才關閉', async () => {
     renderRoute(routes, '/role/create', CREATOR);
 
-    fireEvent.click(await screen.findByTestId('permission-checkbox', undefined, { timeout: 5000 }));
+    fireEvent.click(
+      await screen.findByTestId('role-permission-node', undefined, { timeout: 5000 }),
+    );
     fireEvent.click(screen.getByTestId('role-create-cancel'));
 
     expect(await screen.findByTestId('unsaved-changes-confirm')).toBeInTheDocument();

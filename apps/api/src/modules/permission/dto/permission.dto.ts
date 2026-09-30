@@ -22,6 +22,27 @@ export const PermissionSchema = defineSchema(
     nameI18nKey: z.string(),
     description: z.string().nullable(),
     sortOrder: z.number().int(),
+    /** 子能力：同資源、這個鍵包含的鍵（docs/rbac/02-permission-catalog.md §9）。 */
+    includes: z.array(PermissionKeySchema),
+    /** 依賴：少了它就無法完整操作的 read（可以跨資源）。 */
+    requires: z.array(PermissionKeySchema),
+  }),
+);
+
+export const PermissionSourceSchema = defineSchema(
+  'PermissionSource',
+  z.enum(['explicit', 'implied']),
+);
+
+/** 角色實際持有的一個鍵：明確授予的，或由其他鍵（遞迴）帶出來的。 */
+export const EffectivePermissionSchema = defineSchema(
+  'EffectivePermission',
+  z.object({
+    key: PermissionKeySchema,
+    /** 同時是明確與隱含的鍵算 `explicit`。 */
+    source: PermissionSourceSchema,
+    /** 帶出這個鍵的明確鍵（`source = implied` 時至少一個；super-admin 是空陣列）。 */
+    impliedBy: z.array(PermissionKeySchema),
   }),
 );
 
@@ -43,4 +64,5 @@ export const PermissionCatalogSchema = defineSchema(
 );
 
 export type PermissionDto = z.infer<typeof PermissionSchema>;
+export type EffectivePermissionDto = z.infer<typeof EffectivePermissionSchema>;
 export type PermissionCatalogDto = z.infer<typeof PermissionCatalogSchema>;

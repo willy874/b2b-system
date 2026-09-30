@@ -50,6 +50,20 @@
       "when": 1790743106000,
       "tag": "0006_roles_and_search",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790758604751,
+      "tag": "0007_relation_tuples",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790758613370,
+      "tag": "0008_relation_tuples_mirror",
+      "breakpoints": true
     }
   ]
 }

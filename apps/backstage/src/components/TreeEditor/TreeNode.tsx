@@ -11,10 +11,21 @@ import type { TreeEditorDirection, TreeEditorNode } from './treeGraph';
 
 import styles from './TreeEditor.module.css';
 
+/**
+ * 節點的外觀狀態（外框、底色由元件負責）：
+ * - `active`：已啟用（技能樹裡學會的技能）
+ * - `derived`：由其他節點帶出而成立（例：被上層技能包含），外觀比 `active` 淡
+ * - `available`：可以啟用
+ * - `locked`：不能操作
+ */
+export type TreeEditorNodeState = 'active' | 'derived' | 'available' | 'locked';
+
 /** 節點內容由呼叫端決定時拿到的狀態。 */
 export interface TreeEditorRenderState {
   selected: boolean;
   readOnly: boolean;
+  state: TreeEditorNodeState | undefined;
+  highlighted: boolean;
 }
 
 /** React Flow 節點的 `data`：原樣帶著呼叫端的節點。 */
@@ -30,11 +41,13 @@ export interface TreeNodeContextValue {
     | undefined;
   getNodeLabel: (node: TreeEditorNode<unknown>) => string;
   readOnly: boolean;
+  getNodeState: ((node: TreeEditorNode<unknown>) => TreeEditorNodeState | undefined) | undefined;
+  highlightedNodeIds: ReadonlySet<string>;
   /** 沒給 `createNode` 時為 `undefined`，節點上不出現「新增子節點」。 */
   onAddChild: ((parentId: string) => void) | undefined;
   addChildLabel: string;
   direction: TreeEditorDirection;
-  slot: SlotResolver<'node'>;
+  slot: SlotResolver<'node' | 'group'>;
 }
 
 export const TreeNodeContext = createContext<TreeNodeContextValue | null>(null);
@@ -54,17 +67,30 @@ export const HANDLE_POSITIONS = {
 export const TreeNode = memo(function TreeNode({ data, selected }: NodeProps<TreeFlowNode>) {
   const context = use(TreeNodeContext);
   if (!context) throw new Error('TreeNode 必須在 TreeEditor 裡使用');
-  const { renderNode, getNodeLabel, readOnly, onAddChild, addChildLabel, direction, slot } =
-    context;
+  const {
+    renderNode,
+    getNodeLabel,
+    readOnly,
+    getNodeState,
+    highlightedNodeIds,
+    onAddChild,
+    addChildLabel,
+    direction,
+    slot,
+  } = context;
   const node = data.source;
   const handles = HANDLE_POSITIONS[direction];
   const label = getNodeLabel(node);
+  const state = getNodeState?.(node);
+  const highlighted = highlightedNodeIds.has(node.id);
 
   return (
     <div
       {...slot('node', styles.node, { testId: 'tree-editor-item' })}
       data-value={node.id}
       data-selected={selected || undefined}
+      data-state={state}
+      data-highlighted={highlighted || undefined}
       data-direction={direction}
       aria-label={label}
     >
@@ -76,7 +102,7 @@ export const TreeNode = memo(function TreeNode({ data, selected }: NodeProps<Tre
       />
       <div className={styles.nodeContent}>
         {renderNode ? (
-          renderNode(node, { selected, readOnly })
+          renderNode(node, { selected, readOnly, state, highlighted })
         ) : (
           <span className={styles.nodeLabel}>{label}</span>
         )}
@@ -105,6 +131,27 @@ export const TreeNode = memo(function TreeNode({ data, selected }: NodeProps<Tre
         className={styles.handle}
         isConnectable={!readOnly}
       />
+    </div>
+  );
+});
+
+/** 分組背景的 `data`：標題（`TreeEditor` 的 `groups`）。 */
+export interface TreeGroupNodeData extends Record<string, unknown> {
+  label: string;
+}
+
+export type TreeGroupFlowNode = Node<TreeGroupNodeData, 'group'>;
+
+/** 分組背景：不可選、不可拖、不接收滑鼠事件（畫布照常平移）。 */
+export const TreeGroupNode = memo(function TreeGroupNode({
+  id,
+  data,
+}: NodeProps<TreeGroupFlowNode>) {
+  const context = use(TreeNodeContext);
+  if (!context) throw new Error('TreeGroupNode 必須在 TreeEditor 裡使用');
+  return (
+    <div {...context.slot('group', styles.group, { testId: 'tree-editor-group' })} data-value={id}>
+      <span className={styles.groupLabel}>{data.label}</span>
     </div>
   );
 });

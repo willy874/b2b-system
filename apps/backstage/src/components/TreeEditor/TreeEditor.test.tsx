@@ -2,50 +2,12 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { installFlowDom } from '@/test/flowDom';
+
 import { TreeEditor } from './TreeEditor';
 import type { TreeEditorProps } from './TreeEditor';
 import { getParentIds } from './treeGraph';
 import type { TreeEditorNode, TreeEditorValue } from './treeGraph';
-
-/**
- * jsdom 沒有布局：React Flow 需要 ResizeObserver、DOMMatrixReadOnly（讀縮放比例）與 SVG 的 getBBox。
- * 替身照 React Flow 官方的測試說明（reactflow.dev/learn/advanced-use/testing）。
- */
-function installFlowDom() {
-  vi.stubGlobal(
-    'ResizeObserver',
-    // 尺寸由下面的 offsetWidth / offsetHeight 提供，不需要真的通知
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
-  vi.stubGlobal(
-    'DOMMatrixReadOnly',
-    class {
-      m22: number;
-      constructor(transform?: string) {
-        const scale = transform?.match(/scale\(([\d.]+)\)/)?.[1];
-        this.m22 = scale === undefined ? 1 : Number(scale);
-      }
-    },
-  );
-  vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (
-    this: HTMLElement,
-  ) {
-    return Number.parseFloat(this.style.width) || 800;
-  });
-  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (
-    this: HTMLElement,
-  ) {
-    return Number.parseFloat(this.style.height) || 600;
-  });
-  Object.defineProperty(SVGElement.prototype, 'getBBox', {
-    configurable: true,
-    value: () => ({ x: 0, y: 0, width: 0, height: 0 }),
-  });
-}
 
 beforeAll(installFlowDom);
 afterAll(() => {
@@ -234,5 +196,33 @@ describe('TreeEditor', () => {
     renderEditor({ labels: { addRoot: 'Add root' }, testIds: { toolbar: 'custom-toolbar' } });
     expect(await screen.findByTestId('custom-toolbar')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add root' })).toBeInTheDocument();
+  });
+
+  it('getNodeState 以 data-state 呈現；renderNode 也拿得到狀態與是否強調', async () => {
+    renderEditor({
+      getNodeState: (node) => (node.id === 'a' ? 'active' : node.id === 'b' ? 'locked' : undefined),
+      highlightedNodeIds: new Set(['b']),
+      renderNode: (node, state) => `${node.data.label}:${state.state ?? '-'}:${state.highlighted}`,
+    });
+    expect(await screen.findByText('甲:active:false')).toBeInTheDocument();
+    expect(item('a')).toHaveAttribute('data-state', 'active');
+    expect(item('b')).toHaveAttribute('data-state', 'locked');
+    expect(item('b')).toHaveAttribute('data-highlighted', 'true');
+    expect(item('root')).not.toHaveAttribute('data-state');
+  });
+
+  it('groups 在成員外畫出帶標題的分組背景', async () => {
+    renderEditor({ groups: [{ id: 'pair', label: '甲乙組', nodeIds: ['a', 'b'] }] });
+    const group = await screen.findByTestId('tree-editor-group');
+    expect(group).toHaveAttribute('data-value', 'pair');
+    expect(group).toHaveTextContent('甲乙組');
+  });
+
+  it('selectable={false}：點節點不會選取', async () => {
+    const { onSelectionChange } = renderEditor({ readOnly: true, selectable: false });
+    await waitFor(() => item('a'));
+    fireEvent.click(item('a'));
+    expect(item('a')).not.toHaveAttribute('data-selected');
+    expect(onSelectionChange).not.toHaveBeenCalled();
   });
 });

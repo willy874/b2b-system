@@ -10,7 +10,7 @@ import { QueryError } from '@/core/components';
 import { useTranslation } from '@/core/locales';
 import { useUnsavedChangesGuard } from '@/core/router';
 
-import { PermissionPicker } from '../../components';
+import { PermissionSkillTree } from '../../components';
 import { useGrantRolePermissionsMutation } from '../../hooks/useRoleMutations';
 import { useRolePermission } from '../../hooks/useRolePermission';
 import { RoleDetailPermissionRoute, RoleDetailRoute, RoleListRoute } from '../../routes';
@@ -63,7 +63,7 @@ export default function RoleDetailPermissionPage() {
       onOpenChange={(open) => !open && close()}
       title={t('role.permission.title')}
       description={t('role.permission.description')}
-      size="lg"
+      size="xl"
       data-testid="role-permission-dialog"
       footer={
         <>
@@ -96,17 +96,11 @@ export default function RoleDetailPermissionPage() {
         <QueryError error={current.error} onRetry={() => void current.refetch()} />
       )}
       {loaded && (
-        <PermissionPicker
-          selected={selected}
-          disabled={!permission.canGrantPermission}
-          onToggle={(key, checked) =>
-            setSelected((prev) => {
-              const next = new Set(prev);
-              if (checked) next.add(key);
-              else next.delete(key);
-              return next;
-            })
-          }
+        <PermissionSkillTree
+          explicit={selected}
+          onChange={(next) => setSelected(() => next)}
+          readOnly={!permission.canGrantPermission}
+          isSuperAdmin={current.data?.isSuperAdmin}
           data-testid="role-permission-picker"
         />
       )}

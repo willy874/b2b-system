@@ -8,11 +8,14 @@ import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
-import type { PermissionRow } from '@/db/schema';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
 import { PermissionService } from '@/modules/permission/permission.service';
+import type {
+  EffectivePermission,
+  PermissionCatalogItem,
+} from '@/modules/permission/permission.service';
 
 import type { CreateRoleDto, DuplicateRoleDto } from './dto/create-role.dto';
 import type { DeleteRoleDto, ListRoleDto, ListRoleUsersDto } from './dto/list-role.dto';
@@ -46,6 +49,13 @@ function toDto(role: RoleWithCounts): RoleDto {
   };
 }
 
+/** `GET /roles/:id/permissions` 的回應（RolePermissionsSchema）。 */
+export interface RolePermissions {
+  permissions: PermissionCatalogItem[];
+  effective: EffectivePermission[];
+  isSuperAdmin: boolean;
+}
+
 @Injectable()
 export class RoleService {
   constructor(
@@ -67,9 +77,22 @@ export class RoleService {
     return toDto(role);
   }
 
-  async listPermissions(id: string): Promise<{ permissions: PermissionRow[] }> {
-    await this.getExisting(id);
-    return { permissions: await this.repo.listPermissions(id) };
+  async listPermissions(id: string): Promise<RolePermissions> {
+    const role = await this.getExisting(id);
+    return this.describePermissions(role.id, role.slug === SUPER_ADMIN_SLUG);
+  }
+
+  /** 明確授予的權限 ＋ 依賴樹展開後實際持有的鍵（技能樹的「已包含（由 …）」，docs/rbac/02-permission-catalog.md §9）。 */
+  private async describePermissions(id: string, isSuperAdmin: boolean): Promise<RolePermissions> {
+    const rows = await this.repo.listPermissions(id);
+    return {
+      permissions: this.permissionService.withDependencies(rows),
+      effective: this.permissionService.describeRolePermissions(
+        rows.map((row) => row.key as PermissionKey),
+        isSuperAdmin,
+      ),
+      isSuperAdmin,
+    };
   }
 
   async listUsers(id: string, query: ListRoleUsersDto) {
@@ -154,7 +177,7 @@ export class RoleService {
     id: string,
     dto: UpdateRolePermissionsDto,
     actor: AuthUser,
-  ): Promise<{ permissions: PermissionRow[] }> {
+  ): Promise<RolePermissions> {
     const role = await this.getExisting(id);
     if (role.slug === SUPER_ADMIN_SLUG) throw new AppException('ROLE_SUPER_ADMIN_IMMUTABLE');
 
@@ -213,7 +236,7 @@ export class RoleService {
       changes: [{ resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id }],
       affectedUserIds: holders,
     });
-    return { permissions: await this.repo.listPermissions(id) };
+    return this.describePermissions(id, false);
   }
 
   async duplicate(id: string, dto: DuplicateRoleDto, actor: AuthUser) {

@@ -17,10 +17,15 @@ export interface TreeEditorNode<TData = unknown> {
   position?: TreeEditorPosition;
 }
 
+/** 連線的外觀：`solid`（預設）或 `dashed`（例：技能樹裡「需要、但不屬於同一支」的關係）。 */
+export type TreeEditorEdgeVariant = 'solid' | 'dashed';
+
 /** 由 `source`（父、前置）指向 `target`（子、後續）。 */
 export interface TreeEditorEdge {
   source: string;
   target: string;
+  /** 只影響外觀；元件原樣保存。 */
+  variant?: TreeEditorEdgeVariant;
 }
 
 export interface TreeEditorValue<TData = unknown> {

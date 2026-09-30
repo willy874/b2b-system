@@ -13,18 +13,6 @@ import { SUPER_ADMIN_SLUG } from './permission.constants';
 export class PermissionRepository {
   constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
-  /** 最熱的查詢：使用者透過所有角色間接持有的權限鍵。 */
-  async findPermissionKeysByUser(userId: string): Promise<PermissionKey[]> {
-    const rows = await this.db
-      .selectDistinct({ key: permissions.key })
-      .from(userRoles)
-      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
-      .innerJoin(rolePermissions, eq(rolePermissions.roleId, userRoles.roleId))
-      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
-      .where(eq(userRoles.userId, userId));
-    return rows.map((row) => row.key as PermissionKey);
-  }
-
   /** 使用者透過「這個角色以外」的角色持有的權限鍵（評估改動一個角色對持有者的影響）。 */
   async findPermissionKeysByUserExcludingRole(
     userId: string,
@@ -50,12 +38,16 @@ export class PermissionRepository {
     return Boolean(row);
   }
 
-  /** `findPermissionKeysByUser` 的批次版：一條查詢取得多人的權限鍵（沒有任何權限的人不會出現）。 */
+  /**
+   * 多人的明確權限鍵（`user_roles` ⋈ `role_permissions`；沒有任何權限的人不會出現）。
+   * G2 起權限由關係圖解析，這裡只給影子比對用（docs/adr/0024-relationship-based-access-control.md），G3 刪除。
+   */
   async findPermissionKeysByUsers(
     userIds: readonly string[],
+    db: DbOrTx = this.db,
   ): Promise<Array<{ userId: string; key: PermissionKey }>> {
     if (userIds.length === 0) return [];
-    const rows = await this.db
+    const rows = await db
       .selectDistinct({ userId: userRoles.userId, key: permissions.key })
       .from(userRoles)
       .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
@@ -65,10 +57,10 @@ export class PermissionRepository {
     return rows.map((row) => ({ userId: row.userId, key: row.key as PermissionKey }));
   }
 
-  /** `isSuperAdmin` 的批次版：這些人之中持有 super-admin 的。 */
-  async findSuperAdminUserIds(userIds: readonly string[]): Promise<string[]> {
+  /** 這些人之中持有 super-admin 的（影子比對用，同上）。 */
+  async findSuperAdminUserIds(userIds: readonly string[], db: DbOrTx = this.db): Promise<string[]> {
     if (userIds.length === 0) return [];
-    const rows = await this.db
+    const rows = await db
       .selectDistinct({ userId: userRoles.userId })
       .from(userRoles)
       .innerJoin(roles, eq(roles.id, userRoles.roleId))
@@ -80,22 +72,6 @@ export class PermissionRepository {
         ),
       );
     return rows.map((row) => row.userId);
-  }
-
-  async isSuperAdmin(userId: string): Promise<boolean> {
-    const [row] = await this.db
-      .select({ one: sql<number>`1` })
-      .from(userRoles)
-      .innerJoin(roles, eq(roles.id, userRoles.roleId))
-      .where(
-        and(
-          eq(userRoles.userId, userId),
-          eq(roles.slug, SUPER_ADMIN_SLUG),
-          isNull(roles.deletedAt),
-        ),
-      )
-      .limit(1);
-    return Boolean(row);
   }
 
   async findAllPermissionKeys(): Promise<PermissionKey[]> {

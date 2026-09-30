@@ -1,7 +1,7 @@
 # RBAC 02 — 權限目錄
 
 > 本文件是 **權限的單一事實來源**。任何新增／刪除權限都必須先改這裡，再同步
-> `apps/api/src/db/seeds/permissions.ts`。兩者不一致視為 bug。
+> `apps/api/src/db/seeds/permissions.ts`。兩者不一致視為 bug（`db/seeds/__tests__/permission-catalog-doc.spec.ts` 比對 §2 的鍵與 §9 的依賴樹）。
 
 ---
 
@@ -289,6 +289,7 @@ Seed 行為：
 6. `pnpm db:seed` → `pnpm sdk:generate`。
 7. 若這個權限會影響某個頁面的進入條件，更新該 feature 的 `permission.ts` 與本文件 §5。
 8. 更新 §4 的預設角色對照表，並在 seed 中把它加進該角色。
+9. 決定它在依賴樹（§9）的位置：它包含哪些子能力、依賴哪些 read；同時改 §9.1 與 `PERMISSION_DEPENDENCIES`。
 
 ---
 
@@ -339,3 +340,65 @@ Seed 行為：
 
 只有 `super-admin` 能管理平台管理者，所以不需要反提權規則（`operator` 不能把自己升成 `super-admin`）。
 `db:seed` 依 `PLATFORM_ADMIN_EMAIL` 建立的第一位平台管理者是 `super-admin`；之後新增的管理者預設是 `auditor`。
+
+---
+
+## 9. 權限依賴樹（租戶的目錄）
+
+權限鍵之間有包含關係：**沒有 read 的 edit 沒有意義；沒有 edit 的 create、delete 也不合理**。
+持有一個鍵，就同時持有它（遞迴）帶來的鍵——guard、`GET /auth/profile`、反提權看到的都是 **閉包**。
+決策見 [ADR-0024](../adr/0024-relationship-based-access-control.md) D6；程式碼是 `db/seeds/permissions.ts` 的 `PERMISSION_DEPENDENCIES`。
+
+| 邊 | 意思 | 範圍 |
+| --- | --- | --- |
+| **子能力** | 上層的能力包含它；它也可以單獨授予 | 同一個資源 |
+| **依賴** | 少了它就無法完整操作 | 可以跨資源，只能指向 read |
+
+- `delete ⇒ update ⇒ read`。
+- 規則 A：`create ⇒ 編輯自己建立的 ⇒ read`。「編輯自己建立的」不是權限鍵，是資源上的關係（檔案的擁有者規則，
+  [`07-resource-grants.md`](./07-resource-grants.md) §4）；沒有擁有者概念的資源（`user`、`role`、`identityProvider`）退化成 `create ⇒ update`。
+- 角色只儲存 **明確授予** 的鍵，包含的鍵是算出來的；同時是明確與隱含的鍵保持明確。
+
+### 9.1 清單
+
+| 權限鍵 | 子能力 | 依賴 |
+| --- | --- | --- |
+| `user:create` | `user:update` | |
+| `user:delete` | `user:update` | |
+| `user:update` | `user:resetPassword`、`user:read` | |
+| `user:resetPassword` | `user:read` | |
+| `user:assignRole` | `user:read` | `role:read` |
+| `role:create` | `role:update` | |
+| `role:delete` | `role:update` | |
+| `role:update` | `role:read` | |
+| `role:grantPermission` | `role:read` | `permission:read` |
+| `system:update` | `system:read` | |
+| `approval:review` | `approval:read` | |
+| `file:create` | `file:read` | |
+| `file:delete` | `file:update` | |
+| `file:update` | `file:read` | |
+| `file:share` | `file:read` | |
+| `file:read` | `file:access` | |
+| `job:retry` | `job:read` | |
+| `identityProvider:create` | `identityProvider:update` | |
+| `identityProvider:delete` | `identityProvider:update` | |
+| `identityProvider:update` | `identityProvider:read` | |
+
+沒有列出的鍵是葉節點（`permission:read`、`auditLog:read`、各資源的 `read`、`file:access`）。
+
+### 9.2 不變條件
+
+啟動時驗證（`assertPermissionDependencies()`，與路由稽核同一個時機），違反就啟動失敗：
+
+| # | 條件 | 理由 |
+| --- | --- | --- |
+| G1 | 沒有循環 | 閉包要有定義 |
+| G2 | 子能力只能在同一個資源內 | 跨資源的關係一律是「依賴」 |
+| G3 | 依賴只能指向 `<r>:read`（或閘門 `file:access`） | 依賴是為了完整操作而補上的，不能因此多出寫入能力 |
+| G4 | 受反提權限制的鍵（`user:assignRole`、`role:grantPermission`、`file:share`）不能被任何鍵包含 | 否則「能編輯使用者」會悄悄等於「能指派角色」 |
+
+### 9.3 對預設角色的影響
+
+`admin` 本來就持有每個被包含的鍵；`auditor` 多出 `file:access`（由 `file:read`），沒有行為變化（檔案路由本來就接受 `file:access` 或 `file:read`）；`member` 不變。
+租戶自訂的角色可能多出鍵：有 `user:update` 的角色多出 `user:resetPassword`；有 `file:create` 或 `file:share` 而沒有 `file:read` 的角色取得 **全域讀取**（含中斷繼承的私人資料夾）。
+seed 會為這些角色寫一筆稽核 `role.permissionsImplied`。
