@@ -447,6 +447,7 @@ export class FileFolderService {
     targetFolderId: string | null,
     tx: DbOrTx,
   ): Promise<void> {
+    let targetDepth = 0;
     if (targetFolderId) {
       // 目的地往上的鏈上出現任何一個要移動的資料夾 → 移進自己或自己的子孫
       const ancestors = new Set(await this.repo.findAncestorIds(targetFolderId, tx));
@@ -454,6 +455,16 @@ export class FileFolderService {
       if (cyclic.length > 0) {
         throw new AppException('FILE_FOLDER_CYCLE', { folderIds: cyclic.map((f) => f.id) });
       }
+      targetDepth = ancestors.size;
+    }
+    // 移動後最深的一層 = 目的地的深度 ＋ 被移動的子樹高度（EDGE-13）：遞迴 CTE 與前端的樹都假設深度有上限
+    const height = await this.repo.findMaxSubtreeHeight(
+      moving.map((folder) => folder.id),
+      MAX_FOLDER_DEPTH + 1,
+      tx,
+    );
+    if (targetDepth + height > MAX_FOLDER_DEPTH) {
+      throw new AppException('VALIDATION_FAILED', { field: 'depth', max: MAX_FOLDER_DEPTH });
     }
 
     const names = new Set<string>();

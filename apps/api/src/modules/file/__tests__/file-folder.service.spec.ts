@@ -113,6 +113,17 @@ function setup(
       }
       return [...result];
     }),
+    findMaxSubtreeHeight: vi.fn(async (ids: string[]) => {
+      const heightOf = (id: string): number =>
+        1 +
+        Math.max(
+          0,
+          ...live()
+            .filter((row) => row.parentId === id)
+            .map((row) => heightOf(row.id)),
+        );
+      return Math.max(0, ...ids.filter((id) => folders.has(id)).map(heightOf));
+    }),
     create: vi.fn(async (values: { name: string; parentId?: string | null }[]) =>
       values.map((value) => insert(value.name, value.parentId ?? null)),
     ),
@@ -287,6 +298,38 @@ describe('FileFolderService.move', () => {
       'FILE_FOLDER_CYCLE',
     );
     expect(repo.move).not.toHaveBeenCalled();
+  });
+
+  it('移動後超過深度上限 → VALIDATION_FAILED(depth)，不做任何移動（EDGE-13）', async () => {
+    const { service, repo, idOf, folders } = setup([{ name: 'a' }, { name: 'b' }]);
+    const half = Math.ceil(MAX_FOLDER_DEPTH / 2) + 1;
+    const chain = (prefix: string) => Array.from({ length: half }, (_, i) => `${prefix}${i}`);
+    await service.ensurePaths({ parentId: idOf('a'), paths: [chain('a')] }, ALICE);
+    await service.ensurePaths({ parentId: idOf('b'), paths: [chain('b')] }, ALICE);
+    const deepest = folders().find((row) => row.name === `a${half - 1}`);
+
+    const error = await service
+      .move({ fileIds: [], folderIds: [idOf('b')], targetFolderId: deepest?.id ?? null }, ALICE)
+      .then(
+        () => undefined,
+        (reason: unknown) => reason as AppException,
+      );
+    expect(error).toBeInstanceOf(AppException);
+    expect(error).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: { field: 'depth', max: MAX_FOLDER_DEPTH },
+    });
+    expect(repo.move).not.toHaveBeenCalled();
+  });
+
+  it('移動後剛好在深度上限內可以移動', async () => {
+    const { service, idOf } = setup([{ name: 'a' }, { name: 'b' }]);
+    // a 在第 1 層；b 的子樹高度 = MAX - 1 → 移進 a 之後最深剛好 MAX
+    const chain = Array.from({ length: MAX_FOLDER_DEPTH - 2 }, (_, i) => `b${i}`);
+    await service.ensurePaths({ parentId: idOf('b'), paths: [chain] }, ALICE);
+    await expect(
+      service.move({ fileIds: [], folderIds: [idOf('b')], targetFolderId: idOf('a') }, ALICE),
+    ).resolves.toMatchObject({ movedFolders: 1 });
   });
 
   it('目的地已有同名、或一起移動的彼此同名，回 FILE_FOLDER_NAME_CONFLICT', async () => {

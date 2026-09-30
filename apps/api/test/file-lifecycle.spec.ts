@@ -633,6 +633,35 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       );
     });
 
+    it('移動後超過深度上限 → 400 VALIDATION_FAILED（EDGE-13，子樹高度由遞迴 CTE 算出）', async () => {
+      const token = await login(ADMIN);
+      const ensure = async (path: string[]) => {
+        const response = await request(http)
+          .post('/file-folders/paths')
+          .set('authorization', `Bearer ${token}`)
+          .send({ parentId: null, paths: [path] })
+          .expect(200);
+        return (response.body as { data: { items: { id: string }[] } }).data.items[0]?.id ?? '';
+      };
+      const a = Array.from({ length: 20 }, (_, i) => `depth-a-${i}`);
+      const b = Array.from({ length: 20 }, (_, i) => `depth-b-${i}`);
+      const deepestA = await ensure(a);
+      await ensure(b);
+      const [rootB] = await db.select().from(fileFolders).where(eq(fileFolders.name, 'depth-b-0'));
+
+      const tooDeep = await request(http)
+        .post('/files/move')
+        .set('authorization', `Bearer ${token}`)
+        .send({ folderIds: [rootB?.id], targetFolderId: deepestA })
+        .expect(400);
+      expect((tooDeep.body as { error: { code: string } }).error.code).toBe('VALIDATION_FAILED');
+      const [unchanged] = await db
+        .select()
+        .from(fileFolders)
+        .where(eq(fileFolders.id, rootB?.id ?? ''));
+      expect(unchanged?.parentId).toBeNull();
+    });
+
     it('上傳資料夾：確保路徑時沿用同名資料夾，重送得到同樣的 id', async () => {
       const token = await login(ADMIN);
       const body = { parentId: null, paths: [['pack'], ['pack', 'sfx'], ['Pack', 'bgm', 'loop']] };
