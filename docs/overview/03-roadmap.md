@@ -271,3 +271,6 @@ b2b-system/
 11. ~~版本歷史、樂觀鎖與回收桶~~（已完成：`version` 必填的樂觀鎖、使用者／角色／檔案／資料夾的回收桶與還原、到期永久刪除、角色的版本紀錄；見
     [`architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)、[`architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md)、
     [ADR-0025](../adr/0025-entity-revisions.md)）
+12. ~~站內通知中心~~（已完成：每位收件人一筆、在業務交易內寫入、推播到收件人；頂列鈴鐺、列表頁與 route id 註冊表；見
+    [`architecture/backend/15-notification.md`](../architecture/backend/15-notification.md)、[`architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md)、
+    [ADR-0026](../adr/0026-notification-center.md)）

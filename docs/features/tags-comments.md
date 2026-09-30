@@ -2,7 +2,7 @@
 
 - 優先度：P2
 - 狀態：提案
-- 依賴：[`notification-center.md`](./notification-center.md)（留言、@提及、關注都要通知）
+- 依賴：站內通知（已完成，[`backend/15-notification.md`](../architecture/backend/15-notification.md)；留言、@提及、關注都要通知）
 - 相關：[ADR-0025](../adr/0025-entity-revisions.md) D7（多型關聯的命名）、[`backend/13-trash.md`](../architecture/backend/13-trash.md)（刪除、還原與永久刪除）、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
@@ -58,7 +58,7 @@ watches         resource_type, resource_id, user_id, created_at        pk(resour
   });
   ```
   權限跟著目標走：看得到目標才看得到留言與標籤；能改目標才能改標籤。留言本身再加「只有作者能改、刪」。
-- 通知：@提及、關注的資源有新留言時，在同一個交易內呼叫通知模組（[`notification-center.md`](./notification-center.md)）。
+- 通知：@提及、關注的資源有新留言時，在同一個交易內呼叫通知模組（`NotificationService.notify()`，[`backend/15-notification.md`](../architecture/backend/15-notification.md) §3、§9）。
   關注的資源 **被修改** 時的通知由擁有者模組在自己的交易內觸發，不靠 `resource.changed`（事件不保證送達）。
 - 推播：新增 `ChangeSource.comment`，受眾是「看得到目標的人」，由擁有者模組決定（和 `fileFolder` 的受眾一樣）。
 - 目標被刪除：現在都是軟刪除，目標消失的情況很少；標籤、留言、關注保留，查詢時跟著目標的可見性過濾。

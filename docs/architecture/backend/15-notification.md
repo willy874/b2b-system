@@ -1,7 +1,7 @@
 # 後端 15 — 站內通知
 
 「有事等你處理」與「你的東西被動了」：每位收件人一筆、可以回頭看、有已讀／未讀。
-決策見 [ADR-0026](../../adr/0026-notification-center.md)；前端（鈴鐺、列表頁、route id 註冊表）是 N2，完成後補 `../frontend/` 的章節。
+決策見 [ADR-0026](../../adr/0026-notification-center.md)；前端（鈴鐺、列表頁、route id 註冊表）見 [`../frontend/15-notification.md`](../frontend/15-notification.md)。
 
 目前的類型：`approval.pending`、`approval.result`、`user.rolesChanged`（§4）。
 
@@ -132,8 +132,9 @@ await withTransaction(this.db, async (tx) => {
 
 ### 4.1 route id
 
-`link.route` 是前端的 route id（`<feature>.<頁面>`，可再多層；格式由 `notify()` 驗證）。前端（N2）的 feature 在 plugin 的 **同步階段**
-把 route id 註冊成 route 物件；找不到的只顯示文字、不可點（D3）。已發出的 route id **不改名**：舊通知靠它連結。
+`link.route` 是前端的 route id（`<feature>.<頁面>`，可再多層；格式由 `notify()` 驗證）。前端的 feature 在 plugin 的 **同步階段**
+以 `registerRouteLink()` 把 route id 登記成 route（`features/<name>/routeLinks.ts`，[`../frontend/15-notification.md`](../frontend/15-notification.md) §3）；
+找不到的只顯示文字、不可點（D3）。已發出的 route id **不改名**：舊通知靠它連結。
 
 | route id | 參數 | 前端的頁面 | 由誰使用 |
 | --- | --- | --- | --- |
@@ -195,7 +196,7 @@ await withTransaction(this.db, async (tx) => {
 
 - 推播由 `afterCommit` 在交易提交時就發出，早於業務 service 在交易之後才發的 `permissions.changed` 與 `resource.changed`；
   兩者互不依賴（通知推到 user room，與 perm room 的同步無關）。
-- payload 只帶 id，前端收到後讓 notification 的 query 失效（前端的依賴圖在 N2 補上）。
+- payload 只帶 id，前端收到後讓通知列表與未讀數的 query 失效，稽核列表不動（[`../frontend/15-notification.md`](../frontend/15-notification.md) §6）。
 
 ---
 
@@ -221,7 +222,7 @@ await withTransaction(this.db, async (tx) => {
 2. 收件人在擁有者模組算：持有某個權限的人用 `PermissionService.findActiveUserIdsWithPermission()`（§5）；在交易之前算好。
 3. 在業務交易內（稽核之後）呼叫 `notifications.notify(notification(KIND, { … }), tx)`；擁有者的 module import `NotificationModule`。
 4. 連結用既有的 route id（§4.1）；新的 route id 加進 §4.1 的表，前端的 feature 在 plugin 的同步階段註冊。
-5. 前端：兩個語系檔加上這個類型的句子（依 `type` 找 i18n key，字面量對照表，[`../../conventions/06-literal-strings.md`](../../conventions/06-literal-strings.md)）。
+5. 前端：`features/notification` 的 `constants.ts`／`adapter.ts` 加這個類型、兩個語系檔加句子（依 `type` 找 i18n key，字面量對照表，[`../frontend/15-notification.md`](../frontend/15-notification.md) §5）；新的 route id 由擁有頁面的 feature 登記。
 6. 測試：寫入點的整合測試（收件人、參數、rollback 不留下）。
 
 ---

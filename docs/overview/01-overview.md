@@ -34,6 +34,7 @@
 | 稽核日誌   | 所有寫入操作與授權決策的記錄、列表與篩選                                                      |
 | 系統設定（Phase 0 之後加入） | 每個租戶執行期可調的帳號政策、上傳上限、預設時區（[`architecture/backend/12-settings.md`](../architecture/backend/12-settings.md)） |
 | 回收桶與版本歷史（Phase 0 之後加入） | 編輯的樂觀鎖（`version` 必填）；使用者、角色、檔案與資料夾刪除後進回收桶、保留期限內可還原、到期永久刪除；角色的版本紀錄與還原到某一版（[`architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)、[`architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md)） |
+| 站內通知（Phase 0 之後加入） | 每位收件人一筆、在業務交易內寫入；審批待審／結果、角色被指派或移除；頂列鈴鐺與未讀數、列表頁、全部已讀、保留清理（[`architecture/backend/15-notification.md`](../architecture/backend/15-notification.md)、[`architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md)） |
 | 前端骨架   | App Shell、側邊選單（依權限過濾）、路由守衛、錯誤頁、i18n、主題                               |
 
 ### 2.2 Out of scope（Phase 0 明確不做）
@@ -44,7 +45,7 @@
 - LDAP、SAML 整合（OIDC 的 SSO 已在 Phase 0 之後加入，見 [`architecture/04-sso.md`](../architecture/04-sso.md)）
 - MFA（雙因素驗證）— 資料表預留欄位，流程不實作
 - 批次匯入／匯出
-- 通知中心、Webhook
+- Webhook（站內通知已在 Phase 0 之後加入，見上表）
 
 ---
 

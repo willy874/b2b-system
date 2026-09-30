@@ -311,7 +311,7 @@ mutation 成功
      id: 'self'    → 同一筆
      id: 'ref'     → change.refs[本資源]；沒給就退回整個前綴
      id: 'none'    → 只有 collection
-③ derivesFromAnyChange（稽核列表）
+③ derivesFromAnyChange（稽核列表；`{ except: [...] }` 排除的來源不算）
 ④ scopedCollection：自己的變更帶了 refs[範圍]，collection 只失效 [KEY, 範圍] 與 [KEY, 不分範圍]
   │
   ▼
@@ -333,10 +333,11 @@ mutation 成功
 | `user`：`USER_LIST` ／ `USER_DETAIL`、`USER_ROLES`                              | `userRole`（同一人）、`role` 更新／刪除（持有者，未知 → 全部）                        |
 | `role`：`ROLE_LIST`、`ROLE_OPTIONS` ／ `ROLE_DETAIL`、`ROLE_PERMISSIONS`、`ROLE_USERS` | `rolePermission`（同一角色）、`userRole`（新舊角色）、`user`（該使用者持有的角色） |
 | `profile`：`AUTH_PROFILE`                                                      | `user` 更新（自己）、`userRole`（自己）、`role` 更新／刪除與 `rolePermission`（自己持有的角色） |
-| `auditLog`：`AUDIT_LOG_LIST` ／ `AUDIT_LOG_DETAIL`                              | **任何寫入**（只影響列表；既有紀錄不可變）                                            |
+| `auditLog`：`AUDIT_LOG_LIST` ／ `AUDIT_LOG_DETAIL`                              | **任何寫入**（只影響列表；既有紀錄不可變），`notification` 除外（不寫稽核）          |
 | `approval`：`APPROVAL_LIST` ／ `APPROVAL_DETAIL`                                | 無（只有自己的寫入）                                                                  |
 | `file`：`FILE_LIST`、`FILE_INFINITE_LIST` ／ `FILE_DETAIL`                      | `fileFolder` 更新／刪除（全部列表）；檔案內容 `FILE_TEXT` 刻意不列——以 id 為 key、不可變。列表的 key 第二個元素是資料夾（`scopedCollection`）：推播帶 `refs.fileFolder` 時只重抓那個資料夾與不分資料夾的列表 |
 | `permission`：`PERMISSION_LIST`                                                | 無（一個部署版本內不變）                                                              |
+| `notification`：`NOTIFICATION_LIST`、`NOTIFICATION_UNREAD_COUNT`                | 無（只有自己的已讀與伺服器推來的新通知；[`15-notification.md`](./15-notification.md) §6） |
 
 `userRole`、`rolePermission`、`userCredential` 是 **關係／純來源**：沒有自己的 query，只用來描述寫入。
 
@@ -354,6 +355,7 @@ mutation 成功
 | 核准審批                 | `approval` update（id）；`user.register` 另宣告 `user` create（新帳號 id），`refs.role` = 指派的角色 |
 | 駁回審批                 | `approval` update（id）                                                  |
 | 修改自己的 profile / 偏好 | `user` update（自己的 id），`refs.role` = 自己的角色（`selfUpdated()`）   |
+| 通知標為已讀 / 全部已讀  | `notification` update（通知 id / 不帶）                                   |
 
 「自己」的判斷讀 profile 快取；沒有快取時一律視為是（profile 只有一個 query，寧可多抓一次）。
 

@@ -91,7 +91,8 @@ docs/
 │   │   ├── 11-realtime.md             Socket.io、leader 分頁持有連線、推播 → 快取失效
 │   │   ├── 12-file-manager.md         檔案管理器：排版、選取、上傳佇列、預覽擴充點
 │   │   ├── 13-trash.md                回收桶頁：類型註冊表、權限、使用者、角色、檔案與資料夾的還原
-│   │   └── 14-revisions.md            版本紀錄：版本列表、與目前或前一版的差異、還原到某一版（角色）
+│   │   ├── 14-revisions.md            版本紀錄：版本列表、與目前或前一版的差異、還原到某一版（角色）
+│   │   └── 15-notification.md         站內通知：頂列鈴鐺、列表頁、route id 註冊表（core/route-link）
 │   │
 │   └── backend/
 │       ├── README.md

@@ -257,6 +257,7 @@ export function tableColumnSettingsPlugin(): AppPluginFactory {
 
 內建工具依序是批次佇列（`batchQueue`，關掉只是不顯示按鈕，批次結果仍由 `BatchQueueNotifier` 彈出）、即時連線狀態（`realtimeStatus`，[11 §8.1](./11-realtime.md)）、語言（`language`）、主題（`theme`）。
 帳號選單是身分入口，固定顯示在最右側，不在註冊表裡。
+feature 登記的工具：站內通知的鈴鐺（`notification`，order 400，[`15-notification.md`](./15-notification.md) §2）。
 
 ---
 
@@ -339,7 +340,8 @@ export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 | 頁面權限 | `core/permission/registry.ts` | 各 feature 的 `permission.ts` | 權限 hooks（`usePageAccess`、`usePageAccessChecker` 訂閱）、選單、Layout |
 | 偏好分頁／列表 | `core/preference/registry.ts` | feature 或 `plugins/features/*` | 偏好頁（`usePreferenceSections`、`usePreferenceTables`） |
 | 回收桶類型 | `core/trash/registry.ts` | 擁有資源的 feature 的 `trash.ts` | 回收桶頁（`useTrashTypes`；[`13-trash.md`](./13-trash.md) §2） |
-| 頂列工具 | `core/toolbar/registry.ts` | `app/plugin.ts` 或 feature | `useHeaderTools` |
+| 頂列工具 | `core/toolbar/registry.ts` | `app/plugin.ts` 或 feature（例：`features/notification` 的鈴鐺） | `useHeaderTools` |
+| route id（後端存的連結） | `core/route-link/registry.ts` | 擁有頁面的 feature 的 `routeLinks.ts` | `useRouteLinkResolver`（[`15-notification.md`](./15-notification.md) §3） |
 | 批次操作 | `core/batch/operations.ts` | feature 的 `batch.ts` | 批次佇列（分頁向佇列宣告能執行的操作，§7） |
 | 檔案預覽／驗證／縮圖 | `core/file/registry.ts` | `features/file` 或 plugin | 檔案管理器（使用時讀取，不訂閱） |
 | 語系包 | `core/locales/i18n.ts`（`addResourceBundle`） | 各 plugin 的 `onInit` | route loader（`localeScopeLoader`） |

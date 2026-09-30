@@ -93,6 +93,7 @@ apps/backstage/src/
 │   ├── notify/              useToast()：把提示發到 eventBus
 │   ├── permission/          ★ 權限註冊表、hooks、常數
 │   ├── preference/          偏好設定註冊表（讓 feature 擴充偏好頁）
+│   ├── route-link/          route id → route 的註冊表：後端存的連結（例：通知）由擁有頁面的 feature 登記（docs/architecture/frontend/15-notification.md §3）
 │   ├── trash/               回收桶的類型註冊表（docs/architecture/frontend/13-trash.md）
 │   ├── router/              RootRoute、Router Provider
 │   └── store/               全域 store（permission / layout / timezone / locale）
@@ -108,6 +109,7 @@ apps/backstage/src/
 │   ├── file/                檔案管理器（docs/architecture/frontend/12-file-manager.md）
 │   ├── job/                 背景工作的管理頁（docs/architecture/backend/10-jobs.md §6）
 │   ├── trash/               回收桶頁；各類型由擁有資源的 feature 登記（docs/architecture/frontend/13-trash.md）
+│   ├── notification/        站內通知：頂列鈴鐺、列表頁（docs/architecture/frontend/15-notification.md）
 │   └── home/
 │
 ├── apis/                    與後端對話的唯一入口
@@ -119,6 +121,7 @@ apps/backstage/src/
 │   ├── approval/
 │   ├── file/
 │   ├── job/
+│   ├── notification/
 │   └── trash/
 │
 ├── components/              ★ Base UI 封裝層（設計系統元件）
