@@ -137,6 +137,28 @@ export const PERMISSION_RESOURCE_NAME_KEY = {
   approval: 'permission.resource.approval',
 } as const satisfies Record<(typeof PERMISSION_CATALOG)[number]['resource'], string>;
 
+type MockPermissionKey = (typeof PERMISSION_CATALOG)[number]['key'];
+
+/**
+ * 權限依賴樹（對應 apps/api/src/db/seeds/permissions.ts 的 PERMISSION_DEPENDENCIES，只取 mock 目錄裡有的鍵；
+ * docs/rbac/02-permission-catalog.md §9）。
+ */
+const PERMISSION_DEPENDENCIES: Partial<
+  Record<MockPermissionKey, { includes?: MockPermissionKey[]; requires?: MockPermissionKey[] }>
+> = {
+  'user:create': { includes: ['user:update'] },
+  'user:delete': { includes: ['user:update'] },
+  'user:update': { includes: ['user:resetPassword', 'user:read'] },
+  'user:resetPassword': { includes: ['user:read'] },
+  'user:assignRole': { includes: ['user:read'], requires: ['role:read'] },
+  'role:create': { includes: ['role:update'] },
+  'role:delete': { includes: ['role:update'] },
+  'role:update': { includes: ['role:read'] },
+  'role:grantPermission': { includes: ['role:read'], requires: ['permission:read'] },
+  'system:update': { includes: ['system:read'] },
+  'approval:review': { includes: ['approval:read'] },
+};
+
 /** 固定種子的資料工廠：測試與 dev mock 共用，確保可重現。 */
 export const PERMISSION_FIXTURES: Permission[] = PERMISSION_CATALOG.map(
   ({ resource, action, key, nameI18nKey, sortOrder }) => ({
@@ -147,8 +169,47 @@ export const PERMISSION_FIXTURES: Permission[] = PERMISSION_CATALOG.map(
     nameI18nKey,
     description: null,
     sortOrder,
+    includes: PERMISSION_DEPENDENCIES[key]?.includes ?? [],
+    requires: PERMISSION_DEPENDENCIES[key]?.requires ?? [],
   }),
 );
+
+/** 直接帶來的鍵（子能力 ∪ 依賴）。 */
+function directlyImplied(key: string): string[] {
+  const item = PERMISSION_FIXTURES.find((permission) => permission.key === key);
+  return [...(item?.includes ?? []), ...(item?.requires ?? [])];
+}
+
+/** 依賴樹的閉包：持有這些鍵就同時持有的所有鍵。 */
+export function permissionClosure(keys: Iterable<string>): Set<string> {
+  const result = new Set<string>();
+  const stack = [...keys];
+  while (stack.length > 0) {
+    const key = stack.pop() as string;
+    if (result.has(key)) continue;
+    result.add(key);
+    stack.push(...directlyImplied(key));
+  }
+  return result;
+}
+
+/** 角色實際持有的鍵（`GET /roles/:id/permissions` 的 `effective`）。 */
+export function effectivePermissions(explicit: readonly string[], isSuperAdmin = false) {
+  const closure = isSuperAdmin
+    ? new Set(PERMISSION_FIXTURES.map((item) => item.key))
+    : permissionClosure(explicit);
+  return PERMISSION_FIXTURES.filter((item) => closure.has(item.key)).map((item) => ({
+    key: item.key,
+    source:
+      !isSuperAdmin && explicit.includes(item.key) ? ('explicit' as const) : ('implied' as const),
+    impliedBy: isSuperAdmin
+      ? []
+      : explicit.filter(
+          (candidate) =>
+            candidate !== item.key && permissionClosure(directlyImplied(candidate)).has(item.key),
+        ),
+  }));
+}
 
 export const ROLE_FIXTURES: Role[] = [
   {

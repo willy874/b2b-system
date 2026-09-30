@@ -4,6 +4,7 @@ import { MOCK_API_BASE, mockState } from '../config';
 import {
   APPROVAL_FIXTURES,
   AUDIT_LOG_FIXTURES,
+  effectivePermissions,
   PERMISSION_FIXTURES,
   PERMISSION_RESOURCE_NAME_KEY,
   ROLE_FIXTURES,
@@ -72,6 +73,23 @@ const paginate = <T>(items: T[]) => ({
   pagination: { offset: 0, limit: 20, total: items.length },
 });
 
+/** mock 模式下每個角色明確授予的鍵（PATCH 會改它）；預設取目錄的前兩個。 */
+const rolePermissionState = new Map<string, string[]>();
+
+function roleExplicitKeys(id: string): string[] {
+  return rolePermissionState.get(id) ?? PERMISSION_FIXTURES.slice(0, 2).map((item) => item.key);
+}
+
+function rolePermissionsBody(id: string) {
+  const isSuperAdmin = ROLE_FIXTURES.find((role) => role.id === id)?.slug === 'super-admin';
+  const explicit = isSuperAdmin ? [] : roleExplicitKeys(id);
+  return {
+    permissions: PERMISSION_FIXTURES.filter((item) => explicit.includes(item.key)),
+    effective: effectivePermissions(explicit, isSuperAdmin),
+    isSuperAdmin,
+  };
+}
+
 export const rbacHandlers = [
   http.get(`${MOCK_API_BASE}/users`, () => HttpResponse.json({ data: paginate(USER_FIXTURES) })),
   http.get(`${MOCK_API_BASE}/users/:id`, ({ params }) => {
@@ -94,9 +112,21 @@ export const rbacHandlers = [
           { status: 404 },
         );
   }),
-  http.get(`${MOCK_API_BASE}/roles/:id/permissions`, () =>
-    HttpResponse.json({ data: { permissions: PERMISSION_FIXTURES.slice(0, 2) } }),
+  http.get(`${MOCK_API_BASE}/roles/:id/permissions`, ({ params }) =>
+    HttpResponse.json({ data: rolePermissionsBody(String(params.id)) }),
   ),
+  http.patch(`${MOCK_API_BASE}/roles/:id/permissions`, async ({ params, request }) => {
+    if (!mockState.permissions.includes('role:grantPermission')) {
+      return forbidden('role:grantPermission');
+    }
+    const id = String(params.id);
+    const body = (await request.json()) as { add: string[]; remove: string[] };
+    const next = new Set(roleExplicitKeys(id));
+    for (const key of body.remove) next.delete(key);
+    for (const key of body.add) next.add(key);
+    rolePermissionState.set(id, [...next]);
+    return HttpResponse.json({ data: rolePermissionsBody(id) });
+  }),
   http.get(`${MOCK_API_BASE}/roles/:id/users`, () => HttpResponse.json({ data: paginate([]) })),
 
   http.get(`${MOCK_API_BASE}/permissions`, () =>

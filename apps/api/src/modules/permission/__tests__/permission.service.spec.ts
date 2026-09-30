@@ -253,3 +253,28 @@ describe('PermissionService.assertNoSelfLockout（docs/architecture/backend/05-r
     expect(repo.userHasRole).not.toHaveBeenCalled();
   });
 });
+
+describe('PermissionService.describeRolePermissions（技能樹用，docs/rbac/02-permission-catalog.md §9）', () => {
+  const service = new PermissionService(
+    {} as PermissionRepository,
+    {} as PermissionCacheService,
+    {} as AuthzService,
+    SHADOW_OFF,
+  );
+
+  it('明確的鍵標 explicit；依賴樹帶出的標 implied 並列出來源，依目錄順序', () => {
+    const effective = service.describeRolePermissions(['file:delete', 'file:read'], false);
+    expect(effective).toEqual([
+      { key: 'file:read', source: 'explicit', impliedBy: ['file:delete'] },
+      { key: 'file:update', source: 'implied', impliedBy: ['file:delete'] },
+      { key: 'file:delete', source: 'explicit', impliedBy: [] },
+      { key: 'file:access', source: 'implied', impliedBy: ['file:delete', 'file:read'] },
+    ]);
+  });
+
+  it('super-admin：全集、都算隱含', () => {
+    const effective = service.describeRolePermissions([], true);
+    expect(effective).toHaveLength(29);
+    expect(effective.every((entry) => entry.source === 'implied')).toBe(true);
+  });
+});

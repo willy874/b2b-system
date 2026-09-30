@@ -24,6 +24,7 @@ import type {
   CreateUserRequest,
   CurrentTenant,
   DuplicateRoleRequest,
+  EffectivePermission,
   EnsureFileFolderPathsRequest,
   FeatureFlag,
   FeatureFlagGlobalState,
@@ -62,6 +63,7 @@ import type {
   PermissionCatalog,
   PermissionGroup,
   PermissionKey,
+  PermissionSource,
   PlatformAdmin,
   PlatformAdminList,
   PlatformAdminPasswordLink,
@@ -477,7 +479,20 @@ export const PermissionSchema = z.object({
   nameI18nKey: z.string(),
   description: z.string().nullable(),
   sortOrder: z.int().min(-9007199254740991).max(9007199254740991),
+  includes: z.array(PermissionKeySchema),
+  requires: z.array(PermissionKeySchema),
 }) satisfies z.ZodType<Permission>;
+
+export const PermissionSourceSchema = z.enum([
+  'explicit',
+  'implied',
+]) satisfies z.ZodType<PermissionSource>;
+
+export const EffectivePermissionSchema = z.object({
+  key: PermissionKeySchema,
+  source: PermissionSourceSchema,
+  impliedBy: z.array(PermissionKeySchema),
+}) satisfies z.ZodType<EffectivePermission>;
 
 export const PermissionGroupSchema = z.object({
   resource: z.string(),
@@ -1321,6 +1336,8 @@ export const RoleSchema = z.object({
 
 export const RolePermissionsSchema = z.object({
   permissions: z.array(PermissionSchema),
+  effective: z.array(EffectivePermissionSchema),
+  isSuperAdmin: z.boolean(),
 }) satisfies z.ZodType<RolePermissions>;
 
 export const RoleHolderSchema = z.object({

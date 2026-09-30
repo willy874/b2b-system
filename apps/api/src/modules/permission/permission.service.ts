@@ -7,7 +7,13 @@ import { PermissionCacheService } from '@/core/cache';
 import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 import type { PermissionRow } from '@/db/schema';
-import { permissionClosure } from '@/db/seeds/permissions';
+import {
+  ALL_PERMISSION_KEYS,
+  implyingPermissions,
+  PERMISSION_DEPENDENCIES,
+  permissionClosure,
+} from '@/db/seeds/permissions';
+import type { PermissionDependency } from '@/db/seeds/permissions';
 
 import { SUPER_ADMIN_SLUG } from './permission.constants';
 import { PermissionRepository } from './permission.repository';
@@ -15,9 +21,21 @@ import { PermissionRepository } from './permission.repository';
 /** 批次解析權限時一條查詢帶多少人（`IN` 清單的長度上限，也限制單次結果的大小）。 */
 const PERMISSION_BATCH_SIZE = 500;
 
+export interface PermissionCatalogItem extends PermissionRow {
+  includes: PermissionKey[];
+  requires: PermissionKey[];
+}
+
 export interface PermissionCatalog {
-  items: PermissionRow[];
+  items: PermissionCatalogItem[];
   groups: Array<{ resource: string; nameI18nKey: string; keys: string[] }>;
+}
+
+/** 角色實際持有的一個鍵（docs/rbac/02-permission-catalog.md §9）。 */
+export interface EffectivePermission {
+  key: PermissionKey;
+  source: 'explicit' | 'implied';
+  impliedBy: PermissionKey[];
 }
 
 @Injectable()
@@ -220,8 +238,41 @@ export class PermissionService {
     return found;
   }
 
+  /**
+   * 角色實際持有的鍵：明確授予的 ＋ 依賴樹帶出的，依目錄順序。super-admin 是全集（都算隱含、`impliedBy` 為空）。
+   * 角色權限編輯器（技能樹）以此顯示「已包含（由 …）」。
+   */
+  describeRolePermissions(
+    explicitKeys: readonly PermissionKey[],
+    isSuperAdmin: boolean,
+  ): EffectivePermission[] {
+    if (isSuperAdmin) {
+      return ALL_PERMISSION_KEYS.map((key) => ({ key, source: 'implied', impliedBy: [] }));
+    }
+    const explicit = new Set(explicitKeys);
+    const closure = permissionClosure(explicitKeys);
+    return ALL_PERMISSION_KEYS.filter((key) => closure.has(key)).map((key) => ({
+      key,
+      source: explicit.has(key) ? 'explicit' : 'implied',
+      impliedBy: implyingPermissions(key, explicitKeys),
+    }));
+  }
+
+  /** 目錄的列加上依賴樹的子能力與依賴（從程式碼供應，不存 DB）。 */
+  withDependencies(rows: readonly PermissionRow[]): PermissionCatalogItem[] {
+    return rows.map((row) => {
+      const entry: PermissionDependency | undefined =
+        PERMISSION_DEPENDENCIES[row.key as keyof typeof PERMISSION_DEPENDENCIES];
+      return {
+        ...row,
+        includes: [...(entry?.includes ?? [])],
+        requires: [...(entry?.requires ?? [])],
+      };
+    });
+  }
+
   async getCatalog(): Promise<PermissionCatalog> {
-    const items = await this.repo.listCatalog();
+    const items = this.withDependencies(await this.repo.listCatalog());
     const byResource = new Map<string, string[]>();
     for (const item of items) {
       const keys = byResource.get(item.resource) ?? [];

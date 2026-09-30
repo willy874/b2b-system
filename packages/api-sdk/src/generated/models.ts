@@ -252,6 +252,20 @@ export interface Permission {
   nameI18nKey: string;
   description: string | null;
   sortOrder: number;
+  includes: Array<PermissionKey>;
+  requires: Array<PermissionKey>;
+}
+
+export const PermissionSource = {
+  explicit: 'explicit',
+  implied: 'implied',
+} as const;
+export type PermissionSource = (typeof PermissionSource)[keyof typeof PermissionSource];
+
+export interface EffectivePermission {
+  key: PermissionKey;
+  source: PermissionSource;
+  impliedBy: Array<PermissionKey>;
 }
 
 export interface PermissionGroup {
@@ -837,6 +851,8 @@ export interface Role {
 
 export interface RolePermissions {
   permissions: Array<Permission>;
+  effective: Array<EffectivePermission>;
+  isSuperAdmin: boolean;
 }
 
 export interface RoleHolder {

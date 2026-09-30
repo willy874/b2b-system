@@ -1,7 +1,10 @@
 import { z } from 'zod';
 
 import { defineSchema } from '@/core/validation';
-import { PermissionSchema } from '@/modules/permission/dto/permission.dto';
+import {
+  EffectivePermissionSchema,
+  PermissionSchema,
+} from '@/modules/permission/dto/permission.dto';
 
 export const RoleSchema = defineSchema(
   'Role',
@@ -20,7 +23,14 @@ export const RoleSchema = defineSchema(
 
 export const RolePermissionsSchema = defineSchema(
   'RolePermissions',
-  z.object({ permissions: z.array(PermissionSchema) }),
+  z.object({
+    /** 明確授予的權限（`role_permissions`）。 */
+    permissions: z.array(PermissionSchema),
+    /** 實際持有的鍵：明確的 ＋ 權限依賴樹帶出的（docs/rbac/02-permission-catalog.md §9）。 */
+    effective: z.array(EffectivePermissionSchema),
+    /** super-admin 角色：隱含全集、不能改權限。 */
+    isSuperAdmin: z.boolean(),
+  }),
 );
 
 export const RoleHolderSchema = defineSchema(
