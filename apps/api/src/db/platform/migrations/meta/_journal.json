@@ -36,6 +36,13 @@
       "when": 1790701555020,
       "tag": "0004_platform_rbac_and_provisioning",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790725686937,
+      "tag": "0005_platform_accounts_and_idp_switch",
+      "breakpoints": true
     }
   ]
 }

@@ -74,6 +74,12 @@
       "remove": "移除這個網域",
       "addSuccess": "已新增網域",
       "removeSuccess": "已移除網域"
-    }
+    },
+    "externalIdp": {
+      "title": "外部 IdP",
+      "allow": "允許租戶設定外部 IdP 連線",
+      "description": "關掉後租戶不能新增或啟用連線，登入時也不會導向外部 IdP；已登記的連線保留，重新打開即恢復。"
+    },
+    "provisionWarning": "佈建已完成，但有後續步驟沒有成功（租戶可以使用；檔案儲存會在第一次上傳時再試）：{{reason}}"
   }
 }

@@ -1,5 +1,14 @@
 import { sql } from 'drizzle-orm';
-import { index, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 import { citext } from '../../schema/custom-types';
 
@@ -38,6 +47,11 @@ export const tenants = pgTable(
     /** 最近一次佈建失敗的原因（`failed` 時才有），給平台管理者看。 */
     provisionError: text('provision_error'),
     provisionedAt: timestamp('provisioned_at', { withTimezone: true }),
+    /**
+     * 是否允許租戶設定外部 IdP 連線（開放問題 2）：連線由租戶的管理者在 backstage 設定，平台只能開關。
+     * 關掉時租戶不能新增或啟用連線，登入時也不走既有的連線。
+     */
+    allowExternalIdp: boolean('allow_external_idp').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),

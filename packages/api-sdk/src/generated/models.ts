@@ -89,6 +89,7 @@ export interface IdentityProvider {
 export interface IdentityProviderList {
   items: Array<IdentityProvider>;
   callbackUrl: string;
+  allowed: boolean;
 }
 
 export interface CreateIdentityProviderRequest {
@@ -111,6 +112,49 @@ export interface UpdateIdentityProviderRequest {
   enabled?: boolean;
   unmatchedPolicy?: 'reject' | 'auto_create';
   domains?: Array<IdentityProviderDomain>;
+}
+
+export interface PlatformAdmin {
+  id: string;
+  email: string;
+  displayName: string;
+  role: 'super-admin' | 'operator' | 'auditor';
+  status: 'active' | 'inactive' | 'locked' | 'pending';
+  lastLoginAt: string | null;
+  createdAt: string;
+}
+
+export interface PlatformAdminList {
+  items: Array<PlatformAdmin>;
+}
+
+export interface CreatePlatformAdminRequest {
+  email: string;
+  displayName: string;
+  role: 'super-admin' | 'operator' | 'auditor';
+}
+
+export interface UpdatePlatformAdminRequest {
+  displayName?: string;
+  role?: 'super-admin' | 'operator' | 'auditor';
+  status?: 'active' | 'inactive';
+}
+
+export interface PlatformAdminPasswordLink {
+  purpose: 'activation' | 'passwordReset';
+}
+
+export interface PlatformAuditLog {
+  id: string;
+  occurredAt: string;
+  actorId: string | null;
+  actorEmail: string;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  result: 'success' | 'failure';
+  errorCode: string | null;
+  metadata: Record<string, unknown> | null;
 }
 
 export interface CreateUserRequest {
@@ -253,6 +297,12 @@ export const PlatformPermissionKey = {
   'tenant:create': 'tenant:create',
   'tenant:update': 'tenant:update',
   'tenant:delete': 'tenant:delete',
+  'platformAdmin:read': 'platformAdmin:read',
+  'platformAdmin:create': 'platformAdmin:create',
+  'platformAdmin:update': 'platformAdmin:update',
+  'platformAuditLog:read': 'platformAuditLog:read',
+  'platformJob:read': 'platformJob:read',
+  'platformJob:retry': 'platformJob:retry',
 } as const;
 export type PlatformPermissionKey =
   (typeof PlatformPermissionKey)[keyof typeof PlatformPermissionKey];
@@ -262,7 +312,7 @@ export interface PlatformProfile {
     id: string;
     email: string;
     displayName: string;
-    status: 'active' | 'inactive' | 'locked';
+    status: 'active' | 'inactive' | 'locked' | 'pending';
     lastLoginAt: string | null;
     role: 'super-admin' | 'operator' | 'auditor';
   };
@@ -630,6 +680,51 @@ export interface Job {
   output: Record<string, unknown> | null;
 }
 
+export interface PlatformJobQueue {
+  name: string;
+  cron: string | null;
+  readyCount: number;
+  deferredCount: number;
+  activeCount: number;
+  failedCount: number;
+  completedCount: number;
+  scope: 'tenant' | 'platform';
+}
+
+export interface PlatformJobQueueList {
+  items: Array<PlatformJobQueue>;
+}
+
+export interface PlatformJobSummary {
+  id: string;
+  name: string;
+  state: 'created' | 'retry' | 'active' | 'completed' | 'cancelled' | 'failed';
+  retryCount: number;
+  retryLimit: number;
+  createdOn: string;
+  startAfter: string;
+  startedOn: string | null;
+  completedOn: string | null;
+  tenantId: string | null;
+  tenantCode: string | null;
+}
+
+export interface PlatformJob {
+  id: string;
+  name: string;
+  state: 'created' | 'retry' | 'active' | 'completed' | 'cancelled' | 'failed';
+  retryCount: number;
+  retryLimit: number;
+  createdOn: string;
+  startAfter: string;
+  startedOn: string | null;
+  completedOn: string | null;
+  tenantId: string | null;
+  tenantCode: string | null;
+  data: Record<string, unknown> | null;
+  output: Record<string, unknown> | null;
+}
+
 export interface CreateRoleRequest {
   name: string;
   description?: string;
@@ -680,6 +775,7 @@ export interface PlatformTenant {
   status: 'provisioning' | 'active' | 'disabled' | 'failed';
   domains: Array<string>;
   storageBucket: string;
+  allowExternalIdp: boolean;
   adminEmail: string | null;
   provisionError: string | null;
   provisionedAt: string | null;
@@ -701,7 +797,8 @@ export interface CreateTenantRequest {
 }
 
 export interface UpdateTenantRequest {
-  name: string;
+  name?: string;
+  allowExternalIdp?: boolean;
 }
 
 export interface AddTenantDomainRequest {

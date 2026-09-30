@@ -12,6 +12,12 @@ export const PLATFORM_PERMISSION_SEED = [
   ['tenant', 'create', 'permission.tenant.create'],
   ['tenant', 'update', 'permission.tenant.update'],
   ['tenant', 'delete', 'permission.tenant.delete'],
+  ['platformAdmin', 'read', 'permission.platformAdmin.read'],
+  ['platformAdmin', 'create', 'permission.platformAdmin.create'],
+  ['platformAdmin', 'update', 'permission.platformAdmin.update'],
+  ['platformAuditLog', 'read', 'permission.platformAuditLog.read'],
+  ['platformJob', 'read', 'permission.platformJob.read'],
+  ['platformJob', 'retry', 'permission.platformJob.retry'],
 ] as const;
 
 type PlatformSeedRow = (typeof PLATFORM_PERMISSION_SEED)[number];
@@ -22,12 +28,23 @@ export const ALL_PLATFORM_PERMISSION_KEYS: readonly PlatformPermissionKey[] =
     ([resource, action]) => `${resource}:${action}` as PlatformPermissionKey,
   );
 
-/** 角色 → 權限。super-admin 是全集；operator 管租戶但不能刪除；auditor 唯讀。 */
+/**
+ * 角色 → 權限。super-admin 是全集；operator 管租戶（不能刪除）與背景工作、看得到管理者與稽核；auditor 唯讀。
+ * 只有 super-admin 能管理平台管理者：不必另外做反提權（operator 不能把自己升成 super-admin）。
+ */
 export const PLATFORM_ROLE_PERMISSIONS: Record<
   PlatformAdminRole,
   readonly PlatformPermissionKey[]
 > = {
   'super-admin': ALL_PLATFORM_PERMISSION_KEYS,
-  operator: ['tenant:read', 'tenant:create', 'tenant:update'],
-  auditor: ['tenant:read'],
+  operator: [
+    'tenant:read',
+    'tenant:create',
+    'tenant:update',
+    'platformAdmin:read',
+    'platformAuditLog:read',
+    'platformJob:read',
+    'platformJob:retry',
+  ],
+  auditor: ['tenant:read', 'platformAdmin:read', 'platformAuditLog:read', 'platformJob:read'],
 };

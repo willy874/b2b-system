@@ -112,6 +112,195 @@
         "tags": ["audit-logs"]
       }
     },
+    "/platform/admins": {
+      "get": {
+        "operationId": "PlatformAdminController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformAdminList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-admins"]
+      },
+      "post": {
+        "operationId": "PlatformAdminController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePlatformAdminRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformAdmin"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "新增平台管理者：建立成 pending，寄啟用信讓本人設定密碼",
+        "tags": ["platform-admins"]
+      }
+    },
+    "/platform/admins/{id}": {
+      "patch": {
+        "operationId": "PlatformAdminController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlatformAdminRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformAdmin"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "改名、換角色、停用／啟用（停用即撤銷 session；locked 改回 active 即解鎖）",
+        "tags": ["platform-admins"]
+      }
+    },
+    "/platform/admins/{id}/password-link": {
+      "post": {
+        "operationId": "PlatformAdminController_sendPasswordLink",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformAdminPasswordLink"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "寄設定密碼的連結：還沒啟用的寄啟用信，其他人寄重設密碼信",
+        "tags": ["platform-admins"]
+      }
+    },
+    "/platform/audit-logs": {
+      "get": {
+        "operationId": "PlatformAdminController_auditLogs",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/PlatformAuditLog"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "平台稽核（固定 occurred_at DESC；時間範圍預設且最多 90 天）",
+        "tags": ["platform-admins"]
+      }
+    },
     "/approvals": {
       "get": {
         "operationId": "ApprovalController_list",
@@ -915,6 +1104,65 @@
             "description": ""
           }
         },
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/setup/verify": {
+      "get": {
+        "operationId": "PlatformAuthController_verifySetup",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "檢查平台管理者的啟用 token（回傳 email 供畫面顯示）",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/setup": {
+      "post": {
+        "operationId": "PlatformAuthController_setup",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "平台管理者以啟用信設定密碼",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/reset-password": {
+      "post": {
+        "operationId": "PlatformAuthController_resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "平台管理者以重設密碼信設定新密碼（結束所有 session）",
         "tags": ["platform-auth"]
       }
     },
@@ -2789,6 +3037,150 @@
         "tags": ["jobs"]
       }
     },
+    "/platform/jobs/queues": {
+      "get": {
+        "operationId": "PlatformJobController_queues",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformJobQueueList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "每種工作的佇列狀態（所有租戶合計）",
+        "tags": ["platform-jobs"]
+      }
+    },
+    "/platform/jobs": {
+      "get": {
+        "operationId": "PlatformJobController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/PlatformJobSummary"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "背景工作列表（固定 createdOn DESC；tenant=代碼或 platform）",
+        "tags": ["platform-jobs"]
+      }
+    },
+    "/platform/jobs/{id}": {
+      "get": {
+        "operationId": "PlatformJobController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformJob"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-jobs"]
+      }
+    },
+    "/platform/jobs/{id}/retry": {
+      "post": {
+        "operationId": "PlatformJobController_retry",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformJob"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["platform-jobs"]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_live",
@@ -3547,9 +3939,12 @@
           "callbackUrl": {
             "type": "string",
             "format": "uri"
+          },
+          "allowed": {
+            "type": "boolean"
           }
         },
-        "required": ["items", "callbackUrl"],
+        "required": ["items", "callbackUrl", "allowed"],
         "additionalProperties": false
       },
       "CreateIdentityProviderRequest": {
@@ -3652,6 +4047,158 @@
             }
           }
         },
+        "additionalProperties": false
+      },
+      "PlatformAdmin": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["super-admin", "operator", "auditor"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "inactive", "locked", "pending"]
+          },
+          "lastLoginAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "email", "displayName", "role", "status", "lastLoginAt", "createdAt"],
+        "additionalProperties": false
+      },
+      "PlatformAdminList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformAdmin"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "CreatePlatformAdminRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "role": {
+            "type": "string",
+            "enum": ["super-admin", "operator", "auditor"]
+          }
+        },
+        "required": ["email", "displayName", "role"],
+        "additionalProperties": false
+      },
+      "UpdatePlatformAdminRequest": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "role": {
+            "type": "string",
+            "enum": ["super-admin", "operator", "auditor"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "inactive"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlatformAdminPasswordLink": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": ["activation", "passwordReset"]
+          }
+        },
+        "required": ["purpose"],
+        "additionalProperties": false
+      },
+      "PlatformAuditLog": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string"
+          },
+          "actorId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "actorEmail": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "resourceId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": ["success", "failure"]
+          },
+          "errorCode": {
+            "nullable": true,
+            "type": "string"
+          },
+          "metadata": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "id",
+          "occurredAt",
+          "actorId",
+          "actorEmail",
+          "action",
+          "resourceType",
+          "resourceId",
+          "result",
+          "errorCode",
+          "metadata"
+        ],
         "additionalProperties": false
       },
       "CreateUserRequest": {
@@ -4047,7 +4594,18 @@
       },
       "PlatformPermissionKey": {
         "type": "string",
-        "enum": ["tenant:read", "tenant:create", "tenant:update", "tenant:delete"]
+        "enum": [
+          "tenant:read",
+          "tenant:create",
+          "tenant:update",
+          "tenant:delete",
+          "platformAdmin:read",
+          "platformAdmin:create",
+          "platformAdmin:update",
+          "platformAuditLog:read",
+          "platformJob:read",
+          "platformJob:retry"
+        ]
       },
       "PlatformProfile": {
         "type": "object",
@@ -4068,7 +4626,7 @@
               },
               "status": {
                 "type": "string",
-                "enum": ["active", "inactive", "locked"]
+                "enum": ["active", "inactive", "locked", "pending"]
               },
               "lastLoginAt": {
                 "nullable": true,
@@ -5465,6 +6023,205 @@
         ],
         "additionalProperties": false
       },
+      "PlatformJobQueue": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "cron": {
+            "nullable": true,
+            "type": "string"
+          },
+          "readyCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "deferredCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "activeCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failedCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "completedCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["tenant", "platform"]
+          }
+        },
+        "required": [
+          "name",
+          "cron",
+          "readyCount",
+          "deferredCount",
+          "activeCount",
+          "failedCount",
+          "completedCount",
+          "scope"
+        ],
+        "additionalProperties": false
+      },
+      "PlatformJobQueueList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformJobQueue"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "PlatformJobSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["created", "retry", "active", "completed", "cancelled", "failed"]
+          },
+          "retryCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "retryLimit": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdOn": {
+            "type": "string"
+          },
+          "startAfter": {
+            "type": "string"
+          },
+          "startedOn": {
+            "nullable": true,
+            "type": "string"
+          },
+          "completedOn": {
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantCode": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "state",
+          "retryCount",
+          "retryLimit",
+          "createdOn",
+          "startAfter",
+          "startedOn",
+          "completedOn",
+          "tenantId",
+          "tenantCode"
+        ],
+        "additionalProperties": false
+      },
+      "PlatformJob": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["created", "retry", "active", "completed", "cancelled", "failed"]
+          },
+          "retryCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "retryLimit": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdOn": {
+            "type": "string"
+          },
+          "startAfter": {
+            "type": "string"
+          },
+          "startedOn": {
+            "nullable": true,
+            "type": "string"
+          },
+          "completedOn": {
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantCode": {
+            "nullable": true,
+            "type": "string"
+          },
+          "data": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "output": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "state",
+          "retryCount",
+          "retryLimit",
+          "createdOn",
+          "startAfter",
+          "startedOn",
+          "completedOn",
+          "tenantId",
+          "tenantCode",
+          "data",
+          "output"
+        ],
+        "additionalProperties": false
+      },
       "CreateRoleRequest": {
         "type": "object",
         "properties": {
@@ -5652,6 +6409,9 @@
           "storageBucket": {
             "type": "string"
           },
+          "allowExternalIdp": {
+            "type": "boolean"
+          },
           "adminEmail": {
             "nullable": true,
             "type": "string"
@@ -5678,6 +6438,7 @@
           "status",
           "domains",
           "storageBucket",
+          "allowExternalIdp",
           "adminEmail",
           "provisionError",
           "provisionedAt",
@@ -5745,9 +6506,11 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 100
+          },
+          "allowExternalIdp": {
+            "type": "boolean"
           }
         },
-        "required": ["name"],
         "additionalProperties": false
       },
       "AddTenantDomainRequest": {

@@ -16,11 +16,17 @@ import {
   OidcProviderService,
   OidcRedeemError,
 } from '@/modules/oidc-provider/oidc-provider.service';
+import { PlatformAccountService } from '@/modules/platform-admin/platform-account.service';
 import { PlatformAdminService } from '@/modules/platform-admin/platform-admin.service';
 import { PlatformAuditService } from '@/modules/platform-admin/platform-audit.service';
 
 import type { IssuedSession, RequestMeta } from './auth.service';
-import type { PlatformProfileDto, SsoCallbackDto } from './dto/auth.dto';
+import type {
+  PlatformProfileDto,
+  ResetPasswordDto,
+  SetupDto,
+  SsoCallbackDto,
+} from './dto/auth.dto';
 import { PlatformRefreshTokenRepository } from './platform-refresh-token.repository';
 import { rotateRefreshToken } from './refresh-rotation';
 import { sha256 } from './token-hash';
@@ -41,6 +47,7 @@ export class PlatformAuthService implements OnModuleInit {
     private readonly admins: PlatformAdminService,
     private readonly audit: PlatformAuditService,
     private readonly oidc: OidcProviderService,
+    private readonly accounts: PlatformAccountService,
   ) {}
 
   onModuleInit(): void {
@@ -190,6 +197,21 @@ export class PlatformAuthService implements OnModuleInit {
       { secret: this.config.get('JWT_SECRET', { infer: true }), expiresIn },
     );
     return { accessToken, tokenType: 'Bearer' as const, expiresIn };
+  }
+
+  async verifySetupToken(token: string): Promise<{ valid: boolean; email?: string }> {
+    this.assertPlatformHost();
+    return this.accounts.verifySetupToken(token);
+  }
+
+  async setup(dto: SetupDto): Promise<{ success: true }> {
+    this.assertPlatformHost();
+    return this.accounts.setup(dto.token, dto.password);
+  }
+
+  async resetPassword(dto: ResetPasswordDto): Promise<{ success: true }> {
+    this.assertPlatformHost();
+    return this.accounts.resetPassword(dto.token, dto.newPassword);
   }
 
   private assertPlatformHost(): void {

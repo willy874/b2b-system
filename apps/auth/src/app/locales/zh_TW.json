@@ -93,7 +93,8 @@
     "profile": "個人資料",
     "preference": "偏好設定",
     "logout": "登出",
-    "tenant": "租戶"
+    "tenant": "租戶",
+    "platformAdmin": "管理者"
   },
   "app": {
     "title": "B2B System",
@@ -115,6 +116,8 @@
     "TENANT_DOMAIN_TAKEN": "這個網域已屬於另一個租戶。",
     "TENANT_STATUS_CONFLICT": "租戶目前的狀態不能執行這個動作，請重新整理後再試。",
     "TENANT_LAST_DOMAIN": "租戶至少要保留一個網域。",
+    "PLATFORM_ADMIN_NOT_FOUND": "找不到這位平台管理者，可能已被刪除。",
+    "IDENTITY_PROVIDER_NOT_ALLOWED": "平台管理者已停用這個租戶的外部 IdP。",
     "AUTH_INVALID_CREDENTIALS": "帳號或密碼錯誤。",
     "AUTH_ACCOUNT_PENDING": "此帳號尚未啟用，請先完成啟用流程。",
     "AUTH_ACCOUNT_DISABLED": "此帳號已被停用。",
@@ -199,7 +202,10 @@
       "file": "檔案",
       "job": "背景工作",
       "identityProvider": "外部 IdP 連線",
-      "tenant": "租戶"
+      "tenant": "租戶",
+      "platformAdmin": "平台管理者",
+      "platformAuditLog": "平台稽核",
+      "platformJob": "背景工作（全平台）"
     },
     "user": {
       "create": "建立使用者",
@@ -253,6 +259,18 @@
       "create": "建立租戶",
       "update": "編輯租戶",
       "delete": "刪除租戶"
+    },
+    "platformAdmin": {
+      "read": "檢視平台管理者",
+      "create": "新增平台管理者",
+      "update": "管理平台管理者"
+    },
+    "platformAuditLog": {
+      "read": "檢視平台稽核"
+    },
+    "platformJob": {
+      "read": "檢視背景工作",
+      "retry": "重試背景工作"
     }
   },
   "theme": {

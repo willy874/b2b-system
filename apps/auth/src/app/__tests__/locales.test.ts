@@ -18,6 +18,8 @@ const ERROR_CODES = [
   'TENANT_DOMAIN_TAKEN',
   'TENANT_STATUS_CONFLICT',
   'TENANT_LAST_DOMAIN',
+  'PLATFORM_ADMIN_NOT_FOUND',
+  'IDENTITY_PROVIDER_NOT_ALLOWED',
   'AUTH_INVALID_CREDENTIALS',
   'AUTH_ACCOUNT_PENDING',
   'AUTH_ACCOUNT_DISABLED',
@@ -109,6 +111,12 @@ const PERMISSION_KEYS = [
   ['tenant', 'create'],
   ['tenant', 'update'],
   ['tenant', 'delete'],
+  ['platformAdmin', 'read'],
+  ['platformAdmin', 'create'],
+  ['platformAdmin', 'update'],
+  ['platformAuditLog', 'read'],
+  ['platformJob', 'read'],
+  ['platformJob', 'retry'],
 ] as const;
 
 const bundles = { zh_TW: zhTW, en_US: enUS } as Record<string, Record<string, unknown>>;

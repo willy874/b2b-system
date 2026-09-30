@@ -52,7 +52,10 @@ function setup(existingBuckets: string[] = []) {
 }
 
 const inTenant = <T>(bucket: string, fn: () => T) =>
-  runInTenantContext({ id: bucket, code: bucket, db: {} as Database, storageBucket: bucket }, fn);
+  runInTenantContext(
+    { id: bucket, code: bucket, db: {} as Database, storageBucket: bucket, allowExternalIdp: true },
+    fn,
+  );
 
 describe('S3ObjectStorage：每個租戶一個 bucket（docs/adr/0020-physical-tenant-isolation.md D16）', () => {
   it('每個操作都用目前租戶的 bucket', async () => {

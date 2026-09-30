@@ -484,6 +484,18 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/platform/auth/refresh`    | `@Public`                        |
 | POST   | `/platform/auth/logout`     | `@Authenticated`（平台管理者）   |
 | GET    | `/platform/auth/profile`    | `@Authenticated`（平台管理者）   |
+| GET    | `/platform/auth/setup/verify` | `@Public`（平台管理者的啟用 token；連結不帶 `?tenant=`） |
+| POST   | `/platform/auth/setup`      | `@Public`                        |
+| POST   | `/platform/auth/reset-password` | `@Public`                    |
+| GET    | `/platform/admins` | `@RequirePlatformPermissions('platformAdmin:read')` |
+| POST   | `/platform/admins` | `@RequirePlatformPermissions('platformAdmin:create')` |
+| PATCH  | `/platform/admins/:id` | `@RequirePlatformPermissions('platformAdmin:update')` |
+| POST   | `/platform/admins/:id/password-link` | `@RequirePlatformPermissions('platformAdmin:update')` |
+| GET    | `/platform/audit-logs` | `@RequirePlatformPermissions('platformAuditLog:read')` |
+| GET    | `/platform/jobs/queues` | `@RequirePlatformPermissions('platformJob:read')` |
+| GET    | `/platform/jobs` | `@RequirePlatformPermissions('platformJob:read')` |
+| GET    | `/platform/jobs/:id` | `@RequirePlatformPermissions('platformJob:read')` |
+| POST   | `/platform/jobs/:id/retry` | `@RequirePlatformPermissions('platformJob:retry')` |
 | GET    | `/platform/tenants` | `@RequirePlatformPermissions('tenant:read')`（ADR-0020 D12、D13；只在 apps/auth 的網域） |
 | GET    | `/platform/tenants/:id` | `@RequirePlatformPermissions('tenant:read')` |
 | POST   | `/platform/tenants` | `@RequirePlatformPermissions('tenant:create')` |

@@ -66,3 +66,46 @@ export const JobSchema = defineSchema(
 );
 
 export type JobDto = z.infer<typeof JobSchema>;
+
+/**
+ * 平台的背景工作監控（apps/auth，docs/adr/0020-physical-tenant-isolation.md 開放問題 3）：看得到所有租戶與平台自己的工作。
+ * `tenant`：租戶代碼只看那個租戶；`platform`（保留字，不會是租戶代碼）只看平台工作；不給就是全部。
+ */
+export const ListPlatformJobSchema = ListJobSchema.extend({
+  tenant: z.string().trim().toLowerCase().max(63).optional(),
+});
+
+export type ListPlatformJobDto = z.infer<typeof ListPlatformJobSchema>;
+
+/** 工作屬於哪個租戶：平台工作兩者都是 null；租戶已刪除時只有 id。 */
+const JobOwnerShape = z.object({
+  tenantId: z.string().nullable(),
+  tenantCode: z.string().nullable(),
+});
+
+export const PlatformJobQueueSchema = defineSchema(
+  'PlatformJobQueue',
+  JobQueueSchema.extend({ scope: z.enum(['tenant', 'platform']) }),
+);
+
+export const PlatformJobQueueListSchema = defineSchema(
+  'PlatformJobQueueList',
+  z.object({ items: z.array(PlatformJobQueueSchema) }),
+);
+
+export const PlatformJobSummarySchema = defineSchema(
+  'PlatformJobSummary',
+  JobSummaryShape.merge(JobOwnerShape),
+);
+
+export const PlatformJobSchema = defineSchema(
+  'PlatformJob',
+  JobSummaryShape.merge(JobOwnerShape).extend({
+    data: z.record(z.string(), z.unknown()).nullable(),
+    output: z.record(z.string(), z.unknown()).nullable(),
+  }),
+);
+
+export type PlatformJobQueueListDto = z.infer<typeof PlatformJobQueueListSchema>;
+export type PlatformJobSummaryDto = z.infer<typeof PlatformJobSummarySchema>;
+export type PlatformJobDto = z.infer<typeof PlatformJobSchema>;

@@ -3,7 +3,13 @@
 
 import { z } from 'zod';
 
-import type { PlatformProfile, Session, SsoCallbackRequest } from '../models';
+import type {
+  PlatformProfile,
+  ResetPasswordRequest,
+  Session,
+  SetupRequest,
+  SsoCallbackRequest,
+} from '../models';
 import { buildUrl, request } from '../runtime';
 import type {
   ApiResponse,
@@ -11,7 +17,13 @@ import type {
   OperationSchemas,
   RequestOptions,
 } from '../runtime';
-import { PlatformProfileSchema, SessionSchema, SsoCallbackRequestSchema } from '../schemas';
+import {
+  PlatformProfileSchema,
+  ResetPasswordRequestSchema,
+  SessionSchema,
+  SetupRequestSchema,
+  SsoCallbackRequestSchema,
+} from '../schemas';
 
 // POST /platform/auth/sso/callback
 
@@ -149,6 +161,144 @@ export function platformAuthControllerLogout(
   return request<PlatformAuthControllerLogoutResult>(
     platformAuthControllerLogoutOperation,
     {},
+    options,
+  );
+}
+
+// GET /platform/auth/setup/verify
+
+export interface PlatformAuthControllerVerifySetupResponses {
+  200: undefined;
+}
+
+export type PlatformAuthControllerVerifySetupResponse =
+  PlatformAuthControllerVerifySetupResponses[200];
+
+export type PlatformAuthControllerVerifySetupResult = ApiResponse<
+  200,
+  PlatformAuthControllerVerifySetupResponses[200]
+>;
+
+export const PlatformAuthControllerVerifySetupSchemas = {} satisfies OperationSchemas;
+
+export function getPlatformAuthControllerVerifySetupUrl(): string {
+  return buildUrl('/platform/auth/setup/verify');
+}
+
+const platformAuthControllerVerifySetupOperation: OperationDefinition = {
+  id: 'PlatformAuthController_verifySetup',
+  method: 'GET',
+  path: '/platform/auth/setup/verify',
+  responseTypes: { 200: 'none' },
+  schemas: PlatformAuthControllerVerifySetupSchemas,
+};
+
+/** 檢查平台管理者的啟用 token（回傳 email 供畫面顯示） */
+export function platformAuthControllerVerifySetup(
+  options?: RequestOptions,
+): Promise<PlatformAuthControllerVerifySetupResult> {
+  return request<PlatformAuthControllerVerifySetupResult>(
+    platformAuthControllerVerifySetupOperation,
+    {},
+    options,
+  );
+}
+
+// POST /platform/auth/setup
+
+export type PlatformAuthControllerSetupBody = SetupRequest;
+
+export interface PlatformAuthControllerSetupInput {
+  body: PlatformAuthControllerSetupBody;
+}
+
+export interface PlatformAuthControllerSetupResponses {
+  200: undefined;
+}
+
+export type PlatformAuthControllerSetupResponse = PlatformAuthControllerSetupResponses[200];
+
+export type PlatformAuthControllerSetupResult = ApiResponse<
+  200,
+  PlatformAuthControllerSetupResponses[200]
+>;
+
+export const PlatformAuthControllerSetupSchemas = {
+  body: SetupRequestSchema,
+} satisfies OperationSchemas;
+
+export function getPlatformAuthControllerSetupUrl(): string {
+  return buildUrl('/platform/auth/setup');
+}
+
+const platformAuthControllerSetupOperation: OperationDefinition = {
+  id: 'PlatformAuthController_setup',
+  method: 'POST',
+  path: '/platform/auth/setup',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'none' },
+  schemas: PlatformAuthControllerSetupSchemas,
+};
+
+/** 平台管理者以啟用信設定密碼 */
+export function platformAuthControllerSetup(
+  input: PlatformAuthControllerSetupInput,
+  options?: RequestOptions,
+): Promise<PlatformAuthControllerSetupResult> {
+  return request<PlatformAuthControllerSetupResult>(
+    platformAuthControllerSetupOperation,
+    input,
+    options,
+  );
+}
+
+// POST /platform/auth/reset-password
+
+export type PlatformAuthControllerResetPasswordBody = ResetPasswordRequest;
+
+export interface PlatformAuthControllerResetPasswordInput {
+  body: PlatformAuthControllerResetPasswordBody;
+}
+
+export interface PlatformAuthControllerResetPasswordResponses {
+  200: undefined;
+}
+
+export type PlatformAuthControllerResetPasswordResponse =
+  PlatformAuthControllerResetPasswordResponses[200];
+
+export type PlatformAuthControllerResetPasswordResult = ApiResponse<
+  200,
+  PlatformAuthControllerResetPasswordResponses[200]
+>;
+
+export const PlatformAuthControllerResetPasswordSchemas = {
+  body: ResetPasswordRequestSchema,
+} satisfies OperationSchemas;
+
+export function getPlatformAuthControllerResetPasswordUrl(): string {
+  return buildUrl('/platform/auth/reset-password');
+}
+
+const platformAuthControllerResetPasswordOperation: OperationDefinition = {
+  id: 'PlatformAuthController_resetPassword',
+  method: 'POST',
+  path: '/platform/auth/reset-password',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'none' },
+  schemas: PlatformAuthControllerResetPasswordSchemas,
+};
+
+/** 平台管理者以重設密碼信設定新密碼（結束所有 session） */
+export function platformAuthControllerResetPassword(
+  input: PlatformAuthControllerResetPasswordInput,
+  options?: RequestOptions,
+): Promise<PlatformAuthControllerResetPasswordResult> {
+  return request<PlatformAuthControllerResetPasswordResult>(
+    platformAuthControllerResetPasswordOperation,
+    input,
     options,
   );
 }

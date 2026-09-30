@@ -45,6 +45,8 @@ export class PlatformAdminService {
       });
     }
     if (admin.status === 'inactive') throw new AppException('AUTH_ACCOUNT_DISABLED');
+    // 由其他平台管理者建立、還沒從啟用信設定密碼
+    if (admin.status === 'pending') throw new AppException('AUTH_ACCOUNT_PENDING');
 
     const ok = admin.passwordHash ? await verifyPassword(admin.passwordHash, dto.password) : false;
     if (!ok) {

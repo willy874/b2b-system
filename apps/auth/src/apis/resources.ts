@@ -8,6 +8,10 @@
  * 這一版沒有推播：只有本分頁與其他分頁（BroadcastChannel）會失效。
  */
 import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
+import { PLATFORM_ADMIN_LIST_QUERY_KEY } from '@/apis/platform-admin/get-admin-list/query';
+import { PLATFORM_JOB_LIST_QUERY_KEY } from '@/apis/platform-job/get-job-list/query';
+import { PLATFORM_JOB_QUEUES_QUERY_KEY } from '@/apis/platform-job/get-job-queues/query';
+import { PLATFORM_JOB_DETAIL_QUERY_KEY } from '@/apis/platform-job/get-job/query';
 import { TENANT_LIST_QUERY_KEY } from '@/apis/platform-tenant/get-tenant-list/query';
 import { TENANT_DETAIL_QUERY_KEY } from '@/apis/platform-tenant/get-tenant/query';
 import { createResourceGraph, queryClient } from '@/core/cache';
@@ -18,6 +22,10 @@ export const Resource = {
   PROFILE: 'profile',
   /** 租戶登記（docs/adr/0020-physical-tenant-isolation.md D12、D13） */
   TENANT: 'tenant',
+  /** 平台管理者（D5） */
+  PLATFORM_ADMIN: 'platformAdmin',
+  /** 所有租戶與平台的背景工作（重試後佇列計數、列表、詳情都變） */
+  PLATFORM_JOB: 'platformJob',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -31,6 +39,13 @@ const graph = createResourceGraph<Resource>({
   [Resource.TENANT]: {
     collection: [TENANT_LIST_QUERY_KEY],
     entity: [TENANT_DETAIL_QUERY_KEY],
+  },
+  [Resource.PLATFORM_ADMIN]: {
+    collection: [PLATFORM_ADMIN_LIST_QUERY_KEY],
+  },
+  [Resource.PLATFORM_JOB]: {
+    collection: [PLATFORM_JOB_QUEUES_QUERY_KEY, PLATFORM_JOB_LIST_QUERY_KEY],
+    entity: [PLATFORM_JOB_DETAIL_QUERY_KEY],
   },
 });
 

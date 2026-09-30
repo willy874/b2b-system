@@ -24,6 +24,7 @@
     "db:seed:e2e": "pnpm --filter @b2b-system/api db:seed:e2e",
     "db:reset": "pnpm --filter @b2b-system/api db:reset",
     "db:archive-audit-logs": "pnpm --filter @b2b-system/api db:archive-audit-logs",
+    "db:drop-tenant": "pnpm --filter @b2b-system/api db:drop-tenant",
     "db:studio": "pnpm --filter @b2b-system/api db:studio",
     "sdk:generate": "pnpm --filter @b2b-system/api-sdk generate",
     "lint": "oxlint .",

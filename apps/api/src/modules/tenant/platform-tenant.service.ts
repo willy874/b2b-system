@@ -34,6 +34,7 @@ function toDto(tenant: TenantWithDomains): PlatformTenantDto {
     status: tenant.status,
     domains: tenant.domains,
     storageBucket: tenant.storageBucket,
+    allowExternalIdp: tenant.allowExternalIdp,
     adminEmail: tenant.adminEmail,
     provisionError: tenant.provisionError,
     provisionedAt: tenant.provisionedAt?.toISOString() ?? null,
@@ -126,13 +127,21 @@ export class PlatformTenantService {
 
   async update(id: string, dto: UpdateTenantDto): Promise<PlatformTenantDto> {
     const before = await this.getExisting(id);
-    await this.repo.update(id, { name: dto.name });
+    await this.repo.update(id, { name: dto.name, allowExternalIdp: dto.allowExternalIdp });
+    // 外部 IdP 的開關在租戶脈絡裡判斷：立即生效（多個執行個體時最多晚 TENANT_CACHE_TTL 秒）
     this.directory.invalidate();
     await this.audit.record({
       action: 'tenant.update',
       resourceType: 'tenant',
       resourceId: id,
-      metadata: { code: before.code, before: { name: before.name }, after: { name: dto.name } },
+      metadata: {
+        code: before.code,
+        before: { name: before.name, allowExternalIdp: before.allowExternalIdp },
+        after: {
+          name: dto.name ?? before.name,
+          allowExternalIdp: dto.allowExternalIdp ?? before.allowExternalIdp,
+        },
+      },
     });
     return this.get(id);
   }

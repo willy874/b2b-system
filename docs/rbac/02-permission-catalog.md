@@ -302,25 +302,35 @@ Seed 行為：
   `apps/api/src/db/seeds/platform-permissions.ts`。平台的權限範圍很小，每個管理者一個角色就夠，不提供自訂角色。
 - 前端從 `GET /platform/auth/profile` 的 `permissions` 取得目前管理者的權限。
 
-### 8.1 權限清單（共 4 項）
+### 8.1 權限清單（共 10 項）
 
-| 權限鍵          | 顯示名稱（zh-TW） | 說明 |
-| --------------- | ----------------- | ---- |
-| `tenant:read`   | 檢視租戶          | 租戶清單、狀態、網域、佈建失敗的原因（不含連線字串） |
-| `tenant:create` | 建立租戶          | 建立並佈建新租戶（database、migration、第一位管理員與啟用信）、重試失敗的佈建 |
-| `tenant:update` | 編輯租戶          | 改名稱、新增／移除網域、停用與啟用（停用會撤銷該租戶的所有 session） |
-| `tenant:delete` | 刪除租戶          | 標記刪除並釋出網域；database 與 bucket 由另一個需要確認的手動步驟清除（D13） |
-
-平台管理者的管理（`platformAdmin:*`）、平台稽核（`platformAuditLog:read`）與背景工作監控（`job:*`）
-隨交付順序 4c 加入（[`../features/tenant-isolation.md`](../features/tenant-isolation.md)）。
+| 權限鍵                  | 顯示名稱（zh-TW） | 說明 |
+| ----------------------- | ----------------- | ---- |
+| `tenant:read`           | 檢視租戶          | 租戶清單、狀態、網域、佈建失敗的原因（不含連線字串） |
+| `tenant:create`         | 建立租戶          | 建立並佈建新租戶（database、migration、第一位管理員與啟用信）、重試失敗的佈建 |
+| `tenant:update`         | 編輯租戶          | 改名稱、新增／移除網域、停用與啟用（停用會撤銷該租戶的所有 session）、是否允許外部 IdP |
+| `tenant:delete`         | 刪除租戶          | 標記刪除並釋出網域；database 與 bucket 由 `pnpm db:drop-tenant` 手動清除（D13） |
+| `platformAdmin:read`    | 檢視平台管理者    | 管理者清單、角色與狀態 |
+| `platformAdmin:create`  | 新增平台管理者    | 建立成 `pending`，寄啟用信讓本人設定密碼（不接受密碼） |
+| `platformAdmin:update`  | 管理平台管理者    | 改名、換角色、停用／啟用（停用即撤銷 session，`locked` 改回 `active` 即解鎖）、寄設定密碼的連結；不能改自己的角色與狀態 |
+| `platformAuditLog:read` | 檢視平台稽核      | `platform_audit_logs`：平台管理者做過的事（D19）；看不到租戶的稽核 |
+| `platformJob:read`      | 檢視背景工作      | 所有租戶與平台自己的工作（開放問題 3）；租戶的後台只看得到自己的 |
+| `platformJob:retry`     | 重試背景工作      | 把重試用完、停在失敗的工作重新排入；寫平台稽核 `platformJob.retry` |
 
 ### 8.2 角色 × 權限
 
-| 權限            | `super-admin` | `operator` | `auditor` |
-| --------------- | :-----------: | :--------: | :-------: |
-| `tenant:read`   | ✅ | ✅ | ✅ |
-| `tenant:create` | ✅ | ✅ |    |
-| `tenant:update` | ✅ | ✅ |    |
-| `tenant:delete` | ✅ |    |    |
+| 權限                    | `super-admin` | `operator` | `auditor` |
+| ----------------------- | :-----------: | :--------: | :-------: |
+| `tenant:read`           | ✅ | ✅ | ✅ |
+| `tenant:create`         | ✅ | ✅ |    |
+| `tenant:update`         | ✅ | ✅ |    |
+| `tenant:delete`         | ✅ |    |    |
+| `platformAdmin:read`    | ✅ | ✅ | ✅ |
+| `platformAdmin:create`  | ✅ |    |    |
+| `platformAdmin:update`  | ✅ |    |    |
+| `platformAuditLog:read` | ✅ | ✅ | ✅ |
+| `platformJob:read`      | ✅ | ✅ | ✅ |
+| `platformJob:retry`     | ✅ | ✅ |    |
 
+只有 `super-admin` 能管理平台管理者，所以不需要反提權規則（`operator` 不能把自己升成 `super-admin`）。
 `db:seed` 依 `PLATFORM_ADMIN_EMAIL` 建立的第一位平台管理者是 `super-admin`；之後新增的管理者預設是 `auditor`。

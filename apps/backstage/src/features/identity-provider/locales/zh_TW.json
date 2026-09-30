@@ -61,6 +61,7 @@
       "scopesInvalid": "必須包含 openid",
       "domainInvalid": "網域格式不正確",
       "domainDuplicate": "網域重複"
-    }
+    },
+    "notAllowed": "平台管理者已停用這個租戶的外部 IdP：不能新增或啟用連線，登入時也不會導向外部 IdP。"
   }
 }

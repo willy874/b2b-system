@@ -209,12 +209,15 @@ GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie�
 
 | Feature | 路由 | 說明 |
 | --- | --- | --- |
-| `login` | `/interaction/:uid`、`/error`、`/login`、`/callback`、`/forgot-password`、`/reset-password`、`/setup`、`/register` | IdP 的互動頁（租戶或平台，§1.1）；provider 的協定錯誤頁；apps/auth 自己的頁面經 SSO 登入（client `auth`，平台管理者）；帳號流程 |
+| `login` | `/interaction/:uid`、`/error`、`/login`、`/callback`、`/forgot-password`、`/reset-password`、`/setup`、`/register`、`/enter` | IdP 的互動頁（租戶或平台，§1.1）；provider 的協定錯誤頁；apps/auth 自己的頁面經 SSO 登入（client `auth`，平台管理者）；帳號流程；進入租戶（ADR-0020 D11） |
 | `home` | `/` | 目前登入的平台管理者 |
+| `tenant`、`platform-admin`、`audit-log`、`job` | `/tenant`、`/admin`、`/audit-log`、`/job` | 平台管理：租戶、平台管理者、平台稽核、所有租戶的背景工作（權限是平台的目錄，[`../rbac/02-permission-catalog.md`](../rbac/02-permission-catalog.md) §8） |
 
 帳號流程的信中連結以 `AUTH_APP_URL` 開頭並帶 `?tenant=<代碼>`（`MailService.accountLink`，[`backend/11-mail.md`](./backend/11-mail.md)）。
-頁面以 `X-Tenant` 標頭把租戶送給 api（這個標頭只在 apps/auth 的網域有效，租戶網域上以網域為準）；沒有 `?tenant=` 時顯示
-「請從租戶的登入頁或信中的連結進入」。完成後以 `GET /tenants/lookup` 回到那個租戶的 backstage 登入。
+頁面以 `X-Tenant` 標頭把租戶送給 api（這個標頭只在 apps/auth 的網域有效，租戶網域上以網域為準），完成後以 `GET /tenants/lookup`
+回到那個租戶的 backstage 登入。**平台管理者** 的啟用與重設密碼連結不帶 `?tenant=`：`/setup`、`/reset-password` 沒有租戶時改打
+`/platform/auth/setup`、`/platform/auth/reset-password`，完成後留在 apps/auth 登入。平台管理者沒有「忘記密碼」與「申請帳號」
+（由其他平台管理者新增與寄重設連結），所以 `/forgot-password`、`/register` 沒有 `?tenant=` 時仍顯示「請從租戶的登入頁或信中的連結進入」。
 backstage 已經沒有這些頁面：SSO 之前寄出、指向 backstage `/auth/setup` 等的舊連結會是找不到頁面，要請管理員重寄。
 apps/auth 這一版沒有推播：寫入後的快取失效只在本分頁與其他分頁（BroadcastChannel）。
 

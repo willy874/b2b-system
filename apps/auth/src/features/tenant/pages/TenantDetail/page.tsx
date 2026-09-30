@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { getTenantQueryOptions } from '@/apis/platform-tenant/get-tenant/query';
 import { AlertDialog } from '@/components/AlertDialog';
 import { Button, IconButton } from '@/components/Button';
+import { Checkbox } from '@/components/Checkbox';
 import { Dialog } from '@/components/Dialog';
 import { Field } from '@/components/Field';
 import { Icon } from '@/components/Icon';
@@ -124,12 +125,21 @@ export default function TenantDetailPage() {
           {t('tenant.provisioningHint')}
         </p>
       )}
-      {tenant.provisionError && (
+      {tenant.provisionError && tenant.status === 'failed' && (
         <p
           className="m-0 rounded-[var(--radius-md)] border border-[var(--color-danger)] p-3 text-sm text-[var(--color-danger-text)]"
           data-testid="tenant-provision-error"
         >
           {t('tenant.provisionError', { reason: tenant.provisionError })}
+        </p>
+      )}
+      {/* 佈建完成，但後續步驟（啟用信、bucket）失敗：租戶可以用，只是要留意 */}
+      {tenant.provisionError && tenant.status !== 'failed' && (
+        <p
+          className="m-0 rounded-[var(--radius-md)] border border-[var(--color-warning)] p-3 text-sm"
+          data-testid="tenant-provision-warning"
+        >
+          {t('tenant.provisionWarning', { reason: tenant.provisionError })}
         </p>
       )}
 
@@ -153,6 +163,7 @@ export default function TenantDetailPage() {
       </section>
 
       <TenantDomains tenant={tenant} canUpdate={permission.canUpdate} />
+      <ExternalIdpSwitch tenant={tenant} canUpdate={permission.canUpdate} />
 
       <RenameDialog open={renaming} tenant={tenant} onClose={() => setRenaming(false)} />
       <AlertDialog
@@ -274,6 +285,33 @@ function TenantDomains({ tenant, canUpdate }: { tenant: PlatformTenant; canUpdat
           </Button>
         </form>
       )}
+    </section>
+  );
+}
+
+/**
+ * 是否允許租戶設定外部 IdP 連線（docs/adr/0020-physical-tenant-isolation.md 開放問題 2）：
+ * 連線本身由租戶的管理者在自己的 backstage 設定，平台只能開關。
+ */
+function ExternalIdpSwitch({ tenant, canUpdate }: { tenant: PlatformTenant; canUpdate: boolean }) {
+  const { t } = useTranslation();
+  const showError = useErrorToast();
+  const update = useUpdateTenantMutation();
+  return (
+    <section className="flex flex-col gap-2 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+      <h2 className="m-0 text-base font-medium">{t('tenant.externalIdp.title')}</h2>
+      <Checkbox
+        checked={tenant.allowExternalIdp}
+        disabled={!canUpdate || update.isPending}
+        onCheckedChange={(checked) =>
+          void update
+            .mutateAsync({ params: { id: tenant.id, body: { allowExternalIdp: checked } } })
+            .catch(showError)
+        }
+        label={t('tenant.externalIdp.allow')}
+        description={t('tenant.externalIdp.description')}
+        data-testid="tenant-allow-external-idp"
+      />
     </section>
   );
 }

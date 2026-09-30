@@ -18,6 +18,7 @@ import type {
   CreateFileUploadPartsRequest,
   CreateFileUploadRequest,
   CreateIdentityProviderRequest,
+  CreatePlatformAdminRequest,
   CreateRoleRequest,
   CreateTenantRequest,
   CreateUserRequest,
@@ -58,6 +59,14 @@ import type {
   PermissionCatalog,
   PermissionGroup,
   PermissionKey,
+  PlatformAdmin,
+  PlatformAdminList,
+  PlatformAdminPasswordLink,
+  PlatformAuditLog,
+  PlatformJob,
+  PlatformJobQueue,
+  PlatformJobQueueList,
+  PlatformJobSummary,
   PlatformPermissionKey,
   PlatformProfile,
   PlatformTenant,
@@ -90,6 +99,7 @@ import type {
   UpdateFileFolderRequest,
   UpdateFileRequest,
   UpdateIdentityProviderRequest,
+  UpdatePlatformAdminRequest,
   UpdateProfileRequest,
   UpdateRolePermissionsRequest,
   UpdateRoleRequest,
@@ -226,6 +236,7 @@ export const IdentityProviderSchema = z.object({
 export const IdentityProviderListSchema = z.object({
   items: z.array(IdentityProviderSchema),
   callbackUrl: z.url(),
+  allowed: z.boolean(),
 }) satisfies z.ZodType<IdentityProviderList>;
 
 export const CreateIdentityProviderRequestSchema = z.object({
@@ -249,6 +260,62 @@ export const UpdateIdentityProviderRequestSchema = z.object({
   unmatchedPolicy: z.enum(['reject', 'auto_create']).optional(),
   domains: z.array(IdentityProviderDomainSchema).max(50).optional(),
 }) satisfies z.ZodType<UpdateIdentityProviderRequest>;
+
+export const PlatformAdminSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  email: z.string(),
+  displayName: z.string(),
+  role: z.enum(['super-admin', 'operator', 'auditor']),
+  status: z.enum(['active', 'inactive', 'locked', 'pending']),
+  lastLoginAt: z.string().nullable(),
+  createdAt: z.string(),
+}) satisfies z.ZodType<PlatformAdmin>;
+
+export const PlatformAdminListSchema = z.object({
+  items: z.array(PlatformAdminSchema),
+}) satisfies z.ZodType<PlatformAdminList>;
+
+export const CreatePlatformAdminRequestSchema = z.object({
+  email: z
+    .email()
+    .max(254)
+    .regex(
+      new RegExp(
+        "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+      ),
+    ),
+  displayName: z.string().min(1).max(100),
+  role: z.enum(['super-admin', 'operator', 'auditor']),
+}) satisfies z.ZodType<CreatePlatformAdminRequest>;
+
+export const UpdatePlatformAdminRequestSchema = z.object({
+  displayName: z.string().min(1).max(100).optional(),
+  role: z.enum(['super-admin', 'operator', 'auditor']).optional(),
+  status: z.enum(['active', 'inactive']).optional(),
+}) satisfies z.ZodType<UpdatePlatformAdminRequest>;
+
+export const PlatformAdminPasswordLinkSchema = z.object({
+  purpose: z.enum(['activation', 'passwordReset']),
+}) satisfies z.ZodType<PlatformAdminPasswordLink>;
+
+export const PlatformAuditLogSchema = z.object({
+  id: z.string(),
+  occurredAt: z.string(),
+  actorId: z.string().nullable(),
+  actorEmail: z.string(),
+  action: z.string(),
+  resourceType: z.string(),
+  resourceId: z.string().nullable(),
+  result: z.enum(['success', 'failure']),
+  errorCode: z.string().nullable(),
+  metadata: z.record(z.string(), z.unknown()).nullable(),
+}) satisfies z.ZodType<PlatformAuditLog>;
 
 export const CreateUserRequestSchema = z.object({
   email: z
@@ -447,6 +514,12 @@ export const PlatformPermissionKeySchema = z.enum([
   'tenant:create',
   'tenant:update',
   'tenant:delete',
+  'platformAdmin:read',
+  'platformAdmin:create',
+  'platformAdmin:update',
+  'platformAuditLog:read',
+  'platformJob:read',
+  'platformJob:retry',
 ]) satisfies z.ZodType<PlatformPermissionKey>;
 
 export const PlatformProfileSchema = z.object({
@@ -460,7 +533,7 @@ export const PlatformProfileSchema = z.object({
       ),
     email: z.string(),
     displayName: z.string(),
-    status: z.enum(['active', 'inactive', 'locked']),
+    status: z.enum(['active', 'inactive', 'locked', 'pending']),
     lastLoginAt: z.string().nullable(),
     role: z.enum(['super-admin', 'operator', 'auditor']),
   }),
@@ -1034,6 +1107,51 @@ export const JobSchema = z.object({
   output: z.record(z.string(), z.unknown()).nullable(),
 }) satisfies z.ZodType<Job>;
 
+export const PlatformJobQueueSchema = z.object({
+  name: z.string(),
+  cron: z.string().nullable(),
+  readyCount: z.int().min(-9007199254740991).max(9007199254740991),
+  deferredCount: z.int().min(-9007199254740991).max(9007199254740991),
+  activeCount: z.int().min(-9007199254740991).max(9007199254740991),
+  failedCount: z.int().min(-9007199254740991).max(9007199254740991),
+  completedCount: z.int().min(-9007199254740991).max(9007199254740991),
+  scope: z.enum(['tenant', 'platform']),
+}) satisfies z.ZodType<PlatformJobQueue>;
+
+export const PlatformJobQueueListSchema = z.object({
+  items: z.array(PlatformJobQueueSchema),
+}) satisfies z.ZodType<PlatformJobQueueList>;
+
+export const PlatformJobSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  state: z.enum(['created', 'retry', 'active', 'completed', 'cancelled', 'failed']),
+  retryCount: z.int().min(-9007199254740991).max(9007199254740991),
+  retryLimit: z.int().min(-9007199254740991).max(9007199254740991),
+  createdOn: z.string(),
+  startAfter: z.string(),
+  startedOn: z.string().nullable(),
+  completedOn: z.string().nullable(),
+  tenantId: z.string().nullable(),
+  tenantCode: z.string().nullable(),
+}) satisfies z.ZodType<PlatformJobSummary>;
+
+export const PlatformJobSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  state: z.enum(['created', 'retry', 'active', 'completed', 'cancelled', 'failed']),
+  retryCount: z.int().min(-9007199254740991).max(9007199254740991),
+  retryLimit: z.int().min(-9007199254740991).max(9007199254740991),
+  createdOn: z.string(),
+  startAfter: z.string(),
+  startedOn: z.string().nullable(),
+  completedOn: z.string().nullable(),
+  tenantId: z.string().nullable(),
+  tenantCode: z.string().nullable(),
+  data: z.record(z.string(), z.unknown()).nullable(),
+  output: z.record(z.string(), z.unknown()).nullable(),
+}) satisfies z.ZodType<PlatformJob>;
+
 export const CreateRoleRequestSchema = z.object({
   name: z.string().min(1).max(64),
   description: z.string().max(500).optional(),
@@ -1102,6 +1220,7 @@ export const PlatformTenantSchema = z.object({
   status: z.enum(['provisioning', 'active', 'disabled', 'failed']),
   domains: z.array(z.string()),
   storageBucket: z.string(),
+  allowExternalIdp: z.boolean(),
   adminEmail: z.string().nullable(),
   provisionError: z.string().nullable(),
   provisionedAt: z.string().nullable(),
@@ -1141,7 +1260,8 @@ export const CreateTenantRequestSchema = z.object({
 }) satisfies z.ZodType<CreateTenantRequest>;
 
 export const UpdateTenantRequestSchema = z.object({
-  name: z.string().min(1).max(100),
+  name: z.string().min(1).max(100).optional(),
+  allowExternalIdp: z.boolean().optional(),
 }) satisfies z.ZodType<UpdateTenantRequest>;
 
 export const AddTenantDomainRequestSchema = z.object({

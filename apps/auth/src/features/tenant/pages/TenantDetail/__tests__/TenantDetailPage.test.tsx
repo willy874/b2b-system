@@ -12,7 +12,8 @@ import { AllProviders } from '@/test/renderWithPermissions';
 import { registerTenantPagePermissions, Routes } from '../../..';
 import { tenantFixture } from '../../../test-fixtures';
 
-const { getTenant, retry, disable, removeDomain } = vi.hoisted(() => ({
+const { getTenant, retry, disable, removeDomain, update } = vi.hoisted(() => ({
+  update: vi.fn(),
   getTenant: vi.fn(),
   retry: vi.fn(),
   disable: vi.fn(),
@@ -30,6 +31,9 @@ vi.mock('@/apis/platform-tenant/retry-tenant-provisioning/mutation', () => ({
 }));
 vi.mock('@/apis/platform-tenant/disable-tenant/mutation', () => ({
   getDisableTenantMutationOptions: () => ({ mutationFn: disable }),
+}));
+vi.mock('@/apis/platform-tenant/update-tenant/mutation', () => ({
+  getUpdateTenantMutationOptions: () => ({ mutationFn: update }),
 }));
 vi.mock('@/apis/platform-tenant/remove-tenant-domain/mutation', () => ({
   getRemoveTenantDomainMutationOptions: () => ({ mutationFn: removeDomain }),
@@ -60,6 +64,7 @@ beforeEach(() => {
   retry.mockReset();
   disable.mockReset();
   removeDomain.mockReset();
+  update.mockReset();
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
@@ -117,5 +122,30 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     renderPage(tenantFixture({ domains: ['acme.localhost:5173'] }), ALL);
     expect(await screen.findByTestId('tenant-domain')).toBeInTheDocument();
     expect(screen.queryByTestId('tenant-domain-remove')).toBeNull();
+  });
+
+  it('外部 IdP 開關：有 tenant:update 才能切換，送出 allowExternalIdp', async () => {
+    const tenant = tenantFixture();
+    update.mockResolvedValue({ ...tenant, allowExternalIdp: false });
+    renderPage(tenant, ALL);
+    const toggle = await screen.findByTestId('tenant-allow-external-idp');
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(toggle);
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect(update.mock.calls[0]?.[0]).toEqual({
+      params: { id: tenant.id, body: { allowExternalIdp: false } },
+    });
+  });
+
+  it('外部 IdP 開關：只有 tenant:read → 不能切換', async () => {
+    renderPage(tenantFixture(), ['tenant:read']);
+    expect(await screen.findByTestId('tenant-allow-external-idp')).toHaveAttribute('data-disabled');
+  });
+
+  it('佈建完成但後續步驟失敗 → 顯示提醒（不是佈建失敗），沒有重試', async () => {
+    renderPage(tenantFixture({ provisionError: 'storageBucket: FILE_STORAGE_UNAVAILABLE' }), ALL);
+    expect(await screen.findByTestId('tenant-provision-warning')).toBeInTheDocument();
+    expect(screen.queryByTestId('tenant-provision-error')).toBeNull();
+    expect(screen.queryByTestId('tenant-retry')).toBeNull();
   });
 });

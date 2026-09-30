@@ -10,8 +10,11 @@ import { useHasSession } from '@/core/auth';
 import { useTranslation } from '@/core/locales';
 import { usePageAccessChecker } from '@/core/permission';
 import type { PageKey } from '@/core/permission';
+import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { HOME_PAGE } from '@/features/home';
+import { JOB_PAGE } from '@/features/job';
 import { useLogoutMutation } from '@/features/login';
+import { PLATFORM_ADMIN_PAGE } from '@/features/platform-admin';
 import { TENANT_PAGE } from '@/features/tenant';
 
 import { ThemeMenu } from './ThemeMenu';
@@ -32,6 +35,19 @@ interface NavItem {
 const NAV: NavItem[] = [
   { pageKey: HOME_PAGE, to: '/', labelKey: 'menu.home', testId: 'menu-home' },
   { pageKey: TENANT_PAGE, to: '/tenant', labelKey: 'menu.tenant', testId: 'menu-tenant' },
+  {
+    pageKey: PLATFORM_ADMIN_PAGE,
+    to: '/admin',
+    labelKey: 'menu.platformAdmin',
+    testId: 'menu-platform-admin',
+  },
+  {
+    pageKey: AUDIT_LOG_PAGE,
+    to: '/audit-log',
+    labelKey: 'menu.auditLog',
+    testId: 'menu-audit-log',
+  },
+  { pageKey: JOB_PAGE, to: '/job', labelKey: 'menu.job', testId: 'menu-job' },
 ];
 
 /**

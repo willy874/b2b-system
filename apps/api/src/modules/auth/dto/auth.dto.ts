@@ -57,7 +57,7 @@ export const PlatformProfileSchema = defineSchema(
       id: z.string().uuid(),
       email: z.string(),
       displayName: z.string(),
-      status: z.enum(['active', 'inactive', 'locked']),
+      status: z.enum(['active', 'inactive', 'locked', 'pending']),
       lastLoginAt: z.string().nullable(),
       role: z.enum(['super-admin', 'operator', 'auditor']),
     }),

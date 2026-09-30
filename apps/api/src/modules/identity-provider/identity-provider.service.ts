@@ -7,6 +7,7 @@ import { IDP_SECRET_PURPOSE, SecretBox } from '@/core/crypto';
 import type { Database, DbOrTx, Transaction } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException, constraintNameOf, isUniqueViolation } from '@/core/errors';
+import { requireTenant } from '@/core/tenant';
 import type { IdentityProviderRow, UserIdentityRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 
@@ -89,10 +90,15 @@ export class IdentityProviderService {
   // ── 平台管理員 ───────────────────────────────────────────
 
   async list(): Promise<IdentityProviderListDto> {
-    return { items: (await this.repo.list()).map(toDto), callbackUrl: this.callback };
+    return {
+      items: (await this.repo.list()).map(toDto),
+      callbackUrl: this.callback,
+      allowed: this.allowed(),
+    };
   }
 
   async create(dto: CreateIdentityProviderDto, actor: AuthUser): Promise<IdentityProviderDto> {
+    this.assertAllowed();
     const id = await this.write(async (tx) => {
       const row = await this.repo.create(
         {
@@ -130,6 +136,8 @@ export class IdentityProviderService {
     actor: AuthUser,
   ): Promise<IdentityProviderDto> {
     const before = await this.getExisting(id);
+    // 平台關掉外部 IdP 時仍可以編輯、停用、刪除，只是不能再啟用
+    if (dto.enabled) this.assertAllowed();
     await this.write(async (tx) => {
       const { clientSecret, domains, ...fields } = dto;
       const updated = await this.repo.update(
@@ -190,7 +198,7 @@ export class IdentityProviderService {
     email: string,
   ): Promise<{ id: string; name: string; ssoOnly: boolean } | undefined> {
     const domain = domainOf(email);
-    if (!domain) return undefined;
+    if (!domain || !this.allowed()) return undefined;
     const found = await this.repo.findByDomain(domain);
     if (!found?.provider.enabled) return undefined;
     return { id: found.provider.id, name: found.provider.name, ssoOnly: found.ssoOnly };
@@ -205,6 +213,7 @@ export class IdentityProviderService {
   async loginConfig(
     id: string,
   ): Promise<{ provider: ProviderWithDomains; config: ExternalProviderConfig } | undefined> {
+    if (!this.allowed()) return undefined;
     const provider = await this.repo.findById(id);
     if (!provider?.enabled) return undefined;
     return {
@@ -216,6 +225,18 @@ export class IdentityProviderService {
         scopes: provider.scopes,
       },
     };
+  }
+
+  /**
+   * 平台管理者是否允許這個租戶使用外部 IdP（docs/adr/0020-physical-tenant-isolation.md 開放問題 2）。
+   * 關掉時：不能新增或啟用連線；登入時當作沒有連線（email 網域不會導向外部 IdP，只允許 SSO 的網域也回到密碼登入）。
+   */
+  private allowed(): boolean {
+    return requireTenant().allowExternalIdp;
+  }
+
+  private assertAllowed(): void {
+    if (!this.allowed()) throw new AppException('IDENTITY_PROVIDER_NOT_ALLOWED');
   }
 
   // ── 外部身分（帳號 ↔ 外部 IdP 的 subject，D8）──────────────────

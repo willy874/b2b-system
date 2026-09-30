@@ -1,5 +1,6 @@
 import { useForm } from '@tanstack/react-form';
 import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { z } from 'zod';
 
@@ -11,10 +12,9 @@ import { useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
-import { ResetPasswordRoute } from '../../routes';
+import { LoginRoute, ResetPasswordRoute } from '../../routes';
 import { goToTenantLogin } from '../../tenant';
 import { AuthShell } from '../AuthShell';
-import { TenantRequired } from '../TenantLinks';
 
 const Schema = z
   .object({ newPassword: z.string().min(12), confirmPassword: z.string().min(1) })
@@ -26,6 +26,7 @@ const Schema = z
 export default function ResetPasswordPage() {
   const { t } = useTranslation();
   const { token, tenant } = ResetPasswordRoute.useSearch();
+  const navigate = useNavigate();
   const reset = useMutation(getResetPasswordMutationOptions());
   const toMessage = useErrorMessage();
   const [formError, setFormError] = useState<string>();
@@ -37,17 +38,27 @@ export default function ResetPasswordPage() {
       setFormError(undefined);
       try {
         await reset.mutateAsync({
-          params: { tenant: tenant ?? '', token: token ?? '', newPassword: value.newPassword },
+          params: { tenant, token: token ?? '', newPassword: value.newPassword },
         });
-        // 帳號屬於租戶：到那個租戶的 backstage 登入（docs/adr/0020-physical-tenant-isolation.md D11）
-        await goToTenantLogin(tenant ?? '');
+        // 租戶的帳號：到那個租戶的 backstage 登入（docs/adr/0020-physical-tenant-isolation.md D11）；
+        // 沒有租戶是平台管理者的帳號（重設連結由其他平台管理者寄出）：留在 apps/auth 登入
+        if (tenant) await goToTenantLogin(tenant);
+        else await navigate({ to: LoginRoute.to });
       } catch (error) {
         setFormError(toMessage(error));
       }
     },
   });
 
-  if (!tenant) return <TenantRequired title={t('login.resetPassword.title')} />;
+  if (!token) {
+    return (
+      <AuthShell title={t('login.resetPassword.title')}>
+        <p className="text-sm text-[var(--color-danger-text)]" data-testid="reset-password-invalid">
+          {t('error.AUTH_SETUP_TOKEN_INVALID')}
+        </p>
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell title={t('login.resetPassword.title')} description={t('login.password.hint')}>

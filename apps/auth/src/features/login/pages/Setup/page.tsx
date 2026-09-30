@@ -1,5 +1,6 @@
 import { useForm } from '@tanstack/react-form';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { z } from 'zod';
 
@@ -12,7 +13,7 @@ import { useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
-import { SetupRoute } from '../../routes';
+import { LoginRoute, SetupRoute } from '../../routes';
 import { goToTenantLogin } from '../../tenant';
 import { AuthShell } from '../AuthShell';
 
@@ -26,9 +27,10 @@ const Schema = z
 export default function SetupPage() {
   const { t } = useTranslation();
   const { token, tenant } = SetupRoute.useSearch();
+  const navigate = useNavigate();
   const verify = useQuery({
     ...getVerifySetupQueryOptions(token ?? '', tenant ?? ''),
-    enabled: Boolean(token && tenant),
+    enabled: Boolean(token),
   });
   const setup = useMutation(getSetupMutationOptions());
   const toMessage = useErrorMessage();
@@ -41,17 +43,19 @@ export default function SetupPage() {
       setFormError(undefined);
       try {
         await setup.mutateAsync({
-          params: { tenant: tenant ?? '', token: token ?? '', password: value.password },
+          params: { tenant, token: token ?? '', password: value.password },
         });
-        // 帳號屬於租戶：到那個租戶的 backstage 登入（docs/adr/0020-physical-tenant-isolation.md D11）
-        await goToTenantLogin(tenant ?? '');
+        // 租戶的帳號：到那個租戶的 backstage 登入（docs/adr/0020-physical-tenant-isolation.md D11）；
+        // 沒有租戶是平台管理者的帳號：留在 apps/auth 登入
+        if (tenant) await goToTenantLogin(tenant);
+        else await navigate({ to: LoginRoute.to });
       } catch (error) {
         setFormError(toMessage(error));
       }
     },
   });
 
-  if (!token || !tenant || verify.data?.valid === false) {
+  if (!token || verify.data?.valid === false) {
     return (
       <AuthShell title={t('login.setup.title')}>
         <p className="text-sm text-[var(--color-danger-text)]" data-testid="setup-invalid">

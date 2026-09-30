@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Query, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
@@ -12,8 +12,15 @@ import { AppException } from '@/core/errors';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
 
 import type { IssuedSession } from './auth.service';
-import { PlatformProfileSchema, SessionSchema, SsoCallbackSchema } from './dto/auth.dto';
-import type { SsoCallbackDto } from './dto/auth.dto';
+import {
+  PlatformProfileSchema,
+  ResetPasswordSchema,
+  SessionSchema,
+  SetupSchema,
+  SsoCallbackSchema,
+  VerifySetupSchema,
+} from './dto/auth.dto';
+import type { ResetPasswordDto, SetupDto, SsoCallbackDto } from './dto/auth.dto';
 import { PlatformAuthService } from './platform-auth.service';
 
 /**
@@ -77,6 +84,36 @@ export class PlatformAuthController {
     const result = await this.platformAuth.logout(this.readRefreshCookie(req), actor);
     res.clearCookie(this.cookieName, { path: this.cookiePath });
     return result;
+  }
+
+  // ── 帳號流程：平台管理者從信中連結設定密碼（連結不帶 `?tenant=`）──
+
+  @Get('setup/verify')
+  @Public()
+  @Throttle({ default: AUTH_THROTTLE })
+  @ApiOperation({ summary: '檢查平台管理者的啟用 token（回傳 email 供畫面顯示）' })
+  verifySetup(@Query(new ZodValidationPipe(VerifySetupSchema)) query: { token: string }) {
+    return this.platformAuth.verifySetupToken(query.token);
+  }
+
+  @Post('setup')
+  @HttpCode(200)
+  @Public()
+  @Throttle({ default: AUTH_THROTTLE })
+  @ApiOperation({ summary: '平台管理者以啟用信設定密碼' })
+  @ApiZodBody(SetupSchema)
+  setup(@Body(new ZodValidationPipe(SetupSchema)) dto: SetupDto) {
+    return this.platformAuth.setup(dto);
+  }
+
+  @Post('reset-password')
+  @HttpCode(200)
+  @Public()
+  @Throttle({ default: AUTH_THROTTLE })
+  @ApiOperation({ summary: '平台管理者以重設密碼信設定新密碼（結束所有 session）' })
+  @ApiZodBody(ResetPasswordSchema)
+  resetPassword(@Body(new ZodValidationPipe(ResetPasswordSchema)) dto: ResetPasswordDto) {
+    return this.platformAuth.resetPassword(dto);
   }
 
   @Get('profile')

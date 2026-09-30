@@ -19,6 +19,8 @@ export type JobState = (typeof JOB_STATES)[number];
 export interface JobRecord {
   id: string;
   name: string;
+  /** 屬於哪個租戶（信封的 `tenantId`）；平台工作是 null。 */
+  tenantId: string | null;
   state: JobState;
   /** 入列時的資料（信封裡的 `payload`，docs/adr/0020-physical-tenant-isolation.md D15）。 */
   data: Record<string, unknown> | null;
@@ -44,9 +46,13 @@ export interface JobQueueCounts {
   completedCount: number;
 }
 
+/**
+ * 看誰的工作：租戶 id（租戶的管理頁只看自己的）、`null`（只看平台工作）、`undefined`（全部，只有平台的監控頁用）。
+ */
+export type JobOwnerFilter = string | null | undefined;
+
 export interface JobListFilter {
-  /** 只看這個租戶的工作（信封的 `tenantId`）。 */
-  tenantId: string;
+  tenantId: JobOwnerFilter;
   /** 只看這些佇列（已註冊的工作）；pg-boss 內部或死信佇列不列出。 */
   names: string[];
   name?: string;
@@ -58,7 +64,7 @@ export interface JobListFilter {
 const JOB_TABLE = sql.raw(`${JOB_SCHEMA}.job`);
 
 const JOB_COLUMNS = sql`
-  id, name, state::text AS state, data->'payload' AS data, output,
+  id, name, state::text AS state, data->>'tenantId' AS "tenantId", data->'payload' AS data, output,
   retry_count AS "retryCount", retry_limit AS "retryLimit",
   created_on AS "createdOn", start_after AS "startAfter",
   started_on AS "startedOn", completed_on AS "completedOn"`;
@@ -66,7 +72,7 @@ const JOB_COLUMNS = sql`
 /**
  * 讀 pg-boss 的工作表給管理頁用。pg-boss 的 API 只能逐一佇列查、不能分頁，所以直接查表；
  * 表結構屬於 pg-boss，只在這個檔案出現，升級 pg-boss 時對照它的 migration 檢查這裡。
- * 佇列在平台 DB、所有租戶共用，每個查詢都以信封的 `tenantId` 過濾（`JobEnvelope`）。
+ * 佇列在平台 DB、所有租戶共用，每個查詢都以信封的 `tenantId` 過濾（`JobEnvelope`）；只有平台的監控頁看全部（`JobOwnerFilter`）。
  */
 @Injectable()
 export class JobStore {
@@ -96,7 +102,7 @@ export class JobStore {
    * 即時計數。pg-boss 的 `getQueues()` 是監控迴圈定期寫入的快照（最多落後一分鐘），
    * 管理頁剛重試完就要看到數字變，所以直接數。
    */
-  async counts(tenantId: string, names: string[]): Promise<Map<string, JobQueueCounts>> {
+  async counts(tenantId: JobOwnerFilter, names: string[]): Promise<Map<string, JobQueueCounts>> {
     const result = new Map<string, JobQueueCounts>(
       names.map((name) => [
         name,
@@ -118,7 +124,11 @@ export class JobStore {
     return result;
   }
 
-  async find(tenantId: string, names: string[], id: string): Promise<JobRecord | undefined> {
+  async find(
+    tenantId: JobOwnerFilter,
+    names: string[],
+    id: string,
+  ): Promise<JobRecord | undefined> {
     if (names.length === 0) return undefined;
     const [row] = await this.db.execute<JobRecordRow>(
       sql`SELECT ${JOB_COLUMNS} FROM ${JOB_TABLE}
@@ -128,7 +138,9 @@ export class JobStore {
   }
 }
 
-function ofTenant(tenantId: string): SQL {
+function ofTenant(tenantId: JobOwnerFilter): SQL {
+  if (tenantId === undefined) return sql`true`;
+  if (tenantId === null) return sql`data->>'tenantId' IS NULL`;
   return sql`data->>'tenantId' = ${tenantId}`;
 }
 

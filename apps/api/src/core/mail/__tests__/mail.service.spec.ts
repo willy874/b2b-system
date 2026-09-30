@@ -35,7 +35,13 @@ function setup() {
 describe('MailService（docs/architecture/backend/11-mail.md §3）', () => {
   const inTenant = <T>(fn: () => T) =>
     runInTenantContext(
-      { id: 't1', code: 'acme', db: {} as Database, storageBucket: 'b2b-acme' },
+      {
+        id: 't1',
+        code: 'acme',
+        db: {} as Database,
+        storageBucket: 'b2b-acme',
+        allowExternalIdp: true,
+      },
       fn,
     );
 

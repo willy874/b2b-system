@@ -21,8 +21,11 @@ pnpm --filter @b2b-system/auth build
 
 | 路徑 | 說明 |
 | --- | --- |
-| `features/login` | `/interaction/:uid`：**IdP 的登入互動頁**，所有產品的密碼登入都在這裡（D16），顯示要登入的租戶；`/error`：provider 的協定錯誤；`/login`、`/callback`：apps/auth 自己的頁面經 SSO 登入（**只給平台管理者**，[ADR-0020](../../docs/adr/0020-physical-tenant-isolation.md) D5）；帳號流程 `/forgot-password`、`/reset-password`、`/setup`、`/register`（網址帶 `?tenant=`，以 `X-Tenant` 送給 api；完成後回到那個租戶的 backstage 登入）；`/enter`：**進入租戶**（輸入租戶代碼 → 前往那個租戶的 backstage 登入，D11；平台登入頁有連結） |
-| `features/tenant` | `/tenant`、`/tenant/$id`：租戶的清單、建立（背景佈建）、詳情（網域、改名、停用／啟用、刪除、重試佈建）；`tenant:*` 是 **平台** 的權限 |
+| `features/login` | `/interaction/:uid`：**IdP 的登入互動頁**，所有產品的密碼登入都在這裡（D16），顯示要登入的租戶；`/error`：provider 的協定錯誤；`/login`、`/callback`：apps/auth 自己的頁面經 SSO 登入（**只給平台管理者**，[ADR-0020](../../docs/adr/0020-physical-tenant-isolation.md) D5）；帳號流程 `/forgot-password`、`/reset-password`、`/setup`、`/register`（網址帶 `?tenant=`，以 `X-Tenant` 送給 api；完成後回到那個租戶的 backstage 登入。`/setup`、`/reset-password` 沒有 `?tenant=` 是平台管理者的連結，打 `/platform/auth/*`、完成後留在 apps/auth 登入）；`/enter`：**進入租戶**（輸入租戶代碼 → 前往那個租戶的 backstage 登入，D11；平台登入頁有連結） |
+| `features/tenant` | `/tenant`、`/tenant/$id`：租戶的清單、建立（背景佈建）、詳情（網域、改名、停用／啟用、刪除、重試佈建、是否允許外部 IdP）；`tenant:*` 是 **平台** 的權限 |
+| `features/platform-admin` | `/admin`：平台管理者的清單、新增（寄啟用信）、編輯（名稱、角色、停用）、寄設定密碼的連結 |
+| `features/audit-log` | `/audit-log`：平台稽核（平台管理者做過的事；看不到租戶的稽核） |
+| `features/job` | `/job`：所有租戶與平台自己的背景工作（backstage 的 `/job` 只看自己租戶的） |
 | `features/home` | `/`：目前登入的平台管理者 |
 | `app/` | 自己寫的 App Shell：`App.tsx`（沒有 session 時導向 `/login`；登出後停在「已登出」頁）、`Layout.tsx`（頁面權限守衛）、`layouts/PlatformLayout.tsx` |
 

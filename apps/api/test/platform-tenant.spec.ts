@@ -72,8 +72,8 @@ function platform(
   path: string,
   role: PlatformAdminRole = 'super-admin',
 ) {
-  return request(http)
-    [method](path)
+  const agent = request(http);
+  return agent[method](path)
     .set('Host', AUTH_HOST)
     .set('authorization', `Bearer ${tokens.get(role)}`);
 }
@@ -257,9 +257,9 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
   });
 
   it('網域：新增的網域立即生效；不能移除最後一個', async () => {
-    const [acme] = dataOf<{ items: TenantBody[] }>(
+    const acme = dataOf<{ items: TenantBody[] }>(
       await platform('get', '/platform/tenants').expect(200),
-    ).items.filter((t) => t.code === 'acme');
+    ).items.find((t) => t.code === 'acme');
     const withDomain = dataOf<TenantBody>(
       await platform('post', `/platform/tenants/${acme!.id}/domains`)
         .send({ domain: 'portal.acme.test' })
@@ -281,9 +281,9 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
   });
 
   it('停用：網域回 503、session 全部撤銷；啟用後恢復', async () => {
-    const [acme] = dataOf<{ items: TenantBody[] }>(
+    const acme = dataOf<{ items: TenantBody[] }>(
       await platform('get', '/platform/tenants').expect(200),
-    ).items.filter((t) => t.code === 'acme');
+    ).items.find((t) => t.code === 'acme');
     const id = acme!.id;
 
     await platform('post', `/platform/tenants/${id}/disable`).expect(200);
@@ -342,9 +342,9 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
   });
 
   it('刪除：從清單消失、網域釋出（回 TENANT_NOT_FOUND）；代碼可以再用', async () => {
-    const [acme] = dataOf<{ items: TenantBody[] }>(
+    const acme = dataOf<{ items: TenantBody[] }>(
       await platform('get', '/platform/tenants').expect(200),
-    ).items.filter((t) => t.code === 'acme');
+    ).items.find((t) => t.code === 'acme');
     await platform('delete', `/platform/tenants/${acme!.id}`, 'auditor').expect(403);
     await platform('delete', `/platform/tenants/${acme!.id}`).expect(204);
 

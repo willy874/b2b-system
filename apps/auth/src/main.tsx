@@ -10,8 +10,11 @@ import { appContextPlugin } from '@/app/plugin';
 import { createAppContext } from '@/core/app';
 import { MAIN_BACKEND } from '@/core/client';
 import { hydratePreferences } from '@/core/store';
+import { auditLogFeaturePlugin } from '@/features/audit-log';
 import { homeFeaturePlugin } from '@/features/home';
+import { jobFeaturePlugin } from '@/features/job';
 import { loginFeaturePlugin } from '@/features/login';
+import { platformAdminFeaturePlugin } from '@/features/platform-admin';
 import { tenantFeaturePlugin } from '@/features/tenant';
 import {
   cachePlugin,
@@ -53,6 +56,9 @@ async function bootstrap(): Promise<void> {
     .use(loginFeaturePlugin())
     .use(homeFeaturePlugin())
     .use(tenantFeaturePlugin())
+    .use(platformAdminFeaturePlugin())
+    .use(auditLogFeaturePlugin())
+    .use(jobFeaturePlugin())
     // 最後：建立 router（此時所有 route 都已存在）
     .use(appContextPlugin());
 

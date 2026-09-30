@@ -165,7 +165,13 @@ describe('PermissionsGuard', () => {
 });
 
 describe('PermissionsGuard：平台管理者的端點（docs/adr/0020-physical-tenant-isolation.md D5）', () => {
-  const tenant = { id: 't1', code: 'acme', db: {}, storageBucket: 'b' } as unknown as TenantContext;
+  const tenant = {
+    id: 't1',
+    code: 'acme',
+    db: {},
+    storageBucket: 'b',
+    allowExternalIdp: true,
+  } as unknown as TenantContext;
 
   it('持有平台權限時放行（不查租戶的權限）', async () => {
     const { guard } = createGuard([], true, ['tenant:create']);

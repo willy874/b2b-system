@@ -1,0 +1,54 @@
+{
+  "platformAdmin": {
+    "title": "平台管理者",
+    "description": "可以登入平台管理後台的帳號。新增後寄啟用信，由本人設定密碼。",
+    "empty": "還沒有任何平台管理者",
+    "self": "你",
+    "role": {
+      "superAdmin": "超級管理者",
+      "operator": "營運人員",
+      "auditor": "稽核人員"
+    },
+    "status": {
+      "active": "啟用",
+      "inactive": "停用",
+      "locked": "鎖定",
+      "pending": "待啟用"
+    },
+    "field": {
+      "email": "Email",
+      "displayName": "名稱",
+      "role": "角色",
+      "status": "狀態",
+      "lastLoginAt": "最後登入"
+    },
+    "hint": {
+      "email": "啟用信會寄到這個信箱。",
+      "self": "不能變更自己的角色與狀態。",
+      "pending": "本人完成啟用之後才能變更狀態。",
+      "locked": "登入失敗次數過多而鎖定；改為「啟用」即解鎖。"
+    },
+    "error": {
+      "emailInvalid": "請輸入有效的 email",
+      "displayNameRequired": "請輸入名稱"
+    },
+    "create": {
+      "action": "新增管理者",
+      "title": "新增平台管理者",
+      "success": "已新增，啟用信已寄出"
+    },
+    "edit": {
+      "action": "編輯",
+      "title": "編輯平台管理者",
+      "success": "已更新"
+    },
+    "passwordLink": {
+      "action": "寄送設定密碼連結",
+      "title": "寄送設定密碼連結",
+      "confirm": "寄一封信到 {{email}}：還沒啟用的會收到啟用信，其他人會收到重設密碼信。",
+      "send": "寄送",
+      "activationSent": "已寄出啟用信",
+      "passwordResetSent": "已寄出重設密碼信"
+    }
+  }
+}

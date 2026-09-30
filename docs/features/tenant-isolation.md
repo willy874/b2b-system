@@ -137,8 +137,12 @@ ADR-0018 的工作區是「共用資料表 ＋ `workspace_id`」，帳號跨工�
     `/enter` 進入租戶（平台登入頁有連結）。瀏覽器驗證過完整流程：建立 → 佈建 → 啟用信 → 設定密碼 → 在
     `beta.localhost:5173` 以新租戶的 super-admin 登入。「平台管理者建立租戶」的 E2E 併入第 6 步的兩個租戶 E2E。
   - 佈建的後續步驟（啟用信、bucket）各自獨立：儲存服務暫時連不上時啟用信照寄，原因記在 `provision_error`。
-  - **4c**：平台管理者的管理（新增、停用、角色）、平台稽核頁、背景工作監控頁搬到 apps/auth（開放問題 3）並只給平台看；
-    `db:drop-tenant` 腳本（D13 的手動清除）；平台管理者開關「是否允許租戶設定外部 IdP」（開放問題 2）。
+  - ✅ **4c**：平台的權限目錄加上 `platformAdmin:*`、`platformAuditLog:read`、`platformJob:*`（共 10 項）；
+    平台管理者的管理（`/platform/admins`：新增成 `pending` 並寄啟用信、改名、換角色、停用、寄設定密碼的連結；
+    `platform_auth_tokens`、平台 migration 0005）與帳號流程（`/platform/auth/setup`、`reset-password`，apps/auth 的頁面沒有
+    `?tenant=` 時走平台）；平台稽核（`/platform/audit-logs`）；全平台的背景工作監控（`/platform/jobs`，backstage 的 `/job` 保留
+    只看自己租戶的，見 ADR-0020 實作調整）；外部 IdP 開關（`tenants.allow_external_idp`）；`pnpm db:drop-tenant <代碼> --confirm`
+    清除已刪除租戶的 database、DB 角色與 bucket。apps/auth 的 `/admin`、`/audit-log`、`/job` 頁面。整合測試 `test/platform-admin.spec.ts`。
 
 ## 交付順序
 

@@ -2,8 +2,13 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { PLATFORM_DB } from '@/core/database';
 import type { PlatformDatabase } from '@/core/database';
-import { getRequestContext } from '@/core/http';
+import { getRequestContext, paginated } from '@/core/http';
+import type { PaginatedResult } from '@/core/http';
 import { platformAuditLogs } from '@/db/platform/schema';
+import { resolveAuditLogRange } from '@/modules/audit-log/audit-log.constants';
+
+import type { ListPlatformAuditLogDto, PlatformAuditLogDto } from './dto/platform-admin.dto';
+import { PlatformAuditLogRepository } from './platform-audit-log.repository';
 
 export interface PlatformAuditInput {
   action: string;
@@ -24,7 +29,32 @@ export interface PlatformAuditInput {
 export class PlatformAuditService {
   private readonly logger = new Logger(PlatformAuditService.name);
 
-  constructor(@Inject(PLATFORM_DB) private readonly db: PlatformDatabase) {}
+  constructor(
+    @Inject(PLATFORM_DB) private readonly db: PlatformDatabase,
+    private readonly logs: PlatformAuditLogRepository,
+  ) {}
+
+  /** 平台稽核頁（`platformAuditLog:read`）：固定 occurred_at DESC；時間範圍預設且最多 90 天（同租戶的稽核）。 */
+  async list(query: ListPlatformAuditLogDto): Promise<PaginatedResult<PlatformAuditLogDto>> {
+    const { from, to } = resolveAuditLogRange(query, new Date());
+    const { items, total } = await this.logs.list({ ...query, from, to });
+    return paginated(
+      items.map((row) => ({
+        id: row.id.toString(),
+        occurredAt: row.occurredAt.toISOString(),
+        actorId: row.actorId,
+        actorEmail: row.actorEmail,
+        action: row.action,
+        resourceType: row.resourceType,
+        resourceId: row.resourceId,
+        result: row.result,
+        errorCode: row.errorCode,
+        metadata: row.metadata ?? null,
+      })),
+      total,
+      query,
+    );
+  }
 
   async record(input: PlatformAuditInput): Promise<void> {
     const ctx = getRequestContext();

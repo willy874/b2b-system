@@ -39,6 +39,8 @@ export const PlatformTenantSchema = defineSchema(
     /** 第一個是主要網域：信中的連結、進入租戶都用它。 */
     domains: z.array(z.string()),
     storageBucket: z.string(),
+    /** 是否允許租戶設定外部 IdP 連線（開放問題 2）。 */
+    allowExternalIdp: z.boolean(),
     /** 佈建時建立的第一位管理員；`db:migrate` 登記的租戶沒有。 */
     adminEmail: z.string().nullable(),
     /** 最近一次佈建失敗的原因（`failed` 時才有）。 */
@@ -77,7 +79,12 @@ export const CreateTenantSchema = defineSchema(
 
 export const UpdateTenantSchema = defineSchema(
   'UpdateTenantRequest',
-  z.object({ name: z.string().trim().min(1).max(100) }),
+  z
+    .object({
+      name: z.string().trim().min(1).max(100).optional(),
+      allowExternalIdp: z.boolean().optional(),
+    })
+    .refine((dto) => dto.name !== undefined || dto.allowExternalIdp !== undefined, 'empty'),
 );
 
 export const AddTenantDomainSchema = defineSchema(

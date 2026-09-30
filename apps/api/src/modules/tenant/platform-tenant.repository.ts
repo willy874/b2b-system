@@ -17,7 +17,10 @@ export type NewTenant = Pick<
 >;
 
 export type TenantPatch = Partial<
-  Pick<TenantRow, 'name' | 'status' | 'provisionError' | 'provisionedAt' | 'deletedAt'>
+  Pick<
+    TenantRow,
+    'name' | 'status' | 'provisionError' | 'provisionedAt' | 'deletedAt' | 'allowExternalIdp'
+  >
 >;
 
 /** 平台管理者對租戶登記的讀寫（平台 DB，docs/adr/0020-physical-tenant-isolation.md D12、D13）。 */

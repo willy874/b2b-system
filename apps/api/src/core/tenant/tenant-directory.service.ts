@@ -18,6 +18,7 @@ export interface TenantRecord {
   databaseUrl: string;
   /** 物件儲存的 bucket（D16）。 */
   storageBucket: string;
+  allowExternalIdp: boolean;
 }
 
 interface Cached<T> {
@@ -144,6 +145,7 @@ export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy 
       status: row.status,
       databaseUrl: this.secrets.decrypt(row.databaseUrlEncrypted),
       storageBucket: row.storageBucket,
+      allowExternalIdp: row.allowExternalIdp,
     };
   }
 

@@ -1,0 +1,213 @@
+import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { PermissionKey } from '@/core/permission';
+import { resetPagePermissionRegistry } from '@/core/permission';
+import { parseSearch, RootRoute, stringifySearch } from '@/core/router';
+import { usePermissionStore } from '@/core/store';
+import { AllProviders } from '@/test/renderWithPermissions';
+
+import { registerJobPagePermissions, Routes } from '../../..';
+import { jobFixture, jobQueueFixture } from '../../../test-fixtures';
+
+const { listQueues, listJobs, getJob, retryJob, invalidateResources } = vi.hoisted(() => ({
+  listQueues: vi.fn(),
+  listJobs: vi.fn(),
+  getJob: vi.fn(),
+  retryJob: vi.fn(),
+  invalidateResources: vi.fn(),
+}));
+vi.mock('@/apis/platform-job/get-job-queues/query', () => ({
+  PLATFORM_JOB_QUEUES_QUERY_KEY: 'PLATFORM_JOB_QUEUES_QUERY_KEY',
+  getPlatformJobQueuesQueryOptions: () => ({
+    queryKey: ['PLATFORM_JOB_QUEUES_QUERY_KEY'],
+    queryFn: listQueues,
+  }),
+}));
+vi.mock('@/apis/platform-job/get-job-list/query', () => ({
+  PLATFORM_JOB_LIST_QUERY_KEY: 'PLATFORM_JOB_LIST_QUERY_KEY',
+  getPlatformJobListQueryOptions: ({ params }: { params: Record<string, unknown> }) => ({
+    queryKey: ['PLATFORM_JOB_LIST_QUERY_KEY', params],
+    queryFn: () => listJobs(params),
+  }),
+}));
+vi.mock('@/apis/platform-job/get-job/query', () => ({
+  PLATFORM_JOB_DETAIL_QUERY_KEY: 'PLATFORM_JOB_DETAIL_QUERY_KEY',
+  getPlatformJobQueryOptions: (id: string) => ({
+    queryKey: ['PLATFORM_JOB_DETAIL_QUERY_KEY', id],
+    queryFn: () => getJob(id),
+  }),
+}));
+vi.mock('@/apis/platform-job/retry-job/mutation', () => ({
+  getRetryPlatformJobMutationOptions: () => ({ mutationFn: retryJob }),
+}));
+vi.mock('@/apis/resources', () => ({
+  Resource: { PLATFORM_JOB: 'platformJob' },
+  invalidateResources,
+}));
+
+const TENANT_JOB = jobFixture();
+const PLATFORM_JOB = jobFixture({
+  id: '22222222-2222-4222-8222-222222222222',
+  name: 'tenant.provision',
+  state: 'completed',
+  tenantId: null,
+  tenantCode: null,
+});
+const ORPHAN_JOB = jobFixture({
+  id: '33333333-3333-4333-8333-333333333333',
+  state: 'failed',
+  tenantId: '55555555-5555-4555-8555-555555555555',
+  tenantCode: null,
+});
+
+function renderPage(permissions: PermissionKey[] | 'unhydrated', initialEntry = '/job') {
+  usePermissionStore.setState(
+    permissions === 'unhydrated'
+      ? { permissions: new Set(), hydrated: false }
+      : { permissions: new Set(permissions), hydrated: true },
+  );
+  const router = createRouter({
+    routeTree: RootRoute.addChildren([Routes.JobListRoute]),
+    history: createMemoryHistory({ initialEntries: [initialEntry] }),
+    parseSearch,
+    stringifySearch,
+  });
+  render(
+    <AllProviders>
+      <RouterProvider router={router} />
+    </AllProviders>,
+  );
+  return router;
+}
+
+const lastListParams = () => listJobs.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+
+beforeEach(() => {
+  resetPagePermissionRegistry();
+  registerJobPagePermissions();
+  listQueues.mockReset().mockResolvedValue({
+    items: [
+      jobQueueFixture(),
+      jobQueueFixture({ name: 'tenant.provision', cron: null, scope: 'platform', failedCount: 0 }),
+    ],
+  });
+  listJobs.mockReset().mockResolvedValue({
+    items: [TENANT_JOB, PLATFORM_JOB, ORPHAN_JOB],
+    pagination: { offset: 0, limit: 50, total: 3 },
+  });
+  getJob.mockReset();
+  retryJob.mockReset();
+  invalidateResources.mockReset();
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+});
+
+describe('平台的背景工作監控', () => {
+  it('顯示每種工作的佇列卡片', async () => {
+    renderPage(['platformJob:read']);
+    await waitFor(() => expect(screen.getAllByTestId('job-queue-card')).toHaveLength(2));
+    expect(
+      screen.getAllByTestId('job-queue-card').map((card) => card.getAttribute('data-value')),
+    ).toEqual(['file.maintenance', 'tenant.provision']);
+    // 只有有失敗的佇列才顯示失敗數
+    expect(screen.getByTestId('job-queue-failed')).toHaveAttribute('data-value', '1');
+  });
+
+  it('租戶欄：平台層級顯示 platform；租戶顯示代碼；租戶已刪除退回 id', async () => {
+    renderPage(['platformJob:read']);
+    await waitFor(() => expect(screen.getAllByTestId('job-tenant')).toHaveLength(3));
+    expect(
+      screen.getAllByTestId('job-tenant').map((cell) => cell.getAttribute('data-value')),
+    ).toEqual(['acme', 'platform', ORPHAN_JOB.tenantId]);
+  });
+
+  it('預設不帶租戶條件（全部）', async () => {
+    renderPage(['platformJob:read']);
+    await waitFor(() => expect(listJobs).toHaveBeenCalled());
+    expect(lastListParams()).toEqual({
+      offset: 0,
+      limit: 50,
+      name: undefined,
+      state: undefined,
+      tenant: undefined,
+    });
+  });
+
+  it('「只看平台」→ 以 tenant=platform 查詢並寫進網址；再點一次取消', async () => {
+    const router = renderPage(['platformJob:read']);
+    fireEvent.click(await screen.findByTestId('job-filter-platform'));
+    await waitFor(() => expect(lastListParams()).toMatchObject({ tenant: 'platform', offset: 0 }));
+    expect(router.state.location.search).toMatchObject({ tenant: 'platform' });
+
+    fireEvent.click(screen.getByTestId('job-filter-platform'));
+    await waitFor(() => expect(lastListParams()).toMatchObject({ tenant: undefined }));
+  });
+
+  it('輸入租戶代碼並套用 → 以該代碼查詢（去空白、轉小寫）', async () => {
+    renderPage(['platformJob:read']);
+    fireEvent.change(await screen.findByTestId('job-filter-tenant'), {
+      target: { value: ' Acme ' },
+    });
+    fireEvent.click(screen.getByTestId('job-filter-tenant-apply'));
+    await waitFor(() => expect(lastListParams()).toMatchObject({ tenant: 'acme' }));
+  });
+
+  it('網址帶 tenant=platform → 直接以它查詢，輸入框同步', async () => {
+    renderPage(['platformJob:read'], '/job?tenant=platform');
+    await waitFor(() => expect(lastListParams()).toMatchObject({ tenant: 'platform' }));
+    expect(screen.getByTestId('job-filter-tenant')).toHaveValue('platform');
+    expect(screen.getByTestId('job-filter-platform')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('有 platformJob:retry → 只有 failed 的工作有重試按鈕', async () => {
+    renderPage(['platformJob:read', 'platformJob:retry']);
+    await waitFor(() => expect(screen.getAllByTestId('job-retry')).toHaveLength(2));
+    expect(
+      screen.getAllByTestId('job-retry').map((button) => button.getAttribute('data-value')),
+    ).toEqual([TENANT_JOB.id, ORPHAN_JOB.id]);
+  });
+
+  it('只有 platformJob:read → 沒有重試按鈕，仍可展開', async () => {
+    renderPage(['platformJob:read']);
+    await waitFor(() => expect(screen.getAllByTestId('job-expand')).toHaveLength(3));
+    expect(screen.queryByTestId('job-retry')).toBeNull();
+  });
+
+  it('權限未水合 → 不閃現重試按鈕', async () => {
+    renderPage('unhydrated');
+    expect(await screen.findByTestId('job-page')).toBeInTheDocument();
+    await waitFor(() => expect(listJobs).toHaveBeenCalled());
+    expect(screen.queryByTestId('job-retry')).toBeNull();
+  });
+
+  it('重試：確認後送出並失效背景工作資源', async () => {
+    retryJob.mockResolvedValue({ ...TENANT_JOB, state: 'created', data: {}, output: null });
+    renderPage(['platformJob:read', 'platformJob:retry']);
+    const [retryButton] = await screen.findAllByTestId('job-retry');
+    fireEvent.click(retryButton!);
+    expect(retryJob).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByTestId('alert-dialog-confirm'));
+    await waitFor(() => expect(retryJob).toHaveBeenCalled());
+    expect(retryJob.mock.calls[0]?.[0]).toEqual({ params: { id: TENANT_JOB.id } });
+    await waitFor(() =>
+      expect(invalidateResources).toHaveBeenCalledWith([
+        { resource: 'platformJob', kind: 'update', id: TENANT_JOB.id },
+      ]),
+    );
+  });
+
+  it('展開 → 取明細並顯示資料與失敗原因', async () => {
+    getJob.mockResolvedValue({
+      ...TENANT_JOB,
+      data: { tenantId: TENANT_JOB.tenantId },
+      output: { message: 'boom' },
+    });
+    renderPage(['platformJob:read']);
+    const [expand] = await screen.findAllByTestId('job-expand');
+    fireEvent.click(expand!);
+    expect(await screen.findByTestId('job-detail-error')).toBeInTheDocument();
+    expect(getJob).toHaveBeenCalledWith(TENANT_JOB.id);
+    expect(screen.getByTestId('job-detail-data')).toBeInTheDocument();
+  });
+});

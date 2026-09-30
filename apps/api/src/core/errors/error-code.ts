@@ -22,6 +22,10 @@ export const ErrorCode = {
   TENANT_STATUS_CONFLICT: { status: 409 },
   /** 不能移除租戶的最後一個網域（沒有網域就沒有入口）。 */
   TENANT_LAST_DOMAIN: { status: 409 },
+  /** 平台管理者不存在（或已刪除）。 */
+  PLATFORM_ADMIN_NOT_FOUND: { status: 404 },
+  /** 租戶不允許設定外部 IdP 連線（平台管理者關掉了，開放問題 2）。 */
+  IDENTITY_PROVIDER_NOT_ALLOWED: { status: 403 },
 
   // ── 認證 ──
   AUTH_INVALID_CREDENTIALS: { status: 401 },

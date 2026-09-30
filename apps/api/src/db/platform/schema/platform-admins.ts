@@ -14,10 +14,12 @@ import {
 
 import { citext } from '../../schema/custom-types';
 
+/** `pending`：由其他平台管理者建立、還沒從啟用信設定密碼（同租戶的 `users.status`）。 */
 export const platformAdminStatus = pgEnum('platform_admin_status', [
   'active',
   'inactive',
   'locked',
+  'pending',
 ]);
 
 /**
@@ -109,6 +111,32 @@ export const platformAuditLogs = pgTable(
   (t) => [index('platform_audit_logs_occurred_idx').on(t.occurredAt.desc())],
 );
 
+/**
+ * 平台管理者的啟用與重設密碼 token（同租戶的 `auth_tokens`）。只存雜湊；發新的時先作廢同用途的舊 token。
+ */
+export const platformAuthTokens = pgTable(
+  'platform_auth_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    adminId: uuid('admin_id')
+      .notNull()
+      .references(() => platformAdmins.id, { onDelete: 'cascade' }),
+    purpose: text('purpose').$type<PlatformAuthTokenPurpose>().notNull(),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('platform_auth_tokens_hash_key').on(t.tokenHash),
+    index('platform_auth_tokens_admin_purpose_idx')
+      .on(t.adminId, t.purpose)
+      .where(sql`${t.usedAt} IS NULL`),
+  ],
+);
+
+export type PlatformAuthTokenPurpose = 'activation' | 'password_reset';
 export type PlatformAdminRow = typeof platformAdmins.$inferSelect;
+export type PlatformAdminStatus = (typeof platformAdminStatus.enumValues)[number];
 export type PlatformAdminRole = (typeof platformAdminRole.enumValues)[number];
 export type PlatformRefreshTokenRow = typeof platformRefreshTokens.$inferSelect;

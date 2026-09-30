@@ -1,0 +1,40 @@
+{
+  "auditLog": {
+    "title": "Platform audit log",
+    "description": "Actions platform administrators took on tenants, platform administrators, and other resources, newest first. Covers the last {{days}} days.",
+    "empty": "No matching records",
+    "expand": "Show details",
+    "collapse": "Hide details",
+    "field": {
+      "occurredAt": "Time",
+      "actor": "Actor",
+      "action": "Action",
+      "resource": "Resource",
+      "result": "Result"
+    },
+    "result": {
+      "success": "Success",
+      "failure": "Failure"
+    },
+    "filter": {
+      "action": "Action",
+      "actionPlaceholder": "e.g. tenant.create or tenant.*",
+      "actorEmail": "Actor email",
+      "actorEmailPlaceholder": "Part of an email",
+      "result": "Result",
+      "all": "All",
+      "search": "Search",
+      "reset": "Reset"
+    },
+    "detail": {
+      "metadata": "Metadata",
+      "errorCode": "Error code",
+      "noMetadata": "This record has no metadata"
+    },
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "summary": "{{from}}–{{to}} of {{total}}"
+    }
+  }
+}

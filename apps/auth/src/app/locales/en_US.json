@@ -93,7 +93,8 @@
     "profile": "Profile",
     "preference": "Preferences",
     "logout": "Sign out",
-    "tenant": "Tenants"
+    "tenant": "Tenants",
+    "platformAdmin": "Administrators"
   },
   "app": {
     "title": "B2B System",
@@ -115,6 +116,8 @@
     "TENANT_DOMAIN_TAKEN": "This domain already belongs to another tenant.",
     "TENANT_STATUS_CONFLICT": "This action isn't available in the tenant's current state. Refresh and try again.",
     "TENANT_LAST_DOMAIN": "A tenant must keep at least one domain.",
+    "PLATFORM_ADMIN_NOT_FOUND": "This platform administrator doesn't exist or has been deleted.",
+    "IDENTITY_PROVIDER_NOT_ALLOWED": "The platform administrator has turned off external IdPs for this tenant.",
     "AUTH_INVALID_CREDENTIALS": "Incorrect email or password.",
     "AUTH_ACCOUNT_PENDING": "This account is not activated yet.",
     "AUTH_ACCOUNT_DISABLED": "This account has been disabled.",
@@ -199,7 +202,10 @@
       "file": "Files",
       "job": "Background jobs",
       "identityProvider": "Identity providers",
-      "tenant": "Tenants"
+      "tenant": "Tenants",
+      "platformAdmin": "Platform administrators",
+      "platformAuditLog": "Platform audit log",
+      "platformJob": "Background jobs (all tenants)"
     },
     "user": {
       "create": "Create user",
@@ -253,6 +259,18 @@
       "create": "Create tenants",
       "update": "Edit tenants",
       "delete": "Delete tenants"
+    },
+    "platformAdmin": {
+      "read": "View platform administrators",
+      "create": "Add platform administrators",
+      "update": "Manage platform administrators"
+    },
+    "platformAuditLog": {
+      "read": "View platform audit log"
+    },
+    "platformJob": {
+      "read": "View background jobs",
+      "retry": "Retry background jobs"
     }
   },
   "theme": {
