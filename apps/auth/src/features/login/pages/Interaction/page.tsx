@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/Input';
-import { getErrorMessageKey, useErrorMessage } from '@/core/errors';
+import { getErrorMessageKey, isAppError, useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
@@ -20,6 +20,14 @@ import {
 } from '../../hooks/useSsoInteraction';
 import { InteractionRoute } from '../../routes';
 import { AuthShell } from '../AuthShell';
+import { RestartLogin } from '../RestartLogin';
+
+/** 互動過期（登入頁放太久、重複使用）：只能從產品重新開始登入。 */
+const INTERACTION_EXPIRED = 'AUTH_SSO_INTERACTION_INVALID';
+
+function isInteractionExpired(error: unknown): boolean {
+  return isAppError(error) && error.code === INTERACTION_EXPIRED;
+}
 
 const EmailSchema = z.string().trim().min(1).email();
 
@@ -47,6 +55,8 @@ export default function InteractionPage() {
   const external = useStartExternalLoginMutation();
   const toMessage = useErrorMessage();
   const [formError, setFormError] = useState<string>();
+  // 送出時才發現互動已過期：表單再送也沒用，改給「重新開始登入」
+  const [expired, setExpired] = useState(false);
   // 網址帶來的錯誤只顯示到使用者再試一次為止
   const [showSearchError, setShowSearchError] = useState(true);
   /** 拿去查網域的 email：離開欄位（或送出）時才更新，不在每次輸入時查詢。 */
@@ -70,6 +80,7 @@ export default function InteractionPage() {
         await login.mutateAsync({ params: { uid, ...value } });
       } catch (error) {
         setFormError(toMessage(error));
+        setExpired(isInteractionExpired(error));
       }
     },
   });
@@ -82,6 +93,7 @@ export default function InteractionPage() {
       await external.mutateAsync({ params: { uid, providerId: provider.id } });
     } catch (error) {
       setFormError(toMessage(error));
+      setExpired(isInteractionExpired(error));
     }
   };
 
@@ -91,14 +103,18 @@ export default function InteractionPage() {
     login.isPending || login.isSuccess || external.isPending || external.isSuccess;
 
   if (interaction.isError) {
+    // 互動已經找不到（過期、重複使用）：不知道是哪個產品或租戶，給「進入租戶」與平台管理者的登入
     return (
       <AuthShell title={t('login.title')}>
-        <p
-          className="m-0 text-sm text-[var(--color-danger-text)]"
-          data-testid="interaction-invalid"
-        >
-          {t('error.AUTH_SSO_INTERACTION_INVALID')}
-        </p>
+        <div className="flex flex-col gap-3">
+          <p
+            className="m-0 text-sm text-[var(--color-danger-text)]"
+            data-testid="interaction-invalid"
+          >
+            {t('error.AUTH_SSO_INTERACTION_INVALID')}
+          </p>
+          <RestartLogin />
+        </div>
       </AuthShell>
     );
   }
@@ -106,6 +122,21 @@ export default function InteractionPage() {
   const client = interaction.data?.clientId;
   // 帶租戶的互動：登入那個租戶的帳號；沒有租戶是平台管理者（docs/adr/0020-physical-tenant-isolation.md D8）
   const tenant = interaction.data?.tenant;
+  if (expired) {
+    return (
+      <AuthShell title={t('login.title')}>
+        <div className="flex flex-col gap-3">
+          <p
+            className="m-0 text-sm text-[var(--color-danger-text)]"
+            data-testid="interaction-invalid"
+          >
+            {t('error.AUTH_SSO_INTERACTION_INVALID')}
+          </p>
+          <RestartLogin tenant={tenant?.code} platform={!tenant && client === 'auth'} />
+        </div>
+      </AuthShell>
+    );
+  }
   const tenantQuery = tenant ? `?${new URLSearchParams({ tenant: tenant.code }).toString()}` : '';
   return (
     <AuthShell

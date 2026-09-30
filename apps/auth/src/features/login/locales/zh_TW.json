@@ -75,6 +75,10 @@
       "code": "租戶代碼",
       "required": "請輸入租戶代碼",
       "submit": "前往"
+    },
+    "restart": {
+      "action": "重新開始登入",
+      "platform": "平台管理者登入"
     }
   }
 }

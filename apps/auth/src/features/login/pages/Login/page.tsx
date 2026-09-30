@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/Button';
+import { useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 
 import { LoginRoute } from '../../routes';
@@ -14,23 +15,34 @@ import { AuthShell } from '../AuthShell';
 export default function LoginPage() {
   const { t } = useTranslation();
   const { redirect, signedOut } = LoginRoute.useSearch();
-  const [failed, setFailed] = useState(false);
+  const toMessage = useErrorMessage();
+  // 跳轉前失敗（例：租戶停用、網址打錯 → get-current-tenant 回 503／404）：留著錯誤，render 時才翻譯
+  const [failure, setFailure] = useState<{ error: unknown }>();
 
   const start = () => {
-    setFailed(false);
-    startSsoLogin(redirect).catch(() => setFailed(true));
+    setFailure(undefined);
+    startSsoLogin(redirect).catch((error: unknown) => setFailure({ error }));
   };
 
   useEffect(() => {
-    if (!signedOut) startSsoLogin(redirect).catch(() => setFailed(true));
+    if (!signedOut) startSsoLogin(redirect).catch((error: unknown) => setFailure({ error }));
   }, [redirect, signedOut]);
 
   return (
     <AuthShell
       title={t('login.title')}
-      description={signedOut ? t('login.signedOut') : t('login.redirecting')}
+      description={failure ? undefined : signedOut ? t('login.signedOut') : t('login.redirecting')}
     >
-      {(signedOut || failed) && (
+      {failure && (
+        <p
+          className="m-0 mb-3 text-sm text-[var(--color-danger-text)]"
+          role="alert"
+          data-testid="login-error"
+        >
+          {toMessage(failure.error)}
+        </p>
+      )}
+      {(signedOut || failure) && (
         <Button variant="primary" block onClick={start} data-testid="login-sso">
           {t('login.submit')}
         </Button>

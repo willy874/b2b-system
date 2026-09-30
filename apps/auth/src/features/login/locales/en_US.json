@@ -75,6 +75,10 @@
       "code": "Tenant code",
       "required": "Enter your tenant code",
       "submit": "Continue"
+    },
+    "restart": {
+      "action": "Start signing in again",
+      "platform": "Platform admin sign-in"
     }
   }
 }

@@ -7,7 +7,9 @@ import {
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createAuthorizationUrl } from '@/core/auth';
+import { fetchCurrentTenantQuery } from '@/apis/tenant/get-current-tenant/fetcher';
+import { createAuthorizationUrl, readPendingLogin } from '@/core/auth';
+import { AppError } from '@/core/errors';
 import { parseSearch, RootRoute, stringifySearch } from '@/core/router';
 import { AllProviders } from '@/test/renderWithPermissions';
 
@@ -73,6 +75,19 @@ describe('登入頁（docs/adr/0019-sso-identity-platform.md）', () => {
     expect(url.searchParams.get('tenant')).toBe('acme');
   });
 
+  it('跳轉前失敗（租戶無法使用）→ 顯示原因並可重試（UX-28）', async () => {
+    vi.mocked(fetchCurrentTenantQuery).mockRejectedValueOnce(
+      new AppError('TENANT_UNAVAILABLE', 503),
+    );
+    renderAt('/auth/login?redirect=%2Fusers');
+    expect(await screen.findByTestId('login-error')).toBeInTheDocument();
+    expect(assign).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('login-sso'));
+    await waitFor(() => expect(assign).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByTestId('login-error')).toBeNull());
+  });
+
   it('剛登出時不自動跳轉，按「登入」才跳', async () => {
     renderAt('/auth/login?signedOut=true');
     fireEvent.click(await screen.findByTestId('login-sso'));
@@ -104,5 +119,18 @@ describe('SSO callback', () => {
     renderAt('/auth/callback?code=the-code-123&state=unknown');
     expect(await screen.findByTestId('sso-callback-retry')).toBeInTheDocument();
     expect(exchange).not.toHaveBeenCalled();
+  });
+
+  it('callback 失敗後重新登入，回到原本要去的頁面（UX-28）', async () => {
+    const authorize = new URL(await createAuthorizationUrl(SSO_CLIENT, '/users?page=2'));
+    const state = authorize.searchParams.get('state') ?? '';
+    renderAt(`/auth/callback?error=access_denied&state=${state}`);
+
+    fireEvent.click(await screen.findByTestId('sso-callback-retry'));
+    await waitFor(() => expect(assign).toHaveBeenCalledTimes(1));
+    const retried = new URL(String(assign.mock.calls[0]?.[0]));
+    expect(readPendingLogin(retried.searchParams.get('state') ?? '')?.returnTo).toBe(
+      '/users?page=2',
+    );
   });
 });

@@ -2,6 +2,7 @@ import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/rea
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AppError } from '@/core/errors';
 import { parseSearch, RootRoute, stringifySearch } from '@/core/router';
 import { AllProviders } from '@/test/renderWithPermissions';
 
@@ -58,7 +59,11 @@ const EXTERNAL_AUTHORIZE = 'https://login.acme.test/authorize?state=s';
 
 function renderInteraction(query = '') {
   const router = createRouter({
-    routeTree: RootRoute.addChildren([Routes.InteractionRoute]),
+    routeTree: RootRoute.addChildren([
+      Routes.InteractionRoute,
+      Routes.EnterTenantRoute,
+      Routes.LoginRoute,
+    ]),
     history: createMemoryHistory({ initialEntries: [`/interaction/${UID}${query}`] }),
     parseSearch,
     stringifySearch,
@@ -235,5 +240,31 @@ describe('IdP 的登入互動頁（docs/adr/0019-sso-identity-platform.md）', (
       const error = await screen.findByTestId('login-error');
       expect(error).toHaveAttribute('data-value', 'AUTH_SSO_ACCOUNT_NOT_FOUND');
     });
+  });
+
+  it('互動已經找不到（過期）→ 提供重新開始登入：進入租戶與平台管理者登入（UX-28）', async () => {
+    details.mockRejectedValue(new AppError('AUTH_SSO_INTERACTION_INVALID', 400));
+    renderInteraction();
+    expect(await screen.findByTestId('interaction-invalid')).toBeInTheDocument();
+    expect(screen.getByTestId('login-restart')).toHaveAttribute('href', '/enter');
+    expect(screen.getByTestId('login-restart-platform')).toHaveAttribute('href', '/login');
+  });
+
+  it('送出時才發現互動過期 → 回到那個租戶重新開始登入（UX-28）', async () => {
+    login.mockRejectedValue(new AppError('AUTH_SSO_INTERACTION_INVALID', 400));
+    renderInteraction();
+    fireEvent.change(await screen.findByTestId('login-email'), {
+      target: { value: 'user@example.com' },
+    });
+    fireEvent.change(screen.getByTestId('login-password'), { target: { value: 'secret-123' } });
+    await waitFor(() => expect(screen.getByTestId('login-submit')).not.toBeDisabled());
+    fireEvent.click(screen.getByTestId('login-submit'));
+
+    expect(await screen.findByTestId('login-restart')).toHaveAttribute(
+      'href',
+      '/enter?tenant=acme',
+    );
+    expect(screen.queryByTestId('login-restart-platform')).toBeNull();
+    expect(screen.queryByTestId('login-submit')).toBeNull();
   });
 });
