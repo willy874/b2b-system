@@ -107,16 +107,64 @@
 | --- | --- | --- | --- |
 | `allow_external_idp` | boolean，預設 `true` | 關掉時租戶不能新增或啟用外部 IdP 連線，登入時也不走連線（`IDENTITY_PROVIDER_NOT_ALLOWED`） | ADR-0020 D22 |
 | `features` | `text[]`，預設全部（`{file,auditLog,job}`） | 可啟用 feature 的 id（`core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`）。沒列出的 feature：api 以 `@RequireFeature()` 標的端點回 `404 FEATURE_DISABLED`（`common/guards/feature.guard.ts`）；`/auth/profile` 的 `features` 不含它，前端不安裝它。該 feature 的背景工作照常執行，資料保留 | [ADR-0021](../adr/0021-runtime-feature-activation.md) D8、D11 |
+| `flags` | `jsonb`，預設 `{}` | feature flag 的租戶層覆寫 `{ [key]: boolean }`，沒列出 = 跟著全平台與預設值；見 §5.2 | [ADR-0022](../adr/0022-feature-flags.md) D2 |
 
 - `PATCH /platform/tenants/:id` 的 `features` 是 **完整清單**（不是增減）；重複或不認得的 id 回 `VALIDATION_FAILED`，
   存進 DB 時依 `TENANT_FEATURES` 的順序。DB 裡殘留不認得的值（程式移除某個 feature 之後）讀取時濾掉。
-- 變更與平台稽核（`tenant.update`，`before`／`after` 帶兩個開關）在同一個交易；之後 `TenantDirectory.invalidate()`，
+- `flags` 同樣是 **完整的覆寫表**；不在 flag 目錄裡的 key 回 `VALIDATION_FAILED`，存進 DB 時依目錄的順序。
+- 變更與平台稽核（`tenant.update`，`before`／`after` 帶 `allowExternalIdp`、`features`、`flags`）在同一個交易；之後 `TenantDirectory.invalidate()`，
   本機立即生效，其他執行個體最多晚 `TENANT_CACHE_TTL` 秒。
-- `features` 真的改變時，失效之後發佈 `TENANT_FEATURES_CHANGED`（`{ tenantId }`），`modules/realtime` 對該租戶的
+- `features` 或 `flags` 真的改變時，失效之後發佈 `TENANT_FEATURES_CHANGED`（`{ tenantId }`），`modules/realtime` 對該租戶的
   `t:{tenantId}` room 推 `resource.changed`（來源 `tenantFeature`），前端據此重新取得 profile
   （[`backend/08-realtime.md`](./backend/08-realtime.md) §7）。平台的請求沒有租戶脈絡，所以事件以 `tenantId` 指明對象。
 - 新增一個可啟用的 feature：`TENANT_FEATURES` 加 id → 決定既有租戶要不要啟用（要的話寫一支資料 migration，
   預設值也一併調整）→ controller 標 `@RequireFeature()` → `test/route-audit.spec.ts` 的前綴對照 → 前端的 catalog。
+
+### 5.2 Feature flag（試行開關）
+
+決定與理由見 [ADR-0022](../adr/0022-feature-flags.md)。§5.1 的 `features` 是 **長期的模組**（租戶買了什麼）；
+feature flag 是 **暫時的上線開關**：新功能先合進 `main`、先開給試用的租戶、穩定後全面開放，最後連同開關與舊的程式碼路徑一起刪除。
+
+**目錄**（`apps/api/src/core/feature-flags/feature-flags.ts` 的 `FEATURE_FLAGS`）：每個 flag 有 `key`（`<模組>.<名稱>`，camelCase）、
+`description`、`defaultEnabled`、`owner`、`removeBy`（`YYYY-MM-DD`）。啟動時檢查格式、重複與日期；`removeBy` 過了還在目錄裡，
+單元測試（`core/feature-flags/__tests__/feature-flags.spec.ts`）就失敗。目錄以 `FEATURE_FLAG_CATALOG` provider 注入，整合測試換成自己的目錄。
+key 在 OpenAPI 上是字串（目錄常常是空的），由伺服器依目錄驗證。
+
+**兩級覆寫**（都在平台 DB）：
+
+| 層級 | 儲存 | 誰改 | 端點（apps/auth） |
+| --- | --- | --- | --- |
+| 租戶 | `tenants.flags`（§5.1） | `tenant:update` | `PATCH /platform/tenants/:id` 的 `flags` |
+| 全平台 | `feature_flag_overrides`（`key`、`state`：`on` ｜ `off`、`updated_by`、`updated_at`；沒有列 = 不覆寫） | `featureFlag:update` | `PUT /platform/feature-flags/:key`（`{ state: 'default' \| 'on' \| 'off' }`） |
+
+`GET /platform/feature-flags`（`featureFlag:read`）回目錄、全平台狀態與「覆寫成開／關的租戶數」。
+全平台的切換寫平台稽核 `featureFlag.update`（`metadata`：`key`、`before`、`after`），與寫入在同一個交易；不在目錄裡的 key 回 `404 FEATURE_FLAG_NOT_FOUND`。
+
+**生效值**（`resolveFeatureFlag`）：
+
+```
+全平台 off   → 關（緊急開關，蓋過租戶層）
+租戶層有值   → 用租戶層
+全平台 on    → 開（全面開放；租戶層仍可以個別關掉）
+都沒有       → defaultEnabled
+```
+
+**判斷**：`FeatureFlagService.isEnabled(key)` 是同步的。租戶層的覆寫隨租戶登記載入 `TenantContext.flags`（`TenantDirectory`），
+全平台層快取在 `FeatureFlagService`，每 `TENANT_CACHE_TTL` 秒與切換時重新讀取；多個執行個體時其他程序最多晚 `TENANT_CACHE_TTL` 秒。
+沒有租戶脈絡（平台的工作、平台端點）只看全平台層與預設值；不在目錄裡的 key 一律關。
+
+**用在哪裡**：
+
+- 整支端點：`@RequireFlag('<key>')`（class 或 handler），由 `FeatureGuard` 判斷，關閉時回 `404 FEATURE_DISABLED`（與 `@RequireFeature` 同一個位置與回應，並存時兩者都要成立）。
+  平台端點不能標、key 必須在目錄裡，否則路由稽核讓程序啟動失敗（[`backend/05-rbac.md`](./backend/05-rbac.md) §7）。
+- 業務分支：`FeatureFlagService.isEnabled('<key>')`；背景工作在租戶脈絡裡執行，同樣看得到租戶層。
+- 前端：`/auth/profile` 的 `flags` 列出生效為開的 key。局部 UI 用 `useFlag(key)`；整個 feature 的試行登記進
+  `FEATURE_CATALOG` 並宣告 `requires.flag`（[`frontend/02-plugin-system.md`](./frontend/02-plugin-system.md) §7）。
+- 變更的推播與 §5.1 相同：租戶層改了發一次 `TENANT_FEATURES_CHANGED`，全平台層改了對每個 `active` 租戶各發一次，前端重新取得 profile。
+
+**移除一個 flag**：① 全平台設 `on`（或把 `defaultEnabled` 改成 `true` 並部署）觀察一段時間 → ② 刪掉 `@RequireFlag`／`isEnabled`／`useFlag`
+與舊路徑 → ③ 從 `FEATURE_FLAGS` 刪除。DB 殘留的租戶覆寫在讀取時被忽略，`feature_flag_overrides` 的殘列在同一個 PR 以資料 migration 刪除。
+要延期就改 `removeBy`，延期會留在 commit 紀錄裡。
 
 ## 6. 周邊元件怎麼分租戶
 
@@ -129,7 +177,7 @@
 | 寄信 | 產品頁面的連結用租戶的主要網域（找不到就拋錯重試）；帳號流程的連結在 apps/auth、帶 `?tenant=` | [`backend/11-mail.md`](./backend/11-mail.md) |
 | 稽核 | 租戶內的動作寫租戶的 `audit_logs`；平台管理者的動作寫 `platform_audit_logs`，兩邊互相看不到 | [`backend/06-audit-log.md`](./backend/06-audit-log.md) |
 | 外部 IdP | 連線在租戶 DB，由租戶的管理者在 backstage 設定；平台只有開關（§5.1） | [`04-sso.md`](./04-sso.md) |
-| 可啟用的 feature | 平台 DB 的 `tenants.features`；api 以全域的 `FeatureGuard` 擋下未啟用的端點 | §5.1 |
+| 可啟用的 feature、feature flag | 平台 DB 的 `tenants.features`、`tenants.flags` 與 `feature_flag_overrides`；api 以全域的 `FeatureGuard` 擋下未啟用的端點 | §5.1、§5.2 |
 | 領域事件 | 在發佈者的租戶脈絡裡傳給訂閱者；`TENANT_ACTIVATED` 讓每個租戶一份的初始資料在佈建、重新啟用時補上 | `core/events` |
 | Access token | 帶 `tid`（租戶）或 `realm: 'platform'`；拿到別的網域一律無效 | [`backend/04-auth.md`](./backend/04-auth.md) |
 
@@ -190,8 +238,8 @@ api 與 migrate 都不再以 `POSTGRES_USER`（超級使用者）連線：
 
 | 層 | 涵蓋 |
 | --- | --- |
-| 單元 | `Tenancy`（狀態、版本檢查與重新檢查、`runForMaintenance`、`evict`）、`JobQueue` 對租戶不能進入的處理、`S3ObjectStorage` 的每租戶 bucket 與 presigned 網域、`MailService` 的租戶網域、`FeatureGuard`、`PlatformTenantService.update` 的 `features`（稽核、失效後發佈事件） |
-| 整合（`apps/api/test`） | `tenancy.spec.ts`（兩個租戶的帳號、token、資料互不相通；未知網域、停用、migration 落後）、`platform-tenant.spec.ts`（建立 → 佈建 → 啟用信 → 登入；網域；停用清掉 IdP 的 session；刪除後網域釋出）、`platform-admin.spec.ts`（平台管理者、稽核、背景工作、外部 IdP 開關、關掉 `file` 後 `/files` 回 404 `FEATURE_DISABLED` 與 profile 的 `features`）、`route-audit.spec.ts`（`@RequireFeature` 標在哪些端點）、`sso.spec.ts`（OIDC 帶租戶） |
+| 單元 | `Tenancy`（狀態、版本檢查與重新檢查、`runForMaintenance`、`evict`）、`JobQueue` 對租戶不能進入的處理、`S3ObjectStorage` 的每租戶 bucket 與 presigned 網域、`MailService` 的租戶網域、`FeatureGuard`（含 `@RequireFlag`）、`PlatformTenantService.update` 的 `features` 與 `flags`（稽核、失效後發佈事件）、`FeatureFlagService` 的生效值、`PlatformFeatureFlagService`、flag 目錄的格式與到期 |
+| 整合（`apps/api/test`） | `tenancy.spec.ts`（兩個租戶的帳號、token、資料互不相通；未知網域、停用、migration 落後）、`platform-tenant.spec.ts`（建立 → 佈建 → 啟用信 → 登入；網域；停用清掉 IdP 的 session；刪除後網域釋出）、`platform-admin.spec.ts`（平台管理者、稽核、背景工作、外部 IdP 開關、關掉 `file` 後 `/files` 回 404 `FEATURE_DISABLED` 與 profile 的 `features`）、`feature-flags.spec.ts`（兩級覆寫的生效值、`@RequireFlag` 端點、權限與稽核）、`route-audit.spec.ts`（`@RequireFeature` 標在哪些端點）、`sso.spec.ts`（OIDC 帶租戶） |
 | E2E（`apps/e2e/tests/tenancy.spec.ts`） | 平台管理者在 apps/auth 建立租戶，第一位管理員從啟用信進入 `{code}.localhost:5173`；同一個 IdP session 換租戶要重新登入；授權碼送到別的租戶的 BFF → `AUTH_SSO_CODE_INVALID`；authorize 的租戶與 redirect URI 不一致 → `invalid_request`、沒有授權碼；停用後網域 503 |
 
 HTTP 整合測試一律以 `listenOnLoopback(app)` 取得 server（[`../conventions/04-testing.md`](../conventions/04-testing.md) §3）。

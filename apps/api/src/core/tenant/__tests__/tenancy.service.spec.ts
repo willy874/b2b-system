@@ -23,6 +23,7 @@ function tenant(overrides: Partial<TenantRecord> = {}): TenantRecord {
     storageBucket: 'b2b-acme',
     allowExternalIdp: true,
     features: ['file', 'auditLog', 'job'],
+    flags: {},
     ...overrides,
   } as TenantRecord;
 }
@@ -74,6 +75,7 @@ describe('Tenancy：租戶的 migration 版本檢查（docs/adr/0020-physical-te
       storageBucket: 'b2b-acme',
       allowExternalIdp: true,
       features: ['file', 'auditLog', 'job'],
+      flags: {},
     });
     await tenancy.enter(tenant());
     expect(applied).toHaveBeenCalledTimes(1);

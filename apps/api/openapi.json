@@ -2977,6 +2977,77 @@
         "tags": ["files"]
       }
     },
+    "/platform/feature-flags": {
+      "get": {
+        "operationId": "PlatformFeatureFlagController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FeatureFlagList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "feature flag 的目錄、全平台覆寫與覆寫它的租戶數",
+        "tags": ["platform-feature-flags"]
+      }
+    },
+    "/platform/feature-flags/{key}": {
+      "put": {
+        "operationId": "PlatformFeatureFlagController_update",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFeatureFlagRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FeatureFlag"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "全平台層的覆寫：on（全面開放）、off（緊急關閉，蓋過租戶層）、default（移除覆寫）",
+        "tags": ["platform-feature-flags"]
+      }
+    },
     "/jobs/queues": {
       "get": {
         "operationId": "JobController_queues",
@@ -4585,6 +4656,12 @@
         "type": "string",
         "enum": ["file", "auditLog", "job"]
       },
+      "TenantFlagOverrides": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "boolean"
+        }
+      },
       "PlatformTenant": {
         "type": "object",
         "properties": {
@@ -4621,6 +4698,9 @@
               "$ref": "#/components/schemas/TenantFeature"
             }
           },
+          "flags": {
+            "$ref": "#/components/schemas/TenantFlagOverrides"
+          },
           "adminEmail": {
             "nullable": true,
             "type": "string"
@@ -4649,6 +4729,7 @@
           "storageBucket",
           "allowExternalIdp",
           "features",
+          "flags",
           "adminEmail",
           "provisionError",
           "provisionedAt",
@@ -4742,6 +4823,13 @@
             "items": {
               "$ref": "#/components/schemas/TenantFeature"
             }
+          },
+          "flags": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantFlagOverrides"
+              }
+            ]
           }
         },
         "additionalProperties": false
@@ -4864,9 +4952,15 @@
             "items": {
               "$ref": "#/components/schemas/TenantFeature"
             }
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
-        "required": ["user", "roles", "permissions", "features"],
+        "required": ["user", "roles", "permissions", "features", "flags"],
         "additionalProperties": false
       },
       "PlatformPermissionKey": {
@@ -4881,7 +4975,9 @@
           "platformAdmin:update",
           "platformAuditLog:read",
           "platformJob:read",
-          "platformJob:retry"
+          "platformJob:retry",
+          "featureFlag:read",
+          "featureFlag:update"
         ]
       },
       "PlatformProfile": {
@@ -5165,6 +5261,89 @@
           }
         },
         "required": ["code", "codeVerifier", "clientId", "redirectUri"],
+        "additionalProperties": false
+      },
+      "FeatureFlagGlobalState": {
+        "type": "string",
+        "enum": ["on", "off"]
+      },
+      "FeatureFlag": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "defaultEnabled": {
+            "type": "boolean"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "removeBy": {
+            "type": "string"
+          },
+          "globalState": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FeatureFlagGlobalState"
+              }
+            ]
+          },
+          "tenantOverrides": {
+            "type": "object",
+            "properties": {
+              "on": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "off": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["on", "off"],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "key",
+          "description",
+          "defaultEnabled",
+          "owner",
+          "removeBy",
+          "globalState",
+          "tenantOverrides"
+        ],
+        "additionalProperties": false
+      },
+      "FeatureFlagList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeatureFlag"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "UpdateFeatureFlagRequest": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": ["default", "on", "off"]
+          }
+        },
+        "required": ["state"],
         "additionalProperties": false
       },
       "SetFileFolderGrantRequest": {

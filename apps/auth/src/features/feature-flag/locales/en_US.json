@@ -1,0 +1,35 @@
+{
+  "featureFlag": {
+    "title": "Feature flags",
+    "description": "Features still on trial: enable them for trial tenants first, open them to everyone once stable, then remove the flag along with the old code. Setting a flag to “Kill switch” turns it off for every tenant, overriding each tenant's own setting. Per-tenant settings are on the tenant detail page.",
+    "empty": "No features are on trial",
+    "field": {
+      "key": "Flag",
+      "owner": "Owner",
+      "removeBy": "Remove by",
+      "default": "Default",
+      "tenantOverrides": "Tenant overrides",
+      "global": "All tenants"
+    },
+    "default": {
+      "on": "On",
+      "off": "Off"
+    },
+    "tenantOverrides": "On {{on}} / Off {{off}}",
+    "expired": "Overdue",
+    "global": {
+      "default": "Default and per-tenant",
+      "on": "On for everyone",
+      "off": "Kill switch"
+    },
+    "confirm": {
+      "title": "Change “{{key}}” for all tenants",
+      "default": "Remove the platform-wide override: each tenant goes back to its own setting, or the default if it has none.",
+      "on": "Turn it on for every tenant. Tenants that turned it off stay off.",
+      "off": "Turn it off for every tenant right away, including trial tenants. Users lose the feature immediately."
+    },
+    "update": {
+      "success": "Feature flag updated"
+    }
+  }
+}

@@ -130,6 +130,72 @@ describe('FeatureActivator（docs/adr/0021-runtime-feature-activation.md D8、D9
   });
 });
 
+describe('FeatureActivator 的 feature flag（docs/adr/0022-feature-flags.md D9）', () => {
+  const TrialRoute = createRoute({ getParentRoute: () => RootRoute, path: '/level-editor' });
+
+  function setupTrial() {
+    const context = createCoreContext() as unknown as AppContext;
+    const activator = new FeatureActivator({
+      context,
+      catalog: {
+        file: { plugin: plugin('file'), routes: [FileRoute] },
+        // 試行中、之後會常駐的 feature：只看 flag
+        levelEditor: {
+          plugin: plugin('levelEditor'),
+          routes: [TrialRoute],
+          requires: { flag: 'levelEditor.v2' },
+        },
+        // 可啟用的 feature 裡的新版：feature 與 flag 都要成立
+        fileV2: {
+          plugin: plugin('fileV2'),
+          routes: [],
+          requires: { feature: 'file', flag: 'file.v2' },
+        },
+      },
+    });
+    return { activator };
+  }
+
+  beforeEach(() => {
+    pages.reset();
+    resetFeatureStore();
+  });
+
+  it('生效的 flag 寫進 store', async () => {
+    const { activator } = setupTrial();
+    await activator.apply([], ['levelEditor.v2']);
+    expect([...featureStore.getState().flags]).toEqual(['levelEditor.v2']);
+  });
+
+  it('requires.flag：flag 開才安裝，關掉就卸載', async () => {
+    const { activator } = setupTrial();
+    await activator.apply([], ['levelEditor.v2']);
+    expect(statuses()).toMatchObject({ levelEditor: 'ready' });
+
+    await activator.apply([], []);
+    expect(statuses()).toMatchObject({ levelEditor: 'disabled' });
+    expect(pages.keys()).toEqual([]);
+  });
+
+  it('requires 的條件全部成立才安裝', async () => {
+    const { activator } = setupTrial();
+    await activator.apply(['file'], []);
+    expect(statuses()).toMatchObject({ file: 'ready', fileV2: 'disabled' });
+
+    await activator.apply([], ['file.v2']);
+    expect(statuses()).toMatchObject({ file: 'disabled', fileV2: 'disabled' });
+
+    await activator.apply(['file'], ['file.v2']);
+    expect(statuses()).toMatchObject({ file: 'ready', fileV2: 'ready' });
+  });
+
+  it('沒有 requires 的項目照舊只看 features（flag 不影響）', async () => {
+    const { activator } = setupTrial();
+    await activator.apply(['file'], ['levelEditor.v2', 'file.v2']);
+    expect(statuses()).toEqual({ file: 'ready', levelEditor: 'ready', fileV2: 'ready' });
+  });
+});
+
 describe('findFeatureByPath', () => {
   const basePaths = new Map([['file', ['/file']]]);
 

@@ -8,6 +8,7 @@ import {
   Authenticated,
   Public,
   RequireFeature,
+  RequireFlag,
   RequirePermissions,
   RequirePlatformPermissions,
 } from '@/common/decorators';
@@ -76,6 +77,28 @@ class PlatformFeaturedController {
   @RequirePlatformPermissions('platformJob:read')
   list(): void {}
 }
+
+@Controller('trial')
+class TrialController {
+  @Get()
+  @RequireFlag('levelEditor.v2')
+  @RequirePermissions('file:read')
+  list(): void {}
+}
+
+@Controller('platform-trial')
+class PlatformTrialController {
+  @Get()
+  @RequireFlag('levelEditor.v2')
+  @RequirePlatformPermissions('platformJob:read')
+  list(): void {}
+}
+
+@Module({ imports: [DiscoveryModule], controllers: [TrialController] })
+class TrialModule {}
+
+@Module({ imports: [DiscoveryModule], controllers: [PlatformTrialController] })
+class PlatformTrialModule {}
 
 @Module({ imports: [DiscoveryModule], controllers: [FeaturedController] })
 class FeaturedModule {}
@@ -151,5 +174,35 @@ describe('路由稽核的 @RequireFeature（docs/adr/0021-runtime-feature-activa
   it('平台端點標了 @RequireFeature → 稽核失敗（平台的請求沒有租戶，標了也不生效）', async () => {
     const bad = await boot(PlatformFeaturedModule);
     expect(() => auditRoutes(bad)).toThrow(/GET \/platform-featured（job）/);
+  });
+});
+
+describe('路由稽核的 @RequireFlag（docs/adr/0022-feature-flags.md D5）', () => {
+  const CATALOG = [
+    {
+      key: 'levelEditor.v2',
+      description: '',
+      defaultEnabled: false,
+      owner: 't',
+      removeBy: '2099-01-01',
+    },
+  ];
+
+  it('收集每個路由的 flag；key 在目錄裡 → 通過', async () => {
+    const trial = await boot(TrialModule);
+    expect(collectRouteDeclarations(trial).map((r) => [r.path, r.flag])).toEqual([
+      ['/trial', 'levelEditor.v2'],
+    ]);
+    expect(() => auditRoutes(trial, CATALOG)).not.toThrow();
+  });
+
+  it('key 不在目錄裡 → 稽核失敗（端點會被永遠關死）', async () => {
+    const trial = await boot(TrialModule);
+    expect(() => auditRoutes(trial, [])).toThrow(/GET \/trial（levelEditor.v2）/);
+  });
+
+  it('平台端點標了 @RequireFlag → 稽核失敗', async () => {
+    const bad = await boot(PlatformTrialModule);
+    expect(() => auditRoutes(bad, CATALOG)).toThrow(/GET \/platform-trial（levelEditor.v2）/);
   });
 });

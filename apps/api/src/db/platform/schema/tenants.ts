@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   index,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -61,6 +62,11 @@ export const tenants = pgTable(
       .array()
       .notNull()
       .default(sql`'{file,auditLog,job}'::text[]`),
+    /**
+     * 租戶層的 feature flag 覆寫（docs/adr/0022-feature-flags.md D2）：`{ [key]: boolean }`，沒列出 = 跟著全平台與預設值。
+     * key 的值域是 `core/feature-flags` 的目錄；讀取時只看目錄裡的 key，殘留的舊 key 無害。
+     */
+    flags: jsonb('flags').$type<Record<string, boolean>>().notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),

@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 import type { Database } from '../database';
 import { AppException } from '../errors';
+import type { FeatureFlagOverrides } from '../feature-flags/feature-flags';
 import type { TenantFeature } from './tenant-features';
 
 /** 目前執行的程式屬於哪個租戶，以及它的 database（docs/adr/0020-physical-tenant-isolation.md D3）。 */
@@ -15,6 +16,11 @@ export interface TenantContext {
   allowExternalIdp: boolean;
   /** 平台管理者為這個租戶啟用的 feature（docs/adr/0021-runtime-feature-activation.md D8）。 */
   features: readonly TenantFeature[];
+  /**
+   * 平台管理者為這個租戶設的 feature flag 覆寫（docs/adr/0022-feature-flags.md D2）；生效值由
+   * `FeatureFlagService.isEnabled()` 合併全平台層與預設值算出，不要直接讀這裡判斷。
+   */
+  flags: FeatureFlagOverrides;
 }
 
 const storage = new AsyncLocalStorage<TenantContext>();

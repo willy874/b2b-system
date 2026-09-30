@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Env } from '@/core/config';
 import { DomainEvent } from '@/core/events';
 import type { DomainEventBus } from '@/core/events';
+import type { FeatureFlagDefinition, FeatureFlagService } from '@/core/feature-flags';
 import type { JobQueue } from '@/core/jobs';
 import type { Tenancy, TenantDirectory } from '@/core/tenant';
 import type { AuthService } from '@/modules/auth/auth.service';
@@ -15,6 +16,27 @@ import { PlatformTenantService } from '../platform-tenant.service';
 import type { TenantProvisioner } from '../tenant-provisioner';
 
 const TENANT_ID = '00000000-0000-4000-8000-000000000001';
+
+const FLAG_CATALOG: FeatureFlagDefinition[] = [
+  {
+    key: 'levelEditor.v2',
+    description: '',
+    defaultEnabled: false,
+    owner: 't',
+    removeBy: '2099-01-01',
+  },
+  {
+    key: 'user.bulkInvite',
+    description: '',
+    defaultEnabled: false,
+    owner: 't',
+    removeBy: '2099-01-01',
+  },
+];
+const flagService = {
+  catalog: FLAG_CATALOG,
+  has: (key: string) => FLAG_CATALOG.some((flag) => flag.key === key),
+} as unknown as FeatureFlagService;
 
 function tenantRow(overrides: Partial<TenantWithDomains> = {}): TenantWithDomains {
   const at = new Date('2026-09-30T00:00:00Z');
@@ -31,6 +53,7 @@ function tenantRow(overrides: Partial<TenantWithDomains> = {}): TenantWithDomain
     provisionedAt: at,
     allowExternalIdp: true,
     features: ['file', 'auditLog', 'job'],
+    flags: {},
     createdAt: at,
     updatedAt: at,
     deletedAt: null,
@@ -83,6 +106,7 @@ function setup(initial: TenantWithDomains = tenantRow()) {
     {} as OidcProviderService,
     events as unknown as DomainEventBus,
     audit as unknown as PlatformAuditService,
+    flagService,
     config,
   );
   return { service, repo, audit, directory, events, calls };
@@ -164,5 +188,66 @@ describe('PlatformTenantService.update 的 features（docs/adr/0021-runtime-feat
     });
     expect(repo.transaction).not.toHaveBeenCalled();
     expect(events.publish).not.toHaveBeenCalled();
+  });
+});
+
+describe('PlatformTenantService.update 的 flags（docs/adr/0022-feature-flags.md D7）', () => {
+  it('寫入完整的覆寫表（依目錄的順序）、稽核帶 before/after，失效後發佈 tenant.featuresChanged', async () => {
+    const { service, repo, audit, events, calls } = setup(
+      tenantRow({ flags: { 'levelEditor.v2': false } }),
+    );
+
+    const result = await service.update(TENANT_ID, {
+      flags: { 'user.bulkInvite': false, 'levelEditor.v2': true },
+    });
+
+    expect(repo.update).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.objectContaining({ flags: { 'levelEditor.v2': true, 'user.bulkInvite': false } }),
+      undefined,
+      'tx',
+    );
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          before: expect.objectContaining({ flags: { 'levelEditor.v2': false } }),
+          after: expect.objectContaining({
+            flags: { 'levelEditor.v2': true, 'user.bulkInvite': false },
+          }),
+        }),
+      }),
+      'tx',
+    );
+    expect(calls).toEqual(['transaction', 'audit', 'invalidate', 'publish']);
+    expect(events.publish).toHaveBeenCalledWith(DomainEvent.TENANT_FEATURES_CHANGED, {
+      tenantId: TENANT_ID,
+    });
+    expect(result.flags).toEqual({ 'levelEditor.v2': true, 'user.bulkInvite': false });
+  });
+
+  it('覆寫表沒有變 → 不發佈事件', async () => {
+    const { service, events } = setup(tenantRow({ flags: { 'levelEditor.v2': true } }));
+
+    await service.update(TENANT_ID, { flags: { 'levelEditor.v2': true } });
+
+    expect(events.publish).not.toHaveBeenCalled();
+  });
+
+  it('不在目錄裡的 key → VALIDATION_FAILED，不寫入', async () => {
+    const { service, repo } = setup();
+
+    await expect(
+      service.update(TENANT_ID, { flags: { 'levelEditor.v2': true, 'gone.flag': true } }),
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: { fields: { 'flags.gone.flag': 'unknown feature flag' } },
+    });
+    expect(repo.transaction).not.toHaveBeenCalled();
+  });
+
+  it('DB 裡殘留的舊 key 不出現在回應', async () => {
+    const { service } = setup(tenantRow({ flags: { 'levelEditor.v2': true, 'gone.flag': true } }));
+
+    expect((await service.get(TENANT_ID)).flags).toEqual({ 'levelEditor.v2': true });
   });
 });

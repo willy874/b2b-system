@@ -94,7 +94,8 @@
     "preference": "Preferences",
     "logout": "Sign out",
     "tenant": "Tenants",
-    "platformAdmin": "Administrators"
+    "platformAdmin": "Administrators",
+    "featureFlag": "Feature flags"
   },
   "app": {
     "title": "B2B System",
@@ -121,6 +122,7 @@
     "PLATFORM_ADMIN_NOT_FOUND": "This platform administrator doesn't exist or has been deleted.",
     "IDENTITY_PROVIDER_NOT_ALLOWED": "The platform administrator has turned off external IdPs for this tenant.",
     "FEATURE_DISABLED": "This feature isn't available for this tenant.",
+    "FEATURE_FLAG_NOT_FOUND": "This feature flag doesn't exist. It may have been removed.",
     "AUTH_INVALID_CREDENTIALS": "Incorrect email or password.",
     "AUTH_ACCOUNT_PENDING": "This account is not activated yet.",
     "AUTH_ACCOUNT_DISABLED": "This account has been disabled.",
@@ -225,7 +227,8 @@
       "tenant": "Tenants",
       "platformAdmin": "Platform administrators",
       "platformAuditLog": "Platform audit log",
-      "platformJob": "Background jobs (all tenants)"
+      "platformJob": "Background jobs (all tenants)",
+      "featureFlag": "Feature flags"
     },
     "user": {
       "create": "Create user",
@@ -291,6 +294,10 @@
     "platformJob": {
       "read": "View background jobs",
       "retry": "Retry background jobs"
+    },
+    "featureFlag": {
+      "read": "View feature flags",
+      "update": "Change feature flags"
     }
   },
   "theme": {

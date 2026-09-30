@@ -303,13 +303,13 @@ Seed 行為：
   `apps/api/src/db/seeds/platform-permissions.ts`。平台的權限範圍很小，每個管理者一個角色就夠，不提供自訂角色。
 - 前端從 `GET /platform/auth/profile` 的 `permissions` 取得目前管理者的權限。
 
-### 8.1 權限清單（共 10 項）
+### 8.1 權限清單（共 12 項）
 
 | 權限鍵                  | 顯示名稱（zh-TW） | 說明 |
 | ----------------------- | ----------------- | ---- |
 | `tenant:read`           | 檢視租戶          | 租戶清單、狀態、網域、佈建失敗的原因（不含連線字串） |
 | `tenant:create`         | 建立租戶          | 建立並佈建新租戶（database、migration、第一位管理員與啟用信）、重試失敗的佈建 |
-| `tenant:update`         | 編輯租戶          | 改名稱、新增／移除網域、停用與啟用（停用會撤銷該租戶的所有 session）、是否允許外部 IdP |
+| `tenant:update`         | 編輯租戶          | 改名稱、新增／移除網域、停用與啟用（停用會撤銷該租戶的所有 session）、是否允許外部 IdP、啟用的 feature、feature flag 的租戶層覆寫 |
 | `tenant:delete`         | 刪除租戶          | 標記刪除並釋出網域；database 與 bucket 由 `pnpm db:drop-tenant` 手動清除（D13） |
 | `platformAdmin:read`    | 檢視平台管理者    | 管理者清單、角色與狀態 |
 | `platformAdmin:create`  | 新增平台管理者    | 建立成 `pending`，寄啟用信讓本人設定密碼（不接受密碼） |
@@ -317,6 +317,8 @@ Seed 行為：
 | `platformAuditLog:read` | 檢視平台稽核      | `platform_audit_logs`：平台管理者做過的事（D19）；看不到租戶的稽核 |
 | `platformJob:read`      | 檢視背景工作      | 所有租戶與平台自己的工作（D23）；租戶的後台只看得到自己的 |
 | `platformJob:retry`     | 重試背景工作      | 把重試用完、停在失敗的工作重新排入；寫平台稽核 `platformJob.retry` |
+| `featureFlag:read`      | 檢視試行開關      | feature flag 的目錄、全平台覆寫、各有幾個租戶覆寫（[ADR-0022](../adr/0022-feature-flags.md)） |
+| `featureFlag:update`    | 切換試行開關      | 全平台層的覆寫：全面開放（`on`）、緊急關閉（`off`）、回到預設；寫平台稽核 `featureFlag.update` |
 
 ### 8.2 角色 × 權限
 
@@ -332,6 +334,8 @@ Seed 行為：
 | `platformAuditLog:read` | ✅ | ✅ | ✅ |
 | `platformJob:read`      | ✅ | ✅ | ✅ |
 | `platformJob:retry`     | ✅ | ✅ |    |
+| `featureFlag:read`      | ✅ | ✅ | ✅ |
+| `featureFlag:update`    | ✅ | ✅ |    |
 
 只有 `super-admin` 能管理平台管理者，所以不需要反提權規則（`operator` 不能把自己升成 `super-admin`）。
 `db:seed` 依 `PLATFORM_ADMIN_EMAIL` 建立的第一位平台管理者是 `super-admin`；之後新增的管理者預設是 `auditor`。

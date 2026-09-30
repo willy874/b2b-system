@@ -272,6 +272,8 @@ export const TenantFeature = {
 } as const;
 export type TenantFeature = (typeof TenantFeature)[keyof typeof TenantFeature];
 
+export type TenantFlagOverrides = Record<string, boolean>;
+
 export interface PlatformTenant {
   id: string;
   code: string;
@@ -281,6 +283,7 @@ export interface PlatformTenant {
   storageBucket: string;
   allowExternalIdp: boolean;
   features: Array<TenantFeature>;
+  flags: TenantFlagOverrides;
   adminEmail: string | null;
   provisionError: string | null;
   provisionedAt: string | null;
@@ -310,6 +313,7 @@ export interface UpdateTenantRequest {
   name?: string;
   allowExternalIdp?: boolean;
   features?: Array<TenantFeature>;
+  flags?: TenantFlagOverrides;
 }
 
 export interface AddTenantDomainRequest {
@@ -343,6 +347,7 @@ export interface Profile {
   roles: Array<RoleSummary>;
   permissions: Array<PermissionKey>;
   features: Array<TenantFeature>;
+  flags: Array<string>;
 }
 
 export const PlatformPermissionKey = {
@@ -356,6 +361,8 @@ export const PlatformPermissionKey = {
   'platformAuditLog:read': 'platformAuditLog:read',
   'platformJob:read': 'platformJob:read',
   'platformJob:retry': 'platformJob:retry',
+  'featureFlag:read': 'featureFlag:read',
+  'featureFlag:update': 'featureFlag:update',
 } as const;
 export type PlatformPermissionKey =
   (typeof PlatformPermissionKey)[keyof typeof PlatformPermissionKey];
@@ -443,6 +450,34 @@ export interface SsoCallbackRequest {
   codeVerifier: string;
   clientId: string;
   redirectUri: string;
+}
+
+export const FeatureFlagGlobalState = {
+  on: 'on',
+  off: 'off',
+} as const;
+export type FeatureFlagGlobalState =
+  (typeof FeatureFlagGlobalState)[keyof typeof FeatureFlagGlobalState];
+
+export interface FeatureFlag {
+  key: string;
+  description: string;
+  defaultEnabled: boolean;
+  owner: string;
+  removeBy: string;
+  globalState: FeatureFlagGlobalState | null;
+  tenantOverrides: {
+    on: number;
+    off: number;
+  };
+}
+
+export interface FeatureFlagList {
+  items: Array<FeatureFlag>;
+}
+
+export interface UpdateFeatureFlagRequest {
+  state: 'default' | 'on' | 'off';
 }
 
 export interface SetFileFolderGrantRequest {

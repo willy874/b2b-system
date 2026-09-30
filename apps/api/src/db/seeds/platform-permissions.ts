@@ -18,6 +18,8 @@ export const PLATFORM_PERMISSION_SEED = [
   ['platformAuditLog', 'read', 'permission.platformAuditLog.read'],
   ['platformJob', 'read', 'permission.platformJob.read'],
   ['platformJob', 'retry', 'permission.platformJob.retry'],
+  ['featureFlag', 'read', 'permission.featureFlag.read'],
+  ['featureFlag', 'update', 'permission.featureFlag.update'],
 ] as const;
 
 type PlatformSeedRow = (typeof PLATFORM_PERMISSION_SEED)[number];
@@ -45,6 +47,15 @@ export const PLATFORM_ROLE_PERMISSIONS: Record<
     'platformAuditLog:read',
     'platformJob:read',
     'platformJob:retry',
+    // 緊急關閉 flag 要讓值班的人做得到（docs/adr/0022-feature-flags.md D8）
+    'featureFlag:read',
+    'featureFlag:update',
   ],
-  auditor: ['tenant:read', 'platformAdmin:read', 'platformAuditLog:read', 'platformJob:read'],
+  auditor: [
+    'tenant:read',
+    'platformAdmin:read',
+    'platformAuditLog:read',
+    'platformJob:read',
+    'featureFlag:read',
+  ],
 };

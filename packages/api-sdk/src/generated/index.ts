@@ -14,6 +14,7 @@ export * from './endpoints/jobs';
 export * from './endpoints/permissions';
 export * from './endpoints/platform-admins';
 export * from './endpoints/platform-auth';
+export * from './endpoints/platform-feature-flags';
 export * from './endpoints/platform-jobs';
 export * from './endpoints/platform-tenants';
 export * from './endpoints/roles';

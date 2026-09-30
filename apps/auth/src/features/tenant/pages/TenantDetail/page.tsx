@@ -24,6 +24,7 @@ import { ExternalIdpSwitch } from './components/ExternalIdpSwitch';
 import { RenameTenantDialog } from './components/RenameTenantDialog';
 import { TenantDomains } from './components/TenantDomains';
 import { TenantFeatures } from './components/TenantFeatures';
+import { TenantFlags } from './components/TenantFlags';
 
 type Confirming = 'disable' | 'remove' | undefined;
 
@@ -165,6 +166,7 @@ export default function TenantDetailPage() {
       <TenantDomains tenant={tenant} canUpdate={permission.canUpdate} />
       <ExternalIdpSwitch tenant={tenant} canUpdate={permission.canUpdate} />
       <TenantFeatures tenant={tenant} canUpdate={permission.canUpdate} />
+      <TenantFlags tenant={tenant} canUpdate={permission.canUpdate} />
 
       <RenameTenantDialog open={renaming} tenant={tenant} onClose={() => setRenaming(false)} />
       <AlertDialog

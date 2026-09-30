@@ -26,7 +26,6 @@ import {
   batchQueuePlugin,
   cachePlugin,
   eventBusPlugin,
-  featureFlagPlugin,
   httpContextPlugin,
   i18nPlugin,
   realtimePlugin,
@@ -68,7 +67,6 @@ async function bootstrap(): Promise<void> {
         },
       ]),
     )
-    .use(featureFlagPlugin({}))
     // 全域批次佇列：SharedWorker 排程、分頁以一般 API 逐筆執行；session 結束時取消（要用 httpContext 建立的 session）
     .use(batchQueuePlugin({ backend: MAIN_BACKEND }));
 

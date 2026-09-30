@@ -8,12 +8,15 @@ import {
   MESSAGE_METADATA,
 } from '@nestjs/websockets/constants';
 
+import { FEATURE_FLAGS } from '@/core/feature-flags/feature-flags';
+import type { FeatureFlagDefinition } from '@/core/feature-flags/feature-flags';
 import type { TenantFeature } from '@/core/tenant';
 
 import {
   IS_AUTHENTICATED,
   IS_PUBLIC,
   REQUIRED_FEATURE,
+  REQUIRED_FLAG,
   REQUIRED_PERMISSIONS,
   REQUIRED_PLATFORM_PERMISSIONS,
 } from './decorators';
@@ -30,6 +33,8 @@ export interface RouteDeclaration {
   match?: 'every' | 'some';
   /** `@RequireFeature` 標的 feature（docs/adr/0021-runtime-feature-activation.md D11）；沒有標就是常駐的端點。 */
   feature?: TenantFeature;
+  /** `@RequireFlag` 標的 feature flag（docs/adr/0022-feature-flags.md D5）。 */
+  flag?: string;
 }
 
 /** Gateway 的 `@SubscribeMessage` 處理器（docs/architecture/backend/08-realtime.md §5）。 */
@@ -103,11 +108,16 @@ export function collectRouteDeclarations(app: INestApplication): RouteDeclaratio
         handler as () => void,
         metatype,
       ]);
+      const flag = reflector.getAllAndOverride<string | undefined>(REQUIRED_FLAG, [
+        handler as () => void,
+        metatype,
+      ]);
       declarations.push({
         method: RequestMethod[verb] ?? 'GET',
         path: joinPath(controllerPath, subPath),
         ...declarationOf(reflector, handler, metatype),
         ...(feature && { feature }),
+        ...(flag && { flag }),
       });
     }
   }
@@ -152,7 +162,10 @@ export function collectGatewayDeclarations(app: INestApplication): GatewayMessag
  * 「預設拒絕」策略的守門員：任何未宣告授權的路由都讓程序啟動失敗。
  * 於 `app.listen()` 之前呼叫（docs/architecture/backend/05-rbac.md §7）。
  */
-export function auditRoutes(app: INestApplication): void {
+export function auditRoutes(
+  app: INestApplication,
+  flagCatalog: readonly FeatureFlagDefinition[] = FEATURE_FLAGS,
+): void {
   const routes = collectRouteDeclarations(app);
   const undeclared = routes.filter((r) => r.declaration === 'none');
   if (undeclared.length) {
@@ -168,6 +181,18 @@ export function auditRoutes(app: INestApplication): void {
     throw new Error(
       '以下平台端點標了 @RequireFeature（feature 以租戶為單位，平台端點不適用）：\n' +
         misplaced.map((r) => `  - ${r.method} ${r.path}（${r.feature}）`).join('\n'),
+    );
+  }
+
+  // flag 同樣以租戶為單位判斷（ADR-0022 D5）；目錄裡沒有的 key 永遠是關的，等於把端點關死，視為寫錯
+  const knownFlags = new Set(flagCatalog.map((flag) => flag.key));
+  const badFlags = routes.filter(
+    (r) => r.flag && (r.declaration === 'platformPermissions' || !knownFlags.has(r.flag)),
+  );
+  if (badFlags.length) {
+    throw new Error(
+      '以下端點的 @RequireFlag 無效（平台端點不適用；key 必須在 core/feature-flags 的目錄裡）：\n' +
+        badFlags.map((r) => `  - ${r.method} ${r.path}（${r.flag}）`).join('\n'),
     );
   }
 

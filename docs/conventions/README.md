@@ -7,7 +7,7 @@
 
 | #   | 檔案                                   | 內容                                                   |
 | --- | -------------------------------------- | ------------------------------------------------------ |
-| 01  | [`01-general.md`](./01-general.md)     | TypeScript、命名、匯入、註解、錯誤處理（前後端共通）   |
+| 01  | [`01-general.md`](./01-general.md)     | TypeScript、命名、匯入、註解、錯誤處理、feature flag（前後端共通） |
 | 02  | [`02-frontend.md`](./02-frontend.md)   | 前端分層規則、feature / 元件 / hook / 樣式的寫法       |
 | 03  | [`03-backend.md`](./03-backend.md)     | 後端分層規則、Controller / Service / Repository、交易  |
 | 04  | [`04-testing.md`](./04-testing.md)     | 測試檔位置與命名、該寫哪一層、必備案例                 |

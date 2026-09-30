@@ -25,6 +25,9 @@ export type TenantFeature = Profile['features'][number];
  *
  * `satisfies Record<TenantFeature, …>`：後端新增可啟用的 feature 而這裡沒跟上時編譯失敗。
  * 每個 feature 的最上層 route 自己宣告 `beforeLoad: requireFeature(<id>)`（D6）；`routes` 列的就是那些 route。
+ *
+ * 以 feature flag 試行中的整個 feature 也登記在這裡（docs/adr/0022-feature-flags.md D9）：id 自取，
+ * 宣告 `requires: { flag: '<key>' }`，其餘（`requireFeature`、`useFeatureGate`、卸載前導回首頁）照舊。
  */
 export const FEATURE_CATALOG = {
   [FILE_FEATURE]: { plugin: fileFeaturePlugin(), routes: [FileRoutes.FileListRoute] },
@@ -33,7 +36,8 @@ export const FEATURE_CATALOG = {
     routes: [AuditLogRoutes.AuditLogListRoute],
   },
   [JOB_FEATURE]: { plugin: jobFeaturePlugin(), routes: [JobRoutes.JobListRoute] },
-} as const satisfies Record<TenantFeature, FeatureDefinition>;
+} as const satisfies Record<TenantFeature, FeatureDefinition> &
+  Readonly<Record<string, FeatureDefinition>>;
 
 /** 建立安裝器；卸載時要用到 router（`appContextPlugin` 建立），所以到執行期才讀 `app.router`。 */
 export function featureActivationPlugin(): AppPluginFactory {
@@ -72,8 +76,8 @@ export function featureActivationPlugin(): AppPluginFactory {
 }
 
 /**
- * 把 profile 的啟用清單交給安裝器。與 `useSyncPermissions` 用同一個 query：
- * 清單變更時後端推播 `tenantFeature`，依賴圖讓 profile 重新取得（`apis/resources.ts`）。
+ * 把 profile 的啟用清單與生效的 feature flag 交給安裝器。與 `useSyncPermissions` 用同一個 query：
+ * 清單或 flag 變更時後端推播 `tenantFeature`，依賴圖讓 profile 重新取得（`apis/resources.ts`）。
  * 掛在 `app/App.tsx`，整個 app 只有一個實例。
  */
 export function useSyncFeatures(): void {
@@ -81,10 +85,11 @@ export function useSyncFeatures(): void {
   const hasSession = useHasSession();
   const { data } = useQuery({ ...getAuthProfileQueryOptions(), enabled: hasSession });
   const enabled = data?.features;
+  const flags = data?.flags;
 
   useEffect(() => {
-    if (enabled) void features.apply(enabled);
-  }, [enabled, features]);
+    if (enabled) void features.apply(enabled, flags);
+  }, [enabled, flags, features]);
 }
 
 declare module '@/core/app/context' {

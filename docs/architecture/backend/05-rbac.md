@@ -412,6 +412,8 @@ export function auditRoutes(app: INestApplication): void {
 同一個檢查也擋下 **標在平台端點上的 `@RequireFeature()`**：可啟用的 feature 以租戶為單位，平台的請求沒有租戶脈絡，
 `FeatureGuard` 不判斷，標了也不生效（[`../05-tenancy.md`](../05-tenancy.md) §5.1）。`@RequireFeature` 不是授權宣告，
 端點仍要有上面三者之一；哪些端點標了哪個 feature 由 `test/route-audit.spec.ts` 以路徑前綴釘住。
+`@RequireFlag('<key>')` 同樣不能標在平台端點上，而且 key 必須在 `core/feature-flags` 的目錄裡——不在目錄裡的 flag
+一律視為關閉，端點會被永遠關死（[`../05-tenancy.md`](../05-tenancy.md) §5.2）。
 
 > 實作細節：Express 的 `_router.stack` 是私有 API。更穩健的作法是用
 > `DiscoveryService` 掃描所有 controller 的 method metadata。兩種都可以，

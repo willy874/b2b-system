@@ -15,12 +15,18 @@ export interface FeatureState {
   statuses: ReadonlyMap<string, FeatureStatus>;
   /** 每個可啟用 feature 擁有的 base path（`/file`），給 Layout 判斷目前頁面屬於誰。 */
   basePaths: ReadonlyMap<string, readonly string[]>;
+  /**
+   * 目前生效為開的 feature flag（docs/adr/0022-feature-flags.md D6、D9），來自 `/auth/profile` 的 `flags`。
+   * 讀取用 `useFlag()`；profile 還沒到時是空的（一律視為關）。
+   */
+  flags: ReadonlySet<string>;
 }
 
 export const featureStore = createStore<FeatureState>(() => ({
   resolved: false,
   statuses: new Map(),
   basePaths: new Map(),
+  flags: new Set(),
 }));
 
 /** 找出擁有這個路徑的可啟用 feature；常駐 feature 的頁面回 `undefined`。 */
@@ -36,5 +42,8 @@ export function findFeatureByPath(
 
 /** 測試用。 */
 export function resetFeatureStore(): void {
-  featureStore.setState({ resolved: false, statuses: new Map(), basePaths: new Map() }, true);
+  featureStore.setState(
+    { resolved: false, statuses: new Map(), basePaths: new Map(), flags: new Set() },
+    true,
+  );
 }

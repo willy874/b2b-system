@@ -126,6 +126,8 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'PATCH /platform/admins/:id': 'platform platformAdmin:update',
       'POST /platform/admins/:id/password-link': 'platform platformAdmin:update',
       'GET /platform/audit-logs': 'platform platformAuditLog:read',
+      'GET /platform/feature-flags': 'platform featureFlag:read',
+      'PUT /platform/feature-flags/:key': 'platform featureFlag:update',
       'GET /platform/jobs/queues': 'platform platformJob:read',
       'GET /platform/jobs': 'platform platformJob:read',
       'GET /platform/jobs/:id': 'platform platformJob:read',

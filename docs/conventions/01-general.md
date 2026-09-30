@@ -138,3 +138,18 @@ import { RoleFilter } from './components/RoleFilter';
   缺少就啟動失敗）。前端變數必須以 `VITE_` 開頭。
 - 程式碼不寫死網址、密鑰、TTL；前端一律打相對路徑 `/api`。
 - 清單見 [`architecture/02-repository-structure.md`](../architecture/02-repository-structure.md) §5。
+
+---
+
+## 8. Feature flag
+
+機制見 [`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §5.2、[ADR-0022](../adr/0022-feature-flags.md)。
+
+| 規則 | 理由 | 強度 |
+| --- | --- | --- |
+| flag 只用在 **會被移除** 的試行；長期的模組開關用 `features`（ADR-0021），「誰可以做」用權限 | 三種開關各有生命週期，混用之後刪不掉 | 👀 Review |
+| key 是 `<模組>.<名稱>`（camelCase），上線後不改名 | 改名等於新 flag，既有的覆寫會遺失 | 🔒 啟動檢查（目錄格式） |
+| 每個 flag 都有 `owner` 與 `removeBy`；過期就移除或延期（改 `removeBy`） | 暫時的開關不強制就會變成永久的 | 🔒 測試（`feature-flags.spec.ts`） |
+| 前端用 `useFlag` 或 catalog 的 `requires.flag` 隱藏，端點一定要標 `@RequireFlag` | 前端的隱藏只是體驗，存取控制在 api | 👀 Review |
+| `@RequireFlag` 的 key 必須在目錄裡、不能標在平台端點 | 不在目錄裡的 flag 永遠是關的，端點會被關死 | 🔒 啟動檢查（`common/route-audit.ts`） |
+| 移除 flag 時同一個 PR 刪掉判斷、舊路徑與目錄的那一列 | 程式先不依賴 flag，資料才清（讀取時會忽略殘留的覆寫） | 👀 Review |

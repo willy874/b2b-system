@@ -57,6 +57,8 @@ const PERMISSION_KEYS = [
   ['platformAuditLog', 'read'],
   ['platformJob', 'read'],
   ['platformJob', 'retry'],
+  ['featureFlag', 'read'],
+  ['featureFlag', 'update'],
 ] as const;
 
 const bundles = { zh_TW: zhTW, en_US: enUS } as Record<string, Record<string, unknown>>;

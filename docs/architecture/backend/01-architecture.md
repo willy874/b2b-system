@@ -48,6 +48,7 @@ apps/api/src/
 │   │   ├── database.provider.ts          建立連線池 ＋ drizzle 實例；TENANT_DB / PLATFORM_DB token
 │   │   └── transaction.ts                withTransaction()、afterCommit()
 │   ├── tenant/                           依網域決定租戶、每租戶的連線池、TENANT_DB（02-database.md §6）
+│   ├── feature-flags/                    feature flag 的目錄與判斷（FeatureFlagService；05-tenancy.md §5.2）
 │   ├── cache/
 │   │   ├── cache.module.ts
 │   │   ├── permission-cache.service.ts   ★ 權限集合快取
@@ -89,6 +90,7 @@ apps/api/src/
 │   │   ├── authenticated.decorator.ts
 │   │   ├── require-permissions.decorator.ts
 │   │   ├── require-feature.decorator.ts  @RequireFeature：端點屬於可啟用的 feature（ADR-0021 D11）
+│   │   ├── require-flag.decorator.ts     @RequireFlag：端點還在以 feature flag 試行（ADR-0022 D5）
 │   │   ├── current-user.decorator.ts
 │   │   └── audit.decorator.ts
 │   ├── guards/
@@ -106,6 +108,7 @@ apps/api/src/
 │   ├── audit-log/                        含熱 → 冷搬移的排程工作（06-audit-log.md §8）
 │   ├── file/                             files 轉介表 ＋ 直傳上傳、影像變體、維護排程、資料夾授權（09-file.md）
 │   ├── job/                              背景工作的管理 API（10-jobs.md §6）
+│   ├── feature-flag/                     feature flag 的平台管理 API（05-tenancy.md §5.2）
 │   ├── resource-grant/                   資源授權：resource_grants ＋ 通用的等級解析（rbac/07-resource-grants.md）
 │   └── health/
 │
@@ -156,9 +159,10 @@ HTTP Request
   ▼ ③' FeatureGuard (APP_GUARD)
      @RequireFeature('<id>')（class 或 handler）且在租戶脈絡裡：
      租戶的 features 不含它 → 404 FEATURE_DISABLED（ADR-0021 D11；05-tenancy.md §5.1）
+     @RequireFlag('<key>')：flag 生效為關 → 同樣 404 FEATURE_DISABLED（ADR-0022 D5；05-tenancy.md §5.2）；兩者並存時都要成立
      排在 JWT 之後：未登入照舊 401，不讓未登入者知道租戶開了哪些功能；
      排在權限之前：功能沒開一律 404，不以 403 透露端點存在，也不寫 authz.denied
-     沒有租戶脈絡（平台的請求）不判斷；平台端點標了 @RequireFeature 由路由稽核擋下
+     沒有租戶脈絡（平台的請求）不判斷；平台端點標了 @RequireFeature / @RequireFlag 由路由稽核擋下
   │
   ▼ ④ PermissionsGuard (APP_GUARD)
      讀 metadata：@Public / @Authenticated / @RequirePermissions

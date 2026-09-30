@@ -11,6 +11,7 @@ export function tenantFixture(overrides: Partial<PlatformTenant> = {}): Platform
     storageBucket: 'b2b-acme',
     allowExternalIdp: true,
     features: ['file', 'auditLog', 'job'],
+    flags: {},
     adminEmail: 'owner@acme.test',
     provisionError: null,
     provisionedAt: '2026-09-30T00:00:00.000Z',

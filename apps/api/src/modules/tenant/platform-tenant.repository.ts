@@ -26,6 +26,7 @@ export type TenantPatch = Partial<
     | 'deletedAt'
     | 'allowExternalIdp'
     | 'features'
+    | 'flags'
   >
 >;
 

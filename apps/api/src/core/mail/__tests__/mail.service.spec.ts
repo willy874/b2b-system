@@ -46,6 +46,7 @@ describe('MailService（docs/architecture/backend/11-mail.md §3）', () => {
         storageBucket: 'b2b-acme',
         allowExternalIdp: true,
         features: ['file', 'auditLog', 'job'],
+        flags: {},
       },
       fn,
     );
@@ -68,6 +69,7 @@ describe('MailService（docs/architecture/backend/11-mail.md §3）', () => {
           storageBucket: 'b',
           allowExternalIdp: true,
           features: ['file', 'auditLog', 'job'],
+          flags: {},
         },
         () => service.link('/approval'),
       ),

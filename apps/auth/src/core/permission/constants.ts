@@ -14,6 +14,7 @@ export const PermissionResource = {
   PLATFORM_ADMIN: 'platformAdmin',
   PLATFORM_AUDIT_LOG: 'platformAuditLog',
   PLATFORM_JOB: 'platformJob',
+  FEATURE_FLAG: 'featureFlag',
 } as const;
 export type PermissionResource = (typeof PermissionResource)[keyof typeof PermissionResource];
 

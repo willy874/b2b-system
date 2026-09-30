@@ -41,6 +41,22 @@ export function useUpdateTenantMutation() {
   });
 }
 
+/** 試行開關的租戶層覆寫（docs/adr/0022-feature-flags.md D7）：列表上「覆寫它的租戶數」也跟著變。 */
+export function useUpdateTenantFlagsMutation() {
+  const toast = useToast();
+  const { t } = useTranslation();
+  return useMutation({
+    ...getUpdateTenantMutationOptions(),
+    onSuccess: (tenant: PlatformTenant) => {
+      invalidateResources([
+        { resource: Resource.TENANT, kind: 'update', id: tenant.id },
+        { resource: Resource.FEATURE_FLAG, kind: 'update' },
+      ]);
+      toast.success(t('tenant.flag.success'));
+    },
+  });
+}
+
 export function useRetryTenantProvisioningMutation() {
   const changed = useTenantChange('update', 'tenant.retry.success');
   return useMutation({

@@ -22,6 +22,7 @@ function setup(user: { id: string; status: string; lockedUntil: Date | null } | 
     {} as never, // oidc
     identityProviders as never,
     {} as never, // settings
+    {} as never, // flags
   );
   return { service, jobs, identityProviders };
 }

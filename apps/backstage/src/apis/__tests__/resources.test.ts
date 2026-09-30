@@ -17,6 +17,7 @@ function signInAs() {
     roles: [{ id: SELF_ROLE, slug: 'admin', name: 'Admin', isSystem: true }],
     permissions: [],
     features: [],
+    flags: [],
   });
 }
 

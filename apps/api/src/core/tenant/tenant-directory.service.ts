@@ -6,6 +6,8 @@ import type { TenantRow, TenantStatus } from '@/db/platform/schema';
 
 import type { Env } from '../config';
 import { SecretBox, TENANT_SECRET_PURPOSE } from '../crypto';
+import { toFeatureFlagOverrides } from '../feature-flags/feature-flags';
+import type { FeatureFlagOverrides } from '../feature-flags/feature-flags';
 import { hostnameOf } from '../http';
 import { BoundedCache } from './bounded-cache';
 import { toTenantFeatures } from './tenant-features';
@@ -24,6 +26,8 @@ export interface TenantRecord {
   allowExternalIdp: boolean;
   /** 啟用的 feature（ADR-0021 D8）；DB 裡不認得的值已濾掉。 */
   features: readonly TenantFeature[];
+  /** feature flag 的租戶層覆寫（ADR-0022 D2）；非布林的值已濾掉。 */
+  flags: FeatureFlagOverrides;
 }
 
 /** 每種查詢最多快取幾筆（租戶數遠小於這個值；上限只是防止被灌爆）。 */
@@ -201,6 +205,7 @@ export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy 
       storageBucket: row.storageBucket,
       allowExternalIdp: row.allowExternalIdp,
       features: toTenantFeatures(row.features),
+      flags: toFeatureFlagOverrides(row.flags),
     };
   }
 

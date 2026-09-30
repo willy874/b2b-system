@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { AUDIT_LOG_PAGE, registerAuditLogPagePermissions } from '@/features/audit-log';
+import { FEATURE_FLAG_PAGE, registerFeatureFlagPagePermissions } from '@/features/feature-flag';
 import { HOME_PAGE, registerHomePagePermissions } from '@/features/home';
 import { JOB_PAGE, registerJobPagePermissions } from '@/features/job';
 import {
@@ -23,9 +24,17 @@ describe('註冊表完整性', () => {
     registerPlatformAdminPagePermissions();
     registerAuditLogPagePermissions();
     registerJobPagePermissions();
+    registerFeatureFlagPagePermissions();
 
     expect(new Set(getRegisteredPageKeys())).toEqual(
-      new Set([HOME_PAGE, TENANT_PAGE, PLATFORM_ADMIN_PAGE, AUDIT_LOG_PAGE, JOB_PAGE]),
+      new Set([
+        HOME_PAGE,
+        TENANT_PAGE,
+        PLATFORM_ADMIN_PAGE,
+        AUDIT_LOG_PAGE,
+        JOB_PAGE,
+        FEATURE_FLAG_PAGE,
+      ]),
     );
   });
 });
