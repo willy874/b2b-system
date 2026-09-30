@@ -57,6 +57,7 @@
 - **影響**：平台管理者手滑一下，該網域立刻不再對應租戶，這個網域上的所有使用者（可能上百人同時在線）都被擋在門外。連點還會送出重複請求。
 - **建議**：改用 `useConfirm`，`tone: 'danger'`，說明內容寫成「移除後 `{{domain}}` 會立即無法進入此租戶，已登入的使用者會……」。主要網域另外擋下，或要求先換主要網域。按鈕綁 `removeDomain.isPending`。
 - **驗收**：點垃圾桶先出現確認框，取消後網域還在；確認進行中兩顆按鈕都停用；主要網域沒有移除鈕，或移除時有額外警告。
+- **狀態**：已修（fix/auth-ux）——確認框（`tone: danger`、說明影響）、送出中兩顆按鈕停用；主要網域不顯示移除鈕，後端也擋（`TENANT_PRIMARY_DOMAIN`，409）
 
 ### UX-02 角色權限對話框在資料載入前勾選，儲存會移除該角色全部既有權限
 
@@ -129,6 +130,7 @@
 - **影響**：打錯網址、書籤指向舊路由時，會看到 TanStack Router 預設的英文「Not Found」。部署新版後，舊分頁 lazy 載入舊 chunk 失敗（1000 人在線時一定會遇到），畫面變成框架預設的錯誤畫面，可能還帶技術訊息。
 - **建議**：兩個 app 都設定 `defaultNotFoundComponent: NotFoundPage`、`defaultErrorComponent`。錯誤元件要辨識 chunk 載入失敗（`Failed to fetch dynamically imported module`），這種情況提示「系統已更新，請重新整理」並附一顆重新整理按鈕。
 - **驗收**：進入 `/not-exist` 顯示本地化的 404；把 chunk 檔刪掉後切換頁面，顯示「重新整理」提示。
+- **狀態**：已修 apps/auth 部分（fix/auth-ux）——`defaultNotFoundComponent`／`defaultErrorComponent`／`defaultPendingComponent`（`app/ErrorPages.tsx`），chunk 載入失敗提示重新整理；backstage 部分由 backstage 組處理
 
 ### UX-10 表單驗證訊息是 Zod 的英文技術字串
 
@@ -138,6 +140,7 @@
 - **影響**：登入、註冊、建立使用者這些最常用的表單，在繁中介面顯示英文技術訊息，而且把「最少 1 字元」這種規則描述當成錯誤說明。相對地，IdP、租戶、平台管理者的表單已經用 `t('xxx.error.*')` 本地化，全站體驗不一致。
 - **建議**：在 i18n plugin 初始化時用 `z.config({ customError })` 依 issue code（`too_small`、`too_big`、`invalid_format`）對應到 `validation.*` 語系鍵，並跟著語系切換。refine 的 message 改成語系鍵，在 `firstError` 裡翻譯。
 - **驗收**：繁中介面下，登入頁空白送出顯示「請輸入 Email」之類的中文；切到英文後顯示英文友善訊息。畫面上不再出現 `>=`。
+- **狀態**：已修 apps/auth 部分（fix/auth-ux）——`core/locales/zodErrorMap.ts` 設為 Zod 全域 `customError`（`validation.*`），三個密碼頁的不一致訊息改用 `params.messageKey`；`shared/hooks/form.ts` 不必改（`issue.message` 已是語系文字）。backstage 可照同一個檔案同步
 
 ### UX-11 偏好頁的「時區」「語言」對日期顯示完全無效
 
@@ -156,6 +159,7 @@
 - **影響**：使用者沒有按登出卻看到「你已登出」，不知道是逾時、被停用，還是被偵測到憑證重用而登出所有裝置（`error.AUTH_REFRESH_REUSED` 其實已經有很好的說明文案）。重新登入後篩選條件消失，正在填的表單也不見了。
 - **建議**：把 reason 帶到登入頁（例如 `?reason=AUTH_REFRESH_EXPIRED`），用 `getErrorMessageKey` 顯示對應文案，`logout`／`password_changed` 用各自的文案。`redirect` 改帶 `pathname + search`。長期可以考慮在 access token 快過期前提示，或把建立與編輯表單的草稿暫存在 sessionStorage。
 - **驗收**：讓 refresh 回 `AUTH_REFRESH_EXPIRED`，登入頁顯示「登入已過期」；在 `/user?status=locked&offset=40` 被登出，重新登入後回到同一個網址。
+- **狀態**：已修 apps/auth 部分（fix/auth-ux）——`SessionWatcher` 帶 `?reason=`、`redirect` 改帶 pathname＋search，登入頁依原因說明（`features/login/sessionEnd.ts`）；backstage 部分由 backstage 組處理
 
 ### UX-13 忘記密碼在 429／網路錯誤時仍顯示「已寄出」
 
@@ -165,6 +169,7 @@
 - **影響**：帳號列舉防護只要求「email 存不存在」回應相同。但網路中斷、`RATE_LIMITED`、`TENANT_UNAVAILABLE` 也被顯示成「已寄出」，使用者會一直等一封不會來的信，然後打電話給客服。
 - **建議**：只有 2xx 才 `setSent(true)`。`AppError` 的 429、5xx 與網路錯誤用 `useErrorMessage` 顯示在表單內。後端本來就對存在與不存在的 email 回同樣的 200，不會破壞防護。
 - **驗收**：模擬 429 或斷網，畫面顯示錯誤訊息，不會顯示「已寄出」。
+- **狀態**：已修（fix/auth-ux）——只有成功才顯示「已寄出」，429／503／網路錯誤在表單內顯示
 
 ### UX-14 3 個後端錯誤碼沒有翻譯，且測試用手抄清單沒擋住
 
@@ -183,6 +188,7 @@
 - **影響**：刪除租戶會影響整個租戶的全部使用者。關掉外部 IdP 後，設定為 ssoOnly 網域的使用者可能立刻無法登入（**待驗證**：後端關閉後既有連線的登入行為）。這兩個動作都只是一個 click 的距離。
 - **建議**：刪除租戶要求輸入租戶代碼才能按確認（GitHub 式 type-to-confirm）。外部 IdP 關閉時用 `useConfirm` 說明「使用 SSO 的使用者將無法以外部帳號登入」，最好附上受影響的連線數或網域數。
 - **驗收**：刪除按鈕在輸入代碼前是停用狀態；取消勾選外部 IdP 會先跳確認。
+- **狀態**：已修（fix/auth-ux）——刪除租戶要輸入租戶代碼；關閉外部 IdP 先確認並說明影響（已驗證：關閉後 discovery 當作沒有連線，只允許 SSO 的網域回到密碼登入，沒有密碼的 SSO 使用者要先重設密碼）。受影響的連線數需要跨租戶查詢，未附
 
 ### UX-16 頂列看不到目前租戶與使用者身分；帳號選單的無障礙名稱是「M」
 
@@ -303,6 +309,7 @@
 - **影響**：租戶停用、網址打錯、登入頁放太久這些常見情況下，使用者停在沒有出口的頁面，或登入後被帶到首頁而不是原本的頁面。
 - **建議**：Login 頁失敗時用 `useErrorMessage` 顯示原因。callback 的重試帶上 `pending?.returnTo`。互動過期頁提供「重新開始登入」（有 client 資訊時導回該 client，沒有時導到 `/enter`）。
 - **驗收**：讓 `get-current-tenant` 回 503，頁面顯示「這個租戶目前無法使用」；callback 失敗重試後回到原本的頁面。
+- **狀態**：已修（fix/auth-ux）——兩個 app 的登入頁顯示失敗原因、callback 重試帶 `returnTo`；互動過期與 `/error` 頁提供「重新開始登入」
 
 ### UX-29 平台租戶列表沒有分頁、搜尋、篩選
 
@@ -312,6 +319,7 @@
 - **影響**：租戶一多，平台管理者要找「佈建失敗」或某個代碼的租戶，只能用瀏覽器的 Ctrl+F。
 - **建議**：比照 backstage 的列表加上 `RichTable` 分頁、代碼／名稱搜尋、狀態篩選，條件存在網址。
 - **驗收**：租戶列表可以依狀態篩出 `failed`，重新整理後條件仍在。
+- **狀態**：已修（fix/auth-ux）——`GET /platform/tenants` 支援 `offset`／`limit`／`q`（代碼、名稱、網域）／`status`，前端條件存在網址；平台管理者清單（`PlatformAdminList`）人數少，維持不分頁
 
 ### UX-30 變更密碼沒有確認欄、沒有 autocomplete，改完直接顯示「你已登出」
 
@@ -339,6 +347,7 @@
 - **影響**：使用者停在 403 只能靠側欄或上一頁離開。平台頁面載入時是一整片空白，看起來像當掉。
 - **建議**：403／404 提供「回首頁」與「返回上一頁」，403 可以再附「複製網址給管理員」。apps/auth 的 fallback 改用 Skeleton 或 Spinner。
 - **驗收**：403 頁有可點的返回動作；apps/auth 的慢速載入有視覺回饋。
+- **狀態**：已修 apps/auth 部分（fix/auth-ux）——403／404 有「回首頁」「返回上一頁」，載入中改成 Spinner；backstage 的 `ErrorPage` 由 backstage 組處理
 
 ### UX-33 登入表單缺顯示密碼、Caps Lock 提示、自動聚焦；沒有「記住我」
 
@@ -348,6 +357,7 @@
 - **影響**：企業使用者每天登入，細節上的摩擦累積起來很可觀。是否提供「記住我」取決於資安政策（refresh token 的壽命），這是產品決策，**待確認**。
 - **建議**：加上密碼顯示切換、Caps Lock 提示，Email 欄 autoFocus。如果政策允許，提供「在這台裝置保持登入 N 天」並延長 refresh 壽命；不允許的話，在登入頁說明 session 長度。
 - **驗收**：密碼欄可以切換顯示；開著 Caps Lock 輸入時有提示；進頁面後游標在 Email 欄。
+- **狀態**：已修（fix/auth-ux）——密碼顯示切換、Caps Lock 提示、互動載入後聚焦 Email；「記住我」已決定不做
 
 ### UX-34 Toast 不支援動作鈕（復原／重試）；軟刪除沒有復原入口
 
