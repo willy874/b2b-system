@@ -83,6 +83,8 @@ export const ErrorCode = {
   USER_NOT_LOCKED: { status: 409 },
   /** 整批取代角色時，送出的草稿所依據的角色已被別人改過。 */
   USER_ROLES_CONFLICT: { status: 409 },
+  /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（ADR-0025 D3）。 */
+  USER_VERSION_CONFLICT: { status: 409 },
 
   // ── 角色 ──
   ROLE_NOT_FOUND: { status: 404 },
@@ -93,6 +95,8 @@ export const ErrorCode = {
   LAST_SUPER_ADMIN: { status: 403 },
   /** 改自己持有的角色的權限或刪除它，會讓自己失去管理角色所需的權限（docs/architecture/backend/05-rbac.md §8.4）。 */
   ROLE_SELF_LOCKOUT: { status: 403 },
+  /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（ADR-0025 D3）。 */
+  ROLE_VERSION_CONFLICT: { status: 409 },
 
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },

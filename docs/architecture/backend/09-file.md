@@ -442,8 +442,10 @@ LIMIT $limit
 | --- | --- |
 | 版本相符 | 改名、`version + 1`，回新的 `StoredFile` |
 | 讀到之前就不同（別人已改過） | `409 FILE_VERSION_CONFLICT`（`details.current`） |
-| 讀到之後、寫入之前被搶先 | UPDATE 沒命中 → `409 FILE_VERSION_CONFLICT` |
-| 不帶 `version` | 後寫者勝（腳本、批次） |
+| 讀到之後、寫入之前被搶先 | UPDATE 沒命中 → 同一個交易內重讀：還在 → `409 FILE_VERSION_CONFLICT`（`details.current` 是重讀到的版本）；已刪除 → `404 FILE_NOT_FOUND` |
+| 不帶 `version` | 後寫者勝（腳本、批次）；下一次部署改必填（[ADR-0025](../../adr/0025-entity-revisions.md) D4 的 R1b） |
+
+通用的樂觀鎖慣例（其他實體同一個形狀）見 [`03-api-conventions.md`](./03-api-conventions.md) §11。
 
 錯誤碼：
 

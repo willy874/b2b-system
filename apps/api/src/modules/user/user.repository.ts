@@ -67,6 +67,14 @@ function statusCondition(status: UserStatus): SQL | undefined {
   return eq(users.status, status);
 }
 
+/** `update()` 的樂觀鎖選項。 */
+export interface VersionedUpdate {
+  /** 只在目前的 `version` 等於它時更新（樂觀鎖）。 */
+  expectedVersion?: number;
+  /** 一併把 `version` 加一：寫入了實體自己的可編輯欄位時才帶（`USER_VERSIONED_FIELDS`）。 */
+  bumpVersion?: boolean;
+}
+
 /** 登入失敗後的計數與鎖定（`recordFailedLogin` 的結果）。 */
 export interface FailedLoginResult {
   failedLoginCount: number;
@@ -177,10 +185,37 @@ export class UserRepository {
     return row;
   }
 
-  async update(id: string, values: Partial<UserInsert>, tx?: DbOrTx): Promise<UserRow | undefined> {
+  /**
+   * `bumpVersion`：一併遞增樂觀鎖的 `version`。帶 `expectedVersion` 時只在版本相符、且未刪除時才更新
+   * （比對與寫入在同一個 UPDATE，沒有「讀到之後被搶先寫入」的空窗）；不符回 undefined。
+   */
+  async update(
+    id: string,
+    values: Partial<UserInsert>,
+    tx?: DbOrTx,
+    options: VersionedUpdate = {},
+  ): Promise<UserRow | undefined> {
     const db = tx ?? this.db;
-    const [row] = await db.update(users).set(values).where(eq(users.id, id)).returning();
+    const conditions = [eq(users.id, id)];
+    if (options.expectedVersion !== undefined) {
+      conditions.push(eq(users.version, options.expectedVersion), isNull(users.deletedAt));
+    }
+    const [row] = await db
+      .update(users)
+      .set(options.bumpVersion ? { ...values, version: sql`${users.version} + 1` } : values)
+      .where(and(...conditions))
+      .returning();
     return row;
+  }
+
+  /** 未刪除的使用者目前的 `version`；不存在或已刪除回 undefined（樂觀鎖衝突時重讀）。 */
+  async findVersion(id: string, tx?: DbOrTx): Promise<number | undefined> {
+    const [row] = await (tx ?? this.db)
+      .select({ version: users.version })
+      .from(users)
+      .where(and(eq(users.id, id), isNull(users.deletedAt)))
+      .limit(1);
+    return row?.version;
   }
 
   async softDelete(id: string, actorId: string, tx?: DbOrTx): Promise<void> {

@@ -3,7 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { PERMISSION } from '@/common/types';
 import type { AuthUser, PermissionKey } from '@/common/types';
-import type { Database } from '@/core/database';
+import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
@@ -44,6 +44,7 @@ function toDto(role: RoleWithCounts): RoleDto {
     isSystem: role.isSystem,
     permissionCount: role.permissionCount,
     userCount: role.userCount,
+    version: role.version,
     createdAt: role.createdAt.toISOString(),
     updatedAt: role.updatedAt.toISOString(),
   };
@@ -139,7 +140,12 @@ export class RoleService {
   }
 
   async update(id: string, dto: UpdateRoleDto, actor: AuthUser): Promise<RoleDto> {
+    const { version, ...fields } = dto;
     const role = await this.getExisting(id);
+    // 讀到時就不同：別人已經改過（ADR-0025 D3）
+    if (version !== undefined && version !== role.version) {
+      throw new AppException('ROLE_VERSION_CONFLICT', { current: role.version });
+    }
     // super-admin 的名稱與說明也不可改；其他系統角色的顯示名稱可改（docs/rbac/01-domain-model.md §5）
     if (role.slug === SUPER_ADMIN_SLUG) throw new AppException('ROLE_SUPER_ADMIN_IMMUTABLE');
     // 只改大小寫（`admin` → `Admin`）不算撞名：唯一性不分大小寫，撞到的是自己
@@ -147,11 +153,12 @@ export class RoleService {
       await this.assertNameAvailable(dto.name);
     }
 
-    const changes = diff(role, dto, [...ROLE_AUDIT_FIELDS]);
+    const changes = diff(role, fields, [...ROLE_AUDIT_FIELDS]);
 
     await withTransaction(this.db, async (tx) => {
-      const updated = await this.repo.update(id, { ...dto, updatedBy: actor.id }, tx);
-      if (!updated) throw new AppException('ROLE_NOT_FOUND');
+      const updated = await this.repo.update(id, { ...fields, updatedBy: actor.id }, version, tx);
+      // 讀到之後、寫入之前被別人改過（版本變了）或刪除
+      if (!updated) throw await this.missedUpdate(id, version, tx);
       await this.audit.record(
         {
           action: 'role.update',
@@ -310,6 +317,21 @@ export class RoleService {
   }
 
   // ── 業務規則 ─────────────────────────────────────────────
+
+  /**
+   * 條件式 UPDATE 沒有命中：沒帶版本、或列已不在 → 404；還在就是版本被搶先改過 → 409 並帶重讀的目前版本
+   * （ADR-0025 D3）。
+   */
+  private async missedUpdate(
+    id: string,
+    version: number | undefined,
+    tx: DbOrTx,
+  ): Promise<AppException> {
+    const current = version === undefined ? undefined : await this.repo.findVersion(id, tx);
+    return current === undefined
+      ? new AppException('ROLE_NOT_FOUND')
+      : new AppException('ROLE_VERSION_CONFLICT', { current });
+  }
 
   private async getExisting(id: string) {
     const role = await this.repo.findById(id);

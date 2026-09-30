@@ -360,6 +360,7 @@ export const UpdateUserRequestSchema = z.object({
   status: z.enum(['active', 'inactive']).optional(),
   locale: z.string().max(10).optional(),
   timezone: z.string().max(64).optional(),
+  version: z.int().min(1).max(9007199254740991).optional(),
 }) satisfies z.ZodType<UpdateUserRequest>;
 
 export const ReplaceUserRolesRequestSchema = z.object({
@@ -425,6 +426,7 @@ export const UserSchema = z.object({
   timezone: z.string(),
   lastLoginAt: z.string().nullable(),
   lockedUntil: z.string().nullable(),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
   createdAt: z.string(),
   updatedAt: z.string(),
 }) satisfies z.ZodType<User>;
@@ -1330,6 +1332,7 @@ export const RoleSchema = z.object({
   isSystem: z.boolean(),
   permissionCount: z.int().min(-9007199254740991).max(9007199254740991),
   userCount: z.int().min(-9007199254740991).max(9007199254740991),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
   createdAt: z.string(),
   updatedAt: z.string(),
 }) satisfies z.ZodType<Role>;
@@ -1356,6 +1359,7 @@ export const RoleHolderSchema = z.object({
 export const UpdateRoleRequestSchema = z.object({
   name: z.string().min(1).max(64).optional(),
   description: z.string().max(500).nullable().optional(),
+  version: z.int().min(1).max(9007199254740991).optional(),
 }) satisfies z.ZodType<UpdateRoleRequest>;
 
 export const UpdateRolePermissionsRequestSchema = z.object({

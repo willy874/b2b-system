@@ -170,6 +170,7 @@ export interface UpdateUserRequest {
   status?: 'active' | 'inactive';
   locale?: string;
   timezone?: string;
+  version?: number;
 }
 
 export interface ReplaceUserRolesRequest {
@@ -203,6 +204,7 @@ export interface User {
   timezone: string;
   lastLoginAt: string | null;
   lockedUntil: string | null;
+  version: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -845,6 +847,7 @@ export interface Role {
   isSystem: boolean;
   permissionCount: number;
   userCount: number;
+  version: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -865,6 +868,7 @@ export interface RoleHolder {
 export interface UpdateRoleRequest {
   name?: string;
   description?: string | null;
+  version?: number;
 }
 
 export interface UpdateRolePermissionsRequest {

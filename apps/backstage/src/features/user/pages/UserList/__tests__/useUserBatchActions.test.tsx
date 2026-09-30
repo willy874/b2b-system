@@ -32,6 +32,7 @@ const row = (overrides: Partial<UserRowVM>): UserRowVM => ({
   roles: [],
   lastLoginAt: null,
   createdAt: new Date(0),
+  version: 1,
   isSelf: false,
   canDelete: true,
   canUpdate: true,

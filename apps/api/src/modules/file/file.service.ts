@@ -355,11 +355,12 @@ export class FileService {
         dto.version,
         tx,
       );
-      // 讀到之後、寫入之前被別人改名（版本變了）或刪除
+      // 讀到之後、寫入之前被別人改名（版本變了）或刪除：重讀一次，還在就帶目前的版本（ADR-0025 D3）
       if (!updated) {
-        throw dto.version === undefined
+        const current = dto.version === undefined ? undefined : await this.repo.findVersion(id, tx);
+        throw current === undefined
           ? new AppException('FILE_NOT_FOUND')
-          : new AppException('FILE_VERSION_CONFLICT');
+          : new AppException('FILE_VERSION_CONFLICT', { current });
       }
       await this.audit.record(
         {

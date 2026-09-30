@@ -9,6 +9,8 @@ export interface UserRowVM {
   roles: Array<{ id: string; name: string; isSystem: boolean }>;
   lastLoginAt: Date | null;
   createdAt: Date;
+  /** 樂觀鎖版本：批次啟用／停用以它送出（ADR-0025 D4）。 */
+  version: number;
   isSelf: boolean;
   canDelete: boolean;
   canUpdate: boolean;
@@ -36,6 +38,7 @@ export function toUserRowVM(
     roles: dto.roles,
     lastLoginAt: dto.lastLoginAt ? new Date(dto.lastLoginAt) : null,
     createdAt: new Date(dto.createdAt),
+    version: dto.version,
     isSelf,
     // 不能刪除自己（後端也會擋，這裡是體驗）
     canDelete: permission.canDelete && !isSelf,

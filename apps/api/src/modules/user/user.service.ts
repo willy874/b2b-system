@@ -27,7 +27,7 @@ import type { CreateUserDto } from './dto/create-user.dto';
 import type { ListUserDto } from './dto/list-user.dto';
 import type { ReplaceUserRolesDto, UpdateUserDto } from './dto/update-user.dto';
 import type { UserDto } from './dto/user.dto';
-import { USER_AUDIT_FIELDS } from './user.constants';
+import { USER_AUDIT_FIELDS, USER_VERSIONED_FIELDS } from './user.constants';
 import type { FailedLoginResult, UserRoleSummary, UserWithRoles } from './user.repository';
 import { UserRepository } from './user.repository';
 
@@ -66,6 +66,7 @@ function toDto(user: UserRow, roles: UserRoleSummary[]): UserDto {
     timezone: user.timezone,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
     lockedUntil: user.lockedUntil?.toISOString() ?? null,
+    version: user.version,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };
@@ -82,6 +83,11 @@ export function userUpdated(
     id,
     refs: { [ChangeSource.ROLE]: roles.map((role) => role.id) },
   };
+}
+
+/** 這次寫入是否動到遞增 `version` 的欄位（`USER_VERSIONED_FIELDS`）。 */
+function touchesVersionedFields(values: Partial<UserInsert>): boolean {
+  return USER_VERSIONED_FIELDS.some((field) => values[field] !== undefined);
 }
 
 function sameIds(roles: readonly Pick<UserRoleSummary, 'id'>[], ids: readonly string[]): boolean {
@@ -154,7 +160,12 @@ export class UserService {
   }
 
   async update(id: string, dto: UpdateUserDto, actor: AuthUser): Promise<UserDto> {
+    const { version, ...fields } = dto;
     const user = await this.getExisting(id);
+    // 讀到時就不同：別人已經改過，不必再做後面的檢查（ADR-0025 D3）
+    if (version !== undefined && version !== user.version) {
+      throw new AppException('USER_VERSION_CONFLICT', { current: user.version });
+    }
 
     const statusChanging = dto.status !== undefined && dto.status !== user.status;
     if (statusChanging) {
@@ -170,8 +181,12 @@ export class UserService {
 
     const updated = await withTransaction(this.db, async (tx) => {
       if (statusChanging && deactivating) await this.assertNotLastSuperAdmin(id, tx);
-      const next = await this.repo.update(id, { ...dto, updatedBy: actor.id }, tx);
-      if (!next) throw new AppException('USER_NOT_FOUND');
+      const next = await this.repo.update(id, { ...fields, updatedBy: actor.id }, tx, {
+        expectedVersion: version,
+        bumpVersion: true,
+      });
+      // 讀到之後、寫入之前被別人改過（版本變了）或刪除
+      if (!next) throw await this.missedUpdate(id, version, tx);
 
       if (deactivating) {
         // 停用：撤銷所有 refresh token 並讓既存 access token 失效；已寄出的啟用／重設連結一併作廢，
@@ -361,6 +376,8 @@ export class UserService {
           updatedBy: actor.id,
         },
         tx,
+        // 解鎖改變了顯示的狀態：開著的編輯表單要知道自己看到的是舊的
+        { bumpVersion: true },
       );
       if (!next) throw new AppException('USER_NOT_FOUND');
       await this.audit.record(
@@ -451,6 +468,21 @@ export class UserService {
 
   // ── 業務規則 ─────────────────────────────────────────────
 
+  /**
+   * 條件式 UPDATE 沒有命中：沒帶版本、或列已不在 → 404；還在就是版本被搶先改過 → 409 並帶重讀的目前版本
+   * （ADR-0025 D3）。在同一個交易內重讀，看得到搶先的那一筆已提交的版本。
+   */
+  private async missedUpdate(
+    id: string,
+    version: number | undefined,
+    tx: DbOrTx,
+  ): Promise<AppException> {
+    const current = version === undefined ? undefined : await this.repo.findVersion(id, tx);
+    return current === undefined
+      ? new AppException('USER_NOT_FOUND')
+      : new AppException('USER_VERSION_CONFLICT', { current });
+  }
+
   private async getExisting(id: string): Promise<UserRow> {
     const user = await this.repo.findById(id);
     if (!user) throw new AppException('USER_NOT_FOUND');
@@ -518,12 +550,13 @@ export class UserService {
     return this.repo.findByEmail(email);
   }
 
+  /** 動到可編輯的欄位（個人資料、啟用後的狀態）時遞增 `version`；登入計數、密碼等不遞增。 */
   updateAccount(
     id: string,
     values: Partial<UserInsert>,
     tx?: DbOrTx,
   ): Promise<UserRow | undefined> {
-    return this.repo.update(id, values, tx);
+    return this.repo.update(id, values, tx, { bumpVersion: touchesVersionedFields(values) });
   }
 
   incrementTokenVersion(id: string, tx?: DbOrTx): Promise<void> {

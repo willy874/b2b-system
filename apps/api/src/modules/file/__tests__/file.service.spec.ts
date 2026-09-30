@@ -76,6 +76,7 @@ function setup(
     create: vi.fn(async (values: Partial<FileWithUploader>) => fileRow(values)),
     markReady: vi.fn(async () => fileRow({ status: 'ready' })),
     update: vi.fn(async () => fileRow({ status: 'ready' })),
+    findVersion: vi.fn(async (): Promise<number | undefined> => 4),
     softDelete: vi.fn(async () => fileRow({ status: 'ready' })),
     discardPending: vi.fn(async () => fileRow({ deletedAt: new Date() })),
     list: vi.fn(),
@@ -170,6 +171,7 @@ async function expectAppError(promise: Promise<unknown>, code: string) {
   );
   expect(error).toBeInstanceOf(AppException);
   expect((error as AppException).code).toBe(code);
+  return error as AppException;
 }
 
 describe('FileService.createUpload（docs/architecture/backend/09-file.md §4）', () => {
@@ -663,23 +665,36 @@ describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.
 describe('FileService.update：樂觀鎖', () => {
   const ready = () => fileRow({ status: 'ready', etag: 'abc', uploadedAt: new Date(), version: 3 });
 
-  it('帶的版本與目前不同 → FILE_VERSION_CONFLICT，不寫入', async () => {
+  it('帶的版本與目前不同 → FILE_VERSION_CONFLICT（details.current），不寫入', async () => {
     const { service, repo } = setup({ file: ready() });
-    await expectAppError(
+    const error = await expectAppError(
       service.update(FILE_ID, { name: 'x.png', version: 2 }, ALICE),
       'FILE_VERSION_CONFLICT',
     );
+    expect(error.details).toEqual({ current: 3 });
     expect(repo.update).not.toHaveBeenCalled();
   });
 
-  it('讀到之後被別人搶先改名（UPDATE 沒命中）→ FILE_VERSION_CONFLICT', async () => {
+  it('讀到之後被別人搶先改名（UPDATE 沒命中）→ FILE_VERSION_CONFLICT，details.current 是重讀的版本', async () => {
     const { service, repo } = setup({ file: ready() });
     repo.update.mockResolvedValueOnce(undefined as never);
-    await expectAppError(
+    const error = await expectAppError(
       service.update(FILE_ID, { name: 'x.png', version: 3 }, ALICE),
       'FILE_VERSION_CONFLICT',
     );
+    expect(error.details).toEqual({ current: 4 });
     expect(repo.update).toHaveBeenCalledWith(FILE_ID, expect.anything(), 3, 'tx');
+    expect(repo.findVersion).toHaveBeenCalledWith(FILE_ID, 'tx');
+  });
+
+  it('UPDATE 沒命中而重讀時已被刪除 → FILE_NOT_FOUND', async () => {
+    const { service, repo } = setup({ file: ready() });
+    repo.update.mockResolvedValueOnce(undefined as never);
+    repo.findVersion.mockResolvedValueOnce(undefined);
+    await expectAppError(
+      service.update(FILE_ID, { name: 'x.png', version: 3 }, ALICE),
+      'FILE_NOT_FOUND',
+    );
   });
 });
 

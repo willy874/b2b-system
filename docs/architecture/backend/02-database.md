@@ -60,6 +60,9 @@ export const users = pgTable(
 
     mfaEnabled: boolean("mfa_enabled").notNull().default(false), // 預留
 
+    // 樂觀鎖：可編輯的欄位每次寫入遞增；登入計數、鎖定、密碼、token_version 不遞增（03-api-conventions.md §11）
+    version: integer("version").notNull().default(1),
+
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid("created_by"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -95,6 +98,8 @@ export const roles = pgTable(
     name: text("name").notNull(), // 顯示名稱，可改
     description: text("description"),
     isSystem: boolean("is_system").notNull().default(false),
+    // 樂觀鎖：名稱與說明每次寫入遞增；持有者與權限鍵（relation_tuples）的寫入不遞增
+    version: integer("version").notNull().default(1),
 
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid("created_by"),
@@ -506,6 +511,7 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0008_relation_tuples_mirror.sql     手寫：回填、舊表 → relation_tuples 的同步 trigger（G3b 刪除）
 ├── 0009_authz_revision.sql             authz_revision 與遞增 trigger（§2.11）
 ├── 0010_drop_legacy_authz_tables.sql   G3b：刪 0008 的 trigger 與函式、user_roles、role_permissions、resource_grants 與三個 enum
+├── 0011_entity_version.sql             users.version、roles.version（樂觀鎖，ADR-0025 R1；純加法）
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

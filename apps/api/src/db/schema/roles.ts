@@ -1,6 +1,6 @@
 import { isNull, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
-import { boolean, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { boolean, integer, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 export const roles = pgTable(
   'roles',
@@ -10,6 +10,8 @@ export const roles = pgTable(
     name: text('name').notNull(), // 顯示名稱，可改
     description: text('description'),
     isSystem: boolean('is_system').notNull().default(false),
+    // 樂觀鎖：名稱與說明每次寫入遞增；持有者與權限鍵（relation_tuples）的寫入不遞增（ADR-0025 D3）
+    version: integer('version').notNull().default(1),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid('created_by'),

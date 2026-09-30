@@ -7,7 +7,7 @@ import { getUserDeleteMutationOptions } from '@/apis/user/delete-user/mutation';
 import { getUserResetPasswordMutationOptions } from '@/apis/user/reset-user-password/mutation';
 import { getUserUnlockMutationOptions } from '@/apis/user/unlock-user/mutation';
 import { getUserUpdateMutationOptions } from '@/apis/user/update-user/mutation';
-import { useErrorToast } from '@/core/errors';
+import { isVersionConflict, useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
 import type { User } from '@/shared/api-sdk';
@@ -29,6 +29,10 @@ export function useUserCreateMutation() {
   });
 }
 
+/**
+ * 編輯使用者：表單帶上編輯開始時的 `version`（樂觀鎖）。別人搶先改過時後端回 `USER_VERSION_CONFLICT`，
+ * 這裡失效該使用者讓畫面拿到最新的內容與版本，訊息交給表單（`VersionConflictAlert`）顯示、不彈 toast。
+ */
 export function useUserUpdateMutation() {
   const toast = useToast();
   const { t } = useTranslation();
@@ -41,7 +45,13 @@ export function useUserUpdateMutation() {
       ]);
       toast.success(t('user.update.success'));
     },
-    onError: showError,
+    onError: (error, { params }) => {
+      if (isVersionConflict(error)) {
+        invalidateResources([{ resource: Resource.USER, kind: 'update', id: params.userId }]);
+        return;
+      }
+      showError(error);
+    },
   });
 }
 

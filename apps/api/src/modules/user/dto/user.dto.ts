@@ -30,6 +30,8 @@ export const UserSchema = defineSchema(
     timezone: z.string(),
     lastLoginAt: z.string().nullable(),
     lockedUntil: z.string().nullable(),
+    /** 樂觀鎖版本：`PATCH` 時帶上（ADR-0025 D3）。 */
+    version: z.number().int(),
     createdAt: z.string(),
     updatedAt: z.string(),
   }),

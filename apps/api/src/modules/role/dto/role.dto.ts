@@ -16,6 +16,8 @@ export const RoleSchema = defineSchema(
     isSystem: z.boolean(),
     permissionCount: z.number().int(),
     userCount: z.number().int(),
+    /** 樂觀鎖版本：`PATCH` 時帶上（ADR-0025 D3）。 */
+    version: z.number().int(),
     createdAt: z.string(),
     updatedAt: z.string(),
   }),

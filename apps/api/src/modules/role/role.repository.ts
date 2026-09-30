@@ -169,10 +169,37 @@ export class RoleRepository {
     return row;
   }
 
-  async update(id: string, values: Partial<RoleInsert>, tx?: DbOrTx): Promise<RoleRow | undefined> {
+  /**
+   * 改名稱或說明並遞增樂觀鎖的 `version`（角色自己的欄位只有這兩個會被編輯）。帶 `expectedVersion` 時
+   * 只在版本相符、且未刪除時才更新（比對與寫入在同一個 UPDATE）；不符回 undefined。
+   */
+  async update(
+    id: string,
+    values: Partial<Pick<RoleInsert, 'name' | 'description' | 'updatedBy'>>,
+    expectedVersion?: number,
+    tx?: DbOrTx,
+  ): Promise<RoleRow | undefined> {
     const db = tx ?? this.db;
-    const [row] = await db.update(roles).set(values).where(eq(roles.id, id)).returning();
+    const conditions = [eq(roles.id, id)];
+    if (expectedVersion !== undefined) {
+      conditions.push(eq(roles.version, expectedVersion), isActiveRole());
+    }
+    const [row] = await db
+      .update(roles)
+      .set({ ...values, version: sql`${roles.version} + 1` })
+      .where(and(...conditions))
+      .returning();
     return row;
+  }
+
+  /** 未刪除的角色目前的 `version`；不存在或已刪除回 undefined（樂觀鎖衝突時重讀）。 */
+  async findVersion(id: string, tx?: DbOrTx): Promise<number | undefined> {
+    const [row] = await (tx ?? this.db)
+      .select({ version: roles.version })
+      .from(roles)
+      .where(and(eq(roles.id, id), isActiveRole()))
+      .limit(1);
+    return row?.version;
   }
 
   /** 在交易內以 `FOR UPDATE` 鎖住未刪除的角色列；不存在（或已刪除）時回 false。 */

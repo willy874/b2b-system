@@ -202,6 +202,16 @@ export class FileRepository {
     return row;
   }
 
+  /** 未刪除的檔案目前的 `version`；不存在或已刪除回 undefined（改名的樂觀鎖衝突時重讀）。 */
+  async findVersion(id: string, tx?: DbOrTx): Promise<number | undefined> {
+    const [row] = await (tx ?? this.db)
+      .select({ version: files.version })
+      .from(files)
+      .where(and(eq(files.id, id), isNull(files.deletedAt)))
+      .limit(1);
+    return row?.version;
+  }
+
   /**
    * 放棄上傳：只作用在 `pending`，已完成的上傳不受影響。
    * `actorId` 為 null 是維護排程清掉的逾時上傳。

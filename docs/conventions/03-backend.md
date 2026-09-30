@@ -79,6 +79,8 @@
 - 成功回應包 `{ data }`，失敗回應 `{ error: { code, message, details? } }`（由攔截器／過濾器處理，handler 直接 return 資料）。
 - 時間用 ISO 8601 UTC；ID 用 uuid；「沒有值」用 `null` 不用空字串；欄位 camelCase。
 - 不加 `/v1` 前綴；不破壞既有路徑。
+- 可編輯的實體用 `version` 欄做樂觀鎖：更新的請求本體帶 `version`，條件式 UPDATE，衝突回 `409 <RESOURCE>_VERSION_CONFLICT`（`details.current`）；
+  關聯的寫入不遞增 `version`。見 [`architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11。
 
 ---
 

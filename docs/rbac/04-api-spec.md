@@ -170,8 +170,12 @@
 ### 2.3 `PATCH /users/:id`
 
 ```jsonc
-{ "displayName": "...", "username": "...", "status": "inactive" }
+{ "displayName": "...", "username": "...", "status": "inactive", "version": 3 }
+// 409 → { "error": { "code": "USER_VERSION_CONFLICT", "details": { "current": 4 } } }
 ```
+
+- `version`（選填，樂觀鎖）：編輯開始時的版本；與目前不同回 `409 USER_VERSION_CONFLICT`（`details.current`），
+  不帶則後寫者勝（[`architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11）。只帶 `version` 沒有其他欄位 → `400`
 
 - 改 `status` 為 `inactive` → 撤銷該使用者所有 refresh token 並 `token_version + 1`
 - `actorId === :id` → `403 AUTHZ_SELF_MODIFY`
@@ -205,7 +209,7 @@
 | GET    | `/roles`                 | 🛡 `role:read`                      | 列表                       |
 | POST   | `/roles`                 | 🛡 `role:create`                    | 建立（可同時授予權限）     |
 | GET    | `/roles/:id`             | 🛡 `role:read`                      | 詳情                       |
-| PATCH  | `/roles/:id`             | 🛡 `role:update`                    | 修改名稱／描述（super-admin 拒絕：`ROLE_SUPER_ADMIN_IMMUTABLE`） |
+| PATCH  | `/roles/:id`             | 🛡 `role:update`                    | 修改名稱／描述（super-admin 拒絕：`ROLE_SUPER_ADMIN_IMMUTABLE`）；帶 `version`（選填）時為樂觀鎖，不符回 `409 ROLE_VERSION_CONFLICT`（`details.current`） |
 | DELETE | `/roles/:id`             | 🛡 `role:delete`                    | 刪除（系統角色拒絕）       |
 | GET    | `/roles/:id/permissions` | 🛡 `role:read` ＋ `permission:read` | 該角色的權限               |
 | PATCH  | `/roles/:id/permissions` | 🛡 `role:grantPermission`           | 增減權限（差異語意）       |

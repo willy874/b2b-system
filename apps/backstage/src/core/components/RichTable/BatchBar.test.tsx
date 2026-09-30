@@ -45,7 +45,13 @@ function action(overrides: Partial<BatchAction<Row>> = {}): BatchAction<Row> {
   };
 }
 
-function Harness({ actions }: { actions: Array<BatchAction<Row>> }) {
+function Harness({
+  actions,
+  getRowVersion,
+}: {
+  actions: Array<BatchAction<Row>>;
+  getRowVersion?: (row: Row) => number;
+}) {
   const selection = useTableSelection(ROWS, getId);
   return (
     <>
@@ -53,7 +59,7 @@ function Harness({ actions }: { actions: Array<BatchAction<Row>> }) {
         data={ROWS}
         columns={columns}
         getRowId={getId}
-        batch={{ scope: 'rows', selection, actions, getRowLabel: (row) => row.name }}
+        batch={{ scope: 'rows', selection, actions, getRowLabel: (row) => row.name, getRowVersion }}
       />
       <output data-testid="selected">{selection.selectedIds.join(',')}</output>
       <BatchQueueNotifier />
@@ -149,6 +155,31 @@ describe('RichTable 的批次操作（ADR-0012）', () => {
 
     await userEvent.hover(button);
     expect(await screen.findByText('只能解鎖被鎖定的列')).toBeVisible();
+  });
+
+  it('有 getRowVersion 時每一筆帶著該列的版本執行（樂觀鎖，ADR-0025 D4）', async () => {
+    const touched = vi.fn(async (_id: string, _version: number | undefined) => undefined);
+    registerBatchOperation({
+      id: 'row.touch',
+      labelKey: 'row.touch',
+      successKey: 'row.touched',
+      run: (id, { version }) => touched(id, version),
+    });
+    const versions: Record<string, number> = { a: 3, c: 7 };
+    render(
+      <Harness
+        actions={[action({ operation: 'row.touch' })]}
+        getRowVersion={(row) => versions[row.id] ?? 1}
+      />,
+      { wrapper: AllProviders },
+    );
+    await selectRows(0, 2);
+    await userEvent.click(screen.getByTestId('batch-action'));
+    await confirmBatch();
+
+    await waitFor(() => expect(touched).toHaveBeenCalledTimes(2));
+    expect(touched).toHaveBeenCalledWith('a', 3);
+    expect(touched).toHaveBeenCalledWith('c', 7);
   });
 
   it('只把適用的列送進佇列，逐筆呼叫', async () => {

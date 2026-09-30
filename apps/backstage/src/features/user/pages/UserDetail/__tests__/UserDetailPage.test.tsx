@@ -31,6 +31,7 @@ const base = {
   displayName: 'Person',
   roles: [],
   lastLoginAt: null,
+  version: 3,
   createdAt: '2026-09-30T00:00:00.000Z',
 };
 const EDITOR = ['user:read', 'user:update'] as PermissionKey[];
@@ -66,7 +67,10 @@ describe('UserDetailPage', () => {
     fireEvent.submit(screen.getByTestId('user-edit-form'));
 
     await waitFor(() => expect(updateUser).toHaveBeenCalledTimes(1));
-    expect(updateUser.mock.calls[0]![0].params.body).toEqual({ displayName: 'Renamed' });
+    expect(updateUser.mock.calls[0]![0].params.body).toEqual({
+      displayName: 'Renamed',
+      version: 3,
+    });
   });
 
   it('鎖定的使用者另有明確的「解鎖」按鈕', async () => {
@@ -102,7 +106,74 @@ describe('UserDetailPage', () => {
     fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
 
     await waitFor(() => expect(updateUser).toHaveBeenCalledTimes(1));
-    expect(updateUser.mock.calls[0]![0].params.body).toEqual({ status: 'inactive' });
+    expect(updateUser.mock.calls[0]![0].params.body).toEqual({ status: 'inactive', version: 3 });
+  });
+
+  describe('樂觀鎖（docs/architecture/backend/03-api-conventions.md §11）', () => {
+    const conflict = () => new AppError('USER_VERSION_CONFLICT', 409, { current: 4 });
+
+    it('別人已改過 → 表單上說明並保留輸入，不彈錯誤 toast', async () => {
+      updateUser.mockRejectedValue(conflict());
+      renderRoute(routes, PATH, EDITOR);
+
+      const input = await startEditing();
+      fireEvent.change(input, { target: { value: 'Mine' } });
+      fireEvent.submit(screen.getByTestId('user-edit-form'));
+
+      expect(await screen.findByTestId('version-conflict-alert')).toHaveTextContent(
+        '已經被其他人修改',
+      );
+      expect(screen.getByTestId('user-display-name-edit-input')).toHaveValue('Mine');
+      expect(screen.queryByTestId('toast')).not.toBeInTheDocument();
+    });
+
+    it('按「重新載入」→ 表單換成最新的內容，再次送出帶最新的 version', async () => {
+      updateUser.mockRejectedValueOnce(conflict());
+      renderRoute(routes, PATH, EDITOR);
+
+      const input = await startEditing();
+      fireEvent.change(input, { target: { value: 'Mine' } });
+      fireEvent.submit(screen.getByTestId('user-edit-form'));
+      await screen.findByTestId('version-conflict-alert');
+
+      fetchUser.mockResolvedValue({ ...base, status: 'active', displayName: 'Theirs', version: 4 });
+      fireEvent.click(screen.getByTestId('version-conflict-reload'));
+      await waitFor(() =>
+        expect(screen.getByTestId('user-display-name-edit-input')).toHaveValue('Theirs'),
+      );
+      expect(screen.queryByTestId('version-conflict-alert')).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByTestId('user-display-name-edit-input'), {
+        target: { value: 'Mine again' },
+      });
+      fireEvent.submit(screen.getByTestId('user-edit-form'));
+      await waitFor(() => expect(updateUser).toHaveBeenCalledTimes(2));
+      expect(updateUser.mock.calls[1]![0].params.body).toEqual({
+        displayName: 'Mine again',
+        version: 4,
+      });
+    });
+
+    it('停用時衝突 → 關掉確認框，衝突訊息顯示在表單上', async () => {
+      updateUser.mockRejectedValue(conflict());
+      renderRoute(routes, PATH, EDITOR);
+
+      await startEditing();
+      fireEvent.click(screen.getByTestId('user-status-select'));
+      fireEvent.click(await screen.findByRole('option', { name: '停用' }));
+      fireEvent.click(screen.getByTestId('user-save-button'));
+      fireEvent.click(
+        within(await screen.findByTestId('user-deactivate-confirm')).getByTestId(
+          'alert-dialog-confirm',
+        ),
+      );
+
+      expect(await screen.findByTestId('version-conflict-alert')).toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.queryByTestId('user-deactivate-confirm')).not.toBeInTheDocument(),
+      );
+      expect(screen.getByTestId('user-edit-form')).toBeInTheDocument();
+    });
   });
 
   it('儲存失敗時編輯區與輸入保留', async () => {

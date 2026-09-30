@@ -445,7 +445,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     expect((done.body as { data: FileBody }).data.thumbnailUrl).toContain(`thumbnails/${file.id}`);
   });
 
-  it('改名的樂觀鎖：拿舊版本改名 → 409 FILE_VERSION_CONFLICT', async () => {
+  it('改名的樂觀鎖：拿舊版本改名 → 409 FILE_VERSION_CONFLICT，帶目前的版本', async () => {
     const token = await login(ADMIN);
     const file = await uploadFile(token, { name: 'v.txt', contentType: 'text/plain', size: 1 });
     expect(file.version).toBe(1);
@@ -460,7 +460,9 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       .set('authorization', `Bearer ${token}`)
       .send({ name: 'v3.txt', version: 1 })
       .expect(409);
-    expect((stale.body as { error: { code: string } }).error.code).toBe('FILE_VERSION_CONFLICT');
+    expect(stale.body).toMatchObject({
+      error: { code: 'FILE_VERSION_CONFLICT', details: { current: 2 } },
+    });
   });
 
   it('keyset 游標：捲動途中有新檔案插入也不重複、不漏', async () => {

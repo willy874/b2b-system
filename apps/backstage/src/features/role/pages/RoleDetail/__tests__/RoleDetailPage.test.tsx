@@ -37,6 +37,7 @@ const ROLE = {
   isSystem: false,
   permissionCount: 0,
   userCount: 0,
+  version: 5,
   createdAt: '2026-09-30T00:00:00.000Z',
 };
 const MANAGER = ['role:read', 'role:update', 'role:create'] as PermissionKey[];
@@ -81,6 +82,43 @@ describe('RoleDetailPage', () => {
     expect(updateRole.mock.calls[0]![0]).toMatchObject({
       params: { roleId: ROLE_ID, body: { name: 'Writer' } },
     });
+  });
+
+  it('送出帶開始編輯時的 version（樂觀鎖）', async () => {
+    renderRoute(routes, `/role/${ROLE_ID}`, MANAGER);
+
+    fireEvent.click(await screen.findByTestId('role-edit-button'));
+    fireEvent.change(screen.getByTestId('role-name-edit-input'), { target: { value: 'Writer' } });
+    fireEvent.submit(screen.getByTestId('role-edit-form'));
+
+    await waitFor(() => expect(updateRole).toHaveBeenCalledTimes(1));
+    expect(updateRole.mock.calls[0]![0].params.body).toEqual({
+      name: 'Writer',
+      description: '',
+      version: 5,
+    });
+  });
+
+  it('別人已改過 → 表單上說明、不彈 toast；重新載入後換成最新的內容與 version', async () => {
+    updateRole.mockRejectedValueOnce(new AppError('ROLE_VERSION_CONFLICT', 409, { current: 6 }));
+    renderRoute(routes, `/role/${ROLE_ID}`, MANAGER);
+
+    fireEvent.click(await screen.findByTestId('role-edit-button'));
+    fireEvent.change(screen.getByTestId('role-name-edit-input'), { target: { value: 'Mine' } });
+    fireEvent.submit(screen.getByTestId('role-edit-form'));
+
+    expect(await screen.findByTestId('version-conflict-alert')).toBeInTheDocument();
+    expect(screen.getByTestId('role-name-edit-input')).toHaveValue('Mine');
+    expect(screen.queryByTestId('toast')).not.toBeInTheDocument();
+
+    fetchRole.mockResolvedValue({ ...ROLE, name: 'Theirs', version: 6 });
+    fireEvent.click(screen.getByTestId('version-conflict-reload'));
+    await waitFor(() => expect(screen.getByTestId('role-name-edit-input')).toHaveValue('Theirs'));
+    expect(screen.queryByTestId('version-conflict-alert')).not.toBeInTheDocument();
+
+    fireEvent.submit(screen.getByTestId('role-edit-form'));
+    await waitFor(() => expect(updateRole).toHaveBeenCalledTimes(2));
+    expect(updateRole.mock.calls[1]![0].params.body).toMatchObject({ version: 6 });
   });
 
   it('複製失敗時顯示錯誤提示', async () => {

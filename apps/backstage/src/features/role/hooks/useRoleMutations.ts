@@ -6,7 +6,7 @@ import { getRoleDeleteMutationOptions } from '@/apis/role/delete-role/mutation';
 import { getRoleDuplicateMutationOptions } from '@/apis/role/duplicate-role/mutation';
 import { getGrantRolePermissionsMutationOptions } from '@/apis/role/grant-role-permissions/mutation';
 import { getRoleUpdateMutationOptions } from '@/apis/role/update-role/mutation';
-import { useErrorToast } from '@/core/errors';
+import { isVersionConflict, useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
 
@@ -23,6 +23,10 @@ export function useRoleCreateMutation() {
   });
 }
 
+/**
+ * 編輯角色：表單帶上編輯開始時的 `version`（樂觀鎖）。別人搶先改過時後端回 `ROLE_VERSION_CONFLICT`，
+ * 這裡失效該角色讓畫面拿到最新的內容與版本，訊息交給表單（`VersionConflictAlert`）顯示、不彈 toast。
+ */
 export function useRoleUpdateMutation() {
   const toast = useToast();
   const { t } = useTranslation();
@@ -34,7 +38,13 @@ export function useRoleUpdateMutation() {
       invalidateResources([{ resource: Resource.ROLE, kind: 'update', id: role.id }]);
       toast.success(t('role.update.success'));
     },
-    onError: showError,
+    onError: (error, { params }) => {
+      if (isVersionConflict(error)) {
+        invalidateResources([{ resource: Resource.ROLE, kind: 'update', id: params.roleId }]);
+        return;
+      }
+      showError(error);
+    },
   });
 }
 

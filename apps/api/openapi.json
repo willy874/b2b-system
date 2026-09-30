@@ -4416,6 +4416,11 @@
           "timezone": {
             "type": "string",
             "maxLength": 64
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
           }
         },
         "additionalProperties": false
@@ -4511,6 +4516,11 @@
             "nullable": true,
             "type": "string"
           },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "createdAt": {
             "type": "string"
           },
@@ -4529,6 +4539,7 @@
           "timezone",
           "lastLoginAt",
           "lockedUntil",
+          "version",
           "createdAt",
           "updatedAt"
         ],
@@ -6790,6 +6801,11 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "createdAt": {
             "type": "string"
           },
@@ -6805,6 +6821,7 @@
           "isSystem",
           "permissionCount",
           "userCount",
+          "version",
           "createdAt",
           "updatedAt"
         ],
@@ -6866,6 +6883,11 @@
             "nullable": true,
             "type": "string",
             "maxLength": 500
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
           }
         },
         "additionalProperties": false

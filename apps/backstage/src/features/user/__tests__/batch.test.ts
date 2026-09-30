@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getBatchOperation, resetBatchOperations } from '@/core/batch';
+import { AppError } from '@/core/errors';
 
 const { updateUser, unlockUser, deleteUser, invalidateResources } = vi.hoisted(() => ({
   updateUser: vi.fn(),
@@ -33,19 +34,23 @@ beforeEach(() => {
   registerUserBatchOperations();
 });
 
-function run(operation: string, id: string) {
+function run(operation: string, id: string, version?: number) {
   const definition = getBatchOperation(operation);
   if (!definition) throw new Error(`${operation} 未註冊`);
-  return definition.run(id, { signal: new AbortController().signal, reportProgress: () => {} });
+  return definition.run(id, {
+    signal: new AbortController().signal,
+    reportProgress: () => {},
+    version,
+  });
 }
 
 describe('使用者的批次操作（每筆呼叫一次單筆 API）', () => {
-  it('啟用／停用：PATCH 單筆的 status，並失效該使用者與其角色', async () => {
+  it('啟用／停用：PATCH 單筆的 status（帶列表那一列的 version），並失效該使用者與其角色', async () => {
     updateUser.mockResolvedValue(user);
-    await run(UserBatchOperation.DEACTIVATE, 'u1');
+    await run(UserBatchOperation.DEACTIVATE, 'u1', 4);
 
     expect(updateUser).toHaveBeenCalledWith({
-      params: { userId: 'u1', body: { status: 'inactive' } },
+      params: { userId: 'u1', body: { status: 'inactive', version: 4 } },
     });
     expect(invalidateResources).toHaveBeenCalledWith([
       expect.objectContaining({ kind: 'update', id: 'u1', refs: { role: ['r1'] } }),
@@ -65,6 +70,14 @@ describe('使用者的批次操作（每筆呼叫一次單筆 API）', () => {
     expect(invalidateResources).toHaveBeenCalledWith([
       expect.objectContaining({ kind: 'delete', id: 'u1' }),
     ]);
+  });
+
+  it('列表資料過時（USER_VERSION_CONFLICT）→ 這一筆失敗、交給佇列記錄，不失效快取', async () => {
+    updateUser.mockRejectedValue(new AppError('USER_VERSION_CONFLICT', 409, { current: 5 }));
+    await expect(run(UserBatchOperation.ACTIVATE, 'u1', 4)).rejects.toMatchObject({
+      code: 'USER_VERSION_CONFLICT',
+    });
+    expect(invalidateResources).not.toHaveBeenCalled();
   });
 
   it('單筆 API 失敗時直接拋出，交給佇列記錄為失敗、不失效快取', async () => {

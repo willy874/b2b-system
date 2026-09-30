@@ -217,7 +217,24 @@ export const rbacHandlers = [
   }),
 
   writeHandler('delete', '/users/:id', 'user:delete', (id) => checkUser(id), noContent),
-  writeHandler('patch', '/users/:id', 'user:update', (id) => checkUser(id), userResponse),
+  // 樂觀鎖：帶的 version 與 fixture 不同 → 409（與後端相同；docs/architecture/backend/03-api-conventions.md §11）
+  http.patch(`${MOCK_API_BASE}/users/:id`, async ({ params, request }) => {
+    if (!mockState.permissions.includes('user:update')) return forbidden('user:update');
+    const id = String(params.id);
+    const failure = checkUser(id);
+    const current = USER_FIXTURES.find((item) => item.id === id)?.version;
+    const { version } = (await request.json()) as { version?: number };
+    const conflict: Failure | undefined =
+      !failure && version !== undefined && version !== current
+        ? { code: 'USER_VERSION_CONFLICT', details: { current } }
+        : undefined;
+    const error: Failure | undefined = failure ?? conflict;
+    if (!error) return userResponse(id);
+    return HttpResponse.json(
+      { error: { code: error.code, message: error.code, details: error.details } },
+      { status: failureStatus(error.code) },
+    );
+  }),
   writeHandler(
     'post',
     '/users/:id/unlock',
