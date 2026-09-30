@@ -494,7 +494,7 @@ ADR-0006「不要讓權限變成推理題」的精神不變；explain 讓剩下�
 
 | 階段 | 內容 | 可回退 |
 | --- | --- | --- |
-| **G0** | ADR-0023；`core/authz` 引擎 ＋ 模型驗證 ＋ 單元測試（純記憶體 tuple，照 07 的每一條規則寫案例） | 不動任何既有程式 |
+| **G0** | ADR-0024；`core/authz` 引擎 ＋ 模型驗證 ＋ 單元測試（純記憶體 tuple，照 07 的每一條規則寫案例） | 不動任何既有程式 |
 | **G1** | `relation_tuples`、`authz_revision`；migration 從三張舊表回填；舊表仍是事實來源，service 同一交易雙寫；**影子比對**：開發與測試環境每次檢查兩套都跑，不一致就報錯 | 刪新表即可 |
 | **G2** | 讀取改走引擎，並啟用包含關係（§2.1；自訂角色多出的鍵由 migration 列出並寫稽核）：`PermissionService`、`FileAccessService`、推播 room；刪 `resource-grant.resolver.ts`、`PermissionCacheService` 的逐事件失效 | 切回舊讀取路徑 |
 | **G3** | 寫入只寫 tuple；刪 `user_roles`、`role_permissions`、`resource_grants` 與雙寫 | 需要反向回填，視為不可回退 |
@@ -536,7 +536,7 @@ G1～G3 對外沒有任何行為變化，既有的權限測試（頁面三個權
 
 完成後預計寫成：
 
-- `docs/adr/0023-relationship-based-access-control.md`（取代 ADR-0006 的「延伸路徑」一節、ADR-0015 的解析部分；ADR-0005 的快取段落改寫）
+- `docs/adr/0024-relationship-based-access-control.md`（取代 ADR-0006 的「延伸路徑」一節、ADR-0015 的解析部分；ADR-0005 的快取段落改寫）
 - `docs/rbac/01-domain-model.md`（重寫：圖的組成、模型、不變條件）
 - `docs/rbac/07-resource-grants.md`（等級改成模型裡的關係；§3 解析、§10 延伸改寫）
 - `docs/rbac/08-groups.md`（新）
