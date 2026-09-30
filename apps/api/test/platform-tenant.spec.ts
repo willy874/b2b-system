@@ -367,6 +367,43 @@ describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md 
     await waitForStatus(broken!.id, 'failed');
   });
 
+  it('清單：分頁、代碼／名稱／網域搜尋、狀態篩選（UX-29）', async () => {
+    type List = {
+      items: TenantBody[];
+      pagination: { offset: number; limit: number; total: number };
+    };
+    const codes = (list: List) => list.items.map((t) => t.code);
+
+    const all = dataOf<List>(await platform('get', '/platform/tenants').expect(200));
+    expect(all.pagination).toMatchObject({ offset: 0, limit: 50 });
+    expect(all.pagination.total).toBe(all.items.length);
+    expect(codes(all)).toEqual(expect.arrayContaining(['acme', 'broken']));
+
+    const failed = dataOf<List>(
+      await platform('get', '/platform/tenants?status=failed').expect(200),
+    );
+    expect(codes(failed)).toEqual(['broken']);
+
+    // 代碼與名稱不分大小寫；網域也能搜
+    expect(codes(dataOf<List>(await platform('get', '/platform/tenants?q=ACM')))).toEqual(['acme']);
+    expect(codes(dataOf<List>(await platform('get', '/platform/tenants?q=Broken')))).toEqual([
+      'broken',
+    ]);
+    expect(
+      codes(dataOf<List>(await platform('get', '/platform/tenants?q=acme.localhost'))),
+    ).toEqual(['acme']);
+    // LIKE 的萬用字元當成字面
+    expect(dataOf<List>(await platform('get', '/platform/tenants?q=%25')).items).toEqual([]);
+
+    const page = dataOf<List>(await platform('get', '/platform/tenants?limit=1&offset=1'));
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]!.code).toBe(all.items[1]!.code);
+    expect(page.pagination).toEqual({ offset: 1, limit: 1, total: all.pagination.total });
+
+    const invalid = await platform('get', '/platform/tenants?status=gone').expect(400);
+    expect(errorCodeOf(invalid)).toBe('VALIDATION_FAILED');
+  });
+
   it('刪除：從清單消失、網域釋出（回 TENANT_NOT_FOUND）；代碼可以再用', async () => {
     const acme = dataOf<{ items: TenantBody[] }>(
       await platform('get', '/platform/tenants').expect(200),

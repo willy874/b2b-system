@@ -18,6 +18,7 @@ import { PlatformAuditService } from '@/modules/platform-admin/platform-audit.se
 
 import type {
   CreateTenantDto,
+  ListPlatformTenantDto,
   PlatformTenantDto,
   PlatformTenantListDto,
   UpdateTenantDto,
@@ -80,8 +81,13 @@ export class PlatformTenantService {
     this.authHost = new URL(config.get('AUTH_APP_URL', { infer: true })).host.toLowerCase();
   }
 
-  async list(): Promise<PlatformTenantListDto> {
-    return { items: (await this.repo.list()).map(toDto), baseDomain: this.baseDomain };
+  async list(query: ListPlatformTenantDto): Promise<PlatformTenantListDto> {
+    const { items, total } = await this.repo.list(query);
+    return {
+      items: items.map(toDto),
+      pagination: { offset: query.offset, limit: query.limit, total },
+      baseDomain: this.baseDomain,
+    };
   }
 
   async get(id: string): Promise<PlatformTenantDto> {

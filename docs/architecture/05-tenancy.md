@@ -74,6 +74,7 @@
 
 | 動作 | 端點（apps/auth，平台權限） | 做什麼 |
 | --- | --- | --- |
+| 清單 | `GET /platform/tenants`（`tenant:read`） | 未刪除的租戶，依建立時間舊到新；伺服器分頁（`offset`、`limit` 預設 50、最多 100）、`q` 比對代碼／名稱／任一網域（部分相符、不分大小寫）、`status` 篩選；回應另帶 `baseDomain`（建立時的預設網域上層） |
 | 建立 | `POST /platform/tenants`（`tenant:create`） | 登記租戶（`provisioning`）：代碼、名稱、第一位管理員的 email；預設網域 `{code}.<TENANT_BASE_DOMAIN>`（D24）；產生 database 與 DB 角色的名稱（`tenant_{code}_{8 位隨機}`）與密碼、bucket（`b2b-{code}`，用過就加序號）；排入佈建工作 |
 | 佈建 | 背景工作 `tenant.provision`（平台工作，不自動重試） | ① 建立 DB 角色與 database（`TENANT_PROVISIONING_DATABASE_URL`，要有 `CREATEDB` 與 `CREATEROLE`）② 跑租戶 migration ③ 權限目錄、系統角色、第一位 super-admin（`pending`）④ 改成 `active` ⑤ 在租戶脈絡裡寄啟用信、確認 bucket、發佈 `TENANT_ACTIVATED`（檔案的系統資料夾）。①–④ 失敗停在 `failed`（原因記在 `provision_error`）；⑤ 的失敗不改狀態，只記原因 |
 | 重試佈建 | `POST /platform/tenants/:id/provision`（`tenant:create`） | 只接受 `failed`；每一步都冪等（角色存在就把密碼改回來、database 存在就沿用） |
