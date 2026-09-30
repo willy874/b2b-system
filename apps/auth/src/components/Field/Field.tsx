@@ -3,6 +3,7 @@ import type { ReactNode, Ref } from 'react';
 
 import { cn } from '@/shared/utils';
 
+import { useComponentLabels } from '../labels';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 
@@ -40,6 +41,7 @@ export function Field({
   ...rest
 }: FieldProps) {
   const slot = createSlots({ classNames, styles: styleOverrides, testIds });
+  const labels = useComponentLabels();
   return (
     <BaseField.Root
       name={name}
@@ -52,9 +54,13 @@ export function Field({
         <BaseField.Label {...slot('label', styles.label)}>
           {label}
           {required && (
-            <span {...slot('required', styles.required)} aria-hidden="true">
-              *
-            </span>
+            <>
+              <span {...slot('required', styles.required)} aria-hidden="true">
+                *
+              </span>
+              {/* 星號對報讀器沒有意義：另外念出「必填」（docs/issues/04-user-experience.md UX-25） */}
+              <span className={styles.srOnly}> {labels.required}</span>
+            </>
           )}
         </BaseField.Label>
       )}

@@ -85,7 +85,13 @@
       "description": "離開後，這次的修改都不會保留。",
       "discard": "放棄變更",
       "keepEditing": "繼續編輯"
-    }
+    },
+    "removeFilter": "移除篩選條件「{{name}}」",
+    "filterChip": "{{label}}：{{value}}",
+    "staleData": "資料沒有更新成功（{{message}}），目前顯示的是先前的結果。",
+    "emptyFiltered": "沒有符合條件的結果",
+    "clearFilters": "清除篩選",
+    "paginationSummary": "第 {{from}}–{{to}} 筆，共 {{total}} 筆"
   },
   "menu": {
     "group": {
@@ -285,5 +291,28 @@
     "dark": "深色",
     "system": "跟隨系統",
     "current": "目前選擇"
+  },
+  "validation": {
+    "required": "請填寫這個欄位",
+    "email": "請輸入有效的 Email",
+    "tooShort": "至少需要 {{min}} 個字元",
+    "tooLong": "最多 {{max}} 個字元",
+    "format": "格式不正確",
+    "invalid": "輸入的值不正確",
+    "passwordMismatch": "兩次輸入的密碼不一致",
+    "usernameTooShort": "至少需要 3 個字元"
+  },
+  "components": {
+    "required": "必填",
+    "selectSearch": "搜尋…",
+    "selectNoMatch": "沒有符合的項目",
+    "selectAll": "全選",
+    "pagination": {
+      "nav": "分頁",
+      "pageSize": "每頁筆數",
+      "first": "第一頁",
+      "last": "最後一頁",
+      "page": "頁碼"
+    }
   }
 }

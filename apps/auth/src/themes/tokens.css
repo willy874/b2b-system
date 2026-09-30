@@ -14,7 +14,10 @@
   --seed-gray-200: #e9ecef;
   --seed-gray-300: #dee2e6;
   --seed-gray-500: #adb5bd;
-  --seed-gray-600: #646c77;
+  /* 表單控制項邊框：在 surface、bg、fill-subtle 上 >= 3:1（WCAG 1.4.11） */
+  --seed-gray-550: #80868f;
+  /* 600 在 --color-fill 上也要 >= 4.5:1（停用欄位、中性 Chip 的文字） */
+  --seed-gray-600: #626a75;
   --seed-gray-700: #495057;
   --seed-gray-900: #212529;
 
@@ -29,8 +32,9 @@
 
   /* 深色主題的中性色階：數字越大越暗，與 gray 相同方向 */
   --seed-dark-100: #e3e5e8;
-  --seed-dark-300: #a1a7b0;
+  --seed-dark-300: #a4aab3;
   --seed-dark-400: #6b707a;
+  --seed-dark-450: #7a808a;
   --seed-dark-500: #4b4f57;
   --seed-dark-600: #3a3d44;
   --seed-dark-700: #2c2e33;
@@ -81,6 +85,8 @@
   --color-bg: var(--seed-gray-50);
   --color-surface: var(--seed-gray-0);
   --color-border: var(--seed-gray-300);
+  /* 可操作元件（輸入框、下拉、勾選框）的外框；裝飾性的分隔線仍用 --color-border */
+  --color-border-control: var(--seed-gray-550);
   --color-fg: var(--seed-gray-900);
   --color-fg-muted: var(--seed-gray-600);
   --color-brand: var(--seed-blue-500);
@@ -141,6 +147,7 @@
   --color-bg: var(--seed-dark-900);
   --color-surface: var(--seed-dark-800);
   --color-border: var(--seed-dark-600);
+  --color-border-control: var(--seed-dark-450);
   --color-fg: var(--seed-dark-100);
   --color-fg-muted: var(--seed-dark-300);
   /* 主色調亮後白字過不了 AA，主色按鈕的前景改用深色 */

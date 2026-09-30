@@ -21,6 +21,7 @@ import { cn } from '@/shared/utils';
 
 import { BoxEllipsis } from '../Ellipsis';
 import { Icon } from '../Icon';
+import { useComponentLabels } from '../labels';
 import { createSlots } from '../slots';
 import type { SlotOverrides, SlotResolver } from '../slots';
 import { Spinner } from '../Spinner';
@@ -296,6 +297,8 @@ const SelectRowView = memo(function SelectRowView<T extends string>({
  * - 選項有 `children` 時成為可展開的樹（role="tree"）。
  */
 export function Select<T extends string = string>(props: SelectProps<T>) {
+  // 沒有明確傳入的文案用目前語系（ComponentLabelsContext），英文介面不會漏出中文預設值（UX-36）
+  const labels = useComponentLabels();
   const {
     ref,
     options,
@@ -315,14 +318,14 @@ export function Select<T extends string = string>(props: SelectProps<T>) {
     defaultSearchValue,
     onSearchChange,
     filterOption,
-    searchPlaceholder = '搜尋…',
+    searchPlaceholder = labels.selectSearch,
     searchLabel,
     clearSearchOnClose = true,
-    noMatchLabel = '沒有符合的項目',
+    noMatchLabel = labels.selectNoMatch,
     hasMore,
     loading,
     onLoadMore,
-    loadingLabel = '載入中…',
+    loadingLabel = labels.selectLoading,
     emptyLabel,
     virtualThreshold,
     itemSize = DEFAULT_ITEM_SIZE,
@@ -768,7 +771,9 @@ export function Select<T extends string = string>(props: SelectProps<T>) {
                       isMultiple={isMultiple}
                       isTree={isTree}
                       label={
-                        row.kind === 'all' ? (multi?.selectAllLabel ?? '全選') : row.option.label
+                        row.kind === 'all'
+                          ? (multi?.selectAllLabel ?? labels.selectAll)
+                          : row.option.label
                       }
                       description={row.kind === 'option' ? row.option.description : undefined}
                       slot={slot}

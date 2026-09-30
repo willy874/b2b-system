@@ -17,6 +17,19 @@
     margin-inline-start: 2px;
   }
 
+  /* 只給報讀器：星號是 aria-hidden，改念「必填」 */
+  .srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
   .description {
     font-size: 0.75rem;
     color: var(--color-fg-muted);

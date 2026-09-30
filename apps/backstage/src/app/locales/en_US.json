@@ -85,7 +85,13 @@
       "description": "If you leave now, your changes will be lost.",
       "discard": "Discard changes",
       "keepEditing": "Keep editing"
-    }
+    },
+    "removeFilter": "Remove filter \"{{name}}\"",
+    "filterChip": "{{label}}: {{value}}",
+    "staleData": "Could not refresh the data ({{message}}). Showing the previous results.",
+    "emptyFiltered": "No results match the current filters",
+    "clearFilters": "Clear filters",
+    "paginationSummary": "{{from}}–{{to}} of {{total}}"
   },
   "menu": {
     "group": {
@@ -285,5 +291,28 @@
     "dark": "Dark",
     "system": "System",
     "current": "Current"
+  },
+  "validation": {
+    "required": "This field is required",
+    "email": "Enter a valid email address",
+    "tooShort": "Must be at least {{min}} characters",
+    "tooLong": "Must be at most {{max}} characters",
+    "format": "The format is invalid",
+    "invalid": "The value is invalid",
+    "passwordMismatch": "The passwords don't match",
+    "usernameTooShort": "Must be at least 3 characters"
+  },
+  "components": {
+    "required": "required",
+    "selectSearch": "Search…",
+    "selectNoMatch": "No matching items",
+    "selectAll": "Select all",
+    "pagination": {
+      "nav": "Pagination",
+      "pageSize": "Rows per page",
+      "first": "First",
+      "last": "Last",
+      "page": "Page number"
+    }
   }
 }
