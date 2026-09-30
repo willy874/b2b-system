@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { auditRoutes } from './common/route-audit';
 import type { Env } from './core/config';
+import { assertPermissionDependencies } from './db/seeds/permissions';
 import { setupSwagger } from './swagger';
 
 /** 要大於反向代理對 upstream 的 keepalive_timeout（60 秒）。 */
@@ -29,6 +30,8 @@ async function bootstrap(): Promise<void> {
 
   // ★ 路由稽核：任何未宣告授權的路由讓程序啟動失敗（預設拒絕的守門員）
   auditRoutes(app);
+  // 權限依賴樹違反不變條件（循環、跨資源的子能力、包含受反提權限制的鍵）同樣讓程序啟動失敗
+  assertPermissionDependencies();
 
   setupSwagger(app, config.get('NODE_ENV', { infer: true }) !== 'production');
 
