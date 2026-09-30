@@ -51,6 +51,14 @@ vi.mock('@/apis/sso-interaction/start-external-sso-interaction/mutation', () => 
 }));
 
 const UID = 'abc12345xyz';
+const TENANT_INTERACTION = {
+  uid: UID,
+  prompt: 'login',
+  clientId: 'backstage',
+  clientName: 'backstage',
+  loginHint: null,
+  tenant: { code: 'acme', name: 'Acme 股份有限公司' },
+};
 const RESUME = `http://localhost:5175/api/oidc/auth/${UID}`;
 const assign = vi.fn();
 
@@ -76,14 +84,7 @@ function renderInteraction(query = '') {
 }
 
 beforeEach(() => {
-  details.mockReset().mockResolvedValue({
-    uid: UID,
-    prompt: 'login',
-    clientId: 'backstage',
-    clientName: 'backstage',
-    loginHint: null,
-    tenant: { code: 'acme', name: 'Acme 股份有限公司' },
-  });
+  details.mockReset().mockResolvedValue(TENANT_INTERACTION);
   publicSettings.mockReset().mockResolvedValue({
     values: { 'auth.registrationEnabled': true, 'auth.passwordMinLength': 12 },
   });
@@ -278,5 +279,23 @@ describe('IdP 的登入互動頁（docs/adr/0019-sso-identity-platform.md）', (
     fireEvent.click(screen.getByTestId('password-visibility-toggle'));
     expect(password).toHaveAttribute('type', 'text');
     expect(password).toHaveAttribute('autocomplete', 'current-password');
+  });
+
+  it('互動還在載入時已經移到密碼欄 → 載入完成後不把游標搶回 Email 欄', async () => {
+    let resolveDetails: ((value: unknown) => void) | undefined;
+    details.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveDetails = resolve;
+        }),
+    );
+    renderInteraction();
+    const password = await screen.findByTestId('login-password');
+    password.focus();
+
+    resolveDetails?.(TENANT_INTERACTION);
+    await waitFor(() => expect(screen.getByTestId('login-submit')).not.toBeDisabled());
+
+    expect(password).toHaveFocus();
   });
 });

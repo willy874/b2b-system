@@ -66,12 +66,12 @@ export default function InteractionPage() {
   const provider = discovery.data?.provider ?? null;
   const ssoOnly = Boolean(provider && discovery.data?.ssoOnly);
 
-  // 互動載入後游標放在 Email 欄，進頁面就能直接輸入；不用 autoFocus：欄位在載入前還不存在
+  // 進頁面就把游標放在 Email 欄。欄位在互動載入前就已經顯示，只在掛載時聚焦一次：
+  // 等載入完成才聚焦的話，使用者已經移到密碼欄時會被搶回 Email 欄，接著打的密碼以明文進了 Email 欄
   const emailRef = useRef<HTMLInputElement>(null);
-  const ready = interaction.isSuccess;
   useEffect(() => {
-    if (ready) emailRef.current?.focus();
-  }, [ready]);
+    emailRef.current?.focus();
+  }, []);
 
   const discover = (email: string) => {
     const parsed = EmailSchema.safeParse(email);
