@@ -13,7 +13,7 @@
 | 層 | 來源 | 範圍 | 回答 |
 | --- | --- | --- | --- |
 | ① 全域權限 | 角色 → `file:*` 權限鍵 | **所有** 資料夾（含私人資料夾） | 管理者、稽核人員：不受資料夾授權影響 |
-| ② 資料夾授權 | `resource_grants`：資料夾 × 對象（角色／使用者）× 等級 | 該資料夾與它的子孫（繼承） | 一般成員能在哪些資料夾做什麼 |
+| ② 資料夾授權 | `relation_tuples` 的邊：資料夾 × 對象（角色／使用者／所有人）× 等級 | 該資料夾與它的子孫（繼承） | 一般成員能在哪些資料夾做什麼 |
 | ③ 擁有者規則 | `created_by` = 自己 | 自己建立的檔案與資料夾 | 能上傳的人，能改名、移動、刪除自己上傳的東西 |
 
 另有一個 **閘門** 權限 `file:access`：可以進入檔案管理器，但能看到什麼、做什麼完全由 ② ③ 決定。
@@ -65,7 +65,7 @@ fileFolder
 fileRoot（根目錄）：can_* 只由 tenant 上的 file:<動作> 決定
 ```
 
-- 授權是 `relation_tuples` 的邊 `fileFolder:F#<等級>@(role:r#holder | user:u | user:*)`（由 `resource_grants` 的 trigger 同步）；
+- 授權是 `relation_tuples` 的邊 `fileFolder:F#<等級>@(role:r#holder | user:u | user:*)`，由 `modules/file/file-folder-grant.repository.ts` 讀寫；
   結構邊（`parent`、`inherits_from`、`owner`）由 `file_folders` 供應，不存。中斷繼承的資料夾沒有 `inherits_from` 邊。
 - 「等級蘊含哪些動作」（反提權、`assignableLevels`）由模型的 **靜態蘊含** 算出（`impliedRelations`），不再寫死對照表。
 - 全域的 `file:*` 已套用權限依賴樹（[`02-permission-catalog.md`](./02-permission-catalog.md) §9）：`file:delete ⇒ file:update ⇒ file:read ⇒ file:access`、
@@ -237,25 +237,30 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 
 ## 8. 資料模型
 
+授權是 `relation_tuples`（[`../architecture/backend/02-database.md`](../architecture/backend/02-database.md) §2.10）上的邊，
+讀寫集中在 `apps/api/src/modules/file/file-folder-grant.repository.ts`（`FileFolderGrantRepository`）：
+
 ```
-resource_grants                                   ← 通用：不只給資料夾用（§10）
-  id             uuid pk
-  resource_type  enum resource_type       'fileFolder'（新增種類：ALTER TYPE … ADD VALUE）
-  resource_id    uuid
-  subject_type   enum grant_subject_type  'role' | 'user'
-  subject_id     uuid      沒有外鍵（多型）；解析與清單都 join 未刪除的 roles / users
-  level          enum grant_level         'viewer' | 'contributor' | 'editor' | 'manager'
-  expires_at     tstz      null = 不過期（P2）
-  granted_at / granted_by
-  unique (resource_type, resource_id, subject_type, subject_id)   ← 同一對象在同一資源只有一筆，變更等級是覆寫
-  index  (subject_type, subject_id)                               ← 「這個人／角色有哪些授權」
+fileFolder:<資料夾 id>#<等級>@<主體>
+  等級    viewer | contributor | editor | manager
+  主體    role:<id>#holder（角色）｜ user:<id>（使用者）｜ user:*（所有人，API 上的 everyone）
+  expires_at            null = 不過期（P2）
+  created_at / created_by   API 上的 grantedAt / grantedBy
+  沒有外鍵（多型）；解析與清單都 join 未刪除的 roles / users
 
 file_folders.inherit_grants  boolean not null default true        ← P2
 ```
 
+- **同一對象在同一資料夾只有一個等級，變更等級是覆寫**：`relation_tuples` 的唯一索引包含關係（等級），擋不住同一對象兩個等級，
+  所以由 `FileFolderGrantRepository.set` 在同一個交易裡先刪掉這個對象在這個資料夾上的所有等級、再插入新的；
+  授權的寫入一律經 `FileFolderTree.write` 序列化（backend 09 §11.1），並行的兩次授予不會各插一筆。
+- 等級規則（`levelRank`、`maxLevel`、`missingActions`、`assignableLevels`、`inheritanceChain`）在 `modules/file/file-grant.levels.ts`。
+- 舊表 `resource_grants`（enum `resource_type`、`grant_level`、`grant_subject_type`）G3b 刪除；程式已不讀寫。
+  等級與對象型別的常數（`GRANT_LEVELS`、`GrantSubjectType`、`EVERYONE_SUBJECT_ID`）目前仍定義在它的 schema 檔。
+
 形狀就是 Zanzibar 的 `(object, relation, subject)` tuple，將來改用 OpenFGA / SpiceDB 時可以直接匯出（§10.2）。
 
-資料夾被遞迴刪除時授權列 **不刪**：資料夾是軟刪除，授權列跟著變成不可達；還原資料夾（未來功能）時授權一起回來。
+資料夾被遞迴刪除時授權的邊 **不刪**：資料夾是軟刪除，邊跟著變成不可達；還原資料夾（未來功能）時授權一起回來。
 
 ---
 
@@ -265,7 +270,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | --- | --- |
 | 路由宣告 | 檔案相關路由改成 `@RequireAnyPermission('file:access', 'file:<動作>')`：guard 只當閘門，範圍由 service 判斷（[`05-rbac.md`](../architecture/backend/05-rbac.md) §1 原則 3 的例外） |
 | 推播 | `file` / `fileFolder` 的受眾加上 `file:access` 的 room。Payload 只有 id（[`08-realtime.md`](../architecture/backend/08-realtime.md) §6.1），看不到的資料夾有變更時只會多重抓一次，不會外洩名稱。授權變更推 `fileFolder update`（id 是該資料夾） |
-| 權限快取 | 資料夾授權 **不進** 權限快取：每個請求重新解析（一次取整棵資料夾結構 ＋ 相關授權）。角色指派、授權變更都不需要失效任何東西；資料夾結構本身有程序內快取，由結構的寫入在提交後失效（backend 09 §11.1） |
+| 權限快取 | 資料夾授權 **不進** 權限快取：每個請求重新解析（一次取整棵資料夾結構 ＋ 相關授權）。授權變更不呼叫 `permissionsChanged`（`authz_revision` 仍 +1，其他程序的權限快取跟著失效一次）；資料夾結構本身有程序內快取，由結構的寫入在提交後失效（backend 09 §11.1） |
 | 簽章網址 | 影像 API 與 presigned 下載網址發出後到期前都有效：撤銷授權的延遲上限是網址的 TTL（`FILE_URL_TTL`，預設 15 分鐘，env 最多只接受 1 小時）；列表的網址因簽章時間取整（backend 09 §7.1），實際剩餘效期介於 TTL/2 與 TTL 之間 |
 
 ---
@@ -277,7 +282,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 檔案之外的資源（未來的專案、關卡）沿用同一套：
 
 - 關係圖（`core/authz`）是通用的；每種資源在模型裡宣告自己的型別（等級、動作、`from` 上層），並提供結構邊的供應者。
-- `resolveHierarchyLevels`（`modules/resource-grant`）在 G2 起只給影子比對用，G3 刪除。
+- 解析由關係圖的判斷器負責（舊的 `resolveHierarchyLevels` 與 `modules/resource-grant` 已在 G3a 刪除）。
 - **專案會成為資料夾的上層**：資料夾掛在專案底下之後，資料夾的上層鏈延伸到專案節點，
   專案上的授權自然往下繼承到它的資料夾。屆時根目錄的角色由專案取代（每個專案一棵樹）。
   掛載方式與遷移步驟見 [ADR-0015](../adr/0015-file-folder-access.md) §延伸。
@@ -286,15 +291,15 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 
 | # | 做什麼 | 在哪裡 |
 | --- | --- | --- |
-| 1 | `RESOURCE_TYPES` 加一個值，發 migration（`ALTER TYPE resource_type ADD VALUE`） | `db/schema/resource-grants.ts` |
-| 2 | 定義動作與 `LevelActions<Action>`（每個等級蘊含哪些動作）；動作與全域權限鍵一一對應 | 該資源的 module（例：`file-access.context.ts` 的 `LEVEL_ACTIONS`） |
-| 3 | 把上層鏈轉成 `HierarchyNode[]`（`id`、`parentId`、`inheritGrants`），連同 `ResourceGrantService.grantsFor(actor, types)` 的結果交給 `resolveHierarchyLevels()` | 該資源的 `XxxAccessService` |
-| 4 | 能力判斷：`全域有權限鍵 ∨ levelAllows(...)`；反提權用 `missingActions()` / `assignableLevels()` | 同上 |
+| 1 | 在模型裡宣告型別：等級、`can_*`、`X from <上層>`（沿用 `fileFolder` 的寫法） | 該資源的 `<resource>.authz.ts`，於 `onModuleInit` 註冊（`AuthzRegistry`） |
+| 2 | 提供結構邊的供應者（上層、繼承、擁有者），從資源自己的表讀，不存進 `relation_tuples` | 同上 |
+| 3 | 授權的讀寫：`<type>:<id>#<等級>@<主體>` 的 repository；「一個對象一個等級」由程式維持（§8） | 該資源的 module（參考 `file-folder-grant.repository.ts`） |
+| 4 | 能力判斷交給判斷器（`AuthzService.checkerFor`）；反提權用 `missingActions()` / `assignableLevels()` | 該資源的 `XxxAccessService`；等級規則目前在 `modules/file/file-grant.levels.ts`，第二種資源出現時再抽出共用 |
 | 5 | 授權管理 API、稽核（`<resource>.grant` / `.revoke`）、推播受眾 | 該資源的 module ＋ `realtime.audience.ts` |
 | 6 | 權限目錄加閘門鍵（`<resource>:access`）與 `<resource>:share` | 權限變更的同步清單（CLAUDE.md） |
 
-`modules/resource-grant` 只提供資料存取、等級全序、解析與反提權的比對；「誰能管理授權」「等級蘊含哪些動作」「上層是誰」
-都在資源自己的 module。上層鏈跨越多種資源時（資料夾 → 專案），`grantsFor` 一次取多種、節點 id 都是 uuid 不會撞號。
+「誰能管理授權」「等級蘊含哪些動作」「上層是誰」都在資源自己的 module。上層鏈跨越多種資源時（資料夾 → 專案），
+在模型裡以 `inherits_from` 指向另一種型別即可，判斷器會沿著走。
 
 ### 10.2 何時改用 Zanzibar 類服務
 
@@ -337,6 +342,6 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | **P1** | `file:access` / `file:share`、`resource_grants`（對象只有角色）、繼承、擁有者規則、`capabilities`、推播受眾、授權管理 API 與前端「共用」對話框 |
 | **P2** | 授權給個別使用者、中斷繼承（私人資料夾）、授權過期 |
 | **追加** | 沒有權限的資料夾也列出（鎖住）＋ 申請存取（§5.1、§6.5）；系統資料夾與 `everyone` 對象（§12） |
-| **P3** | 通用解析函式與 `modules/resource-grant` 的掛載契約（`resource-grant.levels.ts`、多種資源的 `grantsFor`、§10.1 的步驟）；OpenFGA 遷移判準（§10.2）。專案本身還不存在，掛上去的那一步隨專案功能一起做 |
+| **P3** | 通用解析函式與 `modules/resource-grant` 的掛載契約；OpenFGA 遷移判準（§10.2）。專案本身還不存在，掛上去的那一步隨專案功能一起做。G3a（ADR-0024）起解析改由關係圖負責、`modules/resource-grant` 已刪除，新的掛載步驟見 §10.1 |
 
 三個階段都已實作（2026-09-29）。

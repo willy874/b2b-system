@@ -1,7 +1,7 @@
 # 權限圖（Relationship-based Access Control）
 
 - 優先度：P0
-- 狀態：實作中（G0～G2 與角色權限技能樹 2026-09-30 合併進 main，32427b4；G3 寫入切換與刪舊表、G4 群組與 explain 待做）
+- 狀態：實作中（G0～G2 與角色權限技能樹 2026-09-30 合併進 main，32427b4；G3a 讀寫切換與 revision 失效已在 `feat/permission-graph-g3` 完成；G3b 刪舊表與 trigger、G4 群組與 explain 待做）
 - 依賴：—
 - 相關：[ADR-0024](../adr/0024-relationship-based-access-control.md)（本功能的決策）、[ADR-0005](../adr/0005-permission-resolved-server-side.md)、[ADR-0006](../adr/0006-flat-permission-scope.md)、[ADR-0015](../adr/0015-file-folder-access.md)、
   [`rbac/01-domain-model.md`](../rbac/01-domain-model.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)、
@@ -387,7 +387,7 @@ modules/permission/                 產生 tenant 型別（依權限目錄）；
 modules/role/、modules/user/        角色的權限、使用者的角色 → 寫 tuple
 modules/group/（新）                群組 CRUD、成員
 modules/file/                       註冊 fileFolder、file 型別與結構邊供應者；FileAccessContext 改用引擎
-modules/resource-grant/             刪除（解析併入引擎；等級變成模型裡的計算關係）
+modules/resource-grant/             刪除（解析併入引擎；等級變成模型裡的計算關係）；G3a 已刪：授權的存取併入 modules/file（file-folder-grant.repository.ts）、等級規則在 file-grant.levels.ts
 ```
 
 **對外介面不變**：
@@ -433,6 +433,8 @@ modules/resource-grant/             刪除（解析併入引擎；等級變成�
   **05-rbac §5.1 的失效清單整張消失**，刪角色的「先查再刪」陷阱也跟著消失（失效不需要事先算出受影響的人）。
   代價是粒度變粗：一次授權變更讓整個租戶的閉包重算一次（每人一句 CTE，按需、lazy），見開放問題 5。
 - **推播的 room**：revision 變動時，對該租戶已連線的使用者重算權限集合、比對舊的 room 後換 room；不再需要事件帶「受影響的使用者」。
+- G3a 的實作：`core/authz/authz.revision.ts`（`AuthzRevision`）＋ `core/broadcast/`；快取仍是 `PermissionCacheService`（key 為租戶 × 使用者），
+  revision 變動時整個租戶失效（`invalidateTenant`），沒有另做以 revision 為鍵的 `authz.cache.ts`。規格見 [`05-rbac.md`](../architecture/backend/05-rbac.md) §5。
 
 ### 6. 說明（explain）
 
@@ -500,12 +502,12 @@ ADR-0006「不要讓權限變成推理題」的精神不變；explain 讓剩下�
 | **G0** ✅ | ADR-0024；`core/authz` 引擎 ＋ 模型驗證 ＋ 單元測試（純記憶體 tuple，照 07 的每一條規則寫案例） | 不動任何既有程式 |
 | **G1** ✅ | `relation_tuples`；migration 從三張舊表回填；舊表仍是事實來源，**以 DB trigger 在同一交易雙寫**（service 不必改，也不會漏）；`authz_revision` 延到 G3；**影子比對**：開發與測試環境每次檢查兩套都跑，不一致就報錯 | 刪新表即可 |
 | **G2** ✅ | 讀取改走引擎，並啟用包含關係（§2.1；自訂角色多出的鍵由 `db:seed` 寫稽核 `role.permissionsImplied`）：`PermissionService`、`FileAccessService`、推播 room；`resource-grant.resolver.ts` 與舊的權限查詢只留給影子比對（兩邊都套閉包後比較），G3 刪除；快取仍逐事件失效（寫入還經過舊表，revision 失效隨 G3 的寫入切換一起做） | 切回舊讀取路徑 |
-| **G3a** | 寫入只寫 tuple、讀取不再碰舊表；`authz_revision` ＋ `core/broadcast` 失效（取代逐事件失效與 05-rbac §5.1 的清單）；刪雙寫 trigger、影子比對、`resource-grant.resolver.ts`、`modules/resource-grant`；反提權沿用既有函式 | 舊表還在，但 G3a 之後的寫入不會同步回去，回退要反向回填 |
-| **G3b** | 下一次部署才刪 `user_roles`、`role_permissions`、`resource_grants`（`02-database.md` §5.1：破壞性變更拆成兩次部署） | 不可回退 |
+| **G3a** ✅ | 寫入只寫 tuple、讀取不再碰舊表；`authz_revision` ＋ `core/broadcast` 失效（取代逐事件失效與 05-rbac 原本的失效清單）；刪影子比對、`resource-grant.resolver.ts`、`modules/resource-grant`；反提權沿用既有函式。雙寫 trigger **保留**：滾動部署期間舊版（G2）程序仍寫舊表，由 trigger 同步到 tuple；新版程式不寫舊表，trigger 不會被觸發 | 舊表還在，但 G3a 之後的寫入不會同步回去，回退要反向回填 |
+| **G3b** | 下一次部署才一起刪：雙寫 trigger（migration `0008`，含 `roles_mirror_super_admin`）、`user_roles`、`role_permissions`、`resource_grants`、它們的 Drizzle schema 檔與 `db/relations.ts` 的項目（`02-database.md` §5.1：破壞性變更拆成兩次部署） | 不可回退 |
 | **G4** | 群組（巢狀、持有角色）、`user:*`、explain API 與前端頁面 | — |
 | **G5** | 隨專案功能：`project` 型別，`fileFolder` 的 `inherits_from` 可以指向專案 | — |
 
-G0～G2 與角色權限的技能樹已在 `feat/permission-graph` 完成（2026-09-30）；G3 起另開 branch（預計 `feat/permission-graph-g3`，G3a 與 G3b 分兩次合併）。
+G0～G2 與角色權限的技能樹已在 `feat/permission-graph` 完成（2026-09-30）；G3a 已在 `feat/permission-graph-g3` 完成（2026-09-30），G3b 在 G3a 部署之後另外合併。
 
 G1～G3 對外沒有任何行為變化（G2 的依賴樹閉包除外，見 §2.2 對預設角色的影響），既有的權限測試（頁面三個權限案例、E2E 的「移除權限後下一次請求即 403」）全部要原封不動通過。
 

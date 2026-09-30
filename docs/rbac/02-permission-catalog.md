@@ -185,7 +185,7 @@
 | `identityProvider:update` |   ✓*       |    ✓    |           |          |
 | `identityProvider:delete` |   ✓*       |    ✓    |           |          |
 
-`*` super-admin 是 **隱含全集**，不在 `role_permissions` 中逐筆登錄；
+`*` super-admin 是 **隱含全集**，不逐筆登錄權限鍵的邊（只有 `tenant:self#superAdmin` 一條邊）；
 `GET /auth/profile` 回傳時才展開成完整清單。
 
 `member` 只有 `file:access`：進得了檔案管理器，看得到資料夾但全部鎖住，被授權之後才讀得到。
@@ -274,8 +274,8 @@ Seed 行為：
 
 1. **Upsert**（依 `key`）— 重複執行安全。
 2. seed 中不存在、DB 中存在的權限 → **不自動刪除**，只印出警告。刪除權限需要
-   明確的 migration（同時處理 `role_permissions` 的清理），避免誤刪授權。
-3. seed 完成後重算所有角色的權限快取版本號。
+   明確的 migration（同時清掉 `relation_tuples` 上以該鍵為關係的邊），避免誤刪授權。
+3. seed 對 `relation_tuples` 的寫入讓 `authz_revision` +1，但 seed 是另一個程序、不送失效廣播：執行中的 api 以權限快取的 TTL（60 秒）反映。
 
 ---
 

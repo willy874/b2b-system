@@ -11,8 +11,8 @@ import type { FileFolderRow } from '@/db/schema';
 import { EVERYONE_SUBJECT_ID } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { PermissionService } from '@/modules/permission/permission.service';
-import { ResourceGrantService } from '@/modules/resource-grant/resource-grant.service';
 
+import { FileFolderGrantRepository } from './file-folder-grant.repository';
 import { FileFolderTree } from './file-folder-tree';
 import { FileFolderRepository } from './file-folder.repository';
 
@@ -38,7 +38,7 @@ export class FileSystemFolderService
   constructor(
     private readonly tree: FileFolderTree,
     private readonly repo: FileFolderRepository,
-    private readonly grants: ResourceGrantService,
+    private readonly grants: FileFolderGrantRepository,
     private readonly permissions: PermissionService,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
@@ -47,8 +47,9 @@ export class FileSystemFolderService
 
   onModuleInit(): void {
     this.unsubscribers = [
+      // 只有發起寫入的程序知道是誰（其他程序收到的廣播沒有名單）：個人資料夾建在 DB，建一次就夠
       this.events.subscribe(DomainEvent.PERMISSIONS_CHANGED, ({ userIds }) =>
-        this.ensurePersonalFolders(userIds, { onlyEligible: true }),
+        userIds ? this.ensurePersonalFolders(userIds, { onlyEligible: true }) : undefined,
       ),
       // 新佈建或重新啟用的租戶：不等重啟就補上系統資料夾（事件在那個租戶的脈絡裡發佈）
       this.events.subscribe(DomainEvent.TENANT_ACTIVATED, () => this.prepareTenant()),
@@ -127,12 +128,7 @@ export class FileSystemFolderService
       const shared = await this.ensureSingleton('shared', SHARED_FOLDER_NAME, tx, createdIds);
       if (createdIds.includes(shared.id)) {
         await this.grants.set(
-          {
-            resourceType: 'fileFolder',
-            resourceId: shared.id,
-            subjectType: 'everyone',
-            subjectId: EVERYONE_SUBJECT_ID,
-          },
+          { folderId: shared.id, subjectType: 'everyone', subjectId: EVERYONE_SUBJECT_ID },
           { level: 'editor', expiresAt: null, grantedBy: null },
           tx,
         );
@@ -219,7 +215,7 @@ export class FileSystemFolderService
     );
     if (!row) throw new Error('建立個人資料夾失敗');
     await this.grants.set(
-      { resourceType: 'fileFolder', resourceId: row.id, subjectType: 'user', subjectId: person.id },
+      { folderId: row.id, subjectType: 'user', subjectId: person.id },
       { level: 'manager', expiresAt: null, grantedBy: null },
       tx,
     );

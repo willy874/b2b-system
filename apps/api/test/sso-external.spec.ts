@@ -9,13 +9,21 @@ import type { App } from 'supertest/types';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { ObjectStorage } from '@/core/storage';
-import { identityProviders, roles, userIdentities, userRoles, users } from '@/db/schema';
+import {
+  identityProviders,
+  relationTuples,
+  roleHolderTuple,
+  roles,
+  userIdentities,
+  users,
+} from '@/db/schema';
 import { ExternalOidcClient } from '@/modules/identity-provider/external-oidc.client';
 import type {
   ExternalIdentity,
   ExternalProviderConfig,
 } from '@/modules/identity-provider/external-oidc.client';
 
+import { heldRoleIds } from './authz';
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
@@ -233,7 +241,7 @@ describe('外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D11）
       return row!.id;
     };
     const memberId = await insert(MEMBER.email, MEMBER.password);
-    await db.insert(userRoles).values({ userId: memberId, roleId: await roleIdOf('member') });
+    await db.insert(relationTuples).values(roleHolderTuple(await roleIdOf('member'), memberId));
     aliceId = await insert(ALICE, 'AlicePassword!2026');
 
     const { AppModule } = await import('@/app.module');
@@ -434,7 +442,7 @@ describe('外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D11）
         displayName: 'Carol',
         status: 'active',
       });
-      expect(await db.select().from(userRoles).where(eq(userRoles.userId, userId))).toEqual([]);
+      expect(await heldRoleIds(db, userId)).toEqual([]);
 
       // 別的網域（例：一般 gmail）不會因為這個連線被自動建立
       external.nextIdentity = {
@@ -496,7 +504,7 @@ describe('外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D11）
           .insert(users)
           .values({ email: 'boss@acme.test', displayName: 'Boss', status: 'active' })
           .returning();
-        await db.insert(userRoles).values({ userId: boss!.id, roleId: await roleIdOf('admin') });
+        await db.insert(relationTuples).values(roleHolderTuple(await roleIdOf('admin'), boss!.id));
         external.nextIdentity = {
           subject: 'acme-boss',
           email: 'boss@acme.test',

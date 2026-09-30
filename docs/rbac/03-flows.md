@@ -237,8 +237,8 @@ ZodValidationPipe → Controller → Service → Repository
   │               │                    │    （super-admin 豁免）         │
   │               │                    │    否 → 403 AUTHZ_ESCALATION    │
   │               │                    │ 4. INSERT roles                 │
-  │               │                    │ 5. INSERT role_permissions[]    │
-  │               │                    │    （trigger 同步 relation_tuples）│
+  │               │                    │ 5. INSERT relation_tuples：      │
+  │               │                    │    tenant:self#<key>@role:R#holder│
   │               │                    │ 6. audit(role.create, {...})    │
   │               │                    │ 交易提交                        │
   │               │                    └─────────┬──────────────────────┘
@@ -280,15 +280,14 @@ PATCH /roles/:id/permissions  { add: [], remove: ['user:delete'] }
   ├─ 檢查 R 不是 super-admin（ROLE_SUPER_ADMIN_IMMUTABLE）
   ├─ 檢查反提權（add 的鍵 ⊆ actor 權限集合）
   ├─ ★ 檢查 I8：若 R 是最後一個帶 super-admin 等效權限的角色 → 拒絕
-  ├─ 查出持有 R 的所有 user_id（holders）
-  ├─ 交易：DELETE role_permissions WHERE role_id = R AND permission_id IN (...)
-  │         （trigger 同一個交易刪掉 tenant:self#<key>@role:R#holder）
+  ├─ 交易：DELETE relation_tuples 的 tenant:self#<key>@role:R#holder
+  │         （trigger 讓 authz_revision +1）
   ├─ audit(role.grantPermission, { before, after })
   │
   ▼  交易之後
-PermissionService.invalidateUsers(holders)          逐一刪除快取
-DomainEventBus.publish(permissions.changed / resource.changed)
-  └─ realtime：holders 換 room、收到推播 → 前端重抓 profile（backend/08-realtime.md §7）
+PermissionService.permissionsChanged()              整個租戶的權限快取失效；平台 DB 廣播 { tenant, revision }
+  ├─ permissions.changed → realtime：租戶的所有連線重算 room（其他程序收到廣播也各自重算）
+  └─ resource.changed（affectedUserIds = 持有 R 的人）→ 前端重抓 profile（backend/08-realtime.md §7）
   │
   ▼  下一次這些使用者的請求
 PermissionsGuard → cache miss → 重新解析 → 不含 'user:delete' → 403
@@ -319,10 +318,10 @@ PUT /users/:id/roles  { roleIds: [...] }    ← 整批取代語意，非增量
   ├─ ★ 反提權：每個待指派角色的權限集合 ⊆ actor 權限集合
   │     （否則我可以把一個我做不到的角色指派給別人，等同提權）
   ├─ 檢查 I8：若此次操作會移除系統最後一個 super-admin → 403 LAST_SUPER_ADMIN
-  ├─ 交易：DELETE user_roles WHERE user_id = :id
-  │         INSERT user_roles (新集合)       （trigger 同步 role:<id>#holder@user:<id>）
+  ├─ 交易：DELETE relation_tuples 的 role:*#holder@user:<id>
+  │         INSERT role:<r>#holder@user:<id>（新集合）
   ├─ audit(user.assignRole, { before: [...], after: [...] })
-  └─ PermissionCacheService.invalidate(userId)
+  └─ 交易之後：PermissionService.permissionsChanged([userId])   整個租戶失效並廣播（backend/05-rbac.md §5.1）
 ```
 
 ---

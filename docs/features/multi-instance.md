@@ -5,7 +5,7 @@
 - 依賴：—
 - 相關：[`../architecture/01-system.md`](../architecture/01-system.md) §4.2–§4.3（擴展前提）、[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §10.3、
   [ADR-0016](../adr/0016-background-jobs.md)（背景工作）、[`observability.md`](./observability.md)、[`hardening-followups.md`](./hardening-followups.md)、
-  [`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 6、7 項、[`permission-graph.md`](./permission-graph.md) G3（先做出 `core/broadcast`，權限快取第一個用）
+  [`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 6、7 項、[`permission-graph.md`](./permission-graph.md) G3a（已做出 `core/broadcast`，權限快取第一個用）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -29,7 +29,7 @@ api 目前假設只有一個程序服務所有租戶。[`01-system.md`](../archi
 | 項目 | 現在 | 要改成 |
 | --- | --- | --- |
 | 領域事件 → 推播 | 程序內的 `DomainEventBus`（每個租戶一條 promise 鏈） | 跨程序：`@socket.io/postgres-adapter` 的 `serverSideEmit`，或 `LISTEN/NOTIFY` 轉發事件 |
-| 權限、使用者快取 | `core/cache` 的 Map（key `{tenantId}:{userId}`），失效只在本程序 | 失效廣播（`LISTEN/NOTIFY`）；TTL（權限 60 秒、使用者 30 秒）是最後防線 |
+| 權限、使用者快取 | `core/cache` 的 Map（key `{tenantId}:{userId}`）。**權限快取已完成**：關係圖寫入後整個租戶失效，經平台 DB 的 `authz_revision` 頻道廣播（`core/broadcast`、`core/authz/authz.revision.ts` 的 `AuthzRevision`，[`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.1）。使用者快取仍只在本程序失效 | 使用者快取接上同一個 `BroadcastService`；TTL（權限 60 秒、使用者 30 秒）是最後防線 |
 | 租戶登記快取 | `TenantDirectory` 本程序失效，其他實例最多晚 `TENANT_CACHE_TTL` 秒 | 同一條失效廣播 |
 | 資料夾樹快取 | `FileFolderTree` 以租戶為 key，只在本程序失效（[`backend/09-file.md`](../architecture/backend/09-file.md) §11.1） | 同上 |
 | 系統設定快取 | 依租戶快取 30 秒，只在本程序失效 | 同上 |
@@ -43,7 +43,7 @@ api 目前假設只有一個程序服務所有租戶。[`01-system.md`](../archi
 
 | 做 | 不做（這一版） |
 | --- | --- |
-| 失效廣播：一條 `LISTEN/NOTIFY` 頻道，快取、租戶目錄、資料夾樹、系統設定共用（頻道本身與權限快取隨權限圖 G3 先做；這裡把其餘快取接上） | 跨區域部署 |
+| 失效廣播：`core/broadcast` 的 `LISTEN/NOTIFY`（頻道本身與權限快取已隨權限圖 G3a 完成）；這裡把其餘快取接上：`TenantDirectory`、`FileFolderTree`、系統設定、使用者快取 | 跨區域部署 |
 | Socket.io 跨實例（postgres adapter），worker 發佈的事件也送得到 | Redis |
 | 速率限制共享計數（Postgres） | |
 | 影像變體改成背景工作 | |
@@ -52,9 +52,10 @@ api 目前假設只有一個程序服務所有租戶。[`01-system.md`](../archi
 
 ## 初步構想
 
-- 失效廣播放 `core/`（例如 `core/broadcast`）：`publish(channel, payload)` 送 `NOTIFY`，每個程序一條專用的平台 DB 連線 `LISTEN`；
-  收到後呼叫各快取的 `invalidate`。自己送出的訊息也會收到，要能忽略或冪等。
-- `NOTIFY` 的 payload 上限 8000 位元組：只送 key，不送資料。
+- 失效廣播 **已實作** 在 `core/broadcast`（`BroadcastService`）：`subscribe(channel, { onMessage, onReconnect })`、`publish(channel, payload)` 送 `NOTIFY`
+  （best-effort，失敗只記錄），每個程序一條平台 DB 的 `LISTEN` 連線（postgres.js `listen`），重連時呼叫訂閱者的 `onReconnect` 讓它丟棄整個快取。
+  自己送出的訊息也會收到，要能忽略或冪等（`AuthzRevision` 以單調遞增的 revision 判斷）。剩下的是每個快取各訂一個頻道、收到後呼叫自己的 `invalidate`。
+- `NOTIFY` 的 payload 上限 8000 位元組：只送 key，不送資料（`BroadcastService.publish` 超過會拋錯）。
 - 共享速率限制：以 `unlogged table` ＋ `INSERT ... ON CONFLICT DO UPDATE` 計數，視窗到期由排程清理；登入端點的每一次請求多一次寫入，要壓測。
 - 驗收：兩個 api 實例 ＋ 一個 worker，E2E 在實例 A 改權限、連在實例 B 的使用者即時收到並失效。
 

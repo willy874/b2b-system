@@ -104,7 +104,7 @@ export class RoleService {
   async create(dto: CreateRoleDto, actor: AuthUser): Promise<RoleDto> {
     await this.assertNameAvailable(dto.name);
     await this.permissionService.assertGrantable(actor.id, dto.permissionKeys as PermissionKey[]);
-    const permissionIds = await this.permissionService.assertKeysExist(dto.permissionKeys);
+    await this.permissionService.assertKeysExist(dto.permissionKeys);
 
     const role = await withTransaction(this.db, async (tx) => {
       const created = await this.repo.create(
@@ -118,7 +118,7 @@ export class RoleService {
         },
         tx,
       );
-      await this.repo.addPermissions(created.id, [...permissionIds.values()], actor.id, tx);
+      await this.repo.addPermissions(created.id, dto.permissionKeys, actor.id, tx);
       await this.audit.record(
         {
           action: 'role.create',
@@ -182,7 +182,7 @@ export class RoleService {
     if (role.slug === SUPER_ADMIN_SLUG) throw new AppException('ROLE_SUPER_ADMIN_IMMUTABLE');
 
     const touched = [...dto.add, ...dto.remove];
-    const ids = await this.permissionService.assertKeysExist(touched);
+    await this.permissionService.assertKeysExist(touched);
     await this.permissionService.assertGrantable(actor.id, dto.add as PermissionKey[]);
 
     // 自我鎖定的預估用交易外的讀取；稽核的 before／after 在交易內讀，才是實際寫入的前後
@@ -201,19 +201,10 @@ export class RoleService {
       if (!(await this.repo.lockActive(id, tx))) throw new AppException('ROLE_NOT_FOUND');
       const before = await this.repo.listPermissionKeys(id, tx);
       if (dto.remove.length) {
-        await this.repo.removePermissions(
-          id,
-          dto.remove.map((key) => ids.get(key)!),
-          tx,
-        );
+        await this.repo.removePermissions(id, dto.remove, tx);
       }
       if (dto.add.length) {
-        await this.repo.addPermissions(
-          id,
-          dto.add.map((key) => ids.get(key)!),
-          actor.id,
-          tx,
-        );
+        await this.repo.addPermissions(id, dto.add, actor.id, tx);
       }
       const after = await this.repo.listPermissionKeys(id, tx);
       await this.audit.record(
@@ -228,10 +219,10 @@ export class RoleService {
       );
     });
 
-    // ★ 快取失效在交易「之後」——交易可能 rollback；之後才發事件（room 同步要讀到新權限）
+    // ★ 快取失效在交易「之後」——交易可能 rollback；推播的 room 同步在失效之後。
+    // 持有者不是失效的依據（整個租戶都失效）：給剛取得檔案權限的人補建個人資料夾、讓他們的畫面重抓
     const holders = await this.permissionService.findUserIdsByRole(id);
-    this.permissionService.invalidateUsers(holders);
-    this.events.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: holders });
+    await this.permissionService.permissionsChanged(holders);
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [{ resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id }],
       affectedUserIds: holders,
@@ -246,7 +237,7 @@ export class RoleService {
 
     const sourceKeys = (await this.repo.listPermissionKeys(id)) as PermissionKey[];
     const { granted, skipped } = await this.permissionService.filterGrantable(actor.id, sourceKeys);
-    const permissionIds = await this.permissionService.assertKeysExist(granted);
+    await this.permissionService.assertKeysExist(granted);
 
     const created = await withTransaction(this.db, async (tx) => {
       const role = await this.repo.create(
@@ -260,7 +251,7 @@ export class RoleService {
         },
         tx,
       );
-      await this.repo.addPermissions(role.id, [...permissionIds.values()], actor.id, tx);
+      await this.repo.addPermissions(role.id, granted, actor.id, tx);
       await this.audit.record(
         {
           action: 'role.duplicate',
@@ -295,7 +286,7 @@ export class RoleService {
       if (count > 0 && !query.force) {
         throw new AppException('ROLE_IN_USE', { userCount: count });
       }
-      // ★ 受影響的使用者由刪除指派的同一條語句（`RETURNING`）取得：不會漏掉、也不會在刪除後才查而查不到
+      // 原本的持有者由刪除邊的同一條語句（`RETURNING`）取得，只用來推播讓他們的畫面重抓
       const holders = await this.repo.softDelete(id, actor.id, tx);
       await this.audit.record(
         {
@@ -311,8 +302,7 @@ export class RoleService {
       return holders;
     });
 
-    this.permissionService.invalidateUsers(affected);
-    this.events.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: affected });
+    await this.permissionService.permissionsChanged();
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [{ resource: ChangeSource.ROLE, kind: ChangeKind.DELETE, id }],
       affectedUserIds: affected,

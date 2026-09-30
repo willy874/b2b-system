@@ -4,7 +4,15 @@ import { hashPassword } from '@/modules/credential/password';
 
 import type { ScriptDatabase } from '../client';
 import { forEachScriptTenant, loadScriptEnv, seedTenantCode } from '../client';
-import { auditLogs, permissions, rolePermissions, roles, userRoles, users } from '../schema';
+import {
+  auditLogs,
+  permissions,
+  relationTuples,
+  roleHolderTuple,
+  rolePermissionTuple,
+  roles,
+  users,
+} from '../schema';
 
 /** 固定亂數種子，確保 E2E fixture 可重現。 */
 function mulberry32(seed: number): () => number {
@@ -79,11 +87,11 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
       roleId = created?.id;
       const rows = await db.select().from(permissions);
       await db
-        .insert(rolePermissions)
+        .insert(relationTuples)
         .values(
           rows
             .filter((row) => seed.keys.includes(row.key))
-            .map((row) => ({ roleId: roleId as string, permissionId: row.id })),
+            .map((row) => rolePermissionTuple(roleId as string, row.key)),
         )
         .onConflictDoNothing();
     }
@@ -123,8 +131,8 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
     const shuffled = [...roleIds].sort(() => random() - 0.5).slice(0, count);
     if (shuffled.length) {
       await db
-        .insert(userRoles)
-        .values(shuffled.map((roleId) => ({ userId: created.id, roleId })))
+        .insert(relationTuples)
+        .values(shuffled.map((roleId) => roleHolderTuple(roleId, created.id)))
         .onConflictDoNothing();
     }
   }

@@ -24,10 +24,10 @@
 
 刪除時的連帶變更讓「還原」比想像中難：
 
-- **刪除角色**：軟刪除角色，但 **硬刪除 `user_roles`**（`role.repository.ts` 的 `softDelete`），`role_permissions` 留著。
+- **刪除角色**：軟刪除角色，但 **硬刪除它的持有者邊**（`relation_tuples` 的 `role:<id>#holder@user:*`，`role.repository.ts` 的 `softDelete`），權限鍵的邊留著。
   還原角色回不來「誰原本有這個角色」。
 - **刪除使用者**：軟刪除、`token_version` 加一、撤銷 refresh token 與未使用的 auth token、**解除外部身分連結**（因為軟刪除不觸發 cascade）。
-  `user_roles` 留著。還原後外部 IdP 連結要重新建立。
+  持有角色的邊留著。還原後外部 IdP 連結要重新建立。
 - **刪除資料夾**：同一個交易內軟刪除所有子孫；物件儲存的檔案之後由 `file.maintenance` 清除。還原要在物件被清之前。
 
 ## 範圍
@@ -57,7 +57,7 @@
 ```
 revisions（租戶 DB）
   id            uuid pk
-  resource_type text        與 resource_grants、audit_logs 同一組命名（resource_type ＋ resource_id）
+  resource_type text        與 audit_logs 同一組命名（resource_type ＋ resource_id）
   resource_id   uuid
   version       integer     對應實體的 version
   snapshot      jsonb       整份（見開放問題 1）
@@ -67,7 +67,7 @@ revisions（租戶 DB）
 ```
 
 - repository 在 **同一個業務交易內** 寫入快照（和稽核同一條規則）；沒有加入的表不受影響。
-- `resource_type` 用 text ＋ 程式裡的常數，不用 Postgres enum（`resource_grants` 用 enum，新增類型要 `ALTER TYPE`，版本快照的類型會比較多）。
+- `resource_type` 用 text ＋ 程式裡的常數，不用 Postgres enum（舊的 `resource_grants` 用 enum，新增類型要 `ALTER TYPE`；資源授權改成 `relation_tuples` 之後型別也是 text，版本快照的類型會比較多）。
 - 保留：每個實體最多 N 版或 N 天，排程工作清理（`scope: 'tenant'`）。
 - 權限：看版本 = 看得到實體；還原某一版 = 能更新實體。不另外開權限鍵。
 
@@ -75,7 +75,7 @@ revisions（租戶 DB）
 
 - 還原由擁有者模組實作（和審批 handler 一樣，在 `onModuleInit` 註冊到回收桶的註冊表），因為連帶處理每種資源都不同：
   - 使用者：清 `deleted_at`，外部身分不回復（要重新連結），refresh token 不回復（要重新登入）。
-  - 角色：需要先決定刪除時要不要保留 `user_roles`（開放問題 2）。
+  - 角色：需要先決定刪除時要不要保留持有者的邊（開放問題 2）。
   - 資料夾與檔案：物件還在時才能還原；`file.maintenance` 的清除要以回收桶的保留期限為準。
 - 回收桶：`GET /trash?type=` 由各模組提供自己的已刪除清單；權限跟著資源（例如使用者的回收桶需要 `user:delete`）。
 - 永久刪除：`trash.purge` 排程工作（`scope: 'tenant'`），超過保留期限的列真正刪除；保留期限用系統設定。
@@ -84,8 +84,9 @@ revisions（租戶 DB）
 ## 開放問題
 
 1. 快照存整份還是存差異？編輯器的資料可能很大。整份比較簡單、還原不必重播；差異省空間但要定期存完整版。
-2. 刪除角色時 `user_roles` 要改成保留（查詢時排除已刪除的角色），還是刪除前把持有者寫進快照、還原時補回？
-   前者會動到權限查詢與 `CLAUDE.md` 規則 7（刪除角色前先查受影響的使用者）。
+2. 刪除角色時持有者的邊（`role:<id>#holder@user:<u>`）要改成保留，還是刪除前把持有者寫進快照、還原時補回？
+   權限圖 G3a 之後，解析已經略過已刪除的角色（權限鍵的邊本來就保留），失效也以整個租戶為單位、不必事先查人；
+   保留的話要確認其他讀持有者邊的查詢（使用者列表、持有者計數）都排除已刪除的角色。
 3. 樂觀鎖要不要走 HTTP 標準的 `ETag`／`If-Match`？好處是快取與 304 一起解決（[`hardening-followups.md`](./hardening-followups.md) 的「列表的 304／ETag」），
    壞處是 SDK 產生與前端都要處理標頭。
 4. 還原時參照的東西已經不在（檔案的資料夾被刪、使用者的角色被刪），一律拒絕，還是還原到預設位置？

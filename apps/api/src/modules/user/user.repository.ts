@@ -5,7 +5,17 @@ import type { SQL } from 'drizzle-orm';
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, containsPattern } from '@/core/database';
 import type { RoleRow, UserInsert, UserRow, UserStatus } from '@/db/schema';
-import { isActiveRole, roles, userRoles, users } from '@/db/schema';
+import {
+  isActiveRole,
+  isRoleHolderTuple,
+  relationTuples,
+  ROLE_HOLDER_RELATION,
+  ROLE_OBJECT_TYPE,
+  roleHolderTuple,
+  roles,
+  USER_SUBJECT_TYPE,
+  users,
+} from '@/db/schema';
 
 import type { ListUserDto } from './dto/list-user.dto';
 
@@ -28,6 +38,11 @@ const ROLE_AGGREGATE = sql<UserRoleSummary[]>`
     ) FILTER (WHERE ${roles.id} IS NOT NULL),
     '[]'
   )`;
+
+/** 使用者 ⋈ 持有角色的邊（`role:<r>#holder@user:<users.id>`）。 */
+const HELD_BY_USER = and(isRoleHolderTuple(), eq(relationTuples.subjectId, sql`${users.id}::text`));
+/** 邊 ⋈ 未刪除的角色。 */
+const HELD_ROLE = and(eq(sql`${roles.id}::text`, relationTuples.objectId), isActiveRole());
 
 const SORT_COLUMNS = {
   createdAt: users.createdAt,
@@ -59,6 +74,11 @@ export interface FailedLoginResult {
   lockedUntil: Date | null;
 }
 
+/** 這位使用者持有角色的邊。 */
+function heldBy(userId: string): SQL | undefined {
+  return and(isRoleHolderTuple(), eq(relationTuples.subjectId, userId));
+}
+
 @Injectable()
 export class UserRepository {
   constructor(@Inject(TENANT_DB) private readonly db: Database) {}
@@ -85,8 +105,8 @@ export class UserRepository {
     const [row] = await this.db
       .select({ user: users, roles: ROLE_AGGREGATE })
       .from(users)
-      .leftJoin(userRoles, eq(userRoles.userId, users.id))
-      .leftJoin(roles, and(eq(roles.id, userRoles.roleId), isActiveRole()))
+      .leftJoin(relationTuples, HELD_BY_USER)
+      .leftJoin(roles, HELD_ROLE)
       .where(and(eq(users.id, id), isNull(users.deletedAt)))
       .groupBy(users.id)
       .limit(1);
@@ -111,7 +131,10 @@ export class UserRepository {
     }
     if (query.roleId?.length) {
       conditions.push(
-        sql`EXISTS (SELECT 1 FROM ${userRoles} ur WHERE ur.user_id = ${users.id} AND ur.role_id IN ${query.roleId})`,
+        sql`EXISTS (SELECT 1 FROM ${relationTuples} t
+          WHERE t.object_type = ${ROLE_OBJECT_TYPE} AND t.relation = ${ROLE_HOLDER_RELATION}
+            AND t.subject_type = ${USER_SUBJECT_TYPE} AND t.subject_relation = ''
+            AND t.subject_id = ${users.id}::text AND t.object_id IN ${query.roleId})`,
       );
     }
     return and(...conditions);
@@ -128,8 +151,8 @@ export class UserRepository {
       this.db
         .select({ user: users, roles: ROLE_AGGREGATE })
         .from(users)
-        .leftJoin(userRoles, eq(userRoles.userId, users.id))
-        .leftJoin(roles, and(eq(roles.id, userRoles.roleId), isActiveRole()))
+        .leftJoin(relationTuples, HELD_BY_USER)
+        .leftJoin(roles, HELD_ROLE)
         .where(where)
         .groupBy(users.id)
         .orderBy(...orderBy, desc(users.id))
@@ -209,9 +232,9 @@ export class UserRepository {
   async listRoles(userId: string, tx?: DbOrTx): Promise<UserRoleSummary[]> {
     const rows = await (tx ?? this.db)
       .select({ id: roles.id, slug: roles.slug, name: roles.name, isSystem: roles.isSystem })
-      .from(userRoles)
-      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isActiveRole()))
-      .where(eq(userRoles.userId, userId))
+      .from(relationTuples)
+      .innerJoin(roles, HELD_ROLE)
+      .where(heldBy(userId))
       .orderBy(asc(roles.slug));
     return rows;
   }
@@ -223,7 +246,7 @@ export class UserRepository {
     actorId: string | null,
     tx: DbOrTx,
   ): Promise<void> {
-    await tx.delete(userRoles).where(eq(userRoles.userId, userId));
+    await tx.delete(relationTuples).where(heldBy(userId));
     await this.insertActiveRoles(userId, roleIds, actorId, tx);
   }
 
@@ -255,8 +278,8 @@ export class UserRepository {
       .for('share');
     if (!active.length) return;
     await tx
-      .insert(userRoles)
-      .values(active.map(({ id: roleId }) => ({ userId, roleId, grantedBy: actorId })))
+      .insert(relationTuples)
+      .values(active.map(({ id: roleId }) => roleHolderTuple(roleId, userId, actorId)))
       .onConflictDoNothing();
   }
 
@@ -271,10 +294,10 @@ export class UserRepository {
   /** 使用者（未刪除）是否持有某個（未刪除的）角色；直接查 DB，不經權限快取。 */
   async hasRoleSlug(userId: string, slug: string, tx?: DbOrTx): Promise<boolean> {
     const [row] = await (tx ?? this.db)
-      .select({ id: userRoles.userId })
-      .from(userRoles)
-      .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isActiveRole()))
-      .where(and(eq(userRoles.userId, userId), eq(roles.slug, slug)))
+      .select({ id: relationTuples.subjectId })
+      .from(relationTuples)
+      .innerJoin(roles, HELD_ROLE)
+      .where(and(heldBy(userId), eq(roles.slug, slug)))
       .limit(1);
     return row !== undefined;
   }
@@ -308,10 +331,10 @@ export class UserRepository {
     if (excludeUserId) conditions.push(sql`${users.id} <> ${excludeUserId}`);
     const [row] = await (tx ?? this.db)
       .select({ total: sql<number>`count(distinct ${users.id})::int` })
-      .from(userRoles)
-      .innerJoin(roles, eq(roles.id, userRoles.roleId))
-      .innerJoin(users, eq(users.id, userRoles.userId))
-      .where(and(...conditions));
+      .from(relationTuples)
+      .innerJoin(roles, eq(sql`${roles.id}::text`, relationTuples.objectId))
+      .innerJoin(users, eq(sql`${users.id}::text`, relationTuples.subjectId))
+      .where(and(isRoleHolderTuple(), ...conditions));
     return row?.total ?? 0;
   }
 }

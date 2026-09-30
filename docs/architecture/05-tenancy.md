@@ -171,7 +171,7 @@ key 在 OpenAPI 上是字串（目錄常常是空的），由伺服器依目錄�
 | 元件 | 做法 | 詳見 |
 | --- | --- | --- |
 | 背景工作 | 佇列在平台 DB；信封 `{ tenantId, payload }`，handler 在那個租戶裡執行。交易內入列寫租戶 DB 的 `job_outbox`，提交後搬進佇列。排程觸發的租戶工作展開成每個 `active` 租戶一筆。租戶已刪除或停用時略過；`maintenance` 交給重試 | [`backend/10-jobs.md`](./backend/10-jobs.md) |
-| 權限／使用者快取 | key 是 `{tenantId}:{userId}` | [`backend/05-rbac.md`](./backend/05-rbac.md) §5 |
+| 權限／使用者快取 | key 是 `{tenantId}:{userId}`；關係圖寫入後整個租戶的權限快取失效，以 `{ tenant, revision }` 在平台 DB 廣播給其他程序（租戶 DB 各自的 `NOTIFY` 送不到別的 database） | [`backend/05-rbac.md`](./backend/05-rbac.md) §5 |
 | 即時推播 | room 帶租戶：`t:{tenantId}:perm:{key}`、`t:{tenantId}:user:{id}`、`t:{tenantId}`；Origin 同源（租戶自己的網域）一律允許 | [`backend/08-realtime.md`](./backend/08-realtime.md) §6、§11 |
 | 物件儲存 | 每個租戶一個 bucket（`tenants.storage_bucket`）；presigned URL 以 `FILE_STORAGE_PUBLIC_ENDPOINT` 的 `{tenantOrigin}` 簽成租戶自己網域的 `/storage` | [`backend/09-file.md`](./backend/09-file.md) §3、§3.1 |
 | 寄信 | 產品頁面的連結用租戶的主要網域（找不到就拋錯重試）；帳號流程的連結在 apps/auth、帶 `?tenant=` | [`backend/11-mail.md`](./backend/11-mail.md) |

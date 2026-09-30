@@ -46,12 +46,9 @@ export async function truncateAll() {
 一個容器供整個測試檔案共用（`beforeAll` 啟動），每個 `it` 之間
 `truncateAll()`。啟動一次容器約 3 秒，每次 truncate 約 5 ms。
 
-**TRUNCATE 不觸發 row trigger**：`relation_tuples` 由舊表的 trigger 同步（[`02-database.md`](./02-database.md) §2.10），
-清空舊表時一定要一起清空它，否則殘留的邊會讓下一個測試的權限判斷出錯。
-
-**影子比對**：測試環境的 `AUTHZ_SHADOW` 預設 `throw`（[`05-rbac.md`](./05-rbac.md) §4.2）：每次解析權限，新（關係圖）舊兩套都跑，
-結果不一致就讓請求失敗。所以整合測試全數通過本身就是新舊一致的驗收；以假物件組裝 `PermissionService`／`FileAccessService` 的單元測試傳入
-`{ enabled: false }` 的 shadow。
+**`relation_tuples` 一定要清**：角色的持有者、權限鍵、資料夾授權都存在這張表（[`02-database.md`](./02-database.md) §2.10），
+而 `users` 被清掉時沒有外鍵會 cascade 到它；殘留的邊會讓下一個測試的權限判斷出錯。
+舊表（`user_roles` 等，G3b 刪除）程式已不讀寫，仍列在 TRUNCATE 裡只是為了 G3b 之前的 trigger 測試。
 
 ---
 
@@ -95,7 +92,7 @@ describe("RoleService.updatePermissions", () => {
       await fn(tx);
       order.push("commit");
     });
-    permissionService.invalidateUsers.mockImplementation(() => {
+    permissionService.permissionsChanged.mockImplementation(async () => {
       order.push("invalidate");
     });
     await service.updatePermissions("r1", { add: [], remove: ["user:read"] }, actor);
@@ -127,8 +124,14 @@ describe("relation_tuples 與舊表的同步（test/relation-tuples.spec.ts）",
 });
 ```
 
+`test/relation-tuples.spec.ts` 驗證 migration 0008 的同步 trigger（滾動部署期間舊版程序寫舊表時用得到），與 trigger 一起在 G3b 刪除。
+
 關係圖的規則（等級、繼承、擁有者規則、依賴樹閉包）以純記憶體的 tuple 在單元測試驗證
-（`core/authz/__tests__`、`modules/file/__tests__/file.authz.spec.ts`），不需要資料庫。
+（`core/authz/__tests__`、`modules/file/__tests__/file.authz.spec.ts`、`file-grant.levels.spec.ts`），不需要資料庫。
+
+快取失效（[`05-rbac.md`](./05-rbac.md) §5.1）：`test/authz-revision.spec.ts` 以真 Postgres 驗證 `authz_revision` 的 trigger 語意、
+平台 DB 上真的廣播、另一個程序（第二個 Nest app）收到後失效；`core/authz/__tests__/authz.revision.spec.ts` 測「只處理較新的 revision」與重連；
+`core/cache/__tests__/permission-cache.service.spec.ts` 測整個租戶失效與取票。
 
 ```ts
 ```
@@ -331,8 +334,9 @@ Fixture **直接寫資料庫**，不經 API——測試的前置條件不應該�
 
 - [ ] TTL 到期後重新解析
 - [ ] `invalidate(userId)` 立即生效
-- [ ] 角色權限變更時，`invalidateUsers` 與 `permissions.changed` 涵蓋該角色的所有持有者（交易前查出）
-- [ ] **刪除角色時先查使用者再刪**（順序測試）
+- [ ] 角色權限、持有者變更、刪除角色時，交易提交後呼叫 `permissionsChanged()`（順序測試）
+- [ ] `invalidateTenant` 清掉那個租戶的所有人、不動其他租戶；取票後被整個租戶失效的載入結果不寫回
+- [ ] 其他程序的較新 revision 讓本機失效；舊的或自己送的略過；監聽連線重連時整個快取丟棄
 - [ ] 快取值是 `Set`，不是陣列
 
 **反提權**

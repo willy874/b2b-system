@@ -4,7 +4,7 @@
 
 | 對象         | 慣例                                                                     |
 | ------------ | ------------------------------------------------------------------------ |
-| 表名         | 複數 snake_case：`users`、`role_permissions`                             |
+| 表名         | 複數 snake_case：`users`、`relation_tuples`                              |
 | 欄位         | snake_case：`created_at`、`token_version`                                |
 | 主鍵         | `uuid`，`DEFAULT gen_random_uuid()`（`audit_logs` 例外，用 `bigserial`） |
 | 時間         | `timestamptz`，一律存 UTC                                                |
@@ -112,7 +112,7 @@ export function isActiveRole(): SQL {
 }
 ```
 
-`roles` 被 user、role、permission、resource-grant 多個模組 join；「有效的角色」集中在 `isActiveRole()`，
+`roles` 被 user、role、permission、file 多個模組 join；「有效的角色」集中在 `isActiveRole()`，
 軟刪除的語意之後改了（例如加上停用狀態）只改一處。`core/authz` 的遞迴 CTE 是手寫 SQL，同一個條件寫在那裡並註明。
 
 ### 2.3 `permissions`
@@ -140,56 +140,20 @@ export const permissions = pgTable(
 ```
 
 **沒有 `deleted_at`**：權限目錄不軟刪除。要移除一個權限就是明確的 migration，
-連帶處理 `role_permissions`。
+連帶處理 `relation_tuples` 上以它為關係的邊（`tenant:self#<key>@role:<id>#holder`）。
 
-### 2.4 `user_roles`
+### 2.4 `user_roles`、2.5 `role_permissions`（G3b 刪除；程式已不讀寫）
 
-```ts
-export const userRoles = pgTable(
-  "user_roles",
-  {
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    roleId: uuid("role_id")
-      .notNull()
-      .references(() => roles.id, { onDelete: "cascade" }),
-    grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
-    grantedBy: uuid("granted_by").references(() => users.id, { onDelete: "set null" }),
-  },
-  (t) => [
-    primaryKey({ columns: [t.userId, t.roleId] }),
-    index("user_roles_role_idx").on(t.roleId), // 「誰持有這個角色」＋ 快取失效用
-  ],
-);
-```
+G3a 起角色的持有者與角色的權限鍵只存在 `relation_tuples`（§2.10）：
 
-> 作用域改由關係圖表達（`relation_tuples`，§2.10），不在這張表加欄位。
+| 舊表的一列 | 現在的邊 |
+| --- | --- |
+| `user_roles(u, r)` | `role:<r>#holder@user:<u>` |
+| `role_permissions(r, p)` | `tenant:self#<p 的 key>@role:<r>#holder` |
 
-### 2.5 `role_permissions`
-
-```ts
-export const rolePermissions = pgTable(
-  "role_permissions",
-  {
-    roleId: uuid("role_id")
-      .notNull()
-      .references(() => roles.id, { onDelete: "cascade" }),
-    permissionId: uuid("permission_id")
-      .notNull()
-      .references(() => permissions.id, { onDelete: "restrict" }),
-    grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
-    grantedBy: uuid("granted_by").references(() => users.id, { onDelete: "set null" }),
-  },
-  (t) => [
-    primaryKey({ columns: [t.roleId, t.permissionId] }),
-    index("role_permissions_permission_idx").on(t.permissionId),
-  ],
-);
-```
-
-`permission_id` 用 `onDelete: 'restrict'` 而非 `cascade`：刪除一個仍被授予的
-權限應該被 **擋下**，逼開發者明確處理，而不是靜默撤掉一堆授權。
+兩張表（與 `resource_grants`，[`09-file.md`](./09-file.md)）、它們的 Drizzle schema 檔、`db/relations.ts` 的項目、
+migration 0008 的同步 trigger 都還在：滾動部署期間舊版（G2）程序仍寫舊表，由 trigger 同步到 `relation_tuples`（§5.1「破壞性變更拆成兩次部署」）。
+新版程式不寫舊表，trigger 不會被觸發。下一次部署（G3b，[ADR-0024](../../adr/0024-relationship-based-access-control.md)）一起刪除。
 
 ### 2.6 `refresh_tokens`
 
@@ -337,10 +301,34 @@ export const auditLogsArchive = pgTable(
 索引：六欄唯一（`relation_tuples_key`）、`(subject_type, subject_id, subject_relation)`（主體閉包往外走）、
 `(object_type, object_id, relation)`（從物件往回查）。多型關聯沒有外鍵，解析時 join 未刪除的節點（例：主體閉包只走未刪除的角色）。
 
-**G1～G2 由舊表同步**（migration 0008，手寫）：`user_roles`、`role_permissions`、`resource_grants` 上的 AFTER trigger
+**G3a 起由程式直接讀寫**：邊的形狀與查詢條件只寫在 `db/schema/relation-tuples.ts`（`roleHolderTuple`、`rolePermissionTuple`、
+`superAdminTuple`、`isRoleHolderTuple()`、`isRolePermissionTuple()`、`ROLE_HOLDER_RELATION` 等常數），repository、seed、測試共用。
+
+| 邊 | 意思 | 寫入者 |
+| --- | --- | --- |
+| `role:<r>#holder@user:<u>` | 使用者持有角色 | `UserRepository`、`RoleRepository` |
+| `tenant:self#<key>@role:<r>#holder` | 角色帶的權限鍵 | `RoleRepository` |
+| `tenant:self#superAdmin@role:<r>#holder` | super-admin 角色（它沒有權限鍵的邊） | seed（`seedRoles` → `ensureSuperAdminTuple`，冪等） |
+| `fileFolder:<id>#<level>@(role:<r>#holder \| user:<u> \| user:*)` | 資料夾授權 | `FileFolderGrantRepository`（[`09-file.md`](./09-file.md)） |
+
+- 刪除角色：軟刪除角色、刪掉它的持有者邊（`RETURNING` 原本的持有者，只用來推播）；它的權限鍵邊與它作為主體的資料夾授權留著，解析時略過已刪除的角色。
+- 「每個主體在一個資料夾只有一個等級」不是 DB 的唯一索引（六欄唯一包含等級），由 `FileFolderGrantRepository.set` 先刪後插維持；
+  授權的寫入經 `FileFolderTree.write` 序列化。
+
+**G1～G2 的舊表同步**（migration 0008，手寫；**G3b 刪除**）：`user_roles`、`role_permissions`、`resource_grants` 上的 AFTER trigger
 在同一個交易裡寫入／刪除對應的邊（`resource_grants` 改等級時先刪舊的邊再插新的；`everyone` 對應 `user:*`）；
-`roles` 建立 slug 為 `super-admin` 的角色時補上 `tenant:self#superAdmin@role:<id>#holder`。migration 同時回填既有資料。
-**TRUNCATE 不會觸發 row trigger**：清空舊表的地方（`test/db.ts`、`db/reset.ts`）要一併清空 `relation_tuples`。G3 起改由程式直接寫入並刪除舊表。
+`roles` 建立 slug 為 `super-admin` 的角色時補上 superAdmin 的邊（`roles_mirror_super_admin`）。migration 同時回填既有資料。
+G3a 起只有滾動部署期間的舊版程序會觸發它們。**TRUNCATE 不會觸發 row trigger**：清空舊表的地方（`test/db.ts`、`db/reset.ts`）要一併清空 `relation_tuples`。
+
+### 2.11 `authz_revision`（關係圖的版本號）
+
+單列（`id boolean PK DEFAULT true`、`CHECK (id)`）、`revision bigint`。migration 0009（表由 drizzle-kit 產生；初始列與 trigger 手寫）：
+`relation_tuples` 上的 **語句層級** trigger（`AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE … FOR EACH STATEMENT`）
+在同一個交易裡讓 `revision` +1。
+
+- 寫入者在這一列的鎖上排隊，所以 **提交順序＝版本順序**。
+- 一條語句寫多列只 +1；沒影響任何列的語句也 +1（只是多一次失效）。
+- 程式在交易提交後讀它，連同租戶代碼在平台 DB 廣播（`core/authz/authz.revision.ts`，[`05-rbac.md`](./05-rbac.md) §5.1）。
 
 ---
 
@@ -429,58 +417,29 @@ CREATE TRIGGER roles_set_updated_at BEFORE UPDATE ON roles
 
 ### 4.1 使用者的權限集合（最熱的查詢）
 
-> **G2 起改由關係圖解析**（`core/authz/authz.repository.ts`）：一條遞迴 CTE 從 `user:<id>`、`user:*` 沿 `role#holder`
-> 走出主體閉包（只走未刪除的角色、深度上限 8，多人一次查），再一條查詢取這些主體在 `tenant:self` 上的邊，
-> 閉包（權限依賴樹）在記憶體算。下面的三表 join 是舊的解析，G2 期間只給影子比對用（[`05-rbac.md`](./05-rbac.md) §4.2），G3 刪除。
+由關係圖解析（`core/authz/authz.repository.ts`）：一條遞迴 CTE 從 `user:<id>`、`user:*` 沿 `role#holder`
+走出主體閉包（只走未刪除的角色、深度上限 8，多人一次查），再一條查詢取這些主體在 `tenant:self` 上的邊，
+閉包（權限依賴樹）在記憶體算。super-admin 是 `tenant:self#superAdmin` 這條邊，同一次查詢帶回，不另外往返。
 
-```ts
-async getPermissionKeys(userId: string): Promise<string[]> {
-  const rows = await this.db
-    .selectDistinct({ key: permissions.key })
-    .from(userRoles)
-    .innerJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
-    .innerJoin(rolePermissions, eq(rolePermissions.roleId, userRoles.roleId))
-    .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
-    .where(eq(userRoles.userId, userId));
-  return rows.map((r) => r.key);
-}
-```
-
-索引：`user_roles` 的主鍵 `(user_id, role_id)` 涵蓋起點，
-`role_permissions` 的主鍵 `(role_id, permission_id)` 涵蓋中段，
-`permissions` 的主鍵涵蓋終點。全部走 index-only scan。
+索引：主體閉包走 `(subject_type, subject_id, subject_relation)`；租戶節點上的邊走 `(object_type, object_id, relation)`。
 
 ### 4.2 是否為 super-admin
 
-```ts
-async isSuperAdmin(userId: string): Promise<boolean> {
-  const [row] = await this.db
-    .select({ one: sql<number>`1` })
-    .from(userRoles)
-    .innerJoin(roles, eq(roles.id, userRoles.roleId))
-    .where(and(
-      eq(userRoles.userId, userId),
-      eq(roles.slug, 'super-admin'),
-      isNull(roles.deletedAt),
-    ))
-    .limit(1);
-  return Boolean(row);
-}
-```
+見 §4.1。`UserRepository.hasRoleSlug`（`assertCanManage` 用，不經快取）是持有者邊 ⋈ `roles` 以 slug 判斷。
 
-實務上與 §4.1 合併成一次查詢，避免兩次往返。
-
-### 4.3 角色權限變更時，哪些使用者的快取要失效
+### 4.3 角色的持有者
 
 ```ts
 async findUserIdsByRole(roleId: string): Promise<string[]> {
-  const rows = await this.db.select({ userId: userRoles.userId })
-    .from(userRoles).where(eq(userRoles.roleId, roleId));
+  const rows = await this.db.select({ userId: relationTuples.subjectId })
+    .from(relationTuples)
+    .where(and(isRoleHolderTuple(), eq(relationTuples.objectId, roleId)));
   return rows.map((r) => r.userId);
 }
 ```
 
-靠 `user_roles_role_idx`。
+靠 `(object_type, object_id, relation)` 索引。只用來推播（`RESOURCE_CHANGED` 的 `affectedUserIds`）；
+權限快取的失效以整個租戶為單位，不需要它（[`05-rbac.md`](./05-rbac.md) §5.1）。
 
 ### 4.4 使用者列表（含角色，避免 N+1）
 
@@ -496,8 +455,9 @@ const rows = await this.db
       )`,
   })
   .from(users)
-  .leftJoin(userRoles, eq(userRoles.userId, users.id))
-  .leftJoin(roles, and(eq(roles.id, userRoles.roleId), isNull(roles.deletedAt)))
+  // 持有角色的邊：role:<r>#holder@user:<users.id>（多型 id 是 text，uuid 那邊轉成 text）
+  .leftJoin(relationTuples, and(isRoleHolderTuple(), eq(relationTuples.subjectId, sql`${users.id}::text`)))
+  .leftJoin(roles, and(eq(sql`${roles.id}::text`, relationTuples.objectId), isActiveRole()))
   .where(and(isNull(users.deletedAt), ...filters))
   .groupBy(users.id)
   .orderBy(desc(users.createdAt))
@@ -540,6 +500,9 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0002_system_settings.sql
 ├── 0006_roles_and_search.sql           角色名稱不分大小寫唯一（含既有同名的改名修補）、users 關鍵字的 trigram 索引、
 │                                       protect_system_roles 也擋軟刪除
+├── 0007_relation_tuples.sql            關係圖的邊（§2.10）
+├── 0008_relation_tuples_mirror.sql     手寫：回填、舊表 → relation_tuples 的同步 trigger（trigger 於 G3b 刪除）
+├── 0009_authz_revision.sql             authz_revision 與遞增 trigger（§2.11）
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads
@@ -576,7 +539,7 @@ api 不自己跑 migration，而是比對版本（`core/tenant/tenant-schema.ts`
 
 | | 內容 | 連線 | DI token |
 | --- | --- | --- | --- |
-| 平台 DB（一個） | `tenants`、`tenant_domains`、`oidc_payloads`、pg-boss | `PLATFORM_DATABASE_URL`；`DatabaseModule` 建一個連線池 | `PLATFORM_DB`（`PlatformDatabase`） |
+| 平台 DB（一個） | `tenants`、`tenant_domains`、`oidc_payloads`、pg-boss；程序之間的失效廣播（`LISTEN`／`NOTIFY`，`core/broadcast`） | `PLATFORM_DATABASE_URL`；`DatabaseModule` 建一個連線池 | `PLATFORM_DB`（`PlatformDatabase`）；底層的 postgres.js client 是 `PLATFORM_SQL`（`BroadcastService` 用） |
 | 租戶 DB（每租戶一個） | 其餘所有業務表 | 連線字串以 `TENANT_SECRET_KEY` 加密存在 `tenants`；`core/tenant` 的 `Tenancy` 在第一次用到時建立小連線池（`TENANT_POOL_MAX`，閒置 `TENANT_POOL_IDLE_TIMEOUT` 秒關閉） | `TENANT_DB`（`Database`） |
 
 - **`TENANT_DB` 永遠指向「目前的租戶」**：它是一個 Proxy，每次存取都轉到目前租戶脈絡（`AsyncLocalStorage`）的 database。
@@ -596,13 +559,14 @@ postgres 的連線是有限資源（`max_connections`，每條約數 MB 記憶�
 | --- | --- | --- |
 | 平台 DB | 10（production）／3（其他） | `PLATFORM_POOL_MAX` |
 | pg-boss（平台 DB） | 4 | —（`core/jobs/job-queue.ts`） |
+| 廣播的監聽（平台 DB） | 1（postgres.js 的 `listen` 另開一條常駐連線） | —（`core/broadcast`） |
 | 每個租戶 | 10，閒置 30 秒關閉 | `TENANT_POOL_MAX`、`TENANT_POOL_IDLE_TIMEOUT` |
 
-**預算**：`(平台池 ＋ 4 ＋ 同時活躍的租戶數 × TENANT_POOL_MAX) × api 程序數 ＋ migrate／腳本 ＜ max_connections − superuser_reserved_connections（3）`。
+**預算**：`(平台池 ＋ 4 ＋ 1 ＋ 同時活躍的租戶數 × TENANT_POOL_MAX) × api 程序數 ＋ migrate／腳本 ＜ max_connections − superuser_reserved_connections（3）`。
 
 - 「同時活躍」是 `TENANT_POOL_IDLE_TIMEOUT` 內有請求或背景工作的租戶；租戶的池是按需建立連線，平常遠低於上限。
   `jobs.outboxSweep` 會進入每個 `active` 租戶，所以它的間隔（預設 10 分鐘）要遠大於閒置逾時，否則所有租戶的池永遠不會關。
-- 估算（單一 api 程序、`max_connections=200`，compose 的預設）：14 ＋ 10 × N ＜ 197 → **約 18 個租戶同時滿載**。
+- 估算（單一 api 程序、`max_connections=200`，compose 的預設）：15 ＋ 10 × N ＜ 197 → **約 18 個租戶同時滿載**。
   實際上一個租戶的穩態只用 1–3 條（1000 人、約 600 qps × 2–5 ms），尖峰才會用到 10 條；超過這個規模時在 postgres
   前面加 PgBouncer（transaction mode；只能用交易層級的 `pg_advisory_xact_lock`），或提高 `max_connections` 並加記憶體。
 - 1000 人集中在一個租戶時，`TENANT_POOL_MAX` 是那個租戶的並行查詢上限：慢查詢會讓其他請求在池裡排隊。

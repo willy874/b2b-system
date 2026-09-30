@@ -3,7 +3,14 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { hashPassword, generateStrongPassword } from '@/modules/credential/password';
 
 import type { ScriptDatabase } from '../client';
-import { auditLogs, roles, userRoles, users } from '../schema';
+import {
+  auditLogs,
+  isRoleHolderTuple,
+  relationTuples,
+  roleHolderTuple,
+  roles,
+  users,
+} from '../schema';
 
 const SUPER_ADMIN_SLUG = 'super-admin';
 
@@ -18,9 +25,9 @@ export async function seedSuperAdmin(db: ScriptDatabase): Promise<void> {
 
   const [holder] = await db
     .select({ id: users.id })
-    .from(userRoles)
-    .innerJoin(users, eq(users.id, userRoles.userId))
-    .where(and(eq(userRoles.roleId, role.id), isNull(users.deletedAt)))
+    .from(relationTuples)
+    .innerJoin(users, eq(sql`${users.id}::text`, relationTuples.subjectId))
+    .where(and(isRoleHolderTuple(), eq(relationTuples.objectId, role.id), isNull(users.deletedAt)))
     .limit(1);
 
   if (holder) {
@@ -48,7 +55,7 @@ export async function seedSuperAdmin(db: ScriptDatabase): Promise<void> {
       .returning();
     if (!user) throw new Error('建立 super-admin 失敗');
 
-    await tx.insert(userRoles).values({ userId: user.id, roleId: role.id, grantedBy: null });
+    await tx.insert(relationTuples).values(roleHolderTuple(role.id, user.id));
     await tx.insert(auditLogs).values({
       action: 'system.bootstrap',
       actorId: null,
@@ -102,7 +109,7 @@ export async function seedTenantAdmin(
       .values({ email: input.email, displayName: input.displayName, status: 'pending' })
       .returning({ id: users.id, status: users.status });
     if (!user) throw new Error('建立租戶的第一位管理員失敗');
-    await tx.insert(userRoles).values({ userId: user.id, roleId: role.id, grantedBy: null });
+    await tx.insert(relationTuples).values(roleHolderTuple(role.id, user.id));
     await tx.insert(auditLogs).values({
       action: 'system.bootstrap',
       actorId: null,
@@ -120,9 +127,9 @@ export async function seedTenantAdmin(
 export async function countSuperAdmins(db: ScriptDatabase): Promise<number> {
   const [row] = await db
     .select({ total: sql<number>`count(*)::int` })
-    .from(userRoles)
-    .innerJoin(roles, eq(roles.id, userRoles.roleId))
-    .innerJoin(users, eq(users.id, userRoles.userId))
-    .where(and(eq(roles.slug, SUPER_ADMIN_SLUG), isNull(users.deletedAt)));
+    .from(relationTuples)
+    .innerJoin(roles, eq(sql`${roles.id}::text`, relationTuples.objectId))
+    .innerJoin(users, eq(sql`${users.id}::text`, relationTuples.subjectId))
+    .where(and(isRoleHolderTuple(), eq(roles.slug, SUPER_ADMIN_SLUG), isNull(users.deletedAt)));
   return row?.total ?? 0;
 }

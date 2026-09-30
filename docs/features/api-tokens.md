@@ -35,7 +35,7 @@ CI、美術工具的匯入腳本、遊戲建置流程現在只能走第二條：
 
 - **服務帳號是 `users` 的一種**：加 `kind`（`human` ｜ `service`）。服務帳號沒有密碼、不能走登入互動、不能連結外部身分、
   不收信；角色、權限快取（`{tenantId}:{userId}`）、稽核的 `actor_id` 全部沿用。
-  - [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) 目前建議另一張 `service_accounts` 表掛在 `user_roles` 上，兩者要擇一（開放問題 1）。
+  - [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) 目前建議另一張 `service_accounts` 表，以新的主體型別持有角色（`role:<id>#holder@serviceAccount:<id>`），兩者要擇一（開放問題 1）。
 - `api_tokens`：`id`、`user_id`（本人或服務帳號）、`name`、`prefix`（顯示用的前幾碼）、`secret_hash`、`permissions`（null＝跟著帳號）、
   `expires_at`、`last_used_at`、`revoked_at`、`created_by`。
 

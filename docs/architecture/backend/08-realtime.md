@@ -246,13 +246,15 @@ super-admin 加入自己租戶的所有 perm room。
 | 任何來源           | `auditLog:read`                            | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）    |
 
 - `io.to([...rooms]).emit()` 會對多個 room 的聯集 **去重**，同一條連線只收到一次。
-- 「持有該角色的所有人」就是 service 已經為了權限快取查出來的那份清單。
-  **刪除角色前先查人**（[05 §5.1](./05-rbac.md)）的規則同樣適用。
+- 「持有該角色的所有人」由 service 在交易後查出（刪除角色時是刪除持有者邊的那條語句 `RETURNING` 的結果），
+  只用來讓他們的畫面重抓；權限快取的失效與 room 的同步不依賴這份清單（[05 §5.1](./05-rbac.md)）。
 - Payload 只有 id，不含名稱或內容；即使受眾稍微放寬也不會外洩資料。
 
 ### 6.2 權限變更時同步 room
 
-使用者的權限集合改變後，他的連線必須換 room，否則會繼續收到（或收不到）不該收的事件：
+使用者的權限集合改變後，他的連線必須換 room，否則會繼續收到（或收不到）不該收的事件。
+關係圖的失效以整個租戶為單位（[05 §5.1](./05-rbac.md)），所以收到 `permissions.changed` 時，listener 對
+**這個租戶在本機的所有連線**（`RealtimePublisher.connectedUserIds(tenantRoom(tenantId))`）重算，不看事件帶的名單：
 
 ```ts
 async refreshAudience(userIds: readonly string[]) {
@@ -264,7 +266,7 @@ async refreshAudience(userIds: readonly string[]) {
 }
 ```
 
-一個角色可能有上千位持有者：權限以 `PermissionService.getPermissionSets` **批次** 解析（快取命中的不查；其餘每批
+一個租戶可能有上千條連線：權限以 `PermissionService.getPermissionSets` **批次** 解析（快取命中的不查；其餘每批
 兩條查詢：多人一次的主體閉包 CTE、這些主體在租戶節點上的邊，[`05-rbac.md`](./05-rbac.md) §4），不是每人各查一次。
 權限集合含依賴樹閉包，所以持有 `file:delete` 的人也在 `perm:file:read` 的 room 裡。檔案模組補建個人資料夾前篩選「能進檔案管理器的人」也用同一個批次方法。
 
@@ -281,7 +283,7 @@ async refreshAudience(userIds: readonly string[]) {
 
 | 事件（`DomainEvent`）  | payload                                                   | 由誰發佈                         | `realtime.listener` 的動作                  |
 | ---------------------- | --------------------------------------------------------- | -------------------------------- | ------------------------------------------- |
-| `permissions.changed`  | `{ userIds }`                                             | 權限集合可能改變的寫入           | 同步這些人的 perm room（§6.2）              |
+| `permissions.changed`  | `{ userIds? }`                                            | `AuthzRevision`：本機的權限寫入提交後，或收到其他程序的 revision 廣播後（在那個租戶的脈絡）| 重算這個租戶在本機所有連線的 perm room（§6.2）。`userIds` 只在發起寫入的程序上有、不是完整清單，給檔案模組補建個人資料夾用 |
 | `resource.changed`     | `{ changes: ResourceChangeWire[], affectedUserIds? }`     | 所有會改變畫面資料的寫入         | 依 §6.1 算出 room，推 `resource.changed`    |
 | `sessions.revoked`     | `{ userIds, reason }`                                     | 遞增 `token_version` 的寫入      | 推 `session.revoked` 並斷線（§3.5）         |
 | `tenant.featuresChanged` | `{ tenantId }`                                          | 平台管理者改了租戶的 `features` 或 feature flag 的租戶覆寫（`PlatformTenantService.update`，`TenantDirectory.invalidate()` 之後）；改了 flag 的全平台覆寫時對每個 `active` 租戶各發一次（`PlatformFeatureFlagService.update`） | 對 `t:{tenantId}` 推 `resource.changed`（`{ resource: 'tenantFeature', kind: 'update' }`，沒有 `origin`）；前端重新取得 profile（[ADR-0021](../../adr/0021-runtime-feature-activation.md) D8） |
@@ -326,15 +328,15 @@ interface DomainEventMeta {
 ```ts
 async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUser) {
   // … 反提權、讀 before …
-  const holders = await this.repo.findUserIdsByRole(roleId);
 
   await withTransaction(this.db, async (tx) => {
     // … 寫入 ＋ 稽核（交易內）
   });
 
-  // ★ 交易之後：先同步失效快取（授權正確性依賴它），再發佈事件（副作用）
-  this.permissionService.invalidateUsers(holders);
-  this.events.publish(DomainEvent.PERMISSIONS_CHANGED, { userIds: holders });
+  // ★ 交易之後：整個租戶的權限快取失效、發 permissions.changed、廣播給其他程序（05 §5.1）。
+  // 持有者不是失效的依據：給剛取得檔案權限的人補建個人資料夾、讓他們的畫面重抓
+  const holders = await this.permissionService.findUserIdsByRole(roleId);
+  await this.permissionService.permissionsChanged(holders);
   this.events.publish(DomainEvent.RESOURCE_CHANGED, {
     changes: [{ resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id: roleId }],
     affectedUserIds: holders,
@@ -345,10 +347,10 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 | 規則                                         | 理由                                                                               |
 | -------------------------------------------- | ---------------------------------------------------------------------------------- |
 | **事件在交易後發佈**                         | 交易 rollback 時不會推出一個不存在的變更；客戶端重抓時資料一定已提交              |
-| **權限快取失效不走 bus**                     | 它決定授權是否正確，必須同步、確定地發生；bus 只負責「晚一點發生也沒關係」的副作用 |
+| **權限快取失效不走 bus**                     | 它決定授權是否正確，必須同步、確定地發生（`permissionsChanged()` 先失效、再由 `AuthzRevision` 發 `permissions.changed`）；bus 只負責「晚一點發生也沒關係」的副作用 |
 | **先失效快取、再發佈**                       | 客戶端收到後立刻重抓；若快取還沒失效，會拿到舊權限並快取在前端                    |
 | **`changes` 與前端 mutation 宣告的來源一致** | 前端 `invalidateResources()` 宣告了什麼，伺服器就發佈什麼（同一張依賴圖）          |
-| **刪除角色前先查人**                         | `affectedUserIds` 與權限快取失效用的是同一份、刪除前查出的清單                     |
+| **`affectedUserIds` 只給推播**               | 失效與 room 同步以整個租戶為單位，不依賴 service 算出的持有者清單                  |
 
 各寫入發佈的事件（實作時的對照；與前端 mutation 宣告的來源一致，有些更精確）：
 
@@ -357,8 +359,8 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 | 角色建立／複製               | `role create`（帶 `id`）                             | —                                                         |
 | 角色更新                     | `role update`，持有者                                | —                                                         |
 | 角色權限增減                 | `rolePermission update`，持有者                      | 先發 `permissions.changed`                                |
-| 角色刪除                     | `role delete`，持有者（刪除 **前** 查出）            | 先發 `permissions.changed`                                |
-| 使用者建立                   | `user create`，`refs.role`                           | —                                                         |
+| 角色刪除                     | `role delete`，原本的持有者（刪除持有者邊時 `RETURNING`）| 先發 `permissions.changed`                           |
+| 使用者建立                   | `user create`，`refs.role`                           | 帶角色時先發 `permissions.changed`（`userIds` = 本人）    |
 | 使用者更新／解鎖             | `user update`，`refs.role`                           | 停用時 `sessions.revoked`（`AUTH_ACCOUNT_DISABLED`）      |
 | 使用者刪除                   | `user delete`，`refs.role`（刪除前查出）             | `sessions.revoked`（`AUTH_TOKEN_INVALID`）                |
 | 指派角色                     | `userRole update`，`refs.role` = 新舊角色聯集        | 先發 `permissions.changed`                                |
@@ -507,7 +509,7 @@ location /api/socket.io/ {
 | ------------------ | ------------------------------------------------------------------------------------------ |
 | 跨節點 emit / room | `@socket.io/postgres-adapter`（`LISTEN/NOTIFY`，需要一個 `pg` Pool 與 `socket_io_attachments` 表） |
 | Sticky session     | **不需要**：只用 websocket 傳輸，連線建立後就固定在同一個節點                               |
-| 權限／使用者快取   | 仍是各節點的 in-memory；跨節點失效走同一條 `LISTEN/NOTIFY`（[05 §5.2](./05-rbac.md) 的升級路徑） |
+| 權限／使用者快取   | 仍是各節點的 in-memory。權限快取已經跨節點失效：平台 DB 的 `LISTEN/NOTIFY`（`core/broadcast`、`AuthzRevision`，[05 §5.1](./05-rbac.md)），每個節點收到後也重算自己的連線的 room；使用者快取尚未接上 |
 | Token 到期計時器   | 每個節點只管自己的連線，不需要協調                                                         |
 
 Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEventBus`）不因此改變。

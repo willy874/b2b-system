@@ -1,15 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/common/types';
-import type { AuthzService, AuthzShadow, TenantPermissions } from '@/core/authz';
+import type { AuthzRevision, AuthzService, TenantPermissions } from '@/core/authz';
 import type { PermissionCacheService } from '@/core/cache';
 import { permissionClosure } from '@/db/seeds/permissions';
 
 import type { PermissionRepository } from '../permission.repository';
 import { PermissionService } from '../permission.service';
-
-/** 影子比對另有整合測試；這裡只測業務規則。 */
-const SHADOW_OFF = { enabled: false } as AuthzShadow;
 
 /** 假的關係圖：每個人的明確鍵由 `keysOf` 決定，解析結果是它的依賴閉包。 */
 function fakeAuthz(keysOf: (userId: string) => { keys: PermissionKey[]; isSuperAdmin: boolean }) {
@@ -33,6 +30,9 @@ function fakeAuthz(keysOf: (userId: string) => { keys: PermissionKey[]; isSuperA
   };
 }
 
+/** 失效與廣播另有整合測試（test/authz-revision.spec.ts）。 */
+const REVISION = { changed: vi.fn() } as unknown as AuthzRevision;
+
 const ALL_KEYS = ['user:read', 'user:assignRole', 'system:update'] as PermissionKey[];
 
 function createService(actor: { keys: PermissionKey[]; isSuperAdmin: boolean }) {
@@ -46,7 +46,7 @@ function createService(actor: { keys: PermissionKey[]; isSuperAdmin: boolean }) 
     repo as unknown as PermissionRepository,
     cache as unknown as PermissionCacheService,
     fakeAuthz(() => actor) as unknown as AuthzService,
-    SHADOW_OFF,
+    REVISION,
   );
   return { service, repo };
 }
@@ -116,7 +116,7 @@ function createBatchService(cached: Record<string, { keys: PermissionKey[] }> = 
     {} as PermissionRepository,
     cache as unknown as PermissionCacheService,
     authz as unknown as AuthzService,
-    SHADOW_OFF,
+    REVISION,
   );
   return { service, authz, cache };
 }
@@ -141,7 +141,7 @@ describe('PermissionService.getPermissionSets（批次解析）', () => {
       {} as PermissionRepository,
       { get: vi.fn(), set: vi.fn(), ticket: vi.fn(() => 0) } as unknown as PermissionCacheService,
       authz as unknown as AuthzService,
-      SHADOW_OFF,
+      REVISION,
     );
     const { permissions } = await service.getPermissionSet('u1');
     expect([...permissions].toSorted()).toEqual([
@@ -259,7 +259,7 @@ describe('PermissionService.describeRolePermissions（技能樹用，docs/rbac/0
     {} as PermissionRepository,
     {} as PermissionCacheService,
     {} as AuthzService,
-    SHADOW_OFF,
+    REVISION,
   );
 
   it('明確的鍵標 explicit；依賴樹帶出的標 implied 並列出來源，依目錄順序', () => {

@@ -9,7 +9,7 @@ import {
   loadScriptEnv,
   seedTenantCode,
 } from '../client';
-import { roles, userRoles, users } from '../schema';
+import { relationTuples, roleHolderTuple, roles, users } from '../schema';
 import { runSeed } from './index';
 import { upsertPlatformAdmin } from './platform-admin';
 
@@ -69,7 +69,7 @@ export async function seedE2eData(db: ScriptDatabase): Promise<void> {
 
     if (!userId) throw new Error(`建立 E2E 帳號失敗：${account.email}`);
 
-    await db.insert(userRoles).values({ userId, roleId: role.id }).onConflictDoNothing();
+    await db.insert(relationTuples).values(roleHolderTuple(role.id, userId)).onConflictDoNothing();
   }
 
   console.info(`E2E 帳號已就緒（密碼統一為 ${E2E_PASSWORD}）：`);

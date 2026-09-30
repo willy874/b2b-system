@@ -310,7 +310,7 @@ export class ExternalLoginService {
         );
         return user;
       });
-      this.users.publishCreated(created.id, []);
+      await this.users.publishCreated(created.id, []);
       return created;
     } catch (error) {
       // 同一個人在兩個分頁同時第一次登入：後到的那個對上剛建立的帳號

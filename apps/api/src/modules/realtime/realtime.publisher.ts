@@ -23,6 +23,9 @@ export abstract class RealtimePublisher {
   /** room 內在本節點的連線數（§10.3：跨節點之後要改看 adapter）。 */
   abstract countConnections(room: string): number;
 
+  /** room 內在本節點的連線屬於哪些使用者（去重）。 */
+  abstract connectedUserIds(room: string): string[];
+
   /** 把 `room` 內的所有連線移出 `leave`、再加入 `join`。 */
   abstract moveRooms(room: string, leave: readonly string[], join: readonly string[]): void;
 
@@ -56,6 +59,17 @@ export class SocketIoRealtimePublisher extends RealtimePublisher {
 
   countConnections(room: string): number {
     return this.server?.sockets.adapter.rooms.get(room)?.size ?? 0;
+  }
+
+  connectedUserIds(room: string): string[] {
+    const socketIds = this.server?.sockets.adapter.rooms.get(room);
+    if (!this.server || !socketIds) return [];
+    const userIds = new Set<string>();
+    for (const id of socketIds) {
+      const userId = this.server.sockets.sockets.get(id)?.data.userId;
+      if (userId) userIds.add(userId);
+    }
+    return [...userIds];
   }
 
   moveRooms(room: string, leave: readonly string[], join: readonly string[]): void {

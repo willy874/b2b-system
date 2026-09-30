@@ -2,12 +2,12 @@ import { Module } from '@nestjs/common';
 
 import { SettingService } from '@/core/settings';
 import { ApprovalModule } from '@/modules/approval/approval.module';
-import { ResourceGrantModule } from '@/modules/resource-grant/resource-grant.module';
 
 import { FileAccessRequestService } from './file-access-request.service';
 import { FileAccessService } from './file-access.service';
 import { FileFolderAccessApprovalHandler } from './file-folder-access.approval';
 import { FileFolderGrantController } from './file-folder-grant.controller';
+import { FileFolderGrantRepository } from './file-folder-grant.repository';
 import { FileFolderGrantService } from './file-folder-grant.service';
 import { FileFolderTree } from './file-folder-tree';
 import { FileFolderController } from './file-folder.controller';
@@ -26,7 +26,7 @@ import { FILE_SETTINGS } from './file.settings';
  * 其他模組要引用檔案時存 `files.id`，並注入 `FileService`。
  */
 @Module({
-  imports: [ResourceGrantModule, ApprovalModule],
+  imports: [ApprovalModule],
   controllers: [FileController, FileFolderController, FileFolderGrantController],
   providers: [
     FileAccessService,
@@ -34,6 +34,7 @@ import { FILE_SETTINGS } from './file.settings';
     FileSystemFolderService,
     FileFolderAccessApprovalHandler,
     FileFolderGrantService,
+    FileFolderGrantRepository,
     FileService,
     FileImageService,
     FileMaintenanceService,

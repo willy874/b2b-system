@@ -5,7 +5,7 @@ export interface RoleSeed {
   name: string;
   description: string;
   isSystem: true;
-  /** `'*'` 代表隱含全集，不寫入 role_permissions。 */
+  /** `'*'` 代表隱含全集：只寫租戶節點上的 `superAdmin` 邊，不寫任何權限鍵。 */
   permissions: '*' | readonly PermissionKey[];
 }
 

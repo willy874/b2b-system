@@ -1,7 +1,16 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { auditLogs, permissions, rolePermissions, roles, userRoles, users } from '@/db/schema';
+import {
+  auditLogs,
+  isRoleHolderTuple,
+  isRolePermissionTuple,
+  permissions,
+  relationTuples,
+  roles,
+  SUPER_ADMIN_RELATION,
+  users,
+} from '@/db/schema';
 
 import type { TestDatabase } from '../../../../test/db';
 import { createTestDatabase, truncateAll } from '../../../../test/db';
@@ -14,7 +23,7 @@ let close: () => Promise<void>;
 
 async function tableCount(
   database: TestDatabase,
-  table: 'permissions' | 'roles' | 'role_permissions' | 'users' | 'user_roles',
+  table: 'permissions' | 'roles' | 'relation_tuples' | 'users',
 ) {
   const [row] = await database.execute<{ total: number }>(
     sql.raw(`select count(*)::int as total from ${table}`),
@@ -55,22 +64,27 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
     );
   });
 
-  it('④ super-admin 在 role_permissions 中沒有任何列（隱含全集）', async () => {
+  it('④ super-admin 沒有任何權限鍵的邊，只有租戶節點上的 superAdmin（隱含全集）', async () => {
     const [role] = await db.select().from(roles).where(eq(roles.slug, 'super-admin'));
     const rows = await db
-      .select()
-      .from(rolePermissions)
-      .where(eq(rolePermissions.roleId, role!.id));
-    expect(rows).toHaveLength(0);
+      .select({ relation: relationTuples.relation })
+      .from(relationTuples)
+      .where(
+        and(
+          eq(relationTuples.subjectType, 'role'),
+          eq(relationTuples.subjectId, role!.id),
+          eq(relationTuples.subjectRelation, 'holder'),
+        ),
+      );
+    expect(rows).toEqual([{ relation: SUPER_ADMIN_RELATION }]);
   });
 
   it('⑤ admin 的權限集合 = ROLE_SEED 宣告的 28 筆', async () => {
     const [role] = await db.select().from(roles).where(eq(roles.slug, 'admin'));
     const rows = await db
-      .select({ key: permissions.key })
-      .from(rolePermissions)
-      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
-      .where(eq(rolePermissions.roleId, role!.id));
+      .select({ key: relationTuples.relation })
+      .from(relationTuples)
+      .where(and(isRolePermissionTuple(), eq(relationTuples.subjectId, role!.id)));
     const expected = ROLE_SEED.find((seed) => seed.slug === 'admin')!
       .permissions as readonly string[];
     expect(rows.map((row) => row.key).sort()).toEqual([...expected].sort());
@@ -80,10 +94,13 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
   it('⑥ 恰有一位使用者持有 super-admin', async () => {
     const rows = await db
       .select({ id: users.id })
-      .from(userRoles)
-      .innerJoin(roles, eq(roles.id, userRoles.roleId))
-      .innerJoin(users, and(eq(users.id, userRoles.userId), isNull(users.deletedAt)))
-      .where(eq(roles.slug, 'super-admin'));
+      .from(relationTuples)
+      .innerJoin(roles, eq(sql`${roles.id}::text`, relationTuples.objectId))
+      .innerJoin(
+        users,
+        and(eq(sql`${users.id}::text`, relationTuples.subjectId), isNull(users.deletedAt)),
+      )
+      .where(and(isRoleHolderTuple(), eq(roles.slug, 'super-admin')));
     expect(rows).toHaveLength(1);
   });
 
@@ -91,17 +108,15 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
     const before = {
       permissions: await tableCount(db, 'permissions'),
       roles: await tableCount(db, 'roles'),
-      rolePermissions: await tableCount(db, 'role_permissions'),
       users: await tableCount(db, 'users'),
-      userRoles: await tableCount(db, 'user_roles'),
+      relationTuples: await tableCount(db, 'relation_tuples'),
     };
     await runSeed(db as never);
     const after = {
       permissions: await tableCount(db, 'permissions'),
       roles: await tableCount(db, 'roles'),
-      rolePermissions: await tableCount(db, 'role_permissions'),
       users: await tableCount(db, 'users'),
-      userRoles: await tableCount(db, 'user_roles'),
+      relationTuples: await tableCount(db, 'relation_tuples'),
     };
     expect(after).toEqual(before);
   });

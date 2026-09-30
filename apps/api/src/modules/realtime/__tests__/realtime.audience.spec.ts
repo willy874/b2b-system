@@ -2,7 +2,10 @@ import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { describe, expect, it, vi } from 'vitest';
 
 // perm room 帶租戶（docs/adr/0020-physical-tenant-isolation.md D17）：固定在租戶 t1
-vi.mock('@/core/tenant', () => ({ requireTenant: () => ({ id: 't1' }) }));
+vi.mock('@/core/tenant', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/core/tenant')>()),
+  requireTenant: () => ({ id: 't1' }),
+}));
 
 import type { PermissionService } from '@/modules/permission/permission.service';
 

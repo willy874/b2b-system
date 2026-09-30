@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, gt, isNull, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
-import { relationTuples } from '@/db/schema';
+import { authzRevision, relationTuples } from '@/db/schema';
 
 import { TENANT_DB } from '../database';
 import type { Database, DbOrTx } from '../database';
@@ -63,6 +63,12 @@ export class AuthzRepository {
     return result;
   }
 
+  /** 關係圖目前的版本號（`relation_tuples` 每條寫入語句 +1，migration 0009）。 */
+  async currentRevision(): Promise<number> {
+    const [row] = await this.db.select({ revision: authzRevision.revision }).from(authzRevision);
+    return row?.revision ?? 0;
+  }
+
   /** 這些主體在某種物件上所有未過期的直接 tuple（例：操作者在租戶節點上的權限鍵、在資料夾上的等級）。 */
   async tuplesForSubjects(
     objectType: string,
@@ -95,16 +101,5 @@ export class AuthzRepository {
       relation: row.relation,
       subject: subjectKey(row.subjectType, row.subjectId, row.subjectRelation),
     }));
-  }
-
-  /**
-   * 在一個 `repeatable read`、唯讀的交易裡執行：影子比對時新舊兩套讀到同一個時間點的資料，
-   * 併發的寫入不會造成假的不一致。
-   */
-  readConsistently<T>(fn: (tx: DbOrTx) => Promise<T>): Promise<T> {
-    return this.db.transaction(async (tx) => fn(tx), {
-      isolationLevel: 'repeatable read',
-      accessMode: 'read only',
-    });
   }
 }

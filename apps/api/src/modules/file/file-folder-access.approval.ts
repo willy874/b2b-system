@@ -18,12 +18,12 @@ import type {
   SubmitApprovalInput,
 } from '@/modules/approval/approval.types';
 import { AuditService } from '@/modules/audit-log/audit.service';
-import { levelRank } from '@/modules/resource-grant/resource-grant.resolver';
-import { ResourceGrantService } from '@/modules/resource-grant/resource-grant.service';
 
 import { FILE_ACTION_PERMISSION } from './file-access.context';
 import { FileAccessService } from './file-access.service';
+import { FileFolderGrantRepository } from './file-folder-grant.repository';
 import { FileFolderRepository } from './file-folder.repository';
+import { levelRank } from './file-grant.levels';
 
 /** 審核者看得到的申請內容。 */
 export const FileFolderAccessPayloadSchema = z.object({
@@ -71,7 +71,7 @@ export class FileFolderAccessApprovalHandler implements ApprovalHandler, OnModul
     private readonly approvals: ApprovalService,
     private readonly access: FileAccessService,
     private readonly folders: FileFolderRepository,
-    private readonly grants: ResourceGrantService,
+    private readonly grants: FileFolderGrantRepository,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
   ) {}
@@ -108,8 +108,7 @@ export class FileFolderAccessApprovalHandler implements ApprovalHandler, OnModul
     const payload = FileFolderAccessPayloadSchema.parse(request.payload);
     const requesterId = request.requesterId ?? '';
     const key = {
-      resourceType: 'fileFolder' as const,
-      resourceId: payload.folderId,
+      folderId: payload.folderId,
       subjectType: 'user' as const,
       subjectId: requesterId,
     };

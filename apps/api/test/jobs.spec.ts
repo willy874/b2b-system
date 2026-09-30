@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import type { Database } from '@/core/database';
 import { defineJob, JobQueue, JobStore } from '@/core/jobs';
-import { auditLogs, jobOutbox, roles, userRoles, users } from '@/db/schema';
+import { auditLogs, jobOutbox, relationTuples, roleHolderTuple, roles, users } from '@/db/schema';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
@@ -97,7 +97,7 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
       })
       .returning();
     const [auditorRole] = await db.select().from(roles).where(eq(roles.slug, 'auditor'));
-    await db.insert(userRoles).values({ userId: auditor!.id, roleId: auditorRole!.id });
+    await db.insert(relationTuples).values(roleHolderTuple(auditorRole!.id, auditor!.id));
 
     const { AppModule } = await import('@/app.module');
     const moduleRef = await Test.createTestingModule({

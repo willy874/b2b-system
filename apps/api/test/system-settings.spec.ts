@@ -5,7 +5,14 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { auditLogs, roles, systemSettings, userRoles, users } from '@/db/schema';
+import {
+  auditLogs,
+  relationTuples,
+  roleHolderTuple,
+  roles,
+  systemSettings,
+  users,
+} from '@/db/schema';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
@@ -45,7 +52,7 @@ async function createActiveUser(email: string, password: string, roleSlug?: stri
     .returning();
   if (roleSlug) {
     const [role] = await db.select().from(roles).where(eq(roles.slug, roleSlug));
-    await db.insert(userRoles).values({ userId: user!.id, roleId: role!.id });
+    await db.insert(relationTuples).values(roleHolderTuple(role!.id, user!.id));
   }
 }
 

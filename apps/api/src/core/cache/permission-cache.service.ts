@@ -30,8 +30,12 @@ const MAX_ENTRIES = 10_000;
  * 快取的 key 是「租戶 × 使用者」：一個程序服務所有租戶，只用 userId 會讓 A 租戶的資料被拿去判斷 B 租戶的請求
  * （docs/adr/0020-physical-tenant-isolation.md D17）。沒有租戶脈絡時（單元測試）歸在同一組。
  */
+function tenantKey(): string {
+  return currentTenant()?.id ?? '-';
+}
+
 function keyOf(userId: string): string {
-  return `${currentTenant()?.id ?? '-'}:${userId}`;
+  return `${tenantKey()}:${userId}`;
 }
 
 @Injectable()
@@ -61,7 +65,9 @@ export class PermissionCacheService {
 
   /** `ticket` 省略時無條件寫入（呼叫端確定讀到的是最新資料時）。 */
   set(userId: string, value: PermissionSet, ticket?: number): void {
-    if (ticket !== undefined && !this.invalidations.isFresh(keyOf(userId), ticket)) return;
+    if (ticket !== undefined && !this.invalidations.isFresh(keyOf(userId), ticket, tenantKey())) {
+      return;
+    }
     if (this.store.size >= MAX_ENTRIES && !this.store.has(keyOf(userId))) {
       const oldest = this.store.keys().next();
       if (!oldest.done) this.store.delete(oldest.value);
@@ -74,8 +80,16 @@ export class PermissionCacheService {
     this.store.delete(keyOf(userId));
   }
 
-  invalidateMany(userIds: readonly string[]): void {
-    for (const id of userIds) this.invalidate(id);
+  /**
+   * 一個租戶的所有人（關係圖的 revision 變了，docs/adr/0024-relationship-based-access-control.md D8）。
+   * 收到其他程序的廣播時沒有租戶脈絡，所以以參數指明；省略時是目前的租戶。
+   */
+  invalidateTenant(tenantId: string = tenantKey()): void {
+    this.invalidations.invalidateGroup(tenantId);
+    const prefix = `${tenantId}:`;
+    for (const key of this.store.keys()) {
+      if (key.startsWith(prefix)) this.store.delete(key);
+    }
   }
 
   invalidateAll(): void {

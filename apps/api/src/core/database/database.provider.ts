@@ -99,3 +99,9 @@ export function createPlatformDatabase(options: DatabaseOptions) {
 export const TENANT_DB = Symbol('TENANT_DB');
 /** DI token：平台 DB（租戶登記、`oidc_payloads`）。 */
 export const PLATFORM_DB = Symbol('PLATFORM_DB');
+/**
+ * DI token：平台 DB 的 postgres.js client 本身。只給 Drizzle 做不到的事用——`LISTEN`／`NOTIFY`（`core/broadcast`）；
+ * 查詢一律經 `PLATFORM_DB`。
+ */
+export const PLATFORM_SQL = Symbol('PLATFORM_SQL');
+export type PlatformSql = ReturnType<typeof createPlatformDatabase>['client'];

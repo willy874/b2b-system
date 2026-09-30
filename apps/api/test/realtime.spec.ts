@@ -20,7 +20,7 @@ import type { App } from 'supertest/types';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DomainEvent, DomainEventBus } from '@/core/events';
-import { roles, userRoles, users } from '@/db/schema';
+import { relationTuples, roleHolderTuple, roles, users } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { DEFAULT_REALTIME_LIMITS, REALTIME_LIMITS } from '@/modules/realtime/realtime.constants';
 import { RealtimeGateway } from '@/modules/realtime/realtime.gateway';
@@ -57,7 +57,9 @@ async function createUser(email: string, roleIds: string[] = []): Promise<string
     .insert(users)
     .values({ email, displayName: email, status: 'active' })
     .returning();
-  for (const roleId of roleIds) await db.insert(userRoles).values({ userId: user!.id, roleId });
+  for (const roleId of roleIds) {
+    await db.insert(relationTuples).values(roleHolderTuple(roleId, user!.id));
+  }
   return user!.id;
 }
 
@@ -372,6 +374,7 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
         DomainEvent.PERMISSIONS_CHANGED,
         DomainEvent.RESOURCE_CHANGED,
       ]);
+      // 名單只給逐人處理的訂閱者（個人資料夾）；room 以整個租戶的連線重算（ADR-0024 D8）
       expect(publish.mock.calls[0]?.[1]).toEqual({ userIds: [holder] });
 
       // 持有者剛拿到 user:read：下一筆使用者變更就會收到（room 已同步）

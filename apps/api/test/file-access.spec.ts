@@ -10,17 +10,17 @@ import {
   auditLogs,
   fileFolders,
   permissions,
-  resourceGrants,
-  rolePermissions,
+  relationTuples,
+  roleHolderTuple,
+  rolePermissionTuple,
   roles,
-  userRoles,
   users,
 } from '@/db/schema';
 import { FileFolderRepository } from '@/modules/file/file-folder.repository';
 import { FileSystemFolderService } from '@/modules/file/file-system-folder.service';
 
 import type { TestDatabase } from './db';
-import { createTestDatabase, expectDbError, truncateAll } from './db';
+import { createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
 import { inTestTenant } from './tenant';
@@ -64,7 +64,7 @@ async function createRole(slug: string, keys: string[] = []): Promise<string> {
     const [permission] = await db.select().from(permissions).where(eq(permissions.key, key));
     if (!permission) throw new Error(`沒有權限 ${key}`);
     // oxlint-disable-next-line no-await-in-loop -- 同上
-    await db.insert(rolePermissions).values({ roleId: role.id, permissionId: permission.id });
+    await db.insert(relationTuples).values(rolePermissionTuple(role.id, permission.key));
   }
   return role.id;
 }
@@ -85,7 +85,7 @@ async function createActiveUser(
     .returning();
   if (!user) throw new Error('建立使用者失敗');
   if (roleIds.length > 0) {
-    await db.insert(userRoles).values(roleIds.map((id) => ({ userId: user.id, roleId: id })));
+    await db.insert(relationTuples).values(roleIds.map((id) => roleHolderTuple(id, user.id)));
   }
   return user.id;
 }
@@ -399,20 +399,25 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
     expect(errorCode(response)).toBe('FILE_GRANT_SUBJECT_NOT_FOUND');
   });
 
-  it('resource_grants：同一資源同一對象只有一筆（唯一索引）', async () => {
-    const values = {
-      resourceType: 'fileFolder' as const,
-      resourceId: plan.id,
-      subjectType: 'role' as const,
-      subjectId: artTeam,
-      level: 'viewer' as const,
-    };
-    await db.delete(resourceGrants).where(eq(resourceGrants.resourceId, plan.id));
-    await db.insert(resourceGrants).values(values);
-    await expectDbError(
-      db.insert(resourceGrants).values(values),
-      /resource_grants_resource_subject_key/,
-    );
+  it('同一資料夾同一對象只有一個等級：再次授予是覆寫', async () => {
+    const admin = await login(ADMIN);
+    for (const level of ['viewer', 'editor'] as const) {
+      // oxlint-disable-next-line no-await-in-loop -- 依序授予，第二次覆寫第一次
+      await api(admin)
+        .put(`/file-folders/${plan.id}/grants`, { subjectType: 'role', subjectId: artTeam, level })
+        .expect(200);
+    }
+    const edges = await db
+      .select({ relation: relationTuples.relation })
+      .from(relationTuples)
+      .where(
+        and(
+          eq(relationTuples.objectType, 'fileFolder'),
+          eq(relationTuples.objectId, plan.id),
+          eq(relationTuples.subjectId, artTeam),
+        ),
+      );
+    expect(edges).toEqual([{ relation: 'editor' }]);
   });
 
   it('P2：授權給個別使用者，並可搜尋使用者當對象；過期之後不再計入但仍列出', async () => {
@@ -448,9 +453,15 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
 
     // 讓它過期（直接改資料：API 不接受過去的時間）
     await db
-      .update(resourceGrants)
+      .update(relationTuples)
       .set({ expiresAt: new Date(Date.now() - 1000) })
-      .where(and(eq(resourceGrants.resourceId, plan.id), eq(resourceGrants.subjectType, 'user')));
+      .where(
+        and(
+          eq(relationTuples.objectType, 'fileFolder'),
+          eq(relationTuples.objectId, plan.id),
+          eq(relationTuples.subjectId, outsiderUser!.id),
+        ),
+      );
     expect(await readableNames(outsider)).not.toContain('企劃');
     const list = await api(admin).get(`/file-folders/${plan.id}/grants`).expect(200);
     expect(
@@ -670,6 +681,24 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
           return list.items.find((f) => f.id === personalFolderId)?.name;
         })
         .toBe(newcomer.email);
+    });
+
+    it('角色的權限加上檔案權限 → 持有者自動建立個人資料夾', async () => {
+      const holder = { email: 'access-promoted@example.com', password: 'PromotedPassword!2026' };
+      const noFiles = await createRole('access-no-files', ['user:read']);
+      await createActiveUser(holder, [noFiles]);
+      const root = await login(SUPER_ADMIN);
+      await api(root)
+        .patch(`/roles/${noFiles}/permissions`, { add: ['file:access'], remove: [] })
+        .expect(200);
+      // 事件在回應之後處理：等它落地
+      await expect
+        .poll(async () => {
+          const list = await listFolders(await login(holder));
+          const { personalFolderId } = list as unknown as { personalFolderId: string | null };
+          return list.items.find((f) => f.id === personalFolderId)?.name;
+        })
+        .toBe(holder.email);
     });
 
     it('刪除使用者：空的個人資料夾自動刪除；有東西的保留', async () => {

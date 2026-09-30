@@ -4,15 +4,17 @@ import type { ResourceChangeWire, SessionRevokedReason } from '@b2b-system/realt
  * 業務 service 發佈、副作用（例：即時推播）訂閱的領域事件。
  *
  * 規則：
- * - 只能在交易 **提交之後** 發佈，位置與 `permissionService.invalidateUsers()` 相同；
- *   rollback 的變更不會被任何人看到。
+ * - 只能在交易 **提交之後** 發佈；rollback 的變更不會被任何人看到。
  * - 權限／使用者快取的失效仍然 **同步、明確地呼叫**，不走 bus——授權的正確性依賴它；
  *   bus 只負責「慢一點也沒關係」的副作用。
  */
 export const DomainEvent = {
   /** 來源資源變了；`changes` 與前端 mutation 宣告的來源一致。 */
   RESOURCE_CHANGED: 'resource.changed',
-  /** 這些使用者的權限集合改變了（快取已失效）。 */
+  /**
+   * 目前租戶的關係圖變了，任何人的權限集合都可能改變（快取已整個租戶失效）。由 `AuthzRevision` 發佈：
+   * 本機的寫入之後、或收到其他程序的廣播之後（docs/adr/0024-relationship-based-access-control.md D7）。
+   */
   PERMISSIONS_CHANGED: 'permissions.changed',
   /** 這些使用者的 `token_version` 遞增了：既有的 session 全部作廢。 */
   SESSIONS_REVOKED: 'sessions.revoked',
@@ -37,7 +39,13 @@ export interface DomainEventPayloads {
     /** 本人或角色持有者：除了 perm room 之外也要收到的人。 */
     affectedUserIds?: string[];
   };
-  [DomainEvent.PERMISSIONS_CHANGED]: { userIds: string[] };
+  [DomainEvent.PERMISSIONS_CHANGED]: {
+    /**
+     * 已知直接受影響的人（例：被指派角色的人），只在發起寫入的程序上有；給需要逐人處理的訂閱者
+     * （補建個人資料夾）。不是完整清單：推播的 room 一律重算整個租戶的連線。
+     */
+    userIds?: string[];
+  };
   /**
    * 撤銷即時連線：`userIds` 是這些人的所有連線；`idpSessionUids` 只到同一個 IdP session 的連線（單一登出，
    * docs/adr/0019-sso-identity-platform.md D5）。

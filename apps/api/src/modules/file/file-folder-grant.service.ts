@@ -5,15 +5,8 @@ import type { AuthUser } from '@/common/types';
 import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
-import type { FileFolderRow, GrantLevel, ResourceGrantInsert } from '@/db/schema';
+import type { FileFolderRow, GrantLevel } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
-import {
-  inheritanceChain,
-  levelRank,
-  maxLevel,
-} from '@/modules/resource-grant/resource-grant.resolver';
-import { ResourceGrantService } from '@/modules/resource-grant/resource-grant.service';
-import type { GrantKey } from '@/modules/resource-grant/resource-grant.service';
 
 import type {
   FileFolderGrantDto,
@@ -27,8 +20,11 @@ import type {
 import { FILE_ACTION_PERMISSION } from './file-access.context';
 import type { FileAccessContext } from './file-access.context';
 import { FileAccessService } from './file-access.service';
+import { FileFolderGrantRepository } from './file-folder-grant.repository';
+import type { FolderGrant, GrantKey } from './file-folder-grant.repository';
 import { FileFolderTree } from './file-folder-tree';
 import { FileFolderRepository } from './file-folder.repository';
+import { inheritanceChain, levelRank, maxLevel } from './file-grant.levels';
 
 /** 授權對象候選清單一次最多幾筆（挑選用，不分頁）。 */
 const SUBJECT_SEARCH_LIMIT = 20;
@@ -43,7 +39,7 @@ export class FileFolderGrantService {
   constructor(
     private readonly tree: FileFolderTree,
     private readonly folders: FileFolderRepository,
-    private readonly grants: ResourceGrantService,
+    private readonly grants: FileFolderGrantRepository,
     private readonly access: FileAccessService,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
@@ -117,7 +113,7 @@ export class FileFolderGrantService {
       if (!existing) throw new AppException('FILE_GRANT_NOT_FOUND', { subjectType, subjectId });
       this.assertGrantable(ctx, folderId, [existing.level]);
 
-      await this.grants.revoke(key, tx);
+      await this.grants.delete(key, tx);
       await this.audit.record(
         {
           action: 'fileFolder.revoke',
@@ -202,13 +198,13 @@ export class FileFolderGrantService {
     tx: DbOrTx,
   ) {
     const [, ...ancestors] = inheritanceChain(ctx.folders, folderId);
-    const rows = await this.grants.listOn('fileFolder', [folderId, ...ancestors], tx);
+    const rows = await this.grants.listOn([folderId, ...ancestors], tx);
     const now = Date.now();
     const direct = new Map<string, GrantLevel>();
-    const inherited = new Map<string, ResourceGrantInsert>();
+    const inherited = new Map<string, FolderGrant>();
     for (const row of rows) {
       const key = `${row.subjectType}:${row.subjectId}`;
-      if (row.resourceId === folderId) {
+      if (row.folderId === folderId) {
         direct.set(key, row.level);
         continue;
       }
@@ -216,31 +212,21 @@ export class FileFolderGrantService {
       if (row.expiresAt && row.expiresAt.getTime() <= now) continue;
       const previous = inherited.get(key);
       if (previous && maxLevel(previous.level, row.level) === previous.level) continue;
-      inherited.set(key, {
-        resourceType: 'fileFolder',
-        resourceId: folderId,
-        subjectType: row.subjectType,
-        subjectId: row.subjectId,
-        level: row.level,
-        expiresAt: row.expiresAt,
-        grantedBy: actor.id,
-      });
+      inherited.set(key, row);
     }
     const toCopy = [...inherited].flatMap(([key, grant]) => {
       const existing = direct.get(key);
       return existing && levelRank(existing) >= levelRank(grant.level) ? [] : [grant];
     });
-    // 自己已有、但等級較低的：覆寫成繼承來的較高等級
-    const upgrades = toCopy.filter((copy) => direct.has(`${copy.subjectType}:${copy.subjectId}`));
-    for (const grant of upgrades) {
+    // 自己沒有的新增、自己有但等級較低的覆寫成繼承來的較高等級
+    for (const grant of toCopy) {
       // oxlint-disable-next-line no-await-in-loop -- 同一個交易依序寫入；筆數是上層鏈上的授權數
       await this.grants.set(
         this.keyOf(folderId, grant.subjectType, grant.subjectId),
-        { level: grant.level, expiresAt: grant.expiresAt ?? null, grantedBy: actor.id },
+        { level: grant.level, expiresAt: grant.expiresAt, grantedBy: actor.id },
         tx,
       );
     }
-    await this.grants.insertMissing(toCopy, tx);
     return toCopy;
   }
 
@@ -250,7 +236,7 @@ export class FileFolderGrantService {
   ): Promise<FileFolderGrantListDto> {
     const chain = inheritanceChain(ctx.folders, folderId);
     const [rows, chainFolders] = await Promise.all([
-      this.grants.listOn('fileFolder', chain),
+      this.grants.listOn(chain),
       this.folders.findByIds(chain),
     ]);
     const names = new Map(chainFolders.map((folder) => [folder.id, folder.name]));
@@ -259,7 +245,7 @@ export class FileFolderGrantService {
     const items: FileFolderGrantDto[] = rows
       .toSorted(
         (a, b) =>
-          (distance.get(a.resourceId) ?? 0) - (distance.get(b.resourceId) ?? 0) ||
+          (distance.get(a.folderId) ?? 0) - (distance.get(b.folderId) ?? 0) ||
           levelRank(b.level) - levelRank(a.level) ||
           a.subjectName.localeCompare(b.subjectName),
       )
@@ -272,9 +258,9 @@ export class FileFolderGrantService {
         isExpired: row.expiresAt !== null && row.expiresAt.getTime() <= now,
         grantedAt: row.grantedAt.toISOString(),
         source:
-          row.resourceId === folderId
+          row.folderId === folderId
             ? null
-            : { folderId: row.resourceId, folderName: names.get(row.resourceId) ?? '' },
+            : { folderId: row.folderId, folderName: names.get(row.folderId) ?? '' },
       }));
     return {
       folderId,
@@ -319,7 +305,7 @@ export class FileFolderGrantService {
   }
 
   private keyOf(folderId: string, subjectType: FileGrantSubjectType, subjectId: string): GrantKey {
-    return { resourceType: 'fileFolder', resourceId: folderId, subjectType, subjectId };
+    return { folderId, subjectType, subjectId };
   }
 
   private publish(folderId: string): void {
