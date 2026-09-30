@@ -140,6 +140,7 @@
   3. 重用偵測只需要「上一張」：可改成續期時刪除（或只保留最近 N 張）已使用的舊列，`isFamilyRevoked` 改查「家族最新一列」。
   4. `refresh_tokens_user_active_idx` 條件改為 `revoked_at IS NULL AND used_at IS NULL`。
 - **驗收**：在 100 萬列、單一家族 2 萬列的資料量下，`/auth/refresh` p99 < 20 ms；清理工作跑完後表的列數與 `pg_stat_user_tables.n_dead_tup` 穩定不成長。
+- **狀態**：已修（fix/auth-account）：每日清理工作 `auth.tokenCleanup`（租戶）／`auth.platformTokenCleanup`（平台），分批刪除過期超過 `AUTH_TOKEN_RETENTION_DAYS` 的 refresh token 與啟用／重設 token；家族有絕對壽命；`isFamilyRevoked` 改走只索引已撤銷列的部分索引。建議 3、4（續期時刪舊列、`user_active_idx` 加 `used_at IS NULL`）不做：併發的撤銷會漏掉剛輪替的那張（撤銷條件只看未使用的列時），重用偵測也需要保留舊列
 
 ### PERF-05 每個檔案請求都載入整棵資料夾樹（每位使用者一個個人資料夾）
 

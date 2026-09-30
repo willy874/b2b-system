@@ -238,6 +238,12 @@ export class PermissionService {
 - 走這個檢查的端點：`POST /users`（`roleIds`）、`PUT /users/:id/roles`，以及審批核准時帶入的 `roleIds`。
   新增任何會指派角色的端點都必須呼叫 `assertRolesAssignable()`，不可自行只比對權限鍵。
 
+**反方向：被操作的人是 super-admin**（`UserService.assertCanManage`，docs/issues/02-security.md SEC-07）。
+上面只檢查「新授予的」角色；持 `user:update`／`user:delete`／`user:assignRole` 的 admin 仍能停用、刪除 super-admin，
+或把他的角色換成 member，藉此排除上級。所以目標持有 super-admin 時，只有 super-admin 能改他的狀態、刪除他、
+整批取代他的角色，否則 `403 AUTHZ_ESCALATION`（`details: { role: 'super-admin', target }`）。
+是不是 super-admin 直接查 DB（`UserRepository.hasRoleSlug`），不經權限快取。重設密碼、解鎖不在此限（信寄到本人信箱；解鎖是幫忙）。
+
 ---
 
 ## 5. 權限快取
@@ -442,15 +448,23 @@ it("權限目錄與 @RequirePermissions 使用的鍵完全一致", async () => {
 ### 8.2 `assertNotLastSuperAdmin`
 
 ```ts
-private async assertNotLastSuperAdmin(userId: string): Promise<void> {
-  const isSuper = await this.permissionRepo.isSuperAdmin(userId);
-  if (!isSuper) return;
-  const count = await this.roleRepo.countActiveUsersByRoleSlug('super-admin');
-  if (count <= 1) throw new AppException(ErrorCode.LAST_SUPER_ADMIN);
+// 在寫入的交易內呼叫：先取 advisory lock，再計數、再寫入
+private async assertNotLastSuperAdmin(userId: string, tx: DbOrTx): Promise<void> {
+  await this.repo.lockSuperAdminGuard(tx);        // pg_advisory_xact_lock(hashtext('super_admin_guard'))
+  if (!(await this.repo.hasRoleSlug(userId, SUPER_ADMIN_SLUG, tx))) return;
+  const remaining = await this.repo.countActiveUsersByRoleSlug(SUPER_ADMIN_SLUG, userId, tx);
+  if (remaining < 1) throw new AppException('LAST_SUPER_ADMIN');
 }
 ```
 
-呼叫點：停用使用者、刪除使用者、`PUT /users/:id/roles`（新清單不含 super-admin 時）。
+呼叫點：停用使用者、刪除使用者、`PUT /users/:id/roles`（新清單不含 super-admin 時），都在寫入的交易內。
+在交易外先計數再寫入是 check-then-act：兩位 super-admin 同時刪除對方，兩邊都看到「還剩一位」，
+結果一位都不剩（docs/issues/03-edge-cases.md EDGE-03）。advisory lock 讓這些寫入依序執行；
+每個租戶是自己的 database，不會跨租戶互鎖。是不是 super-admin 直接查 DB，不經權限快取。
+
+`PUT /users/:id/roles` 也在同一個交易內先鎖住使用者列、讀出目前的角色：稽核的 `before` 是真正被取代的那一份；
+請求帶 `expectedRoleIds`（前端草稿所依據的角色）時，與目前的角色不同就回 `409 USER_ROLES_CONFLICT`，
+不會蓋掉別人剛做的變更（EDGE-11）。
 
 `countActiveUsersByRoleSlug` 只算 `status = 'active'` 且未刪除的使用者——
 把 super-admin 全部停用而不刪除，一樣會讓系統無人可管。

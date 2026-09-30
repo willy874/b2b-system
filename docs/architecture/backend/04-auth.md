@@ -7,7 +7,7 @@
 |                | Access Token                  | Refresh Token                      |
 | -------------- | ----------------------------- | ---------------------------------- |
 | 格式           | JWT（HS256）                  | 不透明隨機值（32 bytes base64url） |
-| 壽命           | **5 分鐘**                    | **7 天**                           |
+| 壽命           | **5 分鐘**                    | **7 天**；家族（一次登入）最長 **30 天**（§2.6） |
 | 存放（客戶端） | **記憶體**（JS 閉包）         | `httpOnly` cookie                  |
 | 存放（伺服器） | 不存                          | SHA-256 雜湊後存 `refresh_tokens`  |
 | 內容           | `{ sub, ver, jti, tid, iat, exp }`；經 SSO 登入時多 `sid`（IdP session） | 無語意；經 SSO 發出時記 `client_id`、`idp_session_uid` |
@@ -76,7 +76,7 @@ JwtAuthGuard 驗簽後比對：
 - 有人拿到了被竊取的舊 token，或
 - 客戶端的跨分頁協調失敗（兩個分頁同時用了同一個舊 token）
 
-兩種情況都當成攻擊處理：
+除了下面的 **重送寬限期**（§2.3 的最後一段），都當成攻擊處理：
 
 ```sql
 UPDATE refresh_tokens
@@ -137,7 +137,16 @@ async refresh(rawToken: string, ctx: RequestContext) {
 
 **為什麼也要看整個家族**：登出的 `revokeFamily` 與一個併發的續期交易同時進行時，
 續期新插入的那一列不在 `UPDATE` 的快照裡，不會被撤銷。撤銷一律以家族（或使用者）
-為單位，所以「家族裡有任一列已撤銷」就等於整個家族已失效。
+為單位，所以「家族裡有任一列已撤銷」就等於整個家族已失效（`superseded` 除外，見下一段）。
+每次續期都要問這一題，所以有只索引已撤銷列的 `refresh_tokens_family_revoked_idx`。
+
+**重送寬限期**（`REFRESH_REUSE_GRACE_SECONDS`，預設 30 秒，0 停用）：續期成功、但回應在抵達瀏覽器前遺失
+（逾時、斷線、代理逾時）時，瀏覽器會再出示剛被用掉的那張。若它被使用還不到寬限期，**而且它是家族裡最後
+被使用的一張**，就不當成重用：在同一個交易裡鎖住它、把家族目前的最新一張標成 `revoked_reason = 'superseded'`，
+再發一張新的，稽核記 `auth.refresh.replayed`（一般嚴重度）。家族不會分岔（任何時候只有一張可用），
+被取代的那張再出示是 `AUTH_REFRESH_REVOKED`。超過寬限期、或家族在它之後又續期過，照舊判定為重用。
+取捨：寬限期內被偷的 token 可以換到新的一張（原本的主人下次續期會被登出），換來的是網路抖動不會登出使用者、
+也不會產生假的高嚴重度警報（docs/issues/03-edge-cases.md EDGE-10）。
 
 ### 2.4 Cookie
 
@@ -176,6 +185,12 @@ async refresh(@Req() req: Request) {
 }
 ```
 
+### 2.6 絕對壽命
+
+每張 refresh token 帶 `family_created_at`（登入的時間，輪替時沿用）。超過 `REFRESH_FAMILY_MAX_AGE`
+（預設 30 天）就回 `AUTH_REFRESH_EXPIRED`，不論期間續期了幾次；快到期時新 token 與 cookie 的壽命也截短到家族的期限。
+被偷的 refresh cookie 不能靠持續續期永久使用（docs/issues/02-security.md SEC-16）。
+
 ---
 
 ## 3. 登入
@@ -193,23 +208,24 @@ async login(dto: LoginDto, ctx: RequestContext) {
     throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS);
   }
 
-  if (user.lockedUntil && user.lockedUntil > new Date()) {
+  // ★ 先驗密碼，再看鎖定與狀態：不知道密碼的人只看得到 AUTH_INVALID_CREDENTIALS
+  const ok = user.passwordHash
+    ? await argon2.verify(user.passwordHash, dto.password)
+    : await argon2.verify(DUMMY_HASH, dto.password).then(() => false);
+  const locked = user.lockedUntil && user.lockedUntil > new Date();
+
+  if (!ok) {
+    if (!locked) await this.registerFailedAttempt(user, ctx);   // 鎖定中不計數、不延長
+    throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS);
+  }
+
+  if (locked) {
     throw new AppException(ErrorCode.AUTH_ACCOUNT_LOCKED, {
       retryAfterSeconds: Math.ceil((+user.lockedUntil - Date.now()) / 1000),
     });
   }
-
   if (user.status === 'pending')  throw new AppException(ErrorCode.AUTH_ACCOUNT_PENDING);
   if (user.status !== 'active')   throw new AppException(ErrorCode.AUTH_ACCOUNT_DISABLED);
-
-  const ok = user.passwordHash
-    ? await argon2.verify(user.passwordHash, dto.password)
-    : false;
-
-  if (!ok) {
-    await this.registerFailedAttempt(user, ctx);
-    throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS);
-  }
 
   await this.userRepo.update(user.id, {
     failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date(),
@@ -226,36 +242,43 @@ async login(dto: LoginDto, ctx: RequestContext) {
 | -------------- | ---------------------------------------------------------------- |
 | 帳號不存在     | `AUTH_INVALID_CREDENTIALS`（跑 dummy hash 保持時間一致）         |
 | 密碼錯誤       | `AUTH_INVALID_CREDENTIALS`                                       |
-| 帳號未啟用     | `AUTH_ACCOUNT_PENDING` ← **刻意可區分**                          |
-| 帳號停用／鎖定 | `AUTH_ACCOUNT_DISABLED` / `AUTH_ACCOUNT_LOCKED` ← **刻意可區分** |
+| 帳號未啟用（密碼正確） | `AUTH_ACCOUNT_PENDING` ← **刻意可區分**                  |
+| 帳號停用／鎖定（密碼正確） | `AUTH_ACCOUNT_DISABLED` / `AUTH_ACCOUNT_LOCKED` ← **刻意可區分** |
+| 帳號未啟用、停用、鎖定（密碼錯誤） | `AUTH_INVALID_CREDENTIALS`                    |
 
-前兩者必須不可區分。後三者刻意可區分，因為使用者需要知道該怎麼辦——而且能走到
-那些分支代表密碼已經驗過或帳號已知存在，隱藏沒有意義。
+密碼錯誤時一律不可區分。密碼正確時才告知狀態，因為使用者需要知道該怎麼辦——
+這些分支都在驗證密碼 **之後**，只有知道密碼的人看得到，不能拿來列舉帳號
+（還沒設定密碼的 `pending` 帳號對 dummy hash 驗證，一樣是 `AUTH_INVALID_CREDENTIALS`）。
+「帳號不存在」與「帳號沒有密碼」都以 **實際設定的** `ARGON2_*` 參數算 dummy hash，耗時與真正的驗證一致。
 
 ### 3.3 鎖定
 
 次數與時間是租戶的系統設定 `auth.loginMaxAttempts`（預設 5）、`auth.loginLockoutSeconds`（預設 900）
 （[`12-settings.md`](./12-settings.md) §3）；平台管理者的鎖定仍讀 env `LOGIN_MAX_ATTEMPTS`、`LOGIN_LOCKOUT_SECONDS`。
 
-```ts
-private async registerFailedAttempt(user: User, ctx: RequestContext) {
-  const count = user.failedLoginCount + 1;
-  const shouldLock = count >= (await this.settings.get(LOGIN_MAX_ATTEMPTS_SETTING));
-  await this.userRepo.update(user.id, {
-    failedLoginCount: count,
-    lockedUntil: shouldLock
-      ? addSeconds(new Date(), await this.settings.get(LOGIN_LOCKOUT_SECONDS_SETTING))
-      : null,
-    status: shouldLock ? 'locked' : user.status,
-  });
-  await this.audit.loginFailure(user.email, shouldLock ? 'locked' : 'bad_password', ctx);
-}
+```sql
+-- UserRepository.recordFailedLogin：原子遞增，併發的錯誤密碼每一次都算數
+UPDATE users SET
+  failed_login_count = CASE WHEN <上次鎖定已到期> THEN 1 ELSE failed_login_count + 1 END,
+  locked_until       = CASE WHEN <新的次數> >= $max THEN now() + $lockout ELSE NULL END
+WHERE id = $1 AND (locked_until IS NULL OR locked_until <= now())   -- 鎖定中不更新
+RETURNING failed_login_count, locked_until;
 ```
+
+- **只寫 `locked_until`，不改 `status`**：鎖定是擋猜密碼，不撤銷既有 session、不推 `session.revoked`。
+  否則任何知道 email 的人錯 5 次就能把線上的人（包括最後一位 super-admin）踢下線。API 對外顯示的狀態在
+  `locked_until` 還沒到期時是 `locked`（`displayStatusOf`；列表以 `status=locked` 篩選也看 `locked_until`），到期自動回到 `active`。
+- **上次鎖定到期後從 1 重新計算**，到期後再錯一次不會立刻重鎖；鎖定中的錯誤密碼不計數、不延長鎖定。
+- 外部 IdP 登入不受鎖定影響（外部 IdP 已驗過本人）。
+- 舊版留下的 `status = 'locked'` 由 migration `0003` 改回 `active`（`locked_until` 保留）。
+- 平台管理者用同一套原子計數（`PlatformAdminRepository.recordFailedLogin`）與「先驗密碼再看狀態」；
+  平台管理介面以 `status = locked` 顯示與解鎖，所以平台管理者的鎖定仍會寫 `status`。
 
 解鎖途徑：
 
-1. 等鎖定時間（預設 15 分鐘）過去（下次成功登入時 `status` 回到 `active`）
-2. 管理員 `POST /users/:id/unlock`（需要 `user:update`）
+1. 等鎖定時間（預設 15 分鐘）過去，下次成功登入時計數與 `locked_until` 歸零
+2. 「忘記密碼」→ 重設密碼（重設會順帶解鎖；鎖定中的人仍是 `active`，收得到重設信）
+3. 管理員 `POST /users/:id/unlock`（需要 `user:update`）
 
 ---
 
@@ -286,11 +309,16 @@ export const PasswordSchema = z
   .refine((pw) => !COMMON_PASSWORDS.has(pw.toLowerCase()), "AUTH_PASSWORD_WEAK");
 ```
 
-**只要求長度 ≥ 12 ＋ 不在常見密碼字典中**，不要求「大小寫 + 數字 + 符號」。
+**只要求長度 ≥ 12 ＋ 不是常見密碼**，不要求「大小寫 + 數字 + 符號」。
 複雜度規則已被證實會讓使用者選出更好猜的密碼（`Password1!`）。NIST SP 800-63B
 也已移除該建議。
 
-字典用 `top-10k-passwords` 之類的清單，啟動時載入成 `Set`。
+「常見密碼」（`isCommonPassword`）：洩漏清單裡長度 ≥ 12 的密碼幾乎都是「常見字根 ＋ 數字／年份／符號」或鍵盤排列，
+所以不放上萬筆的清單，而是列字根（`common-passwords.ts`），去掉前後的數字與符號、把替換字元換回字母
+（`P@ssw0rd2026!` → `password`）後比對；整串是重複片段或鍵盤／字母順序也算。
+需要脈絡的規則在 service（`assertPasswordPolicy`）：租戶的最短長度（`auth.passwordMinLength`），
+以及密碼不能含 email 的帳號部分、網域名稱或租戶代碼（長度 ≥ 4 的片段）。錯誤形狀與 DTO 驗證相同
+（`VALIDATION_FAILED`，`fields.<欄位> = AUTH_PASSWORD_WEAK`）。
 
 ### 4.3 變更密碼
 
@@ -316,10 +344,15 @@ POST /auth/change-password { currentPassword, newPassword }
 
 |          | 啟用（activation） | 密碼重設（password_reset）                     |
 | -------- | ------------------ | ---------------------------------------------- |
-| 建立時機 | 管理員建立使用者   | 使用者請求 / 管理員代觸發                      |
+| 建立時機 | 管理員建立使用者、核准註冊申請；`pending` 的人按「忘記密碼」或管理員按「重設密碼」＝重寄 | 使用者請求 / 管理員代觸發                      |
 | 有效期   | 24 小時（設定 `auth.activationTtlHours`） | 1 小時（設定 `auth.passwordResetTtlHours`）     |
 | 目標狀態 | `pending`          | `active`                                       |
-| 完成後   | `status → active`  | `token_version += 1` ＋ 撤銷所有 refresh token |
+| 完成後   | `status → active`（**只接受 `pending`**：被停用的人不能用手上的啟用信把自己改回 active） | `token_version += 1` ＋ 撤銷所有 refresh token |
+
+- 消耗 token 是條件式的 `UPDATE … WHERE used_at IS NULL AND expires_at > now() RETURNING`，在寫入密碼的同一個交易裡：
+  同一個連結被雙擊或兩個分頁同時送出，只有一個成功，另一個 `AUTH_SETUP_TOKEN_INVALID`。
+- 停用、刪除帳號時，同一個交易內作廢這個人所有未使用的啟用／重設 token。
+- `PATCH /users/:id` 不接受 `status: 'pending'`：改回 pending 的人沒有啟用 token，再也登入不了。
 
 ### 5.1 Token 本身
 
@@ -347,9 +380,12 @@ WHERE user_id = $1 AND purpose = $2 AND used_at IS NULL;
 @Public()
 async forgotPassword(@Body(...) dto: ForgotPasswordDto) {
   const user = await this.users.findAccountByEmail(dto.email);
-  if (user && user.status === 'active') {
+  // active（含登入失敗鎖定中）→ 重設信；pending → 啟用信（自助重寄）；其他狀態不寄
+  const job = user?.status === 'active' ? PASSWORD_RESET_MAIL_JOB
+            : user?.status === 'pending' ? ACTIVATION_MAIL_JOB : undefined;
+  if (user && job) {
     // 只入列：寄信在背景工作裡，回應時間不因帳號是否存在而不同；同帳號 60 秒內只入列一筆
-    await this.jobs.enqueue(PASSWORD_RESET_MAIL_JOB, { userId: user.id }, { throttle: … });
+    await this.jobs.enqueue(job, { userId: user.id }, { throttle: … });
   }
   // ★ 不論如何都回 200，且回應時間一致
   return { sent: true };
@@ -428,16 +464,16 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 
 ## 8. 清理排程
 
-```ts
-@Cron('0 3 * * *')     // 每天 03:00
-async cleanupExpiredTokens() {
-  const cutoff = subDays(new Date(), 30);
-  await this.db.delete(refreshTokens).where(lt(refreshTokens.expiresAt, cutoff));
-  await this.db.delete(authTokens).where(lt(authTokens.expiresAt, cutoff));
-}
-```
+背景工作 `auth.tokenCleanup`（每個租戶）與 `auth.platformTokenCleanup`（平台管理者），依 `AUTH_TOKEN_CLEANUP_CRON`
+（預設每天 04:15 UTC）執行，每批 5,000 列分批刪除（`auth-token-cleanup.jobs.ts`）：
 
-保留過期後 30 天，讓安全事件調查時還查得到「這個 token 什麼時候被用過」。
+- `refresh_tokens`：`expires_at` 早於 `now() − AUTH_TOKEN_RETENTION_DAYS`（預設 30 天）。只看到期時間：還沒到期的列
+  （包括已使用、已撤銷的）要留著做重用偵測與家族撤銷的判斷。
+- `auth_tokens`：到期或使用超過保留天數。
+
+保留過期後 30 天，讓安全事件調查時還查得到「這個 token 什麼時候被用過」。每次續期都會新增一列，
+不清的話表與索引一路膨脹、續期與登出越來越慢（docs/issues/01-performance.md PERF-04）；家族的絕對壽命（§2.6）
+讓單一家族的列數也有上限。
 
 
 ---
@@ -462,6 +498,11 @@ async cleanupExpiredTokens() {
   - 只允許 SSO 的網域（`identity_provider_domains.sso_only`）：`verifyCredentials` 在查帳號之前回 `AUTH_SSO_REQUIRED`（不洩漏帳號是否存在）；
     `forgotPassword` 不寄信（回應不變，§5.2）
   - client secret 以 `IDP_SECRET_KEY`（AES-256-GCM）加密；沒設時由 `JWT_SECRET` 以 HKDF 推導，只給開發用，production 必填
+  - 以 email 自動連結既有帳號只在 email 網域登記在 **這個** 連線、且帳號沒有 `member` 以外的系統角色時進行，否則
+    `AUTH_SSO_LINK_NOT_ALLOWED`（[`../04-sso.md`](../04-sso.md) §3.3）；修改連線的 issuer 或 client id 會刪除它所有的連結
+  - production 下對外部 IdP 的每個請求（discovery、token、userinfo、JWKS）都先檢查目的地不是私有、loopback、link-local 位址，
+    逾時 10 秒；discovery 快取以 secret 的雜湊為 key、有上限
+  - 日誌遮掉網址裡的 `code`、`state`、`ticket`、`code_verifier`、`id_token_hint`、`token`（`core/logger/redact.ts`）
 
 ---
 
@@ -481,5 +522,7 @@ async cleanupExpiredTokens() {
 - [ ] 變更 / 重設密碼會遞增 `token_version` 並撤銷所有 refresh token
 - [ ] 停用 / 刪除使用者會遞增 `token_version` 並撤銷所有 refresh token
 - [ ] 啟用 / 重設 token 雜湊後入庫，單次使用，有期限
-- [ ] 登入端點有速率限制 ＋ 帳號鎖定
+- [ ] 登入端點有速率限制 ＋ 帳號鎖定（自動到期、原子計數、不踢既有 session）
+- [ ] 狀態檢查在密碼驗證之後
+- [ ] session 有絕對壽命；過期 token 有清理排程
 - [ ] 所有認證事件都寫入稽核日誌

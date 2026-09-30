@@ -23,12 +23,14 @@
 | 認證   | `auth.login.success` / `auth.login.failure`                       | 含 IP、UA              |
 |        | `auth.logout`                                                     |                        |
 |        | `auth.refresh.reuse_detected`                                     | **高嚴重度**           |
+|        | `auth.refresh.replayed`                                           | 寬限期內重送上一張（回應遺失），一般嚴重度 |
 |        | `auth.password_change` / `auth.password_reset`                    |                        |
 |        | `auth.account_locked`                                             |                        |
 | 授權   | `authz.denied`                                                    | 含所需權限與缺少的權限 |
 | 使用者 | `user.create` / `user.update` / `user.delete`                     | 含 before/after        |
 |        | `user.assignRole`                                                 | **含前後角色清單**     |
 |        | `user.activate` / `user.unlock` / `user.reset_password_requested` |                        |
+|        | `user.activation_resent`                                          | 管理員對 `pending` 的人重寄啟用信 |
 | 角色   | `role.create` / `role.update` / `role.delete` / `role.duplicate`  |                        |
 |        | `role.grantPermission`                                            | **含前後權限清單**     |
 | 審批   | `approval.submit`                                                 | 匿名申請（註冊）的 actor 為申請人 email、`actorId = null` |

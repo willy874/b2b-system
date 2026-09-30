@@ -63,6 +63,7 @@
   3. `forgotPassword` 允許 `locked`（`resetPassword` 本來就會順帶解鎖）。
   4. 考慮以「帳號 × IP」累計失敗，或在最後一位 active super-admin 上改用漸進延遲而不是鎖定。
 - **驗收**：整合測試——鎖定後把 `lockedUntil` 調到過去，正確密碼登入成功且 `status` 回到 `active`；鎖定期間既有 access token 仍可用；`locked` 狀態的人可收到重設信；SSO 登入在鎖定到期後可通過。
+- **狀態**：已修（fix/auth-account）：見 SEC-03；鎖定不撤銷既有 session、不推 `session.revoked`，外部 IdP 登入不受鎖定影響，migration `0003` 把舊的 `status = locked` 改回 `active`
 
 ### EDGE-02 被停用的 `pending` 使用者仍能用啟用信把自己改回 `active`
 
@@ -76,6 +77,7 @@
 - **預期 vs 實際**：預期停用後啟用連結失效（或 setup 只接受 `pending`）；實際帳號被自行啟用。
 - **建議**：`setup()` 只接受 `user.status === 'pending'`，其餘回 `AUTH_SETUP_TOKEN_INVALID`；並在 `UserService.update` 的停用、`remove` 時於同一交易作廢該使用者所有未使用的 `auth_tokens`。同理 `resetPassword` 對 `inactive` 的人雖不改狀態，也應作廢 token。
 - **驗收**：整合測試「pending → inactive 後以原 activation token setup → 400 且狀態仍為 inactive」；「刪除使用者後 reset token 失效」。
+- **狀態**：已修（fix/auth-account）：`setup` 只接受 `pending`；停用、刪除帳號在同一個交易內作廢未使用的啟用／重設 token
 
 ### EDGE-03 「最後一位 super-admin」保護是 check-then-act
 
@@ -89,6 +91,7 @@
 - **預期 vs 實際**：預期後到者 `LAST_SUPER_ADMIN`；實際兩者都成功。
 - **建議**：在寫入交易內先 `SELECT pg_advisory_xact_lock(hashtext('super_admin_guard'))`（或 `SELECT … FROM users JOIN user_roles … FOR UPDATE` 鎖住所有 super-admin 持有者列），**在交易內**重新計數再寫入；`isSuper` 改直接查 DB 不走快取。
 - **驗收**：整合測試以 `Promise.all` 同時送兩個互刪請求，斷言恰好一個 `LAST_SUPER_ADMIN`、DB 內仍有一位 active super-admin。
+- **狀態**：已修（fix/auth-account）：「最後一位 super-admin」的檢查移進寫入的交易，先取 `pg_advisory_xact_lock` 再計數；是否 super-admin 直接查 DB
 
 ### EDGE-04 速率限制以 IP 計算，企業 NAT 後共用一個額度
 
@@ -112,6 +115,7 @@
 - **預期 vs 實際**：預期累計 20、第 5 次起鎖定；實際只算幾次。
 - **建議**：改成原子更新 `SET failed_login_count = failed_login_count + 1 … RETURNING failed_login_count`，依回傳值決定是否寫 `locked_until`（可用 `CASE WHEN failed_login_count + 1 >= $max`）；平台管理者（[platform-admin.service.ts:90-99](../../apps/api/src/modules/platform-admin/platform-admin.service.ts#L90)）同樣修。
 - **驗收**：整合測試併發 10 個錯誤密碼後 `failed_login_count = 10` 且已鎖定。
+- **狀態**：已修（fix/auth-account）：失敗計數改成原子的 `UPDATE … SET failed_login_count = failed_login_count + 1 … RETURNING`（租戶與平台管理者）
 
 ### EDGE-06 軟刪除使用者不清 `user_identities`
 
@@ -122,6 +126,7 @@
 - **預期 vs 實際**：預期 A' 可登入（依 email 重新連結）；實際永遠被拒。
 - **建議**：刪除使用者的交易內一併刪除其 `user_identities`（稽核保留紀錄）；或 `resolveAccount` 發現連結指向已刪除帳號時刪掉舊連結、落回 email 比對。
 - **驗收**：`sso-external.spec.ts` 加「刪除後重建同 email → SSO 登入成功並連結到新帳號」。
+- **狀態**：已修（fix/auth-account）：刪除帳號的交易內一併刪除 `user_identities`；登入時連結指向已刪除的帳號會刪掉舊連結、改以 email 對應
 
 ### EDGE-07 佈建途中程序當掉，租戶永久卡在 `provisioning`
 
@@ -142,6 +147,7 @@
 - **預期 vs 實際**：一般預期「不能管理權限比自己高的人」；實際可以。
 - **建議**：新增規則「目標持有 super-admin 時，只有 super-admin 能改其狀態、角色、刪除、重設密碼、解鎖」（`AUTHZ_ESCALATION` 帶 `role: 'super-admin'`），寫進 05-rbac §4.1 與權限目錄文件。
 - **驗收**：`rbac-lifecycle.spec.ts` 加「admin 停用／刪除／降級 super-admin → 403」。
+- **狀態**：已修（fix/auth-account）：產品決定為「只有 super-admin 能停用、刪除 super-admin 或增減他人的 super-admin 角色」；其他人 `AUTHZ_ESCALATION`（`details.role = super-admin`）
 
 ### EDGE-09 權限／使用者快取的「讀後寫」競態
 
@@ -152,6 +158,7 @@
 - **預期 vs 實際**：預期撤銷後立即生效；實際偶發延遲到 TTL。
 - **建議**：快取加世代號（每個 key 一個 `version`，`invalidate` 時遞增；`get→load→set` 時若版本已變就不寫入）；或 `invalidate` 寫入「墓碑」到期前拒絕 `set`。`role.remove` 在交易內以 `DELETE … RETURNING user_id` 取得受影響者。
 - **驗收**：單元測試模擬「load 期間 invalidate」後快取為空；壓力測試撤銷後 1 秒內無 200。
+- **狀態**：已修（fix/auth-account）：`PermissionCacheService`／`UserCacheService` 加上失效世代（`InvalidationTracker`），載入期間被失效過的結果不寫回。`role.remove` 以 `DELETE … RETURNING` 取得受影響者的部分延後——屬角色模組（角色／事件組）
 
 ### EDGE-10 refresh 回應遺失 → 被判重用並撤銷整條家族
 
@@ -162,6 +169,7 @@
 - **預期 vs 實際**：預期網路抖動不導致登出與假警報；實際兩者都發生。
 - **建議**：加入短寬限期（例：同一張 token 在 `usedAt` 後 10–30 秒內再出示、且家族最新一張尚未被用過 → 回傳那張的替代品或要求重登但不撤銷家族、不記 high）；或把寬限期內的重用降為 `warning`。refresh 請求不套用一般逾時（或放長）。
 - **驗收**：`refresh-rotation.spec.ts` 加「輪替後 5 秒內以舊 token 再續期 → 不撤銷家族」；「超過寬限期 → 仍判重用」。
+- **狀態**：已修（fix/auth-account）：`REFRESH_REUSE_GRACE_SECONDS`（預設 30 秒）內重送「上一張」會換發新的並取代原本的最新一張（`superseded`），不撤銷家族、稽核記一般嚴重度的 `auth.refresh.replayed`。前端 refresh 的逾時未調整（寬限期已涵蓋逾時重送）
 
 ### EDGE-11 `PUT /users/:id/roles` 無版本控制，前端草稿不隨推播更新
 
@@ -172,6 +180,7 @@
 - **預期 vs 實際**：預期 A 收到衝突提示；實際靜默覆寫。
 - **建議**：`users`/`roles` 加 `version` 欄（或以 `updated_at` 作 ETag），PUT/PATCH 帶 `version`，不符回 `409 *_VERSION_CONFLICT`；前端在草稿存在且伺服器值改變時提示「資料已被他人修改」。
 - **驗收**：整合測試兩個以同一 version 的 PUT，第二個 409；前端 hook 測試推播後出現衝突提示。
+- **狀態**：已修（fix/auth-account）：`PUT /users/:id/roles` 接受 `expectedRoleIds`，交易內鎖住使用者列、不符回 `409 USER_ROLES_CONFLICT`，稽核的 before 在鎖內讀；前端 `useUserRoleSelection` 記下草稿依據的角色、推播改變時提示並可改用最新角色。`PATCH /users/:id`、`PATCH /roles/:id` 的版本控制延後——需要 `version` 欄與前端全面配合，範圍較大
 
 ### EDGE-12 管理者可把自己鎖在外面
 
@@ -202,6 +211,7 @@
 - **預期 vs 實際**：預期可重寄啟用信；實際只能刪除重建或手動改 `active` 再走忘記密碼。
 - **建議**：新增 `POST /users/:id/resend-activation`（只接受 `pending`），或讓 `resetPassword` 對 `pending` 的人改寄啟用信；`UpdateUserSchema.status` 移除 `pending`。
 - **驗收**：整合測試重寄後舊 token 失效、新 token 可用；PATCH `status: 'pending'` → 400。
+- **狀態**：已修（fix/auth-account）：管理員對 `pending` 的人「重設密碼」改寄啟用信（稽核 `user.activation_resent`），`pending` 的人按「忘記密碼」也會收到啟用信；`PATCH /users/:id` 不再接受 `status: pending`
 
 ### EDGE-15 領域事件是全程序單一序列佇列
 
@@ -294,6 +304,7 @@
 - **現況**：`findUsable` 在交易外檢查 `usedAt`，`markUsed` 無條件 `UPDATE`。同一個重設連結被雙擊或兩個分頁同時送出，兩次都成功（後者的密碼生效），稽核兩筆。refresh token 有正確的條件式 `markUsed`，這裡沒有沿用。
 - **建議**：`markUsed` 加 `WHERE used_at IS NULL AND expires_at > now()` 並回傳是否成功，失敗時 rollback 回 `AUTH_SETUP_TOKEN_INVALID`。
 - **驗收**：整合測試併發兩次 reset，恰一次成功。
+- **狀態**：已修（fix/auth-account）：見 SEC-12
 
 ### EDGE-24 平台的租戶操作：稽核不在同一交易
 

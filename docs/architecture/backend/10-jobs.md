@@ -93,6 +93,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `auth.activationMail`、`auth.passwordResetMail` | `modules/auth` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
 | `approval.resultMail` | `modules/approval` | — | 由程式入列 |
 | `oidc.cleanup`（平台） | `modules/oidc-provider` | `OIDC_CLEANUP_CRON` | `45 3 * * *`（每天 03:45 UTC；清除過期的 IdP 狀態） |
+| `auth.tokenCleanup`、`auth.platformTokenCleanup`（平台） | `modules/auth` | `AUTH_TOKEN_CLEANUP_CRON` | `15 4 * * *`（每天 04:15 UTC；清除過期的 refresh token 與啟用／重設 token，[`04-auth.md`](./04-auth.md) §8） |
 | `jobs.outboxSweep`（平台） | `core/jobs` | `JOBS_OUTBOX_SWEEP_CRON` | `* * * * *`（每分鐘；補搬各租戶 outbox 裡沒搬成的工作，§4.1） |
 
 ## 4. 入列
