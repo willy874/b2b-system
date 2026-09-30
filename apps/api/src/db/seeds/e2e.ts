@@ -28,6 +28,8 @@ export const E2E_ACCOUNTS = [
   { email: 'e2e-lockme@dev.local', displayName: 'E2E Lock Target', role: 'member' },
   // 專門給「被停用 → 下一次操作被登出」的測試用
   { email: 'e2e-disableme@dev.local', displayName: 'E2E Disable Target', role: 'member' },
+  // 專門給「權限在使用中被撤銷」的測試用：角色會被整批改寫，不能和其他測試共用
+  { email: 'e2e-revokeme@dev.local', displayName: 'E2E Revoke Target', role: 'member' },
 ] as const;
 
 export async function seedE2eData(db: ScriptDatabase): Promise<void> {

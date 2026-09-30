@@ -9,6 +9,36 @@ import { snapshot } from '../helpers/snapshot';
 
 const ROLE_NAME = `E2E 檢視者 ${Date.now()}`;
 
+/** 建立只有 user:read 的角色並指派給 revokeTarget；回傳移除權限與清理用的 id。 */
+async function grantUserRead(token: string): Promise<{ roleId: string }> {
+  const created = await apiRequest(token, 'post', '/roles', {
+    name: `E2E 撤銷 ${Date.now()}`,
+    permissionKeys: ['user:read'],
+  });
+  expect(created.status).toBe(201);
+  const roleId = (created.body as { data: { id: string } }).data.id;
+
+  const users = (await apiRequest(token, 'get', `/users?keyword=${ACCOUNTS.revokeTarget}`))
+    .body as { data: { items: Array<{ id: string }> } };
+  const roles = (await apiRequest(token, 'get', '/roles?limit=100')).body as {
+    data: { items: Array<{ id: string; slug: string }> };
+  };
+  const memberRole = roles.data.items.find((role) => role.slug === 'member')!;
+  const assigned = await apiRequest(token, 'put', `/users/${users.data.items[0]!.id}/roles`, {
+    roleIds: [roleId, memberRole.id],
+  });
+  expect(assigned.status).toBe(200);
+  return { roleId };
+}
+
+async function revokeUserRead(token: string, roleId: string): Promise<void> {
+  const removed = await apiRequest(token, 'patch', `/roles/${roleId}/permissions`, {
+    add: [],
+    remove: ['user:read'],
+  });
+  expect(removed.status).toBe(200);
+}
+
 test.describe('RBAC 生命週期', () => {
   // ③ admin 建立角色（含權限）→ 指派給使用者 → 該使用者登入後看得到對應選單
   test('建立角色 → 指派 → 目標使用者看得到對應選單與頁面', async ({ page, browser }) => {
@@ -143,6 +173,61 @@ test.describe('RBAC 生命週期', () => {
     await snapshot(page, 'disabled-user-signed-out');
 
     await context.close();
+  });
+});
+
+// 權限在使用中被撤銷：持有者不重新整理，畫面也要跟上後端（docs/architecture/backend/08-realtime.md §6.1、
+// apps/backstage/src/app/GlobalProvider.tsx 的 PermissionDriftWatcher）
+test.describe('權限在使用中被撤銷', () => {
+  // 兩個案例都會整批改寫同一個帳號的角色
+  test.describe.configure({ mode: 'serial' });
+
+  test('即時推播：停在列表頁的持有者不重新整理，頁面也變成 403、選單消失', async ({ page }) => {
+    const token = await apiLogin('admin');
+    const { roleId } = await grantUserRead(token);
+
+    await loginAndWaitForHome(page, 'revokeTarget');
+    await page.goto('/user');
+    await expect(page.getByTestId('user-list-page')).toBeVisible();
+    await expect(page.getByTestId('menu-user')).toBeVisible();
+    // 整頁載入後的第一次連線不會 resync：撤銷若落在「取得 profile 之後、連上之前」就只能靠下一個案例的 403 兜底
+    await expect(page.getByTestId('realtime-status')).toHaveAttribute('data-value', 'connected');
+
+    await revokeUserRead(token, roleId);
+
+    // rolePermission 的變更推給持有者的 user room → 前端重新取得 profile → 路由守衛改顯示 403
+    await expect(page.getByTestId('forbidden-page')).toBeVisible();
+    await expect(page.getByTestId('menu-user')).toHaveCount(0);
+    await snapshot(page, 'revoked-by-push');
+
+    await apiRequest(token, 'delete', `/roles/${roleId}?force=true`);
+  });
+
+  test('推播漏掉時，下一次操作收到 403 → 提示權限已變更並自我修正', async ({ page }) => {
+    const token = await apiLogin('admin');
+    const { roleId } = await grantUserRead(token);
+
+    // 攔下 WebSocket 且不接到伺服器：模擬斷線或程序在提交後、推播前重啟
+    await page.routeWebSocket(/\/api\/socket\.io\//, () => {});
+    await loginAndWaitForHome(page, 'revokeTarget');
+    await page.goto('/user');
+    await expect(page.getByTestId('user-list-page')).toBeVisible();
+    await expect(page.getByTestId('table-row').first()).toBeVisible();
+    await expect(page.getByTestId('menu-user')).toBeVisible();
+    await expect(page.getByTestId('realtime-status')).toHaveAttribute('data-value', 'disconnected');
+
+    await revokeUserRead(token, roleId);
+    // 沒有推播：畫面停在原本的列表
+    await expect(page.getByTestId('user-list-page')).toBeVisible();
+
+    // 下一次操作（開啟使用者詳情）→ API 回 AUTHZ_FORBIDDEN → 提示並重新取得 profile
+    await page.getByTestId('table-row').first().dblclick();
+    await expect(getByTestIdAndValue(page, 'toast', 'warning')).toBeVisible();
+    await expect(page.getByTestId('forbidden-page')).toBeVisible();
+    await expect(page.getByTestId('menu-user')).toHaveCount(0);
+    await snapshot(page, 'revoked-by-drift');
+
+    await apiRequest(token, 'delete', `/roles/${roleId}?force=true`);
   });
 });
 

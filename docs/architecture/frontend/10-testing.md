@@ -204,6 +204,7 @@ export const authHandlers = [
 | 8   | 兩個分頁同時操作 → 不會因 token 輪替而被登出                           | 跨分頁協調                |
 | 9   | 切換語系 → 已造訪的頁面文字全部跟著換                                  | i18n scope 補載           |
 | 10  | 系統角色的刪除按鈕不存在 / 被 disable                                  | 保護規則                  |
+| 11  | 持有者停在頁面上時權限被移除 → 不重新整理也變成 403；推播漏掉時，下一次操作收到 403 後自我修正 | 推播與 `PermissionDriftWatcher` 兩條路 |
 
 ### 4.2 結構
 
@@ -233,6 +234,33 @@ e2e-auditor@dev.local      auditor
 e2e-member@dev.local       member
 密碼統一：E2E!Password123
 ```
+
+會改變帳號狀態（鎖定、停用、整批改寫角色）的案例各有專用帳號（`e2e-lockme`、`e2e-disableme`、`e2e-revokeme`，
+見 `apps/api/src/db/seeds/e2e.ts`），不和其他並行的案例共用。
+
+#### 與正在跑的 dev 環境並行
+
+`pnpm dev` 佔著 3000／5173／5175 而且連著共用 dev DB 時，E2E 另起一組服務：暫用 postgres、api、backstage、auth 都換埠。
+前端的埠與 api 代理目標以 shell 的環境變數覆寫（`vite.config.ts` 讀 `process.env`，見 `.env.example`「開發伺服器」）：
+
+```bash
+docker run -d --name b2b-e2e-scratch-pg -e POSTGRES_USER=b2bsystem -e POSTGRES_PASSWORD=b2bsystem \
+  -e POSTGRES_DB=b2b_system -p 5433:5432 postgres:17-alpine
+export PLATFORM_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5433/b2b_platform
+export DEFAULT_TENANT_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5433/b2b_system
+export PORT=3100 DEV_API_PROXY_TARGET=http://localhost:3100 BACKSTAGE_DEV_PORT=5273 AUTH_DEV_PORT=5275
+export DEFAULT_TENANT_DOMAINS=localhost:5273 APP_PUBLIC_URL=http://localhost:5273 \
+  REALTIME_ALLOWED_ORIGINS=http://localhost:5273 FILE_STORAGE_ALLOWED_ORIGINS=http://localhost:5273
+export AUTH_APP_URL=http://localhost:5275 OIDC_ISSUER=http://localhost:5275/api/oidc \
+  VITE_AUTH_APP_URL=http://localhost:5275 VITE_OIDC_ISSUER=http://localhost:5275/api/oidc
+export AUTH_RATE_LIMIT=1000 DEFAULT_RATE_LIMIT=10000 MAIL_TRANSPORT=smtp
+export E2E_BASE_URL=http://localhost:5273 E2E_AUTH_URL=http://localhost:5275
+```
+
+- api **不要** 在同一個目錄再跑 `nest start --watch`：`deleteOutDir` 會刪掉另一個程序正在用的 `dist`。
+  改成 `cd apps/api && node --enable-source-maps dist/src/main`（沿用 dev 的 watch 已建置好的產物）。
+- backstage、auth 照常 `pnpm --filter … dev`，吃上面的環境變數換埠；Playwright 的 `webServer` 以 `E2E_BASE_URL`／`E2E_AUTH_URL` 沿用它們。
+- `tenancy`、`sso`、`mail` 三個 spec 仍寫死 5173，只能在標準埠上跑。
 
 ### 4.4 選擇器
 

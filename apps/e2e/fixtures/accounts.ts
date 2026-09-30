@@ -7,6 +7,7 @@ export const ACCOUNTS = {
   member: 'e2e-member@dev.local',
   lockTarget: 'e2e-lockme@dev.local',
   disableTarget: 'e2e-disableme@dev.local',
+  revokeTarget: 'e2e-revokeme@dev.local',
 } as const;
 
 export type AccountKey = keyof typeof ACCOUNTS;

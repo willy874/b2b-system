@@ -76,6 +76,7 @@ source ~/.nvm/nvm.sh && nvm use 24
   跑之前 **一定** 讓 `PLATFORM_DATABASE_URL` 與 `DEFAULT_TENANT_DATABASE_URL` 指向暫用的 postgres，
   否則會清掉共用的 dev DB。不確定時先問使用者，不要直接跑。
 - api 要用 `pnpm dev:e2e` 啟動（放寬速率限制、寄信走 Mailpit）；backstage、auth、mock IdP 由 Playwright 的 `webServer` 起或沿用既有的。
+- 3000／5173／5175 被正在跑的 `pnpm dev` 佔用時，照前端 10 §4.3「與正在跑的 dev 環境並行」另起一組換埠的服務，不要停掉別人的程序。
 - 只跑相關 spec：`pnpm --filter @b2b-system/e2e exec playwright test tests/<檔名>.spec.ts`。
 - 在 git worktree 裡不要跑 `pnpm dev`／`db:up`／`mail:up`（compose 會另起容器撞埠）。
 - 跑完後關鍵快照在 `apps/e2e/snapshots/<spec>/<test 標題>/`；回報時可以挑相關的截圖給使用者看。
