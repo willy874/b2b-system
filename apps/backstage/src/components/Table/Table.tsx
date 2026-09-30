@@ -68,6 +68,11 @@ export interface TableProps<TData> extends SlotOverrides<TableSlot> {
    */
   maxHeight?: CSSProperties['maxHeight'];
   /**
+   * 填滿父層（flex 欄）的剩餘高度：外框 `flex: 1` 並固定是雙向捲動框，不套 `maxHeight`。
+   * 列表頁用它把分頁列推到底部、資料多時在表格內捲動；父層要是有高度上限的 flex 欄（`min-height: 0`）。
+   */
+  fillHeight?: boolean;
+  /**
    * 展開中的列 id（需要 `getRowId`）：該列正下方插入一列橫跨所有欄位，內容由 `renderExpandedRow` 提供。
    * 展開狀態由呼叫端管理，通常搭配操作欄裡的展開按鈕。
    */
@@ -106,6 +111,7 @@ export function Table<TData>({
   columnPinning = DEFAULT_COLUMN_PINNING,
   stickyHeader,
   maxHeight = DEFAULT_MAX_HEIGHT,
+  fillHeight,
   rowPinning = EMPTY_ROW_PINNING,
   expandedRowIds = EMPTY_EXPANDED,
   renderExpandedRow,
@@ -152,10 +158,11 @@ export function Table<TData>({
   return (
     <div
       className={cn(styles.root, className)}
-      data-scrollable={scrollable || undefined}
+      data-scrollable={scrollable || fillHeight || undefined}
+      data-fill-height={fillHeight || undefined}
       data-sticky-header={stickyHeader || undefined}
       data-expandable={renderExpandedRow ? true : undefined}
-      style={scrollable ? { maxHeight } : undefined}
+      style={scrollable && !fillHeight ? { maxHeight } : undefined}
       {...rest}
     >
       <table ref={tableRef} {...slot('table', styles.table)} aria-busy={loading || undefined}>

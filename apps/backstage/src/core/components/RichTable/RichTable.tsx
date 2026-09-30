@@ -60,6 +60,11 @@ export interface RichTableProps<
   batch?: RichTableBatch<TData>;
   /** 不提供時不顯示分頁列（例如資料量固定的小表格）。 */
   pagination?: RichTablePagination;
+  /**
+   * 填滿父層（flex 欄）的剩餘高度（預設開啟）：表格延展並在框內捲動，分頁列固定在底部。
+   * 父層要是有高度上限的 flex 欄——列表頁的根元素給 `flex-1 min-h-0`（DashboardLayout 的主內容是 flex 欄）。
+   */
+  fillHeight?: boolean;
   /** 落在最外層容器。 */
   className?: string;
   /** 落在最外層容器；表格與分頁列各自保留設計系統的預設 testid。 */
@@ -79,6 +84,7 @@ export function RichTable<TData, TFilters extends Record<string, unknown>>({
   pagination,
   enableRowPinning = true,
   enableRowSelection = true,
+  fillHeight = true,
   batch,
   emptyTitle,
   className,
@@ -159,7 +165,10 @@ export function RichTable<TData, TFilters extends Record<string, unknown>>({
   ) : null;
 
   return (
-    <div className={cn('flex flex-col gap-4', className)} data-testid={testId}>
+    <div
+      className={cn('flex flex-col gap-4', fillHeight && 'min-h-0 flex-1', className)}
+      data-testid={testId}
+    >
       {batch && selectable && <BatchBar batch={batch} getRowId={rowId} />}
       <RowPinContext value={pin.contextValue}>
         <Table
@@ -172,6 +181,7 @@ export function RichTable<TData, TFilters extends Record<string, unknown>>({
           onRowSelectionChange={selectable ? onRowSelectionChange : tableProps.onRowSelectionChange}
           columns={displayedColumns}
           rowPinning={pin.rowPinning}
+          fillHeight={fillHeight}
           headerTrailing={tools}
           emptyTitle={emptyTitle ?? t('common.empty')}
         />
@@ -179,6 +189,7 @@ export function RichTable<TData, TFilters extends Record<string, unknown>>({
 
       {pagination && (
         <Pagination
+          className="shrink-0"
           offset={pagination.offset}
           limit={pagination.limit}
           total={pagination.total}

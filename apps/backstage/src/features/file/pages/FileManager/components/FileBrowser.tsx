@@ -332,7 +332,7 @@ export function FileBrowser({
 
   return (
     <div
-      className="relative flex h-[max(24rem,calc(100dvh-17rem))] flex-col overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]"
+      className="relative flex h-full flex-col overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]"
       data-testid="file-browser"
       data-view={viewMode}
       {...dropHandlers}

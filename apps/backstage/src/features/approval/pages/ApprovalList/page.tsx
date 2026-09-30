@@ -58,7 +58,7 @@ export default function ApprovalListPage() {
   });
 
   return (
-    <div className="flex flex-col gap-4" data-testid="approval-list-page">
+    <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="approval-list-page">
       <header>
         <h1 className="m-0 text-xl font-semibold">{t('approval.list.title')}</h1>
         <p className="mt-1 text-sm text-[var(--color-fg-muted)]">

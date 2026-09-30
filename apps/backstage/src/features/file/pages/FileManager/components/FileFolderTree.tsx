@@ -156,7 +156,7 @@ export function FileFolderSidebar(props: Omit<FileFolderTreeProps, 'className' |
   const { t } = useTranslation();
   return (
     <aside
-      className="hidden h-[max(24rem,calc(100dvh-17rem))] w-56 shrink-0 overflow-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1 lg:block"
+      className="hidden w-56 shrink-0 overflow-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1 lg:block"
       aria-label={t('file.folder.tree')}
     >
       <FileFolderTree {...props} data-testid="file-folder-tree" />

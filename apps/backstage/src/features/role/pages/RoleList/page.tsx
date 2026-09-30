@@ -55,7 +55,7 @@ export default function RoleListPage() {
   });
 
   return (
-    <div className="flex flex-col gap-4" data-testid="role-list-page">
+    <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="role-list-page">
       <header className="flex items-center justify-between gap-4">
         <div>
           <h1 className="m-0 text-xl font-semibold">{t('role.list.title')}</h1>

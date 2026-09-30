@@ -89,7 +89,7 @@ export default function FileManagerPage() {
   const hasFilters = Boolean(search.keyword || search.category);
 
   return (
-    <div className="flex flex-col gap-3" data-testid="file-manager-page">
+    <div className="flex min-h-0 flex-1 flex-col gap-3" data-testid="file-manager-page">
       <FileManagerHeader total={data.total} />
 
       <FileToolbar
@@ -146,7 +146,8 @@ export default function FileManagerPage() {
         />
       )}
 
-      <div className="flex min-w-0 gap-3">
+      {/* 資料夾樹與主區塊填滿剩餘高度、各自捲動，分頁列固定在底部；畫面太矮時保留 24rem，改由主內容捲動 */}
+      <div className="flex min-h-96 min-w-0 flex-1 gap-3">
         <FileFolderSidebar
           folders={folders.index}
           selectedId={folderId}

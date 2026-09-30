@@ -50,7 +50,7 @@ export default function JobListPage() {
   const filters = useJobFilters(searchFilter, queues);
 
   return (
-    <div className="flex flex-col gap-4" data-testid="job-page">
+    <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="job-page">
       <header>
         <h1 className="m-0 text-xl font-semibold">{t('job.title')}</h1>
         <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('job.description')}</p>

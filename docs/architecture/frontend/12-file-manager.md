@@ -73,7 +73,8 @@ moveIndex(layout, i, 'ArrowDown', count);  // 鍵盤移動
 - 寬度來自 `ResizeObserver`（`useElementSize`），跟著側欄收合、視窗縮放即時重排——量的是 **主區塊** 的寬度而不是視窗，
   所以側欄展開與否都正確。
 - 超過 40 列才虛擬捲動（`@tanstack/react-virtual`，以「列」為單位）；以下全部渲染。
-- 主區塊有自己的捲動範圍（高度 `max(24rem, 100dvh − 17rem)`），工具列與選取列不跟著捲走。
+- 資料夾樹與主區塊填滿頁面剩餘的高度（同列表頁的 `fillHeight`，見 [`07-ui-system.md`](./07-ui-system.md) §6.1），各自有捲動範圍，
+  工具列與選取列不跟著捲走、分頁列固定在底部；畫面太矮時最少保留 `24rem`，改由主內容捲動。
 
 ---
 
