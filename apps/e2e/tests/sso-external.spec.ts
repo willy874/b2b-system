@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { apiLogin, apiRequest } from '../helpers/api';
 import { AUTH_URL, expectIdpLogin, login } from '../helpers/auth';
+import { openMenuGroup } from '../helpers/menu';
 import { getByTestIdAndValue } from '../helpers/selectors';
 
 /**
@@ -69,6 +70,7 @@ test.describe('外部 IdP 登入', () => {
   test('管理頁列出連線與要登記在外部 IdP 的 redirect URI', async ({ page }) => {
     await login(page, 'admin');
     await expect(page.getByTestId('home-page')).toBeVisible();
+    await openMenuGroup(page, 'menu-group-system');
     await page.getByTestId('menu-identity-provider').click();
     await expect(page.getByTestId('identity-provider-page')).toBeVisible();
     await expect(getByTestIdAndValue(page, 'identity-provider-domain', SSO_DOMAIN)).toBeVisible();

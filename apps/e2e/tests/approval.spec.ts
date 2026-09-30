@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { loginAndWaitForHome } from '../helpers/auth';
+import { openMenuGroup } from '../helpers/menu';
 import { getByTestIdAndValue } from '../helpers/selectors';
 
 const APPLICANT_PASSWORD = 'Applicant!Password2026';
@@ -34,6 +35,7 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
     const adminContext = await browser.newContext();
     const adminPage = await adminContext.newPage();
     await loginAndWaitForHome(adminPage, 'admin');
+    await openMenuGroup(adminPage, 'menu-group-system');
     await adminPage.getByTestId('menu-approval').click();
     await expect(adminPage.getByTestId('approval-list-page')).toBeVisible();
     await getByTestIdAndValue(adminPage, 'approval-detail-link', email).click();
@@ -99,6 +101,7 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
 
   test('auditor 看得到審批列表，但沒有審核操作', async ({ page }) => {
     await loginAndWaitForHome(page, 'auditor');
+    await openMenuGroup(page, 'menu-group-system');
     await page.getByTestId('menu-approval').click();
     await expect(page.getByTestId('approval-list-page')).toBeVisible();
 

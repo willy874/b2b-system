@@ -8,6 +8,7 @@ import {
   loginPlatform,
   logout,
 } from '../helpers/auth';
+import { openMenuGroup } from '../helpers/menu';
 import { getByTestIdAndValue } from '../helpers/selectors';
 
 /**
@@ -70,6 +71,7 @@ test.describe('SSO', () => {
 
   test('外部 IdP 連線在 backstage：auditor 看得到但沒有任何操作按鈕', async ({ page }) => {
     await loginAndWaitForHome(page, 'auditor');
+    await openMenuGroup(page, 'menu-group-system');
     await page.getByTestId('menu-identity-provider').click();
     await expect(page.getByTestId('identity-provider-page')).toBeVisible();
     await expect(page.getByTestId('identity-provider-create-button')).toHaveCount(0);
