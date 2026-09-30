@@ -3,7 +3,7 @@
 - 優先度：P3
 - 狀態：提案
 - 依賴：—
-- 相關：[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)、[`../architecture/04-sso.md`](../architecture/04-sso.md) §11（外部 IdP 的群組對應）
+- 相關：[`permission-graph.md`](./permission-graph.md)（提案中；若採用，本提案併入其 G4 階段）、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)、[`../architecture/04-sso.md`](../architecture/04-sso.md) §11（外部 IdP 的群組對應）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
