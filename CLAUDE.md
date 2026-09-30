@@ -63,7 +63,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 ## 常用指令
 
 ```bash
-pnpm dev            # postgres + Mailpit(:8025) + api(:3000) + backstage(:5173) + auth(:5175) + file-storage(:9000)
+pnpm dev            # 先 build packages/*（build:packages），再起 postgres + Mailpit(:8025) + api(:3000) + backstage(:5173) + auth(:5175) + file-storage(:9000)
 pnpm dev:auth       # 單獨啟動 apps/auth（全平台共用的身分與租戶入口，:5175）；見 apps/auth/README.md
 pnpm dev:e2e        # 以放寬的速率限制、寄信到 Mailpit 啟動 api（跑 E2E 時用）
 pnpm dev:storage    # 單獨啟動 apps/file-storage（S3 相容，:9000）；api 端見 docs/architecture/backend/09-file.md

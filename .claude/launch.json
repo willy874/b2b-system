@@ -15,7 +15,7 @@
       "runtimeExecutable": "zsh",
       "runtimeArgs": [
         "-c",
-        "unset PORT; export PATH=$HOME/.nvm/versions/node/v24.21.0/bin:$PATH && pnpm db:up && pnpm mail:up && MAIL_TRANSPORT=smtp AUTH_RATE_LIMIT=1000 DEFAULT_RATE_LIMIT=10000 pnpm -r --parallel --filter ./apps/api --filter ./apps/backstage --filter ./apps/file-storage dev"
+        "unset PORT; export PATH=$HOME/.nvm/versions/node/v24.21.0/bin:$PATH && pnpm build:packages && pnpm db:up && pnpm mail:up && MAIL_TRANSPORT=smtp AUTH_RATE_LIMIT=1000 DEFAULT_RATE_LIMIT=10000 pnpm -r --parallel --filter ./apps/api --filter ./apps/backstage --filter ./apps/file-storage dev"
       ],
       "port": 5173
     },
