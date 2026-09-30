@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, eq, exists, ilike, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, exists, ilike, inArray, lt, or, sql } from 'drizzle-orm';
 
 import { PLATFORM_DB, withTransaction } from '@/core/database';
 import type { PlatformDatabase, PlatformDbOrTx, PlatformTransaction } from '@/core/database';
-import { tenantDomains, tenants } from '@/db/platform/schema';
+import { notDeleted, tenantDomains, tenants } from '@/db/platform/schema';
 import type { TenantRow, TenantStatus } from '@/db/platform/schema';
 
 export interface TenantWithDomains extends TenantRow {
@@ -57,7 +57,7 @@ export class PlatformTenantRepository {
     const [row] = await tx
       .select({ id: tenants.id })
       .from(tenants)
-      .where(and(eq(tenants.id, id), isNull(tenants.deletedAt)))
+      .where(and(eq(tenants.id, id), notDeleted(tenants)))
       .for('update');
     return row !== undefined;
   }
@@ -79,11 +79,7 @@ export class PlatformTenantRepository {
       .update(tenants)
       .set({ status: 'failed', provisionError: reason, updatedAt: new Date() })
       .where(
-        and(
-          eq(tenants.status, 'provisioning'),
-          lt(tenants.updatedAt, cutoff),
-          isNull(tenants.deletedAt),
-        ),
+        and(eq(tenants.status, 'provisioning'), lt(tenants.updatedAt, cutoff), notDeleted(tenants)),
       )
       .returning();
   }
@@ -91,7 +87,7 @@ export class PlatformTenantRepository {
   async list(filter: TenantListFilter): Promise<{ items: TenantWithDomains[]; total: number }> {
     const pattern = filter.q ? `%${escapeLike(filter.q)}%` : undefined;
     const where = and(
-      isNull(tenants.deletedAt),
+      notDeleted(tenants),
       filter.status ? eq(tenants.status, filter.status) : undefined,
       pattern
         ? or(
@@ -128,7 +124,7 @@ export class PlatformTenantRepository {
     const [row] = await this.db
       .select()
       .from(tenants)
-      .where(and(eq(tenants.id, id), isNull(tenants.deletedAt)))
+      .where(and(eq(tenants.id, id), notDeleted(tenants)))
       .limit(1);
     return row ? (await this.withDomains([row]))[0] : undefined;
   }
@@ -137,7 +133,7 @@ export class PlatformTenantRepository {
     const [row] = await this.db
       .select({ id: tenants.id })
       .from(tenants)
-      .where(and(eq(tenants.code, code), isNull(tenants.deletedAt)))
+      .where(and(eq(tenants.code, code), notDeleted(tenants)))
       .limit(1);
     return row !== undefined;
   }
@@ -199,7 +195,7 @@ export class PlatformTenantRepository {
       .where(
         and(
           eq(tenants.id, id),
-          isNull(tenants.deletedAt),
+          notDeleted(tenants),
           from ? inArray(tenants.status, [...from]) : undefined,
         ),
       )

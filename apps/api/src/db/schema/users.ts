@@ -39,6 +39,10 @@ export const users = pgTable(
 
     mfaEnabled: boolean('mfa_enabled').notNull().default(false), // 預留
 
+    // 樂觀鎖：可編輯的欄位（username、displayName、status、locale、timezone）每次寫入遞增；
+    // 登入計數、鎖定、密碼、token_version 之類的帳號狀態不遞增（ADR-0025 D3）
+    version: integer('version').notNull().default(1),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid('created_by'),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

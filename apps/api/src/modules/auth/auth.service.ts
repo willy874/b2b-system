@@ -500,7 +500,8 @@ export class AuthService {
           passwordHash,
           failedLoginCount: 0,
           lockedUntil: null,
-          status: user.status === 'locked' ? 'active' : user.status,
+          // 只有真的改變狀態時才帶：帶了 status 就會遞增樂觀鎖的 version（UserService.updateAccount）
+          ...(user.status === 'locked' ? { status: 'active' as const } : {}),
         },
         tx,
       );

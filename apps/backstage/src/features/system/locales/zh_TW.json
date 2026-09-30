@@ -5,7 +5,9 @@
     "category": {
       "general": "一般",
       "auth": "帳號與登入",
-      "file": "檔案"
+      "file": "檔案",
+      "trash": "回收桶",
+      "revision": "版本紀錄"
     },
     "field": {
       "defaultTimezone": {
@@ -39,6 +41,18 @@
       "uploadMaxSize": {
         "label": "單一檔案上限",
         "description": "上傳檔案的大小上限，不能超過部署設定的上限。"
+      },
+      "retentionDays": {
+        "label": "保留天數",
+        "description": "刪除的項目在回收桶裡保留這麼多天，之後每天的排程會永久刪除它們，無法再還原。"
+      },
+      "keepVersions": {
+        "label": "保留最新版本數",
+        "description": "每個項目至少保留最新的這麼多版，不論多久以前。"
+      },
+      "keepDays": {
+        "label": "保留天數",
+        "description": "這麼多天內的版本一律保留。同時超過版本數與天數的舊版本由每天的排程刪除，刪除後無法再檢視或還原。"
       }
     },
     "unit": {
@@ -46,7 +60,9 @@
       "seconds": "秒",
       "hours": "小時",
       "characters": "個字元",
-      "mebibytes": "MiB"
+      "mebibytes": "MiB",
+      "days": "天",
+      "versions": "版"
     },
     "boolean": {
       "on": "開啟",

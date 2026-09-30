@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { UpdateRolePermissionsSchema } from '../update-role.dto';
+import { UpdateRolePermissionsSchema, UpdateRoleSchema } from '../update-role.dto';
 
 describe('UpdateRolePermissionsSchema', () => {
   it('同一個權限同時在 add 與 remove → 驗證失敗', () => {
@@ -25,5 +25,24 @@ describe('UpdateRolePermissionsSchema', () => {
       add: [],
       remove: ['user:read'],
     });
+  });
+});
+
+describe('UpdateRoleSchema', () => {
+  it('只帶 version（樂觀鎖）不算有要改的欄位 → 驗證失敗', () => {
+    expect(UpdateRoleSchema.safeParse({ version: 2 }).success).toBe(false);
+  });
+
+  it('欄位 ＋ version → 通過；version 選填（ADR-0025 D4 的 R1）', () => {
+    expect(UpdateRoleSchema.parse({ name: 'Editor', version: 2 })).toEqual({
+      name: 'Editor',
+      version: 2,
+    });
+    expect(UpdateRoleSchema.safeParse({ name: 'Editor' }).success).toBe(true);
+  });
+
+  it('version 必須是 ≥ 1 的整數', () => {
+    expect(UpdateRoleSchema.safeParse({ name: 'Editor', version: 0 }).success).toBe(false);
+    expect(UpdateRoleSchema.safeParse({ name: 'Editor', version: 1.5 }).success).toBe(false);
   });
 });

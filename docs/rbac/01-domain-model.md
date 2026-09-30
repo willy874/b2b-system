@@ -188,7 +188,7 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 | I3  | 未刪除的 `roles.slug` / `roles.name` 唯一（name 不分大小寫） | partial `UNIQUE INDEX ... WHERE deleted_at IS NULL`（name 用 `lower(name)`） |
 | I4  | 未刪除的 `users.email` / `users.username` 唯一 | 同上                                                 |
 | I5  | 持有角色、角色的權限鍵無重複                   | `relation_tuples` 的六欄唯一索引                     |
-| I6  | 刪除角色時連帶撤銷其指派                       | 角色軟刪除，同一個交易刪掉它的持有者邊；權限鍵邊與資料夾授權留著，解析時略過已刪除的角色 |
+| I6  | 刪除角色時連帶撤銷其指派                       | 角色軟刪除；持有者邊、權限鍵邊與資料夾授權都留著，解析與使用者端的讀取略過已刪除的角色（休眠的邊）。還原角色時原本的持有者自動回來；永久刪除時才刪掉所有邊（[ADR-0025](../adr/0025-entity-revisions.md) D2，[`13-trash.md`](../architecture/backend/13-trash.md) §6） |
 | I7  | **系統角色不可刪除**                           | Service 層檢查 ＋ DB trigger（雙保險；硬刪除與軟刪除 `deleted_at` 都擋） |
 | I8  | **系統中永遠至少有一個可用的 super-admin**     | 刪除／停用／拔角色時，Service 在寫入的交易內以 advisory lock 序列化後計數（[`05-rbac.md`](../architecture/backend/05-rbac.md) §8.2）；只有 super-admin 能管理 super-admin；登入失敗的鎖定不改 `status`，不會讓 super-admin 變成不可用 |
 | I9  | 使用者不能修改／刪除自己的帳號狀態與角色       | Service 層檢查（`actorId === targetId` → 403）       |
@@ -205,9 +205,11 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 | 操作                      | super-admin                     | 其他系統角色（admin / auditor / member） |
 | ------------------------- | ------------------------------- | ---------------------------------------- |
 | 刪除                      | ❌ `ROLE_SYSTEM_PROTECTED`      | ❌ `ROLE_SYSTEM_PROTECTED`               |
+| 還原（`POST /roles/:id/restore`） | —（刪不掉，不會進回收桶）  | —                                        |
 | 改 `slug`                 | ❌                              | ❌                                       |
 | 改 `name` / `description` | ❌ `ROLE_SUPER_ADMIN_IMMUTABLE` | ✅                                       |
 | 改權限                    | ❌ `ROLE_SUPER_ADMIN_IMMUTABLE` | ✅（仍受反提權限制）                     |
+| 還原到某一版（`POST /roles/:id/revisions/:version/revert`） | ❌ `ROLE_SUPER_ADMIN_IMMUTABLE` | ✅ API 允許（前端不提供，與編輯按鈕相同） |
 | 指派給使用者              | ✅                              | ✅                                       |
 | 複製成新角色              | ✅（複本是一般角色）            | ✅                                       |
 

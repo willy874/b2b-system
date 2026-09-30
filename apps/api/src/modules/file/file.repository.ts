@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { Inject, Injectable } from '@nestjs/common';
 import {
   and,
@@ -16,11 +18,12 @@ import {
   sql,
 } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { TENANT_DB } from '@/core/database';
+import { containsPattern, TENANT_DB } from '@/core/database';
 import type { FileInsert, FileRow, FileVariantStatus } from '@/db/schema';
-import { files, users } from '@/db/schema';
+import { fileFolders, files, isDeleted, notDeleted, relationTuples, users } from '@/db/schema';
 
 import type { ListFileDto } from './dto/list-file.dto';
 import { FILE_CATEGORY_RULES } from './file.constants';
@@ -30,6 +33,33 @@ import type { FileCursor } from './file.cursor';
 export interface FileWithUploader extends FileRow {
   uploader: { id: string; displayName: string } | null;
 }
+
+/** 回收桶的一列（`listDeleted`）；刪除者取自刪除時寫入的 `updated_by`（刪除之後不再有人更新這一列）。 */
+export interface DeletedFileRow {
+  id: string;
+  name: string;
+  folderId: string | null;
+  deletedAt: Date;
+  deletedBy: { id: string; name: string } | null;
+}
+
+/** 刪除者：`users` 的別名。 */
+const deleter = alias(users, 'deleter');
+
+/**
+ * 個別刪除的檔案：所在的資料夾不是 **同一次刪除** 刪掉的（ADR-0025 D5）。跟著資料夾一起刪除的檔案屬於那個資料夾的批次，
+ * 在回收桶只列資料夾，還原資料夾時一起回來。R4a 之前刪除的列 `deletion_id` 是 null，以 `IS NOT DISTINCT FROM`
+ * 比對：舊的遞迴刪除（資料夾與檔案都是 null）同樣視為同一批。
+ */
+const DELETED_ON_ITS_OWN = sql`NOT EXISTS (
+  SELECT 1 FROM ${fileFolders} AS container
+  WHERE container.id = ${files.folderId}
+    AND container.deleted_at IS NOT NULL
+    AND container.deletion_id IS NOT DISTINCT FROM ${files.deletionId}
+)`;
+
+/** 關係圖上檔案的物件型別（file.authz.ts 的 `FILE_TYPE`）。 */
+const FILE_OBJECT_TYPE = 'file';
 
 const SORT_COLUMNS = {
   createdAt: files.createdAt,
@@ -74,7 +104,7 @@ export class FileRepository {
   /** 未刪除的檔案（含 pending）。 */
   async findById(id: string): Promise<FileWithUploader | undefined> {
     const [row] = await this.selectWithUploader()
-      .where(and(eq(files.id, id), isNull(files.deletedAt)))
+      .where(and(eq(files.id, id), notDeleted(files)))
       .limit(1);
     return row && FileRepository.toFileWithUploader(row);
   }
@@ -97,7 +127,7 @@ export class FileRepository {
     if (scope?.folderIds.length === 0) {
       return { items: [], total: after ? null : 0, lastCreatedAt: undefined };
     }
-    const conditions: SQL[] = [isNull(files.deletedAt), eq(files.status, 'ready')];
+    const conditions: SQL[] = [notDeleted(files), eq(files.status, 'ready')];
     if (scope) conditions.push(inArray(files.folderId, [...scope.folderIds]));
     if (query.keyword) conditions.push(ilike(files.name, `%${escapeLike(query.keyword)}%`));
     if (query.contentType) {
@@ -176,7 +206,7 @@ export class FileRepository {
     const [row] = await db
       .update(files)
       .set({ ...values, status: 'ready', uploadId: null })
-      .where(and(eq(files.id, id), eq(files.status, 'pending'), isNull(files.deletedAt)))
+      .where(and(eq(files.id, id), eq(files.status, 'pending'), notDeleted(files)))
       .returning();
     return row;
   }
@@ -192,7 +222,7 @@ export class FileRepository {
     tx?: DbOrTx,
   ): Promise<FileRow | undefined> {
     const db = tx ?? this.db;
-    const conditions = [eq(files.id, id), isNull(files.deletedAt)];
+    const conditions = [eq(files.id, id), notDeleted(files)];
     if (expectedVersion !== undefined) conditions.push(eq(files.version, expectedVersion));
     const [row] = await db
       .update(files)
@@ -200,6 +230,16 @@ export class FileRepository {
       .where(and(...conditions))
       .returning();
     return row;
+  }
+
+  /** 未刪除的檔案目前的 `version`；不存在或已刪除回 undefined（改名的樂觀鎖衝突時重讀）。 */
+  async findVersion(id: string, tx?: DbOrTx): Promise<number | undefined> {
+    const [row] = await (tx ?? this.db)
+      .select({ version: files.version })
+      .from(files)
+      .where(and(eq(files.id, id), notDeleted(files)))
+      .limit(1);
+    return row?.version;
   }
 
   /**
@@ -214,8 +254,9 @@ export class FileRepository {
     const db = tx ?? this.db;
     const [row] = await db
       .update(files)
-      .set({ deletedAt: new Date(), updatedBy: actorId })
-      .where(and(eq(files.id, id), eq(files.status, 'pending'), isNull(files.deletedAt)))
+      // 放棄的上傳從未對其他人可見，不進回收桶（列表只列 ready），仍照規則帶自己的 deletion_id
+      .set({ deletedAt: new Date(), updatedBy: actorId, deletionId: randomUUID() })
+      .where(and(eq(files.id, id), eq(files.status, 'pending'), notDeleted(files)))
       .returning();
     return row;
   }
@@ -228,7 +269,7 @@ export class FileRepository {
     const [row] = await this.db
       .update(files)
       .set({ ...values, variantStatus: 'ready' })
-      .where(and(eq(files.id, id), eq(files.variantStatus, 'pending'), isNull(files.deletedAt)))
+      .where(and(eq(files.id, id), eq(files.variantStatus, 'pending'), notDeleted(files)))
       .returning();
     return row;
   }
@@ -248,7 +289,7 @@ export class FileRepository {
       .where(
         and(
           eq(files.variantStatus, 'pending'),
-          isNull(files.deletedAt),
+          notDeleted(files),
           lt(files.uploadedAt, uploadedBefore),
         ),
       )
@@ -265,7 +306,7 @@ export class FileRepository {
   ): Promise<Pick<FileRow, 'id' | 'storageKey' | 'uploadId'>[]> {
     const conditions = [
       eq(files.status, 'pending'),
-      isNull(files.deletedAt),
+      notDeleted(files),
       lt(files.createdAt, createdBefore),
     ];
     if (afterId) conditions.push(gt(files.id, afterId));
@@ -277,13 +318,16 @@ export class FileRepository {
       .limit(limit);
   }
 
-  /** 這些 id 之中還沒刪除的（含 pending）。 */
-  async findLiveIds(ids: readonly string[]): Promise<Set<string>> {
+  /**
+   * 這些 id 之中有紀錄的（含 pending 與 **已軟刪除** 的）。維護排程的孤兒判定（docs/architecture/backend/09-file.md §9）：
+   * 已刪除紀錄的物件要留到回收桶的保留期限結束，由 `trash.purge` 在永久刪除後清掉（ADR-0025 D11）。
+   */
+  async findRecordedIds(ids: readonly string[]): Promise<Set<string>> {
     if (ids.length === 0) return new Set();
     const rows = await this.db
       .select({ id: files.id })
       .from(files)
-      .where(and(inArray(files.id, [...ids]), isNull(files.deletedAt)));
+      .where(inArray(files.id, [...ids]));
     return new Set(rows.map((row) => row.id));
   }
 
@@ -294,23 +338,192 @@ export class FileRepository {
       .select({ uploadId: files.uploadId })
       .from(files)
       .where(
-        and(
-          inArray(files.uploadId, [...uploadIds]),
-          isNotNull(files.uploadId),
-          isNull(files.deletedAt),
-        ),
+        and(inArray(files.uploadId, [...uploadIds]), isNotNull(files.uploadId), notDeleted(files)),
       );
     return new Set(rows.flatMap((row) => (row.uploadId ? [row.uploadId] : [])));
   }
 
-  async softDelete(id: string, actorId: string, tx?: DbOrTx): Promise<FileRow | undefined> {
+  /** 刪除一個檔案；`deletionId` 是這一次刪除的識別（ADR-0025 D5）。 */
+  async softDelete(
+    id: string,
+    values: { actorId: string; deletionId: string },
+    tx?: DbOrTx,
+  ): Promise<FileRow | undefined> {
     const db = tx ?? this.db;
     const [row] = await db
       .update(files)
-      .set({ deletedAt: new Date(), updatedBy: actorId })
-      .where(and(eq(files.id, id), isNull(files.deletedAt)))
+      .set({ deletedAt: new Date(), updatedBy: values.actorId, deletionId: values.deletionId })
+      .where(and(eq(files.id, id), notDeleted(files)))
       .returning();
     return row;
+  }
+
+  // ── 回收桶與還原（ADR-0025 D5、D9、D11）：這一段故意讀已刪除的列，一律用 isDeleted() ──
+
+  /** 已刪除的檔案（含放棄的上傳）；不存在或沒有被刪除回 undefined。 */
+  async findDeletedById(id: string, tx?: DbOrTx): Promise<FileRow | undefined> {
+    const [row] = await (tx ?? this.db)
+      .select()
+      .from(files)
+      .where(and(eq(files.id, id), isDeleted(files)))
+      .limit(1);
+    return row;
+  }
+
+  /**
+   * 同一次刪除（`deletionId`，null 是 R4a 之前的刪除）、在這些資料夾裡、已完成上傳的檔案：還原資料夾時一起回來的候選。
+   * 上傳中被刪掉的（`pending`）不還原：直傳網址早已過期，只能重新上傳。
+   */
+  async findDeletedInBatch(
+    folderIds: readonly string[],
+    deletionId: string | null,
+    tx?: DbOrTx,
+  ): Promise<FileRow[]> {
+    if (folderIds.length === 0) return [];
+    return (tx ?? this.db)
+      .select()
+      .from(files)
+      .where(
+        and(
+          inArray(files.folderId, [...folderIds]),
+          isDeleted(files),
+          eq(files.status, 'ready'),
+          sql`${files.deletionId} IS NOT DISTINCT FROM ${deletionId}::uuid`,
+        ),
+      );
+  }
+
+  /**
+   * 清掉 `deleted_at` 與 `deletion_id`（只在仍是同一批已刪除、已完成上傳時；並行的兩個還原只有一個命中）。
+   * 刪除期間消失的附屬物件另由 `clearThumbnail`、`resetVariants` 修正。
+   * `version` 不遞增：與刪除一樣不是可編輯欄位的寫入（docs/architecture/backend/03-api-conventions.md §11）。
+   */
+  async restore(
+    ids: readonly string[],
+    values: { actorId: string; deletionId: string | null },
+    tx: DbOrTx,
+  ): Promise<FileRow[]> {
+    if (ids.length === 0) return [];
+    return tx
+      .update(files)
+      .set({ deletedAt: null, deletionId: null, updatedBy: values.actorId })
+      .where(
+        and(
+          inArray(files.id, [...ids]),
+          isDeleted(files),
+          eq(files.status, 'ready'),
+          sql`${files.deletionId} IS NOT DISTINCT FROM ${values.deletionId}::uuid`,
+        ),
+      )
+      .returning();
+  }
+
+  /** 還原時發現瀏覽器縮圖已不在：不再發縮圖網址。 */
+  async clearThumbnail(ids: readonly string[], tx: DbOrTx): Promise<void> {
+    if (ids.length === 0) return;
+    await tx
+      .update(files)
+      .set({ hasThumbnail: false })
+      .where(inArray(files.id, [...ids]));
+  }
+
+  /** 還原時發現影像變體已不在：回到 `pending`，重新產生（`files_variant_ready_described` 只約束 `ready`）。 */
+  async resetVariants(ids: readonly string[], tx: DbOrTx): Promise<void> {
+    if (ids.length === 0) return;
+    await tx
+      .update(files)
+      .set({ variantStatus: 'pending', imageWidth: null, imageHeight: null, variantFormat: null })
+      .where(inArray(files.id, [...ids]));
+  }
+
+  /**
+   * 回收桶：個別刪除、已完成上傳的檔案（跟著資料夾一起刪的只列資料夾，`DELETED_ON_ITS_OWN`）。
+   * 放棄的上傳（`pending`）從未對其他人可見，不列。
+   */
+  async listDeleted(query: {
+    offset: number;
+    limit: number;
+    keyword?: string;
+  }): Promise<{ items: DeletedFileRow[]; total: number }> {
+    const conditions: SQL[] = [isDeleted(files), eq(files.status, 'ready'), DELETED_ON_ITS_OWN];
+    if (query.keyword) conditions.push(ilike(files.name, containsPattern(query.keyword)));
+    const where = and(...conditions);
+    const [rows, [counted]] = await Promise.all([
+      this.db
+        .select({
+          id: files.id,
+          name: files.name,
+          folderId: files.folderId,
+          deletedAt: files.deletedAt,
+          deleterId: deleter.id,
+          deleterName: deleter.displayName,
+        })
+        .from(files)
+        .leftJoin(deleter, eq(deleter.id, files.updatedBy))
+        .where(where)
+        .orderBy(desc(files.deletedAt), desc(files.id))
+        .limit(query.limit)
+        .offset(query.offset),
+      this.db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(files)
+        .where(where),
+    ]);
+    return {
+      items: rows.flatMap(({ deleterId, deleterName, deletedAt, ...row }) =>
+        deletedAt
+          ? [
+              {
+                ...row,
+                deletedAt,
+                deletedBy: deleterId && deleterName ? { id: deleterId, name: deleterName } : null,
+              },
+            ]
+          : [],
+      ),
+      total: counted?.total ?? 0,
+    };
+  }
+
+  /**
+   * 刪除超過保留期限的檔案（依 id 的 keyset；ADR-0025 D11）。含放棄的上傳與跟著資料夾一起刪的檔案：
+   * 它們都要先清掉，資料夾（`files.folder_id` 是 `RESTRICT`）才刪得掉。
+   */
+  async findExpired(
+    cutoff: Date,
+    afterId: string | null,
+    limit: number,
+  ): Promise<Array<{ id: string; name: string; deletedAt: Date }>> {
+    const rows = await this.db
+      .select({ id: files.id, name: files.name, deletedAt: files.deletedAt })
+      .from(files)
+      .where(
+        and(
+          isDeleted(files),
+          lt(files.deletedAt, cutoff),
+          afterId ? gt(files.id, afterId) : undefined,
+        ),
+      )
+      .orderBy(asc(files.id))
+      .limit(limit);
+    return rows.flatMap(({ deletedAt, ...row }) => (deletedAt ? [{ ...row, deletedAt }] : []));
+  }
+
+  /**
+   * 永久刪除一個已刪除的檔案（在呼叫端的交易內；docs/architecture/backend/13-trash.md §7.3）。沒有任何表以外鍵參照 `files`；
+   * 關係圖以它為物件的邊（目前沒有，檔案的結構邊是臨時補上的）照規則一併刪除。物件儲存的內容由 handler 在交易提交後刪除。
+   * 回傳是否刪到（已被還原或已不在就是 false）。
+   */
+  async hardDelete(id: string, tx: DbOrTx): Promise<boolean> {
+    const [row] = await tx
+      .delete(files)
+      .where(and(eq(files.id, id), isDeleted(files)))
+      .returning({ id: files.id });
+    if (!row) return false;
+    await tx
+      .delete(relationTuples)
+      .where(and(eq(relationTuples.objectType, FILE_OBJECT_TYPE), eq(relationTuples.objectId, id)));
+    return true;
   }
 }
 

@@ -78,6 +78,34 @@
       "when": 1790769830912,
       "tag": "0010_drop_legacy_authz_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790773360114,
+      "tag": "0011_entity_version",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790776530552,
+      "tag": "0012_roles_authz_revision",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790778028559,
+      "tag": "0013_file_deletion_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790779584373,
+      "tag": "0014_revisions",
+      "breakpoints": true
     }
   ]
 }

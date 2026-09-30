@@ -48,7 +48,7 @@ export type BatchClientMessage =
 export type BatchHostMessage =
   | { type: 'welcome'; hostId: string }
   /** 請這個分頁以一般 API 處理一筆；處理完回 `result`。 */
-  | { type: 'execute'; jobId: string; operation: string; itemId: string }
+  | { type: 'execute'; jobId: string; operation: string; itemId: string; version?: number }
   /** 工作被取消：中止正在這個分頁處理的那一筆（它會以 `aborted` 的結果回來）。 */
   | { type: 'abort'; jobId: string; itemId: string }
   /** 工作結束（完成或取消）：只送給一個分頁，由它彈出結果。 */

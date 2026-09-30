@@ -19,6 +19,7 @@ import {
 import type { PermissionKey } from './permissions';
 import { PERMISSION_SEED, permissionClosure } from './permissions';
 import { seedPlatformAdmin } from './platform-admin';
+import { recordRoleBaseline } from './role-revisions';
 import { ROLE_SEED } from './roles';
 import { seedSuperAdmin } from './super-admin';
 
@@ -81,6 +82,8 @@ export async function seedRoles(db: ScriptDatabase): Promise<void> {
 
     if (seed.permissions === '*') await ensureSuperAdminTuple(db, created.id);
     else if (seed.permissions.length) await grantPermissions(db, created.id, seed.permissions);
+    // oxlint-disable-next-line no-await-in-loop -- seed 腳本，系統角色只有幾個，依序執行
+    await recordRoleBaseline(db, created, seed.permissions === '*' ? [] : seed.permissions);
     console.info(`系統角色 ${seed.slug} 已建立`);
   }
 }

@@ -4,15 +4,18 @@ import type { AuthUser } from '@/common/types';
 import type { Database } from '@/core/database';
 import { AppException } from '@/core/errors';
 import type { DomainEventBus } from '@/core/events';
-import type { FileFolderRow } from '@/db/schema';
+import type { FileFolderRow, FileRow } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 
 import type { FileAccessRequestService } from '../file-access-request.service';
 import { FileFolderTree } from '../file-folder-tree';
-import type { FileFolderRepository } from '../file-folder.repository';
+import type { DeletionStamp, FileFolderRepository } from '../file-folder.repository';
 import { FileFolderService } from '../file-folder.service';
 import type { GrantLevel } from '../file-grant.levels';
+import type { FileImageService } from '../file-image.service';
+import type { FileObjectProbe, FileObjectsService } from '../file-objects.service';
 import { MAX_FOLDER_DEPTH } from '../file.constants';
+import type { FileRepository } from '../file.repository';
 import type { LevelGrant } from './file-access.fixture';
 import { createFileAccess } from './file-access.fixture';
 import type { AccessFixtureOptions } from './file-access.fixture';
@@ -60,6 +63,7 @@ function setup(
       updatedAt: now,
       updatedBy: ALICE.id,
       deletedAt: null,
+      deletionId: null,
     };
     folders.set(row.id, row);
     return row;
@@ -142,14 +146,54 @@ function setup(
       }),
     ),
     moveFiles: vi.fn(async (fileIds: string[]) => fileIds.length),
-    softDelete: vi.fn(async (ids: string[]) => {
+    softDelete: vi.fn(async (ids: string[], stamp: DeletionStamp) => {
       for (const id of ids) {
         const row = folders.get(id);
-        if (row) row.deletedAt = now;
+        if (row && !row.deletedAt) {
+          row.deletedAt = stamp.deletedAt;
+          row.deletionId = stamp.deletionId;
+        }
       }
       return ids.length;
     }),
-    softDeleteFilesIn: vi.fn(async (_folderIds: string[]) => 3),
+    findDeletedById: vi.fn(async (id: string) => {
+      const row = folders.get(id);
+      return row?.deletedAt ? row : undefined;
+    }),
+    isDeletedOrGone: vi.fn(async (id: string) => !live().some((row) => row.id === id)),
+    // 從根往下，只走已刪除、deletion_id 相同的（null 與 null 視為相同）
+    findDeletedBatchIds: vi.fn(async (rootId: string, deletionId: string | null) => {
+      const root = folders.get(rootId);
+      if (!root?.deletedAt) return [];
+      const result = [rootId];
+      for (let index = 0; index < result.length; index += 1) {
+        for (const row of folders.values()) {
+          if (row.parentId === result[index] && row.deletedAt && row.deletionId === deletionId) {
+            result.push(row.id);
+          }
+        }
+      }
+      return result;
+    }),
+    restore: vi.fn(async (ids: string[], values: { deletionId: string | null }) =>
+      ids.flatMap((id) => {
+        const row = folders.get(id);
+        if (!row?.deletedAt || row.deletionId !== values.deletionId) return [];
+        row.deletedAt = null;
+        row.deletionId = null;
+        return [row];
+      }),
+    ),
+    findSiblingId: vi.fn(
+      async (parentId: string | null, name: string, exceptId?: string) =>
+        live().find(
+          (row) =>
+            row.parentId === parentId &&
+            row.name.toLowerCase() === name.toLowerCase() &&
+            row.id !== exceptId,
+        )?.id,
+    ),
+    softDeleteFilesIn: vi.fn(async (_folderIds: string[], _stamp: DeletionStamp) => 3),
     hasSibling: vi.fn(async (parentId: string | null, name: string, exceptId?: string) =>
       live().some(
         (row) =>
@@ -173,6 +217,15 @@ function setup(
       })),
   });
   const requests = { pendingFolderIdsOf: vi.fn(async () => new Set<string>()) };
+  // 資料夾的規則是這裡的重點；同一批的檔案由各測試自己指定
+  const fileRepo = {
+    findDeletedInBatch: vi.fn(async (): Promise<FileRow[]> => []),
+    restore: vi.fn(async (ids: string[]) => ids.map((id) => ({ id }) as FileRow)),
+    clearThumbnail: vi.fn(async () => undefined),
+    resetVariants: vi.fn(async () => undefined),
+  };
+  const objects = { probe: vi.fn(async () => new Map<string, FileObjectProbe>()) };
+  const images = { schedule: vi.fn() };
   const service = new FileFolderService(
     db as unknown as Database,
     repo as unknown as FileFolderRepository,
@@ -181,8 +234,23 @@ function setup(
     fixture.access,
     requests as unknown as FileAccessRequestService,
     new FileFolderTree(db as unknown as Database, repo as unknown as FileFolderRepository),
+    fileRepo as unknown as FileRepository,
+    objects as unknown as FileObjectsService,
+    images as unknown as FileImageService,
   );
-  return { service, repo, audit, events, idOf, folders: live, denials: fixture.audit };
+  return {
+    service,
+    repo,
+    fileRepo,
+    objects,
+    images,
+    audit,
+    events,
+    idOf,
+    folders: live,
+    all: folders,
+    denials: fixture.audit,
+  };
 }
 
 async function expectAppError(promise: Promise<unknown>, code: string) {
@@ -571,5 +639,133 @@ describe('FileFolderService 的資料夾層級授權（docs/rbac/07-resource-gra
     const error = await service.remove(idOf('sub'), ALICE).catch((e: unknown) => e);
     expect((error as AppException).details).toMatchObject({ reason: 'protected-subfolder' });
     expect(folders()).toHaveLength(3);
+  });
+});
+
+/** 同一批刪除的檔案（還原只看 id；其他欄位由 repository 處理）。 */
+function file(id: string): FileRow {
+  return { id } as FileRow;
+}
+
+describe('FileFolderService.restore（docs/architecture/backend/13-trash.md §7.1、ADR-0025 D5）', () => {
+  it('刪除時資料夾與檔案帶同一個 deletion_id 與時間', async () => {
+    const { service, repo, idOf } = setup([{ name: 'a' }, { name: 'b', parent: 'a' }]);
+    await service.remove(idOf('a'), ALICE);
+    const folderStamp = repo.softDelete.mock.calls[0]?.[1];
+    const fileStamp = repo.softDeleteFilesIn.mock.calls[0]?.[1];
+    expect(folderStamp).toEqual(fileStamp);
+    expect(folderStamp).toMatchObject({ actorId: ALICE.id, deletionId: expect.any(String) });
+  });
+
+  it('只還原同一次刪除的子樹：之前個別刪掉的子資料夾維持刪除', async () => {
+    const { service, idOf, folders, audit } = setup([
+      { name: 'a' },
+      { name: 'b', parent: 'a' },
+      { name: 'c', parent: 'a' },
+      { name: 'd', parent: 'c' },
+    ]);
+    await service.remove(idOf('b'), ALICE);
+    await service.remove(idOf('a'), ALICE);
+
+    const restored = await service.restore(idOf('a'), ALICE);
+    expect(restored).toMatchObject({ name: 'a', foldersRestored: 3, filesRestored: 0 });
+    expect(
+      folders()
+        .map((row) => row.name)
+        .toSorted(),
+    ).toEqual(['a', 'c', 'd']);
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'fileFolder.restore', resourceId: idOf('a') }),
+      'tx',
+    );
+  });
+
+  it('物件已不在的檔案維持刪除（filesSkipped），其他照常還原並修正縮圖／變體', async () => {
+    const { service, idOf, fileRepo, objects, images } = setup([{ name: 'a' }]);
+    await service.remove(idOf('a'), ALICE);
+    fileRepo.findDeletedInBatch.mockResolvedValue([file('f1'), file('f2'), file('f3')]);
+    objects.probe.mockResolvedValue(
+      new Map([
+        ['f1', { original: true, thumbnailLost: true, variantsLost: false }],
+        ['f2', { original: true, thumbnailLost: false, variantsLost: true }],
+        ['f3', { original: false, thumbnailLost: false, variantsLost: false }],
+      ]),
+    );
+
+    const restored = await service.restore(idOf('a'), ALICE);
+    expect(restored).toMatchObject({ filesRestored: 2, filesSkipped: 1 });
+    expect(fileRepo.restore.mock.calls[0]?.[0]).toEqual(['f1', 'f2']);
+    expect(fileRepo.clearThumbnail).toHaveBeenCalledWith(['f1'], 'tx');
+    expect(fileRepo.resetVariants).toHaveBeenCalledWith(['f2'], 'tx');
+    expect(images.schedule).toHaveBeenCalledWith('f2');
+  });
+
+  it('上層已刪除 → FILE_FOLDER_RESTORE_CONFLICT（parentDeleted）', async () => {
+    const { service, idOf } = setup([{ name: 'a' }, { name: 'b', parent: 'a' }]);
+    await service.remove(idOf('a'), ALICE);
+    const error = await service.restore(idOf('b'), ALICE).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(AppException);
+    expect((error as AppException).code).toBe('FILE_FOLDER_RESTORE_CONFLICT');
+    expect((error as AppException).details).toEqual({
+      reason: 'parentDeleted',
+      parentType: 'fileFolder',
+      parentId: idOf('a'),
+    });
+  });
+
+  it('同一層已有同名的資料夾 → FILE_FOLDER_NAME_CONFLICT（帶 conflictingId）', async () => {
+    const { service, idOf } = setup([{ name: 'a' }]);
+    const deleted = idOf('a');
+    await service.remove(deleted, ALICE);
+    const taken = await service.create({ name: 'A', parentId: null }, ALICE);
+    const error = await service.restore(deleted, ALICE).catch((e: unknown) => e);
+    expect((error as AppException).code).toBe('FILE_FOLDER_NAME_CONFLICT');
+    expect((error as AppException).details).toMatchObject({ conflictingId: taken.id });
+  });
+
+  it('沒有被刪除 → FILE_FOLDER_NOT_DELETED；不存在 → FILE_FOLDER_NOT_FOUND', async () => {
+    const { service, idOf } = setup([{ name: 'a' }]);
+    await expectAppError(service.restore(idOf('a'), ALICE), 'FILE_FOLDER_NOT_DELETED');
+    await expectAppError(service.restore(uuid(), ALICE), 'FILE_FOLDER_NOT_FOUND');
+  });
+
+  it('系統資料夾只由系統刪除，不能還原 → FILE_FOLDER_SYSTEM_PROTECTED', async () => {
+    const { service, idOf, all, repo } = setup([{ name: 'personal' }]);
+    const row = all.get(idOf('personal'));
+    if (row) row.kind = 'personal';
+    await repo.softDelete([idOf('personal')], {
+      actorId: null,
+      deletionId: uuid(),
+      deletedAt: new Date(),
+    });
+    await expectAppError(service.restore(idOf('personal'), ALICE), 'FILE_FOLDER_SYSTEM_PROTECTED');
+  });
+
+  it('權限以還原後的結構照刪除的規則判斷：自己建立的可以還原；子樹有別人的東西 → AUTHZ_FORBIDDEN（not-owner）', async () => {
+    const holder: { grants: LevelGrant[] } = { grants: [] };
+    const env = setup(
+      [
+        { name: 'art' },
+        { name: 'mine', parent: 'art' },
+        { name: 'mixed', parent: 'art' },
+        { name: 'bobs', parent: 'mixed', createdBy: BOB_ID },
+      ],
+      { global: [], grants: holder.grants },
+    );
+    holder.grants.push({ resourceId: env.idOf('art'), level: 'contributor' });
+    await env.service.remove(env.idOf('mine'), ALICE);
+    await expect(env.service.restore(env.idOf('mine'), ALICE)).resolves.toMatchObject({
+      name: 'mine',
+    });
+
+    // 別人（有權限的人）刪掉的混合子樹：只靠擁有者規則的人不能還原
+    await env.repo.softDelete([env.idOf('mixed'), env.idOf('bobs')], {
+      actorId: BOB_ID,
+      deletionId: uuid(),
+      deletedAt: new Date(),
+    });
+    const error = await env.service.restore(env.idOf('mixed'), ALICE).catch((e: unknown) => e);
+    expect((error as AppException).code).toBe('AUTHZ_FORBIDDEN');
+    expect((error as AppException).details).toMatchObject({ reason: 'not-owner' });
   });
 });

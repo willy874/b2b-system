@@ -1,5 +1,7 @@
 /** Postgres 唯一鍵衝突（23505）：service 的預檢查與 INSERT 之間有競態。 */
 const UNIQUE_VIOLATION = '23505';
+/** Postgres 外鍵違反（23503）：例如硬刪除仍被 `ON DELETE RESTRICT` 參照的列。 */
+const FOREIGN_KEY_VIOLATION = '23503';
 
 interface PostgresError {
   code?: string;
@@ -17,6 +19,10 @@ function asPostgresError(error: unknown): PostgresError | undefined {
 
 export function isUniqueViolation(error: unknown): boolean {
   return asPostgresError(error)?.code === UNIQUE_VIOLATION;
+}
+
+export function isForeignKeyViolation(error: unknown): boolean {
+  return asPostgresError(error)?.code === FOREIGN_KEY_VIOLATION;
 }
 
 export function constraintNameOf(error: unknown): string | undefined {

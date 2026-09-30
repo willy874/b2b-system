@@ -17,9 +17,15 @@
     },
     "delete": {
       "title": "Delete user",
-      "confirm": "Delete \"{{name}}\"? The account is soft-deleted and signed out immediately.",
+      "confirm": "Delete \"{{name}}\"? The account is signed out immediately and moved to the trash, where it can be restored until the retention period ends.",
       "success": "User deleted.",
-      "selfProtected": "You cannot delete your own account."
+      "selfProtected": "You cannot delete your own account.",
+      "undo": "Undo"
+    },
+    "restore": {
+      "action": "Restore",
+      "success": "Restored \"{{name}}\".",
+      "viewConflicting": "View that account"
     },
     "assignRole": {
       "action": "Save roles",

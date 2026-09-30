@@ -83,10 +83,16 @@ import type {
   RejectApprovalRequest,
   ReplaceUserRolesRequest,
   ResetPasswordRequest,
+  RestoredFileFolder,
+  RestoredRole,
+  RevertRoleRevisionRequest,
   ReviewFileAccessRequest,
+  RevisionSummary,
   Role,
   RoleHolder,
   RolePermissions,
+  RoleRevision,
+  RoleRevisionSnapshot,
   RoleSummary,
   Session,
   SetFileFolderGrantRequest,
@@ -105,6 +111,8 @@ import type {
   TenantFlagOverrides,
   TenantLookup,
   TenantLookupQuery,
+  TrashItem,
+  TrashResourceType,
   UpdateFeatureFlagRequest,
   UpdateFileFolderAccessRequest,
   UpdateFileFolderRequest,
@@ -329,6 +337,40 @@ export const PlatformAuditLogSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).nullable(),
 }) satisfies z.ZodType<PlatformAuditLog>;
 
+export const TrashResourceTypeSchema = z.enum([
+  'user',
+  'role',
+  'file',
+  'fileFolder',
+]) satisfies z.ZodType<TrashResourceType>;
+
+export const TrashItemSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  type: TrashResourceTypeSchema,
+  name: z.string(),
+  description: z.string().nullable(),
+  deletedAt: z.string(),
+  deletedBy: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      name: z.string(),
+    })
+    .nullable(),
+  purgeAt: z.string(),
+}) satisfies z.ZodType<TrashItem>;
+
 export const CreateUserRequestSchema = z.object({
   email: z
     .email()
@@ -360,6 +402,7 @@ export const UpdateUserRequestSchema = z.object({
   status: z.enum(['active', 'inactive']).optional(),
   locale: z.string().max(10).optional(),
   timezone: z.string().max(64).optional(),
+  version: z.int().min(1).max(9007199254740991).optional(),
 }) satisfies z.ZodType<UpdateUserRequest>;
 
 export const ReplaceUserRolesRequestSchema = z.object({
@@ -425,6 +468,7 @@ export const UserSchema = z.object({
   timezone: z.string(),
   lastLoginAt: z.string().nullable(),
   lockedUntil: z.string().nullable(),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
   createdAt: z.string(),
   updatedAt: z.string(),
 }) satisfies z.ZodType<User>;
@@ -995,6 +1039,34 @@ export const FileFolderSchema = z.object({
   updatedAt: z.string(),
 }) satisfies z.ZodType<FileFolder>;
 
+export const RestoredFileFolderSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+  parentId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  kind: z.enum(['normal', 'shared', 'privateRoot', 'personal']),
+  inheritGrants: z.boolean(),
+  hasPendingAccessRequest: z.boolean(),
+  capabilities: FileFolderCapabilitiesSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  foldersRestored: z.int().min(-9007199254740991).max(9007199254740991),
+  filesRestored: z.int().min(-9007199254740991).max(9007199254740991),
+  filesSkipped: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<RestoredFileFolder>;
+
 export const FileFolderListSchema = z.object({
   items: z.array(FileFolderSchema),
   rootCapabilities: z.object({
@@ -1316,6 +1388,53 @@ export const DuplicateRoleRequestSchema = z.object({
   name: z.string().min(1).max(64).optional(),
 }) satisfies z.ZodType<DuplicateRoleRequest>;
 
+export const RevisionSummarySchema = z.object({
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  actor: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      name: z.string(),
+    })
+    .nullable(),
+  tooLarge: z.boolean(),
+}) satisfies z.ZodType<RevisionSummary>;
+
+export const RoleRevisionSnapshotSchema = z.object({
+  name: z.string(),
+  description: z.string().nullable(),
+  permissionKeys: z.array(z.string()),
+}) satisfies z.ZodType<RoleRevisionSnapshot>;
+
+export const RoleRevisionSchema = z.object({
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  actor: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      name: z.string(),
+    })
+    .nullable(),
+  tooLarge: z.boolean(),
+  snapshot: RoleRevisionSnapshotSchema.nullable(),
+}) satisfies z.ZodType<RoleRevision>;
+
+export const RevertRoleRevisionRequestSchema = z.object({
+  version: z.int().min(1).max(9007199254740991).optional(),
+}) satisfies z.ZodType<RevertRoleRevisionRequest>;
+
 export const RoleSchema = z.object({
   id: z
     .uuid()
@@ -1330,9 +1449,30 @@ export const RoleSchema = z.object({
   isSystem: z.boolean(),
   permissionCount: z.int().min(-9007199254740991).max(9007199254740991),
   userCount: z.int().min(-9007199254740991).max(9007199254740991),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
   createdAt: z.string(),
   updatedAt: z.string(),
 }) satisfies z.ZodType<Role>;
+
+export const RestoredRoleSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  isSystem: z.boolean(),
+  permissionCount: z.int().min(-9007199254740991).max(9007199254740991),
+  userCount: z.int().min(-9007199254740991).max(9007199254740991),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  holdersRestored: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<RestoredRole>;
 
 export const RolePermissionsSchema = z.object({
   permissions: z.array(PermissionSchema),
@@ -1356,6 +1496,7 @@ export const RoleHolderSchema = z.object({
 export const UpdateRoleRequestSchema = z.object({
   name: z.string().min(1).max(64).optional(),
   description: z.string().max(500).nullable().optional(),
+  version: z.int().min(1).max(9007199254740991).optional(),
 }) satisfies z.ZodType<UpdateRoleRequest>;
 
 export const UpdateRolePermissionsRequestSchema = z.object({
@@ -1365,7 +1506,7 @@ export const UpdateRolePermissionsRequestSchema = z.object({
 
 export const SystemSettingSchema = z.object({
   key: z.string(),
-  category: z.enum(['general', 'auth', 'file']),
+  category: z.enum(['general', 'auth', 'file', 'trash', 'revision']),
   type: z.enum(['string', 'number', 'boolean']),
   value: z.union([z.string().max(1000), z.number(), z.boolean()]),
   defaultValue: z.union([z.string().max(1000), z.number(), z.boolean()]),

@@ -47,11 +47,12 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     ]);
   });
 
-  it('建立角色：角色列表與選項，不碰任何角色詳情', () => {
+  it('建立角色：角色列表與選項，不碰任何角色詳情（還原也以 create 宣告，所以回收桶跟著失效）', () => {
     expect(keysOf({ resource: Resource.ROLE, kind: 'create' })).toEqual([
       'invalidate:AUDIT_LOG_LIST_QUERY_KEY',
       'invalidate:ROLE_LIST_QUERY_KEY',
       'invalidate:ROLE_OPTIONS_QUERY_KEY',
+      'invalidate:TRASH_LIST_QUERY_KEY',
     ]);
   });
 
@@ -63,6 +64,21 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     expect(keys).toContain('invalidate:USER_DETAIL_QUERY_KEY');
     // 自己沒有這個角色
     expect(keys).not.toContain('invalidate:AUTH_PROFILE_QUERY_KEY');
+  });
+
+  it('角色的版本歷史：改名稱說明、增減權限鍵時失效該角色的版本；持有者的變更不影響（ADR-0025 R5）', () => {
+    const updated = keysOf({ resource: Resource.ROLE, kind: 'update', id: 'r1' });
+    expect(updated).toContain('invalidate:ROLE_REVISIONS_QUERY_KEY:r1');
+    expect(updated).toContain('invalidate:ROLE_REVISION_DETAIL_QUERY_KEY:r1');
+    const permissions = keysOf({ resource: Resource.ROLE_PERMISSION, kind: 'update', id: 'r1' });
+    expect(permissions).toContain('invalidate:ROLE_REVISIONS_QUERY_KEY:r1');
+    const holders = keysOf({
+      resource: Resource.USER_ROLE,
+      kind: 'update',
+      id: 'u1',
+      refs: { role: ['r1'] },
+    });
+    expect(holders.some((key) => key.includes('REVISION'))).toBe(false);
   });
 
   it('變更角色權限：只影響該角色；自己持有該角色時才失效 profile', () => {
@@ -107,11 +123,44 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     expect(keys).toContain('invalidate:AUTH_PROFILE_QUERY_KEY');
   });
 
-  it('建立不帶角色的使用者：角色端完全不受影響', () => {
+  it('建立不帶角色的使用者：角色端完全不受影響（還原也以 create 宣告，所以回收桶跟著失效）', () => {
     expect(keysOf({ resource: Resource.USER, kind: 'create', refs: { role: [] } })).toEqual([
       'invalidate:AUDIT_LOG_LIST_QUERY_KEY',
+      'invalidate:TRASH_LIST_QUERY_KEY',
       'invalidate:USER_LIST_QUERY_KEY',
     ]);
+  });
+
+  it('刪除使用者：回收桶的列表跟著失效；更新則不影響回收桶（ADR-0025 D9）', () => {
+    expect(keysOf({ resource: Resource.USER, kind: 'delete', id: 'u1' })).toContain(
+      'invalidate:TRASH_LIST_QUERY_KEY',
+    );
+    expect(keysOf({ resource: Resource.USER, kind: 'update', id: 'u1' })).not.toContain(
+      'invalidate:TRASH_LIST_QUERY_KEY',
+    );
+  });
+
+  it('刪除角色：回收桶跟著失效（還原以 create 宣告，見上一個案例；ADR-0025 R3）', () => {
+    expect(keysOf({ resource: Resource.ROLE, kind: 'delete', id: 'r1' })).toContain(
+      'invalidate:TRASH_LIST_QUERY_KEY',
+    );
+    expect(keysOf({ resource: Resource.ROLE, kind: 'update', id: 'r1' })).not.toContain(
+      'invalidate:TRASH_LIST_QUERY_KEY',
+    );
+  });
+
+  it('檔案與資料夾的刪除、還原（create）讓回收桶失效；改名不會（ADR-0025 R4）', () => {
+    for (const resource of [Resource.FILE, Resource.FILE_FOLDER]) {
+      expect(keysOf({ resource, kind: 'delete', id: 'x1' })).toContain(
+        'invalidate:TRASH_LIST_QUERY_KEY',
+      );
+      expect(keysOf({ resource, kind: 'create', id: 'x1' })).toContain(
+        'invalidate:TRASH_LIST_QUERY_KEY',
+      );
+      expect(keysOf({ resource, kind: 'update', id: 'x1' })).not.toContain(
+        'invalidate:TRASH_LIST_QUERY_KEY',
+      );
+    }
   });
 
   it('改自己的 profile：等同 user(self) 更新，profile 跟著失效', () => {

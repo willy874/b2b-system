@@ -13,6 +13,7 @@ import {
   roles,
   users,
 } from '../schema';
+import { recordRoleBaseline } from './role-revisions';
 
 /** 固定亂數種子，確保 E2E fixture 可重現。 */
 function mulberry32(seed: number): () => number {
@@ -86,14 +87,13 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
         .returning();
       roleId = created?.id;
       const rows = await db.select().from(permissions);
+      const granted = rows.filter((row) => seed.keys.includes(row.key)).map((row) => row.key);
       await db
         .insert(relationTuples)
-        .values(
-          rows
-            .filter((row) => seed.keys.includes(row.key))
-            .map((row) => rolePermissionTuple(roleId as string, row.key)),
-        )
+        .values(granted.map((key) => rolePermissionTuple(roleId as string, key)))
         .onConflictDoNothing();
+      // oxlint-disable-next-line no-await-in-loop -- seed 腳本，角色數量少，依序執行
+      if (created) await recordRoleBaseline(db, created, granted);
     }
     if (roleId) roleIds.push(roleId);
   }

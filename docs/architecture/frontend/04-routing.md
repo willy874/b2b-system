@@ -42,7 +42,8 @@ RootRoute  (core/router/root.tsx)
 │   ├── create/$roleId             RoleCopyRoute          （以既有角色為範本）
 │   └── $roleId                    RoleDetailRoute
 │       ├── create                 RoleDetailCopyRoute
-│       └── permission             RoleDetailPermissionRoute
+│       ├── permission             RoleDetailPermissionRoute
+│       └── revision               RoleDetailRevisionRoute（版本紀錄，frontend/14-revisions.md）
 │
 ├── /permission                    PermissionListRoute
 ├── /audit-log                     AuditLogListRoute

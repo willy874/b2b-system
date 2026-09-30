@@ -49,9 +49,8 @@
 
 | 項目 | 現況 | 為什麼延後 |
 | --- | --- | --- |
-| `PATCH /users/:id`、`PATCH /roles/:id` 的版本控制 | 只有 `PUT /users/:id/roles` 以 `expectedRoleIds` 防覆寫 | 需要 `version` 欄與前端全面配合；通用的樂觀鎖規則見 [`entity-revisions.md`](./entity-revisions.md) |
+| `PATCH /users/:id`、`PATCH /roles/:id` 的版本控制改必填 | R1 已上：`version` 欄、選填的 `version`、前端表單與批次帶版本（`backend/03-api-conventions.md` §11） | 滾動部署期間舊版前端不帶 `version`；R1 的前端部署之後才改必填（[ADR-0025](../adr/0025-entity-revisions.md) D4 的 R1b） |
 | 列表「選取全部符合的 N 筆」 | 批次只能選本頁 | 需要後端依條件批次處理的 API |
-| 刪除使用者後「復原」 | Toast 已支援動作鈕 | 後端沒有 restore API，見 [`entity-revisions.md`](./entity-revisions.md) |
 | 登入被 429 時倒數並停用送出鈕 | 訊息已帶「請在 N 秒後再試」 | 前端表單的小改動 |
 | 平台關閉租戶的外部 IdP（`allowExternalIdp`）前顯示受影響的連線數 | 確認對話框已說明影響 | 平台端點要以 `Tenancy.run` 進入那個租戶查連線，是單一租戶的查詢，但目前平台端點都不進租戶 DB |
 | session 結束時保留表單草稿 | 未儲存提醒降低損失 | 需要草稿儲存機制 |

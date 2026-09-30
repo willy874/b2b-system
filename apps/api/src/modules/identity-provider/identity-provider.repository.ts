@@ -1,10 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB } from '@/core/database';
 import type { IdentityProviderInsert, IdentityProviderRow, UserIdentityRow } from '@/db/schema';
-import { identityProviderDomains, identityProviders, userIdentities } from '@/db/schema';
+import {
+  identityProviderDomains,
+  identityProviders,
+  notDeleted,
+  userIdentities,
+} from '@/db/schema';
 
 export interface ProviderDomain {
   domain: string;
@@ -37,7 +42,7 @@ export class IdentityProviderRepository {
     const rows = await this.db
       .select({ provider: identityProviders, domains: DOMAIN_AGGREGATE })
       .from(identityProviders)
-      .where(isNull(identityProviders.deletedAt))
+      .where(notDeleted(identityProviders))
       .orderBy(asc(identityProviders.name));
     return rows.map((row) => ({ ...row.provider, domains: row.domains }));
   }
@@ -47,7 +52,7 @@ export class IdentityProviderRepository {
     const [row] = await db
       .select({ provider: identityProviders, domains: DOMAIN_AGGREGATE })
       .from(identityProviders)
-      .where(and(eq(identityProviders.id, id), isNull(identityProviders.deletedAt)))
+      .where(and(eq(identityProviders.id, id), notDeleted(identityProviders)))
       .limit(1);
     return row && { ...row.provider, domains: row.domains };
   }
@@ -66,7 +71,7 @@ export class IdentityProviderRepository {
     const [row] = await tx
       .update(identityProviders)
       .set({ ...values, updatedAt: new Date() })
-      .where(and(eq(identityProviders.id, id), isNull(identityProviders.deletedAt)))
+      .where(and(eq(identityProviders.id, id), notDeleted(identityProviders)))
       .returning();
     return row;
   }
@@ -76,7 +81,7 @@ export class IdentityProviderRepository {
     const rows = await tx
       .update(identityProviders)
       .set({ deletedAt: new Date(), updatedBy: actorId })
-      .where(and(eq(identityProviders.id, id), isNull(identityProviders.deletedAt)))
+      .where(and(eq(identityProviders.id, id), notDeleted(identityProviders)))
       .returning({ id: identityProviders.id });
     await tx.delete(identityProviderDomains).where(eq(identityProviderDomains.providerId, id));
     return rows.length > 0;
@@ -110,7 +115,7 @@ export class IdentityProviderRepository {
         identityProviders,
         and(
           eq(identityProviders.id, identityProviderDomains.providerId),
-          isNull(identityProviders.deletedAt),
+          notDeleted(identityProviders),
         ),
       )
       .where(eq(identityProviderDomains.domain, domain))

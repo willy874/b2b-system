@@ -19,8 +19,16 @@ const updateUser = getUserUpdateMutationOptions().mutationFn;
 const unlockUser = getUserUnlockMutationOptions().mutationFn;
 const deleteUser = getUserDeleteMutationOptions().mutationFn;
 
-async function updateStatus(userId: string, status: 'active' | 'inactive'): Promise<void> {
-  const user = await updateUser({ params: { userId, body: { status } } });
+/**
+ * 帶列表那一列的 `version`：列表資料過時（別人剛改過這個人）時這一筆以 `USER_VERSION_CONFLICT` 失敗、
+ * 列在結果對話框，而不是蓋掉別人的變更（ADR-0025 D4、ADR-0009）。
+ */
+async function updateStatus(
+  userId: string,
+  status: 'active' | 'inactive',
+  version: number | undefined,
+): Promise<void> {
+  const user = await updateUser({ params: { userId, body: { status, version } } });
   invalidateResources([
     { resource: Resource.USER, kind: 'update', id: user.id, refs: roleRefs(user) },
   ]);
@@ -36,14 +44,14 @@ export function registerUserBatchOperations(): void {
     labelKey: 'user.batch.activate.title',
     localeScope: USER_LOCALE_SCOPE,
     successKey: 'user.batch.activate.success',
-    run: (userId) => updateStatus(userId, 'active'),
+    run: (userId, { version }) => updateStatus(userId, 'active', version),
   });
   registerBatchOperation({
     id: UserBatchOperation.DEACTIVATE,
     labelKey: 'user.batch.deactivate.title',
     localeScope: USER_LOCALE_SCOPE,
     successKey: 'user.batch.deactivate.success',
-    run: (userId) => updateStatus(userId, 'inactive'),
+    run: (userId, { version }) => updateStatus(userId, 'inactive', version),
   });
   registerBatchOperation({
     id: UserBatchOperation.UNLOCK,

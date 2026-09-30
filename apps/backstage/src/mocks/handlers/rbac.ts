@@ -54,6 +54,48 @@ function writeHandler(
 }
 
 const noContent = () => new HttpResponse(null, { status: 204 });
+
+/** mock 的回收桶：已刪除的使用者（id 與 email 不和 `USER_FIXTURES` 重複）。 */
+const DELETED_USER_FIXTURES = USER_FIXTURES.slice(0, 2).map((user) =>
+  Object.assign(structuredClone(user), {
+    id: `${user.id}-deleted`,
+    email: `deleted-${user.email}`,
+    username: null,
+  }),
+);
+
+/** mock 的回收桶：已刪除的角色（自訂角色的複本，id 與名稱不和 `ROLE_FIXTURES` 重複）。 */
+const DELETED_ROLE_FIXTURES = ROLE_FIXTURES.filter((role) => !role.isSystem)
+  .slice(0, 1)
+  .map((role) =>
+    Object.assign(structuredClone(role), {
+      id: `${role.id}-deleted`,
+      slug: `${role.slug}-deleted`,
+      name: `${role.name}（已刪除）`,
+    }),
+  );
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+const toRoleTrashItem = (role: (typeof ROLE_FIXTURES)[number]) => ({
+  id: role.id,
+  type: 'role' as const,
+  name: role.name,
+  description: role.description,
+  deletedAt: role.updatedAt,
+  deletedBy: { id: SELF_ID, name: USER_FIXTURES[0]!.displayName },
+  purgeAt: new Date(Date.parse(role.updatedAt) + THIRTY_DAYS_MS).toISOString(),
+});
+
+const toTrashItem = (user: (typeof USER_FIXTURES)[number]) => ({
+  id: user.id,
+  type: 'user' as const,
+  name: user.displayName,
+  description: user.email,
+  deletedAt: user.updatedAt,
+  deletedBy: { id: SELF_ID, name: USER_FIXTURES[0]!.displayName },
+  purgeAt: new Date(Date.parse(user.updatedAt) + THIRTY_DAYS_MS).toISOString(),
+});
 const userResponse = (id: string) =>
   HttpResponse.json({ data: USER_FIXTURES.find((item) => item.id === id) });
 
@@ -88,6 +130,30 @@ function rolePermissionsBody(id: string) {
     effective: effectivePermissions(explicit, isSuperAdmin),
     isSuperAdmin,
   };
+}
+
+/** 角色的 mock 版本：第 1 版少一個權限、第 2 版等於目前的內容（新的在後）。 */
+function roleRevisions(id: string) {
+  const role = ROLE_FIXTURES.find((item) => item.id === id);
+  if (!role) return [];
+  const keys = roleExplicitKeys(id).toSorted();
+  const actor = { id: USER_FIXTURES[0]!.id, name: USER_FIXTURES[0]!.displayName };
+  return [
+    {
+      version: 1,
+      createdAt: role.createdAt,
+      actor: null,
+      tooLarge: false,
+      snapshot: { name: role.name, description: null, permissionKeys: keys.slice(1) },
+    },
+    {
+      version: 2,
+      createdAt: role.updatedAt,
+      actor,
+      tooLarge: false,
+      snapshot: { name: role.name, description: role.description, permissionKeys: keys },
+    },
+  ];
 }
 
 export const rbacHandlers = [
@@ -128,6 +194,36 @@ export const rbacHandlers = [
     return HttpResponse.json({ data: rolePermissionsBody(id) });
   }),
   http.get(`${MOCK_API_BASE}/roles/:id/users`, () => HttpResponse.json({ data: paginate([]) })),
+  // 版本紀錄（ADR-0025 R5）：每個角色兩版，第 2 版等於目前的內容；讀要 role:read、還原要 role:update
+  http.get(`${MOCK_API_BASE}/roles/:id/revisions`, ({ params }) => {
+    if (!mockState.permissions.includes('role:read')) return forbidden('role:read');
+    return HttpResponse.json({
+      data: paginate(
+        roleRevisions(String(params.id))
+          .toReversed()
+          .map(({ snapshot: _snapshot, ...summary }) => summary),
+      ),
+    });
+  }),
+  http.get(`${MOCK_API_BASE}/roles/:id/revisions/:version`, ({ params }) => {
+    if (!mockState.permissions.includes('role:read')) return forbidden('role:read');
+    const revision = roleRevisions(String(params.id)).find(
+      (item) => item.version === Number(params.version),
+    );
+    return revision
+      ? HttpResponse.json({ data: revision })
+      : HttpResponse.json(
+          { error: { code: 'REVISION_NOT_FOUND', message: 'not found' } },
+          { status: 404 },
+        );
+  }),
+  writeHandler(
+    'post',
+    '/roles/:id/revisions/:version/revert',
+    'role:update',
+    (id) => (ROLE_FIXTURES.some((item) => item.id === id) ? undefined : { code: 'ROLE_NOT_FOUND' }),
+    (id) => HttpResponse.json({ data: ROLE_FIXTURES.find((item) => item.id === id) }),
+  ),
 
   http.get(`${MOCK_API_BASE}/permissions`, () =>
     HttpResponse.json({
@@ -217,7 +313,70 @@ export const rbacHandlers = [
   }),
 
   writeHandler('delete', '/users/:id', 'user:delete', (id) => checkUser(id), noContent),
-  writeHandler('patch', '/users/:id', 'user:update', (id) => checkUser(id), userResponse),
+  // 回收桶（ADR-0025 D9）：mock 模式以 fixture 的複本當成已刪除的使用者與角色，只示範列表與還原
+  // 檔案與資料夾（R4）：mock 模式沒有檔案管理器的資料，只示範權限與空的分頁
+  http.get(`${MOCK_API_BASE}/trash`, ({ request }) => {
+    const type = new URL(request.url).searchParams.get('type');
+    const permission =
+      type === 'role'
+        ? 'role:delete'
+        : type === 'file' || type === 'fileFolder'
+          ? 'file:delete'
+          : 'user:delete';
+    if (!mockState.permissions.includes(permission)) return forbidden(permission);
+    const items: Array<ReturnType<typeof toTrashItem> | ReturnType<typeof toRoleTrashItem>> =
+      type === 'role'
+        ? DELETED_ROLE_FIXTURES.map(toRoleTrashItem)
+        : type === 'user' || type === null
+          ? DELETED_USER_FIXTURES.map(toTrashItem)
+          : [];
+    return HttpResponse.json({ data: paginate(items) });
+  }),
+  writeHandler(
+    'post',
+    '/roles/:id/restore',
+    'role:delete',
+    (id) => {
+      if (ROLE_FIXTURES.some((item) => item.id === id)) return { code: 'ROLE_NOT_DELETED' };
+      return DELETED_ROLE_FIXTURES.some((item) => item.id === id)
+        ? undefined
+        : { code: 'ROLE_NOT_FOUND' };
+    },
+    (id) => {
+      const role = DELETED_ROLE_FIXTURES.find((item) => item.id === id);
+      return HttpResponse.json({ data: { ...role, holdersRestored: role?.userCount ?? 0 } });
+    },
+  ),
+  writeHandler(
+    'post',
+    '/users/:id/restore',
+    'user:delete',
+    (id) => {
+      if (USER_FIXTURES.some((item) => item.id === id)) return { code: 'USER_NOT_DELETED' };
+      return DELETED_USER_FIXTURES.some((item) => item.id === id)
+        ? undefined
+        : { code: 'USER_NOT_FOUND' };
+    },
+    (id) => HttpResponse.json({ data: DELETED_USER_FIXTURES.find((item) => item.id === id) }),
+  ),
+  // 樂觀鎖：帶的 version 與 fixture 不同 → 409（與後端相同；docs/architecture/backend/03-api-conventions.md §11）
+  http.patch(`${MOCK_API_BASE}/users/:id`, async ({ params, request }) => {
+    if (!mockState.permissions.includes('user:update')) return forbidden('user:update');
+    const id = String(params.id);
+    const failure = checkUser(id);
+    const current = USER_FIXTURES.find((item) => item.id === id)?.version;
+    const { version } = (await request.json()) as { version?: number };
+    const conflict: Failure | undefined =
+      !failure && version !== undefined && version !== current
+        ? { code: 'USER_VERSION_CONFLICT', details: { current } }
+        : undefined;
+    const error: Failure | undefined = failure ?? conflict;
+    if (!error) return userResponse(id);
+    return HttpResponse.json(
+      { error: { code: error.code, message: error.code, details: error.details } },
+      { status: failureStatus(error.code) },
+    );
+  }),
   writeHandler(
     'post',
     '/users/:id/unlock',

@@ -15,6 +15,7 @@ const user: User = {
   timezone: 'Asia/Taipei',
   lastLoginAt: null,
   lockedUntil: null,
+  version: 1,
   createdAt: '2026-09-19T02:10:00.000Z',
   updatedAt: '2026-09-19T02:10:00.000Z',
 };

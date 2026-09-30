@@ -83,6 +83,10 @@ export const ErrorCode = {
   USER_NOT_LOCKED: { status: 409 },
   /** 整批取代角色時，送出的草稿所依據的角色已被別人改過。 */
   USER_ROLES_CONFLICT: { status: 409 },
+  /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（ADR-0025 D3）。 */
+  USER_VERSION_CONFLICT: { status: 409 },
+  /** 還原（`POST /users/:id/restore`）一個沒有被刪除的使用者（ADR-0025 D6）。 */
+  USER_NOT_DELETED: { status: 409 },
 
   // ── 角色 ──
   ROLE_NOT_FOUND: { status: 404 },
@@ -93,6 +97,16 @@ export const ErrorCode = {
   LAST_SUPER_ADMIN: { status: 403 },
   /** 改自己持有的角色的權限或刪除它，會讓自己失去管理角色所需的權限（docs/architecture/backend/05-rbac.md §8.4）。 */
   ROLE_SELF_LOCKOUT: { status: 403 },
+  /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（ADR-0025 D3）。 */
+  ROLE_VERSION_CONFLICT: { status: 409 },
+  /** 還原（`POST /roles/:id/restore`）一個沒有被刪除的角色（ADR-0025 R3）。 */
+  ROLE_NOT_DELETED: { status: 409 },
+
+  // ── 版本歷史（docs/architecture/backend/14-revisions.md） ──
+  /** 指定的版本不存在（或已被保留清理刪除）。 */
+  REVISION_NOT_FOUND: { status: 404 },
+  /** 那一版的快照超過上限而未保存（`details.reason: 'tooLarge'`），無法還原（ADR-0025 D1）。 */
+  REVISION_UNAVAILABLE: { status: 409 },
 
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },
@@ -130,6 +144,14 @@ export const ErrorCode = {
   FILE_GRANT_NOT_FOUND: { status: 404 },
   FILE_ACCESS_ALREADY_GRANTED: { status: 409 },
   FILE_ACCESS_REQUEST_NOT_FOUND: { status: 404 },
+  /** 還原（`POST /files/:id/restore`）一個沒有被刪除的檔案（ADR-0025 R4）。 */
+  FILE_NOT_DELETED: { status: 409 },
+  /** 還原的檔案所在的資料夾已刪除（`details.reason = 'parentDeleted'`）或物件已不在（`'objectMissing'`）。 */
+  FILE_RESTORE_CONFLICT: { status: 409 },
+  /** 還原（`POST /file-folders/:id/restore`）一個沒有被刪除的資料夾。 */
+  FILE_FOLDER_NOT_DELETED: { status: 409 },
+  /** 還原的資料夾的上層已刪除（`details.reason = 'parentDeleted'`）。 */
+  FILE_FOLDER_RESTORE_CONFLICT: { status: 409 },
 
   // ── 系統設定 ──
   /** 沒有登記這個 key 的設定（docs/architecture/backend/12-settings.md）。 */

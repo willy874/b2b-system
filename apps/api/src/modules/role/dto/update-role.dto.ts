@@ -11,8 +11,14 @@ export const UpdateRoleSchema = defineSchema(
     .object({
       name: RoleNameSchema.optional(),
       description: z.string().trim().max(500).nullable().optional(),
+      /**
+       * 樂觀鎖：編輯開始時看到的 `version`。與目前版本不同（別人已經改過）回 409 `ROLE_VERSION_CONFLICT`
+       * （`details.current`）；不帶則後寫者勝（ADR-0025 D3、D4：R1 選填，之後改必填）。
+       */
+      version: z.number().int().min(1).optional(),
     })
-    .refine((value) => Object.keys(value).length > 0, {
+    // `version` 不是要改的欄位：只帶它等於什麼都沒改
+    .refine(({ version: _version, ...fields }) => Object.keys(fields).length > 0, {
       message: 'at least one field is required',
     }),
 );

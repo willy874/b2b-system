@@ -1,6 +1,6 @@
 # ADR-0025 — 版本歷史、樂觀鎖與還原：`version` 欄 ＋ 整份快照 ＋ 保留關聯的軟刪除
 
-- 狀態：**採用**（2026-09-30 確認；尚未實作，依「分階段」R1～R5 進行）
+- 狀態：**採用**（2026-09-30 確認；R1～R3、R4a、R5 已在 branch `feat/entity-revisions` 實作，R1b、R4b 待下一次部署；見文末「實作紀錄」）
 - 日期：2026-09-30
 - 相關：提案 [`../features/entity-revisions.md`](../features/entity-revisions.md)；
   [ADR-0024](./0024-relationship-based-access-control.md)（關係圖；刪除角色時持有者邊的處理）、
@@ -97,3 +97,15 @@ R2、R3 與 `permission-graph` G3b 互不依賴；G3b 刪的是舊表與雙寫 t
 | `resource_type` 用 Postgres enum（D7 的替代） | 見 D7 的理由；舊的 `resource_grants` 是唯一用 enum 的多型欄位，G3b 刪除 |
 | repository 的預設排除（D8 的替代） | 見 D8 的理由 |
 | 通用的 `POST /trash/:type/:id/restore`（D9 的替代） | 權限宣告與錯誤碼會集中到通用模組，而還原規則每種資源都不同 |
+
+## 實作紀錄（R1～R5）
+
+決定不改寫；以下是實作時與上文不同、或上文沒寫到的地方（程式碼註解與根目錄 `CLAUDE.md` 的「與文件不同的實作決定」表有同樣的紀錄）。
+
+| 階段 | 與上文的差異或補充 |
+| --- | --- |
+| R1 | D4 寫「列表的 DTO 從 R1 起帶 `version`，批次以列表那一列的版本送出」，分階段表卻把「批次帶列的版本」列在 R1b：實作照 D4，批次啟用／停用在 R1 就帶列的版本；R1b 只剩「改必填」 |
+| R2 | `notDeleted()`／`isDeleted()` 放在 `db/schema/soft-delete.ts`，不是 D8 寫的 `db/soft-delete.ts`（`isActiveRole()` 在 `db/schema/` 要用它，`db/schema/` 只依賴同層）。`TrashHandler` 不是 D9 的 `purge(ids, tx)`，而是 `findExpired(cutoff, afterId, limit)` ＋ 逐列 `purge(item, tx)`（每列一個 savepoint）＋ `afterPurge(ids)`：一列因外鍵刪不掉只略過它自己。使用者還原的唯一值衝突用 `details.conflictingUserId`（D5 寫 `conflictingId`）；角色是 `conflictingRoleId`、資料夾是 `conflictingId` |
+| R3 | 刪除與還原角色都不寫 `relation_tuples`，但會改變權限的解析結果，所以加了 migration 0012：`roles.deleted_at` 改變時 `authz_revision` +1（否則其他程序會把廣播當成舊的而略過） |
+| R4 | 分成兩次部署：R4a（`deletion_id`、維護排程不刪已刪除紀錄的物件、還原端點、回收桶與永久刪除）已實作；R4b（刪除檔案不再立刻刪物件）要等 R4a 的維護排程全部上線之後（`13-trash.md` §7.5）。R4a 期間刪除 **單一檔案** 的提示不附「復原」（物件已經刪了，還原只會得到 `objectMissing`），R4b 才打開 |
+| R5 | 第一個加入的實體是角色（D12 的候選）：快照 `{ name, description, permissionKeys }`。**版本號是每個資源自己的流水號**，不是實體的 `version`：權限鍵是關聯的寫入、不遞增 `roles.version`（D3），卻要產生新的一版；`RevisionService.record(tx, …)` 在交易內以 `max + 1` 產生、不收版本號，呼叫端先鎖住實體列（`14-revisions.md` §3.1）。**`RevisionWriter` 就是 `modules/revision` 的 `RevisionService`**（通用模組，與 `modules/trash` 同一種）。既有角色的基準版本由 migration 0014 以 SQL 寫第 1 版（actor null），新租戶由 seed 寫；不採用「第一次寫入時補一版寫入前的狀態」。**還原到某一版** 的路由是 D10 的 `role:update`，但權限鍵會改變時 service 另要 `role:grantPermission`（改權限的端點要它，否則能藉還原拿掉角色的鍵）；目錄裡已不存在的權限鍵略過（`metadata.skippedPermissions`）。還原的請求帶 **角色的** `version`（選填，與 R1 相同）。保留設定 `revision.keepVersions`（預設 50）、`revision.keepDays`（預設 90）。另外補上 R4a 的遺漏：`GET /trash?type=file|fileFolder` 在租戶停用 `file` feature 時回 `404 FEATURE_DISABLED`（`TrashHandler.feature`，`13-trash.md` §3） |

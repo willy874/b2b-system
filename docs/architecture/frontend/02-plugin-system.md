@@ -338,6 +338,7 @@ export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 | --- | --- | --- | --- |
 | 頁面權限 | `core/permission/registry.ts` | 各 feature 的 `permission.ts` | 權限 hooks（`usePageAccess`、`usePageAccessChecker` 訂閱）、選單、Layout |
 | 偏好分頁／列表 | `core/preference/registry.ts` | feature 或 `plugins/features/*` | 偏好頁（`usePreferenceSections`、`usePreferenceTables`） |
+| 回收桶類型 | `core/trash/registry.ts` | 擁有資源的 feature 的 `trash.ts` | 回收桶頁（`useTrashTypes`；[`13-trash.md`](./13-trash.md) §2） |
 | 頂列工具 | `core/toolbar/registry.ts` | `app/plugin.ts` 或 feature | `useHeaderTools` |
 | 批次操作 | `core/batch/operations.ts` | feature 的 `batch.ts` | 批次佇列（分頁向佇列宣告能執行的操作，§7） |
 | 檔案預覽／驗證／縮圖 | `core/file/registry.ts` | `features/file` 或 plugin | 檔案管理器（使用時讀取，不訂閱） |

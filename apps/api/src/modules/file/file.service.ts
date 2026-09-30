@@ -11,6 +11,7 @@ import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
+import { RESOURCE_TYPE } from '@/core/resource';
 import { SettingService } from '@/core/settings';
 import { ObjectStorage } from '@/core/storage';
 import type { PresignedRequest } from '@/core/storage';
@@ -35,6 +36,7 @@ import type { FileAccessContext } from './file-access.context';
 import { FileAccessService } from './file-access.service';
 import { FileFolderService } from './file-folder.service';
 import { FileImageService } from './file-image.service';
+import { FileObjectsService } from './file-objects.service';
 import {
   downloadPolicyOf,
   FILE_AUDIT_FIELDS,
@@ -77,6 +79,7 @@ export class FileService {
     private readonly folders: FileFolderService,
     private readonly access: FileAccessService,
     private readonly settings: SettingService,
+    private readonly objects: FileObjectsService,
     config: ConfigService<Env, true>,
   ) {
     this.urlTtl = config.get('FILE_URL_TTL', { infer: true });
@@ -355,11 +358,12 @@ export class FileService {
         dto.version,
         tx,
       );
-      // 讀到之後、寫入之前被別人改名（版本變了）或刪除
+      // 讀到之後、寫入之前被別人改名（版本變了）或刪除：重讀一次，還在就帶目前的版本（ADR-0025 D3）
       if (!updated) {
-        throw dto.version === undefined
+        const current = dto.version === undefined ? undefined : await this.repo.findVersion(id, tx);
+        throw current === undefined
           ? new AppException('FILE_NOT_FOUND')
-          : new AppException('FILE_VERSION_CONFLICT');
+          : new AppException('FILE_VERSION_CONFLICT', { current });
       }
       await this.audit.record(
         {
@@ -377,37 +381,102 @@ export class FileService {
     return this.findOne(id, actor);
   }
 
+  /**
+   * 刪除＝移到回收桶（docs/architecture/backend/13-trash.md §7）：軟刪除並帶這一次刪除的 `deletion_id`（ADR-0025 D5）。
+   */
   async remove(id: string, actor: AuthUser): Promise<void> {
     const { file } = await this.getModifiable(id, actor, 'delete');
+    const deletionId = randomUUID();
 
     await withTransaction(this.db, async (tx) => {
-      const deleted = await this.repo.softDelete(id, actor.id, tx);
+      const deleted = await this.repo.softDelete(id, { actorId: actor.id, deletionId }, tx);
       if (!deleted) throw new AppException('FILE_NOT_FOUND');
       await this.audit.record(
         {
           action: 'file.delete',
-          resourceType: 'file',
+          resourceType: RESOURCE_TYPE.FILE,
           resourceId: id,
           resourceName: file.name,
           changes: { before: { name: file.name, contentType: file.contentType, size: file.size } },
+          metadata: { deletionId },
         },
         tx,
       );
     });
 
-    // 內容在交易「之後」才刪：交易 rollback 時紀錄還在，內容也要在。
-    // 刪除失敗只留下孤兒物件（紀錄已不可見），不讓使用者的刪除失敗。
-    const results = await Promise.allSettled([
-      this.storage.delete(file.storageKey),
-      file.hasThumbnail ? this.storage.delete(thumbnailKeyOf(id)) : undefined,
-      file.variantStatus === 'none' ? undefined : this.images.deleteVariants(id),
-    ]);
-    for (const result of results) {
-      if (result.status === 'rejected') {
-        this.logger.warn({ err: result.reason, fileId: id }, '物件刪除失敗，留下孤兒物件');
-      }
-    }
+    // ADR-0025 R4 的兩次部署：R4a（這一版）仍在交易「之後」立刻刪物件——滾動部署期間舊版的維護排程會把
+    // 「紀錄已刪除」的物件當孤兒刪掉，保留也沒用。R4b 刪掉這一步，物件留到 trash.purge 永久刪除之後
+    // （13-trash.md §7.5）。交易 rollback 時紀錄還在、內容也要在，所以一定在交易之後；失敗只記 warn。
+    await this.objects.deleteAll(id, {
+      hasThumbnail: file.hasThumbnail,
+      hasVariants: file.variantStatus !== 'none',
+    });
     this.publish(ChangeKind.DELETE, id, file.folderId);
+  }
+
+  /**
+   * 還原刪除的檔案（`POST /files/:id/restore`，ADR-0025 D5、D10；docs/architecture/backend/13-trash.md §7.2）。
+   *
+   * - 權限與刪除相同：所在的資料夾讀得到（否則 404），而且能刪除這個檔案（`can_remove`：資料夾的 `can_delete`，
+   *   或本人上傳而仍能在那裡上傳）。路由的閘門同樣是 `file:access` 或 `file:delete`。
+   * - 所在的資料夾已刪除 → `409 FILE_RESTORE_CONFLICT`（`reason: 'parentDeleted'`），先還原資料夾。
+   * - 原檔已不在物件儲存 → `409 FILE_RESTORE_CONFLICT`（`reason: 'objectMissing'`）：R4a 刪除檔案時仍會立刻刪物件，
+   *   這一版個別刪除的檔案通常救不回來；R4b 之後只剩維護排程或人為刪除會造成。縮圖或變體不在只修正紀錄。
+   * - 檔名沒有唯一性，沒有同名衝突。`version` 不遞增（與刪除相同）。
+   */
+  async restore(id: string, actor: AuthUser): Promise<FileDto> {
+    const [file, ctx] = await Promise.all([
+      this.repo.findDeletedById(id),
+      this.access.contextFor(actor),
+    ]);
+    // 放棄的上傳（pending）從未對其他人可見：當作不存在。沒被刪除的檔案只對看得到它的人說「沒被刪除」
+    if (file?.status !== 'ready') {
+      const live = await this.repo.findById(id);
+      const visible = live?.status === 'ready' && ctx.can('read', live.folderId);
+      throw new AppException(visible ? 'FILE_NOT_DELETED' : 'FILE_NOT_FOUND');
+    }
+    if (file.folderId && !ctx.exists(file.folderId)) throw parentDeleted(file.folderId);
+    if (!ctx.can('read', file.folderId)) throw new AppException('FILE_NOT_FOUND');
+    if (!ctx.canModify('delete', file.folderId, file.createdBy)) {
+      throw await this.access.deny(actor, 'delete', 'file', id);
+    }
+    const probe = (await this.objects.probe([file])).get(id);
+    if (!probe?.original) {
+      throw new AppException('FILE_RESTORE_CONFLICT', { reason: 'objectMissing' });
+    }
+
+    // 與遞迴刪除排隊：檢查之後資料夾才被刪除時不會把檔案放回已刪除的資料夾
+    await this.folders.withinLiveFolder(
+      file.folderId,
+      () => parentDeleted(file.folderId ?? ''),
+      async (tx) => {
+        const [restored] = await this.repo.restore(
+          [id],
+          { actorId: actor.id, deletionId: file.deletionId },
+          tx,
+        );
+        // 檢查之後被別人搶先還原
+        if (!restored) throw new AppException('FILE_NOT_DELETED');
+        if (probe.thumbnailLost) await this.repo.clearThumbnail([id], tx);
+        if (probe.variantsLost) await this.repo.resetVariants([id], tx);
+        await this.audit.record(
+          {
+            action: 'file.restore',
+            resourceType: RESOURCE_TYPE.FILE,
+            resourceId: id,
+            resourceName: file.name,
+            changes: { after: { name: file.name, folderId: file.folderId } },
+            metadata: { deletedAt: file.deletedAt?.toISOString(), deletionId: file.deletionId },
+          },
+          tx,
+        );
+      },
+    );
+
+    if (probe.variantsLost) this.images.schedule(id);
+    // 重新出現在列表：以 create 宣告（回收桶由前端的依賴圖跟著失效）
+    this.publish(ChangeKind.CREATE, id, file.folderId);
+    return this.findOne(id, actor);
   }
 
   /** 別人的 `pending`、看不到所在資料夾的 `ready`：一律當作不存在。 */
@@ -530,6 +599,15 @@ export class FileService {
       updatedAt: file.updatedAt.toISOString(),
     };
   }
+}
+
+/** 所在的資料夾已刪除：先還原資料夾（ADR-0025 D5）。 */
+function parentDeleted(folderId: string): AppException {
+  return new AppException('FILE_RESTORE_CONFLICT', {
+    reason: 'parentDeleted',
+    parentType: RESOURCE_TYPE.FILE_FOLDER,
+    parentId: folderId,
+  });
 }
 
 function toUploadTarget(signed: PresignedRequest) {

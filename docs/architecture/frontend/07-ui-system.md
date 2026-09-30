@@ -491,7 +491,7 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | 可近性 | 捲動框是 `<section>`，傳 `aria-label` 即成為 `region` 地標；箭頭是 `<button aria-expanded>`；行號 `aria-hidden` |
 | testid | 行：`json-viewer-item` ＋ `data-value`（節點路徑，如 `$["a"][0]`）＋ `data-line-number`；箭頭：`json-viewer-toggle` |
 
-**`JsonDiff`**（`components/JsonDiff/`）：兩份 JSON 的逐行差異（unified diff），稽核日誌的「變更前後」用它。
+**`JsonDiff`**（`components/JsonDiff/`）：兩份 JSON 的逐行差異（unified diff），稽核日誌的「變更前後」與版本紀錄的比較（[`14-revisions.md`](./14-revisions.md) §3）用它。
 
 | 功能 | props / 行為 |
 | ---- | ---- |
@@ -943,7 +943,7 @@ registerBatchOperation({
   labelKey: 'user.batch.delete.title',         // 佇列面板、進度條、結果對話框上的名稱
   localeScope: USER_LOCALE_SCOPE,              // 佇列 UI 在其他 feature 的頁面也會顯示：顯示前補載
   successKey: 'user.batch.delete.success',     // 全部成功時的 toast，參數 { count }
-  run: async (userId, { signal }) => {             // 第二個參數：取消時中止的 signal、reportProgress
+  run: async (userId, { signal }) => {             // 第二個參數：取消時中止的 signal、reportProgress、version
     await deleteUser({ params: { userId }, signal });
     invalidateResources([{ resource: Resource.USER, kind: 'delete', id: userId }]);
   },
@@ -952,7 +952,10 @@ registerBatchOperation({
 // page.tsx
 const selection = useTableSelection(rows, getRowId);
 const batchActions = useUserBatchActions();
-<UserTable batch={{ scope: USER_LIST_TABLE_ID, selection, actions: batchActions, getRowLabel: (row) => row.email }} … />
+<UserTable batch={{ scope: USER_LIST_TABLE_ID, selection, actions: batchActions, getRowLabel: (row) => row.email,
+                    getRowVersion: (row) => row.version }} … />
+// getRowVersion（選填）：該列的樂觀鎖版本隨項目進佇列，操作從 run 的第二個參數取得（`{ version }`），
+// 列表資料過時的列以 `<RESOURCE>_VERSION_CONFLICT` 逐筆失敗（backend/03-api-conventions.md §11）
 
 // useUserBatchActions.ts（節錄）
 {

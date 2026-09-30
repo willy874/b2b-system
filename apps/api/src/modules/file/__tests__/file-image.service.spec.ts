@@ -33,6 +33,7 @@ function fileRow(overrides: Partial<FileRow> = {}): FileRow {
     hasThumbnail: false,
     version: 1,
     variantStatus: 'pending',
+    deletionId: null,
     imageWidth: null,
     imageHeight: null,
     variantFormat: null,

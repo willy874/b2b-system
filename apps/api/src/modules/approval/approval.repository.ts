@@ -1,11 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, ilike, inArray, isNull, like } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, like } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, containsPattern, prefixPattern } from '@/core/database';
 import type { ApprovalRequestInsert, ApprovalRequestRow } from '@/db/schema';
-import { approvalRequests, users } from '@/db/schema';
+import { approvalRequests, notDeleted, users } from '@/db/schema';
 
 import type { ListApprovalDto } from './dto/approval.dto';
 
@@ -45,7 +45,7 @@ export class ApprovalRepository {
     const [row] = await this.db
       .select({ email: users.email, locale: users.locale })
       .from(users)
-      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .where(and(eq(users.id, userId), notDeleted(users)))
       .limit(1);
     return row;
   }

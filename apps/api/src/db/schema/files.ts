@@ -73,6 +73,11 @@ export const files = pgTable(
     variantFormat: text('variant_format'),
     /** 所在的資料夾；null 是根目錄（docs/architecture/backend/09-file.md §4.2）。 */
     folderId: uuid('folder_id').references(() => fileFolders.id, { onDelete: 'restrict' }),
+    /**
+     * 一次刪除操作的識別（docs/adr/0025-entity-revisions.md D5）：同一次刪除（刪除檔案、遞迴刪除資料夾）
+     * 軟刪除的列帶同一個值，還原資料夾時只還原同一批。未刪除時為 null；R4a 之前刪除的列也是 null。
+     */
+    deletionId: uuid('deletion_id'),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -117,6 +122,10 @@ export const files = pgTable(
     index('files_variant_pending_idx')
       .on(t.uploadedAt)
       .where(sql`${t.variantStatus} = 'pending' AND ${t.deletedAt} IS NULL`),
+    // 回收桶：還原資料夾時找同一批刪除的檔案（docs/architecture/backend/13-trash.md §7）
+    index('files_deletion_id_idx')
+      .on(t.deletionId)
+      .where(sql`${t.deletedAt} IS NOT NULL`),
     // 檔名的部分比對（ILIKE '%…%'）：btree 用不上，改用 pg_trgm 的 GIN 索引
     index('files_name_trgm_idx')
       .using('gin', sql`${t.name} gin_trgm_ops`)

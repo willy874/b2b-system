@@ -54,8 +54,8 @@ export class AuthzRepository {
         WHERE c.depth < ${MAX_CLOSURE_DEPTH}
           AND t.object_type = 'role' AND t.relation = ${ROLE_HOLDER_RELATION}
           AND (t.expires_at IS NULL OR t.expires_at > ${now.toISOString()}::timestamptz)
-          -- 與 db/schema/roles.ts 的 isActiveRole() 同一個條件
-          AND EXISTS (SELECT 1 FROM roles r WHERE r.id::text = t.object_id AND r.deleted_at IS NULL)
+          -- 與 db/schema 的 notDeleted(roles)（isActiveRole()）同一個條件
+          AND EXISTS (SELECT 1 FROM roles r WHERE r.id::text = t.object_id AND r.deleted_at IS NULL /* notDeleted */)
       )
       SELECT DISTINCT root, type, id, rel FROM closure
     `);

@@ -12,6 +12,8 @@ export const SettingCategory = {
   GENERAL: 'general',
   AUTH: 'auth',
   FILE: 'file',
+  TRASH: 'trash',
+  REVISION: 'revision',
 } as const;
 
 export type SettingCategory = (typeof SettingCategory)[keyof typeof SettingCategory];

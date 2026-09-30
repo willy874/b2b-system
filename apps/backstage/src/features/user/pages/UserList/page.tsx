@@ -94,7 +94,13 @@ export default function UserListPage() {
         }}
         error={error}
         onRetry={() => void refetch()}
-        batch={{ scope: USER_LIST_TABLE_ID, selection, actions: batchActions, getRowLabel }}
+        batch={{
+          scope: USER_LIST_TABLE_ID,
+          selection,
+          actions: batchActions,
+          getRowLabel,
+          getRowVersion,
+        }}
         pagination={{
           offset: search.offset,
           limit: search.limit,
@@ -118,6 +124,7 @@ export default function UserListPage() {
             .catch(() => undefined);
           setPendingDelete(undefined);
         }}
+        data-testid="user-delete-confirm"
       />
 
       <Outlet />
@@ -127,3 +134,4 @@ export default function UserListPage() {
 
 const getRowId = (row: UserRowVM) => row.id;
 const getRowLabel = (row: UserRowVM) => row.email;
+const getRowVersion = (row: UserRowVM) => row.version;

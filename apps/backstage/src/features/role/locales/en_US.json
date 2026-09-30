@@ -17,17 +17,25 @@
     },
     "delete": {
       "title": "Delete role",
-      "confirm": "Delete role \"{{name}}\"? This cannot be undone.",
+      "confirm": "Delete role \"{{name}}\"? It moves to the trash and can be restored within the retention period.",
       "success": "Role deleted.",
       "systemProtected": "System roles are protected and cannot be deleted.",
-      "confirmInUse": "{{count}} users currently hold the role \"{{name}}\". Deleting it removes its permissions from them immediately. This cannot be undone; to see who they are first, cancel and open the role details.",
-      "force": "Delete anyway ({{count}} will lose this role)"
+      "confirmInUse": "{{count}} users currently hold the role \"{{name}}\". Deleting it removes its permissions from them immediately; if you restore the role within the retention period, they get it back. To see who they are first, cancel and open the role details.",
+      "force": "Delete anyway ({{count}} will lose this role)",
+      "undo": "Undo"
+    },
+    "restore": {
+      "action": "Restore",
+      "success": "Restored \"{{name}}\".",
+      "successWithHolders": "Restored \"{{name}}\"; its {{count}} previous holders have it again.",
+      "escalation": "This role carries permissions you do not hold, so you cannot restore it.",
+      "viewConflicting": "View that role"
     },
     "batch": {
       "delete": {
         "action": "Delete",
         "title": "Delete roles",
-        "confirm": "Delete {{count}} roles? This cannot be undone. Roles still assigned to users are not deleted.",
+        "confirm": "Delete {{count}} roles? They move to the trash and can be restored within the retention period. Roles still assigned to users are not deleted.",
         "success": "Deleted {{count}} roles.",
         "ineligible": "System roles and roles still assigned to users cannot be deleted in bulk."
       }
@@ -44,7 +52,8 @@
       "holders": "Users holding this role",
       "managePermission": "Manage permissions",
       "allPermissions": "All permissions (implicit)",
-      "backToList": "Back to roles"
+      "backToList": "Back to roles",
+      "revisions": "Version history"
     },
     "permission": {
       "title": "Manage role permissions",
@@ -82,6 +91,35 @@
     "type": {
       "system": "System",
       "custom": "Custom"
+    },
+    "revision": {
+      "title": "Version history",
+      "description": "Every change to the role's name, description or permissions is kept as a version. Pick one to compare it with the current content or the previous version, or restore it (this creates a new version; history is never rewritten).",
+      "list": "Versions",
+      "version": "Version {{version}}",
+      "current": "Current",
+      "tooLarge": "Too large to save",
+      "tooLargeDetail": "This version was too large to be saved, so it cannot be viewed or restored.",
+      "system": "System",
+      "empty": "No versions yet. Versions are recorded from the next change to this role.",
+      "diff": "Differences",
+      "noChanges": "Same as the compared version",
+      "expandUnchanged": "Show {{count}} unchanged lines",
+      "previousMissing": "There is no previous version (this is the first one, or it was removed after the retention period), so the whole content is shown.",
+      "compare": {
+        "current": "Compare with current",
+        "previous": "Compare with previous"
+      },
+      "revert": {
+        "action": "Restore this version",
+        "title": "Restore version {{version}}",
+        "confirm": "The role's name, description and permissions will change back to version {{version}}, and the permissions of everyone holding this role change immediately. This creates a new version, so you can restore again later.",
+        "success": "Restored version {{version}}.",
+        "escalation": "This version includes permissions you don't have, so it cannot be restored.",
+        "isCurrent": "This version is the current content.",
+        "unavailable": "This version's content was not saved, so it cannot be restored.",
+        "needGrantPermission": "This version's permissions differ from the current ones. Restoring it requires the permission to grant role permissions."
+      }
     }
   }
 }

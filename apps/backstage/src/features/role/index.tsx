@@ -5,6 +5,7 @@ Routes.RoleListRoute.update({ component: Pages.AsyncRoleListPage });
 Routes.RoleCreateRoute.update({ component: Pages.AsyncRoleCreatePage });
 Routes.RoleDetailRoute.update({ component: Pages.AsyncRoleDetailPage });
 Routes.RoleDetailPermissionRoute.update({ component: Pages.AsyncRoleDetailPermissionPage });
+Routes.RoleDetailRevisionRoute.update({ component: Pages.AsyncRoleDetailRevisionPage });
 
 export { Routes };
 export { ROLE_CREATE_PAGE, ROLE_PAGE, registerRolePagePermissions } from './permission';

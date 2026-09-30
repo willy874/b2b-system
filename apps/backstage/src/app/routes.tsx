@@ -10,6 +10,7 @@ import { Routes as JobRoutes } from '@/features/job';
 import { Routes as PermissionRoutes } from '@/features/permission';
 import { Routes as RoleRoutes } from '@/features/role';
 import { Routes as SystemRoutes } from '@/features/system';
+import { Routes as TrashRoutes } from '@/features/trash';
 import { Routes as UserRoutes } from '@/features/user';
 
 import { Layout } from './Layout';
@@ -26,7 +27,10 @@ export const routeTree = RootRoute.addChildren([
 
   RoleRoutes.RoleListRoute.addChildren([
     RoleRoutes.RoleCreateRoute,
-    RoleRoutes.RoleDetailRoute.addChildren([RoleRoutes.RoleDetailPermissionRoute]),
+    RoleRoutes.RoleDetailRoute.addChildren([
+      RoleRoutes.RoleDetailPermissionRoute,
+      RoleRoutes.RoleDetailRevisionRoute,
+    ]),
   ]),
 
   PermissionRoutes.PermissionListRoute,
@@ -36,6 +40,7 @@ export const routeTree = RootRoute.addChildren([
   JobRoutes.JobListRoute,
   IdentityProviderRoutes.IdentityProviderListRoute,
   SystemRoutes.SettingListRoute,
+  TrashRoutes.TrashListRoute,
   AccountRoutes.ProfileRoute,
   AccountRoutes.PreferenceRoute,
 ]);

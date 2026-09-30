@@ -41,6 +41,9 @@
 
 - 業務規則、交易邊界、跨 repository 協調都在這一層。
 - 需要多個寫入時用 `withTransaction()`；稽核的 `record(…, tx)` 放在同一個交易內。
+- 加入版本歷史的實體（目前是角色）：每個會改變快照內容的寫入，在 **同一個交易** 內、鎖住實體列之後呼叫 `revisions.record(tx, …)`，
+  傳擁有者白名單函式（`toXxxRevision()`）產生的 **寫入之後** 的狀態；不要自己算版本號。加入一個新實體的步驟見
+  [`architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md) §6。
 - 會影響權限的寫入（角色的持有者、角色的權限鍵），交易結束後呼叫 `permissionService.permissionsChanged(userIds?)`：
   整個租戶失效、發 `permissions.changed`、廣播給其他程序。帳號狀態或 `token_version` 的變更（不是關係圖）用 `invalidateUser(id)`。
   不要自己列「要失效誰」；見 [`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.1。
@@ -50,6 +53,8 @@
 
 - 只放 Drizzle 查詢，回傳 row 型別（或明確的投影型別）。
 - 每個寫入方法接受可選的 `tx?: Transaction`，預設用 `this.db`。
+- 軟刪除的條件用 `notDeleted(table)`、故意讀已刪除的列用 `isDeleted(table)`，不手寫 `isNull(x.deletedAt)`
+  （🔒 `src/__tests__/soft-delete-scan.spec.ts`；寫法見 [`architecture/backend/02-database.md`](../architecture/backend/02-database.md) §1）。
 - 列表查詢一次 join 取齊，避免 N+1。見
   [`architecture/backend/02-database.md`](../architecture/backend/02-database.md) §4.4。
 
@@ -79,6 +84,8 @@
 - 成功回應包 `{ data }`，失敗回應 `{ error: { code, message, details? } }`（由攔截器／過濾器處理，handler 直接 return 資料）。
 - 時間用 ISO 8601 UTC；ID 用 uuid；「沒有值」用 `null` 不用空字串；欄位 camelCase。
 - 不加 `/v1` 前綴；不破壞既有路徑。
+- 可編輯的實體用 `version` 欄做樂觀鎖：更新的請求本體帶 `version`，條件式 UPDATE，衝突回 `409 <RESOURCE>_VERSION_CONFLICT`（`details.current`）；
+  關聯的寫入不遞增 `version`。見 [`architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11。
 
 ---
 

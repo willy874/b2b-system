@@ -12,6 +12,7 @@ const role: Role = {
   isSystem: false,
   permissionCount: 2,
   userCount: 1,
+  version: 1,
   createdAt: '2026-09-19T02:10:00.000Z',
   updatedAt: '2026-09-19T02:10:00.000Z',
 };

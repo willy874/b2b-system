@@ -157,6 +157,27 @@ export interface PlatformAuditLog {
   metadata: Record<string, unknown> | null;
 }
 
+export const TrashResourceType = {
+  user: 'user',
+  role: 'role',
+  file: 'file',
+  fileFolder: 'fileFolder',
+} as const;
+export type TrashResourceType = (typeof TrashResourceType)[keyof typeof TrashResourceType];
+
+export interface TrashItem {
+  id: string;
+  type: TrashResourceType;
+  name: string;
+  description: string | null;
+  deletedAt: string;
+  deletedBy: {
+    id: string;
+    name: string;
+  } | null;
+  purgeAt: string;
+}
+
 export interface CreateUserRequest {
   email: string;
   username?: string;
@@ -170,6 +191,7 @@ export interface UpdateUserRequest {
   status?: 'active' | 'inactive';
   locale?: string;
   timezone?: string;
+  version?: number;
 }
 
 export interface ReplaceUserRolesRequest {
@@ -203,6 +225,7 @@ export interface User {
   timezone: string;
   lastLoginAt: string | null;
   lockedUntil: string | null;
+  version: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -603,6 +626,21 @@ export interface FileFolder {
   updatedAt: string;
 }
 
+export interface RestoredFileFolder {
+  id: string;
+  name: string;
+  parentId: string | null;
+  kind: 'normal' | 'shared' | 'privateRoot' | 'personal';
+  inheritGrants: boolean;
+  hasPendingAccessRequest: boolean;
+  capabilities: FileFolderCapabilities;
+  createdAt: string;
+  updatedAt: string;
+  foldersRestored: number;
+  filesRestored: number;
+  filesSkipped: number;
+}
+
 export interface FileFolderList {
   items: Array<FileFolder>;
   rootCapabilities: {
@@ -837,6 +875,37 @@ export interface DuplicateRoleRequest {
   name?: string;
 }
 
+export interface RevisionSummary {
+  version: number;
+  createdAt: string;
+  actor: {
+    id: string;
+    name: string;
+  } | null;
+  tooLarge: boolean;
+}
+
+export interface RoleRevisionSnapshot {
+  name: string;
+  description: string | null;
+  permissionKeys: Array<string>;
+}
+
+export interface RoleRevision {
+  version: number;
+  createdAt: string;
+  actor: {
+    id: string;
+    name: string;
+  } | null;
+  tooLarge: boolean;
+  snapshot: RoleRevisionSnapshot | null;
+}
+
+export interface RevertRoleRevisionRequest {
+  version?: number;
+}
+
 export interface Role {
   id: string;
   slug: string;
@@ -845,8 +914,23 @@ export interface Role {
   isSystem: boolean;
   permissionCount: number;
   userCount: number;
+  version: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RestoredRole {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  permissionCount: number;
+  userCount: number;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  holdersRestored: number;
 }
 
 export interface RolePermissions {
@@ -865,6 +949,7 @@ export interface RoleHolder {
 export interface UpdateRoleRequest {
   name?: string;
   description?: string | null;
+  version?: number;
 }
 
 export interface UpdateRolePermissionsRequest {
@@ -874,7 +959,7 @@ export interface UpdateRolePermissionsRequest {
 
 export interface SystemSetting {
   key: string;
-  category: 'general' | 'auth' | 'file';
+  category: 'general' | 'auth' | 'file' | 'trash' | 'revision';
   type: 'string' | 'number' | 'boolean';
   value: string | number | boolean;
   defaultValue: string | number | boolean;

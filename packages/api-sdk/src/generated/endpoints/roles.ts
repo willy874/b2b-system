@@ -6,9 +6,13 @@ import { z } from 'zod';
 import type {
   CreateRoleRequest,
   DuplicateRoleRequest,
+  RestoredRole,
+  RevertRoleRevisionRequest,
+  RevisionSummary,
   Role,
   RoleHolder,
   RolePermissions,
+  RoleRevision,
   UpdateRolePermissionsRequest,
   UpdateRoleRequest,
 } from '../models';
@@ -22,8 +26,12 @@ import type {
 import {
   CreateRoleRequestSchema,
   DuplicateRoleRequestSchema,
+  RestoredRoleSchema,
+  RevertRoleRevisionRequestSchema,
+  RevisionSummarySchema,
   RoleHolderSchema,
   RolePermissionsSchema,
+  RoleRevisionSchema,
   RoleSchema,
   UpdateRolePermissionsRequestSchema,
   UpdateRoleRequestSchema,
@@ -274,6 +282,259 @@ export function roleControllerUpdate(
   options?: RequestOptions,
 ): Promise<RoleControllerUpdateResult> {
   return request<RoleControllerUpdateResult>(roleControllerUpdateOperation, input, options);
+}
+
+// POST /roles/{id}/restore
+
+export interface RoleControllerRestorePathParams {
+  id: string;
+}
+
+export interface RoleControllerRestoreInput {
+  path: RoleControllerRestorePathParams;
+}
+
+export interface RoleControllerRestoreResponses {
+  200: {
+    data: RestoredRole;
+  };
+}
+
+export type RoleControllerRestoreResponse = RoleControllerRestoreResponses[200];
+
+export type RoleControllerRestoreResult = ApiResponse<200, RoleControllerRestoreResponses[200]>;
+
+export const RoleControllerRestoreSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: RestoredRoleSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getRoleControllerRestoreUrl(path: RoleControllerRestorePathParams): string {
+  return buildUrl('/roles/{id}/restore', path);
+}
+
+const roleControllerRestoreOperation: OperationDefinition = {
+  id: 'RoleController_restore',
+  method: 'POST',
+  path: '/roles/{id}/restore',
+  responseTypes: { 200: 'json' },
+  schemas: RoleControllerRestoreSchemas,
+};
+
+/** 還原刪除的角色（原本的持有者一併恢復） */
+export function roleControllerRestore(
+  input: RoleControllerRestoreInput,
+  options?: RequestOptions,
+): Promise<RoleControllerRestoreResult> {
+  return request<RoleControllerRestoreResult>(roleControllerRestoreOperation, input, options);
+}
+
+// GET /roles/{id}/revisions
+
+export interface RoleControllerListRevisionsPathParams {
+  id: string;
+}
+
+export interface RoleControllerListRevisionsInput {
+  path: RoleControllerListRevisionsPathParams;
+}
+
+export interface RoleControllerListRevisionsResponses {
+  200: {
+    data: {
+      items: Array<RevisionSummary>;
+      pagination: {
+        offset: number;
+        limit: number;
+        total: number;
+      };
+    };
+  };
+}
+
+export type RoleControllerListRevisionsResponse = RoleControllerListRevisionsResponses[200];
+
+export type RoleControllerListRevisionsResult = ApiResponse<
+  200,
+  RoleControllerListRevisionsResponses[200]
+>;
+
+export const RoleControllerListRevisionsSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: z.object({
+        items: z.array(RevisionSummarySchema),
+        pagination: z.object({
+          offset: z.int(),
+          limit: z.int(),
+          total: z.int(),
+        }),
+      }),
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getRoleControllerListRevisionsUrl(
+  path: RoleControllerListRevisionsPathParams,
+): string {
+  return buildUrl('/roles/{id}/revisions', path);
+}
+
+const roleControllerListRevisionsOperation: OperationDefinition = {
+  id: 'RoleController_listRevisions',
+  method: 'GET',
+  path: '/roles/{id}/revisions',
+  responseTypes: { 200: 'json' },
+  schemas: RoleControllerListRevisionsSchemas,
+};
+
+/** 角色的版本歷史（新的在前） */
+export function roleControllerListRevisions(
+  input: RoleControllerListRevisionsInput,
+  options?: RequestOptions,
+): Promise<RoleControllerListRevisionsResult> {
+  return request<RoleControllerListRevisionsResult>(
+    roleControllerListRevisionsOperation,
+    input,
+    options,
+  );
+}
+
+// GET /roles/{id}/revisions/{version}
+
+export interface RoleControllerGetRevisionPathParams {
+  id: string;
+  version: number;
+}
+
+export interface RoleControllerGetRevisionInput {
+  path: RoleControllerGetRevisionPathParams;
+}
+
+export interface RoleControllerGetRevisionResponses {
+  200: {
+    data: RoleRevision;
+  };
+}
+
+export type RoleControllerGetRevisionResponse = RoleControllerGetRevisionResponses[200];
+
+export type RoleControllerGetRevisionResult = ApiResponse<
+  200,
+  RoleControllerGetRevisionResponses[200]
+>;
+
+export const RoleControllerGetRevisionSchemas = {
+  path: z.object({
+    id: z.string(),
+    version: z.number(),
+  }),
+  responses: {
+    200: z.object({
+      data: RoleRevisionSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getRoleControllerGetRevisionUrl(path: RoleControllerGetRevisionPathParams): string {
+  return buildUrl('/roles/{id}/revisions/{version}', path);
+}
+
+const roleControllerGetRevisionOperation: OperationDefinition = {
+  id: 'RoleController_getRevision',
+  method: 'GET',
+  path: '/roles/{id}/revisions/{version}',
+  responseTypes: { 200: 'json' },
+  schemas: RoleControllerGetRevisionSchemas,
+};
+
+/** 角色的某一版（含快照） */
+export function roleControllerGetRevision(
+  input: RoleControllerGetRevisionInput,
+  options?: RequestOptions,
+): Promise<RoleControllerGetRevisionResult> {
+  return request<RoleControllerGetRevisionResult>(
+    roleControllerGetRevisionOperation,
+    input,
+    options,
+  );
+}
+
+// POST /roles/{id}/revisions/{version}/revert
+
+export interface RoleControllerRevertToRevisionPathParams {
+  id: string;
+  version: number;
+}
+
+export type RoleControllerRevertToRevisionBody = RevertRoleRevisionRequest;
+
+export interface RoleControllerRevertToRevisionInput {
+  path: RoleControllerRevertToRevisionPathParams;
+  body: RoleControllerRevertToRevisionBody;
+}
+
+export interface RoleControllerRevertToRevisionResponses {
+  200: {
+    data: Role;
+  };
+}
+
+export type RoleControllerRevertToRevisionResponse = RoleControllerRevertToRevisionResponses[200];
+
+export type RoleControllerRevertToRevisionResult = ApiResponse<
+  200,
+  RoleControllerRevertToRevisionResponses[200]
+>;
+
+export const RoleControllerRevertToRevisionSchemas = {
+  path: z.object({
+    id: z.string(),
+    version: z.number(),
+  }),
+  body: RevertRoleRevisionRequestSchema,
+  responses: {
+    200: z.object({
+      data: RoleSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getRoleControllerRevertToRevisionUrl(
+  path: RoleControllerRevertToRevisionPathParams,
+): string {
+  return buildUrl('/roles/{id}/revisions/{version}/revert', path);
+}
+
+const roleControllerRevertToRevisionOperation: OperationDefinition = {
+  id: 'RoleController_revertToRevision',
+  method: 'POST',
+  path: '/roles/{id}/revisions/{version}/revert',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: RoleControllerRevertToRevisionSchemas,
+};
+
+/** 把角色還原到某一版（產生新的一版） */
+export function roleControllerRevertToRevision(
+  input: RoleControllerRevertToRevisionInput,
+  options?: RequestOptions,
+): Promise<RoleControllerRevertToRevisionResult> {
+  return request<RoleControllerRevertToRevisionResult>(
+    roleControllerRevertToRevisionOperation,
+    input,
+    options,
+  );
 }
 
 // GET /roles/{id}/permissions

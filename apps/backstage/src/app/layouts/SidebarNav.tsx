@@ -13,6 +13,7 @@ import { JOB_PAGE } from '@/features/job';
 import { PERMISSION_PAGE } from '@/features/permission';
 import { ROLE_PAGE } from '@/features/role';
 import { SETTING_PAGE } from '@/features/system';
+import { TRASH_PAGE } from '@/features/trash';
 import { USER_PAGE } from '@/features/user';
 import { cn } from '@/shared/utils';
 
@@ -101,6 +102,13 @@ const MENU_GROUPS: NavGroup[] = [
         labelKey: 'menu.identityProvider',
         testId: 'menu-identity-provider',
         icon: 'key',
+      },
+      {
+        pageKey: TRASH_PAGE,
+        to: '/trash',
+        labelKey: 'menu.trash',
+        testId: 'menu-trash',
+        icon: 'trash',
       },
       {
         pageKey: SETTING_PAGE,

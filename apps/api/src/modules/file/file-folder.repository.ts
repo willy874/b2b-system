@@ -1,10 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, ilike, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { TENANT_DB } from '@/core/database';
+import { containsPattern, TENANT_DB } from '@/core/database';
 import type { FileFolderInsert, FileFolderKind, FileFolderRow } from '@/db/schema';
-import { fileFolders, files, users } from '@/db/schema';
+import { fileFolders, files, isDeleted, notDeleted, relationTuples, users } from '@/db/schema';
 
 import type { FolderNode } from './file-access.context';
 
@@ -14,6 +16,41 @@ import type { FolderNode } from './file-access.context';
  * 資料夾的寫入不頻繁，整棵樹共用一把鎖就夠了。
  */
 const FOLDER_TREE_LOCK_KEY = 'file_folders_tree';
+
+/** 關係圖上資料夾的物件型別（file.authz.ts 的 `FILE_FOLDER_TYPE`）。 */
+const FOLDER_OBJECT_TYPE = 'fileFolder';
+
+/** 遞迴查詢的深度上限：擋住壞資料的循環（正常的樹最多 `MAX_FOLDER_DEPTH` 層）。 */
+const RECURSION_LIMIT = 64;
+
+/** 一次刪除操作的識別與時間（ADR-0025 D5）：遞迴刪除的資料夾與檔案帶同一組值。 */
+export interface DeletionStamp {
+  actorId: string | null;
+  deletionId: string;
+  deletedAt: Date;
+}
+
+/** 回收桶的一列（`listDeleted`）。 */
+export interface DeletedFolderRow {
+  id: string;
+  name: string;
+  parentId: string | null;
+  deletedAt: Date;
+  deletedBy: { id: string; name: string } | null;
+}
+
+const deleter = alias(users, 'deleter');
+
+/**
+ * 一批刪除的根：上層不是 **同一次刪除** 刪掉的（ADR-0025 D5）。遞迴刪除的子孫屬於根的批次，回收桶只列根。
+ * R4a 之前刪除的列 `deletion_id` 是 null，以 `IS NOT DISTINCT FROM` 比對：舊的遞迴刪除整棵視為同一批。
+ */
+const BATCH_ROOT = sql`NOT EXISTS (
+  SELECT 1 FROM ${fileFolders} AS parent_folder
+  WHERE parent_folder.id = ${fileFolders.parentId}
+    AND parent_folder.deleted_at IS NOT NULL
+    AND parent_folder.deletion_id IS NOT DISTINCT FROM ${fileFolders.deletionId}
+)`;
 
 @Injectable()
 export class FileFolderRepository {
@@ -38,7 +75,7 @@ export class FileFolderRepository {
         createdBy: fileFolders.createdBy,
       })
       .from(fileFolders)
-      .where(isNull(fileFolders.deletedAt));
+      .where(notDeleted(fileFolders));
   }
 
   /** 移動前的存取判斷：這些檔案所在的資料夾與上傳者（已刪除、還在上傳中的不列）。 */
@@ -51,7 +88,7 @@ export class FileFolderRepository {
     return db
       .select({ id: files.id, folderId: files.folderId, createdBy: files.createdBy })
       .from(files)
-      .where(and(inArray(files.id, [...ids]), isNull(files.deletedAt), eq(files.status, 'ready')));
+      .where(and(inArray(files.id, [...ids]), notDeleted(files), eq(files.status, 'ready')));
   }
 
   /** 這些資料夾（與直接包含的檔案，含上傳中的）之中有沒有不是 `actorId` 建立的。 */
@@ -74,11 +111,7 @@ export class FileFolderRepository {
       .select({ id: files.id })
       .from(files)
       .where(
-        and(
-          inArray(files.folderId, [...folderIds]),
-          isNull(files.deletedAt),
-          notMine(files.createdBy),
-        ),
+        and(inArray(files.folderId, [...folderIds]), notDeleted(files), notMine(files.createdBy)),
       )
       .limit(1);
     return Boolean(file);
@@ -95,7 +128,7 @@ export class FileFolderRepository {
     const [row] = await db
       .select()
       .from(fileFolders)
-      .where(and(eq(fileFolders.kind, kind), isNull(fileFolders.deletedAt)))
+      .where(and(eq(fileFolders.kind, kind), notDeleted(fileFolders)))
       .limit(1);
     return row;
   }
@@ -117,7 +150,7 @@ export class FileFolderRepository {
         and(
           eq(fileFolders.kind, 'personal'),
           inArray(fileFolders.ownerId, [...userIds]),
-          isNull(fileFolders.deletedAt),
+          notDeleted(fileFolders),
         ),
       );
     return new Set(rows.flatMap((row) => (row.ownerId ? [row.ownerId] : [])));
@@ -140,8 +173,8 @@ export class FileFolderRepository {
       .where(
         and(
           eq(fileFolders.kind, 'personal'),
-          isNull(fileFolders.deletedAt),
-          sql`${users.deletedAt} IS NOT NULL`,
+          notDeleted(fileFolders),
+          isDeleted(users),
           ownerIds ? inArray(fileFolders.ownerId, [...ownerIds]) : undefined,
         ),
       );
@@ -154,13 +187,13 @@ export class FileFolderRepository {
     const [child] = await db
       .select({ id: fileFolders.id })
       .from(fileFolders)
-      .where(and(eq(fileFolders.parentId, folderId), isNull(fileFolders.deletedAt)))
+      .where(and(eq(fileFolders.parentId, folderId), notDeleted(fileFolders)))
       .limit(1);
     if (child) return false;
     const [file] = await db
       .select({ id: files.id })
       .from(files)
-      .where(and(eq(files.folderId, folderId), isNull(files.deletedAt)))
+      .where(and(eq(files.folderId, folderId), notDeleted(files)))
       .limit(1);
     return !file;
   }
@@ -173,12 +206,12 @@ export class FileFolderRepository {
     return this.db
       .select({ id: users.id, displayName: users.displayName, email: users.email })
       .from(users)
-      .where(and(inArray(users.id, [...userIds]), isNull(users.deletedAt)));
+      .where(and(inArray(users.id, [...userIds]), notDeleted(users)));
   }
 
   /** 未刪除的使用者：啟動時補建個人資料夾的候選人（能不能進檔案管理器由權限解析決定）。 */
   async findActiveUserIds(): Promise<string[]> {
-    const rows = await this.db.select({ id: users.id }).from(users).where(isNull(users.deletedAt));
+    const rows = await this.db.select({ id: users.id }).from(users).where(notDeleted(users));
     return rows.map((row) => row.id);
   }
 
@@ -192,7 +225,7 @@ export class FileFolderRepository {
     const [row] = await db
       .update(fileFolders)
       .set({ ...values, updatedAt: new Date() })
-      .where(and(eq(fileFolders.id, id), isNull(fileFolders.deletedAt)))
+      .where(and(eq(fileFolders.id, id), notDeleted(fileFolders)))
       .returning();
     return row;
   }
@@ -202,7 +235,7 @@ export class FileFolderRepository {
     return this.db
       .select()
       .from(fileFolders)
-      .where(isNull(fileFolders.deletedAt))
+      .where(notDeleted(fileFolders))
       .orderBy(asc(fileFolders.name), asc(fileFolders.id));
   }
 
@@ -211,7 +244,7 @@ export class FileFolderRepository {
     const [row] = await db
       .select()
       .from(fileFolders)
-      .where(and(eq(fileFolders.id, id), isNull(fileFolders.deletedAt)))
+      .where(and(eq(fileFolders.id, id), notDeleted(fileFolders)))
       .limit(1);
     return row;
   }
@@ -222,7 +255,7 @@ export class FileFolderRepository {
     return db
       .select()
       .from(fileFolders)
-      .where(and(inArray(fileFolders.id, [...ids]), isNull(fileFolders.deletedAt)));
+      .where(and(inArray(fileFolders.id, [...ids]), notDeleted(fileFolders)));
   }
 
   /** 這些上層（null 是根目錄）底下的資料夾。 */
@@ -238,7 +271,7 @@ export class FileFolderRepository {
     return db
       .select()
       .from(fileFolders)
-      .where(and(scope, isNull(fileFolders.deletedAt)));
+      .where(and(scope, notDeleted(fileFolders)));
   }
 
   /** 從 `id` 往上到根目錄的所有 id（含自己）。 */
@@ -246,7 +279,7 @@ export class FileFolderRepository {
     const db = tx ?? this.db;
     const rows = await db.execute<{ id: string }>(sql`
       WITH RECURSIVE chain(id, parent_id) AS (
-        SELECT id, parent_id FROM file_folders WHERE id = ${id} AND deleted_at IS NULL
+        SELECT id, parent_id FROM file_folders WHERE id = ${id} AND deleted_at IS NULL /* notDeleted */
         UNION ALL
         SELECT f.id, f.parent_id FROM file_folders f JOIN chain c ON f.id = c.parent_id
       )
@@ -265,9 +298,9 @@ export class FileFolderRepository {
         WHERE id IN (${sql.join(
           ids.map((id) => sql`${id}::uuid`),
           sql`, `,
-        )}) AND deleted_at IS NULL
+        )}) AND deleted_at IS NULL /* notDeleted */
         UNION
-        SELECT f.id FROM file_folders f JOIN tree t ON f.parent_id = t.id WHERE f.deleted_at IS NULL
+        SELECT f.id FROM file_folders f JOIN tree t ON f.parent_id = t.id WHERE f.deleted_at IS NULL /* notDeleted */
       )
       SELECT id FROM tree
     `);
@@ -286,10 +319,10 @@ export class FileFolderRepository {
         WHERE id IN (${sql.join(
           ids.map((id) => sql`${id}::uuid`),
           sql`, `,
-        )}) AND deleted_at IS NULL
+        )}) AND deleted_at IS NULL /* notDeleted */
         UNION ALL
         SELECT f.id, t.depth + 1 FROM file_folders f JOIN tree t ON f.parent_id = t.id
-        WHERE f.deleted_at IS NULL AND t.depth < ${limit}
+        WHERE f.deleted_at IS NULL /* notDeleted */ AND t.depth < ${limit}
       )
       SELECT coalesce(max(depth), 0)::int AS height FROM tree
     `);
@@ -311,7 +344,7 @@ export class FileFolderRepository {
     const [row] = await db
       .update(fileFolders)
       .set({ ...values, updatedAt: new Date() })
-      .where(and(eq(fileFolders.id, id), isNull(fileFolders.deletedAt)))
+      .where(and(eq(fileFolders.id, id), notDeleted(fileFolders)))
       .returning();
     return row;
   }
@@ -331,7 +364,7 @@ export class FileFolderRepository {
       .where(
         and(
           inArray(fileFolders.id, [...ids]),
-          isNull(fileFolders.deletedAt),
+          notDeleted(fileFolders),
           parentId === null
             ? sql`${fileFolders.parentId} IS NOT NULL`
             : sql`${fileFolders.parentId} IS DISTINCT FROM ${parentId}::uuid`,
@@ -340,13 +373,14 @@ export class FileFolderRepository {
       .returning();
   }
 
-  async softDelete(ids: readonly string[], actorId: string | null, tx?: DbOrTx): Promise<number> {
+  /** 軟刪除；同一次刪除的列帶同一個 `deletionId`（ADR-0025 D5）。 */
+  async softDelete(ids: readonly string[], stamp: DeletionStamp, tx?: DbOrTx): Promise<number> {
     if (ids.length === 0) return 0;
     const db = tx ?? this.db;
     const rows = await db
       .update(fileFolders)
-      .set({ deletedAt: new Date(), updatedBy: actorId })
-      .where(and(inArray(fileFolders.id, [...ids]), isNull(fileFolders.deletedAt)))
+      .set({ deletedAt: stamp.deletedAt, updatedBy: stamp.actorId, deletionId: stamp.deletionId })
+      .where(and(inArray(fileFolders.id, [...ids]), notDeleted(fileFolders)))
       .returning({ id: fileFolders.id });
     return rows.length;
   }
@@ -369,7 +403,7 @@ export class FileFolderRepository {
       .where(
         and(
           inArray(files.id, [...fileIds]),
-          isNull(files.deletedAt),
+          notDeleted(files),
           eq(files.status, 'ready'),
           folderId === null
             ? sql`${files.folderId} IS NOT NULL`
@@ -381,20 +415,20 @@ export class FileFolderRepository {
   }
 
   /**
-   * 軟刪除這些資料夾「直接」包含的檔案（含上傳中的）。物件儲存裡的內容交給維護排程清除
-   * （紀錄已刪除的物件視為孤兒，docs/architecture/backend/09-file.md §9）。
+   * 軟刪除這些資料夾「直接」包含的檔案（含上傳中的），與資料夾帶同一個 `deletionId`。物件儲存裡的內容保留到
+   * 回收桶的保留期限結束，由 `trash.purge` 在永久刪除後清掉（docs/architecture/backend/13-trash.md §7）。
    */
   async softDeleteFilesIn(
     folderIds: readonly string[],
-    actorId: string,
+    stamp: DeletionStamp,
     tx?: DbOrTx,
   ): Promise<number> {
     if (folderIds.length === 0) return 0;
     const db = tx ?? this.db;
     const rows = await db
       .update(files)
-      .set({ deletedAt: new Date(), updatedBy: actorId })
-      .where(and(inArray(files.folderId, [...folderIds]), isNull(files.deletedAt)))
+      .set({ deletedAt: stamp.deletedAt, updatedBy: stamp.actorId, deletionId: stamp.deletionId })
+      .where(and(inArray(files.folderId, [...folderIds]), notDeleted(files)))
       .returning({ id: files.id, status: files.status });
     return rows.filter((row) => row.status === 'ready').length;
   }
@@ -406,6 +440,16 @@ export class FileFolderRepository {
     exceptId?: string,
     tx?: DbOrTx,
   ): Promise<boolean> {
+    return Boolean(await this.findSiblingId(parentId, name, exceptId, tx));
+  }
+
+  /** 同一層同名（不分大小寫）、未刪除的資料夾 id：還原時帶進錯誤的 `details.conflictingId`。 */
+  async findSiblingId(
+    parentId: string | null,
+    name: string,
+    exceptId?: string,
+    tx?: DbOrTx,
+  ): Promise<string | undefined> {
     const db = tx ?? this.db;
     const [row] = await db
       .select({ id: fileFolders.id })
@@ -414,11 +458,236 @@ export class FileFolderRepository {
         and(
           parentId === null ? isNull(fileFolders.parentId) : eq(fileFolders.parentId, parentId),
           sql`lower(${fileFolders.name}) = lower(${name})`,
-          isNull(fileFolders.deletedAt),
+          notDeleted(fileFolders),
           exceptId ? ne(fileFolders.id, exceptId) : undefined,
         ),
       )
       .limit(1);
-    return Boolean(row);
+    return row?.id;
+  }
+
+  // ── 回收桶與還原（ADR-0025 D5、D9、D11）：這一段故意讀已刪除的列，一律用 isDeleted() ──
+
+  /** 已刪除的資料夾；不存在或沒有被刪除回 undefined。 */
+  async findDeletedById(id: string, tx?: DbOrTx): Promise<FileFolderRow | undefined> {
+    const [row] = await (tx ?? this.db)
+      .select()
+      .from(fileFolders)
+      .where(and(eq(fileFolders.id, id), isDeleted(fileFolders)))
+      .limit(1);
+    return row;
+  }
+
+  /** 資料夾是否已刪除（不存在也當作已刪除：已被永久刪除）。還原時判斷上層還在不在。 */
+  async isDeletedOrGone(id: string, tx?: DbOrTx): Promise<boolean> {
+    return !(await this.findById(id, tx));
+  }
+
+  /**
+   * 同一次刪除的子樹（含根）：從根往下，只走已刪除、`deletion_id` 相同的資料夾（ADR-0025 D5）。
+   * 之前個別刪掉的子資料夾 `deletion_id` 不同，連同它底下的都不在這一批。null 是 R4a 之前的刪除。
+   */
+  async findDeletedBatchIds(
+    rootId: string,
+    deletionId: string | null,
+    tx?: DbOrTx,
+  ): Promise<string[]> {
+    const rows = await (tx ?? this.db).execute<{ id: string }>(sql`
+      WITH RECURSIVE batch(id, depth) AS (
+        SELECT id, 0 FROM file_folders WHERE id = ${rootId} AND deleted_at IS NOT NULL
+        UNION ALL
+        SELECT f.id, b.depth + 1 FROM file_folders f JOIN batch b ON f.parent_id = b.id
+        WHERE f.deleted_at IS NOT NULL
+          AND f.deletion_id IS NOT DISTINCT FROM ${deletionId}::uuid
+          AND b.depth < ${RECURSION_LIMIT}
+      )
+      SELECT id FROM batch
+    `);
+    return rows.map((row) => row.id);
+  }
+
+  /**
+   * 清掉 `deleted_at` 與 `deletion_id`（只在仍是同一批已刪除時；並行的兩個還原只有一個命中）。
+   * 資料夾上的授權（`relation_tuples`）刪除時沒有動過，隨之生效（docs/architecture/backend/13-trash.md §7.1）。
+   */
+  async restore(
+    ids: readonly string[],
+    values: { actorId: string; deletionId: string | null },
+    tx: DbOrTx,
+  ): Promise<FileFolderRow[]> {
+    if (ids.length === 0) return [];
+    return tx
+      .update(fileFolders)
+      .set({ deletedAt: null, deletionId: null, updatedBy: values.actorId, updatedAt: new Date() })
+      .where(
+        and(
+          inArray(fileFolders.id, [...ids]),
+          isDeleted(fileFolders),
+          sql`${fileFolders.deletionId} IS NOT DISTINCT FROM ${values.deletionId}::uuid`,
+        ),
+      )
+      .returning();
+  }
+
+  /**
+   * 從每個資料夾往上到根目錄的名稱（含自己，已刪除的也算）：回收桶顯示「原本在哪裡」。
+   * 回傳 id → 由根往下的名稱。
+   */
+  async findPaths(ids: readonly string[]): Promise<Map<string, string[]>> {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return new Map();
+    const rows = await this.db.execute<{ start_id: string; name: string; depth: number }>(sql`
+      WITH RECURSIVE chain(start_id, id, parent_id, name, depth) AS (
+        SELECT id, id, parent_id, name, 0 FROM file_folders
+        WHERE id IN (${sql.join(
+          unique.map((id) => sql`${id}::uuid`),
+          sql`, `,
+        )})
+        UNION ALL
+        SELECT c.start_id, f.id, f.parent_id, f.name, c.depth + 1
+        FROM file_folders f JOIN chain c ON f.id = c.parent_id
+        WHERE c.depth < ${RECURSION_LIMIT}
+      )
+      SELECT start_id, name, depth FROM chain
+    `);
+    const paths = new Map<string, Array<{ name: string; depth: number }>>();
+    for (const row of rows) {
+      const list = paths.get(row.start_id) ?? [];
+      list.push({ name: row.name, depth: Number(row.depth) });
+      paths.set(row.start_id, list);
+    }
+    return new Map(
+      [...paths].map(([id, list]) => [
+        id,
+        list.toSorted((a, b) => b.depth - a.depth).map((entry) => entry.name),
+      ]),
+    );
+  }
+
+  /**
+   * 回收桶：每一批刪除的根（`BATCH_ROOT`），不列跟著上層一起刪的子孫。系統資料夾（共用、私人、個人）只由系統刪除
+   * （擁有者被刪除時的空個人資料夾），不能還原，不列（rbac/07 §12）。
+   */
+  async listDeleted(query: {
+    offset: number;
+    limit: number;
+    keyword?: string;
+  }): Promise<{ items: DeletedFolderRow[]; total: number }> {
+    const conditions: SQL[] = [isDeleted(fileFolders), eq(fileFolders.kind, 'normal'), BATCH_ROOT];
+    if (query.keyword) conditions.push(ilike(fileFolders.name, containsPattern(query.keyword)));
+    const where = and(...conditions);
+    const [rows, [counted]] = await Promise.all([
+      this.db
+        .select({
+          id: fileFolders.id,
+          name: fileFolders.name,
+          parentId: fileFolders.parentId,
+          deletedAt: fileFolders.deletedAt,
+          deleterId: deleter.id,
+          deleterName: deleter.displayName,
+        })
+        .from(fileFolders)
+        .leftJoin(deleter, eq(deleter.id, fileFolders.updatedBy))
+        .where(where)
+        .orderBy(desc(fileFolders.deletedAt), desc(fileFolders.id))
+        .limit(query.limit)
+        .offset(query.offset),
+      this.db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(fileFolders)
+        .where(where),
+    ]);
+    return {
+      items: rows.flatMap(({ deleterId, deleterName, deletedAt, ...row }) =>
+        deletedAt
+          ? [
+              {
+                ...row,
+                deletedAt,
+                deletedBy: deleterId && deleterName ? { id: deleterId, name: deleterName } : null,
+              },
+            ]
+          : [],
+      ),
+      total: counted?.total ?? 0,
+    };
+  }
+
+  /**
+   * 刪除超過保留期限的資料夾子樹的根（依 id 的 keyset；ADR-0025 D11）：上層也到期的不回傳，由上層的 `purgeTree` 一起刪。
+   * 上層到期 ⇒ 子孫也到期：子孫不是與上層同時刪除，就是更早個別刪除（上層被刪之後不可能再有東西被刪）。
+   * 含系統刪除的個人資料夾：它們清掉之後，擁有者才能被永久刪除（`file_folders.owner_id` 是 `RESTRICT`）。
+   */
+  async findExpired(
+    cutoff: Date,
+    afterId: string | null,
+    limit: number,
+  ): Promise<Array<{ id: string; name: string; deletedAt: Date }>> {
+    const rows = await this.db
+      .select({ id: fileFolders.id, name: fileFolders.name, deletedAt: fileFolders.deletedAt })
+      .from(fileFolders)
+      .where(
+        and(
+          isDeleted(fileFolders),
+          lt(fileFolders.deletedAt, cutoff),
+          afterId ? gt(fileFolders.id, afterId) : undefined,
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${fileFolders} AS parent_folder
+            WHERE parent_folder.id = ${fileFolders.parentId}
+              AND parent_folder.deleted_at IS NOT NULL
+              AND parent_folder.deleted_at < ${cutoff.toISOString()}::timestamptz
+          )`,
+        ),
+      )
+      .orderBy(asc(fileFolders.id))
+      .limit(limit);
+    return rows.flatMap(({ deletedAt, ...row }) => (deletedAt ? [{ ...row, deletedAt }] : []));
+  }
+
+  /**
+   * 永久刪除一個已刪除的資料夾與它所有已刪除的子孫（在呼叫端的交易內；docs/architecture/backend/13-trash.md §7.3）。
+   * `parent_id` 是 `RESTRICT`：由最深的一層往上刪。其中的檔案（`files.folder_id` 也是 `RESTRICT`）要先被檔案的 handler
+   * 清掉，還有剩（或有未刪除的子孫）時外鍵違反，由呼叫端的 savepoint 當作這一輪略過。
+   * 關係圖以這些資料夾為物件的邊（資料夾授權）一併刪除。回傳刪掉的資料夾 id（空的代表已被還原或已不在）。
+   */
+  async purgeTree(rootId: string, tx: DbOrTx): Promise<string[]> {
+    const rows = await tx.execute<{ id: string; depth: number }>(sql`
+      WITH RECURSIVE tree(id, depth) AS (
+        SELECT id, 0 FROM file_folders WHERE id = ${rootId} AND deleted_at IS NOT NULL
+        UNION ALL
+        SELECT f.id, t.depth + 1 FROM file_folders f JOIN tree t ON f.parent_id = t.id
+        WHERE f.deleted_at IS NOT NULL AND t.depth < ${RECURSION_LIMIT}
+      )
+      SELECT id, depth FROM tree
+    `);
+    if (rows.length === 0) return [];
+    const byDepth = new Map<number, string[]>();
+    for (const row of rows) {
+      const depth = Number(row.depth);
+      byDepth.set(depth, [...(byDepth.get(depth) ?? []), row.id]);
+    }
+    for (const depth of [...byDepth.keys()].toSorted((a, b) => b - a)) {
+      // 同一個交易依序：下一層（較淺）要等這一層刪掉才不會違反 parent_id 的外鍵
+      // oxlint-disable-next-line no-await-in-loop -- 見上
+      await tx
+        .delete(fileFolders)
+        .where(and(inArray(fileFolders.id, byDepth.get(depth) ?? []), isDeleted(fileFolders)));
+    }
+    const ids = rows.map((row) => row.id);
+    await tx
+      .delete(relationTuples)
+      .where(
+        or(
+          and(
+            eq(relationTuples.objectType, FOLDER_OBJECT_TYPE),
+            inArray(relationTuples.objectId, ids),
+          ),
+          and(
+            eq(relationTuples.subjectType, FOLDER_OBJECT_TYPE),
+            inArray(relationTuples.subjectId, ids),
+          ),
+        ),
+      );
+    return ids;
   }
 }

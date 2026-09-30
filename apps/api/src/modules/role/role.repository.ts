@@ -1,14 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, ilike, inArray, isNull, like, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, ilike, inArray, like, lt, or, sql } from 'drizzle-orm';
 import type { SQL, SQLWrapper } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, containsPattern, prefixPattern } from '@/core/database';
 import type { PermissionRow, RoleInsert, RoleRow } from '@/db/schema';
 import {
   isActiveRole,
+  isDeleted,
   isRoleHolderTuple,
   isRolePermissionTuple,
+  notDeleted,
   permissions,
   relationTuples,
   ROLE_HOLDER_RELATION,
@@ -24,6 +27,18 @@ import {
 
 import type { ListRoleDto } from './dto/list-role.dto';
 
+/** 回收桶的一列（`listDeleted`）；刪除者取自刪除時寫入的 `updated_by`（刪除之後不再有人更新這一列）。 */
+export interface DeletedRoleRow {
+  id: string;
+  name: string;
+  description: string | null;
+  deletedAt: Date;
+  deletedBy: { id: string; name: string } | null;
+}
+
+/** 刪除者：`users` 的別名（刪除者本人也可能已被刪除，仍顯示名字）。 */
+const deleter = alias(users, 'deleter');
+
 export interface RoleWithCounts extends RoleRow {
   permissionCount: number;
   userCount: number;
@@ -36,14 +51,19 @@ const permissionCountOf = (roleId: SQLWrapper | string) =>
       AND t.subject_type = ${ROLE_OBJECT_TYPE} AND t.subject_relation = ${ROLE_HOLDER_RELATION}
       AND t.relation <> ${SUPER_ADMIN_RELATION} AND t.subject_id = ${roleId}::text)`;
 
-// 軟刪除使用者不會清掉持有角色的邊，計數要排除已刪除的使用者（與 listUsers 一致）
+// 軟刪除使用者不會清掉持有角色的邊，計數要排除已刪除的使用者（與 listUsers 一致）。
+// 以角色為起點、不看角色本身是否刪除：刪除的角色保留持有者邊（ADR-0025 D2），呼叫端要先確認角色的狀態
+// （列表與 withCounts 只對未刪除的角色計算）
 const userCountOf = (roleId: SQLWrapper | string) =>
   sql<number>`(SELECT count(*)::int FROM ${relationTuples} t INNER JOIN ${users} u ON u.id::text = t.subject_id
     WHERE t.object_type = ${ROLE_OBJECT_TYPE} AND t.relation = ${ROLE_HOLDER_RELATION}
       AND t.subject_type = ${USER_SUBJECT_TYPE} AND t.subject_relation = ''
-      AND t.object_id = ${roleId}::text AND u.deleted_at IS NULL)`;
+      AND t.object_id = ${roleId}::text AND u.deleted_at IS NULL /* notDeleted */)`;
 
-/** 持有這個角色的邊（`role:<roleId>#holder@user:*`）。 */
+/**
+ * 持有這個角色的邊（`role:<roleId>#holder@user:*`）。**不看角色是否刪除**：刪除的角色保留這些邊
+ * （休眠，還原時回來；docs/adr/0025-entity-revisions.md D2 ②），以它為起點的查詢由呼叫端先確認角色的狀態。
+ */
 const holdersOf = (roleId: string) => and(isRoleHolderTuple(), eq(relationTuples.objectId, roleId));
 /** 這個角色帶的權限鍵的邊（`tenant:self#<key>@role:<roleId>#holder`）。 */
 const permissionsOf = (roleId: string) =>
@@ -169,9 +189,49 @@ export class RoleRepository {
     return row;
   }
 
-  async update(id: string, values: Partial<RoleInsert>, tx?: DbOrTx): Promise<RoleRow | undefined> {
+  /**
+   * 改名稱或說明並遞增樂觀鎖的 `version`（角色自己的欄位只有這兩個會被編輯）。帶 `expectedVersion` 時
+   * 只在版本相符、且未刪除時才更新（比對與寫入在同一個 UPDATE）；不符回 undefined。
+   */
+  async update(
+    id: string,
+    values: Partial<Pick<RoleInsert, 'name' | 'description' | 'updatedBy'>>,
+    expectedVersion?: number,
+    tx?: DbOrTx,
+  ): Promise<RoleRow | undefined> {
     const db = tx ?? this.db;
-    const [row] = await db.update(roles).set(values).where(eq(roles.id, id)).returning();
+    const conditions = [eq(roles.id, id)];
+    if (expectedVersion !== undefined) {
+      conditions.push(eq(roles.version, expectedVersion), isActiveRole());
+    }
+    const [row] = await db
+      .update(roles)
+      .set({ ...values, version: sql`${roles.version} + 1` })
+      .where(and(...conditions))
+      .returning();
+    return row;
+  }
+
+  /** 未刪除的角色目前的 `version`；不存在或已刪除回 undefined（樂觀鎖衝突時重讀）。 */
+  async findVersion(id: string, tx?: DbOrTx): Promise<number | undefined> {
+    const [row] = await (tx ?? this.db)
+      .select({ version: roles.version })
+      .from(roles)
+      .where(and(eq(roles.id, id), isActiveRole()))
+      .limit(1);
+    return row?.version;
+  }
+
+  /**
+   * 在交易內以 `FOR UPDATE` 鎖住並讀出未刪除的角色列；不存在（或已刪除）時回 undefined。
+   * 版本歷史的快照要讀鎖住之後的名稱與說明（docs/architecture/backend/14-revisions.md §4.1）。
+   */
+  async lockActiveRow(id: string, tx: DbOrTx): Promise<RoleRow | undefined> {
+    const [row] = await tx
+      .select()
+      .from(roles)
+      .where(and(eq(roles.id, id), isActiveRole()))
+      .for('update');
     return row;
   }
 
@@ -186,19 +246,27 @@ export class RoleRepository {
   }
 
   /**
-   * 軟刪除角色並刪掉「持有這個角色」的邊；回傳原本的持有者（刪除與取得在同一條語句）。
-   * 角色帶的權限鍵、以角色為對象的資料夾授權留著：解析時已排除刪除的角色。
+   * 軟刪除角色。持有者邊（`role:<id>#holder@user:*`）、權限鍵的邊、以角色為對象的資料夾授權都 **保留**：
+   * 解析與使用者端的讀取已排除刪除的角色，還原時原本的持有者自動回來（docs/adr/0025-entity-revisions.md D2）。
+   * 關係圖的 revision 由 trigger（migration 0012）在 `deleted_at` 改變時 +1。
    */
-  async softDelete(id: string, actorId: string, tx: DbOrTx): Promise<string[]> {
+  async softDelete(id: string, actorId: string, tx: DbOrTx): Promise<void> {
     await tx
       .update(roles)
       .set({ deletedAt: new Date(), updatedBy: actorId })
       .where(eq(roles.id, id));
-    const removed = await tx
-      .delete(relationTuples)
-      .where(holdersOf(id))
-      .returning({ userId: relationTuples.subjectId });
-    return removed.map((row) => row.userId);
+  }
+
+  /**
+   * 持有這個角色的使用者 id（含已刪除的使用者；只用來推播）。不看角色是否刪除（D2 ②）：
+   * 刪除角色時在 `lockActive` 之後、軟刪除之前呼叫。
+   */
+  async findHolderIds(roleId: string, db: DbOrTx = this.db): Promise<string[]> {
+    const rows = await db
+      .select({ userId: relationTuples.subjectId })
+      .from(relationTuples)
+      .where(holdersOf(roleId));
+    return rows.map((row) => row.userId);
   }
 
   async listPermissions(roleId: string, db: DbOrTx = this.db): Promise<PermissionRow[]> {
@@ -245,23 +313,25 @@ export class RoleRepository {
       .where(and(permissionsOf(roleId), inArray(relationTuples.relation, [...keys])));
   }
 
+  /**
+   * 持有者人數（未刪除的使用者）。不看角色是否刪除（D2 ②）：刪除前在 `lockActive` 之後呼叫；
+   * 還原時故意拿來算休眠的持有者（`holdersRestored`）。
+   */
   async countUsers(roleId: string, db: DbOrTx = this.db): Promise<number> {
     const [row] = await db
       .select({ total: sql<number>`count(*)::int` })
       .from(relationTuples)
       .innerJoin(
         users,
-        and(eq(sql`${users.id}::text`, relationTuples.subjectId), isNull(users.deletedAt)),
+        and(eq(sql`${users.id}::text`, relationTuples.subjectId), notDeleted(users)),
       )
       .where(holdersOf(roleId));
     return row?.total ?? 0;
   }
 
+  /** 持有者列表。不看角色是否刪除（D2 ②）：呼叫端先以 `findById` 確認角色未刪除。 */
   async listUsers(roleId: string, offset: number, limit: number) {
-    const holderOf = and(
-      eq(sql`${users.id}::text`, relationTuples.subjectId),
-      isNull(users.deletedAt),
-    );
+    const holderOf = and(eq(sql`${users.id}::text`, relationTuples.subjectId), notDeleted(users));
     const [items, [counted]] = await Promise.all([
       this.db
         .select({
@@ -290,5 +360,123 @@ export class RoleRepository {
       .select()
       .from(roles)
       .where(and(ilike(roles.name, prefixPattern(keyword)), isActiveRole()));
+  }
+
+  // ── 回收桶與還原（ADR-0025 D2、D5、D9、D11）：這一段故意讀已刪除的列，一律用 isDeleted() ──
+
+  /** 已刪除的角色；不存在或沒有被刪除回 undefined。 */
+  async findDeletedById(id: string, tx?: DbOrTx): Promise<RoleRow | undefined> {
+    const [row] = await (tx ?? this.db)
+      .select()
+      .from(roles)
+      .where(and(eq(roles.id, id), isDeleted(roles)))
+      .limit(1);
+    return row;
+  }
+
+  /**
+   * 清掉 `deleted_at`（只在仍是已刪除時；並行的兩個還原只有一個命中）。保留的持有者邊與權限鍵隨之生效，
+   * 關係圖的 revision 由 trigger（migration 0012）+1。`version` 不遞增：與刪除一樣不是可編輯欄位的寫入
+   * （docs/architecture/backend/03-api-conventions.md §11）。
+   */
+  async restore(id: string, actorId: string, tx: DbOrTx): Promise<RoleRow | undefined> {
+    const [row] = await tx
+      .update(roles)
+      .set({ deletedAt: null, updatedBy: actorId })
+      .where(and(eq(roles.id, id), isDeleted(roles)))
+      .returning();
+    return row;
+  }
+
+  async listDeleted(query: {
+    offset: number;
+    limit: number;
+    keyword?: string;
+  }): Promise<{ items: DeletedRoleRow[]; total: number }> {
+    const conditions: SQL[] = [isDeleted(roles)];
+    if (query.keyword) {
+      const pattern = containsPattern(query.keyword);
+      conditions.push(sql`(${roles.name} ILIKE ${pattern} OR ${roles.slug} ILIKE ${pattern})`);
+    }
+    const where = and(...conditions);
+    const [rows, [counted]] = await Promise.all([
+      this.db
+        .select({
+          id: roles.id,
+          name: roles.name,
+          description: roles.description,
+          deletedAt: roles.deletedAt,
+          deleterId: deleter.id,
+          deleterName: deleter.displayName,
+        })
+        .from(roles)
+        .leftJoin(deleter, eq(deleter.id, roles.updatedBy))
+        .where(where)
+        .orderBy(desc(roles.deletedAt), desc(roles.id))
+        .limit(query.limit)
+        .offset(query.offset),
+      this.db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(roles)
+        .where(where),
+    ]);
+    return {
+      items: rows.flatMap(({ deleterId, deleterName, deletedAt, ...row }) =>
+        deletedAt
+          ? [
+              {
+                ...row,
+                deletedAt,
+                deletedBy: deleterId && deleterName ? { id: deleterId, name: deleterName } : null,
+              },
+            ]
+          : [],
+      ),
+      total: counted?.total ?? 0,
+    };
+  }
+
+  /** 刪除超過保留期限的角色（依 id 的 keyset；ADR-0025 D11）。系統角色刪不掉（trigger），不會出現在這裡。 */
+  async findExpired(
+    cutoff: Date,
+    afterId: string | null,
+    limit: number,
+  ): Promise<Array<{ id: string; name: string; deletedAt: Date }>> {
+    const rows = await this.db
+      .select({ id: roles.id, name: roles.name, deletedAt: roles.deletedAt })
+      .from(roles)
+      .where(
+        and(
+          isDeleted(roles),
+          lt(roles.deletedAt, cutoff),
+          afterId ? gt(roles.id, afterId) : undefined,
+        ),
+      )
+      .orderBy(asc(roles.id))
+      .limit(limit);
+    return rows.flatMap(({ deletedAt, ...row }) => (deletedAt ? [{ ...row, deletedAt }] : []));
+  }
+
+  /**
+   * 永久刪除一個已刪除的角色（在呼叫端的交易內；docs/architecture/backend/13-trash.md §6.2）。
+   * 沒有任何表以外鍵參照 `roles`；關係圖是多型、沒有外鍵，以它為物件（持有者邊 `role:<id>#holder@user:*`）
+   * 與為主體（權限鍵 `tenant:self#<key>@role:<id>#holder`、資料夾授權 `fileFolder:<f>#<等級>@role:<id>#holder`）
+   * 的邊都要自己刪。回傳是否刪到（已被還原或已不在就是 false）。
+   */
+  async hardDelete(id: string, tx: DbOrTx): Promise<boolean> {
+    const [row] = await tx
+      .delete(roles)
+      .where(and(eq(roles.id, id), isDeleted(roles)))
+      .returning({ id: roles.id });
+    if (!row) return false;
+    await tx
+      .delete(relationTuples)
+      .where(
+        or(
+          and(eq(relationTuples.objectType, ROLE_OBJECT_TYPE), eq(relationTuples.objectId, id)),
+          and(eq(relationTuples.subjectType, ROLE_OBJECT_TYPE), eq(relationTuples.subjectId, id)),
+        ),
+      );
+    return true;
   }
 }

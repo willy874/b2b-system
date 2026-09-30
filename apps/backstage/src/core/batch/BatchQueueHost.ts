@@ -247,6 +247,7 @@ export class BatchQueueHost {
         jobId: job.id,
         operation: job.operation,
         itemId: item.id,
+        version: item.version,
       });
     }
   }

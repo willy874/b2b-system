@@ -5,7 +5,9 @@
     "category": {
       "general": "General",
       "auth": "Accounts and sign-in",
-      "file": "Files"
+      "file": "Files",
+      "trash": "Trash",
+      "revision": "Version history"
     },
     "field": {
       "defaultTimezone": {
@@ -39,6 +41,18 @@
       "uploadMaxSize": {
         "label": "Maximum file size",
         "description": "The largest file that can be uploaded. Cannot exceed the limit set for this deployment."
+      },
+      "retentionDays": {
+        "label": "Retention",
+        "description": "Deleted items stay in the trash for this many days. After that the daily job deletes them permanently and they can no longer be restored."
+      },
+      "keepVersions": {
+        "label": "Versions to keep",
+        "description": "Each item always keeps at least this many of its latest versions, however old."
+      },
+      "keepDays": {
+        "label": "Days to keep",
+        "description": "Versions from the last this many days are always kept. Older versions beyond the version count are deleted by the daily job and can no longer be viewed or restored."
       }
     },
     "unit": {
@@ -46,7 +60,9 @@
       "seconds": "seconds",
       "hours": "hours",
       "characters": "characters",
-      "mebibytes": "MiB"
+      "mebibytes": "MiB",
+      "days": "days",
+      "versions": "versions"
     },
     "boolean": {
       "on": "On",

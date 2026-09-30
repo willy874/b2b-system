@@ -1,16 +1,20 @@
 import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 
 import { invalidateResources, Resource } from '@/apis/resources';
 import { getAssignUserRolesMutationOptions } from '@/apis/user/assign-user-roles/mutation';
 import { getUserCreateMutationOptions } from '@/apis/user/create-user/mutation';
 import { getUserDeleteMutationOptions } from '@/apis/user/delete-user/mutation';
 import { getUserResetPasswordMutationOptions } from '@/apis/user/reset-user-password/mutation';
+import { getUserRestoreMutationOptions } from '@/apis/user/restore-user/mutation';
 import { getUserUnlockMutationOptions } from '@/apis/user/unlock-user/mutation';
 import { getUserUpdateMutationOptions } from '@/apis/user/update-user/mutation';
-import { useErrorToast } from '@/core/errors';
+import { isAppError, isVersionConflict, useErrorMessage, useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
 import type { User } from '@/shared/api-sdk';
+
+import { UserDetailRoute } from '../routes';
 
 /** 使用者持有的角色：讓依賴圖只失效這幾個角色，而不是全部。 */
 export const roleRefs = (user: Pick<User, 'roles'>) => ({
@@ -29,6 +33,10 @@ export function useUserCreateMutation() {
   });
 }
 
+/**
+ * 編輯使用者：表單帶上編輯開始時的 `version`（樂觀鎖）。別人搶先改過時後端回 `USER_VERSION_CONFLICT`，
+ * 這裡失效該使用者讓畫面拿到最新的內容與版本，訊息交給表單（`VersionConflictAlert`）顯示、不彈 toast。
+ */
 export function useUserUpdateMutation() {
   const toast = useToast();
   const { t } = useTranslation();
@@ -41,22 +49,85 @@ export function useUserUpdateMutation() {
       ]);
       toast.success(t('user.update.success'));
     },
-    onError: showError,
+    onError: (error, { params }) => {
+      if (isVersionConflict(error)) {
+        invalidateResources([{ resource: Resource.USER, kind: 'update', id: params.userId }]);
+        return;
+      }
+      showError(error);
+    },
   });
 }
 
+/**
+ * 刪除使用者。成功的提示附「復原」：刪除只是移到回收桶（ADR-0025），按下就呼叫還原端點。
+ * 刪除與還原都要 `user:delete`，所以刪得掉的人一定按得了復原。
+ */
 export function useUserDeleteMutation() {
   const toast = useToast();
   const { t } = useTranslation();
   const showError = useErrorToast();
+  const restore = useUserRestoreMutation();
   return useMutation({
     ...getUserDeleteMutationOptions(),
     onSuccess: (_, { params }) => {
       // 不知道被刪的人持有哪些角色 → 角色端退回整批失效
       invalidateResources([{ resource: Resource.USER, kind: 'delete', id: params.userId }]);
-      toast.success(t('user.delete.success'));
+      toast.show({
+        type: 'success',
+        title: t('user.delete.success'),
+        action: {
+          label: t('user.delete.undo'),
+          onClick: () => restore.mutate({ params: { userId: params.userId } }),
+        },
+      });
     },
     onError: showError,
+  });
+}
+
+/** 還原被 email／username 佔用擋下時，錯誤帶佔用的帳號（`details.conflictingUserId`）。 */
+function conflictingUserIdOf(error: unknown): string | undefined {
+  if (!isAppError(error)) return undefined;
+  const id = error.details?.conflictingUserId;
+  return typeof id === 'string' ? id : undefined;
+}
+
+/**
+ * 還原刪除的使用者（`POST /users/:id/restore`，ADR-0025 D6）。email 或 username 已被別的帳號使用時，
+ * 提示附「查看該帳號」直接連過去：email 不能改，管理者要先處理那個帳號。
+ */
+export function useUserRestoreMutation() {
+  const toast = useToast();
+  const { t } = useTranslation();
+  const toMessage = useErrorMessage();
+  const showError = useErrorToast();
+  const navigate = useNavigate();
+  return useMutation({
+    ...getUserRestoreMutationOptions(),
+    onSuccess: (user) => {
+      // 重新出現在列表：以 create 宣告；回收桶的列表由依賴圖跟著失效
+      invalidateResources([
+        { resource: Resource.USER, kind: 'create', id: user.id, refs: roleRefs(user) },
+      ]);
+      toast.success(t('user.restore.success', { name: user.displayName }));
+    },
+    onError: (error) => {
+      const conflictingUserId = conflictingUserIdOf(error);
+      if (!conflictingUserId) {
+        showError(error);
+        return;
+      }
+      toast.show({
+        type: 'error',
+        title: toMessage(error),
+        action: {
+          label: t('user.restore.viewConflicting'),
+          onClick: () =>
+            void navigate({ to: UserDetailRoute.to, params: { userId: conflictingUserId } }),
+        },
+      });
+    },
   });
 }
 

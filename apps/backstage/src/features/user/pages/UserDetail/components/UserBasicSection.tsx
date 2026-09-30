@@ -1,5 +1,7 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
+import { getUserDetailQueryOptions } from '@/apis/user/get-user-detail/query';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { useConfirm } from '@/components/ConfirmDialog';
@@ -7,6 +9,8 @@ import { Field } from '@/components/Field';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
 import { Tooltip } from '@/components/Tooltip';
+import { VersionConflictAlert } from '@/core/components';
+import { isVersionConflict, useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { useUnsavedChangesGuard } from '@/core/router';
 import type { UpdateUserRequest, User } from '@/shared/api-sdk';
@@ -24,15 +28,23 @@ interface UserBasicSectionProps {
   isSelf: boolean;
 }
 
-/** 使用者基本資料：檢視 ／ 就地編輯顯示名稱與狀態。 */
+/**
+ * 使用者基本資料：檢視 ／ 就地編輯顯示名稱與狀態。
+ * 送出時帶「開始編輯時」的 `version`，不是畫面上最新的：編輯途中推播讓資料重抓時，
+ * 帶最新的版本等於默默蓋掉別人的變更（樂觀鎖，docs/architecture/backend/03-api-conventions.md §11）。
+ */
 export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionProps) {
   const { t } = useTranslation();
   const confirm = useConfirm();
+  const queryClient = useQueryClient();
+  const showError = useErrorToast();
   const updateUser = useUserUpdateMutation();
   const unlockUser = useUserUnlockMutation();
   const [displayName, setDisplayName] = useState('');
   const [status, setStatus] = useState<EditableStatus>('active');
+  const [baseVersion, setBaseVersion] = useState(user.version);
   const [editing, setEditing] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
   // 鎖定不是可以「選」的狀態：只能解鎖。編輯時不動狀態，免得改個名字就順便把帳號解鎖
   const isLocked = user.status === 'locked';
@@ -46,28 +58,57 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
     if (editing) nameRef.current?.focus();
   }, [editing]);
 
+  const startEditing = (source: User) => {
+    setDisplayName(source.displayName);
+    setStatus(source.status === 'inactive' ? 'inactive' : 'active');
+    setBaseVersion(source.version);
+    updateUser.reset();
+    setEditing(true);
+  };
+
+  /** 衝突後放棄這次的修改：重抓最新的內容與版本，表單改成以它為基礎。 */
+  const reload = async () => {
+    setReloading(true);
+    try {
+      startEditing(
+        await queryClient.fetchQuery({ ...getUserDetailQueryOptions(user.id), staleTime: 0 }),
+      );
+    } catch (error) {
+      showError(error);
+    } finally {
+      setReloading(false);
+    }
+  };
+
   const save = async () => {
     // 只送出有變動的欄位
-    const body: UpdateUserRequest = {};
-    if (displayName !== user.displayName) body.displayName = displayName;
-    if (canEditStatus && status !== user.status) body.status = status;
-    if (Object.keys(body).length === 0) {
+    const fields: Omit<UpdateUserRequest, 'version'> = {};
+    if (displayName !== user.displayName) fields.displayName = displayName;
+    if (canEditStatus && status !== user.status) fields.status = status;
+    if (Object.keys(fields).length === 0) {
       setEditing(false);
       return;
     }
+    const body: UpdateUserRequest = { ...fields, version: baseVersion };
     const submit = () => updateUser.mutateAsync({ params: { userId: user.id, body } });
 
     if (body.status === 'inactive') {
+      let conflicted = false;
       // 停用會立即登出對方：與批次停用一樣先說清楚
       const confirmed = await confirm({
         title: t('user.deactivate.title'),
         description: t('user.deactivate.confirm', { name: user.displayName }),
         confirmLabel: t('user.deactivate.action'),
         tone: 'danger',
-        onConfirm: submit,
+        onConfirm: () =>
+          submit().catch((error: unknown) => {
+            // 衝突：關掉確認框，訊息與「重新載入」顯示在表單上；其他錯誤留在確認框讓人重試
+            if (!isVersionConflict(error)) throw error;
+            conflicted = true;
+          }),
         'data-testid': 'user-deactivate-confirm',
       });
-      if (confirmed) setEditing(false);
+      if (confirmed && !conflicted) setEditing(false);
       return;
     }
     try {
@@ -99,11 +140,7 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
               <Button
                 size="sm"
                 disabled={isSelf}
-                onClick={() => {
-                  setDisplayName(user.displayName);
-                  setStatus(user.status === 'inactive' ? 'inactive' : 'active');
-                  setEditing(true);
-                }}
+                onClick={() => startEditing(user)}
                 data-testid="user-edit-button"
               >
                 {t('common.edit')}
@@ -123,6 +160,13 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
           }}
           data-testid="user-edit-form"
         >
+          {isVersionConflict(updateUser.error) && (
+            <VersionConflictAlert
+              error={updateUser.error}
+              onReload={() => void reload()}
+              reloading={reloading}
+            />
+          )}
           <Field label={t('user.field.displayName')} required>
             <Input
               ref={nameRef}

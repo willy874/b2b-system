@@ -9,7 +9,8 @@
 | 主鍵         | `uuid`，`DEFAULT gen_random_uuid()`（`audit_logs` 例外，用 `bigserial`） |
 | 時間         | `timestamptz`，一律存 UTC                                                |
 | 布林         | `NOT NULL DEFAULT false`，不允許三態                                     |
-| 軟刪除       | `deleted_at timestamptz`，唯一索引都帶 `WHERE deleted_at IS NULL`        |
+| 軟刪除       | `deleted_at timestamptz`，唯一索引都帶 `WHERE deleted_at IS NULL`；查詢條件一律用 `notDeleted(table)`（見下方） |
+| 連帶的軟刪除 | 一次操作連帶刪除多列（遞迴刪除資料夾）時帶同一個 `deletion_id uuid`，還原時只還原同一批（[ADR-0025](../../adr/0025-entity-revisions.md) D5；目前 `files`、`file_folders`） |
 | Drizzle 變數 | camelCase 複數：`relationTuples`                                         |
 | 列舉         | Postgres `enum` 型別（不是 `text` + `CHECK`），因為它會出現在 OpenAPI；例外見下方 |
 
@@ -18,6 +19,24 @@
 「指向哪一種資源」的欄位，每新增一種資源就要多一個值；用 enum 就得每次 `ALTER TYPE … ADD VALUE`，而且這個語句不能與使用新值的語句放在同一個交易。
 值集中在程式的常數（camelCase，與稽核、關係圖同一組字串），DTO 以同一份常數產生 `z.enum`，OpenAPI 與 SDK 照樣有型別。
 一般欄位的狀態、種類（例如 `users.status`）仍用 enum。
+
+**軟刪除的查詢條件**（[ADR-0025](../../adr/0025-entity-revisions.md) D8）：`db/schema/soft-delete.ts` 的 `notDeleted(table)`
+（＝`isNull(table.deletedAt)`，也接受 `alias()`），平台 DB 的表從 `@/db/platform/schema` 取得同一個函式。
+ADR 寫的位置是 `db/soft-delete.ts`；實作放在 `db/schema/` 底下，因為 `isActiveRole()`（`db/schema/roles.ts`）要用它，
+而 `db/schema/` 只依賴同層（[`conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2）。
+
+| 情境 | 寫法 |
+| --- | --- |
+| 一般查詢：只看未刪除的列 | `.where(and(eq(users.id, id), notDeleted(users)))` |
+| SQL 樣板裡引用 Drizzle 的表 | `` sql`… AND ${notDeleted(users)}` `` |
+| 手寫的別名、遞迴 CTE（無法呼叫函式） | `u.deleted_at IS NULL /* notDeleted */`：同一行必須帶這個註解 |
+| **故意** 讀已刪除的列（回收桶、還原、永久刪除） | `isDeleted(table)`（＝`isNotNull`），讀的人一眼看出不是漏了條件 |
+| 唯一值衝突（還原前找佔用者） | 照一般查詢寫 `notDeleted(...)`：佔用者一定是未刪除的列 |
+
+- 🔒 `src/__tests__/soft-delete-scan.spec.ts` 掃 `modules/`、`core/`：出現 `isNull(<x>.deletedAt)`、`${x.deletedAt} IS [NOT] NULL`
+  或沒有標註的 `deleted_at IS NULL` 就失敗。`db/schema` 的 partial unique index 不在掃描範圍。
+- **不做預設排除**：Drizzle 沒有 default scope，自己包一層會讓故意讀已刪除資料的查詢變得隱晦；每個查詢自己寫條件。
+- `isActiveRole()` 是 `notDeleted(roles)` 的別名，既有的呼叫照用。
 
 必要擴充：
 
@@ -60,6 +79,9 @@ export const users = pgTable(
 
     mfaEnabled: boolean("mfa_enabled").notNull().default(false), // 預留
 
+    // 樂觀鎖：可編輯的欄位每次寫入遞增；登入計數、鎖定、密碼、token_version 不遞增（03-api-conventions.md §11）
+    version: integer("version").notNull().default(1),
+
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid("created_by"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -95,6 +117,8 @@ export const roles = pgTable(
     name: text("name").notNull(), // 顯示名稱，可改
     description: text("description"),
     isSystem: boolean("is_system").notNull().default(false),
+    // 樂觀鎖：名稱與說明每次寫入遞增；持有者與權限鍵（relation_tuples）的寫入不遞增
+    version: integer("version").notNull().default(1),
 
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid("created_by"),
@@ -112,9 +136,9 @@ export const roles = pgTable(
   ],
 );
 
-/** 還有效（未軟刪除）的角色：查到 roles 的模組一律用它，不各自寫 isNull(roles.deletedAt)。 */
+/** 還有效（未軟刪除）的角色＝notDeleted(roles) 的別名（§1）。 */
 export function isActiveRole(): SQL {
-  return isNull(roles.deletedAt);
+  return notDeleted(roles);
 }
 ```
 
@@ -316,7 +340,12 @@ export const auditLogsArchive = pgTable(
 | `tenant:self#superAdmin@role:<r>#holder` | super-admin 角色（它沒有權限鍵的邊） | seed（`seedRoles` → `ensureSuperAdminTuple`，冪等） |
 | `fileFolder:<id>#<level>@(role:<r>#holder \| user:<u> \| user:*)` | 資料夾授權 | `FileFolderGrantRepository`（[`09-file.md`](./09-file.md)） |
 
-- 刪除角色：軟刪除角色、刪掉它的持有者邊（`RETURNING` 原本的持有者，只用來推播）；它的權限鍵邊與它作為主體的資料夾授權留著，解析時略過已刪除的角色。
+- 刪除角色：只軟刪除角色列，**持有者邊、權限鍵邊、它作為主體的資料夾授權都留著**（ADR-0025 D2，R3 起）。
+  已刪除角色的持有者邊是 **休眠的邊**：主體閉包、使用者的角色（`HELD_ROLE`）、依角色篩選使用者都 join 未刪除的角色而略過它們，
+  角色還原時原本的持有者自動回來；`PUT /users/:id/roles` 只刪未刪除角色的邊，不會清掉它們。
+  以角色為起點的查詢（`countUsers`、`listUsers`、`findUserIdsByRole`…）不看角色是否刪除，呼叫端先確認角色的狀態。
+  永久刪除角色（`trash.purge`）時才把以它為物件與主體的邊全部刪掉（[`13-trash.md`](./13-trash.md) §6）。
+  R3 之前的版本刪除角色時會刪持有者邊，那些角色還原後沒有持有者。
 - 「每個主體在一個資料夾只有一個等級」不是 DB 的唯一索引（六欄唯一包含等級），由 `FileFolderGrantRepository.set` 先刪後插維持；
   授權的寫入經 `FileFolderTree.write` 序列化。
 
@@ -331,6 +360,24 @@ G1～G2 期間由舊表上的 trigger 同步寫入這張表（migration 0008，�
 - 寫入者在這一列的鎖上排隊，所以 **提交順序＝版本順序**。
 - 一條語句寫多列只 +1；沒影響任何列的語句也 +1（只是多一次失效）。
 - 程式在交易提交後讀它，連同租戶代碼在平台 DB 廣播（`core/authz/authz.revision.ts`，[`05-rbac.md`](./05-rbac.md) §5.1）。
+- `roles.deleted_at` 改變（刪除、還原角色）也 +1：migration 0012 的列層級 trigger（`AFTER UPDATE OF deleted_at … WHEN (OLD.deleted_at IS DISTINCT FROM NEW.deleted_at)`，
+  同一個 `authz_revision_bump()`）。R3 起刪除與還原角色不寫 `relation_tuples`，但主體閉包會排除已刪除的角色，等於關係圖變了。
+
+### 2.12 `revisions`（版本歷史）
+
+選擇性加入的實體每次寫入後的整份快照（[ADR-0025](../../adr/0025-entity-revisions.md) D1；完整說明見 [`14-revisions.md`](./14-revisions.md) §2）。
+
+| 欄位 | 型別 | 說明 |
+| --- | --- | --- |
+| `id` | `uuid` PK | |
+| `resource_type` | `text` | `RESOURCE_TYPE` 的值（§1「列舉的例外」） |
+| `resource_id` | `uuid` | 多型，沒有外鍵；永久刪除實體時由擁有者一起刪 |
+| `version` | `integer` | 每個資源自己的流水號，與實體的 `version`（樂觀鎖）無關 |
+| `snapshot` | `jsonb NULL` | 寫入之後的狀態；超過 1 MiB 時是 null |
+| `actor_id` | `uuid NULL` → `users.id` `ON DELETE SET NULL` | 系統寫入是 null |
+| `created_at` | `timestamptz` | |
+
+`UNIQUE (resource_type, resource_id, version)`、`INDEX (created_at)`。沒有 `updated_at`、`deleted_at`：版本寫入後不改，只會被保留清理或永久刪除刪掉。
 
 ---
 
@@ -460,7 +507,7 @@ const rows = await this.db
   // 持有角色的邊：role:<r>#holder@user:<users.id>（多型 id 是 text，uuid 那邊轉成 text）
   .leftJoin(relationTuples, and(isRoleHolderTuple(), eq(relationTuples.subjectId, sql`${users.id}::text`)))
   .leftJoin(roles, and(eq(sql`${roles.id}::text`, relationTuples.objectId), isActiveRole()))
-  .where(and(isNull(users.deletedAt), ...filters))
+  .where(and(notDeleted(users), ...filters))
   .groupBy(users.id)
   .orderBy(desc(users.createdAt))
   .limit(limit)
@@ -506,6 +553,12 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0008_relation_tuples_mirror.sql     手寫：回填、舊表 → relation_tuples 的同步 trigger（G3b 刪除）
 ├── 0009_authz_revision.sql             authz_revision 與遞增 trigger（§2.11）
 ├── 0010_drop_legacy_authz_tables.sql   G3b：刪 0008 的 trigger 與函式、user_roles、role_permissions、resource_grants 與三個 enum
+├── 0011_entity_version.sql             users.version、roles.version（樂觀鎖，ADR-0025 R1；純加法）
+├── 0012_roles_authz_revision.sql       手寫：roles.deleted_at 改變時 authz_revision +1（§2.11，ADR-0025 R3）
+├── 0013_file_deletion_id.sql           files.deletion_id、file_folders.deletion_id ＋ 只涵蓋已刪除列的索引
+│                                       （一次刪除操作的識別，ADR-0025 D5、R4a；純加法，既有的已刪除列是 null）
+├── 0014_revisions.sql                  revisions 表（§2.12）＋ 手寫：每個既有角色的基準版本（第 1 版，actor null；
+│                                       ADR-0025 R5、14-revisions.md §4.2；純加法）
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

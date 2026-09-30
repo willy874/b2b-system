@@ -13,7 +13,12 @@ import { useTranslation } from '@/core/locales';
 
 import { useRoleDuplicateMutation } from '../../hooks/useRoleMutations';
 import { useRolePermission } from '../../hooks/useRolePermission';
-import { RoleDetailPermissionRoute, RoleDetailRoute, RoleListRoute } from '../../routes';
+import {
+  RoleDetailPermissionRoute,
+  RoleDetailRevisionRoute,
+  RoleDetailRoute,
+  RoleListRoute,
+} from '../../routes';
 import { RoleBasicSection } from './components/RoleBasicSection';
 import { RoleHolderSection } from './components/RoleHolderSection';
 import { RolePermissionSection } from './components/RolePermissionSection';
@@ -60,6 +65,17 @@ export default function RoleDetailPage() {
               >
                 {t('role.duplicate.action')}
               </Button>
+            )}
+            {role.data && (
+              <ButtonLink
+                variant="secondary"
+                to={RoleDetailRevisionRoute.to}
+                params={{ roleId }}
+                search={search}
+                data-testid="role-revision-button"
+              >
+                {t('role.detail.revisions')}
+              </ButtonLink>
             )}
             {permission.canManagePermission && !isSystem && (
               <ButtonLink

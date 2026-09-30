@@ -98,7 +98,8 @@
     "delete": {
       "title": "Delete file",
       "confirm": "Delete “{{name}}”? This cannot be undone.",
-      "success": "File deleted"
+      "success": "File deleted",
+      "undo": "Undo"
     },
     "batch": {
       "upload": {
@@ -148,8 +149,14 @@
       },
       "delete": {
         "title": "Delete folder",
-        "confirm": "Delete \"{{name}}\"? Every file and subfolder inside it will be deleted as well. This cannot be undone.",
-        "success": "Folder deleted"
+        "confirm": "Delete \"{{name}}\"? Every file and subfolder inside it will be moved to the trash as well and can be restored within the retention period.",
+        "success": "Folder deleted",
+        "undo": "Undo"
+      },
+      "restore": {
+        "success": "Restored “{{name}}” with its files and subfolders.",
+        "partial": "Restored “{{name}}”, but the contents of {{count}} files no longer exist and could not be restored.",
+        "nameConflict": "A folder with the same name already exists here. Rename or move it before restoring."
       }
     },
     "move": {
@@ -223,6 +230,12 @@
         "editor": "Rename, move and delete anyone's files",
         "manager": "Everything an editor can do, plus manage access to this folder"
       }
+    },
+    "restore": {
+      "action": "Restore",
+      "success": "Restored “{{name}}”.",
+      "parentDeleted": "The folder it was in has been deleted. Restore the folder first from the Folders tab of the trash.",
+      "objectMissing": "The contents of this file no longer exist, so it cannot be restored."
     }
   }
 }

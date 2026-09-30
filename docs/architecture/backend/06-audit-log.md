@@ -31,8 +31,13 @@
 |        | `user.assignRole`                                                 | **含前後角色清單**     |
 |        | `user.activate` / `user.unlock` / `user.reset_password_requested` |                        |
 |        | `user.activation_resent`                                          | 管理員對 `pending` 的人重寄啟用信 |
-| 角色   | `role.create` / `role.update` / `role.delete` / `role.duplicate`  |                        |
+|        | `user.restore`                                                    | 從回收桶還原；`metadata.deletedAt`、`metadata.roles`（[`13-trash.md`](./13-trash.md) §4.1） |
+| 回收桶 | `<resource>.purge`（`user.purge`、`role.purge`、`file.purge`、`fileFolder.purge`） | 到期永久刪除；排程執行，`actorId = null`、`actorEmail = 'system'`，`metadata.retentionDays`（[`13-trash.md`](./13-trash.md) §5） |
+| 角色   | `role.create` / `role.update` / `role.delete` / `role.duplicate`  | 還原到某一版也記 `role.update`，`metadata.revertedFrom` 帶來源版本、權限鍵變了時 `changes` 帶 `permissions` 的前後（[`14-revisions.md`](./14-revisions.md) §4.3）。版本快照與稽核分開保存（ADR-0025 D10） |
 |        | `role.grantPermission`                                            | **含前後權限清單**     |
+|        | `role.restore`                                                    | 從回收桶還原；`metadata.deletedAt`、`metadata.holdersRestored`（[`13-trash.md`](./13-trash.md) §6.1） |
+| 檔案   | `file.upload` / `file.update` / `file.delete` / `file.move`、`fileFolder.create` / `fileFolder.update` / `fileFolder.delete` | 見 [`09-file.md`](./09-file.md) §7；刪除的 `metadata.deletionId` 是這一次刪除的識別 |
+|        | `file.restore` / `fileFolder.restore`                             | 從回收桶還原；`metadata.deletedAt`、`metadata.deletionId`，資料夾另有 `folderCount`、`fileCount`、`filesSkipped`（[`13-trash.md`](./13-trash.md) §7.1、§7.2） |
 | 審批   | `approval.submit`                                                 | 匿名申請（註冊）的 actor 為申請人 email、`actorId = null` |
 |        | `approval.approve` / `approval.reject`                            | 含審核意見；核准另記該變更本身（例：`user.create`，`metadata.approvalId`） |
 | 郵件   | `mail.send`                                                       | 寄出的信；只記範本、收件人、jobId、messageId，不記內容與 token（[`11-mail.md`](./11-mail.md) §5） |

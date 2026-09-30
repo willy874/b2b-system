@@ -213,7 +213,7 @@ export class BatchQueueClient {
         this.hostId = message.hostId;
         return;
       case 'execute':
-        void this.execute(message.jobId, message.operation, message.itemId);
+        void this.execute(message.jobId, message.operation, message.itemId, message.version);
         return;
       case 'abort':
         this.executions.get(executionKey(message.jobId, message.itemId))?.abort();
@@ -227,7 +227,12 @@ export class BatchQueueClient {
   };
 
   /** 以一般（單筆）API 處理一筆，把成功或失敗回報給佇列。 */
-  private async execute(jobId: string, operationId: string, itemId: string): Promise<void> {
+  private async execute(
+    jobId: string,
+    operationId: string,
+    itemId: string,
+    version: number | undefined,
+  ): Promise<void> {
     const key = executionKey(jobId, itemId);
     const controller = new AbortController();
     this.executions.set(key, controller);
@@ -246,7 +251,7 @@ export class BatchQueueClient {
     try {
       const operation = this.resolveOperation(operationId);
       if (!operation) throw new Error(`BatchOperation "${operationId}" 尚未註冊`);
-      await operation.run(itemId, { signal: controller.signal, reportProgress: report });
+      await operation.run(itemId, { signal: controller.signal, reportProgress: report, version });
       clearTimeout(trailing);
       this.send({ type: 'result', jobId, itemId });
     } catch (error) {

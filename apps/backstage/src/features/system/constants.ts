@@ -3,12 +3,20 @@ import type { SystemSetting } from '@/shared/api-sdk';
 type SettingCategory = SystemSetting['category'];
 
 /** 分類的顯示順序與標題。後端新增分類時 `satisfies` 讓這裡編譯失敗。 */
-export const SETTING_CATEGORIES: readonly SettingCategory[] = ['general', 'auth', 'file'];
+export const SETTING_CATEGORIES: readonly SettingCategory[] = [
+  'general',
+  'auth',
+  'file',
+  'trash',
+  'revision',
+];
 
 export const SETTING_CATEGORY_LABEL_KEY = {
   general: 'setting.category.general',
   auth: 'setting.category.auth',
   file: 'setting.category.file',
+  trash: 'setting.category.trash',
+  revision: 'setting.category.revision',
 } as const satisfies Record<SettingCategory, string>;
 
 const MIB = 1024 * 1024;
@@ -31,6 +39,8 @@ const UNIT = {
   times: { labelKey: 'setting.unit.times', scale: 1 },
   seconds: { labelKey: 'setting.unit.seconds', scale: 1 },
   hours: { labelKey: 'setting.unit.hours', scale: 1 },
+  days: { labelKey: 'setting.unit.days', scale: 1 },
+  versions: { labelKey: 'setting.unit.versions', scale: 1 },
   characters: { labelKey: 'setting.unit.characters', scale: 1 },
   mebibytes: { labelKey: 'setting.unit.mebibytes', scale: MIB },
 } as const satisfies Record<string, SettingUnit>;
@@ -78,5 +88,20 @@ export const SETTING_FIELD: Readonly<Partial<Record<string, SettingFieldConfig>>
     labelKey: 'setting.field.uploadMaxSize.label',
     descriptionKey: 'setting.field.uploadMaxSize.description',
     unit: UNIT.mebibytes,
+  },
+  'trash.retentionDays': {
+    labelKey: 'setting.field.retentionDays.label',
+    descriptionKey: 'setting.field.retentionDays.description',
+    unit: UNIT.days,
+  },
+  'revision.keepVersions': {
+    labelKey: 'setting.field.keepVersions.label',
+    descriptionKey: 'setting.field.keepVersions.description',
+    unit: UNIT.versions,
+  },
+  'revision.keepDays': {
+    labelKey: 'setting.field.keepDays.label',
+    descriptionKey: 'setting.field.keepDays.description',
+    unit: UNIT.days,
   },
 };

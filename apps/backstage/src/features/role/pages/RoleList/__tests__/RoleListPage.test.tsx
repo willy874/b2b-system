@@ -70,7 +70,7 @@ describe('RoleListPage', () => {
 
     fireEvent.click(deleteButtonOf('Viewer'));
     const confirm = await screen.findByTestId('role-delete-confirm');
-    expect(confirm).toHaveTextContent('此操作無法復原');
+    expect(confirm).toHaveTextContent('保留期限內可以還原');
     fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
 
     await waitFor(() => expect(deleteRole).toHaveBeenCalledTimes(1));

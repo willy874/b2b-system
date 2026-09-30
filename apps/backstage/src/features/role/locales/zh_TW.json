@@ -17,17 +17,25 @@
     },
     "delete": {
       "title": "刪除角色",
-      "confirm": "確定要刪除角色「{{name}}」嗎？此操作無法復原。",
+      "confirm": "確定要刪除角色「{{name}}」嗎？角色會移到回收桶，保留期限內可以還原。",
       "success": "角色已刪除。",
       "systemProtected": "系統角色受保護，不可刪除。",
-      "confirmInUse": "角色「{{name}}」目前有 {{count}} 位使用者持有，刪除後他們會立即失去這個角色的權限。此操作無法復原；若要先確認是誰，請取消並到角色詳情查看持有者。",
-      "force": "仍要刪除（{{count}} 人將失去此角色）"
+      "confirmInUse": "角色「{{name}}」目前有 {{count}} 位使用者持有，刪除後他們會立即失去這個角色的權限；在保留期限內還原角色，他們會一起拿回來。若要先確認是誰，請取消並到角色詳情查看持有者。",
+      "force": "仍要刪除（{{count}} 人將失去此角色）",
+      "undo": "復原"
+    },
+    "restore": {
+      "action": "還原",
+      "success": "已還原「{{name}}」。",
+      "successWithHolders": "已還原「{{name}}」，{{count}} 位原本的持有者一併恢復。",
+      "escalation": "這個角色帶有你未持有的權限，無法還原。",
+      "viewConflicting": "查看該角色"
     },
     "batch": {
       "delete": {
         "action": "刪除",
         "title": "批次刪除角色",
-        "confirm": "確定要刪除 {{count}} 個角色嗎？此操作無法復原。仍有人持有的角色不會被刪除。",
+        "confirm": "確定要刪除 {{count}} 個角色嗎？角色會移到回收桶，保留期限內可以還原。仍有人持有的角色不會被刪除。",
         "success": "已刪除 {{count}} 個角色。",
         "ineligible": "系統角色與仍有人持有的角色不能批次刪除。"
       }
@@ -44,7 +52,8 @@
       "holders": "持有此角色的使用者",
       "managePermission": "管理權限",
       "allPermissions": "全部權限（隱含）",
-      "backToList": "回到角色列表"
+      "backToList": "回到角色列表",
+      "revisions": "版本紀錄"
     },
     "permission": {
       "title": "管理角色權限",
@@ -82,6 +91,35 @@
     "type": {
       "system": "系統角色",
       "custom": "自訂角色"
+    },
+    "revision": {
+      "title": "版本紀錄",
+      "description": "每次修改角色的名稱、說明或權限都會留下一版。選一版查看與目前內容或前一版的差異，也可以還原到那一版（會產生新的一版，歷史不會被改寫）。",
+      "list": "版本列表",
+      "version": "第 {{version}} 版",
+      "current": "目前",
+      "tooLarge": "過大未保存",
+      "tooLargeDetail": "這一版的內容過大未保存，無法檢視或還原。",
+      "system": "系統",
+      "empty": "還沒有版本紀錄。之後修改這個角色時會開始記錄。",
+      "diff": "版本差異",
+      "noChanges": "與比較對象相同",
+      "expandUnchanged": "展開 {{count}} 行未變更",
+      "previousMissing": "沒有前一版（這是第一版，或前一版已超過保留期限而被清除），差異以整份內容顯示。",
+      "compare": {
+        "current": "與目前的內容比較",
+        "previous": "與前一版比較"
+      },
+      "revert": {
+        "action": "還原到這一版",
+        "title": "還原到第 {{version}} 版",
+        "confirm": "角色的名稱、說明與權限會改回第 {{version}} 版的內容，持有這個角色的使用者權限會立即跟著改變。這會產生新的一版，之後仍可以再還原。",
+        "success": "已還原到第 {{version}} 版。",
+        "escalation": "這一版帶有你未持有的權限，無法還原。",
+        "isCurrent": "這一版就是目前的內容。",
+        "unavailable": "這一版的內容未保存，無法還原。",
+        "needGrantPermission": "這一版的權限與目前不同，還原需要「授予角色權限」的權限。"
+      }
     }
   }
 }

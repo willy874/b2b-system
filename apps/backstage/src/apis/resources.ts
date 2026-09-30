@@ -32,9 +32,12 @@ import { PERMISSION_LIST_QUERY_KEY } from '@/apis/permission/get-permission-list
 import { ROLE_DETAIL_QUERY_KEY } from '@/apis/role/get-role-detail/query';
 import { ROLE_LIST_QUERY_KEY, ROLE_OPTIONS_QUERY_KEY } from '@/apis/role/get-role-list/query';
 import { ROLE_PERMISSIONS_QUERY_KEY } from '@/apis/role/get-role-permissions/query';
+import { ROLE_REVISION_DETAIL_QUERY_KEY } from '@/apis/role/get-role-revision/query';
+import { ROLE_REVISIONS_QUERY_KEY } from '@/apis/role/get-role-revisions/query';
 import { ROLE_USERS_QUERY_KEY } from '@/apis/role/get-role-users/query';
 import { PUBLIC_SETTINGS_QUERY_KEY } from '@/apis/system/get-public-settings/query';
 import { SETTING_LIST_QUERY_KEY } from '@/apis/system/get-setting-list/query';
+import { TRASH_LIST_QUERY_KEY } from '@/apis/trash/get-trash-list/query';
 import { USER_DETAIL_QUERY_KEY } from '@/apis/user/get-user-detail/query';
 import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
 import { USER_ROLES_QUERY_KEY } from '@/apis/user/get-user-roles/query';
@@ -63,6 +66,10 @@ export const Resource = {
   SETTING: 'setting',
   /** 目前登入者的 session 視角（profile ＋ 有效權限） */
   PROFILE: 'profile',
+  /** 回收桶（已刪除的項目）；後端沒有這個來源，由各資源的建立（還原）與刪除衍生 */
+  TRASH: 'trash',
+  /** 角色的版本歷史（`id` = roleId）；後端沒有這個來源，由角色與它的權限鍵的更新衍生 */
+  ROLE_REVISION: 'roleRevision',
   // 關係：沒有自己的 query，只作為來源
   /** 使用者 ↔ 角色（`id` = userId，`refs.role` = 新舊角色） */
   USER_ROLE: 'userRole',
@@ -188,6 +195,27 @@ const graph = createResourceGraph<Resource>({
       { from: Resource.ROLE_PERMISSION, id: 'none', when: selfHoldsRole },
       // profile 帶著啟用的 feature 清單；重新取得後由 useSyncFeatures 安裝或卸載
       { from: Resource.TENANT_FEATURE, id: 'none' },
+    ],
+  },
+  [Resource.TRASH]: {
+    collection: [TRASH_LIST_QUERY_KEY],
+    derivesFrom: [
+      // 刪除＝進回收桶；還原以 create 宣告（重新出現在列表）；永久刪除以 delete 推播
+      { from: Resource.USER, kinds: ['create', 'delete'], id: 'none' },
+      // 角色同理（ADR-0025 R3）；還原的持有者由伺服器另外推 userRole update（本人的 profile 跟著失效）
+      { from: Resource.ROLE, kinds: ['create', 'delete'], id: 'none' },
+      // 檔案與資料夾同理（ADR-0025 R4）：上傳完成也是 file create，多一次回收桶的重抓無害
+      { from: Resource.FILE, kinds: ['create', 'delete'], id: 'none' },
+      { from: Resource.FILE_FOLDER, kinds: ['create', 'delete'], id: 'none' },
+    ],
+  },
+  [Resource.ROLE_REVISION]: {
+    entity: [ROLE_REVISIONS_QUERY_KEY, ROLE_REVISION_DETAIL_QUERY_KEY],
+    derivesFrom: [
+      // 改名稱或說明、還原到某一版都產生新的一版（ADR-0025 R5）；持有者的變更不在快照裡，不影響
+      { from: Resource.ROLE, kinds: ['update'], id: 'self' },
+      // 增減權限鍵也產生新的一版
+      { from: Resource.ROLE_PERMISSION, id: 'self' },
     ],
   },
   [Resource.USER_ROLE]: {},

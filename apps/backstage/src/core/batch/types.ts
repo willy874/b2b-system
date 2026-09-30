@@ -12,6 +12,11 @@ export interface BatchJobItem {
    * 省略時每筆一樣重。
    */
   weight?: number;
+  /**
+   * 送出時這一列在列表上的樂觀鎖版本（`version`）。有給時操作以它更新，別人已改過就以
+   * `<RESOURCE>_VERSION_CONFLICT` 逐筆失敗（ADR-0009、ADR-0025 D4）。
+   */
+  version?: number;
 }
 
 /** 處理中的一筆回報的進度（例：已上傳的位元組）。 */
@@ -83,6 +88,8 @@ export interface BatchRunContext {
   signal: AbortSignal;
   /** 回報這一筆的進度（例：已上傳的位元組）；呼叫頻率不限，由佇列節流。 */
   reportProgress: (progress: BatchItemProgress) => void;
+  /** 這一筆送出時的樂觀鎖版本（`BatchJobItem.version`）；列表沒有提供時為 undefined。 */
+  version?: number;
 }
 
 /**

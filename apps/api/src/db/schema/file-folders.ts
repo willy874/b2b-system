@@ -42,6 +42,11 @@ export const fileFolders = pgTable(
     kind: fileFolderKind('kind').notNull().default('normal'),
     /** `personal` 的擁有者；其他種類為 null。 */
     ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'restrict' }),
+    /**
+     * 一次刪除操作的識別（docs/adr/0025-entity-revisions.md D5）：遞迴刪除的資料夾與其中的檔案帶同一個值，
+     * 還原根節點時只還原同一批，之前個別刪掉的子項維持刪除。未刪除時為 null；R4a 之前刪除的列也是 null。
+     */
+    deletionId: uuid('deletion_id'),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -57,6 +62,9 @@ export const fileFolders = pgTable(
         sql`lower(${t.name})`,
       )
       .where(sql`${t.deletedAt} IS NULL`),
+    index('file_folders_deletion_id_idx')
+      .on(t.deletionId)
+      .where(sql`${t.deletedAt} IS NOT NULL`),
     index('file_folders_parent_idx')
       .on(t.parentId)
       .where(sql`${t.deletedAt} IS NULL`),

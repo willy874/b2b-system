@@ -475,6 +475,56 @@
         "tags": ["approvals"]
       }
     },
+    "/trash": {
+      "get": {
+        "operationId": "TrashController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TrashItem"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "回收桶：某一類已刪除的項目（新刪除的在前）",
+        "tags": ["trash"]
+      }
+    },
     "/auth/login": {
       "post": {
         "operationId": "AuthController_login",
@@ -1371,6 +1421,41 @@
         "tags": ["users"]
       }
     },
+    "/users/{id}/restore": {
+      "post": {
+        "operationId": "UserController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "還原刪除的使用者",
+        "tags": ["users"]
+      }
+    },
     "/users/{id}/roles": {
       "get": {
         "operationId": "UserController_listRoles",
@@ -1822,6 +1907,196 @@
             "description": ""
           }
         },
+        "tags": ["roles"]
+      }
+    },
+    "/roles/{id}/restore": {
+      "post": {
+        "operationId": "RoleController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RestoredRole"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "還原刪除的角色（原本的持有者一併恢復）",
+        "tags": ["roles"]
+      }
+    },
+    "/roles/{id}/revisions": {
+      "get": {
+        "operationId": "RoleController_listRevisions",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/RevisionSummary"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "角色的版本歷史（新的在前）",
+        "tags": ["roles"]
+      }
+    },
+    "/roles/{id}/revisions/{version}": {
+      "get": {
+        "operationId": "RoleController_getRevision",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RoleRevision"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "角色的某一版（含快照）",
+        "tags": ["roles"]
+      }
+    },
+    "/roles/{id}/revisions/{version}/revert": {
+      "post": {
+        "operationId": "RoleController_revertToRevision",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevertRoleRevisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Role"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "把角色還原到某一版（產生新的一版）",
         "tags": ["roles"]
       }
     },
@@ -2463,6 +2738,41 @@
         "tags": ["files"]
       }
     },
+    "/files/{id}/restore": {
+      "post": {
+        "operationId": "FileController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/StoredFile"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "還原刪除的檔案",
+        "tags": ["files"]
+      }
+    },
     "/file-folders": {
       "get": {
         "operationId": "FileFolderController_list",
@@ -2619,6 +2929,41 @@
           }
         },
         "summary": "遞迴刪除資料夾：子資料夾與其中的檔案一起刪除",
+        "tags": ["files"]
+      }
+    },
+    "/file-folders/{id}/restore": {
+      "post": {
+        "operationId": "FileFolderController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RestoredFileFolder"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "還原刪除的資料夾（同一次刪除的子資料夾與檔案一併還原）",
         "tags": ["files"]
       }
     },
@@ -4358,6 +4703,54 @@
         ],
         "additionalProperties": false
       },
+      "TrashResourceType": {
+        "type": "string",
+        "enum": ["user", "role", "file", "fileFolder"]
+      },
+      "TrashItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TrashResourceType"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "deletedAt": {
+            "type": "string"
+          },
+          "deletedBy": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "name"],
+            "additionalProperties": false
+          },
+          "purgeAt": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "type", "name", "description", "deletedAt", "deletedBy", "purgeAt"],
+        "additionalProperties": false
+      },
       "CreateUserRequest": {
         "type": "object",
         "properties": {
@@ -4416,6 +4809,11 @@
           "timezone": {
             "type": "string",
             "maxLength": 64
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
           }
         },
         "additionalProperties": false
@@ -4511,6 +4909,11 @@
             "nullable": true,
             "type": "string"
           },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "createdAt": {
             "type": "string"
           },
@@ -4529,6 +4932,7 @@
           "timezone",
           "lastLoginAt",
           "lockedUntil",
+          "version",
           "createdAt",
           "updatedAt"
         ],
@@ -5789,6 +6193,74 @@
         ],
         "additionalProperties": false
       },
+      "RestoredFileFolder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parentId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["normal", "shared", "privateRoot", "personal"]
+          },
+          "inheritGrants": {
+            "type": "boolean"
+          },
+          "hasPendingAccessRequest": {
+            "type": "boolean"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/FileFolderCapabilities"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "foldersRestored": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "filesRestored": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "filesSkipped": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "parentId",
+          "kind",
+          "inheritGrants",
+          "hasPendingAccessRequest",
+          "capabilities",
+          "createdAt",
+          "updatedAt",
+          "foldersRestored",
+          "filesRestored",
+          "filesSkipped"
+        ],
+        "additionalProperties": false
+      },
       "FileFolderList": {
         "type": "object",
         "properties": {
@@ -6759,6 +7231,113 @@
         },
         "additionalProperties": false
       },
+      "RevisionSummary": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "actor": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "name"],
+            "additionalProperties": false
+          },
+          "tooLarge": {
+            "type": "boolean"
+          }
+        },
+        "required": ["version", "createdAt", "actor", "tooLarge"],
+        "additionalProperties": false
+      },
+      "RoleRevisionSnapshot": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "permissionKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["name", "description", "permissionKeys"],
+        "additionalProperties": false
+      },
+      "RoleRevision": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "actor": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "name"],
+            "additionalProperties": false
+          },
+          "tooLarge": {
+            "type": "boolean"
+          },
+          "snapshot": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RoleRevisionSnapshot"
+              }
+            ]
+          }
+        },
+        "required": ["version", "createdAt", "actor", "tooLarge", "snapshot"],
+        "additionalProperties": false
+      },
+      "RevertRoleRevisionRequest": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "additionalProperties": false
+      },
       "Role": {
         "type": "object",
         "properties": {
@@ -6790,6 +7369,11 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "createdAt": {
             "type": "string"
           },
@@ -6805,8 +7389,72 @@
           "isSystem",
           "permissionCount",
           "userCount",
+          "version",
           "createdAt",
           "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "RestoredRole": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "isSystem": {
+            "type": "boolean"
+          },
+          "permissionCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "userCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "holdersRestored": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "description",
+          "isSystem",
+          "permissionCount",
+          "userCount",
+          "version",
+          "createdAt",
+          "updatedAt",
+          "holdersRestored"
         ],
         "additionalProperties": false
       },
@@ -6866,6 +7514,11 @@
             "nullable": true,
             "type": "string",
             "maxLength": 500
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
           }
         },
         "additionalProperties": false
@@ -6901,7 +7554,7 @@
           },
           "category": {
             "type": "string",
-            "enum": ["general", "auth", "file"]
+            "enum": ["general", "auth", "file", "trash", "revision"]
           },
           "type": {
             "type": "string",

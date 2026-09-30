@@ -50,6 +50,22 @@ export const FileFolderSchema = defineSchema(
   }),
 );
 
+/**
+ * 還原資料夾的結果（`POST /file-folders/:id/restore`，docs/architecture/backend/13-trash.md §7.1）：
+ * 還原後的資料夾，加上同一批一起回來的數量與因物件已不在而留在回收桶的檔案數。
+ */
+export const RestoredFileFolderSchema = defineSchema(
+  'RestoredFileFolder',
+  FileFolderSchema.extend({
+    /** 一起還原的資料夾數（含自己）。 */
+    foldersRestored: z.number().int(),
+    /** 一起還原的檔案數。 */
+    filesRestored: z.number().int(),
+    /** 同一批刪除、但物件儲存裡已沒有內容的檔案數：維持刪除，之後在回收桶的「檔案」分頁個別出現。 */
+    filesSkipped: z.number().int(),
+  }),
+);
+
 /** 全部資料夾（扁平清單；沒有權限的標成鎖住）：前端自己組成樹，麵包屑、樹狀面板、移動對話框共用同一份。 */
 export const FileFolderListSchema = defineSchema(
   'FileFolderList',
@@ -132,3 +148,4 @@ export type EnsureFileFolderPathsDto = z.infer<typeof EnsureFileFolderPathsSchem
 export type FileFolderPathsDto = z.infer<typeof FileFolderPathsSchema>;
 export type MoveFileItemsDto = z.infer<typeof MoveFileItemsSchema>;
 export type MoveFileItemsResultDto = z.infer<typeof MoveFileItemsResultSchema>;
+export type RestoredFileFolderDto = z.infer<typeof RestoredFileFolderSchema>;

@@ -1,0 +1,17 @@
+{
+  "trash": {
+    "title": "回收桶",
+    "description": "刪除的項目在這裡保留一段時間（系統設定的保留天數），期間內可以還原；到期後每天的排程會永久刪除它們。",
+    "noType": "你沒有任何可以還原的資源類型",
+    "empty": "回收桶是空的",
+    "field": {
+      "name": "名稱",
+      "deletedAt": "刪除時間",
+      "deletedBy": "刪除者",
+      "purgeAt": "預計永久刪除"
+    },
+    "pagination": {
+      "summary": "第 {{from}}–{{to}} 筆，共 {{total}} 筆"
+    }
+  }
+}

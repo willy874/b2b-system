@@ -83,6 +83,19 @@ export class UserController {
     await this.userService.remove(id, actor);
   }
 
+  /**
+   * 還原刪除的使用者（ADR-0025 D6、D10：能刪就能復原）。email／username 已被別的帳號使用時 409，
+   * `details.conflictingUserId` 帶佔用者；沒有被刪除 409 `USER_NOT_DELETED`。
+   */
+  @Post(':id/restore')
+  @HttpCode(200)
+  @RequirePermissions(PERMISSION.USER_DELETE)
+  @ApiOperation({ summary: '還原刪除的使用者' })
+  @ApiZodResponse(200, UserSchema)
+  restore(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
+    return this.userService.restore(id, actor);
+  }
+
   @Get(':id/roles')
   @RequirePermissions(PERMISSION.USER_READ)
   @ApiZodResponse(200, UserRolesSchema)

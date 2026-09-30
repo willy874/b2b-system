@@ -20,4 +20,5 @@ export * from './endpoints/platform-tenants';
 export * from './endpoints/roles';
 export * from './endpoints/system';
 export * from './endpoints/tenants';
+export * from './endpoints/trash';
 export * from './endpoints/users';

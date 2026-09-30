@@ -54,3 +54,13 @@ export const RoleDetailPermissionRoute = createRoute({
     }
   },
 });
+
+/**
+ * 版本紀錄（ADR-0025 R5）：與權限子頁一樣是詳情的子路由（對話框即路由）。
+ * 不另外註冊頁面權限：路徑在 `/role` 之下，由 `ROLE_PAGE`（`role:read`）涵蓋，與後端的 `GET /roles/:id/revisions` 相同；
+ * 還原的操作另外以 `role:update` 顯示。
+ */
+export const RoleDetailRevisionRoute = createRoute({
+  getParentRoute: () => RoleDetailRoute,
+  path: 'revision',
+});

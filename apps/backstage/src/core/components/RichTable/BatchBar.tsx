@@ -28,6 +28,11 @@ export interface RichTableBatch<TData> {
   actions: ReadonlyArray<BatchAction<TData>>;
   /** 佇列面板與結果對話框列出項目時顯示的名稱。 */
   getRowLabel: (row: TData) => string;
+  /**
+   * 這一列的樂觀鎖版本（`version`）：隨項目送進佇列，操作以列表上看到的版本更新，
+   * 別人已改過的列逐筆失敗而不是被覆寫（ADR-0025 D4）。資源沒有版本時省略。
+   */
+  getRowVersion?: (row: TData) => number;
 }
 
 interface BatchBarProps<TData> {
@@ -55,7 +60,7 @@ export function BatchBar<TData>({ batch, getRowId }: BatchBarProps<TData>) {
   const confirm = useConfirm();
   const queue = useBatchQueue();
   const jobs = useBatchJobs();
-  const { selection, scope, getRowLabel } = batch;
+  const { selection, scope, getRowLabel, getRowVersion } = batch;
   const actions = batch.actions.filter((action) => !action.hidden);
   const count = selection.selectedIds.length;
   const running = jobs.filter((job) => job.scope === scope && isBatchJobActive(job));
@@ -94,10 +99,14 @@ export function BatchBar<TData>({ batch, getRowId }: BatchBarProps<TData>) {
       queue.enqueue({
         operation: action.operation,
         scope,
-        items: targets.eligible.map((row) => ({ id: getRowId(row), label: getRowLabel(row) })),
+        items: targets.eligible.map((row) => ({
+          id: getRowId(row),
+          label: getRowLabel(row),
+          version: getRowVersion?.(row),
+        })),
       });
     },
-    [confirm, getRowId, getRowLabel, queue, scope, selection.selectedRows, t],
+    [confirm, getRowId, getRowLabel, getRowVersion, queue, scope, selection.selectedRows, t],
   );
 
   // 佇列沒有啟用（plugin 未註冊）時不提供批次操作

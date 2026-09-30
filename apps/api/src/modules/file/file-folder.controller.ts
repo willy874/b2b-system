@@ -22,6 +22,7 @@ import {
   FileFolderListSchema,
   FileFolderPathsSchema,
   FileFolderSchema,
+  RestoredFileFolderSchema,
   UpdateFileFolderSchema,
 } from './dto/file-folder.dto';
 import type {
@@ -95,5 +96,18 @@ export class FileFolderController {
   @ApiOperation({ summary: '遞迴刪除資料夾：子資料夾與其中的檔案一起刪除' })
   async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
     await this.folderService.remove(id, actor);
+  }
+
+  /**
+   * 還原刪除的資料夾與同一次刪除的子資料夾、檔案（ADR-0025 D5、D10）。閘門與刪除相同；以還原後的結構照刪除的規則檢查。
+   * 上層已刪除 409 `FILE_FOLDER_RESTORE_CONFLICT`；同名 409 `FILE_FOLDER_NAME_CONFLICT`（`details.conflictingId`）。
+   */
+  @Post(':id/restore')
+  @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_DELETE)
+  @HttpCode(200)
+  @ApiOperation({ summary: '還原刪除的資料夾（同一次刪除的子資料夾與檔案一併還原）' })
+  @ApiZodResponse(200, RestoredFileFolderSchema)
+  restore(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
+    return this.folderService.restore(id, actor);
   }
 }
