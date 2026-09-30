@@ -75,6 +75,11 @@ export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy 
     return this.domains.get(normalized) ?? this.domains.get(hostnameOf(normalized));
   }
 
+  /** 只接受完全相符的 `host[:port]`（不退回只比 hostname）：redirect URI 的比對用（SEC-17）。 */
+  tenantIdOfExactHost(host: string): string | undefined {
+    return this.domains.get(host.toLowerCase());
+  }
+
   /** 租戶的主要網域（第一個登記的）；「進入租戶」與帳號流程完成後的登入入口用它。 */
   primaryDomainOf(tenantId: string): string | undefined {
     for (const [domain, owner] of this.domains) if (owner === tenantId) return domain;
