@@ -5,7 +5,7 @@ import type { SQL, SQLWrapper } from 'drizzle-orm';
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, containsPattern, prefixPattern } from '@/core/database';
 import type { PermissionRow, RoleInsert, RoleRow } from '@/db/schema';
-import { permissions, rolePermissions, roles, userRoles, users } from '@/db/schema';
+import { isActiveRole, permissions, rolePermissions, roles, userRoles, users } from '@/db/schema';
 
 import type { ListRoleDto } from './dto/list-role.dto';
 
@@ -43,7 +43,7 @@ export class RoleRepository {
     const [row] = await this.db
       .select()
       .from(roles)
-      .where(and(eq(roles.id, id), isNull(roles.deletedAt)))
+      .where(and(eq(roles.id, id), isActiveRole()))
       .limit(1);
     return row;
   }
@@ -52,7 +52,7 @@ export class RoleRepository {
     const [row] = await this.db
       .select()
       .from(roles)
-      .where(and(eq(roles.slug, slug), isNull(roles.deletedAt)))
+      .where(and(eq(roles.slug, slug), isActiveRole()))
       .limit(1);
     return row;
   }
@@ -62,7 +62,7 @@ export class RoleRepository {
     const [row] = await this.db
       .select()
       .from(roles)
-      .where(and(sql`lower(${roles.name}) = lower(${name})`, isNull(roles.deletedAt)))
+      .where(and(sql`lower(${roles.name}) = lower(${name})`, isActiveRole()))
       .limit(1);
     return row;
   }
@@ -71,7 +71,7 @@ export class RoleRepository {
     const rows = await this.db
       .select({ slug: roles.slug })
       .from(roles)
-      .where(and(like(roles.slug, prefixPattern(prefix)), isNull(roles.deletedAt)));
+      .where(and(like(roles.slug, prefixPattern(prefix)), isActiveRole()));
     return rows.map((row) => row.slug);
   }
 
@@ -94,7 +94,7 @@ export class RoleRepository {
   }
 
   async list(query: ListRoleDto): Promise<{ items: RoleWithCounts[]; total: number }> {
-    const conditions: SQL[] = [isNull(roles.deletedAt)];
+    const conditions: SQL[] = [isActiveRole()];
     if (query.keyword) {
       const pattern = containsPattern(query.keyword);
       conditions.push(sql`(${roles.name} ILIKE ${pattern} OR ${roles.slug} ILIKE ${pattern})`);
@@ -152,7 +152,7 @@ export class RoleRepository {
     const [row] = await tx
       .select({ id: roles.id })
       .from(roles)
-      .where(and(eq(roles.id, id), isNull(roles.deletedAt)))
+      .where(and(eq(roles.id, id), isActiveRole()))
       .for('update');
     return Boolean(row);
   }
@@ -259,6 +259,6 @@ export class RoleRepository {
     return this.db
       .select()
       .from(roles)
-      .where(and(ilike(roles.name, prefixPattern(keyword)), isNull(roles.deletedAt)));
+      .where(and(ilike(roles.name, prefixPattern(keyword)), isActiveRole()));
   }
 }
