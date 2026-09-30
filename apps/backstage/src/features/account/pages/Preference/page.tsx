@@ -6,7 +6,7 @@ import { Field } from '@/components/Field';
 import { Select } from '@/components/Select';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
-import { getPreferenceSections } from '@/core/preference';
+import { usePreferenceSections } from '@/core/preference';
 import { useLocaleStore, useThemeStore, useTimezoneStore } from '@/core/store';
 import { THEME_OPTIONS } from '@/core/theme';
 import { LANGUAGE_LABELS, SUPPORTED_LANGUAGES } from '@/shared/constants/lang';
@@ -33,7 +33,7 @@ export default function PreferencePage() {
   });
 
   // feature 或 plugins/features/* 註冊的分頁；偏好頁不需要認識它們
-  const sections = getPreferenceSections();
+  const sections = usePreferenceSections();
 
   return (
     <div className="flex max-w-2xl flex-col gap-6" data-testid="preference-page">

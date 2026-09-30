@@ -1,5 +1,10 @@
 import { createCoreContext } from '@/shared/context';
-import type { CoreContext, PluginFactory, PluginState } from '@/shared/context';
+import type {
+  CoreContext,
+  DynamicPluginFactory,
+  PluginFactory,
+  PluginState,
+} from '@/shared/context';
 
 /** 各 plugin 以 declaration merging 擴充這個介面，核心不需要認識任何 plugin。 */
 // oxlint-disable-next-line typescript/no-empty-object-type
@@ -14,6 +19,13 @@ export type AppContextEvents = {
 
 export type AppContext = CoreContext<AppPluginProperties, AppContextState, AppContextEvents>;
 export type AppPluginFactory = PluginFactory<
+  AppPluginProperties,
+  AppContextState,
+  AppContextEvents
+>;
+
+/** 以 `context.install()` 在 App 啟動後安裝的 feature plugin（docs/adr/0021-runtime-feature-activation.md D2、D3）。 */
+export type AppDynamicPluginFactory = DynamicPluginFactory<
   AppPluginProperties,
   AppContextState,
   AppContextEvents

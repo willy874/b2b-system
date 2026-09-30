@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 
 import type { IconName } from '@/components/Icon';
 import type { HeaderToolbarSettings } from '@/core/store';
+import { createRegistry } from '@/shared/registry';
 
 /**
  * 頂列（Header）的一個工具，例如語言、主題切換。
@@ -24,19 +25,24 @@ export interface ResolvedHeaderTool {
   visible: boolean;
 }
 
-const tools = new Map<string, HeaderTool>();
+/** 可訂閱：feature 在執行期安裝或卸載時，頂列跟著更新（docs/adr/0021-runtime-feature-activation.md D4）。 */
+export const headerToolRegistry = createRegistry<string, HeaderTool>('Header tool');
 
-/** 在 plugin 的同步階段登記（`app/plugin.ts` 或 feature 的 plugin），頂列第一次渲染前就要存在。 */
-export function registerHeaderTool(tool: HeaderTool): void {
-  if (tools.has(tool.key)) {
-    throw new Error(`Header tool already registered: ${tool.key}`);
-  }
-  tools.set(tool.key, tool);
+/**
+ * 在 plugin 的同步階段登記（`app/plugin.ts` 或 feature 的 plugin），頂列第一次渲染前就要存在。
+ * 回傳反註冊函式。
+ */
+export function registerHeaderTool(tool: HeaderTool): () => void {
+  return headerToolRegistry.register(tool.key, tool);
+}
+
+export function sortHeaderTools(tools: Iterable<HeaderTool>): HeaderTool[] {
+  return [...tools].toSorted((a, b) => a.order - b.order);
 }
 
 /** 依預設順序列出所有登記過的工具。 */
 export function getHeaderTools(): HeaderTool[] {
-  return [...tools.values()].toSorted((a, b) => a.order - b.order);
+  return sortHeaderTools(headerToolRegistry.values());
 }
 
 /**
@@ -59,5 +65,5 @@ export function resolveHeaderTools(
 
 /** 測試用。 */
 export function resetHeaderToolRegistry(): void {
-  tools.clear();
+  headerToolRegistry.reset();
 }

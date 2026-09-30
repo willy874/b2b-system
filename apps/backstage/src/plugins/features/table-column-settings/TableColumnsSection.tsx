@@ -4,7 +4,7 @@ import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { TableSettings, useTableColumnSettings } from '@/core/components';
 import { useTranslation } from '@/core/locales';
-import { getPreferenceTables } from '@/core/preference';
+import { usePreferenceTables } from '@/core/preference';
 import type { PreferenceTable } from '@/core/preference';
 import {
   ACTIONS_COLUMN_ID,
@@ -22,7 +22,7 @@ import { cn } from '@/shared/utils';
  */
 export function TableColumnsSection() {
   const { t } = useTranslation();
-  const tables = getPreferenceTables();
+  const tables = usePreferenceTables();
 
   return (
     <div className="flex flex-col gap-3" data-testid="table-columns-section">

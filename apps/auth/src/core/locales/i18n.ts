@@ -2,6 +2,7 @@ import i18next from 'i18next';
 
 import { DEFAULT_LANGUAGE, LanguageNamespace, SUPPORTED_LANGUAGES } from '@/shared/constants/lang';
 import type { Language } from '@/shared/constants/lang';
+import { trackRegistration } from '@/shared/registry';
 
 export const i18n = i18next;
 
@@ -26,20 +27,45 @@ export async function initI18n(language: Language = DEFAULT_LANGUAGE): Promise<v
   });
 }
 
-/** 只登記「這個 scope 有這些包可以載」，實際下載由 route loader 觸發。 */
-export function addResourceBundle(bundle: LocaleBundle, options: { scope: string }): void {
+/**
+ * 只登記「這個 scope 有這些包可以載」，實際下載由 route loader 觸發。
+ * 回傳反註冊函式（在 plugin 的 `onInit` 裡呼叫時由容器收集，feature 卸載時撤回，
+ * docs/adr/0021-runtime-feature-activation.md D4）；已經下載進 i18next 的字串不移除，重新安裝時不必再下載。
+ */
+export function addResourceBundle(bundle: LocaleBundle, options: { scope: string }): () => void {
   const existing = registry.get(options.scope) ?? {};
+  const added: Array<[Language, string, LocaleImporter]> = [];
   for (const [language, namespaces] of Object.entries(bundle) as Array<
     [Language, Record<string, LocaleImporter>]
   >) {
     existing[language] = { ...existing[language], ...namespaces };
+    for (const [namespace, importer] of Object.entries(namespaces)) {
+      added.push([language, namespace, importer]);
+    }
   }
   registry.set(options.scope, existing);
+
+  const dispose = () => {
+    const current = registry.get(options.scope);
+    if (!current) return;
+    for (const [language, namespace, importer] of added) {
+      // 同一個 namespace 已被別人重新登記時不動它
+      if (current[language]?.[namespace] === importer) delete current[language]?.[namespace];
+    }
+    const isEmpty = Object.values(current).every(
+      (namespaces) => !namespaces || Object.keys(namespaces).length === 0,
+    );
+    if (isEmpty) registry.delete(options.scope);
+  };
+  trackRegistration(dispose);
+  return dispose;
 }
 
 export async function loadLocaleScope(scope: string, language: string): Promise<void> {
   const key = `${scope}:${language}`;
   if (loaded.has(key)) return;
+  // 還沒登記的 scope（所屬 feature 尚未安裝）不能記成已載入，否則安裝後永遠不會再下載
+  if (!registry.has(scope)) return;
   const importers = registry.get(scope)?.[language as Language] ?? {};
   await Promise.all(
     Object.entries(importers).map(async ([namespace, importer]) => {

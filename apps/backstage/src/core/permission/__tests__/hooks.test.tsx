@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { usePermissionStore } from '@/core/store';
@@ -133,5 +133,38 @@ describe('usePageAccess', () => {
   it('未水合時 hydrated 為 false，讓 guard 顯示骨架屏', () => {
     const { result } = renderHook(() => usePageAccess('/role'));
     expect(result.current.hydrated).toBe(false);
+  });
+});
+
+describe('權限 hooks 跟著註冊表更新（docs/adr/0021-runtime-feature-activation.md D4）', () => {
+  const FILE_PAGE = definePageKey('FILE');
+  const register = () =>
+    registerPagePermission(FILE_PAGE, {
+      route: '/file',
+      rule: { access: [PermissionKey['file:read']], match: PermissionMatch.EVERY },
+    });
+
+  it('usePageAccessChecker：feature 安裝後選單項目出現，卸載後消失', () => {
+    hydrate([PermissionKey['file:read']]);
+    const { result } = renderHook(() => usePageAccessChecker());
+    expect(result.current.canAccessPage(FILE_PAGE)).toBe(false);
+
+    let dispose: (() => void) | undefined;
+    act(() => {
+      dispose = register();
+    });
+    expect(result.current.canAccessPage(FILE_PAGE)).toBe(true);
+
+    act(() => dispose?.());
+    expect(result.current.canAccessPage(FILE_PAGE)).toBe(false);
+  });
+
+  it('usePageAccess：頁面權限晚到時重新判斷，不停在「不受管」', () => {
+    hydrate([]);
+    const { result } = renderHook(() => usePageAccess('/file'));
+    expect(result.current.gated).toBe(false);
+
+    act(() => void register());
+    expect(result.current).toMatchObject({ gated: true, canAccess: false, page: FILE_PAGE });
   });
 });

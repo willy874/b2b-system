@@ -1,5 +1,7 @@
 import type { ComponentType } from 'react';
 
+import { createRegistry } from '@/shared/registry';
+
 /**
  * 檔案管理的擴充點（docs/architecture/frontend/12-file-manager.md §6）。
  * feature 或 `plugins/` 在 plugin 的 **同步** 階段註冊；檔案管理器只依註冊表運作，不認識個別的格式。
@@ -82,33 +84,30 @@ export interface ThumbnailGenerator {
   generate: (file: File, options: ThumbnailOptions) => Promise<Blob | undefined>;
 }
 
-const previewers = new Map<string, FilePreviewer>();
-const validators = new Map<string, FileValidator>();
-const thumbnailGenerators = new Map<string, ThumbnailGenerator>();
-
-function registerUnique<T extends { id: string }>(
-  registry: Map<string, T>,
-  kind: string,
-  entry: T,
-): void {
-  if (registry.has(entry.id)) throw new Error(`${kind} already registered: ${entry.id}`);
-  registry.set(entry.id, entry);
-}
+// feature 在執行期卸載時要撤得掉（docs/adr/0021-runtime-feature-activation.md D4）；只在使用時讀取，不需要訂閱
+const previewers = createRegistry<string, FilePreviewer>('FilePreviewer');
+const validators = createRegistry<string, FileValidator>('FileValidator');
+const thumbnailGenerators = createRegistry<string, ThumbnailGenerator>('ThumbnailGenerator');
 
 const byPriority = <T extends { priority?: number }>(a: T, b: T) =>
   (b.priority ?? 0) - (a.priority ?? 0);
 
-export function registerFilePreviewer(previewer: FilePreviewer): void {
-  registerUnique(previewers, 'FilePreviewer', previewer);
+/** 回傳反註冊函式。 */
+export function registerFilePreviewer(previewer: FilePreviewer): () => void {
+  return previewers.register(previewer.id, previewer);
 }
 
 /** 能處理這個檔案、優先順序最高的解析器；沒有時回 `undefined`（顯示類型圖示與下載鈕）。 */
 export function resolveFilePreviewer(file: FilePreviewSource): FilePreviewer | undefined {
-  return [...previewers.values()].toSorted(byPriority).find((entry) => entry.canPreview(file));
+  return previewers
+    .values()
+    .toSorted(byPriority)
+    .find((entry) => entry.canPreview(file));
 }
 
-export function registerFileValidator(validator: FileValidator): void {
-  registerUnique(validators, 'FileValidator', validator);
+/** 回傳反註冊函式。 */
+export function registerFileValidator(validator: FileValidator): () => void {
+  return validators.register(validator.id, validator);
 }
 
 /** 跑過所有驗證器，回傳全部的問題（空陣列代表可以上傳）。單一驗證器拋錯視為通過，交給後端把關。 */
@@ -117,7 +116,7 @@ export async function validateFile(
   context: FileValidationContext,
 ): Promise<FileValidationIssue[]> {
   const results = await Promise.all(
-    [...validators.values()].map(async (validator) => {
+    validators.values().map(async (validator) => {
       try {
         return await validator.validate(file, context);
       } catch {
@@ -128,8 +127,9 @@ export async function validateFile(
   return results.filter((issue): issue is FileValidationIssue => issue !== undefined);
 }
 
-export function registerThumbnailGenerator(generator: ThumbnailGenerator): void {
-  registerUnique(thumbnailGenerators, 'ThumbnailGenerator', generator);
+/** 回傳反註冊函式。 */
+export function registerThumbnailGenerator(generator: ThumbnailGenerator): () => void {
+  return thumbnailGenerators.register(generator.id, generator);
 }
 
 /** 依優先順序找能處理的產生器；都產不出來回 `undefined`。 */
@@ -137,7 +137,8 @@ export async function createThumbnail(
   file: File,
   options: ThumbnailOptions,
 ): Promise<Blob | undefined> {
-  const candidates = [...thumbnailGenerators.values()]
+  const candidates = thumbnailGenerators
+    .values()
     .toSorted(byPriority)
     .filter((generator) => generator.canGenerate(file));
   for (const generator of candidates) {
@@ -154,7 +155,7 @@ export async function createThumbnail(
 
 /** 測試用。 */
 export function resetFileRegistry(): void {
-  previewers.clear();
-  validators.clear();
-  thumbnailGenerators.clear();
+  previewers.reset();
+  validators.reset();
+  thumbnailGenerators.reset();
 }

@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 
 import { i18n, loadLocaleScope } from '@/core/locales';
+import { createRegistry } from '@/shared/registry';
 
 export interface PreferenceSection {
   key: string;
@@ -30,35 +31,36 @@ export interface PreferenceTable {
   localeScope?: string;
 }
 
-const sections = new Map<string, PreferenceSection>();
-const tables = new Map<string, PreferenceTable>();
+/** 可訂閱：feature 在執行期安裝或卸載時，偏好頁跟著更新（docs/adr/0021-runtime-feature-activation.md D4）。 */
+export const preferenceSectionRegistry = createRegistry<string, PreferenceSection>(
+  'Preference section',
+);
+export const preferenceTableRegistry = createRegistry<string, PreferenceTable>('Preference table');
 
-/** 讓 feature 或 `plugins/features/*` 往偏好頁插分頁，偏好頁不需要認識它們。 */
-export function registerPreferenceSection(section: PreferenceSection): void {
-  if (sections.has(section.key)) {
-    throw new Error(`Preference section already registered: ${section.key}`);
-  }
-  sections.set(section.key, section);
+/** 讓 feature 或 `plugins/features/*` 往偏好頁插分頁，偏好頁不需要認識它們。回傳反註冊函式。 */
+export function registerPreferenceSection(section: PreferenceSection): () => void {
+  return preferenceSectionRegistry.register(section.key, section);
+}
+
+export function sortPreferenceSections(sections: Iterable<PreferenceSection>): PreferenceSection[] {
+  return [...sections].toSorted((a, b) => a.order - b.order);
 }
 
 export function getPreferenceSections(): PreferenceSection[] {
-  return [...sections.values()].toSorted((a, b) => a.order - b.order);
+  return sortPreferenceSections(preferenceSectionRegistry.values());
 }
 
-/** feature 在 plugin 的同步階段登記自己的列表（docs/architecture/frontend/02-plugin-system.md §5）。 */
-export function registerPreferenceTable(table: PreferenceTable): void {
-  if (tables.has(table.id)) {
-    throw new Error(`Preference table already registered: ${table.id}`);
-  }
-  tables.set(table.id, table);
+/** feature 在 plugin 的同步階段登記自己的列表（docs/architecture/frontend/02-plugin-system.md §5）。回傳反註冊函式。 */
+export function registerPreferenceTable(table: PreferenceTable): () => void {
+  return preferenceTableRegistry.register(table.id, table);
 }
 
 export function getPreferenceTables(): PreferenceTable[] {
-  return [...tables.values()];
+  return preferenceTableRegistry.values();
 }
 
 export function getPreferenceTable(id: string): PreferenceTable | undefined {
-  return tables.get(id);
+  return preferenceTableRegistry.get(id);
 }
 
 /**
@@ -78,6 +80,6 @@ export function preferenceLocaleLoader(...scopes: string[]) {
 
 /** 測試用。 */
 export function resetPreferenceRegistry(): void {
-  sections.clear();
-  tables.clear();
+  preferenceSectionRegistry.reset();
+  preferenceTableRegistry.reset();
 }
