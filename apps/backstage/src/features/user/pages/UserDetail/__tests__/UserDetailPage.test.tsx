@@ -51,6 +51,8 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
+const conflict = () => new AppError('USER_VERSION_CONFLICT', 409, { current: 4 });
+
 async function startEditing() {
   fireEvent.click(await screen.findByTestId('user-edit-button', undefined, { timeout: 5000 }));
   return screen.getByTestId('user-display-name-edit-input');
@@ -110,8 +112,6 @@ describe('UserDetailPage', () => {
   });
 
   describe('樂觀鎖（docs/architecture/backend/03-api-conventions.md §11）', () => {
-    const conflict = () => new AppError('USER_VERSION_CONFLICT', 409, { current: 4 });
-
     it('別人已改過 → 表單上說明並保留輸入，不彈錯誤 toast', async () => {
       updateUser.mockRejectedValue(conflict());
       renderRoute(routes, PATH, EDITOR);
