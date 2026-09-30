@@ -27,7 +27,7 @@ function createSchema(passwordMinLength: number) {
     })
     .refine((value) => value.password === value.confirmPassword, {
       path: ['confirmPassword'],
-      message: 'passwords do not match',
+      params: { messageKey: 'validation.passwordMismatch' },
     });
 }
 

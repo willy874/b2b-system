@@ -289,5 +289,14 @@
     "dark": "Dark",
     "system": "System",
     "current": "Current"
+  },
+  "validation": {
+    "required": "This field is required",
+    "email": "Enter a valid email address",
+    "tooShort": "Must be at least {{min}} characters",
+    "tooLong": "Must be at most {{max}} characters",
+    "format": "The format is invalid",
+    "invalid": "The value is invalid",
+    "passwordMismatch": "The passwords don't match"
   }
 }
