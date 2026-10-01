@@ -28,6 +28,8 @@
 
 **第一次讀（決策者 / Reviewer）**
 
+想先快速了解專案，讀 [`overview/04-introduction.md`](./overview/04-introduction.md)：各機制處理的邊際情況、與常見後台的差異，附截圖。
+
 1. [`overview/01-overview.md`](./overview/01-overview.md) — 目標、範圍、角色定義
 2. [`overview/02-technology-selection.md`](./overview/02-technology-selection.md) — 技術選型與理由
 3. [`architecture/01-system.md`](./architecture/01-system.md) — 系統全貌與資料流
@@ -70,7 +72,8 @@ docs/
 ├── overview/                          為什麼做、做什麼、何時做
 │   ├── 01-overview.md                 專案總覽、範圍、使用者角色
 │   ├── 02-technology-selection.md     技術選型與評估
-│   └── 03-roadmap.md                  分期實作計畫與驗收條件
+│   ├── 03-roadmap.md                  分期實作計畫與驗收條件
+│   └── 04-introduction.md             專案介紹：邊際情況的處理、與常見後台的對照（截圖在 images/introduction/）
 │
 ├── architecture/                      系統長什麼樣子（規格）
 │   ├── 01-system.md                   系統架構、部署拓撲、端到端資料流
