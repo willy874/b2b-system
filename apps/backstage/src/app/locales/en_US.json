@@ -202,6 +202,7 @@
     "NOTIFICATION_NOT_FOUND": "This notification no longer exists. It may have been removed after the retention period.",
     "NOTIFICATION_EVENT_NOT_FOUND": "This event or channel was not found. It may have been removed or its feature is disabled. Please reload the page.",
     "NOTIFICATION_EVENT_MANDATORY": "This event is security related and cannot be turned off.",
+    "NOTIFICATION_PREFERENCE_LOCKED": "Your administrator does not allow changing this notification. Please reload the page.",
     "PERMISSION_UNKNOWN": "The request contains unknown permission keys.",
     "APPROVAL_NOT_FOUND": "This approval request does not exist.",
     "APPROVAL_ALREADY_REVIEWED": "This request has already been reviewed.",

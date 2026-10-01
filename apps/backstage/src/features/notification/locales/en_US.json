@@ -46,6 +46,7 @@
       "overridden": "Modified",
       "resetToDefault": "Reset to default",
       "mandatory": "Security related, cannot be turned off",
+      "allowUserOverride": "Allow users to turn off",
       "switchLabel": "{{event}}: {{channel}}",
       "discard": "Discard changes",
       "save": {
@@ -75,6 +76,16 @@
           "description": "Notifies a user when roles are assigned to or removed from them.",
           "recipients": "The user whose roles changed"
         }
+      }
+    },
+    "preference": {
+      "title": "Notifications",
+      "description": "Choose which notifications you receive. Items turned off or required by your administrator cannot be changed.",
+      "saved": "Notification settings saved",
+      "lock": {
+        "mandatory": "Security related, cannot be turned off",
+        "tenantDisabled": "Turned off by your administrator",
+        "tenantRequired": "Required by your administrator"
       }
     }
   }

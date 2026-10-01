@@ -7,9 +7,11 @@ import type {
   Notification,
   NotificationEventList,
   NotificationPage,
+  NotificationPreferenceList,
   NotificationReadAllResult,
   NotificationUnreadCount,
   UpdateNotificationEventsRequest,
+  UpdateNotificationPreferencesRequest,
 } from '../models';
 import { buildUrl, request } from '../runtime';
 import type {
@@ -21,10 +23,12 @@ import type {
 import {
   NotificationEventListSchema,
   NotificationPageSchema,
+  NotificationPreferenceListSchema,
   NotificationReadAllResultSchema,
   NotificationSchema,
   NotificationUnreadCountSchema,
   UpdateNotificationEventsRequestSchema,
+  UpdateNotificationPreferencesRequestSchema,
 } from '../schemas';
 
 // GET /notifications
@@ -324,6 +328,110 @@ export function notificationEventControllerUpdate(
 ): Promise<NotificationEventControllerUpdateResult> {
   return request<NotificationEventControllerUpdateResult>(
     notificationEventControllerUpdateOperation,
+    input,
+    options,
+  );
+}
+
+// GET /me/notification-preferences
+
+export interface NotificationPreferenceControllerListResponses {
+  200: {
+    data: NotificationPreferenceList;
+  };
+}
+
+export type NotificationPreferenceControllerListResponse =
+  NotificationPreferenceControllerListResponses[200];
+
+export type NotificationPreferenceControllerListResult = ApiResponse<
+  200,
+  NotificationPreferenceControllerListResponses[200]
+>;
+
+export const NotificationPreferenceControllerListSchemas = {
+  responses: {
+    200: z.object({
+      data: NotificationPreferenceListSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getNotificationPreferenceControllerListUrl(): string {
+  return buildUrl('/me/notification-preferences');
+}
+
+const notificationPreferenceControllerListOperation: OperationDefinition = {
+  id: 'NotificationPreferenceController_list',
+  method: 'GET',
+  path: '/me/notification-preferences',
+  responseTypes: { 200: 'json' },
+  schemas: NotificationPreferenceControllerListSchemas,
+};
+
+/** 自己的通知設定：每個事件與管道的生效值、能不能調整 */
+export function notificationPreferenceControllerList(
+  options?: RequestOptions,
+): Promise<NotificationPreferenceControllerListResult> {
+  return request<NotificationPreferenceControllerListResult>(
+    notificationPreferenceControllerListOperation,
+    {},
+    options,
+  );
+}
+
+// PATCH /me/notification-preferences
+
+export type NotificationPreferenceControllerUpdateBody = UpdateNotificationPreferencesRequest;
+
+export interface NotificationPreferenceControllerUpdateInput {
+  body: NotificationPreferenceControllerUpdateBody;
+}
+
+export interface NotificationPreferenceControllerUpdateResponses {
+  200: {
+    data: NotificationPreferenceList;
+  };
+}
+
+export type NotificationPreferenceControllerUpdateResponse =
+  NotificationPreferenceControllerUpdateResponses[200];
+
+export type NotificationPreferenceControllerUpdateResult = ApiResponse<
+  200,
+  NotificationPreferenceControllerUpdateResponses[200]
+>;
+
+export const NotificationPreferenceControllerUpdateSchemas = {
+  body: UpdateNotificationPreferencesRequestSchema,
+  responses: {
+    200: z.object({
+      data: NotificationPreferenceListSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getNotificationPreferenceControllerUpdateUrl(): string {
+  return buildUrl('/me/notification-preferences');
+}
+
+const notificationPreferenceControllerUpdateOperation: OperationDefinition = {
+  id: 'NotificationPreferenceController_update',
+  method: 'PATCH',
+  path: '/me/notification-preferences',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: NotificationPreferenceControllerUpdateSchemas,
+};
+
+/** 開關自己的通知；enabled 為 null 代表跟著租戶 */
+export function notificationPreferenceControllerUpdate(
+  input: NotificationPreferenceControllerUpdateInput,
+  options?: RequestOptions,
+): Promise<NotificationPreferenceControllerUpdateResult> {
+  return request<NotificationPreferenceControllerUpdateResult>(
+    notificationPreferenceControllerUpdateOperation,
     input,
     options,
   );

@@ -8,6 +8,7 @@ export * from './groups';
 export * from './identity-providers';
 export * from './job-outbox';
 export * from './notification-policies';
+export * from './notification-preferences';
 export * from './notifications';
 export * from './permissions';
 export * from './refresh-tokens';

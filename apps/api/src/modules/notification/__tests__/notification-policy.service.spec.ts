@@ -12,6 +12,7 @@ import type { AuditService } from '@/modules/audit-log/audit.service';
 import { NotificationEventCatalog } from '../notification-event.catalog';
 import type { NotificationPolicyRepository } from '../notification-policy.repository';
 import { NotificationPolicyService } from '../notification-policy.service';
+import type { NotificationPreferenceRepository } from '../notification-preference.repository';
 import { defineNotification } from '../notification.definition';
 
 const PENDING = defineNotification('sample.pending', { category: 'sample', channels: ['inApp'] });
@@ -41,16 +42,31 @@ const UPDATED_AT = new Date('2026-10-01T00:00:00Z');
 interface StoredRow {
   type: string;
   channel: string;
-  enabled: boolean;
+  enabled: boolean | null;
+  allowUserOverride?: boolean;
 }
 
-function setup(rows: StoredRow[] = [], hub: BroadcastHub = new BroadcastHub()) {
+function setup(
+  rows: StoredRow[] = [],
+  hub: BroadcastHub = new BroadcastHub(),
+  optedOut: string[] = [],
+) {
   const repo = {
     listAll: vi.fn(async () =>
-      rows.map((row) => ({ ...row, updatedAt: UPDATED_AT, updatedBy: null })),
+      rows.map((row) => ({
+        allowUserOverride: true,
+        ...row,
+        updatedAt: UPDATED_AT,
+        updatedBy: null,
+      })),
     ),
     upsert: vi.fn(async () => undefined),
     remove: vi.fn(async () => undefined),
+  };
+  const preferences = {
+    findOptedOut: vi.fn(async (_type: string, _channel: string, ids: readonly string[]) =>
+      ids.filter((id) => optedOut.includes(id)),
+    ),
   };
   const catalog = new NotificationEventCatalog();
   catalog.register([PENDING, RESULT, QUIET, SECURITY, FILE_EVENT]);
@@ -62,12 +78,13 @@ function setup(rows: StoredRow[] = [], hub: BroadcastHub = new BroadcastHub()) {
   const service = new NotificationPolicyService(
     db as unknown as Database,
     repo as unknown as NotificationPolicyRepository,
+    preferences as unknown as NotificationPreferenceRepository,
     catalog,
     audit as unknown as AuditService,
     events as unknown as DomainEventBus,
     broadcast,
   );
-  return { service, repo, audit, events, broadcast };
+  return { service, repo, preferences, audit, events, broadcast };
 }
 
 function inTenant<T>(features: readonly TenantFeature[], fn: () => T): T {
@@ -166,6 +183,57 @@ describe('NotificationPolicyService.isEnabled（docs/architecture/backend/16-not
   });
 });
 
+describe('NotificationPolicyService.filterRecipients（ADR-0028 D14）', () => {
+  const ALICE = 'alice';
+  const BOB = 'bob';
+
+  it('租戶開啟且允許個人調整 → 排除自己關掉的人，保留順序；一次查完', async () => {
+    const { service, preferences } = setup([], new BroadcastHub(), [ALICE]);
+    expect(
+      await service.filterRecipients('sample.pending', 'inApp', [BOB, ALICE], 'tx' as never),
+    ).toEqual([BOB]);
+    expect(preferences.findOptedOut).toHaveBeenCalledTimes(1);
+    expect(preferences.findOptedOut).toHaveBeenCalledWith(
+      'sample.pending',
+      'inApp',
+      [BOB, ALICE],
+      'tx',
+    );
+  });
+
+  it('租戶關閉 → 誰都不送，不查個人設定', async () => {
+    const { service, preferences } = setup(
+      [{ type: 'sample.pending', channel: 'inApp', enabled: false }],
+      new BroadcastHub(),
+      [ALICE],
+    );
+    expect(await service.filterRecipients('sample.pending', 'inApp', [ALICE, BOB])).toEqual([]);
+    expect(preferences.findOptedOut).not.toHaveBeenCalled();
+  });
+
+  it('租戶不允許個人調整、mandatory → 全部都送，關掉的人也收到', async () => {
+    const { service, preferences } = setup(
+      [{ type: 'sample.pending', channel: 'inApp', enabled: null, allowUserOverride: false }],
+      new BroadcastHub(),
+      [ALICE],
+    );
+    expect(await service.filterRecipients('sample.pending', 'inApp', [ALICE, BOB])).toEqual([
+      ALICE,
+      BOB,
+    ]);
+    expect(await service.filterRecipients('sample.security', 'inApp', [ALICE])).toEqual([ALICE]);
+    expect(preferences.findOptedOut).not.toHaveBeenCalled();
+  });
+
+  it('沒有收件人 → 仍檢查類型有沒有登記', async () => {
+    const { service } = setup();
+    expect(await service.filterRecipients('sample.pending', 'inApp', [])).toEqual([]);
+    await expect(service.filterRecipients('sample.unknown', 'inApp', [])).rejects.toThrow(
+      /沒有登記/,
+    );
+  });
+});
+
 describe('NotificationPolicyService.list（ADR-0028 D9、D11）', () => {
   it('每個事件帶分類、mandatory 與每個管道的生效值、預設值、是否覆寫', async () => {
     const { service } = setup([{ type: 'sample.result', channel: 'email', enabled: false }]);
@@ -187,6 +255,7 @@ describe('NotificationPolicyService.list（ADR-0028 D9、D11）', () => {
           enabled: true,
           defaultEnabled: true,
           isOverridden: false,
+          allowUserOverride: true,
           updatedAt: null,
         },
         {
@@ -194,6 +263,7 @@ describe('NotificationPolicyService.list（ADR-0028 D9、D11）', () => {
           enabled: false,
           defaultEnabled: true,
           isOverridden: true,
+          allowUserOverride: true,
           updatedAt: UPDATED_AT.toISOString(),
         },
       ],
@@ -206,6 +276,22 @@ describe('NotificationPolicyService.list（ADR-0028 D9、D11）', () => {
     expect(items.find((item) => item.type === 'sample.security')?.channels[0]).toMatchObject({
       enabled: true,
       isOverridden: false,
+      allowUserOverride: false,
+    });
+  });
+
+  it('只覆寫了「允許個人調整」→ enabled 跟著預設、不算已覆寫，但 updatedAt 有值', async () => {
+    const { service } = setup([
+      { type: 'sample.pending', channel: 'inApp', enabled: null, allowUserOverride: false },
+    ]);
+    const { items } = await service.list();
+    expect(items[0]?.channels[0]).toEqual({
+      channel: 'inApp',
+      enabled: true,
+      defaultEnabled: true,
+      isOverridden: false,
+      allowUserOverride: false,
+      updatedAt: UPDATED_AT.toISOString(),
     });
   });
 
@@ -235,8 +321,9 @@ describe('NotificationPolicyService.update（ADR-0028 D9）', () => {
       ACTOR,
     );
 
-    expect(repo.upsert).toHaveBeenCalledWith('sample.pending', 'inApp', false, 'admin-1', 'tx');
-    expect(repo.upsert).toHaveBeenCalledWith('sample.result', 'inApp', false, 'admin-1', 'tx');
+    const closed = { enabled: false, allowUserOverride: true };
+    expect(repo.upsert).toHaveBeenCalledWith('sample.pending', 'inApp', closed, 'admin-1', 'tx');
+    expect(repo.upsert).toHaveBeenCalledWith('sample.result', 'inApp', closed, 'admin-1', 'tx');
     expect(repo.remove).toHaveBeenCalledWith('sample.result', 'email', 'tx');
     expect(audit.record).toHaveBeenCalledTimes(1);
     expect(audit.record).toHaveBeenCalledWith(
@@ -246,14 +333,14 @@ describe('NotificationPolicyService.update（ADR-0028 D9）', () => {
         resourceName: 'sample.pending:inApp, sample.result:email, sample.result:inApp',
         changes: {
           before: {
-            'sample.pending:inApp': true,
-            'sample.result:email': false,
-            'sample.result:inApp': true,
+            'sample.pending:inApp': { enabled: true, allowUserOverride: true },
+            'sample.result:email': { enabled: false, allowUserOverride: true },
+            'sample.result:inApp': { enabled: true, allowUserOverride: true },
           },
           after: {
-            'sample.pending:inApp': false,
-            'sample.result:email': true,
-            'sample.result:inApp': false,
+            'sample.pending:inApp': { enabled: false, allowUserOverride: true },
+            'sample.result:email': { enabled: true, allowUserOverride: true },
+            'sample.result:inApp': { enabled: false, allowUserOverride: true },
           },
         },
       },
@@ -269,6 +356,49 @@ describe('NotificationPolicyService.update（ADR-0028 D9）', () => {
     expect(repo.listAll).toHaveBeenCalledTimes(1);
   });
 
+  it('允許個人調整：只改那一欄；enabled 與預設相同時存成 null；兩欄都回到預設就刪列（ADR-0028 D15）', async () => {
+    const { service, repo, audit } = setup([
+      { type: 'sample.result', channel: 'email', enabled: false },
+      { type: 'sample.result', channel: 'inApp', enabled: null, allowUserOverride: false },
+    ]);
+    await service.update(
+      {
+        changes: [
+          { type: 'sample.pending', channel: 'inApp', allowUserOverride: false },
+          // 覆寫成與預設相同 → 不存值，但「不允許個人調整」還在
+          { type: 'sample.result', channel: 'email', enabled: true, allowUserOverride: false },
+          { type: 'sample.result', channel: 'inApp', allowUserOverride: true },
+        ],
+      },
+      ACTOR,
+    );
+    expect(repo.upsert).toHaveBeenCalledWith(
+      'sample.pending',
+      'inApp',
+      { enabled: null, allowUserOverride: false },
+      'admin-1',
+      'tx',
+    );
+    expect(repo.upsert).toHaveBeenCalledWith(
+      'sample.result',
+      'email',
+      { enabled: null, allowUserOverride: false },
+      'admin-1',
+      'tx',
+    );
+    expect(repo.remove).toHaveBeenCalledWith('sample.result', 'inApp', 'tx');
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: expect.objectContaining({
+          after: expect.objectContaining({
+            'sample.pending:inApp': { enabled: true, allowUserOverride: false },
+          }),
+        }),
+      }),
+      'tx',
+    );
+  });
+
   it('與生效值相同、還原沒有覆寫的 → 略過；全部都沒變就不寫稽核、不推播', async () => {
     const { service, repo, audit, events } = setup();
     await service.update(
@@ -277,6 +407,7 @@ describe('NotificationPolicyService.update（ADR-0028 D9）', () => {
           { type: 'sample.pending', channel: 'inApp', enabled: true },
           { type: 'sample.quiet', channel: 'inApp', enabled: false },
           { type: 'sample.result', channel: 'email', enabled: null },
+          { type: 'sample.result', channel: 'inApp', allowUserOverride: true },
         ],
       },
       ACTOR,

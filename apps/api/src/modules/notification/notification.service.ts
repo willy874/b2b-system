@@ -82,7 +82,8 @@ export class NotificationService {
    * 操作者就是收件人的略過（D7）；同一類型同一位收件人只寫一筆；超過 1000 位收件人記 warn 並截斷（D6）。
    * 交易提交後才推播給每位收件人的 user room（D8），payload 只有通知 id。
    *
-   * 租戶關掉這個事件的站內通知時不寫（ADR-0028 D6）；類型沒有登記進事件目錄是程式錯誤，拋 `Error`。
+   * 租戶關掉這個事件的站內通知、或收件人自己關掉（租戶允許時）的不寫（ADR-0028 D6、D14）；
+   * 類型沒有登記進事件目錄是程式錯誤，拋 `Error`。
    *
    * `tx` 必須是 `withTransaction` 開的交易（要登記提交後的推播）。回傳寫入的通知 id。
    */
@@ -91,11 +92,10 @@ export class NotificationService {
     tx: Transaction,
   ): Promise<string[]> {
     const inputs: readonly NotificationInput[] = Array.isArray(input) ? input : [input];
-    const disabled = await this.disabledTypes(inputs, tx);
-    const { rows, truncated } = prepareNotifications(
-      disabled.size ? inputs.filter((row) => !disabled.has(row.type)) : inputs,
-      MAX_NOTIFICATION_RECIPIENTS,
-    );
+    const prepared = prepareNotifications(inputs, MAX_NOTIFICATION_RECIPIENTS);
+    const { truncated } = prepared;
+    // 類型取自原始輸入：全部被略過（操作者自己）的類型也要檢查有沒有登記
+    const rows = await this.deliverable(prepared.rows, new Set(inputs.map((row) => row.type)), tx);
     if (truncated) {
       this.logger.warn(
         { types: [...new Set(rows.map((row) => row.type))], kept: rows.length, truncated },
@@ -110,8 +110,8 @@ export class NotificationService {
   }
 
   /**
-   * 這個事件在 `channel` 上要不要送出（ADR-0028 D6）。站內通知由 `notify()` 自己判斷；
-   * 寄信由擁有者在 **入列前** 呼叫（例：審批結果信），判斷的是入列當下的政策，已入列的信不撤回。
+   * 租戶層：這個事件在 `channel` 上要不要送出（ADR-0028 D6）。收件人沒有帳號時用（例：匿名的註冊申請的結果信）；
+   * 有帳號的收件人用 `filterRecipients()`，才會套用個人設定。
    */
   async isChannelEnabled(
     kind: AnyNotificationType,
@@ -119,6 +119,19 @@ export class NotificationService {
     tx?: Transaction,
   ): Promise<boolean> {
     return this.policy.isEnabled(kind.type, channel, tx);
+  }
+
+  /**
+   * 這些收件人裡要送給誰（租戶層 ＋ 個人設定，ADR-0028 D14）。站內通知由 `notify()` 自己判斷；
+   * 寄信由擁有者在 **入列前** 呼叫，判斷的是入列當下的設定，已入列的信不撤回。
+   */
+  async filterRecipients(
+    kind: AnyNotificationType,
+    channel: NotificationChannel,
+    recipientIds: readonly string[],
+    tx?: Transaction,
+  ): Promise<string[]> {
+    return this.policy.filterRecipients(kind.type, channel, recipientIds, tx);
   }
 
   /** 自己的通知，新的在前（keyset 分頁）。 */
@@ -206,17 +219,28 @@ export class NotificationService {
 
   // ── 內部 ─────────────────────────────────────────────
 
-  /** 租戶關掉站內通知的類型。每個類型都要查：沒有登記的在這裡就拋錯，不論它會不會被略過。 */
-  private async disabledTypes(
-    inputs: readonly NotificationInput[],
+  /**
+   * 依租戶與個人設定留下要送的列（保留順序）。`types` 的每一種都要查：沒有登記的在這裡就拋錯，不論它會不會被略過；
+   * 每一種類型一次查完所有收件人的個人設定（ADR-0028 D15）。
+   */
+  private async deliverable(
+    rows: readonly NotificationInput[],
+    types: ReadonlySet<string>,
     tx: Transaction,
-  ): Promise<Set<string>> {
-    const disabled = new Set<string>();
-    for (const type of new Set(inputs.map((row) => row.type))) {
-      // oxlint-disable-next-line no-await-in-loop -- 第一次讀進快取之後都是記憶體查詢；類型通常只有一種
-      if (!(await this.policy.isEnabled(type, NotificationChannel.IN_APP, tx))) disabled.add(type);
+  ): Promise<NotificationInput[]> {
+    const allowed = new Map<string, Set<string>>();
+    for (const type of types) {
+      const recipientIds = rows.filter((row) => row.type === type).map((row) => row.recipientId);
+      // oxlint-disable-next-line no-await-in-loop -- 類型通常只有一種；同一個交易連線上本來就依序執行
+      const ids = await this.policy.filterRecipients(
+        type,
+        NotificationChannel.IN_APP,
+        recipientIds,
+        tx,
+      );
+      allowed.set(type, new Set(ids));
     }
-    return disabled;
+    return rows.filter((row) => allowed.get(row.type)?.has(row.recipientId));
   }
 
   private async deleteInBatches(batch: () => Promise<number>): Promise<number> {

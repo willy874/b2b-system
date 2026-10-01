@@ -162,6 +162,8 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'POST /notifications/:id/read': 'authenticated',
       'GET /notification-events': 'system:read',
       'PATCH /notification-events': 'system:update',
+      'GET /me/notification-preferences': 'authenticated',
+      'PATCH /me/notification-preferences': 'authenticated',
       'GET /identity-providers': 'identityProvider:read',
       'POST /identity-providers': 'identityProvider:create',
       'PATCH /identity-providers/:id': 'identityProvider:update',

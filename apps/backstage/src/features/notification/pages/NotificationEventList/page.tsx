@@ -66,6 +66,7 @@ export default function NotificationEventListPage() {
                 canUpdate={canUpdate}
                 current={draft.current}
                 onChange={draft.setEnabled}
+                onAllowUserOverrideChange={draft.setAllowUserOverride}
                 onReset={draft.resetToDefault}
               />
             ))}

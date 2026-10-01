@@ -62,9 +62,11 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
     deleteBeyondPerRecipient: ReturnType<typeof vi.fn>;
   };
   let events: { publish: ReturnType<typeof vi.fn> };
-  let policy: { isEnabled: ReturnType<typeof vi.fn> };
+  let policy: { filterRecipients: ReturnType<typeof vi.fn> };
   /** 租戶關掉站內通知的類型。 */
   let disabled: Set<string>;
+  /** 自己關掉的收件人。 */
+  let optedOut: Set<string>;
   let service: NotificationService;
   let order: string[];
 
@@ -83,7 +85,12 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
     };
     events = { publish: vi.fn(() => order.push('publish')) };
     disabled = new Set();
-    policy = { isEnabled: vi.fn(async (type: string) => !disabled.has(type)) };
+    policy = {
+      filterRecipients: vi.fn(async (type: string, _channel: string, ids: string[]) =>
+        disabled.has(type) ? [] : ids.filter((id) => !optedOut.has(id)),
+      ),
+    };
+    optedOut = new Set();
     const settings = {
       get: vi.fn(async (setting: { key: string }) =>
         setting.key === 'notification.retentionDays' ? 30 : 500,
@@ -135,8 +142,40 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
       expect(ids).toEqual(['n0']);
       expect(repo.insertMany.mock.calls[0]?.[0]).toEqual([input(recipient(1))]);
       // 每種類型查一次，交易內的查詢沿用交易
-      expect(policy.isEnabled).toHaveBeenCalledTimes(2);
-      expect(policy.isEnabled).toHaveBeenCalledWith('sample.other', 'inApp', tx);
+      expect(policy.filterRecipients).toHaveBeenCalledTimes(2);
+      expect(policy.filterRecipients).toHaveBeenCalledWith(
+        'sample.other',
+        'inApp',
+        [recipient(2)],
+        tx,
+      );
+    });
+
+    it('收件人自己關掉 → 只略過那個人，同一類型的其他人照寫；一種類型只查一次（ADR-0028 D14、D15）', async () => {
+      optedOut.add(recipient(2));
+      const { db } = fakeDb(order);
+      const ids = await withTransaction(db, (t) =>
+        service.notify([input(recipient(1)), input(recipient(2)), input(recipient(3))], t),
+      );
+      expect(ids).toEqual(['n0', 'n1']);
+      expect(repo.insertMany.mock.calls[0]?.[0]).toEqual([
+        input(recipient(1)),
+        input(recipient(3)),
+      ]);
+      expect(policy.filterRecipients).toHaveBeenCalledTimes(1);
+    });
+
+    it('全部都是操作者自己 → 仍檢查類型有沒有登記（以空的收件人查）', async () => {
+      const { db } = fakeDb(order);
+      await withTransaction(db, (t) =>
+        service.notify({ ...input(recipient(1)), actorId: recipient(1) }, t),
+      );
+      expect(policy.filterRecipients).toHaveBeenCalledWith(
+        'sample.happened',
+        'inApp',
+        [],
+        expect.anything(),
+      );
     });
 
     it('全部都被租戶關掉 → 不寫入也不推播', async () => {
@@ -149,7 +188,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
     });
 
     it('類型沒有登記進事件目錄 → 拋錯，業務交易一起失敗（ADR-0028 D2）', async () => {
-      policy.isEnabled.mockRejectedValueOnce(new Error('通知類型 sample.happened 沒有登記'));
+      policy.filterRecipients.mockRejectedValueOnce(new Error('通知類型 sample.happened 沒有登記'));
       const { db } = fakeDb(order);
       await expect(
         withTransaction(db, (t) => service.notify(input(recipient(1)), t)),

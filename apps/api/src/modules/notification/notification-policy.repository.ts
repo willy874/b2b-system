@@ -19,16 +19,20 @@ export class NotificationPolicyRepository {
   async upsert(
     type: string,
     channel: string,
-    enabled: boolean,
+    values: { enabled: boolean | null; allowUserOverride: boolean },
     actorId: string,
     tx?: DbOrTx,
   ): Promise<void> {
     await (tx ?? this.db)
       .insert(notificationPolicies)
-      .values({ type, channel, enabled, updatedBy: actorId })
+      .values({ type, channel, ...values, updatedBy: actorId })
       .onConflictDoUpdate({
         target: [notificationPolicies.type, notificationPolicies.channel],
-        set: { enabled: sql`excluded.enabled`, updatedBy: sql`excluded.updated_by` },
+        set: {
+          enabled: sql`excluded.enabled`,
+          allowUserOverride: sql`excluded.allow_user_override`,
+          updatedBy: sql`excluded.updated_by`,
+        },
       });
   }
 
