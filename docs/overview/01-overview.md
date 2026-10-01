@@ -50,6 +50,7 @@
 | 站內通知（Phase 0 之後加入） | 每位收件人一筆、在業務交易內寫入；審批待審／結果、角色被指派或移除；頂列鈴鐺與未讀數、列表頁、全部已讀、保留清理（[`architecture/backend/15-notification.md`](../architecture/backend/15-notification.md)、[`architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md)） |
 | 檔案（Phase 0 之後加入） | S3 相容的物件儲存、分塊上傳、圖片縮圖、檔案管理器、資料夾層級的授權與繼承（[`architecture/backend/09-file.md`](../architecture/backend/09-file.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)） |
 | 背景工作與寄信（Phase 0 之後加入） | pg-boss 佇列、排程、重試與管理頁；郵件範本與寄送（[`architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md)、[`architecture/backend/11-mail.md`](../architecture/backend/11-mail.md)） |
+| 服務帳號與對外 API（Phase 0 之後加入） | 服務帳號、個人與服務帳號的 API token（限縮 scopes、到期、撤銷）；獨立程序的對外 API（`/v1`，只認 API token）（[`architecture/06-external-api.md`](../architecture/06-external-api.md)、[ADR-0027](../adr/0027-api-tokens-external-api.md)） |
 | 模組開關與 feature flag（Phase 0 之後加入） | 平台管理者為每個租戶開關模組與 flag（[ADR-0021](../adr/0021-runtime-feature-activation.md)、[ADR-0022](../adr/0022-feature-flags.md)） |
 | 前端骨架   | App Shell、側邊選單（依權限過濾）、路由守衛、錯誤頁、i18n、主題                               |
 

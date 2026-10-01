@@ -4,7 +4,7 @@
 - 狀態：提案
 - 依賴：—
 - 相關：[ADR-0019](../adr/0019-sso-identity-platform.md) D15（MFA 預留）、[`../architecture/04-sso.md`](../architecture/04-sso.md) §3、§11、
-  [`backend/04-auth.md`](../architecture/backend/04-auth.md)、[`api-tokens.md`](./api-tokens.md)、[`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 3 項
+  [`backend/04-auth.md`](../architecture/backend/04-auth.md)、[`06-external-api.md`](../architecture/06-external-api.md)、[`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 3 項
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -45,7 +45,7 @@ ADR-0019 D15 已預留：**MFA 是登入互動裡的第二步**，插在密碼�
 - apps/auth 的 `features/login` 加 TOTP 輸入與首次設定的畫面；驗證通過才 `finishInteraction`，`amr` 帶 `['pwd', 'otp']`。
 - 失敗次數併入既有的鎖定計數（租戶用租戶設定、平台用 env）。
 - 外部 IdP 登入：信任外部 IdP 的 MFA，不再要求（見開放問題 2）。
-- 直接 `POST /auth/login`：帳號啟用 MFA 就回錯誤；腳本改用 [API token](./api-tokens.md)。
+- 直接 `POST /auth/login`：帳號啟用 MFA 就回錯誤；腳本改用 API token（[`backend/04-auth.md`](../architecture/backend/04-auth.md) §8.2）。
 
 ### 資料模型
 

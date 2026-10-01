@@ -246,15 +246,14 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 - repo 沒有 CI。pre-commit（`lefthook.yml`）只跑 `oxfmt` 與 `oxlint`，[ADR-0007](../adr/0007-openapi-generated-api-sdk.md) 提到的 OpenAPI diff 檢查尚未落地。
 - 前端完整的層級依賴矩陣（[`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md)）只有部分由 lint 與結構測試強制，其餘靠 review 與 `git grep` 自查；「識別字串必須是完整字面量」規則（[`conventions/06-literal-strings.md`](../conventions/06-literal-strings.md)）也只靠 review。
-- API Token（[ADR-0027](../adr/0027-api-tokens-external-api.md)）完成了 T0（跨程序快取失效）與 T1（服務帳號與 token 的管理）；對外 API 的獨立程序與 `/v1` 契約（T2～T5）尚未開始。
 - 已知問題記錄在 [`issues/`](../issues/README.md)。
 
 ---
 
 ## 10. 現況
 
-**已完成**：RBAC 骨架、SSO／OIDC、每租戶一個資料庫、群組與關係圖（含 explain）、稽核日誌、審批、系統設定、檔案管理器與影像變體、背景工作、寄信、回收桶、版本歷史與樂觀鎖、站內通知與事件管理（含個人通知設定）、服務帳號與 API token 管理、feature flag 與執行期啟用功能、深色主題。
+**已完成**：RBAC 骨架、SSO／OIDC、每租戶一個資料庫、群組與關係圖（含 explain）、稽核日誌、審批、系統設定、檔案管理器與影像變體、背景工作、寄信、回收桶、版本歷史與樂觀鎖、站內通知與事件管理（含個人通知設定）、服務帳號與 API token、對外 API 服務（`/v1`）、feature flag 與執行期啟用功能、深色主題。
 
-**待做**：對外 API 服務（API Token 的 T2～T5）、Webhook、匯入匯出、標籤／留言／關注、全域搜尋（P2）；專案層級的關係圖、MFA、可觀測性、多實例部署（P3）。每項都有提案文件在 [`features/`](../features/README.md)。進度見 [`03-roadmap.md`](./03-roadmap.md)。
+**待做**：Webhook、匯入匯出、標籤／留言／關注、全域搜尋（P2）；專案層級的關係圖、MFA、可觀測性、多實例部署（P3）。每項都有提案文件在 [`features/`](../features/README.md)。進度見 [`03-roadmap.md`](./03-roadmap.md)。
 
 **技術棧**：NestJS 12、Drizzle ORM、PostgreSQL 17、pg-boss、Socket.io、oidc-provider、sharp；React 19、Vite 8、TanStack Router／Query、Base UI、CodeMirror 6、React Flow；TypeScript 6 strict、Vitest 5、Playwright、Testcontainers、oxlint／oxfmt；Node 24、pnpm monorepo。選型理由見 [`02-technology-selection.md`](./02-technology-selection.md)。

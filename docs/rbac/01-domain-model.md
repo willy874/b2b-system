@@ -321,7 +321,7 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
 | **群組**                               | 已實作：巢狀成員、群組持有角色、資料夾授權給群組（[`08-groups.md`](./08-groups.md)、ADR-0024 G4a） |
 | **條件式權限（ABAC）**                 | `relation_tuples` 的邊增加條件欄位（`condition jsonb`），Guard 端加入條件評估器                                 |
 | **MFA**                                | `users.mfa_enabled` / 新表 `user_mfa_secrets`                                                                   |
-| **API Token / 服務帳號**               | 已實作管理（[ADR-0027](../adr/0027-api-tokens-external-api.md) T1）：服務帳號是 `users.kind = 'service'`，與人一樣以 `user:` 主體持有角色、加入群組、被授權資料夾；不另開主體型別 |
+| **API Token / 服務帳號**               | 已實作（[ADR-0027](../adr/0027-api-tokens-external-api.md)）：服務帳號是 `users.kind = 'service'`，與人一樣以 `user:` 主體持有角色、加入群組、被授權資料夾；不另開主體型別。token 的 scopes 只限縮租戶層的權限鍵（[`../architecture/06-external-api.md`](../architecture/06-external-api.md) §2） |
 
 多租戶已經做了，方式不是 `tenant_id` 加 RLS，而是 **每個租戶一個 database**：這份領域模型整份存在每個租戶的 DB 裡，
 各租戶各一套權限目錄、角色與使用者（[`../architecture/05-tenancy.md`](../architecture/05-tenancy.md)、[ADR-0020](../adr/0020-physical-tenant-isolation.md)）。

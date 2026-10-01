@@ -1,15 +1,15 @@
 # ADR-0027 — 服務帳號與 API Token，經獨立的對外 API 服務使用
 
-- 狀態：**採用**（2026-10-01 確認；T0～T3 已合併 main；T4 實作於 branch `feat/service-account-ui`；T5 尚未開始）
+- 狀態：**採用**（2026-10-01 確認；T0～T5 全部合併 main，提案已歸檔）
 - 日期：2026-10-01
-- 相關：提案 [`../features/api-tokens.md`](../features/api-tokens.md)；
-  規格 [`../architecture/backend/04-auth.md`](../architecture/backend/04-auth.md)、[`../architecture/01-system.md`](../architecture/01-system.md) §4、
+- 相關：規格 [`../architecture/06-external-api.md`](../architecture/06-external-api.md)、[`../architecture/backend/04-auth.md`](../architecture/backend/04-auth.md) §8.2、[`../architecture/01-system.md`](../architecture/01-system.md) §4、
   [`../architecture/05-tenancy.md`](../architecture/05-tenancy.md) §2、[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1、§5.1、
   [`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §7、§8、[`../rbac/01-domain-model.md`](../rbac/01-domain-model.md) §7；
   [ADR-0004](./0004-jwt-with-rotating-refresh-token.md)（`token_version` 是唯一的撤銷機制）、[ADR-0020](./0020-physical-tenant-isolation.md)（每個租戶一個 DB 與網域）、
   [ADR-0024](./0024-relationship-based-access-control.md)（關係圖與一般化的反提權）；
   後續會依賴本決定的提案：[`../features/webhooks.md`](../features/webhooks.md)、[`../features/mfa.md`](../features/mfa.md)、
-  [`../features/multi-instance.md`](../features/multi-instance.md)（T0 會先做掉其中一部分）
+  [`../features/multi-instance.md`](../features/multi-instance.md)（T0 已做掉其中一部分）。
+  原本的提案（`features/api-tokens.md`）已依實作結果改寫成上列規格後刪除
 
 ## 背景
 
@@ -156,3 +156,4 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 | T4 | 畫面 | `features/service-account`：列表（`/service-account`）、建立對話框（`/service-account/create`，獨立的 page key）、詳情（`/service-account/$serviceAccountId`：基本資料、角色、token）。帳號設定（`/profile`）的「個人存取 token」；使用者詳情頁的 token 區塊在 `user:update` 時顯示 |
 | T4 | token 的共用元件 | 三處的列表與建立對話框相同，放在 `core/components/ApiToken/`（只接收資料與 callback，不呼叫 API）；明文只在建立成功的對話框顯示一次，關閉後無法再取得 |
 | T4 | token 的 scopes 選項 | 選項是操作者自己持有的權限鍵（反提權，D4；不選代表「全部」），以權限鍵本身當名稱：權限目錄要 `permission:read` 才讀得到。超出的由後端擋下，生效時仍與帳號的權限取交集（D3） |
+| T5 | 歸檔 | 正式規格是 `architecture/06-external-api.md`（對外 API）與 `backend/04-auth.md` §8.2（服務帳號與 token 的管理）；其餘章節在 T1～T4 時已同步更新。刪除提案 `features/api-tokens.md`，`webhooks`、`mfa` 的連結改指正式文件 |
