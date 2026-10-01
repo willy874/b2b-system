@@ -1,6 +1,9 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';
+
+// 頁面整合測試會經過 lazy 載入（第一次 import 頁面模組），全套平行跑時 1 秒的預設等待不夠
+configure({ asyncUtilTimeout: 5000 });
 
 // jsdom 26 沒有 PointerEvent；Base UI 1.x 的 Checkbox / Switch 等以 `new PointerEvent('click')` 重送點擊
 // （utils/dispatchClickWithModifiers），缺了會在點擊時拋 TypeError。瀏覽器都有，只在測試環境補上
