@@ -10,11 +10,15 @@ import { renderRoute } from '@/test/renderRoute';
 import { registerAccountPagePermissions, Routes } from '../../..';
 import accountZhTW from '../../../locales/zh_TW.json';
 
-const { fetchProfile, changePassword } = vi.hoisted(() => ({
+const { fetchProfile, changePassword, fetchSources } = vi.hoisted(() => ({
+  fetchSources: vi.fn(),
   fetchProfile: vi.fn(),
   changePassword: vi.fn(),
 }));
 vi.mock('@/apis/auth/get-profile/fetcher', () => ({ fetchProfileQuery: fetchProfile }));
+vi.mock('@/apis/user/get-user-permission-sources/fetcher', () => ({
+  fetchUserPermissionSourcesQuery: fetchSources,
+}));
 vi.mock('@/apis/auth/change-password/fetcher', () => ({
   fetchChangePasswordMutation: changePassword,
 }));
@@ -33,6 +37,24 @@ beforeEach(() => {
     permissions: [],
   });
   changePassword.mockReset().mockResolvedValue(undefined);
+  fetchSources.mockReset().mockResolvedValue({
+    isSuperAdmin: false,
+    superAdminVia: null,
+    items: [
+      {
+        key: 'auditLog:read',
+        sources: [
+          {
+            grantedKey: 'auditLog:read',
+            via: [
+              { type: 'user', id: 'me', relation: '', name: 'Me', hidden: false },
+              { type: 'group', id: null, relation: 'member', name: null, hidden: true },
+            ],
+          },
+        ],
+      },
+    ],
+  });
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
@@ -111,5 +133,16 @@ describe('ProfilePage 的變更密碼', () => {
     const current = screen.getByTestId('profile-current-password');
     await waitFor(() => expect(current).toHaveAttribute('aria-invalid', 'true'));
     expect(current).toHaveAccessibleDescription('目前密碼不正確。');
+  });
+});
+
+describe('ProfilePage 的有效權限（docs/adr/0024-relationship-based-access-control.md G4b）', () => {
+  it('不需要任何權限：展開才以自己的 id 查，讀不到的節點顯示種類', async () => {
+    renderRoute(routes, '/profile', []);
+    fireEvent.click(await screen.findByTestId('profile-permission-sources-show'));
+    const item = await screen.findByTestId('permission-source');
+    expect(item).toHaveAttribute('data-value', 'auditLog:read');
+    expect(within(item).getAllByTestId('explain-node')[1]).toHaveAttribute('data-hidden', 'true');
+    expect(fetchSources.mock.calls[0]![0].params).toEqual({ userId: 'me' });
   });
 });

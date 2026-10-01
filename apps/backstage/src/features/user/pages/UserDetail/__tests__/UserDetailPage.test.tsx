@@ -11,18 +11,24 @@ import { renderRoute } from '@/test/renderRoute';
 import { registerUserPagePermissions, Routes } from '../../..';
 import userZhTW from '../../../locales/zh_TW.json';
 
-const { fetchUser, fetchProfile, updateUser, unlockUser, fetchGroups } = vi.hoisted(() => ({
-  fetchGroups: vi.fn(),
-  fetchUser: vi.fn(),
-  fetchProfile: vi.fn(),
-  updateUser: vi.fn(),
-  unlockUser: vi.fn(),
-}));
+const { fetchUser, fetchProfile, updateUser, unlockUser, fetchGroups, fetchSources } = vi.hoisted(
+  () => ({
+    fetchSources: vi.fn(),
+    fetchGroups: vi.fn(),
+    fetchUser: vi.fn(),
+    fetchProfile: vi.fn(),
+    updateUser: vi.fn(),
+    unlockUser: vi.fn(),
+  }),
+);
 vi.mock('@/apis/user/get-user-detail/fetcher', () => ({ fetchUserDetailQuery: fetchUser }));
 vi.mock('@/apis/auth/get-profile/fetcher', () => ({ fetchProfileQuery: fetchProfile }));
 vi.mock('@/apis/user/update-user/fetcher', () => ({ fetchUserUpdateMutation: updateUser }));
 vi.mock('@/apis/user/unlock-user/fetcher', () => ({ fetchUserUnlockMutation: unlockUser }));
 vi.mock('@/apis/group/get-group-list/fetcher', () => ({ fetchGroupListQuery: fetchGroups }));
+vi.mock('@/apis/user/get-user-permission-sources/fetcher', () => ({
+  fetchUserPermissionSourcesQuery: fetchSources,
+}));
 
 const USER_ID = '44444444-4444-4444-8444-444444444444';
 const PATH = `/user/${USER_ID}`;
@@ -50,6 +56,24 @@ beforeEach(() => {
   fetchProfile.mockReset().mockResolvedValue({ user: { id: 'me' }, permissions: [] });
   updateUser.mockReset().mockImplementation(async ({ params }) => ({ ...base, ...params.body }));
   unlockUser.mockReset().mockResolvedValue({ ...base, status: 'active' });
+  fetchSources.mockReset().mockResolvedValue({
+    isSuperAdmin: false,
+    superAdminVia: null,
+    items: [
+      {
+        key: 'file:read',
+        sources: [
+          {
+            grantedKey: 'file:update',
+            via: [
+              { type: 'user', id: USER_ID, relation: '', name: 'Person', hidden: false },
+              { type: 'role', id: 'r1', relation: 'holder', name: 'Editor', hidden: false },
+            ],
+          },
+        ],
+      },
+    ],
+  });
   fetchGroups.mockReset().mockResolvedValue({
     items: [
       { id: 'g-art', name: '美術', memberCount: 1, roleCount: 1, version: 1, membership: 'nested' },
@@ -242,5 +266,31 @@ describe('UserDetailPage', () => {
     await screen.findByTestId('user-edit-button', undefined, { timeout: 5000 });
     expect(screen.queryByTestId('user-group-section')).not.toBeInTheDocument();
     expect(fetchGroups).not.toHaveBeenCalled();
+  });
+
+  it('看自己：有「有效權限」，展開才查，依賴樹帶出的鍵標出來源（ADR-0024 G4b）', async () => {
+    fetchProfile.mockResolvedValue({ user: { id: USER_ID }, permissions: [] });
+    renderRoute(routes, PATH, ['user:read'] as PermissionKey[]);
+    fireEvent.click(
+      await screen.findByTestId('user-permission-sources-show', undefined, { timeout: 5000 }),
+    );
+    const item = await screen.findByTestId('permission-source');
+    expect(item).toHaveAttribute('data-value', 'file:read');
+    expect(item).toHaveTextContent('由 file:update 帶出');
+    expect(fetchSources.mock.calls[0]![0].params).toEqual({ userId: USER_ID });
+  });
+
+  it('看別人、沒有 authz:explain → 不顯示「有效權限」', async () => {
+    renderRoute(routes, PATH, EDITOR);
+    await screen.findByTestId('user-edit-button', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('user-permission-sources')).not.toBeInTheDocument();
+  });
+
+  it('看別人、有 authz:explain → 顯示「有效權限」', async () => {
+    renderRoute(routes, PATH, ['user:read', 'authz:explain'] as PermissionKey[]);
+    expect(
+      await screen.findByTestId('user-permission-sources', undefined, { timeout: 5000 }),
+    ).toBeInTheDocument();
+    expect(fetchSources).not.toHaveBeenCalled();
   });
 });

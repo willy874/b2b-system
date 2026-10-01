@@ -1,4 +1,5 @@
 export * from './ErrorPage';
+export * from './ExplainPath';
 export * from './PageSkeleton';
 export * from './PermissionGate';
 export * from './QueryError';

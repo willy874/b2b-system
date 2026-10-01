@@ -3,7 +3,10 @@
     "profile": {
       "title": "Profile",
       "description": "These settings affect only your own account.",
-      "saved": "Profile updated."
+      "saved": "Profile updated.",
+      "effective": "My effective permissions",
+      "effectiveHint": "Where each of your permissions comes from: through which groups and which role. Groups or roles you cannot see show only their kind; ask an administrator about them.",
+      "showEffective": "Show effective permissions and sources"
     },
     "password": {
       "title": "Change password",

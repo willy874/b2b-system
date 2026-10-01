@@ -267,7 +267,8 @@
       "file": "Files",
       "job": "Background jobs",
       "identityProvider": "Identity providers",
-      "group": "Groups"
+      "group": "Groups",
+      "authz": "Access explanations"
     },
     "user": {
       "create": "Create user",
@@ -322,6 +323,9 @@
       "update": "Edit groups",
       "delete": "Delete groups",
       "assignRole": "Assign roles to groups"
+    },
+    "authz": {
+      "explain": "View access explanations"
     }
   },
   "language": {
@@ -376,5 +380,30 @@
     "label": "Notifications",
     "trigger": "Notifications",
     "triggerUnread": "Notifications: {{count}} unread"
+  },
+  "explain": {
+    "everyone": "Everyone",
+    "root": "All files",
+    "hidden": {
+      "user": "A user",
+      "group": "A group",
+      "role": "A role",
+      "fileFolder": "A folder",
+      "other": "An item"
+    },
+    "relation": {
+      "viewer": "Viewer",
+      "contributor": "Contributor",
+      "editor": "Editor",
+      "manager": "Manager",
+      "can_read": "Can read",
+      "can_create": "Can upload",
+      "can_update": "Can edit",
+      "can_delete": "Can delete",
+      "can_share": "Can share"
+    },
+    "superAdmin": "Super admin: has every permission.",
+    "impliedBy": "Implied by {{key}}",
+    "noPermissions": "No permissions"
   }
 }

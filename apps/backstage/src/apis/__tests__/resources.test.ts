@@ -103,6 +103,9 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     });
     expect(keys).toEqual([
       'invalidate:AUDIT_LOG_LIST_QUERY_KEY',
+      // 授權的說明（ADR-0024 G4b）：指派角色改變那個人的權限來源；說明只在展開時查，整批失效
+      'invalidate:FILE_FOLDER_EXPLAIN_QUERY_KEY',
+      'invalidate:PERMISSION_SOURCES_QUERY_KEY',
       'invalidate:ROLE_DETAIL_QUERY_KEY:r1',
       'invalidate:ROLE_DETAIL_QUERY_KEY:r2',
       'invalidate:ROLE_LIST_QUERY_KEY',

@@ -123,6 +123,36 @@ export class AuthzService {
     return this.checker(subjects, tuples, providers, options.withDependencies);
   }
 
+  /** 一位使用者的主體閉包，每個主體附上從本人走到它的鏈（說明用，`AuthzRepository.closurePaths`）。 */
+  closurePaths(
+    userId: string,
+    options: { tx?: DbOrTx; now?: Date } = {},
+  ): Promise<Map<SubjectKey, SubjectKey[]>> {
+    return this.repo.closurePaths(userId, options.now ?? new Date(), options.tx);
+  }
+
+  /**
+   * 使用者在租戶節點上 **直接** 取得的每一條邊（說明用）：關係（權限鍵或 `superAdmin`）＋ 從本人到那個主體的鏈
+   * （例：`[user:u, group:g#member, role:r#holder]` 帶來 `file:update`）。依賴樹帶出的鍵由呼叫端以閉包推出。
+   */
+  async tenantSourcesOf(
+    userId: string,
+    options: { tx?: DbOrTx; now?: Date } = {},
+  ): Promise<Array<{ relation: string; path: SubjectKey[] }>> {
+    const now = options.now ?? new Date();
+    const closure = await this.repo.closurePaths(userId, now, options.tx);
+    const tuples = await this.repo.tuplesForSubjects(
+      TENANT_OBJECT.type,
+      [...closure.keys()],
+      now,
+      options.tx,
+    );
+    return tuples.map((tuple) => ({
+      relation: tuple.relation,
+      path: closure.get(tuple.subject) ?? [tuple.subject],
+    }));
+  }
+
   /**
    * 反提權（docs/adr/0024-relationship-based-access-control.md G4）：把某個主體放進 `targets` 的每一個 `物件#關係`，
    * 主體因此取得的能力。操作者必須全部都有（呼叫端以自己的判斷器或權限集合比對）。

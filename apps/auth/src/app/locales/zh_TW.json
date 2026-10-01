@@ -247,7 +247,8 @@
       "platformAdmin": "平台管理者",
       "platformAuditLog": "平台稽核",
       "platformJob": "背景工作（全平台）",
-      "featureFlag": "試行開關"
+      "featureFlag": "試行開關",
+      "authz": "授權說明"
     },
     "user": {
       "create": "建立使用者",
@@ -324,6 +325,9 @@
     "featureFlag": {
       "read": "檢視試行開關",
       "update": "切換試行開關"
+    },
+    "authz": {
+      "explain": "檢視授權來源"
     }
   },
   "theme": {

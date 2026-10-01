@@ -80,6 +80,45 @@ export class AuthzRepository {
     );
   }
 
+  /**
+   * 一位使用者的主體閉包，每個主體附上「怎麼來的」：從使用者本人（或 `user:*`）走到它的鏈，取最短的一條
+   * （例：`role:r#holder` ← `[user:u, group:g#member, group:h#member, role:r#holder]`）。
+   * `AuthzChecker.explain()` 的路徑從閉包裡的主體開始，接上這條鏈才是完整的說明（ADR-0024 D14、G4b）。
+   * 規則與 `subjectClosures` 相同（只走未刪除的角色與群組、未過期的邊）。
+   */
+  async closurePaths(
+    userId: string,
+    now: Date,
+    tx?: DbOrTx,
+  ): Promise<Map<SubjectKey, SubjectKey[]>> {
+    const db = tx ?? this.db;
+    const self = subjectKey('user', userId);
+    const everyone = subjectKey('user', '*');
+    const rows = await db.execute<{ key: string; path: string[] }>(sql`
+      WITH RECURSIVE closure(type, id, rel, depth, path) AS (
+        SELECT * FROM (VALUES
+          ('user'::text, ${userId}::text, ''::text, 0, ARRAY[${self}::text]),
+          ('user'::text, '*'::text, ''::text, 0, ARRAY[${everyone}::text])
+        ) AS seed(type, id, rel, depth, path)
+        UNION ALL
+        SELECT t.object_type, t.object_id, t.relation, c.depth + 1,
+          c.path || (t.object_type || ':' || t.object_id || '#' || t.relation)
+        FROM ${relationTuples} t
+        JOIN closure c
+          ON t.subject_type = c.type AND t.subject_id = c.id AND t.subject_relation = c.rel
+        WHERE c.depth < ${MAX_CLOSURE_DEPTH}
+          AND ${MEMBERSHIP_STEP}
+          AND (t.expires_at IS NULL OR t.expires_at > ${now.toISOString()}::timestamptz)
+          -- 巢狀的循環由寫入端擋下；這裡再以路徑擋一次，資料異常時也不會無限展開
+          AND NOT (t.object_type || ':' || t.object_id || '#' || t.relation) = ANY(c.path)
+      )
+      SELECT DISTINCT ON (path[array_length(path, 1)]) path[array_length(path, 1)] AS key, path
+      FROM closure
+      ORDER BY path[array_length(path, 1)], depth
+    `);
+    return new Map(rows.map((row) => [row.key, row.path]));
+  }
+
   /** 從 `seeds` 沿成員關係往上走的閉包（含起點），以 `root` 分組；`roots` 的每一個都會出現在結果裡。 */
   private async closures<Root extends string>(
     seeds: ReadonlyArray<{ root: Root; type: string; id: string; rel: string }>,

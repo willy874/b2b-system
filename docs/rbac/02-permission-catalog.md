@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 34 項）
+## 2. 權限清單（共 35 項）
 
 ### 2.1 `user` — 使用者
 
@@ -136,7 +136,15 @@
 > `group:update` 本身不列為受反提權限制的鍵：加成員時檢查的是 **那個群組帶來的能力**（群組與它所有上層群組持有的角色），
 > 操作者全部都有才放行，所以「能編輯群組」不會等於「能指派任何角色」。
 
-### 2.11 個人範圍（不需要權限）
+### 2.11 `authz` — 授權說明
+
+| 權限鍵          | 顯示名稱（zh-TW） | 說明 |
+| --------------- | ----------------- | ---- |
+| `authz:explain` | 檢視授權來源      | 查看 **別人** 的有效權限與每個權限的來源、某人為什麼能（不能）存取某個資料夾（[ADR-0024](../adr/0024-relationship-based-access-control.md) D14）。查自己不需要權限 |
+
+> 說明的路徑會經過使用者、群組、角色，所以依賴這三種的 `read`；路徑上操作者讀不到的節點（例：讀不到的資料夾）只顯示種類，不顯示名稱。
+
+### 2.12 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
@@ -164,6 +172,7 @@
 | `job`             |   —    |  ✓   |   —    |   —    | `retry`                       |
 | `identityProvider`|   ✓    |  ✓   |   ✓    |   ✓    | —                             |
 | `group`           |   ✓    |  ✓   |   ✓    |   ✓    | `assignRole`                  |
+| `authz`           |   —    |  —   |   —    |   —    | `explain`                     |
 
 ---
 
@@ -205,6 +214,7 @@
 | `group:update`         |      ✓*       |    ✓    |           |          |
 | `group:delete`         |      ✓*       |    ✓    |           |          |
 | `group:assignRole`     |      ✓*       |    ✓    |           |          |
+| `authz:explain`        |      ✓*       |    ✓    |     ✓     |          |
 
 `*` super-admin 是 **隱含全集**，不逐筆登錄權限鍵的邊（只有 `tenant:self#superAdmin` 一條邊）；
 `GET /auth/profile` 回傳時才展開成完整清單。
@@ -299,6 +309,8 @@ export const PERMISSION_SEED = [
   ["group", "update", "permission.group.update", 1202],
   ["group", "delete", "permission.group.delete", 1203],
   ["group", "assignRole", "permission.group.assignRole", 1204],
+
+  ["authz", "explain", "permission.authz.explain", 1300],
 ] as const;
 ```
 
@@ -419,6 +431,7 @@ Seed 行為：
 | `group:delete` | `group:update` | |
 | `group:update` | `group:read` | `user:read` |
 | `group:assignRole` | `group:read` | `role:read` |
+| `authz:explain` | | `user:read`、`role:read`、`group:read` |
 
 沒有列出的鍵是葉節點（`permission:read`、`auditLog:read`、各資源的 `read`、`file:access`）。
 

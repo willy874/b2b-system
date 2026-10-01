@@ -83,7 +83,10 @@
       "lockedHint": "This account is locked after too many failed sign-ins. Editing does not change that; use Unlock to restore sign-in.",
       "groups": "Groups",
       "groupsHint": "Roles held by these groups also apply to this user, including parent groups of nested groups.",
-      "nestedGroup": "Through a nested group"
+      "nestedGroup": "Through a nested group",
+      "effective": "Effective permissions",
+      "effectiveHint": "Where each permission comes from: through which groups and which role. Groups or roles you cannot see show only their kind.",
+      "showEffective": "Show effective permissions and sources"
     },
     "field": {
       "email": "Email",

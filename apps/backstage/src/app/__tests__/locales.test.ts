@@ -51,6 +51,7 @@ const PERMISSION_KEYS = [
   ['group', 'update'],
   ['group', 'delete'],
   ['group', 'assignRole'],
+  ['authz', 'explain'],
 ] as const;
 
 const bundles = { zh_TW: zhTW, en_US: enUS } as Record<string, Record<string, unknown>>;

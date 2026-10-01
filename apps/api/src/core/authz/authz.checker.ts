@@ -181,3 +181,16 @@ function isAllowedSubject(specs: readonly string[], subject: SubjectKey): boolea
     return (allowed.relation ?? '') === relation;
   });
 }
+
+/**
+ * `explain()` 的路徑從主體閉包裡的主體開始（例：`role:r#holder`）；接上那個主體是怎麼來的
+ * （`AuthzRepository.closurePaths`：`user:u → group:g#member → role:r#holder`），才是從使用者本人出發的完整路徑。
+ */
+export function withClosurePath(
+  path: AuthzPath,
+  closure: ReadonlyMap<SubjectKey, readonly SubjectKey[]>,
+): AuthzPath {
+  const [first, ...rest] = path;
+  if (first === undefined) return path;
+  return [...(closure.get(first) ?? [first]), ...rest];
+}

@@ -601,6 +601,7 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0016_groups.sql                     groups 表（§2.14，ADR-0024 G4a；純加法）
 ├── 0017_groups_triggers.sql            手寫：groups.deleted_at 改變時 authz_revision +1、updated_at（§2.11、§3.3）
 ├── 0018_groups_system_role_permissions.sql  手寫：既有租戶的 admin 補 group:*、auditor 補 group:read（§6 的規則）
+├── 0019_authz_explain_system_roles.sql     手寫：既有租戶的 admin、auditor 補 authz:explain（§6 的規則）
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

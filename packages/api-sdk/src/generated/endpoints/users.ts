@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import type {
   CreateUserRequest,
+  PermissionSources,
   ReplaceUserRolesRequest,
   UpdateUserRequest,
   User,
@@ -19,6 +20,7 @@ import type {
 } from '../runtime';
 import {
   CreateUserRequestSchema,
+  PermissionSourcesSchema,
   ReplaceUserRolesRequestSchema,
   UpdateUserRequestSchema,
   UserRolesSchema,
@@ -594,4 +596,65 @@ export function userControllerUnlock(
   options?: RequestOptions,
 ): Promise<UserControllerUnlockResult> {
   return request<UserControllerUnlockResult>(userControllerUnlockOperation, input, options);
+}
+
+// GET /users/{id}/permission-sources
+
+export interface AuthzExplainControllerPermissionSourcesPathParams {
+  id: string;
+}
+
+export interface AuthzExplainControllerPermissionSourcesInput {
+  path: AuthzExplainControllerPermissionSourcesPathParams;
+}
+
+export interface AuthzExplainControllerPermissionSourcesResponses {
+  200: {
+    data: PermissionSources;
+  };
+}
+
+export type AuthzExplainControllerPermissionSourcesResponse =
+  AuthzExplainControllerPermissionSourcesResponses[200];
+
+export type AuthzExplainControllerPermissionSourcesResult = ApiResponse<
+  200,
+  AuthzExplainControllerPermissionSourcesResponses[200]
+>;
+
+export const AuthzExplainControllerPermissionSourcesSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: PermissionSourcesSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getAuthzExplainControllerPermissionSourcesUrl(
+  path: AuthzExplainControllerPermissionSourcesPathParams,
+): string {
+  return buildUrl('/users/{id}/permission-sources', path);
+}
+
+const authzExplainControllerPermissionSourcesOperation: OperationDefinition = {
+  id: 'AuthzExplainController_permissionSources',
+  method: 'GET',
+  path: '/users/{id}/permission-sources',
+  responseTypes: { 200: 'json' },
+  schemas: AuthzExplainControllerPermissionSourcesSchemas,
+};
+
+/** 使用者的有效權限與來源（自己，或需要 authz:explain） */
+export function authzExplainControllerPermissionSources(
+  input: AuthzExplainControllerPermissionSourcesInput,
+  options?: RequestOptions,
+): Promise<AuthzExplainControllerPermissionSourcesResult> {
+  return request<AuthzExplainControllerPermissionSourcesResult>(
+    authzExplainControllerPermissionSourcesOperation,
+    input,
+    options,
+  );
 }

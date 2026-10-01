@@ -239,6 +239,14 @@
       "success": "Restored “{{name}}”.",
       "parentDeleted": "The folder it was in has been deleted. Restore the folder first from the Folders tab of the trash.",
       "objectMissing": "The contents of this file no longer exist, so it cannot be restored."
+    },
+    "explain": {
+      "title": "Check access",
+      "hint": "Pick a user to see what they can do in this folder and through which grant.",
+      "user": "User",
+      "placeholder": "Choose a user…",
+      "allowed": "Allowed",
+      "denied": "Not allowed"
     }
   }
 }

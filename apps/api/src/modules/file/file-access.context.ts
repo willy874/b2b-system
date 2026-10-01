@@ -1,7 +1,7 @@
 import type { PermissionKey } from '@/common/types';
 import { PERMISSION } from '@/common/types';
 import { TENANT_OBJECT } from '@/core/authz';
-import type { AuthzChecker } from '@/core/authz';
+import type { AuthzChecker, AuthzPath } from '@/core/authz';
 import type { FileFolderKind } from '@/db/schema';
 
 import { assignableLevels, missingActions } from './file-grant.levels';
@@ -76,6 +76,14 @@ export class FileAccessContext {
   /** `has(u, 動作, 位置)`：全域有該權限鍵，或位置的有效等級蘊含該動作。根目錄只看全域。 */
   can(action: FileAction, location: FileLocation): boolean {
     return this.checker.check(locationObject(location), FILE_ACTION_RELATION[action]);
+  }
+
+  /**
+   * `can(action, location)` 成立的一條路徑（從主體閉包裡的主體開始；接上閉包的來歷見 `withClosurePath`）；
+   * 不成立是 null（「為什麼能做」的說明，ADR-0024 G4b）。
+   */
+  explain(action: FileAction, location: FileLocation): AuthzPath | null {
+    return this.checker.explain(locationObject(location), FILE_ACTION_RELATION[action]);
   }
 
   /**
