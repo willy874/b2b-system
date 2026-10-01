@@ -63,7 +63,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 ## 常用指令
 
 ```bash
-pnpm dev            # postgres + Mailpit(:8025) + api(:3000) + backstage(:5173) + auth(:5175) + file-storage(:9000)
+pnpm dev            # 先 build packages/*（build:packages），再起 postgres + Mailpit(:8025) + api(:3000) + backstage(:5173) + auth(:5175) + file-storage(:9000)
 pnpm dev:auth       # 單獨啟動 apps/auth（全平台共用的身分與租戶入口，:5175）；見 apps/auth/README.md
 pnpm dev:e2e        # 以放寬的速率限制、寄信到 Mailpit 啟動 api（跑 E2E 時用）
 pnpm dev:storage    # 單獨啟動 apps/file-storage（S3 相容，:9000）；api 端見 docs/architecture/backend/09-file.md
@@ -76,7 +76,8 @@ pnpm db:migrate / db:seed / db:seed:dev / db:seed:e2e / db:reset
                     # 平台 DB ＋ 每個租戶的 DB（docs/architecture/backend/02-database.md §6.1）；seed:dev/e2e 只跑 SEED_TENANT（預設 default）
 pnpm db:archive-audit-logs   # 稽核熱表 → 冷表搬移的手動補跑（平常由背景工作 auditLog.archive 每天跑）
 pnpm db:drop-tenant <代碼> [--confirm]   # 清除 apps/auth 已刪除的租戶（database、DB 角色、bucket）；不加 --confirm 只列出
-pnpm openapi:generate && pnpm sdk:generate   # 改動 controller / DTO 之後必跑
+pnpm --filter @b2b-system/api openapi:generate && pnpm exec oxfmt apps/api/openapi.json && pnpm sdk:generate
+                    # 改動 controller / DTO／權限鍵之後必跑；openapi.json 不經 oxfmt 會多出整份的格式 diff，pre-commit 也會擋
 pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法見 docs/architecture/frontend/07-ui-system.md §9
 ```
 
@@ -85,7 +86,7 @@ pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法�
 1. `docs/rbac/02-permission-catalog.md` 加權限 →
    `apps/api/src/db/seeds/permissions.ts` 加 seed
 2. 後端：`modules/<name>/`（controller / service / repository / dto）
-3. `pnpm db:seed && pnpm openapi:generate && pnpm sdk:generate`
+3. `pnpm db:seed`，再依上方「常用指令」重新產生 openapi 與 SDK
 4. 前端 API 層：`apis/<domain>/<operation>/`
 5. 前端 feature：`locale.ts` → `routes/` → `permission.ts` → `plugin.ts` →
    `hooks/` → `pages/` → `index.tsx`
