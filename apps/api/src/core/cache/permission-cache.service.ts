@@ -16,6 +16,12 @@ export interface PermissionSet {
    * 由舊的解析產生時沒有。
    */
   subjects?: readonly string[];
+  /**
+   * 這是對外 API 的 token 限縮過的權限（docs/adr/0027-api-tokens-external-api.md D3）：`permissions` 已是帳號 ∩ scopes。
+   * 以 `subjects` 解析資源授權的地方（檔案）要改用 `permissions` 當租戶層的邊，否則會經由帳號的角色繞過 scopes。
+   * 快取裡的值永遠沒有這個欄位。
+   */
+  tokenScoped?: true;
 }
 
 interface Entry {

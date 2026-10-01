@@ -5,6 +5,8 @@ import { ApprovalModule } from '@/modules/approval/approval.module';
 import { AuthzExplainModule } from '@/modules/authz-explain/authz-explain.module';
 import { TrashModule } from '@/modules/trash/trash.module';
 
+import { FileExternalController } from './external/file.external.controller';
+import { FileExternalService } from './external/file.external.service';
 import { FileAccessExplainService } from './file-access-explain.service';
 import { FileAccessRequestService } from './file-access-request.service';
 import { FileAccessService } from './file-access.service';
@@ -33,8 +35,15 @@ import { FILE_SETTINGS } from './file.settings';
  */
 @Module({
   imports: [ApprovalModule, TrashModule, AuthzExplainModule],
-  controllers: [FileController, FileFolderController, FileFolderGrantController],
+  // 對外 API 的 controller 也在這裡：兩個程序都註冊，另一邊的由 SurfaceGuard 回 404（docs/adr/0027-api-tokens-external-api.md D11）
+  controllers: [
+    FileController,
+    FileFolderController,
+    FileFolderGrantController,
+    FileExternalController,
+  ],
   providers: [
+    FileExternalService,
     FileAccessService,
     FileAccessExplainService,
     FileAccessRequestService,

@@ -7,6 +7,8 @@ import { NotificationEventCatalog } from '@/modules/notification/notification-ev
 import { NotificationModule } from '@/modules/notification/notification.module';
 import { TrashModule } from '@/modules/trash/trash.module';
 
+import { UserExternalController } from './external/user.external.controller';
+import { UserExternalService } from './external/user.external.service';
 import { UserRegistrationApprovalHandler } from './user-registration.approval';
 import { UserTrashHandler } from './user-trash.handler';
 import { UserController } from './user.controller';
@@ -22,8 +24,15 @@ import { UserService } from './user.service';
     TrashModule,
     NotificationModule,
   ],
-  controllers: [UserController],
-  providers: [UserService, UserRepository, UserRegistrationApprovalHandler, UserTrashHandler],
+  // 對外 API 的 controller 也在這裡，另一邊由 SurfaceGuard 回 404（docs/adr/0027-api-tokens-external-api.md D11）
+  controllers: [UserController, UserExternalController],
+  providers: [
+    UserService,
+    UserRepository,
+    UserRegistrationApprovalHandler,
+    UserTrashHandler,
+    UserExternalService,
+  ],
   exports: [UserService],
 })
 export class UserModule {

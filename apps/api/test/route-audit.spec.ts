@@ -23,7 +23,9 @@ let app: INestApplication;
  */
 function featuresOf(method: string, path: string): string[] | undefined {
   const restore = method === 'POST' && path.endsWith('/:id/restore');
-  if (/^\/(files|file-folders)(\/|$)/.test(path)) return restore ? ['trash', 'file'] : ['file'];
+  if (/^\/(v1\/)?(files|file-folders|folders)(\/|$)/.test(path)) {
+    return restore ? ['trash', 'file'] : ['file'];
+  }
   if (restore || /^\/trash(\/|$)/.test(path)) return ['trash'];
   if (/^\/audit-logs(\/|$)/.test(path)) return ['auditLog'];
   if (/^\/jobs(\/|$)/.test(path)) return ['job'];
@@ -125,7 +127,16 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
     expect(external).toEqual([
       'both GET /health public',
       'both GET /health/ready public',
+      'external GET /v1/files permissions',
+      'external POST /v1/files permissions',
+      'external GET /v1/files/:id permissions',
+      'external POST /v1/files/:id/complete permissions',
+      'external POST /v1/files/:id/parts permissions',
+      'external DELETE /v1/files/:id/upload permissions',
+      'external GET /v1/folders permissions',
       'external GET /v1/me authenticated',
+      'external GET /v1/users permissions',
+      'external GET /v1/users/:id permissions',
     ]);
   });
 
@@ -216,6 +227,15 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'POST /auth/api-tokens': 'authenticated',
       'DELETE /auth/api-tokens/:tokenId': 'authenticated',
       'GET /v1/me': 'authenticated',
+      'GET /v1/folders': 'file:access|file:read',
+      'GET /v1/files': 'file:access|file:read',
+      'POST /v1/files': 'file:access|file:create',
+      'GET /v1/files/:id': 'file:access|file:read',
+      'POST /v1/files/:id/parts': 'file:access|file:create',
+      'POST /v1/files/:id/complete': 'file:access|file:create',
+      'DELETE /v1/files/:id/upload': 'file:access|file:create',
+      'GET /v1/users': 'user:read',
+      'GET /v1/users/:id': 'user:read',
       'GET /notifications': 'authenticated',
       'GET /notifications/unread-count': 'authenticated',
       'POST /notifications/read-all': 'authenticated',

@@ -14,7 +14,7 @@ export const FileNameSchema = z
   .regex(/^[^/\\\u0000-\u001f\u007f]+$/, 'must not contain path separators or control characters');
 
 /** `type/subtype`，不含參數（`; charset=…`）；一律轉小寫。 */
-const ContentTypeSchema = z
+export const ContentTypeSchema = z
   .string()
   .trim()
   .toLowerCase()
