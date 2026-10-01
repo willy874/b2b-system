@@ -17,6 +17,7 @@ export const TRASH_PAGE = definePageKey('TRASH');
 export const TRASH_PAGE_PERMISSIONS: PermissionKey[] = [
   PermissionKey['user:delete'],
   PermissionKey['role:delete'],
+  PermissionKey['group:delete'],
   PermissionKey['file:delete'],
 ];
 

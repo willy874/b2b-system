@@ -24,6 +24,10 @@ import {
   FILE_LIST_ANY_FOLDER,
   FILE_LIST_QUERY_KEY,
 } from '@/apis/file/get-file-list/query';
+import { GROUP_DETAIL_QUERY_KEY } from '@/apis/group/get-group-detail/query';
+import { GROUP_LIST_QUERY_KEY, GROUP_OPTIONS_QUERY_KEY } from '@/apis/group/get-group-list/query';
+import { GROUP_MEMBERS_QUERY_KEY } from '@/apis/group/get-group-members/query';
+import { GROUP_ROLES_QUERY_KEY } from '@/apis/group/get-group-roles/query';
 import { IDENTITY_PROVIDER_LIST_QUERY_KEY } from '@/apis/identity-provider/get-identity-provider-list/query';
 import { JOB_DETAIL_QUERY_KEY } from '@/apis/job/get-job-detail/query';
 import { JOB_LIST_QUERY_KEY } from '@/apis/job/get-job-list/query';
@@ -77,7 +81,7 @@ export const Resource = {
   USER_ROLE: 'userRole',
   /** 角色 ↔ 權限（`id` = roleId） */
   ROLE_PERMISSION: 'rolePermission',
-  /** 群組（`id` = 群組 id；名稱、成員、持有的角色）。前端的 feature 還沒做，先只當來源 */
+  /** 群組（`id` = 群組 id；名稱、成員、持有的角色都以它宣告，ADR-0024 D11） */
   GROUP: 'group',
   /** 密碼、邀請等不出現在任何畫面上的憑證寫入（`id` = userId） */
   USER_CREDENTIAL: 'userCredential',
@@ -204,6 +208,9 @@ const graph = createResourceGraph<Resource>({
       // 自己持有的角色改名、被刪或權限被改，有效權限可能變了
       { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'none', when: selfHoldsRole },
       { from: Resource.ROLE_PERMISSION, id: 'none', when: selfHoldsRole },
+      // 群組的成員、持有的角色、刪除與還原都可能改變自己的權限；前端不知道自己（間接）在哪些群組裡，
+      // 一律重抓（伺服器把群組的變更推給群組的所有成員，ADR-0024 D11）
+      { from: Resource.GROUP, id: 'none' },
       // profile 帶著啟用的 feature 清單；重新取得後由 useSyncFeatures 安裝或卸載
       { from: Resource.TENANT_FEATURE, id: 'none' },
     ],
@@ -215,6 +222,8 @@ const graph = createResourceGraph<Resource>({
       { from: Resource.USER, kinds: ['create', 'delete'], id: 'none' },
       // 角色同理（ADR-0025 R3）；還原的持有者由伺服器另外推 userRole update（本人的 profile 跟著失效）
       { from: Resource.ROLE, kinds: ['create', 'delete'], id: 'none' },
+      // 群組同理
+      { from: Resource.GROUP, kinds: ['create', 'delete'], id: 'none' },
       // 檔案與資料夾同理（ADR-0025 R4）：上傳完成也是 file create，多一次回收桶的重抓無害
       { from: Resource.FILE, kinds: ['create', 'delete'], id: 'none' },
       { from: Resource.FILE_FOLDER, kinds: ['create', 'delete'], id: 'none' },
@@ -231,7 +240,16 @@ const graph = createResourceGraph<Resource>({
   },
   [Resource.USER_ROLE]: {},
   [Resource.ROLE_PERMISSION]: {},
-  [Resource.GROUP]: {},
+  [Resource.GROUP]: {
+    collection: [GROUP_LIST_QUERY_KEY, GROUP_OPTIONS_QUERY_KEY],
+    entity: [GROUP_DETAIL_QUERY_KEY, GROUP_MEMBERS_QUERY_KEY, GROUP_ROLES_QUERY_KEY],
+    derivesFrom: [
+      // 成員清單嵌入使用者的名稱與狀態；使用者端不知道在哪些群組裡
+      { from: Resource.USER, kinds: ['update', 'delete'], id: 'ref' },
+      // 持有的角色清單嵌入角色名稱；角色被刪就從清單消失
+      { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'ref' },
+    ],
+  },
   [Resource.USER_CREDENTIAL]: {},
   [Resource.TENANT_FEATURE]: {},
   [Resource.NOTIFICATION]: {

@@ -106,6 +106,7 @@
     "home": "Home",
     "user": "Users",
     "role": "Roles",
+    "userGroup": "Groups",
     "permission": "Permissions",
     "auditLog": "Audit log",
     "approval": "Approvals",

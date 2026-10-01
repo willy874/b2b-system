@@ -19,6 +19,8 @@ features/user/trash.ts             登記「使用者」類型（plugin 的同�
 features/user/components/UserRestoreAction.tsx
 features/role/trash.ts             登記「角色」類型
 features/role/components/RoleRestoreAction.tsx
+features/group/trash.ts            登記「群組」類型
+features/group/components/GroupRestoreAction.tsx
 features/file/trash.ts             登記「檔案」「資料夾」兩類（可在執行期停用的 feature：卸載時分頁跟著消失）
 features/file/components/FileRestoreAction.tsx、FolderRestoreAction.tsx
 features/role/components/RoleRestoreAction.tsx
@@ -42,7 +44,7 @@ apis/file/restore-file-folder/     POST /file-folders/:id/restore
 | --- | --- |
 | `type` | 後端 `GET /trash?type=` 的值（`TrashResourceType`，由 SDK 產生）；也是分頁與網址 `?type=` 的鍵 |
 | `order` | 分頁順序 |
-| `labelI18nKey` | 分頁標題；放 **全域** 語系包（使用者用 `menu.user`、角色用 `menu.role`、檔案用 `menu.file`、資料夾用 `menu.fileFolder`） |
+| `labelI18nKey` | 分頁標題；放 **全域** 語系包（使用者用 `menu.user`、角色用 `menu.role`、群組用 `menu.userGroup`、檔案用 `menu.file`、資料夾用 `menu.fileFolder`） |
 | `permission` | 看這一類與還原的權限：`<resource>:delete`，與後端 handler 的 `permission` 相同 |
 | `localeScope` | 還原操作用到的 scope；回收桶的 route loader（`trashLocaleLoader`）一併載入 |
 | `RestoreAction` | 每一列的還原操作元件（`{ item: TrashItem }`）：呼叫擁有者的還原 API、自己呈現錯誤 |

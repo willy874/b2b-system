@@ -18,6 +18,7 @@ export const PermissionResource = {
   FILE: 'file',
   JOB: 'job',
   IDENTITY_PROVIDER: 'identityProvider',
+  GROUP: 'group',
 } as const;
 export type PermissionResource = (typeof PermissionResource)[keyof typeof PermissionResource];
 

@@ -194,6 +194,9 @@ describe('群組（docs/adr/0024-relationship-based-access-control.md D11、D12�
     expect(await revision()).toBeGreaterThan(before);
     expect(await permissionsOf(ALICE)).not.toContain('file:update');
     await admin.get(`/groups/${ids.art}`).expect(404);
+    // 回收桶的「群組」分頁（GroupTrashHandler）
+    const trash = await admin.get('/trash?type=group').expect(200);
+    expect(trash.body.data.items).toEqual([expect.objectContaining({ id: ids.art, name: '美術' })]);
 
     const restored = await admin.post(`/groups/${ids.art}/restore`).expect(200);
     expect(restored.body.data).toMatchObject({ id: ids.art, memberCount: 1, roleCount: 1 });

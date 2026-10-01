@@ -5317,7 +5317,7 @@
       },
       "TrashResourceType": {
         "type": "string",
-        "enum": ["user", "role", "file", "fileFolder"]
+        "enum": ["user", "role", "group", "file", "fileFolder"]
       },
       "TrashItem": {
         "type": "object",

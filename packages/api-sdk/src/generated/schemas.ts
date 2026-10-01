@@ -400,6 +400,7 @@ export const PlatformAuditLogSchema = z.object({
 export const TrashResourceTypeSchema = z.enum([
   'user',
   'role',
+  'group',
   'file',
   'fileFolder',
 ]) satisfies z.ZodType<TrashResourceType>;

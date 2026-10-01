@@ -7,6 +7,7 @@ import { usePageAccessChecker } from '@/core/permission';
 import { APPROVAL_PAGE } from '@/features/approval';
 import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { FILE_PAGE } from '@/features/file';
+import { GROUP_PAGE } from '@/features/group';
 import { HOME_PAGE } from '@/features/home';
 import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
 import { JOB_PAGE } from '@/features/job';
@@ -66,6 +67,13 @@ const MENU_GROUPS: NavGroup[] = [
         labelKey: 'menu.role',
         testId: 'menu-role',
         icon: 'shield',
+      },
+      {
+        pageKey: GROUP_PAGE,
+        to: '/group',
+        labelKey: 'menu.userGroup',
+        testId: 'menu-group',
+        icon: 'users',
       },
       {
         pageKey: PERMISSION_PAGE,

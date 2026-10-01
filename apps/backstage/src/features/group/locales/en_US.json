@@ -1,0 +1,61 @@
+{
+  "group": {
+    "list": {
+      "title": "Groups",
+      "description": "Organize people into groups. Groups hold roles, so membership changes are all you need when people move. Groups can be nested.",
+      "searchPlaceholder": "Search group name or description"
+    },
+    "field": {
+      "name": "Name",
+      "description": "Description",
+      "memberCount": "Members",
+      "roleCount": "Roles",
+      "createdAt": "Created"
+    },
+    "create": {
+      "action": "Create group",
+      "title": "Create group",
+      "description": "Add members and roles from the group details after it is created.",
+      "success": "Group \"{{name}}\" created"
+    },
+    "update": {
+      "success": "Group updated"
+    },
+    "delete": {
+      "title": "Delete group",
+      "confirm": "Delete \"{{name}}\"? Its members ({{count}} direct members; a nested group counts as one) lose the roles the group gives them. Deleted groups go to the trash and can be restored.",
+      "success": "Group deleted",
+      "undo": "Undo"
+    },
+    "restore": {
+      "action": "Restore",
+      "success": "Group \"{{name}}\" restored with its members and roles",
+      "viewConflicting": "View that group"
+    },
+    "detail": {
+      "title": "Group details",
+      "basic": "Details",
+      "roles": "Roles held",
+      "rolesHint": "Members, including members of nested groups, get these roles. You can only pick roles whose permissions you already have.",
+      "members": "Members ({{count}})",
+      "backToList": "Back to groups"
+    },
+    "role": {
+      "save": "Save roles",
+      "success": "Group roles updated"
+    },
+    "member": {
+      "typeLabel": "Member type",
+      "type": {
+        "user": "User",
+        "group": "Group"
+      },
+      "target": "Member",
+      "placeholder": "Search for a member to add",
+      "noMatch": "No matches",
+      "add": "Add",
+      "remove": "Remove \"{{name}}\"",
+      "success": "Group members updated"
+    }
+  }
+}

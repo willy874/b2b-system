@@ -647,7 +647,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/users/:id/reset-password` | `user:resetPassword`             |
 | POST   | `/users/:id/unlock`         | `user:update`                    |
 | POST   | `/users/:id/restore`        | `user:delete`                    |
-| GET    | `/trash`                    | `user:delete` \| `role:delete`⁴  |
+| GET    | `/trash`                    | `user:delete` \| `role:delete` \| `group:delete` \| `file:delete`⁴ |
 | GET    | `/roles`                    | `role:read`                      |
 | POST   | `/roles`                    | `role:create`                    |
 | GET    | `/roles/:id`                | `role:read`                      |
@@ -718,7 +718,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 `FileAccessService` 依資料夾授權判斷（§1 原則 3 的例外，見 [`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)）。
 路由稽核測試把 SOME 寫成 `a|b`、EVERY 寫成 `a+b`。
 
-⁴ `@RequireAnyPermission(...TRASH_PERMISSIONS)`：回收桶支援的每一類的 `<resource>:delete`（`user:delete`、`role:delete`）；
+⁴ `@RequireAnyPermission(...TRASH_PERMISSIONS)`：回收桶支援的每一類的 `<resource>:delete`（`user:delete`、`role:delete`、`group:delete`、`file:delete`）；
 指定的 `type` 再由 `TrashService` 以該類型的權限檢查（[`./13-trash.md`](./13-trash.md) §3）。
 
 **這張表必須與 `docs/rbac/04-api-spec.md` 一致**，且有一支測試從 metadata

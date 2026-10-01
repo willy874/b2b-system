@@ -1,0 +1,61 @@
+{
+  "group": {
+    "list": {
+      "title": "群組",
+      "description": "把人員分組：讓群組持有角色，人員異動時只要改成員。群組可以巢狀。",
+      "searchPlaceholder": "搜尋群組名稱或說明"
+    },
+    "field": {
+      "name": "名稱",
+      "description": "說明",
+      "memberCount": "成員數",
+      "roleCount": "角色數",
+      "createdAt": "建立時間"
+    },
+    "create": {
+      "action": "建立群組",
+      "title": "建立群組",
+      "description": "建立之後在群組詳情加入成員與角色。",
+      "success": "已建立群組「{{name}}」"
+    },
+    "update": {
+      "success": "已更新群組"
+    },
+    "delete": {
+      "title": "刪除群組",
+      "confirm": "確定要刪除「{{name}}」嗎？它的成員（{{count}} 個直接成員，巢狀群組算一個）會失去群組帶來的角色。刪除的群組會移到回收桶，可以還原。",
+      "success": "已刪除群組",
+      "undo": "復原"
+    },
+    "restore": {
+      "action": "還原",
+      "success": "已還原群組「{{name}}」，成員與角色一併恢復",
+      "viewConflicting": "查看該群組"
+    },
+    "detail": {
+      "title": "群組詳情",
+      "basic": "基本資料",
+      "roles": "持有的角色",
+      "rolesHint": "成員（含巢狀群組的成員）都取得這些角色。只能選自己已持有其所有權限的角色。",
+      "members": "成員（{{count}}）",
+      "backToList": "回到群組列表"
+    },
+    "role": {
+      "save": "儲存角色",
+      "success": "已更新群組的角色"
+    },
+    "member": {
+      "typeLabel": "成員種類",
+      "type": {
+        "user": "使用者",
+        "group": "群組"
+      },
+      "target": "成員",
+      "placeholder": "搜尋要加入的成員",
+      "noMatch": "沒有符合的對象",
+      "add": "加入",
+      "remove": "移除「{{name}}」",
+      "success": "已更新群組的成員"
+    }
+  }
+}

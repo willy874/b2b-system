@@ -10,6 +10,7 @@ import { RESOURCE_TYPE } from '@/core/resource';
 export const TRASH_RESOURCE_TYPES = [
   RESOURCE_TYPE.USER,
   RESOURCE_TYPE.ROLE,
+  RESOURCE_TYPE.GROUP,
   RESOURCE_TYPE.FILE,
   RESOURCE_TYPE.FILE_FOLDER,
 ] as const;
@@ -24,6 +25,7 @@ export type TrashResourceType = (typeof TRASH_RESOURCE_TYPES)[number];
 export const TRASH_PERMISSIONS: readonly PermissionKey[] = [
   PERMISSION.USER_DELETE,
   PERMISSION.ROLE_DELETE,
+  PERMISSION.GROUP_DELETE,
   // 檔案與資料夾共用：回收桶只看全域的 file:delete（資料夾層級的刪除權不算，13-trash.md §7.4）
   PERMISSION.FILE_DELETE,
 ];

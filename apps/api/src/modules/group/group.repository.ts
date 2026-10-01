@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, lt, or, sql } from 'drizzle-orm';
 import type { SQL, SQLWrapper } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, containsPattern } from '@/core/database';
@@ -26,6 +27,18 @@ import {
 } from '@/db/schema';
 
 import type { ListGroupDto } from './dto/list-group.dto';
+
+/** 回收桶的一列；刪除者取自刪除時寫入的 `updated_by`（與角色相同）。 */
+export interface DeletedGroupRow {
+  id: string;
+  name: string;
+  description: string | null;
+  deletedAt: Date;
+  deletedBy: { id: string; name: string } | null;
+}
+
+/** 刪除者：`users` 的別名（刪除者本人也可能已被刪除，仍顯示名字）。 */
+const deleter = alias(users, 'deleter');
 
 export interface GroupWithCounts extends GroupRow {
   memberCount: number;
@@ -444,6 +457,94 @@ export class GroupRepository {
       .where(eq(groups.id, id))
       .limit(1);
     return Boolean(row);
+  }
+
+  async listDeleted(query: {
+    offset: number;
+    limit: number;
+    keyword?: string;
+  }): Promise<{ items: DeletedGroupRow[]; total: number }> {
+    const conditions: SQL[] = [isDeleted(groups)];
+    if (query.keyword) conditions.push(sql`${groups.name} ILIKE ${containsPattern(query.keyword)}`);
+    const where = and(...conditions);
+    const [rows, [counted]] = await Promise.all([
+      this.db
+        .select({
+          id: groups.id,
+          name: groups.name,
+          description: groups.description,
+          deletedAt: groups.deletedAt,
+          deleterId: deleter.id,
+          deleterName: deleter.displayName,
+        })
+        .from(groups)
+        .leftJoin(deleter, eq(deleter.id, groups.updatedBy))
+        .where(where)
+        .orderBy(desc(groups.deletedAt), desc(groups.id))
+        .limit(query.limit)
+        .offset(query.offset),
+      this.db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(groups)
+        .where(where),
+    ]);
+    return {
+      items: rows.flatMap(({ deleterId, deleterName, deletedAt, ...row }) =>
+        deletedAt
+          ? [
+              {
+                ...row,
+                deletedAt,
+                deletedBy: deleterId && deleterName ? { id: deleterId, name: deleterName } : null,
+              },
+            ]
+          : [],
+      ),
+      total: counted?.total ?? 0,
+    };
+  }
+
+  /** 刪除超過保留期限的群組（依 id 的 keyset；ADR-0025 D11）。 */
+  async findExpired(
+    cutoff: Date,
+    afterId: string | null,
+    limit: number,
+  ): Promise<Array<{ id: string; name: string; deletedAt: Date }>> {
+    const rows = await this.db
+      .select({ id: groups.id, name: groups.name, deletedAt: groups.deletedAt })
+      .from(groups)
+      .where(
+        and(
+          isDeleted(groups),
+          lt(groups.deletedAt, cutoff),
+          afterId ? gt(groups.id, afterId) : undefined,
+        ),
+      )
+      .orderBy(asc(groups.id))
+      .limit(limit);
+    return rows.flatMap(({ deletedAt, ...row }) => (deletedAt ? [{ ...row, deletedAt }] : []));
+  }
+
+  /**
+   * 永久刪除一個已刪除的群組（在呼叫端的交易內；docs/architecture/backend/13-trash.md §6.2）。
+   * 關係圖沒有外鍵：以它為物件（成員 `group:<id>#member@…`）與為主體（`…@group:<id>#member`：上層群組的成員邊、
+   * 持有的角色、資料夾授權）的邊都要自己刪。回傳是否刪到。
+   */
+  async hardDelete(id: string, tx: DbOrTx): Promise<boolean> {
+    const [row] = await tx
+      .delete(groups)
+      .where(and(eq(groups.id, id), isDeleted(groups)))
+      .returning({ id: groups.id });
+    if (!row) return false;
+    await tx
+      .delete(relationTuples)
+      .where(
+        or(
+          and(eq(relationTuples.objectType, GROUP_OBJECT_TYPE), eq(relationTuples.objectId, id)),
+          and(eq(relationTuples.subjectType, GROUP_OBJECT_TYPE), eq(relationTuples.subjectId, id)),
+        ),
+      );
+    return true;
   }
 
   /**

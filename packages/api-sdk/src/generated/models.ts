@@ -191,6 +191,7 @@ export interface PlatformAuditLog {
 export const TrashResourceType = {
   user: 'user',
   role: 'role',
+  group: 'group',
   file: 'file',
   fileFolder: 'fileFolder',
 } as const;
