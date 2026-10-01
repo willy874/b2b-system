@@ -629,6 +629,9 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/auth/profile`             | `@Authenticated`                 |
 | PATCH  | `/auth/profile`             | `@Authenticated`                 |
 | POST   | `/auth/change-password`     | `@Authenticated`                 |
+| GET    | `/auth/api-tokens`          | `@Authenticated`（自己的個人 API token，ADR-0027 D14） |
+| POST   | `/auth/api-tokens`          | `@Authenticated`                 |
+| DELETE | `/auth/api-tokens/:tokenId` | `@Authenticated`                 |
 | GET    | `/notifications`            | `@Authenticated`（只看自己的，ADR-0026 D9） |
 | GET    | `/notifications/unread-count` | `@Authenticated`               |
 | POST   | `/notifications/read-all`   | `@Authenticated`                 |
@@ -653,6 +656,17 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/users/:id/reset-password` | `user:resetPassword`             |
 | POST   | `/users/:id/unlock`         | `user:update`                    |
 | POST   | `/users/:id/restore`        | `user:delete`                    |
+| GET    | `/users/:userId/api-tokens` | `user:update`（別人的個人 API token，ADR-0027 D14） |
+| DELETE | `/users/:userId/api-tokens/:tokenId` | `user:update`           |
+| GET    | `/service-accounts`         | `serviceAccount:read`            |
+| POST   | `/service-accounts`         | `serviceAccount:create`（指派的角色受反提權限制） |
+| GET    | `/service-accounts/:id`     | `serviceAccount:read`            |
+| PATCH  | `/service-accounts/:id`     | `serviceAccount:update`          |
+| DELETE | `/service-accounts/:id`     | `serviceAccount:delete`          |
+| PUT    | `/service-accounts/:id/roles` | `serviceAccount:update`（反提權） |
+| GET    | `/service-accounts/:id/tokens` | `serviceAccount:read`         |
+| POST   | `/service-accounts/:id/tokens` | `serviceAccount:update`（token 的有效權限必須是操作者持有的，ADR-0027 D4） |
+| DELETE | `/service-accounts/:id/tokens/:tokenId` | `serviceAccount:update` |
 | GET    | `/trash`                    | `user:delete` \| `role:delete` \| `group:delete` \| `file:delete`⁴ |
 | GET    | `/roles`                    | `role:read`                      |
 | POST   | `/roles`                    | `role:create`                    |

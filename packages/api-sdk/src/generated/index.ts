@@ -4,6 +4,7 @@
 export * from './runtime';
 export * from './models';
 export * from './schemas';
+export * from './endpoints/api-tokens';
 export * from './endpoints/approvals';
 export * from './endpoints/audit-logs';
 export * from './endpoints/auth';
@@ -20,6 +21,7 @@ export * from './endpoints/platform-feature-flags';
 export * from './endpoints/platform-jobs';
 export * from './endpoints/platform-tenants';
 export * from './endpoints/roles';
+export * from './endpoints/service-accounts';
 export * from './endpoints/system';
 export * from './endpoints/tenants';
 export * from './endpoints/trash';

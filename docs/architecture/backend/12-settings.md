@@ -74,6 +74,8 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 | `auth.registrationEnabled` | boolean | `true` | 是 | `AuthService.register`：關閉時 `404 AUTH_REGISTRATION_DISABLED` |
 | `auth.activationTtlHours` | 1–168 | 24 | 否 | `AuthTokenService.issue`：啟用連結的到期時間與信裡寫的時數 |
 | `auth.passwordResetTtlHours` | 1–24 | 1 | 否 | 同上，重設密碼連結 |
+| `auth.personalTokenMaxDays` | 1–90（天） | 90 | 否 | `ApiTokenService.create`：個人 API token 的到期上限（[ADR-0027](../../adr/0027-api-tokens-external-api.md) D8） |
+| `auth.serviceAccountTokenMaxDays` | 1–365（天） | 365 | 否 | 同上，服務帳號的 API token |
 | `file.uploadMaxSize` | 1 MiB – env 上限（位元組） | env 值 | 否 | `FileService`：`createUpload` 的檢查與 `GET /files/upload-policy` |
 | `trash.retentionDays` | 1–365（天） | 30 | 否 | `TrashService`：`trash.purge` 永久刪除的期限、回收桶列表的 `purgeAt`（[`13-trash.md`](./13-trash.md) §5）。調小後下一次排程就依新的天數清除 |
 | `revision.keepVersions` | 1–1000（版） | 50 | 否 | `RevisionService.prune`：每個資源至少保留最新的這麼多版（[`14-revisions.md`](./14-revisions.md) §5） |

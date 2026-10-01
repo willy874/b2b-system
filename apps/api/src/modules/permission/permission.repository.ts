@@ -8,6 +8,7 @@ import { TENANT_DB } from '@/core/database';
 import type { PermissionRow } from '@/db/schema';
 import {
   isActiveRole,
+  isHumanUser,
   isRoleHolderTuple,
   isRolePermissionTuple,
   notDeleted,
@@ -90,13 +91,23 @@ export class PermissionRepository {
     return rows.map((row) => row.userId);
   }
 
-  /** 這些人之中未刪除、`active` 的（依 id 排序）。 */
+  /**
+   * 這些人之中未刪除、`active` 的 **人**（依 id 排序）：收通知的是人，服務帳號不收
+   * （docs/adr/0027-api-tokens-external-api.md D1）。
+   */
   async filterActiveUserIds(userIds: readonly string[]): Promise<string[]> {
     if (userIds.length === 0) return [];
     const rows = await this.db
       .select({ id: users.id })
       .from(users)
-      .where(and(inArray(users.id, [...userIds]), eq(users.status, 'active'), notDeleted(users)))
+      .where(
+        and(
+          inArray(users.id, [...userIds]),
+          eq(users.status, 'active'),
+          notDeleted(users),
+          isHumanUser(),
+        ),
+      )
       .orderBy(asc(users.id));
     return rows.map((row) => row.id);
   }

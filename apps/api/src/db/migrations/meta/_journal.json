@@ -155,6 +155,20 @@
       "when": 1790843541901,
       "tag": "0021_notification_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790845064381,
+      "tag": "0022_api_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790845065560,
+      "tag": "0023_service_account_system_roles",
+      "breakpoints": true
     }
   ]
 }

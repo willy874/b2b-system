@@ -51,6 +51,12 @@ export const PERMISSION_SEED = [
 
   // 授權說明：別人的有效權限與來源、資料夾存取的路徑（docs/adr/0024-relationship-based-access-control.md D14）
   ['authz', 'explain', 'permission.authz.explain', 1300],
+
+  // 服務帳號與它的 API token（docs/adr/0027-api-tokens-external-api.md D14）
+  ['serviceAccount', 'create', 'permission.serviceAccount.create', 1400],
+  ['serviceAccount', 'read', 'permission.serviceAccount.read', 1401],
+  ['serviceAccount', 'update', 'permission.serviceAccount.update', 1402],
+  ['serviceAccount', 'delete', 'permission.serviceAccount.delete', 1403],
 ] as const satisfies ReadonlyArray<readonly [string, string, string, number]>;
 
 type SeedList = typeof PERMISSION_SEED;
@@ -128,6 +134,11 @@ export const PERMISSION_DEPENDENCIES = {
 
   // 路徑會經過使用者、群組、角色
   'authz:explain': { requires: ['user:read', 'role:read', 'group:read'] },
+
+  'serviceAccount:create': { includes: ['serviceAccount:update'] },
+  'serviceAccount:delete': { includes: ['serviceAccount:update'] },
+  // 指派角色要看得到角色；角色與 token 的反提權在操作本身檢查
+  'serviceAccount:update': { includes: ['serviceAccount:read'], requires: ['role:read'] },
 } as const satisfies Partial<Record<PermissionKey, PermissionDependency>>;
 
 export type PermissionDependencyMap = Partial<Record<PermissionKey, PermissionDependency>>;

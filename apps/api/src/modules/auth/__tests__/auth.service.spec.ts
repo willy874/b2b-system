@@ -2,20 +2,24 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../auth.service';
 
-function setup(user: { id: string; status: string; lockedUntil: Date | null } | undefined) {
+function setup(
+  user: { id: string; status: string; lockedUntil: Date | null } | undefined,
+  env: Record<string, unknown> = {},
+) {
+  const config = { get: vi.fn((key: string) => env[key]) };
   const jobs = { enqueue: vi.fn(async () => undefined) };
   const users = { findAccountByEmail: vi.fn(async () => user) };
   const identityProviders = { isSsoOnly: vi.fn(async () => false) };
   const service = new AuthService(
     {} as never, // db
-    {} as never, // config
+    config as never,
     {} as never, // jwt
     users as never,
     {} as never, // refreshTokens
     {} as never, // authTokens
     {} as never, // permissionService
     {} as never, // userCache
-    {} as never, // audit
+    { recordSafely: vi.fn(async () => undefined) } as never, // audit
     {} as never, // events
     {} as never, // approvals
     jobs as never,
@@ -24,7 +28,7 @@ function setup(user: { id: string; status: string; lockedUntil: Date | null } | 
     {} as never, // settings
     {} as never, // flags
   );
-  return { service, jobs, identityProviders };
+  return { service, jobs, users, identityProviders };
 }
 
 describe('AuthService.forgotPassword（docs/architecture/backend/04-auth.md §5.2）', () => {
@@ -63,5 +67,31 @@ describe('AuthService.forgotPassword（docs/architecture/backend/04-auth.md §5.
       sent: true,
     });
     expect(jobs.enqueue).not.toHaveBeenCalled();
+  });
+});
+
+describe('AuthService.login：直接登入的開關（docs/adr/0027-api-tokens-external-api.md D15）', () => {
+  const credentials = { email: 'a@example.com', password: 'x' };
+
+  it.each([
+    ['production 沒設定 → 關閉', { NODE_ENV: 'production' }],
+    ['明確關閉', { NODE_ENV: 'development', DIRECT_LOGIN_ENABLED: false }],
+  ])('%s：回 404，不查帳號', async (_label, env) => {
+    const { service, users } = setup(undefined, env);
+    await expect(service.login(credentials, {} as never)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+    expect(users.findAccountByEmail).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['非 production 沒設定 → 開啟', { NODE_ENV: 'test' }],
+    ['production 明確開啟', { NODE_ENV: 'production', DIRECT_LOGIN_ENABLED: true }],
+  ])('%s：照常驗證帳密', async (_label, env) => {
+    const { service, users } = setup(undefined, env);
+    await expect(service.login(credentials, {} as never)).rejects.toMatchObject({
+      code: 'AUTH_INVALID_CREDENTIALS',
+    });
+    expect(users.findAccountByEmail).toHaveBeenCalled();
   });
 });

@@ -116,6 +116,18 @@ export const ErrorCode = {
   /** 群組不能持有 super-admin：super-admin 一律直接指派給使用者（D12）。 */
   GROUP_SUPER_ADMIN_FORBIDDEN: { status: 403 },
 
+  // ── 服務帳號與 API token（docs/adr/0027-api-tokens-external-api.md） ──
+  SERVICE_ACCOUNT_NOT_FOUND: { status: 404 },
+  /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（ADR-0025 D3）。 */
+  SERVICE_ACCOUNT_VERSION_CONFLICT: { status: 409 },
+  /** 取代角色時，送出的 `expectedRoleIds` 與目前持有的不同（別人已改過）。 */
+  SERVICE_ACCOUNT_ROLES_CONFLICT: { status: 409 },
+  API_TOKEN_NOT_FOUND: { status: 404 },
+  /** 到期時間超過上限（`details.maxDays`）：個人 token 與服務帳號的 token 各有上限，租戶設定只能調短（D8）。 */
+  API_TOKEN_LIFETIME_EXCEEDED: { status: 400 },
+  /** 一個帳號未撤銷、未過期的 token 已達上限（`details.max`）。 */
+  API_TOKEN_LIMIT_REACHED: { status: 409 },
+
   // ── 版本歷史（docs/architecture/backend/14-revisions.md） ──
   /** 指定的版本不存在（或已被保留清理刪除）。 */
   REVISION_NOT_FOUND: { status: 404 },

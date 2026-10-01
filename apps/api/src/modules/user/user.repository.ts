@@ -10,6 +10,7 @@ import {
   fileFolders,
   isActiveRole,
   isDeleted,
+  isHumanUser,
   isRoleHolderTuple,
   notDeleted,
   relationTuples,
@@ -111,7 +112,7 @@ export class UserRepository {
     const [row] = await this.db
       .select()
       .from(users)
-      .where(and(eq(users.id, id), notDeleted(users)))
+      .where(and(eq(users.id, id), notDeleted(users), isHumanUser()))
       .limit(1);
     return row;
   }
@@ -120,7 +121,7 @@ export class UserRepository {
     const [row] = await this.db
       .select()
       .from(users)
-      .where(and(eq(users.email, email), notDeleted(users)))
+      .where(and(eq(users.email, email), notDeleted(users), isHumanUser()))
       .limit(1);
     return row;
   }
@@ -131,14 +132,15 @@ export class UserRepository {
       .from(users)
       .leftJoin(relationTuples, HELD_BY_USER)
       .leftJoin(roles, HELD_ROLE)
-      .where(and(eq(users.id, id), notDeleted(users)))
+      .where(and(eq(users.id, id), notDeleted(users), isHumanUser()))
       .groupBy(users.id)
       .limit(1);
     return row ? { ...row.user, roles: row.roles } : undefined;
   }
 
   private buildFilters(query: ListUserDto): SQL | undefined {
-    const conditions: SQL[] = [notDeleted(users)];
+    // 服務帳號有自己的列表（modules/service-account）
+    const conditions: SQL[] = [notDeleted(users), isHumanUser()];
     if (query.keyword) {
       // 三個運算式與 pg_trgm 的 GIN 索引（users_*_trgm_idx）一致才用得上索引
       const pattern = containsPattern(query.keyword);
@@ -232,7 +234,7 @@ export class UserRepository {
     const [row] = await (tx ?? this.db)
       .select({ version: users.version })
       .from(users)
-      .where(and(eq(users.id, id), notDeleted(users)))
+      .where(and(eq(users.id, id), notDeleted(users), isHumanUser()))
       .limit(1);
     return row?.version;
   }
@@ -380,7 +382,10 @@ export class UserRepository {
     await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for('update');
   }
 
-  /** 只算 active 且未刪除的持有者——全部停用一樣會讓系統無人可管。 */
+  /**
+   * 只算 active、未刪除的 **人**——全部停用一樣會讓系統無人可管；持有 super-admin 的服務帳號不能登入管理，不算數
+   * （docs/adr/0027-api-tokens-external-api.md D1）。
+   */
   async countActiveUsersByRoleSlug(
     slug: string,
     excludeUserId?: string,
@@ -390,6 +395,7 @@ export class UserRepository {
       eq(roles.slug, slug),
       isActiveRole(),
       notDeleted(users),
+      isHumanUser(),
       eq(users.status, 'active'),
     ];
     if (excludeUserId) conditions.push(sql`${users.id} <> ${excludeUserId}`);
@@ -404,12 +410,12 @@ export class UserRepository {
 
   // ── 回收桶與還原（ADR-0025 D6、D9、D11）：這一段故意讀已刪除的列，一律用 isDeleted() ──
 
-  /** 已刪除的使用者；不存在或沒有被刪除回 undefined。 */
+  /** 已刪除的使用者；不存在或沒有被刪除回 undefined。服務帳號不能還原（不進回收桶）。 */
   async findDeletedById(id: string, tx?: DbOrTx): Promise<UserRow | undefined> {
     const [row] = await (tx ?? this.db)
       .select()
       .from(users)
-      .where(and(eq(users.id, id), isDeleted(users)))
+      .where(and(eq(users.id, id), isDeleted(users), isHumanUser()))
       .limit(1);
     return row;
   }
@@ -442,7 +448,8 @@ export class UserRepository {
     limit: number;
     keyword?: string;
   }): Promise<{ items: DeletedUserRow[]; total: number }> {
-    const conditions: SQL[] = [isDeleted(users)];
+    // 回收桶只列人：刪除的服務帳號不能還原，保留期滿後仍由 findExpired 一起清除
+    const conditions: SQL[] = [isDeleted(users), isHumanUser()];
     if (query.keyword) {
       const pattern = containsPattern(query.keyword);
       const matched = or(

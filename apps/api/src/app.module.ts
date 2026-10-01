@@ -26,6 +26,7 @@ import { MailModule } from './core/mail';
 import { SettingsModule } from './core/settings';
 import { StorageModule } from './core/storage';
 import { TenancyModule, TenantMiddleware } from './core/tenant';
+import { ApiTokenModule } from './modules/api-token/api-token.module';
 import { ApprovalModule } from './modules/approval/approval.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -41,6 +42,7 @@ import { PlatformAdminModule } from './modules/platform-admin/platform-admin.mod
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { RevisionModule } from './modules/revision/revision.module';
 import { RoleModule } from './modules/role/role.module';
+import { ServiceAccountModule } from './modules/service-account/service-account.module';
 import { SystemModule } from './modules/system/system.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { TrashModule } from './modules/trash/trash.module';
@@ -96,6 +98,9 @@ import { UserModule } from './modules/user/user.module';
     UserModule,
     RoleModule,
     GroupModule,
+    // 服務帳號與 API token（docs/adr/0027-api-tokens-external-api.md）
+    ApiTokenModule,
+    ServiceAccountModule,
     AuthzExplainModule,
     SystemModule,
     FileModule,

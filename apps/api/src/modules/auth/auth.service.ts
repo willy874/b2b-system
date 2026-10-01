@@ -95,8 +95,18 @@ export class AuthService {
   // ── 登入 ────────────────────────────────────────────────
 
   async login(dto: LoginDto, meta: RequestMeta): Promise<IssuedSession> {
+    // 直接登入在 production 預設關閉：等同不存在（docs/adr/0027-api-tokens-external-api.md D15）
+    if (!this.directLoginEnabled()) throw new AppException('NOT_FOUND');
     const user = await this.verifyCredentials(dto);
     return this.issueSession(user, meta);
+  }
+
+  /** `DIRECT_LOGIN_ENABLED`；沒設定時 production 關閉、其他環境開啟。 */
+  private directLoginEnabled(): boolean {
+    return (
+      this.config.get('DIRECT_LOGIN_ENABLED', { infer: true }) ??
+      this.config.get('NODE_ENV', { infer: true }) !== 'production'
+    );
   }
 
   /**
