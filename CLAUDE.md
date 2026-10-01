@@ -19,6 +19,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 | 登入、SSO、apps/auth | [`docs/architecture/04-sso.md`](docs/architecture/04-sso.md)（§1.1 租戶與平台的身分範圍）、[`apps/auth/README.md`](apps/auth/README.md)（從 backstage 複製的程式碼與同步規則） |
 | 權限相關 | [`docs/rbac/02-permission-catalog.md`](docs/rbac/02-permission-catalog.md)；群組看 [`docs/rbac/08-groups.md`](docs/rbac/08-groups.md)；「為什麼能做 X」看 [`docs/rbac/09-explain.md`](docs/rbac/09-explain.md)；反提權的通用規則看 `docs/architecture/backend/05-rbac.md` §4.1 |
 | 挑下一個要做的功能 | [`docs/features/README.md`](docs/features/README.md)（待製作清單；完成後刪提案、寫正式文件歸檔） |
+| 處理已知問題 | [`docs/issues/README.md`](docs/issues/README.md)（現有程式的問題與技術債；修完刪掉該份文件） |
 | 寫程式規範 | [`docs/conventions/`](docs/conventions/README.md)（命名、TS、測試、commit、字面量、層級依賴）；寫或 review 程式碼前用 `best-practice` skill 載入 |
 
 ## 三處必須同步
