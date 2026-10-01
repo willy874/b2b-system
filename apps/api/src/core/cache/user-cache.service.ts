@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
 
 import type { UserStatus } from '@/db/schema/users';
 
+import { BroadcastService } from '../broadcast';
+import type { BroadcastPublisher } from '../broadcast';
 import { currentTenant } from '../tenant';
 import { InvalidationTracker } from './invalidation-tracker';
 
@@ -17,18 +20,58 @@ export interface CachedUser {
 const TTL_MS = 30_000;
 const MAX_ENTRIES = 10_000;
 
-/**
- * 快取的 key 是「租戶 × 使用者」：一個程序服務所有租戶，只用 userId 會讓 A 租戶的資料被拿去判斷 B 租戶的請求
- * （docs/adr/0020-physical-tenant-isolation.md D17）。沒有租戶脈絡時（單元測試）歸在同一組。
- */
-function keyOf(userId: string): string {
-  return `${currentTenant()?.id ?? '-'}:${userId}`;
+/** 平台 DB 上的廣播頻道。 */
+export const USER_CACHE_CHANNEL = 'user_cache';
+/** 一則廣播最多帶幾個 id：uuid 36 字元，150 個約 6 KB，低於 `NOTIFY` 的 8000 位元組。 */
+const IDS_PER_MESSAGE = 150;
+/** 沒有租戶脈絡時（平台管理者、單元測試）的組名。 */
+const NO_TENANT = '-';
+
+interface UserCacheMessage {
+  /** null：平台管理者（沒有租戶脈絡）。 */
+  tenant: string | null;
+  users: string[];
 }
 
+function parseMessage(value: unknown): UserCacheMessage | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const { tenant, users } = value as Partial<UserCacheMessage>;
+  if (tenant !== null && typeof tenant !== 'string') return null;
+  if (!Array.isArray(users) || !users.every((id) => typeof id === 'string')) return null;
+  return { tenant, users };
+}
+
+/**
+ * 快取的 key 是「租戶 × 使用者」：一個程序服務所有租戶，只用 userId 會讓 A 租戶的資料被拿去判斷 B 租戶的請求
+ * （docs/adr/0020-physical-tenant-isolation.md D17）。沒有租戶脈絡時（平台管理者、單元測試）歸在同一組。
+ */
+function keyOf(userId: string, tenant: string = currentTenant()?.id ?? NO_TENANT): string {
+  return `${tenant}:${userId}`;
+}
+
+/**
+ * 使用者狀態（`status`、`token_version`、刪除）的快取。失效時先清本機，再廣播給其他程序
+ * （docs/adr/0027-api-tokens-external-api.md D16）：停用、強制登出要在每個程序都立即生效，TTL 只是漏掉廣播時的上限。
+ */
 @Injectable()
-export class UserCacheService {
+export class UserCacheService implements OnModuleInit {
   private readonly store = new Map<string, { value: CachedUser; expiresAt: number }>();
   private readonly invalidations = new InvalidationTracker(MAX_ENTRIES);
+  /** 同一輪事件迴圈內的失效先累積，再合併成少數幾則廣播（例：回收桶一次清掉多個使用者）。 */
+  private readonly pending = new Map<string, Set<string>>();
+  private publish?: BroadcastPublisher<UserCacheMessage>;
+
+  constructor(private readonly broadcast: BroadcastService) {}
+
+  onModuleInit(): void {
+    this.publish = this.broadcast.channel(USER_CACHE_CHANNEL, {
+      parse: parseMessage,
+      onMessage: ({ tenant, users }) => {
+        for (const id of users) this.drop(keyOf(id, tenant ?? NO_TENANT));
+      },
+      onReconnect: () => this.invalidateAll(),
+    });
+  }
 
   get(userId: string): CachedUser | undefined {
     const entry = this.store.get(keyOf(userId));
@@ -55,13 +98,43 @@ export class UserCacheService {
     this.store.set(keyOf(user.id), { value: user, expiresAt: Date.now() + TTL_MS });
   }
 
+  /** 本機立即失效，並（合併後）廣播給其他程序。 */
   invalidate(userId: string): void {
-    this.invalidations.invalidate(keyOf(userId));
-    this.store.delete(keyOf(userId));
+    const tenant = currentTenant()?.id ?? NO_TENANT;
+    this.drop(keyOf(userId, tenant));
+    this.schedulePublish(tenant, userId);
   }
 
+  /** 只清本機（例：監聽連線重連，其他程序各自也會重連）；不廣播。 */
   invalidateAll(): void {
     this.invalidations.invalidateAll();
     this.store.clear();
+  }
+
+  private drop(key: string): void {
+    this.invalidations.invalidate(key);
+    this.store.delete(key);
+  }
+
+  private schedulePublish(tenant: string, userId: string): void {
+    const publish = this.publish;
+    // 還沒經過 onModuleInit（單元測試直接 new）：只有本機
+    if (!publish) return;
+    const ids = this.pending.get(tenant);
+    if (ids) {
+      ids.add(userId);
+      return;
+    }
+    this.pending.set(tenant, new Set([userId]));
+    queueMicrotask(() => {
+      const batch = [...(this.pending.get(tenant) ?? [])];
+      this.pending.delete(tenant);
+      for (let start = 0; start < batch.length; start += IDS_PER_MESSAGE) {
+        void publish({
+          tenant: tenant === NO_TENANT ? null : tenant,
+          users: batch.slice(start, start + IDS_PER_MESSAGE),
+        });
+      }
+    });
   }
 }

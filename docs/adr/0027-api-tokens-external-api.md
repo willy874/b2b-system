@@ -1,6 +1,6 @@
 # ADR-0027 — 服務帳號與 API Token，經獨立的對外 API 服務使用
 
-- 狀態：**採用**（2026-10-01 確認，尚未實作；T0 以 `feat/cross-process-broadcast` 獨立先做）
+- 狀態：**採用**（2026-10-01 確認；T0 實作於 branch `feat/cross-process-broadcast`，T1～T5 尚未開始）
 - 日期：2026-10-01
 - 相關：提案 [`../features/api-tokens.md`](../features/api-tokens.md)；
   規格 [`../architecture/backend/04-auth.md`](../architecture/backend/04-auth.md)、[`../architecture/01-system.md`](../architecture/01-system.md) §4、
@@ -117,3 +117,18 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 2. **對外網域**：全平台共用一個（`EXTERNAL_API_PUBLIC_URL`），不開放租戶登記自訂的對外網域（D9）。
 3. **token 期限的上限**：個人 token 90 天，服務帳號 token 365 天。不提供「不過期」（D8）。
 4. **T0 獨立先做**：開 branch `feat/cross-process-broadcast`，做完再開 `feat/api-tokens` 做 T1～T5。
+
+## 實作紀錄
+
+與上面的決定不同、或決定沒寫到而實作時定下來的地方：
+
+| 階段 | 項目 | 實作 |
+| --- | --- | --- |
+| T0 | 自己送的廣播（D16） | `BroadcastService.channel()`：訊息包上送出的程序 id，自己送的不交給訂閱者（本機在送出前已失效過；再收一次會讓進行中的載入白做）。`authz_revision` 維持原本以 revision 判斷 |
+| T0 | 使用者快取的廣播量（D16） | 同一輪事件迴圈的失效先累積，合併成一則（每則最多 150 個 id）；回收桶一次清掉多個人時不會送出同樣多則 |
+| T0 | 權限快取的單人失效（D16） | `PermissionService.invalidateUser`（停用、刪除時）不另外廣播：其他程序的使用者快取已經失效，那個人在驗證身分時就被擋下，權限快取只剩 60 秒 TTL 內的殘留，不會被用到 |
+| T0 | 轉送哪些事件（D18） | 除了 `resource.changed`、`sessions.revoked`，`tenant.featuresChanged` 也轉送（它同樣是推播）。`permissions.changed` 不轉送（`AuthzRevision` 已廣播）、`tenant.activated` 不轉送（訂閱者寫資料庫，做一次就夠） |
+| T0 | 轉送的事件給誰（D18） | `DomainEventBus.subscribe(type, handler, { remote: true })` 才收得到其他程序轉送來的事件，預設不收：撤銷 OIDC session、補個人資料夾這類「整個系統做一次」的訂閱者不必改 |
+| T0 | 放不進一則 `NOTIFY` 的事件（D18） | 資源變更拿掉個別 id，退化成整個來源失效；受影響的人、撤銷連線的名單每 150 個一則 |
+| T0 | 推播的跨節點（D18） | 事件轉送讓每個程序推給自己的連線，因此 **不再** 規劃裝 `@socket.io/postgres-adapter` 的跨節點 emit（會重複推）；跨裝置中繼（`channel.relay`）仍只在本節點，留在 `multi-instance.md` |
+| T0 | 驗收 | `apps/api/test/cross-process.spec.ts`：同一個測試程序裡兩個 Nest app 共用一個 Postgres。A 停用使用者 → B 立即拒絕他的 token、他連在 B 的連線收到 `session.revoked`；A 建立角色 → 連在 B 的管理者收到推播；A 改設定 → B 立即讀到。關掉廣播時四項都失敗 |

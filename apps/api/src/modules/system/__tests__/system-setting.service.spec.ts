@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import type { AuthUser } from '@/common/types';
+import { BroadcastHub } from '@/core/broadcast/__tests__/broadcast-hub';
 import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
 import { AppException } from '@/core/errors';
@@ -41,6 +42,7 @@ function setup(rows: Array<{ key: string; value: unknown }> = []) {
   const settings = new SettingService(
     repo as never,
     { get: vi.fn() } as unknown as ConfigService<Env, true>,
+    new BroadcastHub().instance(),
   );
   settings.register([MAX_ATTEMPTS, REGISTRATION]);
   const audit = { record: vi.fn(async () => undefined) };

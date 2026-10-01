@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { BroadcastService, parseTenantInvalidation } from '../broadcast';
+import type { BroadcastPublisher, TenantInvalidation } from '../broadcast';
 import type { Env } from '../config/env.schema';
 import type { DbOrTx } from '../database';
 import { currentTenant } from '../tenant';
@@ -20,10 +23,12 @@ export interface StoredSetting {
 }
 
 /**
- * 修改後本程序立即失效；TTL 只是保險（例如直接改了資料庫）。
- * 多實例部署前，其他執行個體最慢在這個時間後看到新值（docs/features/multi-instance.md）。
+ * 修改後本程序立即失效、其他程序經廣播失效；TTL 只是保險（直接改了資料庫、漏掉廣播）。
  */
 const TTL_MS = 30_000;
+
+/** 平台 DB 上的廣播頻道（docs/adr/0027-api-tokens-external-api.md D16）。 */
+export const SETTINGS_CHANNEL = 'settings';
 
 interface Entry {
   rows: Map<string, StoredSetting>;
@@ -39,21 +44,31 @@ function tenantKey(): string {
  * 執行期可調的設定（docs/architecture/backend/12-settings.md）。
  *
  * - 定義在程式碼：各模組以 `register()` 登記自己的設定，`core/settings` 不認識任何模組。
- * - 資料庫只存覆寫值；讀取走「每個租戶一份」的快取，寫入的交易提交後呼叫 `invalidate()`。
+ * - 資料庫只存覆寫值；讀取走「每個租戶一份」的快取，寫入的交易提交後呼叫 `invalidate()`（也通知其他程序）。
  * - 存的值不合目前的 schema（例：之後收緊了範圍）時退回預設值並記 warn，不讓請求失敗。
  */
 @Injectable()
-export class SettingService {
+export class SettingService implements OnModuleInit {
   private readonly logger = new Logger(SettingService.name);
   private readonly env: EnvReader;
   private readonly definitions = new Map<string, ResolvedSetting>();
   private readonly cache = new Map<string, Entry>();
+  private publish?: BroadcastPublisher<TenantInvalidation>;
 
   constructor(
     private readonly repo: SettingRepository,
     config: ConfigService<Env, true>,
+    private readonly broadcast: BroadcastService,
   ) {
     this.env = (key) => config.get(key, { infer: true });
+  }
+
+  onModuleInit(): void {
+    this.publish = this.broadcast.channel(SETTINGS_CHANNEL, {
+      parse: parseTenantInvalidation,
+      onMessage: ({ tenant }) => void this.cache.delete(tenant),
+      onReconnect: () => this.cache.clear(),
+    });
   }
 
   /** 模組在自己的 `*.module.ts` 建構時登記；重複的 key 是程式錯誤，啟動就失敗。 */
@@ -126,6 +141,8 @@ export class SettingService {
 
   /** 目前租戶的快取；寫入的交易 **提交後** 呼叫。 */
   invalidate(): void {
-    this.cache.delete(tenantKey());
+    const tenant = tenantKey();
+    this.cache.delete(tenant);
+    void this.publish?.({ tenant });
   }
 }
