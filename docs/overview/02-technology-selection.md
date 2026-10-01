@@ -23,7 +23,7 @@
 | 前端狀態   | 自有輕量 store（`shared/store`）＋ TanStack Query 快取 | —                |
 | i18n       | i18next（無 react-i18next，自有 hook 薄封裝）          | 26.x             |
 | 驗證       | Zod                                                    | 4.x              |
-| 前端測試   | Vitest + Testing Library + MSW                         | 3.x / 16.x / 2.x |
+| 前端測試   | Vitest + Testing Library + MSW                         | 5.x / 16.x / 3.x |
 | E2E        | Playwright                                             | 1.5x             |
 | 後端框架   | **NestJS**                                             | 12.x             |
 | 後端 ORM   | **Drizzle ORM** + drizzle-kit                          | 0.44+            |
