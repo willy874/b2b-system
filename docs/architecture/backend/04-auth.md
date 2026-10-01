@@ -508,8 +508,9 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 
 ## 8.2 服務帳號與 API token
 
-決定與理由見 [ADR-0027](../../adr/0027-api-tokens-external-api.md)。這一節是 **管理** 的部分（T1）：token 只在對外 API 有效，
-內部 api（本文件 §6 的 `JwtAuthGuard`）不接受它（D10）；驗證、限流、`last_used_at` 在對外 API（T2）。
+決定與理由見 [ADR-0027](../../adr/0027-api-tokens-external-api.md)。這一節是 **管理** 的部分：token 只在對外 API 有效，
+內部 api（本文件 §6 的 `JwtAuthGuard`）不接受它（D10，`AccessTokenVerifier` 遇到 `b2bt_` 開頭直接拒絕）；
+驗證、權限與 scopes 的交集、限流、`last_used_at` 見 [`../06-external-api.md`](../06-external-api.md)。
 
 | 項目 | 做法 |
 | --- | --- |

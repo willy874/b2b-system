@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm build:packages && pnpm db:up && pnpm mail:up && pnpm -r --parallel --filter \"./apps/api\" --filter \"./apps/backstage\" --filter \"./apps/auth\" --filter \"./apps/file-storage\" dev",
     "dev:api": "pnpm --filter @b2b-system/api dev",
+    "dev:external-api": "pnpm --filter @b2b-system/api dev:external",
     "dev:backstage": "pnpm --filter @b2b-system/backstage dev",
     "dev:auth": "pnpm --filter @b2b-system/auth dev",
     "dev:storage": "pnpm --filter @b2b-system/file-storage dev",

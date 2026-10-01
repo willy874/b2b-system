@@ -43,6 +43,8 @@ export const ErrorCode = {
   AUTH_ACCOUNT_LOCKED: { status: 403 },
   AUTH_TOKEN_INVALID: { status: 401 },
   AUTH_TOKEN_STALE: { status: 401 },
+  /** API token 已過期（對外 API，docs/adr/0027-api-tokens-external-api.md D8）：要換一把新的。 */
+  AUTH_API_TOKEN_EXPIRED: { status: 401 },
   AUTH_REFRESH_INVALID: { status: 401 },
   AUTH_REFRESH_EXPIRED: { status: 401 },
   AUTH_REFRESH_REVOKED: { status: 401 },

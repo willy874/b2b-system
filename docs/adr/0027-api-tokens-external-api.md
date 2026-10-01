@@ -1,6 +1,6 @@
 # ADR-0027 — 服務帳號與 API Token，經獨立的對外 API 服務使用
 
-- 狀態：**採用**（2026-10-01 確認；T0 已合併 main；T1 實作於 branch `feat/api-tokens`；T2～T5 尚未開始）
+- 狀態：**採用**（2026-10-01 確認；T0、T1 已合併 main；T2 實作於 branch `feat/external-api`；T3～T5 尚未開始）
 - 日期：2026-10-01
 - 相關：提案 [`../features/api-tokens.md`](../features/api-tokens.md)；
   規格 [`../architecture/backend/04-auth.md`](../architecture/backend/04-auth.md)、[`../architecture/01-system.md`](../architecture/01-system.md) §4、
@@ -140,3 +140,10 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 | T1 | 系統設定的 key | `auth.personalTokenMaxDays`、`auth.serviceAccountTokenMaxDays`（D8 寫的 `apiToken.maxLifetimeDays` 拆成兩個，放在既有的 `auth` 分類） |
 | T1 | 有效 token 數上限 | 一個帳號同時有效（未撤銷、未過期）的 token 最多 50 把，`409 API_TOKEN_LIMIT_REACHED` |
 | T1 | 既有租戶的系統角色 | 手寫 migration 0023：admin 補 `serviceAccount:*`、auditor 補 `serviceAccount:read`（seed 只在角色新建立時寫入權限） |
+| T2 | 對外路由的宣告（D11） | 除了 `@RequirePermissions`，也允許 `@Authenticated`：`GET /v1/me` 是「這把 token 是誰」，不需要權限鍵。仍不能 `@Public`（健康檢查以 `@Surface('both')` 例外） |
+| T2 | scopes 怎麼套到權限（D3） | token 寫進請求脈絡（`setContextApiToken`），`PermissionService.getPermissionSet` 問的是擁有者時回傳交集；guard 與 service 裡的判斷都套得到，快取仍存帳號本身的權限 |
+| T2 | 對外程序的設定（D19） | `JOBS_WORKER_ENABLED` 由 `src/external-process-env.ts` 在程序裡固定；連線池不另開 env，compose 的 `external-api` 覆寫 `TENANT_POOL_MAX`、`PLATFORM_POOL_MAX`（來源是 `EXTERNAL_TENANT_POOL_MAX`、`EXTERNAL_PLATFORM_POOL_MAX`） |
+| T2 | 限流（D13） | 認證之後以 token 計（`EXTERNAL_RATE_LIMIT`）；認證失敗另以 IP 計（`EXTERNAL_AUTH_FAILURE_RATE_LIMIT`，超過回 429），成功的請求不計，NAT 後面的其他整合不受影響 |
+| T2 | 錯誤碼 | 新增 `401 AUTH_API_TOKEN_EXPIRED`（整合方要知道是過期、該換 token）；找不到、雜湊不符、已撤銷不細分，都是 `AUTH_TOKEN_INVALID` |
+| T2 | 文件 | `openapi.external.json` 與 `openapi.json` 從同一個 app 以路徑分開；內部文件拿掉只有對外路由引用的 schema，前端 SDK 不出現對外的型別 |
+| T2 | 部署 | `external-gateway`（nginx）與 `external-api` 在自己的 `external` 網路；閘道碰不到內部 api。`AccessTokenModule` 需要一個 `JwtService`：對外程序註冊不帶金鑰的 `JwtModule`（從不驗 JWT） |

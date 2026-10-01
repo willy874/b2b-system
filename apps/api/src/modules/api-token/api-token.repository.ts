@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, gt, isNull } from 'drizzle-orm';
+import { and, count, desc, eq, gt, inArray, isNull, lt, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { Database, DbOrTx } from '@/core/database';
@@ -77,6 +77,26 @@ export class ApiTokenRepository {
       .where(and(eq(apiTokens.id, tokenId), eq(apiTokens.userId, userId)))
       .limit(1);
     return row ? withCreator(row) : undefined;
+  }
+
+  /** 驗證用（對外 API）：以 id 找，不看擁有者。 */
+  async findForVerification(tokenId: string): Promise<ApiTokenRow | undefined> {
+    const [row] = await this.db.select().from(apiTokens).where(eq(apiTokens.id, tokenId)).limit(1);
+    return row;
+  }
+
+  /** 批次更新最後使用時間（對外 API 每分鐘一次，D8）；只往後推。 */
+  async touch(tokenIds: readonly string[], at: Date): Promise<void> {
+    if (!tokenIds.length) return;
+    await this.db
+      .update(apiTokens)
+      .set({ lastUsedAt: at })
+      .where(
+        and(
+          inArray(apiTokens.id, [...tokenIds]),
+          or(isNull(apiTokens.lastUsedAt), lt(apiTokens.lastUsedAt, at)),
+        ),
+      );
   }
 
   /** 未撤銷、未過期的 token 數（上限的判斷用）。 */

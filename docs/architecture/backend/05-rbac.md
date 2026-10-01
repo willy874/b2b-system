@@ -632,6 +632,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/auth/api-tokens`          | `@Authenticated`（自己的個人 API token，ADR-0027 D14） |
 | POST   | `/auth/api-tokens`          | `@Authenticated`                 |
 | DELETE | `/auth/api-tokens/:tokenId` | `@Authenticated`                 |
+| GET    | `/v1/me`                    | `@Authenticated`（**對外 API**：只認 API token；內部 api 上回 404，ADR-0027 D11） |
 | GET    | `/notifications`            | `@Authenticated`（只看自己的，ADR-0026 D9） |
 | GET    | `/notifications/unread-count` | `@Authenticated`               |
 | POST   | `/notifications/read-all`   | `@Authenticated`                 |
