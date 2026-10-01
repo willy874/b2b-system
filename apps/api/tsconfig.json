@@ -25,5 +25,5 @@
   // 租戶 migration 的 journal：啟動時比對每個租戶的版本（src/core/tenant/tenant-schema.ts）
   "include": ["src/**/*", "src/db/migrations/meta/_journal.json", "test/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "dist"],
-  "references": [{ "path": "../../packages/utils" }, { "path": "../../packages/realtime" }]
+  "references": [{ "path": "../../packages/realtime" }]
 }

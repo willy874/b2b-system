@@ -13,8 +13,7 @@
 ```
 apps/backstage ─┬────▶ packages/api-sdk
 apps/auth ──────┤
-                ├────▶ packages/realtime ◀──── apps/api
-                └────▶ packages/utils ◀─────── apps/api
+                └────▶ packages/realtime ◀──── apps/api
 
 apps/e2e ┄┄┄┄┄▶ 只透過瀏覽器 / HTTP 操作執行中的系統，不 import 任何 workspace 原始碼
 
@@ -23,12 +22,11 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 
 | Package                | 可以依賴（workspace）                    | 不可以                                                       | 強度 |
 | ---------------------- | ---------------------------------------- | ------------------------------------------------------------ | ---- |
-| `packages/utils`       | 無                                       | 任何 workspace package；DOM / Node 專屬 API（要前後端都能跑） | 👀   |
 | `packages/api-sdk`     | 無                                       | 任何 workspace package；手改 `src/generated/`                 | 👀   |
 | `packages/realtime`    | 無（只依賴 `zod`）                       | 任何 workspace package；DOM / Node 專屬 API                   | 👀   |
-| `apps/backstage`             | `api-sdk`、`realtime`、`utils`            | `apps/*`                                                     | 🔒 `package.json` |
-| `apps/auth`            | `api-sdk`、`realtime`、`utils`            | `apps/*`（backstage 的程式碼是 **複製** 過來的，不 import；[ADR-0019](../adr/0019-sso-identity-platform.md) D14） | 🔒 `package.json` |
-| `apps/api`             | `realtime`、`utils`                      | `api-sdk`（後端才是型別的來源，不能反過來依賴產物）、`apps/*` | 🔒 `package.json` |
+| `apps/backstage`             | `api-sdk`、`realtime`                     | `apps/*`                                                     | 🔒 `package.json` |
+| `apps/auth`            | `api-sdk`、`realtime`                     | `apps/*`（backstage 的程式碼是 **複製** 過來的，不 import；[ADR-0019](../adr/0019-sso-identity-platform.md) D14） | 🔒 `package.json` |
+| `apps/api`             | `realtime`                               | `api-sdk`（後端才是型別的來源，不能反過來依賴產物）、`apps/*` | 🔒 `package.json` |
 | `apps/e2e`             | 無                                       | 任何 `apps/*` 原始碼；只透過瀏覽器與 HTTP 操作系統            | 👀   |
 | `apps/file-storage`    | 無                                       | 任何 workspace package；其他 app 只透過 S3 HTTP API 與它溝通 | 🔒 `package.json` |
 

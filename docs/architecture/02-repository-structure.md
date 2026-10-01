@@ -21,8 +21,7 @@ b2b-system/
 │
 ├── packages/
 │   ├── api-sdk/                 @b2b-system/api-sdk — 由 OpenAPI 產生的型別、zod schema 與 fetch client
-│   ├── realtime/                @b2b-system/realtime — Socket.io 事件合約（事件名稱、zod schema、型別）
-│   └── utils/                   @b2b-system/utils — 前後端共用的純函式
+│   └── realtime/                @b2b-system/realtime — Socket.io 事件合約（事件名稱、zod schema、型別）
 │
 └── docs/                        本文件集
 ```

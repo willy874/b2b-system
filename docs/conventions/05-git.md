@@ -39,7 +39,7 @@ docs/restructure
 
 ### 2.2 scope
 
-用 workspace 名稱：`api`、`backstage`、`api-sdk`、`utils`、`e2e`、`deploy`。
+用 workspace 名稱：`api`、`backstage`、`api-sdk`、`realtime`、`e2e`、`deploy`。
 跨多個 workspace 或純文件時省略 scope。
 
 ### 2.3 摘要

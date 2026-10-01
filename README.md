@@ -58,7 +58,6 @@ apps/backstage     React 前端（feature-first + plugin-based AppContext）
 apps/api     NestJS 後端（modules / core / common / db）
 apps/e2e     Playwright
 packages/api-sdk   由 OpenAPI 產生的型別與 client（後端是唯一事實來源）
-packages/utils     前後端共用純函式
 docs/        架構規格（唯一事實來源，改程式必須同步改文件）
 ```
 

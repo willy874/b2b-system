@@ -17,7 +17,6 @@
   "dependencies": {
     "@b2b-system/api-sdk": "workspace:*",
     "@b2b-system/realtime": "workspace:*",
-    "@b2b-system/utils": "workspace:*",
     "@base-ui/react": "^1.8.0",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.11.1",

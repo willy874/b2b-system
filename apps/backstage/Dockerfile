@@ -7,7 +7,6 @@ RUN corepack enable
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc tsconfig.base.json ./
 # 根目錄的 prepare 是 lefthook install：映像裡沒有 git，也不需要 git hooks
 RUN npm pkg delete scripts.prepare
-COPY packages/utils/package.json packages/utils/
 COPY packages/api-sdk/package.json packages/api-sdk/
 COPY packages/realtime/package.json packages/realtime/
 COPY apps/backstage/package.json apps/backstage/
@@ -20,8 +19,7 @@ ENV VITE_OIDC_ISSUER=$VITE_OIDC_ISSUER VITE_AUTH_APP_URL=$VITE_AUTH_APP_URL
 
 COPY packages ./packages
 COPY apps/backstage ./apps/backstage
-RUN pnpm --filter @b2b-system/utils build \
- && pnpm --filter @b2b-system/api-sdk build \
+RUN pnpm --filter @b2b-system/api-sdk build \
  && pnpm --filter @b2b-system/realtime build \
  && pnpm --filter @b2b-system/backstage build
 
