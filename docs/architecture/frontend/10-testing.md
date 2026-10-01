@@ -32,7 +32,7 @@ import { queryClient } from "@/core/cache";
 import { usePermissionStore } from "@/core/store/permission";
 import { resetPagePermissionRegistry } from "@/core/permission/registry";
 
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => {
   server.resetHandlers();
   queryClient.clear();
@@ -42,8 +42,16 @@ afterEach(() => {
 afterAll(() => server.close());
 ```
 
-`onUnhandledRequest: 'error'` 是刻意的：漏寫 handler 的請求會讓測試失敗，
+`onUnhandledFrame: 'error'`（MSW 2 叫 `onUnhandledRequest`）是刻意的：漏寫 handler 的請求會讓測試失敗，
 而不是靜默回 404 然後在斷言時才莫名其妙。
+
+`@testing-library/jest-dom` 7 把 `vitest` 列為 peer，pnpm 在整個 workspace 只裝一份 jest-dom，
+它連到哪一份 `vitest` 取決於 peer 的組合。auth 與 backstage 的 `vitest` 若因 peer 不同被拆成兩份
+（例：`@vitest/mocker` 的選用 peer `msw` 在 backstage 是 3、其他 workspace 被自動裝成 2），
+`import '@testing-library/jest-dom/vitest'` 會擴充到另一份 `vitest` 的 `expect`，
+`rejects.toThrow('…')` 之類的斷言跟著壞掉（`expected [Function] to throw error … but got ''`）。
+根目錄 `package.json` 的 `pnpm.overrides`（`"@vitest/mocker>msw"`）就是為了讓各 workspace 的 `vitest` 收斂成同一份；
+改 `msw` 或 `vitest` 的版本後，確認 `pnpm-lock.yaml` 裡 `jest-dom@7…(vitest@…)` 只有一種組合。
 
 ### 2.1 `renderWithPermissions`
 
@@ -167,6 +175,8 @@ describe("RoleListPage", () => {
 
 ```ts
 // mocks/handlers/auth.ts
+import { HttpResponse, http } from "msw/http"; // MSW 3 起不再從根入口 'msw' 匯出
+
 let currentPermissions: string[] = ALL_PERMISSIONS;
 
 export function setMockPermissions(keys: string[]) {

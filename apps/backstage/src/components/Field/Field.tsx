@@ -57,9 +57,12 @@ export function Field({
             <>
               <span {...slot('required', styles.required)} aria-hidden="true">
                 *
-              </span>
-              {/* 星號對報讀器沒有意義：另外念出「必填」 */}
-              <span className={styles.srOnly}> {labels.required}</span>
+              </span>{' '}
+              {/*
+                星號對報讀器沒有意義：另外念出「必填」。分隔的空白放在 span 外面：accname 的實作
+                （dom-accessibility-api）會修剪每個元素自己的文字，span 裡的前導空白會被吃掉
+              */}
+              <span className={styles.srOnly}>{labels.required}</span>
             </>
           )}
         </BaseField.Label>

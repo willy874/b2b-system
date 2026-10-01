@@ -11,11 +11,12 @@ import zhTW from '../locales/zh_TW.json';
  *
  * 錯誤碼清單直接讀後端的 `ALL_ERROR_CODES`，不手抄：後端新增錯誤碼而前端忘了翻譯時這裡就會失敗
  * 以動態 import 載入，是因為前端的 tsc 專案不收 api 的原始碼；
- * 該檔沒有任何 import，vitest 可以直接轉譯。
+ * 該檔沒有任何 import，vitest 可以直接轉譯。路徑先以 `import.meta.url` 解析成絕對位置：
+ * Vitest 5 的 module runner 把變數形式的相對路徑當成相對於專案根目錄，而不是這個檔案。
  */
 const API_ERROR_CODE_MODULE = '../../../../api/src/core/errors/error-code.ts';
 const { ALL_ERROR_CODES: ERROR_CODES } = (await import(
-  /* @vite-ignore */ API_ERROR_CODE_MODULE
+  /* @vite-ignore */ new URL(API_ERROR_CODE_MODULE, import.meta.url).href
 )) as {
   ALL_ERROR_CODES: string[];
 };

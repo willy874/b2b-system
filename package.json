@@ -49,6 +49,9 @@
   },
   "packageManager": "pnpm@10.12.1",
   "pnpm": {
+    "overrides": {
+      "@vitest/mocker>msw": "^3.0.1"
+    },
     "onlyBuiltDependencies": [
       "@swc/core",
       "esbuild",
