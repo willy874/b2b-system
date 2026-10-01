@@ -17,7 +17,6 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P2 | 服務帳號／API Token、對外 API 服務 | [`api-tokens.md`](./api-tokens.md) | 實作中（[ADR-0027](../adr/0027-api-tokens-external-api.md)；T0～T3 已合併，T4：`feat/service-account-ui`） | — |
 | P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | [背景工作](../architecture/backend/10-jobs.md)（已完成） |
 | P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[背景工作](../architecture/backend/10-jobs.md)（已完成） |
 | P2 | 標籤、留言、關注 | [`tags-comments.md`](./tags-comments.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成） |
@@ -42,6 +41,7 @@
 
 已完成並歸檔（細節見各 ADR 與正式文件）：
 
+- `api-tokens`（服務帳號、API token、對外 API 服務）：[ADR-0027](../adr/0027-api-tokens-external-api.md)、[`architecture/06-external-api.md`](../architecture/06-external-api.md)、[`backend/04-auth.md`](../architecture/backend/04-auth.md) §8.2
 - `permission-graph` G4b（說明：有效權限的來源、資料夾存取的路徑）：[ADR-0024](../adr/0024-relationship-based-access-control.md) D14、[`rbac/09-explain.md`](../rbac/09-explain.md)
 - `permission-graph` G4a（群組、反提權一般化）：[ADR-0024](../adr/0024-relationship-based-access-control.md) D10～D16、[`rbac/08-groups.md`](../rbac/08-groups.md)、
   [`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1
@@ -52,7 +52,7 @@
 
 接下來：
 
-1. 依需求二選一：對外整合（`api-tokens` → `webhooks`），或資源的協作（`tags-comments`；多型關聯的命名已由 [ADR-0025](../adr/0025-entity-revisions.md) D7 決定）。
+1. 依需求二選一：對外整合（`webhooks`；整合方以 API token 回查），或資源的協作（`tags-comments`；多型關聯的命名已由 [ADR-0025](../adr/0025-entity-revisions.md) D7 決定）。
 2. `permission-graph` G5（專案）等專案功能的提案一起做。
 3. `hardening-followups` 裡的小項目可以隨時穿插。
 

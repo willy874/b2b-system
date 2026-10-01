@@ -522,6 +522,8 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 | 反提權（D4） | 替別人（服務帳號）建 token：token 取得的有效權限＝帳號的權限 ∩ scopes 的閉包，必須是操作者持有的；帳號是 super-admin 且沒有 scope 時操作者也要是 super-admin。只比對租戶層的權限鍵，資料夾等級不在 scope 裡（見 ADR-0027 實作紀錄） |
 | 上限 | 到期天數依系統設定（[`12-settings.md`](./12-settings.md) §3）；一個帳號同時有效的 token 最多 50 把（`API_TOKEN_LIMIT_REACHED`） |
 | 稽核 | `apiToken.create`、`apiToken.revoke`（`metadata.ownerId`、`ownerKind`、`prefix`）；`serviceAccount.create`／`update`／`assignRole`／`delete` |
+| 管理畫面 | backstage 的 `features/service-account`（`/service-account`，詳情頁管角色與 token）；個人 token 在帳號設定（`/profile`）；使用者詳情頁在 `user:update` 時列出並可撤銷他的 token。三處共用 `core/components/ApiToken/`，明文只在建立成功的對話框顯示一次（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §5） |
+| 推播 | `serviceAccount`、`apiToken` 兩個來源（[`08-realtime.md`](./08-realtime.md) §6.1） |
 
 **直接登入**（`POST /auth/login`，§3）：`DIRECT_LOGIN_ENABLED` 沒設定時 production 關閉（回 `404 NOT_FOUND`）、其他環境開啟。
 腳本改用 API token（D15）。登入互動（apps/auth）與 BFF 不受影響。

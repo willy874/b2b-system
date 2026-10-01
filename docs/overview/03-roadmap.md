@@ -262,7 +262,8 @@ b2b-system/
    [ADR-0019](../adr/0019-sso-identity-platform.md)）
 6. 稽核日誌分區表
 7. 多執行個體部署（權限快取換 Redis）
-8. 服務帳號 / API Token
+8. ~~服務帳號 / API Token~~（已完成：服務帳號、個人與服務帳號的 API token、獨立的對外 API 服務與 `/v1` 契約、backstage 的管理畫面；見
+   [`architecture/06-external-api.md`](../architecture/06-external-api.md)、[ADR-0027](../adr/0027-api-tokens-external-api.md)）
 9. ~~`JsonEditor`~~（已完成：CodeMirror 6 編輯器——語法上色、行號、摺疊、復原重做、搜尋、JSON Schema 驗證；
    `JsonViewer` 外觀與它一致；見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.12、
    [ADR-0011](../adr/0011-codemirror-json-editor.md)）。後續視需要補取代（`@codemirror/search` 已支援）、摺疊處的驗證錯誤標記
