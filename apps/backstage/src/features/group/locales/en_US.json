@@ -42,7 +42,8 @@
     },
     "role": {
       "save": "Save roles",
-      "success": "Group roles updated"
+      "success": "Group roles updated",
+      "placeholder": "No roles"
     },
     "member": {
       "typeLabel": "Member type",

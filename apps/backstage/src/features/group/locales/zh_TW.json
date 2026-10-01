@@ -42,7 +42,8 @@
     },
     "role": {
       "save": "儲存角色",
-      "success": "已更新群組的角色"
+      "success": "已更新群組的角色",
+      "placeholder": "不持有角色"
     },
     "member": {
       "typeLabel": "成員種類",

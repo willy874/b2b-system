@@ -6,7 +6,6 @@ import { z } from 'zod';
 
 import { getRoleOptionsQueryOptions } from '@/apis/role/get-role-list/query';
 import { Button } from '@/components/Button';
-import { Checkbox } from '@/components/Checkbox';
 import { Dialog } from '@/components/Dialog';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/Input';
@@ -15,12 +14,11 @@ import { useTranslation } from '@/core/locales';
 import { useUnsavedChangesGuard } from '@/core/router';
 import { firstError, zodFormValidator } from '@/shared/hooks';
 
+import { UserRoleSelect } from '../../components/UserRoleSelect';
 import { useUserCreateMutation } from '../../hooks/useUserMutations';
 import { useUserPermission } from '../../hooks/useUserPermission';
 import { UserCreateRoute, UserListRoute } from '../../routes';
 
-/** 上限與後端 `CreateUserSchema` 一致（apps/api/src/modules/user/dto/create-user.dto.ts）。 */
-const MAX_ROLES = 20;
 const Schema = z.object({
   email: z.string().trim().email().max(255),
   displayName: z.string().trim().min(1).max(100),
@@ -44,7 +42,7 @@ export default function UserCreatePage() {
   const createUser = useUserCreateMutation();
   const toMessage = useErrorMessage();
   const formId = useId();
-  const [roleIds, setRoleIds] = useState<Set<string>>(new Set());
+  const [roleIds, setRoleIds] = useState<string[]>([]);
   const [formError, setFormError] = useState<string>();
   // Email／使用者名稱重複、後端欄位驗證失敗 → 顯示在該欄位下方並聚焦
   const {
@@ -74,7 +72,7 @@ export default function UserCreatePage() {
             email: value.email,
             displayName: value.displayName,
             username: value.username || undefined,
-            roleIds: [...roleIds],
+            roleIds,
           },
         });
       } catch (error) {
@@ -85,7 +83,7 @@ export default function UserCreatePage() {
     },
   });
   const isFormDirty = useStore(form.store, (state) => state.isDirty);
-  useUnsavedChangesGuard(isFormDirty || roleIds.size > 0);
+  useUnsavedChangesGuard(isFormDirty || roleIds.length > 0);
 
   return (
     <Dialog
@@ -188,36 +186,18 @@ export default function UserCreatePage() {
         </form.Field>
 
         {permission.canAssignRole && (
-          <div>
-            <p className="mb-2 text-sm font-medium">{t('user.field.roles')}</p>
-            <div className="flex flex-col gap-2">
-              {roles.data?.items.map((role) => (
-                <Checkbox
-                  key={role.id}
-                  checked={roleIds.has(role.id)}
-                  // 後端一次最多 20 個角色：滿了就不能再勾，而不是送出後才被拒絕
-                  disabled={!roleIds.has(role.id) && roleIds.size >= MAX_ROLES}
-                  onCheckedChange={(checked) =>
-                    setRoleIds((prev) => {
-                      const next = new Set(prev);
-                      if (checked) next.add(role.id);
-                      else next.delete(role.id);
-                      return next;
-                    })
-                  }
-                  label={role.name}
-                  description={role.slug}
-                  data-testid="user-role-checkbox"
-                  data-value={role.slug}
-                />
-              ))}
-            </div>
-            {serverErrors.roleIds && (
-              <p className="m-0 mt-1 text-sm text-[var(--color-danger-text)]">
-                {serverErrors.roleIds}
-              </p>
-            )}
-          </div>
+          <Field label={t('user.field.roles')} error={serverErrors.roleIds}>
+            <UserRoleSelect
+              roles={roles.data?.items}
+              value={roleIds}
+              onValueChange={(next) => {
+                clearServerError('roleIds');
+                setRoleIds(next);
+              }}
+              invalid={Boolean(serverErrors.roleIds)}
+              data-testid="user-role-select"
+            />
+          </Field>
         )}
 
         <p className="m-0 text-xs text-[var(--color-fg-muted)]">

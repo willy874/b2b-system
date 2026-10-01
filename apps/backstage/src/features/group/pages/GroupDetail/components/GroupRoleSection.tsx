@@ -1,6 +1,6 @@
 import { Button } from '@/components/Button';
-import { Checkbox } from '@/components/Checkbox';
 import { Chip } from '@/components/Chip';
+import { Select } from '@/components/Select';
 import { useTranslation } from '@/core/locales';
 import { useUnsavedChangesGuard } from '@/core/router';
 import type { GroupRole, Role } from '@/shared/api-sdk';
@@ -14,7 +14,7 @@ const SUPER_ADMIN_SLUG = 'super-admin';
 interface GroupRoleSectionProps {
   groupId: string;
   roles: GroupRole[] | undefined;
-  /** 可勾選的角色（需要 role:read）；沒有 `group:assignRole` 時是 undefined，顯示唯讀的 Chip */
+  /** 可選擇的角色（需要 role:read）；沒有 `group:assignRole` 時是 undefined，顯示唯讀的 Chip */
   roleOptions: Role[] | undefined;
 }
 
@@ -22,7 +22,7 @@ interface GroupRoleSectionProps {
 export function GroupRoleSection({ groupId, roles, roleOptions }: GroupRoleSectionProps) {
   const { t } = useTranslation();
   const current = (roles ?? []).map((role) => role.id);
-  const { selected, toggle, diff, isDirty, discard } = useGroupRoleDraft(current);
+  const { selected, select, diff, isDirty, discard } = useGroupRoleDraft(current);
   const updateRoles = useGroupRolesUpdateMutation();
   useUnsavedChangesGuard(isDirty);
 
@@ -32,19 +32,26 @@ export function GroupRoleSection({ groupId, roles, roleOptions }: GroupRoleSecti
       <p className="mt-1 text-xs text-[var(--color-fg-muted)]">{t('group.detail.rolesHint')}</p>
       {roleOptions ? (
         <div className="mt-2 flex flex-col gap-2" data-testid="group-role-picker">
-          {roleOptions
-            .filter((role) => role.slug !== SUPER_ADMIN_SLUG)
-            .map((role) => (
-              <Checkbox
-                key={role.id}
-                checked={selected.has(role.id)}
-                onCheckedChange={(checked) => toggle(role.id, checked)}
-                label={role.name}
-                description={role.slug}
-                data-testid="group-detail-role"
-                data-value={role.slug}
-              />
-            ))}
+          <Select
+            multiple
+            searchable
+            valueOrder="options"
+            value={selected}
+            onValueChange={select}
+            options={roleOptions
+              .filter((role) => role.slug !== SUPER_ADMIN_SLUG)
+              .map((role) => ({
+                value: role.id,
+                label: role.name,
+                textValue: `${role.name} ${role.slug}`,
+                description: role.slug,
+              }))}
+            itemSize={48}
+            placeholder={t('group.role.placeholder')}
+            searchPlaceholder={t('common.search')}
+            aria-label={t('group.detail.roles')}
+            data-testid="group-role-select"
+          />
           <div className="flex justify-end gap-2">
             {isDirty && (
               <Button size="sm" onClick={discard}>
@@ -56,7 +63,7 @@ export function GroupRoleSection({ groupId, roles, roleOptions }: GroupRoleSecti
               variant="primary"
               disabled={!isDirty}
               loading={updateRoles.isPending}
-              // 失敗由 mutation 的 onError 顯示，勾選保留
+              // 失敗由 mutation 的 onError 顯示，選擇保留
               onClick={() =>
                 void updateRoles
                   .mutateAsync({ params: { groupId, body: diff } })

@@ -130,19 +130,19 @@ describe('UserCreatePage', () => {
     expect(screen.queryByTestId('unsaved-changes-confirm')).not.toBeInTheDocument();
   });
 
-  it('有 user:assignRole → 顯示角色勾選；沒有 → 不顯示', async () => {
+  it('有 user:assignRole → 顯示角色下拉；沒有 → 不顯示', async () => {
     const { unmount } = renderRoute(routes, '/user/create', CREATOR);
-    expect(await screen.findByTestId('user-role-checkbox')).toBeInTheDocument();
+    expect(await screen.findByTestId('user-role-select')).toBeInTheDocument();
     unmount();
 
     renderRoute(routes, '/user/create', ['user:read', 'user:create'] as PermissionKey[]);
     await screen.findByTestId('user-create-dialog');
-    expect(screen.queryByTestId('user-role-checkbox')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('user-role-select')).not.toBeInTheDocument();
   });
 
-  it('權限未水合 → 不閃現角色勾選', async () => {
+  it('權限未水合 → 不閃現角色下拉', async () => {
     renderRoute(routes, '/user/create', 'unhydrated');
     await screen.findByTestId('user-create-dialog');
-    expect(screen.queryByTestId('user-role-checkbox')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('user-role-select')).not.toBeInTheDocument();
   });
 });

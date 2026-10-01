@@ -1,10 +1,10 @@
 import { Button } from '@/components/Button';
-import { Checkbox } from '@/components/Checkbox';
 import { Chip } from '@/components/Chip';
 import { useTranslation } from '@/core/locales';
 import { useUnsavedChangesGuard } from '@/core/router';
 import type { Role, User } from '@/shared/api-sdk';
 
+import { UserRoleSelect } from '../../../components/UserRoleSelect';
 import { useAssignUserRolesMutation } from '../../../hooks/useUserMutations';
 import { useUserRoleSelection } from '../useUserRoleSelection';
 
@@ -17,7 +17,7 @@ interface UserRoleSectionProps {
   isSelf: boolean;
 }
 
-/** 使用者持有的角色：有權限時是勾選清單，否則是唯讀的 Chip。 */
+/** 使用者持有的角色：有權限時是多選下拉，否則是唯讀的 Chip。 */
 export function UserRoleSection({
   user,
   roleOptions,
@@ -26,9 +26,9 @@ export function UserRoleSection({
 }: UserRoleSectionProps) {
   const { t } = useTranslation();
   const assignRoles = useAssignUserRolesMutation(user);
-  const { selectedRoleIds, toggleRole, isDirty, isStale, expectedRoleIds, discardDraft } =
+  const { selectedRoleIds, setRoleIds, isDirty, isStale, expectedRoleIds, discardDraft } =
     useUserRoleSelection(user.roles);
-  // 勾了角色還沒儲存就關閉詳情：先確認
+  // 改了角色還沒儲存就關閉詳情：先確認
   useUnsavedChangesGuard(isDirty);
 
   return (
@@ -36,17 +36,13 @@ export function UserRoleSection({
       <h3 className="m-0 text-sm font-semibold">{t('user.detail.roles')}</h3>
       {canAssignRole && !isSelf ? (
         <div className="mt-2 flex flex-col gap-2" data-testid="user-role-picker">
-          {roleOptions?.map((role) => (
-            <Checkbox
-              key={role.id}
-              checked={selectedRoleIds.has(role.id)}
-              onCheckedChange={(checked) => toggleRole(role.id, checked)}
-              label={role.name}
-              description={role.slug}
-              data-testid="user-detail-role"
-              data-value={role.slug}
-            />
-          ))}
+          <UserRoleSelect
+            roles={roleOptions}
+            value={selectedRoleIds}
+            onValueChange={setRoleIds}
+            aria-label={t('user.detail.roles')}
+            data-testid="user-role-select"
+          />
           {isStale && (
             <div
               className="flex items-center justify-between gap-2 text-xs text-[var(--color-fg-muted)]"
@@ -64,13 +60,13 @@ export function UserRoleSection({
               variant="primary"
               disabled={!isDirty}
               loading={assignRoles.isPending}
-              // 失敗由 mutation 的 onError 顯示，勾選保留
+              // 失敗由 mutation 的 onError 顯示，選擇保留
               onClick={() =>
                 void assignRoles
                   .mutateAsync({
                     params: {
                       userId: user.id,
-                      body: { roleIds: [...selectedRoleIds], expectedRoleIds },
+                      body: { roleIds: selectedRoleIds, expectedRoleIds },
                     },
                   })
                   .then(discardDraft)

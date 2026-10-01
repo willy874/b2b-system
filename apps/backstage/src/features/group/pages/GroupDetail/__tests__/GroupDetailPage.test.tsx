@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
@@ -78,10 +78,15 @@ describe('GroupDetailPage（docs/adr/0024-relationship-based-access-control.md D
     expect(members.map((member) => member.getAttribute('data-value'))).toEqual(['u1', 'g2']);
   });
 
-  it('有 group:assignRole → 勾選清單不含 super-admin（D12）', async () => {
+  it('有 group:assignRole → 角色下拉不含 super-admin（D12）', async () => {
     renderRoute(routes, '/group/g1', [...READER, 'group:assignRole'] as PermissionKey[]);
-    const options = await screen.findAllByTestId('group-detail-role', undefined, { timeout: 5000 });
-    expect(options.map((option) => option.getAttribute('data-value'))).toEqual(['editor', 'admin']);
+    fireEvent.click(await screen.findByTestId('group-role-select', undefined, { timeout: 5000 }));
+    await screen.findByRole('listbox');
+    const options = screen.getAllByTestId('select-item');
+    expect(options.map((option) => option.getAttribute('data-value'))).toEqual([
+      'r-editor',
+      'r-admin',
+    ]);
   });
 
   it('只能讀 → 角色是唯讀的 Chip，成員沒有加入與移除', async () => {
