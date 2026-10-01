@@ -14,6 +14,7 @@ import { JOB_PAGE } from '@/features/job';
 import { NOTIFICATION_EVENT_PAGE } from '@/features/notification';
 import { PERMISSION_PAGE } from '@/features/permission';
 import { ROLE_PAGE } from '@/features/role';
+import { SERVICE_ACCOUNT_PAGE } from '@/features/service-account';
 import { SETTING_PAGE } from '@/features/system';
 import { TRASH_PAGE } from '@/features/trash';
 import { USER_PAGE } from '@/features/user';
@@ -75,6 +76,13 @@ const MENU_GROUPS: NavGroup[] = [
         labelKey: 'menu.userGroup',
         testId: 'menu-group',
         icon: 'users',
+      },
+      {
+        pageKey: SERVICE_ACCOUNT_PAGE,
+        to: '/service-account',
+        labelKey: 'menu.serviceAccount',
+        testId: 'menu-service-account',
+        icon: 'monitor',
       },
       {
         pageKey: PERMISSION_PAGE,

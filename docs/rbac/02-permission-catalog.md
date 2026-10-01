@@ -252,7 +252,7 @@
 | ------------ | -------------------------- | --------------- | -------------------------------- | ----- |
 | 首頁         | `/`                        | `HOME`          | 無                               | —     |
 | 登入         | `/auth/login`（跳到 apps/auth 的 IdP）、`/auth/callback` | 不受管 | 無（未登入可進）   | —     |
-| 個人資料     | `/profile`                 | `PROFILE`       | 無                               | —     |
+| 個人資料     | `/profile`（含個人存取 token） | `PROFILE`   | 無                               | —     |
 | 偏好設定     | `/preference`              | `PREFERENCE`    | 無                               | —     |
 | 通知         | `/notification`（`?filter=unread`） | `NOTIFICATION` | 無（只看得到自己的；[`../architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md) §4） | — |
 | 使用者列表   | `/user`                    | `USER`          | `user:read`                      | EVERY |
@@ -263,6 +263,8 @@
 | 角色版本紀錄 | `/role/$roleId/revision`   | （沿用 `ROLE`） | `role:read`（「還原到這一版」另看 `role:update`） | EVERY |
 | 群組列表     | `/group`（含 `/group/$groupId` 詳情；成員要 `user:read`、角色要 `role:read`） | `GROUP` | `group:read` | EVERY |
 | 建立群組     | `/group/create`            | `GROUP_CREATE`  | `group:read` ＋ `group:create`   | EVERY |
+| 服務帳號列表 | `/service-account`（含 `/service-account/$serviceAccountId` 詳情；角色要 `role:read`，token 要 `serviceAccount:update`） | `SERVICE_ACCOUNT` | `serviceAccount:read` | EVERY |
+| 建立服務帳號 | `/service-account/create`  | `SERVICE_ACCOUNT_CREATE` | `serviceAccount:read` ＋ `serviceAccount:create` | EVERY |
 | 權限目錄     | `/permission`              | `PERMISSION`    | `permission:read`                | EVERY |
 | 稽核日誌     | `/audit-log`               | `AUDIT_LOG`     | `auditLog:read`                  | EVERY |
 | 審批         | `/approval`（含 `/approval/$approvalId` 對話框） | `APPROVAL` | `approval:read`           | EVERY |

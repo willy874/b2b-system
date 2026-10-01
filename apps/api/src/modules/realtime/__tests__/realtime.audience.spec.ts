@@ -62,6 +62,16 @@ describe('來源 → 受眾（docs/architecture/backend/08-realtime.md §6.1）'
       change: { resource: 'userCredential', kind: 'update', id: 'u1' },
       rooms: ['t:t1:perm:auditLog:read'],
     },
+    {
+      name: 'serviceAccount：只有 serviceAccount:read（ADR-0027 D14）',
+      change: { resource: 'serviceAccount', kind: 'update', id: 's1' },
+      rooms: ['t:t1:perm:auditLog:read', 't:t1:perm:serviceAccount:read'],
+    },
+    {
+      name: 'apiToken：服務帳號的讀者與能管理使用者 token 的人（user:update）',
+      change: { resource: 'apiToken', kind: 'create', id: 'k1' },
+      rooms: ['t:t1:perm:auditLog:read', 't:t1:perm:serviceAccount:read', 't:t1:perm:user:update'],
+    },
   ];
 
   it.each(cases)('$name', ({ change, rooms }) => {

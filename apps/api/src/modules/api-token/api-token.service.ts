@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { formatToken, generateSecret, tokenPrefix } from '@/common/auth';
@@ -10,6 +11,7 @@ import { ApiTokenCacheService } from '@/core/cache';
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
+import { DomainEvent, DomainEventBus } from '@/core/events';
 import { getRequestContext } from '@/core/http';
 import { RESOURCE_TYPE } from '@/core/resource';
 import { SettingService } from '@/core/settings';
@@ -74,6 +76,7 @@ export class ApiTokenService {
     private readonly settings: SettingService,
     private readonly audit: AuditService,
     private readonly cache: ApiTokenCacheService,
+    private readonly events: DomainEventBus,
   ) {}
 
   // ── 個人 token（`/auth/api-tokens`，本人）與管理者看別人的（`/users/:userId/api-tokens`，`user:update`） ──
@@ -215,6 +218,7 @@ export class ApiTokenService {
     });
 
     // 列表的同一個查詢：補上建立者的顯示名稱
+    this.publish(ChangeKind.CREATE, account, row.id);
     const created = await this.repo.findOne(account.id, row.id);
     if (!created) throw new Error('剛建立的 API token 讀不到');
     return { token, apiToken: toDto(created, account, now) };
@@ -238,6 +242,27 @@ export class ApiTokenService {
     });
     // 對外 API 的驗證快取（D17）：本機與其他程序立即失效
     this.cache.invalidate([tokenId]);
+    this.publish(ChangeKind.UPDATE, account, tokenId);
+  }
+
+  /**
+   * token 列表的推播：個人 token 推給本人（其他分頁的帳號設定），服務帳號的 token 以 refs 帶上擁有者
+   * （列表上的有效 token 數）。撤銷是 `update`：token 還在列表上，只是狀態變了。
+   */
+  private publish(kind: ChangeKind, account: TokenAccount, tokenId: string): void {
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [
+        {
+          resource: ChangeSource.API_TOKEN,
+          kind,
+          id: tokenId,
+          ...(account.kind === 'service'
+            ? { refs: { [ChangeSource.SERVICE_ACCOUNT]: [account.id] } }
+            : {}),
+        },
+      ],
+      ...(account.kind === 'human' ? { affectedUserIds: [account.id] } : {}),
+    });
   }
 
   /**

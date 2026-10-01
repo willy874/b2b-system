@@ -107,6 +107,7 @@
     "user": "Users",
     "role": "Roles",
     "userGroup": "Groups",
+    "serviceAccount": "Service accounts",
     "permission": "Permissions",
     "auditLog": "Audit log",
     "approval": "Approvals",
@@ -422,5 +423,46 @@
     "superAdmin": "Super admin: has every permission.",
     "impliedBy": "Implied by {{key}}",
     "noPermissions": "No permissions"
+  },
+  "apiToken": {
+    "status": {
+      "active": "Active",
+      "expired": "Expired",
+      "revoked": "Revoked",
+      "invalidated": "Invalidated"
+    },
+    "field": {
+      "name": "Name",
+      "status": "Status",
+      "scopes": "Scopes",
+      "expiresAt": "Expires",
+      "lastUsedAt": "Last used",
+      "createdBy": "Created by"
+    },
+    "scopes": {
+      "all": "All of the account's permissions",
+      "limited": "Limited to {{count}} permissions"
+    },
+    "neverUsed": "Never used",
+    "empty": "No API tokens yet",
+    "lifetime": "{{count}} days",
+    "revoke": {
+      "action": "Revoke",
+      "title": "Revoke API token",
+      "confirm": "After revoking \"{{name}}\", scripts and integrations using it can no longer call the API. This cannot be undone.",
+      "success": "API token revoked"
+    },
+    "create": {
+      "action": "Create API token",
+      "title": "Create API token",
+      "description": "API tokens only work with the external API. They cannot sign in to the console.",
+      "nameHint": "For example, what it is for or which system uses it.",
+      "scopesHint": "Leave empty to use all of the account's permissions. You can only pick permissions you hold."
+    },
+    "created": {
+      "title": "API token created",
+      "warning": "Copy and store it now. This token is shown only once.",
+      "done": "I've saved it"
+    }
   }
 }

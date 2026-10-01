@@ -39,6 +39,41 @@ const keysOf = (...changes: ResourceChangeEvent[]) =>
 describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）', () => {
   afterEach(() => queryClient.clear());
 
+  it('服務帳號的 token 建立或撤銷：三種 token 列表、擁有者（有效 token 數）的列表與詳情', () => {
+    expect(
+      keysOf({
+        resource: Resource.API_TOKEN,
+        kind: 'create',
+        id: 't1',
+        refs: { [Resource.SERVICE_ACCOUNT]: ['sa1'] },
+      }),
+    ).toEqual([
+      'invalidate:AUDIT_LOG_LIST_QUERY_KEY',
+      'invalidate:MY_API_TOKENS_QUERY_KEY',
+      'invalidate:SERVICE_ACCOUNT_DETAIL_QUERY_KEY:sa1',
+      'invalidate:SERVICE_ACCOUNT_LIST_QUERY_KEY',
+      'invalidate:SERVICE_ACCOUNT_TOKENS_QUERY_KEY',
+      'invalidate:USER_API_TOKENS_QUERY_KEY',
+    ]);
+  });
+
+  it('刪除服務帳號：移除該筆詳情，它的 token 列表跟著失效（token 一起撤銷）', () => {
+    expect(keysOf({ resource: Resource.SERVICE_ACCOUNT, kind: 'delete', id: 'sa1' })).toEqual([
+      'invalidate:AUDIT_LOG_LIST_QUERY_KEY',
+      'invalidate:MY_API_TOKENS_QUERY_KEY',
+      'invalidate:SERVICE_ACCOUNT_LIST_QUERY_KEY',
+      'invalidate:SERVICE_ACCOUNT_TOKENS_QUERY_KEY',
+      'invalidate:USER_API_TOKENS_QUERY_KEY',
+      'remove:SERVICE_ACCOUNT_DETAIL_QUERY_KEY:sa1',
+    ]);
+  });
+
+  it('角色改名：服務帳號的列表與詳情（嵌入角色名稱）跟著失效', () => {
+    const keys = keysOf({ resource: Resource.ROLE, kind: 'update', id: 'r1' });
+    expect(keys).toContain('invalidate:SERVICE_ACCOUNT_LIST_QUERY_KEY');
+    expect(keys).toContain('invalidate:SERVICE_ACCOUNT_DETAIL_QUERY_KEY');
+  });
+
   it('審核一筆請求：審批列表與該筆詳情，不碰其他資源', () => {
     expect(keysOf({ resource: Resource.APPROVAL, kind: 'update', id: 'a1' })).toEqual([
       'invalidate:APPROVAL_DETAIL_QUERY_KEY:a1',

@@ -35,6 +35,10 @@
       "newPassword": "New password",
       "theme": "Theme",
       "confirmPassword": "Confirm new password"
+    },
+    "apiToken": {
+      "title": "Personal API tokens",
+      "hint": "Call the external API as yourself from personal scripts. They can do at most what you can. Changing your password, being signed out by an admin or being disabled invalidates them. Use a service account for long-lived integrations such as CI."
     }
   }
 }

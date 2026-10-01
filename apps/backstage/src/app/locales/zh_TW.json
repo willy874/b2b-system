@@ -107,6 +107,7 @@
     "user": "使用者",
     "role": "角色",
     "userGroup": "群組",
+    "serviceAccount": "服務帳號",
     "permission": "權限目錄",
     "auditLog": "稽核日誌",
     "approval": "審批",
@@ -422,5 +423,46 @@
     "superAdmin": "超級管理員：擁有所有權限。",
     "impliedBy": "由 {{key}} 帶出",
     "noPermissions": "沒有任何權限"
+  },
+  "apiToken": {
+    "status": {
+      "active": "有效",
+      "expired": "已過期",
+      "revoked": "已撤銷",
+      "invalidated": "已失效"
+    },
+    "field": {
+      "name": "名稱",
+      "status": "狀態",
+      "scopes": "權限範圍",
+      "expiresAt": "有效期限",
+      "lastUsedAt": "最後使用",
+      "createdBy": "建立者"
+    },
+    "scopes": {
+      "all": "跟著帳號的所有權限",
+      "limited": "限縮為 {{count}} 個權限"
+    },
+    "neverUsed": "尚未使用",
+    "empty": "還沒有 API token",
+    "lifetime": "{{count}} 天",
+    "revoke": {
+      "action": "撤銷",
+      "title": "撤銷 API token",
+      "confirm": "撤銷「{{name}}」之後，使用它的腳本與整合會立即無法呼叫 API。這個動作不能復原。",
+      "success": "已撤銷 API token"
+    },
+    "create": {
+      "action": "建立 API token",
+      "title": "建立 API token",
+      "description": "API token 只能用在對外 API，不能登入後台。",
+      "nameHint": "例如用途或使用的系統，方便日後辨認。",
+      "scopesHint": "不選就跟著帳號的所有權限；只能選自己持有的權限。"
+    },
+    "created": {
+      "title": "API token 已建立",
+      "warning": "請立即複製並妥善保存，這個 token 只會顯示這一次。",
+      "done": "我已保存"
+    }
   }
 }

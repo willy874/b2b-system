@@ -112,7 +112,7 @@ export class ServiceAccountService {
       );
     });
     if (dto.roleIds.length) await this.permissions.permissionsChanged([id]);
-    this.publishRoles(id, dto.roleIds);
+    this.publish(ChangeKind.CREATE, id, dto.roleIds);
     return this.findOne(id);
   }
 
@@ -154,6 +154,7 @@ export class ServiceAccountService {
     });
     // 停用：本機與其他程序的使用者快取都要立即失效，對外 API 才不會再接受它的 token
     this.userCache.invalidate(id);
+    this.publish(ChangeKind.UPDATE, id);
     return this.findOne(id);
   }
 
@@ -179,7 +180,8 @@ export class ServiceAccountService {
     this.userCache.invalidate(id);
     this.permissions.invalidateUser(id);
     // 角色的持有者人數變了
-    this.publishRoles(
+    this.publish(
+      ChangeKind.DELETE,
       id,
       current.roles.map((role) => role.id),
     );
@@ -222,7 +224,9 @@ export class ServiceAccountService {
     });
 
     await this.permissions.permissionsChanged([id]);
-    this.publishRoles(id, [...new Set([...before.map((role) => role.id), ...dto.roleIds])]);
+    this.publish(ChangeKind.UPDATE, id, [
+      ...new Set([...before.map((role) => role.id), ...dto.roleIds]),
+    ]);
     return { roles: await this.repo.listRoles(id) };
   }
 
@@ -275,18 +279,19 @@ export class ServiceAccountService {
   }
 
   /**
-   * 角色頁的持有者人數與清單會變：推播角色的變更。服務帳號自己的列表要等前端（ADR-0027 T4）有了
-   * 對應的 `ChangeSource` 再推。
+   * 服務帳號的列表與詳情；`roleIds` 是持有者變動的角色（角色頁的持有者人數與清單）。
+   * 服務帳號本身沒有連線，不必帶 `affectedUserIds`。
    */
-  private publishRoles(id: string, roleIds: readonly string[]): void {
-    if (!roleIds.length) return;
+  private publish(kind: ChangeKind, id: string, roleIds: readonly string[] = []): void {
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: roleIds.map((roleId) => ({
-        resource: ChangeSource.ROLE,
-        kind: ChangeKind.UPDATE,
-        id: roleId,
-      })),
-      affectedUserIds: [id],
+      changes: [
+        { resource: ChangeSource.SERVICE_ACCOUNT, kind, id },
+        ...roleIds.map((roleId) => ({
+          resource: ChangeSource.ROLE,
+          kind: ChangeKind.UPDATE,
+          id: roleId,
+        })),
+      ],
     });
   }
 }

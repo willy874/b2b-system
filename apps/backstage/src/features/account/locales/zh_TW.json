@@ -35,6 +35,10 @@
       "newPassword": "新密碼",
       "theme": "主題",
       "confirmPassword": "確認新密碼"
+    },
+    "apiToken": {
+      "title": "個人 API token",
+      "hint": "代表你自己呼叫對外 API，給個人的腳本使用；權限最多與你相同。改密碼、被強制登出或停用時，個人 token 會一起失效。CI 等長期的整合請改用服務帳號。"
     }
   }
 }

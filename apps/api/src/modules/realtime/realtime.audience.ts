@@ -66,6 +66,17 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
     includesSubject: false,
     recordsAudit: false,
   },
+  // 服務帳號的列表與詳情（docs/adr/0027-api-tokens-external-api.md D14）
+  [ChangeSource.SERVICE_ACCOUNT]: {
+    perms: () => [PERMISSION.SERVICE_ACCOUNT_READ],
+    includesSubject: false,
+  },
+  // 服務帳號的 token 列表（serviceAccount:read）與使用者詳情裡別人的個人 token（user:update）；
+  // 本人的個人 token 由呼叫端以 `affectedUserIds` 帶入
+  [ChangeSource.API_TOKEN]: {
+    perms: () => [PERMISSION.SERVICE_ACCOUNT_READ, PERMISSION.USER_UPDATE],
+    includesSubject: false,
+  },
   // 事件管理頁（與系統設定同一群讀者，ADR-0028 D10）
   [ChangeSource.NOTIFICATION_POLICY]: {
     perms: () => [PERMISSION.SYSTEM_READ],

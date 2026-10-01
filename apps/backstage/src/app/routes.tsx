@@ -11,6 +11,7 @@ import { Routes as JobRoutes } from '@/features/job';
 import { Routes as NotificationRoutes } from '@/features/notification';
 import { Routes as PermissionRoutes } from '@/features/permission';
 import { Routes as RoleRoutes } from '@/features/role';
+import { Routes as ServiceAccountRoutes } from '@/features/service-account';
 import { Routes as SystemRoutes } from '@/features/system';
 import { Routes as TrashRoutes } from '@/features/trash';
 import { Routes as UserRoutes } from '@/features/user';
@@ -38,6 +39,11 @@ export const routeTree = RootRoute.addChildren([
   GroupRoutes.GroupListRoute.addChildren([
     GroupRoutes.GroupCreateRoute,
     GroupRoutes.GroupDetailRoute,
+  ]),
+
+  ServiceAccountRoutes.ServiceAccountListRoute.addChildren([
+    ServiceAccountRoutes.ServiceAccountCreateRoute,
+    ServiceAccountRoutes.ServiceAccountDetailRoute,
   ]),
 
   PermissionRoutes.PermissionListRoute,

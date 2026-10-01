@@ -1,0 +1,56 @@
+{
+  "serviceAccount": {
+    "status": {
+      "active": "Active",
+      "inactive": "Disabled"
+    },
+    "field": {
+      "name": "Name",
+      "status": "Status",
+      "roles": "Roles",
+      "activeTokenCount": "Active tokens",
+      "createdAt": "Created"
+    },
+    "list": {
+      "title": "Service accounts",
+      "description": "Accounts for external systems such as CI and build pipelines. They cannot sign in to the console and only call the external API with API tokens.",
+      "searchPlaceholder": "Search by name"
+    },
+    "create": {
+      "action": "Create service account",
+      "title": "Create service account",
+      "description": "Create API tokens in its details after it is created. Its roles decide what its tokens can do.",
+      "success": "Service account \"{{name}}\" created"
+    },
+    "update": {
+      "success": "Service account updated"
+    },
+    "delete": {
+      "title": "Delete service account",
+      "confirm": "After deleting \"{{name}}\", its {{count}} active tokens stop working immediately. Deleted service accounts cannot be restored.",
+      "success": "Service account deleted"
+    },
+    "role": {
+      "placeholder": "Select roles",
+      "hint": "Its API tokens can do at most what these roles allow. You can only assign permissions you hold.",
+      "save": "Save roles",
+      "success": "Roles updated"
+    },
+    "detail": {
+      "title": "Service account",
+      "basic": "Details",
+      "roles": "Roles",
+      "tokens": "API tokens",
+      "tokensHint": "Tokens only work with the external API and are shown only once when created.",
+      "backToList": "Back to list"
+    },
+    "deactivate": {
+      "action": "Disable",
+      "title": "Disable service account",
+      "confirm": "After disabling \"{{name}}\", its {{count}} active tokens stop working immediately and do not come back when it is enabled again. You will need to create new tokens."
+    },
+    "activate": {
+      "action": "Enable"
+    }
+  }
+}
