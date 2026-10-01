@@ -78,6 +78,7 @@ docs/
 │   ├── 03-file-storage.md             apps/file-storage：S3 相容的本機檔案儲存
 │   ├── 04-sso.md                      SSO：apps/api 當 OIDC Provider、apps/auth、外部 IdP、單一登出
 │   ├── 05-tenancy.md                  租戶：每個租戶一個 database 與網域、佈建與生命週期、部署
+│   ├── 06-external-api.md             對外 API：獨立的程序與網域、API token 認證、路由的分界、限流
 │   │
 │   ├── frontend/
 │   │   ├── README.md

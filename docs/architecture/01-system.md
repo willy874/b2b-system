@@ -184,7 +184,8 @@ pnpm dev
                         └─ proxy /api     → http://localhost:3000
 ```
 
-外部 IdP 登入的開發與 E2E 另外跑 `pnpm dev:mock-idp`（localhost:4455）。
+外部 IdP 登入的開發與 E2E 另外跑 `pnpm dev:mock-idp`（localhost:4455）；對外 API 另外跑 `pnpm dev:external-api`
+（localhost:3001，以 API token 直接打，不經 Vite proxy；[`06-external-api.md`](./06-external-api.md)）。
 
 前端一律透過 `/api` 前綴打到 Vite dev proxy，**不在程式碼裡寫死後端位址**，
 production 由反向代理負責同源。這讓 refresh token cookie 可以是同源的
@@ -221,6 +222,8 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 | `file-storage` | `apps/file-storage/Dockerfile` | S3 相容的物件儲存（[`03-file-storage.md`](./03-file-storage.md)） | —                     |
 | `backstage` | `apps/backstage/Dockerfile`（nginx）| 靜態檔、反向代理、安全標頭                 | api healthy                     |
 | `auth`     | `apps/auth/Dockerfile`（nginx，`deploy/nginx.auth.conf`）| 身分與租戶入口：**獨立的 origin**（`:8081`），`/api/*` 同樣反向代理到 api | api healthy |
+| `external-api` | `b2b-system-api`（`node dist/src/main.external.js`） | 對外 API：只認 API token、只入列不跑背景工作（[`06-external-api.md`](./06-external-api.md)） | migrate 成功結束、file-storage healthy |
+| `external-gateway` | `nginxinc/nginx-unprivileged`（`deploy/nginx.external-api.conf`） | 對外 API 的網域（`:8082`）；在自己的 `external` 網路，碰不到內部 api | external-api healthy |
 
 - **每個租戶一個網域**（[`05-tenancy.md`](./05-tenancy.md) §7）：backstage 的 nginx 是 `server_name _`，任何網域都由它服務，
   `Host` 原樣轉給 api 決定租戶；`*.<TENANT_BASE_DOMAIN>` 要有 wildcard DNS 與憑證。平台管理者在 apps/auth 建立租戶時，
@@ -291,6 +294,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | `file_folder_tree` | `{ tenant }` | 那個租戶的資料夾結構快取作廢 | `FileFolderTree.invalidate()`（[`backend/09-file.md`](./backend/09-file.md) §11.1） |
 | `settings` | `{ tenant }` | 那個租戶的系統設定快取作廢 | `SettingService.invalidate()`（[`backend/12-settings.md`](./backend/12-settings.md)） |
 | `notification_policy` | `{ tenant }` | 那個租戶的通知政策快取作廢 | `NotificationPolicyService.invalidate()`（[`backend/16-notification-event.md`](./backend/16-notification-event.md) §3） |
+| `api_token_cache` | `{ tenant, tokens }` | 這些 API token 的驗證快取作廢 | `ApiTokenCacheService.invalidate()`（撤銷之後；[`06-external-api.md`](./06-external-api.md) §5） |
 | `domain_event` | 推播類的領域事件 | 在那個租戶的脈絡裡交給本機的推播 | `DomainEventRelay`（[`backend/08-realtime.md`](./backend/08-realtime.md) §7.6） |
 
 - 除了 `authz_revision`，訊息都經 `BroadcastService.channel()` 包上送出的程序 id，**自己送的不會收回來**（本機在送出前已處理過）。
