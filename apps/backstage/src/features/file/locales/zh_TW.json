@@ -163,6 +163,9 @@
       "open": "移動",
       "title": "移動 {{count}} 個項目到…",
       "action": "移到這裡",
+      "target": "目的地資料夾",
+      "search": "搜尋資料夾",
+      "viewer": "以資料夾樹檢視",
       "success": "已移動 {{count}} 個項目",
       "dragLabel": "{{count}} 個項目"
     },

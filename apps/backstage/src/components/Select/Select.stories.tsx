@@ -205,6 +205,19 @@ export const ExpandableRows: Story = {
   ),
 };
 
+/** 群組列也能選（`selectableGroups`，例如資料夾樹）：點列選取，展開收合用列首箭頭或 ←／→。 */
+export const SelectableGroups: Story = {
+  render: () => (
+    <Select
+      options={regions}
+      selectableGroups
+      defaultExpandedValues={['asia']}
+      placeholder="選擇地區"
+      aria-label="地區"
+    />
+  ),
+};
+
 /** 可展開的列（多選）：勾群組等於勾選底下所有可用選項，部分勾選時為半勾。 */
 export const ExpandableRowsMultiple: Story = {
   render: () => (

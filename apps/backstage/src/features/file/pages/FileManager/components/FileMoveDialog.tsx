@@ -1,10 +1,13 @@
 import { useState } from 'react';
 
 import { Button } from '@/components/Button';
+import { Collapsible } from '@/components/Collapsible';
 import { Dialog } from '@/components/Dialog';
+import { Select } from '@/components/Select';
+import type { SelectOption } from '@/components/Select';
 import { useTranslation } from '@/core/locales';
 
-import { canMoveFoldersTo } from '../folderTree';
+import { canMoveFoldersTo, childFolders, folderPath, ROOT_FOLDER } from '../folderTree';
 import type { FolderIndex } from '../folderTree';
 import type { DraggedItems } from '../useItemDrag';
 import { FileFolderTree } from './FileFolderTree';
@@ -18,8 +21,28 @@ interface FileMoveDialogProps {
   onClose: () => void;
 }
 
+/** 資料夾樹轉成下拉選單的選項：根目錄在最上層，子資料夾依名稱排序；有子資料夾的列也能選（`selectableGroups`）。 */
+function folderOptions(
+  folders: FolderIndex,
+  parentId: string | undefined,
+  isDisabled: (folderId: string | undefined) => boolean,
+  lockedLabel: string,
+): Array<SelectOption> {
+  return childFolders(folders, parentId).map((folder) => {
+    const children = folderOptions(folders, folder.id, isDisabled, lockedLabel);
+    return {
+      value: folder.id,
+      label: folder.name,
+      description: folder.capabilities.canRead === false ? lockedLabel : undefined,
+      disabled: isDisabled(folder.id),
+      children: children.length > 0 ? children : undefined,
+    };
+  });
+}
+
 /**
  * 移動到…（拖放以外的替代方式：鍵盤、觸控、目的地不在畫面上時）。
+ * 主要以樹狀下拉選單選目的地；資料夾樹預設收合、展開後與選單連動（同一個目的地，選單選到的分支在樹上自動展開）。
  * 選不到的目的地：要移動的資料夾本身與它們的子孫；目前所在的位置可以選但「移動」鈕不可按。
  */
 export function FileMoveDialog({ items, folders, pending, onMove, onClose }: FileMoveDialogProps) {
@@ -33,6 +56,16 @@ export function FileMoveDialog({ items, folders, pending, onMove, onClose }: Fil
   }
 
   const count = (items?.fileIds.length ?? 0) + (items?.folderIds.length ?? 0);
+  const isDisabled = (id: string | undefined) =>
+    !canMoveFoldersTo(folders, items?.folderIds ?? [], id);
+  const options: Array<SelectOption> = [
+    {
+      value: ROOT_FOLDER,
+      label: t('file.folder.root'),
+      disabled: isDisabled(undefined),
+      children: folderOptions(folders, undefined, isDisabled, t('file.access.locked')),
+    },
+  ];
   const valid =
     items !== undefined &&
     target !== items.sourceFolderId &&
@@ -65,14 +98,33 @@ export function FileMoveDialog({ items, folders, pending, onMove, onClose }: Fil
         </>
       }
     >
-      <FileFolderTree
-        folders={folders}
-        selectedId={target}
-        onSelect={setTarget}
-        isDisabled={(id) => !canMoveFoldersTo(folders, items?.folderIds ?? [], id)}
-        className="max-h-80 overflow-auto rounded-md border border-[var(--color-border)] p-1"
-        data-testid="file-move-tree"
-      />
+      <div className="flex flex-col gap-2">
+        <Select
+          options={options}
+          selectableGroups
+          searchable
+          value={target ?? ROOT_FOLDER}
+          onValueChange={(value) => setTarget(value === ROOT_FOLDER ? undefined : value)}
+          // 開啟時根目錄與目前位置的上層都已展開
+          defaultExpandedValues={[
+            ROOT_FOLDER,
+            ...folderPath(folders, items?.sourceFolderId).map((folder) => folder.id),
+          ]}
+          aria-label={t('file.move.target')}
+          searchPlaceholder={t('file.move.search')}
+          data-testid="file-move-target"
+        />
+        <Collapsible title={t('file.move.viewer')} testIds={{ trigger: 'file-move-tree-toggle' }}>
+          <FileFolderTree
+            folders={folders}
+            selectedId={target}
+            onSelect={setTarget}
+            isDisabled={isDisabled}
+            className="max-h-80 overflow-auto rounded-md border border-[var(--color-border)] p-1"
+            data-testid="file-move-tree"
+          />
+        </Collapsible>
+      </div>
     </Dialog>
   );
 }

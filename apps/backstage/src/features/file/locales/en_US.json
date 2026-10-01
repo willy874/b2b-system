@@ -163,6 +163,9 @@
       "open": "Move",
       "title": "Move {{count}} items to…",
       "action": "Move here",
+      "target": "Destination folder",
+      "search": "Search folders",
+      "viewer": "View as folder tree",
       "success": "Moved {{count}} items",
       "dragLabel": "{{count}} items"
     },

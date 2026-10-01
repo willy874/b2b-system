@@ -139,6 +139,12 @@ export interface SingleSelectProps<T extends string = string> extends SelectBase
   value?: T | null;
   defaultValue?: T | null;
   onValueChange?: (value: T) => void;
+  /**
+   * 群組列本身也是值（例如資料夾樹：有子資料夾的資料夾也能選）：點列選取並關閉，
+   * 展開收合改由列首的箭頭與 ←／→。選項的 `disabled` 只停用該列本身、不連帶停用子孫。
+   * 預設 `false`：單選時群組列只會展開／收合。
+   */
+  selectableGroups?: boolean;
 }
 
 export interface MultipleSelectProps<T extends string = string> extends SelectBaseProps<T> {
@@ -186,6 +192,8 @@ interface SelectRowViewProps<T extends string> {
   state: CheckState;
   isMultiple: boolean;
   isTree: boolean;
+  /** 單選時群組列也是值（`selectableGroups`）。 */
+  isGroupSelectable: boolean;
   label: ReactNode;
   description: ReactNode;
   slot: SlotResolver<SelectSlot>;
@@ -211,6 +219,7 @@ const SelectRowView = memo(function SelectRowView<T extends string>({
   state,
   isMultiple,
   isTree,
+  isGroupSelectable,
   label,
   description,
   slot,
@@ -230,7 +239,7 @@ const SelectRowView = memo(function SelectRowView<T extends string>({
       id={id}
       ref={measureElement}
       role={isTree ? 'treeitem' : 'option'}
-      aria-selected={isGroup && !isMultiple ? undefined : state === 'checked'}
+      aria-selected={isGroup && !isMultiple && !isGroupSelectable ? undefined : state === 'checked'}
       aria-checked={isMultiple && state === 'indeterminate' ? 'mixed' : undefined}
       aria-disabled={isDisabled || undefined}
       aria-expanded={isGroup ? isExpanded : undefined}
@@ -340,6 +349,7 @@ export function Select<T extends string = string>(props: SelectProps<T>) {
   const multi = props.multiple ? props : null;
   const isMultiple = multi !== null;
   const valueOrder = multi?.valueOrder ?? 'selection';
+  const selectableGroups = !props.multiple && Boolean(props.selectableGroups);
 
   const slot = useMemo(
     () => createSlots({ classNames, styles: styleOverrides, testIds }),
@@ -437,14 +447,17 @@ export function Select<T extends string = string>(props: SelectProps<T>) {
 
   const rowState = (row: SelectRow<T>): CheckState => {
     if (row.kind === 'all') return allState;
-    if (!row.isGroup) return selectedSet.has(row.key) ? 'checked' : 'unchecked';
+    if (!row.isGroup || selectableGroups) {
+      return selectedSet.has(row.key) ? 'checked' : 'unchecked';
+    }
     const leaves = viewIndex.groupLeaves.get(row.key) ?? EMPTY;
     return isMultiple && leaves.length ? checkState(leaves, selectedSet) : 'unchecked';
   };
   const isRowDisabled = (row: SelectRow<T> | undefined): boolean => {
     if (!row) return true;
     if (row.kind === 'all') return viewIndex.enabledLeaves.length === 0;
-    if (row.disabled) return true;
+    // selectableGroups：停用只作用在該列本身，子孫照常可選（例如不能放進去、但子資料夾可以的資料夾）
+    if (selectableGroups ? row.option.disabled : row.disabled) return true;
     // 多選時，底下沒有任何可用選項的群組勾了也沒用；單選時群組列仍可展開
     return isMultiple && row.isGroup && !(viewIndex.groupLeaves.get(row.key)?.length ?? 0);
   };
@@ -476,7 +489,11 @@ export function Select<T extends string = string>(props: SelectProps<T>) {
 
   const navigation = useListNavigation({
     count: rows.length,
-    isDisabled: (rowIndex) => isRowDisabled(rows[rowIndex]),
+    // selectableGroups 時停用的群組列仍可停留，才能用 → 展開、走到可選的子孫
+    isDisabled: (rowIndex) => {
+      const row = rows[rowIndex];
+      return selectableGroups && row?.kind === 'option' && row.isGroup ? false : isRowDisabled(row);
+    },
     // 有搜尋框時打字是輸入關鍵字，不做 typeahead
     getLabel: searchable
       ? undefined
@@ -496,6 +513,7 @@ export function Select<T extends string = string>(props: SelectProps<T>) {
     viewIndex,
     expanded,
     isMultiple,
+    selectableGroups,
     valueOrder,
   });
 
@@ -557,6 +575,7 @@ export function Select<T extends string = string>(props: SelectProps<T>) {
         selected: current,
         viewIndex: tree,
         isMultiple: multiple,
+        selectableGroups: groupSelectable,
       } = latestRef.current;
       const row = list[rowIndex];
       if (!row) return;
@@ -565,7 +584,7 @@ export function Select<T extends string = string>(props: SelectProps<T>) {
         toggleAll();
         return;
       }
-      if (row.isGroup) {
+      if (row.isGroup && !groupSelectable) {
         if (!multiple) {
           toggleExpand(rowIndex);
           return;
@@ -770,6 +789,7 @@ export function Select<T extends string = string>(props: SelectProps<T>) {
                       state={rowState(row)}
                       isMultiple={isMultiple}
                       isTree={isTree}
+                      isGroupSelectable={selectableGroups}
                       label={
                         row.kind === 'all'
                           ? (multi?.selectAllLabel ?? labels.selectAll)

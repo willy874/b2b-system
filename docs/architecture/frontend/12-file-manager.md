@@ -238,6 +238,7 @@ registerFilePreviewer({
 | `features/file/pages/FileManager/__tests__/layout.test.ts` | RWD 欄數、框選命中（含畫面外、間距）、方向鍵 |
 | `…/__tests__/useFileSelection.test.ts` | 點擊、⌘ / Shift、框選取代與疊加、資料更新後自動修剪 |
 | `…/__tests__/FileBrowser.test.tsx` | 點擊與勾選框、雙擊（檔案／資料夾）、鍵盤、拖放上傳（含放在資料夾卡片上、無權限）、拖曳移動（整批、只拖一個、放進自己被擋、無權限不可拖）、列表表頭排序、空狀態 |
+| `…/__tests__/FileMoveDialog.test.tsx` | 樹狀下拉選單選目的地（自己與子孫停用、目前位置不能送出）、資料夾樹預設收合且與選單連動 |
 | `…/__tests__/folderTree.test.ts` | 自然排序、孤兒不掛到根目錄、路徑、`isWithin`、移動的合法性（含目的地的 canCreate） |
 | `…/components/__tests__/FileAccessRequestDialog.test.tsx` | 送出等級與理由、已送出的狀態 |
 | `features/file/upload/__tests__/collectEntries.test.ts` | `webkitRelativePath` 還原結構、略過系統檔、拖放的遞迴展開（含空資料夾、分批的 `readEntries`） |
@@ -283,8 +284,10 @@ GET /files?folderId=<目前資料夾 | root>  → 主區塊的檔案（資料夾
 | 送出 | `POST /files/move` 一次送出檔案與資料夾（後端同一個交易）；成功後失效資料夾清單與檔案（`id='*'`），toast「已移動 N 個項目」 |
 | 權限 | 被拖的每個項目都要 `capabilities.canUpdate`，目的地要 `canCreate`（根目錄看 `rootCapabilities`）；不能拖的項目不可拖曳，不能放的目標不亮（§13） |
 
-**替代方式**：拖放不適合鍵盤、觸控、目的地不在畫面上的情況——選取列的「移動」開啟對話框（`FileMoveDialog`），
-以同一棵樹選目的地；要移動的資料夾與其子孫不可選，目前所在的位置可以選但「移到這裡」不可按。
+**替代方式**：拖放不適合鍵盤、觸控、目的地不在畫面上的情況——選取列的「移動」開啟對話框（`FileMoveDialog`）。
+目的地以 **樹狀下拉選單** 選（`Select` 的 `selectableGroups`，根目錄在最上層、可搜尋；`data-testid="file-move-target"`）；
+側欄同一棵資料夾樹（`FileFolderTree`）預設收合在「以資料夾樹檢視」（`file-move-tree-toggle`）底下，展開後與選單是同一個目的地。
+要移動的資料夾與其子孫不可選，目前所在的位置可以選但「移到這裡」不可按。
 
 ### 12.2 資料夾的操作
 

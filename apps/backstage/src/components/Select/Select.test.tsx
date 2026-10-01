@@ -294,6 +294,45 @@ describe('Select（可展開的列）', () => {
     expect(onValueChange).toHaveBeenCalledWith('banana');
   });
 
+  it('selectableGroups：單選時點群組列就選取它，箭頭與 → 仍可展開', async () => {
+    const onValueChange = vi.fn();
+    render(
+      <Select options={tree} selectableGroups onValueChange={onValueChange} aria-label="分類" />,
+    );
+    await userEvent.click(screen.getByRole('combobox', { name: '分類' }));
+    await userEvent.click(await screen.findByText('水果'));
+    expect(onValueChange).toHaveBeenCalledWith('fruit');
+    expect(screen.getByRole('combobox', { name: '分類' })).toHaveTextContent('水果');
+
+    const list = await openSelect('分類', 'tree');
+    expect(getRow('fruit')).toHaveAttribute('aria-selected', 'true');
+    await userEvent.keyboard('{ArrowRight}');
+    expect(getRow('fruit')).toHaveAttribute('aria-expanded', 'true');
+    expect(list).toHaveAttribute('aria-activedescendant', getRow('fruit').id);
+  });
+
+  it('selectableGroups：停用的群組只停用自己，子選項仍可選、鍵盤仍可停在群組上展開', async () => {
+    const onValueChange = vi.fn();
+    const withDisabledFruit = tree.map((option) =>
+      option.value === 'fruit' ? { ...option, disabled: true } : option,
+    );
+    render(
+      <Select
+        options={withDisabledFruit}
+        selectableGroups
+        onValueChange={onValueChange}
+        aria-label="分類"
+      />,
+    );
+    const list = await openSelect('分類', 'tree');
+    expect(list).toHaveAttribute('aria-activedescendant', getRow('fruit').id);
+    expect(getRow('fruit')).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.keyboard('{Enter}');
+    expect(onValueChange).not.toHaveBeenCalled();
+    await userEvent.keyboard('{ArrowRight}{ArrowDown}{Enter}');
+    expect(onValueChange).toHaveBeenCalledWith('apple');
+  });
+
   it('←／→ 收合與展開，← 在子列時回到父列', async () => {
     render(<Select options={tree} aria-label="分類" />);
     const list = await openSelect('分類', 'tree');

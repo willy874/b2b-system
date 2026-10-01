@@ -419,6 +419,7 @@ Base UI 的 `Select` / `Menu` / `Combobox` 需要 **所有項目都掛在 DOM �
 | 全選 | `selectAll`（半勾狀態、Ctrl/⌘ + A）；只作用在目前看得到、未停用的選項 |
 | 選項排序 | `sortOptions`：`asc` / `desc`（自然順序）或比較函式，含子選項 |
 | 可展開的列 | 選項帶 `children` 即成為 `role="tree"`；群組列不是值，多選時勾群組 = 勾所有子孫；←／→ 收合展開 |
+| 群組列也是值（單選） | `selectableGroups`（例如資料夾樹）：點列選取並關閉，展開收合改由列首箭頭與 ←／→；`disabled` 只停用該列、不連帶停用子孫，鍵盤仍可停在停用的群組上展開 |
 | 搜尋（原 `Combobox`） | `searchable`、`searchValue` / `onSearchChange`、`filterOption`（`false` = 後端搜尋）、`searchPlaceholder`、`noMatchLabel`、`clearSearchOnClose` |
 | 無限捲動 | `hasMore`、`loading`、`onLoadMore`；搜尋字改變時自動解鎖分頁 |
 | 兩行選項 | 選項 `description`，`itemSize` 設 48 |
