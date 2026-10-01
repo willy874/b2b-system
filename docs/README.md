@@ -163,7 +163,8 @@ docs/
     ├── 0024-relationship-based-access-control.md
     ├── 0025-entity-revisions.md
     ├── 0026-notification-center.md
-    └── 0027-api-tokens-external-api.md
+    ├── 0027-api-tokens-external-api.md
+    └── 0028-notification-event-management.md
 ```
 
 ---
