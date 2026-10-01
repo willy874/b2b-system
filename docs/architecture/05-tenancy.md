@@ -51,7 +51,7 @@
 
 | 元件 | 做什麼 |
 | --- | --- |
-| `TenantContext`（AsyncLocalStorage） | `{ id, code, db, storageBucket, allowExternalIdp, features }`；`currentTenant()`、`requireTenant()` 讀取 |
+| `TenantContext`（AsyncLocalStorage） | `{ id, code, db, storageBucket, features, flags }`；`currentTenant()`、`requireTenant()` 讀取 |
 | `TENANT_DB` | repository 注入的 Proxy：每次存取都轉到 **目前租戶** 的 `db`；沒有脈絡時拋 `TENANT_NOT_FOUND`，不會退回任何預設 DB |
 | `PLATFORM_DB` | 平台 DB（租戶登記、平台管理者、佇列、OIDC 的協定狀態） |
 | `Tenancy.enter(record)` | 進入租戶的唯一入口：檢查狀態與 migration 版本，建立（或沿用）那個租戶的連線池 |
@@ -88,7 +88,7 @@
 | 佈建 | 背景工作 `tenant.provision`（平台工作，不自動重試） | ① 建立 DB 角色與 database（`TENANT_PROVISIONING_DATABASE_URL`，要有 `CREATEDB` 與 `CREATEROLE`）② 跑租戶 migration ③ 權限目錄、系統角色、第一位 super-admin（`pending`）④ 改成 `active` ⑤ 在租戶脈絡裡寄啟用信、確認 bucket、發佈 `TENANT_ACTIVATED`（檔案的系統資料夾）。①–④ 失敗停在 `failed`（原因記在 `provision_error`）；⑤ 的失敗不改狀態，只記原因 |
 | 重試佈建 | `POST /platform/tenants/:id/provision`（`tenant:create`） | 只接受 `failed`；每一步都冪等（角色存在就把密碼改回來、database 存在就沿用） |
 | 佈建中斷 | 背景工作 `tenant.provisionSweep`（每 5 分鐘）；重試與刪除前也先跑一次 | 程序在佈建途中被重啟時，工作在逾時（15 分鐘）後被收回，租戶卻停在 `provisioning`：超過逾時 5 分鐘的改成 `failed`（`provision_error` 寫「佈建中斷」），之後就能重試或刪除 |
-| 改名、網域、平台層開關 | `PATCH /platform/tenants/:id`、`POST|DELETE …/domains`（`tenant:update`） | 網域一個只屬於一個租戶、不能移除最後一個與主要網域（第一個，`TENANT_PRIMARY_DOMAIN`）、apps/auth 的網域不能登記；`allowExternalIdp`、`features` 見 §5.1 |
+| 改名、網域、平台層開關 | `PATCH /platform/tenants/:id`、`POST|DELETE …/domains`（`tenant:update`） | 網域一個只屬於一個租戶、不能移除最後一個與主要網域（第一個，`TENANT_PRIMARY_DOMAIN`）、apps/auth 的網域不能登記；`features`、`flags` 見 §5.1 |
 | 停用 | `POST /platform/tenants/:id/disable`（`tenant:update`） | **先改狀態再收尾**：撤銷 app session、刪除這個租戶帳號（`t:{tenantId}:*`）在 IdP 的 session／grant、斷掉 `t:{tenantId}` room 的即時連線、關掉連線池。網域之後一律 503 |
 | 啟用 | `POST /platform/tenants/:id/enable` | 回到 `active`，發佈 `TENANT_ACTIVATED` |
 | 刪除 | `DELETE /platform/tenants/:id`（`tenant:delete`） | 停用並收尾、標記刪除、釋出網域；代碼之後可以給新租戶。database 與 bucket 留著 |
@@ -106,20 +106,32 @@
 
 | 欄位 | 值 | 效果 | 出處 |
 | --- | --- | --- | --- |
-| `allow_external_idp` | boolean，預設 `true` | 關掉時租戶不能新增或啟用外部 IdP 連線，登入時也不走連線（`IDENTITY_PROVIDER_NOT_ALLOWED`） | ADR-0020 D22 |
-| `features` | `text[]`，預設全部（`{file,auditLog,job}`） | 可啟用 feature 的 id（`core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`）。沒列出的 feature：api 以 `@RequireFeature()` 標的端點回 `404 FEATURE_DISABLED`（`common/guards/feature.guard.ts`）；`/auth/profile` 的 `features` 不含它，前端不安裝它。該 feature 的背景工作照常執行，資料保留 | [ADR-0021](../adr/0021-runtime-feature-activation.md) D8、D11 |
+| `features` | `text[]`，預設全部（`{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch}`） | 可啟用 feature 的 id（`core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`）。沒列出的 feature：api 以 `@RequireFeature()` 標的端點回 `404 FEATURE_DISABLED`（`common/guards/feature.guard.ts`；handler 與 class 的宣告合併，全部都要啟用）；`/auth/profile` 的 `features` 不含它，前端不安裝它。該 feature 的背景工作照常執行，資料保留 | [ADR-0021](../adr/0021-runtime-feature-activation.md) D8、D11、[ADR-0029](../adr/0029-toggleable-platform-features.md) |
 | `flags` | `jsonb`，預設 `{}` | feature flag 的租戶層覆寫 `{ [key]: boolean }`，沒列出 = 跟著全平台與預設值；見 §5.2 | [ADR-0022](../adr/0022-feature-flags.md) D2 |
+
+各 feature 停用時的效果：
+
+| id | 停用時 | 照舊 |
+| --- | --- | --- |
+| `file` | `/files`、`/file-folders` 回 404；backstage 沒有檔案頁 | 檔案與物件、背景工作 |
+| `auditLog` | `/audit-logs` 回 404；沒有稽核頁 | 稽核照常寫入、封存 |
+| `job` | `/jobs` 回 404；沒有背景工作頁 | 工作照常執行 |
+| `trash` | `GET /trash` 與各資源的 `POST …/:id/restore` 回 404；沒有回收桶頁，刪除的提示沒有「復原」 | 刪除仍是軟刪除，`trash.purge` 在保留期滿後永久刪除 |
+| `systemSetting` | `GET`／`PATCH /system/settings` 回 404；沒有系統設定頁 | 已覆寫的值照樣生效；`/system/settings/public` 不受影響 |
+| `identityProvider` | `/identity-providers` 回 404；登入時當作沒有連線（email 網域不導向外部 IdP，只允許 SSO 的網域回到密碼登入） | 連線與外部身分的連結保留 |
+| `tenantSwitch` | backstage 帳號選單沒有「切換租戶」 | apps/auth 的 `/enter` |
 
 - `PATCH /platform/tenants/:id` 的 `features` 是 **完整清單**（不是增減）；重複或不認得的 id 回 `VALIDATION_FAILED`，
   存進 DB 時依 `TENANT_FEATURES` 的順序。DB 裡殘留不認得的值（程式移除某個 feature 之後）讀取時濾掉。
 - `flags` 同樣是 **完整的覆寫表**；不在 flag 目錄裡的 key 回 `VALIDATION_FAILED`，存進 DB 時依目錄的順序。
-- 變更與平台稽核（`tenant.update`，`before`／`after` 帶 `allowExternalIdp`、`features`、`flags`）在同一個交易；之後 `TenantDirectory.invalidate()`，
+- 變更與平台稽核（`tenant.update`，`before`／`after` 帶 `name`、`features`、`flags`）在同一個交易；之後 `TenantDirectory.invalidate()`，
   本機立即生效，其他程序經廣播也立即生效（漏掉時最多晚 `TENANT_CACHE_TTL` 秒）。
 - `features` 或 `flags` 真的改變時，失效之後發佈 `TENANT_FEATURES_CHANGED`（`{ tenantId }`），`modules/realtime` 對該租戶的
   `t:{tenantId}` room 推 `resource.changed`（來源 `tenantFeature`），前端據此重新取得 profile
   （[`backend/08-realtime.md`](./backend/08-realtime.md) §7）。平台的請求沒有租戶脈絡，所以事件以 `tenantId` 指明對象。
 - 新增一個可啟用的 feature：`TENANT_FEATURES` 加 id → 決定既有租戶要不要啟用（要的話寫一支資料 migration，
-  預設值也一併調整）→ controller 標 `@RequireFeature()` → `test/route-audit.spec.ts` 的前綴對照 → 前端的 catalog。
+  預設值也一併調整）→ controller 標 `@RequireFeature()` → `test/route-audit.spec.ts` 的對照 → 前端的 catalog
+  → apps/auth 的 `TENANT_FEATURE_LABEL_KEY`／`TENANT_FEATURE_DESCRIPTION_KEY` 與語系。
 
 ### 5.2 Feature flag（試行開關）
 

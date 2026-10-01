@@ -97,6 +97,7 @@ Layout 以 `useFeatureGate` 再擋一次（D7）：未定 → 骨架屏、未啟
 2. **可啟用的 feature**：`file`、`auditLog`、`job`。其餘維持常駐：
    - `approval`：使用者註冊的審核（`user-registration.approval.ts`）依賴它，停用會讓核心流程壞掉。
    - `identity-provider`：已經由 `allowExternalIdp`（ADR-0020 D22）開關，不做第二套。
+   - （後續：[ADR-0029](./0029-toggleable-platform-features.md) 把 `trash`、`systemSetting`、`identityProvider`、`tenantSwitch` 也改成可啟用，`allowExternalIdp` 併進清單。）
    - `auth`、`home`、`account`、`user`、`role`、`permission`、`system`：RBAC 骨架本身。
 3. **使用者層級的啟用**：不做；「同一個租戶裡只有部分人可用」由權限表達。
 4. **與 feature flag（[ADR-0022](./0022-feature-flags.md)）的關係**：這份 ADR 處理的是 **長期存在的模組**（商業上的開通），不會被移除；

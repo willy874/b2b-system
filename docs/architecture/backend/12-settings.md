@@ -2,6 +2,8 @@
 
 會隨營運調整、不必重新部署就能改的值：帳號政策、上傳上限、預設時區。
 每個租戶各自一份（設定表在租戶 DB），由有 `system:update` 的人在 backstage 的「系統設定」頁修改。
+平台可對租戶關閉設定頁（feature `systemSetting`，[ADR-0029](../../adr/0029-toggleable-platform-features.md) D4）：
+`GET`／`PATCH /system/settings` 回 404，已覆寫的值照樣生效，`/system/settings/public` 不受影響。
 
 ## 1. 分層
 
