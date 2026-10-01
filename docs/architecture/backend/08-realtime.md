@@ -248,6 +248,8 @@ super-admin 加入自己租戶的所有 perm room。
 | `tenantFeature`    | —（不經這張表）                            | —                                  | 平台層的變更：由 `tenant.featuresChanged` 直接推給 `t:{tenantId}`（每個人都要重新取得 profile，含 `features` 與 `flags`），見 §7.1。表裡的列是空的，只為了讓 `Record<ChangeSource, …>` 完整 |
 | `notification`     | —                                          | 收件人（`affectedUserIds`；`id` 是通知 id，不是使用者 id） | 站內通知是個人的東西，只推給收件人自己的所有連線（[ADR-0026](../../adr/0026-notification-center.md) D8，[`15-notification.md`](./15-notification.md) §7）；不寫稽核，所以 **不** 加 `auditLog:read` |
 | `notificationPolicy` | `system:read`                            | —                                  | 事件管理頁（[`16-notification-event.md`](./16-notification-event.md) §4；與系統設定同一群讀者） |
+| `serviceAccount`   | `serviceAccount:read`                      | —                                  | 服務帳號的列表與詳情（[ADR-0027](../../adr/0027-api-tokens-external-api.md) T4）；服務帳號沒有連線，不推本人 |
+| `apiToken`         | `serviceAccount:read`、`user:update`       | 個人 token 的擁有者（`affectedUserIds`） | 服務帳號的 token（`refs.serviceAccount`）、使用者詳情頁的 token、自己的個人 token |
 | `notificationPreference` | —                                    | 本人（`affectedUserIds`）          | 自己的通知設定（[`16-notification-event.md`](./16-notification-event.md) §5）；不寫稽核，所以 **不** 加 `auditLog:read` |
 | 任何來源（`notification`、`notificationPreference` 除外） | `auditLog:read`                 | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）；規則上標 `recordsAudit: false` 的來源不算 |
 
@@ -398,6 +400,8 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 | 通知標為已讀／全部已讀       | `notification update`（單則帶 id；全部已讀不帶），`affectedUserIds` = 自己 | —                                    |
 | 開關事件通知（`PATCH /notification-events`） | `notificationPolicy update`（每個改到的事件一筆，id 是事件類型） | —                                    |
 | 修改自己的通知設定（`PATCH /me/notification-preferences`） | `notificationPreference update`（每個改到的事件一筆，id 是事件類型），`affectedUserIds` = 自己 | —                                    |
+| 服務帳號建立／修改／刪除／指派角色 | `serviceAccount create` / `update` / `delete`，加上持有者變動的角色各一筆 `role update` | —                                       |
+| 建立／撤銷 API token         | `apiToken create` / `apiToken update`；服務帳號的帶 `refs.serviceAccount`，個人的 `affectedUserIds` = 擁有者 | —           |
 | 平台管理者改了租戶啟用的 feature | 不發 `resource.changed`；發 `tenant.featuresChanged`（平台的請求沒有租戶脈絡，room 以 `tenantId` 組） | —                                  |
 
 登入失敗被鎖定 **不** 遞增 `token_version`，因此不撤銷既有連線：被鎖的人最遲在 access token 到期（§3.4）
@@ -508,6 +512,10 @@ export const ChangeSource = {
   NOTIFICATION_POLICY: 'notificationPolicy',
   /** 自己的通知設定（id = 事件類型）；只推給本人（ADR-0028 D15）。 */
   NOTIFICATION_PREFERENCE: 'notificationPreference',
+  /** 服務帳號（ADR-0027 T4）。 */
+  SERVICE_ACCOUNT: 'serviceAccount',
+  /** API token；服務帳號的帶 `refs.serviceAccount`（ADR-0027 T4）。 */
+  API_TOKEN: 'apiToken',
 } as const;
 
 export const resourceChangedSchema = z.object({

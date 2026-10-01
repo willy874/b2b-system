@@ -87,7 +87,9 @@
       "nestedGroup": "Through a nested group",
       "effective": "Effective permissions",
       "effectiveHint": "Where each permission comes from: through which groups and which role. Groups or roles you cannot see show only their kind.",
-      "showEffective": "Show effective permissions and sources"
+      "showEffective": "Show effective permissions and sources",
+      "apiTokens": "Personal API tokens",
+      "apiTokensHint": "Tokens this user created to call the external API as themselves. Revoke them here when their role changes or a token leaks."
     },
     "field": {
       "email": "Email",

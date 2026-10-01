@@ -35,6 +35,16 @@ export const ChangeSource = {
   NOTIFICATION_POLICY: 'notificationPolicy',
   /** 自己的通知設定（`id` = 事件類型）：只推給本人的其他分頁與裝置（ADR-0028 D15）。 */
   NOTIFICATION_PREFERENCE: 'notificationPreference',
+  /**
+   * 服務帳號（`id` = 服務帳號 id）：建立、改名、停用、刪除、改角色（docs/adr/0027-api-tokens-external-api.md D1）。
+   * 改角色時另以 `role` 推角色的持有者變動。
+   */
+  SERVICE_ACCOUNT: 'serviceAccount',
+  /**
+   * API token（`id` = token id）：建立與撤銷。個人 token 以 `affectedUserIds` 推給本人的其他分頁；
+   * 服務帳號的 token 以 `refs.serviceAccount` 帶上擁有者（它的有效 token 數會變）。
+   */
+  API_TOKEN: 'apiToken',
 } as const;
 
 export type ChangeSource = (typeof ChangeSource)[keyof typeof ChangeSource];
@@ -67,6 +77,8 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.NOTIFICATION,
   ChangeSource.NOTIFICATION_POLICY,
   ChangeSource.NOTIFICATION_PREFERENCE,
+  ChangeSource.SERVICE_ACCOUNT,
+  ChangeSource.API_TOKEN,
 ]);
 
 export const ResourceChangeWireSchema = z.object({

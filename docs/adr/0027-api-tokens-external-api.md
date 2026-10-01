@@ -1,6 +1,6 @@
 # ADR-0027 — 服務帳號與 API Token，經獨立的對外 API 服務使用
 
-- 狀態：**採用**（2026-10-01 確認；T0～T2 已合併 main；T3 實作於 branch `feat/external-api-v1`；T4、T5 尚未開始）
+- 狀態：**採用**（2026-10-01 確認；T0～T3 已合併 main；T4 實作於 branch `feat/service-account-ui`；T5 尚未開始）
 - 日期：2026-10-01
 - 相關：提案 [`../features/api-tokens.md`](../features/api-tokens.md)；
   規格 [`../architecture/backend/04-auth.md`](../architecture/backend/04-auth.md)、[`../architecture/01-system.md`](../architecture/01-system.md) §4、
@@ -136,7 +136,7 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 | T1 | 刪除的服務帳號（D1） | 不在回收桶列出、不能還原（`UserRepository.listDeleted`、`findDeletedById` 只看人）；保留期滿後 `trash.purge` 照樣清除（`findExpired` 不分種類），`api_tokens` 隨 FK 刪除 |
 | T1 | 反提權只比對租戶層的權限鍵（D4） | `assertCanGrant` 只比對租戶上的能力；服務帳號在資料夾上的等級（直接授權或經群組）不在檢查內。有 `serviceAccount:update` 的人替服務帳號建 token，等於取得它在資料夾上的存取。目前只有 admin 預設持有這個鍵；要補的話在檔案模組提供「這個主體在哪些資料夾有什麼等級」並以 `file:share` 的規則比對 |
 | T1 | 人與服務帳號的分界 | `isHumanUser()`（`db/schema/users.ts`）：使用者的列表、詳情、版本、email 查詢（登入、忘記密碼、註冊、外部 IdP 自動連結）、最後一位 super-admin 的計數、個人資料夾、`findActiveUserIdsWithPermission`（審批的收件人）。角色的持有者、群組成員、資料夾授權的對象 **包含** 服務帳號 |
-| T1 | 推播 | 服務帳號的建立、修改、刪除還沒有自己的 `ChangeSource`（T4 加，前端要有對應的列表）；角色變動推 `role` 的 `resource.changed`，讓角色頁的持有者更新 |
+| T1 | 推播 | 服務帳號的建立、修改、刪除還沒有自己的 `ChangeSource`（T4 已加，見下方 T4 的推播）；角色變動推 `role` 的 `resource.changed`，讓角色頁的持有者更新 |
 | T1 | 系統設定的 key | `auth.personalTokenMaxDays`、`auth.serviceAccountTokenMaxDays`（D8 寫的 `apiToken.maxLifetimeDays` 拆成兩個，放在既有的 `auth` 分類） |
 | T1 | 有效 token 數上限 | 一個帳號同時有效（未撤銷、未過期）的 token 最多 50 把，`409 API_TOKEN_LIMIT_REACHED` |
 | T1 | 既有租戶的系統角色 | 手寫 migration 0023：admin 補 `serviceAccount:*`、auditor 補 `serviceAccount:read`（seed 只在角色新建立時寫入權限） |
@@ -152,3 +152,7 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 | T3 | 檔案列表的分頁 | 只提供游標（`nextCursor`），依建立時間由新到舊；使用者沿用 offset（列表沒有游標，offset 上限 10000） |
 | T3 | 影像網址 | 對外的檔案不含 `image`（內部的簽章影像網址指向內部 api 的端點）；下載網址是租戶網域的 `/storage` |
 | T3 | 對外程序 import 的模組 | 除了檔案與使用者，也 import `RoleModule`、`GroupModule`：回收桶在啟動時要求每一種類型都有 handler |
+| T4 | 推播 | 新增 `ChangeSource` 的 `serviceAccount`（受眾 `serviceAccount:read`）與 `apiToken`（受眾 `serviceAccount:read`、`user:update`；個人 token 另以 `affectedUserIds` 推給本人）。服務帳號的 token 帶 `refs.serviceAccount`，前端只失效那個帳號的 token 列表 |
+| T4 | 畫面 | `features/service-account`：列表（`/service-account`）、建立對話框（`/service-account/create`，獨立的 page key）、詳情（`/service-account/$serviceAccountId`：基本資料、角色、token）。帳號設定（`/profile`）的「個人存取 token」；使用者詳情頁的 token 區塊在 `user:update` 時顯示 |
+| T4 | token 的共用元件 | 三處的列表與建立對話框相同，放在 `core/components/ApiToken/`（只接收資料與 callback，不呼叫 API）；明文只在建立成功的對話框顯示一次，關閉後無法再取得 |
+| T4 | token 的 scopes 選項 | 選項是操作者自己持有的權限鍵（反提權，D4；不選代表「全部」），以權限鍵本身當名稱：權限目錄要 `permission:read` 才讀得到。超出的由後端擋下，生效時仍與帳號的權限取交集（D3） |

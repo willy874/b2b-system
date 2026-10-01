@@ -21,6 +21,7 @@ import { homeFeaturePlugin } from '@/features/home';
 import { notificationFeaturePlugin } from '@/features/notification';
 import { permissionFeaturePlugin } from '@/features/permission';
 import { roleFeaturePlugin } from '@/features/role';
+import { serviceAccountFeaturePlugin } from '@/features/service-account';
 import { userFeaturePlugin } from '@/features/user';
 import {
   batchQueuePlugin,
@@ -85,6 +86,7 @@ async function bootstrap(): Promise<void> {
     .use(userFeaturePlugin())
     .use(roleFeaturePlugin())
     .use(groupFeaturePlugin())
+    .use(serviceAccountFeaturePlugin())
     .use(permissionFeaturePlugin())
     .use(approvalFeaturePlugin())
     .use(accountFeaturePlugin())

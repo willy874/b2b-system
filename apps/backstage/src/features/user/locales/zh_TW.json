@@ -87,7 +87,9 @@
       "nestedGroup": "經由巢狀群組",
       "effective": "有效權限",
       "effectiveHint": "每個權限從哪裡來：經由哪些群組、哪個角色；看不到的群組或角色只顯示種類。",
-      "showEffective": "顯示有效權限與來源"
+      "showEffective": "顯示有效權限與來源",
+      "apiTokens": "個人 API token",
+      "apiTokensHint": "這位使用者建立的 token（代表他本人呼叫對外 API）。人員異動或 token 外流時可以在這裡撤銷。"
     },
     "field": {
       "email": "Email",

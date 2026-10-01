@@ -13,6 +13,7 @@ import { useTranslation } from '@/core/locales';
 
 import { useUserPermission } from '../../hooks/useUserPermission';
 import { UserDetailRoute, UserListRoute } from '../../routes';
+import { UserApiTokenSection } from './components/UserApiTokenSection';
 import { UserBasicSection } from './components/UserBasicSection';
 import { UserGroupSection } from './components/UserGroupSection';
 import { UserPermissionSourceSection } from './components/UserPermissionSourceSection';
@@ -72,6 +73,7 @@ export default function UserDetailPage() {
           />
           {permission.canReadGroups && <UserGroupSection userId={userId} />}
           {(isSelf || permission.canExplain) && <UserPermissionSourceSection userId={userId} />}
+          {permission.canManageApiTokens && <UserApiTokenSection userId={userId} />}
         </div>
       )}
     </Dialog>

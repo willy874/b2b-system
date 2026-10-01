@@ -17,6 +17,7 @@ import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
 import { useUnsavedChangesGuard } from '@/core/router';
 
+import { ProfileApiTokenSection } from './components/ProfileApiTokenSection';
 import { ProfilePermissionSection } from './components/ProfilePermissionSection';
 
 /** 與後端的密碼規則一致（apps/api/src/modules/auth/password.ts）。 */
@@ -256,6 +257,8 @@ export default function ProfilePage() {
         <>
           <Separator />
           <ProfilePermissionSection userId={profile.data.user.id} />
+          <Separator />
+          <ProfileApiTokenSection />
         </>
       )}
     </div>

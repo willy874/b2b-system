@@ -1,3 +1,5 @@
+import { MY_API_TOKENS_QUERY_KEY } from '@/apis/api-token/get-my-api-tokens/query';
+import { USER_API_TOKENS_QUERY_KEY } from '@/apis/api-token/get-user-api-tokens/query';
 /**
  * 本專案的資源依賴圖（機制見 `core/cache/resourceGraph.ts`）。
  *
@@ -44,6 +46,9 @@ import { ROLE_PERMISSIONS_QUERY_KEY } from '@/apis/role/get-role-permissions/que
 import { ROLE_REVISION_DETAIL_QUERY_KEY } from '@/apis/role/get-role-revision/query';
 import { ROLE_REVISIONS_QUERY_KEY } from '@/apis/role/get-role-revisions/query';
 import { ROLE_USERS_QUERY_KEY } from '@/apis/role/get-role-users/query';
+import { SERVICE_ACCOUNT_DETAIL_QUERY_KEY } from '@/apis/service-account/get-service-account-detail/query';
+import { SERVICE_ACCOUNT_LIST_QUERY_KEY } from '@/apis/service-account/get-service-account-list/query';
+import { SERVICE_ACCOUNT_TOKENS_QUERY_KEY } from '@/apis/service-account/get-service-account-tokens/query';
 import { PUBLIC_SETTINGS_QUERY_KEY } from '@/apis/system/get-public-settings/query';
 import { SETTING_LIST_QUERY_KEY } from '@/apis/system/get-setting-list/query';
 import { TRASH_LIST_QUERY_KEY } from '@/apis/trash/get-trash-list/query';
@@ -105,6 +110,13 @@ export const Resource = {
   NOTIFICATION_POLICY: 'notificationPolicy',
   /** 自己的通知設定（`id` = 事件類型；後端只推給本人，ADR-0028 D15） */
   NOTIFICATION_PREFERENCE: 'notificationPreference',
+  /** 服務帳號（`id` = 服務帳號 id；docs/adr/0027-api-tokens-external-api.md D1） */
+  SERVICE_ACCOUNT: 'serviceAccount',
+  /**
+   * API token（`id` = token id）：個人的、別人的、服務帳號的都是它。撤銷以 update 宣告（還在列表上，狀態變了）；
+   * 服務帳號的 token 帶 `refs.serviceAccount`（擁有者的有效 token 數）
+   */
+  API_TOKEN: 'apiToken',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -285,6 +297,28 @@ const graph = createResourceGraph<Resource>({
   },
   [Resource.USER_CREDENTIAL]: {},
   [Resource.TENANT_FEATURE]: {},
+  [Resource.SERVICE_ACCOUNT]: {
+    collection: [SERVICE_ACCOUNT_LIST_QUERY_KEY],
+    entity: [SERVICE_ACCOUNT_DETAIL_QUERY_KEY],
+    derivesFrom: [
+      // 列表與詳情嵌入角色名稱；角色端不知道哪些服務帳號持有它（沒有 refs），改名與刪除時列表與所有詳情都重抓
+      { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'ref' },
+      // 有效 token 數
+      { from: Resource.API_TOKEN, id: 'ref' },
+    ],
+  },
+  [Resource.API_TOKEN]: {
+    // 三種列表都是「某個帳號的全部 token」，數量少，整批重抓
+    collection: [
+      MY_API_TOKENS_QUERY_KEY,
+      USER_API_TOKENS_QUERY_KEY,
+      SERVICE_ACCOUNT_TOKENS_QUERY_KEY,
+    ],
+    derivesFrom: [
+      // 停用、刪除服務帳號讓它的 token 全部失效（狀態變成 invalidated／revoked）
+      { from: Resource.SERVICE_ACCOUNT, kinds: ['update', 'delete'], id: 'none' },
+    ],
+  },
   [Resource.NOTIFICATION]: {
     // 列表與未讀數都只看自己的：新通知、已讀、全部已讀都會改變兩者。列表只有 collection——
     // 已讀一則也要讓「未讀」篩選的列表少一筆，逐筆更新快取不如整個重抓（keyset，只抓已載入的頁數）

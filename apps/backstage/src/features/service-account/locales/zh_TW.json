@@ -1,0 +1,56 @@
+{
+  "serviceAccount": {
+    "status": {
+      "active": "啟用中",
+      "inactive": "已停用"
+    },
+    "field": {
+      "name": "名稱",
+      "status": "狀態",
+      "roles": "持有的角色",
+      "activeTokenCount": "有效 token",
+      "createdAt": "建立時間"
+    },
+    "list": {
+      "title": "服務帳號",
+      "description": "給 CI、建置流程等外部系統使用的帳號：不能登入後台，只能以 API token 呼叫對外 API。",
+      "searchPlaceholder": "搜尋名稱"
+    },
+    "create": {
+      "action": "建立服務帳號",
+      "title": "建立服務帳號",
+      "description": "建立後在詳情裡建立 API token。持有的角色決定它的 token 能做什麼。",
+      "success": "已建立服務帳號「{{name}}」"
+    },
+    "update": {
+      "success": "已更新服務帳號"
+    },
+    "delete": {
+      "title": "刪除服務帳號",
+      "confirm": "刪除「{{name}}」之後，它的 {{count}} 把有效 token 會立即失效。服務帳號刪除後不能還原。",
+      "success": "已刪除服務帳號"
+    },
+    "role": {
+      "placeholder": "選擇角色",
+      "hint": "它的 API token 最多只能做到這些角色允許的事；只能指派自己持有的權限。",
+      "save": "儲存角色",
+      "success": "已更新持有的角色"
+    },
+    "detail": {
+      "title": "服務帳號",
+      "basic": "基本資料",
+      "roles": "持有的角色",
+      "tokens": "API token",
+      "tokensHint": "token 只在對外 API 有效，建立時只會顯示一次。",
+      "backToList": "回到列表"
+    },
+    "deactivate": {
+      "action": "停用",
+      "title": "停用服務帳號",
+      "confirm": "停用「{{name}}」之後，它的 {{count}} 把有效 token 會立即失效，重新啟用也不會恢復，需要再建立新的 token。"
+    },
+    "activate": {
+      "action": "啟用"
+    }
+  }
+}
