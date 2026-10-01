@@ -62,7 +62,7 @@ apps/api/src/
 │   │   ├── transform.interceptor.ts      包成 { data: ... }
 │   │   └── pagination.ts                 分頁 DTO 與輔助
 │   ├── logger/
-│   │   └── logger.module.ts              Pino
+│   │   └── logger.module.ts              Pino：存取日誌與應用程式日誌共用（main.ts 以 app.useLogger 接上）、requestId、redact
 │   ├── validation/
 │   │   ├── zod-validation.pipe.ts
 │   │   └── zod-openapi.ts                Zod schema → OpenAPI schema

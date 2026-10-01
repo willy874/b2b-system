@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
+import { Logger as PinoLogger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
 import { auditRoutes } from './common/route-audit';
@@ -17,7 +18,10 @@ const HTTP_KEEP_ALIVE_TIMEOUT_MS = 65_000;
 async function bootstrap(): Promise<void> {
   // 不設 global prefix：dev 由 Vite proxy、prod 由反向代理去掉 `/api` 前綴後轉入
   // （docs/architecture/01-system.md §4）。
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: false });
+  // 啟動期間的日誌先暫存，接上 Pino 之後才輸出：`new Logger(Xxx.name)` 的應用程式日誌與 HTTP 存取日誌
+  // 都是同一個 Pino（JSON、帶 requestId、套用 redact；docs/conventions/03-backend.md §7）
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(PinoLogger));
   const config = app.get(ConfigService<Env, true>);
 
   // 在反向代理後面時才讀得到真正的客戶端 IP；realtime 的每 IP 限制也讀同一個設定
