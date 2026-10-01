@@ -31,6 +31,8 @@ export const ChangeSource = {
    * 新通知是 `create`；在另一個裝置或分頁標為已讀是 `update`（全部已讀沒有 `id`）。
    */
   NOTIFICATION: 'notification',
+  /** 事件管理的租戶政策（`id` = 事件類型，例：`approval.pending`；docs/adr/0028-notification-event-management.md D9）。 */
+  NOTIFICATION_POLICY: 'notificationPolicy',
 } as const;
 
 export type ChangeSource = (typeof ChangeSource)[keyof typeof ChangeSource];
@@ -61,6 +63,7 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.SETTING,
   ChangeSource.TENANT_FEATURE,
   ChangeSource.NOTIFICATION,
+  ChangeSource.NOTIFICATION_POLICY,
 ]);
 
 export const ResourceChangeWireSchema = z.object({

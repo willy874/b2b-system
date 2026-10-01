@@ -247,6 +247,7 @@ super-admin 加入自己租戶的所有 perm room。
 | `setting`          | `system:read`                              | —                                  | 系統設定頁；公開設定（登入頁、預設時區）下次載入時生效，不推給所有人（[`12-settings.md`](./12-settings.md) §4） |
 | `tenantFeature`    | —（不經這張表）                            | —                                  | 平台層的變更：由 `tenant.featuresChanged` 直接推給 `t:{tenantId}`（每個人都要重新取得 profile，含 `features` 與 `flags`），見 §7.1。表裡的列是空的，只為了讓 `Record<ChangeSource, …>` 完整 |
 | `notification`     | —                                          | 收件人（`affectedUserIds`；`id` 是通知 id，不是使用者 id） | 站內通知是個人的東西，只推給收件人自己的所有連線（[ADR-0026](../../adr/0026-notification-center.md) D8，[`15-notification.md`](./15-notification.md) §7）；不寫稽核，所以 **不** 加 `auditLog:read` |
+| `notificationPolicy` | `system:read`                            | —                                  | 事件管理頁（[`16-notification-event.md`](./16-notification-event.md) §4；與系統設定同一群讀者） |
 | 任何來源（`notification` 除外） | `auditLog:read`                 | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）；規則上標 `recordsAudit: false` 的來源不算 |
 
 - `io.to([...rooms]).emit()` 會對多個 room 的聯集 **去重**，同一條連線只收到一次。
@@ -394,6 +395,7 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 | 修改或還原系統設定           | `setting update`（每個 key 一筆，id 是設定的 key）   | —                                                         |
 | 寫入站內通知（`NotificationService.notify()`） | 每位收件人各一則 `notification create`（id 是他自己的通知 id，一次超過 100 則時不帶 id），`affectedUserIds` = 那位收件人；由 `afterCommit` 在交易提交時就發出，早於同一個操作在交易後才發的事件 | —                                        |
 | 通知標為已讀／全部已讀       | `notification update`（單則帶 id；全部已讀不帶），`affectedUserIds` = 自己 | —                                    |
+| 開關事件通知（`PATCH /notification-events`） | `notificationPolicy update`（每個改到的事件一筆，id 是事件類型） | —                                    |
 | 平台管理者改了租戶啟用的 feature | 不發 `resource.changed`；發 `tenant.featuresChanged`（平台的請求沒有租戶脈絡，room 以 `tenantId` 組） | —                                  |
 
 登入失敗被鎖定 **不** 遞增 `token_version`，因此不撤銷既有連線：被鎖的人最遲在 access token 到期（§3.4）
@@ -500,6 +502,8 @@ export const ChangeSource = {
   TENANT_FEATURE: 'tenantFeature',
   /** 站內通知（id = 通知 id）；只推給收件人（ADR-0026 D8）。 */
   NOTIFICATION: 'notification',
+  /** 事件管理的租戶政策（id = 事件類型；ADR-0028 D9）。 */
+  NOTIFICATION_POLICY: 'notificationPolicy',
 } as const;
 
 export const resourceChangedSchema = z.object({

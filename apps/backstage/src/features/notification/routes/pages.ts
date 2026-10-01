@@ -14,3 +14,13 @@ export const NotificationListRoute = createRoute({
   validateSearch: NotificationSearchQuerySchema,
   search: { middlewares: [stripSearchParams(DEFAULT_NOTIFICATION_SEARCH)] },
 });
+
+/**
+ * 事件管理（`system:read` 檢視、`system:update` 修改；docs/architecture/frontend/15-notification.md §9、ADR-0028 D12）：
+ * 租戶層決定每個事件經由哪些管道送出。
+ */
+export const NotificationEventListRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: '/notification/events',
+  loader: localeScopeLoader(NOTIFICATION_LOCALE_SCOPE),
+});

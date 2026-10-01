@@ -33,6 +33,49 @@
       "userRegister": "account registration",
       "fileFolderAccess": "folder access",
       "unknown": "approval"
+    },
+    "event": {
+      "title": "Event notifications",
+      "description": "The system notifies the people involved when these events happen. Turning a channel off stops future deliveries; notifications already sent are kept, and turning it back on does not resend them.",
+      "recipients": "Recipients: {{recipients}}",
+      "default": "Default: {{value}}",
+      "state": {
+        "on": "On",
+        "off": "Off"
+      },
+      "overridden": "Modified",
+      "resetToDefault": "Reset to default",
+      "mandatory": "Security related, cannot be turned off",
+      "switchLabel": "{{event}}: {{channel}}",
+      "discard": "Discard changes",
+      "save": {
+        "success": "Event notification settings saved"
+      },
+      "channel": {
+        "inApp": "In-app",
+        "email": "Email"
+      },
+      "category": {
+        "approval": "Approvals",
+        "user": "Users"
+      },
+      "type": {
+        "approvalPending": {
+          "name": "Request awaiting review",
+          "description": "Notifies reviewers when someone submits a request (account registration, folder access).",
+          "recipients": "People holding the “Review requests” permission at submission (excluding the requester)"
+        },
+        "approvalResult": {
+          "name": "Request reviewed",
+          "description": "Notifies the requester when a request is approved or rejected. Email is the existing review result email.",
+          "recipients": "The requester"
+        },
+        "userRolesChanged": {
+          "name": "Roles changed",
+          "description": "Notifies a user when roles are assigned to or removed from them.",
+          "recipients": "The user whose roles changed"
+        }
+      }
     }
   }
 }

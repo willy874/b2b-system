@@ -1,5 +1,11 @@
-import { defineNotification } from '@/modules/notification/notification.definition';
-import type { NotificationLink } from '@/modules/notification/notification.definition';
+import {
+  defineNotification,
+  NotificationChannel,
+} from '@/modules/notification/notification.definition';
+import type {
+  AnyNotificationType,
+  NotificationLink,
+} from '@/modules/notification/notification.definition';
 
 /**
  * 使用者的站內通知（docs/architecture/backend/15-notification.md §4、ADR-0026 D11）。
@@ -14,8 +20,13 @@ export type UserRolesChangedParams = {
   removed: string[];
 };
 
-export const USER_ROLES_CHANGED_NOTIFICATION =
-  defineNotification<UserRolesChangedParams>('user.rolesChanged');
+export const USER_ROLES_CHANGED_NOTIFICATION = defineNotification<UserRolesChangedParams>(
+  'user.rolesChanged',
+  { category: 'user', channels: [NotificationChannel.IN_APP] },
+);
+
+/** `UserModule` 登記進事件目錄的類型。 */
+export const USER_NOTIFICATIONS: readonly AnyNotificationType[] = [USER_ROLES_CHANGED_NOTIFICATION];
 
 /** 自己的個人資料頁（前端 `/profile`）：看得到自己目前的角色，不需要任何權限。 */
 export const ACCOUNT_PROFILE_LINK: NotificationLink = { route: 'account.profile', params: {} };

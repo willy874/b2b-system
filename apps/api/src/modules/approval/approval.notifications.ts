@@ -1,5 +1,11 @@
-import { defineNotification } from '@/modules/notification/notification.definition';
-import type { NotificationLink } from '@/modules/notification/notification.definition';
+import {
+  defineNotification,
+  NotificationChannel,
+} from '@/modules/notification/notification.definition';
+import type {
+  AnyNotificationType,
+  NotificationLink,
+} from '@/modules/notification/notification.definition';
 
 import type { ApprovalType } from './approval.constants';
 
@@ -17,8 +23,10 @@ export type ApprovalPendingParams = {
   subject: string;
 };
 
-export const APPROVAL_PENDING_NOTIFICATION =
-  defineNotification<ApprovalPendingParams>('approval.pending');
+export const APPROVAL_PENDING_NOTIFICATION = defineNotification<ApprovalPendingParams>(
+  'approval.pending',
+  { category: 'approval', channels: [NotificationChannel.IN_APP] },
+);
 
 /** 請求被核准或駁回：給申請人（匿名的註冊沒有收件人；結果信照舊）。 */
 export type ApprovalResultParams = {
@@ -27,8 +35,19 @@ export type ApprovalResultParams = {
   status: 'approved' | 'rejected';
 };
 
-export const APPROVAL_RESULT_NOTIFICATION =
-  defineNotification<ApprovalResultParams>('approval.result');
+/**
+ * 結果信（`approval.resultMail`）也是這個事件的 `email` 管道（ADR-0028 D3）：租戶可以分別關掉站內通知與信。
+ */
+export const APPROVAL_RESULT_NOTIFICATION = defineNotification<ApprovalResultParams>(
+  'approval.result',
+  { category: 'approval', channels: [NotificationChannel.IN_APP, NotificationChannel.EMAIL] },
+);
+
+/** `ApprovalModule` 登記進事件目錄的類型。 */
+export const APPROVAL_NOTIFICATIONS: readonly AnyNotificationType[] = [
+  APPROVAL_PENDING_NOTIFICATION,
+  APPROVAL_RESULT_NOTIFICATION,
+];
 
 /** 審批詳情（前端 `/approval/$approvalId`）。 */
 export function approvalDetailLink(approvalId: string): NotificationLink {

@@ -33,6 +33,7 @@ import { IDENTITY_PROVIDER_LIST_QUERY_KEY } from '@/apis/identity-provider/get-i
 import { JOB_DETAIL_QUERY_KEY } from '@/apis/job/get-job-detail/query';
 import { JOB_LIST_QUERY_KEY } from '@/apis/job/get-job-list/query';
 import { JOB_QUEUE_LIST_QUERY_KEY } from '@/apis/job/get-job-queue-list/query';
+import { NOTIFICATION_EVENT_LIST_QUERY_KEY } from '@/apis/notification/get-notification-event-list/query';
 import { NOTIFICATION_LIST_QUERY_KEY } from '@/apis/notification/get-notification-list/query';
 import { NOTIFICATION_UNREAD_COUNT_QUERY_KEY } from '@/apis/notification/get-notification-unread-count/query';
 import { PERMISSION_LIST_QUERY_KEY } from '@/apis/permission/get-permission-list/query';
@@ -99,6 +100,8 @@ export const Resource = {
    * 新通知是 create、已讀與全部已讀是 update。
    */
   NOTIFICATION: 'notification',
+  /** 事件管理的租戶政策（`id` = 事件類型；docs/adr/0028-notification-event-management.md D9） */
+  NOTIFICATION_POLICY: 'notificationPolicy',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -154,6 +157,9 @@ const graph = createResourceGraph<Resource>({
   },
   [Resource.IDENTITY_PROVIDER]: {
     collection: [IDENTITY_PROVIDER_LIST_QUERY_KEY],
+  },
+  [Resource.NOTIFICATION_POLICY]: {
+    collection: [NOTIFICATION_EVENT_LIST_QUERY_KEY],
   },
   [Resource.SETTING]: {
     // 公開設定是同一批值的子集

@@ -51,4 +51,5 @@ export const routeTree = RootRoute.addChildren([
   AccountRoutes.ProfileRoute,
   AccountRoutes.PreferenceRoute,
   NotificationRoutes.NotificationListRoute,
+  NotificationRoutes.NotificationEventListRoute,
 ]);

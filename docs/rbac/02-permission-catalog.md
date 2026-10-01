@@ -68,8 +68,8 @@
 
 | 權限鍵          | 顯示名稱（zh-TW） | 說明                                     |
 | --------------- | ----------------- | ---------------------------------------- |
-| `system:read`   | 檢視系統資訊      | 版本、健康狀態、系統設定頁（唯讀）       |
-| `system:update` | 變更系統設定      | 修改與還原系統設定（[`../architecture/backend/12-settings.md`](../architecture/backend/12-settings.md)） |
+| `system:read`   | 檢視系統資訊      | 版本、健康狀態、系統設定頁與事件通知頁（唯讀）       |
+| `system:update` | 變更系統設定      | 修改與還原系統設定（[`../architecture/backend/12-settings.md`](../architecture/backend/12-settings.md)）、開關事件通知（[`../architecture/backend/16-notification-event.md`](../architecture/backend/16-notification-event.md)） |
 
 ### 2.6 `approval` — 審批
 
@@ -250,6 +250,7 @@
 | 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:access` 或 `file:read`（按鈕層級看後端回傳的 `capabilities`，見 [`07-resource-grants.md`](./07-resource-grants.md) §7） | SOME |
 | 外部 IdP 連線 | `/identity-provider`      | `IDENTITY_PROVIDER` | `identityProvider:read`        | EVERY |
 | 系統設定     | `/system/settings`（`system:update` 才能修改） | `SETTING` | `system:read`             | EVERY |
+| 事件通知     | `/notification/events`（`system:update` 才能修改） | `NOTIFICATION_EVENT` | `system:read` | EVERY |
 | 回收桶       | `/trash`（分頁依各類型的 `<resource>:delete` 過濾） | `TRASH` | 任一種 `<resource>:delete`（`user:delete`、`role:delete`、`group:delete`、`file:delete`；[`../architecture/frontend/13-trash.md`](../architecture/frontend/13-trash.md) §3） | SOME |
 
 apps/auth 只給平台管理者登入（[`../architecture/04-sso.md`](../architecture/04-sso.md) §1.1、§6.2），這個目錄的權限不適用；

@@ -33,6 +33,49 @@
       "userRegister": "帳號註冊",
       "fileFolderAccess": "資料夾存取",
       "unknown": "審批"
+    },
+    "event": {
+      "title": "事件通知",
+      "description": "系統會在這些事件發生時通知相關的人。關掉某個管道後就不再送出；已送出的通知不受影響，重新開啟也不會補發。",
+      "recipients": "收件人：{{recipients}}",
+      "default": "預設：{{value}}",
+      "state": {
+        "on": "開啟",
+        "off": "關閉"
+      },
+      "overridden": "已修改",
+      "resetToDefault": "恢復預設",
+      "mandatory": "安全相關，不能關閉",
+      "switchLabel": "{{event}}：{{channel}}",
+      "discard": "捨棄變更",
+      "save": {
+        "success": "已儲存事件通知設定"
+      },
+      "channel": {
+        "inApp": "站內通知",
+        "email": "Email"
+      },
+      "category": {
+        "approval": "審批",
+        "user": "使用者"
+      },
+      "type": {
+        "approvalPending": {
+          "name": "有待審的申請",
+          "description": "有人送出申請（帳號註冊、資料夾存取）時，通知可以審核的人。",
+          "recipients": "送出當下持有「審核申請」權限的人（不含申請人自己）"
+        },
+        "approvalResult": {
+          "name": "申請的審核結果",
+          "description": "申請被核准或駁回時通知申請人。Email 是既有的審核結果信。",
+          "recipients": "申請人"
+        },
+        "userRolesChanged": {
+          "name": "角色變更",
+          "description": "使用者被指派或移除角色時通知本人。",
+          "recipients": "被變更角色的人"
+        }
+      }
     }
   }
 }

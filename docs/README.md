@@ -92,7 +92,7 @@ docs/
 │   │   ├── 12-file-manager.md         檔案管理器：排版、選取、上傳佇列、預覽擴充點
 │   │   ├── 13-trash.md                回收桶頁：類型註冊表、權限、使用者、角色、檔案與資料夾的還原
 │   │   ├── 14-revisions.md            版本紀錄：版本列表、與目前或前一版的差異、還原到某一版（角色）
-│   │   └── 15-notification.md         站內通知：頂列鈴鐺、列表頁、route id 註冊表（core/route-link）
+│   │   └── 15-notification.md         站內通知：頂列鈴鐺、列表頁、route id 註冊表（core/route-link）、事件管理頁
 │   │
 │   └── backend/
 │       ├── README.md
@@ -110,7 +110,8 @@ docs/
 │       ├── 12-settings.md             系統設定：執行期可調的值（租戶 DB）、env 與設定的分工
 │       ├── 13-trash.md                回收桶：TrashRegistry、還原端點、trash.purge 與外鍵處理
 │       ├── 14-revisions.md            版本歷史：revisions、RevisionService、還原到某一版、revision.prune
-│       └── 15-notification.md         站內通知：notifications、NotificationService.notify、收件人計算、route id、notification.cleanup
+│       ├── 15-notification.md         站內通知：notifications、NotificationService.notify、收件人計算、route id、notification.cleanup
+│       └── 16-notification-event.md   事件管理：事件目錄、notification_policies、租戶層的開關
 │
 ├── rbac/
 │   ├── 01-domain-model.md             實體、ER 圖、不變條件、關係圖的組成與模型

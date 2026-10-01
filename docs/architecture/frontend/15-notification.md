@@ -1,6 +1,6 @@
 # 前端 15 — 站內通知
 
-> 狀態：**已實作**（`features/notification`：頂列鈴鐺、Popover、列表頁 `/notification`；`core/route-link` 的 route id 註冊表）。
+> 狀態：**已實作**（`features/notification`：頂列鈴鐺、Popover、列表頁 `/notification`、事件管理頁 `/notification/events`；`core/route-link` 的 route id 註冊表）。
 > 後端（`notifications` 表、`NotificationService.notify()`、API、推播、保留清理）見 [`../backend/15-notification.md`](../backend/15-notification.md)；
 > 決策見 [ADR-0026](../../adr/0026-notification-center.md) D3、D8、D12。
 
@@ -17,7 +17,7 @@ features/account/routeLinks.ts          登記 account.profile
 
 features/notification/                  只讀註冊表，不 import 其他 feature
 ├── plugin.ts                           頁面權限 ＋ registerHeaderTool('notification')（同步階段）
-├── permission.ts                       NOTIFICATION_PAGE（只需要登入）
+├── permission.ts                       NOTIFICATION_PAGE（只需要登入）、NOTIFICATION_EVENT_PAGE（system:read）
 ├── constants.ts                        句子的 i18n key 對照表、審批類型的名稱
 ├── adapter.ts                          DTO → NotificationVM（句子、補充、連結）、translateMessage()
 ├── hooks/
@@ -25,18 +25,24 @@ features/notification/                  只讀註冊表，不 import 其他 feat
 │   ├── useNotificationList.ts          keyset 無限捲動 ＋ 解析連結
 │   ├── useNotificationMutations.ts     標為已讀、全部已讀
 │   ├── useOpenNotification.ts          點一則：未讀的標為已讀
+│   ├── useNotificationEventPermission.ts  事件管理頁的權限 facade
+│   ├── useNotificationEventDraft.ts    事件管理頁的草稿（只記和伺服器不同的開關）
+│   ├── useUpdateNotificationEventsMutation.ts
 │   └── useNotificationLocale.ts        鈴鐺自己載入語系包
 ├── components/
 │   ├── NotificationBell.tsx            頂列工具：徽章 ＋ Popover
 │   ├── NotificationList.tsx            VirtualList（鈴鐺與列表頁共用）
 │   └── NotificationItem.tsx            一則通知
-└── pages/NotificationList/             列表頁：全部／未讀、全部已讀
+├── pages/NotificationList/             列表頁：全部／未讀、全部已讀
+└── pages/NotificationEventList/        事件管理頁（§9）
 
 apis/notification/
 ├── get-notification-list/              GET /notifications（infinite query）
 ├── get-notification-unread-count/      GET /notifications/unread-count
 ├── mark-notification-read/             POST /notifications/:id/read
-└── mark-all-notifications-read/        POST /notifications/read-all
+├── mark-all-notifications-read/        POST /notifications/read-all
+├── get-notification-event-list/        GET /notification-events
+└── update-notification-events/         PATCH /notification-events
 ```
 
 拿掉 `main.tsx` 的 `.use(notificationFeaturePlugin())`，鈴鐺、列表頁與偏好頁的「頂列工具」那一列一起消失；
@@ -116,6 +122,7 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 | --- | --- |
 | `notification` create（新通知，伺服器推給收件人） | `NOTIFICATION_LIST`、`NOTIFICATION_UNREAD_COUNT` |
 | `notification` update（標為已讀、全部已讀；本分頁的 mutation 也以它宣告） | 同上 |
+| `notificationPolicy` update（事件管理頁的修改，推給 `system:read` 的人） | `NOTIFICATION_EVENT_LIST` |
 
 - 兩個 query 都放在 `collection`：已讀一則也會讓「未讀」列表少一筆，逐筆改快取不如整個重抓（infinite query 只重抓已載入的頁數）。
 - **稽核列表不跟著失效**：`AUDIT_LOG` 的 `derivesFromAnyChange` 改成 `{ except: [Resource.NOTIFICATION] }`（`core/cache/resourceGraph.ts` 新增的形式）。
@@ -139,6 +146,22 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 | 鈴鐺：徽章與可存取名稱、打開前不抓、`99+`、句子與不可點、點了標為已讀並換頁、全部已讀、查看全部、空狀態 | `features/notification/components/__tests__/NotificationBell.test.tsx` |
 | 列表頁：只需要登入的三個權限案例（沒有權限、有其他權限、未水合）、未讀分頁寫進網址、全部已讀、查詢失敗 | `features/notification/pages/NotificationList/__tests__/NotificationListPage.test.tsx` |
 | 依賴圖：`notification` 的 create／update 只失效通知、不碰稽核；其他寫入不影響通知；`except` 的引擎行為 | `apis/__tests__/resources.test.ts`、`core/cache/__tests__/resourceGraph.test.ts` |
-| 頁面註冊表的鍵集合含 `NOTIFICATION_PAGE` | `core/permission/__tests__/feature-registration.test.ts` |
+| 頁面註冊表的鍵集合含 `NOTIFICATION_PAGE`、`NOTIFICATION_EVENT_PAGE` | `core/permission/__tests__/feature-registration.test.ts` |
 | 相對時間 | `shared/date/__tests__/date.test.ts` |
 | E2E：註冊申請 → 審核者的鈴鐺（推播）→ 點開到審批詳情、標為已讀；角色被改 → 本人收到通知（專用帳號 `e2e-notifyme`，未讀數精確斷言）→ 到個人資料頁、全部已讀、列表頁的未讀分頁 | `apps/e2e/tests/notification.spec.ts` |
+| 事件管理頁：分組與不認得的事件、草稿（切回伺服器的值移除、有覆寫而切回預設送 `null`、恢復預設）、頁面（只送改過的、恢復預設、`mandatory` 停用、三個權限案例） | `features/notification/pages/NotificationEventList/__tests__/*`、`features/notification/hooks/__tests__/useNotificationEventDraft.test.ts` |
+
+## 9. 事件管理頁（`/notification/events`）
+
+租戶層決定每個事件經由哪些管道送出（[ADR-0028](../../adr/0028-notification-event-management.md) D12、D13；後端見
+[`../backend/16-notification-event.md`](../backend/16-notification-event.md)）。
+
+| 項目 | 規則 |
+| --- | --- |
+| 權限 | 頁面鍵 `NOTIFICATION_EVENT_PAGE`：`system:read` 檢視、`system:update`（`canUpdate`）切換與恢復預設；沒有 `system:update` 或權限未水合時整頁唯讀。與 `/notification` 是父子路徑，頁面鍵取前綴最長的 |
+| 選單 | 側邊選單「系統管理 › 事件通知」（`menu-notification-event`），排在系統設定之後 |
+| 版面 | 依後端的 `category` 分組（後端目錄的順序）；一列一個事件：名稱、說明、收件人，右側每個管道一個開關、預設值、「已修改」與「恢復預設」 |
+| `mandatory` | 開關停用並顯示鎖頭與「安全相關，不能關閉」 |
+| 送出 | 一整頁一份草稿，只送改過的「事件 ＋ 管道」；有覆寫而切回預設值時送 `enabled: null`（不留一筆與預設相同的覆寫）。成功後以 `notificationPolicy update` 宣告變更 |
+| 文字 | 名稱、說明、收件人在 `constants.ts` 的 `NOTIFICATION_EVENT_LABEL`（key 是後端的 `type`），分類在 `NOTIFICATION_EVENT_CATEGORY_LABEL_KEY`，管道在 `NOTIFICATION_CHANNEL_LABEL_KEY`（`satisfies Record<NotificationChannel, string>`）。後端新增了前端不認得的事件或分類時以原字串顯示，開關照常可用 |
+

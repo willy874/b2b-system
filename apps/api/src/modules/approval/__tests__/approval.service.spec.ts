@@ -68,7 +68,10 @@ function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperA
     getPermissionSet: vi.fn(async () => permissionSet),
     findActiveUserIdsWithPermission: vi.fn(async () => ['reviewer-1', 'reviewer-2']),
   };
-  const notifications = { notify: vi.fn(async () => []) };
+  const notifications = {
+    notify: vi.fn(async () => []),
+    isChannelEnabled: vi.fn(async () => true),
+  };
   const audit = { record: vi.fn(async () => undefined) };
   const events = { publish: vi.fn() };
   const jobs = { enqueue: vi.fn(async () => 'job-1') };
@@ -205,6 +208,18 @@ describe('ApprovalService.approve', () => {
       { approvalId: 'approval-1' },
       { tx: ctx.tx },
     );
+  });
+
+  it('租戶關掉 approval.result 的 email 管道 → 不入列結果信（ADR-0028 D3）', async () => {
+    const ctx = setup();
+    ctx.notifications.isChannelEnabled.mockResolvedValue(false);
+    await ctx.service.approve('approval-1', { roleIds: [] }, REVIEWER);
+    expect(ctx.notifications.isChannelEnabled).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'approval.result' }),
+      'email',
+      ctx.tx,
+    );
+    expect(ctx.jobs.enqueue).not.toHaveBeenCalled();
   });
 
   it('匿名的申請（註冊）沒有收件人：不寫審批結果通知', async () => {

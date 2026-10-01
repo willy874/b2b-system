@@ -11,6 +11,7 @@ import { GROUP_PAGE } from '@/features/group';
 import { HOME_PAGE } from '@/features/home';
 import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
 import { JOB_PAGE } from '@/features/job';
+import { NOTIFICATION_EVENT_PAGE } from '@/features/notification';
 import { PERMISSION_PAGE } from '@/features/permission';
 import { ROLE_PAGE } from '@/features/role';
 import { SETTING_PAGE } from '@/features/system';
@@ -124,6 +125,13 @@ const MENU_GROUPS: NavGroup[] = [
         labelKey: 'menu.setting',
         testId: 'menu-setting',
         icon: 'settings',
+      },
+      {
+        pageKey: NOTIFICATION_EVENT_PAGE,
+        to: '/notification/events',
+        labelKey: 'menu.notificationEvent',
+        testId: 'menu-notification-event',
+        icon: 'bell',
       },
     ],
   },

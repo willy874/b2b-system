@@ -3,12 +3,14 @@ import { Module } from '@nestjs/common';
 import { ApprovalModule } from '@/modules/approval/approval.module';
 import { CredentialModule } from '@/modules/credential/credential.module';
 import { IdentityProviderModule } from '@/modules/identity-provider/identity-provider.module';
+import { NotificationEventCatalog } from '@/modules/notification/notification-event.catalog';
 import { NotificationModule } from '@/modules/notification/notification.module';
 import { TrashModule } from '@/modules/trash/trash.module';
 
 import { UserRegistrationApprovalHandler } from './user-registration.approval';
 import { UserTrashHandler } from './user-trash.handler';
 import { UserController } from './user.controller';
+import { USER_NOTIFICATIONS } from './user.notifications';
 import { UserRepository } from './user.repository';
 import { UserService } from './user.service';
 
@@ -24,4 +26,8 @@ import { UserService } from './user.service';
   providers: [UserService, UserRepository, UserRegistrationApprovalHandler, UserTrashHandler],
   exports: [UserService],
 })
-export class UserModule {}
+export class UserModule {
+  constructor(notificationEvents: NotificationEventCatalog) {
+    notificationEvents.register(USER_NOTIFICATIONS);
+  }
+}

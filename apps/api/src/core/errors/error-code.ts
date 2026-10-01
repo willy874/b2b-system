@@ -125,6 +125,10 @@ export const ErrorCode = {
   // ── 站內通知 ──
   /** 通知不存在，或不是自己的（不透露別人的通知是否存在；ADR-0026 D9）。 */
   NOTIFICATION_NOT_FOUND: { status: 404 },
+  /** 事件管理：事件沒有登記、所屬 feature 沒啟用，或該事件不支援這個管道（ADR-0028 D9）。 */
+  NOTIFICATION_EVENT_NOT_FOUND: { status: 404 },
+  /** 事件管理：不能關的事件（安全事件，ADR-0028 D4）。 */
+  NOTIFICATION_EVENT_MANDATORY: { status: 409 },
 
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },
