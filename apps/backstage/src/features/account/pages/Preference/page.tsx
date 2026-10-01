@@ -6,7 +6,7 @@ import { Field } from '@/components/Field';
 import { Select } from '@/components/Select';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
-import { usePreferenceSections } from '@/core/preference';
+import { usePreferenceLocales, usePreferenceSections } from '@/core/preference';
 import { useLocaleStore, useThemeStore, useTimezoneStore } from '@/core/store';
 import { THEME_OPTIONS } from '@/core/theme';
 import { LANGUAGE_LABELS, SUPPORTED_LANGUAGES } from '@/shared/constants/lang';
@@ -34,6 +34,8 @@ export default function PreferencePage() {
 
   // feature 或 plugins/features/* 註冊的分頁；偏好頁不需要認識它們
   const sections = usePreferenceSections();
+  // 晚一步安裝的 feature（ADR-0021）登記的分頁與列表：補載它們的語系包
+  usePreferenceLocales();
 
   return (
     <div className="flex max-w-2xl flex-col gap-6" data-testid="preference-page">
