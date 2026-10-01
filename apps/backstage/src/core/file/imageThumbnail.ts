@@ -1,7 +1,7 @@
 import { isBrowserImage } from './fileType';
 import type { ThumbnailGenerator } from './registry';
 
-/** 縮圖用 WebP：同畫質下比 JPEG 小，且保留透明（遊戲素材常有透明底）。 */
+/** 縮圖用 WebP：同畫質下比 JPEG 小，且保留透明（圖示、素材常有透明底）。 */
 const THUMBNAIL_TYPE = 'image/webp';
 const QUALITY = 0.8;
 /** 超過這個像素數不解碼：解一張 1 億像素的圖要數百 MB 記憶體，寧可沒有縮圖。 */

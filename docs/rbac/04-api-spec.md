@@ -267,7 +267,7 @@
 // Request
 {
   "name": "內容編輯",
-  "description": "可以編輯遊戲內容但不能管理帳號",
+  "description": "可以編輯業務內容但不能管理帳號",
   "permissionKeys": ["user:read", "auditLog:read"]
 }
 // 201

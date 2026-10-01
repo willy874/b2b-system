@@ -6,7 +6,7 @@
 ## 這個專案是什麼
 
 B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**。
-沒有任何遊戲編輯器功能。範圍見 [`docs/overview/01-overview.md`](docs/overview/01-overview.md)。
+通用型多租戶後台：不綁定任何業務領域，業務功能以 feature＋module 的形式加在骨架上。範圍見 [`docs/overview/01-overview.md`](docs/overview/01-overview.md)。
 
 ## 先讀哪些文件
 

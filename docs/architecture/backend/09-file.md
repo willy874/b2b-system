@@ -164,7 +164,7 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 
 `pending` 不出現在列表、不發推播；別人查詢一律 `404 FILE_NOT_FOUND`。看不到所在資料夾的 `ready` 檔案同樣回 `404`。
 
-其他模組要引用檔案（例：角色頭像、關卡素材）時 **存 `files.id` 外鍵**，需要網址時注入 `FileService`。
+其他模組要引用檔案（例：使用者頭像、文件附件）時 **存 `files.id` 外鍵**，需要網址時注入 `FileService`。
 
 ### 4.2 資料夾：`file_folders`
 

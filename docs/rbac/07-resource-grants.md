@@ -283,7 +283,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 
 ### 10.1 其他資源與「專案」（P3）
 
-檔案之外的資源（未來的專案、關卡）沿用同一套：
+檔案之外的資源（之後的專案、文件等業務資源）沿用同一套：
 
 - 關係圖（`core/authz`）是通用的；每種資源在模型裡宣告自己的型別（等級、動作、`from` 上層），並提供結構邊的供應者。
 - 解析由關係圖的判斷器負責（舊的 `resolveHierarchyLevels` 與 `modules/resource-grant` 已在 G3a 刪除）。
