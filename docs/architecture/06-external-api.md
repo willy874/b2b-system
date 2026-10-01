@@ -44,6 +44,11 @@
 回傳 **帳號的權限 ∩ scopes 的閉包**（super-admin 也只剩 scopes），所以 guard 與 service 裡的權限判斷都套得到。
 快取存的是帳號本身的權限，同一個人在內部 api 的請求不受影響。資料夾等資源上的能力跟著帳號，不在 scope 裡。
 
+以關係圖解析資源授權的地方（檔案的 `FileAccessService.contextFor`）另外處理：資源模型會從租戶節點繼承（資料夾的 `can_*` ←
+租戶的 `file:*`），只限縮權限鍵的話，帳號經角色持有的 `file:delete` 仍會從這條路回來。`PermissionSet.tokenScoped` 時，
+`AuthzService.checkerFor` 的租戶層邊改成 **只有** 限縮後的權限鍵（`TenantRelationsOverride`，以一個只存在於這個判斷器的角色持有）；
+資料夾上的授權照舊。
+
 ## 3. 路由的分界（`@ExternalApi()`、`SurfaceGuard`）
 
 兩個程序都會註冊 import 進來的模組的 **全部** controller（Nest 的 controller 跟著 module），以 metadata 分開：
@@ -57,7 +62,23 @@
 規則由 `common/route-audit.ts` 在啟動時檢查（違反就啟動失敗），清單在 `test/route-audit.spec.ts`。
 對外的 controller 與 DTO 放在 `modules/<name>/external/`；DTO 與內部的分開，內部改欄位不會改到對外契約。
 
-**目前的對外端點**：`GET /v1/me`（這把 token 的帳號、token 的資訊、實際取得的權限）、`GET /health`、`GET /health/ready`。
+**目前的對外端點**（權限宣告與內部 api 對應的端點相同，`docs/architecture/backend/05-rbac.md` §9）：
+
+| 端點 | 說明 |
+| --- | --- |
+| `GET /v1/me` | 這把 token 的帳號、token 的資訊、實際取得的權限 |
+| `GET /v1/folders` | 看得到內容的資料夾（扁平，以 `parentId` 組樹）與能不能上傳；鎖住的資料夾不列 |
+| `GET /v1/files` | 檔案列表：依建立時間由新到舊，`limit` ＋ `nextCursor`（不提供 offset）；`folderId`（`root`）、`keyword` |
+| `GET /v1/files/:id` | 檔案資訊與下載網址（`url`、`downloadUrl`、`urlExpiresAt`；過期再取一次） |
+| `POST /v1/files` → PUT → `POST /v1/files/:id/complete` | 上傳：單次（`upload`）或分塊（`multipart` → `POST /v1/files/:id/parts` → 各自 PUT → complete 帶 ETag）；`DELETE /v1/files/:id/upload` 放棄 |
+| `GET /v1/users`、`GET /v1/users/:id` | 使用者唯讀（只有人）；`offset`／`limit`、`keyword`、`status` |
+| `GET /health`、`GET /health/ready` | 兩邊都有 |
+
+- 對外的 controller 與 DTO 在 `modules/file/external/`、`modules/user/external/`：`*.external.service.ts` 呼叫模組原本的 service，
+  只把內部的 DTO 換成 `External*` 的契約（不含內部的影像網址、`capabilities`、`version`、使用者的偏好與登入細節）。
+- 直傳與下載的網址是 **租戶網域** 的 `/storage`（presigned URL 以租戶的主要網域簽章，與請求從哪個網域進來無關）：整合方的網路要連得到租戶網域。
+- 對外程序 import 的業務模組：`ApiTokenModule`、`FileModule`、`UserModule`、`HealthModule`，以及 `RoleModule`、`GroupModule`
+  ——回收桶在啟動時要求每一種類型都有 handler。這些模組內部的路由一律由 `SurfaceGuard` 擋下。
 
 ## 4. 速率限制（D13）
 
@@ -108,5 +129,6 @@
 | 層 | 涵蓋 |
 | --- | --- |
 | 單元 | token 格式（`common/auth/__tests__/api-token.format.spec.ts`） |
+| 整合 | `test/external-api-v1.spec.ts`：檔案的單次與分塊上傳、列表、資訊、放棄、在內部 api 看得到；**限縮成 `file:read` 的 token 不能上傳**（帳號有全域 `file:create`）；使用者唯讀只列人 |
 | 整合 | `test/external-api.spec.ts`：同一個測試程序裡起內部 api 與對外 API 兩個 app。`/v1/me`、各種無效 token、JWT 與 API token 互不通用、`SurfaceGuard` 的兩個方向、scope 的交集、在內部 api 撤銷或停用後對外 API 立即拒絕、過期、`last_used_at`、驗證失敗的 429 |
 | 路由稽核 | `test/route-audit.spec.ts`：三種寫錯的入口宣告會讓啟動失敗；對外路由的清單 |

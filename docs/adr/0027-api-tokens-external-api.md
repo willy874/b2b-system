@@ -1,6 +1,6 @@
 # ADR-0027 — 服務帳號與 API Token，經獨立的對外 API 服務使用
 
-- 狀態：**採用**（2026-10-01 確認；T0、T1 已合併 main；T2 實作於 branch `feat/external-api`；T3～T5 尚未開始）
+- 狀態：**採用**（2026-10-01 確認；T0～T2 已合併 main；T3 實作於 branch `feat/external-api-v1`；T4、T5 尚未開始）
 - 日期：2026-10-01
 - 相關：提案 [`../features/api-tokens.md`](../features/api-tokens.md)；
   規格 [`../architecture/backend/04-auth.md`](../architecture/backend/04-auth.md)、[`../architecture/01-system.md`](../architecture/01-system.md) §4、
@@ -147,3 +147,8 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 | T2 | 錯誤碼 | 新增 `401 AUTH_API_TOKEN_EXPIRED`（整合方要知道是過期、該換 token）；找不到、雜湊不符、已撤銷不細分，都是 `AUTH_TOKEN_INVALID` |
 | T2 | 文件 | `openapi.external.json` 與 `openapi.json` 從同一個 app 以路徑分開；內部文件拿掉只有對外路由引用的 schema，前端 SDK 不出現對外的型別 |
 | T2 | 部署 | `external-gateway`（nginx）與 `external-api` 在自己的 `external` 網路；閘道碰不到內部 api。`AccessTokenModule` 需要一個 `JwtService`：對外程序註冊不帶金鑰的 `JwtModule`（從不驗 JWT） |
+| T3 | scopes 與資源模型的繼承（D3） | T2 只在 `PermissionService` 取交集，但檔案的判斷走關係圖：資料夾的 `can_*` 從租戶的 `file:*` 繼承，帳號經角色持有的全域權限會繞過 scopes（限縮成 `file:read` 的 token 仍能上傳、刪除）。改為 `PermissionSet.tokenScoped` 時，`checkerFor` 的租戶層邊只有限縮後的權限鍵（`TenantRelationsOverride`）；資料夾上的授權照舊 |
+| T3 | 第一批端點 | `/v1/folders`、`/v1/files`（列表、資訊、上傳三步、放棄）、`/v1/users`（唯讀）。對外的 controller 與 service 在 `modules/<name>/external/`，service 只做 DTO 的轉換 |
+| T3 | 檔案列表的分頁 | 只提供游標（`nextCursor`），依建立時間由新到舊；使用者沿用 offset（列表沒有游標，offset 上限 10000） |
+| T3 | 影像網址 | 對外的檔案不含 `image`（內部的簽章影像網址指向內部 api 的端點）；下載網址是租戶網域的 `/storage` |
+| T3 | 對外程序 import 的模組 | 除了檔案與使用者，也 import `RoleModule`、`GroupModule`：回收桶在啟動時要求每一種類型都有 handler |

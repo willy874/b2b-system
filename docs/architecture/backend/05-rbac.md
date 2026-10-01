@@ -633,6 +633,15 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/auth/api-tokens`          | `@Authenticated`                 |
 | DELETE | `/auth/api-tokens/:tokenId` | `@Authenticated`                 |
 | GET    | `/v1/me`                    | `@Authenticated`（**對外 API**：只認 API token；內部 api 上回 404，ADR-0027 D11） |
+| GET    | `/v1/folders`               | `file:access` \| `file:read`³（對外 API） |
+| GET    | `/v1/files`                 | `file:access` \| `file:read`³（對外 API） |
+| POST   | `/v1/files`                 | `file:access` \| `file:create`³（對外 API） |
+| GET    | `/v1/files/:id`             | `file:access` \| `file:read`³（對外 API） |
+| POST   | `/v1/files/:id/parts`       | `file:access` \| `file:create`³（對外 API） |
+| POST   | `/v1/files/:id/complete`    | `file:access` \| `file:create`³（對外 API） |
+| DELETE | `/v1/files/:id/upload`      | `file:access` \| `file:create`³（對外 API） |
+| GET    | `/v1/users`                 | `user:read`（對外 API；只有人） |
+| GET    | `/v1/users/:id`             | `user:read`（對外 API） |
 | GET    | `/notifications`            | `@Authenticated`（只看自己的，ADR-0026 D9） |
 | GET    | `/notifications/unread-count` | `@Authenticated`               |
 | POST   | `/notifications/read-all`   | `@Authenticated`                 |
