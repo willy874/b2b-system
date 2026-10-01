@@ -1,6 +1,6 @@
 # ADR-0027 — 服務帳號與 API Token，經獨立的對外 API 服務使用
 
-- 狀態：**採用**（2026-10-01 確認；T0 實作於 branch `feat/cross-process-broadcast`，T1～T5 尚未開始）
+- 狀態：**採用**（2026-10-01 確認；T0 已合併 main；T1 實作於 branch `feat/api-tokens`；T2～T5 尚未開始）
 - 日期：2026-10-01
 - 相關：提案 [`../features/api-tokens.md`](../features/api-tokens.md)；
   規格 [`../architecture/backend/04-auth.md`](../architecture/backend/04-auth.md)、[`../architecture/01-system.md`](../architecture/01-system.md) §4、
@@ -132,3 +132,11 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 | T0 | 放不進一則 `NOTIFY` 的事件（D18） | 資源變更拿掉個別 id，退化成整個來源失效；受影響的人、撤銷連線的名單每 150 個一則 |
 | T0 | 推播的跨節點（D18） | 事件轉送讓每個程序推給自己的連線，因此 **不再** 規劃裝 `@socket.io/postgres-adapter` 的跨節點 emit（會重複推）；跨裝置中繼（`channel.relay`）仍只在本節點，留在 `multi-instance.md` |
 | T0 | 驗收 | `apps/api/test/cross-process.spec.ts`：同一個測試程序裡兩個 Nest app 共用一個 Postgres。A 停用使用者 → B 立即拒絕他的 token、他連在 B 的連線收到 `session.revoked`；A 建立角色 → 連在 B 的管理者收到推播；A 改設定 → B 立即讀到。關掉廣播時四項都失敗 |
+| T1 | 服務帳號的稽核（D13） | 動作是 `serviceAccount.create`／`update`／`assignRole`／`delete`、`resourceType = 'serviceAccount'`，不沿用 `user.*` 加 `metadata.kind`：稽核頁以 `resourceType` 連到資源，服務帳號的 id 在 `/users/:id` 會是 404 |
+| T1 | 刪除的服務帳號（D1） | 不在回收桶列出、不能還原（`UserRepository.listDeleted`、`findDeletedById` 只看人）；保留期滿後 `trash.purge` 照樣清除（`findExpired` 不分種類），`api_tokens` 隨 FK 刪除 |
+| T1 | 反提權只比對租戶層的權限鍵（D4） | `assertCanGrant` 只比對租戶上的能力；服務帳號在資料夾上的等級（直接授權或經群組）不在檢查內。有 `serviceAccount:update` 的人替服務帳號建 token，等於取得它在資料夾上的存取。目前只有 admin 預設持有這個鍵；要補的話在檔案模組提供「這個主體在哪些資料夾有什麼等級」並以 `file:share` 的規則比對 |
+| T1 | 人與服務帳號的分界 | `isHumanUser()`（`db/schema/users.ts`）：使用者的列表、詳情、版本、email 查詢（登入、忘記密碼、註冊、外部 IdP 自動連結）、最後一位 super-admin 的計數、個人資料夾、`findActiveUserIdsWithPermission`（審批的收件人）。角色的持有者、群組成員、資料夾授權的對象 **包含** 服務帳號 |
+| T1 | 推播 | 服務帳號的建立、修改、刪除還沒有自己的 `ChangeSource`（T4 加，前端要有對應的列表）；角色變動推 `role` 的 `resource.changed`，讓角色頁的持有者更新 |
+| T1 | 系統設定的 key | `auth.personalTokenMaxDays`、`auth.serviceAccountTokenMaxDays`（D8 寫的 `apiToken.maxLifetimeDays` 拆成兩個，放在既有的 `auth` 分類） |
+| T1 | 有效 token 數上限 | 一個帳號同時有效（未撤銷、未過期）的 token 最多 50 把，`409 API_TOKEN_LIMIT_REACHED` |
+| T1 | 既有租戶的系統角色 | 手寫 migration 0022：admin 補 `serviceAccount:*`、auditor 補 `serviceAccount:read`（seed 只在角色新建立時寫入權限） |

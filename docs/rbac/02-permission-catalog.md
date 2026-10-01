@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 35 項）
+## 2. 權限清單（共 39 項）
 
 ### 2.1 `user` — 使用者
 
@@ -144,7 +144,19 @@
 
 > 說明的路徑會經過使用者、群組、角色，所以依賴這三種的 `read`；路徑上操作者讀不到的節點（例：讀不到的資料夾）只顯示種類，不顯示名稱。
 
-### 2.12 個人範圍（不需要權限）
+### 2.12 `serviceAccount` — 服務帳號
+
+| 權限鍵                  | 顯示名稱（zh-TW） | 說明 |
+| ----------------------- | ----------------- | ---- |
+| `serviceAccount:create` | 建立服務帳號      | 建立租戶內的非人類帳號（[ADR-0027](../adr/0027-api-tokens-external-api.md) D1） |
+| `serviceAccount:read`   | 檢視服務帳號      | 服務帳號列表與詳情、持有的角色、它的 API token（不含 secret） |
+| `serviceAccount:update` | 編輯服務帳號      | 修改名稱、停用與啟用、**增減持有的角色**、**建立與撤銷它的 API token**。角色與 token 都受反提權限制（D4） |
+| `serviceAccount:delete` | 刪除服務帳號      | 軟刪除；它的 token 一併失效，不進回收桶、不能還原 |
+
+> `serviceAccount:update` 不列為受反提權限制的鍵：指派角色時檢查的是 **那些角色帶來的能力**，建立 token 時檢查的是
+> **token 取得的有效權限**（服務帳號的權限 ∩ token 的 scope），操作者全部都有才放行。
+
+### 2.13 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
@@ -152,6 +164,8 @@
 - 變更自己的密碼（`POST /auth/change-password`）
 - 檢視／修改自己的偏好設定（語系、時區）
 - 檢視自己的站內通知、標為已讀（`GET /notifications`、`POST /notifications/:id/read`、`POST /notifications/read-all`；[ADR-0026](../adr/0026-notification-center.md) D9）
+- 建立、檢視、撤銷自己的個人 API token（`GET|POST /auth/api-tokens`、`DELETE /auth/api-tokens/:tokenId`；[ADR-0027](../adr/0027-api-tokens-external-api.md) D14）。
+  管理者檢視、撤銷別人的個人 token 用 `user:update`
 - 登出
 
 ---
@@ -173,6 +187,7 @@
 | `identityProvider`|   ✓    |  ✓   |   ✓    |   ✓    | —                             |
 | `group`           |   ✓    |  ✓   |   ✓    |   ✓    | `assignRole`                  |
 | `authz`           |   —    |  —   |   —    |   —    | `explain`                     |
+| `serviceAccount`  |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
 
 ---
 
@@ -215,6 +230,10 @@
 | `group:delete`         |      ✓*       |    ✓    |           |          |
 | `group:assignRole`     |      ✓*       |    ✓    |           |          |
 | `authz:explain`        |      ✓*       |    ✓    |     ✓     |          |
+| `serviceAccount:create` |     ✓*       |    ✓    |           |          |
+| `serviceAccount:read`   |     ✓*       |    ✓    |     ✓     |          |
+| `serviceAccount:update` |     ✓*       |    ✓    |           |          |
+| `serviceAccount:delete` |     ✓*       |    ✓    |           |          |
 
 `*` super-admin 是 **隱含全集**，不逐筆登錄權限鍵的邊（只有 `tenant:self#superAdmin` 一條邊）；
 `GET /auth/profile` 回傳時才展開成完整清單。
@@ -433,6 +452,9 @@ Seed 行為：
 | `group:update` | `group:read` | `user:read` |
 | `group:assignRole` | `group:read` | `role:read` |
 | `authz:explain` | | `user:read`、`role:read`、`group:read` |
+| `serviceAccount:create` | `serviceAccount:update` | |
+| `serviceAccount:delete` | `serviceAccount:update` | |
+| `serviceAccount:update` | `serviceAccount:read` | `role:read` |
 
 沒有列出的鍵是葉節點（`permission:read`、`auditLog:read`、各資源的 `read`、`file:access`）。
 

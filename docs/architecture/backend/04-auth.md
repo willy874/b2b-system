@@ -506,6 +506,27 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 
 ---
 
+## 8.2 服務帳號與 API token
+
+決定與理由見 [ADR-0027](../../adr/0027-api-tokens-external-api.md)。這一節是 **管理** 的部分（T1）：token 只在對外 API 有效，
+內部 api（本文件 §6 的 `JwtAuthGuard`）不接受它（D10）；驗證、限流、`last_used_at` 在對外 API（T2）。
+
+| 項目 | 做法 |
+| --- | --- |
+| 服務帳號 | `users.kind = 'service'`（[`02-database.md`](./02-database.md) §2.15）。`modules/service-account`：`/service-accounts`（`serviceAccount:*`）。建立、改角色的反提權與指派給人相同；持有 super-admin 的帳號只有 super-admin 能管理。停用與刪除遞增 `token_version`，它的 token 全部失效 |
+| 個人 token | `modules/api-token`：`/auth/api-tokens`（`@Authenticated`，只管自己的）；管理者以 `user:update` 檢視、撤銷別人的（`/users/:userId/api-tokens`），不能替別人建立 |
+| 服務帳號的 token | `/service-accounts/:id/tokens`：列出 `serviceAccount:read`，建立與撤銷 `serviceAccount:update` |
+| 格式 | `b2bt_<租戶代碼>_<tokenId>_<secret>`（`api-token.format.ts`）；只在建立的回應出現一次，資料庫存 `SHA-256(secret)` |
+| 失效 | `account_version ≠ token_version`（改密碼、被重設、強制登出、停用、刪除；§1.2）、`revoked_at`、`expires_at`。管理頁的 `status` 由這三者算出：`active`／`expired`／`revoked`／`invalidated` |
+| 反提權（D4） | 替別人（服務帳號）建 token：token 取得的有效權限＝帳號的權限 ∩ scopes 的閉包，必須是操作者持有的；帳號是 super-admin 且沒有 scope 時操作者也要是 super-admin。只比對租戶層的權限鍵，資料夾等級不在 scope 裡（見 ADR-0027 實作紀錄） |
+| 上限 | 到期天數依系統設定（[`12-settings.md`](./12-settings.md) §3）；一個帳號同時有效的 token 最多 50 把（`API_TOKEN_LIMIT_REACHED`） |
+| 稽核 | `apiToken.create`、`apiToken.revoke`（`metadata.ownerId`、`ownerKind`、`prefix`）；`serviceAccount.create`／`update`／`assignRole`／`delete` |
+
+**直接登入**（`POST /auth/login`，§3）：`DIRECT_LOGIN_ENABLED` 沒設定時 production 關閉（回 `404 NOT_FOUND`）、其他環境開啟。
+腳本改用 API token（D15）。登入互動（apps/auth）與 BFF 不受影響。
+
+---
+
 ## 9. 安全檢查清單
 
 - [ ] Access token 壽命 ≤ 5 分鐘
