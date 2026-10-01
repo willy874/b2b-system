@@ -127,6 +127,13 @@
       "when": 1790811980787,
       "tag": "0017_groups_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790816238337,
+      "tag": "0018_groups_system_role_permissions",
+      "breakpoints": true
     }
   ]
 }
