@@ -77,6 +77,8 @@ export const Resource = {
   USER_ROLE: 'userRole',
   /** 角色 ↔ 權限（`id` = roleId） */
   ROLE_PERMISSION: 'rolePermission',
+  /** 群組（`id` = 群組 id；名稱、成員、持有的角色）。前端的 feature 還沒做，先只當來源 */
+  GROUP: 'group',
   /** 密碼、邀請等不出現在任何畫面上的憑證寫入（`id` = userId） */
   USER_CREDENTIAL: 'userCredential',
   /** 平台管理者變更了這個租戶啟用的 feature（docs/adr/0021-runtime-feature-activation.md D8） */
@@ -229,6 +231,7 @@ const graph = createResourceGraph<Resource>({
   },
   [Resource.USER_ROLE]: {},
   [Resource.ROLE_PERMISSION]: {},
+  [Resource.GROUP]: {},
   [Resource.USER_CREDENTIAL]: {},
   [Resource.TENANT_FEATURE]: {},
   [Resource.NOTIFICATION]: {

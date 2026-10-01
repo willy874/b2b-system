@@ -25,6 +25,7 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { FeatureFlagModule } from './modules/feature-flag/feature-flag.module';
 import { FileModule } from './modules/file/file.module';
+import { GroupModule } from './modules/group/group.module';
 import { HealthModule } from './modules/health/health.module';
 import { JobModule } from './modules/job/job.module';
 import { NotificationModule } from './modules/notification/notification.module';
@@ -87,6 +88,7 @@ import { UserModule } from './modules/user/user.module';
     AuthModule,
     UserModule,
     RoleModule,
+    GroupModule,
     SystemModule,
     FileModule,
     FeatureFlagModule,

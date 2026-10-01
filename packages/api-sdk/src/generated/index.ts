@@ -8,6 +8,7 @@ export * from './endpoints/approvals';
 export * from './endpoints/audit-logs';
 export * from './endpoints/auth';
 export * from './endpoints/files';
+export * from './endpoints/groups';
 export * from './endpoints/health';
 export * from './endpoints/identity-providers';
 export * from './endpoints/jobs';

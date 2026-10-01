@@ -13,7 +13,7 @@ import {
 } from '../authz.model';
 import { createSnapshot } from '../authz.snapshot';
 import type { TupleEntry } from '../authz.snapshot';
-import { buildTenantType, ROLE_TYPE, USER_TYPE } from '../authz.types';
+import { buildTenantType, GROUP_TYPE, ROLE_TYPE, USER_TYPE } from '../authz.types';
 
 const doc = (id: string) => ({ type: 'doc', id });
 const tuple = (object: string, relation: string, subject: string): TupleEntry => {
@@ -23,9 +23,10 @@ const tuple = (object: string, relation: string, subject: string): TupleEntry =>
 
 const model = createModel([
   USER_TYPE,
+  GROUP_TYPE,
   ROLE_TYPE,
   defineType('folder', {
-    viewer: direct('user', 'user:*', 'role#holder'),
+    viewer: direct('user', 'user:*', 'role#holder', 'group#member'),
   }),
   defineType('doc', {
     parent: direct('folder'),
@@ -52,6 +53,51 @@ describe('關係圖的判斷器（core/authz）', () => {
     const checker = createChecker(model, snapshot);
     expect(checker.check(doc('a'), 'editor')).toBe(true);
     expect(checker.check(doc('b'), 'editor')).toBe(false);
+  });
+
+  it('群組（ADR-0024 D11）：閉包裡的群組成員可以持有角色、直接取得授權', () => {
+    // alice ∈ 角色設計 ∈ 美術；美術持有 r1、美術在 folder:f 上是 viewer（閉包由 subjectClosures 算好）
+    const snapshot = createSnapshot(
+      ['user:alice', 'group:design#member', 'group:art#member', 'role:r1#holder'],
+      [
+        tuple('doc:a', 'editor', 'role:r1#holder'),
+        tuple('folder:f', 'viewer', 'group:art#member'),
+        tuple('doc:b', 'parent', 'folder:f'),
+      ],
+    );
+    const checker = createChecker(model, snapshot);
+    expect(checker.check(doc('a'), 'editor')).toBe(true);
+    expect(checker.check(doc('b'), 'viewer')).toBe(true);
+    // 路徑從閉包裡的主體開始（閉包本身怎麼來的由 G4b 補上）
+    expect(checker.explain(doc('b'), 'viewer')).toEqual([
+      'group:art#member',
+      'folder:f#viewer',
+      'doc:b#viewer',
+    ]);
+  });
+
+  it('群組：閉包沒有涵蓋時沿 group#member 往下展開（巢狀）', () => {
+    const snapshot = createSnapshot(
+      ['user:alice'],
+      [
+        tuple('folder:f', 'viewer', 'group:art#member'),
+        tuple('group:art', 'member', 'group:design#member'),
+        tuple('group:design', 'member', 'user:alice'),
+        tuple('doc:b', 'parent', 'folder:f'),
+      ],
+    );
+    expect(createChecker(model, snapshot).check(doc('b'), 'viewer')).toBe(true);
+    // 群組的成員關係只接受使用者與群組的成員，寫進去的 role#holder 不算
+    const wrongSubject = createSnapshot(
+      ['user:alice', 'role:r1#holder'],
+      [
+        tuple('folder:f', 'viewer', 'group:art#member'),
+        tuple('group:art', 'member', 'role:r1#holder'),
+      ],
+    );
+    expect(createChecker(model, wrongSubject).check({ type: 'folder', id: 'f' }, 'viewer')).toBe(
+      false,
+    );
   });
 
   it('computed 與 from：editor 蘊含 viewer，viewer 沿 parent 往下流', () => {
@@ -162,7 +208,7 @@ describe('靜態蘊含（impliedRelations）', () => {
 });
 
 const tenant = (withDependencies: boolean) =>
-  createModel([USER_TYPE, ROLE_TYPE, buildTenantType({ withDependencies })]);
+  createModel([USER_TYPE, GROUP_TYPE, ROLE_TYPE, buildTenantType({ withDependencies })]);
 
 describe('租戶型別（由權限目錄產生）', () => {
   const self = { type: 'tenant', id: 'self' };

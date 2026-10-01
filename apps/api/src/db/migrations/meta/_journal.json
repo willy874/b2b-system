@@ -113,6 +113,20 @@
       "when": 1790785026656,
       "tag": "0015_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790811980285,
+      "tag": "0016_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790811980787,
+      "tag": "0017_groups_triggers",
+      "breakpoints": true
     }
   ]
 }

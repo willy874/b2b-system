@@ -269,9 +269,9 @@ export class PermissionService {
 | 檔案 | 職責 |
 | --- | --- |
 | `authz.model.ts` | 模型 DSL：`defineType`、`direct`、`computed`、`from`（`X from Y`）、`union`、`and`（交集，只用在收窄的組合）；**沒有排除**。`createModel` 在啟動時驗證：引用的型別與關係存在、`from` 的 tupleset 是直接關係、`computed` 沒有循環。`impliedRelations` 算靜態蘊含（等級蘊含哪些動作、依賴閉包） |
-| `authz.types.ts` | 核心型別 `user`、`role`（`holder`）、`tenant`（由權限目錄產生：一個權限鍵一個關係＝直接授予 ∪ `superAdmin` ∪ 包含它的鍵）；每個物件都有隱含的 `tenant` 邊 |
+| `authz.types.ts` | 核心型別 `user`、`group`（`member`：使用者或另一個群組的成員）、`role`（`holder`：使用者或群組的成員）、`tenant`（由權限目錄產生：一個權限鍵一個關係＝直接授予 ∪ `superAdmin` ∪ 包含它的鍵）；每個物件都有隱含的 `tenant` 邊。`group` 是核心型別而不是由模組註冊：主體閉包的 CTE 要知道哪些關係是成員關係、已刪除的節點看哪張表 |
 | `authz.registry.ts` | `register(type)`：業務型別（例：`modules/file/file.authz.ts` 的 `fileRoot`、`fileFolder`、`file`）；第一次取用時組合並驗證 |
-| `authz.repository.ts` | `relation_tuples` 的讀取：主體閉包（遞迴 CTE，深度上限 8，排除已刪除的角色）、某種物件上的直接邊（濾掉過期的）、`authz_revision` |
+| `authz.repository.ts` | `relation_tuples` 的讀取：主體閉包（遞迴 CTE 沿 `group#member`、`role#holder` 走，深度上限 8，排除已刪除的角色與群組）、某種物件上的直接邊（濾掉過期的）、`authz_revision`。群組巢狀的層數由寫入端限制在 `GROUP_MAX_NESTING_DEPTH`（6），閉包永遠走得完 |
 | `authz.snapshot.ts` | 把一次判斷需要的邊載入記憶體；**結構邊供應者**（`EdgeProvider`）補上不存在 tuple 表的邊——資料夾的 `parent`／`inherits_from`／`owner` 由 `file_folders` 供應（ADR-0024 D3） |
 | `authz.checker.ts` | `check`／`explain`／`withEdges`：在快照上展開關係定義，同一個 `物件#關係` 只算一次（記憶化），遞迴深度上限 64；未知的型別或關係視為不成立 |
 | `authz.service.ts` | `tenantPermissionsOf`（全域權限）、`checkerFor`（資源：一次載入操作者在這些型別上的邊，交給判斷器） |
@@ -633,6 +633,16 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | PATCH  | `/roles/:id/permissions`    | `role:grantPermission`           |
 | GET    | `/roles/:id/users`          | `role:read` ＋ `user:read`       |
 | POST   | `/roles/:id/duplicate`      | `role:create`                    |
+| GET    | `/groups`                   | `group:read`                     |
+| POST   | `/groups`                   | `group:create`                   |
+| GET    | `/groups/:id`               | `group:read`                     |
+| PATCH  | `/groups/:id`               | `group:update`                   |
+| DELETE | `/groups/:id`               | `group:delete`                   |
+| POST   | `/groups/:id/restore`       | `group:delete`（成員取得的角色受反提權限制，ADR-0024 D11） |
+| GET    | `/groups/:id/members`       | `group:read` ＋ `user:read`（EVERY） |
+| PATCH  | `/groups/:id/members`       | `group:update`（加入的成員取得群組與上層群組的角色：反提權，D11） |
+| GET    | `/groups/:id/roles`         | `group:read` ＋ `role:read`（EVERY） |
+| PATCH  | `/groups/:id/roles`         | `group:assignRole`（反提權；super-admin 一律拒絕，D12） |
 | POST   | `/roles/:id/restore`        | `role:delete`                    |
 | GET    | `/roles/:id/revisions`      | `role:read`                      |
 | GET    | `/roles/:id/revisions/:version` | `role:read`                  |

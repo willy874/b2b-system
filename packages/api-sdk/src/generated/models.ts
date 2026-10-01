@@ -816,6 +816,73 @@ export interface UpdateFileRequest {
   version: number;
 }
 
+export interface CreateGroupRequest {
+  name: string;
+  description?: string;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  description: string | null;
+  memberCount: number;
+  roleCount: number;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RestoredGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  memberCount: number;
+  roleCount: number;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupMember {
+  type: 'user' | 'group';
+  id: string;
+  name: string;
+  email: string | null;
+  status: ('pending' | 'active' | 'inactive' | 'locked') | null;
+}
+
+export interface GroupRole {
+  id: string;
+  slug: string;
+  name: string;
+  isSystem: boolean;
+}
+
+export interface GroupRoles {
+  roles: Array<GroupRole>;
+}
+
+export interface UpdateGroupRequest {
+  name?: string;
+  description?: string | null;
+  version: number;
+}
+
+export interface GroupMemberRef {
+  type: 'user' | 'group';
+  id: string;
+}
+
+export interface UpdateGroupMembersRequest {
+  add: Array<GroupMemberRef>;
+  remove: Array<GroupMemberRef>;
+}
+
+export interface UpdateGroupRolesRequest {
+  add: Array<string>;
+  remove: Array<string>;
+}
+
 export interface JobQueue {
   name: string;
   cron: string | null;

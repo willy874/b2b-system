@@ -1,6 +1,6 @@
 # ADR-0024 — 權限改成關係圖（ReBAC），以雙寫＋影子比對逐步切換
 
-- 狀態：**採用**（G0～G3b 已實作並合併，G3a 於 2026-09-30 合併（96ae80a），G3b 同日）；G4 的決定 D10～D16 於 2026-10-01 確認，**尚未實作**
+- 狀態：**採用**（G0～G3b 已實作並合併，G3a 於 2026-09-30 合併（96ae80a），G3b 同日）；G4 的決定 D10～D16 於 2026-10-01 確認，G4a 實作中（`feat/permission-graph-g4a`）
 - 日期：2026-09-30
 - 相關：提案 [`../features/permission-graph.md`](../features/permission-graph.md)（只剩 G4 以後）；規格 [`../rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4；
   延伸 [ADR-0005](./0005-permission-resolved-server-side.md)（權限在伺服器端解析）；
@@ -130,3 +130,26 @@ G0～G2 與提案不同的地方：快取仍逐事件失效（`authz_revision` �
 | 刪 migration 0008 的同步 trigger 與函式（含 `roles_mirror_super_admin`）、`user_roles`、`role_permissions`、`resource_grants` 與 enum `resource_type`、`grant_level`、`grant_subject_type` | migration `0010_drop_legacy_authz_tables.sql`（不可回退） |
 | 舊表的 Drizzle schema 檔、`db/relations.ts` 的項目、`test/relation-tuples.spec.ts`、`test/db.ts` 與 `db/reset.ts` 的 TRUNCATE | 已刪除 |
 | 等級與對象型別的常數（`GRANT_LEVELS`、`GRANT_SUBJECT_TYPES`、`EVERYONE_SUBJECT_ID`） | 從 `db/schema/resource-grants.ts` 移到 `modules/file/file-grant.levels.ts` |
+
+## 實作紀錄（G4a，branch `feat/permission-graph-g4a`，進行中）
+
+| 項目 | 位置 |
+| --- | --- |
+| `group:*` 權限鍵、依賴樹、預設角色 | `db/seeds/permissions.ts`、`db/seeds/roles.ts`、`docs/rbac/02-permission-catalog.md` §2.10 |
+| `groups` 表、`updated_at` 與 revision 的 trigger | migration `0016_groups.sql`、`0017_groups_triggers.sql`；`backend/02-database.md` §2.14 |
+| 邊的形狀（`groupMemberTuple`、`groupRoleTuple`、`isGroupMemberTuple()`、`isGroupRoleTuple()`） | `db/schema/relation-tuples.ts` |
+| `group` 型別、`role#holder` 接受群組的成員、主體閉包與反向解析沿 `group#member` 走 | `core/authz/authz.types.ts`、`authz.repository.ts` |
+| 群組 CRUD、成員、持有的角色、還原（D11、D12） | `modules/group/`；端點見 `backend/05-rbac.md` §9 |
+| 測試 | `modules/group/__tests__/group.service.spec.ts`、`test/groups.spec.ts`、`core/authz/__tests__/authz.checker.spec.ts`（群組） |
+
+與提案不同的地方：
+
+- **`group` 是核心型別**，不是由 `modules/group` 在 `onModuleInit` 註冊：主體閉包的遞迴 CTE（core）要知道哪些關係是成員關係、
+  已刪除的節點看哪張表；與 `role` 同屬「使用者集合」。
+- **群組巢狀有層數上限**（`GROUP_MAX_NESTING_DEPTH` = 6，`409 GROUP_NESTING_TOO_DEEP`）：主體閉包的深度上限是 8，
+  超過的鏈會讓權限靜靜地消失，所以在寫入時擋。還原群組時也檢查循環與層數（刪除期間結構可能被改過）。
+- **I9 的延伸多一條**：操作者不能改自己所屬（直接或間接）群組持有的角色（D11 只寫了加成員）；理由同 I9——等於改自己的角色。
+- **成員的寫入以 advisory lock 排隊**（`group_membership`）：循環與層數的檢查要看到一致的結構，與資料夾樹同一個做法。
+- D11 的檢查目前沿用 `PermissionService.assertRolesAssignable`；「由模型宣告誰能寫這條邊」的一般化是 G4a 的下一步。
+- 尚未做：回收桶的 `TrashHandler`（會改動回收桶分頁的類型列舉，與前端一起做）、資料夾授權可以選群組（模型已允許 `group#member`，
+  寫入端與共用對話框隨前端）、`features/group`。

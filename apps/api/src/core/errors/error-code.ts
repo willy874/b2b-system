@@ -102,6 +102,20 @@ export const ErrorCode = {
   /** 還原（`POST /roles/:id/restore`）一個沒有被刪除的角色（ADR-0025 R3）。 */
   ROLE_NOT_DELETED: { status: 409 },
 
+  // ── 群組（docs/adr/0024-relationship-based-access-control.md D11、D12） ──
+  GROUP_NOT_FOUND: { status: 404 },
+  GROUP_NAME_DUPLICATE: { status: 409 },
+  /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（ADR-0025 D3）。 */
+  GROUP_VERSION_CONFLICT: { status: 409 },
+  /** 還原（`POST /groups/:id/restore`）一個沒有被刪除的群組。 */
+  GROUP_NOT_DELETED: { status: 409 },
+  /** 把群組加進自己，或加進自己（直接或間接）的成員群組。 */
+  GROUP_MEMBERSHIP_CYCLE: { status: 409 },
+  /** 加入之後，群組在群組裡的鏈超過上限（`details.max`）；超過的部分解析時走不到。 */
+  GROUP_NESTING_TOO_DEEP: { status: 409 },
+  /** 群組不能持有 super-admin：super-admin 一律直接指派給使用者（D12）。 */
+  GROUP_SUPER_ADMIN_FORBIDDEN: { status: 403 },
+
   // ── 版本歷史（docs/architecture/backend/14-revisions.md） ──
   /** 指定的版本不存在（或已被保留清理刪除）。 */
   REVISION_NOT_FOUND: { status: 404 },

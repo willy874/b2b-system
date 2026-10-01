@@ -10,8 +10,11 @@ import type { ObjectRef, TypeDefinition } from '@/core/authz';
  * - 根目錄不是資料夾，只由全域權限決定：頂層資料夾的 `parent` 指向 `fileRoot:root`。
  */
 
-/** 資料夾授權的對象：個別使用者、所有人（everyone）、角色的持有者。 */
-const GRANTEES = ['user', 'user:*', 'role#holder'] as const;
+/**
+ * 資料夾授權的對象：個別使用者、所有人（everyone）、角色的持有者、群組的成員（G4）。
+ * 群組的授權由共用對話框寫入（G4 的前端）；模型先允許，解析才會認得。
+ */
+const GRANTEES = ['user', 'user:*', 'role#holder', 'group#member'] as const;
 
 export const FILE_ROOT_OBJECT = { type: 'fileRoot', id: 'root' } as const;
 

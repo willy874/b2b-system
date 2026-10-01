@@ -269,10 +269,10 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
                                            file:hero.png ◀── owner ── user:bob
 ```
 
-- **節點** `型別:id`：`user`、`role`、`tenant`（每個租戶 DB 只有一個，id 固定 `self`）、`fileRoot`（根目錄）、`fileFolder`、`file`。
+- **節點** `型別:id`：`user`、`group`、`role`、`tenant`（每個租戶 DB 只有一個，id 固定 `self`）、`fileRoot`（根目錄）、`fileFolder`、`file`。
 - **邊** `物件#關係@主體`。主體有三種：
   - 一個節點（`user:alice`）；
-  - 一個節點的關係，也就是一群使用者（`role:editor#holder`）；
+  - 一個節點的關係，也就是一群使用者（`role:editor#holder`、`group:美術#member`）；
   - 萬用字元（`user:*`，資料夾授權的「所有人」）。
 - **全域權限鍵是租戶節點上的關係**：`tenant:self#role:update@role:admin#holder` ＝「admin 的持有者有 `role:update`」。
   權限鍵的字串格式因此不變。每個權限關係都定義成「直接授予 ∪ `superAdmin` ∪ 包含它的鍵」，
@@ -287,6 +287,8 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
 | 概念 | 圖上 |
 | --- | --- |
 | 使用者持有角色 | `role:r#holder@user:u` |
+| 群組的成員（巢狀時是另一個群組的成員） | `group:g#member@user:u`、`group:g#member@group:h#member` |
+| 群組持有角色（不能是 super-admin，ADR-0024 D12） | `role:r#holder@group:g#member` |
 | 角色帶權限鍵 | `tenant:self#<key>@role:r#holder` |
 | super-admin | `tenant:self#superAdmin@role:<super-admin>#holder` |
 | 資料夾授權（角色／個人／所有人） | `fileFolder:F#<等級>@role:r#holder`、`@user:u`、`@user:*` |

@@ -41,6 +41,8 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
   },
   // 權限數與清單
   [ChangeSource.ROLE_PERMISSION]: { perms: () => [PERMISSION.ROLE_READ], includesSubject: false },
+  // 群組列表與詳情（成員、持有的角色）；成員本人由呼叫端以 `affectedUserIds` 帶入
+  [ChangeSource.GROUP]: { perms: () => [PERMISSION.GROUP_READ], includesSubject: false },
   // 沒有任何畫面顯示憑證
   [ChangeSource.USER_CREDENTIAL]: { perms: () => [], includesSubject: false },
   // 審批列表；匿名申請人（註冊）沒有連線，不必通知本人
