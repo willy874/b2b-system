@@ -318,6 +318,7 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | **資源作用域**（「只能編輯自己專案」） | 已由檔案資料夾先行實作，並改由關係圖解析（資料夾的等級是模型裡的關係，沿 `inherits_from` 繼承）。專案、關卡以同樣方式加入型別，見 [`07-resource-grants.md`](./07-resource-grants.md) §10 |
 | **角色階層**                           | 關係圖上是一種 `role#holder` 包含 `role#holder` 的邊；**不開放**，維持「複製角色」（[ADR-0024](../adr/0024-relationship-based-access-control.md) D10） |
+| **群組**                               | 已實作：巢狀成員、群組持有角色、資料夾授權給群組（[`08-groups.md`](./08-groups.md)、ADR-0024 G4a） |
 | **條件式權限（ABAC）**                 | `relation_tuples` 的邊增加條件欄位（`condition jsonb`），Guard 端加入條件評估器                                 |
 | **MFA**                                | `users.mfa_enabled` / 新表 `user_mfa_secrets`                                                                   |
 | **API Token / 服務帳號**               | 新增 `service_accounts` 表，以新的主體型別持有角色（`role:r#holder@serviceAccount:s`）                          |

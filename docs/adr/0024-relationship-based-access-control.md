@@ -1,8 +1,8 @@
 # ADR-0024 — 權限改成關係圖（ReBAC），以雙寫＋影子比對逐步切換
 
-- 狀態：**採用**（G0～G3b 已實作並合併，G3a 於 2026-09-30 合併（96ae80a），G3b 同日）；G4 的決定 D10～D16 於 2026-10-01 確認，G4a 實作中（`feat/permission-graph-g4a`）
+- 狀態：**採用**（G0～G3b 已實作並合併，G3a 於 2026-09-30 合併（96ae80a），G3b 同日）；G4 的決定 D10～D16 於 2026-10-01 確認；G4a（群組、反提權一般化）於 2026-10-01 完成，規格見 `rbac/08-groups.md`；G4b（explain）、G5 待做
 - 日期：2026-09-30
-- 相關：提案 [`../features/permission-graph.md`](../features/permission-graph.md)（只剩 G4 以後）；規格 [`../rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4；
+- 相關：提案 [`../features/permission-graph.md`](../features/permission-graph.md)（只剩 G4b、G5）；群組 [`../rbac/08-groups.md`](../rbac/08-groups.md)；規格 [`../rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4；
   延伸 [ADR-0005](./0005-permission-resolved-server-side.md)（權限在伺服器端解析）；
   取代 [ADR-0006](./0006-flat-permission-scope.md) 的「延伸路徑」與 [ADR-0015](./0015-file-folder-access.md) 的解析方式
 
@@ -131,7 +131,7 @@ G0～G2 與提案不同的地方：快取仍逐事件失效（`authz_revision` �
 | 舊表的 Drizzle schema 檔、`db/relations.ts` 的項目、`test/relation-tuples.spec.ts`、`test/db.ts` 與 `db/reset.ts` 的 TRUNCATE | 已刪除 |
 | 等級與對象型別的常數（`GRANT_LEVELS`、`GRANT_SUBJECT_TYPES`、`EVERYONE_SUBJECT_ID`） | 從 `db/schema/resource-grants.ts` 移到 `modules/file/file-grant.levels.ts` |
 
-## 實作紀錄（G4a，branch `feat/permission-graph-g4a`，進行中）
+## 實作紀錄（G4a）
 
 | 項目 | 位置 |
 | --- | --- |
@@ -159,5 +159,6 @@ G0～G2 與提案不同的地方：快取仍逐事件失效（`authz_revision` �
   資料夾的 `can('share')` 擋下，錯誤是 `403 AUTHZ_FORBIDDEN` 並寫 `authz.denied`；搬進模型只是把同一個判斷宣告兩次。
 - **寫入時的模型驗證以測試保證**（`validateTuple`、`src/__tests__/relation-tuples-model.spec.ts`）：邊只由 `db/schema/relation-tuples.ts` 的建構函式與
   資料夾授權的 repository 產生，每一種形狀對完整的模型驗一次；repository 不依賴 core 的服務，不在每次寫入時驗。
-- 尚未做：回收桶的 `TrashHandler`（會改動回收桶分頁的類型列舉，與前端一起做）、資料夾授權可以選群組（模型已允許 `group#member`，
-  寫入端與共用對話框隨前端）、`features/group`。
+- 前端（`features/group`）、群組的回收桶、資料夾授權給群組、使用者與角色詳情的群組一併完成；`GET /groups` 以 `?userId=`／`?roleId=`
+  篩選，不另開 `/users/:id/groups` 之類的跨資源端點。
+- 既有租戶的系統角色以 migration 0018 補上群組的權限鍵（seed 只在角色新建立時寫入權限）。

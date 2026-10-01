@@ -17,7 +17,7 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P0 | 權限圖（ReBAC，收斂 RBAC／資源授權／群組） | [`permission-graph.md`](./permission-graph.md) | 實作中（G0～G3b 已上 main 並歸檔）；G4a 群組與反提權 **實作中**（`feat/permission-graph-g4a`）、G4b explain 規劃中（ADR-0024 D10～D16）；G5 專案待做；原「使用者群組」提案併入 G4 | — |
+| P0 | 權限圖（ReBAC）：說明（explain）、專案 | [`permission-graph.md`](./permission-graph.md) | 實作中（G0～G4a 已上 main 並歸檔）；G4b explain 規劃中（ADR-0024 D14）；G5 專案待做 | — |
 | P2 | 服務帳號／API Token | [`api-tokens.md`](./api-tokens.md) | 提案 | — |
 | P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | [背景工作](../architecture/backend/10-jobs.md)（已完成） |
 | P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[背景工作](../architecture/backend/10-jobs.md)（已完成） |
@@ -42,6 +42,8 @@
 
 已完成並歸檔（細節見各 ADR 與正式文件）：
 
+- `permission-graph` G4a（群組、反提權一般化）：[ADR-0024](../adr/0024-relationship-based-access-control.md) D10～D16、[`rbac/08-groups.md`](../rbac/08-groups.md)、
+  [`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1
 - `permission-graph` G0～G3b：[ADR-0024](../adr/0024-relationship-based-access-control.md)、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4、[`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.2、§5
 - `entity-revisions`：[ADR-0025](../adr/0025-entity-revisions.md)、[`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11、[`backend/13-trash.md`](../architecture/backend/13-trash.md)、[`backend/14-revisions.md`](../architecture/backend/14-revisions.md)
 - `notification-center`：[ADR-0026](../adr/0026-notification-center.md)、[`backend/15-notification.md`](../architecture/backend/15-notification.md)、[`frontend/15-notification.md`](../architecture/frontend/15-notification.md)；
@@ -50,7 +52,7 @@
 接下來：
 
 1. 依需求二選一：對外整合（`api-tokens` → `webhooks`），或編輯器的協作（`tags-comments`；多型關聯的命名已由 [ADR-0025](../adr/0025-entity-revisions.md) D7 決定）。
-2. **`permission-graph` G4**：群組（巢狀、持有角色）、explain API 與頁面。
+2. **`permission-graph` G4b**：explain API 與有效權限、「為什麼」的畫面（D14）。
 3. `hardening-followups` 裡的小項目可以隨時穿插。
 
 ### 1.2 撰寫提案時的架構前提
