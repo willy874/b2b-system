@@ -83,7 +83,8 @@ services:
     image: b2b-system-api
     pull_policy: never
     restart: unless-stopped
-    environment:
+    # external-api 沿用這一份（YAML merge），只覆寫自己的部分
+    environment: &api-environment
       NODE_ENV: production
       PLATFORM_DATABASE_URL: postgres://b2b_platform:${POSTGRES_PLATFORM_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
       TENANT_SECRET_KEY: ${TENANT_SECRET_KEY:?required}
@@ -151,6 +152,60 @@ services:
       migrate:
         condition: service_completed_successfully
       file-storage:
+        condition: service_healthy
+
+  # 對外 API（docs/adr/0027-api-tokens-external-api.md D9、D19）：與 api 同一個映像、不同的進入點與 port。
+  # 只認 API token；只入列、不執行背景工作（main.external.ts 固定）；在自己的 external 網路，閘道碰不到內部 api
+  external-api:
+    image: b2b-system-api
+    pull_policy: never
+    restart: unless-stopped
+    command: ['node', 'dist/src/main.external.js']
+    environment:
+      <<: *api-environment
+      # 每個程序都有自己的租戶連線池：連線預算要把這個程序算進去（backend/02-database.md §6.2）
+      TENANT_POOL_MAX: ${EXTERNAL_TENANT_POOL_MAX:-5}
+      PLATFORM_POOL_MAX: ${EXTERNAL_PLATFORM_POOL_MAX:-5}
+      NODE_OPTIONS: --max-old-space-size=${EXTERNAL_API_HEAP_MB:-768}
+      # 速率限制（次 / 分）：每把 token；每個 IP 的驗證失敗
+      EXTERNAL_RATE_LIMIT: ${EXTERNAL_RATE_LIMIT:-600}
+      EXTERNAL_AUTH_FAILURE_RATE_LIMIT: ${EXTERNAL_AUTH_FAILURE_RATE_LIMIT:-30}
+    # 映像的 HEALTHCHECK 打的是 api 的 :3000
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks: [external, data, storage]
+    mem_limit: ${EXTERNAL_API_MEM_LIMIT:-1g}
+    security_opt: ['no-new-privileges:true']
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      file-storage:
+        condition: service_healthy
+
+  # 對外 API 的網域（例 api.example.com）指到這裡；TLS 一樣在前面的 LB 終結
+  external-gateway:
+    image: nginxinc/nginx-unprivileged:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - '8082:8080'
+    volumes:
+      - ./deploy/nginx.main.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/nginx.external-api.conf:/etc/nginx/conf.d/default.conf:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 128m
+    networks: [external]
+    depends_on:
+      external-api:
         condition: service_healthy
 
   # S3 相容的檔案儲存（apps/file-storage）；資料在 volume，映像本身無狀態
@@ -224,6 +279,8 @@ services:
 
 networks:
   edge:
+  # 對外 API：閘道與 external-api，與 edge（前端、內部 api）分開
+  external:
   data:
   storage:
 

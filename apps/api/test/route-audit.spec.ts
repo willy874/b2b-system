@@ -4,7 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { DiscoveryModule } from '@nestjs/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { Public, RequirePermissions } from '@/common/decorators';
+import { Authenticated, ExternalApi, Public, RequirePermissions } from '@/common/decorators';
 import {
   auditRoutes,
   collectDeclaredPermissionKeys,
@@ -52,6 +52,30 @@ class UndeclaredController {
 @Module({ imports: [DiscoveryModule], controllers: [DeclaredController] })
 class DeclaredModule {}
 
+// 入口的分界（docs/adr/0027-api-tokens-external-api.md D11）：三種寫錯的方式
+@ExternalApi()
+@Controller('v1/open')
+class ExternalPublicController {
+  @Get()
+  @Public()
+  open(): void {}
+}
+
+@ExternalApi()
+@Controller('outside')
+class ExternalOutsideVersionController {
+  @Get()
+  @Authenticated()
+  me(): void {}
+}
+
+@Controller('v1/internal')
+class InternalUnderVersionController {
+  @Get()
+  @Authenticated()
+  me(): void {}
+}
+
 @Module({ imports: [DiscoveryModule], controllers: [DeclaredController, UndeclaredController] })
 class UndeclaredModule {}
 
@@ -78,6 +102,31 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
     expect(() => auditRoutes(bad)).toThrow(/未宣告授權策略/);
     expect(() => auditRoutes(bad)).toThrow(/GET \/undeclared/);
     await bad.close();
+  });
+
+  it.each([
+    ['對外的路由是 @Public', ExternalPublicController, /GET \/v1\/open/],
+    ['對外的路由不在 /v<n>/ 底下', ExternalOutsideVersionController, /GET \/outside/],
+    ['內部的路由佔用 /v<n>/', InternalUnderVersionController, /GET \/v1\/internal/],
+  ])('入口宣告寫錯 → 稽核失敗：%s', async (_label, controller, route) => {
+    @Module({ imports: [DiscoveryModule], controllers: [controller] })
+    class BadSurfaceModule {}
+    const bad = await NestFactory.create(BadSurfaceModule, { logger: false });
+    await bad.init();
+    expect(() => auditRoutes(bad)).toThrow(/入口宣告不正確/);
+    expect(() => auditRoutes(bad)).toThrow(route);
+    await bad.close();
+  });
+
+  it('對外 API 的路由清單（docs/adr/0027-api-tokens-external-api.md D11）', () => {
+    const external = collectRouteDeclarations(app)
+      .filter((route) => route.surface !== 'internal')
+      .map((route) => `${route.surface} ${route.method} ${route.path} ${route.declaration}`);
+    expect(external).toEqual([
+      'both GET /health public',
+      'both GET /health/ready public',
+      'external GET /v1/me authenticated',
+    ]);
   });
 
   it('全部宣告時不拋錯', async () => {
@@ -166,6 +215,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /auth/api-tokens': 'authenticated',
       'POST /auth/api-tokens': 'authenticated',
       'DELETE /auth/api-tokens/:tokenId': 'authenticated',
+      'GET /v1/me': 'authenticated',
       'GET /notifications': 'authenticated',
       'GET /notifications/unread-count': 'authenticated',
       'POST /notifications/read-all': 'authenticated',

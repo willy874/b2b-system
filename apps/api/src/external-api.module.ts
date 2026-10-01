@@ -1,0 +1,92 @@
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
+import { JwtModule } from '@nestjs/jwt';
+import { ThrottlerModule } from '@nestjs/throttler';
+
+import { AccessTokenModule } from './common/auth';
+import { FeatureGuard, PermissionsGuard, PROCESS_SURFACE, SurfaceGuard } from './common/guards';
+import { AuthzModule } from './core/authz';
+import { BroadcastModule } from './core/broadcast';
+import { CacheModule } from './core/cache';
+import { ConfigModule } from './core/config';
+import { DatabaseModule } from './core/database';
+import { HttpExceptionFilter } from './core/errors';
+import { EventsModule } from './core/events';
+import { FeatureFlagsModule } from './core/feature-flags';
+import { RequestIdMiddleware, TransformInterceptor } from './core/http';
+import { JobsModule } from './core/jobs';
+import { LoggerModule } from './core/logger';
+import { MailModule } from './core/mail';
+import { SettingsModule } from './core/settings';
+import { StorageModule } from './core/storage';
+import { TenancyModule } from './core/tenant';
+import { ApiTokenModule } from './modules/api-token/api-token.module';
+import { ApiTokenAuthGuard } from './modules/api-token/external/api-token-auth.guard';
+import { ExternalRateLimitGuard } from './modules/api-token/external/external-rate-limit.guard';
+import { TokenTenantMiddleware } from './modules/api-token/external/token-tenant.middleware';
+import { AuditLogModule } from './modules/audit-log/audit-log.module';
+import { HealthModule } from './modules/health/health.module';
+import { PermissionModule } from './modules/permission/permission.module';
+import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
+
+/**
+ * 對外 API 的組裝根（docs/adr/0027-api-tokens-external-api.md D9～D11、D19）：另一個程序（`main.external.ts`）、
+ * 另一個 port 與網域。業務邏輯與內部 api 共用同一份 service；這裡只決定這個程序 **有什麼、怎麼認人**：
+ *
+ * - 只認 API token（`ApiTokenAuthGuard`），租戶由 token 的代碼決定（`TokenTenantMiddleware`），不看網域
+ * - 沒有 Socket.io、OIDC Provider、refresh cookie；不 import RealtimeModule、AuthModule
+ * - 只入列、不執行背景工作（`main.external.ts` 固定 `JOBS_WORKER_ENABLED=false`）
+ * - import 進來的模組也帶著內部的 controller，由 `SurfaceGuard` 回 404
+ *
+ * 之後每個要對外的功能：在這裡 import 它的模組，對外的 controller 放在 `modules/<name>/external/`。
+ */
+@Module({
+  imports: [
+    // core（global）
+    DiscoveryModule, // 路由稽核掃描 controller metadata 用
+    ConfigModule,
+    LoggerModule,
+    DatabaseModule,
+    TenancyModule,
+    FeatureFlagsModule,
+    CacheModule,
+    AuthzModule,
+    BroadcastModule,
+    SettingsModule,
+    EventsModule,
+    JobsModule,
+    StorageModule,
+    // 寄信的工作在這裡只入列（平台管理者模組登記了寄信的 handler，PermissionsGuard 依賴那個模組）
+    MailModule,
+    // 驗證 token 時以它檢查帳號（狀態、token_version），與內部 api 同一套規則。它也能驗 JWT，
+    // 需要一個 JwtService；這個程序從不驗 JWT（verifyClaims 自帶 secret、而且一律拒絕），不必設定金鑰
+    JwtModule.register({ global: true }),
+    AccessTokenModule,
+    ThrottlerModule.forRoot([]),
+
+    // 葉節點模組：PermissionsGuard 依賴
+    PermissionModule,
+    AuditLogModule,
+    PlatformAdminModule,
+
+    // 對外的功能
+    ApiTokenModule,
+    HealthModule,
+  ],
+  providers: [
+    { provide: PROCESS_SURFACE, useValue: 'external' },
+    { provide: APP_GUARD, useClass: SurfaceGuard },
+    // 先認人再限流：限流以 token 計；認證失敗另以 IP 計數（ApiTokenAuthGuard）
+    { provide: APP_GUARD, useClass: ApiTokenAuthGuard },
+    { provide: APP_GUARD, useClass: ExternalRateLimitGuard },
+    { provide: APP_GUARD, useClass: FeatureGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
+    { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
+    { provide: APP_FILTER, useClass: HttpExceptionFilter },
+  ],
+})
+export class ExternalApiModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestIdMiddleware, TokenTenantMiddleware).forRoutes('*');
+  }
+}

@@ -5,6 +5,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { parseToken } from '@/common/auth';
 import {
   apiTokens,
   relationTuples,
@@ -13,7 +14,6 @@ import {
   roles,
   users,
 } from '@/db/schema';
-import { parseToken } from '@/modules/api-token/api-token.format';
 import { sha256 } from '@/modules/credential/token-hash';
 import { PermissionService } from '@/modules/permission/permission.service';
 

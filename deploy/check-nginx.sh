@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# 驗證兩份前端的 nginx 設定（需要 Docker）：語法（nginx -t），以及實際轉發時的標頭——
+# 驗證兩份前端與對外 API 閘道的 nginx 設定（需要 Docker）：語法（nginx -t），以及實際轉發時的標頭——
 # 安全標頭、X-Forwarded-Host 被覆寫、upstream keepalive、不外露版本。以與映像相同的方式掛載設定：
 #   deploy/nginx.main.conf → /etc/nginx/nginx.conf
 #   deploy/nginx.security-headers.conf → /etc/nginx/snippets/security-headers.conf
@@ -79,3 +79,27 @@ for site in nginx.conf nginx.auth.conf; do
 
   echo "✓ $site"
 done
+
+# ── nginx.external-api.conf：對外 API 的閘道（ADR-0027 D9）。upstream 是 external-api:3001，沒有靜態檔與 /api 前綴
+echo "── nginx.external-api.conf"
+docker rm -f "$NETWORK-nginx" "$NETWORK-api" >/dev/null 2>&1 || true
+docker run -d --name "$NETWORK-api" --network "$NETWORK" --network-alias external-api \
+  "$NODE_IMAGE" node -e "$(echo "$ECHO_SERVER" | sed 's/listen(3000)/listen(3001)/')" >/dev/null
+docker run -d --name "$NETWORK-nginx" --network "$NETWORK" -p "$PORT:8080" --read-only --tmpfs /tmp \
+  -v "$DEPLOY_DIR/nginx.main.conf:/etc/nginx/nginx.conf:ro" \
+  -v "$DEPLOY_DIR/nginx.external-api.conf:/etc/nginx/conf.d/default.conf:ro" \
+  "$NGINX_IMAGE" >/dev/null
+docker exec "$NETWORK-nginx" nginx -t >/dev/null 2>&1 || fail "nginx.external-api.conf：nginx -t 失敗"
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  curl -s -o /dev/null "http://127.0.0.1:$PORT/health" && break
+  sleep 1
+done
+headers=$(curl -s -D - -o /dev/null "http://127.0.0.1:$PORT/v1/me")
+for expected in "strict-transport-security: max-age=31536000" "x-content-type-options: nosniff" "cache-control: no-store"; do
+  echo "$headers" | grep -qi "$expected" || fail "nginx.external-api.conf：缺少 $expected"
+done
+echo "$headers" | grep -qi '^server: nginx/' && fail "nginx.external-api.conf：外露 nginx 版本"
+body=$(curl -s -H 'Authorization: Bearer b2bt_acme_x_y' "http://127.0.0.1:$PORT/v1/me")
+echo "$body" | grep -q '"authorization":"Bearer b2bt_acme_x_y"' ||
+  fail "nginx.external-api.conf：Authorization 沒有轉給 external-api（$body）"
+echo "✓ nginx.external-api.conf"

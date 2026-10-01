@@ -32,6 +32,9 @@
 | apps/auth 的網域（`AUTH_APP_URL` 的 host） | 沒有租戶；帳號流程以 `X-Tenant: <代碼>` 指定租戶（D26，這個標頭只在 apps/auth 的網域有效） |
 | 其他 | 沒有租戶；需要租戶的程式第一次存取 `TENANT_DB` 時拋 `404 TENANT_NOT_FOUND`，健康檢查照常 |
 
+對外 API（另一個程序，[`06-external-api.md`](./06-external-api.md)）不看網域：`TokenTenantMiddleware` 以 API token 的租戶代碼
+找租戶（`findByCode`），全平台只有一個對外網域。
+
 平台管理者的端點（`/platform/*`）**只在 apps/auth 的網域有效**：租戶網域、未登記的網域、直接以 IP 連線一律在 `TenantMiddleware`
 回 `404 PLATFORM_ONLY`，只套在 apps/auth 網域上的網路控制（WAF、IP 白名單）才保護得到平台管理。
 

@@ -7,7 +7,9 @@ import {
   FeatureGuard,
   JwtAuthGuard,
   PermissionsGuard,
+  PROCESS_SURFACE,
   RateLimitGuard,
+  SurfaceGuard,
   WsAuthGuard,
 } from './common/guards';
 import { AuthzModule } from './core/authz';
@@ -113,6 +115,9 @@ import { UserModule } from './modules/user/user.module';
     // 全域註冊 ＋ 預設拒絕：忘記宣告權限的後果是「啟動失敗」而不是「開了一個無保護的端點」。
     // Nest 12 起全域 guard／interceptor 也套用到 WebSocket gateway：每個 guard 自己看 ctx.getType()，
     // HTTP 由 JwtAuthGuard、ws 由 WsAuthGuard 認人，兩者都排在 FeatureGuard 與 PermissionsGuard 之前
+    // 這個程序是內部 api：對外 API 的路由（/v1/*）在這裡等同不存在（docs/adr/0027-api-tokens-external-api.md D11）
+    { provide: PROCESS_SURFACE, useValue: 'internal' },
+    { provide: APP_GUARD, useClass: SurfaceGuard },
     { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: WsAuthGuard },

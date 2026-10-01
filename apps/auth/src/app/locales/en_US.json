@@ -128,6 +128,7 @@
     "AUTH_ACCOUNT_LOCKED": "Too many failed attempts; the account is temporarily locked.",
     "AUTH_TOKEN_INVALID": "Your session is invalid. Please sign in again.",
     "AUTH_TOKEN_STALE": "Your session was terminated by an administrator. Please sign in again.",
+    "AUTH_API_TOKEN_EXPIRED": "This API token has expired. Create a new one.",
     "AUTH_REFRESH_INVALID": "Your session has expired. Please sign in again.",
     "AUTH_REFRESH_EXPIRED": "Your session has expired. Please sign in again.",
     "AUTH_REFRESH_REVOKED": "Your session was revoked. Please sign in again.",
