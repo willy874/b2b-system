@@ -6,6 +6,9 @@ import type { ScriptDatabase } from '../client';
 import { forEachScriptTenant, loadScriptEnv, seedTenantCode } from '../client';
 import {
   auditLogs,
+  groupMemberTuple,
+  groupRoleTuple,
+  groups,
   permissions,
   relationTuples,
   roleHolderTuple,
@@ -47,6 +50,76 @@ const CUSTOM_ROLES = [
   },
   { slug: 'qa', name: '測試', keys: ['auditLog:read', 'system:read'] },
   { slug: 'read-only', name: '唯讀', keys: ['user:read'] },
+];
+
+/**
+ * 群組：`users` 是 dev 使用者的序號（1 起算）、`groups` 是巢狀的子群組（要先出現在清單前面）、`roles` 是自訂角色的 slug。
+ * 巢狀最深 3 層（全體員工 → 工程部 → 前端組），在 GROUP_MAX_NESTING_DEPTH 之內。
+ */
+const DEV_GROUPS: {
+  name: string;
+  description: string | null;
+  users: number[];
+  groups: string[];
+  roles: string[];
+}[] = [
+  {
+    name: '前端組',
+    description: 'Web 與後台介面',
+    users: [1, 2, 3, 4, 5, 6],
+    groups: [],
+    roles: ['release-manager'],
+  },
+  {
+    name: '後端組',
+    description: 'API 與資料庫',
+    users: [7, 8, 9, 10, 11, 12],
+    groups: [],
+    roles: [],
+  },
+  {
+    name: '工程部',
+    description: '前端組與後端組，另含技術主管',
+    users: [13],
+    groups: ['前端組', '後端組'],
+    roles: ['qa'],
+  },
+  {
+    name: '客服中心',
+    description: '第一線客戶支援',
+    users: [14, 15, 16, 17, 18, 19, 20],
+    groups: [],
+    roles: ['support'],
+  },
+  {
+    name: '內容團隊',
+    description: '文案、素材與上架',
+    users: [21, 22, 23, 24, 25, 26],
+    groups: [],
+    roles: ['content-editor'],
+  },
+  {
+    name: '全體員工',
+    description: '所有正職部門',
+    users: [],
+    groups: ['工程部', '客服中心', '內容團隊'],
+    roles: ['read-only'],
+  },
+  {
+    name: '稽核小組',
+    description: '季度稽核，暫不持有角色',
+    users: [27, 28, 29],
+    groups: [],
+    roles: [],
+  },
+  {
+    name: '外包夥伴',
+    description: '含停用與待啟用的帳號',
+    users: [36, 37, 44, 45],
+    groups: [],
+    roles: [],
+  },
+  { name: '新專案小組', description: null, users: [], groups: [], roles: [] },
 ];
 
 const ACTIONS = [
@@ -137,6 +210,48 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
     }
   }
 
+  // ── 9 個群組（含巢狀與持有角色）────────────────────────
+  // 已存在的群組不動它的成員與角色，重跑不會把手動調整蓋掉
+  const roleIdBySlug = new Map(CUSTOM_ROLES.map((seed, index) => [seed.slug, roleIds[index]]));
+  const groupIdByName = new Map<string, string>();
+  for (const seed of DEV_GROUPS) {
+    const [existing] = await db
+      .select({ id: groups.id })
+      .from(groups)
+      .where(and(sql`lower(${groups.name}) = lower(${seed.name})`, isNull(groups.deletedAt)))
+      .limit(1);
+    if (existing) {
+      groupIdByName.set(seed.name, existing.id);
+      continue;
+    }
+
+    const [created] = await db
+      .insert(groups)
+      .values({ name: seed.name, description: seed.description })
+      .returning({ id: groups.id });
+    if (!created) continue;
+    groupIdByName.set(seed.name, created.id);
+
+    const tuples = [
+      ...seed.users
+        .map((serial) => createdUserIds[serial - 1])
+        .filter((id): id is string => Boolean(id))
+        .map((id) => groupMemberTuple(created.id, { type: 'user', id })),
+      ...seed.groups
+        .map((name) => groupIdByName.get(name))
+        .filter((id): id is string => Boolean(id))
+        .map((id) => groupMemberTuple(created.id, { type: 'group', id })),
+      ...seed.roles
+        .map((slug) => roleIdBySlug.get(slug))
+        .filter((id): id is string => Boolean(id))
+        .map((roleId) => groupRoleTuple(roleId, created.id)),
+    ];
+    if (tuples.length) {
+      // oxlint-disable-next-line no-await-in-loop -- seed 腳本，巢狀群組要等子群組建好
+      await db.insert(relationTuples).values(tuples).onConflictDoNothing();
+    }
+  }
+
   // ── 300 筆稽核日誌（跨 90 天）───────────────────────────
   const [{ total } = { total: 0 }] = await db
     .select({ total: sql<number>`count(*)::int` })
@@ -164,7 +279,7 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
   }
 
   console.info(
-    `dev seed 完成：${CUSTOM_ROLES.length} 個自訂角色、${STATUS_PLAN.length} 位使用者、稽核日誌 ≥ 300 筆`,
+    `dev seed 完成：${CUSTOM_ROLES.length} 個自訂角色、${STATUS_PLAN.length} 位使用者、${DEV_GROUPS.length} 個群組、稽核日誌 ≥ 300 筆`,
   );
   console.info(`所有假帳號密碼：${DEV_PASSWORD}（網域 ${DEV_DOMAIN}，不會誤寄信）`);
 }
