@@ -1,4 +1,4 @@
-import { Accordion as BaseAccordion } from '@base-ui-components/react/accordion';
+import { Accordion as BaseAccordion } from '@base-ui/react/accordion';
 import type { ReactNode } from 'react';
 
 import { cn } from '@/shared/utils';

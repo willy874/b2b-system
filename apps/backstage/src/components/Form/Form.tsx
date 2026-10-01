@@ -1,4 +1,4 @@
-import { Form as BaseForm } from '@base-ui-components/react/form';
+import { Form as BaseForm } from '@base-ui/react/form';
 import type { FormHTMLAttributes, ReactNode } from 'react';
 
 import { cn } from '@/shared/utils';

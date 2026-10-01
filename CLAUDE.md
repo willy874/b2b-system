@@ -102,7 +102,6 @@ pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法�
 
 | 項目 | 文件 | 實作 | 原因 |
 | --- | --- | --- | --- |
-| Base UI 套件名 | `@base-ui/react` | `@base-ui-components/react` | npm 上的實際套件名 |
 | Refresh cookie 的 Path | `/auth` | `/api/auth`（`REFRESH_COOKIE_PATH`） | 瀏覽器看到的路徑帶 `/api` 前綴，設 `/auth` 會讓 cookie 永遠不被送出 |
 | 速率限制 | 具名 throttler `auth` | 自製全域 `RateLimitGuard` ＋ 端點 `@RateLimit('auth' \| 'authMail' \| 'refresh')`；已登入以「租戶＋使用者」、未登入以 IP、登入以「email＋IP」計數 | `@nestjs/throttler` 的具名 throttler 會「同時」套用到所有路由，且只能以 IP 計數，企業 NAT 後整間公司共用額度 |
 | 建立對話框的權限 | 沿用列表頁的 page key | `USER_CREATE` / `ROLE_CREATE` 各自註冊 | 才能讓 auditor 直接貼 `/user/create` 時看到 403 |

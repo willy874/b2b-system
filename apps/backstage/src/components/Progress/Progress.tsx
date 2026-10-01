@@ -1,4 +1,4 @@
-import { Progress as BaseProgress } from '@base-ui-components/react/progress';
+import { Progress as BaseProgress } from '@base-ui/react/progress';
 import type { ReactNode, Ref } from 'react';
 
 import { cn } from '@/shared/utils';

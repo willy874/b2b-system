@@ -84,7 +84,7 @@ describe('設計系統的結構規則', () => {
     const offenders = tsxFiles
       .filter((file) => {
         const source = readFileSync(file, 'utf8');
-        return /export\s+(type\s+)?\{[^}]*\}\s+from\s+'@base-ui-components/.test(source);
+        return /export\s+(type\s+)?\{[^}]*\}\s+from\s+'@base-ui/.test(source);
       })
       .map((file) => file.split('/components/')[1] as string);
     expect(offenders, `洩漏 Base UI 型別：${offenders.join(', ')}`).toEqual([]);
@@ -108,7 +108,7 @@ describe('設計系統的結構規則', () => {
   it('features/ 不直接 import Base UI（只能透過 components/）', () => {
     const featuresDir = resolve(componentsDir, '../features');
     const offenders = walk(featuresDir, (file) => file.endsWith('.tsx') || file.endsWith('.ts'))
-      .filter((file) => readFileSync(file, 'utf8').includes('@base-ui-components/react'))
+      .filter((file) => readFileSync(file, 'utf8').includes('@base-ui/react'))
       .map((file) => file.split('/features/')[1] as string);
     expect(offenders, `feature 直接用了 Base UI：${offenders.join(', ')}`).toEqual([]);
   });

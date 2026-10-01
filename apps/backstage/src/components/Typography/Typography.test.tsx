@@ -139,7 +139,8 @@ describe('copyable', () => {
     render(<Text copyable={{ resetAfter: 1000 }}>abc</Text>);
 
     await user.click(screen.getByRole('button', { name: '複製' }));
-    expect(screen.getByRole('button', { name: '已複製' })).toBeInTheDocument();
+    // 寫入剪貼簿是非同步的，切換成「已複製」要等它完成
+    expect(await screen.findByRole('button', { name: '已複製' })).toBeInTheDocument();
 
     act(() => {
       vi.advanceTimersByTime(1000);

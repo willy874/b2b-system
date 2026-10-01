@@ -1,4 +1,4 @@
-import { Toast as BaseToast } from '@base-ui-components/react/toast';
+import { Toast as BaseToast } from '@base-ui/react/toast';
 import type { ReactNode } from 'react';
 
 import { useComponentLabels } from '../labels';
