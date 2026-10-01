@@ -1,6 +1,6 @@
 # ADR-0028 — 事件管理：通知事件的目錄與租戶層的開關，在 `notify()` 內統一判斷
 
-- 狀態：**採用**（2026-10-01 確認，Q1～Q3 照預設；E1、E2 於 79d455f 合併，E3 實作於 `feat/notification-preferences`）
+- 狀態：**採用**（2026-10-01 確認，Q1～Q3 照預設；E1、E2 於 79d455f 合併，E3 於 717c9f5 合併）
 - 日期：2026-10-01
 - 相關：[ADR-0026](./0026-notification-center.md)（站內通知；本決定取代其 D4「第一版不做通知偏好」）、
   [ADR-0017](./0017-mail-delivery.md)（寄信一律經背景工作）、[ADR-0021](./0021-runtime-feature-activation.md)（可啟用的 feature）、
