@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import { ROLE_HOLDER_RELATION, ROLE_OBJECT_TYPE } from '@/db/schema';
 import { ALL_PERMISSION_KEYS, isPermissionKey, permissionClosure } from '@/db/seeds/permissions';
 import type { PermissionKey } from '@/db/seeds/permissions';
 
@@ -19,6 +20,25 @@ export interface ResolveOptions {
   tx?: DbOrTx;
   now?: Date;
 }
+
+/**
+ * `checkerFor` 的租戶層覆寫：租戶節點上的邊不讀 tuple，改成只有 `relations` 這些權限鍵。
+ * 給對外 API 限縮過 scopes 的 token 用（docs/adr/0027-api-tokens-external-api.md D3）：帳號經角色、群組取得的
+ * 租戶權限不能再經由資源模型的繼承（資料夾的 `can_*` ← 租戶的 `file:*`）回來；資源上的授權照舊。
+ */
+export interface TenantRelationsOverride {
+  relations: Iterable<string>;
+}
+
+/**
+ * 覆寫時持有那些權限鍵的主體：租戶的權限關係只接受「角色的持有者」，所以用一個只存在於這個判斷器的角色。
+ * 沒有任何 tuple 指向它，資源上的授權不會因此多出來。
+ */
+const SCOPED_TENANT_SUBJECT = subjectKey(
+  ROLE_OBJECT_TYPE,
+  '00000000-0000-0000-0000-000000000000',
+  ROLE_HOLDER_RELATION,
+);
 
 /** 一位使用者在租戶節點上的權限。 */
 export interface TenantPermissions {
@@ -113,14 +133,23 @@ export class AuthzService {
     objectTypes: readonly string[],
     providers: readonly EdgeProvider[],
     options: ResolveOptions,
+    tenantOverride?: TenantRelationsOverride,
   ): Promise<AuthzChecker> {
     const now = options.now ?? new Date();
-    const tuples: TupleEntry[] = [];
-    for (const type of [TENANT_OBJECT.type, ...objectTypes]) {
+    const tuples: TupleEntry[] = tenantOverride
+      ? [...tenantOverride.relations].map((relation) => ({
+          object: TENANT_OBJECT,
+          relation,
+          subject: SCOPED_TENANT_SUBJECT,
+        }))
+      : [];
+    const types = tenantOverride ? objectTypes : [TENANT_OBJECT.type, ...objectTypes];
+    const checkerSubjects = tenantOverride ? [...subjects, SCOPED_TENANT_SUBJECT] : subjects;
+    for (const type of types) {
       // oxlint-disable-next-line no-await-in-loop -- 同一個交易的查詢依序執行
       tuples.push(...(await this.repo.tuplesForSubjects(type, subjects, now, options.tx)));
     }
-    return this.checker(subjects, tuples, providers, options.withDependencies);
+    return this.checker(checkerSubjects, tuples, providers, options.withDependencies);
   }
 
   /** 一位使用者的主體閉包，每個主體附上從本人走到它的鏈（說明用，`AuthzRepository.closurePaths`）。 */

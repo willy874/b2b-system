@@ -17,7 +17,7 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P2 | 服務帳號／API Token、對外 API 服務 | [`api-tokens.md`](./api-tokens.md) | 實作中（[ADR-0027](../adr/0027-api-tokens-external-api.md)；T0、T1 已合併，T2：`feat/external-api`） | — |
+| P2 | 服務帳號／API Token、對外 API 服務 | [`api-tokens.md`](./api-tokens.md) | 實作中（[ADR-0027](../adr/0027-api-tokens-external-api.md)；T0～T2 已合併，T3：`feat/external-api-v1`） | — |
 | P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | [背景工作](../architecture/backend/10-jobs.md)（已完成） |
 | P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[背景工作](../architecture/backend/10-jobs.md)（已完成） |
 | P2 | 標籤、留言、關注 | [`tags-comments.md`](./tags-comments.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成） |

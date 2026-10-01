@@ -359,6 +359,9 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 
 ## 6. API
 
+對外 API（只認 API token）另有一組 `/v1/folders`、`/v1/files` 端點，呼叫同一份 service、回傳 `External*` 的契約
+（[`../06-external-api.md`](../06-external-api.md) §3）。以下是內部 api 的端點。
+
 | Method | Path | 權限 | 回應 |
 | --- | --- | --- | --- |
 | GET | `/files` | `file:read` | `FileListPage`：`{ items: StoredFile[], pagination, nextCursor }` |
@@ -611,6 +614,9 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 
 規格：[`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)；決策：[ADR-0015](../../adr/0015-file-folder-access.md)。
 這一節只講實作落點。
+
+對外 API 限縮過 scopes 的 token：`contextFor` 讓判斷器的租戶層只有限縮後的權限鍵，資料夾上的授權照舊
+（[`../06-external-api.md`](../06-external-api.md) §2）。
 
 ```
 controller   @RequireAnyPermission('file:access', 'file:<動作>')    ← 閘門
