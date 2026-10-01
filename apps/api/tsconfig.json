@@ -2,12 +2,15 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "module": "CommonJS",
+    // TS 6 起 node10 解析已 deprecated（TS 7 移除）。改用 bundler 會讓 drizzle 的型別解析到 .cjs，
+    // composite 的 declaration 輸出報 TS2883；node16／node20 又擋下測試裡的動態 import() 與
+    // @nestjs/swagger 的深層 import。升 TS 7 時（也要等 @nestjs/cli 不再依賴 compiler API）一併處理。
     "moduleResolution": "Node",
+    "ignoreDeprecations": "6.0",
     "lib": ["ES2023"],
     "types": ["node", "vitest/globals"],
     "outDir": "./dist-types",
     "rootDir": "./",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },
