@@ -6,7 +6,15 @@ import { alias } from 'drizzle-orm/pg-core';
 import type { Database, DbOrTx } from '@/core/database';
 import { containsPattern, TENANT_DB } from '@/core/database';
 import type { FileFolderInsert, FileFolderKind, FileFolderRow } from '@/db/schema';
-import { fileFolders, files, isDeleted, notDeleted, relationTuples, users } from '@/db/schema';
+import {
+  fileFolders,
+  files,
+  isDeleted,
+  isHumanUser,
+  notDeleted,
+  relationTuples,
+  users,
+} from '@/db/schema';
 
 import type { FolderNode } from './file-access.context';
 
@@ -198,7 +206,7 @@ export class FileFolderRepository {
     return !file;
   }
 
-  /** 個人資料夾命名用：未刪除的使用者。 */
+  /** 個人資料夾命名用：未刪除的人（服務帳號沒有個人資料夾，docs/adr/0027-api-tokens-external-api.md D1）。 */
   async findUsers(
     userIds: readonly string[],
   ): Promise<{ id: string; displayName: string; email: string }[]> {
@@ -206,12 +214,15 @@ export class FileFolderRepository {
     return this.db
       .select({ id: users.id, displayName: users.displayName, email: users.email })
       .from(users)
-      .where(and(inArray(users.id, [...userIds]), notDeleted(users)));
+      .where(and(inArray(users.id, [...userIds]), notDeleted(users), isHumanUser()));
   }
 
-  /** 未刪除的使用者：啟動時補建個人資料夾的候選人（能不能進檔案管理器由權限解析決定）。 */
+  /** 未刪除的人：啟動時補建個人資料夾的候選人（能不能進檔案管理器由權限解析決定）。 */
   async findActiveUserIds(): Promise<string[]> {
-    const rows = await this.db.select({ id: users.id }).from(users).where(notDeleted(users));
+    const rows = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(notDeleted(users), isHumanUser()));
     return rows.map((row) => row.id);
   }
 

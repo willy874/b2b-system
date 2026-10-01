@@ -197,6 +197,12 @@
     "GROUP_MEMBERSHIP_CYCLE": "不能把群組加進它自己，或加進它底下的群組。",
     "GROUP_NESTING_TOO_DEEP": "群組的巢狀層數太深，請減少群組在群組裡的層數。",
     "GROUP_SUPER_ADMIN_FORBIDDEN": "群組不能持有超級管理員角色，請直接指派給使用者。",
+    "SERVICE_ACCOUNT_NOT_FOUND": "找不到這個服務帳號，可能已被刪除。",
+    "SERVICE_ACCOUNT_VERSION_CONFLICT": "這個服務帳號已經被其他人修改，請重新載入後再編輯。",
+    "SERVICE_ACCOUNT_ROLES_CONFLICT": "這個服務帳號的角色已經被其他人修改，請重新載入後再調整。",
+    "API_TOKEN_NOT_FOUND": "找不到這個 API token，可能已被撤銷。",
+    "API_TOKEN_LIFETIME_EXCEEDED": "有效期限超過上限（最多 {{maxDays}} 天）。",
+    "API_TOKEN_LIMIT_REACHED": "這個帳號的 API token 已達上限（{{max}} 個），請先撤銷不用的 token。",
     "REVISION_NOT_FOUND": "找不到這個版本，可能已超過保留期限而被清除。",
     "REVISION_UNAVAILABLE": "這個版本的內容過大未保存，無法檢視或還原。",
     "NOTIFICATION_NOT_FOUND": "這則通知已不存在，可能已超過保留期限而被刪除。",
@@ -271,7 +277,8 @@
       "job": "背景工作",
       "identityProvider": "外部 IdP 連線",
       "group": "群組",
-      "authz": "授權說明"
+      "authz": "授權說明",
+      "serviceAccount": "服務帳號"
     },
     "user": {
       "create": "建立使用者",
@@ -329,6 +336,12 @@
     },
     "authz": {
       "explain": "檢視授權來源"
+    },
+    "serviceAccount": {
+      "create": "建立服務帳號",
+      "read": "檢視服務帳號",
+      "update": "編輯服務帳號",
+      "delete": "刪除服務帳號"
     }
   },
   "language": {

@@ -2845,6 +2845,486 @@
         "tags": ["groups"]
       }
     },
+    "/auth/api-tokens": {
+      "get": {
+        "operationId": "ApiTokenController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApiTokenList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "我的個人 API token（含已撤銷、已過期；不含 secret）",
+        "tags": ["api-tokens"]
+      },
+      "post": {
+        "operationId": "ApiTokenController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CreatedApiToken"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "建立個人 API token；回應的 token 只出現這一次",
+        "tags": ["api-tokens"]
+      }
+    },
+    "/auth/api-tokens/{tokenId}": {
+      "delete": {
+        "operationId": "ApiTokenController_revoke",
+        "parameters": [
+          {
+            "name": "tokenId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "撤銷自己的個人 API token",
+        "tags": ["api-tokens"]
+      }
+    },
+    "/users/{userId}/api-tokens": {
+      "get": {
+        "operationId": "UserApiTokenController_list",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApiTokenList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "這位使用者的個人 API token（不含 secret）",
+        "tags": ["api-tokens"]
+      }
+    },
+    "/users/{userId}/api-tokens/{tokenId}": {
+      "delete": {
+        "operationId": "UserApiTokenController_revoke",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tokenId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "撤銷這位使用者的個人 API token",
+        "tags": ["api-tokens"]
+      }
+    },
+    "/service-accounts": {
+      "get": {
+        "operationId": "ServiceAccountController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ServiceAccount"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["service-accounts"]
+      },
+      "post": {
+        "operationId": "ServiceAccountController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateServiceAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ServiceAccount"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "建立服務帳號；指派的角色受反提權限制",
+        "tags": ["service-accounts"]
+      }
+    },
+    "/service-accounts/{id}": {
+      "get": {
+        "operationId": "ServiceAccountController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ServiceAccount"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["service-accounts"]
+      },
+      "patch": {
+        "operationId": "ServiceAccountController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateServiceAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ServiceAccount"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "改名、停用、啟用；停用時它的 token 全部失效",
+        "tags": ["service-accounts"]
+      },
+      "delete": {
+        "operationId": "ServiceAccountController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "刪除；它的 token 一併失效，不進回收桶",
+        "tags": ["service-accounts"]
+      }
+    },
+    "/service-accounts/{id}/roles": {
+      "put": {
+        "operationId": "ServiceAccountController_replaceRoles",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceServiceAccountRolesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ServiceAccountRoles"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "整批取代持有的角色；受反提權限制",
+        "tags": ["service-accounts"]
+      }
+    },
+    "/service-accounts/{id}/tokens": {
+      "get": {
+        "operationId": "ServiceAccountController_listTokens",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApiTokenList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "它的 API token（含已撤銷、已過期；不含 secret）",
+        "tags": ["service-accounts"]
+      },
+      "post": {
+        "operationId": "ServiceAccountController_createToken",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CreatedApiToken"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "替它建立 API token；回應的 token 只出現這一次。token 的有效權限必須是操作者持有的",
+        "tags": ["service-accounts"]
+      }
+    },
+    "/service-accounts/{id}/tokens/{tokenId}": {
+      "delete": {
+        "operationId": "ServiceAccountController_revokeToken",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tokenId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "撤銷它的一把 API token",
+        "tags": ["service-accounts"]
+      }
+    },
     "/users/{id}/permission-sources": {
       "get": {
         "operationId": "AuthzExplainController_permissionSources",
@@ -4760,6 +5240,300 @@
       }
     },
     "schemas": {
+      "PermissionKey": {
+        "type": "string",
+        "enum": [
+          "user:create",
+          "user:read",
+          "user:update",
+          "user:delete",
+          "user:assignRole",
+          "user:resetPassword",
+          "role:create",
+          "role:read",
+          "role:update",
+          "role:delete",
+          "role:grantPermission",
+          "permission:read",
+          "auditLog:read",
+          "system:read",
+          "system:update",
+          "approval:read",
+          "approval:review",
+          "file:create",
+          "file:read",
+          "file:update",
+          "file:delete",
+          "file:access",
+          "file:share",
+          "job:read",
+          "job:retry",
+          "identityProvider:create",
+          "identityProvider:read",
+          "identityProvider:update",
+          "identityProvider:delete",
+          "group:create",
+          "group:read",
+          "group:update",
+          "group:delete",
+          "group:assignRole",
+          "authz:explain",
+          "serviceAccount:create",
+          "serviceAccount:read",
+          "serviceAccount:update",
+          "serviceAccount:delete"
+        ]
+      },
+      "Permission": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "key": {
+            "$ref": "#/components/schemas/PermissionKey"
+          },
+          "resource": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "nameI18nKey": {
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "includes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionKey"
+            }
+          },
+          "requires": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionKey"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "resource",
+          "action",
+          "nameI18nKey",
+          "description",
+          "sortOrder",
+          "includes",
+          "requires"
+        ],
+        "additionalProperties": false
+      },
+      "PermissionSource": {
+        "type": "object",
+        "properties": {
+          "grantedKey": {
+            "type": "string"
+          },
+          "via": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExplainNode"
+            }
+          }
+        },
+        "required": ["grantedKey", "via"],
+        "additionalProperties": false
+      },
+      "EffectivePermission": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/PermissionKey"
+          },
+          "source": {
+            "$ref": "#/components/schemas/PermissionSource"
+          },
+          "impliedBy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionKey"
+            }
+          }
+        },
+        "required": ["key", "source", "impliedBy"],
+        "additionalProperties": false
+      },
+      "PermissionGroup": {
+        "type": "object",
+        "properties": {
+          "resource": {
+            "type": "string"
+          },
+          "nameI18nKey": {
+            "type": "string"
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionKey"
+            }
+          }
+        },
+        "required": ["resource", "nameI18nKey", "keys"],
+        "additionalProperties": false
+      },
+      "PermissionCatalog": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionGroup"
+            }
+          }
+        },
+        "required": ["items", "groups"],
+        "additionalProperties": false
+      },
+      "ApiToken": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "scopes": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionKey"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "expired", "revoked", "invalidated"]
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "lastUsedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "revokedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "createdBy": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "displayName"],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "prefix",
+          "scopes",
+          "status",
+          "expiresAt",
+          "lastUsedAt",
+          "revokedAt",
+          "createdAt",
+          "createdBy"
+        ],
+        "additionalProperties": false
+      },
+      "ApiTokenList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiToken"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "CreateApiTokenRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "expiresInDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365
+          },
+          "scopes": {
+            "nullable": true,
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionKey"
+            }
+          }
+        },
+        "required": ["name", "expiresInDays"],
+        "additionalProperties": false
+      },
+      "CreatedApiToken": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "apiToken": {
+            "$ref": "#/components/schemas/ApiToken"
+          }
+        },
+        "required": ["token", "apiToken"],
+        "additionalProperties": false
+      },
       "NotificationChannel": {
         "type": "string",
         "enum": ["inApp", "email"]
@@ -5785,174 +6559,6 @@
           }
         },
         "required": ["roles"],
-        "additionalProperties": false
-      },
-      "PermissionKey": {
-        "type": "string",
-        "enum": [
-          "user:create",
-          "user:read",
-          "user:update",
-          "user:delete",
-          "user:assignRole",
-          "user:resetPassword",
-          "role:create",
-          "role:read",
-          "role:update",
-          "role:delete",
-          "role:grantPermission",
-          "permission:read",
-          "auditLog:read",
-          "system:read",
-          "system:update",
-          "approval:read",
-          "approval:review",
-          "file:create",
-          "file:read",
-          "file:update",
-          "file:delete",
-          "file:access",
-          "file:share",
-          "job:read",
-          "job:retry",
-          "identityProvider:create",
-          "identityProvider:read",
-          "identityProvider:update",
-          "identityProvider:delete",
-          "group:create",
-          "group:read",
-          "group:update",
-          "group:delete",
-          "group:assignRole",
-          "authz:explain"
-        ]
-      },
-      "Permission": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "key": {
-            "$ref": "#/components/schemas/PermissionKey"
-          },
-          "resource": {
-            "type": "string"
-          },
-          "action": {
-            "type": "string"
-          },
-          "nameI18nKey": {
-            "type": "string"
-          },
-          "description": {
-            "nullable": true,
-            "type": "string"
-          },
-          "sortOrder": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "includes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PermissionKey"
-            }
-          },
-          "requires": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PermissionKey"
-            }
-          }
-        },
-        "required": [
-          "id",
-          "key",
-          "resource",
-          "action",
-          "nameI18nKey",
-          "description",
-          "sortOrder",
-          "includes",
-          "requires"
-        ],
-        "additionalProperties": false
-      },
-      "PermissionSource": {
-        "type": "object",
-        "properties": {
-          "grantedKey": {
-            "type": "string"
-          },
-          "via": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ExplainNode"
-            }
-          }
-        },
-        "required": ["grantedKey", "via"],
-        "additionalProperties": false
-      },
-      "EffectivePermission": {
-        "type": "object",
-        "properties": {
-          "key": {
-            "$ref": "#/components/schemas/PermissionKey"
-          },
-          "source": {
-            "$ref": "#/components/schemas/PermissionSource"
-          },
-          "impliedBy": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PermissionKey"
-            }
-          }
-        },
-        "required": ["key", "source", "impliedBy"],
-        "additionalProperties": false
-      },
-      "PermissionGroup": {
-        "type": "object",
-        "properties": {
-          "resource": {
-            "type": "string"
-          },
-          "nameI18nKey": {
-            "type": "string"
-          },
-          "keys": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PermissionKey"
-            }
-          }
-        },
-        "required": ["resource", "nameI18nKey", "keys"],
-        "additionalProperties": false
-      },
-      "PermissionCatalog": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Permission"
-            }
-          },
-          "groups": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PermissionGroup"
-            }
-          }
-        },
-        "required": ["items", "groups"],
         "additionalProperties": false
       },
       "TenantFeature": {
@@ -8773,6 +9379,137 @@
           }
         },
         "required": ["add", "remove"],
+        "additionalProperties": false
+      },
+      "ServiceAccount": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "inactive"]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleSummary"
+            }
+          },
+          "activeTokenCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "roles",
+          "activeTokenCount",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CreateServiceAccountRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "roleIds": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": ["name", "roleIds"],
+        "additionalProperties": false
+      },
+      "UpdateServiceAccountRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "inactive"]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["version"],
+        "additionalProperties": false
+      },
+      "ReplaceServiceAccountRolesRequest": {
+        "type": "object",
+        "properties": {
+          "roleIds": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "expectedRoleIds": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": ["roleIds", "expectedRoleIds"],
+        "additionalProperties": false
+      },
+      "ServiceAccountRoles": {
+        "type": "object",
+        "properties": {
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleSummary"
+            }
+          }
+        },
+        "required": ["roles"],
         "additionalProperties": false
       },
       "SystemSetting": {

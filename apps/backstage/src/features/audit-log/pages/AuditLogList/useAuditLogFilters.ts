@@ -57,6 +57,8 @@ export function useAuditLogFilters({
           { value: 'file', label: t('permission.resource.file') },
           { value: 'auth', label: t('auditLog.resource.auth') },
           { value: 'authz', label: t('auditLog.resource.authz') },
+          { value: 'serviceAccount', label: t('permission.resource.serviceAccount') },
+          { value: 'apiToken', label: t('auditLog.resource.apiToken') },
         ],
       },
       {

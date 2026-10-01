@@ -11,6 +11,8 @@ export const RESOURCE_TYPE = {
   GROUP: 'group',
   FILE: 'file',
   FILE_FOLDER: 'fileFolder',
+  SERVICE_ACCOUNT: 'serviceAccount',
+  API_TOKEN: 'apiToken',
 } as const;
 
 export type ResourceType = (typeof RESOURCE_TYPE)[keyof typeof RESOURCE_TYPE];

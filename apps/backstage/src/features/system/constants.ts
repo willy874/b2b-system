@@ -87,6 +87,16 @@ export const SETTING_FIELD: Readonly<Partial<Record<string, SettingFieldConfig>>
     descriptionKey: 'setting.field.passwordResetTtlHours.description',
     unit: UNIT.hours,
   },
+  'auth.personalTokenMaxDays': {
+    labelKey: 'setting.field.personalTokenMaxDays.label',
+    descriptionKey: 'setting.field.personalTokenMaxDays.description',
+    unit: UNIT.days,
+  },
+  'auth.serviceAccountTokenMaxDays': {
+    labelKey: 'setting.field.serviceAccountTokenMaxDays.label',
+    descriptionKey: 'setting.field.serviceAccountTokenMaxDays.description',
+    unit: UNIT.days,
+  },
   'file.uploadMaxSize': {
     labelKey: 'setting.field.uploadMaxSize.label',
     descriptionKey: 'setting.field.uploadMaxSize.description',

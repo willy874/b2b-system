@@ -51,4 +51,9 @@ export const PERMISSION = {
   GROUP_ASSIGN_ROLE: 'group:assignRole',
 
   AUTHZ_EXPLAIN: 'authz:explain',
+
+  SERVICE_ACCOUNT_CREATE: 'serviceAccount:create',
+  SERVICE_ACCOUNT_READ: 'serviceAccount:read',
+  SERVICE_ACCOUNT_UPDATE: 'serviceAccount:update',
+  SERVICE_ACCOUNT_DELETE: 'serviceAccount:delete',
 } as const satisfies Record<string, PermissionKey>;

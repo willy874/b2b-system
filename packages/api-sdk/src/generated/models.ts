@@ -1,6 +1,114 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
 // 來源：B2B System API 0.0.0（OpenAPI 3.0.0）
 
+export const PermissionKey = {
+  'user:create': 'user:create',
+  'user:read': 'user:read',
+  'user:update': 'user:update',
+  'user:delete': 'user:delete',
+  'user:assignRole': 'user:assignRole',
+  'user:resetPassword': 'user:resetPassword',
+  'role:create': 'role:create',
+  'role:read': 'role:read',
+  'role:update': 'role:update',
+  'role:delete': 'role:delete',
+  'role:grantPermission': 'role:grantPermission',
+  'permission:read': 'permission:read',
+  'auditLog:read': 'auditLog:read',
+  'system:read': 'system:read',
+  'system:update': 'system:update',
+  'approval:read': 'approval:read',
+  'approval:review': 'approval:review',
+  'file:create': 'file:create',
+  'file:read': 'file:read',
+  'file:update': 'file:update',
+  'file:delete': 'file:delete',
+  'file:access': 'file:access',
+  'file:share': 'file:share',
+  'job:read': 'job:read',
+  'job:retry': 'job:retry',
+  'identityProvider:create': 'identityProvider:create',
+  'identityProvider:read': 'identityProvider:read',
+  'identityProvider:update': 'identityProvider:update',
+  'identityProvider:delete': 'identityProvider:delete',
+  'group:create': 'group:create',
+  'group:read': 'group:read',
+  'group:update': 'group:update',
+  'group:delete': 'group:delete',
+  'group:assignRole': 'group:assignRole',
+  'authz:explain': 'authz:explain',
+  'serviceAccount:create': 'serviceAccount:create',
+  'serviceAccount:read': 'serviceAccount:read',
+  'serviceAccount:update': 'serviceAccount:update',
+  'serviceAccount:delete': 'serviceAccount:delete',
+} as const;
+export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
+
+export interface Permission {
+  id: string;
+  key: PermissionKey;
+  resource: string;
+  action: string;
+  nameI18nKey: string;
+  description: string | null;
+  sortOrder: number;
+  includes: Array<PermissionKey>;
+  requires: Array<PermissionKey>;
+}
+
+export interface PermissionSource {
+  grantedKey: string;
+  via: Array<ExplainNode>;
+}
+
+export interface EffectivePermission {
+  key: PermissionKey;
+  source: PermissionSource;
+  impliedBy: Array<PermissionKey>;
+}
+
+export interface PermissionGroup {
+  resource: string;
+  nameI18nKey: string;
+  keys: Array<PermissionKey>;
+}
+
+export interface PermissionCatalog {
+  items: Array<Permission>;
+  groups: Array<PermissionGroup>;
+}
+
+export interface ApiToken {
+  id: string;
+  name: string;
+  prefix: string;
+  scopes: Array<PermissionKey> | null;
+  status: 'active' | 'expired' | 'revoked' | 'invalidated';
+  expiresAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+  createdBy: {
+    id: string;
+    displayName: string;
+  } | null;
+}
+
+export interface ApiTokenList {
+  items: Array<ApiToken>;
+}
+
+export interface CreateApiTokenRequest {
+  name: string;
+  expiresInDays: number;
+  scopes?: Array<PermissionKey> | null;
+}
+
+export interface CreatedApiToken {
+  token: string;
+  apiToken: ApiToken;
+}
+
 export const NotificationChannel = {
   inApp: 'inApp',
   email: 'email',
@@ -297,79 +405,6 @@ export interface User {
 
 export interface UserRoles {
   roles: Array<RoleSummary>;
-}
-
-export const PermissionKey = {
-  'user:create': 'user:create',
-  'user:read': 'user:read',
-  'user:update': 'user:update',
-  'user:delete': 'user:delete',
-  'user:assignRole': 'user:assignRole',
-  'user:resetPassword': 'user:resetPassword',
-  'role:create': 'role:create',
-  'role:read': 'role:read',
-  'role:update': 'role:update',
-  'role:delete': 'role:delete',
-  'role:grantPermission': 'role:grantPermission',
-  'permission:read': 'permission:read',
-  'auditLog:read': 'auditLog:read',
-  'system:read': 'system:read',
-  'system:update': 'system:update',
-  'approval:read': 'approval:read',
-  'approval:review': 'approval:review',
-  'file:create': 'file:create',
-  'file:read': 'file:read',
-  'file:update': 'file:update',
-  'file:delete': 'file:delete',
-  'file:access': 'file:access',
-  'file:share': 'file:share',
-  'job:read': 'job:read',
-  'job:retry': 'job:retry',
-  'identityProvider:create': 'identityProvider:create',
-  'identityProvider:read': 'identityProvider:read',
-  'identityProvider:update': 'identityProvider:update',
-  'identityProvider:delete': 'identityProvider:delete',
-  'group:create': 'group:create',
-  'group:read': 'group:read',
-  'group:update': 'group:update',
-  'group:delete': 'group:delete',
-  'group:assignRole': 'group:assignRole',
-  'authz:explain': 'authz:explain',
-} as const;
-export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
-
-export interface Permission {
-  id: string;
-  key: PermissionKey;
-  resource: string;
-  action: string;
-  nameI18nKey: string;
-  description: string | null;
-  sortOrder: number;
-  includes: Array<PermissionKey>;
-  requires: Array<PermissionKey>;
-}
-
-export interface PermissionSource {
-  grantedKey: string;
-  via: Array<ExplainNode>;
-}
-
-export interface EffectivePermission {
-  key: PermissionKey;
-  source: PermissionSource;
-  impliedBy: Array<PermissionKey>;
-}
-
-export interface PermissionGroup {
-  resource: string;
-  nameI18nKey: string;
-  keys: Array<PermissionKey>;
-}
-
-export interface PermissionCatalog {
-  items: Array<Permission>;
-  groups: Array<PermissionGroup>;
 }
 
 export const TenantFeature = {
@@ -1121,6 +1156,37 @@ export interface UpdateRoleRequest {
 export interface UpdateRolePermissionsRequest {
   add: Array<PermissionKey>;
   remove: Array<PermissionKey>;
+}
+
+export interface ServiceAccount {
+  id: string;
+  name: string;
+  status: 'active' | 'inactive';
+  roles: Array<RoleSummary>;
+  activeTokenCount: number;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateServiceAccountRequest {
+  name: string;
+  roleIds: Array<string>;
+}
+
+export interface UpdateServiceAccountRequest {
+  name?: string;
+  status?: 'active' | 'inactive';
+  version: number;
+}
+
+export interface ReplaceServiceAccountRolesRequest {
+  roleIds: Array<string>;
+  expectedRoleIds: Array<string>;
+}
+
+export interface ServiceAccountRoles {
+  roles: Array<RoleSummary>;
 }
 
 export interface SystemSetting {

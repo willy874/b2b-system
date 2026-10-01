@@ -58,6 +58,10 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'group:delete',
       'group:assignRole',
       'authz:explain',
+      'serviceAccount:create',
+      'serviceAccount:read',
+      'serviceAccount:update',
+      'serviceAccount:delete',
     ],
   },
   {
@@ -77,6 +81,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'identityProvider:read',
       'group:read',
       'authz:explain',
+      'serviceAccount:read',
     ],
   },
   {
