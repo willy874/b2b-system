@@ -17,6 +17,7 @@ import { AUDIT_LOG_LIST_QUERY_KEY } from '@/apis/audit-log/get-audit-log-list/qu
 import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
 import { FILE_ACCESS_REQUEST_LIST_QUERY_KEY } from '@/apis/file/get-file-access-requests/query';
 import { FILE_DETAIL_QUERY_KEY } from '@/apis/file/get-file-detail/query';
+import { FILE_FOLDER_EXPLAIN_QUERY_KEY } from '@/apis/file/get-file-folder-explain/query';
 import { FILE_FOLDER_GRANT_LIST_QUERY_KEY } from '@/apis/file/get-file-folder-grants/query';
 import { FILE_FOLDER_LIST_QUERY_KEY } from '@/apis/file/get-file-folder-list/query';
 import {
@@ -46,6 +47,7 @@ import { SETTING_LIST_QUERY_KEY } from '@/apis/system/get-setting-list/query';
 import { TRASH_LIST_QUERY_KEY } from '@/apis/trash/get-trash-list/query';
 import { USER_DETAIL_QUERY_KEY } from '@/apis/user/get-user-detail/query';
 import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
+import { PERMISSION_SOURCES_QUERY_KEY } from '@/apis/user/get-user-permission-sources/query';
 import { USER_ROLES_QUERY_KEY } from '@/apis/user/get-user-roles/query';
 import { ANY_ID, createResourceGraph, queryClient } from '@/core/cache';
 import type { ApplyInvalidationOptions, ResourceChange } from '@/core/cache';
@@ -74,6 +76,11 @@ export const Resource = {
   PROFILE: 'profile',
   /** 回收桶（已刪除的項目）；後端沒有這個來源，由各資源的建立（還原）與刪除衍生 */
   TRASH: 'trash',
+  /**
+   * 授權的說明：有效權限的來源、資料夾存取的路徑（ADR-0024 G4b）。後端沒有這個來源；路徑經過使用者、群組、角色、資料夾，
+   * 由它們的任何變更衍生。只在展開說明時才查，整批失效的成本小
+   */
+  AUTHZ_EXPLAIN: 'authzExplain',
   /** 角色的版本歷史（`id` = roleId）；後端沒有這個來源，由角色與它的權限鍵的更新衍生 */
   ROLE_REVISION: 'roleRevision',
   // 關係：沒有自己的 query，只作為來源
@@ -236,6 +243,18 @@ const graph = createResourceGraph<Resource>({
       { from: Resource.ROLE, kinds: ['update'], id: 'self' },
       // 增減權限鍵也產生新的一版
       { from: Resource.ROLE_PERMISSION, id: 'self' },
+    ],
+  },
+  [Resource.AUTHZ_EXPLAIN]: {
+    collection: [PERMISSION_SOURCES_QUERY_KEY, FILE_FOLDER_EXPLAIN_QUERY_KEY],
+    derivesFrom: [
+      // 建立使用者、角色不會改變任何既有的說明；停用、刪除、改名會
+      { from: Resource.USER, kinds: ['update', 'delete'], id: 'none' },
+      { from: Resource.USER_ROLE, id: 'none' },
+      { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'none' },
+      { from: Resource.ROLE_PERMISSION, id: 'none' },
+      { from: Resource.GROUP, id: 'none' },
+      { from: Resource.FILE_FOLDER, id: 'none' },
     ],
   },
   [Resource.USER_ROLE]: {},

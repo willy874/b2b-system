@@ -25,12 +25,14 @@ import {
   FILE_GRANT_SUBJECT_COPY_KEY,
   FILE_GRANT_SUBJECT_TYPE_LABEL_KEY,
 } from '../../../constants';
+import { useFileExplainPermission } from '../../../hooks/useFileExplainPermission';
 import {
   useFileAccessReviewMutation,
   useFolderGrantDeleteMutation,
   useFolderGrantSetMutation,
   useFolderInheritanceMutation,
 } from '../../../hooks/useFolderGrantMutations';
+import { FileAccessExplainSection } from './FileAccessExplainSection';
 
 /** 對象搜尋的去抖動：每打一個字就查一次太多。 */
 const SUBJECT_SEARCH_DEBOUNCE_MS = 250;
@@ -62,6 +64,7 @@ interface FileShareDialogProps {
  */
 export function FileShareDialog({ folder, onClose }: FileShareDialogProps) {
   const { t } = useTranslation();
+  const { canExplain } = useFileExplainPermission();
   const grants = useQuery({
     ...getFileFolderGrantListQueryOptions(folder?.id ?? ''),
     enabled: Boolean(folder),
@@ -137,6 +140,7 @@ export function FileShareDialog({ folder, onClose }: FileShareDialogProps) {
               </p>
             )}
           </section>
+          {canExplain && <FileAccessExplainSection folderId={folder.id} />}
         </div>
       )}
     </Dialog>

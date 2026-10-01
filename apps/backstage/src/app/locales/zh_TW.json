@@ -380,5 +380,30 @@
     "label": "通知",
     "trigger": "通知",
     "triggerUnread": "通知：{{count}} 則未讀"
+  },
+  "explain": {
+    "everyone": "所有人",
+    "root": "所有檔案",
+    "hidden": {
+      "user": "某位使用者",
+      "group": "某個群組",
+      "role": "某個角色",
+      "fileFolder": "某個資料夾",
+      "other": "某個項目"
+    },
+    "relation": {
+      "viewer": "檢視者",
+      "contributor": "貢獻者",
+      "editor": "編輯者",
+      "manager": "管理者",
+      "can_read": "可讀取",
+      "can_create": "可上傳",
+      "can_update": "可編輯",
+      "can_delete": "可刪除",
+      "can_share": "可共用"
+    },
+    "superAdmin": "超級管理員：擁有所有權限。",
+    "impliedBy": "由 {{key}} 帶出",
+    "noPermissions": "沒有任何權限"
   }
 }

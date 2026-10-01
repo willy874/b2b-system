@@ -15,5 +15,7 @@ export function useUserPermission() {
     canReadRoles: can(PermissionKey['role:read']),
     /** 所屬群組（ADR-0024 G4）：要能讀群組 */
     canReadGroups: can(PermissionKey['group:read']),
+    /** 看別人的有效權限與來源（ADR-0024 G4b）；看自己不需要 */
+    canExplain: can(PermissionKey['authz:explain']),
   };
 }

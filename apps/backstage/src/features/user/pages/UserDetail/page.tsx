@@ -15,6 +15,7 @@ import { useUserPermission } from '../../hooks/useUserPermission';
 import { UserDetailRoute, UserListRoute } from '../../routes';
 import { UserBasicSection } from './components/UserBasicSection';
 import { UserGroupSection } from './components/UserGroupSection';
+import { UserPermissionSourceSection } from './components/UserPermissionSourceSection';
 import { UserRoleSection } from './components/UserRoleSection';
 
 export default function UserDetailPage() {
@@ -70,6 +71,7 @@ export default function UserDetailPage() {
             isSelf={isSelf}
           />
           {permission.canReadGroups && <UserGroupSection userId={userId} />}
+          {(isSelf || permission.canExplain) && <UserPermissionSourceSection userId={userId} />}
         </div>
       )}
     </Dialog>

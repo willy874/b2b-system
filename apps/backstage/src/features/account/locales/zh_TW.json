@@ -3,7 +3,10 @@
     "profile": {
       "title": "個人資料",
       "description": "這些設定只影響你自己的帳號。",
-      "saved": "個人資料已更新。"
+      "saved": "個人資料已更新。",
+      "effective": "我的有效權限",
+      "effectiveHint": "每個權限從哪裡來：經由哪些群組、哪個角色。看不到的群組或角色只顯示種類，可以拿去問管理員。",
+      "showEffective": "顯示有效權限與來源"
     },
     "password": {
       "title": "變更密碼",

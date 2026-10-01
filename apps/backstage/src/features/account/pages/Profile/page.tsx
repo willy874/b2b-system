@@ -17,6 +17,8 @@ import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
 import { useUnsavedChangesGuard } from '@/core/router';
 
+import { ProfilePermissionSection } from './components/ProfilePermissionSection';
+
 /** 與後端的密碼規則一致（apps/api/src/modules/auth/password.ts）。 */
 const PASSWORD_MIN_LENGTH = 12;
 const PASSWORD_MAX_LENGTH = 128;
@@ -249,6 +251,13 @@ export default function ProfilePage() {
           </Button>
         </div>
       </form>
+
+      {profile.data && (
+        <>
+          <Separator />
+          <ProfilePermissionSection userId={profile.data.user.id} />
+        </>
+      )}
     </div>
   );
 }

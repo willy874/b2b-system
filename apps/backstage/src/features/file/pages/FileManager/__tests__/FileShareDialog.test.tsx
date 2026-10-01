@@ -6,13 +6,15 @@ import { renderWithPermissions } from '@/test/renderWithPermissions';
 
 import { FileShareDialog } from '../components/FileShareDialog';
 
-const { fetchGrants, fetchSubjects, setGrant, deleteGrant, setInheritance } = vi.hoisted(() => ({
-  fetchGrants: vi.fn(),
-  fetchSubjects: vi.fn(),
-  setGrant: vi.fn(),
-  deleteGrant: vi.fn(),
-  setInheritance: vi.fn(),
-}));
+const { fetchGrants, fetchSubjects, setGrant, deleteGrant, setInheritance, fetchExplain } =
+  vi.hoisted(() => ({
+    fetchExplain: vi.fn(),
+    fetchGrants: vi.fn(),
+    fetchSubjects: vi.fn(),
+    setGrant: vi.fn(),
+    deleteGrant: vi.fn(),
+    setInheritance: vi.fn(),
+  }));
 vi.mock('@/apis/file/update-file-folder-access/mutation', () => ({
   getFileFolderAccessUpdateMutationOptions: () => ({ mutationFn: setInheritance }),
 }));
@@ -29,6 +31,9 @@ vi.mock('@/apis/file/get-file-grant-subjects/query', () => ({
     queryKey: ['FILE_GRANT_SUBJECT_LIST_QUERY_KEY', params.keyword ?? ''],
     queryFn: () => fetchSubjects(params),
   }),
+}));
+vi.mock('@/apis/file/get-file-folder-explain/fetcher', () => ({
+  fetchFileFolderExplainQuery: fetchExplain,
 }));
 vi.mock('@/apis/file/set-file-folder-grant/mutation', () => ({
   getFileFolderGrantSetMutationOptions: () => ({ mutationFn: setGrant }),
@@ -85,6 +90,7 @@ const rowOf = async (subjectId: string) =>
 beforeEach(() => {
   fetchGrants.mockReset();
   fetchSubjects.mockReset().mockResolvedValue({ items: [] });
+  fetchExplain.mockReset();
   setGrant.mockReset().mockResolvedValue(grants());
   deleteGrant.mockReset().mockResolvedValue(undefined);
   setInheritance.mockReset().mockResolvedValue(grants());
@@ -180,5 +186,54 @@ describe('FileShareDialog（docs/architecture/frontend/12-file-manager.md §13�
         params: { folderId: 'ui', subjectType: 'everyone', subjectId: everyone },
       }),
     );
+  });
+
+  describe('檢查存取（docs/adr/0024-relationship-based-access-control.md G4b）', () => {
+    it('沒有 authz:explain → 不顯示', async () => {
+      fetchGrants.mockResolvedValue(grants());
+      renderDialog();
+      await screen.findByTestId('file-share-dialog');
+      expect(screen.queryByTestId('file-access-explain')).not.toBeInTheDocument();
+    });
+
+    it('有 authz:explain → 挑一位使用者，列出每個動作能不能做與路徑', async () => {
+      fetchGrants.mockResolvedValue(grants());
+      fetchSubjects.mockResolvedValue({
+        items: [{ subjectType: 'user', id: 'alice', name: 'Alice', hint: null }],
+      });
+      fetchExplain.mockResolvedValue({
+        folderId: 'ui',
+        userId: 'alice',
+        actions: [
+          {
+            action: 'read',
+            allowed: true,
+            path: [
+              { type: 'user', id: 'alice', relation: '', name: 'Alice', hidden: false },
+              { type: 'group', id: null, relation: 'member', name: null, hidden: true },
+              { type: 'fileFolder', id: 'ui', relation: 'can_read', name: 'ui', hidden: false },
+            ],
+          },
+          { action: 'delete', allowed: false, path: null },
+        ],
+      });
+      renderWithPermissions(
+        <FileShareDialog folder={{ id: 'ui', name: 'ui' }} onClose={vi.fn()} />,
+        ['authz:explain'] as never,
+      );
+      const section = await screen.findByTestId('file-access-explain');
+      fireEvent.click(within(section).getByTestId('file-access-explain-user'));
+      fireEvent.click(await screen.findByText('Alice'));
+
+      const actions = await within(section).findAllByTestId('file-access-explain-action');
+      expect(
+        actions.map((item) => [item.getAttribute('data-value'), item.getAttribute('data-allowed')]),
+      ).toEqual([
+        ['read', 'true'],
+        ['delete', 'false'],
+      ]);
+      expect(fetchExplain.mock.calls[0]![0].params).toEqual({ folderId: 'ui', userId: 'alice' });
+      expect(within(actions[0]!).getAllByTestId('explain-node')).toHaveLength(3);
+    });
   });
 });
