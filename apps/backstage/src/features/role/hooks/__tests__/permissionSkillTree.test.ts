@@ -1,16 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Permission, PermissionGroup } from '@/shared/api-sdk';
-
 import {
   activeEdgeIds,
-  layoutSkillTree,
+  layoutPermissionTree,
   permissionClosure,
   prerequisitePath,
-  selectSkills,
-  skillState,
-  toggleSkill,
-} from '../permissionSkillTree';
+} from '@/core/permission';
+import type { Permission, PermissionGroup } from '@/shared/api-sdk';
+
+import { selectSkills, skillState, toggleSkill } from '../permissionSkillTree';
 
 const item = (key: string, includes: string[] = [], requires: string[] = []): Permission =>
   ({
@@ -132,7 +130,7 @@ describe('角色權限技能樹（permissionSkillTree）', () => {
   });
 
   it('版面：每個資源一組；子能力是組內的實線、跨資源的依賴是虛線；基礎在上、由上而下（TB）', () => {
-    const layout = layoutSkillTree(CATALOG, GROUPS, (group) => group.resource);
+    const layout = layoutPermissionTree(CATALOG, GROUPS, (group) => group.resource);
     expect(layout.groups.map((group) => group.id)).toEqual(['file', 'role', 'user']);
     expect(layout.edges).toContainEqual({ source: 'file:read', target: 'file:update' });
     expect(layout.edges).toContainEqual({
@@ -146,7 +144,7 @@ describe('角色權限技能樹（permissionSkillTree）', () => {
   });
 
   it('前置路徑與已學會的連線', () => {
-    const { edges } = layoutSkillTree(CATALOG, GROUPS, (group) => group.resource);
+    const { edges } = layoutPermissionTree(CATALOG, GROUPS, (group) => group.resource);
     const path = prerequisitePath(CATALOG, 'user:assignRole', edges);
     expect([...path.nodeIds].toSorted()).toEqual(['role:read', 'user:read']);
     expect([...path.edgeIds].toSorted()).toEqual([

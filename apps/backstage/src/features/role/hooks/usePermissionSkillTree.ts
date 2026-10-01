@@ -1,17 +1,14 @@
 import { useMemo, useState } from 'react';
 
 import { useTranslation } from '@/core/locales';
-
 import {
   activeEdgeIds,
-  implyingKeys,
-  layoutSkillTree,
+  layoutPermissionTree,
   permissionClosure,
   prerequisitePath,
-  selectSkills,
-  skillState,
-  toggleSkill,
-} from './permissionSkillTree';
+} from '@/core/permission';
+
+import { implyingKeys, selectSkills, skillState, toggleSkill } from './permissionSkillTree';
 import type { SkillState, ToggleResult } from './permissionSkillTree';
 import { useGrantablePermissions } from './useGrantablePermissions';
 
@@ -57,7 +54,7 @@ export function usePermissionSkillTree({
   const [notice, setNotice] = useState<SkillNotice>();
 
   const layout = useMemo(
-    () => layoutSkillTree(items, groups, (group) => t(group.nameI18nKey)),
+    () => layoutPermissionTree(items, groups, (group) => t(group.nameI18nKey)),
     [items, groups, t],
   );
   const lit = useMemo(

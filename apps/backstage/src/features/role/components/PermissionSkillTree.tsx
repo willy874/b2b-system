@@ -7,10 +7,12 @@ import type { SelectOption } from '@/components/Select';
 import { Skeleton } from '@/components/Skeleton';
 import { TreeEditor } from '@/components/TreeEditor';
 import { useTranslation } from '@/core/locales';
+import { PERMISSION_NODE_SIZE } from '@/core/permission';
+import type { PermissionNodeData } from '@/core/permission';
 import { cn } from '@/shared/utils';
 
-import { SKILL_NODE_SIZE, SKILL_NODE_STATE } from '../hooks/permissionSkillTree';
-import type { SkillNodeData, SkillState } from '../hooks/permissionSkillTree';
+import { SKILL_NODE_STATE } from '../hooks/permissionSkillTree';
+import type { SkillState } from '../hooks/permissionSkillTree';
 import { usePermissionSkillTree } from '../hooks/usePermissionSkillTree';
 import type { PermissionSkillTreeOptions } from '../hooks/usePermissionSkillTree';
 
@@ -140,7 +142,7 @@ export function PermissionSkillTree({
         testIds={{ trigger: 'role-permission-tree-toggle' }}
       >
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_15rem]">
-          <TreeEditor<SkillNodeData>
+          <TreeEditor<PermissionNodeData>
             value={tree.layout}
             mode="dag"
             direction="TB"
@@ -149,7 +151,7 @@ export function PermissionSkillTree({
             selectable={false}
             showMinimap={false}
             height="30rem"
-            nodeSize={SKILL_NODE_SIZE}
+            nodeSize={PERMISSION_NODE_SIZE}
             groups={tree.layout.groups}
             getNodeLabel={(node) => t(node.data.nameI18nKey)}
             getNodeState={(node) => SKILL_NODE_STATE[tree.stateOf(node.id)]}

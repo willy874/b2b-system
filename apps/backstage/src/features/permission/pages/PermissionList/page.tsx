@@ -1,15 +1,42 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { getPermissionListQueryOptions } from '@/apis/permission/get-permission-list/query';
-import { Chip } from '@/components/Chip';
+import { Empty } from '@/components/Empty';
+import { Icon } from '@/components/Icon';
+import type { IconName } from '@/components/Icon';
 import { Skeleton } from '@/components/Skeleton';
+import { Tabs, TabsPanel } from '@/components/Tabs';
 import { useTranslation } from '@/core/locales';
 import { usePermission } from '@/core/permission';
+
+import { useFilteredPermissionCatalog } from '../../hooks/useFilteredPermissionCatalog';
+import { PERMISSION_VIEWS } from '../../routes';
+import type { PermissionView } from '../../routes';
+import {
+  PermissionCatalogFilter,
+  PermissionCatalogList,
+  PermissionCatalogTree,
+} from './components';
+import { usePermissionSearch } from './usePermissionSearch';
+
+const VIEW_LABEL_KEY = {
+  list: 'permissionCatalog.view.list',
+  tree: 'permissionCatalog.view.tree',
+} as const satisfies Record<PermissionView, string>;
+
+const VIEW_ICON = { list: 'list', tree: 'network' } as const satisfies Record<
+  PermissionView,
+  IconName
+>;
 
 export default function PermissionListPage() {
   const { t } = useTranslation();
   const { permissions: mine } = usePermission();
   const { data, isPending } = useQuery(getPermissionListQueryOptions());
+  const { search, setView, setFilters, resetFilters, selectKey, showInTree } =
+    usePermissionSearch();
+  const filters = { keyword: search.keyword, resource: search.resource, held: search.held };
+  const visible = useFilteredPermissionCatalog(data, filters, mine);
 
   return (
     <div className="flex flex-col gap-4" data-testid="permission-list-page">
@@ -20,38 +47,55 @@ export default function PermissionListPage() {
         </p>
       </header>
 
-      {isPending && <Skeleton height={200} />}
-
-      {data?.groups.map((group) => (
-        <section
-          key={group.resource}
-          className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
-          data-testid="permission-group"
-          data-value={group.resource}
-        >
-          <h2 className="m-0 mb-3 text-base font-medium">{t(group.nameI18nKey)}</h2>
-          <ul className="m-0 flex list-none flex-col gap-2 p-0">
-            {group.keys.map((key) => {
-              const item = data.items.find((permission) => permission.key === key);
-              return (
-                <li key={key} className="flex items-center justify-between gap-4 text-sm">
-                  <span>
-                    {item ? t(item.nameI18nKey) : key}
-                    <code className="ml-2 font-mono text-xs text-[var(--color-fg-muted)]">
-                      {key}
-                    </code>
-                  </span>
-                  {mine.has(key) ? (
-                    <Chip tone="success">{t('permissionCatalog.held')}</Chip>
-                  ) : (
-                    <Chip tone="neutral">{t('permissionCatalog.notHeld')}</Chip>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
+      <Tabs
+        value={search.view}
+        onValueChange={(value) => setView(value as PermissionView)}
+        tabs={PERMISSION_VIEWS.map((view) => ({
+          value: view,
+          label: (
+            <span className="flex items-center gap-1.5">
+              <Icon name={VIEW_ICON[view]} size={14} />
+              {t(VIEW_LABEL_KEY[view])}
+            </span>
+          ),
+        }))}
+        testIds={{ tab: 'permission-view-tab' }}
+        data-testid="permission-view"
+      >
+        {isPending && <Skeleton height={200} />}
+        {data && visible && (
+          <div className="flex flex-col gap-4 pt-4">
+            <PermissionCatalogFilter
+              catalog={data}
+              filters={filters}
+              matched={visible.items.length}
+              onChange={setFilters}
+              onReset={resetFilters}
+            />
+            {visible.items.length === 0 ? (
+              <Empty
+                title={t('permissionCatalog.filter.empty')}
+                data-testid="permission-filter-empty"
+              />
+            ) : (
+              <>
+                <TabsPanel value="list">
+                  <PermissionCatalogList catalog={visible} held={mine} onShowInTree={showInTree} />
+                </TabsPanel>
+                <TabsPanel value="tree">
+                  <PermissionCatalogTree
+                    catalog={data}
+                    visible={visible}
+                    held={mine}
+                    selectedKey={search.key}
+                    onSelect={selectKey}
+                  />
+                </TabsPanel>
+              </>
+            )}
+          </div>
+        )}
+      </Tabs>
     </div>
   );
 }

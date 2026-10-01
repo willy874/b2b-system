@@ -3,6 +3,32 @@
     "title": "Permission catalog",
     "description": "Every grantable permission in the system. Read-only; the catalog is managed by backend seeds.",
     "held": "Held",
-    "notHeld": "Not held"
+    "notHeld": "Not held",
+    "showInTree": "Show “{{name}}” in the tree",
+    "view": {
+      "list": "List",
+      "tree": "Tree"
+    },
+    "tree": {
+      "label": "Permission dependency tree",
+      "legend": "Legend",
+      "empty": "Select a permission to see its details",
+      "hint": "Base permissions are on top and the ones that include them below; dashed lines are cross-resource dependencies. Hover a permission to highlight its prerequisites, click it to see details here.",
+      "includes": "Includes",
+      "requires": "Requires",
+      "dependents": "Included or required by",
+      "grants": "Holding it also grants ({{count}})",
+      "standalone": "This permission neither includes nor is included by any other permission."
+    },
+    "filter": {
+      "keyword": "Search permission name or key",
+      "resource": "Resource",
+      "allResources": "All resources",
+      "held": "Held status",
+      "allHeld": "Any held status",
+      "reset": "Clear filters",
+      "count": "Showing {{matched}} of {{total}}",
+      "empty": "No permissions match the filters"
+    }
   }
 }

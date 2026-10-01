@@ -3,6 +3,32 @@
     "title": "權限目錄",
     "description": "系統中所有可授予的權限。此頁為唯讀，權限清單由後端 seed 管理。",
     "held": "你持有",
-    "notHeld": "未持有"
+    "notHeld": "未持有",
+    "showInTree": "在樹狀圖中查看「{{name}}」",
+    "view": {
+      "list": "一覽表",
+      "tree": "樹狀圖"
+    },
+    "tree": {
+      "label": "權限依賴樹",
+      "legend": "圖例",
+      "empty": "點一個權限查看詳細資訊",
+      "hint": "基礎權限在上、包含它的在下；虛線是跨資源的依賴。滑過一個權限會標出它的前置路徑，點選後在這裡顯示詳細資訊。",
+      "includes": "包含的子能力",
+      "requires": "需要的權限",
+      "dependents": "被這些權限包含或依賴",
+      "grants": "持有它就等於持有（{{count}}）",
+      "standalone": "這個權限不包含、也不被任何權限包含。"
+    },
+    "filter": {
+      "keyword": "搜尋權限名稱或權限鍵",
+      "resource": "資源",
+      "allResources": "全部資源",
+      "held": "持有狀態",
+      "allHeld": "全部持有狀態",
+      "reset": "清除篩選",
+      "count": "顯示 {{matched}} / {{total}} 項",
+      "empty": "沒有符合篩選條件的權限"
+    }
   }
 }

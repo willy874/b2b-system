@@ -315,7 +315,7 @@ return <Outlet />;
 | 使用者詳情 · 角色分頁 | `user:read`                      | 編輯角色 → `user:assignRole` ＋ 非自己；可選角色清單受反提權過濾                                                                                             |
 | 角色列表              | `role:read`                      | 建立 → `role:create`；複製 → `role:create`；編輯 → `role:update` ＋ 非系統角色；刪除 → `role:delete` ＋ 非系統角色                                           |
 | 角色詳情 · 權限分頁   | `role:read` ＋ `permission:read` | 增減權限 → `role:grantPermission` ＋ 非 super-admin；以 **技能樹** 挑選（點上層自動點亮前置、有上層時不能取消前置；未持有的鍵停用，§8） |
-| 權限目錄              | `permission:read`                | 全唯讀                                                                                                                                                       |
+| 權限目錄              | `permission:read`                | 全唯讀；一覽表與 **樹狀圖** 兩種檢視、共用篩選（關鍵字、資源、是否持有），檢視、篩選與選取的權限都放在網址（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §9.4） |
 | 稽核日誌              | `auditLog:read`                  | 全唯讀                                                                                                                                                       |
 | 檔案管理器            | `file:access` 或 `file:read`     | 資料夾層級授權：按鈕看後端回傳的 `capabilities`，不看全域權限鍵（[`12-file-manager.md`](./12-file-manager.md) §13）                                           |
 | 個人資料 / 偏好       | 無                               | 全部可用（對象是自己）                                                                                                                                       |

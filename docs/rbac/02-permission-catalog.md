@@ -451,3 +451,17 @@ Seed 行為：
 `admin` 本來就持有每個被包含的鍵；`auditor` 多出 `file:access`（由 `file:read`），沒有行為變化（檔案路由本來就接受 `file:access` 或 `file:read`）；`member` 不變。
 租戶自訂的角色可能多出鍵：有 `user:update` 的角色多出 `user:resetPassword`；有 `file:create` 或 `file:share` 而沒有 `file:read` 的角色取得 **全域讀取**（含中斷繼承的私人資料夾）。
 seed 會為這些角色寫一筆稽核 `role.permissionsImplied`。
+
+### 9.4 在畫面上檢視
+
+同一份依賴樹在後台畫成兩個地方，版面共用 `apps/backstage/src/core/permission/catalogGraph.ts`
+（每個資源一組、基礎權限在上、跨資源的依賴是虛線）：
+
+| 位置 | 用途 |
+| --- | --- |
+| 角色詳情 · 權限分頁（`features/role/components/PermissionSkillTree.tsx`） | 可勾選的技能樹，互鎖見 [`03-flows.md`](./03-flows.md) |
+| 權限目錄（`features/permission/pages/PermissionList/`） | 唯讀。「一覽表／樹狀圖」分頁切換；節點以「你持有／未持有」著色，滑過強調前置路徑，點選在右側面板顯示說明、包含的子能力、依賴、被哪些鍵包含或依賴，以及持有它就等於持有的全部鍵（閉包）；面板裡的權限可以點，跳到那個節點 |
+
+權限目錄的篩選（關鍵字比對名稱與權限鍵、資源可複選、是否持有）同時作用在兩種檢視；樹狀圖只畫符合的節點，
+說明面板的關係仍以完整目錄計算。檢視、篩選與選取的權限都放在網址（`?view=tree&key=user:update&resource=user`），可以直接分享。
+
