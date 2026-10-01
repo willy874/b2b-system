@@ -5,6 +5,7 @@ import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { Logger as PinoLogger } from 'nestjs-pino';
 
 import { auditRoutes } from './common/route-audit';
 import type { Env } from './core/config';
@@ -20,9 +21,12 @@ const HTTP_KEEP_ALIVE_TIMEOUT_MS = 65_000;
  * 沒有 `/api` 前綴：對外網域整個交給這個程序，路徑就是 `/v1/...`。
  */
 async function bootstrap(): Promise<void> {
+  // 啟動期間的日誌先暫存，接上 Pino 之後才輸出：`new Logger(Xxx.name)` 的應用程式日誌與 HTTP 存取日誌
+  // 都是同一個 Pino（JSON、帶 requestId、套用 redact；docs/conventions/03-backend.md §7）
   const app = await NestFactory.create<NestExpressApplication>(ExternalApiModule, {
-    bufferLogs: false,
+    bufferLogs: true,
   });
+  app.useLogger(app.get(PinoLogger));
   const config = app.get(ConfigService<Env, true>);
 
   app.set('trust proxy', config.get('TRUST_PROXY', { infer: true }));
