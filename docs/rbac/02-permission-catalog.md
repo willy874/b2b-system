@@ -151,6 +151,7 @@
 - 檢視／編輯自己的個人資料（`GET|PATCH /auth/profile`）
 - 變更自己的密碼（`POST /auth/change-password`）
 - 檢視／修改自己的偏好設定（語系、時區）
+- 檢視與修改自己的通知設定（`GET`／`PATCH /me/notification-preferences`；[ADR-0028](../adr/0028-notification-event-management.md) D15）
 - 檢視自己的站內通知、標為已讀（`GET /notifications`、`POST /notifications/:id/read`、`POST /notifications/read-all`；[ADR-0026](../adr/0026-notification-center.md) D9）
 - 登出
 

@@ -71,6 +71,7 @@ function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperA
   const notifications = {
     notify: vi.fn(async () => []),
     isChannelEnabled: vi.fn(async () => true),
+    filterRecipients: vi.fn(async (_kind: unknown, _channel: string, ids: string[]) => ids),
   };
   const audit = { record: vi.fn(async () => undefined) };
   const events = { publish: vi.fn() };
@@ -208,6 +209,20 @@ describe('ApprovalService.approve', () => {
       { approvalId: 'approval-1' },
       { tx: ctx.tx },
     );
+  });
+
+  it('有帳號的申請人自己關掉結果信 → 不入列（ADR-0028 D14）', async () => {
+    const ctx = setup();
+    ctx.repo.findById.mockResolvedValue(row({ requesterId: 'member-1' }));
+    ctx.notifications.filterRecipients.mockResolvedValue([]);
+    await ctx.service.reject('approval-1', {}, REVIEWER);
+    expect(ctx.notifications.filterRecipients).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'approval.result' }),
+      'email',
+      ['member-1'],
+      ctx.tx,
+    );
+    expect(ctx.jobs.enqueue).not.toHaveBeenCalled();
   });
 
   it('租戶關掉 approval.result 的 email 管道 → 不入列結果信（ADR-0028 D3）', async () => {

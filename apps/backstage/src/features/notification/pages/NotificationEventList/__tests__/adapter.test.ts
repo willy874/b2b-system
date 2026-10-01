@@ -15,6 +15,7 @@ function event(type: string, category: string): NotificationEvent {
         enabled: true,
         defaultEnabled: true,
         isOverridden: false,
+        allowUserOverride: true,
         updatedAt: null,
       },
     ],

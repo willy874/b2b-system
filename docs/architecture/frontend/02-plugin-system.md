@@ -230,7 +230,8 @@ export function tableColumnSettingsPlugin(): AppPluginFactory {
 ```
 
 `features/account` 的偏好頁只做一件事：`getPreferenceSections()` 然後依 `order`
-渲染。**拿掉 `main.tsx` 裡那一行，這個分頁就消失了。**
+渲染。**拿掉 `main.tsx` 裡那一行，這個分頁就消失了。** 目前的分頁：`notification`（100，`features/notification`，
+[`15-notification.md`](./15-notification.md) §10）、`table-columns`（200）。
 
 分頁要列出「有哪些表、各有哪些欄位」，但不能 import 各 feature。所以 `core/preference` 另有一份
 **列表註冊表**：feature 在 plugin 的同步階段呼叫 `registerPreferenceTable({ id, labelI18nKey, columnLabelKeys, localeScope })`

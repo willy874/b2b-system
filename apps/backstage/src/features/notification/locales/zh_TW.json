@@ -46,6 +46,7 @@
       "overridden": "已修改",
       "resetToDefault": "恢復預設",
       "mandatory": "安全相關，不能關閉",
+      "allowUserOverride": "允許個人關閉",
       "switchLabel": "{{event}}：{{channel}}",
       "discard": "捨棄變更",
       "save": {
@@ -75,6 +76,16 @@
           "description": "使用者被指派或移除角色時通知本人。",
           "recipients": "被變更角色的人"
         }
+      }
+    },
+    "preference": {
+      "title": "通知",
+      "description": "選擇你要收到哪些通知。管理者關閉或要求的項目不能調整。",
+      "saved": "已儲存通知設定",
+      "lock": {
+        "mandatory": "安全相關，不能關閉",
+        "tenantDisabled": "管理者已關閉",
+        "tenantRequired": "管理者要求接收"
       }
     }
   }

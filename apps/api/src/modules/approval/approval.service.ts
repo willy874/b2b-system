@@ -207,7 +207,7 @@ export class ApprovalService {
         },
         tx,
       );
-      await this.enqueueResultMail(id, tx);
+      await this.enqueueResultMail(request, tx);
       await this.notifyResult(request, 'approved', reviewer, tx);
       return { reviewed: { ...row, resultResourceId: applied.resourceId }, outcome: applied };
     });
@@ -250,7 +250,7 @@ export class ApprovalService {
         },
         tx,
       );
-      await this.enqueueResultMail(id, tx);
+      await this.enqueueResultMail(request, tx);
       await this.notifyResult(request, 'rejected', reviewer, tx);
       return row;
     });
@@ -285,16 +285,27 @@ export class ApprovalService {
   }
 
   /**
-   * 結果信是 `approval.result` 的 `email` 管道（ADR-0028 D3、D6）：租戶關掉時不入列。
-   * 判斷的是入列當下的政策，已入列的信不撤回。
+   * 結果信是 `approval.result` 的 `email` 管道（ADR-0028 D3、D6、D14）：租戶關掉、或申請人自己關掉時不入列。
+   * 匿名的申請（註冊）沒有帳號，只看租戶層。判斷的是入列當下的設定，已入列的信不撤回。
    */
-  private async enqueueResultMail(approvalId: string, tx: Transaction): Promise<void> {
-    const enabled = await this.notifications.isChannelEnabled(
-      APPROVAL_RESULT_NOTIFICATION,
-      NotificationChannel.EMAIL,
-      tx,
-    );
-    if (enabled) await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId }, { tx });
+  private async enqueueResultMail(request: ApprovalRequestRow, tx: Transaction): Promise<void> {
+    const enabled = request.requesterId
+      ? (
+          await this.notifications.filterRecipients(
+            APPROVAL_RESULT_NOTIFICATION,
+            NotificationChannel.EMAIL,
+            [request.requesterId],
+            tx,
+          )
+        ).length > 0
+      : await this.notifications.isChannelEnabled(
+          APPROVAL_RESULT_NOTIFICATION,
+          NotificationChannel.EMAIL,
+          tx,
+        );
+    if (enabled) {
+      await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId: request.id }, { tx });
+    }
   }
 
   /** 審批結果通知給申請人（ADR-0026 D11）；匿名的申請（註冊）沒有收件人，只有結果信。 */

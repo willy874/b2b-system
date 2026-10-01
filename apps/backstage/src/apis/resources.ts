@@ -35,6 +35,7 @@ import { JOB_LIST_QUERY_KEY } from '@/apis/job/get-job-list/query';
 import { JOB_QUEUE_LIST_QUERY_KEY } from '@/apis/job/get-job-queue-list/query';
 import { NOTIFICATION_EVENT_LIST_QUERY_KEY } from '@/apis/notification/get-notification-event-list/query';
 import { NOTIFICATION_LIST_QUERY_KEY } from '@/apis/notification/get-notification-list/query';
+import { NOTIFICATION_PREFERENCE_LIST_QUERY_KEY } from '@/apis/notification/get-notification-preference-list/query';
 import { NOTIFICATION_UNREAD_COUNT_QUERY_KEY } from '@/apis/notification/get-notification-unread-count/query';
 import { PERMISSION_LIST_QUERY_KEY } from '@/apis/permission/get-permission-list/query';
 import { ROLE_DETAIL_QUERY_KEY } from '@/apis/role/get-role-detail/query';
@@ -102,6 +103,8 @@ export const Resource = {
   NOTIFICATION: 'notification',
   /** 事件管理的租戶政策（`id` = 事件類型；docs/adr/0028-notification-event-management.md D9） */
   NOTIFICATION_POLICY: 'notificationPolicy',
+  /** 自己的通知設定（`id` = 事件類型；後端只推給本人，ADR-0028 D15） */
+  NOTIFICATION_PREFERENCE: 'notificationPreference',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -160,6 +163,11 @@ const graph = createResourceGraph<Resource>({
   },
   [Resource.NOTIFICATION_POLICY]: {
     collection: [NOTIFICATION_EVENT_LIST_QUERY_KEY],
+  },
+  [Resource.NOTIFICATION_PREFERENCE]: {
+    collection: [NOTIFICATION_PREFERENCE_LIST_QUERY_KEY],
+    // 能不能調整、跟著租戶的值都來自租戶的政策。政策的推播只到 system:read 的人，其他人在下次進偏好頁時重抓
+    derivesFrom: [{ from: Resource.NOTIFICATION_POLICY, id: 'none' }],
   },
   [Resource.SETTING]: {
     // 公開設定是同一批值的子集

@@ -19,15 +19,25 @@ import type {
 } from './dto/notification-event.dto';
 import { NotificationEventCatalog } from './notification-event.catalog';
 import { NotificationPolicyRepository } from './notification-policy.repository';
+import { NotificationPreferenceRepository } from './notification-preference.repository';
 import type { AnyNotificationType, NotificationChannel } from './notification.definition';
 
 /** 一個「事件 ＋ 管道」的覆寫值。 */
 interface StoredPolicy {
-  enabled: boolean;
+  /** `null`：跟著事件的 `defaultEnabled`（只覆寫了 `allowUserOverride`）。 */
+  enabled: boolean | null;
+  allowUserOverride: boolean;
   updatedAt: Date;
 }
 
 type StoredPolicies = Map<string, StoredPolicy>;
+
+/** 一個「事件 ＋ 管道」在租戶層的生效值；也是稽核 `changes.before`／`after` 的值。 */
+export interface TenantPolicy {
+  enabled: boolean;
+  /** 個人能不能關（ADR-0028 D14）；`mandatory` 一律 `false`。 */
+  allowUserOverride: boolean;
+}
 
 /**
  * 修改後本程序立即失效、其他程序經廣播失效；TTL 只是保險（直接改了資料庫、漏掉廣播）。
@@ -46,10 +56,10 @@ interface Entry {
 interface PolicyChange {
   type: string;
   channel: NotificationChannel;
-  /** `null`：還原預設。 */
-  next: boolean | null;
-  before: boolean;
-  after: boolean;
+  /** `null`：兩個欄位都回到預設，刪掉那一列。 */
+  next: { enabled: boolean | null; allowUserOverride: boolean } | null;
+  before: TenantPolicy;
+  after: TenantPolicy;
 }
 
 /** 覆寫值的 Map key（只在本檔使用；稽核的 key 用 `<type>:<channel>`）。 */
@@ -66,8 +76,11 @@ function tenantKey(): string {
   return currentTenant()?.id ?? '-';
 }
 
-/** 所屬的 feature 沒有啟用就不出現在管理頁（ADR-0028 D11）。沒有租戶脈絡時不判斷（與 `FeatureGuard` 相同）。 */
-function isVisible(kind: AnyNotificationType): boolean {
+/**
+ * 所屬的 feature 沒有啟用就不出現在管理頁與個人設定（ADR-0028 D11）。
+ * 沒有租戶脈絡時不判斷（與 `FeatureGuard` 相同）。
+ */
+export function isVisibleEvent(kind: AnyNotificationType): boolean {
   const tenant = currentTenant();
   return !kind.feature || !tenant || tenant.features.includes(kind.feature);
 }
@@ -76,7 +89,8 @@ function isVisible(kind: AnyNotificationType): boolean {
  * 租戶層的通知政策（docs/architecture/backend/16-notification-event.md、ADR-0028）。
  *
  * - 事件與管道的定義在 `NotificationEventCatalog`（程式碼）；資料庫只存覆寫值，讀取走每個租戶一份的快取。
- * - `isEnabled()` 由 `NotificationService.notify()`（站內）與擁有者的寄信入列前（email）呼叫——判斷只有這一處（D6）。
+ * - 送達的判斷只有這裡（D6、D14）：`filterRecipients()` 由 `notify()`（站內）與擁有者的寄信入列前（email）呼叫；
+ *   沒有收件人帳號的（匿名的註冊申請）用 `isEnabled()`，只看租戶層。
  * - 管理頁的讀寫：驗證、稽核、推播（形狀與 `PATCH /system/settings` 相同，D9）。
  */
 @Injectable()
@@ -87,6 +101,7 @@ export class NotificationPolicyService implements OnModuleInit {
   constructor(
     @Inject(TENANT_DB) private readonly db: Database,
     private readonly repo: NotificationPolicyRepository,
+    private readonly preferences: NotificationPreferenceRepository,
     private readonly catalog: NotificationEventCatalog,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
@@ -102,17 +117,42 @@ export class NotificationPolicyService implements OnModuleInit {
   }
 
   /**
-   * 這個事件在這個管道上要不要送出：`mandatory` 一律送；否則租戶的覆寫值，沒有覆寫用 `defaultEnabled`。
+   * 租戶層：這個事件在這個管道上要不要送出（不看個人）。`mandatory` 一律送；否則租戶的覆寫值，沒有覆寫用 `defaultEnabled`。
    * 事件沒有登記或不支援這個管道是呼叫端的程式錯誤，拋 `Error`。
    *
    * 在業務交易內呼叫時傳 `tx`：快取過期要重讀時沿用交易的連線，不在交易進行中另外佔一條。
    */
   async isEnabled(type: string, channel: NotificationChannel, tx?: DbOrTx): Promise<boolean> {
+    return (await this.tenantPolicy(type, channel, tx)).enabled;
+  }
+
+  /**
+   * 這些收件人裡要送給誰（ADR-0028 D14）：`送出 = mandatory ∨ (租戶開啟 ∧ (¬允許個人調整 ∨ 個人開啟))`，
+   * 個人沒有覆寫時跟著租戶。需要看個人設定時一次查完所有收件人（D15）。回傳保留輸入的順序。
+   */
+  async filterRecipients(
+    type: string,
+    channel: NotificationChannel,
+    recipientIds: readonly string[],
+    tx?: DbOrTx,
+  ): Promise<string[]> {
+    const policy = await this.tenantPolicy(type, channel, tx);
+    if (!policy.enabled) return [];
+    if (!policy.allowUserOverride || !recipientIds.length) return [...recipientIds];
+    const optedOut = new Set(await this.preferences.findOptedOut(type, channel, recipientIds, tx));
+    return recipientIds.filter((id) => !optedOut.has(id));
+  }
+
+  /** 租戶層的生效值（個人設定也用它判斷能不能調整）。程式錯誤同 `isEnabled()`。 */
+  async tenantPolicy(
+    type: string,
+    channel: NotificationChannel,
+    tx?: DbOrTx,
+  ): Promise<TenantPolicy> {
     const kind = this.catalog.get(type);
     if (!kind.channels.includes(channel)) {
       throw new Error(`通知類型 ${type} 不支援管道 ${channel}（defineNotification 的 channels）`);
     }
-    if (kind.mandatory) return true;
     return this.effective(kind, channel, await this.stored(tx));
   }
 
@@ -122,13 +162,13 @@ export class NotificationPolicyService implements OnModuleInit {
     return {
       items: this.catalog
         .list()
-        .filter(isVisible)
+        .filter(isVisibleEvent)
         .map((kind) => this.toDto(kind, stored)),
     };
   }
 
   /**
-   * 一次改多個「事件 ＋ 管道」，全部通過驗證才寫入；與生效值相同的略過，全部都沒變就不寫稽核、不推播。
+   * 一次改多個「事件 ＋ 管道」，全部通過驗證才寫入；與目前相同的略過，全部都沒變就不寫稽核、不推播。
    * 一個交易、一筆稽核；交易後失效快取，再推給 `system:read` 的人（ADR-0028 D9）。
    */
   async update(
@@ -191,7 +231,11 @@ export class NotificationPolicyService implements OnModuleInit {
     const rows: StoredPolicies = new Map(
       (await this.repo.listAll(tx)).map((row) => [
         policyKey(row.type, row.channel),
-        { enabled: row.enabled, updatedAt: row.updatedAt },
+        {
+          enabled: row.enabled,
+          allowUserOverride: row.allowUserOverride,
+          updatedAt: row.updatedAt,
+        },
       ]),
     );
     this.cache.set(key, { rows, expiresAt: Date.now() + TTL_MS });
@@ -202,9 +246,14 @@ export class NotificationPolicyService implements OnModuleInit {
     kind: AnyNotificationType,
     channel: NotificationChannel,
     stored: StoredPolicies,
-  ): boolean {
-    if (kind.mandatory) return true;
-    return stored.get(policyKey(kind.type, channel))?.enabled ?? kind.defaultEnabled;
+  ): TenantPolicy {
+    // mandatory：殘留的覆寫值不生效，個人也不能關（D4）
+    if (kind.mandatory) return { enabled: true, allowUserOverride: false };
+    const row = stored.get(policyKey(kind.type, channel));
+    return {
+      enabled: row?.enabled ?? kind.defaultEnabled,
+      allowUserOverride: row?.allowUserOverride ?? true,
+    };
   }
 
   /** 驗證一筆修改；與目前相同時回傳 `undefined`。 */
@@ -212,22 +261,40 @@ export class NotificationPolicyService implements OnModuleInit {
     change: UpdateNotificationEventsDto['changes'][number],
     stored: StoredPolicies,
   ): PolicyChange | undefined {
-    const { type, channel, enabled } = change;
+    const { type, channel } = change;
     const kind = this.catalog.find(type);
-    if (!kind || !isVisible(kind) || !kind.channels.includes(channel)) {
+    if (!kind || !isVisibleEvent(kind) || !kind.channels.includes(channel)) {
       throw new AppException('NOTIFICATION_EVENT_NOT_FOUND', { type, channel });
     }
     if (kind.mandatory) throw new AppException('NOTIFICATION_EVENT_MANDATORY', { type });
 
-    const before = this.effective(kind, channel, stored);
-    if (enabled === null) {
-      return stored.has(policyKey(type, channel))
-        ? { type, channel, next: null, before, after: kind.defaultEnabled }
-        : undefined;
+    const row = stored.get(policyKey(type, channel));
+    const current = {
+      enabled: row?.enabled ?? null,
+      allowUserOverride: row?.allowUserOverride ?? true,
+    };
+    // `enabled` 沒帶：這一欄不改；與預設相同的值存成 null，之後調整預設值時這個租戶才跟得上
+    let enabled = current.enabled;
+    if (change.enabled !== undefined) {
+      enabled = change.enabled === kind.defaultEnabled ? null : change.enabled;
     }
-    // 與生效值相同就不寫：沒有覆寫時等於預設值，存一列只會讓之後調整預設值時這個租戶跟不上
-    if (enabled === before) return undefined;
-    return { type, channel, next: enabled, before, after: enabled };
+    const next = {
+      enabled,
+      allowUserOverride: change.allowUserOverride ?? current.allowUserOverride,
+    };
+    if (next.enabled === current.enabled && next.allowUserOverride === current.allowUserOverride) {
+      return undefined;
+    }
+    return {
+      type,
+      channel,
+      next: next.enabled === null && next.allowUserOverride ? null : next,
+      before: this.effective(kind, channel, stored),
+      after: {
+        enabled: next.enabled ?? kind.defaultEnabled,
+        allowUserOverride: next.allowUserOverride,
+      },
+    };
   }
 
   private toDto(kind: AnyNotificationType, stored: StoredPolicies): NotificationEventDto {
@@ -238,11 +305,13 @@ export class NotificationPolicyService implements OnModuleInit {
       channels: kind.channels.map((channel) => {
         // mandatory 的覆寫值不會生效（也寫不進來）：一律顯示成沒有覆寫
         const row = kind.mandatory ? undefined : stored.get(policyKey(kind.type, channel));
+        const policy = this.effective(kind, channel, stored);
         return {
           channel,
-          enabled: this.effective(kind, channel, stored),
+          enabled: policy.enabled,
           defaultEnabled: kind.defaultEnabled,
-          isOverridden: row !== undefined,
+          isOverridden: row !== undefined && row.enabled !== null,
+          allowUserOverride: policy.allowUserOverride,
           updatedAt: row ? row.updatedAt.toISOString() : null,
         };
       }),

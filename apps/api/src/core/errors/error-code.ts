@@ -129,6 +129,8 @@ export const ErrorCode = {
   NOTIFICATION_EVENT_NOT_FOUND: { status: 404 },
   /** 事件管理：不能關的事件（安全事件，ADR-0028 D4）。 */
   NOTIFICATION_EVENT_MANDATORY: { status: 409 },
+  /** 個人設定：租戶不允許調整這個事件 ＋ 管道（`details.lock`：`mandatory`／`tenantDisabled`／`tenantRequired`；ADR-0028 D14）。 */
+  NOTIFICATION_PREFERENCE_LOCKED: { status: 409 },
 
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },

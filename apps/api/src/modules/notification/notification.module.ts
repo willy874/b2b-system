@@ -7,6 +7,9 @@ import { NotificationEventCatalog } from './notification-event.catalog';
 import { NotificationEventController } from './notification-event.controller';
 import { NotificationPolicyRepository } from './notification-policy.repository';
 import { NotificationPolicyService } from './notification-policy.service';
+import { NotificationPreferenceController } from './notification-preference.controller';
+import { NotificationPreferenceRepository } from './notification-preference.repository';
+import { NotificationPreferenceService } from './notification-preference.service';
 import { NotificationController } from './notification.controller';
 import { NotificationRepository } from './notification.repository';
 import { NotificationService } from './notification.service';
@@ -18,7 +21,11 @@ import { NOTIFICATION_SETTINGS } from './notification.settings';
  * 在業務交易內呼叫 `NotificationService.notify()`（ADR-0026 D2、ADR-0028 D2）。
  */
 @Module({
-  controllers: [NotificationController, NotificationEventController],
+  controllers: [
+    NotificationController,
+    NotificationEventController,
+    NotificationPreferenceController,
+  ],
   providers: [
     NotificationService,
     NotificationRepository,
@@ -26,6 +33,8 @@ import { NOTIFICATION_SETTINGS } from './notification.settings';
     NotificationEventCatalog,
     NotificationPolicyService,
     NotificationPolicyRepository,
+    NotificationPreferenceService,
+    NotificationPreferenceRepository,
   ],
   exports: [NotificationService, NotificationEventCatalog],
 })

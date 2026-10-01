@@ -111,7 +111,7 @@ docs/
 │       ├── 13-trash.md                回收桶：TrashRegistry、還原端點、trash.purge 與外鍵處理
 │       ├── 14-revisions.md            版本歷史：revisions、RevisionService、還原到某一版、revision.prune
 │       ├── 15-notification.md         站內通知：notifications、NotificationService.notify、收件人計算、route id、notification.cleanup
-│       └── 16-notification-event.md   事件管理：事件目錄、notification_policies、租戶層的開關
+│       └── 16-notification-event.md   事件管理：事件目錄、租戶層的開關、個人的通知設定
 │
 ├── rbac/
 │   ├── 01-domain-model.md             實體、ER 圖、不變條件、關係圖的組成與模型

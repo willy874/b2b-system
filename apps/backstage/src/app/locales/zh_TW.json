@@ -202,6 +202,7 @@
     "NOTIFICATION_NOT_FOUND": "這則通知已不存在，可能已超過保留期限而被刪除。",
     "NOTIFICATION_EVENT_NOT_FOUND": "找不到這個事件或管道，可能已被移除或所屬功能未啟用。請重新整理頁面。",
     "NOTIFICATION_EVENT_MANDATORY": "這個事件與安全相關，不能關閉。",
+    "NOTIFICATION_PREFERENCE_LOCKED": "管理者不允許調整這個通知。請重新整理頁面。",
     "PERMISSION_UNKNOWN": "包含系統未定義的權限鍵。",
     "APPROVAL_NOT_FOUND": "找不到這筆審批申請。",
     "APPROVAL_ALREADY_REVIEWED": "這筆申請已經被審核過了。",

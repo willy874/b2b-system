@@ -1,8 +1,10 @@
 import type { AppPluginFactory } from '@/core/app';
+import { registerPreferenceSection } from '@/core/preference';
 import { registerHeaderTool } from '@/core/toolbar';
 import { LanguageNamespace, Languages } from '@/shared/constants/lang';
 
 import { NotificationBell } from './components/NotificationBell';
+import { NotificationPreferenceSection } from './components/NotificationPreferenceSection';
 import { NOTIFICATION_LOCALE_SCOPE } from './locale';
 import { registerNotificationPagePermissions } from './permission';
 
@@ -17,6 +19,14 @@ export function appContextPlugin(): AppPluginFactory {
       labelI18nKey: 'notification.label',
       icon: 'bell',
       Component: NotificationBell,
+    });
+    // 偏好頁的「通知」分頁：自己要收哪些通知（ADR-0028 D15）；排在表格欄位設定（200）之前
+    registerPreferenceSection({
+      key: 'notification',
+      order: 100,
+      labelI18nKey: 'notification.preference.title',
+      Component: NotificationPreferenceSection,
+      localeScope: NOTIFICATION_LOCALE_SCOPE,
     });
     const app = context.getInstance();
 

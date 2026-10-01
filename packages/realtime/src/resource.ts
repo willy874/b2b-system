@@ -33,6 +33,8 @@ export const ChangeSource = {
   NOTIFICATION: 'notification',
   /** 事件管理的租戶政策（`id` = 事件類型，例：`approval.pending`；docs/adr/0028-notification-event-management.md D9）。 */
   NOTIFICATION_POLICY: 'notificationPolicy',
+  /** 自己的通知設定（`id` = 事件類型）：只推給本人的其他分頁與裝置（ADR-0028 D15）。 */
+  NOTIFICATION_PREFERENCE: 'notificationPreference',
 } as const;
 
 export type ChangeSource = (typeof ChangeSource)[keyof typeof ChangeSource];
@@ -64,6 +66,7 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.TENANT_FEATURE,
   ChangeSource.NOTIFICATION,
   ChangeSource.NOTIFICATION_POLICY,
+  ChangeSource.NOTIFICATION_PREFERENCE,
 ]);
 
 export const ResourceChangeWireSchema = z.object({

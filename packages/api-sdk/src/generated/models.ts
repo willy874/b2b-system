@@ -12,6 +12,7 @@ export interface NotificationEventChannel {
   enabled: boolean;
   defaultEnabled: boolean;
   isOverridden: boolean;
+  allowUserOverride: boolean;
   updatedAt: string | null;
 }
 
@@ -27,6 +28,32 @@ export interface NotificationEventList {
 }
 
 export interface UpdateNotificationEventsRequest {
+  changes: Array<{
+    type: string;
+    channel: NotificationChannel;
+    enabled?: boolean | null;
+    allowUserOverride?: boolean;
+  }>;
+}
+
+export interface NotificationPreferenceChannel {
+  channel: NotificationChannel;
+  enabled: boolean;
+  isOverridden: boolean;
+  lock: ('mandatory' | 'tenantDisabled' | 'tenantRequired') | null;
+}
+
+export interface NotificationPreference {
+  type: string;
+  category: string;
+  channels: Array<NotificationPreferenceChannel>;
+}
+
+export interface NotificationPreferenceList {
+  items: Array<NotificationPreference>;
+}
+
+export interface UpdateNotificationPreferencesRequest {
   changes: Array<{
     type: string;
     channel: NotificationChannel;

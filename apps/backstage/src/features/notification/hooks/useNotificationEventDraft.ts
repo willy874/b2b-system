@@ -11,60 +11,90 @@ function draftKey(type: string, channel: NotificationChannel): string {
   return `${type} ${channel}`;
 }
 
+function serverOf(event: NotificationEventView, channel: NotificationChannel) {
+  return event.channels.find((item) => item.channel === channel);
+}
+
 /**
- * 事件管理頁的編輯草稿：只記「和伺服器不同」的開關，送出時轉成 `PATCH /notification-events` 的 `changes`。
- * `enabled: null` 代表還原預設（有覆寫而切回預設值也是）；改回伺服器上的值或還原一個沒有覆寫的開關時，那一筆從草稿移除。
+ * 事件管理頁的編輯草稿：只記「和伺服器不同」的欄位，送出時轉成 `PATCH /notification-events` 的 `changes`。
+ * 每個「事件 ＋ 管道」有兩個欄位：`enabled`（`null` 代表還原預設，有覆寫而切回預設值也是）與 `allowUserOverride`；
+ * 改回伺服器上的值時那一欄從草稿移除，兩欄都沒有時整筆移除。
  */
 export function useNotificationEventDraft() {
   const [draft, setDraft] = useState<ReadonlyMap<string, Change>>(new Map());
 
-  const update = useCallback((key: string, change: Change | undefined) => {
-    setDraft((prev) => {
-      const next = new Map(prev);
-      if (change) next.set(key, change);
-      else next.delete(key);
-      return next;
-    });
-  }, []);
+  /** 改一筆的某一欄；值為 `undefined` 是移除那一欄。 */
+  const patch = useCallback(
+    (
+      event: NotificationEventView,
+      channel: NotificationChannel,
+      fields: Pick<Change, 'enabled' | 'allowUserOverride'>,
+    ) => {
+      setDraft((prev) => {
+        const key = draftKey(event.type, channel);
+        const merged: Change = { ...prev.get(key), type: event.type, channel, ...fields };
+        if (merged.enabled === undefined) delete merged.enabled;
+        if (merged.allowUserOverride === undefined) delete merged.allowUserOverride;
+        const next = new Map(prev);
+        if (merged.enabled === undefined && merged.allowUserOverride === undefined)
+          next.delete(key);
+        else next.set(key, merged);
+        return next;
+      });
+    },
+    [],
+  );
 
   const setEnabled = useCallback(
     (event: NotificationEventView, channel: NotificationChannel, enabled: boolean) => {
-      const server = event.channels.find((item) => item.channel === channel);
+      const server = serverOf(event, channel);
       if (!server) return;
-      const key = draftKey(event.type, channel);
-      if (enabled === server.enabled) return update(key, undefined);
+      if (enabled === server.enabled) return patch(event, channel, { enabled: undefined });
       // 有覆寫而切回預設值：送「還原預設」，不留一筆與預設相同的覆寫
       const isBackToDefault = server.isOverridden && enabled === server.defaultEnabled;
-      update(key, { type: event.type, channel, enabled: isBackToDefault ? null : enabled });
+      patch(event, channel, { enabled: isBackToDefault ? null : enabled });
     },
-    [update],
+    [patch],
+  );
+
+  const setAllowUserOverride = useCallback(
+    (event: NotificationEventView, channel: NotificationChannel, allow: boolean) => {
+      const server = serverOf(event, channel);
+      if (!server) return;
+      patch(event, channel, {
+        allowUserOverride: allow === server.allowUserOverride ? undefined : allow,
+      });
+    },
+    [patch],
   );
 
   const resetToDefault = useCallback(
     (event: NotificationEventView, channel: NotificationChannel) => {
-      const server = event.channels.find((item) => item.channel === channel);
+      const server = serverOf(event, channel);
       if (!server) return;
-      const key = draftKey(event.type, channel);
-      update(key, server.isOverridden ? { type: event.type, channel, enabled: null } : undefined);
+      patch(event, channel, { enabled: server.isOverridden ? null : undefined });
     },
-    [update],
+    [patch],
   );
 
   const clear = useCallback(() => setDraft(new Map()), []);
 
-  /** 畫面上要顯示的值與是否覆寫（套用草稿之後）。 */
+  /** 畫面上要顯示的值（套用草稿之後）。 */
   const current = useCallback(
     (
       event: NotificationEventView,
       channel: NotificationChannel,
-    ): { enabled: boolean; isOverridden: boolean } => {
-      const server = event.channels.find((item) => item.channel === channel);
+    ): { enabled: boolean; isOverridden: boolean; allowUserOverride: boolean } => {
+      const server = serverOf(event, channel);
+      if (!server) return { enabled: false, isOverridden: false, allowUserOverride: false };
       const change = draft.get(draftKey(event.type, channel));
-      if (!server) return { enabled: false, isOverridden: false };
-      if (!change) return { enabled: server.enabled, isOverridden: server.isOverridden };
+      const allowUserOverride = change?.allowUserOverride ?? server.allowUserOverride;
+      if (change?.enabled === undefined) {
+        return { enabled: server.enabled, isOverridden: server.isOverridden, allowUserOverride };
+      }
       return change.enabled === null
-        ? { enabled: server.defaultEnabled, isOverridden: false }
-        : { enabled: change.enabled, isOverridden: true };
+        ? { enabled: server.defaultEnabled, isOverridden: false, allowUserOverride }
+        : { enabled: change.enabled, isOverridden: true, allowUserOverride };
     },
     [draft],
   );
@@ -76,6 +106,7 @@ export function useNotificationEventDraft() {
     isDirty: changes.length > 0,
     current,
     setEnabled,
+    setAllowUserOverride,
     resetToDefault,
     clear,
   };

@@ -1,4 +1,5 @@
 import { Button } from '@/components/Button';
+import { Checkbox } from '@/components/Checkbox';
 import { Icon } from '@/components/Icon';
 import { Switch } from '@/components/Switch';
 import { useTranslation } from '@/core/locales';
@@ -12,8 +13,13 @@ interface NotificationEventRowProps {
   current: (
     event: NotificationEventView,
     channel: NotificationChannel,
-  ) => { enabled: boolean; isOverridden: boolean };
+  ) => { enabled: boolean; isOverridden: boolean; allowUserOverride: boolean };
   onChange: (event: NotificationEventView, channel: NotificationChannel, enabled: boolean) => void;
+  onAllowUserOverrideChange: (
+    event: NotificationEventView,
+    channel: NotificationChannel,
+    allow: boolean,
+  ) => void;
   onReset: (event: NotificationEventView, channel: NotificationChannel) => void;
 }
 
@@ -23,6 +29,7 @@ export function NotificationEventRow({
   canUpdate,
   current,
   onChange,
+  onAllowUserOverrideChange,
   onReset,
 }: NotificationEventRowProps) {
   const { t } = useTranslation();
@@ -58,7 +65,7 @@ export function NotificationEventRow({
       </div>
       <div className="flex shrink-0 flex-col gap-2">
         {event.channels.map(({ channel, defaultEnabled }) => {
-          const { enabled, isOverridden } = current(event, channel);
+          const { enabled, isOverridden, allowUserOverride } = current(event, channel);
           const channelLabel = t(NOTIFICATION_CHANNEL_LABEL_KEY[channel]);
           return (
             <div
@@ -103,6 +110,17 @@ export function NotificationEventRow({
                 >
                   {t('notification.event.resetToDefault')}
                 </Button>
+              )}
+              {/* 關閉的管道誰都收不到，「允許個人關閉」沒有意義（ADR-0028 D14） */}
+              {!event.mandatory && (
+                <Checkbox
+                  checked={allowUserOverride}
+                  onCheckedChange={(next) => onAllowUserOverrideChange(event, channel, next)}
+                  disabled={!canUpdate || !enabled}
+                  label={t('notification.event.allowUserOverride')}
+                  className="text-xs"
+                  data-testid="notification-event-allow-override"
+                />
               )}
             </div>
           );

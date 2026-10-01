@@ -111,11 +111,11 @@ await withTransaction(this.db, async (tx) => {
 
 | 步驟 | 規則 |
 | --- | --- |
-| 政策 | 每一種類型查 `NotificationPolicyService.isEnabled(type, 'inApp', tx)`：租戶關掉的類型整批不寫；沒有登記進事件目錄的類型拋 `Error`（[`16-notification-event.md`](./16-notification-event.md) §3.1） |
 | 驗證 | 收件人與操作者是 uuid、類型與 route id 的格式、`params` 只有純量與字串陣列且 ≤ 4 KiB。不符是呼叫端的程式錯誤：拋 `Error`，業務交易一起失敗 |
 | 略過自己 | 操作者就是收件人時不寫（D7）；`actorId` 為 null（系統）不算 |
 | 去重 | 同一次呼叫裡「同一類型 ＋ 同一位收件人」只留第一筆；不同類型各自保留 |
 | 截斷 | 超過 `MAX_NOTIFICATION_RECIPIENTS`（1000）時記 warn 並只寫前 1000 筆（D6）；業務照常成功 |
+| 政策 | 每一種類型呼叫 `NotificationPolicyService.filterRecipients(type, 'inApp', 收件人, tx)`：租戶關掉的整批不寫、收件人自己關掉（租戶允許時）的略過；沒有登記進事件目錄的類型拋 `Error`（[`16-notification-event.md`](./16-notification-event.md) §3.1） |
 | 寫入 | 一條 `INSERT … VALUES (…), (…)` 寫完 |
 | 推播 | 以 `afterCommit(tx, …)` 登記：**交易提交後** 對每位收件人各發一則 `resource.changed`（§7） |
 
@@ -229,7 +229,7 @@ await withTransaction(this.db, async (tx) => {
 ## 9. 加入一種新通知
 
 1. 在擁有者模組的 `<name>.notifications.ts` 以 `defineNotification<Params>('<模組>.<事件>', { category, channels })` 宣告，`Params` 只放名稱快照；
-   放進該模組的 `*_NOTIFICATIONS`，在 `*.module.ts` constructor 以 `NotificationEventCatalog.register()` 登記（[`16-notification-event.md`](./16-notification-event.md) §6）。
+   放進該模組的 `*_NOTIFICATIONS`，在 `*.module.ts` constructor 以 `NotificationEventCatalog.register()` 登記（[`16-notification-event.md`](./16-notification-event.md) §7）。
    同一個事件也寄信時，`channels` 加 `email`，寄信入列前呼叫 `notifications.isChannelEnabled(KIND, 'email', tx)`。
 2. 收件人在擁有者模組算：持有某個權限的人用 `PermissionService.findActiveUserIdsWithPermission()`（§5）；在交易之前算好。
 3. 在業務交易內（稽核之後）呼叫 `notifications.notify(notification(KIND, { … }), tx)`；擁有者的 module import `NotificationModule`。
