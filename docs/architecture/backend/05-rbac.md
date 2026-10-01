@@ -657,7 +657,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | PATCH  | `/roles/:id/permissions`    | `role:grantPermission`           |
 | GET    | `/roles/:id/users`          | `role:read` ＋ `user:read`       |
 | POST   | `/roles/:id/duplicate`      | `role:create`                    |
-| GET    | `/groups`                   | `group:read`                     |
+| GET    | `/groups`                   | `group:read`（`?userId=` 這個人所在的群組、標 `direct`／`nested`；`?roleId=` 持有角色的群組） |
 | POST   | `/groups`                   | `group:create`                   |
 | GET    | `/groups/:id`               | `group:read`                     |
 | PATCH  | `/groups/:id`               | `group:update`                   |

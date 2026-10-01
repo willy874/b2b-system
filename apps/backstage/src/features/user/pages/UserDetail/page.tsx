@@ -14,6 +14,7 @@ import { useTranslation } from '@/core/locales';
 import { useUserPermission } from '../../hooks/useUserPermission';
 import { UserDetailRoute, UserListRoute } from '../../routes';
 import { UserBasicSection } from './components/UserBasicSection';
+import { UserGroupSection } from './components/UserGroupSection';
 import { UserRoleSection } from './components/UserRoleSection';
 
 export default function UserDetailPage() {
@@ -68,6 +69,7 @@ export default function UserDetailPage() {
             canAssignRole={permission.canAssignRole}
             isSelf={isSelf}
           />
+          {permission.canReadGroups && <UserGroupSection userId={userId} />}
         </div>
       )}
     </Dialog>

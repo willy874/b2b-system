@@ -291,7 +291,7 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
 | 群組持有角色（不能是 super-admin，ADR-0024 D12） | `role:r#holder@group:g#member` |
 | 角色帶權限鍵 | `tenant:self#<key>@role:r#holder` |
 | super-admin | `tenant:self#superAdmin@role:<super-admin>#holder` |
-| 資料夾授權（角色／個人／所有人） | `fileFolder:F#<等級>@role:r#holder`、`@user:u`、`@user:*` |
+| 資料夾授權（角色／個人／群組／所有人） | `fileFolder:F#<等級>@role:r#holder`、`@user:u`、`@group:g#member`、`@user:*` |
 | 授權的期限 | 邊上的 `expires_at`，解析時忽略過期的 |
 | 中斷繼承 | 不產生 `inherits_from` 邊 |
 | 擁有者規則 | `owner` 關係 ＋ 交集（規則 A：能在這裡建立 ⇒ 能編輯自己建立的） |

@@ -14,6 +14,10 @@ export const GroupSchema = defineSchema(
     roleCount: z.number().int(),
     /** 樂觀鎖版本：`PATCH` 時帶上（ADR-0025 D3）。 */
     version: z.number().int(),
+    /**
+     * 只在以 `userId` 篩選時出現：`direct` 是那位使用者直接所屬，`nested` 是經由他所屬的群組（巢狀）而屬於。
+     */
+    membership: z.enum(['direct', 'nested']).optional(),
     createdAt: z.string(),
     updatedAt: z.string(),
   }),

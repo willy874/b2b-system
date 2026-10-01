@@ -909,7 +909,7 @@ export const UpdateFeatureFlagRequestSchema = z.object({
 }) satisfies z.ZodType<UpdateFeatureFlagRequest>;
 
 export const SetFileFolderGrantRequestSchema = z.object({
-  subjectType: z.enum(['role', 'user', 'everyone']),
+  subjectType: z.enum(['role', 'user', 'group', 'everyone']),
   subjectId: z
     .uuid()
     .regex(
@@ -930,7 +930,7 @@ export const SetFileFolderGrantRequestSchema = z.object({
 }) satisfies z.ZodType<SetFileFolderGrantRequest>;
 
 export const FileFolderGrantSchema = z.object({
-  subjectType: z.enum(['role', 'user', 'everyone']),
+  subjectType: z.enum(['role', 'user', 'group', 'everyone']),
   subjectId: z
     .uuid()
     .regex(
@@ -973,7 +973,7 @@ export const FileFolderGrantListSchema = z.object({
 export const FileGrantSubjectListSchema = z.object({
   items: z.array(
     z.object({
-      subjectType: z.enum(['role', 'user', 'everyone']),
+      subjectType: z.enum(['role', 'user', 'group', 'everyone']),
       id: z
         .uuid()
         .regex(
@@ -1376,6 +1376,7 @@ export const GroupSchema = z.object({
   memberCount: z.int().min(-9007199254740991).max(9007199254740991),
   roleCount: z.int().min(-9007199254740991).max(9007199254740991),
   version: z.int().min(-9007199254740991).max(9007199254740991),
+  membership: z.enum(['direct', 'nested']).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 }) satisfies z.ZodType<Group>;
@@ -1393,6 +1394,7 @@ export const RestoredGroupSchema = z.object({
   memberCount: z.int().min(-9007199254740991).max(9007199254740991),
   roleCount: z.int().min(-9007199254740991).max(9007199254740991),
   version: z.int().min(-9007199254740991).max(9007199254740991),
+  membership: z.enum(['direct', 'nested']).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 }) satisfies z.ZodType<RestoredGroup>;

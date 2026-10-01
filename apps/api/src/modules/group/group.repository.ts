@@ -43,6 +43,8 @@ const deleter = alias(users, 'deleter');
 export interface GroupWithCounts extends GroupRow {
   memberCount: number;
   roleCount: number;
+  /** 只在以 `userId` 篩選時有值：直接所屬，或經由巢狀群組。 */
+  membership?: 'direct' | 'nested';
 }
 
 /** 群組的一個直接成員（`listMembers`）。 */
@@ -138,6 +140,19 @@ export class GroupRepository {
         sql`(${groups.name} ILIKE ${pattern} OR ${groups.description} ILIKE ${pattern})`,
       );
     }
+    // 使用者所在的群組（直接或經由巢狀群組）；先算出 id，直接所屬的另外標記
+    const membership = query.userId ? await this.groupsOfUser(query.userId) : undefined;
+    if (membership) {
+      if (membership.size === 0) return { items: [], total: 0 };
+      conditions.push(inArray(groups.id, [...membership.keys()]));
+    }
+    if (query.roleId) {
+      conditions.push(sql`EXISTS (SELECT 1 FROM ${relationTuples} t
+        WHERE t.object_type = ${ROLE_OBJECT_TYPE} AND t.object_id = ${query.roleId}
+          AND t.relation = ${ROLE_HOLDER_RELATION}
+          AND t.subject_type = ${GROUP_OBJECT_TYPE} AND t.subject_relation = ${GROUP_MEMBER_RELATION}
+          AND t.subject_id = ${OUTER_GROUP_ID}::text)`);
+    }
     const where = and(...conditions);
     // 依 sort 陣列的順序排；最後以 id 收尾，讓同值的列在分頁之間順序穩定
     const orderBy = query.sort.map(({ sort, order }) =>
@@ -165,9 +180,34 @@ export class GroupRepository {
         ...row.group,
         memberCount: row.memberCount,
         roleCount: row.roleCount,
+        ...(membership && { membership: membership.get(row.group.id) }),
       })),
       total: counted?.total ?? 0,
     };
+  }
+
+  /**
+   * 使用者所在的群組 → 直接或巢狀：直接所屬，再沿 `group:<上層>#member@group:<下層>#member` 往上，只走未刪除的群組
+   * （與主體閉包相同的規則，core/authz/authz.repository.ts）。
+   */
+  async groupsOfUser(userId: string): Promise<Map<string, 'direct' | 'nested'>> {
+    const rows = await this.db.execute<{ id: string; depth: number }>(sql`
+      WITH RECURSIVE up(id, depth) AS (
+        SELECT t.object_id, 0
+        FROM ${relationTuples} t
+        WHERE t.object_type = ${GROUP_OBJECT_TYPE} AND t.relation = ${GROUP_MEMBER_RELATION}
+          AND t.subject_type = ${USER_SUBJECT_TYPE} AND t.subject_id = ${userId} AND t.subject_relation = ''
+        UNION
+        SELECT t.object_id, up.depth + 1
+        FROM ${relationTuples} t JOIN up
+          ON t.subject_type = ${GROUP_OBJECT_TYPE} AND t.subject_id = up.id
+          AND t.subject_relation = ${GROUP_MEMBER_RELATION}
+        WHERE t.object_type = ${GROUP_OBJECT_TYPE} AND t.relation = ${GROUP_MEMBER_RELATION}
+          AND up.depth < 32
+          AND EXISTS (SELECT 1 FROM groups g WHERE g.id::text = up.id AND g.deleted_at IS NULL /* notDeleted */)
+      )
+      SELECT id, min(depth)::int AS depth FROM up GROUP BY id`);
+    return new Map(rows.map((row) => [row.id, row.depth === 0 ? 'direct' : 'nested']));
   }
 
   async create(values: GroupInsert, tx: DbOrTx): Promise<GroupRow> {

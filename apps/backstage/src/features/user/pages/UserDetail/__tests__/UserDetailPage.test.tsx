@@ -11,7 +11,8 @@ import { renderRoute } from '@/test/renderRoute';
 import { registerUserPagePermissions, Routes } from '../../..';
 import userZhTW from '../../../locales/zh_TW.json';
 
-const { fetchUser, fetchProfile, updateUser, unlockUser } = vi.hoisted(() => ({
+const { fetchUser, fetchProfile, updateUser, unlockUser, fetchGroups } = vi.hoisted(() => ({
+  fetchGroups: vi.fn(),
   fetchUser: vi.fn(),
   fetchProfile: vi.fn(),
   updateUser: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock('@/apis/user/get-user-detail/fetcher', () => ({ fetchUserDetailQuery: fe
 vi.mock('@/apis/auth/get-profile/fetcher', () => ({ fetchProfileQuery: fetchProfile }));
 vi.mock('@/apis/user/update-user/fetcher', () => ({ fetchUserUpdateMutation: updateUser }));
 vi.mock('@/apis/user/unlock-user/fetcher', () => ({ fetchUserUnlockMutation: unlockUser }));
+vi.mock('@/apis/group/get-group-list/fetcher', () => ({ fetchGroupListQuery: fetchGroups }));
 
 const USER_ID = '44444444-4444-4444-8444-444444444444';
 const PATH = `/user/${USER_ID}`;
@@ -48,6 +50,20 @@ beforeEach(() => {
   fetchProfile.mockReset().mockResolvedValue({ user: { id: 'me' }, permissions: [] });
   updateUser.mockReset().mockImplementation(async ({ params }) => ({ ...base, ...params.body }));
   unlockUser.mockReset().mockResolvedValue({ ...base, status: 'active' });
+  fetchGroups.mockReset().mockResolvedValue({
+    items: [
+      { id: 'g-art', name: '美術', memberCount: 1, roleCount: 1, version: 1, membership: 'nested' },
+      {
+        id: 'g-design',
+        name: '角色設計',
+        memberCount: 1,
+        roleCount: 0,
+        version: 1,
+        membership: 'direct',
+      },
+    ],
+    pagination: { total: 2 },
+  });
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
@@ -212,5 +228,19 @@ describe('UserDetailPage', () => {
 
     await screen.findByTestId('user-status-chip', undefined, { timeout: 5000 });
     expect(screen.queryByTestId('user-edit-button')).not.toBeInTheDocument();
+  });
+
+  it('有 group:read → 列出所屬群組，直接所屬的在前（ADR-0024 G4）', async () => {
+    renderRoute(routes, PATH, ['user:read', 'group:read'] as PermissionKey[]);
+    const groups = await screen.findAllByTestId('user-group', undefined, { timeout: 5000 });
+    expect(groups.map((group) => group.getAttribute('data-value'))).toEqual(['g-design', 'g-art']);
+    expect(fetchGroups.mock.calls[0]![0].params).toMatchObject({ userId: USER_ID });
+  });
+
+  it('沒有 group:read → 不顯示所屬群組', async () => {
+    renderRoute(routes, PATH, EDITOR);
+    await screen.findByTestId('user-edit-button', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('user-group-section')).not.toBeInTheDocument();
+    expect(fetchGroups).not.toHaveBeenCalled();
   });
 });

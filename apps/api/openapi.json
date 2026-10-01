@@ -3733,7 +3733,7 @@
             "required": true,
             "in": "path",
             "schema": {
-              "enum": ["role", "user", "everyone"],
+              "enum": ["role", "user", "group", "everyone"],
               "type": "string"
             }
           }
@@ -6418,7 +6418,7 @@
         "properties": {
           "subjectType": {
             "type": "string",
-            "enum": ["role", "user", "everyone"]
+            "enum": ["role", "user", "group", "everyone"]
           },
           "subjectId": {
             "type": "string",
@@ -6445,7 +6445,7 @@
         "properties": {
           "subjectType": {
             "type": "string",
-            "enum": ["role", "user", "everyone"]
+            "enum": ["role", "user", "group", "everyone"]
           },
           "subjectId": {
             "type": "string",
@@ -6536,7 +6536,7 @@
               "properties": {
                 "subjectType": {
                   "type": "string",
-                  "enum": ["role", "user", "everyone"]
+                  "enum": ["role", "user", "group", "everyone"]
                 },
                 "id": {
                   "type": "string",
@@ -7487,6 +7487,10 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "membership": {
+            "type": "string",
+            "enum": ["direct", "nested"]
+          },
           "createdAt": {
             "type": "string"
           },
@@ -7535,6 +7539,10 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "membership": {
+            "type": "string",
+            "enum": ["direct", "nested"]
           },
           "createdAt": {
             "type": "string"

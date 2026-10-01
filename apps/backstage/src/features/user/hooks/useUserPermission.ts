@@ -13,5 +13,7 @@ export function useUserPermission() {
     /** 解鎖與停用共用 user:update */
     canUnlock: page.canUpdate,
     canReadRoles: can(PermissionKey['role:read']),
+    /** 所屬群組（ADR-0024 G4）：要能讀群組 */
+    canReadGroups: can(PermissionKey['group:read']),
   };
 }

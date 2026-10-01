@@ -53,7 +53,10 @@
       "managePermission": "Manage permissions",
       "allPermissions": "All permissions (implicit)",
       "backToList": "Back to roles",
-      "revisions": "Version history"
+      "revisions": "Version history",
+      "directHolders": "Directly held by",
+      "groupHolders": "Through groups",
+      "groupMemberCount": "{{count}} direct members"
     },
     "permission": {
       "title": "Manage role permissions",

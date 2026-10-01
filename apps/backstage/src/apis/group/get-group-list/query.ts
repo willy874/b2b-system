@@ -16,6 +16,8 @@ const getGroupListQueryKeys = (params: GroupListParams) =>
     params.offset,
     params.limit,
     params.keyword,
+    params.userId,
+    params.roleId,
     params.sort ? toSortParams(params.sort).join(',') : '',
   ] as const;
 

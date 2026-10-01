@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 
+import { getGroupListQueryOptions } from '@/apis/group/get-group-list/query';
 import { getRoleDetailQueryOptions } from '@/apis/role/get-role-detail/query';
 import { getRolePermissionsQueryOptions } from '@/apis/role/get-role-permissions/query';
 import { getRoleUsersQueryOptions } from '@/apis/role/get-role-users/query';
@@ -38,6 +39,12 @@ export default function RoleDetailPage() {
   const holders = useQuery({
     ...getRoleUsersQueryOptions(roleId),
     enabled: permission.canViewUsers,
+  });
+  const holderGroups = useQuery({
+    ...getGroupListQueryOptions({
+      params: { offset: 0, limit: 100, roleId, sort: [{ sort: 'name', order: 'asc' }] },
+    }),
+    enabled: permission.canViewGroups,
   });
 
   const duplicateRole = useRoleDuplicateMutation();
@@ -116,7 +123,12 @@ export default function RoleDetailPage() {
               isSuperAdmin={role.data.slug === 'super-admin'}
               permissions={rolePermissions.data?.permissions}
             />
-            {permission.canViewUsers && <RoleHolderSection holders={holders.data?.items} />}
+            {(permission.canViewUsers || permission.canViewGroups) && (
+              <RoleHolderSection
+                holders={permission.canViewUsers ? holders.data?.items : undefined}
+                groups={permission.canViewGroups ? holderGroups.data?.items : undefined}
+              />
+            )}
           </div>
         )}
       </Dialog>

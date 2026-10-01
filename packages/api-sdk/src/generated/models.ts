@@ -555,14 +555,14 @@ export interface UpdateFeatureFlagRequest {
 }
 
 export interface SetFileFolderGrantRequest {
-  subjectType: 'role' | 'user' | 'everyone';
+  subjectType: 'role' | 'user' | 'group' | 'everyone';
   subjectId: string;
   level: 'viewer' | 'contributor' | 'editor' | 'manager';
   expiresAt: string | null;
 }
 
 export interface FileFolderGrant {
-  subjectType: 'role' | 'user' | 'everyone';
+  subjectType: 'role' | 'user' | 'group' | 'everyone';
   subjectId: string;
   subjectName: string;
   level: 'viewer' | 'contributor' | 'editor' | 'manager';
@@ -584,7 +584,7 @@ export interface FileFolderGrantList {
 
 export interface FileGrantSubjectList {
   items: Array<{
-    subjectType: 'role' | 'user' | 'everyone';
+    subjectType: 'role' | 'user' | 'group' | 'everyone';
     id: string;
     name: string;
     hint: string | null;
@@ -829,6 +829,7 @@ export interface Group {
   memberCount: number;
   roleCount: number;
   version: number;
+  membership?: 'direct' | 'nested';
   createdAt: string;
   updatedAt: string;
 }
@@ -840,6 +841,7 @@ export interface RestoredGroup {
   memberCount: number;
   roleCount: number;
   version: number;
+  membership?: 'direct' | 'nested';
   createdAt: string;
   updatedAt: string;
 }

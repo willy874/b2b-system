@@ -9,15 +9,16 @@ import { renderRoute } from '@/test/renderRoute';
 
 import { registerRolePagePermissions, Routes } from '../../..';
 
-const { fetchRole, fetchRolePermissions, fetchRoleUsers, updateRole, duplicateRole } = vi.hoisted(
-  () => ({
+const { fetchRole, fetchRolePermissions, fetchRoleUsers, updateRole, duplicateRole, fetchGroups } =
+  vi.hoisted(() => ({
+    fetchGroups: vi.fn(),
     fetchRole: vi.fn(),
     fetchRolePermissions: vi.fn(),
     fetchRoleUsers: vi.fn(),
     updateRole: vi.fn(),
     duplicateRole: vi.fn(),
-  }),
-);
+  }));
+vi.mock('@/apis/group/get-group-list/fetcher', () => ({ fetchGroupListQuery: fetchGroups }));
 vi.mock('@/apis/role/get-role-detail/fetcher', () => ({ fetchRoleDetailQuery: fetchRole }));
 vi.mock('@/apis/role/get-role-permissions/fetcher', () => ({
   fetchRolePermissionsQuery: fetchRolePermissions,
@@ -51,6 +52,12 @@ beforeEach(() => {
   fetchRole.mockReset().mockResolvedValue(ROLE);
   fetchRolePermissions.mockReset().mockResolvedValue({ permissions: [] });
   fetchRoleUsers.mockReset().mockResolvedValue({ items: [] });
+  fetchGroups.mockReset().mockResolvedValue({
+    items: [
+      { id: 'g1', name: '美術', description: null, memberCount: 3, roleCount: 1, version: 1 },
+    ],
+    pagination: { total: 1 },
+  });
   updateRole.mockReset().mockResolvedValue(ROLE);
   duplicateRole.mockReset().mockResolvedValue({ ...ROLE, id: 'copy' });
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
@@ -156,5 +163,23 @@ describe('RoleDetailPage', () => {
     await screen.findByText('Editor');
     expect(screen.queryByTestId('role-edit-button')).not.toBeInTheDocument();
     expect(screen.queryByTestId('role-duplicate-button')).not.toBeInTheDocument();
+  });
+
+  it('有 group:read → 持有者分「直接持有」與「經由群組」，以 roleId 查群組（ADR-0024 G4）', async () => {
+    renderRoute(routes, `/role/${ROLE_ID}`, [
+      'role:read',
+      'user:read',
+      'group:read',
+    ] as PermissionKey[]);
+    const groups = await screen.findAllByTestId('role-holder-group');
+    expect(groups.map((group) => group.getAttribute('data-value'))).toEqual(['g1']);
+    expect(fetchGroups.mock.calls[0]![0].params).toMatchObject({ roleId: ROLE_ID });
+  });
+
+  it('沒有 group:read → 不查也不顯示經由群組', async () => {
+    renderRoute(routes, `/role/${ROLE_ID}`, ['role:read', 'user:read'] as PermissionKey[]);
+    await screen.findByText('Editor');
+    expect(screen.queryByTestId('role-holder-groups')).not.toBeInTheDocument();
+    expect(fetchGroups).not.toHaveBeenCalled();
   });
 });

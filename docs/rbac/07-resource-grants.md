@@ -181,10 +181,11 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 | --- | --- | --- |
 | `role` | P1 | 角色；持有者隨角色指派變動，授權自動跟著走 |
 | `user` | P2 | 個別使用者 |
+| `group` | G4（[ADR-0024](../adr/0024-relationship-based-access-control.md)） | 群組的成員，含巢狀群組的成員；人員異動只改群組成員。加成員時不檢查群組在資料夾上的授權（D13）——授予給群組時已由 `can_share` 的人檢查過 |
 | `everyone` | 追加 | 所有能進檔案管理器的人（`subject_id` 固定是全零 uuid）；共用資料夾用它（§12） |
 
 候選清單（`GET /file-folders/:id/grant-subjects`）只回傳 id、名稱：`has(share, F)` 的人不需要 `role:read` / `user:read`
-也能挑選對象，但拿不到角色的權限或使用者的其他資料。
+也能挑選對象，但拿不到角色的權限、使用者或群組的其他資料。
 
 ### 6.3 過期（P2）
 
@@ -246,10 +247,10 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 ```
 fileFolder:<資料夾 id>#<等級>@<主體>
   等級    viewer | contributor | editor | manager
-  主體    role:<id>#holder（角色）｜ user:<id>（使用者）｜ user:*（所有人，API 上的 everyone）
+  主體    role:<id>#holder（角色）｜ user:<id>（使用者）｜ group:<id>#member（群組）｜ user:*（所有人，API 上的 everyone）
   expires_at            null = 不過期（P2）
   created_at / created_by   API 上的 grantedAt / grantedBy
-  沒有外鍵（多型）；解析與清單都 join 未刪除的 roles / users
+  沒有外鍵（多型）；解析與清單都 join 未刪除的 roles / users / groups
 
 file_folders.inherit_grants  boolean not null default true        ← P2
 ```

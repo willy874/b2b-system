@@ -35,6 +35,7 @@ import { GroupRepository } from './group.repository';
 
 function toDto(group: GroupWithCounts): GroupDto {
   return {
+    ...(group.membership && { membership: group.membership }),
     id: group.id,
     name: group.name,
     description: group.description,

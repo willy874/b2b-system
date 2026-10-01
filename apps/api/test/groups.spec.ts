@@ -29,6 +29,7 @@ const SUPER_ADMIN = { email: 'root@example.com', password: 'RootPassword!2026' }
 const ADMIN = { email: 'group-admin@example.com', password: 'AdminPassword!2026' };
 const MANAGER = { email: 'group-manager@example.com', password: 'ManagerPassword!2026' };
 const ALICE = { email: 'alice@example.com', password: 'AlicePassword!2026' };
+const BOB = { email: 'bob@example.com', password: 'BobPassword!2026' };
 
 const ids: Record<string, string> = {};
 const tokenCache = new Map<string, string>();
@@ -79,6 +80,8 @@ async function as(credentials: { email: string; password: string }) {
       request(http).post(path).set('authorization', `Bearer ${token}`).send(body),
     patch: (path: string, body: object) =>
       request(http).patch(path).set('authorization', `Bearer ${token}`).send(body),
+    put: (path: string, body: object) =>
+      request(http).put(path).set('authorization', `Bearer ${token}`).send(body),
     delete: (path: string) => request(http).delete(path).set('authorization', `Bearer ${token}`),
   };
 }
@@ -250,6 +253,79 @@ describe('群組（docs/adr/0024-relationship-based-access-control.md D11、D12�
       .patch(`/groups/${ids.design}/members`, { add: [{ type: 'user', id: ids.admin }] })
       .expect(403);
     expect(response.body.error.code).toBe('AUTHZ_SELF_MODIFY');
+  });
+
+  it('GET /groups?userId=：直接所屬與經由巢狀群組所屬；?roleId=：持有角色的群組', async () => {
+    const admin = await as(ADMIN);
+    // 美術（Design 的上層）已持有 admin 沒有的 system:update：由 super-admin 把 alice 放回 Design
+    await (
+      await as(SUPER_ADMIN)
+    )
+      .patch(`/groups/${ids.design}/members`, {
+        add: [{ type: 'user', id: ids.alice }],
+        remove: [],
+      })
+      .expect(200);
+    const mine = await admin.get(`/groups?userId=${ids.alice}`).expect(200);
+    expect(
+      (mine.body.data.items as Array<{ id: string; membership: string }>)
+        .map(({ id, membership }) => [id, membership])
+        .toSorted(),
+    ).toEqual(
+      [
+        [ids.art, 'nested'],
+        [ids.design, 'direct'],
+      ].toSorted(),
+    );
+    const holding = await admin.get(`/groups?roleId=${ids.editorRole}`).expect(200);
+    expect(holding.body.data.items.map((group: { id: string }) => group.id)).toEqual([ids.art]);
+    // 沒有篩選時不帶 membership
+    const all = await admin.get('/groups').expect(200);
+    expect(all.body.data.items[0]).not.toHaveProperty('membership');
+  });
+
+  it('資料夾授權給群組：成員（只有 file:access）就能讀那個資料夾', async () => {
+    const admin = await as(ADMIN);
+    const [member] = await db.select().from(roles).where(eq(roles.slug, 'member'));
+    const bob = await createActiveUser(BOB.email, BOB.password);
+    await db.insert(relationTuples).values(roleHolderTuple(member!.id, bob));
+    const team = await admin.post('/groups', { name: '專案小組' }).expect(201);
+    const teamId = (team.body as { data: { id: string } }).data.id;
+    await admin
+      .patch(`/groups/${teamId}/members`, { add: [{ type: 'user', id: bob }], remove: [] })
+      .expect(200);
+    const folder = await admin
+      .post('/file-folders', { name: '小組資料', parentId: null })
+      .expect(201);
+    const folderId = (folder.body as { data: { id: string } }).data.id;
+
+    const readable = async () => {
+      const response = await (await as(BOB)).get('/file-folders').expect(200);
+      return (
+        response.body.data.items as Array<{ id: string; capabilities: { canRead: boolean } }>
+      ).find((item) => item.id === folderId)?.capabilities.canRead;
+    };
+    expect(await readable()).toBe(false);
+
+    const granted = await admin
+      .put(`/file-folders/${folderId}/grants`, {
+        subjectType: 'group',
+        subjectId: teamId,
+        level: 'viewer',
+      })
+      .expect(200);
+    expect(granted.body.data.items).toEqual([
+      expect.objectContaining({ subjectType: 'group', subjectId: teamId, subjectName: '專案小組' }),
+    ]);
+    expect(await readable()).toBe(true);
+
+    // 候選對象可以搜群組
+    const subjects = await admin
+      .get(`/file-folders/${folderId}/grant-subjects?subjectType=group&keyword=小組`)
+      .expect(200);
+    expect(subjects.body.data.items).toEqual([
+      expect.objectContaining({ subjectType: 'group', id: teamId, name: '專案小組' }),
+    ]);
   });
 
   it('沒有 group:read 的人看不到群組', async () => {
