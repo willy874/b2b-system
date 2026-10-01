@@ -129,6 +129,7 @@
     "AUTH_ACCOUNT_LOCKED": "登入失敗次數過多，帳號已暫時鎖定。",
     "AUTH_TOKEN_INVALID": "登入狀態無效，請重新登入。",
     "AUTH_TOKEN_STALE": "你的登入已被系統終止，請重新登入。",
+    "AUTH_API_TOKEN_EXPIRED": "API token 已過期，請建立新的 token。",
     "AUTH_REFRESH_INVALID": "登入狀態已失效，請重新登入。",
     "AUTH_REFRESH_EXPIRED": "登入已過期，請重新登入。",
     "AUTH_REFRESH_REVOKED": "登入已被撤銷，請重新登入。",

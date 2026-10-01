@@ -13,6 +13,7 @@ import type { FeatureFlagDefinition } from '@/core/feature-flags/feature-flags';
 import type { TenantFeature } from '@/core/tenant';
 
 import {
+  API_SURFACE,
   IS_AUTHENTICATED,
   IS_PUBLIC,
   REQUIRED_FEATURE,
@@ -20,7 +21,11 @@ import {
   REQUIRED_PERMISSIONS,
   REQUIRED_PLATFORM_PERMISSIONS,
 } from './decorators';
-import type { PermissionRequirement, PlatformPermissionRequirement } from './decorators';
+import type {
+  ApiSurface,
+  PermissionRequirement,
+  PlatformPermissionRequirement,
+} from './decorators';
 import type { PermissionKey, PlatformPermissionKey } from './types';
 
 export interface RouteDeclaration {
@@ -35,6 +40,8 @@ export interface RouteDeclaration {
   feature?: TenantFeature;
   /** `@RequireFlag` 標的 feature flag（docs/adr/0022-feature-flags.md D5）。 */
   flag?: string;
+  /** 屬於哪一個入口（docs/adr/0027-api-tokens-external-api.md D11）；沒標是 `internal`。 */
+  surface: ApiSurface;
 }
 
 /** Gateway 的 `@SubscribeMessage` 處理器（docs/architecture/backend/08-realtime.md §5）。 */
@@ -112,9 +119,15 @@ export function collectRouteDeclarations(app: INestApplication): RouteDeclaratio
         handler as () => void,
         metatype,
       ]);
+      const surface =
+        reflector.getAllAndOverride<ApiSurface | undefined>(API_SURFACE, [
+          handler as () => void,
+          metatype,
+        ]) ?? 'internal';
       declarations.push({
         method: RequestMethod[verb] ?? 'GET',
         path: joinPath(controllerPath, subPath),
+        surface,
         ...declarationOf(reflector, handler, metatype),
         ...(feature && { feature }),
         ...(flag && { flag }),
@@ -193,6 +206,28 @@ export function auditRoutes(
     throw new Error(
       '以下端點的 @RequireFlag 無效（平台端點不適用；key 必須在 core/feature-flags 的目錄裡）：\n' +
         badFlags.map((r) => `  - ${r.method} ${r.path}（${r.flag}）`).join('\n'),
+    );
+  }
+
+  // 入口的分界（docs/adr/0027-api-tokens-external-api.md D11、D12）：對外的路由一律在 /v<n>/ 底下、要登入
+  // （只認 API token；平台端點不對外）；內部的不能佔用 /v<n>/；兩邊都有的只給公開的健康檢查
+  const versioned = /^\/v\d+(\/|$)/;
+  const badSurface = routes.filter((r) =>
+    r.surface === 'external'
+      ? !versioned.test(r.path) ||
+        r.declaration === 'public' ||
+        r.declaration === 'platformPermissions'
+      : r.surface === 'both'
+        ? r.declaration !== 'public'
+        : versioned.test(r.path),
+  );
+  if (badSurface.length) {
+    throw new Error(
+      '以下路由的入口宣告不正確（對外路由要在 /v<n>/ 底下且不能是 @Public／平台端點；內部路由不能在 /v<n>/ 底下；' +
+        '兩邊都有的只能是 @Public）：\n' +
+        badSurface
+          .map((r) => `  - ${r.method} ${r.path}（${r.surface}、${r.declaration}）`)
+          .join('\n'),
     );
   }
 

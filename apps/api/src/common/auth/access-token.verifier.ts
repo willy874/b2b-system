@@ -13,6 +13,8 @@ import { currentTenant } from '@/core/tenant';
 import { platformAdmins } from '@/db/platform/schema';
 import { users } from '@/db/schema';
 
+import { API_TOKEN_PREFIX } from './api-token.format';
+
 export interface AccessTokenPayload {
   sub: string;
   ver: number;
@@ -78,7 +80,8 @@ export class AccessTokenVerifier {
    * 給不需要使用者狀態、但要便宜地知道「這是誰」的地方用（速率限制以使用者為 key）。
    */
   async verifyClaims(token: string | undefined): Promise<VerifiedAccessTokenPayload | undefined> {
-    if (!token) return undefined;
+    // API token 只在對外 API 有效（docs/adr/0027-api-tokens-external-api.md D10）：內部 api 一律不認，不必驗簽
+    if (!token || token.startsWith(API_TOKEN_PREFIX)) return undefined;
 
     let payload: VerifiedAccessTokenPayload;
     try {

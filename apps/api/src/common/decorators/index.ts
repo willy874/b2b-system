@@ -1,3 +1,4 @@
+export * from './api-surface.decorator';
 export * from './audit.decorator';
 export * from './authenticated.decorator';
 export * from './current-user.decorator';

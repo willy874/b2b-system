@@ -693,6 +693,8 @@ postgres 的連線是有限資源（`max_connections`，每條約數 MB 記憶�
 | 每個租戶 | 10，閒置 30 秒關閉 | `TENANT_POOL_MAX`、`TENANT_POOL_IDLE_TIMEOUT` |
 
 **預算**：`(平台池 ＋ 4 ＋ 1 ＋ 同時活躍的租戶數 × TENANT_POOL_MAX) × api 程序數 ＋ migrate／腳本 ＜ max_connections − superuser_reserved_connections（3）`。
+對外 API（`external-api`，[`../06-external-api.md`](../06-external-api.md)）是另一個程序，同樣算進「api 程序數」，但它的池在 compose
+另外設定（`EXTERNAL_TENANT_POOL_MAX` 預設 5、`EXTERNAL_PLATFORM_POOL_MAX` 預設 5）。
 
 - 「同時活躍」是 `TENANT_POOL_IDLE_TIMEOUT` 內有請求或背景工作的租戶；租戶的池是按需建立連線，平常遠低於上限。
   `jobs.outboxSweep` 會進入每個 `active` 租戶，所以它的間隔（預設 10 分鐘）要遠大於閒置逾時，否則所有租戶的池永遠不會關。
