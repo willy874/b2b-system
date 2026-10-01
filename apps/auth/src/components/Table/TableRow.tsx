@@ -1,9 +1,10 @@
 import { flexRender } from '@tanstack/react-table';
-import type { Row } from '@tanstack/react-table';
+import type { Row, RowData } from '@tanstack/react-table';
 import { Fragment } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 
 import type { SlotResolver } from '../slots';
+import type { TableFeatureSet } from './features';
 import { getPinnedCellProps } from './pinning';
 import type { PinLayout, RowPin } from './pinning';
 import type { TableSlot } from './slots';
@@ -20,8 +21,8 @@ function isFromInteractiveElement(event: MouseEvent<HTMLElement>): boolean {
   return interactive !== null && event.currentTarget.contains(interactive);
 }
 
-interface TableRowProps<TData> {
-  row: Row<TData>;
+interface TableRowProps<TData extends RowData> {
+  row: Row<TableFeatureSet, TData>;
   /** 釘選的列：貼在頂端或底端（sticky），交界的那一列畫分隔線。 */
   pin?: RowPin;
   pinLayout: PinLayout;
@@ -38,7 +39,7 @@ interface TableRowProps<TData> {
  * 單擊只在選取模式下切換選取、雙擊開詳情；點在列內的按鈕、連結、勾選框上只觸發該元件，
  * 呼叫端不必在每個按鈕上 `stopPropagation`。
  */
-export function TableRow<TData>({
+export function TableRow<TData extends RowData>({
   row,
   pin,
   pinLayout,
@@ -58,9 +59,9 @@ export function TableRow<TData>({
   };
 
   const cells = [
-    ...row.getLeftVisibleCells(),
+    ...row.getStartVisibleCells(),
     ...row.getCenterVisibleCells(),
-    ...row.getRightVisibleCells(),
+    ...row.getEndVisibleCells(),
   ];
   const isExpanded = expandedContent !== undefined;
 
@@ -76,7 +77,7 @@ export function TableRow<TData>({
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
       >
-        {/* 與表頭（getHeaderGroups）同樣依「左固定 → 其餘 → 右固定」排列 */}
+        {/* 與表頭（getHeaderGroups）同樣依「start 固定 → 其餘 → end 固定」排列 */}
         {cells.map((cell) => {
           const { style: columnStyle, ...pinnedAttributes } = getPinnedCellProps(
             cell.column,

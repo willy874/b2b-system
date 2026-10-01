@@ -1,9 +1,9 @@
 import { Link } from '@tanstack/react-router';
-import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
 import type { ApprovalSortField } from '@/apis/approval/types';
 import { Chip } from '@/components/Chip';
+import type { TableColumnDef } from '@/components/Table';
 import { RichTable } from '@/core/components';
 import type {
   FilterBarProps,
@@ -58,7 +58,7 @@ export function ApprovalTable({
   const { hydrated, canReview } = useApprovalPermission();
   const showActions = hydrated && canReview;
 
-  const columns = useMemo<Array<ColumnDef<ApprovalRowVM, unknown>>>(
+  const columns = useMemo<Array<TableColumnDef<ApprovalRowVM>>>(
     () => [
       {
         id: 'type',
@@ -120,7 +120,7 @@ export function ApprovalTable({
               header: t('common.actions'),
               enableSorting: false,
               cell: ({ row }) => <ApprovalRowActions row={row.original} />,
-            } satisfies ColumnDef<ApprovalRowVM, unknown>,
+            } satisfies TableColumnDef<ApprovalRowVM>,
           ]
         : []),
     ],

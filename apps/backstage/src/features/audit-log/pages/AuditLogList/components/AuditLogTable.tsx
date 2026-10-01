@@ -1,9 +1,9 @@
-import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
 import { IconButton } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { Icon } from '@/components/Icon';
+import type { TableColumnDef } from '@/components/Table';
 import { Tooltip } from '@/components/Tooltip';
 import { RichTable } from '@/core/components';
 import type { FilterBarProps, RichTablePagination, TableSettingsConfig } from '@/core/components';
@@ -44,7 +44,7 @@ export function AuditLogTable({
 }: AuditLogTableProps) {
   const { t } = useTranslation();
 
-  const columns = useMemo<Array<ColumnDef<AuditLogRowVM, unknown>>>(
+  const columns = useMemo<Array<TableColumnDef<AuditLogRowVM>>>(
     () => [
       {
         id: 'occurredAt',

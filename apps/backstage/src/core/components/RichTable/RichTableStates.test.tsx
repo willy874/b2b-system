@@ -1,8 +1,8 @@
-import type { ColumnDef } from '@tanstack/react-table';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import type { TableColumnDef } from '@/components/Table';
 import { AppError } from '@/core/errors';
 import type { SortEntry } from '@/shared/constants';
 import { initTestI18n } from '@/test/i18n';
@@ -23,7 +23,7 @@ type Filters = {
   sort?: Array<SortEntry<'name'>>;
 };
 
-const columns: Array<ColumnDef<Row, unknown>> = [
+const columns: Array<TableColumnDef<Row>> = [
   { id: 'name', header: 'Name', cell: ({ row }) => row.original.name },
 ];
 const rows: Row[] = [{ id: '1', name: 'Alice' }];

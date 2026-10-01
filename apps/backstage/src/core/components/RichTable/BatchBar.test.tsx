@@ -1,8 +1,8 @@
-import type { ColumnDef } from '@tanstack/react-table';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { TableColumnDef } from '@/components/Table';
 import { useTableSelection } from '@/components/Table';
 import {
   BatchQueueNotifier,
@@ -30,7 +30,7 @@ const ROWS: Row[] = [
   { id: 'c', name: 'Carol', locked: true },
 ];
 const getId = (row: Row) => row.id;
-const columns: Array<ColumnDef<Row, unknown>> = [
+const columns: Array<TableColumnDef<Row>> = [
   { id: 'name', header: 'Name', cell: ({ row }) => row.original.name },
 ];
 

@@ -1,22 +1,7 @@
-import type { CellContext, ColumnDef, HeaderContext, RowData } from '@tanstack/react-table';
+import type { RowData } from '@tanstack/react-table';
 
 import { Checkbox } from '../Checkbox';
-
-declare module '@tanstack/react-table' {
-  // oxlint-disable-next-line typescript/no-unused-vars -- 型別參數要與 TanStack 的宣告一致才能合併
-  interface ColumnMeta<TData extends RowData, TValue> {
-    /**
-     * 表頭不是字串（例如勾選框）的欄位在欄位設定裡顯示的名稱；
-     * 有它的欄位才能被設定（排序、隱藏、固定）。
-     */
-    settingsLabel?: string;
-    /**
-     * 允許這一欄的內容換行（預設不換行，寬度不夠時整張表水平捲動）。
-     * 通常再給 `size`，否則自動版面仍可能把它擠得很窄。
-     */
-    wrap?: boolean;
-  }
-}
+import type { TableCellContext, TableColumnDef, TableHeaderContext } from './features';
 
 /** 勾選欄的 id；`RichTable` 預設把它固定在 start。 */
 export const SELECT_COLUMN_ID = '__select';
@@ -44,15 +29,15 @@ const DEFAULT_LABELS: SelectColumnLabels = {
  * 需要 `Table` 的 `rowSelection` ＋ `onRowSelectionChange`；跨頁保留選取用 `useTableSelection`。
  * 以 `meta.settingsLabel` 進入欄位設定（可排序、隱藏、固定）。
  */
-export function createSelectColumn<TData>(
+export function createSelectColumn<TData extends RowData>(
   labels: SelectColumnLabels = DEFAULT_LABELS,
-): ColumnDef<TData, unknown> {
+): TableColumnDef<TData> {
   return {
     id: SELECT_COLUMN_ID,
     size: UTILITY_COLUMN_SIZE,
     enableSorting: false,
     meta: { settingsLabel: labels.column },
-    header: ({ table }: HeaderContext<TData, unknown>) => (
+    header: ({ table }: TableHeaderContext<TData>) => (
       <Checkbox
         aria-label={labels.selectAll}
         checked={table.getIsAllPageRowsSelected()}
@@ -61,7 +46,7 @@ export function createSelectColumn<TData>(
         data-testid="table-select-all"
       />
     ),
-    cell: ({ row }: CellContext<TData, unknown>) => (
+    cell: ({ row }: TableCellContext<TData>) => (
       <Checkbox
         aria-label={labels.selectRow}
         checked={row.getIsSelected()}

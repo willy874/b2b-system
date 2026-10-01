@@ -16,7 +16,7 @@
 | 前端建置   | Vite                                                   | 7.x / 8.x        |
 | 前端路由   | TanStack Router（code-based）                          | 1.13x            |
 | 前端資料層 | TanStack Query                                         | 5.x              |
-| 前端表格   | TanStack Table + TanStack Virtual                      | 8.x / 3.x        |
+| 前端表格   | TanStack Table + TanStack Virtual                      | 9.x / 3.x        |
 | 前端表單   | TanStack Form                                          | 1.x              |
 | 前端 UI    | **Base UI**（npm 套件名 `@base-ui-components/react`）  | 1.x              |
 | 樣式       | UnoCSS（`preset-wind4`）＋ CSS 變數 Design Token       | 66.x             |

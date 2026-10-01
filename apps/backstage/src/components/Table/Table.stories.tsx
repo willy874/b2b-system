@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 import { fn } from 'storybook/test';
 
@@ -7,6 +6,7 @@ import { IconButton } from '../Button';
 import { Icon } from '../Icon';
 import { JsonViewer } from '../JsonViewer';
 import { createSelectColumn } from './columns';
+import type { TableColumnDef } from './features';
 import type { TableSorting } from './sorting';
 import { Table } from './Table';
 import { useTableSelection } from './useTableSelection';
@@ -25,7 +25,7 @@ const data: Row[] = [
   { id: '4', name: '行動電源', qty: 3, price: 890 },
 ];
 
-const columns: Array<ColumnDef<Row, unknown>> = [
+const columns: Array<TableColumnDef<Row>> = [
   { id: 'name', header: '商品', cell: ({ row }) => row.original.name },
   { id: 'qty', header: '數量', cell: ({ row }) => row.original.qty, size: 120 },
   {
@@ -150,9 +150,9 @@ export const Selectable: Story = {
   render: () => <SelectableDemo />,
 };
 
-const wideColumns: Array<ColumnDef<Row, unknown>> = [
+const wideColumns: Array<TableColumnDef<Row>> = [
   ...columns,
-  ...['分類', '供應商', '倉庫', '建立時間', '更新時間'].map((header): ColumnDef<Row, unknown> => ({
+  ...['分類', '供應商', '倉庫', '建立時間', '更新時間'].map((header): TableColumnDef<Row> => ({
     id: header,
     header,
     cell: () => <span style={{ whiteSpace: 'nowrap' }}>一段比較長的欄位內容</span>,
@@ -178,7 +178,7 @@ export const Expandable: Story = {
 
 function ExpandableDemo() {
   const [expanded, setExpanded] = useState<string>();
-  const expandColumns: Array<ColumnDef<Row, unknown>> = [
+  const expandColumns: Array<TableColumnDef<Row>> = [
     ...columns,
     {
       id: 'actions',
@@ -243,6 +243,6 @@ export const StickyHeaderAndPinnedRows: Story = {
     stickyHeader: true,
     maxHeight: 320,
     rowPinning: { top: ['12', '5'], bottom: ['20'] },
-    columnPinning: { left: ['name'], right: ['actions'] },
+    columnPinning: { start: ['name'], end: ['actions'] },
   },
 };

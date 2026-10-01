@@ -1,10 +1,10 @@
-import type { ColumnDef } from '@tanstack/react-table';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { Checkbox } from '../Checkbox';
 import { Empty } from '../Empty';
 import { createSlots } from '../slots';
+import type { TableColumnDef } from '../Table';
 import { Table } from '../Table';
 
 /** 多層元件的逐層覆寫（docs/architecture/frontend/07-ui-system.md §3.1 規則 6）。 */
@@ -72,7 +72,7 @@ describe('元件的逐層覆寫', () => {
   });
 
   it('Table：骨架列只套 class，不帶 row 的 testid', () => {
-    const columns: Array<ColumnDef<{ id: string }, unknown>> = [
+    const columns: Array<TableColumnDef<{ id: string }>> = [
       { id: 'id', header: 'ID', cell: ({ row }) => row.original.id },
     ];
     const { container } = render(

@@ -5,7 +5,7 @@ import { useTableColumnSettingsStore } from '@/core/store';
 import type { PinnedRow, RowPinSide } from '@/core/store';
 
 const EMPTY_PINNED: PinnedRow[] = [];
-const NO_ROW_PINNING: RowPinningState = {};
+const NO_ROW_PINNING: RowPinningState = { top: [], bottom: [] };
 
 interface UseRowPinningOptions<TData> {
   /** 釘選依這個 id 存進偏好（與欄位設定同一個 `tableId`）；沒有時不提供釘選。 */

@@ -1,9 +1,9 @@
-import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Select } from '@/components/Select';
 import type { SelectOption } from '@/components/Select';
+import type { TableColumnDef } from '@/components/Table';
 import { Table } from '@/components/Table';
 import { useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
@@ -37,7 +37,7 @@ export function FeatureFlagTable({ items, loading, canUpdate, today }: FeatureFl
   const showError = useErrorToast();
   const update = useUpdateFeatureFlagMutation();
 
-  const columns = useMemo<Array<ColumnDef<FeatureFlag, unknown>>>(() => {
+  const columns = useMemo<Array<TableColumnDef<FeatureFlag>>>(() => {
     const options: SelectOption[] = FEATURE_FLAG_GLOBAL_CHOICES.map((choice) => ({
       value: choice,
       label: t(FEATURE_FLAG_GLOBAL_LABEL_KEY[choice]),

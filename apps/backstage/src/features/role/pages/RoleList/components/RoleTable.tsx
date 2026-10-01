@@ -1,5 +1,4 @@
 import { Link } from '@tanstack/react-router';
-import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
 import type { RoleSortField } from '@/apis/role/types';
@@ -7,6 +6,7 @@ import { IconButton } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { TextEllipsis } from '@/components/Ellipsis';
 import { Icon } from '@/components/Icon';
+import type { TableColumnDef } from '@/components/Table';
 import { Tooltip } from '@/components/Tooltip';
 import { RichTable } from '@/core/components';
 import type {
@@ -65,7 +65,7 @@ export function RoleTable({
   const { t } = useTranslation();
   const permission = useRolePermission();
 
-  const columns = useMemo<Array<ColumnDef<RoleRowVM, unknown>>>(
+  const columns = useMemo<Array<TableColumnDef<RoleRowVM>>>(
     () => [
       {
         id: 'name',

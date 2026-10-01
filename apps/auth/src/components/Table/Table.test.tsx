@@ -1,8 +1,8 @@
-import type { ColumnDef } from '@tanstack/react-table';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { TableColumnDef } from './features';
 import { Table } from './index';
 
 interface Row {
@@ -15,7 +15,7 @@ const data: Row[] = [
   { id: '2', name: '稽核人員' },
 ];
 
-const columns: Array<ColumnDef<Row, unknown>> = [
+const columns: Array<TableColumnDef<Row>> = [
   { id: 'name', header: '名稱', cell: ({ row }) => row.original.name },
 ];
 
@@ -105,7 +105,7 @@ describe('Table', () => {
     render(
       <Table
         data={data}
-        columns={[{ ...columns[0], id: 'name', enableSorting: false } as ColumnDef<Row, unknown>]}
+        columns={[{ ...columns[0], id: 'name', enableSorting: false } as TableColumnDef<Row>]}
         onSortingChange={vi.fn()}
       />,
     );
@@ -292,7 +292,7 @@ describe('Table', () => {
   });
 
   describe('欄位固定', () => {
-    const withActions: Array<ColumnDef<Row, unknown>> = [
+    const withActions: Array<TableColumnDef<Row>> = [
       { id: 'actions', header: '操作', cell: () => '…' },
       ...columns,
     ];

@@ -1,11 +1,11 @@
 import { Link } from '@tanstack/react-router';
-import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
 import type { GroupSortField } from '@/apis/group/types';
 import { IconButton } from '@/components/Button';
 import { TextEllipsis } from '@/components/Ellipsis';
 import { Icon } from '@/components/Icon';
+import type { TableColumnDef } from '@/components/Table';
 import { Tooltip } from '@/components/Tooltip';
 import { RichTable } from '@/core/components';
 import type { RichTablePagination, TableSearchProps } from '@/core/components';
@@ -46,7 +46,7 @@ export function GroupTable({
 }: GroupTableProps) {
   const { t } = useTranslation();
 
-  const columns = useMemo<Array<ColumnDef<GroupRowVM, unknown>>>(
+  const columns = useMemo<Array<TableColumnDef<GroupRowVM>>>(
     () => [
       {
         id: 'name',

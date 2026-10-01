@@ -1,7 +1,7 @@
-import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
 import { Chip } from '@/components/Chip';
+import type { TableColumnDef } from '@/components/Table';
 import { RichTable } from '@/core/components';
 import type { FilterBarProps, RichTablePagination } from '@/core/components';
 import { useTranslation } from '@/core/locales';
@@ -34,7 +34,7 @@ export function JobTable({
 }: JobTableProps) {
   const { t } = useTranslation();
 
-  const columns = useMemo<Array<ColumnDef<JobRowVM, unknown>>>(
+  const columns = useMemo<Array<TableColumnDef<JobRowVM>>>(
     () => [
       {
         id: 'createdAt',

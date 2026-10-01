@@ -1,4 +1,4 @@
-import type { ColumnPinningState } from '@tanstack/react-table';
+import type { ColumnPinningState, RowData } from '@tanstack/react-table';
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { Button } from '@/components/Button';
@@ -40,7 +40,7 @@ export interface RichTablePagination {
 const FIXED_COLUMN_ID = ACTIONS_COLUMN_ID;
 
 export interface RichTableProps<
-  TData,
+  TData extends RowData,
   TFilters extends Record<string, unknown> = Record<string, unknown>,
 > extends Omit<
   TableProps<TData>,
@@ -93,7 +93,7 @@ export interface RichTableProps<
  * 篩選（`FilterBar`）與欄位設定（`TableSettings`）都是下拉面板，按鈕固定在最後一欄表頭的右側（與標題垂直置中）
  * （`Table` 的 `headerTrailing`），該欄標題被擠壓時裁掉。
  */
-export function RichTable<TData, TFilters extends Record<string, unknown>>({
+export function RichTable<TData extends RowData, TFilters extends Record<string, unknown>>({
   columns,
   filters,
   settings,
@@ -169,13 +169,13 @@ export function RichTable<TData, TFilters extends Record<string, unknown>>({
   } = useTableSettings(allColumns, settings, FIXED_COLUMN_ID);
   const hasTools = Boolean(filters || settingsProps);
 
-  // 依目前的欄位順序排出左右兩側的固定欄位（TanStack 依陣列順序排列）
+  // 依目前的欄位順序排出 start／end 兩側的固定欄位（TanStack 依陣列順序排列）
   const columnPinning = useMemo<ColumnPinningState>(() => {
     const idsOf = (side: ColumnPinSide) =>
       displayedColumns.flatMap((column) =>
         column.id && tableSettings.pinnedColumns[column.id] === side ? [column.id] : [],
       );
-    return { left: idsOf('start'), right: idsOf('end') };
+    return { start: idsOf('start'), end: idsOf('end') };
   }, [displayedColumns, tableSettings.pinnedColumns]);
 
   const tools = hasTools ? (

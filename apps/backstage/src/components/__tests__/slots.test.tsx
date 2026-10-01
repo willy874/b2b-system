@@ -1,4 +1,3 @@
-import type { ColumnDef } from '@tanstack/react-table';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -9,6 +8,7 @@ import { Calendar } from '../DatePicker/Calendar';
 import { Empty } from '../Empty';
 import { ScrollArea } from '../ScrollArea';
 import { createSlots } from '../slots';
+import type { TableColumnDef } from '../Table';
 import { Table } from '../Table';
 
 /** 多層元件的逐層覆寫（docs/architecture/frontend/07-ui-system.md §3.1 規則 6）。 */
@@ -101,7 +101,7 @@ describe('元件的逐層覆寫', () => {
   });
 
   it('Table：骨架列只套 class，不帶 row 的 testid', () => {
-    const columns: Array<ColumnDef<{ id: string }, unknown>> = [
+    const columns: Array<TableColumnDef<{ id: string }>> = [
       { id: 'id', header: 'ID', cell: ({ row }) => row.original.id },
     ];
     const { container } = render(

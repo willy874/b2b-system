@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 
 import { getIdentityProviderListQueryOptions } from '@/apis/identity-provider/get-identity-provider-list/query';
@@ -7,6 +6,7 @@ import { AlertDialog } from '@/components/AlertDialog';
 import { Button, IconButton } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { Input } from '@/components/Input';
+import type { TableColumnDef } from '@/components/Table';
 import { Table } from '@/components/Table';
 import { Tooltip } from '@/components/Tooltip';
 import { useErrorToast } from '@/core/errors';
@@ -36,7 +36,7 @@ export default function IdentityProviderListPage() {
   // 關掉時不能新增連線；既有的連線可以編輯、停用、刪除，但不能啟用
   const allowed = data?.allowed ?? true;
 
-  const columns = useMemo<Array<ColumnDef<IdentityProvider, unknown>>>(
+  const columns = useMemo<Array<TableColumnDef<IdentityProvider>>>(
     () => [
       {
         id: 'name',

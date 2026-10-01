@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
@@ -7,6 +6,7 @@ import { getAdminListQueryOptions } from '@/apis/platform-admin/get-admin-list/q
 import { AlertDialog } from '@/components/AlertDialog';
 import { Button, IconButton } from '@/components/Button';
 import { Icon } from '@/components/Icon';
+import type { TableColumnDef } from '@/components/Table';
 import { Table } from '@/components/Table';
 import { Tooltip } from '@/components/Tooltip';
 import { useErrorToast } from '@/core/errors';
@@ -38,7 +38,7 @@ export default function PlatformAdminListPage() {
   const selfId = profile?.admin.id;
   const canUpdate = permission.canUpdate;
 
-  const columns = useMemo<Array<ColumnDef<PlatformAdmin, unknown>>>(
+  const columns = useMemo<Array<TableColumnDef<PlatformAdmin>>>(
     () => [
       {
         id: 'email',
@@ -117,7 +117,7 @@ export default function PlatformAdminListPage() {
                   </Tooltip>
                 </div>
               ),
-            } satisfies ColumnDef<PlatformAdmin, unknown>,
+            } satisfies TableColumnDef<PlatformAdmin>,
           ]
         : []),
     ],
