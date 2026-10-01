@@ -52,7 +52,7 @@
 
 接下來：
 
-1. 依需求二選一：對外整合（`api-tokens` → `webhooks`），或編輯器的協作（`tags-comments`；多型關聯的命名已由 [ADR-0025](../adr/0025-entity-revisions.md) D7 決定）。
+1. 依需求二選一：對外整合（`api-tokens` → `webhooks`），或資源的協作（`tags-comments`；多型關聯的命名已由 [ADR-0025](../adr/0025-entity-revisions.md) D7 決定）。
 2. `permission-graph` G5（專案）等專案功能的提案一起做。
 3. `hardening-followups` 裡的小項目可以隨時穿插。
 

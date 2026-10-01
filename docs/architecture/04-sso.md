@@ -25,7 +25,7 @@
 ```
 
 - **我們自己當 IdP**：`apps/api` 是 OIDC Provider（[`oidc-provider`](https://github.com/panva/node-oidc-provider)），
-  `apps/auth` 提供互動頁。每個產品（backstage、之後的編輯器）都是它的 client。
+  `apps/auth` 提供互動頁。每個產品（backstage、之後建在骨架上的其他前端）都是它的 client。
 - **外部 IdP 是登入互動裡的一種登入方式**：產品只認識我們的 IdP，不直接接 Google／Azure AD。
 - **身分分屬租戶與平台**（ADR-0020 D5–D9）：同一個 email 在每個租戶、在平台都是不同的帳號。
   backstage 的使用者在各租戶 DB；apps/auth 只給平台管理者登入（平台 DB 的 `platform_admins`）。見 §1.1。

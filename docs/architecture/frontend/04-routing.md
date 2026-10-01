@@ -332,7 +332,7 @@ const matchers = [
 `app/Layout.tsx` 依當前 pathname 比對 matcher，決定套哪個 layout。
 `/auth/*` 被排除，所以登入頁沒有側邊選單與頂部列。
 
-新增 layout（例如未來編輯器要全螢幕無側欄）只要加一條 matcher，不必改任何
+新增 layout（例如之後的業務功能要全螢幕無側欄）只要加一條 matcher，不必改任何
 feature。
 
 ---

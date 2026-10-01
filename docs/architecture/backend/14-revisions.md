@@ -83,7 +83,7 @@ await this.revisions.record(tx, {
 `JSON.stringify(snapshot)` 的 UTF-8 位元組數超過 1 MiB（`REVISION_SNAPSHOT_MAX_BYTES`）時：業務寫入照常成功，那一版照樣佔一個版本號，
 `snapshot = null`，記 warn log（`版本快照超過上限，這一版不保存內容`，帶 `resourceType`、`resourceId`、`version`、`bytes`）。
 列表以 `tooLarge: true` 標示「過大未保存」，單版端點回 `snapshot: null`，還原回 `409 REVISION_UNAVAILABLE`（`details.reason: 'tooLarge'`）。
-角色的內容遠小於上限；這是給之後的大型實體（編輯器資料）的保護，超過的實體改用差異策略時另寫 ADR（D1）。
+角色的內容遠小於上限；這是給之後的大型實體（業務資料）的保護，超過的實體改用差異策略時另寫 ADR（D1）。
 
 ---
 

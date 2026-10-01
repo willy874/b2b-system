@@ -2,11 +2,22 @@
 
 ## 1. 專案定位
 
-**B2B System** 是一套以 Web 為載體的遊戲內容編輯與管理平台。本階段（Phase 0）
-**尚未實作任何編輯器本身的功能**，目標是先把「誰能做什麼」這件事一次做對——
-建立一套可以被後續所有功能直接複用的 **RBAC 權限骨架**。
+**B2B System** 是一套 **通用型的多租戶 B2B 後台**。它不綁定任何業務領域：
+訂單、內容、專案、工單……任何需要「一群有不同職責的人，在同一個組織裡管理資料」的系統，
+都可以把業務功能加在它上面。
 
-這個順序是刻意的。權限如果是功能上線後才補，會有兩個典型後果：
+它的價值不在某個業務功能，而在 **每個後台都會重寫一次、又最容易寫錯的那一層**：
+
+| 能力 | 業務功能拿到的是什麼 |
+| --- | --- |
+| 身分與租戶 | 不用自己做登入、SSO、多租戶隔離；每個請求已經知道「哪個租戶的哪個人」 |
+| 權限 | 宣告權限鍵與（需要時）資源的關係，就有 guard、選單過濾、反提權、「為什麼能做 X」的說明 |
+| 稽核 | 寫入時在交易內記一筆，就能在稽核頁查到前後差異 |
+| 資料保護 | 樂觀鎖、回收桶、版本歷史以註冊的方式套用到新實體 |
+| 非同步與通知 | 背景工作、排程、寄信、站內通知與推播都有現成的入口 |
+
+開發順序是刻意的：**先把「誰能做什麼」一次做對**（Phase 0），再陸續補上上表的通用機制，最後才是業務功能。
+權限如果是功能上線後才補，會有兩個典型後果：
 
 1. 權限檢查散落在各個 controller 與元件裡，沒有單一事實來源，稽核時無法回答
    「某個角色到底能做什麼」。
@@ -37,13 +48,16 @@
 | 系統設定（Phase 0 之後加入） | 每個租戶執行期可調的帳號政策、上傳上限、預設時區（[`architecture/backend/12-settings.md`](../architecture/backend/12-settings.md)） |
 | 回收桶與版本歷史（Phase 0 之後加入） | 編輯的樂觀鎖（`version` 必填）；使用者、角色、檔案與資料夾刪除後進回收桶、保留期限內可還原、到期永久刪除；角色的版本紀錄與還原到某一版（[`architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)、[`architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md)） |
 | 站內通知（Phase 0 之後加入） | 每位收件人一筆、在業務交易內寫入；審批待審／結果、角色被指派或移除；頂列鈴鐺與未讀數、列表頁、全部已讀、保留清理（[`architecture/backend/15-notification.md`](../architecture/backend/15-notification.md)、[`architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md)） |
+| 檔案（Phase 0 之後加入） | S3 相容的物件儲存、分塊上傳、圖片縮圖、檔案管理器、資料夾層級的授權與繼承（[`architecture/backend/09-file.md`](../architecture/backend/09-file.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)） |
+| 背景工作與寄信（Phase 0 之後加入） | pg-boss 佇列、排程、重試與管理頁；郵件範本與寄送（[`architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md)、[`architecture/backend/11-mail.md`](../architecture/backend/11-mail.md)） |
+| 模組開關與 feature flag（Phase 0 之後加入） | 平台管理者為每個租戶開關模組與 flag（[ADR-0021](../adr/0021-runtime-feature-activation.md)、[ADR-0022](../adr/0022-feature-flags.md)） |
 | 前端骨架   | App Shell、側邊選單（依權限過濾）、路由守衛、錯誤頁、i18n、主題                               |
 
 ### 2.2 Out of scope（Phase 0 明確不做）
 
-- 遊戲編輯器本身的任何功能（關卡、資源、腳本、預覽…）
-- **資源層級作用域**（例如「只能編輯自己專案的資源」）
-  — 架構已預留延伸點，理由見 [ADR-0006](../adr/0006-flat-permission-scope.md)
+- 任何特定領域的業務功能——本 repo 只提供骨架，業務功能由使用它的產品加上去
+- **資源層級作用域** 的通用化（例如「只能編輯自己專案的資源」）——目前只有檔案資料夾，
+  其他資源沿用同一套關係圖（理由見 [ADR-0006](../adr/0006-flat-permission-scope.md)，現況見 [`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)）
 - LDAP、SAML 整合（OIDC 的 SSO 已在 Phase 0 之後加入，見 [`architecture/04-sso.md`](../architecture/04-sso.md)）
 - MFA（雙因素驗證）— 資料表預留欄位，流程不實作
 - 批次匯入／匯出
@@ -58,7 +72,7 @@
 | 超級管理員 | `super-admin` | 系統唯一的最高權限帳號，由初始化流程建立。**繞過所有權限檢查**，不可刪除、不可移除權限 | 全部（隱含）                                                 |
 | 系統管理員 | `admin`       | 管理使用者、角色與權限的日常管理者                                                     | `user:*`、`role:*`、`permission:read`、`auditLog:read`       |
 | 唯讀稽核   | `auditor`     | 只能看，不能改。供稽核與客服使用                                                       | `user:read`、`role:read`、`permission:read`、`auditLog:read` |
-| 一般成員   | `member`      | 未來編輯器功能的使用者。Phase 0 只能看自己的帳號頁                                     | 無（僅個人頁面）                                             |
+| 一般成員   | `member`      | 業務功能的一般使用者。沒有被授予其他權限時只能看自己的帳號頁                           | 無（僅個人頁面）                                             |
 
 上述四個角色是 **系統角色（`is_system = true`）**：不可刪除、不可改名。
 `admin` / `auditor` / `member` 的權限可被超級管理員調整；`super-admin` 不可調整。

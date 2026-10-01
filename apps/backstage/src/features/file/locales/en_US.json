@@ -1,7 +1,7 @@
 {
   "file": {
     "title": "Files",
-    "description": "Upload and manage game assets. Organize them into folders and drag items onto a folder to move them; drag files or whole folders from your computer below to upload.",
+    "description": "Upload and manage files. Organize them into folders and drag items onto a folder to move them; drag files or whole folders from your computer below to upload.",
     "total": "{{count}} files",
     "refresh": "Refresh",
     "download": "Download",
