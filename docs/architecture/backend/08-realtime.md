@@ -301,7 +301,13 @@ async refreshAudience(userIds: readonly string[]) {
 export interface DomainEventBus {
   /** 交易提交後呼叫。不拋錯、不等待 handler（fire-and-forget）。 */
   publish<K extends DomainEvent>(type: K, payload: DomainEventPayloads[K]): void;
-  subscribe<K extends DomainEvent>(type: K, handler: DomainEventHandler<K>): () => void;
+  subscribe<K extends DomainEvent>(
+    type: K,
+    handler: DomainEventHandler<K>,
+    options?: { remote?: boolean }, // 也收其他程序轉送來的（§7.6）
+  ): () => void;
+  /** 其他程序轉送來的事件（`DomainEventRelay`，§7.6）：只交給 `{ remote: true }` 的訂閱者。 */
+  deliverRemote<K extends DomainEvent>(type: K, payload: DomainEventPayloads[K], meta: DomainEventMeta): void;
   /** 測試用：等所有已發佈的事件處理完。 */
   drain(): Promise<void>;
 }
@@ -310,8 +316,9 @@ type DomainEventHandler<K> = (payload: DomainEventPayloads[K], meta: DomainEvent
 
 interface DomainEventMeta {
   occurredAt: Date;
-  clientId?: string;   // x-client-id（§7.4）
+  clientId?: string;   // x-client-id（§7.5）
   requestId?: string;
+  remote?: boolean;    // 由其他程序轉送來的（§7.6）
 }
 ```
 
@@ -323,7 +330,7 @@ interface DomainEventMeta {
 | **`sessions.revoked` 走優先通道** | 每個租戶另有一條優先 queue：踢線不排在同租戶的大量 room 同步之後；它與其他事件沒有先後依賴（session 作廢由 `token_version` 保證） |
 | **handler 錯誤隔離**         | 記錄後吞掉；一個訂閱者壞掉不影響其他訂閱者，也不影響已經成功的寫入                      |
 | **不阻塞 HTTP 回應**         | 推播只是加速（原則 1）                                                                  |
-| **行程內、不持久化**         | Phase 0 單一執行個體；行程在事件處理前結束，事件就遺失——客戶端重連時會整批重新驗證      |
+| **行程內、不持久化**         | 行程在事件處理前結束，事件就遺失——客戶端重連時會整批重新驗證；推播類事件另經 §7.6 轉送給其他程序，同樣不保證送達 |
 
 ### 7.3 在 service 裡的位置
 
@@ -399,7 +406,7 @@ Bus 的介面不變，實作可以替換：
 | 階段                     | 實作                                                                                   |
 | ------------------------ | -------------------------------------------------------------------------------------- |
 | Phase 0（單一執行個體）  | 行程內 queue                                                                           |
-| 多執行個體               | 推播改由 `@socket.io/postgres-adapter` 跨節點（§10.3）；bus 仍在行程內即可               |
+| 多個程序（已做）         | bus 仍在行程內；推播類事件經平台 DB 的 `NOTIFY` 轉送，每個程序推給自己的連線（§7.6）       |
 | 需要保證送達（通知信等） | Transactional outbox：事件在交易 **內** 寫進 `domain_events` 表，由背景工作讀出後分派   |
 
 ### 7.5 `origin`：略過發起的分頁
@@ -411,6 +418,29 @@ Bus 的介面不變，實作可以替換：
 - `DomainEventBus.publish` 在發佈當下把它放進 `meta.clientId`，listener 推播時放進 `origin`；客戶端比對到自己就略過。
 
 這個 header 只用來去重，**不做任何授權判斷**。
+
+### 7.6 跨程序轉送（`DomainEventRelay`）
+
+api 之外還會有別的程序寫入資料：對外 API（[ADR-0027](../../adr/0027-api-tokens-external-api.md) D9）、之後拆出的 worker、
+多個 api 執行個體。bus 在行程內，那些程序發佈的事件，連在 api 上的使用者原本收不到。
+
+`core/events/event-relay.ts` 把 **推播類** 事件經平台 DB 的 `NOTIFY`（頻道 `domain_event`，`core/broadcast`）送給其他程序：
+
+| 事件 | 轉送 | 理由 |
+| --- | --- | --- |
+| `resource.changed`、`sessions.revoked`、`tenant.featuresChanged` | ✅ | 推播是「每個程序對自己的連線做一次」 |
+| `permissions.changed` | ❌ | `AuthzRevision` 已經以 revision 廣播，收到的程序重新發佈（[05 §5.1](./05-rbac.md)） |
+| `tenant.activated` | ❌ | 訂閱者（補系統資料夾）寫資料庫，整個系統做一次就夠 |
+
+- **只到願意收的訂閱者**：收到的程序在發佈端的租戶脈絡裡（`Tenancy.run`）以 `deliverRemote` 交給本機的 bus，
+  只有以 `{ remote: true }` 訂閱的 handler 收得到（目前只有 `realtime.listener`）。寫資料庫、撤銷 OIDC session 這類
+  「整個系統做一次」的訂閱者維持預設，不會在每個程序重複執行。
+- **不會繞圈**：轉送只訂閱本機發佈的事件；`channel()` 的信封帶送出的程序，自己送的不會收回來。
+- **`meta` 跟著過去**：`clientId`（`origin`）、`requestId`、`occurredAt` 照發佈端的；`meta.remote` 標成 `true`。
+- **放不進一則 `NOTIFY`（8000 位元組）**：資源變更拿掉個別的 `id`／`refs`，退化成「這個來源全部失效」，受影響的人每 150 個一則；
+  撤銷連線的名單每 150 個一則。
+- **租戶進不去**（停用、維護中）就略過：它的連線已經或即將被斷掉。格式不對的訊息（不同版本並存）略過。
+- 不保證送達，與 bus 同一個等級；漏掉時前端在下一次重新連線、或下一次自己抓資料時看到新資料。
 
 ---
 
@@ -520,9 +550,10 @@ location /api/socket.io/ {
 
 | 需求               | 作法                                                                                       |
 | ------------------ | ------------------------------------------------------------------------------------------ |
-| 跨節點 emit / room | `@socket.io/postgres-adapter`（`LISTEN/NOTIFY`，需要一個 `pg` Pool 與 `socket_io_attachments` 表） |
 | Sticky session     | **不需要**：只用 websocket 傳輸，連線建立後就固定在同一個節點                               |
-| 權限／使用者快取   | 仍是各節點的 in-memory。權限快取已經跨節點失效：平台 DB 的 `LISTEN/NOTIFY`（`core/broadcast`、`AuthzRevision`，[05 §5.1](./05-rbac.md)），每個節點收到後也重算自己的連線的 room；使用者快取尚未接上 |
+| 伺服器端推播       | **已做**：每個節點收到其他節點轉送的事件後推給自己的連線（§7.6）。因此 **不要** 再裝 adapter 的跨節點 emit，否則同一則推播會送兩次 |
+| 跨裝置中繼（§8）   | 仍只在本節點：同一個人連在不同節點的分頁收不到彼此的 `channel.relay`；要跨節點時再決定用 adapter 或另一條轉送 |
+| 權限／使用者快取   | 仍是各節點的 in-memory，失效經平台 DB 的 `LISTEN/NOTIFY` 跨節點（`core/broadcast`；權限快取見 [05 §5.1](./05-rbac.md)，使用者快取見 [`../01-system.md`](../01-system.md) §4.4） |
 | Token 到期計時器   | 每個節點只管自己的連線，不需要協調                                                         |
 
 Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEventBus`）不因此改變。

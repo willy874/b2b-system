@@ -38,11 +38,12 @@
 - Host 取自 `requestHost()`：只有受信任的代理（`TRUST_PROXY`）帶來的 `X-Forwarded-Host` 才採用，不能靠標頭換租戶。
   所以受信任的代理 **必須覆寫** 這個標頭：兩份 nginx 設定都 `proxy_set_header X-Forwarded-Host $http_host`
   （[`01-system.md`](./01-system.md) §4.2）；前面另有 LB 時同樣要求。
-- `TenantDirectory` 快取查詢結果 `TENANT_CACHE_TTL` 秒（「找不到」最多 5 秒）；租戶管理改了登記時 `invalidate()` 立即生效。
+- `TenantDirectory` 快取查詢結果 `TENANT_CACHE_TTL` 秒（「找不到」最多 5 秒）；租戶管理改了登記時 `invalidate()` 立即生效，
+  並經平台 DB 廣播（頻道 `tenant_directory`）讓其他程序也整份重新讀（[`01-system.md`](./01-system.md) §4.4）。
   另有「網域 → 租戶 id」的同步快照（每 `TENANT_CACHE_TTL` 秒重載），給 oidc-provider 的同步判斷（redirect URI 是否屬於租戶）用。
 - **Host 由客戶端決定、而且在速率限制之前解析**：不在快照裡的 Host 直接視為找不到，不查平台 DB；格式不像網域或租戶代碼的值
   （`X-Tenant`、`/tenants/lookup?code=`）也不查。三個快取（網域、id、代碼）都是有上限的 LRU（`bounded-cache.ts`，各 5000 筆）。
-  代價：另一個執行個體剛新增的網域，這裡最多晚 `TENANT_CACHE_TTL` 秒才認得（與 §7 的多執行個體限制相同）。
+  代價：漏掉廣播時，另一個程序剛新增的網域，這裡最多晚 `TENANT_CACHE_TTL` 秒才認得。
 - 租戶不能進入時回 `503 TENANT_UNAVAILABLE`，`details.reason` 分兩種：`inactive`（停用、佈建中、佈建失敗）與
   `maintenance`（migration 落後、DB 連不上）。背景工作依此決定略過或重試（§6）。
 
@@ -113,7 +114,7 @@
   存進 DB 時依 `TENANT_FEATURES` 的順序。DB 裡殘留不認得的值（程式移除某個 feature 之後）讀取時濾掉。
 - `flags` 同樣是 **完整的覆寫表**；不在 flag 目錄裡的 key 回 `VALIDATION_FAILED`，存進 DB 時依目錄的順序。
 - 變更與平台稽核（`tenant.update`，`before`／`after` 帶 `allowExternalIdp`、`features`、`flags`）在同一個交易；之後 `TenantDirectory.invalidate()`，
-  本機立即生效，其他執行個體最多晚 `TENANT_CACHE_TTL` 秒。
+  本機立即生效，其他程序經廣播也立即生效（漏掉時最多晚 `TENANT_CACHE_TTL` 秒）。
 - `features` 或 `flags` 真的改變時，失效之後發佈 `TENANT_FEATURES_CHANGED`（`{ tenantId }`），`modules/realtime` 對該租戶的
   `t:{tenantId}` room 推 `resource.changed`（來源 `tenantFeature`），前端據此重新取得 profile
   （[`backend/08-realtime.md`](./backend/08-realtime.md) §7）。平台的請求沒有租戶脈絡，所以事件以 `tenantId` 指明對象。
@@ -171,7 +172,7 @@ key 在 OpenAPI 上是字串（目錄常常是空的），由伺服器依目錄�
 | 元件 | 做法 | 詳見 |
 | --- | --- | --- |
 | 背景工作 | 佇列在平台 DB；信封 `{ tenantId, payload }`，handler 在那個租戶裡執行。交易內入列寫租戶 DB 的 `job_outbox`，提交後搬進佇列。排程觸發的租戶工作展開成每個 `active` 租戶一筆。租戶已刪除或停用時略過；`maintenance` 交給重試 | [`backend/10-jobs.md`](./backend/10-jobs.md) |
-| 權限／使用者快取 | key 是 `{tenantId}:{userId}`；關係圖寫入後整個租戶的權限快取失效，以 `{ tenant, revision }` 在平台 DB 廣播給其他程序（租戶 DB 各自的 `NOTIFY` 送不到別的 database） | [`backend/05-rbac.md`](./backend/05-rbac.md) §5 |
+| 權限／使用者快取 | key 是 `{tenantId}:{userId}`；關係圖寫入後整個租戶的權限快取失效，以 `{ tenant, revision }` 在平台 DB 廣播給其他程序（租戶 DB 各自的 `NOTIFY` 送不到別的 database）；使用者快取的失效以 `{ tenant, users }` 廣播 | [`backend/05-rbac.md`](./backend/05-rbac.md) §5、[`01-system.md`](./01-system.md) §4.4 |
 | 即時推播 | room 帶租戶：`t:{tenantId}:perm:{key}`、`t:{tenantId}:user:{id}`、`t:{tenantId}`；Origin 同源（租戶自己的網域）一律允許 | [`backend/08-realtime.md`](./backend/08-realtime.md) §6、§11 |
 | 物件儲存 | 每個租戶一個 bucket（`tenants.storage_bucket`）；presigned URL 以 `FILE_STORAGE_PUBLIC_ENDPOINT` 的 `{tenantOrigin}` 簽成租戶自己網域的 `/storage` | [`backend/09-file.md`](./backend/09-file.md) §3、§3.1 |
 | 寄信 | 產品頁面的連結用租戶的主要網域（找不到就拋錯重試）；帳號流程的連結在 apps/auth、帶 `?tenant=` | [`backend/11-mail.md`](./backend/11-mail.md) |
@@ -188,8 +189,8 @@ key 在 OpenAPI 上是字串（目錄常常是空的），由伺服器依目錄�
 - **反向代理**：backstage 的 nginx 是 `server_name _`，任何網域都由它服務，並把 `Host`（含 port）原樣轉給 api 與
   file-storage（`deploy/nginx.conf`）。apps/auth 是另一個 origin（`deploy/nginx.auth.conf`）。
 - **同源**：每個租戶的頁面、`/api`、`/storage`、WebSocket 都在自己的網域，CSP 維持 `connect-src 'self'`。
-- **單一 api 執行個體**：租戶狀態的變更（停用、網域）只在本程序立即生效，其他執行個體最多晚 `TENANT_CACHE_TTL` 秒；
-  WebSocket 也是單機的 adapter。擴成多個執行個體的前提見 [`01-system.md`](./01-system.md) §4.3。
+- **單一 api 執行個體**：租戶狀態的變更（停用、網域）經廣播在每個程序立即生效（漏掉時最多晚 `TENANT_CACHE_TTL` 秒）；
+  其他程序寫入的推播經事件轉送送到每個程序（[`backend/08-realtime.md`](./backend/08-realtime.md) §7.6）。擴成多個執行個體的前提見 [`01-system.md`](./01-system.md) §4.3。
 
 | 環境變數 | 用途 |
 | --- | --- |

@@ -24,8 +24,8 @@ modules/system/                    設定頁的 API：驗證、稽核、推播�
 - **讀取**：`await settings.get(LOGIN_MAX_ATTEMPTS_SETTING)`，型別由定義推導。
   第一次讀取時把整張表（一個 key 最多一列）載入快取，key 是租戶 id（與權限快取一樣帶租戶，ADR-0020 D17）。
 - **存的值不合目前的 schema**（例如之後收緊了範圍）時退回預設值並記 warn，不讓請求失敗。
-- **快取**：寫入的交易提交後 `invalidate()` 目前租戶；另有 30 秒 TTL 當保險。
-  多實例部署之前，其他執行個體最慢 30 秒後看到新值（[`../../features/multi-instance.md`](../../features/multi-instance.md)）。
+- **快取**：寫入的交易提交後 `invalidate()` 目前租戶，並經平台 DB 廣播（頻道 `settings`）讓其他程序丟掉同一個租戶的快取；
+  另有 30 秒 TTL 當保險，漏掉廣播時其他程序最慢 30 秒後看到新值（[`../01-system.md`](../01-system.md) §4.4）。
 
 ### 1.1 資料表
 
