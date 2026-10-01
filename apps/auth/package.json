@@ -23,7 +23,7 @@
     "@tanstack/react-router": "^1.170.41",
     "@tanstack/react-table": "^9.2.4",
     "@tanstack/react-virtual": "^3.14.13",
-    "i18next": "^25.10.10",
+    "i18next": "^26.4.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "socket.io-client": "^4.8.4",

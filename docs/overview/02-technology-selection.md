@@ -21,7 +21,7 @@
 | 前端 UI    | **Base UI**（npm 套件名 `@base-ui-components/react`）  | 1.x              |
 | 樣式       | UnoCSS（`preset-wind4`）＋ CSS 變數 Design Token       | 66.x             |
 | 前端狀態   | 自有輕量 store（`shared/store`）＋ TanStack Query 快取 | —                |
-| i18n       | i18next（無 react-i18next，自有 hook 薄封裝）          | 25.x             |
+| i18n       | i18next（無 react-i18next，自有 hook 薄封裝）          | 26.x             |
 | 驗證       | Zod                                                    | 4.x              |
 | 前端測試   | Vitest + Testing Library + MSW                         | 3.x / 16.x / 2.x |
 | E2E        | Playwright                                             | 1.5x             |
