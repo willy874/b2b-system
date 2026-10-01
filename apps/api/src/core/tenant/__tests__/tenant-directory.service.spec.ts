@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { TenantRow } from '@/db/platform/schema';
 
+import { BroadcastHub, flushBroadcast } from '../../broadcast/__tests__/broadcast-hub';
 import type { Env } from '../../config';
 import { SecretBox, TENANT_SECRET_PURPOSE } from '../../crypto';
 import { BoundedCache } from '../bounded-cache';
@@ -28,7 +29,7 @@ function tenantRow(id: string, code: string): TenantRow {
   } as TenantRow;
 }
 
-function setup() {
+function setup(hub: BroadcastHub = new BroadcastHub()) {
   const acme = tenantRow('tenant-acme', 'acme');
   const domains = [{ domain: 'acme.example.com', tenantId: acme.id }];
   const repo = {
@@ -45,8 +46,9 @@ function setup() {
     get: (key: string) =>
       ({ TENANT_SECRET_KEY: SECRET_KEY, JWT_SECRET: 'x', TENANT_CACHE_TTL: 30 })[key],
   } as unknown as ConfigService<Env, true>;
-  const directory = new TenantDirectory(repo as unknown as TenantRepository, config);
-  return { directory, repo, domains, acme };
+  const broadcast = hub.instance();
+  const directory = new TenantDirectory(repo as unknown as TenantRepository, config, broadcast);
+  return { directory, repo, domains, acme, broadcast };
 }
 
 function sizeOf(directory: TenantDirectory, cache: 'byHost' | 'byCode'): number {
@@ -87,6 +89,28 @@ describe('TenantDirectory', () => {
     directory.invalidate();
     expect((await directory.resolveHost('new.example.com'))?.id).toBe(acme.id);
     directory.onModuleDestroy();
+  });
+
+  it('一個程序 invalidate()，其他程序也丟掉快取重新讀（docs/adr/0027-api-tokens-external-api.md D16）', async () => {
+    const hub = new BroadcastHub();
+    const [a, b] = [setup(hub), setup(hub)];
+    for (const { directory, broadcast } of [a, b]) {
+      directory.onModuleInit();
+      // oxlint-disable-next-line no-await-in-loop -- 依序啟動兩個程序
+      await broadcast.onApplicationBootstrap();
+      // oxlint-disable-next-line no-await-in-loop -- 同上
+      await directory.onApplicationBootstrap();
+    }
+    expect(await b.directory.findByCode('acme')).toBeDefined();
+    expect(b.repo.findByCode).toHaveBeenCalledTimes(1);
+
+    a.directory.invalidate();
+    await flushBroadcast();
+
+    expect(await b.directory.findByCode('acme')).toBeDefined();
+    expect(b.repo.findByCode).toHaveBeenCalledTimes(2);
+    a.directory.onModuleDestroy();
+    b.directory.onModuleDestroy();
   });
 
   it('快照還沒載入（啟動時 DB 暫時連不上）時退回查 DB', async () => {

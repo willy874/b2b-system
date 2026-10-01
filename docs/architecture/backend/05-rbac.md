@@ -382,7 +382,7 @@ await this.permissionService.permissionsChanged(holders);
 
 快取在各程序的記憶體裡；跨程序的一致性靠上面的廣播（平台 DB 的 `LISTEN`／`NOTIFY`，`core/broadcast`），
 不另外部署 Redis。60 秒 TTL 是最後防線：即使某個程序漏收通知，最遲 60 秒後也會重新解析。
-其他快取（租戶目錄、資料夾樹、系統設定、使用者快取）之後共用同一條頻道（[`../../features/multi-instance.md`](../../features/multi-instance.md)）。
+其他快取（租戶目錄、資料夾樹、系統設定、使用者快取）也經 `core/broadcast` 跨程序失效，各自一個頻道（[`../01-system.md`](../01-system.md) §4.4）。
 
 快取失效之後由 `AuthzRevision` 發佈 `permissions.changed`（`DomainEventBus`）；`modules/realtime` 的 listener 收到後
 重算那個租戶在本機的所有連線的 room（[`08-realtime.md`](./08-realtime.md) §6.2、§7）。

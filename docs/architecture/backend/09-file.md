@@ -657,7 +657,7 @@ FileAccessService（modules/file）
 | 失效時連同進行中的讀取一起丟掉 | 它可能讀到提交前的結構 |
 | 交易內（`contextFor(actor, tx)`）一律直接查資料庫 | 移動、遞迴刪除的檢查與寫入之間結構不能變 |
 | 60 秒存活時間 | 只是防漏網（例：直接改資料庫）；正常的寫入都會主動失效 |
-| 單一執行個體的前提 | 失效只在本程序；api 目前固定單一執行個體（[`../01-system.md`](../01-system.md)），水平擴展時要改成跨程序的失效通知 |
+| 跨程序的失效 | 失效後經平台 DB 廣播（頻道 `file_folder_tree`），其他程序丟掉同一個租戶的快取（[`../01-system.md`](../01-system.md) §4.4）；漏掉時靠 60 秒存活時間 |
 
 資料表：`relation_tuples`（資料夾授權的邊）、`file_folders.inherit_grants`、
 系統資料夾 `file_folders.kind` / `owner_id` 與授權對象 `everyone`（schema 在 `db/schema/`，migration 見 [`02-database.md`](./02-database.md) §5.2）。

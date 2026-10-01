@@ -2,6 +2,7 @@ import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
+import { BroadcastHub, flushBroadcast } from '../../broadcast/__tests__/broadcast-hub';
 import type { Env } from '../../config/env.schema';
 import type { Database } from '../../database';
 import { runInTenantContext } from '../../tenant';
@@ -26,7 +27,10 @@ const UPLOAD_MAX = defineSetting({
   isPublic: false,
 });
 
-function setup(rows: Array<{ key: string; value: unknown }> = []) {
+function setup(
+  rows: Array<{ key: string; value: unknown }> = [],
+  hub: BroadcastHub = new BroadcastHub(),
+) {
   const repo = {
     listAll: vi.fn(async () =>
       rows.map((row) => ({ ...row, updatedAt: new Date('2026-09-30T00:00:00Z'), updatedBy: null })),
@@ -35,11 +39,13 @@ function setup(rows: Array<{ key: string; value: unknown }> = []) {
   const config = {
     get: vi.fn((key: keyof Env) => ({ FILE_UPLOAD_MAX_SIZE: 1000 })[key as string]),
   };
+  const broadcast = hub.instance();
   const service = new SettingService(
     repo as unknown as SettingRepository,
     config as unknown as ConfigService<Env, true>,
+    broadcast,
   );
-  return { service, repo };
+  return { service, repo, broadcast };
 }
 
 function tenant(id: string): TenantContext {
@@ -114,5 +120,26 @@ describe('SettingService（docs/architecture/backend/12-settings.md §1）', () 
     await runInTenantContext(tenant('b'), async () => service.invalidate());
     await runInTenantContext(tenant('a'), () => service.get(MAX_ATTEMPTS));
     expect(repo.listAll).toHaveBeenCalledTimes(2);
+  });
+
+  it('一個程序 invalidate，其他程序同一個租戶的快取也作廢（docs/adr/0027-api-tokens-external-api.md D16）', async () => {
+    const hub = new BroadcastHub();
+    const [a, b] = [setup([], hub), setup([], hub)];
+    for (const { service, broadcast } of [a, b]) {
+      service.register([MAX_ATTEMPTS]);
+      service.onModuleInit();
+      // oxlint-disable-next-line no-await-in-loop -- 依序啟動兩個程序
+      await broadcast.onApplicationBootstrap();
+    }
+    await runInTenantContext(tenant('t1'), () => b.service.get(MAX_ATTEMPTS));
+    await runInTenantContext(tenant('t2'), () => b.service.get(MAX_ATTEMPTS));
+
+    await runInTenantContext(tenant('t1'), async () => a.service.invalidate());
+    await flushBroadcast();
+
+    await runInTenantContext(tenant('t1'), () => b.service.get(MAX_ATTEMPTS));
+    await runInTenantContext(tenant('t2'), () => b.service.get(MAX_ATTEMPTS));
+    // t1 重新查一次；t2 仍命中
+    expect(b.repo.listAll).toHaveBeenCalledTimes(3);
   });
 });

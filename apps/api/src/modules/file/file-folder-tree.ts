@@ -1,5 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
 
+import { BroadcastService, parseTenantInvalidation } from '@/core/broadcast';
+import type { BroadcastPublisher, TenantInvalidation } from '@/core/broadcast';
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { currentTenant } from '@/core/tenant';
@@ -15,6 +18,9 @@ const TREE_TTL_MS = 60_000;
 /** 租戶數的上限（異常時不無限成長）；一個租戶一筆。 */
 const MAX_TENANTS = 1_000;
 
+/** 平台 DB 上的廣播頻道（docs/adr/0027-api-tokens-external-api.md D16）。 */
+export const FILE_FOLDER_TREE_CHANNEL = 'file_folder_tree';
+
 interface Entry {
   expiresAt: number;
   nodes: Promise<FolderNode[]>;
@@ -25,18 +31,29 @@ interface Entry {
  *
  * 每個檔案請求都要整棵結構，而結構只在建立、移動、刪除、中斷繼承時改變，所以以「租戶」為 key
  * 快取在程序內。結構的寫入一律經過 `write()`：交易內先取樹鎖，**提交後** 才失效——失效早於提交的話，
- * 並行的讀取會把舊結構重新放回快取。失效時連同進行中的讀取一起丟掉，之後的請求重新查。
+ * 並行的讀取會把舊結構重新放回快取。失效時連同進行中的讀取一起丟掉，之後的請求重新查；
+ * 其他程序經廣播丟掉同一個租戶的快取。
  *
  * 交易內（持有樹鎖、檢查與寫入之間結構不能變）的讀取一律直接查資料庫，不用快取。
  */
 @Injectable()
-export class FileFolderTree {
+export class FileFolderTree implements OnModuleInit {
   private readonly entries = new Map<string, Entry>();
+  private publish?: BroadcastPublisher<TenantInvalidation>;
 
   constructor(
     @Inject(TENANT_DB) private readonly db: Database,
     private readonly repo: FileFolderRepository,
+    private readonly broadcast: BroadcastService,
   ) {}
+
+  onModuleInit(): void {
+    this.publish = this.broadcast.channel(FILE_FOLDER_TREE_CHANNEL, {
+      parse: parseTenantInvalidation,
+      onMessage: ({ tenant }) => void this.entries.delete(tenant),
+      onReconnect: () => this.entries.clear(),
+    });
+  }
 
   /** 整棵結構。帶 `tx` 時直接查（交易內要看到自己的寫入與鎖住的狀態）。 */
   nodes(tx?: DbOrTx): Promise<FolderNode[]> {
@@ -76,9 +93,11 @@ export class FileFolderTree {
     }
   }
 
-  /** 目前租戶的快取作廢（含進行中的讀取：它可能讀到提交前的結構）。 */
+  /** 目前租戶的快取作廢（含進行中的讀取：它可能讀到提交前的結構），並通知其他程序。 */
   invalidate(): void {
-    this.entries.delete(tenantKey());
+    const tenant = tenantKey();
+    this.entries.delete(tenant);
+    void this.publish?.({ tenant });
   }
 }
 

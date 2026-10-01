@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 
@@ -15,8 +17,35 @@ export interface BroadcastSubscriber {
   onReconnect?(): void | Promise<void>;
 }
 
+/** `channel()` 的訂閱者：訊息已解析、且不是本程序送出的。 */
+export interface BroadcastChannelSubscriber<T> {
+  /** 驗證並轉成訊息；格式不對（不是這個版本送的）回 null，直接略過。 */
+  parse(value: unknown): T | null;
+  onMessage(message: T): void | Promise<void>;
+  /** 同 `BroadcastSubscriber.onReconnect`：中間的訊息可能漏了，丟掉整個快取。 */
+  onReconnect?(): void | Promise<void>;
+}
+
+/** `channel()` 回傳的送出函式；失敗只記錄（同 `publish`）。 */
+export type BroadcastPublisher<T> = (message: T) => Promise<void>;
+
 /** `NOTIFY` 的 payload 上限是 8000 位元組：只送 key，不送資料。 */
-const MAX_PAYLOAD_BYTES = 8000;
+export const MAX_PAYLOAD_BYTES = 8000;
+
+/** `channel()` 的信封：`o` 是送出的程序，收到自己送的就略過。 */
+interface Envelope {
+  o: string;
+  m: unknown;
+}
+
+function parseEnvelope(payload: string): Envelope | null {
+  try {
+    const value = JSON.parse(payload) as Partial<Envelope>;
+    return typeof value.o === 'string' && 'm' in value ? { o: value.o, m: value.m } : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * 程序之間的失效廣播（docs/adr/0024-relationship-based-access-control.md D7、docs/features/multi-instance.md）：
@@ -30,6 +59,8 @@ export class BroadcastService implements OnApplicationBootstrap, OnApplicationSh
   private readonly logger = new Logger(BroadcastService.name);
   private readonly subscribers = new Map<string, BroadcastSubscriber[]>();
   private readonly unlisteners: Array<() => Promise<void>> = [];
+  /** 這個程序的識別；`channel()` 以它略過自己送出的訊息。 */
+  readonly instanceId = randomUUID();
 
   constructor(@Inject(PLATFORM_SQL) private readonly sql: PlatformSql) {}
 
@@ -38,6 +69,26 @@ export class BroadcastService implements OnApplicationBootstrap, OnApplicationSh
     const list = this.subscribers.get(channel) ?? [];
     list.push(subscriber);
     this.subscribers.set(channel, list);
+  }
+
+  /**
+   * 帶型別的頻道：訊息以 JSON 送出並附上送出的程序，**自己送的不會交給 `onMessage`**——本機在送出前已經處理過，
+   * 再收一次只會多做一次失效（並讓進行中的載入白做）。同樣只能在 `onModuleInit` 呼叫。
+   *
+   * 適合「本機先做、再通知其他程序做同一件事」的失效；需要以單調遞增的版本判斷新舊的（`AuthzRevision`）用 `subscribe`。
+   */
+  channel<T>(name: string, subscriber: BroadcastChannelSubscriber<T>): BroadcastPublisher<T> {
+    this.subscribe(name, {
+      onMessage: async (payload) => {
+        const envelope = parseEnvelope(payload);
+        if (!envelope || envelope.o === this.instanceId) return;
+        const message = subscriber.parse(envelope.m);
+        if (message !== null) await subscriber.onMessage(message);
+      },
+      onReconnect: subscriber.onReconnect && (() => subscriber.onReconnect?.()),
+    });
+    return (message) =>
+      this.publish(name, JSON.stringify({ o: this.instanceId, m: message } satisfies Envelope));
   }
 
   /** 送出失敗只記錄：廣播是加速，不是正確性的來源。 */

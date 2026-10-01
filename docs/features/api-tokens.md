@@ -1,7 +1,7 @@
 # 服務帳號／API Token
 
 - 優先度：P2
-- 狀態：規劃中（決定見 [ADR-0027](../adr/0027-api-tokens-external-api.md)；T0 先以 `feat/cross-process-broadcast` 獨立進行）
+- 狀態：實作中（決定見 [ADR-0027](../adr/0027-api-tokens-external-api.md)；T0：branch `feat/cross-process-broadcast`，T1～T5 之後開 `feat/api-tokens`）
 - 依賴：—
 - 相關：[`webhooks.md`](./webhooks.md)（接收端回查）、[`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 8 項、
   [`backend/04-auth.md`](../architecture/backend/04-auth.md)、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md)

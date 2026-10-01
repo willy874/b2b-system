@@ -268,13 +268,33 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 
 **api 水平擴展（`replicas > 1`）要同時具備四件事**，缺一就會出錯，所以 compose 目前固定單一執行個體：
 
-1. Socket.io 跨節點廣播：`@socket.io/postgres-adapter`（[`backend/08-realtime.md`](./backend/08-realtime.md) §10.3）。
-2. 權限／使用者快取跨節點失效：權限快取 **已完成**（平台 DB 的 `LISTEN/NOTIFY`，`core/broadcast`，[`backend/05-rbac.md`](./backend/05-rbac.md) §5.1）；
-   使用者快取（TTL 30 秒）尚未接上，否則某節點上被停用的人最多還能用 30 秒。
-3. 租戶登記的快取跨節點失效（停用、網域的變更）：同一條 `LISTEN/NOTIFY`；否則其他節點最多晚 `TENANT_CACHE_TTL` 秒
-   （[`05-tenancy.md`](./05-tenancy.md) §7）。
+1. 推播跨節點：伺服器端的推播 **已完成**（領域事件經平台 DB 轉送，每個節點推給自己的連線，[`backend/08-realtime.md`](./backend/08-realtime.md) §7.6）；
+   跨裝置中繼（`channel.relay`）仍只在本節點（同 §10.3）。
+2. 權限／使用者快取跨節點失效：**已完成**（§4.4）。
+3. 租戶登記的快取跨節點失效（停用、網域的變更）：**已完成**（§4.4）。
 4. nginx 的 upstream 要能看到每個執行個體（`resolver 127.0.0.11` ＋ 變數化的 `proxy_pass`，或改用 LB）；
    Socket.io 只用 websocket 傳輸，**不需要** sticky session。
+
+另外還沒跨節點的：HTTP 與 WebSocket 的速率限制（每個節點各自計數）、feature flag 的全平台快取（最多晚 `TENANT_CACHE_TTL` 秒），
+見 [`../features/multi-instance.md`](../features/multi-instance.md)。
+
+### 4.4 程序之間的一致性
+
+快取都在各程序的記憶體裡。一個程序寫入之後，先失效本機，再經平台 DB 的 `LISTEN`／`NOTIFY`（`core/broadcast`）通知其他程序
+（[ADR-0027](../adr/0027-api-tokens-external-api.md) D16、D18）。對外 API、之後拆出的 worker、多個 api 執行個體都靠這一層。
+
+| 頻道 | 內容 | 收到時 | 送出的地方 |
+| --- | --- | --- | --- |
+| `authz_revision` | `{ tenant, revision }` | 比已知新才處理：整個租戶的權限快取失效、發 `permissions.changed` | `AuthzRevision`（[`backend/05-rbac.md`](./backend/05-rbac.md) §5.1） |
+| `user_cache` | `{ tenant, users }`（平台管理者 `tenant: null`；一則最多 150 個 id） | 這些人的使用者快取（狀態、`token_version`）失效 | `UserCacheService.invalidate()`；同一輪的多次失效合併送出 |
+| `tenant_directory` | `{}` | 租戶登記整份重新讀（含網域快照） | `TenantDirectory.invalidate()` |
+| `file_folder_tree` | `{ tenant }` | 那個租戶的資料夾結構快取作廢 | `FileFolderTree.invalidate()`（[`backend/09-file.md`](./backend/09-file.md) §11.1） |
+| `settings` | `{ tenant }` | 那個租戶的系統設定快取作廢 | `SettingService.invalidate()`（[`backend/12-settings.md`](./backend/12-settings.md)） |
+| `domain_event` | 推播類的領域事件 | 在那個租戶的脈絡裡交給本機的推播 | `DomainEventRelay`（[`backend/08-realtime.md`](./backend/08-realtime.md) §7.6） |
+
+- 除了 `authz_revision`，訊息都經 `BroadcastService.channel()` 包上送出的程序 id，**自己送的不會收回來**（本機在送出前已處理過）。
+- **不保證送達**：送出失敗只記 log；監聽連線斷線重連時，每個訂閱者丟掉整份快取。各快取原本的 TTL 是最後防線。
+- 只送 key，不送資料：`NOTIFY` 的 payload 上限 8000 位元組。
 
 ---
 
