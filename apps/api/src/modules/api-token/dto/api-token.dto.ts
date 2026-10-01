@@ -62,3 +62,28 @@ export type ApiTokenDto = z.infer<typeof ApiTokenSchema>;
 export type ApiTokenStatus = z.infer<typeof ApiTokenStatusSchema>;
 export type CreateApiTokenDto = z.infer<typeof CreateApiTokenSchema>;
 export type CreatedApiTokenDto = z.infer<typeof CreatedApiTokenSchema>;
+
+/** `GET /v1/me`（對外 API）：這把 token 是誰、能做什麼、什麼時候到期（docs/adr/0027-api-tokens-external-api.md D14）。 */
+export const ExternalMeSchema = defineSchema(
+  'ExternalMe',
+  z.object({
+    account: z.object({
+      id: z.string().uuid(),
+      kind: z.enum(['human', 'service']),
+      name: z.string(),
+      /** 服務帳號沒有 email（存的是不可投遞的佔位值，不回傳）。 */
+      email: z.string().nullable(),
+    }),
+    token: z.object({
+      id: z.string().uuid(),
+      name: z.string(),
+      prefix: z.string(),
+      scopes: z.array(PermissionKeySchema).nullable(),
+      expiresAt: z.string(),
+    }),
+    /** 這把 token 實際取得的權限鍵：帳號的權限 ∩ scopes（含依賴樹的閉包；super-admin 展開成全集）。 */
+    permissions: z.array(PermissionKeySchema),
+  }),
+);
+
+export type ExternalMeDto = z.infer<typeof ExternalMeSchema>;

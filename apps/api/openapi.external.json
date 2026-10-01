@@ -1,0 +1,184 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/v1/me": {
+      "get": {
+        "operationId": "ApiTokenExternalController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ExternalMe"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "這把 token 的帳號、到期時間與實際取得的權限",
+        "tags": ["me"]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "HealthController_live",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Liveness probe",
+        "tags": ["health"]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "HealthController_ready",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Readiness probe（含 DB ping）",
+        "tags": ["health"]
+      }
+    }
+  },
+  "info": {
+    "title": "B2B System External API",
+    "description": "給外部系統的 API。以 API token 認證：`Authorization: Bearer b2bt_<租戶代碼>_<id>_<secret>`；token 在後台建立（個人 token 或服務帳號）。v1 之內只會新增欄位與端點。",
+    "version": "v1",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "API token",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "PermissionKey": {
+        "type": "string",
+        "enum": [
+          "user:create",
+          "user:read",
+          "user:update",
+          "user:delete",
+          "user:assignRole",
+          "user:resetPassword",
+          "role:create",
+          "role:read",
+          "role:update",
+          "role:delete",
+          "role:grantPermission",
+          "permission:read",
+          "auditLog:read",
+          "system:read",
+          "system:update",
+          "approval:read",
+          "approval:review",
+          "file:create",
+          "file:read",
+          "file:update",
+          "file:delete",
+          "file:access",
+          "file:share",
+          "job:read",
+          "job:retry",
+          "identityProvider:create",
+          "identityProvider:read",
+          "identityProvider:update",
+          "identityProvider:delete",
+          "group:create",
+          "group:read",
+          "group:update",
+          "group:delete",
+          "group:assignRole",
+          "authz:explain",
+          "serviceAccount:create",
+          "serviceAccount:read",
+          "serviceAccount:update",
+          "serviceAccount:delete"
+        ]
+      },
+      "ExternalMe": {
+        "type": "object",
+        "properties": {
+          "account": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["human", "service"]
+              },
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": ["id", "kind", "name", "email"],
+            "additionalProperties": false
+          },
+          "token": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "prefix": {
+                "type": "string"
+              },
+              "scopes": {
+                "nullable": true,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PermissionKey"
+                }
+              },
+              "expiresAt": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "name", "prefix", "scopes", "expiresAt"],
+            "additionalProperties": false
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionKey"
+            }
+          }
+        },
+        "required": ["account", "token", "permissions"],
+        "additionalProperties": false
+      }
+    }
+  }
+}

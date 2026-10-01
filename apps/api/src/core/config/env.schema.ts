@@ -11,6 +11,11 @@ export const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().default(3000),
   /**
+   * 對外 API 的程序（`main.external.ts`）監聽的 port（docs/adr/0027-api-tokens-external-api.md D9）。
+   * 同一份 env 給兩個程序用，所以另開一個變數，不沿用 `PORT`。
+   */
+  EXTERNAL_API_PORT: z.coerce.number().int().default(3001),
+  /**
    * 平台 DB：租戶登記、IdP 的協定狀態、背景工作佇列（docs/adr/0020-physical-tenant-isolation.md D1）。
    * 租戶 DB 的連線字串存在平台 DB 的 `tenants`，不在環境變數。
    */
@@ -107,6 +112,10 @@ export const EnvSchema = z.object({
   DEFAULT_RATE_LIMIT: z.coerce.number().int().min(1).default(600),
   /** 每個 IP 的未登入請求（所有端點合計）。 */
   ANONYMOUS_RATE_LIMIT: z.coerce.number().int().min(1).default(3000),
+  /** 對外 API：每把 API token 每分鐘（D13）。每個整合有自己的額度，不和本人的瀏覽器共用。 */
+  EXTERNAL_RATE_LIMIT: z.coerce.number().int().min(1).default(600),
+  /** 對外 API：每個 IP 每分鐘 **驗證失敗** 的次數；超過時之後的失敗回 429（猜 token、設定錯的腳本）。 */
+  EXTERNAL_AUTH_FAILURE_RATE_LIMIT: z.coerce.number().int().min(1).default(30),
   /** 登入類端點：每個「帳號 ＋ IP」。忘記密碼、註冊是它的 1/3（至少 3）。 */
   AUTH_RATE_LIMIT: z.coerce.number().int().min(1).default(10),
   /** 登入類端點：每個 IP（整間公司的早上登入尖峰）。忘記密碼、註冊是它的 1/10。 */

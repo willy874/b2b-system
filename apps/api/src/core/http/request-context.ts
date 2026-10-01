@@ -10,6 +10,17 @@ export interface RequestContext {
    * 只用來讓推播略過發起的分頁，**不做任何授權判斷**（docs/architecture/backend/08-realtime.md §7.1）。
    */
   clientId?: string;
+  /**
+   * 對外 API 以 API token 認證的請求（docs/adr/0027-api-tokens-external-api.md D3）：`scopes` 是限縮後的權限鍵
+   * （已含依賴樹的閉包）；undefined＝跟著帳號。`PermissionService` 對 `userId` 的權限一律與它取交集。
+   */
+  apiToken?: ContextApiToken;
+}
+
+export interface ContextApiToken {
+  id: string;
+  userId: string;
+  scopes?: ReadonlySet<string>;
 }
 
 const storage = new AsyncLocalStorage<RequestContext>();
@@ -29,6 +40,12 @@ export function getRequestId(): string | undefined {
 /** 當前請求的 `x-client-id`；沒帶或格式不合時為 undefined。 */
 export function getClientId(): string | undefined {
   return storage.getStore()?.clientId;
+}
+
+/** 對外 API 認出 token 後補寫進當前 context（權限的交集、稽核的 `metadata.tokenId`）。 */
+export function setContextApiToken(token: ContextApiToken): void {
+  const context = storage.getStore();
+  if (context) context.apiToken = token;
 }
 
 /** JwtAuthGuard 認出使用者後補寫進當前 context，讓稽核不必逐層傳遞。 */

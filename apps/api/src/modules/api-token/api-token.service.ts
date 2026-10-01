@@ -2,12 +2,15 @@ import { randomUUID } from 'node:crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
 
+import { formatToken, generateSecret, tokenPrefix } from '@/common/auth';
 import type { AuthUser, PermissionKey } from '@/common/types';
 import { SUPER_ADMIN_RELATION, TENANT_OBJECT } from '@/core/authz';
 import type { RelationRef } from '@/core/authz';
+import { ApiTokenCacheService } from '@/core/cache';
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
+import { getRequestContext } from '@/core/http';
 import { RESOURCE_TYPE } from '@/core/resource';
 import { SettingService } from '@/core/settings';
 import { requireTenant } from '@/core/tenant';
@@ -17,7 +20,6 @@ import { sha256 } from '@/modules/credential/token-hash';
 import { PermissionService } from '@/modules/permission/permission.service';
 
 import { API_TOKEN_MAX_ACTIVE_PER_ACCOUNT } from './api-token.constants';
-import { formatToken, generateSecret, tokenPrefix } from './api-token.format';
 import type { ApiTokenWithCreator, TokenAccount } from './api-token.repository';
 import { ApiTokenRepository } from './api-token.repository';
 import {
@@ -29,6 +31,7 @@ import type {
   ApiTokenStatus,
   CreateApiTokenDto,
   CreatedApiTokenDto,
+  ExternalMeDto,
 } from './dto/api-token.dto';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -70,6 +73,7 @@ export class ApiTokenService {
     private readonly permissions: PermissionService,
     private readonly settings: SettingService,
     private readonly audit: AuditService,
+    private readonly cache: ApiTokenCacheService,
   ) {}
 
   // ── 個人 token（`/auth/api-tokens`，本人）與管理者看別人的（`/users/:userId/api-tokens`，`user:update`） ──
@@ -98,6 +102,33 @@ export class ApiTokenService {
 
   async revokeForUser(userId: string, tokenId: string, actor: AuthUser): Promise<void> {
     await this.revoke(await this.requireAccount(userId, 'human', 'USER_NOT_FOUND'), tokenId, actor);
+  }
+
+  // ── 對外 API ──
+
+  /** `GET /v1/me`：以目前請求的 token 認證的帳號與 token（`ApiTokenAuthGuard` 已寫進請求脈絡）。 */
+  async describeCurrent(actor: AuthUser): Promise<ExternalMeDto> {
+    const tokenId = getRequestContext()?.apiToken?.id;
+    const account = await this.repo.findAccount(actor.id);
+    const token = tokenId ? await this.repo.findOne(actor.id, tokenId) : undefined;
+    if (!account || !token) throw new AppException('AUTH_TOKEN_INVALID');
+    return {
+      account: {
+        id: account.id,
+        kind: account.kind,
+        name: account.displayName,
+        email: account.kind === 'human' ? account.email : null,
+      },
+      token: {
+        id: token.id,
+        name: token.name,
+        prefix: token.prefix,
+        scopes: token.scopes?.filter(isPermissionKey) ?? null,
+        expiresAt: token.expiresAt.toISOString(),
+      },
+      // 與 scopes 的交集由 PermissionService 依請求脈絡計算
+      permissions: await this.permissions.getEffectivePermissionKeys(actor.id),
+    };
   }
 
   // ── 通用：服務帳號的 token 由 modules/service-account 先確認帳號後呼叫 ──
@@ -205,9 +236,14 @@ export class ApiTokenService {
         tx,
       );
     });
+    // 對外 API 的驗證快取（D17）：本機與其他程序立即失效
+    this.cache.invalidate([tokenId]);
   }
 
-  /** 帳號被刪除時，在同一個交易內把它還沒撤銷的 token 標成撤銷；回傳撤銷的數量。 */
+  /**
+   * 帳號被刪除時，在同一個交易內把它還沒撤銷的 token 標成撤銷；回傳撤銷的數量。
+   * 不必失效驗證快取：刪除遞增了 `token_version`，對外 API 驗證帳號時就擋下（使用者快取會廣播）。
+   */
   revokeAllInTransaction(userId: string, actorId: string, tx: DbOrTx): Promise<number> {
     return this.repo.revokeAll(userId, actorId, tx);
   }

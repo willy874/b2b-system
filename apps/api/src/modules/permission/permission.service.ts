@@ -13,6 +13,7 @@ import type { PermissionSet } from '@/core/cache';
 import { PermissionCacheService } from '@/core/cache';
 import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
+import { getRequestContext } from '@/core/http';
 import type { PermissionRow } from '@/db/schema';
 import {
   ALL_PERMISSION_KEYS,
@@ -27,6 +28,21 @@ import { PermissionRepository } from './permission.repository';
 
 /** 批次解析權限時一條查詢帶多少人（`IN` 清單的長度上限，也限制單次結果的大小）。 */
 const PERMISSION_BATCH_SIZE = 500;
+
+/**
+ * 對外 API 的 token 限縮了權限（docs/adr/0027-api-tokens-external-api.md D3）：這個請求以 token 認證、問的又是
+ * token 的擁有者時，權限與 scopes（已含依賴樹的閉包）取交集；super-admin 也只剩 scopes。快取存的是帳號本身的權限，
+ * 交集在讀出時算，所以同一個人在內部 api 的請求不受影響。資料夾等資源上的能力跟著帳號（`subjects` 不變）。
+ */
+function withTokenScopes(userId: string, value: PermissionSet): PermissionSet {
+  const token = getRequestContext()?.apiToken;
+  if (!token?.scopes || token.userId !== userId) return value;
+  const permissions = new Set<PermissionKey>();
+  for (const key of token.scopes as ReadonlySet<PermissionKey>) {
+    if (value.isSuperAdmin || value.permissions.has(key)) permissions.add(key);
+  }
+  return { permissions, isSuperAdmin: false, subjects: value.subjects };
+}
 
 export interface PermissionCatalogItem extends PermissionRow {
   includes: PermissionKey[];
@@ -56,14 +72,14 @@ export class PermissionService {
 
   async getPermissionSet(userId: string): Promise<PermissionSet> {
     const cached = this.cache.get(userId);
-    if (cached) return cached;
+    if (cached) return withTokenScopes(userId, cached);
 
     // 查詢期間若被失效（撤銷權限的交易剛提交），讀到的可能是舊值：不寫回快取
     const ticket = this.cache.ticket();
     const loaded = await this.loadBatch([userId]);
     const value = loaded.get(userId) as PermissionSet;
     this.cache.set(userId, value, ticket);
-    return value;
+    return withTokenScopes(userId, value);
   }
 
   /**
@@ -76,7 +92,7 @@ export class PermissionService {
     const missing: string[] = [];
     for (const id of new Set(userIds)) {
       const cached = this.cache.get(id);
-      if (cached) result.set(id, cached);
+      if (cached) result.set(id, withTokenScopes(id, cached));
       else missing.push(id);
     }
 
@@ -88,7 +104,7 @@ export class PermissionService {
       const loaded = await this.loadBatch(batch);
       for (const [id, value] of loaded) {
         this.cache.set(id, value, ticket);
-        result.set(id, value);
+        result.set(id, withTokenScopes(id, value));
       }
     }
     return result;

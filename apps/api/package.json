@@ -6,6 +6,8 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main.js",
+    "dev:external": "node --watch -r @swc-node/register src/main.external.ts",
+    "start:external": "node dist/main.external.js",
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
