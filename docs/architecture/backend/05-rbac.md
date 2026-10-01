@@ -294,7 +294,7 @@ export class PermissionService {
 | `authz.model.ts` | 模型 DSL：`defineType`、`direct`、`computed`、`from`（`X from Y`）、`union`、`and`（交集，只用在收窄的組合）；**沒有排除**。`createModel` 在啟動時驗證：引用的型別與關係存在、`from` 的 tupleset 是直接關係、`computed` 沒有循環。`impliedRelations` 算靜態蘊含（等級蘊含哪些動作、依賴閉包） |
 | `authz.types.ts` | 核心型別 `user`、`group`（`member`：使用者或另一個群組的成員）、`role`（`holder`：使用者或群組的成員）、`tenant`（由權限目錄產生：一個權限鍵一個關係＝直接授予 ∪ `superAdmin` ∪ 包含它的鍵）；每個物件都有隱含的 `tenant` 邊。`group` 是核心型別而不是由模組註冊：主體閉包的 CTE 要知道哪些關係是成員關係、已刪除的節點看哪張表 |
 | `authz.registry.ts` | `register(type)`：業務型別（例：`modules/file/file.authz.ts` 的 `fileRoot`、`fileFolder`、`file`）；第一次取用時組合並驗證 |
-| `authz.repository.ts` | `relation_tuples` 的讀取：主體閉包（遞迴 CTE 沿 `group#member`、`role#holder` 走，深度上限 8，排除已刪除的角色與群組）、某種物件上的直接邊（濾掉過期的）、`authz_revision`。群組巢狀的層數由寫入端限制在 `GROUP_MAX_NESTING_DEPTH`（6），閉包永遠走得完 |
+| `authz.repository.ts` | `relation_tuples` 的讀取：主體閉包與帶路徑的版本（`closurePaths`，說明用）（遞迴 CTE 沿 `group#member`、`role#holder` 走，深度上限 8，排除已刪除的角色與群組）、某種物件上的直接邊（濾掉過期的）、`authz_revision`。群組巢狀的層數由寫入端限制在 `GROUP_MAX_NESTING_DEPTH`（6），閉包永遠走得完 |
 | `authz.snapshot.ts` | 把一次判斷需要的邊載入記憶體；**結構邊供應者**（`EdgeProvider`）補上不存在 tuple 表的邊——資料夾的 `parent`／`inherits_from`／`owner` 由 `file_folders` 供應（ADR-0024 D3） |
 | `authz.checker.ts` | `check`／`explain`／`withEdges`：在快照上展開關係定義，同一個 `物件#關係` 只算一次（記憶化），遞迴深度上限 64；未知的型別或關係視為不成立 |
 | `authz.service.ts` | `tenantPermissionsOf`（全域權限）、`checkerFor`（資源：一次載入操作者在這些型別上的邊，交給判斷器）、`grantedCapabilities`（反提權：放進某個 `物件#關係` 取得的能力，§4.1） |
@@ -306,7 +306,8 @@ export class PermissionService {
   （`src/__tests__/relation-tuples-model.spec.ts`）。邊只由這些建構函式產生，所以不在每次寫入時再驗一次。
 - **判斷的成本**：全域權限在租戶節點上只有一層，閉包算完就是 `Set<PermissionKey>`，guard 仍是 O(1)。
   資料夾是「整棵結構一次載入 ＋ 記憶化」，一次請求建一個判斷器（`FileAccessService.contextFor`）。
-- `explain()` 已實作，但還沒開放 API（G4）。
+- 說明（為什麼能做 X）：`explain()` 的路徑從主體閉包裡的主體開始，`closurePaths` 記下每個主體是怎麼來的、`withClosurePath` 把兩段接起來；
+  全域權限的所有來源由 `tenantSourcesOf` 列出。API、遮蔽與畫面見 [`../../rbac/09-explain.md`](../../rbac/09-explain.md)。
 
 ## 5. 權限快取
 

@@ -275,5 +275,5 @@ b2b-system/
     [`architecture/backend/15-notification.md`](../architecture/backend/15-notification.md)、[`architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md)、
     [ADR-0026](../adr/0026-notification-center.md)）
 13. ~~使用者群組~~（已完成：權限圖 G4a——巢狀群組、群組持有角色、反提權由模型宣告的能力統一比對、資料夾授權給群組；見
-    [`rbac/08-groups.md`](../rbac/08-groups.md)、[ADR-0024](../adr/0024-relationship-based-access-control.md)）。「為什麼能做 X」的說明（G4b）與專案（G5）仍在
+    [`rbac/08-groups.md`](../rbac/08-groups.md)、[ADR-0024](../adr/0024-relationship-based-access-control.md)）；「為什麼能做 X」的說明（G4b）也已完成，見 [`rbac/09-explain.md`](../rbac/09-explain.md)。專案（G5）仍在
     [`features/permission-graph.md`](../features/permission-graph.md)

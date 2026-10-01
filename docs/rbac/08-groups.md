@@ -126,7 +126,7 @@ fileFolder:<f>#<等級>@group:<g>#member     資料夾授權給群組
 
 | 項目 | 去向 |
 | --- | --- |
-| 「為什麼能／不能」的說明（explain API、有效權限頁） | G4b（D14：看不到的節點逐一遮蔽，[`../features/permission-graph.md`](../features/permission-graph.md)） |
+| 「為什麼能／不能」的說明（explain API、有效權限頁） | 已做（G4b）：[`09-explain.md`](./09-explain.md) |
 | 角色繼承角色 | 不開放（D10） |
 | 外部 IdP 的群組對應、SCIM | 另開提案（D15） |
 | 群組擁有者自己管成員（下放） | 不做（D16）；要做時先重新評估 D13 |

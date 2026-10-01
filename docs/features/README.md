@@ -17,13 +17,13 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P0 | 權限圖（ReBAC）：說明（explain）、專案 | [`permission-graph.md`](./permission-graph.md) | 實作中（G0～G4a 已上 main 並歸檔）；G4b explain **實作中**（`feat/permission-graph-g4b`，ADR-0024 D14）；G5 專案待做 | — |
 | P2 | 服務帳號／API Token | [`api-tokens.md`](./api-tokens.md) | 提案 | — |
 | P2 | Webhook | [`webhooks.md`](./webhooks.md) | 提案 | [背景工作](../architecture/backend/10-jobs.md)（已完成） |
 | P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[背景工作](../architecture/backend/10-jobs.md)（已完成） |
 | P2 | 標籤、留言、關注 | [`tags-comments.md`](./tags-comments.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成） |
 | P2 | 全域搜尋 | [`global-search.md`](./global-search.md) | 提案 | — |
 | P2 | 安全與容量的後續強化 | [`hardening-followups.md`](./hardening-followups.md) | 提案 | — |
+| P3 | 權限圖（ReBAC）：專案（G5） | [`permission-graph.md`](./permission-graph.md) | 提案（G0～G4b 已上 main 並歸檔；G5 等專案功能） | 專案功能 |
 | P3 | MFA | [`mfa.md`](./mfa.md) | 提案 | — |
 | P3 | 可觀測性 | [`observability.md`](./observability.md) | 提案 | — |
 | P3 | 多實例部署 | [`multi-instance.md`](./multi-instance.md) | 提案 | — |
@@ -42,6 +42,7 @@
 
 已完成並歸檔（細節見各 ADR 與正式文件）：
 
+- `permission-graph` G4b（說明：有效權限的來源、資料夾存取的路徑）：[ADR-0024](../adr/0024-relationship-based-access-control.md) D14、[`rbac/09-explain.md`](../rbac/09-explain.md)
 - `permission-graph` G4a（群組、反提權一般化）：[ADR-0024](../adr/0024-relationship-based-access-control.md) D10～D16、[`rbac/08-groups.md`](../rbac/08-groups.md)、
   [`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1
 - `permission-graph` G0～G3b：[ADR-0024](../adr/0024-relationship-based-access-control.md)、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4、[`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.2、§5
@@ -52,7 +53,7 @@
 接下來：
 
 1. 依需求二選一：對外整合（`api-tokens` → `webhooks`），或編輯器的協作（`tags-comments`；多型關聯的命名已由 [ADR-0025](../adr/0025-entity-revisions.md) D7 決定）。
-2. **`permission-graph` G4b**：explain API 與有效權限、「為什麼」的畫面（D14）。
+2. `permission-graph` G5（專案）等專案功能的提案一起做。
 3. `hardening-followups` 裡的小項目可以隨時穿插。
 
 ### 1.2 撰寫提案時的架構前提
