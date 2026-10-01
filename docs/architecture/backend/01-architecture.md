@@ -203,12 +203,16 @@ HTTP Request
 ```ts
 // app.module.ts
 providers: [
-  { provide: APP_GUARD, useClass: ThrottlerGuard },
+  { provide: APP_GUARD, useClass: RateLimitGuard },
   { provide: APP_GUARD, useClass: JwtAuthGuard },
+  { provide: APP_GUARD, useClass: WsAuthGuard },
   { provide: APP_GUARD, useClass: FeatureGuard },
   { provide: APP_GUARD, useClass: PermissionsGuard },
 ];
 ```
+
+Nest 12 起全域 guard／interceptor 也套用到 WebSocket gateway：每個 guard 以 `ctx.getType()` 決定要不要管，
+HTTP 由 `JwtAuthGuard`、ws 由 `WsAuthGuard` 認人（[`08-realtime.md`](./08-realtime.md) §4）。
 
 全域註冊 ＋ **預設拒絕** ＝ 新增一個 controller 時，忘記加權限宣告的後果是
 「啟動失敗」，而不是「開了一個無保護的端點」。
@@ -232,8 +236,8 @@ app.module
   └─ 全域葉節點（@Global）：Permission · AuditLog · PlatformAdmin
 ```
 
-全域葉節點不必寫進 `imports` 也注入得到（上圖省略）：`PermissionsGuard` 在每個模組裡都要用它們，
-gateway 以 `@UseGuards` 在自己的模組裡建立 guard（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2 註 4）。
+全域葉節點不必寫進 `imports` 也注入得到（上圖省略）：`PermissionsGuard` 要用它們
+（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2 註 4），部分模組也不經 `imports` 直接注入它們的 service。
 
 規則：
 

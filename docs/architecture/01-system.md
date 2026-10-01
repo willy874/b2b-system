@@ -25,7 +25,7 @@
                                  │ WebSocket /api/socket.io（handshake auth.token；伺服器推播）
                                  ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ apps/api  (NestJS 11)                                               │
+│ apps/api  (NestJS 12)                                               │
 │                                                                     │
 │  ┌── 全域管線（每個請求都會經過） ─────────────────────────────────┐  │
 │  │ RequestIdMiddleware → JwtAuthGuard → PermissionsGuard          │  │

@@ -1,6 +1,9 @@
 # 後端文件
 
-`apps/api` — NestJS 11 + Drizzle ORM + PostgreSQL 17。
+`apps/api` — NestJS 12 + Drizzle ORM + PostgreSQL 17。
+
+Nest 12 的套件只發 ESM；`apps/api` 仍編譯成 CommonJS，靠 Node 的 `require(esm)` 載入（Node 20.19+／22.12+，專案要求 24）。
+因此 Nest 的套件只能從根路徑或 `exports` 開放的路徑 import（`@nestjs/common/constants` 可以，`@nestjs/swagger/dist/…` 不行）。
 
 結構刻意與前端同構：`modules/` 對應前端的 `features/`，`core/` 對應
 前端的 `core/`。同一個功能在兩邊叫同一個名字，找東西不需要換腦袋。

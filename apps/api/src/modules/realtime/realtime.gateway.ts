@@ -8,7 +8,7 @@ import {
   ServerEvent,
 } from '@b2b-system/realtime';
 import type { RealtimeConnectErrorData, SessionRenewResult } from '@b2b-system/realtime';
-import { Inject, Logger, UseGuards } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpAdapterHost } from '@nestjs/core';
 import {
@@ -23,7 +23,6 @@ import { z } from 'zod';
 
 import { AccessTokenVerifier } from '@/common/auth';
 import { Authenticated } from '@/common/decorators';
-import { PermissionsGuard, WsAuthGuard } from '@/common/guards';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
 import type { ErrorCode } from '@/core/errors';
@@ -57,11 +56,11 @@ function connectError(code: ErrorCode): Error {
  *   （docs/adr/0020-physical-tenant-isolation.md D2、D3）。
  * - 訊息：`WsAuthGuard` 重驗使用者 → `PermissionsGuard` 看宣告；每個處理器都要有授權宣告
  *   （`common/route-audit.ts`）。
- * - Nest 的 APP_GUARD / APP_INTERCEPTOR **不會** 套用到 gateway（WebSocket 的 context creator
- *   不讀全域 enhancer），所以守門員必須以 `@UseGuards` 掛在 class 上；順序即執行順序。
- *   `@nestjs/throttler` 也因此不作用在這裡，速率限制在本檔自己做（§11）。
+ * - 兩個守門員都是全域的 `APP_GUARD`（app.module.ts；Nest 12 起全域 guard／interceptor 也套用到 gateway），
+ *   不在這裡 `@UseGuards`：class 層的 guard 排在全域之後，`PermissionsGuard` 會先於 `WsAuthGuard` 執行。
+ *   HTTP 專用的全域 guard（`RateLimitGuard`、`JwtAuthGuard`、`FeatureGuard`）與 `TransformInterceptor`
+ *   遇到 ws 直接放行；速率限制在本檔自己做（§11）。全域 filter 仍不套用到 gateway。
  */
-@UseGuards(WsAuthGuard, PermissionsGuard)
 @WebSocketGateway({
   path: '/socket.io', // 瀏覽器看到的是 /api/socket.io；proxy 去掉 /api（同 HTTP）
   transports: ['websocket'], // 不開 long-polling：免 sticky session，也少一條吃 cookie 的 HTTP 路徑

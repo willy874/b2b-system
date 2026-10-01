@@ -189,9 +189,12 @@ WebSocket 另有三道防線：
    （走 `UserCacheService`，30 秒 TTL），停用、`token_version` 不符或已超過 `expiresAt` 就拒絕並斷線。
 3. **`PermissionsGuard` 支援 `ws`**：從 `socket.data.userId` 解析權限集合，其餘判定與 HTTP 相同；拒絕時拋帶 `code` 的 `WsException`。
 
-> **Nest 的 WebSocket context 不套用 `APP_GUARD` / `APP_INTERCEPTOR`。** 所以 gateway 以
-> `@UseGuards(WsAuthGuard, PermissionsGuard)` 掛在 class 上（順序即執行順序）；
-> `@nestjs/throttler` 與 `TransformInterceptor` 也不作用在 WebSocket 上，限流由 §11 自己做。
+> **Nest 12 起 `APP_GUARD` / `APP_INTERCEPTOR`（與 `APP_PIPE`）也套用到 WebSocket gateway**（`APP_FILTER` 仍不套用）。
+> 所以 `WsAuthGuard` 與 `PermissionsGuard` 都是全域 guard，依 `app.module.ts` 的順序
+> `RateLimitGuard → JwtAuthGuard → WsAuthGuard → FeatureGuard → PermissionsGuard` 執行，gateway 不再 `@UseGuards`
+> （class 層的 guard 排在全域之後，會讓 `PermissionsGuard` 先於 `WsAuthGuard`）。
+> HTTP 專用的 `RateLimitGuard`、`JwtAuthGuard`、`FeatureGuard` 與 `TransformInterceptor` 遇到 `ws` 直接放行：
+> ack 不包 `{ data }`，限流由 §11 自己做。
 
 ---
 

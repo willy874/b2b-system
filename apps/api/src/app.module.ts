@@ -3,7 +3,13 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, DiscoveryModule } from '@nestjs
 import { ThrottlerModule } from '@nestjs/throttler';
 
 import { AccessTokenModule } from './common/auth';
-import { FeatureGuard, JwtAuthGuard, PermissionsGuard, RateLimitGuard } from './common/guards';
+import {
+  FeatureGuard,
+  JwtAuthGuard,
+  PermissionsGuard,
+  RateLimitGuard,
+  WsAuthGuard,
+} from './common/guards';
 import { AuthzModule } from './core/authz';
 import { BroadcastModule } from './core/broadcast';
 import { CacheModule } from './core/cache';
@@ -99,9 +105,12 @@ import { UserModule } from './modules/user/user.module';
     TenantModule,
   ],
   providers: [
-    // 全域註冊 ＋ 預設拒絕：忘記宣告權限的後果是「啟動失敗」而不是「開了一個無保護的端點」
+    // 全域註冊 ＋ 預設拒絕：忘記宣告權限的後果是「啟動失敗」而不是「開了一個無保護的端點」。
+    // Nest 12 起全域 guard／interceptor 也套用到 WebSocket gateway：每個 guard 自己看 ctx.getType()，
+    // HTTP 由 JwtAuthGuard、ws 由 WsAuthGuard 認人，兩者都排在 FeatureGuard 與 PermissionsGuard 之前
     { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: WsAuthGuard },
     // 未啟用的 feature → 404：在驗證之後（未登入照舊 401）、權限之前（不以 403 透露端點存在）
     { provide: APP_GUARD, useClass: FeatureGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },

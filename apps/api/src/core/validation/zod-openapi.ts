@@ -1,6 +1,7 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiBody, ApiResponse } from '@nestjs/swagger';
-import type { SchemaObject } from '@nestjs/swagger/dist/interfaces/open-api-spec.interface';
+// swagger 12 的 package.json `exports` 只開放根路徑，不再深入 dist/ 取型別
+import type { SchemaObject } from '@nestjs/swagger';
 import { z } from 'zod';
 import type { ZodType } from 'zod';
 
