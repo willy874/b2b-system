@@ -48,7 +48,6 @@ function toDto(
     status: tenant.status,
     domains: tenant.domains,
     storageBucket: tenant.storageBucket,
-    allowExternalIdp: tenant.allowExternalIdp,
     features: toTenantFeatures(tenant.features),
     flags: pickKnownOverrides(toFeatureFlagOverrides(tenant.flags), flagCatalog),
     adminEmail: tenant.adminEmail,
@@ -176,12 +175,7 @@ export class PlatformTenantService {
     const flags = dto.flags && this.knownFlagOverrides(dto.flags);
     const flagsChanged = flags !== undefined && !sameOverrides(flags, beforeFlags);
     await this.repo.transaction(async (tx) => {
-      await this.repo.update(
-        id,
-        { name: dto.name, allowExternalIdp: dto.allowExternalIdp, features, flags },
-        undefined,
-        tx,
-      );
+      await this.repo.update(id, { name: dto.name, features, flags }, undefined, tx);
       await this.audit.record(
         {
           action: 'tenant.update',
@@ -191,13 +185,11 @@ export class PlatformTenantService {
             code: before.code,
             before: {
               name: before.name,
-              allowExternalIdp: before.allowExternalIdp,
               features: beforeFeatures,
               flags: beforeFlags,
             },
             after: {
               name: dto.name ?? before.name,
-              allowExternalIdp: dto.allowExternalIdp ?? before.allowExternalIdp,
               features: features ?? beforeFeatures,
               flags: flags ?? beforeFlags,
             },
@@ -206,7 +198,7 @@ export class PlatformTenantService {
         tx,
       );
     });
-    // 外部 IdP 的開關、啟用的 feature 都在租戶脈絡裡判斷：立即生效（多個執行個體時最多晚 TENANT_CACHE_TTL 秒）
+    // 啟用的 feature（含外部 IdP）在租戶脈絡裡判斷：立即生效（多個執行個體時最多晚 TENANT_CACHE_TTL 秒）
     this.directory.invalidate();
     // 失效之後才通知：前端收到後重新取得的 profile 已經是新的清單（docs/adr/0021-runtime-feature-activation.md D8）
     // flag 的變更走同一個事件：前端同樣是重新取得 profile（docs/adr/0022-feature-flags.md D7）

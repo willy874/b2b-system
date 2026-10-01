@@ -11,6 +11,7 @@ import { IconButton } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { Menu } from '@/components/Menu';
 import { BatchQueueNotifier } from '@/core/batch';
+import { useIsFeatureReady } from '@/core/feature';
 import { useTranslation } from '@/core/locales';
 import { useLayoutStore } from '@/core/store';
 import { PREFERENCE_PAGE, PROFILE_PAGE } from '@/features/account';
@@ -19,6 +20,7 @@ import { ENV } from '@/shared/constants/env';
 import { useMediaQuery } from '@/shared/hooks';
 import { cn } from '@/shared/utils';
 
+import { TENANT_SWITCH_FEATURE } from '../features';
 import { HeaderToolbar } from './HeaderToolbar';
 import { useMenuItems } from './menu';
 import type { MenuItem } from './menu';
@@ -44,7 +46,10 @@ const ACCOUNT_MENU: MenuItem[] = [
 /** 與 DashboardLayout.css 的斷點一致：以下側欄改成覆蓋式抽屜。 */
 const NARROW_QUERY = '(max-width: 767px)';
 
-/** 換租戶＝換網域：回到 apps/auth 的「進入租戶」輸入代碼（docs/adr/0020-physical-tenant-isolation.md D11）。 */
+/**
+ * 換租戶＝換網域：回到 apps/auth 的「進入租戶」輸入代碼（docs/adr/0020-physical-tenant-isolation.md D11）。
+ * 平台管理者可對租戶關閉這個項目（`tenantSwitch`，docs/adr/0029-toggleable-platform-features.md D6）。
+ */
 const SWITCH_TENANT_URL = `${ENV.AUTH_APP_URL}/enter`;
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
@@ -60,6 +65,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const profile = useQuery(getAuthProfileQueryOptions());
   const tenant = useQuery(getCurrentTenantQueryOptions());
   const sidebarId = useId();
+  const canSwitchTenant = useIsFeatureReady(TENANT_SWITCH_FEATURE);
 
   // 換頁就收起抽屜（以「上一次看到的路徑」判斷，不用 effect 同步）
   const [seenPath, setSeenPath] = useState(pathname);
@@ -139,11 +145,15 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 label: t(item.labelKey),
                 onSelect: () => void navigate({ to: item.to }),
               })),
-              {
-                key: 'switchTenant',
-                label: t('menu.switchTenant'),
-                onSelect: () => globalThis.location.assign(SWITCH_TENANT_URL),
-              },
+              ...(canSwitchTenant
+                ? [
+                    {
+                      key: 'switchTenant',
+                      label: t('menu.switchTenant'),
+                      onSelect: () => globalThis.location.assign(SWITCH_TENANT_URL),
+                    },
+                  ]
+                : []),
               {
                 key: 'logout',
                 label: t('menu.logout'),

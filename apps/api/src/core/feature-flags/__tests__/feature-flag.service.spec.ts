@@ -43,7 +43,6 @@ function tenantWith(flags: Record<string, boolean>): TenantContext {
     code: 't1',
     db: {} as Database,
     storageBucket: 'b2b-t1',
-    allowExternalIdp: true,
     features: [],
     flags,
   };

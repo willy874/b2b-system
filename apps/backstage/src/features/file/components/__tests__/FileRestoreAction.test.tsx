@@ -3,6 +3,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppError } from '@/core/errors';
+import { featureStore, resetFeatureStore } from '@/core/feature';
 import type { PermissionKey } from '@/core/permission';
 import { RootRoute } from '@/core/router';
 import { initTestI18n } from '@/test/i18n';
@@ -81,6 +82,9 @@ function restoredFolder(filesSkipped: number) {
 beforeAll(() => initTestI18n(fileZhTW));
 
 beforeEach(() => {
+  // 復原按鈕只在租戶啟用回收桶時出現（docs/adr/0029-toggleable-platform-features.md D3）
+  resetFeatureStore();
+  featureStore.setState({ resolved: true, statuses: new Map([['trash', 'ready']]) });
   restoreFile.mockReset().mockResolvedValue({ id: FILE_ID, name: 'hero.png', folderId: null });
   restoreFolder.mockReset().mockResolvedValue(restoredFolder(0));
   deleteFile.mockReset().mockResolvedValue(undefined);

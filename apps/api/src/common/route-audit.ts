@@ -31,8 +31,11 @@ export interface RouteDeclaration {
   /** `@RequirePlatformPermissions` 的鍵（平台的權限目錄，ADR-0020 D5）。 */
   platformKeys: PlatformPermissionKey[];
   match?: 'every' | 'some';
-  /** `@RequireFeature` 標的 feature（docs/adr/0021-runtime-feature-activation.md D11）；沒有標就是常駐的端點。 */
-  feature?: TenantFeature;
+  /**
+   * `@RequireFeature` 標的 feature（docs/adr/0021-runtime-feature-activation.md D11），handler 與 class 的合併；
+   * 沒有標就是常駐的端點。
+   */
+  features?: TenantFeature[];
   /** `@RequireFlag` 標的 feature flag（docs/adr/0022-feature-flags.md D5）。 */
   flag?: string;
 }
@@ -104,7 +107,7 @@ export function collectRouteDeclarations(app: INestApplication): RouteDeclaratio
       if (subPath === undefined) continue;
 
       const verb = Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod;
-      const feature = reflector.getAllAndOverride<TenantFeature | undefined>(REQUIRED_FEATURE, [
+      const features = reflector.getAllAndMerge<TenantFeature[]>(REQUIRED_FEATURE, [
         handler as () => void,
         metatype,
       ]);
@@ -116,7 +119,7 @@ export function collectRouteDeclarations(app: INestApplication): RouteDeclaratio
         method: RequestMethod[verb] ?? 'GET',
         path: joinPath(controllerPath, subPath),
         ...declarationOf(reflector, handler, metatype),
-        ...(feature && { feature }),
+        ...(features.length > 0 && { features }),
         ...(flag && { flag }),
       });
     }
@@ -176,11 +179,11 @@ export function auditRoutes(
   }
 
   // 平台的請求沒有租戶脈絡，FeatureGuard 不判斷：標在平台端點上的 @RequireFeature 永遠不生效，視為寫錯
-  const misplaced = routes.filter((r) => r.feature && r.declaration === 'platformPermissions');
+  const misplaced = routes.filter((r) => r.features && r.declaration === 'platformPermissions');
   if (misplaced.length) {
     throw new Error(
       '以下平台端點標了 @RequireFeature（feature 以租戶為單位，平台端點不適用）：\n' +
-        misplaced.map((r) => `  - ${r.method} ${r.path}（${r.feature}）`).join('\n'),
+        misplaced.map((r) => `  - ${r.method} ${r.path}（${r.features?.join(', ')}）`).join('\n'),
     );
   }
 

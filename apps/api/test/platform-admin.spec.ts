@@ -13,6 +13,7 @@ import type { Env } from '@/core/config';
 import { MailTransport } from '@/core/mail';
 import type { MailMessage, SentMail } from '@/core/mail';
 import { ObjectStorage } from '@/core/storage';
+import { TENANT_FEATURES } from '@/core/tenant';
 import { platformAdmins, tenants } from '@/db/platform/schema';
 import type { PlatformAdminRole } from '@/db/platform/schema';
 import { upsertPlatformAdmin } from '@/db/seeds/platform-admin';
@@ -37,6 +38,8 @@ const AUTH_HOST = 'localhost:5175';
 const HOME_HOST = '127.0.0.1';
 const PASSWORD = 'PlatformPassword!2026';
 const ROOT = { email: 'pa-root@example.com', password: 'RootPassword!2026' };
+/** 新租戶預設啟用全部（db/platform/schema/tenants.ts 的預設值）。 */
+const ALL_FEATURES: string[] = [...TENANT_FEATURES];
 
 let app: INestApplication;
 let http: App;
@@ -331,7 +334,7 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
     expect(unknown.items).toEqual([]);
   });
 
-  it('外部 IdP 開關：關掉後租戶不能新增連線，清單標示不允許；打開後恢復', async () => {
+  it('外部 IdP（identityProvider）：關掉後租戶的 /identity-providers 回 404；打開後恢復（docs/adr/0029-toggleable-platform-features.md D5）', async () => {
     const tenantId = (await testTenantContext(app)).id;
     const login = await request(http)
       .post('/auth/login')
@@ -346,40 +349,71 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
       clientSecret: 'secret',
       domains: [{ domain: 'acme-idp.test', ssoOnly: false }],
     };
-
-    const off = dataOf<{ allowExternalIdp: boolean }>(
-      await as(root, 'patch', `/platform/tenants/${tenantId}`)
-        .send({ allowExternalIdp: false })
-        .expect(200),
-    );
-    expect(off.allowExternalIdp).toBe(false);
-    const denied = await request(http)
-      .post('/identity-providers')
-      .set('Host', HOME_HOST)
-      .set('authorization', `Bearer ${tenantToken}`)
-      .send(provider)
-      .expect(403);
-    expect(errorCodeOf(denied)).toBe('IDENTITY_PROVIDER_NOT_ALLOWED');
-    const list = dataOf<{ allowed: boolean }>(
-      await request(http)
-        .get('/identity-providers')
+    const tenantRequest = (method: 'get' | 'post', path: string) => {
+      const agent = request(http);
+      return (method === 'get' ? agent.get(path) : agent.post(path))
         .set('Host', HOME_HOST)
-        .set('authorization', `Bearer ${tenantToken}`)
+        .set('authorization', `Bearer ${tenantToken}`);
+    };
+    const others = ALL_FEATURES.filter((feature) => feature !== 'identityProvider');
+
+    const off = dataOf<{ features: string[] }>(
+      await as(root, 'patch', `/platform/tenants/${tenantId}`)
+        .send({ features: others })
         .expect(200),
     );
-    expect(list.allowed).toBe(false);
+    expect(off.features).toEqual(others);
+    const denied = await tenantRequest('post', '/identity-providers').send(provider).expect(404);
+    expect(errorCodeOf(denied)).toBe('FEATURE_DISABLED');
+    await tenantRequest('get', '/identity-providers').expect(404);
 
     await as(root, 'patch', `/platform/tenants/${tenantId}`)
-      .send({ allowExternalIdp: true })
+      .send({ features: ALL_FEATURES })
       .expect(200);
-    await request(http)
-      .post('/identity-providers')
-      .set('Host', HOME_HOST)
-      .set('authorization', `Bearer ${tenantToken}`)
-      .send(provider)
-      .expect(201);
+    await tenantRequest('post', '/identity-providers').send(provider).expect(201);
     const [row] = await platformDb.select().from(tenants).where(eq(tenants.id, tenantId));
-    expect(row?.allowExternalIdp).toBe(true);
+    expect(row?.features).toContain('identityProvider');
+  });
+
+  it('回收桶與系統設定：關掉後列表、還原、設定頁的端點回 404，公開設定照舊（docs/adr/0029-toggleable-platform-features.md D3、D4）', async () => {
+    const tenantId = (await testTenantContext(app)).id;
+    const login = await request(http)
+      .post('/auth/login')
+      .set('Host', HOME_HOST)
+      .send(ROOT)
+      .expect(200);
+    const tenantToken = (login.body as { data: { accessToken: string } }).data.accessToken;
+    const tenantRequest = (method: 'get' | 'post', path: string) => {
+      const agent = request(http);
+      return (method === 'get' ? agent.get(path) : agent.post(path))
+        .set('Host', HOME_HOST)
+        .set('authorization', `Bearer ${tenantToken}`);
+    };
+    const others = ALL_FEATURES.filter(
+      (feature) => feature !== 'trash' && feature !== 'systemSetting',
+    );
+
+    await as(root, 'patch', `/platform/tenants/${tenantId}`).send({ features: others }).expect(200);
+    expect(
+      errorCodeOf(await tenantRequest('get', '/trash').query({ type: 'user' }).expect(404)),
+    ).toBe('FEATURE_DISABLED');
+    expect(
+      errorCodeOf(
+        await tenantRequest('post', '/users/00000000-0000-4000-8000-000000000000/restore').expect(
+          404,
+        ),
+      ),
+    ).toBe('FEATURE_DISABLED');
+    expect(errorCodeOf(await tenantRequest('get', '/system/settings').expect(404))).toBe(
+      'FEATURE_DISABLED',
+    );
+    await request(http).get('/system/settings/public').set('Host', HOME_HOST).expect(200);
+
+    await as(root, 'patch', `/platform/tenants/${tenantId}`)
+      .send({ features: ALL_FEATURES })
+      .expect(200);
+    await tenantRequest('get', '/trash').query({ type: 'user' }).expect(200);
+    await tenantRequest('get', '/system/settings').expect(200);
   });
 
   it('啟用的 feature：關掉 file 後租戶的 /files 回 404 FEATURE_DISABLED、profile 不含 file；打開後恢復（docs/adr/0021-runtime-feature-activation.md D8、D11）', async () => {
@@ -395,7 +429,7 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
     const featuresOfProfile = async () =>
       dataOf<{ features: string[] }>(await tenantGet('/auth/profile').expect(200)).features;
 
-    expect(await featuresOfProfile()).toEqual(['file', 'auditLog', 'job']);
+    expect(await featuresOfProfile()).toEqual(ALL_FEATURES);
 
     const off = dataOf<{ features: string[] }>(
       await as(root, 'patch', `/platform/tenants/${tenantId}`)
@@ -421,7 +455,7 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
       audits.items.find(
         (entry) => (entry.metadata.after as { features?: string[] }).features?.length === 2,
       )?.metadata.before,
-    ).toMatchObject({ features: ['file', 'auditLog', 'job'] });
+    ).toMatchObject({ features: ALL_FEATURES });
 
     // 重複的值直接拒絕；未知的 id 也拒絕
     await as(root, 'patch', `/platform/tenants/${tenantId}`)
@@ -432,11 +466,11 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
       .expect(400);
 
     await as(root, 'patch', `/platform/tenants/${tenantId}`)
-      .send({ features: ['file', 'auditLog', 'job'] })
+      .send({ features: ALL_FEATURES })
       .expect(200);
     await tenantGet('/files').expect(200);
-    expect(await featuresOfProfile()).toEqual(['file', 'auditLog', 'job']);
+    expect(await featuresOfProfile()).toEqual(ALL_FEATURES);
     const [row] = await platformDb.select().from(tenants).where(eq(tenants.id, tenantId));
-    expect(row?.features).toEqual(['file', 'auditLog', 'job']);
+    expect(row?.features).toEqual(ALL_FEATURES);
   });
 });

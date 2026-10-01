@@ -1,5 +1,7 @@
 import type { PlatformTenant } from '@/shared/api-sdk';
 
+import { TENANT_FEATURES } from './constants';
+
 /** 頁面測試共用的租戶。 */
 export function tenantFixture(overrides: Partial<PlatformTenant> = {}): PlatformTenant {
   return {
@@ -9,8 +11,7 @@ export function tenantFixture(overrides: Partial<PlatformTenant> = {}): Platform
     status: 'active',
     domains: ['acme.localhost:5173', 'portal.acme.test'],
     storageBucket: 'b2b-acme',
-    allowExternalIdp: true,
-    features: ['file', 'auditLog', 'job'],
+    features: [...TENANT_FEATURES],
     flags: {},
     adminEmail: 'owner@acme.test',
     provisionError: null,

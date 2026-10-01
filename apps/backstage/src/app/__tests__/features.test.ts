@@ -9,7 +9,10 @@ import { resetRouteLinkRegistry, routeLinkRegistry } from '@/core/route-link';
 import { resetTrashRegistry } from '@/core/trash';
 import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { FILE_PAGE } from '@/features/file';
+import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
 import { JOB_PAGE } from '@/features/job';
+import { SETTING_PAGE } from '@/features/system';
+import { TRASH_PAGE } from '@/features/trash';
 
 import { FEATURE_CATALOG } from '../features';
 
@@ -18,6 +21,11 @@ const EXPECTED_PAGES = {
   file: [FILE_PAGE],
   auditLog: [AUDIT_LOG_PAGE],
   job: [JOB_PAGE],
+  trash: [TRASH_PAGE],
+  systemSetting: [SETTING_PAGE],
+  identityProvider: [IDENTITY_PROVIDER_PAGE],
+  // 只控制帳號選單的一個項目，沒有頁面
+  tenantSwitch: [],
 } satisfies Record<keyof typeof FEATURE_CATALOG, unknown[]>;
 
 function createContext() {

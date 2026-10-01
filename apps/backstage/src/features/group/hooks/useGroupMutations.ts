@@ -9,8 +9,10 @@ import { getGroupRolesUpdateMutationOptions } from '@/apis/group/update-group-ro
 import { getGroupUpdateMutationOptions } from '@/apis/group/update-group/mutation';
 import { invalidateResources, Resource } from '@/apis/resources';
 import { isAppError, isVersionConflict, useErrorMessage, useErrorToast } from '@/core/errors';
+import { useIsFeatureReady } from '@/core/feature';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
+import { TenantFeature } from '@/shared/api-sdk';
 
 import { DEFAULT_GROUP_SEARCH, GroupDetailRoute } from '../routes';
 
@@ -58,6 +60,7 @@ export function useGroupDeleteMutation() {
   const { t } = useTranslation();
   const showError = useErrorToast();
   const restore = useGroupRestoreMutation();
+  const canRestore = useIsFeatureReady(TenantFeature.trash);
 
   return useMutation({
     ...getGroupDeleteMutationOptions(),
@@ -66,10 +69,13 @@ export function useGroupDeleteMutation() {
       toast.show({
         type: 'success',
         title: t('group.delete.success'),
-        action: {
-          label: t('group.delete.undo'),
-          onClick: () => restore.mutate({ params: { groupId: params.groupId } }),
-        },
+        // 回收桶被平台關掉時還原端點回 404，不提供復原（docs/adr/0029-toggleable-platform-features.md D3）
+        ...(canRestore && {
+          action: {
+            label: t('group.delete.undo'),
+            onClick: () => restore.mutate({ params: { groupId: params.groupId } }),
+          },
+        }),
       });
     },
     onError: showError,

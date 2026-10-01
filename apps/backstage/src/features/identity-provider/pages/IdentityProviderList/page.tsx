@@ -32,9 +32,6 @@ export default function IdentityProviderListPage() {
   const [removing, setRemoving] = useState<IdentityProvider>();
 
   const { data, isPending } = useQuery(getIdentityProviderListQueryOptions());
-  // 平台管理者可以關掉這個租戶的外部 IdP（docs/adr/0020-physical-tenant-isolation.md D22）：
-  // 關掉時不能新增連線；既有的連線可以編輯、停用、刪除，但不能啟用
-  const allowed = data?.allowed ?? true;
 
   const columns = useMemo<Array<TableColumnDef<IdentityProvider>>>(
     () => [
@@ -128,7 +125,7 @@ export default function IdentityProviderListPage() {
             {t('identityProvider.description')}
           </p>
         </div>
-        {permission.canCreate && allowed && (
+        {permission.canCreate && (
           <Button
             variant="primary"
             onClick={() => {
@@ -141,15 +138,6 @@ export default function IdentityProviderListPage() {
           </Button>
         )}
       </header>
-
-      {!allowed && (
-        <p
-          className="m-0 rounded-[var(--radius-md)] border border-[var(--color-warning)] p-3 text-sm"
-          data-testid="identity-provider-not-allowed"
-        >
-          {t('identityProvider.notAllowed')}
-        </p>
-      )}
 
       {data && (
         <label className="flex max-w-160 flex-col gap-1 text-sm">

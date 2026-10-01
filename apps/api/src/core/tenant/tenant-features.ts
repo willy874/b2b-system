@@ -4,11 +4,21 @@
  * 值存在平台 DB 的 `tenants.features`；api 以 `@RequireFeature()` 擋下未啟用 feature 的端點（`FEATURE_DISABLED`），
  * `/auth/profile` 回傳目前租戶啟用的清單，前端據此安裝或移除對應的 plugin。
  * 其餘 feature 是常駐的（ADR-0021「原本待決、已定案的事項」2），不在這份清單。
+ * 各 id 停用時的行為（哪些端點 404、哪些資料與背景工作照舊）見 docs/adr/0029-toggleable-platform-features.md。
  *
  * 新增一個 id 時：平台 DB 的預設值（`db/platform/schema/tenants.ts`）要不要跟著加，要另外決定——
  * 既有租戶不會因為這裡多了一個值就自動啟用。
  */
-export const TENANT_FEATURES = ['file', 'auditLog', 'job'] as const;
+export const TENANT_FEATURES = [
+  'file',
+  'auditLog',
+  'job',
+  // ADR-0029：原本常駐、改為可由平台關閉的通用能力
+  'trash',
+  'systemSetting',
+  'identityProvider',
+  'tenantSwitch',
+] as const;
 
 export type TenantFeature = (typeof TENANT_FEATURES)[number];
 

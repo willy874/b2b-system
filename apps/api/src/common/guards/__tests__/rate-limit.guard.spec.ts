@@ -40,7 +40,6 @@ const tenantOf = (id: string) => ({
   code: id,
   db: {} as Database,
   storageBucket: `b2b-${id}`,
-  allowExternalIdp: true,
   features: ['file', 'auditLog', 'job'] as const,
   flags: {},
 });

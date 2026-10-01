@@ -6,6 +6,7 @@ import type { PlatformTenant, TenantFeature } from '@/shared/api-sdk';
 
 import {
   TENANT_FEATURE_DESCRIPTION_KEY,
+  TENANT_FEATURE_DISABLE_WARNING_KEY,
   TENANT_FEATURE_LABEL_KEY,
   TENANT_FEATURES,
 } from '../../../constants';
@@ -37,13 +38,17 @@ export function TenantFeatures({ tenant, canUpdate }: TenantFeaturesProps) {
       void save(next).catch(showError);
       return;
     }
+    const warningKey = TENANT_FEATURE_DISABLE_WARNING_KEY[feature];
+    const description = t('tenant.feature.disableConfirm', {
+      code: tenant.code,
+      feature: t(TENANT_FEATURE_LABEL_KEY[feature]),
+    });
     // 失敗時提示並重拋：確認框留著，讓使用者決定重試或取消
     void confirm({
       title: t('tenant.feature.disableTitle'),
-      description: t('tenant.feature.disableConfirm', {
-        code: tenant.code,
-        feature: t(TENANT_FEATURE_LABEL_KEY[feature]),
-      }),
+      description: warningKey
+        ? `${description} ${t(warningKey, { code: tenant.code })}`
+        : description,
       confirmLabel: t('tenant.feature.disableAction'),
       tone: 'danger',
       onConfirm: () =>

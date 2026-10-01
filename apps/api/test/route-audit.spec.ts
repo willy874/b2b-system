@@ -17,11 +17,18 @@ import { ALL_PLATFORM_PERMISSION_KEYS } from '@/db/seeds/platform-permissions';
 
 let app: INestApplication;
 
-/** 路徑前綴 → 應標的 feature（docs/adr/0021-runtime-feature-activation.md D11）；平台的 /platform/jobs 不屬於任何租戶，不標。 */
-function featureOf(path: string): string | undefined {
-  if (/^\/(files|file-folders)(\/|$)/.test(path)) return 'file';
-  if (/^\/audit-logs(\/|$)/.test(path)) return 'auditLog';
-  if (/^\/jobs(\/|$)/.test(path)) return 'job';
+/**
+ * 路由 → 應標的 feature（docs/adr/0021-runtime-feature-activation.md D11、docs/adr/0029-toggleable-platform-features.md）；
+ * 平台的 /platform/jobs 不屬於任何租戶，不標。還原端點屬於回收桶，handler 的 `trash` 排在 class 的之前。
+ */
+function featuresOf(method: string, path: string): string[] | undefined {
+  const restore = method === 'POST' && path.endsWith('/:id/restore');
+  if (/^\/(files|file-folders)(\/|$)/.test(path)) return restore ? ['trash', 'file'] : ['file'];
+  if (restore || /^\/trash(\/|$)/.test(path)) return ['trash'];
+  if (/^\/audit-logs(\/|$)/.test(path)) return ['auditLog'];
+  if (/^\/jobs(\/|$)/.test(path)) return ['job'];
+  if (path === '/system/settings') return ['systemSetting'];
+  if (/^\/identity-providers(\/|$)/.test(path)) return ['identityProvider'];
   return undefined;
 }
 
@@ -273,9 +280,11 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
 
   it('@RequireFeature 標在可啟用 feature 的所有端點，其餘都沒有（docs/adr/0021-runtime-feature-activation.md D11）', () => {
     const routes = collectRouteDeclarations(app);
-    expect(routes.some((route) => route.feature)).toBe(true);
+    expect(routes.some((route) => route.features)).toBe(true);
     for (const route of routes) {
-      expect(route.feature, `${route.method} ${route.path} 的 feature`).toBe(featureOf(route.path));
+      expect(route.features, `${route.method} ${route.path} 的 feature`).toEqual(
+        featuresOf(route.method, route.path),
+      );
     }
   });
 

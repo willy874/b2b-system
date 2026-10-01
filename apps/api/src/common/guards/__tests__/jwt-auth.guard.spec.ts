@@ -28,7 +28,6 @@ const TENANT = {
   code: 'test',
   db: {} as Database,
   storageBucket: 'b2b-test',
-  allowExternalIdp: true,
   features: ['file', 'auditLog', 'job'] as const,
   flags: {},
 };

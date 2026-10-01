@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { CurrentUser, RequirePermissions } from '@/common/decorators';
+import { CurrentUser, RequireFeature, RequirePermissions } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
 import {
@@ -98,6 +98,7 @@ export class GroupController {
    * 名稱已被別的群組使用時 409 `GROUP_NAME_DUPLICATE`（`details.conflictingGroupId`）；沒有被刪除 409 `GROUP_NOT_DELETED`。
    */
   @Post(':id/restore')
+  @RequireFeature('trash') // 還原屬於回收桶（docs/adr/0029-toggleable-platform-features.md D3）
   @HttpCode(200)
   @RequirePermissions(PERMISSION.GROUP_DELETE)
   @ApiOperation({ summary: '還原刪除的群組（成員與持有的角色一併恢復）' })

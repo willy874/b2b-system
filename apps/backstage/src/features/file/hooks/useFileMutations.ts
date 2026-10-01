@@ -5,8 +5,10 @@ import { getFileRestoreMutationOptions } from '@/apis/file/restore-file/mutation
 import { getFileUpdateMutationOptions } from '@/apis/file/update-file/mutation';
 import { invalidateResources, Resource } from '@/apis/resources';
 import { isAppError, useErrorToast } from '@/core/errors';
+import { useIsFeatureReady } from '@/core/feature';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
+import { TenantFeature } from '@/shared/api-sdk';
 
 /**
  * 改名：帶上畫面看到的 `version`（樂觀鎖）。別人搶先改過時後端回 `FILE_VERSION_CONFLICT`，
@@ -38,6 +40,7 @@ export function useFileDeleteMutation() {
   const { t } = useTranslation();
   const showError = useErrorToast();
   const restore = useFileRestoreMutation();
+  const canRestore = useIsFeatureReady(TenantFeature.trash);
   return useMutation({
     ...getFileDeleteMutationOptions(),
     onSuccess: (_, { params }) => {
@@ -45,10 +48,13 @@ export function useFileDeleteMutation() {
       toast.show({
         type: 'success',
         title: t('file.delete.success'),
-        action: {
-          label: t('file.delete.undo'),
-          onClick: () => restore.mutate({ params: { fileId: params.fileId } }),
-        },
+        // 回收桶被平台關掉時還原端點回 404，不提供復原（docs/adr/0029-toggleable-platform-features.md D3）
+        ...(canRestore && {
+          action: {
+            label: t('file.delete.undo'),
+            onClick: () => restore.mutate({ params: { fileId: params.fileId } }),
+          },
+        }),
       });
     },
     onError: (error, { params }) => {

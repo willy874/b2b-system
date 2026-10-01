@@ -12,7 +12,8 @@ import { REQUIRED_FEATURE, REQUIRED_FLAG } from '../decorators';
 /**
  * 擋下租戶未啟用的 feature（docs/adr/0021-runtime-feature-activation.md D11）與關閉中的 feature flag
  * （docs/adr/0022-feature-flags.md D5）的端點：回 `FEATURE_DISABLED`（404），不暴露功能存在。
- * 前端依清單隱藏只是體驗，這裡才是存取控制。`@RequireFeature` 與 `@RequireFlag` 並存時兩者都要成立。
+ * 前端依清單隱藏只是體驗，這裡才是存取控制。`@RequireFeature` 與 `@RequireFlag` 並存時兩者都要成立；
+ * handler 與 class 各自的 `@RequireFeature` 合併計算，列出的 feature 都要啟用。
  *
  * 順序：全域 guard 排在 `JwtAuthGuard` **之後**、`PermissionsGuard` **之前**（app.module.ts）。
  * - 在 JWT 之後：未登入的請求照舊回 401，未登入者看不到「這個租戶有沒有開這個功能」。
@@ -32,15 +33,14 @@ export class FeatureGuard implements CanActivate {
   canActivate(ctx: ExecutionContext): boolean {
     if (ctx.getType() !== 'http') return true;
     const targets = [ctx.getHandler(), ctx.getClass()];
-    const feature = this.reflector.getAllAndOverride<TenantFeature | undefined>(
-      REQUIRED_FEATURE,
-      targets,
-    );
+    const features = this.reflector.getAllAndMerge<TenantFeature[]>(REQUIRED_FEATURE, targets);
     const flag = this.reflector.getAllAndOverride<string | undefined>(REQUIRED_FLAG, targets);
-    if (!feature && !flag) return true;
+    if (!features.length && !flag) return true;
     const tenant = currentTenant();
     if (!tenant) return true;
-    if (feature && !tenant.features.includes(feature)) throw new AppException('FEATURE_DISABLED');
+    if (features.some((feature) => !tenant.features.includes(feature))) {
+      throw new AppException('FEATURE_DISABLED');
+    }
     if (flag && !this.flags.isEnabled(flag)) throw new AppException('FEATURE_DISABLED');
     return true;
   }

@@ -80,14 +80,6 @@
       "removeAction": "Remove",
       "primaryHint": "The primary domain can't be removed: email links and tenant sign-in use it."
     },
-    "externalIdp": {
-      "title": "External IdP",
-      "allow": "Allow this tenant to configure external IdP connections",
-      "description": "When off, the tenant can't add or enable connections and sign-in never redirects to an external IdP. Existing connections are kept and come back when you turn this on again.",
-      "disableTitle": "Turn off external IdP",
-      "disableConfirm": "After turning this off, {{code}} users can no longer sign in with an external IdP, and SSO-only domains fall back to password sign-in. Users who only ever signed in through the external IdP and have no password must reset their password first. Existing connections are kept and come back when you turn this on again.",
-      "disableAction": "Turn off"
-    },
     "feature": {
       "title": "Enabled features",
       "description": "Tenant users only see enabled features; the API treats turned-off features as nonexistent. Data is kept and comes back when you turn a feature on again.",
@@ -97,6 +89,15 @@
       "auditLogDescription": "Browse the tenant's activity (entries are still recorded).",
       "job": "Background jobs",
       "jobDescription": "View and retry the tenant's background jobs (jobs still run).",
+      "trash": "Trash",
+      "trashDescription": "Browse and restore deleted items, including the \"Undo\" after a delete. When off, deleted items are still purged after the retention period.",
+      "systemSetting": "System settings",
+      "systemSettingDescription": "Lets tenant admins adjust runtime settings. When off, adjusted values stay in effect but can't be viewed or changed.",
+      "identityProvider": "External IdP",
+      "identityProviderDescription": "Lets the tenant configure OIDC identity providers so users can sign in with external accounts. When off, sign-in doesn't redirect to an external IdP; registered connections are kept.",
+      "identityProviderDisableWarning": "{{code}} users can no longer sign in through an external IdP, and SSO-only domains fall back to password sign-in; users who only ever signed in through an external IdP must reset their password first.",
+      "tenantSwitch": "Switch tenant",
+      "tenantSwitchDescription": "The \"Switch tenant\" item in the user menu, which opens the page for entering a tenant code. Deployments serving a single tenant can turn it off.",
       "disableTitle": "Turn off feature",
       "disableConfirm": "After turning this off, {{code}} users immediately lose access to \"{{feature}}\" and anyone on its pages is sent back to the home page. Data is kept and comes back when you turn it on again.",
       "disableAction": "Turn off"

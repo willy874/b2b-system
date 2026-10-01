@@ -1,6 +1,5 @@
 import { sql } from 'drizzle-orm';
 import {
-  boolean,
   index,
   jsonb,
   pgEnum,
@@ -49,19 +48,17 @@ export const tenants = pgTable(
     provisionError: text('provision_error'),
     provisionedAt: timestamp('provisioned_at', { withTimezone: true }),
     /**
-     * 是否允許租戶設定外部 IdP 連線（D22）：連線由租戶的管理者在 backstage 設定，平台只能開關。
-     * 關掉時租戶不能新增或啟用連線，登入時也不走既有的連線。
-     */
-    allowExternalIdp: boolean('allow_external_idp').notNull().default(true),
-    /**
      * 平台管理者為這個租戶啟用的 feature id（docs/adr/0021-runtime-feature-activation.md D8）。值域是
      * `core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`；這一層不 import `core/`，所以預設值寫成字面量，
      * 新租戶與 migration 當下的既有租戶都啟用全部。讀取時濾掉不認得的值，不必加 CHECK 約束。
+     * 外部 IdP（`identityProvider`）原本是獨立的 `allow_external_idp` 欄，ADR-0029 併進這份清單。
      */
     features: text('features')
       .array()
       .notNull()
-      .default(sql`'{file,auditLog,job}'::text[]`),
+      .default(
+        sql`'{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch}'::text[]`,
+      ),
     /**
      * 租戶層的 feature flag 覆寫（docs/adr/0022-feature-flags.md D2）：`{ [key]: boolean }`，沒列出 = 跟著全平台與預設值。
      * key 的值域是 `core/feature-flags` 的目錄；讀取時只看目錄裡的 key，殘留的舊 key 無害。
