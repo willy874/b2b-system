@@ -49,4 +49,6 @@ export const PERMISSION = {
   GROUP_UPDATE: 'group:update',
   GROUP_DELETE: 'group:delete',
   GROUP_ASSIGN_ROLE: 'group:assignRole',
+
+  AUTHZ_EXPLAIN: 'authz:explain',
 } as const satisfies Record<string, PermissionKey>;

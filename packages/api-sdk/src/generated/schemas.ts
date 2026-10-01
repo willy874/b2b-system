@@ -572,6 +572,7 @@ export const PermissionKeySchema = z.enum([
   'group:update',
   'group:delete',
   'group:assignRole',
+  'authz:explain',
 ]) satisfies z.ZodType<PermissionKey>;
 
 export const PermissionSchema = z.object({

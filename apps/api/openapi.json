@@ -5600,7 +5600,8 @@
           "group:read",
           "group:update",
           "group:delete",
-          "group:assignRole"
+          "group:assignRole",
+          "authz:explain"
         ]
       },
       "Permission": {

@@ -301,6 +301,7 @@ export const PermissionKey = {
   'group:update': 'group:update',
   'group:delete': 'group:delete',
   'group:assignRole': 'group:assignRole',
+  'authz:explain': 'authz:explain',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 

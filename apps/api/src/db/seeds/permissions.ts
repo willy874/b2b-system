@@ -48,6 +48,9 @@ export const PERMISSION_SEED = [
   ['group', 'update', 'permission.group.update', 1202],
   ['group', 'delete', 'permission.group.delete', 1203],
   ['group', 'assignRole', 'permission.group.assignRole', 1204],
+
+  // 授權說明：別人的有效權限與來源、資料夾存取的路徑（docs/adr/0024-relationship-based-access-control.md D14）
+  ['authz', 'explain', 'permission.authz.explain', 1300],
 ] as const satisfies ReadonlyArray<readonly [string, string, string, number]>;
 
 type SeedList = typeof PERMISSION_SEED;
@@ -122,6 +125,9 @@ export const PERMISSION_DEPENDENCIES = {
   // 挑成員要看得到使用者
   'group:update': { includes: ['group:read'], requires: ['user:read'] },
   'group:assignRole': { includes: ['group:read'], requires: ['role:read'] },
+
+  // 路徑會經過使用者、群組、角色
+  'authz:explain': { requires: ['user:read', 'role:read', 'group:read'] },
 } as const satisfies Partial<Record<PermissionKey, PermissionDependency>>;
 
 export type PermissionDependencyMap = Partial<Record<PermissionKey, PermissionDependency>>;

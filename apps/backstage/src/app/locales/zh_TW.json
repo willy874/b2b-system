@@ -267,7 +267,8 @@
       "file": "檔案",
       "job": "背景工作",
       "identityProvider": "外部 IdP 連線",
-      "group": "群組"
+      "group": "群組",
+      "authz": "授權說明"
     },
     "user": {
       "create": "建立使用者",
@@ -322,6 +323,9 @@
       "update": "編輯群組",
       "delete": "刪除群組",
       "assignRole": "讓群組持有角色"
+    },
+    "authz": {
+      "explain": "檢視授權來源"
     }
   },
   "language": {

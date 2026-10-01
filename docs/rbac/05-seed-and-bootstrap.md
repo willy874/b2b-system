@@ -114,6 +114,7 @@ export const ROLE_SEED = [
       "group:update",
       "group:delete",
       "group:assignRole",
+      "authz:explain",
     ],
   },
   {
@@ -132,6 +133,7 @@ export const ROLE_SEED = [
       "job:read",
       "identityProvider:read",
       "group:read",
+      "authz:explain",
     ],
   },
   {

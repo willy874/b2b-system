@@ -1,7 +1,7 @@
 # 權限圖（Relationship-based Access Control）：G4b、G5
 
 - 優先度：P0
-- 狀態：實作中（G0～G4a 已上 main 並歸檔）；G4b（explain）規劃中；G5（專案）待做
+- 狀態：實作中（G0～G4a 已上 main 並歸檔）；**G4b（explain）實作中**（branch `feat/permission-graph-g4b`）；G5（專案）待做
 - 依賴：—
 - 相關：[ADR-0024](../adr/0024-relationship-based-access-control.md)（本功能的決策，G4 的 D10～D16）、
   [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4（圖的組成與模型）、

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createChecker } from '../authz.checker';
+import { createChecker, withClosurePath } from '../authz.checker';
 import {
   and,
   capabilitiesOf,
@@ -285,5 +285,22 @@ describe('反提權的能力（docs/adr/0024-relationship-based-access-control.m
     expect(() =>
       createModel([defineType('doc', { viewer: direct('user') }, { capabilities: ['can_fly'] })]),
     ).toThrow(/能力 can_fly 不是這個型別的關係/);
+  });
+});
+
+describe('withClosurePath（G4b）', () => {
+  it('把閉包主體的來歷接在 explain 的路徑前面', () => {
+    const closure = new Map([['role:r#holder', ['user:u', 'group:g#member', 'role:r#holder']]]);
+    expect(withClosurePath(['role:r#holder', 'doc:a#editor'], closure)).toEqual([
+      'user:u',
+      'group:g#member',
+      'role:r#holder',
+      'doc:a#editor',
+    ]);
+    // 閉包裡沒有（例：判斷器自己展開的集合）就原樣保留
+    expect(withClosurePath(['group:x#member', 'doc:a#viewer'], closure)).toEqual([
+      'group:x#member',
+      'doc:a#viewer',
+    ]);
   });
 });

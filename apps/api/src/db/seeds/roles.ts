@@ -57,6 +57,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'group:update',
       'group:delete',
       'group:assignRole',
+      'authz:explain',
     ],
   },
   {
@@ -75,6 +76,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'job:read',
       'identityProvider:read',
       'group:read',
+      'authz:explain',
     ],
   },
   {

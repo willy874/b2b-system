@@ -267,7 +267,8 @@
       "file": "Files",
       "job": "Background jobs",
       "identityProvider": "Identity providers",
-      "group": "Groups"
+      "group": "Groups",
+      "authz": "Access explanations"
     },
     "user": {
       "create": "Create user",
@@ -322,6 +323,9 @@
       "update": "Edit groups",
       "delete": "Delete groups",
       "assignRole": "Assign roles to groups"
+    },
+    "authz": {
+      "explain": "View access explanations"
     }
   },
   "language": {

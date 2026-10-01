@@ -247,7 +247,8 @@
       "platformAdmin": "Platform administrators",
       "platformAuditLog": "Platform audit log",
       "platformJob": "Background jobs (all tenants)",
-      "featureFlag": "Feature flags"
+      "featureFlag": "Feature flags",
+      "authz": "Access explanations"
     },
     "user": {
       "create": "Create user",
@@ -324,6 +325,9 @@
     "featureFlag": {
       "read": "View feature flags",
       "update": "Change feature flags"
+    },
+    "authz": {
+      "explain": "View access explanations"
     }
   },
   "theme": {

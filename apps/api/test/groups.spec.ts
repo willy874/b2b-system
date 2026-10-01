@@ -5,6 +5,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { AuthzService } from '@/core/authz';
 import {
   authzRevision,
   relationTuples,
@@ -331,5 +332,25 @@ describe('群組（docs/adr/0024-relationship-based-access-control.md D11、D12�
   it('沒有 group:read 的人看不到群組', async () => {
     const response = await (await as(ALICE)).get('/groups').expect(403);
     expect(response.body.error.code).toBe('AUTHZ_FORBIDDEN');
+  });
+
+  it('closurePaths：每個主體附上從本人走到它的最短鏈（G4b 的說明用）', async () => {
+    const closure = await inTestTenant(app, () => app.get(AuthzService).closurePaths(ids.alice!));
+    expect(closure.get(`role:${ids.editorRole}#holder`)).toEqual([
+      `user:${ids.alice}`,
+      `group:${ids.design}#member`,
+      `group:${ids.art}#member`,
+      `role:${ids.editorRole}#holder`,
+    ]);
+    expect(closure.get(`user:${ids.alice}`)).toEqual([`user:${ids.alice}`]);
+    expect(closure.get('user:*')).toEqual(['user:*']);
+    // tenantSourcesOf：直接取得的權限鍵與它的鏈
+    const sources = await inTestTenant(app, () =>
+      app.get(AuthzService).tenantSourcesOf(ids.alice!),
+    );
+    expect(sources).toContainEqual({
+      relation: 'file:update',
+      path: closure.get(`role:${ids.editorRole}#holder`),
+    });
   });
 });
