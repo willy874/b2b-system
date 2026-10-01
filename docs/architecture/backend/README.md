@@ -27,6 +27,7 @@ Nest 12 的套件只發 ESM；`apps/api` 仍編譯成 CommonJS，靠 Node 的 `r
 | 13  | [`13-trash.md`](./13-trash.md)                     | 回收桶、還原、到期永久刪除（`trash.purge`）  |
 | 14  | [`14-revisions.md`](./14-revisions.md)             | 版本歷史：`revisions`、`RevisionService`、還原到某一版、`revision.prune` |
 | 15  | [`15-notification.md`](./15-notification.md)       | 站內通知：`notifications`、`NotificationService.notify()`、收件人、route id、`notification.cleanup` |
+| 16  | [`16-notification-event.md`](./16-notification-event.md) | 事件管理：事件目錄（`defineNotification` 的中繼資料、`NotificationEventCatalog`）、`notification_policies`、租戶層的開關 |
 
 ## 四條必須記住的規則
 

@@ -68,6 +68,10 @@ import type {
   MoveFileItemsRequest,
   MoveFileItemsResult,
   Notification,
+  NotificationChannel,
+  NotificationEvent,
+  NotificationEventChannel,
+  NotificationEventList,
   NotificationLink,
   NotificationPage,
   NotificationReadAllResult,
@@ -136,6 +140,7 @@ import type {
   UpdateGroupRequest,
   UpdateGroupRolesRequest,
   UpdateIdentityProviderRequest,
+  UpdateNotificationEventsRequest,
   UpdatePlatformAdminRequest,
   UpdateProfileRequest,
   UpdateRolePermissionsRequest,
@@ -147,6 +152,43 @@ import type {
   UserRoles,
   UserStatus,
 } from './models';
+
+export const NotificationChannelSchema = z.enum([
+  'inApp',
+  'email',
+]) satisfies z.ZodType<NotificationChannel>;
+
+export const NotificationEventChannelSchema = z.object({
+  channel: NotificationChannelSchema,
+  enabled: z.boolean(),
+  defaultEnabled: z.boolean(),
+  isOverridden: z.boolean(),
+  updatedAt: z.string().nullable(),
+}) satisfies z.ZodType<NotificationEventChannel>;
+
+export const NotificationEventSchema = z.object({
+  type: z.string(),
+  category: z.string(),
+  mandatory: z.boolean(),
+  channels: z.array(NotificationEventChannelSchema),
+}) satisfies z.ZodType<NotificationEvent>;
+
+export const NotificationEventListSchema = z.object({
+  items: z.array(NotificationEventSchema),
+}) satisfies z.ZodType<NotificationEventList>;
+
+export const UpdateNotificationEventsRequestSchema = z.object({
+  changes: z
+    .array(
+      z.object({
+        type: z.string().min(1).max(100),
+        channel: NotificationChannelSchema,
+        enabled: z.boolean().nullable(),
+      }),
+    )
+    .min(1)
+    .max(100),
+}) satisfies z.ZodType<UpdateNotificationEventsRequest>;
 
 export const NotificationLinkSchema = z.object({
   route: z.string(),

@@ -5,9 +5,11 @@ import { z } from 'zod';
 
 import type {
   Notification,
+  NotificationEventList,
   NotificationPage,
   NotificationReadAllResult,
   NotificationUnreadCount,
+  UpdateNotificationEventsRequest,
 } from '../models';
 import { buildUrl, request } from '../runtime';
 import type {
@@ -17,10 +19,12 @@ import type {
   RequestOptions,
 } from '../runtime';
 import {
+  NotificationEventListSchema,
   NotificationPageSchema,
   NotificationReadAllResultSchema,
   NotificationSchema,
   NotificationUnreadCountSchema,
+  UpdateNotificationEventsRequestSchema,
 } from '../schemas';
 
 // GET /notifications
@@ -217,6 +221,109 @@ export function notificationControllerRead(
 ): Promise<NotificationControllerReadResult> {
   return request<NotificationControllerReadResult>(
     notificationControllerReadOperation,
+    input,
+    options,
+  );
+}
+
+// GET /notification-events
+
+export interface NotificationEventControllerListResponses {
+  200: {
+    data: NotificationEventList;
+  };
+}
+
+export type NotificationEventControllerListResponse = NotificationEventControllerListResponses[200];
+
+export type NotificationEventControllerListResult = ApiResponse<
+  200,
+  NotificationEventControllerListResponses[200]
+>;
+
+export const NotificationEventControllerListSchemas = {
+  responses: {
+    200: z.object({
+      data: NotificationEventListSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getNotificationEventControllerListUrl(): string {
+  return buildUrl('/notification-events');
+}
+
+const notificationEventControllerListOperation: OperationDefinition = {
+  id: 'NotificationEventController_list',
+  method: 'GET',
+  path: '/notification-events',
+  responseTypes: { 200: 'json' },
+  schemas: NotificationEventControllerListSchemas,
+};
+
+/** 事件目錄與每個管道的生效值、預設值、是否覆寫 */
+export function notificationEventControllerList(
+  options?: RequestOptions,
+): Promise<NotificationEventControllerListResult> {
+  return request<NotificationEventControllerListResult>(
+    notificationEventControllerListOperation,
+    {},
+    options,
+  );
+}
+
+// PATCH /notification-events
+
+export type NotificationEventControllerUpdateBody = UpdateNotificationEventsRequest;
+
+export interface NotificationEventControllerUpdateInput {
+  body: NotificationEventControllerUpdateBody;
+}
+
+export interface NotificationEventControllerUpdateResponses {
+  200: {
+    data: NotificationEventList;
+  };
+}
+
+export type NotificationEventControllerUpdateResponse =
+  NotificationEventControllerUpdateResponses[200];
+
+export type NotificationEventControllerUpdateResult = ApiResponse<
+  200,
+  NotificationEventControllerUpdateResponses[200]
+>;
+
+export const NotificationEventControllerUpdateSchemas = {
+  body: UpdateNotificationEventsRequestSchema,
+  responses: {
+    200: z.object({
+      data: NotificationEventListSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getNotificationEventControllerUpdateUrl(): string {
+  return buildUrl('/notification-events');
+}
+
+const notificationEventControllerUpdateOperation: OperationDefinition = {
+  id: 'NotificationEventController_update',
+  method: 'PATCH',
+  path: '/notification-events',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: NotificationEventControllerUpdateSchemas,
+};
+
+/** 開關事件的管道；enabled 為 null 代表還原預設 */
+export function notificationEventControllerUpdate(
+  input: NotificationEventControllerUpdateInput,
+  options?: RequestOptions,
+): Promise<NotificationEventControllerUpdateResult> {
+  return request<NotificationEventControllerUpdateResult>(
+    notificationEventControllerUpdateOperation,
     input,
     options,
   );

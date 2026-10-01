@@ -1,6 +1,6 @@
 # ADR-0028 — 事件管理：通知事件的目錄與租戶層的開關，在 `notify()` 內統一判斷
 
-- 狀態：**採用**（2026-10-01 確認，尚未實作；Q1～Q3 照預設）
+- 狀態：**採用**（2026-10-01 確認，Q1～Q3 照預設；E1、E2 實作於 `feat/notification-events`，E3 尚未實作）
 - 日期：2026-10-01
 - 相關：[ADR-0026](./0026-notification-center.md)（站內通知；本決定取代其 D4「第一版不做通知偏好」）、
   [ADR-0017](./0017-mail-delivery.md)（寄信一律經背景工作）、[ADR-0021](./0021-runtime-feature-activation.md)（可啟用的 feature）、
@@ -8,7 +8,9 @@
   規格 [`../architecture/backend/15-notification.md`](../architecture/backend/15-notification.md)、
   [`../architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md)、
   [`../architecture/backend/12-settings.md`](../architecture/backend/12-settings.md)、
-  [`../architecture/backend/11-mail.md`](../architecture/backend/11-mail.md)
+  [`../architecture/backend/11-mail.md`](../architecture/backend/11-mail.md)；
+  實作後的規格 [`../architecture/backend/16-notification-event.md`](../architecture/backend/16-notification-event.md)、
+  [`../architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md) §9
 
 ## 背景
 
@@ -122,3 +124,18 @@ ADR-0026 讓擁有者模組在業務交易內呼叫 `NotificationService.notify(
 | Q1 | 事件管理要不要獨立的權限鍵（例：只讓「通知管理員」改通知、不能改其他系統設定）？ | 不要，沿用 `system:read`／`system:update`（D10） |
 | Q2 | 第一階段是否把 `approval.result` 的 **信** 一起納入管理？ | 納入：`approval.result` 有 `inApp`、`email` 兩個管道（D3） |
 | Q3 | 管理頁放 `features/notification`（`/notification/events`）還是 `features/system`（`/system/notification-events`）？ | `features/notification`、`/notification/events`（D12），與後端模組同名 |
+
+## 實作紀錄
+
+與上面的決定不同、或決定沒寫到而實作時定下來的地方：
+
+| 階段 | 項目 | 實作 |
+| --- | --- | --- |
+| E1 | 寄信的判斷（D6） | `NotificationService.isChannelEnabled(kind, channel, tx?)`（傳事件的定義，不是字串）；E3 再加 `filterRecipients` |
+| E1 | `GET` 的形狀（D9） | `updatedAt` 放在每個管道上（覆寫是以「事件 ＋ 管道」為單位）；不回 `updatedBy`，與系統設定的 `GET` 相同 |
+| E1 | 跨程序的失效（D8） | 與系統設定一樣只在本程序失效 ＋ 30 秒 TTL；ADR-0027 的 T0 把設定接上 `core/broadcast` 時一起接 |
+| E1 | 判斷的位置 | `notify()` 對每一種類型都查政策（含之後會因「操作者自己」被略過的）：沒有登記的類型一律在這裡拋錯，不會因為剛好被略過而漏掉 |
+| E1 | 交易內的查詢（D8） | `isEnabled(type, channel, tx)`：快取過期要重讀時沿用業務交易的連線 |
+| E2 | 草稿（D12） | 有覆寫而切回預設值時送 `enabled: null`（還原預設），不留一筆與預設相同的覆寫；一整頁一份草稿、一次儲存 |
+| E2 | 選單 | 「系統管理 › 事件通知」，排在系統設定之後（`menu-notification-event`） |
+

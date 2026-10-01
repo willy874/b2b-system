@@ -10,7 +10,7 @@ import { paginated } from '@/core/http';
 import { JobQueue } from '@/core/jobs';
 import type { ApprovalRequestRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
-import { notification } from '@/modules/notification/notification.definition';
+import { notification, NotificationChannel } from '@/modules/notification/notification.definition';
 import { NotificationService } from '@/modules/notification/notification.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 
@@ -207,7 +207,7 @@ export class ApprovalService {
         },
         tx,
       );
-      await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId: id }, { tx });
+      await this.enqueueResultMail(id, tx);
       await this.notifyResult(request, 'approved', reviewer, tx);
       return { reviewed: { ...row, resultResourceId: applied.resourceId }, outcome: applied };
     });
@@ -250,7 +250,7 @@ export class ApprovalService {
         },
         tx,
       );
-      await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId: id }, { tx });
+      await this.enqueueResultMail(id, tx);
       await this.notifyResult(request, 'rejected', reviewer, tx);
       return row;
     });
@@ -282,6 +282,19 @@ export class ApprovalService {
     if (isSuperAdmin) return;
     const missing = keys.filter((key) => !permissions.has(key));
     if (missing.length) throw new AppException('AUTHZ_FORBIDDEN', { missing });
+  }
+
+  /**
+   * 結果信是 `approval.result` 的 `email` 管道（ADR-0028 D3、D6）：租戶關掉時不入列。
+   * 判斷的是入列當下的政策，已入列的信不撤回。
+   */
+  private async enqueueResultMail(approvalId: string, tx: Transaction): Promise<void> {
+    const enabled = await this.notifications.isChannelEnabled(
+      APPROVAL_RESULT_NOTIFICATION,
+      NotificationChannel.EMAIL,
+      tx,
+    );
+    if (enabled) await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId }, { tx });
   }
 
   /** 審批結果通知給申請人（ADR-0026 D11）；匿名的申請（註冊）沒有收件人，只有結果信。 */

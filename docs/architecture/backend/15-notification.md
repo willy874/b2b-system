@@ -2,6 +2,7 @@
 
 「有事等你處理」與「你的東西被動了」：每位收件人一筆、可以回頭看、有已讀／未讀。
 決策見 [ADR-0026](../../adr/0026-notification-center.md)；前端（鈴鐺、列表頁、route id 註冊表）見 [`../frontend/15-notification.md`](../frontend/15-notification.md)。
+租戶可以關掉某些事件或管道：事件目錄與租戶的政策見 [`16-notification-event.md`](./16-notification-event.md)（[ADR-0028](../../adr/0028-notification-event-management.md)）。
 
 目前的類型：`approval.pending`、`approval.result`、`user.rolesChanged`（§4）。
 
@@ -14,7 +15,10 @@ db/schema/notifications.ts               notifications 表（租戶 DB）
 db/migrations/0015_notifications.sql     建表與索引（純加法）
 
 modules/notification/                    通用模組：不 import 任何業務模組
-├── notification.definition.ts          defineNotification()、notification()、NotificationInput、NotificationLink（純函式）
+├── notification.definition.ts          defineNotification()、notification()、NotificationInput、NotificationLink、NotificationChannel（純函式）
+├── notification-event.catalog.ts       NotificationEventCatalog：擁有者登記事件（16-notification-event.md §1.2）
+├── notification-policy.*.ts            租戶層的政策：判斷、快取、管理頁的讀寫（16-notification-event.md）
+├── notification-event.controller.ts    GET／PATCH /notification-events
 ├── notification.batch.ts               prepareNotifications()：驗證、略過自己、去重、截斷（純函式）
 ├── notification.constants.ts           MAX_NOTIFICATION_RECIPIENTS（1000）、params 上限、分頁與清理的批次大小
 ├── notification.cursor.ts              keyset 游標的編碼與解碼
@@ -73,12 +77,17 @@ D1 的 `(recipient_id, read_at, created_at desc)` 讓「全部」的列表在 `r
 ```ts
 // modules/user/user.notifications.ts
 export type UserRolesChangedParams = { added: string[]; removed: string[] };
-export const USER_ROLES_CHANGED_NOTIFICATION =
-  defineNotification<UserRolesChangedParams>('user.rolesChanged');
+export const USER_ROLES_CHANGED_NOTIFICATION = defineNotification<UserRolesChangedParams>(
+  'user.rolesChanged',
+  { category: 'user', channels: [NotificationChannel.IN_APP] },
+);
+export const USER_NOTIFICATIONS: readonly AnyNotificationType[] = [USER_ROLES_CHANGED_NOTIFICATION];
 ```
 
 - 參數型別用 `type` 別名（`interface` 沒有隱含的索引簽章，不符合 `NotificationParams` 的約束）。
-- `defineNotification()` 在模組載入時檢查名稱格式；`notification(kind, { params })` 以 `kind` 推導 `params` 的型別，
+- 第二個參數是事件管理的中繼資料（分類、管道、預設、`mandatory`、所屬 feature；[`16-notification-event.md`](./16-notification-event.md) §1.1）。
+  宣告之後還要在擁有者的 `*.module.ts` 以 `NotificationEventCatalog.register()` 登記，沒有登記的類型 `notify()` 會拋錯。
+- `defineNotification()` 在模組載入時檢查名稱格式與中繼資料；`notification(kind, { params })` 以 `kind` 推導 `params` 的型別，
   **類型與參數配錯在編譯期就失敗**。
 
 ### 3.2 在業務交易內寫入
@@ -102,6 +111,7 @@ await withTransaction(this.db, async (tx) => {
 
 | 步驟 | 規則 |
 | --- | --- |
+| 政策 | 每一種類型查 `NotificationPolicyService.isEnabled(type, 'inApp', tx)`：租戶關掉的類型整批不寫；沒有登記進事件目錄的類型拋 `Error`（[`16-notification-event.md`](./16-notification-event.md) §3.1） |
 | 驗證 | 收件人與操作者是 uuid、類型與 route id 的格式、`params` 只有純量與字串陣列且 ≤ 4 KiB。不符是呼叫端的程式錯誤：拋 `Error`，業務交易一起失敗 |
 | 略過自己 | 操作者就是收件人時不寫（D7）；`actorId` 為 null（系統）不算 |
 | 去重 | 同一次呼叫裡「同一類型 ＋ 同一位收件人」只留第一筆；不同類型各自保留 |
@@ -218,11 +228,13 @@ await withTransaction(this.db, async (tx) => {
 
 ## 9. 加入一種新通知
 
-1. 在擁有者模組的 `<name>.notifications.ts` 以 `defineNotification<Params>('<模組>.<事件>')` 宣告，`Params` 只放名稱快照。
+1. 在擁有者模組的 `<name>.notifications.ts` 以 `defineNotification<Params>('<模組>.<事件>', { category, channels })` 宣告，`Params` 只放名稱快照；
+   放進該模組的 `*_NOTIFICATIONS`，在 `*.module.ts` constructor 以 `NotificationEventCatalog.register()` 登記（[`16-notification-event.md`](./16-notification-event.md) §6）。
+   同一個事件也寄信時，`channels` 加 `email`，寄信入列前呼叫 `notifications.isChannelEnabled(KIND, 'email', tx)`。
 2. 收件人在擁有者模組算：持有某個權限的人用 `PermissionService.findActiveUserIdsWithPermission()`（§5）；在交易之前算好。
 3. 在業務交易內（稽核之後）呼叫 `notifications.notify(notification(KIND, { … }), tx)`；擁有者的 module import `NotificationModule`。
 4. 連結用既有的 route id（§4.1）；新的 route id 加進 §4.1 的表，前端的 feature 在 plugin 的同步階段註冊。
-5. 前端：`features/notification` 的 `constants.ts`／`adapter.ts` 加這個類型、兩個語系檔加句子（依 `type` 找 i18n key，字面量對照表，[`../frontend/15-notification.md`](../frontend/15-notification.md) §5）；新的 route id 由擁有頁面的 feature 登記。
+5. 前端：`features/notification` 的 `constants.ts`／`adapter.ts` 加這個類型（句子與事件管理頁的 `NOTIFICATION_EVENT_LABEL`）、兩個語系檔加句子與 `notification.event.*`（依 `type` 找 i18n key，字面量對照表，[`../frontend/15-notification.md`](../frontend/15-notification.md) §5）；新的 route id 由擁有頁面的 feature 登記。
 6. 測試：寫入點的整合測試（收件人、參數、rollback 不留下）。
 
 ---

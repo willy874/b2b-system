@@ -10,7 +10,8 @@ const ALICE = '00000000-0000-4000-8000-00000000000a';
 const BOB = '00000000-0000-4000-8000-00000000000b';
 
 type SampleParams = { name: string; count: number };
-const SAMPLE = defineNotification<SampleParams>('sample.happened');
+const META = { category: 'sample', channels: ['inApp'] } as const;
+const SAMPLE = defineNotification<SampleParams>('sample.happened', META);
 
 function input(recipientId: string, overrides: Partial<NotificationInput> = {}): NotificationInput {
   return {
@@ -26,9 +27,38 @@ function input(recipientId: string, overrides: Partial<NotificationInput> = {}):
 
 describe('defineNotification / notification()（docs/architecture/backend/15-notification.md §3）', () => {
   it('類型不是 <模組>.<事件> → 載入時就失敗', () => {
-    expect(() => defineNotification('Approval.pending')).toThrow(/<模組>.<事件>/);
-    expect(() => defineNotification('approval')).toThrow(/<模組>.<事件>/);
-    expect(() => defineNotification('approval.pending.extra')).toThrow(/<模組>.<事件>/);
+    expect(() => defineNotification('Approval.pending', META)).toThrow(/<模組>.<事件>/);
+    expect(() => defineNotification('approval', META)).toThrow(/<模組>.<事件>/);
+    expect(() => defineNotification('approval.pending.extra', META)).toThrow(/<模組>.<事件>/);
+  });
+
+  it('事件的中繼資料：預設開啟、不是 mandatory、沒有所屬 feature（ADR-0028 D1）', () => {
+    expect(SAMPLE).toEqual({
+      type: 'sample.happened',
+      category: 'sample',
+      channels: ['inApp'],
+      defaultEnabled: true,
+      mandatory: false,
+      feature: null,
+    });
+  });
+
+  it('中繼資料不合理 → 載入時就失敗（ADR-0028 D2）', () => {
+    expect(() => defineNotification('a.b', { category: 'Sample', channels: ['inApp'] })).toThrow(
+      /camelCase/,
+    );
+    expect(() => defineNotification('a.b', { category: 'a', channels: [] })).toThrow(/管道/);
+    expect(() =>
+      defineNotification('a.b', { category: 'a', channels: ['inApp', 'inApp'] }),
+    ).toThrow(/管道/);
+    expect(() =>
+      defineNotification('a.b', {
+        category: 'a',
+        channels: ['inApp'],
+        mandatory: true,
+        defaultEnabled: false,
+      }),
+    ).toThrow(/mandatory/);
   });
 
   it('組出的輸入帶類型字串，沒給連結時是 null', () => {

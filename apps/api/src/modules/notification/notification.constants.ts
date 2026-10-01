@@ -13,3 +13,6 @@ export const NOTIFICATION_PAGE_DEFAULT = 20;
 
 /** 保留清理一批刪幾筆：一批一條 DELETE（各自提交）。 */
 export const NOTIFICATION_CLEANUP_BATCH_SIZE = 1000;
+
+/** `PATCH /notification-events` 一次最多改幾個「事件 ＋ 管道」（ADR-0028 D9）。 */
+export const NOTIFICATION_EVENT_MAX_CHANGES = 100;

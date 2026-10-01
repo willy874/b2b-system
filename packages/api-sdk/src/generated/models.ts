@@ -1,6 +1,39 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
 // 來源：B2B System API 0.0.0（OpenAPI 3.0.0）
 
+export const NotificationChannel = {
+  inApp: 'inApp',
+  email: 'email',
+} as const;
+export type NotificationChannel = (typeof NotificationChannel)[keyof typeof NotificationChannel];
+
+export interface NotificationEventChannel {
+  channel: NotificationChannel;
+  enabled: boolean;
+  defaultEnabled: boolean;
+  isOverridden: boolean;
+  updatedAt: string | null;
+}
+
+export interface NotificationEvent {
+  type: string;
+  category: string;
+  mandatory: boolean;
+  channels: Array<NotificationEventChannel>;
+}
+
+export interface NotificationEventList {
+  items: Array<NotificationEvent>;
+}
+
+export interface UpdateNotificationEventsRequest {
+  changes: Array<{
+    type: string;
+    channel: NotificationChannel;
+    enabled: boolean | null;
+  }>;
+}
+
 export interface NotificationLink {
   route: string;
   params: Record<string, string>;

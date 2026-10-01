@@ -11,6 +11,7 @@ import type { JobQueue } from '@/core/jobs';
 import type { SettingService } from '@/core/settings';
 
 import { NOTIFICATION_CLEANUP_JOB, NotificationCleanupJob } from '../notification-cleanup.job';
+import type { NotificationPolicyService } from '../notification-policy.service';
 import {
   MAX_NOTIFICATION_RECIPIENTS,
   NOTIFICATION_CLEANUP_BATCH_SIZE,
@@ -61,6 +62,9 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
     deleteBeyondPerRecipient: ReturnType<typeof vi.fn>;
   };
   let events: { publish: ReturnType<typeof vi.fn> };
+  let policy: { isEnabled: ReturnType<typeof vi.fn> };
+  /** 租戶關掉站內通知的類型。 */
+  let disabled: Set<string>;
   let service: NotificationService;
   let order: string[];
 
@@ -78,6 +82,8 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
       deleteBeyondPerRecipient: vi.fn(async () => 0),
     };
     events = { publish: vi.fn(() => order.push('publish')) };
+    disabled = new Set();
+    policy = { isEnabled: vi.fn(async (type: string) => !disabled.has(type)) };
     const settings = {
       get: vi.fn(async (setting: { key: string }) =>
         setting.key === 'notification.retentionDays' ? 30 : 500,
@@ -87,6 +93,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
       repo as unknown as NotificationRepository,
       events as unknown as DomainEventBus,
       settings,
+      policy as unknown as NotificationPolicyService,
     );
   });
 
@@ -117,6 +124,37 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
         changes: [{ resource: 'notification', kind: 'create', id: 'n1' }],
         affectedUserIds: [recipient(2)],
       });
+    });
+
+    it('租戶關掉某類型的站內通知 → 那一類不寫，其他類型照寫（ADR-0028 D6）', async () => {
+      disabled.add('sample.other');
+      const { db, tx } = fakeDb(order);
+      const ids = await withTransaction(db, (t) =>
+        service.notify([input(recipient(1)), input(recipient(2), 'sample.other')], t),
+      );
+      expect(ids).toEqual(['n0']);
+      expect(repo.insertMany.mock.calls[0]?.[0]).toEqual([input(recipient(1))]);
+      // 每種類型查一次，交易內的查詢沿用交易
+      expect(policy.isEnabled).toHaveBeenCalledTimes(2);
+      expect(policy.isEnabled).toHaveBeenCalledWith('sample.other', 'inApp', tx);
+    });
+
+    it('全部都被租戶關掉 → 不寫入也不推播', async () => {
+      disabled.add('sample.happened');
+      const { db } = fakeDb(order);
+      const ids = await withTransaction(db, (t) => service.notify(input(recipient(1)), t));
+      expect(ids).toEqual([]);
+      expect(repo.insertMany).not.toHaveBeenCalled();
+      expect(events.publish).not.toHaveBeenCalled();
+    });
+
+    it('類型沒有登記進事件目錄 → 拋錯，業務交易一起失敗（ADR-0028 D2）', async () => {
+      policy.isEnabled.mockRejectedValueOnce(new Error('通知類型 sample.happened 沒有登記'));
+      const { db } = fakeDb(order);
+      await expect(
+        withTransaction(db, (t) => service.notify(input(recipient(1)), t)),
+      ).rejects.toThrow(/沒有登記/);
+      expect(repo.insertMany).not.toHaveBeenCalled();
     });
 
     it('交易 rollback → 不推播', async () => {

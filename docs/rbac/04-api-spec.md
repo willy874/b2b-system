@@ -630,6 +630,51 @@
 
 ---
 
+## 7.4 Notification events（事件管理）
+
+| Method | Path                    | 授權 | 說明 |
+| ------ | ----------------------- | ---- | ---- |
+| GET    | `/notification-events`  | 🛡 `system:read`   | 事件目錄與每個管道的生效值、預設值、是否覆寫 |
+| PATCH  | `/notification-events`  | 🛡 `system:update` | 開關事件的管道；`enabled: null` 還原預設 |
+
+沿用系統設定的權限（[ADR-0028](../adr/0028-notification-event-management.md) D10）。規則見
+[`../architecture/backend/16-notification-event.md`](../architecture/backend/16-notification-event.md) §4。
+
+```jsonc
+// GET /notification-events → 200
+{
+  "data": {
+    "items": [
+      {
+        "type": "approval.result",
+        "category": "approval",
+        "mandatory": false,
+        "channels": [
+          { "channel": "inApp", "enabled": true, "defaultEnabled": true, "isOverridden": false, "updatedAt": null },
+          { "channel": "email", "enabled": false, "defaultEnabled": true, "isOverridden": true, "updatedAt": "2026-10-01T00:00:00.000Z" }
+        ]
+      }
+    ]
+  }
+}
+
+// PATCH /notification-events → 200（回傳同 GET）
+{
+  "changes": [
+    { "type": "approval.result", "channel": "email", "enabled": false },
+    { "type": "approval.pending", "channel": "inApp", "enabled": null }   // 還原預設
+  ]
+}
+```
+
+| 錯誤 | 時機 |
+| ---- | ---- |
+| `404 NOTIFICATION_EVENT_NOT_FOUND` | 事件沒有登記、所屬 feature 沒啟用，或該事件不支援這個管道（`details.type`、`details.channel`） |
+| `409 NOTIFICATION_EVENT_MANDATORY` | 不能關的事件（`details.type`） |
+| `400 VALIDATION_FAILED` | `changes` 為空、超過 100 筆、重複的事件 ＋ 管道、不認得的管道 |
+
+---
+
 ## 8. System
 
 | Method | Path            | 授權            | 說明                    |

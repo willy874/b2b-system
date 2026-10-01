@@ -14,6 +14,7 @@ import type {
   NotificationDto,
   NotificationPageDto,
 } from './dto/notification.dto';
+import { NotificationPolicyService } from './notification-policy.service';
 import { prepareNotifications } from './notification.batch';
 import {
   MAX_NOTIFICATION_RECIPIENTS,
@@ -21,7 +22,8 @@ import {
 } from './notification.constants';
 import { decodeNotificationCursor, encodeNotificationCursor } from './notification.cursor';
 import type { NotificationCursor } from './notification.cursor';
-import type { NotificationInput } from './notification.definition';
+import { NotificationChannel } from './notification.definition';
+import type { AnyNotificationType, NotificationInput } from './notification.definition';
 import { NotificationRepository } from './notification.repository';
 import type { NotificationWithActor } from './notification.repository';
 import {
@@ -72,12 +74,15 @@ export class NotificationService {
     private readonly repo: NotificationRepository,
     private readonly events: DomainEventBus,
     private readonly settings: SettingService,
+    private readonly policy: NotificationPolicyService,
   ) {}
 
   /**
    * 在 **業務的交易內** 寫入通知（與稽核同一條規則：業務寫入成功，通知就一定在；rollback 時一起消失）。
    * 操作者就是收件人的略過（D7）；同一類型同一位收件人只寫一筆；超過 1000 位收件人記 warn 並截斷（D6）。
    * 交易提交後才推播給每位收件人的 user room（D8），payload 只有通知 id。
+   *
+   * 租戶關掉這個事件的站內通知時不寫（ADR-0028 D6）；類型沒有登記進事件目錄是程式錯誤，拋 `Error`。
    *
    * `tx` 必須是 `withTransaction` 開的交易（要登記提交後的推播）。回傳寫入的通知 id。
    */
@@ -86,7 +91,11 @@ export class NotificationService {
     tx: Transaction,
   ): Promise<string[]> {
     const inputs: readonly NotificationInput[] = Array.isArray(input) ? input : [input];
-    const { rows, truncated } = prepareNotifications(inputs, MAX_NOTIFICATION_RECIPIENTS);
+    const disabled = await this.disabledTypes(inputs, tx);
+    const { rows, truncated } = prepareNotifications(
+      disabled.size ? inputs.filter((row) => !disabled.has(row.type)) : inputs,
+      MAX_NOTIFICATION_RECIPIENTS,
+    );
     if (truncated) {
       this.logger.warn(
         { types: [...new Set(rows.map((row) => row.type))], kept: rows.length, truncated },
@@ -98,6 +107,18 @@ export class NotificationService {
     const inserted = await this.repo.insertMany(rows, tx);
     afterCommit(tx, () => this.publishCreated(inserted));
     return inserted.map((row) => row.id);
+  }
+
+  /**
+   * 這個事件在 `channel` 上要不要送出（ADR-0028 D6）。站內通知由 `notify()` 自己判斷；
+   * 寄信由擁有者在 **入列前** 呼叫（例：審批結果信），判斷的是入列當下的政策，已入列的信不撤回。
+   */
+  async isChannelEnabled(
+    kind: AnyNotificationType,
+    channel: NotificationChannel,
+    tx?: Transaction,
+  ): Promise<boolean> {
+    return this.policy.isEnabled(kind.type, channel, tx);
   }
 
   /** 自己的通知，新的在前（keyset 分頁）。 */
@@ -184,6 +205,19 @@ export class NotificationService {
   }
 
   // ── 內部 ─────────────────────────────────────────────
+
+  /** 租戶關掉站內通知的類型。每個類型都要查：沒有登記的在這裡就拋錯，不論它會不會被略過。 */
+  private async disabledTypes(
+    inputs: readonly NotificationInput[],
+    tx: Transaction,
+  ): Promise<Set<string>> {
+    const disabled = new Set<string>();
+    for (const type of new Set(inputs.map((row) => row.type))) {
+      // oxlint-disable-next-line no-await-in-loop -- 第一次讀進快取之後都是記憶體查詢；類型通常只有一種
+      if (!(await this.policy.isEnabled(type, NotificationChannel.IN_APP, tx))) disabled.add(type);
+    }
+    return disabled;
+  }
 
   private async deleteInBatches(batch: () => Promise<number>): Promise<number> {
     let deleted = 0;

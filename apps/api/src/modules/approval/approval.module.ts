@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 
+import { NotificationEventCatalog } from '@/modules/notification/notification-event.catalog';
 import { NotificationModule } from '@/modules/notification/notification.module';
 
 import { ApprovalHandlerRegistry } from './approval-handler.registry';
 import { ApprovalResultMailJob } from './approval-result-mail.job';
 import { ApprovalController } from './approval.controller';
+import { APPROVAL_NOTIFICATIONS } from './approval.notifications';
 import { ApprovalRepository } from './approval.repository';
 import { ApprovalService } from './approval.service';
 
@@ -19,4 +21,8 @@ import { ApprovalService } from './approval.service';
   providers: [ApprovalService, ApprovalRepository, ApprovalHandlerRegistry, ApprovalResultMailJob],
   exports: [ApprovalService],
 })
-export class ApprovalModule {}
+export class ApprovalModule {
+  constructor(notificationEvents: NotificationEventCatalog) {
+    notificationEvents.register(APPROVAL_NOTIFICATIONS);
+  }
+}
