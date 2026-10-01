@@ -11,7 +11,7 @@
 | 層         | 選擇                                                   | 版本基準         |
 | ---------- | ------------------------------------------------------ | ---------------- |
 | 套件管理   | pnpm workspace                                         | pnpm 10.x        |
-| 語言       | TypeScript（strict）                                   | 5.9+             |
+| 語言       | TypeScript（strict）                                   | 6.0+             |
 | 前端框架   | React                                                  | 19.x             |
 | 前端建置   | Vite                                                   | 7.x / 8.x        |
 | 前端路由   | TanStack Router（code-based）                          | 1.13x            |
