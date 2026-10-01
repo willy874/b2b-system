@@ -310,7 +310,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | 錯誤碼       | 後端回 `{ error: { code, message, details? } }`，`code` 是穩定的 SCREAMING_SNAKE 字串（見 [`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §5） |
 | 前端錯誤訊息 | `core/errors/useErrorMessage.ts` 把 `code` 對應到已本地化的訊息；沒有對應時退回通用訊息＋顯示 code                                                                |
 | Request ID   | `RequestIdMiddleware` 產生 `x-request-id`，出現在回應 header、日誌與稽核紀錄中                                                                                    |
-| 結構化日誌   | Pino（JSON），欄位含 `requestId` / `userId` / `route` / `durationMs` / `statusCode`                                                                               |
+| 結構化日誌   | Pino（JSON）：HTTP 存取日誌與應用程式日誌（`new Logger(Xxx.name)`，進入點以 `app.useLogger()` 接上）共用同一個 Pino。請求內的每一筆都帶 `requestId`（與回應的 `x-request-id`、稽核紀錄相同），應用程式日誌另有 `context`（類別名稱），存取日誌另有 `req`／`res`／`responseTime`；背景工作的日誌沒有 `requestId`。等級：development `debug`、production `info`、test 靜音 |
 | 授權失敗     | 每一次 403 都寫入 `audit_logs`（`action = 'authz.denied'`），含缺少的權限鍵                                                                                       |
 | 健康檢查     | `GET /health`（liveness）、`GET /health/ready`（平台 DB ping ＋ 物件儲存 ping，失敗回 `degraded`）                                                                  |
 

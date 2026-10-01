@@ -17,7 +17,6 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
-| 中 | api 的應用程式日誌沒有經過 Pino | [`nestjs-pino-logger.md`](./nestjs-pino-logger.md) | 2026-10-01 升級 Nest 12 |
 | 低 | 測試環境的 `PointerEvent` polyfill 已經用不到 | [`jsdom-pointer-event-polyfill.md`](./jsdom-pointer-event-polyfill.md) | 2026-10-01 升級 jsdom 30 |
 
 嚴重度：
