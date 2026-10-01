@@ -2785,6 +2785,41 @@
         "tags": ["groups"]
       }
     },
+    "/users/{id}/permission-sources": {
+      "get": {
+        "operationId": "AuthzExplainController_permissionSources",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PermissionSources"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "使用者的有效權限與來源（自己，或需要 authz:explain）",
+        "tags": ["users"]
+      }
+    },
     "/system/info": {
       "get": {
         "operationId": "SystemController_info",
@@ -3789,6 +3824,41 @@
           }
         },
         "summary": "中斷／恢復繼承（中斷時複製目前繼承到的授權）",
+        "tags": ["files"]
+      }
+    },
+    "/file-folders/{id}/explain": {
+      "get": {
+        "operationId": "FileFolderGrantController_explain",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FileAccessExplain"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "使用者在這個資料夾的存取與路徑（自己，或需要 authz:explain）",
         "tags": ["files"]
       }
     },
@@ -5660,8 +5730,20 @@
         "additionalProperties": false
       },
       "PermissionSource": {
-        "type": "string",
-        "enum": ["explicit", "implied"]
+        "type": "object",
+        "properties": {
+          "grantedKey": {
+            "type": "string"
+          },
+          "via": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExplainNode"
+            }
+          }
+        },
+        "required": ["grantedKey", "via"],
+        "additionalProperties": false
       },
       "EffectivePermission": {
         "type": "object",
@@ -6331,6 +6413,66 @@
         "required": ["code", "codeVerifier", "clientId", "redirectUri"],
         "additionalProperties": false
       },
+      "ExplainNode": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "id": {
+            "nullable": true,
+            "type": "string"
+          },
+          "relation": {
+            "type": "string"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "hidden": {
+            "type": "boolean"
+          }
+        },
+        "required": ["type", "id", "relation", "name", "hidden"],
+        "additionalProperties": false
+      },
+      "PermissionSources": {
+        "type": "object",
+        "properties": {
+          "isSuperAdmin": {
+            "type": "boolean"
+          },
+          "superAdminVia": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExplainNode"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PermissionSource"
+                  }
+                }
+              },
+              "required": ["key", "sources"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["isSuperAdmin", "superAdminVia", "items"],
+        "additionalProperties": false
+      },
       "FeatureFlagGlobalState": {
         "type": "string",
         "enum": ["on", "off"]
@@ -6412,6 +6554,47 @@
           }
         },
         "required": ["state"],
+        "additionalProperties": false
+      },
+      "FileAccessExplain": {
+        "type": "object",
+        "properties": {
+          "folderId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "type": "string",
+                  "enum": ["read", "create", "update", "delete", "share"]
+                },
+                "allowed": {
+                  "type": "boolean"
+                },
+                "path": {
+                  "nullable": true,
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExplainNode"
+                  }
+                }
+              },
+              "required": ["action", "allowed", "path"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["folderId", "userId", "actions"],
         "additionalProperties": false
       },
       "SetFileFolderGrantRequest": {

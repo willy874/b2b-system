@@ -23,6 +23,7 @@ import { TenancyModule, TenantMiddleware } from './core/tenant';
 import { ApprovalModule } from './modules/approval/approval.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { AuthzExplainModule } from './modules/authz-explain/authz-explain.module';
 import { FeatureFlagModule } from './modules/feature-flag/feature-flag.module';
 import { FileModule } from './modules/file/file.module';
 import { GroupModule } from './modules/group/group.module';
@@ -89,6 +90,7 @@ import { UserModule } from './modules/user/user.module';
     UserModule,
     RoleModule,
     GroupModule,
+    AuthzExplainModule,
     SystemModule,
     FileModule,
     FeatureFlagModule,

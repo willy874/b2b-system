@@ -644,6 +644,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/users/:id/roles`          | `user:read`                      |
 | PUT    | `/users/:id/roles`          | `user:assignRole`                |
 | GET    | `/users/:id/permissions`    | `user:read`                      |
+| GET    | `/users/:id/permission-sources` | `@Authenticated`：自己；別人要 `authz:explain`（service 判斷，ADR-0024 G4b） |
 | POST   | `/users/:id/reset-password` | `user:resetPassword`             |
 | POST   | `/users/:id/unlock`         | `user:update`                    |
 | POST   | `/users/:id/restore`        | `user:delete`                    |
@@ -701,6 +702,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | PUT    | `/file-folders/:id/grants` | `file:access` \| `file:share`³ |
 | DELETE | `/file-folders/:id/grants/:subjectType/:subjectId` | `file:access` \| `file:share`³ |
 | GET    | `/file-folders/:id/grant-subjects` | `file:access` \| `file:share`³ |
+| GET    | `/file-folders/:id/explain` | `@Authenticated`：查自己；別人要 `authz:explain`（service 判斷，G4b） |
 | PATCH  | `/file-folders/:id/access` | `file:access` \| `file:share`³ |
 | POST   | `/file-folders/:id/access-requests` | `file:access` \| `file:read`³ |
 | GET    | `/file-folders/:id/access-requests` | `file:access` \| `file:share`³ |

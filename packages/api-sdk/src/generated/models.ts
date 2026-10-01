@@ -317,11 +317,10 @@ export interface Permission {
   requires: Array<PermissionKey>;
 }
 
-export const PermissionSource = {
-  explicit: 'explicit',
-  implied: 'implied',
-} as const;
-export type PermissionSource = (typeof PermissionSource)[keyof typeof PermissionSource];
+export interface PermissionSource {
+  grantedKey: string;
+  via: Array<ExplainNode>;
+}
 
 export interface EffectivePermission {
   key: PermissionKey;
@@ -527,6 +526,23 @@ export interface SsoCallbackRequest {
   redirectUri: string;
 }
 
+export interface ExplainNode {
+  type: string;
+  id: string | null;
+  relation: string;
+  name: string | null;
+  hidden: boolean;
+}
+
+export interface PermissionSources {
+  isSuperAdmin: boolean;
+  superAdminVia: Array<ExplainNode> | null;
+  items: Array<{
+    key: string;
+    sources: Array<PermissionSource>;
+  }>;
+}
+
 export const FeatureFlagGlobalState = {
   on: 'on',
   off: 'off',
@@ -553,6 +569,16 @@ export interface FeatureFlagList {
 
 export interface UpdateFeatureFlagRequest {
   state: 'default' | 'on' | 'off';
+}
+
+export interface FileAccessExplain {
+  folderId: string;
+  userId: string;
+  actions: Array<{
+    action: 'read' | 'create' | 'update' | 'delete' | 'share';
+    allowed: boolean;
+    path: Array<ExplainNode> | null;
+  }>;
 }
 
 export interface SetFileFolderGrantRequest {

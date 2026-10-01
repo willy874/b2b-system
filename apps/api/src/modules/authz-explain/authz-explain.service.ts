@@ -1,0 +1,172 @@
+import { Injectable } from '@nestjs/common';
+
+import { PERMISSION } from '@/common/types';
+import type { AuthUser, PermissionKey } from '@/common/types';
+import { AuthzService, parseSubjectKey, SUPER_ADMIN_RELATION } from '@/core/authz';
+import type { SubjectKey } from '@/core/authz';
+import { AppException } from '@/core/errors';
+import { ALL_PERMISSION_KEYS, isPermissionKey, permissionClosure } from '@/db/seeds/permissions';
+import { AuditService } from '@/modules/audit-log/audit.service';
+import { PermissionService } from '@/modules/permission/permission.service';
+
+import { AuthzExplainRepository } from './authz-explain.repository';
+import type { ExplainNodeDto, PermissionSourcesDto } from './dto/authz-explain.dto';
+
+/**
+ * 呼叫端（擁有資源的模組）補上 user／group／role 以外的節點：名稱與操作者讀不讀得到。
+ * 例：檔案模組補資料夾（名稱來自 `file_folders`，讀不讀得到看操作者在那個資料夾的 `can_read`）。
+ */
+export type ExplainNodeResolver = (
+  keys: readonly SubjectKey[],
+) => Promise<Map<SubjectKey, { name: string | null; visible: boolean }>>;
+
+/** 只有型別、沒有名稱可查、對誰都看得到的節點（租戶、根目錄、所有人）。 */
+const ALWAYS_VISIBLE_TYPES = new Set(['tenant', 'fileRoot']);
+
+/**
+ * 「為什麼能做 X」的說明（docs/adr/0024-relationship-based-access-control.md D14、G4b）。
+ *
+ * - 查自己不需要權限；查別人要 `authz:explain`（`assertCanExplain`）。
+ * - 路徑上的節點依 **操作者** 遮蔽：讀不到的群組、角色、使用者、資源只回型別。操作者直接所屬的群組、直接持有的角色一律顯示。
+ */
+@Injectable()
+export class AuthzExplainService {
+  constructor(
+    private readonly repo: AuthzExplainRepository,
+    private readonly authz: AuthzService,
+    private readonly permissions: PermissionService,
+    private readonly audit: AuditService,
+  ) {}
+
+  /**
+   * 查自己一律可以；查別人要 `authz:explain`。拒絕照 `PermissionsGuard` 的形狀：`403 AUTHZ_FORBIDDEN` ＋ `authz.denied` 稽核
+   * （路由宣告是 `@Authenticated()`：「自己或有權限」無法以宣告表達）。
+   */
+  async assertCanExplain(actor: AuthUser, targetUserId: string, route: string): Promise<void> {
+    if (actor.id === targetUserId) return;
+    const { permissions, isSuperAdmin } = await this.permissions.getPermissionSet(actor.id);
+    if (isSuperAdmin || permissions.has(PERMISSION.AUTHZ_EXPLAIN)) return;
+    const required = [PERMISSION.AUTHZ_EXPLAIN];
+    await this.audit.recordSafely({
+      action: 'authz.denied',
+      result: 'failure',
+      actorId: actor.id,
+      actorEmail: actor.email,
+      resourceType: 'authz',
+      errorCode: 'AUTHZ_FORBIDDEN',
+      metadata: { route, targetUserId, required, missing: required },
+    });
+    throw new AppException('AUTHZ_FORBIDDEN', { required, missing: required });
+  }
+
+  /** 說明的對象必須是存在（未刪除）的使用者。 */
+  async assertUserExists(userId: string): Promise<void> {
+    if (!(await this.repo.userNames([userId])).size) throw new AppException('USER_NOT_FOUND');
+  }
+
+  /** 使用者的有效權限，每個鍵附上所有來源（哪個角色、經由哪些群組、明確或由依賴樹帶出）。 */
+  async permissionSources(targetUserId: string, actor: AuthUser): Promise<PermissionSourcesDto> {
+    await this.assertCanExplain(actor, targetUserId, 'GET /users/:id/permission-sources');
+    await this.assertUserExists(targetUserId);
+
+    const sources = await this.authz.tenantSourcesOf(targetUserId);
+    const nodes = await this.describePaths(
+      actor,
+      sources.map((source) => source.path),
+    );
+    const via = (index: number) => nodes[index] ?? [];
+
+    const superAdmin = sources.findIndex((source) => source.relation === SUPER_ADMIN_RELATION);
+    const granted = sources
+      .map((source, index) => ({ ...source, index }))
+      .filter((source) => isPermissionKey(source.relation));
+    const items = ALL_PERMISSION_KEYS.flatMap((key) => {
+      const from = granted.filter((source) =>
+        permissionClosure([source.relation as PermissionKey]).has(key),
+      );
+      return from.length
+        ? [
+            {
+              key,
+              sources: from.map((source) => ({
+                grantedKey: source.relation,
+                via: via(source.index),
+              })),
+            },
+          ]
+        : [];
+    });
+    return {
+      isSuperAdmin: superAdmin >= 0,
+      superAdminVia: superAdmin >= 0 ? via(superAdmin) : null,
+      items,
+    };
+  }
+
+  /**
+   * 把路徑（`SubjectKey` 的陣列）描述成節點，依操作者遮蔽（D14）。多條路徑一次查名稱。
+   * user／group／role 以外的型別交給 `resolveOther`；沒有提供或它沒回的節點當作讀不到。
+   */
+  async describePaths(
+    actor: AuthUser,
+    paths: ReadonlyArray<readonly SubjectKey[]>,
+    resolveOther?: ExplainNodeResolver,
+  ): Promise<ExplainNodeDto[][]> {
+    const all = [...new Set(paths.flat())];
+    const parsed = new Map(all.map((key) => [key, parseSubjectKey(key)]));
+    const idsOf = (type: string) =>
+      [...parsed.values()]
+        .filter((node) => node.object.type === type && node.object.id !== '*')
+        .map((node) => node.object.id);
+    const others = all.filter((key) => {
+      const type = parsed.get(key)?.object.type ?? '';
+      return !['user', 'group', 'role'].includes(type) && !ALWAYS_VISIBLE_TYPES.has(type);
+    });
+
+    const [userNames, groupNames, roleNames, otherNodes, actorSet, actorClosure] =
+      await Promise.all([
+        this.repo.userNames(idsOf('user')),
+        this.repo.groupNames(idsOf('group')),
+        this.repo.roleNames(idsOf('role')),
+        resolveOther && others.length ? resolveOther(others) : Promise.resolve(new Map()),
+        this.permissions.getPermissionSet(actor.id),
+        this.authz.closurePaths(actor.id),
+      ]);
+    const can = (key: PermissionKey) => actorSet.isSuperAdmin || actorSet.permissions.has(key);
+    // 操作者直接所屬的群組、直接持有的角色：鏈只有「本人 → 它」兩段
+    const direct = new Set(
+      [...actorClosure].filter(([, path]) => path.length === 2).map(([key]) => key),
+    );
+
+    const describe = (key: SubjectKey): ExplainNodeDto => {
+      const { object, relation } = parsed.get(key) ?? parseSubjectKey(key);
+      const node = (name: string | null, visible: boolean): ExplainNodeDto =>
+        visible
+          ? { type: object.type, id: object.id, relation, name, hidden: false }
+          : { type: object.type, id: null, relation, name: null, hidden: true };
+      switch (object.type) {
+        case 'user':
+          return node(
+            userNames.get(object.id) ?? null,
+            object.id === '*' || object.id === actor.id || can(PERMISSION.USER_READ),
+          );
+        case 'group':
+          return node(
+            groupNames.get(object.id) ?? null,
+            can(PERMISSION.GROUP_READ) || direct.has(key),
+          );
+        case 'role':
+          return node(
+            roleNames.get(object.id) ?? null,
+            can(PERMISSION.ROLE_READ) || direct.has(key),
+          );
+        default: {
+          if (ALWAYS_VISIBLE_TYPES.has(object.type)) return node(null, true);
+          const other = otherNodes.get(key);
+          return node(other?.name ?? null, other?.visible ?? false);
+        }
+      }
+    };
+    return paths.map((path) => path.map(describe));
+  }
+}

@@ -2,8 +2,10 @@ import { Module } from '@nestjs/common';
 
 import { SettingService } from '@/core/settings';
 import { ApprovalModule } from '@/modules/approval/approval.module';
+import { AuthzExplainModule } from '@/modules/authz-explain/authz-explain.module';
 import { TrashModule } from '@/modules/trash/trash.module';
 
+import { FileAccessExplainService } from './file-access-explain.service';
 import { FileAccessRequestService } from './file-access-request.service';
 import { FileAccessService } from './file-access.service';
 import { FileFolderAccessApprovalHandler } from './file-folder-access.approval';
@@ -30,10 +32,11 @@ import { FILE_SETTINGS } from './file.settings';
  * 其他模組要引用檔案時存 `files.id`，並注入 `FileService`。
  */
 @Module({
-  imports: [ApprovalModule, TrashModule],
+  imports: [ApprovalModule, TrashModule, AuthzExplainModule],
   controllers: [FileController, FileFolderController, FileFolderGrantController],
   providers: [
     FileAccessService,
+    FileAccessExplainService,
     FileAccessRequestService,
     FileSystemFolderService,
     FileFolderAccessApprovalHandler,

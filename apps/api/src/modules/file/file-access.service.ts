@@ -45,7 +45,8 @@ export class FileAccessService implements OnModuleInit {
    * 建立操作者這次請求的存取判斷。結構寫入（移動、刪除）要在取得樹鎖的交易內呼叫並傳入 `tx`，
    * 檢查與寫入之間結構才不會變。同一個交易的查詢依序執行。
    */
-  async contextFor(actor: AuthUser, tx?: DbOrTx): Promise<FileAccessContext> {
+  /** `actor` 只用到 id：說明別人的存取時（G4b）以目標使用者建立。 */
+  async contextFor(actor: Pick<AuthUser, 'id'>, tx?: DbOrTx): Promise<FileAccessContext> {
     const set = await this.permissions.getPermissionSet(actor.id);
     // 交易外讀快取；交易內（持有樹鎖）直接查
     const nodes = await this.tree.nodes(tx);

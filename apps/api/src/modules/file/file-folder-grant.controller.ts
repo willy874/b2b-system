@@ -13,11 +13,21 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 
-import { CurrentUser, RequireAnyPermission, RequireFeature } from '@/common/decorators';
+import {
+  Authenticated,
+  CurrentUser,
+  RequireAnyPermission,
+  RequireFeature,
+} from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
 
+import {
+  FileAccessExplainQuerySchema,
+  FileAccessExplainSchema,
+} from './dto/file-access-explain.dto';
+import type { FileAccessExplainQueryDto } from './dto/file-access-explain.dto';
 import {
   CreateFileAccessRequestSchema,
   FileAccessRequestListSchema,
@@ -43,6 +53,7 @@ import type {
   SetFileFolderGrantDto,
   UpdateFileFolderAccessDto,
 } from './dto/file-folder-grant.dto';
+import { FileAccessExplainService } from './file-access-explain.service';
 import { FileAccessRequestService } from './file-access-request.service';
 import { FileFolderGrantService } from './file-folder-grant.service';
 
@@ -57,6 +68,7 @@ export class FileFolderGrantController {
   constructor(
     private readonly grantService: FileFolderGrantService,
     private readonly requestService: FileAccessRequestService,
+    private readonly explainService: FileAccessExplainService,
   ) {}
 
   /** 申請存取：能進檔案管理器的人都可以（沒有權限、或權限不夠的資料夾）。 */
@@ -159,6 +171,22 @@ export class FileFolderGrantController {
     @CurrentUser() actor: AuthUser,
   ) {
     return this.grantService.setInheritance(id, dto, actor);
+  }
+
+  /**
+   * 某位使用者為什麼能（不能）在這個資料夾做每個動作（ADR-0024 G4b）。查自己不需要權限；查別人要 `authz:explain`
+   * （service 判斷）。路徑上操作者讀不到的節點只回型別（D14）。
+   */
+  @Get('explain')
+  @Authenticated()
+  @ApiOperation({ summary: '使用者在這個資料夾的存取與路徑（自己，或需要 authz:explain）' })
+  @ApiZodResponse(200, FileAccessExplainSchema)
+  explain(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query(new ZodValidationPipe(FileAccessExplainQuerySchema)) query: FileAccessExplainQueryDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.explainService.explainFolder(id, query.userId, actor);
   }
 
   @Get('grant-subjects')

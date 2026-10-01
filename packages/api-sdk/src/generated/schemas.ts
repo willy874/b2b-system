@@ -27,9 +27,11 @@ import type {
   DuplicateRoleRequest,
   EffectivePermission,
   EnsureFileFolderPathsRequest,
+  ExplainNode,
   FeatureFlag,
   FeatureFlagGlobalState,
   FeatureFlagList,
+  FileAccessExplain,
   FileAccessRequest,
   FileAccessRequestList,
   FileAccessRequestSubmitted,
@@ -75,6 +77,7 @@ import type {
   PermissionGroup,
   PermissionKey,
   PermissionSource,
+  PermissionSources,
   PlatformAdmin,
   PlatformAdminList,
   PlatformAdminPasswordLink,
@@ -593,10 +596,18 @@ export const PermissionSchema = z.object({
   requires: z.array(PermissionKeySchema),
 }) satisfies z.ZodType<Permission>;
 
-export const PermissionSourceSchema = z.enum([
-  'explicit',
-  'implied',
-]) satisfies z.ZodType<PermissionSource>;
+export const ExplainNodeSchema = z.object({
+  type: z.string(),
+  id: z.string().nullable(),
+  relation: z.string(),
+  name: z.string().nullable(),
+  hidden: z.boolean(),
+}) satisfies z.ZodType<ExplainNode>;
+
+export const PermissionSourceSchema = z.object({
+  grantedKey: z.string(),
+  via: z.array(ExplainNodeSchema),
+}) satisfies z.ZodType<PermissionSource>;
 
 export const EffectivePermissionSchema = z.object({
   key: PermissionKeySchema,
@@ -883,6 +894,17 @@ export const SsoCallbackRequestSchema = z.object({
   redirectUri: z.url().max(500),
 }) satisfies z.ZodType<SsoCallbackRequest>;
 
+export const PermissionSourcesSchema = z.object({
+  isSuperAdmin: z.boolean(),
+  superAdminVia: z.array(ExplainNodeSchema).nullable(),
+  items: z.array(
+    z.object({
+      key: z.string(),
+      sources: z.array(PermissionSourceSchema),
+    }),
+  ),
+}) satisfies z.ZodType<PermissionSources>;
+
 export const FeatureFlagGlobalStateSchema = z.enum([
   'on',
   'off',
@@ -908,6 +930,30 @@ export const FeatureFlagListSchema = z.object({
 export const UpdateFeatureFlagRequestSchema = z.object({
   state: z.enum(['default', 'on', 'off']),
 }) satisfies z.ZodType<UpdateFeatureFlagRequest>;
+
+export const FileAccessExplainSchema = z.object({
+  folderId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  userId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  actions: z.array(
+    z.object({
+      action: z.enum(['read', 'create', 'update', 'delete', 'share']),
+      allowed: z.boolean(),
+      path: z.array(ExplainNodeSchema).nullable(),
+    }),
+  ),
+}) satisfies z.ZodType<FileAccessExplain>;
 
 export const SetFileFolderGrantRequestSchema = z.object({
   subjectType: z.enum(['role', 'user', 'group', 'everyone']),

@@ -10,6 +10,7 @@ import type {
   CreateFileUploadPartsRequest,
   CreateFileUploadRequest,
   EnsureFileFolderPathsRequest,
+  FileAccessExplain,
   FileAccessRequestList,
   FileAccessRequestSubmitted,
   FileFolder,
@@ -45,6 +46,7 @@ import {
   CreateFileUploadPartsRequestSchema,
   CreateFileUploadRequestSchema,
   EnsureFileFolderPathsRequestSchema,
+  FileAccessExplainSchema,
   FileAccessRequestListSchema,
   FileAccessRequestSubmittedSchema,
   FileFolderGrantListSchema,
@@ -1511,6 +1513,67 @@ export function fileFolderGrantControllerSetInheritance(
 ): Promise<FileFolderGrantControllerSetInheritanceResult> {
   return request<FileFolderGrantControllerSetInheritanceResult>(
     fileFolderGrantControllerSetInheritanceOperation,
+    input,
+    options,
+  );
+}
+
+// GET /file-folders/{id}/explain
+
+export interface FileFolderGrantControllerExplainPathParams {
+  id: string;
+}
+
+export interface FileFolderGrantControllerExplainInput {
+  path: FileFolderGrantControllerExplainPathParams;
+}
+
+export interface FileFolderGrantControllerExplainResponses {
+  200: {
+    data: FileAccessExplain;
+  };
+}
+
+export type FileFolderGrantControllerExplainResponse =
+  FileFolderGrantControllerExplainResponses[200];
+
+export type FileFolderGrantControllerExplainResult = ApiResponse<
+  200,
+  FileFolderGrantControllerExplainResponses[200]
+>;
+
+export const FileFolderGrantControllerExplainSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: FileAccessExplainSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getFileFolderGrantControllerExplainUrl(
+  path: FileFolderGrantControllerExplainPathParams,
+): string {
+  return buildUrl('/file-folders/{id}/explain', path);
+}
+
+const fileFolderGrantControllerExplainOperation: OperationDefinition = {
+  id: 'FileFolderGrantController_explain',
+  method: 'GET',
+  path: '/file-folders/{id}/explain',
+  responseTypes: { 200: 'json' },
+  schemas: FileFolderGrantControllerExplainSchemas,
+};
+
+/** 使用者在這個資料夾的存取與路徑（自己，或需要 authz:explain） */
+export function fileFolderGrantControllerExplain(
+  input: FileFolderGrantControllerExplainInput,
+  options?: RequestOptions,
+): Promise<FileFolderGrantControllerExplainResult> {
+  return request<FileFolderGrantControllerExplainResult>(
+    fileFolderGrantControllerExplainOperation,
     input,
     options,
   );
