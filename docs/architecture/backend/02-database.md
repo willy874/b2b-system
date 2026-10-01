@@ -644,6 +644,8 @@ api 不自己跑 migration，而是比對版本（`core/tenant/tenant-schema.ts`
 - **`TENANT_DB` 永遠指向「目前的租戶」**：它是一個 Proxy，每次存取都轉到目前租戶脈絡（`AsyncLocalStorage`）的 database。
   repository 照常 `@Inject(TENANT_DB) private readonly db: Database`、`withTransaction(this.db, …)`，不必知道有多個租戶。
 - **沒有租戶脈絡時存取 `TENANT_DB` 拋 `TENANT_NOT_FOUND`**，不會退回任何預設 database。
+  例外是 Nest 啟動時對每個 provider 的探測（`then`、`constructor`、生命週期 hook 名稱），一律回 `undefined`
+  （`core/tenant/tenant-db.provider.ts` 的 `PROBES`）；Nest 升版後若啟動時出現 `TENANT_NOT_FOUND`，先看是不是多了新的探測。
 - 租戶脈絡的來源：HTTP 由 `TenantMiddleware` 依請求的網域決定；WebSocket 由 gateway 依 handshake 的網域決定；
   背景工作依工作的 `tenantId`（[`10-jobs.md`](./10-jobs.md) §1.1）；啟動時的初始化用 `Tenancy.forEachActive()`。
   直接呼叫 service 的測試用 `test/tenant.ts` 的 `inTestTenant()`。

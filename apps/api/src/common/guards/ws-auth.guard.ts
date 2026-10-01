@@ -10,8 +10,8 @@ import type { WsClient } from '../types';
  * （走 `UserCacheService`，30 秒 TTL）。停用、刪除、`token_version` 不符或授權期限已過
  * → 拒絕並斷線（docs/architecture/backend/08-realtime.md §4）。
  *
- * 以 `@UseGuards(WsAuthGuard, PermissionsGuard)` 掛在 gateway 上（全域 Guard 不作用在 gateway），
- * 讓「先認人、再看權限」的順序與 HTTP 相同；非 ws 的執行環境直接放行。
+ * 全域的 `APP_GUARD`，排在 `JwtAuthGuard` 之後、`PermissionsGuard` 之前（app.module.ts；Nest 12 起全域 guard
+ * 也套用到 gateway），讓「先認人、再看權限」的順序與 HTTP 相同；非 ws 的執行環境直接放行。
  */
 @Injectable()
 export class WsAuthGuard implements CanActivate {

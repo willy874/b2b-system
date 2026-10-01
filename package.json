@@ -49,9 +49,6 @@
   },
   "packageManager": "pnpm@10.12.1",
   "pnpm": {
-    "overrides": {
-      "@nestjs/swagger>js-yaml": "^5.4.1"
-    },
     "onlyBuiltDependencies": [
       "@swc/core",
       "esbuild",

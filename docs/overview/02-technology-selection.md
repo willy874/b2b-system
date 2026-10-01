@@ -25,11 +25,11 @@
 | 驗證       | Zod                                                    | 4.x              |
 | 前端測試   | Vitest + Testing Library + MSW                         | 3.x / 16.x / 2.x |
 | E2E        | Playwright                                             | 1.5x             |
-| 後端框架   | **NestJS**                                             | 11.x             |
+| 後端框架   | **NestJS**                                             | 12.x             |
 | 後端 ORM   | **Drizzle ORM** + drizzle-kit                          | 0.44+            |
 | 資料庫     | **PostgreSQL**                                         | 16 / 17          |
 | 後端驗證   | Zod（透過自訂 `ZodValidationPipe`）                    | 4.x              |
-| API 文件   | `@nestjs/swagger` → OpenAPI 3.1 → 產生前端 SDK         | —                |
+| API 文件   | `@nestjs/swagger` → OpenAPI 3.0 → 產生前端 SDK         | 12.x             |
 | 密碼雜湊   | Argon2id（`@node-rs/argon2`）                          | —                |
 | 後端測試   | Vitest + Testcontainers（PostgreSQL）                  | —                |
 | 程式碼風格 | oxlint + oxfmt                                         | —                |

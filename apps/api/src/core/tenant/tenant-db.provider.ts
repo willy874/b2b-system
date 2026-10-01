@@ -2,11 +2,13 @@ import type { Database } from '../database';
 import { requireTenant } from './tenant-context';
 
 /**
- * 不是在查資料庫的探測：DI 看它是不是 Promise（`then`）、Nest 在每個 provider 上找生命週期 hook。
+ * 不是在查資料庫的探測：DI 看它是不是 Promise（`then`）、Nest 在每個 provider 上找生命週期 hook，
+ * Nest 12 的 discovery 另外讀 factory provider 的 `instance.constructor` 判斷它的類別。
  * 這些在啟動時就會被讀，那時還沒有租戶。
  */
 const PROBES = new Set([
   'then',
+  'constructor',
   'onModuleInit',
   'onApplicationBootstrap',
   'onModuleDestroy',

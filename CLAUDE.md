@@ -108,7 +108,7 @@ pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法�
 | 建立對話框的權限 | 沿用列表頁的 page key | `USER_CREATE` / `ROLE_CREATE` 各自註冊 | 才能讓 auditor 直接貼 `/user/create` 時看到 403 |
 | `resolvePageKey` | 前綴命中 | 前綴命中取 **最長** | 有了上一列的子頁面規則之後才不會被父規則蓋掉 |
 | `Select` / `Menu` 的底層 | Base UI `Select` / `Menu`（另有 `Combobox`） | Base UI `Popover` ＋ 自製列表（`aria-activedescendant`）＋ TanStack Virtual；`Combobox` 併入 `Select` 的 `searchable` | Base UI 的列表元件需要所有項目都在 DOM 上，無法虛擬捲動；見 `docs/architecture/frontend/07-ui-system.md` §3.10 |
-| WebSocket 的 guard | 全域 guard 同時保護 HTTP 與 WS | gateway 以 `@UseGuards(WsAuthGuard, PermissionsGuard)` 掛在 class 上 | Nest 的 WS context 不套用 `APP_GUARD` / `APP_INTERCEPTOR`；throttler 也不作用，限流在 `realtime.rate-limit.ts` |
+| WebSocket 的 guard | 全域 guard 同時保護 HTTP 與 WS | 全域 guard（Nest 12 起也套用到 gateway）；ws 由 `WsAuthGuard`（`APP_GUARD`，排在 `JwtAuthGuard` 之後、`PermissionsGuard` 之前）認人，`RateLimitGuard`／`JwtAuthGuard`／`FeatureGuard`／`TransformInterceptor` 遇到 ws 直接放行；gateway 不 `@UseGuards` | class 層 guard 排在全域之後，會讓 `PermissionsGuard` 先於 `WsAuthGuard`；HTTP 的限流與 `{ data }` 信封不適用 ws，限流在 `realtime.rate-limit.ts`（`docs/architecture/backend/08-realtime.md` §4） |
 | 軟刪除條件的位置 | ADR-0025 D8：`db/soft-delete.ts` | `db/schema/soft-delete.ts`（`@/db/schema`、`@/db/platform/schema` 匯出） | `isActiveRole()` 在 `db/schema/roles.ts` 要用它，而 `db/schema/` 只依賴同層 |
 | `TrashHandler` 的形狀 | ADR-0025 D9：`purge(ids, tx)` | `findExpired(cutoff, afterId, limit)` ＋ 逐列 `purge(item, tx)`（每列一個 savepoint）＋ `afterPurge(ids)` | 一列因外鍵刪不掉時只略過它自己；keyset 讓略過的列不會在同一輪被重複取到；交易後的副作用（權限失效、推播）要與交易內的刪除分開 |
 | 還原時唯一值衝突的 details | ADR-0025 D5：`details.conflictingId` | 使用者用 `details.conflictingUserId` | 依 D6 與使用者的錯誤碼；R3／R4 的角色、資料夾各自決定欄位名 |

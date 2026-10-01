@@ -20,7 +20,7 @@ import { REQUIRED_FEATURE, REQUIRED_FLAG } from '../decorators';
  * - 在權限之前：功能沒開時一律 404，不先以 403 告訴沒有權限的人端點存在，也不為了一個不存在的功能寫 `authz.denied` 稽核。
  *
  * 沒有租戶脈絡（平台的請求）時不判斷：兩者都以租戶為單位，平台的端點不該標 `@RequireFeature` / `@RequireFlag`
- * （`common/route-audit.ts` 會擋）。WebSocket 不經過這裡（Nest 的 WS context 不套 `APP_GUARD`）。
+ * （`common/route-audit.ts` 會擋）。WebSocket 的訊息也會經過這裡（Nest 12 起全域 guard 套用到 gateway），直接放行。
  */
 @Injectable()
 export class FeatureGuard implements CanActivate {
