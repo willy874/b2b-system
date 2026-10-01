@@ -26,6 +26,7 @@ export let testDb: Database;
 export async function setupTestDatabase() {
   // 實際的做法見 test/global-setup.ts：平台 DB 是 container 的預設 database，
   // 另建一個測試租戶的 database 並登記在平台 DB（網域 127.0.0.1／localhost）
+  // image 必填（Testcontainers 11 起模組不再有預設 image），與 docker-compose.yml 用同一個
   container = await new PostgreSqlContainer("postgres:17-alpine").start();
   process.env.PLATFORM_DATABASE_URL = container.getConnectionUri();
   testDb = createDb(container.getConnectionUri());
