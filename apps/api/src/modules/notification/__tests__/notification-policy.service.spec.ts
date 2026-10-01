@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AuthUser } from '@/common/types';
+import { BroadcastHub, flushBroadcast } from '@/core/broadcast/__tests__/broadcast-hub';
 import type { Database } from '@/core/database';
 import { AppException } from '@/core/errors';
 import type { DomainEventBus } from '@/core/events';
@@ -43,7 +44,7 @@ interface StoredRow {
   enabled: boolean;
 }
 
-function setup(rows: StoredRow[] = []) {
+function setup(rows: StoredRow[] = [], hub: BroadcastHub = new BroadcastHub()) {
   const repo = {
     listAll: vi.fn(async () =>
       rows.map((row) => ({ ...row, updatedAt: UPDATED_AT, updatedBy: null })),
@@ -57,14 +58,16 @@ function setup(rows: StoredRow[] = []) {
   const events = { publish: vi.fn() };
   // withTransaction(db, fn) 只呼叫 db.transaction(fn)
   const db = { transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn('tx')) };
+  const broadcast = hub.instance();
   const service = new NotificationPolicyService(
     db as unknown as Database,
     repo as unknown as NotificationPolicyRepository,
     catalog,
     audit as unknown as AuditService,
     events as unknown as DomainEventBus,
+    broadcast,
   );
-  return { service, repo, audit, events };
+  return { service, repo, audit, events, broadcast };
 }
 
 function inTenant<T>(features: readonly TenantFeature[], fn: () => T): T {
@@ -127,6 +130,30 @@ describe('NotificationPolicyService.isEnabled（docs/architecture/backend/16-not
     service.invalidate();
     await service.isEnabled('sample.pending', 'inApp');
     expect(repo.listAll).toHaveBeenCalledTimes(2);
+  });
+
+  it('一個程序 invalidate，其他程序同一個租戶的快取也作廢（docs/architecture/01-system.md §4.4）', async () => {
+    const hub = new BroadcastHub();
+    const [a, b] = [setup([], hub), setup([], hub)];
+    for (const { service, broadcast } of [a, b]) {
+      service.onModuleInit();
+      // oxlint-disable-next-line no-await-in-loop -- 依序啟動兩個程序
+      await broadcast.onApplicationBootstrap();
+    }
+    await inTenant([], () => b.service.isEnabled('sample.pending', 'inApp'));
+    await runInTenantContext({ id: 't2', features: [] } as unknown as TenantContext, () =>
+      b.service.isEnabled('sample.pending', 'inApp'),
+    );
+
+    await inTenant([], async () => a.service.invalidate());
+    await flushBroadcast();
+
+    await inTenant([], () => b.service.isEnabled('sample.pending', 'inApp'));
+    await runInTenantContext({ id: 't2', features: [] } as unknown as TenantContext, () =>
+      b.service.isEnabled('sample.pending', 'inApp'),
+    );
+    // t1 重新查一次；t2 仍命中
+    expect(b.repo.listAll).toHaveBeenCalledTimes(3);
   });
 
   it('快取以租戶區分', async () => {

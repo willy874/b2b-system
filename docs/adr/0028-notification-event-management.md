@@ -133,7 +133,7 @@ ADR-0026 讓擁有者模組在業務交易內呼叫 `NotificationService.notify(
 | --- | --- | --- |
 | E1 | 寄信的判斷（D6） | `NotificationService.isChannelEnabled(kind, channel, tx?)`（傳事件的定義，不是字串）；E3 再加 `filterRecipients` |
 | E1 | `GET` 的形狀（D9） | `updatedAt` 放在每個管道上（覆寫是以「事件 ＋ 管道」為單位）；不回 `updatedBy`，與系統設定的 `GET` 相同 |
-| E1 | 跨程序的失效（D8） | 與系統設定一樣只在本程序失效 ＋ 30 秒 TTL；ADR-0027 的 T0 把設定接上 `core/broadcast` 時一起接 |
+| E1 | 跨程序的失效（D8） | 與系統設定相同：本程序立即失效，其他程序經 `core/broadcast` 的頻道 `notification_policy`（ADR-0027 T0 已先上 main）；30 秒 TTL 當保險 |
 | E1 | 判斷的位置 | `notify()` 對每一種類型都查政策（含之後會因「操作者自己」被略過的）：沒有登記的類型一律在這裡拋錯，不會因為剛好被略過而漏掉 |
 | E1 | 交易內的查詢（D8） | `isEnabled(type, channel, tx)`：快取過期要重讀時沿用業務交易的連線 |
 | E2 | 草稿（D12） | 有覆寫而切回預設值時送 `enabled: null`（還原預設），不留一筆與預設相同的覆寫；一整頁一份草稿、一次儲存 |

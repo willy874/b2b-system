@@ -98,8 +98,8 @@ PK `(type, channel)`。目錄上已經沒有的 `type`／`channel`（事件被�
 ```
 
 - 事件沒有登記、或事件不支援這個管道 → 拋 `Error`（程式錯誤）。
-- 覆寫值整份快取，key 是租戶 id（一個租戶最多「事件數 × 管道數」列）；寫入的交易提交後 `invalidate()`，另有 30 秒 TTL 當保險。
-  多實例部署之前，其他執行個體最慢 30 秒後看到新值——與系統設定相同（[`../../features/multi-instance.md`](../../features/multi-instance.md)）。
+- 覆寫值整份快取，key 是租戶 id（一個租戶最多「事件數 × 管道數」列）；寫入的交易提交後 `invalidate()`：本程序立即失效，
+  其他程序經廣播頻道 `notification_policy` 失效（[`../01-system.md`](../01-system.md) §4.4）；另有 30 秒 TTL 當保險。與系統設定相同。
 - 在業務交易內呼叫時傳 `tx`：快取過期要重讀時沿用交易的連線，不在交易進行中另外佔一條。
 
 ### 3.1 站內通知：`notify()` 自己判斷
@@ -176,7 +176,7 @@ if (enabled) await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId }, {
 | 對象 | 檔案 |
 | --- | --- |
 | 授權（401／403、`system:read` 只能讀）、列表與預設值、關閉寫入覆寫與稽核、還原預設刪列、404 的各種情況、400；關掉 `approval.pending` 後審核者收不到、打開後恢復且不補發；關掉 `approval.result` 的 email 後不入列結果信、站內通知照常 | `test/notification-events.spec.ts` |
-| 目錄（重複登記、沒有登記）；`isEnabled`（預設、覆寫、管道各自獨立、`mandatory`、程式錯誤、快取與 `tx`、租戶隔離）；`list`（生效值、`mandatory` 殘留的覆寫、feature 沒啟用不列出）；`update`（交易與稽核、推播、略過沒有變化的、404、409） | `src/modules/notification/__tests__/notification-policy.service.spec.ts` |
+| 目錄（重複登記、沒有登記）；`isEnabled`（預設、覆寫、管道各自獨立、`mandatory`、程式錯誤、快取與 `tx`、跨程序失效、租戶隔離）；`list`（生效值、`mandatory` 殘留的覆寫、feature 沒啟用不列出）；`update`（交易與稽核、推播、略過沒有變化的、404、409） | `src/modules/notification/__tests__/notification-policy.service.spec.ts` |
 | `notify` 依政策略過關閉的類型、全部關閉不寫不推、沒有登記拋錯 | `src/modules/notification/__tests__/notification.service.spec.ts` |
 | `defineNotification` 的中繼資料預設值與不合理的組合 | `src/modules/notification/__tests__/notification.batch.spec.ts` |
 | 審批結果信在 email 關閉時不入列 | `src/modules/approval/__tests__/approval.service.spec.ts` |

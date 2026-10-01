@@ -1,7 +1,10 @@
 import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
+import { BroadcastService, parseTenantInvalidation } from '@/core/broadcast';
+import type { BroadcastPublisher, TenantInvalidation } from '@/core/broadcast';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import type { Database, DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
@@ -27,10 +30,13 @@ interface StoredPolicy {
 type StoredPolicies = Map<string, StoredPolicy>;
 
 /**
- * 修改後本程序立即失效；TTL 只是保險（與系統設定相同，docs/architecture/backend/12-settings.md §1）。
- * 多實例部署前，其他執行個體最慢在這個時間後看到新值（docs/features/multi-instance.md）。
+ * 修改後本程序立即失效、其他程序經廣播失效；TTL 只是保險（直接改了資料庫、漏掉廣播）。
+ * 與系統設定相同（docs/architecture/backend/12-settings.md §1）。
  */
 const TTL_MS = 30_000;
+
+/** 平台 DB 上的廣播頻道（docs/architecture/01-system.md §4.4）。 */
+export const NOTIFICATION_POLICY_CHANNEL = 'notification_policy';
 
 interface Entry {
   rows: StoredPolicies;
@@ -74,8 +80,9 @@ function isVisible(kind: AnyNotificationType): boolean {
  * - 管理頁的讀寫：驗證、稽核、推播（形狀與 `PATCH /system/settings` 相同，D9）。
  */
 @Injectable()
-export class NotificationPolicyService {
+export class NotificationPolicyService implements OnModuleInit {
   private readonly cache = new Map<string, Entry>();
+  private publish?: BroadcastPublisher<TenantInvalidation>;
 
   constructor(
     @Inject(TENANT_DB) private readonly db: Database,
@@ -83,7 +90,16 @@ export class NotificationPolicyService {
     private readonly catalog: NotificationEventCatalog,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
+    private readonly broadcast: BroadcastService,
   ) {}
+
+  onModuleInit(): void {
+    this.publish = this.broadcast.channel(NOTIFICATION_POLICY_CHANNEL, {
+      parse: parseTenantInvalidation,
+      onMessage: ({ tenant }) => void this.cache.delete(tenant),
+      onReconnect: () => this.cache.clear(),
+    });
+  }
 
   /**
    * 這個事件在這個管道上要不要送出：`mandatory` 一律送；否則租戶的覆寫值，沒有覆寫用 `defaultEnabled`。
@@ -158,9 +174,11 @@ export class NotificationPolicyService {
     return this.list();
   }
 
-  /** 目前租戶的快取；寫入的交易 **提交後** 呼叫。 */
+  /** 目前租戶的快取（也通知其他程序）；寫入的交易 **提交後** 呼叫。 */
   invalidate(): void {
-    this.cache.delete(tenantKey());
+    const tenant = tenantKey();
+    this.cache.delete(tenant);
+    void this.publish?.({ tenant });
   }
 
   // ── 內部 ─────────────────────────────────────────────
