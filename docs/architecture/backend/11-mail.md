@@ -31,6 +31,9 @@ modules/approval/
 - `core/mail` 不認識任何一封信；範本屬於擁有它的模組（`modules/<name>/mails/*.mail.tsx`），
   和業務一起演進。新增一封信 = 新增範本 ＋ 在該模組宣告並註冊一種工作。
 - `api` 開啟 JSX（`tsconfig.json` 的 `"jsx": "react-jsx"`、`.swcrc` 的 automatic runtime），只有 `*.mail.tsx` 使用。
+- 元件與 `render()` 一律從 `react-email` 匯入。React Email 6 起把元件與轉換工具併進這個套件，
+  `@react-email/components` 與各別的 `@react-email/<元件>` 已停止維護（npm 標為 deprecated）；`@react-email/render`
+  仍在維護但由 `react-email` 重新匯出，不另外直接依賴。`react-dom` 是 `render()` 的 peer 依賴（`react-dom/server`），雖然沒有直接 import 也要保留。
 
 ## 2. 傳輸層
 
@@ -70,6 +73,7 @@ export function accountLinkMail({ purpose, locale, displayName, link, validHours
 | 範本是回傳 `{ subject, body }` 的函式；文案依語系寫在同一個檔案（`satisfies Record<MailLocale, …>`） | 後端不共用前端的語系包；缺一個語系編譯失敗 |
 | 語系用收件人的 `users.locale`（`toMailLocale()`），不認識的退回 `zh-TW` | 信是寄給對方看的，不是操作者 |
 | 樣式寫成行內 style、色碼寫死 | 多數收信端不支援 `<style>`；這裡沒有 Design Token |
+| `MailLayout` 的 `<Body>` 明確帶 `lang={locale}`；`<Hr>` 的顏色以整條 `borderTop` 覆寫 | `Body` 沒給 `lang` 會標成 `en`；`Hr` 預設的 `borderTop` 排在 `borderColor` 之後，只改 `borderColor` 會被蓋掉 |
 | 連結一律 `MailService.link(path, query)`（產品頁面：目前租戶的主要網域，協定沿用 `APP_PUBLIC_URL`）或 `accountLink(path, query)`（帳號流程：啟用、重設密碼，`AUTH_APP_URL` 開頭並帶 `?tenant=<代碼>`，[ADR-0019](../../adr/0019-sso-identity-platform.md) D1、[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D26） | 查詢字串正確編碼；每個租戶的連結指向自己的網域 |
 | 按鈕旁附上純文字網址 | 按鈕在部分收信端無法點 |
 | `MailService.send()` 同時產生 HTML 與純文字版 | 純文字版給不支援 HTML 的收信端，也是 `console` 傳輸寫進日誌的內容 |

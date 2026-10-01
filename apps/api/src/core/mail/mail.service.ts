@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { render } from '@react-email/render';
 import type { ReactElement } from 'react';
+import { render } from 'react-email';
 
 import type { Env } from '../config';
 import { currentTenant, TenantDirectory } from '../tenant';
