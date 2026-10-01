@@ -1,7 +1,7 @@
 # 服務帳號／API Token
 
 - 優先度：P2
-- 狀態：提案
+- 狀態：規劃中（決定見 [ADR-0027](../adr/0027-api-tokens-external-api.md)；T0 先以 `feat/cross-process-broadcast` 獨立進行）
 - 依賴：—
 - 相關：[`webhooks.md`](./webhooks.md)（接收端回查）、[`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 8 項、
   [`backend/04-auth.md`](../architecture/backend/04-auth.md)、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md)
@@ -28,6 +28,10 @@ CI、美術工具的匯入腳本、遊戲建置流程現在只能走第二條：
 | 到期時間（必填、有上限）、最後使用時間、撤銷 | WebSocket 用 API token 連線 |
 | token 以 **租戶** 為界：只在發出它的租戶網域有效 | |
 | 服務帳號的管理頁、個人 token 的管理頁（帳號設定） | |
+| **獨立的對外 API 服務**（另一個程序、port 與網域，`/v1` 有版本的契約）；token 只在這裡有效 | 內部 api 接受 API token |
+
+> 2026-10-01：範圍加上「對外 API 服務」，並取代下方「驗證」一節「`AccessTokenVerifier` 依前綴分流」的構想：
+> 內部 api 與對外 API 互不接受對方的憑證。決定見 [ADR-0027](../adr/0027-api-tokens-external-api.md) D9～D19。
 
 ## 初步構想
 
@@ -69,12 +73,25 @@ CI、美術工具的匯入腳本、遊戲建置流程現在只能走第二條：
 
 1. 服務帳號用 `users.kind`，還是照 `rbac/01-domain-model.md` 另開 `service_accounts` 表？
    前者沿用快取與稽核最省事，但使用者列表、人數統計、「最後一位 super-admin」等判斷都要排除服務帳號。
+
+   **結論**：`users.kind`，排除清單見 [ADR-0027](../adr/0027-api-tokens-external-api.md) D1。
 2. 個人 token 要限縮權限範圍（scope），還是一律等於本人權限？
+
+   **結論**：可以限縮，只限制租戶層的權限鍵；建立時的反提權也涵蓋服務帳號的 token（ADR-0027 D3、D4）。
 3. 稽核要不要加 `actor_type`（`user` ｜ `service` ｜ `token` ｜ `system`）？加的話要動熱表、冷表與封存函式。
+
+   **結論**：不加；`metadata` 帶 `tokenId` 與 `via: 'external'`（ADR-0027 D13）。
 4. 服務帳號屬於誰？建立者離職（帳號停用或刪除）時，服務帳號與它的 token 要怎麼處理？
+
+   **結論**：屬於租戶，不受建立者影響；個人 token 跟著本人的 `token_version` 失效（ADR-0027 D5、D6）。
 5. `POST /auth/login` 在 token 上線後要保留到什麼程度？
+
+   **結論**：production 預設關閉（`DIRECT_LOGIN_ENABLED`），開發與 E2E 保留（ADR-0027 D15）。
+
+ADR-0027 另外確認了四點：第一批 v1 端點、對外網域、token 期限的上限、T0 獨立先做（見該 ADR 的「確認紀錄」）。
 
 ## 歸檔去向
 
-- `docs/adr/NNNN-api-tokens.md`
+- [ADR-0027](../adr/0027-api-tokens-external-api.md)（狀態改成「採用」）
+- `docs/architecture/06-external-api.md`（新）、`docs/architecture/01-system.md` §4、`docs/architecture/05-tenancy.md` §2
 - `docs/architecture/backend/04-auth.md` 新增章節、`docs/rbac/01-domain-model.md`、`docs/rbac/02-permission-catalog.md`
