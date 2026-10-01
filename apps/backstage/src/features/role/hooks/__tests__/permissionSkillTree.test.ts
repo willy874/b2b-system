@@ -7,6 +7,7 @@ import {
   layoutSkillTree,
   permissionClosure,
   prerequisitePath,
+  selectSkills,
   skillState,
   toggleSkill,
 } from '../permissionSkillTree';
@@ -35,6 +36,7 @@ const CATALOG = [
   item('user:read'),
   item('user:assignRole', ['user:read'], ['role:read']),
 ];
+
 const GROUPS = [
   {
     resource: 'file',
@@ -96,7 +98,40 @@ describe('角色權限技能樹（permissionSkillTree）', () => {
     });
   });
 
-  it('版面：每個資源一組；子能力是組內的實線、跨資源的依賴是虛線；基礎在下（BT）', () => {
+  it('下拉選單只改一個鍵：與點節點相同的互鎖', () => {
+    expect(selectSkills(CATALOG, new Set(), ['file:update'], [], ALL)).toEqual({
+      kind: 'changed',
+      next: new Set(['file:update']),
+    });
+    expect(
+      selectSkills(CATALOG, new Set(['file:read', 'file:delete']), [], ['file:read'], ALL),
+    ).toEqual({ kind: 'blocked', by: ['file:delete'] });
+  });
+
+  it('下拉選單勾整組：只留沒被同批其他鍵帶出的、可授予的鍵', () => {
+    const result = selectSkills(
+      CATALOG,
+      new Set(['user:read']),
+      ['file:access', 'file:read', 'file:update', 'file:delete', 'file:share'],
+      [],
+      EXCEPT_SHARE,
+    );
+    expect(result).toEqual({ kind: 'changed', next: new Set(['user:read', 'file:delete']) });
+  });
+
+  it('下拉選單取消整組：明確鍵全部拿掉，不擋互鎖', () => {
+    expect(
+      selectSkills(
+        CATALOG,
+        new Set(['file:read', 'file:delete', 'user:read']),
+        [],
+        ['file:read', 'file:delete'],
+        ALL,
+      ),
+    ).toEqual({ kind: 'changed', next: new Set(['user:read']) });
+  });
+
+  it('版面：每個資源一組；子能力是組內的實線、跨資源的依賴是虛線；基礎在上、由上而下（TB）', () => {
     const layout = layoutSkillTree(CATALOG, GROUPS, (group) => group.resource);
     expect(layout.groups.map((group) => group.id)).toEqual(['file', 'role', 'user']);
     expect(layout.edges).toContainEqual({ source: 'file:read', target: 'file:update' });
@@ -106,8 +141,8 @@ describe('角色權限技能樹（permissionSkillTree）', () => {
       variant: 'dashed',
     });
     const y = (key: string) => layout.nodes.find((node) => node.id === key)?.position?.y ?? 0;
-    expect(y('file:read')).toBeGreaterThan(y('file:update'));
-    expect(y('file:update')).toBeGreaterThan(y('file:delete'));
+    expect(y('file:read')).toBeLessThan(y('file:update'));
+    expect(y('file:update')).toBeLessThan(y('file:delete'));
   });
 
   it('前置路徑與已學會的連線', () => {

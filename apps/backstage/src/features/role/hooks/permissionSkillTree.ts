@@ -102,6 +102,32 @@ export function toggleSkill(
   return { kind: 'changed', next };
 }
 
+/**
+ * 下拉選單一次改了一批鍵（`added`／`removed` 是相對於亮著的鍵）：
+ * - 只改一個鍵 → 與點節點相同（`toggleSkill` 的互鎖）。
+ * - 勾或取消整個群組 → 取消的鍵全部拿掉（仍被其他明確鍵帶出的，留在「已包含」）；
+ *   加入的鍵只留可授予、而且沒被同一批其他鍵帶出的，讓送出的明確鍵維持最少。
+ */
+export function selectSkills(
+  catalog: Catalog,
+  explicit: ReadonlySet<string>,
+  added: readonly string[],
+  removed: readonly string[],
+  isGrantable: (key: string) => boolean,
+): ToggleResult {
+  const changed = [...added, ...removed];
+  if (changed.length === 1)
+    return toggleSkill(catalog, changed[0] as string, explicit, isGrantable);
+  const next = new Set(explicit);
+  for (const key of removed) next.delete(key);
+  const candidates = added.filter((key) => isGrantable(key));
+  for (const key of candidates) next.add(key);
+  for (const key of candidates) {
+    if (implyingKeys(catalog, key, next).length > 0) next.delete(key);
+  }
+  return { kind: 'changed', next };
+}
+
 /** 滑過某個節點時要強調的前置（遞迴，不含自己）與通往它的連線。 */
 export function prerequisitePath(
   catalog: Catalog,
@@ -153,7 +179,7 @@ const GROUP_GAP_X = 64;
 const GROUP_GAP_Y = 88;
 
 /**
- * 技能樹的版面：每個資源一組，組內以子能力分層（基礎在下、`BT`），各組依目錄順序由左到右排、放不下就換列。
+ * 技能樹的版面：每個資源一組，組內以子能力分層（基礎在上、由上而下讀，`TB`），各組依目錄順序由左到右排、放不下就換列。
  * 跨資源的依賴畫成虛線，不參與組內排版。`groupLabel` 把資源的語系鍵換成顯示名稱。
  */
 export function layoutSkillTree(
@@ -183,7 +209,7 @@ export function layoutSkillTree(
     );
     const positions = computeTreeLayout(
       { nodes: members.map((item) => ({ id: item.key as string, data: null })), edges: inner },
-      { direction: 'BT', nodeSize: SKILL_NODE_SIZE, nodeGap: 20, rankGap: 40 },
+      { direction: 'TB', nodeSize: SKILL_NODE_SIZE, nodeGap: 20, rankGap: 40 },
     );
     const placed = [...positions.values()];
     const minX = Math.min(...placed.map((p) => p.x));

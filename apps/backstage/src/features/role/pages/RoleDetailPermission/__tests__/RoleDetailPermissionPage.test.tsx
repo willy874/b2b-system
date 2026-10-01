@@ -63,6 +63,12 @@ const node = (key: string) =>
     .getAllByTestId('role-permission-node')
     .find((element) => element.getAttribute('data-value') === key) as HTMLElement;
 
+/** 技能樹預設收合：展開才掛上畫布。 */
+const openTree = async () =>
+  fireEvent.click(
+    await screen.findByTestId('role-permission-tree-toggle', undefined, { timeout: 5000 }),
+  );
+
 beforeAll(() => initTestI18n(roleZhTW));
 beforeAll(installFlowDom);
 afterAll(() => {
@@ -122,6 +128,7 @@ describe('RoleDetailPermissionPage', () => {
     expect(screen.getByTestId('role-permission-save')).toBeDisabled();
 
     pending.resolve({ permissions: [{ key: 'user:read' }], isSuperAdmin: false });
+    await openTree();
     await waitFor(() => expect(node('user:update')).toBeInTheDocument());
     fireEvent.click(node('user:update'));
 
@@ -141,6 +148,7 @@ describe('RoleDetailPermissionPage', () => {
     grant.mockRejectedValue(new AppError('AUTHZ_ESCALATION', 403));
     renderRoute(routes, PATH, MANAGER);
 
+    await openTree();
     await waitFor(() => expect(node('user:update')).toBeInTheDocument());
     fireEvent.click(node('user:update'));
     fireEvent.click(screen.getByTestId('role-permission-save'));
@@ -153,6 +161,7 @@ describe('RoleDetailPermissionPage', () => {
   it('有未儲存的勾選時按取消會先確認；選「繼續編輯」留在原處', async () => {
     renderRoute(routes, PATH, MANAGER);
 
+    await openTree();
     await waitFor(() => expect(node('user:update')).toBeInTheDocument());
     fireEvent.click(node('user:update'));
     fireEvent.click(screen.getByTestId('role-permission-cancel'));
@@ -170,6 +179,7 @@ describe('RoleDetailPermissionPage', () => {
   it('沒有改動時按取消直接關閉，不跳確認', async () => {
     renderRoute(routes, PATH, MANAGER);
 
+    await openTree();
     await waitFor(() => expect(node('user:update')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('role-permission-cancel'));
 
@@ -186,6 +196,7 @@ describe('RoleDetailPermissionPage', () => {
       MANAGER.filter((key) => key !== 'role:grantPermission'),
     );
 
+    await openTree();
     await waitFor(() => expect(node('user:update')).toBeInTheDocument());
     expect(node('user:update')).toBeDisabled();
     expect(screen.getByTestId('role-permission-save')).toBeDisabled();
@@ -201,6 +212,7 @@ describe('RoleDetailPermissionPage', () => {
     fetchRolePermissions.mockResolvedValue({ permissions: [], isSuperAdmin: false });
     renderRoute(routes, PATH, MANAGER);
 
+    await openTree();
     await waitFor(() => expect(node('user:update')).toBeInTheDocument());
     fireEvent.click(node('user:update'));
     expect(node('user:update')).toHaveAttribute('aria-pressed', 'true');
@@ -223,6 +235,7 @@ describe('RoleDetailPermissionPage', () => {
     fetchRolePermissions.mockResolvedValue({ permissions: [], isSuperAdmin: true });
     renderRoute(routes, PATH, MANAGER);
 
+    await openTree();
     await waitFor(() => expect(node('user:update')).toBeInTheDocument());
     expect(node('user:update')).toBeDisabled();
     expect(node('user:read')).toHaveAttribute('data-state', 'implied');

@@ -21,7 +21,13 @@ vi.mock('@/apis/permission/get-permission-list/fetcher', () => ({
   fetchPermissionListQuery: fetchPermissionList,
 }));
 
-const CREATOR = ['role:read', 'role:create', 'user:read'] as PermissionKey[];
+const CREATOR = ['role:read', 'role:create', 'user:read', 'user:update'] as PermissionKey[];
+
+/** 下拉選單或技能樹上的一個權限。 */
+const byValue = (testId: string, key: string) =>
+  screen
+    .getAllByTestId(testId)
+    .find((element) => element.getAttribute('data-value') === key) as HTMLElement;
 
 Routes.RoleListRoute.update({ component: Outlet });
 const routes = [Routes.RoleListRoute.addChildren([Routes.RoleCreateRoute])];
@@ -47,8 +53,21 @@ beforeEach(() => {
         includes: [],
         requires: [],
       },
+      {
+        key: 'user:update',
+        resource: 'user',
+        nameI18nKey: 'permission.user.update',
+        includes: ['user:read'],
+        requires: [],
+      },
     ],
-    groups: [{ resource: 'user', nameI18nKey: 'permission.resource.user', keys: ['user:read'] }],
+    groups: [
+      {
+        resource: 'user',
+        nameI18nKey: 'permission.resource.user',
+        keys: ['user:read', 'user:update'],
+      },
+    ],
   });
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
@@ -71,13 +90,56 @@ describe('RoleCreatePage', () => {
     renderRoute(routes, '/role/create', CREATOR);
 
     fireEvent.click(
-      await screen.findByTestId('role-permission-node', undefined, { timeout: 5000 }),
+      await screen.findByTestId('role-permission-select', undefined, { timeout: 5000 }),
     );
+    fireEvent.click(byValue('role-permission-option', 'user:read'));
+    fireEvent.keyDown(screen.getByTestId('select-search'), { key: 'Escape' });
     fireEvent.click(screen.getByTestId('role-create-cancel'));
 
     expect(await screen.findByTestId('unsaved-changes-confirm')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('alert-dialog-confirm'));
     await waitFor(() => expect(screen.queryByTestId('role-create-dialog')).not.toBeInTheDocument());
+  });
+
+  it('技能樹預設收合；下拉選單與技能樹連動，只送出明確選的鍵', async () => {
+    renderRoute(routes, '/role/create', CREATOR);
+
+    fireEvent.change(await screen.findByTestId('role-name-input', undefined, { timeout: 5000 }), {
+      target: { value: 'Editor' },
+    });
+    expect(screen.queryAllByTestId('role-permission-node')).toHaveLength(0);
+
+    // 下拉選單勾上層 → 前置成為已包含（停用）
+    fireEvent.click(await screen.findByTestId('role-permission-select'));
+    fireEvent.click(byValue('role-permission-option', 'user:update'));
+    expect(byValue('role-permission-option', 'user:update')).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(byValue('role-permission-option', 'user:read')).toHaveAttribute('aria-disabled', 'true');
+    expect(byValue('role-permission-option', 'user:read')).toHaveAttribute('aria-selected', 'true');
+    fireEvent.keyDown(screen.getByTestId('select-search'), { key: 'Escape' });
+
+    // 展開技能樹：同一份狀態，選過的權限顯示在說明面板
+    fireEvent.click(screen.getByTestId('role-permission-tree-toggle'));
+    await waitFor(() => expect(byValue('role-permission-node', 'user:update')).toBeInTheDocument());
+    expect(byValue('role-permission-node', 'user:update')).toHaveAttribute(
+      'data-state',
+      'explicit',
+    );
+    expect(byValue('role-permission-node', 'user:read')).toHaveAttribute('data-state', 'implied');
+    expect(screen.getByTestId('role-permission-detail')).toHaveTextContent('user:update');
+
+    // 在技能樹上取消 → 下拉選單同步
+    fireEvent.click(byValue('role-permission-node', 'user:update'));
+    expect(screen.queryAllByTestId('select-tag')).toHaveLength(0);
+
+    fireEvent.click(byValue('role-permission-node', 'user:read'));
+    fireEvent.click(screen.getByTestId('role-create-submit'));
+    await waitFor(() => expect(createRole).toHaveBeenCalledTimes(1));
+    expect(createRole.mock.calls[0]![0]).toMatchObject({
+      params: { permissionKeys: ['user:read'] },
+    });
   });
 
   it('建立成功後直接關閉，不跳放棄確認', async () => {

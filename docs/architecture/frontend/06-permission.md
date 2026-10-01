@@ -374,12 +374,17 @@ describe("RoleListToolbar", () => {
 
 - `GET /auth/profile` 的 `permissions` 已套用 **權限依賴樹的閉包**（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §9）：
   只被授予 `file:delete` 的人，`can('file:read')` 也是 true。前端不需要自己展開，也不要再寫「有 A 或 B 就顯示」的特判。
-- 角色的權限在 `features/role/components/PermissionSkillTree.tsx` 以技能樹挑選（建立角色、管理角色權限兩個對話框）：
-  - 版面：每個資源一組、基礎在下（`TreeEditor` 的 `direction="BT"`、`groups`）；子能力是實線、跨資源的依賴是虛線。
+- 角色的權限在 `features/role/components/PermissionSkillTree.tsx` 挑選（建立角色、管理角色權限兩個對話框）：
+  - 主要入口是 **樹狀下拉選單**（設計系統的 `Select`，`multiple` ＋ `searchable` ＋ 群組；`data-testid="role-permission-select"`，
+    選項 `role-permission-option`、`data-value` 是權限鍵）：每個資源一組、組內依技能樹由上而下的順序；值是亮著的鍵（明確 ＋ 已包含），
+    已包含與無法授予的鍵停用並在選項下方寫出原因；勾群組等於勾整組可授予的鍵（只留沒被同批其他鍵帶出的，`selectSkills`）。
+  - **技能樹** 預設收合（`Collapsible`，`role-permission-tree-toggle`），展開才掛上畫布；與下拉選單共用 `usePermissionSkillTree` 的狀態，
+    任一邊改動另一邊同步，在下拉選單選的鍵會在技能樹上強調前置路徑並顯示在說明面板。
+  - 版面：每個資源一組、基礎在上、由上而下讀（`TreeEditor` 的 `direction="TB"`、`groups`）；子能力是實線、跨資源的依賴是虛線。
   - 狀態：已授予（`explicit`）／已包含（`implied`，由上層帶出、鎖住）／可授予（`available`）／無法授予（`unavailable`，反提權）。
   - 互鎖：點上層 → 前置成為已包含；點已包含的（或還有上層的明確鍵）→ 擋下並念出「先取消包含它的 …」；只送出明確點選的鍵。
   - 規則是純函式（`features/role/hooks/permissionSkillTree.ts`），狀態在 `usePermissionSkillTree`；節點內是 `aria-pressed` 的按鈕
     （`data-testid="role-permission-node"`、`data-value` 是權限鍵、`data-state` 是狀態），鍵盤以 Tab 移動、Enter／Space 切換。
   - 目錄的依賴來自 `GET /permissions` 每一項的 `includes`／`requires`；super-admin 角色由 `GET /roles/:id/permissions` 的 `isSuperAdmin` 判斷、整棵唯讀。
-- 已知：對話框關閉時 React Flow 卸載，開發模式的 console 會出現一次 React 的 `flushSync` 警告，不影響功能。
+- 已知：技能樹展開後關閉對話框時 React Flow 卸載，開發模式的 console 會出現一次 React 的 `flushSync` 警告，不影響功能。
 

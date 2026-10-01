@@ -8,10 +8,11 @@ import {
   layoutSkillTree,
   permissionClosure,
   prerequisitePath,
+  selectSkills,
   skillState,
   toggleSkill,
 } from './permissionSkillTree';
-import type { SkillState } from './permissionSkillTree';
+import type { SkillState, ToggleResult } from './permissionSkillTree';
 import { useGrantablePermissions } from './useGrantablePermissions';
 
 export interface PermissionSkillTreeOptions {
@@ -31,9 +32,17 @@ export type SkillNotice =
 
 const EMPTY: ReadonlySet<string> = new Set();
 
+/** 下拉選單的一組：資源與它的權限鍵，依技能樹由上而下（基礎在前）的順序。 */
+export interface SkillOptionGroup {
+  resource: string;
+  label: string;
+  keys: string[];
+}
+
 /**
  * 角色權限技能樹的狀態：版面、每個節點的狀態、滑過時的前置路徑、點擊的互鎖
  * （docs/rbac/02-permission-catalog.md §9；規則在 `permissionSkillTree.ts`）。
+ * 下拉選單與樹狀圖共用這一份狀態：任一邊改動，另一邊同步；在下拉選單選的鍵也會在樹狀圖上強調前置路徑。
  */
 export function usePermissionSkillTree({
   explicit,
@@ -59,13 +68,24 @@ export function usePermissionSkillTree({
     [items, explicit, isSuperAdmin],
   );
   const activeEdges = useMemo(() => activeEdgeIds(layout.edges, lit), [layout.edges, lit]);
+  /** 滑過優先，其次是最後點選（樹狀圖或下拉選單）的鍵。 */
+  const detailKey = focusKey ?? selectedKey;
   const path = useMemo(
     () =>
-      focusKey
-        ? prerequisitePath(items, focusKey, layout.edges)
+      detailKey
+        ? prerequisitePath(items, detailKey, layout.edges)
         : { nodeIds: EMPTY, edgeIds: EMPTY },
-    [items, focusKey, layout.edges],
+    [items, detailKey, layout.edges],
   );
+  const optionGroups = useMemo((): SkillOptionGroup[] => {
+    const position = new Map(layout.nodes.map((node) => [node.id, node.position]));
+    const rank = (key: string) => position.get(key) ?? { x: 0, y: 0 };
+    return layout.groups.map((group) => ({
+      resource: group.id,
+      label: group.label,
+      keys: group.nodeIds.toSorted((a, b) => rank(a).y - rank(b).y || rank(a).x - rank(b).x),
+    }));
+  }, [layout]);
 
   const stateOf = (key: string): SkillState =>
     isSuperAdmin ? 'implied' : skillState(items, key, explicit, isGrantable);
@@ -74,10 +94,7 @@ export function usePermissionSkillTree({
   const impliedByOf = (key: string): string[] =>
     isSuperAdmin ? [] : implyingKeys(items, key, explicit);
 
-  const toggle = (key: string) => {
-    setSelectedKey(key);
-    if (readOnly || isSuperAdmin) return;
-    const result = toggleSkill(items, key, explicit, isGrantable);
+  const apply = (key: string, result: ToggleResult) => {
     if (result.kind === 'changed') {
       setNotice(undefined);
       onChange(result.next);
@@ -90,19 +107,42 @@ export function usePermissionSkillTree({
     }
   };
 
+  /** 點樹狀圖上的節點。 */
+  const toggle = (key: string) => {
+    setSelectedKey(key);
+    if (readOnly || isSuperAdmin) return;
+    apply(key, toggleSkill(items, key, explicit, isGrantable));
+  };
+
+  /** 下拉選單的新值（亮著的鍵）：與目前亮著的比對出這次勾／取消的鍵，套用同一套互鎖。 */
+  const select = (next: readonly string[]) => {
+    if (readOnly || isSuperAdmin) return;
+    const nextSet = new Set(next);
+    const added = next.filter((key) => !lit.has(key));
+    const removed = [...lit].filter((key) => !nextSet.has(key));
+    const last = added.at(-1) ?? removed.at(-1);
+    if (last === undefined) return;
+    setSelectedKey(last);
+    apply(last, selectSkills(items, explicit, added, removed, isGrantable));
+  };
+
   return {
     loading,
     items,
     layout,
+    optionGroups,
+    /** 亮著的鍵：明確的 ＋ 它們帶出的（super-admin 是全部）。 */
+    lit,
     activeEdges,
     path,
     stateOf,
     impliedByOf,
     toggle,
+    select,
     focusKey,
     setFocusKey,
-    /** 右側面板顯示的節點：滑過優先，其次是最後點的。 */
-    detailKey: focusKey ?? selectedKey,
+    /** 右側面板顯示、樹狀圖強調前置路徑的節點：滑過優先，其次是最後點選的。 */
+    detailKey,
     notice,
     readOnly: readOnly || isSuperAdmin,
   };

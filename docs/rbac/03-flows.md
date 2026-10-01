@@ -250,7 +250,7 @@ ZodValidationPipe → Controller → Service → Repository
 
 > **前端過濾不是安全機制**，只是體驗。後端的第 3 步才是真正的防線。兩邊都要有。
 
-權限的挑選是 **技能樹**（`features/role/components/PermissionSkillTree.tsx`，[`02-permission-catalog.md`](./02-permission-catalog.md) §9）：
+權限的挑選是 **樹狀下拉選單 ＋ 可展開的技能樹**（兩者連動，`features/role/components/PermissionSkillTree.tsx`，[`02-permission-catalog.md`](./02-permission-catalog.md) §9），互鎖相同：
 
 ```
 點「刪除使用者」（可授予）

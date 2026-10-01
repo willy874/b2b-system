@@ -64,9 +64,12 @@
       "success": "Role permissions updated.",
       "summary": "{{add}} to add, {{remove}} to remove",
       "skillTree": {
+        "select": "Select permissions",
+        "search": "Search by name or key",
+        "viewer": "View as skill tree",
         "label": "Role permission skill tree",
         "legend": "Legend",
-        "hint": "Hover or focus a permission to see the prerequisites it includes.",
+        "hint": "Hover or focus a permission to see the prerequisites it includes; permissions picked in the menu above are marked here too.",
         "empty": "Select a permission to see details",
         "includes": "Includes",
         "requires": "Requires",

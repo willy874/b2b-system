@@ -56,7 +56,10 @@ test.describe('RBAC 生命週期', () => {
     await page.goto('/role');
     await page.getByTestId('role-create-button').click();
     await page.getByTestId('role-name-input').fill(ROLE_NAME);
-    await getByTestIdAndValue(page, 'role-permission-node', 'user:read').click();
+    await page.getByTestId('role-permission-select').click();
+    await page.getByTestId('select-search').fill('user:read');
+    await getByTestIdAndValue(page, 'role-permission-option', 'user:read').click();
+    await page.keyboard.press('Escape');
     await page.getByTestId('role-create-submit').click();
     await expect(page.getByTestId('role-list-page')).toContainText(ROLE_NAME);
     await snapshot(page, 'role-created');
@@ -108,12 +111,22 @@ test.describe('RBAC 生命週期', () => {
   });
 
   // ⑥ 反提權：admin 嘗試授予自己沒有的權限 → 被擋下
-  test('反提權：未持有的權限在技能樹中是 disabled', async ({ page }) => {
+  test('反提權：未持有的權限在下拉選單與技能樹中都是 disabled', async ({ page }) => {
     await loginAndWaitForHome(page, 'admin');
     await page.goto('/role');
     await page.getByTestId('role-create-button').click();
 
-    // admin 沒有 system:update
+    // 下拉選單：admin 沒有 system:update
+    await page.getByTestId('role-permission-select').click();
+    // 選項多時會虛擬捲動：先搜尋，讓目標列一定在畫面上
+    await page.getByTestId('select-search').fill('system:update');
+    await expect(
+      getByTestIdAndValue(page, 'role-permission-option', 'system:update'),
+    ).toHaveAttribute('aria-disabled', 'true');
+    await page.keyboard.press('Escape');
+
+    // 技能樹（預設收合）
+    await page.getByTestId('role-permission-tree-toggle').click();
     await expect(getByTestIdAndValue(page, 'role-permission-node', 'system:update')).toBeDisabled();
     // 但有 user:read
     await expect(getByTestIdAndValue(page, 'role-permission-node', 'user:read')).toBeEnabled();
