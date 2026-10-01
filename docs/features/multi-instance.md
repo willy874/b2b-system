@@ -5,7 +5,8 @@
 - 依賴：—
 - 相關：[`../architecture/01-system.md`](../architecture/01-system.md) §4.2–§4.3（擴展前提）、[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §10.3、
   [ADR-0016](../adr/0016-background-jobs.md)（背景工作）、[`observability.md`](./observability.md)、[`hardening-followups.md`](./hardening-followups.md)、
-  [`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 6、7 項、[`permission-graph.md`](./permission-graph.md) G3a（已做出 `core/broadcast`，權限快取第一個用）
+  [`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 6、7 項、[`permission-graph.md`](./permission-graph.md) G3a（已做出 `core/broadcast`，權限快取第一個用）、
+  [ADR-0027](../adr/0027-api-tokens-external-api.md) T0（對外 API 是第二個程序，D16、D18 會先把其餘快取的失效廣播與事件轉送做掉）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
