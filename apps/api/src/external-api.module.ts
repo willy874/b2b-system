@@ -14,6 +14,7 @@ import { HttpExceptionFilter } from './core/errors';
 import { EventsModule } from './core/events';
 import { FeatureFlagsModule } from './core/feature-flags';
 import { RequestIdMiddleware, TransformInterceptor } from './core/http';
+import { ImageModule } from './core/image';
 import { JobsModule } from './core/jobs';
 import { LoggerModule } from './core/logger';
 import { MailModule } from './core/mail';
@@ -25,9 +26,13 @@ import { ApiTokenAuthGuard } from './modules/api-token/external/api-token-auth.g
 import { ExternalRateLimitGuard } from './modules/api-token/external/external-rate-limit.guard';
 import { TokenTenantMiddleware } from './modules/api-token/external/token-tenant.middleware';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
+import { FileModule } from './modules/file/file.module';
+import { GroupModule } from './modules/group/group.module';
 import { HealthModule } from './modules/health/health.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
+import { RoleModule } from './modules/role/role.module';
+import { UserModule } from './modules/user/user.module';
 
 /**
  * 對外 API 的組裝根（docs/adr/0027-api-tokens-external-api.md D9～D11、D19）：另一個程序（`main.external.ts`）、
@@ -58,6 +63,8 @@ import { PlatformAdminModule } from './modules/platform-admin/platform-admin.mod
     StorageModule,
     // 寄信的工作在這裡只入列（平台管理者模組登記了寄信的 handler，PermissionsGuard 依賴那個模組）
     MailModule,
+    // 檔案的影像處理（上傳完成時排入變體的產生；產生本身在背景工作）
+    ImageModule,
     // 驗證 token 時以它檢查帳號（狀態、token_version），與內部 api 同一套規則。它也能驗 JWT，
     // 需要一個 JwtService；這個程序從不驗 JWT（verifyClaims 自帶 secret、而且一律拒絕），不必設定金鑰
     JwtModule.register({ global: true }),
@@ -69,9 +76,14 @@ import { PlatformAdminModule } from './modules/platform-admin/platform-admin.mod
     AuditLogModule,
     PlatformAdminModule,
 
-    // 對外的功能
+    // 對外的功能（對外的 controller 在各模組的 external/）
     ApiTokenModule,
+    FileModule,
+    UserModule,
     HealthModule,
+    // 回收桶要求每一種類型都有 handler（啟動時檢查）：檔案、使用者之外的擁有者模組也要在。它們的路由由 SurfaceGuard 擋下
+    RoleModule,
+    GroupModule,
   ],
   providers: [
     { provide: PROCESS_SURFACE, useValue: 'external' },

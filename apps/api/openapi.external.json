@@ -1,6 +1,66 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/v1/users": {
+      "get": {
+        "operationId": "UserExternalController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ExternalUserList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "使用者列表（只有人，不含服務帳號）",
+        "tags": ["users"]
+      }
+    },
+    "/v1/users/{id}": {
+      "get": {
+        "operationId": "UserExternalController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ExternalUser"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["users"]
+      }
+    },
     "/v1/me": {
       "get": {
         "operationId": "ApiTokenExternalController_me",
@@ -25,6 +85,239 @@
         },
         "summary": "這把 token 的帳號、到期時間與實際取得的權限",
         "tags": ["me"]
+      }
+    },
+    "/v1/folders": {
+      "get": {
+        "operationId": "FileExternalController_listFolders",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ExternalFolderList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "看得到內容的資料夾（扁平）與能不能上傳",
+        "tags": ["files"]
+      }
+    },
+    "/v1/files": {
+      "get": {
+        "operationId": "FileExternalController_listFiles",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ExternalFileList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "檔案列表：依建立時間由新到舊，以 nextCursor 取下一頁",
+        "tags": ["files"]
+      },
+      "post": {
+        "operationId": "FileExternalController_createUpload",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalCreateFileUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ExternalFileUpload"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "開始上傳：回傳直傳網址（單次）或分塊資訊",
+        "tags": ["files"]
+      }
+    },
+    "/v1/files/{id}": {
+      "get": {
+        "operationId": "FileExternalController_getFile",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ExternalFile"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "檔案資訊與下載網址（網址有時效，過期再取一次）",
+        "tags": ["files"]
+      }
+    },
+    "/v1/files/{id}/parts": {
+      "post": {
+        "operationId": "FileExternalController_createUploadParts",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalCreateFileUploadPartsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ExternalFileUploadParts"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "分塊上傳：取得這些分塊的直傳網址（一次最多 100 塊）",
+        "tags": ["files"]
+      }
+    },
+    "/v1/files/{id}/complete": {
+      "post": {
+        "operationId": "FileExternalController_completeUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalCompleteFileUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ExternalFile"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "完成上傳；分塊上傳要帶每一塊的 ETag",
+        "tags": ["files"]
+      }
+    },
+    "/v1/files/{id}/upload": {
+      "delete": {
+        "operationId": "FileExternalController_abortUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "放棄還沒完成的上傳",
+        "tags": ["files"]
       }
     },
     "/health": {
@@ -177,6 +470,418 @@
           }
         },
         "required": ["account", "token", "permissions"],
+        "additionalProperties": false
+      },
+      "ExternalUser": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "email": {
+            "type": "string"
+          },
+          "username": {
+            "nullable": true,
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "active", "inactive", "locked"]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "slug": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": ["id", "slug", "name"],
+              "additionalProperties": false
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "username",
+          "displayName",
+          "status",
+          "roles",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ExternalUserList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExternalUser"
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "offset": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "total": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["offset", "limit", "total"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["items", "pagination"],
+        "additionalProperties": false
+      },
+      "ExternalFile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "ready"]
+          },
+          "folderId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "url": {
+            "nullable": true,
+            "type": "string"
+          },
+          "downloadUrl": {
+            "nullable": true,
+            "type": "string"
+          },
+          "thumbnailUrl": {
+            "nullable": true,
+            "type": "string"
+          },
+          "urlExpiresAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "uploader": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "displayName"],
+            "additionalProperties": false
+          },
+          "uploadedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "contentType",
+          "size",
+          "status",
+          "folderId",
+          "url",
+          "downloadUrl",
+          "thumbnailUrl",
+          "urlExpiresAt",
+          "uploader",
+          "uploadedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ExternalFileList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExternalFile"
+            }
+          },
+          "nextCursor": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["items", "nextCursor"],
+        "additionalProperties": false
+      },
+      "ExternalFolder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parentId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["normal", "shared", "privateRoot", "personal"]
+          },
+          "canUpload": {
+            "type": "boolean"
+          }
+        },
+        "required": ["id", "name", "parentId", "kind", "canUpload"],
+        "additionalProperties": false
+      },
+      "ExternalFolderList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExternalFolder"
+            }
+          },
+          "canUploadToRoot": {
+            "type": "boolean"
+          }
+        },
+        "required": ["items", "canUploadToRoot"],
+        "additionalProperties": false
+      },
+      "ExternalCreateFileUploadRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "pattern": "^[^/\\\\\\u0000-\\u001f\\u007f]+$"
+          },
+          "contentType": {
+            "type": "string",
+            "maxLength": 255,
+            "pattern": "^[a-z0-9][a-z0-9!#$&^_.+-]*\\/[a-z0-9][a-z0-9!#$&^_.+-]*$"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "folderId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": ["name", "contentType", "size"],
+        "additionalProperties": false
+      },
+      "ExternalFileUpload": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "$ref": "#/components/schemas/ExternalFile"
+          },
+          "upload": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string",
+                "enum": ["PUT"]
+              },
+              "headers": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "expiresAt": {
+                "type": "string"
+              }
+            },
+            "required": ["url", "method", "headers", "expiresAt"],
+            "additionalProperties": false
+          },
+          "multipart": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "partSize": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "partCount": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["partSize", "partCount"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["file", "upload", "multipart"],
+        "additionalProperties": false
+      },
+      "ExternalCreateFileUploadPartsRequest": {
+        "type": "object",
+        "properties": {
+          "partNumbers": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            }
+          }
+        },
+        "required": ["partNumbers"],
+        "additionalProperties": false
+      },
+      "ExternalFileUploadParts": {
+        "type": "object",
+        "properties": {
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string"
+                },
+                "method": {
+                  "type": "string",
+                  "enum": ["PUT"]
+                },
+                "headers": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "partNumber": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": ["url", "method", "headers", "partNumber"],
+              "additionalProperties": false
+            }
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": ["parts", "expiresAt"],
+        "additionalProperties": false
+      },
+      "ExternalCompleteFileUploadRequest": {
+        "type": "object",
+        "properties": {
+          "parts": {
+            "minItems": 1,
+            "maxItems": 10000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "partNumber": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000
+                },
+                "etag": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "required": ["partNumber", "etag"],
+              "additionalProperties": false
+            }
+          }
+        },
         "additionalProperties": false
       }
     }

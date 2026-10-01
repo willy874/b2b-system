@@ -667,6 +667,28 @@ export interface UpdateFeatureFlagRequest {
   state: 'default' | 'on' | 'off';
 }
 
+export interface CreateFileUploadRequest {
+  name: string;
+  contentType: string;
+  size: number;
+  folderId?: string | null;
+  thumbnail?: {
+    contentType: 'image/webp' | 'image/jpeg' | 'image/png';
+    size: number;
+  };
+}
+
+export interface CreateFileUploadPartsRequest {
+  partNumbers: Array<number>;
+}
+
+export interface CompleteFileUploadRequest {
+  parts?: Array<{
+    partNumber: number;
+    etag: string;
+  }>;
+}
+
 export interface FileAccessExplain {
   folderId: string;
   userId: string;
@@ -742,28 +764,6 @@ export interface FileAccessRequestList {
 
 export interface ReviewFileAccessRequest {
   comment?: string;
-}
-
-export interface CreateFileUploadRequest {
-  name: string;
-  contentType: string;
-  size: number;
-  folderId?: string | null;
-  thumbnail?: {
-    contentType: 'image/webp' | 'image/jpeg' | 'image/png';
-    size: number;
-  };
-}
-
-export interface CreateFileUploadPartsRequest {
-  partNumbers: Array<number>;
-}
-
-export interface CompleteFileUploadRequest {
-  parts?: Array<{
-    partNumber: number;
-    etag: string;
-  }>;
 }
 
 export interface FileFolderCapabilities {

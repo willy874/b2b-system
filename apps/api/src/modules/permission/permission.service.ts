@@ -41,7 +41,7 @@ function withTokenScopes(userId: string, value: PermissionSet): PermissionSet {
   for (const key of token.scopes as ReadonlySet<PermissionKey>) {
     if (value.isSuperAdmin || value.permissions.has(key)) permissions.add(key);
   }
-  return { permissions, isSuperAdmin: false, subjects: value.subjects };
+  return { permissions, isSuperAdmin: false, subjects: value.subjects, tokenScoped: true };
 }
 
 export interface PermissionCatalogItem extends PermissionRow {

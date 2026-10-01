@@ -1068,6 +1068,47 @@ export const UpdateFeatureFlagRequestSchema = z.object({
   state: z.enum(['default', 'on', 'off']),
 }) satisfies z.ZodType<UpdateFeatureFlagRequest>;
 
+export const CreateFileUploadRequestSchema = z.object({
+  name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
+  contentType: z
+    .string()
+    .max(255)
+    .regex(new RegExp('^[a-z0-9][a-z0-9!#$&^_.+-]*\\/[a-z0-9][a-z0-9!#$&^_.+-]*$')),
+  size: z.int().min(0).max(9007199254740991),
+  folderId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable()
+    .optional(),
+  thumbnail: z
+    .object({
+      contentType: z.enum(['image/webp', 'image/jpeg', 'image/png']),
+      size: z.int().min(1).max(524288),
+    })
+    .optional(),
+}) satisfies z.ZodType<CreateFileUploadRequest>;
+
+export const CreateFileUploadPartsRequestSchema = z.object({
+  partNumbers: z.array(z.int().min(1).max(10000)).min(1).max(100),
+}) satisfies z.ZodType<CreateFileUploadPartsRequest>;
+
+export const CompleteFileUploadRequestSchema = z.object({
+  parts: z
+    .array(
+      z.object({
+        partNumber: z.int().min(1).max(10000),
+        etag: z.string().min(1).max(200),
+      }),
+    )
+    .min(1)
+    .max(10000)
+    .optional(),
+}) satisfies z.ZodType<CompleteFileUploadRequest>;
+
 export const FileAccessExplainSchema = z.object({
   folderId: z
     .uuid()
@@ -1213,47 +1254,6 @@ export const FileAccessRequestListSchema = z.object({
 export const ReviewFileAccessRequestSchema = z.object({
   comment: z.string().max(500).optional(),
 }) satisfies z.ZodType<ReviewFileAccessRequest>;
-
-export const CreateFileUploadRequestSchema = z.object({
-  name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
-  contentType: z
-    .string()
-    .max(255)
-    .regex(new RegExp('^[a-z0-9][a-z0-9!#$&^_.+-]*\\/[a-z0-9][a-z0-9!#$&^_.+-]*$')),
-  size: z.int().min(0).max(9007199254740991),
-  folderId: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    )
-    .nullable()
-    .optional(),
-  thumbnail: z
-    .object({
-      contentType: z.enum(['image/webp', 'image/jpeg', 'image/png']),
-      size: z.int().min(1).max(524288),
-    })
-    .optional(),
-}) satisfies z.ZodType<CreateFileUploadRequest>;
-
-export const CreateFileUploadPartsRequestSchema = z.object({
-  partNumbers: z.array(z.int().min(1).max(10000)).min(1).max(100),
-}) satisfies z.ZodType<CreateFileUploadPartsRequest>;
-
-export const CompleteFileUploadRequestSchema = z.object({
-  parts: z
-    .array(
-      z.object({
-        partNumber: z.int().min(1).max(10000),
-        etag: z.string().min(1).max(200),
-      }),
-    )
-    .min(1)
-    .max(10000)
-    .optional(),
-}) satisfies z.ZodType<CompleteFileUploadRequest>;
 
 export const FileFolderCapabilitiesSchema = z.object({
   canRead: z.boolean(),
