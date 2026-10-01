@@ -52,8 +52,6 @@ export const IdentityProviderListSchema = defineSchema(
     items: z.array(IdentityProviderSchema),
     /** 要登記在外部 IdP 的 redirect URI（所有連線共用一個）。 */
     callbackUrl: z.string().url(),
-    /** 平台管理者是否允許這個租戶使用外部 IdP；`false` 時不能新增或啟用連線（ADR-0020 D22）。 */
-    allowed: z.boolean(),
   }),
 );
 

@@ -16,8 +16,10 @@ import {
   useErrorMessage,
   useErrorToast,
 } from '@/core/errors';
+import { useIsFeatureReady } from '@/core/feature';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
+import { TenantFeature } from '@/shared/api-sdk';
 
 import { DEFAULT_ROLE_SEARCH, RoleDetailRoute } from '../routes';
 
@@ -68,6 +70,7 @@ export function useRoleDeleteMutation() {
   const { t } = useTranslation();
   const showError = useErrorToast();
   const restore = useRoleRestoreMutation();
+  const canRestore = useIsFeatureReady(TenantFeature.trash);
 
   return useMutation({
     ...getRoleDeleteMutationOptions(),
@@ -76,10 +79,13 @@ export function useRoleDeleteMutation() {
       toast.show({
         type: 'success',
         title: t('role.delete.success'),
-        action: {
-          label: t('role.delete.undo'),
-          onClick: () => restore.mutate({ params: { roleId: params.roleId } }),
-        },
+        // 回收桶被平台關掉時還原端點回 404，不提供復原（docs/adr/0029-toggleable-platform-features.md D3）
+        ...(canRestore && {
+          action: {
+            label: t('role.delete.undo'),
+            onClick: () => restore.mutate({ params: { roleId: params.roleId } }),
+          },
+        }),
       });
     },
     onError: showError,

@@ -51,7 +51,6 @@ function tenantRow(overrides: Partial<TenantWithDomains> = {}): TenantWithDomain
     adminName: null,
     provisionError: null,
     provisionedAt: at,
-    allowExternalIdp: true,
     features: ['file', 'auditLog', 'job'],
     flags: {},
     createdAt: at,

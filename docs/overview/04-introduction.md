@@ -92,7 +92,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ![平台後台的租戶詳情頁](./images/introduction/platform-tenant-detail.jpg)
 
-*平台後台的租戶詳情（apps/auth）。網域、外部 IdP 許可、可啟用的功能都在這裡管。關掉某個功能，租戶的 API 對它回 `404 FEATURE_DISABLED`，前端在執行期卸載該 feature；資料不刪，重新打開即恢復。*
+*平台後台的租戶詳情（apps/auth）。網域與可啟用的功能（檔案、稽核、背景工作、回收桶、系統設定、外部 IdP、切換租戶）都在這裡管。關掉某個功能，租戶的 API 對它回 `404 FEATURE_DISABLED`，前端在執行期卸載該 feature；資料不刪，重新打開即恢復。*
 
 ---
 

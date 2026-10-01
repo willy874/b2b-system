@@ -120,7 +120,6 @@
     "TENANT_LAST_DOMAIN": "租戶至少要保留一個網域。",
     "TENANT_PRIMARY_DOMAIN": "主要網域不能移除：信中的連結與「進入租戶」都使用它。",
     "PLATFORM_ADMIN_NOT_FOUND": "找不到這位平台管理者，可能已被刪除。",
-    "IDENTITY_PROVIDER_NOT_ALLOWED": "平台管理者已停用這個租戶的外部 IdP。",
     "FEATURE_DISABLED": "這個功能目前沒有開放給這個租戶。",
     "FEATURE_FLAG_NOT_FOUND": "這個試行開關不存在，可能已經移除。",
     "AUTH_INVALID_CREDENTIALS": "帳號或密碼錯誤。",

@@ -25,7 +25,6 @@ export interface TenantRecord {
   databaseUrl: string;
   /** 物件儲存的 bucket（D16）。 */
   storageBucket: string;
-  allowExternalIdp: boolean;
   /** 啟用的 feature（ADR-0021 D8）；DB 裡不認得的值已濾掉。 */
   features: readonly TenantFeature[];
   /** feature flag 的租戶層覆寫（ADR-0022 D2）；非布林的值已濾掉。 */
@@ -227,7 +226,6 @@ export class TenantDirectory implements OnModuleInit, OnApplicationBootstrap, On
       status: row.status,
       databaseUrl: this.secrets.decrypt(row.databaseUrlEncrypted),
       storageBucket: row.storageBucket,
-      allowExternalIdp: row.allowExternalIdp,
       features: toTenantFeatures(row.features),
       flags: toFeatureFlagOverrides(row.flags),
     };

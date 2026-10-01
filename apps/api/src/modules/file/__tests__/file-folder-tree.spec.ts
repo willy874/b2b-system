@@ -52,7 +52,6 @@ const inTenant = <T>(id: string, fn: () => T) =>
       code: id,
       db: {} as Database,
       storageBucket: id,
-      allowExternalIdp: true,
       features: ['file', 'auditLog', 'job'],
       flags: {},
     },

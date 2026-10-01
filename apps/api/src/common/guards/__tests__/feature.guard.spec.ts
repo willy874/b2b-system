@@ -15,8 +15,8 @@ import { FeatureGuard } from '../feature.guard';
 class FileController {
   list(): void {}
 
-  /** handler 的宣告蓋過 class 的 */
-  @RequireFeature('auditLog')
+  /** handler 與 class 的宣告合併：兩者都要啟用 */
+  @RequireFeature('trash')
   logs(): void {}
 }
 
@@ -52,7 +52,6 @@ function tenantWith(features: TenantFeature[], flags: Record<string, boolean> = 
     code: 't1',
     db: {} as Database,
     storageBucket: 'b2b-t1',
-    allowExternalIdp: true,
     features,
     flags,
   };
@@ -94,9 +93,12 @@ describe('FeatureGuard（docs/adr/0021-runtime-feature-activation.md D11）', ()
     );
   });
 
-  it('handler 的宣告蓋過 class 的', () => {
-    expect(inTenant(['auditLog'], contextOf(FileController, 'logs'))).toBe(true);
+  it('handler 與 class 的宣告合併：都啟用才通過（docs/adr/0029-toggleable-platform-features.md D3）', () => {
+    expect(inTenant(['file', 'trash'], contextOf(FileController, 'logs'))).toBe(true);
     expect(codeOf(() => inTenant(['file'], contextOf(FileController, 'logs')))).toBe(
+      'FEATURE_DISABLED',
+    );
+    expect(codeOf(() => inTenant(['trash'], contextOf(FileController, 'logs')))).toBe(
       'FEATURE_DISABLED',
     );
   });

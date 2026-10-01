@@ -1,5 +1,7 @@
 import { HttpResponse, http } from 'msw/http';
 
+import { TenantFeature } from '@/shared/api-sdk';
+
 import { MOCK_API_BASE, mockState } from '../config';
 import { USER_FIXTURES } from '../resources/fixtures';
 
@@ -50,7 +52,7 @@ export const authHandlers = [
         roles: USER_FIXTURES[0]!.roles,
         permissions: mockState.permissions,
         // 可啟用的 feature 全部開啟（docs/adr/0021-runtime-feature-activation.md D8）
-        features: ['file', 'auditLog', 'job'],
+        features: Object.values(TenantFeature),
         flags: [],
       },
     }),

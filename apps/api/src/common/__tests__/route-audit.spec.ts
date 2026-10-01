@@ -65,7 +65,7 @@ class FeaturedController {
 
   /** handler 的宣告蓋過 class 的 */
   @Get('logs')
-  @RequireFeature('auditLog')
+  @RequireFeature('trash')
   @RequirePermissions('auditLog:read')
   logs(): void {}
 }
@@ -161,12 +161,12 @@ describe('路由稽核延伸到 gateway（docs/architecture/backend/08-realtime.
 });
 
 describe('路由稽核的 @RequireFeature（docs/adr/0021-runtime-feature-activation.md D11）', () => {
-  it('收集每個路由的 feature；handler 的宣告蓋過 class 的', async () => {
+  it('收集每個路由的 feature；handler 與 class 的宣告合併', async () => {
     const featured = await boot(FeaturedModule);
     const routes = collectRouteDeclarations(featured);
-    expect(routes.map((r) => [r.path, r.feature])).toEqual([
-      ['/featured', 'file'],
-      ['/featured/logs', 'auditLog'],
+    expect(routes.map((r) => [r.path, r.features])).toEqual([
+      ['/featured', ['file']],
+      ['/featured/logs', ['trash', 'file']],
     ]);
     expect(() => auditRoutes(featured)).not.toThrow();
   });

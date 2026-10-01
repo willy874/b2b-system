@@ -1,7 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { CurrentUser, RequireAnyPermission } from '@/common/decorators';
+import { CurrentUser, RequireAnyPermission, RequireFeature } from '@/common/decorators';
 import type { AuthUser } from '@/common/types';
 import { ApiZodListResponse, ZodValidationPipe } from '@/core/validation';
 
@@ -12,6 +12,7 @@ import { TrashService } from './trash.service';
 
 @ApiTags('trash')
 @Controller('trash')
+@RequireFeature('trash')
 export class TrashController {
   constructor(private readonly trashService: TrashService) {}
 

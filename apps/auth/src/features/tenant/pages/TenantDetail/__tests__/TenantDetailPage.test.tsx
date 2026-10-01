@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { i18n, initI18n } from '@/core/locales';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { parseSearch, RootRoute, stringifySearch } from '@/core/router';
@@ -11,6 +12,7 @@ import type { FeatureFlag, PlatformTenant } from '@/shared/api-sdk';
 import { AllProviders } from '@/test/renderWithPermissions';
 
 import { registerTenantPagePermissions, Routes } from '../../..';
+import tenantZhTW from '../../../locales/zh_TW.json';
 import { tenantFixture } from '../../../test-fixtures';
 
 const { getTenant, retry, disable, removeDomain, update, removeTenant, listFlags } = vi.hoisted(
@@ -181,50 +183,18 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     expect(screen.queryByTestId('tenant-domain-remove')).toBeNull();
   });
 
-  it('外部 IdP 開關：打開直接送出 allowExternalIdp', async () => {
-    const tenant = tenantFixture({ allowExternalIdp: false });
-    update.mockResolvedValue({ ...tenant, allowExternalIdp: true });
-    renderPage(tenant, ALL);
-    const toggle = await screen.findByTestId('tenant-allow-external-idp');
-    expect(toggle).toHaveAttribute('aria-checked', 'false');
-    fireEvent.click(toggle);
-    await waitFor(() => expect(update).toHaveBeenCalled());
-    expect(update.mock.calls[0]?.[0]).toEqual({
-      params: { id: tenant.id, body: { allowExternalIdp: true } },
-    });
-    expect(screen.queryByTestId('tenant-external-idp-dialog')).toBeNull();
-  });
-
-  it('外部 IdP 開關：關閉要先確認影響，取消就不送出', async () => {
-    const tenant = tenantFixture();
-    update.mockResolvedValue({ ...tenant, allowExternalIdp: false });
-    renderPage(tenant, ALL);
-    const toggle = await screen.findByTestId('tenant-allow-external-idp');
-    expect(toggle).toHaveAttribute('aria-checked', 'true');
-
-    fireEvent.click(toggle);
-    expect(await screen.findByTestId('tenant-external-idp-dialog')).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('alert-dialog-cancel'));
-    await waitFor(() => expect(screen.queryByTestId('tenant-external-idp-dialog')).toBeNull());
-    expect(update).not.toHaveBeenCalled();
-
-    fireEvent.click(toggle);
-    fireEvent.click(await screen.findByTestId('alert-dialog-confirm'));
-    await waitFor(() => expect(update).toHaveBeenCalled());
-    expect(update.mock.calls[0]?.[0]).toEqual({
-      params: { id: tenant.id, body: { allowExternalIdp: false } },
-    });
-  });
-
-  it('外部 IdP 開關：只有 tenant:read → 不能切換', async () => {
-    renderPage(tenantFixture(), ['tenant:read']);
-    expect(await screen.findByTestId('tenant-allow-external-idp')).toHaveAttribute('data-disabled');
-  });
-
   it('啟用的功能：每個 feature 一個開關，反映目前的清單（docs/adr/0021-runtime-feature-activation.md D8）', async () => {
     renderPage(tenantFixture({ features: ['auditLog'] }), ALL);
     const rows = await screen.findAllByTestId('tenant-feature');
-    expect(rows.map((el) => el.dataset.value)).toEqual(['file', 'auditLog', 'job']);
+    expect(rows.map((el) => el.dataset.value)).toEqual([
+      'file',
+      'auditLog',
+      'job',
+      'trash',
+      'systemSetting',
+      'identityProvider',
+      'tenantSwitch',
+    ]);
     expect(await featureToggle('file')).toHaveAttribute('aria-checked', 'false');
     expect(await featureToggle('auditLog')).toHaveAttribute('aria-checked', 'true');
     expect(await featureToggle('job')).toHaveAttribute('aria-checked', 'false');
@@ -243,7 +213,7 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
   });
 
   it('啟用的功能：關閉要先確認，取消就不送出；確認後送出去掉該 feature 的清單', async () => {
-    const tenant = tenantFixture();
+    const tenant = tenantFixture({ features: ['file', 'auditLog', 'job'] });
     update.mockResolvedValue({ ...tenant, features: ['auditLog', 'job'] });
     renderPage(tenant, ALL);
     const toggle = await featureToggle('file');
@@ -262,11 +232,26 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     });
   });
 
+  it('啟用的功能：關閉外部 IdP 的確認框另外說明對登入的影響（docs/adr/0029-toggleable-platform-features.md D5）', async () => {
+    await initI18n('zh-TW');
+    i18n.addResourceBundle('zh-TW', 'translation', tenantZhTW, true, true);
+    renderPage(tenantFixture(), ALL);
+    fireEvent.click(await featureToggle('identityProvider'));
+    expect(await screen.findByTestId('tenant-feature-dialog')).toBeInTheDocument();
+    expect(screen.getByText(/沒有設定密碼的使用者要先重設密碼/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('alert-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('tenant-feature-dialog')).toBeNull());
+    fireEvent.click(await featureToggle('file'));
+    expect(await screen.findByTestId('tenant-feature-dialog')).toBeInTheDocument();
+    expect(screen.queryByText(/重設密碼/)).toBeNull();
+  });
+
   it('啟用的功能：只有 tenant:read → 不能切換', async () => {
     renderPage(tenantFixture(), ['tenant:read']);
     await screen.findAllByTestId('tenant-feature');
     const toggles = screen.getAllByTestId('tenant-feature-toggle');
-    expect(toggles).toHaveLength(3);
+    expect(toggles).toHaveLength(7);
     for (const toggle of toggles) expect(toggle).toHaveAttribute('data-disabled');
   });
 

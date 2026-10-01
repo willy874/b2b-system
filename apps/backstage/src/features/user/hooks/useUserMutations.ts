@@ -10,8 +10,10 @@ import { getUserRestoreMutationOptions } from '@/apis/user/restore-user/mutation
 import { getUserUnlockMutationOptions } from '@/apis/user/unlock-user/mutation';
 import { getUserUpdateMutationOptions } from '@/apis/user/update-user/mutation';
 import { isAppError, isVersionConflict, useErrorMessage, useErrorToast } from '@/core/errors';
+import { useIsFeatureReady } from '@/core/feature';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
+import { TenantFeature } from '@/shared/api-sdk';
 import type { User } from '@/shared/api-sdk';
 
 import { UserDetailRoute } from '../routes';
@@ -68,6 +70,7 @@ export function useUserDeleteMutation() {
   const { t } = useTranslation();
   const showError = useErrorToast();
   const restore = useUserRestoreMutation();
+  const canRestore = useIsFeatureReady(TenantFeature.trash);
   return useMutation({
     ...getUserDeleteMutationOptions(),
     onSuccess: (_, { params }) => {
@@ -76,10 +79,13 @@ export function useUserDeleteMutation() {
       toast.show({
         type: 'success',
         title: t('user.delete.success'),
-        action: {
-          label: t('user.delete.undo'),
-          onClick: () => restore.mutate({ params: { userId: params.userId } }),
-        },
+        // 回收桶被平台關掉時還原端點回 404，不提供復原（docs/adr/0029-toggleable-platform-features.md D3）
+        ...(canRestore && {
+          action: {
+            label: t('user.delete.undo'),
+            onClick: () => restore.mutate({ params: { userId: params.userId } }),
+          },
+        }),
       });
     },
     onError: showError,

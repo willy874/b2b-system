@@ -148,7 +148,6 @@ export class Tenancy implements OnApplicationBootstrap, OnApplicationShutdown {
       code: tenant.code,
       db: this.poolOf(tenant).db,
       storageBucket: tenant.storageBucket,
-      allowExternalIdp: tenant.allowExternalIdp,
       features: tenant.features,
       flags: tenant.flags,
     };

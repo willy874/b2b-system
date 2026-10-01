@@ -203,6 +203,7 @@ export class FileController {
    * 所在的資料夾已刪除或物件已不在時 409 `FILE_RESTORE_CONFLICT`（`details.reason`）；沒有被刪除 409 `FILE_NOT_DELETED`。
    */
   @Post(':id/restore')
+  @RequireFeature('trash') // 還原屬於回收桶（docs/adr/0029-toggleable-platform-features.md D3）
   @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_DELETE)
   @HttpCode(200)
   @ApiOperation({ summary: '還原刪除的檔案' })

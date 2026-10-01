@@ -61,7 +61,6 @@
       "scopesInvalid": "Must include openid",
       "domainInvalid": "Invalid domain",
       "domainDuplicate": "Duplicate domain"
-    },
-    "notAllowed": "The platform administrator has turned off external IdPs for this tenant: connections can't be added or enabled, and sign-in doesn't redirect to an external IdP."
+    }
   }
 }

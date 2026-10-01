@@ -21,7 +21,6 @@ function tenant(overrides: Partial<TenantRecord> = {}): TenantRecord {
     status: 'active',
     databaseUrl: 'postgres://user:pass@127.0.0.1:1/acme',
     storageBucket: 'b2b-acme',
-    allowExternalIdp: true,
     features: ['file', 'auditLog', 'job'],
     flags: {},
     ...overrides,
@@ -73,7 +72,6 @@ describe('Tenancy：租戶的 migration 版本檢查（docs/adr/0020-physical-te
     expect(context).toMatchObject({
       code: 'acme',
       storageBucket: 'b2b-acme',
-      allowExternalIdp: true,
       features: ['file', 'auditLog', 'job'],
       flags: {},
     });

@@ -56,8 +56,6 @@ export const PlatformTenantSchema = defineSchema(
     /** 第一個是主要網域：信中的連結、進入租戶都用它。 */
     domains: z.array(z.string()),
     storageBucket: z.string(),
-    /** 是否允許租戶設定外部 IdP 連線（D22）。 */
-    allowExternalIdp: z.boolean(),
     /** 啟用的 feature（ADR-0021 D8），依 `TENANT_FEATURES` 的順序。 */
     features: z.array(TenantFeatureSchema),
     /** feature flag 的租戶層覆寫（ADR-0022 D2），只含目錄裡有的 key。 */
@@ -113,7 +111,6 @@ export const UpdateTenantSchema = defineSchema(
   z
     .object({
       name: z.string().trim().min(1).max(100).optional(),
-      allowExternalIdp: z.boolean().optional(),
       /**
        * 啟用的 feature 的 **完整清單**（不是增減）：沒列出的就停用，空陣列 = 全部停用（ADR-0021 D8）。
        * 重複的值與其他陣列欄位一樣直接拒絕（`uniqueItems`），所以長度上限就是 id 的總數。
@@ -126,11 +123,7 @@ export const UpdateTenantSchema = defineSchema(
       flags: TenantFlagOverridesSchema.optional(),
     })
     .refine(
-      (dto) =>
-        dto.name !== undefined ||
-        dto.allowExternalIdp !== undefined ||
-        dto.features !== undefined ||
-        dto.flags !== undefined,
+      (dto) => dto.name !== undefined || dto.features !== undefined || dto.flags !== undefined,
       'empty',
     ),
 );

@@ -2,6 +2,8 @@
 
 刪除的東西先進回收桶，保留期限內可以還原，到期後由排程永久刪除。
 決策見 [ADR-0025](../../adr/0025-entity-revisions.md) D2、D5、D6、D8～D11；前端見 [`../frontend/13-trash.md`](../frontend/13-trash.md)。
+平台可對租戶關閉回收桶（feature `trash`，[ADR-0029](../../adr/0029-toggleable-platform-features.md) D3）：`GET /trash` 與每個還原端點都標
+`@RequireFeature('trash')`（新增可還原的資源時也要標），刪除與到期永久刪除照舊。
 
 **使用者**（§4）、**角色**（§6）、**檔案** 與 **資料夾**（§7）進回收桶。檔案的物件（原檔、縮圖、變體）保留到永久刪除，
 保留期限內還原不會少內容；這是分兩次部署做到的（ADR 的 R4a、R4b，§7.5）。

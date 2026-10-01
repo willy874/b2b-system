@@ -20,7 +20,6 @@ import {
 import { useTenantPermission } from '../../hooks/useTenantPermission';
 import { DEFAULT_TENANT_SEARCH, TenantDetailRoute, TenantListRoute } from '../../routes';
 import { DeleteTenantDialog } from './components/DeleteTenantDialog';
-import { ExternalIdpSwitch } from './components/ExternalIdpSwitch';
 import { RenameTenantDialog } from './components/RenameTenantDialog';
 import { TenantDomains } from './components/TenantDomains';
 import { TenantFeatures } from './components/TenantFeatures';
@@ -164,7 +163,6 @@ export default function TenantDetailPage() {
       </section>
 
       <TenantDomains tenant={tenant} canUpdate={permission.canUpdate} />
-      <ExternalIdpSwitch tenant={tenant} canUpdate={permission.canUpdate} />
       <TenantFeatures tenant={tenant} canUpdate={permission.canUpdate} />
       <TenantFlags tenant={tenant} canUpdate={permission.canUpdate} />
 

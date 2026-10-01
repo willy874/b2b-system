@@ -18,12 +18,9 @@ import { approvalFeaturePlugin } from '@/features/approval';
 import { authFeaturePlugin } from '@/features/auth';
 import { groupFeaturePlugin } from '@/features/group';
 import { homeFeaturePlugin } from '@/features/home';
-import { identityProviderFeaturePlugin } from '@/features/identity-provider';
 import { notificationFeaturePlugin } from '@/features/notification';
 import { permissionFeaturePlugin } from '@/features/permission';
 import { roleFeaturePlugin } from '@/features/role';
-import { systemFeaturePlugin } from '@/features/system';
-import { trashFeaturePlugin } from '@/features/trash';
 import { userFeaturePlugin } from '@/features/user';
 import {
   batchQueuePlugin,
@@ -81,7 +78,8 @@ async function bootstrap(): Promise<void> {
 
   context
     // 常駐 feature 的 plugin factory —— ★ 在此「同步」註冊頁面權限。
-    // 可啟用的 feature（檔案、稽核紀錄、背景工作）不在這裡：登入後依租戶的啟用清單安裝（app/features.ts）
+    // 可啟用的 feature（檔案、稽核紀錄、背景工作、回收桶、系統設定、外部 IdP）不在這裡：
+    // 登入後依租戶的啟用清單安裝（app/features.ts）
     .use(authFeaturePlugin())
     .use(homeFeaturePlugin())
     .use(userFeaturePlugin())
@@ -89,9 +87,6 @@ async function bootstrap(): Promise<void> {
     .use(groupFeaturePlugin())
     .use(permissionFeaturePlugin())
     .use(approvalFeaturePlugin())
-    .use(identityProviderFeaturePlugin())
-    .use(systemFeaturePlugin())
-    .use(trashFeaturePlugin())
     .use(accountFeaturePlugin())
     .use(notificationFeaturePlugin())
     // 擴充 feature 的小外掛：往偏好頁插「表格欄位」分頁

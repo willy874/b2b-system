@@ -541,7 +541,6 @@ export const IdentityProviderSchema = z.object({
 export const IdentityProviderListSchema = z.object({
   items: z.array(IdentityProviderSchema),
   callbackUrl: z.url(),
-  allowed: z.boolean(),
 }) satisfies z.ZodType<IdentityProviderList>;
 
 export const CreateIdentityProviderRequestSchema = z.object({
@@ -766,6 +765,10 @@ export const TenantFeatureSchema = z.enum([
   'file',
   'auditLog',
   'job',
+  'trash',
+  'systemSetting',
+  'identityProvider',
+  'tenantSwitch',
 ]) satisfies z.ZodType<TenantFeature>;
 
 export const TenantFlagOverridesSchema = z.record(
@@ -786,7 +789,6 @@ export const PlatformTenantSchema = z.object({
   status: z.enum(['provisioning', 'active', 'disabled', 'failed']),
   domains: z.array(z.string()),
   storageBucket: z.string(),
-  allowExternalIdp: z.boolean(),
   features: z.array(TenantFeatureSchema),
   flags: TenantFlagOverridesSchema,
   adminEmail: z.string().nullable(),
@@ -834,8 +836,7 @@ export const CreateTenantRequestSchema = z.object({
 
 export const UpdateTenantRequestSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  allowExternalIdp: z.boolean().optional(),
-  features: z.array(TenantFeatureSchema).max(3).optional(),
+  features: z.array(TenantFeatureSchema).max(7).optional(),
   flags: TenantFlagOverridesSchema.optional(),
 }) satisfies z.ZodType<UpdateTenantRequest>;
 

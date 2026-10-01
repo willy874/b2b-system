@@ -19,7 +19,6 @@ function inTenant(id: string, fn: () => void): void {
     code: id,
     db: {},
     storageBucket: id,
-    allowExternalIdp: false,
     features: ['file', 'auditLog', 'job'],
     flags: {},
   };

@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { GlobalEvents, useAppContext } from '@/core/app';
-import type { AppPluginFactory } from '@/core/app';
+import type { AppDynamicPluginFactory, AppPluginFactory } from '@/core/app';
 import { useHasSession } from '@/core/auth';
 import { FeatureActivator } from '@/core/feature';
 import type { FeatureDefinition } from '@/core/feature';
@@ -14,10 +14,31 @@ import {
   Routes as AuditLogRoutes,
 } from '@/features/audit-log';
 import { FILE_FEATURE, fileFeaturePlugin, Routes as FileRoutes } from '@/features/file';
+import {
+  IDENTITY_PROVIDER_FEATURE,
+  identityProviderFeaturePlugin,
+  Routes as IdentityProviderRoutes,
+} from '@/features/identity-provider';
 import { JOB_FEATURE, jobFeaturePlugin, Routes as JobRoutes } from '@/features/job';
+import {
+  Routes as SystemRoutes,
+  SYSTEM_SETTING_FEATURE,
+  systemFeaturePlugin,
+} from '@/features/system';
+import { Routes as TrashRoutes, TRASH_FEATURE, trashFeaturePlugin } from '@/features/trash';
 import type { Profile } from '@/shared/api-sdk';
 
 export type TenantFeature = Profile['features'][number];
+
+/**
+ * 「切換租戶」（docs/adr/0029-toggleable-platform-features.md D6）：沒有頁面也沒有後端端點，只是使用者選單的一個項目
+ * （`layouts/DashboardLayout.tsx`）。仍登記成一個空的 plugin，啟用與否就和其他 feature 一樣由安裝狀態表示。
+ */
+export const TENANT_SWITCH_FEATURE = 'tenantSwitch';
+
+function tenantSwitchPlugin(): AppDynamicPluginFactory {
+  return () => ({ name: 'tenant-switch' });
+}
 
 /**
  * 可啟用的 feature（docs/adr/0021-runtime-feature-activation.md D1）：由平台管理者對每個租戶開關，
@@ -36,6 +57,16 @@ export const FEATURE_CATALOG = {
     routes: [AuditLogRoutes.AuditLogListRoute],
   },
   [JOB_FEATURE]: { plugin: jobFeaturePlugin(), routes: [JobRoutes.JobListRoute] },
+  [TRASH_FEATURE]: { plugin: trashFeaturePlugin(), routes: [TrashRoutes.TrashListRoute] },
+  [SYSTEM_SETTING_FEATURE]: {
+    plugin: systemFeaturePlugin(),
+    routes: [SystemRoutes.SettingListRoute],
+  },
+  [IDENTITY_PROVIDER_FEATURE]: {
+    plugin: identityProviderFeaturePlugin(),
+    routes: [IdentityProviderRoutes.IdentityProviderListRoute],
+  },
+  [TENANT_SWITCH_FEATURE]: { plugin: tenantSwitchPlugin(), routes: [] },
 } as const satisfies Record<TenantFeature, FeatureDefinition> &
   Readonly<Record<string, FeatureDefinition>>;
 

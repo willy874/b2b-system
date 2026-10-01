@@ -52,10 +52,25 @@ export const TENANT_FEATURE_LABEL_KEY = {
   file: 'tenant.feature.file',
   auditLog: 'tenant.feature.auditLog',
   job: 'tenant.feature.job',
+  trash: 'tenant.feature.trash',
+  systemSetting: 'tenant.feature.systemSetting',
+  identityProvider: 'tenant.feature.identityProvider',
+  tenantSwitch: 'tenant.feature.tenantSwitch',
 } as const satisfies Record<TenantFeature, string>;
 
 export const TENANT_FEATURE_DESCRIPTION_KEY = {
   file: 'tenant.feature.fileDescription',
   auditLog: 'tenant.feature.auditLogDescription',
   job: 'tenant.feature.jobDescription',
+  trash: 'tenant.feature.trashDescription',
+  systemSetting: 'tenant.feature.systemSettingDescription',
+  identityProvider: 'tenant.feature.identityProviderDescription',
+  tenantSwitch: 'tenant.feature.tenantSwitchDescription',
 } as const satisfies Record<TenantFeature, string>;
+
+/**
+ * 關閉時確認框額外的警告：影響超出「看不到頁面」的 feature 才有（docs/adr/0029-toggleable-platform-features.md D5）。
+ */
+export const TENANT_FEATURE_DISABLE_WARNING_KEY: Partial<Record<TenantFeature, string>> = {
+  identityProvider: 'tenant.feature.identityProviderDisableWarning',
+};

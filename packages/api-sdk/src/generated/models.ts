@@ -288,7 +288,6 @@ export interface IdentityProvider {
 export interface IdentityProviderList {
   items: Array<IdentityProvider>;
   callbackUrl: string;
-  allowed: boolean;
 }
 
 export interface CreateIdentityProviderRequest {
@@ -438,6 +437,10 @@ export const TenantFeature = {
   file: 'file',
   auditLog: 'auditLog',
   job: 'job',
+  trash: 'trash',
+  systemSetting: 'systemSetting',
+  identityProvider: 'identityProvider',
+  tenantSwitch: 'tenantSwitch',
 } as const;
 export type TenantFeature = (typeof TenantFeature)[keyof typeof TenantFeature];
 
@@ -450,7 +453,6 @@ export interface PlatformTenant {
   status: 'provisioning' | 'active' | 'disabled' | 'failed';
   domains: Array<string>;
   storageBucket: string;
-  allowExternalIdp: boolean;
   features: Array<TenantFeature>;
   flags: TenantFlagOverrides;
   adminEmail: string | null;
@@ -480,7 +482,6 @@ export interface CreateTenantRequest {
 
 export interface UpdateTenantRequest {
   name?: string;
-  allowExternalIdp?: boolean;
   features?: Array<TenantFeature>;
   flags?: TenantFlagOverrides;
 }

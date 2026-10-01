@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { CurrentUser, RequirePermissions } from '@/common/decorators';
+import { CurrentUser, RequireFeature, RequirePermissions } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
 import {
@@ -102,6 +102,7 @@ export class RoleController {
    * `details.conflictingRoleId` 帶佔用者；沒有被刪除 409 `ROLE_NOT_DELETED`；角色的權限鍵有 actor 沒有的 403。
    */
   @Post(':id/restore')
+  @RequireFeature('trash') // 還原屬於回收桶（docs/adr/0029-toggleable-platform-features.md D3）
   @HttpCode(200)
   @RequirePermissions(PERMISSION.ROLE_DELETE)
   @ApiOperation({ summary: '還原刪除的角色（原本的持有者一併恢復）' })

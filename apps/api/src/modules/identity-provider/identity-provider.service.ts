@@ -93,12 +93,10 @@ export class IdentityProviderService {
     return {
       items: (await this.repo.list()).map(toDto),
       callbackUrl: this.callback,
-      allowed: this.allowed(),
     };
   }
 
   async create(dto: CreateIdentityProviderDto, actor: AuthUser): Promise<IdentityProviderDto> {
-    this.assertAllowed();
     const id = await this.write(async (tx) => {
       const row = await this.repo.create(
         {
@@ -136,8 +134,6 @@ export class IdentityProviderService {
     actor: AuthUser,
   ): Promise<IdentityProviderDto> {
     const before = await this.getExisting(id);
-    // 平台關掉外部 IdP 時仍可以編輯、停用、刪除，只是不能再啟用
-    if (dto.enabled) this.assertAllowed();
     await this.write(async (tx) => {
       const { clientSecret, domains, ...fields } = dto;
       const updated = await this.repo.update(
@@ -241,15 +237,12 @@ export class IdentityProviderService {
   }
 
   /**
-   * 平台管理者是否允許這個租戶使用外部 IdP（docs/adr/0020-physical-tenant-isolation.md D22）。
-   * 關掉時：不能新增或啟用連線；登入時當作沒有連線（email 網域不會導向外部 IdP，只允許 SSO 的網域也回到密碼登入）。
+   * 平台管理者是否為這個租戶啟用外部 IdP（`identityProvider`，docs/adr/0029-toggleable-platform-features.md D5）。
+   * 關掉時管理端點由 `@RequireFeature` 回 404；登入時當作沒有連線（email 網域不會導向外部 IdP，
+   * 只允許 SSO 的網域也回到密碼登入）。連線與外部身分的連結都保留，重新啟用後照舊。
    */
   private allowed(): boolean {
-    return requireTenant().allowExternalIdp;
-  }
-
-  private assertAllowed(): void {
-    if (!this.allowed()) throw new AppException('IDENTITY_PROVIDER_NOT_ALLOWED');
+    return requireTenant().features.includes('identityProvider');
   }
 
   // ── 外部身分（帳號 ↔ 外部 IdP 的 subject，D8）──────────────────

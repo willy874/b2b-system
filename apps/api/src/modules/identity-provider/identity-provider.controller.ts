@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { CurrentUser, RequirePermissions } from '@/common/decorators';
+import { CurrentUser, RequireFeature, RequirePermissions } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
@@ -28,9 +28,13 @@ import type {
 } from './dto/identity-provider.dto';
 import { IdentityProviderService } from './identity-provider.service';
 
-/** 外部 IdP 連線的管理（平台範圍，docs/adr/0019-sso-identity-platform.md D8、D9）。 */
+/**
+ * 外部 IdP 連線的管理（平台範圍，docs/adr/0019-sso-identity-platform.md D8、D9）。
+ * 平台管理者可對租戶關閉（`identityProvider`，docs/adr/0029-toggleable-platform-features.md D5）。
+ */
 @ApiTags('identity-providers')
 @Controller('identity-providers')
+@RequireFeature('identityProvider')
 export class IdentityProviderController {
   constructor(private readonly providers: IdentityProviderService) {}
 

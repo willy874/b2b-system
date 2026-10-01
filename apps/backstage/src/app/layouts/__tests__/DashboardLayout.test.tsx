@@ -8,6 +8,7 @@ import {
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { featureStore, resetFeatureStore } from '@/core/feature';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { useLayoutStore, usePermissionStore } from '@/core/store';
 import { initTestI18n } from '@/test/i18n';
@@ -62,6 +63,8 @@ beforeEach(() => {
   resetPagePermissionRegistry();
   usePermissionStore.setState({ permissions: new Set(), hydrated: true });
   useLayoutStore.setState({ sidebarCollapsed: false });
+  resetFeatureStore();
+  featureStore.setState({ resolved: true, statuses: new Map([['tenantSwitch', 'ready']]) });
   fetchProfile.mockReset().mockResolvedValue({
     user: { id: 'me', displayName: 'Mei Lin' },
     permissions: [],
@@ -81,7 +84,7 @@ describe('DashboardLayout', () => {
     expect(await screen.findByRole('button', { name: '帳號選單（Mei Lin）' })).toBeInTheDocument();
   });
 
-  it('帳號選單有「切換租戶」，前往 apps/auth 的進入租戶頁', async () => {
+  it('帳號選單有「切換租戶」，前往 apps/auth 的進入租戶頁（租戶啟用了 tenantSwitch）', async () => {
     const assign = vi.fn();
     vi.stubGlobal('location', { ...window.location, assign });
     renderShell();
@@ -89,6 +92,15 @@ describe('DashboardLayout', () => {
     fireEvent.click(await screen.findByTestId('account-menu-trigger'));
     fireEvent.click(await screen.findByRole('menuitem', { name: '切換租戶' }));
     expect(assign).toHaveBeenCalledWith(expect.stringMatching(/\/enter$/));
+  });
+
+  it('租戶沒有啟用 tenantSwitch → 帳號選單沒有「切換租戶」（docs/adr/0029-toggleable-platform-features.md D6）', async () => {
+    featureStore.setState({ statuses: new Map([['tenantSwitch', 'disabled']]) });
+    renderShell();
+
+    fireEvent.click(await screen.findByTestId('account-menu-trigger'));
+    expect(await screen.findByRole('menuitem', { name: '登出' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: '切換租戶' })).not.toBeInTheDocument();
   });
 
   it('側欄開關的名稱是語系文字，並以 aria-expanded 表示狀態', async () => {

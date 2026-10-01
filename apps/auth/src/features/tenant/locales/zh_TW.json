@@ -80,14 +80,6 @@
       "removeAction": "移除",
       "primaryHint": "主要網域不能移除：信中的連結與「進入租戶」都使用它。"
     },
-    "externalIdp": {
-      "title": "外部 IdP",
-      "allow": "允許租戶設定外部 IdP 連線",
-      "description": "關掉後租戶不能新增或啟用連線，登入時也不會導向外部 IdP；已登記的連線保留，重新打開即恢復。",
-      "disableTitle": "關閉外部 IdP",
-      "disableConfirm": "關閉後，{{code}} 的使用者不能再以外部 IdP 登入，只允許 SSO 的網域也會改回密碼登入；只透過外部 IdP 登入、沒有設定密碼的使用者要先重設密碼才能登入。已登記的連線保留，重新打開即恢復。",
-      "disableAction": "關閉"
-    },
     "feature": {
       "title": "啟用的功能",
       "description": "租戶的使用者只看得到啟用的功能；關掉的功能在 API 也視為不存在。資料不會刪除，重新打開即恢復。",
@@ -97,6 +89,15 @@
       "auditLogDescription": "查閱租戶內的操作紀錄（紀錄本身照常寫入）。",
       "job": "背景工作",
       "jobDescription": "查看與重試租戶的背景工作（工作本身照常執行）。",
+      "trash": "回收桶",
+      "trashDescription": "查看與還原已刪除的項目，以及刪除後提示的「復原」。關掉後刪除的項目照樣在保留期滿後永久刪除。",
+      "systemSetting": "系統設定",
+      "systemSettingDescription": "租戶管理者調整執行期設定。關掉後已調整的值照樣生效，只是不能再查看或修改。",
+      "identityProvider": "外部 IdP",
+      "identityProviderDescription": "租戶設定 OIDC 外部 IdP 連線，讓使用者以外部帳號登入。關掉後登入不會導向外部 IdP；已登記的連線保留。",
+      "identityProviderDisableWarning": "{{code}} 的使用者不能再以外部 IdP 登入，只允許 SSO 的網域也會改回密碼登入；只透過外部 IdP 登入、沒有設定密碼的使用者要先重設密碼才能登入。",
+      "tenantSwitch": "切換租戶",
+      "tenantSwitchDescription": "使用者選單的「切換租戶」，前往輸入租戶代碼的頁面。只服務單一租戶的部署可以關掉。",
       "disableTitle": "關閉功能",
       "disableConfirm": "關閉後，{{code}} 的使用者立刻看不到「{{feature}}」，正在使用的頁面會被導回首頁。資料保留，重新打開即恢復。",
       "disableAction": "關閉"

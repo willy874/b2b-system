@@ -103,6 +103,7 @@ export class FileFolderController {
    * 上層已刪除 409 `FILE_FOLDER_RESTORE_CONFLICT`；同名 409 `FILE_FOLDER_NAME_CONFLICT`（`details.conflictingId`）。
    */
   @Post(':id/restore')
+  @RequireFeature('trash') // 還原屬於回收桶（docs/adr/0029-toggleable-platform-features.md D3）
   @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_DELETE)
   @HttpCode(200)
   @ApiOperation({ summary: '還原刪除的資料夾（同一次刪除的子資料夾與檔案一併還原）' })

@@ -58,7 +58,6 @@ beforeEach(() => {
   listProviders.mockReset().mockResolvedValue({
     items: [PROVIDER],
     callbackUrl: CALLBACK_URL,
-    allowed: true,
   });
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
@@ -94,22 +93,5 @@ describe('外部 IdP 連線管理頁（docs/adr/0019-sso-identity-platform.md D8
     renderPage('unhydrated');
     expect(await screen.findByTestId('identity-provider-page')).toBeInTheDocument();
     expect(screen.queryByTestId('identity-provider-create-button')).toBeNull();
-  });
-
-  it('平台停用了外部 IdP → 顯示說明，沒有新增按鈕', async () => {
-    listProviders.mockResolvedValue({
-      items: [PROVIDER],
-      callbackUrl: CALLBACK_URL,
-      allowed: false,
-    });
-    renderPage([
-      'identityProvider:read',
-      'identityProvider:create',
-      'identityProvider:update',
-      'identityProvider:delete',
-    ] as PermissionKey[]);
-    expect(await screen.findByTestId('identity-provider-not-allowed')).toBeInTheDocument();
-    expect(screen.queryByTestId('identity-provider-create-button')).toBeNull();
-    expect(screen.getByTestId('identity-provider-edit')).toBeInTheDocument();
   });
 });

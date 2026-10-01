@@ -6207,12 +6207,9 @@
           "callbackUrl": {
             "type": "string",
             "format": "uri"
-          },
-          "allowed": {
-            "type": "boolean"
           }
         },
-        "required": ["items", "callbackUrl", "allowed"],
+        "required": ["items", "callbackUrl"],
         "additionalProperties": false
       },
       "CreateIdentityProviderRequest": {
@@ -6720,7 +6717,15 @@
       },
       "TenantFeature": {
         "type": "string",
-        "enum": ["file", "auditLog", "job"]
+        "enum": [
+          "file",
+          "auditLog",
+          "job",
+          "trash",
+          "systemSetting",
+          "identityProvider",
+          "tenantSwitch"
+        ]
       },
       "TenantFlagOverrides": {
         "type": "object",
@@ -6754,9 +6759,6 @@
           },
           "storageBucket": {
             "type": "string"
-          },
-          "allowExternalIdp": {
-            "type": "boolean"
           },
           "features": {
             "type": "array",
@@ -6793,7 +6795,6 @@
           "status",
           "domains",
           "storageBucket",
-          "allowExternalIdp",
           "features",
           "flags",
           "adminEmail",
@@ -6880,11 +6881,8 @@
             "minLength": 1,
             "maxLength": 100
           },
-          "allowExternalIdp": {
-            "type": "boolean"
-          },
           "features": {
-            "maxItems": 3,
+            "maxItems": 7,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TenantFeature"

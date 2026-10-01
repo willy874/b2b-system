@@ -61,7 +61,7 @@ ADR-0018 的 D2–D5、D8–D18 都建立在「同一個資料庫、同一份帳
 | D19 | **稽核分兩處**：租戶內的動作寫該租戶的 `audit_logs`；平台管理者的動作（租戶建立、停用、佈建結果、平台管理者登入）寫平台 DB 的 `platform_audit_logs`。平台管理者看不到租戶的稽核 | 租戶的稽核是租戶的資料；平台只記錄自己做過什麼 |
 | D20 | **既有的工作區實作整個移除**，不遷移成租戶：現有資料（Phase 0 的開發資料）做成第一個租戶 `default` 的 database，migration 線重新起一個基準點（平台、租戶各一個 baseline） | 工作區的表、`scope`、成員、邀請在新模型裡都沒有對應；還沒有正式環境資料，寫反向 migration 沒有價值 |
 | D21 | **migration 重新建立基準點**：平台與租戶各一條 migration 線，各自從 baseline 起算；已有需要保留的環境時，寫一支一次性的搬移腳本，而不是保留舊的 migration 線 | 還沒有正式環境資料；舊線上充滿工作區的欄位與表，保留只會讓每個新租戶多跑一段沒有意義的歷史 |
-| D22 | **外部 IdP 連線由租戶的管理者在自己的 backstage 設定**（資料在租戶 DB）；平台管理者只能開關「是否允許這個租戶使用外部 IdP」（`tenants.allow_external_idp`） | 連線的細節（client secret、網域）是租戶的資料，平台看不到；平台保留的是「能不能用」這個層級的決定 |
+| D22 | **外部 IdP 連線由租戶的管理者在自己的 backstage 設定**（資料在租戶 DB）；平台管理者只能開關「是否允許這個租戶使用外部 IdP」（`tenants.allow_external_idp`；後由 [ADR-0029](./0029-toggleable-platform-features.md) D2 併進 `tenants.features` 的 `identityProvider`） | 連線的細節（client secret、網域）是租戶的資料，平台看不到；平台保留的是「能不能用」這個層級的決定 |
 | D23 | **背景工作的監控**：apps/auth 有全平台的監控頁（所有租戶與平台自己的工作，`platformJob:*`）；backstage 的 `/job` 只看自己租戶的工作 | 佇列在平台 DB，全平台的樣子只有平台該看；租戶的管理者仍需要看自己的寄信、匯出是否卡住（見「實作時改掉的做法」） |
 | D24 | **租戶的網域**：`tenant_domains` 支援多個網域，第一個是主要網域；建立時產生 `{code}.<TENANT_BASE_DOMAIN>`，客戶自己的網域由平台管理者加入（DNS 與 TLS 由部署處理） | 預設網域讓建立租戶不必等 DNS；自訂網域是少數客戶的需求，手動處理就夠 |
 | D25 | **平台管理者的 app session** 在 apps/auth 的 origin，結構同租戶的 `refresh_tokens`（平台 DB 的 `platform_refresh_tokens`），輪替規則共用 | 同一套已驗證過的規則（ADR-0004），只是資料在平台 DB |

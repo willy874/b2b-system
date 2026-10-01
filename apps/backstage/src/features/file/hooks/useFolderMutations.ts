@@ -8,8 +8,10 @@ import { getFileFolderUpdateMutationOptions } from '@/apis/file/update-file-fold
 import { invalidateResources, Resource } from '@/apis/resources';
 import { ANY_ID } from '@/core/cache';
 import { isAppError, useErrorToast } from '@/core/errors';
+import { useIsFeatureReady } from '@/core/feature';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
+import { TenantFeature } from '@/shared/api-sdk';
 
 /** 建立資料夾。錯誤（同名）交給呼叫端的對話框顯示並保留輸入。 */
 export function useFolderCreateMutation() {
@@ -53,6 +55,7 @@ export function useFolderDeleteMutation() {
   const { t } = useTranslation();
   const showError = useErrorToast();
   const restore = useFolderRestoreMutation();
+  const canRestore = useIsFeatureReady(TenantFeature.trash);
   return useMutation({
     ...getFileFolderDeleteMutationOptions(),
     onSuccess: (_, { params }) => {
@@ -60,10 +63,13 @@ export function useFolderDeleteMutation() {
       toast.show({
         type: 'success',
         title: t('file.folder.delete.success'),
-        action: {
-          label: t('file.folder.delete.undo'),
-          onClick: () => restore.mutate({ params: { folderId: params.folderId } }),
-        },
+        // 回收桶被平台關掉時還原端點回 404，不提供復原（docs/adr/0029-toggleable-platform-features.md D3）
+        ...(canRestore && {
+          action: {
+            label: t('file.folder.delete.undo'),
+            onClick: () => restore.mutate({ params: { folderId: params.folderId } }),
+          },
+        }),
       });
     },
     onError: (error, { params }) => {

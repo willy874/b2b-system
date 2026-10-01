@@ -170,7 +170,6 @@ describe('PermissionsGuard：平台管理者的端點（docs/adr/0020-physical-t
     code: 'acme',
     db: {},
     storageBucket: 'b',
-    allowExternalIdp: true,
     features: ['file', 'auditLog', 'job'],
     flags: {},
   } as unknown as TenantContext;
