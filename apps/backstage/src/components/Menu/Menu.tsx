@@ -1,4 +1,4 @@
-import { Popover as BasePopover } from '@base-ui-components/react/popover';
+import { Popover as BasePopover } from '@base-ui/react/popover';
 import { cloneElement, memo, useCallback, useEffect, useId, useRef, useState } from 'react';
 import type {
   CSSProperties,

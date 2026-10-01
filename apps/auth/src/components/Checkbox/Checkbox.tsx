@@ -1,4 +1,4 @@
-import { Checkbox as BaseCheckbox } from '@base-ui-components/react/checkbox';
+import { Checkbox as BaseCheckbox } from '@base-ui/react/checkbox';
 import type { ReactNode } from 'react';
 
 import { cn } from '@/shared/utils';

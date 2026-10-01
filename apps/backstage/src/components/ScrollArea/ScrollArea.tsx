@@ -1,4 +1,4 @@
-import { ScrollArea as BaseScrollArea } from '@base-ui-components/react/scroll-area';
+import { ScrollArea as BaseScrollArea } from '@base-ui/react/scroll-area';
 import type { CSSProperties, ReactNode, Ref } from 'react';
 
 import { cn } from '@/shared/utils';

@@ -39,11 +39,12 @@ describe('Accordion', () => {
     expect(onValueChange).toHaveBeenLastCalledWith(['role']);
   });
 
-  it('方向鍵可在標題之間移動', async () => {
+  // Base UI 1.6 起依 APG 拿掉方向鍵的 roving focus：每個標題都在 Tab 順序裡，方向鍵不移動焦點
+  it('Tab 在標題之間移動', async () => {
     render(<Accordion items={items} />);
     await userEvent.tab();
     expect(getTrigger('user')).toHaveFocus();
-    await userEvent.keyboard('{ArrowDown}');
+    await userEvent.tab();
     expect(getTrigger('role')).toHaveFocus();
   });
 

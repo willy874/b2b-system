@@ -1,4 +1,4 @@
-import { Collapsible as BaseCollapsible } from '@base-ui-components/react/collapsible';
+import { Collapsible as BaseCollapsible } from '@base-ui/react/collapsible';
 import type { ReactNode } from 'react';
 
 import { cn } from '@/shared/utils';

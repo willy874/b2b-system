@@ -1,4 +1,4 @@
-import { Tabs as BaseTabs } from '@base-ui-components/react/tabs';
+import { Tabs as BaseTabs } from '@base-ui/react/tabs';
 import type { ReactElement, ReactNode, Ref } from 'react';
 
 import { cn } from '@/shared/utils';
