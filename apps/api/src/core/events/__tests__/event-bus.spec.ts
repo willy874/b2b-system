@@ -220,4 +220,53 @@ describe('DomainEventBus', () => {
       expect(handled.toSorted()).toEqual(['a', 'b']);
     });
   });
+
+  describe('其他程序轉送來的事件（docs/adr/0027-api-tokens-external-api.md D18）', () => {
+    it('只交給以 { remote: true } 訂閱的 handler，meta 標上 remote', async () => {
+      const bus = new DomainEventBus();
+      const localOnly = vi.fn();
+      const withRemote = vi.fn();
+      bus.subscribe(DomainEvent.SESSIONS_REVOKED, localOnly);
+      bus.subscribe(DomainEvent.SESSIONS_REVOKED, withRemote, { remote: true });
+
+      bus.deliverRemote(DomainEvent.SESSIONS_REVOKED, revoked, { occurredAt: new Date() });
+      await bus.drain();
+
+      expect(localOnly).not.toHaveBeenCalled();
+      expect(withRemote).toHaveBeenCalledWith(revoked, expect.objectContaining({ remote: true }));
+    });
+
+    it('本機發佈的事件兩種 handler 都收到', async () => {
+      const bus = new DomainEventBus();
+      const localOnly = vi.fn();
+      const withRemote = vi.fn();
+      bus.subscribe(DomainEvent.SESSIONS_REVOKED, localOnly);
+      bus.subscribe(DomainEvent.SESSIONS_REVOKED, withRemote, { remote: true });
+
+      bus.publish(DomainEvent.SESSIONS_REVOKED, revoked);
+      await bus.drain();
+
+      expect(localOnly).toHaveBeenCalledTimes(1);
+      expect(withRemote).toHaveBeenCalledTimes(1);
+    });
+
+    it('在呼叫端的租戶脈絡裡處理', async () => {
+      const bus = new DomainEventBus();
+      const seen: Array<string | undefined> = [];
+      bus.subscribe(DomainEvent.RESOURCE_CHANGED, () => void seen.push(currentTenant()?.id), {
+        remote: true,
+      });
+
+      inTenant('a', () =>
+        bus.deliverRemote(
+          DomainEvent.RESOURCE_CHANGED,
+          { changes: [] },
+          { occurredAt: new Date() },
+        ),
+      );
+      await bus.drain();
+
+      expect(seen).toEqual(['a']);
+    });
+  });
 });

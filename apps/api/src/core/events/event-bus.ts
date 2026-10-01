@@ -3,9 +3,19 @@ import { Injectable, Logger } from '@nestjs/common';
 import { getRequestContext } from '../http/request-context';
 import { currentTenant } from '../tenant/tenant-context';
 import { DomainEvent } from './domain-events';
-import type { DomainEventHandler, DomainEventMeta, DomainEventPayloads } from './domain-events';
+import type {
+  DomainEventHandler,
+  DomainEventMeta,
+  DomainEventPayloads,
+  DomainEventSubscribeOptions,
+} from './domain-events';
 
 type AnyHandler = (payload: unknown, meta: DomainEventMeta) => void | Promise<void>;
+
+interface Subscription {
+  handler: AnyHandler;
+  remote: boolean;
+}
 
 /** 沒有租戶脈絡時發佈的事件（平台層級：停用整個租戶的連線、單一登出）走這條。 */
 const PLATFORM_LANE = '-';
@@ -31,11 +41,12 @@ function laneOf(type: DomainEvent): string {
  * - 佇列依發佈當下的租戶分開（docs/architecture/backend/08-realtime.md §7.2）：一個租戶的大量權限變更
  *   不會拖慢其他租戶的推播；`sessions.revoked` 另走優先通道，不排在同租戶的 room 同步之後。
  * - handler 的錯誤彼此隔離：記錄後吞掉。
+ * - 其他程序轉送來的事件（`deliverRemote`）只交給以 `{ remote: true }` 訂閱的 handler。
  */
 @Injectable()
 export class DomainEventBus {
   private readonly logger = new Logger(DomainEventBus.name);
-  private readonly handlers = new Map<DomainEvent, Set<AnyHandler>>();
+  private readonly handlers = new Map<DomainEvent, Set<Subscription>>();
   /** 每條佇列目前的尾端；處理完就移除，不隨租戶數累積。 */
   private readonly lanes = new Map<string, Promise<void>>();
 
@@ -53,10 +64,26 @@ export class DomainEventBus {
     }
   }
 
+  /**
+   * 其他程序發佈、經 `DomainEventRelay` 轉送來的事件：在呼叫端的租戶脈絡裡排進同一套佇列，
+   * 只交給 `{ remote: true }` 的訂閱者。`meta` 沿用發佈端的（`clientId` 讓發起的分頁略過推播）。
+   */
+  deliverRemote<T extends DomainEvent>(
+    type: T,
+    payload: DomainEventPayloads[T],
+    meta: Omit<DomainEventMeta, 'remote'>,
+  ): void {
+    this.enqueue(laneOf(type), () => this.dispatch(type, payload, { ...meta, remote: true }));
+  }
+
   /** 回傳取消訂閱的函式。 */
-  subscribe<T extends DomainEvent>(type: T, handler: DomainEventHandler<T>): () => void {
-    const set = this.handlers.get(type) ?? new Set<AnyHandler>();
-    const entry = handler as AnyHandler;
+  subscribe<T extends DomainEvent>(
+    type: T,
+    handler: DomainEventHandler<T>,
+    options: DomainEventSubscribeOptions = {},
+  ): () => void {
+    const set = this.handlers.get(type) ?? new Set<Subscription>();
+    const entry: Subscription = { handler: handler as AnyHandler, remote: options.remote ?? false };
     set.add(entry);
     this.handlers.set(type, set);
     return () => {
@@ -90,8 +117,9 @@ export class DomainEventBus {
     meta: DomainEventMeta,
   ): Promise<void> {
     // 先複製一份：handler 執行中取消訂閱不影響這一輪
-    const handlers = Array.from(this.handlers.get(type) ?? []);
-    for (const handler of handlers) {
+    const subscriptions = Array.from(this.handlers.get(type) ?? []);
+    for (const { handler, remote } of subscriptions) {
+      if (meta.remote && !remote) continue;
       try {
         await handler(payload, meta);
       } catch (error) {

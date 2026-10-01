@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { BroadcastHub, flushBroadcast } from '@/core/broadcast/__tests__/broadcast-hub';
 import type { Database } from '@/core/database';
 import { runInTenantContext } from '@/core/tenant';
 
@@ -20,7 +21,7 @@ function deferred<T>() {
   return { promise, resolve: (value: T) => resolvers[0]?.(value) };
 }
 
-function setup() {
+function setup(hub: BroadcastHub = new BroadcastHub()) {
   let current: FolderNode[] = [node('a')];
   const repo = {
     listTreeNodes: vi.fn(async (_tx?: unknown) => current),
@@ -28,13 +29,16 @@ function setup() {
   };
   // withTransaction(db, fn) 只呼叫 db.transaction(fn)
   const db = { transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn('tx')) };
+  const broadcast = hub.instance();
   const tree = new FileFolderTree(
     db as unknown as Database,
     repo as unknown as FileFolderRepository,
+    broadcast,
   );
   return {
     tree,
     repo,
+    broadcast,
     replace: (nodes: FolderNode[]) => {
       current = nodes;
     },
@@ -122,5 +126,25 @@ describe('FileFolderTree（資料夾結構的程序內快取）', () => {
     await inTenant('acme', () => tree.write(async () => undefined));
     await expect(inTenant('beta', () => tree.nodes())).resolves.toEqual(b);
     expect(repo.listTreeNodes).toHaveBeenCalledTimes(2);
+  });
+
+  it('一個程序寫入結構後，其他程序同一個租戶的快取也作廢（docs/adr/0027-api-tokens-external-api.md D16）', async () => {
+    const hub = new BroadcastHub();
+    const [a, b] = [setup(hub), setup(hub)];
+    for (const { tree, broadcast } of [a, b]) {
+      tree.onModuleInit();
+      // oxlint-disable-next-line no-await-in-loop -- 依序啟動兩個程序
+      await broadcast.onApplicationBootstrap();
+    }
+    await inTenant('t1', () => b.tree.nodes());
+    await inTenant('t2', () => b.tree.nodes());
+
+    await inTenant('t1', () => a.tree.write(async () => undefined));
+    await flushBroadcast();
+
+    await inTenant('t1', () => b.tree.nodes());
+    await inTenant('t2', () => b.tree.nodes());
+    // t1 重新查一次；t2 仍命中
+    expect(b.repo.listTreeNodes).toHaveBeenCalledTimes(3);
   });
 });

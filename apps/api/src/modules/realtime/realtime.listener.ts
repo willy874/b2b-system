@@ -31,16 +31,25 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit(): void {
+    // 推播是「每個程序對自己的連線做一次」：其他程序（對外 API、worker）的寫入轉送過來也要推
+    // （docs/adr/0027-api-tokens-external-api.md D18）。權限變更由 AuthzRevision 的廣播在本機重新發佈，不必另外收。
+    const remote = { remote: true };
     this.unsubscribers = [
       this.bus.subscribe(DomainEvent.PERMISSIONS_CHANGED, () => this.onPermissionsChanged()),
-      this.bus.subscribe(DomainEvent.RESOURCE_CHANGED, (payload, meta) =>
-        this.onResourceChanged(payload, meta),
+      this.bus.subscribe(
+        DomainEvent.RESOURCE_CHANGED,
+        (payload, meta) => this.onResourceChanged(payload, meta),
+        remote,
       ),
-      this.bus.subscribe(DomainEvent.SESSIONS_REVOKED, (payload) =>
-        this.onSessionsRevoked(payload),
+      this.bus.subscribe(
+        DomainEvent.SESSIONS_REVOKED,
+        (payload) => this.onSessionsRevoked(payload),
+        remote,
       ),
-      this.bus.subscribe(DomainEvent.TENANT_FEATURES_CHANGED, (payload) =>
-        this.onTenantFeaturesChanged(payload),
+      this.bus.subscribe(
+        DomainEvent.TENANT_FEATURES_CHANGED,
+        (payload) => this.onTenantFeaturesChanged(payload),
+        remote,
       ),
     ];
   }

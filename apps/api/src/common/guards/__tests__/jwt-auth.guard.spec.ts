@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { AccessTokenVerifier } from '@/common/auth';
 import { Public } from '@/common/decorators';
+import { BroadcastHub } from '@/core/broadcast/__tests__/broadcast-hub';
 import { UserCacheService } from '@/core/cache';
 import type { Database } from '@/core/database';
 import { runInTenantContext } from '@/core/tenant';
@@ -72,7 +73,7 @@ function createGuard(
   } as unknown as JwtService;
 
   const config = { get: () => 'secret' } as unknown as ConfigService<never, true>;
-  const userCache = new UserCacheService();
+  const userCache = new UserCacheService(new BroadcastHub().instance());
   const { cached } = options;
   if (cached) runInTenantContext(TENANT, () => userCache.set(cached));
 

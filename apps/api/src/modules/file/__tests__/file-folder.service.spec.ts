@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AuthUser } from '@/common/types';
+import { BroadcastHub } from '@/core/broadcast/__tests__/broadcast-hub';
 import type { Database } from '@/core/database';
 import { AppException } from '@/core/errors';
 import type { DomainEventBus } from '@/core/events';
@@ -233,7 +234,11 @@ function setup(
     events as unknown as DomainEventBus,
     fixture.access,
     requests as unknown as FileAccessRequestService,
-    new FileFolderTree(db as unknown as Database, repo as unknown as FileFolderRepository),
+    new FileFolderTree(
+      db as unknown as Database,
+      repo as unknown as FileFolderRepository,
+      new BroadcastHub().instance(),
+    ),
     fileRepo as unknown as FileRepository,
     objects as unknown as FileObjectsService,
     images as unknown as FileImageService,

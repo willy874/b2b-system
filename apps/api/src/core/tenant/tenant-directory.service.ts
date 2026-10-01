@@ -1,9 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import type { OnApplicationBootstrap, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import type { TenantRow, TenantStatus } from '@/db/platform/schema';
 
+import { BroadcastService } from '../broadcast';
+import type { BroadcastPublisher } from '../broadcast';
 import type { Env } from '../config';
 import { SecretBox, TENANT_SECRET_PURPOSE } from '../crypto';
 import { toFeatureFlagOverrides } from '../feature-flags/feature-flags';
@@ -32,6 +34,9 @@ export interface TenantRecord {
 
 /** 每種查詢最多快取幾筆（租戶數遠小於這個值；上限只是防止被灌爆）。 */
 export const TENANT_CACHE_MAX_ENTRIES = 5_000;
+/** 平台 DB 上的廣播頻道：租戶登記改了，其他程序整份重新讀（docs/adr/0027-api-tokens-external-api.md D16）。 */
+export const TENANT_DIRECTORY_CHANNEL = 'tenant_directory';
+
 /** 「找不到」的結果快取多久：key 可能是攻擊者隨意產生的，不必久留。 */
 const NEGATIVE_TTL_MS = 5_000;
 
@@ -51,7 +56,7 @@ const CODE_LIKE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
  * 不查平台 DB；快取有上限。
  */
 @Injectable()
-export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy {
+export class TenantDirectory implements OnModuleInit, OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(TenantDirectory.name);
   private readonly secrets: SecretBox;
   private readonly ttlMs: number;
@@ -71,10 +76,12 @@ export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy 
   /** 進行中的重新載入：`invalidate()` 之後的查詢要等它完成，剛登記的網域才找得到。 */
   private refreshing?: Promise<void>;
   private refreshTimer?: NodeJS.Timeout;
+  private publish?: BroadcastPublisher<Record<string, never>>;
 
   constructor(
     private readonly repo: TenantRepository,
     config: ConfigService<Env, true>,
+    private readonly broadcast: BroadcastService,
   ) {
     this.secrets = SecretBox.fromConfig(
       config.get('TENANT_SECRET_KEY', { infer: true }),
@@ -82,6 +89,15 @@ export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy 
       TENANT_SECRET_PURPOSE,
     );
     this.ttlMs = config.get('TENANT_CACHE_TTL', { infer: true }) * 1000;
+  }
+
+  onModuleInit(): void {
+    // 訊息沒有內容：租戶數量小，整份重新讀比追蹤是哪一筆簡單
+    this.publish = this.broadcast.channel(TENANT_DIRECTORY_CHANNEL, {
+      parse: (value) => (typeof value === 'object' && value !== null ? {} : null),
+      onMessage: () => this.clear(),
+      onReconnect: () => this.clear(),
+    });
   }
 
   async onApplicationBootstrap(): Promise<void> {
@@ -168,8 +184,16 @@ export class TenantDirectory implements OnApplicationBootstrap, OnModuleDestroy 
     return (await this.repo.listActive()).map((row) => this.toRecord(row));
   }
 
-  /** 租戶登記改變後呼叫（第 4 步的租戶管理）；下一次查詢重新讀平台 DB。 */
+  /**
+   * 租戶登記改變後呼叫（租戶管理、佈建）；下一次查詢重新讀平台 DB。其他程序經廣播做同一件事，
+   * 漏掉時最多晚 `TENANT_CACHE_TTL` 秒。
+   */
   invalidate(): void {
+    this.clear();
+    void this.publish?.({});
+  }
+
+  private clear(): void {
     this.byHost.clear();
     this.byId.clear();
     this.byCode.clear();

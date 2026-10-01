@@ -67,6 +67,19 @@ export interface DomainEventMeta {
   /** 發起請求的分頁（`x-client-id`），只用來去重。 */
   clientId?: string;
   requestId?: string;
+  /**
+   * 由其他程序轉送來的（`DomainEventRelay`，docs/adr/0027-api-tokens-external-api.md D18）：寫入發生在別的程序，
+   * 那邊的訂閱者已經處理過持久化的副作用；只有以 `{ remote: true }` 訂閱的 handler（推播）收得到。
+   */
+  remote?: boolean;
+}
+
+export interface DomainEventSubscribeOptions {
+  /**
+   * 也接收其他程序轉送來的事件。只給「每個程序各做一次」的副作用（推播給本機的連線）；
+   * 寫資料庫、撤銷 session 這類「整個系統做一次」的不要開，否則會在每個程序重複執行。
+   */
+  remote?: boolean;
 }
 
 export type DomainEventHandler<T extends DomainEvent> = (
