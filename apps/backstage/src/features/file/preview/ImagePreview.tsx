@@ -6,7 +6,7 @@ import type { FilePreviewerProps } from '@/core/file';
 import { useTranslation } from '@/core/locales';
 import { cn } from '@/shared/utils';
 
-/** 透明底用棋盤格顯示：遊戲素材常有透明區域，純色背景看不出邊界。顏色取自 token。 */
+/** 透明底用棋盤格顯示：圖片素材常有透明區域，純色背景看不出邊界。顏色取自 token。 */
 const CHECKERBOARD = {
   backgroundColor: 'var(--color-surface)',
   backgroundImage:

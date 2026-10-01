@@ -628,8 +628,9 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0018_groups_system_role_permissions.sql  手寫：既有租戶的 admin 補 group:*、auditor 補 group:read（§6 的規則）
 ├── 0019_authz_explain_system_roles.sql     手寫：既有租戶的 admin、auditor 補 authz:explain（§6 的規則）
 ├── 0020_notification_policies.sql      notification_policies 表（ADR-0028；純加法）
-├── 0021_api_tokens.sql                 users.kind、api_tokens 表（§2.15，ADR-0027 T1；純加法）
-├── 0022_service_account_system_roles.sql   手寫：既有租戶的 admin 補 serviceAccount:*、auditor 補 serviceAccount:read
+├── 0021_notification_preferences.sql   個人通知設定（ADR-0028 E3；純加法）
+├── 0022_api_tokens.sql                 users.kind、api_tokens 表（§2.15，ADR-0027 T1；純加法）
+├── 0023_service_account_system_roles.sql   手寫：既有租戶的 admin 補 serviceAccount:*、auditor 補 serviceAccount:read
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

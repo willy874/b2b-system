@@ -48,7 +48,7 @@ apis/file/                           uploadFile()（單次／分塊／縮圖）�
 shared/storage/blobStore.ts          Blob 的鍵值儲存（記憶體 ＋ IndexedDB）
 ```
 
-- 擴充點放在 `core/file` 而不是 feature 裡：其他 feature（例如之後的關卡編輯器要預覽自訂格式）只能經由 `core/` 互動
+- 擴充點放在 `core/file` 而不是 feature 裡：其他 feature（例如之後的業務功能要預覽自訂格式）只能經由 `core/` 互動
   （[conventions/07](../../conventions/07-layer-dependencies.md) §2.2）。
 - `page.tsx` 只接線；刪除、下載的編排在 `useFileActions`，資料在 `useFileListData`。
 

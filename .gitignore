@@ -1,25 +1,100 @@
+# ─────────────────────────────────────────────
+# 相依套件
+# ─────────────────────────────────────────────
 node_modules/
+.pnpm-store/
+.pnp
+.pnp.*
+# 這個 repo 用 pnpm；誤用 npm / yarn 產生的 lockfile 不進版控
+package-lock.json
+yarn.lock
+
+# ─────────────────────────────────────────────
+# 建置產出
+# ─────────────────────────────────────────────
 dist/
 build/
-coverage/
+dist-types/
 *.tsbuildinfo
+.turbo/
+.vite/
+.cache/
+apps/*/vite.config.ts.timestamp-*
+storybook-static/
 # tsc -b 在早期設定下會把設定檔也編出來，別讓它進版控
 apps/api/*.config.js
 apps/api/*.config.js.map
+packages/api-sdk/codegen/__tests__/.output/
+
+# ─────────────────────────────────────────────
+# 測試產出
+# ─────────────────────────────────────────────
+coverage/
+.vitest-attachments/
+__screenshots__/
+apps/e2e/test-results/
+apps/e2e/playwright-report/
+apps/e2e/perf-report/
+apps/e2e/.auth/
+# E2E 的關鍵快照（apps/e2e/helpers/snapshot.ts）
+apps/e2e/snapshots/
+
+# ─────────────────────────────────────────────
+# 環境變數與憑證
+# ─────────────────────────────────────────────
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+service-account*.json
+kubeconfig.*.yaml
+
+# ─────────────────────────────────────────────
+# 本機資料
+# ─────────────────────────────────────────────
+# apps/file-storage 的本機資料（模擬的 S3 bucket）
+apps/file-storage/.data/
+*.sqlite
+*.sqlite-journal
+tmp/
+temp/
+
+# ─────────────────────────────────────────────
+# 日誌
+# ─────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ─────────────────────────────────────────────
+# 編輯器與作業系統
+# ─────────────────────────────────────────────
 .DS_Store
+Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
-apps/e2e/test-results/
-apps/e2e/playwright-report/
-# E2E 的關鍵快照（apps/e2e/helpers/snapshot.ts）
-apps/e2e/snapshots/
-dist-types/
-packages/api-sdk/codegen/__tests__/.output/
-storybook-static/
-# apps/file-storage 的本機資料（模擬的 S3 bucket）
-apps/file-storage/.data/
+*.swp
+*.swo
+
+# ─────────────────────────────────────────────
+# AI 助理與工具的本機狀態
+# （.claude/launch.json、.claude/skills/ 要進版控）
+# ─────────────────────────────────────────────
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/worktrees/
+.claude/projects/
+.claude/**/_*
+.mcp.json
+.playwright-mcp/
+.playwright-cli/
+.specify/
+.prompt
 prompt.txt
+graphify-out/
+.understand-anything/

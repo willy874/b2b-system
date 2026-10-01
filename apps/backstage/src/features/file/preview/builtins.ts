@@ -3,7 +3,7 @@ import { fileExtension, isBrowserImage, registerFilePreviewer } from '@/core/fil
 import { ImagePreview } from './ImagePreview';
 import { TextPreview } from './TextPreview';
 
-/** 沒有標 `text/*` 但其實是文字的格式（遊戲專案常見的設定檔、腳本）。 */
+/** 沒有標 `text/*` 但其實是文字的格式（常見的設定檔、腳本）。 */
 const TEXT_EXTENSIONS = new Set([
   'txt',
   'md',

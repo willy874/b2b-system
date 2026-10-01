@@ -139,4 +139,4 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 | T1 | 推播 | 服務帳號的建立、修改、刪除還沒有自己的 `ChangeSource`（T4 加，前端要有對應的列表）；角色變動推 `role` 的 `resource.changed`，讓角色頁的持有者更新 |
 | T1 | 系統設定的 key | `auth.personalTokenMaxDays`、`auth.serviceAccountTokenMaxDays`（D8 寫的 `apiToken.maxLifetimeDays` 拆成兩個，放在既有的 `auth` 分類） |
 | T1 | 有效 token 數上限 | 一個帳號同時有效（未撤銷、未過期）的 token 最多 50 把，`409 API_TOKEN_LIMIT_REACHED` |
-| T1 | 既有租戶的系統角色 | 手寫 migration 0022：admin 補 `serviceAccount:*`、auditor 補 `serviceAccount:read`（seed 只在角色新建立時寫入權限） |
+| T1 | 既有租戶的系統角色 | 手寫 migration 0023：admin 補 `serviceAccount:*`、auditor 補 `serviceAccount:read`（seed 只在角色新建立時寫入權限） |

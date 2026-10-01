@@ -5,7 +5,7 @@ import { defineSchema } from '@/core/validation';
 import { NOTIFICATION_EVENT_MAX_CHANGES } from '../notification.constants';
 import { NOTIFICATION_CHANNELS } from '../notification.definition';
 
-const NotificationChannelSchema = defineSchema(
+export const NotificationChannelSchema = defineSchema(
   'NotificationChannel',
   z.enum(NOTIFICATION_CHANNELS),
 );
@@ -17,8 +17,11 @@ export const NotificationEventChannelSchema = defineSchema(
     /** 生效值：`mandatory` 一律 `true`；有覆寫就是覆寫值，否則是預設值。 */
     enabled: z.boolean(),
     defaultEnabled: z.boolean(),
+    /** `enabled` 有覆寫（與預設不同）。 */
     isOverridden: z.boolean(),
-    /** 覆寫值最後修改的時間；沒有覆寫時為 `null`。 */
+    /** 個人能不能關這個管道（ADR-0028 D14）；`mandatory` 一律 `false`。預設 `true`。 */
+    allowUserOverride: z.boolean(),
+    /** 這一列覆寫值最後修改的時間；沒有覆寫時為 `null`。 */
     updatedAt: z.string().nullable(),
   }),
 );
@@ -42,12 +45,18 @@ export const NotificationEventListSchema = defineSchema(
   z.object({ items: z.array(NotificationEventSchema) }),
 );
 
-const NotificationEventChangeSchema = z.object({
-  type: z.string().trim().min(1).max(100),
-  channel: NotificationChannelSchema,
-  /** `null`：還原預設（刪掉覆寫值）。 */
-  enabled: z.boolean().nullable(),
-});
+const NotificationEventChangeSchema = z
+  .object({
+    type: z.string().trim().min(1).max(100),
+    channel: NotificationChannelSchema,
+    /** `null`：還原預設；不帶：不改。 */
+    enabled: z.boolean().nullable().optional(),
+    /** 個人能不能關；`true` 是預設。不帶：不改。 */
+    allowUserOverride: z.boolean().optional(),
+  })
+  .refine((change) => change.enabled !== undefined || change.allowUserOverride !== undefined, {
+    message: 'enabled or allowUserOverride is required',
+  });
 
 export const UpdateNotificationEventsSchema = defineSchema(
   'UpdateNotificationEventsRequest',

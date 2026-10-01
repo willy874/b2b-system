@@ -37,6 +37,7 @@ const EVENTS: NotificationEvent[] = [
         enabled: true,
         defaultEnabled: true,
         isOverridden: false,
+        allowUserOverride: true,
         updatedAt: null,
       },
       {
@@ -44,6 +45,7 @@ const EVENTS: NotificationEvent[] = [
         enabled: false,
         defaultEnabled: true,
         isOverridden: true,
+        allowUserOverride: true,
         updatedAt: '2026-10-01T00:00:00.000Z',
       },
     ],
@@ -58,6 +60,7 @@ const EVENTS: NotificationEvent[] = [
         enabled: true,
         defaultEnabled: true,
         isOverridden: false,
+        allowUserOverride: true,
         updatedAt: null,
       },
     ],
@@ -121,6 +124,26 @@ describe('事件管理頁（docs/architecture/frontend/15-notification.md §9）
     await waitFor(() => expect(updateEvents).toHaveBeenCalled());
     expect(updateEvents.mock.calls[0]![0]).toMatchObject({
       params: { changes: [{ type: 'approval.result', channel: 'inApp', enabled: false }] },
+    });
+  });
+
+  it('取消「允許個人關閉」→ 送出 allowUserOverride: false；mandatory 沒有這個選項', async () => {
+    renderPage(['system:read', 'system:update'] as PermissionKey[]);
+    await screen.findAllByTestId('notification-event-row');
+    expect(
+      within(rowOf('security.locked')).queryByTestId('notification-event-allow-override'),
+    ).toBeNull();
+    fireEvent.click(
+      within(channelOf('approval.result', 'inApp')).getByTestId(
+        'notification-event-allow-override',
+      ),
+    );
+    fireEvent.click(await screen.findByTestId('notification-event-save'));
+    await waitFor(() => expect(updateEvents).toHaveBeenCalled());
+    expect(updateEvents.mock.calls[0]![0]).toMatchObject({
+      params: {
+        changes: [{ type: 'approval.result', channel: 'inApp', allowUserOverride: false }],
+      },
     });
   });
 

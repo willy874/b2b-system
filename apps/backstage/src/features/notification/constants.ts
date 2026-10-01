@@ -1,4 +1,8 @@
-import type { ApprovalType, NotificationChannel } from '@/shared/api-sdk';
+import type {
+  ApprovalType,
+  NotificationChannel,
+  NotificationPreferenceChannel,
+} from '@/shared/api-sdk';
 
 /**
  * 通知句子的 i18n key：依後端的 `type`（與參數）挑選，一律是完整字面量（docs/conventions/06-literal-strings.md §3.1）。
@@ -78,3 +82,10 @@ export const NOTIFICATION_CHANNEL_LABEL_KEY = {
   inApp: 'notification.event.channel.inApp',
   email: 'notification.event.channel.email',
 } as const satisfies Record<NotificationChannel, string>;
+
+/** 個人設定不能調整的原因（ADR-0028 D14）；後端新增原因而這裡沒跟上時編譯失敗。 */
+export const NOTIFICATION_PREFERENCE_LOCK_LABEL_KEY = {
+  mandatory: 'notification.preference.lock.mandatory',
+  tenantDisabled: 'notification.preference.lock.tenantDisabled',
+  tenantRequired: 'notification.preference.lock.tenantRequired',
+} as const satisfies Record<NonNullable<NotificationPreferenceChannel['lock']>, string>;

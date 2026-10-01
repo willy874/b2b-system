@@ -12,6 +12,7 @@ import { JobQueue } from '@/core/jobs';
 import {
   auditLogs,
   notificationPolicies,
+  notificationPreferences,
   notifications,
   relationTuples,
   roleHolderTuple,
@@ -22,7 +23,7 @@ import { ApprovalService } from '@/modules/approval/approval.service';
 import { userRegistrationRequest } from '@/modules/user/user-registration.approval';
 
 import type { TestDatabase } from './db';
-import { createTestDatabase, truncateAll } from './db';
+import { createTestDatabase, expectDbError, truncateAll } from './db';
 import { listenOnLoopback } from './http';
 import { inTestTenant, testTenantContext } from './tenant';
 
@@ -68,6 +69,7 @@ interface ChannelBody {
   enabled: boolean;
   defaultEnabled: boolean;
   isOverridden: boolean;
+  allowUserOverride: boolean;
   updatedAt: string | null;
 }
 
@@ -95,6 +97,16 @@ function notificationsOf(recipientId: string, type: string) {
     .select()
     .from(notifications)
     .where(and(eq(notifications.recipientId, recipientId), eq(notifications.type, type)));
+}
+
+/** 以 `requester` 的身分送出一筆註冊推薦（審核後的結果通知給他）。 */
+async function submitAs(requester: string, email: string) {
+  return inTestTenant(app, () =>
+    app.get(ApprovalService).submit({
+      ...userRegistrationRequest({ email, displayName: email }, 'hash'),
+      requester: { id: requester, name: email },
+    }),
+  );
 }
 
 describe('事件管理（docs/architecture/backend/16-notification-event.md、ADR-0028）', () => {
@@ -126,11 +138,17 @@ describe('事件管理（docs/architecture/backend/16-notification-event.md、AD
   });
 
   beforeEach(async () => {
+    await db.delete(notificationPreferences);
     // 每個案例從預設開始：直接清表時要繞過快取，所以經由 API 還原
     const rows = await db.select().from(notificationPolicies);
     if (rows.length) {
       await patchAsRoot(
-        rows.map((row) => ({ type: row.type, channel: row.channel, enabled: null })),
+        rows.map((row) => ({
+          type: row.type,
+          channel: row.channel,
+          enabled: null,
+          allowUserOverride: true,
+        })),
       );
     }
   });
@@ -179,6 +197,7 @@ describe('事件管理（docs/architecture/backend/16-notification-event.md、AD
             enabled: true,
             defaultEnabled: true,
             isOverridden: false,
+            allowUserOverride: true,
             updatedAt: null,
           },
           {
@@ -186,6 +205,7 @@ describe('事件管理（docs/architecture/backend/16-notification-event.md、AD
             enabled: true,
             defaultEnabled: true,
             isOverridden: false,
+            allowUserOverride: true,
             updatedAt: null,
           },
         ],
@@ -221,8 +241,8 @@ describe('事件管理（docs/architecture/backend/16-notification-event.md、AD
         resourceType: 'notificationPolicy',
         resourceName: 'approval.result:email',
         changes: {
-          before: { 'approval.result:email': true },
-          after: { 'approval.result:email': false },
+          before: { 'approval.result:email': { enabled: true, allowUserOverride: true } },
+          after: { 'approval.result:email': { enabled: false, allowUserOverride: true } },
         },
       });
 
@@ -327,6 +347,159 @@ describe('事件管理（docs/architecture/backend/16-notification-event.md、AD
       );
       expect(await notificationsOf(requester, 'approval.result')).toHaveLength(1);
       enqueue.mockRestore();
+    });
+  });
+
+  describe('個人設定（ADR-0028 D14、D15）', () => {
+    interface PreferenceChannelBody {
+      channel: string;
+      enabled: boolean;
+      isOverridden: boolean;
+      lock: string | null;
+    }
+
+    function preferenceOf(body: unknown, type: string, channel: string) {
+      return (
+        body as { data: { items: Array<{ type: string; channels: PreferenceChannelBody[] }> } }
+      ).data.items
+        .find((item) => item.type === type)
+        ?.channels.find((item) => item.channel === channel);
+    }
+
+    it('未登入 → 401；登入就能讀自己的，沒有覆寫時跟著租戶、可以調整', async () => {
+      const member = await createUser('pref-reader@example.com', ['member']);
+      await request(http).get('/me/notification-preferences').expect(401);
+      const response = await request(http)
+        .get('/me/notification-preferences')
+        .set(await auth(member))
+        .expect(200);
+      expect(preferenceOf(response.body, 'approval.result', 'email')).toEqual({
+        channel: 'email',
+        enabled: true,
+        isOverridden: false,
+        lock: null,
+      });
+    });
+
+    it('自己關掉 approval.result → 駁回後收不到站內通知、不入列結果信；別人不受影響', async () => {
+      const requester = await createUser('pref-requester@example.com', ['member']);
+      const reviewer = await createUser('pref-reviewer@example.com', ['admin']);
+      const patched = await request(http)
+        .patch('/me/notification-preferences')
+        .set(await auth(requester))
+        .send({
+          changes: [
+            { type: 'approval.result', channel: 'inApp', enabled: false },
+            { type: 'approval.result', channel: 'email', enabled: false },
+          ],
+        })
+        .expect(200);
+      expect(preferenceOf(patched.body, 'approval.result', 'inApp')).toMatchObject({
+        enabled: false,
+        isOverridden: true,
+      });
+      expect(await db.select().from(notificationPreferences)).toHaveLength(2);
+      // 個人設定不寫稽核
+      expect(await db.select().from(auditLogs).where(eq(auditLogs.actorId, requester))).toEqual([]);
+
+      const created = await submitAs(requester, 'pref-invitee@example.com');
+      const enqueue = vi.spyOn(app.get(JobQueue), 'enqueue');
+      await request(http)
+        .post(`/approvals/${created!.id}/reject`)
+        .set(await auth(reviewer))
+        .send({})
+        .expect(200);
+      expect(await notificationsOf(requester, 'approval.result')).toEqual([]);
+      expect(enqueue).not.toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'approval.resultMail' }),
+        expect.anything(),
+        expect.anything(),
+      );
+      enqueue.mockRestore();
+
+      // 另一位申請人沒有關，照常收到
+      const other = await createUser('pref-other-requester@example.com', ['member']);
+      const second = await submitAs(other, 'pref-invitee-2@example.com');
+      await request(http)
+        .post(`/approvals/${second!.id}/reject`)
+        .set(await auth(reviewer))
+        .send({})
+        .expect(200);
+      expect(await notificationsOf(other, 'approval.result')).toHaveLength(1);
+    });
+
+    it('租戶不允許個人調整 → 顯示 tenantRequired、PATCH 409；之前關掉的人也照樣收到', async () => {
+      const requester = await createUser('pref-required@example.com', ['member']);
+      const reviewer = await createUser('pref-required-reviewer@example.com', ['admin']);
+      await request(http)
+        .patch('/me/notification-preferences')
+        .set(await auth(requester))
+        .send({ changes: [{ type: 'approval.result', channel: 'inApp', enabled: false }] })
+        .expect(200);
+      const admin = await patchAsRoot([
+        { type: 'approval.result', channel: 'inApp', allowUserOverride: false },
+      ]);
+      expect(eventOf(admin.body, 'approval.result')?.channels[0]).toMatchObject({
+        enabled: true,
+        isOverridden: false,
+        allowUserOverride: false,
+      });
+
+      const mine = await request(http)
+        .get('/me/notification-preferences')
+        .set(await auth(requester))
+        .expect(200);
+      expect(preferenceOf(mine.body, 'approval.result', 'inApp')).toEqual({
+        channel: 'inApp',
+        enabled: true,
+        isOverridden: false,
+        lock: 'tenantRequired',
+      });
+      const rejected = await request(http)
+        .patch('/me/notification-preferences')
+        .set(await auth(requester))
+        .send({ changes: [{ type: 'approval.result', channel: 'inApp', enabled: false }] })
+        .expect(409);
+      expect(rejected.body).toMatchObject({
+        error: {
+          code: 'NOTIFICATION_PREFERENCE_LOCKED',
+          details: { type: 'approval.result', channel: 'inApp', lock: 'tenantRequired' },
+        },
+      });
+
+      const created = await submitAs(requester, 'pref-required-invitee@example.com');
+      await request(http)
+        .post(`/approvals/${created!.id}/reject`)
+        .set(await auth(reviewer))
+        .send({})
+        .expect(200);
+      expect(await notificationsOf(requester, 'approval.result')).toHaveLength(1);
+    });
+
+    it('租戶關掉 → 個人顯示 tenantDisabled、不能打開', async () => {
+      const member = await createUser('pref-disabled@example.com', ['member']);
+      await patchAsRoot([{ type: 'user.rolesChanged', channel: 'inApp', enabled: false }]);
+      await request(http)
+        .patch('/me/notification-preferences')
+        .set(await auth(member))
+        .send({ changes: [{ type: 'user.rolesChanged', channel: 'inApp', enabled: true }] })
+        .expect(409);
+    });
+
+    it('DB 約束：租戶政策不能存一列兩欄都是預設的；使用者被永久刪除時個人設定一起刪', async () => {
+      await expectDbError(
+        db
+          .insert(notificationPolicies)
+          .values({ type: 'approval.pending', channel: 'inApp', enabled: null }),
+        /notification_policies_has_override/,
+      );
+      const member = await createUser('pref-purged@example.com', ['member']);
+      await db
+        .insert(notificationPreferences)
+        .values({ userId: member, type: 'approval.result', channel: 'inApp', enabled: false });
+      await db.delete(relationTuples).where(eq(relationTuples.subjectId, member));
+      await db.delete(users).where(eq(users.id, member));
+      expect(await db.select().from(notificationPreferences)).toEqual([]);
     });
   });
 });

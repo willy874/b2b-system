@@ -79,6 +79,9 @@ import type {
   NotificationEventList,
   NotificationLink,
   NotificationPage,
+  NotificationPreference,
+  NotificationPreferenceChannel,
+  NotificationPreferenceList,
   NotificationReadAllResult,
   NotificationUnreadCount,
   Permission,
@@ -149,6 +152,7 @@ import type {
   UpdateGroupRolesRequest,
   UpdateIdentityProviderRequest,
   UpdateNotificationEventsRequest,
+  UpdateNotificationPreferencesRequest,
   UpdatePlatformAdminRequest,
   UpdateProfileRequest,
   UpdateRolePermissionsRequest,
@@ -307,6 +311,7 @@ export const NotificationEventChannelSchema = z.object({
   enabled: z.boolean(),
   defaultEnabled: z.boolean(),
   isOverridden: z.boolean(),
+  allowUserOverride: z.boolean(),
   updatedAt: z.string().nullable(),
 }) satisfies z.ZodType<NotificationEventChannel>;
 
@@ -327,12 +332,43 @@ export const UpdateNotificationEventsRequestSchema = z.object({
       z.object({
         type: z.string().min(1).max(100),
         channel: NotificationChannelSchema,
-        enabled: z.boolean().nullable(),
+        enabled: z.boolean().nullable().optional(),
+        allowUserOverride: z.boolean().optional(),
       }),
     )
     .min(1)
     .max(100),
 }) satisfies z.ZodType<UpdateNotificationEventsRequest>;
+
+export const NotificationPreferenceChannelSchema = z.object({
+  channel: NotificationChannelSchema,
+  enabled: z.boolean(),
+  isOverridden: z.boolean(),
+  lock: z.enum(['mandatory', 'tenantDisabled', 'tenantRequired']).nullable(),
+}) satisfies z.ZodType<NotificationPreferenceChannel>;
+
+export const NotificationPreferenceSchema = z.object({
+  type: z.string(),
+  category: z.string(),
+  channels: z.array(NotificationPreferenceChannelSchema),
+}) satisfies z.ZodType<NotificationPreference>;
+
+export const NotificationPreferenceListSchema = z.object({
+  items: z.array(NotificationPreferenceSchema),
+}) satisfies z.ZodType<NotificationPreferenceList>;
+
+export const UpdateNotificationPreferencesRequestSchema = z.object({
+  changes: z
+    .array(
+      z.object({
+        type: z.string().min(1).max(100),
+        channel: NotificationChannelSchema,
+        enabled: z.boolean().nullable(),
+      }),
+    )
+    .min(1)
+    .max(100),
+}) satisfies z.ZodType<UpdateNotificationPreferencesRequest>;
 
 export const NotificationLinkSchema = z.object({
   route: z.string(),

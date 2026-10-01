@@ -15,7 +15,7 @@ API 目前只認 access token（HS256 JWT，5 分鐘，帶 `tid`），而取得 
 - 瀏覽器走 OIDC 登入互動（[`../architecture/04-sso.md`](../architecture/04-sso.md) §3.1）
 - **直接 `POST /auth/login` 用 email ＋ 密碼換**，文件註明「保留給 API 測試與腳本」（`auth.controller.ts`）
 
-CI、美術工具的匯入腳本、遊戲建置流程現在只能走第二條：拿真人帳號的密碼、每 5 分鐘續期一次。
+CI、匯入腳本、外部系統的排程現在只能走第二條：拿真人帳號的密碼、每 5 分鐘續期一次。
 密碼外流等於帳號外流、稽核分不出是人還是程式，之後若做 [MFA](./mfa.md)，這條路還會直接斷掉。
 
 ## 範圍

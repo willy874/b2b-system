@@ -638,6 +638,8 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/notifications/:id/read`   | `@Authenticated`（不是自己的回 404） |
 | GET    | `/notification-events`      | `system:read`（ADR-0028 D10）    |
 | PATCH  | `/notification-events`      | `system:update`                  |
+| GET    | `/me/notification-preferences` | `@Authenticated`（只看自己的，ADR-0028 D15） |
+| PATCH  | `/me/notification-preferences` | `@Authenticated`              |
 | GET    | `/identity-providers`       | `identityProvider:read`          |
 | POST   | `/identity-providers`       | `identityProvider:create`        |
 | PATCH  | `/identity-providers/:id`   | `identityProvider:update`        |

@@ -1,11 +1,12 @@
 # B2B System — 架構文件
 
-本目錄是 **B2B System** 的架構規格書。目前專案尚未有主功能，第一階段只建置
-**完整的 RBAC（Role-Based Access Control）能力與流程**，作為之後所有功能的地基。
+本目錄是 **B2B System** 的架構規格書。B2B System 是一套 **通用型的多租戶 B2B 後台**：
+不綁定任何業務領域，先把每個後台都需要的基礎能力（身分、權限、稽核、檔案、背景工作、通知）做成
+會被強制使用的機制，之後的業務功能都建立在它上面。
 
-> 狀態：**待確認（Draft）**。程式碼尚未開始撰寫。
-> 本文件確認後才進入實作階段（見 [`overview/03-roadmap.md`](./overview/03-roadmap.md)）。
-> 最後更新：2026-09-19
+> 狀態：Phase 0（RBAC 骨架）已完成，之後陸續加入 SSO、多租戶、群組與關係圖、回收桶與版本歷史、站內通知等通用機制。
+> 進度見 [`overview/03-roadmap.md`](./overview/03-roadmap.md)，待製作的功能見 [`features/README.md`](./features/README.md)。
+> 最後更新：2026-10-01
 
 ---
 
@@ -13,11 +14,13 @@
 
 | 面向     | 決定                                                                                           |
 | -------- | ---------------------------------------------------------------------------------------------- |
+| 定位     | 通用型後台骨架；業務功能以 feature（前端）＋ module（後端）的形式加上去，沿用既有的權限、稽核、回收桶、通知等機制 |
 | 前端架構 | **plugin-based AppContext ＋ feature-first 分層 ＋ 執行期權限註冊表**                          |
 | 前端 UI  | **Base UI**（`@base-ui/react`）＋ 專案自有的 `components/` 封裝層                              |
 | 後端     | **NestJS** + **Drizzle ORM** + **PostgreSQL**                                                  |
-| 首期範圍 | 認證（登入／登出／Token 續期）、使用者、角色、權限、稽核日誌、個人帳號、審批（註冊需核准）     |
-| 不在首期 | 任何遊戲編輯器本身的功能；資源層級作用域只先用在檔案管理器（見 [ADR-0006](./adr/0006-flat-permission-scope.md)、[ADR-0015](./adr/0015-file-folder-access.md)） |
+| 租戶與身分 | 每個租戶一個 database 與網域；`apps/auth` 是全平台共用的登入入口，`apps/api` 當 OIDC Provider |
+| 已有範圍 | 認證與 SSO、使用者、角色、群組、權限與關係圖、稽核日誌、個人帳號、審批、系統設定、檔案、背景工作、寄信、回收桶、版本歷史、站內通知 |
+| 不在範圍 | 任何特定領域的業務功能；資源層級作用域目前只用在檔案管理器，新資源沿用同一套（見 [ADR-0015](./adr/0015-file-folder-access.md)、[`rbac/07-resource-grants.md`](./rbac/07-resource-grants.md)） |
 
 ---
 
@@ -111,7 +114,7 @@ docs/
 │       ├── 13-trash.md                回收桶：TrashRegistry、還原端點、trash.purge 與外鍵處理
 │       ├── 14-revisions.md            版本歷史：revisions、RevisionService、還原到某一版、revision.prune
 │       ├── 15-notification.md         站內通知：notifications、NotificationService.notify、收件人計算、route id、notification.cleanup
-│       └── 16-notification-event.md   事件管理：事件目錄、notification_policies、租戶層的開關
+│       └── 16-notification-event.md   事件管理：事件目錄、租戶層的開關、個人的通知設定
 │
 ├── rbac/
 │   ├── 01-domain-model.md             實體、ER 圖、不變條件、關係圖的組成與模型
@@ -137,7 +140,7 @@ docs/
 ├── features/                          待製作功能的提案（完成後刪除、重寫成正式文件歸檔）
 │   └── README.md                      清單、優先度、提案 → 歸檔的流程
 │
-└── adr/                               架構決策紀錄（Architecture Decision Records）
+└── adr/                               架構決策紀錄（Architecture Decision Records；見 §4 最後一條）
     ├── 0001-plugin-based-app-context.md
     ├── 0002-base-ui-over-mui.md
     ├── 0003-drizzle-over-prisma.md
@@ -181,10 +184,14 @@ docs/
 - **還沒實作的功能** 寫在 `features/`，不要寫進上述分區；那些分區只描述已存在的系統。
   流程見 [`features/README.md`](./features/README.md)。
 - 檔案路徑用相對於 repo 根目錄的形式（`apps/backstage/src/...`）。
+- 舉例時用 **領域中立** 的名詞（專案、文件、訂單、素材），不要假設某個特定產業。
+- `adr/` 是當時的決策紀錄，**不回頭改寫**。本專案早期的定位是遊戲內容編輯平台，部分 ADR 的「背景」
+  仍以「遊戲編輯器」為例；那些理由同樣適用於任何會長出自訂資源與大量編輯介面的業務功能。
+  決策本身若被推翻，寫新的 ADR 取代它。
 
 ---
 
-## 5. 同步規則（實作開始後生效）
+## 5. 同步規則
 
 以下三處必須永遠同步，任一處變更時必須同一批修改另外兩處：
 

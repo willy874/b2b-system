@@ -1,6 +1,6 @@
 # ADR-0028 — 事件管理：通知事件的目錄與租戶層的開關，在 `notify()` 內統一判斷
 
-- 狀態：**採用**（2026-10-01 確認，Q1～Q3 照預設；E1、E2 實作於 `feat/notification-events`，E3 尚未實作）
+- 狀態：**採用**（2026-10-01 確認，Q1～Q3 照預設；E1、E2 於 79d455f 合併，E3 於 717c9f5 合併）
 - 日期：2026-10-01
 - 相關：[ADR-0026](./0026-notification-center.md)（站內通知；本決定取代其 D4「第一版不做通知偏好」）、
   [ADR-0017](./0017-mail-delivery.md)（寄信一律經背景工作）、[ADR-0021](./0021-runtime-feature-activation.md)（可啟用的 feature）、
@@ -10,7 +10,7 @@
   [`../architecture/backend/12-settings.md`](../architecture/backend/12-settings.md)、
   [`../architecture/backend/11-mail.md`](../architecture/backend/11-mail.md)；
   實作後的規格 [`../architecture/backend/16-notification-event.md`](../architecture/backend/16-notification-event.md)、
-  [`../architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md) §9
+  [`../architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md) §9、§10
 
 ## 背景
 
@@ -78,7 +78,7 @@ ADR-0026 讓擁有者模組在業務交易內呼叫 `NotificationService.notify(
 | --- | --- | --- |
 | D14 | **送達的判斷式**（E1 起就以這個形狀實作，E1 時個人層恆為「未覆寫」）：<br>`送出 = mandatory ∨ (租戶開啟 ∧ (¬租戶允許個人調整 ∨ 個人開啟))`<br>其中「個人開啟」沒有覆寫時等於租戶的生效值。租戶關掉的事件，**個人無法打開** | 租戶是上限，個人只能在上限內少收；「租戶強制、個人不能關」以「不允許個人調整」表達 |
 | D15 | **E3 的資料與 API**：<br>• `notification_policies` 加 `allow_user_override boolean NOT NULL DEFAULT true`（純加法）<br>• 新表 `notification_preferences`：`user_id`（→ `users.id` `ON DELETE CASCADE`）、`type`、`channel`、`enabled`，PK `(user_id, type, channel)`，同樣只存覆寫值<br>• `GET`／`PATCH /me/notification-preferences`（`@Authenticated()`，只能改自己的；不能改的項目回 409）<br>• 頁面放在個人偏好頁的一個分頁<br>• `notify()` 以一條 `WHERE user_id = ANY($1) AND type = $2` 查收件人的偏好後過濾；不快取（收件人每次不同） | 先定形狀，E1 的表與判斷點就不必在 E3 改寫；個人偏好走後端，不沿用前端的 `core/preference`（ADR-0026 D4） |
-| D16 | **E3 另開 ADR 或在本 ADR 補實作紀錄**，前提是 D14、D15 的形狀不變；若要改（例：加「每日彙整」管道），另開 ADR | 個人層的 UI 與 digest 等延伸需求還沒有明確的使用情境 |
+| D16 | **E3 在本 ADR 補實作紀錄**（D14、D15 的形狀沒有改變；原文：E3 另開 ADR 或在本 ADR 補實作紀錄），前提是 D14、D15 的形狀不變；若要改（例：加「每日彙整」管道），另開 ADR | 個人層的 UI 與 digest 等延伸需求還沒有明確的使用情境 |
 
 ## 分階段
 
@@ -138,4 +138,11 @@ ADR-0026 讓擁有者模組在業務交易內呼叫 `NotificationService.notify(
 | E1 | 交易內的查詢（D8） | `isEnabled(type, channel, tx)`：快取過期要重讀時沿用業務交易的連線 |
 | E2 | 草稿（D12） | 有覆寫而切回預設值時送 `enabled: null`（還原預設），不留一筆與預設相同的覆寫；一整頁一份草稿、一次儲存 |
 | E2 | 選單 | 「系統管理 › 事件通知」，排在系統設定之後（`menu-notification-event`） |
-
+| E3 | `notification_policies.enabled`（D15） | 改成可為 `null`（跟著 `defaultEnabled`）：只覆寫「允許個人調整」時不必把 `enabled` 寫死成當下的預設值；加 CHECK `enabled IS NOT NULL OR allow_user_override = false`，兩欄都是預設的列不存在 |
+| E3 | 租戶層的 `PATCH`（D9） | `changes` 的每筆帶 `enabled?`（`null` 還原）與 `allowUserOverride?`，至少一個；`enabled` 與預設相同時存成 `null`。稽核的值改成 `{ enabled, allowUserOverride }` |
+| E3 | 個人層的 API（D15） | `GET`／`PATCH /me/notification-preferences`；每個管道回 `lock`（`mandatory`／`tenantDisabled`／`tenantRequired`／`null`），被鎖住時改值回 `409 NOTIFICATION_PREFERENCE_LOCKED`，還原（`null`）不受限 |
+| E3 | 個人層的稽核與推播 | 不寫稽核（使用者自己的狀態，與已讀、個人資料相同）；推 `notificationPreference update` 只給本人 |
+| E3 | 判斷的位置（D14） | `NotificationPolicyService.filterRecipients()` 是唯一的送達判斷；`notify()` 在驗證、略過自己、去重、截斷 **之後** 對每一種類型呼叫一次（E2 是在整理之前只看租戶層） |
+| E3 | 寄信（D6） | 審批結果信：有帳號的申請人用 `filterRecipients()`；匿名的註冊申請沒有帳號，仍用 `isChannelEnabled()` 只看租戶層 |
+| E3 | 個人設定頁（D15） | `features/notification` 以 `registerPreferenceSection`（`order: 100`）插進偏好頁，切換即儲存；租戶政策的推播只到 `system:read` 的人，其他人下次打開偏好頁時重抓 |
+| E3 | 管理頁 | 每個管道多一個「允許個人關閉」的勾選，管道關閉時停用 |

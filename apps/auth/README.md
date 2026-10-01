@@ -1,7 +1,7 @@
 # apps/auth
 
 全平台共用、**不屬於任何租戶** 的身分入口（[ADR-0019](../../docs/adr/0019-sso-identity-platform.md)）。
-各產品（backstage、之後的編輯器）的登入都會經過這裡；平台管理者（與租戶的帳號是兩份資料）也在這裡登入並管理租戶（[ADR-0020](../../docs/adr/0020-physical-tenant-isolation.md) D5、D12）。外部 IdP 連線屬於租戶，在 backstage 管理。
+各產品（backstage、之後建在骨架上的其他前端）的登入都會經過這裡；平台管理者（與租戶的帳號是兩份資料）也在這裡登入並管理租戶（[ADR-0020](../../docs/adr/0020-physical-tenant-isolation.md) D5、D12）。外部 IdP 連線屬於租戶，在 backstage 管理。
 流程、端點與部署見 [`docs/architecture/04-sso.md`](../../docs/architecture/04-sso.md)。
 
 - 只有前端（Vite ＋ React 19），後端 API 由 `apps/api` 提供，經自己 origin 的 `/api` 反向代理（D2）。

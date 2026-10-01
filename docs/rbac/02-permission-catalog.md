@@ -163,6 +163,7 @@
 - 檢視／編輯自己的個人資料（`GET|PATCH /auth/profile`）
 - 變更自己的密碼（`POST /auth/change-password`）
 - 檢視／修改自己的偏好設定（語系、時區）
+- 檢視與修改自己的通知設定（`GET`／`PATCH /me/notification-preferences`；[ADR-0028](../adr/0028-notification-event-management.md) D15）
 - 檢視自己的站內通知、標為已讀（`GET /notifications`、`POST /notifications/:id/read`、`POST /notifications/read-all`；[ADR-0026](../adr/0026-notification-center.md) D9）
 - 建立、檢視、撤銷自己的個人 API token（`GET|POST /auth/api-tokens`、`DELETE /auth/api-tokens/:tokenId`；[ADR-0027](../adr/0027-api-tokens-external-api.md) D14）。
   管理者檢視、撤銷別人的個人 token 用 `user:update`
@@ -241,7 +242,7 @@
 `member` 只有 `file:access`：進得了檔案管理器，看得到資料夾但全部鎖住，被授權之後才讀得到。
 `admin` 也持有 `file:access`：不擴大能力（已有全域 `file:*`），但指派 `member` 受反提權限制，要持有它的每個權限鍵。
 其餘只能存取個人範圍的頁面（首頁、個人資料）。
-這是刻意的：它是未來編輯器功能的權限掛載點。
+這是刻意的：它是業務功能的權限掛載點——新功能的權限鍵授予 `member`（或自訂角色）即可開放給一般使用者。
 
 ---
 

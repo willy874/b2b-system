@@ -60,6 +60,12 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
   // 只推給收件人（呼叫端以 `affectedUserIds` 帶入；id 是通知 id，不是使用者 id）。
   // 通知是個人的東西：沒有任何 perm room 要知道（docs/adr/0026-notification-center.md D8）
   [ChangeSource.NOTIFICATION]: { perms: () => [], includesSubject: false, recordsAudit: false },
+  // 只推給本人（呼叫端以 `affectedUserIds` 帶入）；個人設定不寫稽核
+  [ChangeSource.NOTIFICATION_PREFERENCE]: {
+    perms: () => [],
+    includesSubject: false,
+    recordsAudit: false,
+  },
   // 事件管理頁（與系統設定同一群讀者，ADR-0028 D10）
   [ChangeSource.NOTIFICATION_POLICY]: {
     perms: () => [PERMISSION.SYSTEM_READ],
