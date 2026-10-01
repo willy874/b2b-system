@@ -238,6 +238,9 @@ export function tableColumnSettingsPlugin(): AppPluginFactory {
 （見各 feature 的 `preference.ts`），分頁用 `getPreferenceTables()` 列出，並用列表上同一個 `TableSettings` 調整。
 `id` 與 `RichTable` 的 `settings.tableId` 相同，兩邊讀寫同一份 `core/store/tableColumnSettings`。
 偏好頁的 route loader 是 `preferenceLocaleLoader()`：各分頁與各列表名稱所在的 scope 都會先載入。
+loader 只看得到進頁當下的註冊表：可啟用的 feature（ADR-0021）在 profile 回來後才安裝，它的列表會晚一步出現在偏好頁，
+所以頁面另外呼叫 `usePreferenceLocales()`，依註冊表的目前內容要求語系包（還沒登記的在登記時補載）；載完後 `useTranslation` 換新 `t`，
+畫面跟著更新（否則直接打開 `/preference` 時只會看到語系 key，[`08-i18n.md`](./08-i18n.md) §2.2）。
 
 ### 4.4 頂列工具（`core/toolbar`）
 

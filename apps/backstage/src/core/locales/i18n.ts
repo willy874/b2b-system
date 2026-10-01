@@ -11,6 +11,14 @@ export type LocaleBundle = Partial<Record<Language, Record<string, LocaleImporte
 
 const registry = new Map<string, LocaleBundle>();
 const loaded = new Set<string>();
+/** 下載中的 `scope:language`：同時要求同一包時只下載一次。 */
+const inflight = new Map<string, Promise<void>>();
+/**
+ * 被要求時還沒登記的 scope → 要求過的語系。所屬 feature 晚一步安裝（ADR-0021）時，登記的當下補載，
+ * 不必等下一次換頁才由 route loader 觸發。
+ */
+const pending = new Map<string, Set<string>>();
+const loadedListeners = new Set<(scope: string, language: string) => void>();
 
 export const GLOBAL_LOCALE_SCOPE = 'app';
 
@@ -44,6 +52,14 @@ export function addResourceBundle(bundle: LocaleBundle, options: { scope: string
     }
   }
   registry.set(options.scope, existing);
+  const requested = pending.get(options.scope);
+  if (requested) {
+    pending.delete(options.scope);
+    for (const language of requested) {
+      // 失敗時不記成已載入：下一次 route loader 或訂閱者再要求時重試
+      loadLocaleScope(options.scope, language).catch(() => undefined);
+    }
+  }
 
   const dispose = () => {
     const current = registry.get(options.scope);
@@ -64,16 +80,43 @@ export function addResourceBundle(bundle: LocaleBundle, options: { scope: string
 export async function loadLocaleScope(scope: string, language: string): Promise<void> {
   const key = `${scope}:${language}`;
   if (loaded.has(key)) return;
-  // 還沒登記的 scope（所屬 feature 尚未安裝）不能記成已載入，否則安裝後永遠不會再下載
-  if (!registry.has(scope)) return;
+  // 還沒登記的 scope（所屬 feature 尚未安裝）不能記成已載入，否則安裝後永遠不會再下載；
+  // 記成待載入，登記時補載（`addResourceBundle`）
+  if (!registry.has(scope)) {
+    const languages = pending.get(scope) ?? new Set<string>();
+    languages.add(language);
+    pending.set(scope, languages);
+    return;
+  }
+  const running = inflight.get(key);
+  if (running) return running;
   const importers = registry.get(scope)?.[language as Language] ?? {};
-  await Promise.all(
+  const task = Promise.all(
     Object.entries(importers).map(async ([namespace, importer]) => {
       const module = await importer();
       i18n.addResourceBundle(language, namespace, module.default, true, true);
     }),
-  );
-  loaded.add(key);
+  )
+    .then(() => {
+      loaded.add(key);
+      for (const listener of loadedListeners) listener(scope, language);
+    })
+    .finally(() => inflight.delete(key));
+  inflight.set(key, task);
+  return task;
+}
+
+/**
+ * 某個 scope 的語系包下載完成時通知（含登記後補載的）。`useTranslation` 只在切換語系時重渲染，
+ * 在路由之外顯示其他 feature 文字的元件（偏好頁的分頁、頂列工具）以它得知字串到了。回傳取消訂閱。
+ */
+export function subscribeLocaleScopeLoaded(
+  listener: (scope: string, language: string) => void,
+): () => void {
+  loadedListeners.add(listener);
+  return () => {
+    loadedListeners.delete(listener);
+  };
 }
 
 /** 回傳一個 route loader：進入該 feature 時才真正下載語系包。 */
@@ -97,4 +140,7 @@ export async function changeLanguage(language: Language): Promise<void> {
 export function resetLocaleRegistry(): void {
   registry.clear();
   loaded.clear();
+  inflight.clear();
+  pending.clear();
+  loadedListeners.clear();
 }
