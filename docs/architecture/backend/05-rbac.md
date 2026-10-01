@@ -190,29 +190,38 @@ export class PermissionService {
     return isSuperAdmin ? this.repo.findAllPermissionKeys() : [...permissions];
   }
 
-  /** 反提權：待授予的權限必須是 actor 已持有的 */
-  async assertGrantable(actorId: string, keys: PermissionKey[]): Promise<void> {
-    if (keys.length === 0) return;
+  /**
+   * 反提權的通用入口（§4.1）：把主體放進 targets 的每一個「物件#關係」取得的租戶能力，actor 都要有。
+   * super-admin 角色帶來的能力是 superAdmin，只有 super-admin 有——不必以 slug 特判
+   */
+  async assertCanGrant(actorId: string, targets: RelationRef[], tx?: DbOrTx): Promise<void> {
+    if (targets.length === 0) return;
     const { permissions, isSuperAdmin } = await this.getPermissionSet(actorId);
     if (isSuperAdmin) return;
-    const missing = keys.filter((k) => !permissions.has(k));
-    if (missing.length) {
-      throw new AppException(ErrorCode.AUTHZ_ESCALATION, { missing });
+    const capabilities = await this.authz.grantedCapabilities(targets, { tx });
+    const missing = capabilities.map((c) => c.relation).filter((r) => !permissions.has(r));
+    if (missing.includes(SUPER_ADMIN_RELATION)) {
+      const allKeys = await this.repo.findAllPermissionKeys();
+      throw new AppException(ErrorCode.AUTHZ_ESCALATION, {
+        missing: allKeys.filter((k) => !permissions.has(k)),
+        role: SUPER_ADMIN_SLUG,
+      });
     }
+    if (missing.length) throw new AppException(ErrorCode.AUTHZ_ESCALATION, { missing });
   }
 
-  /** 指派角色前：該角色帶的權限必須全部是 actor 已持有的；super-admin 另外特判（§4.1） */
-  async assertRolesAssignable(actorId: string, roleIds: string[]): Promise<void> {
-    if (roleIds.length === 0) return;
-    const { permissions, isSuperAdmin } = await this.getPermissionSet(actorId);
-    if (isSuperAdmin) return;
-    if (await this.repo.includesSuperAdminRole(roleIds)) {
-      const allKeys = await this.repo.findAllPermissionKeys();
-      const missing = allKeys.filter((k) => !permissions.has(k));
-      throw new AppException(ErrorCode.AUTHZ_ESCALATION, { missing, role: SUPER_ADMIN_SLUG });
-    }
-    const keys = await this.repo.findPermissionKeysByRoles(roleIds);
-    await this.assertGrantable(actorId, keys);
+  /** 角色帶權限鍵：取得的就是那些鍵 */
+  assertGrantable(actorId: string, keys: PermissionKey[]) {
+    return this.assertCanGrant(actorId, keys.map((key) => ({ object: TENANT_OBJECT, relation: key })));
+  }
+
+  /** 指派角色：成為 role:<id>#holder，取得角色在租戶上的每個能力 */
+  assertRolesAssignable(actorId: string, roleIds: string[], tx?: DbOrTx) {
+    return this.assertCanGrant(
+      actorId,
+      roleIds.map((id) => ({ object: { type: 'role', id }, relation: 'holder' })),
+      tx,
+    );
   }
 }
 ```
@@ -225,13 +234,27 @@ export class PermissionService {
 
 ### 4.1 反提權與 super-admin 角色
 
+**規則只有一條**（[ADR-0024](../../adr/0024-relationship-based-access-control.md) G4）：把某個主體放進 `物件#關係`，主體因此取得的能力，
+操作者必須全部都有。「取得了什麼」由關係圖算，不是各 service 手寫：
+
+| 寫入的邊 | 取得的能力（`AuthzService.grantedCapabilities`） | 誰比對 |
+| --- | --- | --- |
+| `tenant:self#<key>@role:<r>#holder`（角色帶權限鍵） | `<key>` | `PermissionService.assertGrantable` |
+| `role:<r>#holder@user:<u>`／`@group:<g>#member`（指派角色） | 角色在租戶上的每個能力：權限鍵，super-admin 角色則是 `superAdmin` | `assertRolesAssignable` |
+| `group:<g>#member@…`（加成員） | 沿成員關係往上的閉包——上層群組、它們持有的角色——在租戶上的能力（D11）；不含資料夾授權（D13） | `assertCanGrant` |
+| `fileFolder:<f>#<等級>@…`（資料夾授權） | 等級靜態蘊含的 `can_*`（`capabilitiesOf`），在 `<f>` 上比對 | `FileAccessContext.missingActions` |
+
+- 模型為每個型別宣告哪些關係是 **能力**（`defineType(…, { capabilities })`）：租戶上是每個權限鍵與 `superAdmin`、資料夾上是五個 `can_*`。
+  等級、`role#holder`、`group#member` 不是能力，是取得能力的途徑；新增資源型別時宣告它的能力，反提權就自動涵蓋。
+- 租戶能力以操作者的權限集合比對（含依賴樹的閉包），super-admin 讓每個能力都成立，所以自然豁免。
+- 「誰能寫這條邊」的另一半（`role:grantPermission`、`user:assignRole`、`group:assignRole`、資料夾的 `can_share`）仍由路由宣告與
+  service 的 `can('share')` 擋，錯誤是 `403 AUTHZ_FORBIDDEN`，不併入能力的比對。
+
 `super-admin` 是 **隱含全集**：它沒有任何權限鍵的邊，只有 `tenant:self#superAdmin@role:<id>#holder`
 （[`rbac/05-seed-and-bootstrap.md`](../../rbac/05-seed-and-bootstrap.md) §4、
 [`rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §4）。
-只用 `findPermissionKeysByRoles()` 比對會查出空陣列、檢查直接通過——
-任何持有 `user:assignRole` 或 `user:create` 的人都能把 super-admin 指派給任何人（含自己的分身帳號）。
-
-所以 `assertRolesAssignable()` 先以 slug（`SUPER_ADMIN_SLUG`）判斷 `roleIds` 是否含 super-admin：
+只比對權限鍵會查出空陣列、檢查直接通過——任何持有 `user:assignRole` 或 `user:create` 的人都能把 super-admin 指派給任何人。
+`superAdmin` 因此也是租戶的能力：指派 super-admin 角色取得的是它，只有 super-admin 自己有：
 
 | actor               | `roleIds` 含 super-admin | 結果                                      |
 | ------------------- | ------------------------ | ----------------------------------------- |
@@ -274,12 +297,13 @@ export class PermissionService {
 | `authz.repository.ts` | `relation_tuples` 的讀取：主體閉包（遞迴 CTE 沿 `group#member`、`role#holder` 走，深度上限 8，排除已刪除的角色與群組）、某種物件上的直接邊（濾掉過期的）、`authz_revision`。群組巢狀的層數由寫入端限制在 `GROUP_MAX_NESTING_DEPTH`（6），閉包永遠走得完 |
 | `authz.snapshot.ts` | 把一次判斷需要的邊載入記憶體；**結構邊供應者**（`EdgeProvider`）補上不存在 tuple 表的邊——資料夾的 `parent`／`inherits_from`／`owner` 由 `file_folders` 供應（ADR-0024 D3） |
 | `authz.checker.ts` | `check`／`explain`／`withEdges`：在快照上展開關係定義，同一個 `物件#關係` 只算一次（記憶化），遞迴深度上限 64；未知的型別或關係視為不成立 |
-| `authz.service.ts` | `tenantPermissionsOf`（全域權限）、`checkerFor`（資源：一次載入操作者在這些型別上的邊，交給判斷器） |
+| `authz.service.ts` | `tenantPermissionsOf`（全域權限）、`checkerFor`（資源：一次載入操作者在這些型別上的邊，交給判斷器）、`grantedCapabilities`（反提權：放進某個 `物件#關係` 取得的能力，§4.1） |
 | `authz.revision.ts` | 寫入後的失效與跨程序廣播（§5.1） |
 
 - **寫入不經引擎**：角色、使用者、資料夾授權的 repository 直接寫 `relation_tuples`，邊的形狀與查詢條件集中在
   `db/schema/relation-tuples.ts`（`roleHolderTuple`、`rolePermissionTuple`、`isRoleHolderTuple()`…）。
-  寫入時不以模型驗證型別與主體（G4 的「反提權一般化」一起做，見 [`../../features/permission-graph.md`](../../features/permission-graph.md)）。
+  寫入時的模型驗證（型別有這個直接關係、主體種類是它允許的；`validateTuple`）以測試保證：每一種建構函式產生的邊都對完整的模型驗過一次
+  （`src/__tests__/relation-tuples-model.spec.ts`）。邊只由這些建構函式產生，所以不在每次寫入時再驗一次。
 - **判斷的成本**：全域權限在租戶節點上只有一層，閉包算完就是 `Set<PermissionKey>`，guard 仍是 O(1)。
   資料夾是「整棵結構一次載入 ＋ 記憶化」，一次請求建一個判斷器（`FileAccessService.contextFor`）。
 - `explain()` 已實作，但還沒開放 API（G4）。

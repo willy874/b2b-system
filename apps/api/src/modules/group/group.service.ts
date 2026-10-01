@@ -63,8 +63,8 @@ function idsOf(members: readonly GroupMemberSubject[], type: GroupMemberSubject[
  * 群組是純分組：成員與持有的角色都是 `relation_tuples` 的邊，權限由關係圖解析（巢狀、持有的角色都在主體閉包裡）。
  * 會改變誰有什麼權限的寫入（成員、持有的角色、刪除、還原）都在交易後 `permissionsChanged()`。
  *
- * 反提權：
- * - 把人（或群組）放進 G ＝ 指派 G **與它所有上層群組** 持有的角色（D11）→ `assertRolesAssignable`。
+ * 反提權（都經 `PermissionService.assertCanGrant`，由引擎展開「取得了什麼」）：
+ * - 把人（或群組）放進 G ＝ 成為 `group:G#member`，取得 G **與它所有上層群組** 持有的角色（D11）。
  * - 讓 G 持有角色 ＝ 把角色指派給 G 的所有成員 → `assertRolesAssignable`；super-admin 一律拒絕（D12）。
  * - 只檢查全域權限鍵，不檢查群組在資料夾上的授權（D13）。
  * - 不能改自己：把自己、自己所屬的群組放進或移出群組，或改自己所屬群組持有的角色（I9 的延伸）。
@@ -222,7 +222,7 @@ export class GroupService {
       ]);
       this.assertAcyclic(ancestors, descendants);
       this.assertNestingDepth(ancestors, descendants);
-      await this.assertInheritedRolesAssignable(actor, id, ancestors, tx);
+      await this.assertCanJoin(actor, id, tx);
       await this.audit.record(
         {
           action: 'group.restore',
@@ -272,7 +272,7 @@ export class GroupService {
           const below = await this.repo.descendants(nested, tx);
           this.assertNestingDepth(ancestors, below, 2);
         }
-        await this.assertInheritedRolesAssignable(actor, id, ancestors, tx);
+        await this.assertCanJoin(actor, id, tx);
       }
 
       await this.repo.removeMembers(id, remove, tx);
@@ -356,20 +356,15 @@ export class GroupService {
   // ── 業務規則 ─────────────────────────────────────────────
 
   /**
-   * 把人放進 G（或還原 G）＝ 指派 G 與它所有上層群組持有的角色（D11）。角色帶的鍵都要是操作者持有的；
-   * super-admin 由 D12 保證不會出現在群組上。
+   * 把人放進 G（或還原 G）＝ 讓他成為 `group:G#member`：引擎沿成員關係往上展開（上層群組、它們持有的角色），
+   * 帶來的租戶能力都要是操作者持有的（D11）。在交易內、成員的鎖之後呼叫，看到的是一致的結構。
    */
-  private async assertInheritedRolesAssignable(
-    actor: AuthUser,
-    groupId: string,
-    ancestors: ReadonlyArray<{ id: string }>,
-    tx: DbOrTx,
-  ): Promise<void> {
-    const roleIds = await this.repo.roleIdsHeldBy(
-      [groupId, ...ancestors.map((ancestor) => ancestor.id)],
+  private async assertCanJoin(actor: AuthUser, groupId: string, tx: DbOrTx): Promise<void> {
+    await this.permissionService.assertCanGrant(
+      actor.id,
+      [{ object: { type: GROUP_OBJECT_TYPE, id: groupId }, relation: GROUP_MEMBER_RELATION }],
       tx,
     );
-    await this.permissionService.assertRolesAssignable(actor.id, roleIds);
   }
 
   /**

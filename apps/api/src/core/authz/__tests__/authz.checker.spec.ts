@@ -3,12 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { createChecker } from '../authz.checker';
 import {
   and,
+  capabilitiesOf,
   computed,
   createModel,
   defineType,
   direct,
   from,
   impliedRelations,
+  isUsersetRelation,
   union,
 } from '../authz.model';
 import { createSnapshot } from '../authz.snapshot';
@@ -242,5 +244,46 @@ describe('租戶型別（由權限目錄產生）', () => {
       ),
     );
     expect(checker.check(self, 'system:update')).toBe(true);
+  });
+});
+
+describe('反提權的能力（docs/adr/0024-relationship-based-access-control.md G4）', () => {
+  const full = createModel([
+    USER_TYPE,
+    GROUP_TYPE,
+    ROLE_TYPE,
+    buildTenantType({ withDependencies: true }),
+    defineType(
+      'folder',
+      {
+        manager: direct('user'),
+        editor: union(direct('user'), computed('manager')),
+        can_read: computed('editor'),
+        can_share: computed('manager'),
+      },
+      { capabilities: ['can_read', 'can_share'] },
+    ),
+  ]);
+
+  it('關係本身是能力（權限鍵、superAdmin）→ 只有它', () => {
+    expect(capabilitiesOf(full, 'tenant', 'file:delete')).toEqual(['file:delete']);
+    expect(capabilitiesOf(full, 'tenant', 'superAdmin')).toEqual(['superAdmin']);
+  });
+
+  it('等級 → 它靜態蘊含的能力，依宣告的順序', () => {
+    expect(capabilitiesOf(full, 'folder', 'editor')).toEqual(['can_read']);
+    expect(capabilitiesOf(full, 'folder', 'manager')).toEqual(['can_read', 'can_share']);
+  });
+
+  it('使用者集合：被別的關係允許當主體的 role#holder、group#member', () => {
+    expect(isUsersetRelation(full, 'role', 'holder')).toBe(true);
+    expect(isUsersetRelation(full, 'group', 'member')).toBe(true);
+    expect(isUsersetRelation(full, 'folder', 'editor')).toBe(false);
+  });
+
+  it('宣告了不存在的能力 → 建立模型失敗', () => {
+    expect(() =>
+      createModel([defineType('doc', { viewer: direct('user') }, { capabilities: ['can_fly'] })]),
+    ).toThrow(/能力 can_fly 不是這個型別的關係/);
   });
 });

@@ -34,7 +34,6 @@ function createService() {
     memberUserIds: vi.fn().mockResolvedValue([]),
     ancestors: vi.fn().mockResolvedValue([]),
     descendants: vi.fn().mockResolvedValue([]),
-    roleIdsHeldBy: vi.fn().mockResolvedValue([]),
     findActiveUserIds: vi.fn(async (ids: string[]) => ids),
     findActiveGroupIds: vi.fn(async (ids: string[]) => ids),
     findActiveRoles: vi.fn(async (ids: string[]) => ids.map((id) => ({ id, slug: id }))),
@@ -53,6 +52,7 @@ function createService() {
       async (ids: string[]) => new Map(ids.map((id) => [id, { isSuperAdmin: false }])),
     ),
     assertRolesAssignable: vi.fn(),
+    assertCanGrant: vi.fn(),
     permissionsChanged: vi.fn(),
   };
   const db = { transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn('tx')) };
@@ -73,15 +73,13 @@ describe('GroupService.updateMembers（docs/adr/0024-relationship-based-access-c
     ctx = createService();
   });
 
-  it('加成員：G 與它所有上層群組持有的角色都要通過指派角色的反提權', async () => {
-    ctx.repo.ancestors.mockResolvedValue([{ id: 'parent', depth: 1 }]);
-    ctx.repo.roleIdsHeldBy.mockResolvedValue(['r-editor', 'r-admin']);
+  it('加成員：以 group:G#member 詢問反提權（引擎展開上層群組與它們的角色），在交易內', async () => {
     await ctx.service.updateMembers('g1', { add: [{ type: 'user', id: 'u1' }], remove: [] }, ACTOR);
-    expect(ctx.repo.roleIdsHeldBy).toHaveBeenCalledWith(['g1', 'parent'], 'tx');
-    expect(ctx.permissions.assertRolesAssignable).toHaveBeenCalledWith('actor', [
-      'r-editor',
-      'r-admin',
-    ]);
+    expect(ctx.permissions.assertCanGrant).toHaveBeenCalledWith(
+      'actor',
+      [{ object: { type: 'group', id: 'g1' }, relation: 'member' }],
+      'tx',
+    );
     expect(ctx.repo.addMembers).toHaveBeenCalledWith(
       'g1',
       [{ type: 'user', id: 'u1' }],
@@ -91,7 +89,7 @@ describe('GroupService.updateMembers（docs/adr/0024-relationship-based-access-c
   });
 
   it('反提權失敗 → 不寫入', async () => {
-    ctx.permissions.assertRolesAssignable.mockRejectedValue(
+    ctx.permissions.assertCanGrant.mockRejectedValue(
       Object.assign(new Error('escalation'), { code: 'AUTHZ_ESCALATION' }),
     );
     await expect(
@@ -102,7 +100,7 @@ describe('GroupService.updateMembers（docs/adr/0024-relationship-based-access-c
 
   it('只移除成員：不做反提權檢查', async () => {
     await ctx.service.updateMembers('g1', { add: [], remove: [{ type: 'user', id: 'u1' }] }, ACTOR);
-    expect(ctx.permissions.assertRolesAssignable).not.toHaveBeenCalled();
+    expect(ctx.permissions.assertCanGrant).not.toHaveBeenCalled();
     expect(ctx.repo.removeMembers).toHaveBeenCalled();
   });
 

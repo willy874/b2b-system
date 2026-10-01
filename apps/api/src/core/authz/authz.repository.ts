@@ -48,19 +48,58 @@ export class AuthzRepository {
     now: Date,
     tx?: DbOrTx,
   ): Promise<Map<string, SubjectKey[]>> {
-    const result = new Map<string, SubjectKey[]>(userIds.map((id) => [id, []]));
-    if (userIds.length === 0) return result;
-    const db = tx ?? this.db;
-    const seeds = sql.join(
+    return this.closures(
       userIds.flatMap((id) => [
-        sql`(${id}::text, 'user'::text, ${id}::text, ''::text, 0)`,
-        sql`(${id}::text, 'user'::text, '*'::text, ''::text, 0)`,
+        { root: id, type: 'user', id, rel: '' },
+        { root: id, type: 'user', id: '*', rel: '' },
       ]),
+      userIds,
+      now,
+      tx,
+    );
+  }
+
+  /**
+   * 使用者集合（`group:<g>#member`、`role:<r>#holder`）往上的閉包：它自己，以及它的成員（因此）也會屬於的使用者集合——
+   * 上層群組、群組與上層群組持有的角色。反提權用：把主體放進這個集合，主體就取得閉包裡每個集合的能力。
+   * 起點本身不看是否刪除（還原時要問「還原之後會帶來什麼」），往上只走未刪除的。回傳的 Map 以起點的 key 為鍵。
+   */
+  async usersetClosures(
+    usersets: readonly SubjectKey[],
+    now: Date,
+    tx?: DbOrTx,
+  ): Promise<Map<SubjectKey, SubjectKey[]>> {
+    return this.closures(
+      usersets.map((key) => {
+        const { object, relation } = parseSubjectKey(key);
+        return { root: key, type: object.type, id: object.id, rel: relation };
+      }),
+      usersets,
+      now,
+      tx,
+    );
+  }
+
+  /** 從 `seeds` 沿成員關係往上走的閉包（含起點），以 `root` 分組；`roots` 的每一個都會出現在結果裡。 */
+  private async closures<Root extends string>(
+    seeds: ReadonlyArray<{ root: Root; type: string; id: string; rel: string }>,
+    roots: readonly Root[],
+    now: Date,
+    tx?: DbOrTx,
+  ): Promise<Map<Root, SubjectKey[]>> {
+    const result = new Map<Root, SubjectKey[]>(roots.map((root) => [root, []]));
+    if (seeds.length === 0) return result;
+    const db = tx ?? this.db;
+    const values = sql.join(
+      seeds.map(
+        (seed) =>
+          sql`(${seed.root}::text, ${seed.type}::text, ${seed.id}::text, ${seed.rel}::text, 0)`,
+      ),
       sql`, `,
     );
-    const rows = await db.execute<{ root: string; type: string; id: string; rel: string }>(sql`
+    const rows = await db.execute<{ root: Root; type: string; id: string; rel: string }>(sql`
       WITH RECURSIVE closure(root, type, id, rel, depth) AS (
-        SELECT * FROM (VALUES ${seeds}) AS seed(root, type, id, rel, depth)
+        SELECT * FROM (VALUES ${values}) AS seed(root, type, id, rel, depth)
         UNION
         SELECT c.root, t.object_type, t.object_id, t.relation, c.depth + 1
         FROM ${relationTuples} t

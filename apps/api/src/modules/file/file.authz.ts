@@ -39,34 +39,49 @@ const ITEM_RELATIONS = {
   ),
 };
 
-export const FILE_ROOT_TYPE: TypeDefinition = defineType(FILE_ROOT_OBJECT.type, {
-  tenant: direct('tenant'),
-  ...Object.fromEntries(
-    Object.entries(LOCATION_ACTIONS).map(([relation, key]) => [relation, from('tenant', key)]),
-  ),
-  can_update_own: union(computed('can_update'), computed('can_create')),
-});
+/** 反提權比對的能力：位置上的五個動作（等級是取得它們的途徑；`can_update_own` 由它們推出）。 */
+const LOCATION_CAPABILITIES = Object.keys(LOCATION_ACTIONS);
 
-export const FILE_FOLDER_TYPE: TypeDefinition = defineType('fileFolder', {
-  tenant: direct('tenant'),
-  parent: direct('fileFolder', FILE_ROOT_OBJECT.type),
-  inherits_from: direct('fileFolder'),
-  owner: direct('user'),
+export const FILE_ROOT_TYPE: TypeDefinition = defineType(
+  FILE_ROOT_OBJECT.type,
+  {
+    tenant: direct('tenant'),
+    ...Object.fromEntries(
+      Object.entries(LOCATION_ACTIONS).map(([relation, key]) => [relation, from('tenant', key)]),
+    ),
+    can_update_own: union(computed('can_update'), computed('can_create')),
+  },
+  { capabilities: LOCATION_CAPABILITIES },
+);
 
-  manager: union(direct(...GRANTEES), from('inherits_from', 'manager')),
-  editor: union(direct(...GRANTEES), computed('manager'), from('inherits_from', 'editor')),
-  contributor: union(direct(...GRANTEES), computed('editor'), from('inherits_from', 'contributor')),
-  viewer: union(direct(...GRANTEES), computed('contributor'), from('inherits_from', 'viewer')),
+export const FILE_FOLDER_TYPE: TypeDefinition = defineType(
+  'fileFolder',
+  {
+    tenant: direct('tenant'),
+    parent: direct('fileFolder', FILE_ROOT_OBJECT.type),
+    inherits_from: direct('fileFolder'),
+    owner: direct('user'),
 
-  can_read: union(computed('viewer'), from('tenant', LOCATION_ACTIONS.can_read)),
-  can_create: union(computed('contributor'), from('tenant', LOCATION_ACTIONS.can_create)),
-  can_update: union(computed('editor'), from('tenant', LOCATION_ACTIONS.can_update)),
-  can_delete: union(computed('editor'), from('tenant', LOCATION_ACTIONS.can_delete)),
-  can_share: union(computed('manager'), from('tenant', LOCATION_ACTIONS.can_share)),
-  can_update_own: union(computed('can_update'), computed('can_create')),
+    manager: union(direct(...GRANTEES), from('inherits_from', 'manager')),
+    editor: union(direct(...GRANTEES), computed('manager'), from('inherits_from', 'editor')),
+    contributor: union(
+      direct(...GRANTEES),
+      computed('editor'),
+      from('inherits_from', 'contributor'),
+    ),
+    viewer: union(direct(...GRANTEES), computed('contributor'), from('inherits_from', 'viewer')),
 
-  ...ITEM_RELATIONS,
-});
+    can_read: union(computed('viewer'), from('tenant', LOCATION_ACTIONS.can_read)),
+    can_create: union(computed('contributor'), from('tenant', LOCATION_ACTIONS.can_create)),
+    can_update: union(computed('editor'), from('tenant', LOCATION_ACTIONS.can_update)),
+    can_delete: union(computed('editor'), from('tenant', LOCATION_ACTIONS.can_delete)),
+    can_share: union(computed('manager'), from('tenant', LOCATION_ACTIONS.can_share)),
+    can_update_own: union(computed('can_update'), computed('can_create')),
+
+    ...ITEM_RELATIONS,
+  },
+  { capabilities: LOCATION_CAPABILITIES },
+);
 
 export const FILE_TYPE: TypeDefinition = defineType('file', {
   parent: direct('fileFolder', FILE_ROOT_OBJECT.type),

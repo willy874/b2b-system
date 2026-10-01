@@ -92,7 +92,10 @@ export function buildTenantType({
       ...(implying.get(key) ?? []).map((source) => computed(source)),
     );
   }
-  return defineType(TENANT_OBJECT.type, relations);
+  // 能力（反提權比對的關係）：每個權限鍵與 superAdmin——指派 super-admin 角色等於給出 superAdmin，只有 super-admin 自己有
+  return defineType(TENANT_OBJECT.type, relations, {
+    capabilities: [SUPER_ADMIN_RELATION, ...keys],
+  });
 }
 
 /** 每個物件都有一條隱含的 `tenant` 邊指向租戶節點（不存）。 */

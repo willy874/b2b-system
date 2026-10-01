@@ -43,7 +43,7 @@
   - 移除成員不檢查反提權；目標是 super-admin 時只有 super-admin 能操作（比照 `UserService.assertCanManage`）。
   - 從回收桶還原群組時，持有的角色隨保留的邊重新生效，還原前先以本條檢查（比照 `UserService.restore`）。
 - **D12 群組不能持有 super-admin**：super-admin 一律直接指派給使用者。`group:assignRole` 指定 super-admin 一律拒絕，
-  因此「是不是 super-admin」（`hasRoleSlug`、`includesSuperAdminRole`、I8 的計數）仍只看直接持有的角色，不必改成走主體閉包。
+  因此「是不是 super-admin」（`hasRoleSlug`、`assertCanManage`、I8 的計數）仍只看直接持有的角色，不必改成走主體閉包。
 - **D13 反提權檢查的是「授予給一個主體」的能力**：把人放進一個主體（角色、群組）時，只檢查那個主體帶的 **全域權限鍵**，
   不檢查它在資料夾上的授權——那些授權在授予給這個主體時，已由持有 `can_share` 的人檢查過一次。與現在指派角色的行為一致。
 - **D14 explain 逐節點遮蔽**：查自己不需要 `authz:explain`；路徑上操作者沒有讀取權（`group:read`、`role:read`、資料夾的 `can_read`）的節點，
@@ -150,6 +150,14 @@ G0～G2 與提案不同的地方：快取仍逐事件失效（`authz_revision` �
   超過的鏈會讓權限靜靜地消失，所以在寫入時擋。還原群組時也檢查循環與層數（刪除期間結構可能被改過）。
 - **I9 的延伸多一條**：操作者不能改自己所屬（直接或間接）群組持有的角色（D11 只寫了加成員）；理由同 I9——等於改自己的角色。
 - **成員的寫入以 advisory lock 排隊**（`group_membership`）：循環與層數的檢查要看到一致的結構，與資料夾樹同一個做法。
-- D11 的檢查目前沿用 `PermissionService.assertRolesAssignable`；「由模型宣告誰能寫這條邊」的一般化是 G4a 的下一步。
+- **反提權一般化**：模型為每個型別宣告 **能力**（`defineType(…, { capabilities })`：租戶上的權限鍵與 `superAdmin`、資料夾上的 `can_*`），
+  `AuthzService.grantedCapabilities` 算出「放進某個 `物件#關係` 取得的能力」——能力本身、等級靜態蘊含的能力、
+  使用者集合往上閉包在租戶上的能力（D11、D13）。`assertGrantable`、`assertRolesAssignable`、群組的加成員都改走 `PermissionService.assertCanGrant`；
+  資料夾等級的動作表改由同一個 `capabilitiesOf` 算出。super-admin 的特判（以 slug 判斷）因此拿掉：指派它取得的是 `superAdmin` 這個能力，
+  `details` 的形狀不變。
+- **提案的 `grantedBy`（誰能寫這條邊）沒有放進模型**：那一半已由路由宣告（`role:grantPermission`、`user:assignRole`、`group:assignRole`）與
+  資料夾的 `can('share')` 擋下，錯誤是 `403 AUTHZ_FORBIDDEN` 並寫 `authz.denied`；搬進模型只是把同一個判斷宣告兩次。
+- **寫入時的模型驗證以測試保證**（`validateTuple`、`src/__tests__/relation-tuples-model.spec.ts`）：邊只由 `db/schema/relation-tuples.ts` 的建構函式與
+  資料夾授權的 repository 產生，每一種形狀對完整的模型驗一次；repository 不依賴 core 的服務，不在每次寫入時驗。
 - 尚未做：回收桶的 `TrashHandler`（會改動回收桶分頁的類型列舉，與前端一起做）、資料夾授權可以選群組（模型已允許 `group#member`，
   寫入端與共用對話框隨前端）、`features/group`。

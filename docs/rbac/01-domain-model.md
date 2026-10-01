@@ -302,8 +302,9 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
 - 遞迴刪除的子樹條件（[`07-resource-grants.md`](./07-resource-grants.md) §4）；
 - 上傳中的檔案只有本人看得到、系統資料夾不可移動。
 
-圖只回答「有沒有這條關係」。反提權目前也還在 service（`assertGrantable`、`assertRolesAssignable`、資料夾等級的 `missingActions`）；
-改成由模型宣告「誰能寫這條邊」是 G4 的工作（[`../features/permission-graph.md`](../features/permission-graph.md)）。
+圖回答「有沒有這條關係」，也回答反提權的「寫入這條邊，主體取得什麼」：模型為每個型別宣告哪些關係是 **能力**
+（租戶上的權限鍵與 `superAdmin`、資料夾上的 `can_*`），引擎沿著邊算出取得的能力，操作者必須全部都有
+（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1、ADR-0024 G4）。
 
 **平台管理者不進圖**：`platform_admins.role` 是固定的角色與權限對照，範圍小（[`02-permission-catalog.md`](./02-permission-catalog.md) §8）。
 

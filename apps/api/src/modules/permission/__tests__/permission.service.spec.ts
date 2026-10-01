@@ -11,6 +11,8 @@ import { PermissionService } from '../permission.service';
 /** 假的關係圖：每個人的明確鍵由 `keysOf` 決定，解析結果是它的依賴閉包。 */
 function fakeAuthz(keysOf: (userId: string) => { keys: PermissionKey[]; isSuperAdmin: boolean }) {
   return {
+    /** 要授予的目標帶來的租戶能力；各測試自己設定（引擎的展開另有整合測試 test/groups.spec.ts）。 */
+    grantedCapabilities: vi.fn().mockResolvedValue([]),
     tenantPermissionsOf: vi.fn(async (ids: readonly string[]) => {
       return new Map<string, TenantPermissions>(
         ids.map((id) => {
@@ -36,20 +38,22 @@ const REVISION = { changed: vi.fn() } as unknown as AuthzRevision;
 const ALL_KEYS = ['user:read', 'user:assignRole', 'system:update'] as PermissionKey[];
 
 function createService(actor: { keys: PermissionKey[]; isSuperAdmin: boolean }) {
-  const repo = {
-    findAllPermissionKeys: vi.fn().mockResolvedValue(ALL_KEYS),
-    findPermissionKeysByRoles: vi.fn().mockResolvedValue([]),
-    includesSuperAdminRole: vi.fn().mockResolvedValue(false),
-  };
+  const repo = { findAllPermissionKeys: vi.fn().mockResolvedValue(ALL_KEYS) };
   const cache = { get: vi.fn(), set: vi.fn(), ticket: vi.fn(() => 0) };
+  const authz = fakeAuthz(() => actor);
   const service = new PermissionService(
     repo as unknown as PermissionRepository,
     cache as unknown as PermissionCacheService,
-    fakeAuthz(() => actor) as unknown as AuthzService,
+    authz as unknown as AuthzService,
     REVISION,
   );
-  return { service, repo };
+  return { service, repo, authz };
 }
+
+const TENANT = { type: 'tenant', id: 'self' };
+/** 角色帶來的租戶能力（`grantedCapabilities` 的回傳）。 */
+const capabilities = (...relations: string[]) =>
+  relations.map((relation) => ({ object: TENANT, relation }));
 
 describe('PermissionService.assertRolesAssignable（docs/architecture/backend/05-rbac.md §4.1）', () => {
   let admin: ReturnType<typeof createService>;
@@ -58,13 +62,17 @@ describe('PermissionService.assertRolesAssignable（docs/architecture/backend/05
     admin = createService({ keys: ['user:read', 'user:assignRole'], isSuperAdmin: false });
   });
 
-  it('角色帶的權限都已持有 → 通過', async () => {
-    admin.repo.findPermissionKeysByRoles.mockResolvedValue(['user:read']);
+  it('角色帶的權限都已持有 → 通過；以 role#holder 詢問引擎', async () => {
+    admin.authz.grantedCapabilities.mockResolvedValue(capabilities('user:read'));
     await expect(admin.service.assertRolesAssignable('actor', ['r1'])).resolves.toBeUndefined();
+    expect(admin.authz.grantedCapabilities).toHaveBeenCalledWith(
+      [{ object: { type: 'role', id: 'r1' }, relation: 'holder' }],
+      { tx: undefined },
+    );
   });
 
   it('角色帶有未持有的權限 → AUTHZ_ESCALATION 帶出缺少的權限', async () => {
-    admin.repo.findPermissionKeysByRoles.mockResolvedValue(['system:update']);
+    admin.authz.grantedCapabilities.mockResolvedValue(capabilities('user:read', 'system:update'));
     await expect(admin.service.assertRolesAssignable('actor', ['r1'])).rejects.toMatchObject({
       code: 'AUTHZ_ESCALATION',
       details: { missing: ['system:update'] },
@@ -72,7 +80,7 @@ describe('PermissionService.assertRolesAssignable（docs/architecture/backend/05
   });
 
   it('非 super-admin 指派 super-admin 角色 → AUTHZ_ESCALATION 帶出 role 與缺少的全集', async () => {
-    admin.repo.includesSuperAdminRole.mockResolvedValue(true);
+    admin.authz.grantedCapabilities.mockResolvedValue(capabilities('superAdmin'));
     await expect(admin.service.assertRolesAssignable('actor', ['sa'])).rejects.toMatchObject({
       code: 'AUTHZ_ESCALATION',
       details: { role: 'super-admin', missing: ['system:update'] },
@@ -81,7 +89,7 @@ describe('PermissionService.assertRolesAssignable（docs/architecture/backend/05
 
   it('持有目錄中每個權限鍵，仍不能指派 super-admin 角色', async () => {
     const holder = createService({ keys: ALL_KEYS, isSuperAdmin: false });
-    holder.repo.includesSuperAdminRole.mockResolvedValue(true);
+    holder.authz.grantedCapabilities.mockResolvedValue(capabilities('superAdmin'));
     await expect(holder.service.assertRolesAssignable('actor', ['sa'])).rejects.toMatchObject({
       code: 'AUTHZ_ESCALATION',
       details: { role: 'super-admin', missing: [] },
@@ -90,13 +98,13 @@ describe('PermissionService.assertRolesAssignable（docs/architecture/backend/05
 
   it('super-admin 可以指派 super-admin 角色', async () => {
     const root = createService({ keys: [], isSuperAdmin: true });
-    root.repo.includesSuperAdminRole.mockResolvedValue(true);
+    root.authz.grantedCapabilities.mockResolvedValue(capabilities('superAdmin'));
     await expect(root.service.assertRolesAssignable('actor', ['sa'])).resolves.toBeUndefined();
   });
 
   it('空的角色清單不查詢任何東西', async () => {
     await admin.service.assertRolesAssignable('actor', []);
-    expect(admin.repo.includesSuperAdminRole).not.toHaveBeenCalled();
+    expect(admin.authz.grantedCapabilities).not.toHaveBeenCalled();
   });
 });
 

@@ -327,20 +327,6 @@ export class GroupRepository {
       .where(and(rolesOf(groupId), inArray(relationTuples.objectId, [...roleIds])));
   }
 
-  /**
-   * 這些群組持有的角色 id（未刪除的角色），去重。加成員時的反提權用：加進 G 等於指派 G 與它所有上層群組的角色
-   * （ADR-0024 D11）。
-   */
-  async roleIdsHeldBy(groupIds: readonly string[], tx: DbOrTx): Promise<string[]> {
-    if (!groupIds.length) return [];
-    const rows = await tx
-      .selectDistinct({ roleId: relationTuples.objectId })
-      .from(relationTuples)
-      .innerJoin(roles, and(eq(sql`${roles.id}::text`, relationTuples.objectId), isActiveRole()))
-      .where(and(isGroupRoleTuple(), inArray(relationTuples.subjectId, [...groupIds])));
-    return rows.map((row) => row.roleId);
-  }
-
   // ── 結構（巢狀）：只沿未刪除的群組走 ──────────────────
 
   /**
