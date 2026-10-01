@@ -257,7 +257,7 @@ export DEFAULT_TENANT_DOMAINS=localhost:5273 APP_PUBLIC_URL=http://localhost:527
   REALTIME_ALLOWED_ORIGINS=http://localhost:5273 FILE_STORAGE_ALLOWED_ORIGINS=http://localhost:5273
 export AUTH_APP_URL=http://localhost:5275 OIDC_ISSUER=http://localhost:5275/api/oidc \
   VITE_AUTH_APP_URL=http://localhost:5275 VITE_OIDC_ISSUER=http://localhost:5275/api/oidc
-export AUTH_RATE_LIMIT=1000 DEFAULT_RATE_LIMIT=10000 MAIL_TRANSPORT=smtp
+export AUTH_RATE_LIMIT=1000 DEFAULT_RATE_LIMIT=10000 MAIL_TRANSPORT=smtp MAIL_SMTP_URL=smtp://127.0.0.1:1025
 export E2E_BASE_URL=http://localhost:5273 E2E_AUTH_URL=http://localhost:5275
 # 外部 IdP（pnpm dev:mock-idp，Playwright 會起）登記的 callback 跟著換埠
 export MOCK_IDP_CALLBACK_URL=http://localhost:5275/api/oidc-interaction/external/callback
@@ -269,6 +269,7 @@ export FILE_STORAGE_PORT=9100 FILE_STORAGE_DATA_DIR=/tmp/b2b-e2e-storage \
 - api **不要** 在同一個目錄再跑 `nest start --watch`：`deleteOutDir` 會刪掉另一個程序正在用的 `dist`。
   改成 `cd apps/api && node --enable-source-maps dist/src/main`（沿用 dev 的 watch 已建置好的產物）。
 - backstage、auth 照常 `pnpm --filter … dev`，吃上面的環境變數換埠；Playwright 的 `webServer` 以 `E2E_BASE_URL`／`E2E_AUTH_URL` 沿用它們。
+- `MAIL_SMTP_URL` 用 `127.0.0.1`：macOS 上連 `localhost` 每封信慢 15–20 秒，等信的測試會逾時（[`../backend/11-mail.md`](../backend/11-mail.md) §6）。
 - file-storage 以 `cd apps/file-storage && pnpm exec tsx src/main.ts` 吃上面的變數起在 :9100。backstage 的 `/storage` 代理寫死 :9000，
   所以 `FILE_STORAGE_PUBLIC_ENDPOINT` 直接給 :9100：presigned URL 讓瀏覽器直連，CORS 由 `FILE_STORAGE_ALLOWED_ORIGINS` 放行 :5273。
   共用 :9000 的話，E2E 的檔案會寫進 dev 的 bucket，E2E 資料庫的維護排程也會把 dev 的物件當成殘留。

@@ -111,7 +111,9 @@ handler 執行時才呼叫 `AuthTokenService.issue()`、把原文放進連結、
   本機 `.env` 設 `MAIL_TRANSPORT=smtp` 就能在 Mailpit 看到信（見 `.env.example`）。
 - `pnpm dev:e2e` 以 `MAIL_TRANSPORT=smtp` 啟動 api；E2E 經 Mailpit 的 API 取出連結
   （`apps/e2e/helpers/mailpit.ts`），走完「從信箱點連結」的完整流程。每個測試用獨一無二的收件地址，
-  不必清空信箱。
+  不必清空信箱。同一個地址會收到多封信時（例：核准註冊同時寄審核結果與啟用信），`waitForMail(to, subject)` 以主旨挑出要的那封。
+- macOS 上 nodemailer 連 `localhost` 每次多約 3 秒，一封信要 15–20 秒，會撞上 `waitForMail` 的 20 秒上限；
+  跑 E2E 的 api 把 `MAIL_SMTP_URL` 設成 `smtp://127.0.0.1:1025`。
 
 ## 7. 設定
 
@@ -133,3 +135,4 @@ handler 執行時才呼叫 `AuthTokenService.issue()`、把原文放進連結、
 | `src/core/mail/__tests__/mail.service.spec.ts` | 連結編碼、HTML 與純文字 |
 | `src/core/logger/__tests__/redact.spec.ts` | 網址與 Referer 的 token 遮蔽 |
 | `apps/e2e/tests/mail.spec.ts` | 經 Mailpit：從信箱點啟用連結 → 設定密碼 → 登入；用過的連結顯示失效 |
+| `apps/e2e/tests/approval.spec.ts` | 經 Mailpit：註冊核准後從啟用信設定密碼 → 登入（[`../../rbac/06-approval.md`](../../rbac/06-approval.md) §5） |
