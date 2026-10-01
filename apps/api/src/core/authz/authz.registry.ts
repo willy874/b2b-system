@@ -2,10 +2,10 @@ import { Injectable } from '@nestjs/common';
 
 import { createModel } from './authz.model';
 import type { AuthzModel, TypeDefinition } from './authz.model';
-import { buildTenantType, ROLE_TYPE, USER_TYPE } from './authz.types';
+import { buildTenantType, GROUP_TYPE, ROLE_TYPE, USER_TYPE } from './authz.types';
 
 /**
- * 模型的註冊表：核心型別（user、role、tenant）在這裡，業務型別由各模組在 `onModuleInit` 註冊
+ * 模型的註冊表：核心型別（user、group、role、tenant）在這裡，業務型別由各模組在 `onModuleInit` 註冊
  * （core 不認識業務，docs/conventions/07-layer-dependencies.md §3.2）。
  * 第一次取用 `model` 時組合並驗證；之後再註冊會讓下一次取用重新組合。
  */
@@ -28,6 +28,7 @@ export class AuthzRegistry {
     if (cached) return cached;
     const model = createModel([
       USER_TYPE,
+      GROUP_TYPE,
       ROLE_TYPE,
       buildTenantType({ withDependencies }),
       ...this.extra.values(),

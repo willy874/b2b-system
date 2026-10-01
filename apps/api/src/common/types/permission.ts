@@ -43,4 +43,10 @@ export const PERMISSION = {
   IDENTITY_PROVIDER_READ: 'identityProvider:read',
   IDENTITY_PROVIDER_UPDATE: 'identityProvider:update',
   IDENTITY_PROVIDER_DELETE: 'identityProvider:delete',
+
+  GROUP_CREATE: 'group:create',
+  GROUP_READ: 'group:read',
+  GROUP_UPDATE: 'group:update',
+  GROUP_DELETE: 'group:delete',
+  GROUP_ASSIGN_ROLE: 'group:assignRole',
 } as const satisfies Record<string, PermissionKey>;

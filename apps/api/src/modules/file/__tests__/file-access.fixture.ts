@@ -8,6 +8,7 @@ import {
   ROLE_TYPE,
   tenantEdgeProvider,
   USER_TYPE,
+  GROUP_TYPE,
 } from '@/core/authz';
 import type {
   AuthzRegistry,
@@ -52,6 +53,7 @@ export function createFileAccess(options: AccessFixtureOptions = {}) {
   const global = options.global ?? FILE_ACTIONS;
   const model = createModel([
     USER_TYPE,
+    GROUP_TYPE,
     ROLE_TYPE,
     buildTenantType({ withDependencies: true }),
     ...FILE_AUTHZ_TYPES,

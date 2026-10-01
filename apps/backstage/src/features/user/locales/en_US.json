@@ -80,7 +80,10 @@
       "roles": "Roles",
       "selfHint": "You cannot change your own status or roles; ask another administrator.",
       "backToList": "Back to users",
-      "lockedHint": "This account is locked after too many failed sign-ins. Editing does not change that; use Unlock to restore sign-in."
+      "lockedHint": "This account is locked after too many failed sign-ins. Editing does not change that; use Unlock to restore sign-in.",
+      "groups": "Groups",
+      "groupsHint": "Roles held by these groups also apply to this user, including parent groups of nested groups.",
+      "nestedGroup": "Through a nested group"
     },
     "field": {
       "email": "Email",

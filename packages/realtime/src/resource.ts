@@ -9,6 +9,11 @@ export const ChangeSource = {
   ROLE: 'role',
   USER_ROLE: 'userRole',
   ROLE_PERMISSION: 'rolePermission',
+  /**
+   * 群組（`id` = 群組 id）：名稱、成員、持有的角色都以它宣告。成員的權限變了（加入、移出、群組的角色變了）時，
+   * 呼叫端以 `affectedUserIds` 帶上群組（含巢狀）的所有成員，他們的 user room 會收到。
+   */
+  GROUP: 'group',
   USER_CREDENTIAL: 'userCredential',
   APPROVAL: 'approval',
   FILE: 'file',
@@ -48,6 +53,7 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.ROLE,
   ChangeSource.USER_ROLE,
   ChangeSource.ROLE_PERMISSION,
+  ChangeSource.GROUP,
   ChangeSource.USER_CREDENTIAL,
   ChangeSource.APPROVAL,
   ChangeSource.FILE,

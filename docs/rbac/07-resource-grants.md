@@ -181,10 +181,11 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 | --- | --- | --- |
 | `role` | P1 | 角色；持有者隨角色指派變動，授權自動跟著走 |
 | `user` | P2 | 個別使用者 |
+| `group` | G4（[ADR-0024](../adr/0024-relationship-based-access-control.md)） | 群組的成員，含巢狀群組的成員；人員異動只改群組成員。加成員時不檢查群組在資料夾上的授權（D13）——授予給群組時已由 `can_share` 的人檢查過 |
 | `everyone` | 追加 | 所有能進檔案管理器的人（`subject_id` 固定是全零 uuid）；共用資料夾用它（§12） |
 
 候選清單（`GET /file-folders/:id/grant-subjects`）只回傳 id、名稱：`has(share, F)` 的人不需要 `role:read` / `user:read`
-也能挑選對象，但拿不到角色的權限或使用者的其他資料。
+也能挑選對象，但拿不到角色的權限、使用者或群組的其他資料。
 
 ### 6.3 過期（P2）
 
@@ -246,10 +247,10 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 ```
 fileFolder:<資料夾 id>#<等級>@<主體>
   等級    viewer | contributor | editor | manager
-  主體    role:<id>#holder（角色）｜ user:<id>（使用者）｜ user:*（所有人，API 上的 everyone）
+  主體    role:<id>#holder（角色）｜ user:<id>（使用者）｜ group:<id>#member（群組）｜ user:*（所有人，API 上的 everyone）
   expires_at            null = 不過期（P2）
   created_at / created_by   API 上的 grantedAt / grantedBy
-  沒有外鍵（多型）；解析與清單都 join 未刪除的 roles / users
+  沒有外鍵（多型）；解析與清單都 join 未刪除的 roles / users / groups
 
 file_folders.inherit_grants  boolean not null default true        ← P2
 ```
@@ -297,7 +298,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | 1 | 在模型裡宣告型別：等級、`can_*`、`X from <上層>`（沿用 `fileFolder` 的寫法） | 該資源的 `<resource>.authz.ts`，於 `onModuleInit` 註冊（`AuthzRegistry`） |
 | 2 | 提供結構邊的供應者（上層、繼承、擁有者），從資源自己的表讀，不存進 `relation_tuples` | 同上 |
 | 3 | 授權的讀寫：`<type>:<id>#<等級>@<主體>` 的 repository；「一個對象一個等級」由程式維持（§8） | 該資源的 module（參考 `file-folder-grant.repository.ts`） |
-| 4 | 能力判斷交給判斷器（`AuthzService.checkerFor`）；反提權用 `missingActions()` / `assignableLevels()` | 該資源的 `XxxAccessService`；等級規則目前在 `modules/file/file-grant.levels.ts`，第二種資源出現時再抽出共用 |
+| 4 | 能力判斷交給判斷器（`AuthzService.checkerFor`）；型別宣告它的能力（`defineType(…, { capabilities })`），等級帶來的能力由 `capabilitiesOf` 算出，反提權用 `missingActions()` / `assignableLevels()`（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1） | 該資源的 `XxxAccessService`；等級規則目前在 `modules/file/file-grant.levels.ts`，第二種資源出現時再抽出共用 |
 | 5 | 授權管理 API、稽核（`<resource>.grant` / `.revoke`）、推播受眾 | 該資源的 module ＋ `realtime.audience.ts` |
 | 6 | 權限目錄加閘門鍵（`<resource>:access`）與 `<resource>:share` | 權限變更的同步清單（CLAUDE.md） |
 
@@ -308,7 +309,8 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 
 目前的 Postgres 實作在以下任一條件成立時改用 OpenFGA / SpiceDB（資料可直接匯出，§8）：
 
-- 需要群組巢狀（群組裡有群組）或跨資源的關係（「專案成員自動是該專案所有關卡的 viewer」之外的組合）；
+- 需要自建引擎表達不了的關係（排除、條件式權限，或跨資源關係的組合多到遞迴 CTE 撐不住）。群組巢狀已由自建的關係圖支援
+  （[`08-groups.md`](./08-groups.md)，ADR-0024 G4a），不再是觸發條件；
 - 單次請求載入整棵資料夾結構的成本不可接受（資料夾數上萬），且以樹版本號快取仍不夠；
 - 多個服務需要共用同一份授權判斷。
 

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
-import { AuthzRegistry, AuthzService, impliedRelations } from '@/core/authz';
+import { AuthzRegistry, AuthzService, capabilitiesOf } from '@/core/authz';
 import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { AuditService } from '@/modules/audit-log/audit.service';
@@ -63,12 +63,15 @@ export class FileAccessService implements OnModuleInit {
     return new FileAccessContext(actor.id, folders, checker, this.levelActions());
   }
 
-  /** 每個等級蘊含的動作：由模型的靜態蘊含算出（取代寫死的對照表）。 */
+  /**
+   * 每個等級帶來的動作：模型宣告的能力（`can_*`）中，等級靜態蘊含的那些——與群組、角色的反提權是同一個定義
+   * （`capabilitiesOf`，docs/adr/0024-relationship-based-access-control.md G4）。
+   */
   private levelActions(): LevelActions<FileAction> {
     const model = this.registry.model(true);
     const actionsOf = (level: GrantLevel) => {
-      const implied = impliedRelations(model, 'fileFolder', level);
-      return FILE_ACTIONS.filter((action) => implied.has(FILE_ACTION_RELATION[action]));
+      const granted = new Set(capabilitiesOf(model, 'fileFolder', level));
+      return FILE_ACTIONS.filter((action) => granted.has(FILE_ACTION_RELATION[action]));
     };
     return Object.fromEntries(GRANT_LEVELS.map((level) => [level, actionsOf(level)])) as Record<
       GrantLevel,

@@ -1397,7 +1397,7 @@ export function fileFolderGrantControllerSet(
 export interface FileFolderGrantControllerRevokePathParams {
   id: string;
   subjectId: string;
-  subjectType: 'role' | 'user' | 'everyone';
+  subjectType: 'role' | 'user' | 'group' | 'everyone';
 }
 
 export interface FileFolderGrantControllerRevokeInput {
@@ -1419,7 +1419,7 @@ export const FileFolderGrantControllerRevokeSchemas = {
   path: z.object({
     id: z.string(),
     subjectId: z.string(),
-    subjectType: z.enum(['role', 'user', 'everyone']),
+    subjectType: z.enum(['role', 'user', 'group', 'everyone']),
   }),
 } satisfies OperationSchemas;
 

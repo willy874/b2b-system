@@ -8,6 +8,7 @@
 export const RESOURCE_TYPE = {
   USER: 'user',
   ROLE: 'role',
+  GROUP: 'group',
   FILE: 'file',
   FILE_FOLDER: 'fileFolder',
 } as const;

@@ -5,6 +5,10 @@ import type { SQL } from 'drizzle-orm';
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, containsPattern } from '@/core/database';
 import {
+  GROUP_MEMBER_RELATION,
+  GROUP_OBJECT_TYPE,
+  groups,
+  isActiveGroup,
   isActiveRole,
   notDeleted,
   relationTuples,
@@ -47,15 +51,20 @@ export interface FolderGrantWithSubject extends FolderGrant {
 export interface GrantSubjectRow {
   id: string;
   name: string;
-  /** 角色是 slug、使用者是 username：同名時用來分辨。 */
+  /** 角色是 slug、使用者是 username：同名時用來分辨（群組沒有）。 */
   hint: string | null;
 }
 
-/** 授權對象 → 邊的主體：角色是 `role:<id>#holder`、使用者是 `user:<id>`、所有人是 `user:*`。 */
+/**
+ * 授權對象 → 邊的主體：角色是 `role:<id>#holder`、使用者是 `user:<id>`、群組是 `group:<id>#member`、
+ * 所有人是 `user:*`。
+ */
 function subjectOf(subjectType: GrantSubjectType, subjectId: string) {
   switch (subjectType) {
     case 'role':
       return { type: ROLE_OBJECT_TYPE, id: subjectId, relation: ROLE_HOLDER_RELATION };
+    case 'group':
+      return { type: GROUP_OBJECT_TYPE, id: subjectId, relation: GROUP_MEMBER_RELATION };
     case 'user':
       return { type: USER_SUBJECT_TYPE, id: subjectId, relation: '' };
     case 'everyone':
@@ -71,6 +80,9 @@ function grantSubjectOf(row: {
 }): Pick<GrantKey, 'subjectType' | 'subjectId'> | null {
   if (row.subjectType === ROLE_OBJECT_TYPE && row.subjectRelation === ROLE_HOLDER_RELATION) {
     return { subjectType: 'role', subjectId: row.subjectId };
+  }
+  if (row.subjectType === GROUP_OBJECT_TYPE && row.subjectRelation === GROUP_MEMBER_RELATION) {
+    return { subjectType: 'group', subjectId: row.subjectId };
   }
   if (row.subjectType === USER_SUBJECT_TYPE && row.subjectRelation === '') {
     return row.subjectId === WILDCARD_SUBJECT_ID
@@ -108,6 +120,8 @@ const LIVE_SUBJECT = sql`(
     SELECT 1 FROM ${roles} WHERE ${roles.id}::text = ${relationTuples.subjectId} AND ${isActiveRole()}))
   OR (${relationTuples.subjectType} = ${USER_SUBJECT_TYPE} AND EXISTS (
     SELECT 1 FROM ${users} WHERE ${users.id}::text = ${relationTuples.subjectId} AND ${notDeleted(users)}))
+  OR (${relationTuples.subjectType} = ${GROUP_OBJECT_TYPE} AND EXISTS (
+    SELECT 1 FROM ${groups} WHERE ${groups.id}::text = ${relationTuples.subjectId} AND ${isActiveGroup()}))
 )`;
 
 const GRANT_COLUMNS = {
@@ -159,7 +173,12 @@ export class FileFolderGrantRepository {
     if (folderIds.length === 0) return [];
     const db = tx ?? this.db;
     const rows = await db
-      .select({ ...GRANT_COLUMNS, roleName: roles.name, userName: users.displayName })
+      .select({
+        ...GRANT_COLUMNS,
+        roleName: roles.name,
+        userName: users.displayName,
+        groupName: groups.name,
+      })
       .from(relationTuples)
       .leftJoin(
         roles,
@@ -177,13 +196,25 @@ export class FileFolderGrantRepository {
           notDeleted(users),
         ),
       )
+      .leftJoin(
+        groups,
+        and(
+          eq(relationTuples.subjectType, GROUP_OBJECT_TYPE),
+          eq(sql`${groups.id}::text`, relationTuples.subjectId),
+          isActiveGroup(),
+        ),
+      )
       .where(isFolderGrant(folderIds))
       .orderBy(asc(relationTuples.createdAt), asc(relationTuples.id));
-    return rows.flatMap(({ roleName, userName, ...row }) => {
+    return rows.flatMap(({ roleName, userName, groupName, ...row }) => {
       const grant = toGrant(row);
       if (!grant) return [];
-      const subjectName =
-        grant.subjectType === 'everyone' ? '' : grant.subjectType === 'role' ? roleName : userName;
+      const subjectName = {
+        everyone: '',
+        role: roleName,
+        user: userName,
+        group: groupName,
+      }[grant.subjectType];
       return subjectName === null ? [] : [{ ...grant, subjectName }];
     });
   }
@@ -237,7 +268,7 @@ export class FileFolderGrantRepository {
   async subjectExists(subjectType: GrantSubjectType, id: string, tx?: DbOrTx): Promise<boolean> {
     if (subjectType === 'everyone') return id === EVERYONE_SUBJECT_ID;
     const db = tx ?? this.db;
-    const table = subjectType === 'role' ? roles : users;
+    const table = { role: roles, user: users, group: groups }[subjectType];
     const [row] = await db
       .select({ one: sql<number>`1` })
       .from(table)
@@ -254,6 +285,14 @@ export class FileFolderGrantRepository {
   ): Promise<GrantSubjectRow[]> {
     const pattern = keyword ? containsPattern(keyword) : undefined;
     if (subjectType === 'everyone') return [{ id: EVERYONE_SUBJECT_ID, name: '', hint: null }];
+    if (subjectType === 'group') {
+      return this.db
+        .select({ id: groups.id, name: groups.name, hint: sql<string | null>`NULL` })
+        .from(groups)
+        .where(and(isActiveGroup(), pattern ? ilike(groups.name, pattern) : undefined))
+        .orderBy(asc(groups.name), asc(groups.id))
+        .limit(limit);
+    }
     if (subjectType === 'role') {
       return this.db
         .select({ id: roles.id, name: roles.name, hint: roles.slug })

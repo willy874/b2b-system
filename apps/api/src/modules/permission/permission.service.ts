@@ -1,9 +1,17 @@
 import { Injectable } from '@nestjs/common';
 
 import type { PermissionKey } from '@/common/types';
-import { AuthzRevision, AuthzService, SUPER_ADMIN_RELATION } from '@/core/authz';
+import {
+  AuthzRevision,
+  AuthzService,
+  ROLE_HOLDER_RELATION,
+  SUPER_ADMIN_RELATION,
+  TENANT_OBJECT,
+} from '@/core/authz';
+import type { RelationRef } from '@/core/authz';
 import type { PermissionSet } from '@/core/cache';
 import { PermissionCacheService } from '@/core/cache';
+import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 import type { PermissionRow } from '@/db/schema';
 import {
@@ -103,34 +111,69 @@ export class PermissionService {
     return isSuperAdmin ? this.repo.findAllPermissionKeys() : [...permissions];
   }
 
-  /** 反提權：待授予的權限必須是 actor 已持有的。 */
-  async assertGrantable(actorId: string, keys: readonly PermissionKey[]): Promise<void> {
-    if (keys.length === 0) return;
+  /**
+   * 反提權的通用入口（docs/adr/0024-relationship-based-access-control.md G4）：把某個主體放進 `targets` 的每一個
+   * `物件#關係`，主體取得的租戶能力（`AuthzService.grantedCapabilities`）都要是 actor 持有的。
+   * 權限鍵、角色、群組（含上層群組持有的角色）都走這裡；資料夾等級在檔案管理器內以同一份模型比對。
+   *
+   * 缺少 `superAdmin`（目標帶有 super-admin 角色）時，錯誤的 `details` 是 `{ missing: 目錄中 actor 沒有的鍵, role: 'super-admin' }`：
+   * 即使 actor 已持有目錄中每個權限鍵也要擋——super-admin 還會繞過未來新增的權限與業務保護（05-rbac.md §4.1）。
+   */
+  async assertCanGrant(
+    actorId: string,
+    targets: readonly RelationRef[],
+    tx?: DbOrTx,
+  ): Promise<void> {
+    if (targets.length === 0) return;
     const { permissions, isSuperAdmin } = await this.getPermissionSet(actorId);
     if (isSuperAdmin) return;
-    const missing = keys.filter((key) => !permissions.has(key));
-    if (missing.length) {
-      throw new AppException('AUTHZ_ESCALATION', { missing });
+    const capabilities = await this.authz.grantedCapabilities(targets, { tx });
+    const missing = new Set<string>();
+    for (const capability of capabilities) {
+      // 租戶以外的能力（資料夾的 can_*）要用資源的判斷器比對，不是權限集合
+      if (capability.object.type !== TENANT_OBJECT.type) {
+        throw new Error(
+          `assertCanGrant 只比對租戶上的能力：${capability.object.type}#${capability.relation}`,
+        );
+      }
+      if (!permissions.has(capability.relation as PermissionKey)) missing.add(capability.relation);
+    }
+    if (missing.has(SUPER_ADMIN_RELATION)) {
+      const allKeys = await this.repo.findAllPermissionKeys();
+      throw new AppException('AUTHZ_ESCALATION', {
+        missing: allKeys.filter((key) => !permissions.has(key)),
+        role: SUPER_ADMIN_SLUG,
+      });
+    }
+    if (missing.size) {
+      throw new AppException('AUTHZ_ESCALATION', {
+        missing: ALL_PERMISSION_KEYS.filter((key) => missing.has(key)),
+      });
     }
   }
 
+  /** 反提權：待授予的權限必須是 actor 已持有的。 */
+  async assertGrantable(actorId: string, keys: readonly PermissionKey[]): Promise<void> {
+    await this.assertCanGrant(
+      actorId,
+      keys.map((key) => ({ object: TENANT_OBJECT, relation: key })),
+    );
+  }
+
   /**
-   * 指派角色前：該角色帶的權限必須全部是 actor 已持有的。
-   * super-admin 沒有任何權限鍵的邊，只看權限鍵會查出空集合而放行，
-   * 所以用 slug 特判：只有 super-admin 能指派 super-admin（docs/architecture/backend/05-rbac.md §4.1）。
+   * 指派角色前：該角色帶的權限必須全部是 actor 已持有的。super-admin 角色帶的是 `superAdmin` 這個能力，
+   * 只有 super-admin 自己有，所以只有 super-admin 能指派 super-admin（docs/architecture/backend/05-rbac.md §4.1）。
    */
-  async assertRolesAssignable(actorId: string, roleIds: readonly string[]): Promise<void> {
-    if (roleIds.length === 0) return;
-    const { permissions, isSuperAdmin } = await this.getPermissionSet(actorId);
-    if (isSuperAdmin) return;
-    if (await this.repo.includesSuperAdminRole(roleIds)) {
-      // 即使 actor 已持有目錄中每個權限鍵也要擋：super-admin 還會繞過未來新增的權限與業務保護
-      const allKeys = await this.repo.findAllPermissionKeys();
-      const missing = allKeys.filter((key) => !permissions.has(key));
-      throw new AppException('AUTHZ_ESCALATION', { missing, role: SUPER_ADMIN_SLUG });
-    }
-    const keys = await this.repo.findPermissionKeysByRoles(roleIds);
-    await this.assertGrantable(actorId, keys);
+  async assertRolesAssignable(
+    actorId: string,
+    roleIds: readonly string[],
+    tx?: DbOrTx,
+  ): Promise<void> {
+    await this.assertCanGrant(
+      actorId,
+      roleIds.map((id) => ({ object: { type: 'role', id }, relation: ROLE_HOLDER_RELATION })),
+      tx,
+    );
   }
 
   /**

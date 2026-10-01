@@ -38,6 +38,7 @@ const SUBJECT_SEARCH_DEBOUNCE_MS = 250;
 const SUBJECT_TYPES = [
   'role',
   'user',
+  'group',
   'everyone',
 ] as const satisfies readonly FileGrantSubjectType[];
 

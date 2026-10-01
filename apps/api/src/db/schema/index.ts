@@ -4,6 +4,7 @@ export * from './auth-tokens';
 export * from './custom-types';
 export * from './file-folders';
 export * from './files';
+export * from './groups';
 export * from './identity-providers';
 export * from './job-outbox';
 export * from './notifications';

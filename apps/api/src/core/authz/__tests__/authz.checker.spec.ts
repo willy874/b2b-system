@@ -3,17 +3,19 @@ import { describe, expect, it } from 'vitest';
 import { createChecker } from '../authz.checker';
 import {
   and,
+  capabilitiesOf,
   computed,
   createModel,
   defineType,
   direct,
   from,
   impliedRelations,
+  isUsersetRelation,
   union,
 } from '../authz.model';
 import { createSnapshot } from '../authz.snapshot';
 import type { TupleEntry } from '../authz.snapshot';
-import { buildTenantType, ROLE_TYPE, USER_TYPE } from '../authz.types';
+import { buildTenantType, GROUP_TYPE, ROLE_TYPE, USER_TYPE } from '../authz.types';
 
 const doc = (id: string) => ({ type: 'doc', id });
 const tuple = (object: string, relation: string, subject: string): TupleEntry => {
@@ -23,9 +25,10 @@ const tuple = (object: string, relation: string, subject: string): TupleEntry =>
 
 const model = createModel([
   USER_TYPE,
+  GROUP_TYPE,
   ROLE_TYPE,
   defineType('folder', {
-    viewer: direct('user', 'user:*', 'role#holder'),
+    viewer: direct('user', 'user:*', 'role#holder', 'group#member'),
   }),
   defineType('doc', {
     parent: direct('folder'),
@@ -52,6 +55,51 @@ describe('關係圖的判斷器（core/authz）', () => {
     const checker = createChecker(model, snapshot);
     expect(checker.check(doc('a'), 'editor')).toBe(true);
     expect(checker.check(doc('b'), 'editor')).toBe(false);
+  });
+
+  it('群組（ADR-0024 D11）：閉包裡的群組成員可以持有角色、直接取得授權', () => {
+    // alice ∈ 角色設計 ∈ 美術；美術持有 r1、美術在 folder:f 上是 viewer（閉包由 subjectClosures 算好）
+    const snapshot = createSnapshot(
+      ['user:alice', 'group:design#member', 'group:art#member', 'role:r1#holder'],
+      [
+        tuple('doc:a', 'editor', 'role:r1#holder'),
+        tuple('folder:f', 'viewer', 'group:art#member'),
+        tuple('doc:b', 'parent', 'folder:f'),
+      ],
+    );
+    const checker = createChecker(model, snapshot);
+    expect(checker.check(doc('a'), 'editor')).toBe(true);
+    expect(checker.check(doc('b'), 'viewer')).toBe(true);
+    // 路徑從閉包裡的主體開始（閉包本身怎麼來的由 G4b 補上）
+    expect(checker.explain(doc('b'), 'viewer')).toEqual([
+      'group:art#member',
+      'folder:f#viewer',
+      'doc:b#viewer',
+    ]);
+  });
+
+  it('群組：閉包沒有涵蓋時沿 group#member 往下展開（巢狀）', () => {
+    const snapshot = createSnapshot(
+      ['user:alice'],
+      [
+        tuple('folder:f', 'viewer', 'group:art#member'),
+        tuple('group:art', 'member', 'group:design#member'),
+        tuple('group:design', 'member', 'user:alice'),
+        tuple('doc:b', 'parent', 'folder:f'),
+      ],
+    );
+    expect(createChecker(model, snapshot).check(doc('b'), 'viewer')).toBe(true);
+    // 群組的成員關係只接受使用者與群組的成員，寫進去的 role#holder 不算
+    const wrongSubject = createSnapshot(
+      ['user:alice', 'role:r1#holder'],
+      [
+        tuple('folder:f', 'viewer', 'group:art#member'),
+        tuple('group:art', 'member', 'role:r1#holder'),
+      ],
+    );
+    expect(createChecker(model, wrongSubject).check({ type: 'folder', id: 'f' }, 'viewer')).toBe(
+      false,
+    );
   });
 
   it('computed 與 from：editor 蘊含 viewer，viewer 沿 parent 往下流', () => {
@@ -162,7 +210,7 @@ describe('靜態蘊含（impliedRelations）', () => {
 });
 
 const tenant = (withDependencies: boolean) =>
-  createModel([USER_TYPE, ROLE_TYPE, buildTenantType({ withDependencies })]);
+  createModel([USER_TYPE, GROUP_TYPE, ROLE_TYPE, buildTenantType({ withDependencies })]);
 
 describe('租戶型別（由權限目錄產生）', () => {
   const self = { type: 'tenant', id: 'self' };
@@ -196,5 +244,46 @@ describe('租戶型別（由權限目錄產生）', () => {
       ),
     );
     expect(checker.check(self, 'system:update')).toBe(true);
+  });
+});
+
+describe('反提權的能力（docs/adr/0024-relationship-based-access-control.md G4）', () => {
+  const full = createModel([
+    USER_TYPE,
+    GROUP_TYPE,
+    ROLE_TYPE,
+    buildTenantType({ withDependencies: true }),
+    defineType(
+      'folder',
+      {
+        manager: direct('user'),
+        editor: union(direct('user'), computed('manager')),
+        can_read: computed('editor'),
+        can_share: computed('manager'),
+      },
+      { capabilities: ['can_read', 'can_share'] },
+    ),
+  ]);
+
+  it('關係本身是能力（權限鍵、superAdmin）→ 只有它', () => {
+    expect(capabilitiesOf(full, 'tenant', 'file:delete')).toEqual(['file:delete']);
+    expect(capabilitiesOf(full, 'tenant', 'superAdmin')).toEqual(['superAdmin']);
+  });
+
+  it('等級 → 它靜態蘊含的能力，依宣告的順序', () => {
+    expect(capabilitiesOf(full, 'folder', 'editor')).toEqual(['can_read']);
+    expect(capabilitiesOf(full, 'folder', 'manager')).toEqual(['can_read', 'can_share']);
+  });
+
+  it('使用者集合：被別的關係允許當主體的 role#holder、group#member', () => {
+    expect(isUsersetRelation(full, 'role', 'holder')).toBe(true);
+    expect(isUsersetRelation(full, 'group', 'member')).toBe(true);
+    expect(isUsersetRelation(full, 'folder', 'editor')).toBe(false);
+  });
+
+  it('宣告了不存在的能力 → 建立模型失敗', () => {
+    expect(() =>
+      createModel([defineType('doc', { viewer: direct('user') }, { capabilities: ['can_fly'] })]),
+    ).toThrow(/能力 can_fly 不是這個型別的關係/);
   });
 });

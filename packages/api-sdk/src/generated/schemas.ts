@@ -17,6 +17,7 @@ import type {
   CreateFileFolderRequest,
   CreateFileUploadPartsRequest,
   CreateFileUploadRequest,
+  CreateGroupRequest,
   CreateIdentityProviderRequest,
   CreatePlatformAdminRequest,
   CreateRoleRequest,
@@ -49,6 +50,11 @@ import type {
   FileUploader,
   ForgotPasswordRequest,
   GetFileImageQuery,
+  Group,
+  GroupMember,
+  GroupMemberRef,
+  GroupRole,
+  GroupRoles,
   IdentityProvider,
   IdentityProviderDomain,
   IdentityProviderList,
@@ -89,6 +95,7 @@ import type {
   ReplaceUserRolesRequest,
   ResetPasswordRequest,
   RestoredFileFolder,
+  RestoredGroup,
   RestoredRole,
   RevertRoleRevisionRequest,
   ReviewFileAccessRequest,
@@ -122,6 +129,9 @@ import type {
   UpdateFileFolderAccessRequest,
   UpdateFileFolderRequest,
   UpdateFileRequest,
+  UpdateGroupMembersRequest,
+  UpdateGroupRequest,
+  UpdateGroupRolesRequest,
   UpdateIdentityProviderRequest,
   UpdatePlatformAdminRequest,
   UpdateProfileRequest,
@@ -390,6 +400,7 @@ export const PlatformAuditLogSchema = z.object({
 export const TrashResourceTypeSchema = z.enum([
   'user',
   'role',
+  'group',
   'file',
   'fileFolder',
 ]) satisfies z.ZodType<TrashResourceType>;
@@ -556,6 +567,11 @@ export const PermissionKeySchema = z.enum([
   'identityProvider:read',
   'identityProvider:update',
   'identityProvider:delete',
+  'group:create',
+  'group:read',
+  'group:update',
+  'group:delete',
+  'group:assignRole',
 ]) satisfies z.ZodType<PermissionKey>;
 
 export const PermissionSchema = z.object({
@@ -893,7 +909,7 @@ export const UpdateFeatureFlagRequestSchema = z.object({
 }) satisfies z.ZodType<UpdateFeatureFlagRequest>;
 
 export const SetFileFolderGrantRequestSchema = z.object({
-  subjectType: z.enum(['role', 'user', 'everyone']),
+  subjectType: z.enum(['role', 'user', 'group', 'everyone']),
   subjectId: z
     .uuid()
     .regex(
@@ -914,7 +930,7 @@ export const SetFileFolderGrantRequestSchema = z.object({
 }) satisfies z.ZodType<SetFileFolderGrantRequest>;
 
 export const FileFolderGrantSchema = z.object({
-  subjectType: z.enum(['role', 'user', 'everyone']),
+  subjectType: z.enum(['role', 'user', 'group', 'everyone']),
   subjectId: z
     .uuid()
     .regex(
@@ -957,7 +973,7 @@ export const FileFolderGrantListSchema = z.object({
 export const FileGrantSubjectListSchema = z.object({
   items: z.array(
     z.object({
-      subjectType: z.enum(['role', 'user', 'everyone']),
+      subjectType: z.enum(['role', 'user', 'group', 'everyone']),
       id: z
         .uuid()
         .regex(
@@ -1341,6 +1357,127 @@ export const UpdateFileRequestSchema = z.object({
   name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
   version: z.int().min(1).max(9007199254740991),
 }) satisfies z.ZodType<UpdateFileRequest>;
+
+export const CreateGroupRequestSchema = z.object({
+  name: z.string().min(1).max(64),
+  description: z.string().max(500).optional(),
+}) satisfies z.ZodType<CreateGroupRequest>;
+
+export const GroupSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+  description: z.string().nullable(),
+  memberCount: z.int().min(-9007199254740991).max(9007199254740991),
+  roleCount: z.int().min(-9007199254740991).max(9007199254740991),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  membership: z.enum(['direct', 'nested']).optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}) satisfies z.ZodType<Group>;
+
+export const RestoredGroupSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+  description: z.string().nullable(),
+  memberCount: z.int().min(-9007199254740991).max(9007199254740991),
+  roleCount: z.int().min(-9007199254740991).max(9007199254740991),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  membership: z.enum(['direct', 'nested']).optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}) satisfies z.ZodType<RestoredGroup>;
+
+export const GroupMemberSchema = z.object({
+  type: z.enum(['user', 'group']),
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+  email: z.string().nullable(),
+  status: z.enum(['pending', 'active', 'inactive', 'locked']).nullable(),
+}) satisfies z.ZodType<GroupMember>;
+
+export const GroupRoleSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  slug: z.string(),
+  name: z.string(),
+  isSystem: z.boolean(),
+}) satisfies z.ZodType<GroupRole>;
+
+export const GroupRolesSchema = z.object({
+  roles: z.array(GroupRoleSchema),
+}) satisfies z.ZodType<GroupRoles>;
+
+export const UpdateGroupRequestSchema = z.object({
+  name: z.string().min(1).max(64).optional(),
+  description: z.string().max(500).nullable().optional(),
+  version: z.int().min(1).max(9007199254740991),
+}) satisfies z.ZodType<UpdateGroupRequest>;
+
+export const GroupMemberRefSchema = z.object({
+  type: z.enum(['user', 'group']),
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+}) satisfies z.ZodType<GroupMemberRef>;
+
+export const UpdateGroupMembersRequestSchema = z.object({
+  add: z.array(GroupMemberRefSchema).max(100).default([]),
+  remove: z.array(GroupMemberRefSchema).max(100).default([]),
+}) satisfies z.ZodType<UpdateGroupMembersRequest>;
+
+export const UpdateGroupRolesRequestSchema = z.object({
+  add: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(100)
+    .default([]),
+  remove: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(100)
+    .default([]),
+}) satisfies z.ZodType<UpdateGroupRolesRequest>;
 
 export const JobQueueSchema = z.object({
   name: z.string(),

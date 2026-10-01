@@ -19,6 +19,12 @@ export type Rewrite =
 export interface TypeDefinition {
   readonly name: string;
   readonly relations: Readonly<Record<string, Rewrite>>;
+  /**
+   * 這個型別上的「能力」：反提權比對的關係（docs/adr/0024-relationship-based-access-control.md G4）。
+   * 寫入一條邊讓主體取得的能力，操作者必須全部都有（`capabilitiesOf`）。租戶上是每個權限鍵與 `superAdmin`、
+   * 資料夾上是 `can_*`；等級（`editor`）、成員關係（`role#holder`）本身不是能力，是取得能力的途徑。
+   */
+  readonly capabilities?: readonly string[];
 }
 
 /** 可以直接寫進 tuple 的主體種類。 */
@@ -48,8 +54,11 @@ export function and(...children: Rewrite[]): Rewrite {
 export function defineType(
   name: string,
   relations: Readonly<Record<string, Rewrite>>,
+  options: { capabilities?: readonly string[] } = {},
 ): TypeDefinition {
-  return { name, relations };
+  return options.capabilities
+    ? { name, relations, capabilities: options.capabilities }
+    : { name, relations };
 }
 
 /** 已驗證的模型：型別名稱 → 定義。 */
@@ -113,6 +122,12 @@ export function createModel(definitions: readonly TypeDefinition[]): AuthzModel 
           }
         }
       });
+    }
+
+    for (const capability of type.capabilities ?? []) {
+      if (!(capability in type.relations)) {
+        errors.push(`${type.name}：能力 ${capability} 不是這個型別的關係`);
+      }
     }
 
     // computed 循環：同一個物件上的關係互相引用，沒有任何邊能讓它成立
@@ -184,4 +199,68 @@ export function impliedRelations(model: AuthzModel, type: string, relation: stri
     if (coversRelation(candidate, new Set())) result.add(candidate);
   }
   return result;
+}
+
+/**
+ * 成為 `type#relation` 的主體時，在 **同一個物件** 上取得的能力（反提權用；docs/adr/0024-relationship-based-access-control.md G4）。
+ * 關係本身是能力（租戶上的權限鍵）→ 只有它（它蘊含的鍵由操作者的閉包自然涵蓋）；
+ * 否則是它靜態蘊含的能力（資料夾等級 → `can_*`），依型別宣告的能力順序。
+ * 成員關係（`role#holder`、`group#member`）帶來的是別的物件上的能力，要沿著邊展開，見 `AuthzService.grantedCapabilities`。
+ */
+export function capabilitiesOf(model: AuthzModel, type: string, relation: string): string[] {
+  const capabilities = model.types.get(type)?.capabilities ?? [];
+  if (capabilities.includes(relation)) return [relation];
+  const implied = impliedRelations(model, type, relation);
+  return capabilities.filter((capability) => implied.has(capability));
+}
+
+/** `type#relation` 是否是使用者集合：模型裡有直接關係允許它當主體（例：`role#holder`、`group#member`）。 */
+export function isUsersetRelation(model: AuthzModel, type: string, relation: string): boolean {
+  const spec = `${type}#${relation}`;
+  for (const definition of model.types.values()) {
+    for (const rewrite of Object.values(definition.relations)) {
+      let found = false;
+      walk(rewrite, (node) => {
+        if (node.kind === 'direct' && node.subjects.includes(spec)) found = true;
+      });
+      if (found) return true;
+    }
+  }
+  return false;
+}
+
+/** 要寫進 `relation_tuples` 的一條邊（欄位與表相同）。 */
+export interface TupleShape {
+  objectType: string;
+  relation: string;
+  subjectType: string;
+  subjectId: string;
+  subjectRelation?: string | null;
+}
+
+/**
+ * 寫入時的模型驗證：型別有這個關係、而且是可以直接寫的（定義裡有 `direct`）、主體的種類是那個 `direct` 允許的。
+ * 回傳違反的說明；合法時回 undefined。
+ */
+export function validateTuple(model: AuthzModel, tuple: TupleShape): string | undefined {
+  const where = `${tuple.objectType}#${tuple.relation}`;
+  const definition = model.types.get(tuple.objectType);
+  if (!definition) return `${where}：型別 ${tuple.objectType} 不存在`;
+  const rewrite = definition.relations[tuple.relation];
+  if (!rewrite) return `${where}：關係不存在`;
+  const allowed: SubjectSpec[] = [];
+  walk(rewrite, (node) => {
+    if (node.kind === 'direct') allowed.push(...node.subjects);
+  });
+  if (!allowed.length) return `${where}：不是直接關係，不能寫入`;
+  const subjectRelation = tuple.subjectRelation ?? '';
+  const ok = allowed.some((spec) => {
+    const subject = parseSubjectSpec(spec);
+    if (subject.type !== tuple.subjectType) return false;
+    if (subject.wildcard) return tuple.subjectId === '*' && !subjectRelation;
+    if (tuple.subjectId === '*') return false;
+    return (subject.relation ?? '') === subjectRelation;
+  });
+  const subject = `${tuple.subjectType}:${tuple.subjectId}${subjectRelation ? `#${subjectRelation}` : ''}`;
+  return ok ? undefined : `${where}：主體 ${subject} 不在允許的種類（${allowed.join('、')}）`;
 }

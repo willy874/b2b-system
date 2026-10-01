@@ -1,8 +1,8 @@
 # ADR-0024 — 權限改成關係圖（ReBAC），以雙寫＋影子比對逐步切換
 
-- 狀態：**採用**（G0～G3b 已實作並合併，G3a 於 2026-09-30 合併（96ae80a），G3b 同日）；G4 的決定 D10～D16 於 2026-10-01 確認，**尚未實作**
+- 狀態：**採用**（G0～G3b 已實作並合併，G3a 於 2026-09-30 合併（96ae80a），G3b 同日）；G4 的決定 D10～D16 於 2026-10-01 確認；G4a（群組、反提權一般化）於 2026-10-01 完成，規格見 `rbac/08-groups.md`；G4b（explain）、G5 待做
 - 日期：2026-09-30
-- 相關：提案 [`../features/permission-graph.md`](../features/permission-graph.md)（只剩 G4 以後）；規格 [`../rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4；
+- 相關：提案 [`../features/permission-graph.md`](../features/permission-graph.md)（只剩 G4b、G5）；群組 [`../rbac/08-groups.md`](../rbac/08-groups.md)；規格 [`../rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4；
   延伸 [ADR-0005](./0005-permission-resolved-server-side.md)（權限在伺服器端解析）；
   取代 [ADR-0006](./0006-flat-permission-scope.md) 的「延伸路徑」與 [ADR-0015](./0015-file-folder-access.md) 的解析方式
 
@@ -43,7 +43,7 @@
   - 移除成員不檢查反提權；目標是 super-admin 時只有 super-admin 能操作（比照 `UserService.assertCanManage`）。
   - 從回收桶還原群組時，持有的角色隨保留的邊重新生效，還原前先以本條檢查（比照 `UserService.restore`）。
 - **D12 群組不能持有 super-admin**：super-admin 一律直接指派給使用者。`group:assignRole` 指定 super-admin 一律拒絕，
-  因此「是不是 super-admin」（`hasRoleSlug`、`includesSuperAdminRole`、I8 的計數）仍只看直接持有的角色，不必改成走主體閉包。
+  因此「是不是 super-admin」（`hasRoleSlug`、`assertCanManage`、I8 的計數）仍只看直接持有的角色，不必改成走主體閉包。
 - **D13 反提權檢查的是「授予給一個主體」的能力**：把人放進一個主體（角色、群組）時，只檢查那個主體帶的 **全域權限鍵**，
   不檢查它在資料夾上的授權——那些授權在授予給這個主體時，已由持有 `can_share` 的人檢查過一次。與現在指派角色的行為一致。
 - **D14 explain 逐節點遮蔽**：查自己不需要 `authz:explain`；路徑上操作者沒有讀取權（`group:read`、`role:read`、資料夾的 `can_read`）的節點，
@@ -130,3 +130,35 @@ G0～G2 與提案不同的地方：快取仍逐事件失效（`authz_revision` �
 | 刪 migration 0008 的同步 trigger 與函式（含 `roles_mirror_super_admin`）、`user_roles`、`role_permissions`、`resource_grants` 與 enum `resource_type`、`grant_level`、`grant_subject_type` | migration `0010_drop_legacy_authz_tables.sql`（不可回退） |
 | 舊表的 Drizzle schema 檔、`db/relations.ts` 的項目、`test/relation-tuples.spec.ts`、`test/db.ts` 與 `db/reset.ts` 的 TRUNCATE | 已刪除 |
 | 等級與對象型別的常數（`GRANT_LEVELS`、`GRANT_SUBJECT_TYPES`、`EVERYONE_SUBJECT_ID`） | 從 `db/schema/resource-grants.ts` 移到 `modules/file/file-grant.levels.ts` |
+
+## 實作紀錄（G4a）
+
+| 項目 | 位置 |
+| --- | --- |
+| `group:*` 權限鍵、依賴樹、預設角色 | `db/seeds/permissions.ts`、`db/seeds/roles.ts`、`docs/rbac/02-permission-catalog.md` §2.10 |
+| `groups` 表、`updated_at` 與 revision 的 trigger | migration `0016_groups.sql`、`0017_groups_triggers.sql`；`backend/02-database.md` §2.14 |
+| 邊的形狀（`groupMemberTuple`、`groupRoleTuple`、`isGroupMemberTuple()`、`isGroupRoleTuple()`） | `db/schema/relation-tuples.ts` |
+| `group` 型別、`role#holder` 接受群組的成員、主體閉包與反向解析沿 `group#member` 走 | `core/authz/authz.types.ts`、`authz.repository.ts` |
+| 群組 CRUD、成員、持有的角色、還原（D11、D12） | `modules/group/`；端點見 `backend/05-rbac.md` §9 |
+| 測試 | `modules/group/__tests__/group.service.spec.ts`、`test/groups.spec.ts`、`core/authz/__tests__/authz.checker.spec.ts`（群組） |
+
+與提案不同的地方：
+
+- **`group` 是核心型別**，不是由 `modules/group` 在 `onModuleInit` 註冊：主體閉包的遞迴 CTE（core）要知道哪些關係是成員關係、
+  已刪除的節點看哪張表；與 `role` 同屬「使用者集合」。
+- **群組巢狀有層數上限**（`GROUP_MAX_NESTING_DEPTH` = 6，`409 GROUP_NESTING_TOO_DEEP`）：主體閉包的深度上限是 8，
+  超過的鏈會讓權限靜靜地消失，所以在寫入時擋。還原群組時也檢查循環與層數（刪除期間結構可能被改過）。
+- **I9 的延伸多一條**：操作者不能改自己所屬（直接或間接）群組持有的角色（D11 只寫了加成員）；理由同 I9——等於改自己的角色。
+- **成員的寫入以 advisory lock 排隊**（`group_membership`）：循環與層數的檢查要看到一致的結構，與資料夾樹同一個做法。
+- **反提權一般化**：模型為每個型別宣告 **能力**（`defineType(…, { capabilities })`：租戶上的權限鍵與 `superAdmin`、資料夾上的 `can_*`），
+  `AuthzService.grantedCapabilities` 算出「放進某個 `物件#關係` 取得的能力」——能力本身、等級靜態蘊含的能力、
+  使用者集合往上閉包在租戶上的能力（D11、D13）。`assertGrantable`、`assertRolesAssignable`、群組的加成員都改走 `PermissionService.assertCanGrant`；
+  資料夾等級的動作表改由同一個 `capabilitiesOf` 算出。super-admin 的特判（以 slug 判斷）因此拿掉：指派它取得的是 `superAdmin` 這個能力，
+  `details` 的形狀不變。
+- **提案的 `grantedBy`（誰能寫這條邊）沒有放進模型**：那一半已由路由宣告（`role:grantPermission`、`user:assignRole`、`group:assignRole`）與
+  資料夾的 `can('share')` 擋下，錯誤是 `403 AUTHZ_FORBIDDEN` 並寫 `authz.denied`；搬進模型只是把同一個判斷宣告兩次。
+- **寫入時的模型驗證以測試保證**（`validateTuple`、`src/__tests__/relation-tuples-model.spec.ts`）：邊只由 `db/schema/relation-tuples.ts` 的建構函式與
+  資料夾授權的 repository 產生，每一種形狀對完整的模型驗一次；repository 不依賴 core 的服務，不在每次寫入時驗。
+- 前端（`features/group`）、群組的回收桶、資料夾授權給群組、使用者與角色詳情的群組一併完成；`GET /groups` 以 `?userId=`／`?roleId=`
+  篩選，不另開 `/users/:id/groups` 之類的跨資源端點。
+- 既有租戶的系統角色以 migration 0018 補上群組的權限鍵（seed 只在角色新建立時寫入權限）。

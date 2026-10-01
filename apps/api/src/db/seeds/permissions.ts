@@ -41,6 +41,13 @@ export const PERMISSION_SEED = [
   ['identityProvider', 'read', 'permission.identityProvider.read', 1101],
   ['identityProvider', 'update', 'permission.identityProvider.update', 1102],
   ['identityProvider', 'delete', 'permission.identityProvider.delete', 1103],
+
+  // 群組（docs/adr/0024-relationship-based-access-control.md D11、D12）
+  ['group', 'create', 'permission.group.create', 1200],
+  ['group', 'read', 'permission.group.read', 1201],
+  ['group', 'update', 'permission.group.update', 1202],
+  ['group', 'delete', 'permission.group.delete', 1203],
+  ['group', 'assignRole', 'permission.group.assignRole', 1204],
 ] as const satisfies ReadonlyArray<readonly [string, string, string, number]>;
 
 type SeedList = typeof PERMISSION_SEED;
@@ -109,6 +116,12 @@ export const PERMISSION_DEPENDENCIES = {
   'identityProvider:create': { includes: ['identityProvider:update'] },
   'identityProvider:delete': { includes: ['identityProvider:update'] },
   'identityProvider:update': { includes: ['identityProvider:read'] },
+
+  'group:create': { includes: ['group:update'] },
+  'group:delete': { includes: ['group:update'] },
+  // 挑成員要看得到使用者
+  'group:update': { includes: ['group:read'], requires: ['user:read'] },
+  'group:assignRole': { includes: ['group:read'], requires: ['role:read'] },
 } as const satisfies Partial<Record<PermissionKey, PermissionDependency>>;
 
 export type PermissionDependencyMap = Partial<Record<PermissionKey, PermissionDependency>>;
@@ -121,6 +134,7 @@ export const ESCALATION_GUARDED_PERMISSIONS = [
   'user:assignRole',
   'role:grantPermission',
   'file:share',
+  'group:assignRole',
 ] as const satisfies readonly PermissionKey[];
 
 /** 依賴只能指向 read；`file:access` 是檔案管理器的閘門，也只帶來「能進入」。 */

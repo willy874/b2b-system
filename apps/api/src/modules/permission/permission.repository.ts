@@ -17,8 +17,6 @@ import {
   users,
 } from '@/db/schema';
 
-import { SUPER_ADMIN_SLUG } from './permission.constants';
-
 /** 同一張表的第二個別名：角色持有者的邊 ⋈ 那個角色帶的權限鍵的邊。 */
 const grantedKey = alias(relationTuples, 'granted_key');
 
@@ -68,26 +66,6 @@ export class PermissionRepository {
   async findAllPermissionKeys(): Promise<PermissionKey[]> {
     const rows = await this.db.select({ key: permissions.key }).from(permissions);
     return rows.map((row) => row.key as PermissionKey);
-  }
-
-  async findPermissionKeysByRoles(roleIds: readonly string[]): Promise<PermissionKey[]> {
-    if (roleIds.length === 0) return [];
-    const rows = await this.db
-      .selectDistinct({ key: relationTuples.relation })
-      .from(relationTuples)
-      .where(and(isRolePermissionTuple(), inArray(relationTuples.subjectId, [...roleIds])));
-    return rows.map((row) => row.key as PermissionKey);
-  }
-
-  /** super-admin 是隱含全集、沒有任何權限鍵的邊，指派前要另外用 slug 判斷。 */
-  async includesSuperAdminRole(roleIds: readonly string[]): Promise<boolean> {
-    if (roleIds.length === 0) return false;
-    const [row] = await this.db
-      .select({ one: sql<number>`1` })
-      .from(roles)
-      .where(and(inArray(roles.id, [...roleIds]), eq(roles.slug, SUPER_ADMIN_SLUG)))
-      .limit(1);
-    return Boolean(row);
   }
 
   async listCatalog(): Promise<PermissionRow[]> {

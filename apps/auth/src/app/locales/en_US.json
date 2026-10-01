@@ -164,6 +164,13 @@
     "ROLE_SELF_LOCKOUT": "This change would remove the permissions you need to manage roles. Ask another administrator to make it.",
     "ROLE_VERSION_CONFLICT": "This role was changed by someone else. Reload to see the latest version, then edit again.",
     "ROLE_NOT_DELETED": "This role is not deleted, so there is nothing to restore.",
+    "GROUP_NOT_FOUND": "This group was not found. It may have been deleted.",
+    "GROUP_NAME_DUPLICATE": "A group with this name already exists (names are case-insensitive).",
+    "GROUP_VERSION_CONFLICT": "This group was changed by someone else. Reload to see the latest version, then edit again.",
+    "GROUP_NOT_DELETED": "This group is not deleted, so there is nothing to restore.",
+    "GROUP_MEMBERSHIP_CYCLE": "A group cannot be added to itself or to a group nested inside it.",
+    "GROUP_NESTING_TOO_DEEP": "Groups are nested too deeply. Reduce the number of levels of groups within groups.",
+    "GROUP_SUPER_ADMIN_FORBIDDEN": "Groups cannot hold the super admin role. Assign it to users directly.",
     "REVISION_NOT_FOUND": "This version no longer exists. It may have been removed after the retention period.",
     "REVISION_UNAVAILABLE": "This version was too large to be saved, so it cannot be viewed or restored.",
     "NOTIFICATION_NOT_FOUND": "This notification no longer exists. It may have been removed after the retention period.",
@@ -235,6 +242,7 @@
       "file": "Files",
       "job": "Background jobs",
       "identityProvider": "Identity providers",
+      "group": "Groups",
       "tenant": "Tenants",
       "platformAdmin": "Platform administrators",
       "platformAuditLog": "Platform audit log",
@@ -287,6 +295,13 @@
       "read": "View identity providers",
       "update": "Edit identity providers",
       "delete": "Delete identity providers"
+    },
+    "group": {
+      "create": "Create groups",
+      "read": "View groups",
+      "update": "Edit groups",
+      "delete": "Delete groups",
+      "assignRole": "Assign roles to groups"
     },
     "tenant": {
       "read": "View tenants",

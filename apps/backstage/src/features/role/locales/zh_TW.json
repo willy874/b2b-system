@@ -53,7 +53,10 @@
       "managePermission": "管理權限",
       "allPermissions": "全部權限（隱含）",
       "backToList": "回到角色列表",
-      "revisions": "版本紀錄"
+      "revisions": "版本紀錄",
+      "directHolders": "直接持有",
+      "groupHolders": "經由群組",
+      "groupMemberCount": "{{count}} 個直接成員"
     },
     "permission": {
       "title": "管理角色權限",

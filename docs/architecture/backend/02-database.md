@@ -339,6 +339,8 @@ export const auditLogsArchive = pgTable(
 | `tenant:self#<key>@role:<r>#holder` | 角色帶的權限鍵 | `RoleRepository` |
 | `tenant:self#superAdmin@role:<r>#holder` | super-admin 角色（它沒有權限鍵的邊） | seed（`seedRoles` → `ensureSuperAdminTuple`，冪等） |
 | `fileFolder:<id>#<level>@(role:<r>#holder \| user:<u> \| user:*)` | 資料夾授權 | `FileFolderGrantRepository`（[`09-file.md`](./09-file.md)） |
+| `group:<g>#member@(user:<u> \| group:<h>#member)` | 群組的成員；巢狀時主體是另一個群組的成員（§2.14） | `GroupRepository` |
+| `role:<r>#holder@group:<g>#member` | 群組持有角色（不能是 super-admin，ADR-0024 D12） | `GroupRepository` |
 
 - 刪除角色：只軟刪除角色列，**持有者邊、權限鍵邊、它作為主體的資料夾授權都留著**（ADR-0025 D2，R3 起）。
   已刪除角色的持有者邊是 **休眠的邊**：主體閉包、使用者的角色（`HELD_ROLE`）、依角色篩選使用者都 join 未刪除的角色而略過它們，
@@ -362,6 +364,7 @@ G1～G2 期間由舊表上的 trigger 同步寫入這張表（migration 0008，�
 - 程式在交易提交後讀它，連同租戶代碼在平台 DB 廣播（`core/authz/authz.revision.ts`，[`05-rbac.md`](./05-rbac.md) §5.1）。
 - `roles.deleted_at` 改變（刪除、還原角色）也 +1：migration 0012 的列層級 trigger（`AFTER UPDATE OF deleted_at … WHEN (OLD.deleted_at IS DISTINCT FROM NEW.deleted_at)`，
   同一個 `authz_revision_bump()`）。R3 起刪除與還原角色不寫 `relation_tuples`，但主體閉包會排除已刪除的角色，等於關係圖變了。
+- `groups.deleted_at` 改變同理：migration 0017 的同形 trigger（§2.14）。
 
 ### 2.12 `revisions`（版本歷史）
 
@@ -396,6 +399,22 @@ G1～G2 期間由舊表上的 trigger 同步寫入這張表（migration 0008，�
 
 `INDEX (recipient_id, created_at, id)`（列表、keyset、每人上限的清理）、`INDEX (recipient_id, created_at, id) WHERE read_at IS NULL`（未讀數與未讀列表）、
 `INDEX (read_at) WHERE read_at IS NOT NULL`（已讀過期的清理）。沒有 `updated_at`、`deleted_at`：除了 `read_at` 不改，清除是硬刪除。
+
+### 2.14 `groups`（群組）
+
+純分組（[ADR-0024](../../adr/0024-relationship-based-access-control.md) D11、D12）：只存名稱與說明，成員與持有的角色都是 `relation_tuples` 的邊（§2.10），不另開 `group_members`。
+
+| 欄位 | 型別 | 說明 |
+| --- | --- | --- |
+| `id` | `uuid` PK | |
+| `name` | `text` | 不分大小寫唯一（`groups_name_key`：`lower(name) WHERE deleted_at IS NULL`） |
+| `description` | `text NULL` | |
+| `version` | `integer` | 樂觀鎖；成員與持有角色的寫入不遞增（ADR-0025 D3） |
+| `created_at` / `created_by` / `updated_at` / `updated_by` | | `updated_at` 由 trigger 維護（§3.3） |
+| `deleted_at` | `timestamptz NULL` | 軟刪除；成員與持有角色的邊保留（休眠），主體閉包略過已刪除的群組，還原時一起回來 |
+
+「有效的群組」集中在 `isActiveGroup()`（＝`notDeleted(groups)`）；`core/authz` 與 `GroupRepository` 的遞迴 CTE 是手寫 SQL，同一個條件寫在那裡並註明。
+migration 0017 手寫兩個 trigger：`deleted_at` 改變時 `authz_revision` +1（§2.11）、`updated_at`。
 
 ---
 
@@ -476,6 +495,7 @@ CREATE TRIGGER users_set_updated_at BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER roles_set_updated_at BEFORE UPDATE ON roles
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+-- groups 的在 migration 0017
 ```
 
 ---
@@ -578,6 +598,9 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0014_revisions.sql                  revisions 表（§2.12）＋ 手寫：每個既有角色的基準版本（第 1 版，actor null；
 │                                       ADR-0025 R5、14-revisions.md §4.2；純加法）
 ├── 0015_notifications.sql              notifications 表與三個索引（§2.13，ADR-0026 N1；純加法）
+├── 0016_groups.sql                     groups 表（§2.14，ADR-0024 G4a；純加法）
+├── 0017_groups_triggers.sql            手寫：groups.deleted_at 改變時 authz_revision +1、updated_at（§2.11、§3.3）
+├── 0018_groups_system_role_permissions.sql  手寫：既有租戶的 admin 補 group:*、auditor 補 group:read（§6 的規則）
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

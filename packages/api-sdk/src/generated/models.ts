@@ -191,6 +191,7 @@ export interface PlatformAuditLog {
 export const TrashResourceType = {
   user: 'user',
   role: 'role',
+  group: 'group',
   file: 'file',
   fileFolder: 'fileFolder',
 } as const;
@@ -295,6 +296,11 @@ export const PermissionKey = {
   'identityProvider:read': 'identityProvider:read',
   'identityProvider:update': 'identityProvider:update',
   'identityProvider:delete': 'identityProvider:delete',
+  'group:create': 'group:create',
+  'group:read': 'group:read',
+  'group:update': 'group:update',
+  'group:delete': 'group:delete',
+  'group:assignRole': 'group:assignRole',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
@@ -549,14 +555,14 @@ export interface UpdateFeatureFlagRequest {
 }
 
 export interface SetFileFolderGrantRequest {
-  subjectType: 'role' | 'user' | 'everyone';
+  subjectType: 'role' | 'user' | 'group' | 'everyone';
   subjectId: string;
   level: 'viewer' | 'contributor' | 'editor' | 'manager';
   expiresAt: string | null;
 }
 
 export interface FileFolderGrant {
-  subjectType: 'role' | 'user' | 'everyone';
+  subjectType: 'role' | 'user' | 'group' | 'everyone';
   subjectId: string;
   subjectName: string;
   level: 'viewer' | 'contributor' | 'editor' | 'manager';
@@ -578,7 +584,7 @@ export interface FileFolderGrantList {
 
 export interface FileGrantSubjectList {
   items: Array<{
-    subjectType: 'role' | 'user' | 'everyone';
+    subjectType: 'role' | 'user' | 'group' | 'everyone';
     id: string;
     name: string;
     hint: string | null;
@@ -809,6 +815,75 @@ export interface GetFileImageQuery {
 export interface UpdateFileRequest {
   name: string;
   version: number;
+}
+
+export interface CreateGroupRequest {
+  name: string;
+  description?: string;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  description: string | null;
+  memberCount: number;
+  roleCount: number;
+  version: number;
+  membership?: 'direct' | 'nested';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RestoredGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  memberCount: number;
+  roleCount: number;
+  version: number;
+  membership?: 'direct' | 'nested';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupMember {
+  type: 'user' | 'group';
+  id: string;
+  name: string;
+  email: string | null;
+  status: ('pending' | 'active' | 'inactive' | 'locked') | null;
+}
+
+export interface GroupRole {
+  id: string;
+  slug: string;
+  name: string;
+  isSystem: boolean;
+}
+
+export interface GroupRoles {
+  roles: Array<GroupRole>;
+}
+
+export interface UpdateGroupRequest {
+  name?: string;
+  description?: string | null;
+  version: number;
+}
+
+export interface GroupMemberRef {
+  type: 'user' | 'group';
+  id: string;
+}
+
+export interface UpdateGroupMembersRequest {
+  add: Array<GroupMemberRef>;
+  remove: Array<GroupMemberRef>;
+}
+
+export interface UpdateGroupRolesRequest {
+  add: Array<string>;
+  remove: Array<string>;
 }
 
 export interface JobQueue {

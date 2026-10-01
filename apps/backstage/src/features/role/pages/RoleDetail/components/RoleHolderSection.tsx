@@ -1,40 +1,84 @@
 import { Link } from '@tanstack/react-router';
 
 import { useTranslation } from '@/core/locales';
-import type { RoleControllerListUsersResponse } from '@/shared/api-sdk';
+import type { Group, RoleControllerListUsersResponse } from '@/shared/api-sdk';
 
 import { ExternalRoutes } from '../../../routes';
 
+/** 群組列表的查詢條件（必填）；這裡只是連到詳情，用預設值。 */
+const GROUP_LIST_DEFAULT_SEARCH = { offset: 0, limit: 20, sort: [] };
+
 interface RoleHolderSectionProps {
+  /** 直接持有的使用者；沒有 user:read 時是 undefined（不顯示這一段） */
   holders: RoleControllerListUsersResponse['data']['items'] | undefined;
+  /** 持有這個角色的群組（成員都經由它持有）；沒有 group:read 時是 undefined */
+  groups: Group[] | undefined;
 }
 
-/** 持有此角色的使用者，連到 user feature 的詳情頁。 */
-export function RoleHolderSection({ holders }: RoleHolderSectionProps) {
+/** 持有此角色的使用者（連到 user feature 的詳情頁），以及經由群組持有的群組（ADR-0024 G4）。 */
+export function RoleHolderSection({ holders, groups }: RoleHolderSectionProps) {
   const { t } = useTranslation();
 
   return (
     <section>
       <h3 className="m-0 text-sm font-semibold">{t('role.detail.holders')}</h3>
-      <ul className="mt-2 flex list-none flex-col gap-1 p-0 text-sm">
-        {holders?.length ? (
-          holders.map((holder) => (
-            <li key={holder.id}>
-              <Link
-                to={ExternalRoutes.UserDetailRoute.to}
-                params={{ userId: holder.id }}
-                search={{}}
-                className="text-[var(--color-brand)]"
-              >
-                {holder.displayName}
-              </Link>
-              <span className="ml-2 text-[var(--color-fg-muted)]">{holder.email}</span>
-            </li>
-          ))
-        ) : (
-          <li className="text-[var(--color-fg-muted)]">{t('common.none')}</li>
-        )}
-      </ul>
+      {holders && (
+        <>
+          <h4 className="mt-2 mb-0 text-xs font-medium text-[var(--color-fg-muted)]">
+            {t('role.detail.directHolders')}
+          </h4>
+          <ul className="mt-1 flex list-none flex-col gap-1 p-0 text-sm">
+            {holders.length ? (
+              holders.map((holder) => (
+                <li key={holder.id}>
+                  <Link
+                    to={ExternalRoutes.UserDetailRoute.to}
+                    params={{ userId: holder.id }}
+                    search={{}}
+                    className="text-[var(--color-brand)]"
+                  >
+                    {holder.displayName}
+                  </Link>
+                  <span className="ml-2 text-[var(--color-fg-muted)]">{holder.email}</span>
+                </li>
+              ))
+            ) : (
+              <li className="text-[var(--color-fg-muted)]">{t('common.none')}</li>
+            )}
+          </ul>
+        </>
+      )}
+      {groups && (
+        <>
+          <h4 className="mt-3 mb-0 text-xs font-medium text-[var(--color-fg-muted)]">
+            {t('role.detail.groupHolders')}
+          </h4>
+          <ul
+            className="mt-1 flex list-none flex-col gap-1 p-0 text-sm"
+            data-testid="role-holder-groups"
+          >
+            {groups.length ? (
+              groups.map((group) => (
+                <li key={group.id} data-testid="role-holder-group" data-value={group.id}>
+                  <Link
+                    to={ExternalRoutes.GroupDetailRoute.to}
+                    params={{ groupId: group.id }}
+                    search={GROUP_LIST_DEFAULT_SEARCH}
+                    className="text-[var(--color-brand)]"
+                  >
+                    {group.name}
+                  </Link>
+                  <span className="ml-2 text-[var(--color-fg-muted)]">
+                    {t('role.detail.groupMemberCount', { count: group.memberCount })}
+                  </span>
+                </li>
+              ))
+            ) : (
+              <li className="text-[var(--color-fg-muted)]">{t('common.none')}</li>
+            )}
+          </ul>
+        </>
+      )}
     </section>
   );
 }

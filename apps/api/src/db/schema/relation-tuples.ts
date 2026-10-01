@@ -129,6 +129,50 @@ export function superAdminTuple(roleId: string): RelationTupleInsert {
   return rolePermissionTuple(roleId, SUPER_ADMIN_RELATION);
 }
 
+export const GROUP_OBJECT_TYPE = 'group';
+/** 使用者集合「群組的成員」：`group:<id>#member`（docs/adr/0024-relationship-based-access-control.md D11）。 */
+export const GROUP_MEMBER_RELATION = 'member';
+
+/** 群組成員的主體：個別使用者，或另一個群組的成員（巢狀）。 */
+export interface GroupMemberSubject {
+  type: 'user' | 'group';
+  id: string;
+}
+
+/** `group:<groupId>#member@user:<u>` 或 `@group:<h>#member`：成員加入群組。 */
+export function groupMemberTuple(
+  groupId: string,
+  member: GroupMemberSubject,
+  createdBy: string | null = null,
+): RelationTupleInsert {
+  return {
+    objectType: GROUP_OBJECT_TYPE,
+    objectId: groupId,
+    relation: GROUP_MEMBER_RELATION,
+    subjectType: member.type === 'user' ? USER_SUBJECT_TYPE : GROUP_OBJECT_TYPE,
+    subjectId: member.id,
+    subjectRelation: member.type === 'user' ? '' : GROUP_MEMBER_RELATION,
+    createdBy,
+  };
+}
+
+/** `role:<roleId>#holder@group:<groupId>#member`：群組持有角色（D12：不能是 super-admin，由 service 擋）。 */
+export function groupRoleTuple(
+  roleId: string,
+  groupId: string,
+  createdBy: string | null = null,
+): RelationTupleInsert {
+  return {
+    objectType: ROLE_OBJECT_TYPE,
+    objectId: roleId,
+    relation: ROLE_HOLDER_RELATION,
+    subjectType: GROUP_OBJECT_TYPE,
+    subjectId: groupId,
+    subjectRelation: GROUP_MEMBER_RELATION,
+    createdBy,
+  };
+}
+
 /** 條件函式也套得到同一張表的別名（`alias(relationTuples, …)`，自我 join 時）。 */
 export interface TupleColumns {
   objectType: AnyPgColumn;
@@ -156,5 +200,20 @@ export function isRolePermissionTuple(t: TupleColumns = relationTuples): SQL {
     eq(t.subjectType, ROLE_OBJECT_TYPE),
     eq(t.subjectRelation, ROLE_HOLDER_RELATION),
     ne(t.relation, SUPER_ADMIN_RELATION),
+  ) as SQL;
+}
+
+/** 「群組的成員」的邊：`object_id` 是群組；主體是使用者或另一個群組的 `#member`。 */
+export function isGroupMemberTuple(t: TupleColumns = relationTuples): SQL {
+  return and(eq(t.objectType, GROUP_OBJECT_TYPE), eq(t.relation, GROUP_MEMBER_RELATION)) as SQL;
+}
+
+/** 「群組持有角色」的邊：`object_id` 是角色、`subject_id` 是群組。 */
+export function isGroupRoleTuple(t: TupleColumns = relationTuples): SQL {
+  return and(
+    eq(t.objectType, ROLE_OBJECT_TYPE),
+    eq(t.relation, ROLE_HOLDER_RELATION),
+    eq(t.subjectType, GROUP_OBJECT_TYPE),
+    eq(t.subjectRelation, GROUP_MEMBER_RELATION),
   ) as SQL;
 }

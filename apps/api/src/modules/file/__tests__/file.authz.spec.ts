@@ -4,6 +4,7 @@ import {
   createChecker,
   createModel,
   createSnapshot,
+  GROUP_TYPE,
   impliedRelations,
   ROLE_TYPE,
   tenantEdgeProvider,
@@ -29,7 +30,13 @@ const FOLDERS: FolderNode[] = [
 ];
 
 const model = (withDependencies = false) =>
-  createModel([USER_TYPE, ROLE_TYPE, buildTenantType({ withDependencies }), ...FILE_AUTHZ_TYPES]);
+  createModel([
+    USER_TYPE,
+    GROUP_TYPE,
+    ROLE_TYPE,
+    buildTenantType({ withDependencies }),
+    ...FILE_AUTHZ_TYPES,
+  ]);
 
 const grant = (folder: string, level: string, subject = `user:${ALICE}`): TupleEntry => ({
   object: { type: 'fileFolder', id: folder },

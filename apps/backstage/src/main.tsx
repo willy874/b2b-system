@@ -16,6 +16,7 @@ import { hydratePreferences } from '@/core/store';
 import { accountFeaturePlugin } from '@/features/account';
 import { approvalFeaturePlugin } from '@/features/approval';
 import { authFeaturePlugin } from '@/features/auth';
+import { groupFeaturePlugin } from '@/features/group';
 import { homeFeaturePlugin } from '@/features/home';
 import { identityProviderFeaturePlugin } from '@/features/identity-provider';
 import { notificationFeaturePlugin } from '@/features/notification';
@@ -85,6 +86,7 @@ async function bootstrap(): Promise<void> {
     .use(homeFeaturePlugin())
     .use(userFeaturePlugin())
     .use(roleFeaturePlugin())
+    .use(groupFeaturePlugin())
     .use(permissionFeaturePlugin())
     .use(approvalFeaturePlugin())
     .use(identityProviderFeaturePlugin())

@@ -269,10 +269,10 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
                                            file:hero.png ◀── owner ── user:bob
 ```
 
-- **節點** `型別:id`：`user`、`role`、`tenant`（每個租戶 DB 只有一個，id 固定 `self`）、`fileRoot`（根目錄）、`fileFolder`、`file`。
+- **節點** `型別:id`：`user`、`group`、`role`、`tenant`（每個租戶 DB 只有一個，id 固定 `self`）、`fileRoot`（根目錄）、`fileFolder`、`file`。
 - **邊** `物件#關係@主體`。主體有三種：
   - 一個節點（`user:alice`）；
-  - 一個節點的關係，也就是一群使用者（`role:editor#holder`）；
+  - 一個節點的關係，也就是一群使用者（`role:editor#holder`、`group:美術#member`）；
   - 萬用字元（`user:*`，資料夾授權的「所有人」）。
 - **全域權限鍵是租戶節點上的關係**：`tenant:self#role:update@role:admin#holder` ＝「admin 的持有者有 `role:update`」。
   權限鍵的字串格式因此不變。每個權限關係都定義成「直接授予 ∪ `superAdmin` ∪ 包含它的鍵」，
@@ -287,9 +287,11 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
 | 概念 | 圖上 |
 | --- | --- |
 | 使用者持有角色 | `role:r#holder@user:u` |
+| 群組的成員（巢狀時是另一個群組的成員） | `group:g#member@user:u`、`group:g#member@group:h#member` |
+| 群組持有角色（不能是 super-admin，ADR-0024 D12） | `role:r#holder@group:g#member` |
 | 角色帶權限鍵 | `tenant:self#<key>@role:r#holder` |
 | super-admin | `tenant:self#superAdmin@role:<super-admin>#holder` |
-| 資料夾授權（角色／個人／所有人） | `fileFolder:F#<等級>@role:r#holder`、`@user:u`、`@user:*` |
+| 資料夾授權（角色／個人／群組／所有人） | `fileFolder:F#<等級>@role:r#holder`、`@user:u`、`@group:g#member`、`@user:*` |
 | 授權的期限 | 邊上的 `expires_at`，解析時忽略過期的 |
 | 中斷繼承 | 不產生 `inherits_from` 邊 |
 | 擁有者規則 | `owner` 關係 ＋ 交集（規則 A：能在這裡建立 ⇒ 能編輯自己建立的） |
@@ -300,8 +302,9 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
 - 遞迴刪除的子樹條件（[`07-resource-grants.md`](./07-resource-grants.md) §4）；
 - 上傳中的檔案只有本人看得到、系統資料夾不可移動。
 
-圖只回答「有沒有這條關係」。反提權目前也還在 service（`assertGrantable`、`assertRolesAssignable`、資料夾等級的 `missingActions`）；
-改成由模型宣告「誰能寫這條邊」是 G4 的工作（[`../features/permission-graph.md`](../features/permission-graph.md)）。
+圖回答「有沒有這條關係」，也回答反提權的「寫入這條邊，主體取得什麼」：模型為每個型別宣告哪些關係是 **能力**
+（租戶上的權限鍵與 `superAdmin`、資料夾上的 `can_*`），引擎沿著邊算出取得的能力，操作者必須全部都有
+（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1、ADR-0024 G4）。
 
 **平台管理者不進圖**：`platform_admins.role` 是固定的角色與權限對照，範圍小（[`02-permission-catalog.md`](./02-permission-catalog.md) §8）。
 
@@ -315,6 +318,7 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | **資源作用域**（「只能編輯自己專案」） | 已由檔案資料夾先行實作，並改由關係圖解析（資料夾的等級是模型裡的關係，沿 `inherits_from` 繼承）。專案、關卡以同樣方式加入型別，見 [`07-resource-grants.md`](./07-resource-grants.md) §10 |
 | **角色階層**                           | 關係圖上是一種 `role#holder` 包含 `role#holder` 的邊；**不開放**，維持「複製角色」（[ADR-0024](../adr/0024-relationship-based-access-control.md) D10） |
+| **群組**                               | 已實作：巢狀成員、群組持有角色、資料夾授權給群組（[`08-groups.md`](./08-groups.md)、ADR-0024 G4a） |
 | **條件式權限（ABAC）**                 | `relation_tuples` 的邊增加條件欄位（`condition jsonb`），Guard 端加入條件評估器                                 |
 | **MFA**                                | `users.mfa_enabled` / 新表 `user_mfa_secrets`                                                                   |
 | **API Token / 服務帳號**               | 新增 `service_accounts` 表，以新的主體型別持有角色（`role:r#holder@serviceAccount:s`）                          |

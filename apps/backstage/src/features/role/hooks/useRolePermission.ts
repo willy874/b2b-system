@@ -14,5 +14,7 @@ export function useRolePermission() {
     /** 是否能授予／移除角色權限 */
     canGrantPermission: can(PermissionKey['role:grantPermission']),
     canViewUsers: can(PermissionKey['user:read']),
+    /** 經由群組持有（ADR-0024 G4）：要能讀群組 */
+    canViewGroups: can(PermissionKey['group:read']),
   };
 }

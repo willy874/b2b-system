@@ -96,6 +96,7 @@ export const FILE_GRANT_LEVEL_HINT_KEY = {
 export const FILE_GRANT_SUBJECT_TYPE_LABEL_KEY = {
   role: 'file.share.subjectType.role',
   user: 'file.share.subjectType.user',
+  group: 'file.share.subjectType.group',
   everyone: 'file.share.subjectType.everyone',
 } as const satisfies Record<FileGrantSubjectType, string>;
 
@@ -110,6 +111,11 @@ export const FILE_GRANT_SUBJECT_COPY_KEY = {
     placeholder: 'file.share.subjectPlaceholderUser',
     search: 'file.share.subjectSearchUser',
     noMatch: 'file.share.noSubjectsUser',
+  },
+  group: {
+    placeholder: 'file.share.subjectPlaceholderGroup',
+    search: 'file.share.subjectSearchGroup',
+    noMatch: 'file.share.noSubjectsGroup',
   },
   // 所有人不必挑選對象：這組文案不會顯示，只為了型別完整
   everyone: {

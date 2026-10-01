@@ -4,8 +4,9 @@ import { ALL_PERMISSION_KEYS, isPermissionKey, permissionClosure } from '@/db/se
 import type { PermissionKey } from '@/db/seeds/permissions';
 
 import type { DbOrTx } from '../database';
-import { createChecker } from './authz.checker';
-import type { AuthzChecker, SubjectKey } from './authz.checker';
+import { createChecker, objectKey, subjectKey } from './authz.checker';
+import type { AuthzChecker, ObjectRef, SubjectKey } from './authz.checker';
+import { capabilitiesOf, isUsersetRelation } from './authz.model';
 import { AuthzRegistry } from './authz.registry';
 import { AuthzRepository } from './authz.repository';
 import { createSnapshot } from './authz.snapshot';
@@ -28,6 +29,12 @@ export interface TenantPermissions {
   isSuperAdmin: boolean;
   /** 主體閉包：解析資源（資料夾…）時沿用，不必再查一次。 */
   subjects: SubjectKey[];
+}
+
+/** 物件上的一個關係（反提權：要授予的、要比對的）。 */
+export interface RelationRef {
+  object: ObjectRef;
+  relation: string;
 }
 
 /**
@@ -114,6 +121,54 @@ export class AuthzService {
       tuples.push(...(await this.repo.tuplesForSubjects(type, subjects, now, options.tx)));
     }
     return this.checker(subjects, tuples, providers, options.withDependencies);
+  }
+
+  /**
+   * 反提權（docs/adr/0024-relationship-based-access-control.md G4）：把某個主體放進 `targets` 的每一個 `物件#關係`，
+   * 主體因此取得的能力。操作者必須全部都有（呼叫端以自己的判斷器或權限集合比對）。
+   *
+   * - 關係本身是能力，或靜態蘊含能力（租戶上的權限鍵、資料夾等級）：同一個物件上的那些能力（`capabilitiesOf`）。
+   * - 使用者集合（`role:<r>#holder`、`group:<g>#member`）：沿成員關係往上的閉包裡，每個集合在 **租戶節點** 上的能力——
+   *   角色的權限鍵（含 `superAdmin`）、群組與上層群組持有的角色的鍵。不含它們在資料夾上的授權（D13：那些授權在授予給
+   *   這個集合時已經檢查過一次）。
+   *
+   * 結果依 `targets` 的順序去重。
+   */
+  async grantedCapabilities(
+    targets: readonly RelationRef[],
+    options: { tx?: DbOrTx; now?: Date } = {},
+  ): Promise<RelationRef[]> {
+    const model = this.registry.model(true);
+    const result = new Map<string, RelationRef>();
+    const add = (object: ObjectRef, relation: string) =>
+      result.set(`${objectKey(object)}#${relation}`, { object, relation });
+
+    const usersets: SubjectKey[] = [];
+    for (const target of targets) {
+      if (isUsersetRelation(model, target.object.type, target.relation)) {
+        usersets.push(subjectKey(target.object.type, target.object.id, target.relation));
+      } else {
+        for (const capability of capabilitiesOf(model, target.object.type, target.relation)) {
+          add(target.object, capability);
+        }
+      }
+    }
+    if (usersets.length) {
+      const now = options.now ?? new Date();
+      const closures = await this.repo.usersetClosures(usersets, now, options.tx);
+      const reachable = [...new Set([...closures.values()].flat())];
+      const tuples = await this.repo.tuplesForSubjects(
+        TENANT_OBJECT.type,
+        reachable,
+        now,
+        options.tx,
+      );
+      const tenantCapabilities = new Set(model.types.get(TENANT_OBJECT.type)?.capabilities ?? []);
+      for (const tuple of tuples) {
+        if (tenantCapabilities.has(tuple.relation)) add(TENANT_OBJECT, tuple.relation);
+      }
+    }
+    return [...result.values()];
   }
 
   private checker(
