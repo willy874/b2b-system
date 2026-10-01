@@ -785,12 +785,13 @@ Base UI 已處理焦點陷阱、roving tabindex、ARIA 角色與鍵盤互動。�
 ```
 components/Table/
 ├── Table.tsx             版面外殼 ＋ TanStack Table 整合（排序、分頁都交給伺服器）
+├── features.ts           TanStack Table v9 登記的功能（TABLE_FEATURES）、TableColumnDef 與欄位 meta 的型別
 ├── TableHeader.tsx       表頭；可排序欄位以 <button> 承接點擊（鍵盤可操作）、aria-sort
 ├── TableRow.tsx          選取、hover、單擊/雙擊行為、展開列
 ├── TableSkeleton.tsx     載入中的骨架列（不帶 table-row testid）
 ├── sorting.ts            TableSorting 型別、toggleSorting()、排序圖示與 aria-sort 對照
 ├── pinning.ts            欄位固定、釘選列：預設值（actions 靠右）與量測 sticky 位移的 usePinLayout
-├── columns.tsx           工具欄：createSelectColumn（勾選欄 CheckboxColumn）、ColumnMeta.settingsLabel
+├── columns.tsx           工具欄：createSelectColumn（勾選欄 CheckboxColumn）
 ├── useTableSelection.ts  跨頁保留的選取狀態（id ＋ 勾選當下的資料），批次操作用
 ├── BatchActionBar.tsx    勾選後的批次操作列：已選筆數、清除選取、呼叫端的按鈕（§6.2）
 ├── slots.ts              TableSlot
@@ -803,6 +804,11 @@ components/Table/
 （部分勾選時半選）、每列一個勾選框；搭配 `useTableSelection(data, getRowId)` 取得 `rowSelection` / `onRowSelectionChange`，
 以及跨頁保留的 `selectedIds`、`selectedRows`（勾選當下的資料，列還在目前頁時換成最新的一筆）與 `clear()`。
 批次操作直接拿 `selectedRows` 送出；篩選條件改變時由呼叫端 `clear()`。列表頁的完整批次流程見 §6.2。
+
+欄位定義用 `TableColumnDef<TData>`（`@/components/Table` 匯出），不直接寫 TanStack 的 `ColumnDef`：
+TanStack Table v9 的型別多了第一個型別參數 `TFeatures`（登記了哪些功能），`features.ts` 的 `TABLE_FEATURES`
+只登記 `Table` 用到的功能——欄位固定、欄寬（`size`）、列釘選、勾選、排序（只為了欄位的 `enableSorting`；
+排序與分頁都交給伺服器，不登記 row model）。欄位的 `meta` 型別是 `TableColumnMeta`（以 `columnMeta` 登記，不再全域擴充 `ColumnMeta`）。
 
 非字串表頭（勾選框、圖示）的欄位以 `meta.settingsLabel` 宣告欄位設定裡的名稱，才會進入欄位設定（排序、隱藏、固定）。
 
@@ -834,7 +840,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 
 | prop | 型別 | 效果 |
 | ---- | ---- | ---- |
-| `columnPinning` | TanStack `ColumnPinningState` | 欄位固定在左（`left`）或右（`right`），陣列順序即排列順序；**預設 `{ right: ['actions'] }`**，傳 `{}` 取消。表頭與列都依「左固定 → 其餘 → 右固定」排列 |
+| `columnPinning` | `Partial<ColumnPinningState>`（TanStack） | 欄位固定在 `start`（左）或 `end`（右），陣列順序即排列順序；**預設 `{ end: ['actions'] }`**，傳 `{}` 取消。表頭與列都依「start 固定 → 其餘 → end 固定」排列。目前只支援由左至右，儲存格的 `data-pinned` 仍是 `left` / `right` |
 | `rowPinning` | TanStack `RowPinningState` | 資料列貼在頂端（`top`）或底端（`bottom`），捲動時留在原位；需要 `getRowId`，列必須在 `data` 裡 |
 | `stickyHeader` | `boolean` | 表頭在垂直捲動時留在上方；頂端的釘選列排在表頭下緣 |
 | `maxHeight` | CSS 長度 | 固定表頭或有釘選列時外框的最大高度，預設 `70vh` |

@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
 import { getTrashListQueryOptions } from '@/apis/trash/get-trash-list/query';
 import { Empty } from '@/components/Empty';
 import { Pagination } from '@/components/Pagination';
+import type { TableColumnDef } from '@/components/Table';
 import { Table } from '@/components/Table';
 import { Tabs } from '@/components/Tabs';
 import { useTranslation } from '@/core/locales';
@@ -67,7 +67,7 @@ function TrashTypeList({ type, offset, limit, onPageChange }: TrashTypeListProps
   );
   const rows = useMemo(() => (data?.items ?? []).map(toTrashRowVM), [data]);
 
-  const columns = useMemo<Array<ColumnDef<TrashRowVM, unknown>>>(
+  const columns = useMemo<Array<TableColumnDef<TrashRowVM>>>(
     () => [
       {
         id: 'name',

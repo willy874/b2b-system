@@ -16,12 +16,12 @@
 | 前端建置   | Vite                                                   | 7.x / 8.x        |
 | 前端路由   | TanStack Router（code-based）                          | 1.13x            |
 | 前端資料層 | TanStack Query                                         | 5.x              |
-| 前端表格   | TanStack Table + TanStack Virtual                      | 8.x / 3.x        |
+| 前端表格   | TanStack Table + TanStack Virtual                      | 9.x / 3.x        |
 | 前端表單   | TanStack Form                                          | 1.x              |
 | 前端 UI    | **Base UI**（`@base-ui/react`）                         | 1.x              |
 | 樣式       | UnoCSS（`preset-wind4`）＋ CSS 變數 Design Token       | 66.x             |
 | 前端狀態   | 自有輕量 store（`shared/store`）＋ TanStack Query 快取 | —                |
-| i18n       | i18next（無 react-i18next，自有 hook 薄封裝）          | 25.x             |
+| i18n       | i18next（無 react-i18next，自有 hook 薄封裝）          | 26.x             |
 | 驗證       | Zod                                                    | 4.x              |
 | 前端測試   | Vitest + Testing Library + MSW                         | 3.x / 16.x / 2.x |
 | E2E        | Playwright                                             | 1.5x             |

@@ -1,10 +1,11 @@
-import type { CellContext, ColumnDef } from '@tanstack/react-table';
+import type { RowData } from '@tanstack/react-table';
 import { createContext, useContext } from 'react';
 
 import { IconButton } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { Menu } from '@/components/Menu';
 import { UTILITY_COLUMN_SIZE } from '@/components/Table';
+import type { TableCellContext, TableColumnDef } from '@/components/Table';
 import { Tooltip } from '@/components/Tooltip';
 import { useTranslation } from '@/core/locales';
 import { ROW_PIN_COLUMN_ID } from '@/core/store';
@@ -28,7 +29,7 @@ export const RowPinContext = createContext<RowPinContextValue>({
 });
 
 /** 釘選欄（PinColumn）：每一列一個釘選選單（頂端／底端／取消）。 */
-function RowPinCell<TData>({ row }: CellContext<TData, unknown>) {
+function RowPinCell<TData extends RowData>({ row }: TableCellContext<TData>) {
   const { t } = useTranslation();
   const { pinned, pin, unpin } = useContext(RowPinContext);
   const side = pinned.get(row.id);
@@ -76,7 +77,7 @@ function RowPinCell<TData>({ row }: CellContext<TData, unknown>) {
  * 釘選欄（PinColumn）：獨立一欄，預設隱藏（`DEFAULT_HIDDEN_COLUMNS`），在欄位設定裡打開。
  * 釘選狀態由 `RowPinContext` 提供；`label` 是欄位設定裡的名稱。
  */
-export function createPinColumn<TData>(label: string): ColumnDef<TData, unknown> {
+export function createPinColumn<TData extends RowData>(label: string): TableColumnDef<TData> {
   return {
     id: ROW_PIN_COLUMN_ID,
     size: UTILITY_COLUMN_SIZE,

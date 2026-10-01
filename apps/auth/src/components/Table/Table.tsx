@@ -1,13 +1,13 @@
-import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { useTable } from '@tanstack/react-table';
 import type {
-  ColumnDef,
   ColumnPinningState,
   Row,
+  RowData,
   RowPinningState,
   RowSelectionState,
   Updater,
 } from '@tanstack/react-table';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import type { CSSProperties, ReactNode, Ref } from 'react';
 
 import { cn } from '@/shared/utils';
@@ -15,7 +15,9 @@ import { cn } from '@/shared/utils';
 import { Empty } from '../Empty';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
-import { DEFAULT_COLUMN_PINNING, usePinLayout } from './pinning';
+import { TABLE_FEATURES } from './features';
+import type { TableColumnDef, TableFeatureSet } from './features';
+import { DEFAULT_COLUMN_PINNING, toColumnPinningState, usePinLayout } from './pinning';
 import type { PinLayout, RowPin } from './pinning';
 import type { TableSlot } from './slots';
 import type { TableSorting } from './sorting';
@@ -25,11 +27,11 @@ import { TableSkeleton } from './TableSkeleton';
 
 import styles from './Table.module.css';
 
-export interface TableProps<TData> extends SlotOverrides<TableSlot> {
+export interface TableProps<TData extends RowData> extends SlotOverrides<TableSlot> {
   /** 透傳到根元素（React 19 的 ref 是一般 prop）。 */
   ref?: Ref<HTMLDivElement>;
   data: TData[];
-  columns: Array<ColumnDef<TData, unknown>>;
+  columns: Array<TableColumnDef<TData>>;
   getRowId?: (row: TData) => string;
   loading?: boolean;
   emptyTitle?: ReactNode;
@@ -51,10 +53,10 @@ export interface TableProps<TData> extends SlotOverrides<TableSlot> {
    */
   headerTrailing?: ReactNode;
   /**
-   * 水平捲動時固定在左右兩側的欄位 id。預設把 `actions`（操作欄）固定在右側；
-   * 傳 `{}` 取消固定。表頭與列的欄位順序會變成「左固定 → 其餘 → 右固定」。
+   * 水平捲動時固定在 start（左）／end（右）兩側的欄位 id。預設把 `actions`（操作欄）固定在 end；
+   * 傳 `{}` 取消固定。表頭與列的欄位順序會變成「start 固定 → 其餘 → end 固定」。
    */
-  columnPinning?: ColumnPinningState;
+  columnPinning?: Partial<ColumnPinningState>;
   /** 垂直捲動時表頭留在上方（表格外框變成捲動框，見 `maxHeight`）。 */
   stickyHeader?: boolean;
   /**
@@ -79,18 +81,18 @@ export interface TableProps<TData> extends SlotOverrides<TableSlot> {
 
 const EMPTY_SELECTION: RowSelectionState = {};
 const EMPTY_SORTING: readonly TableSorting[] = [];
-const EMPTY_ROW_PINNING: RowPinningState = {};
+const EMPTY_ROW_PINNING: RowPinningState = { top: [], bottom: [] };
 const EMPTY_EXPANDED: readonly string[] = [];
 const DEFAULT_MAX_HEIGHT = '70vh';
 
-/** TanStack 會把預設寬度（150）併進每個 columnDef；清掉它，TableHeader 才分得出「沒宣告 size」。 */
+/** TanStack 的 columnSizingFeature 會把預設寬度（150）併進每個 columnDef；清掉它，TableHeader 才分得出「沒宣告 size」。 */
 const DEFAULT_COLUMN = { size: undefined };
 
 /**
  * 資料表格：TanStack Table 負責欄位模型，排序、分頁都交給伺服器（只回報使用者的操作）。
  * 各層的實作拆在 `TableHeader`（排序）、`TableRow`（點擊與選取）、`TableSkeleton`（載入中）。
  */
-export function Table<TData>({
+export function Table<TData extends RowData>({
   data,
   columns,
   getRowId,
@@ -117,19 +119,19 @@ export function Table<TData>({
 }: TableProps<TData>) {
   const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   const tableRef = useRef<HTMLTableElement>(null);
-  const table = useReactTable({
+  const pinningState = useMemo(() => toColumnPinningState(columnPinning), [columnPinning]);
+  const table = useTable({
+    features: TABLE_FEATURES,
     data,
     columns,
     defaultColumn: DEFAULT_COLUMN,
-    getCoreRowModel: getCoreRowModel(),
     getRowId,
-    state: { rowSelection, columnPinning, rowPinning },
+    state: { rowSelection, columnPinning: pinningState, rowPinning },
     keepPinnedRows: true,
     enableRowSelection: Boolean(onRowSelectionChange),
     onRowSelectionChange: (updater: Updater<RowSelectionState>) => {
       onRowSelectionChange?.(typeof updater === 'function' ? updater(rowSelection) : updater);
     },
-    manualPagination: true,
     manualSorting: true,
   });
 
@@ -137,11 +139,11 @@ export function Table<TData>({
   const scrollable = Boolean(stickyHeader) || hasPinnedRows;
   const pinLayout = usePinLayout(
     tableRef,
-    { columnPinning, rowPinning, stickyHeader: Boolean(stickyHeader) },
+    { columnPinning: pinningState, rowPinning, stickyHeader: Boolean(stickyHeader) },
     [data, columns, loading],
   );
 
-  const expandedContent = (row: Row<TData>): ReactNode =>
+  const expandedContent = (row: Row<TableFeatureSet, TData>): ReactNode =>
     renderExpandedRow && expandedRowIds.includes(row.id)
       ? renderExpandedRow(row.original)
       : undefined;
@@ -169,7 +171,7 @@ export function Table<TData>({
         />
         <tbody {...slot('body')}>
           {loading ? (
-            <TableSkeleton columnCount={table.getVisibleLeafColumns().length} slot={slot} />
+            <TableSkeleton columnCount={table.getAllLeafColumns().length} slot={slot} />
           ) : (
             <>
               {table.getTopRows().map((row, index, pinned) => (

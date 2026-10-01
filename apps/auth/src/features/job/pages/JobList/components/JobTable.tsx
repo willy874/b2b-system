@@ -1,6 +1,6 @@
-import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
+import type { TableColumnDef } from '@/components/Table';
 import { Table } from '@/components/Table';
 import { useTranslation } from '@/core/locales';
 import { formatDateTime } from '@/shared/date';
@@ -23,7 +23,7 @@ interface JobTableProps {
 export function JobTable({ items, loading, expandedId, onToggleExpand }: JobTableProps) {
   const { t } = useTranslation();
 
-  const columns = useMemo<Array<ColumnDef<JobRowVM, unknown>>>(
+  const columns = useMemo<Array<TableColumnDef<JobRowVM>>>(
     () => [
       {
         id: 'createdAt',

@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import type { ColumnDef } from '@tanstack/react-table';
 import { useCallback, useMemo, useState } from 'react';
 
 import { getPlatformAuditLogListQueryOptions } from '@/apis/platform-audit-log/get-audit-log-list/query';
 import { IconButton } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { Pagination } from '@/components/Pagination';
+import type { TableColumnDef } from '@/components/Table';
 import { Table } from '@/components/Table';
 import { Tooltip } from '@/components/Tooltip';
 import { useTranslation } from '@/core/locales';
@@ -58,7 +58,7 @@ export default function AuditLogListPage() {
   const setPage = ({ offset, limit }: { offset: number; limit: number }) =>
     patch({ offset, limit });
 
-  const columns = useMemo<Array<ColumnDef<PlatformAuditLog, unknown>>>(
+  const columns = useMemo<Array<TableColumnDef<PlatformAuditLog>>>(
     () => [
       {
         id: 'occurredAt',

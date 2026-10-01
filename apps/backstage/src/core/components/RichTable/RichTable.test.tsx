@@ -1,8 +1,8 @@
-import type { ColumnDef } from '@tanstack/react-table';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { TableColumnDef } from '@/components/Table';
 import { useTableSelection } from '@/components/Table';
 import { useTableColumnSettingsStore } from '@/core/store';
 
@@ -16,7 +16,7 @@ interface Row {
   name: string;
 }
 
-const columns: Array<ColumnDef<Row, unknown>> = [
+const columns: Array<TableColumnDef<Row>> = [
   { id: 'name', header: 'Name', cell: ({ row }) => row.original.name },
 ];
 
@@ -58,7 +58,7 @@ describe('RichTable', () => {
   });
 });
 
-const withActions: Array<ColumnDef<Row, unknown>> = [
+const withActions: Array<TableColumnDef<Row>> = [
   ...columns,
   { id: 'actions', header: '操作', cell: () => null },
 ];
@@ -117,7 +117,7 @@ function headers(): string[] {
 }
 
 describe('RichTable 的欄位設定', () => {
-  const settingsColumns: Array<ColumnDef<Row, unknown>> = [
+  const settingsColumns: Array<TableColumnDef<Row>> = [
     { id: 'name', header: 'Name', cell: ({ row }) => row.original.name },
     { id: 'code', header: 'Code', cell: ({ row }) => row.original.id },
     { id: 'note', header: 'Note', cell: () => '-' },
@@ -176,7 +176,7 @@ function rowNames() {
 }
 
 describe('RichTable 的欄位固定與固定表頭（依每張表的欄位設定）', () => {
-  const pinColumns: Array<ColumnDef<Row, unknown>> = [
+  const pinColumns: Array<TableColumnDef<Row>> = [
     ...columns,
     { id: 'code', header: 'Code', cell: ({ row }) => row.original.id },
     { id: 'actions', header: '操作', cell: () => null },
@@ -235,7 +235,7 @@ async function pinRowAt(rowIndex: number, option: 'top' | 'bottom' | 'unpin') {
 }
 
 describe('RichTable 的釘選欄（PinColumn）', () => {
-  const withActionsColumn: Array<ColumnDef<Row, unknown>> = [
+  const withActionsColumn: Array<TableColumnDef<Row>> = [
     ...columns,
     { id: 'actions', header: '操作', cell: () => <button type="button">編輯</button> },
   ];

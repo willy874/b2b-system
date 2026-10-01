@@ -1,6 +1,7 @@
-import type { ColumnDef } from '@tanstack/react-table';
+import type { RowData } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
+import type { TableColumnDef } from '@/components/Table';
 import type { TableColumnSettings } from '@/core/store';
 
 import type { TableSettingsColumn, TableSettingsProps } from './TableSettings';
@@ -16,9 +17,9 @@ export interface TableSettingsConfig {
   defaultHidden?: readonly string[];
 }
 
-interface UseTableSettingsResult<TData> {
+interface UseTableSettingsResult<TData extends RowData> {
   /** 套用順序與顯示設定後，實際交給表格的欄位。 */
-  columns: Array<ColumnDef<TData, unknown>>;
+  columns: Array<TableColumnDef<TData>>;
   /** 目前生效的設定；沒有 `config` 時是預設值（操作欄固定在 `end`、表頭不固定）。 */
   value: TableColumnSettings;
   /** 沒有 `config` 時為 `undefined`（不顯示齒輪按鈕）。 */
@@ -30,8 +31,8 @@ interface UseTableSettingsResult<TData> {
  * 只有「有 id、表頭是非空字串（或有 `meta.settingsLabel`）、且不是 `fixedColumnId`」的欄位可以設定；
  * 其他欄位（操作欄、純圖示欄）保留在原本的位置，永遠顯示。
  */
-export function useTableSettings<TData>(
-  columns: Array<ColumnDef<TData, unknown>>,
+export function useTableSettings<TData extends RowData>(
+  columns: Array<TableColumnDef<TData>>,
   config: TableSettingsConfig | undefined,
   fixedColumnId: string,
 ): UseTableSettingsResult<TData> {
@@ -87,7 +88,7 @@ export function useTableSettings<TData>(
  * 欄位設定裡的名稱：字串表頭，或非字串表頭（勾選框、圖示）的 `meta.settingsLabel`。
  * 宣告了 `settingsLabel` 就算可設定；名稱是空的（語系還沒載入）時退回欄位 id，欄位不會因此脫離設定。
  */
-function settingsLabelOf<TData>(column: ColumnDef<TData, unknown>): string | undefined {
+function settingsLabelOf<TData extends RowData>(column: TableColumnDef<TData>): string | undefined {
   if (typeof column.header === 'string' && column.header) return column.header;
   if (column.meta && 'settingsLabel' in column.meta) return column.meta.settingsLabel || column.id;
   return undefined;

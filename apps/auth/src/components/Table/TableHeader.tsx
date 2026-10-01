@@ -1,9 +1,10 @@
 import { flexRender } from '@tanstack/react-table';
-import type { Header, HeaderGroup } from '@tanstack/react-table';
+import type { Header, HeaderGroup, RowData } from '@tanstack/react-table';
 import type { ReactNode } from 'react';
 
 import { Icon } from '../Icon';
 import type { SlotResolver } from '../slots';
+import type { TableFeatureSet } from './features';
 import { getPinnedCellProps } from './pinning';
 import type { PinLayout } from './pinning';
 import type { TableSlot } from './slots';
@@ -12,8 +13,8 @@ import type { TableSorting } from './sorting';
 
 import styles from './Table.module.css';
 
-interface TableHeaderProps<TData> {
-  headerGroups: Array<HeaderGroup<TData>>;
+interface TableHeaderProps<TData extends RowData> {
+  headerGroups: Array<HeaderGroup<TableFeatureSet, TData>>;
   sorting: readonly TableSorting[];
   onSortingChange: ((sorting: TableSorting[]) => void) | undefined;
   /** 固定在最後一欄表頭右側、與標題垂直置中的內容。 */
@@ -22,7 +23,7 @@ interface TableHeaderProps<TData> {
   slot: SlotResolver<TableSlot>;
 }
 
-export function TableHeader<TData>({
+export function TableHeader<TData extends RowData>({
   headerGroups,
   sorting,
   onSortingChange,
@@ -51,11 +52,14 @@ export function TableHeader<TData>({
   );
 }
 
-interface TableHeaderCellProps<TData> extends Omit<TableHeaderProps<TData>, 'headerGroups'> {
-  header: Header<TData, unknown>;
+interface TableHeaderCellProps<TData extends RowData> extends Omit<
+  TableHeaderProps<TData>,
+  'headerGroups'
+> {
+  header: Header<TableFeatureSet, TData, unknown>;
 }
 
-function TableHeaderCell<TData>({
+function TableHeaderCell<TData extends RowData>({
   header,
   sorting,
   onSortingChange,
@@ -118,7 +122,7 @@ function TableHeaderCell<TData>({
   );
 }
 
-interface SortButtonProps extends Pick<TableHeaderCellProps<unknown>, 'sorting' | 'slot'> {
+interface SortButtonProps extends Pick<TableHeaderCellProps<RowData>, 'sorting' | 'slot'> {
   columnId: string;
   /** 這一欄在 `sorting` 裡的位置；-1 表示未排序。 */
   index: number;

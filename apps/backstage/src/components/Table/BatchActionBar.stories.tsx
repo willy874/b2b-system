@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { ColumnDef } from '@tanstack/react-table';
 import { fn } from 'storybook/test';
 
 import { Button } from '../Button';
 import { BatchActionBar } from './BatchActionBar';
 import { createSelectColumn } from './columns';
+import type { TableColumnDef } from './features';
 import { Table } from './Table';
 import { useTableSelection } from './useTableSelection';
 
@@ -39,7 +39,7 @@ const data: Row[] = [
   { id: '3', name: '無線滑鼠' },
 ];
 const getRowId = (row: Row) => row.id;
-const columns: Array<ColumnDef<Row, unknown>> = [
+const columns: Array<TableColumnDef<Row>> = [
   createSelectColumn<Row>(),
   { id: 'name', header: '商品', cell: ({ row }) => row.original.name },
 ];

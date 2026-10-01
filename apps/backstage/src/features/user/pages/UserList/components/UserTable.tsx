@@ -1,5 +1,4 @@
 import { Link } from '@tanstack/react-router';
-import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
 import type { UserSortField } from '@/apis/user/types';
@@ -7,6 +6,7 @@ import { IconButton } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Icon } from '@/components/Icon';
+import type { TableColumnDef } from '@/components/Table';
 import { Tooltip } from '@/components/Tooltip';
 import { RichTable } from '@/core/components';
 import type {
@@ -73,7 +73,7 @@ export function UserTable({
   const resetPassword = useUserResetPasswordMutation();
   const confirm = useConfirm();
 
-  const columns = useMemo<Array<ColumnDef<UserRowVM, unknown>>>(
+  const columns = useMemo<Array<TableColumnDef<UserRowVM>>>(
     () => [
       {
         id: 'displayName',

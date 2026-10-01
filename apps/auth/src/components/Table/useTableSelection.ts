@@ -30,7 +30,7 @@ export function useTableSelection<TData>(
   const byId = useMemo(() => new Map(data.map((row) => [getRowId(row), row])), [data, getRowId]);
 
   const rowSelection = useMemo(
-    () => Object.fromEntries([...snapshots.keys()].map((id) => [id, true])),
+    () => Object.fromEntries([...snapshots.keys()].map((id) => [id, true as const])),
     [snapshots],
   );
 

@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 
 import { getTenantListQueryOptions } from '@/apis/platform-tenant/get-tenant-list/query';
 import { Button } from '@/components/Button';
 import { Pagination } from '@/components/Pagination';
+import type { TableColumnDef } from '@/components/Table';
 import { Table } from '@/components/Table';
 import { useTranslation } from '@/core/locales';
 import type { PlatformTenant } from '@/shared/api-sdk';
@@ -48,7 +48,7 @@ export default function TenantListPage() {
   const setPage = ({ offset, limit }: { offset: number; limit: number }) =>
     patch({ offset, limit });
 
-  const columns = useMemo<Array<ColumnDef<PlatformTenant, unknown>>>(
+  const columns = useMemo<Array<TableColumnDef<PlatformTenant>>>(
     () => [
       {
         id: 'code',

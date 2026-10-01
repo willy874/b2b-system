@@ -1,9 +1,21 @@
-import type { Column, ColumnPinningState, RowPinningState } from '@tanstack/react-table';
+import type { Column, ColumnPinningState, RowData, RowPinningState } from '@tanstack/react-table';
 import { useLayoutEffect, useState } from 'react';
 import type { CSSProperties, RefObject } from 'react';
 
-/** 預設固定在右側的欄位：操作欄在水平捲動時一律看得到。 */
-export const DEFAULT_COLUMN_PINNING: ColumnPinningState = { right: ['actions'] };
+import type { TableFeatureSet } from './features';
+
+/** 預設固定在 end（右側）的欄位：操作欄在水平捲動時一律看得到。 */
+export const DEFAULT_COLUMN_PINNING: Partial<ColumnPinningState> = { end: ['actions'] };
+
+/**
+ * TanStack Table v9 的 `ColumnPinningState` 兩側都必填；`Table` 的 prop 允許省略（`{}` 表示不固定），在這裡補齊。
+ */
+export function toColumnPinningState(pinning: Partial<ColumnPinningState>): ColumnPinningState {
+  return {
+    start: pinning.start ?? [],
+    end: pinning.end ?? [],
+  };
+}
 
 export type RowPinSide = 'top' | 'bottom';
 
@@ -38,12 +50,12 @@ function measure(
 
   const columns: PinLayout['columns'] = {};
   let left = 0;
-  for (const id of columnPinning.left ?? []) {
+  for (const id of columnPinning.start) {
     columns[id] = { left };
     left += width(id);
   }
   let right = 0;
-  for (const id of (columnPinning.right ?? []).toReversed()) {
+  for (const id of columnPinning.end.toReversed()) {
     columns[id] = { right };
     right += width(id);
   }
@@ -103,19 +115,26 @@ export interface PinnedCellProps {
   'data-pinned-edge': true | undefined;
 }
 
-/** 固定欄位以 `position: sticky` 貼在捲動容器的左右緣，位移取自 `usePinLayout` 量到的欄寬。 */
-export function getPinnedCellProps<TData>(
-  column: Column<TData, unknown>,
+/**
+ * 固定欄位以 `position: sticky` 貼在捲動容器的左右緣，位移取自 `usePinLayout` 量到的欄寬。
+ * TanStack Table v9 的固定區改叫 start／end；介面只支援由左至右，DOM 與 CSS 仍用 left／right。
+ */
+export function getPinnedCellProps<TData extends RowData>(
+  column: Column<TableFeatureSet, TData, unknown>,
   layout: PinLayout,
 ): PinnedCellProps {
   const side = column.getIsPinned();
   if (!side) return { style: undefined, 'data-pinned': undefined, 'data-pinned-edge': undefined };
 
-  const edge = side === 'left' ? column.getIsLastColumn('left') : column.getIsFirstColumn('right');
+  // 交界欄：start 側的最後一欄、end 側的第一欄（v9 的 getIsLastColumn 要另外登記 columnOrderingFeature）
+  const edge =
+    side === 'start'
+      ? column.table.getStartLeafColumns().at(-1)?.id === column.id
+      : column.table.getEndLeafColumns()[0]?.id === column.id;
   const offset = layout.columns[column.id];
   return {
-    style: side === 'left' ? { left: offset?.left ?? 0 } : { right: offset?.right ?? 0 },
-    'data-pinned': side,
+    style: side === 'start' ? { left: offset?.left ?? 0 } : { right: offset?.right ?? 0 },
+    'data-pinned': side === 'start' ? 'left' : 'right',
     'data-pinned-edge': edge || undefined,
   };
 }
