@@ -9,7 +9,7 @@
 | --- | --- |
 | 前端 | React 19 + Vite 8 + TanStack Router/Query/Table/Form + Base UI + UnoCSS |
 | 後端 | NestJS 11 + Drizzle ORM + PostgreSQL 17 + Zod |
-| 工具 | pnpm workspace、TypeScript 5.9、oxlint / oxfmt、lefthook、Vitest、Playwright |
+| 工具 | pnpm workspace、TypeScript 6.0、oxlint / oxfmt、lefthook、Vitest、Playwright |
 
 ## 從零到跑起來
 
