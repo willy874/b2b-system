@@ -1,6 +1,6 @@
 import type { ConfigService } from '@nestjs/config';
-import { Text } from '@react-email/components';
 import { createElement } from 'react';
+import { Text } from 'react-email';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Env } from '@/core/config';
