@@ -454,8 +454,9 @@ seed 會為這些角色寫一筆稽核 `role.permissionsImplied`。
 
 ### 9.4 在畫面上檢視
 
-同一份依賴樹在後台畫成兩個地方，版面共用 `apps/backstage/src/core/permission/catalogGraph.ts`
-（每個資源一組、基礎權限在上、跨資源的依賴是虛線）：
+同一份依賴樹在後台畫成兩個地方，版面共用 `apps/backstage/src/core/permission-graph/`
+（每個資源一組、基礎權限在上、跨資源的依賴是虛線）。它刻意不放在 `core/permission`：每個 feature 的 `permission.ts`
+在同步階段就會 import `core/permission`，放在一起會把 `@xyflow/react` 與 `@dagrejs/dagre` 帶進首屏。
 
 | 位置 | 用途 |
 | --- | --- |

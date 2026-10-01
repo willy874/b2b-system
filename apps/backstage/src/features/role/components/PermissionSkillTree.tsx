@@ -7,8 +7,8 @@ import type { SelectOption } from '@/components/Select';
 import { Skeleton } from '@/components/Skeleton';
 import { TreeEditor } from '@/components/TreeEditor';
 import { useTranslation } from '@/core/locales';
-import { PERMISSION_NODE_SIZE } from '@/core/permission';
-import type { PermissionNodeData } from '@/core/permission';
+import { PERMISSION_NODE_SIZE } from '@/core/permission-graph';
+import type { PermissionNodeData } from '@/core/permission-graph';
 import { cn } from '@/shared/utils';
 
 import { SKILL_NODE_STATE } from '../hooks/permissionSkillTree';

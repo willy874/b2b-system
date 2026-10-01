@@ -6,7 +6,7 @@ import {
   layoutPermissionTree,
   permissionClosure,
   prerequisitePath,
-} from '@/core/permission';
+} from '@/core/permission-graph';
 
 import { implyingKeys, selectSkills, skillState, toggleSkill } from './permissionSkillTree';
 import type { SkillState, ToggleResult } from './permissionSkillTree';

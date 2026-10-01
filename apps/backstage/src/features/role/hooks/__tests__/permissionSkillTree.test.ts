@@ -5,7 +5,7 @@ import {
   layoutPermissionTree,
   permissionClosure,
   prerequisitePath,
-} from '@/core/permission';
+} from '@/core/permission-graph';
 import type { Permission, PermissionGroup } from '@/shared/api-sdk';
 
 import { selectSkills, skillState, toggleSkill } from '../permissionSkillTree';

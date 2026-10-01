@@ -1,10 +1,10 @@
 import type { TreeEditorNodeState } from '@/components/TreeEditor';
-import { permissionClosure } from '@/core/permission';
-import type { PermissionCatalogGraph } from '@/core/permission';
+import { permissionClosure } from '@/core/permission-graph';
+import type { PermissionCatalogGraph } from '@/core/permission-graph';
 
 /**
  * 角色權限技能樹的純邏輯（docs/rbac/02-permission-catalog.md §9 權限依賴樹）：
- * 狀態與互鎖（點上層自動點亮前置、有上層包含時不能取消前置）；閉包、前置路徑與版面在 `core/permission` 的 `catalogGraph.ts`。
+ * 狀態與互鎖（點上層自動點亮前置、有上層包含時不能取消前置）；閉包、前置路徑與版面在 `core/permission-graph`。
  */
 
 /** 技能樹上一個權限鍵的狀態。 */

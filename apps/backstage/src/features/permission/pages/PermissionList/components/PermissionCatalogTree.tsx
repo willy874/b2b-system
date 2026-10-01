@@ -2,8 +2,8 @@ import { Chip } from '@/components/Chip';
 import { Icon } from '@/components/Icon';
 import { TreeEditor } from '@/components/TreeEditor';
 import { useTranslation } from '@/core/locales';
-import { PERMISSION_NODE_SIZE } from '@/core/permission';
-import type { PermissionNodeData } from '@/core/permission';
+import { PERMISSION_NODE_SIZE } from '@/core/permission-graph';
+import type { PermissionNodeData } from '@/core/permission-graph';
 import type { PermissionCatalog } from '@/shared/api-sdk';
 import { cn } from '@/shared/utils';
 

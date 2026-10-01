@@ -7,7 +7,7 @@ import {
   layoutPermissionTree,
   permissionClosure,
   prerequisitePath,
-} from '@/core/permission';
+} from '@/core/permission-graph';
 import type { Permission, PermissionCatalog } from '@/shared/api-sdk';
 
 const EMPTY: ReadonlySet<string> = new Set();

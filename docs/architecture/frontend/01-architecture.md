@@ -72,6 +72,7 @@ export * from "@b2b-system/api-sdk";
 | `core/locales`    | i18n scope 註冊與 route loader                                      |
 | `core/notify`     | `useToast()`：發 `GlobalEvents.TOAST_SHOW` 到 eventBus，由 `app/ToastHost` 渲染 |
 | `core/permission` | ★ 權限註冊表、常數、hooks                                           |
+| `core/permission-graph` | 權限依賴樹的閉包、前置路徑與版面（角色技能樹、權限目錄共用；與 `core/permission` 分開，才不會把樹狀圖套件帶進首屏） |
 | `core/preference` | 偏好設定註冊表（讓 feature 往偏好頁掛分頁）、列表註冊表（可自訂欄位的表） |
 | `core/router`     | `RootRoute`、`RouterProvider` 封裝                                  |
 | `core/store`      | 全域 store：`permission`、`layout`、`timezone`、`locale`、`theme`、`tableColumnSettings` |
