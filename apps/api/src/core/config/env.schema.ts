@@ -208,6 +208,18 @@ export const EnvSchema = z.object({
     .transform((value) => value === 'true'),
 
   /**
+   * 是否開放 `POST /auth/login`（以 email ＋ 密碼直接換 access token，保留給測試與腳本）。留空時 production 關閉、
+   * 其他環境開啟；腳本改用 API token（docs/adr/0027-api-tokens-external-api.md D15）。
+   */
+  DIRECT_LOGIN_ENABLED: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z
+      .enum(['true', 'false'])
+      .optional()
+      .transform((value) => (value === undefined ? undefined : value === 'true')),
+  ),
+
+  /**
    * 這個程序是否執行背景工作（worker ＋ 排程）。`false` 時仍可入列，由另一個以同一映像、
    * 設為 `true` 的容器執行（docs/adr/0016-background-jobs.md D4、D5）。
    */

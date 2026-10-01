@@ -26,7 +26,8 @@
     },
     "resource": {
       "auth": "認證",
-      "authz": "授權"
+      "authz": "授權",
+      "apiToken": "API token"
     },
     "detail": {
       "title": "紀錄詳情",

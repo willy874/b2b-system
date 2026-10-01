@@ -39,6 +39,14 @@
         "label": "Password reset link lifetime",
         "description": "How long the password reset link stays valid after it is sent."
       },
+      "personalTokenMaxDays": {
+        "label": "Personal API token maximum lifetime",
+        "description": "How far out a user can set the expiration of a personal API token (platform limit: 90 days)."
+      },
+      "serviceAccountTokenMaxDays": {
+        "label": "Service account API token maximum lifetime",
+        "description": "How far out the expiration of a service account's API token can be set (platform limit: 365 days)."
+      },
       "uploadMaxSize": {
         "label": "Maximum file size",
         "description": "The largest file that can be uploaded. Cannot exceed the limit set for this deployment."

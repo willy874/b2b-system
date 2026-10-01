@@ -1,4 +1,5 @@
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
 import {
   boolean,
   index,
@@ -15,6 +16,12 @@ import { citext } from './custom-types';
 
 export const userStatus = pgEnum('user_status', ['pending', 'active', 'inactive', 'locked']);
 
+/**
+ * 帳號的種類（docs/adr/0027-api-tokens-external-api.md D1）：服務帳號是租戶內的非人類帳號，
+ * 沒有密碼、不能登入、不收信，只經 API token 使用；角色、群組、資料夾授權與人相同。
+ */
+export const userKind = pgEnum('user_kind', ['human', 'service']);
+
 export const users = pgTable(
   'users',
   {
@@ -24,6 +31,7 @@ export const users = pgTable(
     displayName: text('display_name').notNull(),
     passwordHash: text('password_hash'), // pending 時為 null
     status: userStatus('status').notNull().default('pending'),
+    kind: userKind('kind').notNull().default('human'),
 
     // 撤銷機制：+1 即讓該使用者所有既存 access token 失效
     tokenVersion: integer('token_version').notNull().default(0),
@@ -74,6 +82,15 @@ export const users = pgTable(
   ],
 );
 
+/**
+ * 「人」的帳號：使用者列表、人數、最後一位 super-admin、登入與寄信都只看人，不看服務帳號
+ * （docs/adr/0027-api-tokens-external-api.md D1）。與 `notDeleted()` 一樣在查詢裡組合使用。
+ */
+export function isHumanUser(): SQL {
+  return eq(users.kind, 'human');
+}
+
 export type UserRow = typeof users.$inferSelect;
 export type UserInsert = typeof users.$inferInsert;
 export type UserStatus = (typeof userStatus.enumValues)[number];
+export type UserKind = (typeof userKind.enumValues)[number];

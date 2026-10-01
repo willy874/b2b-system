@@ -64,6 +64,8 @@ export const users = pgTable(
     displayName: text("display_name").notNull(),
     passwordHash: text("password_hash"), // pending 時為 null
     status: userStatus("status").notNull().default("pending"),
+    // human | service：服務帳號是不登入的非人類帳號（ADR-0027 D1；查人的地方加 isHumanUser()）
+    kind: userKind("kind").notNull().default("human"),
 
     // 撤銷機制：+1 即讓該使用者所有既存 access token 失效
     tokenVersion: integer("token_version").notNull().default(0),
@@ -416,6 +418,29 @@ G1～G2 期間由舊表上的 trigger 同步寫入這張表（migration 0008，�
 「有效的群組」集中在 `isActiveGroup()`（＝`notDeleted(groups)`）；`core/authz` 與 `GroupRepository` 的遞迴 CTE 是手寫 SQL，同一個條件寫在那裡並註明。
 migration 0017 手寫兩個 trigger：`deleted_at` 改變時 `authz_revision` +1（§2.11）、`updated_at`。
 
+### 2.15 `api_tokens`（API token）與服務帳號
+
+服務帳號是 `users` 的一列（`kind = 'service'`，[ADR-0027](../../adr/0027-api-tokens-external-api.md) D1）：沒有密碼、`email` 是不可投遞的
+`svc-<id>@service.invalid`。使用者列表、人數、最後一位 super-admin（I8）、登入與忘記密碼的 email 查詢、外部 IdP 的自動連結、
+個人資料夾、以權限找通知的收件人都只看人：查詢加上 `isHumanUser()`（`db/schema/users.ts`，與 `notDeleted()` 一樣組合使用）。
+刪除的服務帳號不在回收桶列出、不能還原，保留期滿後與使用者一起由 `trash.purge` 清除。
+
+| 欄位 | 型別 | 說明 |
+| --- | --- | --- |
+| `id` | `uuid` PK | token 的 `<tokenId>` 段是它的 base62 |
+| `user_id` | `uuid` FK → `users`（`ON DELETE CASCADE`） | 擁有者：本人（個人 token）或服務帳號 |
+| `name` | `text` | |
+| `prefix` | `text` | 開頭到 secret 的前 4 碼，管理頁辨認用 |
+| `secret_hash` | `text` | secret 的 SHA-256（hex）；secret 是 256 位元的隨機值，不需要慢雜湊 |
+| `scopes` | `text[] NULL` | 限縮到的權限鍵；null＝跟著帳號（D3） |
+| `account_version` | `integer` | 建立當時帳號的 `token_version`；不相等就失效（D5） |
+| `expires_at` | `timestamptz` | 必填；個人最多 90 天、服務帳號最多 365 天（系統設定可調短，D8） |
+| `last_used_at` | `timestamptz NULL` | 由對外 API 每分鐘批次更新（T2） |
+| `revoked_at` / `revoked_by` | | 撤銷 |
+| `created_at` / `created_by` | | |
+
+索引：`(user_id, created_at desc)`（管理頁的列表）、`(user_id) WHERE revoked_at IS NULL`（有效 token 數的上限）。
+
 ---
 
 ## 3. 不變條件的 DB 層強制
@@ -602,6 +627,10 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0017_groups_triggers.sql            手寫：groups.deleted_at 改變時 authz_revision +1、updated_at（§2.11、§3.3）
 ├── 0018_groups_system_role_permissions.sql  手寫：既有租戶的 admin 補 group:*、auditor 補 group:read（§6 的規則）
 ├── 0019_authz_explain_system_roles.sql     手寫：既有租戶的 admin、auditor 補 authz:explain（§6 的規則）
+├── 0020_notification_policies.sql      notification_policies 表（ADR-0028；純加法）
+├── 0021_notification_preferences.sql   個人通知設定（ADR-0028 E3；純加法）
+├── 0022_api_tokens.sql                 users.kind、api_tokens 表（§2.15，ADR-0027 T1；純加法）
+├── 0023_service_account_system_roles.sql   手寫：既有租戶的 admin 補 serviceAccount:*、auditor 補 serviceAccount:read
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

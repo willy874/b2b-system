@@ -26,7 +26,8 @@
     },
     "resource": {
       "auth": "Auth",
-      "authz": "Authorization"
+      "authz": "Authorization",
+      "apiToken": "API tokens"
     },
     "detail": {
       "title": "Record detail",

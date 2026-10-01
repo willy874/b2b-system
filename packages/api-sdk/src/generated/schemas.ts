@@ -5,6 +5,8 @@ import { z } from 'zod';
 
 import type {
   AddTenantDomainRequest,
+  ApiToken,
+  ApiTokenList,
   ApprovalRequest,
   ApprovalStatus,
   ApprovalType,
@@ -13,6 +15,7 @@ import type {
   AuditLogSummary,
   ChangePasswordRequest,
   CompleteFileUploadRequest,
+  CreateApiTokenRequest,
   CreateFileAccessRequest,
   CreateFileFolderRequest,
   CreateFileUploadPartsRequest,
@@ -21,8 +24,10 @@ import type {
   CreateIdentityProviderRequest,
   CreatePlatformAdminRequest,
   CreateRoleRequest,
+  CreateServiceAccountRequest,
   CreateTenantRequest,
   CreateUserRequest,
+  CreatedApiToken,
   CurrentTenant,
   DuplicateRoleRequest,
   EffectivePermission,
@@ -102,6 +107,7 @@ import type {
   RegisterRequest,
   RegisterResult,
   RejectApprovalRequest,
+  ReplaceServiceAccountRolesRequest,
   ReplaceUserRolesRequest,
   ResetPasswordRequest,
   RestoredFileFolder,
@@ -116,6 +122,8 @@ import type {
   RoleRevision,
   RoleRevisionSnapshot,
   RoleSummary,
+  ServiceAccount,
+  ServiceAccountRoles,
   Session,
   SetFileFolderGrantRequest,
   SetupRequest,
@@ -149,6 +157,7 @@ import type {
   UpdateProfileRequest,
   UpdateRolePermissionsRequest,
   UpdateRoleRequest,
+  UpdateServiceAccountRequest,
   UpdateSystemSettingsRequest,
   UpdateTenantRequest,
   UpdateUserRequest,
@@ -156,6 +165,141 @@ import type {
   UserRoles,
   UserStatus,
 } from './models';
+
+export const PermissionKeySchema = z.enum([
+  'user:create',
+  'user:read',
+  'user:update',
+  'user:delete',
+  'user:assignRole',
+  'user:resetPassword',
+  'role:create',
+  'role:read',
+  'role:update',
+  'role:delete',
+  'role:grantPermission',
+  'permission:read',
+  'auditLog:read',
+  'system:read',
+  'system:update',
+  'approval:read',
+  'approval:review',
+  'file:create',
+  'file:read',
+  'file:update',
+  'file:delete',
+  'file:access',
+  'file:share',
+  'job:read',
+  'job:retry',
+  'identityProvider:create',
+  'identityProvider:read',
+  'identityProvider:update',
+  'identityProvider:delete',
+  'group:create',
+  'group:read',
+  'group:update',
+  'group:delete',
+  'group:assignRole',
+  'authz:explain',
+  'serviceAccount:create',
+  'serviceAccount:read',
+  'serviceAccount:update',
+  'serviceAccount:delete',
+]) satisfies z.ZodType<PermissionKey>;
+
+export const PermissionSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  key: PermissionKeySchema,
+  resource: z.string(),
+  action: z.string(),
+  nameI18nKey: z.string(),
+  description: z.string().nullable(),
+  sortOrder: z.int().min(-9007199254740991).max(9007199254740991),
+  includes: z.array(PermissionKeySchema),
+  requires: z.array(PermissionKeySchema),
+}) satisfies z.ZodType<Permission>;
+
+export const ExplainNodeSchema = z.object({
+  type: z.string(),
+  id: z.string().nullable(),
+  relation: z.string(),
+  name: z.string().nullable(),
+  hidden: z.boolean(),
+}) satisfies z.ZodType<ExplainNode>;
+
+export const PermissionSourceSchema = z.object({
+  grantedKey: z.string(),
+  via: z.array(ExplainNodeSchema),
+}) satisfies z.ZodType<PermissionSource>;
+
+export const EffectivePermissionSchema = z.object({
+  key: PermissionKeySchema,
+  source: PermissionSourceSchema,
+  impliedBy: z.array(PermissionKeySchema),
+}) satisfies z.ZodType<EffectivePermission>;
+
+export const PermissionGroupSchema = z.object({
+  resource: z.string(),
+  nameI18nKey: z.string(),
+  keys: z.array(PermissionKeySchema),
+}) satisfies z.ZodType<PermissionGroup>;
+
+export const PermissionCatalogSchema = z.object({
+  items: z.array(PermissionSchema),
+  groups: z.array(PermissionGroupSchema),
+}) satisfies z.ZodType<PermissionCatalog>;
+
+export const ApiTokenSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+  prefix: z.string(),
+  scopes: z.array(PermissionKeySchema).nullable(),
+  status: z.enum(['active', 'expired', 'revoked', 'invalidated']),
+  expiresAt: z.string(),
+  lastUsedAt: z.string().nullable(),
+  revokedAt: z.string().nullable(),
+  createdAt: z.string(),
+  createdBy: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      displayName: z.string(),
+    })
+    .nullable(),
+}) satisfies z.ZodType<ApiToken>;
+
+export const ApiTokenListSchema = z.object({
+  items: z.array(ApiTokenSchema),
+}) satisfies z.ZodType<ApiTokenList>;
+
+export const CreateApiTokenRequestSchema = z.object({
+  name: z.string().min(1).max(100),
+  expiresInDays: z.int().min(1).max(365),
+  scopes: z.array(PermissionKeySchema).min(1).max(50).nullable().optional(),
+}) satisfies z.ZodType<CreateApiTokenRequest>;
+
+export const CreatedApiTokenSchema = z.object({
+  token: z.string(),
+  apiToken: ApiTokenSchema,
+}) satisfies z.ZodType<CreatedApiToken>;
 
 export const NotificationChannelSchema = z.enum([
   'inApp',
@@ -617,92 +761,6 @@ export const UserSchema = z.object({
 export const UserRolesSchema = z.object({
   roles: z.array(RoleSummarySchema),
 }) satisfies z.ZodType<UserRoles>;
-
-export const PermissionKeySchema = z.enum([
-  'user:create',
-  'user:read',
-  'user:update',
-  'user:delete',
-  'user:assignRole',
-  'user:resetPassword',
-  'role:create',
-  'role:read',
-  'role:update',
-  'role:delete',
-  'role:grantPermission',
-  'permission:read',
-  'auditLog:read',
-  'system:read',
-  'system:update',
-  'approval:read',
-  'approval:review',
-  'file:create',
-  'file:read',
-  'file:update',
-  'file:delete',
-  'file:access',
-  'file:share',
-  'job:read',
-  'job:retry',
-  'identityProvider:create',
-  'identityProvider:read',
-  'identityProvider:update',
-  'identityProvider:delete',
-  'group:create',
-  'group:read',
-  'group:update',
-  'group:delete',
-  'group:assignRole',
-  'authz:explain',
-]) satisfies z.ZodType<PermissionKey>;
-
-export const PermissionSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  key: PermissionKeySchema,
-  resource: z.string(),
-  action: z.string(),
-  nameI18nKey: z.string(),
-  description: z.string().nullable(),
-  sortOrder: z.int().min(-9007199254740991).max(9007199254740991),
-  includes: z.array(PermissionKeySchema),
-  requires: z.array(PermissionKeySchema),
-}) satisfies z.ZodType<Permission>;
-
-export const ExplainNodeSchema = z.object({
-  type: z.string(),
-  id: z.string().nullable(),
-  relation: z.string(),
-  name: z.string().nullable(),
-  hidden: z.boolean(),
-}) satisfies z.ZodType<ExplainNode>;
-
-export const PermissionSourceSchema = z.object({
-  grantedKey: z.string(),
-  via: z.array(ExplainNodeSchema),
-}) satisfies z.ZodType<PermissionSource>;
-
-export const EffectivePermissionSchema = z.object({
-  key: PermissionKeySchema,
-  source: PermissionSourceSchema,
-  impliedBy: z.array(PermissionKeySchema),
-}) satisfies z.ZodType<EffectivePermission>;
-
-export const PermissionGroupSchema = z.object({
-  resource: z.string(),
-  nameI18nKey: z.string(),
-  keys: z.array(PermissionKeySchema),
-}) satisfies z.ZodType<PermissionGroup>;
-
-export const PermissionCatalogSchema = z.object({
-  items: z.array(PermissionSchema),
-  groups: z.array(PermissionGroupSchema),
-}) satisfies z.ZodType<PermissionCatalog>;
 
 export const TenantFeatureSchema = z.enum([
   'file',
@@ -1814,6 +1872,74 @@ export const UpdateRolePermissionsRequestSchema = z.object({
   add: z.array(PermissionKeySchema).max(100).default([]),
   remove: z.array(PermissionKeySchema).max(100).default([]),
 }) satisfies z.ZodType<UpdateRolePermissionsRequest>;
+
+export const ServiceAccountSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+  status: z.enum(['active', 'inactive']),
+  roles: z.array(RoleSummarySchema),
+  activeTokenCount: z.int().min(-9007199254740991).max(9007199254740991),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}) satisfies z.ZodType<ServiceAccount>;
+
+export const CreateServiceAccountRequestSchema = z.object({
+  name: z.string().min(1).max(100),
+  roleIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(20)
+    .default([]),
+}) satisfies z.ZodType<CreateServiceAccountRequest>;
+
+export const UpdateServiceAccountRequestSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  status: z.enum(['active', 'inactive']).optional(),
+  version: z.int().min(1).max(9007199254740991),
+}) satisfies z.ZodType<UpdateServiceAccountRequest>;
+
+export const ReplaceServiceAccountRolesRequestSchema = z.object({
+  roleIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(20),
+  expectedRoleIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(20),
+}) satisfies z.ZodType<ReplaceServiceAccountRolesRequest>;
+
+export const ServiceAccountRolesSchema = z.object({
+  roles: z.array(RoleSummarySchema),
+}) satisfies z.ZodType<ServiceAccountRoles>;
 
 export const SystemSettingSchema = z.object({
   key: z.string(),

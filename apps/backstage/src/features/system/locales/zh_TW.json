@@ -39,6 +39,14 @@
         "label": "重設密碼連結有效期",
         "description": "重設密碼信的連結在寄出後多久內有效。"
       },
+      "personalTokenMaxDays": {
+        "label": "個人 API token 最長有效期",
+        "description": "使用者建立個人 API token 時，到期時間最多可以設多遠（平台上限 90 天）。"
+      },
+      "serviceAccountTokenMaxDays": {
+        "label": "服務帳號 API token 最長有效期",
+        "description": "替服務帳號建立 API token 時，到期時間最多可以設多遠（平台上限 365 天）。"
+      },
       "uploadMaxSize": {
         "label": "單一檔案上限",
         "description": "上傳檔案的大小上限，不能超過部署設定的上限。"
