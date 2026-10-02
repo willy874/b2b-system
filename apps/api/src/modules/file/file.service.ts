@@ -15,6 +15,7 @@ import { RESOURCE_TYPE } from '@/core/resource';
 import { SettingService } from '@/core/settings';
 import { ObjectStorage } from '@/core/storage';
 import type { PresignedRequest } from '@/core/storage';
+import { FILE_STORAGE_QUOTA_MB_PARAM, tenantFeatureParam } from '@/core/tenant';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import type { TagSummaryDto } from '@/modules/tag/dto/tag.dto';
@@ -99,12 +100,15 @@ export class FileService {
 
   /** 前端上傳前的檢查與切塊策略（`GET /files/upload-policy`）。 */
   async getUploadPolicy(): Promise<FileUploadPolicyDto> {
+    const [maxSize, storageUsed] = await Promise.all([this.maxSize(), this.repo.storageUsed()]);
     return {
-      maxSize: await this.maxSize(),
+      maxSize,
       multipartThreshold: this.multipartThreshold,
       partSize: this.partSize,
       thumbnailMaxSize: THUMBNAIL_MAX_SIZE,
       thumbnailContentTypes: [...THUMBNAIL_CONTENT_TYPES],
+      storageQuota: storageQuotaBytes(),
+      storageUsed,
     };
   }
 
@@ -173,6 +177,8 @@ export class FileService {
     }
     const ctx = await this.access.contextFor(actor);
     await this.access.assertCan(ctx, actor, 'create', dto.folderId ?? null);
+    // 先不鎖地檢查一次：明顯超過容量時不必向物件儲存要分塊上傳的 uploadId；登記時在交易內再確認一次
+    assertWithinQuota(await this.repo.storageUsed(), dto.size);
     await this.storage.ensureBucket();
 
     const id = randomUUID();
@@ -182,23 +188,36 @@ export class FileService {
     const uploadId = isMultipart
       ? await this.storage.createMultipartUpload(storageKey, { contentType: dto.contentType })
       : null;
-    const row = await this.folders.insideFolder(dto.folderId, (tx) =>
-      this.repo.create(
-        {
-          id,
-          name: dto.name,
-          contentType: dto.contentType,
-          size: dto.size,
-          storageKey,
-          uploadId,
-          folderId: dto.folderId ?? null,
-          status: 'pending',
-          createdBy: actor.id,
-          updatedBy: actor.id,
-        },
-        tx,
-      ),
-    );
+    const row = await this.folders
+      .insideFolder(dto.folderId, async (tx) => {
+        assertWithinQuota(await this.repo.storageUsed(tx), dto.size);
+        return this.repo.create(
+          {
+            id,
+            name: dto.name,
+            contentType: dto.contentType,
+            size: dto.size,
+            storageKey,
+            uploadId,
+            folderId: dto.folderId ?? null,
+            status: 'pending',
+            createdBy: actor.id,
+            updatedBy: actor.id,
+          },
+          tx,
+        );
+      })
+      .catch(async (error: unknown) => {
+        // 登記失敗（容量、資料夾已刪除）：已要到的分塊上傳不會再被用到，盡力取消
+        if (uploadId) {
+          await this.storage
+            .abortMultipartUpload(storageKey, uploadId)
+            .catch((abortError: unknown) =>
+              this.logger.warn({ err: abortError, fileId: id }, '取消分塊上傳失敗'),
+            );
+        }
+        throw error;
+      });
 
     const [upload, thumbnailUpload] = await Promise.all([
       isMultipart
@@ -649,4 +668,19 @@ function toUploadTarget(signed: PresignedRequest) {
     headers: signed.headers,
     expiresAt: signed.expiresAt.toISOString(),
   };
+}
+
+const MIB = 1024 * 1024;
+
+/** 租戶的檔案容量，位元組（`file.storageQuotaMb`；docs/adr/0033-feature-params-and-webhook-targets.md D8）。 */
+function storageQuotaBytes(): number {
+  return tenantFeatureParam(FILE_STORAGE_QUOTA_MB_PARAM) * MIB;
+}
+
+/** 加上這次的大小會超過容量時拋 `FILE_STORAGE_QUOTA_EXCEEDED`。調小到低於已用量時只擋新的上傳。 */
+function assertWithinQuota(used: number, size: number): void {
+  const quota = storageQuotaBytes();
+  if (used + size > quota) {
+    throw new AppException('FILE_STORAGE_QUOTA_EXCEEDED', { quota, used, size });
+  }
 }

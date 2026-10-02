@@ -176,6 +176,21 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
       expect(body.data.pagination.total).toBe(2);
     });
 
+    it('冷表裡有範圍內的紀錄就一起查（保留天數調大後，已搬走的紀錄不會回到熱表；docs/adr/0033-feature-params-and-webhook-targets.md D7）', async () => {
+      // 模擬保留天數曾經很短：10 天前的紀錄已經在冷表
+      await insertLog('tier.shortRetention', daysAgo(10));
+      await archive(daysAgo(9));
+      const [cold] = await db
+        .select()
+        .from(auditLogsArchive)
+        .where(eq(auditLogsArchive.action, 'tier.shortRetention'));
+      expect(cold).toBeDefined();
+      const response = await list('action=tier.shortRetention').expect(200);
+      expect((response.body as ListBody).data.items.map((item) => item.action)).toEqual([
+        'tier.shortRetention',
+      ]);
+    });
+
     it('冷熱合併後分頁仍正確', async () => {
       const from = daysAgo(130).toISOString();
       const to = daysAgo(41).toISOString();

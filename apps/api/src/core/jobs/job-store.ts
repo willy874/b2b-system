@@ -4,7 +4,9 @@ import type { SQL } from 'drizzle-orm';
 
 import { PLATFORM_DB } from '../database';
 import type { PlatformDatabase } from '../database';
-import { JOB_SCHEMA } from './job-queue';
+
+/** pg-boss 的表放在自己的 schema，與業務表分開（docs/architecture/backend/10-jobs.md §2）。 */
+export const JOB_SCHEMA = 'pgboss';
 
 export const JOB_STATES = [
   'created',
@@ -135,6 +137,50 @@ export class JobStore {
           WHERE id = ${id} AND ${ofTenant(tenantId)} AND ${inNames(names)}`,
     );
     return row ? toRecord(row) : undefined;
+  }
+
+  /**
+   * 這個租戶有幾筆 `active` 的工作排在 `jobId` 之前（依 `(started_on, id)`；docs/adr/0033-feature-params-and-webhook-targets.md D9）。
+   * 每個 worker 都以同一個順序判斷，同時取到的幾筆裡只有排在上限以內的會執行，不必另外上鎖。
+   * `jobId` 已不是 `active`（逾時被收回）時回 0：交給 pg-boss 自己處理。
+   */
+  async activeAhead(tenantId: string, jobId: string): Promise<number> {
+    const [row] = await this.db.execute<{ ahead: number }>(
+      sql`WITH me AS (
+            SELECT started_on, id FROM ${JOB_TABLE} WHERE id = ${jobId} AND state = 'active'
+          )
+          SELECT count(*)::int AS ahead FROM ${JOB_TABLE} j, me
+          WHERE j.state = 'active' AND j.data->>'tenantId' = ${tenantId}
+            AND (j.started_on, j.id) < (me.started_on, me.id)`,
+    );
+    return row?.ahead ?? 0;
+  }
+
+  /**
+   * 把執行中的工作放回佇列（ADR-0033 D9）：改回 `created`、`start_after` 延後，**不** 動重試次數，工作 id 不變。
+   * pg-boss 的 API 只能更新還沒開始的工作，所以直接改表；之後 handler 回傳時 pg-boss 的完成只更新 `active` 的列，是空操作。
+   *
+   * `conflict`：`exclusive`（stately）佇列已有一筆排隊，唯一索引擋下——排隊中的那一筆會做同一件事。
+   * `gone`：工作已不是 `active`（逾時被收回、被取消）。
+   */
+  async requeue(
+    name: string,
+    jobId: string,
+    delaySeconds: number,
+  ): Promise<'requeued' | 'conflict' | 'gone'> {
+    try {
+      const rows = await this.db.execute<{ id: string }>(
+        sql`UPDATE ${JOB_TABLE}
+            SET state = 'created', started_on = NULL, heartbeat_on = NULL,
+                start_after = now() + make_interval(secs => ${delaySeconds})
+            WHERE name = ${name} AND id = ${jobId} AND state = 'active'
+            RETURNING id`,
+      );
+      return rows.length ? 'requeued' : 'gone';
+    } catch (error) {
+      if ((error as { code?: string }).code === '23505') return 'conflict';
+      throw error;
+    }
   }
 }
 

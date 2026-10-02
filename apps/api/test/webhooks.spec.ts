@@ -20,13 +20,14 @@ import {
   webhookDeliveries,
   webhookEvents,
   webhookSubscriptions,
+  webhookTargets,
 } from '@/db/schema';
 import { WEBHOOK_AUTO_DISABLE_AFTER_FAILURES } from '@/modules/webhook/webhook.constants';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
-import { testTenantContext } from './tenant';
+import { setTestTenantFeatureParams, testTenantContext } from './tenant';
 
 let app: INestApplication;
 let http: App;
@@ -116,6 +117,7 @@ interface WebhookBody {
   consecutiveFailures: number;
   version: number;
   events: string[];
+  targets: { id: string; url: string; consecutiveFailures: number }[];
 }
 
 interface DeliveryBody {
@@ -127,6 +129,8 @@ interface DeliveryBody {
   succeeded: boolean;
   responseStatus: number | null;
   responseBody: string | null;
+  targetId: string | null;
+  url: string;
 }
 
 /** worker 以輪詢取工作：等到接收端收到第 `count` 個這種事件。 */
@@ -180,9 +184,12 @@ describe('Webhook（docs/adr/0030-webhooks.md）', () => {
     await app.init();
     http = await listenOnLoopback(app);
     tenantCode = (await testTenantContext(app)).code;
+    // 預設一個租戶只能通知 1 個網址（ADR-0033 D11）；這裡要多個接收端
+    await setTestTenantFeatureParams(app, { 'webhook.maxUrls': 10 });
   });
 
   afterAll(async () => {
+    await setTestTenantFeatureParams(app, {});
     await app.close();
     await closeDb();
     await receiver.stop();
@@ -220,7 +227,7 @@ describe('Webhook（docs/adr/0030-webhooks.md）', () => {
       await root
         .post('/webhooks', {
           name: '正常的接收端',
-          url: `${receiver.base}/ok`,
+          urls: [`${receiver.base}/ok`],
           events: ['user.created', 'user.statusChanged'],
         })
         .expect(201),
@@ -244,7 +251,7 @@ describe('Webhook（docs/adr/0030-webhooks.md）', () => {
       await root
         .post('/webhooks', {
           name: '壞掉的接收端',
-          url: `${receiver.base}/fail`,
+          urls: [`${receiver.base}/fail`],
           events: ['user.created'],
         })
         .expect(201),
@@ -255,7 +262,7 @@ describe('Webhook（docs/adr/0030-webhooks.md）', () => {
   it('訂閱沒有登記的事件 → 400 WEBHOOK_EVENT_UNKNOWN', async () => {
     const root = await as(ROOT);
     const response = await root
-      .post('/webhooks', { name: 'x', url: `${receiver.base}/ok`, events: ['webhook.ping'] })
+      .post('/webhooks', { name: 'x', urls: [`${receiver.base}/ok`], events: ['webhook.ping'] })
       .expect(400);
     expect(errorOf(response)).toMatchObject({
       code: 'WEBHOOK_EVENT_UNKNOWN',
@@ -267,7 +274,7 @@ describe('Webhook（docs/adr/0030-webhooks.md）', () => {
     const auditor = await as(AUDITOR);
     await auditor.get('/webhooks').expect(200);
     await auditor
-      .post('/webhooks', { name: 'x', url: `${receiver.base}/ok`, events: ['user.created'] })
+      .post('/webhooks', { name: 'x', urls: [`${receiver.base}/ok`], events: ['user.created'] })
       .expect(403);
   });
 
@@ -350,10 +357,13 @@ describe('Webhook（docs/adr/0030-webhooks.md）', () => {
     expect(receiver.of('/fail', 'user.statusChanged')).toHaveLength(0);
   });
 
-  it('送測試事件：同步回傳這一次的投遞紀錄（webhook.ping）', async () => {
+  it('送測試事件：同步回傳每個網址的投遞紀錄（webhook.ping）', async () => {
     const root = await as(ROOT);
-    const delivery = dataOf<DeliveryBody>(await root.post(`/webhooks/${ids.ok}/test`).expect(201));
-    expect(delivery).toMatchObject({
+    const { items } = dataOf<{ items: DeliveryBody[] }>(
+      await root.post(`/webhooks/${ids.ok}/test`).expect(201),
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
       eventType: 'webhook.ping',
       trigger: 'manual',
       succeeded: true,
@@ -426,9 +436,9 @@ describe('Webhook（docs/adr/0030-webhooks.md）', () => {
 
   it('連續失敗到門檻自動停用：寫稽核、通知持有 webhook:update 的人（D13）', async () => {
     await db
-      .update(webhookSubscriptions)
+      .update(webhookTargets)
       .set({ consecutiveFailures: WEBHOOK_AUTO_DISABLE_AFTER_FAILURES - 1 })
-      .where(eq(webhookSubscriptions.id, ids.failing!));
+      .where(eq(webhookTargets.subscriptionId, ids.failing!));
     const root = await as(ROOT);
     await root
       .post('/users', { email: 'wh-last-straw@example.com', displayName: 'last', roleIds: [] })
@@ -459,9 +469,96 @@ describe('Webhook（docs/adr/0030-webhooks.md）', () => {
       .where(eq(notifications.type, 'webhook.disabled'));
     expect(sent.length).toBeGreaterThan(0);
     expect(sent[0]).toMatchObject({
-      params: { webhookName: '壞掉的接收端', consecutiveFailures: 50 },
+      params: {
+        webhookName: '壞掉的接收端',
+        consecutiveFailures: 50,
+        url: `${receiver.base}/fail`,
+      },
       link: { route: 'webhook.detail', params: { webhookId: ids.failing } },
     });
+  });
+
+  it('多個網址：每個網址各送一次、各自記錄；移除的網址保留紀錄的快照（ADR-0033 D13、D14）', async () => {
+    const root = await as(ROOT);
+    const created = dataOf<{ webhook: WebhookBody }>(
+      await root
+        .post('/webhooks', {
+          name: '兩個網址',
+          urls: [`${receiver.base}/multi-a`, `${receiver.base}/multi-b`],
+          events: ['user.deleted'],
+        })
+        .expect(201),
+    );
+    const id = created.webhook.id;
+    expect(created.webhook.targets.map((target) => target.url)).toEqual([
+      `${receiver.base}/multi-a`,
+      `${receiver.base}/multi-b`,
+    ]);
+    await root.delete(`/users/${ids.user}`).expect(204);
+    await waitForRequests('/multi-a', 'user.deleted');
+    await waitForRequests('/multi-b', 'user.deleted');
+    const listed = await vi.waitFor(
+      async () => {
+        const found = dataOf<{ items: DeliveryBody[] }>(
+          await root.get(`/webhooks/${id}/deliveries`).expect(200),
+        );
+        expect(found.items).toHaveLength(2);
+        return found.items;
+      },
+      { timeout: 5000, interval: 100 },
+    );
+    expect(listed.map((item) => item.attempt)).toEqual([1, 1]);
+    const [targetA] = created.webhook.targets;
+    const onlyA = dataOf<{ items: DeliveryBody[] }>(
+      await root.get(`/webhooks/${id}/deliveries?targetId=${targetA!.id}`).expect(200),
+    );
+    expect(onlyA.items.map((item) => item.url)).toEqual([`${receiver.base}/multi-a`]);
+
+    // 移除 a：b 的 id 不變，a 的紀錄留著但 targetId 是 null
+    const updated = dataOf<WebhookBody>(
+      await root
+        .patch(`/webhooks/${id}`, { urls: [`${receiver.base}/multi-b`], version: 1 })
+        .expect(200),
+    );
+    expect(updated.targets).toEqual([
+      expect.objectContaining({ id: created.webhook.targets[1]!.id }),
+    ]);
+    const after = dataOf<{ items: DeliveryBody[] }>(
+      await root.get(`/webhooks/${id}/deliveries`).expect(200),
+    );
+    expect(after.items.find((item) => item.url.endsWith('/multi-a'))).toMatchObject({
+      targetId: null,
+    });
+    await root.delete(`/webhooks/${id}`).expect(204);
+  });
+
+  it('租戶不重複的網址數超過 webhook.maxUrls → 409 WEBHOOK_URL_LIMIT_REACHED（ADR-0033 D11）', async () => {
+    const root = await as(ROOT);
+    const existing = await db.selectDistinct({ url: webhookTargets.url }).from(webhookTargets);
+    await setTestTenantFeatureParams(app, { 'webhook.maxUrls': existing.length });
+    try {
+      const response = await root
+        .post('/webhooks', {
+          name: '再一個',
+          urls: [`${receiver.base}/one-more`],
+          events: ['user.created'],
+        })
+        .expect(409);
+      expect(errorOf(response)).toMatchObject({
+        code: 'WEBHOOK_URL_LIMIT_REACHED',
+        details: { max: existing.length },
+      });
+      // 已經有的網址不另外計數
+      await root
+        .post('/webhooks', {
+          name: '同一個網址',
+          urls: [existing[0]!.url],
+          events: ['user.created'],
+        })
+        .expect(201);
+    } finally {
+      await setTestTenantFeatureParams(app, { 'webhook.maxUrls': 10 });
+    }
   });
 
   it('刪除：硬刪除，投遞紀錄一併刪除', async () => {

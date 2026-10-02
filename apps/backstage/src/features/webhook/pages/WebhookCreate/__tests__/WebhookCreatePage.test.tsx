@@ -74,7 +74,30 @@ describe('WebhookCreatePage（docs/adr/0030-webhooks.md D14）', () => {
 
     expect(await screen.findByTestId('webhook-secret-value')).toHaveTextContent('whsec_once');
     expect(createWebhook.mock.calls[0]![0]).toMatchObject({
-      params: { name: 'CI', url: 'https://hooks.example.com', events: ['user.created'] },
+      params: { name: 'CI', urls: ['https://hooks.example.com'], events: ['user.created'] },
+    });
+  });
+
+  it('可以加第二個網址；空白列不送出（ADR-0033 D13）', async () => {
+    createWebhook.mockResolvedValue({ secret: 'whsec_once', webhook: { id: 'w1', name: 'CI' } });
+    renderRoute(routes, '/webhook/create', CREATOR);
+    fireEvent.change(
+      await screen.findByTestId('webhook-name-input', undefined, { timeout: 5000 }),
+      { target: { value: 'CI' } },
+    );
+    fireEvent.click(screen.getByTestId('webhook-url-add'));
+    fireEvent.click(screen.getByTestId('webhook-url-add'));
+    const inputs = screen.getAllByTestId('webhook-url-input');
+    expect(inputs).toHaveLength(3);
+    fireEvent.change(inputs[0]!, { target: { value: 'https://a.example.com' } });
+    fireEvent.change(inputs[2]!, { target: { value: ' https://c.example.com ' } });
+    fireEvent.click(screen.getByTestId('webhook-events-select'));
+    fireEvent.click(await screen.findByRole('option', { name: /使用者建立/ }));
+    fireEvent.click(screen.getByTestId('webhook-create-submit'));
+
+    await screen.findByTestId('webhook-secret-value');
+    expect(createWebhook.mock.calls[0]![0]).toMatchObject({
+      params: { urls: ['https://a.example.com', 'https://c.example.com'] },
     });
   });
 

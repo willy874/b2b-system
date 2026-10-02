@@ -91,13 +91,14 @@ export class FileFolderService {
 
   /**
    * 在「資料夾確定存在」的交易內執行（登記上傳時建立檔案紀錄）：與遞迴刪除排隊，
-   * 不會把檔案放進剛被刪除的資料夾。`folderId` 為 null / undefined 是根目錄，不必排隊。
+   * 不會把檔案放進剛被刪除的資料夾。`folderId` 為 null / undefined 是根目錄，不必排隊，但仍在交易內
+   * （容量的檢查以 advisory lock 序列化，docs/adr/0033-feature-params-and-webhook-targets.md D8）。
    */
   async insideFolder<T>(
     folderId: string | null | undefined,
     work: (tx: DbOrTx) => Promise<T>,
   ): Promise<T> {
-    if (!folderId) return work(this.db);
+    if (!folderId) return withTransaction(this.db, work);
     return withTransaction(this.db, async (tx) => {
       await this.repo.lockTree(tx);
       await this.getOrThrow(folderId, tx);

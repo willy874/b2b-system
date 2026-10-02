@@ -4,28 +4,37 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../config';
 import type { Database } from '../../database';
 import { AppException } from '../../errors';
-import type { Tenancy, TenantDirectory } from '../../tenant';
+import type { Tenancy, TenantDirectory, TenantRecord } from '../../tenant';
 import { JobQueue } from '../job-queue';
 import type { JobContext, JobEnvelope } from '../job-queue';
+import type { JobStore } from '../job-store';
 import { defineJob } from '../job-type';
 
 const TYPE = defineJob<{ id: string }>('test.work');
 const CONTEXT = { id: 'job-1', retryCount: 0, signal: new AbortController().signal } as JobContext;
 
+interface QueueDeps {
+  /** 以 id 找到的租戶；預設找不到（不判斷同時執行數）。 */
+  tenant?: Pick<TenantRecord, 'featureParams'>;
+  store?: Partial<JobStore>;
+}
+
 /** 不啟動 pg-boss（建構時不連線）。 */
-function setupQueue(run: Tenancy['run'] = vi.fn()) {
+function setupQueue(run: Tenancy['run'] = vi.fn(), deps: QueueDeps = {}) {
   const config = {
     get: vi.fn((key: string) =>
       key === 'PLATFORM_DATABASE_URL' ? 'postgres://u:p@127.0.0.1:1/x' : undefined,
     ),
   } as unknown as ConfigService<Env, true>;
   const tenancy = { run } as unknown as Tenancy;
-  return { queue: new JobQueue(config, tenancy, {} as TenantDirectory, {} as Database) };
+  const directory = { findById: vi.fn(async () => deps.tenant) } as unknown as TenantDirectory;
+  const store = (deps.store ?? {}) as JobStore;
+  return { queue: new JobQueue(config, tenancy, directory, {} as Database, store) };
 }
 
 /** 只測 handler 的執行規則。 */
-function setup(run: Tenancy['run']) {
-  const { queue } = setupQueue(run);
+function setup(run: Tenancy['run'], deps: QueueDeps = {}) {
+  const { queue } = setupQueue(run, deps);
   const handler = vi.fn(async () => ({ done: true }));
   const execute = (envelope: JobEnvelope) =>
     (
@@ -68,6 +77,63 @@ describe('JobQueue：租戶不能進入時的工作（docs/adr/0020-physical-ten
     const { execute, handler } = setup(async (_id, fn) => fn());
     await expect(execute(ENVELOPE)).resolves.toEqual({ done: true });
     expect(handler).toHaveBeenCalledWith({ id: 'x' }, CONTEXT);
+  });
+});
+
+/** 租戶可以進入：直接執行 handler。 */
+const runInside: Tenancy['run'] = async (_id, fn) => fn();
+
+describe('JobQueue：租戶的同時執行上限（docs/adr/0033-feature-params-and-webhook-targets.md D9）', () => {
+  it('排在上限以內 → 照常執行', async () => {
+    const requeue = vi.fn();
+    const { execute, handler } = setup(runInside, {
+      tenant: { featureParams: { 'job.maxConcurrency': 2 } },
+      store: { activeAhead: vi.fn(async () => 1), requeue },
+    });
+    await expect(execute(ENVELOPE)).resolves.toEqual({ done: true });
+    expect(handler).toHaveBeenCalled();
+    expect(requeue).not.toHaveBeenCalled();
+  });
+
+  it('排在上限之後 → 放回佇列（延後 5～10 秒），不執行 handler', async () => {
+    const requeue = vi.fn(
+      async (_name: string, _id: string, _delay: number) => 'requeued' as const,
+    );
+    const activeAhead = vi.fn(async () => 2);
+    const { execute, handler } = setup(runInside, {
+      tenant: { featureParams: { 'job.maxConcurrency': 2 } },
+      store: { activeAhead, requeue },
+    });
+    await expect(execute(ENVELOPE)).resolves.toMatchObject({ skipped: 'TENANT_CONCURRENCY' });
+    expect(handler).not.toHaveBeenCalled();
+    expect(activeAhead).toHaveBeenCalledWith('t1', 'job-1');
+    expect(requeue).toHaveBeenCalledWith('test.work', 'job-1', expect.any(Number));
+    const delay = requeue.mock.calls[0]?.[2] ?? 0;
+    expect(delay).toBeGreaterThanOrEqual(5);
+    expect(delay).toBeLessThanOrEqual(10);
+  });
+
+  it('沒有覆寫時用預設上限 10', async () => {
+    const requeue = vi.fn(async () => 'requeued' as const);
+    const { execute, handler } = setup(runInside, {
+      tenant: { featureParams: {} },
+      store: { activeAhead: vi.fn(async () => 9), requeue },
+    });
+    await execute(ENVELOPE);
+    expect(handler).toHaveBeenCalled();
+    expect(requeue).not.toHaveBeenCalled();
+  });
+
+  it('租戶找不到 → 不判斷，交給 tenancy.run 回報', async () => {
+    const activeAhead = vi.fn();
+    const { execute } = setup(
+      async () => {
+        throw new AppException('TENANT_NOT_FOUND');
+      },
+      { store: { activeAhead } },
+    );
+    await expect(execute(ENVELOPE)).resolves.toEqual({ skipped: 'TENANT_NOT_FOUND' });
+    expect(activeAhead).not.toHaveBeenCalled();
   });
 });
 

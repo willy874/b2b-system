@@ -1,16 +1,22 @@
+import { useState } from 'react';
+
+import { Button } from '@/components/Button';
 import { Checkbox } from '@/components/Checkbox';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
-import type { PlatformTenant, TenantFeature } from '@/shared/api-sdk';
+import type { PlatformTenant, TenantFeature, TenantFeatureParam } from '@/shared/api-sdk';
 
 import {
   TENANT_FEATURE_DESCRIPTION_KEY,
   TENANT_FEATURE_DISABLE_WARNING_KEY,
   TENANT_FEATURE_LABEL_KEY,
+  TENANT_FEATURE_PARAM_LABEL_KEY,
   TENANT_FEATURES,
 } from '../../../constants';
 import { useUpdateTenantMutation } from '../../../hooks/useTenantMutations';
+import { formatParamValue } from '../../../utils';
+import { TenantFeatureParamDialog } from './TenantFeatureParamDialog';
 
 interface TenantFeaturesProps {
   tenant: PlatformTenant;
@@ -20,6 +26,8 @@ interface TenantFeaturesProps {
 /**
  * 租戶啟用的功能（docs/adr/0021-runtime-feature-activation.md D8）：每個可啟用的 feature 一個開關，
  * 送出的是 **完整清單**（api 以整份取代）。關閉會讓租戶的使用者立刻失去該功能，所以先確認；打開直接生效。
+ * 有參數的 feature 在那一列下列出參數（配額與上限，docs/adr/0033-feature-params-and-webhook-targets.md D5）：
+ * 參數與開關無關，關閉時照常保留、照常生效。
  */
 export function TenantFeatures({ tenant, canUpdate }: TenantFeaturesProps) {
   const { t } = useTranslation();
@@ -27,6 +35,7 @@ export function TenantFeatures({ tenant, canUpdate }: TenantFeaturesProps) {
   const showError = useErrorToast();
   const update = useUpdateTenantMutation();
   const enabled = new Set(tenant.features);
+  const [editing, setEditing] = useState<TenantFeatureParam>();
 
   const save = (features: TenantFeature[]) =>
     update.mutateAsync({ params: { id: tenant.id, body: { features } } });
@@ -75,9 +84,66 @@ export function TenantFeatures({ tenant, canUpdate }: TenantFeaturesProps) {
               description={t(TENANT_FEATURE_DESCRIPTION_KEY[feature])}
               data-testid="tenant-feature-toggle"
             />
+            <FeatureParamList
+              params={tenant.featureParams.filter((param) => param.feature === feature)}
+              canUpdate={canUpdate}
+              onEdit={setEditing}
+            />
           </li>
         ))}
       </ul>
+      <TenantFeatureParamDialog
+        tenant={tenant}
+        param={editing}
+        onClose={() => setEditing(undefined)}
+      />
     </section>
+  );
+}
+
+interface FeatureParamListProps {
+  params: TenantFeatureParam[];
+  canUpdate: boolean;
+  onEdit: (param: TenantFeatureParam) => void;
+}
+
+/** 一個 feature 的參數：名稱、生效值（帶單位）、改過的標示與編輯按鈕。 */
+function FeatureParamList({ params, canUpdate, onEdit }: FeatureParamListProps) {
+  const { t } = useTranslation();
+  if (!params.length) return null;
+  return (
+    <dl className="m-0 mt-1 ml-7 grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1 text-sm">
+      {params.map((param) => (
+        <div key={param.key} className="contents" data-testid="tenant-param" data-value={param.key}>
+          <dt className="text-[var(--color-fg-muted)]">
+            {t(TENANT_FEATURE_PARAM_LABEL_KEY[param.key])}
+          </dt>
+          <dd className="m-0 flex items-center gap-2">
+            <span data-testid="tenant-param-value">{formatParamValue(t, param, param.value)}</span>
+            {param.overridden && (
+              <span
+                className="text-xs text-[var(--color-fg-muted)]"
+                data-testid="tenant-param-overridden"
+              >
+                {t('tenant.param.overridden')}
+              </span>
+            )}
+            {canUpdate && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onEdit(param)}
+                aria-label={t('tenant.param.edit', {
+                  name: t(TENANT_FEATURE_PARAM_LABEL_KEY[param.key]),
+                })}
+                data-testid="tenant-param-edit"
+              >
+                {t('common.edit')}
+              </Button>
+            )}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }

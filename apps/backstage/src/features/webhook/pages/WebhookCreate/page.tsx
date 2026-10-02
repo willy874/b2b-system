@@ -14,11 +14,13 @@ import type { CreatedWebhook } from '@/shared/api-sdk';
 
 import { WebhookEventSelect } from '../../components/WebhookEventSelect';
 import { WebhookSecretNotice } from '../../components/WebhookSecretNotice';
+import { WebhookUrlsInput } from '../../components/WebhookUrlsInput';
 import { useWebhookCreateMutation } from '../../hooks/useWebhookMutations';
 import { WebhookCreateRoute, WebhookDetailRoute, WebhookListRoute } from '../../routes';
+import { cleanUrls } from '../../utils';
 
 /**
- * 建立 webhook：名稱、網址、訂閱的事件。成功後同一個對話框改成顯示簽章密鑰——**只出現這一次**
+ * 建立 webhook：名稱、網址（1～10 個，docs/adr/0033-feature-params-and-webhook-targets.md D13）、訂閱的事件。成功後同一個對話框改成顯示簽章密鑰——**只出現這一次**
  * （docs/adr/0030-webhooks.md D14）。
  */
 export default function WebhookCreatePage() {
@@ -30,12 +32,14 @@ export default function WebhookCreatePage() {
   const events = useQuery(getWebhookEventsQueryOptions());
   const formId = useId();
   const [name, setName] = useState('');
-  const [url, setUrl] = useState('');
+  const [urls, setUrls] = useState<string[]>(['']);
   const [selected, setSelected] = useState<string[]>([]);
   const [formError, setFormError] = useState<string>();
   const [created, setCreated] = useState<CreatedWebhook>();
   // 密鑰顯示中也要擋：關掉就再也看不到
-  useUnsavedChangesGuard(Boolean(created) || Boolean(name || url) || selected.length > 0);
+  useUnsavedChangesGuard(
+    Boolean(created) || Boolean(name) || cleanUrls(urls).length > 0 || selected.length > 0,
+  );
 
   const close = () => void navigate({ to: WebhookListRoute.to, search, ignoreBlocker: true });
   const openDetail = (id: string) =>
@@ -51,7 +55,7 @@ export default function WebhookCreatePage() {
     try {
       setCreated(
         await createWebhook.mutateAsync({
-          params: { name: name.trim(), url: url.trim(), events: selected },
+          params: { name: name.trim(), urls: cleanUrls(urls), events: selected },
         }),
       );
     } catch (error) {
@@ -83,7 +87,7 @@ export default function WebhookCreatePage() {
               variant="primary"
               type="submit"
               form={formId}
-              disabled={!name.trim() || !url.trim() || selected.length === 0}
+              disabled={!name.trim() || cleanUrls(urls).length === 0 || selected.length === 0}
               loading={createWebhook.isPending}
               data-testid="webhook-create-submit"
             >
@@ -113,15 +117,8 @@ export default function WebhookCreatePage() {
               data-testid="webhook-name-input"
             />
           </Field>
-          <Field label={t('webhook.field.url')} description={t('webhook.field.urlHint')} required>
-            <Input
-              type="url"
-              value={url}
-              maxLength={2000}
-              placeholder="https://"
-              onChange={(event) => setUrl(event.target.value)}
-              data-testid="webhook-url-input"
-            />
+          <Field label={t('webhook.field.urls')} description={t('webhook.field.urlHint')} required>
+            <WebhookUrlsInput value={urls} onValueChange={setUrls} data-testid="webhook-urls" />
           </Field>
           <Field label={t('webhook.field.events')} required>
             <WebhookEventSelect

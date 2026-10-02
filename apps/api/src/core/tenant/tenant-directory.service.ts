@@ -12,6 +12,8 @@ import { toFeatureFlagOverrides } from '../feature-flags/feature-flags';
 import type { FeatureFlagOverrides } from '../feature-flags/feature-flags';
 import { hostnameOf } from '../http';
 import { BoundedCache } from './bounded-cache';
+import { toTenantFeatureParamOverrides } from './tenant-feature-params';
+import type { TenantFeatureParamOverrides } from './tenant-feature-params';
 import { toTenantFeatures } from './tenant-features';
 import type { TenantFeature } from './tenant-features';
 import { TenantRepository } from './tenant.repository';
@@ -29,6 +31,8 @@ export interface TenantRecord {
   features: readonly TenantFeature[];
   /** feature flag 的租戶層覆寫（ADR-0022 D2）；非布林的值已濾掉。 */
   flags: FeatureFlagOverrides;
+  /** feature 參數的覆寫（ADR-0033 D2）；不在目錄裡或驗證不過的值已濾掉。 */
+  featureParams: TenantFeatureParamOverrides;
 }
 
 /** 每種查詢最多快取幾筆（租戶數遠小於這個值；上限只是防止被灌爆）。 */
@@ -228,6 +232,7 @@ export class TenantDirectory implements OnModuleInit, OnApplicationBootstrap, On
       storageBucket: row.storageBucket,
       features: toTenantFeatures(row.features),
       flags: toFeatureFlagOverrides(row.flags),
+      featureParams: toTenantFeatureParamOverrides(row.featureParams),
     };
   }
 

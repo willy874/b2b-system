@@ -138,7 +138,7 @@ await withTransaction(this.db, async (tx) => {
 | `approval.result` | 申請人（`requester_id`）；匿名的註冊沒有收件人，只有結果信 | `approvalType`、`subject`、`status`（`approved` \| `rejected`） | handler 的 `resultLink()`；沒有就是 `approval.detail`（`{ approvalId }`） | `ApprovalService.approve()`／`reject()` 的交易內；既有的結果信照舊 |
 | `user.rolesChanged` | 被指派或移除角色的人（`PUT /users/:id/roles`）；沒有實際增減時不通知 | `added`、`removed`（角色名稱） | `account.profile`（`{}`） | `UserService.replaceRoles()` 的交易內 |
 | `announcement.published` | 公告受眾解析出的人（不含送出者） | `title` | `announcement.message`（`{ dispatchId }`） | `AnnouncementDispatchService.fanOut()` 每 500 人一個交易（帶 `sourceId`；[`19-announcement.md`](./19-announcement.md) §5） |
-| `webhook.disabled` | webhook 連續失敗而自動停用時，當下持有 `webhook:update` 的人 | `webhookName`、`consecutiveFailures` | `webhook.detail`（`{ webhookId }`） | `WebhookDeliveryService.attempt()` 的交易內（觸發者是系統；[`17-webhook.md`](./17-webhook.md) §4） |
+| `webhook.disabled` | webhook 連續失敗而自動停用時，當下持有 `webhook:update` 的人 | `webhookName`、`consecutiveFailures`、`url`（到達門檻的網址；ADR-0033 前寫入的沒有） | `webhook.detail`（`{ webhookId }`） | `WebhookDeliveryService.attempt()` 的交易內（觸發者是系統；[`17-webhook.md`](./17-webhook.md) §4） |
 
 - `subject` 由各審批類型的 `ApprovalHandler.summarize(payload)` 提供（handler 在擁有資源的模組）：
   `user.register` 是申請人填的顯示名稱，`fileFolder.access` 是資料夾名稱。解析不了（舊資料）時是空字串。

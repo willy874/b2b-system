@@ -53,6 +53,7 @@ function tenantRow(overrides: Partial<TenantWithDomains> = {}): TenantWithDomain
     provisionedAt: at,
     features: ['file', 'auditLog', 'job'],
     flags: {},
+    featureParams: {},
     createdAt: at,
     updatedAt: at,
     deletedAt: null,
@@ -248,5 +249,95 @@ describe('PlatformTenantService.update 的 flags（docs/adr/0022-feature-flags.m
     const { service } = setup(tenantRow({ flags: { 'levelEditor.v2': true, 'gone.flag': true } }));
 
     expect((await service.get(TENANT_ID)).flags).toEqual({ 'levelEditor.v2': true });
+  });
+});
+
+describe('PlatformTenantService.update 的 featureParams（docs/adr/0033-feature-params-and-webhook-targets.md D3）', () => {
+  it('只改列出的參數、null 回到預設、等於預設的不存；稽核帶 before/after，不發佈事件', async () => {
+    const { service, repo, audit, events } = setup(
+      tenantRow({ featureParams: { 'job.maxConcurrency': 5, 'webhook.maxUrls': 3 } }),
+    );
+
+    const result = await service.update(TENANT_ID, {
+      featureParams: {
+        'file.storageQuotaMb': 4096,
+        'job.maxConcurrency': null,
+        'auditLog.hotRetentionDays': 90,
+      },
+    });
+
+    expect(repo.update).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.objectContaining({
+        featureParams: { 'file.storageQuotaMb': 4096, 'webhook.maxUrls': 3 },
+      }),
+      undefined,
+      'tx',
+    );
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          before: expect.objectContaining({
+            featureParams: { 'job.maxConcurrency': 5, 'webhook.maxUrls': 3 },
+          }),
+          after: expect.objectContaining({
+            featureParams: { 'file.storageQuotaMb': 4096, 'webhook.maxUrls': 3 },
+          }),
+        }),
+      }),
+      'tx',
+    );
+    expect(events.publish).not.toHaveBeenCalled();
+    expect(result.featureParams.find((param) => param.key === 'file.storageQuotaMb')).toEqual({
+      key: 'file.storageQuotaMb',
+      feature: 'file',
+      type: 'integer',
+      value: 4096,
+      defaultValue: 2048,
+      overridden: true,
+      unit: 'megabytes',
+      min: 1,
+      max: 10_485_760,
+      maxLength: null,
+    });
+    expect(result.featureParams.find((param) => param.key === 'job.maxConcurrency')).toMatchObject({
+      value: 10,
+      overridden: false,
+    });
+  });
+
+  it('超出範圍或型別不對 → VALIDATION_FAILED（fields 指出哪一個），不寫入', async () => {
+    const { service, repo } = setup();
+
+    await expect(
+      service.update(TENANT_ID, {
+        featureParams: { 'job.maxConcurrency': 0, 'webhook.maxUrls': 'many' },
+      }),
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: {
+        fields: {
+          'featureParams.job.maxConcurrency': 'must be >= 1',
+          'featureParams.webhook.maxUrls': 'must be an integer',
+        },
+      },
+    });
+    expect(repo.transaction).not.toHaveBeenCalled();
+  });
+
+  it('DB 裡不認得或不合法的值回到預設', async () => {
+    const { service } = setup(
+      tenantRow({ featureParams: { 'gone.param': 1, 'job.maxConcurrency': 9999 } }),
+    );
+
+    const params = (await service.get(TENANT_ID)).featureParams;
+    expect(params.map((param) => param.key)).toEqual([
+      'file.storageQuotaMb',
+      'auditLog.hotRetentionDays',
+      'job.maxConcurrency',
+      'identityProvider.maxProviders',
+      'webhook.maxUrls',
+    ]);
+    expect(params.every((param) => !param.overridden)).toBe(true);
   });
 });

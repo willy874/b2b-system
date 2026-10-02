@@ -56,6 +56,7 @@ function tenant(id: string): TenantContext {
     storageBucket: `b2b-${id}`,
     features: ['file', 'auditLog', 'job'],
     flags: {},
+    featureParams: {},
   };
 }
 

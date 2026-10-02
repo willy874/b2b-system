@@ -11,19 +11,25 @@
     "field": {
       "name": "名稱",
       "url": "網址",
-      "urlHint": "事件發生時以 POST 送到這個網址。必須是 https，不能指向內部網路。",
+      "urlHint": "事件發生時以 POST 送到每個網址（最多 10 個）。必須是 https，不能指向內部網路。",
       "events": "訂閱的事件",
       "eventsPlaceholder": "選擇事件",
       "eventCount": "事件數",
       "status": "狀態",
       "consecutiveFailures": "連續失敗",
       "lastDeliveryAt": "最後投遞",
-      "createdBy": "建立者"
+      "createdBy": "建立者",
+      "urls": "網址",
+      "urlNumber": "網址 {{number}}",
+      "addUrl": "新增網址",
+      "removeUrl": "移除網址 {{number}}",
+      "urlFailures": "連續失敗 {{count}} 次"
     },
     "list": {
       "title": "Webhook",
       "description": "使用者、審批、檔案發生變化時，以 POST 通知外部系統（CI、聊天工具、自己的服務）。內容只帶 id，接收端以 API token 查詢細節。",
-      "searchPlaceholder": "搜尋名稱或網址"
+      "searchPlaceholder": "搜尋名稱或網址",
+      "moreUrls": "+{{count}}"
     },
     "create": {
       "action": "建立 Webhook",
@@ -55,7 +61,9 @@
       "rotatedTitle": "新的簽章密鑰"
     },
     "test": {
-      "action": "送測試事件"
+      "action": "送測試事件",
+      "sentAll": "已送到 {{count}} 個網址，全部成功",
+      "failedSome": "{{count}} 個網址中有 {{failed}} 個送出失敗，詳情見投遞紀錄"
     },
     "detail": {
       "title": "Webhook",
@@ -71,7 +79,8 @@
         "event": "事件",
         "attempt": "第幾次",
         "result": "結果",
-        "duration": "耗時"
+        "duration": "耗時",
+        "url": "網址"
       },
       "attempt": "第 {{attempt}} 次（{{trigger}}）",
       "trigger": {
@@ -82,7 +91,8 @@
       "filter": {
         "all": "全部",
         "succeeded": "成功",
-        "failed": "失敗"
+        "failed": "失敗",
+        "allUrls": "所有網址"
       },
       "view": "檢視",
       "redeliver": "重送",

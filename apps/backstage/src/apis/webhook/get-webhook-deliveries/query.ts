@@ -18,6 +18,7 @@ export const getWebhookDeliveriesQueryOptions = (
       options.params.offset,
       options.params.limit,
       options.params.succeeded,
+      options.params.targetId,
     ] as const,
     placeholderData: keepPreviousData,
     queryFn: ({ signal }) => fetchWebhookDeliveriesQuery({ params: options.params, signal }),

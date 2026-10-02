@@ -256,6 +256,9 @@
       "placeholder": "Choose a user…",
       "allowed": "Allowed",
       "denied": "Not allowed"
+    },
+    "storage": {
+      "usage": "{{used}} of {{quota}} used"
     }
   }
 }

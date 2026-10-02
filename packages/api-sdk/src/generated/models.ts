@@ -408,10 +408,17 @@ export interface CreatedApiToken {
   apiToken: ApiToken;
 }
 
+export interface WebhookTarget {
+  id: string;
+  url: string;
+  consecutiveFailures: number;
+  lastDeliveryAt: string | null;
+}
+
 export interface Webhook {
   id: string;
   name: string;
-  url: string;
+  targets: Array<WebhookTarget>;
   events: Array<string>;
   status: 'active' | 'disabled';
   disabledReason: ('manual' | 'failing') | null;
@@ -428,13 +435,13 @@ export interface Webhook {
 
 export interface CreateWebhookRequest {
   name: string;
-  url: string;
+  urls: Array<string>;
   events: Array<string>;
 }
 
 export interface UpdateWebhookRequest {
   name?: string;
-  url?: string;
+  urls?: Array<string>;
   events?: Array<string>;
   status?: 'active' | 'disabled';
   version: number;
@@ -463,6 +470,8 @@ export interface WebhookDelivery {
   eventType: string;
   eventData: Record<string, unknown>;
   occurredAt: string;
+  targetId: string | null;
+  url: string;
   attempt: number;
   trigger: 'auto' | 'manual';
   succeeded: boolean;
@@ -471,6 +480,10 @@ export interface WebhookDelivery {
   responseBody: string | null;
   error: string | null;
   createdAt: string;
+}
+
+export interface WebhookTestResult {
+  items: Array<WebhookDelivery>;
 }
 
 export const ApprovalStatus = {
@@ -740,6 +753,29 @@ export type TenantFeature = (typeof TenantFeature)[keyof typeof TenantFeature];
 
 export type TenantFlagOverrides = Record<string, boolean>;
 
+export const TenantFeatureParamKey = {
+  'file.storageQuotaMb': 'file.storageQuotaMb',
+  'auditLog.hotRetentionDays': 'auditLog.hotRetentionDays',
+  'job.maxConcurrency': 'job.maxConcurrency',
+  'identityProvider.maxProviders': 'identityProvider.maxProviders',
+  'webhook.maxUrls': 'webhook.maxUrls',
+} as const;
+export type TenantFeatureParamKey =
+  (typeof TenantFeatureParamKey)[keyof typeof TenantFeatureParamKey];
+
+export interface TenantFeatureParam {
+  key: TenantFeatureParamKey;
+  feature: TenantFeature;
+  type: 'integer' | 'string';
+  value: number | string;
+  defaultValue: number | string;
+  overridden: boolean;
+  unit: ('days' | 'megabytes' | 'count') | null;
+  min: number | null;
+  max: number | null;
+  maxLength: number | null;
+}
+
 export interface PlatformTenant {
   id: string;
   code: string;
@@ -749,6 +785,7 @@ export interface PlatformTenant {
   storageBucket: string;
   features: Array<TenantFeature>;
   flags: TenantFlagOverrides;
+  featureParams: Array<TenantFeatureParam>;
   adminEmail: string | null;
   provisionError: string | null;
   provisionedAt: string | null;
@@ -778,6 +815,7 @@ export interface UpdateTenantRequest {
   name?: string;
   features?: Array<TenantFeature>;
   flags?: TenantFlagOverrides;
+  featureParams?: Record<string, (number | string) | null>;
 }
 
 export interface AddTenantDomainRequest {
@@ -1224,6 +1262,8 @@ export interface FileUploadPolicy {
   partSize: number;
   thumbnailMaxSize: number;
   thumbnailContentTypes: Array<string>;
+  storageQuota: number;
+  storageUsed: number;
 }
 
 export interface GetFileImageQuery {

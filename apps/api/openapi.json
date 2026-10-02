@@ -998,7 +998,7 @@
                   "required": ["data"],
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/WebhookDelivery"
+                      "$ref": "#/components/schemas/WebhookTestResult"
                     }
                   }
                 }
@@ -7850,6 +7850,30 @@
         "required": ["token", "apiToken"],
         "additionalProperties": false
       },
+      "WebhookTarget": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "url": {
+            "type": "string"
+          },
+          "consecutiveFailures": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "lastDeliveryAt": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["id", "url", "consecutiveFailures", "lastDeliveryAt"],
+        "additionalProperties": false
+      },
       "Webhook": {
         "type": "object",
         "properties": {
@@ -7861,8 +7885,11 @@
           "name": {
             "type": "string"
           },
-          "url": {
-            "type": "string"
+          "targets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookTarget"
+            }
           },
           "events": {
             "type": "array",
@@ -7919,7 +7946,7 @@
         "required": [
           "id",
           "name",
-          "url",
+          "targets",
           "events",
           "status",
           "disabledReason",
@@ -7940,10 +7967,15 @@
             "minLength": 1,
             "maxLength": 100
           },
-          "url": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2000
+          "urls": {
+            "minItems": 1,
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
           },
           "events": {
             "minItems": 1,
@@ -7956,7 +7988,7 @@
             }
           }
         },
-        "required": ["name", "url", "events"],
+        "required": ["name", "urls", "events"],
         "additionalProperties": false
       },
       "UpdateWebhookRequest": {
@@ -7967,10 +7999,15 @@
             "minLength": 1,
             "maxLength": 100
           },
-          "url": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2000
+          "urls": {
+            "minItems": 1,
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
           },
           "events": {
             "minItems": 1,
@@ -8069,6 +8106,15 @@
           "occurredAt": {
             "type": "string"
           },
+          "targetId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "url": {
+            "type": "string"
+          },
           "attempt": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -8110,6 +8156,8 @@
           "eventType",
           "eventData",
           "occurredAt",
+          "targetId",
+          "url",
           "attempt",
           "trigger",
           "succeeded",
@@ -8119,6 +8167,19 @@
           "error",
           "createdAt"
         ],
+        "additionalProperties": false
+      },
+      "WebhookTestResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookDelivery"
+            }
+          }
+        },
+        "required": ["items"],
         "additionalProperties": false
       },
       "ApprovalStatus": {
@@ -9061,6 +9122,84 @@
           "type": "boolean"
         }
       },
+      "TenantFeatureParamKey": {
+        "type": "string",
+        "enum": [
+          "file.storageQuotaMb",
+          "auditLog.hotRetentionDays",
+          "job.maxConcurrency",
+          "identityProvider.maxProviders",
+          "webhook.maxUrls"
+        ]
+      },
+      "TenantFeatureParam": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/TenantFeatureParamKey"
+          },
+          "feature": {
+            "$ref": "#/components/schemas/TenantFeature"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["integer", "string"]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "defaultValue": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "overridden": {
+            "type": "boolean"
+          },
+          "unit": {
+            "nullable": true,
+            "type": "string",
+            "enum": ["days", "megabytes", "count"]
+          },
+          "min": {
+            "nullable": true,
+            "type": "number"
+          },
+          "max": {
+            "nullable": true,
+            "type": "number"
+          },
+          "maxLength": {
+            "nullable": true,
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "feature",
+          "type",
+          "value",
+          "defaultValue",
+          "overridden",
+          "unit",
+          "min",
+          "max",
+          "maxLength"
+        ],
+        "additionalProperties": false
+      },
       "PlatformTenant": {
         "type": "object",
         "properties": {
@@ -9097,6 +9236,12 @@
           "flags": {
             "$ref": "#/components/schemas/TenantFlagOverrides"
           },
+          "featureParams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantFeatureParam"
+            }
+          },
           "adminEmail": {
             "nullable": true,
             "type": "string"
@@ -9125,6 +9270,7 @@
           "storageBucket",
           "features",
           "flags",
+          "featureParams",
           "adminEmail",
           "provisionError",
           "provisionedAt",
@@ -9222,6 +9368,21 @@
                 "$ref": "#/components/schemas/TenantFlagOverrides"
               }
             ]
+          },
+          "featureParams": {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true,
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "maxLength": 1000
+                }
+              ]
+            }
           }
         },
         "additionalProperties": false
@@ -10837,6 +10998,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "storageQuota": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "storageUsed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -10844,7 +11015,9 @@
           "multipartThreshold",
           "partSize",
           "thumbnailMaxSize",
-          "thumbnailContentTypes"
+          "thumbnailContentTypes",
+          "storageQuota",
+          "storageUsed"
         ],
         "additionalProperties": false
       },

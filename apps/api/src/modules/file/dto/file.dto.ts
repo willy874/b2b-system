@@ -155,6 +155,10 @@ export const FileUploadPolicySchema = defineSchema(
     partSize: z.number().int(),
     thumbnailMaxSize: z.number().int(),
     thumbnailContentTypes: z.array(z.string()),
+    /** 租戶的檔案容量（位元組，`file.storageQuotaMb`；docs/adr/0033-feature-params-and-webhook-targets.md D8）。 */
+    storageQuota: z.number().int(),
+    /** 目前所有檔案的大小合計（位元組，含上傳中與回收桶裡的）。 */
+    storageUsed: z.number().int(),
   }),
 );
 

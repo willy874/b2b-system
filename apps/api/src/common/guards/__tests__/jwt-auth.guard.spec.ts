@@ -30,6 +30,7 @@ const TENANT = {
   storageBucket: 'b2b-test',
   features: ['file', 'auditLog', 'job'] as const,
   flags: {},
+  featureParams: {},
 };
 
 const activeUser: CachedUser = {

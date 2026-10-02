@@ -21,6 +21,7 @@ function inTenant(id: string, fn: () => void): void {
     storageBucket: id,
     features: ['file', 'auditLog', 'job'],
     flags: {},
+    featureParams: {},
   };
   runInTenantContext(context as unknown as TenantContext, fn);
 }

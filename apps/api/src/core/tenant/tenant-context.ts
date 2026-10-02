@@ -3,6 +3,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Database } from '../database';
 import { AppException } from '../errors';
 import type { FeatureFlagOverrides } from '../feature-flags/feature-flags';
+import type { TenantFeatureParamOverrides } from './tenant-feature-params';
 import type { TenantFeature } from './tenant-features';
 
 /** 目前執行的程式屬於哪個租戶，以及它的 database（docs/adr/0020-physical-tenant-isolation.md D3）。 */
@@ -19,6 +20,11 @@ export interface TenantContext {
    * `FeatureFlagService.isEnabled()` 合併全平台層與預設值算出，不要直接讀這裡判斷。
    */
   flags: FeatureFlagOverrides;
+  /**
+   * 平台管理者為這個租戶設的 feature 參數覆寫（docs/adr/0033-feature-params-and-webhook-targets.md D6）；
+   * 生效值以 `tenantFeatureParam(PARAM)` 取得，不要直接讀這裡。
+   */
+  featureParams: TenantFeatureParamOverrides;
 }
 
 const storage = new AsyncLocalStorage<TenantContext>();

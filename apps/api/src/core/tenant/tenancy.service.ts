@@ -150,6 +150,7 @@ export class Tenancy implements OnApplicationBootstrap, OnApplicationShutdown {
       storageBucket: tenant.storageBucket,
       features: tenant.features,
       flags: tenant.flags,
+      featureParams: tenant.featureParams,
     };
   }
 

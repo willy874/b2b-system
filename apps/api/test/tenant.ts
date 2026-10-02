@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 
 import type { INestApplication } from '@nestjs/common';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
@@ -12,6 +12,7 @@ import { fullSchema } from '@/core/database';
 import { runInTenantContext, Tenancy, TenantDirectory } from '@/core/tenant';
 import type { TenantContext } from '@/core/tenant';
 import { registerTenant } from '@/db/platform/register-tenant';
+import { tenants as platformTenants } from '@/db/platform/schema';
 
 import type { TestDatabase } from './db';
 import { createPlatformTestDatabase } from './db';
@@ -65,4 +66,25 @@ export async function createExtraTenant(
   const client = postgres(url, { max: 2, onnotice: () => {} });
   const db = drizzle(client, { schema: fullSchema });
   return { id, db, close: async () => client.end() };
+}
+
+/**
+ * 設定測試租戶的 feature 參數覆寫（docs/adr/0033-feature-params-and-webhook-targets.md D2）並讓登記快取失效。
+ * 測試檔之間共用 container：改過的測試檔要在 `afterAll` 以 `{}` 還原。
+ */
+export async function setTestTenantFeatureParams(
+  app: INestApplication,
+  featureParams: Record<string, number | string>,
+): Promise<void> {
+  const { id } = await testTenantContext(app);
+  const platform = createPlatformTestDatabase();
+  try {
+    await platform.db
+      .update(platformTenants)
+      .set({ featureParams })
+      .where(eq(platformTenants.id, id));
+  } finally {
+    await platform.client.end();
+  }
+  app.get(TenantDirectory).invalidate();
 }

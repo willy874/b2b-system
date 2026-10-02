@@ -47,7 +47,7 @@ const auditLogColumns = () => ({
   metadata: jsonb('metadata').$type<AuditMetadata>(), // { ip, userAgent, requestId, ... }
 });
 
-/** 熱資料：最近 `AUDIT_LOG_HOT_RETENTION_DAYS` 天，所有寫入都進這裡，索引齊全。 */
+/** 熱資料：最近 `auditLog.hotRetentionDays` 天（租戶的參數，預設 90），所有寫入都進這裡，索引齊全。 */
 export const auditLogs = pgTable(
   'audit_logs',
   {

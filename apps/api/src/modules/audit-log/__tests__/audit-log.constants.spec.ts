@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  AUDIT_LOG_HOT_RETENTION_DAYS,
-  AUDIT_LOG_MAX_RANGE_DAYS,
-  resolveAuditLogRange,
-} from '../audit-log.constants';
+import { resolveAuditLogRange } from '../audit-log.constants';
 import { ListAuditLogSchema } from '../dto/list-audit-log.dto';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -12,16 +8,8 @@ const NOW = new Date('2026-09-25T12:00:00.000Z');
 const daysAgo = (days: number) => new Date(NOW.getTime() - days * DAY);
 
 describe('resolveAuditLogRange（docs/architecture/backend/06-audit-log.md §7.2）', () => {
-  it('熱表保留天數不小於查詢上限：預設查詢只會落在熱表', () => {
-    expect(AUDIT_LOG_HOT_RETENTION_DAYS).toBeGreaterThanOrEqual(AUDIT_LOG_MAX_RANGE_DAYS);
-  });
-
-  it('都沒帶時查現在往前 90 天，只查熱表', () => {
-    expect(resolveAuditLogRange({}, NOW)).toEqual({
-      from: daysAgo(90),
-      to: NOW,
-      includeArchive: false,
-    });
+  it('都沒帶時查現在往前 90 天', () => {
+    expect(resolveAuditLogRange({}, NOW)).toEqual({ from: daysAgo(90), to: NOW });
   });
 
   it('只帶 to 時往前推 90 天', () => {
@@ -39,10 +27,6 @@ describe('resolveAuditLogRange（docs/architecture/backend/06-audit-log.md §7.2
 
   it('只帶 from 且往後推會超過現在時，to 停在現在', () => {
     expect(resolveAuditLogRange({ from: daysAgo(10) }, NOW).to).toEqual(NOW);
-  });
-
-  it('from 早於熱表保留期時連冷表一起查', () => {
-    expect(resolveAuditLogRange({ from: daysAgo(91) }, NOW).includeArchive).toBe(true);
   });
 });
 

@@ -159,6 +159,8 @@ import type {
   TagList,
   TagSummary,
   TenantFeature,
+  TenantFeatureParam,
+  TenantFeatureParamKey,
   TenantFlagOverrides,
   TenantLookup,
   TenantLookupQuery,
@@ -192,6 +194,8 @@ import type {
   WebhookDelivery,
   WebhookEventList,
   WebhookSecret,
+  WebhookTarget,
+  WebhookTestResult,
 } from './models';
 
 export const NotificationChannelSchema = z.enum([
@@ -828,6 +832,19 @@ export const CreatedApiTokenSchema = z.object({
   apiToken: ApiTokenSchema,
 }) satisfies z.ZodType<CreatedApiToken>;
 
+export const WebhookTargetSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  url: z.string(),
+  consecutiveFailures: z.int().min(-9007199254740991).max(9007199254740991),
+  lastDeliveryAt: z.string().nullable(),
+}) satisfies z.ZodType<WebhookTarget>;
+
 export const WebhookSchema = z.object({
   id: z
     .uuid()
@@ -837,7 +854,7 @@ export const WebhookSchema = z.object({
       ),
     ),
   name: z.string(),
-  url: z.string(),
+  targets: z.array(WebhookTargetSchema),
   events: z.array(z.string()),
   status: z.enum(['active', 'disabled']),
   disabledReason: z.enum(['manual', 'failing']).nullable(),
@@ -862,13 +879,13 @@ export const WebhookSchema = z.object({
 
 export const CreateWebhookRequestSchema = z.object({
   name: z.string().min(1).max(100),
-  url: z.string().min(1).max(2000),
+  urls: z.array(z.string().min(1).max(2000)).min(1).max(10),
   events: z.array(z.string().min(1).max(100)).min(1).max(50),
 }) satisfies z.ZodType<CreateWebhookRequest>;
 
 export const UpdateWebhookRequestSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  url: z.string().min(1).max(2000).optional(),
+  urls: z.array(z.string().min(1).max(2000)).min(1).max(10).optional(),
   events: z.array(z.string().min(1).max(100)).min(1).max(50).optional(),
   status: z.enum(['active', 'disabled']).optional(),
   version: z.int().min(1).max(9007199254740991),
@@ -911,6 +928,15 @@ export const WebhookDeliverySchema = z.object({
   eventType: z.string(),
   eventData: z.record(z.string(), z.unknown()),
   occurredAt: z.string(),
+  targetId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  url: z.string(),
   attempt: z.int().min(-9007199254740991).max(9007199254740991),
   trigger: z.enum(['auto', 'manual']),
   succeeded: z.boolean(),
@@ -920,6 +946,10 @@ export const WebhookDeliverySchema = z.object({
   error: z.string().nullable(),
   createdAt: z.string(),
 }) satisfies z.ZodType<WebhookDelivery>;
+
+export const WebhookTestResultSchema = z.object({
+  items: z.array(WebhookDeliverySchema),
+}) satisfies z.ZodType<WebhookTestResult>;
 
 export const ApprovalStatusSchema = z.enum([
   'pending',
@@ -1312,6 +1342,27 @@ export const TenantFlagOverridesSchema = z.record(
   z.boolean(),
 ) satisfies z.ZodType<TenantFlagOverrides>;
 
+export const TenantFeatureParamKeySchema = z.enum([
+  'file.storageQuotaMb',
+  'auditLog.hotRetentionDays',
+  'job.maxConcurrency',
+  'identityProvider.maxProviders',
+  'webhook.maxUrls',
+]) satisfies z.ZodType<TenantFeatureParamKey>;
+
+export const TenantFeatureParamSchema = z.object({
+  key: TenantFeatureParamKeySchema,
+  feature: TenantFeatureSchema,
+  type: z.enum(['integer', 'string']),
+  value: z.union([z.number(), z.string()]),
+  defaultValue: z.union([z.number(), z.string()]),
+  overridden: z.boolean(),
+  unit: z.enum(['days', 'megabytes', 'count']).nullable(),
+  min: z.number().nullable(),
+  max: z.number().nullable(),
+  maxLength: z.number().nullable(),
+}) satisfies z.ZodType<TenantFeatureParam>;
+
 export const PlatformTenantSchema = z.object({
   id: z
     .uuid()
@@ -1327,6 +1378,7 @@ export const PlatformTenantSchema = z.object({
   storageBucket: z.string(),
   features: z.array(TenantFeatureSchema),
   flags: TenantFlagOverridesSchema,
+  featureParams: z.array(TenantFeatureParamSchema),
   adminEmail: z.string().nullable(),
   provisionError: z.string().nullable(),
   provisionedAt: z.string().nullable(),
@@ -1374,6 +1426,9 @@ export const UpdateTenantRequestSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   features: z.array(TenantFeatureSchema).max(9).optional(),
   flags: TenantFlagOverridesSchema.optional(),
+  featureParams: z
+    .record(z.string(), z.union([z.number(), z.string().max(1000)]).nullable())
+    .optional(),
 }) satisfies z.ZodType<UpdateTenantRequest>;
 
 export const AddTenantDomainRequestSchema = z.object({
@@ -2068,6 +2123,8 @@ export const FileUploadPolicySchema = z.object({
   partSize: z.int().min(-9007199254740991).max(9007199254740991),
   thumbnailMaxSize: z.int().min(-9007199254740991).max(9007199254740991),
   thumbnailContentTypes: z.array(z.string()),
+  storageQuota: z.int().min(-9007199254740991).max(9007199254740991),
+  storageUsed: z.int().min(-9007199254740991).max(9007199254740991),
 }) satisfies z.ZodType<FileUploadPolicy>;
 
 export const GetFileImageQuerySchema = z.object({

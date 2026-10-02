@@ -7,6 +7,7 @@ import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Dialog } from '@/components/Dialog';
+import { TextEllipsis } from '@/components/Ellipsis';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/Input';
 import { VersionConflictAlert } from '@/core/components';
@@ -18,6 +19,7 @@ import { formatDateTime } from '@/shared/date';
 
 import { WebhookEventSelect } from '../../../components/WebhookEventSelect';
 import { WebhookSecretNotice } from '../../../components/WebhookSecretNotice';
+import { WebhookUrlsInput } from '../../../components/WebhookUrlsInput';
 import {
   WEBHOOK_AUTO_DISABLE_AFTER_FAILURES,
   WEBHOOK_DISABLED_REASON_KEY,
@@ -30,6 +32,7 @@ import {
   useWebhookTestSendMutation,
   useWebhookUpdateMutation,
 } from '../../../hooks/useWebhookMutations';
+import { cleanUrls } from '../../../utils';
 
 interface WebhookSettingsSectionProps {
   webhook: Webhook;
@@ -39,17 +42,22 @@ interface WebhookSettingsSectionProps {
 
 interface Draft {
   name: string;
-  url: string;
+  urls: string[];
   events: string[];
   version: number;
 }
 
 function draftOf(webhook: Webhook): Draft {
-  return { name: webhook.name, url: webhook.url, events: webhook.events, version: webhook.version };
+  return {
+    name: webhook.name,
+    urls: webhook.targets.map((target) => target.url),
+    events: webhook.events,
+    version: webhook.version,
+  };
 }
 
 /**
- * 設定：名稱、網址、事件（就地編輯，帶 `version` 樂觀鎖）；停用與啟用（啟用時失敗次數歸零）；
+ * 設定：名稱、網址（多個，ADR-0033 D13）、事件（就地編輯，帶 `version` 樂觀鎖）；停用與啟用（啟用時失敗次數歸零）；
  * 輪替密鑰（舊的立即失效，先確認）；送測試事件（docs/adr/0030-webhooks.md D13、D14、D17）。
  */
 export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSettingsSectionProps) {
@@ -68,7 +76,7 @@ export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSet
   const dirty =
     draft !== undefined &&
     (draft.name !== webhook.name ||
-      draft.url !== webhook.url ||
+      cleanUrls(draft.urls).join('\n') !== webhook.targets.map((target) => target.url).join('\n') ||
       draft.events.join(',') !== webhook.events.join(','));
   useUnsavedChangesGuard(dirty);
 
@@ -99,7 +107,7 @@ export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSet
           webhookId: webhook.id,
           body: {
             name: draft.name.trim(),
-            url: draft.url.trim(),
+            urls: cleanUrls(draft.urls),
             events: draft.events,
             version: draft.version,
           },
@@ -220,13 +228,11 @@ export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSet
               data-testid="webhook-name-edit-input"
             />
           </Field>
-          <Field label={t('webhook.field.url')} description={t('webhook.field.urlHint')} required>
-            <Input
-              type="url"
-              value={draft.url}
-              maxLength={2000}
-              onChange={(event) => setDraft({ ...draft, url: event.target.value })}
-              data-testid="webhook-url-edit-input"
+          <Field label={t('webhook.field.urls')} description={t('webhook.field.urlHint')} required>
+            <WebhookUrlsInput
+              value={draft.urls}
+              onValueChange={(urls) => setDraft({ ...draft, urls })}
+              data-testid="webhook-urls-edit"
             />
           </Field>
           <Field label={t('webhook.field.events')} required>
@@ -249,7 +255,11 @@ export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSet
               size="sm"
               variant="primary"
               type="submit"
-              disabled={!draft.name.trim() || !draft.url.trim() || draft.events.length === 0}
+              disabled={
+                !draft.name.trim() ||
+                cleanUrls(draft.urls).length === 0 ||
+                draft.events.length === 0
+              }
               loading={update.isPending}
               data-testid="webhook-save-button"
             >
@@ -270,9 +280,26 @@ export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSet
               </span>
             )}
           </dd>
-          <dt className="text-[var(--color-fg-muted)]">{t('webhook.field.url')}</dt>
-          <dd className="m-0 break-all" data-testid="webhook-detail-url">
-            {webhook.url}
+          <dt className="text-[var(--color-fg-muted)]">{t('webhook.field.urls')}</dt>
+          <dd className="m-0">
+            {/* 失敗次數跟著網址走：任一個到門檻整個 webhook 停用（ADR-0033 D15） */}
+            <ul className="m-0 flex list-none flex-col gap-1 p-0">
+              {webhook.targets.map((target) => (
+                <li
+                  key={target.id}
+                  className="flex items-center gap-2"
+                  data-testid="webhook-detail-url"
+                  data-value={target.url}
+                >
+                  <TextEllipsis className="min-w-0 flex-1">{target.url}</TextEllipsis>
+                  {target.consecutiveFailures > 0 && (
+                    <Chip tone="danger" data-testid="webhook-detail-url-failures">
+                      {t('webhook.field.urlFailures', { count: target.consecutiveFailures })}
+                    </Chip>
+                  )}
+                </li>
+              ))}
+            </ul>
           </dd>
           <dt className="text-[var(--color-fg-muted)]">{t('webhook.field.events')}</dt>
           <dd className="m-0 flex flex-wrap gap-1">

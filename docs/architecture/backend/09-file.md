@@ -210,9 +210,9 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 ```
 瀏覽器                         api                                  物件儲存
   │ POST /files {name, contentType, size, thumbnail?}
-  │──────────────────────────────▶│ 檢查大小上限、ensureBucket
+  │──────────────────────────────▶│ 檢查大小上限、容量（§5.0）、ensureBucket
   │                               │ 大於門檻 → CreateMultipartUpload（§5.2）
-  │                               │ INSERT files (pending, storage_key=files/<id>)
+  │                               │ 交易：advisory lock → 再檢查容量 → INSERT files (pending, storage_key=files/<id>)
   │ 201 {file, upload | multipart, thumbnailUpload}
   │◀──────────────────────────────│
   │ PUT upload.url（帶 upload.headers）──────────────────────────────────▶│
@@ -248,6 +248,19 @@ const file = await uploadFile({ file: input.files[0], thumbnail, onProgress: ({ 
 `uploadFile()` 都會呼叫 `DELETE /files/:id/upload` 放棄這次上傳（§5.3）。
 
 檔案管理器的完整上傳流程（驗證、全域佇列、跨分頁接手）見 [`../frontend/12-file-manager.md`](../frontend/12-file-manager.md) §8。
+
+### 5.0 檔案容量（[ADR-0033](../../adr/0033-feature-params-and-webhook-targets.md) D8）
+
+租戶的容量是 feature 參數 `file.storageQuotaMb`（預設 2048 MB，平台管理者設定；[`../05-tenancy.md`](../05-tenancy.md) §5.3）。
+用量是 `files.size` 的合計（`FileRepository.storageUsed()`）：**含** 上傳中的 `pending` 與回收桶裡的檔案，**不含** 縮圖與影像變體。
+
+- `createUpload` 先不鎖地檢查一次（明顯超過時不必向物件儲存要 uploadId），登記 `pending` 的交易內以
+  `pg_advisory_xact_lock(hashtext('files:storage_quota'))` 序列化後再加總一次：同時登記的上傳不會一起超過容量。
+  加上這次的 `size` 會超過容量就回 `409 FILE_STORAGE_QUOTA_EXCEEDED`（`details`：`quota`、`used`、`size`，位元組）；
+  已經要到的分塊上傳盡力取消。
+- 調小到低於已用量時不刪任何檔案，只擋新的上傳；永久刪除（`trash.purge`、放棄上傳、維護排程清掉的殘留）才會釋出容量。
+- `GET /files/upload-policy` 多回 `storageQuota`、`storageUsed`（位元組）；檔案管理器的側欄顯示用量
+  （前端以另一個 query key `FILE_STORAGE_USAGE_QUERY_KEY` 讀同一支端點，檔案的增刪由依賴圖讓它重抓）。
 
 ### 5.1 瀏覽器縮圖
 
@@ -365,7 +378,7 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 | Method | Path | 權限 | 回應 |
 | --- | --- | --- | --- |
 | GET | `/files` | `file:read` | `FileListPage`：`{ items: StoredFile[], pagination, nextCursor }` |
-| GET | `/files/upload-policy` | `file:create` | `FileUploadPolicy`：`{ maxSize, multipartThreshold, partSize, thumbnailMaxSize, thumbnailContentTypes }` |
+| GET | `/files/upload-policy` | `file:create` | `FileUploadPolicy`：`{ maxSize, multipartThreshold, partSize, thumbnailMaxSize, thumbnailContentTypes, storageQuota, storageUsed }` |
 | POST | `/files` | `file:create` | `201 FileUpload`：`{ file, upload \| null, multipart \| null, thumbnailUpload \| null }` |
 | POST | `/files/:id/parts` | `file:create` | `200 FileUploadParts`：`{ parts, expiresAt }`（§5.2） |
 | POST | `/files/:id/complete` | `file:create` | `200 StoredFile`；分塊上傳要帶 `{ parts }` |
@@ -460,6 +473,7 @@ LIMIT $limit
 | --- | --- | --- |
 | `FILE_NOT_FOUND` | 404 | 不存在、已刪除、別人的 `pending`、對 `pending` 改名／刪除 |
 | `FILE_TOO_LARGE` | 413 | 登記的大小超過租戶的上限 `file.uploadMaxSize`（`details.maxSize`） |
+| `FILE_STORAGE_QUOTA_EXCEEDED` | 409 | 加上這次的大小會超過租戶的容量 `file.storageQuotaMb`（`details`：`quota`、`used`、`size`；§5.0） |
 | `FILE_ALREADY_UPLOADED` | 409 | 對 `ready` 再 `complete` 或放棄；並行完成的較晚者 |
 | `FILE_UPLOAD_INCOMPLETE` | 409 | `complete` 時物件儲存裡還沒有內容、分塊不對；前端直傳被拒時也用它 |
 | `FILE_SIZE_MISMATCH` | 422 | 實際大小與登記不符（`details.expected` / `details.actual`） |

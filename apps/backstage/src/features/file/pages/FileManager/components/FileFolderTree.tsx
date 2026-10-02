@@ -8,6 +8,7 @@ import { FILE_FOLDER_KIND_ICON } from '../../../constants';
 import { childFolders, folderPath } from '../folderTree';
 import type { FolderIndex } from '../folderTree';
 import type { ItemDrag } from '../useItemDrag';
+import { FileStorageUsage } from './FileStorageUsage';
 
 interface FileFolderTreeProps {
   folders: FolderIndex;
@@ -160,6 +161,7 @@ export function FileFolderSidebar(props: Omit<FileFolderTreeProps, 'className' |
       aria-label={t('file.folder.tree')}
     >
       <FileFolderTree {...props} data-testid="file-folder-tree" />
+      <FileStorageUsage />
     </aside>
   );
 }

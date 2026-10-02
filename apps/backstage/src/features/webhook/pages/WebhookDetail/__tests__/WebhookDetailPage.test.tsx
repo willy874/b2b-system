@@ -42,7 +42,9 @@ vi.mock('@/apis/webhook/rotate-webhook-secret/fetcher', () => ({
 const WEBHOOK = {
   id: 'w1',
   name: 'CI 通知',
-  url: 'https://hooks.example.com/ci',
+  targets: [
+    { id: 't1', url: 'https://hooks.example.com/ci', consecutiveFailures: 0, lastDeliveryAt: null },
+  ],
   events: ['user.created'],
   status: 'active',
   disabledReason: null,
@@ -59,6 +61,8 @@ const DELIVERY = {
   eventType: 'user.created',
   eventData: { userId: 'u9' },
   occurredAt: '2026-10-02T00:00:00.000Z',
+  targetId: 't1',
+  url: 'https://hooks.example.com/ci',
   attempt: 1,
   trigger: 'auto',
   succeeded: false,
@@ -86,9 +90,9 @@ beforeEach(() => {
     items: [DELIVERY],
     pagination: { offset: 0, limit: 20, total: 1 },
   });
-  sendTest
-    .mockReset()
-    .mockResolvedValue({ ...DELIVERY, id: 'd2', succeeded: true, responseStatus: 200 });
+  sendTest.mockReset().mockResolvedValue({
+    items: [{ ...DELIVERY, id: 'd2', succeeded: true, responseStatus: 200 }],
+  });
   redeliver.mockReset().mockResolvedValue({ ...DELIVERY, id: 'd3', attempt: 2, trigger: 'manual' });
   rotate.mockReset().mockResolvedValue({ secret: 'whsec_new', webhook: WEBHOOK });
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
@@ -164,5 +168,32 @@ describe('WebhookDetailPage（docs/adr/0030-webhooks.md W2）', () => {
     const confirm = await screen.findByTestId('webhook-rotate-confirm');
     fireEvent.click(within(confirm).getByRole('button', { name: '輪替密鑰' }));
     expect(await screen.findByTestId('webhook-secret-value')).toHaveTextContent('whsec_new');
+  });
+
+  it('多個網址：列出每個網址與它的連續失敗次數，投遞紀錄可以依網址篩選（ADR-0033 D15、D16）', async () => {
+    fetchWebhook.mockResolvedValue({
+      ...WEBHOOK,
+      targets: [
+        WEBHOOK.targets[0],
+        {
+          id: 't2',
+          url: 'https://second.example.com/hook',
+          consecutiveFailures: 3,
+          lastDeliveryAt: null,
+        },
+      ],
+    });
+    renderRoute(routes, '/webhook/w1', READER);
+    await screen.findByTestId('webhook-delivery-view', undefined, { timeout: 5000 });
+    expect(screen.getAllByTestId('webhook-detail-url')).toHaveLength(2);
+    expect(screen.getByTestId('webhook-detail-url-failures')).toHaveTextContent('3');
+
+    fireEvent.click(screen.getByTestId('webhook-delivery-target-filter'));
+    fireEvent.click(await screen.findByRole('option', { name: 'https://second.example.com/hook' }));
+    await waitFor(() =>
+      expect(fetchDeliveries).toHaveBeenLastCalledWith(
+        expect.objectContaining({ params: expect.objectContaining({ targetId: 't2' }) }),
+      ),
+    );
   });
 });

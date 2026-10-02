@@ -14,7 +14,7 @@ import { auditLogs, jobOutbox, relationTuples, roleHolderTuple, roles, users } f
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
-import { inTestTenant, testTenantContext } from './tenant';
+import { inTestTenant, setTestTenantFeatureParams, testTenantContext } from './tenant';
 
 /** 第一次執行失敗、之後成功：用來走一遍「失敗 → 手動重試 → 完成」。 */
 const FLAKY_JOB = defineJob<{ label: string }>('test.flaky', {
@@ -38,7 +38,39 @@ class FlakyJob implements OnModuleInit {
   }
 }
 
-@Module({ providers: [FlakyJob] })
+/**
+ * 等到測試放行才結束：用來觀察同時執行的筆數（docs/adr/0033-feature-params-and-webhook-targets.md D9）。
+ * 這個程序最多同時跑 3 筆，所以超過租戶上限的只會是被放回佇列的那些。
+ */
+const BLOCKING_JOB = defineJob<{ label: string }>('test.blocking', { concurrency: 3 });
+
+@Injectable()
+class BlockingJob implements OnModuleInit {
+  running = 0;
+  maxRunning = 0;
+  private release: () => void = () => {};
+  private gate = new Promise<void>((done) => {
+    this.release = done;
+  });
+
+  constructor(private readonly jobs: JobQueue) {}
+
+  open(): void {
+    this.release();
+  }
+
+  onModuleInit(): void {
+    this.jobs.register(BLOCKING_JOB, async ({ label }) => {
+      this.running += 1;
+      this.maxRunning = Math.max(this.maxRunning, this.running);
+      await this.gate;
+      this.running -= 1;
+      return { label };
+    });
+  }
+}
+
+@Module({ providers: [FlakyJob, BlockingJob] })
 class FlakyJobModule {}
 
 let app: INestApplication;
@@ -112,6 +144,7 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
   });
 
   afterAll(async () => {
+    await setTestTenantFeatureParams(app, {});
     await app.close();
     await closeDb();
     delete process.env.JOBS_WORKER_ENABLED;
@@ -311,4 +344,54 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
     );
     expect(spawned[0]?.name).toBe(AUDIT_LOG_ARCHIVE_JOB.name);
   });
+
+  it('auditLog.archive 依租戶的 auditLog.hotRetentionDays 決定搬移的界線（ADR-0033 D7）', async () => {
+    const { AUDIT_LOG_ARCHIVE_JOB } = await import('@/modules/audit-log/audit-log-archive.job');
+    await setTestTenantFeatureParams(app, { 'auditLog.hotRetentionDays': 300 });
+    try {
+      await db.insert(auditLogs).values({
+        occurredAt: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000),
+        actorEmail: 'kept@example.com',
+        action: 'jobs.kept',
+        resourceType: 'jobs',
+        result: 'success',
+      });
+      const id = await inTestTenant(app, () => jobs.enqueue(AUDIT_LOG_ARCHIVE_JOB, {}));
+      const job = await waitForState(id!, 'completed');
+      expect(job.output).toMatchObject({ moved: 0, retentionDays: 300 });
+      const kept = await db.select().from(auditLogs).where(eq(auditLogs.action, 'jobs.kept'));
+      expect(kept).toHaveLength(1);
+    } finally {
+      await setTestTenantFeatureParams(app, {});
+    }
+  });
+
+  it('租戶同時執行的上限 job.maxConcurrency：超過的放回佇列，不耗重試次數，之後照常完成（ADR-0033 D9）', async () => {
+    const blocking = app.get(BlockingJob);
+    await setTestTenantFeatureParams(app, { 'job.maxConcurrency': 1 });
+    try {
+      const ids = await inTestTenant(app, () =>
+        Promise.all(['a', 'b', 'c'].map((label) => jobs.enqueue(BLOCKING_JOB, { label }))),
+      );
+      // 第一筆卡在 handler 裡；其餘被取到後放回佇列（回到 created、延後 5～10 秒）
+      await vi.waitFor(
+        async () => {
+          const records = await Promise.all(
+            ids.map((id) => store.find(tenantId, jobs.names(), id!)),
+          );
+          expect(records.filter((job) => job?.state === 'active')).toHaveLength(1);
+          expect(blocking.running).toBe(1);
+        },
+        { timeout: 20_000, interval: 200 },
+      );
+      expect(blocking.maxRunning).toBe(1);
+
+      blocking.open();
+      const done = await Promise.all(ids.map((id) => waitForState(id!, 'completed')));
+      expect(done.map((job) => job.retryCount)).toEqual([0, 0, 0]);
+      expect(blocking.maxRunning).toBe(1);
+    } finally {
+      await setTestTenantFeatureParams(app, {});
+    }
+  }, 60_000);
 });

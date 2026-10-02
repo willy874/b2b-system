@@ -255,12 +255,12 @@ const actionFilter = query.action?.endsWith("*")
 
 ### 7.2 時間範圍上限
 
-常數在 `modules/audit-log/audit-log.constants.ts`：
+常數在 `modules/audit-log/audit-log.constants.ts`。熱表保留天數不是常數，是租戶的 feature 參數 `auditLog.hotRetentionDays`
+（預設 90 天、7～3650，平台管理者設定；[ADR-0033](../../adr/0033-feature-params-and-webhook-targets.md) D7、[`../05-tenancy.md`](../05-tenancy.md) §5.3）：
 
 | 常數 | 值 | 用途 |
 | --- | --- | --- |
 | `AUDIT_LOG_MAX_RANGE_DAYS` | 90 | 單次查詢的時間跨度上限；也是沒帶範圍時的預設跨度 |
-| `AUDIT_LOG_HOT_RETENTION_DAYS` | 90 | 熱表保留天數；**必須 ≥ 上一列**，預設查詢才只落在熱表（有單元測試守住） |
 | `AUDIT_LOG_ARCHIVE_BATCH_SIZE` | 5000 | 熱 → 冷每批搬移筆數 |
 
 `resolveAuditLogRange()` 補齊範圍：
@@ -280,11 +280,13 @@ const actionFilter = query.action?.endsWith("*")
 - `total` 最多數到 `AUDIT_LOG_COUNT_CAP`（10,100，剛好涵蓋能翻到的最後一頁）：`count(*)` 包在 `LIMIT` 子查詢裡，
   掃到上限就停。畫面上的總數等於上限時代表「至少這麼多」。keyset 分頁延後。
 
-**查哪張表**：搬移的 cutoff 只會早於 `now − 保留天數`，所以 `from ≥ now − 90 天`
-時資料一定全在熱表，只查熱表；否則熱表與冷表 `UNION ALL`（Postgres 以兩邊的
+**查哪張表**：先讀冷表最新一筆的時間（`max(occurred_at)`，只讀時間索引的第一列）；`from` 晚於它時資料一定全在熱表，
+只查熱表；否則熱表與冷表 `UNION ALL`（Postgres 以兩邊的
 `(occurred_at, id)` 索引 Merge Append，讀到 `offset + limit` 筆就停），總數是兩邊
 `count(*)` 相加。單筆詳情用 `(熱表 WHERE id) UNION ALL (冷表 WHERE id) LIMIT 1`：
 一次來回，熱表命中時冷表的掃描不會執行。
+
+不以保留天數推算要不要查冷表：保留天數是租戶的參數，調大之後已經搬到冷表的紀錄不會回到熱表，推算會漏查（ADR-0033 D7）。
 
 ### 7.3 前端呈現
 
@@ -305,8 +307,8 @@ const actionFilter = query.action?.endsWith("*")
 
 | 層 | 表 | 內容 | 索引 | 誰會讀 |
 | --- | --- | --- | --- | --- |
-| 熱 | `audit_logs` | 最近 90 天；所有寫入都進這裡 | 時間、操作者、資源、動作（pattern ops） | 預設查詢、所有寫入 |
-| 冷 | `audit_logs_archive` | 90 天以前；`id` 沿用熱表 | 時間、操作者、資源；jsonb 用 lz4 壓縮 | 查詢範圍早於 90 天時 |
+| 熱 | `audit_logs` | 最近 `auditLog.hotRetentionDays` 天（預設 90）；所有寫入都進這裡 | 時間、操作者、資源、動作（pattern ops） | 預設查詢、所有寫入 |
+| 冷 | `audit_logs_archive` | 更早的；`id` 沿用熱表 | 時間、操作者、資源；jsonb 用 lz4 壓縮 | 查詢範圍涵蓋冷表最新的一筆時 |
 
 搬移由背景工作 `auditLog.archive` 依 `AUDIT_LOG_ARCHIVE_CRON`（預設每天 03:30 UTC）執行
 （[`10-jobs.md`](./10-jobs.md)），執行結果與失敗原因在背景工作頁看得到。排程出問題時可手動補跑：
@@ -315,7 +317,8 @@ const actionFilter = query.action?.endsWith("*")
 pnpm db:archive-audit-logs   # 與排程工作呼叫同一個函式（modules/audit-log/audit-log.archive.ts）
 ```
 
-兩者都以 `cutoff = now − AUDIT_LOG_HOT_RETENTION_DAYS` 重複呼叫
+兩者都讀租戶的 `auditLog.hotRetentionDays`（工作在租戶脈絡裡讀 `TenantContext`，腳本讀平台 DB 的登記），以
+`cutoff = now − 保留天數` 重複呼叫
 `archive_audit_logs(cutoff, AUDIT_LOG_ARCHIVE_BATCH_SIZE)`，直到某批不滿為止。每批是一個
 短交易（鎖定 → 複製 → 刪除），兩個排程重疊時 `SKIP LOCKED` 讓它們不互搶。
 搬移中斷也安全：沒搬完的列還在熱表，查詢規則（§7.2）本來就會把它們算進去。
@@ -328,8 +331,8 @@ pnpm db:archive-audit-logs   # 與排程工作呼叫同一個函式（modules/au
 
 | 項目         | 決定                                                                       |
 | ------------ | -------------------------------------------------------------------------- |
-| 保留期       | ≥ 365 天（熱表 90 天 ＋ 冷表其餘）                                          |
-| 熱表大小     | 固定約 90 天的量，不隨保留期成長                                             |
+| 保留期       | ≥ 365 天（熱表預設 90 天 ＋ 冷表其餘）                                      |
+| 熱表大小     | 固定約「保留天數」的量，不隨保留期成長                                       |
 | 冷表分區時機 | 超過約 1000 萬列時按月分區（[`02-database.md`](./02-database.md) §7）       |
 | 清理方式     | 冷表分區化之後用 `DROP TABLE <partition>`；在那之前由維運 role 處理          |
 | 估算         | 100 位活躍管理員 × 每天 50 次寫入操作 ≈ 180 萬筆/年 → 熱表約 45 萬筆          |

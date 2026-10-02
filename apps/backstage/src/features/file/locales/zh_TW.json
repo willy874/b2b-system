@@ -256,6 +256,9 @@
       "placeholder": "選擇使用者…",
       "allowed": "可以",
       "denied": "不行"
+    },
+    "storage": {
+      "usage": "已使用 {{used}}／{{quota}}"
     }
   }
 }

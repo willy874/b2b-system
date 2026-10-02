@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, count, eq, sql } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB } from '@/core/database';
@@ -55,6 +55,19 @@ export class IdentityProviderRepository {
       .where(and(eq(identityProviders.id, id), notDeleted(identityProviders)))
       .limit(1);
     return row && { ...row.provider, domains: row.domains };
+  }
+
+  /**
+   * 建立前序列化並數現有的連線（docs/adr/0033-feature-params-and-webhook-targets.md D10）：
+   * 同時建立兩個不會一起超過上限。
+   */
+  async lockAndCount(tx: DbOrTx): Promise<number> {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('identity_providers:count'))`);
+    const [row] = await tx
+      .select({ total: count() })
+      .from(identityProviders)
+      .where(notDeleted(identityProviders));
+    return row?.total ?? 0;
   }
 
   async create(values: IdentityProviderInsert, tx: DbOrTx): Promise<IdentityProviderRow> {

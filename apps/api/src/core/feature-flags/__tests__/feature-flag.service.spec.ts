@@ -45,6 +45,7 @@ function tenantWith(flags: Record<string, boolean>): TenantContext {
     storageBucket: 'b2b-t1',
     features: [],
     flags,
+    featureParams: {},
   };
 }
 

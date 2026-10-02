@@ -143,6 +143,11 @@ export const ErrorCode = {
   WEBHOOK_DISABLED: { status: 409 },
   /** 一個租戶的訂閱數已達上限（`details.max`）。 */
   WEBHOOK_LIMIT_REACHED: { status: 409 },
+  /**
+   * 整個租戶不重複的目標網址數會超過上限 `webhook.maxUrls`（`details.max`；docs/adr/0033-feature-params-and-webhook-targets.md D11）。
+   * 只擋讓數量變多的變更。
+   */
+  WEBHOOK_URL_LIMIT_REACHED: { status: 409 },
   /** 要重送的投遞紀錄不存在、不屬於這個訂閱，或事件已被保留清理刪除。 */
   WEBHOOK_DELIVERY_NOT_FOUND: { status: 404 },
 
@@ -208,6 +213,8 @@ export const ErrorCode = {
   IDENTITY_PROVIDER_NAME_DUPLICATE: { status: 409 },
   /** 網域已經屬於另一個連線（一個網域只屬於一個連線）。 */
   IDENTITY_PROVIDER_DOMAIN_TAKEN: { status: 409 },
+  /** 連線數已達租戶的上限 `identityProvider.maxProviders`（`details.max`；docs/adr/0033-feature-params-and-webhook-targets.md D10）。 */
+  IDENTITY_PROVIDER_LIMIT_REACHED: { status: 409 },
 
   // ── 背景工作 ──
   JOB_NOT_FOUND: { status: 404 },
@@ -216,6 +223,11 @@ export const ErrorCode = {
   // ── 檔案 ──
   FILE_NOT_FOUND: { status: 404 },
   FILE_TOO_LARGE: { status: 413 },
+  /**
+   * 這次上傳會讓檔案大小合計超過租戶的容量 `file.storageQuotaMb`（docs/adr/0033-feature-params-and-webhook-targets.md D8）；
+   * `details`：`quota`、`used`、`size`（位元組）。
+   */
+  FILE_STORAGE_QUOTA_EXCEEDED: { status: 409 },
   FILE_ALREADY_UPLOADED: { status: 409 },
   FILE_UPLOAD_INCOMPLETE: { status: 409 },
   FILE_SIZE_MISMATCH: { status: 422 },

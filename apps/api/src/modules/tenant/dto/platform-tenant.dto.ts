@@ -1,7 +1,11 @@
 import { z } from 'zod';
 
 import { FEATURE_FLAG_KEY_PATTERN } from '@/core/feature-flags';
-import { TENANT_FEATURES } from '@/core/tenant';
+import {
+  TENANT_FEATURE_PARAM_KEYS,
+  TENANT_FEATURE_PARAM_UNITS,
+  TENANT_FEATURES,
+} from '@/core/tenant';
 import { defineSchema, uniqueItems } from '@/core/validation';
 
 /**
@@ -45,6 +49,44 @@ export const TenantFlagOverridesSchema = defineSchema(
   z.record(z.string().regex(FEATURE_FLAG_KEY_PATTERN).max(100), z.boolean()),
 );
 
+/** feature 參數的 key（docs/adr/0033-feature-params-and-webhook-targets.md D1）：前端以它對照語系。 */
+export const TenantFeatureParamKeySchema = defineSchema(
+  'TenantFeatureParamKey',
+  z.enum(TENANT_FEATURE_PARAM_KEYS),
+);
+
+/**
+ * 一個 feature 參數在這個租戶的生效值與定義（ADR-0033 D3）。整數有 `min`／`max`／`unit`，字串有 `maxLength`；
+ * 不適用的欄位是 `null`。
+ */
+export const TenantFeatureParamSchema = defineSchema(
+  'TenantFeatureParam',
+  z.object({
+    key: TenantFeatureParamKeySchema,
+    feature: TenantFeatureSchema,
+    type: z.enum(['integer', 'string']),
+    value: z.union([z.number(), z.string()]),
+    defaultValue: z.union([z.number(), z.string()]),
+    /** 有覆寫值（`value` 不是預設值）。 */
+    overridden: z.boolean(),
+    unit: z.enum(TENANT_FEATURE_PARAM_UNITS).nullable(),
+    min: z.number().nullable(),
+    max: z.number().nullable(),
+    maxLength: z.number().nullable(),
+  }),
+);
+
+/**
+ * 要改的 feature 參數（ADR-0033 D3）：**只列要改的**，`null` 回到預設值。型別與範圍由伺服器依目錄驗證
+ * （`VALIDATION_FAILED`，`fields["featureParams.<key>"]`）。
+ */
+export const UpdateTenantFeatureParamsSchema = z
+  .partialRecord(
+    TenantFeatureParamKeySchema,
+    z.union([z.number(), z.string().max(1000)]).nullable(),
+  )
+  .refine((value) => Object.keys(value).length > 0, 'empty');
+
 /** 平台管理者看到的租戶（docs/adr/0020-physical-tenant-isolation.md D12、D13）：不含連線字串。 */
 export const PlatformTenantSchema = defineSchema(
   'PlatformTenant',
@@ -60,6 +102,8 @@ export const PlatformTenantSchema = defineSchema(
     features: z.array(TenantFeatureSchema),
     /** feature flag 的租戶層覆寫（ADR-0022 D2），只含目錄裡有的 key。 */
     flags: TenantFlagOverridesSchema,
+    /** feature 參數（ADR-0033 D3），依目錄的順序，已是生效值。 */
+    featureParams: z.array(TenantFeatureParamSchema),
     /** 佈建時建立的第一位管理員；`db:migrate` 登記的租戶沒有。 */
     adminEmail: z.string().nullable(),
     /** 最近一次佈建失敗的原因（`failed` 時才有）。 */
@@ -121,9 +165,14 @@ export const UpdateTenantSchema = defineSchema(
        * `{}` = 全部不覆寫。不在目錄裡的 key 回 `VALIDATION_FAILED`。
        */
       flags: TenantFlagOverridesSchema.optional(),
+      featureParams: UpdateTenantFeatureParamsSchema.optional(),
     })
     .refine(
-      (dto) => dto.name !== undefined || dto.features !== undefined || dto.flags !== undefined,
+      (dto) =>
+        dto.name !== undefined ||
+        dto.features !== undefined ||
+        dto.flags !== undefined ||
+        dto.featureParams !== undefined,
       'empty',
     ),
 );
@@ -134,6 +183,7 @@ export const AddTenantDomainSchema = defineSchema(
 );
 
 export type PlatformTenantDto = z.infer<typeof PlatformTenantSchema>;
+export type TenantFeatureParamDto = z.infer<typeof TenantFeatureParamSchema>;
 export type PlatformTenantListDto = z.infer<typeof PlatformTenantListSchema>;
 export type ListPlatformTenantDto = z.infer<typeof ListPlatformTenantSchema>;
 export type CreateTenantDto = z.infer<typeof CreateTenantSchema>;

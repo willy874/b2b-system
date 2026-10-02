@@ -23,7 +23,14 @@ vi.mock('@/apis/webhook/delete-webhook/fetcher', () => ({
 const webhook = (id: string, name: string) => ({
   id,
   name,
-  url: `https://hooks.example.com/${id}`,
+  targets: [
+    {
+      id: `${id}-t1`,
+      url: `https://hooks.example.com/${id}`,
+      consecutiveFailures: 0,
+      lastDeliveryAt: null,
+    },
+  ],
   events: ['user.created'],
   status: 'active',
   disabledReason: null,

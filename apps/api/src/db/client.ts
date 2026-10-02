@@ -6,6 +6,8 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
 import { SecretBox, TENANT_SECRET_PURPOSE } from '@/core/crypto';
+import { toTenantFeatureParamOverrides } from '@/core/tenant/tenant-feature-params';
+import type { TenantFeatureParamOverrides } from '@/core/tenant/tenant-feature-params';
 
 import * as platformSchema from './platform/schema';
 import * as relations from './relations';
@@ -52,6 +54,8 @@ export interface ScriptTenant {
   id: string;
   code: string;
   databaseUrl: string;
+  /** feature 參數的覆寫（docs/adr/0033-feature-params-and-webhook-targets.md D2）。 */
+  featureParams: TenantFeatureParamOverrides;
 }
 
 /** 未刪除的租戶；給了 `code` 就只回傳那一個（找不到時拋錯）。 */
@@ -82,6 +86,7 @@ export async function listScriptTenants(
     id: row.id,
     code: row.code,
     databaseUrl: box.decrypt(row.databaseUrlEncrypted),
+    featureParams: toTenantFeatureParamOverrides(row.featureParams),
   }));
 }
 

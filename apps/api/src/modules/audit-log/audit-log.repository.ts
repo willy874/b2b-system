@@ -80,7 +80,7 @@ export class AuditLogRepository {
   }
 
   /**
-   * 範圍全在熱表保留期內時只查熱表；否則熱表與冷表 `UNION ALL`，
+   * 範圍的起點晚於冷表最新的一筆時只查熱表；否則熱表與冷表 `UNION ALL`，
    * Postgres 會以兩邊的 `(occurred_at, id)` 索引做 Merge Append，只讀到 offset + limit 筆就停。
    */
   async list(
@@ -90,7 +90,7 @@ export class AuditLogRepository {
     const hotWhere = this.buildFilters(auditLogs, query, range);
     const hot = this.db.select(summaryColumns(auditLogs)).from(auditLogs).where(hotWhere);
 
-    if (!range.includeArchive) {
+    if (!(await this.archiveReaches(range.from))) {
       const [items, total] = await Promise.all([
         hot
           .orderBy(desc(auditLogs.occurredAt), desc(auditLogs.id))
@@ -116,6 +116,18 @@ export class AuditLogRepository {
       this.count(auditLogsArchive, coldWhere),
     ]);
     return { items, total: Math.min(hotTotal + coldTotal, AUDIT_LOG_COUNT_CAP) };
+  }
+
+  /**
+   * 冷表有沒有不早於 `from` 的紀錄。熱表保留天數是租戶的參數（docs/adr/0033-feature-params-and-webhook-targets.md D7），
+   * 調大之後已搬走的紀錄不會回到熱表，所以看冷表實際的資料，不以天數推算。`max(occurred_at)` 只讀時間索引的第一列。
+   */
+  private async archiveReaches(from: Date): Promise<boolean> {
+    const [row] = await this.db
+      .select({ newest: sql<Date | null>`max(${auditLogsArchive.occurredAt})` })
+      .from(auditLogsArchive);
+    const newest = row?.newest;
+    return newest ? new Date(newest).getTime() >= from.getTime() : false;
   }
 
   /** 先熱後冷，一次來回：`UNION ALL … LIMIT 1` 在熱表命中時不會去碰冷表。 */

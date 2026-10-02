@@ -113,6 +113,7 @@
 | --- | --- | --- | --- |
 | `features` | `text[]`，預設全部（`{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement}`） | 可啟用 feature 的 id（`core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`）。沒列出的 feature：api 以 `@RequireFeature()` 標的端點回 `404 FEATURE_DISABLED`（`common/guards/feature.guard.ts`；handler 與 class 的宣告合併，全部都要啟用）；`/auth/profile` 的 `features` 不含它，前端不安裝它。該 feature 的背景工作照常執行，資料保留 | [ADR-0021](../adr/0021-runtime-feature-activation.md) D8、D11、[ADR-0029](../adr/0029-toggleable-platform-features.md)、[ADR-0030](../adr/0030-webhooks.md) D8 |
 | `flags` | `jsonb`，預設 `{}` | feature flag 的租戶層覆寫 `{ [key]: boolean }`，沒列出 = 跟著全平台與預設值；見 §5.2 | [ADR-0022](../adr/0022-feature-flags.md) D2 |
+| `feature_params` | `jsonb`，預設 `{}` | feature 參數（配額與上限）的覆寫 `{ [key]: number \| string }`，沒列出 = 預設值；見 §5.3 | [ADR-0033](../adr/0033-feature-params-and-webhook-targets.md) D2 |
 
 各 feature 停用時的效果：
 
@@ -185,6 +186,34 @@ key 在 OpenAPI 上是字串（目錄常常是空的），由伺服器依目錄�
 **移除一個 flag**：① 全平台設 `on`（或把 `defaultEnabled` 改成 `true` 並部署）觀察一段時間 → ② 刪掉 `@RequireFlag`／`isEnabled`／`useFlag`
 與舊路徑 → ③ 從 `FEATURE_FLAGS` 刪除。DB 殘留的租戶覆寫在讀取時被忽略，`feature_flag_overrides` 的殘列在同一個 PR 以資料 migration 刪除。
 要延期就改 `removeBy`，延期會留在 commit 紀錄裡。
+
+### 5.3 Feature 參數（配額與上限）
+
+決定與理由見 [ADR-0033](../adr/0033-feature-params-and-webhook-targets.md)。§5.1 的 `features` 決定租戶 **有沒有** 某個 feature；
+參數決定開了之後 **能用多少**。由平台管理者在租戶詳情（apps/auth 的「啟用的功能」，每個 feature 那一列下）設定，租戶管理者不能改。
+
+**目錄**（`core/tenant/tenant-feature-params.ts` 的 `TENANT_FEATURE_PARAMS`）：每個參數有 `key`（`<feature>.<名稱>`）、所屬的 `feature`、
+`type`（`integer` ｜ `string`）、`defaultValue`、整數的 `min`／`max`／`unit`（`days`、`megabytes`、`count`）、字串的 `maxLength`／`pattern`。
+key 以 `TenantFeatureParamKey` 出現在 OpenAPI。
+
+| key | 預設 | 範圍 | 效果 | 出處 |
+| --- | --- | --- | --- | --- |
+| `file.storageQuotaMb` | 2048（MB） | 1–10485760 | 所有檔案的大小合計上限，超過回 `409 FILE_STORAGE_QUOTA_EXCEEDED` | [`backend/09-file.md`](./backend/09-file.md) §5.0 |
+| `auditLog.hotRetentionDays` | 90（天） | 7–3650 | 稽核熱表保留天數；`auditLog.archive` 搬移早於它的紀錄 | [`backend/06-audit-log.md`](./backend/06-audit-log.md) §7.2、§8 |
+| `job.maxConcurrency` | 10 | 1–100 | 租戶所有種類的背景工作同時執行的筆數；超過的放回佇列 | [`backend/10-jobs.md`](./backend/10-jobs.md) §3 |
+| `identityProvider.maxProviders` | 10 | 1–100 | 外部 IdP 連線數上限，超過回 `409 IDENTITY_PROVIDER_LIMIT_REACHED` | [`04-sso.md`](./04-sso.md) |
+| `webhook.maxUrls` | 1 | 1–500 | 整個租戶的 webhook 訂閱裡不重複的網址數；超過而且變多回 `409 WEBHOOK_URL_LIMIT_REACHED` | [`backend/17-webhook.md`](./backend/17-webhook.md) §2.1 |
+
+- **讀取**：`tenantFeatureParam(PARAM)` 取目前租戶的生效值（沒有租戶脈絡時拋 `TENANT_NOT_FOUND`）；以 id 找租戶的地方（背景工作佇列）
+  用 `resolveTenantFeatureParam(PARAM, record.featureParams)`；腳本讀 `ScriptTenant.featureParams`。覆寫值隨租戶登記載入
+  `TenantContext.featureParams`，DB 裡不在目錄裡或驗證不過的值讀取時濾掉（回到預設）。
+- **寫入**：`PATCH /platform/tenants/:id` 的 `featureParams` 只列要改的（`{ [key]: value | null }`），`null` 回到預設、等於預設的也不存；
+  不認得的 key、型別或範圍不對回 `VALIDATION_FAILED`（`fields["featureParams.<key>"]`）。`PlatformTenant.featureParams` 是目錄上每個參數一項
+  （生效值、預設值、`overridden`、範圍與單位）。寫入與平台稽核 `tenant.update`（`before`／`after` 帶 `featureParams`）同一個交易，
+  之後 `TenantDirectory.invalidate()`；不推播（參數不影響前端安裝哪些 feature）。
+- **與開關無關**：feature 關閉時參數照常保留、照常生效。
+- **新增一個參數**：目錄加一列（預設值要讓既有租戶的行為不變，或在 ADR 說明）→ 擁有者模組以 `tenantFeatureParam()` 讀 →
+  apps/auth 的 `TENANT_FEATURE_PARAM_LABEL_KEY`／`TENANT_FEATURE_PARAM_DESCRIPTION_KEY` 與兩個語系檔 → 本節的表。
 
 ## 6. 周邊元件怎麼分租戶
 
