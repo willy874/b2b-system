@@ -23,7 +23,7 @@ export function useFileSearch() {
   return {
     search,
     /** 改篩選就回到第一頁；打字搜尋用 replace，不讓每個字都留一筆瀏覽紀錄。 */
-    setFilters: (filters: Pick<FileSearchQuery, 'keyword' | 'category'>, replace = false) =>
+    setFilters: (filters: Pick<FileSearchQuery, 'keyword' | 'category' | 'tag'>, replace = false) =>
       patch({ ...filters, offset: 0 }, { replace }),
     setOffset: (offset: number) => patch({ offset }),
     /**

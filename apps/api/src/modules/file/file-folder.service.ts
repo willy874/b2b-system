@@ -12,6 +12,8 @@ import { DomainEvent, DomainEventBus } from '@/core/events';
 import { RESOURCE_TYPE } from '@/core/resource';
 import type { FileFolderRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import type { TagSummaryDto } from '@/modules/tag/dto/tag.dto';
+import { TagService } from '@/modules/tag/tag.service';
 
 import type {
   CreateFileFolderDto,
@@ -61,6 +63,7 @@ export class FileFolderService {
     private readonly files: FileRepository,
     private readonly objects: FileObjectsService,
     private readonly images: FileImageService,
+    private readonly tags: TagService,
   ) {}
 
   /**
@@ -73,9 +76,13 @@ export class FileFolderService {
       this.repo.listAll(),
       this.requests.pendingFolderIdsOf(actor),
     ]);
+    const tags = await this.tags.tagsOf(
+      RESOURCE_TYPE.FILE_FOLDER,
+      rows.map((row) => row.id),
+    );
     return {
       // 別人的個人資料夾與其他資料夾一致：列出但鎖住（§5.1）
-      items: rows.map((row) => toDto(row, ctx, requested.has(row.id))),
+      items: rows.map((row) => toDto(row, ctx, tags.get(row.id) ?? [], requested.has(row.id))),
       rootCapabilities: ctx.rootCapabilities(),
       personalFolderId:
         rows.find((row) => row.kind === 'personal' && row.ownerId === actor.id)?.id ?? null,
@@ -143,7 +150,7 @@ export class FileFolderService {
     });
     this.publish([{ resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.CREATE, id: created.id }]);
     // 新資料夾繼承上層的授權、建立者是自己：能力以上層推得（context 建立時它還不存在）
-    return toDto(created, ctx, false, {
+    return toDto(created, ctx, [], false, {
       canRead: true,
       canCreate: ctx.can('create', created.parentId),
       canUpdate: ctx.canModify('update', created.parentId, created.createdBy),
@@ -285,7 +292,7 @@ export class FileFolderService {
       return { renamed: row, ctx: context };
     });
     this.publish([{ resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.UPDATE, id }]);
-    return toDto(renamed, ctx);
+    return toDto(renamed, ctx, await this.tagsFor(id));
   }
 
   /**
@@ -502,7 +509,8 @@ export class FileFolderService {
         tx,
       );
       return {
-        dto: toDto(root, ctx),
+        // 軟刪除時保留標籤的指派（docs/adr/0032-tags.md D9）：還原後跟著回來
+        dto: toDto(root, ctx, await this.tagsFor(root.id)),
         foldersRestored: folderIds.length,
         filesRestored: restoredFiles.length,
         filesSkipped,
@@ -639,6 +647,29 @@ export class FileFolderService {
     }
   }
 
+  /**
+   * 能不能改這個資料夾的標籤（`TagService` 的 resolver，docs/adr/0032-tags.md D5）：跟改名同一個判斷——
+   * 讀得到、能改名；系統資料夾（共用、私人、個人）不能改名，也不能貼標籤。
+   */
+  async assertTaggable(id: string, actor: AuthUser): Promise<{ name: string }> {
+    const ctx = await this.access.contextFor(actor);
+    const folder = await this.getReadableOrThrow(ctx, actor, id, this.db);
+    assertNotSystem([folder]);
+    if (!ctx.canModify('update', folder.parentId, folder.createdBy)) {
+      throw await this.access.deny(actor, 'update', 'fileFolder', id);
+    }
+    return { name: folder.name };
+  }
+
+  /** 標籤被改了（交易提交後）：推一筆資料夾更新（D10）。 */
+  publishTagsChanged(id: string): void {
+    this.publish([{ resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.UPDATE, id }]);
+  }
+
+  private async tagsFor(id: string): Promise<TagSummaryDto[]> {
+    return (await this.tags.tagsOf(RESOURCE_TYPE.FILE_FOLDER, [id])).get(id) ?? [];
+  }
+
   private publish(changes: ResourceChangeWire[]): void {
     if (changes.length === 0) return;
     this.events.publish(DomainEvent.RESOURCE_CHANGED, { changes });
@@ -667,6 +698,7 @@ function assertNotSystem(folders: readonly FileFolderRow[]): void {
 function toDto(
   row: FileFolderRow,
   ctx: FileAccessContext,
+  tags: TagSummaryDto[],
   hasPendingAccessRequest = false,
   capabilities = ctx.folderCapabilities(row),
 ): FileFolderDto {
@@ -678,6 +710,7 @@ function toDto(
     inheritGrants: row.inheritGrants,
     hasPendingAccessRequest,
     capabilities,
+    tags,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

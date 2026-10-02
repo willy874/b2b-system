@@ -18,6 +18,7 @@ import { UserBasicSection } from './components/UserBasicSection';
 import { UserGroupSection } from './components/UserGroupSection';
 import { UserPermissionSourceSection } from './components/UserPermissionSourceSection';
 import { UserRoleSection } from './components/UserRoleSection';
+import { UserTagSection } from './components/UserTagSection';
 
 export default function UserDetailPage() {
   const { t } = useTranslation();
@@ -71,6 +72,7 @@ export default function UserDetailPage() {
             canAssignRole={permission.canAssignRole}
             isSelf={isSelf}
           />
+          <UserTagSection user={user.data} canEdit={permission.canUpdate} />
           {permission.canReadGroups && <UserGroupSection userId={userId} />}
           {(isSelf || permission.canExplain) && <UserPermissionSourceSection userId={userId} />}
           {permission.canManageApiTokens && <UserApiTokenSection userId={userId} />}

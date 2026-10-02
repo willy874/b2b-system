@@ -1,0 +1,43 @@
+{
+  "tagAdmin": {
+    "list": {
+      "title": "Tags",
+      "description": "Define the tags that each kind of item can use. Tags are added and removed on the items' own pages (file manager, users)."
+    },
+    "scope": {
+      "file": "Files",
+      "fileDescription": "Files and folders share this set: select items in the file manager to tag them, and filter by tag.",
+      "user": "Users",
+      "userDescription": "Tag users from their details; the user list can be filtered by tag."
+    },
+    "field": {
+      "name": "Name",
+      "color": "Color",
+      "preview": "Preview",
+      "updatedAt": "Updated"
+    },
+    "color": {
+      "neutral": "Gray",
+      "brand": "Blue",
+      "success": "Green",
+      "warning": "Orange",
+      "danger": "Red"
+    },
+    "create": {
+      "action": "Create tag",
+      "title": "Create tag",
+      "success": "Tag \"{{name}}\" created"
+    },
+    "edit": {
+      "title": "Edit tag"
+    },
+    "update": {
+      "success": "Tag updated"
+    },
+    "delete": {
+      "title": "Delete tag",
+      "confirm": "After deleting \"{{name}}\", it's removed from every item that has it. This can't be undone.",
+      "success": "Tag deleted"
+    }
+  }
+}

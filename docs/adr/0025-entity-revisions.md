@@ -11,7 +11,7 @@
   [`../architecture/backend/06-audit-log.md`](../architecture/backend/06-audit-log.md)、
   [`../architecture/backend/09-file.md`](../architecture/backend/09-file.md) §6.2、§9、
   [`../architecture/backend/12-settings.md`](../architecture/backend/12-settings.md)；
-  同時回答 [`../features/tags-comments.md`](../features/tags-comments.md) 開放問題 2
+  同時回答提案「標籤、留言、關注」的開放問題 2（標籤已由 [ADR-0032](./0032-tags.md) 實作，留言與關注見 [`../features/comments-watches.md`](../features/comments-watches.md)）
 
 ## 背景
 

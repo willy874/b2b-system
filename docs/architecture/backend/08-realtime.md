@@ -251,6 +251,7 @@ super-admin 加入自己租戶的所有 perm room。
 | `serviceAccount`   | `serviceAccount:read`                      | —                                  | 服務帳號的列表與詳情（[ADR-0027](../../adr/0027-api-tokens-external-api.md) T4）；服務帳號沒有連線，不推本人 |
 | `apiToken`         | `serviceAccount:read`、`user:update`       | 個人 token 的擁有者（`affectedUserIds`） | 服務帳號的 token（`refs.serviceAccount`）、使用者詳情頁的 token、自己的個人 token |
 | `webhook`          | `webhook:read`                             | —                                  | Webhook 的列表與詳情（[`17-webhook.md`](./17-webhook.md)）；自動停用也推 |
+| `tag`              | `file:access`、`file:read`、`user:read`    | —                                  | 標籤的定義（[`18-tag.md`](./18-tag.md) §4）；貼與移除由擁有者推自己的資源 |
 | `webhookDelivery`  | `webhook:read`                             | —                                  | 每一次投遞嘗試（`refs.webhook`）；投遞不寫稽核，所以 **不** 加 `auditLog:read` |
 | `notificationPreference` | —                                    | 本人（`affectedUserIds`）          | 自己的通知設定（[`16-notification-event.md`](./16-notification-event.md) §5）；不寫稽核，所以 **不** 加 `auditLog:read` |
 | 任何來源（`notification`、`notificationPreference`、`webhookDelivery` 除外） | `auditLog:read`                 | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）；規則上標 `recordsAudit: false` 的來源不算 |
@@ -404,6 +405,8 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 | 修改自己的通知設定（`PATCH /me/notification-preferences`） | `notificationPreference update`（每個改到的事件一筆，id 是事件類型），`affectedUserIds` = 自己 | —                                    |
 | 服務帳號建立／修改／刪除／指派角色 | `serviceAccount create` / `update` / `delete`，加上持有者變動的角色各一筆 `role update` | —                                       |
 | 建立／撤銷 API token         | `apiToken create` / `apiToken update`；服務帳號的帶 `refs.serviceAccount`，個人的 `affectedUserIds` = 擁有者 | —           |
+| 標籤的建立、改名、改色、刪除 | `tag create` / `update` / `delete` | —                                       |
+| 貼與移除標籤 | 擁有者的資源：`file update`（`refs.fileFolder`）、`fileFolder update`、`user update` | —                    |
 | Webhook 建立／修改／停用／輪替密鑰／刪除 | `webhook create` / `update` / `delete` | —                                       |
 | Webhook 投遞（背景工作、送測試事件、重送） | `webhookDelivery create`（`refs.webhook`）；連續失敗自動停用時另加 `webhook update` | —      |
 | 平台管理者改了租戶啟用的 feature | 不發 `resource.changed`；發 `tenant.featuresChanged`（平台的請求沒有租戶脈絡，room 以 `tenantId` 組） | —                                  |
@@ -524,6 +527,8 @@ export const ChangeSource = {
   WEBHOOK: 'webhook',
   /** Webhook 的一次投遞嘗試；帶 `refs.webhook`，不寫稽核（ADR-0030）。 */
   WEBHOOK_DELIVERY: 'webhookDelivery',
+  /** 標籤的定義（ADR-0032）；指派由擁有者推自己的資源。 */
+  TAG: 'tag',
 } as const;
 
 export const resourceChangedSchema = z.object({

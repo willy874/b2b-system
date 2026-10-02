@@ -84,6 +84,11 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
     includesSubject: false,
     recordsAudit: false,
   },
+  // 標籤的定義：進得了任一標籤組的人（docs/adr/0032-tags.md D10）
+  [ChangeSource.TAG]: {
+    perms: () => [PERMISSION.FILE_ACCESS, PERMISSION.FILE_READ, PERMISSION.USER_READ],
+    includesSubject: false,
+  },
   // 事件管理頁（與系統設定同一群讀者，ADR-0028 D10）
   [ChangeSource.NOTIFICATION_POLICY]: {
     perms: () => [PERMISSION.SYSTEM_READ],

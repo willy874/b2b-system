@@ -22,8 +22,17 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { containsPattern, TENANT_DB } from '@/core/database';
+import { RESOURCE_TYPE } from '@/core/resource';
 import type { FileInsert, FileRow, FileVariantStatus } from '@/db/schema';
-import { fileFolders, files, isDeleted, notDeleted, relationTuples, users } from '@/db/schema';
+import {
+  fileFolders,
+  files,
+  hasAnyTag,
+  isDeleted,
+  notDeleted,
+  relationTuples,
+  users,
+} from '@/db/schema';
 
 import type { ListFileDto } from './dto/list-file.dto';
 import { FILE_CATEGORY_RULES } from './file.constants';
@@ -144,6 +153,7 @@ export class FileRepository {
       );
     }
     if (query.uploaderId) conditions.push(eq(files.createdBy, query.uploaderId));
+    if (query.tagId?.length) conditions.push(hasAnyTag(RESOURCE_TYPE.FILE, files.id, query.tagId));
     const where = and(...conditions);
 
     const sorts = after ? [after.sort] : query.sort;

@@ -682,6 +682,11 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | PATCH  | `/webhooks/:id`             | `webhook:update`                 |
 | DELETE | `/webhooks/:id`             | `webhook:delete`                 |
 | POST   | `/webhooks/:id/rotate-secret`、`/webhooks/:id/test`、`/webhooks/:id/deliveries/:deliveryId/redeliver` | `webhook:update` |
+| GET    | `/tags?scope=`              | 登入；service 檢查進得了標籤組（[`18-tag.md`](./18-tag.md) §1） |
+| POST   | `/tags`                     | `tag:create`                     |
+| PATCH  | `/tags/:id`                 | `tag:update`                     |
+| DELETE | `/tags/:id`                 | `tag:delete`                     |
+| PUT    | `/tags/assignments/:resourceType/:resourceId` | 登入；service 交給擁有者判斷目標的編輯權限 |
 | GET    | `/trash`                    | `user:delete` \| `role:delete` \| `group:delete` \| `file:delete`⁴ |
 | GET    | `/roles`                    | `role:read`                      |
 | POST   | `/roles`                    | `role:create`                    |

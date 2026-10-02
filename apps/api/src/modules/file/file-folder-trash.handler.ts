@@ -6,6 +6,7 @@ import { PERMISSION } from '@/common/types';
 import type { Transaction } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { RESOURCE_TYPE } from '@/core/resource';
+import { TagService } from '@/modules/tag/tag.service';
 import { TrashService } from '@/modules/trash/trash.service';
 import type {
   ExpiredTrashItem,
@@ -38,6 +39,7 @@ export class FileFolderTrashHandler implements TrashHandler, OnModuleInit {
     private readonly trash: TrashService,
     private readonly repo: FileFolderRepository,
     private readonly events: DomainEventBus,
+    private readonly tags: TagService,
   ) {}
 
   onModuleInit(): void {
@@ -72,7 +74,10 @@ export class FileFolderTrashHandler implements TrashHandler, OnModuleInit {
   }
 
   async purge(item: ExpiredTrashItem, tx: Transaction): Promise<boolean> {
-    return (await this.repo.purgeTree(item.id, tx)).length > 0;
+    const purged = await this.repo.purgeTree(item.id, tx);
+    // 子樹裡每個資料夾的標籤指派一起清掉（docs/adr/0032-tags.md D9）
+    await this.tags.removeAllFor(RESOURCE_TYPE.FILE_FOLDER, purged, tx);
+    return purged.length > 0;
   }
 
   /**

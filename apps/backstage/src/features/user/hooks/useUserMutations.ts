@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 
 import { invalidateResources, Resource } from '@/apis/resources';
+import { getResourceTagsReplaceMutationOptions } from '@/apis/tag/replace-resource-tags/mutation';
 import { getAssignUserRolesMutationOptions } from '@/apis/user/assign-user-roles/mutation';
 import { getUserCreateMutationOptions } from '@/apis/user/create-user/mutation';
 import { getUserDeleteMutationOptions } from '@/apis/user/delete-user/mutation';
@@ -186,5 +187,18 @@ export function useUserResetPasswordMutation() {
       toast.success(t('user.resetPassword.success'));
     },
     onError: showError,
+  });
+}
+
+/** 整批取代使用者的標籤（docs/adr/0032-tags.md D7）：錯誤由對話框顯示，不彈 toast。 */
+export function useUserTagsReplaceMutation() {
+  const toast = useToast();
+  const { t } = useTranslation();
+  return useMutation({
+    ...getResourceTagsReplaceMutationOptions(),
+    onSuccess: (_, { params }) => {
+      invalidateResources([{ resource: Resource.USER, kind: 'update', id: params.resourceId }]);
+      toast.success(t('tag.assign.success'));
+    },
   });
 }

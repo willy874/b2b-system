@@ -29,6 +29,7 @@ Nest 12 的套件只發 ESM；`apps/api` 仍編譯成 CommonJS，靠 Node 的 `r
 | 15  | [`15-notification.md`](./15-notification.md)       | 站內通知：`notifications`、`NotificationService.notify()`、收件人、route id、`notification.cleanup` |
 | 16  | [`16-notification-event.md`](./16-notification-event.md) | 事件管理：事件目錄（`defineNotification` 的中繼資料、`NotificationEventCatalog`）、`notification_policies` 與租戶層的開關、`notification_preferences` 與個人設定 |
 | 17  | [`17-webhook.md`](./17-webhook.md)                 | Webhook：對外事件（`defineWebhookEvent`、`WebhookEventCatalog`、`emit()`）、`webhook.deliver` 的重試與自動停用、簽章、連線時綁定已驗證的位址 |
+| 18  | [`18-tag.md`](./18-tag.md)                         | 標籤：標籤組（`TagService.registerScope`）、可貼標籤的資源（`registerResource`）、`tags`／`resource_tags`、`hasAnyTag()` 篩選、永久刪除時清理 |
 
 ## 四條必須記住的規則
 

@@ -280,3 +280,5 @@ b2b-system/
     [`features/permission-graph.md`](../features/permission-graph.md)
 14. ~~Webhook~~（已完成：對外事件的目錄、訂閱、背景工作投遞與重試、自動停用、投遞紀錄與重送、backstage 的管理畫面；見
     [`architecture/backend/17-webhook.md`](../architecture/backend/17-webhook.md)、[ADR-0030](../adr/0030-webhooks.md)）
+15. ~~標籤~~（已完成：檔案、資料夾、使用者的標籤、依標籤篩選、標籤管理頁；見 [`architecture/backend/18-tag.md`](../architecture/backend/18-tag.md)、
+    [ADR-0032](../adr/0032-tags.md)）。留言與關注仍在 [`features/comments-watches.md`](../features/comments-watches.md)

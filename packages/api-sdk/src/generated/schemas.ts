@@ -25,6 +25,7 @@ import type {
   CreatePlatformAdminRequest,
   CreateRoleRequest,
   CreateServiceAccountRequest,
+  CreateTagRequest,
   CreateTenantRequest,
   CreateUserRequest,
   CreateWebhookRequest,
@@ -109,9 +110,11 @@ import type {
   RegisterRequest,
   RegisterResult,
   RejectApprovalRequest,
+  ReplaceResourceTagsRequest,
   ReplaceServiceAccountRolesRequest,
   ReplaceUserRolesRequest,
   ResetPasswordRequest,
+  ResourceTags,
   RestoredFileFolder,
   RestoredGroup,
   RestoredRole,
@@ -139,6 +142,9 @@ import type {
   StoredFileImage,
   SystemSetting,
   SystemSettingList,
+  Tag,
+  TagList,
+  TagSummary,
   TenantFeature,
   TenantFlagOverrides,
   TenantLookup,
@@ -161,6 +167,7 @@ import type {
   UpdateRoleRequest,
   UpdateServiceAccountRequest,
   UpdateSystemSettingsRequest,
+  UpdateTagRequest,
   UpdateTenantRequest,
   UpdateUserRequest,
   UpdateWebhookRequest,
@@ -217,6 +224,9 @@ export const PermissionKeySchema = z.enum([
   'webhook:read',
   'webhook:update',
   'webhook:delete',
+  'tag:create',
+  'tag:update',
+  'tag:delete',
 ]) satisfies z.ZodType<PermissionKey>;
 
 export const PermissionSchema = z.object({
@@ -725,6 +735,68 @@ export const PlatformAuditLogSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).nullable(),
 }) satisfies z.ZodType<PlatformAuditLog>;
 
+export const TagSummarySchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+  color: z.enum(['neutral', 'brand', 'success', 'warning', 'danger']),
+}) satisfies z.ZodType<TagSummary>;
+
+export const TagSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  scope: z.string(),
+  name: z.string(),
+  color: z.enum(['neutral', 'brand', 'success', 'warning', 'danger']),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}) satisfies z.ZodType<Tag>;
+
+export const TagListSchema = z.object({
+  items: z.array(TagSchema),
+}) satisfies z.ZodType<TagList>;
+
+export const CreateTagRequestSchema = z.object({
+  scope: z.string().max(50).regex(new RegExp('^[a-z][A-Za-z0-9]*$')),
+  name: z.string().min(1).max(50),
+  color: z.enum(['neutral', 'brand', 'success', 'warning', 'danger']).default('neutral'),
+}) satisfies z.ZodType<CreateTagRequest>;
+
+export const UpdateTagRequestSchema = z.object({
+  name: z.string().min(1).max(50).optional(),
+  color: z.enum(['neutral', 'brand', 'success', 'warning', 'danger']).optional(),
+  version: z.int().min(1).max(9007199254740991),
+}) satisfies z.ZodType<UpdateTagRequest>;
+
+export const ReplaceResourceTagsRequestSchema = z.object({
+  tagIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(20),
+}) satisfies z.ZodType<ReplaceResourceTagsRequest>;
+
+export const ResourceTagsSchema = z.object({
+  tags: z.array(TagSummarySchema),
+}) satisfies z.ZodType<ResourceTags>;
+
 export const TrashResourceTypeSchema = z.enum([
   'user',
   'role',
@@ -852,6 +924,7 @@ export const UserSchema = z.object({
   displayName: z.string(),
   status: UserStatusSchema,
   roles: z.array(RoleSummarySchema),
+  tags: z.array(TagSummarySchema),
   locale: z.string(),
   timezone: z.string(),
   lastLoginAt: z.string().nullable(),
@@ -1389,6 +1462,7 @@ export const FileFolderSchema = z.object({
   inheritGrants: z.boolean(),
   hasPendingAccessRequest: z.boolean(),
   capabilities: FileFolderCapabilitiesSchema,
+  tags: z.array(TagSummarySchema),
   createdAt: z.string(),
   updatedAt: z.string(),
 }) satisfies z.ZodType<FileFolder>;
@@ -1414,6 +1488,7 @@ export const RestoredFileFolderSchema = z.object({
   inheritGrants: z.boolean(),
   hasPendingAccessRequest: z.boolean(),
   capabilities: FileFolderCapabilitiesSchema,
+  tags: z.array(TagSummarySchema),
   createdAt: z.string(),
   updatedAt: z.string(),
   foldersRestored: z.int().min(-9007199254740991).max(9007199254740991),
@@ -1582,6 +1657,7 @@ export const StoredFileSchema = z.object({
   version: z.int().min(-9007199254740991).max(9007199254740991),
   uploader: FileUploaderSchema.nullable(),
   capabilities: StoredFileCapabilitiesSchema,
+  tags: z.array(TagSummarySchema),
   uploadedAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),

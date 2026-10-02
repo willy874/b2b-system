@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 43 項）
+## 2. 權限清單（共 46 項）
 
 ### 2.1 `user` — 使用者
 
@@ -168,7 +168,18 @@
 > 事件不依訂閱者的權限過濾（D5）：payload 只帶 id，接收端以 API token 回查時才套用權限。
 > 能管 webhook 等於能讓租戶內所有符合類型的事件送到外部，所以只給管理者。
 
-### 2.14 個人範圍（不需要權限）
+### 2.14 `tag` — 標籤
+
+| 權限鍵       | 顯示名稱（zh-TW） | 說明 |
+| ------------ | ----------------- | ---- |
+| `tag:create` | 建立標籤          | 在某個標籤組（檔案、使用者）新增標籤定義（[ADR-0032](../adr/0032-tags.md) D5） |
+| `tag:update` | 編輯標籤          | 改標籤的名稱與顏色 |
+| `tag:delete` | 刪除標籤          | 硬刪除；所有資源上的這個標籤一併移除 |
+
+> 沒有 `tag:read`：定義對「進得了那個標籤組」的人都可讀（檔案組：`file:access` 或 `file:read`；使用者組：`user:read`）。
+> **貼與移除標籤不需要權限鍵**，跟著目標的編輯權限：檔案、資料夾是能改名，使用者是 `user:update`。
+
+### 2.15 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
@@ -202,6 +213,7 @@
 | `authz`           |   —    |  —   |   —    |   —    | `explain`                     |
 | `serviceAccount`  |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
 | `webhook`         |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
+| `tag`             |   ✓    |  —   |   ✓    |   ✓    | —                             |
 
 ---
 
@@ -252,6 +264,9 @@
 | `webhook:read`         |      ✓*       |    ✓    |     ✓     |          |
 | `webhook:update`       |      ✓*       |    ✓    |           |          |
 | `webhook:delete`       |      ✓*       |    ✓    |           |          |
+| `tag:create`           |      ✓*       |    ✓    |           |          |
+| `tag:update`           |      ✓*       |    ✓    |           |          |
+| `tag:delete`           |      ✓*       |    ✓    |           |          |
 
 `*` super-admin 是 **隱含全集**，不逐筆登錄權限鍵的邊（只有 `tenant:self#superAdmin` 一條邊）；
 `GET /auth/profile` 回傳時才展開成完整清單。
@@ -284,6 +299,7 @@
 | 建立服務帳號 | `/service-account/create`  | `SERVICE_ACCOUNT_CREATE` | `serviceAccount:read` ＋ `serviceAccount:create` | EVERY |
 | Webhook 列表 | `/webhook`（含 `/webhook/$webhookId` 詳情與投遞紀錄；編輯、重送要 `webhook:update`） | `WEBHOOK` | `webhook:read` | EVERY |
 | 建立 Webhook | `/webhook/create`          | `WEBHOOK_CREATE` | `webhook:read` ＋ `webhook:create` | EVERY |
+| 標籤管理     | `/tag`（`?scope=file\|user`） | `TAG`        | `tag:create`、`tag:update`、`tag:delete` 任一 | SOME |
 | 權限目錄     | `/permission`              | `PERMISSION`    | `permission:read`                | EVERY |
 | 稽核日誌     | `/audit-log`               | `AUDIT_LOG`     | `auditLog:read`                  | EVERY |
 | 審批         | `/approval`（含 `/approval/$approvalId` 對話框） | `APPROVAL` | `approval:read`           | EVERY |
@@ -480,6 +496,8 @@ Seed 行為：
 | `webhook:create` | `webhook:update` | |
 | `webhook:delete` | `webhook:update` | |
 | `webhook:update` | `webhook:read` | |
+| `tag:create` | `tag:update` | |
+| `tag:delete` | `tag:update` | |
 
 沒有列出的鍵是葉節點（`permission:read`、`auditLog:read`、各資源的 `read`、`file:access`）。
 

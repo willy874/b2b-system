@@ -14,7 +14,7 @@ export interface Rect {
 }
 
 /** 列表模式隨寬度顯示的欄位（窄螢幕只留檔名與大小）。 */
-export type FileListColumn = 'name' | 'kind' | 'size' | 'uploader' | 'createdAt';
+export type FileListColumn = 'name' | 'tags' | 'kind' | 'size' | 'uploader' | 'createdAt';
 
 export interface FileLayout {
   mode: FileViewMode;
@@ -50,6 +50,8 @@ export function listColumnsFor(width: number): FileListColumn[] {
   if (width >= 560) columns.splice(1, 0, 'kind');
   if (width >= 760) columns.push('createdAt');
   if (width >= 920) columns.push('uploader');
+  // 標籤（docs/adr/0032-tags.md）緊跟在檔名後面，寬度夠時才顯示
+  if (width >= 1080) columns.splice(1, 0, 'tags');
   return columns;
 }
 

@@ -12,6 +12,8 @@ interface UseFileManagerItemsOptions {
   folderId: string | undefined;
   keyword: string | undefined;
   category: FileCategory | undefined;
+  /** 標籤篩選（任一符合）；檔案由後端篩、資料夾在前端篩。 */
+  tag: string[] | undefined;
   sort: SortEntry<FileSortField>;
   pagingMode: FilePagingMode;
   offset: number;
@@ -27,6 +29,7 @@ export function useFileManagerItems({
   folderId,
   keyword,
   category,
+  tag,
   sort,
   pagingMode,
   offset,
@@ -34,10 +37,17 @@ export function useFileManagerItems({
   onMissingFolder,
 }: UseFileManagerItemsOptions) {
   const filters = useMemo(
-    () => ({ keyword, category, folderId: folderId ?? 'root', sort: [sort] }),
-    [category, folderId, keyword, sort],
+    () => ({ keyword, category, tagId: tag, folderId: folderId ?? 'root', sort: [sort] }),
+    [category, folderId, keyword, sort, tag],
   );
-  const folders = useFolderView({ folderId, keyword, category, sort, onMissing: onMissingFolder });
+  const folders = useFolderView({
+    folderId,
+    keyword,
+    category,
+    tag,
+    sort,
+    onMissing: onMissingFolder,
+  });
   // 鎖住的資料夾（docs/rbac/07-resource-grants.md §5.1）看得到子資料夾、看不到檔案：不查檔案。
   // 資料夾清單載入前也先不查，避免對鎖住的資料夾送出一個註定 403 的請求
   const locked = Boolean(folderId) && folders.location?.canRead !== true;

@@ -9,6 +9,7 @@ import type { DomainEventBus } from '@/core/events';
 import type { SettingService } from '@/core/settings';
 import type { ObjectStorage, StoredObjectHead } from '@/core/storage';
 import type { AuditService } from '@/modules/audit-log/audit.service';
+import type { TagService } from '@/modules/tag/tag.service';
 import type { WebhookService } from '@/modules/webhook/webhook.service';
 
 import type { FileFolderService } from '../file-folder.service';
@@ -155,6 +156,13 @@ function setup(
     ),
   };
   const webhooks = { emit: vi.fn(async () => undefined) };
+  // 標籤（docs/adr/0032-tags.md）：沒有貼任何標籤
+  const tags = {
+    tagsOf: vi.fn(
+      async (_type: string, ids: readonly string[]) =>
+        new Map(ids.map((id): [string, never[]] => [id, []])),
+    ),
+  };
   const config = {
     get: vi.fn(
       (key: keyof Env) =>
@@ -179,6 +187,7 @@ function setup(
     { get: vi.fn(async () => MAX_SIZE) } as unknown as SettingService,
     new FileObjectsService(storage as unknown as ObjectStorage),
     webhooks as unknown as WebhookService,
+    tags as unknown as TagService,
     config as unknown as ConfigService<Env, true>,
   );
   return { service, repo, storage, audit, events, images, folders, webhooks };

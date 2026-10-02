@@ -97,6 +97,7 @@
       "displayName": "顯示名稱",
       "status": "狀態",
       "roles": "角色",
+      "tags": "標籤",
       "lastLoginAt": "上次登入",
       "createdAt": "建立時間"
     },

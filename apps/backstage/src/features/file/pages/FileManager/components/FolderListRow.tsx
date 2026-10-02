@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from 'react';
 
 import { Checkbox } from '@/components/Checkbox';
 import { Icon } from '@/components/Icon';
+import { TagChips } from '@/core/components';
 import { useTranslation } from '@/core/locales';
 import { formatDateTime } from '@/shared/date';
 import { cn } from '@/shared/utils';
@@ -60,6 +61,7 @@ export const FolderListRow = memo(function FolderListRow({
         )}
       </span>
     ),
+    tags: <TagChips tags={item.tags} max={2} className="min-w-0 flex-nowrap overflow-hidden" />,
     kind: <span className="truncate">{t('file.folder.label')}</span>,
     size: (
       <span className="truncate text-[var(--color-fg-muted)]">

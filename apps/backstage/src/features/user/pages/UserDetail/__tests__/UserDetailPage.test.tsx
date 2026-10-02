@@ -38,6 +38,7 @@ const base = {
   username: null,
   displayName: 'Person',
   roles: [],
+  tags: [],
   lastLoginAt: null,
   version: 3,
   createdAt: '2026-09-30T00:00:00.000Z',
@@ -99,6 +100,22 @@ async function startEditing() {
 }
 
 describe('UserDetailPage', () => {
+  it('標籤：看得到使用者就看得到標籤；有 user:update 才能編輯（docs/adr/0032-tags.md D5）', async () => {
+    fetchUser.mockResolvedValue({
+      ...base,
+      status: 'active',
+      tags: [{ id: 't1', name: '研發部', color: 'brand' }],
+    });
+    const { unmount } = renderRoute(routes, PATH, ['user:read'] as PermissionKey[]);
+    const section = await screen.findByTestId('user-tag-section', undefined, { timeout: 5000 });
+    expect(within(section).getByTestId('tag-chip')).toHaveTextContent('研發部');
+    expect(within(section).queryByTestId('user-tag-edit-button')).toBeNull();
+    unmount();
+
+    renderRoute(routes, PATH, EDITOR);
+    expect(await screen.findByTestId('user-tag-edit-button')).toBeInTheDocument();
+  });
+
   it('鎖定的使用者只改顯示名稱：只送出名稱，不會順便解鎖', async () => {
     fetchUser.mockResolvedValue({ ...base, status: 'locked' });
     renderRoute(routes, PATH, EDITOR);

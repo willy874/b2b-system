@@ -16,6 +16,7 @@ import { PERMISSION_PAGE } from '@/features/permission';
 import { ROLE_PAGE } from '@/features/role';
 import { SERVICE_ACCOUNT_PAGE } from '@/features/service-account';
 import { SETTING_PAGE } from '@/features/system';
+import { TAG_PAGE } from '@/features/tag';
 import { TRASH_PAGE } from '@/features/trash';
 import { USER_PAGE } from '@/features/user';
 import { WEBHOOK_PAGE } from '@/features/webhook';
@@ -120,6 +121,13 @@ const MENU_GROUPS: NavGroup[] = [
         labelKey: 'menu.identityProvider',
         testId: 'menu-identity-provider',
         icon: 'key',
+      },
+      {
+        pageKey: TAG_PAGE,
+        to: '/tag',
+        labelKey: 'menu.tag',
+        testId: 'menu-tag',
+        icon: 'pin',
       },
       {
         pageKey: WEBHOOK_PAGE,

@@ -61,4 +61,8 @@ export const PERMISSION = {
   WEBHOOK_READ: 'webhook:read',
   WEBHOOK_UPDATE: 'webhook:update',
   WEBHOOK_DELETE: 'webhook:delete',
+
+  TAG_CREATE: 'tag:create',
+  TAG_UPDATE: 'tag:update',
+  TAG_DELETE: 'tag:delete',
 } as const satisfies Record<string, PermissionKey>;

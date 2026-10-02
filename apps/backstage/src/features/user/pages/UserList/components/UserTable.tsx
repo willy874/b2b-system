@@ -8,7 +8,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { Icon } from '@/components/Icon';
 import type { TableColumnDef } from '@/components/Table';
 import { Tooltip } from '@/components/Tooltip';
-import { RichTable } from '@/core/components';
+import { RichTable, TagChips } from '@/core/components';
 import type {
   FilterBarProps,
   RichTableBatch,
@@ -117,6 +117,18 @@ export function UserTable({
           ) : (
             <span className="text-[var(--color-fg-muted)]">{t('common.none')}</span>
           ),
+      },
+      {
+        id: 'tags',
+        header: t('user.field.tags'),
+        enableSorting: false,
+        cell: ({ row }) => (
+          <TagChips
+            tags={row.original.tags}
+            max={3}
+            empty={<span className="text-[var(--color-fg-muted)]">{t('common.none')}</span>}
+          />
+        ),
       },
       {
         id: 'lastLoginAt',

@@ -446,6 +446,11 @@ migration 0017 手寫兩個 trigger：`deleted_at` 改變時 `authz_revision` +1
 欄位、索引與保留見 [`17-webhook.md`](./17-webhook.md) §2（[ADR-0030](../../adr/0030-webhooks.md)）。訂閱是設定、硬刪除；事件與投遞紀錄保留 30 天，
 刪除事件時投遞紀錄 CASCADE。這三張表沒有 `deleted_at`，不經 `notDeleted()`。
 
+### 2.17 `tags`、`resource_tags`（標籤）
+
+欄位、約束與篩選條件 `hasAnyTag()` 見 [`18-tag.md`](./18-tag.md) §2（[ADR-0032](../../adr/0032-tags.md)）。`resource_tags` 是多型關聯（`resource_type` ＋ `resource_id`），
+沒有指向資源的外鍵：資源永久刪除時由擁有者清掉（[`13-trash.md`](./13-trash.md)）。
+
 ---
 
 ## 3. 不變條件的 DB 層強制
@@ -638,6 +643,8 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0023_service_account_system_roles.sql   手寫：既有租戶的 admin 補 serviceAccount:*、auditor 補 serviceAccount:read
 ├── 0024_webhooks.sql                   webhook_subscriptions、webhook_events、webhook_deliveries（§2.16，ADR-0030；純加法）
 ├── 0025_webhook_system_roles.sql       手寫：既有租戶的 admin 補 webhook:*、auditor 補 webhook:read
+├── 0026_tags.sql                       tags、resource_tags（§2.17，ADR-0032；純加法）
+├── 0027_tag_system_roles.sql           手寫：既有租戶的 admin 補 tag:*
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

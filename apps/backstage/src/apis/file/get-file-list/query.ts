@@ -22,6 +22,7 @@ const filterKeys = (filters: FileListFilters) =>
     filters.contentType,
     filters.category,
     filters.uploaderId,
+    filters.tagId?.join(',') ?? '',
     filters.sort ? toSortParams(filters.sort).join(',') : '',
   ] as const;
 

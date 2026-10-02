@@ -3,6 +3,7 @@ import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
+import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
 import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
 import { AlertDialog } from '@/components/AlertDialog';
 import { ButtonLink } from '@/components/Button';
@@ -31,6 +32,8 @@ export default function UserListPage() {
 
   const profile = useQuery(getAuthProfileQueryOptions());
   const deleteUser = useUserDeleteMutation();
+  // 篩選面板的標籤選項（`user` 標籤組；讀得到使用者列表就讀得到，docs/adr/0032-tags.md D5）
+  const tags = useQuery(getTagListQueryOptions('user'));
 
   const { data, isPending, error, refetch } = useQuery(
     getUserListQueryOptions({
@@ -39,6 +42,7 @@ export default function UserListPage() {
         limit: search.limit,
         keyword: search.keyword,
         status: search.status ? [search.status] : undefined,
+        tagId: search.tagId,
         sort: search.sort,
       },
     }),
@@ -50,13 +54,22 @@ export default function UserListPage() {
   );
   const selection = useTableSelection(rows, getRowId);
   // 篩選條件改變後，原本勾選的列可能不在結果裡了：清空選取（排序只是換順序，保留）
-  const filters = useUserFilters({
-    ...searchFilter,
-    setFilters: (next) => {
-      if (next.keyword !== search.keyword || next.status !== search.status) selection.clear();
-      searchFilter.setFilters(next);
+  const filters = useUserFilters(
+    {
+      ...searchFilter,
+      setFilters: (next) => {
+        if (
+          next.keyword !== search.keyword ||
+          next.status !== search.status ||
+          next.tagId?.join(',') !== search.tagId?.join(',')
+        ) {
+          selection.clear();
+        }
+        searchFilter.setFilters(next);
+      },
     },
-  });
+    tags.data?.items,
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="user-list-page">

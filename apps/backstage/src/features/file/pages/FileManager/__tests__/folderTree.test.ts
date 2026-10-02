@@ -33,6 +33,7 @@ function folder(
     inheritGrants: true,
     hasPendingAccessRequest: false,
     capabilities: CAN_ALL,
+    tags: [],
     createdAt: '',
     updatedAt: '',
     ...overrides,

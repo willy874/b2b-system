@@ -109,6 +109,7 @@
     "userGroup": "群組",
     "serviceAccount": "服務帳號",
     "permission": "權限目錄",
+    "tag": "標籤",
     "auditLog": "稽核日誌",
     "approval": "審批",
     "file": "檔案",
@@ -212,6 +213,11 @@
     "WEBHOOK_DISABLED": "這個 webhook 已停用，請先啟用再送出。",
     "WEBHOOK_LIMIT_REACHED": "webhook 已達上限（{{max}} 個），請先刪除不用的 webhook。",
     "WEBHOOK_DELIVERY_NOT_FOUND": "找不到這筆投遞紀錄，可能已超過保留期限而被清除。",
+    "TAG_NOT_FOUND": "找不到這個標籤，可能已被刪除，或不屬於這類資源。",
+    "TAG_VERSION_CONFLICT": "這個標籤已經被其他人修改，請重新載入後再編輯。",
+    "TAG_NAME_DUPLICATE": "已有同名的標籤（名稱不分大小寫）。",
+    "TAG_SCOPE_NOT_FOUND": "這類資源不能貼標籤。",
+    "TAG_LIMIT_REACHED": "標籤已達上限（{{max}} 個）。",
     "REVISION_NOT_FOUND": "找不到這個版本，可能已超過保留期限而被清除。",
     "REVISION_UNAVAILABLE": "這個版本的內容過大未保存，無法檢視或還原。",
     "NOTIFICATION_NOT_FOUND": "這則通知已不存在，可能已超過保留期限而被刪除。",
@@ -289,7 +295,8 @@
       "group": "群組",
       "authz": "授權說明",
       "serviceAccount": "服務帳號",
-      "webhook": "Webhook"
+      "webhook": "Webhook",
+      "tag": "標籤"
     },
     "user": {
       "create": "建立使用者",
@@ -359,6 +366,11 @@
       "read": "檢視 Webhook",
       "update": "編輯 Webhook",
       "delete": "刪除 Webhook"
+    },
+    "tag": {
+      "create": "建立標籤",
+      "update": "編輯標籤",
+      "delete": "刪除標籤"
     }
   },
   "language": {
@@ -479,5 +491,18 @@
       "warning": "請立即複製並妥善保存，這個 token 只會顯示這一次。",
       "done": "我已保存"
     }
+  },
+  "tag": {
+    "assign": {
+      "action": "標籤",
+      "title": "標籤：{{name}}",
+      "placeholder": "選擇標籤",
+      "search": "搜尋標籤",
+      "hint": "最多 {{max}} 個。標籤的名稱與顏色在「標籤管理」設定。",
+      "noTags": "這類項目還沒有任何標籤。請先到「標籤管理」建立。",
+      "success": "已更新標籤"
+    },
+    "filter": "標籤",
+    "filterPlaceholder": "依標籤篩選"
   }
 }

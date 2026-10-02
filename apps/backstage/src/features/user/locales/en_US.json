@@ -97,6 +97,7 @@
       "displayName": "Display name",
       "status": "Status",
       "roles": "Roles",
+      "tags": "Tags",
       "lastLoginAt": "Last sign-in",
       "createdAt": "Created"
     },

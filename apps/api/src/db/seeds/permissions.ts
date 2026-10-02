@@ -63,6 +63,11 @@ export const PERMISSION_SEED = [
   ['webhook', 'read', 'permission.webhook.read', 1501],
   ['webhook', 'update', 'permission.webhook.update', 1502],
   ['webhook', 'delete', 'permission.webhook.delete', 1503],
+
+  // 標籤的定義（docs/adr/0032-tags.md D5）；貼與移除跟著目標資源的編輯權限，沒有權限鍵
+  ['tag', 'create', 'permission.tag.create', 1600],
+  ['tag', 'update', 'permission.tag.update', 1601],
+  ['tag', 'delete', 'permission.tag.delete', 1602],
 ] as const satisfies ReadonlyArray<readonly [string, string, string, number]>;
 
 type SeedList = typeof PERMISSION_SEED;
@@ -149,6 +154,10 @@ export const PERMISSION_DEPENDENCIES = {
   'webhook:create': { includes: ['webhook:update'] },
   'webhook:delete': { includes: ['webhook:update'] },
   'webhook:update': { includes: ['webhook:read'] },
+
+  // 沒有 tag:read：定義對進得了該標籤組的人都可讀
+  'tag:create': { includes: ['tag:update'] },
+  'tag:delete': { includes: ['tag:update'] },
 } as const satisfies Partial<Record<PermissionKey, PermissionDependency>>;
 
 export type PermissionDependencyMap = Partial<Record<PermissionKey, PermissionDependency>>;

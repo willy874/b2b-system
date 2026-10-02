@@ -146,6 +146,18 @@ export const ErrorCode = {
   /** 要重送的投遞紀錄不存在、不屬於這個訂閱，或事件已被保留清理刪除。 */
   WEBHOOK_DELIVERY_NOT_FOUND: { status: 404 },
 
+  // ── 標籤（docs/adr/0032-tags.md） ──
+  /** 標籤不存在；指派時也用在「不屬於這個資源的標籤組」（`details.tagIds`）。 */
+  TAG_NOT_FOUND: { status: 404 },
+  /** 樂觀鎖：`details.current` 帶目前版本（ADR-0025 D3）。 */
+  TAG_VERSION_CONFLICT: { status: 409 },
+  /** 同一個標籤組已有同名的標籤（不分大小寫）。 */
+  TAG_NAME_DUPLICATE: { status: 409 },
+  /** 標籤組或資源類型沒有登記（或所屬 feature 沒啟用時以 `FEATURE_DISABLED` 回應）。 */
+  TAG_SCOPE_NOT_FOUND: { status: 404 },
+  /** 一個標籤組的標籤數、或一個資源的標籤數超過上限（`details.max`）。 */
+  TAG_LIMIT_REACHED: { status: 409 },
+
   // ── 版本歷史（docs/architecture/backend/14-revisions.md） ──
   /** 指定的版本不存在（或已被保留清理刪除）。 */
   REVISION_NOT_FOUND: { status: 404 },

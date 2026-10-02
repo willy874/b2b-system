@@ -51,6 +51,7 @@ import { SERVICE_ACCOUNT_LIST_QUERY_KEY } from '@/apis/service-account/get-servi
 import { SERVICE_ACCOUNT_TOKENS_QUERY_KEY } from '@/apis/service-account/get-service-account-tokens/query';
 import { PUBLIC_SETTINGS_QUERY_KEY } from '@/apis/system/get-public-settings/query';
 import { SETTING_LIST_QUERY_KEY } from '@/apis/system/get-setting-list/query';
+import { TAG_LIST_QUERY_KEY } from '@/apis/tag/get-tag-list/query';
 import { TRASH_LIST_QUERY_KEY } from '@/apis/trash/get-trash-list/query';
 import { USER_DETAIL_QUERY_KEY } from '@/apis/user/get-user-detail/query';
 import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
@@ -124,6 +125,10 @@ export const Resource = {
   WEBHOOK: 'webhook',
   /** 一次投遞嘗試（`id` = 紀錄 id）；帶 `refs.webhook`。投遞不寫稽核 */
   WEBHOOK_DELIVERY: 'webhookDelivery',
+  /**
+   * 標籤的定義（`id` = 標籤 id；docs/adr/0032-tags.md D10）。貼與移除以擁有者的資源宣告（`file`、`fileFolder`、`user` update）
+   */
+  TAG: 'tag',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -163,6 +168,8 @@ const graph = createResourceGraph<Resource>({
       { from: Resource.USER_ROLE, id: 'self' },
       // 角色改名或被刪，持有它的使用者畫面要更新；角色端不知道是哪些人
       { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'ref' },
+      // 列表與詳情嵌入標籤的名稱與顏色；標籤端不知道貼在哪些人身上
+      { from: Resource.TAG, kinds: ['update', 'delete'], id: 'none' },
     ],
   },
   [Resource.ROLE]: {
@@ -228,6 +235,8 @@ const graph = createResourceGraph<Resource>({
     derivesFrom: [
       // 遞迴刪除資料夾時其中的檔案一起消失；移動資料夾讓「目前資料夾」的列表內容改變
       { from: Resource.FILE_FOLDER, kinds: ['update', 'delete'], id: 'none' },
+      // 檔案嵌入標籤的名稱與顏色（docs/adr/0032-tags.md D6）
+      { from: Resource.TAG, kinds: ['update', 'delete'], id: 'none' },
     ],
   },
   [Resource.FILE_FOLDER]: {
@@ -239,6 +248,11 @@ const graph = createResourceGraph<Resource>({
       FILE_FOLDER_GRANT_LIST_QUERY_KEY,
       FILE_ACCESS_REQUEST_LIST_QUERY_KEY,
     ],
+    // 資料夾也嵌入標籤
+    derivesFrom: [{ from: Resource.TAG, kinds: ['update', 'delete'], id: 'none' }],
+  },
+  [Resource.TAG]: {
+    collection: [TAG_LIST_QUERY_KEY],
   },
   [Resource.PROFILE]: {
     collection: [AUTH_PROFILE_QUERY_KEY],

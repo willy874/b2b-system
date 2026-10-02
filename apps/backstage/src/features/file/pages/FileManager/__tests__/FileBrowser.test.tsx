@@ -27,6 +27,7 @@ const item = (id: string, overrides: Partial<FileItemVM> = {}): FileItemVM => ({
   uploaderName: 'Alice',
   canUpdate: true,
   canDelete: true,
+  tags: [],
   createdAt: '2026-09-27T00:00:00.000Z',
   updatedAt: '2026-09-27T00:00:00.000Z',
   ...overrides,
@@ -45,6 +46,7 @@ const folder = (id: string, overrides: Partial<FolderItemVM> = {}): FolderItemVM
   canUpdate: true,
   canDelete: true,
   canShare: false,
+  tags: [],
   updatedAt: '2026-09-27T00:00:00.000Z',
   ...overrides,
 });
@@ -94,6 +96,7 @@ function setup(
           canDelete: entry.canDelete,
           canShare: entry.canShare,
         },
+        tags: [],
         createdAt: '',
         updatedAt: '',
       })),

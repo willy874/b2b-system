@@ -15,6 +15,7 @@
     },
     "field": {
       "name": "Name",
+      "tags": "Tags",
       "kind": "Type",
       "category": "Category",
       "contentType": "MIME type",
@@ -208,7 +209,12 @@
       "inherited": "Inherited from “{{name}}”",
       "granted": "Access updated",
       "revoked": "Access removed",
-      "subjectType": { "role": "Role", "user": "User", "group": "Group", "everyone": "Everyone" },
+      "subjectType": {
+        "role": "Role",
+        "user": "User",
+        "group": "Group",
+        "everyone": "Everyone"
+      },
       "everyone": "Everyone who can use the file manager",
       "subjectPlaceholderUser": "Choose a user…",
       "subjectSearchUser": "Search users by name or username",
