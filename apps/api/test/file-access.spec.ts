@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -281,11 +281,24 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
     expect(errorCode(denied)).toBe('AUTHZ_FORBIDDEN');
     await api(artist).delete(`/files/${adminArtFile.id}`).expect(403);
 
+    // 限定這個檔案：前一個測試也留下一筆 authz.denied（鎖住的資料夾），沒有篩選時取到哪一筆取決於查詢計畫
     const [record] = await db
       .select()
       .from(auditLogs)
-      .where(and(eq(auditLogs.action, 'authz.denied'), eq(auditLogs.errorCode, 'AUTHZ_FORBIDDEN')));
-    expect(record?.metadata).toMatchObject({ resourceType: 'file', resourceId: adminArtFile.id });
+      .where(
+        and(
+          eq(auditLogs.action, 'authz.denied'),
+          eq(auditLogs.errorCode, 'AUTHZ_FORBIDDEN'),
+          sql`${auditLogs.metadata}->>'resourceId' = ${adminArtFile.id}`,
+        ),
+      )
+      .orderBy(asc(auditLogs.id))
+      .limit(1);
+    expect(record?.metadata).toMatchObject({
+      action: 'update',
+      resourceType: 'file',
+      resourceId: adminArtFile.id,
+    });
 
     await api(artist).delete(`/files/${mine.id}`).expect(204);
   });
