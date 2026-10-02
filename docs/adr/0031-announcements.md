@@ -1,12 +1,14 @@
 # ADR-0031 — 公告與排程通知：每次發送一筆延遲工作，分批寫進既有的 `notifications`
 
-- 狀態：**採用**（2026-10-02 確認；開放問題依提案中的建議，A1～A5 尚未實作）
+- 狀態：**採用**（2026-10-02 確認，開放問題依提案中的建議；A1～A5 於 2026-10-02 在 branch `feat/announcements` 完成）
 - 日期：2026-10-02
 - 相關：[ADR-0026](./0026-notification-center.md)（站內通知；本決定沿用 D5 的快照、D6 的「每人一筆」，以分批繞過單次上限）、
   [ADR-0028](./0028-notification-event-management.md)（事件目錄與租戶政策）、[ADR-0016](./0016-background-jobs.md)／[ADR-0020](./0020-physical-tenant-isolation.md) D15（背景工作、交易內入列走 `job_outbox`）、
   [ADR-0024](./0024-relationship-based-access-control.md)（群組與關係圖）、[ADR-0025](./0025-entity-revisions.md)（軟刪除與回收桶）、
   [ADR-0029](./0029-toggleable-platform-features.md)（可關閉的 feature）；
-  提案 [`../features/announcements.md`](../features/announcements.md)
+  實作後的規格 [`../architecture/backend/19-announcement.md`](../architecture/backend/19-announcement.md)、
+  [`../architecture/frontend/16-announcement.md`](../architecture/frontend/16-announcement.md)、
+  [`../architecture/backend/15-notification.md`](../architecture/backend/15-notification.md) §6.1（通知總覽）
 
 ## 背景
 
@@ -81,7 +83,7 @@
 | A2 | 公告：資料表、`source_id`、受眾解析、`immediate`／`once`、fan-out、讀全文、撤回、回收桶、權限、feature |
 | A3 | 週期：`system.timezone`、`announcement.recurrence.ts`、暫停／恢復、`reconcile` |
 | A4 | 事件點：`AnnouncementTriggerCatalog` 與第一批三個觸發點 |
-| A5 | 歸檔：正式文件、刪除提案 |
+| A5 | 歸檔：正式文件、刪除提案（已完成；提案的開放問題與結論併入本 ADR 的決定與實作紀錄） |
 
 ## 實作紀錄
 

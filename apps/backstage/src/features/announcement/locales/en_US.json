@@ -55,7 +55,8 @@
         "groups": "{{count}} groups",
         "roles": "{{count}} roles",
         "none": "None selected"
-      }
+      },
+      "countEvent": "The recipients currently include {{count}} people; when the event happens, only the matching person receives it"
     },
     "create": {
       "action": "New announcement",

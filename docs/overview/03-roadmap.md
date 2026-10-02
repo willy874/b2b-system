@@ -282,3 +282,6 @@ b2b-system/
     [`architecture/backend/17-webhook.md`](../architecture/backend/17-webhook.md)、[ADR-0030](../adr/0030-webhooks.md)）
 15. ~~標籤~~（已完成：檔案、資料夾、使用者的標籤、依標籤篩選、標籤管理頁；見 [`architecture/backend/18-tag.md`](../architecture/backend/18-tag.md)、
     [ADR-0032](../adr/0032-tags.md)）。留言與關注仍在 [`features/comments-watches.md`](../features/comments-watches.md)
+16. ~~公告與排程通知~~（已完成：通知總覽、公告的立即／指定時間／週期／事件點發送、分批寫入、撤回、收件人讀全文；見
+    [`architecture/backend/19-announcement.md`](../architecture/backend/19-announcement.md)、[`architecture/frontend/16-announcement.md`](../architecture/frontend/16-announcement.md)、
+    [ADR-0031](../adr/0031-announcements.md)）

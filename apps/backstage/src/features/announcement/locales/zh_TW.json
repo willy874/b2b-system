@@ -55,7 +55,8 @@
         "groups": "{{count}} 個群組",
         "roles": "{{count}} 個角色",
         "none": "尚未選擇"
-      }
+      },
+      "countEvent": "收件對象目前有 {{count}} 人；事件發生時，只有符合的那個人會收到"
     },
     "create": {
       "action": "建立公告",

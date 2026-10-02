@@ -72,6 +72,7 @@ export function AnnouncementForm({
       <Field label={t('announcement.field.audience')} required>
         <AudiencePicker
           value={value.audience}
+          eventTriggered={value.trigger.kind === 'event'}
           disabled={disabled}
           onChange={(audience) => onChange({ ...value, audience })}
         />
