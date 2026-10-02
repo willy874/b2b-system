@@ -177,6 +177,7 @@ docs/
     ├── 0028-notification-event-management.md
     ├── 0029-toggleable-platform-features.md
     ├── 0030-webhooks.md
+    ├── 0031-announcements.md
     └── 0032-tags.md
 ```
 
