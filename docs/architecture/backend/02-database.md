@@ -653,7 +653,18 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads
-└── 0001_functions_and_triggers.sql     tenants 的 updated_at
+├── 0001_functions_and_triggers.sql     tenants 的 updated_at
+├── 0002_platform_admins.sql            platform_admins 與平台的 refresh token
+├── 0003_tenant_storage_bucket.sql      tenants.storage_bucket（每個租戶一個 bucket，ADR-0020 D16）
+├── 0004_platform_rbac_and_provisioning.sql  平台管理者的角色、租戶佈建（ADR-0020 D5、D12）
+├── 0005_platform_accounts_and_idp_switch.sql  平台管理者的 pending 狀態與 platform_auth_tokens、外部 IdP 開關
+├── 0006_refresh_family_age.sql         platform_refresh_tokens.family_created_at
+├── 0007_tenant_features.sql            tenants.features（ADR-0021）
+├── 0008_feature_flags.sql              feature_flag_overrides（ADR-0022）
+├── 0009_toggleable_features.sql        回收桶、系統設定、外部 IdP、切換租戶改為可關閉的 feature（ADR-0029）
+├── 0010_webhook_feature.sql            features 預設加 webhook，既有租戶啟用（ADR-0030 D8）
+├── 0011_announcement_feature.sql       features 預設加 announcement，既有租戶啟用（ADR-0031 D20）
+└── …                                   之後的變更接著編號
 ```
 
 產生 migration：租戶 DB `pnpm db:generate`；平台 DB `pnpm --filter @b2b-system/api exec drizzle-kit generate --config drizzle.platform.config.ts`。

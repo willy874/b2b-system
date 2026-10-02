@@ -80,11 +80,13 @@ fileFolder:<f>#<等級>@group:<g>#member     資料夾授權給群組
 | GET | `/groups/:id` | `group:read` | `memberCount` 是直接成員數（巢狀群組算一個） |
 | PATCH | `/groups/:id` | `group:update` | 名稱、說明；必帶 `version`（`409 GROUP_VERSION_CONFLICT`） |
 | DELETE | `/groups/:id` | `group:delete` | 軟刪除（§4） |
-| POST | `/groups/:id/restore` | `group:delete` | 還原；名稱被佔用時 `409 GROUP_NAME_DUPLICATE`（`details.conflictingGroupId`） |
+| POST | `/groups/:id/restore` | `group:delete` | 還原；名稱被佔用時 `409 GROUP_NAME_DUPLICATE`（`details.conflictingGroupId`）；沒有被刪除 `409 GROUP_NOT_DELETED` |
 | GET | `/groups/:id/members` | `group:read` ＋ `user:read` | 直接成員（使用者在前） |
 | PATCH | `/groups/:id/members` | `group:update` | 差異語意 `{ add, remove }`，成員是 `{ type: 'user' \| 'group', id }` |
 | GET | `/groups/:id/roles` | `group:read` ＋ `role:read` | 持有的角色 |
 | PATCH | `/groups/:id/roles` | `group:assignRole` | 差異語意 `{ add, remove }` |
+
+不存在或已刪除的群組（還原以外的端點）回 `404 GROUP_NOT_FOUND`。
 
 資料夾授權的對象多一種 `group`（`PUT /file-folders/:id/grants` 的 `subjectType`、`GET /file-folders/:id/grant-subjects?subjectType=group`；
 [`07-resource-grants.md`](./07-resource-grants.md) §6.2）。

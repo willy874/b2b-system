@@ -275,6 +275,8 @@ IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁
 | 只允許 SSO 的網域用密碼登入 | `AUTH_SSO_REQUIRED` |
 | backstage 的 authorize 沒帶 `tenant`、租戶不存在、或與 redirect URI 的網域不符 | 帶 `invalid_request` 導回那個 backstage 的 callback |
 | 平台的端點在租戶網域上呼叫 | `PLATFORM_ONLY` |
+| 外部 IdP 連線的管理（`/identity-providers`） | 不存在 `404 IDENTITY_PROVIDER_NOT_FOUND`；名稱重複 `409 IDENTITY_PROVIDER_NAME_DUPLICATE`；網域已屬於另一個連線 `409 IDENTITY_PROVIDER_DOMAIN_TAKEN` |
+| 平台管理者的管理（apps/auth） | 不存在或已刪除 `404 PLATFORM_ADMIN_NOT_FOUND` |
 
 ## 10. 測試
 

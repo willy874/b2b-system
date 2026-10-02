@@ -13,7 +13,7 @@
 ## 1. 組成
 
 ```
-core/resource/resource-types.ts   RESOURCE_TYPE：跨模組的資源識別（user、role、file、fileFolder），與稽核、關係圖同一組字串
+core/resource/resource-types.ts   RESOURCE_TYPE：跨模組的資源識別（user、role、group、file、fileFolder、serviceAccount、apiToken、webhook、tag、announcement），與稽核、關係圖同一組字串
 db/schema/soft-delete.ts          notDeleted(table)、isDeleted(table)（02-database.md §1）
 
 modules/trash/                    通用模組：不 import 任何業務模組

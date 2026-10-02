@@ -249,38 +249,48 @@ modules/role/
 
 ## 5. 環境變數
 
-`.env.example`：
+`.env.example`（全文；改環境變數時兩邊一起改）：
 
 ```bash
 # ── apps/api ─────────────────────────────────────────
-PLATFORM_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_platform
-TENANT_SECRET_KEY=                 # 留空 = 由 JWT_SECRET 推導（production 必填）
-DEFAULT_TENANT_CODE=default
-DEFAULT_TENANT_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_system
-DEFAULT_TENANT_DOMAINS=localhost:5173   # apps/auth（:5175）不屬於任何租戶
-DEFAULT_TENANT_STORAGE_BUCKET=b2b-system # 預設租戶的 bucket（每個租戶一個）
-TENANT_PROVISIONING_DATABASE_URL=        # 佈建新租戶用（CREATEDB＋CREATEROLE）；留空 = PLATFORM_DATABASE_URL
+# 資料庫（docs/adr/0020-physical-tenant-isolation.md）：平台 DB 一個，每個租戶各一個 database
+PLATFORM_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_platform   # 不存在時 db:migrate 會建立
+TENANT_SECRET_KEY=                 # 加密租戶連線字串的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填）
 TENANT_POOL_MAX=10                 # 每個租戶的連線池上限（連線預算見 docs/architecture/backend/02-database.md §6.2）
 TENANT_POOL_IDLE_TIMEOUT=30        # 租戶連線池的閒置連線幾秒後關閉
+TENANT_CACHE_TTL=30                # 網域 → 租戶的快取秒數
 PLATFORM_POOL_MAX=                 # 平台 DB 的連線池上限；留空 = production 10、其他 3
 DB_CONNECT_TIMEOUT=10              # 建立連線的逾時（秒）
 DB_STATEMENT_TIMEOUT_MS=15000      # 每條連線的 statement_timeout（毫秒）；0 = 不限制
 DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=30000   # 交易開著卻閒置的上限（毫秒）；0 = 不限制
-TENANT_BASE_DOMAIN=                      # 新租戶的預設網域 {code}.<值>；留空 = APP_PUBLIC_URL 的 host
-PLATFORM_ADMIN_EMAIL=platform@example.com   # 第一位平台管理者（apps/auth 的登入）
-PLATFORM_ADMIN_PASSWORD=
+# 佈建新租戶（apps/auth 的租戶管理）：要有 CREATEDB 與 CREATEROLE；留空 = 用 PLATFORM_DATABASE_URL
+TENANT_PROVISIONING_DATABASE_URL=
+# 新租戶的預設網域是 {code}.<這個值>；留空 = APP_PUBLIC_URL 的 host（開發：acme.localhost:5173）
+TENANT_BASE_DOMAIN=
+# 預設租戶：db:migrate 在平台 DB 登記它（還沒有租戶管理之前的唯一租戶；交付順序第 4 步起由 apps/auth 建立）
+DEFAULT_TENANT_CODE=default
+DEFAULT_TENANT_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_system
+# 屬於預設租戶的網域（瀏覽器看到的 host，含 port）。apps/auth（:5175）不屬於任何租戶
+DEFAULT_TENANT_DOMAINS=localhost:5173
+# 預設租戶的物件儲存 bucket（每個租戶一個）；預設沿用租戶化之前共用的 b2b-system，既有檔案不必搬
+DEFAULT_TENANT_STORAGE_BUCKET=b2b-system
+# 第一位平台管理者（apps/auth 的登入；與租戶的帳號是兩份資料）：db:seed 在平台 DB 沒有管理者時建立
+PLATFORM_ADMIN_EMAIL=platform@example.com
+PLATFORM_ADMIN_PASSWORD=                      # 留空 = seed 時隨機產生並印出一次
 PORT=3000
+EXTERNAL_API_PORT=3001             # 對外 API 的程序（pnpm dev:external-api；ADR-0027 D9）
 NODE_ENV=development
 
-JWT_SECRET=change-me-in-production
+JWT_SECRET=change-me-in-production-min-32-chars
 JWT_ACCESS_TTL=300                 # 秒
 REFRESH_TOKEN_TTL=604800           # 秒（7 天）
-REFRESH_FAMILY_MAX_AGE=2592000     # session 的絕對壽命（秒，30 天）
-REFRESH_REUSE_GRACE_SECONDS=30     # 剛用過的 refresh token 重送的寬限期；0 停用
+REFRESH_FAMILY_MAX_AGE=2592000     # session 的絕對壽命（秒，30 天）：從登入起算，超過就要重新登入
+REFRESH_REUSE_GRACE_SECONDS=30     # 剛用過的 refresh token 在這段時間內重送視為回應遺失、換發新的；0 停用
 REFRESH_COOKIE_NAME=refresh_token
-REFRESH_COOKIE_PATH=/api/auth      # 瀏覽器看到的前綴（前端一律打 /api/*）
+REFRESH_COOKIE_PATH=/api/auth    # 瀏覽器看到的前綴（前端一律打 /api/*）
+PLATFORM_REFRESH_COOKIE_PATH=/api/platform/auth   # 平台管理者的 refresh cookie（apps/auth 的 origin）
 REFRESH_COOKIE_DOMAIN=localhost
-API_PUBLIC_BASE_URL=/api            # 瀏覽器看到的 api 位址（影像 API 的網址以它開頭）
+API_PUBLIC_BASE_URL=/api         # 瀏覽器看到的 api 位址；影像 API 的網址以它開頭
 
 ARGON2_MEMORY_COST=19456
 ARGON2_TIME_COST=2
@@ -289,68 +299,84 @@ PERMISSION_CACHE_TTL=60            # 秒
 # 速率限制（次 / 分；docs/architecture/backend/03-api-conventions.md §8）：已登入以使用者計、未登入以 IP 計
 DEFAULT_RATE_LIMIT=600             # 每個已登入的使用者（所有端點合計）
 ANONYMOUS_RATE_LIMIT=3000          # 每個 IP 的未登入請求（1000 人共用一個 NAT 出口）
+EXTERNAL_RATE_LIMIT=600            # 對外 API：每把 API token 每分鐘
+EXTERNAL_AUTH_FAILURE_RATE_LIMIT=30  # 對外 API：每個 IP 每分鐘驗證失敗的次數，超過回 429
 AUTH_RATE_LIMIT=10                 # 登入類端點：每個「帳號 ＋ IP」（E2E 需調高）；忘記密碼、註冊是 1/3
 AUTH_IP_RATE_LIMIT=300             # 登入類端點：每個 IP；忘記密碼、註冊是 1/10
 REFRESH_RATE_LIMIT=30              # /auth/refresh：每個 refresh session
 REFRESH_IP_RATE_LIMIT=2000         # /auth/refresh：每個 IP
 REALTIME_HANDSHAKES_PER_IP=1200    # WebSocket handshake：每個 IP
 REALTIME_CONNECTIONS_PER_USER=20   # WebSocket：每個使用者同時的連線數
-TRUST_PROXY=false                  # Express trust proxy：反向代理後面設跳數或子網路（例：uniquelocal）
-LOGIN_MAX_ATTEMPTS=5               # 只用於平台管理者；租戶使用者是系統設定 auth.loginMaxAttempts
+TRUST_PROXY=false                  # 反向代理後面才設：跳數或子網路（例：uniquelocal）；限流依它判定客戶端 IP
+LOGIN_MAX_ATTEMPTS=5               # 只用於平台管理者；租戶使用者的鎖定是系統設定 auth.loginMaxAttempts
 LOGIN_LOCKOUT_SECONDS=900          # 同上（租戶：auth.loginLockoutSeconds）
+DIRECT_LOGIN_ENABLED=              # POST /auth/login（email＋密碼直接換 token）；留空：production 關閉、其他開啟；腳本改用 API token（ADR-0027 D15）
+
+REALTIME_ALLOWED_ORIGINS=http://localhost:5173   # WebSocket handshake 允許的 Origin（逗號分隔）；同源（租戶自己的網域）一律允許
+
+# 郵件（docs/architecture/backend/11-mail.md）：本機寄給 Mailpit（pnpm dev 會一起啟動），在 http://localhost:8025 看信
+MAIL_TRANSPORT=smtp                # smtp：經 SMTP 寄出；console：只寫日誌（含連結），不寄出
+MAIL_SMTP_URL=smtp://localhost:1025
+MAIL_SMTP_POOL_SIZE=5              # SMTP 連線池的連線數（同時寄出的信）
+MAIL_FROM="B2B System <no-reply@localhost>"
+APP_PUBLIC_URL=http://localhost:5173   # 信裡連結的開頭（瀏覽器看到的前端網址）；也是第一方 client `backstage` 的 redirect URI 開頭
+
+# ── SSO：apps/api 當 OIDC Provider（docs/adr/0019-sso-identity-platform.md）
+AUTH_APP_URL=http://localhost:5175            # apps/auth 的網址（登入互動頁）
+OIDC_ISSUER=http://localhost:5175/api/oidc    # apps/auth origin 底下的 /api/oidc
+OIDC_JWKS=                                    # 簽 ID token 的私鑰 JWKS JSON；留空 = 啟動時產生臨時金鑰（production 必填）
+OIDC_COOKIE_KEYS=                             # 簽 IdP cookie 的金鑰，逗號分隔（production 必填）
+OIDC_CLEANUP_CRON=45 3 * * *                  # 清除過期 IdP 狀態的 cron（UTC）；留空停用
+AUTH_TOKEN_CLEANUP_CRON=15 4 * * *            # 清除過期 refresh token 與啟用／重設 token 的 cron（UTC）；留空停用
+AUTH_TOKEN_RETENTION_DAYS=30                  # 過期或用過的 token 保留天數（安全事件調查用）
+IDP_SECRET_KEY=                               # 加密外部 IdP client secret 的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填）
+WEBHOOK_SECRET_KEY=                           # 加密 webhook 簽章密鑰的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填）
 
 SUPER_ADMIN_EMAIL=admin@example.com
 SUPER_ADMIN_PASSWORD=              # 留空則 seed 時隨機產生並印出一次
 
-MAIL_TRANSPORT=smtp                 # smtp / console（backend/11-mail.md §2）
-MAIL_SMTP_URL=smtp://localhost:1025 # 本機是 Mailpit
-MAIL_SMTP_POOL_SIZE=5               # SMTP 連線池的連線數（同時寄出的信）
-MAIL_FROM="B2B System <no-reply@localhost>"
-APP_PUBLIC_URL=http://localhost:5173  # 信裡連結的開頭；也是第一方 client `backstage` 的 redirect URI 開頭
-AUTH_APP_URL=http://localhost:5175     # apps/auth（IdP 的登入互動頁）
-OIDC_ISSUER=http://localhost:5175/api/oidc
-OIDC_JWKS=                             # 簽 ID token 的私鑰 JWKS；留空 = 臨時金鑰（production 必填）
-OIDC_COOKIE_KEYS=                      # 簽 IdP cookie 的金鑰（production 必填）
-OIDC_CLEANUP_CRON=45 3 * * *
-IDP_SECRET_KEY=                        # 加密外部 IdP client secret 的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填，ADR-0019 D11）
-WEBHOOK_SECRET_KEY=                    # 加密 webhook 簽章密鑰的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填，ADR-0030 D14）
-
-JOBS_WORKER_ENABLED=true            # 是否執行背景工作與排程；false 只入列（backend/10-jobs.md §5）
-AUDIT_LOG_ARCHIVE_CRON=30 3 * * *   # 稽核熱 → 冷搬移的 cron（UTC）；留空停用
-TRASH_PURGE_CRON=30 4 * * *         # 回收桶到期永久刪除的 cron（UTC）；保留天數是系統設定 trash.retentionDays（backend/13-trash.md §5）
-REVISION_PRUNE_CRON=45 4 * * *      # 版本歷史保留清理的 cron（UTC）；保留條件是系統設定 revision.keepVersions／keepDays（backend/14-revisions.md §5）
-NOTIFICATION_CLEANUP_CRON=0 5 * * * # 站內通知保留清理的 cron（UTC）；保留條件是系統設定 notification.retentionDays／maxPerUser（backend/15-notification.md §6）
-WEBHOOK_CLEANUP_CRON=15 5 * * *    # webhook 事件與投遞紀錄保留清理（30 天）的 cron（UTC）；留空停用（backend/17-webhook.md §4）
-
-REALTIME_ALLOWED_ORIGINS=http://localhost:5173   # Socket.io handshake 的 Origin 白名單（逗號分隔）
+JOBS_WORKER_ENABLED=true           # 這個程序是否執行背景工作與排程；false 只入列（docs/architecture/backend/10-jobs.md §5）
+JOBS_OUTBOX_SWEEP_CRON=*/10 * * * *  # 補搬各租戶 job_outbox 的 cron（UTC）；間隔要遠大於 TENANT_POOL_IDLE_TIMEOUT；留空停用
+AUDIT_LOG_ARCHIVE_CRON=30 3 * * *  # 稽核熱 → 冷搬移的 cron（UTC）；留空停用
+TRASH_PURGE_CRON=30 4 * * *        # 回收桶到期永久刪除的 cron（UTC）；保留天數是系統設定 trash.retentionDays；留空停用
+REVISION_PRUNE_CRON=45 4 * * *     # 版本歷史保留清理的 cron（UTC）；保留條件是系統設定 revision.keepVersions／keepDays；留空停用
+NOTIFICATION_CLEANUP_CRON=0 5 * * *  # 站內通知保留清理的 cron（UTC）；保留條件是系統設定 notification.retentionDays／maxPerUser；留空停用
+WEBHOOK_CLEANUP_CRON=15 5 * * *      # webhook 事件與投遞紀錄保留清理（30 天）的 cron（UTC）；留空停用
+ANNOUNCEMENT_MAINTENANCE_CRON=20 5 * * *  # 公告的每日維護（補排程、發送紀錄保留清理）的 cron（UTC）；留空停用
 
 # ── apps/file-storage（S3 相容的本機檔案儲存）────────────
 FILE_STORAGE_HOST=127.0.0.1
 FILE_STORAGE_PORT=9000
-FILE_STORAGE_BASE_PATH=/storage              # Vite 以 /storage 轉發且不去掉前綴
+FILE_STORAGE_BASE_PATH=/storage              # Vite 以 /storage 轉發且不去掉前綴（presigned URL 的簽章涵蓋路徑）
 FILE_STORAGE_DATA_DIR=.data                  # 相對於 apps/file-storage/
 FILE_STORAGE_REGION=us-east-1
 FILE_STORAGE_ACCESS_KEY_ID=b2b-system-dev
 FILE_STORAGE_SECRET_ACCESS_KEY=b2b-system-dev-secret
-FILE_STORAGE_ALLOWED_ORIGINS=http://localhost:5173   # presigned URL 直傳 / 下載的 CORS
-FILE_STORAGE_MAX_OBJECT_SIZE=5368709120      # 位元組（預設 5 GiB）
+FILE_STORAGE_ALLOWED_ORIGINS=http://localhost:5173   # presigned URL 直傳 / 下載的 CORS（逗號分隔，* 代表全部）
+FILE_STORAGE_MAX_OBJECT_SIZE=5368709120      # 位元組（預設 5 GiB，與 S3 單次 PutObject 上限相同）
 
-# ── apps/api 連物件儲存（上面兩個 KEY 共用；docs/architecture/backend/09-file.md §8）
-FILE_STORAGE_ENDPOINT=http://127.0.0.1:9000/storage
-FILE_STORAGE_PUBLIC_ENDPOINT={tenantOrigin}/storage   # 目前租戶的 origin ＋ /storage；真正的 S3 填固定網址
-FILE_UPLOAD_MAX_SIZE=104857600      # 部署上限；租戶可在系統設定 file.uploadMaxSize 調小
-FILE_URL_TTL=900
-FILE_MULTIPART_THRESHOLD=16777216   # 超過改用分塊上傳
-FILE_MULTIPART_PART_SIZE=8388608    # 每塊大小（≥ 5 MiB）
-FILE_PENDING_TTL=86400              # 登記後超過這個秒數仍未完成的上傳，由維護排程清除
-FILE_MAINTENANCE_CRON=0 * * * *     # 檔案維護排程的 cron（UTC）；留空停用
-FILE_MAINTENANCE_DRY_RUN=false      # true：只偵測並記錄殘留，不刪除
+# ── apps/api 連物件儲存（上面兩個 KEY 共用）─────────────────
+FILE_STORAGE_ENDPOINT=http://127.0.0.1:9000/storage          # api 自己連線用
+FILE_STORAGE_PUBLIC_ENDPOINT={tenantOrigin}/storage   # 瀏覽器看到的位址（presigned URL 以它簽章）；{tenantOrigin} = 目前租戶的網域
+FILE_UPLOAD_MAX_SIZE=104857600     # 單一檔案上限（位元組，預設 100 MiB）；也是系統設定 file.uploadMaxSize 的上限與預設值
+FILE_URL_TTL=900                   # presigned 上傳／下載網址的有效秒數（60–3600；也是撤銷授權的延遲上限）
+FILE_MULTIPART_THRESHOLD=16777216  # 超過這個大小改用分塊上傳（位元組，預設 16 MiB）
+FILE_MULTIPART_PART_SIZE=8388608   # 分塊上傳的每塊大小（位元組，預設 8 MiB；S3 下限 5 MiB）
+FILE_PENDING_TTL=86400             # 登記後超過這個秒數仍未完成的上傳，由維護排程清除
+FILE_MAINTENANCE_CRON=0 * * * *    # 檔案維護排程（殘留清理、補產生影像變體）的 cron（UTC）；留空停用
+FILE_MAINTENANCE_DRY_RUN=false     # true：只偵測並記錄殘留，不刪除
 
-# ── apps/backstage、apps/auth（VITE_ 前綴才會進 bundle；兩者各自讀自己目錄的 env）──
+# ── apps/backstage（VITE_ 前綴才會進 bundle）─────────────────
 VITE_API_BASE_URL=/api
-VITE_OIDC_ISSUER=http://localhost:5175/api/oidc   # SSO 的 issuer（兩個前端相同）
-VITE_AUTH_APP_URL=http://localhost:5175            # backstage：帳號流程與平台管理在 apps/auth
+VITE_OIDC_ISSUER=http://localhost:5175/api/oidc   # SSO 的 issuer（backstage、apps/auth 相同）
+VITE_AUTH_APP_URL=http://localhost:5175            # backstage：帳號流程與租戶管理在 apps/auth
 VITE_ENABLE_MOCK=false
+
+# ── 開發伺服器（只在 shell 設定：vite.config.ts 讀 process.env，不讀這個檔案）──
+# 並行跑第二組環境（例：E2E 用暫用 DB，docs/architecture/frontend/10-testing.md §4.3）時換埠；預設 5173／5175／:3000
+# BACKSTAGE_DEV_PORT=5273
+# AUTH_DEV_PORT=5275
+# DEV_API_PROXY_TARGET=http://localhost:3100
 ```
 
 `apps/file-storage` 的變數說明見 [`03-file-storage.md`](./03-file-storage.md) §1；api 端的物件儲存變數見
