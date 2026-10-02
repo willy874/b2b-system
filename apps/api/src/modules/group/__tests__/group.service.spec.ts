@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthUser } from '@/common/types';
 import type { Database } from '@/core/database';
 import type { DomainEventBus } from '@/core/events';
+import type { AnnouncementTriggerService } from '@/modules/announcement/announcement-trigger.service';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { PermissionService } from '@/modules/permission/permission.service';
 
@@ -56,14 +57,16 @@ function createService() {
     permissionsChanged: vi.fn(),
   };
   const db = { transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn('tx')) };
+  const announcementTriggers = { fire: vi.fn() };
   const service = new GroupService(
     db as unknown as Database,
     repo as unknown as GroupRepository,
     permissions as unknown as PermissionService,
     { record: vi.fn() } as unknown as AuditService,
     { publish: vi.fn() } as unknown as DomainEventBus,
+    announcementTriggers as unknown as AnnouncementTriggerService,
   );
-  return { service, repo, permissions };
+  return { service, repo, permissions, announcementTriggers };
 }
 
 describe('GroupService.updateMembers（docs/adr/0024-relationship-based-access-control.md D11）', () => {
@@ -102,6 +105,31 @@ describe('GroupService.updateMembers（docs/adr/0024-relationship-based-access-c
     await ctx.service.updateMembers('g1', { add: [], remove: [{ type: 'user', id: 'u1' }] }, ACTOR);
     expect(ctx.permissions.assertCanGrant).not.toHaveBeenCalled();
     expect(ctx.repo.removeMembers).toHaveBeenCalled();
+  });
+
+  it('加成員 → 在交易內觸發公告的 group.memberAdded，只帶直接加入的使用者與這個群組（docs/adr/0031-announcements.md D14）', async () => {
+    ctx.repo.descendants = vi.fn().mockResolvedValue([]);
+    await ctx.service.updateMembers(
+      'g1',
+      {
+        add: [
+          { type: 'user', id: 'u1' },
+          { type: 'group', id: 'g2' },
+        ],
+        remove: [],
+      },
+      ACTOR,
+    );
+    expect(ctx.announcementTriggers.fire).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'group.memberAdded' }),
+      { userIds: ['u1'], groupId: 'g1' },
+      'tx',
+    );
+  });
+
+  it('只移除成員 → 不觸發公告', async () => {
+    await ctx.service.updateMembers('g1', { add: [], remove: [{ type: 'user', id: 'u1' }] }, ACTOR);
+    expect(ctx.announcementTriggers.fire).not.toHaveBeenCalled();
   });
 
   it('不能把自己加進或移出群組 → AUTHZ_SELF_MODIFY', async () => {

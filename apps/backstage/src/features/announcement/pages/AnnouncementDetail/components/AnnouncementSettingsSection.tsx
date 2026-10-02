@@ -15,10 +15,11 @@ import { formatDateTime } from '@/shared/date';
 import { AnnouncementForm } from '../../../components/AnnouncementForm';
 import type { AnnouncementDraft } from '../../../components/AnnouncementForm';
 import { toDraft, toRequest } from '../../../components/draft';
+import { describeTrigger } from '../../../components/triggerSummary';
 import {
   ANNOUNCEMENT_STATUS_LABEL_KEY,
   ANNOUNCEMENT_STATUS_TONE,
-  TRIGGER_KIND_LABEL_KEY,
+  PUBLISH_CONFIRM_KEY,
 } from '../../../constants';
 import {
   useAnnouncementDeleteMutation,
@@ -49,7 +50,7 @@ export function AnnouncementSettingsSection({
   canPublish,
   onDeleted,
 }: AnnouncementSettingsSectionProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const queryClient = useQueryClient();
   const confirm = useConfirm();
   const showError = useErrorToast();
@@ -109,13 +110,10 @@ export function AnnouncementSettingsSection({
   const confirmPublish = () =>
     void confirm({
       title: t('announcement.publish.title'),
-      description:
-        announcement.trigger.kind === 'immediate'
-          ? t('announcement.publish.confirmImmediate', { title: announcement.title })
-          : t('announcement.publish.confirmScheduled', {
-              title: announcement.title,
-              at: formatDateTime(announcement.trigger.at),
-            }),
+      description: t(PUBLISH_CONFIRM_KEY[announcement.trigger.kind], {
+        title: announcement.title,
+        at: describeTrigger(t, language, announcement.trigger),
+      }),
       confirmLabel: t('announcement.publish.action'),
       onConfirm: async () => {
         await publish.mutateAsync({ params });
@@ -250,9 +248,15 @@ export function AnnouncementSettingsSection({
       <dl className="m-0 grid grid-cols-[8rem_1fr] gap-x-3 gap-y-2 text-sm">
         <dt className="text-[var(--color-fg-muted)]">{t('announcement.field.trigger')}</dt>
         <dd className="m-0" data-testid="announcement-detail-trigger">
-          {announcement.trigger.kind === 'once'
-            ? formatDateTime(announcement.trigger.at)
-            : t(TRIGGER_KIND_LABEL_KEY.immediate)}
+          {describeTrigger(t, language, announcement.trigger)}
+          {announcement.nextRunAt && (
+            <span
+              className="ml-2 text-[var(--color-fg-muted)]"
+              data-testid="announcement-detail-next-run"
+            >
+              {t('announcement.detail.nextRun', { at: formatDateTime(announcement.nextRunAt) })}
+            </span>
+          )}
         </dd>
         <dt className="text-[var(--color-fg-muted)]">{t('announcement.field.audience')}</dt>
         <dd className="m-0" data-testid="announcement-detail-audience">

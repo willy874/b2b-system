@@ -1,6 +1,292 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
 // 來源：B2B System API 0.0.0（OpenAPI 3.0.0）
 
+export const NotificationChannel = {
+  inApp: 'inApp',
+  email: 'email',
+} as const;
+export type NotificationChannel = (typeof NotificationChannel)[keyof typeof NotificationChannel];
+
+export interface NotificationEventChannel {
+  channel: NotificationChannel;
+  enabled: boolean;
+  defaultEnabled: boolean;
+  isOverridden: boolean;
+  allowUserOverride: boolean;
+  updatedAt: string | null;
+}
+
+export interface NotificationEvent {
+  type: string;
+  category: string;
+  mandatory: boolean;
+  channels: Array<NotificationEventChannel>;
+}
+
+export interface NotificationEventList {
+  items: Array<NotificationEvent>;
+}
+
+export interface UpdateNotificationEventsRequest {
+  changes: Array<{
+    type: string;
+    channel: NotificationChannel;
+    enabled?: boolean | null;
+    allowUserOverride?: boolean;
+  }>;
+}
+
+export interface NotificationLink {
+  route: string;
+  params: Record<string, string>;
+}
+
+export interface Notification {
+  id: string;
+  type: string;
+  params: Record<string, unknown>;
+  link: NotificationLink | null;
+  actor: {
+    id: string;
+    name: string;
+  } | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface NotificationPage {
+  items: Array<Notification>;
+  nextCursor: string | null;
+}
+
+export interface NotificationUnreadCount {
+  count: number;
+}
+
+export interface NotificationReadAllResult {
+  updated: number;
+}
+
+export interface NotificationOverviewItem {
+  id: string;
+  type: string;
+  params: Record<string, unknown>;
+  link: NotificationLink | null;
+  actor: {
+    id: string;
+    name: string;
+  } | null;
+  readAt: string | null;
+  createdAt: string;
+  recipient: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface NotificationOverviewPage {
+  items: Array<NotificationOverviewItem>;
+  nextCursor: string | null;
+}
+
+export interface NotificationPreferenceChannel {
+  channel: NotificationChannel;
+  enabled: boolean;
+  isOverridden: boolean;
+  lock: ('mandatory' | 'tenantDisabled' | 'tenantRequired') | null;
+}
+
+export interface NotificationPreference {
+  type: string;
+  category: string;
+  channels: Array<NotificationPreferenceChannel>;
+}
+
+export interface NotificationPreferenceList {
+  items: Array<NotificationPreference>;
+}
+
+export interface UpdateNotificationPreferencesRequest {
+  changes: Array<{
+    type: string;
+    channel: NotificationChannel;
+    enabled: boolean | null;
+  }>;
+}
+
+export const TrashResourceType = {
+  user: 'user',
+  role: 'role',
+  group: 'group',
+  file: 'file',
+  fileFolder: 'fileFolder',
+  announcement: 'announcement',
+} as const;
+export type TrashResourceType = (typeof TrashResourceType)[keyof typeof TrashResourceType];
+
+export interface TrashItem {
+  id: string;
+  type: TrashResourceType;
+  name: string;
+  description: string | null;
+  deletedAt: string;
+  deletedBy: {
+    id: string;
+    name: string;
+  } | null;
+  purgeAt: string;
+}
+
+export interface AnnouncementAudience {
+  all: boolean;
+  userIds: Array<string>;
+  groupIds: Array<string>;
+  roleIds: Array<string>;
+}
+
+export type AnnouncementTrigger =
+  | {
+      kind: 'immediate';
+    }
+  | {
+      kind: 'once';
+      at: string;
+    }
+  | {
+      kind: 'recurring';
+      frequency: 'daily' | 'weekly' | 'monthly';
+      interval: number;
+      weekdays?: Array<number> | null;
+      monthDay?: (number | 'last') | null;
+      time: string;
+      startsOn: string;
+      endsOn?: string | null;
+      maxOccurrences?: number | null;
+    }
+  | {
+      kind: 'event';
+      event: string;
+      delayMinutes: number;
+    };
+
+export interface AnnouncementTriggerEventList {
+  items: Array<{
+    event: string;
+    scope: 'audience' | 'group' | 'role';
+  }>;
+}
+
+export interface AnnouncementRecurrencePreviewRequest {
+  trigger: {
+    kind: 'recurring';
+    frequency: 'daily' | 'weekly' | 'monthly';
+    interval: number;
+    weekdays?: Array<number> | null;
+    monthDay?: (number | 'last') | null;
+    time: string;
+    startsOn: string;
+    endsOn?: string | null;
+    maxOccurrences?: number | null;
+  };
+}
+
+export interface AnnouncementRecurrencePreview {
+  timeZone: string;
+  occurrences: Array<string>;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  audience: AnnouncementAudience;
+  trigger: AnnouncementTrigger;
+  status: 'draft' | 'scheduled' | 'paused' | 'completed';
+  nextRunAt: string | null;
+  lastDispatch: {
+    id: string;
+    status: 'pending' | 'sending' | 'sent' | 'failed' | 'revoked';
+    scheduledFor: string;
+    recipientCount: number | null;
+    readCount: number;
+  } | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: {
+    id: string;
+    displayName: string;
+  } | null;
+  updatedBy: {
+    id: string;
+    displayName: string;
+  } | null;
+}
+
+export interface CreateAnnouncementRequest {
+  title: string;
+  body: string;
+  audience: AnnouncementAudience;
+  trigger: AnnouncementTrigger;
+}
+
+export interface UpdateAnnouncementRequest {
+  title?: string;
+  body?: string;
+  audience?: AnnouncementAudience;
+  trigger?: AnnouncementTrigger;
+  version: number;
+}
+
+export interface AnnouncementActionRequest {
+  version: number;
+}
+
+export interface AnnouncementAudiencePreview {
+  count: number;
+  skipped: {
+    userIds: Array<string>;
+    groupIds: Array<string>;
+    roleIds: Array<string>;
+  };
+}
+
+export interface AnnouncementDispatch {
+  id: string;
+  announcementId: string;
+  scheduledFor: string;
+  title: string;
+  body: string;
+  audience: AnnouncementAudience;
+  status: 'pending' | 'sending' | 'sent' | 'failed' | 'revoked';
+  recipientCount: number | null;
+  readCount: number;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  revokedAt: string | null;
+  createdBy: {
+    id: string;
+    displayName: string;
+  } | null;
+  revokedBy: {
+    id: string;
+    displayName: string;
+  } | null;
+}
+
+export interface AnnouncementMessage {
+  dispatchId: string;
+  title: string;
+  body: string;
+  sentAt: string;
+  sender: {
+    id: string;
+    displayName: string;
+  } | null;
+}
+
 export const PermissionKey = {
   'user:create': 'user:create',
   'user:read': 'user:read',
@@ -120,119 +406,6 @@ export interface CreateApiTokenRequest {
 export interface CreatedApiToken {
   token: string;
   apiToken: ApiToken;
-}
-
-export const NotificationChannel = {
-  inApp: 'inApp',
-  email: 'email',
-} as const;
-export type NotificationChannel = (typeof NotificationChannel)[keyof typeof NotificationChannel];
-
-export interface NotificationEventChannel {
-  channel: NotificationChannel;
-  enabled: boolean;
-  defaultEnabled: boolean;
-  isOverridden: boolean;
-  allowUserOverride: boolean;
-  updatedAt: string | null;
-}
-
-export interface NotificationEvent {
-  type: string;
-  category: string;
-  mandatory: boolean;
-  channels: Array<NotificationEventChannel>;
-}
-
-export interface NotificationEventList {
-  items: Array<NotificationEvent>;
-}
-
-export interface UpdateNotificationEventsRequest {
-  changes: Array<{
-    type: string;
-    channel: NotificationChannel;
-    enabled?: boolean | null;
-    allowUserOverride?: boolean;
-  }>;
-}
-
-export interface NotificationLink {
-  route: string;
-  params: Record<string, string>;
-}
-
-export interface Notification {
-  id: string;
-  type: string;
-  params: Record<string, unknown>;
-  link: NotificationLink | null;
-  actor: {
-    id: string;
-    name: string;
-  } | null;
-  readAt: string | null;
-  createdAt: string;
-}
-
-export interface NotificationPage {
-  items: Array<Notification>;
-  nextCursor: string | null;
-}
-
-export interface NotificationUnreadCount {
-  count: number;
-}
-
-export interface NotificationReadAllResult {
-  updated: number;
-}
-
-export interface NotificationOverviewItem {
-  id: string;
-  type: string;
-  params: Record<string, unknown>;
-  link: NotificationLink | null;
-  actor: {
-    id: string;
-    name: string;
-  } | null;
-  readAt: string | null;
-  createdAt: string;
-  recipient: {
-    id: string;
-    name: string;
-  };
-}
-
-export interface NotificationOverviewPage {
-  items: Array<NotificationOverviewItem>;
-  nextCursor: string | null;
-}
-
-export interface NotificationPreferenceChannel {
-  channel: NotificationChannel;
-  enabled: boolean;
-  isOverridden: boolean;
-  lock: ('mandatory' | 'tenantDisabled' | 'tenantRequired') | null;
-}
-
-export interface NotificationPreference {
-  type: string;
-  category: string;
-  channels: Array<NotificationPreferenceChannel>;
-}
-
-export interface NotificationPreferenceList {
-  items: Array<NotificationPreference>;
-}
-
-export interface UpdateNotificationPreferencesRequest {
-  changes: Array<{
-    type: string;
-    channel: NotificationChannel;
-    enabled: boolean | null;
-  }>;
 }
 
 export interface Webhook {
@@ -493,29 +666,6 @@ export interface ReplaceResourceTagsRequest {
 
 export interface ResourceTags {
   tags: Array<TagSummary>;
-}
-
-export const TrashResourceType = {
-  user: 'user',
-  role: 'role',
-  group: 'group',
-  file: 'file',
-  fileFolder: 'fileFolder',
-  announcement: 'announcement',
-} as const;
-export type TrashResourceType = (typeof TrashResourceType)[keyof typeof TrashResourceType];
-
-export interface TrashItem {
-  id: string;
-  type: TrashResourceType;
-  name: string;
-  description: string | null;
-  deletedAt: string;
-  deletedBy: {
-    id: string;
-    name: string;
-  } | null;
-  purgeAt: string;
 }
 
 export interface CreateUserRequest {
@@ -1387,114 +1537,6 @@ export interface UpdateSystemSettingsRequest {
 
 export interface PublicSystemSettings {
   values: Record<string, string | number | boolean>;
-}
-
-export interface AnnouncementAudience {
-  all: boolean;
-  userIds: Array<string>;
-  groupIds: Array<string>;
-  roleIds: Array<string>;
-}
-
-export type AnnouncementTrigger =
-  | {
-      kind: 'immediate';
-    }
-  | {
-      kind: 'once';
-      at: string;
-    };
-
-export interface Announcement {
-  id: string;
-  title: string;
-  body: string;
-  audience: AnnouncementAudience;
-  trigger: AnnouncementTrigger;
-  status: 'draft' | 'scheduled' | 'paused' | 'completed';
-  nextRunAt: string | null;
-  lastDispatch: {
-    id: string;
-    status: 'pending' | 'sending' | 'sent' | 'failed' | 'revoked';
-    scheduledFor: string;
-    recipientCount: number | null;
-    readCount: number;
-  } | null;
-  version: number;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: {
-    id: string;
-    displayName: string;
-  } | null;
-  updatedBy: {
-    id: string;
-    displayName: string;
-  } | null;
-}
-
-export interface CreateAnnouncementRequest {
-  title: string;
-  body: string;
-  audience: AnnouncementAudience;
-  trigger: AnnouncementTrigger;
-}
-
-export interface UpdateAnnouncementRequest {
-  title?: string;
-  body?: string;
-  audience?: AnnouncementAudience;
-  trigger?: AnnouncementTrigger;
-  version: number;
-}
-
-export interface AnnouncementActionRequest {
-  version: number;
-}
-
-export interface AnnouncementAudiencePreview {
-  count: number;
-  skipped: {
-    userIds: Array<string>;
-    groupIds: Array<string>;
-    roleIds: Array<string>;
-  };
-}
-
-export interface AnnouncementDispatch {
-  id: string;
-  announcementId: string;
-  scheduledFor: string;
-  title: string;
-  body: string;
-  audience: AnnouncementAudience;
-  status: 'pending' | 'sending' | 'sent' | 'failed' | 'revoked';
-  recipientCount: number | null;
-  readCount: number;
-  details: Record<string, unknown> | null;
-  createdAt: string;
-  startedAt: string | null;
-  finishedAt: string | null;
-  revokedAt: string | null;
-  createdBy: {
-    id: string;
-    displayName: string;
-  } | null;
-  revokedBy: {
-    id: string;
-    displayName: string;
-  } | null;
-}
-
-export interface AnnouncementMessage {
-  dispatchId: string;
-  title: string;
-  body: string;
-  sentAt: string;
-  sender: {
-    id: string;
-    displayName: string;
-  } | null;
 }
 
 export interface CurrentTenant {

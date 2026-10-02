@@ -28,10 +28,13 @@ import {
   AnnouncementAudienceSchema,
   AnnouncementDispatchSchema,
   AnnouncementSchema,
+  AnnouncementTriggerEventListSchema,
   AudiencePreviewSchema,
   CreateAnnouncementSchema,
   ListAnnouncementDispatchSchema,
   ListAnnouncementSchema,
+  RecurrencePreviewRequestSchema,
+  RecurrencePreviewSchema,
   UpdateAnnouncementSchema,
 } from './dto/announcement.dto';
 import type {
@@ -40,6 +43,7 @@ import type {
   CreateAnnouncementDto,
   ListAnnouncementDispatchDto,
   ListAnnouncementDto,
+  RecurrencePreviewRequestDto,
   UpdateAnnouncementDto,
 } from './dto/announcement.dto';
 
@@ -79,6 +83,26 @@ export class AnnouncementController {
     @Body(new ZodValidationPipe(AnnouncementAudienceSchema)) dto: AnnouncementAudienceDto,
   ) {
     return this.announcements.previewAudience(dto);
+  }
+
+  @Get('trigger-events')
+  @RequirePermissions(PERMISSION.ANNOUNCEMENT_READ)
+  @ApiOperation({ summary: '可以訂的觸發點（事件點；所屬 feature 已啟用）' })
+  @ApiZodResponse(200, AnnouncementTriggerEventListSchema)
+  listTriggerEvents() {
+    return { items: this.announcements.listTriggerEvents() };
+  }
+
+  @Post('recurrence-preview')
+  @HttpCode(200)
+  @RequirePermissions(PERMISSION.ANNOUNCEMENT_UPDATE)
+  @ApiOperation({ summary: '週期接下來的發送時間（最多 5 次，依租戶時區）' })
+  @ApiZodBody(RecurrencePreviewRequestSchema)
+  @ApiZodResponse(200, RecurrencePreviewSchema)
+  previewRecurrence(
+    @Body(new ZodValidationPipe(RecurrencePreviewRequestSchema)) dto: RecurrencePreviewRequestDto,
+  ) {
+    return this.announcements.previewRecurrence(dto);
   }
 
   @Get(':id')

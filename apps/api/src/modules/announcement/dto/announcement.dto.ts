@@ -6,6 +6,8 @@ import { ANNOUNCEMENT_DISPATCH_STATUSES, ANNOUNCEMENT_STATUSES } from '@/db/sche
 
 import {
   ANNOUNCEMENT_AUDIENCE_MAX_PER_KIND,
+  ANNOUNCEMENT_EVENT_MAX_DELAY_MINUTES,
+  ANNOUNCEMENT_RECURRENCE_MAX_INTERVAL,
   ANNOUNCEMENT_BODY_MAX,
   ANNOUNCEMENT_TITLE_MAX,
 } from '../announcement.constants';
@@ -30,8 +32,55 @@ export const AnnouncementAudienceSchema = defineSchema(
   }),
 );
 
+const DaySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
+
 /**
- * 觸發方式（D7）。這一版只有立即與指定時間；週期與事件點之後加入同一個 union。
+ * 週期（D7）：依租戶時區的日曆計算。週需要 `weekdays`（0＝週日～6），月需要 `monthDay`（1～28 或 `last`）。
+ * 不收 cron 字串：不存在的日期（31 日、2 月 30 日）由選項本身排除。
+ */
+const RecurringTriggerSchema = z
+  .object({
+    kind: z.literal('recurring'),
+    frequency: z.enum(['daily', 'weekly', 'monthly']),
+    interval: z.number().int().min(1).max(ANNOUNCEMENT_RECURRENCE_MAX_INTERVAL),
+    weekdays: z.array(z.number().int().min(0).max(6)).max(7).nullable().optional(),
+    monthDay: z
+      .union([z.number().int().min(1).max(28), z.literal('last')])
+      .nullable()
+      .optional(),
+    time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'HH:mm'),
+    startsOn: DaySchema,
+    endsOn: DaySchema.nullable().optional(),
+    maxOccurrences: z.number().int().min(1).max(10_000).nullable().optional(),
+  })
+  .superRefine((trigger, ctx) => {
+    if (trigger.frequency === 'weekly') {
+      const weekdays = trigger.weekdays ?? [];
+      if (weekdays.length === 0 || new Set(weekdays).size !== weekdays.length) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['weekdays'],
+          message: 'weekly needs distinct weekdays',
+        });
+      }
+    }
+    if (trigger.frequency === 'monthly' && (trigger.monthDay ?? null) === null) {
+      ctx.addIssue({ code: 'custom', path: ['monthDay'], message: 'monthly needs monthDay' });
+    }
+    if (trigger.endsOn && trigger.endsOn < trigger.startsOn) {
+      ctx.addIssue({ code: 'custom', path: ['endsOn'], message: 'must not be before startsOn' });
+    }
+  });
+
+/** 事件點（D12）：觸發點目錄上的事件；延遲 0～30 天（分鐘）。 */
+const EventTriggerSchema = z.object({
+  kind: z.literal('event'),
+  event: z.string().trim().min(1).max(100),
+  delayMinutes: z.number().int().min(0).max(ANNOUNCEMENT_EVENT_MAX_DELAY_MINUTES),
+});
+
+/**
+ * 觸發方式（D7）：立即、指定時間、週期、事件點。
  * `once.at` 是 ISO 8601（帶時區）；送出時必須在未來。
  */
 export const AnnouncementTriggerSchema = defineSchema(
@@ -39,7 +88,39 @@ export const AnnouncementTriggerSchema = defineSchema(
   z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('immediate') }),
     z.object({ kind: z.literal('once'), at: z.string().datetime({ offset: true }) }),
+    RecurringTriggerSchema,
+    EventTriggerSchema,
   ]),
+);
+
+/** 可以訂的觸發點（`GET /announcements/trigger-events`）。 */
+export const AnnouncementTriggerEventListSchema = defineSchema(
+  'AnnouncementTriggerEventList',
+  z.object({
+    items: z.array(
+      z.object({
+        event: z.string(),
+        /** 比對方式：`audience`（使用者在受眾裡）、`group`（加入的群組在受眾裡）、`role`（指派的角色在受眾裡）。 */
+        scope: z.enum(['audience', 'group', 'role']),
+      }),
+    ),
+  }),
+);
+
+/** `POST /announcements/recurrence-preview`：週期 → 接下來幾次（租戶時區）。 */
+export const RecurrencePreviewRequestSchema = defineSchema(
+  'AnnouncementRecurrencePreviewRequest',
+  z.object({ trigger: RecurringTriggerSchema }),
+);
+
+export const RecurrencePreviewSchema = defineSchema(
+  'AnnouncementRecurrencePreview',
+  z.object({
+    /** 計算用的時區（租戶的 `general.defaultTimezone`）。 */
+    timeZone: z.string(),
+    /** 接下來最多 5 次（ISO 8601）；沒有了（已過結束日期）是空陣列。 */
+    occurrences: z.array(z.string()),
+  }),
 );
 
 const PersonSchema = z.object({ id: z.string().uuid(), displayName: z.string() }).nullable();
@@ -181,3 +262,5 @@ export type AudiencePreviewDto = z.infer<typeof AudiencePreviewSchema>;
 export type AnnouncementDispatchDto = z.infer<typeof AnnouncementDispatchSchema>;
 export type ListAnnouncementDispatchDto = z.infer<typeof ListAnnouncementDispatchSchema>;
 export type AnnouncementMessageDto = z.infer<typeof AnnouncementMessageSchema>;
+export type RecurrencePreviewRequestDto = z.infer<typeof RecurrencePreviewRequestSchema>;
+export type RecurrencePreviewDto = z.infer<typeof RecurrencePreviewSchema>;

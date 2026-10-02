@@ -290,7 +290,8 @@
     "ANNOUNCEMENT_NOT_DELETED": "This announcement is not deleted.",
     "ANNOUNCEMENT_DISPATCH_NOT_FOUND": "This send was not found.",
     "ANNOUNCEMENT_DISPATCH_NOT_REVOCABLE": "This send has already been revoked.",
-    "ANNOUNCEMENT_MESSAGE_NOT_FOUND": "This announcement isn't available. It may have been revoked or removed after the retention period."
+    "ANNOUNCEMENT_MESSAGE_NOT_FOUND": "This announcement isn't available. It may have been revoked or removed after the retention period.",
+    "ANNOUNCEMENT_EVENT_UNKNOWN": "This trigger event doesn't exist or isn't enabled. Choose another event."
   },
   "permission": {
     "resource": {

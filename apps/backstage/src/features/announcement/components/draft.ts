@@ -1,7 +1,7 @@
 import type { Announcement, AnnouncementAudience } from '@/shared/api-sdk';
 
 import type { AnnouncementDraft } from './AnnouncementForm';
-import { fromTriggerDraft, toTriggerDraft } from './TriggerField';
+import { EMPTY_TRIGGER_DRAFT, fromTriggerDraft, toTriggerDraft } from './TriggerField';
 
 export const EMPTY_AUDIENCE: AnnouncementAudience = {
   all: false,
@@ -14,7 +14,7 @@ export const EMPTY_DRAFT: AnnouncementDraft = {
   title: '',
   body: '',
   audience: EMPTY_AUDIENCE,
-  trigger: { kind: 'immediate', day: '', time: '09:00' },
+  trigger: EMPTY_TRIGGER_DRAFT,
 };
 
 export function toDraft(announcement: Announcement): AnnouncementDraft {

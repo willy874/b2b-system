@@ -47,7 +47,8 @@
 | 稽核日誌   | 所有寫入操作與授權決策的記錄、列表與篩選                                                      |
 | 系統設定（Phase 0 之後加入） | 每個租戶執行期可調的帳號政策、上傳上限、預設時區（[`architecture/backend/12-settings.md`](../architecture/backend/12-settings.md)） |
 | 回收桶與版本歷史（Phase 0 之後加入） | 編輯的樂觀鎖（`version` 必填）；使用者、角色、檔案與資料夾刪除後進回收桶、保留期限內可還原、到期永久刪除；角色的版本紀錄與還原到某一版（[`architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)、[`architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md)） |
-| 站內通知（Phase 0 之後加入） | 每位收件人一筆、在業務交易內寫入；審批待審／結果、角色被指派或移除；頂列鈴鐺與未讀數、列表頁、全部已讀、保留清理（[`architecture/backend/15-notification.md`](../architecture/backend/15-notification.md)、[`architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md)） |
+| 站內通知（Phase 0 之後加入） | 每位收件人一筆、在業務交易內寫入；審批待審／結果、角色被指派或移除；頂列鈴鐺與未讀數、列表頁、全部已讀、保留清理；管理者的通知總覽（[`architecture/backend/15-notification.md`](../architecture/backend/15-notification.md)、[`architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md)） |
+| 公告（Phase 0 之後加入） | 管理者撰寫訊息，發給指定的人、群組、角色或全租戶；立即、指定時間、週期（租戶時區）、事件點（帳號啟用、被指派角色、加入群組）；發送紀錄、已讀率、撤回；收件人讀全文（[`architecture/backend/19-announcement.md`](../architecture/backend/19-announcement.md)、[ADR-0031](../adr/0031-announcements.md)） |
 | 檔案（Phase 0 之後加入） | S3 相容的物件儲存、分塊上傳、圖片縮圖、檔案管理器、資料夾層級的授權與繼承（[`architecture/backend/09-file.md`](../architecture/backend/09-file.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)） |
 | 背景工作與寄信（Phase 0 之後加入） | pg-boss 佇列、排程、重試與管理頁；郵件範本與寄送（[`architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md)、[`architecture/backend/11-mail.md`](../architecture/backend/11-mail.md)） |
 | 服務帳號與對外 API（Phase 0 之後加入） | 服務帳號、個人與服務帳號的 API token（限縮 scopes、到期、撤銷）；獨立程序的對外 API（`/v1`，只認 API token）（[`architecture/06-external-api.md`](../architecture/06-external-api.md)、[ADR-0027](../adr/0027-api-tokens-external-api.md)） |

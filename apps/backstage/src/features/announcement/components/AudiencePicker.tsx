@@ -18,6 +18,8 @@ const USER_SEARCH_DEBOUNCE_MS = 250;
 interface AudiencePickerProps {
   value: AnnouncementAudience;
   onChange: (value: AnnouncementAudience) => void;
+  /** 事件點：不是一次發給所有人，人數只是「目前的受眾有幾人」，說明換成事件點的句子。 */
+  eventTriggered?: boolean;
   disabled?: boolean;
 }
 
@@ -25,7 +27,7 @@ interface AudiencePickerProps {
  * 受眾（docs/adr/0031-announcements.md D5）：全租戶，或使用者、群組、角色的聯集。下方即時顯示「現在送出會收到幾人」
  * （伺服器解析，含巢狀群組；不扣除送出者自己）。使用者在伺服器端搜尋；群組與角色數量少，一次抓回本地過濾。
  */
-export function AudiencePicker({ value, onChange, disabled }: AudiencePickerProps) {
+export function AudiencePicker({ value, onChange, eventTriggered, disabled }: AudiencePickerProps) {
   const { t } = useTranslation();
   const [keyword, setKeyword] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -127,7 +129,9 @@ export function AudiencePicker({ value, onChange, disabled }: AudiencePickerProp
         data-testid="announcement-audience-count"
       >
         {preview.data
-          ? t('announcement.audience.count', { count: preview.data.count })
+          ? t(eventTriggered ? 'announcement.audience.countEvent' : 'announcement.audience.count', {
+              count: preview.data.count,
+            })
           : t('announcement.audience.counting')}
       </p>
     </div>

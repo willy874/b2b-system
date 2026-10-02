@@ -248,6 +248,8 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /announcements': 'announcement:read',
       'POST /announcements': 'announcement:create',
       'POST /announcements/audience-preview': 'announcement:update',
+      'POST /announcements/recurrence-preview': 'announcement:update',
+      'GET /announcements/trigger-events': 'announcement:read',
       'GET /announcements/:id': 'announcement:read',
       'PATCH /announcements/:id': 'announcement:update',
       'DELETE /announcements/:id': 'announcement:delete',

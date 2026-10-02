@@ -8,7 +8,8 @@
     },
     "detail": {
       "title": "Announcement",
-      "backToList": "Back to announcements"
+      "backToList": "Back to announcements",
+      "nextRun": "Next: {{at}}"
     },
     "status": {
       "draft": "Draft",
@@ -21,7 +22,9 @@
       "once": "At a set time",
       "day": "Date",
       "time": "Time",
-      "timeZone": "Time zone: {{timeZone}}"
+      "timeZone": "Time zone: {{timeZone}}",
+      "recurring": "Recurring",
+      "event": "When an event happens"
     },
     "field": {
       "title": "Title",
@@ -31,7 +34,8 @@
       "trigger": "Send time",
       "status": "Status",
       "readSummary": "Last send read",
-      "updatedAt": "Updated"
+      "updatedAt": "Updated",
+      "nextRunAt": "Next"
     },
     "readSummary": "{{read}} / {{total}}",
     "audience": {
@@ -51,7 +55,8 @@
         "groups": "{{count}} groups",
         "roles": "{{count}} roles",
         "none": "None selected"
-      }
+      },
+      "countEvent": "The recipients currently include {{count}} people; when the event happens, only the matching person receives it"
     },
     "create": {
       "action": "New announcement",
@@ -68,7 +73,9 @@
       "title": "Send announcement",
       "confirmImmediate": "Send \"{{title}}\" to its recipients now? It can't be edited afterwards, only revoked.",
       "confirmScheduled": "Send \"{{title}}\" to its recipients at {{at}}? You can pause it or change the time before then.",
-      "success": "Announcement sent"
+      "success": "Announcement sent",
+      "confirmRecurring": "Send \"{{title}}\" to its recipients on this schedule: {{at}}? You can pause or change it before each send.",
+      "confirmEvent": "Send \"{{title}}\" to matching people on this trigger: {{at}}? Each person gets it once. You can pause it anytime."
     },
     "pause": {
       "action": "Pause",
@@ -115,6 +122,74 @@
     "message": {
       "meta": "{{sender}} · {{at}}",
       "unknownSender": "Deleted user"
+    },
+    "recurrence": {
+      "every": "Every",
+      "interval": "Interval",
+      "frequencyLabel": "Frequency",
+      "frequency": {
+        "daily": "day(s)",
+        "weekly": "week(s)",
+        "monthly": "month(s)"
+      },
+      "weekdays": "Days of the week",
+      "monthDay": "Day of the month",
+      "dayOfMonth": "Day {{day}}",
+      "lastDay": "Last day",
+      "startsOn": "Starts on",
+      "endsOn": "Ends on",
+      "noEnd": "No end",
+      "maxOccurrences": "Max sends",
+      "unlimited": "Unlimited",
+      "preview": "Upcoming sends (calculated in the tenant time zone {{timeZone}}):",
+      "noOccurrence": "No more sends (past the end date or the max count)",
+      "incomplete": "Fill in the start date and time to see upcoming sends",
+      "weekday": {
+        "0": "Sun",
+        "1": "Mon",
+        "2": "Tue",
+        "3": "Wed",
+        "4": "Thu",
+        "5": "Fri",
+        "6": "Sat"
+      },
+      "summary": {
+        "daily": "Daily at {{time}}",
+        "dailyEvery": "Every {{count}} days at {{time}}",
+        "weekly": "Weekly on {{weekdays}} at {{time}}",
+        "weeklyEvery": "Every {{count}} weeks on {{weekdays}} at {{time}}",
+        "monthly": "Monthly on {{day}} at {{time}}",
+        "monthlyEvery": "Every {{count}} months on {{day}} at {{time}}"
+      }
+    },
+    "event": {
+      "label": "Event",
+      "placeholder": "Select an event",
+      "onceNote": "Each person receives this announcement at most once, even if the event happens again (e.g. removed and re-added).",
+      "userActivated": {
+        "name": "Account activated",
+        "description": "People who finish activation or can sign in when created (first external IdP sign-in), if they are among the recipients."
+      },
+      "userRoleAssigned": {
+        "name": "Role assigned",
+        "description": "Sent to the person when an assigned role is one of the recipient roles (any role when the recipients are everyone)."
+      },
+      "groupMemberAdded": {
+        "name": "Added to a group",
+        "description": "Sent to the person when they are added directly to one of the recipient groups (any group when the recipients are everyone)."
+      }
+    },
+    "delay": {
+      "after": "after",
+      "value": "Delay",
+      "unitLabel": "Unit",
+      "unit": {
+        "minutes": "minutes",
+        "hours": "hours",
+        "days": "days"
+      },
+      "summaryImmediate": "When: {{event}}",
+      "summary": "{{value}} {{unit}} after: {{event}}"
     }
   }
 }

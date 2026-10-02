@@ -654,6 +654,8 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/announcements`            | `announcement:read`（ADR-0031 D15） |
 | POST   | `/announcements`            | `announcement:create`            |
 | POST   | `/announcements/audience-preview` | `announcement:update`      |
+| POST   | `/announcements/recurrence-preview` | `announcement:update`    |
+| GET    | `/announcements/trigger-events` | `announcement:read`         |
 | GET    | `/announcements/:id`        | `announcement:read`              |
 | PATCH  | `/announcements/:id`        | `announcement:update`（草稿以外另要 `announcement:publish`，service 檢查） |
 | DELETE | `/announcements/:id`        | `announcement:delete`            |

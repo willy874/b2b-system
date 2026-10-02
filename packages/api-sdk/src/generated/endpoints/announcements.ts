@@ -10,6 +10,9 @@ import type {
   AnnouncementAudiencePreview,
   AnnouncementDispatch,
   AnnouncementMessage,
+  AnnouncementRecurrencePreview,
+  AnnouncementRecurrencePreviewRequest,
+  AnnouncementTriggerEventList,
   CreateAnnouncementRequest,
   UpdateAnnouncementRequest,
 } from '../models';
@@ -26,7 +29,10 @@ import {
   AnnouncementAudienceSchema,
   AnnouncementDispatchSchema,
   AnnouncementMessageSchema,
+  AnnouncementRecurrencePreviewRequestSchema,
+  AnnouncementRecurrencePreviewSchema,
   AnnouncementSchema,
+  AnnouncementTriggerEventListSchema,
   CreateAnnouncementRequestSchema,
   UpdateAnnouncementRequestSchema,
 } from '../schemas';
@@ -198,6 +204,110 @@ export function announcementControllerPreviewAudience(
 ): Promise<AnnouncementControllerPreviewAudienceResult> {
   return request<AnnouncementControllerPreviewAudienceResult>(
     announcementControllerPreviewAudienceOperation,
+    input,
+    options,
+  );
+}
+
+// GET /announcements/trigger-events
+
+export interface AnnouncementControllerListTriggerEventsResponses {
+  200: {
+    data: AnnouncementTriggerEventList;
+  };
+}
+
+export type AnnouncementControllerListTriggerEventsResponse =
+  AnnouncementControllerListTriggerEventsResponses[200];
+
+export type AnnouncementControllerListTriggerEventsResult = ApiResponse<
+  200,
+  AnnouncementControllerListTriggerEventsResponses[200]
+>;
+
+export const AnnouncementControllerListTriggerEventsSchemas = {
+  responses: {
+    200: z.object({
+      data: AnnouncementTriggerEventListSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getAnnouncementControllerListTriggerEventsUrl(): string {
+  return buildUrl('/announcements/trigger-events');
+}
+
+const announcementControllerListTriggerEventsOperation: OperationDefinition = {
+  id: 'AnnouncementController_listTriggerEvents',
+  method: 'GET',
+  path: '/announcements/trigger-events',
+  responseTypes: { 200: 'json' },
+  schemas: AnnouncementControllerListTriggerEventsSchemas,
+};
+
+/** 可以訂的觸發點（事件點；所屬 feature 已啟用） */
+export function announcementControllerListTriggerEvents(
+  options?: RequestOptions,
+): Promise<AnnouncementControllerListTriggerEventsResult> {
+  return request<AnnouncementControllerListTriggerEventsResult>(
+    announcementControllerListTriggerEventsOperation,
+    {},
+    options,
+  );
+}
+
+// POST /announcements/recurrence-preview
+
+export type AnnouncementControllerPreviewRecurrenceBody = AnnouncementRecurrencePreviewRequest;
+
+export interface AnnouncementControllerPreviewRecurrenceInput {
+  body: AnnouncementControllerPreviewRecurrenceBody;
+}
+
+export interface AnnouncementControllerPreviewRecurrenceResponses {
+  200: {
+    data: AnnouncementRecurrencePreview;
+  };
+}
+
+export type AnnouncementControllerPreviewRecurrenceResponse =
+  AnnouncementControllerPreviewRecurrenceResponses[200];
+
+export type AnnouncementControllerPreviewRecurrenceResult = ApiResponse<
+  200,
+  AnnouncementControllerPreviewRecurrenceResponses[200]
+>;
+
+export const AnnouncementControllerPreviewRecurrenceSchemas = {
+  body: AnnouncementRecurrencePreviewRequestSchema,
+  responses: {
+    200: z.object({
+      data: AnnouncementRecurrencePreviewSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getAnnouncementControllerPreviewRecurrenceUrl(): string {
+  return buildUrl('/announcements/recurrence-preview');
+}
+
+const announcementControllerPreviewRecurrenceOperation: OperationDefinition = {
+  id: 'AnnouncementController_previewRecurrence',
+  method: 'POST',
+  path: '/announcements/recurrence-preview',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: AnnouncementControllerPreviewRecurrenceSchemas,
+};
+
+/** 週期接下來的發送時間（最多 5 次，依租戶時區） */
+export function announcementControllerPreviewRecurrence(
+  input: AnnouncementControllerPreviewRecurrenceInput,
+  options?: RequestOptions,
+): Promise<AnnouncementControllerPreviewRecurrenceResult> {
+  return request<AnnouncementControllerPreviewRecurrenceResult>(
+    announcementControllerPreviewRecurrenceOperation,
     input,
     options,
   );

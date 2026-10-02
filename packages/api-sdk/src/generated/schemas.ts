@@ -11,7 +11,10 @@ import type {
   AnnouncementAudiencePreview,
   AnnouncementDispatch,
   AnnouncementMessage,
+  AnnouncementRecurrencePreview,
+  AnnouncementRecurrencePreviewRequest,
   AnnouncementTrigger,
+  AnnouncementTriggerEventList,
   ApiToken,
   ApiTokenList,
   ApprovalRequest,
@@ -191,154 +194,6 @@ import type {
   WebhookSecret,
 } from './models';
 
-export const PermissionKeySchema = z.enum([
-  'user:create',
-  'user:read',
-  'user:update',
-  'user:delete',
-  'user:assignRole',
-  'user:resetPassword',
-  'role:create',
-  'role:read',
-  'role:update',
-  'role:delete',
-  'role:grantPermission',
-  'permission:read',
-  'auditLog:read',
-  'system:read',
-  'system:update',
-  'approval:read',
-  'approval:review',
-  'file:create',
-  'file:read',
-  'file:update',
-  'file:delete',
-  'file:access',
-  'file:share',
-  'job:read',
-  'job:retry',
-  'identityProvider:create',
-  'identityProvider:read',
-  'identityProvider:update',
-  'identityProvider:delete',
-  'group:create',
-  'group:read',
-  'group:update',
-  'group:delete',
-  'group:assignRole',
-  'authz:explain',
-  'serviceAccount:create',
-  'serviceAccount:read',
-  'serviceAccount:update',
-  'serviceAccount:delete',
-  'webhook:create',
-  'webhook:read',
-  'webhook:update',
-  'webhook:delete',
-  'tag:create',
-  'tag:update',
-  'tag:delete',
-  'notification:read',
-  'announcement:create',
-  'announcement:read',
-  'announcement:update',
-  'announcement:delete',
-  'announcement:publish',
-]) satisfies z.ZodType<PermissionKey>;
-
-export const PermissionSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  key: PermissionKeySchema,
-  resource: z.string(),
-  action: z.string(),
-  nameI18nKey: z.string(),
-  description: z.string().nullable(),
-  sortOrder: z.int().min(-9007199254740991).max(9007199254740991),
-  includes: z.array(PermissionKeySchema),
-  requires: z.array(PermissionKeySchema),
-}) satisfies z.ZodType<Permission>;
-
-export const ExplainNodeSchema = z.object({
-  type: z.string(),
-  id: z.string().nullable(),
-  relation: z.string(),
-  name: z.string().nullable(),
-  hidden: z.boolean(),
-}) satisfies z.ZodType<ExplainNode>;
-
-export const PermissionSourceSchema = z.object({
-  grantedKey: z.string(),
-  via: z.array(ExplainNodeSchema),
-}) satisfies z.ZodType<PermissionSource>;
-
-export const EffectivePermissionSchema = z.object({
-  key: PermissionKeySchema,
-  source: PermissionSourceSchema,
-  impliedBy: z.array(PermissionKeySchema),
-}) satisfies z.ZodType<EffectivePermission>;
-
-export const PermissionGroupSchema = z.object({
-  resource: z.string(),
-  nameI18nKey: z.string(),
-  keys: z.array(PermissionKeySchema),
-}) satisfies z.ZodType<PermissionGroup>;
-
-export const PermissionCatalogSchema = z.object({
-  items: z.array(PermissionSchema),
-  groups: z.array(PermissionGroupSchema),
-}) satisfies z.ZodType<PermissionCatalog>;
-
-export const ApiTokenSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  name: z.string(),
-  prefix: z.string(),
-  scopes: z.array(PermissionKeySchema).nullable(),
-  status: z.enum(['active', 'expired', 'revoked', 'invalidated']),
-  expiresAt: z.string(),
-  lastUsedAt: z.string().nullable(),
-  revokedAt: z.string().nullable(),
-  createdAt: z.string(),
-  createdBy: z
-    .object({
-      id: z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-      displayName: z.string(),
-    })
-    .nullable(),
-}) satisfies z.ZodType<ApiToken>;
-
-export const ApiTokenListSchema = z.object({
-  items: z.array(ApiTokenSchema),
-}) satisfies z.ZodType<ApiTokenList>;
-
-export const CreateApiTokenRequestSchema = z.object({
-  name: z.string().min(1).max(100),
-  expiresInDays: z.int().min(1).max(365),
-  scopes: z.array(PermissionKeySchema).min(1).max(50).nullable().optional(),
-}) satisfies z.ZodType<CreateApiTokenRequest>;
-
-export const CreatedApiTokenSchema = z.object({
-  token: z.string(),
-  apiToken: ApiTokenSchema,
-}) satisfies z.ZodType<CreatedApiToken>;
-
 export const NotificationChannelSchema = z.enum([
   'inApp',
   'email',
@@ -494,6 +349,484 @@ export const UpdateNotificationPreferencesRequestSchema = z.object({
     .min(1)
     .max(100),
 }) satisfies z.ZodType<UpdateNotificationPreferencesRequest>;
+
+export const TrashResourceTypeSchema = z.enum([
+  'user',
+  'role',
+  'group',
+  'file',
+  'fileFolder',
+  'announcement',
+]) satisfies z.ZodType<TrashResourceType>;
+
+export const TrashItemSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  type: TrashResourceTypeSchema,
+  name: z.string(),
+  description: z.string().nullable(),
+  deletedAt: z.string(),
+  deletedBy: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      name: z.string(),
+    })
+    .nullable(),
+  purgeAt: z.string(),
+}) satisfies z.ZodType<TrashItem>;
+
+export const AnnouncementAudienceSchema = z.object({
+  all: z.boolean().default(false),
+  userIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(200)
+    .default([]),
+  groupIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(200)
+    .default([]),
+  roleIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(200)
+    .default([]),
+}) satisfies z.ZodType<AnnouncementAudience>;
+
+export const AnnouncementTriggerSchema = z.union([
+  z.object({
+    kind: z.enum(['immediate']),
+  }),
+  z.object({
+    kind: z.enum(['once']),
+    at: z.iso
+      .datetime({ offset: true })
+      .regex(
+        new RegExp(
+          '^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$',
+        ),
+      ),
+  }),
+  z.object({
+    kind: z.enum(['recurring']),
+    frequency: z.enum(['daily', 'weekly', 'monthly']),
+    interval: z.int().min(1).max(99),
+    weekdays: z.array(z.int().min(0).max(6)).max(7).nullable().optional(),
+    monthDay: z
+      .union([z.int().min(1).max(28), z.enum(['last'])])
+      .nullable()
+      .optional(),
+    time: z.string().regex(new RegExp('^([01]\\d|2[0-3]):[0-5]\\d$')),
+    startsOn: z.string().regex(new RegExp('^\\d{4}-\\d{2}-\\d{2}$')),
+    endsOn: z.string().regex(new RegExp('^\\d{4}-\\d{2}-\\d{2}$')).nullable().optional(),
+    maxOccurrences: z.int().min(1).max(10000).nullable().optional(),
+  }),
+  z.object({
+    kind: z.enum(['event']),
+    event: z.string().min(1).max(100),
+    delayMinutes: z.int().min(0).max(43200),
+  }),
+]) satisfies z.ZodType<AnnouncementTrigger>;
+
+export const AnnouncementTriggerEventListSchema = z.object({
+  items: z.array(
+    z.object({
+      event: z.string(),
+      scope: z.enum(['audience', 'group', 'role']),
+    }),
+  ),
+}) satisfies z.ZodType<AnnouncementTriggerEventList>;
+
+export const AnnouncementRecurrencePreviewRequestSchema = z.object({
+  trigger: z.object({
+    kind: z.enum(['recurring']),
+    frequency: z.enum(['daily', 'weekly', 'monthly']),
+    interval: z.int().min(1).max(99),
+    weekdays: z.array(z.int().min(0).max(6)).max(7).nullable().optional(),
+    monthDay: z
+      .union([z.int().min(1).max(28), z.enum(['last'])])
+      .nullable()
+      .optional(),
+    time: z.string().regex(new RegExp('^([01]\\d|2[0-3]):[0-5]\\d$')),
+    startsOn: z.string().regex(new RegExp('^\\d{4}-\\d{2}-\\d{2}$')),
+    endsOn: z.string().regex(new RegExp('^\\d{4}-\\d{2}-\\d{2}$')).nullable().optional(),
+    maxOccurrences: z.int().min(1).max(10000).nullable().optional(),
+  }),
+}) satisfies z.ZodType<AnnouncementRecurrencePreviewRequest>;
+
+export const AnnouncementRecurrencePreviewSchema = z.object({
+  timeZone: z.string(),
+  occurrences: z.array(z.string()),
+}) satisfies z.ZodType<AnnouncementRecurrencePreview>;
+
+export const AnnouncementSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  title: z.string(),
+  body: z.string(),
+  audience: AnnouncementAudienceSchema,
+  trigger: AnnouncementTriggerSchema,
+  status: z.enum(['draft', 'scheduled', 'paused', 'completed']),
+  nextRunAt: z.string().nullable(),
+  lastDispatch: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      status: z.enum(['pending', 'sending', 'sent', 'failed', 'revoked']),
+      scheduledFor: z.string(),
+      recipientCount: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+      readCount: z.int().min(-9007199254740991).max(9007199254740991),
+    })
+    .nullable(),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  createdBy: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      displayName: z.string(),
+    })
+    .nullable(),
+  updatedBy: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      displayName: z.string(),
+    })
+    .nullable(),
+}) satisfies z.ZodType<Announcement>;
+
+export const CreateAnnouncementRequestSchema = z.object({
+  title: z.string().min(1).max(120),
+  body: z.string().min(1).max(5000),
+  audience: AnnouncementAudienceSchema,
+  trigger: AnnouncementTriggerSchema,
+}) satisfies z.ZodType<CreateAnnouncementRequest>;
+
+export const UpdateAnnouncementRequestSchema = z.object({
+  title: z.string().min(1).max(120).optional(),
+  body: z.string().min(1).max(5000).optional(),
+  audience: AnnouncementAudienceSchema.optional(),
+  trigger: AnnouncementTriggerSchema.optional(),
+  version: z.int().min(1).max(9007199254740991),
+}) satisfies z.ZodType<UpdateAnnouncementRequest>;
+
+export const AnnouncementActionRequestSchema = z.object({
+  version: z.int().min(1).max(9007199254740991),
+}) satisfies z.ZodType<AnnouncementActionRequest>;
+
+export const AnnouncementAudiencePreviewSchema = z.object({
+  count: z.int().min(-9007199254740991).max(9007199254740991),
+  skipped: z.object({
+    userIds: z.array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    ),
+    groupIds: z.array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    ),
+    roleIds: z.array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    ),
+  }),
+}) satisfies z.ZodType<AnnouncementAudiencePreview>;
+
+export const AnnouncementDispatchSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  announcementId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  scheduledFor: z.string(),
+  title: z.string(),
+  body: z.string(),
+  audience: AnnouncementAudienceSchema,
+  status: z.enum(['pending', 'sending', 'sent', 'failed', 'revoked']),
+  recipientCount: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  readCount: z.int().min(-9007199254740991).max(9007199254740991),
+  details: z.record(z.string(), z.unknown()).nullable(),
+  createdAt: z.string(),
+  startedAt: z.string().nullable(),
+  finishedAt: z.string().nullable(),
+  revokedAt: z.string().nullable(),
+  createdBy: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      displayName: z.string(),
+    })
+    .nullable(),
+  revokedBy: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      displayName: z.string(),
+    })
+    .nullable(),
+}) satisfies z.ZodType<AnnouncementDispatch>;
+
+export const AnnouncementMessageSchema = z.object({
+  dispatchId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  title: z.string(),
+  body: z.string(),
+  sentAt: z.string(),
+  sender: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      displayName: z.string(),
+    })
+    .nullable(),
+}) satisfies z.ZodType<AnnouncementMessage>;
+
+export const PermissionKeySchema = z.enum([
+  'user:create',
+  'user:read',
+  'user:update',
+  'user:delete',
+  'user:assignRole',
+  'user:resetPassword',
+  'role:create',
+  'role:read',
+  'role:update',
+  'role:delete',
+  'role:grantPermission',
+  'permission:read',
+  'auditLog:read',
+  'system:read',
+  'system:update',
+  'approval:read',
+  'approval:review',
+  'file:create',
+  'file:read',
+  'file:update',
+  'file:delete',
+  'file:access',
+  'file:share',
+  'job:read',
+  'job:retry',
+  'identityProvider:create',
+  'identityProvider:read',
+  'identityProvider:update',
+  'identityProvider:delete',
+  'group:create',
+  'group:read',
+  'group:update',
+  'group:delete',
+  'group:assignRole',
+  'authz:explain',
+  'serviceAccount:create',
+  'serviceAccount:read',
+  'serviceAccount:update',
+  'serviceAccount:delete',
+  'webhook:create',
+  'webhook:read',
+  'webhook:update',
+  'webhook:delete',
+  'tag:create',
+  'tag:update',
+  'tag:delete',
+  'notification:read',
+  'announcement:create',
+  'announcement:read',
+  'announcement:update',
+  'announcement:delete',
+  'announcement:publish',
+]) satisfies z.ZodType<PermissionKey>;
+
+export const PermissionSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  key: PermissionKeySchema,
+  resource: z.string(),
+  action: z.string(),
+  nameI18nKey: z.string(),
+  description: z.string().nullable(),
+  sortOrder: z.int().min(-9007199254740991).max(9007199254740991),
+  includes: z.array(PermissionKeySchema),
+  requires: z.array(PermissionKeySchema),
+}) satisfies z.ZodType<Permission>;
+
+export const ExplainNodeSchema = z.object({
+  type: z.string(),
+  id: z.string().nullable(),
+  relation: z.string(),
+  name: z.string().nullable(),
+  hidden: z.boolean(),
+}) satisfies z.ZodType<ExplainNode>;
+
+export const PermissionSourceSchema = z.object({
+  grantedKey: z.string(),
+  via: z.array(ExplainNodeSchema),
+}) satisfies z.ZodType<PermissionSource>;
+
+export const EffectivePermissionSchema = z.object({
+  key: PermissionKeySchema,
+  source: PermissionSourceSchema,
+  impliedBy: z.array(PermissionKeySchema),
+}) satisfies z.ZodType<EffectivePermission>;
+
+export const PermissionGroupSchema = z.object({
+  resource: z.string(),
+  nameI18nKey: z.string(),
+  keys: z.array(PermissionKeySchema),
+}) satisfies z.ZodType<PermissionGroup>;
+
+export const PermissionCatalogSchema = z.object({
+  items: z.array(PermissionSchema),
+  groups: z.array(PermissionGroupSchema),
+}) satisfies z.ZodType<PermissionCatalog>;
+
+export const ApiTokenSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+  prefix: z.string(),
+  scopes: z.array(PermissionKeySchema).nullable(),
+  status: z.enum(['active', 'expired', 'revoked', 'invalidated']),
+  expiresAt: z.string(),
+  lastUsedAt: z.string().nullable(),
+  revokedAt: z.string().nullable(),
+  createdAt: z.string(),
+  createdBy: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      displayName: z.string(),
+    })
+    .nullable(),
+}) satisfies z.ZodType<ApiToken>;
+
+export const ApiTokenListSchema = z.object({
+  items: z.array(ApiTokenSchema),
+}) satisfies z.ZodType<ApiTokenList>;
+
+export const CreateApiTokenRequestSchema = z.object({
+  name: z.string().min(1).max(100),
+  expiresInDays: z.int().min(1).max(365),
+  scopes: z.array(PermissionKeySchema).min(1).max(50).nullable().optional(),
+}) satisfies z.ZodType<CreateApiTokenRequest>;
+
+export const CreatedApiTokenSchema = z.object({
+  token: z.string(),
+  apiToken: ApiTokenSchema,
+}) satisfies z.ZodType<CreatedApiToken>;
 
 export const WebhookSchema = z.object({
   id: z
@@ -855,42 +1188,6 @@ export const ReplaceResourceTagsRequestSchema = z.object({
 export const ResourceTagsSchema = z.object({
   tags: z.array(TagSummarySchema),
 }) satisfies z.ZodType<ResourceTags>;
-
-export const TrashResourceTypeSchema = z.enum([
-  'user',
-  'role',
-  'group',
-  'file',
-  'fileFolder',
-  'announcement',
-]) satisfies z.ZodType<TrashResourceType>;
-
-export const TrashItemSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  type: TrashResourceTypeSchema,
-  name: z.string(),
-  description: z.string().nullable(),
-  deletedAt: z.string(),
-  deletedBy: z
-    .object({
-      id: z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-      name: z.string(),
-    })
-    .nullable(),
-  purgeAt: z.string(),
-}) satisfies z.ZodType<TrashItem>;
 
 export const CreateUserRequestSchema = z.object({
   email: z
@@ -2208,250 +2505,6 @@ export const UpdateSystemSettingsRequestSchema = z.object({
 export const PublicSystemSettingsSchema = z.object({
   values: z.record(z.string(), z.union([z.string().max(1000), z.number(), z.boolean()])),
 }) satisfies z.ZodType<PublicSystemSettings>;
-
-export const AnnouncementAudienceSchema = z.object({
-  all: z.boolean().default(false),
-  userIds: z
-    .array(
-      z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-    )
-    .max(200)
-    .default([]),
-  groupIds: z
-    .array(
-      z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-    )
-    .max(200)
-    .default([]),
-  roleIds: z
-    .array(
-      z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-    )
-    .max(200)
-    .default([]),
-}) satisfies z.ZodType<AnnouncementAudience>;
-
-export const AnnouncementTriggerSchema = z.union([
-  z.object({
-    kind: z.enum(['immediate']),
-  }),
-  z.object({
-    kind: z.enum(['once']),
-    at: z.iso
-      .datetime({ offset: true })
-      .regex(
-        new RegExp(
-          '^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$',
-        ),
-      ),
-  }),
-]) satisfies z.ZodType<AnnouncementTrigger>;
-
-export const AnnouncementSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  title: z.string(),
-  body: z.string(),
-  audience: AnnouncementAudienceSchema,
-  trigger: AnnouncementTriggerSchema,
-  status: z.enum(['draft', 'scheduled', 'paused', 'completed']),
-  nextRunAt: z.string().nullable(),
-  lastDispatch: z
-    .object({
-      id: z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-      status: z.enum(['pending', 'sending', 'sent', 'failed', 'revoked']),
-      scheduledFor: z.string(),
-      recipientCount: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
-      readCount: z.int().min(-9007199254740991).max(9007199254740991),
-    })
-    .nullable(),
-  version: z.int().min(-9007199254740991).max(9007199254740991),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  createdBy: z
-    .object({
-      id: z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-      displayName: z.string(),
-    })
-    .nullable(),
-  updatedBy: z
-    .object({
-      id: z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-      displayName: z.string(),
-    })
-    .nullable(),
-}) satisfies z.ZodType<Announcement>;
-
-export const CreateAnnouncementRequestSchema = z.object({
-  title: z.string().min(1).max(120),
-  body: z.string().min(1).max(5000),
-  audience: AnnouncementAudienceSchema,
-  trigger: AnnouncementTriggerSchema,
-}) satisfies z.ZodType<CreateAnnouncementRequest>;
-
-export const UpdateAnnouncementRequestSchema = z.object({
-  title: z.string().min(1).max(120).optional(),
-  body: z.string().min(1).max(5000).optional(),
-  audience: AnnouncementAudienceSchema.optional(),
-  trigger: AnnouncementTriggerSchema.optional(),
-  version: z.int().min(1).max(9007199254740991),
-}) satisfies z.ZodType<UpdateAnnouncementRequest>;
-
-export const AnnouncementActionRequestSchema = z.object({
-  version: z.int().min(1).max(9007199254740991),
-}) satisfies z.ZodType<AnnouncementActionRequest>;
-
-export const AnnouncementAudiencePreviewSchema = z.object({
-  count: z.int().min(-9007199254740991).max(9007199254740991),
-  skipped: z.object({
-    userIds: z.array(
-      z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-    ),
-    groupIds: z.array(
-      z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-    ),
-    roleIds: z.array(
-      z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-    ),
-  }),
-}) satisfies z.ZodType<AnnouncementAudiencePreview>;
-
-export const AnnouncementDispatchSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  announcementId: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  scheduledFor: z.string(),
-  title: z.string(),
-  body: z.string(),
-  audience: AnnouncementAudienceSchema,
-  status: z.enum(['pending', 'sending', 'sent', 'failed', 'revoked']),
-  recipientCount: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
-  readCount: z.int().min(-9007199254740991).max(9007199254740991),
-  details: z.record(z.string(), z.unknown()).nullable(),
-  createdAt: z.string(),
-  startedAt: z.string().nullable(),
-  finishedAt: z.string().nullable(),
-  revokedAt: z.string().nullable(),
-  createdBy: z
-    .object({
-      id: z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-      displayName: z.string(),
-    })
-    .nullable(),
-  revokedBy: z
-    .object({
-      id: z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-      displayName: z.string(),
-    })
-    .nullable(),
-}) satisfies z.ZodType<AnnouncementDispatch>;
-
-export const AnnouncementMessageSchema = z.object({
-  dispatchId: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  title: z.string(),
-  body: z.string(),
-  sentAt: z.string(),
-  sender: z
-    .object({
-      id: z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-      displayName: z.string(),
-    })
-    .nullable(),
-}) satisfies z.ZodType<AnnouncementMessage>;
 
 export const CurrentTenantSchema = z.object({
   code: z.string(),

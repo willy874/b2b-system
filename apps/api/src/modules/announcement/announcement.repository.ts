@@ -391,6 +391,71 @@ export class AnnouncementRepository {
       );
   }
 
+  /** 訂了這個觸發點、排程中的公告（事件發生時，在擁有者的交易內；走 `announcements_event_idx`）。 */
+  async findScheduledByEvent(
+    event: string,
+    tx: DbOrTx,
+  ): Promise<Array<{ id: string; delayMinutes: number }>> {
+    const rows = await tx
+      .select({ id: announcements.id, trigger: announcements.trigger })
+      .from(announcements)
+      .where(
+        and(
+          eq(announcements.status, 'scheduled'),
+          isActiveAnnouncement(),
+          sql`${announcements.trigger}->>'kind' = 'event'`,
+          sql`(${announcements.trigger}->>'event') = ${event}`,
+        ),
+      );
+    return rows.flatMap((row) =>
+      row.trigger.kind === 'event' ? [{ id: row.id, delayMinutes: row.trigger.delayMinutes }] : [],
+    );
+  }
+
+  /** 這則公告已經發過幾次（週期的次數上限；撤回的也算一次）。 */
+  async countDispatches(announcementId: string, tx?: DbOrTx): Promise<number> {
+    const [row] = await (tx ?? this.db)
+      .select({ total: count() })
+      .from(announcementDispatches)
+      .where(eq(announcementDispatches.announcementId, announcementId));
+    return row?.total ?? 0;
+  }
+
+  /** 排程中的公告（每日維護）：id、觸發方式、下一次。 */
+  async listScheduled(): Promise<Array<Pick<AnnouncementRow, 'id' | 'trigger' | 'nextRunAt'>>> {
+    return this.db
+      .select({
+        id: announcements.id,
+        trigger: announcements.trigger,
+        nextRunAt: announcements.nextRunAt,
+      })
+      .from(announcements)
+      .where(and(eq(announcements.status, 'scheduled'), isActiveAnnouncement()))
+      .orderBy(asc(announcements.id));
+  }
+
+  /**
+   * 刪除一批「建立早於 `cutoff`、已經結束」的發送紀錄（保留清理，D19），回傳筆數；少於 `limit` 代表清完了。
+   * 還在發送中的不刪。通知不受影響（依自己的保留期清除；讀全文會 404）。
+   */
+  async deleteFinishedDispatchesBefore(cutoff: Date, limit: number): Promise<number> {
+    const expired = this.db
+      .select({ id: announcementDispatches.id })
+      .from(announcementDispatches)
+      .where(
+        and(
+          lt(announcementDispatches.createdAt, cutoff),
+          inArray(announcementDispatches.status, ['sent', 'failed', 'revoked']),
+        ),
+      )
+      .limit(limit);
+    const rows = await this.db
+      .delete(announcementDispatches)
+      .where(inArray(announcementDispatches.id, expired))
+      .returning({ id: announcementDispatches.id });
+    return rows.length;
+  }
+
   // ── 受眾 ─────────────────────────────────────────────
 
   /**

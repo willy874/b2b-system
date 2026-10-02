@@ -69,7 +69,7 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 
 | key | 範圍 | 預設 | 公開 | 讀取的地方 |
 | --- | --- | --- | --- | --- |
-| `general.defaultTimezone` | IANA 時區 | `Asia/Taipei` | 是 | 目前只提供給前端（見 §5.3） |
+| `general.defaultTimezone` | IANA 時區 | `Asia/Taipei` | 是 | 使用者沒有時區偏好時的顯示時區（見 §5.3）；週期公告也依它計算（[`19-announcement.md`](./19-announcement.md) §5.1）。定義在 `core/settings/general.settings.ts`（其他模組要讀），由 `modules/system` 登記 |
 | `auth.loginMaxAttempts` | 3–20 | 5 | 否 | `AuthService`：租戶使用者登入失敗的鎖定 |
 | `auth.loginLockoutSeconds` | 60–86400 | 900 | 否 | 同上 |
 | `auth.passwordMinLength` | 12–64 | 12 | 是 | `AuthService`：設定密碼、重設、變更、註冊 |
@@ -84,6 +84,7 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 | `revision.keepDays` | 1–3650（天） | 90 | 否 | 同上：這麼多天內的版本一律保留；兩者之外的由 `revision.prune` 刪除 |
 | `notification.retentionDays` | 1–365（天） | 30 | 否 | `NotificationService.cleanup`：已讀超過這麼多天的通知由 `notification.cleanup` 刪除；未讀的不受影響（[`15-notification.md`](./15-notification.md) §8） |
 | `notification.maxPerUser` | 10–5000（則） | 500 | 否 | 同上：每人超過這個數量時刪除最舊的通知（不論已讀與否） |
+| `announcement.dispatchRetentionDays` | 30–3650（天） | 365 | 否 | 公告發送紀錄的保留天數：建立超過這麼久、已經結束的由每日維護刪除 |
 | `announcement.maxRecipients` | 100–100000（人） | 10000 | 否 | 一次公告最多收件人數：超過時那次發送失敗，不截斷（[`19-announcement.md`](./19-announcement.md) §5） |
 
 - **範圍寫在 schema 上**：下限擋住會削弱安全性的值（鎖定次數不能是 0、密碼不能短於 12），

@@ -1,12 +1,14 @@
 # ADR-0031 — 公告與排程通知：每次發送一筆延遲工作，分批寫進既有的 `notifications`
 
-- 狀態：**採用**（2026-10-02 確認；開放問題依提案中的建議，A1～A5 尚未實作）
+- 狀態：**採用**（2026-10-02 確認，開放問題依提案中的建議；A1～A5 於 2026-10-02 在 branch `feat/announcements` 完成）
 - 日期：2026-10-02
 - 相關：[ADR-0026](./0026-notification-center.md)（站內通知；本決定沿用 D5 的快照、D6 的「每人一筆」，以分批繞過單次上限）、
   [ADR-0028](./0028-notification-event-management.md)（事件目錄與租戶政策）、[ADR-0016](./0016-background-jobs.md)／[ADR-0020](./0020-physical-tenant-isolation.md) D15（背景工作、交易內入列走 `job_outbox`）、
   [ADR-0024](./0024-relationship-based-access-control.md)（群組與關係圖）、[ADR-0025](./0025-entity-revisions.md)（軟刪除與回收桶）、
   [ADR-0029](./0029-toggleable-platform-features.md)（可關閉的 feature）；
-  提案 [`../features/announcements.md`](../features/announcements.md)
+  實作後的規格 [`../architecture/backend/19-announcement.md`](../architecture/backend/19-announcement.md)、
+  [`../architecture/frontend/16-announcement.md`](../architecture/frontend/16-announcement.md)、
+  [`../architecture/backend/15-notification.md`](../architecture/backend/15-notification.md) §6.1（通知總覽）
 
 ## 背景
 
@@ -81,7 +83,7 @@
 | A2 | 公告：資料表、`source_id`、受眾解析、`immediate`／`once`、fan-out、讀全文、撤回、回收桶、權限、feature |
 | A3 | 週期：`system.timezone`、`announcement.recurrence.ts`、暫停／恢復、`reconcile` |
 | A4 | 事件點：`AnnouncementTriggerCatalog` 與第一批三個觸發點 |
-| A5 | 歸檔：正式文件、刪除提案 |
+| A5 | 歸檔：正式文件、刪除提案（已完成；提案的開放問題與結論併入本 ADR 的決定與實作紀錄） |
 
 ## 實作紀錄
 
@@ -89,6 +91,8 @@
 | --- | --- |
 | A1 | 在 branch `feat/announcements` 完成。前端頁面鍵 `NOTIFICATION_OVERVIEW_PAGE`、側邊選單「系統管理 › 通知總覽」；表格以「載入更多」接續 keyset，不顯示總數。租戶 migration `0028_notification_overview_idx`、`0029_notification_read_system_roles`（既有租戶的 admin 補鍵）。端點放在獨立的 `NotificationOverviewController`，與只需要登入的 `NotificationController` 分開 |
 | A2 | 在 branch `feat/announcements` 完成，規格寫在 [`backend/19-announcement.md`](../architecture/backend/19-announcement.md)、[`frontend/16-announcement.md`](../architecture/frontend/16-announcement.md)。與上面的決定不同或補充：撤回的端點是 `POST /announcements/:id/dispatches/:dispatchId/revoke`（掛在公告底下，與 webhook 的重送一致）；**草稿以外的公告修改要 `announcement:publish`**（路由宣告 update、service 另外檢查）、不能改成「立即」，已完成的不能改（D15、D17 的具體化）；受眾預覽要 `announcement:update`（不是 create）；暫停與恢復提前在 A2 做（只對 `once` 有意義，A3 套用到週期）；`defineNotification` 新增 `defaultAllowUserOverride`（D16 需要事件層級的預設）；發送紀錄的保留清理（D19 的 `dispatchRetentionDays`）與事件點的 `trigger_subject_id` 欄延到 A3、A4。租戶 migration `0030`、`0031`，平台 `0011` |
+| A3 | 在 branch `feat/announcements` 完成。與 D10、D11、D19 不同或補充：**時區沿用既有的系統設定 `general.defaultTimezone`**（預設 `Asia/Taipei`，原本就是租戶層的預設時區），不另加 `system.timezone`——兩個時區設定會讓「顯示的時間」與「發送的時間」不一致；定義搬到 `core/settings/general.settings.ts` 讓公告模組讀得到。**不引入 `date-fns`／`@date-fns/tz`**：時區換算用 `Intl` 兩次校正（與前端 `shared/date` 同一個做法），日曆運算在沒有時區的日期上做。`reconcile` 與發送紀錄的保留清理合成一個每日工作 `announcement.maintenance`（`ANNOUNCEMENT_MAINTENANCE_CRON`）；它也負責改了時區之後重算週期的下一次（不必在設定變更時另外掛勾子）。恢復排程時從現在起重算（暫停期間錯過的不補發）；週期沒有下一次時 `ANNOUNCEMENT_TRIGGER_IN_PAST` 帶 `details.reason: 'noOccurrence'` |
+| A4 | 在 branch `feat/announcements` 完成。與 D12～D14 不同或補充：觸發點宣告時帶 **比對方式**（`scope`：`audience`／`group`／`role`），D14 的「加入的群組是受眾裡的群組」由 `group` 表達；第一批的 `user.rolesChanged` 改名為 **`user.roleAssigned`**（只算新增的角色，與既有的通知 `user.rolesChanged` 區分）；`user.activated` 也包含建立時就是 active 的帳號（外部 IdP 首次登入）。`fire()` 不快取，改以部分索引 `announcements_event_idx` 查詢；每則 × 每人入列一筆 `announcement.eventDispatch`（不是 D12 寫的 `announcement.dispatch`：事件點沒有 `next_run_at` 可比對），比對與「只發一次」在工作執行時判斷。端點 `GET /announcements/trigger-events`。租戶 migration `0032` |
 
 ## 評估過的方案
 

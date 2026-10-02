@@ -225,6 +225,13 @@
       "when": 1790919967957,
       "tag": "0031_announcement_system_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790923473913,
+      "tag": "0032_announcement_event_triggers",
+      "breakpoints": true
     }
   ]
 }

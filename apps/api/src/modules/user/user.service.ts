@@ -12,6 +12,7 @@ import { paginated } from '@/core/http';
 import { JobQueue } from '@/core/jobs';
 import { RESOURCE_TYPE } from '@/core/resource';
 import type { AuditMetadata, UserInsert, UserRow, UserStatus } from '@/db/schema';
+import { AnnouncementTriggerService } from '@/modules/announcement/announcement-trigger.service';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import {
@@ -33,6 +34,7 @@ import type { CreateUserDto } from './dto/create-user.dto';
 import type { ListUserDto } from './dto/list-user.dto';
 import type { ReplaceUserRolesDto, UpdateUserDto } from './dto/update-user.dto';
 import type { UserDto } from './dto/user.dto';
+import { USER_ACTIVATED_TRIGGER, USER_ROLE_ASSIGNED_TRIGGER } from './user.announcement-triggers';
 import { USER_AUDIT_FIELDS, USER_VERSIONED_FIELDS } from './user.constants';
 import { ACCOUNT_PROFILE_LINK, USER_ROLES_CHANGED_NOTIFICATION } from './user.notifications';
 import type { FailedLoginResult, UserRoleSummary, UserWithRoles } from './user.repository';
@@ -125,6 +127,7 @@ export class UserService {
     private readonly notifications: NotificationService,
     private readonly webhooks: WebhookService,
     private readonly tags: TagService,
+    private readonly announcementTriggers: AnnouncementTriggerService,
   ) {}
 
   async list(query: ListUserDto) {
@@ -397,6 +400,14 @@ export class UserService {
       const nextIds = new Set(roles.map((role) => role.id));
       const added = roles.filter((role) => !currentIds.has(role.id)).map((role) => role.name);
       const removed = current.filter((role) => !nextIds.has(role.id)).map((role) => role.name);
+      const addedRoleIds = roles.filter((role) => !currentIds.has(role.id)).map((role) => role.id);
+      if (addedRoleIds.length) {
+        await this.announcementTriggers.fire(
+          USER_ROLE_ASSIGNED_TRIGGER,
+          { userIds: [id], roleIds: addedRoleIds },
+          tx,
+        );
+      }
       if (added.length || removed.length) {
         await this.notifications.notify(
           notification(USER_ROLES_CHANGED_NOTIFICATION, {
@@ -565,6 +576,10 @@ export class UserService {
       tx,
     );
     await this.webhooks.emit(USER_CREATED_WEBHOOK, { userId: user.id }, tx);
+    // 建立時就能登入（外部 IdP 首次登入、管理者直接設密碼）：與完成啟用同一個觸發點
+    if (input.status === 'active') {
+      await this.announcementTriggers.fire(USER_ACTIVATED_TRIGGER, { userIds: [user.id] }, tx);
+    }
     return user;
   }
 
@@ -579,6 +594,10 @@ export class UserService {
     tx: Transaction,
   ): Promise<void> {
     await this.webhooks.emit(USER_STATUS_CHANGED_WEBHOOK, { userId, status, previousStatus }, tx);
+    // 完成啟用（pending → active）；停用後恢復、解鎖都不算
+    if (previousStatus === 'pending' && status === 'active') {
+      await this.announcementTriggers.fire(USER_ACTIVATED_TRIGGER, { userIds: [userId] }, tx);
+    }
   }
 
   async publishCreated(userId: string, roleIds: readonly string[]): Promise<void> {

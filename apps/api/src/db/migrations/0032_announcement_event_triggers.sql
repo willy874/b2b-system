@@ -1,0 +1,5 @@
+DROP INDEX "announcement_dispatches_once_key";--> statement-breakpoint
+ALTER TABLE "announcement_dispatches" ADD COLUMN "trigger_subject_id" uuid;--> statement-breakpoint
+CREATE UNIQUE INDEX "announcement_dispatches_subject_key" ON "announcement_dispatches" USING btree ("announcement_id","trigger_subject_id") WHERE "announcement_dispatches"."trigger_subject_id" IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "announcements_event_idx" ON "announcements" USING btree (("trigger"->>'event')) WHERE "announcements"."status" = 'scheduled' AND "announcements"."deleted_at" IS NULL AND "announcements"."trigger"->>'kind' = 'event';--> statement-breakpoint
+CREATE UNIQUE INDEX "announcement_dispatches_once_key" ON "announcement_dispatches" USING btree ("announcement_id","scheduled_for") WHERE "announcement_dispatches"."trigger_subject_id" IS NULL;

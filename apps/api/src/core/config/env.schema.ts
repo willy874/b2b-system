@@ -312,6 +312,12 @@ export const EnvSchema = z.object({
   /** webhook 事件與投遞紀錄保留清理的 cron（UTC）；空字串停用（docs/adr/0030-webhooks.md D16）。 */
   WEBHOOK_CLEANUP_CRON: z.string().trim().default('15 5 * * *'),
 
+  /**
+   * 公告的每日維護 cron（UTC）：補排程（遺失的延遲工作、改了時區後重算週期）與發送紀錄的保留清理；
+   * 空字串停用（docs/adr/0031-announcements.md D10、D19）。
+   */
+  ANNOUNCEMENT_MAINTENANCE_CRON: z.string().trim().default('20 5 * * *'),
+
   /** 清除過期 IdP 狀態（`oidc_payloads`）的 cron（UTC）；空字串停用。 */
   OIDC_CLEANUP_CRON: z.string().trim().default('45 3 * * *'),
 

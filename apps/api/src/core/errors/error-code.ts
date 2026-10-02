@@ -184,6 +184,8 @@ export const ErrorCode = {
   ANNOUNCEMENT_TRIGGER_IN_PAST: { status: 400 },
   /** 送出時沒有選任何受眾。 */
   ANNOUNCEMENT_AUDIENCE_EMPTY: { status: 400 },
+  /** 事件點不在觸發點目錄上（或所屬 feature 沒啟用）；`details.event`。 */
+  ANNOUNCEMENT_EVENT_UNKNOWN: { status: 400 },
   /** 還原一則沒有被刪除的公告。 */
   ANNOUNCEMENT_NOT_DELETED: { status: 409 },
   /** 發送紀錄不存在，或不屬於這則公告。 */

@@ -18,7 +18,6 @@
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
 | P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[背景工作](../architecture/backend/10-jobs.md)（已完成） |
-| P2 | 公告與排程通知（通知總覽、排程發送） | [`announcements.md`](./announcements.md) | 實作中（`feat/announcements`；A1、A2 完成） | [站內通知](../architecture/backend/15-notification.md)、[事件管理](../architecture/backend/16-notification-event.md)、[背景工作](../architecture/backend/10-jobs.md)、[群組](../rbac/08-groups.md)（皆已完成） |
 | P2 | 留言、關注 | [`comments-watches.md`](./comments-watches.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[標籤](../architecture/backend/18-tag.md)（已完成，同一種登記方式） |
 | P2 | 全域搜尋 | [`global-search.md`](./global-search.md) | 提案 | — |
 | P2 | 安全與容量的後續強化 | [`hardening-followups.md`](./hardening-followups.md) | 提案 | — |
@@ -41,6 +40,7 @@
 
 已完成並歸檔（細節見各 ADR 與正式文件）：
 
+- `announcements`（通知總覽、公告的立即／指定時間／週期／事件點發送、撤回）：[ADR-0031](../adr/0031-announcements.md)、[`backend/19-announcement.md`](../architecture/backend/19-announcement.md)、[`frontend/16-announcement.md`](../architecture/frontend/16-announcement.md)
 - `tags`（標籤；原提案「標籤、留言、關注」的標籤部分）：[ADR-0032](../adr/0032-tags.md)、[`backend/18-tag.md`](../architecture/backend/18-tag.md)
 - `webhooks`（對外事件、訂閱、投遞與重試、簽章、SSRF 綁定位址）：[ADR-0030](../adr/0030-webhooks.md)、[`backend/17-webhook.md`](../architecture/backend/17-webhook.md)
 - `api-tokens`（服務帳號、API token、對外 API 服務）：[ADR-0027](../adr/0027-api-tokens-external-api.md)、[`architecture/06-external-api.md`](../architecture/06-external-api.md)、[`backend/04-auth.md`](../architecture/backend/04-auth.md) §8.2

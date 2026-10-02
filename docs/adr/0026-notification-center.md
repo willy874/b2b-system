@@ -1,6 +1,6 @@
 # ADR-0026 — 站內通知中心：擁有者模組在業務交易內寫入、每位收件人一筆
 
-- 狀態：**採用**（2026-10-01 實作並合併：N1、N2 於 8c51ff5）
+- 狀態：**採用**（2026-10-01 實作並合併：N1、N2 於 8c51ff5）。管理者發送的公告沿用 D5、D6，以分批寫入繞過單次上限，見 [ADR-0031](./0031-announcements.md) D9
 - 日期：2026-10-01
 - 相關：規格 [`../architecture/backend/15-notification.md`](../architecture/backend/15-notification.md)、
   [`../architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md)；
