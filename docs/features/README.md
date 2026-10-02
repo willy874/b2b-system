@@ -18,6 +18,7 @@
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
 | P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[背景工作](../architecture/backend/10-jobs.md)（已完成） |
+| P2 | 公告與排程通知（通知總覽、排程發送） | [`announcements.md`](./announcements.md) | 規劃中（[ADR-0031](../adr/0031-announcements.md)） | [站內通知](../architecture/backend/15-notification.md)、[事件管理](../architecture/backend/16-notification-event.md)、[背景工作](../architecture/backend/10-jobs.md)、[群組](../rbac/08-groups.md)（皆已完成） |
 | P2 | 標籤、留言、關注 | [`tags-comments.md`](./tags-comments.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成） |
 | P2 | 全域搜尋 | [`global-search.md`](./global-search.md) | 提案 | — |
 | P2 | 安全與容量的後續強化 | [`hardening-followups.md`](./hardening-followups.md) | 提案 | — |
