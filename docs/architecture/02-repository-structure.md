@@ -313,12 +313,14 @@ OIDC_JWKS=                             # 簽 ID token 的私鑰 JWKS；留空 = 
 OIDC_COOKIE_KEYS=                      # 簽 IdP cookie 的金鑰（production 必填）
 OIDC_CLEANUP_CRON=45 3 * * *
 IDP_SECRET_KEY=                        # 加密外部 IdP client secret 的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填，ADR-0019 D11）
+WEBHOOK_SECRET_KEY=                    # 加密 webhook 簽章密鑰的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填，ADR-0030 D14）
 
 JOBS_WORKER_ENABLED=true            # 是否執行背景工作與排程；false 只入列（backend/10-jobs.md §5）
 AUDIT_LOG_ARCHIVE_CRON=30 3 * * *   # 稽核熱 → 冷搬移的 cron（UTC）；留空停用
 TRASH_PURGE_CRON=30 4 * * *         # 回收桶到期永久刪除的 cron（UTC）；保留天數是系統設定 trash.retentionDays（backend/13-trash.md §5）
 REVISION_PRUNE_CRON=45 4 * * *      # 版本歷史保留清理的 cron（UTC）；保留條件是系統設定 revision.keepVersions／keepDays（backend/14-revisions.md §5）
 NOTIFICATION_CLEANUP_CRON=0 5 * * * # 站內通知保留清理的 cron（UTC）；保留條件是系統設定 notification.retentionDays／maxPerUser（backend/15-notification.md §6）
+WEBHOOK_CLEANUP_CRON=15 5 * * *    # webhook 事件與投遞紀錄保留清理（30 天）的 cron（UTC）；留空停用（backend/17-webhook.md §4）
 
 REALTIME_ALLOWED_ORIGINS=http://localhost:5173   # Socket.io handshake 的 Origin 白名單（逗號分隔）
 

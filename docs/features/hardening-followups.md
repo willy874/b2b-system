@@ -24,7 +24,7 @@
 | 每個租戶各自的 token 簽章金鑰（`kid`、非對稱簽章） | 租戶與平台的 access token 共用一把 HS256 `JWT_SECRET`（production 已拒絕範例值與低熵金鑰），租戶之間靠 `tid` 與網域比對隔離；OIDC 的 ID token 已是 RS256（`OIDC_JWKS`） | 影響 token 格式與所有驗證端，需另開設計（ADR） |
 | 使用者上傳檔案改由獨立、不帶 cookie 的網域提供 | `/storage` 與租戶同源，以 `sandbox` CSP、`nosniff`、非白名單一律 attachment 防護 | 需要部署與 DNS 決策 |
 | 「帳號 × IP」計數與漸進延遲、每租戶上限、IP 白名單 | 登入以「email＋IP」與 IP 各一個桶，另有帳號鎖定 | 屬速率限制的第二版設計；共享計數見 multi-instance |
-| 外部 IdP 的 DNS rebinding | production 對 discovery／token／userinfo／JWKS 先查 DNS 擋私有位址 | 查詢與連線之間仍有空窗，要改成連線時綁定已驗證的 IP；[Webhook](./webhooks.md) 投遞需要同一個 helper |
+| 外部 IdP 的 DNS rebinding | production 對 discovery／token／userinfo／JWKS 先查 DNS 擋私有位址（`core/http/outbound.ts` 的 `assertPublicDestination`） | 查詢與連線之間仍有空窗。綁定已驗證位址的 `pinnedLookup` 已隨 webhook 做好（[`backend/17-webhook.md`](../architecture/backend/17-webhook.md) §5），但 openid-client 的 `customFetch` 只接受 fetch，要另外接一個帶 `lookup` 的 dispatcher |
 | 完整的常見密碼清單（top-10k） | `common-passwords.ts` 收錄取自常見清單的字根，以字根、前後綴、替換字元、鍵盤序列判斷 | 需要引入外部資料檔 |
 | 註冊表單拿掉密碼欄；審批頁標示「email 尚未驗證」 | 核准後寄啟用信才啟用，申請時的密碼先存著 | apps/auth 與審批頁的 UX 調整 |
 | nginx 的 `log_format` 不記 query string | api 的日誌已遮掉 `code`／`state`／`ticket` | 部署設定，與存取日誌的需求一起決定 |

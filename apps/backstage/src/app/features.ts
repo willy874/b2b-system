@@ -26,6 +26,7 @@ import {
   systemFeaturePlugin,
 } from '@/features/system';
 import { Routes as TrashRoutes, TRASH_FEATURE, trashFeaturePlugin } from '@/features/trash';
+import { Routes as WebhookRoutes, WEBHOOK_FEATURE, webhookFeaturePlugin } from '@/features/webhook';
 import type { Profile } from '@/shared/api-sdk';
 
 export type TenantFeature = Profile['features'][number];
@@ -67,6 +68,7 @@ export const FEATURE_CATALOG = {
     routes: [IdentityProviderRoutes.IdentityProviderListRoute],
   },
   [TENANT_SWITCH_FEATURE]: { plugin: tenantSwitchPlugin(), routes: [] },
+  [WEBHOOK_FEATURE]: { plugin: webhookFeaturePlugin(), routes: [WebhookRoutes.WebhookListRoute] },
 } as const satisfies Record<TenantFeature, FeatureDefinition> &
   Readonly<Record<string, FeatureDefinition>>;
 

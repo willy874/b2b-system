@@ -31,6 +31,7 @@ function featuresOf(method: string, path: string): string[] | undefined {
   if (/^\/jobs(\/|$)/.test(path)) return ['job'];
   if (path === '/system/settings') return ['systemSetting'];
   if (/^\/identity-providers(\/|$)/.test(path)) return ['identityProvider'];
+  if (/^\/webhooks(\/|$)/.test(path)) return ['webhook'];
   return undefined;
 }
 
@@ -271,6 +272,16 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /service-accounts/:id/tokens': 'serviceAccount:read',
       'POST /service-accounts/:id/tokens': 'serviceAccount:update',
       'DELETE /service-accounts/:id/tokens/:tokenId': 'serviceAccount:update',
+      'GET /webhooks': 'webhook:read',
+      'GET /webhooks/events': 'webhook:read',
+      'POST /webhooks': 'webhook:create',
+      'GET /webhooks/:id': 'webhook:read',
+      'PATCH /webhooks/:id': 'webhook:update',
+      'DELETE /webhooks/:id': 'webhook:delete',
+      'POST /webhooks/:id/rotate-secret': 'webhook:update',
+      'POST /webhooks/:id/test': 'webhook:update',
+      'GET /webhooks/:id/deliveries': 'webhook:read',
+      'POST /webhooks/:id/deliveries/:deliveryId/redeliver': 'webhook:update',
       'GET /trash': 'user:delete|role:delete|group:delete|file:delete',
       'GET /roles': 'role:read',
       'POST /roles': 'role:create',

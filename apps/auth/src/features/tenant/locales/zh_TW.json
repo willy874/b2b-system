@@ -98,6 +98,9 @@
       "identityProviderDisableWarning": "{{code}} 的使用者不能再以外部 IdP 登入，只允許 SSO 的網域也會改回密碼登入；只透過外部 IdP 登入、沒有設定密碼的使用者要先重設密碼才能登入。",
       "tenantSwitch": "切換租戶",
       "tenantSwitchDescription": "使用者選單的「切換租戶」，前往輸入租戶代碼的頁面。只服務單一租戶的部署可以關掉。",
+      "webhook": "Webhook",
+      "webhookDescription": "租戶設定 webhook，事件發生時送到外部系統。關掉後不再送出任何事件；訂閱與投遞紀錄保留。",
+      "webhookDisableWarning": "{{code}} 的 webhook 會停止送出，期間發生的事件之後重新打開也不會補送。",
       "disableTitle": "關閉功能",
       "disableConfirm": "關閉後，{{code}} 的使用者立刻看不到「{{feature}}」，正在使用的頁面會被導回首頁。資料保留，重新打開即恢復。",
       "disableAction": "關閉"

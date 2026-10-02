@@ -19,3 +19,4 @@ export * from './roles';
 export * from './soft-delete';
 export * from './system-settings';
 export * from './users';
+export * from './webhooks';

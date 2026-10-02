@@ -62,6 +62,10 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'serviceAccount:read',
       'serviceAccount:update',
       'serviceAccount:delete',
+      'webhook:create',
+      'webhook:read',
+      'webhook:update',
+      'webhook:delete',
     ],
   },
   {
@@ -82,6 +86,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'group:read',
       'authz:explain',
       'serviceAccount:read',
+      'webhook:read',
     ],
   },
   {

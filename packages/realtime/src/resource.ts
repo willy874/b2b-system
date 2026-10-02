@@ -45,6 +45,15 @@ export const ChangeSource = {
    * 服務帳號的 token 以 `refs.serviceAccount` 帶上擁有者（它的有效 token 數會變）。
    */
   API_TOKEN: 'apiToken',
+  /**
+   * Webhook 訂閱（`id` = 訂閱 id）：建立、修改、停用（含連續失敗自動停用）、輪替密鑰、刪除（docs/adr/0030-webhooks.md）。
+   */
+  WEBHOOK: 'webhook',
+  /**
+   * Webhook 的投遞紀錄（`id` = 投遞紀錄 id）：每一次投遞嘗試；以 `refs.webhook` 帶上訂閱（它的最後投遞時間、失敗次數會變）。
+   * 投遞不寫稽核。
+   */
+  WEBHOOK_DELIVERY: 'webhookDelivery',
 } as const;
 
 export type ChangeSource = (typeof ChangeSource)[keyof typeof ChangeSource];
@@ -79,6 +88,8 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.NOTIFICATION_PREFERENCE,
   ChangeSource.SERVICE_ACCOUNT,
   ChangeSource.API_TOKEN,
+  ChangeSource.WEBHOOK,
+  ChangeSource.WEBHOOK_DELIVERY,
 ]);
 
 export const ResourceChangeWireSchema = z.object({

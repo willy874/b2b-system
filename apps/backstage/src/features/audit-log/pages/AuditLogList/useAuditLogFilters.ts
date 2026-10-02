@@ -59,6 +59,7 @@ export function useAuditLogFilters({
           { value: 'authz', label: t('auditLog.resource.authz') },
           { value: 'serviceAccount', label: t('permission.resource.serviceAccount') },
           { value: 'apiToken', label: t('auditLog.resource.apiToken') },
+          { value: 'webhook', label: t('permission.resource.webhook') },
         ],
       },
       {

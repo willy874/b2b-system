@@ -120,6 +120,18 @@ export function describeNotification(
         ],
       };
     }
+    case 'webhook.disabled': {
+      const name = stringParam(params, 'webhookName');
+      const failures = params.consecutiveFailures;
+      if (!name || typeof failures !== 'number') return UNKNOWN;
+      return {
+        message: {
+          key: NOTIFICATION_MESSAGE_KEY.webhookDisabled,
+          args: { name: { text: name }, count: { text: String(failures) } },
+        },
+        details: [],
+      };
+    }
     default:
       return UNKNOWN;
   }

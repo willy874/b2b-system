@@ -1,0 +1,128 @@
+{
+  "webhook": {
+    "status": {
+      "active": "啟用中",
+      "disabled": "已停用"
+    },
+    "disabledReason": {
+      "manual": "由管理者停用",
+      "failing": "連續失敗而自動停用"
+    },
+    "field": {
+      "name": "名稱",
+      "url": "網址",
+      "urlHint": "事件發生時以 POST 送到這個網址。必須是 https，不能指向內部網路。",
+      "events": "訂閱的事件",
+      "eventsPlaceholder": "選擇事件",
+      "eventCount": "事件數",
+      "status": "狀態",
+      "consecutiveFailures": "連續失敗",
+      "lastDeliveryAt": "最後投遞",
+      "createdBy": "建立者"
+    },
+    "list": {
+      "title": "Webhook",
+      "description": "使用者、審批、檔案發生變化時，以 POST 通知外部系統（CI、聊天工具、自己的服務）。內容只帶 id，接收端以 API token 查詢細節。",
+      "searchPlaceholder": "搜尋名稱或網址"
+    },
+    "create": {
+      "action": "建立 Webhook",
+      "title": "建立 Webhook",
+      "description": "建立後會產生一組簽章密鑰，接收端用它驗證請求確實來自這裡。",
+      "createdTitle": "Webhook 已建立",
+      "done": "我已保存密鑰"
+    },
+    "update": {
+      "success": "已更新 Webhook"
+    },
+    "delete": {
+      "title": "刪除 Webhook",
+      "confirm": "刪除「{{name}}」之後不再送出任何事件，投遞紀錄一併刪除，不能還原。",
+      "success": "已刪除 Webhook"
+    },
+    "disable": {
+      "action": "停用"
+    },
+    "enable": {
+      "action": "啟用"
+    },
+    "secret": {
+      "warning": "這是簽章密鑰，只會顯示這一次。請立刻複製並保存在接收端；遺失時只能輪替產生新的。",
+      "verifyHint": "驗證方式：把 X-Webhook-Timestamp 的值、「.」與原始 body 依序串起來，以密鑰計算 HMAC-SHA256，與 X-Webhook-Signature 中 sha256= 之後的值比對；並拒絕時間戳太舊的請求。",
+      "rotate": "輪替密鑰",
+      "rotateTitle": "輪替簽章密鑰",
+      "rotateConfirm": "輪替後「{{name}}」立刻改用新的密鑰簽章，舊的密鑰馬上失效。接收端要先換成新的密鑰，否則會拒絕之後的請求。",
+      "rotatedTitle": "新的簽章密鑰"
+    },
+    "test": {
+      "action": "送測試事件"
+    },
+    "detail": {
+      "title": "Webhook",
+      "settings": "設定",
+      "deliveries": "投遞紀錄",
+      "deliveriesHint": "每一次送出一筆，保留 30 天。失敗會自動重試（最多 8 次，間隔逐漸拉長到 1 小時）。",
+      "failingNotice": "連續失敗 {{count}} 次而自動停用。修好接收端之後送測試事件確認，再重新啟用。",
+      "backToList": "回到列表"
+    },
+    "delivery": {
+      "field": {
+        "createdAt": "時間",
+        "event": "事件",
+        "attempt": "第幾次",
+        "result": "結果",
+        "duration": "耗時"
+      },
+      "attempt": "第 {{attempt}} 次（{{trigger}}）",
+      "trigger": {
+        "auto": "自動",
+        "manual": "手動"
+      },
+      "duration": "{{ms}} ms",
+      "filter": {
+        "all": "全部",
+        "succeeded": "成功",
+        "failed": "失敗"
+      },
+      "view": "檢視",
+      "redeliver": "重送",
+      "detailTitle": "投遞內容",
+      "eventId": "事件 id（X-Webhook-Id）",
+      "payload": "送出的內容",
+      "response": "接收端的回應（前 1 KB）",
+      "noResponse": "沒有收到回應",
+      "sent": "已送出，接收端回應 {{status}}",
+      "failed": "送出失敗：{{reason}}"
+    },
+    "event": {
+      "userCreated": {
+        "name": "使用者建立",
+        "description": "管理者建立帳號、註冊審核通過、外部 IdP 首次登入。"
+      },
+      "userStatusChanged": {
+        "name": "使用者狀態改變",
+        "description": "停用、啟用、鎖定、解鎖、完成啟用；帶前後狀態。"
+      },
+      "userDeleted": {
+        "name": "使用者刪除",
+        "description": "使用者被刪除（可從回收桶還原）。"
+      },
+      "userRestored": {
+        "name": "使用者還原",
+        "description": "使用者從回收桶還原。"
+      },
+      "approvalDecided": {
+        "name": "審批完成",
+        "description": "申請被核准或駁回。"
+      },
+      "fileUploaded": {
+        "name": "檔案上傳完成",
+        "description": "檔案上傳完成並確認內容。"
+      },
+      "webhookPing": {
+        "name": "測試事件",
+        "description": "「送測試事件」送出的事件。"
+      }
+    }
+  }
+}

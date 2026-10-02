@@ -57,6 +57,12 @@ export const PERMISSION_SEED = [
   ['serviceAccount', 'read', 'permission.serviceAccount.read', 1401],
   ['serviceAccount', 'update', 'permission.serviceAccount.update', 1402],
   ['serviceAccount', 'delete', 'permission.serviceAccount.delete', 1403],
+
+  // Webhook 訂閱與投遞紀錄（docs/adr/0030-webhooks.md D6）
+  ['webhook', 'create', 'permission.webhook.create', 1500],
+  ['webhook', 'read', 'permission.webhook.read', 1501],
+  ['webhook', 'update', 'permission.webhook.update', 1502],
+  ['webhook', 'delete', 'permission.webhook.delete', 1503],
 ] as const satisfies ReadonlyArray<readonly [string, string, string, number]>;
 
 type SeedList = typeof PERMISSION_SEED;
@@ -139,6 +145,10 @@ export const PERMISSION_DEPENDENCIES = {
   'serviceAccount:delete': { includes: ['serviceAccount:update'] },
   // 指派角色要看得到角色；角色與 token 的反提權在操作本身檢查
   'serviceAccount:update': { includes: ['serviceAccount:read'], requires: ['role:read'] },
+
+  'webhook:create': { includes: ['webhook:update'] },
+  'webhook:delete': { includes: ['webhook:update'] },
+  'webhook:update': { includes: ['webhook:read'] },
 } as const satisfies Partial<Record<PermissionKey, PermissionDependency>>;
 
 export type PermissionDependencyMap = Partial<Record<PermissionKey, PermissionDependency>>;

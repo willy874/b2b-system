@@ -41,6 +41,10 @@ export const PermissionKey = {
   'serviceAccount:read': 'serviceAccount:read',
   'serviceAccount:update': 'serviceAccount:update',
   'serviceAccount:delete': 'serviceAccount:delete',
+  'webhook:create': 'webhook:create',
+  'webhook:read': 'webhook:read',
+  'webhook:update': 'webhook:update',
+  'webhook:delete': 'webhook:delete',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
@@ -198,6 +202,71 @@ export interface NotificationUnreadCount {
 
 export interface NotificationReadAllResult {
   updated: number;
+}
+
+export interface Webhook {
+  id: string;
+  name: string;
+  url: string;
+  events: Array<string>;
+  status: 'active' | 'disabled';
+  disabledReason: ('manual' | 'failing') | null;
+  consecutiveFailures: number;
+  lastDeliveryAt: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: {
+    id: string;
+    displayName: string;
+  } | null;
+}
+
+export interface CreateWebhookRequest {
+  name: string;
+  url: string;
+  events: Array<string>;
+}
+
+export interface UpdateWebhookRequest {
+  name?: string;
+  url?: string;
+  events?: Array<string>;
+  status?: 'active' | 'disabled';
+  version: number;
+}
+
+export interface CreatedWebhook {
+  secret: string;
+  webhook: Webhook;
+}
+
+export interface WebhookSecret {
+  secret: string;
+  webhook: Webhook;
+}
+
+export interface WebhookEventList {
+  items: Array<{
+    type: string;
+    version: number;
+  }>;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  eventId: string;
+  eventType: string;
+  eventData: Record<string, unknown>;
+  occurredAt: string;
+  attempt: number;
+  trigger: 'auto' | 'manual';
+  succeeded: boolean;
+  responseStatus: number | null;
+  durationMs: number;
+  responseBody: string | null;
+  error: string | null;
+  createdAt: string;
 }
 
 export const ApprovalStatus = {
@@ -441,6 +510,7 @@ export const TenantFeature = {
   systemSetting: 'systemSetting',
   identityProvider: 'identityProvider',
   tenantSwitch: 'tenantSwitch',
+  webhook: 'webhook',
 } as const;
 export type TenantFeature = (typeof TenantFeature)[keyof typeof TenantFeature];
 

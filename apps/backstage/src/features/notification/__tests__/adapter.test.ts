@@ -58,6 +58,12 @@ describe('describeNotification（依 type 組句子，docs/architecture/backend/
       'notification.message.userRolesChanged',
       ['notification.detail.rolesAdded{"roles":"編輯 and 稽核"}'],
     ],
+    [
+      'webhook.disabled：名稱與連續失敗次數（docs/adr/0030-webhooks.md D13）',
+      { ...base, type: 'webhook.disabled', params: { webhookName: 'CI', consecutiveFailures: 50 } },
+      'notification.message.webhookDisabled{"name":"CI","count":"50"}',
+      [],
+    ],
   ])('%s', (_name, notification, message, details) => {
     const described = describeNotification(notification);
     expect(translateMessage(fakeT, 'en', described.message)).toBe(message);
@@ -67,7 +73,8 @@ describe('describeNotification（依 type 組句子，docs/architecture/backend/
   });
 
   it.each([
-    ['不認得的 type', { type: 'webhook.disabled', params: {} }],
+    ['不認得的 type', { type: 'future.event', params: {} }],
+    ['webhook.disabled 缺失敗次數', { type: 'webhook.disabled', params: { webhookName: 'CI' } }],
     ['approval.pending 缺申請人', { type: 'approval.pending', params: { subject: 'x' } }],
     ['approval.result 的 status 不合預期', { type: 'approval.result', params: { status: 'x' } }],
     ['rolesChanged 的角色不是字串陣列', { type: 'user.rolesChanged', params: { added: [1] } }],

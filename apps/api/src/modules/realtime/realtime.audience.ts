@@ -77,6 +77,13 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
     perms: () => [PERMISSION.SERVICE_ACCOUNT_READ, PERMISSION.USER_UPDATE],
     includesSubject: false,
   },
+  // Webhook 的列表、詳情與投遞紀錄（docs/adr/0030-webhooks.md D6）；投遞不寫稽核
+  [ChangeSource.WEBHOOK]: { perms: () => [PERMISSION.WEBHOOK_READ], includesSubject: false },
+  [ChangeSource.WEBHOOK_DELIVERY]: {
+    perms: () => [PERMISSION.WEBHOOK_READ],
+    includesSubject: false,
+    recordsAudit: false,
+  },
   // 事件管理頁（與系統設定同一群讀者，ADR-0028 D10）
   [ChangeSource.NOTIFICATION_POLICY]: {
     perms: () => [PERMISSION.SYSTEM_READ],

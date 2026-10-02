@@ -49,6 +49,7 @@ import { SystemModule } from './modules/system/system.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { TrashModule } from './modules/trash/trash.module';
 import { UserModule } from './modules/user/user.module';
+import { WebhookModule } from './modules/webhook/webhook.module';
 
 @Module({
   imports: [
@@ -103,6 +104,8 @@ import { UserModule } from './modules/user/user.module';
     // 服務帳號與 API token（docs/adr/0027-api-tokens-external-api.md）
     ApiTokenModule,
     ServiceAccountModule,
+    // 對外事件的訂閱與投遞；事件由擁有者模組在業務交易內發出（docs/adr/0030-webhooks.md）
+    WebhookModule,
     AuthzExplainModule,
     SystemModule,
     FileModule,

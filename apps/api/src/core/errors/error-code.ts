@@ -128,6 +128,24 @@ export const ErrorCode = {
   /** 一個帳號未撤銷、未過期的 token 已達上限（`details.max`）。 */
   API_TOKEN_LIMIT_REACHED: { status: 409 },
 
+  // ── Webhook（docs/adr/0030-webhooks.md） ──
+  WEBHOOK_NOT_FOUND: { status: 404 },
+  /** 樂觀鎖：送出的 `version` 不是目前的版本；`details.current` 帶目前版本（ADR-0025 D3）。 */
+  WEBHOOK_VERSION_CONFLICT: { status: 409 },
+  /**
+   * 網址不能用（D15）：`details.reason` 是 `protocol`（production 只接受 https）、`credentials`（網址帶帳密）、
+   * `blocked`（解析到私有、loopback 或保留位址）或 `unresolvable`（解析不到）。
+   */
+  WEBHOOK_URL_NOT_ALLOWED: { status: 400 },
+  /** 訂閱了沒有登記的事件（`details.events`）。 */
+  WEBHOOK_EVENT_UNKNOWN: { status: 400 },
+  /** 停用中的訂閱不能送測試事件或重送（D17）。 */
+  WEBHOOK_DISABLED: { status: 409 },
+  /** 一個租戶的訂閱數已達上限（`details.max`）。 */
+  WEBHOOK_LIMIT_REACHED: { status: 409 },
+  /** 要重送的投遞紀錄不存在、不屬於這個訂閱，或事件已被保留清理刪除。 */
+  WEBHOOK_DELIVERY_NOT_FOUND: { status: 404 },
+
   // ── 版本歷史（docs/architecture/backend/14-revisions.md） ──
   /** 指定的版本不存在（或已被保留清理刪除）。 */
   REVISION_NOT_FOUND: { status: 404 },

@@ -9,6 +9,7 @@ import type { ApprovalRequestRow } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { NotificationService } from '@/modules/notification/notification.service';
 import type { PermissionService } from '@/modules/permission/permission.service';
+import type { WebhookService } from '@/modules/webhook/webhook.service';
 
 import { ApprovalHandlerRegistry } from '../approval-handler.registry';
 import { ApprovalType, PENDING_SUBJECT_CONSTRAINT } from '../approval.constants';
@@ -76,6 +77,7 @@ function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperA
   const audit = { record: vi.fn(async () => undefined) };
   const events = { publish: vi.fn() };
   const jobs = { enqueue: vi.fn(async () => 'job-1') };
+  const webhooks = { emit: vi.fn(async () => undefined) };
   const handler = {
     type: ApprovalType.USER_REGISTER,
     requiredPermissions: vi.fn((): PermissionKey[] => ['user:create']),
@@ -94,9 +96,21 @@ function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperA
     events as unknown as DomainEventBus,
     jobs as unknown as JobQueue,
     notifications as unknown as NotificationService,
+    webhooks as unknown as WebhookService,
   );
   service.registerHandler(handler);
-  return { service, repo, audit, events, handler, tx, jobs, notifications, permissionService };
+  return {
+    service,
+    repo,
+    audit,
+    events,
+    handler,
+    tx,
+    jobs,
+    notifications,
+    permissionService,
+    webhooks,
+  };
 }
 
 async function expectCode(operation: Promise<unknown>, code: string) {
@@ -259,6 +273,16 @@ describe('ApprovalService.approve', () => {
     );
   });
 
+  it('在同一個交易內發出對外事件 approval.decided（docs/adr/0030-webhooks.md D2）', async () => {
+    const ctx = setup();
+    await ctx.service.approve('approval-1', { roleIds: [] }, REVIEWER);
+    expect(ctx.webhooks.emit).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'approval.decided' }),
+      { approvalId: 'approval-1', approvalType: 'user.register', decision: 'approved' },
+      ctx.tx,
+    );
+  });
+
   it('handler 提供 resultLink 時結果通知用它的連結', async () => {
     const ctx = setup();
     ctx.repo.findById.mockResolvedValue(row({ requesterId: 'member-1' }));
@@ -360,6 +384,16 @@ describe('ApprovalService.reject', () => {
       expect.objectContaining({ name: 'approval.resultMail' }),
       { approvalId: 'approval-1' },
       { tx: ctx.tx },
+    );
+  });
+
+  it('發出對外事件 approval.decided（decision: rejected）', async () => {
+    const ctx = setup();
+    await ctx.service.reject('approval-1', {}, REVIEWER);
+    expect(ctx.webhooks.emit).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'approval.decided' }),
+      { approvalId: 'approval-1', approvalType: 'user.register', decision: 'rejected' },
+      ctx.tx,
     );
   });
 

@@ -52,12 +52,13 @@ export const tenants = pgTable(
      * `core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`；這一層不 import `core/`，所以預設值寫成字面量，
      * 新租戶與 migration 當下的既有租戶都啟用全部。讀取時濾掉不認得的值，不必加 CHECK 約束。
      * 外部 IdP（`identityProvider`）原本是獨立的 `allow_external_idp` 欄，ADR-0029 併進這份清單。
+     * `webhook` 由 ADR-0030 加入，既有租戶由 migration 0010 啟用。
      */
     features: text('features')
       .array()
       .notNull()
       .default(
-        sql`'{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch}'::text[]`,
+        sql`'{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook}'::text[]`,
       ),
     /**
      * 租戶層的 feature flag 覆寫（docs/adr/0022-feature-flags.md D2）：`{ [key]: boolean }`，沒列出 = 跟著全平台與預設值。

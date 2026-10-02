@@ -26,3 +26,4 @@ export * from './endpoints/system';
 export * from './endpoints/tenants';
 export * from './endpoints/trash';
 export * from './endpoints/users';
+export * from './endpoints/webhooks';

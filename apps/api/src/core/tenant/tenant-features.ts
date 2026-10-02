@@ -18,6 +18,8 @@ export const TENANT_FEATURES = [
   'systemSetting',
   'identityProvider',
   'tenantSwitch',
+  // ADR-0030：對外送出事件（webhook）
+  'webhook',
 ] as const;
 
 export type TenantFeature = (typeof TENANT_FEATURES)[number];

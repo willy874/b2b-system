@@ -30,6 +30,7 @@ describe('production 的金鑰與危險預設值', () => {
     OIDC_COOKIE_KEYS: 'cookie-key',
     IDP_SECRET_KEY: 'idp-key',
     TENANT_SECRET_KEY: 'tenant-key',
+    WEBHOOK_SECRET_KEY: 'webhook-key',
     ...overrides,
   });
 
@@ -45,6 +46,13 @@ describe('production 的金鑰與危險預設值', () => {
   ])('%s 是範例值或低熵（%s）→ 啟動失敗', (key, value) => {
     expect(() => validateEnv(production({ [key]: value }))).toThrow(key);
   });
+
+  it.each(['IDP_SECRET_KEY', 'TENANT_SECRET_KEY', 'WEBHOOK_SECRET_KEY'])(
+    '%s 沒設定（開發時由 JWT_SECRET 推導）→ 啟動失敗',
+    (key) => {
+      expect(() => validateEnv(production({ [key]: '' }))).toThrow(key);
+    },
+  );
 
   it('MAIL_TRANSPORT=console（會把啟用／重設連結寫進日誌）→ 啟動失敗', () => {
     expect(() => validateEnv(production({ MAIL_TRANSPORT: 'console' }))).toThrow('MAIL_TRANSPORT');

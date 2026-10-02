@@ -74,6 +74,7 @@ export class ApprovalModule {
 | `approval.pending` | `approval` | `inApp` | 開 | `ApprovalModule` |
 | `approval.result` | `approval` | `inApp`、`email`（既有的審核結果信 `approval.resultMail`） | 開 | `ApprovalModule` |
 | `user.rolesChanged` | `user` | `inApp` | 開 | `UserModule` |
+| `webhook.disabled` | `webhook` | `inApp` | 開（feature `webhook`） | `WebhookModule` |
 
 **帳號流程的信不是事件**：啟用信、重設密碼信是完成流程必需的交易信，不進目錄、不受政策影響（ADR-0028 D3）。
 

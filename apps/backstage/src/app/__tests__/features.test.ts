@@ -13,6 +13,7 @@ import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
 import { JOB_PAGE } from '@/features/job';
 import { SETTING_PAGE } from '@/features/system';
 import { TRASH_PAGE } from '@/features/trash';
+import { WEBHOOK_CREATE_PAGE, WEBHOOK_PAGE } from '@/features/webhook';
 
 import { FEATURE_CATALOG } from '../features';
 
@@ -26,6 +27,7 @@ const EXPECTED_PAGES = {
   identityProvider: [IDENTITY_PROVIDER_PAGE],
   // 只控制帳號選單的一個項目，沒有頁面
   tenantSwitch: [],
+  webhook: [WEBHOOK_PAGE, WEBHOOK_CREATE_PAGE],
 } satisfies Record<keyof typeof FEATURE_CATALOG, unknown[]>;
 
 function createContext() {
@@ -72,6 +74,15 @@ describe('可啟用 feature 的 catalog', () => {
     const context = createContext();
     const name = await context.install(FEATURE_CATALOG.file.plugin);
     expect(routeLinkRegistry.keys()).toEqual(['file.folder']);
+
+    context.uninstall(name);
+    expect(routeLinkRegistry.keys()).toEqual([]);
+  });
+
+  it('webhook：安裝後登記 route id webhook.detail（自動停用的通知），卸載後撤回', async () => {
+    const context = createContext();
+    const name = await context.install(FEATURE_CATALOG.webhook.plugin);
+    expect(routeLinkRegistry.keys()).toEqual(['webhook.detail']);
 
     context.uninstall(name);
     expect(routeLinkRegistry.keys()).toEqual([]);

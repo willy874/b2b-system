@@ -13,6 +13,7 @@ import { AuditService } from '@/modules/audit-log/audit.service';
 import { notification, NotificationChannel } from '@/modules/notification/notification.definition';
 import { NotificationService } from '@/modules/notification/notification.service';
 import { PermissionService } from '@/modules/permission/permission.service';
+import { WebhookService } from '@/modules/webhook/webhook.service';
 
 import { ApprovalHandlerRegistry } from './approval-handler.registry';
 import { APPROVAL_RESULT_MAIL_JOB } from './approval-mail.constants';
@@ -25,6 +26,7 @@ import {
 } from './approval.notifications';
 import { ApprovalRepository } from './approval.repository';
 import type { ApprovalContext, ApprovalHandler, SubmitApprovalInput } from './approval.types';
+import { APPROVAL_DECIDED_WEBHOOK } from './approval.webhooks';
 import type {
   ApprovalRequestDto,
   ApproveApprovalDto,
@@ -66,6 +68,7 @@ export class ApprovalService {
     private readonly events: DomainEventBus,
     private readonly jobs: JobQueue,
     private readonly notifications: NotificationService,
+    private readonly webhooks: WebhookService,
   ) {}
 
   /** 擁有資源的模組在 `onModuleInit` 呼叫，登記自己負責的審批類型。 */
@@ -209,6 +212,7 @@ export class ApprovalService {
       );
       await this.enqueueResultMail(request, tx);
       await this.notifyResult(request, 'approved', reviewer, tx);
+      await this.emitDecided(request, 'approved', tx);
       return { reviewed: { ...row, resultResourceId: applied.resourceId }, outcome: applied };
     });
 
@@ -252,6 +256,7 @@ export class ApprovalService {
       );
       await this.enqueueResultMail(request, tx);
       await this.notifyResult(request, 'rejected', reviewer, tx);
+      await this.emitDecided(request, 'rejected', tx);
       return row;
     });
 
@@ -328,6 +333,19 @@ export class ApprovalService {
         },
         link: handler.resultLink ? handler.resultLink(request) : approvalDetailLink(request.id),
       }),
+      tx,
+    );
+  }
+
+  /** 對外事件 `approval.decided`（docs/adr/0030-webhooks.md D2）。 */
+  private emitDecided(
+    request: ApprovalRequestRow,
+    decision: 'approved' | 'rejected',
+    tx: Transaction,
+  ): Promise<void> {
+    return this.webhooks.emit(
+      APPROVAL_DECIDED_WEBHOOK,
+      { approvalId: request.id, approvalType: request.type as ApprovalType, decision },
       tx,
     );
   }

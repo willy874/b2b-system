@@ -22,6 +22,7 @@
       "approvalApproved": "你的{{type}}申請已核准",
       "approvalRejected": "你的{{type}}申請已被駁回",
       "userRolesChanged": "你的角色已變更",
+      "webhookDisabled": "Webhook「{{name}}」連續失敗 {{count}} 次，已自動停用",
       "unknown": "你有一則新通知"
     },
     "detail": {
@@ -58,7 +59,8 @@
       },
       "category": {
         "approval": "審批",
-        "user": "使用者"
+        "user": "使用者",
+        "webhook": "Webhook"
       },
       "type": {
         "approvalPending": {
@@ -75,6 +77,11 @@
           "name": "角色變更",
           "description": "使用者被指派或移除角色時通知本人。",
           "recipients": "被變更角色的人"
+        },
+        "webhookDisabled": {
+          "name": "Webhook 自動停用",
+          "description": "webhook 連續投遞失敗而自動停用時通知可以修好它的人。",
+          "recipients": "停用當下持有「編輯 Webhook」權限的人"
         }
       }
     },

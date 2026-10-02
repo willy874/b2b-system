@@ -441,6 +441,11 @@ migration 0017 手寫兩個 trigger：`deleted_at` 改變時 `authz_revision` +1
 
 索引：`(user_id, created_at desc)`（管理頁的列表）、`(user_id) WHERE revoked_at IS NULL`（有效 token 數的上限）。
 
+### 2.16 `webhook_subscriptions`、`webhook_events`、`webhook_deliveries`（Webhook）
+
+欄位、索引與保留見 [`17-webhook.md`](./17-webhook.md) §2（[ADR-0030](../../adr/0030-webhooks.md)）。訂閱是設定、硬刪除；事件與投遞紀錄保留 30 天，
+刪除事件時投遞紀錄 CASCADE。這三張表沒有 `deleted_at`，不經 `notDeleted()`。
+
 ---
 
 ## 3. 不變條件的 DB 層強制
@@ -631,6 +636,8 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0021_notification_preferences.sql   個人通知設定（ADR-0028 E3；純加法）
 ├── 0022_api_tokens.sql                 users.kind、api_tokens 表（§2.15，ADR-0027 T1；純加法）
 ├── 0023_service_account_system_roles.sql   手寫：既有租戶的 admin 補 serviceAccount:*、auditor 補 serviceAccount:read
+├── 0024_webhooks.sql                   webhook_subscriptions、webhook_events、webhook_deliveries（§2.16，ADR-0030；純加法）
+├── 0025_webhook_system_roles.sql       手寫：既有租戶的 admin 補 webhook:*、auditor 補 webhook:read
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

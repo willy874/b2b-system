@@ -56,6 +56,9 @@ import { USER_DETAIL_QUERY_KEY } from '@/apis/user/get-user-detail/query';
 import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
 import { PERMISSION_SOURCES_QUERY_KEY } from '@/apis/user/get-user-permission-sources/query';
 import { USER_ROLES_QUERY_KEY } from '@/apis/user/get-user-roles/query';
+import { WEBHOOK_DELIVERIES_QUERY_KEY } from '@/apis/webhook/get-webhook-deliveries/query';
+import { WEBHOOK_DETAIL_QUERY_KEY } from '@/apis/webhook/get-webhook-detail/query';
+import { WEBHOOK_LIST_QUERY_KEY } from '@/apis/webhook/get-webhook-list/query';
 import { ANY_ID, createResourceGraph, queryClient } from '@/core/cache';
 import type { ApplyInvalidationOptions, ResourceChange } from '@/core/cache';
 import type { Profile } from '@/shared/api-sdk';
@@ -117,6 +120,10 @@ export const Resource = {
    * 服務帳號的 token 帶 `refs.serviceAccount`（擁有者的有效 token 數）
    */
   API_TOKEN: 'apiToken',
+  /** Webhook 訂閱（`id` = 訂閱 id；docs/adr/0030-webhooks.md） */
+  WEBHOOK: 'webhook',
+  /** 一次投遞嘗試（`id` = 紀錄 id）；帶 `refs.webhook`。投遞不寫稽核 */
+  WEBHOOK_DELIVERY: 'webhookDelivery',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -195,7 +202,7 @@ const graph = createResourceGraph<Resource>({
     // 任何寫入都會產生稽核紀錄；既有紀錄不可變，所以只影響列表。
     // 站內通知不寫稽核（ADR-0026 D9），後端也不把它推給 auditLog:read（08-realtime.md §6.1 的 recordsAudit: false）：
     // 收到自己的通知、標為已讀時不重抓稽核列表
-    derivesFromAnyChange: { except: [Resource.NOTIFICATION] },
+    derivesFromAnyChange: { except: [Resource.NOTIFICATION, Resource.WEBHOOK_DELIVERY] },
   },
   [Resource.APPROVAL]: {
     collection: [APPROVAL_LIST_QUERY_KEY],
@@ -319,6 +326,16 @@ const graph = createResourceGraph<Resource>({
       { from: Resource.SERVICE_ACCOUNT, kinds: ['update', 'delete'], id: 'none' },
     ],
   },
+  [Resource.WEBHOOK]: {
+    collection: [WEBHOOK_LIST_QUERY_KEY],
+    // 投遞紀錄的 key 第二個元素是 webhook id：刪除時一併移除
+    entity: [WEBHOOK_DETAIL_QUERY_KEY, WEBHOOK_DELIVERIES_QUERY_KEY],
+    derivesFrom: [
+      // 新的投遞改變最後投遞時間、失敗次數（自動停用另外以 webhook update 宣告）與那個 webhook 的投遞紀錄
+      { from: Resource.WEBHOOK_DELIVERY, id: 'ref' },
+    ],
+  },
+  [Resource.WEBHOOK_DELIVERY]: {},
   [Resource.NOTIFICATION]: {
     // 列表與未讀數都只看自己的：新通知、已讀、全部已讀都會改變兩者。列表只有 collection——
     // 已讀一則也要讓「未讀」篩選的列表少一筆，逐筆更新快取不如整個重抓（keyset，只抓已載入的頁數）

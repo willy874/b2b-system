@@ -115,6 +115,7 @@
     "fileFolder": "資料夾",
     "job": "背景工作",
     "identityProvider": "外部 IdP",
+    "webhook": "Webhook",
     "setting": "系統設定",
     "notificationEvent": "事件通知",
     "trash": "回收桶",
@@ -204,6 +205,13 @@
     "API_TOKEN_NOT_FOUND": "找不到這個 API token，可能已被撤銷。",
     "API_TOKEN_LIFETIME_EXCEEDED": "有效期限超過上限（最多 {{maxDays}} 天）。",
     "API_TOKEN_LIMIT_REACHED": "這個帳號的 API token 已達上限（{{max}} 個），請先撤銷不用的 token。",
+    "WEBHOOK_NOT_FOUND": "找不到這個 webhook，可能已被刪除。",
+    "WEBHOOK_VERSION_CONFLICT": "這個 webhook 已經被其他人修改，請重新載入後再編輯。",
+    "WEBHOOK_URL_NOT_ALLOWED": "這個網址不能使用：必須是 https、不能帶帳號密碼，也不能指向內部網路。",
+    "WEBHOOK_EVENT_UNKNOWN": "包含系統不認得的事件，請重新整理頁面後再選。",
+    "WEBHOOK_DISABLED": "這個 webhook 已停用，請先啟用再送出。",
+    "WEBHOOK_LIMIT_REACHED": "webhook 已達上限（{{max}} 個），請先刪除不用的 webhook。",
+    "WEBHOOK_DELIVERY_NOT_FOUND": "找不到這筆投遞紀錄，可能已超過保留期限而被清除。",
     "REVISION_NOT_FOUND": "找不到這個版本，可能已超過保留期限而被清除。",
     "REVISION_UNAVAILABLE": "這個版本的內容過大未保存，無法檢視或還原。",
     "NOTIFICATION_NOT_FOUND": "這則通知已不存在，可能已超過保留期限而被刪除。",
@@ -280,7 +288,8 @@
       "identityProvider": "外部 IdP 連線",
       "group": "群組",
       "authz": "授權說明",
-      "serviceAccount": "服務帳號"
+      "serviceAccount": "服務帳號",
+      "webhook": "Webhook"
     },
     "user": {
       "create": "建立使用者",
@@ -344,6 +353,12 @@
       "read": "檢視服務帳號",
       "update": "編輯服務帳號",
       "delete": "刪除服務帳號"
+    },
+    "webhook": {
+      "create": "建立 Webhook",
+      "read": "檢視 Webhook",
+      "update": "編輯 Webhook",
+      "delete": "刪除 Webhook"
     }
   },
   "language": {

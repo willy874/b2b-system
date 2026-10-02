@@ -405,7 +405,11 @@
           "serviceAccount:create",
           "serviceAccount:read",
           "serviceAccount:update",
-          "serviceAccount:delete"
+          "serviceAccount:delete",
+          "webhook:create",
+          "webhook:read",
+          "webhook:update",
+          "webhook:delete"
         ]
       },
       "ExternalMe": {

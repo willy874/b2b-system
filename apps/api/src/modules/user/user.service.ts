@@ -4,7 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
 import { UserCacheService } from '@/core/cache';
-import type { Database, DbOrTx } from '@/core/database';
+import type { Database, DbOrTx, Transaction } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
@@ -25,6 +25,7 @@ import { notification } from '@/modules/notification/notification.definition';
 import { NotificationService } from '@/modules/notification/notification.service';
 import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
 import { PermissionService } from '@/modules/permission/permission.service';
+import { WebhookService } from '@/modules/webhook/webhook.service';
 
 import type { CreateUserDto } from './dto/create-user.dto';
 import type { ListUserDto } from './dto/list-user.dto';
@@ -34,6 +35,12 @@ import { USER_AUDIT_FIELDS, USER_VERSIONED_FIELDS } from './user.constants';
 import { ACCOUNT_PROFILE_LINK, USER_ROLES_CHANGED_NOTIFICATION } from './user.notifications';
 import type { FailedLoginResult, UserRoleSummary, UserWithRoles } from './user.repository';
 import { UserRepository } from './user.repository';
+import {
+  USER_CREATED_WEBHOOK,
+  USER_DELETED_WEBHOOK,
+  USER_RESTORED_WEBHOOK,
+  USER_STATUS_CHANGED_WEBHOOK,
+} from './user.webhooks';
 
 /** `createAccount()` 的輸入：`passwordHash` 為 null 時帳號必須走啟用信流程（status = pending）。 */
 export interface NewAccount {
@@ -113,6 +120,7 @@ export class UserService {
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
     private readonly notifications: NotificationService,
+    private readonly webhooks: WebhookService,
   ) {}
 
   async list(query: ListUserDto) {
@@ -211,6 +219,7 @@ export class UserService {
         },
         tx,
       );
+      if (statusChanging) await this.emitStatusChanged(id, next.status, user.status, tx);
       return next;
     });
 
@@ -255,6 +264,7 @@ export class UserService {
         },
         tx,
       );
+      await this.webhooks.emit(USER_DELETED_WEBHOOK, { userId: id }, tx);
     });
 
     this.invalidateAccount(id);
@@ -311,6 +321,7 @@ export class UserService {
         },
         tx,
       );
+      await this.webhooks.emit(USER_RESTORED_WEBHOOK, { userId: id }, tx);
       return row;
     });
 
@@ -461,6 +472,10 @@ export class UserService {
         { action: 'user.unlock', resourceType: 'user', resourceId: id, resourceName: next.email },
         tx,
       );
+      // 登入失敗的自動鎖定只寫 locked_until、不改 status：只有 status 真的改變時才是對外的狀態變化
+      if (next.status !== user.status) {
+        await this.emitStatusChanged(id, next.status, user.status, tx);
+      }
       return next;
     });
 
@@ -495,7 +510,7 @@ export class UserService {
   async createAccount(
     input: NewAccount,
     actor: AuthUser | null,
-    tx: DbOrTx,
+    tx: Transaction,
     metadata?: AuditMetadata,
   ): Promise<UserRow> {
     const user = await this.repo.create(
@@ -525,7 +540,21 @@ export class UserService {
       },
       tx,
     );
+    await this.webhooks.emit(USER_CREATED_WEBHOOK, { userId: user.id }, tx);
     return user;
+  }
+
+  /**
+   * 對外事件 `user.statusChanged`（docs/adr/0030-webhooks.md D2）：在改變狀態的交易內（稽核之後）呼叫。
+   * 啟用帳號（`pending` → `active`）在 `AuthService` 完成，也經由這裡發出。
+   */
+  async emitStatusChanged(
+    userId: string,
+    status: UserStatus,
+    previousStatus: UserStatus,
+    tx: Transaction,
+  ): Promise<void> {
+    await this.webhooks.emit(USER_STATUS_CHANGED_WEBHOOK, { userId, status, previousStatus }, tx);
   }
 
   async publishCreated(userId: string, roleIds: readonly string[]): Promise<void> {

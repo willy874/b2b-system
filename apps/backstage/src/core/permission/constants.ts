@@ -20,6 +20,7 @@ export const PermissionResource = {
   IDENTITY_PROVIDER: 'identityProvider',
   GROUP: 'group',
   SERVICE_ACCOUNT: 'serviceAccount',
+  WEBHOOK: 'webhook',
 } as const;
 export type PermissionResource = (typeof PermissionResource)[keyof typeof PermissionResource];
 

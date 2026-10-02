@@ -7,7 +7,7 @@
   [`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §7、§8、[`../rbac/01-domain-model.md`](../rbac/01-domain-model.md) §7；
   [ADR-0004](./0004-jwt-with-rotating-refresh-token.md)（`token_version` 是唯一的撤銷機制）、[ADR-0020](./0020-physical-tenant-isolation.md)（每個租戶一個 DB 與網域）、
   [ADR-0024](./0024-relationship-based-access-control.md)（關係圖與一般化的反提權）；
-  後續會依賴本決定的提案：[`../features/webhooks.md`](../features/webhooks.md)、[`../features/mfa.md`](../features/mfa.md)、
+  後續會依賴本決定的提案：Webhook（[ADR-0030](./0030-webhooks.md)）、[`../features/mfa.md`](../features/mfa.md)、
   [`../features/multi-instance.md`](../features/multi-instance.md)（T0 已做掉其中一部分）。
   原本的提案（`features/api-tokens.md`）已依實作結果改寫成上列規格後刪除
 

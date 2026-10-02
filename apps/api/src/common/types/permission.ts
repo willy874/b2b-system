@@ -56,4 +56,9 @@ export const PERMISSION = {
   SERVICE_ACCOUNT_READ: 'serviceAccount:read',
   SERVICE_ACCOUNT_UPDATE: 'serviceAccount:update',
   SERVICE_ACCOUNT_DELETE: 'serviceAccount:delete',
+
+  WEBHOOK_CREATE: 'webhook:create',
+  WEBHOOK_READ: 'webhook:read',
+  WEBHOOK_UPDATE: 'webhook:update',
+  WEBHOOK_DELETE: 'webhook:delete',
 } as const satisfies Record<string, PermissionKey>;

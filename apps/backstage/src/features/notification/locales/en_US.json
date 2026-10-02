@@ -22,6 +22,7 @@
       "approvalApproved": "Your {{type}} request was approved",
       "approvalRejected": "Your {{type}} request was rejected",
       "userRolesChanged": "Your roles were changed",
+      "webhookDisabled": "Webhook \"{{name}}\" failed {{count}} times in a row and was turned off",
       "unknown": "You have a new notification"
     },
     "detail": {
@@ -58,7 +59,8 @@
       },
       "category": {
         "approval": "Approvals",
-        "user": "Users"
+        "user": "Users",
+        "webhook": "Webhooks"
       },
       "type": {
         "approvalPending": {
@@ -75,6 +77,11 @@
           "name": "Roles changed",
           "description": "Notifies a user when roles are assigned to or removed from them.",
           "recipients": "The user whose roles changed"
+        },
+        "webhookDisabled": {
+          "name": "Webhook turned off",
+          "description": "Sent when a webhook is turned off after failing to deliver too many times in a row.",
+          "recipients": "Everyone who can edit webhooks at that moment"
         }
       }
     },

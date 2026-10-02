@@ -15,6 +15,7 @@ import { Routes as ServiceAccountRoutes } from '@/features/service-account';
 import { Routes as SystemRoutes } from '@/features/system';
 import { Routes as TrashRoutes } from '@/features/trash';
 import { Routes as UserRoutes } from '@/features/user';
+import { Routes as WebhookRoutes } from '@/features/webhook';
 
 import { Layout } from './Layout';
 
@@ -52,6 +53,10 @@ export const routeTree = RootRoute.addChildren([
   FileRoutes.FileListRoute,
   JobRoutes.JobListRoute,
   IdentityProviderRoutes.IdentityProviderListRoute,
+  WebhookRoutes.WebhookListRoute.addChildren([
+    WebhookRoutes.WebhookCreateRoute,
+    WebhookRoutes.WebhookDetailRoute,
+  ]),
   SystemRoutes.SettingListRoute,
   TrashRoutes.TrashListRoute,
   AccountRoutes.ProfileRoute,

@@ -194,6 +194,7 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
       'systemSetting',
       'identityProvider',
       'tenantSwitch',
+      'webhook',
     ]);
     expect(await featureToggle('file')).toHaveAttribute('aria-checked', 'false');
     expect(await featureToggle('auditLog')).toHaveAttribute('aria-checked', 'true');
@@ -251,7 +252,7 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     renderPage(tenantFixture(), ['tenant:read']);
     await screen.findAllByTestId('tenant-feature');
     const toggles = screen.getAllByTestId('tenant-feature-toggle');
-    expect(toggles).toHaveLength(7);
+    expect(toggles).toHaveLength(8);
     for (const toggle of toggles) expect(toggle).toHaveAttribute('data-disabled');
   });
 

@@ -131,6 +131,7 @@ await withTransaction(this.db, async (tx) => {
 | `approval.pending` | 送出當下持有 `approval:review` 的可登入使用者（§5），不含申請人自己 | `approvalType`、`requesterName`（申請人的 email）、`subject`（handler 的一行摘要） | `approval.detail`（`{ approvalId }`） | `ApprovalService.submit()` 的交易內（註冊、資料夾存取申請都經過這裡） |
 | `approval.result` | 申請人（`requester_id`）；匿名的註冊沒有收件人，只有結果信 | `approvalType`、`subject`、`status`（`approved` \| `rejected`） | handler 的 `resultLink()`；沒有就是 `approval.detail`（`{ approvalId }`） | `ApprovalService.approve()`／`reject()` 的交易內；既有的結果信照舊 |
 | `user.rolesChanged` | 被指派或移除角色的人（`PUT /users/:id/roles`）；沒有實際增減時不通知 | `added`、`removed`（角色名稱） | `account.profile`（`{}`） | `UserService.replaceRoles()` 的交易內 |
+| `webhook.disabled` | webhook 連續失敗而自動停用時，當下持有 `webhook:update` 的人 | `webhookName`、`consecutiveFailures` | `webhook.detail`（`{ webhookId }`） | `WebhookDeliveryService.attempt()` 的交易內（觸發者是系統；[`17-webhook.md`](./17-webhook.md) §4） |
 
 - `subject` 由各審批類型的 `ApprovalHandler.summarize(payload)` 提供（handler 在擁有資源的模組）：
   `user.register` 是申請人填的顯示名稱，`fileFolder.access` 是資料夾名稱。解析不了（舊資料）時是空字串。
@@ -151,6 +152,7 @@ await withTransaction(this.db, async (tx) => {
 | `approval.detail` | `approvalId` | `/approval/$approvalId`（`ApprovalDetailRoute`，審核對話框疊在列表上） | `approval.pending`、`approval.result`（預設） |
 | `file.folder` | `folderId` | `/file?folder=<folderId>`（`FileListRoute` 的 search 參數 `folder`） | `approval.result`（`fileFolder.access`） |
 | `account.profile` | — | `/profile`（`ProfileRoute`） | `user.rolesChanged` |
+| `webhook.detail` | `webhookId` | `/webhook/$webhookId`（`WebhookDetailRoute`，詳情對話框疊在列表上；feature `webhook` 沒啟用時不登記） | `webhook.disabled` |
 
 ---
 

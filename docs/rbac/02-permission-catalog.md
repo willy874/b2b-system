@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 39 項）
+## 2. 權限清單（共 43 項）
 
 ### 2.1 `user` — 使用者
 
@@ -156,7 +156,19 @@
 > `serviceAccount:update` 不列為受反提權限制的鍵：指派角色時檢查的是 **那些角色帶來的能力**，建立 token 時檢查的是
 > **token 取得的有效權限**（服務帳號的權限 ∩ token 的 scope），操作者全部都有才放行。
 
-### 2.13 個人範圍（不需要權限）
+### 2.13 `webhook` — Webhook
+
+| 權限鍵           | 顯示名稱（zh-TW） | 說明 |
+| ---------------- | ----------------- | ---- |
+| `webhook:create` | 建立 Webhook      | 訂閱對外事件，事件發生時 POST 到指定網址（[ADR-0030](../adr/0030-webhooks.md)） |
+| `webhook:read`   | 檢視 Webhook      | 訂閱列表與詳情、投遞紀錄（狀態碼、耗時、回應開頭）；不含密鑰 |
+| `webhook:update` | 編輯 Webhook      | 修改網址與事件、停用與啟用、**輪替密鑰**、送測試事件、手動重送 |
+| `webhook:delete` | 刪除 Webhook      | 硬刪除；投遞紀錄一併刪除，不進回收桶 |
+
+> 事件不依訂閱者的權限過濾（D5）：payload 只帶 id，接收端以 API token 回查時才套用權限。
+> 能管 webhook 等於能讓租戶內所有符合類型的事件送到外部，所以只給管理者。
+
+### 2.14 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
@@ -189,6 +201,7 @@
 | `group`           |   ✓    |  ✓   |   ✓    |   ✓    | `assignRole`                  |
 | `authz`           |   —    |  —   |   —    |   —    | `explain`                     |
 | `serviceAccount`  |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
+| `webhook`         |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
 
 ---
 
@@ -235,6 +248,10 @@
 | `serviceAccount:read`   |     ✓*       |    ✓    |     ✓     |          |
 | `serviceAccount:update` |     ✓*       |    ✓    |           |          |
 | `serviceAccount:delete` |     ✓*       |    ✓    |           |          |
+| `webhook:create`       |      ✓*       |    ✓    |           |          |
+| `webhook:read`         |      ✓*       |    ✓    |     ✓     |          |
+| `webhook:update`       |      ✓*       |    ✓    |           |          |
+| `webhook:delete`       |      ✓*       |    ✓    |           |          |
 
 `*` super-admin 是 **隱含全集**，不逐筆登錄權限鍵的邊（只有 `tenant:self#superAdmin` 一條邊）；
 `GET /auth/profile` 回傳時才展開成完整清單。
@@ -265,6 +282,8 @@
 | 建立群組     | `/group/create`            | `GROUP_CREATE`  | `group:read` ＋ `group:create`   | EVERY |
 | 服務帳號列表 | `/service-account`（含 `/service-account/$serviceAccountId` 詳情；角色要 `role:read`，token 要 `serviceAccount:update`） | `SERVICE_ACCOUNT` | `serviceAccount:read` | EVERY |
 | 建立服務帳號 | `/service-account/create`  | `SERVICE_ACCOUNT_CREATE` | `serviceAccount:read` ＋ `serviceAccount:create` | EVERY |
+| Webhook 列表 | `/webhook`（含 `/webhook/$webhookId` 詳情與投遞紀錄；編輯、重送要 `webhook:update`） | `WEBHOOK` | `webhook:read` | EVERY |
+| 建立 Webhook | `/webhook/create`          | `WEBHOOK_CREATE` | `webhook:read` ＋ `webhook:create` | EVERY |
 | 權限目錄     | `/permission`              | `PERMISSION`    | `permission:read`                | EVERY |
 | 稽核日誌     | `/audit-log`               | `AUDIT_LOG`     | `auditLog:read`                  | EVERY |
 | 審批         | `/approval`（含 `/approval/$approvalId` 對話框） | `APPROVAL` | `approval:read`           | EVERY |
@@ -458,6 +477,9 @@ Seed 行為：
 | `serviceAccount:create` | `serviceAccount:update` | |
 | `serviceAccount:delete` | `serviceAccount:update` | |
 | `serviceAccount:update` | `serviceAccount:read` | `role:read` |
+| `webhook:create` | `webhook:update` | |
+| `webhook:delete` | `webhook:update` | |
+| `webhook:update` | `webhook:read` | |
 
 沒有列出的鍵是葉節點（`permission:read`、`auditLog:read`、各資源的 `read`、`file:access`）。
 
