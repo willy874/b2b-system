@@ -13,7 +13,7 @@ import { AllProviders } from '@/test/renderWithPermissions';
 
 import { registerTenantPagePermissions, Routes } from '../../..';
 import tenantZhTW from '../../../locales/zh_TW.json';
-import { tenantFixture } from '../../../test-fixtures';
+import { FEATURE_PARAMS, tenantFixture } from '../../../test-fixtures';
 
 const { getTenant, retry, disable, removeDomain, update, removeTenant, listFlags } = vi.hoisted(
   () => ({
@@ -397,5 +397,86 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     for (const select of screen.getAllByTestId('tenant-flag-select')) {
       expect(select).toBeDisabled();
     }
+  });
+
+  describe('feature 參數（docs/adr/0033-feature-params-and-webhook-targets.md）', () => {
+    async function paramRow(key: string): Promise<HTMLElement> {
+      const rows = await screen.findAllByTestId('tenant-param');
+      const row = rows.find((el) => el.dataset.value === key);
+      if (!row) throw new Error(`找不到參數 ${key}`);
+      return row;
+    }
+
+    it('列在所屬 feature 下，顯示生效值與是否調整過', async () => {
+      const tenant = tenantFixture({
+        featureParams: FEATURE_PARAMS.map((param) =>
+          param.key === 'file.storageQuotaMb' ? { ...param, value: 4096, overridden: true } : param,
+        ),
+      });
+      renderPage(tenant, ALL);
+      const row = await paramRow('file.storageQuotaMb');
+      expect(row.closest('[data-testid="tenant-feature"]')).toHaveAttribute('data-value', 'file');
+      expect(within(row).getByTestId('tenant-param-value')).toHaveTextContent('4,096');
+      expect(within(row).getByTestId('tenant-param-overridden')).toBeInTheDocument();
+      expect(
+        within(await paramRow('webhook.maxUrls')).queryByTestId('tenant-param-overridden'),
+      ).toBeNull();
+    });
+
+    it('有 tenant:update → 編輯後只送出這一個參數', async () => {
+      const tenant = tenantFixture();
+      update.mockResolvedValue(tenant);
+      renderPage(tenant, ALL);
+      fireEvent.click(within(await paramRow('webhook.maxUrls')).getByTestId('tenant-param-edit'));
+      const dialog = await screen.findByTestId('tenant-param-dialog');
+      fireEvent.change(within(dialog).getByTestId('tenant-param-input'), {
+        target: { value: '5' },
+      });
+      fireEvent.click(within(dialog).getByTestId('tenant-param-submit'));
+      await waitFor(() => expect(update).toHaveBeenCalled());
+      expect(update.mock.calls[0]?.[0]).toEqual({
+        params: { id: tenant.id, body: { featureParams: { 'webhook.maxUrls': 5 } } },
+      });
+    });
+
+    it('超出範圍時不送出，提示允許的範圍', async () => {
+      renderPage(tenantFixture(), ALL);
+      fireEvent.click(
+        within(await paramRow('job.maxConcurrency')).getByTestId('tenant-param-edit'),
+      );
+      const dialog = await screen.findByTestId('tenant-param-dialog');
+      fireEvent.change(within(dialog).getByTestId('tenant-param-input'), {
+        target: { value: '0' },
+      });
+      fireEvent.click(within(dialog).getByTestId('tenant-param-submit'));
+      expect(
+        await within(dialog).findByText(/tenant\.param\.rangeError|1～100/),
+      ).toBeInTheDocument();
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('調整過的參數可以恢復預設（送 null）', async () => {
+      const tenant = tenantFixture({
+        featureParams: FEATURE_PARAMS.map((param) =>
+          param.key === 'job.maxConcurrency' ? { ...param, value: 3, overridden: true } : param,
+        ),
+      });
+      update.mockResolvedValue(tenant);
+      renderPage(tenant, ALL);
+      fireEvent.click(
+        within(await paramRow('job.maxConcurrency')).getByTestId('tenant-param-edit'),
+      );
+      fireEvent.click(await screen.findByTestId('tenant-param-reset'));
+      await waitFor(() => expect(update).toHaveBeenCalled());
+      expect(update.mock.calls[0]?.[0]).toEqual({
+        params: { id: tenant.id, body: { featureParams: { 'job.maxConcurrency': null } } },
+      });
+    });
+
+    it('只有 tenant:read → 看得到參數，沒有編輯', async () => {
+      renderPage(tenantFixture(), ['tenant:read']);
+      const row = await paramRow('file.storageQuotaMb');
+      expect(within(row).queryByTestId('tenant-param-edit')).toBeNull();
+    });
   });
 });

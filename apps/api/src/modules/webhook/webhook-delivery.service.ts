@@ -10,7 +10,7 @@ import { TENANT_DB, withTransaction } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { RESOURCE_TYPE } from '@/core/resource';
 import { requireTenant } from '@/core/tenant';
-import type { WebhookEventRow, WebhookSubscriptionRow } from '@/db/schema';
+import type { WebhookEventRow, WebhookSubscriptionRow, WebhookTargetRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { notification } from '@/modules/notification/notification.definition';
 import { NotificationService } from '@/modules/notification/notification.service';
@@ -33,6 +33,11 @@ import { WebhookTransport } from './webhook.transport';
 export interface WebhookDeliverJobData {
   subscriptionId: string;
   eventId: string;
+  /**
+   * 送到哪個網址（docs/adr/0033-feature-params-and-webhook-targets.md D14）。升版前入列的工作沒有，
+   * 送到訂閱的第一個網址（當時訂閱只有一個網址）。
+   */
+  targetId?: string;
 }
 
 /** 投遞失敗：拋給 pg-boss 依 `webhook.deliver` 的設定重試（D12）。訊息不含網址與回應內容。 */
@@ -75,17 +80,21 @@ export class WebhookDeliveryService {
   ) {}
 
   /**
-   * `webhook.deliver` 的 handler。訂閱已刪除或停用、事件已被清理、租戶關掉了 webhook：略過（不重試）。
+   * `webhook.deliver` 的 handler。訂閱已刪除或停用、網址已被移除、事件已被清理、租戶關掉了 webhook：略過（不重試）。
    * 失敗就拋出讓 pg-boss 重試；這一次讓訂閱自動停用時不拋（之後的重試也只會被略過）。
    */
   async deliver(data: WebhookDeliverJobData): Promise<object> {
     if (!requireTenant().features.includes('webhook')) return { skipped: 'featureDisabled' };
     const subscription = await this.repo.findById(data.subscriptionId);
     if (!subscription || subscription.status !== 'active') return { skipped: 'inactive' };
+    const target = data.targetId
+      ? subscription.targets.find((item) => item.id === data.targetId)
+      : subscription.targets[0];
+    if (!target) return { skipped: 'targetRemoved' };
     const event = await this.repo.findEvent(data.eventId);
     if (!event) return { skipped: 'eventExpired' };
 
-    const delivery = await this.attempt(subscription, event, 'auto');
+    const delivery = await this.attempt(subscription, target, event, 'auto');
     if (!delivery.succeeded && !delivery.disabledSubscription) {
       throw new WebhookDeliveryFailedError(
         delivery.id,
@@ -102,15 +111,16 @@ export class WebhookDeliveryService {
   }
 
   /**
-   * 送出一次並記錄。`auto`（投遞工作）：成功歸零、失敗加一，到門檻自動停用（D13）。
+   * 送到一個網址並記錄。`auto`（投遞工作）：這個網址成功歸零、失敗加一，到門檻停用整個訂閱（D13、ADR-0033 D15）。
    * `manual`（測試、重送，D17）：成功一樣歸零；失敗 **不** 計入門檻——使用者正在除錯，不該因為多按幾次就被停用。
    */
   async attempt(
     subscription: WebhookSubscriptionRow,
+    target: WebhookTargetRow,
     event: WebhookEventRow,
     trigger: WebhookDeliveryTrigger,
   ): Promise<WebhookDeliveryWithEvent & { disabledSubscription: boolean }> {
-    const attempt = (await this.repo.countAttempts(subscription.id, event.id)) + 1;
+    const attempt = (await this.repo.countAttempts(target.id, event.id)) + 1;
     const envelope: WebhookEnvelope = {
       id: event.id,
       type: event.type,
@@ -125,7 +135,7 @@ export class WebhookDeliveryService {
 
     const started = performance.now();
     const result = await this.transport.send(
-      subscription.url,
+      target.url,
       webhookHeaders(envelope, secret, timestamp, body),
       body,
     );
@@ -135,6 +145,8 @@ export class WebhookDeliveryService {
     const values = {
       subscriptionId: subscription.id,
       eventId: event.id,
+      targetId: target.id,
+      url: target.url,
       attempt,
       trigger,
       succeeded,
@@ -148,7 +160,7 @@ export class WebhookDeliveryService {
     const mayDisable =
       trigger === 'auto' &&
       !succeeded &&
-      subscription.consecutiveFailures + 1 >= WEBHOOK_AUTO_DISABLE_AFTER_FAILURES;
+      target.consecutiveFailures + 1 >= WEBHOOK_AUTO_DISABLE_AFTER_FAILURES;
     const recipients = mayDisable
       ? await this.permissions.findActiveUserIdsWithPermission(PERMISSION.WEBHOOK_UPDATE)
       : [];
@@ -156,12 +168,13 @@ export class WebhookDeliveryService {
     const { delivery, disabledSubscription } = await withTransaction(this.db, async (tx) => {
       const row = await this.repo.insertDelivery(values, tx);
       if (succeeded) {
-        await this.repo.recordSuccess(subscription.id, at, tx);
+        await this.repo.recordSuccess(subscription.id, target.id, at, tx);
         return { delivery: row, disabledSubscription: false };
       }
       if (trigger === 'manual') return { delivery: row, disabledSubscription: false };
       const failure = await this.repo.recordFailure(
         subscription.id,
+        target.id,
         at,
         WEBHOOK_AUTO_DISABLE_AFTER_FAILURES,
         tx,
@@ -177,7 +190,7 @@ export class WebhookDeliveryService {
             before: { status: 'active' },
             after: { status: 'disabled', disabledReason: 'failing' },
           },
-          metadata: { consecutiveFailures: failure.consecutiveFailures },
+          metadata: { consecutiveFailures: failure.consecutiveFailures, url: target.url },
         },
         tx,
       );
@@ -190,6 +203,7 @@ export class WebhookDeliveryService {
               params: {
                 webhookName: subscription.name,
                 consecutiveFailures: failure.consecutiveFailures,
+                url: target.url,
               },
               link: webhookDetailLink(subscription.id),
             }),

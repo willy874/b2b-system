@@ -13,7 +13,7 @@ import type { Env } from '@/core/config';
 import { MailTransport } from '@/core/mail';
 import type { MailMessage, SentMail } from '@/core/mail';
 import { ObjectStorage } from '@/core/storage';
-import { TENANT_FEATURES } from '@/core/tenant';
+import { TENANT_FEATURES, TenantDirectory } from '@/core/tenant';
 import { platformAdmins, tenants } from '@/db/platform/schema';
 import type { PlatformAdminRole } from '@/db/platform/schema';
 import { upsertPlatformAdmin } from '@/db/seeds/platform-admin';
@@ -373,6 +373,87 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
     await tenantRequest('post', '/identity-providers').send(provider).expect(201);
     const [row] = await platformDb.select().from(tenants).where(eq(tenants.id, tenantId));
     expect(row?.features).toContain('identityProvider');
+  });
+
+  it('feature 參數：平台設定後租戶的外部 IdP 上限與檔案容量立即生效；不合法的值回 400（docs/adr/0033-feature-params-and-webhook-targets.md）', async () => {
+    const tenantId = (await testTenantContext(app)).id;
+    const login = await request(http)
+      .post('/auth/login')
+      .set('Host', HOME_HOST)
+      .send(ROOT)
+      .expect(200);
+    const tenantToken = (login.body as { data: { accessToken: string } }).data.accessToken;
+    const tenantRequest = (method: 'get' | 'post', path: string) => {
+      const agent = request(http);
+      return (method === 'get' ? agent.get(path) : agent.post(path))
+        .set('Host', HOME_HOST)
+        .set('authorization', `Bearer ${tenantToken}`);
+    };
+    type Param = { key: string; value: number; overridden: boolean };
+    const paramOf = (tenant: { featureParams: Param[] }, key: string) =>
+      tenant.featureParams.find((param) => param.key === key);
+
+    try {
+      const providers = dataOf<{ items: unknown[] }>(
+        await tenantRequest('get', '/identity-providers').expect(200),
+      ).items.length;
+      const updated = dataOf<{ featureParams: Param[] }>(
+        await as(root, 'patch', `/platform/tenants/${tenantId}`)
+          .send({
+            featureParams: {
+              'identityProvider.maxProviders': Math.max(1, providers),
+              'file.storageQuotaMb': 1,
+            },
+          })
+          .expect(200),
+      );
+      expect(paramOf(updated, 'file.storageQuotaMb')).toMatchObject({
+        value: 1,
+        overridden: true,
+      });
+      expect(paramOf(updated, 'webhook.maxUrls')).toMatchObject({ value: 1, overridden: false });
+
+      if (providers >= 1) {
+        const full = await tenantRequest('post', '/identity-providers')
+          .send({
+            name: 'One Too Many',
+            issuer: 'https://login.too-many.test',
+            clientId: 'b2b',
+            clientSecret: 'secret',
+            domains: [],
+          })
+          .expect(409);
+        expect(errorCodeOf(full)).toBe('IDENTITY_PROVIDER_LIMIT_REACHED');
+      }
+
+      const policy = dataOf<{ storageQuota: number }>(
+        await tenantRequest('get', '/files/upload-policy').expect(200),
+      );
+      expect(policy.storageQuota).toBe(1024 * 1024);
+      const tooBig = await tenantRequest('post', '/files')
+        .send({ name: 'big.bin', contentType: 'application/octet-stream', size: 2 * 1024 * 1024 })
+        .expect(409);
+      expect(errorCodeOf(tooBig)).toBe('FILE_STORAGE_QUOTA_EXCEEDED');
+
+      const invalid = await as(root, 'patch', `/platform/tenants/${tenantId}`)
+        .send({ featureParams: { 'job.maxConcurrency': 0 } })
+        .expect(400);
+      expect(errorCodeOf(invalid)).toBe('VALIDATION_FAILED');
+
+      const reset = dataOf<{ featureParams: Param[] }>(
+        await as(root, 'patch', `/platform/tenants/${tenantId}`)
+          .send({
+            featureParams: { 'identityProvider.maxProviders': null, 'file.storageQuotaMb': null },
+          })
+          .expect(200),
+      );
+      expect(reset.featureParams.every((param) => !param.overridden)).toBe(true);
+      const [row] = await platformDb.select().from(tenants).where(eq(tenants.id, tenantId));
+      expect(row?.featureParams).toEqual({});
+    } finally {
+      await platformDb.update(tenants).set({ featureParams: {} }).where(eq(tenants.id, tenantId));
+      app.get(TenantDirectory).invalidate();
+    }
   });
 
   it('回收桶與系統設定：關掉後列表、還原、設定頁的端點回 404，公開設定照舊（docs/adr/0029-toggleable-platform-features.md D3、D4）', async () => {

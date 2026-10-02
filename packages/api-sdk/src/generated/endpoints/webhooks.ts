@@ -11,6 +11,7 @@ import type {
   WebhookDelivery,
   WebhookEventList,
   WebhookSecret,
+  WebhookTestResult,
 } from '../models';
 import { buildUrl, request } from '../runtime';
 import type {
@@ -27,6 +28,7 @@ import {
   WebhookEventListSchema,
   WebhookSchema,
   WebhookSecretSchema,
+  WebhookTestResultSchema,
 } from '../schemas';
 
 // GET /webhooks
@@ -402,7 +404,7 @@ export interface WebhookControllerSendTestInput {
 
 export interface WebhookControllerSendTestResponses {
   201: {
-    data: WebhookDelivery;
+    data: WebhookTestResult;
   };
 }
 
@@ -419,7 +421,7 @@ export const WebhookControllerSendTestSchemas = {
   }),
   responses: {
     201: z.object({
-      data: WebhookDeliverySchema,
+      data: WebhookTestResultSchema,
     }),
   },
 } satisfies OperationSchemas;

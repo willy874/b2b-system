@@ -5,10 +5,12 @@ import { getWebhookDeliveriesQueryOptions } from '@/apis/webhook/get-webhook-del
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { Dialog } from '@/components/Dialog';
+import { TextEllipsis } from '@/components/Ellipsis';
 import { Select } from '@/components/Select';
 import type { TableColumnDef } from '@/components/Table';
 import { RichTable } from '@/core/components';
 import { useTranslation } from '@/core/locales';
+import type { WebhookTarget } from '@/shared/api-sdk';
 import { formatDateTime } from '@/shared/date';
 
 import {
@@ -34,8 +36,13 @@ const RESULT_FILTER_LABEL_KEY = {
   failed: 'webhook.delivery.filter.failed',
 } as const satisfies Record<ResultFilter, string>;
 
+/** 網址篩選的「全部」：不帶 `targetId`。 */
+const ALL_TARGETS = 'all';
+
 interface WebhookDeliverySectionProps {
   webhookId: string;
+  /** 目前的網址：多於一個時可以依網址篩選（ADR-0033 D16）。 */
+  targets: WebhookTarget[];
   /** 停用中的 webhook 不能重送（D17）。 */
   canRedeliver: boolean;
 }
@@ -44,9 +51,14 @@ interface WebhookDeliverySectionProps {
  * 投遞紀錄（docs/adr/0030-webhooks.md D12、D16、D17）：每一次嘗試一筆，保留 30 天。
  * 新的投遞由推播（`webhookDelivery`）讓這裡重抓。
  */
-export function WebhookDeliverySection({ webhookId, canRedeliver }: WebhookDeliverySectionProps) {
+export function WebhookDeliverySection({
+  webhookId,
+  targets,
+  canRedeliver,
+}: WebhookDeliverySectionProps) {
   const { t } = useTranslation();
   const [filter, setFilter] = useState<ResultFilter>('all');
+  const [targetId, setTargetId] = useState<string>(ALL_TARGETS);
   const [offset, setOffset] = useState(0);
   const [viewing, setViewing] = useState<WebhookDeliveryRowVM>();
   const redeliver = useWebhookRedeliverMutation();
@@ -58,6 +70,7 @@ export function WebhookDeliverySection({ webhookId, canRedeliver }: WebhookDeliv
         offset,
         limit: WEBHOOK_DELIVERY_PAGE_SIZE,
         succeeded: SUCCEEDED_OF[filter],
+        targetId: targetId === ALL_TARGETS ? undefined : targetId,
       },
     }),
   );
@@ -82,6 +95,12 @@ export function WebhookDeliverySection({ webhookId, canRedeliver }: WebhookDeliv
           const label = WEBHOOK_EVENT_LABEL[row.original.eventType];
           return label ? t(label.nameKey) : row.original.eventType;
         },
+      },
+      {
+        id: 'url',
+        header: t('webhook.delivery.field.url'),
+        enableSorting: false,
+        cell: ({ row }) => <TextEllipsis className="max-w-48">{row.original.url}</TextEllipsis>,
       },
       {
         id: 'attempt',
@@ -155,6 +174,24 @@ export function WebhookDeliverySection({ webhookId, canRedeliver }: WebhookDeliv
     <section className="flex flex-col gap-2" data-testid="webhook-delivery-section">
       <div className="flex items-center justify-between gap-2">
         <h3 className="m-0 shrink-0 text-sm font-semibold">{t('webhook.detail.deliveries')}</h3>
+        <span className="flex-1" />
+        {targets.length > 1 && (
+          <Select
+            size="sm"
+            className="w-48 min-w-0"
+            options={[
+              { value: ALL_TARGETS, label: t('webhook.delivery.filter.allUrls') },
+              ...targets.map((target) => ({ value: target.id, label: target.url })),
+            ]}
+            value={targetId}
+            onValueChange={(value) => {
+              setTargetId(value);
+              setOffset(0);
+            }}
+            aria-label={t('webhook.delivery.field.url')}
+            data-testid="webhook-delivery-target-filter"
+          />
+        )}
         <Select
           size="sm"
           className="w-32 shrink-0"
@@ -201,6 +238,10 @@ export function WebhookDeliverySection({ webhookId, canRedeliver }: WebhookDeliv
       >
         {viewing && (
           <div className="flex flex-col gap-3 text-sm">
+            <div>
+              <h4 className="m-0 mb-1 text-xs font-semibold">{t('webhook.delivery.field.url')}</h4>
+              <code className="break-all">{viewing.url}</code>
+            </div>
             <div>
               <h4 className="m-0 mb-1 text-xs font-semibold">{t('webhook.delivery.eventId')}</h4>
               <code className="break-all">{viewing.eventId}</code>

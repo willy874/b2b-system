@@ -54,6 +54,7 @@ function tenantWith(features: TenantFeature[], flags: Record<string, boolean> = 
     storageBucket: 'b2b-t1',
     features,
     flags,
+    featureParams: {},
   };
 }
 

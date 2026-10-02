@@ -11,12 +11,16 @@ import type { Env } from '../config';
 import { afterCommit, TENANT_DB, withTransaction } from '../database';
 import type { Database, Transaction } from '../database';
 import { AppException } from '../errors';
-import { requireTenant, Tenancy, TenantDirectory } from '../tenant';
+import {
+  JOB_MAX_CONCURRENCY_PARAM,
+  requireTenant,
+  resolveTenantFeatureParam,
+  Tenancy,
+  TenantDirectory,
+} from '../tenant';
+import { JOB_SCHEMA, JobStore } from './job-store';
 import { defineJob } from './job-type';
 import type { JobType } from './job-type';
-
-/** pg-boss 的表放在自己的 schema，與業務表分開（docs/architecture/backend/10-jobs.md §2）。 */
-export const JOB_SCHEMA = 'pgboss';
 
 /**
  * pg-boss 裡存的工作資料：屬於哪個租戶（平台工作是 null）＋ 入列時的資料
@@ -36,6 +40,13 @@ const OUTBOX_SWEEP_JOB = defineJob<Record<string, never>>('jobs.outboxSweep', {
 });
 
 const OUTBOX_BATCH = 100;
+
+/**
+ * 租戶的同時執行數已滿時，放回佇列後隔多久再被取到（秒）：固定的下限加上隨機的抖動，
+ * 同時被放回的幾筆不會在同一刻一起回來又一起被放回（docs/adr/0033-feature-params-and-webhook-targets.md D9）。
+ */
+const TENANT_BUSY_DELAY_SECONDS = 5;
+const TENANT_BUSY_JITTER_SECONDS = 5;
 
 /** handler 拿到的執行資訊。 */
 export interface JobContext {
@@ -98,6 +109,7 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     private readonly tenancy: Tenancy,
     private readonly directory: TenantDirectory,
     @Inject(TENANT_DB) private readonly tenantDb: Database,
+    private readonly store: JobStore,
   ) {
     this.workerEnabled = config.get('JOBS_WORKER_ENABLED', { infer: true });
     this.boss = new PgBoss({
@@ -319,6 +331,8 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     if (type.options.scope === 'platform') return handler(envelope?.payload ?? {}, context);
     // 排程觸發的沒有租戶：展開成每個租戶一筆
     if (!envelope?.tenantId) return this.fanOut(type);
+    const deferred = await this.deferIfTenantBusy(type, envelope.tenantId, context.id);
+    if (deferred) return deferred;
     try {
       return await this.tenancy.run(envelope.tenantId, () => handler(envelope.payload, context));
     } catch (error) {
@@ -334,6 +348,27 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
       }
       throw error;
     }
+  }
+
+  /**
+   * 租戶的同時執行上限 `job.maxConcurrency`（docs/adr/0033-feature-params-and-webhook-targets.md D9）：
+   * 這一筆排在上限之後就放回佇列，回傳 handler 的替代結果；否則回 `undefined` 照常執行。
+   * 租戶找不到時不判斷，交給 `tenancy.run` 回報。
+   */
+  private async deferIfTenantBusy(
+    type: JobType<object>,
+    tenantId: string,
+    jobId: string,
+  ): Promise<object | undefined> {
+    const tenant = await this.directory.findById(tenantId);
+    if (!tenant) return undefined;
+    const limit = resolveTenantFeatureParam(JOB_MAX_CONCURRENCY_PARAM, tenant.featureParams);
+    if ((await this.store.activeAhead(tenantId, jobId)) < limit) return undefined;
+    const delay = TENANT_BUSY_DELAY_SECONDS + Math.random() * TENANT_BUSY_JITTER_SECONDS;
+    const result = await this.store.requeue(type.name, jobId, delay);
+    this.logger.debug({ job: type.name, id: jobId, tenantId, limit, result }, '租戶同時執行數已滿');
+    // 放回成功時 pg-boss 的完成是空操作，這個值不會被存下；放不回去時它就是這一筆的 output
+    return { skipped: 'TENANT_CONCURRENCY', result };
   }
 
   private async ensureQueue(type: JobType<object>): Promise<void> {

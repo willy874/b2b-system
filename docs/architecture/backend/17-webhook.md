@@ -1,16 +1,17 @@
 # 17 — Webhook
 
 事件發生時以 HTTP POST 通知外部系統（CI、聊天工具、客戶自己的服務）。決定與理由見 [ADR-0030](../../adr/0030-webhooks.md)；
+一個訂閱多個目標網址與租戶的網址數上限見 [ADR-0033](../../adr/0033-feature-params-and-webhook-targets.md) D11～D16；
 接收端回查細節用的 API token 與對外 API 見 [`../06-external-api.md`](../06-external-api.md)。
 
 ```
 擁有者模組（user／approval／file）
   └─ 業務交易內：audit.record → webhooks.emit(EVENT, data, tx)
-                                   ├─ 查訂閱這個事件的 active 訂閱（webhook_subscriptions）
+                                   ├─ 查訂閱這個事件的 active 訂閱的每個網址（webhook_targets）
                                    ├─ 寫一筆 webhook_events
-                                   └─ 每個訂閱 JobQueue.enqueue(webhook.deliver, { subscriptionId, eventId }, { tx })  ← job_outbox
+                                   └─ 每個網址 JobQueue.enqueue(webhook.deliver, { subscriptionId, eventId, targetId }, { tx })  ← job_outbox
 提交後 → pg-boss → webhook.deliver（worker）
-  └─ 簽章 → 連線時綁定已驗證的位址 → POST → 寫 webhook_deliveries → 成功歸零／失敗加一（到門檻停用）→ 失敗就拋出讓 pg-boss 重試
+  └─ 簽章 → 連線時綁定已驗證的位址 → POST 到那個網址 → 寫 webhook_deliveries → 這個網址成功歸零／失敗加一（到門檻停用整個訂閱）→ 失敗就拋出讓 pg-boss 重試
 ```
 
 ---
@@ -37,16 +38,26 @@
 
 ---
 
-## 2. 資料表（租戶 DB，migration `0024_webhooks`）
+## 2. 資料表（租戶 DB，migration `0024_webhooks`、`0033_webhook_targets`）
 
 | 表 | 欄位 | 說明 |
 | --- | --- | --- |
-| `webhook_subscriptions` | `name`、`url`、`events text[]`、`status`（`active`／`disabled`）、`disabled_reason`（`manual`／`failing`）、`secret_encrypted`、`consecutive_failures`、`last_delivery_at`、`version`、`created_by`／`updated_by`（→ `users` `SET NULL`）、時間 | 硬刪除、不進回收桶（D7）。部分 GIN 索引 `(events) WHERE status = 'active'` 給 `emit()` |
+| `webhook_subscriptions` | `name`、`events text[]`、`status`（`active`／`disabled`）、`disabled_reason`（`manual`／`failing`）、`secret_encrypted`、`last_delivery_at`、`version`、`created_by`／`updated_by`（→ `users` `SET NULL`）、時間 | 硬刪除、不進回收桶（D7）。部分 GIN 索引 `(events) WHERE status = 'active'` 給 `emit()`。`url`（可為 null）與 `consecutive_failures` 已由 `webhook_targets` 取代：`url` 為升版期間的舊程式碼雙寫第一個網址，兩欄都在下一次部署刪除 |
+| `webhook_targets` | `subscription_id`（CASCADE）、`url`、`position`、`consecutive_failures`、`last_delivery_at`、`created_at`；`unique(subscription_id, url)` | 一個訂閱 1～10 個網址（ADR-0033 D12）。修改網址時沒變的列保留（id 與失敗次數不變），移除的刪掉 |
 | `webhook_events` | `type`、`version`、`data jsonb`、`occurred_at` | 只在有訂閱時寫；`data` 只有 id 與列舉值（D3） |
-| `webhook_deliveries` | `subscription_id`（CASCADE）、`event_id`（CASCADE）、`attempt`、`trigger`（`auto`／`manual`）、`succeeded`、`response_status`、`duration_ms`、`response_body`（前 1 KB）、`error`、`created_at` | 每一次嘗試一列；索引 `(subscription_id, created_at desc, id)` |
+| `webhook_deliveries` | `subscription_id`（CASCADE）、`event_id`（CASCADE）、`target_id`（→ `webhook_targets` `SET NULL`）、`url`（送出的網址快照）、`attempt`、`trigger`（`auto`／`manual`）、`succeeded`、`response_status`、`duration_ms`、`response_body`（前 1 KB）、`error`、`created_at` | 每一次嘗試一列；索引 `(subscription_id, created_at desc, id)`、`(target_id)`。網址被移除後紀錄保留，`target_id` 是 null |
 
 - 訂閱的 `events` 存名稱：程式移除某個事件之後，讀取時濾掉（`toDto`），不讓請求失敗。
+- `attempt` 是「這個事件對這個網址」的第幾次（以 `target_id` 計）。
 - 密鑰以 `SecretBox`（AES-256-GCM）加密，主金鑰 `WEBHOOK_SECRET_KEY`；沒設定時（僅開發）由 `JWT_SECRET` 以 HKDF 推導，production 沒設定就不能啟動。
+
+### 2.1 網址數上限（ADR-0033 D11）
+
+整個租戶的訂閱裡 **不重複** 的網址數不能超過 feature 參數 `webhook.maxUrls`（預設 1，平台管理者設定；[`../05-tenancy.md`](../05-tenancy.md) §5.3）。
+建立與修改網址時先 `LOCK TABLE webhook_subscriptions IN SHARE ROW EXCLUSIVE MODE`（所有改變網址的寫入都經過這裡），
+再以「其他訂閱的網址 ∪ 這次的網址」計算：超過上限 **而且比變更前多** 才回 `409 WEBHOOK_URL_LIMIT_REACHED`（`details.max`）。
+已經超過上限的租戶（升版前就有多個訂閱）仍能修改、刪除、減少網址；不同訂閱用同一個網址只算一次。
+另外仍有一個租戶最多 50 個訂閱的固定上限（`WEBHOOK_LIMIT_REACHED`）。
 
 ---
 
@@ -100,18 +111,19 @@
 
 | 項目 | 內容 |
 | --- | --- |
-| 工作 | `webhook.deliver`（`scope: 'tenant'`、並行 10、一次最多 60 秒）：`retryLimit` 8、60 秒起指數退避、最多 1 小時（合計約 4 小時） |
-| 略過 | 租戶關掉 `webhook`、訂閱已刪除或停用、事件已被清理：回 `{ skipped }`，不重試 |
-| 成功 | 2xx。寫一筆 `succeeded = true`，`consecutive_failures` 歸零、更新 `last_delivery_at` |
-| 失敗 | 其他狀態碼（含 3xx，不跟隨轉址）、逾時（10 秒）、連線失敗、被擋下。寫一筆 `succeeded = false`（沒收到回應時 `error` 是 `TIMEOUT`、`BLOCKED`、`ECONNREFUSED`…），`consecutive_failures` 加一，拋出 `WebhookDeliveryFailedError` 讓 pg-boss 重試 |
-| 自動停用 | 失敗次數到 **50**（`WEBHOOK_AUTO_DISABLE_AFTER_FAILURES`）而且仍是 `active`：同一條 UPDATE 改成 `disabled`／`failing`、`version` 加一；同一個交易寫稽核 `webhook.autoDisable`（沒有操作者）並通知當下持有 `webhook:update` 的人（`webhook.disabled`，連到 `webhook.detail`）。這一次不拋出，之後的重試看到停用就略過 |
+| 工作 | `webhook.deliver`（`scope: 'tenant'`、並行 10、一次最多 60 秒）：`retryLimit` 8、60 秒起指數退避、最多 1 小時（合計約 4 小時）。資料 `{ subscriptionId, eventId, targetId }`；升版前入列、沒有 `targetId` 的送到訂閱的第一個網址 |
+| 略過 | 租戶關掉 `webhook`、訂閱已刪除或停用、網址已被移除、事件已被清理：回 `{ skipped }`，不重試 |
+| 成功 | 2xx。寫一筆 `succeeded = true`，這個網址的 `consecutive_failures` 歸零，網址與訂閱的 `last_delivery_at` 更新 |
+| 失敗 | 其他狀態碼（含 3xx，不跟隨轉址）、逾時（10 秒）、連線失敗、被擋下。寫一筆 `succeeded = false`（沒收到回應時 `error` 是 `TIMEOUT`、`BLOCKED`、`ECONNREFUSED`…），這個網址的 `consecutive_failures` 加一，拋出 `WebhookDeliveryFailedError` 讓 pg-boss 重試 |
+| 自動停用 | 任何一個網址的失敗次數到 **50**（`WEBHOOK_AUTO_DISABLE_AFTER_FAILURES`）而且訂閱仍是 `active`：以 `status = 'active'` 為條件把訂閱改成 `disabled`／`failing`、`version` 加一（並行的失敗只有一個改得到）；同一個交易寫稽核 `webhook.autoDisable`（沒有操作者，`metadata` 帶網址）並通知當下持有 `webhook:update` 的人（`webhook.disabled`，`params` 帶網址，連到 `webhook.detail`）。這一次不拋出，之後的重試看到停用就略過。重新啟用時所有網址歸零（ADR-0033 D15） |
 | 工作的 `output` | `{ deliveryId, attempt, succeeded, responseStatus }`，不放 payload、網址與回應（`job:read` 的人看得到） |
 | 推播 | 每一次嘗試推 `webhookDelivery create`（`refs.webhook`）；自動停用另推 `webhook update` |
 
 **手動送出**（同步，在請求裡送、回傳這一次的投遞紀錄，D17）：
 
-- `POST /webhooks/:id/test`：寫一筆 `webhook.ping` 事件後送出。
-- `POST /webhooks/:id/deliveries/:deliveryId/redeliver`：送那一筆紀錄的事件（事件 id 不變），`attempt` 接續。
+- `POST /webhooks/:id/test`：寫一筆 `webhook.ping` 事件後同時送到 **每個網址**，回傳 `{ items: 投遞紀錄[] }`。
+- `POST /webhooks/:id/deliveries/:deliveryId/redeliver`：把那一筆紀錄的事件（事件 id 不變）送到 **同一個網址**，`attempt` 接續；
+  網址已從訂閱移除回 `404 WEBHOOK_DELIVERY_NOT_FOUND`。
 - 訂閱停用中回 `409 WEBHOOK_DISABLED`。手動的成功一樣讓失敗次數歸零；手動的失敗 **不** 計入門檻。
 
 **保留**：`webhook.cleanup`（`WEBHOOK_CLEANUP_CRON`，預設 `15 5 * * *`）每批 1000 筆刪除超過 30 天的 `webhook_events`，投遞紀錄隨之 CASCADE；
@@ -142,18 +154,18 @@
 
 | 方法 | 路徑 | 權限 | 說明 |
 | --- | --- | --- | --- |
-| GET | `/webhooks?offset=&limit=&keyword=&status=` | `webhook:read` | 列表（新的在前；`keyword` 比對名稱與網址） |
+| GET | `/webhooks?offset=&limit=&keyword=&status=` | `webhook:read` | 列表（新的在前；`keyword` 比對名稱與任一網址）；每一筆帶 `targets`（網址、連續失敗、最後投遞），`consecutiveFailures` 是各網址的最大值 |
 | GET | `/webhooks/events` | `webhook:read` | 可訂閱的事件：可訂閱、所屬 feature 已啟用 |
-| POST | `/webhooks` | `webhook:create` | `{ name, url, events }` → `{ secret, webhook }`；`secret` 只出現這一次。一個租戶最多 50 個 |
+| POST | `/webhooks` | `webhook:create` | `{ name, urls, events }` → `{ secret, webhook }`；`secret` 只出現這一次。`urls` 1～10 個、不重複；一個租戶最多 50 個訂閱、網址數受 §2.1 限制 |
 | GET | `/webhooks/:id` | `webhook:read` | |
-| PATCH | `/webhooks/:id` | `webhook:update` | `{ name?, url?, events?, status?, version }`；啟用時失敗次數歸零、停用原因清空；停用記為 `manual` |
+| PATCH | `/webhooks/:id` | `webhook:update` | `{ name?, urls?, events?, status?, version }`；`urls` 是完整清單；啟用時所有網址的失敗次數歸零、停用原因清空；停用記為 `manual` |
 | DELETE | `/webhooks/:id` | `webhook:delete` | 硬刪除，投遞紀錄一併刪除 |
 | POST | `/webhooks/:id/rotate-secret` | `webhook:update` | → `{ secret, webhook }`；舊的立即失效，不遞增 `version` |
-| POST | `/webhooks/:id/test` | `webhook:update` | 同步送出 `webhook.ping`，回傳投遞紀錄 |
-| GET | `/webhooks/:id/deliveries?offset=&limit=&succeeded=` | `webhook:read` | 投遞紀錄（新的在前），帶事件的 `type`、`data`、`occurredAt` |
+| POST | `/webhooks/:id/test` | `webhook:update` | 同步送出 `webhook.ping` 到每個網址，回傳 `WebhookTestResult`（`{ items }`） |
+| GET | `/webhooks/:id/deliveries?offset=&limit=&succeeded=&targetId=` | `webhook:read` | 投遞紀錄（新的在前），帶事件的 `type`、`data`、`occurredAt` 與送出的 `targetId`、`url` |
 | POST | `/webhooks/:id/deliveries/:deliveryId/redeliver` | `webhook:update` | 同步重送，回傳投遞紀錄 |
 
-稽核：`webhook.create`、`webhook.update`（`diff` 名稱、網址、事件、狀態）、`webhook.delete`、`webhook.rotateSecret`（不含密鑰）、`webhook.autoDisable`。投遞與手動送出不寫稽核，有自己的紀錄。
+稽核：`webhook.create`、`webhook.update`（`diff` 名稱、網址清單 `urls`、事件、狀態）、`webhook.delete`、`webhook.rotateSecret`（不含密鑰）、`webhook.autoDisable`。投遞與手動送出不寫稽核，有自己的紀錄。
 
 ### 6.1 錯誤碼
 
@@ -165,7 +177,8 @@
 | `WEBHOOK_EVENT_UNKNOWN` | 400 | 訂閱了沒有登記或不能訂閱的事件（`details.events`） |
 | `WEBHOOK_DISABLED` | 409 | 停用中送測試事件或重送 |
 | `WEBHOOK_LIMIT_REACHED` | 409 | 已有 50 個訂閱（`details.max`）；建立時先鎖表再數 |
-| `WEBHOOK_DELIVERY_NOT_FOUND` | 404 | 重送的紀錄不屬於這個訂閱，或事件已被清理 |
+| `WEBHOOK_URL_LIMIT_REACHED` | 409 | 不重複的網址數會超過 `webhook.maxUrls` 而且比變更前多（`details.max`；§2.1） |
+| `WEBHOOK_DELIVERY_NOT_FOUND` | 404 | 重送的紀錄不屬於這個訂閱、網址已從訂閱移除，或事件已被清理 |
 
 ---
 
@@ -175,9 +188,9 @@
 
 | 路由 | 頁面 | Page Key |
 | --- | --- | --- |
-| `/webhook` | 列表（名稱、網址、狀態、事件數、連續失敗、最後投遞；刪除） | `WEBHOOK`（`webhook:read`） |
-| `/webhook/create` | 建立對話框：名稱、網址、事件（多選）；成功後同一個對話框顯示密鑰與驗簽說明 | `WEBHOOK_CREATE` |
-| `/webhook/$webhookId` | 詳情對話框：設定（編輯、停用／啟用、輪替密鑰、送測試事件）、投遞紀錄（成功／失敗篩選、檢視內容與回應、重送） | 沿用 `WEBHOOK` |
+| `/webhook` | 列表（名稱、第一個網址與「+N」、狀態、事件數、連續失敗、最後投遞；刪除） | `WEBHOOK`（`webhook:read`） |
+| `/webhook/create` | 建立對話框：名稱、網址（`WebhookUrlsInput`，1～10 列，空白列不送出）、事件（多選）；成功後同一個對話框顯示密鑰與驗簽說明 | `WEBHOOK_CREATE` |
+| `/webhook/$webhookId` | 詳情對話框：設定（每個網址與它的連續失敗；編輯、停用／啟用、輪替密鑰、送測試事件——多個網址時提示幾個成功、幾個失敗）、投遞紀錄（網址欄、依網址與成功／失敗篩選、檢視內容與回應、重送） | 沿用 `WEBHOOK` |
 
 - route id `webhook.detail`（`webhookId`）在 plugin 的同步階段登記：`webhook.disabled` 的通知連到詳情。
 - 依賴圖（`apis/resources.ts`）：`webhook` 的 entity 含詳情與該訂閱的投遞紀錄（`[WEBHOOK_DELIVERIES_QUERY_KEY, webhookId]`）；
@@ -190,8 +203,9 @@
 
 | 對象 | 檔案 |
 | --- | --- |
+| 多個網址：每個網址各送一次、依網址篩選、移除網址後紀錄保留快照；網址數上限（同一個網址不另外計數） | `test/webhooks.spec.ts` |
 | 建立（密鑰只在回應、資料庫是密文、稽核不含密鑰）、未登記的事件、auditor 只能讀；建立使用者 → 真的投遞到本機接收端（簽章、payload 只有 id、紀錄）；500 記失敗與失敗次數；`user.statusChanged` 的前後狀態與只送給有訂閱的；送測試事件、重送（事件 id 不變、attempt 接續）、輪替後用新密鑰；樂觀鎖、停用後不能送也不入列；到門檻自動停用（稽核、通知）；硬刪除 CASCADE | `test/webhooks.spec.ts` |
-| `emit`（同一個交易、沒有訂閱不寫、feature 關閉、未登記拋錯）、可訂閱清單、建立／更新／輪替／刪除、各錯誤碼 | `src/modules/webhook/__tests__/webhook.service.spec.ts` |
+| `emit`（同一個交易、每個網址一筆、沒有訂閱不寫、feature 關閉、未登記拋錯）、可訂閱清單、建立／更新／輪替／刪除、網址數上限（只擋變多）、測試送到每個網址、重送到同一個網址、各錯誤碼 | `src/modules/webhook/__tests__/webhook.service.spec.ts` |
 | 信封與簽章、成功／失敗／沒有回應、到門檻停用（稽核、通知、不拋出）、略過的情況、手動不計入門檻、清理分批 | `src/modules/webhook/__tests__/webhook-delivery.service.spec.ts` |
 | 網址檢查（production 與開發）、密鑰加解密、簽章的已知值、事件名稱格式、目錄 | `src/modules/webhook/__tests__/webhook.transport.spec.ts` |
 | 位址檢查、`pinnedLookup`、`sendOutboundRequest`（綁定、字面 IP、逾時、不跟隨轉址、回應截斷） | `src/core/http/__tests__/outbound.spec.ts` |

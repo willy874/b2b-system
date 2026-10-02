@@ -6,7 +6,7 @@ import type { Database } from '@/core/database';
 import type { DomainEventBus } from '@/core/events';
 import { runInTenantContext } from '@/core/tenant';
 import type { TenantContext, TenantFeature } from '@/core/tenant';
-import type { WebhookEventRow } from '@/db/schema';
+import type { WebhookEventRow, WebhookTargetRow } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { NotificationService } from '@/modules/notification/notification.service';
 import type { PermissionService } from '@/modules/permission/permission.service';
@@ -17,6 +17,19 @@ import type { WebhookRepository, WebhookSubscriptionWithCreator } from '../webho
 import type { WebhookSendResult, WebhookTransport } from '../webhook.transport';
 
 const SECRET = 'whsec_test';
+
+function target(overrides: Partial<WebhookTargetRow> = {}): WebhookTargetRow {
+  return {
+    id: 'tg-1',
+    subscriptionId: 'wh-1',
+    url: 'https://hooks.example.com/b2b',
+    position: 0,
+    consecutiveFailures: 0,
+    lastDeliveryAt: null,
+    createdAt: new Date(),
+    ...overrides,
+  };
+}
 
 function subscription(
   overrides: Partial<WebhookSubscriptionWithCreator> = {},
@@ -37,6 +50,7 @@ function subscription(
     updatedAt: new Date(),
     updatedBy: null,
     creator: null,
+    targets: [target()],
     ...overrides,
   };
 }
@@ -73,7 +87,10 @@ function setup(sendResult: WebhookSendResult = received(200)) {
   };
   const transport = {
     decryptSecret: vi.fn(() => SECRET),
-    send: vi.fn(async (): Promise<WebhookSendResult> => sendResult),
+    send: vi.fn(
+      async (_url: string, _headers: object, _body: string): Promise<WebhookSendResult> =>
+        sendResult,
+    ),
   };
   const audit = { record: vi.fn(async () => undefined) };
   const notifications = { notify: vi.fn(async () => []) };
@@ -88,14 +105,26 @@ function setup(sendResult: WebhookSendResult = received(200)) {
     permissions as unknown as PermissionService,
     events as unknown as DomainEventBus,
   );
-  return { service, repo, transport, audit, notifications, permissions, events, tx };
+  const countAttemptsTarget = () =>
+    (repo.countAttempts.mock.calls[0] as unknown[] | undefined)?.[0];
+  return {
+    service,
+    repo,
+    transport,
+    audit,
+    notifications,
+    permissions,
+    events,
+    tx,
+    countAttemptsTarget,
+  };
 }
 
 function inTenant<T>(fn: () => Promise<T>, features: TenantFeature[] = ['webhook']) {
   return runInTenantContext({ id: 't1', code: 'acme', features } as unknown as TenantContext, fn);
 }
 
-const JOB = { subscriptionId: 'wh-1', eventId: 'ev-1' };
+const JOB = { subscriptionId: 'wh-1', eventId: 'ev-1', targetId: 'tg-1' };
 
 describe('WebhookDeliveryService.deliver（docs/adr/0030-webhooks.md D11～D13）', () => {
   it('送出信封與簽章：簽的是「時間戳.body」，事件 id 當作 X-Webhook-Id', async () => {
@@ -136,10 +165,12 @@ describe('WebhookDeliveryService.deliver（docs/adr/0030-webhooks.md D11～D13�
         trigger: 'auto',
         succeeded: true,
         responseStatus: 204,
+        targetId: 'tg-1',
+        url: 'https://hooks.example.com/b2b',
       }),
       ctx.tx,
     );
-    expect(ctx.repo.recordSuccess).toHaveBeenCalledWith('wh-1', expect.any(Date), ctx.tx);
+    expect(ctx.repo.recordSuccess).toHaveBeenCalledWith('wh-1', 'tg-1', expect.any(Date), ctx.tx);
     expect(ctx.events.publish).toHaveBeenCalledWith('resource.changed', {
       changes: [
         { resource: 'webhookDelivery', kind: 'create', id: 'del-1', refs: { webhook: ['wh-1'] } },
@@ -157,8 +188,10 @@ describe('WebhookDeliveryService.deliver（docs/adr/0030-webhooks.md D11～D13�
       expect.objectContaining({ attempt: 3, succeeded: false, responseStatus: 302 }),
       ctx.tx,
     );
+    expect(ctx.countAttemptsTarget()).toBe('tg-1');
     expect(ctx.repo.recordFailure).toHaveBeenCalledWith(
       'wh-1',
+      'tg-1',
       expect.any(Date),
       WEBHOOK_AUTO_DISABLE_AFTER_FAILURES,
       ctx.tx,
@@ -177,7 +210,9 @@ describe('WebhookDeliveryService.deliver（docs/adr/0030-webhooks.md D11～D13�
   it('這次失敗讓它到達門檻：停用、寫稽核、通知持有 webhook:update 的人，不再拋出（D13）', async () => {
     const ctx = setup(received(500));
     ctx.repo.findById.mockResolvedValue(
-      subscription({ consecutiveFailures: WEBHOOK_AUTO_DISABLE_AFTER_FAILURES - 1 }),
+      subscription({
+        targets: [target({ consecutiveFailures: WEBHOOK_AUTO_DISABLE_AFTER_FAILURES - 1 })],
+      }),
     );
     ctx.repo.recordFailure.mockResolvedValue({
       consecutiveFailures: WEBHOOK_AUTO_DISABLE_AFTER_FAILURES,
@@ -197,7 +232,11 @@ describe('WebhookDeliveryService.deliver（docs/adr/0030-webhooks.md D11～D13�
           type: 'webhook.disabled',
           recipientId: 'admin-1',
           actorId: null,
-          params: { webhookName: 'CI', consecutiveFailures: WEBHOOK_AUTO_DISABLE_AFTER_FAILURES },
+          params: {
+            webhookName: 'CI',
+            consecutiveFailures: WEBHOOK_AUTO_DISABLE_AFTER_FAILURES,
+            url: 'https://hooks.example.com/b2b',
+          },
           link: { route: 'webhook.detail', params: { webhookId: 'wh-1' } },
         },
       ],
@@ -218,6 +257,7 @@ describe('WebhookDeliveryService.deliver（docs/adr/0030-webhooks.md D11～D13�
   it.each([
     ['訂閱已刪除', { subscription: undefined }, 'inactive'],
     ['訂閱已停用', { subscription: subscription({ status: 'disabled' }) }, 'inactive'],
+    ['網址已從訂閱移除', { subscription: subscription({ targets: [] }) }, 'targetRemoved'],
     ['事件已被清理', { event: undefined }, 'eventExpired'],
   ])('%s：略過、不送出、不重試', async (_name, state, skipped) => {
     const ctx = setup();
@@ -236,10 +276,31 @@ describe('WebhookDeliveryService.deliver（docs/adr/0030-webhooks.md D11～D13�
   });
 });
 
+describe('WebhookDeliveryService.deliver：多個目標網址（docs/adr/0033-feature-params-and-webhook-targets.md D14）', () => {
+  it('送到工作指定的網址', async () => {
+    const ctx = setup();
+    ctx.repo.findById.mockResolvedValue(
+      subscription({
+        targets: [target(), target({ id: 'tg-2', url: 'https://second.example.com/hook' })],
+      }),
+    );
+    await inTenant(() => ctx.service.deliver({ ...JOB, targetId: 'tg-2' }));
+    expect(ctx.transport.send.mock.calls[0]?.[0]).toBe('https://second.example.com/hook');
+  });
+
+  it('升版前入列、沒有 targetId 的工作送到第一個網址', async () => {
+    const ctx = setup();
+    await inTenant(() => ctx.service.deliver({ subscriptionId: 'wh-1', eventId: 'ev-1' }));
+    expect(ctx.transport.send.mock.calls[0]?.[0]).toBe('https://hooks.example.com/b2b');
+  });
+});
+
 describe('WebhookDeliveryService.attempt（手動，D17）', () => {
   it('手動的失敗不計入自動停用的門檻', async () => {
     const ctx = setup(received(500));
-    const delivery = await inTenant(() => ctx.service.attempt(subscription(), EVENT, 'manual'));
+    const delivery = await inTenant(() =>
+      ctx.service.attempt(subscription(), target(), EVENT, 'manual'),
+    );
     expect(delivery).toMatchObject({ trigger: 'manual', succeeded: false });
     expect(ctx.repo.recordFailure).not.toHaveBeenCalled();
     expect(ctx.repo.recordSuccess).not.toHaveBeenCalled();
@@ -247,7 +308,7 @@ describe('WebhookDeliveryService.attempt（手動，D17）', () => {
 
   it('手動的成功一樣讓失敗次數歸零', async () => {
     const ctx = setup(received(200));
-    await inTenant(() => ctx.service.attempt(subscription(), EVENT, 'manual'));
+    await inTenant(() => ctx.service.attempt(subscription(), target(), EVENT, 'manual'));
     expect(ctx.repo.recordSuccess).toHaveBeenCalled();
   });
 });

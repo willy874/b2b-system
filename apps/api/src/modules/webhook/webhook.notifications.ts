@@ -11,6 +11,8 @@ import type {
 export type WebhookDisabledParams = {
   webhookName: string;
   consecutiveFailures: number;
+  /** 到達門檻的網址（ADR-0033 D15）；升版前寫入的通知沒有。 */
+  url?: string;
 };
 
 export const WEBHOOK_DISABLED_NOTIFICATION = defineNotification<WebhookDisabledParams>(

@@ -7,7 +7,11 @@ import { IDP_SECRET_PURPOSE, SecretBox } from '@/core/crypto';
 import type { Database, DbOrTx, Transaction } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException, constraintNameOf, isUniqueViolation } from '@/core/errors';
-import { requireTenant } from '@/core/tenant';
+import {
+  IDENTITY_PROVIDER_MAX_PROVIDERS_PARAM,
+  requireTenant,
+  tenantFeatureParam,
+} from '@/core/tenant';
 import type { IdentityProviderRow, UserIdentityRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 
@@ -98,6 +102,10 @@ export class IdentityProviderService {
 
   async create(dto: CreateIdentityProviderDto, actor: AuthUser): Promise<IdentityProviderDto> {
     const id = await this.write(async (tx) => {
+      const max = tenantFeatureParam(IDENTITY_PROVIDER_MAX_PROVIDERS_PARAM);
+      if ((await this.repo.lockAndCount(tx)) >= max) {
+        throw new AppException('IDENTITY_PROVIDER_LIMIT_REACHED', { max });
+      }
       const row = await this.repo.create(
         {
           name: dto.name,

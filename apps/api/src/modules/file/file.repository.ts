@@ -192,6 +192,19 @@ export class FileRepository {
     };
   }
 
+  /**
+   * 所有檔案（含上傳中與回收桶裡的）的大小合計，位元組（docs/adr/0033-feature-params-and-webhook-targets.md D8）。
+   * 給了 `tx` 時先取 advisory lock：同時登記的上傳排隊加總，不會一起超過容量。
+   */
+  async storageUsed(tx?: DbOrTx): Promise<number> {
+    const db = tx ?? this.db;
+    if (tx) await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('files:storage_quota'))`);
+    const [row] = await db
+      .select({ used: sql<string>`coalesce(sum(${files.size}), 0)::text` })
+      .from(files);
+    return Number(row?.used ?? 0);
+  }
+
   async create(values: FileInsert, tx?: DbOrTx): Promise<FileRow> {
     const db = tx ?? this.db;
     const [row] = await db.insert(files).values(values).returning();

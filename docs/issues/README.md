@@ -17,6 +17,7 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
+| 低 | Webhook 訂閱的 `url`、`consecutive_failures` 已由 `webhook_targets` 取代，下一次部署刪除 | [`webhook-legacy-columns.md`](./webhook-legacy-columns.md) | 2026-10-02（ADR-0033） |
 
 嚴重度：
 

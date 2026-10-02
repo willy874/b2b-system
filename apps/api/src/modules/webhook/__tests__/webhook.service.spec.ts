@@ -7,6 +7,7 @@ import type { DomainEventBus } from '@/core/events';
 import type { JobQueue } from '@/core/jobs';
 import { runInTenantContext } from '@/core/tenant';
 import type { TenantContext, TenantFeature } from '@/core/tenant';
+import type { WebhookTargetRow } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 
 import type { WebhookDeliveryService } from '../webhook-delivery.service';
@@ -23,6 +24,19 @@ const FILE_UPLOADED = defineWebhookEvent<{ fileId: string }>('file.uploaded', {
   version: 2,
   feature: 'file',
 });
+
+function target(overrides: Partial<WebhookTargetRow> = {}): WebhookTargetRow {
+  return {
+    id: 'tg-1',
+    subscriptionId: 'wh-1',
+    url: 'https://hooks.example.com/b2b',
+    position: 0,
+    consecutiveFailures: 0,
+    lastDeliveryAt: null,
+    createdAt: new Date('2026-10-01T00:00:00Z'),
+    ...overrides,
+  };
+}
 
 function subscription(
   overrides: Partial<WebhookSubscriptionWithCreator> = {},
@@ -43,6 +57,7 @@ function subscription(
     updatedAt: new Date('2026-10-01T00:00:00Z'),
     updatedBy: ACTOR.id,
     creator: { id: ACTOR.id, displayName: 'Admin' },
+    targets: [target()],
     ...overrides,
   };
 }
@@ -51,7 +66,9 @@ function setup() {
   const tx = { tx: true };
   const db = { transaction: vi.fn(async (fn: (t: unknown) => unknown) => fn(tx)) };
   const repo = {
-    findActiveIdsByEvent: vi.fn(async (): Promise<string[]> => []),
+    findActiveTargetsByEvent: vi.fn(
+      async (): Promise<Array<{ subscriptionId: string; targetId: string }>> => [],
+    ),
     insertEvent: vi.fn(async () => ({
       id: 'ev-1',
       type: 'user.created',
@@ -64,16 +81,38 @@ function setup() {
     ),
     lockForCount: vi.fn(async () => undefined),
     countAll: vi.fn(async () => 0),
+    distinctUrls: vi.fn(async (_tx: unknown, _exclude?: string): Promise<string[]> => []),
+    replaceTargets: vi.fn(async () => undefined),
+    resetTargetFailures: vi.fn(async () => undefined),
     create: vi.fn(async (values: object) => ({ ...subscription(), ...values })),
     update: vi.fn(async (_id: string, values: object) => ({ ...subscription(), ...values })),
     replaceSecret: vi.fn(async () => subscription()),
     delete: vi.fn(async () => true),
-    findDelivery: vi.fn(async () => undefined as { eventId: string } | undefined),
+    findDelivery: vi.fn(
+      async () => undefined as { eventId: string; targetId: string | null } | undefined,
+    ),
     findEvent: vi.fn(async () => undefined as object | undefined),
   };
   const catalog = new WebhookEventCatalog();
   catalog.register([USER_CREATED, FILE_UPLOADED, WEBHOOK_PING_EVENT]);
-  const deliveries = { attempt: vi.fn() };
+  const deliveries = {
+    attempt: vi.fn(async (_subscription: unknown, item: WebhookTargetRow) => ({
+      id: `del-${item.id}`,
+      eventId: 'ev-1',
+      targetId: item.id,
+      url: item.url,
+      attempt: 1,
+      trigger: 'manual',
+      succeeded: true,
+      responseStatus: 200,
+      durationMs: 1,
+      responseBody: 'ok',
+      error: null,
+      createdAt: new Date(),
+      event: { type: 'webhook.ping', data: {}, occurredAt: new Date() },
+      disabledSubscription: false,
+    })),
+  };
   const transport = {
     normalizeUrl: vi.fn(async (url: string) => new URL(url).href),
     encryptSecret: vi.fn((secret: string) => `sealed(${secret})`),
@@ -94,8 +133,15 @@ function setup() {
   return { service, repo, deliveries, transport, jobs, audit, events, tx };
 }
 
-function inTenant<T>(fn: () => Promise<T>, features: TenantFeature[] = ['webhook', 'file']) {
-  return runInTenantContext({ id: 't1', code: 'acme', features } as unknown as TenantContext, fn);
+function inTenant<T>(
+  fn: () => Promise<T>,
+  features: TenantFeature[] = ['webhook', 'file'],
+  featureParams: Record<string, number> = {},
+) {
+  return runInTenantContext(
+    { id: 't1', code: 'acme', features, featureParams } as unknown as TenantContext,
+    fn,
+  );
 }
 
 async function expectCode(promise: Promise<unknown>, code: string, details?: object) {
@@ -109,12 +155,15 @@ async function expectCode(promise: Promise<unknown>, code: string, details?: obj
 }
 
 describe('WebhookService.emit（docs/adr/0030-webhooks.md D9）', () => {
-  it('有訂閱：在同一個交易內寫一筆事件，每個訂閱入列一筆投遞工作', async () => {
+  it('有訂閱：在同一個交易內寫一筆事件，每個訂閱的每個網址入列一筆投遞工作（ADR-0033 D14）', async () => {
     const ctx = setup();
-    ctx.repo.findActiveIdsByEvent.mockResolvedValue(['wh-1', 'wh-2']);
+    ctx.repo.findActiveTargetsByEvent.mockResolvedValue([
+      { subscriptionId: 'wh-1', targetId: 'tg-1' },
+      { subscriptionId: 'wh-2', targetId: 'tg-2' },
+    ]);
     await inTenant(() => ctx.service.emit(USER_CREATED, { userId: 'u1' }, ctx.tx as never));
 
-    expect(ctx.repo.findActiveIdsByEvent).toHaveBeenCalledWith('user.created', ctx.tx);
+    expect(ctx.repo.findActiveTargetsByEvent).toHaveBeenCalledWith('user.created', ctx.tx);
     expect(ctx.repo.insertEvent).toHaveBeenCalledWith(
       { type: 'user.created', version: 1, data: { userId: 'u1' } },
       ctx.tx,
@@ -122,7 +171,7 @@ describe('WebhookService.emit（docs/adr/0030-webhooks.md D9）', () => {
     expect(ctx.jobs.enqueue).toHaveBeenCalledTimes(2);
     expect(ctx.jobs.enqueue).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'webhook.deliver' }),
-      { subscriptionId: 'wh-2', eventId: 'ev-1' },
+      { subscriptionId: 'wh-2', eventId: 'ev-1', targetId: 'tg-2' },
       { tx: ctx.tx },
     );
   });
@@ -136,9 +185,11 @@ describe('WebhookService.emit（docs/adr/0030-webhooks.md D9）', () => {
 
   it('租戶關掉了 webhook：連訂閱都不查（D8）', async () => {
     const ctx = setup();
-    ctx.repo.findActiveIdsByEvent.mockResolvedValue(['wh-1']);
+    ctx.repo.findActiveTargetsByEvent.mockResolvedValue([
+      { subscriptionId: 'wh-1', targetId: 'tg-1' },
+    ]);
     await inTenant(() => ctx.service.emit(USER_CREATED, { userId: 'u1' }, ctx.tx as never), []);
-    expect(ctx.repo.findActiveIdsByEvent).not.toHaveBeenCalled();
+    expect(ctx.repo.findActiveTargetsByEvent).not.toHaveBeenCalled();
     expect(ctx.jobs.enqueue).not.toHaveBeenCalled();
   });
 
@@ -169,9 +220,11 @@ describe('WebhookService.listEvents', () => {
 describe('WebhookService.create', () => {
   it('產生密鑰、加密存放、寫稽核；回應帶一次明文密鑰', async () => {
     const ctx = setup();
-    const result = await ctx.service.create(
-      { name: 'CI', url: 'https://hooks.example.com/b2b', events: ['user.created'] },
-      ACTOR,
+    const result = await inTenant(() =>
+      ctx.service.create(
+        { name: 'CI', urls: ['https://hooks.example.com/b2b'], events: ['user.created'] },
+        ACTOR,
+      ),
     );
     expect(result.secret).toMatch(/^whsec_[A-Za-z0-9_-]{43}$/);
     expect(ctx.repo.create).toHaveBeenCalledWith(
@@ -192,9 +245,11 @@ describe('WebhookService.create', () => {
   it('訂閱沒有登記或不能訂閱的事件 → WEBHOOK_EVENT_UNKNOWN', async () => {
     const ctx = setup();
     await expectCode(
-      ctx.service.create(
-        { name: 'CI', url: 'https://x.example.com', events: ['user.created', 'webhook.ping'] },
-        ACTOR,
+      inTenant(() =>
+        ctx.service.create(
+          { name: 'CI', urls: ['https://x.example.com'], events: ['user.created', 'webhook.ping'] },
+          ACTOR,
+        ),
       ),
       'WEBHOOK_EVENT_UNKNOWN',
       { events: ['webhook.ping'] },
@@ -208,7 +263,12 @@ describe('WebhookService.create', () => {
       new AppException('WEBHOOK_URL_NOT_ALLOWED', { reason: 'blocked' }),
     );
     await expectCode(
-      ctx.service.create({ name: 'CI', url: 'https://10.0.0.1', events: ['user.created'] }, ACTOR),
+      inTenant(() =>
+        ctx.service.create(
+          { name: 'CI', urls: ['https://10.0.0.1'], events: ['user.created'] },
+          ACTOR,
+        ),
+      ),
       'WEBHOOK_URL_NOT_ALLOWED',
     );
   });
@@ -217,9 +277,11 @@ describe('WebhookService.create', () => {
     const ctx = setup();
     ctx.repo.countAll.mockResolvedValue(WEBHOOK_MAX_SUBSCRIPTIONS);
     await expectCode(
-      ctx.service.create(
-        { name: 'CI', url: 'https://x.example.com', events: ['user.created'] },
-        ACTOR,
+      inTenant(() =>
+        ctx.service.create(
+          { name: 'CI', urls: ['https://x.example.com'], events: ['user.created'] },
+          ACTOR,
+        ),
       ),
       'WEBHOOK_LIMIT_REACHED',
       { max: WEBHOOK_MAX_SUBSCRIPTIONS },
@@ -232,7 +294,7 @@ describe('WebhookService.update', () => {
   it('版本不符 → WEBHOOK_VERSION_CONFLICT（帶目前版本）', async () => {
     const ctx = setup();
     await expectCode(
-      ctx.service.update('wh-1', { name: 'x', version: 2 }, ACTOR),
+      inTenant(() => ctx.service.update('wh-1', { name: 'x', version: 2 }, ACTOR)),
       'WEBHOOK_VERSION_CONFLICT',
       { current: 3 },
     );
@@ -243,13 +305,14 @@ describe('WebhookService.update', () => {
     ctx.repo.findById.mockResolvedValue(
       subscription({ status: 'disabled', disabledReason: 'failing', consecutiveFailures: 50 }),
     );
-    await ctx.service.update('wh-1', { status: 'active', version: 3 }, ACTOR);
+    await inTenant(() => ctx.service.update('wh-1', { status: 'active', version: 3 }, ACTOR));
     expect(ctx.repo.update).toHaveBeenCalledWith(
       'wh-1',
-      expect.objectContaining({ status: 'active', disabledReason: null, consecutiveFailures: 0 }),
+      expect.objectContaining({ status: 'active', disabledReason: null }),
       3,
       ctx.tx,
     );
+    expect(ctx.repo.resetTargetFailures).toHaveBeenCalledWith('wh-1', ctx.tx);
   });
 
   it('停用：原因記為 manual，寫稽核的狀態變化', async () => {
@@ -258,7 +321,7 @@ describe('WebhookService.update', () => {
       ...subscription(),
       ...values,
     }));
-    await ctx.service.update('wh-1', { status: 'disabled', version: 3 }, ACTOR);
+    await inTenant(() => ctx.service.update('wh-1', { status: 'disabled', version: 3 }, ACTOR));
     expect(ctx.repo.update).toHaveBeenCalledWith(
       'wh-1',
       expect.objectContaining({ status: 'disabled', disabledReason: 'manual' }),
@@ -281,7 +344,7 @@ describe('WebhookService.update', () => {
       .mockResolvedValueOnce(subscription())
       .mockResolvedValueOnce(subscription({ version: 4 }));
     await expectCode(
-      ctx.service.update('wh-1', { name: 'x', version: 3 }, ACTOR),
+      inTenant(() => ctx.service.update('wh-1', { name: 'x', version: 3 }, ACTOR)),
       'WEBHOOK_VERSION_CONFLICT',
       { current: 4 },
     );
@@ -323,15 +386,125 @@ describe('WebhookService：其他操作', () => {
   it('停用中不能送測試事件或重送 → WEBHOOK_DISABLED（D17）', async () => {
     const ctx = setup();
     ctx.repo.findById.mockResolvedValue(subscription({ status: 'disabled' }));
-    await expectCode(ctx.service.sendTest('wh-1'), 'WEBHOOK_DISABLED');
-    await expectCode(ctx.service.redeliver('wh-1', 'd1'), 'WEBHOOK_DISABLED');
+    await expectCode(
+      inTenant(() => ctx.service.sendTest('wh-1')),
+      'WEBHOOK_DISABLED',
+    );
+    await expectCode(
+      inTenant(() => ctx.service.redeliver('wh-1', 'd1')),
+      'WEBHOOK_DISABLED',
+    );
     expect(ctx.deliveries.attempt).not.toHaveBeenCalled();
   });
 
   it('重送的紀錄不存在或事件已被清理 → WEBHOOK_DELIVERY_NOT_FOUND', async () => {
     const ctx = setup();
-    await expectCode(ctx.service.redeliver('wh-1', 'd1'), 'WEBHOOK_DELIVERY_NOT_FOUND');
-    ctx.repo.findDelivery.mockResolvedValue({ eventId: 'ev-gone' });
-    await expectCode(ctx.service.redeliver('wh-1', 'd1'), 'WEBHOOK_DELIVERY_NOT_FOUND');
+    await expectCode(
+      inTenant(() => ctx.service.redeliver('wh-1', 'd1')),
+      'WEBHOOK_DELIVERY_NOT_FOUND',
+    );
+    ctx.repo.findDelivery.mockResolvedValue({ eventId: 'ev-gone', targetId: 'tg-1' });
+    await expectCode(
+      inTenant(() => ctx.service.redeliver('wh-1', 'd1')),
+      'WEBHOOK_DELIVERY_NOT_FOUND',
+    );
+  });
+});
+
+describe('WebhookService：多個目標網址（docs/adr/0033-feature-params-and-webhook-targets.md D11～D16）', () => {
+  const A = 'https://a.example.com/';
+  const B = 'https://b.example.com/';
+
+  it('建立：寫入每個網址、訂閱的 url 雙寫第一個', async () => {
+    const ctx = setup();
+    await inTenant(
+      () => ctx.service.create({ name: 'CI', urls: [A, B], events: ['user.created'] }, ACTOR),
+      undefined,
+      { 'webhook.maxUrls': 5 },
+    );
+    expect(ctx.repo.create).toHaveBeenCalledWith(expect.objectContaining({ url: A }), ctx.tx);
+    expect(ctx.repo.replaceTargets).toHaveBeenCalledWith('wh-1', [A, B], ctx.tx);
+  });
+
+  it('租戶不重複的網址數會超過 webhook.maxUrls → WEBHOOK_URL_LIMIT_REACHED（預設 1）', async () => {
+    const ctx = setup();
+    ctx.repo.distinctUrls.mockResolvedValue([A]);
+    await expectCode(
+      inTenant(() =>
+        ctx.service.create({ name: 'CI', urls: [B], events: ['user.created'] }, ACTOR),
+      ),
+      'WEBHOOK_URL_LIMIT_REACHED',
+      { max: 1 },
+    );
+    expect(ctx.repo.lockForCount).toHaveBeenCalledWith(ctx.tx);
+    expect(ctx.repo.create).not.toHaveBeenCalled();
+  });
+
+  it('與其他訂閱同一個網址不另外計數', async () => {
+    const ctx = setup();
+    ctx.repo.distinctUrls.mockResolvedValue([A]);
+    await inTenant(() =>
+      ctx.service.create({ name: 'CI', urls: [A], events: ['user.created'] }, ACTOR),
+    );
+    expect(ctx.repo.create).toHaveBeenCalled();
+  });
+
+  it('已經超過上限的租戶仍能修改：數量沒有變多就放行', async () => {
+    const ctx = setup();
+    // 全租戶 2 個（超過預設的 1）；這個訂閱把 B 換成 A，變更後是 1 個
+    ctx.repo.distinctUrls.mockImplementation(async (_tx, exclude) => (exclude ? [A] : [A, B]));
+    await inTenant(() => ctx.service.update('wh-1', { urls: [A], version: 3 }, ACTOR));
+    expect(ctx.repo.distinctUrls).toHaveBeenCalledWith(ctx.tx, 'wh-1');
+    expect(ctx.repo.replaceTargets).toHaveBeenCalledWith('wh-1', [A], ctx.tx);
+    expect(ctx.repo.update).toHaveBeenCalledWith(
+      'wh-1',
+      expect.objectContaining({ url: A }),
+      3,
+      ctx.tx,
+    );
+  });
+
+  it('修改網址寫稽核的 urls 變化', async () => {
+    const ctx = setup();
+    await inTenant(() => ctx.service.update('wh-1', { urls: [A], version: 3 }, ACTOR), undefined, {
+      'webhook.maxUrls': 5,
+    });
+    expect(ctx.audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'webhook.update',
+        changes: { before: { urls: ['https://hooks.example.com/b2b'] }, after: { urls: [A] } },
+      }),
+      ctx.tx,
+    );
+  });
+
+  it('送測試事件送到每個網址，回傳每個網址的紀錄', async () => {
+    const ctx = setup();
+    ctx.repo.findById.mockResolvedValue(
+      subscription({ targets: [target(), target({ id: 'tg-2', url: B, position: 1 })] }),
+    );
+    const result = await inTenant(() => ctx.service.sendTest('wh-1'));
+    expect(ctx.deliveries.attempt).toHaveBeenCalledTimes(2);
+    expect(result.items.map((item) => item.url)).toEqual(['https://hooks.example.com/b2b', B]);
+  });
+
+  it('重送到同一個網址；網址已被移除 → WEBHOOK_DELIVERY_NOT_FOUND', async () => {
+    const ctx = setup();
+    ctx.repo.findEvent.mockResolvedValue({
+      id: 'ev-1',
+      type: 'user.created',
+      version: 1,
+      data: {},
+      occurredAt: new Date(),
+    });
+    ctx.repo.findDelivery.mockResolvedValue({ eventId: 'ev-1', targetId: 'tg-1' });
+    await inTenant(() => ctx.service.redeliver('wh-1', 'd1'));
+    expect(ctx.deliveries.attempt.mock.calls[0]?.[1]).toMatchObject({ id: 'tg-1' });
+
+    ctx.repo.findDelivery.mockResolvedValue({ eventId: 'ev-1', targetId: null });
+    await expectCode(
+      inTenant(() => ctx.service.redeliver('wh-1', 'd1')),
+      'WEBHOOK_DELIVERY_NOT_FOUND',
+    );
   });
 });

@@ -128,6 +128,41 @@
     },
     "pagination": {
       "summary": "第 {{from}}–{{to}} 筆，共 {{total}} 筆"
+    },
+    "param": {
+      "file": {
+        "storageQuotaMb": "檔案容量",
+        "storageQuotaMbDescription": "所有檔案的大小合計上限（含上傳中與回收桶裡的檔案，不含縮圖）。調小到低於已用量時不會刪除任何檔案，只擋新的上傳。"
+      },
+      "auditLog": {
+        "hotRetentionDays": "熱資料保存天數",
+        "hotRetentionDaysDescription": "超過這個天數的稽核紀錄每天搬到冷表；兩邊都查得到，冷表的查詢較慢。"
+      },
+      "job": {
+        "maxConcurrency": "同時執行的工作數",
+        "maxConcurrencyDescription": "這個租戶所有種類的背景工作同時執行的上限。超過的工作會延後幾秒再執行，不算失敗。"
+      },
+      "identityProvider": {
+        "maxProviders": "外部 IdP 連線數",
+        "maxProvidersDescription": "租戶可以建立的外部 IdP 連線上限。調小不會刪除既有的連線。"
+      },
+      "webhook": {
+        "maxUrls": "通知網址數",
+        "maxUrlsDescription": "整個租戶的 Webhook 可以通知的不重複網址數。已經超過的租戶仍能修改與移除，只是不能再增加。"
+      },
+      "unit": {
+        "days": "{{value}} 天",
+        "megabytes": "{{value}} MB",
+        "count": "{{value}}"
+      },
+      "overridden": "已調整",
+      "edit": "編輯{{name}}",
+      "editTitle": "調整{{name}}",
+      "reset": "恢復預設",
+      "rangeHint": "{{min}}～{{max}}，預設 {{default}}",
+      "defaultHint": "預設 {{default}}",
+      "rangeError": "請輸入 {{min}}～{{max}} 的整數",
+      "success": "已更新參數"
     }
   }
 }

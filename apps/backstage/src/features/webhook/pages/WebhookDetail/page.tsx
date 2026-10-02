@@ -61,6 +61,7 @@ export default function WebhookDetailPage() {
           />
           <WebhookDeliverySection
             webhookId={webhookId}
+            targets={webhook.data.targets}
             canRedeliver={permission.canSend && webhook.data.status === 'active'}
           />
         </div>

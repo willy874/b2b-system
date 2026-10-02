@@ -10,7 +10,7 @@ import { getWebhookUpdateMutationOptions } from '@/apis/webhook/update-webhook/m
 import { isVersionConflict, useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
-import type { WebhookDelivery } from '@/shared/api-sdk';
+import type { WebhookDelivery, WebhookTestResult } from '@/shared/api-sdk';
 
 /** 建立：錯誤由表單顯示，不彈 toast；回應的密鑰由呼叫端顯示一次。 */
 export function useWebhookCreateMutation() {
@@ -84,6 +84,16 @@ function deliveryCreated(webhookId: string, delivery: WebhookDelivery) {
   ]);
 }
 
+function useTestSummaryToast() {
+  const toast = useToast();
+  const { t } = useTranslation();
+  return ({ items }: WebhookTestResult) => {
+    const failed = items.filter((delivery) => !delivery.succeeded).length;
+    if (failed === 0) toast.success(t('webhook.test.sentAll', { count: items.length }));
+    else toast.error(t('webhook.test.failedSome', { failed, count: items.length }));
+  };
+}
+
 /** 送出結果（成功或接收端回錯）都是一筆投遞紀錄：以 toast 說明這一次的結果。 */
 function useDeliveryResultToast() {
   const toast = useToast();
@@ -103,15 +113,22 @@ function useDeliveryResultToast() {
   };
 }
 
+/**
+ * 送測試事件：每個網址各送一次（docs/adr/0033-feature-params-and-webhook-targets.md D16）。
+ * 只有一個網址時沿用單筆的結果提示；多個時提示幾個成功、幾個失敗。
+ */
 export function useWebhookTestSendMutation() {
   const showResult = useDeliveryResultToast();
+  const showSummary = useTestSummaryToast();
   const showError = useErrorToast();
 
   return useMutation({
     ...getWebhookTestSendMutationOptions(),
-    onSuccess: (delivery, { params }) => {
-      deliveryCreated(params.webhookId, delivery);
-      showResult(delivery);
+    onSuccess: (result, { params }) => {
+      for (const delivery of result.items) deliveryCreated(params.webhookId, delivery);
+      const [only] = result.items;
+      if (result.items.length === 1 && only) showResult(only);
+      else showSummary(result);
     },
     onError: showError,
   });

@@ -64,9 +64,18 @@ export function WebhookTable({
       },
       {
         id: 'url',
-        header: t('webhook.field.url'),
+        header: t('webhook.field.urls'),
         enableSorting: false,
-        cell: ({ row }) => <TextEllipsis className="max-w-72">{row.original.url}</TextEllipsis>,
+        cell: ({ row }) => (
+          <span className="flex items-center gap-1">
+            <TextEllipsis className="max-w-72">{row.original.url}</TextEllipsis>
+            {row.original.moreUrls > 0 && (
+              <Chip data-testid="webhook-more-urls" data-value={row.original.moreUrls}>
+                {t('webhook.list.moreUrls', { count: row.original.moreUrls })}
+              </Chip>
+            )}
+          </span>
+        ),
       },
       {
         id: 'status',

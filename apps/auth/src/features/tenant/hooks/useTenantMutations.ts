@@ -57,6 +57,15 @@ export function useUpdateTenantFlagsMutation() {
   });
 }
 
+/** feature 參數（docs/adr/0033-feature-params-and-webhook-targets.md D3）：只送要改的項目，`null` 回到預設。 */
+export function useUpdateTenantFeatureParamsMutation() {
+  const changed = useTenantChange('update', 'tenant.param.success');
+  return useMutation({
+    ...getUpdateTenantMutationOptions(),
+    onSuccess: (tenant: PlatformTenant) => changed(tenant.id),
+  });
+}
+
 export function useRetryTenantProvisioningMutation() {
   const changed = useTenantChange('update', 'tenant.retry.success');
   return useMutation({

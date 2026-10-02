@@ -46,6 +46,7 @@ describe('MailService（docs/architecture/backend/11-mail.md §3）', () => {
         storageBucket: 'b2b-acme',
         features: ['file', 'auditLog', 'job'],
         flags: {},
+        featureParams: {},
       },
       fn,
     );
@@ -68,6 +69,7 @@ describe('MailService（docs/architecture/backend/11-mail.md §3）', () => {
           storageBucket: 'b',
           features: ['file', 'auditLog', 'job'],
           flags: {},
+          featureParams: {},
         },
         () => service.link('/approval'),
       ),

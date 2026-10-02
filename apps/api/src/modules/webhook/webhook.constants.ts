@@ -3,7 +3,12 @@ import { defineWebhookEvent } from './webhook.definition';
 /** 一個租戶的訂閱上限：每個事件會對每個訂閱入列一筆工作，數量要有邊界。 */
 export const WEBHOOK_MAX_SUBSCRIPTIONS = 50;
 
-/** 連續失敗幾次自動停用（docs/adr/0030-webhooks.md D13）：約 6 個事件各自用完 8 次重試。 */
+/** 一個訂閱最多幾個目標網址（docs/adr/0033-feature-params-and-webhook-targets.md D13）。 */
+export const WEBHOOK_MAX_URLS_PER_SUBSCRIPTION = 10;
+
+/**
+ * 一個網址連續失敗幾次整個訂閱自動停用（docs/adr/0030-webhooks.md D13、ADR-0033 D15）：約 6 個事件各自用完 8 次重試。
+ */
 export const WEBHOOK_AUTO_DISABLE_AFTER_FAILURES = 50;
 
 /** 一次投遞的總逾時（D11）。 */
@@ -34,4 +39,4 @@ export const WEBHOOK_PING_EVENT = defineWebhookEvent<{ webhookId: string }>('web
 });
 
 /** 訂閱的稽核欄位：`diff()` 只比這些（密鑰不進稽核）。 */
-export const WEBHOOK_AUDIT_FIELDS = ['name', 'url', 'events', 'status'] as const;
+export const WEBHOOK_AUDIT_FIELDS = ['name', 'urls', 'events', 'status'] as const;

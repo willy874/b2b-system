@@ -1,3 +1,4 @@
+import { AUDIT_LOG_HOT_RETENTION_DAYS_PARAM, resolveTenantFeatureParam } from '@/core/tenant';
 import { archiveAuditLogs } from '@/modules/audit-log/audit-log.archive';
 
 import { forEachScriptTenant, loadScriptEnv } from './client';
@@ -8,8 +9,13 @@ import { forEachScriptTenant, loadScriptEnv } from './client';
  */
 async function main(): Promise<void> {
   loadScriptEnv();
-  await forEachScriptTenant(async (db) => {
-    const { moved, cutoff } = await archiveAuditLogs(db);
+  await forEachScriptTenant(async (db, tenant) => {
+    // 保留天數是租戶的參數（docs/adr/0033-feature-params-and-webhook-targets.md D7），與排程讀同一份登記
+    const retentionDays = resolveTenantFeatureParam(
+      AUDIT_LOG_HOT_RETENTION_DAYS_PARAM,
+      tenant.featureParams,
+    );
+    const { moved, cutoff } = await archiveAuditLogs(db, retentionDays);
     console.info(`稽核日誌搬移完成：${moved} 筆早於 ${cutoff.toISOString()} 的紀錄已移到冷表`);
   });
 }

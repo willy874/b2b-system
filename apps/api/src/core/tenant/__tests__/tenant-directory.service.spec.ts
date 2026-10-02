@@ -25,6 +25,7 @@ function tenantRow(id: string, code: string): TenantRow {
     storageBucket: `b2b-${code}`,
     features: ['file', 'auditLog', 'job'],
     flags: {},
+    featureParams: {},
   } as TenantRow;
 }
 

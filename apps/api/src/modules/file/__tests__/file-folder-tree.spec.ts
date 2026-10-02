@@ -54,6 +54,7 @@ const inTenant = <T>(id: string, fn: () => T) =>
       storageBucket: id,
       features: ['file', 'auditLog', 'job'],
       flags: {},
+      featureParams: {},
     },
     fn,
   );

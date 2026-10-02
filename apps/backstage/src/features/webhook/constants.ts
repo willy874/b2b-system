@@ -71,3 +71,9 @@ export const WEBHOOK_DELIVERY_PAGE_SIZE = 20;
 
 /** 自動停用的門檻（與後端 `WEBHOOK_AUTO_DISABLE_AFTER_FAILURES` 一致，只用於說明文字）。 */
 export const WEBHOOK_AUTO_DISABLE_AFTER_FAILURES = 50;
+
+/** 一個訂閱最多幾個目標網址（與後端 `WEBHOOK_MAX_URLS_PER_SUBSCRIPTION` 一致；ADR-0033 D13）。 */
+export const WEBHOOK_MAX_URLS_PER_SUBSCRIPTION = 10;
+
+/** 網址長度上限（與後端 `WEBHOOK_URL_MAX_LENGTH` 一致）。 */
+export const WEBHOOK_URL_MAX_LENGTH = 2000;

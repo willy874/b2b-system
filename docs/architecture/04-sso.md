@@ -185,7 +185,7 @@ production 下對外部 IdP 的每個請求都先解析主機名稱，解析到�
 | POST | `/oidc-interaction/:uid/external` | `@Public` | 發起外部 IdP 登入 |
 | GET | `/oidc-interaction/external/callback` | `@Public` | 外部 IdP 跳回（固定網址） |
 | GET | `/oidc-interaction/:uid/external/complete` | `@Public` | 以 ticket 完成互動 |
-| GET／POST／PATCH／DELETE | `/identity-providers`（`/:id`） | `identityProvider:read／create／update／delete` | 外部 IdP 連線管理（租戶網域，backstage） |
+| GET／POST／PATCH／DELETE | `/identity-providers`（`/:id`） | `identityProvider:read／create／update／delete` | 外部 IdP 連線管理（租戶網域，backstage）。建立時連線數不能超過租戶的參數 `identityProvider.maxProviders`（預設 10，`409 IDENTITY_PROVIDER_LIMIT_REACHED`，[`05-tenancy.md`](./05-tenancy.md) §5.3） |
 
 權限見 [`../rbac/02-permission-catalog.md`](../rbac/02-permission-catalog.md) §2.11；完整端點表見 [`backend/05-rbac.md`](./backend/05-rbac.md) §9。
 

@@ -11,19 +11,25 @@
     "field": {
       "name": "Name",
       "url": "URL",
-      "urlHint": "Events are POSTed to this URL. It must be https and must not point to an internal network.",
+      "urlHint": "Events are POSTed to each URL (up to 10). URLs must be https and must not point to an internal network.",
       "events": "Events",
       "eventsPlaceholder": "Choose events",
       "eventCount": "Events",
       "status": "Status",
       "consecutiveFailures": "Consecutive failures",
       "lastDeliveryAt": "Last delivery",
-      "createdBy": "Created by"
+      "createdBy": "Created by",
+      "urls": "URLs",
+      "urlNumber": "URL {{number}}",
+      "addUrl": "Add URL",
+      "removeUrl": "Remove URL {{number}}",
+      "urlFailures": "{{count}} consecutive failures"
     },
     "list": {
       "title": "Webhooks",
       "description": "Notify external systems (CI, chat tools, your own services) with a POST when users, approvals or files change. Payloads only carry ids; receivers look up details with an API token.",
-      "searchPlaceholder": "Search name or URL"
+      "searchPlaceholder": "Search name or URL",
+      "moreUrls": "+{{count}}"
     },
     "create": {
       "action": "Create webhook",
@@ -55,7 +61,9 @@
       "rotatedTitle": "New signing secret"
     },
     "test": {
-      "action": "Send test event"
+      "action": "Send test event",
+      "sentAll": "Sent to {{count}} URLs, all succeeded",
+      "failedSome": "{{failed}} of {{count}} URLs failed; see the delivery log"
     },
     "detail": {
       "title": "Webhook",
@@ -71,7 +79,8 @@
         "event": "Event",
         "attempt": "Attempt",
         "result": "Result",
-        "duration": "Duration"
+        "duration": "Duration",
+        "url": "URL"
       },
       "attempt": "#{{attempt}} ({{trigger}})",
       "trigger": {
@@ -82,7 +91,8 @@
       "filter": {
         "all": "All",
         "succeeded": "Succeeded",
-        "failed": "Failed"
+        "failed": "Failed",
+        "allUrls": "All URLs"
       },
       "view": "View",
       "redeliver": "Redeliver",

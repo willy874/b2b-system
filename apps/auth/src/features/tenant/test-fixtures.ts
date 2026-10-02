@@ -1,6 +1,37 @@
-import type { PlatformTenant } from '@/shared/api-sdk';
+import type { PlatformTenant, TenantFeatureParam } from '@/shared/api-sdk';
 
 import { TENANT_FEATURES } from './constants';
+
+/** 與 api 的目錄相同的參數，都是預設值（docs/adr/0033-feature-params-and-webhook-targets.md D3）。 */
+export const FEATURE_PARAMS: readonly TenantFeatureParam[] = [
+  integerParam('file.storageQuotaMb', 'file', 2048, 1, 10_485_760, 'megabytes'),
+  integerParam('auditLog.hotRetentionDays', 'auditLog', 90, 7, 3650, 'days'),
+  integerParam('job.maxConcurrency', 'job', 10, 1, 100, 'count'),
+  integerParam('identityProvider.maxProviders', 'identityProvider', 10, 1, 100, 'count'),
+  integerParam('webhook.maxUrls', 'webhook', 1, 1, 500, 'count'),
+];
+
+function integerParam(
+  key: TenantFeatureParam['key'],
+  feature: TenantFeatureParam['feature'],
+  value: number,
+  min: number,
+  max: number,
+  unit: NonNullable<TenantFeatureParam['unit']>,
+): TenantFeatureParam {
+  return {
+    key,
+    feature,
+    type: 'integer',
+    value,
+    defaultValue: value,
+    overridden: false,
+    unit,
+    min,
+    max,
+    maxLength: null,
+  };
+}
 
 /** 頁面測試共用的租戶。 */
 export function tenantFixture(overrides: Partial<PlatformTenant> = {}): PlatformTenant {
@@ -13,6 +44,7 @@ export function tenantFixture(overrides: Partial<PlatformTenant> = {}): Platform
     storageBucket: 'b2b-acme',
     features: [...TENANT_FEATURES],
     flags: {},
+    featureParams: [...FEATURE_PARAMS],
     adminEmail: 'owner@acme.test',
     provisionError: null,
     provisionedAt: '2026-09-30T00:00:00.000Z',

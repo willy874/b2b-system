@@ -19,7 +19,14 @@ export type NewTenant = Pick<
 export type TenantPatch = Partial<
   Pick<
     TenantRow,
-    'name' | 'status' | 'provisionError' | 'provisionedAt' | 'deletedAt' | 'features' | 'flags'
+    | 'name'
+    | 'status'
+    | 'provisionError'
+    | 'provisionedAt'
+    | 'deletedAt'
+    | 'features'
+    | 'flags'
+    | 'featureParams'
   >
 >;
 

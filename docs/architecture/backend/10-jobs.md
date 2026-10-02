@@ -82,6 +82,12 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `exclusive` | 同時最多一筆排隊、一筆執行（pg-boss 的 `stately`）。排程工作用它避免越積越多；寄信這類每筆都要做的不能開 |
 | `concurrency` | 這個程序同時執行幾筆（pg-boss 的 `localConcurrency`，預設 1）。寄信（`MAIL_JOB_OPTIONS`）是 5；吃 CPU／記憶體的工作維持 1，免得拖慢同一個程序上的 API |
 
+- **租戶的同時執行上限**：`concurrency` 是每個程序、每種工作的上限；另外每個租戶 **所有種類** 的工作同時執行的筆數不超過
+  feature 參數 `job.maxConcurrency`（預設 10，平台管理者設定；[ADR-0033](../../adr/0033-feature-params-and-webhook-targets.md) D9）。
+  worker 取到租戶的工作後，`JobStore.activeAhead()` 在該租戶 `active` 的工作中依 `(started_on, id)` 排名；排在上限之後的
+  以 `JobStore.requeue()` **放回佇列**（改回 `created`、`start_after` 延後 5～10 秒、不動重試次數、工作 id 不變），handler 不執行。
+  pg-boss 完成工作時只更新 `active` 的列，handler 回傳後的完成是空操作。排程觸發的展開（沒有租戶）與平台工作不受限；
+  `exclusive` 佇列已有一筆排隊時放不回去，這一筆以 `{ skipped: 'TENANT_CONCURRENCY' }` 結束。
 - `exclusive` 在佇列建立時決定，之後不能改；要改就換工作名稱。其他選項每次啟動同步到佇列。
 - 排程（`cron`，UTC）由註冊時的 `{ cron }` 決定；空字串代表不排程，啟動時會移除之前的排程。
 - 排程與 pg-boss 的維護（逾時收回、清除過期工作）只在 `JOBS_WORKER_ENABLED=true` 的程序跑；

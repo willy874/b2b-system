@@ -32,6 +32,7 @@ import {
   WebhookEventListSchema,
   WebhookSchema,
   WebhookSecretSchema,
+  WebhookTestResultSchema,
 } from './dto/webhook.dto';
 import type {
   CreateWebhookDto,
@@ -114,7 +115,7 @@ export class WebhookController {
   @Post(':id/test')
   @RequirePermissions(PERMISSION.WEBHOOK_UPDATE)
   @ApiOperation({ summary: '同步送出 webhook.ping，回傳這一次的投遞紀錄' })
-  @ApiZodResponse(201, WebhookDeliverySchema)
+  @ApiZodResponse(201, WebhookTestResultSchema)
   sendTest(@Param('id', ParseUUIDPipe) id: string) {
     return this.webhooks.sendTest(id);
   }

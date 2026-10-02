@@ -7,7 +7,7 @@ import {
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import postgres from 'postgres';
 
-import { JOB_SCHEMA } from '@/core/jobs/job-queue';
+import { JOB_SCHEMA } from '@/core/jobs/job-store';
 import { tenantAccountPrefix } from '@/modules/oidc-provider/oidc-account';
 
 import { createPlatformScriptClient, loadScriptEnv, tenantSecretBox } from './client';

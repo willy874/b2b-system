@@ -42,6 +42,7 @@ const tenantOf = (id: string) => ({
   storageBucket: `b2b-${id}`,
   features: ['file', 'auditLog', 'job'] as const,
   flags: {},
+  featureParams: {},
 });
 
 interface FakeRequest {

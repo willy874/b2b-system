@@ -6,12 +6,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  */
 export const AUDIT_LOG_MAX_RANGE_DAYS = 90;
 
-/**
- * 熱表保留天數：早於「現在 − 此天數」的紀錄會被 `archive_audit_logs()` 搬到冷表。
- * 必須 ≥ `AUDIT_LOG_MAX_RANGE_DAYS`，預設查詢範圍才會只落在熱表。
- */
-export const AUDIT_LOG_HOT_RETENTION_DAYS = 90;
-
 /** 每次搬移的筆數：一批一個短交易，避免長時間鎖住熱表。 */
 export const AUDIT_LOG_ARCHIVE_BATCH_SIZE = 5000;
 
@@ -28,25 +22,22 @@ export const AUDIT_LOG_MAX_OFFSET = 10_000;
 export const AUDIT_LOG_COUNT_CAP = AUDIT_LOG_MAX_OFFSET + 100;
 
 export const AUDIT_LOG_MAX_RANGE_MS = AUDIT_LOG_MAX_RANGE_DAYS * DAY_MS;
-export const AUDIT_LOG_HOT_RETENTION_MS = AUDIT_LOG_HOT_RETENTION_DAYS * DAY_MS;
 
 export interface AuditLogRange {
   from: Date;
   to: Date;
-  /** 範圍有一部分早於熱表保留期，必須連冷表一起查 */
-  includeArchive: boolean;
 }
 
 /**
- * 補齊查詢範圍並決定要查哪幾張表。
+ * 補齊查詢範圍。
  *
  * - 都沒帶：`[now − 90 天, now]`
  * - 只帶 `to`：往前推 90 天
  * - 只帶 `from`：往後推 90 天，但不超過 `now`
  * - 都帶：原樣使用（跨度與先後由 DTO 驗證）
  *
- * 熱表永遠包含「`now − 保留天數` 之後」的全部紀錄（搬移的 cutoff 只會更早），
- * 所以 `from` 落在這之後就只需要查熱表。
+ * 要不要連冷表一起查由 repository 看冷表最新的一筆決定（`AuditLogRepository.list`）：熱表保留天數是租戶的參數
+ * （docs/adr/0033-feature-params-and-webhook-targets.md D7），調大之後已搬走的紀錄不會回到熱表，不能以天數推算。
  */
 export function resolveAuditLogRange(query: { from?: Date; to?: Date }, now: Date): AuditLogRange {
   let { from, to } = query;
@@ -54,6 +45,5 @@ export function resolveAuditLogRange(query: { from?: Date; to?: Date }, now: Dat
     to = from ? new Date(Math.min(now.getTime(), from.getTime() + AUDIT_LOG_MAX_RANGE_MS)) : now;
   }
   from ??= new Date(to.getTime() - AUDIT_LOG_MAX_RANGE_MS);
-  const hotBoundary = now.getTime() - AUDIT_LOG_HOT_RETENTION_MS;
-  return { from, to, includeArchive: from.getTime() < hotBoundary };
+  return { from, to };
 }

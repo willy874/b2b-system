@@ -65,6 +65,14 @@ export const tenants = pgTable(
      * key 的值域是 `core/feature-flags` 的目錄；讀取時只看目錄裡的 key，殘留的舊 key 無害。
      */
     flags: jsonb('flags').$type<Record<string, boolean>>().notNull().default({}),
+    /**
+     * feature 參數的覆寫（docs/adr/0033-feature-params-and-webhook-targets.md D2）：`{ [key]: number | string }`，
+     * 沒列出 = 預設值。key 與範圍在 `core/tenant/tenant-feature-params.ts`；讀取時驗證，不符合的值回到預設。
+     */
+    featureParams: jsonb('feature_params')
+      .$type<Record<string, number | string>>()
+      .notNull()
+      .default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),

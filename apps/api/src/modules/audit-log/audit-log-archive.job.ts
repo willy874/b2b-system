@@ -6,6 +6,7 @@ import type { Env } from '@/core/config';
 import { TENANT_DB } from '@/core/database';
 import type { Database } from '@/core/database';
 import { defineJob, JobQueue } from '@/core/jobs';
+import { AUDIT_LOG_HOT_RETENTION_DAYS_PARAM, tenantFeatureParam } from '@/core/tenant';
 
 import { archiveAuditLogs } from './audit-log.archive';
 
@@ -38,9 +39,10 @@ export class AuditLogArchiveJob implements OnModuleInit {
     });
   }
 
-  async run(): Promise<{ moved: number; cutoff: string }> {
-    const { moved, cutoff } = await archiveAuditLogs(this.db);
-    this.logger.log({ moved, cutoff }, '稽核日誌搬移完成');
-    return { moved, cutoff: cutoff.toISOString() };
+  async run(): Promise<{ moved: number; cutoff: string; retentionDays: number }> {
+    const retentionDays = tenantFeatureParam(AUDIT_LOG_HOT_RETENTION_DAYS_PARAM);
+    const { moved, cutoff } = await archiveAuditLogs(this.db, retentionDays);
+    this.logger.log({ moved, cutoff, retentionDays }, '稽核日誌搬移完成');
+    return { moved, cutoff: cutoff.toISOString(), retentionDays };
   }
 }

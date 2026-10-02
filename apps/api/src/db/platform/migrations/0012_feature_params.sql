@@ -1,0 +1,1 @@
+ALTER TABLE "tenants" ADD COLUMN "feature_params" jsonb DEFAULT '{}'::jsonb NOT NULL;

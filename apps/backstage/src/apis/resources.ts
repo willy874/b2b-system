@@ -30,6 +30,7 @@ import {
   FILE_LIST_ANY_FOLDER,
   FILE_LIST_QUERY_KEY,
 } from '@/apis/file/get-file-list/query';
+import { FILE_STORAGE_USAGE_QUERY_KEY } from '@/apis/file/get-upload-policy/query';
 import { GROUP_DETAIL_QUERY_KEY } from '@/apis/group/get-group-detail/query';
 import { GROUP_LIST_QUERY_KEY, GROUP_OPTIONS_QUERY_KEY } from '@/apis/group/get-group-list/query';
 import { GROUP_MEMBERS_QUERY_KEY } from '@/apis/group/get-group-members/query';
@@ -232,7 +233,8 @@ const graph = createResourceGraph<Resource>({
   [Resource.FILE]: {
     // 檔案內容（FILE_TEXT_QUERY_KEY）刻意不列：內容以 id 為 key、上傳後不可變，改名不必重抓；
     // 刪除後 LightBox 由詳情的 404 得知
-    collection: [FILE_LIST_QUERY_KEY, FILE_INFINITE_LIST_QUERY_KEY],
+    // 容量的已用量（ADR-0033 D8）跟著檔案的增刪變
+    collection: [FILE_LIST_QUERY_KEY, FILE_INFINITE_LIST_QUERY_KEY, FILE_STORAGE_USAGE_QUERY_KEY],
     // 推播帶 `refs.fileFolder`（所在的資料夾）：只重抓正在看那個資料夾與不分資料夾的列表，
     // 其他資料夾的檔案管理器不動
     scopedCollection: {

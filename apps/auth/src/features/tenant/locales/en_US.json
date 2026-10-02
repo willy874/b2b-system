@@ -128,6 +128,41 @@
     },
     "pagination": {
       "summary": "{{from}}–{{to}} of {{total}}"
+    },
+    "param": {
+      "file": {
+        "storageQuotaMb": "Storage quota",
+        "storageQuotaMbDescription": "Total size of all files, including uploads in progress and files in the trash (thumbnails excluded). Lowering it below current usage deletes nothing; it only blocks new uploads."
+      },
+      "auditLog": {
+        "hotRetentionDays": "Hot data retention",
+        "hotRetentionDaysDescription": "Audit records older than this are moved to the archive table daily. Both remain searchable; archive queries are slower."
+      },
+      "job": {
+        "maxConcurrency": "Concurrent jobs",
+        "maxConcurrencyDescription": "Maximum background jobs of any kind running at once for this tenant. Extra jobs wait a few seconds and run later; they do not count as failures."
+      },
+      "identityProvider": {
+        "maxProviders": "Identity provider connections",
+        "maxProvidersDescription": "Maximum identity provider connections the tenant can create. Lowering it does not remove existing connections."
+      },
+      "webhook": {
+        "maxUrls": "Webhook URLs",
+        "maxUrlsDescription": "Distinct URLs the tenant's webhooks can notify. Tenants already over the limit can still edit and remove URLs but cannot add more."
+      },
+      "unit": {
+        "days": "{{value}} days",
+        "megabytes": "{{value}} MB",
+        "count": "{{value}}"
+      },
+      "overridden": "Customized",
+      "edit": "Edit {{name}}",
+      "editTitle": "Change {{name}}",
+      "reset": "Reset to default",
+      "rangeHint": "{{min}}–{{max}}, default {{default}}",
+      "defaultHint": "Default {{default}}",
+      "rangeError": "Enter a whole number from {{min}} to {{max}}",
+      "success": "Parameter updated"
     }
   }
 }

@@ -8,6 +8,8 @@ import { AppException } from '@/core/errors';
 import type { DomainEventBus } from '@/core/events';
 import type { SettingService } from '@/core/settings';
 import type { ObjectStorage, StoredObjectHead } from '@/core/storage';
+import { runInTenantContext } from '@/core/tenant';
+import type { TenantContext } from '@/core/tenant';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { TagService } from '@/modules/tag/tag.service';
 import type { WebhookService } from '@/modules/webhook/webhook.service';
@@ -32,6 +34,11 @@ const BOB: AuthUser = {
   email: 'b@x',
   status: 'active',
 };
+/** 檔案容量（`file.storageQuotaMb`）在租戶脈絡裡讀。 */
+function inTenant<T>(fn: () => Promise<T>, featureParams: Record<string, number> = {}) {
+  return runInTenantContext({ id: 't1', featureParams } as unknown as TenantContext, fn);
+}
+
 const FILE_ID = '33333333-3333-4333-8333-333333333333';
 const MAX_SIZE = 100 * 1024 * 1024;
 const THRESHOLD = 16 * 1024 * 1024;
@@ -78,6 +85,7 @@ function setup(
   } = {},
 ) {
   const repo = {
+    storageUsed: vi.fn(async (): Promise<number> => 0),
     findById: vi.fn(async () => options.file),
     create: vi.fn(async (values: Partial<FileWithUploader>) => fileRow(values)),
     markReady: vi.fn(async () => fileRow({ status: 'ready' })),
@@ -206,9 +214,8 @@ async function expectAppError(promise: Promise<unknown>, code: string) {
 describe('FileService.createUpload（docs/architecture/backend/09-file.md §4）', () => {
   it('登記 pending 紀錄、storage key 只由 id 決定，回傳直傳網址', async () => {
     const { service, repo, storage } = setup();
-    const result = await service.createUpload(
-      { name: '../../角色 1.png', contentType: 'image/png', size: 10 },
-      ALICE,
+    const result = await inTenant(() =>
+      service.createUpload({ name: '../../角色 1.png', contentType: 'image/png', size: 10 }, ALICE),
     );
 
     const created = repo.create.mock.calls[0]?.[0];
@@ -225,9 +232,11 @@ describe('FileService.createUpload（docs/architecture/backend/09-file.md §4）
   it('超過大小上限回 FILE_TOO_LARGE，不建立紀錄', async () => {
     const { service, repo } = setup();
     await expectAppError(
-      service.createUpload(
-        { name: 'big.bin', contentType: 'application/octet-stream', size: MAX_SIZE + 1 },
-        ALICE,
+      inTenant(() =>
+        service.createUpload(
+          { name: 'big.bin', contentType: 'application/octet-stream', size: MAX_SIZE + 1 },
+          ALICE,
+        ),
       ),
       'FILE_TOO_LARGE',
     );
@@ -442,7 +451,7 @@ describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.
 
   it('超過門檻 → 開 multipart upload、回切法而不是單次 PUT', async () => {
     const { service, repo, storage } = setup();
-    const result = await service.createUpload(big, ALICE);
+    const result = await inTenant(() => service.createUpload(big, ALICE));
     expect(storage.createMultipartUpload).toHaveBeenCalled();
     expect(storage.presignUpload).not.toHaveBeenCalled();
     expect(repo.create.mock.calls[0]?.[0]).toMatchObject({ uploadId: 'upload-1' });
@@ -455,7 +464,7 @@ describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.
 
   it('門檻以下 → 單次 PUT，不開 multipart', async () => {
     const { service, storage } = setup();
-    const result = await service.createUpload({ ...big, size: THRESHOLD }, ALICE);
+    const result = await inTenant(() => service.createUpload({ ...big, size: THRESHOLD }, ALICE));
     expect(storage.createMultipartUpload).not.toHaveBeenCalled();
     expect(result.multipart).toBeNull();
     expect(result.upload).not.toBeNull();
@@ -574,14 +583,16 @@ describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.
 describe('FileService：縮圖', () => {
   it('登記時帶 thumbnail → 發縮圖的直傳網址', async () => {
     const { service, storage } = setup();
-    const result = await service.createUpload(
-      {
-        name: 'a.png',
-        contentType: 'image/png',
-        size: 10,
-        thumbnail: { contentType: 'image/webp', size: 100 },
-      },
-      ALICE,
+    const result = await inTenant(() =>
+      service.createUpload(
+        {
+          name: 'a.png',
+          contentType: 'image/png',
+          size: 10,
+          thumbnail: { contentType: 'image/webp', size: 100 },
+        },
+        ALICE,
+      ),
     );
     expect(storage.presignUpload).toHaveBeenCalledWith(thumbnailKeyOf(result.file.id), {
       contentType: 'image/webp',
@@ -847,11 +858,11 @@ describe('FileService 的資料夾層級授權（docs/rbac/07-resource-grants.md
     });
     const dto = { name: 'a.png', contentType: 'image/png', size: 10 };
     await expectAppError(
-      viewer.service.createUpload({ ...dto, folderId: FOLDER }, ALICE),
+      inTenant(() => viewer.service.createUpload({ ...dto, folderId: FOLDER }, ALICE)),
       'AUTHZ_FORBIDDEN',
     );
     await expectAppError(
-      viewer.service.createUpload({ ...dto, folderId: null }, ALICE),
+      inTenant(() => viewer.service.createUpload({ ...dto, folderId: null }, ALICE)),
       'AUTHZ_FORBIDDEN',
     );
     expect(viewer.repo.create).not.toHaveBeenCalled();
@@ -970,5 +981,41 @@ describe('FileService.restore（docs/architecture/backend/13-trash.md §7.2、AD
       head: present,
     });
     await expectAppError(locked.service.restore(FILE_ID, ALICE), 'FILE_NOT_FOUND');
+  });
+});
+
+describe('FileService：檔案容量（docs/adr/0033-feature-params-and-webhook-targets.md D8）', () => {
+  const MIB = 1024 * 1024;
+  const dto = { name: 'a.bin', contentType: 'application/octet-stream', size: 2 * MIB };
+
+  it('加上這次的大小會超過容量 → FILE_STORAGE_QUOTA_EXCEEDED，不登記、不開分塊上傳', async () => {
+    const { service, repo, storage } = setup();
+    repo.storageUsed.mockResolvedValue(9 * MIB);
+    const error = await inTenant(() => service.createUpload(dto, ALICE), {
+      'file.storageQuotaMb': 10,
+    }).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(AppException);
+    expect(error).toMatchObject({
+      code: 'FILE_STORAGE_QUOTA_EXCEEDED',
+      details: { quota: 10 * MIB, used: 9 * MIB, size: 2 * MIB },
+    });
+    expect(repo.create).not.toHaveBeenCalled();
+    expect(storage.createMultipartUpload).not.toHaveBeenCalled();
+  });
+
+  it('剛好用滿可以；交易內以鎖住的加總再確認一次', async () => {
+    const { service, repo } = setup();
+    repo.storageUsed.mockResolvedValue(8 * MIB);
+    await inTenant(() => service.createUpload(dto, ALICE), { 'file.storageQuotaMb': 10 });
+    expect(repo.create).toHaveBeenCalled();
+    expect(repo.storageUsed).toHaveBeenCalledTimes(2);
+    expect(repo.storageUsed.mock.calls[1]).toHaveLength(1);
+  });
+
+  it('上傳政策帶容量與已用量（預設 2048 MB）', async () => {
+    const { service, repo } = setup();
+    repo.storageUsed.mockResolvedValue(123);
+    const policy = await inTenant(() => service.getUploadPolicy());
+    expect(policy).toMatchObject({ storageQuota: 2048 * MIB, storageUsed: 123 });
   });
 });

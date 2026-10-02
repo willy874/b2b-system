@@ -1,5 +1,5 @@
 import { TenantFeature } from '@/shared/api-sdk';
-import type { PlatformTenant } from '@/shared/api-sdk';
+import type { PlatformTenant, TenantFeatureParam, TenantFeatureParamKey } from '@/shared/api-sdk';
 
 type TenantStatus = PlatformTenant['status'];
 
@@ -80,3 +80,30 @@ export const TENANT_FEATURE_DISABLE_WARNING_KEY: Partial<Record<TenantFeature, s
   webhook: 'tenant.feature.webhookDisableWarning',
   announcement: 'tenant.feature.announcementDisableWarning',
 };
+
+/**
+ * feature 參數的名稱與說明（docs/adr/0033-feature-params-and-webhook-targets.md D1）。key 來自 api-sdk：
+ * api 新增一個參數時，下面的 `satisfies` 會讓編譯失敗。
+ */
+export const TENANT_FEATURE_PARAM_LABEL_KEY = {
+  'file.storageQuotaMb': 'tenant.param.file.storageQuotaMb',
+  'auditLog.hotRetentionDays': 'tenant.param.auditLog.hotRetentionDays',
+  'job.maxConcurrency': 'tenant.param.job.maxConcurrency',
+  'identityProvider.maxProviders': 'tenant.param.identityProvider.maxProviders',
+  'webhook.maxUrls': 'tenant.param.webhook.maxUrls',
+} as const satisfies Record<TenantFeatureParamKey, string>;
+
+export const TENANT_FEATURE_PARAM_DESCRIPTION_KEY = {
+  'file.storageQuotaMb': 'tenant.param.file.storageQuotaMbDescription',
+  'auditLog.hotRetentionDays': 'tenant.param.auditLog.hotRetentionDaysDescription',
+  'job.maxConcurrency': 'tenant.param.job.maxConcurrencyDescription',
+  'identityProvider.maxProviders': 'tenant.param.identityProvider.maxProvidersDescription',
+  'webhook.maxUrls': 'tenant.param.webhook.maxUrlsDescription',
+} as const satisfies Record<TenantFeatureParamKey, string>;
+
+/** 值帶單位的寫法（`{{value}}`）。 */
+export const TENANT_FEATURE_PARAM_UNIT_KEY = {
+  days: 'tenant.param.unit.days',
+  megabytes: 'tenant.param.unit.megabytes',
+  count: 'tenant.param.unit.count',
+} as const satisfies Record<NonNullable<TenantFeatureParam['unit']>, string>;

@@ -17,7 +17,21 @@ import {
 import type { FeatureFlagDefinition } from '@/core/feature-flags';
 import { JobQueue } from '@/core/jobs';
 import { isValidBucketName } from '@/core/storage/object-storage';
-import { Tenancy, TenantDirectory, toTenantFeatures } from '@/core/tenant';
+import {
+  findTenantFeatureParam,
+  resolveTenantFeatureParam,
+  Tenancy,
+  TENANT_FEATURE_PARAMS,
+  TenantDirectory,
+  tenantFeatureParamProblem,
+  toTenantFeatureParamOverrides,
+  toTenantFeatures,
+} from '@/core/tenant';
+import type {
+  TenantFeatureParamDefinition,
+  TenantFeatureParamOverrides,
+  TenantFeatureParamValue,
+} from '@/core/tenant';
 import type { TenantStatus } from '@/db/platform/schema';
 import { RefreshTokenService } from '@/modules/credential/refresh-token.service';
 import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
@@ -28,6 +42,7 @@ import type {
   ListPlatformTenantDto,
   PlatformTenantDto,
   PlatformTenantListDto,
+  TenantFeatureParamDto,
   UpdateTenantDto,
 } from './dto/platform-tenant.dto';
 import { PlatformTenantRepository } from './platform-tenant.repository';
@@ -50,6 +65,7 @@ function toDto(
     storageBucket: tenant.storageBucket,
     features: toTenantFeatures(tenant.features),
     flags: pickKnownOverrides(toFeatureFlagOverrides(tenant.flags), flagCatalog),
+    featureParams: toFeatureParamDtos(toTenantFeatureParamOverrides(tenant.featureParams)),
     adminEmail: tenant.adminEmail,
     provisionError: tenant.provisionError,
     provisionedAt: tenant.provisionedAt?.toISOString() ?? null,
@@ -58,9 +74,61 @@ function toDto(
   };
 }
 
+const FEATURE_PARAMS: readonly TenantFeatureParamDefinition[] = TENANT_FEATURE_PARAMS;
+
+/** 目錄上每個參數一項，帶生效值與定義（docs/adr/0033-feature-params-and-webhook-targets.md D3）。 */
+function toFeatureParamDtos(overrides: TenantFeatureParamOverrides): TenantFeatureParamDto[] {
+  return FEATURE_PARAMS.map((param) => {
+    const isInteger = param.type === 'integer';
+    return {
+      key: param.key as TenantFeatureParamDto['key'],
+      feature: param.feature,
+      type: param.type,
+      value: resolveTenantFeatureParam(param, overrides),
+      defaultValue: param.defaultValue,
+      overridden: overrides[param.key] !== undefined,
+      unit: isInteger ? param.unit : null,
+      min: isInteger ? param.min : null,
+      max: isInteger ? param.max : null,
+      maxLength: isInteger ? null : param.maxLength,
+    };
+  });
+}
+
 /** 兩張覆寫表是否相同（兩者都已依目錄的順序整理）。 */
-function sameOverrides(a: Record<string, boolean>, b: Record<string, boolean>): boolean {
+function sameOverrides(
+  a: Readonly<Record<string, unknown>>,
+  b: Readonly<Record<string, unknown>>,
+): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * 把要改的參數套到現有的覆寫表上（ADR-0033 D3）：`null` 或等於預設值的刪掉（只存覆寫值），其餘依目錄驗證。
+ * 回傳依目錄順序整理過的新表；任何一項不合法就整批拒絕。
+ */
+function mergeFeatureParams(
+  before: TenantFeatureParamOverrides,
+  patch: Readonly<Partial<Record<string, TenantFeatureParamValue | null>>>,
+): Record<string, TenantFeatureParamValue> {
+  const next: Record<string, TenantFeatureParamValue> = { ...before };
+  const fields: Record<string, string> = {};
+  for (const [key, value] of Object.entries(patch)) {
+    const param = findTenantFeatureParam(key);
+    if (!param) {
+      fields[`featureParams.${key}`] = 'unknown feature param';
+      continue;
+    }
+    if (value === null || value === undefined || value === param.defaultValue) {
+      delete next[key];
+      continue;
+    }
+    const problem = tenantFeatureParamProblem(param, value);
+    if (problem) fields[`featureParams.${key}`] = problem;
+    else next[key] = value;
+  }
+  if (Object.keys(fields).length) throw new AppException('VALIDATION_FAILED', { fields });
+  return { ...toTenantFeatureParamOverrides(next) };
 }
 
 /**
@@ -174,8 +242,10 @@ export class PlatformTenantService {
     );
     const flags = dto.flags && this.knownFlagOverrides(dto.flags);
     const flagsChanged = flags !== undefined && !sameOverrides(flags, beforeFlags);
+    const beforeParams = toTenantFeatureParamOverrides(before.featureParams);
+    const featureParams = dto.featureParams && mergeFeatureParams(beforeParams, dto.featureParams);
     await this.repo.transaction(async (tx) => {
-      await this.repo.update(id, { name: dto.name, features, flags }, undefined, tx);
+      await this.repo.update(id, { name: dto.name, features, flags, featureParams }, undefined, tx);
       await this.audit.record(
         {
           action: 'tenant.update',
@@ -187,11 +257,13 @@ export class PlatformTenantService {
               name: before.name,
               features: beforeFeatures,
               flags: beforeFlags,
+              featureParams: beforeParams,
             },
             after: {
               name: dto.name ?? before.name,
               features: features ?? beforeFeatures,
               flags: flags ?? beforeFlags,
+              featureParams: featureParams ?? beforeParams,
             },
           },
         },
