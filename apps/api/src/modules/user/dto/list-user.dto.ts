@@ -14,7 +14,7 @@ export const ListUserSchema = PaginationSchema.extend({
   keyword: z.string().trim().max(100).optional(),
   status: multiValue(z.enum(['pending', 'active', 'inactive', 'locked'])),
   roleId: multiValue(z.string().uuid()),
-  /** 貼了其中任一個標籤（docs/adr/0032-tags.md D6）。 */
+  /** 貼了其中任一個標籤（docs/architecture/backend/18-tag.md §7.2 D6）。 */
   tagId: TagIdsFilterSchema,
 }).extend(SortSchema(['createdAt', 'email', 'displayName', 'lastLoginAt']).shape);
 

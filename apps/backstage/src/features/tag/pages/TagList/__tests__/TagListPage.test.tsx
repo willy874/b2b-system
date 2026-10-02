@@ -48,7 +48,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('TagListPage（docs/adr/0032-tags.md D5）', () => {
+describe('TagListPage（docs/architecture/backend/18-tag.md §7.2 D5）', () => {
   it('有 tag:create／update／delete → 顯示建立、編輯、刪除', async () => {
     renderRoute(routes, '/tag', ADMIN);
     await screen.findByText('合約', undefined, { timeout: 12_000 });

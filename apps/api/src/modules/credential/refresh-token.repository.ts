@@ -16,7 +16,7 @@ export interface IssueRefreshTokenInput {
   /** 輪替時沿用家族的 id 與建立時間；沒給就是一次新的登入（新家族）。 */
   familyId?: string;
   familyCreatedAt?: Date;
-  /** 經 SSO 發出時：哪個產品、哪個 IdP session（docs/adr/0019-sso-identity-platform.md D4）。輪替時沿用。 */
+  /** 經 SSO 發出時：哪個產品、哪個 IdP session（docs/architecture/04-sso.md §12.2 D4）。輪替時沿用。 */
   clientId?: string | null;
   idpSessionUid?: string | null;
   expiresAt: Date;
@@ -193,7 +193,7 @@ export class RefreshTokenRepository {
       .where(and(eq(refreshTokens.familyId, familyId), isNull(refreshTokens.revokedAt)));
   }
 
-  /** 撤銷目前租戶的所有 session（租戶停用，docs/adr/0020-physical-tenant-isolation.md D13）。 */
+  /** 撤銷目前租戶的所有 session（租戶停用，docs/architecture/05-tenancy.md §10.2 D13）。 */
   async revokeAll(reason: RevokedReason): Promise<void> {
     await this.db
       .update(refreshTokens)

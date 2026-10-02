@@ -22,7 +22,7 @@ export const AUDIT_LOG_ARCHIVE_JOB = defineJob<Record<string, never>>('auditLog.
   expireInSeconds: 60 * 60,
 });
 
-/** 依 `AUDIT_LOG_ARCHIVE_CRON` 每天執行搬移；取代原本的外部 cron（docs/adr/0016-background-jobs.md D7）。 */
+/** 依 `AUDIT_LOG_ARCHIVE_CRON` 每天執行搬移；取代原本的外部 cron（docs/architecture/backend/10-jobs.md §9.2 D7）。 */
 @Injectable()
 export class AuditLogArchiveJob implements OnModuleInit {
   private readonly logger = new Logger(AuditLogArchiveJob.name);

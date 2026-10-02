@@ -75,7 +75,7 @@ type Transaction = Parameters<Parameters<TestDatabase['transaction']>[0]>[0];
 /**
  * 讓請求通過「讀到時的比對」之後卡在條件式 UPDATE 上，再搶先提交另一筆寫入：
  * 測試連線先鎖住該列，等請求的 UPDATE 在鎖上等待，遞增版本後提交。請求的 UPDATE 重新評估條件時就不命中
- * （ADR-0025 D3 的「UPDATE 沒命中而列仍存在」路徑）。
+ * （docs/architecture/backend/14-revisions.md §9.2 D3 的「UPDATE 沒命中而列仍存在」路徑）。
  */
 async function raceAfterRead(
   lock: (tx: Transaction) => Promise<unknown>,
@@ -101,7 +101,7 @@ async function raceAfterRead(
   return pending!;
 }
 
-describe('樂觀鎖（docs/adr/0025-entity-revisions.md D3、docs/architecture/backend/03-api-conventions.md §11）', () => {
+describe('樂觀鎖（docs/architecture/backend/14-revisions.md §9.2 D3、docs/architecture/backend/03-api-conventions.md §11）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;
@@ -216,7 +216,7 @@ describe('樂觀鎖（docs/adr/0025-entity-revisions.md D3、docs/architecture/b
       expect(response.body).toMatchObject({ error: { code: 'USER_NOT_FOUND' } });
     });
 
-    it('不帶 version → 400 VALIDATION_FAILED，不寫入（ADR-0025 D4 的 R1b：必填）', async () => {
+    it('不帶 version → 400 VALIDATION_FAILED，不寫入（docs/architecture/backend/14-revisions.md §9.2 D4 的 R1b：必填）', async () => {
       const id = await createUser('lock-d@example.com');
       const response = await patchUser(id, { displayName: 'D-1' }).expect(400);
       expect(response.body).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
@@ -328,7 +328,7 @@ describe('樂觀鎖（docs/adr/0025-entity-revisions.md D3、docs/architecture/b
       });
     });
 
-    it('不帶 version → 400 VALIDATION_FAILED，不寫入（ADR-0025 D4 的 R1b：必填）', async () => {
+    it('不帶 version → 400 VALIDATION_FAILED，不寫入（docs/architecture/backend/14-revisions.md §9.2 D4 的 R1b：必填）', async () => {
       const id = await createRole('Lock Role D');
       const response = await patchRole(id, { description: 'd1' }).expect(400);
       expect(response.body).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
@@ -345,7 +345,7 @@ describe('樂觀鎖（docs/adr/0025-entity-revisions.md D3、docs/architecture/b
       expect(response.body).toMatchObject({ error: { code: 'ROLE_NOT_FOUND' } });
     });
 
-    it('權限鍵與持有者的寫入不遞增 version（關聯的寫入，ADR-0025 D3）', async () => {
+    it('權限鍵與持有者的寫入不遞增 version（關聯的寫入，docs/architecture/backend/14-revisions.md §9.2 D3）', async () => {
       const id = await createRole('Lock Role F');
       await request(http)
         .patch(`/roles/${id}/permissions`)

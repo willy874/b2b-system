@@ -228,7 +228,7 @@ function setup(
   };
   const objects = { probe: vi.fn(async () => new Map<string, FileObjectProbe>()) };
   const images = { schedule: vi.fn() };
-  // 標籤（docs/adr/0032-tags.md）：沒有貼任何標籤
+  // 標籤（docs/architecture/backend/18-tag.md §7）：沒有貼任何標籤
   const tags = {
     tagsOf: vi.fn(
       async (_type: string, ids: readonly string[]) =>
@@ -661,7 +661,7 @@ function file(id: string): FileRow {
   return { id } as FileRow;
 }
 
-describe('FileFolderService.restore（docs/architecture/backend/13-trash.md §7.1、ADR-0025 D5）', () => {
+describe('FileFolderService.restore（docs/architecture/backend/13-trash.md §7.1、docs/architecture/backend/14-revisions.md §9.2 D5）', () => {
   it('刪除時資料夾與檔案帶同一個 deletion_id 與時間', async () => {
     const { service, repo, idOf } = setup([{ name: 'a' }, { name: 'b', parent: 'a' }]);
     await service.remove(idOf('a'), ALICE);

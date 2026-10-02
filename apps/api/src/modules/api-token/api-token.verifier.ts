@@ -35,7 +35,7 @@ function sameHash(secret: string, expectedHex: string): boolean {
 }
 
 /**
- * API token 的判定規則（docs/adr/0027-api-tokens-external-api.md D5、D7、D17），只在對外 API 使用：
+ * API token 的判定規則（docs/architecture/06-external-api.md §9.2 D5、D7、D17），只在對外 API 使用：
  * 格式 → 租戶相符 → 以 id 找（快取 10 秒）→ 比對雜湊 → 未撤銷、未過期 → 帳號仍有效且 `token_version` 沒變。
  *
  * 呼叫前請求已由 token 的租戶代碼進入那個租戶（`TokenTenantMiddleware`）；這裡再確認一次代碼相符。

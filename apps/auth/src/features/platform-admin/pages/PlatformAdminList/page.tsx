@@ -22,7 +22,7 @@ import { CreatePlatformAdminDialog } from './components/CreatePlatformAdminDialo
 import { EditPlatformAdminDialog } from './components/EditPlatformAdminDialog';
 
 /**
- * 平台管理者清單（docs/adr/0020-physical-tenant-isolation.md D5）：
+ * 平台管理者清單（docs/architecture/05-tenancy.md §10.2 D5）：
  * 新增（寄啟用信）、編輯名稱／角色／狀態、寄設定密碼的連結。不能變更自己的角色與狀態。
  */
 export default function PlatformAdminListPage() {

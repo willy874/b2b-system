@@ -12,7 +12,7 @@ import { formatDateTime } from '@/shared/date';
 import { AnnouncementMessageRoute } from '../../routes';
 
 /**
- * 收件人看公告全文（站內通知 `announcement.published` 的連結；docs/adr/0031-announcements.md D4）。
+ * 收件人看公告全文（站內通知 `announcement.published` 的連結；docs/architecture/backend/19-announcement.md §9.2 D4）。
  * 只需要登入。後端讀全文時把那則通知標為已讀，並推給自己的其他分頁；這個分頁自己的通知列表與未讀數也在這裡更新。
  * 沒收到、已被撤回或清除：後端回 404 `ANNOUNCEMENT_MESSAGE_NOT_FOUND`，顯示它的說明。
  */

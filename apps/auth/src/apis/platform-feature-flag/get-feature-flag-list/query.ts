@@ -5,7 +5,7 @@ import { fetchFeatureFlagListQuery } from './fetcher';
 export const FEATURE_FLAG_LIST_QUERY_KEY = 'FEATURE_FLAG_LIST_QUERY_KEY';
 
 /**
- * feature flag 的目錄、全平台覆寫與覆寫它的租戶數（`featureFlag:read`，docs/adr/0022-feature-flags.md D8）。
+ * feature flag 的目錄、全平台覆寫與覆寫它的租戶數（`featureFlag:read`，docs/architecture/05-tenancy.md §11.2 D8）。
  * 目錄就是全部，不分頁。
  */
 export const getFeatureFlagListQueryOptions = () =>

@@ -34,7 +34,7 @@ export default function PreferencePage() {
 
   // feature 或 plugins/features/* 註冊的分頁；偏好頁不需要認識它們
   const sections = usePreferenceSections();
-  // 晚一步安裝的 feature（ADR-0021）登記的分頁與列表：補載它們的語系包
+  // 晚一步安裝的 feature（docs/architecture/frontend/02-plugin-system.md §9）登記的分頁與列表：補載它們的語系包
   usePreferenceLocales();
 
   return (

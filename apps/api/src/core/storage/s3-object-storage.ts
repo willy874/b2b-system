@@ -67,7 +67,7 @@ function stripQuotes(etag: string | undefined): string {
  * `ObjectStorage` 的 S3 實作（`@aws-sdk/client-s3`）。
  * 本機連 apps/file-storage，正式環境可直接指向 S3 / MinIO / R2——只改環境變數。
  *
- * **每個租戶一個 bucket**（docs/adr/0020-physical-tenant-isolation.md D16）：每個操作都用目前租戶的 bucket
+ * **每個租戶一個 bucket**（docs/architecture/05-tenancy.md §10.2 D16）：每個操作都用目前租戶的 bucket
  * （`TenantContext.storageBucket`），沒有租戶脈絡時拋 `TENANT_NOT_FOUND`，不會退回任何共用的 bucket。
  * 業務模組的 key 不必帶租戶；檔案維護的對帳只列得到自己租戶的物件。
  */

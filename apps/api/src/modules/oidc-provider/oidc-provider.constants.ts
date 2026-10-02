@@ -1,4 +1,4 @@
-/** 第一方 client 的 id（docs/adr/0019-sso-identity-platform.md D7）。 */
+/** 第一方 client 的 id（docs/architecture/04-sso.md §12.2 D7）。 */
 export const OIDC_CLIENT = {
   /** apps/backstage */
   BACKSTAGE: 'backstage',
@@ -16,7 +16,7 @@ export const OIDC_CLIENT_PATHS = {
 
 export const OIDC_SCOPES = ['openid', 'email', 'profile'] as const;
 
-/** 各模型的存活時間（秒）。IdP session 與 app session 的 refresh token 同樣 7 天（ADR-0004）。 */
+/** 各模型的存活時間（秒）。IdP session 與 app session 的 refresh token 同樣 7 天（docs/architecture/backend/04-auth.md §10）。 */
 export const OIDC_TTL = {
   Session: 7 * 24 * 60 * 60,
   Interaction: 60 * 60,

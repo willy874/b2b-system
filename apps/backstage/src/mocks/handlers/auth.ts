@@ -32,7 +32,7 @@ export const authHandlers = [
 
   http.post(`${MOCK_API_BASE}/auth/logout`, () => HttpResponse.json({ data: { success: true } })),
 
-  // 這個網域的租戶（docs/adr/0020-physical-tenant-isolation.md D7）
+  // 這個網域的租戶（docs/architecture/05-tenancy.md §10.2 D7）
   http.get(`${MOCK_API_BASE}/tenant/current`, () =>
     HttpResponse.json({ data: { code: 'default', name: '預設租戶' } }),
   ),
@@ -51,7 +51,7 @@ export const authHandlers = [
         },
         roles: USER_FIXTURES[0]!.roles,
         permissions: mockState.permissions,
-        // 可啟用的 feature 全部開啟（docs/adr/0021-runtime-feature-activation.md D8）
+        // 可啟用的 feature 全部開啟（docs/architecture/frontend/02-plugin-system.md §9.2 D8）
         features: Object.values(TenantFeature),
         flags: [],
       },

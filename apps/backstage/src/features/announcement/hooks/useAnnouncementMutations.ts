@@ -115,7 +115,7 @@ export function useAnnouncementRestoreMutation() {
   });
 }
 
-/** 刪除＝進回收桶：提示帶「復原」（回收桶被平台關掉時沒有，docs/adr/0029-toggleable-platform-features.md D3）。 */
+/** 刪除＝進回收桶：提示帶「復原」（回收桶被平台關掉時沒有，docs/architecture/05-tenancy.md §12.2 D3）。 */
 export function useAnnouncementDeleteMutation() {
   const toast = useToast();
   const { t } = useTranslation();
@@ -144,7 +144,7 @@ export function useAnnouncementDeleteMutation() {
   });
 }
 
-/** 撤回一次發送：收件人的通知被刪除，發送紀錄保留（docs/adr/0031-announcements.md D18）。 */
+/** 撤回一次發送：收件人的通知被刪除，發送紀錄保留（docs/architecture/backend/19-announcement.md §9.2 D18）。 */
 export function useAnnouncementDispatchRevokeMutation() {
   const toast = useToast();
   const { t } = useTranslation();

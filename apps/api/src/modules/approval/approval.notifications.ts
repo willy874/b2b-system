@@ -10,7 +10,7 @@ import type {
 import type { ApprovalType } from './approval.constants';
 
 /**
- * 審批的站內通知（docs/architecture/backend/15-notification.md §4、ADR-0026 D11）。
+ * 審批的站內通知（docs/architecture/backend/15-notification.md §4、docs/architecture/backend/15-notification.md §12.2 D11）。
  * 參數是名稱快照：之後請求被審核、申請人改名都不影響已送出的通知。
  */
 
@@ -36,7 +36,7 @@ export type ApprovalResultParams = {
 };
 
 /**
- * 結果信（`approval.resultMail`）也是這個事件的 `email` 管道（ADR-0028 D3）：租戶可以分別關掉站內通知與信。
+ * 結果信（`approval.resultMail`）也是這個事件的 `email` 管道（docs/architecture/backend/16-notification-event.md §9.2 D3）：租戶可以分別關掉站內通知與信。
  */
 export const APPROVAL_RESULT_NOTIFICATION = defineNotification<ApprovalResultParams>(
   'approval.result',

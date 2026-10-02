@@ -17,7 +17,7 @@ import { citext } from './custom-types';
 export const userStatus = pgEnum('user_status', ['pending', 'active', 'inactive', 'locked']);
 
 /**
- * 帳號的種類（docs/adr/0027-api-tokens-external-api.md D1）：服務帳號是租戶內的非人類帳號，
+ * 帳號的種類（docs/architecture/06-external-api.md §9.2 D1）：服務帳號是租戶內的非人類帳號，
  * 沒有密碼、不能登入、不收信，只經 API token 使用；角色、群組、資料夾授權與人相同。
  */
 export const userKind = pgEnum('user_kind', ['human', 'service']);
@@ -48,7 +48,7 @@ export const users = pgTable(
     mfaEnabled: boolean('mfa_enabled').notNull().default(false), // 預留
 
     // 樂觀鎖：可編輯的欄位（username、displayName、status、locale、timezone）每次寫入遞增；
-    // 登入計數、鎖定、密碼、token_version 之類的帳號狀態不遞增（ADR-0025 D3）
+    // 登入計數、鎖定、密碼、token_version 之類的帳號狀態不遞增（docs/architecture/backend/14-revisions.md §9.2 D3）
     version: integer('version').notNull().default(1),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -84,7 +84,7 @@ export const users = pgTable(
 
 /**
  * 「人」的帳號：使用者列表、人數、最後一位 super-admin、登入與寄信都只看人，不看服務帳號
- * （docs/adr/0027-api-tokens-external-api.md D1）。與 `notDeleted()` 一樣在查詢裡組合使用。
+ * （docs/architecture/06-external-api.md §9.2 D1）。與 `notDeleted()` 一樣在查詢裡組合使用。
  */
 export function isHumanUser(): SQL {
   return eq(users.kind, 'human');

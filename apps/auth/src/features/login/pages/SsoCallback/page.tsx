@@ -13,7 +13,7 @@ import { AuthShell } from '../AuthShell';
 
 /**
  * IdP 帶授權碼跳回來：以 `state` 取回這個分頁存的 PKCE verifier，交給自己 origin 的 BFF 換 app session
- * （docs/adr/0019-sso-identity-platform.md D3）。授權碼只能兌換一次，所以同一次載入只送一次。
+ * （docs/architecture/04-sso.md §12.2 D3）。授權碼只能兌換一次，所以同一次載入只送一次。
  */
 export default function SsoCallbackPage() {
   const { t } = useTranslation();

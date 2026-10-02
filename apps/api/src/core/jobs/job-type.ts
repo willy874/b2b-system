@@ -15,7 +15,7 @@ export interface JobTypeOptions {
   /**
    * `tenant`（預設）：在某個租戶裡執行，入列時帶目前的租戶；排程觸發時展開成每個 `active` 租戶一筆。
    * `platform`：不屬於任何租戶（只碰平台 DB，例：清除 IdP 狀態），handler 裡沒有租戶脈絡
-   * （docs/adr/0020-physical-tenant-isolation.md D15）。
+   * （docs/architecture/05-tenancy.md §10.2 D15）。
    */
   scope: 'tenant' | 'platform';
   /**

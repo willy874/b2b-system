@@ -69,7 +69,7 @@ function createService() {
   return { service, repo, permissions, announcementTriggers };
 }
 
-describe('GroupService.updateMembers（docs/adr/0024-relationship-based-access-control.md D11）', () => {
+describe('GroupService.updateMembers（docs/rbac/01-domain-model.md §9.3 D11）', () => {
   let ctx: ReturnType<typeof createService>;
 
   beforeEach(() => {
@@ -107,7 +107,7 @@ describe('GroupService.updateMembers（docs/adr/0024-relationship-based-access-c
     expect(ctx.repo.removeMembers).toHaveBeenCalled();
   });
 
-  it('加成員 → 在交易內觸發公告的 group.memberAdded，只帶直接加入的使用者與這個群組（docs/adr/0031-announcements.md D14）', async () => {
+  it('加成員 → 在交易內觸發公告的 group.memberAdded，只帶直接加入的使用者與這個群組（docs/architecture/backend/19-announcement.md §9.2 D14）', async () => {
     ctx.repo.descendants = vi.fn().mockResolvedValue([]);
     await ctx.service.updateMembers(
       'g1',
@@ -210,7 +210,7 @@ describe('GroupService.updateMembers（docs/adr/0024-relationship-based-access-c
   });
 });
 
-describe('GroupService.updateRoles（docs/adr/0024-relationship-based-access-control.md D12）', () => {
+describe('GroupService.updateRoles（docs/rbac/01-domain-model.md §9.3 D12）', () => {
   let ctx: ReturnType<typeof createService>;
 
   beforeEach(() => {

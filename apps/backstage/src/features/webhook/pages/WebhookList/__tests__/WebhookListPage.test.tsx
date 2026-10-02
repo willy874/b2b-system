@@ -57,7 +57,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('WebhookListPage（docs/adr/0030-webhooks.md W2）', () => {
+describe('WebhookListPage（docs/architecture/backend/17-webhook.md §9 W2）', () => {
   it('有 webhook:create／delete → 顯示建立與刪除', async () => {
     renderRoute(routes, '/webhook', MANAGER);
     await screen.findByText('CI 通知', undefined, { timeout: 5000 });

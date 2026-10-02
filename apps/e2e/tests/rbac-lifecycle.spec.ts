@@ -9,7 +9,7 @@ import { snapshot } from '../helpers/snapshot';
 
 const ROLE_NAME = `E2E 檢視者 ${Date.now()}`;
 
-/** 使用者列表的一列：`expectedRoleIds`（必填，ADR-0025 D4）以列表上看到的角色為基礎。 */
+/** 使用者列表的一列：`expectedRoleIds`（必填，docs/architecture/backend/14-revisions.md §9.2 D4）以列表上看到的角色為基礎。 */
 interface UserWithRoles {
   id: string;
   roles: Array<{ id: string }>;
@@ -180,7 +180,7 @@ test.describe('RBAC 生命週期', () => {
       .body as { data: { items: Array<{ id: string; version: number }> } };
     const victim = users.data.items[0]!;
 
-    // version 必填（樂觀鎖，ADR-0025 D4）：帶列表上看到的版本
+    // version 必填（樂觀鎖，docs/architecture/backend/14-revisions.md §9.2 D4）：帶列表上看到的版本
     const disabled = await apiRequest(adminToken, 'patch', `/users/${victim.id}`, {
       status: 'inactive',
       version: victim.version,

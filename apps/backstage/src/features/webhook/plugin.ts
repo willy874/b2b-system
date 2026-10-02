@@ -5,7 +5,7 @@ import { WEBHOOK_LOCALE_SCOPE } from './locale';
 import { registerWebhookPagePermissions } from './permission';
 import { registerWebhookRouteLinks } from './routeLinks';
 
-/** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/adr/0030-webhooks.md D8）。 */
+/** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/architecture/backend/17-webhook.md §9.2 D8）。 */
 export function appContextPlugin(): AppDynamicPluginFactory {
   return (context) => {
     // ── 同步階段：權限與通知連結的註冊必須在第一次 render 之前完成 ──

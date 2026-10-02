@@ -39,21 +39,21 @@ export const ProfileSchema = defineSchema(
     roles: z.array(RoleSummarySchema),
     permissions: z.array(PermissionKeySchema),
     /**
-     * 目前租戶啟用的 feature（docs/adr/0021-runtime-feature-activation.md D8）：前端與權限一起水合，
+     * 目前租戶啟用的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D8）：前端與權限一起水合，
      * 據此安裝或移除可啟用的 feature。平台管理者變更時推 `resource.changed`（`tenantFeature`）。
      */
     features: z.array(TenantFeatureSchema),
     /**
-     * 目前生效為開的 feature flag（docs/adr/0022-feature-flags.md D6），依目錄的順序。與 `features` 一起水合，
+     * 目前生效為開的 feature flag（docs/architecture/05-tenancy.md §11.2 D6），依目錄的順序。與 `features` 一起水合，
      * 平台管理者變更租戶層或全平台層時同樣推 `resource.changed`（`tenantFeature`）。
      */
     flags: z.array(z.string()),
   }),
 );
 
-/** 平台管理者自己的身分（apps/auth，docs/adr/0020-physical-tenant-isolation.md D5）。 */
+/** 平台管理者自己的身分（apps/auth，docs/architecture/05-tenancy.md §10.2 D5）。 */
 /**
- * 平台的權限鍵：以 `PlatformPermissionKey` 出現在 OpenAPI，apps/auth 由 api-sdk 取得常數（同租戶的 `PermissionKey`，ADR-0007）。
+ * 平台的權限鍵：以 `PlatformPermissionKey` 出現在 OpenAPI，apps/auth 由 api-sdk 取得常數（同租戶的 `PermissionKey`，docs/architecture/backend/03-api-conventions.md §12）。
  */
 export const PlatformPermissionKeySchema = defineSchema(
   'PlatformPermissionKey',
@@ -134,7 +134,7 @@ export const RegisterResultSchema = defineSchema(
 
 export const VerifySetupSchema = z.object({ token: z.string().min(10).max(200) });
 
-// ── SSO（docs/adr/0019-sso-identity-platform.md）────────────────────
+// ── SSO（docs/architecture/04-sso.md §12）────────────────────
 
 /** 登入互動頁顯示的資訊。 */
 export const SsoInteractionSchema = defineSchema(
@@ -148,7 +148,7 @@ export const SsoInteractionSchema = defineSchema(
     loginHint: z.string().nullable(),
     /**
      * 要登入哪個租戶（互動頁顯示它的名稱）；`null` 是平台管理者的登入
-     * （docs/adr/0020-physical-tenant-isolation.md D8）。
+     * （docs/architecture/05-tenancy.md §10.2 D8）。
      */
     tenant: z.object({ code: z.string(), name: z.string() }).nullable(),
   }),

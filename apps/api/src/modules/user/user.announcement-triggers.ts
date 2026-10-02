@@ -2,7 +2,7 @@ import { defineAnnouncementTrigger } from '@/modules/announcement/announcement.t
 import type { AnnouncementTriggerDefinition } from '@/modules/announcement/announcement.triggers';
 
 /**
- * 帳號第一次可以登入（docs/adr/0031-announcements.md D14）：完成啟用（pending → active），或建立時就是 active
+ * 帳號第一次可以登入（docs/architecture/backend/19-announcement.md §9.2 D14）：完成啟用（pending → active），或建立時就是 active
  * （外部 IdP 首次登入、管理者直接設密碼）。對「在公告受眾裡」的那個人發送——例：新人的入門指南。
  */
 export const USER_ACTIVATED_TRIGGER = defineAnnouncementTrigger('user.activated', {

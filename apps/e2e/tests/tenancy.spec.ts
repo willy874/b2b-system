@@ -8,7 +8,7 @@ import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
 /**
- * 兩個租戶（docs/adr/0020-physical-tenant-isolation.md）：平台管理者建立新租戶、第一位管理員從啟用信進入自己的後台；
+ * 兩個租戶（docs/architecture/05-tenancy.md §10）：平台管理者建立新租戶、第一位管理員從啟用信進入自己的後台；
  * 同一個 IdP session 換租戶要重新登入；授權碼換不到別的租戶；authorize 的租戶與 redirect URI 必須一致；
  * 停用後網域回 503。另一個租戶是種子資料的預設租戶（localhost:5173）。
  */

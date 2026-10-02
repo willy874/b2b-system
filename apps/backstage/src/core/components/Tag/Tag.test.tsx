@@ -20,7 +20,7 @@ const tag = (id: string, name: string, color: Tag['color'] = 'neutral'): Tag => 
   updatedAt: '2026-10-01T00:00:00.000Z',
 });
 
-describe('TagChips（docs/adr/0032-tags.md D3）', () => {
+describe('TagChips（docs/architecture/backend/18-tag.md §7.2 D3）', () => {
   it('每個標籤一個 chip，顏色對到 tone；超過 max 收成 +N', () => {
     render(
       <TagChips tags={[tag('a', '合約', 'warning'), tag('b', '急件'), tag('c', '草稿')]} max={2} />,

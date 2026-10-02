@@ -5,7 +5,7 @@ import type { SsoInteraction } from '@/shared/api-sdk';
 
 /**
  * 登入互動的資訊。公開端點：憑證是 provider 設在 `/api/oidc-interaction/:uid` 的互動 cookie，
- * 同 origin 的 fetch 會自動帶上（docs/adr/0019-sso-identity-platform.md）。
+ * 同 origin 的 fetch 會自動帶上（docs/architecture/04-sso.md §12）。
  */
 export const fetchSsoInteractionQuery = defineBaseFetcher<
   HttpRequestDTO<{ uid: string }>,

@@ -154,8 +154,8 @@ async function expectCode(promise: Promise<unknown>, code: string, details?: obj
   if (details) expect((error as AppException).details).toMatchObject(details);
 }
 
-describe('WebhookService.emit（docs/adr/0030-webhooks.md D9）', () => {
-  it('有訂閱：在同一個交易內寫一筆事件，每個訂閱的每個網址入列一筆投遞工作（ADR-0033 D14）', async () => {
+describe('WebhookService.emit（docs/architecture/backend/17-webhook.md §9.2 D9）', () => {
+  it('有訂閱：在同一個交易內寫一筆事件，每個訂閱的每個網址入列一筆投遞工作（docs/architecture/backend/17-webhook.md §10.2 D14）', async () => {
     const ctx = setup();
     ctx.repo.findActiveTargetsByEvent.mockResolvedValue([
       { subscriptionId: 'wh-1', targetId: 'tg-1' },
@@ -411,7 +411,7 @@ describe('WebhookService：其他操作', () => {
   });
 });
 
-describe('WebhookService：多個目標網址（docs/adr/0033-feature-params-and-webhook-targets.md D11～D16）', () => {
+describe('WebhookService：多個目標網址（docs/architecture/05-tenancy.md §13.3 D11～D16）', () => {
   const A = 'https://a.example.com/';
   const B = 'https://b.example.com/';
 

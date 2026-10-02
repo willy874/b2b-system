@@ -119,7 +119,7 @@ export class AuditLogRepository {
   }
 
   /**
-   * 冷表有沒有不早於 `from` 的紀錄。熱表保留天數是租戶的參數（docs/adr/0033-feature-params-and-webhook-targets.md D7），
+   * 冷表有沒有不早於 `from` 的紀錄。熱表保留天數是租戶的參數（docs/architecture/05-tenancy.md §13.3 D7），
    * 調大之後已搬走的紀錄不會回到熱表，所以看冷表實際的資料，不以天數推算。`max(occurred_at)` 只讀時間索引的第一列。
    */
   private async archiveReaches(from: Date): Promise<boolean> {

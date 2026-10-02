@@ -9,11 +9,11 @@ import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
 import { usePermission } from '@/core/permission';
 
-/** 個人 token 的到期上限（天，ADR-0027 D8）；租戶設定更短時由後端擋下。 */
+/** 個人 token 的到期上限（天，docs/architecture/06-external-api.md §9.2 D8）；租戶設定更短時由後端擋下。 */
 export const PERSONAL_TOKEN_MAX_DAYS = 90;
 
 /**
- * 自己的個人 API token（docs/adr/0027-api-tokens-external-api.md D2）：列表、建立、撤銷。
+ * 自己的個人 API token（docs/architecture/06-external-api.md §9.2 D2）：列表、建立、撤銷。
  * 建立的錯誤由建立對話框顯示；撤銷的錯誤彈 toast。
  */
 export function useMyApiTokens() {

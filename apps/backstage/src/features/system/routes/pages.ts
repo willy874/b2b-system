@@ -6,7 +6,7 @@ import { RootRoute } from '@/core/router';
 
 import { SYSTEM_LOCALE_SCOPE } from '../locale';
 
-/** 這個 feature 在租戶啟用清單裡的 id（後端 `TENANT_FEATURES`，docs/adr/0029-toggleable-platform-features.md）。 */
+/** 這個 feature 在租戶啟用清單裡的 id（後端 `TENANT_FEATURES`，docs/architecture/05-tenancy.md §12）。 */
 export const SYSTEM_SETTING_FEATURE = 'systemSetting';
 
 /**

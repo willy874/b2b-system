@@ -50,7 +50,7 @@ export function listColumnsFor(width: number): FileListColumn[] {
   if (width >= 560) columns.splice(1, 0, 'kind');
   if (width >= 760) columns.push('createdAt');
   if (width >= 920) columns.push('uploader');
-  // 標籤（docs/adr/0032-tags.md）緊跟在檔名後面，寬度夠時才顯示
+  // 標籤（docs/architecture/backend/18-tag.md §7）緊跟在檔名後面，寬度夠時才顯示
   if (width >= 1080) columns.splice(1, 0, 'tags');
   return columns;
 }

@@ -7,7 +7,7 @@ import { invalidateResources, Resource } from '@/apis/resources';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
 
-/** 外部 IdP 連線（docs/adr/0019-sso-identity-platform.md D8）。錯誤不在這裡吞掉：由對話框的呼叫端顯示。 */
+/** 外部 IdP 連線（docs/architecture/04-sso.md §12.2 D8）。錯誤不在這裡吞掉：由對話框的呼叫端顯示。 */
 export function useCreateIdentityProviderMutation() {
   const toast = useToast();
   const { t } = useTranslation();

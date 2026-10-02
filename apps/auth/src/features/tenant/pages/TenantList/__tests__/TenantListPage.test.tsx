@@ -74,7 +74,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('租戶清單（docs/adr/0020-physical-tenant-isolation.md D12）', () => {
+describe('租戶清單（docs/architecture/05-tenancy.md §10.2 D12）', () => {
   it('有 tenant:create → 顯示建立按鈕與清單', async () => {
     renderPage(['tenant:read', 'tenant:create']);
     expect(await screen.findByTestId('tenant-link')).toHaveAttribute('data-value', 'acme');

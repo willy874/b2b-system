@@ -36,7 +36,7 @@ const NotificationInputSchema = z.object({
 export interface PreparedNotifications {
   /** 要寫入的列（已排除自己、去重、截斷）。 */
   rows: NotificationInput[];
-  /** 操作者就是收件人而略過的筆數（ADR-0026 D7）。 */
+  /** 操作者就是收件人而略過的筆數（docs/architecture/backend/15-notification.md §12.2 D7）。 */
   skippedSelf: number;
   /** 超過上限被截掉的筆數（D6）。 */
   truncated: number;

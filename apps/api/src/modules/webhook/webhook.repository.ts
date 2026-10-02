@@ -38,7 +38,7 @@ import type { ListWebhookDeliveryDto, ListWebhookDto } from './dto/webhook.dto';
 
 export interface WebhookSubscriptionWithCreator extends WebhookSubscriptionRow {
   creator: { id: string; displayName: string } | null;
-  /** 目標網址，依 `position`（docs/adr/0033-feature-params-and-webhook-targets.md D12）。 */
+  /** 目標網址，依 `position`（docs/architecture/backend/17-webhook.md §10.2 D12）。 */
   targets: WebhookTargetRow[];
 }
 
@@ -76,7 +76,7 @@ const CREATOR = sql<{ id: string; displayName: string } | null>`
   CASE WHEN ${users.id} IS NULL THEN NULL
   ELSE json_build_object('id', ${users.id}, 'displayName', ${users.displayName}) END`;
 
-/** Webhook 的訂閱、事件與投遞紀錄（docs/adr/0030-webhooks.md D7、D9、D12）。 */
+/** Webhook 的訂閱、事件與投遞紀錄（docs/architecture/backend/17-webhook.md §9.2 D7、D9、D12）。 */
 @Injectable()
 export class WebhookRepository {
   constructor(@Inject(TENANT_DB) private readonly db: Database) {}
@@ -176,7 +176,7 @@ export class WebhookRepository {
   }
 
   /**
-   * 租戶所有訂閱裡不重複的網址（docs/adr/0033-feature-params-and-webhook-targets.md D11）；給了 `excludeSubscriptionId`
+   * 租戶所有訂閱裡不重複的網址（docs/architecture/05-tenancy.md §13.3 D11）；給了 `excludeSubscriptionId`
    * 就不算那個訂閱（修改時換成它的新網址再算）。呼叫前先 `lockForCount`。
    */
   async distinctUrls(tx: DbOrTx, excludeSubscriptionId?: string): Promise<string[]> {
@@ -213,7 +213,7 @@ export class WebhookRepository {
       });
   }
 
-  /** 重新啟用時所有網址的失敗次數歸零（ADR-0033 D15）。 */
+  /** 重新啟用時所有網址的失敗次數歸零（docs/architecture/backend/17-webhook.md §10.2 D15）。 */
   async resetTargetFailures(subscriptionId: string, tx: DbOrTx): Promise<void> {
     await tx
       .update(webhookTargets)
@@ -281,7 +281,7 @@ export class WebhookRepository {
   }
 
   /**
-   * 訂閱了這個事件的啟用中訂閱的每個網址（`emit()` 在業務交易內呼叫；訂閱走部分 GIN 索引；ADR-0033 D14）。
+   * 訂閱了這個事件的啟用中訂閱的每個網址（`emit()` 在業務交易內呼叫；訂閱走部分 GIN 索引；docs/architecture/backend/17-webhook.md §10.2 D14）。
    */
   async findActiveTargetsByEvent(type: string, tx: DbOrTx): Promise<ActiveWebhookTarget[]> {
     return tx
@@ -316,7 +316,7 @@ export class WebhookRepository {
 
   /**
    * 投遞失敗：這個網址的失敗次數加一；到門檻而訂閱仍是啟用中就停用整個訂閱（`disabled_reason = 'failing'`，
-   * docs/adr/0033-feature-params-and-webhook-targets.md D15）。停用的 UPDATE 以 `status = 'active'` 為條件：
+   * docs/architecture/backend/17-webhook.md §10.2 D15）。停用的 UPDATE 以 `status = 'active'` 為條件：
    * 兩個並行的失敗只有先到的那一個改得到，不會都以為自己是讓它停用的那一次。網址已被移除時回 `undefined`。
    */
   async recordFailure(

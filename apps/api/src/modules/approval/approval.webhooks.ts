@@ -4,7 +4,7 @@ import type { AnyWebhookEventType } from '@/modules/webhook/webhook.definition';
 import type { ApprovalType } from './approval.constants';
 
 /**
- * 審批被核准或駁回（docs/adr/0030-webhooks.md D2、D3）：只帶 id、類型與結果；申請內容與審核意見由接收端回查。
+ * 審批被核准或駁回（docs/architecture/backend/17-webhook.md §9.2 D2、D3）：只帶 id、類型與結果；申請內容與審核意見由接收端回查。
  */
 export const APPROVAL_DECIDED_WEBHOOK = defineWebhookEvent<{
   approvalId: string;

@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import type { AnnouncementTriggerDefinition } from './announcement.triggers';
 
 /**
- * 公告的觸發點目錄（docs/adr/0031-announcements.md D12）：擁有者模組在自己的 `*.module.ts` constructor 登記，
+ * 公告的觸發點目錄（docs/architecture/backend/19-announcement.md §9.2 D12）：擁有者模組在自己的 `*.module.ts` constructor 登記，
  * 與通知的事件目錄同一種做法；公告模組不 import 任何擁有者。重複登記讓程序啟動失敗。
  */
 @Injectable()

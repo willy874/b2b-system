@@ -62,7 +62,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('外部 IdP 連線管理頁（docs/adr/0019-sso-identity-platform.md D8–D11）', () => {
+describe('外部 IdP 連線管理頁（docs/architecture/04-sso.md §12.2 D8–D11）', () => {
   it('有 identityProvider:* → 顯示新增、編輯、刪除，以及要登記的 redirect URI', async () => {
     renderPage([
       'identityProvider:read',

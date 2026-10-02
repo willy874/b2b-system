@@ -7,7 +7,7 @@ import { RootRoute } from '@/core/router';
 import { ANNOUNCEMENT_LOCALE_SCOPE } from '../locale';
 import { AnnouncementSearchQuerySchema, DEFAULT_ANNOUNCEMENT_SEARCH } from './model';
 
-/** 這個 feature 在租戶啟用清單裡的 id（後端 `TENANT_FEATURES`，docs/adr/0031-announcements.md D20）。 */
+/** 這個 feature 在租戶啟用清單裡的 id（後端 `TENANT_FEATURES`，docs/architecture/backend/19-announcement.md §9.2 D20）。 */
 export const ANNOUNCEMENT_FEATURE = 'announcement';
 
 /** 公告列表（`announcement:read`）。 */

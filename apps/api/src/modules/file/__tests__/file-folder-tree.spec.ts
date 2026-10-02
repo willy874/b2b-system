@@ -128,7 +128,7 @@ describe('FileFolderTree（資料夾結構的程序內快取）', () => {
     expect(repo.listTreeNodes).toHaveBeenCalledTimes(2);
   });
 
-  it('一個程序寫入結構後，其他程序同一個租戶的快取也作廢（docs/adr/0027-api-tokens-external-api.md D16）', async () => {
+  it('一個程序寫入結構後，其他程序同一個租戶的快取也作廢（docs/architecture/06-external-api.md §9.2 D16）', async () => {
     const hub = new BroadcastHub();
     const [a, b] = [setup(hub), setup(hub)];
     for (const { tree, broadcast } of [a, b]) {

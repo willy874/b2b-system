@@ -28,7 +28,7 @@ interface FeatureFlagTableProps {
 const choiceOf = (flag: FeatureFlag): FeatureFlagGlobalChoice => flag.globalState ?? 'default';
 
 /**
- * 試行開關的列表（docs/adr/0022-feature-flags.md D8）。全平台狀態的每一次變更都先確認：
+ * 試行開關的列表（docs/architecture/05-tenancy.md §11.2 D8）。全平台狀態的每一次變更都先確認：
  * 會立即影響所有租戶；`off` 是緊急開關，以 danger 的語氣提示。
  */
 export function FeatureFlagTable({ items, loading, canUpdate, today }: FeatureFlagTableProps) {

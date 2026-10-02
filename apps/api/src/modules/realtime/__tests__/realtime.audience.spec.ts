@@ -1,7 +1,7 @@
 import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { describe, expect, it, vi } from 'vitest';
 
-// perm room 帶租戶（docs/adr/0020-physical-tenant-isolation.md D17）：固定在租戶 t1
+// perm room 帶租戶（docs/architecture/05-tenancy.md §10.2 D17）：固定在租戶 t1
 vi.mock('@/core/tenant', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/core/tenant')>()),
   requireTenant: () => ({ id: 't1' }),
@@ -63,7 +63,7 @@ describe('來源 → 受眾（docs/architecture/backend/08-realtime.md §6.1）'
       rooms: ['t:t1:perm:auditLog:read'],
     },
     {
-      name: 'serviceAccount：只有 serviceAccount:read（ADR-0027 D14）',
+      name: 'serviceAccount：只有 serviceAccount:read（docs/architecture/06-external-api.md §9.2 D14）',
       change: { resource: 'serviceAccount', kind: 'update', id: 's1' },
       rooms: ['t:t1:perm:auditLog:read', 't:t1:perm:serviceAccount:read'],
     },
@@ -98,7 +98,7 @@ describe('來源 → 受眾（docs/architecture/backend/08-realtime.md §6.1）'
     expect(rooms.length).toBe(new Set(rooms).size);
   });
 
-  it('notification：只推給收件人（affectedUserIds），不推 perm room，也不讓稽核的讀者重抓（ADR-0026 D8、D9）', () => {
+  it('notification：只推給收件人（affectedUserIds），不推 perm room，也不讓稽核的讀者重抓（docs/architecture/backend/15-notification.md §12.2 D8、D9）', () => {
     const rooms = resolveAudienceRooms(
       [{ resource: 'notification', kind: 'create', id: 'n1' }],
       ['u1'],

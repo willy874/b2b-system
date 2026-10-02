@@ -19,7 +19,7 @@ const PROBES = new Set([
 /**
  * `TENANT_DB` 的實作：每次存取都轉到目前租戶的 database。repository 照常把它當成 `Database` 用
  * （`this.db.select()…`、`withTransaction(this.db, …)`），不必知道有多個租戶；
- * 沒有租戶脈絡時第一次存取就拋 `TENANT_NOT_FOUND`（docs/adr/0020-physical-tenant-isolation.md D3）。
+ * 沒有租戶脈絡時第一次存取就拋 `TENANT_NOT_FOUND`（docs/architecture/05-tenancy.md §10.2 D3）。
  */
 export function createTenantDbProxy(): Database {
   return new Proxy({} as Database, {

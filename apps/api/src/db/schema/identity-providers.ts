@@ -14,7 +14,7 @@ import { citext } from './custom-types';
 import { users } from './users';
 
 /**
- * 外部 IdP 登入後找不到對應帳號時怎麼辦（docs/adr/0019-sso-identity-platform.md D10）。
+ * 外部 IdP 登入後找不到對應帳號時怎麼辦（docs/architecture/04-sso.md §12.2 D10）。
  * `approval`（走註冊審批）這一版不做：現有的註冊審批以密碼建立帳號，SSO 帳號沒有密碼。
  */
 export const unmatchedAccountPolicy = pgEnum('unmatched_account_policy', ['reject', 'auto_create']);

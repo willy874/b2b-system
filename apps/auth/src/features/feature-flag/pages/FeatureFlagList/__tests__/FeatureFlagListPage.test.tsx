@@ -77,7 +77,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('試行開關（docs/adr/0022-feature-flags.md D8）', () => {
+describe('試行開關（docs/architecture/05-tenancy.md §11.2 D8）', () => {
   it('列出目錄與全平台狀態；過了 removeBy 的標示已過期', async () => {
     renderPage(['featureFlag:read']);
     await waitFor(() => expect(screen.getAllByTestId('feature-flag-global')).toHaveLength(2));

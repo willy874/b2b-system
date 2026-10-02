@@ -15,7 +15,7 @@ import { registerFileTrashTypes } from './trash';
 import { UPLOAD_SOURCE_MAX_AGE_MS, uploadSources } from './upload/uploadSources';
 import { imageSignatureValidator, maxSizeValidator } from './upload/validators';
 
-/** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/adr/0021-runtime-feature-activation.md D1）。 */
+/** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/architecture/frontend/02-plugin-system.md §9.2 D1）。 */
 export function appContextPlugin(): AppDynamicPluginFactory {
   return (context) => {
     registerFilePagePermissions();

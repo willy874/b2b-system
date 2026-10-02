@@ -122,7 +122,7 @@ describe('SettingService（docs/architecture/backend/12-settings.md §1）', () 
     expect(repo.listAll).toHaveBeenCalledTimes(2);
   });
 
-  it('一個程序 invalidate，其他程序同一個租戶的快取也作廢（docs/adr/0027-api-tokens-external-api.md D16）', async () => {
+  it('一個程序 invalidate，其他程序同一個租戶的快取也作廢（docs/architecture/06-external-api.md §9.2 D16）', async () => {
     const hub = new BroadcastHub();
     const [a, b] = [setup([], hub), setup([], hub)];
     for (const { service, broadcast } of [a, b]) {

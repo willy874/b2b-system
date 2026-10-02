@@ -4,7 +4,7 @@ import { LanguageNamespace, Languages } from '@/shared/constants/lang';
 import { JOB_LOCALE_SCOPE } from './locale';
 import { registerJobPagePermissions } from './permission';
 
-/** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/adr/0021-runtime-feature-activation.md D1）。 */
+/** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/architecture/frontend/02-plugin-system.md §9.2 D1）。 */
 export function appContextPlugin(): AppDynamicPluginFactory {
   return (context) => {
     registerJobPagePermissions();

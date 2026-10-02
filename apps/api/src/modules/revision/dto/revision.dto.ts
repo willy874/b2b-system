@@ -18,7 +18,7 @@ export const RevisionSummarySchema = defineSchema(
     createdAt: z.string(),
     /** 寫入這一版的人；系統（基準版本、排程）或那個人已被永久刪除時為 null。 */
     actor: z.object({ id: z.string().uuid(), name: z.string() }).nullable(),
-    /** 快照超過單版上限而未保存（ADR-0025 D1）：看不到內容、不能還原。 */
+    /** 快照超過單版上限而未保存（docs/architecture/backend/14-revisions.md §9.2 D1）：看不到內容、不能還原。 */
     tooLarge: z.boolean(),
   }),
 );

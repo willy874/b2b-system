@@ -5,7 +5,7 @@ import { runInTenantContext } from '../tenant-context';
 import type { TenantContext } from '../tenant-context';
 import { createTenantDbProxy } from '../tenant-db.provider';
 
-describe('TENANT_DB 代理（docs/adr/0020-physical-tenant-isolation.md D3）', () => {
+describe('TENANT_DB 代理（docs/architecture/05-tenancy.md §10.2 D3）', () => {
   it('啟動時 Nest 的探測（then、constructor、生命週期 hook）沒有租戶也不拋錯', () => {
     const db = createTenantDbProxy() as unknown as Record<string, unknown>;
     for (const probe of [

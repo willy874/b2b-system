@@ -9,7 +9,7 @@ export const SSO_CLIENT: SsoClientConfig = {
   callbackPath: '/callback',
 };
 
-/** 頂層跳轉到 IdP 登入（docs/adr/0019-sso-identity-platform.md D6）。 */
+/** 頂層跳轉到 IdP 登入（docs/architecture/04-sso.md §12.2 D6）。 */
 export async function startSsoLogin(returnTo: string | undefined): Promise<void> {
   globalThis.location.assign(await createAuthorizationUrl(SSO_CLIENT, returnTo));
 }

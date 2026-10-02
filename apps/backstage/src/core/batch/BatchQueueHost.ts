@@ -52,16 +52,16 @@ const MAX_CONCURRENCY = 6;
 const runningKey = (jobId: string, itemId: string) => `${jobId}\u0000${itemId}`;
 
 /**
- * 全域批次佇列（docs/adr/0012-batch-queue-worker.md）。在 SharedWorker（所有分頁共用一個）或
+ * 全域批次佇列（docs/architecture/frontend/07-ui-system.md §13）。在 SharedWorker（所有分頁共用一個）或
  * dedicated worker（不支援 SharedWorker 時，每個分頁一個）裡執行，不依賴 DOM。
  *
  * **堵塞式**：整個佇列同一時間只處理一個工作，工作依送進來的順序處理；工作內預設一次一筆——把它交給一個分頁
  * （`execute`），等 `result` 回來才送下一筆。上傳這類彼此獨立的操作可以設 `concurrency` 讓同一個工作
- * 同時處理數筆（docs/adr/0013-file-manager-upload.md）。實際的 HTTP 請求由分頁以一般 API 送出：token、續期、錯誤轉換只在分頁的 `apis/` 一處，
+ * 同時處理數筆（docs/architecture/frontend/12-file-manager.md §14）。實際的 HTTP 請求由分頁以一般 API 送出：token、續期、錯誤轉換只在分頁的 `apis/` 一處，
  * access token 不必離開分頁的記憶體。
  *
  * 執行者：優先交給發起的分頁；它關掉了就交給任一個還在、且宣告支援這個操作的分頁
- * （feature 在執行期安裝，各分頁的操作可能暫時不同，docs/adr/0021-runtime-feature-activation.md D10）。
+ * （feature 在執行期安裝，各分頁的操作可能暫時不同，docs/architecture/frontend/02-plugin-system.md §9.2 D10）。
  * 執行中的分頁消失時，同一筆改交給其他分頁重送（單筆 API 已處理過的會以 `*_NOT_FOUND` 等錯誤回來）。
  */
 export class BatchQueueHost {

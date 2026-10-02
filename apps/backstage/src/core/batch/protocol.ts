@@ -4,7 +4,7 @@ import type { Channel, ChannelOptions } from '@/shared/channel';
 import type { BatchItemError, BatchItemProgress, BatchJob, BatchJobInput } from './types';
 
 /**
- * 佇列有兩條通道（docs/adr/0012-batch-queue-worker.md）：
+ * 佇列有兩條通道（docs/architecture/frontend/07-ui-system.md §13）：
  *
  * | 通道 | 方向 | 內容 |
  * | ---- | ---- | ---- |
@@ -37,7 +37,7 @@ export type BatchClientMessage =
   | { type: 'dismiss'; jobId: string }
   | { type: 'clear-finished' }
   /**
-   * 這個分頁能執行哪些操作（docs/adr/0021-runtime-feature-activation.md D10）：feature 在執行期安裝或卸載，
+   * 這個分頁能執行哪些操作（docs/architecture/frontend/02-plugin-system.md §9.2 D10）：feature 在執行期安裝或卸載，
    * 各分頁的註冊表可能暫時不同。佇列只把項目交給宣告過支援的分頁；沒送過的分頁視為全部支援。
    */
   | { type: 'capabilities'; operations: string[] }

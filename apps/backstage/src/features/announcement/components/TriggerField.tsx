@@ -164,7 +164,7 @@ interface TriggerFieldProps {
   disabled?: boolean;
 }
 
-/** 發送時間（docs/adr/0031-announcements.md D7）：立即、指定時間、週期。 */
+/** 發送時間（docs/architecture/backend/19-announcement.md §9.2 D7）：立即、指定時間、週期。 */
 export function TriggerField({ value, onChange, allowImmediate, disabled }: TriggerFieldProps) {
   const { t } = useTranslation();
   const kinds: TriggerKind[] = allowImmediate

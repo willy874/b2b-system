@@ -43,7 +43,7 @@ function parseMessage(value: unknown): UserCacheMessage | null {
 
 /**
  * 快取的 key 是「租戶 × 使用者」：一個程序服務所有租戶，只用 userId 會讓 A 租戶的資料被拿去判斷 B 租戶的請求
- * （docs/adr/0020-physical-tenant-isolation.md D17）。沒有租戶脈絡時（平台管理者、單元測試）歸在同一組。
+ * （docs/architecture/05-tenancy.md §10.2 D17）。沒有租戶脈絡時（平台管理者、單元測試）歸在同一組。
  */
 function keyOf(userId: string, tenant: string = currentTenant()?.id ?? NO_TENANT): string {
   return `${tenant}:${userId}`;
@@ -51,7 +51,7 @@ function keyOf(userId: string, tenant: string = currentTenant()?.id ?? NO_TENANT
 
 /**
  * 使用者狀態（`status`、`token_version`、刪除）的快取。失效時先清本機，再廣播給其他程序
- * （docs/adr/0027-api-tokens-external-api.md D16）：停用、強制登出要在每個程序都立即生效，TTL 只是漏掉廣播時的上限。
+ * （docs/architecture/06-external-api.md §9.2 D16）：停用、強制登出要在每個程序都立即生效，TTL 只是漏掉廣播時的上限。
  */
 @Injectable()
 export class UserCacheService implements OnModuleInit {

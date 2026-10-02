@@ -18,7 +18,7 @@ export interface NotificationOverviewState {
   refetch: () => void;
 }
 
-/** 租戶內所有人的通知（新的在前，keyset「載入更多」；docs/adr/0031-announcements.md D1）。 */
+/** 租戶內所有人的通知（新的在前，keyset「載入更多」；docs/architecture/backend/19-announcement.md §9.2 D1）。 */
 export function useNotificationOverview(
   filters: NotificationOverviewFilters,
 ): NotificationOverviewState {

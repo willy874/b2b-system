@@ -4,7 +4,7 @@ import { LanguageNamespace, Languages } from '@/shared/constants/lang';
 import { SYSTEM_LOCALE_SCOPE } from './locale';
 import { registerSystemPagePermissions } from './permission';
 
-/** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/adr/0029-toggleable-platform-features.md）。 */
+/** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/architecture/05-tenancy.md §12）。 */
 export function appContextPlugin(): AppDynamicPluginFactory {
   return (context) => {
     // ── 同步階段：權限註冊必須在第一次 render 之前完成 ──

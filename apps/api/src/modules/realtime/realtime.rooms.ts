@@ -10,19 +10,19 @@ export function userRoom(userId: string): string {
   return `t:${requireTenant().id}:user:${userId}`;
 }
 
-/** 某個租戶的所有連線：停用或刪除租戶時一次斷掉（docs/adr/0020-physical-tenant-isolation.md D13）。 */
+/** 某個租戶的所有連線：停用或刪除租戶時一次斷掉（docs/architecture/05-tenancy.md §10.2 D13）。 */
 export function tenantRoom(tenantId: string): string {
   return `t:${tenantId}`;
 }
 
-/** 同一個 IdP session 的連線（單一登出，docs/adr/0019-sso-identity-platform.md D5）。 */
+/** 同一個 IdP session 的連線（單一登出，docs/architecture/04-sso.md §12.2 D5）。 */
 export function idpSessionRoom(idpSessionUid: string): string {
   return `sid:${idpSessionUid}`;
 }
 
 /**
  * 目前租戶裡持有這個權限鍵的連線。一個程序服務所有租戶，權限鍵的名稱各租戶都一樣，
- * 所以 room 帶上租戶，A 租戶的變更才不會推給 B 租戶的人（docs/adr/0020-physical-tenant-isolation.md D17）。
+ * 所以 room 帶上租戶，A 租戶的變更才不會推給 B 租戶的人（docs/architecture/05-tenancy.md §10.2 D17）。
  * IdP session 的 room 用的是 IdP 全域唯一的 uid，不必再帶租戶。
  */
 export function permRoom(key: PermissionKey): string {

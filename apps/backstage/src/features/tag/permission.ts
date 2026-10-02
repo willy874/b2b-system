@@ -9,7 +9,7 @@ import {
 
 import { TagListRoute } from './routes/pages';
 
-/** 標籤管理：持有任一個管理定義的權限鍵就能進（沒有 `tag:read`，docs/adr/0032-tags.md D5）。 */
+/** 標籤管理：持有任一個管理定義的權限鍵就能進（沒有 `tag:read`，docs/architecture/backend/18-tag.md §7.2 D5）。 */
 export const TAG_PAGE = definePageKey('TAG');
 
 export function registerTagPagePermissions(): void {

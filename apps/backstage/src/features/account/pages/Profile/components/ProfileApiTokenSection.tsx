@@ -7,7 +7,7 @@ import { useTranslation } from '@/core/locales';
 import { PERSONAL_TOKEN_MAX_DAYS, useMyApiTokens } from '../../../hooks/useMyApiTokens';
 
 /**
- * 個人 API token（docs/adr/0027-api-tokens-external-api.md D2、D5）：代表自己呼叫對外 API，給個人的腳本用。
+ * 個人 API token（docs/architecture/06-external-api.md §9.2 D2、D5）：代表自己呼叫對外 API，給個人的腳本用。
  * 權限最多與自己相同，可以再限縮；改密碼、被強制登出、被停用時一律失效。
  */
 export function ProfileApiTokenSection() {

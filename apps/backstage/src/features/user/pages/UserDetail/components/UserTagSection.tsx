@@ -11,7 +11,7 @@ import { useUserTagsReplaceMutation } from '../../../hooks/useUserMutations';
 
 interface UserTagSectionProps {
   user: Pick<User, 'id' | 'email' | 'tags'>;
-  /** 貼與移除跟著 `user:update`（docs/adr/0032-tags.md D5）。 */
+  /** 貼與移除跟著 `user:update`（docs/architecture/backend/18-tag.md §7.2 D5）。 */
   canEdit: boolean;
 }
 

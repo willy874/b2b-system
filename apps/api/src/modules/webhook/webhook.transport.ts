@@ -20,7 +20,7 @@ export type WebhookSendResult =
   | { received: false; error: string };
 
 /**
- * webhook 對外連線的唯一出口（docs/adr/0030-webhooks.md D11、D15）：網址檢查、送出、密鑰的加解密。
+ * webhook 對外連線的唯一出口（docs/architecture/backend/17-webhook.md §9.2 D11、D15）：網址檢查、送出、密鑰的加解密。
  * production 擋私有位址並在連線時綁定已驗證的位址、只接受 https；其他環境允許 http 與內網，才能打本機的接收端
  * （與外部 IdP 的 `blockPrivateNetworks` 同一個判斷）。整合測試以假的 transport 取代它。
  */

@@ -88,7 +88,7 @@ async function confirmBatch() {
   await userEvent.click(within(dialog).getByTestId('alert-dialog-confirm'));
 }
 
-describe('RichTable 的批次操作（ADR-0012）', () => {
+describe('RichTable 的批次操作（docs/architecture/frontend/07-ui-system.md §13）', () => {
   beforeEach(async () => {
     localStorage.clear();
     useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
@@ -157,7 +157,7 @@ describe('RichTable 的批次操作（ADR-0012）', () => {
     expect(await screen.findByText('只能解鎖被鎖定的列')).toBeVisible();
   });
 
-  it('有 getRowVersion 時每一筆帶著該列的版本執行（樂觀鎖，ADR-0025 D4）', async () => {
+  it('有 getRowVersion 時每一筆帶著該列的版本執行（樂觀鎖，docs/architecture/backend/14-revisions.md §9.2 D4）', async () => {
     const touched = vi.fn(async (_id: string, _version: number | undefined) => undefined);
     registerBatchOperation({
       id: 'row.touch',

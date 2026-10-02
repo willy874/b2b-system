@@ -29,8 +29,8 @@ import type {
 import { IdentityProviderService } from './identity-provider.service';
 
 /**
- * 外部 IdP 連線的管理（平台範圍，docs/adr/0019-sso-identity-platform.md D8、D9）。
- * 平台管理者可對租戶關閉（`identityProvider`，docs/adr/0029-toggleable-platform-features.md D5）。
+ * 外部 IdP 連線的管理（平台範圍，docs/architecture/04-sso.md §12.2 D8、D9）。
+ * 平台管理者可對租戶關閉（`identityProvider`，docs/architecture/05-tenancy.md §12.2 D5）。
  */
 @ApiTags('identity-providers')
 @Controller('identity-providers')

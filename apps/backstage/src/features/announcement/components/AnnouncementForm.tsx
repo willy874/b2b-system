@@ -26,7 +26,7 @@ interface AnnouncementFormProps {
   disabled?: boolean;
 }
 
-/** 標題、純文字內文、受眾、發送時間（docs/adr/0031-announcements.md）。 */
+/** 標題、純文字內文、受眾、發送時間（docs/architecture/backend/19-announcement.md §9）。 */
 export function AnnouncementForm({
   id,
   value,

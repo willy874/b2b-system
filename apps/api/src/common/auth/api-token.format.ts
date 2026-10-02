@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
-/** token 的固定開頭：GitHub 等平台的 secret scanning 可以登記這個格式（docs/adr/0027-api-tokens-external-api.md D7）。 */
+/** token 的固定開頭：GitHub 等平台的 secret scanning 可以登記這個格式（docs/architecture/06-external-api.md §9.2 D7）。 */
 export const API_TOKEN_PREFIX = 'b2bt_';
 /** secret 的位元組數：256 位元的隨機值，雜湊用 SHA-256 就夠，不需要慢雜湊。 */
 const SECRET_BYTES = 32;

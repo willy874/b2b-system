@@ -28,7 +28,7 @@ export function isEmptyAudience(audience: AnnouncementAudienceValue): boolean {
 }
 
 /**
- * 受眾 → 收件人（docs/adr/0031-announcements.md D5）：指定的人 ∪ 群組的成員（含巢狀）∪ 角色的持有者（含經由群組）
+ * 受眾 → 收件人（docs/architecture/backend/19-announcement.md §9.2 D5）：指定的人 ∪ 群組的成員（含巢狀）∪ 角色的持有者（含經由群組）
  * ∪（`all` 時）全部，最後只留可登入的使用者。群組與角色沿關係圖反向展開（`AuthzService.usersInSubjectSets`），
  * 不在公告模組自己查 `relation_tuples`。在發送的當下呼叫：結果是快照，之後才加入群組的人不會補收。
  */

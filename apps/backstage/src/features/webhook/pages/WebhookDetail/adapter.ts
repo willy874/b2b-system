@@ -5,7 +5,7 @@ export interface WebhookDeliveryRowVM {
   eventId: string;
   eventType: string;
   eventData: Record<string, unknown>;
-  /** 送到的網址；網址已從訂閱移除時仍是當時的網址（ADR-0033 D14）。 */
+  /** 送到的網址；網址已從訂閱移除時仍是當時的網址（docs/architecture/backend/17-webhook.md §10.2 D14）。 */
   url: string;
   attempt: number;
   trigger: WebhookDelivery['trigger'];

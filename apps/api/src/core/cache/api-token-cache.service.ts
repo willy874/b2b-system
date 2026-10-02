@@ -43,13 +43,13 @@ function parseMessage(value: unknown): ApiTokenCacheMessage | null {
   return { tenant, tokens };
 }
 
-/** token id 只在自己的租戶 DB 有意義：key 一定帶租戶（docs/adr/0020-physical-tenant-isolation.md D17）。 */
+/** token id 只在自己的租戶 DB 有意義：key 一定帶租戶（docs/architecture/05-tenancy.md §10.2 D17）。 */
 function keyOf(tenant: string, tokenId: string): string {
   return `${tenant}:${tokenId}`;
 }
 
 /**
- * 對外 API 驗證 token 的快取（docs/adr/0027-api-tokens-external-api.md D17）：每個請求都要以 token id 查
+ * 對外 API 驗證 token 的快取（docs/architecture/06-external-api.md §9.2 D17）：每個請求都要以 token id 查
  * `api_tokens`，快取 10 秒。撤銷在內部 api 發生、驗證在對外 API，所以失效一定要廣播。
  * 帳號的停用、`token_version` 由使用者快取負責（它也會廣播），這裡只管 token 本身。
  */

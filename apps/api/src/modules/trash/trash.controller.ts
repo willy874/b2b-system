@@ -17,7 +17,7 @@ export class TrashController {
   constructor(private readonly trashService: TrashService) {}
 
   /**
-   * 路由擋「任何一類都不能刪」的人；指定的類型還要有該類型的 `<resource>:delete`（service 檢查，ADR-0025 D10）。
+   * 路由擋「任何一類都不能刪」的人；指定的類型還要有該類型的 `<resource>:delete`（service 檢查，docs/architecture/backend/14-revisions.md §9.2 D10）。
    * 還原端點在各資源自己的 controller（`POST /users/:id/restore`…）。
    */
   @Get()

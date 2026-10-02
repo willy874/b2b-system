@@ -44,7 +44,7 @@ function toDto(row: TagRow): TagDto {
 const TAG_AUDIT_FIELDS = ['name', 'color'] as const;
 
 /**
- * 標籤（docs/adr/0032-tags.md）：定義的增刪改、資源的指派、給擁有者的批次讀取與清理。
+ * 標籤（docs/architecture/backend/18-tag.md §7）：定義的增刪改、資源的指派、給擁有者的批次讀取與清理。
  * 不認識任何業務模組：標籤組與資源類型由擁有者在 `onModuleInit` 登記（D1、D7）。
  */
 @Injectable()

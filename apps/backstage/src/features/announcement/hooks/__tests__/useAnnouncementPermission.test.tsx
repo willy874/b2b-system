@@ -16,7 +16,7 @@ function hydrate(keys: PermissionKey[]): void {
   usePermissionStore.setState({ permissions: new Set(keys), hydrated: true });
 }
 
-describe('useAnnouncementPermission（docs/adr/0031-announcements.md D15）', () => {
+describe('useAnnouncementPermission（docs/architecture/backend/19-announcement.md §9.2 D15）', () => {
   it('auditor（只有 announcement:read）只能看', () => {
     hydrate([PermissionKey['announcement:read']]);
     expect(renderHook(() => useAnnouncementPermission()).result.current).toMatchObject({

@@ -14,7 +14,7 @@ export const UpdateUserSchema = defineSchema(
       timezone: z.string().max(64).optional(),
       /**
        * 樂觀鎖：編輯開始時看到的 `version`（必填）。與目前版本不同（別人已經改過）回 409 `USER_VERSION_CONFLICT`
-       * （`details.current`）。要後寫者勝的腳本先讀一次目前的版本（ADR-0025 D3、D4）。
+       * （`details.current`）。要後寫者勝的腳本先讀一次目前的版本（docs/architecture/backend/14-revisions.md §9.2 D3、D4）。
        */
       version: z.number().int().min(1),
     })
@@ -30,7 +30,7 @@ export const ReplaceUserRolesSchema = defineSchema(
     roleIds: uniqueItems(z.array(z.string().uuid()).max(20)),
     /**
      * 草稿所依據的角色（編輯開始時伺服器上的角色，必填）。與目前的角色不同就回 409 `USER_ROLES_CONFLICT`，
-     * 不會蓋掉別人剛做的變更（ADR-0025 D4）。
+     * 不會蓋掉別人剛做的變更（docs/architecture/backend/14-revisions.md §9.2 D4）。
      */
     expectedRoleIds: z.array(z.string().uuid()).max(100),
   }),

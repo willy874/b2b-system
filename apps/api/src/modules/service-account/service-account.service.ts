@@ -57,7 +57,7 @@ function sameIds(
 }
 
 /**
- * 服務帳號（docs/adr/0027-api-tokens-external-api.md D1、D4～D6、D14）：租戶內的非人類帳號，屬於租戶、不屬於建立者。
+ * 服務帳號（docs/architecture/06-external-api.md §9.2 D1、D4～D6、D14）：租戶內的非人類帳號，屬於租戶、不屬於建立者。
  * 它是 `users` 的一列（`kind = 'service'`），角色、權限快取、稽核的 `actor_id` 與人共用；
  * 沒有密碼、不寄信、不進回收桶（刪除後不能還原）。
  */

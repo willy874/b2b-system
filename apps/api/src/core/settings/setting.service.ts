@@ -27,7 +27,7 @@ export interface StoredSetting {
  */
 const TTL_MS = 30_000;
 
-/** 平台 DB 上的廣播頻道（docs/adr/0027-api-tokens-external-api.md D16）。 */
+/** 平台 DB 上的廣播頻道（docs/architecture/06-external-api.md §9.2 D16）。 */
 export const SETTINGS_CHANNEL = 'settings';
 
 interface Entry {

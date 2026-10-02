@@ -51,7 +51,7 @@ export default function SetupPage() {
         await setup.mutateAsync({
           params: { tenant, token: token ?? '', password: value.password },
         });
-        // 租戶的帳號：到那個租戶的 backstage 登入（docs/adr/0020-physical-tenant-isolation.md D11）；
+        // 租戶的帳號：到那個租戶的 backstage 登入（docs/architecture/05-tenancy.md §10.2 D11）；
         // 沒有租戶是平台管理者的帳號：留在 apps/auth 登入
         if (tenant) await goToTenantLogin(tenant);
         else await navigate({ to: LoginRoute.to });

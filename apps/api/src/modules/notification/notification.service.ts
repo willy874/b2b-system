@@ -86,7 +86,7 @@ function changesFor(ids: readonly string[], kind: ChangeKind): ResourceChangeWir
 }
 
 /**
- * 站內通知（docs/architecture/backend/15-notification.md、ADR-0026）。通用模組：不 import 任何業務模組，
+ * 站內通知（docs/architecture/backend/15-notification.md、docs/architecture/backend/15-notification.md §12）。通用模組：不 import 任何業務模組，
  * 通知類型、參數與收件人都由擁有者模組決定，並在自己的業務交易內呼叫 `notify()`（D2）。
  * 看自己的通知只需要登入；已讀與清除不寫稽核（D9）。
  */
@@ -106,7 +106,7 @@ export class NotificationService {
    * 操作者就是收件人的略過（D7）；同一類型同一位收件人只寫一筆；超過 1000 位收件人記 warn 並截斷（D6）。
    * 交易提交後才推播給每位收件人的 user room（D8），payload 只有通知 id。
    *
-   * 租戶關掉這個事件的站內通知、或收件人自己關掉（租戶允許時）的不寫（ADR-0028 D6、D14）；
+   * 租戶關掉這個事件的站內通知、或收件人自己關掉（租戶允許時）的不寫（docs/architecture/backend/16-notification-event.md §9.2 D6、D14）；
    * 類型沒有登記進事件目錄是程式錯誤，拋 `Error`。
    *
    * `tx` 必須是 `withTransaction` 開的交易（要登記提交後的推播）。回傳寫入的通知 id。
@@ -134,7 +134,7 @@ export class NotificationService {
   }
 
   /**
-   * 租戶層：這個事件在 `channel` 上要不要送出（ADR-0028 D6）。收件人沒有帳號時用（例：匿名的註冊申請的結果信）；
+   * 租戶層：這個事件在 `channel` 上要不要送出（docs/architecture/backend/16-notification-event.md §9.2 D6）。收件人沒有帳號時用（例：匿名的註冊申請的結果信）；
    * 有帳號的收件人用 `filterRecipients()`，才會套用個人設定。
    */
   async isChannelEnabled(
@@ -146,7 +146,7 @@ export class NotificationService {
   }
 
   /**
-   * 這些收件人裡要送給誰（租戶層 ＋ 個人設定，ADR-0028 D14）。站內通知由 `notify()` 自己判斷；
+   * 這些收件人裡要送給誰（租戶層 ＋ 個人設定，docs/architecture/backend/16-notification-event.md §9.2 D14）。站內通知由 `notify()` 自己判斷；
    * 寄信由擁有者在 **入列前** 呼叫，判斷的是入列當下的設定，已入列的信不撤回。
    */
   async filterRecipients(
@@ -169,7 +169,7 @@ export class NotificationService {
   }
 
   /**
-   * 租戶內所有人的通知（總覽，`notification:read`；docs/adr/0031-announcements.md D1）。
+   * 租戶內所有人的通知（總覽，`notification:read`；docs/architecture/backend/19-announcement.md §9.2 D1）。
    * 只讀、不寫稽核（與稽核日誌的列表相同）。
    */
   async listAll(query: ListAllNotificationDto): Promise<NotificationOverviewPageDto> {
@@ -222,7 +222,7 @@ export class NotificationService {
     return { updated };
   }
 
-  // ── 來源（公告的發送紀錄，docs/adr/0031-announcements.md D4、D18） ──────────
+  // ── 來源（公告的發送紀錄，docs/architecture/backend/19-announcement.md §9.2 D4、D18） ──────────
 
   /** 每個來源寫了幾則、讀了幾則（發送紀錄的人數與已讀率）。沒有通知的來源回 `{ total: 0, read: 0 }`。 */
   async statsBySources(
@@ -250,7 +250,7 @@ export class NotificationService {
   }
 
   /**
-   * 刪除來自這個來源的所有通知（撤回，ADR-0031 D18），回傳刪掉的筆數。每批一條 DELETE（各自提交），
+   * 刪除來自這個來源的所有通知（撤回，docs/architecture/backend/19-announcement.md §9.2 D18），回傳刪掉的筆數。每批一條 DELETE（各自提交），
    * 每批刪完推 `delete` 給各自的收件人，未讀數跟著下降。
    */
   async removeBySource(sourceId: string): Promise<number> {
@@ -296,7 +296,7 @@ export class NotificationService {
 
   /**
    * 依租戶與個人設定留下要送的列（保留順序）。`types` 的每一種都要查：沒有登記的在這裡就拋錯，不論它會不會被略過；
-   * 每一種類型一次查完所有收件人的個人設定（ADR-0028 D15）。
+   * 每一種類型一次查完所有收件人的個人設定（docs/architecture/backend/16-notification-event.md §9.2 D15）。
    */
   private async deliverable(
     rows: readonly NotificationInput[],

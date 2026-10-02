@@ -30,7 +30,7 @@ import { PermissionRepository } from './permission.repository';
 const PERMISSION_BATCH_SIZE = 500;
 
 /**
- * 對外 API 的 token 限縮了權限（docs/adr/0027-api-tokens-external-api.md D3）：這個請求以 token 認證、問的又是
+ * 對外 API 的 token 限縮了權限（docs/architecture/06-external-api.md §9.2 D3）：這個請求以 token 認證、問的又是
  * token 的擁有者時，權限與 scopes（已含依賴樹的閉包）取交集；super-admin 也只剩 scopes。快取存的是帳號本身的權限，
  * 交集在讀出時算，所以同一個人在內部 api 的請求不受影響。資料夾等資源上的能力跟著帳號（`subjects` 不變）。
  */
@@ -110,7 +110,7 @@ export class PermissionService {
     return result;
   }
 
-  /** 一批人的權限：由關係圖解析，含權限依賴樹的閉包（docs/adr/0024-relationship-based-access-control.md）。 */
+  /** 一批人的權限：由關係圖解析，含權限依賴樹的閉包（docs/rbac/01-domain-model.md §9）。 */
   private async loadBatch(batch: readonly string[]): Promise<Map<string, PermissionSet>> {
     const resolved = await this.authz.tenantPermissionsOf(batch, { withDependencies: true });
     return new Map(
@@ -128,7 +128,7 @@ export class PermissionService {
   }
 
   /**
-   * 反提權的通用入口（docs/adr/0024-relationship-based-access-control.md G4）：把某個主體放進 `targets` 的每一個
+   * 反提權的通用入口（docs/rbac/01-domain-model.md §9 G4）：把某個主體放進 `targets` 的每一個
    * `物件#關係`，主體取得的租戶能力（`AuthzService.grantedCapabilities`）都要是 actor 持有的。
    * 權限鍵、角色、群組（含上層群組持有的角色）都走這裡；資料夾等級在檔案管理器內以同一份模型比對。
    *
@@ -296,7 +296,7 @@ export class PermissionService {
 
   /**
    * 角色的持有者或角色的權限變了：在寫入的交易 **提交之後** 呼叫。整個租戶的權限快取失效、
-   * 推播重算 room，並廣播給其他程序（docs/adr/0024-relationship-based-access-control.md D7、D8）——
+   * 推播重算 room，並廣播給其他程序（docs/rbac/01-domain-model.md §9.2 D7、D8）——
    * 不必事先查出受影響的人。`userIds` 見 `AuthzRevision.changed`。
    */
   permissionsChanged(userIds?: readonly string[]): Promise<void> {
@@ -310,7 +310,7 @@ export class PermissionService {
   /**
    * 目前持有 `key` 的 **可登入** 使用者（未刪除、`active`；登入失敗鎖定中的仍算，鎖定會自己到期），含 super-admin
    * 與經由權限依賴樹帶來它的鍵（持有 `user:update` 的人也持有 `user:read`）。給「要通知有某個權限的人」用
-   * （例：審批送出時的審核者，docs/adr/0026-notification-center.md D5）；結果是當下的快照。
+   * （例：審批送出時的審核者，docs/architecture/backend/15-notification.md §12.2 D5）；結果是當下的快照。
    *
    * 兩段：關係圖的反向查詢找出候選（持有 `key`、帶來它的鍵或 superAdmin 的角色的持有者，一條 SQL），
    * 過濾掉停用與刪除的人之後，再以與授權相同的正向解析（`getPermissionSets`，批次）確認——

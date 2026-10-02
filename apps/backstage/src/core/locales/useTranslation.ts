@@ -14,7 +14,7 @@ export function useTranslation(): TranslationFacade {
 
   useEffect(() => {
     i18n.on('languageChanged', force);
-    // 晚到的語系包（可啟用的 feature 安裝後才登記，ADR-0021）：已經掛上的元件要換成翻譯後的字串
+    // 晚到的語系包（可啟用的 feature 安裝後才登記，docs/architecture/frontend/02-plugin-system.md §9）：已經掛上的元件要換成翻譯後的字串
     const unsubscribe = subscribeLocaleScopeLoaded(force);
     return () => {
       i18n.off('languageChanged', force);

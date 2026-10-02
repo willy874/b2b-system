@@ -11,7 +11,7 @@ export interface RequestContext {
    */
   clientId?: string;
   /**
-   * 對外 API 以 API token 認證的請求（docs/adr/0027-api-tokens-external-api.md D3）：`scopes` 是限縮後的權限鍵
+   * 對外 API 以 API token 認證的請求（docs/architecture/06-external-api.md §9.2 D3）：`scopes` 是限縮後的權限鍵
    * （已含依賴樹的閉包）；undefined＝跟著帳號。`PermissionService` 對 `userId` 的權限一律與它取交集。
    */
   apiToken?: ContextApiToken;

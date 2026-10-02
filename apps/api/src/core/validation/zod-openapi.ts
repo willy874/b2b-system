@@ -8,7 +8,7 @@ import type { ZodType } from 'zod';
 /**
  * 具名 schema 的登記處。有登記的 schema 會以 `$ref` 出現在 OpenAPI 的
  * `components.schemas` 裡，`packages/api-sdk` 才能產生對應的具名型別
- * （ADR-0007）。
+ * （docs/architecture/backend/03-api-conventions.md §12）。
  */
 const registry = z.registry<{ id: string }>();
 const idBySchema = new WeakMap<ZodType, string>();

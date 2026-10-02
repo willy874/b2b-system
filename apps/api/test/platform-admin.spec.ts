@@ -102,7 +102,7 @@ function linkToken(message: MailMessage, path: string): string {
   return match[1]!;
 }
 
-describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關（docs/adr/0020-physical-tenant-isolation.md D5、D19、D22、3）', () => {
+describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關（docs/architecture/05-tenancy.md §10.2 D5、D19、D22、3）', () => {
   let root: string;
 
   beforeAll(async () => {
@@ -334,7 +334,7 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
     expect(unknown.items).toEqual([]);
   });
 
-  it('外部 IdP（identityProvider）：關掉後租戶的 /identity-providers 回 404；打開後恢復（docs/adr/0029-toggleable-platform-features.md D5）', async () => {
+  it('外部 IdP（identityProvider）：關掉後租戶的 /identity-providers 回 404；打開後恢復（docs/architecture/05-tenancy.md §12.2 D5）', async () => {
     const tenantId = (await testTenantContext(app)).id;
     const login = await request(http)
       .post('/auth/login')
@@ -375,7 +375,7 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
     expect(row?.features).toContain('identityProvider');
   });
 
-  it('feature 參數：平台設定後租戶的外部 IdP 上限與檔案容量立即生效；不合法的值回 400（docs/adr/0033-feature-params-and-webhook-targets.md）', async () => {
+  it('feature 參數：平台設定後租戶的外部 IdP 上限與檔案容量立即生效；不合法的值回 400（docs/architecture/05-tenancy.md §13）', async () => {
     const tenantId = (await testTenantContext(app)).id;
     const login = await request(http)
       .post('/auth/login')
@@ -456,7 +456,7 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
     }
   });
 
-  it('回收桶與系統設定：關掉後列表、還原、設定頁的端點回 404，公開設定照舊（docs/adr/0029-toggleable-platform-features.md D3、D4）', async () => {
+  it('回收桶與系統設定：關掉後列表、還原、設定頁的端點回 404，公開設定照舊（docs/architecture/05-tenancy.md §12.2 D3、D4）', async () => {
     const tenantId = (await testTenantContext(app)).id;
     const login = await request(http)
       .post('/auth/login')
@@ -497,7 +497,7 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
     await tenantRequest('get', '/system/settings').expect(200);
   });
 
-  it('啟用的 feature：關掉 file 後租戶的 /files 回 404 FEATURE_DISABLED、profile 不含 file；打開後恢復（docs/adr/0021-runtime-feature-activation.md D8、D11）', async () => {
+  it('啟用的 feature：關掉 file 後租戶的 /files 回 404 FEATURE_DISABLED、profile 不含 file；打開後恢復（docs/architecture/frontend/02-plugin-system.md §9.2 D8、D11）', async () => {
     const tenantId = (await testTenantContext(app)).id;
     const login = await request(http)
       .post('/auth/login')

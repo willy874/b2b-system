@@ -18,7 +18,7 @@ import {
 import { FILE_AUTHZ_TYPES } from '@/modules/file/file.authz';
 
 /**
- * 寫入時的模型驗證（docs/adr/0024-relationship-based-access-control.md G4）：邊只由 `db/schema/relation-tuples.ts` 的建構函式
+ * 寫入時的模型驗證（docs/rbac/01-domain-model.md §9 G4）：邊只由 `db/schema/relation-tuples.ts` 的建構函式
  * （與資料夾授權的 repository）產生，所以在這裡把每一種形狀對完整的模型驗一次——模型或建構函式改錯時測試失敗，
  * 而不是寫進去一條解析時永遠不成立的邊。
  */

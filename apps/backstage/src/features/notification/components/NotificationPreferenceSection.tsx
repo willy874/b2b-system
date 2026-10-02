@@ -15,7 +15,7 @@ import {
 import { useUpdateNotificationPreferencesMutation } from '../hooks/useUpdateNotificationPreferencesMutation';
 
 /**
- * 偏好頁的「通知」分頁（docs/architecture/frontend/15-notification.md §10、ADR-0028 D15）：
+ * 偏好頁的「通知」分頁（docs/architecture/frontend/15-notification.md §10、docs/architecture/backend/16-notification-event.md §9.2 D15）：
  * 自己要收哪些通知。切換即儲存；租戶關掉或要求的管道顯示原因、不能切換。
  */
 export function NotificationPreferenceSection() {

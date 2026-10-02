@@ -12,7 +12,7 @@ import type { FeatureFlagDefinition, FeatureFlagGlobalState } from './feature-fl
 export const FEATURE_FLAG_CATALOG = Symbol('FEATURE_FLAG_CATALOG');
 
 /**
- * flag 的判斷（docs/adr/0022-feature-flags.md D3、D4）。`isEnabled` 是同步的：租戶層的覆寫在 `TenantContext.flags`
+ * flag 的判斷（docs/architecture/05-tenancy.md §11.2 D3、D4）。`isEnabled` 是同步的：租戶層的覆寫在 `TenantContext.flags`
  * （與 `features` 一起由 `TenantDirectory` 載入），全平台層快取在這裡，每 `TENANT_CACHE_TTL` 秒與 `reload()` 時重新讀取。
  * 多個執行個體時，別的程序改的全平台覆寫最多晚 `TENANT_CACHE_TTL` 秒生效，與租戶登記相同。
  */

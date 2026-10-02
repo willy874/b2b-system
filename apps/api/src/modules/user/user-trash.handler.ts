@@ -20,7 +20,7 @@ import type {
 import { UserRepository } from './user.repository';
 
 /**
- * 使用者的回收桶（ADR-0025 D9、D11）。還原是 `POST /users/:id/restore`（`UserService.restore`）；
+ * 使用者的回收桶（docs/architecture/backend/14-revisions.md §9.2 D9、D11）。還原是 `POST /users/:id/restore`（`UserService.restore`）；
  * 這裡只負責列出與到期永久刪除。
  */
 @Injectable()
@@ -68,7 +68,7 @@ export class UserTrashHandler implements TrashHandler, OnModuleInit {
 
   async purge(item: ExpiredTrashItem, tx: Transaction): Promise<boolean> {
     if (!(await this.repo.hardDelete(item.id, tx))) return false;
-    // 標籤的指派是多型關聯、沒有外鍵：一起清掉（docs/adr/0032-tags.md D9）
+    // 標籤的指派是多型關聯、沒有外鍵：一起清掉（docs/architecture/backend/18-tag.md §7.2 D9）
     await this.tags.removeAllFor(RESOURCE_TYPE.USER, [item.id], tx);
     return true;
   }

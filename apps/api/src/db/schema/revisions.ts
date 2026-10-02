@@ -3,9 +3,9 @@ import { index, integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'd
 import { users } from './users';
 
 /**
- * 版本歷史（docs/architecture/backend/14-revisions.md、ADR-0025 D1）：選擇性加入的實體每次寫入後存一份 **整份** 快照。
+ * 版本歷史（docs/architecture/backend/14-revisions.md、docs/architecture/backend/14-revisions.md §9.2 D1）：選擇性加入的實體每次寫入後存一份 **整份** 快照。
  *
- * - `resource_type` 是 text ＋ 程式常數（`core/resource/resource-types.ts`），不是 Postgres enum（ADR-0025 D7、02-database.md §1 的例外）。
+ * - `resource_type` 是 text ＋ 程式常數（`core/resource/resource-types.ts`），不是 Postgres enum（docs/architecture/backend/14-revisions.md §9.2 D7、02-database.md §1 的例外）。
  * - `version` 是每個資源自己的流水號（1, 2, 3…），由 `RevisionService.record` 在擁有者鎖住實體列的交易內以 `max + 1` 產生；
  *   與實體的樂觀鎖 `version` 無關（關聯的寫入不遞增實體的 `version`，但會產生新的一版）。
  * - `snapshot` 為 null：那一版超過單版上限（1 MiB），業務寫入照常成功但沒有保存內容（列表標示「過大未保存」）。

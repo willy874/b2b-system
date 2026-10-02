@@ -164,7 +164,7 @@ function setup(
     ),
   };
   const webhooks = { emit: vi.fn(async () => undefined) };
-  // 標籤（docs/adr/0032-tags.md）：沒有貼任何標籤
+  // 標籤（docs/architecture/backend/18-tag.md §7）：沒有貼任何標籤
   const tags = {
     tagsOf: vi.fn(
       async (_type: string, ids: readonly string[]) =>
@@ -283,7 +283,7 @@ describe('FileService.completeUpload', () => {
     });
   });
 
-  it('在同一個交易內發出對外事件 file.uploaded（docs/adr/0030-webhooks.md D2）', async () => {
+  it('在同一個交易內發出對外事件 file.uploaded（docs/architecture/backend/17-webhook.md §9.2 D2）', async () => {
     const { service, webhooks } = setup({
       file: fileRow({ name: 'a.pdf', contentType: 'application/pdf' }),
       head: { size: 10, etag: 'abc', contentType: 'application/pdf' },
@@ -417,7 +417,7 @@ describe('FileService.update / remove', () => {
     await expectAppError(service.remove(FILE_ID, ALICE), 'FILE_NOT_FOUND');
   });
 
-  it('刪除：交易內軟刪除＋稽核；物件（原檔、縮圖、變體）保留到永久刪除（ADR-0025 D11）', async () => {
+  it('刪除：交易內軟刪除＋稽核；物件（原檔、縮圖、變體）保留到永久刪除（docs/architecture/backend/14-revisions.md §9.2 D11）', async () => {
     const { service, repo, storage, audit } = setup({
       file: fileRow({
         status: 'ready',
@@ -869,7 +869,7 @@ describe('FileService 的資料夾層級授權（docs/rbac/07-resource-grants.md
   });
 });
 
-describe('FileService.restore（docs/architecture/backend/13-trash.md §7.2、ADR-0025 D5）', () => {
+describe('FileService.restore（docs/architecture/backend/13-trash.md §7.2、docs/architecture/backend/14-revisions.md §9.2 D5）', () => {
   const FOLDER = '66666666-6666-4666-8666-666666666666';
   const deleted = (overrides: Partial<FileWithUploader> = {}) =>
     fileRow({
@@ -984,7 +984,7 @@ describe('FileService.restore（docs/architecture/backend/13-trash.md §7.2、AD
   });
 });
 
-describe('FileService：檔案容量（docs/adr/0033-feature-params-and-webhook-targets.md D8）', () => {
+describe('FileService：檔案容量（docs/architecture/05-tenancy.md §13.3 D8）', () => {
   const MIB = 1024 * 1024;
   const dto = { name: 'a.bin', contentType: 'application/octet-stream', size: 2 * MIB };
 

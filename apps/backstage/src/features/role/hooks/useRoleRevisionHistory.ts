@@ -14,7 +14,7 @@ export type RoleRevisionCompareMode = 'current' | 'previous';
  * 版本紀錄頁的狀態（docs/architecture/frontend/14-revisions.md）：版本列表（新的在前、分頁）、選中的一版、
  * 比較對象，以及 `JsonDiff` 的兩邊。
  *
- * - 「目前的內容」＝最新一版（每次寫入都產生一版，最新一版等於目前的角色；ADR-0025 D1）。翻到後面的頁時仍要知道它，
+ * - 「目前的內容」＝最新一版（每次寫入都產生一版，最新一版等於目前的角色；docs/architecture/backend/14-revisions.md §9.2 D1）。翻到後面的頁時仍要知道它，
  *   所以另外取第一筆。
  * - 「前一版」＝版本號減一；已被保留清理刪除時 `before` 為 undefined（`isBaseMissing`），差異顯示成整份新增。
  * - 沒有選的時候選最新一版。

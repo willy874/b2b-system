@@ -21,7 +21,7 @@ export const refreshTokens = pgTable(
     revokedReason: text('revoked_reason'), // RevokedReason
 
     /**
-     * 經 SSO 發出的 app session（docs/adr/0019-sso-identity-platform.md D4）：哪個產品（OIDC client）、
+     * 經 SSO 發出的 app session（docs/architecture/04-sso.md §12.2 D4）：哪個產品（OIDC client）、
      * 哪個 IdP session。單一登出以 `idp_session_uid` 找出同一個瀏覽器所有產品的家族。密碼直接登入時兩者皆為 null。
      */
     clientId: text('client_id'),
@@ -55,7 +55,7 @@ export type RevokedReason =
   | 'reuse_detected'
   | 'user_disabled'
   | 'password_reset'
-  /** 平台管理者停用或刪除了租戶（docs/adr/0020-physical-tenant-isolation.md D13）。 */
+  /** 平台管理者停用或刪除了租戶（docs/architecture/05-tenancy.md §10.2 D13）。 */
   | 'tenant_disabled'
   /** 寬限期內重送上一張，原本的最新一張被新發的取代；不代表家族被撤銷（04-auth.md §2.3）。 */
   | 'superseded';

@@ -21,7 +21,7 @@ function flag(overrides: Partial<FeatureFlagDefinition> = {}): FeatureFlagDefini
   };
 }
 
-describe('resolveFeatureFlag 的優先順序（docs/adr/0022-feature-flags.md D3）', () => {
+describe('resolveFeatureFlag 的優先順序（docs/architecture/05-tenancy.md §11.2 D3）', () => {
   it.each<[string, boolean, FeatureFlagGlobalState | undefined, boolean | undefined, boolean]>([
     ['都沒有 → 預設值（關）', false, undefined, undefined, false],
     ['都沒有 → 預設值（開）', true, undefined, undefined, true],
@@ -104,7 +104,7 @@ describe('目錄（core/feature-flags/feature-flags.ts）', () => {
   });
 
   /**
-   * 暫時的開關一定要被移除（docs/adr/0022-feature-flags.md D11）。這個測試失敗時：移除 flag（D12），
+   * 暫時的開關一定要被移除（docs/architecture/05-tenancy.md §11.2 D11）。這個測試失敗時：移除 flag（D12），
    * 或者確定要延期就改 `removeBy`——延期會留在 commit 紀錄裡。
    */
   it('沒有過了 removeBy 還留著的 flag', () => {

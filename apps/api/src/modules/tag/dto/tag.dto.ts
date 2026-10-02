@@ -13,7 +13,7 @@ const ScopeSchema = z
   .regex(/^[a-z][A-Za-z0-9]*$/)
   .max(50);
 
-/** 嵌在擁有者回應裡的標籤（檔案、資料夾、使用者的 `tags`，docs/adr/0032-tags.md D6）。 */
+/** 嵌在擁有者回應裡的標籤（檔案、資料夾、使用者的 `tags`，docs/architecture/backend/18-tag.md §7.2 D6）。 */
 export const TagSummarySchema = defineSchema(
   'TagSummary',
   z.object({ id: z.string().uuid(), name: z.string(), color: TagColorSchema }),
@@ -26,7 +26,7 @@ export const TagSchema = defineSchema(
     scope: z.string(),
     name: z.string(),
     color: TagColorSchema,
-    /** 樂觀鎖版本：`PATCH` 時帶上（ADR-0025 D3）。 */
+    /** 樂觀鎖版本：`PATCH` 時帶上（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
     version: z.number().int(),
     createdAt: z.string(),
     updatedAt: z.string(),

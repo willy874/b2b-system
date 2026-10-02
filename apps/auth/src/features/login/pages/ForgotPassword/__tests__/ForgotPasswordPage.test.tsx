@@ -33,7 +33,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('忘記密碼頁（帳號屬於租戶，docs/adr/0020-physical-tenant-isolation.md D26）', () => {
+describe('忘記密碼頁（帳號屬於租戶，docs/architecture/05-tenancy.md §10.2 D26）', () => {
   it('網址沒有 ?tenant= → 不知道是哪個租戶的帳號，不顯示表單', async () => {
     renderAt('/forgot-password');
     expect(await screen.findByTestId('tenant-required')).toBeInTheDocument();

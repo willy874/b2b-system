@@ -27,7 +27,7 @@ export interface FileMaintenanceReport {
   orphanMultipartUploads: number;
   /**
    * 查不到任何紀錄（含已軟刪除的）的物件：原檔、瀏覽器縮圖、影像變體。已刪除紀錄的物件留給回收桶的
-   * 永久刪除（`trash.purge`，ADR-0025 D11），這裡不碰。
+   * 永久刪除（`trash.purge`，docs/architecture/backend/14-revisions.md §9.2 D11），這裡不碰。
    */
   orphanObjects: number;
   /** 卡在 `pending` 而重新排入的影像變體。 */
@@ -58,7 +58,7 @@ export const FILE_MAINTENANCE_JOB = defineJob<Record<string, never>>('file.maint
  * 1. `pending` 紀錄超過 `FILE_PENDING_TTL` → 軟刪除紀錄、AbortMultipartUpload、刪除已上傳的內容；
  * 2. 物件儲存裡的分塊上傳沒有對應的紀錄 → AbortMultipartUpload；
  * 3. 受管理前綴（`files/`、`thumbnails/`、`variants/`）下的物件查不到任何紀錄（含已軟刪除的）→ 刪除。
- *    已刪除紀錄的物件要留到回收桶的保留期限結束，由 `trash.purge` 在永久刪除後清掉（ADR-0025 D11、R4a）；
+ *    已刪除紀錄的物件要留到回收桶的保留期限結束，由 `trash.purge` 在永久刪除後清掉（docs/architecture/backend/14-revisions.md §9.2 D11、R4a）；
  * 4. 影像變體卡在 `pending` → 重新排入。
  *
  * 2、3 只看建立早於 `FILE_PENDING_TTL` 的東西：剛登記、INSERT 還沒提交的上傳不會被誤判。

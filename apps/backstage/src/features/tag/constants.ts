@@ -15,7 +15,7 @@ export const TAG_SCOPE_DESCRIPTION_KEY = {
   user: 'tagAdmin.scope.userDescription',
 } as const satisfies Record<TagScope, string>;
 
-/** 標籤組跟著哪個可啟用的 feature（docs/adr/0032-tags.md D12）；常駐的不列。 */
+/** 標籤組跟著哪個可啟用的 feature（docs/architecture/backend/18-tag.md §7.2 D12）；常駐的不列。 */
 export const TAG_SCOPE_FEATURE: Partial<Record<TagScope, TenantFeature>> = {
   file: TenantFeature.file,
 };

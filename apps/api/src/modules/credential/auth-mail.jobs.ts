@@ -92,7 +92,7 @@ export class AuthMailJobs implements OnModuleInit {
         validHours,
       }),
     );
-    // 只記「寄了哪一種信給誰」，不記內容與 token（docs/adr/0017-mail-delivery.md D8）
+    // 只記「寄了哪一種信給誰」，不記內容與 token（docs/architecture/backend/11-mail.md §9.2 D8）
     await this.audit.record({
       action: 'mail.send',
       resourceType: 'user',

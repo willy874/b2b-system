@@ -27,7 +27,7 @@ const EMPTY_COUNTS: JobQueueCounts = {
 };
 
 /**
- * 平台的背景工作監控（apps/auth，docs/adr/0020-physical-tenant-isolation.md D23、D15）：
+ * 平台的背景工作監控（apps/auth，docs/architecture/05-tenancy.md §10.2 D23、D15）：
  * 佇列是全平台共用的，這裡看得到每個租戶與平台自己的工作。租戶的後台（`JobService`）只看自己租戶的。
  * 重試寫平台稽核。
  */

@@ -63,7 +63,7 @@ export type ApiTokenStatus = z.infer<typeof ApiTokenStatusSchema>;
 export type CreateApiTokenDto = z.infer<typeof CreateApiTokenSchema>;
 export type CreatedApiTokenDto = z.infer<typeof CreatedApiTokenSchema>;
 
-/** `GET /v1/me`（對外 API）：這把 token 是誰、能做什麼、什麼時候到期（docs/adr/0027-api-tokens-external-api.md D14）。 */
+/** `GET /v1/me`（對外 API）：這把 token 是誰、能做什麼、什麼時候到期（docs/architecture/06-external-api.md §9.2 D14）。 */
 export const ExternalMeSchema = defineSchema(
   'ExternalMe',
   z.object({

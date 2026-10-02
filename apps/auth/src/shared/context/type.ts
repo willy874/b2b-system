@@ -47,7 +47,7 @@ export type PluginFactory<Attrs, State extends PluginState, Events extends Liste
 
 /**
  * 以 `install()` 在 App 啟動後安裝的 plugin：不能提供 `attrs`
- * （docs/adr/0021-runtime-feature-activation.md D3）。
+ * （docs/architecture/frontend/02-plugin-system.md §9.2 D3）。
  */
 export type DynamicPluginFactory<Attrs, State extends PluginState, Events extends ListenerDict> = (
   context: PluginContext<Attrs, State, Events>,

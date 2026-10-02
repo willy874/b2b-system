@@ -5,7 +5,7 @@ import { useHasSession } from '@/core/auth';
 import { useTranslation } from '@/core/locales';
 
 /**
- * 平台首頁：目前登入的平台管理者（docs/adr/0020-physical-tenant-isolation.md D5）。
+ * 平台首頁：目前登入的平台管理者（docs/architecture/05-tenancy.md §10.2 D5）。
  * 租戶管理在 `/tenant`；外部 IdP 連線屬於租戶，在各租戶的 backstage。
  */
 export default function HomePage() {

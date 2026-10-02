@@ -25,7 +25,7 @@ export interface Registry<K, V> {
 }
 
 /**
- * 註冊表的共同實作（docs/adr/0021-runtime-feature-activation.md D4）：feature 可能在 App 啟動後才安裝、也可能被移除，
+ * 註冊表的共同實作（docs/architecture/frontend/02-plugin-system.md §9.2 D4）：feature 可能在 App 啟動後才安裝、也可能被移除，
  * 所以讀取端要能訂閱變更，登記要能撤回。
  *
  * @param describe 重複登記時錯誤訊息裡的名稱，例：`Header tool`。

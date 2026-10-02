@@ -1,5 +1,5 @@
 /**
- * 到期時間的平台上限（docs/adr/0027-api-tokens-external-api.md D8）：租戶設定只能調短。
+ * 到期時間的平台上限（docs/architecture/06-external-api.md §9.2 D8）：租戶設定只能調短。
  * 沒有不過期的 token——沒有期限的 token 遲早會變成沒人知道是誰在用的 token。
  */
 export const API_TOKEN_MAX_LIFETIME_DAYS = {

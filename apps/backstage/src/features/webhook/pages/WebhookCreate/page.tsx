@@ -20,8 +20,8 @@ import { WebhookCreateRoute, WebhookDetailRoute, WebhookListRoute } from '../../
 import { cleanUrls } from '../../utils';
 
 /**
- * 建立 webhook：名稱、網址（1～10 個，docs/adr/0033-feature-params-and-webhook-targets.md D13）、訂閱的事件。成功後同一個對話框改成顯示簽章密鑰——**只出現這一次**
- * （docs/adr/0030-webhooks.md D14）。
+ * 建立 webhook：名稱、網址（1～10 個，docs/architecture/backend/17-webhook.md §10.2 D13）、訂閱的事件。成功後同一個對話框改成顯示簽章密鑰——**只出現這一次**
+ * （docs/architecture/backend/17-webhook.md §9.2 D14）。
  */
 export default function WebhookCreatePage() {
   const { t } = useTranslation();

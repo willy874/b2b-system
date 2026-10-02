@@ -54,7 +54,7 @@ export class RefreshTokenService {
     return this.repo.revokeByIdpSession(idpSessionUid, reason);
   }
 
-  /** 撤銷目前租戶的所有 session（平台管理者停用或刪除租戶，docs/adr/0020-physical-tenant-isolation.md D13）。 */
+  /** 撤銷目前租戶的所有 session（平台管理者停用或刪除租戶，docs/architecture/05-tenancy.md §10.2 D13）。 */
   revokeAll(reason: RevokedReason): Promise<void> {
     return this.repo.revokeAll(reason);
   }

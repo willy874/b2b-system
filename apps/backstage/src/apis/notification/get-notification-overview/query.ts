@@ -20,7 +20,7 @@ const getNotificationOverviewQueryKeys = (filters: NotificationOverviewFilters, 
 
 /**
  * 通知總覽：租戶內所有人的通知，以 keyset 游標（`nextCursor`）接續下一頁
- * （與自己的通知相同的理由：新的通知不斷插在最前面，offset 會重複；docs/adr/0031-announcements.md D1）。
+ * （與自己的通知相同的理由：新的通知不斷插在最前面，offset 會重複；docs/architecture/backend/19-announcement.md §9.2 D1）。
  */
 export const getNotificationOverviewQueryOptions = (params: {
   filters: NotificationOverviewFilters;

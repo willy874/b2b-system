@@ -4,7 +4,7 @@ import { defineSetting, SettingCategory } from '@/core/settings';
 
 import { API_TOKEN_MAX_LIFETIME_DAYS } from './api-token.constants';
 
-/** 個人 API token 的到期上限（天）：只能在平台上限以內調短（docs/adr/0027-api-tokens-external-api.md D8）。 */
+/** 個人 API token 的到期上限（天）：只能在平台上限以內調短（docs/architecture/06-external-api.md §9.2 D8）。 */
 export const PERSONAL_TOKEN_MAX_DAYS_SETTING = defineSetting({
   key: 'auth.personalTokenMaxDays',
   category: SettingCategory.AUTH,

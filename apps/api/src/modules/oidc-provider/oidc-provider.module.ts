@@ -23,7 +23,7 @@ class OidcProviderMiddleware implements NestMiddleware {
 }
 
 /**
- * OIDC Provider（docs/adr/0019-sso-identity-platform.md）。葉節點：`AuthModule` 依賴它兌換授權碼與單一登出，
+ * OIDC Provider（docs/architecture/04-sso.md §12）。葉節點：`AuthModule` 依賴它兌換授權碼與單一登出，
  * 它只依賴 `UserModule` 與 `PlatformAdminModule`（查租戶的使用者與平台管理者）。`/oidc/*` 不是 Nest 的路由，不經全域 guard 與路由稽核；
  * 登入互動的端點在 `AuthModule`（宣告 `@Public()`）。
  */

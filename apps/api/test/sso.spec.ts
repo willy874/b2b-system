@@ -223,7 +223,7 @@ function payloadOf(token: string): Record<string, unknown> {
   >;
 }
 
-describe('SSO（docs/adr/0019-sso-identity-platform.md、0020 D5–D10）', () => {
+describe('SSO（docs/architecture/04-sso.md §12、0020 D5–D10）', () => {
   let userId = '';
   let tenantId = '';
   let tenantB: Awaited<ReturnType<typeof createExtraTenant>>;
@@ -253,7 +253,7 @@ describe('SSO（docs/adr/0019-sso-identity-platform.md、0020 D5–D10）', () =
       .returning();
     userId = user!.id;
 
-    // 另一個租戶：同一個 email 的另一個帳號（身分分屬各租戶，ADR-0020 身分 B）
+    // 另一個租戶：同一個 email 的另一個帳號（身分分屬各租戶，docs/architecture/05-tenancy.md §10 身分 B）
     tenantB = await createExtraTenant('sso-b', ['sso-b.test']);
     closers.push(tenantB.close);
     await tenantB.db.delete(users).where(eq(users.email, USER.email));
@@ -560,7 +560,7 @@ describe('SSO（docs/adr/0019-sso-identity-platform.md、0020 D5–D10）', () =
     });
   });
 
-  it('帳號停用 → IdP session 一起結束；重新啟用後要重新登入（ADR-0019 D17）', async () => {
+  it('帳號停用 → IdP session 一起結束；重新啟用後要重新登入（docs/architecture/04-sso.md §12.2 D17）', async () => {
     const jar = new CookieJar();
     await callback(BACKSTAGE, await authorize(jar, BACKSTAGE, USER)).expect(200);
 

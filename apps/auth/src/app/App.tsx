@@ -24,7 +24,7 @@ function SessionWatcher({ router }: { router: AppContext['router'] }) {
     }
     // session 中途結束（登出、被撤銷）交給下方的 `ended`：導向登入頁但 **不** 自動跳到 IdP。
     // 這裡若也導向，登入頁會立刻跳去 IdP——頁面卸載會取消還在路上的登出請求，
-    // IdP session 沒被銷毀，使用者又被直接登回來（docs/adr/0019-sso-identity-platform.md D5）
+    // IdP session 沒被銷毀，使用者又被直接登回來（docs/architecture/04-sso.md §12.2 D5）
     if (hadSession.current) return;
     const { pathname, search } = globalThis.location;
     if (isPublic(pathname)) return;

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-// perm room 帶租戶（docs/adr/0020-physical-tenant-isolation.md D17）：固定在租戶 t1
+// perm room 帶租戶（docs/architecture/05-tenancy.md §10.2 D17）：固定在租戶 t1
 vi.mock('@/core/tenant', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/core/tenant')>()),
   requireTenant: () => ({ id: 't1' }),
@@ -129,7 +129,7 @@ describe('RealtimeListener（領域事件 → 推播）', () => {
     expect(disconnected).toEqual(['t:t1:user:u1']);
   });
 
-  it('單一登出只撤銷同一個 IdP session 的連線，不動同一個人的其他裝置（docs/adr/0019-sso-identity-platform.md D5）', () => {
+  it('單一登出只撤銷同一個 IdP session 的連線，不動同一個人的其他裝置（docs/architecture/04-sso.md §12.2 D5）', () => {
     const { fire, emits, disconnected } = setup({ 't:t1:user:u1': 3, 'sid:s1': 1 });
     fire(DomainEvent.SESSIONS_REVOKED, { idpSessionUids: ['s1'], reason: 'AUTH_REFRESH_REVOKED' });
 
@@ -139,7 +139,7 @@ describe('RealtimeListener（領域事件 → 推播）', () => {
     expect(disconnected).toEqual(['sid:s1']);
   });
 
-  it('租戶停用 → 撤銷整個租戶的連線（docs/adr/0020-physical-tenant-isolation.md D13）', () => {
+  it('租戶停用 → 撤銷整個租戶的連線（docs/architecture/05-tenancy.md §10.2 D13）', () => {
     const { fire, emits, disconnected } = setup({ 't:t2': 5 });
     fire(DomainEvent.SESSIONS_REVOKED, { tenantIds: ['t2'], reason: 'TENANT_UNAVAILABLE' });
 
@@ -149,7 +149,7 @@ describe('RealtimeListener（領域事件 → 推播）', () => {
     expect(disconnected).toEqual(['t:t2']);
   });
 
-  it('租戶的 feature 變更 → 對整個租戶的 room 推 tenantFeature update，不帶 origin（docs/adr/0021-runtime-feature-activation.md D8）', () => {
+  it('租戶的 feature 變更 → 對整個租戶的 room 推 tenantFeature update，不帶 origin（docs/architecture/frontend/02-plugin-system.md §9.2 D8）', () => {
     const { fire, emits, disconnected } = setup({ 't:t2': 2 });
     fire(DomainEvent.TENANT_FEATURES_CHANGED, { tenantId: 't2' }, { clientId: 'platform-tab' });
 

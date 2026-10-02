@@ -44,7 +44,7 @@ const offenses: Offense[] = ['modules', 'core'].flatMap((layer) =>
   }),
 );
 
-describe('軟刪除的條件一律經過 notDeleted()（docs/adr/0025-entity-revisions.md D8）', () => {
+describe('軟刪除的條件一律經過 notDeleted()（docs/architecture/backend/14-revisions.md §9.2 D8）', () => {
   it('modules/、core/ 沒有手寫的 isNull(x.deletedAt) 或未標註的 deleted_at IS NULL', () => {
     const report = offenses.map(({ file, line, text }) => `${file}:${line}  ${text}`).join('\n');
     expect(offenses, report).toEqual([]);

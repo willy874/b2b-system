@@ -16,14 +16,14 @@ export const RoleSchema = defineSchema(
     isSystem: z.boolean(),
     permissionCount: z.number().int(),
     userCount: z.number().int(),
-    /** 樂觀鎖版本：`PATCH` 時帶上（ADR-0025 D3）。 */
+    /** 樂觀鎖版本：`PATCH` 時帶上（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
     version: z.number().int(),
     createdAt: z.string(),
     updatedAt: z.string(),
   }),
 );
 
-/** `POST /roles/:id/restore` 的回應：還原後的角色 ＋ 重新生效的持有者人數（ADR-0025 R3）。 */
+/** `POST /roles/:id/restore` 的回應：還原後的角色 ＋ 重新生效的持有者人數（docs/architecture/backend/14-revisions.md §9 R3）。 */
 export const RestoredRoleSchema = defineSchema(
   'RestoredRole',
   RoleSchema.extend({

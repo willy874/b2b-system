@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { IDP_SECRET_PURPOSE, SecretBox, TENANT_SECRET_PURPOSE } from '../secret-box';
 
-describe('SecretBox（docs/adr/0019-sso-identity-platform.md D11、0020 D4）', () => {
+describe('SecretBox（docs/architecture/04-sso.md §12.2 D11、0020 D4）', () => {
   const key = randomBytes(32).toString('base64');
   const box = (secret: string | undefined, seed = 'unused', purpose = IDP_SECRET_PURPOSE) =>
     SecretBox.fromConfig(secret, seed, purpose);

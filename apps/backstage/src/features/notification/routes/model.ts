@@ -12,7 +12,7 @@ export type NotificationSearchQuery = z.infer<typeof NotificationSearchQuerySche
 /** 預設的查詢條件；與它相等的參數不寫進網址。 */
 export const DEFAULT_NOTIFICATION_SEARCH: NotificationSearchQuery = { filter: 'all' };
 
-/** 通知總覽的篩選（docs/adr/0031-announcements.md D1）；日期是使用者當地的日曆日（`YYYY-MM-DD`）。 */
+/** 通知總覽的篩選（docs/architecture/backend/19-announcement.md §9.2 D1）；日期是使用者當地的日曆日（`YYYY-MM-DD`）。 */
 export const NotificationOverviewSearchQuerySchema = z.object({
   type: z.string().trim().optional().catch(undefined),
   recipientId: z.string().uuid().optional().catch(undefined),

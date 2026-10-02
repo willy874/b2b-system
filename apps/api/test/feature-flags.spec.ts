@@ -110,7 +110,7 @@ function setTenantFlags(flags: Record<string, boolean>) {
   return as(operator, 'patch', `/platform/tenants/${tenantId}`).send({ flags });
 }
 
-describe('feature flag（docs/adr/0022-feature-flags.md）', () => {
+describe('feature flag（docs/architecture/05-tenancy.md §11）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;

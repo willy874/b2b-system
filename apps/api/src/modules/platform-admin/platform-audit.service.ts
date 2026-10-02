@@ -22,7 +22,7 @@ export interface PlatformAuditInput {
 }
 
 /**
- * 平台管理者的稽核（平台 DB 的 `platform_audit_logs`，docs/adr/0020-physical-tenant-isolation.md D19）。
+ * 平台管理者的稽核（平台 DB 的 `platform_audit_logs`，docs/architecture/05-tenancy.md §10.2 D19）。
  * 租戶內的動作寫在租戶的 `audit_logs`（`AuditService`），這裡不記。
  */
 @Injectable()

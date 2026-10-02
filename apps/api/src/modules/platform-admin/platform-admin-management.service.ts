@@ -29,7 +29,7 @@ function toDto(admin: PlatformAdminRow): PlatformAdminDto {
 }
 
 /**
- * 平台管理者的管理（docs/adr/0020-physical-tenant-isolation.md D5；`platformAdmin:*` 只有 super-admin 有）。
+ * 平台管理者的管理（docs/architecture/05-tenancy.md §10.2 D5；`platformAdmin:*` 只有 super-admin 有）。
  * 規則同租戶的使用者管理：不接受密碼（一律寄設定密碼的連結）、不能改自己的角色與狀態、
  * 不能讓最後一位 `active` 的 super-admin 消失；停用即撤銷 session。
  */

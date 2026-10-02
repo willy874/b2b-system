@@ -16,7 +16,7 @@ import { SystemSettingService } from './system-setting.service';
 
 /**
  * 執行期可調的設定（docs/architecture/backend/12-settings.md §4）。
- * 平台可對租戶關閉設定頁（`systemSetting`，docs/adr/0029-toggleable-platform-features.md D4）：看與改都回 404，
+ * 平台可對租戶關閉設定頁（`systemSetting`，docs/architecture/05-tenancy.md §12.2 D4）：看與改都回 404，
  * 已覆寫的值照樣生效；登入前要用的公開設定不受影響。
  */
 @ApiTags('system')

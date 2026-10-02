@@ -59,7 +59,7 @@ async function thumbnailFor(file: File, signal: AbortSignal): Promise<Blob | und
 
 /**
  * 上傳一個排隊中的檔案（`itemId` 是 `uploadSources` 的 key）。
- * 在全域佇列裡與其他批次工作共用排程、進度、取消與結果彈窗（docs/adr/0013-file-manager-upload.md）。
+ * 在全域佇列裡與其他批次工作共用排程、進度、取消與結果彈窗（docs/architecture/frontend/12-file-manager.md §14）。
  */
 async function runUpload(
   itemId: string,
@@ -86,7 +86,7 @@ async function runUpload(
 
 /**
  * 在 plugin 的同步階段呼叫。每一筆呼叫一次單筆 API、失效快取（同單筆 mutation hook），
- * 不發 toast：結果由批次佇列在整批結束時彈出（docs/adr/0012-batch-queue-worker.md）。
+ * 不發 toast：結果由批次佇列在整批結束時彈出（docs/architecture/frontend/07-ui-system.md §13）。
  */
 export function registerFileBatchOperations(): void {
   registerBatchOperation({

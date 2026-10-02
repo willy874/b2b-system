@@ -24,9 +24,9 @@ interface TenantFeaturesProps {
 }
 
 /**
- * 租戶啟用的功能（docs/adr/0021-runtime-feature-activation.md D8）：每個可啟用的 feature 一個開關，
+ * 租戶啟用的功能（docs/architecture/frontend/02-plugin-system.md §9.2 D8）：每個可啟用的 feature 一個開關，
  * 送出的是 **完整清單**（api 以整份取代）。關閉會讓租戶的使用者立刻失去該功能，所以先確認；打開直接生效。
- * 有參數的 feature 在那一列下列出參數（配額與上限，docs/adr/0033-feature-params-and-webhook-targets.md D5）：
+ * 有參數的 feature 在那一列下列出參數（配額與上限，docs/architecture/05-tenancy.md §13.2 D5）：
  * 參數與開關無關，關閉時照常保留、照常生效。
  */
 export function TenantFeatures({ tenant, canUpdate }: TenantFeaturesProps) {

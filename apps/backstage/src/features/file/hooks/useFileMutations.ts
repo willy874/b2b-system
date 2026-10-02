@@ -32,7 +32,7 @@ export function useFileRenameMutation() {
 }
 
 /**
- * 刪除檔案。刪除只是移到回收桶（ADR-0025 R4，物件保留到永久刪除），成功的提示附「復原」，按下就還原這個檔案。
+ * 刪除檔案。刪除只是移到回收桶（docs/architecture/backend/14-revisions.md §9 R4，物件保留到永久刪除），成功的提示附「復原」，按下就還原這個檔案。
  * 刪除與還原的權限相同，刪得掉的人一定按得了。
  */
 export function useFileDeleteMutation() {
@@ -48,7 +48,7 @@ export function useFileDeleteMutation() {
       toast.show({
         type: 'success',
         title: t('file.delete.success'),
-        // 回收桶被平台關掉時還原端點回 404，不提供復原（docs/adr/0029-toggleable-platform-features.md D3）
+        // 回收桶被平台關掉時還原端點回 404，不提供復原（docs/architecture/05-tenancy.md §12.2 D3）
         ...(canRestore && {
           action: {
             label: t('file.delete.undo'),
@@ -82,7 +82,7 @@ function restoreConflictKeyOf(error: unknown): string | undefined {
 }
 
 /**
- * 還原刪除的檔案（`POST /files/:id/restore`，ADR-0025 R4）。所在的資料夾已刪除時提示先還原資料夾；
+ * 還原刪除的檔案（`POST /files/:id/restore`，docs/architecture/backend/14-revisions.md §9 R4）。所在的資料夾已刪除時提示先還原資料夾；
  * 物件已不在（人為刪除、R4b 之前個別刪除的檔案）時說明無法救回。
  */
 export function useFileRestoreMutation() {

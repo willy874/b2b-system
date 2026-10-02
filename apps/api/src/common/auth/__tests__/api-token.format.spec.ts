@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { formatToken, generateSecret, parseToken, tokenPrefix } from '../api-token.format';
 
-describe('API token 的格式（docs/adr/0027-api-tokens-external-api.md D7）', () => {
+describe('API token 的格式（docs/architecture/06-external-api.md §9.2 D7）', () => {
   it('format → parse 還原租戶代碼、token id 與 secret', () => {
     for (let index = 0; index < 50; index += 1) {
       const tokenId = randomUUID();

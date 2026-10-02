@@ -126,7 +126,7 @@ function inTenant<T>(fn: () => Promise<T>, features: TenantFeature[] = ['webhook
 
 const JOB = { subscriptionId: 'wh-1', eventId: 'ev-1', targetId: 'tg-1' };
 
-describe('WebhookDeliveryService.deliver（docs/adr/0030-webhooks.md D11～D13）', () => {
+describe('WebhookDeliveryService.deliver（docs/architecture/backend/17-webhook.md §9.2 D11～D13）', () => {
   it('送出信封與簽章：簽的是「時間戳.body」，事件 id 當作 X-Webhook-Id', async () => {
     const ctx = setup();
     await inTenant(() => ctx.service.deliver(JOB));
@@ -276,7 +276,7 @@ describe('WebhookDeliveryService.deliver（docs/adr/0030-webhooks.md D11～D13�
   });
 });
 
-describe('WebhookDeliveryService.deliver：多個目標網址（docs/adr/0033-feature-params-and-webhook-targets.md D14）', () => {
+describe('WebhookDeliveryService.deliver：多個目標網址（docs/architecture/backend/17-webhook.md §10.2 D14）', () => {
   it('送到工作指定的網址', async () => {
     const ctx = setup();
     ctx.repo.findById.mockResolvedValue(

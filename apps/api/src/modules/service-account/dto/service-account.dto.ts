@@ -16,7 +16,7 @@ export const ServiceAccountSchema = defineSchema(
     roles: z.array(RoleSummarySchema),
     /** 未撤銷、未過期、仍有效（`token_version` 沒變）的 token 數。 */
     activeTokenCount: z.number().int(),
-    /** 樂觀鎖版本：`PATCH` 時帶上（ADR-0025 D3）。 */
+    /** 樂觀鎖版本：`PATCH` 時帶上（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
     version: z.number().int(),
     createdAt: z.string(),
     updatedAt: z.string(),

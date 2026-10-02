@@ -32,7 +32,7 @@ function failureStatus(code: string): number {
 }
 
 /**
- * 單筆寫入端點：套用與後端相同的檢查，失敗回對應的錯誤。批次操作由前端佇列逐筆呼叫這些端點（ADR-0012）。
+ * 單筆寫入端點：套用與後端相同的檢查，失敗回對應的錯誤。批次操作由前端佇列逐筆呼叫這些端點（docs/architecture/frontend/07-ui-system.md §13）。
  * 只回結果、不改 fixture——列表重新整理後資料不變。
  */
 function writeHandler(
@@ -195,7 +195,7 @@ export const rbacHandlers = [
     return HttpResponse.json({ data: rolePermissionsBody(id) });
   }),
   http.get(`${MOCK_API_BASE}/roles/:id/users`, () => HttpResponse.json({ data: paginate([]) })),
-  // 版本紀錄（ADR-0025 R5）：每個角色兩版，第 2 版等於目前的內容；讀要 role:read、還原要 role:update
+  // 版本紀錄（docs/architecture/backend/14-revisions.md §9 R5）：每個角色兩版，第 2 版等於目前的內容；讀要 role:read、還原要 role:update
   http.get(`${MOCK_API_BASE}/roles/:id/revisions`, ({ params }) => {
     if (!mockState.permissions.includes('role:read')) return forbidden('role:read');
     return HttpResponse.json({
@@ -314,7 +314,7 @@ export const rbacHandlers = [
   }),
 
   writeHandler('delete', '/users/:id', 'user:delete', (id) => checkUser(id), noContent),
-  // 回收桶（ADR-0025 D9）：mock 模式以 fixture 的複本當成已刪除的使用者與角色，只示範列表與還原
+  // 回收桶（docs/architecture/backend/14-revisions.md §9.2 D9）：mock 模式以 fixture 的複本當成已刪除的使用者與角色，只示範列表與還原
   // 檔案與資料夾（R4）：mock 模式沒有檔案管理器的資料，只示範權限與空的分頁
   http.get(`${MOCK_API_BASE}/trash`, ({ request }) => {
     const type = new URL(request.url).searchParams.get('type');

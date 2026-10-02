@@ -59,7 +59,7 @@ export default defineConfig(({ command }) => ({
       // 前端一律打 `/api`，不在程式碼裡寫死後端位址（docs/architecture/01-system.md §4.1）。
       '/api': {
         target: process.env.DEV_API_PROXY_TARGET ?? 'http://localhost:3000',
-        // 保留瀏覽器看到的 Host（含 port）：api 以它決定租戶（docs/adr/0020-physical-tenant-isolation.md D2）
+        // 保留瀏覽器看到的 Host（含 port）：api 以它決定租戶（docs/architecture/05-tenancy.md §10.2 D2）
         changeOrigin: false,
         // 即時推播的 WebSocket（`/api/socket.io` → `/socket.io`，同一個 rewrite）
         ws: true,

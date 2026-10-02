@@ -9,7 +9,7 @@ import { OidcPayloadRepository } from './oidc-payload.repository';
 
 /** 清掉過期的 IdP 狀態（session、互動、授權碼…）。同時段只跑一個。 */
 export const OIDC_CLEANUP_JOB = defineJob<Record<string, never>>('oidc.cleanup', {
-  // oidc_payloads 在平台 DB（docs/adr/0020-physical-tenant-isolation.md D1）
+  // oidc_payloads 在平台 DB（docs/architecture/05-tenancy.md §10.2 D1）
   scope: 'platform',
   exclusive: true,
   retryLimit: 2,

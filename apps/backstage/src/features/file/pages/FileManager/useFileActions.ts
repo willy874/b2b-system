@@ -16,7 +16,7 @@ const DOWNLOAD_INTERVAL_MS = 250;
  * 檔案管理器的刪除、下載與移動：
  * - 單一檔案或資料夾直接呼叫單筆 API（有即時的成功／失敗提示）；資料夾是遞迴刪除
  * - 多個項目送進全域批次佇列逐筆刪除，檔案與資料夾各一個工作（進度、取消、結果由佇列處理；
- *   docs/adr/0012-batch-queue-worker.md）
+ *   docs/architecture/frontend/07-ui-system.md §13）
  * - 移動（拖放、移動對話框）一次送出，後端在同一個交易內處理
  */
 export function useFileActions() {

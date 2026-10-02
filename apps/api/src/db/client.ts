@@ -16,7 +16,7 @@ import * as schema from './schema';
 /**
  * CLI 腳本（migrate / seed / reset）用的連線：不經過 Nest DI。
  * 平台 DB 來自 `PLATFORM_DATABASE_URL`；租戶 DB 的連線字串從平台 DB 的 `tenants` 解密而來
- * （docs/adr/0020-physical-tenant-isolation.md D1、D4）。
+ * （docs/architecture/05-tenancy.md §10.2 D1、D4）。
  */
 export function loadScriptEnv(): void {
   loadEnv({ path: resolve(process.cwd(), '.env'), quiet: true });
@@ -54,7 +54,7 @@ export interface ScriptTenant {
   id: string;
   code: string;
   databaseUrl: string;
-  /** feature 參數的覆寫（docs/adr/0033-feature-params-and-webhook-targets.md D2）。 */
+  /** feature 參數的覆寫（docs/architecture/05-tenancy.md §13.2 D2）。 */
   featureParams: TenantFeatureParamOverrides;
 }
 

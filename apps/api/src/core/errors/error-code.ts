@@ -7,7 +7,7 @@ export const ErrorCode = {
   // ── 驗證 ──
   VALIDATION_FAILED: { status: 400 },
 
-  // ── 租戶（docs/adr/0020-physical-tenant-isolation.md D2） ──
+  // ── 租戶（docs/architecture/05-tenancy.md §10.2 D2） ──
   /** 請求的網域不屬於任何租戶（或程式在沒有租戶脈絡的地方存取租戶 DB）。 */
   TENANT_NOT_FOUND: { status: 404 },
   /** 租戶停用、佈建中或佈建失敗。 */
@@ -27,11 +27,11 @@ export const ErrorCode = {
   /** 平台管理者不存在（或已刪除）。 */
   PLATFORM_ADMIN_NOT_FOUND: { status: 404 },
   /**
-   * 這個端點屬於租戶沒有啟用的 feature（docs/adr/0021-runtime-feature-activation.md D11）。
+   * 這個端點屬於租戶沒有啟用的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D11）。
    * 404：不暴露功能存在，與路徑不存在一樣。
    */
   FEATURE_DISABLED: { status: 404 },
-  /** 目錄裡沒有這個 feature flag（docs/adr/0022-feature-flags.md D1）：已移除或拼錯。 */
+  /** 目錄裡沒有這個 feature flag（docs/architecture/05-tenancy.md §11.2 D1）：已移除或拼錯。 */
   FEATURE_FLAG_NOT_FOUND: { status: 404 },
 
   // ── 認證 ──
@@ -41,7 +41,7 @@ export const ErrorCode = {
   AUTH_ACCOUNT_LOCKED: { status: 403 },
   AUTH_TOKEN_INVALID: { status: 401 },
   AUTH_TOKEN_STALE: { status: 401 },
-  /** API token 已過期（對外 API，docs/adr/0027-api-tokens-external-api.md D8）：要換一把新的。 */
+  /** API token 已過期（對外 API，docs/architecture/06-external-api.md §9.2 D8）：要換一把新的。 */
   AUTH_API_TOKEN_EXPIRED: { status: 401 },
   AUTH_REFRESH_INVALID: { status: 401 },
   AUTH_REFRESH_EXPIRED: { status: 401 },
@@ -52,11 +52,11 @@ export const ErrorCode = {
   AUTH_SETUP_TOKEN_INVALID: { status: 400 },
   /** 租戶關閉了註冊申請（設定 `auth.registrationEnabled`）：端點等同不存在。 */
   AUTH_REGISTRATION_DISABLED: { status: 404 },
-  /** 登入互動不存在、已過期，或瀏覽器沒有帶互動 cookie（docs/adr/0019-sso-identity-platform.md）。 */
+  /** 登入互動不存在、已過期，或瀏覽器沒有帶互動 cookie（docs/architecture/04-sso.md §12）。 */
   AUTH_SSO_INTERACTION_INVALID: { status: 400 },
   /** 授權碼無效：不存在、已用過、過期、client 或 redirect URI 不符、PKCE 不符（不細分，不洩漏哪一項）。 */
   AUTH_SSO_CODE_INVALID: { status: 400 },
-  /** 這個 email 網域只允許 SSO：不能用密碼登入（docs/adr/0019-sso-identity-platform.md D9）。 */
+  /** 這個 email 網域只允許 SSO：不能用密碼登入（docs/architecture/04-sso.md §12.2 D9）。 */
   AUTH_SSO_REQUIRED: { status: 403 },
   /** 外部 IdP 登入成功，但沒有對應的帳號，而連線設定為拒絕（D10）。 */
   AUTH_SSO_ACCOUNT_NOT_FOUND: { status: 403 },
@@ -83,9 +83,9 @@ export const ErrorCode = {
   USER_NOT_LOCKED: { status: 409 },
   /** 整批取代角色時，送出的草稿所依據的角色已被別人改過。 */
   USER_ROLES_CONFLICT: { status: 409 },
-  /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（ADR-0025 D3）。 */
+  /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
   USER_VERSION_CONFLICT: { status: 409 },
-  /** 還原（`POST /users/:id/restore`）一個沒有被刪除的使用者（ADR-0025 D6）。 */
+  /** 還原（`POST /users/:id/restore`）一個沒有被刪除的使用者（docs/architecture/backend/14-revisions.md §9.2 D6）。 */
   USER_NOT_DELETED: { status: 409 },
 
   // ── 角色 ──
@@ -97,15 +97,15 @@ export const ErrorCode = {
   LAST_SUPER_ADMIN: { status: 403 },
   /** 改自己持有的角色的權限或刪除它，會讓自己失去管理角色所需的權限（docs/architecture/backend/05-rbac.md §8.4）。 */
   ROLE_SELF_LOCKOUT: { status: 403 },
-  /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（ADR-0025 D3）。 */
+  /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
   ROLE_VERSION_CONFLICT: { status: 409 },
-  /** 還原（`POST /roles/:id/restore`）一個沒有被刪除的角色（ADR-0025 R3）。 */
+  /** 還原（`POST /roles/:id/restore`）一個沒有被刪除的角色（docs/architecture/backend/14-revisions.md §9 R3）。 */
   ROLE_NOT_DELETED: { status: 409 },
 
-  // ── 群組（docs/adr/0024-relationship-based-access-control.md D11、D12） ──
+  // ── 群組（docs/rbac/01-domain-model.md §9.3 D11、D12） ──
   GROUP_NOT_FOUND: { status: 404 },
   GROUP_NAME_DUPLICATE: { status: 409 },
-  /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（ADR-0025 D3）。 */
+  /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
   GROUP_VERSION_CONFLICT: { status: 409 },
   /** 還原（`POST /groups/:id/restore`）一個沒有被刪除的群組。 */
   GROUP_NOT_DELETED: { status: 409 },
@@ -116,9 +116,9 @@ export const ErrorCode = {
   /** 群組不能持有 super-admin：super-admin 一律直接指派給使用者（D12）。 */
   GROUP_SUPER_ADMIN_FORBIDDEN: { status: 403 },
 
-  // ── 服務帳號與 API token（docs/adr/0027-api-tokens-external-api.md） ──
+  // ── 服務帳號與 API token（docs/architecture/06-external-api.md §9） ──
   SERVICE_ACCOUNT_NOT_FOUND: { status: 404 },
-  /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（ADR-0025 D3）。 */
+  /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
   SERVICE_ACCOUNT_VERSION_CONFLICT: { status: 409 },
   /** 取代角色時，送出的 `expectedRoleIds` 與目前持有的不同（別人已改過）。 */
   SERVICE_ACCOUNT_ROLES_CONFLICT: { status: 409 },
@@ -128,9 +128,9 @@ export const ErrorCode = {
   /** 一個帳號未撤銷、未過期的 token 已達上限（`details.max`）。 */
   API_TOKEN_LIMIT_REACHED: { status: 409 },
 
-  // ── Webhook（docs/adr/0030-webhooks.md） ──
+  // ── Webhook（docs/architecture/backend/17-webhook.md §9） ──
   WEBHOOK_NOT_FOUND: { status: 404 },
-  /** 樂觀鎖：送出的 `version` 不是目前的版本；`details.current` 帶目前版本（ADR-0025 D3）。 */
+  /** 樂觀鎖：送出的 `version` 不是目前的版本；`details.current` 帶目前版本（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
   WEBHOOK_VERSION_CONFLICT: { status: 409 },
   /**
    * 網址不能用（D15）：`details.reason` 是 `protocol`（production 只接受 https）、`credentials`（網址帶帳密）、
@@ -144,17 +144,17 @@ export const ErrorCode = {
   /** 一個租戶的訂閱數已達上限（`details.max`）。 */
   WEBHOOK_LIMIT_REACHED: { status: 409 },
   /**
-   * 整個租戶不重複的目標網址數會超過上限 `webhook.maxUrls`（`details.max`；docs/adr/0033-feature-params-and-webhook-targets.md D11）。
+   * 整個租戶不重複的目標網址數會超過上限 `webhook.maxUrls`（`details.max`；docs/architecture/05-tenancy.md §13.3 D11）。
    * 只擋讓數量變多的變更。
    */
   WEBHOOK_URL_LIMIT_REACHED: { status: 409 },
   /** 要重送的投遞紀錄不存在、不屬於這個訂閱，或事件已被保留清理刪除。 */
   WEBHOOK_DELIVERY_NOT_FOUND: { status: 404 },
 
-  // ── 標籤（docs/adr/0032-tags.md） ──
+  // ── 標籤（docs/architecture/backend/18-tag.md §7） ──
   /** 標籤不存在；指派時也用在「不屬於這個資源的標籤組」（`details.tagIds`）。 */
   TAG_NOT_FOUND: { status: 404 },
-  /** 樂觀鎖：`details.current` 帶目前版本（ADR-0025 D3）。 */
+  /** 樂觀鎖：`details.current` 帶目前版本（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
   TAG_VERSION_CONFLICT: { status: 409 },
   /** 同一個標籤組已有同名的標籤（不分大小寫）。 */
   TAG_NAME_DUPLICATE: { status: 409 },
@@ -166,22 +166,22 @@ export const ErrorCode = {
   // ── 版本歷史（docs/architecture/backend/14-revisions.md） ──
   /** 指定的版本不存在（或已被保留清理刪除）。 */
   REVISION_NOT_FOUND: { status: 404 },
-  /** 那一版的快照超過上限而未保存（`details.reason: 'tooLarge'`），無法還原（ADR-0025 D1）。 */
+  /** 那一版的快照超過上限而未保存（`details.reason: 'tooLarge'`），無法還原（docs/architecture/backend/14-revisions.md §9.2 D1）。 */
   REVISION_UNAVAILABLE: { status: 409 },
 
   // ── 站內通知 ──
-  /** 通知不存在，或不是自己的（不透露別人的通知是否存在；ADR-0026 D9）。 */
+  /** 通知不存在，或不是自己的（不透露別人的通知是否存在；docs/architecture/backend/15-notification.md §12.2 D9）。 */
   NOTIFICATION_NOT_FOUND: { status: 404 },
-  /** 事件管理：事件沒有登記、所屬 feature 沒啟用，或該事件不支援這個管道（ADR-0028 D9）。 */
+  /** 事件管理：事件沒有登記、所屬 feature 沒啟用，或該事件不支援這個管道（docs/architecture/backend/16-notification-event.md §9.2 D9）。 */
   NOTIFICATION_EVENT_NOT_FOUND: { status: 404 },
-  /** 事件管理：不能關的事件（安全事件，ADR-0028 D4）。 */
+  /** 事件管理：不能關的事件（安全事件，docs/architecture/backend/16-notification-event.md §9.2 D4）。 */
   NOTIFICATION_EVENT_MANDATORY: { status: 409 },
-  /** 個人設定：租戶不允許調整這個事件 ＋ 管道（`details.lock`：`mandatory`／`tenantDisabled`／`tenantRequired`；ADR-0028 D14）。 */
+  /** 個人設定：租戶不允許調整這個事件 ＋ 管道（`details.lock`：`mandatory`／`tenantDisabled`／`tenantRequired`；docs/architecture/backend/16-notification-event.md §9.2 D14）。 */
   NOTIFICATION_PREFERENCE_LOCKED: { status: 409 },
 
-  // ── 公告與排程通知（docs/adr/0031-announcements.md） ──
+  // ── 公告與排程通知（docs/architecture/backend/19-announcement.md §9） ──
   ANNOUNCEMENT_NOT_FOUND: { status: 404 },
-  /** 樂觀鎖：送出的 `version` 不是目前的版本；`details.current` 帶目前版本（ADR-0025 D3）。 */
+  /** 樂觀鎖：送出的 `version` 不是目前的版本；`details.current` 帶目前版本（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
   ANNOUNCEMENT_VERSION_CONFLICT: { status: 409 },
   /** 目前的狀態不能這樣做（例：已完成的不能編輯、草稿不能暫停）；`details.status` 是目前的狀態。 */
   ANNOUNCEMENT_INVALID_STATE: { status: 409 },
@@ -213,7 +213,7 @@ export const ErrorCode = {
   IDENTITY_PROVIDER_NAME_DUPLICATE: { status: 409 },
   /** 網域已經屬於另一個連線（一個網域只屬於一個連線）。 */
   IDENTITY_PROVIDER_DOMAIN_TAKEN: { status: 409 },
-  /** 連線數已達租戶的上限 `identityProvider.maxProviders`（`details.max`；docs/adr/0033-feature-params-and-webhook-targets.md D10）。 */
+  /** 連線數已達租戶的上限 `identityProvider.maxProviders`（`details.max`；docs/architecture/05-tenancy.md §13.3 D10）。 */
   IDENTITY_PROVIDER_LIMIT_REACHED: { status: 409 },
 
   // ── 背景工作 ──
@@ -224,7 +224,7 @@ export const ErrorCode = {
   FILE_NOT_FOUND: { status: 404 },
   FILE_TOO_LARGE: { status: 413 },
   /**
-   * 這次上傳會讓檔案大小合計超過租戶的容量 `file.storageQuotaMb`（docs/adr/0033-feature-params-and-webhook-targets.md D8）；
+   * 這次上傳會讓檔案大小合計超過租戶的容量 `file.storageQuotaMb`（docs/architecture/05-tenancy.md §13.3 D8）；
    * `details`：`quota`、`used`、`size`（位元組）。
    */
   FILE_STORAGE_QUOTA_EXCEEDED: { status: 409 },
@@ -243,7 +243,7 @@ export const ErrorCode = {
   FILE_GRANT_NOT_FOUND: { status: 404 },
   FILE_ACCESS_ALREADY_GRANTED: { status: 409 },
   FILE_ACCESS_REQUEST_NOT_FOUND: { status: 404 },
-  /** 還原（`POST /files/:id/restore`）一個沒有被刪除的檔案（ADR-0025 R4）。 */
+  /** 還原（`POST /files/:id/restore`）一個沒有被刪除的檔案（docs/architecture/backend/14-revisions.md §9 R4）。 */
   FILE_NOT_DELETED: { status: 409 },
   /** 還原的檔案所在的資料夾已刪除（`details.reason = 'parentDeleted'`）或物件已不在（`'objectMissing'`）。 */
   FILE_RESTORE_CONFLICT: { status: 409 },

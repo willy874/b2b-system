@@ -43,7 +43,7 @@ function escapeLike(value: string): string {
   return value.replaceAll(/[\\%_]/g, (char) => `\\${char}`);
 }
 
-/** 平台管理者對租戶登記的讀寫（平台 DB，docs/adr/0020-physical-tenant-isolation.md D12、D13）。 */
+/** 平台管理者對租戶登記的讀寫（平台 DB，docs/architecture/05-tenancy.md §10.2 D12、D13）。 */
 @Injectable()
 export class PlatformTenantRepository {
   constructor(@Inject(PLATFORM_DB) private readonly db: PlatformDatabase) {}

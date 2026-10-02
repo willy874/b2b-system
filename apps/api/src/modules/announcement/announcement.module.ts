@@ -20,7 +20,7 @@ import { AnnouncementService } from './announcement.service';
 import { ANNOUNCEMENT_SETTINGS } from './announcement.settings';
 
 /**
- * 公告與排程通知（docs/adr/0031-announcements.md）。發送經由 `NotificationService.notify()`（每人一筆、分批），
+ * 公告與排程通知（docs/architecture/backend/19-announcement.md §9）。發送經由 `NotificationService.notify()`（每人一筆、分批），
  * 受眾經由 `AuthzService` 反向展開；不 import 其他業務模組。事件點反過來：擁有者 import 這個模組，
  * 在自己的 constructor 以 `AnnouncementTriggerCatalog.register()` 登記、在業務交易內呼叫 `AnnouncementTriggerService.fire()`。
  */
@@ -38,7 +38,7 @@ import { ANNOUNCEMENT_SETTINGS } from './announcement.settings';
     AnnouncementJobs,
     AnnouncementTrashHandler,
   ],
-  // 擁有者模組（使用者、群組）登記觸發點並在業務交易內呼叫 fire()（ADR-0031 D12）
+  // 擁有者模組（使用者、群組）登記觸發點並在業務交易內呼叫 fire()（docs/architecture/backend/19-announcement.md §9.2 D12）
   exports: [AnnouncementTriggerCatalog, AnnouncementTriggerService],
 })
 export class AnnouncementModule {

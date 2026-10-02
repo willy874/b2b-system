@@ -9,7 +9,7 @@ import { ApiTokenRepository } from './api-token.repository';
 const FLUSH_INTERVAL_MS = 60_000;
 
 /**
- * `api_tokens.last_used_at`（docs/adr/0027-api-tokens-external-api.md D8）：每個請求都寫一次會讓唯讀的請求也變成寫入，
+ * `api_tokens.last_used_at`（docs/architecture/06-external-api.md §9.2 D8）：每個請求都寫一次會讓唯讀的請求也變成寫入，
  * 所以先記在記憶體，每分鐘依租戶批次更新。程序結束前再寫一次；當掉時最多少記一分鐘。
  */
 @Injectable()

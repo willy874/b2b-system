@@ -11,7 +11,7 @@ export const TrashResourceTypeSchema = defineSchema(
 );
 
 export const ListTrashSchema = PaginationSchema.extend({
-  /** 一次只列一種類型（ADR-0025 D9：不跨類型合併分頁）。 */
+  /** 一次只列一種類型（docs/architecture/backend/14-revisions.md §9.2 D9：不跨類型合併分頁）。 */
   type: TrashResourceTypeSchema,
   keyword: z.string().trim().max(100).optional(),
 });

@@ -24,7 +24,7 @@ export const IdentityProviderDomainSchema = defineSchema(
   'IdentityProviderDomain',
   z.object({
     domain: DomainSchema,
-    /** 這個網域的帳號不能用密碼登入、不能申請重設密碼（docs/adr/0019-sso-identity-platform.md D9）。 */
+    /** 這個網域的帳號不能用密碼登入、不能申請重設密碼（docs/architecture/04-sso.md §12.2 D9）。 */
     ssoOnly: z.boolean(),
   }),
 );

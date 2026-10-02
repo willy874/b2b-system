@@ -1,5 +1,5 @@
 /**
- * 關係圖的型別定義（docs/rbac/01-domain-model.md §6.4、docs/adr/0024-relationship-based-access-control.md）。
+ * 關係圖的型別定義（docs/rbac/01-domain-model.md §6.4、docs/rbac/01-domain-model.md §9）。
  * 語意是 Zanzibar／OpenFGA 的子集：直接、計算（`computed`）、`X from Y`（`from`）、聯集、交集、萬用字元。
  * **刻意不提供排除（`but not`）**：只有 allow（D4）。
  */
@@ -20,7 +20,7 @@ export interface TypeDefinition {
   readonly name: string;
   readonly relations: Readonly<Record<string, Rewrite>>;
   /**
-   * 這個型別上的「能力」：反提權比對的關係（docs/adr/0024-relationship-based-access-control.md G4）。
+   * 這個型別上的「能力」：反提權比對的關係（docs/rbac/01-domain-model.md §9 G4）。
    * 寫入一條邊讓主體取得的能力，操作者必須全部都有（`capabilitiesOf`）。租戶上是每個權限鍵與 `superAdmin`、
    * 資料夾上是 `can_*`；等級（`editor`）、成員關係（`role#holder`）本身不是能力，是取得能力的途徑。
    */
@@ -202,7 +202,7 @@ export function impliedRelations(model: AuthzModel, type: string, relation: stri
 }
 
 /**
- * 成為 `type#relation` 的主體時，在 **同一個物件** 上取得的能力（反提權用；docs/adr/0024-relationship-based-access-control.md G4）。
+ * 成為 `type#relation` 的主體時，在 **同一個物件** 上取得的能力（反提權用；docs/rbac/01-domain-model.md §9 G4）。
  * 關係本身是能力（租戶上的權限鍵）→ 只有它（它蘊含的鍵由操作者的閉包自然涵蓋）；
  * 否則是它靜態蘊含的能力（資料夾等級 → `can_*`），依型別宣告的能力順序。
  * 成員關係（`role#holder`、`group#member`）帶來的是別的物件上的能力，要沿著邊展開，見 `AuthzService.grantedCapabilities`。

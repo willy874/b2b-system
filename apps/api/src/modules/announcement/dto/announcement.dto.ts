@@ -20,7 +20,7 @@ const IdsSchema = z
   .max(ANNOUNCEMENT_AUDIENCE_MAX_PER_KIND)
   .refine((ids) => new Set(ids).size === ids.length, { message: 'duplicate ids' });
 
-/** 受眾（docs/adr/0031-announcements.md D5）：四種來源取聯集；全部空著的可以存草稿，不能送出。 */
+/** 受眾（docs/architecture/backend/19-announcement.md §9.2 D5）：四種來源取聯集；全部空著的可以存草稿，不能送出。 */
 export const AnnouncementAudienceSchema = defineSchema(
   'AnnouncementAudience',
   z.object({
@@ -146,7 +146,7 @@ export const AnnouncementSchema = defineSchema(
         readCount: z.number().int(),
       })
       .nullable(),
-    /** 樂觀鎖版本：`PATCH` 時帶上（ADR-0025 D3）。 */
+    /** 樂觀鎖版本：`PATCH` 時帶上（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
     version: z.number().int(),
     createdAt: z.string(),
     updatedAt: z.string(),

@@ -5,7 +5,7 @@ import { ALL_PERMISSION_KEYS } from '@/db/seeds/permissions';
 
 /**
  * ★ 前後端共用權限鍵的關鍵：這個 enum 會以 `PermissionKey` 出現在 OpenAPI，
- * `packages/api-sdk` 據此產生常數，前端只做 re-export（ADR-0007）。
+ * `packages/api-sdk` 據此產生常數，前端只做 re-export（docs/architecture/backend/03-api-conventions.md §12）。
  */
 export const PermissionKeySchema = defineSchema(
   'PermissionKey',

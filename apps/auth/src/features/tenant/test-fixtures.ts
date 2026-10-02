@@ -2,7 +2,7 @@ import type { PlatformTenant, TenantFeatureParam } from '@/shared/api-sdk';
 
 import { TENANT_FEATURES } from './constants';
 
-/** 與 api 的目錄相同的參數，都是預設值（docs/adr/0033-feature-params-and-webhook-targets.md D3）。 */
+/** 與 api 的目錄相同的參數，都是預設值（docs/architecture/05-tenancy.md §13.2 D3）。 */
 export const FEATURE_PARAMS: readonly TenantFeatureParam[] = [
   integerParam('file.storageQuotaMb', 'file', 2048, 1, 10_485_760, 'megabytes'),
   integerParam('auditLog.hotRetentionDays', 'auditLog', 90, 7, 3650, 'days'),

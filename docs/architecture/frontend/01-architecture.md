@@ -62,7 +62,7 @@ export * from "@b2b-system/api-sdk";
 | 模組              | 職責                                                                |
 | ----------------- | ------------------------------------------------------------------- |
 | `core/app`        | `AppContext` 型別、`createAppContext()`、React context bridge       |
-| `core/batch`      | 全域批次佇列：SharedWorker（不支援時 dedicated worker）逐筆排程、分頁以單筆 API 執行、Channel 廣播進度；`BatchAction` 型別、`registerBatchOperation`、進度條、AppHeader 面板、結束時的彈出（[07 §6.2](./07-ui-system.md)、[ADR-0012](../../adr/0012-batch-queue-worker.md)）；工作內並行、位元組進度、中止（[ADR-0013](../../adr/0013-file-manager-upload.md)） |
+| `core/batch`      | 全域批次佇列：SharedWorker（不支援時 dedicated worker）逐筆排程、分頁以單筆 API 執行、Channel 廣播進度；`BatchAction` 型別、`registerBatchOperation`、進度條、AppHeader 面板、結束時的彈出（[07 §6.2](./07-ui-system.md)、[`frontend/07-ui-system.md`](07-ui-system.md) §13）；工作內並行、位元組進度、中止（[`frontend/12-file-manager.md`](12-file-manager.md) §14） |
 | `core/file`       | 檔案類型判斷（圖示）、檔案管理的擴充點：預覽解析器、檔案驗證器、縮圖產生器的註冊表（[12 §6](./12-file-manager.md)） |
 | `core/auth`       | `SessionStore`：token 生命週期、跨分頁單飛續期、終止判定            |
 | `core/cache`      | `queryClient` 實例、跨分頁失效廣播、store 持久化                    |

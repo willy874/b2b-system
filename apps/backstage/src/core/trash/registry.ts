@@ -21,7 +21,7 @@ export interface TrashTypeRegistration {
   order: number;
   /** 分頁標題；放在全域語系包（回收桶頁不一定載入了擁有者的 scope）。 */
   labelI18nKey: string;
-  /** 看這一類與還原所需的權限（`<resource>:delete`，ADR-0025 D10）；沒有的人看不到這個分頁。 */
+  /** 看這一類與還原所需的權限（`<resource>:delete`，docs/architecture/backend/14-revisions.md §9.2 D10）；沒有的人看不到這個分頁。 */
   permission: PermissionKey;
   /** 還原操作用到的語系 scope；回收桶頁的 route loader 一併載入。 */
   localeScope?: string;
@@ -29,7 +29,7 @@ export interface TrashTypeRegistration {
   RestoreAction: ComponentType<TrashRestoreActionProps>;
 }
 
-/** 可訂閱：feature 在執行期安裝或卸載時，回收桶頁跟著更新（ADR-0021 D4）。 */
+/** 可訂閱：feature 在執行期安裝或卸載時，回收桶頁跟著更新（docs/architecture/frontend/02-plugin-system.md §9.2 D4）。 */
 export const trashTypeRegistry = createRegistry<TrashResourceType, TrashTypeRegistration>(
   'Trash type',
 );

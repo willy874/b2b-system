@@ -10,7 +10,7 @@ export interface TenantRegistration {
   code: string;
   name: string;
   databaseUrl: string;
-  /** 物件儲存的 bucket（docs/adr/0020-physical-tenant-isolation.md D16）。 */
+  /** 物件儲存的 bucket（docs/architecture/05-tenancy.md §10.2 D16）。 */
   storageBucket: string;
   domains: string[];
 }

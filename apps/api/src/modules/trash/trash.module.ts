@@ -10,7 +10,7 @@ import { TRASH_SETTINGS } from './trash.settings';
 
 /**
  * 回收桶（docs/architecture/backend/13-trash.md）。只依賴 Permission / AuditLog（@Global）與 core；
- * 擁有資源的模組 import 它，並以 `TrashService.registerHandler()` 登記自己的 `TrashHandler`（ADR-0025 D9）。
+ * 擁有資源的模組 import 它，並以 `TrashService.registerHandler()` 登記自己的 `TrashHandler`（docs/architecture/backend/14-revisions.md §9.2 D9）。
  */
 @Module({
   controllers: [TrashController],

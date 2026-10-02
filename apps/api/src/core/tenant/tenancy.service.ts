@@ -37,7 +37,7 @@ function tenantUnavailable(reason: TenantUnavailableReason): AppException {
 export const SCHEMA_RECHECK_MS = 30_000;
 
 /**
- * 進入租戶脈絡的唯一入口（docs/adr/0020-physical-tenant-isolation.md D3）：HTTP 由 `TenantMiddleware`、
+ * 進入租戶脈絡的唯一入口（docs/architecture/05-tenancy.md §10.2 D3）：HTTP 由 `TenantMiddleware`、
  * WebSocket 由 gateway、背景工作由 `JobQueue` 呼叫。每個租戶第一次用到時建立自己的小連線池；
  * 閒置的連線由 postgres.js 的 `idle_timeout`（`TENANT_POOL_IDLE_TIMEOUT`）關閉，連線池物件本身很便宜，不另外回收。
  *

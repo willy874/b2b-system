@@ -22,7 +22,7 @@ function event(type: string, category: string): NotificationEvent {
   };
 }
 
-describe('toNotificationEventCategories（ADR-0028 D13）', () => {
+describe('toNotificationEventCategories（docs/architecture/backend/16-notification-event.md §9.2 D13）', () => {
   it('依後端目錄的順序分組，認得的事件帶名稱、說明與收件人的 key', () => {
     const views = toNotificationEventCategories([
       event('approval.pending', 'approval'),

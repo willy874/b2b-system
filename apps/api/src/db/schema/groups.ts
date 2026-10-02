@@ -5,7 +5,7 @@ import { integer, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-or
 import { notDeleted } from './soft-delete';
 
 /**
- * 群組（docs/adr/0024-relationship-based-access-control.md D11、D12）：純分組，只存名稱與說明。
+ * 群組（docs/rbac/01-domain-model.md §9.3 D11、D12）：純分組，只存名稱與說明。
  * 成員（`group:<id>#member@user:<u>`／`@group:<h>#member`）與群組持有的角色（`role:<r>#holder@group:<id>#member`）
  * 都是 `relation_tuples` 的邊，不另開 `group_members`。
  */
@@ -15,7 +15,7 @@ export const groups = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     name: text('name').notNull(),
     description: text('description'),
-    // 樂觀鎖：名稱與說明每次寫入遞增；成員與持有的角色（relation_tuples）的寫入不遞增（ADR-0025 D3）
+    // 樂觀鎖：名稱與說明每次寫入遞增；成員與持有的角色（relation_tuples）的寫入不遞增（docs/architecture/backend/14-revisions.md §9.2 D3）
     version: integer('version').notNull().default(1),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

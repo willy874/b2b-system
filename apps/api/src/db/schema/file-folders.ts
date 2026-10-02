@@ -43,7 +43,7 @@ export const fileFolders = pgTable(
     /** `personal` 的擁有者；其他種類為 null。 */
     ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'restrict' }),
     /**
-     * 一次刪除操作的識別（docs/adr/0025-entity-revisions.md D5）：遞迴刪除的資料夾與其中的檔案帶同一個值，
+     * 一次刪除操作的識別（docs/architecture/backend/14-revisions.md §9.2 D5）：遞迴刪除的資料夾與其中的檔案帶同一個值，
      * 還原根節點時只還原同一批，之前個別刪掉的子項維持刪除。未刪除時為 null；R4a 之前刪除的列也是 null。
      */
     deletionId: uuid('deletion_id'),

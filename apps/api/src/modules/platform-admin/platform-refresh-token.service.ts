@@ -10,7 +10,7 @@ import { PlatformRefreshTokenRepository } from './platform-refresh-token.reposit
 import type { IssuePlatformRefreshTokenInput } from './platform-refresh-token.repository';
 
 /**
- * 平台管理者的 refresh token（平台 DB，docs/adr/0020-physical-tenant-isolation.md D5）：規則與租戶的
+ * 平台管理者的 refresh token（平台 DB，docs/architecture/05-tenancy.md §10.2 D5）：規則與租戶的
  * `RefreshTokenService` 相同。平台 DB 的表都歸這個模組；登入流程（`AuthModule` 的 `PlatformAuthService`）經過這裡。
  */
 @Injectable()

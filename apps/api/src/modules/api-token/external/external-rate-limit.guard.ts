@@ -13,7 +13,7 @@ import { currentTenant } from '@/core/tenant';
 import type { ExternalRequest } from './api-token-auth.guard';
 
 /**
- * 對外 API 的速率限制（docs/adr/0027-api-tokens-external-api.md D13）：排在認證之後。
+ * 對外 API 的速率限制（docs/architecture/06-external-api.md §9.2 D13）：排在認證之後。
  * 認證過的請求以 **token** 計（`x:{tenantId}:token:{tokenId}`，`EXTERNAL_RATE_LIMIT`）：每個整合有自己的額度，
  * 不和本人的瀏覽器、也不和同一個 NAT 後面的其他整合共用。沒有 token 的（健康檢查）以 IP 計。
  * 計數與內部 api 一樣存在程序的記憶體（共享計數見 docs/features/multi-instance.md）。

@@ -5,7 +5,7 @@ import type { AccountKey } from '../fixtures/accounts';
 
 /**
  * 經過 backstage 的 `/api` 代理打後端，跟瀏覽器一樣：api 以網域決定租戶
- * （docs/adr/0020-physical-tenant-isolation.md D2），直接打 :3000 會找不到租戶。
+ * （docs/architecture/05-tenancy.md §10.2 D2），直接打 :3000 會找不到租戶。
  */
 const API_BASE =
   process.env.E2E_API_URL ?? `${process.env.E2E_BASE_URL ?? 'http://localhost:5173'}/api`;

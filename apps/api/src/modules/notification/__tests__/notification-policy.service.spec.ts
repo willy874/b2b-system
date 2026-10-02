@@ -100,7 +100,7 @@ async function errorOf(promise: Promise<unknown>): Promise<AppException> {
   return error as AppException;
 }
 
-describe('NotificationEventCatalog（ADR-0028 D2）', () => {
+describe('NotificationEventCatalog（docs/architecture/backend/16-notification-event.md §9.2 D2）', () => {
   it('重複登記同一個類型 → 啟動就失敗', () => {
     const catalog = new NotificationEventCatalog();
     catalog.register([PENDING]);
@@ -183,7 +183,7 @@ describe('NotificationPolicyService.isEnabled（docs/architecture/backend/16-not
   });
 });
 
-describe('NotificationPolicyService.filterRecipients（ADR-0028 D14）', () => {
+describe('NotificationPolicyService.filterRecipients（docs/architecture/backend/16-notification-event.md §9.2 D14）', () => {
   const ALICE = 'alice';
   const BOB = 'bob';
 
@@ -234,7 +234,7 @@ describe('NotificationPolicyService.filterRecipients（ADR-0028 D14）', () => {
   });
 });
 
-describe('NotificationPolicyService.list（ADR-0028 D9、D11）', () => {
+describe('NotificationPolicyService.list（docs/architecture/backend/16-notification-event.md §9.2 D9、D11）', () => {
   it('每個事件帶分類、mandatory 與每個管道的生效值、預設值、是否覆寫', async () => {
     const { service } = setup([{ type: 'sample.result', channel: 'email', enabled: false }]);
     const { items } = await inTenant(['file'], () => service.list());
@@ -302,7 +302,7 @@ describe('NotificationPolicyService.list（ADR-0028 D9、D11）', () => {
   });
 });
 
-describe('NotificationPolicyService.update（ADR-0028 D9）', () => {
+describe('NotificationPolicyService.update（docs/architecture/backend/16-notification-event.md §9.2 D9）', () => {
   it('寫入覆寫值與還原預設在同一個交易、一筆稽核；提交後失效快取並推給每個事件一則', async () => {
     const { service, repo, audit, events } = setup([
       { type: 'sample.result', channel: 'email', enabled: false },
@@ -356,7 +356,7 @@ describe('NotificationPolicyService.update（ADR-0028 D9）', () => {
     expect(repo.listAll).toHaveBeenCalledTimes(1);
   });
 
-  it('允許個人調整：只改那一欄；enabled 與預設相同時存成 null；兩欄都回到預設就刪列（ADR-0028 D15）', async () => {
+  it('允許個人調整：只改那一欄；enabled 與預設相同時存成 null；兩欄都回到預設就刪列（docs/architecture/backend/16-notification-event.md §9.2 D15）', async () => {
     const { service, repo, audit } = setup([
       { type: 'sample.result', channel: 'email', enabled: false },
       { type: 'sample.result', channel: 'inApp', enabled: null, allowUserOverride: false },

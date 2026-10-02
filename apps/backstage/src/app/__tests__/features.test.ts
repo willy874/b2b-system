@@ -45,8 +45,8 @@ function createContext() {
 }
 
 /**
- * 取代靜態表原本提供的編譯期完整性（ADR-0001 的代價緩解），並驗證卸載撤得乾淨
- * （docs/adr/0021-runtime-feature-activation.md D12）。
+ * 取代靜態表原本提供的編譯期完整性（docs/architecture/frontend/02-plugin-system.md §8 的代價緩解），並驗證卸載撤得乾淨
+ * （docs/architecture/frontend/02-plugin-system.md §9.2 D12）。
  */
 describe('可啟用 feature 的 catalog', () => {
   beforeEach(() => {
@@ -76,7 +76,7 @@ describe('可啟用 feature 的 catalog', () => {
     },
   );
 
-  it('file：安裝後登記 route id file.folder（通知連到資料夾），卸載後撤回——連結變成不可點（ADR-0026 D3）', async () => {
+  it('file：安裝後登記 route id file.folder（通知連到資料夾），卸載後撤回——連結變成不可點（docs/architecture/backend/15-notification.md §12.2 D3）', async () => {
     const context = createContext();
     const name = await context.install(FEATURE_CATALOG.file.plugin);
     expect(routeLinkRegistry.keys()).toEqual(['file.folder']);

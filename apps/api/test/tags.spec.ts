@@ -106,7 +106,7 @@ async function roleIdOf(slug: string): Promise<string> {
 
 const ids: Record<string, string> = {};
 
-describe('標籤（docs/adr/0032-tags.md）', () => {
+describe('標籤（docs/architecture/backend/18-tag.md §7）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;

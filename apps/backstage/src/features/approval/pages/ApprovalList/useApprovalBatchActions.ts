@@ -8,7 +8,7 @@ import { useApprovalPermission } from '../../hooks/useApprovalPermission';
 import type { ApprovalRowVM } from './adapter';
 
 /**
- * 審批列表的批次動作（ADR-0012）：逐筆的「快速核准／快速駁回」——不指派角色、不附意見；
+ * 審批列表的批次動作（docs/architecture/frontend/07-ui-system.md §13）：逐筆的「快速核准／快速駁回」——不指派角色、不附意見；
  * 要指派角色請開審核對話框逐筆審。資格沿用 adapter 算好的列旗標。
  */
 export function useApprovalBatchActions(): Array<BatchAction<ApprovalRowVM>> {

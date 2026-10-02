@@ -33,7 +33,7 @@ afterEach(() => {
   queue.dispose();
 });
 
-describe('批次佇列（docs/adr/0012-batch-queue-worker.md）', () => {
+describe('批次佇列（docs/architecture/frontend/07-ui-system.md §13）', () => {
   it('堵塞式：一次只交派一筆，前一筆完成才送下一筆', async () => {
     const pending = new Map<string, ReturnType<typeof deferred>>();
     const run = vi.fn((id: string) => {
@@ -215,7 +215,7 @@ describe('批次佇列（docs/adr/0012-batch-queue-worker.md）', () => {
   });
 });
 
-describe('批次佇列：並行、進度與中止（docs/adr/0013-file-manager-upload.md）', () => {
+describe('批次佇列：並行、進度與中止（docs/architecture/frontend/12-file-manager.md §14）', () => {
   it('concurrency：同一個工作同時交派數筆；後面的工作仍等前一個結束', async () => {
     const pending = new Map<string, ReturnType<typeof deferred>>();
     const run = vi.fn((id: string) => {
@@ -324,7 +324,7 @@ function operationSource(initial: string[]) {
   };
 }
 
-describe('批次佇列：分頁宣告能執行的操作（docs/adr/0021-runtime-feature-activation.md D10）', () => {
+describe('批次佇列：分頁宣告能執行的操作（docs/architecture/frontend/02-plugin-system.md §9.2 D10）', () => {
   it('發起的分頁沒有安裝這個操作時，交給宣告支援的分頁執行', async () => {
     const run = vi.fn(() => Promise.resolve());
     registerBatchOperation({ id: 'op', labelKey: 'x', successKey: 'y', run });

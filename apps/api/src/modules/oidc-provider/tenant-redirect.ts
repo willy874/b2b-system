@@ -2,7 +2,7 @@ import type { TenantDirectory } from '@/core/tenant';
 
 /**
  * backstage 的 redirect／登出後 URI 是否可以接受：path 相符、沒有 query／fragment／帳密、host 是某個租戶的網域
- * （docs/adr/0020-physical-tenant-isolation.md D7）。
+ * （docs/architecture/05-tenancy.md §10.2 D7）。
  *
  * `strict`（production）時只接受 `https:`，網址帶 port 時必須與登記的網域（含 port）完全相符：否則授權碼可能
  * 經明文 http 送出，或被同一台主機上其他 port 的服務收走。

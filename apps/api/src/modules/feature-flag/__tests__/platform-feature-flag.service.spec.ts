@@ -67,7 +67,7 @@ function setup(initial?: 'on' | 'off') {
   return { service, repo, flags, events, audit, calls };
 }
 
-describe('PlatformFeatureFlagService（docs/adr/0022-feature-flags.md D7、D8）', () => {
+describe('PlatformFeatureFlagService（docs/architecture/05-tenancy.md §11.2 D7、D8）', () => {
   it('list：目錄、全平台覆寫、覆寫它的租戶數；不在目錄裡的 key 不出現', async () => {
     const { service, flags } = setup('on');
 

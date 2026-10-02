@@ -69,7 +69,7 @@ export function useGroupDeleteMutation() {
       toast.show({
         type: 'success',
         title: t('group.delete.success'),
-        // 回收桶被平台關掉時還原端點回 404，不提供復原（docs/adr/0029-toggleable-platform-features.md D3）
+        // 回收桶被平台關掉時還原端點回 404，不提供復原（docs/architecture/05-tenancy.md §12.2 D3）
         ...(canRestore && {
           action: {
             label: t('group.delete.undo'),
@@ -130,7 +130,7 @@ export function useGroupRestoreMutation() {
   });
 }
 
-/** 增減成員（差異語意）。加入的成員取得群組與上層群組的角色，受反提權限制（ADR-0024 D11）。 */
+/** 增減成員（差異語意）。加入的成員取得群組與上層群組的角色，受反提權限制（docs/rbac/01-domain-model.md §9.3 D11）。 */
 export function useGroupMembersUpdateMutation() {
   const toast = useToast();
   const { t } = useTranslation();
@@ -146,7 +146,7 @@ export function useGroupMembersUpdateMutation() {
   });
 }
 
-/** 增減群組持有的角色（差異語意）。受反提權限制；super-admin 一律拒絕（ADR-0024 D12）。 */
+/** 增減群組持有的角色（差異語意）。受反提權限制；super-admin 一律拒絕（docs/rbac/01-domain-model.md §9.3 D12）。 */
 export function useGroupRolesUpdateMutation() {
   const toast = useToast();
   const { t } = useTranslation();

@@ -42,7 +42,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('GroupListPage（docs/adr/0024-relationship-based-access-control.md G4）', () => {
+describe('GroupListPage（docs/rbac/01-domain-model.md §9 G4）', () => {
   it('有 group:create／group:delete → 顯示建立與刪除', async () => {
     renderRoute(routes, '/group', MANAGER);
     await screen.findByText('美術', undefined, { timeout: 5000 });

@@ -12,7 +12,7 @@ import { ApiTokenExternalController } from './external/api-token.external.contro
 import { UserApiTokenController } from './user-api-token.controller';
 
 /**
- * API token（docs/adr/0027-api-tokens-external-api.md）。
+ * API token（docs/architecture/06-external-api.md §9）。
  * - 內部 api：個人 token 與管理者看別人的 token；服務帳號的 token 由 `ServiceAccountModule` 經 `ApiTokenService` 管理
  * - 對外 API：`ApiTokenVerifier`、`ApiTokenUsageService` 給 `external-api.module.ts` 的 guard 用；`/v1/me`
  *

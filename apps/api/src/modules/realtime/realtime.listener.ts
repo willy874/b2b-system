@@ -32,7 +32,7 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     // 推播是「每個程序對自己的連線做一次」：其他程序（對外 API、worker）的寫入轉送過來也要推
-    // （docs/adr/0027-api-tokens-external-api.md D18）。權限變更由 AuthzRevision 的廣播在本機重新發佈，不必另外收。
+    // （docs/architecture/06-external-api.md §9.2 D18）。權限變更由 AuthzRevision 的廣播在本機重新發佈，不必另外收。
     const remote = { remote: true };
     this.unsubscribers = [
       this.bus.subscribe(DomainEvent.PERMISSIONS_CHANGED, () => this.onPermissionsChanged()),
@@ -61,7 +61,7 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
 
   /**
    * 關係圖變了：這個租戶在本機的所有連線重算 room（§6.2）。事件不帶「受影響的人」——
-   * 失效以整個租戶為單位（docs/adr/0024-relationship-based-access-control.md D8），權限快取在發佈前已失效。
+   * 失效以整個租戶為單位（docs/rbac/01-domain-model.md §9.2 D8），權限快取在發佈前已失效。
    */
   async onPermissionsChanged(): Promise<void> {
     await this.audience.refreshAudience(
@@ -99,7 +99,7 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
   }: DomainEventPayloads[typeof DomainEvent.SESSIONS_REVOKED]): void {
     const rooms = [
       ...[...new Set(userIds)].map(userRoom),
-      // 單一登出：只有同一個 IdP session 的連線，同一個人的其他裝置不受影響（ADR-0019 D5）
+      // 單一登出：只有同一個 IdP session 的連線，同一個人的其他裝置不受影響（docs/architecture/04-sso.md §12.2 D5）
       ...[...new Set(idpSessionUids)].map(idpSessionRoom),
       ...[...new Set(tenantIds)].map(tenantRoom),
     ];
@@ -114,7 +114,7 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 租戶啟用的 feature 變了（docs/adr/0021-runtime-feature-activation.md D8）：推給這個租戶的 **所有** 連線，
+   * 租戶啟用的 feature 變了（docs/architecture/frontend/02-plugin-system.md §9.2 D8）：推給這個租戶的 **所有** 連線，
    * 每個人都要重新取得 profile。事件在平台的請求裡發佈（沒有租戶脈絡），所以 room 以 `tenantId` 組，
    * 與停用租戶時撤銷連線的做法相同；也沒有 `origin`——發起的平台管理者不在租戶的連線裡。
    */

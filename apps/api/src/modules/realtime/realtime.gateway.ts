@@ -53,7 +53,7 @@ function connectError(code: ErrorCode): Error {
  *
  * - 連線：`allowRequest`（Origin ＋ 每 IP handshake 次數）→ `io.use` 以網域決定租戶、驗 access token → 加入 room。
  * - 租戶：handshake 的網域決定這條連線屬於哪個租戶，之後這條連線上的每則訊息都在該租戶的脈絡裡處理
- *   （docs/adr/0020-physical-tenant-isolation.md D2、D3）。
+ *   （docs/architecture/05-tenancy.md §10.2 D2、D3）。
  * - 訊息：`WsAuthGuard` 重驗使用者 → `PermissionsGuard` 看宣告；每個處理器都要有授權宣告
  *   （`common/route-audit.ts`）。
  * - 兩個守門員都是全域的 `APP_GUARD`（app.module.ts；Nest 12 起全域 guard／interceptor 也套用到 gateway），
@@ -244,7 +244,7 @@ export class RealtimeGateway
 
   /**
    * 頁面與連線同源：每個租戶的 backstage 在自己的網域，連的是同網域的 `/api/socket.io`
-   * （docs/adr/0020-physical-tenant-isolation.md D2），不必把每個租戶的網域都列進 `REALTIME_ALLOWED_ORIGINS`。
+   * （docs/architecture/05-tenancy.md §10.2 D2），不必把每個租戶的網域都列進 `REALTIME_ALLOWED_ORIGINS`。
    * 跨站 WebSocket 劫持的頁面在別的網域，Origin 的 host 一定對不上。
    */
   private isSameOrigin(origin: string, req: IncomingMessage): boolean {

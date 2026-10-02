@@ -18,7 +18,7 @@ export const getFileUploadPolicyQueryOptions = () =>
   });
 
 /**
- * 檔案容量與已用量（docs/adr/0033-feature-params-and-webhook-targets.md D8）：同一支端點，另一個 key，
+ * 檔案容量與已用量（docs/architecture/05-tenancy.md §13.3 D8）：同一支端點，另一個 key，
  * 檔案的增刪由依賴圖（`apis/resources.ts`）讓它重抓。
  */
 export const getFileStorageUsageQueryOptions = () =>

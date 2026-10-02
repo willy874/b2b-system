@@ -41,7 +41,7 @@ export function useUpdateTenantMutation() {
   });
 }
 
-/** 試行開關的租戶層覆寫（docs/adr/0022-feature-flags.md D7）：列表上「覆寫它的租戶數」也跟著變。 */
+/** 試行開關的租戶層覆寫（docs/architecture/05-tenancy.md §11.2 D7）：列表上「覆寫它的租戶數」也跟著變。 */
 export function useUpdateTenantFlagsMutation() {
   const toast = useToast();
   const { t } = useTranslation();
@@ -57,7 +57,7 @@ export function useUpdateTenantFlagsMutation() {
   });
 }
 
-/** feature 參數（docs/adr/0033-feature-params-and-webhook-targets.md D3）：只送要改的項目，`null` 回到預設。 */
+/** feature 參數（docs/architecture/05-tenancy.md §13.2 D3）：只送要改的項目，`null` 回到預設。 */
 export function useUpdateTenantFeatureParamsMutation() {
   const changed = useTenantChange('update', 'tenant.param.success');
   return useMutation({

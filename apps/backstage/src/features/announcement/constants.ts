@@ -124,7 +124,7 @@ export interface AnnouncementEventLabel {
 }
 
 /**
- * 觸發點的顯示文字（key 是後端的 `event`，docs/adr/0031-announcements.md D14）。後端新增了這裡沒有的觸發點時，
+ * 觸發點的顯示文字（key 是後端的 `event`，docs/architecture/backend/19-announcement.md §9.2 D14）。後端新增了這裡沒有的觸發點時，
  * 以 `event` 本身當名稱，照常可以選。
  */
 export const ANNOUNCEMENT_EVENT_LABEL: Readonly<Partial<Record<string, AnnouncementEventLabel>>> = {

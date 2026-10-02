@@ -1,12 +1,12 @@
 # 後端 13 — 回收桶、還原與到期永久刪除
 
 刪除的東西先進回收桶，保留期限內可以還原，到期後由排程永久刪除。
-決策見 [ADR-0025](../../adr/0025-entity-revisions.md) D2、D5、D6、D8～D11；前端見 [`../frontend/13-trash.md`](../frontend/13-trash.md)。
-平台可對租戶關閉回收桶（feature `trash`，[ADR-0029](../../adr/0029-toggleable-platform-features.md) D3）：`GET /trash` 與每個還原端點都標
+決策見 [`backend/14-revisions.md`](14-revisions.md) §9.2 D2、D5、D6、D8～D11；前端見 [`../frontend/13-trash.md`](../frontend/13-trash.md)。
+平台可對租戶關閉回收桶（feature `trash`，[`architecture/05-tenancy.md`](../05-tenancy.md) §12.2 D3）：`GET /trash` 與每個還原端點都標
 `@RequireFeature('trash')`（新增可還原的資源時也要標），刪除與到期永久刪除照舊。
 
 **使用者**（§4）、**角色**（§6）、**檔案** 與 **資料夾**（§7）進回收桶。檔案的物件（原檔、縮圖、變體）保留到永久刪除，
-保留期限內還原不會少內容；這是分兩次部署做到的（ADR 的 R4a、R4b，§7.5）。
+保留期限內還原不會少內容；這是分兩次部署做到的（[`14-revisions.md`](14-revisions.md) §9.3 的 R4a、R4b，§7.5）。
 
 ---
 
@@ -50,14 +50,14 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 | --- | --- |
 | `type` | `TRASH_RESOURCE_TYPES` 的一個值（`RESOURCE_TYPE`） |
 | `permission` | 看這一類與還原所需的權限：`<resource>:delete`（D10：能刪就能復原） |
-| `feature` | 選填：這一類所屬的租戶 feature（[ADR-0021](../../adr/0021-runtime-feature-activation.md)）。檔案與資料夾是 `file`；使用者、角色是常駐的，沒有 |
+| `feature` | 選填：這一類所屬的租戶 feature（[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §9）。檔案與資料夾是 `file`；使用者、角色是常駐的，沒有 |
 | `purgeOrder` | 永久刪除的順序，小的先：檔案 10 → 資料夾 20 → 使用者 30 → 角色 40 → 群組 50 → 公告 60（D11，外鍵的 `RESTRICT` 靠順序滿足；公告見 [`19-announcement.md`](./19-announcement.md)，feature `announcement`） |
 | `listDeleted(query)` | 已刪除的列（`deleted_at` 新的在前），回傳共用的 `TrashItem` 形狀：`name`、`description`、`deletedAt`、`deletedBy` |
 | `findExpired(cutoff, afterId, limit)` | `deleted_at < cutoff`、依 `id` 的 keyset 取下一批；已知這一輪刪不掉的直接不回傳 |
 | `purge(item, tx)` | 在呼叫端的交易（每一列一個 savepoint）內硬刪除並處理連帶資料；回傳 `false` 代表略過 |
 | `afterPurge(ids)` | 一批提交之後的副作用：快取失效、`permissionsChanged()`、推播 |
 
-與 ADR 的差異：D9 寫的是批次的 `purge(ids, tx)`；實作改成 `findExpired` ＋ 逐列 `purge` ＋ `afterPurge`，
+與設計決策（[`14-revisions.md`](14-revisions.md) §9.2 D9）的差異：D9 寫的是批次的 `purge(ids, tx)`；實作改成 `findExpired` ＋ 逐列 `purge` ＋ `afterPurge`，
 讓一列因外鍵刪不掉時只略過它自己、略過的列不會在同一輪被重複取到，交易後的副作用也與交易內的刪除分開（登記在根目錄 `CLAUDE.md`）。
 
 **新增一種類型**：在 `TRASH_RESOURCE_TYPES` 加值、在 `TRASH_PERMISSIONS` 加它的 `<resource>:delete`，
@@ -221,7 +221,7 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 5. 交易後：`permissionsChanged(持有者)`（權限快取失效、個人資料夾補建）→ `resource.changed`：`role` / `create`（重新出現在列表、回收桶失效），
    加上每位持有者一筆 `userRole` / `update`（`refs.role`；他們的角色摘要與本人的 profile 重抓）。
 
-`version` 不遞增（與刪除相同）。R3 之前刪除的角色沒有持有者邊，還原後沒有持有者：回應與稽核的 `holdersRestored` 是 0，這是預期的（ADR-0025 R3）。
+`version` 不遞增（與刪除相同）。R3 之前刪除的角色沒有持有者邊，還原後沒有持有者：回應與稽核的 `holdersRestored` 是 0，這是預期的（[`backend/14-revisions.md`](14-revisions.md) §9 R3）。
 
 ### 6.2 永久刪除
 
@@ -238,11 +238,11 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 
 ---
 
-### 6.3 群組（ADR-0024 G4a）
+### 6.3 群組（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9 G4a）
 
 與角色相同的模式：`DELETE /groups/:id` 軟刪除，成員邊（`group:<id>#member@…`）、上層群組的成員邊（`…@group:<id>#member`）、持有的角色、
 以它為對象的資料夾授權都 **保留**（休眠），主體閉包略過已刪除的群組；`groups.deleted_at` 的改變由 trigger 讓 revision +1（migration 0017）。
-`POST /groups/:id/restore`（`group:delete`）清 `deleted_at`，反提權與加成員相同（`group:G#member` 帶來的租戶能力，ADR-0024 D11），
+`POST /groups/:id/restore`（`group:delete`）清 `deleted_at`，反提權與加成員相同（`group:G#member` 帶來的租戶能力，[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9.3 D11），
 並檢查刪除期間結構有沒有變成循環或超過巢狀層數。永久刪除（`GroupTrashHandler`，`purgeOrder` 50）：沒有外鍵參照 `groups`，
 `purge` 刪群組列與以它為物件或主體的 `relation_tuples`；`afterPurge` 呼叫 `permissionsChanged()` 並推 `group` / `delete`。
 

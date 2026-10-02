@@ -16,7 +16,7 @@ function hydrate(keys: PermissionKey[]): void {
   usePermissionStore.setState({ permissions: new Set(keys), hydrated: true });
 }
 
-describe('useServiceAccountPermission（docs/adr/0027-api-tokens-external-api.md D14）', () => {
+describe('useServiceAccountPermission（docs/architecture/06-external-api.md §9.2 D14）', () => {
   it('auditor（只有 serviceAccount:read）只能看：不能建立、改角色、管理 token', () => {
     hydrate([PermissionKey['serviceAccount:read'], PermissionKey['role:read']]);
     expect(renderHook(() => useServiceAccountPermission()).result.current).toMatchObject({

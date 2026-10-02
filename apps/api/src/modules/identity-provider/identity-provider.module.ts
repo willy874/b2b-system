@@ -9,7 +9,7 @@ import { IdentityProviderRepository } from './identity-provider.repository';
 import { IdentityProviderService } from './identity-provider.service';
 
 /**
- * 外部 IdP 連線（docs/adr/0019-sso-identity-platform.md D8–D11）。葉節點：`AuthModule` 依賴它做網域導向、
+ * 外部 IdP 連線（docs/architecture/04-sso.md §12.2 D8–D11）。葉節點：`AuthModule` 依賴它做網域導向、
  * 只允許 SSO 的檢查與外部登入；它不依賴任何業務模組。
  */
 @Module({

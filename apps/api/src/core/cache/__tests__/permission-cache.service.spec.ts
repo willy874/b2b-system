@@ -106,7 +106,7 @@ describe('PermissionCacheService', () => {
     });
   });
 
-  describe('invalidateTenant（關係圖的 revision 變了，docs/adr/0024-relationship-based-access-control.md D8）', () => {
+  describe('invalidateTenant（關係圖的 revision 變了，docs/rbac/01-domain-model.md §9.2 D8）', () => {
     it('只清掉那個租戶的所有人，其他租戶不受影響', () => {
       const cache = createCache();
       inTenant('t1', () => {

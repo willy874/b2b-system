@@ -9,7 +9,7 @@ import type {
 
 import { ANNOUNCEMENT_MESSAGE_ROUTE } from './announcement.constants';
 
-/** 公告送達（docs/adr/0031-announcements.md D4）：參數只放標題（名稱快照），全文從發送紀錄讀。 */
+/** 公告送達（docs/architecture/backend/19-announcement.md §9.2 D4）：參數只放標題（名稱快照），全文從發送紀錄讀。 */
 export type AnnouncementPublishedParams = { title: string };
 
 /**

@@ -125,7 +125,7 @@ function grantPermissions(roleId: string, add: string[], remove: string[] = []) 
     .expect(200);
 }
 
-describe('角色的版本歷史（docs/architecture/backend/14-revisions.md、ADR-0025 D1、R5）', () => {
+describe('角色的版本歷史（docs/architecture/backend/14-revisions.md、docs/architecture/backend/14-revisions.md §9.2 D1、R5）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;
@@ -362,7 +362,7 @@ describe('角色的版本歷史（docs/architecture/backend/14-revisions.md、AD
       expect(await revisionRows(id)).toHaveLength(2);
     });
 
-    it('不帶 version → 400 VALIDATION_FAILED（ADR-0025 D4 的 R1b：必填），沒有新的一版', async () => {
+    it('不帶 version → 400 VALIDATION_FAILED（docs/architecture/backend/14-revisions.md §9.2 D4 的 R1b：必填），沒有新的一版', async () => {
       const id = await createRole('必填 J2', []);
       const response = await request(http)
         .post(`/roles/${id}/revisions/1/revert`)

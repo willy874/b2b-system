@@ -192,7 +192,7 @@
 ```
 
 `expectedRoleIds`（必填）：編輯開始時的角色（沒有角色時是 `[]`）。與目前的角色不同時回 `409 USER_ROLES_CONFLICT`，不覆寫別人剛做的變更；
-不帶 → `400 VALIDATION_FAILED`（[ADR-0025](../adr/0025-entity-revisions.md) D4）。
+不帶 → `400 VALIDATION_FAILED`（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D4）。
 
 檢查：反提權（§5；目標持有 super-admin 時只有 super-admin 能改）、`AUTHZ_SELF_MODIFY`、`LAST_SUPER_ADMIN`（交易內加鎖）、`USER_ROLES_CONFLICT`。
 
@@ -202,7 +202,7 @@
 
 ### 2.5 `POST /users/:id/restore`
 
-還原軟刪除的使用者（[ADR-0025](../adr/0025-entity-revisions.md) D6；能刪就能復原，所以權限是 `user:delete`）。
+還原軟刪除的使用者（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D6；能刪就能復原，所以權限是 `user:delete`）。
 `status` 維持刪除前的值；refresh token、外部身分連結、啟用／重設連結不回復；持有的角色中仍存在的那些跟著生效。
 
 ```jsonc
@@ -221,7 +221,7 @@
 
 ### 2.6 批次操作
 
-沒有批次端點：批次操作由前端逐筆呼叫單筆 API，見 [ADR-0012](../adr/0012-batch-queue-worker.md)。
+沒有批次端點：批次操作由前端逐筆呼叫單筆 API，見 [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13。
 
 ---
 
@@ -322,7 +322,7 @@
   - 可加 `?force=true`（仍需 `role:delete`）強制刪除，持有者立即失去這個角色的權限，
     此時稽核紀錄 `metadata.forced = true`
 - 角色是軟刪除，移到回收桶；它的持有者邊、權限鍵與它作為對象的資料夾授權都留著，解析時略過已刪除的角色。
-  保留期限內還原（§3.6），原本的持有者自動回來（[ADR-0025](../adr/0025-entity-revisions.md) D2）。
+  保留期限內還原（§3.6），原本的持有者自動回來（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D2）。
   交易後整個租戶的權限快取失效（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.1）
 - 計數與刪除在同一個交易裡、先以 `FOR UPDATE` 鎖住角色列；指派角色以 `FOR SHARE` 鎖住角色列再插入。
   兩者同時發生時，後到的一方看得到先提交的結果（不會留下指向已刪除角色的指派）
@@ -338,7 +338,7 @@
 
 ### 3.6 `POST /roles/:id/restore`
 
-還原軟刪除的角色（[ADR-0025](../adr/0025-entity-revisions.md) D2、R3；能刪就能復原，所以權限是 `role:delete`）。
+還原軟刪除的角色（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D2、R3；能刪就能復原，所以權限是 `role:delete`）。
 刪除時保留的持有者邊、權限鍵、資料夾授權隨之生效：原本的持有者（仍存在的使用者）自動拿回這個角色。
 
 ```jsonc
@@ -358,7 +358,7 @@
 
 ### 3.7 版本歷史：`/roles/:id/revisions`
 
-每次建立、複製、改名稱或說明、增減權限鍵、還原到某一版都產生一版（[ADR-0025](../adr/0025-entity-revisions.md) D1、R5）。
+每次建立、複製、改名稱或說明、增減權限鍵、還原到某一版都產生一版（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D1、R5）。
 快照是 `{ name, description, permissionKeys }`（權限鍵排序過）。版本號是這個角色自己的流水號，與角色的 `version`（樂觀鎖）無關。
 細節見 [`../architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md) §4。
 
@@ -517,7 +517,7 @@
 | `403 AUTHZ_ESCALATION`        | 指派的角色超出審核者的權限                                      |
 | `409 USER_EMAIL_DUPLICATE`    | `user.register`：申請後該 email 已被建立（請改為駁回）          |
 
-**批次**：沒有批次端點，由前端逐筆呼叫單筆 API，見 [ADR-0012](../adr/0012-batch-queue-worker.md)。
+**批次**：沒有批次端點，由前端逐筆呼叫單筆 API，見 [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13。
 
 **站內通知**（§7.3）：送出請求時，送出當下持有 `approval:review` 的人（不含申請人自己）各收到一則 `approval.pending`；
 核准或駁回時申請人收到 `approval.result`（匿名的註冊沒有收件人，只有結果信）。都與審批的寫入在同一個交易。
@@ -565,7 +565,7 @@
 簽章不符或過期回 `403 FILE_IMAGE_URL_INVALID`。見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md) §5.4。
 撤銷資料夾授權後，已發出的網址在到期前仍有效。
 
-³ 還原＝能刪就能復原（[ADR-0025](../adr/0025-entity-revisions.md) D10）：所在位置的 `can_delete` 或擁有者規則，與刪除完全相同。
+³ 還原＝能刪就能復原（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D10）：所在位置的 `can_delete` 或擁有者規則，與刪除完全相同。
 所在的資料夾（上層）已刪除回 `409 FILE_RESTORE_CONFLICT`／`FILE_FOLDER_RESTORE_CONFLICT`（`details.reason = 'parentDeleted'`），
 檔案的原檔已不在回 `409 FILE_RESTORE_CONFLICT`（`'objectMissing'`），資料夾同名回 `409 FILE_FOLDER_NAME_CONFLICT`（`details.conflictingId`）。
 回收桶（§7.2）只看全域的 `file:delete`。見 [`architecture/backend/13-trash.md`](../architecture/backend/13-trash.md) §7。
@@ -594,9 +594,9 @@
 | GET    | `/notifications/unread-count`  | 🔑 登入即可 | 自己的未讀數 |
 | POST   | `/notifications/:id/read`      | 🔑 登入即可（只能改自己的） | 標為已讀 |
 | POST   | `/notifications/read-all`      | 🔑 登入即可 | 自己所有未讀的標為已讀 |
-| GET    | `/notifications/all`           | `notification:read` | 通知總覽：租戶內所有人的通知；`type`、`recipientId`、`actorId`、`unread`、`from`／`to` 篩選；keyset 分頁（[ADR-0031](../adr/0031-announcements.md) D1） |
+| GET    | `/notifications/all`           | `notification:read` | 通知總覽：租戶內所有人的通知；`type`、`recipientId`、`actorId`、`unread`、`from`／`to` 篩選；keyset 分頁（[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9.2 D1） |
 
-看自己的通知只需要登入（[ADR-0026](../adr/0026-notification-center.md) D9）；看所有人的通知要 `notification:read`（只預設給 admin，ADR-0031 D2）。已讀不寫稽核。
+看自己的通知只需要登入（[`backend/15-notification.md`](../architecture/backend/15-notification.md) §12.2 D9）；看所有人的通知要 `notification:read`（只預設給 admin，[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9.2 D2）。已讀不寫稽核。
 
 ```jsonc
 // GET /notifications?limit=20&unread=true&cursor=<上一頁的 nextCursor> → 200
@@ -642,7 +642,7 @@
 | GET    | `/me/notification-preferences`  | 🔑 登入即可（只看自己的） | 自己的通知設定與能不能調整 |
 | PATCH  | `/me/notification-preferences`  | 🔑 登入即可（只能改自己的） | 開關自己的通知；`enabled: null` 跟著租戶 |
 
-沿用系統設定的權限（[ADR-0028](../adr/0028-notification-event-management.md) D10）。規則見
+沿用系統設定的權限（[`backend/16-notification-event.md`](../architecture/backend/16-notification-event.md) §9.2 D10）。規則見
 [`../architecture/backend/16-notification-event.md`](../architecture/backend/16-notification-event.md) §4。
 
 ```jsonc
@@ -703,7 +703,7 @@
 
 ## 7.5 Announcements（公告）
 
-完整的規則見 [`../architecture/backend/19-announcement.md`](../architecture/backend/19-announcement.md) §3（[ADR-0031](../adr/0031-announcements.md)）。
+完整的規則見 [`../architecture/backend/19-announcement.md`](../architecture/backend/19-announcement.md) §3（[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9）。
 
 | Method | Path | 授權 | 說明 |
 | ------ | ---- | ---- | ---- |

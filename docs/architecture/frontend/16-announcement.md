@@ -1,7 +1,7 @@
 # 前端 16 — 公告
 
 > 狀態：**已實作 A2～A4**（`features/announcement`：列表、建立、詳情與發送紀錄、收件人看全文、回收桶分頁）。
-> 後端見 [`../backend/19-announcement.md`](../backend/19-announcement.md)；決策見 [ADR-0031](../../adr/0031-announcements.md)。
+> 後端見 [`../backend/19-announcement.md`](../backend/19-announcement.md)；決策見 [`backend/19-announcement.md`](../backend/19-announcement.md) §9。
 > 通知總覽（`/notification/all`）屬於 `features/notification`，見 [`15-notification.md`](./15-notification.md) §4.1。
 
 ## 1. 組成

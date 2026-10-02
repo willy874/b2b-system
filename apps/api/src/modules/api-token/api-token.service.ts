@@ -62,7 +62,7 @@ function toDto(token: ApiTokenWithCreator, account: TokenAccount, now: Date): Ap
 }
 
 /**
- * API token 的建立、列出與撤銷（docs/adr/0027-api-tokens-external-api.md D2～D8）。
+ * API token 的建立、列出與撤銷（docs/architecture/06-external-api.md §9.2 D2～D8）。
  * 擁有者可以是本人（個人 token）或服務帳號；呼叫端負責確認操作者有權管理那個擁有者
  * （本人、`user:update`、`serviceAccount:update`），這裡負責 token 本身的規則。
  * 驗證 token 在對外 API（T2），不在這裡。
@@ -278,7 +278,7 @@ export class ApiTokenService {
    * 帳號是 super-admin 而沒有限縮 scope 時，token 取得的是 super-admin，操作者也要是 super-admin。
    *
    * 只比對租戶層的權限鍵：資料夾等資源上的能力跟著帳號走（D3），不在 scope 裡，這裡也不比對
-   * （見 ADR-0027 的實作紀錄）。
+   * （見 docs/architecture/06-external-api.md §9 的實作紀錄）。
    */
   private async assertNotEscalating(
     actorId: string,

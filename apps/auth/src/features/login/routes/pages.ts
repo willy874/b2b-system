@@ -13,7 +13,7 @@ import {
 } from './model';
 
 /**
- * apps/auth 自己的頁面也經 SSO 登入（docs/adr/0019-sso-identity-platform.md）：這一頁只負責跳到 IdP。
+ * apps/auth 自己的頁面也經 SSO 登入（docs/architecture/04-sso.md §12）：這一頁只負責跳到 IdP。
  * feature 的入口 route 必須直掛 RootRoute 且用絕對路徑（routeBasePath 依賴這一點）。
  */
 export const LoginRoute = createRoute({
@@ -51,7 +51,7 @@ export const SsoErrorRoute = createRoute({
 });
 
 /**
- * 進入租戶（docs/adr/0020-physical-tenant-isolation.md D11）：輸入代碼 → 前往那個租戶的 backstage 登入。
+ * 進入租戶（docs/architecture/05-tenancy.md §10.2 D11）：輸入代碼 → 前往那個租戶的 backstage 登入。
  * `?tenant=` 帶了代碼就直接前往。
  */
 export const EnterTenantRoute = createRoute({
@@ -61,8 +61,8 @@ export const EnterTenantRoute = createRoute({
   validateSearch: TenantSearchSchema,
 });
 
-// ── 帳號流程（docs/adr/0019-sso-identity-platform.md D1）：頁面在 apps/auth、信中連結以 AUTH_APP_URL 開頭；
-// 帳號屬於某個租戶，網址帶 `?tenant=`（docs/adr/0020-physical-tenant-isolation.md）──
+// ── 帳號流程（docs/architecture/04-sso.md §12.2 D1）：頁面在 apps/auth、信中連結以 AUTH_APP_URL 開頭；
+// 帳號屬於某個租戶，網址帶 `?tenant=`（docs/architecture/05-tenancy.md §10）──
 
 export const ForgotPasswordRoute = createRoute({
   getParentRoute: () => RootRoute,

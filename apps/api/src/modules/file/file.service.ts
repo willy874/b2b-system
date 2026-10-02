@@ -391,7 +391,7 @@ export class FileService {
         dto.version,
         tx,
       );
-      // 讀到之後、寫入之前被別人改名（版本變了）或刪除：重讀一次，還在就帶目前的版本（ADR-0025 D3）
+      // 讀到之後、寫入之前被別人改名（版本變了）或刪除：重讀一次，還在就帶目前的版本（docs/architecture/backend/14-revisions.md §9.2 D3）
       if (!updated) {
         const current = await this.repo.findVersion(id, tx);
         throw current === undefined
@@ -415,8 +415,8 @@ export class FileService {
   }
 
   /**
-   * 刪除＝移到回收桶（docs/architecture/backend/13-trash.md §7）：軟刪除並帶這一次刪除的 `deletion_id`（ADR-0025 D5）。
-   * 物件（原檔、縮圖、變體）保留到 `trash.purge` 永久刪除之後才刪（ADR-0025 D11），保留期限內可以還原。
+   * 刪除＝移到回收桶（docs/architecture/backend/13-trash.md §7）：軟刪除並帶這一次刪除的 `deletion_id`（docs/architecture/backend/14-revisions.md §9.2 D5）。
+   * 物件（原檔、縮圖、變體）保留到 `trash.purge` 永久刪除之後才刪（docs/architecture/backend/14-revisions.md §9.2 D11），保留期限內可以還原。
    */
   async remove(id: string, actor: AuthUser): Promise<void> {
     const { file } = await this.getModifiable(id, actor, 'delete');
@@ -442,7 +442,7 @@ export class FileService {
   }
 
   /**
-   * 還原刪除的檔案（`POST /files/:id/restore`，ADR-0025 D5、D10；docs/architecture/backend/13-trash.md §7.2）。
+   * 還原刪除的檔案（`POST /files/:id/restore`，docs/architecture/backend/14-revisions.md §9.2 D5、D10；docs/architecture/backend/13-trash.md §7.2）。
    *
    * - 權限與刪除相同：所在的資料夾讀得到（否則 404），而且能刪除這個檔案（`can_remove`：資料夾的 `can_delete`，
    *   或本人上傳而仍能在那裡上傳）。路由的閘門同樣是 `file:access` 或 `file:delete`。
@@ -575,7 +575,7 @@ export class FileService {
   }
 
   /**
-   * 能不能改這個檔案的標籤（`TagService` 的 resolver，docs/adr/0032-tags.md D5）：跟改名同一個判斷——
+   * 能不能改這個檔案的標籤（`TagService` 的 resolver，docs/architecture/backend/18-tag.md §7.2 D5）：跟改名同一個判斷——
    * 已完成上傳、看得到、能改名（所在位置的 `update` 或擁有者規則）。
    */
   async assertTaggable(id: string, actor: AuthUser): Promise<{ name: string }> {
@@ -652,7 +652,7 @@ export class FileService {
   }
 }
 
-/** 所在的資料夾已刪除：先還原資料夾（ADR-0025 D5）。 */
+/** 所在的資料夾已刪除：先還原資料夾（docs/architecture/backend/14-revisions.md §9.2 D5）。 */
 function parentDeleted(folderId: string): AppException {
   return new AppException('FILE_RESTORE_CONFLICT', {
     reason: 'parentDeleted',
@@ -672,7 +672,7 @@ function toUploadTarget(signed: PresignedRequest) {
 
 const MIB = 1024 * 1024;
 
-/** 租戶的檔案容量，位元組（`file.storageQuotaMb`；docs/adr/0033-feature-params-and-webhook-targets.md D8）。 */
+/** 租戶的檔案容量，位元組（`file.storageQuotaMb`；docs/architecture/05-tenancy.md §13.3 D8）。 */
 function storageQuotaBytes(): number {
   return tenantFeatureParam(FILE_STORAGE_QUOTA_MB_PARAM) * MIB;
 }

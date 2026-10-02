@@ -34,7 +34,7 @@ import { SsoService } from './sso.service';
 const InteractionUidPipe = new ZodValidationPipe(z.string().regex(/^[A-Za-z0-9_-]{8,64}$/));
 
 /**
- * IdP 的登入互動（docs/adr/0019-sso-identity-platform.md）。
+ * IdP 的登入互動（docs/architecture/04-sso.md §12）。
  * provider 把互動 cookie 設在 `/api/oidc-interaction/:uid`，所以互動網址先到這裡，再 302 到 apps/auth 的頁面；
  * 頁面之後呼叫同一個路徑底下的端點，瀏覽器才會帶上那個 cookie。全部是 `@Public()`：互動 cookie 就是憑證。
  */
@@ -47,7 +47,7 @@ export class SsoInteractionController {
     private readonly config: ConfigService<Env, true>,
   ) {}
 
-  // ── 外部 IdP（docs/adr/0019-sso-identity-platform.md D8–D10）─────────────────
+  // ── 外部 IdP（docs/architecture/04-sso.md §12.2 D8–D10）─────────────────
   // 固定路徑的 callback 放在 `:uid` 路由之前，避免被當成互動 id
 
   @Get('external/callback')

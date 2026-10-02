@@ -6,7 +6,7 @@ interface WebhookSecretNoticeProps {
 }
 
 /**
- * 剛建立或輪替的簽章密鑰（docs/adr/0030-webhooks.md D14）：**只顯示這一次**，關掉之後再也看不到。
+ * 剛建立或輪替的簽章密鑰（docs/architecture/backend/17-webhook.md §9.2 D14）：**只顯示這一次**，關掉之後再也看不到。
  * 一併說明簽章怎麼驗，接收端照著做就能拒絕偽造與重放的請求。
  */
 export function WebhookSecretNotice({ secret }: WebhookSecretNoticeProps) {

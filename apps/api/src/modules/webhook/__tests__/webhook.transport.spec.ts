@@ -31,7 +31,7 @@ async function reasonOf(promise: Promise<unknown>): Promise<unknown> {
   return (error as AppException).details?.reason;
 }
 
-describe('WebhookTransport.normalizeUrl（docs/adr/0030-webhooks.md D15）', () => {
+describe('WebhookTransport.normalizeUrl（docs/architecture/backend/17-webhook.md §9.2 D15）', () => {
   it('production：只接受 https', async () => {
     expect(await reasonOf(transport('production').normalizeUrl('http://hooks.example.com'))).toBe(
       'protocol',

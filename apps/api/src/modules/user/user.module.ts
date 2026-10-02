@@ -35,7 +35,7 @@ import { USER_WEBHOOK_EVENTS } from './user.webhooks';
     TagModule,
     AnnouncementModule,
   ],
-  // 對外 API 的 controller 也在這裡，另一邊由 SurfaceGuard 回 404（docs/adr/0027-api-tokens-external-api.md D11）
+  // 對外 API 的 controller 也在這裡，另一邊由 SurfaceGuard 回 404（docs/architecture/06-external-api.md §9.2 D11）
   controllers: [UserController, UserExternalController],
   providers: [
     UserService,

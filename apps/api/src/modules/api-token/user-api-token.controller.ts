@@ -10,7 +10,7 @@ import { ApiTokenService } from './api-token.service';
 import { ApiTokenListSchema } from './dto/api-token.dto';
 
 /**
- * 管理者檢視、撤銷別人的個人 API token（docs/adr/0027-api-tokens-external-api.md D14）：用 `user:update`，
+ * 管理者檢視、撤銷別人的個人 API token（docs/architecture/06-external-api.md §9.2 D14）：用 `user:update`，
  * 與停用、強制登出同一個層級。不能替別人建立個人 token。
  */
 @ApiTags('api-tokens')

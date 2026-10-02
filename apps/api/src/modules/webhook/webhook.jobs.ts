@@ -9,7 +9,7 @@ import { WebhookDeliveryService } from './webhook-delivery.service';
 import type { WebhookDeliverJobData } from './webhook-delivery.service';
 
 /**
- * 一次投遞（docs/adr/0030-webhooks.md D12）：失敗由 pg-boss 指數退避重試 8 次（60 秒起、最多 1 小時，合計約 4 小時）。
+ * 一次投遞（docs/architecture/backend/17-webhook.md §9.2 D12）：失敗由 pg-boss 指數退避重試 8 次（60 秒起、最多 1 小時，合計約 4 小時）。
  * 等待外部服務為主，並行調高；一次最多 10 秒（D11），`expireInSeconds` 留足餘裕。
  */
 export const WEBHOOK_DELIVER_JOB = defineJob<WebhookDeliverJobData>('webhook.deliver', {

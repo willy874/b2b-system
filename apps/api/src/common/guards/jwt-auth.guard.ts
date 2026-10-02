@@ -32,7 +32,7 @@ export class JwtAuthGuard implements CanActivate {
       return true;
     }
 
-    // 平台管理者的端點在租戶網域上等同不存在（ADR-0020 D5），不必先驗 token
+    // 平台管理者的端點在租戶網域上等同不存在（docs/architecture/05-tenancy.md §10.2 D5），不必先驗 token
     const targets = [ctx.getHandler(), ctx.getClass()];
     if (
       currentTenant() &&

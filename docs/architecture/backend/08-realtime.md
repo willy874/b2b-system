@@ -1,6 +1,6 @@
 # 後端 08 — 即時推播（Socket.io）
 
-> 狀態：**已實作（Phase 0，單一執行個體）**。決策理由見 [ADR-0008](../../adr/0008-realtime-with-socket-io.md)；
+> 狀態：**已實作（Phase 0，單一執行個體）**。決策理由見 §15；
 > 前端對應章節見 [`../frontend/11-realtime.md`](../frontend/11-realtime.md)。
 
 ## 1. 設計原則
@@ -82,7 +82,7 @@ Socket.io 只是傳輸層；受眾判斷與推播時機不認識它。標了【�
 - `emit` 在 room 為空時不推：Socket.io 的 `to([])` 會廣播給 **所有** 連線。
 - 🔒 `transport-boundary.spec.ts`：只有 `realtime.types.ts` import `socket.io`；只有 gateway、publisher、expiry
   使用 `realtime.types`。換掉 Socket.io 時，要改的就是這四個檔案。
-- `RealtimePublisher` 只在 `modules/realtime` 內使用；業務模組仍然只發佈領域事件（[ADR-0008](../../adr/0008-realtime-with-socket-io.md) 理由 7）。
+- `RealtimePublisher` 只在 `modules/realtime` 內使用；業務模組仍然只發佈領域事件（§15.3 理由 7）。
 
 ---
 
@@ -169,10 +169,10 @@ this.events.publish(DomainEvent.SESSIONS_REVOKED, {
 //                   → io.in(userRoom(id)).disconnectSockets(true)
 ```
 
-單一登出（[ADR-0019](../../adr/0019-sso-identity-platform.md) D5）改帶 `idpSessionUids`：只撤銷 `sid:{uid}` room 的連線，
+單一登出（[`architecture/04-sso.md`](../04-sso.md) §12.2 D5）改帶 `idpSessionUids`：只撤銷 `sid:{uid}` room 的連線，
 同一個人的其他裝置不受影響；`reason` 是 `SessionRevokedReason.SIGNED_OUT`（`AUTH_REFRESH_REVOKED`）。
 平台管理者停用或刪除租戶時帶 `tenantIds`：撤銷 `t:{tenantId}` room 的所有連線，`reason` 是 `TENANT_UNAVAILABLE`
-（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D13；這個事件在平台的請求裡發佈，沒有租戶脈絡）。
+（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D13；這個事件在平台的請求裡發佈，沒有租戶脈絡）。
 
 之前被停用的人要等到「下一次 HTTP 請求」才會被擋下；現在是即時的。
 單一裝置的登出不遞增 `token_version`，由該分頁自己斷線（前端 `SessionStore` 的 `ended`）。
@@ -216,13 +216,13 @@ WebSocket 另有三道防線：
 | Room                   | 誰在裡面                                   | 名稱來源                     |
 | ---------------------- | ------------------------------------------ | ---------------------------- |
 | `t:{tenantId}:user:{userId}` | 該使用者的所有連線（所有裝置、所有分頁）   | `userRoom(id)`（租戶取自目前的租戶脈絡） |
-| `t:{tenantId}`         | 這個租戶的所有連線（停用、刪除租戶時一次斷掉；租戶啟用的 feature 變更時推 `tenantFeature`） | `tenantRoom(tenantId)`（ADR-0020 D13、ADR-0021 D8） |
+| `t:{tenantId}`         | 這個租戶的所有連線（停用、刪除租戶時一次斷掉；租戶啟用的 feature 變更時推 `tenantFeature`） | `tenantRoom(tenantId)`（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D13、[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §9.2 D8） |
 | `t:{tenantId}:perm:{permissionKey}` | 目前租戶裡持有該權限的使用者的連線 | `permRoom(key)`（例 `t:…:perm:role:read`；租戶取自目前的租戶脈絡） |
-| `sid:{idpSessionUid}`  | 同一個 IdP session 的連線（經 SSO 登入、token 帶 `sid` 時才加入） | `idpSessionRoom(uid)`（ADR-0019 D5） |
+| `sid:{idpSessionUid}`  | 同一個 IdP session 的連線（經 SSO 登入、token 帶 `sid` 時才加入） | `idpSessionRoom(uid)`（[`architecture/04-sso.md`](../04-sso.md) §12.2 D5） |
 
 super-admin 加入自己租戶的所有 perm room。
 
-- **perm room 帶租戶**（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D17）：一個程序服務所有租戶，
+- **perm room 帶租戶**（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D17）：一個程序服務所有租戶，
   權限鍵的名稱各租戶都一樣，不帶租戶的話 A 租戶的變更會推給 B 租戶持有同一權限的人。
   使用者的 room 也帶租戶：使用者 id 只在自己的租戶 DB 裡唯一（從備份還原或複製出來的租戶會有相同的 id）。
   `sid:` 用的是 IdP 全域唯一的 uid，不必帶租戶。
@@ -246,9 +246,9 @@ super-admin 加入自己租戶的所有 perm room。
 | `fileFolder`       | `file:read`、`file:access`                 | —                                  | 資料夾樹、麵包屑、主區塊的資料夾；資料夾授權變更也以 `fileFolder update` 推出（能力旗標跟著變） |
 | `setting`          | `system:read`                              | —                                  | 系統設定頁；公開設定（登入頁、預設時區）下次載入時生效，不推給所有人（[`12-settings.md`](./12-settings.md) §4） |
 | `tenantFeature`    | —（不經這張表）                            | —                                  | 平台層的變更：由 `tenant.featuresChanged` 直接推給 `t:{tenantId}`（每個人都要重新取得 profile，含 `features` 與 `flags`），見 §7.1。表裡的列是空的，只為了讓 `Record<ChangeSource, …>` 完整 |
-| `notification`     | —                                          | 收件人（`affectedUserIds`；`id` 是通知 id，不是使用者 id） | 站內通知是個人的東西，只推給收件人自己的所有連線（[ADR-0026](../../adr/0026-notification-center.md) D8，[`15-notification.md`](./15-notification.md) §7）；不寫稽核，所以 **不** 加 `auditLog:read` |
+| `notification`     | —                                          | 收件人（`affectedUserIds`；`id` 是通知 id，不是使用者 id） | 站內通知是個人的東西，只推給收件人自己的所有連線（[`backend/15-notification.md`](15-notification.md) §12.2 D8，[`15-notification.md`](./15-notification.md) §7）；不寫稽核，所以 **不** 加 `auditLog:read` |
 | `notificationPolicy` | `system:read`                            | —                                  | 事件管理頁（[`16-notification-event.md`](./16-notification-event.md) §4；與系統設定同一群讀者） |
-| `serviceAccount`   | `serviceAccount:read`                      | —                                  | 服務帳號的列表與詳情（[ADR-0027](../../adr/0027-api-tokens-external-api.md) T4）；服務帳號沒有連線，不推本人 |
+| `serviceAccount`   | `serviceAccount:read`                      | —                                  | 服務帳號的列表與詳情（[`architecture/06-external-api.md`](../06-external-api.md) §9 T4）；服務帳號沒有連線，不推本人 |
 | `apiToken`         | `serviceAccount:read`、`user:update`       | 個人 token 的擁有者（`affectedUserIds`） | 服務帳號的 token（`refs.serviceAccount`）、使用者詳情頁的 token、自己的個人 token |
 | `webhook`          | `webhook:read`                             | —                                  | Webhook 的列表與詳情（[`17-webhook.md`](./17-webhook.md)）；自動停用也推 |
 | `tag`              | `file:access`、`file:read`、`user:read`    | —                                  | 標籤的定義（[`18-tag.md`](./18-tag.md) §4）；貼與移除由擁有者推自己的資源 |
@@ -258,7 +258,7 @@ super-admin 加入自己租戶的所有 perm room。
 | 任何來源（`notification`、`notificationPreference`、`webhookDelivery` 除外） | `auditLog:read`                 | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）；規則上標 `recordsAudit: false` 的來源不算 |
 
 - `io.to([...rooms]).emit()` 會對多個 room 的聯集 **去重**，同一條連線只收到一次。
-- 「持有該角色的所有人」由 service 查出（刪除角色時在軟刪除之前、交易內查出；持有者邊保留，ADR-0025 D2），
+- 「持有該角色的所有人」由 service 查出（刪除角色時在軟刪除之前、交易內查出；持有者邊保留，[`backend/14-revisions.md`](14-revisions.md) §9.2 D2），
   只用來讓他們的畫面重抓；權限快取的失效與 room 的同步不依賴這份清單（[05 §5.1](./05-rbac.md)）。
 - Payload 只有 id，不含名稱或內容；即使受眾稍微放寬也不會外洩資料。
 
@@ -298,7 +298,7 @@ async refreshAudience(userIds: readonly string[]) {
 | `permissions.changed`  | `{ userIds? }`                                            | `AuthzRevision`：本機的權限寫入提交後，或收到其他程序的 revision 廣播後（在那個租戶的脈絡）| 重算這個租戶在本機所有連線的 perm room（§6.2）。`userIds` 只在發起寫入的程序上有、不是完整清單，給檔案模組補建個人資料夾用 |
 | `resource.changed`     | `{ changes: ResourceChangeWire[], affectedUserIds? }`     | 所有會改變畫面資料的寫入         | 依 §6.1 算出 room，推 `resource.changed`    |
 | `sessions.revoked`     | `{ userIds, reason }`                                     | 遞增 `token_version` 的寫入      | 推 `session.revoked` 並斷線（§3.5）         |
-| `tenant.featuresChanged` | `{ tenantId }`                                          | 平台管理者改了租戶的 `features` 或 feature flag 的租戶覆寫（`PlatformTenantService.update`，`TenantDirectory.invalidate()` 之後）；改了 flag 的全平台覆寫時對每個 `active` 租戶各發一次（`PlatformFeatureFlagService.update`） | 對 `t:{tenantId}` 推 `resource.changed`（`{ resource: 'tenantFeature', kind: 'update' }`，沒有 `origin`）；前端重新取得 profile（[ADR-0021](../../adr/0021-runtime-feature-activation.md) D8） |
+| `tenant.featuresChanged` | `{ tenantId }`                                          | 平台管理者改了租戶的 `features` 或 feature flag 的租戶覆寫（`PlatformTenantService.update`，`TenantDirectory.invalidate()` 之後）；改了 flag 的全平台覆寫時對每個 `active` 租戶各發一次（`PlatformFeatureFlagService.update`） | 對 `t:{tenantId}` 推 `resource.changed`（`{ resource: 'tenantFeature', kind: 'update' }`，沒有 `origin`）；前端重新取得 profile（[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §9.2 D8） |
 
 事件描述的是 **領域上發生了什麼**，不是「要推給誰」；受眾的判斷只在 listener 裡。
 之後新增的訂閱者（例：寄通知信、webhook）不需要動到發佈端。
@@ -438,7 +438,7 @@ Bus 的介面不變，實作可以替換：
 
 ### 7.6 跨程序轉送（`DomainEventRelay`）
 
-api 之外還會有別的程序寫入資料：對外 API（[ADR-0027](../../adr/0027-api-tokens-external-api.md) D9）、之後拆出的 worker、
+api 之外還會有別的程序寫入資料：對外 API（[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D9）、之後拆出的 worker、
 多個 api 執行個體。bus 在行程內，那些程序發佈的事件，連在 api 上的使用者原本收不到。
 
 `core/events/event-relay.ts` 把 **推播類** 事件經平台 DB 的 `NOTIFY`（頻道 `domain_event`，`core/broadcast`）送給其他程序：
@@ -513,25 +513,25 @@ export const ChangeSource = {
   FILE: 'file',
   FILE_FOLDER: 'fileFolder',
   SETTING: 'setting',
-  /** 平台管理者變更了租戶啟用的 feature；前端據此重新取得 profile（ADR-0021 D8）。 */
+  /** 平台管理者變更了租戶啟用的 feature；前端據此重新取得 profile（[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §9.2 D8）。 */
   TENANT_FEATURE: 'tenantFeature',
-  /** 站內通知（id = 通知 id）；只推給收件人（ADR-0026 D8）。 */
+  /** 站內通知（id = 通知 id）；只推給收件人（[`backend/15-notification.md`](15-notification.md) §12.2 D8）。 */
   NOTIFICATION: 'notification',
-  /** 事件管理的租戶政策（id = 事件類型；ADR-0028 D9）。 */
+  /** 事件管理的租戶政策（id = 事件類型；[`backend/16-notification-event.md`](16-notification-event.md) §9.2 D9）。 */
   NOTIFICATION_POLICY: 'notificationPolicy',
-  /** 自己的通知設定（id = 事件類型）；只推給本人（ADR-0028 D15）。 */
+  /** 自己的通知設定（id = 事件類型）；只推給本人（[`backend/16-notification-event.md`](16-notification-event.md) §9.2 D15）。 */
   NOTIFICATION_PREFERENCE: 'notificationPreference',
-  /** 服務帳號（ADR-0027 T4）。 */
+  /** 服務帳號（[`architecture/06-external-api.md`](../06-external-api.md) §9 T4）。 */
   SERVICE_ACCOUNT: 'serviceAccount',
-  /** API token；服務帳號的帶 `refs.serviceAccount`（ADR-0027 T4）。 */
+  /** API token；服務帳號的帶 `refs.serviceAccount`（[`architecture/06-external-api.md`](../06-external-api.md) §9 T4）。 */
   API_TOKEN: 'apiToken',
-  /** Webhook 訂閱（ADR-0030）。 */
+  /** Webhook 訂閱（[`backend/17-webhook.md`](17-webhook.md) §9）。 */
   WEBHOOK: 'webhook',
-  /** Webhook 的一次投遞嘗試；帶 `refs.webhook`，不寫稽核（ADR-0030）。 */
+  /** Webhook 的一次投遞嘗試；帶 `refs.webhook`，不寫稽核（[`backend/17-webhook.md`](17-webhook.md) §9）。 */
   WEBHOOK_DELIVERY: 'webhookDelivery',
-  /** 標籤的定義（ADR-0032）；指派由擁有者推自己的資源。 */
+  /** 標籤的定義（[`backend/18-tag.md`](18-tag.md) §7）；指派由擁有者推自己的資源。 */
   TAG: 'tag',
-  /** 公告與發送紀錄（ADR-0031）。 */
+  /** 公告與發送紀錄（[`backend/19-announcement.md`](19-announcement.md) §9）。 */
   ANNOUNCEMENT: 'announcement',
 } as const;
 
@@ -599,7 +599,7 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 
 | 項目                     | 限制                                              | 超過時               |
 | ------------------------ | ------------------------------------------------- | -------------------- |
-| Origin                   | `allowRequest` 檢查 `Origin` 屬於 `REALTIME_ALLOWED_ORIGINS`，或與連線的網域同源（每個租戶自己的網域，ADR-0020 D2） | 拒絕 handshake |
+| Origin                   | `allowRequest` 檢查 `Origin` 屬於 `REALTIME_ALLOWED_ORIGINS`，或與連線的網域同源（每個租戶自己的網域，[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D2） | 拒絕 handshake |
 | 每個 IP 的 handshake     | 每分鐘 1200 次（`REALTIME_HANDSHAKES_PER_IP`；整間公司共用一個 NAT 出口、部署後同時重連） | 拒絕 handshake       |
 | 每條連線的訊息           | 每 10 秒 30 則                                    | 略過；持續超過就斷線 |
 | 單一 frame               | `maxHttpBufferSize` = 16 KB                       | Socket.io 直接斷線   |
@@ -666,3 +666,83 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 - [ ] `token_version` 遞增的所有路徑都發佈 `sessions.revoked`
 - [ ] `channel.relay` 只轉同使用者、有白名單與大小上限
 - [ ] Origin 檢查、handshake 與訊息速率限制
+
+---
+
+## 15. 設計決策：以 Socket.io 做伺服器推播
+
+> 原 ADR-0008，2026-09-24 決定。相關決策：[`backend/04-auth.md`](04-auth.md) §10、[`backend/05-rbac.md`](05-rbac.md) §11。
+
+### 15.1 背景
+
+決策當時，所有「資料變了」的通知都只在 **同一個瀏覽器** 內流動：同一瀏覽器的另一個分頁靠 `query-invalidate` 頻道（BroadcastChannel）即時收到；
+另一台裝置、另一個使用者要等 TanStack Query 的 `staleTime` 或 window focus（數分鐘）；
+角色被改的人，畫面上的按鈕與選單要等 `GET /auth/profile` 定期重抓（≤ 5 分鐘）；
+被停用或強制登出的人，要到下一次 HTTP 請求才被 `AUTH_TOKEN_STALE` 擋下。
+
+後端授權判斷已經是即時的（權限快取主動失效），缺的是 **把「變了」推到瀏覽器**。
+之後的協作編輯、資源鎖定、長任務進度等功能也都需要伺服器主動推送。
+
+### 15.2 決定
+
+- 採用 **Socket.io v4**：後端 `@nestjs/websockets` ＋ `@nestjs/platform-socket.io`，前端 `socket.io-client`。
+- 路徑 `/api/socket.io`，**只用 `websocket` 傳輸**（關閉 long-polling）。
+- 驗證走 **handshake 的 `auth.token`**（access token），不走 cookie；token 到期前以事件續期。
+- 伺服器推的是 **來源變更**（`ResourceChangeEvent[]`），前端沿用既有的資源依賴圖換算要失效的 query。
+- 受眾以 room 控制：`user:{id}`（本人所有連線）與 `perm:{permissionKey}`（持有該權限的人）。
+- 業務 service 不直接呼叫 Socket.io：交易提交後發佈 **領域事件**（`core/events` 的 `DomainEventBus`），
+  由 `modules/realtime` 訂閱後推播。推播與快取失效一樣 **在交易之後**。
+- WebSocket 的訊息處理器與 HTTP 路由一樣 **預設拒絕**：沒宣告授權就啟動失敗。
+- 事件合約放在新的 `packages/realtime`（zod schema ＋ 型別），前後端共用。
+- 多執行個體時用 `@socket.io/postgres-adapter`，不引入 Redis。
+
+### 15.3 理由
+
+1. **Room 與廣播是這個需求的核心，而 Socket.io 內建。**「推給持有 `role:read` 的所有人」
+   「推給這個使用者的所有裝置」就是 `io.to([...rooms]).emit()`，多 room 的聯集自動去重。
+   原生 `ws` 要自己維護 `Map<room, Set<socket>>` 以及跨節點的同步。
+2. **跨執行個體的擴展有現成 adapter，而且可以用既有的 Postgres。**
+   `@socket.io/postgres-adapter` 走 `LISTEN/NOTIFY`，正好是 [`05-rbac.md`](./05-rbac.md) §5.2
+   為權限快取預留的升級路徑，兩者可以共用同一套基礎設施。
+3. **自動重連、心跳、ack 不必自己寫。** 斷線偵測（`pingInterval` / `pingTimeout`）與指數退避重連
+   都是容易寫錯、又和業務無關的部分。
+4. **NestJS 有一級支援。** `@WebSocketGateway`、`@SubscribeMessage` 讓事件處理器可以掛 decorator，
+   沿用「宣告式授權 ＋ 啟動時稽核」的既有模式。
+5. **前端的傳輸層抽象已經就緒。** `shared/channel` 的傳輸層可替換，只要多寫一個
+   `serverRelayTransport()`；`createChannel` 的語意（略過自己、去重、未知 type 略過）不變。
+6. **推來源變更、不推失效目標。** 伺服器不需要知道前端有哪些 query key；
+   `PROFILE` 這類「以登入者為視角」的衍生（`isSelf`、`selfHoldsRole`）只有客戶端算得出來。
+7. **以領域事件解耦發佈端與推播。** 業務模組只宣告「發生了什麼」，不 import realtime；
+   受眾的判斷集中在 listener。之後的訂閱者（通知信、webhook）或換成 transactional outbox 都不用改發佈端。
+8. **只用 websocket 傳輸。** 免去 long-polling 對 sticky session 的依賴（多執行個體時 LB 不必做親和性），
+   也少了一條要處理 CSRF 的 HTTP 路徑。這是內部後台，使用環境可控。
+
+### 15.4 代價
+
+| 代價 | 緩解 |
+| --- | --- |
+| **Socket.io 是自有協定**，不是標準 WebSocket；客戶端必須用 `socket.io-client` | 對外介面不暴露 Socket.io 的型別：前端只有 `core/realtime/socketIoTransport.ts`（實作 `RealtimeTransport`）、後端只有 gateway / publisher / expiry / types 四個檔案接觸，🔒 由 boundary 測試守住；換掉時只換這幾個檔案（[`../frontend/11-realtime.md`](../frontend/11-realtime.md) §2、本章 §2.1） |
+| 前端 bundle 增加約 15 KB（gzip） | 可接受；登入後才連線，可與 App Shell 一起分包 |
+| **`JwtAuthGuard` 對非 HTTP 直接放行**，路由稽核也看不到 `@SubscribeMessage` | 連線 middleware 驗證 token；路由稽核延伸到 gateway（§5） |
+| 長連線會比 5 分鐘的 access token 活得久 | 伺服器在 `exp` 到期時斷線；客戶端在 token 續期時送 `session.renew` |
+| 開著的分頁會持續續期 token，session 不會因閒置而結束 | 與「開著就是在用」的後台使用情境一致；需要閒置登出時放在 `SessionStore`，不靠連線 |
+| 推播不保證送達（斷線期間的事件會遺失） | 重連後整批重新驗證 active query；推播只是加速，正確性仍由 HTTP 與 `staleTime` 保證 |
+| 同源的分頁要協調誰持有連線 | Leader 選舉（心跳 ＋ 任期）與 control channel，參考 fortes1219/socket-meetup-frontend；每個瀏覽器只有一條連線（[`../frontend/11-realtime.md`](../frontend/11-realtime.md) §3.3） |
+| leader 當掉到有人接手之間（最多約 3 秒）沒有推播 | 新 leader 連上後廣播 `resync`，所有分頁整批重新驗證；推播只是加速 |
+| 關閉 long-polling 後，擋 WebSocket 的網路環境無法使用推播 | 推播失效時功能退化成定期重抓，不會壞掉 |
+
+### 15.5 替代方案
+
+| 方案 | 不採用的理由 |
+| --- | --- |
+| 原生 `ws` ＋ 自訂協定 | 前端已有 `webSocketTransport`，協定最輕。但 room、跨節點廣播、心跳、重連都要自己寫；之後協作編輯需要的 ack 也要自己做 |
+| Server-Sent Events | 單向即可滿足失效通知，而且是純 HTTP。但 `EventSource` 無法帶 `Authorization` header（只能用 cookie 或 query string，前者要改 cookie Path，後者 token 會進日誌）；之後的雙向需求（協作、鎖定）還是要另外一套 |
+| 輪詢（縮短 `staleTime` / profile 間隔） | 零新基礎設施，但延遲與請求量成反比，而且無法即時強制登出 |
+| 託管服務（Pusher、Ably 等） | 多一個外部依賴與資料出境；授權要再做一次 token 交換 |
+| Redis adapter | 功能相同，但要多維運一個 Redis；Postgres 已經在，量級也遠不到瓶頸 |
+| 每個分頁各自一條連線 | 最簡單，但同一則推播在每個分頁都要解析、換算、重抓；開十個分頁就是十倍的伺服器連線與請求 |
+| 用 SharedWorker 持有唯一的連線 | 連線數同樣最少。但 access token 只在分頁記憶體（[`backend/04-auth.md`](04-auth.md) §10），要傳進 worker；Android Chrome 沒有 SharedWorker |
+| Web Locks（`navigator.locks` 的 `steal`）選 leader | 分頁關閉時鎖自動釋放、不必心跳。但被搶走的一方只能從 promise reject 得知，可見性驅動的讓位與「並排不互搶」要另外做；心跳版本的每一步都能以假計時器決定性地測試 |
+| Service 直接注入 `RealtimePublisher` | 最少一層間接，但每個業務模組都要依賴 realtime；拿掉或替換推播要改遍所有 service |
+| `@nestjs/event-emitter` | 功能足夠，但事件名稱與 payload 沒有型別對照、handler 預設並行，無法保證「room 先同步再推播」的順序 |
+| 伺服器直接推失效的 query key | 客戶端最省事，但伺服器要認得前端的 query 結構，且算不出以登入者為視角的衍生 |

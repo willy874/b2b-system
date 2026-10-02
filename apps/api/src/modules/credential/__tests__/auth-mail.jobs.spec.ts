@@ -33,7 +33,7 @@ function setup(user: Record<string, unknown> | undefined) {
   };
   const sent: Array<{ to: string; content: MailContent }> = [];
   const mail = {
-    // 帳號流程的連結在 apps/auth（docs/adr/0019-sso-identity-platform.md）
+    // 帳號流程的連結在 apps/auth（docs/architecture/04-sso.md §12）
     accountLink: (path: string, query: Record<string, string>) =>
       `https://account.test${path}?token=${query.token}`,
     send: vi.fn(async (to: string, content: MailContent) => {

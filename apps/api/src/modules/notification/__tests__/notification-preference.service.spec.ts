@@ -64,7 +64,7 @@ async function errorOf(promise: Promise<unknown>): Promise<AppException> {
   return error as AppException;
 }
 
-describe('NotificationPreferenceService.list（ADR-0028 D14、D15）', () => {
+describe('NotificationPreferenceService.list（docs/architecture/backend/16-notification-event.md §9.2 D14、D15）', () => {
   it('可以調整的管道：沒有覆寫跟著租戶，有覆寫用自己的值', async () => {
     const { service } = setup({}, [{ type: 'sample.result', channel: 'email', enabled: false }]);
     const { items } = await service.list(ME);
@@ -111,7 +111,7 @@ describe('NotificationPreferenceService.list（ADR-0028 D14、D15）', () => {
   });
 });
 
-describe('NotificationPreferenceService.update（ADR-0028 D15）', () => {
+describe('NotificationPreferenceService.update（docs/architecture/backend/16-notification-event.md §9.2 D15）', () => {
   it('關掉 → 寫一列；推給自己（notificationPreference update），不寫稽核', async () => {
     const { service, repo, events } = setup();
     await service.update(

@@ -104,7 +104,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
     );
   });
 
-  describe('notify（ADR-0026 D2、D6、D7、D8）', () => {
+  describe('notify（docs/architecture/backend/15-notification.md §12.2 D2、D6、D7、D8）', () => {
     it('在呼叫端的交易內一次寫入；提交之後才推播，每位收件人一則、只帶自己的通知 id', async () => {
       const { db, tx } = fakeDb(order);
       const ids = await withTransaction(db, async (t) => {
@@ -133,7 +133,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
       });
     });
 
-    it('租戶關掉某類型的站內通知 → 那一類不寫，其他類型照寫（ADR-0028 D6）', async () => {
+    it('租戶關掉某類型的站內通知 → 那一類不寫，其他類型照寫（docs/architecture/backend/16-notification-event.md §9.2 D6）', async () => {
       disabled.add('sample.other');
       const { db, tx } = fakeDb(order);
       const ids = await withTransaction(db, (t) =>
@@ -151,7 +151,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
       );
     });
 
-    it('收件人自己關掉 → 只略過那個人，同一類型的其他人照寫；一種類型只查一次（ADR-0028 D14、D15）', async () => {
+    it('收件人自己關掉 → 只略過那個人，同一類型的其他人照寫；一種類型只查一次（docs/architecture/backend/16-notification-event.md §9.2 D14、D15）', async () => {
       optedOut.add(recipient(2));
       const { db } = fakeDb(order);
       const ids = await withTransaction(db, (t) =>
@@ -187,7 +187,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
       expect(events.publish).not.toHaveBeenCalled();
     });
 
-    it('類型沒有登記進事件目錄 → 拋錯，業務交易一起失敗（ADR-0028 D2）', async () => {
+    it('類型沒有登記進事件目錄 → 拋錯，業務交易一起失敗（docs/architecture/backend/16-notification-event.md §9.2 D2）', async () => {
       policy.filterRecipients.mockRejectedValueOnce(new Error('通知類型 sample.happened 沒有登記'));
       const { db } = fakeDb(order);
       await expect(
@@ -252,7 +252,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
     });
   });
 
-  describe('讀取與已讀（ADR-0026 D9）', () => {
+  describe('讀取與已讀（docs/architecture/backend/15-notification.md §12.2 D9）', () => {
     it('游標格式不對 → VALIDATION_FAILED（field: cursor）', async () => {
       await expect(service.list({ limit: 20, cursor: 'garbage' }, ME)).rejects.toMatchObject({
         code: 'VALIDATION_FAILED',
@@ -302,7 +302,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
     });
   });
 
-  describe('cleanup（ADR-0026 D10）', () => {
+  describe('cleanup（docs/architecture/backend/15-notification.md §12.2 D10）', () => {
     it('依設定算出期限，兩種刪除各自分批做到少於一批為止', async () => {
       repo.deleteReadBefore
         .mockResolvedValueOnce(NOTIFICATION_CLEANUP_BATCH_SIZE)

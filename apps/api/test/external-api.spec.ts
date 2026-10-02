@@ -13,7 +13,7 @@ import { createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
 
 /**
- * 對外 API（docs/adr/0027-api-tokens-external-api.md T2）：同一個測試程序裡起兩個 app——內部 api（AppModule）
+ * 對外 API（docs/architecture/06-external-api.md §9 T2）：同一個測試程序裡起兩個 app——內部 api（AppModule）
  * 與對外 API（ExternalApiModule），共用一個 Postgres。token 在內部 api 建立與撤銷，在對外 API 使用。
  */
 
@@ -80,7 +80,7 @@ function errorCode(response: request.Response): string | undefined {
   return (response.body as { error?: { code?: string } }).error?.code;
 }
 
-describe('對外 API（docs/adr/0027-api-tokens-external-api.md D9～D17）', () => {
+describe('對外 API（docs/architecture/06-external-api.md §9.2 D9～D17）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;

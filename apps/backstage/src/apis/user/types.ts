@@ -10,7 +10,7 @@ export interface UserListParams {
   keyword?: string;
   status?: UserStatus[];
   roleId?: string[];
-  /** 貼了其中任一個標籤（docs/adr/0032-tags.md D6）。 */
+  /** 貼了其中任一個標籤（docs/architecture/backend/18-tag.md §7.2 D6）。 */
   tagId?: string[];
   /** 多欄排序，陣列順序即優先順序。 */
   sort?: Array<SortEntry<UserSortField>>;

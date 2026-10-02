@@ -51,7 +51,7 @@ export type FanOutReport =
   | { recipients: number; written: number; revoked: boolean };
 
 /**
- * 公告的背景發送（docs/adr/0031-announcements.md D8、D9）。
+ * 公告的背景發送（docs/architecture/backend/19-announcement.md §9.2 D8、D9）。
  *
  * - `runScheduled`：排程時間到的延遲工作。只在公告仍是 `scheduled`、`next_run_at` 等於工作上的時間時建立發送；
  *   編輯、暫停、刪除過的公告，舊工作在這裡自然變成 no-op（不必去佇列取消）。週期的算出下一次並入列，沒有了就完成。
@@ -346,7 +346,7 @@ export class AnnouncementDispatchService {
   }
 }
 
-/** 租戶停用了公告（ADR-0031 D20）：已入列的工作略過，資料保留。 */
+/** 租戶停用了公告（docs/architecture/backend/19-announcement.md §9.2 D20）：已入列的工作略過，資料保留。 */
 function isFeatureEnabled(): boolean {
   return requireTenant().features.includes('announcement');
 }

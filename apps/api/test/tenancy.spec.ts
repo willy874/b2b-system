@@ -56,7 +56,7 @@ function errorCodeOf(response: { body: unknown }): string | undefined {
   return (response.body as { error?: { code?: string } }).error?.code;
 }
 
-describe('租戶實體隔離（docs/adr/0020-physical-tenant-isolation.md D1–D3、D14）', () => {
+describe('租戶實體隔離（docs/architecture/05-tenancy.md §10.2 D1–D3、D14）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;

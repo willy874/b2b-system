@@ -40,7 +40,7 @@ interface AnnouncementSettingsSectionProps {
 }
 
 /**
- * 公告的內容與狀態操作（docs/adr/0031-announcements.md）：草稿可以編輯與送出；排程中可以暫停、改時間；
+ * 公告的內容與狀態操作（docs/architecture/backend/19-announcement.md §9）：草稿可以編輯與送出；排程中可以暫停、改時間；
  * 暫停中可以恢復。草稿以外的公告會對外發話，編輯要 `announcement:publish`；已完成的不能改。
  */
 export function AnnouncementSettingsSection({

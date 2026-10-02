@@ -11,7 +11,7 @@ import { goToTenantLogin } from '../../tenant';
 import { AuthShell } from '../AuthShell';
 
 /**
- * 進入租戶（docs/adr/0020-physical-tenant-isolation.md D11）：輸入租戶代碼，前往那個租戶的 backstage 登入。
+ * 進入租戶（docs/architecture/05-tenancy.md §10.2 D11）：輸入租戶代碼，前往那個租戶的 backstage 登入。
  * apps/auth 不列出一個人屬於哪些租戶（帳號分散在各租戶的 DB）；網址帶 `?tenant=` 時直接前往。
  */
 export default function EnterTenantPage() {

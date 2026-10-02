@@ -20,7 +20,7 @@ export function appContextPlugin(): AppPluginFactory {
       icon: 'bell',
       Component: NotificationBell,
     });
-    // 偏好頁的「通知」分頁：自己要收哪些通知（ADR-0028 D15）；排在表格欄位設定（200）之前
+    // 偏好頁的「通知」分頁：自己要收哪些通知（docs/architecture/backend/16-notification-event.md §9.2 D15）；排在表格欄位設定（200）之前
     registerPreferenceSection({
       key: 'notification',
       order: 100,

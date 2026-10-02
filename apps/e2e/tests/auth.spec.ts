@@ -25,7 +25,7 @@ test.describe('認證流程', () => {
     await snapshot(page, 'signed-out');
   });
 
-  // 身分分屬租戶與平台（docs/adr/0020-physical-tenant-isolation.md D5、D9）：租戶帳號的 IdP session
+  // 身分分屬租戶與平台（docs/architecture/05-tenancy.md §10.2 D5、D9）：租戶帳號的 IdP session
   // 不能直接進 apps/auth；以平台管理者登入 apps/auth 之後，backstage 仍維持登入
   test('租戶的使用者打開 apps/auth 要以平台管理者重新登入；backstage 不受影響', async ({
     page,

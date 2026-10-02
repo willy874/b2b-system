@@ -3,7 +3,7 @@ import type { Webhook } from '@/shared/api-sdk';
 export interface WebhookRowVM {
   id: string;
   name: string;
-  /** 第一個網址；其餘以 `moreUrls` 計數（ADR-0033 D13）。 */
+  /** 第一個網址；其餘以 `moreUrls` 計數（docs/architecture/backend/17-webhook.md §10.2 D13）。 */
   url: string;
   moreUrls: number;
   status: Webhook['status'];

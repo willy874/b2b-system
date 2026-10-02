@@ -52,7 +52,7 @@ const permissionCountOf = (roleId: SQLWrapper | string) =>
       AND t.relation <> ${SUPER_ADMIN_RELATION} AND t.subject_id = ${roleId}::text)`;
 
 // 軟刪除使用者不會清掉持有角色的邊，計數要排除已刪除的使用者（與 listUsers 一致）。
-// 以角色為起點、不看角色本身是否刪除：刪除的角色保留持有者邊（ADR-0025 D2），呼叫端要先確認角色的狀態
+// 以角色為起點、不看角色本身是否刪除：刪除的角色保留持有者邊（docs/architecture/backend/14-revisions.md §9.2 D2），呼叫端要先確認角色的狀態
 // （列表與 withCounts 只對未刪除的角色計算）
 const userCountOf = (roleId: SQLWrapper | string) =>
   sql<number>`(SELECT count(*)::int FROM ${relationTuples} t INNER JOIN ${users} u ON u.id::text = t.subject_id
@@ -62,7 +62,7 @@ const userCountOf = (roleId: SQLWrapper | string) =>
 
 /**
  * 持有這個角色的邊（`role:<roleId>#holder@user:*`）。**不看角色是否刪除**：刪除的角色保留這些邊
- * （休眠，還原時回來；docs/adr/0025-entity-revisions.md D2 ②），以它為起點的查詢由呼叫端先確認角色的狀態。
+ * （休眠，還原時回來；docs/architecture/backend/14-revisions.md §9.2 D2 ②），以它為起點的查詢由呼叫端先確認角色的狀態。
  */
 const holdersOf = (roleId: string) => and(isRoleHolderTuple(), eq(relationTuples.objectId, roleId));
 /** 這個角色帶的權限鍵的邊（`tenant:self#<key>@role:<roleId>#holder`）。 */
@@ -243,7 +243,7 @@ export class RoleRepository {
 
   /**
    * 軟刪除角色。持有者邊（`role:<id>#holder@user:*`）、權限鍵的邊、以角色為對象的資料夾授權都 **保留**：
-   * 解析與使用者端的讀取已排除刪除的角色，還原時原本的持有者自動回來（docs/adr/0025-entity-revisions.md D2）。
+   * 解析與使用者端的讀取已排除刪除的角色，還原時原本的持有者自動回來（docs/architecture/backend/14-revisions.md §9.2 D2）。
    * 關係圖的 revision 由 trigger（migration 0012）在 `deleted_at` 改變時 +1。
    */
   async softDelete(id: string, actorId: string, tx: DbOrTx): Promise<void> {
@@ -358,7 +358,7 @@ export class RoleRepository {
       .where(and(ilike(roles.name, prefixPattern(keyword)), isActiveRole()));
   }
 
-  // ── 回收桶與還原（ADR-0025 D2、D5、D9、D11）：這一段故意讀已刪除的列，一律用 isDeleted() ──
+  // ── 回收桶與還原（docs/architecture/backend/14-revisions.md §9.2 D2、D5、D9、D11）：這一段故意讀已刪除的列，一律用 isDeleted() ──
 
   /** 已刪除的角色；不存在或沒有被刪除回 undefined。 */
   async findDeletedById(id: string, tx?: DbOrTx): Promise<RoleRow | undefined> {
@@ -432,7 +432,7 @@ export class RoleRepository {
     };
   }
 
-  /** 刪除超過保留期限的角色（依 id 的 keyset；ADR-0025 D11）。系統角色刪不掉（trigger），不會出現在這裡。 */
+  /** 刪除超過保留期限的角色（依 id 的 keyset；docs/architecture/backend/14-revisions.md §9.2 D11）。系統角色刪不掉（trigger），不會出現在這裡。 */
   async findExpired(
     cutoff: Date,
     afterId: string | null,

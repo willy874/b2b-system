@@ -67,7 +67,7 @@ export interface PresignDownloadOptions {
   contentType?: string;
 }
 
-/** S3 的 bucket 命名規則（小寫英數、`.`、`-`，3–63 字）。租戶登記時檢查（docs/adr/0020-physical-tenant-isolation.md D16）。 */
+/** S3 的 bucket 命名規則（小寫英數、`.`、`-`，3–63 字）。租戶登記時檢查（docs/architecture/05-tenancy.md §10.2 D16）。 */
 export function isValidBucketName(name: string): boolean {
   return /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(name) && !name.includes('..');
 }

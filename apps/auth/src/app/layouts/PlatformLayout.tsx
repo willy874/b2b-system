@@ -59,7 +59,7 @@ const NAV: NavItem[] = [
 
 /**
  * 平台頁面的外框：頂列（品牌、主題、帳號選單）＋ 內容。
- * apps/auth 不屬於任何租戶（docs/adr/0020-physical-tenant-isolation.md D2）。
+ * apps/auth 不屬於任何租戶（docs/architecture/05-tenancy.md §10.2 D2）。
  */
 export function PlatformLayout({ children }: PlatformLayoutProps) {
   const { t } = useTranslation();

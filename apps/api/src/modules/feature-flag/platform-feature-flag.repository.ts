@@ -6,7 +6,7 @@ import type { PlatformDatabase, PlatformTransaction } from '@/core/database';
 import type { FeatureFlagGlobalState } from '@/core/feature-flags';
 import { featureFlagOverrides, notDeleted, tenants } from '@/db/platform/schema';
 
-/** 全平台層覆寫的寫入與租戶覆寫的統計（平台 DB，docs/adr/0022-feature-flags.md D2、D8）。 */
+/** 全平台層覆寫的寫入與租戶覆寫的統計（平台 DB，docs/architecture/05-tenancy.md §11.2 D2、D8）。 */
 @Injectable()
 export class PlatformFeatureFlagRepository {
   constructor(@Inject(PLATFORM_DB) private readonly db: PlatformDatabase) {}

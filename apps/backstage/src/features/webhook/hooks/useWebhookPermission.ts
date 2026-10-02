@@ -4,7 +4,7 @@ import { WEBHOOK_PAGE } from '../permission';
 
 /**
  * 頁面元件只呼叫這一個 hook，不直接碰 usePermission()。
- * 改設定、停用與啟用、輪替密鑰、送測試事件、重送都是 `webhook:update`（docs/adr/0030-webhooks.md D6）。
+ * 改設定、停用與啟用、輪替密鑰、送測試事件、重送都是 `webhook:update`（docs/architecture/backend/17-webhook.md §9.2 D6）。
  */
 export function useWebhookPermission() {
   const page = usePagePermission(WEBHOOK_PAGE);

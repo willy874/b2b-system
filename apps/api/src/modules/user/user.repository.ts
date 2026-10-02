@@ -158,7 +158,7 @@ export class UserRepository {
       if (matched) conditions.push(matched);
     }
     if (query.roleId?.length) {
-      // 已刪除的角色保留持有者邊（ADR-0025 D2）：只認未刪除的角色，否則以刪除的角色篩選會列出它休眠的持有者。
+      // 已刪除的角色保留持有者邊（docs/architecture/backend/14-revisions.md §9.2 D2）：只認未刪除的角色，否則以刪除的角色篩選會列出它休眠的持有者。
       // 子查詢用別名手寫條件：計數的查詢是單表 select，Drizzle 會把 ${roles.id} 輸出成不帶表名的 "id"
       conditions.push(
         sql`EXISTS (SELECT 1 FROM ${relationTuples} t
@@ -303,7 +303,7 @@ export class UserRepository {
   /**
    * 整批取代語意（PUT /users/:id/roles）。只刪 **未刪除角色** 的持有者邊：已刪除角色的邊是休眠的
    * （讀取時被排除），留著讓角色還原時這個人一起回來；否則改一次某人的角色就會把它們一起清掉
-   * （docs/adr/0025-entity-revisions.md D2 ①）。
+   * （docs/architecture/backend/14-revisions.md §9.2 D2 ①）。
    */
   async replaceRoles(
     userId: string,
@@ -389,7 +389,7 @@ export class UserRepository {
 
   /**
    * 只算 active、未刪除的 **人**——全部停用一樣會讓系統無人可管；持有 super-admin 的服務帳號不能登入管理，不算數
-   * （docs/adr/0027-api-tokens-external-api.md D1）。
+   * （docs/architecture/06-external-api.md §9.2 D1）。
    */
   async countActiveUsersByRoleSlug(
     slug: string,
@@ -413,7 +413,7 @@ export class UserRepository {
     return row?.total ?? 0;
   }
 
-  // ── 回收桶與還原（ADR-0025 D6、D9、D11）：這一段故意讀已刪除的列，一律用 isDeleted() ──
+  // ── 回收桶與還原（docs/architecture/backend/14-revisions.md §9.2 D6、D9、D11）：這一段故意讀已刪除的列，一律用 isDeleted() ──
 
   /** 已刪除的使用者；不存在或沒有被刪除回 undefined。服務帳號不能還原（不進回收桶）。 */
   async findDeletedById(id: string, tx?: DbOrTx): Promise<UserRow | undefined> {
@@ -503,7 +503,7 @@ export class UserRepository {
 
   /**
    * 刪除超過保留期限、可以永久刪除的使用者（依 id 的 keyset）。還擁有資料夾（`file_folders.owner_id` 是
-   * `ON DELETE RESTRICT`，含已軟刪除、尚未永久刪除的個人資料夾）的人這一輪不取：等資料夾先被清掉（ADR-0025 D11）。
+   * `ON DELETE RESTRICT`，含已軟刪除、尚未永久刪除的個人資料夾）的人這一輪不取：等資料夾先被清掉（docs/architecture/backend/14-revisions.md §9.2 D11）。
    */
   async findExpired(
     cutoff: Date,

@@ -1,5 +1,5 @@
 /**
- * 批次佇列的資料模型（docs/adr/0012-batch-queue-worker.md）。
+ * 批次佇列的資料模型（docs/architecture/frontend/07-ui-system.md §13）。
  * 會在分頁、worker 之間以 structured clone 傳遞：只能放純資料（不可有函式、類別實例）。
  */
 
@@ -14,7 +14,7 @@ export interface BatchJobItem {
   weight?: number;
   /**
    * 送出時這一列在列表上的樂觀鎖版本（`version`）。有給時操作以它更新，別人已改過就以
-   * `<RESOURCE>_VERSION_CONFLICT` 逐筆失敗（ADR-0009、ADR-0025 D4）。
+   * `<RESOURCE>_VERSION_CONFLICT` 逐筆失敗（docs/architecture/frontend/07-ui-system.md §13.6、docs/architecture/backend/14-revisions.md §9.2 D4）。
    */
   version?: number;
 }
@@ -77,7 +77,7 @@ export interface BatchJobInput {
   items: BatchJobItem[];
   /**
    * 這個工作同時處理幾筆，預設 1。工作之間仍是堵塞式（前一個工作結束才開始下一個）；
-   * 只有彼此獨立、單筆以網路傳輸為主的操作（上傳）才調高（docs/adr/0013-file-manager-upload.md）。
+   * 只有彼此獨立、單筆以網路傳輸為主的操作（上傳）才調高（docs/architecture/frontend/12-file-manager.md §14）。
    */
   concurrency?: number;
 }

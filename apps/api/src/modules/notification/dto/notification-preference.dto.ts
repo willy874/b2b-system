@@ -5,7 +5,7 @@ import { defineSchema } from '@/core/validation';
 import { NOTIFICATION_EVENT_MAX_CHANGES } from '../notification.constants';
 import { NotificationChannelSchema } from './notification-event.dto';
 
-/** 個人不能調整的原因（ADR-0028 D14）。 */
+/** 個人不能調整的原因（docs/architecture/backend/16-notification-event.md §9.2 D14）。 */
 export const NOTIFICATION_PREFERENCE_LOCKS = [
   'mandatory',
   'tenantDisabled',

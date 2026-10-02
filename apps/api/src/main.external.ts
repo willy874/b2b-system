@@ -17,7 +17,7 @@ import { setupSwagger } from './swagger';
 const HTTP_KEEP_ALIVE_TIMEOUT_MS = 65_000;
 
 /**
- * 對外 API 的程序（docs/adr/0027-api-tokens-external-api.md D9）：與 api 同一個映像、不同的進入點與 port。
+ * 對外 API 的程序（docs/architecture/06-external-api.md §9.2 D9）：與 api 同一個映像、不同的進入點與 port。
  * 沒有 `/api` 前綴：對外網域整個交給這個程序，路徑就是 `/v1/...`。
  */
 async function bootstrap(): Promise<void> {

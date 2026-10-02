@@ -61,7 +61,7 @@ function idsOf(members: readonly GroupMemberSubject[], type: GroupMemberSubject[
 }
 
 /**
- * 群組（docs/adr/0024-relationship-based-access-control.md D11～D13、D16）。
+ * 群組（docs/rbac/01-domain-model.md §9.3 D11～D13、D16）。
  *
  * 群組是純分組：成員與持有的角色都是 `relation_tuples` 的邊，權限由關係圖解析（巢狀、持有的角色都在主體閉包裡）。
  * 會改變誰有什麼權限的寫入（成員、持有的角色、刪除、還原）都在交易後 `permissionsChanged()`。
@@ -454,7 +454,7 @@ export class GroupService {
     });
   }
 
-  /** 條件式 UPDATE 沒有命中：列已不在 → 404；還在就是版本被搶先改過 → 409（ADR-0025 D3）。 */
+  /** 條件式 UPDATE 沒有命中：列已不在 → 404；還在就是版本被搶先改過 → 409（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
   private async missedUpdate(id: string, tx: DbOrTx): Promise<AppException> {
     const current = await this.repo.findVersion(id, tx);
     return current === undefined

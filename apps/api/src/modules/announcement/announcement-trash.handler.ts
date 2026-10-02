@@ -17,7 +17,7 @@ import type {
 import { AnnouncementRepository } from './announcement.repository';
 
 /**
- * 公告的回收桶（docs/adr/0031-announcements.md D19）。還原是 `POST /announcements/:id/restore`；
+ * 公告的回收桶（docs/architecture/backend/19-announcement.md §9.2 D19）。還原是 `POST /announcements/:id/restore`；
  * 這裡只負責列出與到期永久刪除（發送紀錄隨之刪除，通知依自己的保留期清除）。
  */
 @Injectable()

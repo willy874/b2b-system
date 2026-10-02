@@ -42,7 +42,7 @@ export interface NotificationWithRecipient extends NotificationWithActor {
   recipient: { id: string; name: string };
 }
 
-/** 總覽的篩選（docs/adr/0031-announcements.md D1）。 */
+/** 總覽的篩選（docs/architecture/backend/19-announcement.md §9.2 D1）。 */
 export interface NotificationOverviewFilter {
   type?: string;
   recipientId?: string;
@@ -64,7 +64,7 @@ export class NotificationRepository {
 
   /**
    * 一次 INSERT 寫完所有收件人（在呼叫端的業務交易內）。同一個來源（`source_id`）對同一個人已經有一筆時略過
-   * （公告分批寫入的重做，ADR-0031 D9）；回傳的只有這次真的寫入的列。
+   * （公告分批寫入的重做，docs/architecture/backend/19-announcement.md §9.2 D9）；回傳的只有這次真的寫入的列。
    */
   async insertMany(
     rows: readonly NotificationInput[],
@@ -141,7 +141,7 @@ export class NotificationRepository {
     };
   }
 
-  // ── 來源（公告的發送紀錄，ADR-0031 D4） ──────────────────
+  // ── 來源（公告的發送紀錄，docs/architecture/backend/19-announcement.md §9.2 D4） ──────────────────
 
   /** 每個來源的通知數與已讀數（發送紀錄的列表）；沒有通知的來源不在結果裡。 */
   async countBySources(

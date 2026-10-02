@@ -24,7 +24,7 @@ function preferenceKey(type: string, channel: string): string {
   return `${type} ${channel}`;
 }
 
-/** 不能調整的原因；`null` 是可以調整（ADR-0028 D14）。 */
+/** 不能調整的原因；`null` 是可以調整（docs/architecture/backend/16-notification-event.md §9.2 D14）。 */
 function lockOf(
   kind: AnyNotificationType,
   policy: TenantPolicy,
@@ -43,7 +43,7 @@ interface PreferenceChange {
 }
 
 /**
- * 個人的通知設定（docs/architecture/backend/16-notification-event.md §5、ADR-0028 D14、D15）。
+ * 個人的通知設定（docs/architecture/backend/16-notification-event.md §5、docs/architecture/backend/16-notification-event.md §9.2 D14、D15）。
  * 只能在租戶允許的範圍內 **少收**：租戶關掉的打不開、租戶要求的關不掉。送達時的判斷在
  * `NotificationPolicyService.filterRecipients()`。是使用者自己的狀態，不寫稽核（與已讀、個人資料相同）。
  */

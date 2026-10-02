@@ -2,7 +2,7 @@
 
 ## 現況
 
-[ADR-0033](../adr/0033-feature-params-and-webhook-targets.md) D12 把網址與連續失敗次數搬到 `webhook_targets`（租戶 migration `0033_webhook_targets`）。
+[`backend/17-webhook.md`](../architecture/backend/17-webhook.md) §10.2 D12 把網址與連續失敗次數搬到 `webhook_targets`（租戶 migration `0033_webhook_targets`）。
 依破壞性變更拆兩次部署的規則（[`../conventions/03-backend.md`](../conventions/03-backend.md) §5），這一次只改成：
 
 - `webhook_subscriptions.url`：改成可為 null，`WebhookService.create()`／`update()` 雙寫第一個網址（`apps/api/src/modules/webhook/webhook.service.ts`），
@@ -15,7 +15,7 @@
 
 ## 修正方式
 
-ADR-0033 的變更部署到所有環境之後：
+[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §13 的變更部署到所有環境之後：
 
 1. 拿掉 `WebhookService` 對 `url` 的雙寫（`url: urls[0]`）。
 2. `db/schema/webhooks.ts` 刪除兩欄，`pnpm db:generate` 產生 `ALTER TABLE webhook_subscriptions DROP COLUMN url, DROP COLUMN consecutive_failures`。

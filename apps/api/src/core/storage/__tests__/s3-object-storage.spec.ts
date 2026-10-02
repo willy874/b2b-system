@@ -70,7 +70,7 @@ const inTenant = <T>(bucket: string, fn: () => T) =>
     fn,
   );
 
-describe('S3ObjectStorage：每個租戶一個 bucket（docs/adr/0020-physical-tenant-isolation.md D16）', () => {
+describe('S3ObjectStorage：每個租戶一個 bucket（docs/architecture/05-tenancy.md §10.2 D16）', () => {
   it('每個操作都用目前租戶的 bucket', async () => {
     const { storage, sent } = setup();
     await inTenant('b2b-acme', () => storage.head('files/1'));

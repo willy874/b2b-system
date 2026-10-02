@@ -78,7 +78,7 @@ apps/api/src/
 │   │   ├── mail-transport.ts             ★ MailTransport 抽象類別（smtp / console，見 11-mail.md）
 │   │   ├── mail.service.ts               範本 → HTML ＋ 純文字 → 傳輸層；信裡的連結
 │   │   └── mail-layout.tsx               所有信共用的外框（React Email）
-│   ├── authz/                            ★ 關係圖權限引擎（ADR-0024；rbac/01-domain-model.md §6）
+│   ├── authz/                            ★ 關係圖權限引擎（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9；rbac/01-domain-model.md §6）
 │   │   ├── authz.model.ts                型別 DSL（direct／computed／from／聯集／交集）、模型驗證、靜態蘊含
 │   │   ├── authz.checker.ts              記憶化判斷器（check／explain／withEdges）
 │   │   ├── authz.types.ts                核心型別 user、role、由權限目錄產生的 tenant
@@ -99,8 +99,8 @@ apps/api/src/
 │   │   ├── public.decorator.ts
 │   │   ├── authenticated.decorator.ts
 │   │   ├── require-permissions.decorator.ts
-│   │   ├── require-feature.decorator.ts  @RequireFeature：端點屬於可啟用的 feature（ADR-0021 D11）
-│   │   ├── require-flag.decorator.ts     @RequireFlag：端點還在以 feature flag 試行（ADR-0022 D5）
+│   │   ├── require-feature.decorator.ts  @RequireFeature：端點屬於可啟用的 feature（[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §9.2 D11）
+│   │   ├── require-flag.decorator.ts     @RequireFlag：端點還在以 feature flag 試行（[`architecture/05-tenancy.md`](../05-tenancy.md) §11.2 D5）
 │   │   ├── current-user.decorator.ts
 │   │   └── audit.decorator.ts
 │   ├── guards/
@@ -126,7 +126,7 @@ apps/api/src/
 │   │   ├── users.ts
 │   │   ├── roles.ts
 │   │   ├── permissions.ts
-│   │   ├── relation-tuples.ts            關係圖的邊與 authz_revision；邊的建構函式與查詢條件（ADR-0024）
+│   │   ├── relation-tuples.ts            關係圖的邊與 authz_revision；邊的建構函式與查詢條件（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9）
 │   │   ├── refresh-tokens.ts
 │   │   ├── audit-logs.ts
 │   │   ├── auth-tokens.ts                啟用 / 密碼重設 token
@@ -166,8 +166,8 @@ HTTP Request
   │
   ▼ ③' FeatureGuard (APP_GUARD)
      @RequireFeature('<id>')（class 或 handler）且在租戶脈絡裡：
-     租戶的 features 不含它 → 404 FEATURE_DISABLED（ADR-0021 D11；05-tenancy.md §5.1）
-     @RequireFlag('<key>')：flag 生效為關 → 同樣 404 FEATURE_DISABLED（ADR-0022 D5；05-tenancy.md §5.2）；兩者並存時都要成立
+     租戶的 features 不含它 → 404 FEATURE_DISABLED（[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §9.2 D11；05-tenancy.md §5.1）
+     @RequireFlag('<key>')：flag 生效為關 → 同樣 404 FEATURE_DISABLED（[`architecture/05-tenancy.md`](../05-tenancy.md) §11.2 D5；05-tenancy.md §5.2）；兩者並存時都要成立
      排在 JWT 之後：未登入照舊 401，不讓未登入者知道租戶開了哪些功能；
      排在權限之前：功能沒開一律 404，不以 403 透露端點存在，也不寫 authz.denied
      沒有租戶脈絡（平台的請求）不判斷；平台端點標了 @RequireFeature / @RequireFlag 由路由稽核擋下

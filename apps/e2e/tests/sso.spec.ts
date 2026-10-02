@@ -13,7 +13,7 @@ import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
 /**
- * SSO 的協定邊界、apps/auth 的平台管理者（docs/adr/0019-sso-identity-platform.md、0020 D5–D9）。
+ * SSO 的協定邊界、apps/auth 的平台管理者（docs/architecture/04-sso.md §12、0020 D5–D9）。
  * 基本的登入與從 backstage 登出在 auth.spec.ts；外部 IdP 在 sso-external.spec.ts。
  */
 test.describe('SSO', () => {

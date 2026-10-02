@@ -37,7 +37,7 @@
 ### 2.2 型別從哪裡來
 
 - **API 的請求／回應型別只從 OpenAPI 產生**（`@b2b-system/api-sdk`），不手寫
-  一份「長得一樣」的介面。見 [ADR-0007](../adr/0007-openapi-generated-api-sdk.md)。
+  一份「長得一樣」的介面。見 [`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §12。
 - 後端 DTO 型別用 `z.infer<typeof XxxSchema>` 推導，schema 是唯一來源。
 - 權限鍵用 `PermissionKey`，**不寫裸字串**；拼錯會在編譯期被抓到。
 
@@ -143,11 +143,11 @@ import { RoleFilter } from './components/RoleFilter';
 
 ## 8. Feature flag
 
-機制見 [`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §5.2、[ADR-0022](../adr/0022-feature-flags.md)。
+機制見 [`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §5.2、[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §11。
 
 | 規則 | 理由 | 強度 |
 | --- | --- | --- |
-| flag 只用在 **會被移除** 的試行；長期的模組開關用 `features`（ADR-0021），「誰可以做」用權限 | 三種開關各有生命週期，混用之後刪不掉 | 👀 Review |
+| flag 只用在 **會被移除** 的試行；長期的模組開關用 `features`（[`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §9），「誰可以做」用權限 | 三種開關各有生命週期，混用之後刪不掉 | 👀 Review |
 | key 是 `<模組>.<名稱>`（camelCase），上線後不改名 | 改名等於新 flag，既有的覆寫會遺失 | 🔒 啟動檢查（目錄格式） |
 | 每個 flag 都有 `owner` 與 `removeBy`；過期就移除或延期（改 `removeBy`） | 暫時的開關不強制就會變成永久的 | 🔒 測試（`feature-flags.spec.ts`） |
 | 前端用 `useFlag` 或 catalog 的 `requires.flag` 隱藏，端點一定要標 `@RequireFlag` | 前端的隱藏只是體驗，存取控制在 api | 👀 Review |

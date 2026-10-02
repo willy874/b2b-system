@@ -10,11 +10,11 @@ import { TagService } from '@/modules/tag/tag.service';
 import { FileFolderService } from './file-folder.service';
 import { FileService } from './file.service';
 
-/** 檔案管理器的標籤組：檔案與資料夾共用一組（docs/adr/0032-tags.md D1）。 */
+/** 檔案管理器的標籤組：檔案與資料夾共用一組（docs/architecture/backend/18-tag.md §7.2 D1）。 */
 export const FILE_TAG_SCOPE = 'file';
 
 /**
- * 檔案與資料夾可以貼標籤（docs/adr/0032-tags.md D5、D7）：讀定義要進得了檔案管理器（`file:access` 或 `file:read`），
+ * 檔案與資料夾可以貼標籤（docs/architecture/backend/18-tag.md §7.2 D5、D7）：讀定義要進得了檔案管理器（`file:access` 或 `file:read`），
  * 貼與移除跟改名同一個判斷。屬於可啟用的 feature `file`（D12）。
  */
 @Injectable()

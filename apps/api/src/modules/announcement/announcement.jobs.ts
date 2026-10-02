@@ -14,7 +14,7 @@ import {
 } from './announcement.job-types';
 
 /**
- * 註冊公告的背景工作（docs/adr/0031-announcements.md D8～D10、D19）：排程與分批寫入由程式入列；
+ * 註冊公告的背景工作（docs/architecture/backend/19-announcement.md §9.2 D8～D10、D19）：排程與分批寫入由程式入列；
  * 每日維護依 `ANNOUNCEMENT_MAINTENANCE_CRON`（預設每天 05:20 UTC）。
  */
 @Injectable()

@@ -29,12 +29,12 @@ import { webhookHeaders } from './webhook.signature';
 import type { WebhookEnvelope } from './webhook.signature';
 import { WebhookTransport } from './webhook.transport';
 
-/** `webhook.deliver` 的工作資料：只放 id（docs/adr/0030-webhooks.md D9；`job:read` 的人看得到）。 */
+/** `webhook.deliver` 的工作資料：只放 id（docs/architecture/backend/17-webhook.md §9.2 D9；`job:read` 的人看得到）。 */
 export interface WebhookDeliverJobData {
   subscriptionId: string;
   eventId: string;
   /**
-   * 送到哪個網址（docs/adr/0033-feature-params-and-webhook-targets.md D14）。升版前入列的工作沒有，
+   * 送到哪個網址（docs/architecture/backend/17-webhook.md §10.2 D14）。升版前入列的工作沒有，
    * 送到訂閱的第一個網址（當時訂閱只有一個網址）。
    */
   targetId?: string;
@@ -62,7 +62,7 @@ function isSuccess(status: number): boolean {
 }
 
 /**
- * 投遞（docs/adr/0030-webhooks.md D11～D13、D16、D17）：背景工作 `webhook.deliver` 的 handler、
+ * 投遞（docs/architecture/backend/17-webhook.md §9.2 D11～D13、D16、D17）：背景工作 `webhook.deliver` 的 handler、
  * 送測試事件與重送的同步送出、保留清理。每一次嘗試寫一筆 `webhook_deliveries`。
  */
 @Injectable()
@@ -111,7 +111,7 @@ export class WebhookDeliveryService {
   }
 
   /**
-   * 送到一個網址並記錄。`auto`（投遞工作）：這個網址成功歸零、失敗加一，到門檻停用整個訂閱（D13、ADR-0033 D15）。
+   * 送到一個網址並記錄。`auto`（投遞工作）：這個網址成功歸零、失敗加一，到門檻停用整個訂閱（D13、docs/architecture/backend/17-webhook.md §10.2 D15）。
    * `manual`（測試、重送，D17）：成功一樣歸零；失敗 **不** 計入門檻——使用者正在除錯，不該因為多按幾次就被停用。
    */
   async attempt(

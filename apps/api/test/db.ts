@@ -15,7 +15,7 @@ export function createTestDatabase() {
 
 export type TestDatabase = ReturnType<typeof createTestDatabase>['db'];
 
-/** 平台 DB（租戶登記、平台管理者；docs/adr/0020-physical-tenant-isolation.md D1）。 */
+/** 平台 DB（租戶登記、平台管理者；docs/architecture/05-tenancy.md §10.2 D1）。 */
 export function createPlatformTestDatabase() {
   const client = postgres(inject('platformDatabaseUrl'), { max: 2, onnotice: () => {} });
   const db = drizzle(client, { schema: platformSchema });

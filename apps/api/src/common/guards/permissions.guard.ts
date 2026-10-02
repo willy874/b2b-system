@@ -90,7 +90,7 @@ export class PermissionsGuard implements CanActivate {
   }
 
   /**
-   * 平台管理者的端點（docs/adr/0020-physical-tenant-isolation.md D5）：只在不屬於任何租戶的網域有效，
+   * 平台管理者的端點（docs/architecture/05-tenancy.md §10.2 D5）：只在不屬於任何租戶的網域有效，
    * 權限來自平台管理者的角色。拒絕寫平台稽核（租戶的稽核看不到平台的事）。
    */
   private async checkPlatform(

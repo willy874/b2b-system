@@ -30,7 +30,7 @@ export interface RichTableBatch<TData> {
   getRowLabel: (row: TData) => string;
   /**
    * 這一列的樂觀鎖版本（`version`）：隨項目送進佇列，操作以列表上看到的版本更新，
-   * 別人已改過的列逐筆失敗而不是被覆寫（ADR-0025 D4）。資源沒有版本時省略。
+   * 別人已改過的列逐筆失敗而不是被覆寫（docs/architecture/backend/14-revisions.md §9.2 D4）。資源沒有版本時省略。
    */
   getRowVersion?: (row: TData) => number;
 }

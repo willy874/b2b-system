@@ -8,7 +8,7 @@ import { ApiZodResponse } from '@/core/validation';
 import { ApiTokenService } from '../api-token.service';
 import { ExternalMeSchema } from '../dto/api-token.dto';
 
-/** 對外 API：這把 token 是誰（docs/adr/0027-api-tokens-external-api.md D14）。整合方設定好之後第一個要打的端點。 */
+/** 對外 API：這把 token 是誰（docs/architecture/06-external-api.md §9.2 D14）。整合方設定好之後第一個要打的端點。 */
 @ApiTags('me')
 @ExternalApi()
 @Controller('v1/me')

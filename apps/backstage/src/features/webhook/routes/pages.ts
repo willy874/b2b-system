@@ -7,10 +7,10 @@ import { RootRoute } from '@/core/router';
 import { WEBHOOK_LOCALE_SCOPE } from '../locale';
 import { DEFAULT_WEBHOOK_SEARCH, WebhookSearchQuerySchema } from './model';
 
-/** 這個 feature 在租戶啟用清單裡的 id（後端 `TENANT_FEATURES`，docs/adr/0030-webhooks.md D8）。 */
+/** 這個 feature 在租戶啟用清單裡的 id（後端 `TENANT_FEATURES`，docs/architecture/backend/17-webhook.md §9.2 D8）。 */
 export const WEBHOOK_FEATURE = 'webhook';
 
-/** 對外事件的訂閱（`webhook:read`，docs/adr/0030-webhooks.md）。 */
+/** 對外事件的訂閱（`webhook:read`，docs/architecture/backend/17-webhook.md §9）。 */
 export const WebhookListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/webhook',

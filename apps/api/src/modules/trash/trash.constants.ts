@@ -20,7 +20,7 @@ export type TrashResourceType = (typeof TRASH_RESOURCE_TYPES)[number];
 
 /**
  * `GET /trash` 的路由宣告：持有其中 **任一個** 就能進入端點（`@RequireAnyPermission`），
- * 實際看得到哪一種由 service 以該類型 handler 的 `permission` 再檢查一次（ADR-0025 D10：能刪就能復原）。
+ * 實際看得到哪一種由 service 以該類型 handler 的 `permission` 再檢查一次（docs/architecture/backend/14-revisions.md §9.2 D10：能刪就能復原）。
  * 靜態宣告讓 `route-audit` 的總表與沒有任何刪除權限的人的 403（含 `authz.denied` 稽核）都由 guard 處理。
  */
 export const TRASH_PERMISSIONS: readonly PermissionKey[] = [
@@ -32,5 +32,5 @@ export const TRASH_PERMISSIONS: readonly PermissionKey[] = [
   PERMISSION.ANNOUNCEMENT_DELETE,
 ];
 
-/** 永久刪除一批的筆數：一批一個交易（ADR-0025 D11）。也是一次推播的變更數上限。 */
+/** 永久刪除一批的筆數：一批一個交易（docs/architecture/backend/14-revisions.md §9.2 D11）。也是一次推播的變更數上限。 */
 export const TRASH_PURGE_BATCH_SIZE = 100;

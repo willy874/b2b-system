@@ -3,7 +3,7 @@ import { SetMetadata } from '@nestjs/common';
 export const REQUIRED_FLAG = 'tenancy:requiredFlag';
 
 /**
- * 這個 controller（或 handler）還在以 feature flag 試行（docs/adr/0022-feature-flags.md D5）：flag 關閉時
+ * 這個 controller（或 handler）還在以 feature flag 試行（docs/architecture/05-tenancy.md §11.2 D5）：flag 關閉時
  * `FeatureGuard` 回 `FEATURE_DISABLED`（404），與未啟用的 feature 相同。可標在 class 或 handler；兩者都有時以 handler 為準。
  * 與 `@RequireFeature` 可以並存（兩者都要成立），授權宣告照樣必填。
  *

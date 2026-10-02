@@ -35,7 +35,7 @@ type StoredPolicies = Map<string, StoredPolicy>;
 /** 一個「事件 ＋ 管道」在租戶層的生效值；也是稽核 `changes.before`／`after` 的值。 */
 export interface TenantPolicy {
   enabled: boolean;
-  /** 個人能不能關（ADR-0028 D14）；`mandatory` 一律 `false`。 */
+  /** 個人能不能關（docs/architecture/backend/16-notification-event.md §9.2 D14）；`mandatory` 一律 `false`。 */
   allowUserOverride: boolean;
 }
 
@@ -77,7 +77,7 @@ function tenantKey(): string {
 }
 
 /**
- * 所屬的 feature 沒有啟用就不出現在管理頁與個人設定（ADR-0028 D11）。
+ * 所屬的 feature 沒有啟用就不出現在管理頁與個人設定（docs/architecture/backend/16-notification-event.md §9.2 D11）。
  * 沒有租戶脈絡時不判斷（與 `FeatureGuard` 相同）。
  */
 export function isVisibleEvent(kind: AnyNotificationType): boolean {
@@ -86,7 +86,7 @@ export function isVisibleEvent(kind: AnyNotificationType): boolean {
 }
 
 /**
- * 租戶層的通知政策（docs/architecture/backend/16-notification-event.md、ADR-0028）。
+ * 租戶層的通知政策（docs/architecture/backend/16-notification-event.md、docs/architecture/backend/16-notification-event.md §9）。
  *
  * - 事件與管道的定義在 `NotificationEventCatalog`（程式碼）；資料庫只存覆寫值，讀取走每個租戶一份的快取。
  * - 送達的判斷只有這裡（D6、D14）：`filterRecipients()` 由 `notify()`（站內）與擁有者的寄信入列前（email）呼叫；
@@ -127,7 +127,7 @@ export class NotificationPolicyService implements OnModuleInit {
   }
 
   /**
-   * 這些收件人裡要送給誰（ADR-0028 D14）：`送出 = mandatory ∨ (租戶開啟 ∧ (¬允許個人調整 ∨ 個人開啟))`，
+   * 這些收件人裡要送給誰（docs/architecture/backend/16-notification-event.md §9.2 D14）：`送出 = mandatory ∨ (租戶開啟 ∧ (¬允許個人調整 ∨ 個人開啟))`，
    * 個人沒有覆寫時跟著租戶。需要看個人設定時一次查完所有收件人（D15）。回傳保留輸入的順序。
    */
   async filterRecipients(
@@ -169,7 +169,7 @@ export class NotificationPolicyService implements OnModuleInit {
 
   /**
    * 一次改多個「事件 ＋ 管道」，全部通過驗證才寫入；與目前相同的略過，全部都沒變就不寫稽核、不推播。
-   * 一個交易、一筆稽核；交易後失效快取，再推給 `system:read` 的人（ADR-0028 D9）。
+   * 一個交易、一筆稽核；交易後失效快取，再推給 `system:read` 的人（docs/architecture/backend/16-notification-event.md §9.2 D9）。
    */
   async update(
     dto: UpdateNotificationEventsDto,

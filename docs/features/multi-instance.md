@@ -4,16 +4,16 @@
 - 狀態：提案
 - 依賴：—
 - 相關：[`../architecture/01-system.md`](../architecture/01-system.md) §4.2–§4.3（擴展前提）、[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §10.3、
-  [ADR-0016](../adr/0016-background-jobs.md)（背景工作）、[`observability.md`](./observability.md)、[`hardening-followups.md`](./hardening-followups.md)、
+  [`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §9（背景工作）、[`observability.md`](./observability.md)、[`hardening-followups.md`](./hardening-followups.md)、
   [`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 6、7 項、[`permission-graph.md`](./permission-graph.md) G3a（已做出 `core/broadcast`，權限快取第一個用）、
-  [ADR-0027](../adr/0027-api-tokens-external-api.md) T0（對外 API 是第二個程序，D16、D18 會先把其餘快取的失效廣播與事件轉送做掉）
+  [`architecture/06-external-api.md`](../architecture/06-external-api.md) §9 T0（對外 API 是第二個程序，D16、D18 會先把其餘快取的失效廣播與事件轉送做掉）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
 ## 背景
 
 api 目前假設只有一個程序服務所有租戶。[`01-system.md`](../architecture/01-system.md) §4.3 已經列出擴展的前提、並決定 **先不引入 Redis**
-（背景工作選了 pg-boss，[ADR-0016](../adr/0016-background-jobs.md)）；[`08-realtime.md`](../architecture/backend/08-realtime.md) §10.3 已選定
+（背景工作選了 pg-boss，[`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §9）；[`08-realtime.md`](../architecture/backend/08-realtime.md) §10.3 已選定
 `@socket.io/postgres-adapter`。這份提案是把那些前提做出來。
 
 ### 單一執行個體在 1000 人在線時的代價
@@ -29,9 +29,9 @@ api 目前假設只有一個程序服務所有租戶。[`01-system.md`](../archi
 
 | 項目 | 現在 | 要改成 |
 | --- | --- | --- |
-| 領域事件 → 推播 | **已完成**（ADR-0027 T0）：推播類事件經平台 DB 轉送，每個程序推給自己的連線（[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §7.6）；worker 發佈的事件也送得到 | — |
+| 領域事件 → 推播 | **已完成**（[`architecture/06-external-api.md`](../architecture/06-external-api.md) §9 T0）：推播類事件經平台 DB 轉送，每個程序推給自己的連線（[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §7.6）；worker 發佈的事件也送得到 | — |
 | 跨裝置中繼（`channel.relay`） | gateway 只轉給本節點的連線 | 跨節點：adapter 或另一條轉送（只限這個功能；伺服器端推播已經轉送，裝 adapter 的跨節點 emit 會重複） |
-| 權限、使用者、租戶登記、資料夾樹、系統設定的快取 | **已完成**：失效經 `core/broadcast` 跨程序（權限快取隨權限圖 G3a，其餘隨 ADR-0027 T0；頻道見 [`01-system.md`](../architecture/01-system.md) §4.4） | — |
+| 權限、使用者、租戶登記、資料夾樹、系統設定的快取 | **已完成**：失效經 `core/broadcast` 跨程序（權限快取隨權限圖 G3a，其餘隨 [`architecture/06-external-api.md`](../architecture/06-external-api.md) §9 T0；頻道見 [`01-system.md`](../architecture/01-system.md) §4.4） | — |
 | feature flag 的全平台快取 | `FeatureFlagService` 本程序失效，其他程序最多晚 `TENANT_CACHE_TTL` 秒 | 接上同一個 `BroadcastService` |
 | HTTP 速率限制 | `RateLimitGuard` 用 `@nestjs/throttler` 的記憶體 storage | 共享 storage（Postgres 實作 `ThrottlerStorage`）；否則上限變成 N 倍 |
 | WebSocket 的 handshake、每人連線數、訊息限流 | gateway 記憶體（`realtime.rate-limit.ts`） | 共享，或接受「每實例」的語意並把上限除以實例數 |
@@ -43,7 +43,7 @@ api 目前假設只有一個程序服務所有租戶。[`01-system.md`](../archi
 
 | 做 | 不做（這一版） |
 | --- | --- |
-| ~~失效廣播與事件轉送~~（已隨 ADR-0027 T0 完成；剩 feature flag 的全平台快取） | 跨區域部署 |
+| ~~失效廣播與事件轉送~~（已隨 [`architecture/06-external-api.md`](../architecture/06-external-api.md) §9 T0 完成；剩 feature flag 的全平台快取） | 跨區域部署 |
 | 跨裝置中繼（`channel.relay`）跨實例 | Redis |
 | 速率限制共享計數（Postgres） | |
 | 影像變體改成背景工作 | |
@@ -68,5 +68,5 @@ api 目前假設只有一個程序服務所有租戶。[`01-system.md`](../archi
 
 ## 歸檔去向
 
-- `docs/adr/NNNN-multi-instance.md`、`docs/architecture/01-system.md` §4
+- `docs/architecture/01-system.md` §4（含設計決策）
 - `docs/architecture/backend/08-realtime.md` §10.3、`backend/05-rbac.md` §5（快取失效）

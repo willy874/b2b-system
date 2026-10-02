@@ -16,7 +16,7 @@ function PreferenceProbe() {
   return <span>{label}</span>;
 }
 
-describe('usePreferenceLocales（docs/adr/0021-runtime-feature-activation.md）', () => {
+describe('usePreferenceLocales（docs/architecture/frontend/02-plugin-system.md §9）', () => {
   beforeAll(() => initTestI18n());
   beforeEach(() => {
     resetLocaleRegistry();

@@ -21,7 +21,7 @@ export default defineConfig(({ command }) => ({
     },
   },
   server: {
-    // apps/auth 是獨立的 origin（docs/adr/0019-sso-identity-platform.md D6）：backstage 5173、backstage-mock 5174
+    // apps/auth 是獨立的 origin（docs/architecture/04-sso.md §12.2 D6）：backstage 5173、backstage-mock 5174
     // 並行跑第二組環境時以 AUTH_DEV_PORT 換埠（同 backstage 的 BACKSTAGE_DEV_PORT）
     port: Number(process.env.AUTH_DEV_PORT ?? 5175),
     strictPort: true,
@@ -29,7 +29,7 @@ export default defineConfig(({ command }) => ({
       // 前端一律打 `/api`，不在程式碼裡寫死後端位址（docs/architecture/01-system.md §4.1）。
       '/api': {
         target: process.env.DEV_API_PROXY_TARGET ?? 'http://localhost:3000',
-        // 保留瀏覽器看到的 Host（含 port）：api 以它決定租戶（docs/adr/0020-physical-tenant-isolation.md D2）
+        // 保留瀏覽器看到的 Host（含 port）：api 以它決定租戶（docs/architecture/05-tenancy.md §10.2 D2）
         changeOrigin: false,
         // 即時推播的 WebSocket（`/api/socket.io` → `/socket.io`，同一個 rewrite）
         ws: true,

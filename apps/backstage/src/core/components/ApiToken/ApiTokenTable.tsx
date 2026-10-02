@@ -25,7 +25,7 @@ export interface ApiTokenTableProps {
 }
 
 /**
- * 一個帳號的 API token（docs/adr/0027-api-tokens-external-api.md）：服務帳號詳情、個人資料、使用者詳情共用。
+ * 一個帳號的 API token（docs/architecture/06-external-api.md §9）：服務帳號詳情、個人資料、使用者詳情共用。
  * 只顯示 token 的開頭（`prefix`），完整的 token 只在建立時出現一次。
  */
 export function ApiTokenTable({

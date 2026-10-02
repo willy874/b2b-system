@@ -39,7 +39,7 @@ class FlakyJob implements OnModuleInit {
 }
 
 /**
- * 等到測試放行才結束：用來觀察同時執行的筆數（docs/adr/0033-feature-params-and-webhook-targets.md D9）。
+ * 等到測試放行才結束：用來觀察同時執行的筆數（docs/architecture/05-tenancy.md §13.3 D9）。
  * 這個程序最多同時跑 3 筆，所以超過租戶上限的只會是被放回佇列的那些。
  */
 const BLOCKING_JOB = defineJob<{ label: string }>('test.blocking', { concurrency: 3 });
@@ -152,7 +152,7 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
     delete process.env.FILE_MAINTENANCE_CRON;
   });
 
-  describe('入列在業務交易內（docs/adr/0016-background-jobs.md D2）', () => {
+  describe('入列在業務交易內（docs/architecture/backend/10-jobs.md §9.2 D2）', () => {
     it('交易回滾時工作也不存在（outbox 跟著回滾）', async () => {
       const appDb = app.get<Database>(TENANT_DB);
       let id: string | null = null;
@@ -169,7 +169,7 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
       expect(await db.select().from(jobOutbox)).toHaveLength(0);
     });
 
-    it('交易提交後才從 outbox 搬進佇列並被執行，工作 id 就是 outbox 的 id（docs/adr/0020 D15）', async () => {
+    it('交易提交後才從 outbox 搬進佇列並被執行，工作 id 就是 outbox 的 id（docs/architecture/05-tenancy.md §10.2 D15）', async () => {
       const appDb = app.get<Database>(TENANT_DB);
       const id = await inTestTenant(app, () =>
         withTransaction(appDb, (tx) => jobs.enqueue(FLAKY_JOB, { label: 'commit' }, { tx })),
@@ -345,7 +345,7 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
     expect(spawned[0]?.name).toBe(AUDIT_LOG_ARCHIVE_JOB.name);
   });
 
-  it('auditLog.archive 依租戶的 auditLog.hotRetentionDays 決定搬移的界線（ADR-0033 D7）', async () => {
+  it('auditLog.archive 依租戶的 auditLog.hotRetentionDays 決定搬移的界線（docs/architecture/05-tenancy.md §13.3 D7）', async () => {
     const { AUDIT_LOG_ARCHIVE_JOB } = await import('@/modules/audit-log/audit-log-archive.job');
     await setTestTenantFeatureParams(app, { 'auditLog.hotRetentionDays': 300 });
     try {
@@ -366,7 +366,7 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
     }
   });
 
-  it('租戶同時執行的上限 job.maxConcurrency：超過的放回佇列，不耗重試次數，之後照常完成（ADR-0033 D9）', async () => {
+  it('租戶同時執行的上限 job.maxConcurrency：超過的放回佇列，不耗重試次數，之後照常完成（docs/architecture/05-tenancy.md §13.3 D9）', async () => {
     const blocking = app.get(BlockingJob);
     await setTestTenantFeatureParams(app, { 'job.maxConcurrency': 1 });
     try {

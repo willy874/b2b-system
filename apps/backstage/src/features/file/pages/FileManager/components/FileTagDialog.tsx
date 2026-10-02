@@ -13,7 +13,7 @@ interface FileTagDialogProps {
   onClose: () => void;
 }
 
-/** 檔案與資料夾共用 `file` 標籤組（docs/adr/0032-tags.md D1）；能不能改跟著改名的能力，後端會再檢查。 */
+/** 檔案與資料夾共用 `file` 標籤組（docs/architecture/backend/18-tag.md §7.2 D1）；能不能改跟著改名的能力，後端會再檢查。 */
 export function FileTagDialog({ item, onClose }: FileTagDialogProps) {
   const { t } = useTranslation();
   const options = useQuery({ ...getTagListQueryOptions('file'), enabled: Boolean(item) });

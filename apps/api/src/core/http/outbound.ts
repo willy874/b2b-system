@@ -89,7 +89,7 @@ export async function assertPublicDestination(
 
 /**
  * 給 `http.request` 的 `lookup`：解析、檢查，並把 **通過檢查的位址** 交給 socket 連線。
- * 查詢與連線用的是同一次解析的結果，DNS rebinding 沒有空窗（docs/adr/0030-webhooks.md D15）。
+ * 查詢與連線用的是同一次解析的結果，DNS rebinding 沒有空窗（docs/architecture/backend/17-webhook.md §9.2 D15）。
  */
 export function pinnedLookup(resolve: HostLookup = systemLookup): LookupFunction {
   return (hostname, options, callback) => {

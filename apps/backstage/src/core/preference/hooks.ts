@@ -24,7 +24,7 @@ export function usePreferenceTables(): PreferenceTable[] {
 
 /**
  * 偏好頁的分頁與列表名稱所在的 scope：依註冊表的目前內容載入。
- * route loader（`preferenceLocaleLoader`）只看得到進頁當下的註冊表；可啟用的 feature（ADR-0021）晚一步安裝時，
+ * route loader（`preferenceLocaleLoader`）只看得到進頁當下的註冊表；可啟用的 feature（docs/architecture/frontend/02-plugin-system.md §9）晚一步安裝時，
  * 它的列表會出現在偏好頁，語系包則由這裡要求（還沒登記的會在登記時補載）。載完後 `useTranslation` 換新 `t`，畫面跟著更新。
  */
 export function usePreferenceLocales(): void {

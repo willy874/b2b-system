@@ -61,7 +61,7 @@ const routes = [RestoreRoute, DeleteRoute, UserListRoute.addChildren([UserDetail
 beforeAll(() => initTestI18n(userZhTW));
 
 beforeEach(() => {
-  // 復原按鈕只在租戶啟用回收桶時出現（docs/adr/0029-toggleable-platform-features.md D3）
+  // 復原按鈕只在租戶啟用回收桶時出現（docs/architecture/05-tenancy.md §12.2 D3）
   resetFeatureStore();
   featureStore.setState({ resolved: true, statuses: new Map([['trash', 'ready']]) });
   restoreUser.mockReset().mockResolvedValue({
@@ -73,7 +73,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('使用者的還原（ADR-0025 D6）', () => {
+describe('使用者的還原（docs/architecture/backend/14-revisions.md §9.2 D6）', () => {
   it('按下還原 → 呼叫 POST /users/:id/restore 並提示成功', async () => {
     renderRoute(routes, '/restore', PERMISSIONS);
     fireEvent.click(await screen.findByTestId('user-restore'));

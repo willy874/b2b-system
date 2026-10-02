@@ -103,8 +103,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('IdP 的登入互動頁（docs/adr/0019-sso-identity-platform.md）', () => {
-  it('租戶的互動：帳號流程的連結帶上租戶代碼（docs/adr/0020 D8）', async () => {
+describe('IdP 的登入互動頁（docs/architecture/04-sso.md §12）', () => {
+  it('租戶的互動：帳號流程的連結帶上租戶代碼（docs/architecture/05-tenancy.md §10.2 D8）', async () => {
     renderInteraction();
     expect(await screen.findByTestId('login-register-link')).toHaveAttribute(
       'href',
@@ -137,7 +137,7 @@ describe('IdP 的登入互動頁（docs/adr/0019-sso-identity-platform.md）', (
     expect(await screen.findByTestId('login-email')).toBeInTheDocument();
     expect(screen.queryByTestId('login-register-link')).not.toBeInTheDocument();
     expect(screen.queryByTestId('login-forgot-password-link')).not.toBeInTheDocument();
-    // 走錯地方的租戶使用者：去「進入租戶」（docs/adr/0020 D11）
+    // 走錯地方的租戶使用者：去「進入租戶」（docs/architecture/05-tenancy.md §10.2 D11）
     expect(screen.getByTestId('login-enter-tenant-link')).toHaveAttribute('href', '/enter');
   });
 
@@ -186,7 +186,7 @@ describe('IdP 的登入互動頁（docs/adr/0019-sso-identity-platform.md）', (
     expect(screen.queryByTestId('login-submit')).toBeNull();
   });
 
-  describe('外部 IdP（docs/adr/0019-sso-identity-platform.md D8、D9）', () => {
+  describe('外部 IdP（docs/architecture/04-sso.md §12.2 D8、D9）', () => {
     async function typeEmail(email: string) {
       const input = await screen.findByTestId('login-email');
       fireEvent.change(input, { target: { value: email } });

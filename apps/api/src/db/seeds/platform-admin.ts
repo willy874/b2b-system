@@ -7,7 +7,7 @@ import { platformAdmins, platformAuditLogs } from '../platform/schema';
 import type { PlatformAdminRole } from '../platform/schema';
 
 /**
- * 第一位平台管理者（docs/adr/0020-physical-tenant-isolation.md D5）：平台 DB 還沒有任何管理者時，
+ * 第一位平台管理者（docs/architecture/05-tenancy.md §10.2 D5）：平台 DB 還沒有任何管理者時，
  * 依 `PLATFORM_ADMIN_EMAIL` 建立。沒設定就略過（這時沒有人能登入 apps/auth 的租戶管理）。
  * 密碼留空時隨機產生並只印這一次。
  */

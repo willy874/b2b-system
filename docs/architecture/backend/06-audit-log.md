@@ -33,7 +33,7 @@
 |        | `user.activation_resent`                                          | 管理員對 `pending` 的人重寄啟用信 |
 |        | `user.restore`                                                    | 從回收桶還原；`metadata.deletedAt`、`metadata.roles`（[`13-trash.md`](./13-trash.md) §4.1） |
 | 回收桶 | `<resource>.purge`（`user.purge`、`role.purge`、`file.purge`、`fileFolder.purge`） | 到期永久刪除；排程執行，`actorId = null`、`actorEmail = 'system'`，`metadata.retentionDays`（[`13-trash.md`](./13-trash.md) §5） |
-| 角色   | `role.create` / `role.update` / `role.delete` / `role.duplicate`  | 還原到某一版也記 `role.update`，`metadata.revertedFrom` 帶來源版本、權限鍵變了時 `changes` 帶 `permissions` 的前後（[`14-revisions.md`](./14-revisions.md) §4.3）。版本快照與稽核分開保存（ADR-0025 D10） |
+| 角色   | `role.create` / `role.update` / `role.delete` / `role.duplicate`  | 還原到某一版也記 `role.update`，`metadata.revertedFrom` 帶來源版本、權限鍵變了時 `changes` 帶 `permissions` 的前後（[`14-revisions.md`](./14-revisions.md) §4.3）。版本快照與稽核分開保存（[`backend/14-revisions.md`](14-revisions.md) §9.2 D10） |
 |        | `role.grantPermission`                                            | **含前後權限清單**     |
 |        | `role.restore`                                                    | 從回收桶還原；`metadata.deletedAt`、`metadata.holdersRestored`（[`13-trash.md`](./13-trash.md) §6.1） |
 | 檔案   | `file.upload` / `file.update` / `file.delete` / `file.move`、`fileFolder.create` / `fileFolder.update` / `fileFolder.delete` | 見 [`09-file.md`](./09-file.md) §7；刪除的 `metadata.deletionId` 是這一次刪除的識別 |
@@ -256,7 +256,7 @@ const actionFilter = query.action?.endsWith("*")
 ### 7.2 時間範圍上限
 
 常數在 `modules/audit-log/audit-log.constants.ts`。熱表保留天數不是常數，是租戶的 feature 參數 `auditLog.hotRetentionDays`
-（預設 90 天、7～3650，平台管理者設定；[ADR-0033](../../adr/0033-feature-params-and-webhook-targets.md) D7、[`../05-tenancy.md`](../05-tenancy.md) §5.3）：
+（預設 90 天、7～3650，平台管理者設定；[`architecture/05-tenancy.md`](../05-tenancy.md) §13.3 D7、[`../05-tenancy.md`](../05-tenancy.md) §5.3）：
 
 | 常數 | 值 | 用途 |
 | --- | --- | --- |
@@ -286,7 +286,7 @@ const actionFilter = query.action?.endsWith("*")
 `count(*)` 相加。單筆詳情用 `(熱表 WHERE id) UNION ALL (冷表 WHERE id) LIMIT 1`：
 一次來回，熱表命中時冷表的掃描不會執行。
 
-不以保留天數推算要不要查冷表：保留天數是租戶的參數，調大之後已經搬到冷表的紀錄不會回到熱表，推算會漏查（ADR-0033 D7）。
+不以保留天數推算要不要查冷表：保留天數是租戶的參數，調大之後已經搬到冷表的紀錄不會回到熱表，推算會漏查（[`architecture/05-tenancy.md`](../05-tenancy.md) §13.3 D7）。
 
 ### 7.3 前端呈現
 
@@ -323,7 +323,7 @@ pnpm db:archive-audit-logs   # 與排程工作呼叫同一個函式（modules/au
 短交易（鎖定 → 複製 → 刪除），兩個排程重疊時 `SKIP LOCKED` 讓它們不互搶。
 搬移中斷也安全：沒搬完的列還在熱表，查詢規則（§7.2）本來就會把它們算進去。
 
-`archive_audit_logs()` 是 `SECURITY DEFINER`（migration `0001_functions_and_triggers.sql`，[ADR-0016](../../adr/0016-background-jobs.md) D8）：
+`archive_audit_logs()` 是 `SECURITY DEFINER`（migration `0001_functions_and_triggers.sql`，[`backend/10-jobs.md`](10-jobs.md) §9.2 D8）：
 以擁有資料表的 role 執行，所以應用程式的 role 不需要 `audit_logs` 的 DELETE 就能搬移；
 熱表的刪除 trigger 仍要求冷表有完全相同的副本，函式也做不了別的事。`search_path` 固定為
 `public, pg_temp`，避免呼叫端以同名物件劫持。`EXECUTE` 維持預設的 `PUBLIC`（role 名稱依部署而定）；
@@ -341,7 +341,7 @@ pnpm db:archive-audit-logs   # 與排程工作呼叫同一個函式（modules/au
 
 ## 8.1 平台稽核（`platform_audit_logs`）
 
-每個租戶一個 database（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D19）：上面描述的 `audit_logs` 是 **租戶** 的稽核，
+每個租戶一個 database（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D19）：上面描述的 `audit_logs` 是 **租戶** 的稽核，
 在各租戶的 DB 裡，只記錄那個租戶裡發生的事。平台管理者（apps/auth）做的事另外寫在平台 DB 的 `platform_audit_logs`：
 
 | 項目 | 租戶的 `audit_logs` | 平台的 `platform_audit_logs` |

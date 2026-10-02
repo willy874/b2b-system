@@ -4,7 +4,7 @@ import { files, isRoleHolderTuple, notDeleted, relationTuples, roles, users } fr
 
 import type { TestDatabase } from './db';
 
-// 樂觀鎖的 `version` 與 `expectedRoleIds` 是必填（ADR-0025 D4 的 R1b）：
+// 樂觀鎖的 `version` 與 `expectedRoleIds` 是必填（docs/architecture/backend/14-revisions.md §9.2 D4 的 R1b）：
 // 測的不是衝突本身時，先讀目前的值再送出，等同「編輯開始時看到的」。
 
 /** 使用者目前的 `version`（`PATCH /users/:id` 的本體要帶）。 */
@@ -30,7 +30,7 @@ export async function fileVersion(db: TestDatabase, id: string): Promise<number>
 
 /**
  * 使用者目前持有、而且未刪除的角色 id（`PUT /users/:id/roles` 的 `expectedRoleIds`）。
- * 已刪除角色的持有者邊會保留（ADR-0025 D2），伺服器比對時不算在內，這裡也一樣排除。
+ * 已刪除角色的持有者邊會保留（docs/architecture/backend/14-revisions.md §9.2 D2），伺服器比對時不算在內，這裡也一樣排除。
  */
 export async function currentRoleIds(db: TestDatabase, userId: string): Promise<string[]> {
   const rows = await db

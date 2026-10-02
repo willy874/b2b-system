@@ -12,7 +12,7 @@ export interface BatchQueuePluginOptions {
 }
 
 /**
- * 全域批次佇列（docs/adr/0012-batch-queue-worker.md、docs/architecture/frontend/07-ui-system.md §6.2）。
+ * 全域批次佇列（docs/architecture/frontend/07-ui-system.md §13、docs/architecture/frontend/07-ui-system.md §6.2）。
  *
  * | 時機                    | 動作                                                        |
  * | ----------------------- | ----------------------------------------------------------- |

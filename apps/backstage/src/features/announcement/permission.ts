@@ -16,7 +16,7 @@ import {
 export const ANNOUNCEMENT_PAGE = definePageKey('ANNOUNCEMENT');
 /** 建立對話框是獨立的受管頁面（直接貼網址時要擋下）。 */
 export const ANNOUNCEMENT_CREATE_PAGE = definePageKey('ANNOUNCEMENT_CREATE');
-/** 收件人看全文：只需要登入（docs/adr/0031-announcements.md D4）。 */
+/** 收件人看全文：只需要登入（docs/architecture/backend/19-announcement.md §9.2 D4）。 */
 export const ANNOUNCEMENT_MESSAGE_PAGE = definePageKey('ANNOUNCEMENT_MESSAGE');
 
 export function registerAnnouncementPagePermissions(): void {

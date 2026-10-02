@@ -36,7 +36,7 @@ import { RoleModule } from './modules/role/role.module';
 import { UserModule } from './modules/user/user.module';
 
 /**
- * 對外 API 的組裝根（docs/adr/0027-api-tokens-external-api.md D9～D11、D19）：另一個程序（`main.external.ts`）、
+ * 對外 API 的組裝根（docs/architecture/06-external-api.md §9.2 D9～D11、D19）：另一個程序（`main.external.ts`）、
  * 另一個 port 與網域。業務邏輯與內部 api 共用同一份 service；這裡只決定這個程序 **有什麼、怎麼認人**：
  *
  * - 只認 API token（`ApiTokenAuthGuard`），租戶由 token 的代碼決定（`TokenTenantMiddleware`），不看網域

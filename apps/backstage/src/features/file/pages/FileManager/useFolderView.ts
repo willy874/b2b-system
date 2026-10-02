@@ -16,7 +16,7 @@ interface UseFolderViewOptions {
   folderId: string | undefined;
   keyword: string | undefined;
   category: FileCategory | undefined;
-  /** 標籤篩選（任一符合，docs/adr/0032-tags.md D6）。 */
+  /** 標籤篩選（任一符合，docs/architecture/backend/18-tag.md §7.2 D6）。 */
   tag: readonly string[] | undefined;
   sort: SortEntry<FileSortField>;
   /** 網址上的資料夾不存在（被刪除、連結過期）。 */

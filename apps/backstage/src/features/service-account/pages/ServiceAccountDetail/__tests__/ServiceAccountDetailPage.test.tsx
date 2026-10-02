@@ -79,7 +79,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('ServiceAccountDetailPage（docs/adr/0027-api-tokens-external-api.md T4）', () => {
+describe('ServiceAccountDetailPage（docs/architecture/06-external-api.md §9 T4）', () => {
   it('只有 serviceAccount:read → 看得到 token 列表，不能建立、撤銷、編輯', async () => {
     renderRoute(routes, '/service-account/sa1', READER);
     await screen.findByText('建置機', undefined, { timeout: 5000 });

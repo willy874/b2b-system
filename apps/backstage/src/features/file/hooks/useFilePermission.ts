@@ -46,7 +46,7 @@ export function selectionCapabilities(items: readonly FileItemCapabilities[]) {
   const some = items.length > 0;
   return {
     canRename: items.length === 1 && only?.canUpdate === true,
-    /** 貼標籤跟著改名（docs/adr/0032-tags.md D5）：只選一個、能改名；系統資料夾不能改名也不能貼。 */
+    /** 貼標籤跟著改名（docs/architecture/backend/18-tag.md §7.2 D5）：只選一個、能改名；系統資料夾不能改名也不能貼。 */
     canTag: items.length === 1 && only?.canUpdate === true,
     canMove: some && items.every((item) => item.canUpdate),
     canDelete: some && items.every((item) => item.canDelete),

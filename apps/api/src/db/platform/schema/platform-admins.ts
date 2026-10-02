@@ -33,7 +33,7 @@ export const platformAdminRole = pgEnum('platform_admin_role', [
 ]);
 
 /**
- * 平台管理者（docs/adr/0020-physical-tenant-isolation.md D5）：apps/auth 不帶租戶登入時驗證的帳號。
+ * 平台管理者（docs/architecture/05-tenancy.md §10.2 D5）：apps/auth 不帶租戶登入時驗證的帳號。
  * 與租戶的 `users` 是兩份資料：同一個 email 在平台與某個租戶是兩個互不相干的帳號。
  */
 export const platformAdmins = pgTable(
@@ -61,7 +61,7 @@ export const platformAdmins = pgTable(
   ],
 );
 
-/** 平台管理者在 apps/auth 的 app session（ADR-0004 的 refresh 家族，欄位同租戶的 `refresh_tokens`）。 */
+/** 平台管理者在 apps/auth 的 app session（docs/architecture/backend/04-auth.md §10 的 refresh 家族，欄位同租戶的 `refresh_tokens`）。 */
 export const platformRefreshTokens = pgTable(
   'platform_refresh_tokens',
   {

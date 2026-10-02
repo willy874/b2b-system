@@ -15,12 +15,12 @@ import {
 
 import { users } from './users';
 
-/** 標籤的顏色：Design Token 的名稱（與前端 `Chip` 的 tone 相同），不存色碼（docs/adr/0032-tags.md D3）。 */
+/** 標籤的顏色：Design Token 的名稱（與前端 `Chip` 的 tone 相同），不存色碼（docs/architecture/backend/18-tag.md §7.2 D3）。 */
 export const TAG_COLORS = ['neutral', 'brand', 'success', 'warning', 'danger'] as const;
 export type TagColor = (typeof TAG_COLORS)[number];
 
 /**
- * 標籤的定義（docs/adr/0032-tags.md D1、D2）：屬於一個標籤組（`scope`，例：`file`、`user`），名稱在組內不分大小寫唯一。
+ * 標籤的定義（docs/architecture/backend/18-tag.md §7.2 D1、D2）：屬於一個標籤組（`scope`，例：`file`、`user`），名稱在組內不分大小寫唯一。
  * 標籤組由擁有者模組在程式碼登記；不認得的組讀取時忽略。刪除是硬刪除，指派隨之 CASCADE（D4）。
  */
 export const tags = pgTable(
@@ -46,7 +46,7 @@ export const tags = pgTable(
 );
 
 /**
- * 標籤貼在哪個資源上（D2）：多型關聯，`resource_type` 是 `core/resource` 的 `RESOURCE_TYPE`（ADR-0025 D7），
+ * 標籤貼在哪個資源上（D2）：多型關聯，`resource_type` 是 `core/resource` 的 `RESOURCE_TYPE`（docs/architecture/backend/14-revisions.md §9.2 D7），
  * 沒有指向資源的外鍵。資源永久刪除時由擁有者清掉（D9）；軟刪除時保留。
  */
 export const resourceTags = pgTable(
@@ -68,7 +68,7 @@ export const resourceTags = pgTable(
 );
 
 /**
- * 篩選條件：資源貼了 `tagIds` 之中任一個標籤（docs/adr/0032-tags.md D6）。擁有者的 repository 組查詢用，
+ * 篩選條件：資源貼了 `tagIds` 之中任一個標籤（docs/architecture/backend/18-tag.md §7.2 D6）。擁有者的 repository 組查詢用，
  * 與 `notDeleted()` 一樣放在 `db/schema/`，讓 `modules/` 不必互相 import repository。
  * 單表的計數查詢裡 Drizzle 會把 `idColumn` 輸出成不帶表名的欄位（例：`"id"`）；`resource_tags` 沒有同名欄位，
  * 它會解析到外層的表——加欄位到 `resource_tags` 時別用 `id` 這類常見名稱。

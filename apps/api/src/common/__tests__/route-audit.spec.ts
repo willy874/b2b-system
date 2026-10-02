@@ -160,7 +160,7 @@ describe('路由稽核延伸到 gateway（docs/architecture/backend/08-realtime.
   });
 });
 
-describe('路由稽核的 @RequireFeature（docs/adr/0021-runtime-feature-activation.md D11）', () => {
+describe('路由稽核的 @RequireFeature（docs/architecture/frontend/02-plugin-system.md §9.2 D11）', () => {
   it('收集每個路由的 feature；handler 與 class 的宣告合併', async () => {
     const featured = await boot(FeaturedModule);
     const routes = collectRouteDeclarations(featured);
@@ -177,7 +177,7 @@ describe('路由稽核的 @RequireFeature（docs/adr/0021-runtime-feature-activa
   });
 });
 
-describe('路由稽核的 @RequireFlag（docs/adr/0022-feature-flags.md D5）', () => {
+describe('路由稽核的 @RequireFlag（docs/architecture/05-tenancy.md §11.2 D5）', () => {
   const CATALOG = [
     {
       key: 'levelEditor.v2',

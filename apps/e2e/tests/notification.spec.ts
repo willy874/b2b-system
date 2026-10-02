@@ -9,7 +9,7 @@ import { snapshot } from '../helpers/snapshot';
 
 // 密碼政策會擋常見密碼的字根與 email／顯示名稱的片段（modules/credential）
 const APPLICANT_PASSWORD = 'Wm3#pLq8!zRt6v';
-// 經過 backstage 的 /api 代理：api 以網域決定租戶（docs/adr/0020-physical-tenant-isolation.md D2）
+// 經過 backstage 的 /api 代理：api 以網域決定租戶（docs/architecture/05-tenancy.md §10.2 D2）
 const API_URL =
   process.env.E2E_API_URL ?? `${process.env.E2E_BASE_URL ?? 'http://localhost:5173'}/api`;
 
@@ -64,7 +64,7 @@ async function toggleAuditorRole(adminToken: string): Promise<void> {
   expect(response.status).toBe(200);
 }
 
-test.describe('站內通知（docs/architecture/frontend/15-notification.md、ADR-0026）', () => {
+test.describe('站內通知（docs/architecture/frontend/15-notification.md、docs/architecture/backend/15-notification.md §12）', () => {
   test('有人送出註冊申請 → 審核者的鈴鐺出現未讀，點開後到審批詳情並標為已讀', async ({
     page,
     request,

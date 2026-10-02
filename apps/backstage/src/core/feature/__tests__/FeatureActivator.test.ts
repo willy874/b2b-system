@@ -40,7 +40,7 @@ function setup(catalogPlugins: { file?: AppDynamicPluginFactory; job?: AppDynami
 
 const statuses = () => Object.fromEntries(featureStore.getState().statuses);
 
-describe('FeatureActivator（docs/adr/0021-runtime-feature-activation.md D8、D9）', () => {
+describe('FeatureActivator（docs/architecture/frontend/02-plugin-system.md §9.2 D8、D9）', () => {
   beforeEach(() => {
     pages.reset();
     resetFeatureStore();
@@ -130,7 +130,7 @@ describe('FeatureActivator（docs/adr/0021-runtime-feature-activation.md D8、D9
   });
 });
 
-describe('FeatureActivator 的 feature flag（docs/adr/0022-feature-flags.md D9）', () => {
+describe('FeatureActivator 的 feature flag（docs/architecture/05-tenancy.md §11.2 D9）', () => {
   const TrialRoute = createRoute({ getParentRoute: () => RootRoute, path: '/level-editor' });
 
   function setupTrial() {

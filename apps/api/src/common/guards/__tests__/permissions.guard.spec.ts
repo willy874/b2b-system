@@ -164,7 +164,7 @@ describe('PermissionsGuard', () => {
   });
 });
 
-describe('PermissionsGuard：平台管理者的端點（docs/adr/0020-physical-tenant-isolation.md D5）', () => {
+describe('PermissionsGuard：平台管理者的端點（docs/architecture/05-tenancy.md §10.2 D5）', () => {
   const tenant = {
     id: 't1',
     code: 'acme',

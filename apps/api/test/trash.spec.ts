@@ -118,7 +118,7 @@ async function auditActions(resourceId: string): Promise<string[]> {
   return rows.map((row) => row.action);
 }
 
-describe('回收桶與使用者還原（docs/architecture/backend/13-trash.md、ADR-0025 D6、D9～D11）', () => {
+describe('回收桶與使用者還原（docs/architecture/backend/13-trash.md、docs/architecture/backend/14-revisions.md §9.2 D6、D9～D11）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;

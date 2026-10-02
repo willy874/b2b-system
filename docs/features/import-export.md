@@ -3,7 +3,7 @@
 - 優先度：P2
 - 狀態：提案
 - 依賴：站內通知（已完成，[`backend/15-notification.md`](../architecture/backend/15-notification.md)；完成通知）、背景工作（已完成，[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)）
-- 相關：[`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 4 項、[ADR-0012](../adr/0012-batch-queue-worker.md)（前端批次佇列）
+- 相關：[`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 4 項、[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13（前端批次佇列）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -12,8 +12,8 @@
 大量建立使用者、把稽核日誌交給外部稽核、之後業務資料的搬移，都需要匯入匯出。現在：
 
 - **沒有任何匯出**：稽核日誌只有 `GET /audit-logs`、`GET /audit-logs/:id`，整個 api 沒有產生 CSV 的地方。
-- **前端批次佇列不適合大量**（[ADR-0012](../adr/0012-batch-queue-worker.md)）：它逐筆呼叫單筆 API、全域一次一筆、需要至少一個分頁開著。
-  幾百筆沒問題，幾萬筆的匯出、需要整批驗證的匯入就不行。後端的批次端點已隨 ADR-0009 被取代而移除。
+- **前端批次佇列不適合大量**（[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13）：它逐筆呼叫單筆 API、全域一次一筆、需要至少一個分頁開著。
+  幾百筆沒問題，幾萬筆的匯出、需要整批驗證的匯入就不行。後端的批次端點已隨 [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13.6 被取代而移除。
 - 零件都有：背景工作（pg-boss，交易內入列走 `job_outbox`）、每個租戶一個 bucket、有時效的下載連結（`presignDownload`，`FILE_URL_TTL` ≤ 1 小時）、
   模組把 handler 註冊進通用模組的模式（審批 handler、`JobQueue.register`、`SettingService.register`）。
 
@@ -63,5 +63,5 @@
 
 ## 歸檔去向
 
-- `docs/adr/NNNN-import-export.md`、`docs/architecture/backend/NN-import-export.md`
+- `docs/architecture/backend/NN-import-export.md`（含設計決策）
 - 前端的上傳與預覽元件：`docs/architecture/frontend/` 對應章節

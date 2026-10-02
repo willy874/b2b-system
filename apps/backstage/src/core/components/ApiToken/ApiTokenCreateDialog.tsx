@@ -28,7 +28,7 @@ export interface ApiTokenCreateDialogProps {
 }
 
 /**
- * 建立 API token（docs/adr/0027-api-tokens-external-api.md D7、D8）：名稱、有效天數、（選用）限縮權限。
+ * 建立 API token（docs/architecture/06-external-api.md §9.2 D7、D8）：名稱、有效天數、（選用）限縮權限。
  * 建立成功後同一個對話框改成顯示完整的 token——**只出現這一次**，關掉之後再也看不到。
  */
 export function ApiTokenCreateDialog({

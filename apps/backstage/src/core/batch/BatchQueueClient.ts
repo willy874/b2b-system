@@ -84,7 +84,7 @@ const executionKey = (jobId: string, itemId: string) => `${jobId}\u0000${itemId}
 
 /**
  * 分頁端的批次佇列：送指令、以一般 API 執行佇列交派的項目，並彙整所有佇列經 Channel 廣播的進度
- * （docs/adr/0012-batch-queue-worker.md）。每個分頁一個實例，由 `batchQueuePlugin` 建立。
+ * （docs/architecture/frontend/07-ui-system.md §13）。每個分頁一個實例，由 `batchQueuePlugin` 建立。
  *
  * 生命週期：`start()` 連上（可在 `stop()` 後再 `start()`，例：從 bfcache 回來）、
  * `stop()` 告訴佇列這個分頁離開、`dispose()` 關閉頻道與 port。
@@ -264,7 +264,7 @@ export class BatchQueueClient {
 
   /**
    * 向佇列宣告目前能執行的操作；比上一次少了的，代表所屬 feature 被停用（清單對整個租戶一致），
-   * 請佇列取消使用它們的工作，否則那些工作會一直等不到能執行的分頁（ADR-0021 D10）。
+   * 請佇列取消使用它們的工作，否則那些工作會一直等不到能執行的分頁（docs/architecture/frontend/02-plugin-system.md §9.2 D10）。
    */
   private declareOperations(): void {
     if (!this.operations || !this.started) return;

@@ -24,7 +24,7 @@ interface ServiceAccountBasicSectionProps {
 
 /**
  * 基本資料：改名（就地編輯）、停用與啟用。送出時帶 `version`（樂觀鎖）。
- * 停用會讓它所有的 token 失效，再啟用也不會回來（ADR-0027 D5）：先確認。
+ * 停用會讓它所有的 token 失效，再啟用也不會回來（docs/architecture/06-external-api.md §9.2 D5）：先確認。
  */
 export function ServiceAccountBasicSection({ account, canEdit }: ServiceAccountBasicSectionProps) {
   const { t } = useTranslation();

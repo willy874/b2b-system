@@ -7,7 +7,7 @@ import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
 /**
- * 外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D10）。外部 IdP 是 `pnpm dev:mock-idp`
+ * 外部 IdP 登入（docs/architecture/04-sso.md §12.2 D8–D10）。外部 IdP 是 `pnpm dev:mock-idp`
  * （playwright.config.ts 會啟動）：登入頁輸入任何 email 都算登入成功。
  */
 const MOCK_IDP = {

@@ -24,7 +24,7 @@ export interface ExternalIdentity {
 }
 
 /**
- * 外部 IdP 的 OIDC RP（docs/adr/0019-sso-identity-platform.md D8）。抽象類別同時是 DI token：
+ * 外部 IdP 的 OIDC RP（docs/architecture/04-sso.md §12.2 D8）。抽象類別同時是 DI token：
  * 整合測試換成假的實作，不必連到真的 Google／Azure AD。
  */
 export abstract class ExternalOidcClient {

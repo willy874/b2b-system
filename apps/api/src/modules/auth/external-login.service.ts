@@ -37,14 +37,14 @@ function random(bytes = 32): string {
 }
 
 /**
- * 以外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D10）。全部以 **頂層跳轉** 串接（D6）：
+ * 以外部 IdP 登入（docs/architecture/04-sso.md §12.2 D8–D10）。全部以 **頂層跳轉** 串接（D6）：
  *
  * 1. 互動頁以 email 查出連線（網域導向）→ `start()` 回傳外部 IdP 的授權網址，頁面跳過去
  * 2. 外部 IdP 帶授權碼跳回 **固定** 的 callback（外部 IdP 大多要求 redirect URI 完全相符，不能帶互動 id）
  *    → `callback()` 兌換、驗證 ID token、對應帳號，再跳到互動路徑底下的 `…/external/complete`
  * 3. 那個路徑帶得到互動 cookie → `complete()` 完成互動，provider 接著帶授權碼跳回產品
  *
- * 外部 IdP 連線屬於租戶（docs/adr/0020-physical-tenant-isolation.md D18）：連線與帳號對應都在互動的那個租戶裡；
+ * 外部 IdP 連線屬於租戶（docs/architecture/05-tenancy.md §10.2 D18）：連線與帳號對應都在互動的那個租戶裡；
  * 平台管理者的登入沒有外部 IdP。
  */
 @Injectable()

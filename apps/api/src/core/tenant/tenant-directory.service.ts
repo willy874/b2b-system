@@ -27,17 +27,17 @@ export interface TenantRecord {
   databaseUrl: string;
   /** 物件儲存的 bucket（D16）。 */
   storageBucket: string;
-  /** 啟用的 feature（ADR-0021 D8）；DB 裡不認得的值已濾掉。 */
+  /** 啟用的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D8）；DB 裡不認得的值已濾掉。 */
   features: readonly TenantFeature[];
-  /** feature flag 的租戶層覆寫（ADR-0022 D2）；非布林的值已濾掉。 */
+  /** feature flag 的租戶層覆寫（docs/architecture/05-tenancy.md §11.2 D2）；非布林的值已濾掉。 */
   flags: FeatureFlagOverrides;
-  /** feature 參數的覆寫（ADR-0033 D2）；不在目錄裡或驗證不過的值已濾掉。 */
+  /** feature 參數的覆寫（docs/architecture/05-tenancy.md §13.2 D2）；不在目錄裡或驗證不過的值已濾掉。 */
   featureParams: TenantFeatureParamOverrides;
 }
 
 /** 每種查詢最多快取幾筆（租戶數遠小於這個值；上限只是防止被灌爆）。 */
 export const TENANT_CACHE_MAX_ENTRIES = 5_000;
-/** 平台 DB 上的廣播頻道：租戶登記改了，其他程序整份重新讀（docs/adr/0027-api-tokens-external-api.md D16）。 */
+/** 平台 DB 上的廣播頻道：租戶登記改了，其他程序整份重新讀（docs/architecture/06-external-api.md §9.2 D16）。 */
 export const TENANT_DIRECTORY_CHANNEL = 'tenant_directory';
 
 /** 「找不到」的結果快取多久：key 可能是攻擊者隨意產生的，不必久留。 */
@@ -52,7 +52,7 @@ const HOST_LIKE = /^[a-z0-9.\-:[\]]{1,260}$/;
 const CODE_LIKE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
 
 /**
- * 租戶登記的查詢與快取（docs/adr/0020-physical-tenant-isolation.md D2）。每個請求都要以網域找租戶，
+ * 租戶登記的查詢與快取（docs/architecture/05-tenancy.md §10.2 D2）。每個請求都要以網域找租戶，
  * 所以結果快取 `TENANT_CACHE_TTL` 秒（「找不到」只快取數秒）；租戶的狀態改變由 `invalidate()` 立即生效。
  *
  * 網域的請求在 throttler 之前就會解析，而 Host 由客戶端決定：不在「網域 → 租戶」快照裡的 Host 直接視為找不到，

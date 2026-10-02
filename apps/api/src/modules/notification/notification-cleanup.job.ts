@@ -9,7 +9,7 @@ import { NotificationService } from './notification.service';
 import type { NotificationCleanupReport } from './notification.service';
 
 /**
- * 站內通知的保留清理（ADR-0026 D10）。每個租戶各跑一次（`scope: 'tenant'`）；同一個租戶同時只跑一個（`exclusive`）。
+ * 站內通知的保留清理（docs/architecture/backend/15-notification.md §12.2 D10）。每個租戶各跑一次（`scope: 'tenant'`）；同一個租戶同時只跑一個（`exclusive`）。
  * 中途失敗也安全：已提交的批次已經刪掉，重做時只剩還沒處理的列。
  */
 export const NOTIFICATION_CLEANUP_JOB = defineJob<Record<string, never>>('notification.cleanup', {

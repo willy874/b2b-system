@@ -20,7 +20,7 @@ const { exchange } = vi.hoisted(() => ({ exchange: vi.fn() }));
 vi.mock('@/apis/auth/sso-callback/mutation', () => ({
   getSsoCallbackMutationOptions: () => ({ mutationFn: exchange }),
 }));
-// 這個網域的租戶（docs/adr/0020-physical-tenant-isolation.md D7）
+// 這個網域的租戶（docs/architecture/05-tenancy.md §10.2 D7）
 vi.mock('@/apis/tenant/get-current-tenant/fetcher', () => ({
   fetchCurrentTenantQuery: vi.fn(async () => ({ code: 'acme', name: 'Acme' })),
 }));
@@ -65,7 +65,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('登入頁（docs/adr/0019-sso-identity-platform.md）', () => {
+describe('登入頁（docs/architecture/04-sso.md §12）', () => {
   it('沒有 session 時直接頂層跳轉到 IdP，帶上這個網域的租戶代碼', async () => {
     renderAt('/auth/login?redirect=%2Fusers');
     await waitFor(() => expect(assign).toHaveBeenCalled());

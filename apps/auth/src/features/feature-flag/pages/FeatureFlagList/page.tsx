@@ -7,7 +7,7 @@ import { useTranslation } from '@/core/locales';
 import { useFeatureFlagPermission } from '../../hooks/useFeatureFlagPermission';
 import { FeatureFlagTable } from './components/FeatureFlagTable';
 
-/** 平台管理者的試行開關：目錄、全平台狀態與覆寫它的租戶數（docs/adr/0022-feature-flags.md D8）。 */
+/** 平台管理者的試行開關：目錄、全平台狀態與覆寫它的租戶數（docs/architecture/05-tenancy.md §11.2 D8）。 */
 export default function FeatureFlagListPage() {
   const { t } = useTranslation();
   const { canUpdate } = useFeatureFlagPermission();

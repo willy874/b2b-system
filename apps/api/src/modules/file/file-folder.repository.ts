@@ -31,7 +31,7 @@ const FOLDER_OBJECT_TYPE = 'fileFolder';
 /** 遞迴查詢的深度上限：擋住壞資料的循環（正常的樹最多 `MAX_FOLDER_DEPTH` 層）。 */
 const RECURSION_LIMIT = 64;
 
-/** 一次刪除操作的識別與時間（ADR-0025 D5）：遞迴刪除的資料夾與檔案帶同一組值。 */
+/** 一次刪除操作的識別與時間（docs/architecture/backend/14-revisions.md §9.2 D5）：遞迴刪除的資料夾與檔案帶同一組值。 */
 export interface DeletionStamp {
   actorId: string | null;
   deletionId: string;
@@ -50,7 +50,7 @@ export interface DeletedFolderRow {
 const deleter = alias(users, 'deleter');
 
 /**
- * 一批刪除的根：上層不是 **同一次刪除** 刪掉的（ADR-0025 D5）。遞迴刪除的子孫屬於根的批次，回收桶只列根。
+ * 一批刪除的根：上層不是 **同一次刪除** 刪掉的（docs/architecture/backend/14-revisions.md §9.2 D5）。遞迴刪除的子孫屬於根的批次，回收桶只列根。
  * R4a 之前刪除的列 `deletion_id` 是 null，以 `IS NOT DISTINCT FROM` 比對：舊的遞迴刪除整棵視為同一批。
  */
 const BATCH_ROOT = sql`NOT EXISTS (
@@ -206,7 +206,7 @@ export class FileFolderRepository {
     return !file;
   }
 
-  /** 個人資料夾命名用：未刪除的人（服務帳號沒有個人資料夾，docs/adr/0027-api-tokens-external-api.md D1）。 */
+  /** 個人資料夾命名用：未刪除的人（服務帳號沒有個人資料夾，docs/architecture/06-external-api.md §9.2 D1）。 */
   async findUsers(
     userIds: readonly string[],
   ): Promise<{ id: string; displayName: string; email: string }[]> {
@@ -384,7 +384,7 @@ export class FileFolderRepository {
       .returning();
   }
 
-  /** 軟刪除；同一次刪除的列帶同一個 `deletionId`（ADR-0025 D5）。 */
+  /** 軟刪除；同一次刪除的列帶同一個 `deletionId`（docs/architecture/backend/14-revisions.md §9.2 D5）。 */
   async softDelete(ids: readonly string[], stamp: DeletionStamp, tx?: DbOrTx): Promise<number> {
     if (ids.length === 0) return 0;
     const db = tx ?? this.db;
@@ -477,7 +477,7 @@ export class FileFolderRepository {
     return row?.id;
   }
 
-  // ── 回收桶與還原（ADR-0025 D5、D9、D11）：這一段故意讀已刪除的列，一律用 isDeleted() ──
+  // ── 回收桶與還原（docs/architecture/backend/14-revisions.md §9.2 D5、D9、D11）：這一段故意讀已刪除的列，一律用 isDeleted() ──
 
   /** 已刪除的資料夾；不存在或沒有被刪除回 undefined。 */
   async findDeletedById(id: string, tx?: DbOrTx): Promise<FileFolderRow | undefined> {
@@ -495,7 +495,7 @@ export class FileFolderRepository {
   }
 
   /**
-   * 同一次刪除的子樹（含根）：從根往下，只走已刪除、`deletion_id` 相同的資料夾（ADR-0025 D5）。
+   * 同一次刪除的子樹（含根）：從根往下，只走已刪除、`deletion_id` 相同的資料夾（docs/architecture/backend/14-revisions.md §9.2 D5）。
    * 之前個別刪掉的子資料夾 `deletion_id` 不同，連同它底下的都不在這一批。null 是 R4a 之前的刪除。
    */
   async findDeletedBatchIds(
@@ -625,7 +625,7 @@ export class FileFolderRepository {
   }
 
   /**
-   * 刪除超過保留期限的資料夾子樹的根（依 id 的 keyset；ADR-0025 D11）：上層也到期的不回傳，由上層的 `purgeTree` 一起刪。
+   * 刪除超過保留期限的資料夾子樹的根（依 id 的 keyset；docs/architecture/backend/14-revisions.md §9.2 D11）：上層也到期的不回傳，由上層的 `purgeTree` 一起刪。
    * 上層到期 ⇒ 子孫也到期：子孫不是與上層同時刪除，就是更早個別刪除（上層被刪之後不可能再有東西被刪）。
    * 含系統刪除的個人資料夾：它們清掉之後，擁有者才能被永久刪除（`file_folders.owner_id` 是 `RESTRICT`）。
    */

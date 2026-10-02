@@ -50,7 +50,7 @@ function setup(revision = 7) {
 const inTenant = <T>(id: string, fn: () => T): T =>
   runInTenantContext({ id } as unknown as TenantContext, fn);
 
-describe('AuthzRevision（docs/adr/0024-relationship-based-access-control.md D7、D8）', () => {
+describe('AuthzRevision（docs/rbac/01-domain-model.md §9.2 D7、D8）', () => {
   it('changed：本機失效整個租戶、發 permissions.changed，再廣播 { tenant, revision }', async () => {
     const { service, cache, events, broadcast } = setup(7);
     await inTenant('t1', () => service.changed(['u1']));

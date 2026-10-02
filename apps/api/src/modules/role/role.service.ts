@@ -152,7 +152,7 @@ export class RoleService {
   async update(id: string, dto: UpdateRoleDto, actor: AuthUser): Promise<RoleDto> {
     const { version, ...fields } = dto;
     const role = await this.getExisting(id);
-    // 讀到時就不同：別人已經改過（ADR-0025 D3）
+    // 讀到時就不同：別人已經改過（docs/architecture/backend/14-revisions.md §9.2 D3）
     if (version !== role.version) {
       throw new AppException('ROLE_VERSION_CONFLICT', { current: role.version });
     }
@@ -227,7 +227,7 @@ export class RoleService {
         await this.repo.addPermissions(id, dto.add, actor.id, tx);
       }
       const after = await this.repo.listPermissionKeys(id, tx);
-      // 權限鍵是關聯的寫入，不遞增角色的 `version`（ADR-0025 D3），但會產生新的一版
+      // 權限鍵是關聯的寫入，不遞增角色的 `version`（docs/architecture/backend/14-revisions.md §9.2 D3），但會產生新的一版
       await this.revisions.record(tx, {
         resourceType: RESOURCE_TYPE.ROLE,
         resourceId: id,
@@ -314,7 +314,7 @@ export class RoleService {
       if (count > 0 && !query.force) {
         throw new AppException('ROLE_IN_USE', { userCount: count });
       }
-      // 持有者邊保留（還原時原本的持有者自動回來，ADR-0025 D2）；持有者在刪除前查出，只用來推播讓他們的畫面重抓
+      // 持有者邊保留（還原時原本的持有者自動回來，docs/architecture/backend/14-revisions.md §9.2 D2）；持有者在刪除前查出，只用來推播讓他們的畫面重抓
       const holders = await this.repo.findHolderIds(id, tx);
       await this.repo.softDelete(id, actor.id, tx);
       await this.audit.record(
@@ -339,7 +339,7 @@ export class RoleService {
   }
 
   /**
-   * 還原刪除的角色（ADR-0025 D2、D5、D10）：清 `deleted_at`。刪除時保留的持有者邊、權限鍵、資料夾授權隨之生效，
+   * 還原刪除的角色（docs/architecture/backend/14-revisions.md §9.2 D2、D5、D10）：清 `deleted_at`。刪除時保留的持有者邊、權限鍵、資料夾授權隨之生效，
    * 原本的持有者（仍存在的使用者）自動拿回這個角色。R3 之前刪除的角色已經沒有持有者邊，`holdersRestored` 是 0。
    *
    * 反提權：還原等於「把這個角色（連同它的權限鍵）重新交給每一位原本的持有者」，所以與指派角色同一個檢查
@@ -398,7 +398,7 @@ export class RoleService {
     return { ...(await this.findOne(id)), holdersRestored };
   }
 
-  // ── 版本歷史（docs/architecture/backend/14-revisions.md §4、ADR-0025 D1、D10） ──
+  // ── 版本歷史（docs/architecture/backend/14-revisions.md §4、docs/architecture/backend/14-revisions.md §9.2 D1、D10） ──
 
   /** 角色的版本，新的在前。看版本＝看得到角色（`role:read`）；已刪除的角色 404。 */
   async listRevisions(id: string, query: ListRevisionDto) {
@@ -415,7 +415,7 @@ export class RoleService {
   }
 
   /**
-   * 還原到某一版（ADR-0025 D1、D10）：把那一版的快照當成一次新的更新——名稱、說明照一般的 `PATCH /roles/:id`
+   * 還原到某一版（docs/architecture/backend/14-revisions.md §9.2 D1、D10）：把那一版的快照當成一次新的更新——名稱、說明照一般的 `PATCH /roles/:id`
    * （`version` + 1、樂觀鎖、名稱唯一），權限鍵照 `PATCH /roles/:id/permissions`（反提權、自我鎖定），寫入之後產生新的一版，
    * 歷史不改寫。稽核記 `role.update`，`metadata.revertedFrom` 帶來源版本。
    *
@@ -568,7 +568,7 @@ export class RoleService {
   // ── 業務規則 ─────────────────────────────────────────────
 
   /**
-   * 還原前的唯一值檢查（ADR-0025 D5）：名稱或 slug 已被 **未刪除** 的角色使用 → `409 ROLE_NAME_DUPLICATE`，
+   * 還原前的唯一值檢查（docs/architecture/backend/14-revisions.md §9.2 D5）：名稱或 slug 已被 **未刪除** 的角色使用 → `409 ROLE_NAME_DUPLICATE`，
    * `details.conflictingRoleId` 帶佔用者，前端直接連過去。slug 建立後不可變，撞 slug 時只能先處理佔用的角色；
    * 撞名稱時也可以先把佔用的角色改名。檢查與寫入之間的競態由 partial unique index 擋下（同一個錯誤碼，不帶佔用者）。
    */
@@ -593,7 +593,7 @@ export class RoleService {
 
   /**
    * 條件式 UPDATE 沒有命中：列已不在 → 404；還在就是版本被搶先改過 → 409 並帶重讀的目前版本
-   * （ADR-0025 D3）。
+   * （docs/architecture/backend/14-revisions.md §9.2 D3）。
    */
   private async missedUpdate(id: string, tx: DbOrTx): Promise<AppException> {
     const current = await this.repo.findVersion(id, tx);

@@ -32,8 +32,8 @@ import type {
 } from './dto/auth.dto';
 
 /**
- * 平台管理者在 apps/auth 的 app session（docs/adr/0020-physical-tenant-isolation.md D5）：
- * 規則與租戶的 app session 相同（ADR-0004：5 分鐘 access token ＋ 輪替式 refresh cookie、ADR-0019 的 BFF 與單一登出），
+ * 平台管理者在 apps/auth 的 app session（docs/architecture/05-tenancy.md §10.2 D5）：
+ * 規則與租戶的 app session 相同（docs/architecture/backend/04-auth.md §10：5 分鐘 access token ＋ 輪替式 refresh cookie、docs/architecture/04-sso.md §12 的 BFF 與單一登出），
  * 資料在平台 DB。只在 apps/auth 的網域提供：租戶網域上一律 `PLATFORM_ONLY`。
  *
  * access token 帶 `realm: 'platform'`、不帶 `tid`：`AccessTokenVerifier` 在沒有租戶的網域只接受這種 token。
@@ -128,7 +128,7 @@ export class PlatformAuthService implements OnModuleInit {
     };
   }
 
-  /** 登出：撤銷家族；經 SSO 登入的一併結束 IdP session（ADR-0019 D5）。 */
+  /** 登出：撤銷家族；經 SSO 登入的一併結束 IdP session（docs/architecture/04-sso.md §12.2 D5）。 */
   async logout(rawToken: string | undefined, actor: AuthUser): Promise<{ success: true }> {
     this.assertPlatformHost();
     const row = rawToken ? await this.refreshTokens.revokeFamilyOf(rawToken, 'logout') : undefined;
@@ -158,7 +158,7 @@ export class PlatformAuthService implements OnModuleInit {
         lastLoginAt: admin.lastLoginAt?.toISOString() ?? null,
         role: admin.role,
       },
-      // 前端依它決定頁面與按鈕（平台的權限目錄，ADR-0020 D5）
+      // 前端依它決定頁面與按鈕（平台的權限目錄，docs/architecture/05-tenancy.md §10.2 D5）
       permissions: PLATFORM_ROLE_PERMISSIONS[admin.role].toSorted(),
     };
   }

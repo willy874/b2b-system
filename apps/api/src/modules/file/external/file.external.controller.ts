@@ -41,7 +41,7 @@ import type {
 import { FileExternalService } from './file.external.service';
 
 /**
- * 對外 API 的檔案與資料夾（docs/adr/0027-api-tokens-external-api.md T3）。權限宣告與內部 api 的同一組端點相同：
+ * 對外 API 的檔案與資料夾（docs/architecture/06-external-api.md §9 T3）。權限宣告與內部 api 的同一組端點相同：
  * 能進檔案管理器（`file:access`）或持有對應的全域權限；資料夾上的等級由 service 判斷。
  * 上傳是直傳物件儲存：建立 → PUT 到回傳的網址（分塊時先取 parts）→ complete。
  */

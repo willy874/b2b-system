@@ -13,7 +13,7 @@ import {
 import { citext } from '../../schema/custom-types';
 
 /**
- * 租戶的生命週期（docs/adr/0020-physical-tenant-isolation.md D12、D13）：
+ * 租戶的生命週期（docs/architecture/05-tenancy.md §10.2 D12、D13）：
  * `provisioning` → `active`；佈建失敗停在 `failed`（可重試）；`disabled` 的網域回 503。
  */
 export const tenantStatus = pgEnum('tenant_status', [
@@ -37,7 +37,7 @@ export const tenants = pgTable(
     status: tenantStatus('status').notNull().default('active'),
     databaseUrlEncrypted: text('database_url_encrypted').notNull(),
     /**
-     * 這個租戶的物件儲存 bucket（docs/adr/0020-physical-tenant-isolation.md D16）：檔案、縮圖、影像變體都在裡面，
+     * 這個租戶的物件儲存 bucket（docs/architecture/05-tenancy.md §10.2 D16）：檔案、縮圖、影像變體都在裡面，
      * 檔案維護的「沒有紀錄的物件」對帳也只看這個 bucket，不會碰到別的租戶的檔案。
      */
     storageBucket: text('storage_bucket').notNull(),
@@ -48,11 +48,11 @@ export const tenants = pgTable(
     provisionError: text('provision_error'),
     provisionedAt: timestamp('provisioned_at', { withTimezone: true }),
     /**
-     * 平台管理者為這個租戶啟用的 feature id（docs/adr/0021-runtime-feature-activation.md D8）。值域是
+     * 平台管理者為這個租戶啟用的 feature id（docs/architecture/frontend/02-plugin-system.md §9.2 D8）。值域是
      * `core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`；這一層不 import `core/`，所以預設值寫成字面量，
      * 新租戶與 migration 當下的既有租戶都啟用全部。讀取時濾掉不認得的值，不必加 CHECK 約束。
-     * 外部 IdP（`identityProvider`）原本是獨立的 `allow_external_idp` 欄，ADR-0029 併進這份清單。
-     * `webhook` 由 ADR-0030 加入，既有租戶由 migration 0010 啟用；`announcement` 由 ADR-0031 加入（migration 0011）。
+     * 外部 IdP（`identityProvider`）原本是獨立的 `allow_external_idp` 欄，docs/architecture/05-tenancy.md §12 併進這份清單。
+     * `webhook` 由 docs/architecture/backend/17-webhook.md §9 加入，既有租戶由 migration 0010 啟用；`announcement` 由 docs/architecture/backend/19-announcement.md §9 加入（migration 0011）。
      */
     features: text('features')
       .array()
@@ -61,12 +61,12 @@ export const tenants = pgTable(
         sql`'{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement}'::text[]`,
       ),
     /**
-     * 租戶層的 feature flag 覆寫（docs/adr/0022-feature-flags.md D2）：`{ [key]: boolean }`，沒列出 = 跟著全平台與預設值。
+     * 租戶層的 feature flag 覆寫（docs/architecture/05-tenancy.md §11.2 D2）：`{ [key]: boolean }`，沒列出 = 跟著全平台與預設值。
      * key 的值域是 `core/feature-flags` 的目錄；讀取時只看目錄裡的 key，殘留的舊 key 無害。
      */
     flags: jsonb('flags').$type<Record<string, boolean>>().notNull().default({}),
     /**
-     * feature 參數的覆寫（docs/adr/0033-feature-params-and-webhook-targets.md D2）：`{ [key]: number | string }`，
+     * feature 參數的覆寫（docs/architecture/05-tenancy.md §13.2 D2）：`{ [key]: number | string }`，
      * 沒列出 = 預設值。key 與範圍在 `core/tenant/tenant-feature-params.ts`；讀取時驗證，不符合的值回到預設。
      */
     featureParams: jsonb('feature_params')

@@ -7,7 +7,7 @@ import { WEBHOOK_MAX_URLS_PER_SUBSCRIPTION, WEBHOOK_URL_MAX_LENGTH } from '../we
 
 export const WebhookStatusSchema = z.enum(['active', 'disabled']);
 
-/** 停用的原因（docs/adr/0030-webhooks.md D13）：有人停用，或連續失敗自動停用。 */
+/** 停用的原因（docs/architecture/backend/17-webhook.md §9.2 D13）：有人停用，或連續失敗自動停用。 */
 export const WebhookDisabledReasonSchema = z.enum(['manual', 'failing']);
 
 /** 事件名稱：格式由目錄決定，這裡只擋明顯不對的值。 */
@@ -20,8 +20,8 @@ const EventsSchema = z
   .refine((events) => new Set(events).size === events.length, { message: 'duplicate events' });
 
 /**
- * 目標網址（docs/adr/0033-feature-params-and-webhook-targets.md D12、D13）：1～10 個、不重複；
- * production 只接受 https，不能帶帳密、不能解析到內網位址（ADR-0030 D15）。
+ * 目標網址（docs/architecture/backend/17-webhook.md §10.2 D12、D13）：1～10 個、不重複；
+ * production 只接受 https，不能帶帳密、不能解析到內網位址（docs/architecture/backend/17-webhook.md §9.2 D15）。
  */
 const UrlsSchema = z
   .array(z.string().trim().min(1).max(WEBHOOK_URL_MAX_LENGTH))
@@ -29,7 +29,7 @@ const UrlsSchema = z
   .max(WEBHOOK_MAX_URLS_PER_SUBSCRIPTION)
   .refine((urls) => new Set(urls).size === urls.length, { message: 'duplicate urls' });
 
-/** 一個目標網址與它的投遞狀況（失敗次數跟著網址走，ADR-0033 D15）。 */
+/** 一個目標網址與它的投遞狀況（失敗次數跟著網址走，docs/architecture/backend/17-webhook.md §10.2 D15）。 */
 export const WebhookTargetSchema = defineSchema(
   'WebhookTarget',
   z.object({
@@ -52,10 +52,10 @@ export const WebhookSchema = defineSchema(
     events: z.array(z.string()),
     status: WebhookStatusSchema,
     disabledReason: WebhookDisabledReasonSchema.nullable(),
-    /** 各網址連續失敗次數的最大值；任一網址到 50 次整個訂閱自動停用（ADR-0033 D15）。 */
+    /** 各網址連續失敗次數的最大值；任一網址到 50 次整個訂閱自動停用（docs/architecture/backend/17-webhook.md §10.2 D15）。 */
     consecutiveFailures: z.number().int(),
     lastDeliveryAt: z.string().nullable(),
-    /** 樂觀鎖版本：`PATCH` 時帶上（ADR-0025 D3）。 */
+    /** 樂觀鎖版本：`PATCH` 時帶上（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
     version: z.number().int(),
     createdAt: z.string(),
     updatedAt: z.string(),
@@ -82,7 +82,7 @@ export const UpdateWebhookSchema = defineSchema(
   z
     .object({
       name: z.string().trim().min(1).max(100).optional(),
-      /** 網址的完整清單：沒變的保留失敗次數，移除的不再投遞（ADR-0033 D13）。 */
+      /** 網址的完整清單：沒變的保留失敗次數，移除的不再投遞（docs/architecture/backend/17-webhook.md §10.2 D13）。 */
       urls: UrlsSchema.optional(),
       events: EventsSchema.optional(),
       /** 啟用時失敗次數歸零（D13）；停用的原因記為 `manual`。 */
@@ -130,7 +130,7 @@ export const WebhookDeliverySchema = defineSchema(
     /** 送出的 `data`（只有 id 與列舉值，D3）。 */
     eventData: z.record(z.string(), z.unknown()),
     occurredAt: z.string(),
-    /** 送到哪個網址；網址已從訂閱移除時 `targetId` 是 null，`url` 是當時的網址（ADR-0033 D14）。 */
+    /** 送到哪個網址；網址已從訂閱移除時 `targetId` 是 null，`url` 是當時的網址（docs/architecture/backend/17-webhook.md §10.2 D14）。 */
     targetId: z.string().uuid().nullable(),
     url: z.string(),
     /** 這個事件對這個網址的第幾次嘗試。 */
@@ -147,7 +147,7 @@ export const WebhookDeliverySchema = defineSchema(
   }),
 );
 
-/** 送測試事件的回應：每個網址一筆投遞紀錄（ADR-0033 D16）。 */
+/** 送測試事件的回應：每個網址一筆投遞紀錄（docs/architecture/backend/17-webhook.md §10.2 D16）。 */
 export const WebhookTestResultSchema = defineSchema(
   'WebhookTestResult',
   z.object({ items: z.array(WebhookDeliverySchema) }),

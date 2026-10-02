@@ -100,7 +100,7 @@ async function startEditing() {
 }
 
 describe('UserDetailPage', () => {
-  it('標籤：看得到使用者就看得到標籤；有 user:update 才能編輯（docs/adr/0032-tags.md D5）', async () => {
+  it('標籤：看得到使用者就看得到標籤；有 user:update 才能編輯（docs/architecture/backend/18-tag.md §7.2 D5）', async () => {
     fetchUser.mockResolvedValue({
       ...base,
       status: 'active',
@@ -271,7 +271,7 @@ describe('UserDetailPage', () => {
     expect(screen.queryByTestId('user-edit-button')).not.toBeInTheDocument();
   });
 
-  it('有 group:read → 列出所屬群組，直接所屬的在前（ADR-0024 G4）', async () => {
+  it('有 group:read → 列出所屬群組，直接所屬的在前（docs/rbac/01-domain-model.md §9 G4）', async () => {
     renderRoute(routes, PATH, ['user:read', 'group:read'] as PermissionKey[]);
     const groups = await screen.findAllByTestId('user-group', undefined, { timeout: 5000 });
     expect(groups.map((group) => group.getAttribute('data-value'))).toEqual(['g-design', 'g-art']);
@@ -285,7 +285,7 @@ describe('UserDetailPage', () => {
     expect(fetchGroups).not.toHaveBeenCalled();
   });
 
-  it('看自己：有「有效權限」，展開才查，依賴樹帶出的鍵標出來源（ADR-0024 G4b）', async () => {
+  it('看自己：有「有效權限」，展開才查，依賴樹帶出的鍵標出來源（docs/rbac/01-domain-model.md §9 G4b）', async () => {
     fetchProfile.mockResolvedValue({ user: { id: USER_ID }, permissions: [] });
     renderRoute(routes, PATH, ['user:read'] as PermissionKey[]);
     fireEvent.click(

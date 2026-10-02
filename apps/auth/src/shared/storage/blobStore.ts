@@ -1,6 +1,6 @@
 /**
  * 存放 `Blob`（例：排隊中的上傳檔案）的鍵值儲存：同一個分頁先放記憶體，並盡量寫進 IndexedDB，
- * 讓同源的其他分頁也讀得到（docs/adr/0013-file-manager-upload.md）。
+ * 讓同源的其他分頁也讀得到（docs/architecture/frontend/12-file-manager.md §14）。
  *
  * - IndexedDB 不可用（隱私模式、測試環境、配額不足）時只剩記憶體：本分頁照常，其他分頁讀不到。
  * - 不放 localStorage：它只能存字串，而且容量只有幾 MB。

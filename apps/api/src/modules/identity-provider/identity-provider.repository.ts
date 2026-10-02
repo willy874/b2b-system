@@ -58,7 +58,7 @@ export class IdentityProviderRepository {
   }
 
   /**
-   * 建立前序列化並數現有的連線（docs/adr/0033-feature-params-and-webhook-targets.md D10）：
+   * 建立前序列化並數現有的連線（docs/architecture/05-tenancy.md §13.3 D10）：
    * 同時建立兩個不會一起超過上限。
    */
   async lockAndCount(tx: DbOrTx): Promise<number> {

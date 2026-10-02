@@ -48,7 +48,7 @@ function invalidateDeletedFolder(folderId: string): void {
 
 /**
  * 遞迴刪除資料夾：子資料夾與其中的檔案一起消失，所以檔案的列表與詳情也要失效。
- * 刪除只是移到回收桶（ADR-0025 R4），成功的提示附「復原」，按下就還原整批（同一次刪除的子資料夾與檔案）。
+ * 刪除只是移到回收桶（docs/architecture/backend/14-revisions.md §9 R4），成功的提示附「復原」，按下就還原整批（同一次刪除的子資料夾與檔案）。
  */
 export function useFolderDeleteMutation() {
   const toast = useToast();
@@ -63,7 +63,7 @@ export function useFolderDeleteMutation() {
       toast.show({
         type: 'success',
         title: t('file.folder.delete.success'),
-        // 回收桶被平台關掉時還原端點回 404，不提供復原（docs/adr/0029-toggleable-platform-features.md D3）
+        // 回收桶被平台關掉時還原端點回 404，不提供復原（docs/architecture/05-tenancy.md §12.2 D3）
         ...(canRestore && {
           action: {
             label: t('file.folder.delete.undo'),
@@ -82,7 +82,7 @@ export function useFolderDeleteMutation() {
 }
 
 /**
- * 還原刪除的資料夾（`POST /file-folders/:id/restore`，ADR-0025 R4）：同一次刪除的子資料夾與檔案一起回來。
+ * 還原刪除的資料夾（`POST /file-folders/:id/restore`，docs/architecture/backend/14-revisions.md §9 R4）：同一次刪除的子資料夾與檔案一起回來。
  * 內容已不在的檔案不還原（`filesSkipped`），提示說明數量；同一個位置已有同名的資料夾時說明要先改名或移走它。
  * 上層已刪除（`FILE_FOLDER_RESTORE_CONFLICT`）用通用訊息：先還原上層。
  */

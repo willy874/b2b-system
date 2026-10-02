@@ -93,7 +93,7 @@ export const Resource = {
   /** 回收桶（已刪除的項目）；後端沒有這個來源，由各資源的建立（還原）與刪除衍生 */
   TRASH: 'trash',
   /**
-   * 授權的說明：有效權限的來源、資料夾存取的路徑（ADR-0024 G4b）。後端沒有這個來源；路徑經過使用者、群組、角色、資料夾，
+   * 授權的說明：有效權限的來源、資料夾存取的路徑（docs/rbac/01-domain-model.md §9 G4b）。後端沒有這個來源；路徑經過使用者、群組、角色、資料夾，
    * 由它們的任何變更衍生。只在展開說明時才查，整批失效的成本小
    */
   AUTHZ_EXPLAIN: 'authzExplain',
@@ -104,38 +104,38 @@ export const Resource = {
   USER_ROLE: 'userRole',
   /** 角色 ↔ 權限（`id` = roleId） */
   ROLE_PERMISSION: 'rolePermission',
-  /** 群組（`id` = 群組 id；名稱、成員、持有的角色都以它宣告，ADR-0024 D11） */
+  /** 群組（`id` = 群組 id；名稱、成員、持有的角色都以它宣告，docs/rbac/01-domain-model.md §9.3 D11） */
   GROUP: 'group',
   /** 密碼、邀請等不出現在任何畫面上的憑證寫入（`id` = userId） */
   USER_CREDENTIAL: 'userCredential',
-  /** 平台管理者變更了這個租戶啟用的 feature（docs/adr/0021-runtime-feature-activation.md D8） */
+  /** 平台管理者變更了這個租戶啟用的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D8） */
   TENANT_FEATURE: 'tenantFeature',
   /**
-   * 站內通知（`id` = 通知 id；docs/adr/0026-notification-center.md D8）。後端只推給收件人自己，
+   * 站內通知（`id` = 通知 id；docs/architecture/backend/15-notification.md §12.2 D8）。後端只推給收件人自己，
    * 新通知是 create、已讀與全部已讀是 update。
    */
   NOTIFICATION: 'notification',
-  /** 事件管理的租戶政策（`id` = 事件類型；docs/adr/0028-notification-event-management.md D9） */
+  /** 事件管理的租戶政策（`id` = 事件類型；docs/architecture/backend/16-notification-event.md §9.2 D9） */
   NOTIFICATION_POLICY: 'notificationPolicy',
-  /** 自己的通知設定（`id` = 事件類型；後端只推給本人，ADR-0028 D15） */
+  /** 自己的通知設定（`id` = 事件類型；後端只推給本人，docs/architecture/backend/16-notification-event.md §9.2 D15） */
   NOTIFICATION_PREFERENCE: 'notificationPreference',
-  /** 服務帳號（`id` = 服務帳號 id；docs/adr/0027-api-tokens-external-api.md D1） */
+  /** 服務帳號（`id` = 服務帳號 id；docs/architecture/06-external-api.md §9.2 D1） */
   SERVICE_ACCOUNT: 'serviceAccount',
   /**
    * API token（`id` = token id）：個人的、別人的、服務帳號的都是它。撤銷以 update 宣告（還在列表上，狀態變了）；
    * 服務帳號的 token 帶 `refs.serviceAccount`（擁有者的有效 token 數）
    */
   API_TOKEN: 'apiToken',
-  /** Webhook 訂閱（`id` = 訂閱 id；docs/adr/0030-webhooks.md） */
+  /** Webhook 訂閱（`id` = 訂閱 id；docs/architecture/backend/17-webhook.md §9） */
   WEBHOOK: 'webhook',
   /** 一次投遞嘗試（`id` = 紀錄 id）；帶 `refs.webhook`。投遞不寫稽核 */
   WEBHOOK_DELIVERY: 'webhookDelivery',
   /**
-   * 標籤的定義（`id` = 標籤 id；docs/adr/0032-tags.md D10）。貼與移除以擁有者的資源宣告（`file`、`fileFolder`、`user` update）
+   * 標籤的定義（`id` = 標籤 id；docs/architecture/backend/18-tag.md §7.2 D10）。貼與移除以擁有者的資源宣告（`file`、`fileFolder`、`user` update）
    */
   TAG: 'tag',
   /**
-   * 公告（`id` = 公告 id；docs/adr/0031-announcements.md）。背景發送的狀態、撤回也以它的 update 宣告，
+   * 公告（`id` = 公告 id；docs/architecture/backend/19-announcement.md §9）。背景發送的狀態、撤回也以它的 update 宣告，
    * 詳情的發送紀錄跟著重抓
    */
   ANNOUNCEMENT: 'announcement',
@@ -217,7 +217,7 @@ const graph = createResourceGraph<Resource>({
     collection: [AUDIT_LOG_LIST_QUERY_KEY],
     entity: [AUDIT_LOG_DETAIL_QUERY_KEY],
     // 任何寫入都會產生稽核紀錄；既有紀錄不可變，所以只影響列表。
-    // 站內通知不寫稽核（ADR-0026 D9），後端也不把它推給 auditLog:read（08-realtime.md §6.1 的 recordsAudit: false）：
+    // 站內通知不寫稽核（docs/architecture/backend/15-notification.md §12.2 D9），後端也不把它推給 auditLog:read（08-realtime.md §6.1 的 recordsAudit: false）：
     // 收到自己的通知、標為已讀時不重抓稽核列表
     derivesFromAnyChange: { except: [Resource.NOTIFICATION, Resource.WEBHOOK_DELIVERY] },
   },
@@ -233,7 +233,7 @@ const graph = createResourceGraph<Resource>({
   [Resource.FILE]: {
     // 檔案內容（FILE_TEXT_QUERY_KEY）刻意不列：內容以 id 為 key、上傳後不可變，改名不必重抓；
     // 刪除後 LightBox 由詳情的 404 得知
-    // 容量的已用量（ADR-0033 D8）跟著檔案的增刪變
+    // 容量的已用量（docs/architecture/05-tenancy.md §13.3 D8）跟著檔案的增刪變
     collection: [FILE_LIST_QUERY_KEY, FILE_INFINITE_LIST_QUERY_KEY, FILE_STORAGE_USAGE_QUERY_KEY],
     // 推播帶 `refs.fileFolder`（所在的資料夾）：只重抓正在看那個資料夾與不分資料夾的列表，
     // 其他資料夾的檔案管理器不動
@@ -246,7 +246,7 @@ const graph = createResourceGraph<Resource>({
     derivesFrom: [
       // 遞迴刪除資料夾時其中的檔案一起消失；移動資料夾讓「目前資料夾」的列表內容改變
       { from: Resource.FILE_FOLDER, kinds: ['update', 'delete'], id: 'none' },
-      // 檔案嵌入標籤的名稱與顏色（docs/adr/0032-tags.md D6）
+      // 檔案嵌入標籤的名稱與顏色（docs/architecture/backend/18-tag.md §7.2 D6）
       { from: Resource.TAG, kinds: ['update', 'delete'], id: 'none' },
     ],
   },
@@ -274,7 +274,7 @@ const graph = createResourceGraph<Resource>({
       { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'none', when: selfHoldsRole },
       { from: Resource.ROLE_PERMISSION, id: 'none', when: selfHoldsRole },
       // 群組的成員、持有的角色、刪除與還原都可能改變自己的權限；前端不知道自己（間接）在哪些群組裡，
-      // 一律重抓（伺服器把群組的變更推給群組的所有成員，ADR-0024 D11）
+      // 一律重抓（伺服器把群組的變更推給群組的所有成員，docs/rbac/01-domain-model.md §9.3 D11）
       { from: Resource.GROUP, id: 'none' },
       // profile 帶著啟用的 feature 清單；重新取得後由 useSyncFeatures 安裝或卸載
       { from: Resource.TENANT_FEATURE, id: 'none' },
@@ -285,12 +285,12 @@ const graph = createResourceGraph<Resource>({
     derivesFrom: [
       // 刪除＝進回收桶；還原以 create 宣告（重新出現在列表）；永久刪除以 delete 推播
       { from: Resource.USER, kinds: ['create', 'delete'], id: 'none' },
-      // 角色同理（ADR-0025 R3）；還原的持有者由伺服器另外推 userRole update（本人的 profile 跟著失效）
+      // 角色同理（docs/architecture/backend/14-revisions.md §9 R3）；還原的持有者由伺服器另外推 userRole update（本人的 profile 跟著失效）
       { from: Resource.ROLE, kinds: ['create', 'delete'], id: 'none' },
       // 群組同理
       { from: Resource.GROUP, kinds: ['create', 'delete'], id: 'none' },
       { from: Resource.ANNOUNCEMENT, kinds: ['create', 'delete'], id: 'none' },
-      // 檔案與資料夾同理（ADR-0025 R4）：上傳完成也是 file create，多一次回收桶的重抓無害
+      // 檔案與資料夾同理（docs/architecture/backend/14-revisions.md §9 R4）：上傳完成也是 file create，多一次回收桶的重抓無害
       { from: Resource.FILE, kinds: ['create', 'delete'], id: 'none' },
       { from: Resource.FILE_FOLDER, kinds: ['create', 'delete'], id: 'none' },
     ],
@@ -298,7 +298,7 @@ const graph = createResourceGraph<Resource>({
   [Resource.ROLE_REVISION]: {
     entity: [ROLE_REVISIONS_QUERY_KEY, ROLE_REVISION_DETAIL_QUERY_KEY],
     derivesFrom: [
-      // 改名稱或說明、還原到某一版都產生新的一版（ADR-0025 R5）；持有者的變更不在快照裡，不影響
+      // 改名稱或說明、還原到某一版都產生新的一版（docs/architecture/backend/14-revisions.md §9 R5）；持有者的變更不在快照裡，不影響
       { from: Resource.ROLE, kinds: ['update'], id: 'self' },
       // 增減權限鍵也產生新的一版
       { from: Resource.ROLE_PERMISSION, id: 'self' },

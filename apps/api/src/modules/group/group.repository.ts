@@ -216,7 +216,7 @@ export class GroupRepository {
     return row;
   }
 
-  /** 改名稱或說明並遞增 `version`；只在版本相符、且未刪除時才更新，不符回 undefined（ADR-0025 D3）。 */
+  /** 改名稱或說明並遞增 `version`；只在版本相符、且未刪除時才更新，不符回 undefined（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
   async update(
     id: string,
     values: Partial<Pick<GroupInsert, 'name' | 'description' | 'updatedBy'>>,
@@ -258,7 +258,7 @@ export class GroupRepository {
 
   /**
    * 軟刪除群組。成員與持有角色的邊、以群組為對象的資料夾授權都 **保留**（休眠）：解析已排除刪除的群組，
-   * 還原時一起回來（與角色相同，ADR-0025 D2）。關係圖的 revision 由 trigger（migration 0017）+1。
+   * 還原時一起回來（與角色相同，docs/architecture/backend/14-revisions.md §9.2 D2）。關係圖的 revision 由 trigger（migration 0017）+1。
    */
   async softDelete(id: string, actorId: string, tx: DbOrTx): Promise<void> {
     await tx
@@ -478,7 +478,7 @@ export class GroupRepository {
       .where(and(inArray(roles.id, [...ids]), isActiveRole()));
   }
 
-  // ── 還原（ADR-0025 D2、D5）：這一段故意讀已刪除的列，一律用 isDeleted() ──
+  // ── 還原（docs/architecture/backend/14-revisions.md §9.2 D2、D5）：這一段故意讀已刪除的列，一律用 isDeleted() ──
 
   async findDeletedById(id: string): Promise<GroupRow | undefined> {
     const [row] = await this.db
@@ -544,7 +544,7 @@ export class GroupRepository {
     };
   }
 
-  /** 刪除超過保留期限的群組（依 id 的 keyset；ADR-0025 D11）。 */
+  /** 刪除超過保留期限的群組（依 id 的 keyset；docs/architecture/backend/14-revisions.md §9.2 D11）。 */
   async findExpired(
     cutoff: Date,
     afterId: string | null,

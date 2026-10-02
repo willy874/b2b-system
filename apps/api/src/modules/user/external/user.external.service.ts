@@ -21,7 +21,7 @@ function toExternalUser(user: UserDto): ExternalUserDto {
   };
 }
 
-/** 對外 API 的使用者（唯讀，docs/adr/0027-api-tokens-external-api.md T3）：查詢在 `UserService`，這裡只換成對外的契約。 */
+/** 對外 API 的使用者（唯讀，docs/architecture/06-external-api.md §9 T3）：查詢在 `UserService`，這裡只換成對外的契約。 */
 @Injectable()
 export class UserExternalService {
   constructor(private readonly users: UserService) {}

@@ -33,17 +33,17 @@ export interface RouteDeclaration {
   path: string;
   declaration: 'public' | 'authenticated' | 'permissions' | 'platformPermissions' | 'none';
   keys: PermissionKey[];
-  /** `@RequirePlatformPermissions` 的鍵（平台的權限目錄，ADR-0020 D5）。 */
+  /** `@RequirePlatformPermissions` 的鍵（平台的權限目錄，docs/architecture/05-tenancy.md §10.2 D5）。 */
   platformKeys: PlatformPermissionKey[];
   match?: 'every' | 'some';
   /**
-   * `@RequireFeature` 標的 feature（docs/adr/0021-runtime-feature-activation.md D11），handler 與 class 的合併；
+   * `@RequireFeature` 標的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D11），handler 與 class 的合併；
    * 沒有標就是常駐的端點。
    */
   features?: TenantFeature[];
-  /** `@RequireFlag` 標的 feature flag（docs/adr/0022-feature-flags.md D5）。 */
+  /** `@RequireFlag` 標的 feature flag（docs/architecture/05-tenancy.md §11.2 D5）。 */
   flag?: string;
-  /** 屬於哪一個入口（docs/adr/0027-api-tokens-external-api.md D11）；沒標是 `internal`。 */
+  /** 屬於哪一個入口（docs/architecture/06-external-api.md §9.2 D11）；沒標是 `internal`。 */
   surface: ApiSurface;
 }
 
@@ -200,7 +200,7 @@ export function auditRoutes(
     );
   }
 
-  // flag 同樣以租戶為單位判斷（ADR-0022 D5）；目錄裡沒有的 key 永遠是關的，等於把端點關死，視為寫錯
+  // flag 同樣以租戶為單位判斷（docs/architecture/05-tenancy.md §11.2 D5）；目錄裡沒有的 key 永遠是關的，等於把端點關死，視為寫錯
   const knownFlags = new Set(flagCatalog.map((flag) => flag.key));
   const badFlags = routes.filter(
     (r) => r.flag && (r.declaration === 'platformPermissions' || !knownFlags.has(r.flag)),
@@ -212,7 +212,7 @@ export function auditRoutes(
     );
   }
 
-  // 入口的分界（docs/adr/0027-api-tokens-external-api.md D11、D12）：對外的路由一律在 /v<n>/ 底下、要登入
+  // 入口的分界（docs/architecture/06-external-api.md §9.2 D11、D12）：對外的路由一律在 /v<n>/ 底下、要登入
   // （只認 API token；平台端點不對外）；內部的不能佔用 /v<n>/；兩邊都有的只給公開的健康檢查
   const versioned = /^\/v\d+(\/|$)/;
   const badSurface = routes.filter((r) =>

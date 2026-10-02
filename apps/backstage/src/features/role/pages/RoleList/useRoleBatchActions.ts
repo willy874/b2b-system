@@ -8,7 +8,7 @@ import { useRolePermission } from '../../hooks/useRolePermission';
 import type { RoleRowVM } from './adapter';
 
 /**
- * 角色列表的批次動作（ADR-0012）。系統角色與仍有人持有的角色不送出——
+ * 角色列表的批次動作（docs/architecture/frontend/07-ui-system.md §13）。系統角色與仍有人持有的角色不送出——
  * 批次刪除不提供強制刪除，要強制請走單筆。
  */
 export function useRoleBatchActions(): Array<BatchAction<RoleRowVM>> {

@@ -96,11 +96,11 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 
 換成真正的 S3 時，`FILE_STORAGE_PUBLIC_ENDPOINT` 設成 S3 的 endpoint，並在 bucket 上設定 CORS 與放寬 CSP。
 
-每個租戶的 backstage 在自己的網域（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D2），CSP 的 `connect-src 'self'` 只允許同源，
+每個租戶的 backstage 在自己的網域（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D2），CSP 的 `connect-src 'self'` 只允許同源，
 所以預設值 `{tenantOrigin}/storage` 的佔位符會換成 **目前租戶主要網域** 的 origin（協定沿用 `APP_PUBLIC_URL`）：
 acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域的反向代理轉給 file-storage（Host 原樣轉發，SigV4 的簽章才對得上）。
 
-### 3.1 每個租戶一個 bucket（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D16）
+### 3.1 每個租戶一個 bucket（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D16）
 
 - bucket 記在平台 DB 的 `tenants.storage_bucket`（唯一，刪除的租戶也算），隨租戶脈絡帶著走；`S3ObjectStorage` 的每個操作都用
   **目前租戶** 的 bucket，沒有租戶脈絡時拋 `TENANT_NOT_FOUND`，不會退回任何共用的 bucket。業務模組的 key 不帶租戶。
@@ -132,7 +132,7 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 | `variant_format` | text | 變體的主格式：`jpeg`（progressive）或 `webp`（有透明度的圖） |
 | `folder_id` | uuid（FK → `file_folders`） | 所在的資料夾；null 是根目錄（§4.2） |
 | `version` | integer | 樂觀鎖，每次改名遞增（§6.2）。不用 `updated_at` 比對：它是微秒精度，經過 JSON（毫秒）來回就對不上 |
-| `deletion_id` | uuid | 一次刪除操作的識別：遞迴刪除資料夾時與資料夾同一個值，還原資料夾時只還原同一批（[ADR-0025](../../adr/0025-entity-revisions.md) D5、[`13-trash.md`](./13-trash.md) §7.0）；未刪除時是 null |
+| `deletion_id` | uuid | 一次刪除操作的識別：遞迴刪除資料夾時與資料夾同一個值，還原資料夾時只還原同一批（[`backend/14-revisions.md`](14-revisions.md) §9.2 D5、[`13-trash.md`](./13-trash.md) §7.0）；未刪除時是 null |
 | `created_*` / `updated_*` / `deleted_at` | | 慣例欄位；`updated_at` 由 trigger 維護；刪除是軟刪除（移到回收桶，[`13-trash.md`](./13-trash.md) §7） |
 
 約束（schema 的 `check()`，在 migration `0000_baseline.sql`；整合測試證明擋得住）：
@@ -249,7 +249,7 @@ const file = await uploadFile({ file: input.files[0], thumbnail, onProgress: ({ 
 
 檔案管理器的完整上傳流程（驗證、全域佇列、跨分頁接手）見 [`../frontend/12-file-manager.md`](../frontend/12-file-manager.md) §8。
 
-### 5.0 檔案容量（[ADR-0033](../../adr/0033-feature-params-and-webhook-targets.md) D8）
+### 5.0 檔案容量（[`architecture/05-tenancy.md`](../05-tenancy.md) §13.3 D8）
 
 租戶的容量是 feature 參數 `file.storageQuotaMb`（預設 2048 MB，平台管理者設定；[`../05-tenancy.md`](../05-tenancy.md) §5.3）。
 用量是 `files.size` 的合計（`FileRepository.storageUsed()`）：**含** 上傳中的 `pending` 與回收桶裡的檔案，**不含** 縮圖與影像變體。
@@ -327,7 +327,7 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   儲存服務暫時不可用 → 維持 `pending`，由維護排程（§9）在 5 分鐘後重新排入。執行個體在產生途中重啟同理。
 - **補產生**：`variant_status = 'pending'` 的圖片由維護排程逐批補產生。
 - **影像處理在 api 內**（`core/image` 的 `ImageProcessor`，實作是 sharp）：sharp 是預編譯的原生套件，
-  平台二進位檔隨 `@img/sharp-*` 安裝（macOS、Linux glibc / musl 都有），不需要編譯環境。取捨見 [ADR-0014](../../adr/0014-server-image-variants.md)。
+  平台二進位檔隨 `@img/sharp-*` 安裝（macOS、Linux glibc / musl 都有），不需要編譯環境。取捨見 §12.3、§12.4。
 - **記憶體**（與服務 WebSocket 的是同一個程序）：
   - 原圖串流先寫到暫存檔（`os.tmpdir()`，超過 128 MiB 就中斷），libvips 再從檔案逐列解碼（`sequentialRead`），不整份讀成 Buffer；
     用完 `DecodedImage.dispose()` 刪掉暫存檔；
@@ -580,7 +580,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | 3 | 孤兒物件 | 放棄上傳、永久刪除之後的物件刪除失敗；紀錄已不存在 | `ListObjectsV2` 列出 `files/`、`thumbnails/`、`variants/`，由 key 取出 id，查不到 **任何** 紀錄（含已軟刪除的） | 刪除 |
 | 4 | 卡住的影像變體 | 產生途中重啟、儲存服務暫時不可用；migration 補產生 | `variant_status='pending' AND uploaded_at < now - 5 分鐘` | 重新排入（§5.4） |
 
-- **已刪除紀錄的物件不是孤兒**（[ADR-0025](../../adr/0025-entity-revisions.md) D11）：紀錄還在回收桶裡，保留期限內可以還原；
+- **已刪除紀錄的物件不是孤兒**（[`backend/14-revisions.md`](14-revisions.md) §9.2 D11）：紀錄還在回收桶裡，保留期限內可以還原；
   物件由 `trash.purge` 在永久刪除之後刪（[`13-trash.md`](./13-trash.md) §7.3）。R4a 之前這一類是「查不到 **未刪除** 紀錄」，遞迴刪除資料夾的物件靠它清除。
 - **不誤判**：2、3 只看建立早於 `now - FILE_PENDING_TTL` 的東西——剛登記、INSERT 還沒提交的上傳不會被當成孤兒；
   不是這個模組產生的 key（前綴不對、id 不是 uuid）一律不碰。
@@ -626,7 +626,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 
 ## 11. 存取控制（資料夾層級授權）
 
-規格：[`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)；決策：[ADR-0015](../../adr/0015-file-folder-access.md)。
+規格：[`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)；決策：[`rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md) §13。
 這一節只講實作落點。
 
 對外 API 限縮過 scopes 的 token：`contextFor` 讓判斷器的租戶層只有限縮後的權限鍵，資料夾上的授權照舊
@@ -686,3 +686,68 @@ FileAccessService（modules/file）
 訂閱 `permissions.changed`，為事件帶的 `userIds`（只在發起寫入的程序上有）中取得檔案管理器權限的人建立個人資料夾；訂閱 `resource.changed` 的 `user delete`，
 擁有者被刪除時把空的個人資料夾軟刪除（rbac/07 §12）。
 
+
+---
+
+## 12. 設計決策：伺服器實體化圖片的三個版本、影像 API、上傳殘留的維護排程
+
+> 原 ADR-0014，2026-09-27 決定。部分取代 [`frontend/12-file-manager.md`](../frontend/12-file-manager.md) §14.2 D7「縮圖由瀏覽器產生」：瀏覽器縮圖保留，降為退路（D6）。
+> 維護排程後來改由背景工作執行（[`10-jobs.md`](./10-jobs.md) §9 D7），`FILE_MAINTENANCE_INTERVAL` 換成 `FILE_MAINTENANCE_CRON`。
+
+### 12.1 背景
+
+[`frontend/12-file-manager.md`](../frontend/12-file-manager.md) §14 讓瀏覽器在上傳時產生縮圖，api 不處理影像。實際使用後的需求：
+
+- **不同用途要不同尺寸**：列表要小圖示、LightBox 全螢幕要「夠清楚但不是 20 MB 原圖」；瀏覽器只產生了一種。
+- **大圖要能漸進顯示**：全螢幕預覽在下載途中就該由模糊到清楚。瀏覽器的 `canvas.toBlob('image/jpeg')` 只能輸出 baseline JPEG，
+  做不出 progressive JPEG。
+- **格式依請求調整**：要能依瀏覽器支援（`Accept`）或指定取得 WebP / AVIF / PNG，瀏覽器上傳時無法預先產生所有格式。
+- **縮圖依賴上傳者**：舊資料、其他管道寫入、瀏覽器解不了的格式都沒有縮圖。
+- **上傳失敗的殘留**（逾時的 pending、沒有紀錄的分塊上傳、孤兒物件）一直列在「尚未處理」。
+
+### 12.2 決定
+
+| # | 問題 | 決定 |
+| --- | --- | --- |
+| D1 | 誰產生變體 | **api**，以 `core/image` 的 `ImageProcessor`（實作 sharp）；上傳完成後在背景產生，不擋 `complete` 的回應 |
+| D2 | 實體化哪些版本 | 原圖（原封不動）、全螢幕預覽（長邊 2560）、圖示預覽（長邊 480），後兩者寫進 `variants/<id>/` |
+| D3 | 主格式 | progressive JPEG；有透明度的圖用 WebP |
+| D4 | 其他格式 | 影像 API 的 `format` 參數（`jpeg` / `webp` / `avif` / `png` / `auto`）；第一次被要求時才轉出並存起來 |
+| D5 | 前端怎麼取得 | 專用的 `GET /files/:id/image/:variant`：`@Public()` ＋ 網址上的 HMAC 簽章，302 轉址到物件儲存的 presigned 網址 |
+| D6 | 瀏覽器縮圖 | 保留，降為退路：變體產生前、伺服器處理不了的檔案、之後其他類型（影片封面）的擴充點 |
+| D7 | 殘留清理 | api 內的維護排程（`FileMaintenanceService`），偵測四類殘留；可 dry run |
+
+細節見 §5.4（影像變體與影像 API）與 §9（維護排程）。
+
+### 12.3 理由
+
+- **sharp 而不是其他做法**：預編譯的原生套件（macOS、Linux glibc / musl 都有二進位檔），不需要在映像裡裝編譯環境——
+  [`frontend/12-file-manager.md`](../frontend/12-file-manager.md) §14 擔心的「原生套件讓建置變複雜」在 sharp 0.33 之後已經不成立。libvips 快且省記憶體，mozjpeg 做 progressive JPEG。
+- **在 api 內而不是另起服務**：目前規模下一個執行個體同時 2 張、背景執行就夠；`ImageProcessor` 是抽象類別，
+  之後要搬到獨立的 worker 或外部影像服務只換實作。
+- **302 轉址而不是 api 串流內容**：內容仍然不經過 api（[`frontend/12-file-manager.md`](../frontend/12-file-manager.md) §14 與 §5 的原則），同源代理、presigned 快取策略都沿用。
+- **網址簽章而不是 cookie**：access token 只在記憶體（不進 cookie、不進 `localStorage`）；另開一個帶身分的 cookie 會多一條
+  CSRF 面。簽章網址與 presigned URL 是同一個模型，大家已經熟悉。
+- **格式第一次被要求才轉**：AVIF 編碼很慢，全部預先產生會讓每次上傳都付出大多數人用不到的成本。
+- **維護排程在 api 內而不是腳本**：清理要用 `ObjectStorage` 與 `ImageProcessor`（DI），腳本依層級規則只能 import 純函式。
+
+### 12.4 取捨
+
+- **api 多了 CPU 與記憶體負載**：解碼一張 1 億像素的圖要數百 MB。以並行上限（2）、位元組上限（128 MiB）、像素上限（1 億）控制；
+  超過的圖片標 `failed`，退回瀏覽器縮圖。
+- **變體有延遲**：上傳完成到變體可用之間，列表用瀏覽器縮圖、LightBox 用原圖；完成後以推播更新。
+- **影像 API 是公開路由**：拿到網址的人在 `exp` 之前都能讀，與 presigned URL 相同；簽章綁定檔案、版本與失效時間。
+- **多執行個體會重複維護**：每一步都是冪等的，只是白工；當時的做法是只在一個執行個體開 `FILE_MAINTENANCE_INTERVAL`。
+  改由背景工作排程之後，pg-boss 的排程有分散式鎖、佇列同時段只放一筆（§9），不再重複。
+- **孤兒物件對帳要列整個受管理前綴**：物件數量很大時變慢，屆時拉長間隔或改用儲存服務的 inventory。
+
+### 12.5 實作紀錄
+
+- 新依賴：`sharp`（apps/api）。
+- 後端：`core/image`（`ImageProcessor`、`SharpImageProcessor`、`ImageModule`）；`ObjectStorage` 新增 `getObject`、`putObject`、
+  `listObjects`、`listMultipartUploads`；`files` 新增 `variant_status`、`image_width`、`image_height`、`variant_format`、
+  約束 `files_variant_ready_described`、索引 `files_variant_pending_idx`（`0008_file_image_variants.sql`，並把既有圖片排入補產生）；
+  `FileImageService`、`FileMaintenanceService`；端點 `GET /files/:id/image/:variant`；`StoredFile.image`；
+  錯誤碼 `FILE_IMAGE_URL_INVALID`；環境變數 `API_PUBLIC_BASE_URL`、`FILE_PENDING_TTL`、`FILE_MAINTENANCE_INTERVAL`（後來換成 `FILE_MAINTENANCE_CRON`）、`FILE_MAINTENANCE_DRY_RUN`。
+- apps/file-storage：支援 `ListMultipartUploads`。
+- 前端：LightBox 預設顯示全螢幕預覽（`FilePreviewSource.displayUrl`），切到原始大小才載入原圖；`thumbnailUrl` 的來源由後端決定，前端不變。

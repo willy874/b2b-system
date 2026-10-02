@@ -16,7 +16,7 @@ import { NotificationListRoute } from '../routes/pages';
 import { NotificationList } from './NotificationList';
 
 /**
- * 頂列的通知工具（`registerHeaderTool`，ADR-0026 D12）：徽章是未讀數，點開是最近的通知與「全部已讀」。
+ * 頂列的通知工具（`registerHeaderTool`，docs/architecture/backend/15-notification.md §12.2 D12）：徽章是未讀數，點開是最近的通知與「全部已讀」。
  * 未讀數與列表只來自 query，不存 localStorage；新通知經推播讓兩者失效。
  */
 export function NotificationBell() {

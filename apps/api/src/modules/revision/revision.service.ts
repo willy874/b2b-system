@@ -48,7 +48,7 @@ function toSummary(row: RevisionSummaryRow): RevisionSummaryDto {
 }
 
 /**
- * 版本歷史（docs/architecture/backend/14-revisions.md、ADR-0025 D1）。通用模組：不認識任何業務模組，
+ * 版本歷史（docs/architecture/backend/14-revisions.md、docs/architecture/backend/14-revisions.md §9.2 D1）。通用模組：不認識任何業務模組，
  * 快照的內容（白名單）、權限與版本端點都由加入的擁有者模組決定。
  */
 @Injectable()
@@ -133,7 +133,7 @@ export class RevisionService {
   }
 
   /**
-   * 保留清理（ADR-0025 D1）：刪除「不在每個資源最新 `revision.keepVersions` 版內、而且早於 `revision.keepDays` 天」的版本。
+   * 保留清理（docs/architecture/backend/14-revisions.md §9.2 D1）：刪除「不在每個資源最新 `revision.keepVersions` 版內、而且早於 `revision.keepDays` 天」的版本。
    * 兩個條件是聯集的保留：只要符合其中一個就留著。每批一條 DELETE（各自提交；中途失敗重跑只剩還沒刪的）。
    */
   async prune(now: Date = new Date()): Promise<RevisionPruneReport> {

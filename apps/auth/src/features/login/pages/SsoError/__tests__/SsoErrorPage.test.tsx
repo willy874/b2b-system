@@ -29,7 +29,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('provider 的協定錯誤頁（docs/adr/0019-sso-identity-platform.md D7）', () => {
+describe('provider 的協定錯誤頁（docs/architecture/04-sso.md §12.2 D7）', () => {
   it('顯示錯誤並提供重新開始登入的出口', async () => {
     renderAt('/error?error=invalid_client');
     expect(await screen.findByTestId('sso-error')).toHaveAttribute('data-value', 'invalid_client');

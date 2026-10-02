@@ -92,7 +92,7 @@ export default function FileManagerPage() {
   const onOpen = (item: BrowserItemVM) =>
     item.type === 'folder' ? setFolder(item.id) : nav.openPreview(item.id);
   const hasFilters = Boolean(search.keyword || search.category || search.tag);
-  // 標籤篩選的選項（`file` 標籤組；進得了檔案管理器就讀得到，docs/adr/0032-tags.md D5）
+  // 標籤篩選的選項（`file` 標籤組；進得了檔案管理器就讀得到，docs/architecture/backend/18-tag.md §7.2 D5）
   const tags = useQuery(getTagListQueryOptions('file'));
 
   return (

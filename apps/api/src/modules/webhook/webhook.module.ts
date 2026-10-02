@@ -14,7 +14,7 @@ import { WebhookService } from './webhook.service';
 import { WebhookTransport } from './webhook.transport';
 
 /**
- * Webhook（docs/adr/0030-webhooks.md）。不 import 任何發出事件的業務模組：擁有者模組 import 它，
+ * Webhook（docs/architecture/backend/17-webhook.md §9）。不 import 任何發出事件的業務模組：擁有者模組 import 它，
  * 在自己的 constructor 以 `WebhookEventCatalog.register()` 登記事件，在業務交易內呼叫 `WebhookService.emit()`。
  */
 @Module({

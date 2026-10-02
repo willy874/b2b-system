@@ -22,7 +22,7 @@ export interface PlatformPermissionRequirement {
 }
 
 /**
- * 平台管理者的端點（apps/auth，docs/adr/0020-physical-tenant-isolation.md D5）：依平台管理者的角色判斷，
+ * 平台管理者的端點（apps/auth，docs/architecture/05-tenancy.md §10.2 D5）：依平台管理者的角色判斷，
  * 只在不屬於任何租戶的網域有效，租戶網域上回 `PLATFORM_ONLY`。所有鍵都要有（EVERY）。
  */
 export const RequirePlatformPermissions = (...keys: PlatformPermissionKey[]) =>

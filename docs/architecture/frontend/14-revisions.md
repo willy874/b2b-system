@@ -1,7 +1,7 @@
 # 前端 14 — 版本紀錄
 
-> 狀態：**已實作**（角色：`features/role`，路由 `/role/$roleId/revision`；ADR-0025 R5）。後端的版本歷史見
-> [`../backend/14-revisions.md`](../backend/14-revisions.md)；決策見 [ADR-0025](../../adr/0025-entity-revisions.md) D1、D10。
+> 狀態：**已實作**（角色：`features/role`，路由 `/role/$roleId/revision`；[`backend/14-revisions.md`](../backend/14-revisions.md) §9 R5）。後端的版本歷史見
+> [`../backend/14-revisions.md`](../backend/14-revisions.md)；決策見 [`backend/14-revisions.md`](../backend/14-revisions.md) §9.2 D1、D10。
 
 ## 1. 組成
 

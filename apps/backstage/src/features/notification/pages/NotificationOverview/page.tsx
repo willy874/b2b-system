@@ -6,7 +6,7 @@ import { NotificationOverviewTable } from './components/NotificationOverviewTabl
 import { useNotificationOverview } from './useNotificationOverview';
 import { useNotificationOverviewFilters } from './useNotificationOverviewFilters';
 
-/** 通知總覽（`notification:read`；docs/adr/0031-announcements.md D1）：租戶內所有人的站內通知。 */
+/** 通知總覽（`notification:read`；docs/architecture/backend/19-announcement.md §9.2 D1）：租戶內所有人的站內通知。 */
 export default function NotificationOverviewPage() {
   const { t } = useTranslation();
   const { search, filters } = useNotificationOverviewFilters();

@@ -2,7 +2,7 @@
 
 會隨營運調整、不必重新部署就能改的值：帳號政策、上傳上限、預設時區。
 每個租戶各自一份（設定表在租戶 DB），由有 `system:update` 的人在 backstage 的「系統設定」頁修改。
-平台可對租戶關閉設定頁（feature `systemSetting`，[ADR-0029](../../adr/0029-toggleable-platform-features.md) D4）：
+平台可對租戶關閉設定頁（feature `systemSetting`，[`architecture/05-tenancy.md`](../05-tenancy.md) §12.2 D4）：
 `GET`／`PATCH /system/settings` 回 404，已覆寫的值照樣生效，`/system/settings/public` 不受影響。
 
 ## 1. 分層
@@ -24,7 +24,7 @@ modules/system/                    設定頁的 API：驗證、稽核、推播�
   `settings.register([...])`。重複的 key、預設值不符合自己的 schema 都讓程序啟動失敗。
   帳號政策登記在 `CredentialModule` 而不是 `AuthModule`：`UserModule` 只匯入前者，也要讀得到。
 - **讀取**：`await settings.get(LOGIN_MAX_ATTEMPTS_SETTING)`，型別由定義推導。
-  第一次讀取時把整張表（一個 key 最多一列）載入快取，key 是租戶 id（與權限快取一樣帶租戶，ADR-0020 D17）。
+  第一次讀取時把整張表（一個 key 最多一列）載入快取，key 是租戶 id（與權限快取一樣帶租戶，[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D17）。
 - **存的值不合目前的 schema**（例如之後收緊了範圍）時退回預設值並記 warn，不讓請求失敗。
 - **快取**：寫入的交易提交後 `invalidate()` 目前租戶，並經平台 DB 廣播（頻道 `settings`）讓其他程序丟掉同一個租戶的快取；
   另有 30 秒 TTL 當保險，漏掉廣播時其他程序最慢 30 秒後看到新值（[`../01-system.md`](../01-system.md) §4.4）。
@@ -76,7 +76,7 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 | `auth.registrationEnabled` | boolean | `true` | 是 | `AuthService.register`：關閉時 `404 AUTH_REGISTRATION_DISABLED` |
 | `auth.activationTtlHours` | 1–168 | 24 | 否 | `AuthTokenService.issue`：啟用連結的到期時間與信裡寫的時數 |
 | `auth.passwordResetTtlHours` | 1–24 | 1 | 否 | 同上，重設密碼連結 |
-| `auth.personalTokenMaxDays` | 1–90（天） | 90 | 否 | `ApiTokenService.create`：個人 API token 的到期上限（[ADR-0027](../../adr/0027-api-tokens-external-api.md) D8） |
+| `auth.personalTokenMaxDays` | 1–90（天） | 90 | 否 | `ApiTokenService.create`：個人 API token 的到期上限（[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D8） |
 | `auth.serviceAccountTokenMaxDays` | 1–365（天） | 365 | 否 | 同上，服務帳號的 API token |
 | `file.uploadMaxSize` | 1 MiB – env 上限（位元組） | env 值 | 否 | `FileService`：`createUpload` 的檢查與 `GET /files/upload-policy` |
 | `trash.retentionDays` | 1–365（天） | 30 | 否 | `TrashService`：`trash.purge` 永久刪除的期限、回收桶列表的 `purgeAt`（[`13-trash.md`](./13-trash.md) §5）。調小後下一次排程就依新的天數清除 |
@@ -94,7 +94,7 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 - **連結有效期以小時為單位**：信裡寫「N 小時內有效」，到期時間與信裡的數字出自同一個值。
 - **平台管理者不讀這些設定**：登入鎖定仍讀 env `LOGIN_*`，啟用與重設連結用 `platform-admin.constants.ts`。
 - **不搬進來的值**：
-  - session 長度（`REFRESH_TOKEN_TTL`、`OIDC_TTL.Session`）：ADR-0004 要求兩者一致，而 IdP 屬於平台、
+  - session 長度（`REFRESH_TOKEN_TTL`、`OIDC_TTL.Session`）：[`backend/04-auth.md`](04-auth.md) §10 要求兩者一致，而 IdP 屬於平台、
     所有租戶共用；要讓每個租戶各自設定，得把 OIDC provider 的 TTL 改成依請求計算。
   - 稽核日誌的保留天數：`AUDIT_LOG_HOT_RETENTION_DAYS` 必須 ≥ `AUDIT_LOG_MAX_RANGE_DAYS`，而且封存由平台排程執行。
 

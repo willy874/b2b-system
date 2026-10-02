@@ -19,7 +19,7 @@ export class NotificationPreferenceRepository {
       .where(eq(notificationPreferences.userId, userId));
   }
 
-  /** 這些收件人裡，在這個事件 ＋ 管道上自己關掉的人（`notify()` 一次查完，ADR-0028 D15）。 */
+  /** 這些收件人裡，在這個事件 ＋ 管道上自己關掉的人（`notify()` 一次查完，docs/architecture/backend/16-notification-event.md §9.2 D15）。 */
   async findOptedOut(
     type: string,
     channel: string,

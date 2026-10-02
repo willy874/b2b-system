@@ -16,7 +16,7 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  // backstage 與 apps/auth（SSO 的登入互動頁，docs/adr/0019-sso-identity-platform.md）；api 要另外啟動（pnpm dev:e2e）
+  // backstage 與 apps/auth（SSO 的登入互動頁，docs/architecture/04-sso.md §12）；api 要另外啟動（pnpm dev:e2e）
   webServer: process.env.E2E_NO_SERVER
     ? undefined
     : [

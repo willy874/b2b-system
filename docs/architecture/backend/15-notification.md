@@ -1,8 +1,8 @@
 # 後端 15 — 站內通知
 
 「有事等你處理」與「你的東西被動了」：每位收件人一筆、可以回頭看、有已讀／未讀。
-決策見 [ADR-0026](../../adr/0026-notification-center.md)；前端（鈴鐺、列表頁、route id 註冊表）見 [`../frontend/15-notification.md`](../frontend/15-notification.md)。
-租戶可以關掉某些事件或管道：事件目錄與租戶的政策見 [`16-notification-event.md`](./16-notification-event.md)（[ADR-0028](../../adr/0028-notification-event-management.md)）。
+決策見 §12；前端（鈴鐺、列表頁、route id 註冊表）見 [`../frontend/15-notification.md`](../frontend/15-notification.md)。
+租戶可以關掉某些事件或管道：事件目錄與租戶的政策見 [`16-notification-event.md`](./16-notification-event.md)（[`backend/16-notification-event.md`](16-notification-event.md) §9）。
 
 目前的類型：`approval.pending`、`approval.result`、`user.rolesChanged`（§4）。
 
@@ -59,7 +59,7 @@ modules/user/user.notifications.ts           user.rolesChanged 的宣告與參�
 | `source_id` | `uuid NULL`（無外鍵） | 產生它的來源：公告的發送紀錄（[`19-announcement.md`](./19-announcement.md) §2.3）；程式發出的通知為 null。`(source_id, recipient_id)` 部分唯一：同一個來源對同一個人只有一筆，`notify()` 遇到重複時略過（`ON CONFLICT DO NOTHING`） |
 | `created_at` | `timestamptz` | |
 
-索引（依查詢決定，**與 ADR-0026 D1 寫的單一索引不同**）：
+索引（依查詢決定，**與 §12.2 D1 寫的單一索引不同**）：
 
 | 索引 | 欄位 | 服務的查詢 |
 | --- | --- | --- |
@@ -138,12 +138,12 @@ await withTransaction(this.db, async (tx) => {
 | `approval.result` | 申請人（`requester_id`）；匿名的註冊沒有收件人，只有結果信 | `approvalType`、`subject`、`status`（`approved` \| `rejected`） | handler 的 `resultLink()`；沒有就是 `approval.detail`（`{ approvalId }`） | `ApprovalService.approve()`／`reject()` 的交易內；既有的結果信照舊 |
 | `user.rolesChanged` | 被指派或移除角色的人（`PUT /users/:id/roles`）；沒有實際增減時不通知 | `added`、`removed`（角色名稱） | `account.profile`（`{}`） | `UserService.replaceRoles()` 的交易內 |
 | `announcement.published` | 公告受眾解析出的人（不含送出者） | `title` | `announcement.message`（`{ dispatchId }`） | `AnnouncementDispatchService.fanOut()` 每 500 人一個交易（帶 `sourceId`；[`19-announcement.md`](./19-announcement.md) §5） |
-| `webhook.disabled` | webhook 連續失敗而自動停用時，當下持有 `webhook:update` 的人 | `webhookName`、`consecutiveFailures`、`url`（到達門檻的網址；ADR-0033 前寫入的沒有） | `webhook.detail`（`{ webhookId }`） | `WebhookDeliveryService.attempt()` 的交易內（觸發者是系統；[`17-webhook.md`](./17-webhook.md) §4） |
+| `webhook.disabled` | webhook 連續失敗而自動停用時，當下持有 `webhook:update` 的人 | `webhookName`、`consecutiveFailures`、`url`（到達門檻的網址；[`architecture/05-tenancy.md`](../05-tenancy.md) §13 前寫入的沒有） | `webhook.detail`（`{ webhookId }`） | `WebhookDeliveryService.attempt()` 的交易內（觸發者是系統；[`17-webhook.md`](./17-webhook.md) §4） |
 
 - `subject` 由各審批類型的 `ApprovalHandler.summarize(payload)` 提供（handler 在擁有資源的模組）：
   `user.register` 是申請人填的顯示名稱，`fileFolder.access` 是資料夾名稱。解析不了（舊資料）時是空字串。
 - `fileFolder.access` 的 `resultLink()` 連到申請的資料夾（`file.folder`）：申請人通常沒有 `approval:read`，連到審批詳情只會看到 403。
-- **不通知** 的操作：還原或刪除角色（ADR-0025 R3）時持有者的角色也跟著出現或消失，但那是角色層級的操作、可能一次影響上千人，
+- **不通知** 的操作：還原或刪除角色（[`backend/14-revisions.md`](14-revisions.md) §9 R3）時持有者的角色也跟著出現或消失，但那是角色層級的操作、可能一次影響上千人，
   第一版不發 `user.rolesChanged`；需要時由角色模組另定一種類型（例：`role.restored`）。
 - `fileFolder.access` 的待審只通知 `approval:review` 的持有者（D11 的定義）；資料夾的管理者（在該資料夾有 `share`）也能在檔案管理器審核，
   但沒有 `approval:review` 的不會收到。之後要通知他們時由檔案模組算收件人（資料夾層級的 `share` 持有者）再呼叫 `notify()`。
@@ -200,7 +200,7 @@ await withTransaction(this.db, async (tx) => {
 - 每筆帶 `actor: { id, name } | null`（`users` 的 left join，被軟刪除的人照樣顯示名字）。
 - 已讀與全部已讀 **不寫稽核**：使用者自己的狀態，量大、沒有稽核價值。
 
-### 6.1 通知總覽（[ADR-0031](../../adr/0031-announcements.md) D1、D2）
+### 6.1 通知總覽（[`backend/19-announcement.md`](19-announcement.md) §9.2 D1、D2）
 
 `GET /notifications/all`（`notification:read`）：租戶內 **所有人** 的通知，給管理者回答「到底有沒有送到」。
 
@@ -285,3 +285,85 @@ await withTransaction(this.db, async (tx) => {
 | 審批送出與審核時的通知（收件人、參數、連結、`resultLink`、匿名沒有結果通知、重複送出不通知） | `src/modules/approval/__tests__/approval.service.spec.ts` |
 | 通知總覽：未登入 401、一般使用者與 auditor 403、admin 看得到所有人的（新的在前、收件人與觸發者、軟刪除的收件人）、各種篩選與組合、跨收件人的 keyset 分頁、參數錯誤 400 | `test/notifications.spec.ts` |
 | 端點的授權宣告 | `test/route-audit.spec.ts` |
+
+---
+
+## 12. 設計決策：站內通知中心
+
+> 原 ADR-0026，2026-10-01 決定；N1、N2 於 8c51ff5 合併。
+> D4「第一版不做通知偏好」已由 [`backend/16-notification-event.md`](16-notification-event.md) §9 接續（租戶層的事件管理與個人設定，[`16-notification-event.md`](./16-notification-event.md)）；
+> 管理者發送的公告沿用 D5、D6，以分批寫入繞過單次上限，見 [`backend/19-announcement.md`](19-announcement.md) §9.2 D9。
+
+### 12.1 背景
+
+使用者需要知道「有事等你處理」與「你的東西被動了」，但當時沒有能回頭看的地方：推播只送讓快取失效的訊號、
+前端只有關掉就消失的 toast、會主動通知人的只有幾封信，審批送出時審核者什麼都收不到。
+匯入匯出、標籤留言、Webhook、MFA、API Token 都會需要「通知某人」，所以這個機制要先定。
+
+相關的既有決定與規格：[`backend/08-realtime.md`](08-realtime.md) §15（推播只送訊號）、[`backend/10-jobs.md`](10-jobs.md) §9（背景工作與 `job_outbox`）；
+[`08-realtime.md`](./08-realtime.md) §6.1、§7、[`10-jobs.md`](./10-jobs.md)、[`12-settings.md`](./12-settings.md)、
+[`../frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §6、[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2；
+前端見 [`../frontend/15-notification.md`](../frontend/15-notification.md)。
+
+### 12.2 決定
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **租戶 DB 的 `notifications` 表，每位收件人一筆**：`id`、`recipient_id`（→ `users.id`，`ON DELETE CASCADE`）、`type`（`<模組>.<事件>`，與 `defineJob` 同一種命名）、`params jsonb`（組句子用的參數，名稱快照）、`link jsonb`（D3，可為 null）、`actor_id`（null＝系統）、`read_at`、`created_at`；索引 `(recipient_id, read_at, created_at desc)`（實作改成三個索引，見 §12.6）。平台管理者不適用 | 通知跟著租戶走；每人一筆讓已讀、刪除、保留都是單列操作。`params` 只放顯示需要的名稱，不存整份資料，也不存權限相關的東西 |
+| D2 | **由擁有者模組在自己的業務交易內寫入**：`modules/notification` 提供 `NotificationService.notify(input \| input[], tx)`，寫入後在交易提交後發佈推播。通知模組 **不 import 業務模組**；通知類型與參數型別定義在擁有者模組的 `<name>.notifications.ts`。**不訂閱 `DomainEventBus`** | 與稽核同一條規則：業務寫入成功，通知就一定在。`DomainEventBus` 是程序內、fire-and-forget、錯誤吞掉，也沒有「給誰」的語意（`08-realtime.md` §7） |
+| D3 | **連結存 route id ＋ 參數**（提案開放問題 1）：`link = { route: '<route id>', params: {...} }`。前端有一張 route id → route 物件的註冊表，feature 在 plugin 的 **同步階段** 註冊（與 `registerPagePermission` 同一種做法）；notification feature 不 import 其他 feature 的 route。找不到 route id 時只顯示文字、不可點 | 路由改名或搬移時舊通知不會壞；存路徑字串則每次改路由都要考慮歷史資料 |
+| D4 | **第一版不做通知偏好**（提案開放問題 2；已由 [`backend/16-notification-event.md`](16-notification-event.md) §9 接續：租戶層的事件管理，個人層的形狀亦已定）：只有站內通知，既有的信（審批結果、啟用、重設密碼）照舊。之後要做時另加後端的偏好表，不沿用前端的 `core/preference` | 偏好需要後端的偏好表與設定頁，範圍會翻倍；第一批類型量少，還沒有「太吵」的問題 |
+| D5 | **收件人由擁有者模組在寫入當下計算，是快照**（提案開放問題 3）：例如「審批待審」＝送出時持有 `approval:review` 的使用者（透過 `PermissionService` 查，不交給通知模組）。之後權限變動 **不補發也不收回**；點進去照常經過頁面權限與 API 權限，權限已被收回就是 403 | 補發或收回要訂閱權限變化並重算所有未處理的事件，複雜度遠高於價值；通知本身不授予任何權限 |
+| D6 | **第一版不做廣播模型**（提案開放問題 4）：一律每位收件人一筆。`notify` 單次的收件人數有上限（常數，暫定 1000），超過時記 warn 並截斷——需要全租戶公告時再加「一筆廣播 ＋ 每人已讀表」 | 第一批類型的收件人都不多（審核者、申請人、被指派的人）；先不讓列表查詢合併兩個來源 |
+| D7 | **操作者就是收件人時不通知**（例如自己改自己的角色）。`actor_id` 仍記錄，前端顯示「由誰觸發」 | 自己做的事不需要提醒自己 |
+| D8 | **推播**：新增 `ChangeSource.NOTIFICATION`，`RealtimeAudience` 送到收件人的 user room（`t:{tenantId}:user:{id}`）；payload 照舊只帶 id，前端收到就讓 notification 的 query 失效 | 沿用既有的推播管線與「只送訊號」的規則（[`backend/08-realtime.md`](08-realtime.md) §15） |
+| D9 | **API**（都是 `@Authenticated()`，只能看自己的，不新增權限鍵）：`GET /notifications`（keyset 分頁，`unread=true` 篩選）、`GET /notifications/unread-count`、`POST /notifications/:id/read`、`POST /notifications/read-all`。已讀與清除 **不寫稽核** | 看自己的通知只需要登入；已讀是使用者自己的狀態，量大、沒有稽核價值 |
+| D10 | **保留**：背景工作 `notification.cleanup`（`scope: 'tenant'`，每天）刪除「已讀超過 N 天」與「每人超過上限的最舊通知」；系統設定 `notification.retentionDays`（預設 30）、`notification.maxPerUser`（預設 500） | 表不能無限成長；未讀的通知在上限內保留 |
+| D11 | **第一批類型**：`approval.pending`（給送出當下有 `approval:review` 的人，不含申請人自己）、`approval.result`（給申請人；既有的結果信照舊）、`user.rolesChanged`（被指派或移除角色的人，`params` 帶增減的角色名稱） | 這三個是現有流程已經卡住的地方（審核者不知道有待審） |
+| D12 | **前端**：新 feature `features/notification`：以 `registerHeaderTool` 放鈴鐺與未讀數，點開是 `Popover` 內的列表（沿用 `Select`／`Menu` 的虛擬捲動）與「全部已讀」；另有完整列表頁。句子依 `type` 找 i18n key（字面量，`06-literal-strings.md`）；未知的 `type` 顯示通用文字。未讀數由 query 取得，不存 localStorage | 伺服器資料的複本不放 localStorage（`frontend/09-state-and-storage.md` §4.2）；registry 與同步註冊是既有模式 |
+
+### 12.3 分階段與不做
+
+| 階段 | 內容 | 相容性 |
+| --- | --- | --- |
+| N1 後端 | `notifications` 表、`modules/notification`（service、repository、controller）、`ChangeSource.NOTIFICATION`、`notification.cleanup` 與設定、三個類型的寫入點 | 純加法 |
+| N2 前端 | route id 註冊表、`features/notification`（鈴鐺、Popover、列表頁）、各 feature 註冊 route id | 純加法 |
+
+不做：
+
+- 通知偏好、寄信或其他管道（D4）；手機與桌面推送；通知彙整（digest）。
+- 廣播模型（D6）；平台管理者（apps/auth）的通知。
+- 權限變動後補發或收回通知（D5）。
+
+### 12.4 代價
+
+| 代價 | 緩解 |
+| --- | --- |
+| 每個需要通知的業務寫入多一次 INSERT（在交易內） | 收件人少；批次 INSERT 一次寫完 |
+| 收件人是快照，權限收回後仍看得到通知的文字 | `params` 只放名稱，不含敏感資料；點進去照常檢查權限 |
+| 每個 feature 要多註冊一次 route id | 註冊在 plugin 的同步階段，與頁面權限同一處，漏註冊只會讓連結不可點 |
+
+### 12.5 評估過的方案
+
+| 方案 | 不採用的理由 |
+| --- | --- |
+| 訂閱 `DomainEventBus` 產生通知 | 不保證送達、沒有收件人語意（D2） |
+| 經 `job_outbox` 由背景工作寫入 | 保證送達，但多一跳延遲，且收件人的計算要在工作裡重做；在交易內直接寫入同樣保證一致 |
+| 連結存路徑字串（D3 的替代） | 路由一改舊通知就壞 |
+| 第一版就做廣播模型（D6 的替代） | 列表要合併兩個來源、已讀要兩種寫法；目前沒有需要它的類型 |
+
+### 12.6 實作紀錄
+
+與上面的決定不同、或決定沒寫到而實作時定下來的地方：
+
+| 階段 | 項目 | 實作 |
+| --- | --- | --- |
+| N1 | 索引（D1） | 依查詢拆成三個：全部列表 `(recipient_id, created_at, id)`、未讀的部分索引、已讀過期清理的 `(read_at)`；登記在 `CLAUDE.md`「與文件不同的實作決定」（§2） |
+| N1 | 已讀的推播（D8） | 標為已讀、全部已讀也推 `notification update` 給自己，其他裝置與分頁的未讀數跟著更新（發起的分頁以 `origin` 略過） |
+| N1 | 不通知的操作（D11） | 刪除或還原角色時持有者的角色跟著消失或出現，但不發 `user.rolesChanged`（角色層級的操作、可能影響上千人） |
+| N1 | `fileFolder.access` 的待審（D11） | 只通知 `approval:review` 的持有者；只在該資料夾有 `share` 的管理者也能審核但收不到 |
+| N2 | route id 註冊表（D3） | `core/route-link`：`registerRouteLink(id, { route, params?, search? })` 以對照表宣告「route 的參數 ← 連結參數」，登記時檢查 id 格式與 path 的 `$參數`；可啟用的 feature 卸載時撤回，連結變成不可點 |
+| N2 | 稽核列表的失效（D8） | 前端依賴圖的 `derivesFromAnyChange` 改成可以排除來源，稽核列表排除 `notification`——與後端 `recordsAudit: false` 對稱；否則收到通知、按已讀都會重抓稽核列表 |
+| N2 | 推播不可用時（D12） | 未讀數在推播斷線或停用時每 60 秒重抓一次 |
+| N2 | 語系包（D12） | 鈴鐺在每一頁都看得到：按鈕的字放全域語系包，Popover 的內容由鈴鐺掛上時自己載入 feature 的 scope |
+| N2 | 列表頁 | `/notification` 只需要登入（`access: []`），沒有側邊選單項目，入口是鈴鐺的「查看全部」 |

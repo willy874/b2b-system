@@ -10,7 +10,7 @@ import type { ListAllNotificationDto } from './dto/notification.dto';
 import { NotificationService } from './notification.service';
 
 /**
- * 通知總覽：租戶內所有人的站內通知（docs/adr/0031-announcements.md D1、D2）。
+ * 通知總覽：租戶內所有人的站內通知（docs/architecture/backend/19-announcement.md §9.2 D1、D2）。
  * 與自己的通知（`NotificationController`，只需要登入）分開，權限宣告才不會混在一起。
  */
 @ApiTags('notifications')

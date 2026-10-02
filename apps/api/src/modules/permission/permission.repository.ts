@@ -93,7 +93,7 @@ export class PermissionRepository {
 
   /**
    * 這些人之中未刪除、`active` 的 **人**（依 id 排序）：收通知的是人，服務帳號不收
-   * （docs/adr/0027-api-tokens-external-api.md D1）。
+   * （docs/architecture/06-external-api.md §9.2 D1）。
    */
   async filterActiveUserIds(userIds: readonly string[]): Promise<string[]> {
     if (userIds.length === 0) return [];

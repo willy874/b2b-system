@@ -83,7 +83,7 @@ function codeOf(fn: () => unknown): string | undefined {
   return undefined;
 }
 
-describe('FeatureGuard（docs/adr/0021-runtime-feature-activation.md D11）', () => {
+describe('FeatureGuard（docs/architecture/frontend/02-plugin-system.md §9.2 D11）', () => {
   it('租戶啟用了宣告的 feature → 通過', () => {
     expect(inTenant(['file'], contextOf(FileController, 'list'))).toBe(true);
   });
@@ -94,7 +94,7 @@ describe('FeatureGuard（docs/adr/0021-runtime-feature-activation.md D11）', ()
     );
   });
 
-  it('handler 與 class 的宣告合併：都啟用才通過（docs/adr/0029-toggleable-platform-features.md D3）', () => {
+  it('handler 與 class 的宣告合併：都啟用才通過（docs/architecture/05-tenancy.md §12.2 D3）', () => {
     expect(inTenant(['file', 'trash'], contextOf(FileController, 'logs'))).toBe(true);
     expect(codeOf(() => inTenant(['file'], contextOf(FileController, 'logs')))).toBe(
       'FEATURE_DISABLED',
@@ -117,7 +117,7 @@ describe('FeatureGuard（docs/adr/0021-runtime-feature-activation.md D11）', ()
   });
 });
 
-describe('FeatureGuard 的 @RequireFlag（docs/adr/0022-feature-flags.md D5）', () => {
+describe('FeatureGuard 的 @RequireFlag（docs/architecture/05-tenancy.md §11.2 D5）', () => {
   it('flag 開啟 → 通過', () => {
     expect(inTenant([], contextOf(TrialController, 'list'), { 'levelEditor.v2': true })).toBe(true);
   });

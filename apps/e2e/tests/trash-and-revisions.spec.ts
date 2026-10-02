@@ -8,7 +8,7 @@ import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
 /**
- * 回收桶、樂觀鎖與版本紀錄（docs/adr/0025-entity-revisions.md）。
+ * 回收桶、樂觀鎖與版本紀錄（docs/architecture/backend/14-revisions.md §9）。
  * 資料一律在測試內以 API 建立、名稱帶時間戳，彼此並行也不互相干擾；
  * 角色的持有者用專用帳號 `roleHolder`，不和其他 spec 共用。
  */
@@ -89,7 +89,7 @@ async function gotoUserRow(page: Page, email: string) {
   return page.getByTestId('table-row').filter({ hasText: email });
 }
 
-test.describe('回收桶（ADR-0025 D6–D10）', () => {
+test.describe('回收桶（docs/architecture/backend/14-revisions.md §9.2 D6–D10）', () => {
   test('刪除使用者後按提示的「復原」，使用者回到列表', async ({ page }) => {
     const token = await apiLogin('admin');
     const target = await createUser(token);
@@ -147,7 +147,7 @@ test.describe('回收桶（ADR-0025 D6–D10）', () => {
     };
     const memberRole = roles.data.items.find((role) => role.slug === 'member')!;
     const holderUser = users.data.items[0]!;
-    // expectedRoleIds 必填（ADR-0025 D4）：以列表上看到的角色為基礎整批取代
+    // expectedRoleIds 必填（docs/architecture/backend/14-revisions.md §9.2 D4）：以列表上看到的角色為基礎整批取代
     const assigned = await apiRequest(token, 'put', `/users/${holderUser.id}/roles`, {
       roleIds: [roleId, memberRole.id],
       expectedRoleIds: holderUser.roles.map((role) => role.id),
@@ -220,7 +220,7 @@ test.describe('回收桶（ADR-0025 D6–D10）', () => {
   });
 });
 
-test.describe('版本紀錄（ADR-0025 R5）', () => {
+test.describe('版本紀錄（docs/architecture/backend/14-revisions.md §9 R5）', () => {
   test('改過角色的名稱與權限後，在版本紀錄看差異並還原到第一版', async ({ page }) => {
     const token = await apiLogin('admin');
     const originalName = unique('E2E 版本角色');
@@ -271,7 +271,7 @@ test.describe('版本紀錄（ADR-0025 R5）', () => {
   });
 });
 
-test.describe('樂觀鎖（ADR-0025 R1）', () => {
+test.describe('樂觀鎖（docs/architecture/backend/14-revisions.md §9 R1）', () => {
   test('兩個人同時編輯同一個使用者，後送出的看到「已被別人修改」並可重新載入', async ({
     browser,
   }) => {

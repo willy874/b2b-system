@@ -72,7 +72,7 @@ export const FileSchema = defineSchema(
     version: z.number().int(),
     uploader: FileUploaderSchema.nullable(),
     capabilities: FileCapabilitiesSchema,
-    /** 貼著的標籤（`file` 標籤組，docs/adr/0032-tags.md D6）。 */
+    /** 貼著的標籤（`file` 標籤組，docs/architecture/backend/18-tag.md §7.2 D6）。 */
     tags: z.array(TagSummarySchema),
     uploadedAt: z.string().nullable(),
     createdAt: z.string(),
@@ -155,7 +155,7 @@ export const FileUploadPolicySchema = defineSchema(
     partSize: z.number().int(),
     thumbnailMaxSize: z.number().int(),
     thumbnailContentTypes: z.array(z.string()),
-    /** 租戶的檔案容量（位元組，`file.storageQuotaMb`；docs/adr/0033-feature-params-and-webhook-targets.md D8）。 */
+    /** 租戶的檔案容量（位元組，`file.storageQuotaMb`；docs/architecture/05-tenancy.md §13.3 D8）。 */
     storageQuota: z.number().int(),
     /** 目前所有檔案的大小合計（位元組，含上傳中與回收桶裡的）。 */
     storageUsed: z.number().int(),

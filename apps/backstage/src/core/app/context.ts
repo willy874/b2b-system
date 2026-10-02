@@ -24,7 +24,7 @@ export type AppPluginFactory = PluginFactory<
   AppContextEvents
 >;
 
-/** 以 `context.install()` 在 App 啟動後安裝的 feature plugin（docs/adr/0021-runtime-feature-activation.md D2、D3）。 */
+/** 以 `context.install()` 在 App 啟動後安裝的 feature plugin（docs/architecture/frontend/02-plugin-system.md §9.2 D2、D3）。 */
 export type AppDynamicPluginFactory = DynamicPluginFactory<
   AppPluginProperties,
   AppContextState,

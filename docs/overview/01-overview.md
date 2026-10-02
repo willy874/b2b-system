@@ -40,28 +40,28 @@
 | 租戶（Phase 0 之後加入） | 每個租戶一個 database 與網域；平台管理者在 apps/auth 建立、佈建、停用、刪除租戶，管理平台管理者、平台稽核與全平台的背景工作（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md)） |
 | 使用者管理 | 列表（分頁／搜尋／排序）、建立、檢視、編輯、停用／啟用、刪除、指派角色                        |
 | 角色管理   | 列表、建立、檢視、編輯、刪除、授予／移除權限、系統角色保護                                    |
-| 群組（Phase 0 之後加入） | 純分組：巢狀成員、群組持有角色、資料夾授權給群組；加成員受反提權限制、群組不能持有 super-admin（[`rbac/08-groups.md`](../rbac/08-groups.md)、[ADR-0024](../adr/0024-relationship-based-access-control.md) D10～D16） |
-| 授權的說明（Phase 0 之後加入） | 有效權限的來源、資料夾存取的路徑；查自己不需要權限、查別人要 `authz:explain`，看不到的節點只顯示種類（[`rbac/09-explain.md`](../rbac/09-explain.md)、ADR-0024 D14） |
+| 群組（Phase 0 之後加入） | 純分組：巢狀成員、群組持有角色、資料夾授權給群組；加成員受反提權限制、群組不能持有 super-admin（[`rbac/08-groups.md`](../rbac/08-groups.md)、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D10～D16） |
+| 授權的說明（Phase 0 之後加入） | 有效權限的來源、資料夾存取的路徑；查自己不需要權限、查別人要 `authz:explain`，看不到的節點只顯示種類（[`rbac/09-explain.md`](../rbac/09-explain.md)、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D14） |
 | 權限目錄   | 唯讀的權限清單 API 與 UI（resource × action），供角色編輯時挑選                               |
 | 個人帳號   | 個人資料檢視／編輯、變更密碼、偏好設定（語系、時區）                                          |
 | 稽核日誌   | 所有寫入操作與授權決策的記錄、列表與篩選                                                      |
 | 系統設定（Phase 0 之後加入） | 每個租戶執行期可調的帳號政策、上傳上限、預設時區（[`architecture/backend/12-settings.md`](../architecture/backend/12-settings.md)） |
 | 回收桶與版本歷史（Phase 0 之後加入） | 編輯的樂觀鎖（`version` 必填）；使用者、角色、檔案與資料夾刪除後進回收桶、保留期限內可還原、到期永久刪除；角色的版本紀錄與還原到某一版（[`architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)、[`architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md)） |
 | 站內通知（Phase 0 之後加入） | 每位收件人一筆、在業務交易內寫入；審批待審／結果、角色被指派或移除；頂列鈴鐺與未讀數、列表頁、全部已讀、保留清理；管理者的通知總覽（[`architecture/backend/15-notification.md`](../architecture/backend/15-notification.md)、[`architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md)） |
-| 公告（Phase 0 之後加入） | 管理者撰寫訊息，發給指定的人、群組、角色或全租戶；立即、指定時間、週期（租戶時區）、事件點（帳號啟用、被指派角色、加入群組）；發送紀錄、已讀率、撤回；收件人讀全文（[`architecture/backend/19-announcement.md`](../architecture/backend/19-announcement.md)、[ADR-0031](../adr/0031-announcements.md)） |
+| 公告（Phase 0 之後加入） | 管理者撰寫訊息，發給指定的人、群組、角色或全租戶；立即、指定時間、週期（租戶時區）、事件點（帳號啟用、被指派角色、加入群組）；發送紀錄、已讀率、撤回；收件人讀全文（[`architecture/backend/19-announcement.md`](../architecture/backend/19-announcement.md)、[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9） |
 | 檔案（Phase 0 之後加入） | S3 相容的物件儲存、分塊上傳、圖片縮圖、檔案管理器、資料夾層級的授權與繼承（[`architecture/backend/09-file.md`](../architecture/backend/09-file.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)） |
 | 背景工作與寄信（Phase 0 之後加入） | pg-boss 佇列、排程、重試與管理頁；郵件範本與寄送（[`architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md)、[`architecture/backend/11-mail.md`](../architecture/backend/11-mail.md)） |
-| 服務帳號與對外 API（Phase 0 之後加入） | 服務帳號、個人與服務帳號的 API token（限縮 scopes、到期、撤銷）；獨立程序的對外 API（`/v1`，只認 API token）（[`architecture/06-external-api.md`](../architecture/06-external-api.md)、[ADR-0027](../adr/0027-api-tokens-external-api.md)） |
-| 標籤（Phase 0 之後加入） | 依資源類型分開的標籤組（檔案管理器、使用者）、貼與移除跟著目標的編輯權限、列表依標籤篩選、標籤管理頁（[`architecture/backend/18-tag.md`](../architecture/backend/18-tag.md)、[ADR-0032](../adr/0032-tags.md)） |
-| Webhook（Phase 0 之後加入） | 使用者、審批、檔案的對外事件；訂閱、HMAC 簽章、背景工作投遞與重試、連續失敗自動停用、投遞紀錄與重送；連線時綁定已驗證的位址（[`architecture/backend/17-webhook.md`](../architecture/backend/17-webhook.md)、[ADR-0030](../adr/0030-webhooks.md)） |
-| 模組開關與 feature flag（Phase 0 之後加入） | 平台管理者為每個租戶開關模組與 flag（[ADR-0021](../adr/0021-runtime-feature-activation.md)、[ADR-0022](../adr/0022-feature-flags.md)） |
+| 服務帳號與對外 API（Phase 0 之後加入） | 服務帳號、個人與服務帳號的 API token（限縮 scopes、到期、撤銷）；獨立程序的對外 API（`/v1`，只認 API token）（[`architecture/06-external-api.md`](../architecture/06-external-api.md) §9） |
+| 標籤（Phase 0 之後加入） | 依資源類型分開的標籤組（檔案管理器、使用者）、貼與移除跟著目標的編輯權限、列表依標籤篩選、標籤管理頁（[`architecture/backend/18-tag.md`](../architecture/backend/18-tag.md)、[`backend/18-tag.md`](../architecture/backend/18-tag.md) §7） |
+| Webhook（Phase 0 之後加入） | 使用者、審批、檔案的對外事件；訂閱、HMAC 簽章、背景工作投遞與重試、連續失敗自動停用、投遞紀錄與重送；連線時綁定已驗證的位址（[`architecture/backend/17-webhook.md`](../architecture/backend/17-webhook.md)、[`backend/17-webhook.md`](../architecture/backend/17-webhook.md) §9） |
+| 模組開關與 feature flag（Phase 0 之後加入） | 平台管理者為每個租戶開關模組與 flag（[`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §9、[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §11） |
 | 前端骨架   | App Shell、側邊選單（依權限過濾）、路由守衛、錯誤頁、i18n、主題                               |
 
 ### 2.2 Out of scope（Phase 0 明確不做）
 
 - 任何特定領域的業務功能——本 repo 只提供骨架，業務功能由使用它的產品加上去
 - **資源層級作用域** 的通用化（例如「只能編輯自己專案的資源」）——目前只有檔案資料夾，
-  其他資源沿用同一套關係圖（理由見 [ADR-0006](../adr/0006-flat-permission-scope.md)，現況見 [`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)）
+  其他資源沿用同一套關係圖（理由見 [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §8，現況見 [`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)）
 - LDAP、SAML 整合（OIDC 的 SSO 已在 Phase 0 之後加入，見 [`architecture/04-sso.md`](../architecture/04-sso.md)）
 - MFA（雙因素驗證）— 資料表預留欄位，流程不實作
 - 批次匯入／匯出

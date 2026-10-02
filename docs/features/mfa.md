@@ -3,7 +3,7 @@
 - 優先度：P3
 - 狀態：提案
 - 依賴：—
-- 相關：[ADR-0019](../adr/0019-sso-identity-platform.md) D15（MFA 預留）、[`../architecture/04-sso.md`](../architecture/04-sso.md) §3、§11、
+- 相關：[`architecture/04-sso.md`](../architecture/04-sso.md) §12.2 D15（MFA 預留）、[`../architecture/04-sso.md`](../architecture/04-sso.md) §3、§11、
   [`backend/04-auth.md`](../architecture/backend/04-auth.md)、[`06-external-api.md`](../architecture/06-external-api.md)、[`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 3 項
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
@@ -14,7 +14,7 @@
 
 登入已經改成 OIDC：backstage 沒有登入頁，所有人都在 apps/auth 的登入互動（`/interaction/:uid`）輸入密碼或選外部 IdP，
 api 端由 `sso-interaction.controller` → `SsoService` 驗證之後呼叫 `finishInteraction`（[`../architecture/04-sso.md`](../architecture/04-sso.md) §3.1–§3.3）。
-ADR-0019 D15 已預留：**MFA 是登入互動裡的第二步**，插在密碼通過之後、`finishInteraction` 之前，不改協定、不新增 token 類型。
+[`architecture/04-sso.md`](../architecture/04-sso.md) §12.2 D15 已預留：**MFA 是登入互動裡的第二步**，插在密碼通過之後、`finishInteraction` 之前，不改協定、不新增 token 類型。
 
 現況：
 

@@ -13,7 +13,7 @@ export const UpdateRoleSchema = defineSchema(
       description: z.string().trim().max(500).nullable().optional(),
       /**
        * 樂觀鎖：編輯開始時看到的 `version`（必填）。與目前版本不同（別人已經改過）回 409 `ROLE_VERSION_CONFLICT`
-       * （`details.current`）。要後寫者勝的腳本先讀一次目前的版本（ADR-0025 D3、D4）。
+       * （`details.current`）。要後寫者勝的腳本先讀一次目前的版本（docs/architecture/backend/14-revisions.md §9.2 D3、D4）。
        */
       version: z.number().int().min(1),
     })

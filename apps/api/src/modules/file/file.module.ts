@@ -40,7 +40,7 @@ import { FILE_WEBHOOK_EVENTS } from './file.webhooks';
  */
 @Module({
   imports: [ApprovalModule, TrashModule, AuthzExplainModule, WebhookModule, TagModule],
-  // 對外 API 的 controller 也在這裡：兩個程序都註冊，另一邊的由 SurfaceGuard 回 404（docs/adr/0027-api-tokens-external-api.md D11）
+  // 對外 API 的 controller 也在這裡：兩個程序都註冊，另一邊的由 SurfaceGuard 回 404（docs/architecture/06-external-api.md §9.2 D11）
   controllers: [
     FileController,
     FileFolderController,

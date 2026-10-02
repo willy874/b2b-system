@@ -9,7 +9,7 @@ export const ANNOUNCEMENT_RECURRENCE_PREVIEW_QUERY_KEY =
 
 /**
  * 週期接下來的發送時間：`POST` 但不寫入，當 query 用（設定改變就重抓）。只在後端算，
- * 依租戶時區（docs/adr/0031-announcements.md D11）。
+ * 依租戶時區（docs/architecture/backend/19-announcement.md §9.2 D11）。
  */
 export const getAnnouncementRecurrencePreviewQueryOptions = (
   trigger: AnnouncementRecurrencePreviewRequest['trigger'],

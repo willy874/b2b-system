@@ -45,7 +45,7 @@ export const NOTIFICATION_OVERVIEW_PAGE_SIZE = 50;
 /** 徽章最多顯示到這個數字，超過顯示「99+」。 */
 export const NOTIFICATION_BADGE_MAX = 99;
 
-// ── 事件管理（ADR-0028 D13） ──────────────────────────────
+// ── 事件管理（docs/architecture/backend/16-notification-event.md §9.2 D13） ──────────────────────────────
 
 /** 一個事件在管理頁的名稱、說明與「誰會收到」。 */
 export interface NotificationEventLabel {
@@ -100,7 +100,7 @@ export const NOTIFICATION_CHANNEL_LABEL_KEY = {
   email: 'notification.event.channel.email',
 } as const satisfies Record<NotificationChannel, string>;
 
-/** 個人設定不能調整的原因（ADR-0028 D14）；後端新增原因而這裡沒跟上時編譯失敗。 */
+/** 個人設定不能調整的原因（docs/architecture/backend/16-notification-event.md §9.2 D14）；後端新增原因而這裡沒跟上時編譯失敗。 */
 export const NOTIFICATION_PREFERENCE_LOCK_LABEL_KEY = {
   mandatory: 'notification.preference.lock.mandatory',
   tenantDisabled: 'notification.preference.lock.tenantDisabled',

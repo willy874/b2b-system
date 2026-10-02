@@ -66,7 +66,7 @@ beforeEach(() => {
 
 afterEach(() => vi.restoreAllMocks());
 
-describe('通知總覽的頁面權限（docs/adr/0031-announcements.md D2）', () => {
+describe('通知總覽的頁面權限（docs/architecture/backend/19-announcement.md §9.2 D2）', () => {
   it('有 notification:read → 進得去，列出所有人的通知', async () => {
     usePermissionStore.setState({ permissions: new Set(READER), hydrated: true });
     const { result } = renderHook(() => usePageAccess('/notification/all'));
@@ -100,7 +100,7 @@ describe('通知總覽的頁面權限（docs/adr/0031-announcements.md D2）', (
   });
 });
 
-describe('通知總覽頁（docs/adr/0031-announcements.md D1）', () => {
+describe('通知總覽頁（docs/architecture/backend/19-announcement.md §9.2 D1）', () => {
   it('每一列：收件人、事件名稱、收件人看到的句子、觸發者、已讀狀態；不認得的事件顯示 type', async () => {
     renderRoute(routes, '/notification/all', READER);
     const table = await screen.findByTestId('notification-overview-table');
