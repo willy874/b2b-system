@@ -8,7 +8,8 @@
     },
     "detail": {
       "title": "Announcement",
-      "backToList": "Back to announcements"
+      "backToList": "Back to announcements",
+      "nextRun": "Next: {{at}}"
     },
     "status": {
       "draft": "Draft",
@@ -21,7 +22,8 @@
       "once": "At a set time",
       "day": "Date",
       "time": "Time",
-      "timeZone": "Time zone: {{timeZone}}"
+      "timeZone": "Time zone: {{timeZone}}",
+      "recurring": "Recurring"
     },
     "field": {
       "title": "Title",
@@ -31,7 +33,8 @@
       "trigger": "Send time",
       "status": "Status",
       "readSummary": "Last send read",
-      "updatedAt": "Updated"
+      "updatedAt": "Updated",
+      "nextRunAt": "Next"
     },
     "readSummary": "{{read}} / {{total}}",
     "audience": {
@@ -68,7 +71,8 @@
       "title": "Send announcement",
       "confirmImmediate": "Send \"{{title}}\" to its recipients now? It can't be edited afterwards, only revoked.",
       "confirmScheduled": "Send \"{{title}}\" to its recipients at {{at}}? You can pause it or change the time before then.",
-      "success": "Announcement sent"
+      "success": "Announcement sent",
+      "confirmRecurring": "Send \"{{title}}\" to its recipients on this schedule: {{at}}? You can pause or change it before each send."
     },
     "pause": {
       "action": "Pause",
@@ -115,6 +119,45 @@
     "message": {
       "meta": "{{sender}} · {{at}}",
       "unknownSender": "Deleted user"
+    },
+    "recurrence": {
+      "every": "Every",
+      "interval": "Interval",
+      "frequencyLabel": "Frequency",
+      "frequency": {
+        "daily": "day(s)",
+        "weekly": "week(s)",
+        "monthly": "month(s)"
+      },
+      "weekdays": "Days of the week",
+      "monthDay": "Day of the month",
+      "dayOfMonth": "Day {{day}}",
+      "lastDay": "Last day",
+      "startsOn": "Starts on",
+      "endsOn": "Ends on",
+      "noEnd": "No end",
+      "maxOccurrences": "Max sends",
+      "unlimited": "Unlimited",
+      "preview": "Upcoming sends (calculated in the tenant time zone {{timeZone}}):",
+      "noOccurrence": "No more sends (past the end date or the max count)",
+      "incomplete": "Fill in the start date and time to see upcoming sends",
+      "weekday": {
+        "0": "Sun",
+        "1": "Mon",
+        "2": "Tue",
+        "3": "Wed",
+        "4": "Thu",
+        "5": "Fri",
+        "6": "Sat"
+      },
+      "summary": {
+        "daily": "Daily at {{time}}",
+        "dailyEvery": "Every {{count}} days at {{time}}",
+        "weekly": "Weekly on {{weekdays}} at {{time}}",
+        "weeklyEvery": "Every {{count}} weeks on {{weekdays}} at {{time}}",
+        "monthly": "Monthly on {{day}} at {{time}}",
+        "monthlyEvery": "Every {{count}} months on {{day}} at {{time}}"
+      }
     }
   }
 }

@@ -27,10 +27,32 @@ export interface AnnouncementAudienceValue {
 }
 
 /**
- * 觸發方式（D7）。A2 只有 `immediate` 與 `once`；週期（`recurring`）與事件點（`event`）由 A3、A4 加入，
- * 欄位是 jsonb，加入新的種類不必改表。
+ * 週期（D7）：依租戶時區（`general.defaultTimezone`）的日曆計算，`time` 是當地的 `HH:mm`。
+ * `weekdays` 是 0（週日）～6，只在 `weekly` 用；`monthDay` 只在 `monthly` 用（不收 29～31，月底用 `last`）。
  */
-export type AnnouncementTriggerValue = { kind: 'immediate' } | { kind: 'once'; at: string };
+export interface AnnouncementRecurringTrigger {
+  kind: 'recurring';
+  frequency: 'daily' | 'weekly' | 'monthly';
+  /** 每 N 天／週／月（1～99）。 */
+  interval: number;
+  weekdays?: number[] | null;
+  monthDay?: number | 'last' | null;
+  time: string;
+  /** 第一天（`YYYY-MM-DD`，租戶時區）；週與月的間隔從這一天所在的週、月算起。 */
+  startsOn: string;
+  /** 最後一天（含）；null＝不結束。 */
+  endsOn?: string | null;
+  /** 最多發幾次；null＝不限。 */
+  maxOccurrences?: number | null;
+}
+
+/**
+ * 觸發方式（D7）。事件點（`event`）由 A4 加入；欄位是 jsonb，加入新的種類不必改表。
+ */
+export type AnnouncementTriggerValue =
+  | { kind: 'immediate' }
+  | { kind: 'once'; at: string }
+  | AnnouncementRecurringTrigger;
 
 export const ANNOUNCEMENT_STATUSES = ['draft', 'scheduled', 'paused', 'completed'] as const;
 export type AnnouncementStatus = (typeof ANNOUNCEMENT_STATUSES)[number];

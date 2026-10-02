@@ -139,7 +139,7 @@ function waitForDispatch(announcementId: string, status: string): Promise<Dispat
   );
 }
 
-describe('公告與排程通知（docs/adr/0031-announcements.md A2）', () => {
+describe('公告與排程通知（docs/adr/0031-announcements.md A2、A3）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;
@@ -514,6 +514,169 @@ describe('公告與排程通知（docs/adr/0031-announcements.md A2）', () => {
       await root.post(`/announcements/${created.id}/restore`).expect(200),
     );
     expect(restored.status).toBe('paused');
+  });
+
+  // ── 週期（A3） ───────────────────────────────────────
+
+  it('週期預覽：依租戶時區回接下來 5 次；週期少了星期幾 → 400', async () => {
+    const root = await as(ROOT);
+    const preview = dataOf<{ timeZone: string; occurrences: string[] }>(
+      await root
+        .post('/announcements/recurrence-preview', {
+          trigger: {
+            kind: 'recurring',
+            frequency: 'daily',
+            interval: 1,
+            time: '09:00',
+            startsOn: '2030-01-01',
+            maxOccurrences: 3,
+          },
+        })
+        .expect(200),
+    );
+    // 預設時區 Asia/Taipei（UTC+8）
+    expect(preview).toEqual({
+      timeZone: 'Asia/Taipei',
+      occurrences: [
+        '2030-01-01T01:00:00.000Z',
+        '2030-01-02T01:00:00.000Z',
+        '2030-01-03T01:00:00.000Z',
+      ],
+    });
+    await root
+      .post('/announcements/recurrence-preview', {
+        trigger: {
+          kind: 'recurring',
+          frequency: 'weekly',
+          interval: 1,
+          time: '09:00',
+          startsOn: '2030-01-01',
+        },
+      })
+      .expect(400);
+  });
+
+  it('週期：送出 → 排程到第一次；時間到發送後排下一次，次數用完就完成', async () => {
+    const root = await as(ROOT);
+    const created = dataOf<AnnouncementBody>(
+      await root
+        .post(
+          '/announcements',
+          draft({
+            title: '每日提醒',
+            trigger: {
+              kind: 'recurring',
+              frequency: 'daily',
+              interval: 1,
+              time: '09:00',
+              startsOn: '2030-01-01',
+              maxOccurrences: 2,
+            },
+          }),
+        )
+        .expect(201),
+    );
+    const scheduled = dataOf<AnnouncementBody>(
+      await root.post(`/announcements/${created.id}/publish`, { version: 1 }).expect(200),
+    );
+    expect(scheduled).toMatchObject({ status: 'scheduled', nextRunAt: '2030-01-01T01:00:00.000Z' });
+
+    // 直接執行排程的工作（時間在很久以後，不等 worker）
+    const service = app.get(AnnouncementDispatchService);
+    const first = await inTestTenant(app, () =>
+      service.runScheduled({ announcementId: created.id, runAt: '2030-01-01T01:00:00.000Z' }),
+    );
+    expect(first).toHaveProperty('dispatchId');
+    const afterFirst = dataOf<AnnouncementBody>(await root.get(`/announcements/${created.id}`));
+    expect(afterFirst).toMatchObject({
+      status: 'scheduled',
+      nextRunAt: '2030-01-02T01:00:00.000Z',
+    });
+
+    // 同一個時間的舊工作再跑一次：時間對不上，不重複發
+    expect(
+      await inTestTenant(app, () =>
+        service.runScheduled({ announcementId: created.id, runAt: '2030-01-01T01:00:00.000Z' }),
+      ),
+    ).toEqual({ skipped: 'stale' });
+
+    await inTestTenant(app, () =>
+      service.runScheduled({ announcementId: created.id, runAt: '2030-01-02T01:00:00.000Z' }),
+    );
+    const done = dataOf<AnnouncementBody>(await root.get(`/announcements/${created.id}`));
+    expect(done).toMatchObject({ status: 'completed', nextRunAt: null });
+    expect(await dispatchesOf(created.id)).toHaveLength(2);
+  });
+
+  it('每日維護：改了租戶時區 → 週期重算下一次；過期的發送紀錄刪除，未結束的保留', async () => {
+    const root = await as(ROOT);
+    const created = dataOf<AnnouncementBody>(
+      await root
+        .post(
+          '/announcements',
+          draft({
+            title: '時區',
+            trigger: {
+              kind: 'recurring',
+              frequency: 'weekly',
+              interval: 1,
+              weekdays: [1],
+              time: '09:00',
+              startsOn: '2030-01-01',
+            },
+          }),
+        )
+        .expect(201),
+    );
+    const scheduled = dataOf<AnnouncementBody>(
+      await root.post(`/announcements/${created.id}/publish`, { version: 1 }).expect(200),
+    );
+    // 2030-01-07 是週一：台北 09:00
+    expect(scheduled.nextRunAt).toBe('2030-01-07T01:00:00.000Z');
+
+    await root
+      .patch('/system/settings', { values: { 'general.defaultTimezone': 'UTC' } })
+      .expect(200);
+
+    // 一筆過期已結束、一筆過期但還在等待（不刪）
+    const old = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000);
+    const [expired, waiting] = await db
+      .insert(announcementDispatches)
+      .values([
+        {
+          announcementId: created.id,
+          scheduledFor: new Date('2020-01-01T00:00:00Z'),
+          title: 't',
+          body: 'b',
+          audience: { all: true, userIds: [], groupIds: [], roleIds: [] },
+          status: 'sent',
+          createdAt: old,
+        },
+        {
+          announcementId: created.id,
+          scheduledFor: new Date('2020-01-02T00:00:00Z'),
+          title: 't',
+          body: 'b',
+          audience: { all: true, userIds: [], groupIds: [], roleIds: [] },
+          status: 'pending',
+          createdAt: old,
+        },
+      ])
+      .returning();
+
+    const report = await inTestTenant(app, () => app.get(AnnouncementDispatchService).maintain());
+    expect(report).toMatchObject({ retentionDays: 365, deletedDispatches: 1 });
+    const moved = dataOf<AnnouncementBody>(await root.get(`/announcements/${created.id}`));
+    expect(moved.nextRunAt).toBe('2030-01-07T09:00:00.000Z');
+    const left = await db
+      .select({ id: announcementDispatches.id })
+      .from(announcementDispatches)
+      .where(inArray(announcementDispatches.id, [expired!.id, waiting!.id]));
+    expect(left.map((row) => row.id)).toEqual([waiting!.id]);
+
+    await root
+      .patch('/system/settings', { values: { 'general.defaultTimezone': null } })
+      .expect(200);
   });
 
   it('樂觀鎖：送出過時的 version → 409 ANNOUNCEMENT_VERSION_CONFLICT（details.current）', async () => {

@@ -128,6 +128,11 @@ export const SETTING_FIELD: Readonly<Partial<Record<string, SettingFieldConfig>>
     descriptionKey: 'setting.field.notificationMaxPerUser.description',
     unit: UNIT.items,
   },
+  'announcement.dispatchRetentionDays': {
+    labelKey: 'setting.field.announcementDispatchRetentionDays.label',
+    descriptionKey: 'setting.field.announcementDispatchRetentionDays.description',
+    unit: UNIT.days,
+  },
   'announcement.maxRecipients': {
     labelKey: 'setting.field.announcementMaxRecipients.label',
     descriptionKey: 'setting.field.announcementMaxRecipients.description',

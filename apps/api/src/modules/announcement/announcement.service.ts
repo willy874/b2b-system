@@ -3,26 +3,24 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
-import type { Database, DbOrTx, Transaction } from '@/core/database';
+import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
 import { JobQueue } from '@/core/jobs';
 import { RESOURCE_TYPE } from '@/core/resource';
-import type {
-  AnnouncementDispatchRow,
-  AnnouncementRow,
-  AnnouncementTriggerValue,
-} from '@/db/schema';
+import type { AnnouncementDispatchRow, AnnouncementRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { NotificationService } from '@/modules/notification/notification.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 
 import { AnnouncementAudienceResolver, isEmptyAudience } from './announcement.audience';
-import { ANNOUNCEMENT_DISPATCH_JOB, ANNOUNCEMENT_FAN_OUT_JOB } from './announcement.job-types';
+import { ANNOUNCEMENT_RECURRENCE_PREVIEW_COUNT } from './announcement.constants';
+import { ANNOUNCEMENT_FAN_OUT_JOB } from './announcement.job-types';
 import type { AnnouncementWithPeople, DispatchWithPeople } from './announcement.repository';
 import { AnnouncementRepository } from './announcement.repository';
+import { AnnouncementScheduler } from './announcement.scheduler';
 import type {
   AnnouncementActionDto,
   AnnouncementAudienceDto,
@@ -33,6 +31,8 @@ import type {
   CreateAnnouncementDto,
   ListAnnouncementDispatchDto,
   ListAnnouncementDto,
+  RecurrencePreviewDto,
+  RecurrencePreviewRequestDto,
   UpdateAnnouncementDto,
 } from './dto/announcement.dto';
 
@@ -116,6 +116,7 @@ export class AnnouncementService {
     private readonly permissions: PermissionService,
     private readonly audit: AuditService,
     private readonly jobs: JobQueue,
+    private readonly scheduler: AnnouncementScheduler,
     private readonly events: DomainEventBus,
   ) {}
 
@@ -190,7 +191,9 @@ export class AnnouncementService {
       throw new AppException('ANNOUNCEMENT_INVALID_STATE', { status: current.status });
     }
     const reschedule = current.status === 'scheduled' && fields.trigger !== undefined;
-    const runAt = reschedule ? this.assertFuture(trigger) : undefined;
+    const runAt = reschedule
+      ? await this.scheduler.firstRun(trigger, await this.repo.countDispatches(id))
+      : undefined;
 
     await withTransaction(this.db, async (tx) => {
       const updated = await this.repo.update(
@@ -204,7 +207,7 @@ export class AnnouncementService {
         tx,
       );
       if (!updated) throw await this.missedUpdate(id, tx);
-      if (runAt) await this.enqueueRun(id, runAt, tx);
+      if (runAt) await this.scheduler.enqueue(id, runAt, tx);
       await this.audit.record(
         {
           action: 'announcement.update',
@@ -234,7 +237,9 @@ export class AnnouncementService {
     }
     if (isEmptyAudience(current.audience)) throw new AppException('ANNOUNCEMENT_AUDIENCE_EMPTY');
     const runAt =
-      current.trigger.kind === 'immediate' ? undefined : this.assertFuture(current.trigger);
+      current.trigger.kind === 'immediate'
+        ? undefined
+        : await this.scheduler.firstRun(current.trigger, 0);
 
     await withTransaction(this.db, async (tx) => {
       const updated = await this.repo.update(
@@ -248,7 +253,7 @@ export class AnnouncementService {
       if (!updated) throw await this.missedUpdate(id, tx);
       let dispatchId: string | undefined;
       if (runAt) {
-        await this.enqueueRun(id, runAt, tx);
+        await this.scheduler.enqueue(id, runAt, tx);
       } else {
         const dispatch = await this.repo.insertDispatch(
           {
@@ -286,16 +291,25 @@ export class AnnouncementService {
     return this.transition(id, dto, actor, {
       from: 'scheduled',
       action: 'announcement.pause',
-      values: () => ({ status: 'paused', nextRunAt: null }),
+      values: async () => ({ status: 'paused', nextRunAt: null }),
     });
   }
 
-  /** 恢復排程：`paused` → `scheduled`，重算下一次並入列；指定的時間已經過去就不能恢復。 */
+  /**
+   * 恢復排程：`paused` → `scheduled`，從現在起重算下一次並入列（暫停期間錯過的不補發）；
+   * 指定的時間已經過去、週期已結束就不能恢復。
+   */
   async resume(id: string, dto: AnnouncementActionDto, actor: AuthUser): Promise<AnnouncementDto> {
     return this.transition(id, dto, actor, {
       from: 'paused',
       action: 'announcement.resume',
-      values: (row) => ({ status: 'scheduled', nextRunAt: this.assertFuture(row.trigger) }),
+      values: async (row) => ({
+        status: 'scheduled',
+        nextRunAt: await this.scheduler.firstRun(
+          row.trigger,
+          await this.repo.countDispatches(row.id),
+        ),
+      }),
     });
   }
 
@@ -345,6 +359,15 @@ export class AnnouncementService {
     // 重新出現在列表：以 create 宣告（與群組的還原相同）
     this.publish(ChangeKind.CREATE, id);
     return this.findOne(id);
+  }
+
+  /** 週期的預覽：接下來最多 5 次（租戶時區），前端不自己算（D11）。 */
+  async previewRecurrence(dto: RecurrencePreviewRequestDto): Promise<RecurrencePreviewDto> {
+    const { timeZone, occurrences } = await this.scheduler.preview(
+      dto.trigger,
+      ANNOUNCEMENT_RECURRENCE_PREVIEW_COUNT,
+    );
+    return { timeZone, occurrences: occurrences.map((at) => at.toISOString()) };
   }
 
   async previewAudience(audience: AnnouncementAudienceDto): Promise<AudiencePreviewDto> {
@@ -432,7 +455,7 @@ export class AnnouncementService {
     rule: {
       from: AnnouncementRow['status'];
       action: 'announcement.pause' | 'announcement.resume';
-      values: (row: AnnouncementRow) => Pick<AnnouncementRow, 'status' | 'nextRunAt'>;
+      values: (row: AnnouncementRow) => Promise<Pick<AnnouncementRow, 'status' | 'nextRunAt'>>;
     },
   ): Promise<AnnouncementDto> {
     const current = await this.getExisting(id);
@@ -440,7 +463,7 @@ export class AnnouncementService {
     if (current.status !== rule.from) {
       throw new AppException('ANNOUNCEMENT_INVALID_STATE', { status: current.status });
     }
-    const values = rule.values(current);
+    const values = await rule.values(current);
     await withTransaction(this.db, async (tx) => {
       const updated = await this.repo.update(
         id,
@@ -449,7 +472,7 @@ export class AnnouncementService {
         tx,
       );
       if (!updated) throw await this.missedUpdate(id, tx);
-      if (values.nextRunAt) await this.enqueueRun(id, values.nextRunAt, tx);
+      if (values.nextRunAt) await this.scheduler.enqueue(id, values.nextRunAt, tx);
       await this.audit.record(
         {
           action: rule.action,
@@ -464,27 +487,6 @@ export class AnnouncementService {
     });
     this.publish(ChangeKind.UPDATE, id);
     return this.findOne(id);
-  }
-
-  /** 排程的下一次：延遲到那個時間的工作，帶上時間讓它判斷自己是不是過時的（D8）。 */
-  private async enqueueRun(id: string, runAt: Date, tx: Transaction): Promise<void> {
-    await this.jobs.enqueue(
-      ANNOUNCEMENT_DISPATCH_JOB,
-      { announcementId: id, runAt: runAt.toISOString() },
-      { tx, startAfter: runAt },
-    );
-  }
-
-  /** 指定的時間必須在未來；回傳下一次的時間。 */
-  private assertFuture(trigger: AnnouncementTriggerValue): Date {
-    if (trigger.kind !== 'once') {
-      throw new AppException('ANNOUNCEMENT_INVALID_STATE', { trigger: trigger.kind });
-    }
-    const at = new Date(trigger.at);
-    if (at.getTime() <= Date.now()) {
-      throw new AppException('ANNOUNCEMENT_TRIGGER_IN_PAST', { at: trigger.at });
-    }
-    return at;
   }
 
   private assertVersion(row: AnnouncementRow, version: number): void {

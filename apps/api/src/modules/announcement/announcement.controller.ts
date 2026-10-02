@@ -32,6 +32,8 @@ import {
   CreateAnnouncementSchema,
   ListAnnouncementDispatchSchema,
   ListAnnouncementSchema,
+  RecurrencePreviewRequestSchema,
+  RecurrencePreviewSchema,
   UpdateAnnouncementSchema,
 } from './dto/announcement.dto';
 import type {
@@ -40,6 +42,7 @@ import type {
   CreateAnnouncementDto,
   ListAnnouncementDispatchDto,
   ListAnnouncementDto,
+  RecurrencePreviewRequestDto,
   UpdateAnnouncementDto,
 } from './dto/announcement.dto';
 
@@ -79,6 +82,18 @@ export class AnnouncementController {
     @Body(new ZodValidationPipe(AnnouncementAudienceSchema)) dto: AnnouncementAudienceDto,
   ) {
     return this.announcements.previewAudience(dto);
+  }
+
+  @Post('recurrence-preview')
+  @HttpCode(200)
+  @RequirePermissions(PERMISSION.ANNOUNCEMENT_UPDATE)
+  @ApiOperation({ summary: '週期接下來的發送時間（最多 5 次，依租戶時區）' })
+  @ApiZodBody(RecurrencePreviewRequestSchema)
+  @ApiZodResponse(200, RecurrencePreviewSchema)
+  previewRecurrence(
+    @Body(new ZodValidationPipe(RecurrencePreviewRequestSchema)) dto: RecurrencePreviewRequestDto,
+  ) {
+    return this.announcements.previewRecurrence(dto);
   }
 
   @Get(':id')

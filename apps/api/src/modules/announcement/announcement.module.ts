@@ -13,6 +13,7 @@ import { AnnouncementController } from './announcement.controller';
 import { AnnouncementJobs } from './announcement.jobs';
 import { ANNOUNCEMENT_NOTIFICATIONS } from './announcement.notifications';
 import { AnnouncementRepository } from './announcement.repository';
+import { AnnouncementScheduler } from './announcement.scheduler';
 import { AnnouncementService } from './announcement.service';
 import { ANNOUNCEMENT_SETTINGS } from './announcement.settings';
 
@@ -28,6 +29,7 @@ import { ANNOUNCEMENT_SETTINGS } from './announcement.settings';
     AnnouncementDispatchService,
     AnnouncementRepository,
     AnnouncementAudienceResolver,
+    AnnouncementScheduler,
     AnnouncementJobs,
     AnnouncementTrashHandler,
   ],

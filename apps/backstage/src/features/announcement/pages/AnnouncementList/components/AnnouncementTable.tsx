@@ -9,11 +9,8 @@ import type { FilterBarProps, RichTablePagination, TableSearchProps } from '@/co
 import { useTranslation } from '@/core/locales';
 import { formatDateTime } from '@/shared/date';
 
-import {
-  ANNOUNCEMENT_STATUS_LABEL_KEY,
-  ANNOUNCEMENT_STATUS_TONE,
-  TRIGGER_KIND_LABEL_KEY,
-} from '../../../constants';
+import { describeTrigger } from '../../../components/triggerSummary';
+import { ANNOUNCEMENT_STATUS_LABEL_KEY, ANNOUNCEMENT_STATUS_TONE } from '../../../constants';
 import { AnnouncementDetailRoute } from '../../../routes';
 import type { AnnouncementSearchQuery } from '../../../routes';
 import type { AnnouncementRowVM } from '../adapter';
@@ -43,7 +40,7 @@ export function AnnouncementTable({
   onRetry,
   pagination,
 }: AnnouncementTableProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const columns = useMemo<Array<TableColumnDef<AnnouncementRowVM>>>(
     () => [
@@ -81,10 +78,13 @@ export function AnnouncementTable({
         id: 'trigger',
         header: t('announcement.field.trigger'),
         enableSorting: false,
-        cell: ({ row }) =>
-          row.original.scheduledAt
-            ? formatDateTime(row.original.scheduledAt)
-            : t(TRIGGER_KIND_LABEL_KEY[row.original.triggerKind]),
+        cell: ({ row }) => describeTrigger(t, language, row.original.trigger),
+      },
+      {
+        id: 'nextRunAt',
+        header: t('announcement.field.nextRunAt'),
+        enableSorting: false,
+        cell: ({ row }) => (row.original.nextRunAt ? formatDateTime(row.original.nextRunAt) : '-'),
       },
       {
         id: 'read',
@@ -100,7 +100,7 @@ export function AnnouncementTable({
         cell: ({ row }) => formatDateTime(row.original.updatedAt),
       },
     ],
-    [search, t],
+    [language, search, t],
   );
 
   return (

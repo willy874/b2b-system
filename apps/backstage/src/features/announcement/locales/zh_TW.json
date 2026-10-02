@@ -8,7 +8,8 @@
     },
     "detail": {
       "title": "公告",
-      "backToList": "回到公告列表"
+      "backToList": "回到公告列表",
+      "nextRun": "下一次：{{at}}"
     },
     "status": {
       "draft": "草稿",
@@ -21,7 +22,8 @@
       "once": "指定時間",
       "day": "發送日期",
       "time": "發送時間",
-      "timeZone": "時區：{{timeZone}}"
+      "timeZone": "時區：{{timeZone}}",
+      "recurring": "週期"
     },
     "field": {
       "title": "標題",
@@ -31,7 +33,8 @@
       "trigger": "發送時間",
       "status": "狀態",
       "readSummary": "最近一次已讀",
-      "updatedAt": "更新時間"
+      "updatedAt": "更新時間",
+      "nextRunAt": "下一次"
     },
     "readSummary": "{{read}} / {{total}}",
     "audience": {
@@ -68,7 +71,8 @@
       "title": "送出公告",
       "confirmImmediate": "現在就把「{{title}}」發給收件對象？送出後不能修改，只能撤回。",
       "confirmScheduled": "在 {{at}} 把「{{title}}」發給收件對象？發送前可以暫停或修改時間。",
-      "success": "已送出公告"
+      "success": "已送出公告",
+      "confirmRecurring": "依「{{at}}」把「{{title}}」發給收件對象？每次發送前都可以暫停或修改。"
     },
     "pause": {
       "action": "暫停",
@@ -115,6 +119,45 @@
     "message": {
       "meta": "{{sender}} · {{at}}",
       "unknownSender": "已刪除的使用者"
+    },
+    "recurrence": {
+      "every": "每",
+      "interval": "間隔",
+      "frequencyLabel": "頻率",
+      "frequency": {
+        "daily": "天",
+        "weekly": "週",
+        "monthly": "個月"
+      },
+      "weekdays": "星期幾",
+      "monthDay": "每月的哪一天",
+      "dayOfMonth": "{{day}} 日",
+      "lastDay": "最後一天",
+      "startsOn": "開始日期",
+      "endsOn": "結束日期",
+      "noEnd": "不結束",
+      "maxOccurrences": "最多發送次數",
+      "unlimited": "不限",
+      "preview": "接下來的發送時間（依租戶時區 {{timeZone}} 計算）：",
+      "noOccurrence": "已經沒有下一次（超過結束日期或次數）",
+      "incomplete": "填好開始日期與時間後，會顯示接下來的發送時間",
+      "weekday": {
+        "0": "週日",
+        "1": "週一",
+        "2": "週二",
+        "3": "週三",
+        "4": "週四",
+        "5": "週五",
+        "6": "週六"
+      },
+      "summary": {
+        "daily": "每天 {{time}}",
+        "dailyEvery": "每 {{count}} 天 {{time}}",
+        "weekly": "每週{{weekdays}} {{time}}",
+        "weeklyEvery": "每 {{count}} 週的{{weekdays}} {{time}}",
+        "monthly": "每月{{day}} {{time}}",
+        "monthlyEvery": "每 {{count}} 個月的{{day}} {{time}}"
+      }
     }
   }
 }

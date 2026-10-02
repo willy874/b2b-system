@@ -13,7 +13,7 @@
     "field": {
       "defaultTimezone": {
         "label": "Default time zone",
-        "description": "Used to display times for users who have not chosen a time zone."
+        "description": "Used to display times for users who have not chosen a time zone, and to calculate the send times of recurring announcements."
       },
       "loginMaxAttempts": {
         "label": "Failed sign-ins before lockout",
@@ -74,6 +74,10 @@
       "announcementMaxRecipients": {
         "label": "Max recipients per announcement",
         "description": "If an announcement resolves to more recipients than this, that send fails with the reason shown in its history instead of reaching only some people."
+      },
+      "announcementDispatchRetentionDays": {
+        "label": "Announcement send history retention",
+        "description": "Finished sends older than this are deleted by the daily job; recipients can no longer open the full text from old notifications."
       }
     },
     "unit": {

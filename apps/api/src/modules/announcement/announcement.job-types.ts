@@ -35,3 +35,15 @@ export const ANNOUNCEMENT_FAN_OUT_JOB = defineJob<AnnouncementFanOutJobData>(
     expireInSeconds: 15 * 60,
   },
 );
+
+/** 每日維護（D10、D19）：補排程與發送紀錄的保留清理；同一個租戶同時只跑一個。 */
+export const ANNOUNCEMENT_MAINTENANCE_JOB = defineJob<Record<string, never>>(
+  'announcement.maintenance',
+  {
+    scope: 'tenant',
+    exclusive: true,
+    retryLimit: 3,
+    retryDelaySeconds: 300,
+    expireInSeconds: 30 * 60,
+  },
+);

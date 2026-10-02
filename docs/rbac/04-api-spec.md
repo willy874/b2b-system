@@ -710,6 +710,7 @@
 | GET    | `/announcements` | `announcement:read` | 列表：`keyword`、`status`；每列帶最近一次發送（人數、已讀數） |
 | POST   | `/announcements` | `announcement:create` | 建立草稿 |
 | POST   | `/announcements/audience-preview` | `announcement:update` | 受眾 → `{ count, skipped }` |
+| POST   | `/announcements/recurrence-preview` | `announcement:update` | `{ trigger }`（週期）→ `{ timeZone, occurrences }`：接下來最多 5 次 |
 | GET／PATCH／DELETE | `/announcements/:id` | `read`／`update`／`delete` | PATCH 必帶 `version`；草稿以外另要 `publish` |
 | POST   | `/announcements/:id/restore` | `announcement:delete` | 回收桶還原 |
 | POST   | `/announcements/:id/publish`、`/pause`、`/resume` | `announcement:publish` | 帶 `{ version }` |
@@ -724,6 +725,8 @@
   "body": "本週六 22:00～24:00 系統維護。",
   "audience": { "all": false, "userIds": [], "groupIds": ["uuid"], "roleIds": [] },
   "trigger": { "kind": "once", "at": "2026-10-10T10:00:00Z" }   // 或 { "kind": "immediate" }
+  // 週期（租戶時區）：{ "kind": "recurring", "frequency": "weekly", "interval": 1, "weekdays": [1, 3],
+  //                    "time": "09:00", "startsOn": "2026-10-01", "endsOn": null, "maxOccurrences": null }
 }
 // → 201 { "data": { "id": "uuid", "status": "draft", "version": 1, "nextRunAt": null, "lastDispatch": null, … } }
 

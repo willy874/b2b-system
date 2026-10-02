@@ -99,6 +99,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `approval.resultMail` | `modules/approval` | — | 由程式入列 |
 | `announcement.dispatch` | `modules/announcement` | — | 送出、恢復、改時間的交易內入列，`startAfter` 是排定的時間；時間或狀態對不上就略過（[`19-announcement.md`](./19-announcement.md) §5） |
 | `announcement.fanOut` | `modules/announcement` | — | 一次發送的分批寫入（每 500 人一個交易）；重做安全 |
+| `announcement.maintenance` | `modules/announcement` | `ANNOUNCEMENT_MAINTENANCE_CRON` | `20 5 * * *`（每天 05:20 UTC；補排程與發送紀錄的保留清理，[`19-announcement.md`](./19-announcement.md) §5.2） |
 | `webhook.deliver` | `modules/webhook` | — | 由 `WebhookService.emit()` 在業務交易內入列；重試 8 次、60 秒起退避、並行 10（[`17-webhook.md`](./17-webhook.md) §4） |
 | `oidc.cleanup`（平台） | `modules/oidc-provider` | `OIDC_CLEANUP_CRON` | `45 3 * * *`（每天 03:45 UTC；清除過期的 IdP 狀態） |
 | `tenant.provisionSweep`（平台） | `modules/tenant` | — | `*/5 * * * *`（每 5 分鐘；佈建逾時仍在 `provisioning` 的租戶改成 `failed`，[`../05-tenancy.md`](../05-tenancy.md) §5） |
@@ -184,6 +185,7 @@ await withTransaction(this.db, async (tx) => {
 | `FILE_MAINTENANCE_CRON` | `0 * * * *` | 檔案維護的排程（UTC）；空字串停用 |
 | `TRASH_PURGE_CRON` | `30 4 * * *` | 回收桶到期永久刪除的排程（UTC）；空字串停用 |
 | `REVISION_PRUNE_CRON` | `45 4 * * *` | 版本歷史保留清理的排程（UTC）；空字串停用 |
+| `ANNOUNCEMENT_MAINTENANCE_CRON` | `20 5 * * *` | 公告的每日維護（補排程、發送紀錄保留清理）的排程（UTC）；空字串停用 |
 
 資料庫權限：pg-boss 啟動時要能在 `pgboss` schema 建表（第一次部署或升級 pg-boss 時）。
 應用程式與維運拆成不同 role 的部署，先以有權限的 role 啟動一次，或用 `getConstructionPlans()`
