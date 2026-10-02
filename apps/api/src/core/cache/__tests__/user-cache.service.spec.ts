@@ -89,7 +89,7 @@ describe('UserCacheService', () => {
     expect(cache.get('user-10049')).toBeDefined();
   });
 
-  describe('跨程序的失效（docs/adr/0027-api-tokens-external-api.md D16）', () => {
+  describe('跨程序的失效（docs/architecture/06-external-api.md §9.2 D16）', () => {
     it('一個程序失效，另一個程序的同一個租戶、同一個人也失效', async () => {
       const hub = new BroadcastHub();
       const [a, b] = [await processOn(hub), await processOn(hub)];

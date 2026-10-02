@@ -117,7 +117,7 @@ async function tenantDb(id: string) {
   return { db: drizzle(client, { schema: fullSchema }), close: () => client.end() };
 }
 
-describe('租戶的建立與佈建（docs/adr/0020-physical-tenant-isolation.md D12、D13）', () => {
+describe('租戶的建立與佈建（docs/architecture/05-tenancy.md §10.2 D12、D13）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.JOBS_WORKER_ENABLED = 'true';

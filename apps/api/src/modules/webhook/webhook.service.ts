@@ -99,7 +99,7 @@ function urlsOf(row: WebhookSubscriptionWithCreator): string[] {
 }
 
 /**
- * Webhook（docs/adr/0030-webhooks.md）：訂閱的增刪改、密鑰輪替、送測試事件、重送，
+ * Webhook（docs/architecture/backend/17-webhook.md §9）：訂閱的增刪改、密鑰輪替、送測試事件、重送，
  * 以及擁有者模組在業務交易內呼叫的 `emit()`。
  */
 @Injectable()
@@ -119,7 +119,7 @@ export class WebhookService {
 
   /**
    * 在擁有者的業務交易內（稽核之後）發出一個對外事件（D9）：有訂閱就寫一筆事件、每個訂閱的每個網址入列一筆投遞工作
-   * （docs/adr/0033-feature-params-and-webhook-targets.md D14），
+   * （docs/architecture/backend/17-webhook.md §10.2 D14），
    * 與業務資料一起提交或一起回滾。沒有訂閱、或租戶關掉了 webhook（D8）時什麼都不寫。
    */
   async emit<D extends WebhookData>(
@@ -180,7 +180,7 @@ export class WebhookService {
       const row = await this.repo.create(
         {
           name: dto.name,
-          // 升版期間的舊程式碼還讀這一欄（ADR-0033 D12 的雙寫）
+          // 升版期間的舊程式碼還讀這一欄（docs/architecture/backend/17-webhook.md §10.2 D12 的雙寫）
           url: urls[0],
           events: dto.events,
           secretEncrypted: this.transport.encryptSecret(secret),
@@ -206,7 +206,7 @@ export class WebhookService {
     return { secret, webhook: await this.findOne(created.id) };
   }
 
-  /** 改名、網址、事件、停用與啟用。啟用時所有網址的失敗次數歸零（D13、ADR-0033 D15）。 */
+  /** 改名、網址、事件、停用與啟用。啟用時所有網址的失敗次數歸零（D13、docs/architecture/backend/17-webhook.md §10.2 D15）。 */
   async update(id: string, dto: UpdateWebhookDto, actor: AuthUser): Promise<WebhookDto> {
     const current = await this.getExisting(id);
     if (dto.version !== current.version) {
@@ -320,7 +320,7 @@ export class WebhookService {
 
   /**
    * 送測試事件（D17）：同步送出 `webhook.ping` 到 **每個網址**，回傳每個網址的投遞紀錄
-   * （docs/adr/0033-feature-params-and-webhook-targets.md D16）。各網址同時送出，一個慢的不拖住其他的。
+   * （docs/architecture/backend/17-webhook.md §10.2 D16）。各網址同時送出，一個慢的不拖住其他的。
    */
   async sendTest(id: string): Promise<WebhookTestResultDto> {
     const subscription = await this.getActive(id);
@@ -341,7 +341,7 @@ export class WebhookService {
   }
 
   /**
-   * 手動重送某一筆紀錄的事件到 **同一個網址**（D17、ADR-0033 D16）：事件 id 不變，接收端可以據此去重。
+   * 手動重送某一筆紀錄的事件到 **同一個網址**（D17、docs/architecture/backend/17-webhook.md §10.2 D16）：事件 id 不變，接收端可以據此去重。
    * 網址已從訂閱移除時當作紀錄不存在。
    */
   async redeliver(id: string, deliveryId: string): Promise<WebhookDeliveryDto> {
@@ -376,7 +376,7 @@ export class WebhookService {
   }
 
   /**
-   * 整個租戶不重複的網址數上限 `webhook.maxUrls`（docs/adr/0033-feature-params-and-webhook-targets.md D11）：
+   * 整個租戶不重複的網址數上限 `webhook.maxUrls`（docs/architecture/05-tenancy.md §13.3 D11）：
    * 變更後超過上限 **而且比變更前多** 才擋——升版前已經超過的租戶仍能修改與減少。呼叫前先 `lockForCount`。
    */
   private async assertUrlLimit(urls: string[], tx: DbOrTx, subscriptionId?: string): Promise<void> {

@@ -7,7 +7,7 @@ import { TenantDirectory } from './tenant-directory.service';
 import { TenantMiddleware } from './tenant.middleware';
 import { TenantRepository } from './tenant.repository';
 
-/** 租戶的解析、連線池與脈絡（docs/adr/0020-physical-tenant-isolation.md D2、D3）。 */
+/** 租戶的解析、連線池與脈絡（docs/architecture/05-tenancy.md §10.2 D2、D3）。 */
 @Global()
 @Module({
   providers: [

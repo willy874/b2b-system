@@ -1,5 +1,5 @@
 /**
- * 跨模組的資源識別（docs/adr/0025-entity-revisions.md D7）：回收桶、版本歷史、標籤／留言的 `resource_type`，
+ * 跨模組的資源識別（docs/architecture/backend/14-revisions.md §9.2 D7）：回收桶、版本歷史、標籤／留言的 `resource_type`，
  * 與 `audit_logs.resource_type`、`relation_tuples.object_type` 是同一組字串（camelCase）。
  *
  * 用 text ＋ 這份常數，不用 Postgres enum：資源類型會持續增加，enum 每加一種就要一支 `ALTER TYPE` 的 migration。

@@ -10,7 +10,7 @@ import { ANNOUNCEMENT_DISPATCH_JOB } from './announcement.job-types';
 import { nextOccurrence, upcomingOccurrences } from './announcement.recurrence';
 
 /**
- * 排程的時間怎麼算、怎麼排（docs/adr/0031-announcements.md D7、D8、D11）。送出、恢復、改時間（service）與
+ * 排程的時間怎麼算、怎麼排（docs/architecture/backend/19-announcement.md §9.2 D7、D8、D11）。送出、恢復、改時間（service）與
  * 發送完算下一次、每日維護（背景工作）都經過這裡，規則只有一份。週期依租戶的 `general.defaultTimezone` 計算。
  */
 @Injectable()

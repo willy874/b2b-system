@@ -1,6 +1,6 @@
 # RBAC 08 — 群組
 
-> 決策見 [ADR-0024](../adr/0024-relationship-based-access-control.md) D10～D16；關係圖本身見 [`01-domain-model.md`](./01-domain-model.md) §6.4。
+> 決策見 [`rbac/01-domain-model.md`](01-domain-model.md) §9.3 D10～D16；關係圖本身見 [`01-domain-model.md`](./01-domain-model.md) §6.4。
 
 群組是 **純分組**：授權給群組、群組持有角色，人員異動時只改群組的成員。群組可以巢狀（成員可以是另一個群組）。
 它沒有自己的權限語意——成員取得的能力全部來自群組持有的角色與群組在資源上的授權。
@@ -38,7 +38,7 @@ fileFolder:<f>#<等級>@group:<g>#member     資料夾授權給群組
 
 ## 2. 授權規則
 
-### 2.1 反提權（ADR-0024 D11～D13）
+### 2.1 反提權（[`rbac/01-domain-model.md`](01-domain-model.md) §9.3 D11～D13）
 
 寫入一條邊時，主體因此取得的能力，操作者必須全部都有（通用規則見 [`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1）：
 

@@ -51,7 +51,7 @@ function setup(run: Tenancy['run'], deps: QueueDeps = {}) {
 
 const ENVELOPE: JobEnvelope = { tenantId: 't1', payload: { id: 'x' } };
 
-describe('JobQueue：租戶不能進入時的工作（docs/adr/0020-physical-tenant-isolation.md D15）', () => {
+describe('JobQueue：租戶不能進入時的工作（docs/architecture/05-tenancy.md §10.2 D15）', () => {
   it('租戶已刪除 → 略過（重試也不會成功）', async () => {
     const { execute } = setup(async () => {
       throw new AppException('TENANT_NOT_FOUND');
@@ -83,7 +83,7 @@ describe('JobQueue：租戶不能進入時的工作（docs/adr/0020-physical-ten
 /** 租戶可以進入：直接執行 handler。 */
 const runInside: Tenancy['run'] = async (_id, fn) => fn();
 
-describe('JobQueue：租戶的同時執行上限（docs/adr/0033-feature-params-and-webhook-targets.md D9）', () => {
+describe('JobQueue：租戶的同時執行上限（docs/architecture/05-tenancy.md §13.3 D9）', () => {
   it('排在上限以內 → 照常執行', async () => {
     const requeue = vi.fn();
     const { execute, handler } = setup(runInside, {

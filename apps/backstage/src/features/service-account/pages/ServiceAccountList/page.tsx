@@ -15,7 +15,7 @@ import type { ServiceAccountRowVM } from './adapter';
 import { ServiceAccountTable } from './components/ServiceAccountTable';
 import { useServiceAccountSearchFilter } from './useServiceAccountSearchFilter';
 
-/** 服務帳號（docs/adr/0027-api-tokens-external-api.md D1）：給 CI、建置流程等外部系統用的非人類帳號。 */
+/** 服務帳號（docs/architecture/06-external-api.md §9.2 D1）：給 CI、建置流程等外部系統用的非人類帳號。 */
 export default function ServiceAccountListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();

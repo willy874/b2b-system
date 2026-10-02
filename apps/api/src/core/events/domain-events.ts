@@ -13,19 +13,19 @@ export const DomainEvent = {
   RESOURCE_CHANGED: 'resource.changed',
   /**
    * 目前租戶的關係圖變了，任何人的權限集合都可能改變（快取已整個租戶失效）。由 `AuthzRevision` 發佈：
-   * 本機的寫入之後、或收到其他程序的廣播之後（docs/adr/0024-relationship-based-access-control.md D7）。
+   * 本機的寫入之後、或收到其他程序的廣播之後（docs/rbac/01-domain-model.md §9.2 D7）。
    */
   PERMISSIONS_CHANGED: 'permissions.changed',
   /** 這些使用者的 `token_version` 遞增了：既有的 session 全部作廢。 */
   SESSIONS_REVOKED: 'sessions.revoked',
   /**
-   * 目前的租戶開始服務：佈建完成、或停用後重新啟用（docs/adr/0020-physical-tenant-isolation.md D12、D13）。
+   * 目前的租戶開始服務：佈建完成、或停用後重新啟用（docs/architecture/05-tenancy.md §10.2 D12、D13）。
    * 在那個租戶的脈絡裡發佈；需要「每個租戶一份」初始資料的模組（例：檔案的系統資料夾）在這裡補上，
    * 不必等程序重啟時的 `forEachActive`。
    */
   TENANT_ACTIVATED: 'tenant.activated',
   /**
-   * 平台管理者變更了租戶啟用的 feature（docs/adr/0021-runtime-feature-activation.md D8）。平台的請求沒有租戶脈絡，
+   * 平台管理者變更了租戶啟用的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D8）。平台的請求沒有租戶脈絡，
    * 所以以 `tenantId` 指明對象；在 `TenantDirectory.invalidate()` 之後發佈。
    */
   TENANT_FEATURES_CHANGED: 'tenant.featuresChanged',
@@ -48,7 +48,7 @@ export interface DomainEventPayloads {
   };
   /**
    * 撤銷即時連線：`userIds` 是這些人的所有連線；`idpSessionUids` 只到同一個 IdP session 的連線（單一登出，
-   * docs/adr/0019-sso-identity-platform.md D5）。
+   * docs/architecture/04-sso.md §12.2 D5）。
    */
   [DomainEvent.SESSIONS_REVOKED]: {
     userIds?: string[];
@@ -68,7 +68,7 @@ export interface DomainEventMeta {
   clientId?: string;
   requestId?: string;
   /**
-   * 由其他程序轉送來的（`DomainEventRelay`，docs/adr/0027-api-tokens-external-api.md D18）：寫入發生在別的程序，
+   * 由其他程序轉送來的（`DomainEventRelay`，docs/architecture/06-external-api.md §9.2 D18）：寫入發生在別的程序，
    * 那邊的訂閱者已經處理過持久化的副作用；只有以 `{ remote: true }` 訂閱的 handler（推播）收得到。
    */
   remote?: boolean;

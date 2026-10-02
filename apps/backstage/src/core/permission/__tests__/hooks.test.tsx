@@ -136,7 +136,7 @@ describe('usePageAccess', () => {
   });
 });
 
-describe('權限 hooks 跟著註冊表更新（docs/adr/0021-runtime-feature-activation.md D4）', () => {
+describe('權限 hooks 跟著註冊表更新（docs/architecture/frontend/02-plugin-system.md §9.2 D4）', () => {
   const FILE_PAGE = definePageKey('FILE');
   const register = () =>
     registerPagePermission(FILE_PAGE, {

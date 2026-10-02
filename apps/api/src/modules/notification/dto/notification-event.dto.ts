@@ -19,7 +19,7 @@ export const NotificationEventChannelSchema = defineSchema(
     defaultEnabled: z.boolean(),
     /** `enabled` 有覆寫（與預設不同）。 */
     isOverridden: z.boolean(),
-    /** 個人能不能關這個管道（ADR-0028 D14）；`mandatory` 一律 `false`。預設 `true`。 */
+    /** 個人能不能關這個管道（docs/architecture/backend/16-notification-event.md §9.2 D14）；`mandatory` 一律 `false`。預設 `true`。 */
     allowUserOverride: z.boolean(),
     /** 這一列覆寫值最後修改的時間；沒有覆寫時為 `null`。 */
     updatedAt: z.string().nullable(),
@@ -33,7 +33,7 @@ export const NotificationEventSchema = defineSchema(
     type: z.string(),
     /** 管理頁的分組（camelCase）。 */
     category: z.string(),
-    /** 不能關：開關停用（ADR-0028 D4）。 */
+    /** 不能關：開關停用（docs/architecture/backend/16-notification-event.md §9.2 D4）。 */
     mandatory: z.boolean(),
     /** 這個事件能經由的管道（目錄的順序）。 */
     channels: z.array(NotificationEventChannelSchema),

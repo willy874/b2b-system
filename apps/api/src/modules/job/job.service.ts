@@ -54,7 +54,7 @@ export class JobService {
    * 把重試用完的工作重新排入。只接受 `failed`：執行中或等待中的工作重試會重複執行，
    * 已完成、已取消的工作重試沒有意義。
    *
-   * 佇列在平台 DB、稽核在租戶 DB，兩者不能在同一個交易（docs/adr/0020-physical-tenant-isolation.md D15）：
+   * 佇列在平台 DB、稽核在租戶 DB，兩者不能在同一個交易（docs/architecture/05-tenancy.md §10.2 D15）：
    * 先重試（以 state = 'failed' 為條件，兩個人同時按時後到的會落空），成功才寫稽核。
    */
   async retry(id: string, actor: AuthUser): Promise<JobDto> {

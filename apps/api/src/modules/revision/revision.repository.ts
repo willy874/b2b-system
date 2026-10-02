@@ -118,7 +118,7 @@ export class RevisionRepository {
   }
 
   /**
-   * 刪除一批「不在每個資源最新 `keepVersions` 版內、而且早於 `cutoff`」的版本（ADR-0025 D1）。
+   * 刪除一批「不在每個資源最新 `keepVersions` 版內、而且早於 `cutoff`」的版本（docs/architecture/backend/14-revisions.md §9.2 D1）。
    * 排名以版本號倒序（最新一版是 1）；回傳這一批刪了幾筆，少於 `limit` 代表清完了。
    */
   async pruneBatch(keepVersions: number, cutoff: Date, limit: number): Promise<number> {

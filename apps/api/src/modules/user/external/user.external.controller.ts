@@ -13,7 +13,7 @@ import {
 import type { ListExternalUserDto } from './user.external.dto';
 import { UserExternalService } from './user.external.service';
 
-/** 對外 API 的使用者（唯讀，docs/adr/0027-api-tokens-external-api.md T3）：給目錄同步。 */
+/** 對外 API 的使用者（唯讀，docs/architecture/06-external-api.md §9 T3）：給目錄同步。 */
 @ApiTags('users')
 @ExternalApi()
 @Controller('v1/users')

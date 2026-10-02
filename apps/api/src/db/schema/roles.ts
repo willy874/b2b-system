@@ -12,7 +12,7 @@ export const roles = pgTable(
     name: text('name').notNull(), // 顯示名稱，可改
     description: text('description'),
     isSystem: boolean('is_system').notNull().default(false),
-    // 樂觀鎖：名稱與說明每次寫入遞增；持有者與權限鍵（relation_tuples）的寫入不遞增（ADR-0025 D3）
+    // 樂觀鎖：名稱與說明每次寫入遞增；持有者與權限鍵（relation_tuples）的寫入不遞增（docs/architecture/backend/14-revisions.md §9.2 D3）
     version: integer('version').notNull().default(1),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -36,7 +36,7 @@ export type RoleRow = typeof roles.$inferSelect;
 export type RoleInsert = typeof roles.$inferInsert;
 
 /**
- * 還有效（未軟刪除）的角色＝`notDeleted(roles)` 的別名（ADR-0025 D8）。權限解析、成員與角色列表、
+ * 還有效（未軟刪除）的角色＝`notDeleted(roles)` 的別名（docs/architecture/backend/14-revisions.md §9.2 D8）。權限解析、成員與角色列表、
  * 資源授權都只看有效的角色。`core/authz` 的遞迴 CTE 是手寫 SQL，同一個條件寫在那裡（authz.repository.ts）。
  */
 export function isActiveRole(): SQL {

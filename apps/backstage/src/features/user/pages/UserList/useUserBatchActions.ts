@@ -8,7 +8,7 @@ import { useUserPermission } from '../../hooks/useUserPermission';
 import type { UserRowVM } from './adapter';
 
 /**
- * 使用者列表的批次動作：確認後送進全域佇列，逐筆呼叫單筆 API（ADR-0012）。
+ * 使用者列表的批次動作：確認後送進全域佇列，逐筆呼叫單筆 API（docs/architecture/frontend/07-ui-system.md §13）。
  * 資格沿用 adapter 算好的列旗標：
  * 不能動自己（`canUpdate` / `canDelete` 已排除），解鎖只對被鎖定的人。
  */

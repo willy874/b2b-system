@@ -38,7 +38,7 @@ import { PlatformAdminManagementService } from './platform-admin-management.serv
 import { PlatformAuditService } from './platform-audit.service';
 
 /**
- * 平台管理者與平台稽核（apps/auth，docs/adr/0020-physical-tenant-isolation.md D5、D19）。
+ * 平台管理者與平台稽核（apps/auth，docs/architecture/05-tenancy.md §10.2 D5、D19）。
  * 只在 apps/auth 的網域有效，租戶網域上回 `PLATFORM_ONLY`。
  */
 @ApiTags('platform-admins')

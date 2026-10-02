@@ -33,7 +33,7 @@ export function waitForFeature(id: string): Promise<FeatureStatus | undefined> {
 }
 
 /**
- * 可啟用 feature 最上層 route 的 `beforeLoad`（docs/adr/0021-runtime-feature-activation.md D6）：
+ * 可啟用 feature 最上層 route 的 `beforeLoad`（docs/architecture/frontend/02-plugin-system.md §9.2 D6）：
  * 已啟用 → 通過；安裝中或清單還沒到 → 等待；未啟用 → 404；安裝失敗 → 錯誤頁。
  *
  * 等待很重要：直接貼網址進來時清單可能還在路上，而 route 的 loader（語系包）必須在 feature 安裝 **之後** 才跑。

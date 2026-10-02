@@ -33,7 +33,7 @@ function setup() {
       liveIds.delete(id);
       return { id };
     }),
-    // 有紀錄（含已軟刪除）的 id：已刪除紀錄的物件留給 trash.purge（ADR-0025 R4a）
+    // 有紀錄（含已軟刪除）的 id：已刪除紀錄的物件留給 trash.purge（docs/architecture/backend/14-revisions.md §9 R4a）
     findRecordedIds: vi.fn(
       async (ids: string[]) => new Set(ids.filter((id) => liveIds.has(id) || deletedIds.has(id))),
     ),
@@ -141,7 +141,7 @@ describe('FileMaintenanceService（docs/architecture/backend/09-file.md §9）',
     expect(storage.delete).toHaveBeenCalledWith(variantKeyOf(GONE, 'preview', 'jpeg'));
     expect(storage.delete).not.toHaveBeenCalledWith(storageKeyOf(LIVE));
     expect(storage.delete).not.toHaveBeenCalledWith('files/readme.txt');
-    // 紀錄在回收桶裡（已軟刪除）的物件留給 trash.purge（ADR-0025 R4a）
+    // 紀錄在回收桶裡（已軟刪除）的物件留給 trash.purge（docs/architecture/backend/14-revisions.md §9 R4a）
     expect(storage.delete).not.toHaveBeenCalledWith(storageKeyOf(TRASHED));
     expect(storage.delete).not.toHaveBeenCalledWith(thumbnailKeyOf(TRASHED));
     // 卡住的變體重新排入

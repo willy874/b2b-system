@@ -2,7 +2,7 @@
 
 > 狀態：**已實作**（`features/notification`：頂列鈴鐺、Popover、列表頁 `/notification`、通知總覽 `/notification/all`、事件管理頁 `/notification/events`、偏好頁的通知分頁；`core/route-link` 的 route id 註冊表）。
 > 後端（`notifications` 表、`NotificationService.notify()`、API、推播、保留清理）見 [`../backend/15-notification.md`](../backend/15-notification.md)；
-> 決策見 [ADR-0026](../../adr/0026-notification-center.md) D3、D8、D12。
+> 決策見 [`backend/15-notification.md`](../backend/15-notification.md) §12.2 D3、D8、D12。
 
 ## 1. 組成
 
@@ -69,7 +69,7 @@ apis/notification/
 
 ## 3. 連結：route id 註冊表（`core/route-link`）
 
-後端存 `link = { route: '<route id>', params }`，不存路徑（ADR-0026 D3）。feature 在 plugin 的 **同步** 階段把自己的頁面登記成 route id；
+後端存 `link = { route: '<route id>', params }`，不存路徑（[`backend/15-notification.md`](../backend/15-notification.md) §12.2 D3）。feature 在 plugin 的 **同步** 階段把自己的頁面登記成 route id；
 讀的一方只查註冊表，不 import 其他 feature 的 route。
 
 ```ts
@@ -105,7 +105,7 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 
 ### 4.1 通知總覽（`/notification/all`）
 
-租戶內所有人的通知（[ADR-0031](../../adr/0031-announcements.md) D1；後端見 [`../backend/15-notification.md`](../backend/15-notification.md) §6.1）。
+租戶內所有人的通知（[`backend/19-announcement.md`](../backend/19-announcement.md) §9.2 D1；後端見 [`../backend/15-notification.md`](../backend/15-notification.md) §6.1）。
 
 | 項目 | 規則 |
 | --- | --- |
@@ -175,7 +175,7 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 
 ## 9. 事件管理頁（`/notification/events`）
 
-租戶層決定每個事件經由哪些管道送出（[ADR-0028](../../adr/0028-notification-event-management.md) D12、D13；後端見
+租戶層決定每個事件經由哪些管道送出（[`backend/16-notification-event.md`](../backend/16-notification-event.md) §9.2 D12、D13；後端見
 [`../backend/16-notification-event.md`](../backend/16-notification-event.md)）。
 
 | 項目 | 規則 |
@@ -189,7 +189,7 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 
 ## 10. 偏好頁的通知分頁
 
-使用者在租戶允許的範圍內決定自己要收哪些通知（[ADR-0028](../../adr/0028-notification-event-management.md) D14、D15；後端見
+使用者在租戶允許的範圍內決定自己要收哪些通知（[`backend/16-notification-event.md`](../backend/16-notification-event.md) §9.2 D14、D15；後端見
 [`../backend/16-notification-event.md`](../backend/16-notification-event.md) §5）。
 
 | 項目 | 規則 |

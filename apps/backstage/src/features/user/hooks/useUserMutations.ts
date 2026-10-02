@@ -63,7 +63,7 @@ export function useUserUpdateMutation() {
 }
 
 /**
- * 刪除使用者。成功的提示附「復原」：刪除只是移到回收桶（ADR-0025），按下就呼叫還原端點。
+ * 刪除使用者。成功的提示附「復原」：刪除只是移到回收桶（docs/architecture/backend/14-revisions.md §9），按下就呼叫還原端點。
  * 刪除與還原都要 `user:delete`，所以刪得掉的人一定按得了復原。
  */
 export function useUserDeleteMutation() {
@@ -80,7 +80,7 @@ export function useUserDeleteMutation() {
       toast.show({
         type: 'success',
         title: t('user.delete.success'),
-        // 回收桶被平台關掉時還原端點回 404，不提供復原（docs/adr/0029-toggleable-platform-features.md D3）
+        // 回收桶被平台關掉時還原端點回 404，不提供復原（docs/architecture/05-tenancy.md §12.2 D3）
         ...(canRestore && {
           action: {
             label: t('user.delete.undo'),
@@ -101,7 +101,7 @@ function conflictingUserIdOf(error: unknown): string | undefined {
 }
 
 /**
- * 還原刪除的使用者（`POST /users/:id/restore`，ADR-0025 D6）。email 或 username 已被別的帳號使用時，
+ * 還原刪除的使用者（`POST /users/:id/restore`，docs/architecture/backend/14-revisions.md §9.2 D6）。email 或 username 已被別的帳號使用時，
  * 提示附「查看該帳號」直接連過去：email 不能改，管理者要先處理那個帳號。
  */
 export function useUserRestoreMutation() {
@@ -190,7 +190,7 @@ export function useUserResetPasswordMutation() {
   });
 }
 
-/** 整批取代使用者的標籤（docs/adr/0032-tags.md D7）：錯誤由對話框顯示，不彈 toast。 */
+/** 整批取代使用者的標籤（docs/architecture/backend/18-tag.md §7.2 D7）：錯誤由對話框顯示，不彈 toast。 */
 export function useUserTagsReplaceMutation() {
   const toast = useToast();
   const { t } = useTranslation();

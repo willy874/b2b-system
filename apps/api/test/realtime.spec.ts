@@ -46,7 +46,7 @@ let db: TestDatabase;
 let closeDb: () => Promise<void>;
 let bus: DomainEventBus;
 let jwt: JwtService;
-/** 測試租戶的 id：直接簽的 token 要帶上（docs/adr/0020-physical-tenant-isolation.md D10）。 */
+/** 測試租戶的 id：直接簽的 token 要帶上（docs/architecture/05-tenancy.md §10.2 D10）。 */
 let tenantId: string;
 
 const opened: ClientSocket[] = [];
@@ -271,7 +271,7 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       await expect(waitFor(allowed, 'connect')).resolves.toBeUndefined();
     });
 
-    it('同源（Origin 的 host 就是連線的網域）→ 不必列在清單裡（每個租戶在自己的網域，ADR-0020 D2）', async () => {
+    it('同源（Origin 的 host 就是連線的網域）→ 不必列在清單裡（每個租戶在自己的網域，docs/architecture/05-tenancy.md §10.2 D2）', async () => {
       const token = await tokenFor(await createUser('hs-same-origin@example.com'));
       const sameOrigin = openSocket(token, { origin: url });
       await expect(waitFor(sameOrigin, 'connect')).resolves.toBeUndefined();
@@ -375,7 +375,7 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
         DomainEvent.PERMISSIONS_CHANGED,
         DomainEvent.RESOURCE_CHANGED,
       ]);
-      // 名單只給逐人處理的訂閱者（個人資料夾）；room 以整個租戶的連線重算（ADR-0024 D8）
+      // 名單只給逐人處理的訂閱者（個人資料夾）；room 以整個租戶的連線重算（docs/rbac/01-domain-model.md §9.2 D8）
       expect(publish.mock.calls[0]?.[1]).toEqual({ userIds: [holder] });
 
       // 持有者剛拿到 user:read：下一筆使用者變更就會收到（room 已同步）
@@ -439,7 +439,7 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
         .send({ roleIds: [auditorId], expectedRoleIds: await currentRoleIds(db, target) })
         .expect(200);
       await barrier([socket]);
-      // 站內通知在交易提交時就推出（afterCommit），早於交易後的權限失效與 userRole（ADR-0026 D8）
+      // 站內通知在交易提交時就推出（afterCommit），早於交易後的權限失效與 userRole（docs/architecture/backend/15-notification.md §12.2 D8）
       expect(got[0]?.changes).toEqual([
         { resource: 'notification', kind: 'create', id: expect.any(String) },
       ]);
@@ -462,7 +462,7 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       expect(got.map((event) => event.changes[0]?.resource)).toEqual(['role']);
     });
 
-    it('新的站內通知只推給收件人：payload 只有通知 id，其他人（含稽核的讀者）收不到（ADR-0026 D8）', async () => {
+    it('新的站內通知只推給收件人：payload 只有通知 id，其他人（含稽核的讀者）收不到（docs/architecture/backend/15-notification.md §12.2 D8）', async () => {
       const target = await createUser('notify-push-target@example.com');
       const bystander = await createUser('notify-push-bystander@example.com', [
         await roleIdOf('auditor'),

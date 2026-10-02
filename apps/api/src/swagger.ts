@@ -45,7 +45,7 @@ function referencedSchemas(
 
 /**
  * 內部 api 的文件（`openapi.json`，產生前端 SDK）與對外 API 的文件（`openapi.external.json`，給整合方）
- * 來自同一個 app：兩個程序註冊的 controller 相同，以路徑分開（docs/adr/0027-api-tokens-external-api.md D12）。
+ * 來自同一個 app：兩個程序註冊的 controller 相同，以路徑分開（docs/architecture/06-external-api.md §9.2 D12）。
  */
 export function buildOpenApiDocument(
   app: INestApplication,
@@ -71,7 +71,7 @@ export function buildOpenApiDocument(
   document.paths = Object.fromEntries(entries.filter(([path]) => belongsTo(surface, path)));
   const otherPaths = Object.fromEntries(entries.filter(([path]) => !belongsTo(surface, path)));
 
-  // Zod 具名 schema → components.schemas，SDK 才能產生具名型別（ADR-0007）
+  // Zod 具名 schema → components.schemas，SDK 才能產生具名型別（docs/architecture/backend/03-api-conventions.md §12）
   document.components ??= {};
   const schemas: Record<string, unknown> = {
     ...document.components.schemas,

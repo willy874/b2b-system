@@ -1,6 +1,6 @@
 # RBAC 09 — 授權的說明（為什麼能做 X）
 
-> 決策見 [ADR-0024](../adr/0024-relationship-based-access-control.md) D14；關係圖見 [`01-domain-model.md`](./01-domain-model.md) §6.4、
+> 決策見 [`rbac/01-domain-model.md`](01-domain-model.md) §9.3 D14；關係圖見 [`01-domain-model.md`](./01-domain-model.md) §6.4、
 > 群組見 [`08-groups.md`](./08-groups.md)。
 
 權限會經過群組（含巢狀）、角色、權限依賴樹、資料夾繼承。「這位使用者為什麼能刪除這個資料夾」要能直接回答，

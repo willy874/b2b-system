@@ -30,7 +30,7 @@ export const SsoErrorSearchSchema = z.object({
 export type SsoErrorSearch = z.infer<typeof SsoErrorSearchSchema>;
 
 /**
- * 帳號流程是哪個租戶的帳號（docs/adr/0020-physical-tenant-isolation.md D26）：
+ * 帳號流程是哪個租戶的帳號（docs/architecture/05-tenancy.md §10.2 D26）：
  * 信中連結與登入互動頁的連結帶 `?tenant=<代碼>`。
  */
 export const TenantSearchSchema = z.object({

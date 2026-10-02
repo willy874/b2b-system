@@ -62,7 +62,7 @@ export function useRoleUpdateMutation() {
 }
 
 /**
- * 刪除角色。成功的提示附「復原」：刪除只是移到回收桶（ADR-0025 R3），按下就呼叫還原端點，原本的持有者一併回來。
+ * 刪除角色。成功的提示附「復原」：刪除只是移到回收桶（docs/architecture/backend/14-revisions.md §9 R3），按下就呼叫還原端點，原本的持有者一併回來。
  * 刪除與還原都要 `role:delete`，所以刪得掉的人一定按得了復原（反提權仍可能擋下：角色帶了自己沒有的權限鍵）。
  */
 export function useRoleDeleteMutation() {
@@ -79,7 +79,7 @@ export function useRoleDeleteMutation() {
       toast.show({
         type: 'success',
         title: t('role.delete.success'),
-        // 回收桶被平台關掉時還原端點回 404，不提供復原（docs/adr/0029-toggleable-platform-features.md D3）
+        // 回收桶被平台關掉時還原端點回 404，不提供復原（docs/architecture/05-tenancy.md §12.2 D3）
         ...(canRestore && {
           action: {
             label: t('role.delete.undo'),
@@ -100,7 +100,7 @@ function conflictingRoleIdOf(error: unknown): string | undefined {
 }
 
 /**
- * 還原刪除的角色（`POST /roles/:id/restore`，ADR-0025 R3）。名稱或 slug 已被別的角色使用時，
+ * 還原刪除的角色（`POST /roles/:id/restore`，docs/architecture/backend/14-revisions.md §9 R3）。名稱或 slug 已被別的角色使用時，
  * 提示附「查看該角色」直接連過去（先改名或刪除它）；角色帶了自己沒有的權限鍵（反提權）時說明原因。
  */
 export function useRoleRestoreMutation() {
@@ -191,7 +191,7 @@ export function useGrantRolePermissionsMutation() {
 }
 
 /**
- * 還原到某一版（`POST /roles/:id/revisions/:version/revert`，ADR-0025 R5）。帶確認時看到的角色 `version`（樂觀鎖）：
+ * 還原到某一版（`POST /roles/:id/revisions/:version/revert`，docs/architecture/backend/14-revisions.md §9 R5）。帶確認時看到的角色 `version`（樂觀鎖）：
  * 別人搶先改過時失效該角色、不彈 toast，由頁面的 `VersionConflictAlert` 說明；權限鍵帶了自己沒有的（反提權）時說明原因。
  */
 export function useRoleRevertRevisionMutation() {

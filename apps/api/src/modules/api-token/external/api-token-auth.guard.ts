@@ -24,7 +24,7 @@ export interface ExternalRequest extends AuthenticatedRequest {
 }
 
 /**
- * 對外 API 的認證（docs/adr/0027-api-tokens-external-api.md D10）：只認 API token，不讀 cookie、不認 JWT。
+ * 對外 API 的認證（docs/architecture/06-external-api.md §9.2 D10）：只認 API token，不讀 cookie、不認 JWT。
  * 取代內部 api 的 `JwtAuthGuard`；之後的 `PermissionsGuard` 照常以 `req.user` 判斷，權限與 scopes 的交集由
  * `PermissionService` 依請求脈絡裡的 token 計算。
  *

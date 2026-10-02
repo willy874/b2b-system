@@ -12,7 +12,7 @@ export const PROCESS_SURFACE = Symbol('PROCESS_SURFACE');
 export type ProcessSurface = Exclude<ApiSurface, 'both'>;
 
 /**
- * 另一個入口的路由回 404（docs/adr/0027-api-tokens-external-api.md D11）：排在所有全域 guard 的第一個，
+ * 另一個入口的路由回 404（docs/architecture/06-external-api.md §9.2 D11）：排在所有全域 guard 的第一個，
  * 不驗身分、不限流，就像那條路由不存在。內部 api 的 `/v1/*` 與對外 API 的 `/users` 都是這樣。
  */
 @Injectable()

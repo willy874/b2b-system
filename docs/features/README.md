@@ -31,25 +31,25 @@
 | 狀態 | 意思 |
 | --- | --- |
 | 提案 | 只有構想與開放問題，還沒決定要不要做、怎麼做 |
-| 規劃中 | 開放問題已有答案，範圍已定；可以開始寫 ADR 與實作 |
+| 規劃中 | 開放問題已有答案，範圍已定；可以開始寫設計決策與實作 |
 | 實作中 | 有 branch 在做；文件中寫上 branch 名稱 |
 
 做完的功能 **不留在這張表**：文件刪除時一併刪掉這一列（§3）。
 
 ### 1.1 建議的順序
 
-已完成並歸檔（細節見各 ADR 與正式文件）：
+已完成並歸檔（細節見各正式文件與它最後的「設計決策」章節）：
 
-- `announcements`（通知總覽、公告的立即／指定時間／週期／事件點發送、撤回）：[ADR-0031](../adr/0031-announcements.md)、[`backend/19-announcement.md`](../architecture/backend/19-announcement.md)、[`frontend/16-announcement.md`](../architecture/frontend/16-announcement.md)
-- `tags`（標籤；原提案「標籤、留言、關注」的標籤部分）：[ADR-0032](../adr/0032-tags.md)、[`backend/18-tag.md`](../architecture/backend/18-tag.md)
-- `webhooks`（對外事件、訂閱、投遞與重試、簽章、SSRF 綁定位址）：[ADR-0030](../adr/0030-webhooks.md)、[`backend/17-webhook.md`](../architecture/backend/17-webhook.md)
-- `api-tokens`（服務帳號、API token、對外 API 服務）：[ADR-0027](../adr/0027-api-tokens-external-api.md)、[`architecture/06-external-api.md`](../architecture/06-external-api.md)、[`backend/04-auth.md`](../architecture/backend/04-auth.md) §8.2
-- `permission-graph` G4b（說明：有效權限的來源、資料夾存取的路徑）：[ADR-0024](../adr/0024-relationship-based-access-control.md) D14、[`rbac/09-explain.md`](../rbac/09-explain.md)
-- `permission-graph` G4a（群組、反提權一般化）：[ADR-0024](../adr/0024-relationship-based-access-control.md) D10～D16、[`rbac/08-groups.md`](../rbac/08-groups.md)、
+- `announcements`（通知總覽、公告的立即／指定時間／週期／事件點發送、撤回）：[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9、[`frontend/16-announcement.md`](../architecture/frontend/16-announcement.md)
+- `tags`（標籤；原提案「標籤、留言、關注」的標籤部分）：[`backend/18-tag.md`](../architecture/backend/18-tag.md) §7
+- `webhooks`（對外事件、訂閱、投遞與重試、簽章、SSRF 綁定位址）：[`backend/17-webhook.md`](../architecture/backend/17-webhook.md) §9
+- `api-tokens`（服務帳號、API token、對外 API 服務）：[`architecture/06-external-api.md`](../architecture/06-external-api.md) §9、[`backend/04-auth.md`](../architecture/backend/04-auth.md) §8.2
+- `permission-graph` G4b（說明：有效權限的來源、資料夾存取的路徑）：[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D14、[`rbac/09-explain.md`](../rbac/09-explain.md)
+- `permission-graph` G4a（群組、反提權一般化）：[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D10～D16、[`rbac/08-groups.md`](../rbac/08-groups.md)、
   [`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1
-- `permission-graph` G0～G3b：[ADR-0024](../adr/0024-relationship-based-access-control.md)、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4、[`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.2、§5
-- `entity-revisions`：[ADR-0025](../adr/0025-entity-revisions.md)、[`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11、[`backend/13-trash.md`](../architecture/backend/13-trash.md)、[`backend/14-revisions.md`](../architecture/backend/14-revisions.md)
-- `notification-center`：[ADR-0026](../adr/0026-notification-center.md)、[`backend/15-notification.md`](../architecture/backend/15-notification.md)、[`frontend/15-notification.md`](../architecture/frontend/15-notification.md)；
+- `permission-graph` G0～G3b：[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4、[`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.2、§5
+- `entity-revisions`：[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9、[`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11、[`backend/13-trash.md`](../architecture/backend/13-trash.md)
+- `notification-center`：[`backend/15-notification.md`](../architecture/backend/15-notification.md) §12、[`frontend/15-notification.md`](../architecture/frontend/15-notification.md)；
   其他功能要「通知某人」時，照後端 §9 加一種通知類型
 
 接下來：
@@ -101,8 +101,8 @@
 ### 3.1 進入「規劃中」
 
 - 「開放問題」每一條都要有結論。結論寫在該條下方，不要直接刪掉問題，review 時才看得到當初的考量。
-- 如果結論是「有多個方案、選了其中一個」，那就是一份 ADR：先在 `docs/adr/` 寫好（狀態「提案中（待確認）」），
-  提案文件改成連結到那份 ADR。
+- 如果結論是「有多個方案、選了其中一個」，那就是設計決策：把背景、決定（`D1`、`D2`…）、評估過的方案寫在提案文件的
+  「設計決策」一節，review 時看這裡。歸檔時整節搬進正式規格（§3.3）。
 
 ### 3.2 實作中
 
@@ -116,8 +116,9 @@
 提案文件不是設計文件，不能直接搬過去。歸檔 = **依實作結果重寫**：
 
 1. **寫正式文件**，依 §4 放到對應分區。內容描述的是 **做出來的樣子**，
-   不是提案時的構想；提案中被否決的方案、實作時改掉的做法，寫進 ADR 的「評估過的方案」。
-2. **ADR** 的狀態從「提案中（待確認）」改成「採用」。
+   不是提案時的構想。
+2. **設計決策** 搬進主要那份規格的最後一章「`## N. 設計決策：<主題>`」（格式見 [`../README.md`](../README.md) §4）：
+   提案中被否決的方案、實作時改掉的做法，寫進該章的「評估過的方案」「實作紀錄」；`D` 編號不重排，程式碼註解以 `<文件> §N.x Dn` 引用。
 3. **更新索引**：[`../README.md`](../README.md) §3 文件地圖、對應分區的 `README.md`（如 `architecture/backend/README.md`）。
 4. **連帶更新**：權限目錄、[`../overview/01-overview.md`](../overview/01-overview.md) 的範圍表、
    [`../overview/03-roadmap.md`](../overview/03-roadmap.md)、[`../../CLAUDE.md`](../../CLAUDE.md)（指令、與文件不同的實作決定）。
@@ -129,7 +130,7 @@
 ### 3.4 決定不做
 
 直接刪除提案文件與表格那一列。若「不做」的理由值得留下（例如評估過後認為架構不適合），
-寫成一份狀態為「否決」的 ADR。
+寫進最相關的那份規格的「設計決策」章節（標明「不做」與理由）。
 
 ---
 
@@ -137,7 +138,7 @@
 
 | 提案的內容 | 歸檔到 |
 | --- | --- |
-| 為什麼選 A 不選 B | `docs/adr/NNNN-<主題>.md` |
+| 為什麼選 A 不選 B | 主要那份規格最後的「設計決策」章節 |
 | 後端模組、資料表、API | `docs/architecture/backend/NN-<主題>.md` |
 | 前端 feature、元件、狀態 | `docs/architecture/frontend/NN-<主題>.md` |
 | 橫跨前後端或部署的系統設計 | `docs/architecture/NN-<主題>.md` |
@@ -145,6 +146,5 @@
 | 寫程式的新規則 | `docs/conventions/` |
 | 範圍、里程碑 | `docs/overview/01-overview.md`、`03-roadmap.md` |
 
-一份提案通常會拆成 **一份 ADR ＋ 一到兩份規格**，例如檔案管理器的資料夾授權就是
-[ADR-0015](../adr/0015-file-folder-access.md) ＋ [`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)
-＋ [`backend/09-file.md`](../architecture/backend/09-file.md) §11。
+一份提案通常會拆成 **一到兩份規格**，設計決策放在其中主要的那份，例如檔案管理器的資料夾授權就是
+[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)（決策在 §13）＋ [`backend/09-file.md`](../architecture/backend/09-file.md) §11。

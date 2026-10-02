@@ -9,7 +9,7 @@ import { RevisionService } from './revision.service';
 import type { RevisionPruneReport } from './revision.service';
 
 /**
- * 版本歷史的保留清理（ADR-0025 D1）。每個租戶各跑一次（`scope: 'tenant'`）；同一個租戶同時只跑一個（`exclusive`）。
+ * 版本歷史的保留清理（docs/architecture/backend/14-revisions.md §9.2 D1）。每個租戶各跑一次（`scope: 'tenant'`）；同一個租戶同時只跑一個（`exclusive`）。
  * 中途失敗也安全：已提交的批次已經刪掉，重做時只剩還沒處理的列。
  */
 export const REVISION_PRUNE_JOB = defineJob<Record<string, never>>('revision.prune', {

@@ -49,7 +49,7 @@ export class AuthTokenService {
     const expiresAt = new Date(Date.now() + validHours * 60 * 60 * 1000);
 
     await db.insert(authTokens).values({ userId, purpose, tokenHash: sha256(raw), expiresAt });
-    // 原文只回給寄信的工作放進連結，不寫日誌（docs/adr/0017-mail-delivery.md D7）
+    // 原文只回給寄信的工作放進連結，不寫日誌（docs/architecture/backend/11-mail.md §9.2 D7）
     return { raw, expiresAt, validHours };
   }
 

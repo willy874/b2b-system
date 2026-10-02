@@ -24,7 +24,7 @@ export const ListNotificationSchema = z.object({
 export const NotificationLinkSchema = defineSchema(
   'NotificationLink',
   z.object({
-    /** 前端的 route id（例：`approval.detail`）；前端找不到就只顯示文字、不可點（ADR-0026 D3）。 */
+    /** 前端的 route id（例：`approval.detail`）；前端找不到就只顯示文字、不可點（docs/architecture/backend/15-notification.md §12.2 D3）。 */
     route: z.string(),
     params: z.record(z.string(), z.string()),
   }),
@@ -68,7 +68,7 @@ export const NotificationReadAllResultSchema = defineSchema(
   }),
 );
 
-// ── 通知總覽（docs/adr/0031-announcements.md D1）──────────────────────
+// ── 通知總覽（docs/architecture/backend/19-announcement.md §9.2 D1）──────────────────────
 
 /** `GET /notifications/all` 的查詢：租戶內所有人的通知，keyset 分頁同 `GET /notifications`。 */
 export const ListAllNotificationSchema = ListNotificationSchema.extend({

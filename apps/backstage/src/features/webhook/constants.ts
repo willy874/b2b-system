@@ -14,7 +14,7 @@ export const WEBHOOK_STATUS_TONE = {
   disabled: 'neutral',
 } as const satisfies Record<WebhookStatus, ChipTone>;
 
-/** 停用的原因（docs/adr/0030-webhooks.md D13）。 */
+/** 停用的原因（docs/architecture/backend/17-webhook.md §9.2 D13）。 */
 export const WEBHOOK_DISABLED_REASON_KEY = {
   manual: 'webhook.disabledReason.manual',
   failing: 'webhook.disabledReason.failing',
@@ -32,7 +32,7 @@ export interface WebhookEventLabel {
 }
 
 /**
- * 對外事件的顯示文字（key 與後端的 `type` 相同，docs/adr/0030-webhooks.md D2）。後端新增了這裡沒有的事件時，
+ * 對外事件的顯示文字（key 與後端的 `type` 相同，docs/architecture/backend/17-webhook.md §9.2 D2）。後端新增了這裡沒有的事件時，
  * 以 `type` 本身當名稱，照常可以訂閱。
  */
 export const WEBHOOK_EVENT_LABEL: Readonly<Partial<Record<string, WebhookEventLabel>>> = {
@@ -72,7 +72,7 @@ export const WEBHOOK_DELIVERY_PAGE_SIZE = 20;
 /** 自動停用的門檻（與後端 `WEBHOOK_AUTO_DISABLE_AFTER_FAILURES` 一致，只用於說明文字）。 */
 export const WEBHOOK_AUTO_DISABLE_AFTER_FAILURES = 50;
 
-/** 一個訂閱最多幾個目標網址（與後端 `WEBHOOK_MAX_URLS_PER_SUBSCRIPTION` 一致；ADR-0033 D13）。 */
+/** 一個訂閱最多幾個目標網址（與後端 `WEBHOOK_MAX_URLS_PER_SUBSCRIPTION` 一致；docs/architecture/backend/17-webhook.md §10.2 D13）。 */
 export const WEBHOOK_MAX_URLS_PER_SUBSCRIPTION = 10;
 
 /** 網址長度上限（與後端 `WEBHOOK_URL_MAX_LENGTH` 一致）。 */

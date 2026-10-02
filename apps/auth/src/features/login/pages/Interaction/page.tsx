@@ -38,7 +38,7 @@ const LoginFormSchema = z.object({
 });
 
 /**
- * IdP 的登入互動頁（docs/adr/0019-sso-identity-platform.md）：產品把使用者導到 IdP，沒有 IdP session 時
+ * IdP 的登入互動頁（docs/architecture/04-sso.md §12）：產品把使用者導到 IdP，沒有 IdP session 時
  * provider 轉到這裡。登入成功後頂層跳轉回 provider，provider 帶授權碼跳回產品。
  * 所有產品的密碼登入都在這一頁（帳密檢查與 `POST /auth/login` 同一套）。
  *
@@ -128,7 +128,7 @@ export default function InteractionPage() {
   }
 
   const client = interaction.data?.clientId;
-  // 帶租戶的互動：登入那個租戶的帳號；沒有租戶是平台管理者（docs/adr/0020-physical-tenant-isolation.md D8）
+  // 帶租戶的互動：登入那個租戶的帳號；沒有租戶是平台管理者（docs/architecture/05-tenancy.md §10.2 D8）
   const tenant = interaction.data?.tenant;
   if (expired) {
     return (

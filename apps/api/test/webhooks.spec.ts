@@ -148,7 +148,7 @@ function waitForRequests(path: string, type: string, count = 1): Promise<Receive
 const ids: Record<string, string> = {};
 const secrets: Record<string, string> = {};
 
-describe('Webhook（docs/adr/0030-webhooks.md）', () => {
+describe('Webhook（docs/architecture/backend/17-webhook.md §9）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;
@@ -184,7 +184,7 @@ describe('Webhook（docs/adr/0030-webhooks.md）', () => {
     await app.init();
     http = await listenOnLoopback(app);
     tenantCode = (await testTenantContext(app)).code;
-    // 預設一個租戶只能通知 1 個網址（ADR-0033 D11）；這裡要多個接收端
+    // 預設一個租戶只能通知 1 個網址（docs/architecture/05-tenancy.md §13.3 D11）；這裡要多個接收端
     await setTestTenantFeatureParams(app, { 'webhook.maxUrls': 10 });
   });
 
@@ -478,7 +478,7 @@ describe('Webhook（docs/adr/0030-webhooks.md）', () => {
     });
   });
 
-  it('多個網址：每個網址各送一次、各自記錄；移除的網址保留紀錄的快照（ADR-0033 D13、D14）', async () => {
+  it('多個網址：每個網址各送一次、各自記錄；移除的網址保留紀錄的快照（docs/architecture/backend/17-webhook.md §10.2 D13、D14）', async () => {
     const root = await as(ROOT);
     const created = dataOf<{ webhook: WebhookBody }>(
       await root
@@ -532,7 +532,7 @@ describe('Webhook（docs/adr/0030-webhooks.md）', () => {
     await root.delete(`/webhooks/${id}`).expect(204);
   });
 
-  it('租戶不重複的網址數超過 webhook.maxUrls → 409 WEBHOOK_URL_LIMIT_REACHED（ADR-0033 D11）', async () => {
+  it('租戶不重複的網址數超過 webhook.maxUrls → 409 WEBHOOK_URL_LIMIT_REACHED（docs/architecture/05-tenancy.md §13.3 D11）', async () => {
     const root = await as(ROOT);
     const existing = await db.selectDistinct({ url: webhookTargets.url }).from(webhookTargets);
     await setTestTenantFeatureParams(app, { 'webhook.maxUrls': existing.length });

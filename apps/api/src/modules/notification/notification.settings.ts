@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { defineSetting, SettingCategory } from '@/core/settings';
 
 /**
- * 已讀的通知保留幾天：已讀超過這麼久的由 `notification.cleanup` 刪除（ADR-0026 D10）。
+ * 已讀的通知保留幾天：已讀超過這麼久的由 `notification.cleanup` 刪除（docs/architecture/backend/15-notification.md §12.2 D10）。
  * 未讀的不受影響（只受 `notification.maxPerUser` 限制）。1～365 天。
  */
 export const NOTIFICATION_RETENTION_DAYS_SETTING = defineSetting({

@@ -71,7 +71,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('GroupDetailPage（docs/adr/0024-relationship-based-access-control.md D11、D12）', () => {
+describe('GroupDetailPage（docs/rbac/01-domain-model.md §9.3 D11、D12）', () => {
   it('列出使用者與巢狀群組兩種成員', async () => {
     renderRoute(routes, '/group/g1', READER);
     const members = await screen.findAllByTestId('group-member', undefined, { timeout: 5000 });

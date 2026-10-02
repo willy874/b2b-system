@@ -8,7 +8,7 @@ import type { PageKey, PagePermissionRule } from './constants';
 import type { PermissionKey } from './enums';
 import { pagePermissionRegistry, requirePagePermission, resolvePageKey } from './registry';
 
-/** 註冊表的版本：feature 在執行期安裝或卸載時換新，依賴它的判斷跟著重算（ADR-0021 D4）。 */
+/** 註冊表的版本：feature 在執行期安裝或卸載時換新，依賴它的判斷跟著重算（docs/architecture/frontend/02-plugin-system.md §9.2 D4）。 */
 function usePageRegistrations() {
   return useStore(pagePermissionRegistry.store, (state) => state.entries);
 }

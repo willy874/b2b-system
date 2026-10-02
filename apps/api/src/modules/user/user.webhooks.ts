@@ -3,7 +3,7 @@ import { defineWebhookEvent } from '@/modules/webhook/webhook.definition';
 import type { AnyWebhookEventType } from '@/modules/webhook/webhook.definition';
 
 /**
- * 使用者的對外事件（docs/adr/0030-webhooks.md D2、D3）：只帶 id 與狀態，email 與名稱由接收端以 API token 回查。
+ * 使用者的對外事件（docs/architecture/backend/17-webhook.md §9.2 D2、D3）：只帶 id 與狀態，email 與名稱由接收端以 API token 回查。
  * 服務帳號不發（它不是人，建立與停用由服務帳號頁管理）。
  */
 

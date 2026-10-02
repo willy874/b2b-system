@@ -23,7 +23,7 @@ interface AnnouncementDispatchSectionProps {
   canRevoke: boolean;
 }
 
-/** 收件人超過上限而失敗（docs/adr/0031-announcements.md D6）的說明；其他原因不顯示。 */
+/** 收件人超過上限而失敗（docs/architecture/backend/19-announcement.md §9.2 D6）的說明；其他原因不顯示。 */
 function failureOf(dispatch: AnnouncementDispatch): { count: number; max: number } | undefined {
   const details = dispatch.details;
   if (details?.reason !== 'tooManyRecipients') return undefined;

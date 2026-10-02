@@ -152,7 +152,7 @@ function purge() {
   return inTestTenant(app, () => app.get(TrashService).purgeExpired());
 }
 
-describe('檔案與資料夾的還原與回收桶（docs/architecture/backend/13-trash.md §7、ADR-0025 D5、R4）', () => {
+describe('檔案與資料夾的還原與回收桶（docs/architecture/backend/13-trash.md §7、docs/architecture/backend/14-revisions.md §9.2 D5、R4）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;
@@ -412,7 +412,7 @@ describe('檔案與資料夾的還原與回收桶（docs/architecture/backend/13
     });
   });
 
-  describe('file.maintenance（09-file.md §9、ADR-0025 D11）', () => {
+  describe('file.maintenance（09-file.md §9、docs/architecture/backend/14-revisions.md §9.2 D11）', () => {
     it('紀錄已軟刪除的物件不是孤兒（留給 trash.purge）；查不到任何紀錄的才刪', async () => {
       const token = await rootToken();
       const folder = await createFolder(token, '維護');

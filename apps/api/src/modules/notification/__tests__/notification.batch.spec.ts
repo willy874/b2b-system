@@ -32,7 +32,7 @@ describe('defineNotification / notification()（docs/architecture/backend/15-not
     expect(() => defineNotification('approval.pending.extra', META)).toThrow(/<模組>.<事件>/);
   });
 
-  it('事件的中繼資料：預設開啟、不是 mandatory、沒有所屬 feature、允許個人關閉（ADR-0028 D1）', () => {
+  it('事件的中繼資料：預設開啟、不是 mandatory、沒有所屬 feature、允許個人關閉（docs/architecture/backend/16-notification-event.md §9.2 D1）', () => {
     expect(SAMPLE).toEqual({
       type: 'sample.happened',
       category: 'sample',
@@ -44,7 +44,7 @@ describe('defineNotification / notification()（docs/architecture/backend/15-not
     });
   });
 
-  it('defaultAllowUserOverride: false → 租戶沒有覆寫時不允許個人關閉（ADR-0031 D16）', () => {
+  it('defaultAllowUserOverride: false → 租戶沒有覆寫時不允許個人關閉（docs/architecture/backend/19-announcement.md §9.2 D16）', () => {
     expect(
       defineNotification('a.b', {
         category: 'a',
@@ -62,7 +62,7 @@ describe('defineNotification / notification()（docs/architecture/backend/15-not
     expect(notification(SAMPLE, base)).not.toHaveProperty('sourceId');
   });
 
-  it('中繼資料不合理 → 載入時就失敗（ADR-0028 D2）', () => {
+  it('中繼資料不合理 → 載入時就失敗（docs/architecture/backend/16-notification-event.md §9.2 D2）', () => {
     expect(() => defineNotification('a.b', { category: 'Sample', channels: ['inApp'] })).toThrow(
       /camelCase/,
     );
@@ -102,7 +102,7 @@ describe('defineNotification / notification()（docs/architecture/backend/15-not
   });
 });
 
-describe('prepareNotifications（ADR-0026 D6、D7）', () => {
+describe('prepareNotifications（docs/architecture/backend/15-notification.md §12.2 D6、D7）', () => {
   it('操作者就是收件人 → 略過', () => {
     const result = prepareNotifications([input(ALICE), input(ACTOR)], 10);
     expect(result.rows.map((row) => row.recipientId)).toEqual([ALICE]);

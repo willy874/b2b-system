@@ -137,7 +137,7 @@ b2b-system/
 | Argon2 密碼雜湊、強度檢查、帳號鎖定                     | 同上 §3–4                                                             |
 | 啟用 / 忘記密碼 / 重設密碼                              | 同上 §5                                                               |
 | 速率限制                                                | [`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §8 |
-| `@nestjs/swagger` → `openapi.json` → `packages/api-sdk` | [ADR-0007](../adr/0007-openapi-generated-api-sdk.md)                   |
+| `@nestjs/swagger` → `openapi.json` → `packages/api-sdk` | [`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §12                   |
 
 ### 前端
 
@@ -254,34 +254,34 @@ b2b-system/
 > 各項的提案、優先度與開放問題已移到 [`../features/README.md`](../features/README.md)；
 > 這裡只保留原始清單，完成狀態以 `features/` 為準。
 
-1. **資源作用域**（[ADR-0006](../adr/0006-flat-permission-scope.md) 的延伸路徑）
+1. **資源作用域**（[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §8 的延伸路徑）
 2. ~~Dark Mode~~（已完成，見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §4.4）
 3. MFA（`users.mfa_enabled` 已預留）
 4. 批次匯入 / 匯出
 5. ~~SSO（OIDC）~~（已完成：`apps/auth` ＋ `apps/api` 當 OIDC Provider、外部 IdP、單一登出；見 [`architecture/04-sso.md`](../architecture/04-sso.md)、
-   [ADR-0019](../adr/0019-sso-identity-platform.md)）
+   [`architecture/04-sso.md`](../architecture/04-sso.md) §12）
 6. 稽核日誌分區表
 7. 多執行個體部署（權限快取換 Redis）
 8. ~~服務帳號 / API Token~~（已完成：服務帳號、個人與服務帳號的 API token、獨立的對外 API 服務與 `/v1` 契約、backstage 的管理畫面；見
-   [`architecture/06-external-api.md`](../architecture/06-external-api.md)、[ADR-0027](../adr/0027-api-tokens-external-api.md)）
+   [`architecture/06-external-api.md`](../architecture/06-external-api.md) §9）
 9. ~~`JsonEditor`~~（已完成：CodeMirror 6 編輯器——語法上色、行號、摺疊、復原重做、搜尋、JSON Schema 驗證；
    `JsonViewer` 外觀與它一致；見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.12、
-   [ADR-0011](../adr/0011-codemirror-json-editor.md)）。後續視需要補取代（`@codemirror/search` 已支援）、摺疊處的驗證錯誤標記
+   [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §11）。後續視需要補取代（`@codemirror/search` 已支援）、摺疊處的驗證錯誤標記
 10. ~~多租戶~~（已完成：每個租戶一個 database 與網域、平台管理者在 apps/auth 管理租戶；見
-    [`architecture/05-tenancy.md`](../architecture/05-tenancy.md)、[ADR-0020](../adr/0020-physical-tenant-isolation.md)）
+    [`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10）
 11. ~~版本歷史、樂觀鎖與回收桶~~（已完成：`version` 必填的樂觀鎖、使用者／角色／檔案／資料夾的回收桶與還原、到期永久刪除、角色的版本紀錄；見
     [`architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)、[`architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md)、
-    [ADR-0025](../adr/0025-entity-revisions.md)）
+    [`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9）
 12. ~~站內通知中心~~（已完成：每位收件人一筆、在業務交易內寫入、推播到收件人；頂列鈴鐺、列表頁與 route id 註冊表；見
     [`architecture/backend/15-notification.md`](../architecture/backend/15-notification.md)、[`architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md)、
-    [ADR-0026](../adr/0026-notification-center.md)）
+    [`backend/15-notification.md`](../architecture/backend/15-notification.md) §12）
 13. ~~使用者群組~~（已完成：權限圖 G4a——巢狀群組、群組持有角色、反提權由模型宣告的能力統一比對、資料夾授權給群組；見
-    [`rbac/08-groups.md`](../rbac/08-groups.md)、[ADR-0024](../adr/0024-relationship-based-access-control.md)）；「為什麼能做 X」的說明（G4b）也已完成，見 [`rbac/09-explain.md`](../rbac/09-explain.md)。專案（G5）仍在
+    [`rbac/08-groups.md`](../rbac/08-groups.md)、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9）；「為什麼能做 X」的說明（G4b）也已完成，見 [`rbac/09-explain.md`](../rbac/09-explain.md)。專案（G5）仍在
     [`features/permission-graph.md`](../features/permission-graph.md)
 14. ~~Webhook~~（已完成：對外事件的目錄、訂閱、背景工作投遞與重試、自動停用、投遞紀錄與重送、backstage 的管理畫面；見
-    [`architecture/backend/17-webhook.md`](../architecture/backend/17-webhook.md)、[ADR-0030](../adr/0030-webhooks.md)）
+    [`architecture/backend/17-webhook.md`](../architecture/backend/17-webhook.md)、[`backend/17-webhook.md`](../architecture/backend/17-webhook.md) §9）
 15. ~~標籤~~（已完成：檔案、資料夾、使用者的標籤、依標籤篩選、標籤管理頁；見 [`architecture/backend/18-tag.md`](../architecture/backend/18-tag.md)、
-    [ADR-0032](../adr/0032-tags.md)）。留言與關注仍在 [`features/comments-watches.md`](../features/comments-watches.md)
+    [`backend/18-tag.md`](../architecture/backend/18-tag.md) §7）。留言與關注仍在 [`features/comments-watches.md`](../features/comments-watches.md)
 16. ~~公告與排程通知~~（已完成：通知總覽、公告的立即／指定時間／週期／事件點發送、分批寫入、撤回、收件人讀全文；見
     [`architecture/backend/19-announcement.md`](../architecture/backend/19-announcement.md)、[`architecture/frontend/16-announcement.md`](../architecture/frontend/16-announcement.md)、
-    [ADR-0031](../adr/0031-announcements.md)）
+    [`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9）

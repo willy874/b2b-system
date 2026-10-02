@@ -18,7 +18,7 @@ import { ALL_PLATFORM_PERMISSION_KEYS } from '@/db/seeds/platform-permissions';
 let app: INestApplication;
 
 /**
- * 路由 → 應標的 feature（docs/adr/0021-runtime-feature-activation.md D11、docs/adr/0029-toggleable-platform-features.md）；
+ * 路由 → 應標的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D11、docs/architecture/05-tenancy.md §12）；
  * 平台的 /platform/jobs 不屬於任何租戶，不標。還原端點屬於回收桶，handler 的 `trash` 排在 class 的之前。
  */
 function featuresOf(method: string, path: string): string[] | undefined {
@@ -58,7 +58,7 @@ class UndeclaredController {
 @Module({ imports: [DiscoveryModule], controllers: [DeclaredController] })
 class DeclaredModule {}
 
-// 入口的分界（docs/adr/0027-api-tokens-external-api.md D11）：三種寫錯的方式
+// 入口的分界（docs/architecture/06-external-api.md §9.2 D11）：三種寫錯的方式
 @ExternalApi()
 @Controller('v1/open')
 class ExternalPublicController {
@@ -124,7 +124,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
     await bad.close();
   });
 
-  it('對外 API 的路由清單（docs/adr/0027-api-tokens-external-api.md D11）', () => {
+  it('對外 API 的路由清單（docs/architecture/06-external-api.md §9.2 D11）', () => {
     const external = collectRouteDeclarations(app)
       .filter((route) => route.surface !== 'internal')
       .map((route) => `${route.surface} ${route.method} ${route.path} ${route.declaration}`);
@@ -383,7 +383,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
     expect(actual.size).toBe(Object.keys(expected).length);
   });
 
-  it('@RequireFeature 標在可啟用 feature 的所有端點，其餘都沒有（docs/adr/0021-runtime-feature-activation.md D11）', () => {
+  it('@RequireFeature 標在可啟用 feature 的所有端點，其餘都沒有（docs/architecture/frontend/02-plugin-system.md §9.2 D11）', () => {
     const routes = collectRouteDeclarations(app);
     expect(routes.some((route) => route.features)).toBe(true);
     for (const route of routes) {

@@ -15,7 +15,7 @@ export interface TagChipsProps {
 }
 
 /**
- * 一列標籤（docs/adr/0032-tags.md D3）：顏色是 Design Token 的名稱，直接對到 `Chip` 的 tone。
+ * 一列標籤（docs/architecture/backend/18-tag.md §7.2 D3）：顏色是 Design Token 的名稱，直接對到 `Chip` 的 tone。
  * 每個標籤是 `data-testid="tag-chip"`、`data-value=<標籤 id>`。
  */
 export function TagChips({ tags, empty, max, className, 'data-testid': testId }: TagChipsProps) {

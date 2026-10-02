@@ -24,7 +24,7 @@ const tsxFiles = walk(
 
 /**
  * docs/architecture/frontend/07-ui-system.md §8 的驗收條件，用測試守住。
- * 複製自 apps/backstage；「每個元件都有 story」這條不適用：Storybook 只在 backstage（docs/adr/0019-sso-identity-platform.md D14）。
+ * 複製自 apps/backstage；「每個元件都有 story」這條不適用：Storybook 只在 backstage（docs/architecture/04-sso.md §12.2 D14）。
  */
 describe('設計系統的結構規則', () => {
   it('每個元件資料夾都有 index.ts 與測試', () => {

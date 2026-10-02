@@ -1,7 +1,7 @@
 import type { AnnouncementRecurringTrigger } from '@/db/schema';
 
 /**
- * 週期的計算（docs/adr/0031-announcements.md D7、D11）：純函式，只在後端算（前端的「接下來幾次」呼叫預覽端點），
+ * 週期的計算（docs/architecture/backend/19-announcement.md §9.2 D7、D11）：純函式，只在後端算（前端的「接下來幾次」呼叫預覽端點），
  * DST 與月底的邊界只有一份實作。時區換算用 `Intl`（Node 24 沒有 `Temporal`）：先猜 UTC 再以該時刻的位移校正兩次，
  * 與前端 `shared/date` 的 `zonedDateTime` 同一個做法。
  *

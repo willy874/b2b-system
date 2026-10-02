@@ -4,7 +4,7 @@ import { index, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-c
 import { users } from './users';
 
 /**
- * API token（docs/adr/0027-api-tokens-external-api.md D2、D5、D7）：個人 token 與服務帳號的 token 同一張表，
+ * API token（docs/architecture/06-external-api.md §9.2 D2、D5、D7）：個人 token 與服務帳號的 token 同一張表，
  * 差別只在 `user_id` 是誰。只存 secret 的 SHA-256；以 id 查到列之後比對雜湊。
  */
 export const apiTokens = pgTable(

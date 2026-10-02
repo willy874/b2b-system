@@ -49,7 +49,7 @@ function tenantWith(flags: Record<string, boolean>): TenantContext {
   };
 }
 
-describe('FeatureFlagService（docs/adr/0022-feature-flags.md D3、D4）', () => {
+describe('FeatureFlagService（docs/architecture/05-tenancy.md §11.2 D3、D4）', () => {
   it('目錄有錯 → 啟動失敗', () => {
     expect(() => setup([], [{ ...CATALOG[0]!, key: 'bad' }, CATALOG[0]!])).toThrow(
       /feature flag 的目錄有錯/,

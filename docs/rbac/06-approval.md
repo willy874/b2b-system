@@ -101,10 +101,10 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 與 [`../conventions/03-backend.md`](../conventions/03-backend.md) §1 規則 6 一致：稽核在交易內，
 快取失效與事件在交易後。
 
-批次核准／駁回沒有專用端點，由前端逐筆呼叫單筆 API，見 [ADR-0012](../adr/0012-batch-queue-worker.md)。
+批次核准／駁回沒有專用端點，由前端逐筆呼叫單筆 API，見 [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13。
 
 送出請求時，送出當下持有 `approval:review` 的人（不含申請人自己）在同一個交易內各收到一則站內通知 `approval.pending`
-（[ADR-0026](../adr/0026-notification-center.md) D5、D11；[`../architecture/backend/15-notification.md`](../architecture/backend/15-notification.md) §4）。
+（[`backend/15-notification.md`](../architecture/backend/15-notification.md) §12.2 D5、D11；[`../architecture/backend/15-notification.md`](../architecture/backend/15-notification.md) §4）。
 
 ---
 

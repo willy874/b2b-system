@@ -4,7 +4,7 @@ import { fetchWebhookEventsQuery } from './fetcher';
 
 export const WEBHOOK_EVENTS_QUERY_KEY = 'WEBHOOK_EVENTS_QUERY_KEY';
 
-/** 可訂閱的事件：由程式碼決定（docs/adr/0030-webhooks.md D1），只隨租戶啟用的 feature 改變。 */
+/** 可訂閱的事件：由程式碼決定（docs/architecture/backend/17-webhook.md §9.2 D1），只隨租戶啟用的 feature 改變。 */
 export const getWebhookEventsQueryOptions = () =>
   queryOptions({
     queryKey: [WEBHOOK_EVENTS_QUERY_KEY] as const,

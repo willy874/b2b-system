@@ -24,7 +24,7 @@ function escapeLike(value: string): string {
   return value.replaceAll(/[\\%_]/g, (char) => `\\${char}`);
 }
 
-/** 平台稽核的查詢（平台 DB 的 `platform_audit_logs`，docs/adr/0020-physical-tenant-isolation.md D19）。 */
+/** 平台稽核的查詢（平台 DB 的 `platform_audit_logs`，docs/architecture/05-tenancy.md §10.2 D19）。 */
 @Injectable()
 export class PlatformAuditLogRepository {
   constructor(@Inject(PLATFORM_DB) private readonly db: PlatformDatabase) {}

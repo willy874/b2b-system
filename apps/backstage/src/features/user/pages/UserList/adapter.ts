@@ -10,7 +10,7 @@ export interface UserRowVM {
   tags: TagSummary[];
   lastLoginAt: Date | null;
   createdAt: Date;
-  /** 樂觀鎖版本：批次啟用／停用以它送出（ADR-0025 D4）。 */
+  /** 樂觀鎖版本：批次啟用／停用以它送出（docs/architecture/backend/14-revisions.md §9.2 D4）。 */
   version: number;
   isSelf: boolean;
   canDelete: boolean;

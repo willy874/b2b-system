@@ -23,7 +23,7 @@ const token = (id: string, status: ApiToken['status']): ApiToken => ({
   createdBy: null,
 });
 
-describe('ApiTokenTable（docs/adr/0027-api-tokens-external-api.md）', () => {
+describe('ApiTokenTable（docs/architecture/06-external-api.md §9）', () => {
   it('每把 token 顯示狀態；已撤銷的沒有撤銷按鈕', () => {
     render(
       <ApiTokenTable

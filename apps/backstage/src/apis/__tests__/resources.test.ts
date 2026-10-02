@@ -101,7 +101,7 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     expect(keys).not.toContain('invalidate:AUTH_PROFILE_QUERY_KEY');
   });
 
-  it('角色的版本歷史：改名稱說明、增減權限鍵時失效該角色的版本；持有者的變更不影響（ADR-0025 R5）', () => {
+  it('角色的版本歷史：改名稱說明、增減權限鍵時失效該角色的版本；持有者的變更不影響（docs/architecture/backend/14-revisions.md §9 R5）', () => {
     const updated = keysOf({ resource: Resource.ROLE, kind: 'update', id: 'r1' });
     expect(updated).toContain('invalidate:ROLE_REVISIONS_QUERY_KEY:r1');
     expect(updated).toContain('invalidate:ROLE_REVISION_DETAIL_QUERY_KEY:r1');
@@ -138,7 +138,7 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     });
     expect(keys).toEqual([
       'invalidate:AUDIT_LOG_LIST_QUERY_KEY',
-      // 授權的說明（ADR-0024 G4b）：指派角色改變那個人的權限來源；說明只在展開時查，整批失效
+      // 授權的說明（docs/rbac/01-domain-model.md §9 G4b）：指派角色改變那個人的權限來源；說明只在展開時查，整批失效
       'invalidate:FILE_FOLDER_EXPLAIN_QUERY_KEY',
       'invalidate:PERMISSION_SOURCES_QUERY_KEY',
       'invalidate:ROLE_DETAIL_QUERY_KEY:r1',
@@ -169,7 +169,7 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     ]);
   });
 
-  it('刪除使用者：回收桶的列表跟著失效；更新則不影響回收桶（ADR-0025 D9）', () => {
+  it('刪除使用者：回收桶的列表跟著失效；更新則不影響回收桶（docs/architecture/backend/14-revisions.md §9.2 D9）', () => {
     expect(keysOf({ resource: Resource.USER, kind: 'delete', id: 'u1' })).toContain(
       'invalidate:TRASH_LIST_QUERY_KEY',
     );
@@ -178,7 +178,7 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     );
   });
 
-  it('刪除角色：回收桶跟著失效（還原以 create 宣告，見上一個案例；ADR-0025 R3）', () => {
+  it('刪除角色：回收桶跟著失效（還原以 create 宣告，見上一個案例；docs/architecture/backend/14-revisions.md §9 R3）', () => {
     expect(keysOf({ resource: Resource.ROLE, kind: 'delete', id: 'r1' })).toContain(
       'invalidate:TRASH_LIST_QUERY_KEY',
     );
@@ -187,7 +187,7 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     );
   });
 
-  it('檔案與資料夾的刪除、還原（create）讓回收桶失效；改名不會（ADR-0025 R4）', () => {
+  it('檔案與資料夾的刪除、還原（create）讓回收桶失效；改名不會（docs/architecture/backend/14-revisions.md §9 R4）', () => {
     for (const resource of [Resource.FILE, Resource.FILE_FOLDER]) {
       expect(keysOf({ resource, kind: 'delete', id: 'x1' })).toContain(
         'invalidate:TRASH_LIST_QUERY_KEY',
@@ -208,7 +208,7 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     expect(keys).toContain('invalidate:USER_DETAIL_QUERY_KEY:' + SELF_ID);
   });
 
-  it('平台管理者改了租戶啟用的 feature：profile 重新取得（docs/adr/0021-runtime-feature-activation.md D8）', () => {
+  it('平台管理者改了租戶啟用的 feature：profile 重新取得（docs/architecture/frontend/02-plugin-system.md §9.2 D8）', () => {
     signInAs();
     expect(keysOf({ resource: Resource.TENANT_FEATURE, kind: 'update' })).toContain(
       'invalidate:AUTH_PROFILE_QUERY_KEY',
@@ -227,7 +227,7 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     expect(keys.some((key) => key.includes('AUDIT_LOG_DETAIL'))).toBe(false);
   });
 
-  it('站內通知的推播（新通知、已讀、全部已讀）：列表、未讀數與總覽，不碰稽核列表（通知不寫稽核，ADR-0026 D9）', () => {
+  it('站內通知的推播（新通知、已讀、全部已讀）：列表、未讀數與總覽，不碰稽核列表（通知不寫稽核，docs/architecture/backend/15-notification.md §12.2 D9）', () => {
     const expected = [
       'invalidate:NOTIFICATION_LIST_QUERY_KEY',
       'invalidate:NOTIFICATION_OVERVIEW_QUERY_KEY',

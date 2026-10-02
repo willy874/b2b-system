@@ -87,7 +87,7 @@ async function expectCode(promise: Promise<unknown>, code: string, details?: obj
   if (details) expect((error as AppException).details).toMatchObject(details);
 }
 
-describe('TagService：登記（docs/adr/0032-tags.md D1、D7）', () => {
+describe('TagService：登記（docs/architecture/backend/18-tag.md §7.2 D1、D7）', () => {
   it('同一個標籤組或資源類型登記兩次讓啟動失敗', () => {
     const { service } = setup();
     expect(() => service.registerScope({ scope: 'file', canBrowse: async () => true })).toThrow(

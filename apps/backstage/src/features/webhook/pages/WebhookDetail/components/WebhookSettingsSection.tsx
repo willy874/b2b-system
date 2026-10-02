@@ -57,8 +57,8 @@ function draftOf(webhook: Webhook): Draft {
 }
 
 /**
- * 設定：名稱、網址（多個，ADR-0033 D13）、事件（就地編輯，帶 `version` 樂觀鎖）；停用與啟用（啟用時失敗次數歸零）；
- * 輪替密鑰（舊的立即失效，先確認）；送測試事件（docs/adr/0030-webhooks.md D13、D14、D17）。
+ * 設定：名稱、網址（多個，docs/architecture/backend/17-webhook.md §10.2 D13）、事件（就地編輯，帶 `version` 樂觀鎖）；停用與啟用（啟用時失敗次數歸零）；
+ * 輪替密鑰（舊的立即失效，先確認）；送測試事件（docs/architecture/backend/17-webhook.md §9.2 D13、D14、D17）。
  */
 export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSettingsSectionProps) {
   const { t } = useTranslation();
@@ -282,7 +282,7 @@ export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSet
           </dd>
           <dt className="text-[var(--color-fg-muted)]">{t('webhook.field.urls')}</dt>
           <dd className="m-0">
-            {/* 失敗次數跟著網址走：任一個到門檻整個 webhook 停用（ADR-0033 D15） */}
+            {/* 失敗次數跟著網址走：任一個到門檻整個 webhook 停用（docs/architecture/backend/17-webhook.md §10.2 D15） */}
             <ul className="m-0 flex list-none flex-col gap-1 p-0">
               {webhook.targets.map((target) => (
                 <li

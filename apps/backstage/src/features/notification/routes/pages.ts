@@ -20,7 +20,7 @@ export const NotificationListRoute = createRoute({
 });
 
 /**
- * 事件管理（`system:read` 檢視、`system:update` 修改；docs/architecture/frontend/15-notification.md §9、ADR-0028 D12）：
+ * 事件管理（`system:read` 檢視、`system:update` 修改；docs/architecture/frontend/15-notification.md §9、docs/architecture/backend/16-notification-event.md §9.2 D12）：
  * 租戶層決定每個事件經由哪些管道送出。
  */
 export const NotificationEventListRoute = createRoute({
@@ -30,7 +30,7 @@ export const NotificationEventListRoute = createRoute({
 });
 
 /**
- * 通知總覽（`notification:read`；docs/adr/0031-announcements.md D1）：租戶內所有人的通知。
+ * 通知總覽（`notification:read`；docs/architecture/backend/19-announcement.md §9.2 D1）：租戶內所有人的通知。
  * 篩選全部放在網址，分享連結時對方看到同一組條件。
  */
 export const NotificationOverviewRoute = createRoute({

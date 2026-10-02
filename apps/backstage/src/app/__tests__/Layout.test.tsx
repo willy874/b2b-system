@@ -94,7 +94,7 @@ describe('Layout：權限水合失敗', () => {
   });
 });
 
-describe('Layout：可啟用 feature 的頁面（docs/adr/0021-runtime-feature-activation.md D7）', () => {
+describe('Layout：可啟用 feature 的頁面（docs/architecture/frontend/02-plugin-system.md §9.2 D7）', () => {
   // 同樣在 /auth 底下，避免套上 DashboardLayout；頁面權限故意不註冊（feature 尚未安裝）
   const FEATURE_PATH = '/auth/feature';
 

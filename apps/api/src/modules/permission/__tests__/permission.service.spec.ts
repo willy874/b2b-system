@@ -287,7 +287,7 @@ describe('PermissionService.describeRolePermissions（技能樹用，docs/rbac/0
   });
 });
 
-describe('PermissionService.findActiveUserIdsWithPermission（ADR-0026 D5）', () => {
+describe('PermissionService.findActiveUserIdsWithPermission（docs/architecture/backend/15-notification.md §12.2 D5）', () => {
   /** 候選來自反向查詢；每個人的權限由假的關係圖決定（正向解析）。 */
   function createHolderService(
     candidates: string[],

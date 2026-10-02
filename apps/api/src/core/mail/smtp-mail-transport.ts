@@ -17,7 +17,7 @@ export function smtpOptionsOf(url: string, poolSize: number) {
 
 /**
  * 經 SMTP 寄出（nodemailer）。只講 SMTP、不綁服務商的 SDK：換 SES、Postmark、Mailpit 只改
- * `MAIL_SMTP_URL`（docs/adr/0017-mail-delivery.md D1、D2）。
+ * `MAIL_SMTP_URL`（docs/architecture/backend/11-mail.md §9.2 D1、D2）。
  */
 @Injectable()
 export class SmtpMailTransport extends MailTransport implements OnApplicationShutdown {

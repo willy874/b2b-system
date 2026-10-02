@@ -7,7 +7,7 @@ const app_module_1 = require('../src/app.module');
 const swagger_1 = require('../src/swagger');
 /**
  * 產出 `apps/api/openapi.json`（進版控），`packages/api-sdk` 由它產生前端 SDK。
- * CI 會重跑這支並檢查 `git diff` 為空（ADR-0007）。
+ * CI 會重跑這支並檢查 `git diff` 為空（docs/architecture/backend/03-api-conventions.md §12）。
  */
 async function main() {
   const app = await core_1.NestFactory.create(app_module_1.AppModule, { logger: false });

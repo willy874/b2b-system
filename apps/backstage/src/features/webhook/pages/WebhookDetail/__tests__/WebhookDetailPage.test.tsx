@@ -98,7 +98,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('WebhookDetailPage（docs/adr/0030-webhooks.md W2）', () => {
+describe('WebhookDetailPage（docs/architecture/backend/17-webhook.md §9 W2）', () => {
   it('有 webhook:update → 顯示送測試事件、輪替密鑰、停用、編輯與重送', async () => {
     renderRoute(routes, '/webhook/w1', EDITOR);
     await screen.findByTestId('webhook-settings-section', undefined, { timeout: 5000 });
@@ -170,7 +170,7 @@ describe('WebhookDetailPage（docs/adr/0030-webhooks.md W2）', () => {
     expect(await screen.findByTestId('webhook-secret-value')).toHaveTextContent('whsec_new');
   });
 
-  it('多個網址：列出每個網址與它的連續失敗次數，投遞紀錄可以依網址篩選（ADR-0033 D15、D16）', async () => {
+  it('多個網址：列出每個網址與它的連續失敗次數，投遞紀錄可以依網址篩選（docs/architecture/backend/17-webhook.md §10.2 D15、D16）', async () => {
     fetchWebhook.mockResolvedValue({
       ...WEBHOOK,
       targets: [

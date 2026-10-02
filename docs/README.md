@@ -20,7 +20,7 @@
 | 後端     | **NestJS** + **Drizzle ORM** + **PostgreSQL**                                                  |
 | 租戶與身分 | 每個租戶一個 database 與網域；`apps/auth` 是全平台共用的登入入口，`apps/api` 當 OIDC Provider |
 | 已有範圍 | 認證與 SSO、使用者、角色、群組、權限與關係圖、稽核日誌、個人帳號、審批、系統設定、檔案、背景工作、寄信、回收桶、版本歷史、站內通知 |
-| 不在範圍 | 任何特定領域的業務功能；資源層級作用域目前只用在檔案管理器，新資源沿用同一套（見 [ADR-0015](./adr/0015-file-folder-access.md)、[`rbac/07-resource-grants.md`](./rbac/07-resource-grants.md)） |
+| 不在範圍 | 任何特定領域的業務功能；資源層級作用域目前只用在檔案管理器，新資源沿用同一套（見 [`rbac/07-resource-grants.md`](rbac/07-resource-grants.md) §13、[`rbac/07-resource-grants.md`](./rbac/07-resource-grants.md)） |
 
 ---
 
@@ -145,43 +145,8 @@ docs/
 │   ├── 06-literal-strings.md          i18n key / className / testid 不得以模板組成
 │   └── 07-layer-dependencies.md       package 與資料夾的層級依賴矩陣
 │
-├── features/                          待製作功能的提案（完成後刪除、重寫成正式文件歸檔）
-│   └── README.md                      清單、優先度、提案 → 歸檔的流程
-│
-└── adr/                               架構決策紀錄（Architecture Decision Records；見 §4 最後一條）
-    ├── 0001-plugin-based-app-context.md
-    ├── 0002-base-ui-over-mui.md
-    ├── 0003-drizzle-over-prisma.md
-    ├── 0004-jwt-with-rotating-refresh-token.md
-    ├── 0005-permission-resolved-server-side.md
-    ├── 0006-flat-permission-scope.md
-    ├── 0007-openapi-generated-api-sdk.md
-    ├── 0008-realtime-with-socket-io.md
-    ├── 0009-table-batch-operations.md
-    ├── 0010-self-built-json-editor.md
-    ├── 0011-codemirror-json-editor.md
-    ├── 0012-batch-queue-worker.md
-    ├── 0013-file-manager-upload.md
-    ├── 0014-server-image-variants.md
-    ├── 0015-file-folder-access.md
-    ├── 0016-background-jobs.md
-    ├── 0017-mail-delivery.md
-    ├── 0018-workspace-tenancy.md
-    ├── 0019-sso-identity-platform.md
-    ├── 0020-physical-tenant-isolation.md
-    ├── 0021-runtime-feature-activation.md
-    ├── 0022-feature-flags.md
-    ├── 0023-react-flow-tree-editor.md
-    ├── 0024-relationship-based-access-control.md
-    ├── 0025-entity-revisions.md
-    ├── 0026-notification-center.md
-    ├── 0027-api-tokens-external-api.md
-    ├── 0028-notification-event-management.md
-    ├── 0029-toggleable-platform-features.md
-    ├── 0030-webhooks.md
-    ├── 0031-announcements.md
-    ├── 0032-tags.md
-    └── 0033-feature-params-and-webhook-targets.md
+└── features/                          待製作功能的提案（完成後刪除、重寫成正式文件歸檔）
+    └── README.md                      清單、優先度、提案 → 歸檔的流程
 ```
 
 ---
@@ -191,16 +156,20 @@ docs/
 - 全文以 **zh-TW** 撰寫；程式碼識別字、路由、權限鍵一律用 `code style` 原文。
 - 權限一律寫成 `resource:action`（例如 `role:update`）。
 - 使用者故事格式：**「作為 …，我希望 …，以便 …」** ＋ Given / When / Then。
-- 任何「為什麼不選 X」的判斷放進 `adr/`，不要散落在規格內文。
+- 任何「為什麼不選 X」的判斷寫進該規格最後的「設計決策」章節（見本節最後一條），不要散落在規格內文。
 - 分區原則：`overview/` 講目標與計畫、`architecture/` 講系統設計、`rbac/` 講領域規格、
-  `conventions/` 講寫程式規則、`adr/` 講決策理由。新文件依此歸位。
+  `conventions/` 講寫程式規則。新文件依此歸位。
 - **還沒實作的功能** 寫在 `features/`，不要寫進上述分區；那些分區只描述已存在的系統。
   流程見 [`features/README.md`](./features/README.md)。
 - 檔案路徑用相對於 repo 根目錄的形式（`apps/backstage/src/...`）。
 - 舉例時用 **領域中立** 的名詞（專案、文件、訂單、素材），不要假設某個特定產業。
-- `adr/` 是當時的決策紀錄，**不回頭改寫**。本專案早期的定位是遊戲內容編輯平台，部分 ADR 的「背景」
-  仍以「遊戲編輯器」為例；那些理由同樣適用於任何會長出自訂資源與大量編輯介面的業務功能。
-  決策本身若被推翻，寫新的 ADR 取代它。
+- **設計決策跟著規格走**：每份規格最後有「`## N. 設計決策：<主題>`」章節，記錄背景、決定（`D1`、`D2`…）、
+  理由與代價、評估過的方案、實作紀錄。程式碼與文件以「`<文件> §N.x Dn`」引用（例：`docs/architecture/backend/14-revisions.md §9.2 D3`）。
+  - 決定的編號一經發布 **不重排、不重用**；被推翻的決定保留原文，在同一列或引述註明「已改為…，見 §…」，新的決定接續編號。
+  - 實作時與決定不同的做法，寫進該章節的「實作紀錄」；根目錄 `CLAUDE.md`「與文件不同的實作決定」同步一列。
+  - 2026-10-02 以前的決策原本是 `docs/adr/` 的獨立檔案（ADR-0001～0033），已併入各規格；章節開頭的「原 ADR-00NN」供對照 git 歷史。
+    已套用的 migration（`*.sql`）不可修改，註解裡仍是舊的 `docs/adr/00NN-….md` 路徑，以「原 ADR-00NN」對照。
+    部分早期決策的「背景」仍以「遊戲編輯器」為例，那些理由同樣適用於任何會長出自訂資源與大量編輯介面的業務功能。
 
 ---
 

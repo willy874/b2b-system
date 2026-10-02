@@ -43,7 +43,7 @@ export const TENANT_DOMAIN_PATTERN =
   /^(?=.{1,253}(?::\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\d{1,5})?$/;
 
 /**
- * 可由平台管理者開關的 feature（docs/adr/0021-runtime-feature-activation.md D8），依 api 的 `TENANT_FEATURES` 順序。
+ * 可由平台管理者開關的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D8），依 api 的 `TENANT_FEATURES` 順序。
  * 值來自 api-sdk：api 新增一個 id 時，下面兩張表的 `satisfies` 會讓編譯失敗。
  */
 export const TENANT_FEATURES: readonly TenantFeature[] = Object.values(TenantFeature);
@@ -73,7 +73,7 @@ export const TENANT_FEATURE_DESCRIPTION_KEY = {
 } as const satisfies Record<TenantFeature, string>;
 
 /**
- * 關閉時確認框額外的警告：影響超出「看不到頁面」的 feature 才有（docs/adr/0029-toggleable-platform-features.md D5）。
+ * 關閉時確認框額外的警告：影響超出「看不到頁面」的 feature 才有（docs/architecture/05-tenancy.md §12.2 D5）。
  */
 export const TENANT_FEATURE_DISABLE_WARNING_KEY: Partial<Record<TenantFeature, string>> = {
   identityProvider: 'tenant.feature.identityProviderDisableWarning',
@@ -82,7 +82,7 @@ export const TENANT_FEATURE_DISABLE_WARNING_KEY: Partial<Record<TenantFeature, s
 };
 
 /**
- * feature 參數的名稱與說明（docs/adr/0033-feature-params-and-webhook-targets.md D1）。key 來自 api-sdk：
+ * feature 參數的名稱與說明（docs/architecture/05-tenancy.md §13.2 D1）。key 來自 api-sdk：
  * api 新增一個參數時，下面的 `satisfies` 會讓編譯失敗。
  */
 export const TENANT_FEATURE_PARAM_LABEL_KEY = {

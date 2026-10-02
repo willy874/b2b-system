@@ -15,7 +15,7 @@ interface WebhookEventSelectProps {
 }
 
 /**
- * 訂閱的事件（docs/adr/0030-webhooks.md D2）。已訂閱、但目前不在清單上的事件（所屬 feature 被關掉）照樣留著：
+ * 訂閱的事件（docs/architecture/backend/17-webhook.md §9.2 D2）。已訂閱、但目前不在清單上的事件（所屬 feature 被關掉）照樣留著：
  * 存的是名稱，feature 打開之後就會送。
  */
 export function WebhookEventSelect({

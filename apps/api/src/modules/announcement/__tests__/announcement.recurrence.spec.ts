@@ -20,7 +20,7 @@ function trigger(values: Partial<AnnouncementRecurringTrigger>): AnnouncementRec
 
 const iso = (dates: Date[]) => dates.map((date) => date.toISOString());
 
-describe('nextOccurrence / upcomingOccurrences（docs/adr/0031-announcements.md D7、D11）', () => {
+describe('nextOccurrence / upcomingOccurrences（docs/architecture/backend/19-announcement.md §9.2 D7、D11）', () => {
   it('每天 09:00（台北）：今天還沒到就是今天，過了就是明天', () => {
     const daily = trigger({});
     expect(nextOccurrence(daily, new Date('2026-10-05T00:30:00Z'), TAIPEI)?.toISOString()).toBe(

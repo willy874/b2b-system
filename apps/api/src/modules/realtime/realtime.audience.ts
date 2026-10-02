@@ -16,7 +16,7 @@ interface AudienceRule {
   includesSubject: boolean;
   /**
    * 這個來源的寫入是否會新增稽核紀錄（`auditLog:read` 的人要重抓）。預設是；
-   * 通知的建立與已讀不寫稽核（ADR-0026 D9），不必讓稽核頁重抓。
+   * 通知的建立與已讀不寫稽核（docs/architecture/backend/15-notification.md §12.2 D9），不必讓稽核頁重抓。
    */
   recordsAudit?: false;
 }
@@ -58,7 +58,7 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
   // （RealtimeListener.onTenantFeaturesChanged）。出現在這裡代表呼叫端用錯事件，不推給任何人
   [ChangeSource.TENANT_FEATURE]: { perms: () => [], includesSubject: false },
   // 只推給收件人（呼叫端以 `affectedUserIds` 帶入；id 是通知 id，不是使用者 id）。
-  // 通知是個人的東西：沒有任何 perm room 要知道（docs/adr/0026-notification-center.md D8）
+  // 通知是個人的東西：沒有任何 perm room 要知道（docs/architecture/backend/15-notification.md §12.2 D8）
   [ChangeSource.NOTIFICATION]: { perms: () => [], includesSubject: false, recordsAudit: false },
   // 只推給本人（呼叫端以 `affectedUserIds` 帶入）；個人設定不寫稽核
   [ChangeSource.NOTIFICATION_PREFERENCE]: {
@@ -66,7 +66,7 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
     includesSubject: false,
     recordsAudit: false,
   },
-  // 服務帳號的列表與詳情（docs/adr/0027-api-tokens-external-api.md D14）
+  // 服務帳號的列表與詳情（docs/architecture/06-external-api.md §9.2 D14）
   [ChangeSource.SERVICE_ACCOUNT]: {
     perms: () => [PERMISSION.SERVICE_ACCOUNT_READ],
     includesSubject: false,
@@ -77,24 +77,24 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
     perms: () => [PERMISSION.SERVICE_ACCOUNT_READ, PERMISSION.USER_UPDATE],
     includesSubject: false,
   },
-  // Webhook 的列表、詳情與投遞紀錄（docs/adr/0030-webhooks.md D6）；投遞不寫稽核
+  // Webhook 的列表、詳情與投遞紀錄（docs/architecture/backend/17-webhook.md §9.2 D6）；投遞不寫稽核
   [ChangeSource.WEBHOOK]: { perms: () => [PERMISSION.WEBHOOK_READ], includesSubject: false },
   [ChangeSource.WEBHOOK_DELIVERY]: {
     perms: () => [PERMISSION.WEBHOOK_READ],
     includesSubject: false,
     recordsAudit: false,
   },
-  // 標籤的定義：進得了任一標籤組的人（docs/adr/0032-tags.md D10）
+  // 標籤的定義：進得了任一標籤組的人（docs/architecture/backend/18-tag.md §7.2 D10）
   [ChangeSource.TAG]: {
     perms: () => [PERMISSION.FILE_ACCESS, PERMISSION.FILE_READ, PERMISSION.USER_READ],
     includesSubject: false,
   },
-  // 公告與發送紀錄（docs/adr/0031-announcements.md）；背景發送的狀態變化不寫稽核，但人的操作會寫，維持預設
+  // 公告與發送紀錄（docs/architecture/backend/19-announcement.md §9）；背景發送的狀態變化不寫稽核，但人的操作會寫，維持預設
   [ChangeSource.ANNOUNCEMENT]: {
     perms: () => [PERMISSION.ANNOUNCEMENT_READ],
     includesSubject: false,
   },
-  // 事件管理頁（與系統設定同一群讀者，ADR-0028 D10）
+  // 事件管理頁（與系統設定同一群讀者，docs/architecture/backend/16-notification-event.md §9.2 D10）
   [ChangeSource.NOTIFICATION_POLICY]: {
     perms: () => [PERMISSION.SYSTEM_READ],
     includesSubject: false,

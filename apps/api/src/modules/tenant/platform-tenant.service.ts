@@ -76,7 +76,7 @@ function toDto(
 
 const FEATURE_PARAMS: readonly TenantFeatureParamDefinition[] = TENANT_FEATURE_PARAMS;
 
-/** 目錄上每個參數一項，帶生效值與定義（docs/adr/0033-feature-params-and-webhook-targets.md D3）。 */
+/** 目錄上每個參數一項，帶生效值與定義（docs/architecture/05-tenancy.md §13.2 D3）。 */
 function toFeatureParamDtos(overrides: TenantFeatureParamOverrides): TenantFeatureParamDto[] {
   return FEATURE_PARAMS.map((param) => {
     const isInteger = param.type === 'integer';
@@ -104,7 +104,7 @@ function sameOverrides(
 }
 
 /**
- * 把要改的參數套到現有的覆寫表上（ADR-0033 D3）：`null` 或等於預設值的刪掉（只存覆寫值），其餘依目錄驗證。
+ * 把要改的參數套到現有的覆寫表上（docs/architecture/05-tenancy.md §13.2 D3）：`null` 或等於預設值的刪掉（只存覆寫值），其餘依目錄驗證。
  * 回傳依目錄順序整理過的新表；任何一項不合法就整批拒絕。
  */
 function mergeFeatureParams(
@@ -132,7 +132,7 @@ function mergeFeatureParams(
 }
 
 /**
- * 平台管理者的租戶管理（docs/adr/0020-physical-tenant-isolation.md D12、D13）：建立並佈建、改名、網域、停用、刪除。
+ * 平台管理者的租戶管理（docs/architecture/05-tenancy.md §10.2 D12、D13）：建立並佈建、改名、網域、停用、刪除。
  * 只碰平台 DB 的登記；租戶內的資料只在佈建（`TenantProvisioner`）與停用時撤銷 session 時碰到。
  */
 @Injectable()
@@ -272,8 +272,8 @@ export class PlatformTenantService {
     });
     // 啟用的 feature（含外部 IdP）在租戶脈絡裡判斷：立即生效（多個執行個體時最多晚 TENANT_CACHE_TTL 秒）
     this.directory.invalidate();
-    // 失效之後才通知：前端收到後重新取得的 profile 已經是新的清單（docs/adr/0021-runtime-feature-activation.md D8）
-    // flag 的變更走同一個事件：前端同樣是重新取得 profile（docs/adr/0022-feature-flags.md D7）
+    // 失效之後才通知：前端收到後重新取得的 profile 已經是新的清單（docs/architecture/frontend/02-plugin-system.md §9.2 D8）
+    // flag 的變更走同一個事件：前端同樣是重新取得 profile（docs/architecture/05-tenancy.md §11.2 D7）
     if (featuresChanged || flagsChanged) {
       this.events.publish(DomainEvent.TENANT_FEATURES_CHANGED, { tenantId: id });
     }
@@ -281,7 +281,7 @@ export class PlatformTenantService {
   }
 
   /**
-   * 送來的覆寫表只接受目錄裡的 key（ADR-0022 D1），依目錄的順序存：比較、稽核的 before/after 不受送出順序影響。
+   * 送來的覆寫表只接受目錄裡的 key（docs/architecture/05-tenancy.md §11.2 D1），依目錄的順序存：比較、稽核的 before/after 不受送出順序影響。
    * DB 裡殘留的舊 key（flag 已移除）不在目錄裡，整張表取代時自然被清掉。
    */
   private knownFlagOverrides(overrides: Record<string, boolean>): Record<string, boolean> {

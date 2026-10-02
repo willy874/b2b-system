@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { defineSetting, SettingCategory } from '@/core/settings';
 
 /**
- * 回收桶的保留天數：軟刪除超過這麼久的列由 `trash.purge` 永久刪除（ADR-0025 D11）。
+ * 回收桶的保留天數：軟刪除超過這麼久的列由 `trash.purge` 永久刪除（docs/architecture/backend/14-revisions.md §9.2 D11）。
  * 下限 1 天：刪除後至少有一天可以救回；上限 365 天。
  */
 export const TRASH_RETENTION_DAYS_SETTING = defineSetting({

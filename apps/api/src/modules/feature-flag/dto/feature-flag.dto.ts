@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { FEATURE_FLAG_GLOBAL_STATES } from '@/core/feature-flags';
 import { defineSchema } from '@/core/validation';
 
-/** 全平台層的覆寫：沒有 = 不覆寫（docs/adr/0022-feature-flags.md D2、D3）。 */
+/** 全平台層的覆寫：沒有 = 不覆寫（docs/architecture/05-tenancy.md §11.2 D2、D3）。 */
 export const FeatureFlagGlobalStateSchema = defineSchema(
   'FeatureFlagGlobalState',
   z.enum(FEATURE_FLAG_GLOBAL_STATES),

@@ -30,7 +30,7 @@ interface TenantFlagsProps {
 }
 
 /**
- * 這個租戶的試行開關（docs/adr/0022-feature-flags.md D2、D7）：每個 flag 可以「依全平台與預設」、開或關；
+ * 這個租戶的試行開關（docs/architecture/05-tenancy.md §11.2 D2、D7）：每個 flag 可以「依全平台與預設」、開或關；
  * 送出的是 **完整的覆寫表**（api 以整份取代）。全平台設為緊急關閉的 flag 一律關，這裡的設定暫時不生效。
  * 目錄與全平台狀態來自 `featureFlag:read`，沒有這個權限就不顯示這一區。
  */

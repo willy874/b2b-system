@@ -21,7 +21,7 @@ function resolvesTo(...addresses: string[]): HostLookup {
     addresses.map((address) => ({ address, family: address.includes(':') ? 6 : 4 }));
 }
 
-describe('對外連線的位址檢查（docs/adr/0030-webhooks.md D15）', () => {
+describe('對外連線的位址檢查（docs/architecture/backend/17-webhook.md §9.2 D15）', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -88,7 +88,7 @@ describe('對外連線的位址檢查（docs/adr/0030-webhooks.md D15）', () =>
   });
 });
 
-describe('連線時綁定已驗證的位址（docs/adr/0030-webhooks.md D15）', () => {
+describe('連線時綁定已驗證的位址（docs/architecture/backend/17-webhook.md §9.2 D15）', () => {
   function lookupAll(
     resolve: HostLookup,
     hostname: string,

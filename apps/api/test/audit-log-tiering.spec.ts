@@ -176,7 +176,7 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
       expect(body.data.pagination.total).toBe(2);
     });
 
-    it('冷表裡有範圍內的紀錄就一起查（保留天數調大後，已搬走的紀錄不會回到熱表；docs/adr/0033-feature-params-and-webhook-targets.md D7）', async () => {
+    it('冷表裡有範圍內的紀錄就一起查（保留天數調大後，已搬走的紀錄不會回到熱表；docs/architecture/05-tenancy.md §13.3 D7）', async () => {
       // 模擬保留天數曾經很短：10 天前的紀錄已經在冷表
       await insertLog('tier.shortRetention', daysAgo(10));
       await archive(daysAgo(9));
@@ -266,7 +266,7 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
   });
 
   // 放在最後：會多搬一筆到冷表，放前面會影響上面的總數
-  describe('SECURITY DEFINER（docs/adr/0016-background-jobs.md D8）', () => {
+  describe('SECURITY DEFINER（docs/architecture/backend/10-jobs.md §9.2 D8）', () => {
     /** 模擬「只有 SELECT / INSERT」的應用程式 role；在交易內 SET LOCAL ROLE，結束後自動還原。 */
     async function asLimitedRole<T>(fn: (tx: TestDatabase) => Promise<T>): Promise<T> {
       await db.execute(sql`

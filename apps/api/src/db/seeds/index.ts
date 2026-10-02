@@ -186,7 +186,7 @@ export async function seedCatalog(db: ScriptDatabase): Promise<void> {
 /**
  * 先建平台管理者，再在每個租戶補上權限目錄與系統角色（每個租戶各一份；停用中的也補，重新啟用時才不會缺權限）。
  * `SUPER_ADMIN_EMAIL` 的 super-admin **只** 建在 `SEED_TENANT`（預設 `default`）：其他租戶的第一位管理員由佈建建立，
- * 不能讓營運方共用的帳密出現在客戶的租戶裡（docs/adr/0020-physical-tenant-isolation.md D12）。
+ * 不能讓營運方共用的帳密出現在客戶的租戶裡（docs/architecture/05-tenancy.md §10.2 D12）。
  */
 async function main(): Promise<void> {
   loadScriptEnv();

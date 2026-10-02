@@ -84,7 +84,7 @@ export interface ThumbnailGenerator {
   generate: (file: File, options: ThumbnailOptions) => Promise<Blob | undefined>;
 }
 
-// feature 在執行期卸載時要撤得掉（docs/adr/0021-runtime-feature-activation.md D4）；只在使用時讀取，不需要訂閱
+// feature 在執行期卸載時要撤得掉（docs/architecture/frontend/02-plugin-system.md §9.2 D4）；只在使用時讀取，不需要訂閱
 const previewers = createRegistry<string, FilePreviewer>('FilePreviewer');
 const validators = createRegistry<string, FileValidator>('FileValidator');
 const thumbnailGenerators = createRegistry<string, ThumbnailGenerator>('ThumbnailGenerator');

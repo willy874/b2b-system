@@ -16,7 +16,7 @@ import type { ListNotificationDto } from './dto/notification.dto';
 import { NotificationService } from './notification.service';
 
 /**
- * 自己的站內通知（ADR-0026 D9）：只需要登入、不新增權限鍵；每個端點都只看得到、改得到自己的。
+ * 自己的站內通知（docs/architecture/backend/15-notification.md §12.2 D9）：只需要登入、不新增權限鍵；每個端點都只看得到、改得到自己的。
  * 已讀不寫稽核。
  */
 @ApiTags('notifications')

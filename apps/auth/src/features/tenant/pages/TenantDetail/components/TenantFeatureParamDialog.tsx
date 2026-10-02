@@ -23,7 +23,7 @@ interface TenantFeatureParamDialogProps {
 }
 
 /**
- * 改一個 feature 參數（docs/adr/0033-feature-params-and-webhook-targets.md D3）：整數檢查範圍、字串檢查長度，
+ * 改一個 feature 參數（docs/architecture/05-tenancy.md §13.2 D3）：整數檢查範圍、字串檢查長度，
  * 伺服器另外驗證；「恢復預設」送 `null`（不再覆寫）。
  */
 export function TenantFeatureParamDialog({

@@ -122,7 +122,7 @@ async function publicSetting(process: Process, key: string): Promise<unknown> {
   return (response.body as { data: { values: Record<string, unknown> } }).data.values[key];
 }
 
-describe('兩個程序之間的一致性（docs/adr/0027-api-tokens-external-api.md D16、D18）', () => {
+describe('兩個程序之間的一致性（docs/architecture/06-external-api.md §9.2 D16、D18）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = JWT_SECRET;
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN_EMAIL;

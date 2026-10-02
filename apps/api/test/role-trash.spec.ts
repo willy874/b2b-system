@@ -118,7 +118,7 @@ function purge() {
   return inTestTenant(app, () => app.get(TrashService).purgeExpired());
 }
 
-describe('角色的還原與回收桶（docs/architecture/backend/13-trash.md §6、ADR-0025 D2、R3）', () => {
+describe('角色的還原與回收桶（docs/architecture/backend/13-trash.md §6、docs/architecture/backend/14-revisions.md §9.2 D2、R3）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;

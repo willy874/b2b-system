@@ -6,7 +6,7 @@ import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
 
 /**
- * 整批取代檔案或資料夾的標籤（docs/adr/0032-tags.md D7）：錯誤由對話框顯示，不彈 toast。
+ * 整批取代檔案或資料夾的標籤（docs/architecture/backend/18-tag.md §7.2 D7）：錯誤由對話框顯示，不彈 toast。
  * 檔案以 `file` update 宣告（列表與詳情重抓），資料夾以 `fileFolder` update。
  */
 export function useFileTagsMutation() {

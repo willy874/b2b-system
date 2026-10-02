@@ -14,7 +14,7 @@ const bundle = (importer: () => Promise<{ default: Record<string, unknown> }>) =
   'zh-TW': { translation: importer },
 });
 
-describe('語系包的登記（docs/adr/0021-runtime-feature-activation.md D4）', () => {
+describe('語系包的登記（docs/architecture/frontend/02-plugin-system.md §9.2 D4）', () => {
   beforeAll(() => initTestI18n());
   beforeEach(() => resetLocaleRegistry());
 

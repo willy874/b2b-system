@@ -19,7 +19,7 @@ import { FileFolderRepository } from './file-folder.repository';
 import { folderPathOf } from './file.constants';
 
 /**
- * 資料夾的回收桶（ADR-0025 D5、D9、D11；docs/architecture/backend/13-trash.md §7）。還原是
+ * 資料夾的回收桶（docs/architecture/backend/14-revisions.md §9.2 D5、D9、D11；docs/architecture/backend/13-trash.md §7）。還原是
  * `POST /file-folders/:id/restore`（`FileFolderService.restore`）；這裡只負責列出與到期永久刪除。
  */
 @Injectable()
@@ -75,7 +75,7 @@ export class FileFolderTrashHandler implements TrashHandler, OnModuleInit {
 
   async purge(item: ExpiredTrashItem, tx: Transaction): Promise<boolean> {
     const purged = await this.repo.purgeTree(item.id, tx);
-    // 子樹裡每個資料夾的標籤指派一起清掉（docs/adr/0032-tags.md D9）
+    // 子樹裡每個資料夾的標籤指派一起清掉（docs/architecture/backend/18-tag.md §7.2 D9）
     await this.tags.removeAllFor(RESOURCE_TYPE.FILE_FOLDER, purged, tx);
     return purged.length > 0;
   }

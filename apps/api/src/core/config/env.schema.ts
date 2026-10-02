@@ -11,12 +11,12 @@ export const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().default(3000),
   /**
-   * 對外 API 的程序（`main.external.ts`）監聽的 port（docs/adr/0027-api-tokens-external-api.md D9）。
+   * 對外 API 的程序（`main.external.ts`）監聽的 port（docs/architecture/06-external-api.md §9.2 D9）。
    * 同一份 env 給兩個程序用，所以另開一個變數，不沿用 `PORT`。
    */
   EXTERNAL_API_PORT: z.coerce.number().int().default(3001),
   /**
-   * 平台 DB：租戶登記、IdP 的協定狀態、背景工作佇列（docs/adr/0020-physical-tenant-isolation.md D1）。
+   * 平台 DB：租戶登記、IdP 的協定狀態、背景工作佇列（docs/architecture/05-tenancy.md §10.2 D1）。
    * 租戶 DB 的連線字串存在平台 DB 的 `tenants`，不在環境變數。
    */
   PLATFORM_DATABASE_URL: z.string().url(),
@@ -85,7 +85,7 @@ export const EnvSchema = z.object({
    * 因此這裡是 `/api/auth` 而不是 `/auth`。
    */
   REFRESH_COOKIE_PATH: z.string().default('/api/auth'),
-  /** 平台管理者的 refresh cookie（apps/auth 的 origin，`/platform/auth/*`；docs/adr/0020-physical-tenant-isolation.md D5）。 */
+  /** 平台管理者的 refresh cookie（apps/auth 的 origin，`/platform/auth/*`；docs/architecture/05-tenancy.md §10.2 D5）。 */
   PLATFORM_REFRESH_COOKIE_PATH: z.string().default('/api/platform/auth'),
   REFRESH_COOKIE_DOMAIN: z.string().default('localhost'),
   /**
@@ -159,7 +159,7 @@ export const EnvSchema = z.object({
   FILE_STORAGE_ENDPOINT: z.string().url().default('http://127.0.0.1:9000/storage'),
   /**
    * 可以含 `{tenantOrigin}`：換成目前租戶主要網域的 origin（協定沿用 `APP_PUBLIC_URL`）。每個租戶的 backstage 在自己的網域，
-   * 瀏覽器只能直傳到同源的 `/storage`（CSP 的 `connect-src 'self'`；docs/adr/0020-physical-tenant-isolation.md D2）。
+   * 瀏覽器只能直傳到同源的 `/storage`（CSP 的 `connect-src 'self'`；docs/architecture/05-tenancy.md §10.2 D2）。
    * 用真正的 S3 或 CDN 時填固定的網址。
    */
   FILE_STORAGE_PUBLIC_ENDPOINT: z
@@ -218,7 +218,7 @@ export const EnvSchema = z.object({
 
   /**
    * 是否開放 `POST /auth/login`（以 email ＋ 密碼直接換 access token，保留給測試與腳本）。留空時 production 關閉、
-   * 其他環境開啟；腳本改用 API token（docs/adr/0027-api-tokens-external-api.md D15）。
+   * 其他環境開啟；腳本改用 API token（docs/architecture/06-external-api.md §9.2 D15）。
    */
   DIRECT_LOGIN_ENABLED: z.preprocess(
     (value) => (value === '' ? undefined : value),
@@ -230,7 +230,7 @@ export const EnvSchema = z.object({
 
   /**
    * 這個程序是否執行背景工作（worker ＋ 排程）。`false` 時仍可入列，由另一個以同一映像、
-   * 設為 `true` 的容器執行（docs/adr/0016-background-jobs.md D4、D5）。
+   * 設為 `true` 的容器執行（docs/architecture/backend/10-jobs.md §9.2 D4、D5）。
    */
   JOBS_WORKER_ENABLED: z
     .enum(['true', 'false'])
@@ -238,7 +238,7 @@ export const EnvSchema = z.object({
     .transform((value) => value === 'true'),
   /**
    * 清掃租戶 outbox 的 cron（UTC）：交易提交後會立刻搬進佇列，這裡只補救搬移途中程序當掉的情況
-   * （docs/adr/0020-physical-tenant-isolation.md D15）。它會進入每個 active 租戶：間隔要比
+   * （docs/architecture/05-tenancy.md §10.2 D15）。它會進入每個 active 租戶：間隔要比
    * `TENANT_POOL_IDLE_TIMEOUT` 長得多，閒置租戶的連線池才會真的關掉。空字串停用。
    */
   JOBS_OUTBOX_SWEEP_CRON: z.string().trim().default('*/10 * * * *'),
@@ -259,7 +259,7 @@ export const EnvSchema = z.object({
     .default('http://localhost:5173')
     .transform((value) => value.replace(/\/+$/, '')),
 
-  // ── SSO：apps/api 當 OIDC Provider（docs/adr/0019-sso-identity-platform.md）──────────
+  // ── SSO：apps/api 當 OIDC Provider（docs/architecture/04-sso.md §12）──────────
   /** apps/auth 的網址（瀏覽器看到的）：登入互動頁與第一方 client `auth` 的 redirect URI 以它開頭。 */
   AUTH_APP_URL: z
     .string()
@@ -292,7 +292,7 @@ export const EnvSchema = z.object({
   ),
 
   /**
-   * 加密外部 IdP client secret 的主金鑰（32 bytes，base64 或 base64url；ADR-0019 D11）。
+   * 加密外部 IdP client secret 的主金鑰（32 bytes，base64 或 base64url；docs/architecture/04-sso.md §12.2 D11）。
    * 沒設定時（僅開發）由 `JWT_SECRET` 推導一把固定金鑰；**production 必填**。換金鑰要先以舊金鑰解開、再以新金鑰重新存入。
    */
   IDP_SECRET_KEY: z.preprocess(
@@ -301,7 +301,7 @@ export const EnvSchema = z.object({
   ),
 
   /**
-   * 加密 webhook 簽章密鑰的主金鑰（32 bytes，base64；docs/adr/0030-webhooks.md D14）。
+   * 加密 webhook 簽章密鑰的主金鑰（32 bytes，base64；docs/architecture/backend/17-webhook.md §9.2 D14）。
    * 沒設定時（僅開發）由 `JWT_SECRET` 推導；**production 必填**。換金鑰要先以舊金鑰解開、再以新金鑰重新存入。
    */
   WEBHOOK_SECRET_KEY: z.preprocess(
@@ -309,12 +309,12 @@ export const EnvSchema = z.object({
     z.string().optional(),
   ),
 
-  /** webhook 事件與投遞紀錄保留清理的 cron（UTC）；空字串停用（docs/adr/0030-webhooks.md D16）。 */
+  /** webhook 事件與投遞紀錄保留清理的 cron（UTC）；空字串停用（docs/architecture/backend/17-webhook.md §9.2 D16）。 */
   WEBHOOK_CLEANUP_CRON: z.string().trim().default('15 5 * * *'),
 
   /**
    * 公告的每日維護 cron（UTC）：補排程（遺失的延遲工作、改了時區後重算週期）與發送紀錄的保留清理；
-   * 空字串停用（docs/adr/0031-announcements.md D10、D19）。
+   * 空字串停用（docs/architecture/backend/19-announcement.md §9.2 D10、D19）。
    */
   ANNOUNCEMENT_MAINTENANCE_CRON: z.string().trim().default('20 5 * * *'),
 

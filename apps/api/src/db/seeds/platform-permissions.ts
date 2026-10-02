@@ -1,7 +1,7 @@
 import type { PlatformAdminRole } from '../platform/schema';
 
 /**
- * 平台的權限目錄（docs/adr/0020-physical-tenant-isolation.md D5）：apps/auth 的平台管理者用，與租戶的目錄
+ * 平台的權限目錄（docs/architecture/05-tenancy.md §10.2 D5）：apps/auth 的平台管理者用，與租戶的目錄
  * （`permissions.ts`）互不相干。**唯一事實來源是 `docs/rbac/02-permission-catalog.md` §8**；改這裡必須同時改文件。
  *
  * 平台的權限不寫進資料庫：角色固定三種（`platform_admins.role`），對照表就在這裡。
@@ -47,7 +47,7 @@ export const PLATFORM_ROLE_PERMISSIONS: Record<
     'platformAuditLog:read',
     'platformJob:read',
     'platformJob:retry',
-    // 緊急關閉 flag 要讓值班的人做得到（docs/adr/0022-feature-flags.md D8）
+    // 緊急關閉 flag 要讓值班的人做得到（docs/architecture/05-tenancy.md §11.2 D8）
     'featureFlag:read',
     'featureFlag:update',
   ],

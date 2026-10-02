@@ -21,7 +21,7 @@ async function sha256Base64Url(value: string): Promise<string> {
     .replace(/=+$/, '');
 }
 
-describe('SSO 的瀏覽器端（docs/adr/0019-sso-identity-platform.md）', () => {
+describe('SSO 的瀏覽器端（docs/architecture/04-sso.md §12）', () => {
   beforeEach(() => {
     sessionStorage.clear();
   });

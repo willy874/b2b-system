@@ -40,7 +40,7 @@ describe('UpdateRoleSchema', () => {
     });
   });
 
-  it('不帶 version → 驗證失敗（ADR-0025 D4 的 R1b：必填）', () => {
+  it('不帶 version → 驗證失敗（docs/architecture/backend/14-revisions.md §9.2 D4 的 R1b：必填）', () => {
     expect(UpdateRoleSchema.safeParse({ name: 'Editor' }).success).toBe(false);
   });
 

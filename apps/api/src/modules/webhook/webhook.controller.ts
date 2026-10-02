@@ -42,7 +42,7 @@ import type {
 } from './dto/webhook.dto';
 import { WebhookService } from './webhook.service';
 
-/** Webhook 訂閱與投遞紀錄（docs/adr/0030-webhooks.md D6、D8）。 */
+/** Webhook 訂閱與投遞紀錄（docs/architecture/backend/17-webhook.md §9.2 D6、D8）。 */
 @ApiTags('webhooks')
 @Controller('webhooks')
 @RequireFeature('webhook')

@@ -2,7 +2,7 @@ import { createBlobStore } from '@/shared/storage';
 
 /**
  * 排隊中的上傳檔案。佇列項目只帶 id（要能跨 worker、跨分頁傳遞），檔案本身放在這裡：
- * 本分頁的記憶體 ＋ IndexedDB——發起的分頁關掉後，接手的分頁仍讀得到（docs/adr/0013-file-manager-upload.md）。
+ * 本分頁的記憶體 ＋ IndexedDB——發起的分頁關掉後，接手的分頁仍讀得到（docs/architecture/frontend/12-file-manager.md §14）。
  */
 export const uploadSources = createBlobStore('file-upload');
 

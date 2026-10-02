@@ -12,7 +12,7 @@ export const FileSearchQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0).catch(0),
   keyword: z.string().trim().max(100).optional().catch(undefined),
   category: z.enum(FILE_CATEGORIES).optional().catch(undefined),
-  /** 貼了其中任一個標籤（docs/adr/0032-tags.md D6）；網址上重複的 `tag` 成為陣列（`core/router/search.ts`）。 */
+  /** 貼了其中任一個標籤（docs/architecture/backend/18-tag.md §7.2 D6）；網址上重複的 `tag` 成為陣列（`core/router/search.ts`）。 */
   tag: z
     .union([z.string().uuid(), z.array(z.string().uuid()).min(1)])
     .transform((value) => (Array.isArray(value) ? value : [value]))

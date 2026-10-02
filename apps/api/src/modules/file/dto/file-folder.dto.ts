@@ -46,7 +46,7 @@ export const FileFolderSchema = defineSchema(
     /** 操作者對這個資料夾有一筆待審的存取申請（§6.5）。 */
     hasPendingAccessRequest: z.boolean(),
     capabilities: FileFolderCapabilitiesSchema,
-    /** 貼著的標籤（`file` 標籤組，與檔案共用；docs/adr/0032-tags.md D1、D6）。 */
+    /** 貼著的標籤（`file` 標籤組，與檔案共用；docs/architecture/backend/18-tag.md §7.2 D1、D6）。 */
     tags: z.array(TagSummarySchema),
     createdAt: z.string(),
     updatedAt: z.string(),

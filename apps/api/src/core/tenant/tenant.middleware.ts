@@ -19,7 +19,7 @@ export const TENANT_HEADER = 'x-tenant';
 const PLATFORM_PATH = /^\/platform(\/|$)/;
 
 /**
- * 以請求的網域決定租戶（docs/adr/0020-physical-tenant-isolation.md D2）。
+ * 以請求的網域決定租戶（docs/architecture/05-tenancy.md §10.2 D2）。
  *
  * - **apps/auth 的網域不屬於任何租戶**：那裡的請求預設沒有租戶（平台管理者、IdP 的登入互動）。
  *   帳號流程由頁面以 `X-Tenant: <代碼>` 指定租戶；這個標頭只在 apps/auth 的網域有效，

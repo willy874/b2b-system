@@ -5,7 +5,7 @@ import type { TenantFeature } from '@/core/tenant';
 import type { AnyWebhookEventType } from './webhook.definition';
 
 /**
- * 對外事件的目錄（docs/adr/0030-webhooks.md D1）：系統會發出哪些事件。擁有者模組在自己的 `*.module.ts` constructor
+ * 對外事件的目錄（docs/architecture/backend/17-webhook.md §9.2 D1）：系統會發出哪些事件。擁有者模組在自己的 `*.module.ts` constructor
  * 呼叫 `register()`，與通知的事件目錄同一種做法；webhook 模組不認識任何業務模組。
  */
 @Injectable()

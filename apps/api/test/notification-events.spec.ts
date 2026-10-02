@@ -109,7 +109,7 @@ async function submitAs(requester: string, email: string) {
   );
 }
 
-describe('事件管理（docs/architecture/backend/16-notification-event.md、ADR-0028）', () => {
+describe('事件管理（docs/architecture/backend/16-notification-event.md、docs/architecture/backend/16-notification-event.md §9）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = JWT_SECRET;
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN_EMAIL;
@@ -153,7 +153,7 @@ describe('事件管理（docs/architecture/backend/16-notification-event.md、AD
     }
   });
 
-  describe('授權（ADR-0028 D10）', () => {
+  describe('授權（docs/architecture/backend/16-notification-event.md §9.2 D10）', () => {
     it('未登入 → 401；沒有 system:read → 403；system:read 只能讀、PATCH 要 system:update', async () => {
       const member = await createUser('events-member@example.com', ['member']);
       const auditor = await createUser('events-auditor@example.com', ['auditor']);
@@ -350,7 +350,7 @@ describe('事件管理（docs/architecture/backend/16-notification-event.md、AD
     });
   });
 
-  describe('個人設定（ADR-0028 D14、D15）', () => {
+  describe('個人設定（docs/architecture/backend/16-notification-event.md §9.2 D14、D15）', () => {
     interface PreferenceChannelBody {
       channel: string;
       enabled: boolean;

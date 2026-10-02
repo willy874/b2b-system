@@ -10,7 +10,7 @@ function settle(status: 'ready' | 'disabled' | 'failed' | 'installing', resolved
   featureStore.setState({ resolved, statuses: new Map([['file', status]]) });
 }
 
-describe('requireFeature（docs/adr/0021-runtime-feature-activation.md D6）', () => {
+describe('requireFeature（docs/architecture/frontend/02-plugin-system.md §9.2 D6）', () => {
   beforeEach(() => {
     resetFeatureStore();
     sessionStore.clear();

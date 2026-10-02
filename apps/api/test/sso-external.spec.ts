@@ -38,7 +38,7 @@ const SUPER_ADMIN = { email: 'ext-root@example.com', password: 'RootPassword!202
 const MEMBER = { email: 'ext-member@example.com', password: 'MemberPassword!2026' };
 const ALICE = 'alice@acme.test';
 const BACKSTAGE = { clientId: 'backstage', redirectUri: 'http://localhost:5173/auth/callback' };
-/** IdP 的端點在 apps/auth 的網域（不屬於任何租戶；docs/adr/0020-physical-tenant-isolation.md D2）。 */
+/** IdP 的端點在 apps/auth 的網域（不屬於任何租戶；docs/architecture/05-tenancy.md §10.2 D2）。 */
 const AUTH_HOST = 'localhost:5175';
 
 async function roleIdOf(slug: string): Promise<string> {
@@ -126,7 +126,7 @@ async function beginInteraction() {
     state: 'product-state',
     code_challenge: createHash('sha256').update(verifier).digest('base64url'),
     code_challenge_method: 'S256',
-    // 外部 IdP 連線屬於租戶：互動在測試租戶裡（ADR-0020 D18）
+    // 外部 IdP 連線屬於租戶：互動在測試租戶裡（docs/architecture/05-tenancy.md §10.2 D18）
     tenant: 'test',
   });
   const start = await request(http)
@@ -211,7 +211,7 @@ async function createProvider(
   };
 }
 
-describe('外部 IdP 登入（docs/adr/0019-sso-identity-platform.md D8–D11）', () => {
+describe('外部 IdP 登入（docs/architecture/04-sso.md §12.2 D8–D11）', () => {
   let aliceId = '';
 
   beforeAll(async () => {

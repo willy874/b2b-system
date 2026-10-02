@@ -80,7 +80,7 @@ export class FileAccessContext {
 
   /**
    * `can(action, location)` 成立的一條路徑（從主體閉包裡的主體開始；接上閉包的來歷見 `withClosurePath`）；
-   * 不成立是 null（「為什麼能做」的說明，ADR-0024 G4b）。
+   * 不成立是 null（「為什麼能做」的說明，docs/rbac/01-domain-model.md §9 G4b）。
    */
   explain(action: FileAction, location: FileLocation): AuthzPath | null {
     return this.checker.explain(locationObject(location), FILE_ACTION_RELATION[action]);

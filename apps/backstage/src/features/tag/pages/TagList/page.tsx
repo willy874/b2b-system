@@ -33,7 +33,7 @@ import { TAG_SCOPES, TagListRoute } from '../../routes';
 import { TagFormDialog } from './components/TagFormDialog';
 
 /**
- * 標籤管理（docs/adr/0032-tags.md D1、D5）：每個標籤組一個分頁。檔案組跟著 feature `file`，沒啟用時不出現。
+ * 標籤管理（docs/architecture/backend/18-tag.md §7.2 D1、D5）：每個標籤組一個分頁。檔案組跟著 feature `file`，沒啟用時不出現。
  * 貼與移除在各資源的頁面上做（檔案管理器、使用者），這裡只管定義。
  */
 export default function TagListPage() {

@@ -139,7 +139,7 @@ describe('ApprovalService.submit', () => {
     });
   });
 
-  it('在同一個交易內通知送出當下持有 approval:review 的人（ADR-0026 D5、D11）', async () => {
+  it('在同一個交易內通知送出當下持有 approval:review 的人（docs/architecture/backend/15-notification.md §12.2 D5、D11）', async () => {
     await ctx.service.submit({ ...SUBMIT, requester: { id: 'member-1', name: 'm@example.com' } });
 
     expect(ctx.permissionService.findActiveUserIdsWithPermission).toHaveBeenCalledWith(
@@ -225,7 +225,7 @@ describe('ApprovalService.approve', () => {
     );
   });
 
-  it('有帳號的申請人自己關掉結果信 → 不入列（ADR-0028 D14）', async () => {
+  it('有帳號的申請人自己關掉結果信 → 不入列（docs/architecture/backend/16-notification-event.md §9.2 D14）', async () => {
     const ctx = setup();
     ctx.repo.findById.mockResolvedValue(row({ requesterId: 'member-1' }));
     ctx.notifications.filterRecipients.mockResolvedValue([]);
@@ -239,7 +239,7 @@ describe('ApprovalService.approve', () => {
     expect(ctx.jobs.enqueue).not.toHaveBeenCalled();
   });
 
-  it('租戶關掉 approval.result 的 email 管道 → 不入列結果信（ADR-0028 D3）', async () => {
+  it('租戶關掉 approval.result 的 email 管道 → 不入列結果信（docs/architecture/backend/16-notification-event.md §9.2 D3）', async () => {
     const ctx = setup();
     ctx.notifications.isChannelEnabled.mockResolvedValue(false);
     await ctx.service.approve('approval-1', { roleIds: [] }, REVIEWER);
@@ -273,7 +273,7 @@ describe('ApprovalService.approve', () => {
     );
   });
 
-  it('在同一個交易內發出對外事件 approval.decided（docs/adr/0030-webhooks.md D2）', async () => {
+  it('在同一個交易內發出對外事件 approval.decided（docs/architecture/backend/17-webhook.md §9.2 D2）', async () => {
     const ctx = setup();
     await ctx.service.approve('approval-1', { roleIds: [] }, REVIEWER);
     expect(ctx.webhooks.emit).toHaveBeenCalledWith(

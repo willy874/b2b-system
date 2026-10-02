@@ -6,7 +6,7 @@ import { registerAnnouncementPagePermissions } from './permission';
 import { registerAnnouncementRouteLinks } from './routeLinks';
 import { registerAnnouncementTrashType } from './trash';
 
-/** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/adr/0031-announcements.md D20）。 */
+/** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/architecture/backend/19-announcement.md §9.2 D20）。 */
 export function appContextPlugin(): AppDynamicPluginFactory {
   return (context) => {
     // ── 同步階段：權限、通知連結、回收桶分頁的註冊必須在第一次 render 之前完成 ──

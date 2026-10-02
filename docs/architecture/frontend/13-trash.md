@@ -1,9 +1,9 @@
 # 前端 13 — 回收桶
 
 > 狀態：**已實作**（`features/trash`，路由 `/trash`；「使用者」（R2）、「角色」（R3）、「檔案」與「資料夾」（R4）四類）。後端的回收桶、還原與永久刪除見
-> [`../backend/13-trash.md`](../backend/13-trash.md)；決策見 [ADR-0025](../../adr/0025-entity-revisions.md) D9、D10。
+> [`../backend/13-trash.md`](../backend/13-trash.md)；決策見 [`backend/14-revisions.md`](../backend/14-revisions.md) §9.2 D9、D10。
 
-平台可對租戶關閉回收桶（feature `trash`，[ADR-0029](../../adr/0029-toggleable-platform-features.md) D3）：`features/trash` 是可啟用的 feature，
+平台可對租戶關閉回收桶（feature `trash`，[`architecture/05-tenancy.md`](../05-tenancy.md) §12.2 D3）：`features/trash` 是可啟用的 feature，
 關閉時沒有回收桶頁；各資源刪除成功的提示以 `useIsFeatureReady(TenantFeature.trash)` 判斷，關閉時不附「復原」。
 
 ## 1. 組成

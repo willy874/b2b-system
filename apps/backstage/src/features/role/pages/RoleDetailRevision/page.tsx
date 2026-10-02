@@ -24,7 +24,7 @@ import { RoleDetailRevisionRoute, RoleDetailRoute, RoleListRoute } from '../../r
 import { permissionKeysDiffer, toRoleRevisionRowVM } from './adapter';
 import { RoleRevisionList } from './components/RoleRevisionList';
 
-/** 版本紀錄（ADR-0025 R5，docs/architecture/frontend/14-revisions.md）：列表、與目前或前一版的差異、還原到這一版。 */
+/** 版本紀錄（docs/architecture/backend/14-revisions.md §9 R5，docs/architecture/frontend/14-revisions.md）：列表、與目前或前一版的差異、還原到這一版。 */
 export default function RoleDetailRevisionPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();

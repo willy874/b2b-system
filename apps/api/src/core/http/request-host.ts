@@ -6,7 +6,7 @@ export type TrustProxyFn = (address: string, hop: number) => boolean;
 /**
  * 瀏覽器看到的 host（含 port，小寫）：直接的上一跳是受信任的代理時讀 `X-Forwarded-Host`，
  * 否則讀 `Host`。規則同 Express 5 的 `req.host`；WebSocket 的 handshake 沒有 Express 的 req，
- * 所以抽成共用函式（docs/adr/0020-physical-tenant-isolation.md D2）。
+ * 所以抽成共用函式（docs/architecture/05-tenancy.md §10.2 D2）。
  */
 export function requestHost(
   headers: IncomingHttpHeaders,

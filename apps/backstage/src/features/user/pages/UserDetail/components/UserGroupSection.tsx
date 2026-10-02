@@ -19,7 +19,7 @@ interface UserGroupSectionProps {
 }
 
 /**
- * 使用者所在的群組（ADR-0024 G4）：直接所屬的在前，經由巢狀群組所屬的標上說明。
+ * 使用者所在的群組（docs/rbac/01-domain-model.md §9 G4）：直接所屬的在前，經由巢狀群組所屬的標上說明。
  * 群組持有的角色也會給這位使用者，所以和「角色」並列；成員的增減在群組的詳情裡做。
  */
 export function UserGroupSection({ userId }: UserGroupSectionProps) {

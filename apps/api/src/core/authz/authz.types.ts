@@ -44,7 +44,7 @@ export const USER_TYPE: TypeDefinition = defineType('user', {});
 /**
  * 群組是核心型別（與角色同屬「使用者集合」）：主體閉包的遞迴 CTE 要知道哪些關係是成員關係、
  * 已刪除的節點看哪張表，這在 core 裡（authz.repository.ts），所以型別也定義在這裡而不是由模組註冊。
- * 成員可以是另一個群組的成員（巢狀；寫入時擋循環，docs/adr/0024-relationship-based-access-control.md D11）。
+ * 成員可以是另一個群組的成員（巢狀；寫入時擋循環，docs/rbac/01-domain-model.md §9.3 D11）。
  */
 export const GROUP_TYPE: TypeDefinition = defineType(GROUP_OBJECT_TYPE, {
   [GROUP_MEMBER_RELATION]: direct('user', `${GROUP_OBJECT_TYPE}#${GROUP_MEMBER_RELATION}`),

@@ -24,7 +24,7 @@ export interface JobRecord {
   /** 屬於哪個租戶（信封的 `tenantId`）；平台工作是 null。 */
   tenantId: string | null;
   state: JobState;
-  /** 入列時的資料（信封裡的 `payload`，docs/adr/0020-physical-tenant-isolation.md D15）。 */
+  /** 入列時的資料（信封裡的 `payload`，docs/architecture/05-tenancy.md §10.2 D15）。 */
   data: Record<string, unknown> | null;
   /** 完成時是 handler 的回傳值；失敗時是序列化的錯誤（`message`、`stack`…）。 */
   output: Record<string, unknown> | null;
@@ -140,7 +140,7 @@ export class JobStore {
   }
 
   /**
-   * 這個租戶有幾筆 `active` 的工作排在 `jobId` 之前（依 `(started_on, id)`；docs/adr/0033-feature-params-and-webhook-targets.md D9）。
+   * 這個租戶有幾筆 `active` 的工作排在 `jobId` 之前（依 `(started_on, id)`；docs/architecture/05-tenancy.md §13.3 D9）。
    * 每個 worker 都以同一個順序判斷，同時取到的幾筆裡只有排在上限以內的會執行，不必另外上鎖。
    * `jobId` 已不是 `active`（逾時被收回）時回 0：交給 pg-boss 自己處理。
    */
@@ -157,7 +157,7 @@ export class JobStore {
   }
 
   /**
-   * 把執行中的工作放回佇列（ADR-0033 D9）：改回 `created`、`start_after` 延後，**不** 動重試次數，工作 id 不變。
+   * 把執行中的工作放回佇列（docs/architecture/05-tenancy.md §13.3 D9）：改回 `created`、`start_after` 延後，**不** 動重試次數，工作 id 不變。
    * pg-boss 的 API 只能更新還沒開始的工作，所以直接改表；之後 handler 回傳時 pg-boss 的完成只更新 `active` 的列，是空操作。
    *
    * `conflict`：`exclusive`（stately）佇列已有一筆排隊，唯一索引擋下——排隊中的那一筆會做同一件事。

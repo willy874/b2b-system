@@ -186,7 +186,7 @@ export class UserService {
   async update(id: string, dto: UpdateUserDto, actor: AuthUser): Promise<UserDto> {
     const { version, ...fields } = dto;
     const user = await this.getExisting(id);
-    // 讀到時就不同：別人已經改過，不必再做後面的檢查（ADR-0025 D3）
+    // 讀到時就不同：別人已經改過，不必再做後面的檢查（docs/architecture/backend/14-revisions.md §9.2 D3）
     if (version !== user.version) {
       throw new AppException('USER_VERSION_CONFLICT', { current: user.version });
     }
@@ -297,7 +297,7 @@ export class UserService {
   }
 
   /**
-   * 還原刪除的使用者（ADR-0025 D6）：清 `deleted_at`，`status` 維持刪除前的值；refresh token、外部身分連結、
+   * 還原刪除的使用者（docs/architecture/backend/14-revisions.md §9.2 D6）：清 `deleted_at`，`status` 維持刪除前的值；refresh token、外部身分連結、
    * 刪除時作廢的啟用／重設連結都不回復（要重新登入、重新連結；還沒啟用的人由「重設密碼」重寄啟用信）。
    * 持有的角色中仍存在的那些隨著刪除時保留的邊自動生效，所以先以指派角色的反提權檢查它們；
    * 個人資料夾由 `permissions.changed` 的訂閱者（檔案模組）補建。
@@ -395,7 +395,7 @@ export class UserService {
         },
         tx,
       );
-      // 通知被改的那個人（ADR-0026 D11）；沒有實際增減（例：只是重送同一組）就不通知
+      // 通知被改的那個人（docs/architecture/backend/15-notification.md §12.2 D11）；沒有實際增減（例：只是重送同一組）就不通知
       const currentIds = new Set(current.map((role) => role.id));
       const nextIds = new Set(roles.map((role) => role.id));
       const added = roles.filter((role) => !currentIds.has(role.id)).map((role) => role.name);
@@ -507,7 +507,7 @@ export class UserService {
   }
 
   /**
-   * 使用者的標籤被改了（`TagService` 在交易提交後呼叫，docs/adr/0032-tags.md D10）：推一筆使用者更新，
+   * 使用者的標籤被改了（`TagService` 在交易提交後呼叫，docs/architecture/backend/18-tag.md §7.2 D10）：推一筆使用者更新，
    * 列表與詳情重抓。標籤不屬於樂觀鎖的欄位，不遞增 `version`。
    */
   async publishTagsChanged(id: string): Promise<void> {
@@ -584,7 +584,7 @@ export class UserService {
   }
 
   /**
-   * 對外事件 `user.statusChanged`（docs/adr/0030-webhooks.md D2）：在改變狀態的交易內（稽核之後）呼叫。
+   * 對外事件 `user.statusChanged`（docs/architecture/backend/17-webhook.md §9.2 D2）：在改變狀態的交易內（稽核之後）呼叫。
    * 啟用帳號（`pending` → `active`）在 `AuthService` 完成，也經由這裡發出。
    */
   async emitStatusChanged(
@@ -619,7 +619,7 @@ export class UserService {
 
   /**
    * 條件式 UPDATE 沒有命中：列已不在 → 404；還在就是版本被搶先改過 → 409 並帶重讀的目前版本
-   * （ADR-0025 D3）。在同一個交易內重讀，看得到搶先的那一筆已提交的版本。
+   * （docs/architecture/backend/14-revisions.md §9.2 D3）。在同一個交易內重讀，看得到搶先的那一筆已提交的版本。
    */
   private async missedUpdate(id: string, tx: DbOrTx): Promise<AppException> {
     const current = await this.repo.findVersion(id, tx);
@@ -662,7 +662,7 @@ export class UserService {
 
   /**
    * 還原前的唯一值檢查：email 或 username 已被 **未刪除** 的帳號使用 → 409，`details.conflictingUserId`
-   * 帶佔用者，前端直接連過去（email 不能改，管理者只能先處理那個帳號；ADR-0025 D6）。
+   * 帶佔用者，前端直接連過去（email 不能改，管理者只能先處理那個帳號；docs/architecture/backend/14-revisions.md §9.2 D6）。
    */
   private async assertRestorable(user: UserRow): Promise<void> {
     const emailTaken = await this.repo.findByEmail(user.email);

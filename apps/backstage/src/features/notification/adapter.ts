@@ -30,7 +30,7 @@ export interface NotificationVM {
   /** 觸發的人；null 是系統（或匿名的註冊申請）。 */
   actorName: string | null;
   createdAt: string;
-  /** 解析後的連結；route id 沒有登記或缺參數時是 undefined——只顯示文字、不可點（ADR-0026 D3）。 */
+  /** 解析後的連結；route id 沒有登記或缺參數時是 undefined——只顯示文字、不可點（docs/architecture/backend/15-notification.md §12.2 D3）。 */
   link: ResolvedRouteLink | undefined;
 }
 

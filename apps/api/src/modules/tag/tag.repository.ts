@@ -14,7 +14,7 @@ export interface AssignedTag {
   color: TagColor;
 }
 
-/** 標籤的定義與指派（docs/adr/0032-tags.md D2）。 */
+/** 標籤的定義與指派（docs/architecture/backend/18-tag.md §7.2 D2）。 */
 @Injectable()
 export class TagRepository {
   constructor(@Inject(TENANT_DB) private readonly db: Database) {}

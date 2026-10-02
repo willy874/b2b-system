@@ -27,7 +27,7 @@ async function prepare(url: string, migrationsFolder: string): Promise<void> {
   await client.end();
 }
 
-/** 同一個 container 裡建第二個 database（租戶的 DB 與平台 DB 分開，docs/adr/0020-physical-tenant-isolation.md D1）。 */
+/** 同一個 container 裡建第二個 database（租戶的 DB 與平台 DB 分開，docs/architecture/05-tenancy.md §10.2 D1）。 */
 export function databaseUrlOf(baseUrl: string, name: string): string {
   const url = new URL(baseUrl);
   url.pathname = `/${name}`;

@@ -1,5 +1,5 @@
 /**
- * SSO 的瀏覽器端（docs/adr/0019-sso-identity-platform.md）：OIDC Authorization Code ＋ PKCE。
+ * SSO 的瀏覽器端（docs/architecture/04-sso.md §12）：OIDC Authorization Code ＋ PKCE。
  *
  * - **開始**：產生 PKCE verifier 與 `state`，存在 **這個分頁** 的 sessionStorage，然後 **頂層跳轉** 到 IdP。
  * - **callback**：IdP 帶 `code` 與 `state` 跳回來；以 `state` 取回 verifier，交給自己 origin 的 BFF 換 app session。
@@ -62,7 +62,7 @@ export function redirectUriOf(config: SsoClientConfig): string {
 
 /**
  * 組 IdP 的授權網址，並記下這次登入的 verifier（以 `state` 為鍵）。
- * `extraParams`：authorize 的額外參數，例如 backstage 的 `tenant`（docs/adr/0020-physical-tenant-isolation.md D7）。
+ * `extraParams`：authorize 的額外參數，例如 backstage 的 `tenant`（docs/architecture/05-tenancy.md §10.2 D7）。
  */
 export async function createAuthorizationUrl(
   config: SsoClientConfig,

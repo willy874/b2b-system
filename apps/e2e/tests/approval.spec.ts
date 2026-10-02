@@ -11,7 +11,7 @@ const APPLICANT_PASSWORD = 'Tq7!vRx#2mLp9w';
 // 啟用時設定的密碼（POST /auth/setup）取代申請時的密碼（docs/rbac/06-approval.md §5.1）
 const ACTIVATED_PASSWORD = 'Kd4$wNz8!qHs3v';
 const ACTIVATION_MAIL_SUBJECT = '啟用你的 B2B System 帳號';
-// 經過 backstage 的 /api 代理：api 以網域決定租戶（docs/adr/0020-physical-tenant-isolation.md D2）
+// 經過 backstage 的 /api 代理：api 以網域決定租戶（docs/architecture/05-tenancy.md §10.2 D2）
 const API_URL =
   process.env.E2E_API_URL ?? `${process.env.E2E_BASE_URL ?? 'http://localhost:5173'}/api`;
 

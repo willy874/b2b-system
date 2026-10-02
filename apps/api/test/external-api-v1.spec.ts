@@ -15,7 +15,7 @@ import { listenOnLoopback } from './http';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
 
 /**
- * 對外 API 的第一批 v1 端點（docs/adr/0027-api-tokens-external-api.md T3）：檔案與資料夾、使用者唯讀。
+ * 對外 API 的第一批 v1 端點（docs/architecture/06-external-api.md §9 T3）：檔案與資料夾、使用者唯讀。
  * 內部 api 與對外 API 兩個 app 共用一個 Postgres 與同一個（記憶體裡的）物件儲存。
  */
 
@@ -95,7 +95,7 @@ async function serviceAccountToken(
   return { accountId, token: dataOf<{ token: string }>(created).token };
 }
 
-describe('對外 API v1：檔案與使用者（docs/adr/0027-api-tokens-external-api.md T3）', () => {
+describe('對外 API v1：檔案與使用者（docs/architecture/06-external-api.md §9 T3）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;

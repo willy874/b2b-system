@@ -15,7 +15,7 @@ import type {
 const MINUTE_MS = 60 * 1000;
 
 /**
- * 事件點的入口（docs/adr/0031-announcements.md D12）：擁有者模組在自己的業務交易內（稽核之後）呼叫 `fire()`。
+ * 事件點的入口（docs/architecture/backend/19-announcement.md §9.2 D12）：擁有者模組在自己的業務交易內（稽核之後）呼叫 `fire()`。
  * 不訂閱 `DomainEventBus`（不保證送達）：入列走交易內的 outbox，業務寫入成功工作就一定在。
  *
  * `fire()` 只做一件事：找出訂了這個觸發點、排程中的公告，每則 × 每位使用者入列一筆延遲工作（`startAfter` = 現在＋延遲）。

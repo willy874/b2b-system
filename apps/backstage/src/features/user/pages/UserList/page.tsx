@@ -32,7 +32,7 @@ export default function UserListPage() {
 
   const profile = useQuery(getAuthProfileQueryOptions());
   const deleteUser = useUserDeleteMutation();
-  // 篩選面板的標籤選項（`user` 標籤組；讀得到使用者列表就讀得到，docs/adr/0032-tags.md D5）
+  // 篩選面板的標籤選項（`user` 標籤組；讀得到使用者列表就讀得到，docs/architecture/backend/18-tag.md §7.2 D5）
   const tags = useQuery(getTagListQueryOptions('user'));
 
   const { data, isPending, error, refetch } = useQuery(

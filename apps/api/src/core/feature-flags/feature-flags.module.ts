@@ -4,7 +4,7 @@ import { FeatureFlagRepository } from './feature-flag.repository';
 import { FEATURE_FLAG_CATALOG, FeatureFlagService } from './feature-flag.service';
 import { FEATURE_FLAGS } from './feature-flags';
 
-/** Feature flag 的目錄與判斷（docs/adr/0022-feature-flags.md）。 */
+/** Feature flag 的目錄與判斷（docs/architecture/05-tenancy.md §11）。 */
 @Global()
 @Module({
   providers: [

@@ -23,20 +23,20 @@ export const ChangeSource = {
   SETTING: 'setting',
   /**
    * 平台管理者變更了租戶啟用的 feature；前端據此重新取得 profile（其中的 `features`），
-   * 再安裝或移除對應的 feature（docs/adr/0021-runtime-feature-activation.md D8）。推給整個租戶，沒有 `id`。
+   * 再安裝或移除對應的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D8）。推給整個租戶，沒有 `id`。
    */
   TENANT_FEATURE: 'tenantFeature',
   /**
-   * 站內通知（`id` = 通知 id）：只推給收件人自己的 user room（docs/adr/0026-notification-center.md D8）。
+   * 站內通知（`id` = 通知 id）：只推給收件人自己的 user room（docs/architecture/backend/15-notification.md §12.2 D8）。
    * 新通知是 `create`；在另一個裝置或分頁標為已讀是 `update`（全部已讀沒有 `id`）。
    */
   NOTIFICATION: 'notification',
-  /** 事件管理的租戶政策（`id` = 事件類型，例：`approval.pending`；docs/adr/0028-notification-event-management.md D9）。 */
+  /** 事件管理的租戶政策（`id` = 事件類型，例：`approval.pending`；docs/architecture/backend/16-notification-event.md §9.2 D9）。 */
   NOTIFICATION_POLICY: 'notificationPolicy',
-  /** 自己的通知設定（`id` = 事件類型）：只推給本人的其他分頁與裝置（ADR-0028 D15）。 */
+  /** 自己的通知設定（`id` = 事件類型）：只推給本人的其他分頁與裝置（docs/architecture/backend/16-notification-event.md §9.2 D15）。 */
   NOTIFICATION_PREFERENCE: 'notificationPreference',
   /**
-   * 服務帳號（`id` = 服務帳號 id）：建立、改名、停用、刪除、改角色（docs/adr/0027-api-tokens-external-api.md D1）。
+   * 服務帳號（`id` = 服務帳號 id）：建立、改名、停用、刪除、改角色（docs/architecture/06-external-api.md §9.2 D1）。
    * 改角色時另以 `role` 推角色的持有者變動。
    */
   SERVICE_ACCOUNT: 'serviceAccount',
@@ -46,7 +46,7 @@ export const ChangeSource = {
    */
   API_TOKEN: 'apiToken',
   /**
-   * Webhook 訂閱（`id` = 訂閱 id）：建立、修改、停用（含連續失敗自動停用）、輪替密鑰、刪除（docs/adr/0030-webhooks.md）。
+   * Webhook 訂閱（`id` = 訂閱 id）：建立、修改、停用（含連續失敗自動停用）、輪替密鑰、刪除（docs/architecture/backend/17-webhook.md §9）。
    */
   WEBHOOK: 'webhook',
   /**
@@ -55,12 +55,12 @@ export const ChangeSource = {
    */
   WEBHOOK_DELIVERY: 'webhookDelivery',
   /**
-   * 標籤的定義（`id` = 標籤 id；docs/adr/0032-tags.md D10）：建立、改名、改色、刪除。
+   * 標籤的定義（`id` = 標籤 id；docs/architecture/backend/18-tag.md §7.2 D10）：建立、改名、改色、刪除。
    * 指派不推它：由擁有者推自己的資源（`file`、`fileFolder`、`user` update）。
    */
   TAG: 'tag',
   /**
-   * 公告（`id` = 公告 id；docs/adr/0031-announcements.md）：建立、修改、送出、暫停、刪除、還原，以及背景發送改變的狀態。
+   * 公告（`id` = 公告 id；docs/architecture/backend/19-announcement.md §9）：建立、修改、送出、暫停、刪除、還原，以及背景發送改變的狀態。
    * 發送紀錄的變化（發送中、完成、撤回）也以它宣告（`update`），詳情頁的發送紀錄跟著重抓。
    */
   ANNOUNCEMENT: 'announcement',

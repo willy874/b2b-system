@@ -25,7 +25,7 @@ export function useSsoInteractionAbortMutation() {
 }
 
 /**
- * email 網域對應的外部 IdP 連線（docs/adr/0019-sso-identity-platform.md D9）。`email` 不是完整的 email 時不查詢；
+ * email 網域對應的外部 IdP 連線（docs/architecture/04-sso.md §12.2 D9）。`email` 不是完整的 email 時不查詢；
  * 查詢失敗當成沒有連線（使用者仍可用密碼登入，只允許 SSO 的網域由後端擋下）。
  */
 export function useSsoDiscovery(uid: string, email: string | undefined) {

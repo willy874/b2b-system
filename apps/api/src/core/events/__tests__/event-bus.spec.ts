@@ -221,7 +221,7 @@ describe('DomainEventBus', () => {
     });
   });
 
-  describe('其他程序轉送來的事件（docs/adr/0027-api-tokens-external-api.md D18）', () => {
+  describe('其他程序轉送來的事件（docs/architecture/06-external-api.md §9.2 D18）', () => {
     it('只交給以 { remote: true } 訂閱的 handler，meta 標上 remote', async () => {
       const bus = new DomainEventBus();
       const localOnly = vi.fn();

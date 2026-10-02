@@ -17,7 +17,7 @@ export interface PermissionSet {
    */
   subjects?: readonly string[];
   /**
-   * 這是對外 API 的 token 限縮過的權限（docs/adr/0027-api-tokens-external-api.md D3）：`permissions` 已是帳號 ∩ scopes。
+   * 這是對外 API 的 token 限縮過的權限（docs/architecture/06-external-api.md §9.2 D3）：`permissions` 已是帳號 ∩ scopes。
    * 以 `subjects` 解析資源授權的地方（檔案）要改用 `permissions` 當租戶層的邊，否則會經由帳號的角色繞過 scopes。
    * 快取裡的值永遠沒有這個欄位。
    */
@@ -34,7 +34,7 @@ const MAX_ENTRIES = 10_000;
 
 /**
  * 快取的 key 是「租戶 × 使用者」：一個程序服務所有租戶，只用 userId 會讓 A 租戶的資料被拿去判斷 B 租戶的請求
- * （docs/adr/0020-physical-tenant-isolation.md D17）。沒有租戶脈絡時（單元測試）歸在同一組。
+ * （docs/architecture/05-tenancy.md §10.2 D17）。沒有租戶脈絡時（單元測試）歸在同一組。
  */
 function tenantKey(): string {
   return currentTenant()?.id ?? '-';
@@ -87,7 +87,7 @@ export class PermissionCacheService {
   }
 
   /**
-   * 一個租戶的所有人（關係圖的 revision 變了，docs/adr/0024-relationship-based-access-control.md D8）。
+   * 一個租戶的所有人（關係圖的 revision 變了，docs/rbac/01-domain-model.md §9.2 D8）。
    * 收到其他程序的廣播時沒有租戶脈絡，所以以參數指明；省略時是目前的租戶。
    */
   invalidateTenant(tenantId: string = tenantKey()): void {

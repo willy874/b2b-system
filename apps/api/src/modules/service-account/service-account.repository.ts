@@ -39,7 +39,7 @@ const ROLE_AGGREGATE = sql<ServiceAccountRoleSummary[]>`
     '[]'
   )`;
 
-/** 仍有效的 token 數：未撤銷、未過期、建立後帳號的 `token_version` 沒變（docs/adr/0027-api-tokens-external-api.md D5）。 */
+/** 仍有效的 token 數：未撤銷、未過期、建立後帳號的 `token_version` 沒變（docs/architecture/06-external-api.md §9.2 D5）。 */
 const ACTIVE_TOKEN_COUNT = sql<number>`(
   SELECT count(*)::int FROM ${apiTokens} t
   WHERE t.user_id = ${users.id} AND t.revoked_at IS NULL AND t.expires_at > now()
@@ -75,7 +75,7 @@ function heldBy(accountId: string): SQL | undefined {
 }
 
 /**
- * 服務帳號（`users.kind = 'service'`，docs/adr/0027-api-tokens-external-api.md D1）的查詢。
+ * 服務帳號（`users.kind = 'service'`，docs/architecture/06-external-api.md §9.2 D1）的查詢。
  * 它就是 `users` 的一列：角色的邊、權限快取、稽核的 `actor_id` 都與人共用。
  */
 @Injectable()
@@ -133,7 +133,7 @@ export class ServiceAccountRepository {
   }
 
   /**
-   * 版本相符、未刪除時才更新，並遞增 `version`（樂觀鎖，ADR-0025 D3）；停用時一併遞增 `token_version`，
+   * 版本相符、未刪除時才更新，並遞增 `version`（樂觀鎖，docs/architecture/backend/14-revisions.md §9.2 D3）；停用時一併遞增 `token_version`，
    * 讓它所有的 token 失效（D5）。不符回 undefined。
    */
   async update(
@@ -199,7 +199,7 @@ export class ServiceAccountRepository {
 
   /**
    * 整批取代持有的角色。與使用者相同：只刪 **未刪除角色** 的邊（已刪除角色的邊休眠，角色還原時一起回來，
-   * ADR-0025 D2）；插入時以 `FOR SHARE` 鎖住角色列，不會留下指向剛被刪除的角色的邊。
+   * docs/architecture/backend/14-revisions.md §9.2 D2）；插入時以 `FOR SHARE` 鎖住角色列，不會留下指向剛被刪除的角色的邊。
    */
   async replaceRoles(
     id: string,

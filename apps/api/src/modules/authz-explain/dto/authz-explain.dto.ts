@@ -4,7 +4,7 @@ import { defineSchema } from '@/core/validation';
 
 /**
  * 說明路徑上的一個節點（`型別:id#關係`）。操作者讀不到的節點只回型別與關係，`id`、`name` 是 null、`hidden` 是 true
- * （docs/adr/0024-relationship-based-access-control.md D14）。
+ * （docs/rbac/01-domain-model.md §9.3 D14）。
  */
 export const ExplainNodeSchema = defineSchema(
   'ExplainNode',

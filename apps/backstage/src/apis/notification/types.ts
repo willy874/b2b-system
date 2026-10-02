@@ -9,7 +9,7 @@ export interface NotificationListParams {
   cursor?: string;
 }
 
-/** 通知總覽的篩選（`GET /notifications/all`；docs/adr/0031-announcements.md D1）。 */
+/** 通知總覽的篩選（`GET /notifications/all`；docs/architecture/backend/19-announcement.md §9.2 D1）。 */
 export interface NotificationOverviewFilters {
   type?: string;
   recipientId?: string;

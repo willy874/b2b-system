@@ -59,7 +59,7 @@ export type RelationTupleRow = typeof relationTuples.$inferSelect;
 export type RelationTupleInsert = typeof relationTuples.$inferInsert;
 
 /**
- * 關係圖的版本號（單列，docs/adr/0024-relationship-based-access-control.md D7）：`relation_tuples` 的每一條寫入語句
+ * 關係圖的版本號（單列，docs/rbac/01-domain-model.md §9.2 D7）：`relation_tuples` 的每一條寫入語句
  * 由 trigger 在同一個交易內 +1（migration 0009）。寫入之間因此以這一列的鎖排隊，提交順序＝版本順序；
  * 各程序以它判斷收到的失效通知是不是比已知的新。
  */
@@ -130,7 +130,7 @@ export function superAdminTuple(roleId: string): RelationTupleInsert {
 }
 
 export const GROUP_OBJECT_TYPE = 'group';
-/** 使用者集合「群組的成員」：`group:<id>#member`（docs/adr/0024-relationship-based-access-control.md D11）。 */
+/** 使用者集合「群組的成員」：`group:<id>#member`（docs/rbac/01-domain-model.md §9.3 D11）。 */
 export const GROUP_MEMBER_RELATION = 'member';
 
 /** 群組成員的主體：個別使用者，或另一個群組的成員（巢狀）。 */

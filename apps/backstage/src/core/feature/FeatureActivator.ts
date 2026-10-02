@@ -9,8 +9,8 @@ export interface FeatureDefinition {
   /** 這個 feature 擁有的最上層 route 物件：用來判斷目前頁面屬於誰，以及掛上 `requireFeature`。 */
   routes: readonly unknown[];
   /**
-   * 安裝條件（docs/adr/0022-feature-flags.md D9），列出的都要成立；省略 = `{ feature: <catalog 的 id> }`。
-   * - `feature`：租戶啟用的 feature（`/auth/profile` 的 `features`，ADR-0021）
+   * 安裝條件（docs/architecture/05-tenancy.md §11.2 D9），列出的都要成立；省略 = `{ feature: <catalog 的 id> }`。
+   * - `feature`：租戶啟用的 feature（`/auth/profile` 的 `features`，docs/architecture/frontend/02-plugin-system.md §9）
    * - `flag`：生效為開的 feature flag（`flags`）。試行中、之後會成為常駐的 feature 只宣告 `flag`；
    *   flag 移除時把它從 catalog 拿掉、改回 `main.tsx` 的 `.use()`
    */
@@ -35,7 +35,7 @@ export interface FeatureActivatorOptions {
 }
 
 /**
- * 依啟用清單安裝與卸載 feature（docs/adr/0021-runtime-feature-activation.md D2、D8、D9）。
+ * 依啟用清單安裝與卸載 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D2、D8、D9）。
  * 每次 `apply()` 都排在上一次之後執行，清單快速變動時不會同時安裝又卸載同一個 feature。
  */
 export class FeatureActivator {

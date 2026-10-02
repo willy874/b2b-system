@@ -1,6 +1,6 @@
 # 前端 11 — 即時推播
 
-> 狀態：**已實作**。決策理由見 [ADR-0008](../../adr/0008-realtime-with-socket-io.md)；
+> 狀態：**已實作**。決策理由見 [`backend/08-realtime.md`](../backend/08-realtime.md) §15；
 > 伺服器端（room、受眾、事件合約）見 [`../backend/08-realtime.md`](../backend/08-realtime.md)。
 
 ## 1. 它解決什麼

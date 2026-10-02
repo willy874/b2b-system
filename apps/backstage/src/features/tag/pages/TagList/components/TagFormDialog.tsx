@@ -23,7 +23,7 @@ interface TagFormDialogProps {
   onSubmit: (values: { name: string; color: TagColor }) => Promise<unknown>;
 }
 
-/** 建立或編輯標籤：名稱與顏色（Design Token 的名稱，docs/adr/0032-tags.md D3），右側即時預覽。 */
+/** 建立或編輯標籤：名稱與顏色（Design Token 的名稱，docs/architecture/backend/18-tag.md §7.2 D3），右側即時預覽。 */
 export function TagFormDialog({ open, onOpenChange, tag, onSubmit }: TagFormDialogProps) {
   const { t } = useTranslation();
   const toMessage = useErrorMessage();

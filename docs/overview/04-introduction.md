@@ -8,7 +8,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 | 規模 | 數量 |
 | --- | --- |
-| 架構決策紀錄（`docs/adr/`） | 28 份 |
+| 設計決策（各規格最後的「設計決策」章節，原 `docs/adr/`） | 33 組 |
 | 規格文件（`docs/`） | 103 份 |
 | 自動化測試案例 | 約 3,200 個 |
 | 具名錯誤碼（`apps/api/src/core/errors/error-code.ts`） | 108 個 |
@@ -77,7 +77,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ## 3. 多租戶：每個租戶一個資料庫，由網域決定租戶
 
-專案曾經用共用資料表加 `workspace_id` 做完一整套工作區隔離（[ADR-0018](../adr/0018-workspace-tenancy.md)），後來整個丟掉，改成實體隔離（[ADR-0020](../adr/0020-physical-tenant-isolation.md)）。被否決的方案也寫得很清楚：schema-per-tenant 只要 `search_path` 設錯一次就讀到別人的表；RLS 仍然是同一個資料庫裡的應用層紀律。規格見 [`architecture/05-tenancy.md`](../architecture/05-tenancy.md)。
+專案曾經用共用資料表加 `workspace_id` 做完一整套工作區隔離（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10.7），後來整個丟掉，改成實體隔離（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10）。被否決的方案也寫得很清楚：schema-per-tenant 只要 `search_path` 設錯一次就讀到別人的表；RLS 仍然是同一個資料庫裡的應用層紀律。規格見 [`architecture/05-tenancy.md`](../architecture/05-tenancy.md)。
 
 | 情況 | 怎麼處理 |
 | --- | --- |
@@ -88,7 +88,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 | 滾動部署時 migration 落後 | api 不自己跑 migration；進入租戶時比對 journal，落後的租戶回 `503 TENANT_UNAVAILABLE`，其他租戶不受影響 |
 | 佈建到一半程序重啟 | 生命週期 provisioning → active／failed → disabled → deleted，每一步冪等；每 5 分鐘把卡住的租戶收成 failed。`pnpm db:drop-tenant` 不加 `--confirm` 只列出要做的事 |
 
-> **整合測試抓到的漏洞**：實作 ADR-0020 時，整合測試發現 A 租戶簽發的 token 拿到 B 租戶的網域，以 userId 為 key 的權限快取會用 A 的使用者與權限判斷 B 的請求。修正是把租戶前綴提前到解析的第 2 步，並在 access token 加上 `tid`。這段記在 ADR 的「實作時改掉的做法」表裡。
+> **整合測試抓到的漏洞**：實作 [`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10 時，整合測試發現 A 租戶簽發的 token 拿到 B 租戶的網域，以 userId 為 key 的權限快取會用 A 的使用者與權限判斷 B 的請求。修正是把租戶前綴提前到解析的第 2 步，並在 access token 加上 `tid`。這段記在同一份文件 §10.6「實作時改掉的做法」表裡。
 
 ![平台後台的租戶詳情頁](./images/introduction/platform-tenant-detail.jpg)
 
@@ -98,9 +98,9 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ## 4. 權限：伺服器解析、關係圖、可以解釋
 
-權限不進 token。每個請求查一次記憶體快取（命中時小於 1 ms），換來權限變更立即生效（[ADR-0005](../adr/0005-permission-resolved-server-side.md)）。底層是在 Postgres 上自建的 Zanzibar 子集：角色持有、角色的權限鍵、資料夾授權、群組成員，全部是 `relation_tuples` 上的邊（[ADR-0024](../adr/0024-relationship-based-access-control.md)）。否決 OpenFGA／SpiceDB 的理由是：稽核和授權寫入必須在同一個交易，外部服務會變成雙寫問題。切換採 trigger 雙寫加影子比對，分 G1～G3b 逐步完成。
+權限不進 token。每個請求查一次記憶體快取（命中時小於 1 ms），換來權限變更立即生效（[`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §11）。底層是在 Postgres 上自建的 Zanzibar 子集：角色持有、角色的權限鍵、資料夾授權、群組成員，全部是 `relation_tuples` 上的邊（[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9）。否決 OpenFGA／SpiceDB 的理由是：稽核和授權寫入必須在同一個交易，外部服務會變成雙寫問題。切換採 trigger 雙寫加影子比對，分 G1～G3b 逐步完成。
 
-模型刻意沒有 deny。[ADR-0006](../adr/0006-flat-permission-scope.md) 的理由是：一旦有 deny，「為什麼不能做 X」就變成需要推理的問題。
+模型刻意沒有 deny。[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §8 的理由是：一旦有 deny，「為什麼不能做 X」就變成需要推理的問題。
 
 ![使用者詳情的有效權限與來源](./images/introduction/user-permission-sources.jpg)
 
@@ -122,7 +122,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ![權限目錄的樹狀圖](./images/introduction/permission-tree.jpg)
 
-*權限目錄的樹狀圖。基礎權限在上、包含它的在下，虛線是跨資源的依賴。用的是設計系統裡的 TreeEditor（React Flow＋dagre，[ADR-0023](../adr/0023-react-flow-tree-editor.md)），不載入 React Flow 的全域 CSS，改走 design token。*
+*權限目錄的樹狀圖。基礎權限在上、包含它的在下，虛線是跨資源的依賴。用的是設計系統裡的 TreeEditor（React Flow＋dagre，[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §12），不載入 React Flow 的全域 CSS，改走 design token。*
 
 ![一般成員打開 /role/create 看到 403](./images/introduction/deep-link-403.jpg)
 
@@ -156,7 +156,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ## 6. 背景工作、寄信、通知
 
-佇列用 pg-boss，放在平台 DB，不引入 Redis（[ADR-0016](../adr/0016-background-jobs.md)）。但業務交易在租戶 DB，兩個資料庫不能同一個交易，於是交易內入列改寫租戶 DB 的 `job_outbox`：提交後立刻搬進佇列，每 10 分鐘 sweep 補搬，outbox 的 id 就是工作 id，重搬也只會有一筆。規格見 [`architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md)、[`11-mail.md`](../architecture/backend/11-mail.md)、[`15-notification.md`](../architecture/backend/15-notification.md)、[`16-notification-event.md`](../architecture/backend/16-notification-event.md)。
+佇列用 pg-boss，放在平台 DB，不引入 Redis（[`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §9）。但業務交易在租戶 DB，兩個資料庫不能同一個交易，於是交易內入列改寫租戶 DB 的 `job_outbox`：提交後立刻搬進佇列，每 10 分鐘 sweep 補搬，outbox 的 id 就是工作 id，重搬也只會有一筆。規格見 [`architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md)、[`11-mail.md`](../architecture/backend/11-mail.md)、[`15-notification.md`](../architecture/backend/15-notification.md)、[`16-notification-event.md`](../architecture/backend/16-notification-event.md)。
 
 | 情況 | 怎麼處理 |
 | --- | --- |
@@ -199,15 +199,15 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 規格見 [`architecture/frontend/`](../architecture/frontend/README.md)。
 
-**一個功能，一行 `.use()`。** `apps/backstage/src/main.tsx` 用 `createAppContext().use(...).load()` 組裝所有 feature（[ADR-0001](../adr/0001-plugin-based-app-context.md)）。plugin 的 factory 同步執行，登記權限、選單、批次操作、route id；I/O（語系包）放在非同步的 `onInit`。權限一定在同步階段，因為 `requirePagePermission()` 找不到時會拋錯而不是放行，放在非同步階段就會有 render 早於註冊的競態。註解掉一行，路由、選單、權限、語系一起消失。租戶停用某功能時，plugin 在執行期卸載；使用者正在該頁就先導回首頁並提示（[ADR-0021](../adr/0021-runtime-feature-activation.md)）。
+**一個功能，一行 `.use()`。** `apps/backstage/src/main.tsx` 用 `createAppContext().use(...).load()` 組裝所有 feature（[`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §8）。plugin 的 factory 同步執行，登記權限、選單、批次操作、route id；I/O（語系包）放在非同步的 `onInit`。權限一定在同步階段，因為 `requirePagePermission()` 找不到時會拋錯而不是放行，放在非同步階段就會有 render 早於註冊的競態。註解掉一行，路由、選單、權限、語系一起消失。租戶停用某功能時，plugin 在執行期卸載；使用者正在該頁就先導回首頁並提示（[`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §9）。
 
 **不手列 query key。** mutation 成功後呼叫 `invalidateResources([{ resource, kind, id }])`，由 `apps/backstage/src/apis/resources.ts` 宣告的資源依賴圖決定要失效哪些查詢。只走一層、不遞移；delete 直接移除快取而不重抓，避免打出 404；按一次「已讀」不會讓稽核列表重抓。
 
 **只有一個分頁連 WebSocket。** 可見的分頁參與 leader 選舉，只有 leader 持有 Socket.io 連線，再把「哪個來源變了」轉給其他分頁（帶 term 與序號，跳號就整批重新驗證）。背景分頁只標 stale，可見分頁延遲 150–750 ms 隨機時間再重抓來削峰。重連退避 2 秒起、上限 30 秒、±50% 抖動，api 重新部署時不會被上千條連線同時打回來。推播只是加速，斷線就退回 staleTime 與 focus 重抓。
 
-**批次操作沒有批次端點。** [ADR-0009](../adr/0009-table-batch-operations.md) 做了後端批次端點，實際用過後全部移除（[ADR-0012](../adr/0012-batch-queue-worker.md)）：批次改成前端佇列，逐筆呼叫單筆 API，讓單筆端點是業務規則的唯一來源。每筆帶列表上的 `version`，過時的那筆個別失敗；被別人刪掉的自動移出選取。佇列 worker 刻意不自己打 API，否則會和分頁搶輪替中的 refresh token，觸發整條 family 撤銷。
+**批次操作沒有批次端點。** [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13.6 做了後端批次端點，實際用過後全部移除（[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13）：批次改成前端佇列，逐筆呼叫單筆 API，讓單筆端點是業務規則的唯一來源。每筆帶列表上的 `version`，過時的那筆個別失敗；被別人刪掉的自動移出選取。佇列 worker 刻意不自己打 API，否則會和分頁搶輪替中的 refresh token，觸發整條 family 撤銷。
 
-**自己的設計系統。** UI 建在 Base UI（只提供焦點管理、ARIA、彈層定位，[ADR-0002](../adr/0002-base-ui-over-mui.md)）上，視覺全部自寫：42 個元件、43 個 Storybook story。Base UI 的 Select 需要所有項目都在 DOM 上而無法虛擬捲動，所以 Select／Menu 改成 Popover 加自製列表（`aria-activedescendant`）與 TanStack Virtual。顏色走三層 token，`contrast.test.ts` 對兩個主題各驗 WCAG 對比，`theme-init.js` 在首次繪製前設定主題，不閃白。
+**自己的設計系統。** UI 建在 Base UI（只提供焦點管理、ARIA、彈層定位，[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §10）上，視覺全部自寫：42 個元件、43 個 Storybook story。Base UI 的 Select 需要所有項目都在 DOM 上而無法虛擬捲動，所以 Select／Menu 改成 Popover 加自製列表（`aria-activedescendant`）與 TanStack Virtual。顏色走三層 token，`contrast.test.ts` 對兩個主題各驗 WCAG 對比，`theme-init.js` 在首次繪製前設定主題，不閃白。
 
 ![深色主題的使用者列表](./images/introduction/user-list-dark.jpg)
 
@@ -226,12 +226,12 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 - **路由稽核**：程序在 `listen()` 前掃描所有 HTTP 路由與 WebSocket handler（`apps/api/src/common/route-audit.ts`）。沒宣告 `@Public`／`@Authenticated`／`@RequirePermissions`、平台端點誤標租戶功能、flag key 不在目錄裡，都讓程序啟動失敗。測試另外釘住每個路由用到的權限鍵，`role:updte` 這種錯字不會讓端點靜靜地永遠回 403。
 - **結構測試**：後端層級依賴由 `apps/api/src/__tests__/layer-dependencies.spec.ts` 掃 import；前端 `design-system.test.ts` 擋寫死的色碼、外洩的 Base UI 型別，並要求每個元件都有測試與 story；只有一個檔案能 import socket.io-client。
 - **語系完整性**：測試比對兩個語系檔的鍵集合，並確認每個錯誤碼、每個權限鍵都有翻譯。
-- **暫時的開關會過期**：每個 feature flag 必填 `removeBy`，過期還留在目錄裡，單元測試直接失敗（[ADR-0022](../adr/0022-feature-flags.md)）。
+- **暫時的開關會過期**：每個 feature flag 必填 `removeBy`，過期還留在目錄裡，單元測試直接失敗（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §11）。
 - **測試規模**：api 約 1,080 個案例（整合測試用 Testcontainers 起 Postgres 17，平台 DB 與租戶 DB 分開）、backstage 約 1,350、auth 約 670、E2E 11 個 spec 約 50 個案例（含 mock OIDC IdP 與 Mailpit 收信）。
 
 ### 9.2 敢推翻自己
 
-28 份 ADR 裡有四次明確的反轉，每次都寫清楚是什麼新資訊改變了判斷：
+33 組設計決策裡有四次明確的反轉（編號為原 ADR 編號），每次都寫清楚是什麼新資訊改變了判斷：
 
 | 反轉 | 內容 |
 | --- | --- |
@@ -244,7 +244,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ### 9.3 還沒做到的部分
 
-- repo 沒有 CI。pre-commit（`lefthook.yml`）只跑 `oxfmt` 與 `oxlint`，[ADR-0007](../adr/0007-openapi-generated-api-sdk.md) 提到的 OpenAPI diff 檢查尚未落地。
+- repo 沒有 CI。pre-commit（`lefthook.yml`）只跑 `oxfmt` 與 `oxlint`，[`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §12 提到的 OpenAPI diff 檢查尚未落地。
 - 前端完整的層級依賴矩陣（[`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md)）只有部分由 lint 與結構測試強制，其餘靠 review 與 `git grep` 自查；「識別字串必須是完整字面量」規則（[`conventions/06-literal-strings.md`](../conventions/06-literal-strings.md)）也只靠 review。
 - 已知問題記錄在 [`issues/`](../issues/README.md)。
 

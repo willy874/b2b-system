@@ -4,7 +4,7 @@ import { WEBHOOK_USER_AGENT } from './webhook.constants';
 
 const SECRET_PREFIX = 'whsec_';
 
-/** 新的簽章密鑰（docs/adr/0030-webhooks.md D14）：`whsec_` ＋ 32 bytes base64url。只在建立與輪替的回應出現一次。 */
+/** 新的簽章密鑰（docs/architecture/backend/17-webhook.md §9.2 D14）：`whsec_` ＋ 32 bytes base64url。只在建立與輪替的回應出現一次。 */
 export function generateWebhookSecret(): string {
   return `${SECRET_PREFIX}${randomBytes(32).toString('base64url')}`;
 }

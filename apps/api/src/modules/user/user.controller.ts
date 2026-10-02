@@ -84,11 +84,11 @@ export class UserController {
   }
 
   /**
-   * 還原刪除的使用者（ADR-0025 D6、D10：能刪就能復原）。email／username 已被別的帳號使用時 409，
+   * 還原刪除的使用者（docs/architecture/backend/14-revisions.md §9.2 D6、D10：能刪就能復原）。email／username 已被別的帳號使用時 409，
    * `details.conflictingUserId` 帶佔用者；沒有被刪除 409 `USER_NOT_DELETED`。
    */
   @Post(':id/restore')
-  @RequireFeature('trash') // 還原屬於回收桶（docs/adr/0029-toggleable-platform-features.md D3）
+  @RequireFeature('trash') // 還原屬於回收桶（docs/architecture/05-tenancy.md §12.2 D3）
   @HttpCode(200)
   @RequirePermissions(PERMISSION.USER_DELETE)
   @ApiOperation({ summary: '還原刪除的使用者' })

@@ -15,7 +15,7 @@ import type { WebhookRowVM } from './adapter';
 import { WebhookTable } from './components/WebhookTable';
 import { useWebhookSearchFilter } from './useWebhookSearchFilter';
 
-/** Webhook（docs/adr/0030-webhooks.md）：事件發生時 POST 到外部系統。 */
+/** Webhook（docs/architecture/backend/17-webhook.md §9）：事件發生時 POST 到外部系統。 */
 export default function WebhookListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();

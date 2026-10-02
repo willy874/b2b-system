@@ -44,7 +44,7 @@ function toDto(type: TrashResourceType, item: TrashItem, retentionDays: number):
 }
 
 /**
- * 回收桶（docs/architecture/backend/13-trash.md、ADR-0025 D9～D11）：列出已刪除的項目、到期永久刪除。
+ * 回收桶（docs/architecture/backend/13-trash.md、docs/architecture/backend/14-revisions.md §9.2 D9～D11）：列出已刪除的項目、到期永久刪除。
  * 各類型的查詢、硬刪除與連帶處理交給擁有資源的模組註冊的 `TrashHandler`；還原端點也在擁有者那裡。
  */
 @Injectable()
@@ -81,7 +81,7 @@ export class TrashService {
   }
 
   /**
-   * 到期的列依 `purgeOrder` 逐類永久刪除（ADR-0025 D11）。每批一個交易、每一列一個 savepoint：
+   * 到期的列依 `purgeOrder` 逐類永久刪除（docs/architecture/backend/14-revisions.md §9.2 D11）。每批一個交易、每一列一個 savepoint：
    * 一列因外鍵刪不掉只略過它自己，同一批的其他列照常刪除；稽核 `<resource>.purge` 與刪除同生共死。
    */
   async purgeExpired(now: Date = new Date()): Promise<TrashPurgeReport> {
@@ -167,7 +167,7 @@ export class TrashService {
   }
 
   /**
-   * 租戶停用了這一類所屬的 feature → `404 FEATURE_DISABLED`（ADR-0021 D11）。`GET /trash` 本身是常駐的端點，
+   * 租戶停用了這一類所屬的 feature → `404 FEATURE_DISABLED`（docs/architecture/frontend/02-plugin-system.md §9.2 D11）。`GET /trash` 本身是常駐的端點，
    * 無法以 `@RequireFeature` 標在路由上，所以依類型在這裡判斷。沒有租戶脈絡時不判斷（與 `FeatureGuard` 相同）。
    */
   private assertFeatureEnabled(handler: TrashHandler): void {
@@ -177,7 +177,7 @@ export class TrashService {
     }
   }
 
-  /** 看某一類的回收桶＝能刪除那一類（ADR-0025 D10）；路由只擋了「任一種都不能刪」的人。 */
+  /** 看某一類的回收桶＝能刪除那一類（docs/architecture/backend/14-revisions.md §9.2 D10）；路由只擋了「任一種都不能刪」的人。 */
   private async assertCanView(handler: TrashHandler, actor: AuthUser): Promise<void> {
     const { permissions, isSuperAdmin } = await this.permissionService.getPermissionSet(actor.id);
     if (isSuperAdmin || permissions.has(handler.permission)) return;

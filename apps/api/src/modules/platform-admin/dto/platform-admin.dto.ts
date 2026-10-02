@@ -8,7 +8,7 @@ import {
 
 export const PlatformAdminRoleSchema = z.enum(['super-admin', 'operator', 'auditor']);
 
-/** 平台管理者（docs/adr/0020-physical-tenant-isolation.md D5）；不含密碼與登入失敗計數。 */
+/** 平台管理者（docs/architecture/05-tenancy.md §10.2 D5）；不含密碼與登入失敗計數。 */
 export const PlatformAdminSchema = defineSchema(
   'PlatformAdmin',
   z.object({

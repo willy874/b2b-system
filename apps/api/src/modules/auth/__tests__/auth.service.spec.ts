@@ -70,7 +70,7 @@ describe('AuthService.forgotPassword（docs/architecture/backend/04-auth.md §5.
   });
 });
 
-describe('AuthService.login：直接登入的開關（docs/adr/0027-api-tokens-external-api.md D15）', () => {
+describe('AuthService.login：直接登入的開關（docs/architecture/06-external-api.md §9.2 D15）', () => {
   const credentials = { email: 'a@example.com', password: 'x' };
 
   it.each([

@@ -188,7 +188,7 @@ describe('FileShareDialog（docs/architecture/frontend/12-file-manager.md §13�
     );
   });
 
-  describe('檢查存取（docs/adr/0024-relationship-based-access-control.md G4b）', () => {
+  describe('檢查存取（docs/rbac/01-domain-model.md §9 G4b）', () => {
     it('沒有 authz:explain → 不顯示', async () => {
       fetchGrants.mockResolvedValue(grants());
       renderDialog();

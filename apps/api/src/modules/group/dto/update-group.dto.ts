@@ -11,7 +11,7 @@ export const UpdateGroupSchema = defineSchema(
     .object({
       name: GroupNameSchema.optional(),
       description: z.string().trim().max(500).nullable().optional(),
-      /** 樂觀鎖：編輯開始時看到的 `version`（必填）；不同回 409 `GROUP_VERSION_CONFLICT`（ADR-0025 D3）。 */
+      /** 樂觀鎖：編輯開始時看到的 `version`（必填）；不同回 409 `GROUP_VERSION_CONFLICT`（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
       version: z.number().int().min(1),
     })
     // `version` 不是要改的欄位：只帶它等於什麼都沒改

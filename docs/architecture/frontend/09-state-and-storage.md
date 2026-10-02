@@ -356,7 +356,7 @@ const stop = shareStore(
 | `realtime-control:<後端>`   | `resource-changed`、`resync`、`status`、`status-request` | 預設 | `createRealtimeControlChannel` → `core/realtime/RealtimeCoordinator`（[11 §3.4](./11-realtime.md)） | realtime plugin |
 | `store:preference:storage`  | `set`、`remove`（`DictStorageMessages`） | 預設 | `createPreferenceChannel` → `core/store/preference` 的 dictStorage | 寫入即送；i18n plugin 訂閱（`syncPreferencesAcrossTabs`，含語系、時區、主題）；主題由 theme plugin 訂閱 store 套用 |
 | `store:table-column-settings:storage` | `set`、`remove`（`DictStorageMessages`） | 預設（不經伺服器中繼） | `createTableColumnSettingsChannel` → `core/store/tableColumnSettings` 的 dictStorage | 寫入即送；表格掛載期間訂閱（`syncTableColumnSettings`） |
-| `batch-queue`               | `snapshot`、`snapshot-request`、`host-closed` | 預設（BroadcastChannel，不經伺服器；項目名稱含 email） | `createBatchQueueChannel` → `core/batch` 的 `BatchQueueHost`（worker 內，送快照）與每個分頁的 `BatchQueueClient`（收快照、送 request） | batch-queue plugin 的 `start()` / `stop()`；指令與逐筆執行走 worker 的 port，不走頻道（[ADR-0012](../../adr/0012-batch-queue-worker.md)） |
+| `batch-queue`               | `snapshot`、`snapshot-request`、`host-closed` | 預設（BroadcastChannel，不經伺服器；項目名稱含 email） | `createBatchQueueChannel` → `core/batch` 的 `BatchQueueHost`（worker 內，送快照）與每個分頁的 `BatchQueueClient`（收快照、送 request） | batch-queue plugin 的 `start()` / `stop()`；指令與逐筆執行走 worker 的 port，不走頻道（[`frontend/07-ui-system.md`](07-ui-system.md) §13） |
 
 目前沒有 store 使用 `syncStore` / `shareStore`（偏好設定由 dictStorage 同步）；新增時把頻道補進上表。
 

@@ -8,7 +8,7 @@ import type { GroupRole, Role } from '@/shared/api-sdk';
 import { useGroupRolesUpdateMutation } from '../../../hooks/useGroupMutations';
 import { useGroupRoleDraft } from '../../../hooks/useGroupRoleDraft';
 
-/** super-admin 一律直接指派給使用者，不出現在群組的選項裡（ADR-0024 D12）。 */
+/** super-admin 一律直接指派給使用者，不出現在群組的選項裡（docs/rbac/01-domain-model.md §9.3 D12）。 */
 const SUPER_ADMIN_SLUG = 'super-admin';
 
 interface GroupRoleSectionProps {

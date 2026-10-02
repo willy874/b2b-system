@@ -14,7 +14,7 @@ import { createPlatformScriptClient, loadScriptEnv, tenantSecretBox } from './cl
 import { oidcPayloads, platformAuditLogs, tenants } from './platform/schema';
 
 /**
- * 清除 **已刪除** 的租戶（docs/adr/0020-physical-tenant-isolation.md D13）：`DROP DATABASE`、`DROP ROLE`、
+ * 清除 **已刪除** 的租戶（docs/architecture/05-tenancy.md §10.2 D13）：`DROP DATABASE`、`DROP ROLE`、
  * 清空並刪除 bucket，最後移除平台 DB 的登記。不可逆，所以不在管理頁：
  *
  *   pnpm db:drop-tenant <租戶代碼或 id>            # 只列出會清除什麼

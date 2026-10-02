@@ -92,7 +92,7 @@ export class FileFolderService {
   /**
    * 在「資料夾確定存在」的交易內執行（登記上傳時建立檔案紀錄）：與遞迴刪除排隊，
    * 不會把檔案放進剛被刪除的資料夾。`folderId` 為 null / undefined 是根目錄，不必排隊，但仍在交易內
-   * （容量的檢查以 advisory lock 序列化，docs/adr/0033-feature-params-and-webhook-targets.md D8）。
+   * （容量的檢查以 advisory lock 序列化，docs/architecture/05-tenancy.md §13.3 D8）。
    */
   async insideFolder<T>(
     folderId: string | null | undefined,
@@ -381,7 +381,7 @@ export class FileFolderService {
   }
 
   /**
-   * 遞迴刪除＝移到回收桶：資料夾、所有子孫資料夾、其中的檔案帶同一個 `deletion_id`（ADR-0025 D5），
+   * 遞迴刪除＝移到回收桶：資料夾、所有子孫資料夾、其中的檔案帶同一個 `deletion_id`（docs/architecture/backend/14-revisions.md §9.2 D5），
    * 還原時整批回來。物件儲存的內容保留到永久刪除（docs/architecture/backend/13-trash.md §7）。
    */
   async remove(id: string, actor: AuthUser): Promise<void> {
@@ -427,7 +427,7 @@ export class FileFolderService {
   }
 
   /**
-   * 還原刪除的資料夾（`POST /file-folders/:id/restore`，ADR-0025 D5、D10；docs/architecture/backend/13-trash.md §7.1）。
+   * 還原刪除的資料夾（`POST /file-folders/:id/restore`，docs/architecture/backend/14-revisions.md §9.2 D5、D10；docs/architecture/backend/13-trash.md §7.1）。
    *
    * - 只還原 **同一次刪除** 的子樹（`deletion_id` 相同）：之前個別刪掉的子資料夾與檔案維持刪除。
    * - 上層資料夾已刪除 → `409 FILE_FOLDER_RESTORE_CONFLICT`（`reason: 'parentDeleted'`）；同一層已有同名的資料夾 →
@@ -510,7 +510,7 @@ export class FileFolderService {
         tx,
       );
       return {
-        // 軟刪除時保留標籤的指派（docs/adr/0032-tags.md D9）：還原後跟著回來
+        // 軟刪除時保留標籤的指派（docs/architecture/backend/18-tag.md §7.2 D9）：還原後跟著回來
         dto: toDto(root, ctx, await this.tagsFor(root.id)),
         foldersRestored: folderIds.length,
         filesRestored: restoredFiles.length,
@@ -649,7 +649,7 @@ export class FileFolderService {
   }
 
   /**
-   * 能不能改這個資料夾的標籤（`TagService` 的 resolver，docs/adr/0032-tags.md D5）：跟改名同一個判斷——
+   * 能不能改這個資料夾的標籤（`TagService` 的 resolver，docs/architecture/backend/18-tag.md §7.2 D5）：跟改名同一個判斷——
    * 讀得到、能改名；系統資料夾（共用、私人、個人）不能改名，也不能貼標籤。
    */
   async assertTaggable(id: string, actor: AuthUser): Promise<{ name: string }> {
@@ -677,7 +677,7 @@ export class FileFolderService {
   }
 }
 
-/** 上層資料夾已刪除：先還原上層（ADR-0025 D5）。 */
+/** 上層資料夾已刪除：先還原上層（docs/architecture/backend/14-revisions.md §9.2 D5）。 */
 function folderParentDeleted(parentId: string): AppException {
   return new AppException('FILE_FOLDER_RESTORE_CONFLICT', {
     reason: 'parentDeleted',

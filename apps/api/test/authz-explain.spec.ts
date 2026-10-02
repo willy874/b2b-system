@@ -81,7 +81,7 @@ const brief = (path: Node[] | null) =>
       : `${node.type}:${node.name ?? node.id}${node.relation ? `#${node.relation}` : ''}`,
   ) ?? null;
 
-describe('授權說明（docs/adr/0024-relationship-based-access-control.md G4b、D14）', () => {
+describe('授權說明（docs/rbac/01-domain-model.md §9 G4b、D14）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN.email;

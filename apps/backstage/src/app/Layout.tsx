@@ -36,7 +36,7 @@ function matches(pathname: string, matcher: LayoutMatcher): boolean {
 export function Layout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { hydrated, gated, canAccess } = usePageAccess(pathname);
-  // 第二道防線（docs/adr/0021-runtime-feature-activation.md D7）：可啟用 feature 的頁面在安裝前沒有權限註冊，
+  // 第二道防線（docs/architecture/frontend/02-plugin-system.md §9.2 D7）：可啟用 feature 的頁面在安裝前沒有權限註冊，
   // usePageAccess 會當成「不受管」而放行，所以先看 feature 的狀態
   const featureGate = useFeatureGate(pathname);
   // 與 useSyncPermissions 同一個 query（共用快取，不會多打一次）：只拿來判斷水合是否失敗

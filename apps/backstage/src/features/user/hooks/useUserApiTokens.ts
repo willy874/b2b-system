@@ -7,7 +7,7 @@ import { useErrorToast } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import { useToast } from '@/core/notify';
 
-/** 這位使用者的個人 API token（管理者檢視與撤銷，`user:update`；docs/adr/0027-api-tokens-external-api.md D14）。 */
+/** 這位使用者的個人 API token（管理者檢視與撤銷，`user:update`；docs/architecture/06-external-api.md §9.2 D14）。 */
 export function useUserApiTokens(userId: string) {
   const toast = useToast();
   const { t } = useTranslation();

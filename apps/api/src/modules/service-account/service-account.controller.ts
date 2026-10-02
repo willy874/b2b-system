@@ -45,7 +45,7 @@ import type {
 } from './dto/service-account.dto';
 import { ServiceAccountService } from './service-account.service';
 
-/** 服務帳號與它的 API token（docs/adr/0027-api-tokens-external-api.md D1、D14）。 */
+/** 服務帳號與它的 API token（docs/architecture/06-external-api.md §9.2 D1、D14）。 */
 @ApiTags('service-accounts')
 @Controller('service-accounts')
 export class ServiceAccountController {

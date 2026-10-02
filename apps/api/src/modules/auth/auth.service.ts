@@ -65,7 +65,7 @@ export interface IssuedSession extends SessionDto {
   refreshTtlSeconds: number;
 }
 
-/** 經 SSO 發出的 app session 帶的來源（docs/adr/0019-sso-identity-platform.md D4）。 */
+/** 經 SSO 發出的 app session 帶的來源（docs/architecture/04-sso.md §12.2 D4）。 */
 export interface SsoOrigin {
   clientId: string;
   idpSessionUid: string | null;
@@ -95,7 +95,7 @@ export class AuthService {
   // ── 登入 ────────────────────────────────────────────────
 
   async login(dto: LoginDto, meta: RequestMeta): Promise<IssuedSession> {
-    // 直接登入在 production 預設關閉：等同不存在（docs/adr/0027-api-tokens-external-api.md D15）
+    // 直接登入在 production 預設關閉：等同不存在（docs/architecture/06-external-api.md §9.2 D15）
     if (!this.directLoginEnabled()) throw new AppException('NOT_FOUND');
     const user = await this.verifyCredentials(dto);
     return this.issueSession(user, meta);
@@ -111,10 +111,10 @@ export class AuthService {
 
   /**
    * 帳密檢查：列舉防護、鎖定、狀態、失敗計數與稽核。密碼直接登入與 IdP 的登入互動共用
-   * （docs/adr/0019-sso-identity-platform.md：密碼驗證只有一套）。
+   * （docs/architecture/04-sso.md §12：密碼驗證只有一套）。
    */
   async verifyCredentials(dto: LoginDto): Promise<UserRow> {
-    // 只允許 SSO 的網域（ADR-0019 D9）：先於查帳號判斷，回應只透露網域設定、不透露帳號是否存在
+    // 只允許 SSO 的網域（docs/architecture/04-sso.md §12.2 D9）：先於查帳號判斷，回應只透露網域設定、不透露帳號是否存在
     if (await this.identityProviders.isSsoOnly(dto.email)) {
       throw new AppException('AUTH_SSO_REQUIRED');
     }
@@ -241,7 +241,7 @@ export class AuthService {
 
   /**
    * `sid`：經 SSO 登入時的 IdP session。即時連線依它加入 session 專屬的 room，
-   * 單一登出只推給同一個 IdP session 的分頁，不影響同一個人的其他裝置（ADR-0019 D5）。
+   * 單一登出只推給同一個 IdP session 的分頁，不影響同一個人的其他裝置（docs/architecture/04-sso.md §12.2 D5）。
    */
   private async signAccessToken(user: UserRow, idpSessionUid: string | null): Promise<SessionDto> {
     const expiresIn = this.config.get('JWT_ACCESS_TTL', { infer: true });
@@ -309,7 +309,7 @@ export class AuthService {
   async logout(rawToken: string | undefined, actor: AuthUser): Promise<{ success: true }> {
     // 撤銷整條家族，而不只是當前這一條
     const row = rawToken ? await this.refreshTokens.revokeFamilyOf(rawToken, 'logout') : undefined;
-    // 經 SSO 登入的 session：同一個 IdP session 的所有產品一起登出（ADR-0019 D5）
+    // 經 SSO 登入的 session：同一個 IdP session 的所有產品一起登出（docs/architecture/04-sso.md §12.2 D5）
     const idpSessionUid = row?.userId === actor.id ? row.idpSessionUid : null;
     if (idpSessionUid) await this.endIdpSession(idpSessionUid);
     await this.audit.recordSafely({
@@ -326,7 +326,7 @@ export class AuthService {
   }
 
   /**
-   * 單一登出（ADR-0019 D5）：銷毀 IdP session（apps/auth 上的 cookie 之後指向不存在的 session），
+   * 單一登出（docs/architecture/04-sso.md §12.2 D5）：銷毀 IdP session（apps/auth 上的 cookie 之後指向不存在的 session），
    * 撤銷它底下所有產品的 refresh 家族，並推播給同一個 IdP session 的分頁。全部在伺服器端完成，
    * 不需要碰其他 origin 的 cookie；**不** 遞增 `token_version`（那會連其他裝置一起登出）。
    */

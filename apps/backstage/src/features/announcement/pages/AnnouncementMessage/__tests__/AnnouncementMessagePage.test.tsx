@@ -30,7 +30,7 @@ beforeEach(() => {
   });
 });
 
-describe('AnnouncementMessagePage（收件人看全文，docs/adr/0031-announcements.md D4）', () => {
+describe('AnnouncementMessagePage（收件人看全文，docs/architecture/backend/19-announcement.md §9.2 D4）', () => {
   it('沒有任何權限也看得到自己收到的全文（保留換行）與送出者', async () => {
     renderRoute(routes, '/announcement/message/d1', []);
     expect(

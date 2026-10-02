@@ -31,7 +31,7 @@ export const notificationHandlers = [
       data: { items, nextCursor: next < source.length ? String(next) : null },
     });
   }),
-  // 通知總覽（docs/adr/0031-announcements.md D1）：要 notification:read；mock 只有自己這個收件人，不分頁
+  // 通知總覽（docs/architecture/backend/19-announcement.md §9.2 D1）：要 notification:read；mock 只有自己這個收件人，不分頁
   http.get(`${MOCK_API_BASE}/notifications/all`, () => {
     if (!mockState.permissions.includes('notification:read')) {
       return HttpResponse.json(

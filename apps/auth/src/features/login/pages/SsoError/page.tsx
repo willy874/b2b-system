@@ -7,7 +7,7 @@ import { RestartLogin } from '../RestartLogin';
 
 /**
  * provider 的協定錯誤頁（例：未登記的 redirect URI）。這類錯誤不能導回產品，所以在 IdP 自己的 origin 顯示
- * （docs/adr/0019-sso-identity-platform.md D7）。
+ * （docs/architecture/04-sso.md §12.2 D7）。
  */
 export default function SsoErrorPage() {
   const { t } = useTranslation();

@@ -21,7 +21,7 @@ import { TenantFilterBar } from './components/TenantFilterBar';
 import type { TenantFilterValues } from './components/TenantFilterBar';
 
 /**
- * 平台管理者的租戶清單（docs/adr/0020-physical-tenant-isolation.md D12、D13）：
+ * 平台管理者的租戶清單（docs/architecture/05-tenancy.md §10.2 D12、D13）：
  * 代碼、名稱、狀態、主要網域；點進去看詳情與停用、刪除。
  * 伺服器分頁、代碼／名稱／網域搜尋與狀態篩選，條件放在網址上（routes/model.ts）。
  */

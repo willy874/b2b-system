@@ -5,7 +5,7 @@ import type { BatchOperation } from './types';
 
 /**
  * 批次操作的註冊表。可訂閱：feature 在執行期安裝或卸載時，分頁要向佇列更新自己能執行哪些操作
- * （docs/adr/0021-runtime-feature-activation.md D10）。
+ * （docs/architecture/frontend/02-plugin-system.md §9.2 D10）。
  */
 export const batchOperationRegistry = createRegistry<string, BatchOperation>('Batch operation');
 

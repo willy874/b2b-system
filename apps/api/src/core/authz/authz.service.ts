@@ -23,7 +23,7 @@ export interface ResolveOptions {
 
 /**
  * `checkerFor` 的租戶層覆寫：租戶節點上的邊不讀 tuple，改成只有 `relations` 這些權限鍵。
- * 給對外 API 限縮過 scopes 的 token 用（docs/adr/0027-api-tokens-external-api.md D3）：帳號經角色、群組取得的
+ * 給對外 API 限縮過 scopes 的 token 用（docs/architecture/06-external-api.md §9.2 D3）：帳號經角色、群組取得的
  * 租戶權限不能再經由資源模型的繼承（資料夾的 `can_*` ← 租戶的 `file:*`）回來；資源上的授權照舊。
  */
 export interface TenantRelationsOverride {
@@ -58,7 +58,7 @@ export interface RelationRef {
 }
 
 /**
- * 以關係圖解析權限（docs/adr/0024-relationship-based-access-control.md）。
+ * 以關係圖解析權限（docs/rbac/01-domain-model.md §9）。
  * 資料來自 `relation_tuples`；結構邊（資料夾的上層…）由呼叫端以供應者傳入。
  */
 @Injectable()
@@ -126,7 +126,7 @@ export class AuthzService {
 
   /**
    * 這些使用者集合（`group:<g>#member`、`role:<r>#holder`）裡的使用者（含巢狀群組、群組持有的角色）。
-   * 只回傳關係圖上的 id：帳號是否可登入由呼叫端過濾。用途：公告的受眾（docs/adr/0031-announcements.md D5）。
+   * 只回傳關係圖上的 id：帳號是否可登入由呼叫端過濾。用途：公告的受眾（docs/architecture/backend/19-announcement.md §9.2 D5）。
    */
   usersInSubjectSets(
     sets: ReadonlyArray<{ type: string; id: string; relation: string }>,
@@ -194,7 +194,7 @@ export class AuthzService {
   }
 
   /**
-   * 反提權（docs/adr/0024-relationship-based-access-control.md G4）：把某個主體放進 `targets` 的每一個 `物件#關係`，
+   * 反提權（docs/rbac/01-domain-model.md §9 G4）：把某個主體放進 `targets` 的每一個 `物件#關係`，
    * 主體因此取得的能力。操作者必須全部都有（呼叫端以自己的判斷器或權限集合比對）。
    *
    * - 關係本身是能力，或靜態蘊含能力（租戶上的權限鍵、資料夾等級）：同一個物件上的那些能力（`capabilitiesOf`）。

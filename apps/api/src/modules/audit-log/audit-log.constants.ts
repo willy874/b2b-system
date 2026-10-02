@@ -37,7 +37,7 @@ export interface AuditLogRange {
  * - 都帶：原樣使用（跨度與先後由 DTO 驗證）
  *
  * 要不要連冷表一起查由 repository 看冷表最新的一筆決定（`AuditLogRepository.list`）：熱表保留天數是租戶的參數
- * （docs/adr/0033-feature-params-and-webhook-targets.md D7），調大之後已搬走的紀錄不會回到熱表，不能以天數推算。
+ * （docs/architecture/05-tenancy.md §13.3 D7），調大之後已搬走的紀錄不會回到熱表，不能以天數推算。
  */
 export function resolveAuditLogRange(query: { from?: Date; to?: Date }, now: Date): AuditLogRange {
   let { from, to } = query;

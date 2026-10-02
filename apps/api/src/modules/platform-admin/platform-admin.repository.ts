@@ -21,7 +21,7 @@ export type PlatformAdminPatch = Partial<
   >
 >;
 
-/** 平台管理者（平台 DB，docs/adr/0020-physical-tenant-isolation.md D5）。 */
+/** 平台管理者（平台 DB，docs/architecture/05-tenancy.md §10.2 D5）。 */
 @Injectable()
 export class PlatformAdminRepository {
   constructor(@Inject(PLATFORM_DB) private readonly db: PlatformDatabase) {}

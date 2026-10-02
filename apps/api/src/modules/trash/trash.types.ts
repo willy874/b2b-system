@@ -32,21 +32,21 @@ export interface ExpiredTrashItem {
 
 /**
  * 一種資源的回收桶，由擁有資源的模組實作並在 `onModuleInit` 以 `TrashService.registerHandler()` 註冊
- * （docs/adr/0025-entity-revisions.md D9，與審批的 handler 同一個模式）。`modules/trash` 不 import 業務模組：
+ * （docs/architecture/backend/14-revisions.md §9.2 D9，與審批的 handler 同一個模式）。`modules/trash` 不 import 業務模組：
  * 還原端點（`POST /<resource>/:id/restore`）也由擁有者自己提供。
  */
 export interface TrashHandler {
   readonly type: TrashResourceType;
-  /** 看這種類型的回收桶所需的權限（`<resource>:delete`，ADR-0025 D10）。 */
+  /** 看這種類型的回收桶所需的權限（`<resource>:delete`，docs/architecture/backend/14-revisions.md §9.2 D10）。 */
   readonly permission: PermissionKey;
   /**
-   * 這種資源所屬的租戶 feature（docs/adr/0021-runtime-feature-activation.md）；沒有就是常駐的。
+   * 這種資源所屬的租戶 feature（docs/architecture/frontend/02-plugin-system.md §9）；沒有就是常駐的。
    * feature 停用時 `GET /trash?type=` 回 `404 FEATURE_DISABLED`（與該資源的端點一致，不暴露功能存在）。
    * 到期永久刪除照常進行：保留期限是資料的規則，與功能是否開著無關。
    */
   readonly feature?: TenantFeature;
   /**
-   * 永久刪除的順序，小的先：檔案 → 資料夾 → 使用者 → 角色（ADR-0025 D11）。
+   * 永久刪除的順序，小的先：檔案 → 資料夾 → 使用者 → 角色（docs/architecture/backend/14-revisions.md §9.2 D11）。
    * 外鍵的 `RESTRICT`（`files.folder_id`、`file_folders.owner_id`）靠這個順序滿足。
    */
   readonly purgeOrder: number;

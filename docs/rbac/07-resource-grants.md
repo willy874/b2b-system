@@ -2,7 +2,7 @@
 
 > 全域 RBAC（[`01-domain-model.md`](./01-domain-model.md)）回答「這個人能不能做 X」；
 > 資源授權回答「這個人能不能對 **這個東西** 做 X」。第一個套用的資源是檔案管理器的資料夾。
-> 決策理由見 [ADR-0015](../adr/0015-file-folder-access.md)。
+> 決策理由見 §13。
 
 ---
 
@@ -45,10 +45,10 @@
 - 等級是 **全序**：`viewer < contributor < editor < manager`。同一個人從多個來源拿到等級時取最高者。
 - 動作與全域權限鍵一一對應：`read` ↔ `file:read`、`create` ↔ `file:create`、`update` ↔ `file:update`、
   `delete` ↔ `file:delete`、`share` ↔ `file:share`。
-  所以「權限鍵的字串格式不變」（[ADR-0006](../adr/0006-flat-permission-scope.md) 的承諾）仍然成立：
+  所以「權限鍵的字串格式不變」（[`rbac/01-domain-model.md`](01-domain-model.md) §8 的承諾）仍然成立：
   等級只是「在某個範圍內持有哪些權限鍵」的簡寫。
 
-### 2.1 在關係圖上（[ADR-0024](../adr/0024-relationship-based-access-control.md)）
+### 2.1 在關係圖上（[`rbac/01-domain-model.md`](01-domain-model.md) §9）
 
 等級、動作與擁有者規則都寫成模型裡的關係（`apps/api/src/modules/file/file.authz.ts`），由 `core/authz` 的判斷器解析：
 
@@ -127,7 +127,7 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 | 資料夾 `D` 改名 | `has(update, D 的上層)` ∨（**本人建立** ∧ `has(create, D 的上層)`） |
 | 移動檔案或資料夾到 `T` | 每一個項目都能「改名」（同上）∧ `has(create, T)` |
 | 遞迴刪除資料夾 `D` | `has(delete, D 的上層)` ∨（本人建立 ∧ `has(create, D 的上層)` ∧ **子樹裡全部是本人建立的**）；另外子樹中每個中斷繼承的資料夾 `X` 都要 `has(delete, X)` |
-| 還原刪除的檔案、資料夾 | 與刪除相同（能刪就能復原，[ADR-0025](../adr/0025-entity-revisions.md) D10）；資料夾以 **還原之後** 的結構判斷，交易內先還原、不能就 rollback（[`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md) §7.1） |
+| 還原刪除的檔案、資料夾 | 與刪除相同（能刪就能復原，[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D10）；資料夾以 **還原之後** 的結構判斷，交易內先還原、不能就 rollback（[`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md) §7.1） |
 | 看授權清單、新增／變更／移除授權、中斷繼承 | `has(share, F)` |
 
 **擁有者規則（C）的範圍**：只放寬「改名、移動、刪除」，不放寬「看得到」。
@@ -181,7 +181,7 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 | --- | --- | --- |
 | `role` | P1 | 角色；持有者隨角色指派變動，授權自動跟著走 |
 | `user` | P2 | 個別使用者 |
-| `group` | G4（[ADR-0024](../adr/0024-relationship-based-access-control.md)） | 群組的成員，含巢狀群組的成員；人員異動只改群組成員。加成員時不檢查群組在資料夾上的授權（D13）——授予給群組時已由 `can_share` 的人檢查過 |
+| `group` | G4（[`rbac/01-domain-model.md`](01-domain-model.md) §9） | 群組的成員，含巢狀群組的成員；人員異動只改群組成員。加成員時不檢查群組在資料夾上的授權（D13）——授予給群組時已由 `can_share` 的人檢查過 |
 | `everyone` | 追加 | 所有能進檔案管理器的人（`subject_id` 固定是全零 uuid）；共用資料夾用它（§12） |
 
 候選清單（`GET /file-folders/:id/grant-subjects`）只回傳 id、名稱：`has(share, F)` 的人不需要 `role:read` / `user:read`
@@ -289,7 +289,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 - 解析由關係圖的判斷器負責（舊的 `resolveHierarchyLevels` 與 `modules/resource-grant` 已在 G3a 刪除）。
 - **專案會成為資料夾的上層**：資料夾掛在專案底下之後，資料夾的上層鏈延伸到專案節點，
   專案上的授權自然往下繼承到它的資料夾。屆時根目錄的角色由專案取代（每個專案一棵樹）。
-  掛載方式與遷移步驟見 [ADR-0015](../adr/0015-file-folder-access.md) §延伸。
+  掛載方式與遷移步驟見 §13.4。
 
 #### 新增一種資源的步驟
 
@@ -310,7 +310,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 目前的 Postgres 實作在以下任一條件成立時改用 OpenFGA / SpiceDB（資料可直接匯出，§8）：
 
 - 需要自建引擎表達不了的關係（排除、條件式權限，或跨資源關係的組合多到遞迴 CTE 撐不住）。群組巢狀已由自建的關係圖支援
-  （[`08-groups.md`](./08-groups.md)，ADR-0024 G4a），不再是觸發條件；
+  （[`08-groups.md`](./08-groups.md)，[`rbac/01-domain-model.md`](01-domain-model.md) §9 G4a），不再是觸發條件；
 - 單次請求載入整棵資料夾結構的成本不可接受（資料夾數上萬），且以樹版本號快取仍不夠；
 - 多個服務需要共用同一份授權判斷。
 
@@ -347,6 +347,86 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | **P1** | `file:access` / `file:share`、`resource_grants`（對象只有角色）、繼承、擁有者規則、`capabilities`、推播受眾、授權管理 API 與前端「共用」對話框 |
 | **P2** | 授權給個別使用者、中斷繼承（私人資料夾）、授權過期 |
 | **追加** | 沒有權限的資料夾也列出（鎖住）＋ 申請存取（§5.1、§6.5）；系統資料夾與 `everyone` 對象（§12） |
-| **P3** | 通用解析函式與 `modules/resource-grant` 的掛載契約；OpenFGA 遷移判準（§10.2）。專案本身還不存在，掛上去的那一步隨專案功能一起做。G3a（ADR-0024）起解析改由關係圖負責、`modules/resource-grant` 已刪除，新的掛載步驟見 §10.1 |
+| **P3** | 通用解析函式與 `modules/resource-grant` 的掛載契約；OpenFGA 遷移判準（§10.2）。專案本身還不存在，掛上去的那一步隨專案功能一起做。G3a（[`rbac/01-domain-model.md`](01-domain-model.md) §9）起解析改由關係圖負責、`modules/resource-grant` 已刪除，新的掛載步驟見 §10.1 |
 
 三個階段都已實作（2026-09-29）。
+
+---
+
+## 13. 設計決策：資料夾層級授權（RBAC 閘門 ＋ 繼承式 ACL ＋ 擁有者規則）
+
+> 原 ADR-0015，2026-09-29 決定。部分取代扁平權限（[`01-domain-model.md`](./01-domain-model.md) §8）：檔案不再是扁平範圍，其餘資源不變。
+> 解析方式（`resolveHierarchyLevels`）與 D7 的 `resource_grants`／`modules/resource-grant` 後來由關係圖（[`01-domain-model.md`](./01-domain-model.md) §9）取代，等級與規則不變。
+
+### 13.1 背景
+
+檔案管理器上線後，扁平的 `file:*`（[`rbac/01-domain-model.md`](01-domain-model.md) §8）表達不了實際的分工：
+
+| 需求 | 扁平 RBAC 為什麼做不到 |
+| --- | --- |
+| 美術組只能看、只能上傳到「美術素材/」 | 沒有範圍，`file:read` 就是全部 |
+| 上傳者能改名、刪除自己上傳的檔案，但不能動別人的 | 沒有「自己的／任何人的」之分 |
+| 把某個資料夾交給特定角色或個人管理 | 沒有針對單一資源的授權 |
+| 某個資料夾只給少數人（私人資料夾） | 只有 allow；資料夾授權會一路繼承下去 |
+
+[`rbac/01-domain-model.md`](01-domain-model.md) §8 延後作用域的理由是「主功能還不存在，猜不到作用域的單位」。檔案管理器的資料夾樹是第一個具體的單位，
+而且已知 **未來資料夾會掛在「專案」底下**。後端與前端的對應章節：[`../architecture/backend/09-file.md`](../architecture/backend/09-file.md) §11、
+[`../architecture/frontend/12-file-manager.md`](../architecture/frontend/12-file-manager.md) §13。
+
+### 13.2 決定
+
+採用 **B. 資源 ACL ＋ 繼承**，再疊上 **C. 擁有者規則**（評估過的方案見 §13.6）。具體內容（規格即本文件 §1～§12）：
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | 全域 `file:*` 保留原意：**所有資料夾**，含私人資料夾 | 管理者與稽核人員不應被資料夾授權擋住；「私人」只針對一般成員 |
+| D2 | 新增閘門 `file:access`：可進入檔案管理器，範圍由資料夾授權決定 | 一般成員需要一個權限鍵才進得了頁面與 API；也保留「整個停用某人的檔案功能」的開關 |
+| D3 | 新增 `file:share`：全域管理任何資料夾的授權 | 授權管理是獨立的決定（權限目錄的「一個鍵 ＝ 一個決定」） |
+| D4 | 資料夾授權用 **四個等級**（viewer / contributor / editor / manager），不逐一勾選權限鍵 | 等級是全序、好理解、好比較（取最高者、反提權比大小）；每個等級對應一組權限鍵，鍵的格式不變 |
+| D5 | 授權往下繼承；`inherit_grants = false` 中斷繼承，中斷時複製目前繼承到的授權 | 不引入 deny 規則也能做出私人資料夾（[`rbac/01-domain-model.md`](01-domain-model.md) §8 理由 4）；複製避免中斷當下有人突然失去存取 |
+| D6 | 對項目的操作看它 **所在的位置**；擁有者規則只放寬改名、移動、刪除，前提是能在該位置上傳 | 與 Drive 一致：被分享一個資料夾的人不能刪掉它本身；「操作自己建立的東西」不會變成繞過授權的後門 |
+| D7 | 通用的 `resource_grants` 表與 `modules/resource-grant`，資料夾只是第一個 `resource_type` | 專案、關卡會用同一套；解析函式只認識「節點、上層、是否繼承」（G3a 起改為關係圖上的邊，表與 module 已刪除，見 §10.1） |
+| D8 | 後端回傳 `capabilities`，前端不重算 | 繼承與擁有者規則只在後端有一份 |
+| D9 | 資料夾授權不進權限快取，每個請求重新解析 | 失效時機（角色指派、授權變更、搬移資料夾）太多；一次讀整棵樹在目前規模很便宜 |
+| D10 | 路由宣告 `@RequireAnyPermission('file:access', 'file:<動作>')`，範圍在 service 判斷 | guard 看不到資源（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §1 原則 3 的例外）；路由稽核仍然有明確宣告 |
+| D11 | 沒有權限的資料夾仍列出（鎖住），可以申請存取；申請走審批（`fileFolder.access`），由資料夾的管理者或管理員核准 | 使用者需求（2026-09-29）：知道資料夾存在、能自助申請，比「看不到就不知道要找誰」好用。代價是資料夾名稱對能進檔案管理器的人公開；檔案仍不公開 |
+| D12 | 系統建立「共用資料夾」（所有人 editor）、「私人資料夾」與每人一個個人資料夾（本人 manager、不繼承）；取得檔案管理器權限時自動建立；別人的個人資料夾與其他資料夾一致（列出、鎖住）；擁有者被刪除時空的個人資料夾自動刪除 | 使用者需求（2026-09-29）：一般成員不能在根目錄建立，需要現成的共用區與個人區；可見性規則保持一致、沒有例外 |
+
+### 13.3 分階段
+
+| 階段 | 內容 |
+| --- | --- |
+| P1 | D1–D4、D6–D10；對象只有角色；繼承（沒有中斷） |
+| P2 | 對象加上個別使用者；中斷繼承（D5）；授權過期 |
+| P3 | 通用解析契約（其他資源、專案作為上層）與 Zanzibar 遷移判準 |
+
+各階段的實際內容與完成狀態見 §11。
+
+### 13.4 延伸：專案成為資料夾的上層
+
+資料夾會掛在專案底下。屆時：
+
+1. `file_folders` 加 `project_id`（根目錄底下的第一層資料夾必填），或每個專案一個根資料夾。
+2. 資料夾的上層鏈多一個節點：`… → 第一層資料夾 → 專案`。解析不必改，只是節點多了一種型別
+   （決定當時寫的是 `resolveHierarchyLevels` 與 `resource_type`；現在是模型裡的 `inherits_from` 指向專案型別，見 §10.1）。
+3. 專案上的授權自然往下繼承；專案成員角色（例：`project-editor`）就是專案上的 `editor` 授權。
+4. 根目錄的「只由全域權限決定」改成「專案的清單只由全域權限決定」。
+
+### 13.5 代價
+
+| 代價 | 評估 |
+| --- | --- |
+| 每個檔案請求都要讀整棵資料夾結構（四個欄位）與使用者的授權 | 資料夾數千以內是一次毫秒級查詢；超過時改為樹版本號快取或上層鏈 CTE（§10.2） |
+| 推播的受眾放寬到所有 `file:access` 的人 | payload 只有 id；看不到的變更只會多重抓一次 |
+| 撤銷授權有延遲（簽章網址到期前仍可下載） | 上限是 `FILE_URL_TTL`；與 presigned URL 相同的模型 |
+| 檔案 API 的權限不再只看 guard | route-audit 仍然釘住每個路由的宣告；範圍判斷集中在 `FileAccessService` 一處 |
+
+### 13.6 評估過的方案
+
+| 方案 | 代表 | 結論 |
+| --- | --- | --- |
+| A. 區域 RBAC（`user_roles` 帶 `scope_*`） | K8s RoleBinding、GCP IAM | 作用域是扁平 id，資料夾樹的繼承仍要自己補；且「把資料夾交給某個角色」要改的是角色指派，不直覺 |
+| **B. 資源 ACL ＋ 繼承** | Google Drive、SharePoint | **採用**：檔案管理器的標準模型 |
+| **C. 擁有者規則** | WordPress、Drupal（own / any） | **採用**，疊在 B 上 |
+| D. ReBAC 服務 | OpenFGA、SpiceDB | 延後：多一個服務與雙寫同步；資料形狀先對齊，將來可匯出（之後改為在 Postgres 上自建關係圖，見 [`rbac/01-domain-model.md`](01-domain-model.md) §9） |
+| E. ABAC／策略引擎 | Cedar、OPA、Casbin | 不採用：沒有條件式需求；[`rbac/01-domain-model.md`](01-domain-model.md) §8 否決的理由仍成立 |

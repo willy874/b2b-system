@@ -21,7 +21,7 @@ export interface AnnouncementFanOutJobData {
   dispatchId: string;
 }
 
-/** 排程時間到（docs/adr/0031-announcements.md D8）：只建立發送與入列分批寫入，很快。 */
+/** 排程時間到（docs/architecture/backend/19-announcement.md §9.2 D8）：只建立發送與入列分批寫入，很快。 */
 export const ANNOUNCEMENT_DISPATCH_JOB = defineJob<AnnouncementDispatchJobData>(
   'announcement.dispatch',
   {

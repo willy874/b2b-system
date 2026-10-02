@@ -79,7 +79,7 @@ export async function seedSuperAdmin(db: ScriptDatabase): Promise<void> {
 }
 
 /**
- * 佈建新租戶時的第一位管理員（docs/adr/0020-physical-tenant-isolation.md D12）：super-admin、`pending`、沒有密碼，
+ * 佈建新租戶時的第一位管理員（docs/architecture/05-tenancy.md §10.2 D12）：super-admin、`pending`、沒有密碼，
  * 由啟用信設定密碼。冪等：已經有 super-admin 時不再建立，回傳這個 email 的帳號（佈建重試時用來補寄啟用信）。
  */
 export async function seedTenantAdmin(

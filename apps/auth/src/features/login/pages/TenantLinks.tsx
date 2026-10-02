@@ -15,7 +15,7 @@ export function TenantRequired({ title }: { title: string }) {
   );
 }
 
-/** 回到那個租戶的 backstage 登入（docs/adr/0020-physical-tenant-isolation.md D11）。 */
+/** 回到那個租戶的 backstage 登入（docs/architecture/05-tenancy.md §10.2 D11）。 */
 export function BackToTenantLogin({ tenant }: { tenant: string }) {
   const { t } = useTranslation();
   return (

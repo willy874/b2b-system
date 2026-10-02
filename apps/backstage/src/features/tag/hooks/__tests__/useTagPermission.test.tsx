@@ -16,7 +16,7 @@ function hydrate(keys: PermissionKey[]): void {
   usePermissionStore.setState({ permissions: new Set(keys), hydrated: true });
 }
 
-describe('useTagPermission（docs/adr/0032-tags.md D5）', () => {
+describe('useTagPermission（docs/architecture/backend/18-tag.md §7.2 D5）', () => {
   it('持有任一個管理鍵就進得了標籤管理', () => {
     hydrate([PermissionKey['tag:update']]);
     expect(renderHook(() => useTagPermission()).result.current).toMatchObject({

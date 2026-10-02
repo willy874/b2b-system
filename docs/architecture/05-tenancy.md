@@ -1,6 +1,6 @@
 # 租戶（每個租戶一個 database 與網域）
 
-決定與理由見 [ADR-0020](../adr/0020-physical-tenant-isolation.md)（D1–D26 與「實作時改掉的做法」）。
+決定與理由見 §10（D1–D26 與「實作時改掉的做法」）；feature flag、可關閉的 feature、feature 參數的決定見 §11～§13。
 這份文件描述做出來的樣子：請求怎麼找到租戶、連線與脈絡、migration、租戶的生命週期、周邊元件怎麼分租戶、部署與腳本。
 身分（租戶的使用者與平台管理者）與 OIDC 的部分見 [`04-sso.md`](./04-sso.md) §1.1。
 
@@ -111,9 +111,9 @@
 
 | 欄位 | 值 | 效果 | 出處 |
 | --- | --- | --- | --- |
-| `features` | `text[]`，預設全部（`{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement}`） | 可啟用 feature 的 id（`core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`）。沒列出的 feature：api 以 `@RequireFeature()` 標的端點回 `404 FEATURE_DISABLED`（`common/guards/feature.guard.ts`；handler 與 class 的宣告合併，全部都要啟用）；`/auth/profile` 的 `features` 不含它，前端不安裝它。該 feature 的背景工作照常執行，資料保留 | [ADR-0021](../adr/0021-runtime-feature-activation.md) D8、D11、[ADR-0029](../adr/0029-toggleable-platform-features.md)、[ADR-0030](../adr/0030-webhooks.md) D8 |
-| `flags` | `jsonb`，預設 `{}` | feature flag 的租戶層覆寫 `{ [key]: boolean }`，沒列出 = 跟著全平台與預設值；見 §5.2 | [ADR-0022](../adr/0022-feature-flags.md) D2 |
-| `feature_params` | `jsonb`，預設 `{}` | feature 參數（配額與上限）的覆寫 `{ [key]: number \| string }`，沒列出 = 預設值；見 §5.3 | [ADR-0033](../adr/0033-feature-params-and-webhook-targets.md) D2 |
+| `features` | `text[]`，預設全部（`{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement}`） | 可啟用 feature 的 id（`core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`）。沒列出的 feature：api 以 `@RequireFeature()` 標的端點回 `404 FEATURE_DISABLED`（`common/guards/feature.guard.ts`；handler 與 class 的宣告合併，全部都要啟用）；`/auth/profile` 的 `features` 不含它，前端不安裝它。該 feature 的背景工作照常執行，資料保留 | [`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D8、D11、§12、[`backend/17-webhook.md`](backend/17-webhook.md) §9.2 D8 |
+| `flags` | `jsonb`，預設 `{}` | feature flag 的租戶層覆寫 `{ [key]: boolean }`，沒列出 = 跟著全平台與預設值；見 §5.2 | §11.2 D2 |
+| `feature_params` | `jsonb`，預設 `{}` | feature 參數（配額與上限）的覆寫 `{ [key]: number \| string }`，沒列出 = 預設值；見 §5.3 | §13.2 D2 |
 
 各 feature 停用時的效果：
 
@@ -143,7 +143,7 @@
 
 ### 5.2 Feature flag（試行開關）
 
-決定與理由見 [ADR-0022](../adr/0022-feature-flags.md)。§5.1 的 `features` 是 **長期的模組**（租戶買了什麼）；
+決定與理由見 §11。§5.1 的 `features` 是 **長期的模組**（租戶買了什麼）；
 feature flag 是 **暫時的上線開關**：新功能先合進 `main`、先開給試用的租戶、穩定後全面開放，最後連同開關與舊的程式碼路徑一起刪除。
 
 **目錄**（`apps/api/src/core/feature-flags/feature-flags.ts` 的 `FEATURE_FLAGS`）：每個 flag 有 `key`（`<模組>.<名稱>`，camelCase）、
@@ -189,7 +189,7 @@ key 在 OpenAPI 上是字串（目錄常常是空的），由伺服器依目錄�
 
 ### 5.3 Feature 參數（配額與上限）
 
-決定與理由見 [ADR-0033](../adr/0033-feature-params-and-webhook-targets.md)。§5.1 的 `features` 決定租戶 **有沒有** 某個 feature；
+決定與理由見 §13。§5.1 的 `features` 決定租戶 **有沒有** 某個 feature；
 參數決定開了之後 **能用多少**。由平台管理者在租戶詳情（apps/auth 的「啟用的功能」，每個 feature 那一列下）設定，租戶管理者不能改。
 
 **目錄**（`core/tenant/tenant-feature-params.ts` 的 `TENANT_FEATURE_PARAMS`）：每個參數有 `key`（`<feature>.<名稱>`）、所屬的 `feature`、
@@ -212,7 +212,7 @@ key 以 `TenantFeatureParamKey` 出現在 OpenAPI。
   （生效值、預設值、`overridden`、範圍與單位）。寫入與平台稽核 `tenant.update`（`before`／`after` 帶 `featureParams`）同一個交易，
   之後 `TenantDirectory.invalidate()`；不推播（參數不影響前端安裝哪些 feature）。
 - **與開關無關**：feature 關閉時參數照常保留、照常生效。
-- **新增一個參數**：目錄加一列（預設值要讓既有租戶的行為不變，或在 ADR 說明）→ 擁有者模組以 `tenantFeatureParam()` 讀 →
+- **新增一個參數**：目錄加一列（預設值要讓既有租戶的行為不變，或在 §13 補一條決定說明）→ 擁有者模組以 `tenantFeatureParam()` 讀 →
   apps/auth 的 `TENANT_FEATURE_PARAM_LABEL_KEY`／`TENANT_FEATURE_PARAM_DESCRIPTION_KEY` 與兩個語系檔 → 本節的表。
 
 ## 6. 周邊元件怎麼分租戶
@@ -293,3 +293,358 @@ api 與 migrate 都不再以 `POSTGRES_USER`（超級使用者）連線：
 
 HTTP 整合測試一律以 `listenOnLoopback(app)` 取得 server（[`../conventions/04-testing.md`](../conventions/04-testing.md) §3）。
 E2E 會 `db:reset`：跑之前一定要帶暫用 DB 的 `PLATFORM_DATABASE_URL`、`DEFAULT_TENANT_*`，否則會清空共用的開發資料庫。
+
+## 10. 設計決策：租戶實體隔離（每個租戶一個 database 與網域）
+
+> 原 ADR-0020，2026-09-29 決定，2026-09-30 完成實作。整份取代 §10.7（見 §10.7），並修改 [`04-sso.md`](./04-sso.md) §12（[`architecture/04-sso.md`](04-sso.md) §12）的 D1、D9、D12、D13。
+
+### 10.1 背景
+
+§10.7 以「共用資料表 ＋ `workspace_id`、應用層強制」做工作區，[`architecture/04-sso.md`](04-sso.md) §12 讓帳號跨工作區共用、工作區由路由前綴帶。
+實際的產品要求改變了：
+
+1. **租戶要實體硬切分**：每個租戶有自己的資料庫與網域；一個查詢忘了帶條件就跨租戶，這種風險不能接受。
+2. **backstage 不該看見租戶的切分**：backstage 是「某個租戶的後台」，仍以「使用者」為核心；沒有成員、沒有 `/w/:slug`、沒有切換器。
+3. **平台管理者與租戶管理者是兩份資料**：`apps/auth` 的管理者管租戶；backstage 的管理者只存在於各自的租戶。
+4. **租戶的進出由 `apps/auth` 負責**：從 backstage 登入時帶著租戶到 auth；在 auth 以租戶登入後，自動登入該租戶的 backstage。
+
+§10.7 的 D2–D5、D8–D18 都建立在「同一個資料庫、同一份帳號」上，所以這份決定整份取代它，而不是修改。
+
+延續 [`backend/04-auth.md`](backend/04-auth.md) §10（app session 不變）、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §8（租戶內回到扁平權限）。
+
+### 10.2 決定
+
+**隔離層級**
+
+| 方案 | 結論 |
+| --- | --- |
+| A. 共用資料表 ＋ `workspace_id`（§10.7） | 不採用：隔離靠應用層與測試；不符合「硬切分」 |
+| B. 每租戶一個 schema，以 `search_path` 切換 | 不採用：同一個 database 內權限與連線共用，`search_path` 設錯一次就讀到別人的表；備份、還原、刪除都無法單獨對一個租戶做 |
+| **C. 同一個 Postgres 叢集、每租戶一個 database，api 依網域路由到對應的連線池** | **採用**：database 之間在 Postgres 層級無法互相查詢；可以單獨備份、還原、搬到別的叢集、`DROP DATABASE`；api 仍是單一程序 |
+| D. 每租戶一整套部署（api ＋ DB） | 延後：維運成本隨租戶數線性成長。C 的設計讓單一租戶之後可以被搬出去（換掉連線設定即可） |
+
+**身分**
+
+| 方案 | 結論 |
+| --- | --- |
+| A. 帳號集中在平台 DB，租戶 DB 只存使用者資料與角色 | 不採用：身分資料不在租戶的 database 裡，就不是硬切分；租戶刪除時帳號還留在平台 |
+| **B. 帳號存在各租戶 DB；平台 DB 只有平台管理者** | **採用**：同一個 email 在兩個租戶是兩個互不相干的帳號（各自的密碼、狀態、外部身分連結） |
+
+**具體決定**
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **兩種資料庫**：**平台 DB**（一個）存平台管理者、平台角色、租戶登記、平台稽核、IdP 的協定狀態（`oidc_payloads`）、背景工作佇列；**租戶 DB**（每租戶一個）存現在除了這些以外的所有表（`users`、`roles`、`files`、`audit_logs`、`approval_requests`、`refresh_tokens`、`identity_providers`…）。兩者是 **兩套 Drizzle schema、兩條 migration 線**（平台：`db/platform/`；租戶沿用 `db/schema/`、`db/migrations/`） | 平台 DB 只有「租戶之外」的東西；租戶 DB 是完整的一份業務資料，可以單獨搬走 |
+| D2 | **租戶由網域決定**：每個租戶登記一到多個 backstage 網域（`tenants.domains`，例：`acme.backstage.example.com`，或客戶自己的網域）。api 以反向代理傳來的 Host 查租戶登記（快取），放進 `AsyncLocalStorage` 的請求脈絡；找不到租戶的 Host，需要租戶的路由一律 404（`TENANT_NOT_FOUND`），健康檢查等不需要租戶的路由照常。apps/auth 的網域不屬於任何租戶 | 網域就是租戶的邊界，backstage 前端完全不必知道租戶；cookie 本來就是 host-only（[`architecture/04-sso.md`](04-sso.md) §12.2 D6），不同租戶的 app session 天然分開 |
+| D3 | **連線池依租戶建立**：`Tenancy` 在第一次需要時為該租戶建立小型連線池（`max` 小、閒置連線關閉）；repository 注入的 `TENANT_DB` 是一個 Proxy，每次存取都轉到 **目前租戶** 的 `db`，沒有租戶脈絡時拋 `TENANT_NOT_FOUND`（不會退回任何預設 DB）。平台的 repository 注入另一個 token `PLATFORM_DB` | 不用 Nest 的 REQUEST scope（整條 DI 鏈每個請求重建）；沒有脈絡就拋錯，比「靜默用錯 DB」安全。連線數過多時再加 PgBouncer |
+| D4 | **每個租戶有自己的 DB 角色與密碼**：租戶的 **完整連線字串** 以主金鑰（沿用 [`architecture/04-sso.md`](04-sso.md) §12.2 D11 的 AES-GCM，另一把 `TENANT_SECRET_KEY`）加密存在 `tenants.database_url_encrypted`；租戶的 DB 角色只能連自己的 database。建立 database 用另一個有 `CREATEDB` 的佈建角色，只在佈建時使用 | 連線字串外洩只影響一個租戶；api 平常持有的連線沒有能力碰別的租戶 |
+| D5 | **平台管理者與租戶使用者是兩份資料**：平台 DB 的 `platform_admins`（加上平台自己的角色與權限，範圍很小：`tenant:*`、`platformAdmin:*`、`platformAuditLog:read`、`job:*`）；租戶 DB 的 `users`／`roles`／`permissions` 回到 [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §8 的扁平模型，**沒有 `scope`、沒有成員表** | 兩邊的權限目錄不重疊，就不需要 §10.7 D2 的範圍檢查與 route-audit 規則。super-admin 也分兩種：平台的 super-admin 看不到任何租戶的內容（要看就得在該租戶有帳號） |
+| D6 | **OIDC 仍是單一 issuer**（`apps/auth` origin 的 `/api/oidc`），`accountId` 帶上身分所屬：租戶帳號是 `t:{tenantId}:{userId}`、平台管理者是 `p:{adminId}`；ID token 與授權碼帶 `tenant` claim | 一個 issuer 就只有一組 JWKS、一個互動頁；帳號 id 帶前綴就不會把 A 租戶的 user id 誤當成 B 租戶的 |
+| D7 | **authorize 請求帶租戶**：backstage 從自己的網域知道租戶，跳轉時帶額外參數 `tenant={code}`；provider 檢查 `redirect_uri` 的 origin 屬於這個租戶的網域（不一致回協定錯誤）。沒有 `tenant` 參數的授權只給 client `auth`，身分是平台管理者 | 使用者要求「從 backstage 跳到 auth 時攜帶租戶資訊」；只信參數會讓人把 A 的授權碼導到 B 的網域，所以以 redirect URI 交叉驗證 |
+| D8 | **登入互動依租戶選資料來源**：互動頁顯示租戶名稱；密碼、外部 IdP、只允許 SSO 的網域都查 **該租戶的 DB**。沒有租戶時對平台 DB 驗證平台管理者 | 符合「沒有帶租戶就用 auth 管理者的資訊」 |
+| D9 | **IdP session 一次只屬於一個身分**：session 的帳號租戶與這次授權要求的租戶不同時，強制重新登入（自訂互動 policy）；登入後 session 換成新的身分。各租戶 backstage 的 app session 是各自網域的 cookie，所以 **同時開兩個租戶的 backstage 仍然可以**，只是第二個要再登入一次 | 不能讓 A 租戶的 IdP session 直接換到 B 租戶的授權碼；「同一個人」在兩個租戶本來就是兩個帳號（身分 B） |
+| D10 | **BFF 兌換時再檢查一次租戶**：`/api/auth/sso/callback` 以 Host 解出的租戶，必須等於授權碼上帳號的租戶，否則 `AUTH_SSO_CODE_INVALID`。**access token 帶 `tid`**，驗證時必須等於請求網域的租戶 | 第二道防線：即使 provider 的檢查有漏洞，授權碼也換不到別的租戶的 session；A 租戶簽的 token 拿到 B 租戶的網域也用不了 |
+| D11 | **在 auth 切換租戶 = 前往該租戶的 backstage 登入**：auth 的「進入租戶」頁讓使用者輸入租戶代碼（或從 `?tenant=` 帶入），查到租戶後頂層跳轉到該租戶網域的 `/auth/login`，之後走一般的授權流程（D7–D10），完成後落在該租戶的 backstage。auth **不列出** 一個人屬於哪些租戶 | 使用者要求「跳轉工作區必須在 auth 中」且以租戶代碼選擇；帳號分散在各租戶 DB，列出所屬租戶需要跨租戶掃描或在平台留索引，兩者都破壞硬切分 |
+| D12 | **租戶佈建**：平台管理者在 auth 建立租戶（代碼、名稱、網域、第一位管理員的 email）→ api 建立 DB 角色與 database、跑租戶 migration、seed 權限目錄與系統角色、建立第一位管理員（寄啟用信，連結帶租戶）→ 租戶狀態 `provisioning` → `active`；失敗停在 `failed`，可重試。佈建是背景工作 | 建立 database 不能包在一般交易裡，且可能耗時；狀態機讓失敗可以重試、可以看見 |
+| D13 | **停用與刪除**：停用 = 該租戶的網域回 503、撤銷所有 session；刪除 = 標記刪除並停用，`DROP DATABASE` 是另一個需要確認的手動動作（腳本），不在管理頁一鍵完成 | 硬切分的好處之一是可以真的刪乾淨，但不可逆的動作不該是一個按鈕 |
+| D14 | **migration 一律跑遍所有租戶**：`pnpm db:migrate` 先跑平台，再依序跑每個 `active` 租戶；單一租戶失敗不影響其他租戶，結束時列出失敗的租戶並以非零結束。應用程式啟動時檢查每個租戶的 migration 版本，落後的租戶標成不可用（503），不阻止整個程序啟動 | 一個租戶壞掉不該讓所有租戶停擺；但也不能讓舊 schema 的租戶收到新程式的請求 |
+| D15 | **背景工作佇列在平台 DB**，資料是信封 `{ tenantId, payload }`，handler 在該租戶的脈絡裡執行；payload 只放 id，不放租戶的個人資料。排程觸發的租戶工作沒有 `tenantId`，worker 收到時 **展開** 成每個 `active` 租戶一筆；只碰平台 DB 的工作（`oidc.cleanup`）宣告成 `scope: 'platform'`。**交易內的入列寫租戶 DB 的 `job_outbox`**，提交後立刻搬進佇列，定期的 `jobs.outboxSweep`（預設每 10 分鐘）補搬程序當掉時沒搬成的；outbox 的 id 就是工作 id，重搬也只有一筆 | 每個租戶一套 pg-boss 等於 N 組輪詢；payload 只放 id 則平台 DB 不會存到租戶的內容。平台 DB 的佇列不能和租戶 DB 的業務寫入在同一個交易，outbox 保住 [`backend/10-jobs.md`](backend/10-jobs.md) §9.2 D2「資料與工作一起提交或一起回滾」 |
+| D16 | **物件儲存每租戶一個 bucket**（`tenants.storage_bucket`，佈建時建立），`ObjectStorage` 依目前租戶選 bucket；沒有租戶脈絡時拋錯，不退回共用的 bucket | 與 database 同一個隔離層級；刪除租戶時整個 bucket 可以清掉 |
+| D17 | **快取與推播加上租戶前綴**：權限快取、使用者快取的 key 是 `{tenantId}:{userId}`；Socket.io 的連線從租戶網域進來、屬於那個租戶，權限的 room 名稱是 `t:{tenantId}:perm:{key}`（租戶取自目前的脈絡）；使用者與 IdP session 的 room 用全域唯一的 id，不另外帶租戶 | 單一程序服務所有租戶時，記憶體裡的東西仍是共用的 |
+| D18 | **外部 IdP 連線屬於租戶**：`identity_providers`、`identity_provider_domains`、`user_identities` 在租戶 DB；home realm discovery 只在該租戶內進行。外部 IdP 的固定 callback 以 `state` 找回登入狀態（在平台 DB 的 `oidc_payloads`），裡面帶租戶 | 客戶用自己的 Azure AD 是租戶層級的設定；一個網域在不同租戶可以對應不同連線 |
+| D19 | **稽核分兩處**：租戶內的動作寫該租戶的 `audit_logs`；平台管理者的動作（租戶建立、停用、佈建結果、平台管理者登入）寫平台 DB 的 `platform_audit_logs`。平台管理者看不到租戶的稽核 | 租戶的稽核是租戶的資料；平台只記錄自己做過什麼 |
+| D20 | **既有的工作區實作整個移除**，不遷移成租戶：現有資料（Phase 0 的開發資料）做成第一個租戶 `default` 的 database，migration 線重新起一個基準點（平台、租戶各一個 baseline） | 工作區的表、`scope`、成員、邀請在新模型裡都沒有對應；還沒有正式環境資料，寫反向 migration 沒有價值 |
+| D21 | **migration 重新建立基準點**：平台與租戶各一條 migration 線，各自從 baseline 起算；已有需要保留的環境時，寫一支一次性的搬移腳本，而不是保留舊的 migration 線 | 還沒有正式環境資料；舊線上充滿工作區的欄位與表，保留只會讓每個新租戶多跑一段沒有意義的歷史 |
+| D22 | **外部 IdP 連線由租戶的管理者在自己的 backstage 設定**（資料在租戶 DB）；平台管理者只能開關「是否允許這個租戶使用外部 IdP」（`tenants.allow_external_idp`；後由 §12.2 D2 併進 `tenants.features` 的 `identityProvider`） | 連線的細節（client secret、網域）是租戶的資料，平台看不到；平台保留的是「能不能用」這個層級的決定 |
+| D23 | **背景工作的監控**：apps/auth 有全平台的監控頁（所有租戶與平台自己的工作，`platformJob:*`）；backstage 的 `/job` 只看自己租戶的工作 | 佇列在平台 DB，全平台的樣子只有平台該看；租戶的管理者仍需要看自己的寄信、匯出是否卡住（見「實作時改掉的做法」） |
+| D24 | **租戶的網域**：`tenant_domains` 支援多個網域，第一個是主要網域；建立時產生 `{code}.<TENANT_BASE_DOMAIN>`，客戶自己的網域由平台管理者加入（DNS 與 TLS 由部署處理） | 預設網域讓建立租戶不必等 DNS；自訂網域是少數客戶的需求，手動處理就夠 |
+| D25 | **平台管理者的 app session** 在 apps/auth 的 origin，結構同租戶的 `refresh_tokens`（平台 DB 的 `platform_refresh_tokens`），輪替規則共用 | 同一套已驗證過的規則（[`backend/04-auth.md`](backend/04-auth.md) §10），只是資料在平台 DB |
+| D26 | **apps/auth 的帳號流程以網址參數 `?tenant=` 指定租戶**，頁面以 `X-Tenant` 標頭送給 api（只在 apps/auth 的網域有效）；token 在租戶 DB，以參數選 DB，查不到一律視為無效。沒有 `?tenant=` 的 `/setup`、`/reset-password` 是平台管理者的帳號 | 帳號流程的頁面只有一份（apps/auth），不必在每個租戶網域上各放一份；不區分「租戶不存在」與「token 無效」，不洩漏租戶是否存在 |
+
+### 10.3 流程
+
+以下是決定當時的流程（現行流程見 §2、[`04-sso.md`](./04-sso.md) §3）。
+
+**從 backstage 登入**
+
+```
+使用者        acme.backstage（RP）             apps/auth                   apps/api
+  │ 打開 acme 網域 │                             │                           │ Host → tenant acme
+  │─────────────▶│ 沒有 session                  │                           │
+  │              │── 302 /api/oidc/auth?client_id=backstage&tenant=acme&redirect_uri=https://acme…/auth/callback ─▶│
+  │              │                             │                           │ redirect_uri ∈ acme 的網域？
+  │              │                             │◀── 互動頁（顯示「Acme」） │ IdP session 是別的租戶 → 要求登入
+  │  email／密碼（查 acme 的 DB）               │── POST …/login ─────────▶│
+  │ 頂層跳轉 resume → 303 https://acme…/auth/callback?code ─────────────────────────────│
+  │              │── POST /api/auth/sso/callback（Host = acme）─────────────────────────▶│ code 的租戶 == acme？
+  │              │◀── access token ＋ acme 網域的 refresh cookie ──────────────────────│
+```
+
+**在 auth 進入租戶**
+
+```
+auth /tenant?tenant=acme（或手動輸入代碼）
+  └─ GET /api/tenants/lookup?code=acme → { name, loginUrl: https://acme…/auth/login }（公開，只回登入入口）
+  └─ 頂層跳轉 → acme 的 /auth/login → 同上的授權流程 → 落在 acme 的 backstage
+```
+
+**平台管理者**
+
+```
+auth /login（沒有 tenant）→ 授權（client auth、無 tenant 參數）→ 互動頁查平台 DB → auth 的管理頁（租戶、平台管理者、背景工作）
+```
+
+### 10.4 代價
+
+| 代價 | 評估 |
+| --- | --- |
+| 每個租戶一組連線池，租戶多時連線數上升 | 池子小且閒置關閉；超過數十個活躍租戶時前面加 PgBouncer（transaction mode） |
+| migration 要跑 N 次、會出現「部分租戶升級失敗」 | D14：逐一執行、失敗的租戶單獨標成不可用並可重跑 |
+| 同一個人在多個租戶要記多組密碼、登入多次 | 硬切分的直接結果；客戶可以用外部 IdP（D18）讓它變成一次點擊 |
+| 平台管理者無法直接協助租戶內的問題 | 刻意的設計；需要時由租戶管理者建立帳號給支援人員，並留下該租戶的稽核 |
+| 跨租戶的報表、搜尋做不到 | 需要時另建資料倉儲，從各租戶匯出；不在線上系統做 |
+| 開發環境要處理多個網域 | 用 `*.localhost`（瀏覽器與 Node 都解析到 loopback），seed 建兩個租戶 |
+| 已經完成的工作區實作（§10.7 第一批與邀請）要移除 | 沉沒成本；繼續留著會讓兩套隔離模型並存 |
+
+### 10.5 替代方案
+
+| 方案 | 不採用的理由 |
+| --- | --- |
+| 保留 §10.7，再加 Postgres RLS | 仍是同一個 database 與同一份帳號；不滿足「獨立的資料庫與網域」與「兩份管理者資料」 |
+| 每個租戶一個 issuer（每租戶一個 `oidc-provider` 實例） | 每個租戶一組 JWKS、一個互動路徑；單一 issuer 加上帶租戶的 `accountId` 與 D7、D10 的檢查已經足夠隔離 |
+| auth 登入後列出「你屬於的租戶」 | 需要跨租戶以 email 掃描，或在平台 DB 保留 email → 租戶的索引；兩者都讓平台知道租戶的使用者名單 |
+
+### 10.6 實作紀錄：實作時改掉的做法
+
+| 原本的構想 | 改成 | 理由 |
+| --- | --- | --- |
+| `TenantDb` 服務，repository 呼叫 `tenantDb.current()` 取 db（D3） | `TENANT_DB` 是 Proxy，repository 照常把它當 `Database` 用 | 29 個 repository／service 只換注入的 token；Proxy 對 DI 與生命週期 hook 的探測（`then`、`onModuleInit`…）直接回 undefined，其餘存取一律要有租戶脈絡 |
+| 連線池有 LRU 上限（D3） | 不回收連線池物件，閒置的連線由 postgres.js 的 `idle_timeout` 關閉 | 回收正在被使用的連線池會讓執行中的查詢失敗；連線池物件本身很便宜，佔資源的是連線 |
+| `tenants` 存 DB 角色與加密的密碼（D4） | 存加密的完整連線字串 | 換叢集、換主機、換角色都只改一欄；佈建時仍為每個租戶建立自己的角色（第 4 步） |
+| 快取與推播的租戶前綴在第 5 步做（D17） | 第 2 步就做，並加上 access token 的 `tid`（D10） | 整合測試發現：A 租戶簽的 token 拿到 B 租戶的網域時，以 userId 為 key 的快取會拿 A 的使用者與權限判斷 B 的請求（跨租戶提權） |
+| 佇列在平台 DB，交易內入列照舊（D15） | 交易內入列改寫租戶 DB 的 outbox | 平台 DB 與租戶 DB 不能在同一個交易 |
+| IdP session 換身分時「登入後 session 換成新的身分」（D9） | 在 `realm_mismatch` check 裡先把舊身分從 session 拿掉（清帳號與 grant、換新的 `uid`）再要求登入 | oidc-provider 在「已登入的 session 換成另一個帳號」時會先把舊 session 登出（`end_session_confirm`），觸發單一登出、連帶登出另一個租戶開著的 backstage；而且 `uid` 不變，兩個租戶的 app session 會綁在同一個 IdP session 上 |
+| 平台管理者有自己的權限目錄與角色（D5） | 第 3 步只有登入與個人資料；權限目錄隨第 4 步的租戶管理一起加入 | 第 3 步還沒有任何需要權限的平台端點 |
+| 版本不符的租戶標成不可用（D14） | 只有 **落後** 的租戶不可用；DB 比程式新照常服務。落後的租戶每 30 秒重新檢查 | 滾動部署時舊的執行個體會看到較新的 DB；要求 migration 對上一版程式相容（`02-database.md` §5.1）比讓舊執行個體全部 503 合理。重新檢查讓補跑 `db:migrate` 之後不必重啟 |
+| 平台自己的角色與權限（D5） | 權限目錄在程式碼、角色固定三種（`platform_admins.role`：`super-admin`／`operator`／`auditor`），不建角色表、不提供自訂角色 | 平台的權限只有十個以內、管理者只有少數幾位；自訂角色的表、畫面與反提權規則換不到實際的好處。需要時再加表，端點的宣告（`@RequirePlatformPermissions`）不必改 |
+| 佈建的每一步都在背景工作裡（D12） | database 與 DB 角色的名稱是 `tenant_{code}_{8 位隨機}`；密碼在登記時產生、存在加密的連線字串裡；佈建工作不自動重試，失敗停在 `failed` 由平台管理者重試 | 代碼可以在刪除後重用，而刪除時 database 還沒清掉，名稱不能只用代碼；重試時沿用同一組連線字串，每一步都冪等（角色存在就把密碼改回來、database 存在就沿用） |
+| 佈建完成 = 所有步驟都成功 | database、migration、seed、第一位管理員完成就改成 `active`；之後在租戶脈絡裡確認 bucket、寄啟用信，失敗只記在 `provision_error` | 啟用信的背景工作要在租戶脈絡裡執行，而只有 `active` 的租戶能進入；bucket 在第一次上傳前還會再確認一次 |
+| 停用時撤銷所有 session（D13） | 先撤銷再停用；租戶的 DB 連不上時不擋停用 | 停用後租戶就不能進入，撤銷得在那之前；停用後網域一律 503，session 本來就用不了 |
+| 背景工作監控頁搬到 auth（D23） | apps/auth 加上 **全平台** 的監控（`/platform/jobs`，看得到每個租戶與平台工作）；backstage 的 `/job` 保留，只看自己租戶的 | 租戶的管理者仍需要看自己的匯出、寄信是否卡住；佇列查詢本來就以 `tenantId` 過濾，保留不會洩漏別的租戶。拿掉租戶的 `job:*` 要另寫 migration 清權限，好處不大 |
+| 平台管理者由其他平台管理者建立（D5） | 建立成 `pending`、寄啟用信（`platform_auth_tokens`、平台工作 `platformAdmin.accountMail`）；忘記密碼沒有自助流程，由其他平台管理者「寄設定密碼的連結」 | 平台管理者人數少、權限大；自助的忘記密碼等於多一個對外的入口。連結不帶 `?tenant=`，apps/auth 的 `/setup`、`/reset-password` 據此走平台的端點 |
+| 平台管理者開關外部 IdP（D22） | `tenants.allow_external_idp`，隨租戶脈絡帶著走：關掉時租戶不能新增或啟用連線，登入時當作沒有連線（包括「只允許 SSO」的網域回到密碼登入）；既有連線保留 | 關掉的理由通常是暫停而不是刪除；登入時不走連線才是真的關掉。只靠外部 IdP 登入、沒有密碼的帳號要用重設密碼 |
+| 停用 = 網域回 503、撤銷所有 session（D13） | 停用與刪除都 **先改狀態再收尾**：撤銷 app session（`Tenancy.runForMaintenance`，不看狀態進入）、刪除帳號 id 是 `t:{tenantId}:*` 的 IdP session／grant／授權碼、斷掉 `t:{tenantId}` room 的即時連線、關掉連線池。排隊中的工作：租戶已刪除或停用時略過；migration 落後或 DB 連不上（`TENANT_UNAVAILABLE` 的 `details.reason = maintenance`）時交給 pg-boss 重試 | 只撤銷 refresh token 的話，重新啟用後使用者會靠還留著的 IdP session 直接登回來；先撤銷再停用則留下一個空窗，期間新發的 token 撤銷不到。暫時性的故障不該把寄信之類的工作丟掉 |
+| 租戶的狀態改變立即生效（D2 的快取） | 只在本程序立即生效（`TenantDirectory.invalidate()`）；其他執行個體最多晚 `TENANT_CACHE_TTL` 秒 | 目前只部署一個 api 執行個體（WebSocket 也是單機的 adapter）。擴成多個執行個體時，改用平台 DB 的 `LISTEN/NOTIFY` 廣播失效，與 Socket.io 的 adapter 一起處理 |
+| 每個租戶一份的初始資料在啟動時準備（`forEachActive`） | 另外發佈 `DomainEvent.TENANT_ACTIVATED`（佈建完成、重新啟用時，在那個租戶的脈絡裡），檔案模組據此建立系統資料夾 | 新佈建的租戶不必等程序重啟才有共用資料夾與私人根目錄 |
+| `db:seed` 在每個租戶跑一樣的 seed | `SUPER_ADMIN_EMAIL` 的 super-admin 只建在 `SEED_TENANT`（預設 `default`）；其他租戶（含停用中的）只補權限目錄與系統角色 | 營運方共用的帳密不能出現在客戶的租戶；停用中的租戶也要補新增的權限，重新啟用時才不會缺 |
+| refresh 輪替的規則寫在租戶的 `AuthService` | 抽成 `rotateRefreshToken`，租戶與平台各提供自己的 token 表 | 平台管理者的 session 用同一套規則（一次性使用、重用偵測、併發只有一個成功），安全相關的邏輯只有一份 |
+
+### 10.7 被取代的做法：工作區（§10.7）
+
+> 原 ADR-0018，2026-09-29 決定，同日被本章（§10）整份取代。
+
+§10.7 在同一個資料庫裡做「工作區」（＝專案，只有一層）：**共用資料表 ＋ `workspace_id` 欄位、由應用層強制隔離**。
+授權是兩層並用——工作區角色決定能做「哪些種類」的事，`resource_grants`（[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) §13 的資料夾 ACL）決定在工作區內能碰「哪幾個」資源。主要做法：
+
+- 權限鍵與角色加上範圍（`scope`：`platform` ／ `workspace`），角色定義全域共用、指派分工作區；使用者在工作區 W 的權限 = 全域角色的 platform 鍵 ∪ 他在 W 的工作區角色的 workspace 鍵。
+- 帳號是平台層級、跨工作區共用；成員資格與角色指派是 `workspace_members`、`workspace_member_roles`，以 email 邀請加入。
+- D5：只有 super-admin 能看任何工作區的內容；持有 `workspace:*` 的平台管理員只能管理工作區本身（清單、名稱、成員與角色）。
+- D8：請求以 **路由前綴** `/workspaces/:workspaceId/...` 帶工作區，工作區 **不放進 JWT**（同一個人可以在兩個分頁開不同的工作區）；前端網址是 `/w/:workspaceSlug/...`。
+- 隔離靠三道應用層防線：組合外鍵 `(workspace_id, x_id)`、只有 guard 能產生的 `WorkspaceScope` 品牌型別、對每個工作區路由的越權整合測試；不用 Postgres RLS。權限快取 key 改成 `userId:workspaceId`、推播 room 改成 `ws:{id}:perm:{key}`。
+
+評估過的隔離方式中，「每個租戶一個 schema／資料庫」當時以「migration 要跑 N 次、跨工作區的平台管理難寫」否決。
+被取代的原因是產品要求改變（§10.1）：租戶要 **實體硬切分**（一個查詢忘了帶 `workspace_id` 就跨租戶，這種風險不能接受）、
+backstage 不該看見租戶的切分（沒有成員、沒有 `/w/:slug`、沒有切換器）、平台管理者與租戶管理者是兩份資料。
+§10.7 的 D2–D5、D8–D18 都建立在「同一個資料庫、同一份帳號」上，所以整份取代而不是修改；已完成的工作區實作（第一批與邀請）依 §10.2 D20 移除。
+
+## 11. 設計決策：feature flag
+
+> 原 ADR-0022，2026-09-30 決定。延伸 [`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9 的可啟用 feature；現行規格見 §5.2。
+
+### 11.1 背景
+
+[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9 讓平台管理者為每個租戶開關 **長期存在的模組**（`tenants.features`）。編輯器之後會有另一種需求：
+**暫時的上線開關**——新功能先合進 `main`、只對試用的租戶開、穩定後全面開放、最後連同開關與舊的程式碼路徑一起刪除；
+上線後出問題時要能不部署就關掉。
+
+兩者的差異：
+
+| | 可啟用的 feature（[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9） | Feature flag（本節） |
+| --- | --- | --- |
+| 壽命 | 永久 | 暫時，一定會被移除（`removeBy`） |
+| 顆粒 | 整個 feature（plugin ＋ route ＋ controller） | 整個 feature，或 feature 內的一支端點、一個按鈕、一段分支 |
+| 適用 | 只有 `TENANT_FEATURES` 列出的 feature | 任何地方，含常駐 feature（user、role、system…） |
+| 新租戶的預設 | 全部啟用 | 程式預設值（通常是關） |
+| 全平台一起切換 | 不需要 | 需要（全面開放、緊急關閉） |
+
+現況可沿用的零件：`FeatureGuard`（JWT 之後、權限之前，未啟用回 `404 FEATURE_DISABLED`）、`TenantContext.features`、
+`PATCH /platform/tenants/:id` 的平台層開關與稽核、`TENANT_FEATURES_CHANGED` → `resource.changed`（`tenantFeature`）→ 前端重抓 profile、
+前端 `core/feature` 的 store、`FeatureActivator`、`requireFeature`、`useFeatureGate`。
+另有一個沒人用的 `featureFlagPlugin`（`plugins/app/feature-flags.ts`，以 `attrs` 傳靜態值；[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D3 已不允許這種做法）。
+
+相關：§10.2 D22（平台層開關）、[`backend/05-rbac.md`](backend/05-rbac.md) §11（由伺服器判定）、[`backend/03-api-conventions.md`](backend/03-api-conventions.md) §12（id 經 OpenAPI 產進 SDK）；前端與規範見 [`frontend/02-plugin-system.md`](./frontend/02-plugin-system.md) §7.1、[`../conventions/01-general.md`](../conventions/01-general.md) §8。
+
+### 11.2 決定
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **flag 的目錄集中在 `core/feature-flags/feature-flags.ts`**：`FEATURE_FLAGS: FeatureFlagDefinition[]`（`key`、`description`、`defaultEnabled`、`owner`、`removeBy`）。key 用 `<模組>.<名稱>`（camelCase，例 `levelEditor.v2`）。**不** 讓各模組在 `onModuleInit` 註冊。目錄以 `FEATURE_FLAG_CATALOG` provider 注入（測試換成自己的目錄）；啟動時檢查格式、重複與日期 | 所有 flag 集中在一處：到期檢查、平台管理頁、驗證都讀同一份；目錄只是資料，`core/` 放它不違反「`core/` 不 import `modules/`」 |
+| D2 | **兩級覆寫都在平台 DB**：租戶層是 `tenants.flags jsonb not null default '{}'`（`{ [key]: boolean }`，沒列出＝不覆寫）；全平台層是 `feature_flag_overrides`（`key` pk、`state`：`on` ｜ `off`、`updated_by`、`updated_at`，沒有列＝不覆寫） | 決定「誰先試」與「全面開放／緊急關閉」都是平台的事（[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D8 同一個理由）；租戶層和 `features` 同一列，進入租戶時一起讀出，判斷不多查 DB |
+| D3 | **生效值的優先順序**：全平台 `off` → 一律關（緊急開關，蓋過租戶層）；否則租戶層有值 → 用它；否則全平台 `on` → 開；否則 `defaultEnabled` | 緊急關閉必須壓過所有例外，才能保證「按下去就全部停」；全面開放時仍保留「某個租戶先不要」的例外 |
+| D4 | **讀取**：`TenantContext` 加 `flags`（已過濾不認得的 key），與 `features` 由 `TenantDirectory` 一起載入與失效；全平台覆寫由 `FeatureFlagService` 在啟動時載入、快取 `TENANT_CACHE_TTL` 秒、變更時本機立即失效。`FeatureFlagService.isEnabled(key)` 是同步的，租戶脈絡內外（背景工作、平台端點）都能呼叫；沒有租戶脈絡時只看全平台層與預設值 | 判斷會出現在 guard 與業務分支裡，不能每次查 DB；多執行個體最多晚 `TENANT_CACHE_TTL` 秒，與租戶登記相同（[`multi-instance.md`](../features/multi-instance.md)） |
+| D5 | **後端**：`@RequireFlag('<key>')` 可標在 class 或 handler，由既有的 `FeatureGuard` 一併判斷（同一個位置、同一個 `404 FEATURE_DISABLED`）；與 `@RequireFeature` 可以並存，兩者都要成立。業務分支內用 `FeatureFlagService.isEnabled()`。授權宣告照舊必填，`route-audit` 不變 | 「這個功能存不存在」只需要一個 guard、一種回應；關閉時回 404 不暴露功能存在（[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D11） |
+| D6 | **`/auth/profile` 加 `flags: string[]`**：只列出生效為開的 key。所有租戶都帶（flag 可以用在常駐 feature） | 前端只需要知道「開了哪些」；清單很短 |
+| D7 | **變更與推播沿用 `features` 的路徑**：租戶層由 `PATCH /platform/tenants/:id` 的 `flags`（**完整的覆寫表**，取代而非增減；不認得的 key 回 `VALIDATION_FAILED`）寫入，稽核 `tenant.update` 的 `before`／`after` 帶 `flags`，之後 `TenantDirectory.invalidate()` 並發佈 `TENANT_FEATURES_CHANGED`。全平台層由 `PUT /platform/feature-flags/:key`（`{ state: 'default' \| 'on' \| 'off' }`）寫入，平台稽核 `featureFlag.update`，之後對 **每個 `active` 租戶** 發佈 `TENANT_FEATURES_CHANGED` | 前端已經會因為 `tenantFeature` 重抓 profile，不必新增事件、來源或前端邏輯 |
+| D8 | **平台權限**：租戶層沿用 `tenant:update`；全平台層新增 `featureFlag:read`（super-admin、operator、auditor）與 `featureFlag:update`（super-admin、operator）。`GET /platform/feature-flags` 回目錄、全平台狀態、各有幾個租戶覆寫為開／關 | 緊急關閉要讓值班的 operator 也做得到；租戶層是租戶設定的一部分 |
+| D9 | **前端**：`core/feature` 的 store 多存 `flags`，與 `features` 由同一個 profile 水合；`useFlag(key)` 在渲染時判斷（訂閱 store）。整個 feature 試行時登記進 `FEATURE_CATALOG`：安裝條件由「id 在 `features` 裡」改成每個項目宣告 `requires: { feature?: TenantFeature; flag?: string }`，**全部成立** 才安裝（現有項目只宣告 `feature`；之後會成為常駐的新 feature 只宣告 `flag`，flag 移除時改回 `main.tsx` 的 `.use()`）。`requireFeature`／`useFeatureGate`／卸載前導回首頁都以 catalog 的 id 判斷，不必改 | 整個 feature 的試行直接套用 [`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9 的 install／uninstall；局部 UI 不需要動註冊 |
+| D10 | **移除 `featureFlagPlugin`**：刪除 `plugins/app/feature-flags.ts`、`main.tsx` 的 `.use()`、`AppPluginProperties.featureFlags` 的宣告 | 靜態 `attrs` 的做法已被 [`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D3 否定，留著會被誤用 |
+| D11 | **到期檢查**：api 的單元測試逐一檢查 `FEATURE_FLAGS`，`removeBy` 早於今天就失敗，訊息列出 flag 與擁有者。要延期就改 `removeBy`（留下 commit 紀錄） | 沒有強制，暫時的開關會變成永久的；延期是一個看得見的決定 |
+| D12 | **移除流程**：① 全平台設 `on`（或把 `defaultEnabled` 改成 `true` 並部署）觀察一段時間 → ② 刪掉 `@RequireFlag`／`isEnabled` 的判斷與舊路徑 → ③ 從 `FEATURE_FLAGS` 刪除；DB 殘留的租戶覆寫在讀取時被濾掉，`feature_flag_overrides` 的殘列由同一個 PR 的資料 migration 刪除 | 程式先不再依賴 flag，資料才清；讀取端的過濾讓順序錯了也不會壞 |
+
+### 11.3 不做
+
+- 租戶內依角色、依單一使用者開放：[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9 已定「部分人可用」由權限表達。
+- 百分比漸進釋出、A/B 實驗。
+- apps/auth 自己的頁面用 flag（平台管理者的功能直接部署）；登入前的頁面讀 flag。
+
+### 11.4 代價
+
+| 代價 | 緩解 |
+| --- | --- |
+| 目錄集中在 `core/`，新增 flag 要改一個共用檔案 | 只加一列；衝突容易解。換到的是編譯期已知的 key |
+| 全平台變更要對每個租戶推播 | 只在平台管理者按下時發生；事件本身只帶 `tenantId` |
+| key 在 OpenAPI 上是字串，不是 enum（實作時改掉的做法：目錄常常是空的，空 enum 產生的 JSON Schema 是 `{ not: {} }`，SDK 拿不到可用的型別） | 伺服器依目錄驗證：租戶覆寫表裡不認得的 key 回 `VALIDATION_FAILED`、全平台切換回 `FEATURE_FLAG_NOT_FOUND`、`@RequireFlag` 的 key 不在目錄裡時路由稽核讓程序啟動失敗 |
+| 到期檢查會讓與 flag 無關的 PR 失敗 | 這就是目的；延期只要改一行 |
+
+### 11.5 替代方案
+
+| 方案 | 不採用的理由 |
+| --- | --- |
+| 把 flag 當成一種系統設定（租戶 DB 的 `system_settings`） | 決定權在租戶管理者，不是平台；沒有全平台層；設定只支援純量且不帶 `removeBy` |
+| 另開 `tenant_feature_flags` 表 | 多一次查詢與另一條失效路徑；「哪些租戶開了某個 flag」的查詢只在平台列表頁用，jsonb 也查得到 |
+| 各模組 `defineFeatureFlag` 並在 `onModuleInit` 註冊 | key 到執行期才知道，DTO、OpenAPI、前端型別都拿不到 |
+| 外部服務（LaunchDarkly、Unleash） | 多一個元件與一份資料；需求只有「租戶 × 開關」兩級 |
+
+## 12. 設計決策：平台可關閉的 feature（回收桶、系統設定、外部 IdP、切換租戶）
+
+> 原 ADR-0029，2026-10-01 決定。延伸 [`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9（修改其「原本待決、已定案的事項」2 的清單）；取代 §10.2 D22 的 `tenants.allow_external_idp`。現行規格見 §5.1。
+
+### 12.1 背景
+
+[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9 讓平台管理者對每個租戶開關 `file`、`auditLog`、`job`，其餘 feature 一律常駐。
+定位改成通用後台之後，有些通用能力並不是每個部署都要：
+
+| 能力 | 不需要的情境 |
+| --- | --- |
+| 回收桶（列表與還原） | 租戶的資料保留政策是「刪了就是刪了」，不希望使用者自行救回 |
+| 系統設定頁 | 平台代管、不讓租戶管理者自行調整執行期設定 |
+| 外部 IdP | 租戶只用帳號密碼；原本已有獨立的 `allow_external_idp` 開關 |
+| 切換租戶 | 只服務單一租戶的部署，選單裡的「切換租戶」只會造成困惑 |
+
+外部 IdP 已經有一個平台層開關，但它是 **另一套**：獨立的欄位、獨立的 UI 區塊、獨立的錯誤碼
+（`IDENTITY_PROVIDER_NOT_ALLOWED`），前端也沒有隨開關即時更新（變更時不推播）。
+
+相關：[`backend/14-revisions.md`](backend/14-revisions.md) §9（回收桶與還原）、[`04-sso.md`](./04-sso.md) §12（外部 IdP）；前端見 [`frontend/02-plugin-system.md`](./frontend/02-plugin-system.md) §7。
+
+### 12.2 決定
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **`TENANT_FEATURES` 加四個 id**：`trash`、`systemSetting`、`identityProvider`、`tenantSwitch`。平台 DB 的預設值改為七個全開；migration（平台 0009）讓 **既有租戶** 全部啟用，`identityProvider` 沿用原本 `allow_external_idp` 的值 | 這四個原本都是常駐（或預設允許），升版不能讓任何租戶失去功能 |
+| D2 | **外部 IdP 併進 `features`，刪除 `tenants.allow_external_idp`**：`TenantContext`／`PlatformTenant`／`UpdateTenantRequest` 不再有 `allowExternalIdp`；apps/auth 拿掉獨立的開關區塊，改由「啟用的功能」清單的一列表示；`IDENTITY_PROVIDER_NOT_ALLOWED` 與 `IdentityProviderList.allowed` 一併移除 | 同一種「平台決定租戶能不能用」的開關只留一套（[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9 當時以「不做第二套」為由把它排除，現在反過來把舊的那套收進來）；改用 feature 之後，變更會推播 `tenantFeature`，backstage 的選單即時跟上 |
+| D3 | **回收桶（`trash`）**：`GET /trash` 與各資源的 `POST /<resource>/:id/restore`（使用者、角色、群組、檔案、資料夾）標 `@RequireFeature('trash')`。`@RequireFeature` 改成 **handler 與 class 的宣告合併、全部都要啟用**（檔案的還原端點同時要 `file` 與 `trash`）。刪除照舊是軟刪除，`trash.purge` 照常在保留期滿後永久刪除。前端刪除成功的提示只在 `trash` 已安裝時附「復原」 | 「復原」本身就是回收桶的還原端點；只藏列表頁、留著還原端點等於沒關。資料與背景工作照舊，與 [`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D11 一致 |
+| D4 | **系統設定（`systemSetting`）**：`GET`／`PATCH /system/settings` 標 `@RequireFeature`；`GET /system/settings/public`（登入前就要用）與 `GET /system/info` 不標。**已覆寫的值照樣生效**，關掉只是不能查看或修改 | 設定的消費端分散在各模組；關掉時改回預設值會在租戶不知情的情況下改變行為（例如放寬密碼規則）。與「資料保留、重新啟用後一致」的原則相同 |
+| D5 | **外部 IdP（`identityProvider`）**：`/identity-providers` 整個 controller 標 `@RequireFeature`；登入流程（home realm discovery、`loginConfig`）判斷 `features` 是否含它，沒有就當作沒有連線——與原本 `allow_external_idp = false` 的行為相同。連線與外部身分的連結保留。apps/auth 關閉時的確認框另外說明對登入的影響（只靠外部 IdP、沒有密碼的人要先重設密碼） | 行為沿用 §10.2 D22，只是換一個來源；原本「關掉時仍可編輯、停用、刪除既有連線」的細節不保留——整頁消失，與其他 feature 一致 |
+| D6 | **切換租戶（`tenantSwitch`）**：沒有後端端點，也沒有頁面；backstage 在 `FEATURE_CATALOG` 登記一個空的 plugin（`routes: []`），帳號選單以 `useIsFeatureReady('tenantSwitch')` 決定是否顯示「切換租戶」。apps/auth 的 `/enter` 不受影響 | 用同一個安裝狀態表示啟用與否，不必另開一條「profile 欄位 → UI」的路徑；`/enter` 是平台的入口，不屬於任何租戶 |
+| D7 | **前端**：`trash`、`system`、`identity-provider` 三個 feature 改成可啟用（`AppDynamicPluginFactory`、最上層 route `beforeLoad: requireFeature(<ID>)`、從 `main.tsx` 移到 `FEATURE_CATALOG`）。其他 feature 往回收桶登記的類型（`registerTrashType`）不受影響：回收桶沒安裝時沒有人讀 | 照 [`frontend/02-plugin-system.md`](./frontend/02-plugin-system.md) §7 的步驟；側邊選單依頁面權限是否註冊自動隱藏 |
+
+### 12.3 代價
+
+| 代價 | 緩解 |
+| --- | --- |
+| 平台 migration 刪除欄位，舊版程式碼讀不到 `allow_external_idp` | 同一次部署；舊值在刪欄位前搬進 `features` |
+| 關閉外部 IdP 後，租戶管理者看不到既有連線（原本還能編輯、刪除） | 連線保留，重新啟用後原樣出現；需要清理時由平台暫時打開 |
+| `@RequireFeature` 的語意從「handler 蓋過 class」改成「合併」 | 現有用法沒有 handler 蓋過 class 的情況；單元測試與 `test/route-audit.spec.ts` 的對照表涵蓋 |
+
+### 12.4 不做
+
+- **租戶自行開關**：仍只有平台層（[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9「原本待決、已定案的事項」1）。
+- **全平台一次關閉**：目前以租戶為單位；單一租戶的部署關掉該租戶即可。要全平台預設不同時，改平台 DB 的預設值。
+
+## 13. 設計決策：feature 參數（配額與上限）
+
+> 原 ADR-0033，2026-10-02 決定。Webhook 的多個目標網址（D12～D16）見 [`backend/17-webhook.md`](./backend/17-webhook.md) §10；這裡是 feature 參數（D1～D11）。
+
+### 13.1 背景
+
+平台管理者目前只能對每個租戶「開或關」一個 feature。開了之後，租戶能用多少全由程式碼的常數決定：
+
+| 能力 | 現況 |
+| --- | --- |
+| 稽核日誌 | 熱表保留 90 天，常數 `AUDIT_LOG_HOT_RETENTION_DAYS` |
+| 檔案 | 單檔上限有（系統設定 `file.uploadMaxSize`），總容量沒有上限 |
+| 背景工作 | 只有每個程序、每種工作的並行數；一個租戶入列大量工作就能佔滿所有 worker |
+| 外部 IdP | 連線數沒有上限 |
+| Webhook | 一個租戶最多 50 個訂閱（常數），一個訂閱只能有一個網址 |
+
+2026-10-02 確認的產品需求：
+
+- feature 除了開關，還要有 **數字與字串的參數**，由 **平台管理者** 在租戶詳情設定（租戶管理者不能改，這是「租戶買了多少」）。
+- 第一批參數：稽核熱資料保存天數（預設 90）、檔案總容量（預設 2 GB）、背景工作 **同時執行** 的上限、外部 IdP 連線數上限、
+  Webhook 可通知的網址數（**整個租戶**，預設 1）。
+- 一個 Webhook 訂閱可以有 **多個目標網址**。
+
+延伸 [`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9／§12（§12，平台層的 feature 開關）；相關 [`backend/17-webhook.md`](backend/17-webhook.md) §9（D7 訂閱的資料表、D13 自動停用、D17 手動送出）、[`backend/10-jobs.md`](backend/10-jobs.md) §9（背景工作）。
+
+### 13.2 決定：feature 參數
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **參數定義在程式碼**：`core/tenant/tenant-feature-params.ts` 的 `TENANT_FEATURE_PARAMS`，每個參數有 `key`（`<feature>.<名稱>`）、所屬的 `feature`、`type`（`integer` ｜ `string`）、`defaultValue`、`unit`（`days` ｜ `megabytes` ｜ `count`，字串沒有）、整數的 `min`／`max`、字串的 `maxLength`／`pattern`。目錄在 `core/`：`TenantContext` 與背景工作佇列（都在 `core/`）要讀它，`core/` 不 import `modules/` | 與 `TENANT_FEATURES`、feature flag 目錄同一個做法：清單由程式維護，DB 只存值 |
+| D2 | **平台 DB `tenants.feature_params jsonb NOT NULL DEFAULT '{}'`，只存覆寫值**（平台 migration 0012）。讀取時只留目錄裡的 key 且值通過驗證的項目（程式移除參數或收緊範圍後，殘留值回到預設，不讓請求失敗） | 與 `flags` 欄位相同；沒有覆寫的租戶跟著程式的預設，之後調整預設時才跟得上 |
+| D3 | **API**：`PlatformTenant` 多一個 `featureParams`：目錄上每個參數一項（`key`、`feature`、`type`、`value`、`defaultValue`、`overridden`、`unit`、範圍），已是生效值。`PATCH /platform/tenants/:id` 接受 `featureParams: { [key]: value \| null }`——**只列要改的**，`null` 回到預設；值等於預設時也不存。不認得的 key、型別或範圍不對回 `VALIDATION_FAILED`（`fields["featureParams.<key>"]`） | 管理頁一次拿到要畫的東西（不必另一支目錄端點）；參數之間互不相關，部分更新比 flags 的「整張表取代」不容易誤蓋 |
+| D4 | **稽核**：沿用 `tenant.update`，`before`／`after` 多帶 `featureParams`（覆寫表）。變更後 `TenantDirectory.invalidate()`；**不推播**（參數不影響前端安裝哪些 feature） | 與 features、flags 同一個交易與失效路徑 |
+| D5 | **參數與開關無關**：feature 關閉時參數照常保留、照常生效（例：關掉稽核頁，封存仍依保留天數執行）。管理頁把參數列在所屬 feature 的那一列下 | 「關掉只是看不到頁面、資料與背景工作照舊」（§12） |
+| D6 | **讀取**：`TenantContext.featureParams`（覆寫表）＋ `tenantFeatureParam(PARAM)`：取目前租戶的生效值；沒有租戶脈絡時拋錯（與 `requireTenant()` 相同）。`TenantRecord` 也帶覆寫表，給以 id 找租戶的地方（背景工作佇列）用 | 業務模組不必知道覆寫怎麼存；同步取值（租戶登記本來就快取在每個請求的脈絡裡） |
+
+### 13.3 決定：第一批參數
+
+| # | key | 預設 | 範圍 | 效果 |
+| --- | --- | --- | --- | --- |
+| D7 | `auditLog.hotRetentionDays` | 90 天 | 7–3650 | `auditLog.archive` 搬移早於「現在 − 天數」的紀錄（`pnpm db:archive-audit-logs` 同樣讀登記）。查詢是否要連冷表改看 **冷表最新一筆的時間**（索引的第一列），不再以保留天數推算：天數調大後，已在冷表的紀錄不會搬回熱表，以天數推算會漏查 |
+| D8 | `file.storageQuotaMb` | 2048 MB | 1–10485760 | 租戶所有檔案的 `size` 合計（含上傳中的 `pending` 與回收桶裡的，不含縮圖與影像變體）。`createUpload` 在登記 `pending` 的同一個交易以 advisory lock 序列化後加總，超過回 `409 FILE_STORAGE_QUOTA_EXCEEDED`（`details`：`quota`、`used`、`size`，位元組）。調小到低於已用量時不刪任何檔案，只擋新的上傳。`GET /files/upload-policy` 多回 `storageQuota`、`storageUsed`，檔案頁顯示用量 |
+| D9 | `job.maxConcurrency` | 10 | 1–100 | 一個租戶 **所有種類** 的背景工作同時執行的筆數（跨程序）。worker 取到租戶的工作後，在該租戶 `active` 的工作中依 `(started_on, id)` 排名，排在上限之後的 **放回佇列**（改回 `created`、`start_after` 延後 5～10 秒、不計入重試次數、工作 id 不變），由之後的輪詢再取。排程觸發的展開（沒有租戶）與平台工作不受限。每個程序的 `concurrency` 照舊 |
+| D10 | `identityProvider.maxProviders` | 10 | 1–100 | 建立連線時以 advisory lock 序列化後數，已達上限回 `409 IDENTITY_PROVIDER_LIMIT_REACHED`（`details.max`） |
+| D11 | `webhook.maxUrls` | 1 | 1–500 | 整個租戶的訂閱 **不重複** 的目標網址數（[`backend/17-webhook.md`](./backend/17-webhook.md) §10.2 D13）。建立或修改訂閱時鎖表後計算；變更後的數量超過上限 **而且比變更前多** 才回 `409 WEBHOOK_URL_LIMIT_REACHED`（`details.max`）——升版前已經超過的租戶仍能修改、刪除、減少網址 |
+
+- 背景工作的放回（D9）直接改 pg-boss 的工作表：pg-boss 的 API 只能更新還沒開始的工作，而 `fail` 會耗掉重試次數並觸發退避。
+  pg-boss 完成工作時只更新 `active` 的列，handler 回傳後 pg-boss 的完成是空操作。表結構相依集中在 `core/jobs/job-store.ts`。
+  `exclusive`（`stately`）佇列已有一筆排隊時放不回去（唯一索引），那一筆以 `{ skipped }` 結束——排隊中的那一筆會做同一件事。
+- 配額與上限的檢查都在業務交易內，以 advisory lock 或表鎖序列化：同時送出不會一起超過上限。
+
+### 13.4 不做
+
+- 租戶管理者自行調整參數（D3 只在平台端點）；全平台一次改預設值（改程式的 `defaultValue`）。
+- 參數的歷史版本、排程生效。
+- 背景工作依種類分開的上限、優先序（D9 只有一個總上限）。
+- 檔案配額計入縮圖與影像變體、配額快取（每次上傳前加總，`files` 有 `size` 欄位，一個租戶的列數加總的成本可接受）。
+- 每個網址各自的事件或密鑰（見 [`backend/17-webhook.md`](./backend/17-webhook.md) §10）。
+
+### 13.5 代價
+
+| 代價 | 緩解 |
+| --- | --- |
+| 背景工作的放回依賴 pg-boss 的表結構與「完成只更新 active」的行為 | 集中在 `job-store.ts`；整合測試以真的 pg-boss 驗證放回與之後的執行 |
+| 被放回的工作最多晚 10 秒才再被取到；租戶持續塞滿時後面的工作一直延後 | 上限是給「不讓一個租戶佔滿 worker」，不是排程保證；放回不耗重試次數 |
+| 每次上傳前加總 `files.size` | 一個租戶的檔案列數有限；之後真的太慢再改成維護一個計數 |
+| 預設只能通知 1 個網址，升版前已有多個訂閱的租戶超過上限 | D11：只擋「變多」的變更；平台管理者可以調高 |
+
+### 13.6 實作紀錄
+
+| 項目 | 補充 |
+| --- | --- |
+| D3 | `UpdateTenantRequest.featureParams` 在 OpenAPI 上是 `Record<string, number \| string \| null>`（zod 的 `partialRecord`）；key 仍以 `TenantFeatureParamKey` 驗證 |
+| D7 | `archiveAuditLogs()` 改成由呼叫端傳入保留天數；排程讀 `TenantContext`，`pnpm db:archive-audit-logs` 讀 `ScriptTenant.featureParams` |
+| D8 | 不帶資料夾的上傳原本不在交易內；`FileFolderService.insideFolder()` 改成一律開交易，advisory lock 才有作用 |
+| D9 | 排名與放回在 `JobStore.activeAhead()`／`requeue()`（`JOB_SCHEMA` 從 `job-queue.ts` 搬到 `job-store.ts`，避免循環 import）；放回時一併清掉 `started_on`、`heartbeat_on` |
+| 前端 | apps/auth 的參數列在「啟用的功能」每個 feature 那一列下，編輯是單一參數的對話框（只送那一個 key）；backstage 的檔案管理器側欄顯示容量用量（`FileStorageUsage`） |

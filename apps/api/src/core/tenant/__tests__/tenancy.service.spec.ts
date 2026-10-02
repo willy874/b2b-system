@@ -65,7 +65,7 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
-describe('Tenancy：租戶的 migration 版本檢查（docs/adr/0020-physical-tenant-isolation.md D14）', () => {
+describe('Tenancy：租戶的 migration 版本檢查（docs/architecture/05-tenancy.md §10.2 D14）', () => {
   it('版本對上 → 進入；結果沿用，不再查 DB', async () => {
     tenancy = setup();
     applied.mockResolvedValue(200);

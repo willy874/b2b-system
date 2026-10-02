@@ -19,7 +19,7 @@ const ROW_CLASS =
 
 /**
  * 一則通知：句子、補充、由誰觸發與相對時間。有連結的是真正的 `<a>`（可中鍵開新分頁）；
- * route id 沒有登記或缺參數時只顯示文字、不可點（ADR-0026 D3）。
+ * route id 沒有登記或缺參數時只顯示文字、不可點（docs/architecture/backend/15-notification.md §12.2 D3）。
  */
 export const NotificationItem = memo(function NotificationItem({
   notification,

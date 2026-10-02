@@ -47,7 +47,7 @@ const fileCreated = {
   changes: [{ resource: ChangeSource.FILE, kind: ChangeKind.CREATE, id: 'f1' }],
 };
 
-describe('DomainEventRelay（docs/adr/0027-api-tokens-external-api.md D18）', () => {
+describe('DomainEventRelay（docs/architecture/06-external-api.md §9.2 D18）', () => {
   it('A 程序發佈的資源變更，B 程序以 remote 訂閱的 handler 在同一個租戶脈絡裡收到', async () => {
     const hub = new BroadcastHub();
     const [a, b] = [await processOn(hub), await processOn(hub)];

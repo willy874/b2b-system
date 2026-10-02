@@ -9,7 +9,7 @@ interface UserApiTokenSectionProps {
 
 /**
  * 這位使用者的個人 API token：管理者可以撤銷（例：人員異動、token 外流），不能替別人建立
- * （docs/adr/0027-api-tokens-external-api.md D14）。
+ * （docs/architecture/06-external-api.md §9.2 D14）。
  */
 export function UserApiTokenSection({ userId }: UserApiTokenSectionProps) {
   const { t } = useTranslation();

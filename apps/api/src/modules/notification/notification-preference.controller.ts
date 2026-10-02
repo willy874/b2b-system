@@ -13,7 +13,7 @@ import type { UpdateNotificationPreferencesDto } from './dto/notification-prefer
 import { NotificationPreferenceService } from './notification-preference.service';
 
 /**
- * 自己的通知設定（docs/architecture/backend/16-notification-event.md §5、ADR-0028 D15）：
+ * 自己的通知設定（docs/architecture/backend/16-notification-event.md §5、docs/architecture/backend/16-notification-event.md §9.2 D15）：
  * 只需要登入、只看得到改得到自己的；不寫稽核。
  */
 @ApiTags('notifications')

@@ -60,9 +60,9 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     ConfigModule,
     LoggerModule,
     DatabaseModule,
-    // 依網域決定租戶、每租戶的連線池（docs/adr/0020-physical-tenant-isolation.md D2、D3）
+    // 依網域決定租戶、每租戶的連線池（docs/architecture/05-tenancy.md §10.2 D2、D3）
     TenancyModule,
-    // feature flag 的目錄與判斷；租戶層覆寫隨租戶登記載入（docs/adr/0022-feature-flags.md）
+    // feature flag 的目錄與判斷；租戶層覆寫隨租戶登記載入（docs/architecture/05-tenancy.md §11）
     FeatureFlagsModule,
     CacheModule,
     AuthzModule,
@@ -85,7 +85,7 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     // 葉節點模組（被很多人依賴）
     PermissionModule,
     AuditLogModule,
-    // 平台管理者與平台稽核：全域 PermissionsGuard 判斷平台端點的權限（ADR-0020 D5）
+    // 平台管理者與平台稽核：全域 PermissionsGuard 判斷平台端點的權限（docs/architecture/05-tenancy.md §10.2 D5）
     PlatformAdminModule,
     // 訂閱領域事件並推播；沒有任何模組依賴它（docs/architecture/backend/08-realtime.md §2）
     RealtimeModule,
@@ -103,12 +103,12 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     UserModule,
     RoleModule,
     GroupModule,
-    // 服務帳號與 API token（docs/adr/0027-api-tokens-external-api.md）
+    // 服務帳號與 API token（docs/architecture/06-external-api.md §9）
     ApiTokenModule,
     ServiceAccountModule,
-    // 對外事件的訂閱與投遞；事件由擁有者模組在業務交易內發出（docs/adr/0030-webhooks.md）
+    // 對外事件的訂閱與投遞；事件由擁有者模組在業務交易內發出（docs/architecture/backend/17-webhook.md §9）
     WebhookModule,
-    // 標籤；標籤組與資源類型由擁有者模組登記（docs/adr/0032-tags.md）
+    // 標籤；標籤組與資源類型由擁有者模組登記（docs/architecture/backend/18-tag.md §7）
     TagModule,
     AnnouncementModule,
     AuthzExplainModule,
@@ -123,7 +123,7 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     // 全域註冊 ＋ 預設拒絕：忘記宣告權限的後果是「啟動失敗」而不是「開了一個無保護的端點」。
     // Nest 12 起全域 guard／interceptor 也套用到 WebSocket gateway：每個 guard 自己看 ctx.getType()，
     // HTTP 由 JwtAuthGuard、ws 由 WsAuthGuard 認人，兩者都排在 FeatureGuard 與 PermissionsGuard 之前
-    // 這個程序是內部 api：對外 API 的路由（/v1/*）在這裡等同不存在（docs/adr/0027-api-tokens-external-api.md D11）
+    // 這個程序是內部 api：對外 API 的路由（/v1/*）在這裡等同不存在（docs/architecture/06-external-api.md §9.2 D11）
     { provide: PROCESS_SURFACE, useValue: 'internal' },
     { provide: APP_GUARD, useClass: SurfaceGuard },
     { provide: APP_GUARD, useClass: RateLimitGuard },

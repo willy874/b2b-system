@@ -70,9 +70,9 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `Select`（含搜尋，取代原本的 `Combobox`）/ `Menu` | 自製列表 ＋ Base UI `Popover`（定位、點外面／Esc 關閉、焦點歸還）＋ TanStack Virtual（§3.10） |
 | `VirtualList`                    | TanStack Virtual；長列表的虛擬捲動 ＋ 無限捲動（§3.10） |
 | `Typography` / `Title` / `Text` / `Paragraph` | 自製；`copyable` 的複製按鈕用 `Tooltip` ＋ `navigator.clipboard`（§3.9） |
-| `JsonViewer` / `JsonEditor`      | `JsonEditor` 是 CodeMirror 6；`JsonViewer` 自製（逐行渲染 ＋ `useVirtualRows`），外觀對齊 CodeMirror（§3.12、[ADR-0011](../../adr/0011-codemirror-json-editor.md)） |
+| `JsonViewer` / `JsonEditor`      | `JsonEditor` 是 CodeMirror 6；`JsonViewer` 自製（逐行渲染 ＋ `useVirtualRows`），外觀對齊 CodeMirror（§3.12、§11） |
 | `JsonDiff`                       | 自製：Myers 逐行差異 ＋ `useVirtualRows`，外觀沿用 `JsonViewer`（§3.12） |
-| `TreeEditor`                     | React Flow（`@xyflow/react`）＋ dagre 自動排版；樣式改寫進 CSS Module，工具列用設計系統元件（§3.13、[ADR-0023](../../adr/0023-react-flow-tree-editor.md)） |
+| `TreeEditor`                     | React Flow（`@xyflow/react`）＋ dagre 自動排版；樣式改寫進 CSS Module，工具列用設計系統元件（§3.13、§12） |
 
 > **DatePicker 是最大的一塊自製工作**，排入
 > [`../../overview/03-roadmap.md`](../../overview/03-roadmap.md) 的 M2，已完成：`components/DatePicker/` 底下是
@@ -466,7 +466,7 @@ const handleDelete = async (row: RoleRowVM) => {
 
 `JsonEditor` 以 **CodeMirror 6** 實作；`JsonViewer` 自製、不載入 CodeMirror，但外觀與它一致——
 行號欄（行號 ＋ 摺疊箭頭）、原始 JSON 文字、同一套語法上色。兩者並排（例如編輯器下方預覽目前的值）時看起來是同一個元件。
-決策見 [ADR-0011](../../adr/0011-codemirror-json-editor.md)（取代 [ADR-0010](../../adr/0010-self-built-json-editor.md) 的自製樹狀編輯器）。
+決策見 §11（取代自製樹狀編輯器的做法見 §11.6）。
 
 **共用外觀**：`JsonViewer/jsonTheme.module.css` 是唯一的定義。
 
@@ -546,14 +546,14 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 - 訊息是 ajv 的英文；`features/` 要中文時傳 `formatMessage`，依 `keyword` / `params` 用 `t()` 組字。
 - ajv 以動態 `import()` 載入：沒用到 schema 的頁面整個 bundle 都不含 ajv。
 - ajv 會把 schema 編譯成 JavaScript（`new Function`）；之後若啟用不含 `unsafe-eval` 的 CSP，要改成建置時預先編譯（ajv standalone）。
-- 評估過 `@cfworker/json-schema`（不用 eval、體積小），但屬性本身驗證失敗時會被誤報成 `additionalProperties`，不採用（[ADR-0010](../../adr/0010-self-built-json-editor.md)）。
+- 評估過 `@cfworker/json-schema`（不用 eval、體積小），但屬性本身驗證失敗時會被誤報成 `additionalProperties`，不採用（§11.6）。
 
 尚未實作：取代（`@codemirror/search` 已支援，需要時在 `JsonSearchBar` 加欄位）、摺疊處的驗證錯誤標記。
 
 ### 3.13 樹狀圖：`TreeEditor`
 
 在可平移、縮放的畫布上編輯樹狀／分層結構：技能樹、目錄、組織圖、流程。
-底層是 React Flow（`@xyflow/react`）＋ dagre，決策見 [ADR-0023](../../adr/0023-react-flow-tree-editor.md)。
+底層是 React Flow（`@xyflow/react`）＋ dagre，決策見 §12。
 
 ![TreeEditor Playground](./images/tree-editor/playground.png)
 
@@ -931,9 +931,9 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 
 ### 6.2 批次操作（`RichTable` 的 `batch`）
 
-決策與理由見 [ADR-0012](../../adr/0012-batch-queue-worker.md)。後端 **沒有** 批次端點：確認後把適用的列送進
+決策與理由見 §13。後端 **沒有** 批次端點：確認後把適用的列送進
 **全域批次佇列**，由佇列逐筆（一次一筆、堵塞式）交給分頁以一般的單筆 API 處理。
-上傳這類彼此獨立的操作可以讓同一個工作並行數筆、回報位元組進度（[ADR-0013](../../adr/0013-file-manager-upload.md)、[12 §8](./12-file-manager.md)）。
+上傳這類彼此獨立的操作可以讓同一個工作並行數筆、回報位元組進度（[`frontend/12-file-manager.md`](12-file-manager.md) §14、[12 §8](./12-file-manager.md)）。
 
 | 層 | 檔案 | 職責 |
 | -- | ---- | ---- |
@@ -1055,3 +1055,293 @@ Vite 設定直接沿用 `apps/backstage/vite.config.ts`（UnoCSS、svgr、`@/` a
   由 `preview.tsx` 的 decorator 包一層記憶體 router。
 - 跟元件本身一樣只 import `components/`、`shared/`，不 import `core/`、`features/`、`apis/`；範例資料用中性內容，不出現業務名詞。
 - `design-system.test.ts` 的規則（不寫色碼、不用 `ge-` class）同樣套用在 story 上。
+
+---
+
+## 10. 設計決策：UI 採用 Base UI 而非 MUI
+
+> 原 ADR-0002，2026-09-19 決定。
+
+### 10.1 背景
+
+同類型管理後台的常見作法是 MUI ＋ 一層薄封裝。使用者明確要求本專案改用 Base UI。
+這裡記錄這個決定的理由與代價，確保後續不會有人想「改回 MUI 比較快」。
+
+### 10.2 決定
+
+- UI 基礎採用 **Base UI**（`@base-ui/react` 1.x）
+- `src/components/` 是完整的設計系統實作層，不是薄封裝
+- 樣式來自 `src/themes/` 的三層 CSS 變數 ＋ UnoCSS 的排版工具類
+- Base UI 沒有的元件（Table、Pagination、DatePicker、Breadcrumbs…）自己實作
+
+### 10.3 理由
+
+1. **後台會有大量非標準 UI。** 決定當時規劃的編輯器（畫布、屬性面板、時間軸、資源樹）——
+   一套 opinionated 的視覺設計在這些場景是要對抗的對象，不是助力。
+2. **Base UI 提供的正是我們要的那一半。** 焦點管理、鍵盤互動、ARIA、彈層定位
+   ——這些自己寫既難又容易出錯。視覺則本來就要自己決定。
+3. **與 UnoCSS 天然契合。** MUI 帶 Emotion，等於同時跑兩套樣式引擎，
+   要處理優先序與 SSR 順序問題。Base UI 只吃 `className`。
+4. **bundle 更小。** Base UI 沒有樣式引擎與整套設計系統。
+5. **狀態透過 `data-*` 屬性暴露**（§3.3），樣式可以純 CSS 表達，不需要在 React 裡算 className。
+
+### 10.4 代價
+
+| 代價 | 評估 |
+| --- | --- |
+| **`components/` 的初期工作量大幅增加** | 這是主要代價。約 20 個元件要從零寫樣式。排入 [`../../overview/03-roadmap.md`](../../overview/03-roadmap.md) M1–M2 |
+| Table / DatePicker 等要自己做 | Table 用 TanStack Table（本來就要用）；DatePicker 是 M2 的一整項工作 |
+| 沒有現成的視覺參考 | 需要先定 Design Token 與元件規格，不能邊做邊想 |
+| 社群範例比 MUI 少 | Base UI 文件完整；且它的 API 面比 MUI 小得多 |
+
+### 10.5 替代方案
+
+| 方案 | 不採用的理由 |
+| --- | --- |
+| MUI | 使用者明確要求不用；且與 UnoCSS 衝突 |
+| Radix UI | 與 Base UI 定位相同。Base UI 由 MUI 團隊維護，API 風格與團隊既有經驗較接近，且 v1 已 GA |
+| shadcn/ui | 它是 Radix ＋ Tailwind 的複製貼上範本，不是函式庫。可作為樣式參考，但不作為相依 |
+| 全部自己寫（含可近性） | 焦點陷阱、roving tabindex、彈層定位自己寫的成本遠高於學一套 API |
+
+---
+
+## 11. 設計決策：JsonEditor 以 CodeMirror 6 實作，JsonViewer 對齊它的外觀
+
+> 原 ADR-0011，2026-09-25 決定。取代同日的 §11.6（自製樹狀 ＋ 文字兩種模式的 `JsonEditor`），被取代的做法見 §11.6。規格見 §3.12。
+
+### 11.1 背景
+
+§11.6 的自製 `JsonEditor`（樹狀 ＋ 文字兩種模式，外觀對標 svelte-jsoneditor）重新評估時發現：
+
+- `JsonEditor` 還沒有任何 feature 使用（只有 story 與測試），這時換底層的成本最低；一旦有頁面依賴就會變貴。
+- 自製的部分約 1,400 行，已知問題（陣列插入／刪除後收合狀態錯位、文字模式沒有上色與行號）都要繼續自己修；
+  搜尋、復原、摺疊這些編輯器的基本功能，成熟的編輯器核心已經做得更好。
+- 資料與設定檔的編輯者會直接讀寫 JSON 文字；行內的樹狀操作選單不是必要功能。
+
+### 11.2 決定
+
+- **`JsonEditor` 的底層換成 CodeMirror 6**（`@codemirror/*`，MIT）：語法上色、行號、摺疊、括號配對與自動補上、
+  復原／重做、搜尋、lint（JSON 解析錯誤 ＋ `validator` 的結果以波浪底線標示）。**拿掉樹狀模式**與行內的操作選單。
+- **公開介面盡量不變**：`value` / `defaultValue` / `onChange`（內容合法時回報解析後的值）、`readOnly`、`maxHeight`、
+  `defaultExpandDepth`（初始摺疊）、`validator` / `onValidationChange`、`labels`、slot。
+  移除 `mode` / `defaultMode` / `onModeChange`、`virtualThreshold`（CodeMirror 本身只渲染可視範圍）。
+- **搜尋列與驗證清單仍用設計系統元件**：搜尋列（`JsonSearchBar`）以 portal 渲染進 CodeMirror 的搜尋面板位置，
+  搜尋狀態交給 `@codemirror/search`；驗證清單點一下會打開包住它的摺疊並選取出錯的位置。
+- **`JsonViewer` 維持自製、不載入 CodeMirror**，但外觀對齊 CodeMirror：左側行號欄（行號 ＋ 摺疊箭頭）、
+  內容是 `JSON.stringify(value, null, 2)` 的原始文字（鍵名帶引號、縮排是真的空白）、收合顯示 `{…}`、行號在收合處跳號。
+- **兩者共用一份外觀定義** `JsonViewer/jsonTheme.module.css`：`--json-*` 變數（顏色、字型、行高、欄寬）與語法上色的 class。
+  CodeMirror 經由 `HighlightStyle` 的 `class` 直接套同一組 class，版面則在 `JsonEditor/editorTheme.ts` 以 `EditorView.theme` 引用同一組變數。
+
+### 11.3 理由
+
+1. **編輯體驗交給成熟的編輯器核心。** 復原合併、IME、選取、捲動、大型文件、鍵盤操作都已經被大量使用驗證過，
+   自製的樹狀編輯器要追上這些細節成本很高。
+2. **與 §11.6 當初排除 `vanilla-jsoneditor` 的理由不衝突。** CodeMirror 是無頭的編輯器核心，
+   沒有自帶的選單、按鈕或第二個 UI runtime；工具列、搜尋列、驗證清單仍是設計系統元件，顏色只走 token。
+3. **預覽不需要付編輯器的成本。** 稽核日誌等唯讀場景用 `JsonViewer`，不下載 CodeMirror；
+   兩者用同一份變數與 class，並排時外觀一致（行號欄寬、行高、縮排、顏色逐項對齊）。
+4. **不在正式 bundle 裡，直到有頁面使用。** CodeMirror 只被 `JsonEditor` 匯入；決定當時以正式建置確認沒有任何 chunk 含 CodeMirror。
+
+### 11.4 代價
+
+| 代價 | 緩解 |
+| ---- | ---- |
+| CodeMirror（用到的部分）約 120 KB gzip | 只有用到 `JsonEditor` 的頁面（本身是 lazy 載入）才下載；預覽用 `JsonViewer` |
+| 沒有樹狀模式的行內編輯、型別轉換、插入／複製節點 | 編輯者直接改文字；真的需要時可在 CodeMirror 上加指令或 widget，不必回到自製 |
+| CodeMirror 的預設樣式是不分層的 `<style>`，會蓋過 `@layer components` | 版面以 `EditorView.theme` 設定（同樣是不分層、較高特異度），值只引用 `--json-*` 變數，仍不寫色碼 |
+| 外部換掉 `value`（不是編輯器剛回報的那一個參考）時整份內容重建，復原紀錄、游標、摺疊會重設 | 與 §11.6 相同的語意（外部換值清空復原）；受控時把 `onChange` 的值原樣傳回即可避免 |
+| 摺疊中的內容有驗證錯誤時，摺疊處沒有標記 | 錯誤清單一定列出；點一下會打開摺疊並選取 |
+| jsdom 沒有 `Range.getClientRects`，元件測試要補上替身，且無法模擬 contenteditable 的輸入 | 測試直接對 `EditorView` 送 transaction；互動以 Storybook 手動確認 |
+
+### 11.5 替代方案
+
+| 方案 | 不採用的理由 |
+| ---- | ---- |
+| 維持 §11.6 的自製樹狀編輯器 | 見 §11.1；功能與已知問題都要自己維護 |
+| 只把文字模式換成 CodeMirror、保留樹狀模式 | 兩套編輯模型（樹狀的不可變操作、CodeMirror 的文字交易）要各自維護復原與同步，成本最高 |
+| `JsonViewer` 也用 CodeMirror 的唯讀模式 | 外觀自然一致，但稽核日誌等唯讀頁面要多下載約 120 KB；自製的預覽以共用變數對齊就夠了 |
+| Monaco Editor | 體積大一個數量級（含 web worker），深色／淺色主題要另外對應 token |
+| 包 `vanilla-jsoneditor` | 見 §11.6 的理由 1、3 |
+
+### 11.6 被取代的做法：自製樹狀 JsonEditor
+
+> 原 ADR-0010，2026-09-25 決定，同日由 §11（原 ADR-0011）取代。
+
+開源方案中最完整的是 [svelte-jsoneditor](https://github.com/josdejong/svelte-jsoneditor)（ISC；React 以 `vanilla-jsoneditor` 使用）：
+tree／text／table 三種模式、修復、查詢、JSON Schema 驗證。當時的決定是 **不包它，自製 `components/JsonEditor/`**，
+建在 `JsonViewer` 的行模型（`toJsonLines`）、收合狀態（`useJsonTree`）與行渲染（`JsonTree`）上，外觀與操作以 svelte-jsoneditor 為基準
+（鍵名不加引號、點鍵名／值直接編輯、每行的操作選單、tree／text 兩種模式、復原／重做、搜尋、JSON Schema 驗證；`--json-*` 與它的 `--jse-*` 一一對應）。理由：
+
+1. **設計系統一致。** 包 `vanilla-jsoneditor` 要用它自己的 DOM 與 CSS，選單、按鈕、焦點樣式、深色主題都要另外覆寫才能和
+   `Menu`、`Tooltip`、`Button` 一致；自製直接用這些元件與 alias token（§10 的同一個取捨）。
+2. **與 `JsonViewer` 共用一套實作**，預覽與編輯的外觀不會分岔。
+3. **不引入第二個 UI runtime。** `vanilla-jsoneditor` 內含 Svelte runtime 與 CodeMirror，只為一個元件就增加可觀的 bundle。
+4. **資料操作不可變**，復原／重做只要保存根的參考。
+
+被取代的原因見 §11.1：沒有頁面使用前換底層最便宜，而自製的樹狀編輯器（約 1,400 行）的已知問題與編輯器基本功能都要自己追。
+理由 1、3 對 CodeMirror 不成立（它是無頭的核心），所以 §11 改用它而不是 `vanilla-jsoneditor`。
+
+**沿用至今的部分**（驗證器，§3.12）：
+
+- 驗證器介面與 svelte-jsoneditor 相同（`validator(value) => errors`，可非同步），JSON Schema 由 `createJsonSchemaValidator` 以 **ajv** 實作，
+  第一次驗證時才動態 `import()`（ajv 含 formats 約 40 KB gzip；沒用到的頁面整個 bundle 不含 ajv）。
+- ajv 會在執行時把 schema 編譯成 JavaScript（`new Function`），與不含 `unsafe-eval` 的 CSP 衝突；啟用 CSP 時改用 ajv standalone 在建置時預先編譯已知的 schema，
+  驗證器介面不變，只換 `ajvValidator.ts`。
+- ajv 的錯誤訊息是英文：`createJsonSchemaValidator(schema, { formatMessage })` 讓 `features/` 依 `keyword` / `params` 以 `t()` 翻譯。
+- **不採用 `@cfworker/json-schema`**：直接解譯 schema、不用 eval、體積小，原本是首選；但實測屬性本身驗證失敗時，該屬性會被當成未宣告，
+  `additionalProperties: false` 再誤報一次（draft-07／2019-09／2020-12 都一樣）；驗證器誤報不可接受。
+
+當時評估過、不採用的其他方案：`json-edit-react`（React 原生、可主題化，但沒有虛擬捲動，大型資料會卡）、`@uiw/react-json-view`（只有檢視）。
+
+---
+
+## 12. 設計決策：TreeEditor 以 React Flow（`@xyflow/react`）＋ dagre 實作
+
+> 原 ADR-0023，2026-09-30 決定。規格見 §3.13。
+
+### 12.1 背景
+
+後台需要一個能在「可平移、縮放的畫布」上編輯樹狀結構的元件，第一個場景是技能樹（節點自由擺位、
+一個技能可以有多個前置），之後也會用在目錄、組織圖、流程這類只在乎結構的樹。需求：
+
+- 畫布：平移、縮放、小地圖、框選；節點內容由呼叫端自訂（名稱、等級、花費…）。
+- 編輯：新增根／子節點、刪除、拖曳擺位、從節點拖線建立父子關係（擋下循環）、復原／重做。
+- 排版：一鍵自動排版；也要支援「永遠自動排版、不能拖」的模式。
+- 外觀全部走 Design Token、支援深色主題；鍵盤可操作；不引入第二套 UI 樣式。
+
+### 12.2 決定
+
+- **畫布與互動用 React Flow 12（`@xyflow/react`，MIT）**；**排版用 dagre（`@dagrejs/dagre`，MIT）**。
+- 包成設計系統元件 **`components/TreeEditor/`**，不讓 `features/` 直接碰 React Flow：
+  props 只用自己的型別（`TreeEditorValue` = `nodes` ＋ `edges`），不匯出 React Flow 的型別（§3.1 規則 1）。
+- **資料模型與 React Flow 分開**：`treeGraph.ts`（新增、刪除、連線規則、循環檢查、子孫查詢）與 `layout.ts`（dagre）是純函式，
+  `features/` 在畫布外（屬性面板、匯入）操作同一份資料也用它們。
+- **不 import `@xyflow/react/dist/base.css`**：那份是不分層的全域 CSS（會蓋過 `@layer components`）且寫死色碼。
+  用得到的規則改寫進 `TreeEditor.module.css`，以 `:global(.react-flow__*)` 限定在元件根元素之下，顏色只引用 alias token。
+- 工具列（新增、刪除、排版、復原、縮放）用設計系統的 `IconButton` ＋ `Tooltip`，不用 React Flow 的 `Controls`。
+- 同時支援 `mode: 'tree'`（單一父節點，連到已有父節點的節點＝換父節點）與 `'dag'`（多個前置、不能循環）。
+
+### 12.3 理由
+
+1. **React Flow 是 React 生態裡節點編輯器的事實標準。** 平移／縮放（d3-zoom）、拖曳、連線、框選、小地圖、
+   鍵盤聚焦與刪除、只渲染可視範圍的節點都已經做好；節點是一般的 React 元件，`renderNode` 可以直接放設計系統元件。
+2. **它是「無樣式」可接受的程度。** 樣式只有一份可選的 base.css，外觀全部由 CSS 變數與 class 決定，
+   可以完全改用我們的 token；不像 AntV X6／G6 自帶主題與 canvas 繪製，要另外對應深色主題。
+3. **dagre 同時處理樹與 DAG。** 分層排版（Sugiyama）會把多個前置的節點放在比所有父節點更深的那一層並減少交叉，
+   技能樹與一般樹共用一條路徑；體積小、同步執行、不需要 web worker。
+4. **授權乾淨。** 兩者都是 MIT；React Flow 的浮水印可以依授權移除（`proOptions.hideAttribution`）。
+
+### 12.4 代價
+
+| 代價 | 緩解 |
+| ---- | ---- |
+| 體積：`@xyflow/react`（含 zustand、d3-zoom、d3-drag）約 67 KB gzip、dagre 約 17 KB gzip（2026-09-30 以 vite lib 建置量測） | 只有 `TreeEditor` 匯入；頁面是 lazy 載入，沒用到的頁面不下載 |
+| React Flow 的必要樣式要自己維護一份 | 約 60 條規則，集中在 `TreeEditor.module.css` 的最後一段並註明來源；升級大版本時對照 base.css 的差異 |
+| 受控模式下每次拖曳都要換算整份 `nodes` | 拖曳中的座標只放在元件內部狀態，放開時才 `onChange` 一次（同時也是一步復原） |
+| jsdom 沒有布局，元件測試要補 ResizeObserver、DOMMatrixReadOnly、`getBBox`；拖線連線無法在 jsdom 模擬 | 連線規則在 `treeGraph.test.ts` 以純函式測；拖線、拖曳以 Storybook 手動確認 |
+| dagre 的排版只看結構，不保留使用者手動擺的位置 | `manual` 模式下只有按「自動排版」才整份重排；新增的節點以 `placeChild` / `placeRoot` 就近放置 |
+
+### 12.5 替代方案
+
+| 方案 | 不採用的理由 |
+| ---- | ---- |
+| AntV X6 / G6 | 功能完整，但自帶樣式與 canvas／SVG 繪製引擎，節點要用它的 API 或 React 橋接；深色主題與 token 要另外對應，體積更大 |
+| JointJS / GoJS | 進階功能（或全部）是商業授權 |
+| Cytoscape.js | 偏圖分析與大量節點的視覺化，canvas 繪製，自訂 HTML 節點與編輯互動要自己補 |
+| Rete.js | 針對「有輸入／輸出埠的資料流節點」設計，樹狀編輯用不到它的抽象，維護也較不活躍 |
+| react-d3-tree | 只能顯示階層樹（單一父節點），沒有連線編輯、小地圖，也不支援 DAG |
+| elkjs（排版） | 排版品質更好、選項多，但約 1.4 MB（要放 web worker），授權是 EPL-2.0；需要正交連線或分組時再評估 |
+| d3-hierarchy / d3-flextree（排版） | 樹狀排版很整齊，但只支援單一父節點，DAG 還是要另一套 |
+| 完全自製（SVG ＋ d3-zoom） | 平移縮放、拖曳、連線、框選、聚焦與虛擬化都要自己做，成本遠高於改寫一份樣式 |
+
+---
+
+## 13. 設計決策：批次操作改為前端全域佇列
+
+> 原 ADR-0012，2026-09-25 決定：逐筆呼叫單筆 API，SharedWorker 排程。取代同日的 §13.6（後端批次端點），被取代的做法見 §13.6；
+> 工作內並行、位元組進度與中止由 [`frontend/12-file-manager.md`](12-file-manager.md) §14 擴充。規格見 §6.2、[`09-state-and-storage.md`](./09-state-and-storage.md) §5、[`../backend/03-api-conventions.md`](../backend/03-api-conventions.md) §10。
+
+### 13.1 背景
+
+§13.6 的做法為每種批次操作各開了一個後端端點（`POST /<resources>/batch-<action>`），一次請求處理一批。實際使用後的問題：
+
+- **每多一種批次操作，就要多一個端點**：DTO、controller、service 的 `xxxMany`、route-audit、OpenAPI、SDK、MSW 各一份，
+  而單筆端點早就有完整的檢查與副作用。為了共用檢查，單筆 service 被拆成 prepare → apply → publish，變得難讀。
+- **一次請求處理 200 筆**：使用者看不到進度，只能等整批回來；請求逾時或中斷時，已提交的筆數不明。
+- **批次只活在發起的頁面**：換頁、關掉分頁，結果就沒了；其他分頁也不知道有批次正在跑。
+
+### 13.2 決定
+
+| # | 問題 | 決定 |
+| --- | --- | --- |
+| D1 | 批次由誰處理 | **前端逐筆呼叫一般（單筆）API**；後端不再提供任何批次端點 |
+| D2 | 同時處理幾筆 | **堵塞式**：整個佇列同一時間只處理一筆，前一筆有結果才送下一筆；多個工作依送出順序排隊 |
+| D3 | 佇列放在哪裡 | **SharedWorker**（同源的所有分頁共用一個佇列）；不支援時退回主執行緒開的 **dedicated worker**（每個分頁一個佇列）；連 Worker 都沒有時（測試）跑在主執行緒 |
+| D4 | HTTP 請求由誰送出 | **分頁**。佇列把「這一筆」交給一個分頁（`execute`），分頁以 `apis/` 的一般 fetcher 送出、回報結果。token、續期單飛、錯誤轉換都只在分頁的 `apis/` 一處；access token 不離開分頁的記憶體（[`backend/04-auth.md`](../backend/04-auth.md) §10） |
+| D5 | 由哪個分頁執行 | 優先發起的分頁；它關掉了（`bye`、或 Web Locks 偵測到分頁消失）就交給任一個還在的分頁——每個 feature 在 plugin 的同步階段註冊操作（`registerBatchOperation`），所有分頁都認得 |
+| D6 | 進度怎麼讓畫面知道 | 佇列經 **Channel `batch-queue`**（BroadcastChannel）廣播狀態快照；任何分頁（包括連到另一個 dedicated worker 的分頁）都看得到全部工作 |
+| D7 | 每筆結果 | 成功或失敗都回報給佇列並記進工作（失敗帶可序列化的錯誤碼）；進度條即時更新，執行的分頁照單筆 mutation 的規則失效快取 |
+| D8 | 結束時 | **不論成功或失敗都彈出結果**，只在一個分頁（發起的分頁；它關掉了才給其他分頁）：全部成功 → 成功 toast；有失敗 → 結果對話框逐筆列出原因；取消 → 資訊 toast |
+| D9 | 列表的 UI | 勾選後的操作列（`BatchActionBar`）不變；這張表送出的工作進行中時，**操作列換成進度條**（`BatchProgressBar`），在任何分頁打開這張表都看得到 |
+| D10 | 全域追蹤 | AppHeader 的佇列按鈕（徽章 = 進行中的工作數）隨時打開面板：所有工作的進度、取消、查看失敗、移除／清除已結束 |
+| D11 | 一次的上限 | 不設上限（沒有請求大小的限制了）；逐筆處理，量大只是時間長 |
+| D12 | session 結束 | 取消所有進行中的工作——之後的每一筆都只會得到 401 |
+
+**通道**
+
+| 通道 | 方向 | 內容 |
+| ---- | ---- | ---- |
+| port（SharedWorker 的 `MessagePort`、dedicated worker 本身） | 分頁 ⇄ 佇列 | `hello` / `bye`、`enqueue`、`cancel`、`dismiss`；佇列交派 `execute`、分頁回 `result`；結束通知 `finished` |
+| Channel `batch-queue` | 佇列 → 所有分頁 | `snapshot`（帶 `version`，晚到的舊快照略過）；分頁加入時送 `snapshot-request`；dedicated worker 的分頁關閉時送 `host-closed` |
+
+### 13.3 理由
+
+- **單筆端點已經是規則的唯一來源**：權限、業務檢查、稽核、快取失效、推播都在那裡。逐筆呼叫它，批次就不會與單筆行為分歧，
+  後端也不必為批次拆 service。
+- **逐筆＝天然的進度與部分成功**：每筆各自成功或失敗，進度就是「已處理幾筆」，不需要整批的交易語意。
+- **「同一批裡前一筆影響後一筆」（例：最後一位 super-admin）照樣正確**：堵塞式逐筆送出，後一筆送出時前一筆已提交。
+- **SharedWorker 讓佇列不屬於任何一個頁面**：換頁、關掉發起的分頁都不中斷；所有分頁看到同一份進度。
+- **為什麼不讓 worker 自己打 API**：worker 拿不到分頁記憶體裡的 access token；讓它自己續期會與分頁的續期搶用輪替的
+  refresh token（被判定為重用 → 整條家族被撤銷）。把請求留在分頁，攔截器鏈、續期單飛、錯誤轉換、MSW 都不必在 worker 裡再做一份。
+
+### 13.4 取捨
+
+- **比一次請求慢**：N 筆就是 N 個請求、依序等待。後台管理的批次量不大，換來的是進度可見與行為一致。
+- **執行仍需要至少一個分頁開著**：所有分頁都關掉時 SharedWorker 會被瀏覽器結束，剩下的項目不會處理（沒有伺服器端排程）。
+- **執行中的分頁消失時，同一筆會交給其他分頁重送**：若前一次其實已經送達，重送會得到 `*_NOT_FOUND` 等錯誤；
+  結果清單會列出來，選取也會把「已不存在」的列移出。
+- **dedicated worker 模式下佇列屬於單一分頁**：分頁關掉，它的佇列就消失（其他分頁經 `host-closed` 移除它的工作）；
+  跨分頁只共享「看得到進度」，不共享執行。
+
+### 13.5 實作紀錄
+
+- 後端移除 `POST /users/batch-delete`、`/users/batch-unlock`、`/users/batch-status`、`/roles/batch-delete`、
+  `/approvals/batch-approve`、`/approvals/batch-reject` 與 `core/batch`（`runBatch`、`BatchIdsSchema`、`BatchResultSchema`）、
+  稽核的 `metadata.batch`；單筆 service 回到原本的形狀。
+- 前端 `core/batch` 改為佇列（`BatchQueueHost` / `BatchQueueClient` / `connectBatchQueue` / worker 入口）與 UI
+  （`BatchProgressBar`、`BatchQueueIndicator`、`BatchQueueNotifier`、`BatchResultDialog`）；`useBatchRunner` 與 `apis/*/batch-*` 移除。
+- feature 以 `features/<name>/batch.ts` 註冊操作（每筆呼叫單筆 fetcher ＋ 失效快取、不發 toast），
+  列表的 `BatchAction` 以 `operation` 引用它，`RichTable` 的 `batch` 多了 `scope`（這張表在佇列裡的識別）。
+
+### 13.6 被取代的做法：後端批次端點
+
+> 原 ADR-0009，2026-09-25 決定，同日由 §13（原 ADR-0012）取代；批次端點已全部移除。
+
+當時的決定是由 **後端提供批次端點**：`POST /<resources>/batch-<action>`（例：`POST /users/batch-delete`），請求 `{ ids: uuid[] }`（1–200 筆，＝分頁 `limit` 的上限），
+回應 `200 { data: { succeeded: string[], failed: { id, code, details? }[] } }`。依 `ids` 的順序 **依序**、**逐筆獨立交易**執行、允許部分成功；
+整批結束後合併發佈一次領域事件；不新增權限鍵（沿用單筆的 `user:delete` 等）；每筆一條稽核、同一批共用 `metadata.requestId` 並加 `metadata.batch`。
+為了讓單筆與批次共用檢查，單筆 service 方法拆成 `prepare → apply(tx) → invalidate → publish` 四段，由 `core/batch` 的 `runBatch()` 串起來。
+前端是 `BatchActionBar` ＋ `RichTable` 的 `batch` ＋ `useBatchRunner`（確認 → 執行 → 結果），並以 `isEligible(row)` 預先分出「可執行／會略過」。
+範圍是使用者的刪除／解鎖／停用啟用、角色刪除，第二期加上審批單的批次核准／駁回。
+
+當時選後端端點、而不是前端逐筆呼叫，是怕 200 次請求吃掉全域速率限制、觸發 200 次推播與快取失效，以及網路中斷時只剩前端知道做到哪一筆；
+`Promise.all` 平行呼叫則會讓「最後一位 super-admin」兩筆同時通過檢查。§13 用 **堵塞式逐筆** 解決了平行的問題，並把「做到哪一筆」放進跨分頁的佇列；
+被取代的原因見 §13.1。
+
+仍然適用的觀察：
+
+- 路由命名若要再開批次端點，用扁平的 `batch-<action>` 而不是 `/batch/<action>`：`POST /users/batch/unlock` 會和 `POST /users/:id/unlock` 搶同一個路由（`id = "batch"`）；
+  也不用 `DELETE /users` 帶 body（HTTP 沒有定義 DELETE body 的語意，SDK 與代理伺服器的支援不一致）。
+- 冪等：目標已經是結果狀態（例如停用已停用的人）算成功；單筆本來就會拒絕的情況（解鎖沒被鎖的人 → `USER_NOT_LOCKED`）維持拒絕，批次不改變單筆的規則。
+- 角色的強制刪除（`force`）不做成批次：一次拔掉很多人的權限，影響範圍很難從確認框看清楚。
+- 選取存明確的 id，不存「篩選條件」：送出時符合條件的列可能已經變了，使用者確認的和實際執行的會不一致。

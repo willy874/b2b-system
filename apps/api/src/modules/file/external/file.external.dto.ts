@@ -6,7 +6,7 @@ import { FILE_FOLDER_KINDS, FILE_STATUSES } from '@/db/schema';
 import { ContentTypeSchema, FileNameSchema } from '../dto/create-file-upload.dto';
 
 /**
- * 對外 API（`/v1`）的檔案契約（docs/adr/0027-api-tokens-external-api.md D12）：與內部的 DTO 分開定義，
+ * 對外 API（`/v1`）的檔案契約（docs/architecture/06-external-api.md §9.2 D12）：與內部的 DTO 分開定義，
  * 內部改欄位不會改到這裡；v1 之內只能加欄位。schema 名稱一律 `External*`，與內部的區分。
  *
  * 不含內部 DTO 的影像網址（`image`，指向內部 api 的簽章端點）、`capabilities`、`version`。

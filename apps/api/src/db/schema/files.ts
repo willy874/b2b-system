@@ -74,7 +74,7 @@ export const files = pgTable(
     /** 所在的資料夾；null 是根目錄（docs/architecture/backend/09-file.md §4.2）。 */
     folderId: uuid('folder_id').references(() => fileFolders.id, { onDelete: 'restrict' }),
     /**
-     * 一次刪除操作的識別（docs/adr/0025-entity-revisions.md D5）：同一次刪除（刪除檔案、遞迴刪除資料夾）
+     * 一次刪除操作的識別（docs/architecture/backend/14-revisions.md §9.2 D5）：同一次刪除（刪除檔案、遞迴刪除資料夾）
      * 軟刪除的列帶同一個值，還原資料夾時只還原同一批。未刪除時為 null；R4a 之前刪除的列也是 null。
      */
     deletionId: uuid('deletion_id'),

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { defineSchema } from '@/core/validation';
 
-/** 目前網域的租戶（backstage 跳到 apps/auth 登入時帶上它的代碼，docs/adr/0020-physical-tenant-isolation.md D7）。 */
+/** 目前網域的租戶（backstage 跳到 apps/auth 登入時帶上它的代碼，docs/architecture/05-tenancy.md §10.2 D7）。 */
 export const CurrentTenantSchema = defineSchema(
   'CurrentTenant',
   z.object({ code: z.string(), name: z.string() }),

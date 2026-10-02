@@ -56,7 +56,7 @@ export interface DeletedFileRow {
 const deleter = alias(users, 'deleter');
 
 /**
- * 個別刪除的檔案：所在的資料夾不是 **同一次刪除** 刪掉的（ADR-0025 D5）。跟著資料夾一起刪除的檔案屬於那個資料夾的批次，
+ * 個別刪除的檔案：所在的資料夾不是 **同一次刪除** 刪掉的（docs/architecture/backend/14-revisions.md §9.2 D5）。跟著資料夾一起刪除的檔案屬於那個資料夾的批次，
  * 在回收桶只列資料夾，還原資料夾時一起回來。R4a 之前刪除的列 `deletion_id` 是 null，以 `IS NOT DISTINCT FROM`
  * 比對：舊的遞迴刪除（資料夾與檔案都是 null）同樣視為同一批。
  */
@@ -193,7 +193,7 @@ export class FileRepository {
   }
 
   /**
-   * 所有檔案（含上傳中與回收桶裡的）的大小合計，位元組（docs/adr/0033-feature-params-and-webhook-targets.md D8）。
+   * 所有檔案（含上傳中與回收桶裡的）的大小合計，位元組（docs/architecture/05-tenancy.md §13.3 D8）。
    * 給了 `tx` 時先取 advisory lock：同時登記的上傳排隊加總，不會一起超過容量。
    */
   async storageUsed(tx?: DbOrTx): Promise<number> {
@@ -341,7 +341,7 @@ export class FileRepository {
 
   /**
    * 這些 id 之中有紀錄的（含 pending 與 **已軟刪除** 的）。維護排程的孤兒判定（docs/architecture/backend/09-file.md §9）：
-   * 已刪除紀錄的物件要留到回收桶的保留期限結束，由 `trash.purge` 在永久刪除後清掉（ADR-0025 D11）。
+   * 已刪除紀錄的物件要留到回收桶的保留期限結束，由 `trash.purge` 在永久刪除後清掉（docs/architecture/backend/14-revisions.md §9.2 D11）。
    */
   async findRecordedIds(ids: readonly string[]): Promise<Set<string>> {
     if (ids.length === 0) return new Set();
@@ -364,7 +364,7 @@ export class FileRepository {
     return new Set(rows.flatMap((row) => (row.uploadId ? [row.uploadId] : [])));
   }
 
-  /** 刪除一個檔案；`deletionId` 是這一次刪除的識別（ADR-0025 D5）。 */
+  /** 刪除一個檔案；`deletionId` 是這一次刪除的識別（docs/architecture/backend/14-revisions.md §9.2 D5）。 */
   async softDelete(
     id: string,
     values: { actorId: string; deletionId: string },
@@ -379,7 +379,7 @@ export class FileRepository {
     return row;
   }
 
-  // ── 回收桶與還原（ADR-0025 D5、D9、D11）：這一段故意讀已刪除的列，一律用 isDeleted() ──
+  // ── 回收桶與還原（docs/architecture/backend/14-revisions.md §9.2 D5、D9、D11）：這一段故意讀已刪除的列，一律用 isDeleted() ──
 
   /** 已刪除的檔案（含放棄的上傳）；不存在或沒有被刪除回 undefined。 */
   async findDeletedById(id: string, tx?: DbOrTx): Promise<FileRow | undefined> {
@@ -507,7 +507,7 @@ export class FileRepository {
   }
 
   /**
-   * 刪除超過保留期限的檔案（依 id 的 keyset；ADR-0025 D11）。含放棄的上傳與跟著資料夾一起刪的檔案：
+   * 刪除超過保留期限的檔案（依 id 的 keyset；docs/architecture/backend/14-revisions.md §9.2 D11）。含放棄的上傳與跟著資料夾一起刪的檔案：
    * 它們都要先清掉，資料夾（`files.folder_id` 是 `RESTRICT`）才刪得掉。
    */
   async findExpired(

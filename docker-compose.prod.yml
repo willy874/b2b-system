@@ -88,7 +88,7 @@ services:
       NODE_ENV: production
       PLATFORM_DATABASE_URL: postgres://b2b_platform:${POSTGRES_PLATFORM_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
       TENANT_SECRET_KEY: ${TENANT_SECRET_KEY:?required}
-      # 佈建新租戶（ADR-0020 D4、D12）：CREATEDB＋CREATEROLE、不是超級使用者的角色（10-roles.sh）
+      # 佈建新租戶（docs/architecture/05-tenancy.md §10.2 D4、D12）：CREATEDB＋CREATEROLE、不是超級使用者的角色（10-roles.sh）
       TENANT_PROVISIONING_DATABASE_URL: postgres://b2b_provisioner:${POSTGRES_PROVISIONER_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
       # 連線預算（backend/02-database.md §6.2）：每個租戶的池、閒置關閉、每條連線的逾時
       TENANT_POOL_MAX: ${TENANT_POOL_MAX:-10}
@@ -124,7 +124,7 @@ services:
       # 物件儲存：api 走內網，presigned URL 以瀏覽器看到的位址簽章（backend/09-file.md §3）。
       # 換成真正的 S3 時只改這幾個變數，並拿掉下面的 file-storage 服務。
       FILE_STORAGE_ENDPOINT: http://file-storage:9000/storage
-      # {tenantOrigin}：每個租戶在自己的網域，presigned URL 簽成同源的 /storage（ADR-0020 D2）
+      # {tenantOrigin}：每個租戶在自己的網域，presigned URL 簽成同源的 /storage（docs/architecture/05-tenancy.md §10.2 D2）
       FILE_STORAGE_PUBLIC_ENDPOINT: '{tenantOrigin}/storage'
       FILE_STORAGE_ACCESS_KEY_ID: ${FILE_STORAGE_ACCESS_KEY_ID:?required}
       FILE_STORAGE_SECRET_ACCESS_KEY: ${FILE_STORAGE_SECRET_ACCESS_KEY:?required}
@@ -154,7 +154,7 @@ services:
       file-storage:
         condition: service_healthy
 
-  # 對外 API（docs/adr/0027-api-tokens-external-api.md D9、D19）：與 api 同一個映像、不同的進入點與 port。
+  # 對外 API（docs/architecture/06-external-api.md §9.2 D9、D19）：與 api 同一個映像、不同的進入點與 port。
   # 只認 API token；只入列、不執行背景工作（main.external.ts 固定）；在自己的 external 網路，閘道碰不到內部 api
   external-api:
     image: b2b-system-api
@@ -252,7 +252,7 @@ services:
       api:
         condition: service_healthy
 
-  # 全平台共用的身分與租戶入口（docs/adr/0019-sso-identity-platform.md）：獨立的 origin，同樣反向代理到 api
+  # 全平台共用的身分與租戶入口（docs/architecture/04-sso.md §12）：獨立的 origin，同樣反向代理到 api
   auth:
     build:
       context: .

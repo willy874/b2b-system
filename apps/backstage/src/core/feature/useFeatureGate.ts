@@ -11,7 +11,7 @@ import { featureStore, findFeatureByPath } from './store';
 export type FeatureGate = 'open' | 'pending' | 'disabled' | 'failed';
 
 /**
- * 目前頁面所屬的可啟用 feature 是否可以渲染。Layout 的第二道防線（docs/adr/0021-runtime-feature-activation.md D7）：
+ * 目前頁面所屬的可啟用 feature 是否可以渲染。Layout 的第二道防線（docs/architecture/frontend/02-plugin-system.md §9.2 D7）：
  * 正常情況下 route 的 `requireFeature` 已經擋住，這裡確保未安裝的 feature 的頁面不會因為「頁面權限還沒註冊」而被放行。
  */
 export function useFeatureGate(pathname: string): FeatureGate {

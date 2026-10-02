@@ -1,5 +1,5 @@
 /**
- * IdP 帳號 id 的格式（docs/adr/0020-physical-tenant-isolation.md D6）：身分屬於哪個租戶（或平台）寫在 id 裡，
+ * IdP 帳號 id 的格式（docs/architecture/05-tenancy.md §10.2 D6）：身分屬於哪個租戶（或平台）寫在 id 裡，
  * A 租戶的 user id 不會被當成 B 租戶的。session、授權碼、ID token 的 `sub` 都是這個字串。
  */
 export type OidcAccount =

@@ -107,7 +107,7 @@ function auditSnapshot(row: Pick<AnnouncementRow, 'title' | 'body' | 'audience' 
 }
 
 /**
- * 公告（docs/adr/0031-announcements.md）。
+ * 公告（docs/architecture/backend/19-announcement.md §9）。
  *
  * 狀態：`draft` →（送出）→ 立即：建立發送後 `completed`；指定時間：`scheduled` →（時間到）→ `completed`。
  * `scheduled` ⇄ `paused`（暫停、恢復）。草稿以外的公告會對外發話，修改要 `announcement:publish`（D15）。

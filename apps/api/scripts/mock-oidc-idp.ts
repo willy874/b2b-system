@@ -1,5 +1,5 @@
 /**
- * 開發與 E2E 用的「外部 IdP」（docs/adr/0019-sso-identity-platform.md D8）：一個最小的 OIDC provider，
+ * 開發與 E2E 用的「外部 IdP」（docs/architecture/04-sso.md §12.2 D8）：一個最小的 OIDC provider，
  * 登入頁（oidc-provider 的 devInteractions）輸入任何 email 都算登入成功，`sub` 與 `email` 就是那個 email。
  *
  *   pnpm dev:mock-idp

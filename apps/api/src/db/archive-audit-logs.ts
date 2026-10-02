@@ -10,7 +10,7 @@ import { forEachScriptTenant, loadScriptEnv } from './client';
 async function main(): Promise<void> {
   loadScriptEnv();
   await forEachScriptTenant(async (db, tenant) => {
-    // 保留天數是租戶的參數（docs/adr/0033-feature-params-and-webhook-targets.md D7），與排程讀同一份登記
+    // 保留天數是租戶的參數（docs/architecture/05-tenancy.md §13.3 D7），與排程讀同一份登記
     const retentionDays = resolveTenantFeatureParam(
       AUDIT_LOG_HOT_RETENTION_DAYS_PARAM,
       tenant.featureParams,

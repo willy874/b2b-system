@@ -16,7 +16,7 @@ import { notDeleted } from './soft-delete';
 import { users } from './users';
 
 /**
- * 公告的受眾（docs/adr/0031-announcements.md D5）：四種來源取聯集，發送當下才解析成人（快照）。
+ * 公告的受眾（docs/architecture/backend/19-announcement.md §9.2 D5）：四種來源取聯集，發送當下才解析成人（快照）。
  * 存的是定義（id），不是人名單。
  */
 export interface AnnouncementAudienceValue {

@@ -20,7 +20,7 @@ import { databaseUrlOf } from './global-setup';
 
 /**
  * 測試租戶的脈絡：直接呼叫 service（不經 HTTP）的測試要在租戶裡執行，
- * 否則存取 `TENANT_DB` 會拋 `TENANT_NOT_FOUND`（docs/adr/0020-physical-tenant-isolation.md D3）。
+ * 否則存取 `TENANT_DB` 會拋 `TENANT_NOT_FOUND`（docs/architecture/05-tenancy.md §10.2 D3）。
  */
 export async function testTenantContext(app: INestApplication): Promise<TenantContext> {
   const record = await app.get(TenantDirectory).resolveHost('127.0.0.1');
@@ -69,7 +69,7 @@ export async function createExtraTenant(
 }
 
 /**
- * 設定測試租戶的 feature 參數覆寫（docs/adr/0033-feature-params-and-webhook-targets.md D2）並讓登記快取失效。
+ * 設定測試租戶的 feature 參數覆寫（docs/architecture/05-tenancy.md §13.2 D2）並讓登記快取失效。
  * 測試檔之間共用 container：改過的測試檔要在 `afterAll` 以 `{}` 還原。
  */
 export async function setTestTenantFeatureParams(

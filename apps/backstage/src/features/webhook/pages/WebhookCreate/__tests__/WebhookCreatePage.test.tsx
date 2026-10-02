@@ -38,7 +38,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('WebhookCreatePage（docs/adr/0030-webhooks.md D14）', () => {
+describe('WebhookCreatePage（docs/architecture/backend/17-webhook.md §9.2 D14）', () => {
   it('還沒選事件時不能送出', async () => {
     renderRoute(routes, '/webhook/create', CREATOR);
     fireEvent.change(
@@ -78,7 +78,7 @@ describe('WebhookCreatePage（docs/adr/0030-webhooks.md D14）', () => {
     });
   });
 
-  it('可以加第二個網址；空白列不送出（ADR-0033 D13）', async () => {
+  it('可以加第二個網址；空白列不送出（docs/architecture/backend/17-webhook.md §10.2 D13）', async () => {
     createWebhook.mockResolvedValue({ secret: 'whsec_once', webhook: { id: 'w1', name: 'CI' } });
     renderRoute(routes, '/webhook/create', CREATOR);
     fireEvent.change(

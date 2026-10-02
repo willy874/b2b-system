@@ -14,7 +14,7 @@ b2b-system/
 │
 ├── apps/
 │   ├── backstage/               @b2b-system/backstage — React 前端（RBAC 管理後台）
-│   ├── auth/                    @b2b-system/auth — 全平台共用的身分與租戶入口（React，ADR-0019；見該目錄的 README）
+│   ├── auth/                    @b2b-system/auth — 全平台共用的身分與租戶入口（React，[`architecture/04-sso.md`](04-sso.md) §12；見該目錄的 README）
 │   ├── api/                     @b2b-system/api — NestJS 後端
 │   ├── file-storage/            @b2b-system/file-storage — S3 相容的本機檔案儲存（見 03-file-storage.md）
 │   └── e2e/                     @b2b-system/e2e — Playwright
@@ -161,7 +161,7 @@ apps/backstage/src/
 
 資料夾分層與上面相同（`main.tsx` → `app/` → `features/` → `apis/` → `core/` → `components/` → `shared/`）。
 features 是 `login`（IdP 互動頁、帳號流程）、`home`、`identity-provider`；`core/`、`components/`、`shared/`
-大多從 backstage **複製**（ADR-0019 D14），複製清單與同步規則見 [`apps/auth/README.md`](../../apps/auth/README.md)，
+大多從 backstage **複製**（[`architecture/04-sso.md`](04-sso.md) §12.2 D14），複製清單與同步規則見 [`apps/auth/README.md`](../../apps/auth/README.md)，
 路由與登入流程見 [`04-sso.md`](./04-sso.md) §6。
 
 ---
@@ -179,7 +179,7 @@ apps/api/src/
 │   ├── config/              @nestjs/config ＋ Zod 驗證 env
 │   ├── database/            DrizzleModule、DB provider、交易輔助
 │   ├── cache/               PermissionCacheService（in-memory + TTL + 明確失效，可整個租戶失效）
-│   ├── authz/               關係圖權限引擎：模型、判斷器、relation_tuples、revision 失效（docs/adr/0024-relationship-based-access-control.md）
+│   ├── authz/               關係圖權限引擎：模型、判斷器、relation_tuples、revision 失效（../rbac/01-domain-model.md）
 │   ├── broadcast/           程序之間的失效廣播：平台 DB 的 LISTEN／NOTIFY（docs/architecture/backend/05-rbac.md §5.1）
 │   ├── errors/              ErrorCode enum、AppException、HttpExceptionFilter
 │   ├── http/                TransformInterceptor、分頁 DTO、RequestId middleware
@@ -253,7 +253,7 @@ modules/role/
 
 ```bash
 # ── apps/api ─────────────────────────────────────────
-# 資料庫（docs/adr/0020-physical-tenant-isolation.md）：平台 DB 一個，每個租戶各一個 database
+# 資料庫（05-tenancy.md）：平台 DB 一個，每個租戶各一個 database
 PLATFORM_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5432/b2b_platform   # 不存在時 db:migrate 會建立
 TENANT_SECRET_KEY=                 # 加密租戶連線字串的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填）
 TENANT_POOL_MAX=10                 # 每個租戶的連線池上限（連線預算見 docs/architecture/backend/02-database.md §6.2）
@@ -278,7 +278,7 @@ DEFAULT_TENANT_STORAGE_BUCKET=b2b-system
 PLATFORM_ADMIN_EMAIL=platform@example.com
 PLATFORM_ADMIN_PASSWORD=                      # 留空 = seed 時隨機產生並印出一次
 PORT=3000
-EXTERNAL_API_PORT=3001             # 對外 API 的程序（pnpm dev:external-api；ADR-0027 D9）
+EXTERNAL_API_PORT=3001             # 對外 API 的程序（pnpm dev:external-api；[`architecture/06-external-api.md`](06-external-api.md) §9.2 D9）
 NODE_ENV=development
 
 JWT_SECRET=change-me-in-production-min-32-chars
@@ -310,7 +310,7 @@ REALTIME_CONNECTIONS_PER_USER=20   # WebSocket：每個使用者同時的連線�
 TRUST_PROXY=false                  # 反向代理後面才設：跳數或子網路（例：uniquelocal）；限流依它判定客戶端 IP
 LOGIN_MAX_ATTEMPTS=5               # 只用於平台管理者；租戶使用者的鎖定是系統設定 auth.loginMaxAttempts
 LOGIN_LOCKOUT_SECONDS=900          # 同上（租戶：auth.loginLockoutSeconds）
-DIRECT_LOGIN_ENABLED=              # POST /auth/login（email＋密碼直接換 token）；留空：production 關閉、其他開啟；腳本改用 API token（ADR-0027 D15）
+DIRECT_LOGIN_ENABLED=              # POST /auth/login（email＋密碼直接換 token）；留空：production 關閉、其他開啟；腳本改用 API token（[`architecture/06-external-api.md`](06-external-api.md) §9.2 D15）
 
 REALTIME_ALLOWED_ORIGINS=http://localhost:5173   # WebSocket handshake 允許的 Origin（逗號分隔）；同源（租戶自己的網域）一律允許
 
@@ -321,7 +321,7 @@ MAIL_SMTP_POOL_SIZE=5              # SMTP 連線池的連線數（同時寄出�
 MAIL_FROM="B2B System <no-reply@localhost>"
 APP_PUBLIC_URL=http://localhost:5173   # 信裡連結的開頭（瀏覽器看到的前端網址）；也是第一方 client `backstage` 的 redirect URI 開頭
 
-# ── SSO：apps/api 當 OIDC Provider（docs/adr/0019-sso-identity-platform.md）
+# ── SSO：apps/api 當 OIDC Provider（04-sso.md）
 AUTH_APP_URL=http://localhost:5175            # apps/auth 的網址（登入互動頁）
 OIDC_ISSUER=http://localhost:5175/api/oidc    # apps/auth origin 底下的 /api/oidc
 OIDC_JWKS=                                    # 簽 ID token 的私鑰 JWKS JSON；留空 = 啟動時產生臨時金鑰（production 必填）

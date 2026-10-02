@@ -50,7 +50,7 @@
 
 **登入不在 backstage**：`apps/auth` 是全平台共用、不屬於任何租戶的前端（獨立的 origin），`apps/api` 當 OIDC Provider。
 backstage 以授權碼 ＋ PKCE 跳到 apps/auth 登入，再以自己 origin 的 `/api/auth/sso/callback` 換成上圖的 app session。
-平台層級的頁面（外部 IdP 連線、帳號流程；之後的租戶管理，ADR-0020）也在 apps/auth。見 [`04-sso.md`](./04-sso.md)。
+平台層級的頁面（外部 IdP 連線、帳號流程；之後的租戶管理，[`architecture/05-tenancy.md`](05-tenancy.md) §10）也在 apps/auth。見 [`04-sso.md`](./04-sso.md)。
 
 ---
 
@@ -111,7 +111,7 @@ repository ✗──▶ service  （單向）
             Set-Cookie: refresh_token=…; HttpOnly; Secure; SameSite=Lax; Path=/api/auth（backstage 的 host-only cookie）
   ◀─ SessionStore.setTokens()  （access token 只存在記憶體閉包）
   └─▶ GET /auth/profile
-        ◀── 200 { user, roles[], permissions: PermissionKey[], features: TenantFeature[] }（features：租戶啟用的功能，ADR-0021 D8）
+        ◀── 200 { user, roles[], permissions: PermissionKey[], features: TenantFeature[] }（features：租戶啟用的功能，[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D8）
   └─▶ usePermissionStore.setPermissions(permissions)   ← 權限集合水合完成
   └─▶ router.history.replace(returnTo)
 ```
@@ -132,7 +132,7 @@ repository ✗──▶ service  （單向）
         [api] JwtAuthGuard        驗簽 → 取出 sub → 載入 user（含 status 檢查）
               PermissionsGuard    讀 @RequirePermissions('role:update') metadata
                                   → PermissionService.getPermissionSet(userId)
-                                    （關係圖解析、含權限依賴樹閉包、有快取；ADR-0024）
+                                    （關係圖解析、含權限依賴樹閉包、有快取；[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9）
                                   → 集合是否包含 'role:update'？否 → 403
               ZodValidationPipe   body 驗證
               RolesController.update
@@ -164,7 +164,7 @@ repository ✗──▶ service  （單向）
 
 > **關鍵取捨**：access token 不帶權限，代表每次請求都要解析權限集合。這是用
 > 一次快取查詢換取「權限變更立即生效」。見
-> [ADR-0005](../adr/0005-permission-resolved-server-side.md)。
+> [`backend/05-rbac.md`](backend/05-rbac.md) §11。
 
 ---
 
@@ -266,7 +266,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | 想拆出來的東西            | 現在不拆的理由                                                               | 拆的前提                                                                 |
 | ------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | Socket.io 獨立成 realtime 服務 | 推播必須在寫入交易之後、由同一個 service 觸發；拆開就要一條可靠的事件匯流排 | 有了 outbox 或 `LISTEN/NOTIFY` 事件流；連線數大到影響 REST 的延遲        |
-| auth 獨立（後端）服務     | 每個請求都要驗 token 與權限；拆開就是每個請求多一跳。有了第二個產品之後只拆了 **前端**（`apps/auth`，[ADR-0019](../adr/0019-sso-identity-platform.md) D2），OIDC Provider 仍是 api 的模組 | 身分服務要給本平台以外的系統用，且負載或發版節奏與 api 明顯不同         |
+| auth 獨立（後端）服務     | 每個請求都要驗 token 與權限；拆開就是每個請求多一跳。有了第二個產品之後只拆了 **前端**（`apps/auth`，[`architecture/04-sso.md`](04-sso.md) §12.2 D2），OIDC Provider 仍是 api 的模組 | 身分服務要給本平台以外的系統用，且負載或發版節奏與 api 明顯不同         |
 | Redis                     | 快取與 room 都在單一程序的記憶體裡就夠                                       | 見下一段；Postgres `LISTEN/NOTIFY` 能滿足時仍不需要                      |
 
 **api 水平擴展（`replicas > 1`）要同時具備四件事**，缺一就會出錯，所以 compose 目前固定單一執行個體：
@@ -284,7 +284,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 ### 4.4 程序之間的一致性
 
 快取都在各程序的記憶體裡。一個程序寫入之後，先失效本機，再經平台 DB 的 `LISTEN`／`NOTIFY`（`core/broadcast`）通知其他程序
-（[ADR-0027](../adr/0027-api-tokens-external-api.md) D16、D18）。對外 API、之後拆出的 worker、多個 api 執行個體都靠這一層。
+（[`architecture/06-external-api.md`](06-external-api.md) §9.2 D16、D18）。對外 API、之後拆出的 worker、多個 api 執行個體都靠這一層。
 
 | 頻道 | 內容 | 收到時 | 送出的地方 |
 | --- | --- | --- | --- |

@@ -10,7 +10,7 @@ type ServerEventName = keyof ServerToClientEvents;
  * `RealtimeListener`、`RealtimeAudience` 只依賴它，以 room 表達受眾，不認識底層的傳輸層；
  * 換掉 Socket.io 時只換實作。abstract class 同時當 DI token。
  *
- * 只在 `modules/realtime` 內使用；業務模組發佈領域事件，不注入它（ADR-0008）。
+ * 只在 `modules/realtime` 內使用；業務模組發佈領域事件，不注入它（docs/architecture/backend/08-realtime.md §15）。
  */
 export abstract class RealtimePublisher {
   /** 推給這些 room 的聯集，同一條連線只收到一次；沒有 room 時不推。 */

@@ -30,7 +30,7 @@ import {
 import type { CreateTagDto, ListTagDto, ReplaceResourceTagsDto, UpdateTagDto } from './dto/tag.dto';
 import { TagService } from './tag.service';
 
-/** 標籤的定義與指派（docs/adr/0032-tags.md D5、D7）。 */
+/** 標籤的定義與指派（docs/architecture/backend/18-tag.md §7.2 D5、D7）。 */
 @ApiTags('tags')
 @Controller('tags')
 export class TagController {

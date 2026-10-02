@@ -9,7 +9,7 @@ const POLL_INTERVAL_MS = 60_000;
 
 /**
  * 頂列鈴鐺的未讀數。只從伺服器取得（docs/architecture/frontend/09-state-and-storage.md §4.2）；
- * 新通知與已讀由推播讓它失效，推播不可用時退回每分鐘重抓一次（ADR-0026 D8、D12）。
+ * 新通知與已讀由推播讓它失效，推播不可用時退回每分鐘重抓一次（docs/architecture/backend/15-notification.md §12.2 D8、D12）。
  */
 export function useNotificationUnreadCount(): number {
   const hasSession = useHasSession();

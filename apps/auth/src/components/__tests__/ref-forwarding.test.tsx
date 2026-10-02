@@ -15,7 +15,7 @@ import { VirtualList } from '../VirtualList';
  * React 19 把 `ref` 當成一般 prop 傳給函式元件，所以只要元件把 `...rest`
  * 攤到根元素上（或交給 Base UI part），呼叫端就能拿到 DOM 節點。
  * 這支測試把 docs/architecture/frontend/07-ui-system.md §3.1 的第 2 條規則釘住。
- * 複製自 apps/backstage，只留 apps/auth 有複製的元件（docs/adr/0019-sso-identity-platform.md D14）。
+ * 複製自 apps/backstage，只留 apps/auth 有複製的元件（docs/architecture/04-sso.md §12.2 D14）。
  */
 const cases: Array<[string, (ref: RefObject<HTMLElement | null>) => ReactElement]> = [
   ['Button', (ref) => <Button ref={ref as RefObject<HTMLButtonElement>}>x</Button>],

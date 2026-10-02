@@ -5,7 +5,7 @@ import { hostnameOf, requestHost } from '../request-host';
 const trustAll = () => true;
 const trustNone = () => false;
 
-describe('requestHost（docs/adr/0020-physical-tenant-isolation.md D2）', () => {
+describe('requestHost（docs/architecture/05-tenancy.md §10.2 D2）', () => {
   it('不信任代理時只看 Host（X-Forwarded-Host 不能用來換租戶）', () => {
     expect(
       requestHost(

@@ -149,7 +149,7 @@ export class AnnouncementRepository {
 
   /**
    * 以樂觀鎖更新（使用者的編輯、送出、暫停、恢復都遞增 `version`）；版本不符或已刪除回 undefined。
-   * 背景發送改狀態用 `setState`（不遞增：那不是使用者的編輯，ADR-0025 D3）。
+   * 背景發送改狀態用 `setState`（不遞增：那不是使用者的編輯，docs/architecture/backend/14-revisions.md §9.2 D3）。
    */
   async update(
     id: string,

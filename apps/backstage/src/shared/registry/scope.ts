@@ -3,7 +3,7 @@ let active: Array<() => void> | undefined;
 /**
  * 在 `fn` 執行期間（同步部分）收集所有註冊表登記的反註冊函式，回傳一次撤回全部的函式。
  * plugin 容器以它包住 factory：feature 照舊呼叫 `registerXxx()`，不必自己保存回傳值，卸載時就能撤得乾淨
- * （docs/adr/0021-runtime-feature-activation.md D4）。
+ * （docs/architecture/frontend/02-plugin-system.md §9.2 D4）。
  *
  * `fn` 丟例外時先撤回它已經登記的，再把例外往外拋：登記到一半的 plugin 不留殘骸。
  * 可以巢狀：內層收到的也會算進外層。

@@ -94,7 +94,7 @@ describe('DashboardLayout', () => {
     expect(assign).toHaveBeenCalledWith(expect.stringMatching(/\/enter$/));
   });
 
-  it('租戶沒有啟用 tenantSwitch → 帳號選單沒有「切換租戶」（docs/adr/0029-toggleable-platform-features.md D6）', async () => {
+  it('租戶沒有啟用 tenantSwitch → 帳號選單沒有「切換租戶」（docs/architecture/05-tenancy.md §12.2 D6）', async () => {
     featureStore.setState({ statuses: new Map([['tenantSwitch', 'disabled']]) });
     renderShell();
 

@@ -114,7 +114,7 @@ function useDeliveryResultToast() {
 }
 
 /**
- * 送測試事件：每個網址各送一次（docs/adr/0033-feature-params-and-webhook-targets.md D16）。
+ * 送測試事件：每個網址各送一次（docs/architecture/backend/17-webhook.md §10.2 D16）。
  * 只有一個網址時沿用單筆的結果提示；多個時提示幾個成功、幾個失敗。
  */
 export function useWebhookTestSendMutation() {

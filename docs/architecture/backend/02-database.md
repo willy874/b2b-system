@@ -10,19 +10,19 @@
 | 時間         | `timestamptz`，一律存 UTC                                                |
 | 布林         | `NOT NULL DEFAULT false`，不允許三態                                     |
 | 軟刪除       | `deleted_at timestamptz`，唯一索引都帶 `WHERE deleted_at IS NULL`；查詢條件一律用 `notDeleted(table)`（見下方） |
-| 連帶的軟刪除 | 一次操作連帶刪除多列（遞迴刪除資料夾）時帶同一個 `deletion_id uuid`，還原時只還原同一批（[ADR-0025](../../adr/0025-entity-revisions.md) D5；目前 `files`、`file_folders`） |
+| 連帶的軟刪除 | 一次操作連帶刪除多列（遞迴刪除資料夾）時帶同一個 `deletion_id uuid`，還原時只還原同一批（[`backend/14-revisions.md`](14-revisions.md) §9.2 D5；目前 `files`、`file_folders`） |
 | Drizzle 變數 | camelCase 複數：`relationTuples`                                         |
 | 列舉         | Postgres `enum` 型別（不是 `text` + `CHECK`），因為它會出現在 OpenAPI；例外見下方 |
 
-**列舉的例外：多型關聯的類型欄位用 `text` ＋ 程式常數**（[ADR-0025](../../adr/0025-entity-revisions.md) D7）。
+**列舉的例外：多型關聯的類型欄位用 `text` ＋ 程式常數**（[`backend/14-revisions.md`](14-revisions.md) §9.2 D7）。
 `resource_type`（`audit_logs`、`revisions`、回收桶、標籤／留言）與 `relation_tuples.object_type`／`subject_type` 這類
 「指向哪一種資源」的欄位，每新增一種資源就要多一個值；用 enum 就得每次 `ALTER TYPE … ADD VALUE`，而且這個語句不能與使用新值的語句放在同一個交易。
 值集中在程式的常數（camelCase，與稽核、關係圖同一組字串），DTO 以同一份常數產生 `z.enum`，OpenAPI 與 SDK 照樣有型別。
 一般欄位的狀態、種類（例如 `users.status`）仍用 enum。
 
-**軟刪除的查詢條件**（[ADR-0025](../../adr/0025-entity-revisions.md) D8）：`db/schema/soft-delete.ts` 的 `notDeleted(table)`
+**軟刪除的查詢條件**（[`backend/14-revisions.md`](14-revisions.md) §9.2 D8）：`db/schema/soft-delete.ts` 的 `notDeleted(table)`
 （＝`isNull(table.deletedAt)`，也接受 `alias()`），平台 DB 的表從 `@/db/platform/schema` 取得同一個函式。
-ADR 寫的位置是 `db/soft-delete.ts`；實作放在 `db/schema/` 底下，因為 `isActiveRole()`（`db/schema/roles.ts`）要用它，
+該決定寫的位置是 `db/soft-delete.ts`；實作放在 `db/schema/` 底下，因為 `isActiveRole()`（`db/schema/roles.ts`）要用它，
 而 `db/schema/` 只依賴同層（[`conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2）。
 
 | 情境 | 寫法 |
@@ -64,7 +64,7 @@ export const users = pgTable(
     displayName: text("display_name").notNull(),
     passwordHash: text("password_hash"), // pending 時為 null
     status: userStatus("status").notNull().default("pending"),
-    // human | service：服務帳號是不登入的非人類帳號（ADR-0027 D1；查人的地方加 isHumanUser()）
+    // human | service：服務帳號是不登入的非人類帳號（[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D1；查人的地方加 isHumanUser()）
     kind: userKind("kind").notNull().default("human"),
 
     // 撤銷機制：+1 即讓該使用者所有既存 access token 失效
@@ -184,7 +184,7 @@ export const permissions = pgTable(
 | `role_permissions(r, p)` | `tenant:self#<p 的 key>@role:<r>#holder` |
 
 兩張表與 `resource_grants`（[`09-file.md`](./09-file.md)）、migration 0008 的同步 trigger，依 §5.1「破壞性變更拆成兩次部署」
-在 G3a 之後的下一次部署（G3b，[ADR-0024](../../adr/0024-relationship-based-access-control.md)）以 migration 0010 一起刪除，不可回退。
+在 G3a 之後的下一次部署（G3b，[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9）以 migration 0010 一起刪除，不可回退。
 
 ### 2.6 `refresh_tokens`
 
@@ -318,7 +318,7 @@ export const auditLogsArchive = pgTable(
 
 ### 2.10 `relation_tuples`（關係圖的邊）
 
-權限解析的資料來源（[ADR-0024](../../adr/0024-relationship-based-access-control.md)、[`../../rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §6）。
+權限解析的資料來源（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9、[`../../rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §6）。
 一列是一條 `物件#關係@主體`：
 
 | 欄位 | 說明 |
@@ -342,9 +342,9 @@ export const auditLogsArchive = pgTable(
 | `tenant:self#superAdmin@role:<r>#holder` | super-admin 角色（它沒有權限鍵的邊） | seed（`seedRoles` → `ensureSuperAdminTuple`，冪等） |
 | `fileFolder:<id>#<level>@(role:<r>#holder \| user:<u> \| user:*)` | 資料夾授權 | `FileFolderGrantRepository`（[`09-file.md`](./09-file.md)） |
 | `group:<g>#member@(user:<u> \| group:<h>#member)` | 群組的成員；巢狀時主體是另一個群組的成員（§2.14） | `GroupRepository` |
-| `role:<r>#holder@group:<g>#member` | 群組持有角色（不能是 super-admin，ADR-0024 D12） | `GroupRepository` |
+| `role:<r>#holder@group:<g>#member` | 群組持有角色（不能是 super-admin，[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9.3 D12） | `GroupRepository` |
 
-- 刪除角色：只軟刪除角色列，**持有者邊、權限鍵邊、它作為主體的資料夾授權都留著**（ADR-0025 D2，R3 起）。
+- 刪除角色：只軟刪除角色列，**持有者邊、權限鍵邊、它作為主體的資料夾授權都留著**（[`backend/14-revisions.md`](14-revisions.md) §9.2 D2，R3 起）。
   已刪除角色的持有者邊是 **休眠的邊**：主體閉包、使用者的角色（`HELD_ROLE`）、依角色篩選使用者都 join 未刪除的角色而略過它們，
   角色還原時原本的持有者自動回來；`PUT /users/:id/roles` 只刪未刪除角色的邊，不會清掉它們。
   以角色為起點的查詢（`countUsers`、`listUsers`、`findUserIdsByRole`…）不看角色是否刪除，呼叫端先確認角色的狀態。
@@ -370,7 +370,7 @@ G1～G2 期間由舊表上的 trigger 同步寫入這張表（migration 0008，�
 
 ### 2.12 `revisions`（版本歷史）
 
-選擇性加入的實體每次寫入後的整份快照（[ADR-0025](../../adr/0025-entity-revisions.md) D1；完整說明見 [`14-revisions.md`](./14-revisions.md) §2）。
+選擇性加入的實體每次寫入後的整份快照（[`backend/14-revisions.md`](14-revisions.md) §9.2 D1；完整說明見 [`14-revisions.md`](./14-revisions.md) §2）。
 
 | 欄位 | 型別 | 說明 |
 | --- | --- | --- |
@@ -386,7 +386,7 @@ G1～G2 期間由舊表上的 trigger 同步寫入這張表（migration 0008，�
 
 ### 2.13 `notifications`（站內通知）
 
-每位收件人一筆（[ADR-0026](../../adr/0026-notification-center.md) D1；完整說明見 [`15-notification.md`](./15-notification.md) §2）。
+每位收件人一筆（[`backend/15-notification.md`](15-notification.md) §12.2 D1；完整說明見 [`15-notification.md`](./15-notification.md) §2）。
 
 | 欄位 | 型別 | 說明 |
 | --- | --- | --- |
@@ -404,14 +404,14 @@ G1～G2 期間由舊表上的 trigger 同步寫入這張表（migration 0008，�
 
 ### 2.14 `groups`（群組）
 
-純分組（[ADR-0024](../../adr/0024-relationship-based-access-control.md) D11、D12）：只存名稱與說明，成員與持有的角色都是 `relation_tuples` 的邊（§2.10），不另開 `group_members`。
+純分組（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9.3 D11、D12）：只存名稱與說明，成員與持有的角色都是 `relation_tuples` 的邊（§2.10），不另開 `group_members`。
 
 | 欄位 | 型別 | 說明 |
 | --- | --- | --- |
 | `id` | `uuid` PK | |
 | `name` | `text` | 不分大小寫唯一（`groups_name_key`：`lower(name) WHERE deleted_at IS NULL`） |
 | `description` | `text NULL` | |
-| `version` | `integer` | 樂觀鎖；成員與持有角色的寫入不遞增（ADR-0025 D3） |
+| `version` | `integer` | 樂觀鎖；成員與持有角色的寫入不遞增（[`backend/14-revisions.md`](14-revisions.md) §9.2 D3） |
 | `created_at` / `created_by` / `updated_at` / `updated_by` | | `updated_at` 由 trigger 維護（§3.3） |
 | `deleted_at` | `timestamptz NULL` | 軟刪除；成員與持有角色的邊保留（休眠），主體閉包略過已刪除的群組，還原時一起回來 |
 
@@ -420,7 +420,7 @@ migration 0017 手寫兩個 trigger：`deleted_at` 改變時 `authz_revision` +1
 
 ### 2.15 `api_tokens`（API token）與服務帳號
 
-服務帳號是 `users` 的一列（`kind = 'service'`，[ADR-0027](../../adr/0027-api-tokens-external-api.md) D1）：沒有密碼、`email` 是不可投遞的
+服務帳號是 `users` 的一列（`kind = 'service'`，[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D1）：沒有密碼、`email` 是不可投遞的
 `svc-<id>@service.invalid`。使用者列表、人數、最後一位 super-admin（I8）、登入與忘記密碼的 email 查詢、外部 IdP 的自動連結、
 個人資料夾、以權限找通知的收件人都只看人：查詢加上 `isHumanUser()`（`db/schema/users.ts`，與 `notDeleted()` 一樣組合使用）。
 刪除的服務帳號不在回收桶列出、不能還原，保留期滿後與使用者一起由 `trash.purge` 清除。
@@ -443,12 +443,12 @@ migration 0017 手寫兩個 trigger：`deleted_at` 改變時 `authz_revision` +1
 
 ### 2.16 `webhook_subscriptions`、`webhook_events`、`webhook_deliveries`（Webhook）
 
-欄位、索引與保留見 [`17-webhook.md`](./17-webhook.md) §2（[ADR-0030](../../adr/0030-webhooks.md)）。訂閱是設定、硬刪除；事件與投遞紀錄保留 30 天，
+欄位、索引與保留見 [`17-webhook.md`](./17-webhook.md) §2（[`backend/17-webhook.md`](17-webhook.md) §9）。訂閱是設定、硬刪除；事件與投遞紀錄保留 30 天，
 刪除事件時投遞紀錄 CASCADE。這三張表沒有 `deleted_at`，不經 `notDeleted()`。
 
 ### 2.17 `tags`、`resource_tags`（標籤）
 
-欄位、約束與篩選條件 `hasAnyTag()` 見 [`18-tag.md`](./18-tag.md) §2（[ADR-0032](../../adr/0032-tags.md)）。`resource_tags` 是多型關聯（`resource_type` ＋ `resource_id`），
+欄位、約束與篩選條件 `hasAnyTag()` 見 [`18-tag.md`](./18-tag.md) §2（[`backend/18-tag.md`](18-tag.md) §7）。`resource_tags` 是多型關聯（`resource_type` ＋ `resource_id`），
 沒有指向資源的外鍵：資源永久刪除時由擁有者清掉（[`13-trash.md`](./13-trash.md)）。
 
 ---
@@ -626,28 +626,28 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0008_relation_tuples_mirror.sql     手寫：回填、舊表 → relation_tuples 的同步 trigger（G3b 刪除）
 ├── 0009_authz_revision.sql             authz_revision 與遞增 trigger（§2.11）
 ├── 0010_drop_legacy_authz_tables.sql   G3b：刪 0008 的 trigger 與函式、user_roles、role_permissions、resource_grants 與三個 enum
-├── 0011_entity_version.sql             users.version、roles.version（樂觀鎖，ADR-0025 R1；純加法）
-├── 0012_roles_authz_revision.sql       手寫：roles.deleted_at 改變時 authz_revision +1（§2.11，ADR-0025 R3）
+├── 0011_entity_version.sql             users.version、roles.version（樂觀鎖，[`backend/14-revisions.md`](14-revisions.md) §9 R1；純加法）
+├── 0012_roles_authz_revision.sql       手寫：roles.deleted_at 改變時 authz_revision +1（§2.11，[`backend/14-revisions.md`](14-revisions.md) §9 R3）
 ├── 0013_file_deletion_id.sql           files.deletion_id、file_folders.deletion_id ＋ 只涵蓋已刪除列的索引
-│                                       （一次刪除操作的識別，ADR-0025 D5、R4a；純加法，既有的已刪除列是 null）
+│                                       （一次刪除操作的識別，[`backend/14-revisions.md`](14-revisions.md) §9.2 D5、R4a；純加法，既有的已刪除列是 null）
 ├── 0014_revisions.sql                  revisions 表（§2.12）＋ 手寫：每個既有角色的基準版本（第 1 版，actor null；
-│                                       ADR-0025 R5、14-revisions.md §4.2；純加法）
-├── 0015_notifications.sql              notifications 表與三個索引（§2.13，ADR-0026 N1；純加法）
-├── 0016_groups.sql                     groups 表（§2.14，ADR-0024 G4a；純加法）
+│                                       [`backend/14-revisions.md`](14-revisions.md) §9 R5、14-revisions.md §4.2；純加法）
+├── 0015_notifications.sql              notifications 表與三個索引（§2.13，[`backend/15-notification.md`](15-notification.md) §12 N1；純加法）
+├── 0016_groups.sql                     groups 表（§2.14，[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9 G4a；純加法）
 ├── 0017_groups_triggers.sql            手寫：groups.deleted_at 改變時 authz_revision +1、updated_at（§2.11、§3.3）
 ├── 0018_groups_system_role_permissions.sql  手寫：既有租戶的 admin 補 group:*、auditor 補 group:read（§6 的規則）
 ├── 0019_authz_explain_system_roles.sql     手寫：既有租戶的 admin、auditor 補 authz:explain（§6 的規則）
-├── 0020_notification_policies.sql      notification_policies 表（ADR-0028；純加法）
-├── 0021_notification_preferences.sql   個人通知設定（ADR-0028 E3；純加法）
-├── 0022_api_tokens.sql                 users.kind、api_tokens 表（§2.15，ADR-0027 T1；純加法）
+├── 0020_notification_policies.sql      notification_policies 表（[`backend/16-notification-event.md`](16-notification-event.md) §9；純加法）
+├── 0021_notification_preferences.sql   個人通知設定（[`backend/16-notification-event.md`](16-notification-event.md) §9 E3；純加法）
+├── 0022_api_tokens.sql                 users.kind、api_tokens 表（§2.15，[`architecture/06-external-api.md`](../06-external-api.md) §9 T1；純加法）
 ├── 0023_service_account_system_roles.sql   手寫：既有租戶的 admin 補 serviceAccount:*、auditor 補 serviceAccount:read
-├── 0024_webhooks.sql                   webhook_subscriptions、webhook_events、webhook_deliveries（§2.16，ADR-0030；純加法）
+├── 0024_webhooks.sql                   webhook_subscriptions、webhook_events、webhook_deliveries（§2.16，[`backend/17-webhook.md`](17-webhook.md) §9；純加法）
 ├── 0025_webhook_system_roles.sql       手寫：既有租戶的 admin 補 webhook:*、auditor 補 webhook:read
-├── 0026_tags.sql                       tags、resource_tags（§2.17，ADR-0032；純加法）
+├── 0026_tags.sql                       tags、resource_tags（§2.17，[`backend/18-tag.md`](18-tag.md) §7；純加法）
 ├── 0027_tag_system_roles.sql           手寫：既有租戶的 admin 補 tag:*
-├── 0028_notification_overview_idx.sql 通知總覽的兩個索引（ADR-0031 D1；純加法）
+├── 0028_notification_overview_idx.sql 通知總覽的兩個索引（[`backend/19-announcement.md`](19-announcement.md) §9.2 D1；純加法）
 ├── 0029_notification_read_system_roles.sql  手寫：既有租戶的 admin 補 notification:read
-├── 0030_announcements.sql              announcements、announcement_dispatches、notifications.source_id（ADR-0031；純加法）
+├── 0030_announcements.sql              announcements、announcement_dispatches、notifications.source_id（[`backend/19-announcement.md`](19-announcement.md) §9；純加法）
 ├── 0031_announcement_system_roles.sql  手寫：既有租戶的 admin 補 announcement:*、auditor 補 read
 ├── 0032_announcement_event_triggers.sql  公告的事件點：trigger_subject_id 與兩種唯一索引、事件查詢索引（純加法，唯一索引改為部分索引）
 └── …                                   之後的變更接著編號
@@ -655,26 +655,26 @@ db/platform/migrations/                 平台 DB（schema 在 db/platform/schem
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads
 ├── 0001_functions_and_triggers.sql     tenants 的 updated_at
 ├── 0002_platform_admins.sql            platform_admins 與平台的 refresh token
-├── 0003_tenant_storage_bucket.sql      tenants.storage_bucket（每個租戶一個 bucket，ADR-0020 D16）
-├── 0004_platform_rbac_and_provisioning.sql  平台管理者的角色、租戶佈建（ADR-0020 D5、D12）
+├── 0003_tenant_storage_bucket.sql      tenants.storage_bucket（每個租戶一個 bucket，[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D16）
+├── 0004_platform_rbac_and_provisioning.sql  平台管理者的角色、租戶佈建（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D5、D12）
 ├── 0005_platform_accounts_and_idp_switch.sql  平台管理者的 pending 狀態與 platform_auth_tokens、外部 IdP 開關
 ├── 0006_refresh_family_age.sql         platform_refresh_tokens.family_created_at
-├── 0007_tenant_features.sql            tenants.features（ADR-0021）
-├── 0008_feature_flags.sql              feature_flag_overrides（ADR-0022）
-├── 0009_toggleable_features.sql        回收桶、系統設定、外部 IdP、切換租戶改為可關閉的 feature（ADR-0029）
-├── 0010_webhook_feature.sql            features 預設加 webhook，既有租戶啟用（ADR-0030 D8）
-├── 0011_announcement_feature.sql       features 預設加 announcement，既有租戶啟用（ADR-0031 D20）
+├── 0007_tenant_features.sql            tenants.features（[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §9）
+├── 0008_feature_flags.sql              feature_flag_overrides（[`architecture/05-tenancy.md`](../05-tenancy.md) §11）
+├── 0009_toggleable_features.sql        回收桶、系統設定、外部 IdP、切換租戶改為可關閉的 feature（[`architecture/05-tenancy.md`](../05-tenancy.md) §12）
+├── 0010_webhook_feature.sql            features 預設加 webhook，既有租戶啟用（[`backend/17-webhook.md`](17-webhook.md) §9.2 D8）
+├── 0011_announcement_feature.sql       features 預設加 announcement，既有租戶啟用（[`backend/19-announcement.md`](19-announcement.md) §9.2 D20）
 └── …                                   之後的變更接著編號
 ```
 
 產生 migration：租戶 DB `pnpm db:generate`；平台 DB `pnpm --filter @b2b-system/api exec drizzle-kit generate --config drizzle.platform.config.ts`。
 
-2026-09-29 移除工作區、分出平台 DB 時重新建立了基準點（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D20），
+2026-09-29 移除工作區、分出平台 DB 時重新建立了基準點（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D20），
 當時還沒有正式環境資料。既有的開發資料庫要重建：`.env` 改用 `PLATFORM_DATABASE_URL`、`DEFAULT_TENANT_*`（見 `.env.example`），再 `pnpm db:migrate`；
 預設租戶的 database 若留著舊的 migration 紀錄，刪掉重建後再 `pnpm db:seed`（[`../05-tenancy.md`](../05-tenancy.md) §8）。
 新增權限不需要資料 migration：seed 會 upsert 權限目錄；已存在的系統角色要補新權限時，再寫一支手寫 migration。
 
-### 5.3 啟動時檢查每個租戶的版本（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D14）
+### 5.3 啟動時檢查每個租戶的版本（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D14）
 
 `pnpm db:migrate` 先跑平台 DB，再依序跑每個 `active` 租戶；單一租戶失敗不影響其他租戶，最後列出失敗的租戶並以非零結束。
 api 不自己跑 migration，而是比對版本（`core/tenant/tenant-schema.ts`）：
@@ -693,7 +693,7 @@ api 不自己跑 migration，而是比對版本（`core/tenant/tenant-schema.ts`
 
 ## 6. 連線
 
-資料庫分兩種（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D1）：
+資料庫分兩種（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D1）：
 
 | | 內容 | 連線 | DI token |
 | --- | --- | --- | --- |
@@ -784,3 +784,51 @@ CREATE TABLE audit_logs_archive_2026_09 PARTITION OF audit_logs_archive
 屆時保留期清理變成 `DROP TABLE audit_logs_archive_2025_09`（瞬間完成、不產生
 bloat），而不是一個會鎖表數分鐘的大 `DELETE`。索引全部以 `occurred_at` 結尾，
 改造時不需要改查詢。
+
+---
+
+## 8. 設計決策：ORM 採用 Drizzle 而非 Prisma
+
+> 原 ADR-0003，2026-09-19 決定。
+
+### 8.1 背景
+
+使用者指定 Drizzle ORM。這一節記錄為什麼這對 RBAC 專案是好選擇，以及要注意的地方。
+
+### 8.2 決定
+
+採用 **Drizzle ORM** ＋ `drizzle-kit` ＋ `postgres-js` driver。
+
+### 8.3 理由
+
+1. **核心查詢是多表 join。** RBAC 最熱的查詢是
+   「user → user_roles → role_permissions → permissions 的 distinct key 集合」。
+   Drizzle 寫出來就是那個 SQL 的樣子；Prisma 的巢狀 `include` 會變成多次查詢，
+   要一句 SQL 得用 `$queryRaw`（於是失去型別）。
+2. **Schema 就是 TypeScript。** 沒有 `.prisma` DSL，沒有 `prisma generate`
+   這個必須記得跑的步驟。型別從 schema 直接推導。
+3. **DB 特有能力可直接表達。** partial unique index、`CHECK` 約束、
+   `citext` 欄位、`json_agg` ——本專案的不變條件大量依賴這些。
+   Prisma 的 schema DSL 表達不了 partial index，要靠手寫 migration ＋ 繞過
+   schema 的真實狀態。
+4. **無執行期額外負擔。** 純 JavaScript，沒有 Rust query engine binary，
+   容器映像更小、冷啟動更快。
+
+### 8.4 代價
+
+| 代價 | 緩解 |
+| --- | --- |
+| 沒有 Prisma Studio 那樣成熟的 GUI | `drizzle-kit studio` 夠用；複雜查詢直接 psql |
+| Migration 產生不如 Prisma 聰明（欄位改名可能變成 drop+add） | **明定規則：產生後必須人工檢視 SQL**（§5.1） |
+| Trigger / function 要手寫 migration | 本來就要手寫；位置見 §5.2 |
+| 關聯查詢需要自己想清楚 join | 這是優點不是缺點——N+1 不會偷偷發生 |
+| 生態系比 Prisma 小 | 核心功能穩定；NestJS 整合只需要一個 provider |
+
+### 8.5 替代方案
+
+| 方案 | 不採用的理由 |
+| --- | --- |
+| Prisma | 見上；另外 `@prisma/client` 的 binary 讓容器與冷啟動變重 |
+| TypeORM | NestJS 官方範例常用，但 decorator + 反射的型別安全弱，migration 體驗差 |
+| Kysely | 查詢建構器很好，但沒有 schema/migration 管理，要另外配一套 |
+| 純 SQL + `postgres-js` | 型別要自己維護，重構時沒有編譯期保護 |

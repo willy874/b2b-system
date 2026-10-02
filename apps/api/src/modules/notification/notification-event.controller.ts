@@ -14,7 +14,7 @@ import type { UpdateNotificationEventsDto } from './dto/notification-event.dto';
 import { NotificationPolicyService } from './notification-policy.service';
 
 /**
- * 事件管理：租戶層的通知政策（docs/architecture/backend/16-notification-event.md §4、ADR-0028 D9）。
+ * 事件管理：租戶層的通知政策（docs/architecture/backend/16-notification-event.md §4、docs/architecture/backend/16-notification-event.md §9.2 D9）。
  * 與系統設定同性質，沿用 `system:read`／`system:update`（D10）。
  */
 @ApiTags('notifications')

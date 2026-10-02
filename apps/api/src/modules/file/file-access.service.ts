@@ -54,8 +54,8 @@ export class FileAccessService implements OnModuleInit {
     const options = { withDependencies: true, tx };
     const subjects =
       set.subjects ?? (await this.authz.tenantPermissions(actor.id, options)).subjects;
-    // 資料夾掛到專案底下之後，上層鏈多一種節點：這裡加上 'project'（ADR-0015 §延伸）
-    // 對外 API 限縮過的 token：租戶層只認 token 的權限，資料夾上的授權照舊（docs/adr/0027-api-tokens-external-api.md D3）
+    // 資料夾掛到專案底下之後，上層鏈多一種節點：這裡加上 'project'（docs/rbac/07-resource-grants.md §13 §延伸）
+    // 對外 API 限縮過的 token：租戶層只認 token 的權限，資料夾上的授權照舊（docs/architecture/06-external-api.md §9.2 D3）
     const tenantOverride = set.tokenScoped ? { relations: set.permissions } : undefined;
     const checker = await this.authz.checkerFor(
       subjects,
@@ -69,7 +69,7 @@ export class FileAccessService implements OnModuleInit {
 
   /**
    * 每個等級帶來的動作：模型宣告的能力（`can_*`）中，等級靜態蘊含的那些——與群組、角色的反提權是同一個定義
-   * （`capabilitiesOf`，docs/adr/0024-relationship-based-access-control.md G4）。
+   * （`capabilitiesOf`，docs/rbac/01-domain-model.md §9 G4）。
    */
   private levelActions(): LevelActions<FileAction> {
     const model = this.registry.model(true);

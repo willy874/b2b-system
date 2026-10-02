@@ -31,7 +31,7 @@ export interface PreferenceTable {
   localeScope?: string;
 }
 
-/** 可訂閱：feature 在執行期安裝或卸載時，偏好頁跟著更新（docs/adr/0021-runtime-feature-activation.md D4）。 */
+/** 可訂閱：feature 在執行期安裝或卸載時，偏好頁跟著更新（docs/architecture/frontend/02-plugin-system.md §9.2 D4）。 */
 export const preferenceSectionRegistry = createRegistry<string, PreferenceSection>(
   'Preference section',
 );

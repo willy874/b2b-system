@@ -47,7 +47,7 @@ import type {
   UpdateAnnouncementDto,
 } from './dto/announcement.dto';
 
-/** 公告與發送紀錄（docs/adr/0031-announcements.md D15、D20）。 */
+/** 公告與發送紀錄（docs/architecture/backend/19-announcement.md §9.2 D15、D20）。 */
 @ApiTags('announcements')
 @Controller('announcements')
 @RequireFeature('announcement')
@@ -135,7 +135,7 @@ export class AnnouncementController {
   }
 
   @Post(':id/restore')
-  @RequireFeature('trash') // 還原屬於回收桶（docs/adr/0029-toggleable-platform-features.md D3）
+  @RequireFeature('trash') // 還原屬於回收桶（docs/architecture/05-tenancy.md §12.2 D3）
   @HttpCode(200)
   @RequirePermissions(PERMISSION.ANNOUNCEMENT_DELETE)
   @ApiOperation({ summary: '還原刪除的公告（排程中的會是暫停，不會自己開始發）' })

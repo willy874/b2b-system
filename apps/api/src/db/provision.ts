@@ -38,7 +38,7 @@ function identifier(name: string): string {
 }
 
 /**
- * 建立（或對齊）租戶自己的 DB 角色與 database（docs/adr/0020-physical-tenant-isolation.md D4、D12），冪等：
+ * 建立（或對齊）租戶自己的 DB 角色與 database（docs/architecture/05-tenancy.md §10.2 D4、D12），冪等：
  * 重試佈建時已存在的角色會把密碼改回連線字串上的那一組，已存在的 database 沿用。
  * database 的擁有者是租戶的角色，別的角色（`PUBLIC`）不能連線——租戶的連線字串外洩也碰不到別的租戶。
  *

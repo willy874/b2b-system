@@ -58,7 +58,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('通知列表頁的頁面權限（只需要登入，ADR-0026 D9）', () => {
+describe('通知列表頁的頁面權限（只需要登入，docs/architecture/backend/15-notification.md §12.2 D9）', () => {
   it('沒有任何權限 → 進得去（不受權限管制），看得到自己的通知', async () => {
     usePermissionStore.setState({ permissions: new Set(), hydrated: true });
     const { result } = renderHook(() => usePageAccess('/notification'));

@@ -101,7 +101,7 @@ async function openPanel() {
   return screen.findByTestId('notification-panel');
 }
 
-describe('NotificationBell（頂列的通知工具，ADR-0026 D12）', () => {
+describe('NotificationBell（頂列的通知工具，docs/architecture/backend/15-notification.md §12.2 D12）', () => {
   it('徽章顯示未讀數，按鈕的可存取名稱帶數量；打開前不抓列表', async () => {
     renderRoute(routes, '/', []);
     const badge = await screen.findByTestId('notification-unread-count');

@@ -35,13 +35,13 @@ export const TenantDomainSchema = z.string().trim().toLowerCase().regex(HOST_PAT
 export const TenantStatusSchema = z.enum(['provisioning', 'active', 'disabled', 'failed']);
 
 /**
- * 可由平台管理者開關的 feature id（docs/adr/0021-runtime-feature-activation.md D8）：以 `TenantFeature` 出現在 OpenAPI，
- * 前端由 api-sdk 取得型別與常數（與權限鍵同一個做法，ADR-0007）。
+ * 可由平台管理者開關的 feature id（docs/architecture/frontend/02-plugin-system.md §9.2 D8）：以 `TenantFeature` 出現在 OpenAPI，
+ * 前端由 api-sdk 取得型別與常數（與權限鍵同一個做法，docs/architecture/backend/03-api-conventions.md §12）。
  */
 export const TenantFeatureSchema = defineSchema('TenantFeature', z.enum(TENANT_FEATURES));
 
 /**
- * 租戶層的 feature flag 覆寫（docs/adr/0022-feature-flags.md D2）：`{ [key]: boolean }`，沒列出 = 不覆寫。
+ * 租戶層的 feature flag 覆寫（docs/architecture/05-tenancy.md §11.2 D2）：`{ [key]: boolean }`，沒列出 = 不覆寫。
  * key 在 OpenAPI 上是字串（目錄常常是空的，空 enum 產不出可用的型別），由伺服器依目錄驗證。
  */
 export const TenantFlagOverridesSchema = defineSchema(
@@ -49,14 +49,14 @@ export const TenantFlagOverridesSchema = defineSchema(
   z.record(z.string().regex(FEATURE_FLAG_KEY_PATTERN).max(100), z.boolean()),
 );
 
-/** feature 參數的 key（docs/adr/0033-feature-params-and-webhook-targets.md D1）：前端以它對照語系。 */
+/** feature 參數的 key（docs/architecture/05-tenancy.md §13.2 D1）：前端以它對照語系。 */
 export const TenantFeatureParamKeySchema = defineSchema(
   'TenantFeatureParamKey',
   z.enum(TENANT_FEATURE_PARAM_KEYS),
 );
 
 /**
- * 一個 feature 參數在這個租戶的生效值與定義（ADR-0033 D3）。整數有 `min`／`max`／`unit`，字串有 `maxLength`；
+ * 一個 feature 參數在這個租戶的生效值與定義（docs/architecture/05-tenancy.md §13.2 D3）。整數有 `min`／`max`／`unit`，字串有 `maxLength`；
  * 不適用的欄位是 `null`。
  */
 export const TenantFeatureParamSchema = defineSchema(
@@ -77,7 +77,7 @@ export const TenantFeatureParamSchema = defineSchema(
 );
 
 /**
- * 要改的 feature 參數（ADR-0033 D3）：**只列要改的**，`null` 回到預設值。型別與範圍由伺服器依目錄驗證
+ * 要改的 feature 參數（docs/architecture/05-tenancy.md §13.2 D3）：**只列要改的**，`null` 回到預設值。型別與範圍由伺服器依目錄驗證
  * （`VALIDATION_FAILED`，`fields["featureParams.<key>"]`）。
  */
 export const UpdateTenantFeatureParamsSchema = z
@@ -87,7 +87,7 @@ export const UpdateTenantFeatureParamsSchema = z
   )
   .refine((value) => Object.keys(value).length > 0, 'empty');
 
-/** 平台管理者看到的租戶（docs/adr/0020-physical-tenant-isolation.md D12、D13）：不含連線字串。 */
+/** 平台管理者看到的租戶（docs/architecture/05-tenancy.md §10.2 D12、D13）：不含連線字串。 */
 export const PlatformTenantSchema = defineSchema(
   'PlatformTenant',
   z.object({
@@ -98,11 +98,11 @@ export const PlatformTenantSchema = defineSchema(
     /** 第一個是主要網域：信中的連結、進入租戶都用它。 */
     domains: z.array(z.string()),
     storageBucket: z.string(),
-    /** 啟用的 feature（ADR-0021 D8），依 `TENANT_FEATURES` 的順序。 */
+    /** 啟用的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D8），依 `TENANT_FEATURES` 的順序。 */
     features: z.array(TenantFeatureSchema),
-    /** feature flag 的租戶層覆寫（ADR-0022 D2），只含目錄裡有的 key。 */
+    /** feature flag 的租戶層覆寫（docs/architecture/05-tenancy.md §11.2 D2），只含目錄裡有的 key。 */
     flags: TenantFlagOverridesSchema,
-    /** feature 參數（ADR-0033 D3），依目錄的順序，已是生效值。 */
+    /** feature 參數（docs/architecture/05-tenancy.md §13.2 D3），依目錄的順序，已是生效值。 */
     featureParams: z.array(TenantFeatureParamSchema),
     /** 佈建時建立的第一位管理員；`db:migrate` 登記的租戶沒有。 */
     adminEmail: z.string().nullable(),
@@ -156,12 +156,12 @@ export const UpdateTenantSchema = defineSchema(
     .object({
       name: z.string().trim().min(1).max(100).optional(),
       /**
-       * 啟用的 feature 的 **完整清單**（不是增減）：沒列出的就停用，空陣列 = 全部停用（ADR-0021 D8）。
+       * 啟用的 feature 的 **完整清單**（不是增減）：沒列出的就停用，空陣列 = 全部停用（docs/architecture/frontend/02-plugin-system.md §9.2 D8）。
        * 重複的值與其他陣列欄位一樣直接拒絕（`uniqueItems`），所以長度上限就是 id 的總數。
        */
       features: uniqueItems(z.array(TenantFeatureSchema).max(TENANT_FEATURES.length)).optional(),
       /**
-       * feature flag 覆寫的 **完整表**（取代而非增減；ADR-0022 D7）：沒列出的 key 回到全平台層與預設值，
+       * feature flag 覆寫的 **完整表**（取代而非增減；docs/architecture/05-tenancy.md §11.2 D7）：沒列出的 key 回到全平台層與預設值，
        * `{}` = 全部不覆寫。不在目錄裡的 key 回 `VALIDATION_FAILED`。
        */
       flags: TenantFlagOverridesSchema.optional(),

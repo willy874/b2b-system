@@ -50,7 +50,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('ServiceAccountListPage（docs/adr/0027-api-tokens-external-api.md T4）', () => {
+describe('ServiceAccountListPage（docs/architecture/06-external-api.md §9 T4）', () => {
   it('有 serviceAccount:create／delete → 顯示建立與刪除', async () => {
     renderRoute(routes, '/service-account', MANAGER);
     await screen.findByText('CI 建置', undefined, { timeout: 5000 });

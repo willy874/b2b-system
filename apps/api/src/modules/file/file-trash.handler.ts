@@ -24,7 +24,7 @@ import { FileRepository } from './file.repository';
 const OBJECT_DELETE_CONCURRENCY = 16;
 
 /**
- * 檔案的回收桶（ADR-0025 D5、D9、D11；docs/architecture/backend/13-trash.md §7）。還原是 `POST /files/:id/restore`
+ * 檔案的回收桶（docs/architecture/backend/14-revisions.md §9.2 D5、D9、D11；docs/architecture/backend/13-trash.md §7）。還原是 `POST /files/:id/restore`
  * （`FileService.restore`）；這裡只負責列出與到期永久刪除。
  */
 @Injectable()
@@ -78,7 +78,7 @@ export class FileTrashHandler implements TrashHandler, OnModuleInit {
 
   async purge(item: ExpiredTrashItem, tx: Transaction): Promise<boolean> {
     if (!(await this.repo.hardDelete(item.id, tx))) return false;
-    // 標籤的指派是多型關聯、沒有外鍵：一起清掉（docs/adr/0032-tags.md D9）
+    // 標籤的指派是多型關聯、沒有外鍵：一起清掉（docs/architecture/backend/18-tag.md §7.2 D9）
     await this.tags.removeAllFor(RESOURCE_TYPE.FILE, [item.id], tx);
     return true;
   }

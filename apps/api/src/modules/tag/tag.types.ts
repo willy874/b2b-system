@@ -2,7 +2,7 @@ import type { AuthUser } from '@/common/types';
 import type { TenantFeature } from '@/core/tenant';
 
 /**
- * 一個標籤組（docs/adr/0032-tags.md D1）：由擁有者模組在 `onModuleInit` 以 `TagService.registerScope()` 登記。
+ * 一個標籤組（docs/architecture/backend/18-tag.md §7.2 D1）：由擁有者模組在 `onModuleInit` 以 `TagService.registerScope()` 登記。
  * 例：`file`（檔案與資料夾）、`user`（使用者）。
  */
 export interface TagScopeDefinition {

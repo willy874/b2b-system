@@ -140,7 +140,7 @@ function split(message: RelayMessage): RelayMessage[] {
 }
 
 /**
- * 領域事件的跨程序轉送（docs/adr/0027-api-tokens-external-api.md D18）：
+ * 領域事件的跨程序轉送（docs/architecture/06-external-api.md §9.2 D18）：
  *
  * - 本機發佈的推播類事件（`RELAYED_EVENTS`）經平台 DB 的 `NOTIFY` 送給其他程序；
  *   對外 API、之後拆出的 worker 寫入的資料，連在 api 上的使用者才收得到推播。

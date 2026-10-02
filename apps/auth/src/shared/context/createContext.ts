@@ -27,7 +27,7 @@ interface RegisteredPlugin<Attrs> {
  * Plugin 容器。
  * - `use()` 同步執行 factory，attrs 立刻合併到 context（權限註冊必須在這個階段）
  * - `load()` 依註冊順序依序 await 每個 **尚未初始化** 的 `onInit`（I/O 在這個階段）；可以重複呼叫
- * - `install()` / `uninstall()`：App 啟動後才決定的 feature（docs/adr/0021-runtime-feature-activation.md D2）。
+ * - `install()` / `uninstall()`：App 啟動後才決定的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D2）。
  *   `install` 同步註冊後只初始化這一個 plugin；失敗時自動卸載，不影響其他 plugin
  * - `destroy()` 逆向清理，每個 plugin 各自 try/catch；最後停止 context 層級的 `watch`、清空狀態
  *
@@ -147,7 +147,7 @@ export function createCoreContext<
 
   context.install = async (factory: DynamicPluginFactory<Attrs, State, Events>) => {
     const results = register(factory);
-    // attrs 的型別由 declaration merging 永遠存在，執行期卻可能被卸載，是型別說謊（ADR-0021 D3）
+    // attrs 的型別由 declaration merging 永遠存在，執行期卻可能被卸載，是型別說謊（docs/architecture/frontend/02-plugin-system.md §9.2 D3）
     if ('attrs' in results && results.attrs !== undefined) {
       destroyPlugin(results.name);
       throw new Error(`plugin "${results.name}" 以 install() 安裝，不可提供 attrs`);

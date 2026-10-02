@@ -11,11 +11,11 @@ import { TagService } from '@/modules/tag/tag.service';
 import { UserRepository } from './user.repository';
 import { UserService } from './user.service';
 
-/** 使用者的標籤組（docs/adr/0032-tags.md D1）。 */
+/** 使用者的標籤組（docs/architecture/backend/18-tag.md §7.2 D1）。 */
 export const USER_TAG_SCOPE = 'user';
 
 /**
- * 使用者可以貼標籤（docs/adr/0032-tags.md D5、D7）：讀定義要 `user:read`（看得到使用者列表），
+ * 使用者可以貼標籤（docs/architecture/backend/18-tag.md §7.2 D5、D7）：讀定義要 `user:read`（看得到使用者列表），
  * 貼與移除要 `user:update`。服務帳號不在使用者列表，不能貼。
  */
 @Injectable()

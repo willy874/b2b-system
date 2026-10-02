@@ -83,7 +83,7 @@ export class ApprovalService {
   async submit(input: SubmitApprovalInput): Promise<ApprovalRequestDto | undefined> {
     if (await this.repo.findPending(input.type, input.subjectKey)) return undefined;
     const handler = this.handlers.get(input.type);
-    // 審核者是送出當下的快照（ADR-0026 D5）：之後權限變動不補發也不收回
+    // 審核者是送出當下的快照（docs/architecture/backend/15-notification.md §12.2 D5）：之後權限變動不補發也不收回
     const reviewers = await this.permissionService.findActiveUserIdsWithPermission(
       APPROVAL_PERMISSIONS.REVIEW,
     );
@@ -290,7 +290,7 @@ export class ApprovalService {
   }
 
   /**
-   * 結果信是 `approval.result` 的 `email` 管道（ADR-0028 D3、D6、D14）：租戶關掉、或申請人自己關掉時不入列。
+   * 結果信是 `approval.result` 的 `email` 管道（docs/architecture/backend/16-notification-event.md §9.2 D3、D6、D14）：租戶關掉、或申請人自己關掉時不入列。
    * 匿名的申請（註冊）沒有帳號，只看租戶層。判斷的是入列當下的設定，已入列的信不撤回。
    */
   private async enqueueResultMail(request: ApprovalRequestRow, tx: Transaction): Promise<void> {
@@ -313,7 +313,7 @@ export class ApprovalService {
     }
   }
 
-  /** 審批結果通知給申請人（ADR-0026 D11）；匿名的申請（註冊）沒有收件人，只有結果信。 */
+  /** 審批結果通知給申請人（docs/architecture/backend/15-notification.md §12.2 D11）；匿名的申請（註冊）沒有收件人，只有結果信。 */
   private async notifyResult(
     request: ApprovalRequestRow,
     status: 'approved' | 'rejected',
@@ -337,7 +337,7 @@ export class ApprovalService {
     );
   }
 
-  /** 對外事件 `approval.decided`（docs/adr/0030-webhooks.md D2）。 */
+  /** 對外事件 `approval.decided`（docs/architecture/backend/17-webhook.md §9.2 D2）。 */
   private emitDecided(
     request: ApprovalRequestRow,
     decision: 'approved' | 'rejected',

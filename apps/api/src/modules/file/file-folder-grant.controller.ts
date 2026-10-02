@@ -174,7 +174,7 @@ export class FileFolderGrantController {
   }
 
   /**
-   * 某位使用者為什麼能（不能）在這個資料夾做每個動作（ADR-0024 G4b）。查自己不需要權限；查別人要 `authz:explain`
+   * 某位使用者為什麼能（不能）在這個資料夾做每個動作（docs/rbac/01-domain-model.md §9 G4b）。查自己不需要權限；查別人要 `authz:explain`
    * （service 判斷）。路徑上操作者讀不到的節點只回型別（D14）。
    */
   @Get('explain')

@@ -138,7 +138,7 @@ export class PermissionsGuard implements CanActivate {
 
 ### 3.2 平台管理者的端點（`@RequirePlatformPermissions`）
 
-apps/auth 的平台管理者與租戶的使用者是兩份帳號（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D5），
+apps/auth 的平台管理者與租戶的使用者是兩份帳號（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D5），
 權限目錄也是兩份（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §8）。平台的端點宣告
 `@RequirePlatformPermissions('tenant:create')`（所有鍵都要有），同一個 `PermissionsGuard` 判斷：
 
@@ -157,7 +157,7 @@ guard 因此注入 `PlatformAdminService`（查管理者的角色）與 `Platfor
 
 ## 4. `PermissionService`
 
-權限集合由 `core/authz` 的關係圖解析（[ADR-0024](../../adr/0024-relationship-based-access-control.md)、§4.2）：
+權限集合由 `core/authz` 的關係圖解析（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9、§4.2）：
 `AuthzService.tenantPermissionsOf()` 批次解析——主體閉包一條遞迴 CTE、租戶節點上的邊一條查詢，再在記憶體判斷。
 `permissions` 是 **權限依賴樹的閉包**（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §9），
 並多帶 `subjects`（主體閉包，給 `FileAccessService` 解析資料夾授權時沿用）。反提權因為 actor 的集合已是閉包，
@@ -227,14 +227,14 @@ export class PermissionService {
 ```
 
 **反方向：誰持有某個權限**。`findActiveUserIdsWithPermission(key)` 給「要通知有某個權限的人」用（審批送出時的審核者，
-[ADR-0026](../../adr/0026-notification-center.md) D5）：先以 `AuthzService.usersWithTenantRelations()` 的反向遞迴 CTE 找出候選
+[`backend/15-notification.md`](15-notification.md) §12.2 D5）：先以 `AuthzService.usersWithTenantRelations()` 的反向遞迴 CTE 找出候選
 （在租戶節點上持有 `key`、帶來它的鍵或 `superAdmin` 的角色的持有者；過期的邊與已刪除的角色不算），
 去掉停用與刪除的人，再以上面的 `getPermissionSets` 確認——判斷仍由正向解析決定，反向查詢只縮小範圍。
 細節見 [`15-notification.md`](./15-notification.md) §5。
 
 ### 4.1 反提權與 super-admin 角色
 
-**規則只有一條**（[ADR-0024](../../adr/0024-relationship-based-access-control.md) G4）：把某個主體放進 `物件#關係`，主體因此取得的能力，
+**規則只有一條**（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9 G4）：把某個主體放進 `物件#關係`，主體因此取得的能力，
 操作者必須全部都有。「取得了什麼」由關係圖算，不是各 service 手寫：
 
 | 寫入的邊 | 取得的能力（`AuthzService.grantedCapabilities`） | 誰比對 |
@@ -295,7 +295,7 @@ export class PermissionService {
 | `authz.types.ts` | 核心型別 `user`、`group`（`member`：使用者或另一個群組的成員）、`role`（`holder`：使用者或群組的成員）、`tenant`（由權限目錄產生：一個權限鍵一個關係＝直接授予 ∪ `superAdmin` ∪ 包含它的鍵）；每個物件都有隱含的 `tenant` 邊。`group` 是核心型別而不是由模組註冊：主體閉包的 CTE 要知道哪些關係是成員關係、已刪除的節點看哪張表 |
 | `authz.registry.ts` | `register(type)`：業務型別（例：`modules/file/file.authz.ts` 的 `fileRoot`、`fileFolder`、`file`）；第一次取用時組合並驗證 |
 | `authz.repository.ts` | `relation_tuples` 的讀取：主體閉包與帶路徑的版本（`closurePaths`，說明用）（遞迴 CTE 沿 `group#member`、`role#holder` 走，深度上限 8，排除已刪除的角色與群組）、某種物件上的直接邊（濾掉過期的）、`authz_revision`。群組巢狀的層數由寫入端限制在 `GROUP_MAX_NESTING_DEPTH`（6），閉包永遠走得完 |
-| `authz.snapshot.ts` | 把一次判斷需要的邊載入記憶體；**結構邊供應者**（`EdgeProvider`）補上不存在 tuple 表的邊——資料夾的 `parent`／`inherits_from`／`owner` 由 `file_folders` 供應（ADR-0024 D3） |
+| `authz.snapshot.ts` | 把一次判斷需要的邊載入記憶體；**結構邊供應者**（`EdgeProvider`）補上不存在 tuple 表的邊——資料夾的 `parent`／`inherits_from`／`owner` 由 `file_folders` 供應（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9.2 D3） |
 | `authz.checker.ts` | `check`／`explain`／`withEdges`：在快照上展開關係定義，同一個 `物件#關係` 只算一次（記憶化），遞迴深度上限 64；未知的型別或關係視為不成立 |
 | `authz.service.ts` | `tenantPermissionsOf`（全域權限）、`checkerFor`（資源：一次載入操作者在這些型別上的邊，交給判斷器）、`grantedCapabilities`（反提權：放進某個 `物件#關係` 取得的能力，§4.1） |
 | `authz.revision.ts` | 寫入後的失效與跨程序廣播（§5.1） |
@@ -335,7 +335,7 @@ export class PermissionCacheService {
 
 ### 5.1 失效時機：以租戶的 revision 為單位
 
-[ADR-0024](../../adr/0024-relationship-based-access-control.md) D7、D8。角色的持有者、角色的權限鍵、資料夾授權都是
+[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9.2 D7、D8。角色的持有者、角色的權限鍵、資料夾授權都是
 租戶 DB `relation_tuples` 的邊；**任何** 寫入都讓同一個租戶的所有人的權限快取失效，不再逐事件列出「要失效誰」。
 
 ```
@@ -369,14 +369,14 @@ await this.permissionService.permissionsChanged(holders);
 
 - `permissionsChanged(userIds?)` 的 `userIds` 是已知直接受影響的人，只給需要逐人處理的訂閱者（補建個人資料夾）；
   它不是完整清單，也不影響失效範圍。
-- 刪除角色是軟刪除，**持有者邊保留**（休眠，還原角色時原本的持有者自動回來；[ADR-0025](../../adr/0025-entity-revisions.md) D2、
+- 刪除角色是軟刪除，**持有者邊保留**（休眠，還原角色時原本的持有者自動回來；[`backend/14-revisions.md`](14-revisions.md) §9.2 D2、
   [`13-trash.md`](./13-trash.md) §6）。原本的持有者在軟刪除前查出，只用來推播。刪除與還原不寫 `relation_tuples`，
   revision 由 `roles.deleted_at` 的 trigger +1（migration 0012，[`02-database.md`](./02-database.md) §2.11），否則其他程序會把廣播當成舊的略過。
 - 還原角色（`POST /roles/:id/restore`）的反提權與指派角色相同（`assertRolesAssignable`）：角色帶的鍵都要是 actor 持有的。
 - 還原角色到某一版（`POST /roles/:id/revisions/:version/revert`）照改權限的規則：加回的鍵過 `assertGrantable`、`assertNoSelfLockout`，交易後 `permissionsChanged()`（[`14-revisions.md`](./14-revisions.md) §4.3）。
 - 送出廣播是 best-effort：失敗只記 log；提交之後、送出之前程序結束也會漏一次。其他程序最遲在 TTL（60 秒）後重新解析；
   revision 單調遞增，下一次通知也會補上。
-- 粒度是整個租戶：一次授權變更讓那個租戶的每個人下一次請求重算一次（每人一句 CTE，按需）。拆粒度的條件見 ADR-0024 D8。
+- 粒度是整個租戶：一次授權變更讓那個租戶的每個人下一次請求重算一次（每人一句 CTE，按需）。拆粒度的條件見 [`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9.2 D8。
 
 ### 5.2 為什麼是 in-memory 而不是 Redis
 
@@ -588,8 +588,8 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/auth/reset-password`      | `@Public`                        |
 | GET    | `/auth/setup/verify`        | `@Public`                        |
 | POST   | `/auth/setup`               | `@Public`                        |
-| POST   | `/auth/sso/callback`        | `@Public`（授權碼 ＋ PKCE 就是憑證，ADR-0019 D3） |
-| POST   | `/platform/auth/sso/callback` | `@Public`（apps/auth 的 BFF：平台管理者，ADR-0020 D5） |
+| POST   | `/auth/sso/callback`        | `@Public`（授權碼 ＋ PKCE 就是憑證，[`architecture/04-sso.md`](../04-sso.md) §12.2 D3） |
+| POST   | `/platform/auth/sso/callback` | `@Public`（apps/auth 的 BFF：平台管理者，[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D5） |
 | POST   | `/platform/auth/refresh`    | `@Public`                        |
 | POST   | `/platform/auth/logout`     | `@Authenticated`（平台管理者）   |
 | GET    | `/platform/auth/profile`    | `@Authenticated`（平台管理者）   |
@@ -605,7 +605,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/platform/jobs` | `@RequirePlatformPermissions('platformJob:read')` |
 | GET    | `/platform/jobs/:id` | `@RequirePlatformPermissions('platformJob:read')` |
 | POST   | `/platform/jobs/:id/retry` | `@RequirePlatformPermissions('platformJob:retry')` |
-| GET    | `/platform/tenants` | `@RequirePlatformPermissions('tenant:read')`（ADR-0020 D12、D13；只在 apps/auth 的網域） |
+| GET    | `/platform/tenants` | `@RequirePlatformPermissions('tenant:read')`（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D12、D13；只在 apps/auth 的網域） |
 | GET    | `/platform/tenants/:id` | `@RequirePlatformPermissions('tenant:read')` |
 | POST   | `/platform/tenants` | `@RequirePlatformPermissions('tenant:create')` |
 | PATCH  | `/platform/tenants/:id` | `@RequirePlatformPermissions('tenant:update')` |
@@ -615,13 +615,13 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | DELETE | `/platform/tenants/:id` | `@RequirePlatformPermissions('tenant:delete')` |
 | POST   | `/platform/tenants/:id/domains` | `@RequirePlatformPermissions('tenant:update')` |
 | DELETE | `/platform/tenants/:id/domains/:domain` | `@RequirePlatformPermissions('tenant:update')` |
-| GET    | `/tenant/current`           | `@Public`（目前網域的租戶，ADR-0020 D7） |
-| GET    | `/tenants/lookup`           | `@Public`（以代碼找租戶的登入入口，ADR-0020 D11） |
-| GET    | `/oidc-interaction/:uid`    | `@Public`（互動 cookie 就是憑證，ADR-0019 D16） |
+| GET    | `/tenant/current`           | `@Public`（目前網域的租戶，[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D7） |
+| GET    | `/tenants/lookup`           | `@Public`（以代碼找租戶的登入入口，[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D11） |
+| GET    | `/oidc-interaction/:uid`    | `@Public`（互動 cookie 就是憑證，[`architecture/04-sso.md`](../04-sso.md) §12.2 D16） |
 | GET    | `/oidc-interaction/:uid/details` | `@Public`                   |
 | POST   | `/oidc-interaction/:uid/login` | `@Public`                     |
 | POST   | `/oidc-interaction/:uid/abort` | `@Public`                     |
-| GET    | `/oidc-interaction/external/callback` | `@Public`（外部 IdP 跳回；state 就是憑證，ADR-0019 D8） |
+| GET    | `/oidc-interaction/external/callback` | `@Public`（外部 IdP 跳回；state 就是憑證，[`architecture/04-sso.md`](../04-sso.md) §12.2 D8） |
 | GET    | `/oidc-interaction/:uid/discover` | `@Public`（email 網域 → 外部 IdP 連線） |
 | POST   | `/oidc-interaction/:uid/external` | `@Public`                  |
 | GET    | `/oidc-interaction/:uid/external/complete` | `@Public`（一次性 ticket ＋ 互動 cookie） |
@@ -629,10 +629,10 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/auth/profile`             | `@Authenticated`                 |
 | PATCH  | `/auth/profile`             | `@Authenticated`                 |
 | POST   | `/auth/change-password`     | `@Authenticated`                 |
-| GET    | `/auth/api-tokens`          | `@Authenticated`（自己的個人 API token，ADR-0027 D14） |
+| GET    | `/auth/api-tokens`          | `@Authenticated`（自己的個人 API token，[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D14） |
 | POST   | `/auth/api-tokens`          | `@Authenticated`                 |
 | DELETE | `/auth/api-tokens/:tokenId` | `@Authenticated`                 |
-| GET    | `/v1/me`                    | `@Authenticated`（**對外 API**：只認 API token；內部 api 上回 404，ADR-0027 D11） |
+| GET    | `/v1/me`                    | `@Authenticated`（**對外 API**：只認 API token；內部 api 上回 404，[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D11） |
 | GET    | `/v1/folders`               | `file:access` \| `file:read`³（對外 API） |
 | GET    | `/v1/files`                 | `file:access` \| `file:read`³（對外 API） |
 | POST   | `/v1/files`                 | `file:access` \| `file:create`³（對外 API） |
@@ -642,16 +642,16 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | DELETE | `/v1/files/:id/upload`      | `file:access` \| `file:create`³（對外 API） |
 | GET    | `/v1/users`                 | `user:read`（對外 API；只有人） |
 | GET    | `/v1/users/:id`             | `user:read`（對外 API） |
-| GET    | `/notifications`            | `@Authenticated`（只看自己的，ADR-0026 D9） |
+| GET    | `/notifications`            | `@Authenticated`（只看自己的，[`backend/15-notification.md`](15-notification.md) §12.2 D9） |
 | GET    | `/notifications/unread-count` | `@Authenticated`               |
 | POST   | `/notifications/read-all`   | `@Authenticated`                 |
 | POST   | `/notifications/:id/read`   | `@Authenticated`（不是自己的回 404） |
-| GET    | `/notifications/all`        | `notification:read`（通知總覽，ADR-0031 D1） |
-| GET    | `/notification-events`      | `system:read`（ADR-0028 D10）    |
+| GET    | `/notifications/all`        | `notification:read`（通知總覽，[`backend/19-announcement.md`](19-announcement.md) §9.2 D1） |
+| GET    | `/notification-events`      | `system:read`（[`backend/16-notification-event.md`](16-notification-event.md) §9.2 D10）    |
 | PATCH  | `/notification-events`      | `system:update`                  |
-| GET    | `/me/notification-preferences` | `@Authenticated`（只看自己的，ADR-0028 D15） |
+| GET    | `/me/notification-preferences` | `@Authenticated`（只看自己的，[`backend/16-notification-event.md`](16-notification-event.md) §9.2 D15） |
 | PATCH  | `/me/notification-preferences` | `@Authenticated`              |
-| GET    | `/announcements`            | `announcement:read`（ADR-0031 D15） |
+| GET    | `/announcements`            | `announcement:read`（[`backend/19-announcement.md`](19-announcement.md) §9.2 D15） |
 | POST   | `/announcements`            | `announcement:create`            |
 | POST   | `/announcements/audience-preview` | `announcement:update`      |
 | POST   | `/announcements/recurrence-preview` | `announcement:update`    |
@@ -676,11 +676,11 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/users/:id/roles`          | `user:read`                      |
 | PUT    | `/users/:id/roles`          | `user:assignRole`                |
 | GET    | `/users/:id/permissions`    | `user:read`                      |
-| GET    | `/users/:id/permission-sources` | `@Authenticated`：自己；別人要 `authz:explain`（service 判斷，ADR-0024 G4b） |
+| GET    | `/users/:id/permission-sources` | `@Authenticated`：自己；別人要 `authz:explain`（service 判斷，[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9 G4b） |
 | POST   | `/users/:id/reset-password` | `user:resetPassword`             |
 | POST   | `/users/:id/unlock`         | `user:update`                    |
 | POST   | `/users/:id/restore`        | `user:delete`                    |
-| GET    | `/users/:userId/api-tokens` | `user:update`（別人的個人 API token，ADR-0027 D14） |
+| GET    | `/users/:userId/api-tokens` | `user:update`（別人的個人 API token，[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D14） |
 | DELETE | `/users/:userId/api-tokens/:tokenId` | `user:update`           |
 | GET    | `/service-accounts`         | `serviceAccount:read`            |
 | POST   | `/service-accounts`         | `serviceAccount:create`（指派的角色受反提權限制） |
@@ -689,7 +689,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | DELETE | `/service-accounts/:id`     | `serviceAccount:delete`          |
 | PUT    | `/service-accounts/:id/roles` | `serviceAccount:update`（反提權） |
 | GET    | `/service-accounts/:id/tokens` | `serviceAccount:read`         |
-| POST   | `/service-accounts/:id/tokens` | `serviceAccount:update`（token 的有效權限必須是操作者持有的，ADR-0027 D4） |
+| POST   | `/service-accounts/:id/tokens` | `serviceAccount:update`（token 的有效權限必須是操作者持有的，[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D4） |
 | DELETE | `/service-accounts/:id/tokens/:tokenId` | `serviceAccount:update` |
 | GET    | `/webhooks`、`/webhooks/events`、`/webhooks/:id`、`/webhooks/:id/deliveries` | `webhook:read`（feature `webhook`，[`17-webhook.md`](./17-webhook.md) §6） |
 | POST   | `/webhooks`                 | `webhook:create`                 |
@@ -716,7 +716,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/groups/:id`               | `group:read`                     |
 | PATCH  | `/groups/:id`               | `group:update`                   |
 | DELETE | `/groups/:id`               | `group:delete`                   |
-| POST   | `/groups/:id/restore`       | `group:delete`（成員取得的角色受反提權限制，ADR-0024 D11） |
+| POST   | `/groups/:id/restore`       | `group:delete`（成員取得的角色受反提權限制，[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9.3 D11） |
 | GET    | `/groups/:id/members`       | `group:read` ＋ `user:read`（EVERY） |
 | PATCH  | `/groups/:id/members`       | `group:update`（加入的成員取得群組與上層群組的角色：反提權，D11） |
 | GET    | `/groups/:id/roles`         | `group:read` ＋ `role:read`（EVERY） |
@@ -794,3 +794,58 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | 快取失效寫在交易內                    | 寫在交易 **之後**（交易可能 rollback） |
 | `@RequirePermissions('role:updte')`   | 有測試比對權限目錄，typo 會被抓到      |
 | 403 時不留紀錄                        | 每次拒絕都寫 `authz.denied` 稽核       |
+
+---
+
+## 11. 設計決策：權限在伺服器端即時解析，不放進 Token
+
+> 原 ADR-0005，2026-09-19 決定。解析方式後來由 [`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9 延伸（改由關係圖解析、權限集合含依賴樹閉包；§4.2），
+> 「不放進 token、伺服器端即時解析、主動失效快取」不變；失效的粒度也改成整個租戶（§5.1）。
+
+### 11.1 背景
+
+JWT 常見的做法是把使用者的角色或權限寫進 payload，Guard 直接從 token 讀，
+不查資料庫。問題在於 **JWT 簽出之後無法修改**：管理員移除某人的權限後，
+那個人手上的 token 在到期前仍然帶著舊權限。
+
+對一個以 RBAC 為核心產品的系統，這個空窗是不可接受的。流程面的說明見
+[`../../rbac/03-flows.md`](../../rbac/03-flows.md)。
+
+### 11.2 決定
+
+- Access token 的 payload **只有** `{ sub, ver, jti, iat, exp }`，不含角色與權限
+- `PermissionsGuard` 每次請求呼叫 `PermissionService.getPermissionSet(userId)`
+- 該方法走 `PermissionCacheService`：in-memory Map，TTL 60 秒
+- **所有授權變更都主動失效快取**（指派角色、角色權限變更、刪除角色、停用使用者）
+- `GET /auth/profile` 回傳完整權限集合給前端做 UI gating；
+  super-admin 在此展開成全集，讓前端沒有特例分支
+
+### 11.3 理由
+
+1. **權限變更立即生效。** 主動失效讓生效延遲 < 1 秒。60 秒 TTL 只是漏網時的
+   安全網。
+2. **Token 保持小。** 15 個權限鍵寫進 JWT 會讓每個請求的標頭多幾百 bytes。
+3. **成本可接受。** 命中快取時 < 1 ms；未命中時是一句走 index-only scan 的
+   三表 join。
+4. **稽核更準確。** 授權判斷發生在請求當下，用的是當下的真實權限，
+   而不是登入當下的快照。
+5. **super-admin 展開成全集** 讓前端只有一種判斷方式（集合裡有沒有這個鍵），
+   不會有 `if (isSuperAdmin || can(...))` 這種未來會被漏掉的分支。
+
+### 11.4 代價
+
+| 代價 | 緩解 |
+| --- | --- |
+| 每個請求多一次快取查詢 | in-memory Map，成本可忽略 |
+| 快取失效的正確性成為關鍵 | 失效時機在 §5.1 列表化，且有 E2E 測試驗證「移除權限後下一次請求即 403」 |
+| **刪除角色時的順序陷阱**：先刪再查會查不到受影響的人 | 當時明確規定「先查使用者、再刪角色」，並有專門的測試。改成整個租戶失效（§5.1）之後，持有者不再是失效的依據，只用於推播與補建個人資料夾 |
+| 多執行個體時 in-memory 快取不同步 | 60 秒 TTL 是安全網；升級路徑是換 Redis 或 Postgres `LISTEN/NOTIFY`，介面不變（現已採 `LISTEN/NOTIFY`，§5.2） |
+
+### 11.5 替代方案
+
+| 方案 | 不採用的理由 |
+| --- | --- |
+| 權限寫進 JWT | 無法在 token 有效期內撤銷 |
+| 角色寫進 JWT，權限每次查 | 只解決一半：角色變更仍有空窗，而且還是要查 DB |
+| 完全不快取 | 每個請求一次三表 join。可行但沒必要，且列表頁的並發請求會放大 |
+| 改用非常短的 token（30 秒） | 續期請求量暴增，且仍有空窗 |

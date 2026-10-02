@@ -24,7 +24,7 @@ export type ExplainNodeResolver = (
 const ALWAYS_VISIBLE_TYPES = new Set(['tenant', 'fileRoot']);
 
 /**
- * 「為什麼能做 X」的說明（docs/adr/0024-relationship-based-access-control.md D14、G4b）。
+ * 「為什麼能做 X」的說明（docs/rbac/01-domain-model.md §9.3 D14、G4b）。
  *
  * - 查自己不需要權限；查別人要 `authz:explain`（`assertCanExplain`）。
  * - 路徑上的節點依 **操作者** 遮蔽：讀不到的群組、角色、使用者、資源只回型別。操作者直接所屬的群組、直接持有的角色一律顯示。

@@ -23,7 +23,7 @@ import {
 import type { CreateApiTokenDto } from './dto/api-token.dto';
 
 /**
- * 自己的個人 API token（docs/adr/0027-api-tokens-external-api.md D2、D14）：與 `/auth/profile` 同屬個人範圍，
+ * 自己的個人 API token（docs/architecture/06-external-api.md §9.2 D2、D14）：與 `/auth/profile` 同屬個人範圍，
  * 只要登入。token 只在對外 API 有效，這裡只是管理。
  */
 @ApiTags('api-tokens')

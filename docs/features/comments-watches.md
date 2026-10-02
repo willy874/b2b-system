@@ -3,11 +3,11 @@
 - 優先度：P2
 - 狀態：提案
 - 依賴：站內通知（已完成，[`backend/15-notification.md`](../architecture/backend/15-notification.md)；留言、@提及、關注都要通知）
-- 相關：[ADR-0025](../adr/0025-entity-revisions.md) D7（多型關聯的命名）、[ADR-0032](../adr/0032-tags.md)（標籤：同一種「擁有者登記資源類型」的做法）、
+- 相關：[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D7（多型關聯的命名）、[`backend/18-tag.md`](../architecture/backend/18-tag.md) §7（標籤：同一種「擁有者登記資源類型」的做法）、
   [`backend/13-trash.md`](../architecture/backend/13-trash.md)（刪除、還原與永久刪除）、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
-> 原本的提案是「標籤、留言、關注」；標籤已於 2026-10-02 完成並歸檔（[ADR-0032](../adr/0032-tags.md)、[`backend/18-tag.md`](../architecture/backend/18-tag.md)），這份只剩留言與關注。
+> 原本的提案是「標籤、留言、關注」；標籤已於 2026-10-02 完成並歸檔（[`backend/18-tag.md`](../architecture/backend/18-tag.md) §7），這份只剩留言與關注。
 
 ## 背景
 
@@ -15,7 +15,7 @@
 
 可以沿用的既有模式：
 
-- **標籤**（ADR-0032）：擁有者模組在 `onModuleInit` 向通用模組登記資源類型與「能不能改」的 resolver；讀取嵌在擁有者的回應裡；
+- **標籤**（[`backend/18-tag.md`](../architecture/backend/18-tag.md) §7）：擁有者模組在 `onModuleInit` 向通用模組登記資源類型與「能不能改」的 resolver；讀取嵌在擁有者的回應裡；
   永久刪除時擁有者在 `TrashHandler.purge` 清掉多型關聯。留言與關注可以照同一個形狀做。
 - **前端的 feature 不能互相 import 元件**：共用 UI 放 `core/components`（例：`TagAssignDialog`），資料由 feature 以 props 傳入。
 
@@ -48,7 +48,7 @@ watches    resource_type, resource_id, user_id, created_at        pk(resource_ty
 ## 開放問題
 
 1. 通用的讀取端點要擁有者提供 `canView(actor, id)`；列表上要顯示「留言數」時需要批次版本，要多便宜？
-2. `resource_type` 用 text ＋ 程式常數（已由 [ADR-0025](../adr/0025-entity-revisions.md) D7 決定）。
+2. `resource_type` 用 text ＋ 程式常數（已由 [`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D7 決定）。
 3. 第一個接上的資源是檔案嗎？檔案管理器沒有詳情頁，留言面板要放在 LightBox 的資訊欄。
 4. 關注要不要自動加入（例：留言的人、被 @ 的人自動關注）？
 

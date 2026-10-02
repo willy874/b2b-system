@@ -27,7 +27,7 @@ export interface FileItemVM {
   /** 改名、移動（後端的 `capabilities`）。 */
   canUpdate: boolean;
   canDelete: boolean;
-  /** 貼著的標籤（`file` 標籤組，docs/adr/0032-tags.md）。 */
+  /** 貼著的標籤（`file` 標籤組，docs/architecture/backend/18-tag.md §7）。 */
   tags: TagSummary[];
   createdAt: string;
   updatedAt: string;

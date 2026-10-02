@@ -10,7 +10,7 @@ import type { JsonValidationError } from './validation';
 /**
  * 只由 `createJsonSchemaValidator` 動態載入。
  * ajv 會把 schema 編譯成 JavaScript（`new Function`）：之後若啟用不含 `unsafe-eval` 的 CSP，
- * 要改成建置時預先編譯（ajv standalone），見 docs/adr/0010-self-built-json-editor.md。
+ * 要改成建置時預先編譯（ajv standalone），見 docs/architecture/frontend/07-ui-system.md §11.6。
  */
 
 function createAjv(schema: object | boolean) {

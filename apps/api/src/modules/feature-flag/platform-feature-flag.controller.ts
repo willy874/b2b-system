@@ -14,7 +14,7 @@ import type { UpdateFeatureFlagDto } from './dto/feature-flag.dto';
 import { PlatformFeatureFlagService } from './platform-feature-flag.service';
 
 /**
- * 平台管理者的 feature flag（apps/auth，docs/adr/0022-feature-flags.md D8）：目錄與全平台層的覆寫。
+ * 平台管理者的 feature flag（apps/auth，docs/architecture/05-tenancy.md §11.2 D8）：目錄與全平台層的覆寫。
  * 租戶網域上回 `PLATFORM_ONLY`。
  */
 @ApiTags('platform-feature-flags')

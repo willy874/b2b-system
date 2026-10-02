@@ -34,7 +34,7 @@ const CODE_ERROR_KEY = {
 } as const satisfies Record<NonNullable<ReturnType<typeof codeError>>, string>;
 
 /**
- * 建立租戶（docs/adr/0020-physical-tenant-isolation.md D12）：代碼、名稱、第一位管理員。
+ * 建立租戶（docs/architecture/05-tenancy.md §10.2 D12）：代碼、名稱、第一位管理員。
  * 送出後由背景工作佈建（database、migration、管理員的啟用信），這裡不等佈建完成。
  */
 export function CreateTenantDialog({

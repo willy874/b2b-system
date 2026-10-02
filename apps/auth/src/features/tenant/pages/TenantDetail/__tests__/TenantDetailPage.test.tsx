@@ -127,7 +127,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）', () => {
+describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', () => {
   it('啟用中、全部權限 → 停用、刪除、改名、網域管理；主要網域排第一', async () => {
     renderPage(tenantFixture(), ALL);
     expect(await screen.findByTestId('tenant-disable')).toBeInTheDocument();
@@ -183,7 +183,7 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     expect(screen.queryByTestId('tenant-domain-remove')).toBeNull();
   });
 
-  it('啟用的功能：每個 feature 一個開關，反映目前的清單（docs/adr/0021-runtime-feature-activation.md D8）', async () => {
+  it('啟用的功能：每個 feature 一個開關，反映目前的清單（docs/architecture/frontend/02-plugin-system.md §9.2 D8）', async () => {
     renderPage(tenantFixture({ features: ['auditLog'] }), ALL);
     const rows = await screen.findAllByTestId('tenant-feature');
     expect(rows.map((el) => el.dataset.value)).toEqual([
@@ -234,7 +234,7 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     });
   });
 
-  it('啟用的功能：關閉外部 IdP 的確認框另外說明對登入的影響（docs/adr/0029-toggleable-platform-features.md D5）', async () => {
+  it('啟用的功能：關閉外部 IdP 的確認框另外說明對登入的影響（docs/architecture/05-tenancy.md §12.2 D5）', async () => {
     await initI18n('zh-TW');
     i18n.addResourceBundle('zh-TW', 'translation', tenantZhTW, true, true);
     renderPage(tenantFixture(), ALL);
@@ -328,7 +328,7 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     await waitFor(() => expect(router.state.status).toBe('idle'));
   });
 
-  it('試行開關：沒有 featureFlag:read → 不顯示這一區（docs/adr/0022-feature-flags.md D8）', async () => {
+  it('試行開關：沒有 featureFlag:read → 不顯示這一區（docs/architecture/05-tenancy.md §11.2 D8）', async () => {
     renderPage(tenantFixture(), ALL);
     expect(await screen.findByTestId('tenant-disable')).toBeInTheDocument();
     expect(screen.queryByTestId('tenant-flag')).toBeNull();
@@ -343,7 +343,7 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     expect(killed[0]?.closest('li')?.dataset.value).toBe('user.bulkInvite');
   });
 
-  it('試行開關：打開直接送出完整的覆寫表（docs/adr/0022-feature-flags.md D7）', async () => {
+  it('試行開關：打開直接送出完整的覆寫表（docs/architecture/05-tenancy.md §11.2 D7）', async () => {
     const tenant = tenantFixture({ flags: { 'user.bulkInvite': false } });
     update.mockResolvedValue(tenant);
     renderPage(tenant, FLAG_ADMIN);
@@ -399,7 +399,7 @@ describe('租戶詳情（docs/adr/0020-physical-tenant-isolation.md D12、D13）
     }
   });
 
-  describe('feature 參數（docs/adr/0033-feature-params-and-webhook-targets.md）', () => {
+  describe('feature 參數（docs/architecture/05-tenancy.md §13）', () => {
     async function paramRow(key: string): Promise<HTMLElement> {
       const rows = await screen.findAllByTestId('tenant-param');
       const row = rows.find((el) => el.dataset.value === key);

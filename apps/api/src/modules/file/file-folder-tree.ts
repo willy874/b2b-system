@@ -18,7 +18,7 @@ const TREE_TTL_MS = 60_000;
 /** 租戶數的上限（異常時不無限成長）；一個租戶一筆。 */
 const MAX_TENANTS = 1_000;
 
-/** 平台 DB 上的廣播頻道（docs/adr/0027-api-tokens-external-api.md D16）。 */
+/** 平台 DB 上的廣播頻道（docs/architecture/06-external-api.md §9.2 D16）。 */
 export const FILE_FOLDER_TREE_CHANNEL = 'file_folder_tree';
 
 interface Entry {
@@ -101,7 +101,7 @@ export class FileFolderTree implements OnModuleInit {
   }
 }
 
-/** 一個程序服務所有租戶：key 一定要帶租戶（docs/adr/0020-physical-tenant-isolation.md D17）。 */
+/** 一個程序服務所有租戶：key 一定要帶租戶（docs/architecture/05-tenancy.md §10.2 D17）。 */
 function tenantKey(): string {
   return currentTenant()?.id ?? '-';
 }

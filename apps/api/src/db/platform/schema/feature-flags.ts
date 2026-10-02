@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { check, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 /**
- * 全平台層的 feature flag 覆寫（docs/adr/0022-feature-flags.md D2、D3）：沒有列 = 不覆寫。
+ * 全平台層的 feature flag 覆寫（docs/architecture/05-tenancy.md §11.2 D2、D3）：沒有列 = 不覆寫。
  * `off` 是緊急開關，蓋過租戶層；`on` 是全面開放，租戶層仍可以個別關掉。
  */
 export const featureFlagOverrides = pgTable(

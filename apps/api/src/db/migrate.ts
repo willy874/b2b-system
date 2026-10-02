@@ -11,7 +11,7 @@ import { registerTenant } from './platform/register-tenant';
 import { ensureExtensions, migrateTenantDatabase, PLATFORM_MIGRATIONS_FOLDER } from './provision';
 
 /**
- * 先跑平台 DB，再依序跑每個租戶的 DB（docs/adr/0020-physical-tenant-isolation.md D14）。
+ * 先跑平台 DB，再依序跑每個租戶的 DB（docs/architecture/05-tenancy.md §10.2 D14）。
  * 單一租戶失敗不影響其他租戶；結束時列出失敗的租戶並以非零結束。
  *
  * 平台 DB 還沒有任何租戶、且設定了 `DEFAULT_TENANT_DATABASE_URL` 時，先登記預設租戶

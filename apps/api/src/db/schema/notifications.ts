@@ -3,14 +3,14 @@ import { index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizz
 
 import { users } from './users';
 
-/** 通知的連結：前端的 route id ＋ 參數（ADR-0026 D3）。路由改名或搬移時舊通知不會壞。 */
+/** 通知的連結：前端的 route id ＋ 參數（docs/architecture/backend/15-notification.md §12.2 D3）。路由改名或搬移時舊通知不會壞。 */
 export interface NotificationLinkValue {
   route: string;
   params: Record<string, string>;
 }
 
 /**
- * 站內通知（docs/architecture/backend/15-notification.md、ADR-0026 D1）：每位收件人一筆。
+ * 站內通知（docs/architecture/backend/15-notification.md、docs/architecture/backend/15-notification.md §12.2 D1）：每位收件人一筆。
  *
  * - `type` 是 `<模組>.<事件>`（text ＋ 擁有者模組的常數，與 `defineJob` 同一種命名；不是 Postgres enum，02-database.md §1）。
  * - `params` 只放組句子用的名稱快照，不存整份資料、也不存權限相關的東西。
@@ -30,7 +30,7 @@ export const notifications = pgTable(
     /** 觸發的人；null＝系統（或那個人已被永久刪除）。 */
     actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
     /**
-     * 產生這則通知的來源（公告的發送紀錄 id，docs/adr/0031-announcements.md D4）；程式發出的通知為 null。
+     * 產生這則通知的來源（公告的發送紀錄 id，docs/architecture/backend/19-announcement.md §9.2 D4）；程式發出的通知為 null。
      * 不加外鍵：發送紀錄清掉後，通知仍依自己的保留期存在。
      */
     sourceId: uuid('source_id'),
@@ -50,7 +50,7 @@ export const notifications = pgTable(
     index('notifications_read_at_idx')
       .on(t.readAt)
       .where(sql`${t.readAt} IS NOT NULL`),
-    // 通知總覽（跨收件人，docs/adr/0031-announcements.md D1）：上面的索引都以收件人開頭，不分收件人的列表用不到。
+    // 通知總覽（跨收件人，docs/architecture/backend/19-announcement.md §9.2 D1）：上面的索引都以收件人開頭，不分收件人的列表用不到。
     // 依類型篩選另有一個；收件人、觸發者的篩選以收件人開頭的索引或過濾處理
     index('notifications_created_idx').on(t.createdAt, t.id),
     index('notifications_type_created_idx').on(t.type, t.createdAt, t.id),

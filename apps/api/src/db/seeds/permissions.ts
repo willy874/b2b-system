@@ -36,43 +36,43 @@ export const PERMISSION_SEED = [
   ['job', 'read', 'permission.job.read', 800],
   ['job', 'retry', 'permission.job.retry', 801],
 
-  // 外部 IdP 連線（docs/adr/0019-sso-identity-platform.md D8、D9）
+  // 外部 IdP 連線（docs/architecture/04-sso.md §12.2 D8、D9）
   ['identityProvider', 'create', 'permission.identityProvider.create', 1100],
   ['identityProvider', 'read', 'permission.identityProvider.read', 1101],
   ['identityProvider', 'update', 'permission.identityProvider.update', 1102],
   ['identityProvider', 'delete', 'permission.identityProvider.delete', 1103],
 
-  // 群組（docs/adr/0024-relationship-based-access-control.md D11、D12）
+  // 群組（docs/rbac/01-domain-model.md §9.3 D11、D12）
   ['group', 'create', 'permission.group.create', 1200],
   ['group', 'read', 'permission.group.read', 1201],
   ['group', 'update', 'permission.group.update', 1202],
   ['group', 'delete', 'permission.group.delete', 1203],
   ['group', 'assignRole', 'permission.group.assignRole', 1204],
 
-  // 授權說明：別人的有效權限與來源、資料夾存取的路徑（docs/adr/0024-relationship-based-access-control.md D14）
+  // 授權說明：別人的有效權限與來源、資料夾存取的路徑（docs/rbac/01-domain-model.md §9.3 D14）
   ['authz', 'explain', 'permission.authz.explain', 1300],
 
-  // 服務帳號與它的 API token（docs/adr/0027-api-tokens-external-api.md D14）
+  // 服務帳號與它的 API token（docs/architecture/06-external-api.md §9.2 D14）
   ['serviceAccount', 'create', 'permission.serviceAccount.create', 1400],
   ['serviceAccount', 'read', 'permission.serviceAccount.read', 1401],
   ['serviceAccount', 'update', 'permission.serviceAccount.update', 1402],
   ['serviceAccount', 'delete', 'permission.serviceAccount.delete', 1403],
 
-  // Webhook 訂閱與投遞紀錄（docs/adr/0030-webhooks.md D6）
+  // Webhook 訂閱與投遞紀錄（docs/architecture/backend/17-webhook.md §9.2 D6）
   ['webhook', 'create', 'permission.webhook.create', 1500],
   ['webhook', 'read', 'permission.webhook.read', 1501],
   ['webhook', 'update', 'permission.webhook.update', 1502],
   ['webhook', 'delete', 'permission.webhook.delete', 1503],
 
-  // 標籤的定義（docs/adr/0032-tags.md D5）；貼與移除跟著目標資源的編輯權限，沒有權限鍵
+  // 標籤的定義（docs/architecture/backend/18-tag.md §7.2 D5）；貼與移除跟著目標資源的編輯權限，沒有權限鍵
   ['tag', 'create', 'permission.tag.create', 1600],
   ['tag', 'update', 'permission.tag.update', 1601],
   ['tag', 'delete', 'permission.tag.delete', 1602],
 
-  // 通知總覽：租戶內所有人的站內通知（docs/adr/0031-announcements.md D1、D2）
+  // 通知總覽：租戶內所有人的站內通知（docs/architecture/backend/19-announcement.md §9.2 D1、D2）
   ['notification', 'read', 'permission.notification.read', 1700],
 
-  // 公告與排程通知（docs/adr/0031-announcements.md D15）；publish 獨立於 update：能寫草稿的人不一定能對全租戶發話
+  // 公告與排程通知（docs/architecture/backend/19-announcement.md §9.2 D15）；publish 獨立於 update：能寫草稿的人不一定能對全租戶發話
   ['announcement', 'create', 'permission.announcement.create', 1800],
   ['announcement', 'read', 'permission.announcement.read', 1801],
   ['announcement', 'update', 'permission.announcement.update', 1802],
@@ -103,7 +103,7 @@ export function isPermissionKey(value: string): value is PermissionKey {
   return (ALL_PERMISSION_KEYS as string[]).includes(value);
 }
 
-// ── 權限依賴樹（docs/rbac/02-permission-catalog.md §9、docs/adr/0024-relationship-based-access-control.md D6）──
+// ── 權限依賴樹（docs/rbac/02-permission-catalog.md §9、docs/rbac/01-domain-model.md §9.2 D6）──
 
 /**
  * 一個權限鍵帶來的其他鍵：

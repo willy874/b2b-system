@@ -124,7 +124,7 @@ interface PageBody {
 
 // ── 生命週期 ─────────────────────────────────────────────────
 
-describe('站內通知（docs/architecture/backend/15-notification.md、ADR-0026）', () => {
+describe('站內通知（docs/architecture/backend/15-notification.md、docs/architecture/backend/15-notification.md §12）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = JWT_SECRET;
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN_EMAIL;
@@ -155,7 +155,7 @@ describe('站內通知（docs/architecture/backend/15-notification.md、ADR-0026
 
   // ── 收件人：持有某個權限的人 ─────────────────────────────
 
-  describe('PermissionService.findActiveUserIdsWithPermission（ADR-0026 D5）', () => {
+  describe('PermissionService.findActiveUserIdsWithPermission（docs/architecture/backend/15-notification.md §12.2 D5）', () => {
     it('含 super-admin 與持有的角色；排除沒有權限、停用、未啟用、刪除的人、已刪除的角色與過期的邊', async () => {
       const adminId = await roleIdOf('admin');
       const reviewer = await createUser('holders-reviewer@example.com', [adminId]);
@@ -200,7 +200,7 @@ describe('站內通知（docs/architecture/backend/15-notification.md、ADR-0026
 
   // ── notify ────────────────────────────────────────────────
 
-  describe('NotificationService.notify（ADR-0026 D2）', () => {
+  describe('NotificationService.notify（docs/architecture/backend/15-notification.md §12.2 D2）', () => {
     it('與業務寫入在同一個交易：提交後才看得到；rollback 時一起消失', async () => {
       const recipient = await createUser('notify-tx@example.com');
       const service = app.get(NotificationService);
@@ -253,7 +253,7 @@ describe('站內通知（docs/architecture/backend/15-notification.md、ADR-0026
 
   // ── 端點 ─────────────────────────────────────────────────
 
-  describe('端點（ADR-0026 D9）', () => {
+  describe('端點（docs/architecture/backend/15-notification.md §12.2 D9）', () => {
     let me: string;
     let other: string;
     let mine: NotificationRow[];
@@ -399,7 +399,7 @@ describe('站內通知（docs/architecture/backend/15-notification.md、ADR-0026
 
   // ── 通知總覽 ─────────────────────────────────────────────
 
-  describe('通知總覽 GET /notifications/all（ADR-0031 D1、D2）', () => {
+  describe('通知總覽 GET /notifications/all（docs/architecture/backend/19-announcement.md §9.2 D1、D2）', () => {
     let alice: string;
     let bob: string;
     let adminUser: string;
@@ -522,7 +522,7 @@ describe('站內通知（docs/architecture/backend/15-notification.md、ADR-0026
 
   // ── 寫入點 ───────────────────────────────────────────────
 
-  describe('寫入點（ADR-0026 D11）', () => {
+  describe('寫入點（docs/architecture/backend/15-notification.md §12.2 D11）', () => {
     it('匿名註冊 → 每位審核者收到 approval.pending；核准後沒有結果通知（沒有收件人）', async () => {
       const reviewer = await createUser('wp-reviewer@example.com', [await roleIdOf('admin')]);
       const auditor = await createUser('wp-auditor@example.com', [await roleIdOf('auditor')]);
@@ -634,7 +634,7 @@ describe('站內通知（docs/architecture/backend/15-notification.md、ADR-0026
 
   // ── 保留清理 ─────────────────────────────────────────────
 
-  describe('notification.cleanup（ADR-0026 D10）', () => {
+  describe('notification.cleanup（docs/architecture/backend/15-notification.md §12.2 D10）', () => {
     it('依系統設定刪除「已讀超過 N 天」與「每人超過上限的最舊通知」，未讀在上限內保留', async () => {
       await db.delete(notifications);
       const heavy = await createUser('cleanup-heavy@example.com');

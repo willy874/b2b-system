@@ -5,7 +5,7 @@ export const LOGOUT_REASON = 'logout';
 
 /**
  * 這些「原因」其實就是登出：自己登出、同一個 IdP session 的其他產品登出（單一登出回 `AUTH_REFRESH_REVOKED`，
- * docs/adr/0019-sso-identity-platform.md D5）、主要 session 結束時一併結束的其他後端 session。
+ * docs/architecture/04-sso.md §12.2 D5）、主要 session 結束時一併結束的其他後端 session。
  */
 const SIGNED_OUT_REASONS: ReadonlySet<string> = new Set([
   LOGOUT_REASON,

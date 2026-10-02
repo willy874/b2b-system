@@ -95,7 +95,7 @@
 > 上面四個 CRUD 鍵是 **全域** 的：持有者對所有資料夾（含中斷繼承的私人資料夾）都有該動作。
 > 一般成員拿 `file:access`，再由資料夾授權（viewer / contributor / editor / manager）決定範圍，
 > 另有「能上傳的人可以改名、移動、刪除自己上傳的東西」的擁有者規則。
-> 模型、等級與解析規則見 [`07-resource-grants.md`](./07-resource-grants.md)（[ADR-0015](../adr/0015-file-folder-access.md)）。
+> 模型、等級與解析規則見 [`07-resource-grants.md`](./07-resource-grants.md)（[`rbac/07-resource-grants.md`](07-resource-grants.md) §13）。
 > 資料夾沿用同一組權限，不另設 `fileFolder:*`。還在上傳中（`pending`）的檔案只有上傳者本人看得到，見
 > [`../architecture/backend/09-file.md`](../architecture/backend/09-file.md) §4。
 
@@ -115,12 +115,12 @@
 | 權限鍵                     | 顯示名稱（zh-TW） | 說明 |
 | -------------------------- | ----------------- | ---- |
 | `identityProvider:create`  | 建立外部 IdP 連線 | 新增 OIDC 連線（issuer、client id／secret、網域、找不到帳號時的處理方式）；寫稽核 `identityProvider.create`（不含 secret） |
-| `identityProvider:read`    | 檢視外部 IdP 連線 | 連線清單、網域與要登記在外部 IdP 的 redirect URI；**client secret 永遠不回傳**（ADR-0019 D11） |
+| `identityProvider:read`    | 檢視外部 IdP 連線 | 連線清單、網域與要登記在外部 IdP 的 redirect URI；**client secret 永遠不回傳**（[`architecture/04-sso.md`](../architecture/04-sso.md) §12.2 D11） |
 | `identityProvider:update`  | 編輯外部 IdP 連線 | 改設定、網域、啟用狀態與輪替 secret；稽核只記「換過 secret」 |
 | `identityProvider:delete`  | 刪除外部 IdP 連線 | 軟刪除並釋出網域；已連結的外部身分留著，但不能再以這個連線登入 |
 
-> 網域設為「只允許 SSO」後，那個網域的帳號不能用密碼登入、不能申請重設密碼（ADR-0019 D9）。
-> 連線屬於租戶（[ADR-0020](../adr/0020-physical-tenant-isolation.md) D18），管理頁在 backstage 的 `/identity-provider`。
+> 網域設為「只允許 SSO」後，那個網域的帳號不能用密碼登入、不能申請重設密碼（[`architecture/04-sso.md`](../architecture/04-sso.md) §12.2 D9）。
+> 連線屬於租戶（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10.2 D18），管理頁在 backstage 的 `/identity-provider`。
 
 ### 2.10 `group` — 群組
 
@@ -128,7 +128,7 @@
 | ------------------ | ----------------- | ---- |
 | `group:create`     | 建立群組          | 建立群組（名稱、說明） |
 | `group:read`       | 檢視群組          | 群組列表與詳情、成員、群組持有的角色 |
-| `group:update`     | 編輯群組          | 修改名稱與說明；**增減成員**（含把群組加進另一個群組）。加成員等於指派群組持有的角色，受反提權限制（[ADR-0024](../adr/0024-relationship-based-access-control.md) D11） |
+| `group:update`     | 編輯群組          | 修改名稱與說明；**增減成員**（含把群組加進另一個群組）。加成員等於指派群組持有的角色，受反提權限制（[`rbac/01-domain-model.md`](01-domain-model.md) §9.3 D11） |
 | `group:delete`     | 刪除群組          | 軟刪除群組；成員與持有角色的邊保留，還原時一起回來 |
 | `group:assignRole` | 讓群組持有角色    | 增減群組持有的角色。**受反提權限制**；super-admin 不能由群組持有（D12） |
 
@@ -140,7 +140,7 @@
 
 | 權限鍵          | 顯示名稱（zh-TW） | 說明 |
 | --------------- | ----------------- | ---- |
-| `authz:explain` | 檢視授權來源      | 查看 **別人** 的有效權限與每個權限的來源、某人為什麼能（不能）存取某個資料夾（[ADR-0024](../adr/0024-relationship-based-access-control.md) D14）。查自己不需要權限 |
+| `authz:explain` | 檢視授權來源      | 查看 **別人** 的有效權限與每個權限的來源、某人為什麼能（不能）存取某個資料夾（[`rbac/01-domain-model.md`](01-domain-model.md) §9.3 D14）。查自己不需要權限 |
 
 > 說明的路徑會經過使用者、群組、角色，所以依賴這三種的 `read`；路徑上操作者讀不到的節點（例：讀不到的資料夾）只顯示種類，不顯示名稱。
 
@@ -148,7 +148,7 @@
 
 | 權限鍵                  | 顯示名稱（zh-TW） | 說明 |
 | ----------------------- | ----------------- | ---- |
-| `serviceAccount:create` | 建立服務帳號      | 建立租戶內的非人類帳號（[ADR-0027](../adr/0027-api-tokens-external-api.md) D1） |
+| `serviceAccount:create` | 建立服務帳號      | 建立租戶內的非人類帳號（[`architecture/06-external-api.md`](../architecture/06-external-api.md) §9.2 D1） |
 | `serviceAccount:read`   | 檢視服務帳號      | 服務帳號列表與詳情、持有的角色、它的 API token（不含 secret） |
 | `serviceAccount:update` | 編輯服務帳號      | 修改名稱、停用與啟用、**增減持有的角色**、**建立與撤銷它的 API token**。角色與 token 都受反提權限制（D4） |
 | `serviceAccount:delete` | 刪除服務帳號      | 軟刪除；它的 token 一併失效，不進回收桶、不能還原 |
@@ -160,7 +160,7 @@
 
 | 權限鍵           | 顯示名稱（zh-TW） | 說明 |
 | ---------------- | ----------------- | ---- |
-| `webhook:create` | 建立 Webhook      | 訂閱對外事件，事件發生時 POST 到指定網址（[ADR-0030](../adr/0030-webhooks.md)） |
+| `webhook:create` | 建立 Webhook      | 訂閱對外事件，事件發生時 POST 到指定網址（[`backend/17-webhook.md`](../architecture/backend/17-webhook.md) §9） |
 | `webhook:read`   | 檢視 Webhook      | 訂閱列表與詳情、投遞紀錄（狀態碼、耗時、回應開頭）；不含密鑰 |
 | `webhook:update` | 編輯 Webhook      | 修改網址與事件、停用與啟用、**輪替密鑰**、送測試事件、手動重送 |
 | `webhook:delete` | 刪除 Webhook      | 硬刪除；投遞紀錄一併刪除，不進回收桶 |
@@ -172,7 +172,7 @@
 
 | 權限鍵       | 顯示名稱（zh-TW） | 說明 |
 | ------------ | ----------------- | ---- |
-| `tag:create` | 建立標籤          | 在某個標籤組（檔案、使用者）新增標籤定義（[ADR-0032](../adr/0032-tags.md) D5） |
+| `tag:create` | 建立標籤          | 在某個標籤組（檔案、使用者）新增標籤定義（[`backend/18-tag.md`](../architecture/backend/18-tag.md) §7.2 D5） |
 | `tag:update` | 編輯標籤          | 改標籤的名稱與顏色 |
 | `tag:delete` | 刪除標籤          | 硬刪除；所有資源上的這個標籤一併移除 |
 
@@ -183,7 +183,7 @@
 
 | 權限鍵              | 顯示名稱（zh-TW） | 說明 |
 | ------------------- | ----------------- | ---- |
-| `notification:read` | 檢視所有通知      | 通知總覽：租戶內 **所有人** 的站內通知，依類型、收件人、觸發者、時間、已讀篩選（[ADR-0031](../adr/0031-announcements.md) D1） |
+| `notification:read` | 檢視所有通知      | 通知總覽：租戶內 **所有人** 的站內通知，依類型、收件人、觸發者、時間、已讀篩選（[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9.2 D1） |
 
 > 每個人看自己的通知不需要這個鍵（§2.17）。通知的參數帶申請人名稱、角色名稱等，所以只預設給 `admin`，`auditor` 不預設（D2）。
 
@@ -191,7 +191,7 @@
 
 | 權限鍵                  | 顯示名稱（zh-TW） | 說明 |
 | ----------------------- | ----------------- | ---- |
-| `announcement:create`   | 建立公告          | 建立草稿（[ADR-0031](../adr/0031-announcements.md) D15） |
+| `announcement:create`   | 建立公告          | 建立草稿（[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9.2 D15） |
 | `announcement:read`     | 檢視公告          | 公告列表與詳情、發送紀錄（人數、已讀數） |
 | `announcement:update`   | 編輯公告          | 修改草稿的標題、內文、受眾、時間；預覽受眾人數。排程中、暫停中的公告另要 `announcement:publish` |
 | `announcement:delete`   | 刪除公告          | 軟刪除（進回收桶）與還原；排程中的刪除時改成暫停 |
@@ -206,10 +206,10 @@
 - 檢視／編輯自己的個人資料（`GET|PATCH /auth/profile`）
 - 變更自己的密碼（`POST /auth/change-password`）
 - 檢視／修改自己的偏好設定（語系、時區）
-- 檢視與修改自己的通知設定（`GET`／`PATCH /me/notification-preferences`；[ADR-0028](../adr/0028-notification-event-management.md) D15）
-- 檢視自己的站內通知、標為已讀（`GET /notifications`、`POST /notifications/:id/read`、`POST /notifications/read-all`；[ADR-0026](../adr/0026-notification-center.md) D9）
-- 閱讀自己收到的公告全文（`GET /me/announcement-messages/:dispatchId`；[ADR-0031](../adr/0031-announcements.md) D4）
-- 建立、檢視、撤銷自己的個人 API token（`GET|POST /auth/api-tokens`、`DELETE /auth/api-tokens/:tokenId`；[ADR-0027](../adr/0027-api-tokens-external-api.md) D14）。
+- 檢視與修改自己的通知設定（`GET`／`PATCH /me/notification-preferences`；[`backend/16-notification-event.md`](../architecture/backend/16-notification-event.md) §9.2 D15）
+- 檢視自己的站內通知、標為已讀（`GET /notifications`、`POST /notifications/:id/read`、`POST /notifications/read-all`；[`backend/15-notification.md`](../architecture/backend/15-notification.md) §12.2 D9）
+- 閱讀自己收到的公告全文（`GET /me/announcement-messages/:dispatchId`；[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9.2 D4）
+- 建立、檢視、撤銷自己的個人 API token（`GET|POST /auth/api-tokens`、`DELETE /auth/api-tokens/:tokenId`；[`architecture/06-external-api.md`](../architecture/06-external-api.md) §9.2 D14）。
   管理者檢視、撤銷別人的個人 token 用 `user:update`
 - 登出
 
@@ -430,7 +430,7 @@ Seed 行為：
 
 ## 8. 平台的權限目錄（apps/auth 的平台管理者）
 
-平台管理者（[ADR-0020](../adr/0020-physical-tenant-isolation.md) D5）與租戶的使用者是兩份帳號，權限目錄也是兩份：
+平台管理者（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10.2 D5）與租戶的使用者是兩份帳號，權限目錄也是兩份：
 上面 §1–§7 是 **租戶** 的目錄（存在每個租戶的 DB）；這一節是 **平台** 的目錄，只在 apps/auth 的網域有效。
 
 - 端點以 `@RequirePlatformPermissions(...)` 宣告（所有鍵都要有），租戶網域上一律 `404 PLATFORM_ONLY`；
@@ -453,7 +453,7 @@ Seed 行為：
 | `platformAuditLog:read` | 檢視平台稽核      | `platform_audit_logs`：平台管理者做過的事（D19）；看不到租戶的稽核 |
 | `platformJob:read`      | 檢視背景工作      | 所有租戶與平台自己的工作（D23）；租戶的後台只看得到自己的 |
 | `platformJob:retry`     | 重試背景工作      | 把重試用完、停在失敗的工作重新排入；寫平台稽核 `platformJob.retry` |
-| `featureFlag:read`      | 檢視試行開關      | feature flag 的目錄、全平台覆寫、各有幾個租戶覆寫（[ADR-0022](../adr/0022-feature-flags.md)） |
+| `featureFlag:read`      | 檢視試行開關      | feature flag 的目錄、全平台覆寫、各有幾個租戶覆寫（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §11） |
 | `featureFlag:update`    | 切換試行開關      | 全平台層的覆寫：全面開放（`on`）、緊急關閉（`off`）、回到預設；寫平台稽核 `featureFlag.update` |
 
 ### 8.2 角色 × 權限
@@ -482,7 +482,7 @@ Seed 行為：
 
 權限鍵之間有包含關係：**沒有 read 的 edit 沒有意義；沒有 edit 的 create、delete 也不合理**。
 持有一個鍵，就同時持有它（遞迴）帶來的鍵——guard、`GET /auth/profile`、反提權看到的都是 **閉包**。
-決策見 [ADR-0024](../adr/0024-relationship-based-access-control.md) D6；程式碼是 `db/seeds/permissions.ts` 的 `PERMISSION_DEPENDENCIES`。
+決策見 [`rbac/01-domain-model.md`](01-domain-model.md) §9.2 D6；程式碼是 `db/seeds/permissions.ts` 的 `PERMISSION_DEPENDENCIES`。
 
 | 邊 | 意思 | 範圍 |
 | --- | --- | --- |

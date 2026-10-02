@@ -91,7 +91,7 @@ describe('TenantDirectory', () => {
     directory.onModuleDestroy();
   });
 
-  it('一個程序 invalidate()，其他程序也丟掉快取重新讀（docs/adr/0027-api-tokens-external-api.md D16）', async () => {
+  it('一個程序 invalidate()，其他程序也丟掉快取重新讀（docs/architecture/06-external-api.md §9.2 D16）', async () => {
     const hub = new BroadcastHub();
     const [a, b] = [setup(hub), setup(hub)];
     for (const { directory, broadcast } of [a, b]) {

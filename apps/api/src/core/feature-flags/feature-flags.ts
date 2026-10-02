@@ -1,5 +1,5 @@
 /**
- * Feature flag：暫時的上線開關（docs/adr/0022-feature-flags.md）。與 `TENANT_FEATURES`（長期的模組，ADR-0021）不同，
+ * Feature flag：暫時的上線開關（docs/architecture/05-tenancy.md §11）。與 `TENANT_FEATURES`（長期的模組，docs/architecture/frontend/02-plugin-system.md §9）不同，
  * 每個 flag 都有 `removeBy`，到期前要連同判斷與舊的程式碼路徑一起刪除（D11、D12）。
  */
 export interface FeatureFlagDefinition {

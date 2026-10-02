@@ -61,7 +61,7 @@ export function domainOf(email: string): string | undefined {
 }
 
 /**
- * 外部 IdP 連線（docs/adr/0019-sso-identity-platform.md D8–D11）：平台管理員的增刪改，
+ * 外部 IdP 連線（docs/architecture/04-sso.md §12.2 D8–D11）：平台管理員的增刪改，
  * 以及登入時的查詢（網域導向、是否只允許 SSO、解密後的連線設定）。
  */
 @Injectable()
@@ -245,7 +245,7 @@ export class IdentityProviderService {
   }
 
   /**
-   * 平台管理者是否為這個租戶啟用外部 IdP（`identityProvider`，docs/adr/0029-toggleable-platform-features.md D5）。
+   * 平台管理者是否為這個租戶啟用外部 IdP（`identityProvider`，docs/architecture/05-tenancy.md §12.2 D5）。
    * 關掉時管理端點由 `@RequireFeature` 回 404；登入時當作沒有連線（email 網域不會導向外部 IdP，
    * 只允許 SSO 的網域也回到密碼登入）。連線與外部身分的連結都保留，重新啟用後照舊。
    */

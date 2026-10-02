@@ -111,7 +111,7 @@ export function NotificationEventRow({
                   {t('notification.event.resetToDefault')}
                 </Button>
               )}
-              {/* 關閉的管道誰都收不到，「允許個人關閉」沒有意義（ADR-0028 D14） */}
+              {/* 關閉的管道誰都收不到，「允許個人關閉」沒有意義（docs/architecture/backend/16-notification-event.md §9.2 D14） */}
               {!event.mandatory && (
                 <Checkbox
                   checked={allowUserOverride}

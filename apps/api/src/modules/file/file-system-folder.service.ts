@@ -67,7 +67,7 @@ export class FileSystemFolderService
     this.unsubscribers = [];
   }
 
-  /** 每個 `active` 的租戶各一套系統資料夾（docs/adr/0020-physical-tenant-isolation.md D3）。 */
+  /** 每個 `active` 的租戶各一套系統資料夾（docs/architecture/05-tenancy.md §10.2 D3）。 */
   async onApplicationBootstrap(): Promise<void> {
     await this.tenancy.forEachActive(() => this.prepareTenant());
   }

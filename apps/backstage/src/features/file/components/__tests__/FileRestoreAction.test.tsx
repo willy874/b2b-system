@@ -82,7 +82,7 @@ function restoredFolder(filesSkipped: number) {
 beforeAll(() => initTestI18n(fileZhTW));
 
 beforeEach(() => {
-  // 復原按鈕只在租戶啟用回收桶時出現（docs/adr/0029-toggleable-platform-features.md D3）
+  // 復原按鈕只在租戶啟用回收桶時出現（docs/architecture/05-tenancy.md §12.2 D3）
   resetFeatureStore();
   featureStore.setState({ resolved: true, statuses: new Map([['trash', 'ready']]) });
   restoreFile.mockReset().mockResolvedValue({ id: FILE_ID, name: 'hero.png', folderId: null });
@@ -92,7 +92,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('檔案的還原（docs/architecture/frontend/13-trash.md §4.2、ADR-0025 R4）', () => {
+describe('檔案的還原（docs/architecture/frontend/13-trash.md §4.2、docs/architecture/backend/14-revisions.md §9 R4）', () => {
   it('按下還原 → 呼叫 POST /files/:id/restore 並提示成功', async () => {
     renderRoute(routes, '/restore-file', PERMISSIONS);
     fireEvent.click(await screen.findByTestId('file-restore'));
@@ -136,7 +136,7 @@ describe('檔案的還原（docs/architecture/frontend/13-trash.md §4.2、ADR-0
   });
 });
 
-describe('資料夾的還原（docs/architecture/frontend/13-trash.md §4.2、ADR-0025 R4）', () => {
+describe('資料夾的還原（docs/architecture/frontend/13-trash.md §4.2、docs/architecture/backend/14-revisions.md §9 R4）', () => {
   it('按下還原 → 呼叫 POST /file-folders/:id/restore 並提示成功', async () => {
     renderRoute(routes, '/restore-folder', PERMISSIONS);
     fireEvent.click(await screen.findByTestId('file-folder-restore'));

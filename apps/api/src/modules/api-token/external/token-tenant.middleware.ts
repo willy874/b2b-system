@@ -7,7 +7,7 @@ import { extractBearer } from '@/common/guards';
 import { runInTenantContext, Tenancy, TenantDirectory } from '@/core/tenant';
 
 /**
- * 對外 API 以 token 的租戶代碼決定租戶，不看網域（docs/adr/0027-api-tokens-external-api.md D7、D9）：
+ * 對外 API 以 token 的租戶代碼決定租戶，不看網域（docs/architecture/06-external-api.md §9.2 D7、D9）：
  * 全平台只有一個對外網域。代碼只是「去哪個租戶 DB 找」的提示，secret 要在那裡比對成功才算數（`ApiTokenVerifier`）。
  *
  * 沒帶 token、格式不對、代碼找不到時不擋：不需要租戶的路由（健康檢查）照常執行，其餘由 `ApiTokenAuthGuard` 回 401。

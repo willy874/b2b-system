@@ -271,7 +271,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     );
   });
 
-  it('改名與刪除；刪除後 404，物件保留到永久刪除（ADR-0025 D11）', async () => {
+  it('改名與刪除；刪除後 404，物件保留到永久刪除（docs/architecture/backend/14-revisions.md §9.2 D11）', async () => {
     const token = await login(ADMIN);
     const file = await uploadFile(token, { name: 'old.txt', contentType: 'text/plain', size: 3 });
 
@@ -465,7 +465,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     });
   });
 
-  it('改名不帶 version → 400 VALIDATION_FAILED（ADR-0025 D4 的 R1b：必填）', async () => {
+  it('改名不帶 version → 400 VALIDATION_FAILED（docs/architecture/backend/14-revisions.md §9.2 D4 的 R1b：必填）', async () => {
     const token = await login(ADMIN);
     const file = await uploadFile(token, { name: 'nv.txt', contentType: 'text/plain', size: 1 });
     const response = await request(http)
@@ -586,7 +586,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       'FILE_IMAGE_URL_INVALID',
     );
 
-    // 刪除後影像網址失效；變體與轉出的格式保留到永久刪除（ADR-0025 D11，還原時不必重新產生）
+    // 刪除後影像網址失效；變體與轉出的格式保留到永久刪除（docs/architecture/backend/14-revisions.md §9.2 D11，還原時不必重新產生）
     await request(http)
       .delete(`/files/${file.id}`)
       .set('authorization', `Bearer ${token}`)

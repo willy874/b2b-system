@@ -59,13 +59,13 @@ describe('describeNotification（依 type 組句子，docs/architecture/backend/
       ['notification.detail.rolesAdded{"roles":"編輯 and 稽核"}'],
     ],
     [
-      'webhook.disabled：名稱與連續失敗次數（docs/adr/0030-webhooks.md D13）',
+      'webhook.disabled：名稱與連續失敗次數（docs/architecture/backend/17-webhook.md §9.2 D13）',
       { ...base, type: 'webhook.disabled', params: { webhookName: 'CI', consecutiveFailures: 50 } },
       'notification.message.webhookDisabled{"name":"CI","count":"50"}',
       [],
     ],
     [
-      'announcement.published：公告的標題（docs/adr/0031-announcements.md D4）',
+      'announcement.published：公告的標題（docs/architecture/backend/19-announcement.md §9.2 D4）',
       { ...base, type: 'announcement.published', params: { title: '系統維護' } },
       'notification.message.announcementPublished{"title":"系統維護"}',
       [],

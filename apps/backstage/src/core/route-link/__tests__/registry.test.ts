@@ -11,7 +11,7 @@ const approvalDetail = createRoute({ getParentRoute: () => approvalList, path: '
 const fileList = createRoute({ getParentRoute: () => root, path: '/file' });
 const profile = createRoute({ getParentRoute: () => root, path: '/profile' });
 
-describe('route id 註冊表（ADR-0026 D3）', () => {
+describe('route id 註冊表（docs/architecture/backend/15-notification.md §12.2 D3）', () => {
   beforeEach(() => resetRouteLinkRegistry());
 
   it('path 參數：解析成完整的 path 樣板與參數', () => {

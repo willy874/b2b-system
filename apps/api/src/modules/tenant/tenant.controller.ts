@@ -9,7 +9,7 @@ import { CurrentTenantSchema, TenantLookupQuerySchema, TenantLookupSchema } from
 import type { TenantLookupQueryDto } from './dto/tenant.dto';
 import { TenantService } from './tenant.service';
 
-/** 租戶的公開資訊（docs/adr/0020-physical-tenant-isolation.md D7、D11）。 */
+/** 租戶的公開資訊（docs/architecture/05-tenancy.md §10.2 D7、D11）。 */
 @ApiTags('tenants')
 @Controller()
 export class TenantController {

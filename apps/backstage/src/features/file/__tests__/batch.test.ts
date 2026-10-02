@@ -43,7 +43,7 @@ beforeEach(() => {
   fetchQuery.mockResolvedValue({ thumbnailMaxSize: 1000 });
 });
 
-describe('檔案的批次操作（docs/adr/0013-file-manager-upload.md）', () => {
+describe('檔案的批次操作（docs/architecture/frontend/12-file-manager.md §14）', () => {
   it('enqueueFileUploads：檔案放進 uploadSources，佇列項目只帶 id、檔名與大小（份量）', async () => {
     const enqueue = vi.fn((_input: unknown) => 'job-1');
     const file = new File(['12345'], 'hero.png', { type: 'image/png' });

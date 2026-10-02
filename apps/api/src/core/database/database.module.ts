@@ -15,7 +15,7 @@ type CreatedPlatformDatabase = ReturnType<typeof createPlatformDatabase>;
 const PLATFORM_CLIENT = Symbol('PLATFORM_CLIENT');
 
 /**
- * 平台 DB 的連線（docs/adr/0020-physical-tenant-isolation.md D1）。
+ * 平台 DB 的連線（docs/architecture/05-tenancy.md §10.2 D1）。
  * 租戶 DB 的連線池由 `core/tenant` 依租戶建立，token 是 `TENANT_DB`。
  */
 @Global()

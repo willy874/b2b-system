@@ -110,7 +110,7 @@ async function openDetail(permissions: PermissionKey[] | 'unhydrated') {
   return screen.findByTestId('announcement-settings-section', undefined, { timeout: 5000 });
 }
 
-describe('AnnouncementDetailPage（docs/adr/0031-announcements.md A2）', () => {
+describe('AnnouncementDetailPage（docs/architecture/backend/19-announcement.md §9 A2）', () => {
   it('草稿 ＋ publish：顯示編輯、送出、刪除；受眾摘要', async () => {
     await openDetail(PUBLISHER);
     expect(screen.getByTestId('announcement-edit')).toBeInTheDocument();

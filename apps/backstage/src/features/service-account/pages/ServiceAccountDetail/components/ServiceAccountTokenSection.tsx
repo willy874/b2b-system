@@ -22,7 +22,7 @@ interface ServiceAccountTokenSectionProps {
 }
 
 /**
- * 它的 API token（ADR-0027 D2、D4）：token 只在對外 API 有效；建立時 token 取得的權限必須是操作者持有的，
+ * 它的 API token（docs/architecture/06-external-api.md §9.2 D2、D4）：token 只在對外 API 有效；建立時 token 取得的權限必須是操作者持有的，
  * 後端會擋（`AUTHZ_ESCALATION`，顯示在建立對話框裡）。
  */
 export function ServiceAccountTokenSection({

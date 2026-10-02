@@ -9,7 +9,7 @@ import { formatBytes } from '@/shared/utils';
 const NEARLY_FULL = 0.9;
 
 /**
- * 租戶的檔案容量與已用量（docs/adr/0033-feature-params-and-webhook-targets.md D8）：含上傳中與回收桶裡的檔案，
+ * 租戶的檔案容量與已用量（docs/architecture/05-tenancy.md §13.3 D8）：含上傳中與回收桶裡的檔案，
  * 容量由平台管理者設定。載入前或失敗時不顯示（不影響檔案管理）。
  */
 export function FileStorageUsage() {

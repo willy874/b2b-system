@@ -34,7 +34,7 @@ export class MailService {
 
   /**
    * 信裡連到產品的連結：目前租戶的主要網域 ＋ 前端路徑 ＋ 查詢字串（每個租戶的 backstage 在自己的網域，
-   * docs/adr/0020-physical-tenant-isolation.md D2）。協定沿用 `APP_PUBLIC_URL`；沒有租戶時（平台的信）用 `APP_PUBLIC_URL`。
+   * docs/architecture/05-tenancy.md §10.2 D2）。協定沿用 `APP_PUBLIC_URL`；沒有租戶時（平台的信）用 `APP_PUBLIC_URL`。
    * 在租戶裡卻找不到網域時拋錯（寄信的工作會重試），不退回 `APP_PUBLIC_URL`——那是別的租戶的網域。
    */
   async link(path: string, query: Record<string, string> = {}): Promise<string> {
@@ -47,8 +47,8 @@ export class MailService {
 
   /**
    * 帳號流程的連結（啟用、重設密碼）：`AUTH_APP_URL` ＋ 路徑。頁面在 apps/auth
-   * （docs/adr/0019-sso-identity-platform.md D1），帳號屬於某個租戶，所以帶上目前租戶的代碼：
-   * 頁面以 `X-Tenant` 送回 api（docs/adr/0020-physical-tenant-isolation.md D26）。
+   * （docs/architecture/04-sso.md §12.2 D1），帳號屬於某個租戶，所以帶上目前租戶的代碼：
+   * 頁面以 `X-Tenant` 送回 api（docs/architecture/05-tenancy.md §10.2 D26）。
    */
   accountLink(path: string, query: Record<string, string> = {}): string {
     const tenant = currentTenant();

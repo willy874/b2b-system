@@ -42,7 +42,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('進入租戶（docs/adr/0020-physical-tenant-isolation.md D11）', () => {
+describe('進入租戶（docs/architecture/05-tenancy.md §10.2 D11）', () => {
   it('輸入代碼 → 前往那個租戶的登入', async () => {
     renderAt('/enter');
     fireEvent.change(await screen.findByTestId('enter-tenant-code'), {

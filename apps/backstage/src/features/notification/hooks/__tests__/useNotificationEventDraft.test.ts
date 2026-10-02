@@ -78,7 +78,7 @@ describe('useNotificationEventDraft（事件管理頁的草稿）', () => {
     });
   });
 
-  it('允許個人關閉：與開關記在同一筆；兩欄都改回伺服器的值就整筆移除（ADR-0028 D15）', () => {
+  it('允許個人關閉：與開關記在同一筆；兩欄都改回伺服器的值就整筆移除（docs/architecture/backend/16-notification-event.md §9.2 D15）', () => {
     const { result } = renderHook(() => useNotificationEventDraft());
     act(() => result.current.setAllowUserOverride(RESULT, 'inApp', false));
     act(() => result.current.setEnabled(RESULT, 'inApp', false));

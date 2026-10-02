@@ -19,11 +19,11 @@ export interface AccessTokenPayload {
   sub: string;
   ver: number;
   jti: string;
-  /** 簽發時的租戶（docs/adr/0020-physical-tenant-isolation.md D10）：拿到別的租戶的網域就無效。平台管理者沒有。 */
+  /** 簽發時的租戶（docs/architecture/05-tenancy.md §10.2 D10）：拿到別的租戶的網域就無效。平台管理者沒有。 */
   tid?: string;
   /** 平台管理者的 token（apps/auth，D5）；只在不屬於任何租戶的網域有效。 */
   realm?: 'platform';
-  /** 經 SSO 登入時的 IdP session（docs/adr/0019-sso-identity-platform.md D5）；密碼直接登入時沒有。 */
+  /** 經 SSO 登入時的 IdP session（docs/architecture/04-sso.md §12.2 D5）；密碼直接登入時沒有。 */
   sid?: string;
 }
 
@@ -80,7 +80,7 @@ export class AccessTokenVerifier {
    * 給不需要使用者狀態、但要便宜地知道「這是誰」的地方用（速率限制以使用者為 key）。
    */
   async verifyClaims(token: string | undefined): Promise<VerifiedAccessTokenPayload | undefined> {
-    // API token 只在對外 API 有效（docs/adr/0027-api-tokens-external-api.md D10）：內部 api 一律不認，不必驗簽
+    // API token 只在對外 API 有效（docs/architecture/06-external-api.md §9.2 D10）：內部 api 一律不認，不必驗簽
     if (!token || token.startsWith(API_TOKEN_PREFIX)) return undefined;
 
     let payload: VerifiedAccessTokenPayload;

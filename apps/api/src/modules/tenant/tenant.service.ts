@@ -11,7 +11,7 @@ import type { CurrentTenantDto, TenantLookupDto } from './dto/tenant.dto';
 const TENANT_LOGIN_PATH = '/auth/login';
 
 /**
- * 租戶的公開資訊（docs/adr/0020-physical-tenant-isolation.md D7、D11）：只有代碼、名稱與登入入口，
+ * 租戶的公開資訊（docs/architecture/05-tenancy.md §10.2 D7、D11）：只有代碼、名稱與登入入口，
  * 不透露連線、狀態或網域清單。租戶的建立與管理在交付順序第 4 步。
  */
 @Injectable()

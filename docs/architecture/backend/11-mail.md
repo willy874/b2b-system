@@ -1,6 +1,6 @@
 # 11 — 郵件
 
-啟用信、重設密碼信、審核結果通知。選型理由見 [ADR-0017](../../adr/0017-mail-delivery.md)：
+啟用信、重設密碼信、審核結果通知。選型理由見 §9：
 經 SMTP（nodemailer）寄出、範本用 React Email、一律經背景工作（[`10-jobs.md`](./10-jobs.md)）寄送。
 
 ---
@@ -74,7 +74,7 @@ export function accountLinkMail({ purpose, locale, displayName, link, validHours
 | 語系用收件人的 `users.locale`（`toMailLocale()`），不認識的退回 `zh-TW` | 信是寄給對方看的，不是操作者 |
 | 樣式寫成行內 style、色碼寫死 | 多數收信端不支援 `<style>`；這裡沒有 Design Token |
 | `MailLayout` 的 `<Body>` 明確帶 `lang={locale}`；`<Hr>` 的顏色以整條 `borderTop` 覆寫 | `Body` 沒給 `lang` 會標成 `en`；`Hr` 預設的 `borderTop` 排在 `borderColor` 之後，只改 `borderColor` 會被蓋掉 |
-| 連結一律 `MailService.link(path, query)`（產品頁面：目前租戶的主要網域，協定沿用 `APP_PUBLIC_URL`）或 `accountLink(path, query)`（帳號流程：啟用、重設密碼，`AUTH_APP_URL` 開頭並帶 `?tenant=<代碼>`，[ADR-0019](../../adr/0019-sso-identity-platform.md) D1、[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D26） | 查詢字串正確編碼；每個租戶的連結指向自己的網域 |
+| 連結一律 `MailService.link(path, query)`（產品頁面：目前租戶的主要網域，協定沿用 `APP_PUBLIC_URL`）或 `accountLink(path, query)`（帳號流程：啟用、重設密碼，`AUTH_APP_URL` 開頭並帶 `?tenant=<代碼>`，[`architecture/04-sso.md`](../04-sso.md) §12.2 D1、[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D26） | 查詢字串正確編碼；每個租戶的連結指向自己的網域 |
 | 按鈕旁附上純文字網址 | 按鈕在部分收信端無法點 |
 | `MailService.send()` 同時產生 HTML 與純文字版 | 純文字版給不支援 HTML 的收信端，也是 `console` 傳輸寫進日誌的內容 |
 
@@ -103,7 +103,7 @@ handler 執行時才呼叫 `AuthTokenService.issue()`、把原文放進連結、
 ## 5. 稽核與日誌
 
 - 寄出後記一筆 `mail.send`：`resourceType` 是 `user` 或 `approval`，`resourceName` 是收件人，
-  `metadata` 只有 `{ template, jobId, messageId }`。**不記內容與 token**（ADR-0017 D8）。
+  `metadata` 只有 `{ template, jobId, messageId }`。**不記內容與 token**（§9.2 D8）。
   寄信發生在背景工作裡，操作者是 `system`。
 - 工作的 `output` 是 `{ messageId }` 或 `{ skipped }`，在背景工作頁看得到。
 - **日誌不出現 token**：`smtp` 傳輸只記「已寄出」與 messageId；HTTP 請求日誌的網址、`query`、`Referer`
@@ -141,3 +141,68 @@ handler 執行時才呼叫 `AuthTokenService.issue()`、把原文放進連結、
 | `src/core/logger/__tests__/redact.spec.ts` | 網址與 Referer 的 token 遮蔽 |
 | `apps/e2e/tests/mail.spec.ts` | 經 Mailpit：從信箱點啟用連結 → 設定密碼 → 登入；用過的連結顯示失效 |
 | `apps/e2e/tests/approval.spec.ts` | 經 Mailpit：註冊核准後從啟用信設定密碼 → 登入（[`../../rbac/06-approval.md`](../../rbac/06-approval.md) §5） |
+
+## 9. 設計決策：SMTP（nodemailer）＋ React Email 範本，開發用 Mailpit
+
+> 原 ADR-0017，2026-09-29 決定。
+
+### 9.1 背景
+
+決策當時，啟用與重設密碼的連結寫進伺服器日誌，由維運人員轉交（`auth-token.service.ts` 的 `issue()`；
+流程見 [`04-auth.md`](./04-auth.md) §5）；審批結果也因為沒有郵件而不通知申請人（[`../../rbac/06-approval.md`](../../rbac/06-approval.md) §1）。
+部署是 docker compose 自架，物件儲存採「S3 相容、換服務只改 env」。寄送經背景工作（[`10-jobs.md`](./10-jobs.md)；[`backend/10-jobs.md`](10-jobs.md) §9）。
+
+### 9.2 決定
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | `core/mail` 定義 `MailTransport`，env `MAIL_TRANSPORT` 選 `smtp` 或 `console` | 與 `core/storage` 同構；換服務商只改 env |
+| D2 | 正式環境：在 AWS 用 SES，否則 Postmark／Resend，一律經 SMTP | 交易信需要好的送達率；都支援 SMTP，不影響 D1 |
+| D3 | 寄件網域設好 SPF、DKIM、DMARC，寫進部署文件 | 否則信會進垃圾信匣 |
+| D4 | 寄信一律經 [`backend/10-jobs.md`](10-jobs.md) §9 的佇列，入列在業務交易內 | 寄送失敗要重試；HTTP 請求不等 SMTP |
+| D5 | 範本用 React Email，放在後端；api 加 `react` 並開啟 JSX（swc） | 範本 props（連結、名稱、審批結果）有型別檢查；有本機預覽 |
+| D6 | 語系依收件人偏好選 zh-TW／en-US，字串放後端自己的語系檔 | 前端語系包隨 feature 載入，後端不該依賴它 |
+| D7 | 只有 `MAIL_TRANSPORT=console` 時把連結印到日誌；`smtp` 時完全不記 | 正式環境日誌不該出現能拿來登入的 token |
+| D8 | 稽核只記「寄了哪種信給誰」與 job id，不記內文與 token | 稽核不可變，不能留下可用的憑證 |
+| D9 | 開發環境在 compose 加 Mailpit（SMTP `:1025`、網頁 `:8025`），本機走 `smtp` | 開發時看得到真正的信；與正式環境走同一條程式路徑 |
+| D10 | E2E 經 Mailpit 的 API 取出啟用／重設連結 | 測到「從信箱點連結」的完整流程，不再依賴伺服器日誌 |
+| D11 | `console` 只給單元與整合測試用 | 不必起 SMTP 伺服器 |
+
+D6 的「語系檔」與 D9 的「本機走 `smtp`」實作時有調整，見 §9.5。
+
+### 9.3 取捨
+
+| 代價 | 評估 |
+| --- | --- |
+| SMTP 拿不到服務商的即時回應細節（退信原因、訊息 id 格式不一） | 第一版不追蹤退信；需要時再加服務商專屬的 transport |
+| api 多了 `react` 相依與 JSX 設定 | 只在 `*.mail.tsx` 使用；不影響其他模組 |
+| compose 多一個 Mailpit 服務 | 只在開發與 E2E；正式環境不部署 |
+
+### 9.4 評估過的方案
+
+寄送方式：
+
+| 方案 | 結論 |
+| --- | --- |
+| **A. SMTP（nodemailer）** | **採用** |
+| B. 服務商的 HTTP API／SDK（SES、Postmark、Resend） | 不採用：綁定單一服務商；它們多出來的退信 webhook、開信追蹤都在「不做」範圍 |
+| C. 自架 MTA（Postfix） | 不採用：IP 信譽、送達率、反垃圾信設定都要自己顧 |
+
+範本：
+
+| 方案 | 結論 |
+| --- | --- |
+| **A. React Email** | **採用** |
+| B. MJML | 不採用：響應式排版成熟，但第一版只有三封信用不到；props 沒有型別檢查 |
+| C. 手寫 HTML ＋ 字串替換 | 不採用：各家信箱的 CSS 相容性要自己處理 |
+
+### 9.5 實作紀錄
+
+| 項目 | 提案 | 實作 | 原因 |
+| --- | --- | --- | --- |
+| token 何時簽發 | 未定（mailer 提案的開放問題） | 寄信的工作在 **寄出當下** 簽發；工作資料只有 `userId` | 資料庫只存雜湊；入列時簽發就得把原文放進工作資料，而 `job:read` 看得到工作資料。重試會簽新的、舊的作廢 |
+| 範本位置 | `core/mail/templates/` | `modules/<name>/mails/*.mail.tsx`；`core/mail` 只有外框與傳輸層 | 範本含業務名詞，`core/` 不認識 `modules/` |
+| 語系檔 | 後端語系檔 | 文案依語系寫在範本檔內（`satisfies Record<MailLocale, …>`） | 每封信的文案只有幾句；放在一起改範本時不會漏改 |
+| D7 的範圍 | 只管寄信本身 | 另外遮蔽 HTTP 請求日誌裡的 `token`（網址、`query`、`Referer`）與回應的 `set-cookie` | 實作時發現 pino-http 會記下 `/auth/setup/verify?token=…` 與 refresh cookie；不遮的話 D7 不成立 |
+| `MAIL_TRANSPORT` 預設值 | 本機走 `smtp` | 預設 `console`；`.env.example` 設 `smtp`，`docker-compose.prod.yml` 寫死 `smtp` | 測試與 CI 沒有 SMTP，預設 `smtp` 會讓工作一直重試 |
+| 忘記密碼的節流 | — | 同帳號 60 秒內只入列一封 | 避免重複按洗信箱；順帶修正 `JobQueue` 的節流選項（單獨的 `singletonKey` 在 pg-boss 的 standard 佇列不起作用） |

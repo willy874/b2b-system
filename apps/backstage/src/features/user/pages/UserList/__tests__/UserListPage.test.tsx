@@ -50,7 +50,7 @@ beforeEach(() => {
 });
 
 describe('UserListPage', () => {
-  it('標籤欄顯示貼著的標籤；依標籤篩選以 tagId 查詢（docs/adr/0032-tags.md D6）', async () => {
+  it('標籤欄顯示貼著的標籤；依標籤篩選以 tagId 查詢（docs/architecture/backend/18-tag.md §7.2 D6）', async () => {
     renderRoute(routes, '/user?tagId=11111111-1111-4111-8111-111111111111', ADMIN);
     await screen.findByText('Locked Person', undefined, { timeout: 5000 });
     expect(screen.getByTestId('tag-chip')).toHaveTextContent('研發部');

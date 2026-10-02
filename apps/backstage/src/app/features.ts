@@ -37,7 +37,7 @@ import type { Profile } from '@/shared/api-sdk';
 export type TenantFeature = Profile['features'][number];
 
 /**
- * 「切換租戶」（docs/adr/0029-toggleable-platform-features.md D6）：沒有頁面也沒有後端端點，只是使用者選單的一個項目
+ * 「切換租戶」（docs/architecture/05-tenancy.md §12.2 D6）：沒有頁面也沒有後端端點，只是使用者選單的一個項目
  * （`layouts/DashboardLayout.tsx`）。仍登記成一個空的 plugin，啟用與否就和其他 feature 一樣由安裝狀態表示。
  */
 export const TENANT_SWITCH_FEATURE = 'tenantSwitch';
@@ -47,13 +47,13 @@ function tenantSwitchPlugin(): AppDynamicPluginFactory {
 }
 
 /**
- * 可啟用的 feature（docs/adr/0021-runtime-feature-activation.md D1）：由平台管理者對每個租戶開關，
+ * 可啟用的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D1）：由平台管理者對每個租戶開關，
  * 登入後依 `/auth/profile` 的 `features` 安裝。其餘 feature 是常駐的，照舊在 `main.tsx` 同步 `use()`。
  *
  * `satisfies Record<TenantFeature, …>`：後端新增可啟用的 feature 而這裡沒跟上時編譯失敗。
  * 每個 feature 的最上層 route 自己宣告 `beforeLoad: requireFeature(<id>)`（D6）；`routes` 列的就是那些 route。
  *
- * 以 feature flag 試行中的整個 feature 也登記在這裡（docs/adr/0022-feature-flags.md D9）：id 自取，
+ * 以 feature flag 試行中的整個 feature 也登記在這裡（docs/architecture/05-tenancy.md §11.2 D9）：id 自取，
  * 宣告 `requires: { flag: '<key>' }`，其餘（`requireFeature`、`useFeatureGate`、卸載前導回首頁）照舊。
  */
 export const FEATURE_CATALOG = {

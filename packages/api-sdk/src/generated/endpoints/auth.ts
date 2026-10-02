@@ -495,7 +495,7 @@ const authControllerSsoCallbackOperation: OperationDefinition = {
   schemas: AuthControllerSsoCallbackSchemas,
 };
 
-/** 產品的 BFF：授權碼 ＋ PKCE verifier 換 app session（docs/adr/0019-sso-identity-platform.md D3） */
+/** 產品的 BFF：授權碼 ＋ PKCE verifier 換 app session（docs/architecture/04-sso.md §12.2 D3） */
 export function authControllerSsoCallback(
   input: AuthControllerSsoCallbackInput,
   options?: RequestOptions,

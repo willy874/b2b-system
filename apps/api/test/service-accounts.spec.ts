@@ -115,7 +115,7 @@ function dataOf<T>(response: request.Response): T {
   return (response.body as { data: T }).data;
 }
 
-describe('服務帳號與 API token（docs/adr/0027-api-tokens-external-api.md T1）', () => {
+describe('服務帳號與 API token（docs/architecture/06-external-api.md §9 T1）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;

@@ -6,22 +6,22 @@ import type { FeatureFlagOverrides } from '../feature-flags/feature-flags';
 import type { TenantFeatureParamOverrides } from './tenant-feature-params';
 import type { TenantFeature } from './tenant-features';
 
-/** 目前執行的程式屬於哪個租戶，以及它的 database（docs/adr/0020-physical-tenant-isolation.md D3）。 */
+/** 目前執行的程式屬於哪個租戶，以及它的 database（docs/architecture/05-tenancy.md §10.2 D3）。 */
 export interface TenantContext {
   id: string;
   code: string;
   db: Database;
-  /** 物件儲存的 bucket（docs/adr/0020-physical-tenant-isolation.md D16）。 */
+  /** 物件儲存的 bucket（docs/architecture/05-tenancy.md §10.2 D16）。 */
   storageBucket: string;
-  /** 平台管理者為這個租戶啟用的 feature（docs/adr/0021-runtime-feature-activation.md D8）。 */
+  /** 平台管理者為這個租戶啟用的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D8）。 */
   features: readonly TenantFeature[];
   /**
-   * 平台管理者為這個租戶設的 feature flag 覆寫（docs/adr/0022-feature-flags.md D2）；生效值由
+   * 平台管理者為這個租戶設的 feature flag 覆寫（docs/architecture/05-tenancy.md §11.2 D2）；生效值由
    * `FeatureFlagService.isEnabled()` 合併全平台層與預設值算出，不要直接讀這裡判斷。
    */
   flags: FeatureFlagOverrides;
   /**
-   * 平台管理者為這個租戶設的 feature 參數覆寫（docs/adr/0033-feature-params-and-webhook-targets.md D6）；
+   * 平台管理者為這個租戶設的 feature 參數覆寫（docs/architecture/05-tenancy.md §13.2 D6）；
    * 生效值以 `tenantFeatureParam(PARAM)` 取得，不要直接讀這裡。
    */
   featureParams: TenantFeatureParamOverrides;

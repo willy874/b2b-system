@@ -21,7 +21,7 @@ import { registerUserPagePermissions, USER_CREATE_PAGE, USER_PAGE } from '@/feat
 
 import { getRegisteredPageKeys, resetPagePermissionRegistry, resolvePageKey } from '../registry';
 
-/** 取代靜態表原本提供的編譯期完整性（ADR-0001 的代價緩解）。 */
+/** 取代靜態表原本提供的編譯期完整性（docs/architecture/frontend/02-plugin-system.md §8 的代價緩解）。 */
 describe('註冊表完整性', () => {
   beforeEach(() => {
     resetPagePermissionRegistry();

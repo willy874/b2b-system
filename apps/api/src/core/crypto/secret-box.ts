@@ -9,19 +9,19 @@ export interface SecretKeyPurpose {
   info: string;
 }
 
-/** 外部 IdP 的 client secret（docs/adr/0019-sso-identity-platform.md D11）。 */
+/** 外部 IdP 的 client secret（docs/architecture/04-sso.md §12.2 D11）。 */
 export const IDP_SECRET_PURPOSE: SecretKeyPurpose = {
   envName: 'IDP_SECRET_KEY',
   info: 'idp-secret-key',
 };
 
-/** 租戶資料庫的連線字串（docs/adr/0020-physical-tenant-isolation.md D4）。 */
+/** 租戶資料庫的連線字串（docs/architecture/05-tenancy.md §10.2 D4）。 */
 export const TENANT_SECRET_PURPOSE: SecretKeyPurpose = {
   envName: 'TENANT_SECRET_KEY',
   info: 'tenant-secret-key',
 };
 
-/** webhook 的簽章密鑰（docs/adr/0030-webhooks.md D14）。 */
+/** webhook 的簽章密鑰（docs/architecture/backend/17-webhook.md §9.2 D14）。 */
 export const WEBHOOK_SECRET_PURPOSE: SecretKeyPurpose = {
   envName: 'WEBHOOK_SECRET_KEY',
   info: 'webhook-secret-key',

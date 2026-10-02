@@ -100,7 +100,7 @@ describe('回收桶頁（docs/architecture/frontend/13-trash.md）', () => {
     expect(fetchTrash.mock.calls[0]![0].params.type).toBe('role');
   });
 
-  it('只有 file:delete → 進得去，只看到檔案分頁（ADR-0025 R4）', async () => {
+  it('只有 file:delete → 進得去，只看到檔案分頁（docs/architecture/backend/14-revisions.md §9 R4）', async () => {
     registerTrashType({
       type: 'file',
       order: 30,

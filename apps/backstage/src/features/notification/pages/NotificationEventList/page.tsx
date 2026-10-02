@@ -14,7 +14,7 @@ import { toNotificationEventCategories } from './adapter';
 import { NotificationEventRow } from './components/NotificationEventRow';
 
 /**
- * 事件管理（docs/architecture/frontend/15-notification.md §9、ADR-0028 D12）：
+ * 事件管理（docs/architecture/frontend/15-notification.md §9、docs/architecture/backend/16-notification-event.md §9.2 D12）：
  * 依分類列出系統會發出的事件，租戶決定每個管道是否送出；沒有 `system:update` 時唯讀。
  */
 export default function NotificationEventListPage() {

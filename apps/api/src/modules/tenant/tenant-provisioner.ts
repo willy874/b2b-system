@@ -19,7 +19,7 @@ import { PlatformAuditService } from '@/modules/platform-admin/platform-audit.se
 import { PlatformTenantRepository } from './platform-tenant.repository';
 
 /**
- * 佈建一個租戶（docs/adr/0020-physical-tenant-isolation.md D12）。平台工作：handler 裡沒有租戶脈絡，
+ * 佈建一個租戶（docs/architecture/05-tenancy.md §10.2 D12）。平台工作：handler 裡沒有租戶脈絡，
  * 自己連到新租戶的 DB。不自動重試——失敗停在 `failed`，平台管理者看過原因後手動重試（每一步都冪等）。
  */
 export const TENANT_PROVISION_JOB = defineJob<{ tenantId: string }>('tenant.provision', {

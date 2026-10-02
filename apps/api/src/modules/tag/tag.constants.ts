@@ -1,4 +1,4 @@
-/** 一個標籤組最多幾個標籤（docs/adr/0032-tags.md D11）：管理頁與篩選選單一次列完，不分頁。 */
+/** 一個標籤組最多幾個標籤（docs/architecture/backend/18-tag.md §7.2 D11）：管理頁與篩選選單一次列完，不分頁。 */
 export const TAG_MAX_PER_SCOPE = 200;
 
 /** 一個資源最多貼幾個標籤（D11）。 */

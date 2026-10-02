@@ -27,7 +27,7 @@ import {
 import { ENV } from '@/shared/constants';
 
 /**
- * apps/auth：全平台共用、不分工作區的身分與租戶入口（docs/adr/0019-sso-identity-platform.md D1）。
+ * apps/auth：全平台共用、不分工作區的身分與租戶入口（docs/architecture/04-sso.md §12.2 D1）。
  * plugin chain 與 apps/backstage 相同；這一版沒有推播、批次佇列與 feature flag。
  */
 async function bootstrap(): Promise<void> {
@@ -40,7 +40,7 @@ async function bootstrap(): Promise<void> {
     .use(eventBusPlugin())
     .use(i18nPlugin())
     .use(themePlugin())
-    // session 只屬於 apps/auth 自己的 origin：refresh cookie 是 host-only（ADR-0019 D6）
+    // session 只屬於 apps/auth 自己的 origin：refresh cookie 是 host-only（docs/architecture/04-sso.md §12.2 D6）
     .use(
       httpContextPlugin([
         {

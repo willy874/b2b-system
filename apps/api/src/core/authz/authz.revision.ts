@@ -28,7 +28,7 @@ function parse(payload: string): RevisionMessage | null {
 }
 
 /**
- * 關係圖的快取失效（docs/adr/0024-relationship-based-access-control.md D7、D8）：取代逐事件列出「要失效誰」。
+ * 關係圖的快取失效（docs/rbac/01-domain-model.md §9.2 D7、D8）：取代逐事件列出「要失效誰」。
  *
  * - 寫入 `relation_tuples` 的交易提交後，服務呼叫 `changed()`：本機立刻失效整個租戶的權限快取、
  *   發 `permissions.changed`（推播換 room），再把 `{ tenant, revision }` 廣播給其他程序。

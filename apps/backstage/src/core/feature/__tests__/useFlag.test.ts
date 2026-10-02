@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { featureStore, resetFeatureStore } from '../store';
 import { useFlag } from '../useFlag';
 
-describe('useFlag（docs/adr/0022-feature-flags.md D9）', () => {
+describe('useFlag（docs/architecture/05-tenancy.md §11.2 D9）', () => {
   beforeEach(() => {
     resetFeatureStore();
   });

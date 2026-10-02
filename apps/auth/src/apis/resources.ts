@@ -21,13 +21,13 @@ import type { ResourceChange } from '@/core/cache';
 export const Resource = {
   /** 登入中的平台管理者 */
   PROFILE: 'profile',
-  /** 租戶登記（docs/adr/0020-physical-tenant-isolation.md D12、D13） */
+  /** 租戶登記（docs/architecture/05-tenancy.md §10.2 D12、D13） */
   TENANT: 'tenant',
   /** 平台管理者（D5） */
   PLATFORM_ADMIN: 'platformAdmin',
   /** 所有租戶與平台的背景工作（重試後佇列計數、列表、詳情都變） */
   PLATFORM_JOB: 'platformJob',
-  /** feature flag 的全平台覆寫（docs/adr/0022-feature-flags.md D8）；租戶層的覆寫會改變列表上的租戶數 */
+  /** feature flag 的全平台覆寫（docs/architecture/05-tenancy.md §11.2 D8）；租戶層的覆寫會改變列表上的租戶數 */
   FEATURE_FLAG: 'featureFlag',
 } as const;
 

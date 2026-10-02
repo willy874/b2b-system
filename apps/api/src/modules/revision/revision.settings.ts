@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { defineSetting, SettingCategory } from '@/core/settings';
 
 /**
- * 每個資源至少保留最新的幾版（ADR-0025 D1：保留「最新 N 版」∪「N 天內」）。
+ * 每個資源至少保留最新的幾版（docs/architecture/backend/14-revisions.md §9.2 D1：保留「最新 N 版」∪「N 天內」）。
  * 下限 1：最新一版等於目前的內容，永遠保留；上限 1000。
  */
 export const REVISION_KEEP_VERSIONS_SETTING = defineSetting({

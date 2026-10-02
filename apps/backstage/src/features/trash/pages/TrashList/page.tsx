@@ -16,7 +16,7 @@ import type { TrashRowVM } from './adapter';
 import { useTrashSearch } from './useTrashSearch';
 
 /**
- * 回收桶（docs/architecture/frontend/13-trash.md、ADR-0025 D9）：每個看得到的資源類型一個分頁，
+ * 回收桶（docs/architecture/frontend/13-trash.md、docs/architecture/backend/14-revisions.md §9.2 D9）：每個看得到的資源類型一個分頁，
  * 列出已刪除的項目與預計永久刪除的時間；還原操作由擁有資源的 feature 登記的元件提供。
  */
 export default function TrashListPage() {

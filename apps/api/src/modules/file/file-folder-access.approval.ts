@@ -154,7 +154,7 @@ export class FileFolderAccessApprovalHandler implements ApprovalHandler, OnModul
 
   /**
    * 申請人通常沒有 `approval:read`：結果通知連到申請的資料夾（前端的檔案管理器 `?folder=`）。
-   * 被駁回時點進去照常經過權限檢查（看不到就是 403），與審批詳情一樣不授予任何東西（ADR-0026 D5）。
+   * 被駁回時點進去照常經過權限檢查（看不到就是 403），與審批詳情一樣不授予任何東西（docs/architecture/backend/15-notification.md §12.2 D5）。
    */
   resultLink(request: ApprovalRequestRow): NotificationLink | null {
     const parsed = FileFolderAccessPayloadSchema.safeParse(request.payload);

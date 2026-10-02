@@ -4,7 +4,7 @@ export type GrantLevel = (typeof GRANT_LEVELS)[number];
 
 /**
  * API 上的授權對象：角色（圖上是 `role:<id>#holder`）、個別使用者（`user:<id>`）、群組（`group:<id>#member`，
- * 含巢狀群組的成員；ADR-0024 G4），或 `everyone`（所有能進檔案管理器的人，圖上是 `user:*`；
+ * 含巢狀群組的成員；docs/rbac/01-domain-model.md §9 G4），或 `everyone`（所有能進檔案管理器的人，圖上是 `user:*`；
  * docs/rbac/07-resource-grants.md §6.2）。
  */
 export const GRANT_SUBJECT_TYPES = ['role', 'user', 'group', 'everyone'] as const;

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createRegistry } from '../createRegistry';
 import { collectRegistrations } from '../scope';
 
-describe('createRegistry（docs/adr/0021-runtime-feature-activation.md D4）', () => {
+describe('createRegistry（docs/architecture/frontend/02-plugin-system.md §9.2 D4）', () => {
   it('重複登記同一個 key 丟例外', () => {
     const registry = createRegistry<string, number>('Thing');
     registry.register('a', 1);

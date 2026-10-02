@@ -16,7 +16,7 @@ export const UserSearchQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(20).catch(20),
   keyword: z.string().trim().optional().catch(undefined),
   status: z.enum(['pending', 'active', 'inactive', 'locked']).optional().catch(undefined),
-  /** 貼了其中任一個標籤（docs/adr/0032-tags.md D6）；網址上重複的 `tagId` 成為陣列（`core/router/search.ts`）。 */
+  /** 貼了其中任一個標籤（docs/architecture/backend/18-tag.md §7.2 D6）；網址上重複的 `tagId` 成為陣列（`core/router/search.ts`）。 */
   tagId: z
     .union([z.string().uuid(), z.array(z.string().uuid()).min(1)])
     .transform((value) => (Array.isArray(value) ? value : [value]))

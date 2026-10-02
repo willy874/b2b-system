@@ -28,10 +28,10 @@ import type { IssuedSession } from './auth.service';
 import type { LoginDto, SsoCallbackDto, SsoInteractionDto, SsoRedirectDto } from './dto/auth.dto';
 
 /**
- * SSO 的兩端（docs/adr/0019-sso-identity-platform.md）：
+ * SSO 的兩端（docs/architecture/04-sso.md §12）：
  * - **IdP 的登入互動**（apps/auth 的 `/interaction/:uid` 呼叫）：驗帳密，完成互動後回傳 resume 網址，
  *   由瀏覽器頂層跳轉回 provider，provider 再帶授權碼跳回產品。
- * - **產品的 BFF**（產品自己 origin 的 `/api/auth/sso/callback`）：兌換授權碼、發 ADR-0004 的 app session（D3）。
+ * - **產品的 BFF**（產品自己 origin 的 `/api/auth/sso/callback`）：兌換授權碼、發 docs/architecture/backend/04-auth.md §10 的 app session（D3）。
  * 服務之間只以頂層跳轉溝通，不用跨域 cookie（D6）。
  */
 @Injectable()
@@ -78,7 +78,7 @@ export class SsoService implements OnModuleInit {
 
   /**
    * 密碼登入：與 `POST /auth/login` 同一套檢查（鎖定、狀態、稽核），通過後完成互動。
-   * 帶租戶的互動在那個租戶的 DB 驗證；沒有租戶的是平台管理者（docs/adr/0020-physical-tenant-isolation.md D8）。
+   * 帶租戶的互動在那個租戶的 DB 驗證；沒有租戶的是平台管理者（docs/architecture/05-tenancy.md §10.2 D8）。
    */
   async login(
     req: IncomingMessage,
@@ -121,7 +121,7 @@ export class SsoService implements OnModuleInit {
 
   /**
    * 租戶網域上的 BFF：授權碼的帳號必須屬於這個網域的租戶，否則視為無效
-   * （docs/adr/0020-physical-tenant-isolation.md D10：即使 provider 的檢查有漏洞，也換不到別的租戶的 session）。
+   * （docs/architecture/05-tenancy.md §10.2 D10：即使 provider 的檢查有漏洞，也換不到別的租戶的 session）。
    */
   async callback(dto: SsoCallbackDto, meta: RequestMeta): Promise<IssuedSession> {
     const tenant = requireTenant();

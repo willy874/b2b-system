@@ -1,7 +1,7 @@
 import { createStore } from '@/shared/store';
 
 /**
- * 可啟用 feature 的狀態（docs/adr/0021-runtime-feature-activation.md D8）。
+ * 可啟用 feature 的狀態（docs/architecture/frontend/02-plugin-system.md §9.2 D8）。
  * - `installing`：清單說要啟用，`context.install()` 進行中
  * - `ready`：已安裝，頁面可以進入
  * - `disabled`：清單沒有它（或已被卸載）
@@ -16,7 +16,7 @@ export interface FeatureState {
   /** 每個可啟用 feature 擁有的 base path（`/file`），給 Layout 判斷目前頁面屬於誰。 */
   basePaths: ReadonlyMap<string, readonly string[]>;
   /**
-   * 目前生效為開的 feature flag（docs/adr/0022-feature-flags.md D6、D9），來自 `/auth/profile` 的 `flags`。
+   * 目前生效為開的 feature flag（docs/architecture/05-tenancy.md §11.2 D6、D9），來自 `/auth/profile` 的 `flags`。
    * 讀取用 `useFlag()`；profile 還沒到時是空的（一律視為關）。
    */
   flags: ReadonlySet<string>;

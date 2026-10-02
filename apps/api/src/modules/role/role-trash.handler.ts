@@ -19,7 +19,7 @@ import type {
 import { RoleRepository } from './role.repository';
 
 /**
- * 角色的回收桶（ADR-0025 D2、D9、D11）。還原是 `POST /roles/:id/restore`（`RoleService.restore`）；
+ * 角色的回收桶（docs/architecture/backend/14-revisions.md §9.2 D2、D9、D11）。還原是 `POST /roles/:id/restore`（`RoleService.restore`）；
  * 這裡只負責列出與到期永久刪除。
  */
 @Injectable()

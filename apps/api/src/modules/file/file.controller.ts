@@ -199,11 +199,11 @@ export class FileController {
   }
 
   /**
-   * 還原刪除的檔案（ADR-0025 D10：能刪就能復原）。閘門與刪除相同，資料夾範圍的判斷也與刪除相同（service）。
+   * 還原刪除的檔案（docs/architecture/backend/14-revisions.md §9.2 D10：能刪就能復原）。閘門與刪除相同，資料夾範圍的判斷也與刪除相同（service）。
    * 所在的資料夾已刪除或物件已不在時 409 `FILE_RESTORE_CONFLICT`（`details.reason`）；沒有被刪除 409 `FILE_NOT_DELETED`。
    */
   @Post(':id/restore')
-  @RequireFeature('trash') // 還原屬於回收桶（docs/adr/0029-toggleable-platform-features.md D3）
+  @RequireFeature('trash') // 還原屬於回收桶（docs/architecture/05-tenancy.md §12.2 D3）
   @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_DELETE)
   @HttpCode(200)
   @ApiOperation({ summary: '還原刪除的檔案' })

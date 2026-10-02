@@ -21,14 +21,14 @@ JWT 一旦簽出就無法撤回其內容。若權限寫在 token 裡，管理員
 
 改成每次請求查詢權限集合（有快取），換來「權限變更立即生效」。
 代價是一次快取查詢（命中時 < 1 ms）。詳見
-[ADR-0005](../../adr/0005-permission-resolved-server-side.md)。
+[`05-rbac.md`](./05-rbac.md) §11。
 
 Token 裡因此只有這幾樣東西：
 
 - `sub` — 使用者 ID
 - `ver` — 簽發時的 `users.token_version`
 - `jti` — 供稽核追蹤
-- `tid` — 簽發時的租戶 id（[ADR-0020](../../adr/0020-physical-tenant-isolation.md) D10）：使用者 id 只在自己的租戶 DB 有意義，
+- `tid` — 簽發時的租戶 id（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D10）：使用者 id 只在自己的租戶 DB 有意義，
   驗證時 `tid` 必須等於請求網域決定的租戶，否則 `AUTH_TOKEN_INVALID`，不會拿去查別的租戶的使用者
 
 ### 1.2 `token_version` 的角色
@@ -480,7 +480,7 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 
 ## 8.1 SSO（apps/api 當 OIDC Provider）
 
-流程、端點、資料模型與部署見 [`../04-sso.md`](../04-sso.md)；決定與理由見 [ADR-0019](../../adr/0019-sso-identity-platform.md)。這裡只列與本文件各節的關係。
+流程、端點、資料模型與部署見 [`../04-sso.md`](../04-sso.md)；決定與理由見 [`architecture/04-sso.md`](../04-sso.md) §12。這裡只列與本文件各節的關係。
 
 - `modules/oidc-provider`：[`oidc-provider`](https://github.com/panva/node-oidc-provider) 掛在本程序的 `/oidc`（瀏覽器看到 `OIDC_ISSUER`，
   apps/auth origin 底下的 `/api/oidc`）；狀態存在 `oidc_payloads`，過期的列由背景工作 `oidc.cleanup` 清除。
@@ -489,8 +489,8 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
   輪替時沿用。access token 帶 `sid`。
 - 單一登出（§7 的延伸）：登出的家族有 `idp_session_uid` 時，銷毀 IdP session、撤銷同一個 IdP session 的所有家族（`revoked_reason = sso_logout`），
   並推播 `SESSIONS_REVOKED { idpSessionUids }`（[`08-realtime.md`](./08-realtime.md) §3.5）。
-- 帳號停用、刪除、改密碼（`SESSIONS_REVOKED { userIds }`）時，這些人的 IdP session 一起結束（ADR-0019 D17）。
-- 外部 IdP（`modules/identity-provider` ＋ `AuthModule` 的 `ExternalLoginService`，ADR-0019 D8–D11）：
+- 帳號停用、刪除、改密碼（`SESSIONS_REVOKED { userIds }`）時，這些人的 IdP session 一起結束（[`architecture/04-sso.md`](../04-sso.md) §12.2 D17）。
+- 外部 IdP（`modules/identity-provider` ＋ `AuthModule` 的 `ExternalLoginService`，[`architecture/04-sso.md`](../04-sso.md) §12.2 D8–D11）：
   1. 互動頁以 email 查網域（`GET /oidc-interaction/:uid/discover`），`POST …/:uid/external` 回傳外部 IdP 的授權網址（PKCE、state、nonce 存在 `oidc_payloads`，10 分鐘）
   2. 外部 IdP 跳回固定的 `GET /oidc-interaction/external/callback`：兌換授權碼、驗 ID token（email 不在 ID token 時查 userinfo）、對應帳號，
      跳到 `…/:uid/external/complete?ticket=`；失敗時帶錯誤碼回到 apps/auth 的互動頁。這一步 **不拋例外**，任何錯誤都變成跳轉
@@ -508,7 +508,7 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 
 ## 8.2 服務帳號與 API token
 
-決定與理由見 [ADR-0027](../../adr/0027-api-tokens-external-api.md)。這一節是 **管理** 的部分：token 只在對外 API 有效，
+決定與理由見 [`architecture/06-external-api.md`](../06-external-api.md) §9。這一節是 **管理** 的部分：token 只在對外 API 有效，
 內部 api（本文件 §6 的 `JwtAuthGuard`）不接受它（D10，`AccessTokenVerifier` 遇到 `b2bt_` 開頭直接拒絕）；
 驗證、權限與 scopes 的交集、限流、`last_used_at` 見 [`../06-external-api.md`](../06-external-api.md)。
 
@@ -519,7 +519,7 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 | 服務帳號的 token | `/service-accounts/:id/tokens`：列出 `serviceAccount:read`，建立與撤銷 `serviceAccount:update` |
 | 格式 | `b2bt_<租戶代碼>_<tokenId>_<secret>`（`api-token.format.ts`）；只在建立的回應出現一次，資料庫存 `SHA-256(secret)` |
 | 失效 | `account_version ≠ token_version`（改密碼、被重設、強制登出、停用、刪除；§1.2）、`revoked_at`、`expires_at`。管理頁的 `status` 由這三者算出：`active`／`expired`／`revoked`／`invalidated` |
-| 反提權（D4） | 替別人（服務帳號）建 token：token 取得的有效權限＝帳號的權限 ∩ scopes 的閉包，必須是操作者持有的；帳號是 super-admin 且沒有 scope 時操作者也要是 super-admin。只比對租戶層的權限鍵，資料夾等級不在 scope 裡（見 ADR-0027 實作紀錄） |
+| 反提權（D4） | 替別人（服務帳號）建 token：token 取得的有效權限＝帳號的權限 ∩ scopes 的閉包，必須是操作者持有的；帳號是 super-admin 且沒有 scope 時操作者也要是 super-admin。只比對租戶層的權限鍵，資料夾等級不在 scope 裡（見 [`architecture/06-external-api.md`](../06-external-api.md) §9 實作紀錄） |
 | 上限 | 到期天數依系統設定（[`12-settings.md`](./12-settings.md) §3），超過回 `400 API_TOKEN_LIFETIME_EXCEEDED`（`details.maxDays`）；一個帳號同時有效的 token 最多 50 把（`409 API_TOKEN_LIMIT_REACHED`） |
 | 錯誤 | `404 SERVICE_ACCOUNT_NOT_FOUND`、`404 API_TOKEN_NOT_FOUND`；服務帳號的修改必帶 `version`（`409 SERVICE_ACCOUNT_VERSION_CONFLICT`），改角色帶 `expectedRoleIds`（別人已改過時 `409 SERVICE_ACCOUNT_ROLES_CONFLICT`） |
 | 稽核 | `apiToken.create`、`apiToken.revoke`（`metadata.ownerId`、`ownerKind`、`prefix`）；`serviceAccount.create`／`update`／`assignRole`／`delete` |
@@ -551,3 +551,57 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 - [ ] 狀態檢查在密碼驗證之後
 - [ ] session 有絕對壽命；過期 token 有清理排程
 - [ ] 所有認證事件都寫入稽核日誌
+
+---
+
+## 10. 設計決策：短期 JWT ＋ 輪替式 Refresh Token
+
+> 原 ADR-0004，2026-09-19 決定。
+
+### 10.1 背景
+
+需要決定 session 的表示方式。三個常見選項：伺服器 session（cookie + 儲存）、
+長期 JWT、短期 JWT ＋ refresh token。前端怎麼保存 token 見
+[`../frontend/09-state-and-storage.md`](../frontend/09-state-and-storage.md)。
+
+### 10.2 決定
+
+- **Access Token**：JWT，5 分鐘，只存客戶端記憶體，內容只有 `{ sub, ver, jti }`
+- **Refresh Token**：不透明隨機值，7 天，`httpOnly` cookie，
+  雜湊後入庫，**每次使用即輪替**，**重用偵測 → 整條家族撤銷**
+- **撤銷機制**：`users.token_version`，遞增即讓所有既存 access token 失效
+- **跨分頁**：前端用 Web Locks（`navigator.locks`）互斥續期，確保同時只有一個分頁在輪替；
+  `BroadcastChannel` 只負責分享新 token 與同步登出
+
+### 10.3 理由
+
+1. **Access token 不進 `localStorage`。** XSS 拿不到可長期使用的憑證。
+   代價是重新整理頁面需要一次 refresh（約 50 ms）。
+2. **Refresh token 是不透明值而非 JWT。** 它不需要攜帶資訊；換成 DB 查詢
+   得到的是 **可撤銷性** 與 **重用偵測**，那是 JWT 做不到的。
+3. **輪替 ＋ 家族撤銷是被竊取時的唯一補救。** 攻擊者用了偷來的 token，
+   合法使用者下次續期就會觸發重用偵測；反之亦然。任一方先用都會讓整條家族失效。
+4. **`token_version` 補上 JWT 的撤銷缺口。** 停用使用者、改密碼時遞增，
+   既存 token 下一次請求即失效，不需要等 5 分鐘。
+5. **5 分鐘是延遲與成本的平衡點。** 更短會讓續期請求變多；更長會拉大
+   `token_version` 檢查之外的空窗（實際上有 `token_version` 就沒有空窗，
+   5 分鐘只影響「快取的使用者狀態」的新鮮度）。
+
+### 10.4 代價
+
+| 代價 | 緩解 |
+| --- | --- |
+| **跨分頁必須協調**，否則會誤判為重用攻擊並登出使用者 | Web Locks 互斥（拿到鎖時 cookie 已是新的）；後端以條件式 `UPDATE` 保證同一張 token 只換發一次 |
+| 每個請求都要驗簽 ＋ 查使用者狀態 | `UserCacheService` TTL 30 秒 |
+| 重新整理頁面多一次往返 | 約 50 ms，可接受 |
+| 實作複雜度高於伺服器 session | 這是主要代價；但重用偵測（§2.2）是伺服器 session 給不了的 |
+
+### 10.5 替代方案
+
+| 方案 | 不採用的理由 |
+| --- | --- |
+| 伺服器 session（cookie + DB/Redis） | 更簡單且天然可撤銷。但每個請求都要查 session store，且未來若要支援非瀏覽器客戶端（CLI、CI）需要另做一套 |
+| 長期 JWT（無 refresh） | 無法撤銷。管理員停用一個帳號後那個人還能用到 token 過期 |
+| Access token 帶權限 | 見 [`05-rbac.md`](./05-rbac.md) §11 |
+| Refresh token 不輪替 | 被竊取後無從察覺 |
+| Refresh token 存 `localStorage` | XSS 直接拿走長期憑證 |

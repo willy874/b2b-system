@@ -112,7 +112,7 @@ function setup(initial: TenantWithDomains = tenantRow()) {
   return { service, repo, audit, directory, events, calls };
 }
 
-describe('PlatformTenantService.update 的 features（docs/adr/0021-runtime-feature-activation.md D8）', () => {
+describe('PlatformTenantService.update 的 features（docs/architecture/frontend/02-plugin-system.md §9.2 D8）', () => {
   it('關掉 file：寫入完整清單、稽核帶 before/after，失效後發佈 tenant.featuresChanged', async () => {
     const { service, repo, audit, events, calls } = setup();
 
@@ -191,7 +191,7 @@ describe('PlatformTenantService.update 的 features（docs/adr/0021-runtime-feat
   });
 });
 
-describe('PlatformTenantService.update 的 flags（docs/adr/0022-feature-flags.md D7）', () => {
+describe('PlatformTenantService.update 的 flags（docs/architecture/05-tenancy.md §11.2 D7）', () => {
   it('寫入完整的覆寫表（依目錄的順序）、稽核帶 before/after，失效後發佈 tenant.featuresChanged', async () => {
     const { service, repo, audit, events, calls } = setup(
       tenantRow({ flags: { 'levelEditor.v2': false } }),
@@ -252,7 +252,7 @@ describe('PlatformTenantService.update 的 flags（docs/adr/0022-feature-flags.m
   });
 });
 
-describe('PlatformTenantService.update 的 featureParams（docs/adr/0033-feature-params-and-webhook-targets.md D3）', () => {
+describe('PlatformTenantService.update 的 featureParams（docs/architecture/05-tenancy.md §13.2 D3）', () => {
   it('只改列出的參數、null 回到預設、等於預設的不存；稽核帶 before/after，不發佈事件', async () => {
     const { service, repo, audit, events } = setup(
       tenantRow({ featureParams: { 'job.maxConcurrency': 5, 'webhook.maxUrls': 3 } }),

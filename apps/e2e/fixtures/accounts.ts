@@ -15,7 +15,7 @@ export const ACCOUNTS = {
 export type AccountKey = keyof typeof ACCOUNTS;
 
 /**
- * apps/auth 的平台管理者（平台 DB，docs/adr/0020-physical-tenant-isolation.md D5）；與上面租戶的帳號是兩份資料。
+ * apps/auth 的平台管理者（平台 DB，docs/architecture/05-tenancy.md §10.2 D5）；與上面租戶的帳號是兩份資料。
  * 由 `db:seed:e2e` 建立，密碼同 `E2E_PASSWORD`。
  */
 export const PLATFORM_ADMIN = 'e2e-platform@dev.local';

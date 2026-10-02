@@ -95,7 +95,7 @@ async function bootstrap(): Promise<void> {
     .use(notificationFeaturePlugin())
     // 擴充 feature 的小外掛：往偏好頁插「表格欄位」分頁
     .use(tableColumnSettingsPlugin())
-    // 可啟用 feature 的安裝器（登入後依租戶的啟用清單安裝，docs/adr/0021-runtime-feature-activation.md）
+    // 可啟用 feature 的安裝器（登入後依租戶的啟用清單安裝，docs/architecture/frontend/02-plugin-system.md §9）
     .use(featureActivationPlugin())
     // 最後：建立 router（此時所有 route 都已存在）
     .use(appContextPlugin());

@@ -24,7 +24,7 @@ import type { JobType } from './job-type';
 
 /**
  * pg-boss 裡存的工作資料：屬於哪個租戶（平台工作是 null）＋ 入列時的資料
- * （docs/adr/0020-physical-tenant-isolation.md D15）。只放 id 之類的參照，不放租戶的個人資料。
+ * （docs/architecture/05-tenancy.md §10.2 D15）。只放 id 之類的參照，不放租戶的個人資料。
  */
 export interface JobEnvelope<TData extends object = object> {
   tenantId: string | null;
@@ -43,7 +43,7 @@ const OUTBOX_BATCH = 100;
 
 /**
  * 租戶的同時執行數已滿時，放回佇列後隔多久再被取到（秒）：固定的下限加上隨機的抖動，
- * 同時被放回的幾筆不會在同一刻一起回來又一起被放回（docs/adr/0033-feature-params-and-webhook-targets.md D9）。
+ * 同時被放回的幾筆不會在同一刻一起回來又一起被放回（docs/architecture/05-tenancy.md §13.3 D9）。
  */
 const TENANT_BUSY_DELAY_SECONDS = 5;
 const TENANT_BUSY_JITTER_SECONDS = 5;
@@ -70,8 +70,8 @@ export interface RegisterJobOptions {
 
 export interface EnqueueOptions {
   /**
-   * 業務交易：入列與資料一起提交或一起回滾（docs/adr/0016-background-jobs.md D2）。佇列在平台 DB，
-   * 所以交易內先寫租戶 DB 的 `job_outbox`，提交後才搬進佇列（docs/adr/0020-physical-tenant-isolation.md D15）。
+   * 業務交易：入列與資料一起提交或一起回滾（docs/architecture/backend/10-jobs.md §9.2 D2）。佇列在平台 DB，
+   * 所以交易內先寫租戶 DB 的 `job_outbox`，提交後才搬進佇列（docs/architecture/05-tenancy.md §10.2 D15）。
    */
   tx?: Transaction;
   /**
@@ -90,8 +90,8 @@ interface Registration {
 
 /**
  * 背景工作佇列（docs/architecture/backend/10-jobs.md）。底層是 pg-boss；模組只認識這個類別，
- * 換掉 pg-boss 不影響模組（docs/adr/0016-background-jobs.md）。佇列在平台 DB，一套 worker 服務所有租戶：
- * 租戶的工作帶著 `tenantId`，handler 在那個租戶的脈絡裡執行（docs/adr/0020-physical-tenant-isolation.md D15）。
+ * 換掉 pg-boss 不影響模組（docs/architecture/backend/10-jobs.md §9）。佇列在平台 DB，一套 worker 服務所有租戶：
+ * 租戶的工作帶著 `tenantId`，handler 在那個租戶的脈絡裡執行（docs/architecture/05-tenancy.md §10.2 D15）。
  *
  * 模組在 `onModuleInit` 呼叫 `register()`；`onApplicationBootstrap` 時統一建立佇列、
  * 啟動 worker 與排程——所以入列只能在啟動完成之後（HTTP 請求、其他工作裡）。
@@ -351,7 +351,7 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
   }
 
   /**
-   * 租戶的同時執行上限 `job.maxConcurrency`（docs/adr/0033-feature-params-and-webhook-targets.md D9）：
+   * 租戶的同時執行上限 `job.maxConcurrency`（docs/architecture/05-tenancy.md §13.3 D9）：
    * 這一筆排在上限之後就放回佇列，回傳 handler 的替代結果；否則回 `undefined` 照常執行。
    * 租戶找不到時不判斷，交給 `tenancy.run` 回報。
    */

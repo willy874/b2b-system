@@ -1,7 +1,7 @@
 import type { TenantFeature } from '@/core/tenant';
 
 /**
- * 對外事件的宣告（docs/adr/0030-webhooks.md D1～D4）。純函式、不依賴 DI：擁有者模組在自己的
+ * 對外事件的宣告（docs/architecture/backend/17-webhook.md §9.2 D1～D4）。純函式、不依賴 DI：擁有者模組在自己的
  * `<name>.webhooks.ts` 宣告事件與 `data` 的型別，在 `*.module.ts` 以 `WebhookEventCatalog.register()` 登記，
  * 在業務交易內呼叫 `WebhookService.emit()`。
  */

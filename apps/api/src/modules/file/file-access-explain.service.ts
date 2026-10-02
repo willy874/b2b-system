@@ -12,7 +12,7 @@ import { FileAccessService } from './file-access.service';
 import { FileFolderRepository } from './file-folder.repository';
 
 /**
- * 「某人為什麼能（不能）在這個資料夾做 X」（ADR-0024 G4b）：以目標使用者建立判斷器取路徑，接上主體閉包的來歷，
+ * 「某人為什麼能（不能）在這個資料夾做 X」（docs/rbac/01-domain-model.md §9 G4b）：以目標使用者建立判斷器取路徑，接上主體閉包的來歷，
  * 再依 **操作者** 遮蔽讀不到的節點（D14）——資料夾讀不讀得到看操作者在那個資料夾的 `can_read`。
  * 查自己不需要權限；查別人要 `authz:explain`。
  */

@@ -91,7 +91,7 @@ describe('createCoreContext 的狀態 store', () => {
   });
 });
 
-describe('createCoreContext 的執行期安裝（docs/adr/0021-runtime-feature-activation.md D2）', () => {
+describe('createCoreContext 的執行期安裝（docs/architecture/frontend/02-plugin-system.md §9.2 D2）', () => {
   it('load() 可以重複呼叫，已初始化的 plugin 不會重跑 onInit', async () => {
     const context = createContext();
     const onInit = vi.fn();

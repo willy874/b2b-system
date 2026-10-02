@@ -2,7 +2,7 @@ import { requireTenant } from './tenant-context';
 import type { TenantFeature } from './tenant-features';
 
 /**
- * 可啟用 feature 的參數（docs/adr/0033-feature-params-and-webhook-targets.md D1）：平台管理者為每個租戶設定的配額與上限。
+ * 可啟用 feature 的參數（docs/architecture/05-tenancy.md §13.2 D1）：平台管理者為每個租戶設定的配額與上限。
  * 值存在平台 DB 的 `tenants.feature_params`（只存覆寫值），經 `TenantDirectory` 進到 `TenantContext.featureParams`。
  *
  * 目錄在 `core/`：`TenantContext` 與背景工作佇列都要讀，`core/` 不 import `modules/`。參數的效果由各擁有者模組實作，

@@ -15,7 +15,7 @@ import {
 import { users } from './users';
 
 /**
- * Webhook 訂閱（docs/adr/0030-webhooks.md D7）：租戶的設定，不是業務資料——硬刪除、不進回收桶。
+ * Webhook 訂閱（docs/architecture/backend/17-webhook.md §9.2 D7）：租戶的設定，不是業務資料——硬刪除、不進回收桶。
  * 密鑰要拿來算 HMAC，不能只存雜湊：以 `WEBHOOK_SECRET_KEY` 加密（D14）。
  */
 export const webhookSubscriptions = pgTable(
@@ -24,7 +24,7 @@ export const webhookSubscriptions = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     name: text('name').notNull(),
     /**
-     * 已由 `webhook_targets` 取代（docs/adr/0033-feature-params-and-webhook-targets.md D12）：只為升版期間的舊程式碼
+     * 已由 `webhook_targets` 取代（docs/architecture/backend/17-webhook.md §10.2 D12）：只為升版期間的舊程式碼
      * 雙寫第一個網址，讀取一律看 `webhook_targets`。下一次部署刪除（`conventions/03-backend.md` §5）。
      */
     url: text('url'),
@@ -36,7 +36,7 @@ export const webhookSubscriptions = pgTable(
     disabledReason: text('disabled_reason'),
     secretEncrypted: text('secret_encrypted').notNull(),
     /**
-     * 已由 `webhook_targets.consecutive_failures` 取代（ADR-0033 D15）：不再更新，與 `url` 一起在下一次部署刪除。
+     * 已由 `webhook_targets.consecutive_failures` 取代（docs/architecture/backend/17-webhook.md §10.2 D15）：不再更新，與 `url` 一起在下一次部署刪除。
      */
     consecutiveFailures: integer('consecutive_failures').notNull().default(0),
     lastDeliveryAt: timestamp('last_delivery_at', { withTimezone: true }),
@@ -56,7 +56,7 @@ export const webhookSubscriptions = pgTable(
 );
 
 /**
- * 訂閱的目標網址（docs/adr/0033-feature-params-and-webhook-targets.md D12）：一個訂閱 1～10 個。
+ * 訂閱的目標網址（docs/architecture/backend/17-webhook.md §10.2 D12）：一個訂閱 1～10 個。
  * 連續失敗次數跟著網址走：一個壞掉的網址不會被另一個正常的網址歸零（D15）。修改網址時沒變的列保留（id 與失敗次數不變）。
  */
 export const webhookTargets = pgTable(
@@ -104,7 +104,7 @@ export const webhookDeliveries = pgTable(
     eventId: uuid('event_id')
       .notNull()
       .references(() => webhookEvents.id, { onDelete: 'cascade' }),
-    /** 送到哪個網址（ADR-0033 D14）；網址被移除後是 null，`url` 保留當時的快照。 */
+    /** 送到哪個網址（docs/architecture/backend/17-webhook.md §10.2 D14）；網址被移除後是 null，`url` 保留當時的快照。 */
     targetId: uuid('target_id').references(() => webhookTargets.id, { onDelete: 'set null' }),
     url: text('url').notNull(),
     /** 這個事件對這個網址的第幾次嘗試（1 起算；手動重送接續）。 */

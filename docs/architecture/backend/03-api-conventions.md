@@ -189,7 +189,7 @@ export const ErrorCode = {
   TENANT_NOT_FOUND: { status: 404 },
   TENANT_UNAVAILABLE: { status: 503 },
   PLATFORM_ONLY: { status: 404 },     // 平台端點在租戶網域上等同不存在
-  FEATURE_DISABLED: { status: 404 },  // 端點屬於租戶沒有啟用的 feature（ADR-0021 D11）；不暴露功能存在
+  FEATURE_DISABLED: { status: 404 },  // 端點屬於租戶沒有啟用的 feature（[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §9.2 D11）；不暴露功能存在
 
   // ── 認證 ──
   AUTH_INVALID_CREDENTIALS: { status: 401 },
@@ -449,16 +449,16 @@ async login(...) {}
 
 ## 10. 批次操作
 
-後端不提供批次端點。列表勾選多筆後的操作由前端逐筆呼叫單筆 API，見 [ADR-0012](../../adr/0012-batch-queue-worker.md)。
+後端不提供批次端點。列表勾選多筆後的操作由前端逐筆呼叫單筆 API，見 [`frontend/07-ui-system.md`](../frontend/07-ui-system.md) §13。
 會改動實體欄位的批次（例：使用者的批次啟用／停用）帶 **列表那一列的 `version`**（§11）：列表資料過時的那幾筆以
-`<RESOURCE>_VERSION_CONFLICT` 逐筆失敗、列在結果對話框（[ADR-0009](../../adr/0009-table-batch-operations.md)），不會蓋掉別人的變更。
+`<RESOURCE>_VERSION_CONFLICT` 逐筆失敗、列在結果對話框（[`frontend/07-ui-system.md`](../frontend/07-ui-system.md) §13.6），不會蓋掉別人的變更。
 `version` 必填：批次拿不到列的版本時那一筆失敗，不改成先讀最新的版本（那等於後寫者勝）。
 
 ---
 
 ## 11. 樂觀鎖（`version`）
 
-「兩個人同時編輯同一筆，後送出的默默蓋掉先送出的」以 `version` 欄防止（[ADR-0025](../../adr/0025-entity-revisions.md) D3、D4）。
+「兩個人同時編輯同一筆，後送出的默默蓋掉先送出的」以 `version` 欄防止（[`backend/14-revisions.md`](14-revisions.md) §9.2 D3、D4）。
 目前套用在 `users`、`roles`、`files`（[`09-file.md`](./09-file.md) §6.2）。
 
 | 項目 | 約定 |
@@ -468,7 +468,7 @@ async login(...) {}
 | 寫入 | 讀到時先比對；寫入是條件式 `UPDATE … SET version = version + 1 WHERE id = $id AND version = $v AND deleted_at IS NULL`，比對與寫入在同一條語句 |
 | 衝突 | `409 <RESOURCE>_VERSION_CONFLICT`，`details: { current }`。「讀到時就不同」與「UPDATE 沒命中而列仍存在」**兩條路徑都帶** `current`：沒命中時在同一個交易內重讀一次 |
 | 已刪除 | UPDATE 沒命中而列已刪除 → 既有的 `404 <RESOURCE>_NOT_FOUND`，不是衝突 |
-| 批次、腳本 | 批次以列表那一列的 `version` 逐筆送出，衝突逐筆失敗（[ADR-0009](../../adr/0009-table-batch-operations.md)）。沒有「不帶就後寫者勝」的路徑；腳本要後寫者勝就先讀一次目前的版本再送出（ADR-0025 D4） |
+| 批次、腳本 | 批次以列表那一列的 `version` 逐筆送出，衝突逐筆失敗（[`frontend/07-ui-system.md`](../frontend/07-ui-system.md) §13.6）。沒有「不帶就後寫者勝」的路徑；腳本要後寫者勝就先讀一次目前的版本再送出（[`backend/14-revisions.md`](14-revisions.md) §9.2 D4） |
 | 遞增時機 | **實體自己的可編輯欄位** 被寫入時遞增（包括不收 `version` 的端點，例如解鎖、個人資料）；關聯的寫入不遞增（見下表） |
 
 哪些寫入遞增 `version`：
@@ -486,3 +486,93 @@ async login(...) {}
 前端：編輯表單在 **開始編輯時** 記下 `version` 並在送出時帶上（編輯途中推播讓資料重抓，也不能換成最新的版本，
 否則等於默默覆寫）。收到 `*_VERSION_CONFLICT`（`isVersionConflict(error)`）時 mutation hook 失效該資源、不彈 toast，
 表單以 `VersionConflictAlert`（`core/components`）說明並提供「重新載入」：重抓最新的內容與版本、放棄這次的修改。
+
+---
+
+## 12. 設計決策：前端 SDK 由後端 OpenAPI 產生
+
+> 原 ADR-0007，2026-09-19 決定；2026-09-24 修訂為以自製產生器取代 orval（§12.6）。
+
+### 12.1 背景
+
+前後端需要共用型別，特別是 **權限鍵（`PermissionKey`）**。
+如果兩邊各自維護一份清單，遲早會分歧——而權限鍵分歧的後果是
+「前端顯示了按鈕但後端拒絕」或更糟的「前端隱藏了使用者其實有權限的功能」。
+
+### 12.2 決定
+
+```
+apps/api  ──(@nestjs/swagger + zod-openapi)──▶  openapi.json
+                                                     │
+                                                     ▼ (packages/api-sdk/codegen)
+                                          packages/api-sdk
+                                                     │
+                                                     ▼
+                                    apps/backstage/src/shared/api-sdk (re-export)
+```
+
+- **後端是唯一事實來源**
+- 權限鍵透過一個 `z.enum(ALL_PERMISSION_KEYS).openapi({ ref: 'PermissionKey' })`
+  出現在 spec 裡，於是 SDK 會產生對應的 const 物件（§7.1）
+- 前端的 `core/permission/enums.ts` 只做一層 re-export
+- `apps/backstage/src/shared/api-sdk/index.ts` 是整個前端對 SDK 的 **唯一** 引用點
+- CI 檢查：重新產生 `openapi.json` 後 `git diff` 必須為空（§7.2）
+
+### 12.3 理由
+
+1. **權限鍵只定義一次。** 後端的 `PERMISSION_SEED` 是唯一來源，
+   前端拿到的是它的投影。
+2. **型別不會過期。** 後端改了回應形狀，重新產生 SDK 後前端會編譯失敗——
+   在 CI 就發現，而不是上線後。
+3. **`shared/api-sdk` 的收斂點** 讓「換產生器」或「對某個型別做本地修補」
+   只需要改一個檔案。
+4. **NestJS 的 Swagger 整合幾乎零成本**，因為 Zod schema 已經用
+   `.openapi({ ref })` 標註好了。
+
+### 12.4 代價
+
+| 代價 | 緩解 |
+| --- | --- |
+| 多一個產生步驟，忘記跑會不一致 | CI 檢查 `openapi.json` 的 diff；`pnpm build` 會先跑 `sdk:generate` |
+| 產生的程式碼可讀性不如手寫 | 它不需要被讀，只需要被用；`shared/api-sdk` 隔離了它 |
+| 後端未啟動時無法產生 | 從版控中的 `openapi.json` 產生即可，不需要跑起 server |
+| 產生器的 API 風格未必符合喜好 | 前端不直接用產生的 client，而是在 `apis/*/fetcher.ts` 包一層 |
+
+### 12.5 替代方案
+
+| 方案 | 不採用的理由 |
+| --- | --- |
+| 手寫共用 `packages/contracts` | 要靠人維護同步，就是要避免的問題 |
+| tRPC | 要求前後端在同一個 TypeScript 專案並共用型別。與 NestJS 的 controller/DTO 模型不合，也放棄了 OpenAPI 帶來的可文件化 |
+| GraphQL | schema 確實是單一來源，但為了一個 CRUD 管理後台引入 GraphQL 的複雜度不成比例 |
+| 只共用權限鍵，其餘手寫型別 | 那就要維護兩套同步機制 |
+
+### 12.6 實作紀錄：以自製產生器取代 orval（2026-09-24）
+
+`packages/api-sdk/codegen/` 是專案自己的產生器，取代原本的 orval。
+
+**產出**（`src/generated/`，整個目錄由產生器擁有）：
+
+| 檔案 | 內容 |
+| --- | --- |
+| `models.ts` | `components.schemas` 的 TS 型別；字串 enum 另外輸出同名 `as const` 物件（`PermissionKey` 靠它） |
+| `schemas.ts` | 同一批 component 的 zod schema（`UserSchema`…），以 `satisfies z.ZodType<User>` 和 `models.ts` 對齊 |
+| `endpoints/<tag>.ts` | 每個 operation 的 `XxxInput` / `XxxResponses` / `XxxResult` 型別、`XxxSchemas`（path / query / headers / body / responses 的 zod）、URL builder `getXxxUrl(path?, query?)`、以及 fetch 函式 `xxx(input, options)` |
+| `runtime.ts` | 由 `codegen/runtime.ts` 原樣複製：`request()`、`buildUrl()`、`ApiError`、`configureSdk()` |
+
+**為什麼換掉 orval**
+
+1. **只要 fetch、不要 middleware。** 攔截器（token、續期、重試、錯誤轉換）已經在
+   `apps/backstage/src/core/client` 的 `HttpContext` 實作；SDK 再帶一套 mutator / interceptor 只會重疊。
+   新產生器的執行期只有 `fetch`，需要客製傳輸時以 `options.fetch` 注入，不提供攔截器鏈。
+2. **同時產出 zod schema。** 表單驗證與（可選的）回應驗證可以直接用 spec 產生的 schema，
+   不必手寫一份「長得一樣」的 zod。
+3. **每份 SDK 自給自足。** `runtime.ts` 複製進輸出目錄，多個後端各自產生 SDK 時設定互不干擾。
+4. **命名可預測。** 巢狀的匿名物件不再被拆成 `XxxController200Data` 這類型別；
+   需要內層型別時用索引存取（`UserControllerListResponse['data']`）。
+
+**開源套件**：只用 `openapi-types`（spec 的型別定義）與 `tsx`（執行 TS 寫成的 CLI）；
+zod 與 TS 的輸出由產生器自己寫，才能掌握 `$ref` → 具名 schema、循環引用（`z.lazy`）與宣告順序。
+
+**支援範圍**：OpenAPI 3.0 / 3.1 的 JSON spec，只接受文件內的 `$ref`（外部檔案請先 bundle）。
+cookie 參數不產生；`prefixItems`（tuple）以一般陣列表示——這些情況 CLI 會印出警告。

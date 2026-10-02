@@ -16,7 +16,7 @@ function hydrate(keys: PermissionKey[]): void {
   usePermissionStore.setState({ permissions: new Set(keys), hydrated: true });
 }
 
-describe('useWebhookPermission（docs/adr/0030-webhooks.md D6）', () => {
+describe('useWebhookPermission（docs/architecture/backend/17-webhook.md §9.2 D6）', () => {
   it('auditor（只有 webhook:read）只能看：不能建立、編輯、送出、刪除', () => {
     hydrate([PermissionKey['webhook:read']]);
     expect(renderHook(() => useWebhookPermission()).result.current).toMatchObject({

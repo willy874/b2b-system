@@ -13,7 +13,7 @@ import { TenantService } from './tenant.service';
 
 /**
  * 租戶：公開資訊（`/tenant/current`、`/tenants/lookup`）與平台管理者的管理、佈建
- * （docs/adr/0020-physical-tenant-isolation.md D11–D13）。
+ * （docs/architecture/05-tenancy.md §10.2 D11–D13）。
  */
 @Module({
   imports: [CredentialModule, OidcProviderModule, PlatformAdminModule],

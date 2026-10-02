@@ -13,7 +13,7 @@ import { toAnnouncementRowVM } from './adapter';
 import { AnnouncementTable } from './components/AnnouncementTable';
 import { useAnnouncementSearchFilter } from './useAnnouncementSearchFilter';
 
-/** 公告（docs/adr/0031-announcements.md）：寫好訊息，立即或在指定時間以站內通知發給指定的對象。 */
+/** 公告（docs/architecture/backend/19-announcement.md §9）：寫好訊息，立即或在指定時間以站內通知發給指定的對象。 */
 export default function AnnouncementListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();

@@ -51,7 +51,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('AnnouncementListPage（docs/adr/0031-announcements.md A2）', () => {
+describe('AnnouncementListPage（docs/architecture/backend/19-announcement.md §9 A2）', () => {
   it('有 announcement:create → 列出公告（狀態、已讀率）並顯示建立按鈕', async () => {
     renderRoute(routes, '/announcement', MANAGER);
     expect(await screen.findByText('系統維護通知', undefined, { timeout: 5000 })).toBeVisible();

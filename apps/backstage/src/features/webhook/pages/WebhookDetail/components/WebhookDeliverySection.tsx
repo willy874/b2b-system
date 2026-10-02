@@ -41,14 +41,14 @@ const ALL_TARGETS = 'all';
 
 interface WebhookDeliverySectionProps {
   webhookId: string;
-  /** 目前的網址：多於一個時可以依網址篩選（ADR-0033 D16）。 */
+  /** 目前的網址：多於一個時可以依網址篩選（docs/architecture/backend/17-webhook.md §10.2 D16）。 */
   targets: WebhookTarget[];
   /** 停用中的 webhook 不能重送（D17）。 */
   canRedeliver: boolean;
 }
 
 /**
- * 投遞紀錄（docs/adr/0030-webhooks.md D12、D16、D17）：每一次嘗試一筆，保留 30 天。
+ * 投遞紀錄（docs/architecture/backend/17-webhook.md §9.2 D12、D16、D17）：每一次嘗試一筆，保留 30 天。
  * 新的投遞由推播（`webhookDelivery`）讓這裡重抓。
  */
 export function WebhookDeliverySection({

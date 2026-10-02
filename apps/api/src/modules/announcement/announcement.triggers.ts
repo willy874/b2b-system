@@ -1,7 +1,7 @@
 import type { TenantFeature } from '@/core/tenant';
 
 /**
- * 事件點的比對方式（docs/adr/0031-announcements.md D13、D14）：事件的使用者要「在公告的受眾裡」才發送。
+ * 事件點的比對方式（docs/architecture/backend/19-announcement.md §9.2 D13、D14）：事件的使用者要「在公告的受眾裡」才發送。
  * - `audience`：使用者屬於公告的受眾（全租戶、指定的人、群組含巢狀、角色）
  * - `group`：事件帶的群組是受眾裡的群組（或受眾是全租戶）——「加入財務群組的人」
  * - `role`：事件帶的角色有一個是受眾裡的角色（或受眾是全租戶）——「被指派主管角色的人」

@@ -7,11 +7,11 @@ import type {
   NotificationLink,
 } from '@/modules/notification/notification.definition';
 
-/** 連續失敗而自動停用（docs/adr/0030-webhooks.md D13）：給停用當下持有 `webhook:update` 的人。參數是名稱快照。 */
+/** 連續失敗而自動停用（docs/architecture/backend/17-webhook.md §9.2 D13）：給停用當下持有 `webhook:update` 的人。參數是名稱快照。 */
 export type WebhookDisabledParams = {
   webhookName: string;
   consecutiveFailures: number;
-  /** 到達門檻的網址（ADR-0033 D15）；升版前寫入的通知沒有。 */
+  /** 到達門檻的網址（docs/architecture/backend/17-webhook.md §10.2 D15）；升版前寫入的通知沒有。 */
   url?: string;
 };
 

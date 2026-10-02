@@ -10,8 +10,8 @@ import type { TenantFeature } from '@/core/tenant';
 import { REQUIRED_FEATURE, REQUIRED_FLAG } from '../decorators';
 
 /**
- * 擋下租戶未啟用的 feature（docs/adr/0021-runtime-feature-activation.md D11）與關閉中的 feature flag
- * （docs/adr/0022-feature-flags.md D5）的端點：回 `FEATURE_DISABLED`（404），不暴露功能存在。
+ * 擋下租戶未啟用的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D11）與關閉中的 feature flag
+ * （docs/architecture/05-tenancy.md §11.2 D5）的端點：回 `FEATURE_DISABLED`（404），不暴露功能存在。
  * 前端依清單隱藏只是體驗，這裡才是存取控制。`@RequireFeature` 與 `@RequireFlag` 並存時兩者都要成立；
  * handler 與 class 各自的 `@RequireFeature` 合併計算，列出的 feature 都要啟用。
  *

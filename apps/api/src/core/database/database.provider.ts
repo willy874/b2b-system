@@ -6,7 +6,7 @@ import * as platformSchema from '@/db/platform/schema';
 import * as relations from '@/db/relations';
 import * as schema from '@/db/schema';
 
-/** 租戶 DB 的 schema（每個租戶的 database 都是這一套，docs/adr/0020-physical-tenant-isolation.md D1）。 */
+/** 租戶 DB 的 schema（每個租戶的 database 都是這一套，docs/architecture/05-tenancy.md §10.2 D1）。 */
 export const fullSchema = { ...schema, ...relations };
 /** 平台 DB 的 schema：租戶登記、IdP 的協定狀態。 */
 export const fullPlatformSchema = { ...platformSchema };
@@ -93,7 +93,7 @@ export function createPlatformDatabase(options: DatabaseOptions) {
 
 /**
  * DI token：**目前租戶** 的 database（依請求的網域、背景工作的 `tenantId` 決定，
- * docs/adr/0020-physical-tenant-isolation.md D3）。業務的 repository 都注入這個；
+ * docs/architecture/05-tenancy.md §10.2 D3）。業務的 repository 都注入這個；
  * 沒有租戶脈絡時存取它會拋 `TENANT_NOT_FOUND`，不會退回任何預設的 database。
  */
 export const TENANT_DB = Symbol('TENANT_DB');

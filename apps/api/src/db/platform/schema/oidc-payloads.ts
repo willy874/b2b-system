@@ -1,7 +1,7 @@
 import { index, jsonb, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core';
 
 /**
- * `oidc-provider` 的通用儲存（docs/adr/0019-sso-identity-platform.md）：Session、Interaction、Grant、
+ * `oidc-provider` 的通用儲存（docs/architecture/04-sso.md §12）：Session、Interaction、Grant、
  * AuthorizationCode… 都存成「模型名稱 ＋ id ＋ payload」。欄位對應它的 Adapter 介面：
  * `grant_id` 供 `revokeByGrantId`、`uid` 供 `findByUid`（Session）、`user_code` 供 `findByUserCode`（裝置流程，未啟用）。
  */

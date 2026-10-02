@@ -2,7 +2,7 @@ import { routeBasePath } from '@/core/permission';
 import { createRegistry } from '@/shared/registry';
 
 /**
- * route id → route 的註冊表（docs/architecture/frontend/15-notification.md §3、ADR-0026 D3）。
+ * route id → route 的註冊表（docs/architecture/frontend/15-notification.md §3、docs/architecture/backend/15-notification.md §12.2 D3）。
  *
  * 後端把連結存成 `{ route: '<route id>', params }`（例：站內通知的 `link`），而不是路徑字串：路由改名或搬移時，
  * 只要擁有頁面的 feature 改註冊，舊資料照樣連得到。feature 在 plugin 的 **同步** 階段登記自己的頁面；
@@ -47,7 +47,7 @@ interface RouteLinkEntry {
   search: Readonly<Record<string, string>>;
 }
 
-/** 可訂閱：可啟用的 feature（例：檔案）安裝或卸載時，連結跟著變成可點或不可點（ADR-0021 D4）。 */
+/** 可訂閱：可啟用的 feature（例：檔案）安裝或卸載時，連結跟著變成可點或不可點（docs/architecture/frontend/02-plugin-system.md §9.2 D4）。 */
 export const routeLinkRegistry = createRegistry<string, RouteLinkEntry>('Route link');
 
 /**
@@ -84,7 +84,7 @@ function pick(
 
 /**
  * 解析一個連結；沒有連結、route id 沒有登記（所屬 feature 沒安裝或已改名）、缺少必要參數時回 undefined
- * ——呼叫端只顯示文字、不可點（ADR-0026 D3）。多出來的參數忽略。
+ * ——呼叫端只顯示文字、不可點（docs/architecture/backend/15-notification.md §12.2 D3）。多出來的參數忽略。
  */
 export function resolveRouteLink(
   link: RouteLinkRef | null | undefined,

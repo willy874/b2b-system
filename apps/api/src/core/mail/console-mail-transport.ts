@@ -8,7 +8,7 @@ import type { MailMessage, SentMail } from './mail-transport';
 /**
  * 不寄出，只把收件人、主旨與純文字內容寫進日誌。內容含啟用／重設連結，
  * 所以只能用在測試與開發；正式環境一律 `smtp`，日誌不會出現能登入的 token
- * （docs/adr/0017-mail-delivery.md D7）。
+ * （docs/architecture/backend/11-mail.md §9.2 D7）。
  */
 @Injectable()
 export class ConsoleMailTransport extends MailTransport {

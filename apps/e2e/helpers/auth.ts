@@ -5,7 +5,7 @@ import { ACCOUNTS, E2E_PASSWORD, PLATFORM_ADMIN } from '../fixtures/accounts';
 import type { AccountKey } from '../fixtures/accounts';
 import { getByTestIdAndValue } from './selectors';
 
-/** apps/auth（IdP 的登入互動頁所在的 origin，docs/adr/0019-sso-identity-platform.md）。 */
+/** apps/auth（IdP 的登入互動頁所在的 origin，docs/architecture/04-sso.md §12）。 */
 export const AUTH_URL = process.env.E2E_AUTH_URL ?? 'http://localhost:5175';
 
 /**
@@ -29,7 +29,7 @@ export async function loginAndWaitForHome(page: Page, account: AccountKey): Prom
 }
 
 /**
- * 平台管理者登入 apps/auth（沒有租戶的授權，docs/adr/0020-physical-tenant-isolation.md D5、D8）：
+ * 平台管理者登入 apps/auth（沒有租戶的授權，docs/architecture/05-tenancy.md §10.2 D5、D8）：
  * apps/auth 的 `/login` 跳到 IdP，互動頁對平台 DB 驗證。
  */
 export async function loginPlatform(page: Page): Promise<void> {

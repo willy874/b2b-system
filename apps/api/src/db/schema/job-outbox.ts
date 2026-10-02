@@ -7,7 +7,7 @@ export interface JobOutboxOptions {
 }
 
 /**
- * 交易內入列的暫存（docs/adr/0020-physical-tenant-isolation.md D15）：佇列在平台 DB，
+ * 交易內入列的暫存（docs/architecture/05-tenancy.md §10.2 D15）：佇列在平台 DB，
  * 業務交易在租戶 DB，兩者不能在同一個交易裡寫入。交易內先寫這張表，提交後搬進佇列；
  * `id` 就是佇列裡的工作 id，重複搬也只會有一筆工作。
  */

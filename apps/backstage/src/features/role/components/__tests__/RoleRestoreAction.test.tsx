@@ -65,7 +65,7 @@ function restored(holdersRestored: number) {
 beforeAll(() => initTestI18n(roleZhTW));
 
 beforeEach(() => {
-  // 復原按鈕只在租戶啟用回收桶時出現（docs/adr/0029-toggleable-platform-features.md D3）
+  // 復原按鈕只在租戶啟用回收桶時出現（docs/architecture/05-tenancy.md §12.2 D3）
   resetFeatureStore();
   featureStore.setState({ resolved: true, statuses: new Map([['trash', 'ready']]) });
   restoreRole.mockReset().mockResolvedValue(restored(0));
@@ -73,7 +73,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-describe('角色的還原（ADR-0025 R3）', () => {
+describe('角色的還原（docs/architecture/backend/14-revisions.md §9 R3）', () => {
   it('按下還原 → 呼叫 POST /roles/:id/restore 並提示成功', async () => {
     renderRoute(routes, '/restore', PERMISSIONS);
     fireEvent.click(await screen.findByTestId('role-restore'));
@@ -124,7 +124,7 @@ describe('角色的還原（ADR-0025 R3）', () => {
     expect(restoreRole.mock.calls[0]![0].params).toEqual({ roleId: DELETED_ID });
   });
 
-  it('租戶沒有啟用回收桶 → 刪除成功的提示沒有「復原」（docs/adr/0029-toggleable-platform-features.md D3）', async () => {
+  it('租戶沒有啟用回收桶 → 刪除成功的提示沒有「復原」（docs/architecture/05-tenancy.md §12.2 D3）', async () => {
     featureStore.setState({ statuses: new Map([['trash', 'disabled']]) });
     renderRoute(routes, '/delete', PERMISSIONS);
     fireEvent.click(await screen.findByRole('button', { name: 'delete' }));

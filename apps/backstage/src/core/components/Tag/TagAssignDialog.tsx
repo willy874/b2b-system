@@ -7,7 +7,7 @@ import { useErrorMessage } from '@/core/errors';
 import { useTranslation } from '@/core/locales';
 import type { Tag, TagSummary } from '@/shared/api-sdk';
 
-/** 一個資源最多貼幾個標籤；與後端的 `TAG_MAX_PER_RESOURCE` 一致（docs/adr/0032-tags.md D11）。 */
+/** 一個資源最多貼幾個標籤；與後端的 `TAG_MAX_PER_RESOURCE` 一致（docs/architecture/backend/18-tag.md §7.2 D11）。 */
 export const TAG_MAX_PER_RESOURCE = 20;
 
 export interface TagAssignDialogProps {
@@ -25,7 +25,7 @@ export interface TagAssignDialogProps {
 }
 
 /**
- * 貼與移除標籤（docs/adr/0032-tags.md D7）：從標籤組的定義裡多選，整批取代。
+ * 貼與移除標籤（docs/architecture/backend/18-tag.md §7.2 D7）：從標籤組的定義裡多選，整批取代。
  * 沒有任何標籤時說明要先到標籤管理建立；能不能改由呼叫端決定要不要打開它（後端會再檢查）。
  */
 export function TagAssignDialog({

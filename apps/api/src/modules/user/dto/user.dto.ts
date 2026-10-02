@@ -27,13 +27,13 @@ export const UserSchema = defineSchema(
     displayName: z.string(),
     status: UserStatusSchema,
     roles: z.array(RoleSummarySchema),
-    /** 貼著的標籤（`user` 標籤組，docs/adr/0032-tags.md D6）。 */
+    /** 貼著的標籤（`user` 標籤組，docs/architecture/backend/18-tag.md §7.2 D6）。 */
     tags: z.array(TagSummarySchema),
     locale: z.string(),
     timezone: z.string(),
     lastLoginAt: z.string().nullable(),
     lockedUntil: z.string().nullable(),
-    /** 樂觀鎖版本：`PATCH` 時帶上（ADR-0025 D3）。 */
+    /** 樂觀鎖版本：`PATCH` 時帶上（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
     version: z.number().int(),
     createdAt: z.string(),
     updatedAt: z.string(),

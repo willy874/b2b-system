@@ -3,7 +3,7 @@
 - 優先度：P3
 - 狀態：提案（G0～G4b 已上 main 並歸檔；剩 G5，等專案功能）
 - 依賴：專案功能本身（尚無提案）
-- 相關：[ADR-0024](../adr/0024-relationship-based-access-control.md)（本功能的決策）、
+- 相關：[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9（本功能的決策）、
   [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4（圖的組成與模型）、
   [`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) §10（資源怎麼加入關係圖）、
   [`rbac/08-groups.md`](../rbac/08-groups.md)（群組）、[`rbac/09-explain.md`](../rbac/09-explain.md)（說明）
@@ -14,9 +14,9 @@
 
 | 階段 | 內容 | 正式文件 |
 | --- | --- | --- |
-| G0～G3b（2026-09-30） | 三套機制（全域 RBAC、資料夾授權、擁有者規則）收斂成同一張關係圖；權限依賴樹；revision ＋ 平台 DB 廣播的失效；舊表刪除 | ADR-0024 D1～D9、`rbac/01-domain-model.md` §6.4、`rbac/02-permission-catalog.md` §9、`rbac/07-resource-grants.md` §2.1、`backend/02-database.md` §2.10、§2.11、`backend/05-rbac.md` §4.2、§5 |
-| G4a（2026-10-01） | 群組（巢狀、持有角色、資料夾授權給群組）；反提權一般化（模型宣告能力、引擎算出取得的能力） | ADR-0024 D10～D13、D15、D16、`rbac/08-groups.md`、`backend/05-rbac.md` §4.1 |
-| G4b（2026-10-01） | 「為什麼能做 X」：有效權限的來源、資料夾存取的路徑、依操作者遮蔽 | ADR-0024 D14、`rbac/09-explain.md` |
+| G0～G3b（2026-09-30） | 三套機制（全域 RBAC、資料夾授權、擁有者規則）收斂成同一張關係圖；權限依賴樹；revision ＋ 平台 DB 廣播的失效；舊表刪除 | [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.2 D1～D9、`rbac/01-domain-model.md` §6.4、`rbac/02-permission-catalog.md` §9、`rbac/07-resource-grants.md` §2.1、`backend/02-database.md` §2.10、§2.11、`backend/05-rbac.md` §4.2、§5 |
+| G4a（2026-10-01） | 群組（巢狀、持有角色、資料夾授權給群組）；反提權一般化（模型宣告能力、引擎算出取得的能力） | [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D10～D13、D15、D16、`rbac/08-groups.md`、`backend/05-rbac.md` §4.1 |
+| G4b（2026-10-01） | 「為什麼能做 X」：有效權限的來源、資料夾存取的路徑、依操作者遮蔽 | [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D14、`rbac/09-explain.md` |
 
 這份提案只剩下還沒做的部分。
 
@@ -44,11 +44,11 @@
 
 ## 開放問題
 
-G4 的問題已於 2026-10-01 結論，寫在 ADR-0024 D10～D16。
+G4 的問題已於 2026-10-01 結論，寫在 [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D10～D16。
 
 1. 專案成員對應到資料夾的哪個等級？是固定的，還是每個專案可以設定？
 2. 專案成員能不能自己管成員（下放）？若可以，D13 要改成檢查專案在資源上的授權嗎？
 
 ## 歸檔去向
 
-隨專案功能的提案一起歸檔：專案的型別與等級寫進 `rbac/07-resource-grants.md` 或新的 `rbac/` 章節；ADR-0024 加 G5 的實作紀錄；全部完成後刪除本檔。
+隨專案功能的提案一起歸檔：專案的型別與等級寫進 `rbac/07-resource-grants.md` 或新的 `rbac/` 章節；[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9 加 G5 的實作紀錄；全部完成後刪除本檔。

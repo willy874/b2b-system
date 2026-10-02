@@ -13,7 +13,7 @@ interface WebhookUrlsInputProps {
 }
 
 /**
- * 目標網址的清單（docs/adr/0033-feature-params-and-webhook-targets.md D13）：一個訂閱 1～10 個，
+ * 目標網址的清單（docs/architecture/backend/17-webhook.md §10.2 D13）：一個訂閱 1～10 個，
  * 同一組事件與密鑰送到每個網址。只剩一列時不能移除。
  */
 export function WebhookUrlsInput({

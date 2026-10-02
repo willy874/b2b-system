@@ -13,7 +13,7 @@ export interface PageRegistration {
 
 /**
  * 頁面權限的註冊表。可訂閱：feature 可能在 App 啟動後才安裝或被移除
- * （docs/adr/0021-runtime-feature-activation.md D4），權限 hooks 以 `useStore(pagePermissionRegistry.store, …)` 跟著更新。
+ * （docs/architecture/frontend/02-plugin-system.md §9.2 D4），權限 hooks 以 `useStore(pagePermissionRegistry.store, …)` 跟著更新。
  */
 export const pagePermissionRegistry = createRegistry<PageKey, PageRegistration>('Page permission');
 

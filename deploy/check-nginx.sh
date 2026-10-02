@@ -80,7 +80,7 @@ for site in nginx.conf nginx.auth.conf; do
   echo "✓ $site"
 done
 
-# ── nginx.external-api.conf：對外 API 的閘道（ADR-0027 D9）。upstream 是 external-api:3001，沒有靜態檔與 /api 前綴
+# ── nginx.external-api.conf：對外 API 的閘道（docs/architecture/06-external-api.md §9.2 D9）。upstream 是 external-api:3001，沒有靜態檔與 /api 前綴
 echo "── nginx.external-api.conf"
 docker rm -f "$NETWORK-nginx" "$NETWORK-api" >/dev/null 2>&1 || true
 docker run -d --name "$NETWORK-api" --network "$NETWORK" --network-alias external-api \

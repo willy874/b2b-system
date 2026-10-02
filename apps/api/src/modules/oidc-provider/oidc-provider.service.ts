@@ -37,7 +37,7 @@ import { isTenantRedirectAllowed } from './tenant-redirect';
  */
 const ExternalLoginStateSchema = z.object({
   interactionUid: z.string(),
-  /** 這次登入的租戶（外部 IdP 連線屬於租戶，docs/adr/0020-physical-tenant-isolation.md D18）。 */
+  /** 這次登入的租戶（外部 IdP 連線屬於租戶，docs/architecture/05-tenancy.md §10.2 D18）。 */
   tenantId: z.string(),
   providerId: z.string(),
   codeVerifier: z.string(),
@@ -57,7 +57,7 @@ export interface InteractionSummary {
   clientId: string;
   clientName: string;
   loginHint: string | null;
-  /** 這次要登入哪個租戶；沒有時是平台管理者的登入（docs/adr/0020-physical-tenant-isolation.md D8）。 */
+  /** 這次要登入哪個租戶；沒有時是平台管理者的登入（docs/architecture/05-tenancy.md §10.2 D8）。 */
   tenant: { id: string; code: string; name: string } | null;
 }
 
@@ -107,7 +107,7 @@ function clearAccount(session: KoaContextWithOIDC['oidc']['session']): void {
 }
 
 /**
- * `apps/api` 當 OIDC Provider（docs/adr/0019-sso-identity-platform.md）。以
+ * `apps/api` 當 OIDC Provider（docs/architecture/04-sso.md §12）。以
  * [`oidc-provider`](https://github.com/panva/node-oidc-provider) 實作協定，儲存在 `oidc_payloads`。
  *
  * - 登入互動頁在 apps/auth；互動的 cookie 由 provider 設在 `/api/oidc-interaction/:uid`，
@@ -183,7 +183,7 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * backstage 的 redirect／登出後 URI：path 相符、host 是某個租戶的網域（docs/adr/0020-physical-tenant-isolation.md D7）。
+   * backstage 的 redirect／登出後 URI：path 相符、host 是某個租戶的網域（docs/architecture/05-tenancy.md §10.2 D7）。
    * 屬於「哪一個」租戶由 authorize 的 `tenant` 參數交叉檢查（`validateTenantParam`）。
    * 其他 client 照 oidc-provider 原本的白名單比對。
    */
@@ -390,7 +390,7 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
     if (session) await session.destroy();
   }
 
-  /** 結束某個租戶所有帳號的 IdP session 與 grant（停用、刪除租戶，docs/adr/0020-physical-tenant-isolation.md D13）。 */
+  /** 結束某個租戶所有帳號的 IdP session 與 grant（停用、刪除租戶，docs/architecture/05-tenancy.md §10.2 D13）。 */
   async endTenantSessions(tenantId: string): Promise<number> {
     return this.repo.destroyAllOfTenant(tenantId);
   }
@@ -421,7 +421,7 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
         short: { signed: true, sameSite: 'lax' },
       },
       scopes: [...OIDC_SCOPES],
-      // `tenant`：帳號屬於哪個租戶（代碼）；平台管理者沒有（docs/adr/0020-physical-tenant-isolation.md D6）
+      // `tenant`：帳號屬於哪個租戶（代碼）；平台管理者沒有（docs/architecture/05-tenancy.md §10.2 D6）
       claims: {
         openid: ['sub', 'tenant'],
         email: ['email', 'email_verified'],
@@ -515,7 +515,7 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * 預設的互動 policy，再加一條：IdP session 的帳號與這次要求的身分範圍不同（別的租戶、或平台／租戶互換）
-   * 就要求重新登入（docs/adr/0020-physical-tenant-isolation.md D9）。見 `detachIdentity`。
+   * 就要求重新登入（docs/architecture/05-tenancy.md §10.2 D9）。見 `detachIdentity`。
    */
   private interactionPolicy(): interactionPolicy.Prompt[] {
     const policy = interactionPolicy.base();

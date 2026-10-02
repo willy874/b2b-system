@@ -8,7 +8,7 @@ import type {
 } from '@/modules/notification/notification.definition';
 
 /**
- * 使用者的站內通知（docs/architecture/backend/15-notification.md §4、ADR-0026 D11）。
+ * 使用者的站內通知（docs/architecture/backend/15-notification.md §4、docs/architecture/backend/15-notification.md §12.2 D11）。
  * 參數是名稱快照：角色之後改名或被刪都不影響已送出的通知。
  */
 

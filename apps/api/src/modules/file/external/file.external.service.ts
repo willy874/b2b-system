@@ -45,7 +45,7 @@ function toExternalUpload(upload: FileUploadDto): ExternalFileUploadDto {
 }
 
 /**
- * 對外 API 的檔案端點（docs/adr/0027-api-tokens-external-api.md T3）：業務規則全部在 `FileService`、
+ * 對外 API 的檔案端點（docs/architecture/06-external-api.md §9 T3）：業務規則全部在 `FileService`、
  * `FileFolderService`（權限、資料夾授權、上傳的檢查、稽核），這裡只把內部的 DTO 換成對外的契約。
  */
 @Injectable()

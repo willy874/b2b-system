@@ -144,7 +144,7 @@ function waitForDispatch(announcementId: string, status: string): Promise<Dispat
   );
 }
 
-describe('公告與排程通知（docs/adr/0031-announcements.md A2～A4）', () => {
+describe('公告與排程通知（docs/architecture/backend/19-announcement.md §9 A2～A4）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;
@@ -334,7 +334,7 @@ describe('公告與排程通知（docs/adr/0031-announcements.md A2～A4）', ()
       .set({ status: 'sending' })
       .where(eq(announcementDispatches.id, ids.dispatch!));
     const report = await inTestTenant(app, () => service.fanOut({ dispatchId: ids.dispatch! }));
-    // 受眾解析出 4 人（含送出者自己），寫入時略過自己（ADR-0026 D7），已寫的 3 人不重複
+    // 受眾解析出 4 人（含送出者自己），寫入時略過自己（docs/architecture/backend/15-notification.md §12.2 D7），已寫的 3 人不重複
     expect(report).toEqual({ recipients: 4, written: 0, revoked: false });
     const rows = await db
       .select()

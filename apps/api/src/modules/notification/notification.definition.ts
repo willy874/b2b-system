@@ -1,12 +1,12 @@
 import type { TenantFeature } from '@/core/tenant';
 
 /**
- * 通知類型的宣告與輸入（docs/architecture/backend/15-notification.md §3、ADR-0026 D2）。
+ * 通知類型的宣告與輸入（docs/architecture/backend/15-notification.md §3、docs/architecture/backend/15-notification.md §12.2 D2）。
  * 純函式、不依賴 DI：擁有者模組在自己的 `<name>.notifications.ts` 宣告類型與參數型別，
  * 在業務交易內以 `notification()` 組出輸入交給 `NotificationService.notify()`。
  */
 
-/** 通知參數的值：只放顯示需要的名稱快照（ADR-0026 D1），所以只允許純量與字串陣列。 */
+/** 通知參數的值：只放顯示需要的名稱快照（docs/architecture/backend/15-notification.md §12.2 D1），所以只允許純量與字串陣列。 */
 export type NotificationParamValue = string | number | boolean | null | readonly string[];
 
 /**
@@ -15,7 +15,7 @@ export type NotificationParamValue = string | number | boolean | null | readonly
 export type NotificationParams = Record<string, NotificationParamValue>;
 
 /**
- * 連結：前端的 route id ＋ 參數（ADR-0026 D3）。route id 是穩定的字串（`<feature>.<頁面>`），
+ * 連結：前端的 route id ＋ 參數（docs/architecture/backend/15-notification.md §12.2 D3）。route id 是穩定的字串（`<feature>.<頁面>`），
  * 前端的 feature 在 plugin 的同步階段註冊它對應的 route；清單見 15-notification.md §4。
  */
 export interface NotificationLink {
@@ -23,7 +23,7 @@ export interface NotificationLink {
   params: Record<string, string>;
 }
 
-/** 送達的管道（ADR-0028）：站內通知與寄信。 */
+/** 送達的管道（docs/architecture/backend/16-notification-event.md §9）：站內通知與寄信。 */
 export const NotificationChannel = {
   IN_APP: 'inApp',
   EMAIL: 'email',
@@ -36,7 +36,7 @@ export const NOTIFICATION_CHANNELS = [
   NotificationChannel.EMAIL,
 ] as const;
 
-/** 事件管理用的中繼資料（docs/architecture/backend/16-notification-event.md §1、ADR-0028 D1）。 */
+/** 事件管理用的中繼資料（docs/architecture/backend/16-notification-event.md §1、docs/architecture/backend/16-notification-event.md §9.2 D1）。 */
 export interface NotificationEventMeta {
   /** 管理頁的分組（camelCase，通常是擁有者模組的名稱）。 */
   category: string;
@@ -49,7 +49,7 @@ export interface NotificationEventMeta {
   /** 所屬的可啟用 feature：租戶沒啟用時不出現在管理頁（D11）。 */
   feature?: TenantFeature;
   /**
-   * 租戶沒有覆寫時，是否允許個人關掉。預設 `true`；公司公告預設不允許（docs/adr/0031-announcements.md D16），
+   * 租戶沒有覆寫時，是否允許個人關掉。預設 `true`；公司公告預設不允許（docs/architecture/backend/19-announcement.md §9.2 D16），
    * 租戶可以在事件管理頁打開。
    */
   defaultAllowUserOverride?: boolean;
@@ -71,7 +71,7 @@ export interface NotificationType<P extends NotificationParams> {
 /** 不論參數型別的一種通知（目錄、政策只看中繼資料）。 */
 export type AnyNotificationType = NotificationType<NotificationParams>;
 
-/** 交給 `NotificationService.notify()` 的一筆（每位收件人一筆，ADR-0026 D1）。 */
+/** 交給 `NotificationService.notify()` 的一筆（每位收件人一筆，docs/architecture/backend/15-notification.md §12.2 D1）。 */
 export interface NotificationInput {
   type: string;
   recipientId: string;
@@ -79,7 +79,7 @@ export interface NotificationInput {
   actorId: string | null;
   params: NotificationParams;
   link: NotificationLink | null;
-  /** 產生它的來源（公告的發送紀錄 id，ADR-0031 D4）；同一個來源對同一個人只寫一筆。 */
+  /** 產生它的來源（公告的發送紀錄 id，docs/architecture/backend/19-announcement.md §9.2 D4）；同一個來源對同一個人只寫一筆。 */
   sourceId?: string | null;
 }
 
@@ -90,7 +90,7 @@ const ROUTE_ID_PATTERN = /^[a-z][A-Za-z0-9]*(\.[a-z][A-Za-z0-9]*)+$/;
 /**
  * 宣告一種通知。名稱是 `<模組>.<事件>`（camelCase，與 `defineJob` 同一種命名）；
  * 格式或中繼資料不對在模組載入時就失敗，不會等到第一次寫入。
- * 宣告之後還要在擁有者的 `*.module.ts` 以 `NotificationEventCatalog.register()` 登記（ADR-0028 D2）。
+ * 宣告之後還要在擁有者的 `*.module.ts` 以 `NotificationEventCatalog.register()` 登記（docs/architecture/backend/16-notification-event.md §9.2 D2）。
  */
 export function defineNotification<P extends NotificationParams>(
   type: string,

@@ -21,7 +21,7 @@
 
 | 項目 | 現況 | 為什麼延後 |
 | --- | --- | --- |
-| 每個租戶各自的 token 簽章金鑰（`kid`、非對稱簽章） | 租戶與平台的 access token 共用一把 HS256 `JWT_SECRET`（production 已拒絕範例值與低熵金鑰），租戶之間靠 `tid` 與網域比對隔離；OIDC 的 ID token 已是 RS256（`OIDC_JWKS`） | 影響 token 格式與所有驗證端，需另開設計（ADR） |
+| 每個租戶各自的 token 簽章金鑰（`kid`、非對稱簽章） | 租戶與平台的 access token 共用一把 HS256 `JWT_SECRET`（production 已拒絕範例值與低熵金鑰），租戶之間靠 `tid` 與網域比對隔離；OIDC 的 ID token 已是 RS256（`OIDC_JWKS`） | 影響 token 格式與所有驗證端，需另開設計（設計決策） |
 | 使用者上傳檔案改由獨立、不帶 cookie 的網域提供 | `/storage` 與租戶同源，以 `sandbox` CSP、`nosniff`、非白名單一律 attachment 防護 | 需要部署與 DNS 決策 |
 | 「帳號 × IP」計數與漸進延遲、每租戶上限、IP 白名單 | 登入以「email＋IP」與 IP 各一個桶，另有帳號鎖定 | 屬速率限制的第二版設計；共享計數見 multi-instance |
 | 外部 IdP 的 DNS rebinding | production 對 discovery／token／userinfo／JWKS 先查 DNS 擋私有位址（`core/http/outbound.ts` 的 `assertPublicDestination`） | 查詢與連線之間仍有空窗。綁定已驗證位址的 `pinnedLookup` 已隨 webhook 做好（[`backend/17-webhook.md`](../architecture/backend/17-webhook.md) §5），但 openid-client 的 `customFetch` 只接受 fetch，要另外接一個帶 `lookup` 的 dispatcher |
@@ -35,7 +35,7 @@
 | --- | --- | --- |
 | 稽核列表 keyset 分頁 | offset 上限 10 000、總數最多數到 10 100 | 前端分頁元件要一起改 |
 | 檔案列表無限捲動的 `maxPages` | 推播只重抓相關資料夾，但已載入的頁會全部重抓 | 游標只能往後、列表是虛擬捲動，丟掉前面的頁要有反向游標與捲動錨定 |
-| 列表的 304／ETag | 每次重抓都回完整資料 | 需要內容雜湊或列表層級的版本；單筆可用樂觀鎖的 `version` 產生 `ETag: W/"<version>"`（[ADR-0025](../adr/0025-entity-revisions.md) D3） |
+| 列表的 304／ETag | 每次重抓都回完整資料 | 需要內容雜湊或列表層級的版本；單筆可用樂觀鎖的 `version` 產生 `ETag: W/"<version>"`（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D3） |
 | `ensurePersonalFolders` 改批次 SQL 或 lazy 建立 | 在資料夾樹鎖的交易內逐人建立（一人失敗不影響整批） | 檔案模組內部重構 |
 | 個人資料夾不出現在別人的資料夾樹 | 依 `rbac/07` §5.1 列出但鎖住，樹的大小隨人數成長 | 產品決策 |
 | outbox 清掃只進入有寫入的租戶；relay 移出交易 | 每 10 分鐘進入每個租戶 | 目前頻率下影響已小 |

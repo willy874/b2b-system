@@ -98,11 +98,11 @@ export class RoleController {
   }
 
   /**
-   * 還原刪除的角色（ADR-0025 D2、D10：能刪就能復原）。名稱或 slug 已被別的角色使用時 409 `ROLE_NAME_DUPLICATE`，
+   * 還原刪除的角色（docs/architecture/backend/14-revisions.md §9.2 D2、D10：能刪就能復原）。名稱或 slug 已被別的角色使用時 409 `ROLE_NAME_DUPLICATE`，
    * `details.conflictingRoleId` 帶佔用者；沒有被刪除 409 `ROLE_NOT_DELETED`；角色的權限鍵有 actor 沒有的 403。
    */
   @Post(':id/restore')
-  @RequireFeature('trash') // 還原屬於回收桶（docs/adr/0029-toggleable-platform-features.md D3）
+  @RequireFeature('trash') // 還原屬於回收桶（docs/architecture/05-tenancy.md §12.2 D3）
   @HttpCode(200)
   @RequirePermissions(PERMISSION.ROLE_DELETE)
   @ApiOperation({ summary: '還原刪除的角色（原本的持有者一併恢復）' })
@@ -111,7 +111,7 @@ export class RoleController {
     return this.roleService.restore(id, actor);
   }
 
-  /** 版本歷史（ADR-0025 D10：看版本＝看得到角色）。新的在前；過大未保存的版本 `tooLarge: true`。 */
+  /** 版本歷史（docs/architecture/backend/14-revisions.md §9.2 D10：看版本＝看得到角色）。新的在前；過大未保存的版本 `tooLarge: true`。 */
   @Get(':id/revisions')
   @RequirePermissions(PERMISSION.ROLE_READ)
   @ApiOperation({ summary: '角色的版本歷史（新的在前）' })
@@ -135,7 +135,7 @@ export class RoleController {
   }
 
   /**
-   * 還原到某一版（ADR-0025 D10：`role:update`；權限鍵會改變時 service 另外要求 `role:grantPermission` 並做反提權）。
+   * 還原到某一版（docs/architecture/backend/14-revisions.md §9.2 D10：`role:update`；權限鍵會改變時 service 另外要求 `role:grantPermission` 並做反提權）。
    * 當成一次新的更新：角色的 `version` + 1、產生新的一版；過大未保存的版本 409 `REVISION_UNAVAILABLE`。
    */
   @Post(':id/revisions/:version/revert')
