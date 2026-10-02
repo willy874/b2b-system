@@ -5,9 +5,11 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, containsPattern } from '@/core/database';
+import { RESOURCE_TYPE } from '@/core/resource';
 import type { RoleRow, UserInsert, UserRow, UserStatus } from '@/db/schema';
 import {
   fileFolders,
+  hasAnyTag,
   isActiveRole,
   isDeleted,
   isHumanUser,
@@ -165,6 +167,9 @@ export class UserRepository {
             AND t.subject_type = ${USER_SUBJECT_TYPE} AND t.subject_relation = ''
             AND t.subject_id = ${users.id}::text AND t.object_id IN ${query.roleId})`,
       );
+    }
+    if (query.tagId?.length) {
+      conditions.push(hasAnyTag(RESOURCE_TYPE.USER, users.id, query.tagId));
     }
     return and(...conditions);
   }

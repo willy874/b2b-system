@@ -46,6 +46,7 @@ import { RevisionModule } from './modules/revision/revision.module';
 import { RoleModule } from './modules/role/role.module';
 import { ServiceAccountModule } from './modules/service-account/service-account.module';
 import { SystemModule } from './modules/system/system.module';
+import { TagModule } from './modules/tag/tag.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { TrashModule } from './modules/trash/trash.module';
 import { UserModule } from './modules/user/user.module';
@@ -106,6 +107,8 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     ServiceAccountModule,
     // 對外事件的訂閱與投遞；事件由擁有者模組在業務交易內發出（docs/adr/0030-webhooks.md）
     WebhookModule,
+    // 標籤；標籤組與資源類型由擁有者模組登記（docs/adr/0032-tags.md）
+    TagModule,
     AuthzExplainModule,
     SystemModule,
     FileModule,

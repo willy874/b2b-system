@@ -7,6 +7,7 @@ import { AppException } from '@/core/errors';
 import type { DomainEventBus } from '@/core/events';
 import type { FileFolderRow, FileRow } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
+import type { TagService } from '@/modules/tag/tag.service';
 
 import type { FileAccessRequestService } from '../file-access-request.service';
 import { FileFolderTree } from '../file-folder-tree';
@@ -227,6 +228,13 @@ function setup(
   };
   const objects = { probe: vi.fn(async () => new Map<string, FileObjectProbe>()) };
   const images = { schedule: vi.fn() };
+  // 標籤（docs/adr/0032-tags.md）：沒有貼任何標籤
+  const tags = {
+    tagsOf: vi.fn(
+      async (_type: string, ids: readonly string[]) =>
+        new Map(ids.map((id): [string, never[]] => [id, []])),
+    ),
+  };
   const service = new FileFolderService(
     db as unknown as Database,
     repo as unknown as FileFolderRepository,
@@ -242,6 +250,7 @@ function setup(
     fileRepo as unknown as FileRepository,
     objects as unknown as FileObjectsService,
     images as unknown as FileImageService,
+    tags as unknown as TagService,
   );
   return {
     service,

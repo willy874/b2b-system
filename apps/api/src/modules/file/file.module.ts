@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { SettingService } from '@/core/settings';
 import { ApprovalModule } from '@/modules/approval/approval.module';
 import { AuthzExplainModule } from '@/modules/authz-explain/authz-explain.module';
+import { TagModule } from '@/modules/tag/tag.module';
 import { TrashModule } from '@/modules/trash/trash.module';
 import { WebhookEventCatalog } from '@/modules/webhook/webhook-event.catalog';
 import { WebhookModule } from '@/modules/webhook/webhook.module';
@@ -25,6 +26,7 @@ import { FileImageService } from './file-image.service';
 import { FileMaintenanceService } from './file-maintenance.service';
 import { FileObjectsService } from './file-objects.service';
 import { FileSystemFolderService } from './file-system-folder.service';
+import { FileTagResource } from './file-tag.resource';
 import { FileTrashHandler } from './file-trash.handler';
 import { FileController } from './file.controller';
 import { FileRepository } from './file.repository';
@@ -37,7 +39,7 @@ import { FILE_WEBHOOK_EVENTS } from './file.webhooks';
  * 其他模組要引用檔案時存 `files.id`，並注入 `FileService`。
  */
 @Module({
-  imports: [ApprovalModule, TrashModule, AuthzExplainModule, WebhookModule],
+  imports: [ApprovalModule, TrashModule, AuthzExplainModule, WebhookModule, TagModule],
   // 對外 API 的 controller 也在這裡：兩個程序都註冊，另一邊的由 SurfaceGuard 回 404（docs/adr/0027-api-tokens-external-api.md D11）
   controllers: [
     FileController,
@@ -64,6 +66,7 @@ import { FILE_WEBHOOK_EVENTS } from './file.webhooks';
     FileObjectsService,
     FileTrashHandler,
     FileFolderTrashHandler,
+    FileTagResource,
   ],
   exports: [FileService],
 })

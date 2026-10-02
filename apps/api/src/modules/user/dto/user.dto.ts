@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { defineSchema } from '@/core/validation';
+import { TagSummarySchema } from '@/modules/tag/dto/tag.dto';
 
 export const UserStatusSchema = defineSchema(
   'UserStatus',
@@ -26,6 +27,8 @@ export const UserSchema = defineSchema(
     displayName: z.string(),
     status: UserStatusSchema,
     roles: z.array(RoleSummarySchema),
+    /** 貼著的標籤（`user` 標籤組，docs/adr/0032-tags.md D6）。 */
+    tags: z.array(TagSummarySchema),
     locale: z.string(),
     timezone: z.string(),
     lastLoginAt: z.string().nullable(),

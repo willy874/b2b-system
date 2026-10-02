@@ -11,6 +11,7 @@ const user: User = {
   displayName: 'Alice',
   status: 'active',
   roles: [],
+  tags: [],
   locale: 'zh-TW',
   timezone: 'Asia/Taipei',
   lastLoginAt: null,

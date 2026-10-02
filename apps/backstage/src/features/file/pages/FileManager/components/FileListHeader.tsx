@@ -10,6 +10,7 @@ import { listGridTemplate } from './FileListRow';
 
 const COLUMN_LABEL_KEY = {
   name: 'file.field.name',
+  tags: 'file.field.tags',
   kind: 'file.field.kind',
   size: 'file.field.size',
   createdAt: 'file.field.createdAt',

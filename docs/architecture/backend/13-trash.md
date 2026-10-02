@@ -148,6 +148,8 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 | --- | --- | --- |
 | `relation_tuples`（主體 `user:<id>`：持有角色、資料夾授權；物件 `user:<id>`） | 多型，沒有外鍵 | `purge` 內明確刪除 |
 | `relation_tuples.created_by` | `SET NULL` | 自動 |
+| `resource_tags`（`resource_type = 'user'`；檔案、資料夾的 handler 同樣清 `file`、`fileFolder`） | 多型，沒有外鍵 | `purge` 內以 `TagService.removeAllFor()` 刪除（[`18-tag.md`](./18-tag.md) §1.1） |
+| `tags.created_by`／`updated_by`、`resource_tags.created_by` | `SET NULL` | 自動 |
 | `refresh_tokens.user_id`、`auth_tokens.user_id`、`user_identities.user_id` | `CASCADE` | 自動 |
 | `file_folders.owner_id` | `RESTRICT` | `findExpired` 排除；並行建立的由 savepoint 捕捉外鍵違反，當作略過 |
 | `file_folders.created_by`／`updated_by`、`files.created_by`／`updated_by` | `SET NULL` | 自動 |

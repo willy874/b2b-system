@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { defineSchema } from '@/core/validation';
 import { FILE_STATUSES } from '@/db/schema';
+import { TagSummarySchema } from '@/modules/tag/dto/tag.dto';
 
 export const FileStatusSchema = z.enum(FILE_STATUSES);
 
@@ -71,6 +72,8 @@ export const FileSchema = defineSchema(
     version: z.number().int(),
     uploader: FileUploaderSchema.nullable(),
     capabilities: FileCapabilitiesSchema,
+    /** 貼著的標籤（`file` 標籤組，docs/adr/0032-tags.md D6）。 */
+    tags: z.array(TagSummarySchema),
     uploadedAt: z.string().nullable(),
     createdAt: z.string(),
     updatedAt: z.string(),

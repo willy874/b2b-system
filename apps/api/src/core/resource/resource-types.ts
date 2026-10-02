@@ -14,6 +14,7 @@ export const RESOURCE_TYPE = {
   SERVICE_ACCOUNT: 'serviceAccount',
   API_TOKEN: 'apiToken',
   WEBHOOK: 'webhook',
+  TAG: 'tag',
 } as const;
 
 export type ResourceType = (typeof RESOURCE_TYPE)[keyof typeof RESOURCE_TYPE];

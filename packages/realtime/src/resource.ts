@@ -54,6 +54,11 @@ export const ChangeSource = {
    * 投遞不寫稽核。
    */
   WEBHOOK_DELIVERY: 'webhookDelivery',
+  /**
+   * 標籤的定義（`id` = 標籤 id；docs/adr/0032-tags.md D10）：建立、改名、改色、刪除。
+   * 指派不推它：由擁有者推自己的資源（`file`、`fileFolder`、`user` update）。
+   */
+  TAG: 'tag',
 } as const;
 
 export type ChangeSource = (typeof ChangeSource)[keyof typeof ChangeSource];
@@ -90,6 +95,7 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.API_TOKEN,
   ChangeSource.WEBHOOK,
   ChangeSource.WEBHOOK_DELIVERY,
+  ChangeSource.TAG,
 ]);
 
 export const ResourceChangeWireSchema = z.object({

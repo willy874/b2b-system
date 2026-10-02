@@ -119,7 +119,8 @@ docs/
 │       ├── 14-revisions.md            版本歷史：revisions、RevisionService、還原到某一版、revision.prune
 │       ├── 15-notification.md         站內通知：notifications、NotificationService.notify、收件人計算、route id、notification.cleanup
 │       ├── 16-notification-event.md   事件管理：事件目錄、租戶層的開關、個人的通知設定
-│       └── 17-webhook.md              Webhook：對外事件的目錄、訂閱、投遞與重試、簽章、SSRF 防護（core/http/outbound）
+│       ├── 17-webhook.md              Webhook：對外事件的目錄、訂閱、投遞與重試、簽章、SSRF 防護（core/http/outbound）
+│       └── 18-tag.md                  標籤：標籤組與資源類型的登記、指派、篩選、清理
 │
 ├── rbac/
 │   ├── 01-domain-model.md             實體、ER 圖、不變條件、關係圖的組成與模型
@@ -175,7 +176,8 @@ docs/
     ├── 0027-api-tokens-external-api.md
     ├── 0028-notification-event-management.md
     ├── 0029-toggleable-platform-features.md
-    └── 0030-webhooks.md
+    ├── 0030-webhooks.md
+    └── 0032-tags.md
 ```
 
 ---

@@ -15,6 +15,7 @@
     },
     "field": {
       "name": "檔名",
+      "tags": "標籤",
       "kind": "類型",
       "category": "分類",
       "contentType": "MIME 類型",
@@ -208,7 +209,12 @@
       "inherited": "繼承自「{{name}}」",
       "granted": "已更新授權",
       "revoked": "已移除授權",
-      "subjectType": { "role": "角色", "user": "使用者", "group": "群組", "everyone": "所有人" },
+      "subjectType": {
+        "role": "角色",
+        "user": "使用者",
+        "group": "群組",
+        "everyone": "所有人"
+      },
       "everyone": "所有能使用檔案管理器的人",
       "subjectPlaceholderUser": "選擇使用者…",
       "subjectSearchUser": "搜尋使用者（名稱或帳號）",

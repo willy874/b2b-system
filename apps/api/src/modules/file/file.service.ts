@@ -17,6 +17,8 @@ import { ObjectStorage } from '@/core/storage';
 import type { PresignedRequest } from '@/core/storage';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import type { TagSummaryDto } from '@/modules/tag/dto/tag.dto';
+import { TagService } from '@/modules/tag/tag.service';
 import { WebhookService } from '@/modules/webhook/webhook.service';
 
 import type {
@@ -83,6 +85,7 @@ export class FileService {
     private readonly settings: SettingService,
     private readonly objects: FileObjectsService,
     private readonly webhooks: WebhookService,
+    private readonly tags: TagService,
     config: ConfigService<Env, true>,
   ) {
     this.urlTtl = config.get('FILE_URL_TTL', { infer: true });
@@ -122,7 +125,13 @@ export class FileService {
     const ctx = await this.access.contextFor(actor);
     const scope = await this.listScope(ctx, actor, query.folderId);
     const { items, total, lastCreatedAt } = await this.repo.list(query, after, scope);
-    const dtos = await Promise.all(items.map((file) => this.toDto(file, ctx)));
+    const tags = await this.tags.tagsOf(
+      RESOURCE_TYPE.FILE,
+      items.map((file) => file.id),
+    );
+    const dtos = await Promise.all(
+      items.map((file) => this.toDto(file, ctx, tags.get(file.id) ?? [])),
+    );
     // 帶游標的頁不計總數（null）：無限捲動每捲一頁就重算一次 count(*) 太貴
     const page =
       total === null
@@ -153,7 +162,8 @@ export class FileService {
    */
   async findOne(id: string, actor: AuthUser): Promise<FileDto> {
     const ctx = await this.access.contextFor(actor);
-    return this.toDto(await this.getVisible(id, actor, ctx), ctx);
+    const file = await this.getVisible(id, actor, ctx);
+    return this.toDto(file, ctx, await this.tagsFor(id));
   }
 
   async createUpload(dto: CreateFileUploadDto, actor: AuthUser): Promise<FileUploadDto> {
@@ -206,7 +216,7 @@ export class FileService {
     ]);
 
     // 回應裡的 uploader 就是自己；不為了顯示名稱再查一次
-    const file = await this.toDto({ ...row, uploader: null }, ctx);
+    const file = await this.toDto({ ...row, uploader: null }, ctx, []);
     return {
       file,
       upload: upload ? toUploadTarget(upload) : null,
@@ -353,7 +363,7 @@ export class FileService {
       throw new AppException('FILE_VERSION_CONFLICT', { current: file.version });
     }
     const changes = diff(file, { name: dto.name }, FILE_AUDIT_FIELDS);
-    if (!changes) return this.toDto(file, ctx);
+    if (!changes) return this.toDto(file, ctx, await this.tagsFor(id));
 
     await withTransaction(this.db, async (tx) => {
       const updated = await this.repo.update(
@@ -545,7 +555,30 @@ export class FileService {
     });
   }
 
-  private async toDto(file: FileWithUploader, ctx: FileAccessContext): Promise<FileDto> {
+  /**
+   * 能不能改這個檔案的標籤（`TagService` 的 resolver，docs/adr/0032-tags.md D5）：跟改名同一個判斷——
+   * 已完成上傳、看得到、能改名（所在位置的 `update` 或擁有者規則）。
+   */
+  async assertTaggable(id: string, actor: AuthUser): Promise<{ name: string }> {
+    const { file } = await this.getModifiable(id, actor, 'update');
+    return { name: file.name };
+  }
+
+  /** 標籤被改了（交易提交後）：推一筆檔案更新，看得到它的人重抓（D10）。 */
+  async publishTagsChanged(id: string): Promise<void> {
+    const file = await this.repo.findById(id);
+    if (file) this.publish(ChangeKind.UPDATE, id, file.folderId);
+  }
+
+  private async tagsFor(id: string): Promise<TagSummaryDto[]> {
+    return (await this.tags.tagsOf(RESOURCE_TYPE.FILE, [id])).get(id) ?? [];
+  }
+
+  private async toDto(
+    file: FileWithUploader,
+    ctx: FileAccessContext,
+    tags: TagSummaryDto[],
+  ): Promise<FileDto> {
     // 白名單以外的型別不在租戶網域上 inline 顯示：`url` 也是 attachment（§7.2）
     const policy = downloadPolicyOf(file.contentType);
     const links =
@@ -592,6 +625,7 @@ export class FileService {
       version: file.version,
       uploader: file.uploader,
       capabilities: ctx.fileCapabilities(file),
+      tags,
       uploadedAt: file.uploadedAt?.toISOString() ?? null,
       createdAt: file.createdAt.toISOString(),
       updatedAt: file.updatedAt.toISOString(),

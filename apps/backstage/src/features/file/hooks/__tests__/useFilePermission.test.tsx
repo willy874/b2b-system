@@ -72,12 +72,16 @@ describe('selectionCapabilities（選取的項目取交集）', () => {
   it('每一項都能做才算；改名只在單選時', () => {
     expect(selectionCapabilities([file(true, true), file(true, false)])).toEqual({
       canRename: false,
+      canTag: false,
       canMove: true,
       canDelete: false,
       canShare: false,
       canRequestAccess: false,
     });
-    expect(selectionCapabilities([file(true, true)])).toMatchObject({ canRename: true });
+    expect(selectionCapabilities([file(true, true)])).toMatchObject({
+      canRename: true,
+      canTag: true,
+    });
   });
 
   it('共用只在單選一個可管理的資料夾時', () => {
@@ -89,6 +93,7 @@ describe('selectionCapabilities（選取的項目取交集）', () => {
   it('沒有選取 → 都是 false', () => {
     expect(selectionCapabilities([])).toEqual({
       canRename: false,
+      canTag: false,
       canMove: false,
       canDelete: false,
       canShare: false,

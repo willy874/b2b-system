@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { PaginationSchema, SortSchema } from '@/core/http';
+import { TagIdsFilterSchema } from '@/modules/tag/dto/tag.dto';
 
 import { FILE_CATEGORIES } from '../file.constants';
 
@@ -23,6 +24,8 @@ export const ListFileSchema = PaginationSchema.extend({
   folderId: z.union([z.literal('root'), z.string().uuid()]).optional(),
   /** 只列這個人上傳的檔案。 */
   uploaderId: z.string().uuid().optional(),
+  /** 貼了其中任一個標籤（docs/adr/0032-tags.md D6）。 */
+  tagId: TagIdsFilterSchema,
   /**
    * keyset 分頁的游標（上一頁回應的 `nextCursor`）：無限捲動用，捲動途中有人新增或刪除也不會重複或漏掉。
    * 帶游標時忽略 `offset`，且只依 `sort` 的第一個條件（＋ id）排序。

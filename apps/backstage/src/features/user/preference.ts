@@ -15,6 +15,7 @@ export function registerUserPreferences(): void {
       email: 'user.field.email',
       status: 'user.field.status',
       roles: 'user.field.roles',
+      tags: 'user.field.tags',
       lastLoginAt: 'user.field.lastLoginAt',
     },
     localeScope: USER_LOCALE_SCOPE,

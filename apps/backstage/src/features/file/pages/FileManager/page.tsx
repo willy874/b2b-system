@@ -1,5 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
 import { BatchProgressBar } from '@/core/batch';
 
 import { selectionCapabilities, useFilePermission } from '../../hooks/useFilePermission';
@@ -23,6 +25,7 @@ import { FilePagination } from './components/FilePagination';
 import { FileRenameDialog } from './components/FileRenameDialog';
 import { FileSelectionBar } from './components/FileSelectionBar';
 import { FileShareDialog } from './components/FileShareDialog';
+import { FileTagDialog } from './components/FileTagDialog';
 import { FileToolbar } from './components/FileToolbar';
 import { canCreateIn } from './folderTree';
 import { useFileActions } from './useFileActions';
@@ -46,6 +49,7 @@ export default function FileManagerPage() {
     folderId,
     keyword: search.keyword,
     category: search.category,
+    tag: search.tag,
     sort: preference.sort,
     pagingMode: preference.pagingMode,
     offset: search.offset,
@@ -66,6 +70,7 @@ export default function FileManagerPage() {
   const selected = selectionCapabilities(selectedItems);
   const [shareTarget, setShareTarget] = useState<{ id: string; name: string }>();
   const [requestTarget, setRequestTarget] = useState<{ id: string; name: string }>();
+  const [tagTarget, setTagTarget] = useState<BrowserItemVM>();
   const currentFolder = folderId ? folders.index.byId.get(folderId) : undefined;
   const upload = useFileUpload({ enabled: permission.canUpload });
   const actions = useFileActions();
@@ -86,7 +91,9 @@ export default function FileManagerPage() {
   );
   const onOpen = (item: BrowserItemVM) =>
     item.type === 'folder' ? setFolder(item.id) : nav.openPreview(item.id);
-  const hasFilters = Boolean(search.keyword || search.category);
+  const hasFilters = Boolean(search.keyword || search.category || search.tag);
+  // 標籤篩選的選項（`file` 標籤組；進得了檔案管理器就讀得到，docs/adr/0032-tags.md D5）
+  const tags = useQuery(getTagListQueryOptions('file'));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3" data-testid="file-manager-page">
@@ -95,6 +102,8 @@ export default function FileManagerPage() {
       <FileToolbar
         keyword={search.keyword}
         category={search.category}
+        tag={search.tag}
+        tags={tags.data?.items}
         onFiltersChange={nav.setFilters}
         sort={preference.sort}
         onSortChange={(sort) => preference.update({ sort })}
@@ -132,6 +141,7 @@ export default function FileManagerPage() {
           canDownload={selectedItems.some(isFileItem)}
           canDelete={selected.canDelete}
           canRename={selected.canRename}
+          canTag={selected.canTag}
           canMove={selected.canMove}
           canShare={selected.canShare}
           canRequestAccess={selected.canRequestAccess}
@@ -140,6 +150,7 @@ export default function FileManagerPage() {
           onDownload={() => actions.download(selectedItems.filter(isFileItem))}
           onDelete={() => actions.requestDelete(selectedItems)}
           onRename={() => selectedItems[0] && renameTarget.rename(selectedItems[0])}
+          onTag={() => setTagTarget(selectedItems[0])}
           onMove={() => actions.requestMove(draggedItemsOf(selectedItems, folderId))}
           onShare={() => selectedItems[0] && setShareTarget(selectedItems[0])}
           onRequestAccess={() => selectedItems[0] && setRequestTarget(selectedItems[0])}
@@ -180,7 +191,9 @@ export default function FileManagerPage() {
                 hasFilters={hasFilters}
                 inFolder={Boolean(folderId)}
                 canUpload={permission.canUpload}
-                onClearFilters={() => nav.setFilters({ keyword: undefined, category: undefined })}
+                onClearFilters={() =>
+                  nav.setFilters({ keyword: undefined, category: undefined, tag: undefined })
+                }
               />
             }
           />
@@ -210,6 +223,7 @@ export default function FileManagerPage() {
       <FileRenameDialog file={renameTarget.file} onClose={renameTarget.closeFile} />
       <FileFolderDialog target={renameTarget.folderDialog} onClose={renameTarget.closeFolder} />
       <FileShareDialog folder={shareTarget} onClose={() => setShareTarget(undefined)} />
+      <FileTagDialog item={tagTarget} onClose={() => setTagTarget(undefined)} />
       <FileAccessRequestDialog folder={requestTarget} onClose={() => setRequestTarget(undefined)} />
       <FileMoveDialog
         items={actions.pendingMove}

@@ -2,6 +2,7 @@ import { memo } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
 import { Checkbox } from '@/components/Checkbox';
+import { TagChips } from '@/core/components';
 import { useTranslation } from '@/core/locales';
 import { formatDateTime } from '@/shared/date';
 import { cn } from '@/shared/utils';
@@ -14,6 +15,7 @@ import { FileThumbnail } from './FileThumbnail';
 /** 各欄的寬度（CSS grid 的軌道）；表頭與資料列共用，欄位才會對齊。 */
 export const LIST_COLUMN_TRACK = {
   name: 'minmax(0, 1fr)',
+  tags: '12rem',
   kind: '8rem',
   size: '6rem',
   createdAt: '11rem',
@@ -59,6 +61,7 @@ export const FileListRow = memo(function FileListRow({
         <span className="truncate font-medium">{item.name}</span>
       </span>
     ),
+    tags: <TagChips tags={item.tags} max={2} className="min-w-0 flex-nowrap overflow-hidden" />,
     kind: <span className="truncate">{t(FILE_KIND_LABEL_KEY[item.kind])}</span>,
     size: <span className="tabular-nums">{item.sizeLabel}</span>,
     createdAt: <span className="truncate">{formatDateTime(item.createdAt)}</span>,

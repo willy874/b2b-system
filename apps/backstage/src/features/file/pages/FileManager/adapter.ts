@@ -1,7 +1,7 @@
 import type { IconName } from '@/components/Icon';
 import { FILE_KIND_ICON, getFileKind, isBrowserImage } from '@/core/file';
 import type { FileKind } from '@/core/file';
-import type { FileFolder, StoredFile } from '@/shared/api-sdk';
+import type { FileFolder, StoredFile, TagSummary } from '@/shared/api-sdk';
 import { formatBytes } from '@/shared/utils';
 
 import { INLINE_PREVIEW_MAX_SIZE } from '../../constants';
@@ -27,6 +27,8 @@ export interface FileItemVM {
   /** 改名、移動（後端的 `capabilities`）。 */
   canUpdate: boolean;
   canDelete: boolean;
+  /** 貼著的標籤（`file` 標籤組，docs/adr/0032-tags.md）。 */
+  tags: TagSummary[];
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +56,7 @@ export function toFileItemVM(file: StoredFile): FileItemVM {
     uploaderName: file.uploader?.displayName ?? null,
     canUpdate: file.capabilities.canUpdate,
     canDelete: file.capabilities.canDelete,
+    tags: file.tags,
     createdAt: file.createdAt,
     updatedAt: file.updatedAt,
   };
@@ -77,6 +80,8 @@ export interface FolderItemVM {
   canShare: boolean;
   /** 自己對這個資料夾有一筆待審的存取申請。 */
   hasPendingAccessRequest: boolean;
+  /** 貼著的標籤（與檔案共用 `file` 標籤組）。 */
+  tags: TagSummary[];
   updatedAt: string;
 }
 
@@ -93,6 +98,7 @@ export function toFolderItemVM(folder: FileFolder, folderCount: number): FolderI
     folderCount,
     ...folder.capabilities,
     hasPendingAccessRequest: folder.hasPendingAccessRequest,
+    tags: folder.tags,
     updatedAt: folder.updatedAt,
   };
 }

@@ -66,6 +66,9 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'webhook:read',
       'webhook:update',
       'webhook:delete',
+      'tag:create',
+      'tag:update',
+      'tag:delete',
     ],
   },
   {

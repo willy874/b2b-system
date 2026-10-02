@@ -10,6 +10,8 @@ interface FileSelectionBarProps {
   canDelete: boolean;
   /** 只選一個、有改名權限時顯示。 */
   canRename: boolean;
+  /** 只選一個、能改名時顯示「標籤」。 */
+  canTag: boolean;
   canMove: boolean;
   /** 只選一個資料夾、能管理它的授權時顯示「共用」。 */
   canShare: boolean;
@@ -20,6 +22,7 @@ interface FileSelectionBarProps {
   onDownload: () => void;
   onDelete: () => void;
   onRename: () => void;
+  onTag: () => void;
   onMove: () => void;
   onShare: () => void;
   onRequestAccess: () => void;
@@ -35,6 +38,7 @@ export function FileSelectionBar({
   canDownload,
   canDelete,
   canRename,
+  canTag,
   canMove,
   canShare,
   canRequestAccess,
@@ -43,6 +47,7 @@ export function FileSelectionBar({
   onDownload,
   onDelete,
   onRename,
+  onTag,
   onMove,
   onShare,
   onRequestAccess,
@@ -86,6 +91,17 @@ export function FileSelectionBar({
             data-testid="file-selection-rename"
           >
             {t('file.rename.action')}
+          </Button>
+        )}
+        {canTag && count === 1 && (
+          <Button
+            size="sm"
+            variant="secondary"
+            startIcon={<Icon name="pin" size={14} />}
+            onClick={onTag}
+            data-testid="file-selection-tag"
+          >
+            {t('tag.assign.action')}
           </Button>
         )}
         {canMove && (

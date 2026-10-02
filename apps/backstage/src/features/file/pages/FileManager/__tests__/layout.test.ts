@@ -26,6 +26,7 @@ describe('computeFileLayout（RWD：由容器寬度決定排版）', () => {
     expect(computeFileLayout('list', 1000, 5)).toMatchObject({ columns: 1, rowCount: 5 });
     expect(listColumnsFor(400)).toEqual(['name', 'size']);
     expect(listColumnsFor(1000)).toEqual(['name', 'kind', 'size', 'createdAt', 'uploader']);
+    expect(listColumnsFor(1200)).toEqual(['name', 'tags', 'kind', 'size', 'createdAt', 'uploader']);
   });
 });
 

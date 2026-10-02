@@ -8,6 +8,7 @@ import type { Transaction } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { RESOURCE_TYPE } from '@/core/resource';
 import { PermissionService } from '@/modules/permission/permission.service';
+import { TagService } from '@/modules/tag/tag.service';
 import { TrashService } from '@/modules/trash/trash.service';
 import type {
   ExpiredTrashItem,
@@ -35,6 +36,7 @@ export class UserTrashHandler implements TrashHandler, OnModuleInit {
     private readonly permissionService: PermissionService,
     private readonly userCache: UserCacheService,
     private readonly events: DomainEventBus,
+    private readonly tags: TagService,
   ) {}
 
   onModuleInit(): void {
@@ -64,8 +66,11 @@ export class UserTrashHandler implements TrashHandler, OnModuleInit {
     return rows.map((row) => ({ id: row.id, name: row.email, deletedAt: row.deletedAt }));
   }
 
-  purge(item: ExpiredTrashItem, tx: Transaction): Promise<boolean> {
-    return this.repo.hardDelete(item.id, tx);
+  async purge(item: ExpiredTrashItem, tx: Transaction): Promise<boolean> {
+    if (!(await this.repo.hardDelete(item.id, tx))) return false;
+    // 標籤的指派是多型關聯、沒有外鍵：一起清掉（docs/adr/0032-tags.md D9）
+    await this.tags.removeAllFor(RESOURCE_TYPE.USER, [item.id], tx);
+    return true;
   }
 
   async afterPurge(ids: readonly string[]): Promise<void> {

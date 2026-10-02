@@ -6,6 +6,7 @@ import { PERMISSION } from '@/common/types';
 import type { Transaction } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { RESOURCE_TYPE } from '@/core/resource';
+import { TagService } from '@/modules/tag/tag.service';
 import { TrashService } from '@/modules/trash/trash.service';
 import type {
   ExpiredTrashItem,
@@ -42,6 +43,7 @@ export class FileTrashHandler implements TrashHandler, OnModuleInit {
     private readonly folders: FileFolderRepository,
     private readonly objects: FileObjectsService,
     private readonly events: DomainEventBus,
+    private readonly tags: TagService,
   ) {}
 
   onModuleInit(): void {
@@ -74,8 +76,11 @@ export class FileTrashHandler implements TrashHandler, OnModuleInit {
     return this.repo.findExpired(cutoff, afterId, limit);
   }
 
-  purge(item: ExpiredTrashItem, tx: Transaction): Promise<boolean> {
-    return this.repo.hardDelete(item.id, tx);
+  async purge(item: ExpiredTrashItem, tx: Transaction): Promise<boolean> {
+    if (!(await this.repo.hardDelete(item.id, tx))) return false;
+    // 標籤的指派是多型關聯、沒有外鍵：一起清掉（docs/adr/0032-tags.md D9）
+    await this.tags.removeAllFor(RESOURCE_TYPE.FILE, [item.id], tx);
+    return true;
   }
 
   /**

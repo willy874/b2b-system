@@ -8,6 +8,7 @@ import { Menu } from '@/components/Menu';
 import { Select } from '@/components/Select';
 import { Tooltip } from '@/components/Tooltip';
 import { useTranslation } from '@/core/locales';
+import type { Tag } from '@/shared/api-sdk';
 import type { SortEntry } from '@/shared/constants';
 
 import {
@@ -27,8 +28,16 @@ const ALL = '__all__';
 interface FileToolbarProps {
   keyword: string | undefined;
   category: FileCategory | undefined;
+  /** 標籤篩選（任一符合）。 */
+  tag: string[] | undefined;
+  /** `file` 標籤組的標籤；沒有任何標籤時不顯示標籤篩選。 */
+  tags: readonly Tag[] | undefined;
   onFiltersChange: (
-    filters: { keyword: string | undefined; category: FileCategory | undefined },
+    filters: {
+      keyword: string | undefined;
+      category: FileCategory | undefined;
+      tag: string[] | undefined;
+    },
     replace: boolean,
   ) => void;
   sort: SortEntry<FileSortField>;
@@ -52,6 +61,8 @@ interface FileToolbarProps {
 export function FileToolbar({
   keyword,
   category,
+  tag,
+  tags,
   onFiltersChange,
   sort,
   onSortChange,
@@ -82,11 +93,11 @@ export function FileToolbar({
     const next = draft.trim() || undefined;
     if (next === keyword) return undefined;
     const timer = setTimeout(
-      () => onFiltersChange({ keyword: next, category }, true),
+      () => onFiltersChange({ keyword: next, category, tag }, true),
       SEARCH_DEBOUNCE_MS,
     );
     return () => clearTimeout(timer);
-  }, [category, draft, keyword, onFiltersChange]);
+  }, [category, draft, keyword, onFiltersChange, tag]);
 
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="file-toolbar">
@@ -111,7 +122,7 @@ export function FileToolbar({
         value={category ?? ALL}
         onValueChange={(value) =>
           onFiltersChange(
-            { keyword, category: value === ALL ? undefined : (value as FileCategory) },
+            { keyword, tag, category: value === ALL ? undefined : (value as FileCategory) },
             false,
           )
         }
@@ -122,6 +133,22 @@ export function FileToolbar({
         className="min-w-0 flex-1 sm:w-36 sm:flex-none"
         data-testid="file-category"
       />
+      {tags && tags.length > 0 && (
+        <Select
+          multiple
+          searchable
+          aria-label={t('tag.filter')}
+          placeholder={t('tag.filterPlaceholder')}
+          value={tag ?? []}
+          onValueChange={(next) =>
+            onFiltersChange({ keyword, category, tag: next.length ? next : undefined }, false)
+          }
+          options={tags.map((item) => ({ value: item.id, label: item.name }))}
+          maxTagCount={1}
+          className="min-w-0 flex-1 sm:w-48 sm:flex-none"
+          data-testid="file-tag-filter"
+        />
+      )}
       <div className="flex min-w-0 flex-1 items-center sm:flex-none">
         <Select
           aria-label={t('common.sort')}

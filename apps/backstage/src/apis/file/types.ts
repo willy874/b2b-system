@@ -13,6 +13,8 @@ export interface FileListFilters {
   contentType?: string;
   category?: FileCategory;
   uploaderId?: string;
+  /** 貼了其中任一個標籤（docs/adr/0032-tags.md D6）。 */
+  tagId?: string[];
   /** 只列這個資料夾直接包含的檔案；`root` 是根目錄，不帶則不分資料夾。 */
   folderId?: string;
   sort?: Array<SortEntry<FileSortField>>;

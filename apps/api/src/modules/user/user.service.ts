@@ -25,6 +25,8 @@ import { notification } from '@/modules/notification/notification.definition';
 import { NotificationService } from '@/modules/notification/notification.service';
 import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
 import { PermissionService } from '@/modules/permission/permission.service';
+import type { TagSummaryDto } from '@/modules/tag/dto/tag.dto';
+import { TagService } from '@/modules/tag/tag.service';
 import { WebhookService } from '@/modules/webhook/webhook.service';
 
 import type { CreateUserDto } from './dto/create-user.dto';
@@ -65,7 +67,7 @@ export function displayStatusOf(user: Pick<UserRow, 'status' | 'lockedUntil'>): 
   return user.status === 'active' && isLoginLocked(user) ? 'locked' : user.status;
 }
 
-function toDto(user: UserRow, roles: UserRoleSummary[]): UserDto {
+function toDto(user: UserRow, roles: UserRoleSummary[], tags: TagSummaryDto[]): UserDto {
   return {
     id: user.id,
     email: user.email,
@@ -73,6 +75,7 @@ function toDto(user: UserRow, roles: UserRoleSummary[]): UserDto {
     displayName: user.displayName,
     status: displayStatusOf(user),
     roles,
+    tags,
     locale: user.locale,
     timezone: user.timezone,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
@@ -121,12 +124,17 @@ export class UserService {
     private readonly events: DomainEventBus,
     private readonly notifications: NotificationService,
     private readonly webhooks: WebhookService,
+    private readonly tags: TagService,
   ) {}
 
   async list(query: ListUserDto) {
     const { items, total } = await this.repo.list(query);
+    const tags = await this.tags.tagsOf(
+      RESOURCE_TYPE.USER,
+      items.map((item) => item.id),
+    );
     return paginated(
-      items.map((item: UserWithRoles) => toDto(item, item.roles)),
+      items.map((item: UserWithRoles) => toDto(item, item.roles, tags.get(item.id) ?? [])),
       total,
       query,
     );
@@ -135,7 +143,7 @@ export class UserService {
   async findOne(id: string): Promise<UserDto> {
     const user = await this.repo.findByIdWithRoles(id);
     if (!user) throw new AppException('USER_NOT_FOUND');
-    return toDto(user, user.roles);
+    return toDto(user, user.roles, await this.tagsFor(id));
   }
 
   async listRoles(id: string): Promise<{ roles: UserRoleSummary[] }> {
@@ -169,7 +177,7 @@ export class UserService {
     });
 
     await this.publishCreated(created.id, dto.roleIds);
-    return toDto(created, await this.repo.listRoles(created.id));
+    return toDto(created, await this.repo.listRoles(created.id), []);
   }
 
   async update(id: string, dto: UpdateUserDto, actor: AuthUser): Promise<UserDto> {
@@ -236,7 +244,7 @@ export class UserService {
       changes: [userUpdated(id, roles)],
       affectedUserIds: [id],
     });
-    return toDto(updated, roles);
+    return toDto(updated, roles, await this.tagsFor(id));
   }
 
   async remove(id: string, actor: AuthUser): Promise<void> {
@@ -339,7 +347,7 @@ export class UserService {
       ],
       affectedUserIds: [id],
     });
-    return toDto(restored, roles);
+    return toDto(restored, roles, await this.tagsFor(id));
   }
 
   /** PUT：整批取代語意。 */
@@ -484,7 +492,23 @@ export class UserService {
       changes: [userUpdated(id, roles)],
       affectedUserIds: [id],
     });
-    return toDto(updated, roles);
+    return toDto(updated, roles, await this.tagsFor(id));
+  }
+
+  /**
+   * 使用者的標籤被改了（`TagService` 在交易提交後呼叫，docs/adr/0032-tags.md D10）：推一筆使用者更新，
+   * 列表與詳情重抓。標籤不屬於樂觀鎖的欄位，不遞增 `version`。
+   */
+  async publishTagsChanged(id: string): Promise<void> {
+    const roles = await this.repo.listRoles(id);
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [userUpdated(id, roles)],
+      affectedUserIds: [id],
+    });
+  }
+
+  private async tagsFor(id: string): Promise<TagSummaryDto[]> {
+    return (await this.tags.tagsOf(RESOURCE_TYPE.USER, [id])).get(id) ?? [];
   }
 
   /** 狀態或 token_version 變了：JwtAuthGuard 的使用者快取與權限快取都要主動失效。 */

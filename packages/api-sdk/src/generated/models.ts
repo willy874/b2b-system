@@ -45,6 +45,9 @@ export const PermissionKey = {
   'webhook:read': 'webhook:read',
   'webhook:update': 'webhook:update',
   'webhook:delete': 'webhook:delete',
+  'tag:create': 'tag:create',
+  'tag:update': 'tag:update',
+  'tag:delete': 'tag:delete',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
@@ -424,6 +427,46 @@ export interface PlatformAuditLog {
   metadata: Record<string, unknown> | null;
 }
 
+export interface TagSummary {
+  id: string;
+  name: string;
+  color: 'neutral' | 'brand' | 'success' | 'warning' | 'danger';
+}
+
+export interface Tag {
+  id: string;
+  scope: string;
+  name: string;
+  color: 'neutral' | 'brand' | 'success' | 'warning' | 'danger';
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TagList {
+  items: Array<Tag>;
+}
+
+export interface CreateTagRequest {
+  scope: string;
+  name: string;
+  color: 'neutral' | 'brand' | 'success' | 'warning' | 'danger';
+}
+
+export interface UpdateTagRequest {
+  name?: string;
+  color?: 'neutral' | 'brand' | 'success' | 'warning' | 'danger';
+  version: number;
+}
+
+export interface ReplaceResourceTagsRequest {
+  tagIds: Array<string>;
+}
+
+export interface ResourceTags {
+  tags: Array<TagSummary>;
+}
+
 export const TrashResourceType = {
   user: 'user',
   role: 'role',
@@ -489,6 +532,7 @@ export interface User {
   displayName: string;
   status: UserStatus;
   roles: Array<RoleSummary>;
+  tags: Array<TagSummary>;
   locale: string;
   timezone: string;
   lastLoginAt: string | null;
@@ -852,6 +896,7 @@ export interface FileFolder {
   inheritGrants: boolean;
   hasPendingAccessRequest: boolean;
   capabilities: FileFolderCapabilities;
+  tags: Array<TagSummary>;
   createdAt: string;
   updatedAt: string;
 }
@@ -864,6 +909,7 @@ export interface RestoredFileFolder {
   inheritGrants: boolean;
   hasPendingAccessRequest: boolean;
   capabilities: FileFolderCapabilities;
+  tags: Array<TagSummary>;
   createdAt: string;
   updatedAt: string;
   foldersRestored: number;
@@ -945,6 +991,7 @@ export interface StoredFile {
   version: number;
   uploader: FileUploader | null;
   capabilities: StoredFileCapabilities;
+  tags: Array<TagSummary>;
   uploadedAt: string | null;
   createdAt: string;
   updatedAt: string;

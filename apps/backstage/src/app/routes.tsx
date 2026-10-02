@@ -13,6 +13,7 @@ import { Routes as PermissionRoutes } from '@/features/permission';
 import { Routes as RoleRoutes } from '@/features/role';
 import { Routes as ServiceAccountRoutes } from '@/features/service-account';
 import { Routes as SystemRoutes } from '@/features/system';
+import { Routes as TagRoutes } from '@/features/tag';
 import { Routes as TrashRoutes } from '@/features/trash';
 import { Routes as UserRoutes } from '@/features/user';
 import { Routes as WebhookRoutes } from '@/features/webhook';
@@ -48,6 +49,7 @@ export const routeTree = RootRoute.addChildren([
   ]),
 
   PermissionRoutes.PermissionListRoute,
+  TagRoutes.TagListRoute,
   AuditLogRoutes.AuditLogListRoute,
   ApprovalRoutes.ApprovalListRoute.addChildren([ApprovalRoutes.ApprovalDetailRoute]),
   FileRoutes.FileListRoute,

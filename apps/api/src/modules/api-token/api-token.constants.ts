@@ -10,5 +10,5 @@ export const API_TOKEN_MAX_LIFETIME_DAYS = {
 /** 一個帳號同時有效（未撤銷、未過期）的 token 上限：防止腳本不斷建立新 token 而不撤銷。 */
 export const API_TOKEN_MAX_ACTIVE_PER_ACCOUNT = 50;
 
-/** 一把 token 最多限縮到幾個權限鍵（目錄目前 43 個）。 */
+/** 一把 token 最多限縮到幾個權限鍵（目錄目前 46 個）。 */
 export const API_TOKEN_MAX_SCOPES = 50;

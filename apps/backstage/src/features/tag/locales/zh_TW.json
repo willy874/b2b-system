@@ -1,0 +1,43 @@
+{
+  "tagAdmin": {
+    "list": {
+      "title": "標籤管理",
+      "description": "定義各類項目可以貼的標籤。貼與移除在各自的頁面上做（檔案管理器、使用者）。"
+    },
+    "scope": {
+      "file": "檔案",
+      "fileDescription": "檔案與資料夾共用這組標籤：在檔案管理器選取後貼上，並可依標籤篩選。",
+      "user": "使用者",
+      "userDescription": "在使用者詳情貼上，使用者列表可依標籤篩選。"
+    },
+    "field": {
+      "name": "名稱",
+      "color": "顏色",
+      "preview": "預覽",
+      "updatedAt": "更新時間"
+    },
+    "color": {
+      "neutral": "灰",
+      "brand": "藍",
+      "success": "綠",
+      "warning": "橘",
+      "danger": "紅"
+    },
+    "create": {
+      "action": "建立標籤",
+      "title": "建立標籤",
+      "success": "已建立標籤「{{name}}」"
+    },
+    "edit": {
+      "title": "編輯標籤"
+    },
+    "update": {
+      "success": "已更新標籤"
+    },
+    "delete": {
+      "title": "刪除標籤",
+      "confirm": "刪除「{{name}}」之後，所有貼著它的項目都會移除這個標籤，不能還原。",
+      "success": "已刪除標籤"
+    }
+  }
+}

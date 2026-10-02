@@ -10,11 +10,13 @@ import { renderRoute } from '@/test/renderRoute';
 import { registerUserPagePermissions, Routes } from '../../..';
 import userZhTW from '../../../locales/zh_TW.json';
 
-const { fetchUsers, fetchProfile, resetPassword } = vi.hoisted(() => ({
+const { fetchUsers, fetchProfile, resetPassword, fetchTags } = vi.hoisted(() => ({
   fetchUsers: vi.fn(),
   fetchProfile: vi.fn(),
   resetPassword: vi.fn(),
+  fetchTags: vi.fn(),
 }));
+vi.mock('@/apis/tag/get-tag-list/fetcher', () => ({ fetchTagListQuery: fetchTags }));
 vi.mock('@/apis/user/get-user-list/fetcher', () => ({ fetchUserListQuery: fetchUsers }));
 vi.mock('@/apis/auth/get-profile/fetcher', () => ({ fetchProfileQuery: fetchProfile }));
 vi.mock('@/apis/user/reset-user-password/fetcher', () => ({
@@ -28,6 +30,7 @@ const USER = {
   displayName: 'Locked Person',
   status: 'locked',
   roles: [],
+  tags: [{ id: 't1', name: '研發部', color: 'brand' }],
   lastLoginAt: null,
   createdAt: '2026-09-30T00:00:00.000Z',
 };
@@ -37,6 +40,7 @@ const routes = [Routes.UserListRoute];
 beforeAll(() => initTestI18n(userZhTW));
 
 beforeEach(() => {
+  fetchTags.mockReset().mockResolvedValue({ items: [] });
   resetPagePermissionRegistry();
   registerUserPagePermissions();
   fetchUsers.mockReset().mockResolvedValue({ items: [USER], pagination: { total: 1 } });
@@ -46,6 +50,15 @@ beforeEach(() => {
 });
 
 describe('UserListPage', () => {
+  it('標籤欄顯示貼著的標籤；依標籤篩選以 tagId 查詢（docs/adr/0032-tags.md D6）', async () => {
+    renderRoute(routes, '/user?tagId=11111111-1111-4111-8111-111111111111', ADMIN);
+    await screen.findByText('Locked Person', undefined, { timeout: 5000 });
+    expect(screen.getByTestId('tag-chip')).toHaveTextContent('研發部');
+    expect(fetchUsers.mock.calls.at(-1)![0]).toMatchObject({
+      params: { tagId: ['11111111-1111-4111-8111-111111111111'] },
+    });
+  });
+
   it('重設密碼先確認寄到哪個 Email；確認後才寄出，且只寄一次', async () => {
     renderRoute(routes, '/user', ADMIN);
     // 第一次載入 lazy 頁面比較久

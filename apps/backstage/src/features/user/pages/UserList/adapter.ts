@@ -1,4 +1,4 @@
-import type { User } from '@/shared/api-sdk';
+import type { TagSummary, User } from '@/shared/api-sdk';
 
 export interface UserRowVM {
   id: string;
@@ -7,6 +7,7 @@ export interface UserRowVM {
   username: string;
   status: User['status'];
   roles: Array<{ id: string; name: string; isSystem: boolean }>;
+  tags: TagSummary[];
   lastLoginAt: Date | null;
   createdAt: Date;
   /** 樂觀鎖版本：批次啟用／停用以它送出（ADR-0025 D4）。 */
@@ -36,6 +37,7 @@ export function toUserRowVM(
     username: dto.username ?? '-',
     status: dto.status,
     roles: dto.roles,
+    tags: dto.tags,
     lastLoginAt: dto.lastLoginAt ? new Date(dto.lastLoginAt) : null,
     createdAt: new Date(dto.createdAt),
     version: dto.version,

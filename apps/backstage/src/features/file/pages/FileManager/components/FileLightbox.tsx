@@ -8,6 +8,7 @@ import { Dialog } from '@/components/Dialog';
 import { Empty } from '@/components/Empty';
 import { Icon } from '@/components/Icon';
 import { Spinner } from '@/components/Spinner';
+import { TagChips } from '@/core/components';
 import { isAppError } from '@/core/errors';
 import { resolveFilePreviewer } from '@/core/file';
 import { useTranslation } from '@/core/locales';
@@ -238,6 +239,11 @@ function FileDetails({ file }: { file: FileItemVM }) {
       value: <code className="text-xs">{file.contentType}</code>,
     },
     { key: 'size', label: t('file.field.size'), value: file.sizeLabel },
+    {
+      key: 'tags',
+      label: t('file.field.tags'),
+      value: <TagChips tags={file.tags} empty="—" data-testid="file-details-tags" />,
+    },
     { key: 'uploader', label: t('file.field.uploader'), value: file.uploaderName ?? '—' },
     { key: 'createdAt', label: t('file.field.createdAt'), value: formatDateTime(file.createdAt) },
     { key: 'updatedAt', label: t('file.field.updatedAt'), value: formatDateTime(file.updatedAt) },
