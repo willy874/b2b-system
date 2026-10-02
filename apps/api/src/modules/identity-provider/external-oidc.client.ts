@@ -3,8 +3,8 @@ import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import * as client from 'openid-client';
 
-import { guardedFetch, systemLookup } from './outbound-guard';
-import type { HostLookup } from './outbound-guard';
+import { guardedFetch, systemLookup } from '@/core/http';
+import type { HostLookup } from '@/core/http';
 
 /** 連線到外部 IdP 需要的設定（client secret 已解密）。 */
 export interface ExternalProviderConfig {
