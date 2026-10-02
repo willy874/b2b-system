@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, isNull, lt, lte, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB } from '@/core/database';
@@ -36,6 +37,27 @@ function toWithActor(row: {
 
 const ownedBy = (recipientId: string) => eq(notifications.recipientId, recipientId);
 
+/** 總覽的一列：再加上收件人的名稱。 */
+export interface NotificationWithRecipient extends NotificationWithActor {
+  recipient: { id: string; name: string };
+}
+
+/** 總覽的篩選（docs/adr/0031-announcements.md D1）。 */
+export interface NotificationOverviewFilter {
+  type?: string;
+  recipientId?: string;
+  actorId?: string;
+  unread: boolean;
+  from?: Date;
+  to?: Date;
+}
+
+const recipient = alias(users, 'recipient');
+
+/** 排在游標那一筆之後（`ORDER BY created_at DESC, id DESC`）。 */
+const after = (cursor: NotificationCursor) =>
+  sql`(${notifications.createdAt}, ${notifications.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`;
+
 @Injectable()
 export class NotificationRepository {
   constructor(@Inject(TENANT_DB) private readonly db: Database) {}
@@ -70,11 +92,7 @@ export class NotificationRepository {
   ): Promise<{ items: NotificationWithActor[]; lastCreatedAt: string | undefined }> {
     const conditions: SQL[] = [ownedBy(recipientId)];
     if (options.unread) conditions.push(isNull(notifications.readAt));
-    if (options.after) {
-      conditions.push(
-        sql`(${notifications.createdAt}, ${notifications.id}) < (${options.after.createdAt}::timestamptz, ${options.after.id}::uuid)`,
-      );
-    }
+    if (options.after) conditions.push(after(options.after));
     const rows = await this.db
       .select(WITH_ACTOR_COLUMNS)
       .from(notifications)
@@ -83,6 +101,39 @@ export class NotificationRepository {
       .orderBy(desc(notifications.createdAt), desc(notifications.id))
       .limit(options.limit);
     return { items: rows.map(toWithActor), lastCreatedAt: rows.at(-1)?.createdAtExact };
+  }
+
+  /**
+   * 租戶內所有人的通知（總覽），新的在前；分頁同 `list()`。不分收件人時由 `(created_at, id)`、
+   * 依類型篩選時由 `(type, created_at, id)` 反向掃描；依收件人篩選時走 `(recipient_id, created_at, id)`。
+   */
+  async listAll(
+    filter: NotificationOverviewFilter,
+    options: { limit: number; after?: NotificationCursor },
+  ): Promise<{ items: NotificationWithRecipient[]; lastCreatedAt: string | undefined }> {
+    const conditions: SQL[] = [];
+    if (filter.type) conditions.push(eq(notifications.type, filter.type));
+    if (filter.recipientId) conditions.push(ownedBy(filter.recipientId));
+    if (filter.actorId) conditions.push(eq(notifications.actorId, filter.actorId));
+    if (filter.unread) conditions.push(isNull(notifications.readAt));
+    if (filter.from) conditions.push(gte(notifications.createdAt, filter.from));
+    if (filter.to) conditions.push(lte(notifications.createdAt, filter.to));
+    if (options.after) conditions.push(after(options.after));
+    const rows = await this.db
+      .select({ ...WITH_ACTOR_COLUMNS, recipientName: recipient.displayName })
+      .from(notifications)
+      .innerJoin(recipient, eq(recipient.id, notifications.recipientId))
+      .leftJoin(users, eq(users.id, notifications.actorId))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(notifications.createdAt), desc(notifications.id))
+      .limit(options.limit);
+    return {
+      items: rows.map((row) => ({
+        ...toWithActor(row),
+        recipient: { id: row.notification.recipientId, name: row.recipientName },
+      })),
+      lastCreatedAt: rows.at(-1)?.createdAtExact,
+    };
   }
 
   /** 自己的一則通知；別人的與不存在的一樣回 undefined。 */

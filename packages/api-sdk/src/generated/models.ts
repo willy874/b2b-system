@@ -48,6 +48,7 @@ export const PermissionKey = {
   'tag:create': 'tag:create',
   'tag:update': 'tag:update',
   'tag:delete': 'tag:delete',
+  'notification:read': 'notification:read',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
@@ -151,31 +152,6 @@ export interface UpdateNotificationEventsRequest {
   }>;
 }
 
-export interface NotificationPreferenceChannel {
-  channel: NotificationChannel;
-  enabled: boolean;
-  isOverridden: boolean;
-  lock: ('mandatory' | 'tenantDisabled' | 'tenantRequired') | null;
-}
-
-export interface NotificationPreference {
-  type: string;
-  category: string;
-  channels: Array<NotificationPreferenceChannel>;
-}
-
-export interface NotificationPreferenceList {
-  items: Array<NotificationPreference>;
-}
-
-export interface UpdateNotificationPreferencesRequest {
-  changes: Array<{
-    type: string;
-    channel: NotificationChannel;
-    enabled: boolean | null;
-  }>;
-}
-
 export interface NotificationLink {
   route: string;
   params: Record<string, string>;
@@ -205,6 +181,53 @@ export interface NotificationUnreadCount {
 
 export interface NotificationReadAllResult {
   updated: number;
+}
+
+export interface NotificationOverviewItem {
+  id: string;
+  type: string;
+  params: Record<string, unknown>;
+  link: NotificationLink | null;
+  actor: {
+    id: string;
+    name: string;
+  } | null;
+  readAt: string | null;
+  createdAt: string;
+  recipient: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface NotificationOverviewPage {
+  items: Array<NotificationOverviewItem>;
+  nextCursor: string | null;
+}
+
+export interface NotificationPreferenceChannel {
+  channel: NotificationChannel;
+  enabled: boolean;
+  isOverridden: boolean;
+  lock: ('mandatory' | 'tenantDisabled' | 'tenantRequired') | null;
+}
+
+export interface NotificationPreference {
+  type: string;
+  category: string;
+  channels: Array<NotificationPreferenceChannel>;
+}
+
+export interface NotificationPreferenceList {
+  items: Array<NotificationPreference>;
+}
+
+export interface UpdateNotificationPreferencesRequest {
+  changes: Array<{
+    type: string;
+    channel: NotificationChannel;
+    enabled: boolean | null;
+  }>;
 }
 
 export interface Webhook {

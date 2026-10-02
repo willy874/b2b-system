@@ -397,6 +397,129 @@ describe('站內通知（docs/architecture/backend/15-notification.md、ADR-0026
     });
   });
 
+  // ── 通知總覽 ─────────────────────────────────────────────
+
+  describe('通知總覽 GET /notifications/all（ADR-0031 D1、D2）', () => {
+    let alice: string;
+    let bob: string;
+    let adminUser: string;
+    let auditorUser: string;
+    let seeded: NotificationRow[];
+
+    interface OverviewBody {
+      data: {
+        items: Array<NotificationBody & { recipient: { id: string; name: string } }>;
+        nextCursor: string | null;
+      };
+    }
+
+    async function overview(query: string, userId = adminUser): Promise<OverviewBody['data']> {
+      const response = await request(http)
+        .get(`/notifications/all${query}`)
+        .set(await auth(userId))
+        .expect(200);
+      return (response.body as OverviewBody).data;
+    }
+
+    async function ids(query: string): Promise<string[]> {
+      return (await overview(query)).items.map((item) => item.id).toSorted();
+    }
+
+    beforeEach(async () => {
+      await db.delete(notifications);
+      alice ??= await createUser('overview-alice@example.com');
+      bob ??= await createUser('overview-bob@example.com', [], { deletedAt: new Date() });
+      adminUser ??= await createUser('overview-admin@example.com', [await roleIdOf('admin')]);
+      auditorUser ??= await createUser('overview-auditor@example.com', [await roleIdOf('auditor')]);
+      const sameTime = new Date('2026-09-10T00:00:00.456Z');
+      seeded = [
+        await seedNotification(alice, { type: 'approval.pending', createdAt: sameTime }),
+        await seedNotification(bob, { type: 'approval.pending', createdAt: sameTime }),
+        await seedNotification(alice, {
+          type: 'user.rolesChanged',
+          actorId: rootId,
+          createdAt: new Date('2026-09-11T00:00:00Z'),
+          readAt: new Date(),
+        }),
+        await seedNotification(bob, {
+          type: 'webhook.disabled',
+          createdAt: new Date('2026-09-12T00:00:00Z'),
+        }),
+      ];
+    });
+
+    it('未登入 401；一般使用者與 auditor 沒有 notification:read → 403（D2）', async () => {
+      await request(http).get('/notifications/all').expect(401);
+      await request(http)
+        .get('/notifications/all')
+        .set(await auth(alice))
+        .expect(403);
+      await request(http)
+        .get('/notifications/all')
+        .set(await auth(auditorUser))
+        .expect(403);
+    });
+
+    it('admin 看得到所有人的，新的在前，帶收件人與觸發者；被軟刪除的收件人照樣顯示名字', async () => {
+      const { items, nextCursor } = await overview('');
+      expect(items.map((item) => item.id)).toEqual([
+        seeded[3]!.id,
+        seeded[2]!.id,
+        // 同一個時間：以 id 遞減收尾
+        ...[seeded[0]!.id, seeded[1]!.id].toSorted().toReversed(),
+      ]);
+      expect(items[0]!.recipient).toEqual({ id: bob, name: '顯示 overview-bob@example.com' });
+      expect(items[1]).toMatchObject({
+        recipient: { id: alice },
+        actor: { id: rootId, name: rootName },
+      });
+      expect(nextCursor).toBeNull();
+    });
+
+    it('篩選：類型、收件人、觸發者、未讀、時間區間', async () => {
+      expect(await ids('?type=approval.pending')).toEqual(
+        [seeded[0]!.id, seeded[1]!.id].toSorted(),
+      );
+      expect(await ids(`?recipientId=${alice}`)).toEqual([seeded[0]!.id, seeded[2]!.id].toSorted());
+      expect(await ids(`?actorId=${rootId}`)).toEqual([seeded[2]!.id]);
+      expect(await ids('?unread=true')).toEqual(
+        [seeded[0]!.id, seeded[1]!.id, seeded[3]!.id].toSorted(),
+      );
+      expect(await ids('?from=2026-09-10T12:00:00Z&to=2026-09-11T12:00:00Z')).toEqual([
+        seeded[2]!.id,
+      ]);
+      expect(await ids(`?type=approval.pending&recipientId=${bob}`)).toEqual([seeded[1]!.id]);
+    });
+
+    it('keyset 分頁跨收件人：逐頁取完不重複不漏', async () => {
+      const seen: string[] = [];
+      let cursor: string | null = null;
+      do {
+        // oxlint-disable-next-line no-await-in-loop -- 逐頁依序：下一頁要用上一頁的游標
+        const page: OverviewBody['data'] = await overview(
+          cursor ? `?limit=1&cursor=${cursor}` : '?limit=1',
+        );
+        seen.push(...page.items.map((item) => item.id));
+        cursor = page.nextCursor;
+      } while (cursor);
+      expect(seen.toSorted()).toEqual(seeded.map((row) => row.id).toSorted());
+    });
+
+    it('起日晚於迄日、游標格式不對、收件人不是 uuid → 400 VALIDATION_FAILED', async () => {
+      const headers = await auth(adminUser);
+      for (const query of [
+        '?from=2026-09-12T00:00:00Z&to=2026-09-10T00:00:00Z',
+        '?cursor=garbage',
+        '?recipientId=not-a-uuid',
+      ]) {
+        // oxlint-disable-next-line no-await-in-loop -- 逐一斷言，失敗時看得出是哪一個
+        const response = await request(http).get(`/notifications/all${query}`).set(headers);
+        expect(response.status, query).toBe(400);
+        expect(response.body, query).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+      }
+    });
+  });
+
   // ── 寫入點 ───────────────────────────────────────────────
 
   describe('寫入點（ADR-0026 D11）', () => {

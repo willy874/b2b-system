@@ -69,6 +69,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'tag:create',
       'tag:update',
       'tag:delete',
+      'notification:read',
     ],
   },
   {

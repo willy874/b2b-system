@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 46 項）
+## 2. 權限清單（共 47 項）
 
 ### 2.1 `user` — 使用者
 
@@ -179,7 +179,15 @@
 > 沒有 `tag:read`：定義對「進得了那個標籤組」的人都可讀（檔案組：`file:access` 或 `file:read`；使用者組：`user:read`）。
 > **貼與移除標籤不需要權限鍵**，跟著目標的編輯權限：檔案、資料夾是能改名，使用者是 `user:update`。
 
-### 2.15 個人範圍（不需要權限）
+### 2.15 `notification` — 站內通知
+
+| 權限鍵              | 顯示名稱（zh-TW） | 說明 |
+| ------------------- | ----------------- | ---- |
+| `notification:read` | 檢視所有通知      | 通知總覽：租戶內 **所有人** 的站內通知，依類型、收件人、觸發者、時間、已讀篩選（[ADR-0031](../adr/0031-announcements.md) D1） |
+
+> 每個人看自己的通知不需要這個鍵（§2.16）。通知的參數帶申請人名稱、角色名稱等，所以只預設給 `admin`，`auditor` 不預設（D2）。
+
+### 2.16 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
@@ -214,6 +222,7 @@
 | `serviceAccount`  |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
 | `webhook`         |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
 | `tag`             |   ✓    |  —   |   ✓    |   ✓    | —                             |
+| `notification`    |   —    |  ✓   |   —    |   —    | —                             |
 
 ---
 
@@ -267,6 +276,7 @@
 | `tag:create`           |      ✓*       |    ✓    |           |          |
 | `tag:update`           |      ✓*       |    ✓    |           |          |
 | `tag:delete`           |      ✓*       |    ✓    |           |          |
+| `notification:read`    |      ✓*       |    ✓    |           |          |
 
 `*` super-admin 是 **隱含全集**，不逐筆登錄權限鍵的邊（只有 `tenant:self#superAdmin` 一條邊）；
 `GET /auth/profile` 回傳時才展開成完整清單。
@@ -307,6 +317,7 @@
 | 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:access` 或 `file:read`（按鈕層級看後端回傳的 `capabilities`，見 [`07-resource-grants.md`](./07-resource-grants.md) §7） | SOME |
 | 外部 IdP 連線 | `/identity-provider`      | `IDENTITY_PROVIDER` | `identityProvider:read`        | EVERY |
 | 系統設定     | `/system/settings`（`system:update` 才能修改） | `SETTING` | `system:read`             | EVERY |
+| 通知總覽     | `/notification/all`        | `NOTIFICATION_OVERVIEW` | `notification:read`           | EVERY |
 | 事件通知     | `/notification/events`（`system:update` 才能修改） | `NOTIFICATION_EVENT` | `system:read` | EVERY |
 | 回收桶       | `/trash`（分頁依各類型的 `<resource>:delete` 過濾） | `TRASH` | 任一種 `<resource>:delete`（`user:delete`、`role:delete`、`group:delete`、`file:delete`；[`../architecture/frontend/13-trash.md`](../architecture/frontend/13-trash.md) §3） | SOME |
 
@@ -498,6 +509,7 @@ Seed 行為：
 | `webhook:update` | `webhook:read` | |
 | `tag:create` | `tag:update` | |
 | `tag:delete` | `tag:update` | |
+| `notification:read` | | `user:read` |
 
 沒有列出的鍵是葉節點（`permission:read`、`auditLog:read`、各資源的 `read`、`file:access`）。
 

@@ -94,6 +94,26 @@
         "tenantDisabled": "管理者已關閉",
         "tenantRequired": "管理者要求接收"
       }
+    },
+    "overview": {
+      "title": "通知總覽",
+      "description": "租戶內所有人收到的站內通知。內容是收件人看到的句子；已讀超過保留期限的通知會自動清除。",
+      "loadMore": "載入更多",
+      "field": {
+        "createdAt": "時間",
+        "recipient": "收件人",
+        "type": "事件",
+        "message": "內容",
+        "actor": "觸發者",
+        "readAt": "已讀"
+      },
+      "filter": {
+        "allTypes": "全部事件",
+        "anyRecipient": "所有收件人",
+        "noRecipient": "找不到符合的使用者",
+        "allReadStates": "全部",
+        "range": "時間"
+      }
     }
   }
 }

@@ -10,8 +10,10 @@ import { DomainEvent, DomainEventBus } from '@/core/events';
 import { SettingService } from '@/core/settings';
 
 import type {
+  ListAllNotificationDto,
   ListNotificationDto,
   NotificationDto,
+  NotificationOverviewPageDto,
   NotificationPageDto,
 } from './dto/notification.dto';
 import { NotificationPolicyService } from './notification-policy.service';
@@ -53,6 +55,28 @@ function toDto(row: NotificationWithActor): NotificationDto {
     readAt: row.readAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
   };
+}
+
+/** 游標格式不對回 `400 VALIDATION_FAILED`（`details.field: 'cursor'`）。 */
+function parseCursor(raw: string | undefined): NotificationCursor | undefined {
+  if (!raw) return undefined;
+  const cursor = decodeNotificationCursor(raw);
+  if (!cursor) throw new AppException('VALIDATION_FAILED', { field: 'cursor' });
+  return cursor;
+}
+
+/** 滿一頁才有下一頁；游標用資料庫格式化的微秒精度時間（`lastCreatedAt`）。 */
+function nextCursorOf(
+  items: readonly NotificationWithActor[],
+  lastCreatedAt: string | undefined,
+  limit: number,
+): string | null {
+  const last = items.at(-1);
+  if (!last || items.length !== limit) return null;
+  return encodeNotificationCursor({
+    createdAt: lastCreatedAt ?? last.createdAt.toISOString(),
+    id: last.id,
+  });
 }
 
 /** 同一位收件人的通知 id → 推播的變更；太多時改推一筆不帶 id 的（前端一樣讓 notification 的 query 失效）。 */
@@ -136,25 +160,34 @@ export class NotificationService {
 
   /** 自己的通知，新的在前（keyset 分頁）。 */
   async list(query: ListNotificationDto, actor: AuthUser): Promise<NotificationPageDto> {
-    let after: NotificationCursor | undefined;
-    if (query.cursor) {
-      after = decodeNotificationCursor(query.cursor);
-      if (!after) throw new AppException('VALIDATION_FAILED', { field: 'cursor' });
-    }
     const { items, lastCreatedAt } = await this.repo.list(actor.id, {
       unread: query.unread ?? false,
       limit: query.limit,
-      after,
+      after: parseCursor(query.cursor),
     });
-    const last = items.at(-1);
-    const nextCursor =
-      last && items.length === query.limit
-        ? encodeNotificationCursor({
-            createdAt: lastCreatedAt ?? last.createdAt.toISOString(),
-            id: last.id,
-          })
-        : null;
-    return { items: items.map(toDto), nextCursor };
+    return { items: items.map(toDto), nextCursor: nextCursorOf(items, lastCreatedAt, query.limit) };
+  }
+
+  /**
+   * 租戶內所有人的通知（總覽，`notification:read`；docs/adr/0031-announcements.md D1）。
+   * 只讀、不寫稽核（與稽核日誌的列表相同）。
+   */
+  async listAll(query: ListAllNotificationDto): Promise<NotificationOverviewPageDto> {
+    const { items, lastCreatedAt } = await this.repo.listAll(
+      {
+        type: query.type,
+        recipientId: query.recipientId,
+        actorId: query.actorId,
+        unread: query.unread ?? false,
+        from: query.from,
+        to: query.to,
+      },
+      { limit: query.limit, after: parseCursor(query.cursor) },
+    );
+    return {
+      items: items.map((row) => ({ ...toDto(row), recipient: row.recipient })),
+      nextCursor: nextCursorOf(items, lastCreatedAt, query.limit),
+    };
   }
 
   async unreadCount(actor: AuthUser): Promise<{ count: number }> {

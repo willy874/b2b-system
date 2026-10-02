@@ -10,6 +10,7 @@ import {
 } from '@/features/identity-provider';
 import {
   NOTIFICATION_EVENT_PAGE,
+  NOTIFICATION_OVERVIEW_PAGE,
   NOTIFICATION_PAGE,
   registerNotificationPagePermissions,
 } from '@/features/notification';
@@ -54,6 +55,7 @@ describe('註冊表完整性', () => {
         TRASH_PAGE,
         NOTIFICATION_PAGE,
         NOTIFICATION_EVENT_PAGE,
+        NOTIFICATION_OVERVIEW_PAGE,
       ]),
     );
   });

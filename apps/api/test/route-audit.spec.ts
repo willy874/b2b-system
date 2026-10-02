@@ -241,6 +241,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /notifications/unread-count': 'authenticated',
       'POST /notifications/read-all': 'authenticated',
       'POST /notifications/:id/read': 'authenticated',
+      'GET /notifications/all': 'notification:read',
       'GET /notification-events': 'system:read',
       'PATCH /notification-events': 'system:update',
       'GET /me/notification-preferences': 'authenticated',

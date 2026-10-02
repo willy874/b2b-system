@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type {
   Notification,
   NotificationEventList,
+  NotificationOverviewPage,
   NotificationPage,
   NotificationPreferenceList,
   NotificationReadAllResult,
@@ -22,6 +23,7 @@ import type {
 } from '../runtime';
 import {
   NotificationEventListSchema,
+  NotificationOverviewPageSchema,
   NotificationPageSchema,
   NotificationPreferenceListSchema,
   NotificationReadAllResultSchema,
@@ -226,6 +228,53 @@ export function notificationControllerRead(
   return request<NotificationControllerReadResult>(
     notificationControllerReadOperation,
     input,
+    options,
+  );
+}
+
+// GET /notifications/all
+
+export interface NotificationOverviewControllerListAllResponses {
+  200: {
+    data: NotificationOverviewPage;
+  };
+}
+
+export type NotificationOverviewControllerListAllResponse =
+  NotificationOverviewControllerListAllResponses[200];
+
+export type NotificationOverviewControllerListAllResult = ApiResponse<
+  200,
+  NotificationOverviewControllerListAllResponses[200]
+>;
+
+export const NotificationOverviewControllerListAllSchemas = {
+  responses: {
+    200: z.object({
+      data: NotificationOverviewPageSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getNotificationOverviewControllerListAllUrl(): string {
+  return buildUrl('/notifications/all');
+}
+
+const notificationOverviewControllerListAllOperation: OperationDefinition = {
+  id: 'NotificationOverviewController_listAll',
+  method: 'GET',
+  path: '/notifications/all',
+  responseTypes: { 200: 'json' },
+  schemas: NotificationOverviewControllerListAllSchemas,
+};
+
+/** 租戶內所有人的通知（新的在前，keyset 分頁；可依類型、收件人、觸發者、時間篩選） */
+export function notificationOverviewControllerListAll(
+  options?: RequestOptions,
+): Promise<NotificationOverviewControllerListAllResult> {
+  return request<NotificationOverviewControllerListAllResult>(
+    notificationOverviewControllerListAllOperation,
+    {},
     options,
   );
 }

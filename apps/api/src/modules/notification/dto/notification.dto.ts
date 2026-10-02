@@ -68,6 +68,42 @@ export const NotificationReadAllResultSchema = defineSchema(
   }),
 );
 
+// ── 通知總覽（docs/adr/0031-announcements.md D1）──────────────────────
+
+/** `GET /notifications/all` 的查詢：租戶內所有人的通知，keyset 分頁同 `GET /notifications`。 */
+export const ListAllNotificationSchema = ListNotificationSchema.extend({
+  /** 通知類型（`<模組>.<事件>`，例：`approval.pending`）。 */
+  type: z.string().trim().max(100).optional(),
+  recipientId: z.string().uuid().optional(),
+  actorId: z.string().uuid().optional(),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+}).superRefine(({ from, to }, ctx) => {
+  if (from && to && from > to) {
+    ctx.addIssue({ code: 'custom', path: ['from'], message: 'must be before `to`' });
+  }
+});
+
+/** 總覽的一列：通知 ＋ 收件人。收件人被軟刪除時照樣顯示名字（永久刪除時通知已一起刪掉）。 */
+export const NotificationOverviewItemSchema = defineSchema(
+  'NotificationOverviewItem',
+  NotificationSchema.extend({
+    recipient: z.object({ id: z.string().uuid(), name: z.string() }),
+  }),
+);
+
+export const NotificationOverviewPageSchema = defineSchema(
+  'NotificationOverviewPage',
+  z.object({
+    items: z.array(NotificationOverviewItemSchema),
+    /** 下一頁的游標（`GET /notifications/all?cursor=`）；沒有下一頁時為 null。 */
+    nextCursor: z.string().nullable(),
+  }),
+);
+
 export type ListNotificationDto = z.infer<typeof ListNotificationSchema>;
 export type NotificationDto = z.infer<typeof NotificationSchema>;
 export type NotificationPageDto = z.infer<typeof NotificationPageSchema>;
+export type ListAllNotificationDto = z.infer<typeof ListAllNotificationSchema>;
+export type NotificationOverviewItemDto = z.infer<typeof NotificationOverviewItemSchema>;
+export type NotificationOverviewPageDto = z.infer<typeof NotificationOverviewPageSchema>;

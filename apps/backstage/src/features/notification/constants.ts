@@ -38,6 +38,9 @@ export const APPROVAL_TYPE_FALLBACK_KEY = 'notification.approvalType.unknown';
 /** 每頁幾筆（鈴鐺與列表頁共用同一個 query）。 */
 export const NOTIFICATION_PAGE_SIZE = 20;
 
+/** 通知總覽一次載入幾筆（「載入更多」）。 */
+export const NOTIFICATION_OVERVIEW_PAGE_SIZE = 50;
+
 /** 徽章最多顯示到這個數字，超過顯示「99+」。 */
 export const NOTIFICATION_BADGE_MAX = 99;
 

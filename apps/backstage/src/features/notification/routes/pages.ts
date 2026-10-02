@@ -4,7 +4,11 @@ import { localeScopeLoader } from '@/core/locales';
 import { RootRoute } from '@/core/router';
 
 import { NOTIFICATION_LOCALE_SCOPE } from '../locale';
-import { DEFAULT_NOTIFICATION_SEARCH, NotificationSearchQuerySchema } from './model';
+import {
+  DEFAULT_NOTIFICATION_SEARCH,
+  NotificationOverviewSearchQuerySchema,
+  NotificationSearchQuerySchema,
+} from './model';
 
 /** 站內通知的完整列表（docs/architecture/frontend/15-notification.md）；頂列鈴鐺的「查看全部」連到這裡。 */
 export const NotificationListRoute = createRoute({
@@ -23,4 +27,15 @@ export const NotificationEventListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/notification/events',
   loader: localeScopeLoader(NOTIFICATION_LOCALE_SCOPE),
+});
+
+/**
+ * 通知總覽（`notification:read`；docs/adr/0031-announcements.md D1）：租戶內所有人的通知。
+ * 篩選全部放在網址，分享連結時對方看到同一組條件。
+ */
+export const NotificationOverviewRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: '/notification/all',
+  loader: localeScopeLoader(NOTIFICATION_LOCALE_SCOPE),
+  validateSearch: NotificationOverviewSearchQuerySchema,
 });

@@ -65,4 +65,6 @@ export const PERMISSION = {
   TAG_CREATE: 'tag:create',
   TAG_UPDATE: 'tag:update',
   TAG_DELETE: 'tag:delete',
+
+  NOTIFICATION_READ: 'notification:read',
 } as const satisfies Record<string, PermissionKey>;

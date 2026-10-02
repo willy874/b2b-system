@@ -1,6 +1,6 @@
 # 前端 15 — 站內通知
 
-> 狀態：**已實作**（`features/notification`：頂列鈴鐺、Popover、列表頁 `/notification`、事件管理頁 `/notification/events`、偏好頁的通知分頁；`core/route-link` 的 route id 註冊表）。
+> 狀態：**已實作**（`features/notification`：頂列鈴鐺、Popover、列表頁 `/notification`、通知總覽 `/notification/all`、事件管理頁 `/notification/events`、偏好頁的通知分頁；`core/route-link` 的 route id 註冊表）。
 > 後端（`notifications` 表、`NotificationService.notify()`、API、推播、保留清理）見 [`../backend/15-notification.md`](../backend/15-notification.md)；
 > 決策見 [ADR-0026](../../adr/0026-notification-center.md) D3、D8、D12。
 
@@ -17,7 +17,7 @@ features/account/routeLinks.ts          登記 account.profile
 
 features/notification/                  只讀註冊表，不 import 其他 feature
 ├── plugin.ts                           頁面權限 ＋ registerHeaderTool('notification')（同步階段）
-├── permission.ts                       NOTIFICATION_PAGE（只需要登入）、NOTIFICATION_EVENT_PAGE（system:read）
+├── permission.ts                       NOTIFICATION_PAGE（只需要登入）、NOTIFICATION_OVERVIEW_PAGE（notification:read）、NOTIFICATION_EVENT_PAGE（system:read）
 ├── constants.ts                        句子的 i18n key 對照表、審批類型的名稱
 ├── adapter.ts                          DTO → NotificationVM（句子、補充、連結）、translateMessage()
 ├── hooks/
@@ -36,11 +36,13 @@ features/notification/                  只讀註冊表，不 import 其他 feat
 │   ├── NotificationPreferenceSection.tsx  偏好頁的通知分頁（§10）
 │   └── NotificationItem.tsx            一則通知
 ├── pages/NotificationList/             列表頁：全部／未讀、全部已讀
+├── pages/NotificationOverview/         通知總覽（§4.1）
 └── pages/NotificationEventList/        事件管理頁（§9）
 
 apis/notification/
 ├── get-notification-list/              GET /notifications（infinite query）
 ├── get-notification-unread-count/      GET /notifications/unread-count
+├── get-notification-overview/          GET /notifications/all（infinite query）
 ├── mark-notification-read/             POST /notifications/:id/read
 ├── mark-all-notifications-read/        POST /notifications/read-all
 ├── get-notification-event-list/        GET /notification-events
@@ -101,6 +103,18 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 - 列表是 `VirtualList`（[`07-ui-system.md`](./07-ui-system.md) §3.10 的同一套虛擬捲動與無限捲動），keyset 游標接續下一頁；
   查詢失敗顯示 `QueryError`（不落到空狀態）。
 
+### 4.1 通知總覽（`/notification/all`）
+
+租戶內所有人的通知（[ADR-0031](../../adr/0031-announcements.md) D1；後端見 [`../backend/15-notification.md`](../backend/15-notification.md) §6.1）。
+
+| 項目 | 規則 |
+| --- | --- |
+| 權限 | 頁面鍵 `NOTIFICATION_OVERVIEW_PAGE`：`notification:read`。與 `/notification` 是父子路徑，頁面鍵取前綴最長的；沒有權限的人仍進得了自己的 `/notification` |
+| 選單 | 側邊選單「系統管理 › 通知總覽」（`menu-notification-overview`），排在事件通知之前 |
+| 表格 | `RichTable`：時間、收件人、事件（`NOTIFICATION_EVENT_LABEL` 的名稱；不認得的顯示 `type`）、內容（收件人看到的句子與補充，§5）、觸發者、已讀（時間，未讀顯示 Chip） |
+| 篩選 | 事件、收件人（伺服器端搜尋使用者；網址帶進來的收件人另外取名稱）、未讀、日期區間（使用者當地的日曆日，換成偏好時區的日界線，同稽核日誌）；全部寫進網址 |
+| 分頁 | keyset：表格下方「載入更多」（一次 50 筆），不顯示總數 |
+
 ## 5. 句子
 
 依 `type` 找 i18n key，key 一律寫在 `constants.ts` 的對照表（[`../../conventions/06-literal-strings.md`](../../conventions/06-literal-strings.md) §3.1），
@@ -124,7 +138,7 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 
 | 來源變更 | 失效 |
 | --- | --- |
-| `notification` create（新通知，伺服器推給收件人） | `NOTIFICATION_LIST`、`NOTIFICATION_UNREAD_COUNT` |
+| `notification` create（新通知，伺服器推給收件人） | `NOTIFICATION_LIST`、`NOTIFICATION_UNREAD_COUNT`、`NOTIFICATION_OVERVIEW` |
 | `notification` update（標為已讀、全部已讀；本分頁的 mutation 也以它宣告） | 同上 |
 | `notificationPolicy` update（事件管理頁的修改，推給 `system:read` 的人） | `NOTIFICATION_EVENT_LIST`、`NOTIFICATION_PREFERENCE_LIST`（能不能調整來自租戶的政策） |
 | `notificationPreference` update（自己的通知設定，只推給本人） | `NOTIFICATION_PREFERENCE_LIST` |
@@ -137,7 +151,7 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 
 ## 7. Mock
 
-`mocks/handlers/notification.ts`：四個端點都只需要登入（沒有 403 的情境）；已讀會改變 mock 的狀態，重新整理後還原。
+`mocks/handlers/notification.ts`：自己的四個端點只需要登入（沒有 403 的情境），總覽要 `notification:read`（mock 只有自己這個收件人）；已讀會改變 mock 的狀態，重新整理後還原。
 `mocks/resources/fixtures.ts` 的 `NOTIFICATION_FIXTURES` 有三種類型各一則，外加一則前端不認得的類型（示範通用文字與不可點）。
 
 ## 8. 測試
@@ -151,7 +165,8 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 | 鈴鐺：徽章與可存取名稱、打開前不抓、`99+`、句子與不可點、點了標為已讀並換頁、全部已讀、查看全部、空狀態 | `features/notification/components/__tests__/NotificationBell.test.tsx` |
 | 列表頁：只需要登入的三個權限案例（沒有權限、有其他權限、未水合）、未讀分頁寫進網址、全部已讀、查詢失敗 | `features/notification/pages/NotificationList/__tests__/NotificationListPage.test.tsx` |
 | 依賴圖：`notification` 的 create／update 只失效通知、不碰稽核；其他寫入不影響通知；`except` 的引擎行為 | `apis/__tests__/resources.test.ts`、`core/cache/__tests__/resourceGraph.test.ts` |
-| 頁面註冊表的鍵集合含 `NOTIFICATION_PAGE`、`NOTIFICATION_EVENT_PAGE` | `core/permission/__tests__/feature-registration.test.ts` |
+| 通知總覽：三個權限案例（有 `notification:read`、沒有但仍進得了 `/notification`、未水合）、每一列的欄位與不認得的事件、網址的篩選帶進查詢、載入更多以游標接續；adapter | `features/notification/pages/NotificationOverview/__tests__/*` |
+| 頁面註冊表的鍵集合含 `NOTIFICATION_PAGE`、`NOTIFICATION_OVERVIEW_PAGE`、`NOTIFICATION_EVENT_PAGE` | `core/permission/__tests__/feature-registration.test.ts` |
 | 相對時間 | `shared/date/__tests__/date.test.ts` |
 | E2E：註冊申請 → 審核者的鈴鐺（推播）→ 點開到審批詳情、標為已讀；角色被改 → 本人收到通知（專用帳號 `e2e-notifyme`，未讀數精確斷言）→ 到個人資料頁、全部已讀、列表頁的未讀分頁 | `apps/e2e/tests/notification.spec.ts` |
 | 事件管理頁：分組與不認得的事件、草稿（切回伺服器的值移除、有覆寫而切回預設送 `null`、恢復預設、允許個人關閉與開關記在同一筆）、頁面（只送改過的、允許個人關閉、恢復預設、`mandatory` 停用、三個權限案例） | `features/notification/pages/NotificationEventList/__tests__/*`、`features/notification/hooks/__tests__/useNotificationEventDraft.test.ts` |

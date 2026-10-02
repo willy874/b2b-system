@@ -227,9 +227,10 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     expect(keys.some((key) => key.includes('AUDIT_LOG_DETAIL'))).toBe(false);
   });
 
-  it('站內通知的推播（新通知、已讀、全部已讀）：列表與未讀數，不碰稽核列表（通知不寫稽核，ADR-0026 D9）', () => {
+  it('站內通知的推播（新通知、已讀、全部已讀）：列表、未讀數與總覽，不碰稽核列表（通知不寫稽核，ADR-0026 D9）', () => {
     const expected = [
       'invalidate:NOTIFICATION_LIST_QUERY_KEY',
+      'invalidate:NOTIFICATION_OVERVIEW_QUERY_KEY',
       'invalidate:NOTIFICATION_UNREAD_COUNT_QUERY_KEY',
     ];
     expect(keysOf({ resource: Resource.NOTIFICATION, kind: 'create', id: 'n1' })).toEqual(expected);

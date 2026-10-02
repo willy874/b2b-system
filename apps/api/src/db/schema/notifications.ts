@@ -45,6 +45,10 @@ export const notifications = pgTable(
     index('notifications_read_at_idx')
       .on(t.readAt)
       .where(sql`${t.readAt} IS NOT NULL`),
+    // 通知總覽（跨收件人，docs/adr/0031-announcements.md D1）：上面的索引都以收件人開頭，不分收件人的列表用不到。
+    // 依類型篩選另有一個；收件人、觸發者的篩選以收件人開頭的索引或過濾處理
+    index('notifications_created_idx').on(t.createdAt, t.id),
+    index('notifications_type_created_idx').on(t.type, t.createdAt, t.id),
   ],
 );
 

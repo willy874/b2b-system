@@ -94,6 +94,26 @@
         "tenantDisabled": "Turned off by your administrator",
         "tenantRequired": "Required by your administrator"
       }
+    },
+    "overview": {
+      "title": "Notification overview",
+      "description": "In-app notifications received by everyone in this tenant. Content is shown as the recipient sees it; read notifications past the retention period are removed automatically.",
+      "loadMore": "Load more",
+      "field": {
+        "createdAt": "Time",
+        "recipient": "Recipient",
+        "type": "Event",
+        "message": "Content",
+        "actor": "Triggered by",
+        "readAt": "Read"
+      },
+      "filter": {
+        "allTypes": "All events",
+        "anyRecipient": "All recipients",
+        "noRecipient": "No matching users",
+        "allReadStates": "All",
+        "range": "Time"
+      }
     }
   }
 }

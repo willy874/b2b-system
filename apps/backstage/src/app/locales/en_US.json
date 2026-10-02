@@ -118,6 +118,7 @@
     "identityProvider": "Identity providers",
     "webhook": "Webhooks",
     "setting": "System settings",
+    "notificationOverview": "Notification overview",
     "notificationEvent": "Event notifications",
     "trash": "Trash",
     "profile": "Profile",
@@ -296,7 +297,8 @@
       "authz": "Access explanations",
       "serviceAccount": "Service accounts",
       "webhook": "Webhooks",
-      "tag": "Tags"
+      "tag": "Tags",
+      "notification": "Notifications"
     },
     "user": {
       "create": "Create user",
@@ -371,6 +373,9 @@
       "create": "Create tags",
       "update": "Edit tags",
       "delete": "Delete tags"
+    },
+    "notification": {
+      "read": "View all notifications"
     }
   },
   "language": {

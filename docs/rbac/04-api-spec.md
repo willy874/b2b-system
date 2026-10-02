@@ -594,8 +594,9 @@
 | GET    | `/notifications/unread-count`  | 🔑 登入即可 | 自己的未讀數 |
 | POST   | `/notifications/:id/read`      | 🔑 登入即可（只能改自己的） | 標為已讀 |
 | POST   | `/notifications/read-all`      | 🔑 登入即可 | 自己所有未讀的標為已讀 |
+| GET    | `/notifications/all`           | `notification:read` | 通知總覽：租戶內所有人的通知；`type`、`recipientId`、`actorId`、`unread`、`from`／`to` 篩選；keyset 分頁（[ADR-0031](../adr/0031-announcements.md) D1） |
 
-不新增權限鍵：看自己的通知只需要登入（[ADR-0026](../adr/0026-notification-center.md) D9）。已讀不寫稽核。
+看自己的通知只需要登入（[ADR-0026](../adr/0026-notification-center.md) D9）；看所有人的通知要 `notification:read`（只預設給 admin，ADR-0031 D2）。已讀不寫稽核。
 
 ```jsonc
 // GET /notifications?limit=20&unread=true&cursor=<上一頁的 nextCursor> → 200
@@ -619,6 +620,8 @@
 // GET /notifications/unread-count → 200 { "data": { "count": 3 } }
 // POST /notifications/:id/read → 200 { "data": { /* Notification，readAt 已設定 */ } }
 // POST /notifications/read-all → 200 { "data": { "updated": 3 } }
+// GET /notifications/all?type=approval.pending&recipientId=<uuid>&cursor=… → 200
+//   { "data": { "items": [ { /* Notification */, "recipient": { "id": "uuid", "name": "Alice" } } ], "nextCursor": null } }
 ```
 
 | 錯誤 | 時機 |

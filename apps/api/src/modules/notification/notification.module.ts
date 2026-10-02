@@ -5,6 +5,7 @@ import { SettingService } from '@/core/settings';
 import { NotificationCleanupJob } from './notification-cleanup.job';
 import { NotificationEventCatalog } from './notification-event.catalog';
 import { NotificationEventController } from './notification-event.controller';
+import { NotificationOverviewController } from './notification-overview.controller';
 import { NotificationPolicyRepository } from './notification-policy.repository';
 import { NotificationPolicyService } from './notification-policy.service';
 import { NotificationPreferenceController } from './notification-preference.controller';
@@ -23,6 +24,7 @@ import { NOTIFICATION_SETTINGS } from './notification.settings';
 @Module({
   controllers: [
     NotificationController,
+    NotificationOverviewController,
     NotificationEventController,
     NotificationPreferenceController,
   ],

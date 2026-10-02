@@ -83,6 +83,12 @@
 | A4 | 事件點：`AnnouncementTriggerCatalog` 與第一批三個觸發點 |
 | A5 | 歸檔：正式文件、刪除提案 |
 
+## 實作紀錄
+
+| 項目 | 與上面的決定不同或補充的地方 |
+| --- | --- |
+| A1 | 在 branch `feat/announcements` 完成。前端頁面鍵 `NOTIFICATION_OVERVIEW_PAGE`、側邊選單「系統管理 › 通知總覽」；表格以「載入更多」接續 keyset，不顯示總數。租戶 migration `0028_notification_overview_idx`、`0029_notification_read_system_roles`（既有租戶的 admin 補鍵）。端點放在獨立的 `NotificationOverviewController`，與只需要登入的 `NotificationController` 分開 |
+
 ## 評估過的方案
 
 - **每分鐘一個排程工作掃 `next_run_at`**（D8 的另一邊）：租戶排程會展開到每個租戶，每分鐘對每個租戶 DB 開連線，閒置租戶的連線池不會關。

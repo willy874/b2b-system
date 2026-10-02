@@ -37,6 +37,7 @@ import { JOB_LIST_QUERY_KEY } from '@/apis/job/get-job-list/query';
 import { JOB_QUEUE_LIST_QUERY_KEY } from '@/apis/job/get-job-queue-list/query';
 import { NOTIFICATION_EVENT_LIST_QUERY_KEY } from '@/apis/notification/get-notification-event-list/query';
 import { NOTIFICATION_LIST_QUERY_KEY } from '@/apis/notification/get-notification-list/query';
+import { NOTIFICATION_OVERVIEW_QUERY_KEY } from '@/apis/notification/get-notification-overview/query';
 import { NOTIFICATION_PREFERENCE_LIST_QUERY_KEY } from '@/apis/notification/get-notification-preference-list/query';
 import { NOTIFICATION_UNREAD_COUNT_QUERY_KEY } from '@/apis/notification/get-notification-unread-count/query';
 import { PERMISSION_LIST_QUERY_KEY } from '@/apis/permission/get-permission-list/query';
@@ -353,7 +354,12 @@ const graph = createResourceGraph<Resource>({
   [Resource.NOTIFICATION]: {
     // 列表與未讀數都只看自己的：新通知、已讀、全部已讀都會改變兩者。列表只有 collection——
     // 已讀一則也要讓「未讀」篩選的列表少一筆，逐筆更新快取不如整個重抓（keyset，只抓已載入的頁數）
-    collection: [NOTIFICATION_LIST_QUERY_KEY, NOTIFICATION_UNREAD_COUNT_QUERY_KEY],
+    // 總覽（`notification:read`）也列出自己的通知；後端只推給收件人，別人的通知變化不會讓它失效，重新整理才看得到
+    collection: [
+      NOTIFICATION_LIST_QUERY_KEY,
+      NOTIFICATION_UNREAD_COUNT_QUERY_KEY,
+      NOTIFICATION_OVERVIEW_QUERY_KEY,
+    ],
   },
 });
 

@@ -412,7 +412,8 @@
           "webhook:delete",
           "tag:create",
           "tag:update",
-          "tag:delete"
+          "tag:delete",
+          "notification:read"
         ]
       },
       "ExternalMe": {

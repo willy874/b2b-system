@@ -646,6 +646,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/notifications/unread-count` | `@Authenticated`               |
 | POST   | `/notifications/read-all`   | `@Authenticated`                 |
 | POST   | `/notifications/:id/read`   | `@Authenticated`（不是自己的回 404） |
+| GET    | `/notifications/all`        | `notification:read`（通知總覽，ADR-0031 D1） |
 | GET    | `/notification-events`      | `system:read`（ADR-0028 D10）    |
 | PATCH  | `/notification-events`      | `system:update`                  |
 | GET    | `/me/notification-preferences` | `@Authenticated`（只看自己的，ADR-0028 D15） |

@@ -81,6 +81,8 @@ import type {
   NotificationEventChannel,
   NotificationEventList,
   NotificationLink,
+  NotificationOverviewItem,
+  NotificationOverviewPage,
   NotificationPage,
   NotificationPreference,
   NotificationPreferenceChannel,
@@ -227,6 +229,7 @@ export const PermissionKeySchema = z.enum([
   'tag:create',
   'tag:update',
   'tag:delete',
+  'notification:read',
 ]) satisfies z.ZodType<PermissionKey>;
 
 export const PermissionSchema = z.object({
@@ -361,36 +364,6 @@ export const UpdateNotificationEventsRequestSchema = z.object({
     .max(100),
 }) satisfies z.ZodType<UpdateNotificationEventsRequest>;
 
-export const NotificationPreferenceChannelSchema = z.object({
-  channel: NotificationChannelSchema,
-  enabled: z.boolean(),
-  isOverridden: z.boolean(),
-  lock: z.enum(['mandatory', 'tenantDisabled', 'tenantRequired']).nullable(),
-}) satisfies z.ZodType<NotificationPreferenceChannel>;
-
-export const NotificationPreferenceSchema = z.object({
-  type: z.string(),
-  category: z.string(),
-  channels: z.array(NotificationPreferenceChannelSchema),
-}) satisfies z.ZodType<NotificationPreference>;
-
-export const NotificationPreferenceListSchema = z.object({
-  items: z.array(NotificationPreferenceSchema),
-}) satisfies z.ZodType<NotificationPreferenceList>;
-
-export const UpdateNotificationPreferencesRequestSchema = z.object({
-  changes: z
-    .array(
-      z.object({
-        type: z.string().min(1).max(100),
-        channel: NotificationChannelSchema,
-        enabled: z.boolean().nullable(),
-      }),
-    )
-    .min(1)
-    .max(100),
-}) satisfies z.ZodType<UpdateNotificationPreferencesRequest>;
-
 export const NotificationLinkSchema = z.object({
   route: z.string(),
   params: z.record(z.string(), z.string()),
@@ -435,6 +408,78 @@ export const NotificationUnreadCountSchema = z.object({
 export const NotificationReadAllResultSchema = z.object({
   updated: z.int().min(-9007199254740991).max(9007199254740991),
 }) satisfies z.ZodType<NotificationReadAllResult>;
+
+export const NotificationOverviewItemSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  type: z.string(),
+  params: z.record(z.string(), z.unknown()),
+  link: NotificationLinkSchema.nullable(),
+  actor: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      name: z.string(),
+    })
+    .nullable(),
+  readAt: z.string().nullable(),
+  createdAt: z.string(),
+  recipient: z.object({
+    id: z
+      .uuid()
+      .regex(
+        new RegExp(
+          '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+        ),
+      ),
+    name: z.string(),
+  }),
+}) satisfies z.ZodType<NotificationOverviewItem>;
+
+export const NotificationOverviewPageSchema = z.object({
+  items: z.array(NotificationOverviewItemSchema),
+  nextCursor: z.string().nullable(),
+}) satisfies z.ZodType<NotificationOverviewPage>;
+
+export const NotificationPreferenceChannelSchema = z.object({
+  channel: NotificationChannelSchema,
+  enabled: z.boolean(),
+  isOverridden: z.boolean(),
+  lock: z.enum(['mandatory', 'tenantDisabled', 'tenantRequired']).nullable(),
+}) satisfies z.ZodType<NotificationPreferenceChannel>;
+
+export const NotificationPreferenceSchema = z.object({
+  type: z.string(),
+  category: z.string(),
+  channels: z.array(NotificationPreferenceChannelSchema),
+}) satisfies z.ZodType<NotificationPreference>;
+
+export const NotificationPreferenceListSchema = z.object({
+  items: z.array(NotificationPreferenceSchema),
+}) satisfies z.ZodType<NotificationPreferenceList>;
+
+export const UpdateNotificationPreferencesRequestSchema = z.object({
+  changes: z
+    .array(
+      z.object({
+        type: z.string().min(1).max(100),
+        channel: NotificationChannelSchema,
+        enabled: z.boolean().nullable(),
+      }),
+    )
+    .min(1)
+    .max(100),
+}) satisfies z.ZodType<UpdateNotificationPreferencesRequest>;
 
 export const WebhookSchema = z.object({
   id: z
