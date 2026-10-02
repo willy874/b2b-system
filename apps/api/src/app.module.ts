@@ -28,6 +28,7 @@ import { MailModule } from './core/mail';
 import { SettingsModule } from './core/settings';
 import { StorageModule } from './core/storage';
 import { TenancyModule, TenantMiddleware } from './core/tenant';
+import { AnnouncementModule } from './modules/announcement/announcement.module';
 import { ApiTokenModule } from './modules/api-token/api-token.module';
 import { ApprovalModule } from './modules/approval/approval.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
@@ -109,6 +110,7 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     WebhookModule,
     // 標籤；標籤組與資源類型由擁有者模組登記（docs/adr/0032-tags.md）
     TagModule,
+    AnnouncementModule,
     AuthzExplainModule,
     SystemModule,
     FileModule,

@@ -69,6 +69,12 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'tag:create',
       'tag:update',
       'tag:delete',
+      'notification:read',
+      'announcement:create',
+      'announcement:read',
+      'announcement:update',
+      'announcement:delete',
+      'announcement:publish',
     ],
   },
   {
@@ -90,6 +96,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'authz:explain',
       'serviceAccount:read',
       'webhook:read',
+      'announcement:read',
     ],
   },
   {

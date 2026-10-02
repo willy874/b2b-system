@@ -59,6 +59,11 @@ export const ChangeSource = {
    * 指派不推它：由擁有者推自己的資源（`file`、`fileFolder`、`user` update）。
    */
   TAG: 'tag',
+  /**
+   * 公告（`id` = 公告 id；docs/adr/0031-announcements.md）：建立、修改、送出、暫停、刪除、還原，以及背景發送改變的狀態。
+   * 發送紀錄的變化（發送中、完成、撤回）也以它宣告（`update`），詳情頁的發送紀錄跟著重抓。
+   */
+  ANNOUNCEMENT: 'announcement',
 } as const;
 
 export type ChangeSource = (typeof ChangeSource)[keyof typeof ChangeSource];
@@ -96,6 +101,7 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.WEBHOOK,
   ChangeSource.WEBHOOK_DELIVERY,
   ChangeSource.TAG,
+  ChangeSource.ANNOUNCEMENT,
 ]);
 
 export const ResourceChangeWireSchema = z.object({

@@ -57,6 +57,7 @@ export const TENANT_FEATURE_LABEL_KEY = {
   identityProvider: 'tenant.feature.identityProvider',
   tenantSwitch: 'tenant.feature.tenantSwitch',
   webhook: 'tenant.feature.webhook',
+  announcement: 'tenant.feature.announcement',
 } as const satisfies Record<TenantFeature, string>;
 
 export const TENANT_FEATURE_DESCRIPTION_KEY = {
@@ -68,6 +69,7 @@ export const TENANT_FEATURE_DESCRIPTION_KEY = {
   identityProvider: 'tenant.feature.identityProviderDescription',
   tenantSwitch: 'tenant.feature.tenantSwitchDescription',
   webhook: 'tenant.feature.webhookDescription',
+  announcement: 'tenant.feature.announcementDescription',
 } as const satisfies Record<TenantFeature, string>;
 
 /**
@@ -76,4 +78,5 @@ export const TENANT_FEATURE_DESCRIPTION_KEY = {
 export const TENANT_FEATURE_DISABLE_WARNING_KEY: Partial<Record<TenantFeature, string>> = {
   identityProvider: 'tenant.feature.identityProviderDisableWarning',
   webhook: 'tenant.feature.webhookDisableWarning',
+  announcement: 'tenant.feature.announcementDisableWarning',
 };

@@ -646,10 +646,22 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/notifications/unread-count` | `@Authenticated`               |
 | POST   | `/notifications/read-all`   | `@Authenticated`                 |
 | POST   | `/notifications/:id/read`   | `@Authenticated`（不是自己的回 404） |
+| GET    | `/notifications/all`        | `notification:read`（通知總覽，ADR-0031 D1） |
 | GET    | `/notification-events`      | `system:read`（ADR-0028 D10）    |
 | PATCH  | `/notification-events`      | `system:update`                  |
 | GET    | `/me/notification-preferences` | `@Authenticated`（只看自己的，ADR-0028 D15） |
 | PATCH  | `/me/notification-preferences` | `@Authenticated`              |
+| GET    | `/announcements`            | `announcement:read`（ADR-0031 D15） |
+| POST   | `/announcements`            | `announcement:create`            |
+| POST   | `/announcements/audience-preview` | `announcement:update`      |
+| GET    | `/announcements/:id`        | `announcement:read`              |
+| PATCH  | `/announcements/:id`        | `announcement:update`（草稿以外另要 `announcement:publish`，service 檢查） |
+| DELETE | `/announcements/:id`        | `announcement:delete`            |
+| POST   | `/announcements/:id/restore` | `announcement:delete`           |
+| POST   | `/announcements/:id/publish`、`/pause`、`/resume` | `announcement:publish` |
+| GET    | `/announcements/:id/dispatches` | `announcement:read`          |
+| POST   | `/announcements/:id/dispatches/:dispatchId/revoke` | `announcement:publish` |
+| GET    | `/me/announcement-messages/:dispatchId` | `@Authenticated`（只看得到自己收到的） |
 | GET    | `/identity-providers`       | `identityProvider:read`          |
 | POST   | `/identity-providers`       | `identityProvider:create`        |
 | PATCH  | `/identity-providers/:id`   | `identityProvider:update`        |

@@ -5,6 +5,8 @@ import {
   formatRelativeTime,
   isValidTimeZone,
   setDateTimeDefaults,
+  toZonedParts,
+  zonedDateTime,
   zonedDayBoundary,
 } from '../index';
 
@@ -101,5 +103,38 @@ describe('formatRelativeTime（通知的相對時間）', () => {
   it('不合法的值顯示 -', () => {
     expect(formatRelativeTime('not a date', now)).toBe('-');
     expect(formatRelativeTime(null, now)).toBe('-');
+  });
+});
+
+describe('zonedDateTime / toZonedParts（公告排程的日期與時間）', () => {
+  it('偏好時區的日期與時間 → 那一刻（ISO）', () => {
+    expect(zonedDateTime('2026-10-10', '18:00', 'Asia/Taipei')).toBe('2026-10-10T10:00:00.000Z');
+    expect(zonedDateTime('2026-10-10', '18:00', 'UTC')).toBe('2026-10-10T18:00:00.000Z');
+  });
+
+  it('夏令時間：紐約 7 月是 UTC-4、1 月是 UTC-5', () => {
+    expect(zonedDateTime('2026-07-01', '09:00', 'America/New_York')).toBe(
+      '2026-07-01T13:00:00.000Z',
+    );
+    expect(zonedDateTime('2026-01-15', '09:00', 'America/New_York')).toBe(
+      '2026-01-15T14:00:00.000Z',
+    );
+  });
+
+  it('格式不對 → undefined', () => {
+    expect(zonedDateTime('2026/10/10', '18:00')).toBeUndefined();
+    expect(zonedDateTime('2026-10-10', '6pm')).toBeUndefined();
+  });
+
+  it('反向：某一刻在偏好時區的日期與時間；可以來回轉換', () => {
+    expect(toZonedParts('2026-10-10T10:00:00.000Z', 'Asia/Taipei')).toEqual({
+      day: '2026-10-10',
+      time: '18:00',
+    });
+    const parts = toZonedParts('2026-03-08T07:30:00.000Z', 'America/New_York')!;
+    expect(zonedDateTime(parts.day, parts.time, 'America/New_York')).toBe(
+      '2026-03-08T07:30:00.000Z',
+    );
+    expect(toZonedParts('not a date')).toBeUndefined();
   });
 });

@@ -84,6 +84,7 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 | `revision.keepDays` | 1–3650（天） | 90 | 否 | 同上：這麼多天內的版本一律保留；兩者之外的由 `revision.prune` 刪除 |
 | `notification.retentionDays` | 1–365（天） | 30 | 否 | `NotificationService.cleanup`：已讀超過這麼多天的通知由 `notification.cleanup` 刪除；未讀的不受影響（[`15-notification.md`](./15-notification.md) §8） |
 | `notification.maxPerUser` | 10–5000（則） | 500 | 否 | 同上：每人超過這個數量時刪除最舊的通知（不論已讀與否） |
+| `announcement.maxRecipients` | 100–100000（人） | 10000 | 否 | 一次公告最多收件人數：超過時那次發送失敗，不截斷（[`19-announcement.md`](./19-announcement.md) §5） |
 
 - **範圍寫在 schema 上**：下限擋住會削弱安全性的值（鎖定次數不能是 0、密碼不能短於 12），
   上限擋住超出部署能力的值。存得進去的值都安全，所以修改只寫稽核、不走審批。

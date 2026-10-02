@@ -51,7 +51,7 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 | `type` | `TRASH_RESOURCE_TYPES` 的一個值（`RESOURCE_TYPE`） |
 | `permission` | 看這一類與還原所需的權限：`<resource>:delete`（D10：能刪就能復原） |
 | `feature` | 選填：這一類所屬的租戶 feature（[ADR-0021](../../adr/0021-runtime-feature-activation.md)）。檔案與資料夾是 `file`；使用者、角色是常駐的，沒有 |
-| `purgeOrder` | 永久刪除的順序，小的先：檔案 10 → 資料夾 20 → 使用者 30 → 角色 40 → 群組 50（D11，外鍵的 `RESTRICT` 靠順序滿足） |
+| `purgeOrder` | 永久刪除的順序，小的先：檔案 10 → 資料夾 20 → 使用者 30 → 角色 40 → 群組 50 → 公告 60（D11，外鍵的 `RESTRICT` 靠順序滿足；公告見 [`19-announcement.md`](./19-announcement.md)，feature `announcement`） |
 | `listDeleted(query)` | 已刪除的列（`deleted_at` 新的在前），回傳共用的 `TrashItem` 形狀：`name`、`description`、`deletedAt`、`deletedBy` |
 | `findExpired(cutoff, afterId, limit)` | `deleted_at < cutoff`、依 `id` 的 keyset 取下一批；已知這一輪刪不掉的直接不回傳 |
 | `purge(item, tx)` | 在呼叫端的交易（每一列一個 savepoint）內硬刪除並處理連帶資料；回傳 `false` 代表略過 |

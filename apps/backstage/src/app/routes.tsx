@@ -1,5 +1,6 @@
 import { RootRoute } from '@/core/router';
 import { Routes as AccountRoutes } from '@/features/account';
+import { Routes as AnnouncementRoutes } from '@/features/announcement';
 import { Routes as ApprovalRoutes } from '@/features/approval';
 import { Routes as AuditLogRoutes } from '@/features/audit-log';
 import { Routes as AuthRoutes } from '@/features/auth';
@@ -59,10 +60,16 @@ export const routeTree = RootRoute.addChildren([
     WebhookRoutes.WebhookCreateRoute,
     WebhookRoutes.WebhookDetailRoute,
   ]),
+  AnnouncementRoutes.AnnouncementListRoute.addChildren([
+    AnnouncementRoutes.AnnouncementCreateRoute,
+    AnnouncementRoutes.AnnouncementDetailRoute,
+  ]),
+  AnnouncementRoutes.AnnouncementMessageRoute,
   SystemRoutes.SettingListRoute,
   TrashRoutes.TrashListRoute,
   AccountRoutes.ProfileRoute,
   AccountRoutes.PreferenceRoute,
   NotificationRoutes.NotificationListRoute,
   NotificationRoutes.NotificationEventListRoute,
+  NotificationRoutes.NotificationOverviewRoute,
 ]);

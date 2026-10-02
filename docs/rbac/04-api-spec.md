@@ -594,8 +594,9 @@
 | GET    | `/notifications/unread-count`  | 🔑 登入即可 | 自己的未讀數 |
 | POST   | `/notifications/:id/read`      | 🔑 登入即可（只能改自己的） | 標為已讀 |
 | POST   | `/notifications/read-all`      | 🔑 登入即可 | 自己所有未讀的標為已讀 |
+| GET    | `/notifications/all`           | `notification:read` | 通知總覽：租戶內所有人的通知；`type`、`recipientId`、`actorId`、`unread`、`from`／`to` 篩選；keyset 分頁（[ADR-0031](../adr/0031-announcements.md) D1） |
 
-不新增權限鍵：看自己的通知只需要登入（[ADR-0026](../adr/0026-notification-center.md) D9）。已讀不寫稽核。
+看自己的通知只需要登入（[ADR-0026](../adr/0026-notification-center.md) D9）；看所有人的通知要 `notification:read`（只預設給 admin，ADR-0031 D2）。已讀不寫稽核。
 
 ```jsonc
 // GET /notifications?limit=20&unread=true&cursor=<上一頁的 nextCursor> → 200
@@ -619,6 +620,8 @@
 // GET /notifications/unread-count → 200 { "data": { "count": 3 } }
 // POST /notifications/:id/read → 200 { "data": { /* Notification，readAt 已設定 */ } }
 // POST /notifications/read-all → 200 { "data": { "updated": 3 } }
+// GET /notifications/all?type=approval.pending&recipientId=<uuid>&cursor=… → 200
+//   { "data": { "items": [ { /* Notification */, "recipient": { "id": "uuid", "name": "Alice" } } ], "nextCursor": null } }
 ```
 
 | 錯誤 | 時機 |
@@ -695,6 +698,37 @@
 | `409 NOTIFICATION_EVENT_MANDATORY` | 不能關的事件（`details.type`） |
 | `409 NOTIFICATION_PREFERENCE_LOCKED` | 個人設定：被鎖住的管道（`details.lock`：`mandatory`／`tenantDisabled`／`tenantRequired`） |
 | `400 VALIDATION_FAILED` | `changes` 為空、超過 100 筆、重複的事件 ＋ 管道、不認得的管道 |
+
+---
+
+## 7.5 Announcements（公告）
+
+完整的規則見 [`../architecture/backend/19-announcement.md`](../architecture/backend/19-announcement.md) §3（[ADR-0031](../adr/0031-announcements.md)）。
+
+| Method | Path | 授權 | 說明 |
+| ------ | ---- | ---- | ---- |
+| GET    | `/announcements` | `announcement:read` | 列表：`keyword`、`status`；每列帶最近一次發送（人數、已讀數） |
+| POST   | `/announcements` | `announcement:create` | 建立草稿 |
+| POST   | `/announcements/audience-preview` | `announcement:update` | 受眾 → `{ count, skipped }` |
+| GET／PATCH／DELETE | `/announcements/:id` | `read`／`update`／`delete` | PATCH 必帶 `version`；草稿以外另要 `publish` |
+| POST   | `/announcements/:id/restore` | `announcement:delete` | 回收桶還原 |
+| POST   | `/announcements/:id/publish`、`/pause`、`/resume` | `announcement:publish` | 帶 `{ version }` |
+| GET    | `/announcements/:id/dispatches` | `announcement:read` | 發送紀錄 |
+| POST   | `/announcements/:id/dispatches/:dispatchId/revoke` | `announcement:publish` | 撤回 |
+| GET    | `/me/announcement-messages/:dispatchId` | 🔑 登入即可 | 自己收到的全文；同時標為已讀 |
+
+```jsonc
+// POST /announcements
+{
+  "title": "系統維護通知",
+  "body": "本週六 22:00～24:00 系統維護。",
+  "audience": { "all": false, "userIds": [], "groupIds": ["uuid"], "roleIds": [] },
+  "trigger": { "kind": "once", "at": "2026-10-10T10:00:00Z" }   // 或 { "kind": "immediate" }
+}
+// → 201 { "data": { "id": "uuid", "status": "draft", "version": 1, "nextRunAt": null, "lastDispatch": null, … } }
+
+// POST /announcements/:id/publish  { "version": 1 } → 200（status 變成 scheduled 或 completed）
+```
 
 ---
 

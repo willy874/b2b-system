@@ -22,6 +22,7 @@ export const mockState = {
     'system:update',
     'approval:read',
     'approval:review',
+    'notification:read',
   ] as string[],
 };
 

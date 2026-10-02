@@ -21,3 +21,4 @@ export * from './system-settings';
 export * from './users';
 export * from './webhooks';
 export * from './tags';
+export * from './announcements';

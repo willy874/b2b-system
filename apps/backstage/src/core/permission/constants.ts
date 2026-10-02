@@ -22,6 +22,8 @@ export const PermissionResource = {
   SERVICE_ACCOUNT: 'serviceAccount',
   WEBHOOK: 'webhook',
   TAG: 'tag',
+  NOTIFICATION: 'notification',
+  ANNOUNCEMENT: 'announcement',
 } as const;
 export type PermissionResource = (typeof PermissionResource)[keyof typeof PermissionResource];
 

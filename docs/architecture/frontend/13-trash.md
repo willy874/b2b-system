@@ -26,6 +26,8 @@ features/group/trash.ts            登記「群組」類型
 features/group/components/GroupRestoreAction.tsx
 features/file/trash.ts             登記「檔案」「資料夾」兩類（可在執行期停用的 feature：卸載時分頁跟著消失）
 features/file/components/FileRestoreAction.tsx、FolderRestoreAction.tsx
+features/announcement/trash.ts     登記「公告」類型（可在執行期停用的 feature；docs/architecture/frontend/16-announcement.md）
+features/announcement/components/AnnouncementRestoreAction.tsx
 features/role/components/RoleRestoreAction.tsx
 apis/trash/get-trash-list/         GET /trash
 apis/user/restore-user/            POST /users/:id/restore
@@ -59,7 +61,7 @@ apis/file/restore-file-folder/     POST /file-folders/:id/restore
 
 | 層 | 規則 |
 | --- | --- |
-| 頁面（`TRASH_PAGE`） | `match: SOME` 的 `TRASH_PAGE_PERMISSIONS`（`[user:delete, role:delete, file:delete]`）：至少能刪一種才進得去、選單才出現。與後端 `TRASH_PERMISSIONS` 是同一組鍵，新類型兩邊一起加 |
+| 頁面（`TRASH_PAGE`） | `match: SOME` 的 `TRASH_PAGE_PERMISSIONS`（`[user:delete, role:delete, group:delete, file:delete, announcement:delete]`）：至少能刪一種才進得去、選單才出現。與後端 `TRASH_PERMISSIONS` 是同一組鍵，新類型兩邊一起加 |
 | 分頁 | `useTrashPermission()`：登記的類型中 `can(type.permission)` 的那些；未水合時為空（不閃現） |
 | 網址 `?type=` | 不存在或看不到時改看第一個看得到的分頁 |
 | 後端 | 仍會以該類型的權限再檢查一次（[`../backend/13-trash.md`](../backend/13-trash.md) §3） |

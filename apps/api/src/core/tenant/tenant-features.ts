@@ -20,6 +20,8 @@ export const TENANT_FEATURES = [
   'tenantSwitch',
   // ADR-0030：對外送出事件（webhook）
   'webhook',
+  // ADR-0031：公告與排程通知
+  'announcement',
 ] as const;
 
 export type TenantFeature = (typeof TENANT_FEATURES)[number];

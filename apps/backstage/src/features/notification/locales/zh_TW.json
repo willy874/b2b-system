@@ -23,7 +23,8 @@
       "approvalRejected": "你的{{type}}申請已被駁回",
       "userRolesChanged": "你的角色已變更",
       "webhookDisabled": "Webhook「{{name}}」連續失敗 {{count}} 次，已自動停用",
-      "unknown": "你有一則新通知"
+      "unknown": "你有一則新通知",
+      "announcementPublished": "公告：{{title}}"
     },
     "detail": {
       "subject": "{{subject}}",
@@ -60,7 +61,8 @@
       "category": {
         "approval": "審批",
         "user": "使用者",
-        "webhook": "Webhook"
+        "webhook": "Webhook",
+        "announcement": "公告"
       },
       "type": {
         "approvalPending": {
@@ -82,6 +84,11 @@
           "name": "Webhook 自動停用",
           "description": "webhook 連續投遞失敗而自動停用時通知可以修好它的人。",
           "recipients": "停用當下持有「編輯 Webhook」權限的人"
+        },
+        "announcementPublished": {
+          "name": "公告",
+          "description": "管理者送出的公告（立即或排程）。點開通知看全文。",
+          "recipients": "公告選定的收件對象"
         }
       }
     },
@@ -93,6 +100,26 @@
         "mandatory": "安全相關，不能關閉",
         "tenantDisabled": "管理者已關閉",
         "tenantRequired": "管理者要求接收"
+      }
+    },
+    "overview": {
+      "title": "通知總覽",
+      "description": "租戶內所有人收到的站內通知。內容是收件人看到的句子；已讀超過保留期限的通知會自動清除。",
+      "loadMore": "載入更多",
+      "field": {
+        "createdAt": "時間",
+        "recipient": "收件人",
+        "type": "事件",
+        "message": "內容",
+        "actor": "觸發者",
+        "readAt": "已讀"
+      },
+      "filter": {
+        "allTypes": "全部事件",
+        "anyRecipient": "所有收件人",
+        "noRecipient": "找不到符合的使用者",
+        "allReadStates": "全部",
+        "range": "時間"
       }
     }
   }

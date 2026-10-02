@@ -48,6 +48,7 @@ export const APPROVAL_RESULT_NOTIFICATION = defineNotification<ApprovalResultPar
 | `defaultEnabled` | `true` | 租戶沒有覆寫時是否送出 |
 | `mandatory` | `false` | 不能關（安全事件）：租戶的覆寫值不生效、`PATCH` 回 409。`mandatory` 卻 `defaultEnabled: false` 在載入時就失敗 |
 | `feature` | — | 所屬的可啟用 feature（`TenantFeature`）：租戶沒啟用時不出現在管理頁，`PATCH` 視同沒有登記 |
+| `defaultAllowUserOverride` | `true` | 租戶沒有覆寫時是否允許個人關掉。公告是 `false`（公司公告不該被個人靜音，[ADR-0031](../../adr/0031-announcements.md) D16）；覆寫的列兩欄都等於預設值時刪除 |
 
 格式不對（類型、分類、管道）在模組載入時就拋錯，不會等到第一次寫入。
 
@@ -75,6 +76,7 @@ export class ApprovalModule {
 | `approval.result` | `approval` | `inApp`、`email`（既有的審核結果信 `approval.resultMail`） | 開 | `ApprovalModule` |
 | `user.rolesChanged` | `user` | `inApp` | 開 | `UserModule` |
 | `webhook.disabled` | `webhook` | `inApp` | 開（feature `webhook`） | `WebhookModule` |
+| `announcement.published` | `announcement` | `inApp` | 開、預設不允許個人關閉（feature `announcement`） | `AnnouncementModule` |
 
 **帳號流程的信不是事件**：啟用信、重設密碼信是完成流程必需的交易信，不進目錄、不受政策影響（ADR-0028 D3）。
 

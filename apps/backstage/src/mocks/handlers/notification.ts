@@ -1,8 +1,8 @@
 import { HttpResponse, http } from 'msw/http';
 
-import type { Notification } from '@/shared/api-sdk';
+import type { Notification, NotificationOverviewItem } from '@/shared/api-sdk';
 
-import { MOCK_API_BASE } from '../config';
+import { MOCK_API_BASE, mockState } from '../config';
 import { NOTIFICATION_FIXTURES } from '../resources/fixtures';
 
 /**
@@ -30,6 +30,26 @@ export const notificationHandlers = [
     return HttpResponse.json({
       data: { items, nextCursor: next < source.length ? String(next) : null },
     });
+  }),
+  // 通知總覽（docs/adr/0031-announcements.md D1）：要 notification:read；mock 只有自己這個收件人，不分頁
+  http.get(`${MOCK_API_BASE}/notifications/all`, () => {
+    if (!mockState.permissions.includes('notification:read')) {
+      return HttpResponse.json(
+        {
+          error: {
+            code: 'AUTHZ_FORBIDDEN',
+            message: 'forbidden',
+            details: { missing: ['notification:read'] },
+          },
+        },
+        { status: 403 },
+      );
+    }
+    const items: NotificationOverviewItem[] = notifications.map((item) => ({
+      ...item,
+      recipient: { id: 'mock-me', name: 'Mock 使用者' },
+    }));
+    return HttpResponse.json({ data: { items, nextCursor: null } });
   }),
   http.get(`${MOCK_API_BASE}/notifications/unread-count`, () =>
     HttpResponse.json({ data: { count: unread().length } }),

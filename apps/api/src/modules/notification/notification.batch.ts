@@ -17,6 +17,7 @@ const NotificationInputSchema = z.object({
   type: z.string().max(100).refine(isNotificationType, { message: '類型格式不對' }),
   recipientId: z.string().uuid(),
   actorId: z.string().uuid().nullable(),
+  sourceId: z.string().uuid().nullable().optional(),
   params: z
     .record(z.string().max(100), ParamValueSchema)
     .refine(

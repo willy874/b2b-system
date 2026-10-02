@@ -6,7 +6,12 @@ import { resetFileRegistry } from '@/core/file';
 import { getRegisteredPageKeys, resetPagePermissionRegistry } from '@/core/permission';
 import { getPreferenceTables, resetPreferenceRegistry } from '@/core/preference';
 import { resetRouteLinkRegistry, routeLinkRegistry } from '@/core/route-link';
-import { resetTrashRegistry } from '@/core/trash';
+import { getTrashTypes, resetTrashRegistry } from '@/core/trash';
+import {
+  ANNOUNCEMENT_CREATE_PAGE,
+  ANNOUNCEMENT_MESSAGE_PAGE,
+  ANNOUNCEMENT_PAGE,
+} from '@/features/announcement';
 import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { FILE_PAGE } from '@/features/file';
 import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
@@ -28,6 +33,7 @@ const EXPECTED_PAGES = {
   // 只控制帳號選單的一個項目，沒有頁面
   tenantSwitch: [],
   webhook: [WEBHOOK_PAGE, WEBHOOK_CREATE_PAGE],
+  announcement: [ANNOUNCEMENT_PAGE, ANNOUNCEMENT_CREATE_PAGE, ANNOUNCEMENT_MESSAGE_PAGE],
 } satisfies Record<keyof typeof FEATURE_CATALOG, unknown[]>;
 
 function createContext() {
@@ -86,5 +92,16 @@ describe('可啟用 feature 的 catalog', () => {
 
     context.uninstall(name);
     expect(routeLinkRegistry.keys()).toEqual([]);
+  });
+
+  it('announcement：安裝後登記 route id announcement.message 與回收桶的「公告」分頁，卸載後撤回', async () => {
+    const context = createContext();
+    const name = await context.install(FEATURE_CATALOG.announcement.plugin);
+    expect(routeLinkRegistry.keys()).toEqual(['announcement.message']);
+    expect(getTrashTypes().map((type) => type.type)).toEqual(['announcement']);
+
+    context.uninstall(name);
+    expect(routeLinkRegistry.keys()).toEqual([]);
+    expect(getTrashTypes()).toEqual([]);
   });
 });

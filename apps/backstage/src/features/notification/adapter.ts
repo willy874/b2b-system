@@ -132,6 +132,17 @@ export function describeNotification(
         details: [],
       };
     }
+    case 'announcement.published': {
+      const title = stringParam(params, 'title');
+      if (!title) return UNKNOWN;
+      return {
+        message: {
+          key: NOTIFICATION_MESSAGE_KEY.announcementPublished,
+          args: { title: { text: title } },
+        },
+        details: [],
+      };
+    }
     default:
       return UNKNOWN;
   }

@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 46 項）
+## 2. 權限清單（共 52 項）
 
 ### 2.1 `user` — 使用者
 
@@ -179,7 +179,27 @@
 > 沒有 `tag:read`：定義對「進得了那個標籤組」的人都可讀（檔案組：`file:access` 或 `file:read`；使用者組：`user:read`）。
 > **貼與移除標籤不需要權限鍵**，跟著目標的編輯權限：檔案、資料夾是能改名，使用者是 `user:update`。
 
-### 2.15 個人範圍（不需要權限）
+### 2.15 `notification` — 站內通知
+
+| 權限鍵              | 顯示名稱（zh-TW） | 說明 |
+| ------------------- | ----------------- | ---- |
+| `notification:read` | 檢視所有通知      | 通知總覽：租戶內 **所有人** 的站內通知，依類型、收件人、觸發者、時間、已讀篩選（[ADR-0031](../adr/0031-announcements.md) D1） |
+
+> 每個人看自己的通知不需要這個鍵（§2.17）。通知的參數帶申請人名稱、角色名稱等，所以只預設給 `admin`，`auditor` 不預設（D2）。
+
+### 2.16 `announcement` — 公告
+
+| 權限鍵                  | 顯示名稱（zh-TW） | 說明 |
+| ----------------------- | ----------------- | ---- |
+| `announcement:create`   | 建立公告          | 建立草稿（[ADR-0031](../adr/0031-announcements.md) D15） |
+| `announcement:read`     | 檢視公告          | 公告列表與詳情、發送紀錄（人數、已讀數） |
+| `announcement:update`   | 編輯公告          | 修改草稿的標題、內文、受眾、時間；預覽受眾人數。排程中、暫停中的公告另要 `announcement:publish` |
+| `announcement:delete`   | 刪除公告          | 軟刪除（進回收桶）與還原；排程中的刪除時改成暫停 |
+| `announcement:publish`  | 發送公告          | 送出（立即或排程）、暫停與恢復排程、修改已送出的公告、撤回一次發送 |
+
+> `publish` 獨立於 `update`：能寫草稿的人不一定能對全租戶發話。收件人讀自己收到的公告不需要權限（§2.17）。
+
+### 2.17 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
@@ -188,6 +208,7 @@
 - 檢視／修改自己的偏好設定（語系、時區）
 - 檢視與修改自己的通知設定（`GET`／`PATCH /me/notification-preferences`；[ADR-0028](../adr/0028-notification-event-management.md) D15）
 - 檢視自己的站內通知、標為已讀（`GET /notifications`、`POST /notifications/:id/read`、`POST /notifications/read-all`；[ADR-0026](../adr/0026-notification-center.md) D9）
+- 閱讀自己收到的公告全文（`GET /me/announcement-messages/:dispatchId`；[ADR-0031](../adr/0031-announcements.md) D4）
 - 建立、檢視、撤銷自己的個人 API token（`GET|POST /auth/api-tokens`、`DELETE /auth/api-tokens/:tokenId`；[ADR-0027](../adr/0027-api-tokens-external-api.md) D14）。
   管理者檢視、撤銷別人的個人 token 用 `user:update`
 - 登出
@@ -214,6 +235,8 @@
 | `serviceAccount`  |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
 | `webhook`         |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
 | `tag`             |   ✓    |  —   |   ✓    |   ✓    | —                             |
+| `notification`    |   —    |  ✓   |   —    |   —    | —                             |
+| `announcement`    |   ✓    |  ✓   |   ✓    |   ✓    | `publish`                     |
 
 ---
 
@@ -267,6 +290,12 @@
 | `tag:create`           |      ✓*       |    ✓    |           |          |
 | `tag:update`           |      ✓*       |    ✓    |           |          |
 | `tag:delete`           |      ✓*       |    ✓    |           |          |
+| `notification:read`    |      ✓*       |    ✓    |           |          |
+| `announcement:create`  |      ✓*       |    ✓    |           |          |
+| `announcement:read`    |      ✓*       |    ✓    |     ✓     |          |
+| `announcement:update`  |      ✓*       |    ✓    |           |          |
+| `announcement:delete`  |      ✓*       |    ✓    |           |          |
+| `announcement:publish` |      ✓*       |    ✓    |           |          |
 
 `*` super-admin 是 **隱含全集**，不逐筆登錄權限鍵的邊（只有 `tenant:self#superAdmin` 一條邊）；
 `GET /auth/profile` 回傳時才展開成完整清單。
@@ -307,8 +336,12 @@
 | 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:access` 或 `file:read`（按鈕層級看後端回傳的 `capabilities`，見 [`07-resource-grants.md`](./07-resource-grants.md) §7） | SOME |
 | 外部 IdP 連線 | `/identity-provider`      | `IDENTITY_PROVIDER` | `identityProvider:read`        | EVERY |
 | 系統設定     | `/system/settings`（`system:update` 才能修改） | `SETTING` | `system:read`             | EVERY |
+| 通知總覽     | `/notification/all`        | `NOTIFICATION_OVERVIEW` | `notification:read`           | EVERY |
 | 事件通知     | `/notification/events`（`system:update` 才能修改） | `NOTIFICATION_EVENT` | `system:read` | EVERY |
-| 回收桶       | `/trash`（分頁依各類型的 `<resource>:delete` 過濾） | `TRASH` | 任一種 `<resource>:delete`（`user:delete`、`role:delete`、`group:delete`、`file:delete`；[`../architecture/frontend/13-trash.md`](../architecture/frontend/13-trash.md) §3） | SOME |
+| 公告列表     | `/announcement`（含 `/announcement/$announcementId` 詳情與發送紀錄） | `ANNOUNCEMENT` | `announcement:read` | EVERY |
+| 建立公告     | `/announcement/create`     | `ANNOUNCEMENT_CREATE` | `announcement:read` ＋ `announcement:create` | EVERY |
+| 公告全文     | `/announcement/message/$dispatchId` | `ANNOUNCEMENT_MESSAGE` | 無（只看得到自己收到的） | — |
+| 回收桶       | `/trash`（分頁依各類型的 `<resource>:delete` 過濾） | `TRASH` | 任一種 `<resource>:delete`（`user:delete`、`role:delete`、`group:delete`、`file:delete`、`announcement:delete`；[`../architecture/frontend/13-trash.md`](../architecture/frontend/13-trash.md) §3） | SOME |
 
 apps/auth 只給平台管理者登入（[`../architecture/04-sso.md`](../architecture/04-sso.md) §1.1、§6.2），這個目錄的權限不適用；
 平台管理者的權限目錄在交付順序第 4 步加上租戶管理時建立。帳號流程（申請帳號、啟用、重設密碼）也在 apps/auth，未登入可進。
@@ -498,6 +531,11 @@ Seed 行為：
 | `webhook:update` | `webhook:read` | |
 | `tag:create` | `tag:update` | |
 | `tag:delete` | `tag:update` | |
+| `notification:read` | | `user:read` |
+| `announcement:create` | `announcement:update` | |
+| `announcement:delete` | `announcement:update` | |
+| `announcement:update` | `announcement:read` | `user:read`、`group:read`、`role:read` |
+| `announcement:publish` | `announcement:update` | |
 
 沒有列出的鍵是葉節點（`permission:read`、`auditLog:read`、各資源的 `read`、`file:access`）。
 

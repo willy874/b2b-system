@@ -13,6 +13,8 @@
 ```
 db/schema/notifications.ts               notifications 表（租戶 DB）
 db/migrations/0015_notifications.sql     建表與索引（純加法）
+db/migrations/0028_notification_overview_idx.sql      通知總覽的兩個索引（純加法）
+db/migrations/0029_notification_read_system_roles.sql 手寫：既有租戶的 admin 補 notification:read
 
 modules/notification/                    通用模組：不 import 任何業務模組
 ├── notification.definition.ts          defineNotification()、notification()、NotificationInput、NotificationLink、NotificationChannel（純函式）
@@ -25,6 +27,7 @@ modules/notification/                    通用模組：不 import 任何業務�
 ├── notification.repository.ts          批次寫入、列表、未讀數、已讀、保留清理的一批
 ├── notification.service.ts             NotificationService：notify()、list()、unreadCount()、markRead()、markAllRead()、cleanup()
 ├── notification.controller.ts          GET /notifications、GET /notifications/unread-count、POST /notifications/:id/read、POST /notifications/read-all
+├── notification-overview.controller.ts GET /notifications/all（通知總覽，`notification:read`；§6.1）
 ├── notification-cleanup.job.ts         notification.cleanup 背景工作
 ├── notification.settings.ts            notification.retentionDays、notification.maxPerUser
 └── dto/notification.dto.ts             ListNotificationSchema、Notification、NotificationLink、NotificationPage…
@@ -53,6 +56,7 @@ modules/user/user.notifications.ts           user.rolesChanged 的宣告與參�
 | `link` | `jsonb NULL` | `{ route, params }`：前端的 route id ＋ 參數（D3，§4.1）；null＝只顯示文字 |
 | `actor_id` | `uuid NULL` → `users.id` `ON DELETE SET NULL` | 觸發的人；null＝系統（匿名的註冊申請也是 null）。觸發者被永久刪除時通知保留、觸發者變成 null（與 `revisions.actor_id`、`created_by` 同一個規則，[`13-trash.md`](./13-trash.md) §4.2） |
 | `read_at` | `timestamptz NULL` | 已讀時間；null＝未讀 |
+| `source_id` | `uuid NULL`（無外鍵） | 產生它的來源：公告的發送紀錄（[`19-announcement.md`](./19-announcement.md) §2.3）；程式發出的通知為 null。`(source_id, recipient_id)` 部分唯一：同一個來源對同一個人只有一筆，`notify()` 遇到重複時略過（`ON CONFLICT DO NOTHING`） |
 | `created_at` | `timestamptz` | |
 
 索引（依查詢決定，**與 ADR-0026 D1 寫的單一索引不同**）：
@@ -62,6 +66,8 @@ modules/user/user.notifications.ts           user.rolesChanged 的宣告與參�
 | `notifications_recipient_created_idx` | `(recipient_id, created_at, id)` | 列表（`ORDER BY created_at DESC, id DESC` 由反向掃描取得）、keyset 的列比較、清理的「每人超過上限」 |
 | `notifications_recipient_unread_idx` | `(recipient_id, created_at, id) WHERE read_at IS NULL` | 未讀數、`unread=true` 的列表、全部已讀；只收未讀的列，索引很小 |
 | `notifications_read_at_idx` | `(read_at) WHERE read_at IS NOT NULL` | 清理的「已讀超過 N 天」（跨所有收件人） |
+| `notifications_created_idx` | `(created_at, id)` | 通知總覽不分收件人的列表（§6.1） |
+| `notifications_type_created_idx` | `(type, created_at, id)` | 通知總覽依類型篩選 |
 
 D1 的 `(recipient_id, read_at, created_at desc)` 讓「全部」的列表在 `read_at` 之後才排時間，要多一次排序；拆成全部與未讀兩個索引後，
 兩種列表都直接照索引的順序讀。欄位用升冪：drizzle 的 `.desc()` 會產生 `DESC NULLS LAST`，與查詢預設的 `DESC`（NULLS FIRST）對不上而用不到索引的順序。
@@ -131,6 +137,7 @@ await withTransaction(this.db, async (tx) => {
 | `approval.pending` | 送出當下持有 `approval:review` 的可登入使用者（§5），不含申請人自己 | `approvalType`、`requesterName`（申請人的 email）、`subject`（handler 的一行摘要） | `approval.detail`（`{ approvalId }`） | `ApprovalService.submit()` 的交易內（註冊、資料夾存取申請都經過這裡） |
 | `approval.result` | 申請人（`requester_id`）；匿名的註冊沒有收件人，只有結果信 | `approvalType`、`subject`、`status`（`approved` \| `rejected`） | handler 的 `resultLink()`；沒有就是 `approval.detail`（`{ approvalId }`） | `ApprovalService.approve()`／`reject()` 的交易內；既有的結果信照舊 |
 | `user.rolesChanged` | 被指派或移除角色的人（`PUT /users/:id/roles`）；沒有實際增減時不通知 | `added`、`removed`（角色名稱） | `account.profile`（`{}`） | `UserService.replaceRoles()` 的交易內 |
+| `announcement.published` | 公告受眾解析出的人（不含送出者） | `title` | `announcement.message`（`{ dispatchId }`） | `AnnouncementDispatchService.fanOut()` 每 500 人一個交易（帶 `sourceId`；[`19-announcement.md`](./19-announcement.md) §5） |
 | `webhook.disabled` | webhook 連續失敗而自動停用時，當下持有 `webhook:update` 的人 | `webhookName`、`consecutiveFailures` | `webhook.detail`（`{ webhookId }`） | `WebhookDeliveryService.attempt()` 的交易內（觸發者是系統；[`17-webhook.md`](./17-webhook.md) §4） |
 
 - `subject` 由各審批類型的 `ApprovalHandler.summarize(payload)` 提供（handler 在擁有資源的模組）：
@@ -152,6 +159,7 @@ await withTransaction(this.db, async (tx) => {
 | `approval.detail` | `approvalId` | `/approval/$approvalId`（`ApprovalDetailRoute`，審核對話框疊在列表上） | `approval.pending`、`approval.result`（預設） |
 | `file.folder` | `folderId` | `/file?folder=<folderId>`（`FileListRoute` 的 search 參數 `folder`） | `approval.result`（`fileFolder.access`） |
 | `account.profile` | — | `/profile`（`ProfileRoute`） | `user.rolesChanged` |
+| `announcement.message` | `dispatchId` | `/announcement/message/$dispatchId`（`AnnouncementMessageRoute`，收件人看全文；feature `announcement` 沒啟用時不登記） | `announcement.published` |
 | `webhook.detail` | `webhookId` | `/webhook/$webhookId`（`WebhookDetailRoute`，詳情對話框疊在列表上；feature `webhook` 沒啟用時不登記） | `webhook.disabled` |
 
 ---
@@ -177,7 +185,7 @@ await withTransaction(this.db, async (tx) => {
 
 ## 6. API（D9）
 
-都是 `@Authenticated()`：只需要登入、不新增權限鍵；每個端點都只看得到、改得到自己的。完整格式見 [`../../rbac/04-api-spec.md`](../../rbac/04-api-spec.md) §7.3。
+下表四個端點都是 `@Authenticated()`：只需要登入；每個端點都只看得到、改得到自己的。看所有人的通知是另一個端點（§6.1）。完整格式見 [`../../rbac/04-api-spec.md`](../../rbac/04-api-spec.md) §7.3。
 
 | 方法 | 路徑 | 說明 |
 | --- | --- | --- |
@@ -192,6 +200,19 @@ await withTransaction(this.db, async (tx) => {
 - 每筆帶 `actor: { id, name } | null`（`users` 的 left join，被軟刪除的人照樣顯示名字）。
 - 已讀與全部已讀 **不寫稽核**：使用者自己的狀態，量大、沒有稽核價值。
 
+### 6.1 通知總覽（[ADR-0031](../../adr/0031-announcements.md) D1、D2）
+
+`GET /notifications/all`（`notification:read`）：租戶內 **所有人** 的通知，給管理者回答「到底有沒有送到」。
+
+| 項目 | 規則 |
+| --- | --- |
+| 篩選 | `type`、`recipientId`、`actorId`、`unread=true`、`from`／`to`（ISO 8601，`from` 晚於 `to` 回 400）；可以組合 |
+| 分頁 | 同 `/notifications`：keyset、`limit` 1～100（預設 20）、回 `{ items, nextCursor }`、不計總數 |
+| 每一列 | `/notifications` 的欄位 ＋ `recipient: { id, name }`（`users` 的 inner join；收件人被軟刪除時照樣顯示名字，被永久刪除時通知已一起刪掉） |
+| 權限 | `notification:read` 依賴 `user:read`（每一列都帶收件人）。只預設給 admin：`params` 帶申請人名稱、角色名稱等，auditor 不預設（D2） |
+| 稽核 | 只讀，不寫稽核（與稽核日誌的列表相同） |
+| 推播 | 沒有專屬的推播：通知只推給收件人（§7）。前端把總覽放在 `notification` 的 collection，自己的通知變化時跟著重抓，別人的要重新整理 |
+
 ---
 
 ## 7. 推播（D8）
@@ -204,6 +225,7 @@ await withTransaction(this.db, async (tx) => {
 | 新通知（`notify()` 的交易提交後） | 每位收件人各一則：`{ resource: 'notification', kind: 'create', id: <他自己的通知 id> }`；一次超過 100 則時改推一筆不帶 id 的 | `affectedUserIds: [收件人]` |
 | 標為已讀 | `{ resource: 'notification', kind: 'update', id }`（帶 `origin`，發起的分頁略過） | 自己（其他裝置與分頁的未讀數跟著更新） |
 | 全部已讀（有更新時） | `{ resource: 'notification', kind: 'update' }` | 自己 |
+| 撤回公告的發送（`removeBySource`，[`19-announcement.md`](./19-announcement.md) §3） | 每位收件人各一則 `{ resource: 'notification', kind: 'delete', id }`（超過 100 則改推不帶 id 的） | 收件人自己 |
 | 保留清理的刪除 | 不推：被刪的都是列表最後面的舊通知，下次重抓就不見了 | — |
 
 - 推播由 `afterCommit` 在交易提交時就發出，早於業務 service 在交易之後才發的 `permissions.changed` 與 `resource.changed`；
@@ -261,4 +283,5 @@ await withTransaction(this.db, async (tx) => {
 | `defineNotification` 的名稱格式、`params` 的編譯期檢查、`prepareNotifications`（略過自己、去重、截斷、各種不合格式）、游標的編碼與解碼 | `src/modules/notification/__tests__/notification.batch.spec.ts` |
 | `findActiveUserIdsWithPermission` 的反向查詢帶的關係、以正向解析確認 | `src/modules/permission/__tests__/permission.service.spec.ts` |
 | 審批送出與審核時的通知（收件人、參數、連結、`resultLink`、匿名沒有結果通知、重複送出不通知） | `src/modules/approval/__tests__/approval.service.spec.ts` |
+| 通知總覽：未登入 401、一般使用者與 auditor 403、admin 看得到所有人的（新的在前、收件人與觸發者、軟刪除的收件人）、各種篩選與組合、跨收件人的 keyset 分頁、參數錯誤 400 | `test/notifications.spec.ts` |
 | 端點的授權宣告 | `test/route-audit.spec.ts` |

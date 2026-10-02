@@ -4,6 +4,7 @@
 export * from './runtime';
 export * from './models';
 export * from './schemas';
+export * from './endpoints/announcements';
 export * from './endpoints/api-tokens';
 export * from './endpoints/approvals';
 export * from './endpoints/audit-logs';

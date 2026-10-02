@@ -4,6 +4,7 @@ import { useId, useMemo, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { useTranslation } from '@/core/locales';
 import { usePageAccessChecker } from '@/core/permission';
+import { ANNOUNCEMENT_PAGE } from '@/features/announcement';
 import { APPROVAL_PAGE } from '@/features/approval';
 import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { FILE_PAGE } from '@/features/file';
@@ -11,7 +12,7 @@ import { GROUP_PAGE } from '@/features/group';
 import { HOME_PAGE } from '@/features/home';
 import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
 import { JOB_PAGE } from '@/features/job';
-import { NOTIFICATION_EVENT_PAGE } from '@/features/notification';
+import { NOTIFICATION_EVENT_PAGE, NOTIFICATION_OVERVIEW_PAGE } from '@/features/notification';
 import { PERMISSION_PAGE } from '@/features/permission';
 import { ROLE_PAGE } from '@/features/role';
 import { SERVICE_ACCOUNT_PAGE } from '@/features/service-account';
@@ -149,6 +150,20 @@ const MENU_GROUPS: NavGroup[] = [
         labelKey: 'menu.setting',
         testId: 'menu-setting',
         icon: 'settings',
+      },
+      {
+        pageKey: ANNOUNCEMENT_PAGE,
+        to: '/announcement',
+        labelKey: 'menu.announcement',
+        testId: 'menu-announcement',
+        icon: 'calendar',
+      },
+      {
+        pageKey: NOTIFICATION_OVERVIEW_PAGE,
+        to: '/notification/all',
+        labelKey: 'menu.notificationOverview',
+        testId: 'menu-notification-overview',
+        icon: 'bell',
       },
       {
         pageKey: NOTIFICATION_EVENT_PAGE,

@@ -252,7 +252,7 @@ export class NotificationPolicyService implements OnModuleInit {
     const row = stored.get(policyKey(kind.type, channel));
     return {
       enabled: row?.enabled ?? kind.defaultEnabled,
-      allowUserOverride: row?.allowUserOverride ?? true,
+      allowUserOverride: row?.allowUserOverride ?? kind.defaultAllowUserOverride,
     };
   }
 
@@ -271,7 +271,7 @@ export class NotificationPolicyService implements OnModuleInit {
     const row = stored.get(policyKey(type, channel));
     const current = {
       enabled: row?.enabled ?? null,
-      allowUserOverride: row?.allowUserOverride ?? true,
+      allowUserOverride: row?.allowUserOverride ?? kind.defaultAllowUserOverride,
     };
     // `enabled` 沒帶：這一欄不改；與預設相同的值存成 null，之後調整預設值時這個租戶才跟得上
     let enabled = current.enabled;
@@ -288,7 +288,11 @@ export class NotificationPolicyService implements OnModuleInit {
     return {
       type,
       channel,
-      next: next.enabled === null && next.allowUserOverride ? null : next,
+      // 兩欄都等於預設值：刪掉覆寫的列，之後調整預設值時這個租戶才跟得上
+      next:
+        next.enabled === null && next.allowUserOverride === kind.defaultAllowUserOverride
+          ? null
+          : next,
       before: this.effective(kind, channel, stored),
       after: {
         enabled: next.enabled ?? kind.defaultEnabled,

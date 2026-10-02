@@ -10,8 +10,10 @@ import { DomainEvent, DomainEventBus } from '@/core/events';
 import { SettingService } from '@/core/settings';
 
 import type {
+  ListAllNotificationDto,
   ListNotificationDto,
   NotificationDto,
+  NotificationOverviewPageDto,
   NotificationPageDto,
 } from './dto/notification.dto';
 import { NotificationPolicyService } from './notification-policy.service';
@@ -53,6 +55,28 @@ function toDto(row: NotificationWithActor): NotificationDto {
     readAt: row.readAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
   };
+}
+
+/** 游標格式不對回 `400 VALIDATION_FAILED`（`details.field: 'cursor'`）。 */
+function parseCursor(raw: string | undefined): NotificationCursor | undefined {
+  if (!raw) return undefined;
+  const cursor = decodeNotificationCursor(raw);
+  if (!cursor) throw new AppException('VALIDATION_FAILED', { field: 'cursor' });
+  return cursor;
+}
+
+/** 滿一頁才有下一頁；游標用資料庫格式化的微秒精度時間（`lastCreatedAt`）。 */
+function nextCursorOf(
+  items: readonly NotificationWithActor[],
+  lastCreatedAt: string | undefined,
+  limit: number,
+): string | null {
+  const last = items.at(-1);
+  if (!last || items.length !== limit) return null;
+  return encodeNotificationCursor({
+    createdAt: lastCreatedAt ?? last.createdAt.toISOString(),
+    id: last.id,
+  });
 }
 
 /** 同一位收件人的通知 id → 推播的變更；太多時改推一筆不帶 id 的（前端一樣讓 notification 的 query 失效）。 */
@@ -105,7 +129,7 @@ export class NotificationService {
     if (rows.length === 0) return [];
 
     const inserted = await this.repo.insertMany(rows, tx);
-    afterCommit(tx, () => this.publishCreated(inserted));
+    afterCommit(tx, () => this.publishChanges(inserted, ChangeKind.CREATE));
     return inserted.map((row) => row.id);
   }
 
@@ -136,25 +160,34 @@ export class NotificationService {
 
   /** 自己的通知，新的在前（keyset 分頁）。 */
   async list(query: ListNotificationDto, actor: AuthUser): Promise<NotificationPageDto> {
-    let after: NotificationCursor | undefined;
-    if (query.cursor) {
-      after = decodeNotificationCursor(query.cursor);
-      if (!after) throw new AppException('VALIDATION_FAILED', { field: 'cursor' });
-    }
     const { items, lastCreatedAt } = await this.repo.list(actor.id, {
       unread: query.unread ?? false,
       limit: query.limit,
-      after,
+      after: parseCursor(query.cursor),
     });
-    const last = items.at(-1);
-    const nextCursor =
-      last && items.length === query.limit
-        ? encodeNotificationCursor({
-            createdAt: lastCreatedAt ?? last.createdAt.toISOString(),
-            id: last.id,
-          })
-        : null;
-    return { items: items.map(toDto), nextCursor };
+    return { items: items.map(toDto), nextCursor: nextCursorOf(items, lastCreatedAt, query.limit) };
+  }
+
+  /**
+   * 租戶內所有人的通知（總覽，`notification:read`；docs/adr/0031-announcements.md D1）。
+   * 只讀、不寫稽核（與稽核日誌的列表相同）。
+   */
+  async listAll(query: ListAllNotificationDto): Promise<NotificationOverviewPageDto> {
+    const { items, lastCreatedAt } = await this.repo.listAll(
+      {
+        type: query.type,
+        recipientId: query.recipientId,
+        actorId: query.actorId,
+        unread: query.unread ?? false,
+        from: query.from,
+        to: query.to,
+      },
+      { limit: query.limit, after: parseCursor(query.cursor) },
+    );
+    return {
+      items: items.map((row) => ({ ...toDto(row), recipient: row.recipient })),
+      nextCursor: nextCursorOf(items, lastCreatedAt, query.limit),
+    };
   }
 
   async unreadCount(actor: AuthUser): Promise<{ count: number }> {
@@ -187,6 +220,48 @@ export class NotificationService {
       ]);
     }
     return { updated };
+  }
+
+  // ── 來源（公告的發送紀錄，docs/adr/0031-announcements.md D4、D18） ──────────
+
+  /** 每個來源寫了幾則、讀了幾則（發送紀錄的人數與已讀率）。沒有通知的來源回 `{ total: 0, read: 0 }`。 */
+  async statsBySources(
+    sourceIds: readonly string[],
+  ): Promise<Map<string, { total: number; read: number }>> {
+    const rows = await this.repo.countBySources(sourceIds);
+    const stats = new Map(sourceIds.map((id) => [id, { total: 0, read: 0 }]));
+    for (const row of rows) stats.set(row.sourceId, { total: row.total, read: row.read });
+    return stats;
+  }
+
+  /**
+   * 收件人打開這個來源的內容（例：公告全文）時呼叫：有收到才回 true，並把那則通知標為已讀、推給自己的其他分頁。
+   * 沒有收到（不是收件人、已被撤回或清除）回 false，由呼叫端回 404。
+   */
+  async markSourceRead(sourceId: string, recipientId: string): Promise<boolean> {
+    const result = await this.repo.markSourceRead(sourceId, recipientId, new Date());
+    if (!result) return false;
+    if (result.wasUnread) {
+      this.publishRead(recipientId, [
+        { resource: ChangeSource.NOTIFICATION, kind: ChangeKind.UPDATE, id: result.id },
+      ]);
+    }
+    return true;
+  }
+
+  /**
+   * 刪除來自這個來源的所有通知（撤回，ADR-0031 D18），回傳刪掉的筆數。每批一條 DELETE（各自提交），
+   * 每批刪完推 `delete` 給各自的收件人，未讀數跟著下降。
+   */
+  async removeBySource(sourceId: string): Promise<number> {
+    let removed = 0;
+    for (;;) {
+      // oxlint-disable-next-line no-await-in-loop -- 分批刪除，下一批要等這一批提交
+      const rows = await this.repo.deleteBySource(sourceId, NOTIFICATION_CLEANUP_BATCH_SIZE);
+      removed += rows.length;
+      this.publishChanges(rows, ChangeKind.DELETE);
+      if (rows.length < NOTIFICATION_CLEANUP_BATCH_SIZE) return removed;
+    }
   }
 
   /**
@@ -254,16 +329,19 @@ export class NotificationService {
   }
 
   /** 每位收件人一則推播，只送到他自己的 user room（通知 id 不給別人看到）。 */
-  private publishCreated(inserted: ReadonlyArray<{ id: string; recipientId: string }>): void {
+  private publishChanges(
+    rows: ReadonlyArray<{ id: string; recipientId: string }>,
+    kind: ChangeKind,
+  ): void {
     const byRecipient = new Map<string, string[]>();
-    for (const { id, recipientId } of inserted) {
+    for (const { id, recipientId } of rows) {
       const ids = byRecipient.get(recipientId);
       if (ids) ids.push(id);
       else byRecipient.set(recipientId, [id]);
     }
     for (const [recipientId, ids] of byRecipient) {
       this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-        changes: changesFor(ids, ChangeKind.CREATE),
+        changes: changesFor(ids, kind),
         affectedUserIds: [recipientId],
       });
     }

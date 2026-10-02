@@ -1,0 +1,120 @@
+{
+  "announcement": {
+    "list": {
+      "title": "公告",
+      "description": "寫好訊息，立即或在指定的時間以站內通知發給指定的人、群組、角色或全租戶。",
+      "searchPlaceholder": "搜尋標題或內文",
+      "allStatuses": "全部狀態"
+    },
+    "detail": {
+      "title": "公告",
+      "backToList": "回到公告列表"
+    },
+    "status": {
+      "draft": "草稿",
+      "scheduled": "已排程",
+      "paused": "已暫停",
+      "completed": "已完成"
+    },
+    "trigger": {
+      "immediate": "立即發送",
+      "once": "指定時間",
+      "day": "發送日期",
+      "time": "發送時間",
+      "timeZone": "時區：{{timeZone}}"
+    },
+    "field": {
+      "title": "標題",
+      "body": "內文",
+      "bodyHint": "純文字，最多 {{max}} 字；收件人點開通知後看到全文。",
+      "audience": "收件對象",
+      "trigger": "發送時間",
+      "status": "狀態",
+      "readSummary": "最近一次已讀",
+      "updatedAt": "更新時間"
+    },
+    "readSummary": "{{read}} / {{total}}",
+    "audience": {
+      "all": "全租戶（所有可登入的使用者）",
+      "users": "使用者",
+      "groups": "群組（含子群組）",
+      "roles": "角色",
+      "usersPlaceholder": "搜尋使用者",
+      "groupsPlaceholder": "選擇群組",
+      "rolesPlaceholder": "選擇角色",
+      "noMatch": "沒有符合的項目",
+      "count": "現在送出會發給 {{count}} 人",
+      "counting": "計算收件人數中…",
+      "summary": {
+        "all": "全租戶",
+        "users": "{{count}} 位使用者",
+        "groups": "{{count}} 個群組",
+        "roles": "{{count}} 個角色",
+        "none": "尚未選擇"
+      }
+    },
+    "create": {
+      "action": "建立公告",
+      "title": "建立公告",
+      "description": "先存成草稿，確認內容與收件對象後再送出。",
+      "submit": "存成草稿"
+    },
+    "update": {
+      "success": "已儲存公告",
+      "publishedNotice": "這則公告已送出（排程中或暫停中）：修改只影響之後的發送。"
+    },
+    "publish": {
+      "action": "送出",
+      "title": "送出公告",
+      "confirmImmediate": "現在就把「{{title}}」發給收件對象？送出後不能修改，只能撤回。",
+      "confirmScheduled": "在 {{at}} 把「{{title}}」發給收件對象？發送前可以暫停或修改時間。",
+      "success": "已送出公告"
+    },
+    "pause": {
+      "action": "暫停",
+      "success": "已暫停排程"
+    },
+    "resume": {
+      "action": "恢復排程",
+      "success": "已恢復排程"
+    },
+    "delete": {
+      "title": "刪除公告",
+      "confirm": "刪除「{{title}}」？排程中的公告會停止發送；可以從回收桶還原。",
+      "success": "已刪除公告",
+      "undo": "復原"
+    },
+    "restore": {
+      "action": "還原",
+      "success": "已還原「{{title}}」"
+    },
+    "revoke": {
+      "action": "撤回",
+      "title": "撤回這次發送",
+      "confirm": "收件人的這則通知會被刪除，已經讀過的人也看不到全文；發送紀錄會保留。",
+      "success": "已撤回"
+    },
+    "dispatch": {
+      "title": "發送紀錄",
+      "empty": "還沒有發送過",
+      "tooManyRecipients": "收件人 {{count}} 人超過上限 {{max}} 人，沒有發送",
+      "field": {
+        "scheduledFor": "發送時間",
+        "status": "狀態",
+        "recipients": "已讀 / 收件人",
+        "createdBy": "送出者"
+      },
+      "status": {
+        "pending": "等待發送",
+        "sending": "發送中",
+        "sent": "已發送",
+        "failed": "失敗",
+        "revoked": "已撤回"
+      }
+    },
+    "message": {
+      "meta": "{{sender}} · {{at}}",
+      "unknownSender": "已刪除的使用者"
+    }
+  }
+}

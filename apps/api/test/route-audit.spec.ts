@@ -26,6 +26,9 @@ function featuresOf(method: string, path: string): string[] | undefined {
   if (/^\/(v1\/)?(files|file-folders|folders)(\/|$)/.test(path)) {
     return restore ? ['trash', 'file'] : ['file'];
   }
+  if (/^\/announcements(\/|$)/.test(path))
+    return restore ? ['trash', 'announcement'] : ['announcement'];
+  if (/^\/me\/announcement-messages(\/|$)/.test(path)) return ['announcement'];
   if (restore || /^\/trash(\/|$)/.test(path)) return ['trash'];
   if (/^\/audit-logs(\/|$)/.test(path)) return ['auditLog'];
   if (/^\/jobs(\/|$)/.test(path)) return ['job'];
@@ -241,6 +244,20 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /notifications/unread-count': 'authenticated',
       'POST /notifications/read-all': 'authenticated',
       'POST /notifications/:id/read': 'authenticated',
+      'GET /notifications/all': 'notification:read',
+      'GET /announcements': 'announcement:read',
+      'POST /announcements': 'announcement:create',
+      'POST /announcements/audience-preview': 'announcement:update',
+      'GET /announcements/:id': 'announcement:read',
+      'PATCH /announcements/:id': 'announcement:update',
+      'DELETE /announcements/:id': 'announcement:delete',
+      'POST /announcements/:id/restore': 'announcement:delete',
+      'POST /announcements/:id/publish': 'announcement:publish',
+      'POST /announcements/:id/pause': 'announcement:publish',
+      'POST /announcements/:id/resume': 'announcement:publish',
+      'GET /announcements/:id/dispatches': 'announcement:read',
+      'POST /announcements/:id/dispatches/:dispatchId/revoke': 'announcement:publish',
+      'GET /me/announcement-messages/:dispatchId': 'authenticated',
       'GET /notification-events': 'system:read',
       'PATCH /notification-events': 'system:update',
       'GET /me/notification-preferences': 'authenticated',
@@ -287,7 +304,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'PATCH /tags/:id': 'tag:update',
       'DELETE /tags/:id': 'tag:delete',
       'PUT /tags/assignments/:resourceType/:resourceId': 'authenticated',
-      'GET /trash': 'user:delete|role:delete|group:delete|file:delete',
+      'GET /trash': 'user:delete|role:delete|group:delete|file:delete|announcement:delete',
       'GET /roles': 'role:read',
       'POST /roles': 'role:create',
       'GET /roles/:id': 'role:read',

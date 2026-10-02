@@ -48,6 +48,11 @@ export interface NotificationEventMeta {
   mandatory?: boolean;
   /** 所屬的可啟用 feature：租戶沒啟用時不出現在管理頁（D11）。 */
   feature?: TenantFeature;
+  /**
+   * 租戶沒有覆寫時，是否允許個人關掉。預設 `true`；公司公告預設不允許（docs/adr/0031-announcements.md D16），
+   * 租戶可以在事件管理頁打開。
+   */
+  defaultAllowUserOverride?: boolean;
 }
 
 /** 一種通知。`P` 只用於編譯期檢查 `type` 與 `params` 的配對，執行期不存在。 */
@@ -58,6 +63,7 @@ export interface NotificationType<P extends NotificationParams> {
   readonly defaultEnabled: boolean;
   readonly mandatory: boolean;
   readonly feature: TenantFeature | null;
+  readonly defaultAllowUserOverride: boolean;
   /** 不會有值：只讓 `notification()` 從它推導參數型別。 */
   readonly paramsType?: P;
 }
@@ -73,6 +79,8 @@ export interface NotificationInput {
   actorId: string | null;
   params: NotificationParams;
   link: NotificationLink | null;
+  /** 產生它的來源（公告的發送紀錄 id，ADR-0031 D4）；同一個來源對同一個人只寫一筆。 */
+  sourceId?: string | null;
 }
 
 const NOTIFICATION_TYPE_PATTERN = /^[a-z][A-Za-z0-9]*\.[a-z][A-Za-z0-9]*$/;
@@ -110,6 +118,7 @@ export function defineNotification<P extends NotificationParams>(
     defaultEnabled,
     mandatory,
     feature: meta.feature ?? null,
+    defaultAllowUserOverride: meta.defaultAllowUserOverride ?? true,
   };
 }
 
@@ -130,6 +139,7 @@ export function notification<P extends NotificationParams>(
     actorId: string | null;
     params: P;
     link?: NotificationLink | null;
+    sourceId?: string | null;
   },
 ): NotificationInput {
   return {
@@ -138,5 +148,6 @@ export function notification<P extends NotificationParams>(
     actorId: input.actorId,
     params: input.params,
     link: input.link ?? null,
+    ...(input.sourceId && { sourceId: input.sourceId }),
   };
 }
