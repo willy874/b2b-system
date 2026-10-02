@@ -647,6 +647,8 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0027_tag_system_roles.sql           手寫：既有租戶的 admin 補 tag:*
 ├── 0028_notification_overview_idx.sql 通知總覽的兩個索引（ADR-0031 D1；純加法）
 ├── 0029_notification_read_system_roles.sql  手寫：既有租戶的 admin 補 notification:read
+├── 0030_announcements.sql              announcements、announcement_dispatches、notifications.source_id（ADR-0031；純加法）
+├── 0031_announcement_system_roles.sql  手寫：既有租戶的 admin 補 announcement:*、auditor 補 read
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

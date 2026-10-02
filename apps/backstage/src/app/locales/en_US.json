@@ -118,6 +118,7 @@
     "identityProvider": "Identity providers",
     "webhook": "Webhooks",
     "setting": "System settings",
+    "announcement": "Announcements",
     "notificationOverview": "Notification overview",
     "notificationEvent": "Event notifications",
     "trash": "Trash",
@@ -280,7 +281,16 @@
         "title": "A new version is available",
         "description": "This page has been updated. Reload to continue."
       }
-    }
+    },
+    "ANNOUNCEMENT_NOT_FOUND": "This announcement was not found. It may have been deleted.",
+    "ANNOUNCEMENT_VERSION_CONFLICT": "This announcement was changed by someone else. Reload before editing.",
+    "ANNOUNCEMENT_INVALID_STATE": "This action isn't available for the announcement's current status. Refresh and try again.",
+    "ANNOUNCEMENT_TRIGGER_IN_PAST": "The scheduled time has already passed. Pick a time in the future.",
+    "ANNOUNCEMENT_AUDIENCE_EMPTY": "Select at least one recipient, or everyone in the tenant.",
+    "ANNOUNCEMENT_NOT_DELETED": "This announcement is not deleted.",
+    "ANNOUNCEMENT_DISPATCH_NOT_FOUND": "This send was not found.",
+    "ANNOUNCEMENT_DISPATCH_NOT_REVOCABLE": "This send has already been revoked.",
+    "ANNOUNCEMENT_MESSAGE_NOT_FOUND": "This announcement isn't available. It may have been revoked or removed after the retention period."
   },
   "permission": {
     "resource": {
@@ -298,7 +308,8 @@
       "serviceAccount": "Service accounts",
       "webhook": "Webhooks",
       "tag": "Tags",
-      "notification": "Notifications"
+      "notification": "Notifications",
+      "announcement": "Announcements"
     },
     "user": {
       "create": "Create user",
@@ -376,6 +387,13 @@
     },
     "notification": {
       "read": "View all notifications"
+    },
+    "announcement": {
+      "create": "Create announcements",
+      "read": "View announcements",
+      "update": "Edit announcements",
+      "delete": "Delete announcements",
+      "publish": "Send announcements"
     }
   },
   "language": {

@@ -250,7 +250,16 @@
         "title": "系統已更新",
         "description": "這個頁面有新版本，請重新整理後再繼續。"
       }
-    }
+    },
+    "ANNOUNCEMENT_NOT_FOUND": "找不到這則公告，可能已被刪除。",
+    "ANNOUNCEMENT_VERSION_CONFLICT": "這則公告已被其他人修改，請重新載入後再編輯。",
+    "ANNOUNCEMENT_INVALID_STATE": "公告目前的狀態不能這樣操作，請重新整理後再試。",
+    "ANNOUNCEMENT_TRIGGER_IN_PAST": "指定的發送時間已經過去，請改成未來的時間。",
+    "ANNOUNCEMENT_AUDIENCE_EMPTY": "請至少選擇一個收件對象，或選擇全租戶。",
+    "ANNOUNCEMENT_NOT_DELETED": "這則公告沒有被刪除。",
+    "ANNOUNCEMENT_DISPATCH_NOT_FOUND": "找不到這次發送紀錄。",
+    "ANNOUNCEMENT_DISPATCH_NOT_REVOCABLE": "這次發送已經撤回。",
+    "ANNOUNCEMENT_MESSAGE_NOT_FOUND": "找不到這則公告：可能已被撤回，或已超過保留期限。"
   },
   "permission": {
     "resource": {

@@ -70,6 +70,10 @@
       "notificationMaxPerUser": {
         "label": "Notifications kept per user",
         "description": "When a user has more than this many notifications, the daily job deletes the oldest ones, read or not."
+      },
+      "announcementMaxRecipients": {
+        "label": "Max recipients per announcement",
+        "description": "If an announcement resolves to more recipients than this, that send fails with the reason shown in its history instead of reaching only some people."
       }
     },
     "unit": {
@@ -80,7 +84,8 @@
       "mebibytes": "MiB",
       "days": "days",
       "versions": "versions",
-      "items": "notifications"
+      "items": "notifications",
+      "people": "people"
     },
     "boolean": {
       "on": "On",

@@ -70,6 +70,10 @@
       "notificationMaxPerUser": {
         "label": "每人最多保留的通知數",
         "description": "超過這個數量時，每天的排程會刪除最舊的通知（不論是否已讀）。"
+      },
+      "announcementMaxRecipients": {
+        "label": "一次公告最多收件人數",
+        "description": "解析出的收件人超過這個數量時，那次發送失敗並在發送紀錄顯示原因，不會只發給一部分人。"
       }
     },
     "unit": {
@@ -80,7 +84,8 @@
       "mebibytes": "MiB",
       "days": "天",
       "versions": "版",
-      "items": "則"
+      "items": "則",
+      "people": "人"
     },
     "boolean": {
       "on": "開啟",

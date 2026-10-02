@@ -651,6 +651,17 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | PATCH  | `/notification-events`      | `system:update`                  |
 | GET    | `/me/notification-preferences` | `@Authenticated`（只看自己的，ADR-0028 D15） |
 | PATCH  | `/me/notification-preferences` | `@Authenticated`              |
+| GET    | `/announcements`            | `announcement:read`（ADR-0031 D15） |
+| POST   | `/announcements`            | `announcement:create`            |
+| POST   | `/announcements/audience-preview` | `announcement:update`      |
+| GET    | `/announcements/:id`        | `announcement:read`              |
+| PATCH  | `/announcements/:id`        | `announcement:update`（草稿以外另要 `announcement:publish`，service 檢查） |
+| DELETE | `/announcements/:id`        | `announcement:delete`            |
+| POST   | `/announcements/:id/restore` | `announcement:delete`           |
+| POST   | `/announcements/:id/publish`、`/pause`、`/resume` | `announcement:publish` |
+| GET    | `/announcements/:id/dispatches` | `announcement:read`          |
+| POST   | `/announcements/:id/dispatches/:dispatchId/revoke` | `announcement:publish` |
+| GET    | `/me/announcement-messages/:dispatchId` | `@Authenticated`（只看得到自己收到的） |
 | GET    | `/identity-providers`       | `identityProvider:read`          |
 | POST   | `/identity-providers`       | `identityProvider:create`        |
 | PATCH  | `/identity-providers/:id`   | `identityProvider:update`        |

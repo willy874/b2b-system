@@ -1,3 +1,6 @@
+import { ANNOUNCEMENT_DETAIL_QUERY_KEY } from '@/apis/announcement/get-announcement-detail/query';
+import { ANNOUNCEMENT_DISPATCHES_QUERY_KEY } from '@/apis/announcement/get-announcement-dispatches/query';
+import { ANNOUNCEMENT_LIST_QUERY_KEY } from '@/apis/announcement/get-announcement-list/query';
 import { MY_API_TOKENS_QUERY_KEY } from '@/apis/api-token/get-my-api-tokens/query';
 import { USER_API_TOKENS_QUERY_KEY } from '@/apis/api-token/get-user-api-tokens/query';
 /**
@@ -130,6 +133,11 @@ export const Resource = {
    * 標籤的定義（`id` = 標籤 id；docs/adr/0032-tags.md D10）。貼與移除以擁有者的資源宣告（`file`、`fileFolder`、`user` update）
    */
   TAG: 'tag',
+  /**
+   * 公告（`id` = 公告 id；docs/adr/0031-announcements.md）。背景發送的狀態、撤回也以它的 update 宣告，
+   * 詳情的發送紀錄跟著重抓
+   */
+  ANNOUNCEMENT: 'announcement',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -279,6 +287,7 @@ const graph = createResourceGraph<Resource>({
       { from: Resource.ROLE, kinds: ['create', 'delete'], id: 'none' },
       // 群組同理
       { from: Resource.GROUP, kinds: ['create', 'delete'], id: 'none' },
+      { from: Resource.ANNOUNCEMENT, kinds: ['create', 'delete'], id: 'none' },
       // 檔案與資料夾同理（ADR-0025 R4）：上傳完成也是 file create，多一次回收桶的重抓無害
       { from: Resource.FILE, kinds: ['create', 'delete'], id: 'none' },
       { from: Resource.FILE_FOLDER, kinds: ['create', 'delete'], id: 'none' },
@@ -351,6 +360,11 @@ const graph = createResourceGraph<Resource>({
     ],
   },
   [Resource.WEBHOOK_DELIVERY]: {},
+  [Resource.ANNOUNCEMENT]: {
+    collection: [ANNOUNCEMENT_LIST_QUERY_KEY],
+    // 發送紀錄的 key 第二個元素是公告 id：刪除時一併移除
+    entity: [ANNOUNCEMENT_DETAIL_QUERY_KEY, ANNOUNCEMENT_DISPATCHES_QUERY_KEY],
+  },
   [Resource.NOTIFICATION]: {
     // 列表與未讀數都只看自己的：新通知、已讀、全部已讀都會改變兩者。列表只有 collection——
     // 已讀一則也要讓「未讀」篩選的列表少一筆，逐筆更新快取不如整個重抓（keyset，只抓已載入的頁數）

@@ -19,6 +19,7 @@ export const TRASH_PAGE_PERMISSIONS: PermissionKey[] = [
   PermissionKey['role:delete'],
   PermissionKey['group:delete'],
   PermissionKey['file:delete'],
+  PermissionKey['announcement:delete'],
 ];
 
 export function registerTrashPagePermissions(): void {

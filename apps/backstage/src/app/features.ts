@@ -9,6 +9,11 @@ import { FeatureActivator } from '@/core/feature';
 import type { FeatureDefinition } from '@/core/feature';
 import { i18n } from '@/core/locales';
 import {
+  ANNOUNCEMENT_FEATURE,
+  announcementFeaturePlugin,
+  Routes as AnnouncementRoutes,
+} from '@/features/announcement';
+import {
   AUDIT_LOG_FEATURE,
   auditLogFeaturePlugin,
   Routes as AuditLogRoutes,
@@ -69,6 +74,10 @@ export const FEATURE_CATALOG = {
   },
   [TENANT_SWITCH_FEATURE]: { plugin: tenantSwitchPlugin(), routes: [] },
   [WEBHOOK_FEATURE]: { plugin: webhookFeaturePlugin(), routes: [WebhookRoutes.WebhookListRoute] },
+  [ANNOUNCEMENT_FEATURE]: {
+    plugin: announcementFeaturePlugin(),
+    routes: [AnnouncementRoutes.AnnouncementListRoute, AnnouncementRoutes.AnnouncementMessageRoute],
+  },
 } as const satisfies Record<TenantFeature, FeatureDefinition> &
   Readonly<Record<string, FeatureDefinition>>;
 

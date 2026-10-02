@@ -62,7 +62,10 @@ const after = (cursor: NotificationCursor) =>
 export class NotificationRepository {
   constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
-  /** 一次 INSERT 寫完所有收件人（在呼叫端的業務交易內）。 */
+  /**
+   * 一次 INSERT 寫完所有收件人（在呼叫端的業務交易內）。同一個來源（`source_id`）對同一個人已經有一筆時略過
+   * （公告分批寫入的重做，ADR-0031 D9）；回傳的只有這次真的寫入的列。
+   */
   async insertMany(
     rows: readonly NotificationInput[],
     tx: DbOrTx,
@@ -77,8 +80,10 @@ export class NotificationRepository {
           params: row.params,
           link: row.link,
           actorId: row.actorId,
+          sourceId: row.sourceId ?? null,
         })),
       )
+      .onConflictDoNothing()
       .returning({ id: notifications.id, recipientId: notifications.recipientId });
   }
 
@@ -134,6 +139,62 @@ export class NotificationRepository {
       })),
       lastCreatedAt: rows.at(-1)?.createdAtExact,
     };
+  }
+
+  // ── 來源（公告的發送紀錄，ADR-0031 D4） ──────────────────
+
+  /** 每個來源的通知數與已讀數（發送紀錄的列表）；沒有通知的來源不在結果裡。 */
+  async countBySources(
+    sourceIds: readonly string[],
+  ): Promise<Array<{ sourceId: string; total: number; read: number }>> {
+    if (sourceIds.length === 0) return [];
+    const rows = await this.db
+      .select({
+        sourceId: notifications.sourceId,
+        total: count(),
+        read: count(notifications.readAt),
+      })
+      .from(notifications)
+      .where(inArray(notifications.sourceId, [...sourceIds]))
+      .groupBy(notifications.sourceId);
+    return rows.flatMap((row) => (row.sourceId ? [{ ...row, sourceId: row.sourceId }] : []));
+  }
+
+  /** 某人收到的、來自這個來源的通知標為已讀（已讀過的保留時間）；回傳那則通知的 id，沒有收到回 undefined。 */
+  async markSourceRead(
+    sourceId: string,
+    recipientId: string,
+    now: Date,
+  ): Promise<{ id: string; wasUnread: boolean } | undefined> {
+    const [row] = await this.db
+      .select({ id: notifications.id, readAt: notifications.readAt })
+      .from(notifications)
+      .where(and(eq(notifications.sourceId, sourceId), ownedBy(recipientId)))
+      .limit(1);
+    if (!row) return undefined;
+    if (!row.readAt) {
+      await this.db
+        .update(notifications)
+        .set({ readAt: now })
+        .where(and(eq(notifications.id, row.id), isNull(notifications.readAt)));
+    }
+    return { id: row.id, wasUnread: !row.readAt };
+  }
+
+  /** 刪除一批來自這個來源的通知（撤回），回傳刪掉的列；少於 `limit` 代表刪完了。 */
+  async deleteBySource(
+    sourceId: string,
+    limit: number,
+  ): Promise<Array<{ id: string; recipientId: string }>> {
+    const batch = this.db
+      .select({ id: notifications.id })
+      .from(notifications)
+      .where(eq(notifications.sourceId, sourceId))
+      .limit(limit);
+    return this.db
+      .delete(notifications)
+      .where(inArray(notifications.id, batch))
+      .returning({ id: notifications.id, recipientId: notifications.recipientId });
   }
 
   /** 自己的一則通知；別人的與不存在的一樣回 undefined。 */

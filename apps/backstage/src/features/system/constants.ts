@@ -44,6 +44,7 @@ const UNIT = {
   days: { labelKey: 'setting.unit.days', scale: 1 },
   versions: { labelKey: 'setting.unit.versions', scale: 1 },
   items: { labelKey: 'setting.unit.items', scale: 1 },
+  people: { labelKey: 'setting.unit.people', scale: 1 },
   characters: { labelKey: 'setting.unit.characters', scale: 1 },
   mebibytes: { labelKey: 'setting.unit.mebibytes', scale: MIB },
 } as const satisfies Record<string, SettingUnit>;
@@ -126,5 +127,10 @@ export const SETTING_FIELD: Readonly<Partial<Record<string, SettingFieldConfig>>
     labelKey: 'setting.field.notificationMaxPerUser.label',
     descriptionKey: 'setting.field.notificationMaxPerUser.description',
     unit: UNIT.items,
+  },
+  'announcement.maxRecipients': {
+    labelKey: 'setting.field.announcementMaxRecipients.label',
+    descriptionKey: 'setting.field.announcementMaxRecipients.description',
+    unit: UNIT.people,
   },
 };

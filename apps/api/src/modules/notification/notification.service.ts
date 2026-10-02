@@ -129,7 +129,7 @@ export class NotificationService {
     if (rows.length === 0) return [];
 
     const inserted = await this.repo.insertMany(rows, tx);
-    afterCommit(tx, () => this.publishCreated(inserted));
+    afterCommit(tx, () => this.publishChanges(inserted, ChangeKind.CREATE));
     return inserted.map((row) => row.id);
   }
 
@@ -222,6 +222,48 @@ export class NotificationService {
     return { updated };
   }
 
+  // ── 來源（公告的發送紀錄，docs/adr/0031-announcements.md D4、D18） ──────────
+
+  /** 每個來源寫了幾則、讀了幾則（發送紀錄的人數與已讀率）。沒有通知的來源回 `{ total: 0, read: 0 }`。 */
+  async statsBySources(
+    sourceIds: readonly string[],
+  ): Promise<Map<string, { total: number; read: number }>> {
+    const rows = await this.repo.countBySources(sourceIds);
+    const stats = new Map(sourceIds.map((id) => [id, { total: 0, read: 0 }]));
+    for (const row of rows) stats.set(row.sourceId, { total: row.total, read: row.read });
+    return stats;
+  }
+
+  /**
+   * 收件人打開這個來源的內容（例：公告全文）時呼叫：有收到才回 true，並把那則通知標為已讀、推給自己的其他分頁。
+   * 沒有收到（不是收件人、已被撤回或清除）回 false，由呼叫端回 404。
+   */
+  async markSourceRead(sourceId: string, recipientId: string): Promise<boolean> {
+    const result = await this.repo.markSourceRead(sourceId, recipientId, new Date());
+    if (!result) return false;
+    if (result.wasUnread) {
+      this.publishRead(recipientId, [
+        { resource: ChangeSource.NOTIFICATION, kind: ChangeKind.UPDATE, id: result.id },
+      ]);
+    }
+    return true;
+  }
+
+  /**
+   * 刪除來自這個來源的所有通知（撤回，ADR-0031 D18），回傳刪掉的筆數。每批一條 DELETE（各自提交），
+   * 每批刪完推 `delete` 給各自的收件人，未讀數跟著下降。
+   */
+  async removeBySource(sourceId: string): Promise<number> {
+    let removed = 0;
+    for (;;) {
+      // oxlint-disable-next-line no-await-in-loop -- 分批刪除，下一批要等這一批提交
+      const rows = await this.repo.deleteBySource(sourceId, NOTIFICATION_CLEANUP_BATCH_SIZE);
+      removed += rows.length;
+      this.publishChanges(rows, ChangeKind.DELETE);
+      if (rows.length < NOTIFICATION_CLEANUP_BATCH_SIZE) return removed;
+    }
+  }
+
   /**
    * 保留清理（D10）：刪除「已讀超過 `notification.retentionDays` 天」與「每人超過 `notification.maxPerUser` 則的最舊通知」。
    * 每批一條 DELETE（各自提交；中途失敗重跑只剩還沒刪的）。刪除不推播：被刪的都是列表最後面的舊通知，
@@ -287,16 +329,19 @@ export class NotificationService {
   }
 
   /** 每位收件人一則推播，只送到他自己的 user room（通知 id 不給別人看到）。 */
-  private publishCreated(inserted: ReadonlyArray<{ id: string; recipientId: string }>): void {
+  private publishChanges(
+    rows: ReadonlyArray<{ id: string; recipientId: string }>,
+    kind: ChangeKind,
+  ): void {
     const byRecipient = new Map<string, string[]>();
-    for (const { id, recipientId } of inserted) {
+    for (const { id, recipientId } of rows) {
       const ids = byRecipient.get(recipientId);
       if (ids) ids.push(id);
       else byRecipient.set(recipientId, [id]);
     }
     for (const [recipientId, ids] of byRecipient) {
       this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-        changes: changesFor(ids, ChangeKind.CREATE),
+        changes: changesFor(ids, kind),
         affectedUserIds: [recipientId],
       });
     }

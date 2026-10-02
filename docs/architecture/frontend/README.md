@@ -24,7 +24,8 @@ MUI 作法，最大的差異是 **UI 函式庫改用 Base UI**，因此 `src/com
 | 12  | [`12-file-manager.md`](./12-file-manager.md)           | 檔案管理器：排版、選取、上傳佇列、預覽擴充點 |
 | 13  | [`13-trash.md`](./13-trash.md)                         | 回收桶：類型註冊表、權限、使用者的還原與「復原」 |
 | 14  | [`14-revisions.md`](./14-revisions.md)                 | 版本紀錄：版本列表、`JsonDiff` 比較、還原到某一版 |
-| 15  | [`15-notification.md`](./15-notification.md)           | 站內通知：頂列鈴鐺、列表頁、route id 註冊表、事件管理頁 |
+| 15  | [`15-notification.md`](./15-notification.md)           | 站內通知：頂列鈴鐺、列表頁、通知總覽、route id 註冊表、事件管理頁 |
+| 16  | [`16-announcement.md`](./16-announcement.md)           | 公告：列表、建立、詳情與發送紀錄、收件人看全文 |
 
 ## 三條必須記住的規則
 

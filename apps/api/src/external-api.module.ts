@@ -21,6 +21,7 @@ import { MailModule } from './core/mail';
 import { SettingsModule } from './core/settings';
 import { StorageModule } from './core/storage';
 import { TenancyModule } from './core/tenant';
+import { AnnouncementModule } from './modules/announcement/announcement.module';
 import { ApiTokenModule } from './modules/api-token/api-token.module';
 import { ApiTokenAuthGuard } from './modules/api-token/external/api-token-auth.guard';
 import { ExternalRateLimitGuard } from './modules/api-token/external/external-rate-limit.guard';
@@ -84,6 +85,7 @@ import { UserModule } from './modules/user/user.module';
     // 回收桶要求每一種類型都有 handler（啟動時檢查）：檔案、使用者之外的擁有者模組也要在。它們的路由由 SurfaceGuard 擋下
     RoleModule,
     GroupModule,
+    AnnouncementModule,
   ],
   providers: [
     { provide: PROCESS_SURFACE, useValue: 'external' },

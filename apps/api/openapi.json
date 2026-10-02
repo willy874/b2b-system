@@ -3966,6 +3966,529 @@
         "tags": ["service-accounts"]
       }
     },
+    "/announcements": {
+      "get": {
+        "operationId": "AnnouncementController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Announcement"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["announcements"]
+      },
+      "post": {
+        "operationId": "AnnouncementController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAnnouncementRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Announcement"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "建立草稿",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/audience-preview": {
+      "post": {
+        "operationId": "AnnouncementController_previewAudience",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementAudience"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AnnouncementAudiencePreview"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "受眾現在會解析成幾個人（不回名單）",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/{id}": {
+      "get": {
+        "operationId": "AnnouncementController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Announcement"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["announcements"]
+      },
+      "patch": {
+        "operationId": "AnnouncementController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAnnouncementRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Announcement"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "修改標題、內文、受眾、時間；只影響之後的發送",
+        "tags": ["announcements"]
+      },
+      "delete": {
+        "operationId": "AnnouncementController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "刪除（進回收桶）；排程中的改成暫停",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/{id}/restore": {
+      "post": {
+        "operationId": "AnnouncementController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Announcement"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "還原刪除的公告（排程中的會是暫停，不會自己開始發）",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/{id}/publish": {
+      "post": {
+        "operationId": "AnnouncementController_publish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Announcement"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "送出草稿：立即發送，或在指定的時間發送",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/{id}/pause": {
+      "post": {
+        "operationId": "AnnouncementController_pause",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Announcement"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "暫停排程",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/{id}/resume": {
+      "post": {
+        "operationId": "AnnouncementController_resume",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Announcement"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "恢復排程（指定的時間已經過去時不能恢復）",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/{id}/dispatches": {
+      "get": {
+        "operationId": "AnnouncementController_listDispatches",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AnnouncementDispatch"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "發送紀錄（新的在前；人數、已讀數、狀態）",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/{id}/dispatches/{dispatchId}/revoke": {
+      "post": {
+        "operationId": "AnnouncementController_revoke",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dispatchId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AnnouncementDispatch"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "撤回一次發送：刪除它的所有通知，發送紀錄保留",
+        "tags": ["announcements"]
+      }
+    },
+    "/me/announcement-messages/{dispatchId}": {
+      "get": {
+        "operationId": "AnnouncementMessageController_read",
+        "parameters": [
+          {
+            "name": "dispatchId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AnnouncementMessage"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "自己收到的公告全文；同時把那則通知標為已讀",
+        "tags": ["announcements"]
+      }
+    },
     "/users/{id}/permission-sources": {
       "get": {
         "operationId": "AuthzExplainController_permissionSources",
@@ -5930,7 +6453,12 @@
           "tag:create",
           "tag:update",
           "tag:delete",
-          "notification:read"
+          "notification:read",
+          "announcement:create",
+          "announcement:read",
+          "announcement:update",
+          "announcement:delete",
+          "announcement:publish"
         ]
       },
       "Permission": {
@@ -7547,7 +8075,7 @@
       },
       "TrashResourceType": {
         "type": "string",
-        "enum": ["user", "role", "group", "file", "fileFolder"]
+        "enum": ["user", "role", "group", "file", "fileFolder", "announcement"]
       },
       "TrashItem": {
         "type": "object",
@@ -7811,7 +8339,8 @@
           "systemSetting",
           "identityProvider",
           "tenantSwitch",
-          "webhook"
+          "webhook",
+          "announcement"
         ]
       },
       "TenantFlagOverrides": {
@@ -7969,7 +8498,7 @@
             "maxLength": 100
           },
           "features": {
-            "maxItems": 8,
+            "maxItems": 9,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TenantFeature"
@@ -10910,6 +11439,462 @@
           }
         },
         "required": ["values"],
+        "additionalProperties": false
+      },
+      "AnnouncementAudience": {
+        "type": "object",
+        "properties": {
+          "all": {
+            "default": false,
+            "type": "boolean"
+          },
+          "userIds": {
+            "default": [],
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "groupIds": {
+            "default": [],
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "roleIds": {
+            "default": [],
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": ["all", "userIds", "groupIds", "roleIds"],
+        "additionalProperties": false
+      },
+      "AnnouncementTrigger": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["immediate"]
+              }
+            },
+            "required": ["kind"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["once"]
+              },
+              "at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              }
+            },
+            "required": ["kind", "at"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "Announcement": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "audience": {
+            "$ref": "#/components/schemas/AnnouncementAudience"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/AnnouncementTrigger"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "scheduled", "paused", "completed"]
+          },
+          "nextRunAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "lastDispatch": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["pending", "sending", "sent", "failed", "revoked"]
+              },
+              "scheduledFor": {
+                "type": "string"
+              },
+              "recipientCount": {
+                "nullable": true,
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "readCount": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["id", "status", "scheduledFor", "recipientCount", "readCount"],
+            "additionalProperties": false
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "createdBy": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "displayName"],
+            "additionalProperties": false
+          },
+          "updatedBy": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "displayName"],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "body",
+          "audience",
+          "trigger",
+          "status",
+          "nextRunAt",
+          "lastDispatch",
+          "version",
+          "createdAt",
+          "updatedAt",
+          "createdBy",
+          "updatedBy"
+        ],
+        "additionalProperties": false
+      },
+      "CreateAnnouncementRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000
+          },
+          "audience": {
+            "$ref": "#/components/schemas/AnnouncementAudience"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/AnnouncementTrigger"
+          }
+        },
+        "required": ["title", "body", "audience", "trigger"],
+        "additionalProperties": false
+      },
+      "UpdateAnnouncementRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000
+          },
+          "audience": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AnnouncementAudience"
+              }
+            ]
+          },
+          "trigger": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AnnouncementTrigger"
+              }
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["version"],
+        "additionalProperties": false
+      },
+      "AnnouncementActionRequest": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["version"],
+        "additionalProperties": false
+      },
+      "AnnouncementAudiencePreview": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "skipped": {
+            "type": "object",
+            "properties": {
+              "userIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "groupIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "roleIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              }
+            },
+            "required": ["userIds", "groupIds", "roleIds"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["count", "skipped"],
+        "additionalProperties": false
+      },
+      "AnnouncementDispatch": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "announcementId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "scheduledFor": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "audience": {
+            "$ref": "#/components/schemas/AnnouncementAudience"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "sending", "sent", "failed", "revoked"]
+          },
+          "recipientCount": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "readCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "details": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "startedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "finishedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "revokedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdBy": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "displayName"],
+            "additionalProperties": false
+          },
+          "revokedBy": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "displayName"],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "announcementId",
+          "scheduledFor",
+          "title",
+          "body",
+          "audience",
+          "status",
+          "recipientCount",
+          "readCount",
+          "details",
+          "createdAt",
+          "startedAt",
+          "finishedAt",
+          "revokedAt",
+          "createdBy",
+          "revokedBy"
+        ],
+        "additionalProperties": false
+      },
+      "AnnouncementMessage": {
+        "type": "object",
+        "properties": {
+          "dispatchId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "sentAt": {
+            "type": "string"
+          },
+          "sender": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "displayName"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["dispatchId", "title", "body", "sentAt", "sender"],
         "additionalProperties": false
       },
       "CurrentTenant": {

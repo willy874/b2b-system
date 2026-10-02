@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 import { users } from './users';
 
@@ -29,6 +29,11 @@ export const notifications = pgTable(
     link: jsonb('link').$type<NotificationLinkValue>(),
     /** 觸發的人；null＝系統（或那個人已被永久刪除）。 */
     actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
+    /**
+     * 產生這則通知的來源（公告的發送紀錄 id，docs/adr/0031-announcements.md D4）；程式發出的通知為 null。
+     * 不加外鍵：發送紀錄清掉後，通知仍依自己的保留期存在。
+     */
+    sourceId: uuid('source_id'),
     readAt: timestamp('read_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -49,6 +54,10 @@ export const notifications = pgTable(
     // 依類型篩選另有一個；收件人、觸發者的篩選以收件人開頭的索引或過濾處理
     index('notifications_created_idx').on(t.createdAt, t.id),
     index('notifications_type_created_idx').on(t.type, t.createdAt, t.id),
+    // 同一次發送對同一個人只有一筆：分批寫入重做時略過已寫的人；撤回、已讀數也以它查
+    uniqueIndex('notifications_source_recipient_key')
+      .on(t.sourceId, t.recipientId)
+      .where(sql`${t.sourceId} IS NOT NULL`),
   ],
 );
 

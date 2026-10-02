@@ -49,6 +49,11 @@ export const PermissionKey = {
   'tag:update': 'tag:update',
   'tag:delete': 'tag:delete',
   'notification:read': 'notification:read',
+  'announcement:create': 'announcement:create',
+  'announcement:read': 'announcement:read',
+  'announcement:update': 'announcement:update',
+  'announcement:delete': 'announcement:delete',
+  'announcement:publish': 'announcement:publish',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
@@ -496,6 +501,7 @@ export const TrashResourceType = {
   group: 'group',
   file: 'file',
   fileFolder: 'fileFolder',
+  announcement: 'announcement',
 } as const;
 export type TrashResourceType = (typeof TrashResourceType)[keyof typeof TrashResourceType];
 
@@ -578,6 +584,7 @@ export const TenantFeature = {
   identityProvider: 'identityProvider',
   tenantSwitch: 'tenantSwitch',
   webhook: 'webhook',
+  announcement: 'announcement',
 } as const;
 export type TenantFeature = (typeof TenantFeature)[keyof typeof TenantFeature];
 
@@ -1380,6 +1387,114 @@ export interface UpdateSystemSettingsRequest {
 
 export interface PublicSystemSettings {
   values: Record<string, string | number | boolean>;
+}
+
+export interface AnnouncementAudience {
+  all: boolean;
+  userIds: Array<string>;
+  groupIds: Array<string>;
+  roleIds: Array<string>;
+}
+
+export type AnnouncementTrigger =
+  | {
+      kind: 'immediate';
+    }
+  | {
+      kind: 'once';
+      at: string;
+    };
+
+export interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  audience: AnnouncementAudience;
+  trigger: AnnouncementTrigger;
+  status: 'draft' | 'scheduled' | 'paused' | 'completed';
+  nextRunAt: string | null;
+  lastDispatch: {
+    id: string;
+    status: 'pending' | 'sending' | 'sent' | 'failed' | 'revoked';
+    scheduledFor: string;
+    recipientCount: number | null;
+    readCount: number;
+  } | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: {
+    id: string;
+    displayName: string;
+  } | null;
+  updatedBy: {
+    id: string;
+    displayName: string;
+  } | null;
+}
+
+export interface CreateAnnouncementRequest {
+  title: string;
+  body: string;
+  audience: AnnouncementAudience;
+  trigger: AnnouncementTrigger;
+}
+
+export interface UpdateAnnouncementRequest {
+  title?: string;
+  body?: string;
+  audience?: AnnouncementAudience;
+  trigger?: AnnouncementTrigger;
+  version: number;
+}
+
+export interface AnnouncementActionRequest {
+  version: number;
+}
+
+export interface AnnouncementAudiencePreview {
+  count: number;
+  skipped: {
+    userIds: Array<string>;
+    groupIds: Array<string>;
+    roleIds: Array<string>;
+  };
+}
+
+export interface AnnouncementDispatch {
+  id: string;
+  announcementId: string;
+  scheduledFor: string;
+  title: string;
+  body: string;
+  audience: AnnouncementAudience;
+  status: 'pending' | 'sending' | 'sent' | 'failed' | 'revoked';
+  recipientCount: number | null;
+  readCount: number;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  revokedAt: string | null;
+  createdBy: {
+    id: string;
+    displayName: string;
+  } | null;
+  revokedBy: {
+    id: string;
+    displayName: string;
+  } | null;
+}
+
+export interface AnnouncementMessage {
+  dispatchId: string;
+  title: string;
+  body: string;
+  sentAt: string;
+  sender: {
+    id: string;
+    displayName: string;
+  } | null;
 }
 
 export interface CurrentTenant {

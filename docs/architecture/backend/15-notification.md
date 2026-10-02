@@ -56,6 +56,7 @@ modules/user/user.notifications.ts           user.rolesChanged 的宣告與參�
 | `link` | `jsonb NULL` | `{ route, params }`：前端的 route id ＋ 參數（D3，§4.1）；null＝只顯示文字 |
 | `actor_id` | `uuid NULL` → `users.id` `ON DELETE SET NULL` | 觸發的人；null＝系統（匿名的註冊申請也是 null）。觸發者被永久刪除時通知保留、觸發者變成 null（與 `revisions.actor_id`、`created_by` 同一個規則，[`13-trash.md`](./13-trash.md) §4.2） |
 | `read_at` | `timestamptz NULL` | 已讀時間；null＝未讀 |
+| `source_id` | `uuid NULL`（無外鍵） | 產生它的來源：公告的發送紀錄（[`19-announcement.md`](./19-announcement.md) §2.3）；程式發出的通知為 null。`(source_id, recipient_id)` 部分唯一：同一個來源對同一個人只有一筆，`notify()` 遇到重複時略過（`ON CONFLICT DO NOTHING`） |
 | `created_at` | `timestamptz` | |
 
 索引（依查詢決定，**與 ADR-0026 D1 寫的單一索引不同**）：
@@ -136,6 +137,7 @@ await withTransaction(this.db, async (tx) => {
 | `approval.pending` | 送出當下持有 `approval:review` 的可登入使用者（§5），不含申請人自己 | `approvalType`、`requesterName`（申請人的 email）、`subject`（handler 的一行摘要） | `approval.detail`（`{ approvalId }`） | `ApprovalService.submit()` 的交易內（註冊、資料夾存取申請都經過這裡） |
 | `approval.result` | 申請人（`requester_id`）；匿名的註冊沒有收件人，只有結果信 | `approvalType`、`subject`、`status`（`approved` \| `rejected`） | handler 的 `resultLink()`；沒有就是 `approval.detail`（`{ approvalId }`） | `ApprovalService.approve()`／`reject()` 的交易內；既有的結果信照舊 |
 | `user.rolesChanged` | 被指派或移除角色的人（`PUT /users/:id/roles`）；沒有實際增減時不通知 | `added`、`removed`（角色名稱） | `account.profile`（`{}`） | `UserService.replaceRoles()` 的交易內 |
+| `announcement.published` | 公告受眾解析出的人（不含送出者） | `title` | `announcement.message`（`{ dispatchId }`） | `AnnouncementDispatchService.fanOut()` 每 500 人一個交易（帶 `sourceId`；[`19-announcement.md`](./19-announcement.md) §5） |
 | `webhook.disabled` | webhook 連續失敗而自動停用時，當下持有 `webhook:update` 的人 | `webhookName`、`consecutiveFailures` | `webhook.detail`（`{ webhookId }`） | `WebhookDeliveryService.attempt()` 的交易內（觸發者是系統；[`17-webhook.md`](./17-webhook.md) §4） |
 
 - `subject` 由各審批類型的 `ApprovalHandler.summarize(payload)` 提供（handler 在擁有資源的模組）：
@@ -157,6 +159,7 @@ await withTransaction(this.db, async (tx) => {
 | `approval.detail` | `approvalId` | `/approval/$approvalId`（`ApprovalDetailRoute`，審核對話框疊在列表上） | `approval.pending`、`approval.result`（預設） |
 | `file.folder` | `folderId` | `/file?folder=<folderId>`（`FileListRoute` 的 search 參數 `folder`） | `approval.result`（`fileFolder.access`） |
 | `account.profile` | — | `/profile`（`ProfileRoute`） | `user.rolesChanged` |
+| `announcement.message` | `dispatchId` | `/announcement/message/$dispatchId`（`AnnouncementMessageRoute`，收件人看全文；feature `announcement` 沒啟用時不登記） | `announcement.published` |
 | `webhook.detail` | `webhookId` | `/webhook/$webhookId`（`WebhookDetailRoute`，詳情對話框疊在列表上；feature `webhook` 沒啟用時不登記） | `webhook.disabled` |
 
 ---
@@ -222,6 +225,7 @@ await withTransaction(this.db, async (tx) => {
 | 新通知（`notify()` 的交易提交後） | 每位收件人各一則：`{ resource: 'notification', kind: 'create', id: <他自己的通知 id> }`；一次超過 100 則時改推一筆不帶 id 的 | `affectedUserIds: [收件人]` |
 | 標為已讀 | `{ resource: 'notification', kind: 'update', id }`（帶 `origin`，發起的分頁略過） | 自己（其他裝置與分頁的未讀數跟著更新） |
 | 全部已讀（有更新時） | `{ resource: 'notification', kind: 'update' }` | 自己 |
+| 撤回公告的發送（`removeBySource`，[`19-announcement.md`](./19-announcement.md) §3） | 每位收件人各一則 `{ resource: 'notification', kind: 'delete', id }`（超過 100 則改推不帶 id 的） | 收件人自己 |
 | 保留清理的刪除 | 不推：被刪的都是列表最後面的舊通知，下次重抓就不見了 | — |
 
 - 推播由 `afterCommit` 在交易提交時就發出，早於業務 service 在交易之後才發的 `permissions.changed` 與 `resource.changed`；

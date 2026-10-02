@@ -78,6 +78,13 @@
       "when": 1790903400428,
       "tag": "0010_webhook_feature",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790919975726,
+      "tag": "0011_announcement_feature",
+      "breakpoints": true
     }
   ]
 }

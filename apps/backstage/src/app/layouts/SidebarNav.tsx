@@ -4,6 +4,7 @@ import { useId, useMemo, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { useTranslation } from '@/core/locales';
 import { usePageAccessChecker } from '@/core/permission';
+import { ANNOUNCEMENT_PAGE } from '@/features/announcement';
 import { APPROVAL_PAGE } from '@/features/approval';
 import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { FILE_PAGE } from '@/features/file';
@@ -149,6 +150,13 @@ const MENU_GROUPS: NavGroup[] = [
         labelKey: 'menu.setting',
         testId: 'menu-setting',
         icon: 'settings',
+      },
+      {
+        pageKey: ANNOUNCEMENT_PAGE,
+        to: '/announcement',
+        labelKey: 'menu.announcement',
+        testId: 'menu-announcement',
+        icon: 'calendar',
       },
       {
         pageKey: NOTIFICATION_OVERVIEW_PAGE,

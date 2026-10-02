@@ -125,6 +125,7 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 | `approval.pending` | `approvalPending`：「{申請人} 送出了{審批類型}申請，等待審核」 | 摘要（`subject`，原樣顯示；空字串不顯示） |
 | `approval.result` | `approvalApproved`／`approvalRejected`（依 `status`） | 摘要 |
 | `user.rolesChanged` | `userRolesChanged` | 「新增：A、B」「移除：C」（`Intl.ListFormat` 依語系串起來；沒有的那一邊不顯示） |
+| `announcement.published` | `announcementPublished`：「公告：{標題}」 | —（點開到全文頁，[`16-announcement.md`](./16-announcement.md)） |
 | 其他（前端比後端舊） | `unknown`：「你有一則新通知」 | — |
 
 - 參數缺少或型別不對（舊資料、後端改版）也退回 `unknown`，不讓畫面壞掉。

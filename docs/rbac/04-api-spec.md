@@ -701,6 +701,37 @@
 
 ---
 
+## 7.5 Announcements（公告）
+
+完整的規則見 [`../architecture/backend/19-announcement.md`](../architecture/backend/19-announcement.md) §3（[ADR-0031](../adr/0031-announcements.md)）。
+
+| Method | Path | 授權 | 說明 |
+| ------ | ---- | ---- | ---- |
+| GET    | `/announcements` | `announcement:read` | 列表：`keyword`、`status`；每列帶最近一次發送（人數、已讀數） |
+| POST   | `/announcements` | `announcement:create` | 建立草稿 |
+| POST   | `/announcements/audience-preview` | `announcement:update` | 受眾 → `{ count, skipped }` |
+| GET／PATCH／DELETE | `/announcements/:id` | `read`／`update`／`delete` | PATCH 必帶 `version`；草稿以外另要 `publish` |
+| POST   | `/announcements/:id/restore` | `announcement:delete` | 回收桶還原 |
+| POST   | `/announcements/:id/publish`、`/pause`、`/resume` | `announcement:publish` | 帶 `{ version }` |
+| GET    | `/announcements/:id/dispatches` | `announcement:read` | 發送紀錄 |
+| POST   | `/announcements/:id/dispatches/:dispatchId/revoke` | `announcement:publish` | 撤回 |
+| GET    | `/me/announcement-messages/:dispatchId` | 🔑 登入即可 | 自己收到的全文；同時標為已讀 |
+
+```jsonc
+// POST /announcements
+{
+  "title": "系統維護通知",
+  "body": "本週六 22:00～24:00 系統維護。",
+  "audience": { "all": false, "userIds": [], "groupIds": ["uuid"], "roleIds": [] },
+  "trigger": { "kind": "once", "at": "2026-10-10T10:00:00Z" }   // 或 { "kind": "immediate" }
+}
+// → 201 { "data": { "id": "uuid", "status": "draft", "version": 1, "nextRunAt": null, "lastDispatch": null, … } }
+
+// POST /announcements/:id/publish  { "version": 1 } → 200（status 變成 scheduled 或 completed）
+```
+
+---
+
 ## 8. System
 
 | Method | Path            | 授權            | 說明                    |

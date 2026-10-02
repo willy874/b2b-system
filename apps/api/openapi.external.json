@@ -413,7 +413,12 @@
           "tag:create",
           "tag:update",
           "tag:delete",
-          "notification:read"
+          "notification:read",
+          "announcement:create",
+          "announcement:read",
+          "announcement:update",
+          "announcement:delete",
+          "announcement:publish"
         ]
       },
       "ExternalMe": {

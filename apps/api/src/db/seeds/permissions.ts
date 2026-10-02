@@ -71,6 +71,13 @@ export const PERMISSION_SEED = [
 
   // 通知總覽：租戶內所有人的站內通知（docs/adr/0031-announcements.md D1、D2）
   ['notification', 'read', 'permission.notification.read', 1700],
+
+  // 公告與排程通知（docs/adr/0031-announcements.md D15）；publish 獨立於 update：能寫草稿的人不一定能對全租戶發話
+  ['announcement', 'create', 'permission.announcement.create', 1800],
+  ['announcement', 'read', 'permission.announcement.read', 1801],
+  ['announcement', 'update', 'permission.announcement.update', 1802],
+  ['announcement', 'delete', 'permission.announcement.delete', 1803],
+  ['announcement', 'publish', 'permission.announcement.publish', 1804],
 ] as const satisfies ReadonlyArray<readonly [string, string, string, number]>;
 
 type SeedList = typeof PERMISSION_SEED;
@@ -164,6 +171,15 @@ export const PERMISSION_DEPENDENCIES = {
 
   // 每一列都帶收件人
   'notification:read': { requires: ['user:read'] },
+
+  'announcement:create': { includes: ['announcement:update'] },
+  'announcement:delete': { includes: ['announcement:update'] },
+  // 受眾選擇器要看得到使用者、群組、角色
+  'announcement:update': {
+    includes: ['announcement:read'],
+    requires: ['user:read', 'group:read', 'role:read'],
+  },
+  'announcement:publish': { includes: ['announcement:update'] },
 } as const satisfies Partial<Record<PermissionKey, PermissionDependency>>;
 
 export type PermissionDependencyMap = Partial<Record<PermissionKey, PermissionDependency>>;

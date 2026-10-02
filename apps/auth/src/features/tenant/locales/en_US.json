@@ -103,7 +103,10 @@
       "webhookDisableWarning": "{{code}} webhooks stop sending, and events that occur in the meantime are not sent later when you turn this back on.",
       "disableTitle": "Turn off feature",
       "disableConfirm": "After turning this off, {{code}} users immediately lose access to \"{{feature}}\" and anyone on its pages is sent back to the home page. Data is kept and comes back when you turn it on again.",
-      "disableAction": "Turn off"
+      "disableAction": "Turn off",
+      "announcement": "Announcements",
+      "announcementDescription": "Tenant admins write announcements and send them as in-app notifications to selected people, groups, roles, or everyone, immediately or on a schedule.",
+      "announcementDisableWarning": "Scheduled announcements for {{code}} stop sending; times missed while disabled are not sent when re-enabled. Announcements and their history are kept."
     },
     "flag": {
       "title": "Feature flags",

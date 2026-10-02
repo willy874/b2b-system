@@ -191,6 +191,42 @@ export class AuthzRepository {
     return rows.map((row) => row.id);
   }
 
+  /**
+   * 反向解析：這些使用者集合（`group:<g>#member`、`role:<r>#holder`）裡的使用者 id，沿巢狀群組與群組持有的角色往下展開。
+   * 與 `usersWithTenantRelations` 同一個遞迴、同樣的條件（過期的邊、已刪除的角色與群組不算），只是起點是指定的集合，
+   * 不是租戶節點上的關係。起點本身已刪除時沒有結果（`MEMBERSHIP_STEP` 也套用在第一步）。
+   */
+  async usersInSubjectSets(
+    sets: ReadonlyArray<{ type: string; id: string; relation: string }>,
+    now: Date,
+    tx?: DbOrTx,
+  ): Promise<string[]> {
+    if (sets.length === 0) return [];
+    const db = tx ?? this.db;
+    const seeds = sql.join(
+      sets.map((set) => sql`(${set.type}, ${set.id}, ${set.relation})`),
+      sql`, `,
+    );
+    const rows = await db.execute<{ id: string }>(sql`
+      WITH RECURSIVE members(type, id, rel, depth) AS (
+        SELECT t.subject_type, t.subject_id, t.subject_relation, 0
+        FROM ${relationTuples} t
+        WHERE (t.object_type, t.object_id, t.relation) IN (${seeds})
+          AND ${MEMBERSHIP_STEP}
+          AND (t.expires_at IS NULL OR t.expires_at > ${now.toISOString()}::timestamptz)
+        UNION
+        SELECT t.subject_type, t.subject_id, t.subject_relation, m.depth + 1
+        FROM ${relationTuples} t
+        JOIN members m ON t.object_type = m.type AND t.object_id = m.id AND t.relation = m.rel
+        WHERE m.depth < ${MAX_CLOSURE_DEPTH}
+          AND ${MEMBERSHIP_STEP}
+          AND (t.expires_at IS NULL OR t.expires_at > ${now.toISOString()}::timestamptz)
+      )
+      SELECT DISTINCT id FROM members WHERE type = 'user' AND rel = '' AND id <> '*' ORDER BY id
+    `);
+    return rows.map((row) => row.id);
+  }
+
   /** 關係圖目前的版本號（`relation_tuples` 每條寫入語句 +1，migration 0009）。 */
   async currentRevision(): Promise<number> {
     const [row] = await this.db.select({ revision: authzRevision.revision }).from(authzRevision);

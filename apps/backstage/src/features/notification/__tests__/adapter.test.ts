@@ -64,6 +64,12 @@ describe('describeNotification（依 type 組句子，docs/architecture/backend/
       'notification.message.webhookDisabled{"name":"CI","count":"50"}',
       [],
     ],
+    [
+      'announcement.published：公告的標題（docs/adr/0031-announcements.md D4）',
+      { ...base, type: 'announcement.published', params: { title: '系統維護' } },
+      'notification.message.announcementPublished{"title":"系統維護"}',
+      [],
+    ],
   ])('%s', (_name, notification, message, details) => {
     const described = describeNotification(notification);
     expect(translateMessage(fakeT, 'en', described.message)).toBe(message);
@@ -75,6 +81,7 @@ describe('describeNotification（依 type 組句子，docs/architecture/backend/
   it.each([
     ['不認得的 type', { type: 'future.event', params: {} }],
     ['webhook.disabled 缺失敗次數', { type: 'webhook.disabled', params: { webhookName: 'CI' } }],
+    ['announcement.published 缺標題', { type: 'announcement.published', params: {} }],
     ['approval.pending 缺申請人', { type: 'approval.pending', params: { subject: 'x' } }],
     ['approval.result 的 status 不合預期', { type: 'approval.result', params: { status: 'x' } }],
     ['rolesChanged 的角色不是字串陣列', { type: 'user.rolesChanged', params: { added: [1] } }],

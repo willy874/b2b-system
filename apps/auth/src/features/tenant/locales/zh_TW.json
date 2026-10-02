@@ -103,7 +103,10 @@
       "webhookDisableWarning": "{{code}} 的 webhook 會停止送出，期間發生的事件之後重新打開也不會補送。",
       "disableTitle": "關閉功能",
       "disableConfirm": "關閉後，{{code}} 的使用者立刻看不到「{{feature}}」，正在使用的頁面會被導回首頁。資料保留，重新打開即恢復。",
-      "disableAction": "關閉"
+      "disableAction": "關閉",
+      "announcement": "公告",
+      "announcementDescription": "租戶管理者撰寫公告，立即或排程以站內通知發給指定的人、群組、角色或全租戶。",
+      "announcementDisableWarning": "{{code}} 已排程的公告會停止發送，期間錯過的時間之後重新打開也不會補發；公告與發送紀錄保留。"
     },
     "flag": {
       "title": "試行開關",

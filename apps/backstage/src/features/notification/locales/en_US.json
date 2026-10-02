@@ -23,7 +23,8 @@
       "approvalRejected": "Your {{type}} request was rejected",
       "userRolesChanged": "Your roles were changed",
       "webhookDisabled": "Webhook \"{{name}}\" failed {{count}} times in a row and was turned off",
-      "unknown": "You have a new notification"
+      "unknown": "You have a new notification",
+      "announcementPublished": "Announcement: {{title}}"
     },
     "detail": {
       "subject": "{{subject}}",
@@ -60,7 +61,8 @@
       "category": {
         "approval": "Approvals",
         "user": "Users",
-        "webhook": "Webhooks"
+        "webhook": "Webhooks",
+        "announcement": "Announcements"
       },
       "type": {
         "approvalPending": {
@@ -82,6 +84,11 @@
           "name": "Webhook turned off",
           "description": "Sent when a webhook is turned off after failing to deliver too many times in a row.",
           "recipients": "Everyone who can edit webhooks at that moment"
+        },
+        "announcementPublished": {
+          "name": "Announcements",
+          "description": "Announcements sent by admins, now or on a schedule. Open the notification to read the full text.",
+          "recipients": "The announcement's selected recipients"
         }
       }
     },

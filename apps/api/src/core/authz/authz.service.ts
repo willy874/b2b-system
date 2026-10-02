@@ -125,6 +125,17 @@ export class AuthzService {
   }
 
   /**
+   * 這些使用者集合（`group:<g>#member`、`role:<r>#holder`）裡的使用者（含巢狀群組、群組持有的角色）。
+   * 只回傳關係圖上的 id：帳號是否可登入由呼叫端過濾。用途：公告的受眾（docs/adr/0031-announcements.md D5）。
+   */
+  usersInSubjectSets(
+    sets: ReadonlyArray<{ type: string; id: string; relation: string }>,
+    options: { now?: Date; tx?: DbOrTx } = {},
+  ): Promise<string[]> {
+    return this.repo.usersInSubjectSets(sets, options.now ?? new Date(), options.tx);
+  }
+
+  /**
    * 建立一位操作者的判斷器：`objectTypes` 上的 tuple（與租戶節點上的）一次載入，
    * `providers` 供應結構邊。`subjects` 通常來自 `tenantPermissions`。
    */

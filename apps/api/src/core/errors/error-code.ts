@@ -174,6 +174,25 @@ export const ErrorCode = {
   /** 個人設定：租戶不允許調整這個事件 ＋ 管道（`details.lock`：`mandatory`／`tenantDisabled`／`tenantRequired`；ADR-0028 D14）。 */
   NOTIFICATION_PREFERENCE_LOCKED: { status: 409 },
 
+  // ── 公告與排程通知（docs/adr/0031-announcements.md） ──
+  ANNOUNCEMENT_NOT_FOUND: { status: 404 },
+  /** 樂觀鎖：送出的 `version` 不是目前的版本；`details.current` 帶目前版本（ADR-0025 D3）。 */
+  ANNOUNCEMENT_VERSION_CONFLICT: { status: 409 },
+  /** 目前的狀態不能這樣做（例：已完成的不能編輯、草稿不能暫停）；`details.status` 是目前的狀態。 */
+  ANNOUNCEMENT_INVALID_STATE: { status: 409 },
+  /** 指定的發送時間已經過去（`details.at`）：送出或恢復時檢查。 */
+  ANNOUNCEMENT_TRIGGER_IN_PAST: { status: 400 },
+  /** 送出時沒有選任何受眾。 */
+  ANNOUNCEMENT_AUDIENCE_EMPTY: { status: 400 },
+  /** 還原一則沒有被刪除的公告。 */
+  ANNOUNCEMENT_NOT_DELETED: { status: 409 },
+  /** 發送紀錄不存在，或不屬於這則公告。 */
+  ANNOUNCEMENT_DISPATCH_NOT_FOUND: { status: 404 },
+  /** 只有還沒撤回的發送能撤回；`details.status` 是目前的狀態。 */
+  ANNOUNCEMENT_DISPATCH_NOT_REVOCABLE: { status: 409 },
+  /** 收件人讀全文：沒有收到這次發送（或已被撤回、已被保留清理刪除）。 */
+  ANNOUNCEMENT_MESSAGE_NOT_FOUND: { status: 404 },
+
   // ── 權限 ──
   PERMISSION_UNKNOWN: { status: 400 },
 

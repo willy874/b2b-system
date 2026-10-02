@@ -1,0 +1,120 @@
+{
+  "announcement": {
+    "list": {
+      "title": "Announcements",
+      "description": "Write a message and send it as an in-app notification to selected people, groups, roles, or everyone — now or at a set time.",
+      "searchPlaceholder": "Search title or content",
+      "allStatuses": "All statuses"
+    },
+    "detail": {
+      "title": "Announcement",
+      "backToList": "Back to announcements"
+    },
+    "status": {
+      "draft": "Draft",
+      "scheduled": "Scheduled",
+      "paused": "Paused",
+      "completed": "Completed"
+    },
+    "trigger": {
+      "immediate": "Send now",
+      "once": "At a set time",
+      "day": "Date",
+      "time": "Time",
+      "timeZone": "Time zone: {{timeZone}}"
+    },
+    "field": {
+      "title": "Title",
+      "body": "Content",
+      "bodyHint": "Plain text, up to {{max}} characters. Recipients see the full text when they open the notification.",
+      "audience": "Recipients",
+      "trigger": "Send time",
+      "status": "Status",
+      "readSummary": "Last send read",
+      "updatedAt": "Updated"
+    },
+    "readSummary": "{{read}} / {{total}}",
+    "audience": {
+      "all": "Everyone in the tenant (all users who can sign in)",
+      "users": "Users",
+      "groups": "Groups (including subgroups)",
+      "roles": "Roles",
+      "usersPlaceholder": "Search users",
+      "groupsPlaceholder": "Select groups",
+      "rolesPlaceholder": "Select roles",
+      "noMatch": "No matches",
+      "count": "Sending now would reach {{count}} people",
+      "counting": "Counting recipients…",
+      "summary": {
+        "all": "Everyone",
+        "users": "{{count}} users",
+        "groups": "{{count}} groups",
+        "roles": "{{count}} roles",
+        "none": "None selected"
+      }
+    },
+    "create": {
+      "action": "New announcement",
+      "title": "New announcement",
+      "description": "Save it as a draft first, then send it after checking the content and recipients.",
+      "submit": "Save draft"
+    },
+    "update": {
+      "success": "Announcement saved",
+      "publishedNotice": "This announcement has been sent (scheduled or paused): changes only affect future sends."
+    },
+    "publish": {
+      "action": "Send",
+      "title": "Send announcement",
+      "confirmImmediate": "Send \"{{title}}\" to its recipients now? It can't be edited afterwards, only revoked.",
+      "confirmScheduled": "Send \"{{title}}\" to its recipients at {{at}}? You can pause it or change the time before then.",
+      "success": "Announcement sent"
+    },
+    "pause": {
+      "action": "Pause",
+      "success": "Schedule paused"
+    },
+    "resume": {
+      "action": "Resume schedule",
+      "success": "Schedule resumed"
+    },
+    "delete": {
+      "title": "Delete announcement",
+      "confirm": "Delete \"{{title}}\"? A scheduled announcement stops sending. You can restore it from the trash.",
+      "success": "Announcement deleted",
+      "undo": "Undo"
+    },
+    "restore": {
+      "action": "Restore",
+      "success": "Restored \"{{title}}\""
+    },
+    "revoke": {
+      "action": "Revoke",
+      "title": "Revoke this send",
+      "confirm": "Recipients' notifications for it are deleted, and even those who read it can no longer open it. The send record is kept.",
+      "success": "Revoked"
+    },
+    "dispatch": {
+      "title": "Send history",
+      "empty": "Not sent yet",
+      "tooManyRecipients": "{{count}} recipients exceed the limit of {{max}}; nothing was sent",
+      "field": {
+        "scheduledFor": "Sent at",
+        "status": "Status",
+        "recipients": "Read / recipients",
+        "createdBy": "Sent by"
+      },
+      "status": {
+        "pending": "Waiting",
+        "sending": "Sending",
+        "sent": "Sent",
+        "failed": "Failed",
+        "revoked": "Revoked"
+      }
+    },
+    "message": {
+      "meta": "{{sender}} · {{at}}",
+      "unknownSender": "Deleted user"
+    }
+  }
+}

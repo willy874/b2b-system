@@ -89,6 +89,11 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
     perms: () => [PERMISSION.FILE_ACCESS, PERMISSION.FILE_READ, PERMISSION.USER_READ],
     includesSubject: false,
   },
+  // 公告與發送紀錄（docs/adr/0031-announcements.md）；背景發送的狀態變化不寫稽核，但人的操作會寫，維持預設
+  [ChangeSource.ANNOUNCEMENT]: {
+    perms: () => [PERMISSION.ANNOUNCEMENT_READ],
+    includesSubject: false,
+  },
   // 事件管理頁（與系統設定同一群讀者，ADR-0028 D10）
   [ChangeSource.NOTIFICATION_POLICY]: {
     perms: () => [PERMISSION.SYSTEM_READ],

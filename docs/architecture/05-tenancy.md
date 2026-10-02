@@ -109,7 +109,7 @@
 
 | 欄位 | 值 | 效果 | 出處 |
 | --- | --- | --- | --- |
-| `features` | `text[]`，預設全部（`{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook}`） | 可啟用 feature 的 id（`core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`）。沒列出的 feature：api 以 `@RequireFeature()` 標的端點回 `404 FEATURE_DISABLED`（`common/guards/feature.guard.ts`；handler 與 class 的宣告合併，全部都要啟用）；`/auth/profile` 的 `features` 不含它，前端不安裝它。該 feature 的背景工作照常執行，資料保留 | [ADR-0021](../adr/0021-runtime-feature-activation.md) D8、D11、[ADR-0029](../adr/0029-toggleable-platform-features.md)、[ADR-0030](../adr/0030-webhooks.md) D8 |
+| `features` | `text[]`，預設全部（`{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement}`） | 可啟用 feature 的 id（`core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`）。沒列出的 feature：api 以 `@RequireFeature()` 標的端點回 `404 FEATURE_DISABLED`（`common/guards/feature.guard.ts`；handler 與 class 的宣告合併，全部都要啟用）；`/auth/profile` 的 `features` 不含它，前端不安裝它。該 feature 的背景工作照常執行，資料保留 | [ADR-0021](../adr/0021-runtime-feature-activation.md) D8、D11、[ADR-0029](../adr/0029-toggleable-platform-features.md)、[ADR-0030](../adr/0030-webhooks.md) D8 |
 | `flags` | `jsonb`，預設 `{}` | feature flag 的租戶層覆寫 `{ [key]: boolean }`，沒列出 = 跟著全平台與預設值；見 §5.2 | [ADR-0022](../adr/0022-feature-flags.md) D2 |
 
 各 feature 停用時的效果：
@@ -123,6 +123,7 @@
 | `systemSetting` | `GET`／`PATCH /system/settings` 回 404；沒有系統設定頁 | 已覆寫的值照樣生效；`/system/settings/public` 不受影響 |
 | `identityProvider` | `/identity-providers` 回 404；登入時當作沒有連線（email 網域不導向外部 IdP，只允許 SSO 的網域回到密碼登入） | 連線與外部身分的連結保留 |
 | `tenantSwitch` | backstage 帳號選單沒有「切換租戶」 | apps/auth 的 `/enter` |
+| `announcement` | `/announcements`、`/me/announcement-messages` 回 404；沒有公告頁；已入列的排程與分批寫入略過（期間錯過的時間不補發） | 公告與發送紀錄保留 |
 | `webhook` | `/webhooks` 回 404；沒有 Webhook 頁；`emit()` 不寫事件也不入列，已入列的投遞略過（期間的事件之後不補送） | 訂閱與投遞紀錄保留；`webhook.cleanup` 照常清理 |
 
 - `PATCH /platform/tenants/:id` 的 `features` 是 **完整清單**（不是增減）；重複或不認得的 id 回 `VALIDATION_FAILED`，

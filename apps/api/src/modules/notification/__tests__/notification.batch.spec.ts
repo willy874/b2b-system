@@ -32,7 +32,7 @@ describe('defineNotification / notification()（docs/architecture/backend/15-not
     expect(() => defineNotification('approval.pending.extra', META)).toThrow(/<模組>.<事件>/);
   });
 
-  it('事件的中繼資料：預設開啟、不是 mandatory、沒有所屬 feature（ADR-0028 D1）', () => {
+  it('事件的中繼資料：預設開啟、不是 mandatory、沒有所屬 feature、允許個人關閉（ADR-0028 D1）', () => {
     expect(SAMPLE).toEqual({
       type: 'sample.happened',
       category: 'sample',
@@ -40,7 +40,26 @@ describe('defineNotification / notification()（docs/architecture/backend/15-not
       defaultEnabled: true,
       mandatory: false,
       feature: null,
+      defaultAllowUserOverride: true,
     });
+  });
+
+  it('defaultAllowUserOverride: false → 租戶沒有覆寫時不允許個人關閉（ADR-0031 D16）', () => {
+    expect(
+      defineNotification('a.b', {
+        category: 'a',
+        channels: ['inApp'],
+        defaultAllowUserOverride: false,
+      }).defaultAllowUserOverride,
+    ).toBe(false);
+  });
+
+  it('notification() 帶來源 → 寫入的那一筆有 sourceId；不帶就沒有這個欄位', () => {
+    const base = { recipientId: ALICE, actorId: null, params: { name: 'x', count: 1 } };
+    expect(notification(SAMPLE, { ...base, sourceId: BOB })).toMatchObject({
+      sourceId: BOB,
+    });
+    expect(notification(SAMPLE, base)).not.toHaveProperty('sourceId');
   });
 
   it('中繼資料不合理 → 載入時就失敗（ADR-0028 D2）', () => {

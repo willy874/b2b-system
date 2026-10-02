@@ -88,6 +88,7 @@
 | 項目 | 與上面的決定不同或補充的地方 |
 | --- | --- |
 | A1 | 在 branch `feat/announcements` 完成。前端頁面鍵 `NOTIFICATION_OVERVIEW_PAGE`、側邊選單「系統管理 › 通知總覽」；表格以「載入更多」接續 keyset，不顯示總數。租戶 migration `0028_notification_overview_idx`、`0029_notification_read_system_roles`（既有租戶的 admin 補鍵）。端點放在獨立的 `NotificationOverviewController`，與只需要登入的 `NotificationController` 分開 |
+| A2 | 在 branch `feat/announcements` 完成，規格寫在 [`backend/19-announcement.md`](../architecture/backend/19-announcement.md)、[`frontend/16-announcement.md`](../architecture/frontend/16-announcement.md)。與上面的決定不同或補充：撤回的端點是 `POST /announcements/:id/dispatches/:dispatchId/revoke`（掛在公告底下，與 webhook 的重送一致）；**草稿以外的公告修改要 `announcement:publish`**（路由宣告 update、service 另外檢查）、不能改成「立即」，已完成的不能改（D15、D17 的具體化）；受眾預覽要 `announcement:update`（不是 create）；暫停與恢復提前在 A2 做（只對 `once` 有意義，A3 套用到週期）；`defineNotification` 新增 `defaultAllowUserOverride`（D16 需要事件層級的預設）；發送紀錄的保留清理（D19 的 `dispatchRetentionDays`）與事件點的 `trigger_subject_id` 欄延到 A3、A4。租戶 migration `0030`、`0031`，平台 `0011` |
 
 ## 評估過的方案
 
