@@ -710,6 +710,7 @@
 | GET    | `/announcements` | `announcement:read` | 列表：`keyword`、`status`；每列帶最近一次發送（人數、已讀數） |
 | POST   | `/announcements` | `announcement:create` | 建立草稿 |
 | POST   | `/announcements/audience-preview` | `announcement:update` | 受眾 → `{ count, skipped }` |
+| GET    | `/announcements/trigger-events` | `announcement:read` | 可以訂的觸發點 `{ items: [{ event, scope }] }` |
 | POST   | `/announcements/recurrence-preview` | `announcement:update` | `{ trigger }`（週期）→ `{ timeZone, occurrences }`：接下來最多 5 次 |
 | GET／PATCH／DELETE | `/announcements/:id` | `read`／`update`／`delete` | PATCH 必帶 `version`；草稿以外另要 `publish` |
 | POST   | `/announcements/:id/restore` | `announcement:delete` | 回收桶還原 |
@@ -727,6 +728,7 @@
   "trigger": { "kind": "once", "at": "2026-10-10T10:00:00Z" }   // 或 { "kind": "immediate" }
   // 週期（租戶時區）：{ "kind": "recurring", "frequency": "weekly", "interval": 1, "weekdays": [1, 3],
   //                    "time": "09:00", "startsOn": "2026-10-01", "endsOn": null, "maxOccurrences": null }
+  // 事件點：{ "kind": "event", "event": "group.memberAdded", "delayMinutes": 1440 }
 }
 // → 201 { "data": { "id": "uuid", "status": "draft", "version": 1, "nextRunAt": null, "lastDispatch": null, … } }
 

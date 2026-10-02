@@ -23,7 +23,8 @@
       "day": "發送日期",
       "time": "發送時間",
       "timeZone": "時區：{{timeZone}}",
-      "recurring": "週期"
+      "recurring": "週期",
+      "event": "事件發生時"
     },
     "field": {
       "title": "標題",
@@ -72,7 +73,8 @@
       "confirmImmediate": "現在就把「{{title}}」發給收件對象？送出後不能修改，只能撤回。",
       "confirmScheduled": "在 {{at}} 把「{{title}}」發給收件對象？發送前可以暫停或修改時間。",
       "success": "已送出公告",
-      "confirmRecurring": "依「{{at}}」把「{{title}}」發給收件對象？每次發送前都可以暫停或修改。"
+      "confirmRecurring": "依「{{at}}」把「{{title}}」發給收件對象？每次發送前都可以暫停或修改。",
+      "confirmEvent": "依「{{at}}」把「{{title}}」發給符合的人？每個人只會收到一次；可以隨時暫停。"
     },
     "pause": {
       "action": "暫停",
@@ -158,6 +160,35 @@
         "monthly": "每月{{day}} {{time}}",
         "monthlyEvery": "每 {{count}} 個月的{{day}} {{time}}"
       }
+    },
+    "event": {
+      "label": "觸發的事件",
+      "placeholder": "選擇事件",
+      "onceNote": "同一則公告對同一個人只發一次；事件重複發生（例：移出又加回）不會重發。",
+      "userActivated": {
+        "name": "帳號啟用",
+        "description": "完成啟用、或建立時就能登入（外部 IdP 首次登入）的人；他在收件對象裡才發。"
+      },
+      "userRoleAssigned": {
+        "name": "被指派角色",
+        "description": "被指派的角色是收件對象裡的角色時發給那個人（收件對象是全租戶時，任何角色都算）。"
+      },
+      "groupMemberAdded": {
+        "name": "加入群組",
+        "description": "被直接加進收件對象裡的群組時發給那個人（收件對象是全租戶時，任何群組都算）。"
+      }
+    },
+    "delay": {
+      "after": "之後",
+      "value": "延遲",
+      "unitLabel": "單位",
+      "unit": {
+        "minutes": "分鐘",
+        "hours": "小時",
+        "days": "天"
+      },
+      "summaryImmediate": "{{event}}時",
+      "summary": "{{event}}後 {{value}} {{unit}}"
     }
   }
 }

@@ -98,6 +98,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `auth.activationMail`、`auth.passwordResetMail` | `modules/credential` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
 | `approval.resultMail` | `modules/approval` | — | 由程式入列 |
 | `announcement.dispatch` | `modules/announcement` | — | 送出、恢復、改時間的交易內入列，`startAfter` 是排定的時間；時間或狀態對不上就略過（[`19-announcement.md`](./19-announcement.md) §5） |
+| `announcement.eventDispatch` | `modules/announcement` | — | 事件點：擁有者在業務交易內 `fire()` 時入列（`startAfter` = 現在＋延遲）；比對受眾後建立一個人的發送（[`19-announcement.md`](./19-announcement.md) §5.3） |
 | `announcement.fanOut` | `modules/announcement` | — | 一次發送的分批寫入（每 500 人一個交易）；重做安全 |
 | `announcement.maintenance` | `modules/announcement` | `ANNOUNCEMENT_MAINTENANCE_CRON` | `20 5 * * *`（每天 05:20 UTC；補排程與發送紀錄的保留清理，[`19-announcement.md`](./19-announcement.md) §5.2） |
 | `webhook.deliver` | `modules/webhook` | — | 由 `WebhookService.emit()` 在業務交易內入列；重試 8 次、60 秒起退避、並行 10（[`17-webhook.md`](./17-webhook.md) §4） |

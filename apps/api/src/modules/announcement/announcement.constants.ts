@@ -19,3 +19,6 @@ export const ANNOUNCEMENT_RECURRENCE_PREVIEW_COUNT = 5;
 
 /** 每日維護：只補「下一次在這段時間內」的排程（再下一次維護之前會到的），避免每天替遠期的排程多排一筆。 */
 export const ANNOUNCEMENT_REQUEUE_WINDOW_MS = 25 * 60 * 60 * 1000;
+
+/** 事件點的延遲上限：30 天（分鐘）。 */
+export const ANNOUNCEMENT_EVENT_MAX_DELAY_MINUTES = 30 * 24 * 60;

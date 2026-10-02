@@ -28,6 +28,7 @@ import {
   AnnouncementAudienceSchema,
   AnnouncementDispatchSchema,
   AnnouncementSchema,
+  AnnouncementTriggerEventListSchema,
   AudiencePreviewSchema,
   CreateAnnouncementSchema,
   ListAnnouncementDispatchSchema,
@@ -82,6 +83,14 @@ export class AnnouncementController {
     @Body(new ZodValidationPipe(AnnouncementAudienceSchema)) dto: AnnouncementAudienceDto,
   ) {
     return this.announcements.previewAudience(dto);
+  }
+
+  @Get('trigger-events')
+  @RequirePermissions(PERMISSION.ANNOUNCEMENT_READ)
+  @ApiOperation({ summary: '可以訂的觸發點（事件點；所屬 feature 已啟用）' })
+  @ApiZodResponse(200, AnnouncementTriggerEventListSchema)
+  listTriggerEvents() {
+    return { items: this.announcements.listTriggerEvents() };
   }
 
   @Post('recurrence-preview')

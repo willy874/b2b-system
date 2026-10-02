@@ -36,6 +36,8 @@ export class AnnouncementScheduler {
   ): Promise<Date | undefined> {
     switch (trigger.kind) {
       case 'immediate':
+      case 'event':
+        // 立即發送與事件點都沒有時間表
         return undefined;
       case 'once': {
         const at = new Date(trigger.at);
@@ -45,6 +47,17 @@ export class AnnouncementScheduler {
         if (trigger.maxOccurrences && sent >= trigger.maxOccurrences) return undefined;
         return nextOccurrence(trigger, after, await this.timeZone());
     }
+  }
+
+  /**
+   * 送出或恢復後的狀態：事件點是排程中但沒有下一次（等事件發生）；指定時間與週期要有第一次（`firstRun`）。
+   */
+  async scheduledState(
+    trigger: Exclude<AnnouncementTriggerValue, { kind: 'immediate' }>,
+    sent: number,
+  ): Promise<{ status: 'scheduled'; nextRunAt: Date | null }> {
+    if (trigger.kind === 'event') return { status: 'scheduled', nextRunAt: null };
+    return { status: 'scheduled', nextRunAt: await this.firstRun(trigger, sent) };
   }
 
   /**

@@ -259,7 +259,8 @@
     "ANNOUNCEMENT_NOT_DELETED": "這則公告沒有被刪除。",
     "ANNOUNCEMENT_DISPATCH_NOT_FOUND": "找不到這次發送紀錄。",
     "ANNOUNCEMENT_DISPATCH_NOT_REVOCABLE": "這次發送已經撤回。",
-    "ANNOUNCEMENT_MESSAGE_NOT_FOUND": "找不到這則公告：可能已被撤回，或已超過保留期限。"
+    "ANNOUNCEMENT_MESSAGE_NOT_FOUND": "找不到這則公告：可能已被撤回，或已超過保留期限。",
+    "ANNOUNCEMENT_EVENT_UNKNOWN": "這個觸發事件不存在或目前沒有啟用，請改選其他事件。"
   },
   "permission": {
     "resource": {

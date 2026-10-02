@@ -6,6 +6,16 @@ export interface AnnouncementDispatchJobData {
   runAt: string;
 }
 
+/** 事件點：事件的使用者、比對用的群組或角色、預定的時間（觸發時間＋延遲）。 */
+export interface AnnouncementEventDispatchJobData {
+  announcementId: string;
+  event: string;
+  userId: string;
+  runAt: string;
+  groupId?: string;
+  roleIds?: string[];
+}
+
 /** 一次發送的分批寫入；資料只放 id（工作資料不放內容，docs/architecture/backend/10-jobs.md §4）。 */
 export interface AnnouncementFanOutJobData {
   dispatchId: string;
@@ -45,5 +55,16 @@ export const ANNOUNCEMENT_MAINTENANCE_JOB = defineJob<Record<string, never>>(
     retryLimit: 3,
     retryDelaySeconds: 300,
     expireInSeconds: 30 * 60,
+  },
+);
+
+/** 事件點的發送（D12、D13）：比對受眾、建立一個人的發送紀錄並入列分批寫入；同一個人只會有一筆。 */
+export const ANNOUNCEMENT_EVENT_DISPATCH_JOB = defineJob<AnnouncementEventDispatchJobData>(
+  'announcement.eventDispatch',
+  {
+    scope: 'tenant',
+    retryLimit: 5,
+    retryDelaySeconds: 30,
+    expireInSeconds: 60,
   },
 );

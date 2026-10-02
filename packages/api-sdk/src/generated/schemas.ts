@@ -14,6 +14,7 @@ import type {
   AnnouncementRecurrencePreview,
   AnnouncementRecurrencePreviewRequest,
   AnnouncementTrigger,
+  AnnouncementTriggerEventList,
   ApiToken,
   ApiTokenList,
   ApprovalRequest,
@@ -453,7 +454,21 @@ export const AnnouncementTriggerSchema = z.union([
     endsOn: z.string().regex(new RegExp('^\\d{4}-\\d{2}-\\d{2}$')).nullable().optional(),
     maxOccurrences: z.int().min(1).max(10000).nullable().optional(),
   }),
+  z.object({
+    kind: z.enum(['event']),
+    event: z.string().min(1).max(100),
+    delayMinutes: z.int().min(0).max(43200),
+  }),
 ]) satisfies z.ZodType<AnnouncementTrigger>;
+
+export const AnnouncementTriggerEventListSchema = z.object({
+  items: z.array(
+    z.object({
+      event: z.string(),
+      scope: z.enum(['audience', 'group', 'role']),
+    }),
+  ),
+}) satisfies z.ZodType<AnnouncementTriggerEventList>;
 
 export const AnnouncementRecurrencePreviewRequestSchema = z.object({
   trigger: z.object({

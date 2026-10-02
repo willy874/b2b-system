@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
+import { getAnnouncementTriggerEventsQueryOptions } from '@/apis/announcement/get-announcement-trigger-events/query';
 import { getAnnouncementRecurrencePreviewQueryOptions } from '@/apis/announcement/preview-announcement-recurrence/query';
 import { Checkbox } from '@/components/Checkbox';
 import { DatePicker, formatDate } from '@/components/DatePicker';
@@ -14,6 +15,11 @@ import type { AnnouncementTrigger } from '@/shared/api-sdk';
 import { formatDateTime, getDateTimeDefaults, toZonedParts, zonedDateTime } from '@/shared/date';
 
 import {
+  ANNOUNCEMENT_EVENT_LABEL,
+  DELAY_UNIT_LABEL_KEY,
+  DELAY_UNIT_MINUTES,
+  DELAY_UNITS,
+  EVENT_MAX_DELAY_MINUTES,
   FREQUENCY_LABEL_KEY,
   RECURRENCE_FREQUENCIES,
   RECURRENCE_MAX_INTERVAL,
@@ -21,7 +27,7 @@ import {
   WEEKDAY_LABEL_KEY,
   WEEKDAY_ORDER,
 } from '../constants';
-import type { RecurrenceFrequency } from '../constants';
+import type { DelayUnit, RecurrenceFrequency } from '../constants';
 
 type TriggerKind = AnnouncementTrigger['kind'];
 type RecurringTrigger = Extract<AnnouncementTrigger, { kind: 'recurring' }>;
@@ -43,6 +49,10 @@ export interface TriggerDraft {
   startsOn: string;
   endsOn: string;
   maxOccurrences: number | null;
+  /** 事件點：觸發點與延遲（以 `delayUnit` 為單位）。 */
+  event: string;
+  delayValue: number;
+  delayUnit: DelayUnit;
 }
 
 export const EMPTY_TRIGGER_DRAFT: TriggerDraft = {
@@ -56,7 +66,21 @@ export const EMPTY_TRIGGER_DRAFT: TriggerDraft = {
   startsOn: '',
   endsOn: '',
   maxOccurrences: null,
+  event: '',
+  delayValue: 0,
+  delayUnit: 'days',
 };
+
+/** 分鐘 → 最大的整除單位（1440 → 1 天）。 */
+function toDelayParts(minutes: number): { delayValue: number; delayUnit: DelayUnit } {
+  if (minutes > 0 && minutes % DELAY_UNIT_MINUTES.days === 0) {
+    return { delayValue: minutes / DELAY_UNIT_MINUTES.days, delayUnit: 'days' };
+  }
+  if (minutes > 0 && minutes % DELAY_UNIT_MINUTES.hours === 0) {
+    return { delayValue: minutes / DELAY_UNIT_MINUTES.hours, delayUnit: 'hours' };
+  }
+  return { delayValue: minutes, delayUnit: minutes === 0 ? 'days' : 'minutes' };
+}
 
 export function toTriggerDraft(trigger: AnnouncementTrigger): TriggerDraft {
   switch (trigger.kind) {
@@ -83,6 +107,13 @@ export function toTriggerDraft(trigger: AnnouncementTrigger): TriggerDraft {
         startsOn: trigger.startsOn,
         endsOn: trigger.endsOn ?? '',
         maxOccurrences: trigger.maxOccurrences ?? null,
+      };
+    case 'event':
+      return {
+        ...EMPTY_TRIGGER_DRAFT,
+        kind: 'event',
+        event: trigger.event,
+        ...toDelayParts(trigger.delayMinutes),
       };
   }
 }
@@ -116,6 +147,12 @@ export function fromTriggerDraft(draft: TriggerDraft): AnnouncementTrigger | und
     }
     case 'recurring':
       return toRecurring(draft);
+    case 'event': {
+      const delayMinutes = draft.delayValue * DELAY_UNIT_MINUTES[draft.delayUnit];
+      if (!draft.event || delayMinutes < 0 || delayMinutes > EVENT_MAX_DELAY_MINUTES)
+        return undefined;
+      return { kind: 'event', event: draft.event, delayMinutes };
+    }
   }
 }
 
@@ -131,8 +168,8 @@ interface TriggerFieldProps {
 export function TriggerField({ value, onChange, allowImmediate, disabled }: TriggerFieldProps) {
   const { t } = useTranslation();
   const kinds: TriggerKind[] = allowImmediate
-    ? ['immediate', 'once', 'recurring']
-    : ['once', 'recurring'];
+    ? ['immediate', 'once', 'recurring', 'event']
+    : ['once', 'recurring', 'event'];
   const patch = (next: Partial<TriggerDraft>) => onChange({ ...value, ...next });
   const today = formatDate(dayjs());
 
@@ -168,6 +205,66 @@ export function TriggerField({ value, onChange, allowImmediate, disabled }: Trig
       {value.kind === 'recurring' && (
         <RecurrenceFields value={value} patch={patch} disabled={disabled} today={today} />
       )}
+      {value.kind === 'event' && <EventFields value={value} patch={patch} disabled={disabled} />}
+    </div>
+  );
+}
+
+interface EventFieldsProps {
+  value: TriggerDraft;
+  patch: (next: Partial<TriggerDraft>) => void;
+  disabled?: boolean;
+}
+
+/** 事件點（D12～D14）：選觸發點、延遲多久；說明受眾怎麼比對。 */
+function EventFields({ value, patch, disabled }: EventFieldsProps) {
+  const { t } = useTranslation();
+  const events = useQuery(getAnnouncementTriggerEventsQueryOptions());
+  const selected = events.data?.items.find((item) => item.event === value.event);
+  const label = selected && ANNOUNCEMENT_EVENT_LABEL[selected.event];
+  return (
+    <div className="flex flex-col gap-2" data-testid="announcement-event">
+      <div className="flex flex-wrap items-center gap-2">
+        <Select
+          className="w-64"
+          aria-label={t('announcement.event.label')}
+          placeholder={t('announcement.event.placeholder')}
+          options={(events.data?.items ?? []).map((item) => {
+            const known = ANNOUNCEMENT_EVENT_LABEL[item.event];
+            return { value: item.event, label: known ? t(known.nameKey) : item.event };
+          })}
+          value={value.event || null}
+          loading={events.isFetching}
+          disabled={disabled}
+          onValueChange={(event) => patch({ event })}
+          data-testid="announcement-event-select"
+        />
+        <span className="text-sm">{t('announcement.delay.after')}</span>
+        <NumberField
+          className="w-24"
+          value={value.delayValue}
+          min={0}
+          disabled={disabled}
+          onValueChange={(delayValue) => patch({ delayValue: delayValue ?? 0 })}
+          aria-label={t('announcement.delay.value')}
+        />
+        <Select
+          className="w-24"
+          aria-label={t('announcement.delay.unitLabel')}
+          options={DELAY_UNITS.map((unit) => ({
+            value: unit,
+            label: t(DELAY_UNIT_LABEL_KEY[unit]),
+          }))}
+          value={value.delayUnit}
+          disabled={disabled}
+          onValueChange={(delayUnit) => patch({ delayUnit })}
+          data-testid="announcement-delay-unit"
+        />
+      </div>
+      {label && (
+        <p className="m-0 text-xs text-[var(--color-fg-muted)]">{t(label.descriptionKey)}</p>
+      )}
+      <p className="m-0 text-xs text-[var(--color-fg-muted)]">{t('announcement.event.onceNote')}</p>
     </div>
   );
 }

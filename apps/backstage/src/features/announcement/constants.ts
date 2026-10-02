@@ -47,6 +47,7 @@ export const TRIGGER_KIND_LABEL_KEY = {
   immediate: 'announcement.trigger.immediate',
   once: 'announcement.trigger.once',
   recurring: 'announcement.trigger.recurring',
+  event: 'announcement.trigger.event',
 } as const satisfies Record<Announcement['trigger']['kind'], string>;
 
 /** 送出的確認句子：立即、指定時間、週期各一句。 */
@@ -54,6 +55,7 @@ export const PUBLISH_CONFIRM_KEY = {
   immediate: 'announcement.publish.confirmImmediate',
   once: 'announcement.publish.confirmScheduled',
   recurring: 'announcement.publish.confirmRecurring',
+  event: 'announcement.publish.confirmEvent',
 } as const satisfies Record<Announcement['trigger']['kind'], string>;
 
 type RecurringTrigger = Extract<Announcement['trigger'], { kind: 'recurring' }>;
@@ -114,3 +116,42 @@ export const ANNOUNCEMENT_BODY_MAX = 5000;
 
 /** 發送紀錄每頁幾筆。 */
 export const ANNOUNCEMENT_DISPATCH_PAGE_SIZE = 20;
+
+/** 一個觸發點在畫面上的名稱與說明。 */
+export interface AnnouncementEventLabel {
+  nameKey: string;
+  descriptionKey: string;
+}
+
+/**
+ * 觸發點的顯示文字（key 是後端的 `event`，docs/adr/0031-announcements.md D14）。後端新增了這裡沒有的觸發點時，
+ * 以 `event` 本身當名稱，照常可以選。
+ */
+export const ANNOUNCEMENT_EVENT_LABEL: Readonly<Partial<Record<string, AnnouncementEventLabel>>> = {
+  'user.activated': {
+    nameKey: 'announcement.event.userActivated.name',
+    descriptionKey: 'announcement.event.userActivated.description',
+  },
+  'user.roleAssigned': {
+    nameKey: 'announcement.event.userRoleAssigned.name',
+    descriptionKey: 'announcement.event.userRoleAssigned.description',
+  },
+  'group.memberAdded': {
+    nameKey: 'announcement.event.groupMemberAdded.name',
+    descriptionKey: 'announcement.event.groupMemberAdded.description',
+  },
+};
+
+/** 延遲的單位（分鐘數）；事件點存的是分鐘。 */
+export const DELAY_UNIT_MINUTES = { minutes: 1, hours: 60, days: 24 * 60 } as const;
+export type DelayUnit = keyof typeof DELAY_UNIT_MINUTES;
+export const DELAY_UNITS = ['minutes', 'hours', 'days'] as const satisfies readonly DelayUnit[];
+
+export const DELAY_UNIT_LABEL_KEY = {
+  minutes: 'announcement.delay.unit.minutes',
+  hours: 'announcement.delay.unit.hours',
+  days: 'announcement.delay.unit.days',
+} as const satisfies Record<DelayUnit, string>;
+
+/** 延遲的上限（與後端 `ANNOUNCEMENT_EVENT_MAX_DELAY_MINUTES` 一致）：30 天。 */
+export const EVENT_MAX_DELAY_MINUTES = 30 * 24 * 60;

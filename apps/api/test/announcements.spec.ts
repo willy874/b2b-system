@@ -5,6 +5,8 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { TENANT_DB, withTransaction } from '@/core/database';
+import type { Database } from '@/core/database';
 import {
   announcementDispatches,
   announcements,
@@ -20,6 +22,7 @@ import {
   users,
 } from '@/db/schema';
 import { AnnouncementDispatchService } from '@/modules/announcement/announcement-dispatch.service';
+import { UserService } from '@/modules/user/user.service';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
@@ -59,6 +62,7 @@ async function as(credentials: { email: string; password: string }) {
     get: (path: string) => request(http).get(path).set(auth),
     post: (path: string, body?: object) => request(http).post(path).set(auth).send(body),
     patch: (path: string, body: object) => request(http).patch(path).set(auth).send(body),
+    put: (path: string, body: object) => request(http).put(path).set(auth).send(body),
     delete: (path: string) => request(http).delete(path).set(auth),
   };
 }
@@ -81,6 +85,7 @@ interface AnnouncementBody {
 
 interface DispatchBody {
   id: string;
+  audience: { userIds: string[] };
   status: string;
   recipientCount: number | null;
   readCount: number;
@@ -139,7 +144,7 @@ function waitForDispatch(announcementId: string, status: string): Promise<Dispat
   );
 }
 
-describe('公告與排程通知（docs/adr/0031-announcements.md A2、A3）', () => {
+describe('公告與排程通知（docs/adr/0031-announcements.md A2～A4）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;
@@ -148,6 +153,8 @@ describe('公告與排程通知（docs/adr/0031-announcements.md A2、A3）', ()
     process.env.AUDIT_LOG_ARCHIVE_CRON = '';
     process.env.FILE_MAINTENANCE_CRON = '';
     process.env.AUTH_RATE_LIMIT = '1000';
+    // 等背景工作時會輪詢 API：不要被一般的速率限制擋下
+    process.env.DEFAULT_RATE_LIMIT = '100000';
 
     const created = createTestDatabase();
     db = created.db;
@@ -217,6 +224,7 @@ describe('公告與排程通知（docs/adr/0031-announcements.md A2、A3）', ()
       'AUDIT_LOG_ARCHIVE_CRON',
       'FILE_MAINTENANCE_CRON',
       'AUTH_RATE_LIMIT',
+      'DEFAULT_RATE_LIMIT',
     ]) {
       delete process.env[key];
     }
@@ -677,6 +685,143 @@ describe('公告與排程通知（docs/adr/0031-announcements.md A2、A3）', ()
     await root
       .patch('/system/settings', { values: { 'general.defaultTimezone': null } })
       .expect(200);
+  });
+
+  // ── 事件點（A4） ─────────────────────────────────────
+
+  it('可以訂的觸發點：使用者啟用、被指派角色、加入群組；不在目錄上的事件 → 400', async () => {
+    const root = await as(ROOT);
+    const listed = dataOf<{ items: Array<{ event: string; scope: string }> }>(
+      await root.get('/announcements/trigger-events').expect(200),
+    );
+    expect(listed.items).toEqual(
+      expect.arrayContaining([
+        { event: 'user.activated', scope: 'audience' },
+        { event: 'user.roleAssigned', scope: 'role' },
+        { event: 'group.memberAdded', scope: 'group' },
+      ]),
+    );
+    const response = await root
+      .post(
+        '/announcements',
+        draft({ trigger: { kind: 'event', event: 'nope.happened', delayMinutes: 0 } }),
+      )
+      .expect(400);
+    expect(errorOf(response)).toMatchObject({
+      code: 'ANNOUNCEMENT_EVENT_UNKNOWN',
+      details: { event: 'nope.happened' },
+    });
+  });
+
+  it('group.memberAdded：送出後排程中但沒有下一次；加入受眾裡的群組 → 只發給他、只發一次；加入其他群組不發', async () => {
+    const root = await as(ROOT);
+    const [welcome, other] = await db
+      .insert(groups)
+      .values([{ name: '公告-新人' }, { name: '公告-其他' }])
+      .returning();
+    const created = dataOf<AnnouncementBody>(
+      await root
+        .post(
+          '/announcements',
+          draft({
+            title: '歡迎加入',
+            audience: { groupIds: [welcome!.id] },
+            trigger: { kind: 'event', event: 'group.memberAdded', delayMinutes: 0 },
+          }),
+        )
+        .expect(201),
+    );
+    const scheduled = dataOf<AnnouncementBody>(
+      await root.post(`/announcements/${created.id}/publish`, { version: 1 }).expect(200),
+    );
+    expect(scheduled).toMatchObject({ status: 'scheduled', nextRunAt: null });
+
+    const addMember = (groupId: string, userId: string) =>
+      root
+        .patch(`/groups/${groupId}/members`, { add: [{ type: 'user', id: userId }], remove: [] })
+        .expect(200);
+    const removeMember = (groupId: string, userId: string) =>
+      root
+        .patch(`/groups/${groupId}/members`, { add: [], remove: [{ type: 'user', id: userId }] })
+        .expect(200);
+
+    await addMember(other!.id, ids.m1!);
+    await addMember(welcome!.id, ids.m3!);
+    const dispatch = await waitForDispatch(created.id, 'sent');
+    expect(dispatch.recipientCount).toBe(1);
+    const rows = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.sourceId, dispatch.id));
+    expect(rows.map((row) => row.recipientId)).toEqual([ids.m3]);
+
+    // 移出又加回：同一個人只發一次（D13）；等工作跑完
+    await removeMember(welcome!.id, ids.m3!);
+    await addMember(welcome!.id, ids.m3!);
+    await vi.waitFor(
+      async () => {
+        const jobs = dataOf<{ items: Array<{ state: string }> }>(
+          await root.get('/jobs?name=announcement.eventDispatch').expect(200),
+        ).items;
+        expect(jobs.length).toBeGreaterThanOrEqual(2);
+        expect(jobs.every((job) => job.state === 'completed')).toBe(true);
+      },
+      { timeout: 20_000, interval: 250 },
+    );
+    expect(await dispatchesOf(created.id)).toHaveLength(1);
+  });
+
+  it('user.roleAssigned：被指派受眾裡的角色才發；user.activated：建立就能登入的帳號在受眾裡就發', async () => {
+    const root = await as(ROOT);
+    const roleAnnouncement = dataOf<AnnouncementBody>(
+      await root
+        .post(
+          '/announcements',
+          draft({
+            title: '成為公告收件人',
+            audience: { roleIds: [ids.role] },
+            trigger: { kind: 'event', event: 'user.roleAssigned', delayMinutes: 0 },
+          }),
+        )
+        .expect(201),
+    );
+    await root.post(`/announcements/${roleAnnouncement.id}/publish`, { version: 1 }).expect(200);
+    await root
+      .put(`/users/${ids.m2}/roles`, { roleIds: [ids.role], expectedRoleIds: [] })
+      .expect(200);
+    const roleDispatch = await waitForDispatch(roleAnnouncement.id, 'sent');
+    expect(roleDispatch.audience).toMatchObject({ userIds: [ids.m2] });
+
+    const welcome = dataOf<AnnouncementBody>(
+      await root
+        .post(
+          '/announcements',
+          draft({
+            title: '新手指南',
+            audience: { all: true },
+            trigger: { kind: 'event', event: 'user.activated', delayMinutes: 0 },
+          }),
+        )
+        .expect(201),
+    );
+    await root.post(`/announcements/${welcome.id}/publish`, { version: 1 }).expect(200);
+    const tenantDb = app.get<Database>(TENANT_DB);
+    const newcomer = await inTestTenant(app, () =>
+      withTransaction(tenantDb, (tx) =>
+        app.get(UserService).createAccount(
+          {
+            email: 'an-newcomer@example.com',
+            displayName: '新人',
+            status: 'active',
+            roleIds: [],
+          },
+          null,
+          tx,
+        ),
+      ),
+    );
+    const welcomeDispatch = await waitForDispatch(welcome.id, 'sent');
+    expect(welcomeDispatch.audience).toMatchObject({ userIds: [newcomer.id] });
   });
 
   it('樂觀鎖：送出過時的 version → 409 ANNOUNCEMENT_VERSION_CONFLICT（details.current）', async () => {

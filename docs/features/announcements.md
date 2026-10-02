@@ -1,7 +1,7 @@
 # 公告與排程通知（站內通知的管理端）
 
 - 優先度：P2
-- 狀態：實作中（branch：`feat/announcements`；決定見 [ADR-0031](../adr/0031-announcements.md)，已採用；A1 通知總覽、A2 公告、A3 週期已完成）
+- 狀態：實作中（branch：`feat/announcements`；決定見 [ADR-0031](../adr/0031-announcements.md)，已採用；A1～A4 已完成，剩 A5 歸檔）
 - 依賴：站內通知（已完成，[`backend/15-notification.md`](../architecture/backend/15-notification.md)）、事件管理（已完成，[`backend/16-notification-event.md`](../architecture/backend/16-notification-event.md)）、
   背景工作（已完成，[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)）、群組（已完成，[`rbac/08-groups.md`](../rbac/08-groups.md)）、
   可關閉的 feature（已完成，[ADR-0029](../adr/0029-toggleable-platform-features.md)）

@@ -8,6 +8,7 @@ import { JobQueue } from '@/core/jobs';
 import { AnnouncementDispatchService } from './announcement-dispatch.service';
 import {
   ANNOUNCEMENT_DISPATCH_JOB,
+  ANNOUNCEMENT_EVENT_DISPATCH_JOB,
   ANNOUNCEMENT_FAN_OUT_JOB,
   ANNOUNCEMENT_MAINTENANCE_JOB,
 } from './announcement.job-types';
@@ -26,6 +27,7 @@ export class AnnouncementJobs implements OnModuleInit {
 
   onModuleInit(): void {
     this.jobs.register(ANNOUNCEMENT_DISPATCH_JOB, (data) => this.dispatches.runScheduled(data));
+    this.jobs.register(ANNOUNCEMENT_EVENT_DISPATCH_JOB, (data) => this.dispatches.runEvent(data));
     this.jobs.register(ANNOUNCEMENT_FAN_OUT_JOB, (data) => this.dispatches.fanOut(data));
     this.jobs.register(ANNOUNCEMENT_MAINTENANCE_JOB, () => this.dispatches.maintain(), {
       cron: this.config.get('ANNOUNCEMENT_MAINTENANCE_CRON', { infer: true }),

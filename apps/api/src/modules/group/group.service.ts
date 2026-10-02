@@ -15,6 +15,7 @@ import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
 import { RESOURCE_TYPE } from '@/core/resource';
 import type { GroupMemberSubject, GroupRow } from '@/db/schema';
+import { AnnouncementTriggerService } from '@/modules/announcement/announcement-trigger.service';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
@@ -29,6 +30,7 @@ import type {
   UpdateGroupMembersDto,
   UpdateGroupRolesDto,
 } from './dto/update-group.dto';
+import { GROUP_MEMBER_ADDED_TRIGGER } from './group.announcement-triggers';
 import { GROUP_AUDIT_FIELDS } from './group.constants';
 import type { GroupWithCounts } from './group.repository';
 import { GroupRepository } from './group.repository';
@@ -78,6 +80,7 @@ export class GroupService {
     private readonly permissionService: PermissionService,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
+    private readonly announcementTriggers: AnnouncementTriggerService,
   ) {}
 
   async list(query: ListGroupDto) {
@@ -289,6 +292,11 @@ export class GroupService {
             changes: { before: { members: beforeRefs }, after: { members: afterRefs } },
             metadata: { added: add },
           },
+          tx,
+        );
+        await this.announcementTriggers.fire(
+          GROUP_MEMBER_ADDED_TRIGGER,
+          { userIds: idsOf(add, 'user'), groupId: id },
           tx,
         );
       }

@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 
+import { AnnouncementTriggerCatalog } from '@/modules/announcement/announcement-trigger.catalog';
+import { AnnouncementModule } from '@/modules/announcement/announcement.module';
 import { ApprovalModule } from '@/modules/approval/approval.module';
 import { CredentialModule } from '@/modules/credential/credential.module';
 import { IdentityProviderModule } from '@/modules/identity-provider/identity-provider.module';
@@ -15,6 +17,7 @@ import { UserExternalService } from './external/user.external.service';
 import { UserRegistrationApprovalHandler } from './user-registration.approval';
 import { UserTagResource } from './user-tag.resource';
 import { UserTrashHandler } from './user-trash.handler';
+import { USER_ANNOUNCEMENT_TRIGGERS } from './user.announcement-triggers';
 import { UserController } from './user.controller';
 import { USER_NOTIFICATIONS } from './user.notifications';
 import { UserRepository } from './user.repository';
@@ -30,6 +33,7 @@ import { USER_WEBHOOK_EVENTS } from './user.webhooks';
     NotificationModule,
     WebhookModule,
     TagModule,
+    AnnouncementModule,
   ],
   // 對外 API 的 controller 也在這裡，另一邊由 SurfaceGuard 回 404（docs/adr/0027-api-tokens-external-api.md D11）
   controllers: [UserController, UserExternalController],
@@ -44,8 +48,13 @@ import { USER_WEBHOOK_EVENTS } from './user.webhooks';
   exports: [UserService],
 })
 export class UserModule {
-  constructor(notificationEvents: NotificationEventCatalog, webhookEvents: WebhookEventCatalog) {
+  constructor(
+    notificationEvents: NotificationEventCatalog,
+    webhookEvents: WebhookEventCatalog,
+    announcementTriggers: AnnouncementTriggerCatalog,
+  ) {
     notificationEvents.register(USER_NOTIFICATIONS);
     webhookEvents.register(USER_WEBHOOK_EVENTS);
+    announcementTriggers.register(USER_ANNOUNCEMENT_TRIGGERS);
   }
 }

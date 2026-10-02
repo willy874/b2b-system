@@ -2,6 +2,8 @@ import type { Announcement } from '@/shared/api-sdk';
 import { formatDateTime } from '@/shared/date';
 
 import {
+  ANNOUNCEMENT_EVENT_LABEL,
+  DELAY_UNIT_LABEL_KEY,
   RECURRENCE_SUMMARY_KEY,
   TRIGGER_KIND_LABEL_KEY,
   WEEKDAY_LABEL_KEY,
@@ -38,6 +40,18 @@ export function describeTrigger(
             ? t('announcement.recurrence.lastDay')
             : t('announcement.recurrence.dayOfMonth', { day: trigger.monthDay ?? 1 }),
       });
+    }
+    case 'event': {
+      const known = ANNOUNCEMENT_EVENT_LABEL[trigger.event];
+      const event = known ? t(known.nameKey) : trigger.event;
+      if (trigger.delayMinutes === 0) return t('announcement.delay.summaryImmediate', { event });
+      const unit =
+        trigger.delayMinutes % (24 * 60) === 0
+          ? { value: trigger.delayMinutes / (24 * 60), key: DELAY_UNIT_LABEL_KEY.days }
+          : trigger.delayMinutes % 60 === 0
+            ? { value: trigger.delayMinutes / 60, key: DELAY_UNIT_LABEL_KEY.hours }
+            : { value: trigger.delayMinutes, key: DELAY_UNIT_LABEL_KEY.minutes };
+      return t('announcement.delay.summary', { event, value: unit.value, unit: t(unit.key) });
     }
   }
 }

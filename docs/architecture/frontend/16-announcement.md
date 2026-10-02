@@ -1,6 +1,6 @@
 # 前端 16 — 公告
 
-> 狀態：**已實作 A2、A3**（`features/announcement`：列表、建立、詳情與發送紀錄、收件人看全文、回收桶分頁）。
+> 狀態：**已實作 A2～A4**（`features/announcement`：列表、建立、詳情與發送紀錄、收件人看全文、回收桶分頁）。
 > 後端見 [`../backend/19-announcement.md`](../backend/19-announcement.md)；決策見 [ADR-0031](../../adr/0031-announcements.md)。
 > 通知總覽（`/notification/all`）屬於 `features/notification`，見 [`15-notification.md`](./15-notification.md) §4.1。
 
@@ -18,7 +18,7 @@ features/announcement/                 可啟用的 feature（`announcement`，a
 ├── components/
 │   ├── AnnouncementForm.tsx           標題、內文、受眾、發送時間（建立與編輯共用）
 │   ├── AudiencePicker.tsx             全租戶開關、使用者（伺服器端搜尋）／群組／角色多選、預覽人數
-│   ├── TriggerField.tsx               立即／指定時間（偏好時區的日期 ＋ 時間）／週期（租戶時區；接下來 5 次的預覽）
+│   ├── TriggerField.tsx               立即／指定時間（偏好時區的日期 ＋ 時間）／週期（租戶時區；接下來 5 次的預覽）／事件點（觸發點 ＋ 延遲）
 │   ├── triggerSummary.ts              觸發方式的一行摘要（列表、詳情、送出的確認）
 │   ├── draft.ts                       表單草稿 ⇄ API
 │   └── AnnouncementRestoreAction.tsx  回收桶的還原按鈕
@@ -51,6 +51,8 @@ shared/date                            zonedDateTime()、toZonedParts()：偏好
 - 指定時間以使用者偏好的時區輸入並標示時區；送出前換成 ISO。已送出的公告不能改成「立即」。
 - 週期：每 N 天／週／月、時間、星期幾（週）、每月哪一天（1～28 或最後一天）、開始與結束日期、最多次數。日期與時間是 **租戶時區**
   的日曆，原樣送出；下方顯示伺服器算的「接下來 5 次」與它用的時區（`POST /announcements/recurrence-preview`，前端不自己算）。
+- 事件點：從 `GET /announcements/trigger-events` 選觸發點（名稱與說明在 `ANNOUNCEMENT_EVENT_LABEL`；不認得的以 `event` 原樣顯示），
+  延遲以分鐘、小時、天輸入（存成分鐘，最多 30 天）；帶回表單時換成最大的整除單位。說明每個人只會收到一次。
 - 摘要的句子依頻率與「間隔是不是 1」挑 key（`RECURRENCE_SUMMARY_KEY`），不用 i18next 的複數：中文只有 `other`，「每天」會變成「每 1 天」。
 - 版本衝突：`VersionConflictAlert` 提供重新載入，輸入保留。
 
@@ -68,8 +70,8 @@ shared/date                            zonedDateTime()、toZonedParts()：偏好
 | 對象 | 檔案 |
 | --- | --- |
 | 權限 facade（auditor、能寫不能發、publish、沒有 read） | `hooks/__tests__/useAnnouncementPermission.test.tsx` |
-| 草稿 ⇄ API（空白、缺日期、時區換算、週期的欄位） | `components/__tests__/draft.test.ts` |
-| 觸發方式的摘要（立即、每天、每 2 週的星期幾、每月最後一天） | `components/__tests__/triggerSummary.test.ts` |
+| 草稿 ⇄ API（空白、缺日期、時區換算、週期的欄位、事件點的延遲換算） | `components/__tests__/draft.test.ts` |
+| 觸發方式的摘要（立即、每天、每 2 週的星期幾、每月最後一天、事件點的立即與延遲） | `components/__tests__/triggerSummary.test.ts` |
 | 列表：三個權限案例、已讀率、全文頁不受權限管制 | `pages/AnnouncementList/__tests__/*` |
 | 建立：預覽人數、存成草稿後開啟詳情 | `pages/AnnouncementCreate/__tests__/*` |
 | 詳情：各狀態與權限的按鈕、送出與暫停帶 version、撤回、未水合 | `pages/AnnouncementDetail/__tests__/*` |

@@ -391,6 +391,27 @@ export class AnnouncementRepository {
       );
   }
 
+  /** 訂了這個觸發點、排程中的公告（事件發生時，在擁有者的交易內；走 `announcements_event_idx`）。 */
+  async findScheduledByEvent(
+    event: string,
+    tx: DbOrTx,
+  ): Promise<Array<{ id: string; delayMinutes: number }>> {
+    const rows = await tx
+      .select({ id: announcements.id, trigger: announcements.trigger })
+      .from(announcements)
+      .where(
+        and(
+          eq(announcements.status, 'scheduled'),
+          isActiveAnnouncement(),
+          sql`${announcements.trigger}->>'kind' = 'event'`,
+          sql`(${announcements.trigger}->>'event') = ${event}`,
+        ),
+      );
+    return rows.flatMap((row) =>
+      row.trigger.kind === 'event' ? [{ id: row.id, delayMinutes: row.trigger.delayMinutes }] : [],
+    );
+  }
+
   /** 這則公告已經發過幾次（週期的次數上限；撤回的也算一次）。 */
   async countDispatches(announcementId: string, tx?: DbOrTx): Promise<number> {
     const [row] = await (tx ?? this.db)

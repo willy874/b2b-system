@@ -6,6 +6,7 @@ import { ANNOUNCEMENT_DISPATCH_STATUSES, ANNOUNCEMENT_STATUSES } from '@/db/sche
 
 import {
   ANNOUNCEMENT_AUDIENCE_MAX_PER_KIND,
+  ANNOUNCEMENT_EVENT_MAX_DELAY_MINUTES,
   ANNOUNCEMENT_RECURRENCE_MAX_INTERVAL,
   ANNOUNCEMENT_BODY_MAX,
   ANNOUNCEMENT_TITLE_MAX,
@@ -71,8 +72,15 @@ const RecurringTriggerSchema = z
     }
   });
 
+/** 事件點（D12）：觸發點目錄上的事件；延遲 0～30 天（分鐘）。 */
+const EventTriggerSchema = z.object({
+  kind: z.literal('event'),
+  event: z.string().trim().min(1).max(100),
+  delayMinutes: z.number().int().min(0).max(ANNOUNCEMENT_EVENT_MAX_DELAY_MINUTES),
+});
+
 /**
- * 觸發方式（D7）：立即、指定時間、週期。事件點（A4）之後加入同一個 union。
+ * 觸發方式（D7）：立即、指定時間、週期、事件點。
  * `once.at` 是 ISO 8601（帶時區）；送出時必須在未來。
  */
 export const AnnouncementTriggerSchema = defineSchema(
@@ -81,7 +89,22 @@ export const AnnouncementTriggerSchema = defineSchema(
     z.object({ kind: z.literal('immediate') }),
     z.object({ kind: z.literal('once'), at: z.string().datetime({ offset: true }) }),
     RecurringTriggerSchema,
+    EventTriggerSchema,
   ]),
+);
+
+/** 可以訂的觸發點（`GET /announcements/trigger-events`）。 */
+export const AnnouncementTriggerEventListSchema = defineSchema(
+  'AnnouncementTriggerEventList',
+  z.object({
+    items: z.array(
+      z.object({
+        event: z.string(),
+        /** 比對方式：`audience`（使用者在受眾裡）、`group`（加入的群組在受眾裡）、`role`（指派的角色在受眾裡）。 */
+        scope: z.enum(['audience', 'group', 'role']),
+      }),
+    ),
+  }),
 );
 
 /** `POST /announcements/recurrence-preview`：週期 → 接下來幾次（租戶時區）。 */

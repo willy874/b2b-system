@@ -7,10 +7,11 @@ import { DomainEvent, DomainEventBus } from '@/core/events';
 import { JobQueue } from '@/core/jobs';
 import { SettingService } from '@/core/settings';
 import { requireTenant } from '@/core/tenant';
-import type { AnnouncementDispatchRow } from '@/db/schema';
+import type { AnnouncementAudienceValue, AnnouncementDispatchRow } from '@/db/schema';
 import { notification } from '@/modules/notification/notification.definition';
 import { NotificationService } from '@/modules/notification/notification.service';
 
+import { AnnouncementTriggerCatalog } from './announcement-trigger.catalog';
 import { AnnouncementAudienceResolver } from './announcement.audience';
 import {
   ANNOUNCEMENT_FAN_OUT_BATCH_SIZE,
@@ -19,6 +20,7 @@ import {
 import { ANNOUNCEMENT_FAN_OUT_JOB } from './announcement.job-types';
 import type {
   AnnouncementDispatchJobData,
+  AnnouncementEventDispatchJobData,
   AnnouncementFanOutJobData,
 } from './announcement.job-types';
 import {
@@ -31,6 +33,7 @@ import {
   ANNOUNCEMENT_DISPATCH_RETENTION_DAYS_SETTING,
   ANNOUNCEMENT_MAX_RECIPIENTS_SETTING,
 } from './announcement.settings';
+import type { AnnouncementTriggerScope } from './announcement.triggers';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** 保留清理一批刪幾筆：一批一條 DELETE（各自提交）。 */
@@ -52,6 +55,7 @@ export type FanOutReport =
  *
  * - `runScheduled`：排程時間到的延遲工作。只在公告仍是 `scheduled`、`next_run_at` 等於工作上的時間時建立發送；
  *   編輯、暫停、刪除過的公告，舊工作在這裡自然變成 no-op（不必去佇列取消）。週期的算出下一次並入列，沒有了就完成。
+ * - `runEvent`：事件點的發送（一個人一筆）。
  * - `maintain`：每日維護（補排程、發送紀錄的保留清理）。
  * - `fanOut`：解析受眾、每 500 人一個交易呼叫 `notify()`。每一批都鎖住發送紀錄並確認沒有被撤回；
  *   重做時 `notifications(source_id, recipient_id)` 的唯一索引略過已寫的人。
@@ -68,6 +72,7 @@ export class AnnouncementDispatchService {
     private readonly settings: SettingService,
     private readonly jobs: JobQueue,
     private readonly scheduler: AnnouncementScheduler,
+    private readonly triggers: AnnouncementTriggerCatalog,
     private readonly events: DomainEventBus,
   ) {}
 
@@ -152,7 +157,8 @@ export class AnnouncementDispatchService {
   ): Promise<'unchanged' | 'requeued' | 'rescheduled'> {
     const outcome = await withTransaction(this.db, async (tx) => {
       const row = await this.repo.lockActive(id, tx);
-      if (row?.status !== 'scheduled') return 'unchanged' as const;
+      // 事件點沒有時間表：只在事件發生時入列
+      if (row?.status !== 'scheduled' || row.trigger.kind === 'event') return 'unchanged' as const;
       const stored = row.nextRunAt;
       // 指定時間只有一次：已經過了也照存的時間補發（延遲工作遺失）；週期依目前的時區重算
       const expected =
@@ -180,6 +186,65 @@ export class AnnouncementDispatchService {
     });
     if (outcome === 'rescheduled') this.publish(id);
     return outcome;
+  }
+
+  /**
+   * 事件點的發送（D12、D13）：公告仍是排程中、還訂著這個觸發點，而且事件的使用者在受眾裡（依觸發點的比對方式）時，
+   * 建立只發給他的發送紀錄並入列分批寫入。同一則公告對同一個人只有一筆（唯一索引），事件重複發生不會重發。
+   */
+  async runEvent(
+    data: AnnouncementEventDispatchJobData,
+  ): Promise<{ skipped: string } | { dispatchId: string }> {
+    if (!isFeatureEnabled()) return { skipped: 'featureDisabled' };
+    const definition = this.triggers.find(data.event);
+    if (!definition) return { skipped: 'unknownEvent' };
+    const dispatch = await withTransaction(this.db, async (tx) => {
+      const row = await this.repo.lockActive(data.announcementId, tx);
+      if (
+        row?.status !== 'scheduled' ||
+        row.trigger.kind !== 'event' ||
+        row.trigger.event !== data.event
+      ) {
+        return 'stale' as const;
+      }
+      if (!(await this.matches(definition.scope, row.audience, data)))
+        return 'notInAudience' as const;
+      const created = await this.repo.insertDispatch(
+        {
+          announcementId: row.id,
+          scheduledFor: new Date(data.runAt),
+          title: row.title,
+          body: row.body,
+          audience: { all: false, userIds: [data.userId], groupIds: [], roleIds: [] },
+          triggerSubjectId: data.userId,
+          createdBy: row.updatedBy,
+        },
+        tx,
+      );
+      if (!created) return 'alreadySent' as const;
+      await this.jobs.enqueue(ANNOUNCEMENT_FAN_OUT_JOB, { dispatchId: created.id }, { tx });
+      return created;
+    });
+    if (typeof dispatch === 'string') return { skipped: dispatch };
+    this.publish(data.announcementId);
+    return { dispatchId: dispatch.id };
+  }
+
+  /** 事件的使用者在不在公告的受眾裡（D13、D14）。 */
+  private async matches(
+    scope: AnnouncementTriggerScope,
+    audience: AnnouncementAudienceValue,
+    data: AnnouncementEventDispatchJobData,
+  ): Promise<boolean> {
+    if (audience.all) return true;
+    switch (scope) {
+      case 'group':
+        return data.groupId !== undefined && audience.groupIds.includes(data.groupId);
+      case 'role':
+        return (data.roleIds ?? []).some((roleId) => audience.roleIds.includes(roleId));
+      case 'audience':
+        return (await this.audience.resolve(audience)).userIds.includes(data.userId);
+    }
   }
 
   async fanOut(data: AnnouncementFanOutJobData): Promise<FanOutReport> {

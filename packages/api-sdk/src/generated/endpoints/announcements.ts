@@ -12,6 +12,7 @@ import type {
   AnnouncementMessage,
   AnnouncementRecurrencePreview,
   AnnouncementRecurrencePreviewRequest,
+  AnnouncementTriggerEventList,
   CreateAnnouncementRequest,
   UpdateAnnouncementRequest,
 } from '../models';
@@ -31,6 +32,7 @@ import {
   AnnouncementRecurrencePreviewRequestSchema,
   AnnouncementRecurrencePreviewSchema,
   AnnouncementSchema,
+  AnnouncementTriggerEventListSchema,
   CreateAnnouncementRequestSchema,
   UpdateAnnouncementRequestSchema,
 } from '../schemas';
@@ -203,6 +205,53 @@ export function announcementControllerPreviewAudience(
   return request<AnnouncementControllerPreviewAudienceResult>(
     announcementControllerPreviewAudienceOperation,
     input,
+    options,
+  );
+}
+
+// GET /announcements/trigger-events
+
+export interface AnnouncementControllerListTriggerEventsResponses {
+  200: {
+    data: AnnouncementTriggerEventList;
+  };
+}
+
+export type AnnouncementControllerListTriggerEventsResponse =
+  AnnouncementControllerListTriggerEventsResponses[200];
+
+export type AnnouncementControllerListTriggerEventsResult = ApiResponse<
+  200,
+  AnnouncementControllerListTriggerEventsResponses[200]
+>;
+
+export const AnnouncementControllerListTriggerEventsSchemas = {
+  responses: {
+    200: z.object({
+      data: AnnouncementTriggerEventListSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getAnnouncementControllerListTriggerEventsUrl(): string {
+  return buildUrl('/announcements/trigger-events');
+}
+
+const announcementControllerListTriggerEventsOperation: OperationDefinition = {
+  id: 'AnnouncementController_listTriggerEvents',
+  method: 'GET',
+  path: '/announcements/trigger-events',
+  responseTypes: { 200: 'json' },
+  schemas: AnnouncementControllerListTriggerEventsSchemas,
+};
+
+/** 可以訂的觸發點（事件點；所屬 feature 已啟用） */
+export function announcementControllerListTriggerEvents(
+  options?: RequestOptions,
+): Promise<AnnouncementControllerListTriggerEventsResult> {
+  return request<AnnouncementControllerListTriggerEventsResult>(
+    announcementControllerListTriggerEventsOperation,
+    {},
     options,
   );
 }

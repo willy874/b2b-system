@@ -162,7 +162,19 @@ export type AnnouncementTrigger =
       startsOn: string;
       endsOn?: string | null;
       maxOccurrences?: number | null;
+    }
+  | {
+      kind: 'event';
+      event: string;
+      delayMinutes: number;
     };
+
+export interface AnnouncementTriggerEventList {
+  items: Array<{
+    event: string;
+    scope: 'audience' | 'group' | 'role';
+  }>;
+}
 
 export interface AnnouncementRecurrencePreviewRequest {
   trigger: {

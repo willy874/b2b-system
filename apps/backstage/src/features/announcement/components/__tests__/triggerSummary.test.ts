@@ -29,4 +29,20 @@ describe('describeTrigger（觸發方式的摘要）', () => {
       describeTrigger(t, 'zh-TW', { ...base, frequency: 'monthly', interval: 1, monthDay: 'last' }),
     ).toBe('每月最後一天 09:00');
   });
+
+  it('事件點：立即或延遲多久；不認得的事件以名稱原樣顯示', () => {
+    expect(
+      describeTrigger(t, 'zh-TW', { kind: 'event', event: 'user.activated', delayMinutes: 0 }),
+    ).toBe('帳號啟用時');
+    expect(
+      describeTrigger(t, 'zh-TW', {
+        kind: 'event',
+        event: 'group.memberAdded',
+        delayMinutes: 1440,
+      }),
+    ).toBe('加入群組後 1 天');
+    expect(
+      describeTrigger(t, 'zh-TW', { kind: 'event', event: 'future.thing', delayMinutes: 90 }),
+    ).toBe('future.thing後 90 分鐘');
+  });
 });

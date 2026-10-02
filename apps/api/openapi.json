@@ -2547,6 +2547,591 @@
         "tags": ["tags"]
       }
     },
+    "/announcements": {
+      "get": {
+        "operationId": "AnnouncementController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Announcement"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["announcements"]
+      },
+      "post": {
+        "operationId": "AnnouncementController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAnnouncementRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Announcement"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "建立草稿",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/audience-preview": {
+      "post": {
+        "operationId": "AnnouncementController_previewAudience",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementAudience"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AnnouncementAudiencePreview"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "受眾現在會解析成幾個人（不回名單）",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/trigger-events": {
+      "get": {
+        "operationId": "AnnouncementController_listTriggerEvents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AnnouncementTriggerEventList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "可以訂的觸發點（事件點；所屬 feature 已啟用）",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/recurrence-preview": {
+      "post": {
+        "operationId": "AnnouncementController_previewRecurrence",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementRecurrencePreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AnnouncementRecurrencePreview"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "週期接下來的發送時間（最多 5 次，依租戶時區）",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/{id}": {
+      "get": {
+        "operationId": "AnnouncementController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Announcement"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["announcements"]
+      },
+      "patch": {
+        "operationId": "AnnouncementController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAnnouncementRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Announcement"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "修改標題、內文、受眾、時間；只影響之後的發送",
+        "tags": ["announcements"]
+      },
+      "delete": {
+        "operationId": "AnnouncementController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "刪除（進回收桶）；排程中的改成暫停",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/{id}/restore": {
+      "post": {
+        "operationId": "AnnouncementController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Announcement"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "還原刪除的公告（排程中的會是暫停，不會自己開始發）",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/{id}/publish": {
+      "post": {
+        "operationId": "AnnouncementController_publish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Announcement"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "送出草稿：立即發送，或在指定的時間發送",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/{id}/pause": {
+      "post": {
+        "operationId": "AnnouncementController_pause",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Announcement"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "暫停排程",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/{id}/resume": {
+      "post": {
+        "operationId": "AnnouncementController_resume",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Announcement"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "恢復排程（指定的時間已經過去時不能恢復）",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/{id}/dispatches": {
+      "get": {
+        "operationId": "AnnouncementController_listDispatches",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AnnouncementDispatch"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "發送紀錄（新的在前；人數、已讀數、狀態）",
+        "tags": ["announcements"]
+      }
+    },
+    "/announcements/{id}/dispatches/{dispatchId}/revoke": {
+      "post": {
+        "operationId": "AnnouncementController_revoke",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dispatchId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AnnouncementDispatch"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "撤回一次發送：刪除它的所有通知，發送紀錄保留",
+        "tags": ["announcements"]
+      }
+    },
+    "/me/announcement-messages/{dispatchId}": {
+      "get": {
+        "operationId": "AnnouncementMessageController_read",
+        "parameters": [
+          {
+            "name": "dispatchId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AnnouncementMessage"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "自己收到的公告全文；同時把那則通知標為已讀",
+        "tags": ["announcements"]
+      }
+    },
     "/roles": {
       "get": {
         "operationId": "RoleController_list",
@@ -3964,565 +4549,6 @@
         },
         "summary": "撤銷它的一把 API token",
         "tags": ["service-accounts"]
-      }
-    },
-    "/announcements": {
-      "get": {
-        "operationId": "AnnouncementController_list",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "required": ["items", "pagination"],
-                      "properties": {
-                        "items": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Announcement"
-                          }
-                        },
-                        "pagination": {
-                          "type": "object",
-                          "required": ["offset", "limit", "total"],
-                          "properties": {
-                            "offset": {
-                              "type": "integer"
-                            },
-                            "limit": {
-                              "type": "integer"
-                            },
-                            "total": {
-                              "type": "integer"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": ["announcements"]
-      },
-      "post": {
-        "operationId": "AnnouncementController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateAnnouncementRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Announcement"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "建立草稿",
-        "tags": ["announcements"]
-      }
-    },
-    "/announcements/audience-preview": {
-      "post": {
-        "operationId": "AnnouncementController_previewAudience",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AnnouncementAudience"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/AnnouncementAudiencePreview"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "受眾現在會解析成幾個人（不回名單）",
-        "tags": ["announcements"]
-      }
-    },
-    "/announcements/recurrence-preview": {
-      "post": {
-        "operationId": "AnnouncementController_previewRecurrence",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AnnouncementRecurrencePreviewRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/AnnouncementRecurrencePreview"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "週期接下來的發送時間（最多 5 次，依租戶時區）",
-        "tags": ["announcements"]
-      }
-    },
-    "/announcements/{id}": {
-      "get": {
-        "operationId": "AnnouncementController_findOne",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Announcement"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": ["announcements"]
-      },
-      "patch": {
-        "operationId": "AnnouncementController_update",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateAnnouncementRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Announcement"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "修改標題、內文、受眾、時間；只影響之後的發送",
-        "tags": ["announcements"]
-      },
-      "delete": {
-        "operationId": "AnnouncementController_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "summary": "刪除（進回收桶）；排程中的改成暫停",
-        "tags": ["announcements"]
-      }
-    },
-    "/announcements/{id}/restore": {
-      "post": {
-        "operationId": "AnnouncementController_restore",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Announcement"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "還原刪除的公告（排程中的會是暫停，不會自己開始發）",
-        "tags": ["announcements"]
-      }
-    },
-    "/announcements/{id}/publish": {
-      "post": {
-        "operationId": "AnnouncementController_publish",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AnnouncementActionRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Announcement"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "送出草稿：立即發送，或在指定的時間發送",
-        "tags": ["announcements"]
-      }
-    },
-    "/announcements/{id}/pause": {
-      "post": {
-        "operationId": "AnnouncementController_pause",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AnnouncementActionRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Announcement"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "暫停排程",
-        "tags": ["announcements"]
-      }
-    },
-    "/announcements/{id}/resume": {
-      "post": {
-        "operationId": "AnnouncementController_resume",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AnnouncementActionRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Announcement"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "恢復排程（指定的時間已經過去時不能恢復）",
-        "tags": ["announcements"]
-      }
-    },
-    "/announcements/{id}/dispatches": {
-      "get": {
-        "operationId": "AnnouncementController_listDispatches",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "required": ["items", "pagination"],
-                      "properties": {
-                        "items": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/AnnouncementDispatch"
-                          }
-                        },
-                        "pagination": {
-                          "type": "object",
-                          "required": ["offset", "limit", "total"],
-                          "properties": {
-                            "offset": {
-                              "type": "integer"
-                            },
-                            "limit": {
-                              "type": "integer"
-                            },
-                            "total": {
-                              "type": "integer"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "發送紀錄（新的在前；人數、已讀數、狀態）",
-        "tags": ["announcements"]
-      }
-    },
-    "/announcements/{id}/dispatches/{dispatchId}/revoke": {
-      "post": {
-        "operationId": "AnnouncementController_revoke",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "dispatchId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/AnnouncementDispatch"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "撤回一次發送：刪除它的所有通知，發送紀錄保留",
-        "tags": ["announcements"]
-      }
-    },
-    "/me/announcement-messages/{dispatchId}": {
-      "get": {
-        "operationId": "AnnouncementMessageController_read",
-        "parameters": [
-          {
-            "name": "dispatchId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/AnnouncementMessage"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "自己收到的公告全文；同時把那則通知標為已讀",
-        "tags": ["announcements"]
       }
     },
     "/users/{id}/permission-sources": {
@@ -6999,8 +7025,53 @@
             },
             "required": ["kind", "frequency", "interval", "time", "startsOn"],
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["event"]
+              },
+              "event": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "delayMinutes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 43200
+              }
+            },
+            "required": ["kind", "event", "delayMinutes"],
+            "additionalProperties": false
           }
         ]
+      },
+      "AnnouncementTriggerEventList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "event": {
+                  "type": "string"
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": ["audience", "group", "role"]
+                }
+              },
+              "required": ["event", "scope"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
       },
       "AnnouncementRecurrencePreviewRequest": {
         "type": "object",

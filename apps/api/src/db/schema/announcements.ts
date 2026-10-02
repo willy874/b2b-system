@@ -47,12 +47,21 @@ export interface AnnouncementRecurringTrigger {
 }
 
 /**
- * 觸發方式（D7）。事件點（`event`）由 A4 加入；欄位是 jsonb，加入新的種類不必改表。
+ * 事件點（D12～D14）：擁有者模組登記的觸發點（`AnnouncementTriggerCatalog`）發生時，對那個事件的使用者發送，
+ * 可延遲（分鐘）。同一則公告對同一個人只發一次。
  */
+export interface AnnouncementEventTrigger {
+  kind: 'event';
+  event: string;
+  delayMinutes: number;
+}
+
+/** 觸發方式（D7）；欄位是 jsonb，加入新的種類不必改表。 */
 export type AnnouncementTriggerValue =
   | { kind: 'immediate' }
   | { kind: 'once'; at: string }
-  | AnnouncementRecurringTrigger;
+  | AnnouncementRecurringTrigger
+  | AnnouncementEventTrigger;
 
 export const ANNOUNCEMENT_STATUSES = ['draft', 'scheduled', 'paused', 'completed'] as const;
 export type AnnouncementStatus = (typeof ANNOUNCEMENT_STATUSES)[number];
@@ -98,6 +107,12 @@ export const announcements = pgTable(
     index('announcements_next_run_idx')
       .on(t.nextRunAt)
       .where(sql`${t.status} = 'scheduled' AND ${t.deletedAt} IS NULL`),
+    // 事件發生時找「訂了這個觸發點、排程中」的公告（在擁有者的業務交易內，要快）
+    index('announcements_event_idx')
+      .on(sql`(${t.trigger}->>'event')`)
+      .where(
+        sql`${t.status} = 'scheduled' AND ${t.deletedAt} IS NULL AND ${t.trigger}->>'kind' = 'event'`,
+      ),
   ],
 );
 
@@ -118,6 +133,8 @@ export const announcementDispatches = pgTable(
     body: text('body').notNull(),
     audience: jsonb('audience').$type<AnnouncementAudienceValue>().notNull(),
     status: text('status').$type<AnnouncementDispatchStatus>().notNull().default('pending'),
+    /** 事件點：觸發的使用者（這次只發給他）；排程的發送為 null。不加外鍵：使用者永久刪除後紀錄保留。 */
+    triggerSubjectId: uuid('trigger_subject_id'),
     /** 實際寫入的通知數（略過自己、租戶關掉站內通知的不算）；發送完成才有值。 */
     recipientCount: integer('recipient_count'),
     /** 解析受眾時略過的來源（已刪除或不存在的使用者、群組、角色）與失敗的原因。 */
@@ -135,8 +152,14 @@ export const announcementDispatches = pgTable(
       'announcement_dispatches_status_check',
       sql`${t.status} IN ('pending', 'sending', 'sent', 'failed', 'revoked')`,
     ),
-    // 同一則公告的同一個時間只發一次（延遲工作重做、兩個 worker 同時拿到也不重複）
-    uniqueIndex('announcement_dispatches_once_key').on(t.announcementId, t.scheduledFor),
+    // 排程的發送：同一則公告的同一個時間只發一次（延遲工作重做、兩個 worker 同時拿到也不重複）
+    uniqueIndex('announcement_dispatches_once_key')
+      .on(t.announcementId, t.scheduledFor)
+      .where(sql`${t.triggerSubjectId} IS NULL`),
+    // 事件點：同一則公告對同一個人只發一次（D13）
+    uniqueIndex('announcement_dispatches_subject_key')
+      .on(t.announcementId, t.triggerSubjectId)
+      .where(sql`${t.triggerSubjectId} IS NOT NULL`),
     // 發送紀錄（新的在前）
     index('announcement_dispatches_announcement_idx').on(t.announcementId, t.createdAt, t.id),
   ],

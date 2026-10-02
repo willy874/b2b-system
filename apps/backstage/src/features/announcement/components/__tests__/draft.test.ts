@@ -108,4 +108,31 @@ describe('公告表單的草稿', () => {
       maxOccurrences: 3,
     });
   });
+
+  it('事件點：延遲換成分鐘；沒選事件或超過 30 天不能存；帶回表單時換成最大的整除單位', () => {
+    const base = { title: 'T', body: 'B', audience: EMPTY_AUDIENCE };
+    const event = {
+      ...EMPTY_TRIGGER_DRAFT,
+      kind: 'event' as const,
+      event: 'user.activated',
+      delayValue: 2,
+      delayUnit: 'days' as const,
+    };
+    expect(toRequest({ ...base, trigger: event })?.trigger).toEqual({
+      kind: 'event',
+      event: 'user.activated',
+      delayMinutes: 2880,
+    });
+    expect(toRequest({ ...base, trigger: { ...event, event: '' } })).toBeUndefined();
+    expect(toRequest({ ...base, trigger: { ...event, delayValue: 31 } })).toBeUndefined();
+    const back = toDraft({
+      ...base,
+      trigger: { kind: 'event', event: 'group.memberAdded', delayMinutes: 90 },
+    } as Announcement);
+    expect(back.trigger).toMatchObject({
+      event: 'group.memberAdded',
+      delayValue: 90,
+      delayUnit: 'minutes',
+    });
+  });
 });
