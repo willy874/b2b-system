@@ -708,6 +708,384 @@
         "tags": ["notifications"]
       }
     },
+    "/webhooks": {
+      "get": {
+        "operationId": "WebhookController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Webhook"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["webhooks"]
+      },
+      "post": {
+        "operationId": "WebhookController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CreatedWebhook"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "建立訂閱；回應的 secret 只出現這一次",
+        "tags": ["webhooks"]
+      }
+    },
+    "/webhooks/events": {
+      "get": {
+        "operationId": "WebhookController_listEvents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WebhookEventList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "可以訂閱的對外事件（所屬 feature 已啟用）",
+        "tags": ["webhooks"]
+      }
+    },
+    "/webhooks/{id}": {
+      "get": {
+        "operationId": "WebhookController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Webhook"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["webhooks"]
+      },
+      "patch": {
+        "operationId": "WebhookController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWebhookRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Webhook"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "修改名稱、網址、事件，停用或啟用（啟用時失敗次數歸零）",
+        "tags": ["webhooks"]
+      },
+      "delete": {
+        "operationId": "WebhookController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "刪除；投遞紀錄一併刪除，不進回收桶",
+        "tags": ["webhooks"]
+      }
+    },
+    "/webhooks/{id}/rotate-secret": {
+      "post": {
+        "operationId": "WebhookController_rotateSecret",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WebhookSecret"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "輪替密鑰：新的立即生效、舊的立即失效；新的 secret 只出現這一次",
+        "tags": ["webhooks"]
+      }
+    },
+    "/webhooks/{id}/test": {
+      "post": {
+        "operationId": "WebhookController_sendTest",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WebhookDelivery"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "同步送出 webhook.ping，回傳這一次的投遞紀錄",
+        "tags": ["webhooks"]
+      }
+    },
+    "/webhooks/{id}/deliveries": {
+      "get": {
+        "operationId": "WebhookController_listDeliveries",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/WebhookDelivery"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "投遞紀錄（每一次嘗試一筆，新的在前；保留 30 天）",
+        "tags": ["webhooks"]
+      }
+    },
+    "/webhooks/{id}/deliveries/{deliveryId}/redeliver": {
+      "post": {
+        "operationId": "WebhookController_redeliver",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deliveryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WebhookDelivery"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "同步重送那一筆紀錄的事件（事件 id 不變），回傳這一次的投遞紀錄",
+        "tags": ["webhooks"]
+      }
+    },
     "/trash": {
       "get": {
         "operationId": "TrashController_list",
@@ -5341,7 +5719,11 @@
           "serviceAccount:create",
           "serviceAccount:read",
           "serviceAccount:update",
-          "serviceAccount:delete"
+          "serviceAccount:delete",
+          "webhook:create",
+          "webhook:read",
+          "webhook:update",
+          "webhook:delete"
         ]
       },
       "Permission": {
@@ -5889,6 +6271,277 @@
           }
         },
         "required": ["updated"],
+        "additionalProperties": false
+      },
+      "Webhook": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "disabled"]
+          },
+          "disabledReason": {
+            "nullable": true,
+            "type": "string",
+            "enum": ["manual", "failing"]
+          },
+          "consecutiveFailures": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "lastDeliveryAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "createdBy": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "displayName"],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "url",
+          "events",
+          "status",
+          "disabledReason",
+          "consecutiveFailures",
+          "lastDeliveryAt",
+          "version",
+          "createdAt",
+          "updatedAt",
+          "createdBy"
+        ],
+        "additionalProperties": false
+      },
+      "CreateWebhookRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "events": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        },
+        "required": ["name", "url", "events"],
+        "additionalProperties": false
+      },
+      "UpdateWebhookRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "events": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "disabled"]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["version"],
+        "additionalProperties": false
+      },
+      "CreatedWebhook": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string"
+          },
+          "webhook": {
+            "$ref": "#/components/schemas/Webhook"
+          }
+        },
+        "required": ["secret", "webhook"],
+        "additionalProperties": false
+      },
+      "WebhookSecret": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string"
+          },
+          "webhook": {
+            "$ref": "#/components/schemas/Webhook"
+          }
+        },
+        "required": ["secret", "webhook"],
+        "additionalProperties": false
+      },
+      "WebhookEventList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": ["type", "version"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "WebhookDelivery": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "eventType": {
+            "type": "string"
+          },
+          "eventData": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "occurredAt": {
+            "type": "string"
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "trigger": {
+            "type": "string",
+            "enum": ["auto", "manual"]
+          },
+          "succeeded": {
+            "type": "boolean"
+          },
+          "responseStatus": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "durationMs": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "responseBody": {
+            "nullable": true,
+            "type": "string"
+          },
+          "error": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "eventId",
+          "eventType",
+          "eventData",
+          "occurredAt",
+          "attempt",
+          "trigger",
+          "succeeded",
+          "responseStatus",
+          "durationMs",
+          "responseBody",
+          "error",
+          "createdAt"
+        ],
         "additionalProperties": false
       },
       "ApprovalStatus": {
@@ -6724,7 +7377,8 @@
           "trash",
           "systemSetting",
           "identityProvider",
-          "tenantSwitch"
+          "tenantSwitch",
+          "webhook"
         ]
       },
       "TenantFlagOverrides": {
@@ -6882,7 +7536,7 @@
             "maxLength": 100
           },
           "features": {
-            "maxItems": 7,
+            "maxItems": 8,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TenantFeature"

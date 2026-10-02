@@ -278,3 +278,5 @@ b2b-system/
 13. ~~使用者群組~~（已完成：權限圖 G4a——巢狀群組、群組持有角色、反提權由模型宣告的能力統一比對、資料夾授權給群組；見
     [`rbac/08-groups.md`](../rbac/08-groups.md)、[ADR-0024](../adr/0024-relationship-based-access-control.md)）；「為什麼能做 X」的說明（G4b）也已完成，見 [`rbac/09-explain.md`](../rbac/09-explain.md)。專案（G5）仍在
     [`features/permission-graph.md`](../features/permission-graph.md)
+14. ~~Webhook~~（已完成：對外事件的目錄、訂閱、背景工作投遞與重試、自動停用、投遞紀錄與重送、backstage 的管理畫面；見
+    [`architecture/backend/17-webhook.md`](../architecture/backend/17-webhook.md)、[ADR-0030](../adr/0030-webhooks.md)）

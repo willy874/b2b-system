@@ -9,6 +9,7 @@ import type { DomainEventBus } from '@/core/events';
 import type { SettingService } from '@/core/settings';
 import type { ObjectStorage, StoredObjectHead } from '@/core/storage';
 import type { AuditService } from '@/modules/audit-log/audit.service';
+import type { WebhookService } from '@/modules/webhook/webhook.service';
 
 import type { FileFolderService } from '../file-folder.service';
 import type { FileImageService } from '../file-image.service';
@@ -153,6 +154,7 @@ function setup(
       async (_folderId: unknown, _missing: unknown, work: (tx: unknown) => unknown) => work('tx'),
     ),
   };
+  const webhooks = { emit: vi.fn(async () => undefined) };
   const config = {
     get: vi.fn(
       (key: keyof Env) =>
@@ -176,9 +178,10 @@ function setup(
     // 租戶沒有覆寫上限：生效值等於 env 的上限
     { get: vi.fn(async () => MAX_SIZE) } as unknown as SettingService,
     new FileObjectsService(storage as unknown as ObjectStorage),
+    webhooks as unknown as WebhookService,
     config as unknown as ConfigService<Env, true>,
   );
-  return { service, repo, storage, audit, events, images, folders };
+  return { service, repo, storage, audit, events, images, folders, webhooks };
 }
 
 async function expectAppError(promise: Promise<unknown>, code: string) {
@@ -260,6 +263,19 @@ describe('FileService.completeUpload', () => {
         { resource: 'file', kind: 'create', id: FILE_ID, refs: { fileFolder: [folderId] } },
       ],
     });
+  });
+
+  it('在同一個交易內發出對外事件 file.uploaded（docs/adr/0030-webhooks.md D2）', async () => {
+    const { service, webhooks } = setup({
+      file: fileRow({ name: 'a.pdf', contentType: 'application/pdf' }),
+      head: { size: 10, etag: 'abc', contentType: 'application/pdf' },
+    });
+    await service.completeUpload(FILE_ID, {}, ALICE);
+    expect(webhooks.emit).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'file.uploaded' }),
+      { fileId: FILE_ID, folderId: null },
+      'tx',
+    );
   });
 
   it('物件還不存在 → FILE_UPLOAD_INCOMPLETE', async () => {

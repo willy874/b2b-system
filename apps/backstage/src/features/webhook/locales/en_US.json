@@ -1,0 +1,128 @@
+{
+  "webhook": {
+    "status": {
+      "active": "Active",
+      "disabled": "Off"
+    },
+    "disabledReason": {
+      "manual": "Turned off by an admin",
+      "failing": "Turned off after repeated failures"
+    },
+    "field": {
+      "name": "Name",
+      "url": "URL",
+      "urlHint": "Events are POSTed to this URL. It must be https and must not point to an internal network.",
+      "events": "Events",
+      "eventsPlaceholder": "Choose events",
+      "eventCount": "Events",
+      "status": "Status",
+      "consecutiveFailures": "Consecutive failures",
+      "lastDeliveryAt": "Last delivery",
+      "createdBy": "Created by"
+    },
+    "list": {
+      "title": "Webhooks",
+      "description": "Notify external systems (CI, chat tools, your own services) with a POST when users, approvals or files change. Payloads only carry ids; receivers look up details with an API token.",
+      "searchPlaceholder": "Search name or URL"
+    },
+    "create": {
+      "action": "Create webhook",
+      "title": "Create webhook",
+      "description": "A signing secret is generated so the receiver can verify that requests come from here.",
+      "createdTitle": "Webhook created",
+      "done": "I've saved the secret"
+    },
+    "update": {
+      "success": "Webhook updated"
+    },
+    "delete": {
+      "title": "Delete webhook",
+      "confirm": "After deleting \"{{name}}\", no more events are sent and its delivery log is deleted too. This can't be undone.",
+      "success": "Webhook deleted"
+    },
+    "disable": {
+      "action": "Turn off"
+    },
+    "enable": {
+      "action": "Turn on"
+    },
+    "secret": {
+      "warning": "This signing secret is shown only once. Copy it to the receiver now; if you lose it, rotate to get a new one.",
+      "verifyHint": "To verify: compute HMAC-SHA256 with the secret over the X-Webhook-Timestamp value + \".\" + the raw body, compare it with the part after sha256= in X-Webhook-Signature, and reject requests with old timestamps.",
+      "rotate": "Rotate secret",
+      "rotateTitle": "Rotate signing secret",
+      "rotateConfirm": "After rotating, \"{{name}}\" is signed with a new secret right away and the old one stops working. Update the receiver first, or it will reject the requests that follow.",
+      "rotatedTitle": "New signing secret"
+    },
+    "test": {
+      "action": "Send test event"
+    },
+    "detail": {
+      "title": "Webhook",
+      "settings": "Settings",
+      "deliveries": "Deliveries",
+      "deliveriesHint": "One entry per attempt, kept for 30 days. Failures are retried automatically (up to 8 times, backing off to 1 hour).",
+      "failingNotice": "Turned off after {{count}} failures in a row. Fix the receiver, send a test event to confirm, then turn it back on.",
+      "backToList": "Back to list"
+    },
+    "delivery": {
+      "field": {
+        "createdAt": "Time",
+        "event": "Event",
+        "attempt": "Attempt",
+        "result": "Result",
+        "duration": "Duration"
+      },
+      "attempt": "#{{attempt}} ({{trigger}})",
+      "trigger": {
+        "auto": "automatic",
+        "manual": "manual"
+      },
+      "duration": "{{ms}} ms",
+      "filter": {
+        "all": "All",
+        "succeeded": "Succeeded",
+        "failed": "Failed"
+      },
+      "view": "View",
+      "redeliver": "Redeliver",
+      "detailTitle": "Delivery",
+      "eventId": "Event id (X-Webhook-Id)",
+      "payload": "Payload",
+      "response": "Receiver response (first 1 KB)",
+      "noResponse": "No response received",
+      "sent": "Sent; the receiver responded {{status}}",
+      "failed": "Delivery failed: {{reason}}"
+    },
+    "event": {
+      "userCreated": {
+        "name": "User created",
+        "description": "An admin creates an account, a sign-up is approved, or someone signs in through an external IdP for the first time."
+      },
+      "userStatusChanged": {
+        "name": "User status changed",
+        "description": "Turned off, turned on, locked, unlocked or activated; includes the old and new status."
+      },
+      "userDeleted": {
+        "name": "User deleted",
+        "description": "A user is deleted (can be restored from the trash)."
+      },
+      "userRestored": {
+        "name": "User restored",
+        "description": "A user is restored from the trash."
+      },
+      "approvalDecided": {
+        "name": "Approval decided",
+        "description": "A request is approved or rejected."
+      },
+      "fileUploaded": {
+        "name": "File uploaded",
+        "description": "A file finishes uploading and its content is verified."
+      },
+      "webhookPing": {
+        "name": "Test event",
+        "description": "Sent by \"Send test event\"."
+      }
+    }
+  }
+}

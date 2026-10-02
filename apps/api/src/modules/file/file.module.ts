@@ -4,6 +4,8 @@ import { SettingService } from '@/core/settings';
 import { ApprovalModule } from '@/modules/approval/approval.module';
 import { AuthzExplainModule } from '@/modules/authz-explain/authz-explain.module';
 import { TrashModule } from '@/modules/trash/trash.module';
+import { WebhookEventCatalog } from '@/modules/webhook/webhook-event.catalog';
+import { WebhookModule } from '@/modules/webhook/webhook.module';
 
 import { FileExternalController } from './external/file.external.controller';
 import { FileExternalService } from './external/file.external.service';
@@ -28,13 +30,14 @@ import { FileController } from './file.controller';
 import { FileRepository } from './file.repository';
 import { FileService } from './file.service';
 import { FILE_SETTINGS } from './file.settings';
+import { FILE_WEBHOOK_EVENTS } from './file.webhooks';
 
 /**
  * 檔案的轉介層：對外只有 `files` 資料表的 id，物件儲存（`core/storage`）藏在後面。
  * 其他模組要引用檔案時存 `files.id`，並注入 `FileService`。
  */
 @Module({
-  imports: [ApprovalModule, TrashModule, AuthzExplainModule],
+  imports: [ApprovalModule, TrashModule, AuthzExplainModule, WebhookModule],
   // 對外 API 的 controller 也在這裡：兩個程序都註冊，另一邊的由 SurfaceGuard 回 404（docs/adr/0027-api-tokens-external-api.md D11）
   controllers: [
     FileController,
@@ -65,7 +68,8 @@ import { FILE_SETTINGS } from './file.settings';
   exports: [FileService],
 })
 export class FileModule {
-  constructor(settings: SettingService) {
+  constructor(settings: SettingService, webhookEvents: WebhookEventCatalog) {
     settings.register(FILE_SETTINGS);
+    webhookEvents.register(FILE_WEBHOOK_EVENTS);
   }
 }

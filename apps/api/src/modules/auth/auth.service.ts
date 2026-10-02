@@ -527,6 +527,9 @@ export class AuthService {
         },
         tx,
       );
+      if (user.status === 'locked') {
+        await this.users.emitStatusChanged(user.id, 'active', 'locked', tx);
+      }
     });
 
     this.userCache.invalidate(user.id);
@@ -571,6 +574,7 @@ export class AuthService {
         },
         tx,
       );
+      await this.users.emitStatusChanged(user.id, 'active', 'pending', tx);
     });
 
     this.userCache.invalidate(user.id);

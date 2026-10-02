@@ -18,6 +18,7 @@ import { SERVICE_ACCOUNT_PAGE } from '@/features/service-account';
 import { SETTING_PAGE } from '@/features/system';
 import { TRASH_PAGE } from '@/features/trash';
 import { USER_PAGE } from '@/features/user';
+import { WEBHOOK_PAGE } from '@/features/webhook';
 import { cn } from '@/shared/utils';
 
 import { isMenuItemActive, useMenuItems } from './menu';
@@ -119,6 +120,13 @@ const MENU_GROUPS: NavGroup[] = [
         labelKey: 'menu.identityProvider',
         testId: 'menu-identity-provider',
         icon: 'key',
+      },
+      {
+        pageKey: WEBHOOK_PAGE,
+        to: '/webhook',
+        labelKey: 'menu.webhook',
+        testId: 'menu-webhook',
+        icon: 'network',
       },
       {
         pageKey: TRASH_PAGE,

@@ -92,7 +92,7 @@ ADR-0026 讓擁有者模組在業務交易內呼叫 `NotificationService.notify(
 
 - 平台層（apps/auth）替所有租戶設定預設：目前預設在程式碼，夠用；需要時再加平台 DB 的預設表，判斷式多一層。
 - 依角色或群組設定（「只有某角色收到 X」）：收件人由擁有者計算（ADR-0026 D5），政策只決定「送不送」，不改「給誰」。
-- 新的管道（手機推送、Slack、Webhook）與每日彙整；Webhook 是對外整合，有自己的訂閱模型（[`../features/webhooks.md`](../features/webhooks.md)）。
+- 新的管道（手機推送、Slack、Webhook）與每日彙整；Webhook 是對外整合，有自己的訂閱模型（[ADR-0030](./0030-webhooks.md)）。
 - 帳號流程的信（D3）。
 - 關閉期間的補發（D7）。
 

@@ -98,6 +98,9 @@
       "identityProviderDisableWarning": "{{code}} users can no longer sign in through an external IdP, and SSO-only domains fall back to password sign-in; users who only ever signed in through an external IdP must reset their password first.",
       "tenantSwitch": "Switch tenant",
       "tenantSwitchDescription": "The \"Switch tenant\" item in the user menu, which opens the page for entering a tenant code. Deployments serving a single tenant can turn it off.",
+      "webhook": "Webhooks",
+      "webhookDescription": "Lets the tenant configure webhooks that send events to external systems. When off, no events are sent; subscriptions and delivery logs are kept.",
+      "webhookDisableWarning": "{{code}} webhooks stop sending, and events that occur in the meantime are not sent later when you turn this back on.",
       "disableTitle": "Turn off feature",
       "disableConfirm": "After turning this off, {{code}} users immediately lose access to \"{{feature}}\" and anyone on its pages is sent back to the home page. Data is kept and comes back when you turn it on again.",
       "disableAction": "Turn off"

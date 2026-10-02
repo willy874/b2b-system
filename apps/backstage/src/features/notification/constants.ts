@@ -13,6 +13,7 @@ export const NOTIFICATION_MESSAGE_KEY = {
   approvalApproved: 'notification.message.approvalApproved',
   approvalRejected: 'notification.message.approvalRejected',
   userRolesChanged: 'notification.message.userRolesChanged',
+  webhookDisabled: 'notification.message.webhookDisabled',
   /** 不認得的 `type`（前端比後端舊）或參數不合預期：只說有一則通知。 */
   unknown: 'notification.message.unknown',
 } as const;
@@ -69,12 +70,18 @@ export const NOTIFICATION_EVENT_LABEL: Readonly<Partial<Record<string, Notificat
     descriptionKey: 'notification.event.type.userRolesChanged.description',
     recipientsKey: 'notification.event.type.userRolesChanged.recipients',
   },
+  'webhook.disabled': {
+    nameKey: 'notification.event.type.webhookDisabled.name',
+    descriptionKey: 'notification.event.type.webhookDisabled.description',
+    recipientsKey: 'notification.event.type.webhookDisabled.recipients',
+  },
 };
 
 /** 分類的標題；不認得的分類以分類名稱本身顯示。 */
 export const NOTIFICATION_EVENT_CATEGORY_LABEL_KEY: Readonly<Partial<Record<string, string>>> = {
   approval: 'notification.event.category.approval',
   user: 'notification.event.category.user',
+  webhook: 'notification.event.category.webhook',
 };
 
 /** 管道的名稱；後端新增管道而這裡沒跟上時編譯失敗。 */

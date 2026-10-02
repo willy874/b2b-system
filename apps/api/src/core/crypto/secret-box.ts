@@ -21,6 +21,12 @@ export const TENANT_SECRET_PURPOSE: SecretKeyPurpose = {
   info: 'tenant-secret-key',
 };
 
+/** webhook 的簽章密鑰（docs/adr/0030-webhooks.md D14）。 */
+export const WEBHOOK_SECRET_PURPOSE: SecretKeyPurpose = {
+  envName: 'WEBHOOK_SECRET_KEY',
+  info: 'webhook-secret-key',
+};
+
 /**
  * 以 AES-256-GCM 加密後存資料庫的機密：資料庫外洩時沒有主金鑰就解不開。
  * 密文格式 `iv.tag.ciphertext`（各自 base64url）。

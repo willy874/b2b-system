@@ -27,7 +27,9 @@ import type {
   CreateServiceAccountRequest,
   CreateTenantRequest,
   CreateUserRequest,
+  CreateWebhookRequest,
   CreatedApiToken,
+  CreatedWebhook,
   CurrentTenant,
   DuplicateRoleRequest,
   EffectivePermission,
@@ -161,9 +163,14 @@ import type {
   UpdateSystemSettingsRequest,
   UpdateTenantRequest,
   UpdateUserRequest,
+  UpdateWebhookRequest,
   User,
   UserRoles,
   UserStatus,
+  Webhook,
+  WebhookDelivery,
+  WebhookEventList,
+  WebhookSecret,
 } from './models';
 
 export const PermissionKeySchema = z.enum([
@@ -206,6 +213,10 @@ export const PermissionKeySchema = z.enum([
   'serviceAccount:read',
   'serviceAccount:update',
   'serviceAccount:delete',
+  'webhook:create',
+  'webhook:read',
+  'webhook:update',
+  'webhook:delete',
 ]) satisfies z.ZodType<PermissionKey>;
 
 export const PermissionSchema = z.object({
@@ -414,6 +425,99 @@ export const NotificationUnreadCountSchema = z.object({
 export const NotificationReadAllResultSchema = z.object({
   updated: z.int().min(-9007199254740991).max(9007199254740991),
 }) satisfies z.ZodType<NotificationReadAllResult>;
+
+export const WebhookSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+  url: z.string(),
+  events: z.array(z.string()),
+  status: z.enum(['active', 'disabled']),
+  disabledReason: z.enum(['manual', 'failing']).nullable(),
+  consecutiveFailures: z.int().min(-9007199254740991).max(9007199254740991),
+  lastDeliveryAt: z.string().nullable(),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  createdBy: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      displayName: z.string(),
+    })
+    .nullable(),
+}) satisfies z.ZodType<Webhook>;
+
+export const CreateWebhookRequestSchema = z.object({
+  name: z.string().min(1).max(100),
+  url: z.string().min(1).max(2000),
+  events: z.array(z.string().min(1).max(100)).min(1).max(50),
+}) satisfies z.ZodType<CreateWebhookRequest>;
+
+export const UpdateWebhookRequestSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  url: z.string().min(1).max(2000).optional(),
+  events: z.array(z.string().min(1).max(100)).min(1).max(50).optional(),
+  status: z.enum(['active', 'disabled']).optional(),
+  version: z.int().min(1).max(9007199254740991),
+}) satisfies z.ZodType<UpdateWebhookRequest>;
+
+export const CreatedWebhookSchema = z.object({
+  secret: z.string(),
+  webhook: WebhookSchema,
+}) satisfies z.ZodType<CreatedWebhook>;
+
+export const WebhookSecretSchema = z.object({
+  secret: z.string(),
+  webhook: WebhookSchema,
+}) satisfies z.ZodType<WebhookSecret>;
+
+export const WebhookEventListSchema = z.object({
+  items: z.array(
+    z.object({
+      type: z.string(),
+      version: z.int().min(-9007199254740991).max(9007199254740991),
+    }),
+  ),
+}) satisfies z.ZodType<WebhookEventList>;
+
+export const WebhookDeliverySchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  eventId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  eventType: z.string(),
+  eventData: z.record(z.string(), z.unknown()),
+  occurredAt: z.string(),
+  attempt: z.int().min(-9007199254740991).max(9007199254740991),
+  trigger: z.enum(['auto', 'manual']),
+  succeeded: z.boolean(),
+  responseStatus: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  durationMs: z.int().min(-9007199254740991).max(9007199254740991),
+  responseBody: z.string().nullable(),
+  error: z.string().nullable(),
+  createdAt: z.string(),
+}) satisfies z.ZodType<WebhookDelivery>;
 
 export const ApprovalStatusSchema = z.enum([
   'pending',
@@ -769,6 +873,7 @@ export const TenantFeatureSchema = z.enum([
   'systemSetting',
   'identityProvider',
   'tenantSwitch',
+  'webhook',
 ]) satisfies z.ZodType<TenantFeature>;
 
 export const TenantFlagOverridesSchema = z.record(
@@ -836,7 +941,7 @@ export const CreateTenantRequestSchema = z.object({
 
 export const UpdateTenantRequestSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  features: z.array(TenantFeatureSchema).max(7).optional(),
+  features: z.array(TenantFeatureSchema).max(8).optional(),
   flags: TenantFlagOverridesSchema.optional(),
 }) satisfies z.ZodType<UpdateTenantRequest>;
 

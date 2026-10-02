@@ -300,6 +300,18 @@ export const EnvSchema = z.object({
     z.string().optional(),
   ),
 
+  /**
+   * 加密 webhook 簽章密鑰的主金鑰（32 bytes，base64；docs/adr/0030-webhooks.md D14）。
+   * 沒設定時（僅開發）由 `JWT_SECRET` 推導；**production 必填**。換金鑰要先以舊金鑰解開、再以新金鑰重新存入。
+   */
+  WEBHOOK_SECRET_KEY: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().optional(),
+  ),
+
+  /** webhook 事件與投遞紀錄保留清理的 cron（UTC）；空字串停用（docs/adr/0030-webhooks.md D16）。 */
+  WEBHOOK_CLEANUP_CRON: z.string().trim().default('15 5 * * *'),
+
   /** 清除過期 IdP 狀態（`oidc_payloads`）的 cron（UTC）；空字串停用。 */
   OIDC_CLEANUP_CRON: z.string().trim().default('45 3 * * *'),
 
@@ -393,6 +405,9 @@ const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
   }
   if (!env.IDP_SECRET_KEY) {
     ctx.addIssue({ code: 'custom', path: ['IDP_SECRET_KEY'], message: 'production 必須設定' });
+  }
+  if (!env.WEBHOOK_SECRET_KEY) {
+    ctx.addIssue({ code: 'custom', path: ['WEBHOOK_SECRET_KEY'], message: 'production 必須設定' });
   }
   if (!env.TENANT_SECRET_KEY) {
     ctx.addIssue({ code: 'custom', path: ['TENANT_SECRET_KEY'], message: 'production 必須設定' });

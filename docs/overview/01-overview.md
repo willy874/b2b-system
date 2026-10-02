@@ -51,6 +51,7 @@
 | 檔案（Phase 0 之後加入） | S3 相容的物件儲存、分塊上傳、圖片縮圖、檔案管理器、資料夾層級的授權與繼承（[`architecture/backend/09-file.md`](../architecture/backend/09-file.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)） |
 | 背景工作與寄信（Phase 0 之後加入） | pg-boss 佇列、排程、重試與管理頁；郵件範本與寄送（[`architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md)、[`architecture/backend/11-mail.md`](../architecture/backend/11-mail.md)） |
 | 服務帳號與對外 API（Phase 0 之後加入） | 服務帳號、個人與服務帳號的 API token（限縮 scopes、到期、撤銷）；獨立程序的對外 API（`/v1`，只認 API token）（[`architecture/06-external-api.md`](../architecture/06-external-api.md)、[ADR-0027](../adr/0027-api-tokens-external-api.md)） |
+| Webhook（Phase 0 之後加入） | 使用者、審批、檔案的對外事件；訂閱、HMAC 簽章、背景工作投遞與重試、連續失敗自動停用、投遞紀錄與重送；連線時綁定已驗證的位址（[`architecture/backend/17-webhook.md`](../architecture/backend/17-webhook.md)、[ADR-0030](../adr/0030-webhooks.md)） |
 | 模組開關與 feature flag（Phase 0 之後加入） | 平台管理者為每個租戶開關模組與 flag（[ADR-0021](../adr/0021-runtime-feature-activation.md)、[ADR-0022](../adr/0022-feature-flags.md)） |
 | 前端骨架   | App Shell、側邊選單（依權限過濾）、路由守衛、錯誤頁、i18n、主題                               |
 
@@ -62,7 +63,6 @@
 - LDAP、SAML 整合（OIDC 的 SSO 已在 Phase 0 之後加入，見 [`architecture/04-sso.md`](../architecture/04-sso.md)）
 - MFA（雙因素驗證）— 資料表預留欄位，流程不實作
 - 批次匯入／匯出
-- Webhook（站內通知已在 Phase 0 之後加入，見上表）
 
 ---
 

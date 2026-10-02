@@ -17,6 +17,7 @@ import { ObjectStorage } from '@/core/storage';
 import type { PresignedRequest } from '@/core/storage';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import { WebhookService } from '@/modules/webhook/webhook.service';
 
 import type {
   CompleteFileUploadDto,
@@ -53,6 +54,7 @@ import type { FileCursor } from './file.cursor';
 import type { FileWithUploader } from './file.repository';
 import { FileRepository } from './file.repository';
 import { FILE_UPLOAD_MAX_SIZE_SETTING } from './file.settings';
+import { FILE_UPLOADED_WEBHOOK } from './file.webhooks';
 
 /**
  * 檔案的業務規則（docs/architecture/backend/09-file.md）。
@@ -80,6 +82,7 @@ export class FileService {
     private readonly access: FileAccessService,
     private readonly settings: SettingService,
     private readonly objects: FileObjectsService,
+    private readonly webhooks: WebhookService,
     config: ConfigService<Env, true>,
   ) {
     this.urlTtl = config.get('FILE_URL_TTL', { infer: true });
@@ -313,6 +316,7 @@ export class FileService {
         },
         tx,
       );
+      await this.webhooks.emit(FILE_UPLOADED_WEBHOOK, { fileId: id, folderId: file.folderId }, tx);
     });
 
     // 不等變體產生完：回應先帶瀏覽器縮圖（有的話）。圖片的 create 推播交給變體產生：

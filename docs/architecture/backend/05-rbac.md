@@ -677,6 +677,11 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/service-accounts/:id/tokens` | `serviceAccount:read`         |
 | POST   | `/service-accounts/:id/tokens` | `serviceAccount:update`（token 的有效權限必須是操作者持有的，ADR-0027 D4） |
 | DELETE | `/service-accounts/:id/tokens/:tokenId` | `serviceAccount:update` |
+| GET    | `/webhooks`、`/webhooks/events`、`/webhooks/:id`、`/webhooks/:id/deliveries` | `webhook:read`（feature `webhook`，[`17-webhook.md`](./17-webhook.md) §6） |
+| POST   | `/webhooks`                 | `webhook:create`                 |
+| PATCH  | `/webhooks/:id`             | `webhook:update`                 |
+| DELETE | `/webhooks/:id`             | `webhook:delete`                 |
+| POST   | `/webhooks/:id/rotate-secret`、`/webhooks/:id/test`、`/webhooks/:id/deliveries/:deliveryId/redeliver` | `webhook:update` |
 | GET    | `/trash`                    | `user:delete` \| `role:delete` \| `group:delete` \| `file:delete`⁴ |
 | GET    | `/roles`                    | `role:read`                      |
 | POST   | `/roles`                    | `role:create`                    |
