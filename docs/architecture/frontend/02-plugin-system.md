@@ -367,7 +367,7 @@ export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 ## 7. 可啟用的 feature（執行期安裝）
 
 [ADR-0021](../../adr/0021-runtime-feature-activation.md)。平台管理者對每個租戶開關的 feature
-（目前是 `file`、`auditLog`、`job`、`trash`、`system`（id `systemSetting`）、`identity-provider`（id `identityProvider`）、`webhook`，
+（目前是 `file`、`auditLog`、`job`、`trash`、`system`（id `systemSetting`）、`identity-provider`（id `identityProvider`）、`webhook`、`announcement`，
 以及沒有頁面、只控制帳號選單項目的 `tenantSwitch`；[ADR-0029](../../adr/0029-toggleable-platform-features.md)），登入後才依 `/auth/profile` 的 `features` 安裝；
 清單改變時 api 推播 `resource.changed`（`tenantFeature`），profile 重新取得後自動安裝或卸載。
 

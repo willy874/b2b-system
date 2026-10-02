@@ -531,6 +531,8 @@ export const ChangeSource = {
   WEBHOOK_DELIVERY: 'webhookDelivery',
   /** 標籤的定義（ADR-0032）；指派由擁有者推自己的資源。 */
   TAG: 'tag',
+  /** 公告與發送紀錄（ADR-0031）。 */
+  ANNOUNCEMENT: 'announcement',
 } as const;
 
 export const resourceChangedSchema = z.object({

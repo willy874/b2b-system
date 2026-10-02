@@ -87,6 +87,7 @@ export function accountLinkMail({ purpose, locale, displayName, link, validHours
 | `auth.activationMail` | `UserService.create`（建立帳號的交易內） | `{ userId }` | 使用者仍是 `pending` |
 | `auth.passwordResetMail` | `AuthService.forgotPassword`（節流：同帳號 60 秒一封）、`UserService.resetPassword`（與稽核同一交易） | `{ userId }` | 使用者存在 |
 | `approval.resultMail` | `ApprovalService.approve` / `reject`（審核的交易內） | `{ approvalId }` | 請求已審核、找得到收件人 |
+| `platformAdmin.accountMail`（平台工作） | `PlatformAdminManagementService.create`（新增平台管理者）、`sendPasswordLink`（代為寄設定密碼的連結） | `{ adminId, purpose }`（`activation`／`passwordReset`） | 管理者存在，且狀態符合用途（啟用信只寄給 `pending`）。連結到 apps/auth 的 `/setup`、`/reset-password`，不帶 `?tenant=` |
 
 **token 在寄出當下才簽發。** 資料庫只存 token 的雜湊（[`04-auth.md`](./04-auth.md) §5.1），
 若在入列時簽發，就得把原文放進工作資料——而持有 `job:read` 的人看得到工作資料。所以工作資料只有 `userId`，
