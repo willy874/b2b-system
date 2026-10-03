@@ -30,6 +30,10 @@
   .popup[data-size='lg'] {
     max-width: 52rem;
   }
+  /* 放得下畫布的對話框（例：角色權限的技能樹） */
+  .popup[data-size='xl'] {
+    max-width: 72rem;
+  }
 
   .popup[data-open] {
     animation: dialogIn 160ms ease-out;

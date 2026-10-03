@@ -2,6 +2,20 @@
   "home": {
     "title": "B2B System account",
     "description": "Accounts and tenants shared by the whole platform. Every product signs in through here.",
-    "you": { "title": "Signed in as", "displayName": "Display name", "email": "Email" }
+    "you": {
+      "title": "Signed in as",
+      "displayName": "Display name",
+      "email": "Email",
+      "role": "Role",
+      "permissions": "Permissions held"
+    },
+    "role": { "superAdmin": "Super admin", "operator": "Operator", "auditor": "Auditor" },
+    "tenants": {
+      "title": "Tenants at a glance",
+      "failed": "Provisioning failed",
+      "provisioning": "Provisioning",
+      "active": "Active",
+      "disabled": "Disabled"
+    }
   }
 }

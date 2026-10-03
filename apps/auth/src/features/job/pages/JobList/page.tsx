@@ -3,20 +3,17 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { getPlatformJobListQueryOptions } from '@/apis/platform-job/get-job-list/query';
 import { getPlatformJobQueuesQueryOptions } from '@/apis/platform-job/get-job-queues/query';
-import { Pagination } from '@/components/Pagination';
 import { useTranslation } from '@/core/locales';
 
 import { useJobPermission } from '../../hooks/useJobPermission';
 import { toJobQueueVM, toJobRowVM } from './adapter';
-import { JobFilters } from './components/JobFilters';
 import { JobQueueSummary } from './components/JobQueueSummary';
 import { JobTable } from './components/JobTable';
+import { useJobFilters } from './useJobFilters';
 import { useJobSearchFilter } from './useJobSearchFilter';
 
 /** 工作在背景持續變化：每 10 秒重新整理一次，不必手動重新載入。 */
 const REFRESH_INTERVAL_MS = 10_000;
-
-const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 /**
  * 平台管理者的背景工作監控：所有租戶與平台層級的工作。
@@ -25,7 +22,8 @@ const PAGE_SIZE_OPTIONS = [25, 50, 100];
 export default function JobListPage() {
   const { t } = useTranslation();
   const { canRetry } = useJobPermission();
-  const { search, setFilter, setPage } = useJobSearchFilter();
+  const searchFilter = useJobSearchFilter();
+  const { search, setFilter, setPage } = searchFilter;
   const [expanded, setExpanded] = useState<string>();
   const toggleExpand = useCallback(
     (id: string) => setExpanded((prev) => (prev === id ? undefined : id)),
@@ -36,7 +34,7 @@ export default function JobListPage() {
     ...getPlatformJobQueuesQueryOptions(),
     refetchInterval: REFRESH_INTERVAL_MS,
   });
-  const { data, isPending } = useQuery({
+  const { data, error, isPending, refetch } = useQuery({
     ...getPlatformJobListQueryOptions({
       params: {
         offset: search.offset,
@@ -54,9 +52,10 @@ export default function JobListPage() {
     () => (data?.items ?? []).map((item) => toJobRowVM(item, { canRetry })),
     [canRetry, data],
   );
+  const filters = useJobFilters(searchFilter, queues);
 
   return (
-    <div className="flex flex-col gap-4" data-testid="job-page">
+    <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="job-page">
       <header>
         <h1 className="m-0 text-xl font-semibold">{t('job.title')}</h1>
         <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('job.description')}</p>
@@ -68,25 +67,20 @@ export default function JobListPage() {
         onSelect={(name) => setFilter({ name })}
       />
 
-      <JobFilters search={search} queues={queues} onChange={setFilter} />
-
       <JobTable
         items={rows}
         loading={isPending}
+        error={error}
+        onRetry={() => void refetch()}
         expandedId={expanded}
         onToggleExpand={toggleExpand}
-      />
-
-      <Pagination
-        offset={search.offset}
-        limit={search.limit}
-        total={data?.pagination.total ?? 0}
-        pageSizeOptions={PAGE_SIZE_OPTIONS}
-        onChange={({ offset, limit }) => setPage(offset, limit)}
-        labels={{
-          previous: t('common.previous'),
-          next: t('common.next'),
-          summary: ({ from, to, total }) => t('job.pagination.summary', { from, to, total }),
+        filters={filters}
+        pagination={{
+          offset: search.offset,
+          limit: search.limit,
+          total: data?.pagination.total ?? 0,
+          pageSizeOptions: [25, 50, 100],
+          onChange: ({ offset, limit }) => setPage(offset, limit),
         }}
       />
     </div>

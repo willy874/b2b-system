@@ -15,6 +15,7 @@ const TIMEZONE_KEY = 'timezone';
  * 改名或改儲存格式時要同步改那段腳本（`theme.test.ts` 會比對）。
  */
 export const THEME_KEY = 'theme';
+const HEADER_TOOLBAR_KEY = 'headerToolbar';
 
 /**
  * 偏好設定的跨分頁頻道：由 `preference` 的 dictStorage 持有，寫入即廣播。
@@ -66,12 +67,44 @@ export const useThemeStore = create<ThemeStore>((set) => ({
   },
 }));
 
+/**
+ * 頂列工具的順序與隱藏項（`core/toolbar`）。只記使用者調整過的結果；沒調整過是 `null`，照登記的預設順序全部顯示。
+ * `order` 裡沒有的工具（之後才追加的）排在最後、預設顯示，所以不必為新工具遷移已存的設定。
+ */
+export interface HeaderToolbarSettings {
+  order: string[];
+  hidden: string[];
+}
+
+interface HeaderToolbarStore {
+  settings: HeaderToolbarSettings | null;
+  setSettings: (settings: HeaderToolbarSettings) => void;
+  resetSettings: () => void;
+}
+
+/** 與主題相同：屬於這台裝置的顯示方式，只存本機。 */
+export const useHeaderToolbarStore = create<HeaderToolbarStore>((set) => ({
+  settings: null,
+  setSettings: (settings) => {
+    storage.set(HEADER_TOOLBAR_KEY, settings);
+    set({ settings });
+  },
+  resetSettings: () => {
+    storage.remove(HEADER_TOOLBAR_KEY);
+    set({ settings: null });
+  },
+}));
+
 /** render 前水合，避免「先閃英文再變中文」。 */
 export function hydratePreferences(): void {
   useLocaleStore.setState({ locale: storage.get<Language>(LOCALE_KEY, DEFAULT_LANGUAGE) });
   useTimezoneStore.setState({ timezone: storage.get(TIMEZONE_KEY, DEFAULT_TIMEZONE) });
   const theme = storage.get<unknown>(THEME_KEY, DEFAULT_THEME);
   useThemeStore.setState({ theme: isThemePreference(theme) ? theme : DEFAULT_THEME });
+  const toolbar = storage.get<unknown>(HEADER_TOOLBAR_KEY, null);
+  useHeaderToolbarStore.setState({
+    settings: isHeaderToolbarSettings(toolbar) ? toolbar : null,
+  });
 }
 
 function isLanguage(value: unknown): value is Language {
@@ -82,8 +115,18 @@ function isThemePreference(value: unknown): value is ThemePreference {
   return SUPPORTED_THEMES.includes(value as ThemePreference);
 }
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function isHeaderToolbarSettings(value: unknown): value is HeaderToolbarSettings {
+  if (typeof value !== 'object' || value === null) return false;
+  const { order, hidden } = value as Record<string, unknown>;
+  return isStringArray(order) && isStringArray(hidden);
+}
+
 /**
- * 一個分頁改了語系、時區或主題，其他分頁立即跟上：dictStorage 寫入時經頻道廣播，這裡只把收到的值放進 store
+ * 一個分頁改了語系、時區、主題或頂列工具，其他分頁立即跟上：dictStorage 寫入時經頻道廣播，這裡只把收到的值放進 store
  * （發訊方已寫入共用的 localStorage；切換 i18n、套用主題分別由 i18n、theme plugin 訂閱 store 處理）。
  * 其他分頁送來的值無法信任型別（新舊版本並存），不合法就略過。
  */
@@ -97,6 +140,11 @@ export function syncPreferencesAcrossTabs(): () => void {
     }),
     storage.subscribe(THEME_KEY, (value) => {
       if (isThemePreference(value)) useThemeStore.setState({ theme: value });
+    }),
+    // 移除（恢復預設）時收到 undefined
+    storage.subscribe(HEADER_TOOLBAR_KEY, (value) => {
+      if (value === undefined) useHeaderToolbarStore.setState({ settings: null });
+      else if (isHeaderToolbarSettings(value)) useHeaderToolbarStore.setState({ settings: value });
     }),
   ];
   return () => {

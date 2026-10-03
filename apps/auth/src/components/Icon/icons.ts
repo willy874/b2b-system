@@ -1,6 +1,7 @@
 import ArrowDown from '@/assets/icons/arrow-down.svg?react';
 import ArrowUpDown from '@/assets/icons/arrow-up-down.svg?react';
 import ArrowUp from '@/assets/icons/arrow-up.svg?react';
+import Bell from '@/assets/icons/bell.svg?react';
 import Calendar from '@/assets/icons/calendar.svg?react';
 import Check from '@/assets/icons/check.svg?react';
 import ChevronDown from '@/assets/icons/chevron-down.svg?react';
@@ -28,6 +29,7 @@ import FolderMove from '@/assets/icons/folder-move.svg?react';
 import FolderPlus from '@/assets/icons/folder-plus.svg?react';
 import FolderUpload from '@/assets/icons/folder-upload.svg?react';
 import Folder from '@/assets/icons/folder.svg?react';
+import Globe from '@/assets/icons/globe.svg?react';
 import Grid from '@/assets/icons/grid.svg?react';
 import Home from '@/assets/icons/home.svg?react';
 import Info from '@/assets/icons/info.svg?react';
@@ -35,11 +37,13 @@ import Key from '@/assets/icons/key.svg?react';
 import List from '@/assets/icons/list.svg?react';
 import Lock from '@/assets/icons/lock.svg?react';
 import Logout from '@/assets/icons/logout.svg?react';
+import Maximize from '@/assets/icons/maximize.svg?react';
 import Menu from '@/assets/icons/menu.svg?react';
 import Minus from '@/assets/icons/minus.svg?react';
 import Monitor from '@/assets/icons/monitor.svg?react';
 import Moon from '@/assets/icons/moon.svg?react';
 import More from '@/assets/icons/more.svg?react';
+import Network from '@/assets/icons/network.svg?react';
 import PinOff from '@/assets/icons/pin-off.svg?react';
 import Pin from '@/assets/icons/pin.svg?react';
 import Plus from '@/assets/icons/plus.svg?react';
@@ -56,6 +60,7 @@ import Upload from '@/assets/icons/upload.svg?react';
 import User from '@/assets/icons/user.svg?react';
 import Users from '@/assets/icons/users.svg?react';
 import Warning from '@/assets/icons/warning.svg?react';
+import Wifi from '@/assets/icons/wifi.svg?react';
 import ZoomIn from '@/assets/icons/zoom-in.svg?react';
 import ZoomOut from '@/assets/icons/zoom-out.svg?react';
 
@@ -67,6 +72,7 @@ export const ICONS = {
   'arrow-down': ArrowDown,
   'arrow-up': ArrowUp,
   'arrow-up-down': ArrowUpDown,
+  bell: Bell,
   calendar: Calendar,
   check: Check,
   'chevron-down': ChevronDown,
@@ -94,6 +100,7 @@ export const ICONS = {
   'folder-move': FolderMove,
   'folder-plus': FolderPlus,
   'folder-upload': FolderUpload,
+  globe: Globe,
   grid: Grid,
   home: Home,
   info: Info,
@@ -101,11 +108,13 @@ export const ICONS = {
   list: List,
   lock: Lock,
   logout: Logout,
+  maximize: Maximize,
   menu: Menu,
   minus: Minus,
   monitor: Monitor,
   moon: Moon,
   more: More,
+  network: Network,
   pin: Pin,
   'pin-off': PinOff,
   plus: Plus,
@@ -122,6 +131,7 @@ export const ICONS = {
   user: User,
   users: Users,
   warning: Warning,
+  wifi: Wifi,
   'zoom-in': ZoomIn,
   'zoom-out': ZoomOut,
 } as const;

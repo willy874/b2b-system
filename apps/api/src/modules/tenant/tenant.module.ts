@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { CredentialModule } from '@/modules/credential/credential.module';
 import { OidcProviderModule } from '@/modules/oidc-provider/oidc-provider.module';
 import { PlatformAdminModule } from '@/modules/platform-admin/platform-admin.module';
+import { PlatformNotificationModule } from '@/modules/platform-notification/platform-notification.module';
 
 import { PlatformTenantController } from './platform-tenant.controller';
 import { PlatformTenantRepository } from './platform-tenant.repository';
@@ -16,7 +17,7 @@ import { TenantService } from './tenant.service';
  * （docs/architecture/05-tenancy.md §10.2 D11–D13）。
  */
 @Module({
-  imports: [CredentialModule, OidcProviderModule, PlatformAdminModule],
+  imports: [CredentialModule, OidcProviderModule, PlatformAdminModule, PlatformNotificationModule],
   controllers: [TenantController, PlatformTenantController],
   providers: [TenantService, PlatformTenantService, PlatformTenantRepository, TenantProvisioner],
 })

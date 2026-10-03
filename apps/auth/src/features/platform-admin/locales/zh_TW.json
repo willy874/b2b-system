@@ -3,6 +3,7 @@
     "title": "平台管理者",
     "description": "可以登入平台管理後台的帳號。新增後寄啟用信，由本人設定密碼。",
     "empty": "還沒有任何平台管理者",
+    "searchPlaceholder": "搜尋名稱或 email",
     "self": "你",
     "role": {
       "superAdmin": "超級管理者",

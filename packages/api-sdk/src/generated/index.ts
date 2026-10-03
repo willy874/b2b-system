@@ -20,6 +20,7 @@ export * from './endpoints/platform-admins';
 export * from './endpoints/platform-auth';
 export * from './endpoints/platform-feature-flags';
 export * from './endpoints/platform-jobs';
+export * from './endpoints/platform-notifications';
 export * from './endpoints/platform-tenants';
 export * from './endpoints/roles';
 export * from './endpoints/service-accounts';

@@ -267,6 +267,12 @@
     overflow: auto;
   }
 
+  /* 填滿父層剩餘高度（fillHeight）：高度由父層決定，太矮時保留幾列的高度、改由頁面捲動 */
+  .root[data-fill-height] {
+    flex: 1 1 0;
+    min-height: 12rem;
+  }
+
   .root[data-sticky-header] .headerCell {
     position: sticky;
     top: 0;

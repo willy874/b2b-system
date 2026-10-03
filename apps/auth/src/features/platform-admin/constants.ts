@@ -1,5 +1,9 @@
-import type { PlatformAdminPasswordLink } from '@/shared/api-sdk';
-import type { PlatformAdmin, UpdatePlatformAdminRequest } from '@/shared/api-sdk';
+import type { ChipTone } from '@/components/Chip';
+import type {
+  PlatformAdmin,
+  PlatformAdminPasswordLink,
+  UpdatePlatformAdminRequest,
+} from '@/shared/api-sdk';
 
 type PlatformAdminRole = PlatformAdmin['role'];
 type PlatformAdminStatus = PlatformAdmin['status'];
@@ -25,13 +29,20 @@ export const PLATFORM_ADMIN_STATUS_LABEL_KEY = {
   pending: 'platformAdmin.status.pending',
 } as const satisfies Record<PlatformAdminStatus, string>;
 
-/** 狀態點的顏色走 design token（CLAUDE.md 前端規則 6）。 */
-export const PLATFORM_ADMIN_STATUS_DOT_CLASS = {
-  active: 'bg-[var(--color-success)]',
-  inactive: 'bg-[var(--color-fg-muted)]',
-  locked: 'bg-[var(--color-danger)]',
-  pending: 'bg-[var(--color-warning)]',
-} as const satisfies Record<PlatformAdminStatus, string>;
+/** 狀態的 Chip 語氣（顏色走 design token，由 `Chip` 的 `tone` 決定）。 */
+export const PLATFORM_ADMIN_STATUS_TONE = {
+  active: 'success',
+  inactive: 'neutral',
+  locked: 'danger',
+  pending: 'warning',
+} as const satisfies Record<PlatformAdminStatus, ChipTone>;
+
+/** 角色的 Chip 語氣：能改資料的角色以 brand 標出。 */
+export const PLATFORM_ADMIN_ROLE_TONE = {
+  'super-admin': 'brand',
+  operator: 'neutral',
+  auditor: 'neutral',
+} as const satisfies Record<PlatformAdminRole, ChipTone>;
 
 /** 編輯時能設定的狀態（`locked` 由登入失敗觸發，改回 `active` 即解鎖；`pending` 等本人啟用）。 */
 export const EDITABLE_PLATFORM_ADMIN_STATUSES = [

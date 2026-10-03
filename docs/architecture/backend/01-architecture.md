@@ -227,12 +227,12 @@ HTTP 由 `JwtAuthGuard`、ws 由 `WsAuthGuard` 認人（[`08-realtime.md`](./08-
 app.module
   ├─ core（global）: Config · Database · Cache · Logger · Events（DomainEventBus）· Jobs · Mail · Settings · Authz …
   ├─ AuthModule          ──▶ Credential · User · Approval · OidcProvider · IdentityProvider · PlatformAdmin
-  ├─ TenantModule        ──▶ Credential · OidcProvider · PlatformAdmin
+  ├─ TenantModule        ──▶ Credential · OidcProvider · PlatformAdmin · PlatformNotification
   ├─ OidcProviderModule  ──▶ User · PlatformAdmin
   ├─ UserModule          ──▶ Credential · Approval · IdentityProvider
   ├─ FileModule          ──▶ ResourceGrant · Approval
   ├─ RealtimeModule      ──▶ Permission（訂閱 DomainEventBus；沒有模組依賴它）
-  ├─ 葉節點：Credential · IdentityProvider · Approval · ResourceGrant · Role · FeatureFlag · Job · System · Health
+  ├─ 葉節點：Credential · PlatformNotification · IdentityProvider · Approval · ResourceGrant · Role · FeatureFlag · Job · System · Health
   └─ 全域葉節點（@Global）：Permission · AuditLog · PlatformAdmin
 ```
 
@@ -243,7 +243,8 @@ app.module
 
 - **跨模組只注入對方 `exports` 的 service**，不注入 repository。
 - 葉節點被很多人依賴，自己不依賴業務模組的 DI（只可以 import 別人的純函式與型別）。
-  `PlatformAdminModule` 用 `credential/` 的 `password`、`token-hash`、`refresh-rotation`、`mails/`。
+  `PlatformAdminModule` 用 `credential/` 的 `password`、`token-hash`、`refresh-rotation`、`mails/`，
+  並 import 同為葉節點的 `PlatformNotificationModule`（換角色時通知本人）。
 - 循環依賴一律用重構解決，**不用 `forwardRef`**。出現循環代表職責畫錯了。
 - **副作用走領域事件，不反向依賴**：業務模組發佈 `DomainEventBus` 事件，
   推播這類「晚一點發生也沒關係」的副作用由訂閱的模組處理（[`08-realtime.md`](./08-realtime.md) §7）。

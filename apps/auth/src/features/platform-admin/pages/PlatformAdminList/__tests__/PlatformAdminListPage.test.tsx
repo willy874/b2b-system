@@ -56,7 +56,7 @@ const PENDING = platformAdminFixture({
 
 const ALL: PermissionKey[] = ['platformAdmin:read', 'platformAdmin:create', 'platformAdmin:update'];
 
-function renderPage(permissions: PermissionKey[] | 'unhydrated') {
+function renderPage(permissions: PermissionKey[] | 'unhydrated', path = '/admin') {
   usePermissionStore.setState(
     permissions === 'unhydrated'
       ? { permissions: new Set(), hydrated: false }
@@ -64,7 +64,7 @@ function renderPage(permissions: PermissionKey[] | 'unhydrated') {
   );
   const router = createRouter({
     routeTree: RootRoute.addChildren([Routes.PlatformAdminListRoute]),
-    history: createMemoryHistory({ initialEntries: ['/admin'] }),
+    history: createMemoryHistory({ initialEntries: [path] }),
     parseSearch,
     stringifySearch,
   });
@@ -130,6 +130,30 @@ describe('平台管理者清單', () => {
     expect(screen.queryByTestId('platform-admin-create-button')).toBeNull();
     expect(screen.queryByTestId('platform-admin-edit')).toBeNull();
     expect(screen.queryByTestId('platform-admin-password-link')).toBeNull();
+  });
+
+  it('網址帶關鍵字 → 只列出名稱或 email 符合的人', async () => {
+    renderPage(ALL, '/admin?keyword=NEW%40');
+    await waitFor(() =>
+      expect(screen.getAllByTestId('platform-admin-email').map((el) => el.dataset.value)).toEqual([
+        PENDING.email,
+      ]),
+    );
+    expect(screen.getByTestId('table-search')).toHaveValue('NEW@');
+  });
+
+  it('在搜尋框輸入 → 篩選列表；沒有符合的顯示清除篩選', async () => {
+    renderPage(ALL);
+    await screen.findAllByTestId('platform-admin-email');
+    fireEvent.change(screen.getByTestId('table-search'), { target: { value: '超級' } });
+    await waitFor(() =>
+      expect(screen.getAllByTestId('platform-admin-email').map((el) => el.dataset.value)).toEqual([
+        SELF.email,
+      ]),
+    );
+    fireEvent.change(screen.getByTestId('table-search'), { target: { value: 'nobody' } });
+    expect(await screen.findByTestId('rich-table-clear-filters')).toBeInTheDocument();
+    expect(screen.queryByTestId('platform-admin-email')).toBeNull();
   });
 
   it('新增：檢查 email；送出正規化後的 email、名稱與選的角色', async () => {

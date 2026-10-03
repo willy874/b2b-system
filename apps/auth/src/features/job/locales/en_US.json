@@ -2,7 +2,6 @@
   "job": {
     "title": "Background jobs",
     "description": "Work the server runs in the background for every tenant and for the platform itself: scheduled jobs (audit log archiving, file maintenance, OIDC cleanup), tenant provisioning, and jobs queued by the application. Failures are retried automatically; once retries run out a job stays failed and can be retried here. Completed jobs are kept for 7 days.",
-    "empty": "No jobs match these filters",
     "expand": "Expand",
     "collapse": "Collapse",
     "scheduledAt": "Scheduled for {{time}}",
@@ -37,9 +36,11 @@
     "filter": {
       "allNames": "All jobs",
       "allStates": "All states",
-      "tenantPlaceholder": "Tenant code, blank = all",
+      "scope": "Scope",
+      "allScopes": "All tenants and platform",
       "platformOnly": "Platform only",
-      "apply": "Apply"
+      "tenant": "Tenant code",
+      "tenantPlaceholder": "e.g. acme; ignored when \"Platform only\" is selected"
     },
     "field": {
       "createdAt": "Created",
@@ -65,9 +66,6 @@
       "title": "Retry this job?",
       "confirm": "\"{{name}}\" will be queued again and run by a worker.",
       "success": "Queued again"
-    },
-    "pagination": {
-      "summary": "{{from}}–{{to}} of {{total}}"
     },
     "detail": {
       "title": "Job details",

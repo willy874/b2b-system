@@ -30,3 +30,12 @@ export function isRealtimeAvailable(): boolean {
   if (coordinator) return coordinator.isAvailable();
   return active?.isConnected ?? false;
 }
+
+/**
+ * 訂閱推播可用性的變化（`isRealtimeAvailable` 的結果可能改變時通知）。
+ * 有協調者時看協調者（含 leader 分頁回報的狀態），否則看本分頁的連線；推播停用時不會通知。
+ */
+export function subscribeRealtimeAvailability(listener: () => void): () => void {
+  if (coordinator) return coordinator.subscribe(listener);
+  return active?.subscribe(listener) ?? (() => {});
+}

@@ -1,0 +1,15 @@
+/* 方向用 Base UI 自帶的 data-orientation。 */
+@layer components {
+  .root {
+    background: var(--color-border);
+    flex-shrink: 0;
+  }
+  .root[data-orientation='horizontal'] {
+    height: 1px;
+    width: 100%;
+  }
+  .root[data-orientation='vertical'] {
+    width: 1px;
+    align-self: stretch;
+  }
+}

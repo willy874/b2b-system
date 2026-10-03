@@ -1,24 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
 import { getTenantListQueryOptions } from '@/apis/platform-tenant/get-tenant-list/query';
 import { Button } from '@/components/Button';
-import { Pagination } from '@/components/Pagination';
-import type { TableColumnDef } from '@/components/Table';
-import { Table } from '@/components/Table';
 import { useTranslation } from '@/core/locales';
-import type { PlatformTenant } from '@/shared/api-sdk';
-import { formatDateTime } from '@/shared/date';
 
-import { TenantStatus } from '../../components/TenantStatus';
 import { TENANT_PAGE_SIZE_OPTIONS } from '../../constants';
 import { useTenantPermission } from '../../hooks/useTenantPermission';
-import { TenantDetailRoute, TenantListRoute } from '../../routes';
-import type { TenantSearchQuery } from '../../routes';
+import { DEFAULT_TENANT_DETAIL_SEARCH, TenantDetailRoute } from '../../routes';
+import { toTenantRowVM } from './adapter';
 import { CreateTenantDialog } from './components/CreateTenantDialog';
-import { TenantFilterBar } from './components/TenantFilterBar';
-import type { TenantFilterValues } from './components/TenantFilterBar';
+import { TenantTable } from './components/TenantTable';
+import { useTenantFilters } from './useTenantFilters';
+import { useTenantSearchFilter } from './useTenantSearchFilter';
 
 /**
  * 平台管理者的租戶清單（docs/architecture/05-tenancy.md §10.2 D12、D13）：
@@ -29,9 +24,12 @@ export default function TenantListPage() {
   const { t } = useTranslation();
   const permission = useTenantPermission();
   const navigate = useNavigate();
-  const search = TenantListRoute.useSearch();
+  const searchFilter = useTenantSearchFilter();
+  const { search, setPage } = searchFilter;
+  const filters = useTenantFilters(searchFilter);
   const [creating, setCreating] = useState(false);
-  const { data, isPending } = useQuery(
+
+  const { data, isPending, error, refetch } = useQuery(
     getTenantListQueryOptions({
       offset: search.offset,
       limit: search.limit,
@@ -39,56 +37,17 @@ export default function TenantListPage() {
       status: search.status,
     }),
   );
-  const filtered = Boolean(search.q || search.status);
+  const rows = useMemo(() => (data?.items ?? []).map(toTenantRowVM), [data]);
 
-  const patch = (next: Partial<TenantSearchQuery>) =>
-    void navigate({ to: TenantListRoute.to, search: { ...search, ...next } });
-  // 條件一起覆寫（重設時全部是 undefined）；條件變了就回第一頁
-  const applyFilters = ({ q, status }: TenantFilterValues) => patch({ q, status, offset: 0 });
-  const setPage = ({ offset, limit }: { offset: number; limit: number }) =>
-    patch({ offset, limit });
-
-  const columns = useMemo<Array<TableColumnDef<PlatformTenant>>>(
-    () => [
-      {
-        id: 'code',
-        header: t('tenant.field.code'),
-        cell: ({ row }) => (
-          <Link
-            to={TenantDetailRoute.to}
-            params={{ id: row.original.id }}
-            className="font-mono font-medium"
-            data-testid="tenant-link"
-            data-value={row.original.code}
-          >
-            {row.original.code}
-          </Link>
-        ),
-      },
-      { id: 'name', header: t('tenant.field.name'), cell: ({ row }) => row.original.name },
-      {
-        id: 'status',
-        header: t('tenant.field.status'),
-        cell: ({ row }) => <TenantStatus status={row.original.status} />,
-      },
-      {
-        id: 'domain',
-        header: t('tenant.field.primaryDomain'),
-        cell: ({ row }) => (
-          <code className="font-mono text-xs">{row.original.domains[0] ?? '-'}</code>
-        ),
-      },
-      {
-        id: 'createdAt',
-        header: t('tenant.field.createdAt'),
-        cell: ({ row }) => formatDateTime(row.original.createdAt),
-      },
-    ],
-    [t],
-  );
+  const openDetail = (id: string) =>
+    void navigate({
+      to: TenantDetailRoute.to,
+      params: { id },
+      search: DEFAULT_TENANT_DETAIL_SEARCH,
+    });
 
   return (
-    <div className="flex flex-col gap-4" data-testid="tenant-page">
+    <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="tenant-page">
       <header className="flex items-center justify-between gap-4">
         <div>
           <h1 className="m-0 text-xl font-semibold">{t('tenant.title')}</h1>
@@ -105,29 +64,26 @@ export default function TenantListPage() {
         )}
       </header>
 
-      <TenantFilterBar key={search.q ?? ''} search={search} onChange={applyFilters} />
-
-      <Table
-        data={data?.items ?? []}
-        columns={columns}
-        getRowId={(row) => row.id}
+      <TenantTable
+        rows={rows}
         loading={isPending}
-        emptyTitle={filtered ? t('tenant.emptyFiltered') : t('tenant.empty')}
-        data-testid="tenant-table"
-      />
-
-      <Pagination
-        offset={search.offset}
-        limit={search.limit}
-        total={data?.pagination.total ?? 0}
-        pageSizeOptions={TENANT_PAGE_SIZE_OPTIONS}
-        onChange={setPage}
-        labels={{
-          previous: t('common.previous'),
-          next: t('common.next'),
-          summary: ({ from, to, total }) => t('tenant.pagination.summary', { from, to, total }),
+        filtered={Boolean(search.q || search.status)}
+        filters={filters}
+        searchBox={{
+          value: search.q,
+          onChange: (q) => filters.onSubmit({ ...filters.value, q }),
+          placeholder: t('tenant.filter.qPlaceholder'),
         }}
-        data-testid="tenant-pagination"
+        error={error}
+        onRetry={() => void refetch()}
+        pagination={{
+          offset: search.offset,
+          limit: search.limit,
+          total: data?.pagination.total ?? 0,
+          pageSizeOptions: TENANT_PAGE_SIZE_OPTIONS,
+          onChange: ({ offset, limit }) => setPage(offset, limit),
+        }}
+        onRowDoubleClick={(row) => openDetail(row.id)}
       />
 
       <CreateTenantDialog
@@ -136,7 +92,7 @@ export default function TenantListPage() {
         onClose={() => setCreating(false)}
         onCreated={(id) => {
           setCreating(false);
-          void navigate({ to: TenantDetailRoute.to, params: { id } });
+          openDetail(id);
         }}
       />
     </div>

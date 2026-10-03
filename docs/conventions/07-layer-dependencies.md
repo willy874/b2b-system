@@ -143,7 +143,7 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 
 **api** 的規則由 🔒 `apps/api/src/__tests__/layer-dependencies.spec.ts` 強制（`pnpm test` 會跑）：
 `core/` 不依賴 `modules/`、`common/`；`common/` 只有 guard 能注入 §3.2 註 4 的四個 service；
-跨模組不 import repository / controller；葉節點（`permission`、`audit-log`、`platform-admin`、`credential`）只依賴彼此；
+跨模組不 import repository / controller；葉節點（`permission`、`audit-log`、`platform-admin`、`platform-notification`、`credential`）只依賴彼此；
 模組之間以資料夾計不循環（`import/no-cycle` 只看檔案，抓不到「A 的 service → B、B 的純函式 → A」）；不用 `forwardRef`。
 
 **backstage** 目前由 `.oxlintrc.json` 的 `no-restricted-imports` 擋一部分，其餘用搜尋自查：

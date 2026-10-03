@@ -18,8 +18,14 @@ import {
 import type { EditablePlatformAdminStatus } from '../../../constants';
 import { useUpdatePlatformAdminMutation } from '../../../hooks/usePlatformAdminMutations';
 
+/** 編輯需要的欄位（列表的 VM 與 DTO 都符合）。 */
+type EditablePlatformAdmin = Pick<
+  PlatformAdmin,
+  'id' | 'email' | 'displayName' | 'role' | 'status'
+>;
+
 interface EditPlatformAdminDialogProps {
-  admin: PlatformAdmin;
+  admin: EditablePlatformAdmin;
   /** 自己：後端不允許變更自己的角色與狀態（`AUTHZ_SELF_MODIFY`），只能改名稱。 */
   isSelf: boolean;
   onClose: () => void;

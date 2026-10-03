@@ -1,9 +1,10 @@
-import { createRoute } from '@tanstack/react-router';
+import { createRoute, stripSearchParams } from '@tanstack/react-router';
 
 import { localeScopeLoader } from '@/core/locales';
 import { RootRoute } from '@/core/router';
 
 import { FEATURE_FLAG_LOCALE_SCOPE } from '../locale';
+import { DEFAULT_FEATURE_FLAG_SEARCH, FeatureFlagSearchQuerySchema } from './model';
 
 /**
  * feature flag 的全平台管理（`featureFlag:read`，docs/architecture/05-tenancy.md §11.2 D8）。
@@ -13,4 +14,6 @@ export const FeatureFlagListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/feature-flag',
   loader: localeScopeLoader(FEATURE_FLAG_LOCALE_SCOPE),
+  validateSearch: FeatureFlagSearchQuerySchema,
+  search: { middlewares: [stripSearchParams(DEFAULT_FEATURE_FLAG_SEARCH)] },
 });

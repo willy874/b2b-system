@@ -138,7 +138,8 @@ describe('PlatformTenantService.update 的 features（docs/architecture/frontend
     expect(events.publish).toHaveBeenCalledWith(DomainEvent.TENANT_FEATURES_CHANGED, {
       tenantId: TENANT_ID,
     });
-    expect(calls).toEqual(['transaction', 'audit', 'invalidate', 'publish']);
+    // 先通知租戶的連線，再推給平台管理者的畫面（platform.changed）
+    expect(calls).toEqual(['transaction', 'audit', 'invalidate', 'publish', 'publish']);
     expect(result.features).toEqual(['auditLog', 'job']);
   });
 
@@ -148,7 +149,10 @@ describe('PlatformTenantService.update 的 features（docs/architecture/frontend
     await service.update(TENANT_ID, { features: ['job', 'file', 'auditLog'] });
 
     expect(directory.invalidate).toHaveBeenCalled();
-    expect(events.publish).not.toHaveBeenCalled();
+    expect(events.publish).not.toHaveBeenCalledWith(
+      DomainEvent.TENANT_FEATURES_CHANGED,
+      expect.anything(),
+    );
   });
 
   it('只改名稱 → features 不動、稽核的 after 沿用原本的清單、不發佈事件', async () => {
@@ -170,7 +174,10 @@ describe('PlatformTenantService.update 的 features（docs/architecture/frontend
       }),
       'tx',
     );
-    expect(events.publish).not.toHaveBeenCalled();
+    expect(events.publish).not.toHaveBeenCalledWith(
+      DomainEvent.TENANT_FEATURES_CHANGED,
+      expect.anything(),
+    );
   });
 
   it('DB 裡不認得的 id 不出現在回應', async () => {
@@ -218,7 +225,8 @@ describe('PlatformTenantService.update 的 flags（docs/architecture/05-tenancy.
       }),
       'tx',
     );
-    expect(calls).toEqual(['transaction', 'audit', 'invalidate', 'publish']);
+    // 先通知租戶的連線，再推給平台管理者的畫面（platform.changed）
+    expect(calls).toEqual(['transaction', 'audit', 'invalidate', 'publish', 'publish']);
     expect(events.publish).toHaveBeenCalledWith(DomainEvent.TENANT_FEATURES_CHANGED, {
       tenantId: TENANT_ID,
     });
@@ -230,7 +238,10 @@ describe('PlatformTenantService.update 的 flags（docs/architecture/05-tenancy.
 
     await service.update(TENANT_ID, { flags: { 'levelEditor.v2': true } });
 
-    expect(events.publish).not.toHaveBeenCalled();
+    expect(events.publish).not.toHaveBeenCalledWith(
+      DomainEvent.TENANT_FEATURES_CHANGED,
+      expect.anything(),
+    );
   });
 
   it('不在目錄裡的 key → VALIDATION_FAILED，不寫入', async () => {
@@ -287,7 +298,10 @@ describe('PlatformTenantService.update 的 featureParams（docs/architecture/05-
       }),
       'tx',
     );
-    expect(events.publish).not.toHaveBeenCalled();
+    expect(events.publish).not.toHaveBeenCalledWith(
+      DomainEvent.TENANT_FEATURES_CHANGED,
+      expect.anything(),
+    );
     expect(result.featureParams.find((param) => param.key === 'file.storageQuotaMb')).toEqual({
       key: 'file.storageQuotaMb',
       feature: 'file',

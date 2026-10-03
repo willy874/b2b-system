@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { formatDateTime, isValidTimeZone, setDateTimeDefaults, zonedDayBoundary } from '../index';
+import {
+  formatDateTime,
+  formatRelativeTime,
+  isValidTimeZone,
+  setDateTimeDefaults,
+  toZonedParts,
+  zonedDateTime,
+  zonedDayBoundary,
+} from '../index';
 
 const INSTANT = '2026-09-30T16:30:00.000Z';
 
@@ -70,5 +78,63 @@ describe('zonedDayBoundary（稽核篩選的日界線）', () => {
   it('沒傳時區時用偏好的時區', () => {
     setDateTimeDefaults({ timeZone: 'UTC' });
     expect(zonedDayBoundary('2026-10-01', 'start')).toBe('2026-10-01T00:00:00.000Z');
+  });
+});
+
+describe('formatRelativeTime（通知的相對時間）', () => {
+  const now = Date.parse(INSTANT);
+  const ago = (ms: number) => new Date(now - ms).toISOString();
+
+  it('一分鐘內是「現在」', () => {
+    expect(formatRelativeTime(ago(30_000), now)).toBe('現在');
+  });
+
+  it('取最大且至少一個單位的時間單位', () => {
+    expect(formatRelativeTime(ago(5 * 60_000), now)).toBe('5 分鐘前');
+    expect(formatRelativeTime(ago(3 * 60 * 60_000), now)).toBe('3 小時前');
+    expect(formatRelativeTime(ago(24 * 60 * 60_000), now)).toBe('昨天');
+  });
+
+  it('跟著偏好的語言', () => {
+    setDateTimeDefaults({ locale: 'en-US' });
+    expect(formatRelativeTime(ago(5 * 60_000), now)).toBe('5 minutes ago');
+  });
+
+  it('不合法的值顯示 -', () => {
+    expect(formatRelativeTime('not a date', now)).toBe('-');
+    expect(formatRelativeTime(null, now)).toBe('-');
+  });
+});
+
+describe('zonedDateTime / toZonedParts（公告排程的日期與時間）', () => {
+  it('偏好時區的日期與時間 → 那一刻（ISO）', () => {
+    expect(zonedDateTime('2026-10-10', '18:00', 'Asia/Taipei')).toBe('2026-10-10T10:00:00.000Z');
+    expect(zonedDateTime('2026-10-10', '18:00', 'UTC')).toBe('2026-10-10T18:00:00.000Z');
+  });
+
+  it('夏令時間：紐約 7 月是 UTC-4、1 月是 UTC-5', () => {
+    expect(zonedDateTime('2026-07-01', '09:00', 'America/New_York')).toBe(
+      '2026-07-01T13:00:00.000Z',
+    );
+    expect(zonedDateTime('2026-01-15', '09:00', 'America/New_York')).toBe(
+      '2026-01-15T14:00:00.000Z',
+    );
+  });
+
+  it('格式不對 → undefined', () => {
+    expect(zonedDateTime('2026/10/10', '18:00')).toBeUndefined();
+    expect(zonedDateTime('2026-10-10', '6pm')).toBeUndefined();
+  });
+
+  it('反向：某一刻在偏好時區的日期與時間；可以來回轉換', () => {
+    expect(toZonedParts('2026-10-10T10:00:00.000Z', 'Asia/Taipei')).toEqual({
+      day: '2026-10-10',
+      time: '18:00',
+    });
+    const parts = toZonedParts('2026-03-08T07:30:00.000Z', 'America/New_York')!;
+    expect(zonedDateTime(parts.day, parts.time, 'America/New_York')).toBe(
+      '2026-03-08T07:30:00.000Z',
+    );
+    expect(toZonedParts('not a date')).toBeUndefined();
   });
 });

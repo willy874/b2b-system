@@ -1,11 +1,12 @@
 import type { PlatformJobState } from '@/apis/platform-job/types';
+import type { ChipTone } from '@/components/Chip';
 import type { PlatformJob, PlatformJobQueue, PlatformJobSummary } from '@/shared/api-sdk';
 
 import {
   JOB_NAME_LABEL_KEY,
   JOB_SCOPE_LABEL_KEY,
-  JOB_STATE_DOT_CLASS,
   JOB_STATE_LABEL_KEY,
+  JOB_STATE_TONE,
   PLATFORM_TENANT_FILTER,
 } from '../../constants';
 
@@ -37,7 +38,7 @@ export interface JobRowVM {
   ownerValue: string;
   state: PlatformJobState;
   stateLabelKey: (typeof JOB_STATE_LABEL_KEY)[PlatformJobState];
-  stateDotClass: (typeof JOB_STATE_DOT_CLASS)[PlatformJobState];
+  stateTone: ChipTone;
   /** 已重試次數 / 上限 */
   retryCount: number;
   retryLimit: number;
@@ -98,7 +99,7 @@ export function toJobRowVM(
     ownerValue: owner.kind === 'platform' ? PLATFORM_TENANT_FILTER : owner.label,
     state: dto.state,
     stateLabelKey: JOB_STATE_LABEL_KEY[dto.state],
-    stateDotClass: JOB_STATE_DOT_CLASS[dto.state],
+    stateTone: JOB_STATE_TONE[dto.state],
     retryCount: dto.retryCount,
     retryLimit: dto.retryLimit,
     createdAt: new Date(dto.createdOn),

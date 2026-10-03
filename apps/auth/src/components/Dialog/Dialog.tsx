@@ -8,7 +8,7 @@ import type { SlotOverrides } from '../slots';
 
 import styles from './Dialog.module.css';
 
-export type DialogSize = 'sm' | 'md' | 'lg';
+export type DialogSize = 'sm' | 'md' | 'lg' | 'xl';
 
 /** `className` 落在彈窗（popup）；其餘各層用 `classNames` / `styles` / `testIds` 覆寫。 */
 export type DialogSlot = 'backdrop' | 'header' | 'title' | 'description' | 'body' | 'footer';

@@ -1,4 +1,5 @@
 import type { PlatformJobState } from '@/apis/platform-job/types';
+import type { ChipTone } from '@/components/Chip';
 import type { PlatformJobQueue } from '@/shared/api-sdk';
 
 type JobScope = PlatformJobQueue['scope'];
@@ -22,15 +23,15 @@ export const JOB_STATE_LABEL_KEY = {
   failed: 'job.state.failed',
 } as const satisfies Record<PlatformJobState, string>;
 
-/** 狀態點的顏色走 design token（CLAUDE.md 前端規則 6）。 */
-export const JOB_STATE_DOT_CLASS = {
-  created: 'bg-[var(--color-fg-muted)]',
-  retry: 'bg-[var(--color-warning)]',
-  active: 'bg-[var(--color-brand)]',
-  completed: 'bg-[var(--color-success)]',
-  cancelled: 'bg-[var(--color-fg-muted)]',
-  failed: 'bg-[var(--color-danger)]',
-} as const satisfies Record<PlatformJobState, string>;
+/** 狀態以 Chip 的語意色調呈現（顏色由 design token 決定）。 */
+export const JOB_STATE_TONE = {
+  created: 'neutral',
+  retry: 'warning',
+  active: 'brand',
+  completed: 'success',
+  cancelled: 'neutral',
+  failed: 'danger',
+} as const satisfies Record<PlatformJobState, ChipTone>;
 
 export const JOB_SCOPE_LABEL_KEY = {
   tenant: 'job.scope.tenant',

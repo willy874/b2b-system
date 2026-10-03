@@ -50,8 +50,15 @@ function format(list: readonly ImportEdge[]): string {
 /**
  * 全域葉節點與 credential（docs/architecture/backend/01-architecture.md §4）：只能依賴彼此，
  * 否則 `PermissionsGuard` 或依賴 credential 的模組會把一整串業務模組帶進來。
+ * `platform-notification` 被 `platform-admin`（換角色時通知本人）依賴，所以也必須是葉節點。
  */
-const LEAF_MODULES = new Set(['permission', 'audit-log', 'platform-admin', 'credential']);
+const LEAF_MODULES = new Set([
+  'permission',
+  'audit-log',
+  'platform-admin',
+  'platform-notification',
+  'credential',
+]);
 
 /** `common/guards/permissions.guard.ts` 可以注入的 service（docs/conventions/07-layer-dependencies.md §3.2 註 4）。 */
 const GUARD_ALLOWED = new Set([

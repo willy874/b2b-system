@@ -1,22 +1,15 @@
+import { Chip } from '@/components/Chip';
 import { useTranslation } from '@/core/locales';
 import type { PlatformTenant } from '@/shared/api-sdk';
-import { cn } from '@/shared/utils';
 
-import { TENANT_STATUS_DOT_CLASS, TENANT_STATUS_LABEL_KEY } from '../constants';
+import { TENANT_STATUS_LABEL_KEY, TENANT_STATUS_TONE } from '../constants';
 
+/** 租戶狀態：E2E 以 `tenant-status` 的 `data-value` 判斷目前狀態。 */
 export function TenantStatus({ status }: { status: PlatformTenant['status'] }) {
   const { t } = useTranslation();
   return (
-    <span
-      className="inline-flex items-center gap-1.5 text-sm"
-      data-testid="tenant-status"
-      data-value={status}
-    >
-      <span
-        className={cn('inline-block h-2 w-2 rounded-full', TENANT_STATUS_DOT_CLASS[status])}
-        aria-hidden
-      />
+    <Chip tone={TENANT_STATUS_TONE[status]} data-testid="tenant-status" data-value={status}>
       {t(TENANT_STATUS_LABEL_KEY[status])}
-    </span>
+    </Chip>
   );
 }

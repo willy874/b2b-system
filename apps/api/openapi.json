@@ -301,6 +301,117 @@
         "tags": ["platform-admins"]
       }
     },
+    "/platform/notifications": {
+      "get": {
+        "operationId": "PlatformNotificationController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/PlatformNotification"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "自己的通知（新的在前）；`unread=true` 只列未讀",
+        "tags": ["platform-notifications"]
+      }
+    },
+    "/platform/notifications/unread-count": {
+      "get": {
+        "operationId": "PlatformNotificationController_unreadCount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformNotificationUnreadCount"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "自己的未讀數（頂列的徽章）",
+        "tags": ["platform-notifications"]
+      }
+    },
+    "/platform/notifications/read-all": {
+      "post": {
+        "operationId": "PlatformNotificationController_markAllRead",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "自己的通知全部標為已讀",
+        "tags": ["platform-notifications"]
+      }
+    },
+    "/platform/notifications/{id}/read": {
+      "post": {
+        "operationId": "PlatformNotificationController_markRead",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "標為已讀（已讀過的再標一次不算錯）",
+        "tags": ["platform-notifications"]
+      }
+    },
     "/approvals": {
       "get": {
         "operationId": "ApprovalController_list",
@@ -1876,6 +1987,63 @@
           }
         },
         "summary": "平台管理者自己的身分",
+        "tags": ["platform-auth"]
+      },
+      "patch": {
+        "operationId": "PlatformAuthController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlatformProfileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformProfile"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "平台管理者改自己的顯示名稱",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/change-password": {
+      "post": {
+        "operationId": "PlatformAuthController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "平台管理者以目前的密碼換新密碼（結束所有 session）",
         "tags": ["platform-auth"]
       }
     },
@@ -8605,6 +8773,61 @@
         },
         "additionalProperties": false
       },
+      "PlatformNotification": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "type": {
+            "type": "string"
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "link": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "route": {
+                "type": "string"
+              },
+              "params": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": ["route", "params"],
+            "additionalProperties": false
+          },
+          "readAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "type", "params", "link", "readAt", "createdAt"],
+        "additionalProperties": false
+      },
+      "PlatformNotificationUnreadCount": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["count"],
+        "additionalProperties": false
+      },
       "PlatformAdmin": {
         "type": "object",
         "properties": {
@@ -9574,6 +9797,18 @@
           }
         },
         "required": ["admin", "permissions"],
+        "additionalProperties": false
+      },
+      "UpdatePlatformProfileRequest": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": ["displayName"],
         "additionalProperties": false
       },
       "UpdateProfileRequest": {

@@ -1,0 +1,25 @@
+{
+  "notification": {
+    "label": "Notifications",
+    "title": "Notifications",
+    "description": "Notifications from the platform: tenant provisioning results and changes to your role.",
+    "trigger": "Notifications",
+    "triggerUnread": "Notifications ({{count}} unread)",
+    "unread": "Unread: ",
+    "empty": "No notifications yet",
+    "emptyUnread": "No unread notifications",
+    "viewAll": "View all",
+    "markAllRead": {
+      "action": "Mark all as read",
+      "success": "Marked {{count}} as read."
+    },
+    "filter": { "all": "All", "unread": "Unread" },
+    "type": {
+      "tenantProvisioned": "Tenant \"{{name}}\" ({{code}}) is provisioned and ready to use.",
+      "tenantProvisionFailed": "Provisioning tenant \"{{name}}\" ({{code}}) failed. Check the reason and retry.",
+      "platformAdminRoleChanged": "Your role changed from \"{{from}}\" to \"{{to}}\".",
+      "unknown": "You have a new notification."
+    },
+    "role": { "superAdmin": "Super admin", "operator": "Operator", "auditor": "Auditor" }
+  }
+}

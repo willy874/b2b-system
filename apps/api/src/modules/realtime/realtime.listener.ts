@@ -9,7 +9,13 @@ import { requireTenant } from '@/core/tenant';
 
 import { RealtimeAudience, resolveAudienceRooms } from './realtime.audience';
 import { RealtimePublisher } from './realtime.publisher';
-import { idpSessionRoom, tenantRoom, userRoom } from './realtime.rooms';
+import {
+  idpSessionRoom,
+  PLATFORM_ROOM,
+  platformAdminRoom,
+  tenantRoom,
+  userRoom,
+} from './realtime.rooms';
 
 /**
  * 領域事件 → 推播（docs/architecture/backend/08-realtime.md §3.5、§6.2、§7）。
@@ -49,6 +55,11 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
       this.bus.subscribe(
         DomainEvent.TENANT_FEATURES_CHANGED,
         (payload) => this.onTenantFeaturesChanged(payload),
+        remote,
+      ),
+      this.bus.subscribe(
+        DomainEvent.PLATFORM_CHANGED,
+        (payload, meta) => this.onPlatformChanged(payload, meta),
         remote,
       ),
     ];
@@ -95,10 +106,12 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
     userIds = [],
     idpSessionUids = [],
     tenantIds = [],
+    platformAdminIds = [],
     reason,
   }: DomainEventPayloads[typeof DomainEvent.SESSIONS_REVOKED]): void {
     const rooms = [
       ...[...new Set(userIds)].map(userRoom),
+      ...[...new Set(platformAdminIds)].map(platformAdminRoom),
       // 單一登出：只有同一個 IdP session 的連線，同一個人的其他裝置不受影響（docs/architecture/04-sso.md §12.2 D5）
       ...[...new Set(idpSessionUids)].map(idpSessionRoom),
       ...[...new Set(tenantIds)].map(tenantRoom),
@@ -128,5 +141,27 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
     };
     this.publisher.emit(room, ServerEvent.RESOURCE_CHANGED, payload);
     this.logger.debug({ room }, '推播租戶的 feature 變更');
+  }
+
+  /**
+   * 平台層級的變更（docs/architecture/backend/08-realtime.md §3.6）：推給 apps/auth 上平台管理者的連線，
+   * 有指定收件人（站內通知）時只推給他們。租戶的連線不在這些 room 裡，平台的變更不會推到租戶。
+   */
+  onPlatformChanged(
+    { changes, adminIds }: DomainEventPayloads[typeof DomainEvent.PLATFORM_CHANGED],
+    meta: DomainEventMeta,
+  ): void {
+    if (!changes.length) return;
+    const rooms = adminIds?.length
+      ? [...new Set(adminIds)].map(platformAdminRoom)
+      : [PLATFORM_ROOM];
+    const payload: ResourceChanged = meta.clientId
+      ? { changes, origin: meta.clientId }
+      : { changes };
+    this.publisher.emit(rooms, ServerEvent.RESOURCE_CHANGED, payload);
+    this.logger.debug(
+      { resources: changes.map((c) => `${c.resource}.${c.kind}`), rooms: rooms.length },
+      '推播平台的資源變更',
+    );
   }
 }

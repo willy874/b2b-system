@@ -33,6 +33,16 @@ export function isNotFound(error: unknown): boolean {
   return error instanceof AppError && error.status === 404;
 }
 
+/**
+ * 樂觀鎖衝突（409 `<RESOURCE>_VERSION_CONFLICT`）：送出的 `version` 不是目前的版本，別人已經改過
+ * （docs/architecture/backend/03-api-conventions.md §11）。`details.current` 是目前的版本。
+ */
+export function isVersionConflict(error: unknown): error is AppError {
+  return (
+    error instanceof AppError && error.status === 409 && error.code.endsWith('_VERSION_CONFLICT')
+  );
+}
+
 export const ErrorCodes = {
   VALIDATION_FAILED: 'VALIDATION_FAILED',
   AUTH_INVALID_CREDENTIALS: 'AUTH_INVALID_CREDENTIALS',

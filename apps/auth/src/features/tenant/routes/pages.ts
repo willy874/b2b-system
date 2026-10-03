@@ -4,7 +4,12 @@ import { localeScopeLoader } from '@/core/locales';
 import { RootRoute } from '@/core/router';
 
 import { TENANT_LOCALE_SCOPE } from '../locale';
-import { DEFAULT_TENANT_SEARCH, TenantSearchQuerySchema } from './model';
+import {
+  DEFAULT_TENANT_DETAIL_SEARCH,
+  DEFAULT_TENANT_SEARCH,
+  TenantDetailSearchSchema,
+  TenantSearchQuerySchema,
+} from './model';
 
 /**
  * 平台管理者的租戶管理（`tenant:read`，docs/architecture/05-tenancy.md §10.2 D12、D13）。
@@ -24,4 +29,7 @@ export const TenantDetailRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/tenant/$id',
   loader: localeScopeLoader(TENANT_LOCALE_SCOPE),
+  // 目前的分頁放在網址上：重新整理或分享連結都停在同一頁；概覽（預設）不寫進網址
+  validateSearch: TenantDetailSearchSchema,
+  search: { middlewares: [stripSearchParams(DEFAULT_TENANT_DETAIL_SEARCH)] },
 });

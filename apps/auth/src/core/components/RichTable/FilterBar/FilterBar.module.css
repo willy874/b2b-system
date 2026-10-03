@@ -1,0 +1,149 @@
+@layer components {
+  .trigger {
+    position: relative;
+  }
+
+  .trigger[data-active] {
+    color: var(--color-brand);
+  }
+
+  /* 疊在圖示右上角的數量徽章 */
+  .count {
+    position: absolute;
+    top: -0.25rem;
+    right: -0.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1rem;
+    height: 1rem;
+    padding: 0 0.25rem;
+    border-radius: 999px;
+    background: var(--color-brand);
+    color: var(--color-brand-fg);
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .popup {
+    width: 24rem;
+    max-width: calc(100vw - 2 * var(--seed-space-4));
+  }
+
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--seed-space-3);
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--seed-space-1);
+  }
+
+  .fieldLabel {
+    color: var(--color-fg-muted);
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+
+  .checkboxList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--seed-space-2);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--seed-space-2);
+    margin-top: var(--seed-space-1);
+  }
+
+  .sortControl {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--seed-space-2);
+  }
+
+  .sortEmpty {
+    margin: 0;
+    color: var(--color-fg-muted);
+    font-size: 0.8125rem;
+  }
+
+  .sortList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--seed-space-1);
+    align-self: stretch;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .sortRow {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-1);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+  }
+
+  .sortRow[data-dragging] {
+    position: relative;
+    z-index: 1;
+    box-shadow: var(--shadow-popover);
+  }
+
+  .dragHandle {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-fg-muted);
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .dragHandle:active {
+    cursor: grabbing;
+  }
+
+  .dragHandle:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: -1px;
+  }
+
+  .sortIndex {
+    flex-shrink: 0;
+    width: 1rem;
+    color: var(--color-fg-muted);
+    font-size: 0.8125rem;
+    text-align: center;
+  }
+
+  .sortField {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sortOrder {
+    flex-shrink: 0;
+    width: 6.5rem;
+  }
+}

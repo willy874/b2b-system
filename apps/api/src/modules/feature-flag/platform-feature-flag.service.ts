@@ -1,3 +1,4 @@
+import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
@@ -77,6 +78,12 @@ export class PlatformFeatureFlagService {
       // 失效之後才通知：前端收到後重新取得的 profile 已經是新的值（D7）
       await this.flags.reload();
       await this.notifyAllTenants();
+      // 平台管理者的畫面（docs/architecture/backend/08-realtime.md §3.6）
+      this.events.publish(DomainEvent.PLATFORM_CHANGED, {
+        changes: [
+          { resource: ChangeSource.PLATFORM_FEATURE_FLAG, kind: ChangeKind.UPDATE, id: key },
+        ],
+      });
     }
     const flag = (await this.list()).items.find((item) => item.key === key);
     if (!flag) throw new AppException('FEATURE_FLAG_NOT_FOUND');

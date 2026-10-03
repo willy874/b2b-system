@@ -76,6 +76,12 @@ export const PlatformProfileSchema = defineSchema(
   }),
 );
 
+/** 平台管理者改自己的資料：只有顯示名稱（偏好只存在瀏覽器，沒有 `preferences`）。 */
+export const UpdatePlatformProfileSchema = defineSchema(
+  'UpdatePlatformProfileRequest',
+  z.object({ displayName: z.string().trim().min(1).max(100) }),
+);
+
 export const UpdateProfileSchema = defineSchema(
   'UpdateProfileRequest',
   z
@@ -205,6 +211,7 @@ export type SetupDto = z.infer<typeof SetupSchema>;
 export type RegisterDto = z.infer<typeof RegisterSchema>;
 export type SsoInteractionDto = z.infer<typeof SsoInteractionSchema>;
 export type PlatformProfileDto = z.infer<typeof PlatformProfileSchema>;
+export type UpdatePlatformProfileDto = z.infer<typeof UpdatePlatformProfileSchema>;
 export type SsoRedirectDto = z.infer<typeof SsoRedirectSchema>;
 export type SsoCallbackDto = z.infer<typeof SsoCallbackSchema>;
 export type SsoDiscoveryQueryDto = z.infer<typeof SsoDiscoveryQuerySchema>;

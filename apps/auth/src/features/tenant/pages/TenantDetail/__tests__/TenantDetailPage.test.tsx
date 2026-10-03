@@ -1,15 +1,13 @@
-import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AppError } from '@/core/errors';
 import { i18n, initI18n } from '@/core/locales';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
-import { parseSearch, RootRoute, stringifySearch } from '@/core/router';
-import { usePermissionStore } from '@/core/store';
 import type { FeatureFlag, PlatformTenant } from '@/shared/api-sdk';
-import { AllProviders } from '@/test/renderWithPermissions';
+import { renderRoute } from '@/test/renderRoute';
 
 import { registerTenantPagePermissions, Routes } from '../../..';
 import tenantZhTW from '../../../locales/zh_TW.json';
@@ -58,21 +56,18 @@ vi.mock('@/apis/platform-tenant/remove-tenant-domain/mutation', () => ({
 
 const ALL: PermissionKey[] = ['tenant:read', 'tenant:create', 'tenant:update', 'tenant:delete'];
 
-function renderPage(tenant: PlatformTenant, permissions: PermissionKey[]) {
+/** `search` 是網址的查詢字串（例：`?tab=features`）；預設停在概覽分頁。 */
+function renderPage(
+  tenant: PlatformTenant,
+  permissions: PermissionKey[] | 'unhydrated',
+  search = '',
+) {
   getTenant.mockResolvedValue(tenant);
-  usePermissionStore.setState({ permissions: new Set(permissions), hydrated: true });
-  const router = createRouter({
-    routeTree: RootRoute.addChildren([Routes.TenantListRoute, Routes.TenantDetailRoute]),
-    history: createMemoryHistory({ initialEntries: [`/tenant/${tenant.id}`] }),
-    parseSearch,
-    stringifySearch,
-  });
-  render(
-    <AllProviders>
-      <RouterProvider router={router} />
-    </AllProviders>,
-  );
-  return router;
+  return renderRoute(
+    [Routes.TenantListRoute, Routes.TenantDetailRoute],
+    `/tenant/${tenant.id}${search}`,
+    permissions,
+  ).router;
 }
 
 /** 某個 feature 的開關：固定的 testid 在列上，feature id 在 `data-value`（docs/conventions/06-literal-strings.md §3.3）。 */
@@ -108,6 +103,15 @@ function featureFlagFixture(overrides: Partial<FeatureFlag> = {}): FeatureFlag {
 }
 
 const FLAG_ADMIN: PermissionKey[] = [...ALL, 'featureFlag:read'];
+const FEATURES_TAB = '?tab=features';
+const FLAGS_TAB = '?tab=flags';
+
+/** 分頁列上的分頁（`Tabs` 的固定 testid 是 `tab`，值在 `data-value`）。 */
+function tabValues(): Array<string | undefined> {
+  return within(screen.getByTestId('tenant-tabs'))
+    .getAllByTestId('tab')
+    .map((el) => el.dataset.value);
+}
 
 beforeEach(() => {
   listFlags.mockReset().mockResolvedValue({
@@ -149,6 +153,56 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
     expect(screen.queryByTestId('tenant-domain-remove')).toBeNull();
   });
 
+  it('權限未水合 → 不閃現任何操作', async () => {
+    renderPage(tenantFixture(), 'unhydrated');
+    expect(await screen.findByTestId('tenant-detail-page')).toBeInTheDocument();
+    for (const id of ['tenant-disable', 'tenant-remove', 'tenant-rename', 'tenant-domain-input']) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
+  });
+
+  it('標題列：麵包屑回到清單、名稱與狀態', async () => {
+    const router = renderPage(tenantFixture(), ['tenant:read']);
+    expect(await screen.findByTestId('tenant-name')).toHaveTextContent('Acme 股份有限公司');
+    expect(screen.getByTestId('tenant-status')).toHaveAttribute('data-value', 'active');
+    fireEvent.click(screen.getByTestId('tenant-back'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/tenant'));
+  });
+
+  it('分頁：預設概覽（網址不帶 tab）；切換寫進網址', async () => {
+    const router = renderPage(tenantFixture(), FLAG_ADMIN);
+    expect(await screen.findByTestId('tenant-code')).toHaveTextContent('acme');
+    expect(router.state.location.searchStr).toBe('');
+    expect(tabValues()).toEqual(['overview', 'features', 'flags']);
+    expect(screen.queryByTestId('tenant-feature')).toBeNull();
+
+    const featuresTab = within(screen.getByTestId('tenant-tabs'))
+      .getAllByTestId('tab')
+      .find((el) => el.dataset.value === 'features');
+    fireEvent.click(featuresTab!);
+    await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'features' }));
+    expect(await screen.findAllByTestId('tenant-feature')).toHaveLength(9);
+    expect(screen.queryByTestId('tenant-domain')).toBeNull();
+  });
+
+  it('網址上不認得的分頁 → 回到概覽', async () => {
+    renderPage(tenantFixture(), ALL, '?tab=nope');
+    expect(await screen.findByTestId('tenant-tab-panel')).toHaveAttribute('data-value', 'overview');
+  });
+
+  it('租戶不存在（404）→ 說明原因並提供回到清單，沒有重試', async () => {
+    getTenant.mockReset().mockRejectedValue(new AppError('TENANT_NOT_FOUND', 404));
+    const router = renderRoute(
+      [Routes.TenantListRoute, Routes.TenantDetailRoute],
+      '/tenant/44444444-4444-4444-8444-444444444444',
+      ALL,
+    ).router;
+    expect(await screen.findByTestId('tenant-not-found')).toBeInTheDocument();
+    expect(screen.queryByTestId('query-error-retry')).toBeNull();
+    fireEvent.click(screen.getByTestId('tenant-back'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/tenant'));
+  });
+
   it('佈建失敗 → 顯示原因與重試（需要 tenant:create）', async () => {
     const failed = tenantFixture({ status: 'failed', provisionError: 'connect ECONNREFUSED' });
     retry.mockResolvedValue({ ...failed, status: 'provisioning', provisionError: null });
@@ -184,7 +238,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
   });
 
   it('啟用的功能：每個 feature 一個開關，反映目前的清單（docs/architecture/frontend/02-plugin-system.md §9.2 D8）', async () => {
-    renderPage(tenantFixture({ features: ['auditLog'] }), ALL);
+    renderPage(tenantFixture({ features: ['auditLog'] }), ALL, FEATURES_TAB);
     const rows = await screen.findAllByTestId('tenant-feature');
     expect(rows.map((el) => el.dataset.value)).toEqual([
       'file',
@@ -205,7 +259,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
   it('啟用的功能：打開直接送出完整清單（固定順序）', async () => {
     const tenant = tenantFixture({ features: ['job'] });
     update.mockResolvedValue({ ...tenant, features: ['file', 'job'] });
-    renderPage(tenant, ALL);
+    renderPage(tenant, ALL, FEATURES_TAB);
     fireEvent.click(await featureToggle('file'));
     await waitFor(() => expect(update).toHaveBeenCalled());
     expect(update.mock.calls[0]?.[0]).toEqual({
@@ -217,7 +271,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
   it('啟用的功能：關閉要先確認，取消就不送出；確認後送出去掉該 feature 的清單', async () => {
     const tenant = tenantFixture({ features: ['file', 'auditLog', 'job'] });
     update.mockResolvedValue({ ...tenant, features: ['auditLog', 'job'] });
-    renderPage(tenant, ALL);
+    renderPage(tenant, ALL, FEATURES_TAB);
     const toggle = await featureToggle('file');
 
     fireEvent.click(toggle);
@@ -237,7 +291,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
   it('啟用的功能：關閉外部 IdP 的確認框另外說明對登入的影響（docs/architecture/05-tenancy.md §12.2 D5）', async () => {
     await initI18n('zh-TW');
     i18n.addResourceBundle('zh-TW', 'translation', tenantZhTW, true, true);
-    renderPage(tenantFixture(), ALL);
+    renderPage(tenantFixture(), ALL, FEATURES_TAB);
     fireEvent.click(await featureToggle('identityProvider'));
     expect(await screen.findByTestId('tenant-feature-dialog')).toBeInTheDocument();
     expect(screen.getByText(/沒有設定密碼的使用者要先重設密碼/)).toBeInTheDocument();
@@ -250,7 +304,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
   });
 
   it('啟用的功能：只有 tenant:read → 不能切換', async () => {
-    renderPage(tenantFixture(), ['tenant:read']);
+    renderPage(tenantFixture(), ['tenant:read'], FEATURES_TAB);
     await screen.findAllByTestId('tenant-feature');
     const toggles = screen.getAllByTestId('tenant-feature-toggle');
     expect(toggles).toHaveLength(9);
@@ -328,15 +382,18 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
     await waitFor(() => expect(router.state.status).toBe('idle'));
   });
 
-  it('試行開關：沒有 featureFlag:read → 不顯示這一區（docs/architecture/05-tenancy.md §11.2 D8）', async () => {
-    renderPage(tenantFixture(), ALL);
+  it('試行開關：沒有 featureFlag:read → 沒有這個分頁，網址指向它也回到概覽（docs/architecture/05-tenancy.md §11.2 D8）', async () => {
+    renderPage(tenantFixture(), ALL, FLAGS_TAB);
     expect(await screen.findByTestId('tenant-disable')).toBeInTheDocument();
+    expect(tabValues()).toEqual(['overview', 'features']);
+    expect(screen.getByTestId('tenant-tab-panel')).toHaveAttribute('data-value', 'overview');
+    expect(screen.getAllByTestId('tenant-domain')).toHaveLength(2);
     expect(screen.queryByTestId('tenant-flag')).toBeNull();
     expect(listFlags).not.toHaveBeenCalled();
   });
 
   it('試行開關：反映租戶的覆寫；全平台緊急關閉的 flag 標示出來', async () => {
-    renderPage(tenantFixture({ flags: { 'levelEditor.v2': true } }), FLAG_ADMIN);
+    renderPage(tenantFixture({ flags: { 'levelEditor.v2': true } }), FLAG_ADMIN, FLAGS_TAB);
     await waitFor(() => expect(screen.getAllByTestId('tenant-flag')).toHaveLength(2));
     const killed = screen.getAllByTestId('tenant-flag-killed');
     expect(killed).toHaveLength(1);
@@ -346,7 +403,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
   it('試行開關：打開直接送出完整的覆寫表（docs/architecture/05-tenancy.md §11.2 D7）', async () => {
     const tenant = tenantFixture({ flags: { 'user.bulkInvite': false } });
     update.mockResolvedValue(tenant);
-    renderPage(tenant, FLAG_ADMIN);
+    renderPage(tenant, FLAG_ADMIN, FLAGS_TAB);
 
     await chooseFlag('levelEditor.v2', 'on');
 
@@ -363,7 +420,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
   it('試行開關：回到「依全平台」→ 從覆寫表移除', async () => {
     const tenant = tenantFixture({ flags: { 'levelEditor.v2': true } });
     update.mockResolvedValue(tenant);
-    renderPage(tenant, FLAG_ADMIN);
+    renderPage(tenant, FLAG_ADMIN, FLAGS_TAB);
 
     await chooseFlag('levelEditor.v2', 'default');
 
@@ -375,7 +432,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
   it('試行開關：關閉要先確認，取消就不送出', async () => {
     const tenant = tenantFixture();
     update.mockResolvedValue(tenant);
-    renderPage(tenant, FLAG_ADMIN);
+    renderPage(tenant, FLAG_ADMIN, FLAGS_TAB);
 
     await chooseFlag('levelEditor.v2', 'off');
     fireEvent.click(await screen.findByTestId('alert-dialog-cancel'));
@@ -392,7 +449,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
   });
 
   it('試行開關：沒有 tenant:update → 看得到但不能切換', async () => {
-    renderPage(tenantFixture(), ['tenant:read', 'featureFlag:read']);
+    renderPage(tenantFixture(), ['tenant:read', 'featureFlag:read'], FLAGS_TAB);
     await waitFor(() => expect(screen.getAllByTestId('tenant-flag-select')).toHaveLength(2));
     for (const select of screen.getAllByTestId('tenant-flag-select')) {
       expect(select).toBeDisabled();
@@ -413,7 +470,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
           param.key === 'file.storageQuotaMb' ? { ...param, value: 4096, overridden: true } : param,
         ),
       });
-      renderPage(tenant, ALL);
+      renderPage(tenant, ALL, FEATURES_TAB);
       const row = await paramRow('file.storageQuotaMb');
       expect(row.closest('[data-testid="tenant-feature"]')).toHaveAttribute('data-value', 'file');
       expect(within(row).getByTestId('tenant-param-value')).toHaveTextContent('4,096');
@@ -426,7 +483,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
     it('有 tenant:update → 編輯後只送出這一個參數', async () => {
       const tenant = tenantFixture();
       update.mockResolvedValue(tenant);
-      renderPage(tenant, ALL);
+      renderPage(tenant, ALL, FEATURES_TAB);
       fireEvent.click(within(await paramRow('webhook.maxUrls')).getByTestId('tenant-param-edit'));
       const dialog = await screen.findByTestId('tenant-param-dialog');
       fireEvent.change(within(dialog).getByTestId('tenant-param-input'), {
@@ -440,7 +497,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
     });
 
     it('超出範圍時不送出，提示允許的範圍', async () => {
-      renderPage(tenantFixture(), ALL);
+      renderPage(tenantFixture(), ALL, FEATURES_TAB);
       fireEvent.click(
         within(await paramRow('job.maxConcurrency')).getByTestId('tenant-param-edit'),
       );
@@ -462,7 +519,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
         ),
       });
       update.mockResolvedValue(tenant);
-      renderPage(tenant, ALL);
+      renderPage(tenant, ALL, FEATURES_TAB);
       fireEvent.click(
         within(await paramRow('job.maxConcurrency')).getByTestId('tenant-param-edit'),
       );
@@ -474,7 +531,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
     });
 
     it('只有 tenant:read → 看得到參數，沒有編輯', async () => {
-      renderPage(tenantFixture(), ['tenant:read']);
+      renderPage(tenantFixture(), ['tenant:read'], FEATURES_TAB);
       const row = await paramRow('file.storageQuotaMb');
       expect(within(row).queryByTestId('tenant-param-edit')).toBeNull();
     });

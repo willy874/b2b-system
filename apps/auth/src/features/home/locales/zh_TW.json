@@ -2,6 +2,20 @@
   "home": {
     "title": "B2B System 帳號",
     "description": "全平台共用的帳號與租戶管理。各產品的登入都會經過這裡。",
-    "you": { "title": "目前登入的身分", "displayName": "顯示名稱", "email": "Email" }
+    "you": {
+      "title": "目前登入的身分",
+      "displayName": "顯示名稱",
+      "email": "Email",
+      "role": "角色",
+      "permissions": "持有權限數"
+    },
+    "role": { "superAdmin": "超級管理者", "operator": "營運人員", "auditor": "稽核人員" },
+    "tenants": {
+      "title": "租戶概況",
+      "failed": "佈建失敗",
+      "provisioning": "佈建中",
+      "active": "啟用中",
+      "disabled": "已停用"
+    }
   }
 }

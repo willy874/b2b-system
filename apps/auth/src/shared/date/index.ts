@@ -77,6 +77,40 @@ export function formatDate(
   return createFormat(options, { dateStyle: 'medium' }).format(date);
 }
 
+const RELATIVE_UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+  ['year', 365 * 24 * 60 * 60 * 1000],
+  ['month', 30 * 24 * 60 * 60 * 1000],
+  ['week', 7 * 24 * 60 * 60 * 1000],
+  ['day', 24 * 60 * 60 * 1000],
+  ['hour', 60 * 60 * 1000],
+  ['minute', 60 * 1000],
+];
+
+/**
+ * 相對時間（「3 分鐘前」「昨天」），以偏好的語系顯示；一分鐘內是「現在」。未來的時間同樣適用（「5 分鐘後」）。
+ * 取最大且至少一個單位的時間單位，四捨五入到整數（`numeric: 'auto'` 讓 1 天前顯示成「昨天」）。
+ */
+export function formatRelativeTime(
+  value: Date | string | null | undefined,
+  now: number = Date.now(),
+  options: Pick<DateTimeFormatOptions, 'locale'> = {},
+): string {
+  const date = toDate(value);
+  if (!date) return '-';
+  const diff = date.getTime() - now;
+  let format: Intl.RelativeTimeFormat;
+  try {
+    format = new Intl.RelativeTimeFormat(options.locale ?? defaults.locale, { numeric: 'auto' });
+  } catch {
+    // 語系不合法：退回預設語系
+    format = new Intl.RelativeTimeFormat(DEFAULT_LANGUAGE, { numeric: 'auto' });
+  }
+  for (const [unit, size] of RELATIVE_UNITS) {
+    if (Math.abs(diff) >= size) return format.format(Math.round(diff / size), unit);
+  }
+  return format.format(0, 'second');
+}
+
 /** `timeZone` 在 `instant` 這一刻相對 UTC 的位移（毫秒，東區為正）。 */
 function offsetOf(instant: number, timeZone: string): number {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -124,4 +158,49 @@ export function zonedDayBoundary(
   const [year, month, date] = day.split('-').map(Number) as [number, number, number];
   const next = new Date(Date.UTC(year, month - 1, date + 1)).toISOString().slice(0, 10);
   return new Date(startOfDay(next, zone) - 1).toISOString();
+}
+
+/**
+ * 日期（`YYYY-MM-DD`）＋ 時間（`HH:mm`）在使用者偏好的時區裡的那一刻，回傳 ISO 字串；格式不對回 `undefined`。
+ * 排程的時間以偏好的時區輸入，與列表顯示的時間一致（夏令時間的位移同 `zonedDayBoundary` 再校正一次）。
+ */
+export function zonedDateTime(
+  day: string,
+  time: string,
+  timeZone: string = defaults.timeZone,
+): string | undefined {
+  const dayMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  const timeMatch = /^(\d{2}):(\d{2})$/.exec(time);
+  if (!dayMatch || !timeMatch) return undefined;
+  const zone = isValidTimeZone(timeZone) ? timeZone : DEFAULT_TIMEZONE;
+  const [, year, month, date] = dayMatch.map(Number) as [number, number, number, number];
+  const [, hour, minute] = timeMatch.map(Number) as [number, number, number];
+  const guess = Date.UTC(year, month - 1, date, hour, minute);
+  const first = guess - offsetOf(guess, zone);
+  return new Date(guess - offsetOf(first, zone)).toISOString();
+}
+
+/** `zonedDateTime` 的反向：某一刻在偏好時區的日期與時間（編輯排程時帶回表單）。 */
+export function toZonedParts(
+  value: string,
+  timeZone: string = defaults.timeZone,
+): { day: string; time: string } | undefined {
+  const date = toDate(value);
+  if (!date) return undefined;
+  const zone = isValidTimeZone(timeZone) ? timeZone : DEFAULT_TIMEZONE;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: zone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? '';
+  return {
+    day: `${part('year')}-${part('month')}-${part('day')}`,
+    time: `${part('hour')}:${part('minute')}`,
+  };
 }

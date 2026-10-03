@@ -67,11 +67,7 @@ export class AccessTokenVerifier {
     const payload = await this.verifyClaims(token);
     if (!payload) return { ok: false, code: 'AUTH_TOKEN_INVALID' };
 
-    const checked = currentTenant()
-      ? await this.checkUser(payload.sub, payload.ver)
-      : await this.checkIdentity(payload.sub, payload.ver, () =>
-          this.loadPlatformAdmin(payload.sub),
-        );
+    const checked = await this.checkUser(payload.sub, payload.ver);
     return checked.ok ? { ok: true, user: checked.user, payload } : checked;
   }
 
@@ -101,9 +97,14 @@ export class AccessTokenVerifier {
     return matches ? payload : undefined;
   }
 
-  /** 已驗過簽的身分（例：socket 上的 `userId` ＋ `tokenVersion`）是否仍有效。 */
+  /**
+   * 已驗過簽的身分（例：socket 上的 `userId` ＋ `tokenVersion`）是否仍有效。
+   * 有租戶脈絡時查那個租戶的使用者；沒有（apps/auth 的網域）時查平台管理者（docs/architecture/backend/08-realtime.md §3.6）。
+   */
   async checkUser(userId: string, tokenVersion: number): Promise<UserCheckResult> {
-    return this.checkIdentity(userId, tokenVersion, () => this.loadUser(userId));
+    return this.checkIdentity(userId, tokenVersion, () =>
+      currentTenant() ? this.loadUser(userId) : this.loadPlatformAdmin(userId),
+    );
   }
 
   private async checkIdentity(

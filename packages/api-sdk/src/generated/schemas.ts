@@ -114,6 +114,8 @@ import type {
   PlatformJobQueue,
   PlatformJobQueueList,
   PlatformJobSummary,
+  PlatformNotification,
+  PlatformNotificationUnreadCount,
   PlatformPermissionKey,
   PlatformProfile,
   PlatformTenant,
@@ -178,6 +180,7 @@ import type {
   UpdateNotificationEventsRequest,
   UpdateNotificationPreferencesRequest,
   UpdatePlatformAdminRequest,
+  UpdatePlatformProfileRequest,
   UpdateProfileRequest,
   UpdateRolePermissionsRequest,
   UpdateRoleRequest,
@@ -1101,6 +1104,30 @@ export const UpdateIdentityProviderRequestSchema = z.object({
   domains: z.array(IdentityProviderDomainSchema).max(50).optional(),
 }) satisfies z.ZodType<UpdateIdentityProviderRequest>;
 
+export const PlatformNotificationSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  type: z.string(),
+  params: z.record(z.string(), z.unknown()),
+  link: z
+    .object({
+      route: z.string(),
+      params: z.record(z.string(), z.string()),
+    })
+    .nullable(),
+  readAt: z.string().nullable(),
+  createdAt: z.string(),
+}) satisfies z.ZodType<PlatformNotification>;
+
+export const PlatformNotificationUnreadCountSchema = z.object({
+  count: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<PlatformNotificationUnreadCount>;
+
 export const PlatformAdminSchema = z.object({
   id: z
     .uuid()
@@ -1516,6 +1543,10 @@ export const PlatformProfileSchema = z.object({
   }),
   permissions: z.array(PlatformPermissionKeySchema),
 }) satisfies z.ZodType<PlatformProfile>;
+
+export const UpdatePlatformProfileRequestSchema = z.object({
+  displayName: z.string().min(1).max(100),
+}) satisfies z.ZodType<UpdatePlatformProfileRequest>;
 
 export const UpdateProfileRequestSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),

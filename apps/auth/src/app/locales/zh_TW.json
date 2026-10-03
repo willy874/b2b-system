@@ -79,7 +79,20 @@
       "resultSummary": "成功 {{succeeded}} 筆，失敗 {{failed}} 筆。失敗的項目仍保持勾選。",
       "cancelledToast": "已取消「{{name}}」，完成的 {{count}} 筆不受影響",
       "doneToast": "「{{name}}」已完成 {{count}} 筆"
-    }
+    },
+    "filterChip": "{{label}}：{{value}}",
+    "removeFilter": "移除篩選條件「{{name}}」",
+    "staleData": "資料沒有更新成功（{{message}}），目前顯示的是先前的結果。",
+    "emptyFiltered": "沒有符合條件的結果",
+    "clearFilters": "清除篩選",
+    "paginationSummary": "第 {{from}}–{{to}} 筆，共 {{total}} 筆",
+    "unsaved": {
+      "title": "要放棄尚未儲存的變更嗎？",
+      "description": "離開後，這次的修改都不會保留。",
+      "discard": "放棄變更",
+      "keepEditing": "繼續編輯"
+    },
+    "more": "更多"
   },
   "menu": {
     "home": "首頁",
@@ -95,7 +108,13 @@
     "logout": "登出",
     "tenant": "租戶",
     "platformAdmin": "管理者",
-    "featureFlag": "試行開關"
+    "featureFlag": "試行開關",
+    "group": {
+      "people": "人員管理",
+      "system": "系統管理",
+      "tenant": "租戶管理"
+    },
+    "enterTenant": "進入租戶"
   },
   "app": {
     "title": "B2B System",
@@ -391,6 +410,24 @@
       "first": "第一頁",
       "last": "最後一頁",
       "page": "頁碼"
+    }
+  },
+  "layout": {
+    "closeSidebar": "關閉側邊選單",
+    "toggleSidebar": "側邊選單",
+    "accountMenu": "帳號選單（{{name}}）"
+  },
+  "language": {
+    "switchTo": "切換為「{{language}}」",
+    "label": "語言",
+    "current": "目前選擇"
+  },
+  "realtime": {
+    "status": {
+      "connected": "即時連線：已連線",
+      "disconnected": "即時連線：未連線，資料改為定期更新",
+      "disabled": "即時連線：未啟用",
+      "label": "即時連線狀態"
     }
   }
 }

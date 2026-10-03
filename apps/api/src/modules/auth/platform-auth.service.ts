@@ -25,10 +25,12 @@ import { PlatformRefreshTokenService } from '@/modules/platform-admin/platform-r
 
 import type { IssuedSession } from './auth.service';
 import type {
+  ChangePasswordDto,
   PlatformProfileDto,
   ResetPasswordDto,
   SetupDto,
   SsoCallbackDto,
+  UpdatePlatformProfileDto,
 } from './dto/auth.dto';
 
 /**
@@ -161,6 +163,18 @@ export class PlatformAuthService implements OnModuleInit {
       // 前端依它決定頁面與按鈕（平台的權限目錄，docs/architecture/05-tenancy.md §10.2 D5）
       permissions: PLATFORM_ROLE_PERMISSIONS[admin.role].toSorted(),
     };
+  }
+
+  async updateProfile(dto: UpdatePlatformProfileDto, actor: AuthUser): Promise<PlatformProfileDto> {
+    this.assertPlatformHost();
+    await this.accounts.updateDisplayName(actor.id, dto.displayName);
+    return this.getProfile(actor);
+  }
+
+  /** 結束這個人的所有 session（包含這一個）：前端改完就回到登入頁。 */
+  async changePassword(dto: ChangePasswordDto, actor: AuthUser): Promise<{ success: true }> {
+    this.assertPlatformHost();
+    return this.accounts.changePassword(actor.id, dto.currentPassword, dto.newPassword);
   }
 
   private async endIdpSession(idpSessionUid: string): Promise<void> {
