@@ -28,18 +28,11 @@
   /* 工具列：新增／刪除／排版在左，復原與縮放在右 */
   .toolbar {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: var(--seed-space-1);
     padding: var(--seed-space-1) var(--seed-space-2);
     border-bottom: 1px solid var(--color-border);
     background: var(--color-bg);
-  }
-
-  .toolbarEnd {
-    display: inline-flex;
-    gap: var(--seed-space-1);
-    margin-inline-start: auto;
   }
 
   .canvas {

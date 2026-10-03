@@ -42,7 +42,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `Popover`                     | `@base-ui/react/popover`                    |
 | `Tooltip`                     | `@base-ui/react/tooltip`                    |
 | `ContextMenu`                 | `@base-ui/react/context-menu`               |
-| `Tabs`                        | `@base-ui/react/tabs`                       |
+| `Tabs`                        | `@base-ui/react/tabs`（放不下的分頁收進「更多」下拉，§3.14） |
 | `Accordion` / `Collapsible`   | `@base-ui/react/accordion`、`collapsible`   |
 | `Toast`                       | `@base-ui/react/toast`                      |
 | `ScrollArea`                  | `@base-ui/react/scroll-area`                |
@@ -72,7 +72,8 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 | `Typography` / `Title` / `Text` / `Paragraph` | 自製；`copyable` 的複製按鈕用 `Tooltip` ＋ `navigator.clipboard`（§3.9） |
 | `JsonViewer` / `JsonEditor`      | `JsonEditor` 是 CodeMirror 6；`JsonViewer` 自製（逐行渲染 ＋ `useVirtualRows`），外觀對齊 CodeMirror（§3.12、§11） |
 | `JsonDiff`                       | 自製：Myers 逐行差異 ＋ `useVirtualRows`，外觀沿用 `JsonViewer`（§3.12） |
-| `TreeEditor`                     | React Flow（`@xyflow/react`）＋ dagre 自動排版；樣式改寫進 CSS Module，工具列用設計系統元件（§3.13、§12） |
+| `TreeEditor`                     | React Flow（`@xyflow/react`）＋ dagre 自動排版；樣式改寫進 CSS Module，工具列用 `Toolbar`（§3.13、§12） |
+| `Toolbar`                        | 自製：`role="toolbar"` ＋ 方向鍵移動焦點；放不下的按鈕收進「更多」下拉（`Menu`），量測與 `BoxEllipsis` 共用 `useFitItems`（§3.14） |
 
 > **DatePicker 是最大的一塊自製工作**，排入
 > [`../../overview/03-roadmap.md`](../../overview/03-roadmap.md) 的 M2，已完成：`components/DatePicker/` 底下是
@@ -365,6 +366,10 @@ app/ToastHost ◀──────────┘ eventBus.on(TOAST_SHOW) → t
 
 **共通**
 
+- `BoxEllipsis`、`Tabs`、`Toolbar` 的量測都是 `Ellipsis/useFitItems.ts`：`signature`（項目的 key、會改變寬度的狀態）改變時重新量，
+  可見項目由呼叫端的 `pick(layout)` 決定（純函式 `fitIndices()`，可指定 `limit` 與一定要顯示的 `pinned`）。
+  寬度 0 的項目（`display: none`，例如渲染成空的工具）不佔位置也不多算間距。
+  `ResizeObserver` 的回呼以 `flushSync` 重算，縮放時不會先閃出一幀溢出的版面。
 - 狀態以 `data-truncated`、`data-collapsed`、`data-overflowing` 表達。
 - 提示框切換用 `Tooltip` 的 `disabled`，而不是清空 `content`——後者會讓觸發元素重新掛載，量測狀態跟著遺失。
 - 測試用 `src/test/fakeLayout.ts`：以 `data-testid` 指定元素尺寸並手動觸發 `ResizeObserver`（jsdom 沒有布局）。
@@ -514,13 +519,13 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | 值 | `value` / `defaultValue` / `onChange`（受控／非受控）。內容是合法 JSON 時回報解析後的值，打到一半不回報。傳入的值與最後一次回報的不是同一個參考時，整份內容重新產生（復原紀錄、游標、摺疊重設） |
 | 編輯 | CodeMirror：語法上色、行號、摺疊（行號欄的箭頭、⌘/Ctrl + Shift + [ ／ ]）、括號配對與自動補上、目前行底色 |
 | 不合法的內容 | 解析錯誤以 lint 標在出錯的位置，下方顯示 `labels.parseError` ＋ 瀏覽器的訊息（`role="alert"`）；編輯區 `aria-invalid` |
-| 工具列 | 搜尋、全部展開／全部收合（根節點保持展開）、格式化／壓縮（只改排版，不回報 `onChange`，可復原）、復原／重做（⌘/Ctrl + Z、⌘/Ctrl + Shift + Z） |
+| 工具列 | `Toolbar`（§3.14）：搜尋、全部展開／全部收合（根節點保持展開）、格式化／壓縮（只改排版，不回報 `onChange`，可復原）、復原／重做（⌘/Ctrl + Z、⌘/Ctrl + Shift + Z）；放不下的從尾端收進「更多」 |
 | 搜尋 | ⌘/Ctrl + F 或工具列的放大鏡：搜尋列（`JsonSearchBar`，設計系統元件）以 portal 渲染進 CodeMirror 的搜尋面板位置，查詢交給 `@codemirror/search`。不分大小寫、顯示「2 / 5」；Enter / Shift + Enter 上下一筆，跳到的位置會打開包住它的摺疊並置中；Esc 關閉 |
 | 驗證 | `validator`（可非同步）；JSON Schema 用 `createJsonSchemaValidator(schema, { formatMessage })`。結果放進 CodeMirror 的 state，以 lint 畫波浪底線（滑過顯示訊息）：物件成員標鍵名（值是基本型別時連值），容器只標開頭的括號。編輯區下方列出錯誤，點一下打開摺疊並選取；`onValidationChange` 回報結果。validator 請保持參考固定 |
 | 唯讀 | `readOnly`：可搜尋、摺疊、選取複製；不能改，沒有格式化／壓縮與復原 |
 | 高度 | `maxHeight`（預設 `20rem`），超過在編輯區內捲動 |
 | 文案 | `labels`（延伸 `JsonViewerLabels`）；`features/` 以 `t()` 傳入 |
-| testid | 工具列 `json-editor-toolbar`、編輯區 `json-editor-content`、錯誤 `json-editor-error`、搜尋列 `json-editor-search`（輸入 `-input`、筆數 `-status`）、驗證清單 `json-editor-validation`（每筆 `json-editor-validation-item` ＋ `data-value` 路徑） |
+| testid | 工具列 `json-editor-toolbar`（按鈕 `toolbar-item` ＋ `data-value`：`search` / `expand-all` / `collapse-all` / `format` / `compact` / `undo` / `redo`）、編輯區 `json-editor-content`、錯誤 `json-editor-error`、搜尋列 `json-editor-search`（輸入 `-input`、筆數 `-status`）、驗證清單 `json-editor-validation`（每筆 `json-editor-validation-item` ＋ `data-value` 路徑） |
 
 檔案分工：
 
@@ -574,7 +579,8 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | 分組 | `groups: { id, label, nodeIds }[]`：在成員節點外畫出帶標題的背景（`computeGroupBounds`，不可選、不可拖、不接收滑鼠事件、在連線底下）；搭配 `layout="manual"` 自己排好分組最整齊 |
 | 畫布 | 點陣背景、拖曳對齊 8px 格線、滾輪縮放（0.2–2 倍）、`showMinimap`（預設顯示）、`height`（預設 `32rem`）。初次顯示與「顯示全部」不放大超過 1 倍 |
 | 唯讀 | `readOnly`：只能平移、縮放、選取；工具列只剩縮放與顯示全部 |
-| 文案 | `labels`；`features/` 以 `t()` 傳入 |
+| 工具列 | `Toolbar`（§3.14），一律只顯示圖示；放不下時從尾端（縮放、顯示全部）收進「更多」，下拉選項是 `menu-item` ＋ 同樣的 `data-value` |
+| 文案 | `labels`（含「更多」的 `more`）；`features/` 以 `t()` 傳入 |
 | slot | `toolbar` / `canvas` / `node` / `group` / `minimap` / `empty`；`className` / `data-testid` 落在最外層 |
 | testid | 工具列 `tree-editor-toolbar`、按鈕 `tree-editor-action` ＋ `data-value`（`add-root` / `add-child` / `delete` / `auto-layout` / `undo` / `redo` / `zoom-in` / `zoom-out` / `fit-view`）、畫布 `tree-editor-canvas`、節點 `tree-editor-item` ＋ `data-value`（節點 id）＋ `data-selected`＋ `data-state` ＋ `data-highlighted`、節點上的 `+` `tree-editor-add-child`、分組背景 `tree-editor-group` ＋ `data-value`（分組 id）、空狀態 `tree-editor-empty` |
 
@@ -628,6 +634,42 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | ![Empty](./images/tree-editor/empty.png) | ![UnlockableSkillTree](./images/tree-editor/unlockable-skill-tree.jpg) |
 
 尚未實作：收合子樹、連線上的標籤、拖曳連線端點改接（React Flow 的 `onReconnect`）、複製／貼上節點。
+
+### 3.14 放不下時收進下拉：`Toolbar` / `Tabs` / 頂列工具
+
+一排操作放不下時（窄螢幕、側欄展開、項目很多），從尾端收進「更多」下拉，並隨容器寬度即時展開／收合。
+三者都以 `useFitItems`（§3.8「共通」）量測；jsdom 沒有布局（寬度 0）時全部顯示，所以既有測試不受影響。
+
+**`Toolbar`**（`components/Toolbar/`）
+
+| 功能 | props / 行為 |
+| ---- | ---- |
+| 項目 | `items: ToolbarItem[]`（`key`、`label`、`icon`、`onClick`、`disabled`、`loading`、`variant`、`tooltip`、`iconOnly`、`align`、`data-testid`）；同一份資料渲染成按鈕與下拉選項，`variant: 'danger'` 在下拉中顯示為危險色 |
+| 靠右 | `align: 'end'`：從第一個 `end` 項目起靠右（`data-push`）；`end` 項目都收起時改由「更多」靠右 |
+| 只顯示圖示 | 項目的 `iconOnly`，或整列的 `iconOnly`（`true`，或數字：寬度小於此 px 時）——先縮成圖示，仍放不下的才收起；`label` 成為無障礙名稱與提示 |
+| 收合 | `fit`（預設 `true`）；從 **尾端** 收，所以把較少用的操作排在後面 |
+| 鍵盤 | `role="toolbar"`；←／→ 在按鈕間移動焦點（頭尾循環）、Home／End 到頭尾。按鈕各自仍是 tab stop（沒有做 roving tabindex） |
+| 外觀 | `variant`（預設 `ghost`）、`size`（預設 `sm`）；工具列是 `flex: 1` 的 block，放在任何容器裡都會填滿寬度 |
+| 文案 | `moreLabel`（預設「更多」）；`features/` 以 `t('common.more')` 傳入 |
+| slot | `item` / `more` / `menuItem`；`className` / `data-testid` 落在工具列 |
+| testid | 按鈕 `toolbar-item` ＋ `data-value={key}`（`item['data-testid']` 可覆寫）、下拉按鈕 `toolbar-more`、選項 `menu-item` ＋ `data-value={key}` |
+
+不包 Base UI 的 `Toolbar`：它的 `Toolbar.Button` 要以 `render` 套進我們的 `Button`，停用狀態（`focusableWhenDisabled`）與 `Tooltip` 的停用按鈕處理（§3.1 的 `Tooltip` 說明）會互相覆蓋；
+工具列需要的只是 `role` 與方向鍵，自己做比較單純。`ButtonEllipsis`（§3.8）是「一組按鈕」，沒有 toolbar 語意與靠右分組，兩者並存。
+
+**`Tabs`**
+
+- 放不下的分頁從尾端收進分頁列右側的「更多 ▾」（`Menu`），選項會切換分頁；分頁帶 `render`（連結）時選項也渲染成連結。
+- **選取中的分頁一定看得到**：它被收起時改佔最後一個可見位置（`fitIndices` 的 `pinned`），底線跟著移過去。
+- 底線畫在 `bar` 層（分頁列與「更多」的外框），「更多」不在 `tablist` 裡（`tablist` 只能有 `tab`）。
+- `textValue`：分頁的純文字。`label` 不是字串（例如帶圖示）時給它，下拉的 typeahead 才找得到；文字改變（切換語系）時也會重新量寬度。
+- props：`fit`（預設 `true`）、`moreLabel`（預設「更多」，`features/` 以 `t('common.more')` 傳入）；slot 多了 `bar` / `more` / `menuItem`；testid `tabs-more`。
+
+**頂列工具**（`app/layouts/HeaderToolbar.tsx`，[`02-plugin-system.md`](./02-plugin-system.md) §4.4）
+
+- `BoxEllipsis` 佔滿頂列剩下的寬度並靠右；放不下的工具收進「更多」彈層（`Popover`，`header-toolbar-more` / `header-toolbar-overflow`）。
+- 工具是任意元件（語言、主題本身就是下拉），沒辦法轉成選單項目，所以彈層裡直接渲染被收起的工具元件，行為不變。
+- 渲染成空的工具（例如沒有東西時的批次佇列）不佔位置（`.boxItem:empty`）。
 
 ---
 

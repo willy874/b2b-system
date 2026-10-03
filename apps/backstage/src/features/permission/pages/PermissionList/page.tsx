@@ -48,10 +48,12 @@ export default function PermissionListPage() {
       </header>
 
       <Tabs
+        moreLabel={t('common.more')}
         value={search.view}
         onValueChange={(value) => setView(value as PermissionView)}
         tabs={PERMISSION_VIEWS.map((view) => ({
           value: view,
+          textValue: t(VIEW_LABEL_KEY[view]),
           label: (
             <span className="flex items-center gap-1.5">
               <Icon name={VIEW_ICON[view]} size={14} />

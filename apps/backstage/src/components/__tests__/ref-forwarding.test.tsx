@@ -22,6 +22,8 @@ import { Select } from '../Select';
 import { Separator } from '../Separator';
 import { Skeleton } from '../Skeleton';
 import { Spinner } from '../Spinner';
+import { Tabs } from '../Tabs';
+import { Toolbar } from '../Toolbar';
 import { Paragraph, Text, Title, Typography } from '../Typography';
 import { VirtualList } from '../VirtualList';
 
@@ -44,6 +46,16 @@ const cases: Array<[string, (ref: RefObject<HTMLElement | null>) => ReactElement
     'ButtonEllipsis',
     (ref) => (
       <ButtonEllipsis ref={ref as RefObject<HTMLDivElement>} items={[{ key: 'x', label: 'x' }]} />
+    ),
+  ],
+  [
+    'Toolbar',
+    (ref) => <Toolbar ref={ref as RefObject<HTMLDivElement>} items={[{ key: 'x', label: 'x' }]} />,
+  ],
+  [
+    'Tabs',
+    (ref) => (
+      <Tabs ref={ref as RefObject<HTMLDivElement>} value="x" tabs={[{ value: 'x', label: 'x' }]} />
     ),
   ],
   ['BoxEllipsis', (ref) => <BoxEllipsis ref={ref as RefObject<HTMLDivElement>}>x</BoxEllipsis>],

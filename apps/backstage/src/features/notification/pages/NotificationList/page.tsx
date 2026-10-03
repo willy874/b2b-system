@@ -46,6 +46,7 @@ export default function NotificationListPage() {
         </Button>
       </header>
       <Tabs
+        moreLabel={t('common.more')}
         value={filter}
         onValueChange={(value) => {
           if (isFilter(value)) void navigate({ search: { filter: value } });

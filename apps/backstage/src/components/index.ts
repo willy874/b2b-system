@@ -35,6 +35,7 @@ export * from './Switch';
 export * from './Table';
 export * from './Tabs';
 export * from './Toast';
+export * from './Toolbar';
 export * from './Tooltip';
 export * from './TreeEditor';
 export * from './Typography';

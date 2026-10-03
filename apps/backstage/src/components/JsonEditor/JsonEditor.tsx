@@ -47,15 +47,14 @@ import { createPortal } from 'react-dom';
 
 import { cn } from '@/shared/utils';
 
-import { Button, IconButton } from '../Button';
 import { Icon } from '../Icon';
-import type { IconName } from '../Icon';
 import { DEFAULT_JSON_MAX_HEIGHT } from '../JsonViewer';
 import type { JsonViewerLabels } from '../JsonViewer';
 import type { JsonContainerKind } from '../JsonViewer/jsonLines';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
-import { Tooltip } from '../Tooltip';
+import { Toolbar } from '../Toolbar';
+import type { ToolbarItem } from '../Toolbar';
 import { useControllableState } from '../useControllableState';
 import { useLatestRef } from '../useLatestRef';
 import { jsonEditorAppearance } from './editorTheme';
@@ -78,6 +77,8 @@ export interface JsonEditorLabels extends JsonViewerLabels {
   compact?: string;
   undo?: string;
   redo?: string;
+  /** 工具列放不下時，收起其餘按鈕的下拉按鈕。 */
+  more?: string;
   /** 內容不是合法 JSON；後面接瀏覽器的錯誤訊息。 */
   parseError?: string;
   search?: string;
@@ -137,6 +138,7 @@ const DEFAULT_LABELS = {
   compact: '壓縮',
   undo: '復原',
   redo: '重做',
+  more: '更多',
   parseError: '不是合法的 JSON',
   search: '搜尋',
   searchPlaceholder: '搜尋鍵名或值',
@@ -349,23 +351,6 @@ function createExtensions(
   ];
 }
 
-interface ToolbarButtonProps {
-  label: string;
-  icon: IconName;
-  onClick: () => void;
-  disabled?: boolean;
-}
-
-function ToolbarButton({ label, icon, onClick, disabled }: ToolbarButtonProps) {
-  return (
-    <Tooltip content={label}>
-      <IconButton size="sm" aria-label={label} onClick={onClick} disabled={disabled}>
-        <Icon name={icon} size={16} />
-      </IconButton>
-    </Tooltip>
-  );
-}
-
 interface EditorStatus {
   canUndo: boolean;
   canRedo: boolean;
@@ -558,6 +543,66 @@ export function JsonEditor({
     if (view) command(view);
   };
 
+  const hasParseError = Boolean(status.parseError);
+  // 放不下時從尾端收進「更多」下拉
+  const toolbarItems: ToolbarItem[] = [
+    {
+      key: 'search',
+      label: labels.search,
+      icon: <Icon name="search" size={16} />,
+      iconOnly: true,
+      onClick: run(openSearchPanel),
+    },
+    {
+      key: 'expand-all',
+      label: labels.expandAll,
+      icon: <Icon name="chevrons-up-down" size={16} />,
+      iconOnly: true,
+      onClick: run(unfoldAll),
+    },
+    {
+      key: 'collapse-all',
+      label: labels.collapseAll,
+      icon: <Icon name="chevrons-down-up" size={16} />,
+      iconOnly: true,
+      onClick: collapseAll,
+    },
+    ...(readOnly
+      ? []
+      : [
+          {
+            key: 'format',
+            label: labels.format,
+            disabled: hasParseError,
+            onClick: () => relayout(false),
+          },
+          {
+            key: 'compact',
+            label: labels.compact,
+            disabled: hasParseError,
+            onClick: () => relayout(true),
+          },
+          {
+            key: 'undo',
+            label: labels.undo,
+            icon: <Icon name="undo" size={16} />,
+            iconOnly: true,
+            align: 'end' as const,
+            disabled: !status.canUndo,
+            onClick: run(undo),
+          },
+          {
+            key: 'redo',
+            label: labels.redo,
+            icon: <Icon name="redo" size={16} />,
+            iconOnly: true,
+            align: 'end' as const,
+            disabled: !status.canRedo,
+            onClick: run(redo),
+          },
+        ]),
+  ];
+
   return (
     <div
       ref={ref}
@@ -567,43 +612,7 @@ export function JsonEditor({
       {...rest}
     >
       <div {...slot('toolbar', styles.toolbar, { testId: 'json-editor-toolbar' })}>
-        <ToolbarButton label={labels.search} icon="search" onClick={run(openSearchPanel)} />
-        <ToolbarButton label={labels.expandAll} icon="chevrons-up-down" onClick={run(unfoldAll)} />
-        <ToolbarButton label={labels.collapseAll} icon="chevrons-down-up" onClick={collapseAll} />
-        {!readOnly && (
-          <>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={Boolean(status.parseError)}
-              onClick={() => relayout(false)}
-            >
-              {labels.format}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={Boolean(status.parseError)}
-              onClick={() => relayout(true)}
-            >
-              {labels.compact}
-            </Button>
-            <span className={styles.history}>
-              <ToolbarButton
-                label={labels.undo}
-                icon="undo"
-                onClick={run(undo)}
-                disabled={!status.canUndo}
-              />
-              <ToolbarButton
-                label={labels.redo}
-                icon="redo"
-                onClick={run(redo)}
-                disabled={!status.canRedo}
-              />
-            </span>
-          </>
-        )}
+        <Toolbar items={toolbarItems} moreLabel={labels.more} />
       </div>
 
       <div
