@@ -57,7 +57,7 @@ beforeEach(() => {
 });
 
 describe('AnnouncementCreatePage（docs/architecture/backend/19-announcement.md §9 A2）', () => {
-  it('選全租戶 → 顯示預覽人數；填標題與內文後存成草稿（立即發送）', async () => {
+  it('選全部 → 顯示預覽人數；填標題與內文後存成草稿（立即發送）', async () => {
     const { router } = renderRoute(routes, '/announcement/create', CREATOR);
     const submit = await screen.findByTestId('announcement-create-submit', undefined, {
       timeout: 5000,
