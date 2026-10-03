@@ -79,7 +79,20 @@
       "resultSummary": "{{succeeded}} succeeded, {{failed}} failed. Failed items stay selected.",
       "cancelledToast": "“{{name}}” cancelled; the {{count}} completed items are kept",
       "doneToast": "“{{name}}” completed {{count}} items"
-    }
+    },
+    "filterChip": "{{label}}: {{value}}",
+    "removeFilter": "Remove filter \"{{name}}\"",
+    "staleData": "Could not refresh the data ({{message}}). Showing the previous results.",
+    "emptyFiltered": "No results match the current filters",
+    "clearFilters": "Clear filters",
+    "paginationSummary": "{{from}}–{{to}} of {{total}}",
+    "unsaved": {
+      "title": "Discard unsaved changes?",
+      "description": "If you leave now, your changes will be lost.",
+      "discard": "Discard changes",
+      "keepEditing": "Keep editing"
+    },
+    "more": "More"
   },
   "menu": {
     "home": "Home",
@@ -95,7 +108,13 @@
     "logout": "Sign out",
     "tenant": "Tenants",
     "platformAdmin": "Administrators",
-    "featureFlag": "Feature flags"
+    "featureFlag": "Feature flags",
+    "group": {
+      "people": "People",
+      "system": "System",
+      "tenant": "Tenants"
+    },
+    "enterTenant": "Enter a tenant"
   },
   "app": {
     "title": "B2B System",
@@ -391,6 +410,24 @@
       "first": "First",
       "last": "Last",
       "page": "Page number"
+    }
+  },
+  "layout": {
+    "closeSidebar": "Close side menu",
+    "toggleSidebar": "Side menu",
+    "accountMenu": "Account menu ({{name}})"
+  },
+  "language": {
+    "switchTo": "Switch to {{language}}",
+    "label": "Language",
+    "current": "Current"
+  },
+  "realtime": {
+    "status": {
+      "connected": "Live connection: connected",
+      "disconnected": "Live connection: offline, data refreshes periodically",
+      "disabled": "Live connection: disabled",
+      "label": "Live connection status"
     }
   }
 }

@@ -141,7 +141,7 @@ describe('租戶清單（docs/architecture/05-tenancy.md §10.2 D12）', () => {
     });
   });
 
-  it('網址上的條件（重新整理後）直接套用到查詢', async () => {
+  it('網址上的條件（重新整理後）直接套用到查詢，並列出套用中的狀態篩選', async () => {
     renderPage(['tenant:read'], '/tenant?status=failed&q=acme&offset=25&limit=25');
     await waitFor(() =>
       expect(listTenants).toHaveBeenCalledWith({
@@ -151,15 +151,15 @@ describe('租戶清單（docs/architecture/05-tenancy.md §10.2 D12）', () => {
         status: 'failed',
       }),
     );
-    expect(screen.getByTestId('tenant-filter-q')).toHaveValue('acme');
+    expect(screen.getByTestId('table-search')).toHaveValue('acme');
+    expect(screen.getByTestId('active-filter')).toHaveAttribute('data-value', 'status');
   });
 
-  it('搜尋：寫進網址並回到第一頁；重設清掉條件', async () => {
+  it('搜尋：Enter 寫進網址並回到第一頁；清空後拿掉條件', async () => {
     const router = renderPage(['tenant:read'], '/tenant?offset=50');
-    fireEvent.change(await screen.findByTestId('tenant-filter-q'), {
-      target: { value: ' portal ' },
-    });
-    fireEvent.click(screen.getByTestId('tenant-filter-submit'));
+    const input = await screen.findByTestId('table-search');
+    fireEvent.change(input, { target: { value: ' portal ' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(router.state.location.search).toEqual({ q: 'portal' }));
     await waitFor(() =>
       expect(listTenants).toHaveBeenLastCalledWith({
@@ -170,9 +170,34 @@ describe('租戶清單（docs/architecture/05-tenancy.md §10.2 D12）', () => {
       }),
     );
 
-    fireEvent.click(screen.getByTestId('tenant-filter-reset'));
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(router.state.location.search).toEqual({}));
-    expect(screen.getByTestId('tenant-filter-q')).toHaveValue('');
+  });
+
+  it('移除狀態篩選：保留關鍵字並回到第一頁', async () => {
+    const router = renderPage(['tenant:read'], '/tenant?status=failed&q=acme&offset=50');
+    fireEvent.click(await screen.findByTestId('active-filter-remove'));
+    await waitFor(() => expect(router.state.location.search).toEqual({ q: 'acme' }));
+  });
+
+  it('有條件但沒有結果 → 說明沒有符合條件的租戶，可以清除條件', async () => {
+    listTenants.mockResolvedValue({
+      items: [],
+      pagination: { offset: 0, limit: 50, total: 0 },
+      baseDomain: 'localhost:5173',
+    });
+    const router = renderPage(['tenant:read'], '/tenant?status=failed&q=zzz');
+    fireEvent.click(await screen.findByTestId('rich-table-clear-filters'));
+    await waitFor(() => expect(router.state.location.search).toEqual({}));
+  });
+
+  it('查詢失敗 → 顯示錯誤與重試，而不是「還沒有任何租戶」', async () => {
+    listTenants.mockRejectedValue(new Error('boom'));
+    renderPage(['tenant:read']);
+    expect(await screen.findByTestId('rich-table-error')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('query-error-retry'));
+    await waitFor(() => expect(listTenants).toHaveBeenCalledTimes(2));
   });
 
   it('分頁：下一頁帶 offset', async () => {

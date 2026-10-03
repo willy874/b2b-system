@@ -3,11 +3,13 @@ import { LanguageNamespace, Languages } from '@/shared/constants/lang';
 
 import { FEATURE_FLAG_LOCALE_SCOPE } from './locale';
 import { registerFeatureFlagPagePermissions } from './permission';
+import { registerFeatureFlagPreferences } from './preference';
 
 export function appContextPlugin(): AppPluginFactory {
   return (context) => {
     // ── 同步階段：權限註冊必須在第一次 render 之前完成 ──
     registerFeatureFlagPagePermissions();
+    registerFeatureFlagPreferences(); // 偏好頁的列表註冊表
     const app = context.getInstance();
 
     return {

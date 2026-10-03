@@ -3,8 +3,7 @@
     "title": "租戶",
     "description": "每個租戶有自己的資料庫、網域與後台帳號。建立後由背景工作佈建，完成後寄啟用信給第一位管理員。",
     "empty": "還沒有任何租戶",
-    "back": "← 回到租戶清單",
-    "notFound": "找不到這個租戶，可能已被刪除。",
+    "back": "回到租戶清單",
     "provisioningHint": "正在建立資料庫與第一位管理員，完成後會自動更新這一頁。",
     "provisionError": "佈建失敗：{{reason}}",
     "status": {
@@ -122,12 +121,8 @@
     "provisionWarning": "佈建已完成，但有後續步驟沒有成功（租戶可以使用；檔案儲存會在第一次上傳時再試）：{{reason}}",
     "emptyFiltered": "沒有符合條件的租戶",
     "filter": {
-      "q": "搜尋",
       "qPlaceholder": "代碼、名稱或網域",
       "all": "全部"
-    },
-    "pagination": {
-      "summary": "第 {{from}}–{{to}} 筆，共 {{total}} 筆"
     },
     "param": {
       "file": {
@@ -163,6 +158,11 @@
       "defaultHint": "預設 {{default}}",
       "rangeError": "請輸入 {{min}}～{{max}} 的整數",
       "success": "已更新參數"
+    },
+    "tab": {
+      "overview": "概覽",
+      "features": "功能",
+      "flags": "試行開關"
     }
   }
 }

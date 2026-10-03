@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import { usePageAccess } from '@/core/permission';
 
 import { ForbiddenPage, PageFallback } from './ErrorPages';
-import { PlatformLayout } from './layouts/PlatformLayout';
+import { DashboardLayout } from './layouts';
 
 /** 不套平台外框的頁面：登入相關的頁面自己置中顯示。 */
 const BARE_PREFIXES = [
@@ -16,6 +16,7 @@ const BARE_PREFIXES = [
   '/reset-password',
   '/setup',
   '/register',
+  '/enter',
 ];
 
 /**
@@ -40,5 +41,5 @@ export function Layout() {
   );
 
   const wrapped = <Suspense fallback={<PageFallback />}>{content}</Suspense>;
-  return bare ? wrapped : <PlatformLayout>{wrapped}</PlatformLayout>;
+  return bare ? wrapped : <DashboardLayout>{wrapped}</DashboardLayout>;
 }

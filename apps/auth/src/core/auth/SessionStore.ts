@@ -118,6 +118,15 @@ export class SessionStore {
     return Boolean(this.accessToken) || this.storage.get(HAS_SESSION_KEY, false);
   }
 
+  /**
+   * 只立「有 session」的旗標、不給 token：下一個請求會先續期。
+   * 給 mock 模式用——第一次造訪沒有旗標，否則會直接跳去真的 SSO，而不是打被 MSW 攔下的 `/auth/refresh`。
+   */
+  presumeSession(): void {
+    this.storage.set(HAS_SESSION_KEY, true);
+    this.notify();
+  }
+
   getAccessToken(): string | undefined {
     return this.accessToken;
   }

@@ -1,8 +1,7 @@
 {
   "auditLog": {
     "title": "Platform audit log",
-    "description": "Actions platform administrators took on tenants, platform administrators, and other resources, newest first. Covers the last {{days}} days.",
-    "empty": "No matching records",
+    "description": "Actions platform administrators took on tenants, platform administrators, and other resources, newest first. Without a date range, the last {{days}} days are shown; a single query covers at most {{days}} days.",
     "expand": "Show details",
     "collapse": "Hide details",
     "field": {
@@ -17,24 +16,18 @@
       "failure": "Failure"
     },
     "filter": {
-      "action": "Action",
       "actionPlaceholder": "e.g. tenant.create or tenant.*",
       "actorEmail": "Actor email",
       "actorEmailPlaceholder": "Part of an email",
-      "result": "Result",
-      "all": "All",
-      "search": "Search",
-      "reset": "Reset"
+      "allResults": "All results",
+      "range": "Date range"
     },
     "detail": {
+      "title": "Record details",
       "metadata": "Metadata",
       "errorCode": "Error code",
+      "resourceId": "Resource ID",
       "noMetadata": "This record has no metadata"
-    },
-    "pagination": {
-      "previous": "Previous",
-      "next": "Next",
-      "summary": "{{from}}–{{to}} of {{total}}"
     }
   }
 }

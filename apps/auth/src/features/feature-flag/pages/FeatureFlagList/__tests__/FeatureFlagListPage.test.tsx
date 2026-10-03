@@ -39,7 +39,7 @@ const EXPIRED = featureFlagFixture({
   globalState: 'on',
 });
 
-function renderPage(permissions: PermissionKey[] | 'unhydrated') {
+function renderPage(permissions: PermissionKey[] | 'unhydrated', path = '/feature-flag') {
   usePermissionStore.setState(
     permissions === 'unhydrated'
       ? { permissions: new Set(), hydrated: false }
@@ -47,7 +47,7 @@ function renderPage(permissions: PermissionKey[] | 'unhydrated') {
   );
   const router = createRouter({
     routeTree: RootRoute.addChildren([Routes.FeatureFlagListRoute]),
-    history: createMemoryHistory({ initialEntries: ['/feature-flag'] }),
+    history: createMemoryHistory({ initialEntries: [path] }),
     parseSearch,
     stringifySearch,
   });
@@ -89,10 +89,27 @@ describe('試行開關（docs/architecture/05-tenancy.md §11.2 D8）', () => {
     ]);
   });
 
-  it('只有 featureFlag:read → 沒有切換的選單', async () => {
+  it('有 featureFlag:update → 每列都有切換的選單', async () => {
+    renderPage(['featureFlag:read', 'featureFlag:update']);
+    await waitFor(() =>
+      expect(screen.getAllByTestId('feature-flag-global-select')).toHaveLength(2),
+    );
+  });
+
+  it('只有 featureFlag:read → 沒有切換的選單，全平台狀態以文字顯示', async () => {
     renderPage(['featureFlag:read']);
     await waitFor(() => expect(screen.getAllByTestId('feature-flag-global')).toHaveLength(2));
     expect(screen.queryByTestId('feature-flag-global-select')).toBeNull();
+  });
+
+  it('網址帶關鍵字 → 只列出 key、說明或負責人符合的 flag', async () => {
+    renderPage(['featureFlag:read'], '/feature-flag?keyword=bulk');
+    await waitFor(() =>
+      expect(
+        screen.getAllByTestId('feature-flag-global').map((cell) => cell.getAttribute('data-value')),
+      ).toEqual(['on']),
+    );
+    expect(screen.getByTestId('table-search')).toHaveValue('bulk');
   });
 
   it('權限未水合 → 不閃現切換的選單', async () => {

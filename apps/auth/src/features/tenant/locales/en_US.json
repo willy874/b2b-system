@@ -3,8 +3,7 @@
     "title": "Tenants",
     "description": "Each tenant has its own database, domains, and admin accounts. Provisioning runs in the background and emails an activation link to the first administrator when it finishes.",
     "empty": "No tenants yet",
-    "back": "← Back to tenants",
-    "notFound": "This tenant doesn't exist or has been deleted.",
+    "back": "Back to tenants",
     "provisioningHint": "Creating the database and first administrator. This page updates automatically when it's done.",
     "provisionError": "Provisioning failed: {{reason}}",
     "status": {
@@ -122,12 +121,8 @@
     "provisionWarning": "Provisioning finished, but a follow-up step didn't succeed (the tenant is usable; file storage is retried on the first upload): {{reason}}",
     "emptyFiltered": "No tenants match these filters",
     "filter": {
-      "q": "Search",
       "qPlaceholder": "Code, name or domain",
       "all": "All"
-    },
-    "pagination": {
-      "summary": "{{from}}–{{to}} of {{total}}"
     },
     "param": {
       "file": {
@@ -163,6 +158,11 @@
       "defaultHint": "Default {{default}}",
       "rangeError": "Enter a whole number from {{min}} to {{max}}",
       "success": "Parameter updated"
+    },
+    "tab": {
+      "overview": "Overview",
+      "features": "Features",
+      "flags": "Feature flags"
     }
   }
 }

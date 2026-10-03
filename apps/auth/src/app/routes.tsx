@@ -1,9 +1,11 @@
 import { RootRoute } from '@/core/router';
+import { Routes as AccountRoutes } from '@/features/account';
 import { Routes as AuditLogRoutes } from '@/features/audit-log';
 import { Routes as FeatureFlagRoutes } from '@/features/feature-flag';
 import { Routes as HomeRoutes } from '@/features/home';
 import { Routes as JobRoutes } from '@/features/job';
 import { Routes as LoginRoutes } from '@/features/login';
+import { Routes as NotificationRoutes } from '@/features/notification';
 import { Routes as PlatformAdminRoutes } from '@/features/platform-admin';
 import { Routes as TenantRoutes } from '@/features/tenant';
 
@@ -14,6 +16,9 @@ RootRoute.update({ component: Layout });
 /** 只組裝，不實作業務。 */
 export const routeTree = RootRoute.addChildren([
   HomeRoutes.HomeRoute,
+  AccountRoutes.ProfileRoute,
+  AccountRoutes.PreferenceRoute,
+  NotificationRoutes.NotificationListRoute,
   TenantRoutes.TenantListRoute,
   TenantRoutes.TenantDetailRoute,
   PlatformAdminRoutes.PlatformAdminListRoute,

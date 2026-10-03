@@ -3,6 +3,7 @@
     "title": "Platform administrators",
     "description": "Accounts that can sign in to the platform console. New administrators get an activation email to set their own password.",
     "empty": "No platform administrators yet",
+    "searchPlaceholder": "Search name or email",
     "self": "You",
     "role": {
       "superAdmin": "Super admin",

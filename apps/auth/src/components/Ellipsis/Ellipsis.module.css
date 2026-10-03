@@ -47,6 +47,11 @@
     align-items: center;
   }
 
+  /* 項目渲染成空的（例如沒有東西可顯示的工具）時不佔位置，也不多出一個間距 */
+  .boxItem:empty {
+    display: none;
+  }
+
   .more {
     display: inline-flex;
     align-items: center;

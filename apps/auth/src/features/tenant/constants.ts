@@ -1,5 +1,8 @@
+import type { ChipTone } from '@/components/Chip';
 import { TenantFeature } from '@/shared/api-sdk';
 import type { PlatformTenant, TenantFeatureParam, TenantFeatureParamKey } from '@/shared/api-sdk';
+
+import type { TenantDetailTab } from './routes/model';
 
 type TenantStatus = PlatformTenant['status'];
 
@@ -10,18 +13,22 @@ export const TENANT_STATUS_LABEL_KEY = {
   failed: 'tenant.status.failed',
 } as const satisfies Record<TenantStatus, string>;
 
-/** 狀態點的顏色走 design token（CLAUDE.md 前端規則 6）。 */
-export const TENANT_STATUS_DOT_CLASS = {
-  provisioning: 'bg-[var(--color-warning)]',
-  active: 'bg-[var(--color-success)]',
-  disabled: 'bg-[var(--color-fg-muted)]',
-  failed: 'bg-[var(--color-danger)]',
-} as const satisfies Record<TenantStatus, string>;
+/** 狀態 Chip 的語意色（`Chip` 的 `tone`，顏色走 design token）。 */
+export const TENANT_STATUS_TONE = {
+  provisioning: 'warning',
+  active: 'success',
+  disabled: 'neutral',
+  failed: 'danger',
+} as const satisfies Record<TenantStatus, ChipTone>;
+
+/** 詳情頁的分頁名稱。 */
+export const TENANT_DETAIL_TAB_LABEL_KEY = {
+  overview: 'tenant.tab.overview',
+  features: 'tenant.tab.features',
+  flags: 'tenant.tab.flags',
+} as const satisfies Record<TenantDetailTab, string>;
 
 export const TENANT_PAGE_SIZE_OPTIONS = [25, 50, 100];
-
-/** 狀態篩選的「全部」：不帶 `status` 參數。 */
-export const TENANT_STATUS_ALL = 'all';
 
 /** 與後端 `TENANT_CODE_PATTERN` 相同：小寫英數與連字號，3–32 字元，開頭是字母。 */
 export const TENANT_CODE_PATTERN = /^[a-z][a-z0-9-]{1,30}[a-z0-9]$/;

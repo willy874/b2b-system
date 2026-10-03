@@ -118,6 +118,21 @@ describe('createResourceGraph（資源依賴圖）', () => {
     ).toThrow();
   });
 
+  it('derivesFromAnyChange 的 except：列出的來源不觸發（例：不寫稽核的來源）', () => {
+    const exceptGraph = createResourceGraph<'item' | 'private' | 'log'>({
+      item: { collection: ['ITEM_LIST'] },
+      private: { collection: ['PRIVATE_LIST'] },
+      log: { collection: ['LOG_LIST'], derivesFromAnyChange: { except: ['private'] } },
+    });
+    expect(keysOf(exceptGraph.resolve([{ resource: 'private', kind: 'create' }]))).toEqual([
+      'invalidate:PRIVATE_LIST',
+    ]);
+    expect(keysOf(exceptGraph.resolve([{ resource: 'item', kind: 'create' }]))).toEqual([
+      'invalidate:ITEM_LIST',
+      'invalidate:LOG_LIST',
+    ]);
+  });
+
   describe('scopedCollection（以範圍區分的 collection）', () => {
     it('變更帶了範圍：只失效那個範圍與不分範圍的查詢，其他 collection 照舊', () => {
       const targets = scopedGraph.resolve([

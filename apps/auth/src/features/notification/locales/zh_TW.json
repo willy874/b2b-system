@@ -1,0 +1,25 @@
+{
+  "notification": {
+    "label": "通知",
+    "title": "通知",
+    "description": "平台送給你的通知：租戶佈建的結果、你的角色變更。",
+    "trigger": "通知",
+    "triggerUnread": "通知（{{count}} 則未讀）",
+    "unread": "未讀：",
+    "empty": "還沒有通知",
+    "emptyUnread": "沒有未讀的通知",
+    "viewAll": "查看全部",
+    "markAllRead": {
+      "action": "全部標為已讀",
+      "success": "已將 {{count}} 則標為已讀。"
+    },
+    "filter": { "all": "全部", "unread": "未讀" },
+    "type": {
+      "tenantProvisioned": "租戶「{{name}}」（{{code}}）佈建完成，可以使用了。",
+      "tenantProvisionFailed": "租戶「{{name}}」（{{code}}）佈建失敗，請查看原因並重試。",
+      "platformAdminRoleChanged": "你的角色從「{{from}}」改為「{{to}}」。",
+      "unknown": "你有一則新通知。"
+    },
+    "role": { "superAdmin": "超級管理者", "operator": "營運人員", "auditor": "稽核人員" }
+  }
+}

@@ -1,0 +1,27 @@
+@layer components {
+  .list {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.8125rem;
+  }
+
+  .item {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .current {
+    color: var(--color-fg);
+    font-weight: 500;
+  }
+
+  .separator {
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-fg-muted);
+  }
+}

@@ -1,14 +1,16 @@
 import { useMemo } from 'react';
 
+import { Chip } from '@/components/Chip';
 import type { TableColumnDef } from '@/components/Table';
-import { Table } from '@/components/Table';
+import { RichTable } from '@/core/components';
+import type { FilterBarProps, RichTablePagination } from '@/core/components';
 import { useTranslation } from '@/core/locales';
 import { formatDateTime } from '@/shared/date';
 
 import type { JobRowVM } from '../adapter';
+import type { JobFilterValues } from '../useJobFilters';
 import { JobDetail } from './JobDetail';
 import { JobRowActions } from './JobRowActions';
-import { JobStateLabel } from './JobStateLabel';
 
 /** 展開列的內容：明細在展開當下才向後端取（`JobDetail`）。 */
 const renderDetail = (row: JobRowVM) => <JobDetail id={row.id} />;
@@ -16,11 +18,24 @@ const renderDetail = (row: JobRowVM) => <JobDetail id={row.id} />;
 interface JobTableProps {
   items: JobRowVM[];
   loading: boolean;
+  error: unknown;
+  onRetry: () => void;
   expandedId: string | undefined;
   onToggleExpand: (id: string) => void;
+  filters: FilterBarProps<JobFilterValues>;
+  pagination: RichTablePagination;
 }
 
-export function JobTable({ items, loading, expandedId, onToggleExpand }: JobTableProps) {
+export function JobTable({
+  items,
+  loading,
+  error,
+  onRetry,
+  expandedId,
+  onToggleExpand,
+  filters,
+  pagination,
+}: JobTableProps) {
   const { t } = useTranslation();
 
   const columns = useMemo<Array<TableColumnDef<JobRowVM>>>(
@@ -28,11 +43,13 @@ export function JobTable({ items, loading, expandedId, onToggleExpand }: JobTabl
       {
         id: 'createdAt',
         header: t('job.field.createdAt'),
+        enableSorting: false,
         cell: ({ row }) => formatDateTime(row.original.createdAt),
       },
       {
         id: 'name',
         header: t('job.field.name'),
+        enableSorting: false,
         cell: ({ row }) => (
           <span className="flex flex-col">
             <span>{row.original.labelKey ? t(row.original.labelKey) : row.original.name}</span>
@@ -45,6 +62,7 @@ export function JobTable({ items, loading, expandedId, onToggleExpand }: JobTabl
       {
         id: 'tenant',
         header: t('job.field.tenant'),
+        enableSorting: false,
         cell: ({ row }) => (
           <span data-testid="job-tenant" data-value={row.original.ownerValue}>
             {row.original.owner.kind === 'platform' ? (
@@ -58,9 +76,16 @@ export function JobTable({ items, loading, expandedId, onToggleExpand }: JobTabl
       {
         id: 'state',
         header: t('job.field.state'),
+        enableSorting: false,
         cell: ({ row }) => (
           <span className="flex flex-col items-start gap-1">
-            <JobStateLabel row={row.original} />
+            <Chip
+              tone={row.original.stateTone}
+              data-testid="job-state"
+              data-value={row.original.state}
+            >
+              {t(row.original.stateLabelKey)}
+            </Chip>
             {row.original.scheduledAt && (
               <span className="text-xs text-[var(--color-fg-muted)]">
                 {t('job.scheduledAt', { time: formatDateTime(row.original.scheduledAt) })}
@@ -72,17 +97,20 @@ export function JobTable({ items, loading, expandedId, onToggleExpand }: JobTabl
       {
         id: 'retries',
         header: t('job.field.retries'),
+        enableSorting: false,
         cell: ({ row }) => `${row.original.retryCount} / ${row.original.retryLimit}`,
       },
       {
         id: 'completedAt',
         header: t('job.field.completedAt'),
+        enableSorting: false,
         cell: ({ row }) =>
           row.original.completedAt ? formatDateTime(row.original.completedAt) : '—',
       },
       {
         id: 'actions',
         header: t('common.actions'),
+        enableSorting: false,
         cell: ({ row }) => (
           <JobRowActions
             row={row.original}
@@ -96,12 +124,17 @@ export function JobTable({ items, loading, expandedId, onToggleExpand }: JobTabl
   );
 
   return (
-    <Table
+    <RichTable
       data={items}
       columns={columns}
       loading={loading}
+      error={error}
+      onRetry={onRetry}
       getRowId={(row) => row.id}
-      emptyTitle={t('job.empty')}
+      // 沒有批次操作：重試逐筆確認
+      enableRowSelection={false}
+      filters={filters}
+      pagination={pagination}
       expandedRowIds={expandedId ? [expandedId] : undefined}
       renderExpandedRow={renderDetail}
       data-testid="job-table"

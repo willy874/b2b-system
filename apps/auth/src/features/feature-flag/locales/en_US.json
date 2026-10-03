@@ -3,6 +3,7 @@
     "title": "Feature flags",
     "description": "Features still on trial: enable them for trial tenants first, open them to everyone once stable, then remove the flag along with the old code. Setting a flag to “Kill switch” turns it off for every tenant, overriding each tenant's own setting. Per-tenant settings are on the tenant detail page.",
     "empty": "No features are on trial",
+    "searchPlaceholder": "Search flag, description or owner",
     "field": {
       "key": "Flag",
       "owner": "Owner",

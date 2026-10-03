@@ -175,6 +175,8 @@ production 下對外部 IdP 的每個請求都先解析主機名稱，解析到�
 | * | `/oidc/*` | （oidc-provider，middleware） | discovery、`/auth`、`/token`、JWKS、end-session |
 | POST | `/auth/sso/callback` | `@Public` | 租戶網域的 BFF：授權碼 ＋ PKCE 換 app session |
 | POST | `/platform/auth/sso/callback` | `@Public` | apps/auth 的 BFF（平台管理者）；`/platform/auth/refresh`、`logout`、`profile` 同 `/auth/*`。租戶網域上回 `PLATFORM_ONLY` |
+| PATCH | `/platform/auth/profile` | `@Authenticated` | 平台管理者改自己的顯示名稱（只有 `displayName`：語系、時區、主題只存在瀏覽器）；寫平台稽核 `platformAdmin.profileUpdate` |
+| POST | `/platform/auth/change-password` | `@Authenticated` | 以目前的密碼換新密碼（`AUTH_PASSWORD_MISMATCH`、與目前相同 `AUTH_PASSWORD_WEAK`）；結束這個人的所有 session、斷掉即時連線；寫平台稽核 `platformAdmin.passwordChange` |
 | GET | `/tenant/current` | `@Public` | 這個網域的租戶（代碼、名稱） |
 | GET | `/tenants/lookup?code=` | `@Public` | 租戶的登入入口（`loginUrl`）；找不到或停用一律 `TENANT_NOT_FOUND` |
 | GET | `/oidc-interaction/:uid` | `@Public` | 設互動 cookie 的路徑，302 到 apps/auth |
@@ -219,8 +221,13 @@ production 下對外部 IdP 的每個請求都先解析主機名稱，解析到�
 | Feature | 路由 | 說明 |
 | --- | --- | --- |
 | `login` | `/interaction/:uid`、`/error`、`/login`、`/callback`、`/forgot-password`、`/reset-password`、`/setup`、`/register`、`/enter` | IdP 的互動頁（租戶或平台，§1.1）；provider 的協定錯誤頁；apps/auth 自己的頁面經 SSO 登入（client `auth`，平台管理者）；帳號流程；進入租戶（[`architecture/05-tenancy.md`](05-tenancy.md) §10.2 D11） |
-| `home` | `/` | 目前登入的平台管理者 |
-| `tenant`、`platform-admin`、`audit-log`、`job` | `/tenant`、`/admin`、`/audit-log`、`/job` | 平台管理：租戶、平台管理者、平台稽核、所有租戶的背景工作（權限是平台的目錄，[`../rbac/02-permission-catalog.md`](../rbac/02-permission-catalog.md) §8） |
+| `home` | `/` | 目前登入的平台管理者（角色、權限數）；有 `tenant:read` 時加上各狀態的租戶數 |
+| `account` | `/profile`、`/preference` | 個人資料（改名、角色與權限、變更密碼）與偏好設定（語系、時區、主題、頂列工具；只存在瀏覽器） |
+| `notification` | `/notification` | 平台的站內通知；頂列的鈴鐺（[`backend/15-notification.md`](./backend/15-notification.md) §6.2） |
+| `tenant`、`platform-admin`、`audit-log`、`job`、`feature-flag` | `/tenant`（詳情 `/tenant/$id?tab=overview\|features\|flags`）、`/admin`、`/audit-log`、`/job`、`/feature-flag` | 平台管理：租戶、平台管理者、平台稽核、所有租戶的背景工作、試行開關（權限是平台的目錄，[`../rbac/02-permission-catalog.md`](../rbac/02-permission-catalog.md) §8） |
+
+平台管理的頁面套用與 backstage 相同的外框（`app/layouts/DashboardLayout`：可收合的分組側欄、窄螢幕抽屜、頂列工具、帳號選單）
+與頁面寫法（列表用 `RichTable` 的搜尋、篩選、欄位設定與分頁；詳情用麵包屑與分頁）。登入、帳號流程與進入租戶的頁面不套外框。
 
 帳號流程的信中連結以 `AUTH_APP_URL` 開頭並帶 `?tenant=<代碼>`（`MailService.accountLink`，[`backend/11-mail.md`](./backend/11-mail.md)）。
 頁面以 `X-Tenant` 標頭把租戶送給 api（這個標頭只在 apps/auth 的網域有效，租戶網域上以網域為準），完成後以 `GET /tenants/lookup`
@@ -228,7 +235,8 @@ production 下對外部 IdP 的每個請求都先解析主機名稱，解析到�
 `/platform/auth/setup`、`/platform/auth/reset-password`，完成後留在 apps/auth 登入。平台管理者沒有「忘記密碼」與「申請帳號」
 （由其他平台管理者新增與寄重設連結），所以 `/forgot-password`、`/register` 沒有 `?tenant=` 時仍顯示「請從租戶的登入頁或信中的連結進入」。
 backstage 已經沒有這些頁面：SSO 之前寄出、指向 backstage `/auth/setup` 等的舊連結會是找不到頁面，要請管理員重寄。
-apps/auth 這一版沒有推播：寫入後的快取失效只在本分頁與其他分頁（BroadcastChannel）。
+apps/auth 的平台管理者也有即時推播：連 apps/auth 網域上的 `/api/socket.io`，收平台資源的變更與自己的通知
+（[`backend/08-realtime.md`](./backend/08-realtime.md) §3.6）；頂列顯示連線狀態。
 IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁提供「重新開始登入」：知道租戶時到 `/enter?tenant=<代碼>`
 （自動前往那個租戶的登入），不知道時給「進入租戶」與平台管理者登入。apps/auth 的 `SessionWatcher` 在 session 中途結束時導向
 `/login?signedOut=true&reason=<原因>&redirect=<路徑＋查詢字串>`，登入頁依原因說明（逾時、帳號停用、憑證重用…；自己登出與單一登出顯示「已登出」）。

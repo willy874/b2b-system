@@ -1,6 +1,6 @@
 import type { PlatformAuditLog } from '@/shared/api-sdk';
 
-/** 頁面測試共用的平台稽核紀錄。 */
+/** 頁面與 adapter 測試共用的平台稽核紀錄。 */
 export function auditLogFixture(overrides: Partial<PlatformAuditLog> = {}): PlatformAuditLog {
   return {
     id: '66666666-6666-4666-8666-666666666666',

@@ -3,11 +3,13 @@ import { LanguageNamespace, Languages } from '@/shared/constants/lang';
 
 import { PLATFORM_ADMIN_LOCALE_SCOPE } from './locale';
 import { registerPlatformAdminPagePermissions } from './permission';
+import { registerPlatformAdminPreferences } from './preference';
 
 export function appContextPlugin(): AppPluginFactory {
   return (context) => {
     // ── 同步階段：權限註冊必須在第一次 render 之前完成 ──
     registerPlatformAdminPagePermissions();
+    registerPlatformAdminPreferences(); // 偏好頁的列表註冊表
     const app = context.getInstance();
 
     return {

@@ -93,6 +93,20 @@ describe('SessionStore', () => {
     store.dispose();
   });
 
+  it('presumeSession：沒有 token 也視為有 session，下一個請求先續期', async () => {
+    const store = createStore();
+    const refresh = vi.fn().mockResolvedValue({ accessToken: 'token-1', expiresIn: 300 });
+    store.setRefreshFn(refresh);
+    expect(store.hasSession()).toBe(false);
+
+    store.presumeSession();
+
+    expect(store.hasSession()).toBe(true);
+    await expect(store.ensureAccessToken()).resolves.toBe('token-1');
+    expect(refresh).toHaveBeenCalledOnce();
+    store.dispose();
+  });
+
   it('續期被伺服器拒絕時結束 session（refresh token 過期或帳號被停用）', async () => {
     const store = createStore();
     store.setRefreshFn(() => Promise.reject(new AppError('AUTH_REFRESH_REVOKED', 401)));

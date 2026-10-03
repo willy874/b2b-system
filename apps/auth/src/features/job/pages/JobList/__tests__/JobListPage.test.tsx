@@ -1,14 +1,14 @@
-import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
-import { parseSearch, RootRoute, stringifySearch } from '@/core/router';
-import { usePermissionStore } from '@/core/store';
-import { AllProviders } from '@/test/renderWithPermissions';
+import { initTestI18n } from '@/test/i18n';
+import { renderRoute } from '@/test/renderRoute';
 
 import { registerJobPagePermissions, Routes } from '../../..';
+import jobZhTW from '../../../locales/zh_TW.json';
 import { jobFixture, jobQueueFixture } from '../../../test-fixtures';
 
 const { listQueues, listJobs, getJob, retryJob, invalidateResources } = vi.hoisted(() => ({
@@ -62,25 +62,21 @@ const ORPHAN_JOB = jobFixture({
   tenantCode: null,
 });
 
-function renderPage(permissions: PermissionKey[] | 'unhydrated', initialEntry = '/job') {
-  usePermissionStore.setState(
-    permissions === 'unhydrated'
-      ? { permissions: new Set(), hydrated: false }
-      : { permissions: new Set(permissions), hydrated: true },
-  );
-  const router = createRouter({
-    routeTree: RootRoute.addChildren([Routes.JobListRoute]),
-    history: createMemoryHistory({ initialEntries: [initialEntry] }),
-    parseSearch,
-    stringifySearch,
-  });
-  render(
-    <AllProviders>
-      <RouterProvider router={router} />
-    </AllProviders>,
-  );
-  return router;
+function renderPage(permissions: PermissionKey[] | 'unhydrated', initialPath = '/job') {
+  return renderRoute([Routes.JobListRoute], initialPath, permissions).router;
 }
+
+async function openFilters(): Promise<HTMLElement> {
+  await userEvent.click(within(screen.getByTestId('job-table')).getByTestId('filter-bar-trigger'));
+  return screen.findByTestId('filter-bar-popup');
+}
+
+async function chooseScope(label: string) {
+  await userEvent.click(screen.getByRole('combobox', { name: '範圍' }));
+  await userEvent.click(await screen.findByRole('option', { name: label }));
+}
+
+beforeAll(() => initTestI18n(jobZhTW));
 
 const lastListParams = () => listJobs.mock.calls.at(-1)?.[0] as Record<string, unknown>;
 
@@ -134,30 +130,46 @@ describe('平台的背景工作監控', () => {
     });
   });
 
-  it('「只看平台」→ 以 tenant=platform 查詢並寫進網址；再點一次取消', async () => {
+  it('篩選「只看平台」→ 以 tenant=platform 查詢並寫進網址；改回「全部」取消', async () => {
     const router = renderPage(['platformJob:read']);
-    fireEvent.click(await screen.findByTestId('job-filter-platform'));
+    await screen.findAllByTestId('job-tenant');
+
+    await openFilters();
+    await chooseScope('只看平台');
+    await userEvent.click(screen.getByTestId('filter-bar-submit'));
     await waitFor(() => expect(lastListParams()).toMatchObject({ tenant: 'platform', offset: 0 }));
     expect(router.state.location.search).toMatchObject({ tenant: 'platform' });
 
-    fireEvent.click(screen.getByTestId('job-filter-platform'));
+    await openFilters();
+    await chooseScope('全部租戶與平台');
+    await userEvent.click(screen.getByTestId('filter-bar-submit'));
     await waitFor(() => expect(lastListParams()).toMatchObject({ tenant: undefined }));
   });
 
-  it('輸入租戶代碼並套用 → 以該代碼查詢（去空白、轉小寫）', async () => {
+  it('輸入租戶代碼並送出 → 以該代碼查詢（去空白、轉小寫）', async () => {
     renderPage(['platformJob:read']);
-    fireEvent.change(await screen.findByTestId('job-filter-tenant'), {
-      target: { value: ' Acme ' },
-    });
-    fireEvent.click(screen.getByTestId('job-filter-tenant-apply'));
+    await screen.findAllByTestId('job-tenant');
+    await openFilters();
+    await userEvent.type(screen.getByRole('textbox', { name: '租戶代碼' }), ' Acme {Enter}');
     await waitFor(() => expect(lastListParams()).toMatchObject({ tenant: 'acme' }));
   });
 
-  it('網址帶 tenant=platform → 直接以它查詢，輸入框同步', async () => {
+  it('網址帶 tenant=platform → 直接以它查詢，面板的範圍是「只看平台」、租戶代碼留空', async () => {
     renderPage(['platformJob:read'], '/job?tenant=platform');
     await waitFor(() => expect(lastListParams()).toMatchObject({ tenant: 'platform' }));
-    expect(screen.getByTestId('job-filter-tenant')).toHaveValue('platform');
-    expect(screen.getByTestId('job-filter-platform')).toHaveAttribute('aria-pressed', 'true');
+    await openFilters();
+    expect(screen.getByRole('combobox', { name: '範圍' })).toHaveTextContent('只看平台');
+    expect(screen.getByRole('textbox', { name: '租戶代碼' })).toHaveValue('');
+  });
+
+  it('點佇列卡片 → 以該工作種類篩選；再點一次取消', async () => {
+    renderPage(['platformJob:read']);
+    const [card] = await screen.findAllByTestId('job-queue-card');
+    fireEvent.click(card!);
+    await waitFor(() => expect(lastListParams()).toMatchObject({ name: 'file.maintenance' }));
+    expect(card).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(card!);
+    await waitFor(() => expect(lastListParams()).toMatchObject({ name: undefined }));
   });
 
   it('有 platformJob:retry → 只有 failed 的工作有重試按鈕', async () => {

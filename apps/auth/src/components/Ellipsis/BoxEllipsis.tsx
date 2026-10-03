@@ -1,4 +1,4 @@
-import { Children, isValidElement, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Children, isValidElement, useEffect, useLayoutEffect, useRef } from 'react';
 import type { HTMLAttributes, ReactNode, Ref } from 'react';
 
 import { cn } from '@/shared/utils';
@@ -6,7 +6,8 @@ import { cn } from '@/shared/utils';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 import { Tooltip } from '../Tooltip';
-import { contentWidth, useComposedRef } from './useEllipsis';
+import { useComposedRef } from './useEllipsis';
+import { fitIndices, useFitItems } from './useFitItems';
 
 import styles from './Ellipsis.module.css';
 
@@ -50,9 +51,6 @@ export interface BoxEllipsisProps
   onWidthChange?: (containerWidth: number) => void;
 }
 
-/** 容忍次像素誤差，避免剛好放得下時被判定為溢出。 */
-const EPSILON = 0.5;
-
 function resolveLimit(maxVisible: BoxEllipsisMaxVisible | undefined, width: number): number {
   if (maxVisible === undefined) return Number.POSITIVE_INFINITY;
   if (typeof maxVisible === 'number') return Math.max(0, maxVisible);
@@ -68,19 +66,7 @@ export function fitCount(
   available: number,
   limit: number,
 ): number {
-  const total =
-    widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(0, widths.length - 1);
-  if (widths.length <= limit && total <= available + EPSILON) return widths.length;
-
-  let used = overflowWidth;
-  let count = 0;
-  for (const width of widths.slice(0, Math.min(widths.length, limit))) {
-    const next = used + width + gap;
-    if (next > available + EPSILON) break;
-    used = next;
-    count += 1;
-  }
-  return count;
+  return fitIndices(widths, overflowWidth, gap, available, { limit }).length;
 }
 
 function itemKey(item: ReactNode, index: number): string {
@@ -90,8 +76,7 @@ function itemKey(item: ReactNode, index: number): string {
 /**
  * 橫向排列一組項目，放不下（或超過 `maxVisible`）的從尾端收進溢出區。
  *
- * 量測方式：項目增減或 `measureKey` 改變時，先把全部項目與「全部隱藏」時的溢出區渲染出來量寬度，
- * 在 layout effect 內同步算出可見數量（畫面不會閃）；之後容器縮放只用快取的寬度重算。
+ * 量測方式見 `useFitItems`：項目增減或 `measureKey` 改變時重新量寬度，之後容器縮放只用快取的寬度重算。
  * 容器寬度由父層決定（block 元素、或在 flex 裡給 `min-width: 0` 與 `flex: 1`）。
  */
 export function BoxEllipsis({
@@ -113,75 +98,27 @@ export function BoxEllipsis({
   const items = Children.toArray(children);
   const signature = `${items.map(itemKey).join('|')}#${String(measureKey)}`;
 
-  const [root, setRoot] = useState<HTMLDivElement | null>(null);
-  const composedRef = useComposedRef<HTMLDivElement>(ref, setRoot);
-  const itemElements = useRef<Array<HTMLDivElement | null>>([]);
-  const overflowElement = useRef<HTMLDivElement | null>(null);
-  const widthsRef = useRef<number[]>([]);
-  const overflowWidthRef = useRef(0);
-  const lastWidthRef = useRef<number | null>(null);
+  const { attachRoot, attachItem, attachOverflow, isMeasuring, visible } = useFitItems({
+    signature,
+    count: items.length,
+    enabled: fit,
+    onWidthChange,
+    pick: ({ widths, overflowWidth, gap, available }) => {
+      const limit = resolveLimit(maxVisible, available);
+      const count =
+        !fit || available <= 0
+          ? Math.min(items.length, limit)
+          : fitCount(widths, overflowWidth, gap, available, limit);
+      return Array.from({ length: count }, (_, index) => index);
+    },
+  });
+  const composedRef = useComposedRef<HTMLDivElement>(ref, attachRoot);
 
-  const [measuredSignature, setMeasuredSignature] = useState<string | null>(null);
-  const [visibleCount, setVisibleCount] = useState(items.length);
-  const isMeasuring = fit && measuredSignature !== signature;
-
-  const count = isMeasuring ? items.length : Math.min(visibleCount, items.length);
+  const count = visible.length;
   const overflowInfo: BoxEllipsisOverflowInfo = isMeasuring
     ? // 以「全部隱藏」量溢出區，保守預留它最寬時的寬度
       { hiddenItems: items, hiddenCount: items.length, visibleCount: 0 }
     : { hiddenItems: items.slice(count), hiddenCount: items.length - count, visibleCount: count };
-
-  const onWidthChangeRef = useRef(onWidthChange);
-  /** 需要時先量項目寬度，再依容器寬度算出可見數量。 */
-  const sync = () => {
-    if (!root) return;
-    if (isMeasuring) {
-      widthsRef.current = items.map(
-        (_, index) => itemElements.current[index]?.getBoundingClientRect().width ?? 0,
-      );
-      overflowWidthRef.current = overflowElement.current?.getBoundingClientRect().width ?? 0;
-      setMeasuredSignature(signature);
-    }
-
-    const width = contentWidth(root);
-    if (width !== lastWidthRef.current) {
-      lastWidthRef.current = width;
-      onWidthChangeRef.current?.(width);
-    }
-    const limit = resolveLimit(maxVisible, width);
-    if (!fit || width <= 0) {
-      setVisibleCount(Math.min(items.length, limit));
-      return;
-    }
-    const gap = Number.parseFloat(getComputedStyle(root).columnGap) || 0;
-    setVisibleCount(fitCount(widthsRef.current, overflowWidthRef.current, gap, width, limit));
-  };
-
-  const syncRef = useRef(sync);
-  // 量測必須在畫面繪製前完成才不會閃；setState 值不變時 React 會略過重新 render，不會無限循環
-  useLayoutEffect(() => {
-    onWidthChangeRef.current = onWidthChange;
-    syncRef.current = sync;
-    syncRef.current();
-  });
-
-  useLayoutEffect(() => {
-    if (!root || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => syncRef.current());
-    observer.observe(root);
-    return () => observer.disconnect();
-  }, [root, syncRef]);
-
-  // 網頁字型載入後文字寬度會變，重新量一次
-  useEffect(() => {
-    let isActive = true;
-    void document.fonts?.ready.then(() => {
-      if (isActive) setMeasuredSignature(null);
-    });
-    return () => {
-      isActive = false;
-    };
-  }, []);
 
   const hiddenCount = isMeasuring ? null : overflowInfo.hiddenCount;
   const onOverflowChangeRef = useRef(onOverflowChange);
@@ -207,9 +144,7 @@ export function BoxEllipsis({
       {items.slice(0, count).map((item, index) => (
         <div
           key={itemKey(item, index)}
-          ref={(element) => {
-            itemElements.current[index] = element;
-          }}
+          ref={attachItem(index)}
           {...slot('item', styles.boxItem)}
           data-value={index}
         >
@@ -217,7 +152,7 @@ export function BoxEllipsis({
         </div>
       ))}
       {overflowInfo.hiddenCount > 0 && (
-        <div ref={overflowElement} {...slot('overflow', styles.boxOverflow)}>
+        <div ref={attachOverflow} {...slot('overflow', styles.boxOverflow)}>
           {renderOverflow ? (
             renderOverflow(overflowInfo)
           ) : (

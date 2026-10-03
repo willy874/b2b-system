@@ -3,11 +3,15 @@ import { LanguageNamespace, Languages } from '@/shared/constants/lang';
 
 import { TENANT_LOCALE_SCOPE } from './locale';
 import { registerTenantPagePermissions } from './permission';
+import { registerTenantPreferences } from './preference';
+import { registerTenantRouteLinks } from './routeLinks';
 
 export function appContextPlugin(): AppPluginFactory {
   return (context) => {
     // ── 同步階段：權限註冊必須在第一次 render 之前完成 ──
     registerTenantPagePermissions();
+    registerTenantPreferences(); // 偏好頁的列表註冊表
+    registerTenantRouteLinks(); // 站內通知等後端連結的 route id
     const app = context.getInstance();
 
     return {

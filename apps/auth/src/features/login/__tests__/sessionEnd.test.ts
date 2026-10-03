@@ -9,6 +9,8 @@ describe('sessionEndMessageKey（登入頁說明 session 為什麼結束）', ()
     // 單一登出：其他產品登出了
     ['AUTH_REFRESH_REVOKED', 'login.signedOut'],
     ['main_session_ended', 'login.signedOut'],
+    // 個人資料頁變更密碼
+    ['password_changed', 'login.passwordChanged'],
     ['AUTH_REFRESH_EXPIRED', 'error.AUTH_REFRESH_EXPIRED'],
     ['AUTH_REFRESH_REUSED', 'error.AUTH_REFRESH_REUSED'],
     ['AUTH_ACCOUNT_DISABLED', 'error.AUTH_ACCOUNT_DISABLED'],

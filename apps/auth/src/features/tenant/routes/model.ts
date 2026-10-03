@@ -14,3 +14,17 @@ export const DEFAULT_TENANT_SEARCH: TenantSearchQuery = {
   offset: 0,
   limit: 50,
 };
+
+/** 詳情頁的分頁；不認得的值（舊連結、手打）回到概覽。 */
+export const TENANT_DETAIL_TABS = ['overview', 'features', 'flags'] as const;
+
+export type TenantDetailTab = (typeof TENANT_DETAIL_TABS)[number];
+
+export const TenantDetailSearchSchema = z.object({
+  tab: z.enum(TENANT_DETAIL_TABS).catch('overview'),
+});
+
+export type TenantDetailSearch = z.infer<typeof TenantDetailSearchSchema>;
+
+/** 概覽是預設分頁，不寫進網址（`stripSearchParams`）。 */
+export const DEFAULT_TENANT_DETAIL_SEARCH: TenantDetailSearch = { tab: 'overview' };

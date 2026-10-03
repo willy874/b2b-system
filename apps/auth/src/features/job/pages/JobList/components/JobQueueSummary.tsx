@@ -1,3 +1,4 @@
+import { Chip } from '@/components/Chip';
 import { useTranslation } from '@/core/locales';
 import { cn } from '@/shared/utils';
 
@@ -28,7 +29,7 @@ export function JobQueueSummary({ queues, selectedName, onSelect }: JobQueueSumm
               aria-pressed={isSelected}
               onClick={() => onSelect(isSelected ? undefined : queue.name)}
               className={cn(
-                'flex w-full cursor-pointer flex-col gap-2 rounded-lg border bg-[var(--color-surface)] p-4 text-left text-[var(--color-fg)] hover:bg-[var(--color-fill-subtle)]',
+                'flex w-full cursor-pointer flex-col gap-2 rounded-[var(--radius-lg)] border bg-[var(--color-surface)] p-4 text-left text-[var(--color-fg)] hover:bg-[var(--color-fill-subtle)]',
                 isSelected ? 'border-[var(--color-brand)]' : 'border-[var(--color-border)]',
               )}
               data-testid="job-queue-card"
@@ -39,13 +40,9 @@ export function JobQueueSummary({ queues, selectedName, onSelect }: JobQueueSumm
                   {queue.labelKey ? t(queue.labelKey) : queue.name}
                 </span>
                 {queue.failedCount > 0 && (
-                  <span
-                    className="rounded-full bg-[var(--color-danger)] px-2 py-0.5 text-xs text-[var(--color-danger-on)]"
-                    data-testid="job-queue-failed"
-                    data-value={queue.failedCount}
-                  >
+                  <Chip tone="danger" data-testid="job-queue-failed" data-value={queue.failedCount}>
                     {t('job.queues.failed', { count: queue.failedCount })}
-                  </span>
+                  </Chip>
                 )}
               </span>
               <code className="font-mono text-xs text-[var(--color-fg-muted)]">{queue.name}</code>

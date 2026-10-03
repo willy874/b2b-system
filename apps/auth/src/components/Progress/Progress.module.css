@@ -1,0 +1,70 @@
+@layer components {
+  .root {
+    display: flex;
+    flex-direction: column;
+    gap: var(--seed-space-1);
+    width: 100%;
+  }
+
+  .header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--seed-space-2);
+    font-size: 0.8125rem;
+  }
+
+  .label {
+    color: var(--color-fg);
+  }
+
+  .value {
+    color: var(--color-fg-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .track {
+    position: relative;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--color-fill);
+    overflow: hidden;
+  }
+
+  .indicator {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--color-brand);
+    transition: width 200ms ease;
+  }
+
+  .root[data-tone='success'] .indicator {
+    background: var(--color-success);
+  }
+
+  .root[data-tone='danger'] .indicator {
+    background: var(--color-danger);
+  }
+
+  /* 不確定進度：來回掃動 */
+  .track[data-indeterminate] .indicator {
+    width: 40%;
+    animation: indeterminate 1.4s ease-in-out infinite;
+  }
+
+  @keyframes indeterminate {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(250%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .indicator {
+      transition: none;
+      animation: none;
+    }
+  }
+}

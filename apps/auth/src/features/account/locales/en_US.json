@@ -1,0 +1,43 @@
+{
+  "account": {
+    "profile": {
+      "title": "Profile",
+      "description": "These settings only affect your own platform admin account.",
+      "saved": "Profile updated.",
+      "effective": "My permissions",
+      "effectiveHint": "Platform admin permissions come only from the role. Ask a super admin to change your role."
+    },
+    "password": {
+      "title": "Change password",
+      "hint": "After changing your password, every device will be signed out.",
+      "submit": "Change password",
+      "changed": "Password changed. Please sign in again.",
+      "confirmTitle": "Change your password?",
+      "lengthHint": "At least {{min}} characters ({{count}} so far)."
+    },
+    "preference": {
+      "title": "Preferences",
+      "description": "These settings are stored in this browser only and are not synced to your account.",
+      "saved": "Preferences saved.",
+      "headerToolbar": "Header tools",
+      "headerToolbarHint": "Drag to reorder; toggle to show or hide each tool in the header.",
+      "headerToolbarShow": "Show \"{{name}}\" in the header"
+    },
+    "field": {
+      "email": "Email",
+      "displayName": "Display name",
+      "role": "Role",
+      "locale": "Language",
+      "timezone": "Time zone",
+      "currentPassword": "Current password",
+      "newPassword": "New password",
+      "theme": "Theme",
+      "confirmPassword": "Confirm new password"
+    },
+    "role": {
+      "superAdmin": "Super admin",
+      "operator": "Operator",
+      "auditor": "Auditor"
+    }
+  }
+}
