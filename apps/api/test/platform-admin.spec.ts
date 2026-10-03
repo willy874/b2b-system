@@ -300,6 +300,44 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
       expect(admin.status).toBe('active');
       await as(before, 'get', '/platform/auth/profile').expect(401);
     });
+
+    it('個人資料：改自己的名稱；以目前的密碼換新密碼後所有 session 結束', async () => {
+      const own = await signPlatformToken('pa-new@example.com');
+      const renamed = dataOf<{ admin: { displayName: string } }>(
+        await as(own, 'patch', '/platform/auth/profile')
+          .send({ displayName: '  改過的名字  ' })
+          .expect(200),
+      );
+      expect(renamed.admin.displayName).toBe('改過的名字');
+      await as(own, 'patch', '/platform/auth/profile').send({ displayName: '' }).expect(400);
+
+      const wrong = await as(own, 'post', '/platform/auth/change-password')
+        .send({ currentPassword: 'not-the-password', newPassword: 'AnotherPlatform!2026' })
+        .expect(400);
+      expect(errorCodeOf(wrong)).toBe('AUTH_PASSWORD_MISMATCH');
+      const same = await as(own, 'post', '/platform/auth/change-password')
+        .send({ currentPassword: 'NewPlatformPass!2026', newPassword: 'NewPlatformPass!2026' })
+        .expect(400);
+      expect(errorCodeOf(same)).toBe('AUTH_PASSWORD_WEAK');
+
+      await as(own, 'post', '/platform/auth/change-password')
+        .send({ currentPassword: 'NewPlatformPass!2026', newPassword: 'AnotherPlatform!2026' })
+        .expect(200);
+      await as(own, 'get', '/platform/auth/profile').expect(401);
+      await expect(
+        app
+          .get(PlatformAdminService)
+          .verifyCredentials({ email: 'pa-new@example.com', password: 'AnotherPlatform!2026' }),
+      ).resolves.toMatchObject({ displayName: '改過的名字' });
+
+      // 租戶網域上不能用（租戶網域只接受租戶的 token）
+      const onTenant = await request(http)
+        .patch('/platform/auth/profile')
+        .set('Host', HOME_HOST)
+        .set('authorization', `Bearer ${root}`)
+        .send({ displayName: 'x' });
+      expect(onTenant.status).toBeGreaterThanOrEqual(400);
+    });
   });
 
   it('平台稽核：列出平台管理者做過的事（前綴比對）', async () => {

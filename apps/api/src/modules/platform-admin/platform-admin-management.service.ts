@@ -1,10 +1,17 @@
+import { ChangeKind, ChangeSource, SessionRevokedReason } from '@b2b-system/realtime';
 import { Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
 import { UserCacheService } from '@/core/cache';
 import { AppException } from '@/core/errors';
+import { DomainEvent, DomainEventBus } from '@/core/events';
 import { JobQueue } from '@/core/jobs';
 import type { PlatformAdminRow } from '@/db/platform/schema';
+import {
+  PlatformNotificationRoute,
+  PlatformNotificationType,
+} from '@/modules/platform-notification/platform-notification.constants';
+import { PlatformNotificationService } from '@/modules/platform-notification/platform-notification.service';
 
 import type {
   CreatePlatformAdminDto,
@@ -40,6 +47,8 @@ export class PlatformAdminManagementService {
     private readonly audit: PlatformAuditService,
     private readonly jobs: JobQueue,
     private readonly userCache: UserCacheService,
+    private readonly events: DomainEventBus,
+    private readonly notifications: PlatformNotificationService,
   ) {}
 
   async list(): Promise<PlatformAdminListDto> {
@@ -65,6 +74,7 @@ export class PlatformAdminManagementService {
       adminId: admin.id,
       purpose: 'activation',
     });
+    this.changed(ChangeKind.CREATE, admin.id);
     return toDto(admin);
   }
 
@@ -120,6 +130,21 @@ export class PlatformAdminManagementService {
         },
       },
     });
+    this.changed(ChangeKind.UPDATE, id);
+    // 停用：這個人在 apps/auth 上的即時連線一起斷掉（docs/architecture/backend/08-realtime.md §3.6）
+    if (statusChanged && nextStatus === 'inactive') {
+      this.events.publish(DomainEvent.SESSIONS_REVOKED, {
+        platformAdminIds: [id],
+        reason: SessionRevokedReason.ACCOUNT_DISABLED,
+      });
+    }
+    if (roleChanged && dto.role) {
+      await this.notifications.notify([id], {
+        type: PlatformNotificationType.PLATFORM_ADMIN_ROLE_CHANGED,
+        params: { from: admin.role, to: dto.role },
+        link: { route: PlatformNotificationRoute.PROFILE, params: {} },
+      });
+    }
     return toDto(await this.getExisting(id));
   }
 
@@ -135,6 +160,13 @@ export class PlatformAdminManagementService {
       metadata: { email: admin.email, purpose },
     });
     return { purpose };
+  }
+
+  /** 推給 apps/auth 上的平台管理者（docs/architecture/backend/08-realtime.md §3.6）。 */
+  private changed(kind: ChangeKind, id: string): void {
+    this.events.publish(DomainEvent.PLATFORM_CHANGED, {
+      changes: [{ resource: ChangeSource.PLATFORM_ADMIN, kind, id }],
+    });
   }
 
   private async getExisting(id: string): Promise<PlatformAdminRow> {

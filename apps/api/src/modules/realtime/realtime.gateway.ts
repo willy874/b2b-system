@@ -37,7 +37,13 @@ import { RealtimeExpiry } from './realtime.expiry';
 import { SocketIoRealtimePublisher } from './realtime.publisher';
 import { clientIpOf, FixedWindowCounter } from './realtime.rate-limit';
 import type { TrustProxyFn } from './realtime.rate-limit';
-import { idpSessionRoom, tenantRoom, userRoom } from './realtime.rooms';
+import {
+  idpSessionRoom,
+  PLATFORM_ROOM,
+  platformAdminRoom,
+  tenantRoom,
+  userRoom,
+} from './realtime.rooms';
 import type { RealtimeServer, RealtimeSocket } from './realtime.types';
 
 const SessionRenewSchema = z.object({ token: z.string().min(1).max(4096) });
@@ -53,7 +59,8 @@ function connectError(code: ErrorCode): Error {
  *
  * - 連線：`allowRequest`（Origin ＋ 每 IP handshake 次數）→ `io.use` 以網域決定租戶、驗 access token → 加入 room。
  * - 租戶：handshake 的網域決定這條連線屬於哪個租戶，之後這條連線上的每則訊息都在該租戶的脈絡裡處理
- *   （docs/architecture/05-tenancy.md §10.2 D2、D3）。
+ *   （docs/architecture/05-tenancy.md §10.2 D2、D3）。apps/auth 的網域不屬於任何租戶：那裡的連線是平台管理者的，
+ *   沒有租戶脈絡、只加入平台的 room（§3.6）。
  * - 訊息：`WsAuthGuard` 重驗使用者 → `PermissionsGuard` 看宣告；每個處理器都要有授權宣告
  *   （`common/route-audit.ts`）。
  * - 兩個守門員都是全域的 `APP_GUARD`（app.module.ts；Nest 12 起全域 guard／interceptor 也套用到 gateway），
@@ -81,6 +88,10 @@ export class RealtimeGateway
   private readonly messages: FixedWindowCounter;
   /** 連線 → 它的租戶脈絡（handshake 時決定，連線期間不變）。 */
   private readonly tenants = new WeakMap<RealtimeSocket, TenantContext>();
+  /** apps/auth 網域上平台管理者的連線（§3.6）：沒有租戶脈絡。 */
+  private readonly platform = new WeakSet<RealtimeSocket>();
+  /** apps/auth 的網域（`AUTH_APP_URL` 的 host）：同 `TenantMiddleware` 判定平台的方式。 */
+  private readonly authHost: string;
 
   constructor(
     private readonly verifier: AccessTokenVerifier,
@@ -94,6 +105,7 @@ export class RealtimeGateway
     private readonly tenancy: Tenancy,
   ) {
     this.allowedOrigins = new Set(config.get('REALTIME_ALLOWED_ORIGINS', { infer: true }));
+    this.authHost = new URL(config.get('AUTH_APP_URL', { infer: true })).host.toLowerCase();
     // 瀏覽器一定帶 Origin；沒帶的只會是 Node 客戶端（整合測試、腳本），production 一律拒絕
     this.allowMissingOrigin = config.get('NODE_ENV', { infer: true }) !== 'production';
     this.handshakes = new FixedWindowCounter(limits.handshakeWindowMs);
@@ -132,6 +144,10 @@ export class RealtimeGateway
   }
 
   async handleConnection(socket: RealtimeSocket): Promise<void> {
+    if (this.platform.has(socket)) {
+      await this.onConnected(socket);
+      return;
+    }
     const tenant = this.tenants.get(socket);
     if (!tenant) {
       socket.disconnect(true);
@@ -158,12 +174,13 @@ export class RealtimeGateway
     try {
       // 先解析完權限再一次加入所有 room：看得到這條連線在 user room 裡，就代表 perm room 也已就緒
       // （解析權限可能要查 DB，分開加入時會有一段「在 user room、還不在 perm room」的空窗）
-      const permRooms = await this.audience.roomsFor(userId);
+      const scopeRooms = this.platform.has(socket)
+        ? [PLATFORM_ROOM]
+        : [tenantRoom(requireTenant().id), ...(await this.audience.roomsFor(userId))];
       await socket.join([
-        userRoom(userId),
-        tenantRoom(requireTenant().id),
+        this.ownRoom(socket),
         ...(socket.data.idpSessionUid ? [idpSessionRoom(socket.data.idpSessionUid)] : []),
-        ...permRooms,
+        ...scopeRooms,
       ]);
     } catch (error) {
       this.logger.error({ err: error, socketId: socket.id, userId }, '加入 room 失敗，斷線');
@@ -212,10 +229,17 @@ export class RealtimeGateway
     const envelope = ChannelEnvelopeWireSchema.safeParse(body);
     if (!envelope.success || !isRelayableChannel(envelope.data.channel)) return;
     if (Buffer.byteLength(JSON.stringify(envelope.data)) > MAX_RELAY_ENVELOPE_BYTES) return;
-    socket.to(userRoom(socket.data.userId)).emit(ServerEvent.CHANNEL_RELAY, envelope.data);
+    socket.to(this.ownRoom(socket)).emit(ServerEvent.CHANNEL_RELAY, envelope.data);
   }
 
   // ── 內部 ─────────────────────────────────────────────────
+
+  /** 同一個人的所有連線：租戶的使用者（帶租戶）或平台管理者。 */
+  private ownRoom(socket: RealtimeSocket): string {
+    return this.platform.has(socket)
+      ? platformAdminRoom(socket.data.userId)
+      : userRoom(socket.data.userId);
+  }
 
   /**
    * `main.ts` 設定的 `trust proxy` 由 Express 編譯成判定函式；每次讀取而不在建構時快取，
@@ -260,6 +284,11 @@ export class RealtimeGateway
   ): Promise<ErrorCode | undefined> {
     const req = socket.request;
     const host = requestHost(req.headers, req.socket.remoteAddress, this.trustProxy());
+    // apps/auth 的網域：平台管理者的連線，沒有租戶脈絡；verifier 在這裡只接受平台的 token
+    if (host === this.authHost) {
+      this.platform.add(socket);
+      return this.authenticate(io, socket);
+    }
     const record = host ? await this.directory.resolveHost(host) : undefined;
     if (!record) return 'TENANT_NOT_FOUND';
     let tenant: TenantContext;
@@ -284,7 +313,10 @@ export class RealtimeGateway
     if (!result.ok) return result.code;
 
     // 單一執行個體：本機 adapter 的 room 大小就是該使用者的連線數
-    const open = io.sockets.adapter.rooms.get(userRoom(result.user.id))?.size ?? 0;
+    const own = this.platform.has(socket)
+      ? platformAdminRoom(result.user.id)
+      : userRoom(result.user.id);
+    const open = io.sockets.adapter.rooms.get(own)?.size ?? 0;
     if (open >= this.limits.connectionsPerUser) return 'RATE_LIMITED';
 
     Object.assign(socket.data, {

@@ -41,7 +41,7 @@ modules/user/user.notifications.ts           user.rolesChanged 的宣告與參�
   （[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2 註 2；🔒 `layer-dependencies.spec.ts`）。
 - **不訂閱 `DomainEventBus`**：bus 是程序內、fire-and-forget、錯誤吞掉，也沒有「給誰」的語意（[`08-realtime.md`](./08-realtime.md) §7.2）。
   通知與業務寫入在同一個交易：業務成功，通知就一定在；rollback 時一起消失（與稽核同一條規則）。
-- 平台管理者（apps/auth）沒有通知：表在租戶 DB。
+- 平台管理者（apps/auth）的通知是另一份：表在平台 DB，規則見 §6.2。
 
 ---
 
@@ -213,6 +213,32 @@ await withTransaction(this.db, async (tx) => {
 | 稽核 | 只讀，不寫稽核（與稽核日誌的列表相同） |
 | 推播 | 沒有專屬的推播：通知只推給收件人（§7）。前端把總覽放在 `notification` 的 collection，自己的通知變化時跟著重抓，別人的要重新整理 |
 
+### 6.2 平台管理者的通知（apps/auth）
+
+平台管理者與租戶的使用者是兩份帳號（[`architecture/04-sso.md`](../04-sso.md) §1.1），通知也是兩份：
+租戶的在各租戶 DB 的 `notifications`，平台的在平台 DB 的 `platform_notifications`（migration `db/platform/migrations/0013_platform_notifications.sql`）。
+
+```
+modules/platform-notification/            葉節點：只依賴 core、credential 的純函式與平台的權限目錄
+├── platform-notification.constants.ts    PlatformNotificationType、route id、保留天數
+├── platform-notification.repository.ts   寫入、收件人（某些角色的啟用中管理者）、列表、未讀數、已讀、清理的一批
+├── platform-notification.service.ts      notify(adminIds)、notifyHolders(權限)、list、unreadCount、markRead、markAllRead、cleanup
+├── platform-notification.controller.ts   /platform/notifications 的四個端點
+└── platform-notification-cleanup.job.ts  platformNotification.cleanup（平台一份，排程同 NOTIFICATION_CLEANUP_CRON）
+```
+
+| 項目 | 平台的規則（與租戶不同的地方） |
+| --- | --- |
+| 類型 | `tenant.provisioned`、`tenant.provisionFailed`（收件人：角色有 `tenant:create` 的啟用中管理者；佈建在背景工作裡跑，建立的人多半已離開那一頁）；`platformAdmin.roleChanged`（收件人：被換角色的本人） |
+| 寫入時機 | 業務完成 **之後**，失敗只記錄、不讓業務失敗：佈建已經完成，不能因為通知寫不進去而回報失敗。租戶的通知在業務交易內寫入（§3.2），平台的寫入點（背景工作、管理者管理）沒有共同的交易可以加入 |
+| 欄位 | 沒有 `actor_id`、`source_id`：平台的通知都是系統發出的，也沒有公告 |
+| API | `GET /platform/notifications?offset=&limit=&unread=`（**offset** 分頁、回 `{ items, pagination }`）、`GET /platform/notifications/unread-count`、`POST /platform/notifications/:id/read`（已讀過的不算錯；別人的與不存在的一樣 `404 NOTIFICATION_NOT_FOUND`）、`POST /platform/notifications/read-all`。都是 `@Authenticated()`，只在 apps/auth 的網域有效（`/platform/*`） |
+| 分頁 | offset 而非 keyset：平台的通知只有佈建結果與換角色，一個人一年不到幾百則，捲動途中新增造成的重複可以接受 |
+| 推播 | `platform.changed`（`platformNotification`，`adminIds` 是收件人），只推給收件人在 apps/auth 上的連線（[`08-realtime.md`](./08-realtime.md) §3.6） |
+| 偏好 | 沒有事件管理與個人設定（[`16-notification-event.md`](./16-notification-event.md)）：類型少，都是要處理的事 |
+| 保留 | 已讀超過 30 天、或建立超過 180 天的刪除（固定值，平台沒有系統設定） |
+| 前端 | apps/auth 的 `features/notification`：頂列的鈴鐺（`registerHeaderTool`，order 400）與 `/notification` 列表頁；連結以 `core/route-link` 的 route id（`tenant.detail`、`account.profile`）解析 |
+
 ---
 
 ## 7. 推播（D8）
@@ -285,6 +311,7 @@ await withTransaction(this.db, async (tx) => {
 | 審批送出與審核時的通知（收件人、參數、連結、`resultLink`、匿名沒有結果通知、重複送出不通知） | `src/modules/approval/__tests__/approval.service.spec.ts` |
 | 通知總覽：未登入 401、一般使用者與 auditor 403、admin 看得到所有人的（新的在前、收件人與觸發者、軟刪除的收件人）、各種篩選與組合、跨收件人的 keyset 分頁、參數錯誤 400 | `test/notifications.spec.ts` |
 | 端點的授權宣告 | `test/route-audit.spec.ts` |
+| 平台管理者的通知（§6.2）：只有角色有 `tenant:create` 的人收到佈建結果、推播只到收件人、列表與未讀數、別人的通知 404、換角色通知本人、保留清理 | `test/platform-realtime.spec.ts` |
 
 ---
 

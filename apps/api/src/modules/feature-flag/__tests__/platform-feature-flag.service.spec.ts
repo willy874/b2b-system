@@ -104,6 +104,11 @@ describe('PlatformFeatureFlagService（docs/architecture/05-tenancy.md §11.2 D7
     expect(events.publish.mock.calls).toEqual([
       [DomainEvent.TENANT_FEATURES_CHANGED, { tenantId: 't1' }],
       [DomainEvent.TENANT_FEATURES_CHANGED, { tenantId: 't2' }],
+      // 平台管理者的畫面（docs/architecture/backend/08-realtime.md §3.6）
+      [
+        DomainEvent.PLATFORM_CHANGED,
+        { changes: [{ resource: 'platformFeatureFlag', kind: 'update', id: 'levelEditor.v2' }] },
+      ],
     ]);
     expect(calls.slice(0, 4)).toEqual(['transaction', 'audit', 'reload', 'publish']);
     expect(result.globalState).toBe('off');

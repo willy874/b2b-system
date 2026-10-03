@@ -598,6 +598,22 @@ export interface UpdateIdentityProviderRequest {
   domains?: Array<IdentityProviderDomain>;
 }
 
+export interface PlatformNotification {
+  id: string;
+  type: string;
+  params: Record<string, unknown>;
+  link: {
+    route: string;
+    params: Record<string, string>;
+  } | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface PlatformNotificationUnreadCount {
+  count: number;
+}
+
 export interface PlatformAdmin {
   id: string;
   email: string;
@@ -879,6 +895,10 @@ export interface PlatformProfile {
     role: 'super-admin' | 'operator' | 'auditor';
   };
   permissions: Array<PlatformPermissionKey>;
+}
+
+export interface UpdatePlatformProfileRequest {
+  displayName: string;
 }
 
 export interface UpdateProfileRequest {

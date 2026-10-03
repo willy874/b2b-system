@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
-import { SessionRevokedReason } from '@b2b-system/realtime';
+import { ChangeKind, ChangeSource, SessionRevokedReason } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -225,6 +225,7 @@ export class PlatformTenantService {
         throw error;
       });
     this.directory.invalidate();
+    this.changed(ChangeKind.CREATE, created.id);
     await this.startProvisioning(created.id);
     return this.get(created.id);
   }
@@ -277,6 +278,7 @@ export class PlatformTenantService {
     if (featuresChanged || flagsChanged) {
       this.events.publish(DomainEvent.TENANT_FEATURES_CHANGED, { tenantId: id });
     }
+    this.changed(ChangeKind.UPDATE, id);
     return this.get(id);
   }
 
@@ -310,6 +312,7 @@ export class PlatformTenantService {
       }),
     );
     this.directory.invalidate();
+    this.changed(ChangeKind.UPDATE, id);
     await this.startProvisioning(tenant.id);
     return this.get(id);
   }
@@ -325,6 +328,7 @@ export class PlatformTenantService {
     }));
     this.directory.invalidate();
     await this.recordCleanup(tenant, 'tenant.disable', await this.endEverything(tenant));
+    this.changed(ChangeKind.UPDATE, id);
     return this.get(id);
   }
 
@@ -340,6 +344,7 @@ export class PlatformTenantService {
       .catch((error: unknown) =>
         this.logger.warn({ err: error, tenant: tenant.code }, '重新啟用後無法進入租戶'),
       );
+    this.changed(ChangeKind.UPDATE, id);
     return this.get(id);
   }
 
@@ -376,6 +381,7 @@ export class PlatformTenantService {
       );
     });
     this.directory.invalidate();
+    this.changed(ChangeKind.DELETE, id);
   }
 
   async addDomain(id: string, domain: string): Promise<PlatformTenantDto> {
@@ -403,6 +409,7 @@ export class PlatformTenantService {
         throw error;
       });
     this.directory.invalidate();
+    this.changed(ChangeKind.UPDATE, id);
     return this.get(id);
   }
 
@@ -429,10 +436,18 @@ export class PlatformTenantService {
       );
     });
     this.directory.invalidate();
+    this.changed(ChangeKind.UPDATE, id);
     return this.get(id);
   }
 
   // ── 內部 ─────────────────────────────────────────────
+
+  /** 推給 apps/auth 上的平台管理者（docs/architecture/backend/08-realtime.md §3.6）；在交易與快取失效之後呼叫。 */
+  private changed(kind: ChangeKind, id: string): void {
+    this.events.publish(DomainEvent.PLATFORM_CHANGED, {
+      changes: [{ resource: ChangeSource.PLATFORM_TENANT, kind, id }],
+    });
+  }
 
   private async getExisting(id: string): Promise<TenantWithDomains> {
     const tenant = await this.repo.findById(id);

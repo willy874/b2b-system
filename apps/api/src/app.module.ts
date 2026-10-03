@@ -42,6 +42,7 @@ import { JobModule } from './modules/job/job.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
+import { PlatformNotificationModule } from './modules/platform-notification/platform-notification.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { RevisionModule } from './modules/revision/revision.module';
 import { RoleModule } from './modules/role/role.module';
@@ -87,6 +88,8 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     AuditLogModule,
     // 平台管理者與平台稽核：全域 PermissionsGuard 判斷平台端點的權限（docs/architecture/05-tenancy.md §10.2 D5）
     PlatformAdminModule,
+    // 平台管理者的站內通知；由租戶佈建、管理者管理發出（docs/architecture/backend/15-notification.md §6.2）
+    PlatformNotificationModule,
     // 訂閱領域事件並推播；沒有任何模組依賴它（docs/architecture/backend/08-realtime.md §2）
     RealtimeModule,
 

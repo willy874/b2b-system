@@ -65,7 +65,7 @@ function setup(openRooms: Record<string, number> = {}, usersInRoom: Record<strin
 }
 
 describe('RealtimeListener（領域事件 → 推播）', () => {
-  it('啟動時訂閱四個事件，關閉時全部取消', () => {
+  it('啟動時訂閱五個事件，關閉時全部取消', () => {
     const { listener, bus, unsubscribe } = setup();
     expect(bus.subscribe.mock.calls.map(([type]) => type).toSorted()).toEqual(
       [
@@ -73,10 +73,11 @@ describe('RealtimeListener（領域事件 → 推播）', () => {
         DomainEvent.RESOURCE_CHANGED,
         DomainEvent.SESSIONS_REVOKED,
         DomainEvent.TENANT_FEATURES_CHANGED,
+        DomainEvent.PLATFORM_CHANGED,
       ].toSorted(),
     );
     listener.onModuleDestroy();
-    expect(unsubscribe).toHaveBeenCalledTimes(4);
+    expect(unsubscribe).toHaveBeenCalledTimes(5);
   });
 
   it('permissions.changed → 這個租戶在本機的所有連線重算 room，不看事件帶的名單', async () => {
@@ -161,5 +162,52 @@ describe('RealtimeListener（領域事件 → 推播）', () => {
       },
     ]);
     expect(disconnected).toEqual([]);
+  });
+
+  it('平台的變更 → 推給所有平台管理者的連線，origin 取自 meta.clientId（docs/architecture/backend/08-realtime.md §3.6）', () => {
+    const { fire, emits } = setup();
+    fire(
+      DomainEvent.PLATFORM_CHANGED,
+      { changes: [{ resource: 'platformTenant', kind: 'update', id: 'x' }] },
+      { clientId: 'tab-1' },
+    );
+
+    expect(emits).toEqual([
+      {
+        rooms: ['platform'],
+        event: 'resource.changed',
+        payload: {
+          changes: [{ resource: 'platformTenant', kind: 'update', id: 'x' }],
+          origin: 'tab-1',
+        },
+      },
+    ]);
+  });
+
+  it('平台的變更指定收件人 → 只推給那些平台管理者（站內通知）', () => {
+    const { fire, emits } = setup();
+    fire(DomainEvent.PLATFORM_CHANGED, {
+      changes: [{ resource: 'platformNotification', kind: 'create' }],
+      adminIds: ['a1', 'a2', 'a1'],
+    });
+
+    expect(emits[0]?.rooms).toEqual(['platform:admin:a1', 'platform:admin:a2']);
+  });
+
+  it('平台管理者停用 → 撤銷他在 apps/auth 上的連線', () => {
+    const { fire, emits, disconnected } = setup({ 'platform:admin:a1': 1 });
+    fire(DomainEvent.SESSIONS_REVOKED, {
+      platformAdminIds: ['a1'],
+      reason: 'AUTH_ACCOUNT_DISABLED',
+    });
+
+    expect(emits).toEqual([
+      {
+        rooms: 'platform:admin:a1',
+        event: 'session.revoked',
+        payload: { reason: 'AUTH_ACCOUNT_DISABLED' },
+      },
+    ]);
+    expect(disconnected).toEqual(['platform:admin:a1']);
   });
 });

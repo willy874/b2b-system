@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Patch, Post, Query, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
@@ -12,14 +12,22 @@ import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation
 
 import type { IssuedSession } from './auth.service';
 import {
+  ChangePasswordSchema,
   PlatformProfileSchema,
   ResetPasswordSchema,
   SessionSchema,
   SetupSchema,
   SsoCallbackSchema,
+  UpdatePlatformProfileSchema,
   VerifySetupSchema,
 } from './dto/auth.dto';
-import type { ResetPasswordDto, SetupDto, SsoCallbackDto } from './dto/auth.dto';
+import type {
+  ChangePasswordDto,
+  ResetPasswordDto,
+  SetupDto,
+  SsoCallbackDto,
+  UpdatePlatformProfileDto,
+} from './dto/auth.dto';
 import { PlatformAuthService } from './platform-auth.service';
 
 /**
@@ -121,6 +129,30 @@ export class PlatformAuthController {
   @ApiZodResponse(200, PlatformProfileSchema)
   profile(@CurrentUser() actor: AuthUser) {
     return this.platformAuth.getProfile(actor);
+  }
+
+  @Patch('profile')
+  @Authenticated()
+  @ApiOperation({ summary: '平台管理者改自己的顯示名稱' })
+  @ApiZodBody(UpdatePlatformProfileSchema)
+  @ApiZodResponse(200, PlatformProfileSchema)
+  updateProfile(
+    @Body(new ZodValidationPipe(UpdatePlatformProfileSchema)) dto: UpdatePlatformProfileDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.platformAuth.updateProfile(dto, actor);
+  }
+
+  @Post('change-password')
+  @HttpCode(200)
+  @Authenticated()
+  @ApiOperation({ summary: '平台管理者以目前的密碼換新密碼（結束所有 session）' })
+  @ApiZodBody(ChangePasswordSchema)
+  changePassword(
+    @Body(new ZodValidationPipe(ChangePasswordSchema)) dto: ChangePasswordDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.platformAuth.changePassword(dto, actor);
   }
 
   private get cookieName(): string {

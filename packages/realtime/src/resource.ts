@@ -64,6 +64,17 @@ export const ChangeSource = {
    * 發送紀錄的變化（發送中、完成、撤回）也以它宣告（`update`），詳情頁的發送紀錄跟著重抓。
    */
   ANNOUNCEMENT: 'announcement',
+  // ── 平台（apps/auth 的平台管理者，只推給平台的連線；docs/architecture/backend/08-realtime.md §3.6）──
+  /** 租戶登記（`id` = 租戶 id）：建立、改名、網域、啟用的 feature、停用與啟用、刪除，以及背景佈建的結果。 */
+  PLATFORM_TENANT: 'platformTenant',
+  /** 平台管理者（`id` = 管理者 id）：新增、改名、換角色、停用、啟用。 */
+  PLATFORM_ADMIN: 'platformAdmin',
+  /** feature flag 的全平台覆寫（`id` = flag 的 key）。 */
+  PLATFORM_FEATURE_FLAG: 'platformFeatureFlag',
+  /** 所有租戶與平台的背景工作（`id` = 工作 id）：重試。 */
+  PLATFORM_JOB: 'platformJob',
+  /** 平台管理者自己的站內通知：只推給收件人（docs/architecture/backend/15-notification.md §6.2）。 */
+  PLATFORM_NOTIFICATION: 'platformNotification',
 } as const;
 
 export type ChangeSource = (typeof ChangeSource)[keyof typeof ChangeSource];
@@ -102,6 +113,11 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.WEBHOOK_DELIVERY,
   ChangeSource.TAG,
   ChangeSource.ANNOUNCEMENT,
+  ChangeSource.PLATFORM_TENANT,
+  ChangeSource.PLATFORM_ADMIN,
+  ChangeSource.PLATFORM_FEATURE_FLAG,
+  ChangeSource.PLATFORM_JOB,
+  ChangeSource.PLATFORM_NOTIFICATION,
 ]);
 
 export const ResourceChangeWireSchema = z.object({

@@ -28,6 +28,7 @@ const RELAYED_EVENTS = [
   DomainEvent.RESOURCE_CHANGED,
   DomainEvent.SESSIONS_REVOKED,
   DomainEvent.TENANT_FEATURES_CHANGED,
+  DomainEvent.PLATFORM_CHANGED,
 ] as const;
 
 type RelayedEvent = (typeof RELAYED_EVENTS)[number];
@@ -45,9 +46,14 @@ const PAYLOAD_SCHEMAS: { [T in RelayedEvent]: z.ZodType<DomainEventPayloads[T]> 
     userIds: IdListSchema.optional(),
     idpSessionUids: IdListSchema.optional(),
     tenantIds: IdListSchema.optional(),
+    platformAdminIds: IdListSchema.optional(),
     reason: z.enum(SessionRevokedReason),
   }),
   [DomainEvent.TENANT_FEATURES_CHANGED]: z.object({ tenantId: IdSchema }),
+  [DomainEvent.PLATFORM_CHANGED]: z.object({
+    changes: z.array(ResourceChangeWireSchema).max(MAX_CHANGES_PER_EVENT),
+    adminIds: IdListSchema.optional(),
+  }),
 };
 
 interface RelayMessage<T extends RelayedEvent = RelayedEvent> {
@@ -128,9 +134,25 @@ function split(message: RelayMessage): RelayMessage[] {
   if (message.type === DomainEvent.SESSIONS_REVOKED) {
     const { reason, ...lists } =
       message.payload as DomainEventPayloads[typeof DomainEvent.SESSIONS_REVOKED];
-    return (['userIds', 'idpSessionUids', 'tenantIds'] as const).flatMap((field) =>
-      chunk(lists[field] ?? [], IDS_PER_MESSAGE).map((ids) =>
-        withPayload({ reason, [field]: ids }),
+    return (['userIds', 'idpSessionUids', 'tenantIds', 'platformAdminIds'] as const).flatMap(
+      (field) =>
+        chunk(lists[field] ?? [], IDS_PER_MESSAGE).map((ids) =>
+          withPayload({ reason, [field]: ids }),
+        ),
+    );
+  }
+
+  if (message.type === DomainEvent.PLATFORM_CHANGED) {
+    const { changes, adminIds = [] } =
+      message.payload as DomainEventPayloads[typeof DomainEvent.PLATFORM_CHANGED];
+    const coarse = new Map<string, ResourceChangeWire>();
+    for (const { resource, kind } of changes) coarse.set(`${resource}:${kind}`, { resource, kind });
+    const adminChunks = adminIds.length ? chunk(adminIds, IDS_PER_MESSAGE) : [[]];
+    return adminChunks.map((admins) =>
+      withPayload(
+        admins.length
+          ? { changes: [...coarse.values()], adminIds: admins }
+          : { changes: [...coarse.values()] },
       ),
     );
   }

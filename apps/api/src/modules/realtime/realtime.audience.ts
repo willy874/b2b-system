@@ -23,6 +23,12 @@ interface AudienceRule {
 
 const READERS_OF_USER_AND_ROLE: PermissionKey[] = [PERMISSION.USER_READ, PERMISSION.ROLE_READ];
 const FILE_READERS: PermissionKey[] = [PERMISSION.FILE_READ, PERMISSION.FILE_ACCESS];
+/** 平台的來源：租戶的連線沒有受眾，也不會讓租戶的稽核頁重抓。 */
+const PLATFORM_ONLY: AudienceRule = {
+  perms: () => [],
+  includesSubject: false,
+  recordsAudit: false,
+};
 
 /**
  * 來源 → 受眾（docs/architecture/backend/08-realtime.md §6.1），與前端 `apis/resources.ts` 的依賴圖對應。
@@ -98,7 +104,13 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
   [ChangeSource.NOTIFICATION_POLICY]: {
     perms: () => [PERMISSION.SYSTEM_READ],
     includesSubject: false,
-  },
+  }, // 平台的來源不經 `resource.changed`：`platform.changed` 推給 apps/auth 上平台管理者的 room
+  // （RealtimeListener.onPlatformChanged，§12）。出現在這裡代表呼叫端用錯事件，不推給租戶的任何人
+  [ChangeSource.PLATFORM_TENANT]: PLATFORM_ONLY,
+  [ChangeSource.PLATFORM_ADMIN]: PLATFORM_ONLY,
+  [ChangeSource.PLATFORM_FEATURE_FLAG]: PLATFORM_ONLY,
+  [ChangeSource.PLATFORM_JOB]: PLATFORM_ONLY,
+  [ChangeSource.PLATFORM_NOTIFICATION]: PLATFORM_ONLY,
 };
 
 /** 每次寫入都會新增一筆稽核（前端 `derivesFromAnyChange`）。 */

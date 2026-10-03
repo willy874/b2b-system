@@ -161,6 +161,39 @@ describe('DomainEventRelay（docs/architecture/06-external-api.md §9.2 D18）',
     ]);
   });
 
+  it('平台的變更放不進一則廣播：同樣退化成整個來源，收件人分批（docs/architecture/backend/08-realtime.md §3.6）', async () => {
+    const hub = new BroadcastHub();
+    const [a, b] = [await processOn(hub), await processOn(hub)];
+    const received: unknown[] = [];
+    b.bus.subscribe(DomainEvent.PLATFORM_CHANGED, (payload) => void received.push(payload), {
+      remote: true,
+    });
+    const ids = Array.from(
+      { length: 100 },
+      (_, index) => `00000000-0000-4000-8000-${`${index}`.padStart(12, '0')}`,
+    );
+    const admins = Array.from(
+      { length: 200 },
+      (_, index) => `admin-${`${index}`.padStart(30, '0')}`,
+    );
+    // 平台的事件沒有租戶脈絡
+    a.bus.publish(DomainEvent.PLATFORM_CHANGED, {
+      changes: ids.map((id) => ({
+        resource: ChangeSource.PLATFORM_NOTIFICATION,
+        kind: ChangeKind.CREATE,
+        id,
+      })),
+      adminIds: admins,
+    });
+    await settle(a.bus, b.bus);
+
+    const coarse = [{ resource: ChangeSource.PLATFORM_NOTIFICATION, kind: ChangeKind.CREATE }];
+    expect(received).toEqual([
+      { changes: coarse, adminIds: admins.slice(0, 150) },
+      { changes: coarse, adminIds: admins.slice(150) },
+    ]);
+  });
+
   it('格式不對的訊息（不同版本）直接略過', async () => {
     const hub = new BroadcastHub();
     const b = await processOn(hub);

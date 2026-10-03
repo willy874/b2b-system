@@ -177,6 +177,38 @@ this.events.publish(DomainEvent.SESSIONS_REVOKED, {
 之前被停用的人要等到「下一次 HTTP 請求」才會被擋下；現在是即時的。
 單一裝置的登出不遞增 `token_version`，由該分頁自己斷線（前端 `SessionStore` 的 `ended`）。
 
+### 3.6 平台管理者的連線（apps/auth）
+
+apps/auth 的網域（`AUTH_APP_URL` 的 host）不屬於任何租戶（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D2）。
+在那裡建立的連線是 **平台管理者** 的，同一個 gateway、同一條 `/api/socket.io`，差別只在 handshake 與 room：
+
+| 項目 | 租戶的連線 | 平台管理者的連線 |
+| --- | --- | --- |
+| 判定 | handshake 的網域解析到租戶 | handshake 的網域等於 apps/auth 的網域（同 `TenantMiddleware` 判定 `/platform/*` 的方式） |
+| 脈絡 | 每則訊息在那個租戶的脈絡裡處理 | 沒有租戶脈絡；`AccessTokenVerifier` 只接受 `realm: 'platform'` 的 token，`checkUser` 查平台 DB 的 `platform_admins` |
+| room | `t:{tid}:user:{id}`、`t:{tid}`、`sid:{uid}`、perm room | `platform:admin:{id}`、`platform`、`sid:{uid}` |
+| 推播 | `resource.changed` 事件依來源 → 受眾表（§6.1） | `platform.changed` 事件：沒指定收件人就推 `platform` room，有 `adminIds` 只推那些人 |
+| 撤銷 | `SESSIONS_REVOKED` 的 `userIds`／`tenantIds` | `SESSIONS_REVOKED` 的 `platformAdminIds`（停用、變更密碼） |
+
+平台的角色只有三種，每一種都有所有平台資源的 `:read`（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §8.2），
+所以不分 perm room：平台資源的變更推給所有平台管理者。
+
+平台的來源（`packages/realtime` 的 `ChangeSource`）：
+
+| 來源 | 誰發佈 | 前端失效 |
+| --- | --- | --- |
+| `platformTenant` | `PlatformTenantService` 的每個寫入、`TenantProvisioner` 的佈建結果 | 租戶清單、詳情、首頁的租戶概況、flag 列表的租戶數 |
+| `platformAdmin` | 管理者的新增、編輯、啟用；本人改名 | 管理者清單、自己的 profile（換角色時權限跟著變） |
+| `platformFeatureFlag` | 全平台覆寫 | flag 列表 |
+| `platformJob` | 重試（工作之後的狀態變化不推，列表照常重抓） | 佇列計數、列表、詳情 |
+| `platformNotification` | 平台的站內通知（只推收件人，[`15-notification.md`](15-notification.md) §6.2） | 鈴鐺的未讀數與列表 |
+
+這些來源也在租戶的受眾表（§6.1）裡，規則是「不推給任何人」：出現在 `resource.changed` 代表呼叫端用錯事件。
+backstage 的 `apis/resources.ts` 同樣列出它們（空的定義），只為了滿足「伺服器的每個來源都是 `Resource` 的成員」的編譯期檢查。
+
+`platform.changed` 在 `DomainEventRelay` 的轉送清單裡（§7.6）：佈建在背景工作裡跑，worker 拆出去之後，
+連在 api 上的平台管理者仍收得到佈建結果。
+
 ---
 
 ## 4. 訊息處理器的授權
@@ -219,6 +251,8 @@ WebSocket 另有三道防線：
 | `t:{tenantId}`         | 這個租戶的所有連線（停用、刪除租戶時一次斷掉；租戶啟用的 feature 變更時推 `tenantFeature`） | `tenantRoom(tenantId)`（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D13、[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §9.2 D8） |
 | `t:{tenantId}:perm:{permissionKey}` | 目前租戶裡持有該權限的使用者的連線 | `permRoom(key)`（例 `t:…:perm:role:read`；租戶取自目前的租戶脈絡） |
 | `sid:{idpSessionUid}`  | 同一個 IdP session 的連線（經 SSO 登入、token 帶 `sid` 時才加入） | `idpSessionRoom(uid)`（[`architecture/04-sso.md`](../04-sso.md) §12.2 D5） |
+| `platform`             | apps/auth 上所有平台管理者的連線（§3.6） | `PLATFORM_ROOM` |
+| `platform:admin:{adminId}` | 一位平台管理者的所有連線（§3.6）      | `platformAdminRoom(id)` |
 
 super-admin 加入自己租戶的所有 perm room。
 
@@ -248,6 +282,7 @@ super-admin 加入自己租戶的所有 perm room。
 | `tenantFeature`    | —（不經這張表）                            | —                                  | 平台層的變更：由 `tenant.featuresChanged` 直接推給 `t:{tenantId}`（每個人都要重新取得 profile，含 `features` 與 `flags`），見 §7.1。表裡的列是空的，只為了讓 `Record<ChangeSource, …>` 完整 |
 | `notification`     | —                                          | 收件人（`affectedUserIds`；`id` 是通知 id，不是使用者 id） | 站內通知是個人的東西，只推給收件人自己的所有連線（[`backend/15-notification.md`](15-notification.md) §12.2 D8，[`15-notification.md`](./15-notification.md) §7）；不寫稽核，所以 **不** 加 `auditLog:read` |
 | `notificationPolicy` | `system:read`                            | —                                  | 事件管理頁（[`16-notification-event.md`](./16-notification-event.md) §4；與系統設定同一群讀者） |
+| `platformTenant`、`platformAdmin`、`platformFeatureFlag`、`platformJob`、`platformNotification` | —（不經這張表） | — | 平台的來源：由 `platform.changed` 推給平台管理者的 room（§3.6）。表裡的列是空的、也不加 `auditLog:read`，只為了讓 `Record<ChangeSource, …>` 完整 |
 | `serviceAccount`   | `serviceAccount:read`                      | —                                  | 服務帳號的列表與詳情（[`architecture/06-external-api.md`](../06-external-api.md) §9 T4）；服務帳號沒有連線，不推本人 |
 | `apiToken`         | `serviceAccount:read`、`user:update`       | 個人 token 的擁有者（`affectedUserIds`） | 服務帳號的 token（`refs.serviceAccount`）、使用者詳情頁的 token、自己的個人 token |
 | `webhook`          | `webhook:read`                             | —                                  | Webhook 的列表與詳情（[`17-webhook.md`](./17-webhook.md)）；自動停用也推 |
@@ -297,8 +332,9 @@ async refreshAudience(userIds: readonly string[]) {
 | ---------------------- | --------------------------------------------------------- | -------------------------------- | ------------------------------------------- |
 | `permissions.changed`  | `{ userIds? }`                                            | `AuthzRevision`：本機的權限寫入提交後，或收到其他程序的 revision 廣播後（在那個租戶的脈絡）| 重算這個租戶在本機所有連線的 perm room（§6.2）。`userIds` 只在發起寫入的程序上有、不是完整清單，給檔案模組補建個人資料夾用 |
 | `resource.changed`     | `{ changes: ResourceChangeWire[], affectedUserIds? }`     | 所有會改變畫面資料的寫入         | 依 §6.1 算出 room，推 `resource.changed`    |
-| `sessions.revoked`     | `{ userIds, reason }`                                     | 遞增 `token_version` 的寫入      | 推 `session.revoked` 並斷線（§3.5）         |
+| `sessions.revoked`     | `{ userIds?, idpSessionUids?, tenantIds?, platformAdminIds?, reason }` | 遞增 `token_version` 的寫入      | 推 `session.revoked` 並斷線（§3.5；平台管理者見 §3.6） |
 | `tenant.featuresChanged` | `{ tenantId }`                                          | 平台管理者改了租戶的 `features` 或 feature flag 的租戶覆寫（`PlatformTenantService.update`，`TenantDirectory.invalidate()` 之後）；改了 flag 的全平台覆寫時對每個 `active` 租戶各發一次（`PlatformFeatureFlagService.update`） | 對 `t:{tenantId}` 推 `resource.changed`（`{ resource: 'tenantFeature', kind: 'update' }`，沒有 `origin`）；前端重新取得 profile（[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §9.2 D8） |
+| `platform.changed`     | `{ changes: ResourceChangeWire[], adminIds? }`            | 平台層級的寫入（租戶登記、平台管理者、全平台 flag、背景工作的重試、平台的站內通知），沒有租戶脈絡 | 推 `resource.changed` 給 `platform` room；有 `adminIds` 時只推給 `platform:admin:{id}`（§3.6） |
 
 事件描述的是 **領域上發生了什麼**，不是「要推給誰」；受眾的判斷只在 listener 裡。
 之後新增的訂閱者（例：寄通知信、webhook）不需要動到發佈端。
@@ -445,7 +481,7 @@ api 之外還會有別的程序寫入資料：對外 API（[`architecture/06-ext
 
 | 事件 | 轉送 | 理由 |
 | --- | --- | --- |
-| `resource.changed`、`sessions.revoked`、`tenant.featuresChanged` | ✅ | 推播是「每個程序對自己的連線做一次」 |
+| `resource.changed`、`sessions.revoked`、`tenant.featuresChanged`、`platform.changed` | ✅ | 推播是「每個程序對自己的連線做一次」 |
 | `permissions.changed` | ❌ | `AuthzRevision` 已經以 revision 廣播，收到的程序重新發佈（[05 §5.1](./05-rbac.md)） |
 | `tenant.activated` | ❌ | 訂閱者（補系統資料夾）寫資料庫，整個系統做一次就夠 |
 
@@ -533,6 +569,12 @@ export const ChangeSource = {
   TAG: 'tag',
   /** 公告與發送紀錄（[`backend/19-announcement.md`](19-announcement.md) §9）。 */
   ANNOUNCEMENT: 'announcement',
+  /** 平台的來源：只推給 apps/auth 上平台管理者的連線（§3.6）。 */
+  PLATFORM_TENANT: 'platformTenant',
+  PLATFORM_ADMIN: 'platformAdmin',
+  PLATFORM_FEATURE_FLAG: 'platformFeatureFlag',
+  PLATFORM_JOB: 'platformJob',
+  PLATFORM_NOTIFICATION: 'platformNotification',
 } as const;
 
 export const resourceChangedSchema = z.object({
@@ -650,7 +692,8 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 | 來源 → 受眾對照（§6.1）                                               | 單元   |
 | 新的站內通知只推給收件人（payload 是通知 id），稽核的讀者收不到          | 整合   |
 | `DomainEventBus`：同租戶依序、跨租戶與 `sessions.revoked` 不互相阻塞、錯誤隔離、`meta` 在發佈當下擷取 | 單元   |
-| `realtime.listener`：四個領域事件各自的動作（假 bus ＋ 假 io）；`tenant.featuresChanged` 推給整個租戶的 room | 單元   |
+| `realtime.listener`：五個領域事件各自的動作（假 bus ＋ 假 io）；`tenant.featuresChanged` 推給整個租戶的 room；`platform.changed` 推給 `platform` 或指定的平台管理者 | 單元   |
+| 平台管理者的連線（§3.6，`test/platform-realtime.spec.ts`）：apps/auth 的網域只接受平台的 token、租戶網域不接受平台的 token；租戶改名推給所有平台管理者；通知只推收件人；停用 → `session.revoked` 並斷線 | 整合 |
 
 ---
 

@@ -4,11 +4,13 @@
 import { z } from 'zod';
 
 import type {
+  ChangePasswordRequest,
   PlatformProfile,
   ResetPasswordRequest,
   Session,
   SetupRequest,
   SsoCallbackRequest,
+  UpdatePlatformProfileRequest,
 } from '../models';
 import { buildUrl, request } from '../runtime';
 import type {
@@ -18,11 +20,13 @@ import type {
   RequestOptions,
 } from '../runtime';
 import {
+  ChangePasswordRequestSchema,
   PlatformProfileSchema,
   ResetPasswordRequestSchema,
   SessionSchema,
   SetupRequestSchema,
   SsoCallbackRequestSchema,
+  UpdatePlatformProfileRequestSchema,
 } from '../schemas';
 
 // POST /platform/auth/sso/callback
@@ -345,6 +349,113 @@ export function platformAuthControllerProfile(
   return request<PlatformAuthControllerProfileResult>(
     platformAuthControllerProfileOperation,
     {},
+    options,
+  );
+}
+
+// PATCH /platform/auth/profile
+
+export type PlatformAuthControllerUpdateProfileBody = UpdatePlatformProfileRequest;
+
+export interface PlatformAuthControllerUpdateProfileInput {
+  body: PlatformAuthControllerUpdateProfileBody;
+}
+
+export interface PlatformAuthControllerUpdateProfileResponses {
+  200: {
+    data: PlatformProfile;
+  };
+}
+
+export type PlatformAuthControllerUpdateProfileResponse =
+  PlatformAuthControllerUpdateProfileResponses[200];
+
+export type PlatformAuthControllerUpdateProfileResult = ApiResponse<
+  200,
+  PlatformAuthControllerUpdateProfileResponses[200]
+>;
+
+export const PlatformAuthControllerUpdateProfileSchemas = {
+  body: UpdatePlatformProfileRequestSchema,
+  responses: {
+    200: z.object({
+      data: PlatformProfileSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+export function getPlatformAuthControllerUpdateProfileUrl(): string {
+  return buildUrl('/platform/auth/profile');
+}
+
+const platformAuthControllerUpdateProfileOperation: OperationDefinition = {
+  id: 'PlatformAuthController_updateProfile',
+  method: 'PATCH',
+  path: '/platform/auth/profile',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: PlatformAuthControllerUpdateProfileSchemas,
+};
+
+/** 平台管理者改自己的顯示名稱 */
+export function platformAuthControllerUpdateProfile(
+  input: PlatformAuthControllerUpdateProfileInput,
+  options?: RequestOptions,
+): Promise<PlatformAuthControllerUpdateProfileResult> {
+  return request<PlatformAuthControllerUpdateProfileResult>(
+    platformAuthControllerUpdateProfileOperation,
+    input,
+    options,
+  );
+}
+
+// POST /platform/auth/change-password
+
+export type PlatformAuthControllerChangePasswordBody = ChangePasswordRequest;
+
+export interface PlatformAuthControllerChangePasswordInput {
+  body: PlatformAuthControllerChangePasswordBody;
+}
+
+export interface PlatformAuthControllerChangePasswordResponses {
+  200: undefined;
+}
+
+export type PlatformAuthControllerChangePasswordResponse =
+  PlatformAuthControllerChangePasswordResponses[200];
+
+export type PlatformAuthControllerChangePasswordResult = ApiResponse<
+  200,
+  PlatformAuthControllerChangePasswordResponses[200]
+>;
+
+export const PlatformAuthControllerChangePasswordSchemas = {
+  body: ChangePasswordRequestSchema,
+} satisfies OperationSchemas;
+
+export function getPlatformAuthControllerChangePasswordUrl(): string {
+  return buildUrl('/platform/auth/change-password');
+}
+
+const platformAuthControllerChangePasswordOperation: OperationDefinition = {
+  id: 'PlatformAuthController_changePassword',
+  method: 'POST',
+  path: '/platform/auth/change-password',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'none' },
+  schemas: PlatformAuthControllerChangePasswordSchemas,
+};
+
+/** 平台管理者以目前的密碼換新密碼（結束所有 session） */
+export function platformAuthControllerChangePassword(
+  input: PlatformAuthControllerChangePasswordInput,
+  options?: RequestOptions,
+): Promise<PlatformAuthControllerChangePasswordResult> {
+  return request<PlatformAuthControllerChangePasswordResult>(
+    platformAuthControllerChangePasswordOperation,
+    input,
     options,
   );
 }

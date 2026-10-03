@@ -10,6 +10,17 @@ export function userRoom(userId: string): string {
   return `t:${requireTenant().id}:user:${userId}`;
 }
 
+/**
+ * apps/auth 上所有平台管理者的連線（docs/architecture/backend/08-realtime.md §3.6）。平台的角色都看得到所有平台資源
+ * （docs/rbac/02-permission-catalog.md §8.2 的 `:read` 每個角色都有），所以不分 perm room。
+ */
+export const PLATFORM_ROOM = 'platform';
+
+/** 一位平台管理者的所有連線。平台管理者的 id 在平台 DB 唯一，不必帶租戶。 */
+export function platformAdminRoom(adminId: string): string {
+  return `platform:admin:${adminId}`;
+}
+
 /** 某個租戶的所有連線：停用或刪除租戶時一次斷掉（docs/architecture/05-tenancy.md §10.2 D13）。 */
 export function tenantRoom(tenantId: string): string {
   return `t:${tenantId}`;

@@ -29,6 +29,11 @@ export const DomainEvent = {
    * 所以以 `tenantId` 指明對象；在 `TenantDirectory.invalidate()` 之後發佈。
    */
   TENANT_FEATURES_CHANGED: 'tenant.featuresChanged',
+  /**
+   * 平台層級的資源變了（租戶登記、平台管理者、全平台的 flag、背景工作、平台的站內通知）：推給 apps/auth 上
+   * 平台管理者的連線（docs/architecture/backend/08-realtime.md §3.6）。在平台的請求或工作裡發佈，沒有租戶脈絡。
+   */
+  PLATFORM_CHANGED: 'platform.changed',
 } as const;
 
 export type DomainEvent = (typeof DomainEvent)[keyof typeof DomainEvent];
@@ -55,10 +60,17 @@ export interface DomainEventPayloads {
     idpSessionUids?: string[];
     /** 整個租戶的連線（停用、刪除租戶）。 */
     tenantIds?: string[];
+    /** 平台管理者的所有連線（停用、變更密碼；docs/architecture/backend/08-realtime.md §3.6）。 */
+    platformAdminIds?: string[];
     reason: SessionRevokedReason;
   };
   [DomainEvent.TENANT_ACTIVATED]: Record<string, never>;
   [DomainEvent.TENANT_FEATURES_CHANGED]: { tenantId: string };
+  [DomainEvent.PLATFORM_CHANGED]: {
+    changes: ResourceChangeWire[];
+    /** 只推給這些平台管理者（例：站內通知的收件人）；沒有就推給所有平台管理者的連線。 */
+    adminIds?: string[];
+  };
 }
 
 /** 發佈當下從請求 context 擷取的資訊；handler 執行時請求可能已經結束。 */

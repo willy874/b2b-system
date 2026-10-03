@@ -1,3 +1,4 @@
+import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -15,6 +16,11 @@ import { seedPermissions, seedRoles } from '@/db/seeds';
 import { seedTenantAdmin } from '@/db/seeds/super-admin';
 import { ACTIVATION_MAIL_JOB } from '@/modules/credential/auth-mail.constants';
 import { PlatformAuditService } from '@/modules/platform-admin/platform-audit.service';
+import {
+  PlatformNotificationRoute,
+  PlatformNotificationType,
+} from '@/modules/platform-notification/platform-notification.constants';
+import { PlatformNotificationService } from '@/modules/platform-notification/platform-notification.service';
 
 import { PlatformTenantRepository } from './platform-tenant.repository';
 
@@ -59,6 +65,7 @@ export class TenantProvisioner implements OnModuleInit {
     private readonly storage: ObjectStorage,
     private readonly audit: PlatformAuditService,
     private readonly events: DomainEventBus,
+    private readonly notifications: PlatformNotificationService,
     config: ConfigService<Env, true>,
   ) {
     this.secrets = SecretBox.fromConfig(
@@ -177,6 +184,7 @@ export class TenantProvisioner implements OnModuleInit {
         followUpError: followUp,
       },
     });
+    await this.announce(tenant, PlatformNotificationType.TENANT_PROVISIONED, {});
     return { code: tenant.code, adminId: admin?.id ?? null };
   }
 
@@ -214,7 +222,27 @@ export class TenantProvisioner implements OnModuleInit {
       errorCode: 'TENANT_PROVISION_FAILED',
       metadata: { code: tenant.code, reason },
     });
+    await this.announce(tenant, PlatformNotificationType.TENANT_PROVISION_FAILED, { reason });
     return { failed: reason };
+  }
+
+  /**
+   * 佈建的結果：推給平台管理者的畫面（docs/architecture/backend/08-realtime.md §3.6），並通知能建立租戶的人
+   * （docs/architecture/backend/15-notification.md §6.2）。佈建在背景工作裡跑，建立的人多半已經離開那一頁。
+   */
+  private async announce(
+    tenant: TenantRow,
+    type: PlatformNotificationType,
+    params: Record<string, unknown>,
+  ): Promise<void> {
+    this.events.publish(DomainEvent.PLATFORM_CHANGED, {
+      changes: [{ resource: ChangeSource.PLATFORM_TENANT, kind: ChangeKind.UPDATE, id: tenant.id }],
+    });
+    await this.notifications.notifyHolders('tenant:create', {
+      type,
+      params: { code: tenant.code, name: tenant.name, ...params },
+      link: { route: PlatformNotificationRoute.TENANT_DETAIL, params: { id: tenant.id } },
+    });
   }
 
   private describe(error: unknown): string {

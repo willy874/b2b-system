@@ -139,6 +139,15 @@ export const Resource = {
    * 詳情的發送紀錄跟著重抓
    */
   ANNOUNCEMENT: 'announcement',
+  /**
+   * 平台的來源（租戶登記、平台管理者、全平台 flag、平台的背景工作與通知）：後端只推給 apps/auth 的連線
+   * （docs/architecture/backend/08-realtime.md §3.6），backstage 永遠收不到；列在這裡只為了滿足 `ServerChangeSource` 的檢查。
+   */
+  PLATFORM_TENANT: 'platformTenant',
+  PLATFORM_ADMIN: 'platformAdmin',
+  PLATFORM_FEATURE_FLAG: 'platformFeatureFlag',
+  PLATFORM_JOB: 'platformJob',
+  PLATFORM_NOTIFICATION: 'platformNotification',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -330,6 +339,11 @@ const graph = createResourceGraph<Resource>({
   },
   [Resource.USER_CREDENTIAL]: {},
   [Resource.TENANT_FEATURE]: {},
+  [Resource.PLATFORM_TENANT]: {},
+  [Resource.PLATFORM_ADMIN]: {},
+  [Resource.PLATFORM_FEATURE_FLAG]: {},
+  [Resource.PLATFORM_JOB]: {},
+  [Resource.PLATFORM_NOTIFICATION]: {},
   [Resource.SERVICE_ACCOUNT]: {
     collection: [SERVICE_ACCOUNT_LIST_QUERY_KEY],
     entity: [SERVICE_ACCOUNT_DETAIL_QUERY_KEY],

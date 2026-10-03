@@ -1,6 +1,8 @@
+import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Injectable } from '@nestjs/common';
 
 import { AppException } from '@/core/errors';
+import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
 import type { PaginatedResult } from '@/core/http';
 import { JobQueue, JobStore } from '@/core/jobs';
@@ -38,6 +40,7 @@ export class PlatformJobService {
     private readonly store: JobStore,
     private readonly directory: TenantDirectory,
     private readonly audit: PlatformAuditService,
+    private readonly events: DomainEventBus,
   ) {}
 
   async queues(): Promise<PlatformJobQueueListDto> {
@@ -87,6 +90,10 @@ export class PlatformJobService {
       resourceType: 'job',
       resourceId: job.id,
       metadata: { name: job.name, tenantId: job.tenantId },
+    });
+    // 平台管理者的畫面（docs/architecture/backend/08-realtime.md §3.6）；工作之後的狀態變化不推，列表照常重抓
+    this.events.publish(DomainEvent.PLATFORM_CHANGED, {
+      changes: [{ resource: ChangeSource.PLATFORM_JOB, kind: ChangeKind.UPDATE, id: job.id }],
     });
     return this.findOne(id);
   }
