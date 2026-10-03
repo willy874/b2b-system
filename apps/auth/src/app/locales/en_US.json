@@ -258,7 +258,7 @@
     "ANNOUNCEMENT_VERSION_CONFLICT": "This announcement was changed by someone else. Reload before editing.",
     "ANNOUNCEMENT_INVALID_STATE": "This action isn't available for the announcement's current status. Refresh and try again.",
     "ANNOUNCEMENT_TRIGGER_IN_PAST": "The scheduled time has already passed. Pick a time in the future.",
-    "ANNOUNCEMENT_AUDIENCE_EMPTY": "Select at least one recipient, or everyone in the tenant.",
+    "ANNOUNCEMENT_AUDIENCE_EMPTY": "Select at least one recipient, or Everyone.",
     "ANNOUNCEMENT_NOT_DELETED": "This announcement is not deleted.",
     "ANNOUNCEMENT_DISPATCH_NOT_FOUND": "This send was not found.",
     "ANNOUNCEMENT_DISPATCH_NOT_REVOCABLE": "This send has already been revoked.",

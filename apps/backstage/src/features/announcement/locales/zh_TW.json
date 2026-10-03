@@ -2,7 +2,7 @@
   "announcement": {
     "list": {
       "title": "公告",
-      "description": "寫好訊息，立即或在指定的時間以站內通知發給指定的人、群組、角色或全租戶。",
+      "description": "寫好訊息，立即或在指定的時間以站內通知發給指定的人、群組、角色或全部的人。",
       "searchPlaceholder": "搜尋標題或內文",
       "allStatuses": "全部狀態"
     },
@@ -39,7 +39,7 @@
     },
     "readSummary": "{{read}} / {{total}}",
     "audience": {
-      "all": "全租戶（所有可登入的使用者）",
+      "all": "全部（目前租戶所有可登入的使用者）",
       "users": "使用者",
       "groups": "群組（含子群組）",
       "roles": "角色",
@@ -50,7 +50,7 @@
       "count": "現在送出會發給 {{count}} 人",
       "counting": "計算收件人數中…",
       "summary": {
-        "all": "全租戶",
+        "all": "全部",
         "users": "{{count}} 位使用者",
         "groups": "{{count}} 個群組",
         "roles": "{{count}} 個角色",
@@ -172,11 +172,11 @@
       },
       "userRoleAssigned": {
         "name": "被指派角色",
-        "description": "被指派的角色是收件對象裡的角色時發給那個人（收件對象是全租戶時，任何角色都算）。"
+        "description": "被指派的角色是收件對象裡的角色時發給那個人（收件對象是全部時，任何角色都算）。"
       },
       "groupMemberAdded": {
         "name": "加入群組",
-        "description": "被直接加進收件對象裡的群組時發給那個人（收件對象是全租戶時，任何群組都算）。"
+        "description": "被直接加進收件對象裡的群組時發給那個人（收件對象是全部時，任何群組都算）。"
       }
     },
     "delay": {

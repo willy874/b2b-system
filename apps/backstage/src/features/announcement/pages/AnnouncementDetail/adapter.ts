@@ -1,6 +1,6 @@
 import type { AnnouncementAudience } from '@/shared/api-sdk';
 
-/** 受眾的摘要：一段一個來源（「全租戶」或「3 位使用者、2 個群組」）。 */
+/** 受眾的摘要：一段一個來源（「全部」或「3 位使用者、2 個群組」）。 */
 export function audienceSummary(
   audience: AnnouncementAudience,
 ): Array<{ key: string; args?: Record<string, number> }> {

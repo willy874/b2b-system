@@ -39,7 +39,7 @@
     },
     "readSummary": "{{read}} / {{total}}",
     "audience": {
-      "all": "Everyone in the tenant (all users who can sign in)",
+      "all": "Everyone (all users in this tenant who can sign in)",
       "users": "Users",
       "groups": "Groups (including subgroups)",
       "roles": "Roles",

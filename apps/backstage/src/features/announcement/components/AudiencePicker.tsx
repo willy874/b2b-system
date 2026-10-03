@@ -24,7 +24,7 @@ interface AudiencePickerProps {
 }
 
 /**
- * 受眾（docs/architecture/backend/19-announcement.md §9.2 D5）：全租戶，或使用者、群組、角色的聯集。下方即時顯示「現在送出會收到幾人」
+ * 受眾（docs/architecture/backend/19-announcement.md §9.2 D5）：全部（目前租戶的所有人），或使用者、群組、角色的聯集。下方即時顯示「現在送出會收到幾人」
  * （伺服器解析，含巢狀群組；不扣除送出者自己）。使用者在伺服器端搜尋；群組與角色數量少，一次抓回本地過濾。
  */
 export function AudiencePicker({ value, onChange, eventTriggered, disabled }: AudiencePickerProps) {
