@@ -16,7 +16,11 @@ const CODE = `e2e-${Date.now().toString(36)}`;
 /** 新租戶的預設網域：`{code}.<TENANT_BASE_DOMAIN>`；開發環境是 APP_PUBLIC_URL 的 host。 */
 const TENANT_URL = `http://${CODE}.localhost:5173`;
 const OWNER = `owner-${CODE}@e2e.test`;
-const OWNER_PASSWORD = 'E2E!Owner-Password1';
+/**
+ * 不能含 email 的片段（`owner`、`e2e`）與租戶代碼：密碼政策會擋下（docs/architecture/backend/04-auth.md §4.2）。
+ * 寫法同其他 spec 的隨機字串。
+ */
+const OWNER_PASSWORD = 'Hv6!qPz9#rWm2t';
 
 test.describe.configure({ mode: 'serial' });
 
