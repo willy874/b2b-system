@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { installFakeLayout } from '@/test/fakeLayout';
 
 import { Tabs, TabsPanel } from './index';
 
@@ -49,5 +51,70 @@ describe('Tabs', () => {
       </Tabs>,
     );
     expect(screen.getByText('基本內容')).toBeVisible();
+  });
+});
+
+describe('Tabs（放不下時收進「更多」下拉）', () => {
+  const manyTabs = [
+    { value: 'a', label: '甲' },
+    { value: 'b', label: '乙' },
+    { value: 'c', label: '丙' },
+    { value: 'd', label: '丁' },
+  ];
+  let layout: ReturnType<typeof installFakeLayout>;
+
+  beforeEach(() => {
+    layout = installFakeLayout();
+    layout.setSize('tab', { width: 80 });
+    layout.setSize('tabs-more', { width: 60 });
+  });
+
+  afterEach(() => layout.restore());
+
+  function renderTabs(value: string, onValueChange = vi.fn()) {
+    return render(
+      <Tabs
+        value={value}
+        tabs={manyTabs}
+        onValueChange={onValueChange}
+        testIds={{ bar: 'tabs-bar' }}
+      />,
+    );
+  }
+
+  it('寬度足夠時全部顯示，沒有「更多」', () => {
+    layout.setSize('tabs-bar', { clientWidth: 400 });
+    renderTabs('a');
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
+    expect(screen.queryByTestId('tabs-more')).not.toBeInTheDocument();
+  });
+
+  it('放不下的分頁收進下拉，選項會切換分頁', async () => {
+    // 80 + 80 + 60 ＝ 220
+    layout.setSize('tabs-bar', { clientWidth: 230 });
+    const onValueChange = vi.fn();
+    renderTabs('a', onValueChange);
+    expect(screen.getAllByRole('tab').map((tab) => tab.dataset.value)).toEqual(['a', 'b']);
+
+    await userEvent.click(screen.getByTestId('tabs-more'));
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['丙', '丁']);
+    await userEvent.click(screen.getByRole('menuitem', { name: '丁' }));
+    expect(onValueChange).toHaveBeenCalledWith('d');
+  });
+
+  it('選取中的分頁被收起時改佔最後一個可見位置', () => {
+    layout.setSize('tabs-bar', { clientWidth: 230 });
+    renderTabs('d');
+    expect(screen.getAllByRole('tab').map((tab) => tab.dataset.value)).toEqual(['a', 'd']);
+    expect(screen.getByRole('tab', { name: '丁' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('容器變寬時展開回分頁', () => {
+    layout.setSize('tabs-bar', { clientWidth: 230 });
+    renderTabs('a');
+    layout.setSize('tabs-bar', { clientWidth: 400 });
+    layout.resize();
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
+    expect(screen.queryByTestId('tabs-more')).not.toBeInTheDocument();
   });
 });

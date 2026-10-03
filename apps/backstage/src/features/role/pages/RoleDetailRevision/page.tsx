@@ -140,6 +140,7 @@ export default function RoleDetailRevisionPage() {
               />
             )}
             <Tabs
+              moreLabel={t('common.more')}
               value={history.compare}
               onValueChange={(value) => history.setCompare(value as RoleRevisionCompareMode)}
               tabs={[

@@ -5,20 +5,32 @@
     gap: var(--seed-space-4);
   }
 
+  /* 分頁列與「更多」下拉共用底線；間距與分頁之間相同，量測時才能用同一個 gap 計算 */
+  .bar {
+    display: flex;
+    align-items: stretch;
+    gap: var(--seed-space-1);
+    min-width: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
   .list {
     position: relative;
     display: flex;
     gap: var(--seed-space-1);
-    border-bottom: 1px solid var(--color-border);
+    min-width: 0;
   }
 
-  .tab {
+  .tab,
+  .more {
+    flex: none;
     padding: var(--seed-space-2) var(--seed-space-3);
     border: none;
     background: none;
     color: var(--color-fg-muted);
     font: inherit;
     font-size: 0.875rem;
+    white-space: nowrap;
     cursor: pointer;
     text-decoration: none;
   }
@@ -28,9 +40,26 @@
     font-weight: 600;
   }
 
-  .tab:focus-visible {
+  .tab:focus-visible,
+  .more:focus-visible {
     outline: 2px solid var(--color-brand);
     outline-offset: -2px;
+  }
+
+  .overflow {
+    display: flex;
+    flex: none;
+  }
+
+  .more {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--seed-space-1);
+  }
+
+  .more:hover,
+  .more[data-popup-open] {
+    color: var(--color-fg);
   }
 
   .indicator {

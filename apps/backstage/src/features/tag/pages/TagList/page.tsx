@@ -134,6 +134,7 @@ export default function TagListPage() {
       </header>
 
       <Tabs
+        moreLabel={t('common.more')}
         value={scope}
         onValueChange={(value) =>
           void navigate({ to: TagListRoute.to, search: { scope: value as TagScope } })

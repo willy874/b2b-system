@@ -258,6 +258,7 @@ loader 只看得到進頁當下的註冊表：可啟用的 feature（§7、§9�
 | 移除的工具 | 已存設定裡找不到的 key 直接略過 |
 | `key` | 存進設定的鍵，發佈後不要改名 |
 | `labelI18nKey` | 放在全域語系包（`app/locales`），偏好頁之外的 scope 未必載入 |
+| 放不下時 | 頂列從尾端把工具收進「更多」彈層，工具在彈層裡照常運作（[`07-ui-system.md`](./07-ui-system.md) §3.14）；偏好頁的順序因此也決定窄螢幕時誰先被收起 |
 
 內建工具依序是批次佇列（`batchQueue`，關掉只是不顯示按鈕，批次結果仍由 `BatchQueueNotifier` 彈出）、即時連線狀態（`realtimeStatus`，[11 §8.1](./11-realtime.md)）、語言（`language`）、主題（`theme`）。
 帳號選單是身分入口，固定顯示在最右側，不在註冊表裡。

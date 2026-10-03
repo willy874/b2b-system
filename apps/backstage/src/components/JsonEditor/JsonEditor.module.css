@@ -11,18 +11,11 @@
   /* 工具列：搜尋、展開／收合、格式化在左，復原／重做在右 */
   .toolbar {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: var(--seed-space-1);
     padding: var(--seed-space-1) var(--seed-space-2);
     border-bottom: 1px solid var(--color-border);
     background: var(--color-bg);
-  }
-
-  .history {
-    display: inline-flex;
-    gap: var(--seed-space-1);
-    margin-inline-start: auto;
   }
 
   /* CodeMirror 的容器：外觀變數來自 jsonTheme.module.css，版面在 editorTheme.ts */

@@ -12,13 +12,14 @@ import type { CSSProperties, KeyboardEvent, ReactNode, Ref } from 'react';
 
 import { cn } from '@/shared/utils';
 
-import { Button, IconButton } from '../Button';
+import { Button } from '../Button';
 import { Empty } from '../Empty';
 import { Icon } from '../Icon';
 import type { IconName } from '../Icon';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
-import { Tooltip } from '../Tooltip';
+import { Toolbar } from '../Toolbar';
+import type { ToolbarItem } from '../Toolbar';
 import { useControllableState } from '../useControllableState';
 import { useLatestRef } from '../useLatestRef';
 import {
@@ -79,6 +80,8 @@ export interface TreeEditorLabels {
   zoomOut?: string;
   undo?: string;
   redo?: string;
+  /** 工具列放不下時，收起其餘按鈕的下拉按鈕。 */
+  more?: string;
   /** 沒有任何節點時的標題。 */
   empty?: string;
 }
@@ -170,6 +173,7 @@ const DEFAULT_LABELS: Required<TreeEditorLabels> = {
   zoomOut: '縮小',
   undo: '復原',
   redo: '重做',
+  more: '更多',
   empty: '還沒有任何節點',
 };
 
@@ -210,29 +214,22 @@ function isEditableTarget(target: EventTarget): boolean {
   );
 }
 
-interface ToolbarButtonProps {
-  label: string;
-  icon: IconName;
-  action: string;
-  onClick: () => void;
-  disabled?: boolean;
-}
-
-function ToolbarButton({ label, icon, action, onClick, disabled }: ToolbarButtonProps) {
-  return (
-    <Tooltip content={label}>
-      <IconButton
-        size="sm"
-        aria-label={label}
-        onClick={onClick}
-        disabled={disabled}
-        data-testid="tree-editor-action"
-        data-value={action}
-      >
-        <Icon name={icon} size={16} />
-      </IconButton>
-    </Tooltip>
-  );
+/** 工具列的一顆按鈕；`key` 同時是 `data-value`（`tree-editor-action` ＋ `data-value`）。 */
+function toolbarAction(
+  key: string,
+  label: string,
+  icon: IconName,
+  onClick: () => void,
+  options: Pick<ToolbarItem, 'disabled' | 'align'> = {},
+): ToolbarItem {
+  return {
+    key,
+    label,
+    icon: <Icon name={icon} size={16} />,
+    onClick,
+    'data-testid': 'tree-editor-action',
+    ...options,
+  };
 }
 
 /**
@@ -581,6 +578,64 @@ function TreeEditorCanvas<TData>({
   const hasSelection = selectedIds.length > 0 || selectedEdgeIds.size > 0;
   const isEmpty = display.nodes.length === 0;
 
+  // 放不下時從尾端（檢視操作）收進「更多」下拉
+  const toolbarItems: ToolbarItem[] = [
+    ...(editable && createNode
+      ? [
+          toolbarAction('add-root', labels.addRoot, 'plus', addRoot),
+          toolbarAction(
+            'add-child',
+            labels.addChild,
+            'folder-plus',
+            () => {
+              const [parentId] = selectedIds;
+              if (parentId !== undefined) handleAddChild(parentId);
+            },
+            { disabled: selectedIds.length !== 1 },
+          ),
+        ]
+      : []),
+    ...(editable
+      ? [
+          toolbarAction('delete', labels.deleteSelection, 'trash', deleteSelection, {
+            disabled: !hasSelection,
+          }),
+        ]
+      : []),
+    ...(editable && layout === 'manual'
+      ? [
+          toolbarAction('auto-layout', labels.autoLayout, 'network', autoLayout, {
+            disabled: isEmpty,
+          }),
+        ]
+      : []),
+    ...(editable
+      ? [
+          toolbarAction('undo', labels.undo, 'undo', history.undo, {
+            disabled: !history.canUndo,
+            align: 'end',
+          }),
+          toolbarAction('redo', labels.redo, 'redo', history.redo, {
+            disabled: !history.canRedo,
+            align: 'end',
+          }),
+        ]
+      : []),
+    toolbarAction(
+      'zoom-out',
+      labels.zoomOut,
+      'zoom-out',
+      () => void flow.zoomOut({ duration: 150 }),
+      {
+        align: 'end',
+      },
+    ),
+    toolbarAction('zoom-in', labels.zoomIn, 'zoom-in', () => void flow.zoomIn({ duration: 150 }), {
+      align: 'end',
+    }),
+    toolbarAction('fit-view', labels.fitView, 'maximize', fitView, { align: 'end' }),
+  ];
+
   return (
     // 快捷鍵（復原、Tab 新增）是從裡面可聚焦的節點與按鈕冒泡上來的，外層本身不可互動
     // oxlint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -594,77 +649,7 @@ function TreeEditorCanvas<TData>({
       {...rest}
     >
       <div {...slot('toolbar', styles.toolbar, { testId: 'tree-editor-toolbar' })}>
-        {editable && createNode && (
-          <>
-            <ToolbarButton label={labels.addRoot} icon="plus" action="add-root" onClick={addRoot} />
-            <ToolbarButton
-              label={labels.addChild}
-              icon="folder-plus"
-              action="add-child"
-              onClick={() => {
-                const [parentId] = selectedIds;
-                if (parentId !== undefined) handleAddChild(parentId);
-              }}
-              disabled={selectedIds.length !== 1}
-            />
-          </>
-        )}
-        {editable && (
-          <ToolbarButton
-            label={labels.deleteSelection}
-            icon="trash"
-            action="delete"
-            onClick={deleteSelection}
-            disabled={!hasSelection}
-          />
-        )}
-        {editable && layout === 'manual' && (
-          <ToolbarButton
-            label={labels.autoLayout}
-            icon="network"
-            action="auto-layout"
-            onClick={autoLayout}
-            disabled={isEmpty}
-          />
-        )}
-        <span className={styles.toolbarEnd}>
-          {editable && (
-            <>
-              <ToolbarButton
-                label={labels.undo}
-                icon="undo"
-                action="undo"
-                onClick={history.undo}
-                disabled={!history.canUndo}
-              />
-              <ToolbarButton
-                label={labels.redo}
-                icon="redo"
-                action="redo"
-                onClick={history.redo}
-                disabled={!history.canRedo}
-              />
-            </>
-          )}
-          <ToolbarButton
-            label={labels.zoomOut}
-            icon="zoom-out"
-            action="zoom-out"
-            onClick={() => void flow.zoomOut({ duration: 150 })}
-          />
-          <ToolbarButton
-            label={labels.zoomIn}
-            icon="zoom-in"
-            action="zoom-in"
-            onClick={() => void flow.zoomIn({ duration: 150 })}
-          />
-          <ToolbarButton
-            label={labels.fitView}
-            icon="maximize"
-            action="fit-view"
-            onClick={fitView}
-          />
-        </span>
+        <Toolbar items={toolbarItems} iconOnly moreLabel={labels.more} />
       </div>
 
       <TreeNodeContext value={nodeContext}>

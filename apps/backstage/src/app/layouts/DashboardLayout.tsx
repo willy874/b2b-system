@@ -126,7 +126,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           >
             <Icon name="menu" size={20} />
           </IconButton>
-          <div className="flex-1" />
           <HeaderToolbar />
           <Menu
             trigger={

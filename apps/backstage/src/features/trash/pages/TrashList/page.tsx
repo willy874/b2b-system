@@ -33,6 +33,7 @@ export default function TrashListPage() {
 
       {active ? (
         <Tabs
+          moreLabel={t('common.more')}
           value={active.type}
           onValueChange={setType}
           tabs={types.map((type) => ({ value: type.type, label: t(type.labelI18nKey) }))}
