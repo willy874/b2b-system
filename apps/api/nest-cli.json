@@ -8,19 +8,19 @@
     "assets": [
       {
         "include": "db/migrations/**/*.sql",
-        "outDir": "dist/src"
+        "outDir": "dist"
       },
       {
         "include": "db/migrations/meta/*.json",
-        "outDir": "dist/src"
+        "outDir": "dist"
       },
       {
         "include": "db/platform/migrations/**/*.sql",
-        "outDir": "dist/src"
+        "outDir": "dist"
       },
       {
         "include": "db/platform/migrations/meta/*.json",
-        "outDir": "dist/src"
+        "outDir": "dist"
       }
     ]
   }
