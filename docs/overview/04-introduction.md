@@ -1,19 +1,12 @@
 # 專案介紹 — 一套把邊際情況當成主規格來寫的後台
 
-> 給第一次接觸這個專案的人：它做了哪些事、每個機制替哪些容易被忽略的情況想過答案、和常見的後台範本有什麼不同。
-> 規格細節以各章節文件為準，本文只做導覽並附上連結。
-> 截圖取自 2026-10-01 的本機 dev 環境（`pnpm dev`），使用 seed 產生的測試帳號與資料；數字以當天的程式碼與文件為準。
+> 給第一次接觸這個專案的人：每個機制替哪些容易被忽略的情況想過答案、和常見的後台範本有什麼不同。
+> 想先看有哪些畫面，讀 [`05-feature-tour.md`](./05-feature-tour.md)；規格細節以各章節文件為準，本文只做導覽並附上連結。
+> 截圖與功能導覽共用，由 E2E 的導覽劇本以示範資料拍攝（[`05-feature-tour.md`](./05-feature-tour.md#重新產生截圖)）。
 
 B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領域，先把每個後台都需要的身分、權限、稽核、檔案、背景工作、通知做成 **會被強制使用** 的機制，業務功能再以 feature（前端）＋ module（後端）的形式加上去。
 
-| 規模 | 數量 |
-| --- | --- |
-| 設計決策（各規格最後的「設計決策」章節，原 `docs/adr/`） | 33 組 |
-| 規格文件（`docs/`） | 103 份 |
-| 自動化測試案例 | 約 3,200 個 |
-| 具名錯誤碼（`apps/api/src/core/errors/error-code.ts`） | 108 個 |
-| 權限鍵（租戶／平台） | 39／12 個 |
-| commit（2026-09-20～10-01） | 417 個 |
+這份文件的寫法是「情況 → 怎麼處理」：每一列都是一個在 demo 時看不出來、上線後才會遇到的問題。
 
 ---
 
@@ -54,9 +47,9 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 登入不在產品本身。`apps/api` 用經過 OpenID 認證的 `oidc-provider` 當 OIDC Provider，`apps/platform` 是全平台共用的登入入口，每個後台都是它的 client（授權碼＋PKCE＋BFF）。全部是 host-only cookie，不用 iframe、不用 `postMessage` 傳 token，產品和登入入口不必同站。規格見 [`architecture/04-sso.md`](../architecture/04-sso.md)、[`architecture/backend/04-auth.md`](../architecture/backend/04-auth.md)。
 
-![apps/platform 的登入畫面](./images/introduction/sso-login.jpg)
+![apps/platform 的登入畫面](./images/tour/login.jpg)
 
-*apps/platform 的登入互動頁。從後台 `localhost:5173` 被導到 `localhost:5175/interaction/…`；畫面寫明正在登入哪個租戶、哪個產品。*
+*apps/platform 的登入互動頁。從後台被導到 apps/platform 的 `/interaction/…`；畫面寫明正在登入哪個租戶、哪個產品。*
 
 | 情況 | 怎麼處理 |
 | --- | --- |
@@ -69,19 +62,19 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 | Cookie 永遠送不出去 | 文件原寫 `Path=/auth`，但瀏覽器看到的路徑帶 `/api` 前綴；實作改成 `/api/auth`，記在 `CLAUDE.md` 的「與文件不同的實作決定」 |
 | 外部 IdP 帳號接管 | 以 email 自動連結既有帳號時，要求 `email_verified`、網域登記在這條連線上、帳號沒有 member 以外的系統角色。否則有 `identityProvider:update` 的人可以自架 IdP，簽出 super-admin 的 email |
 
-![稽核日誌，第一列展開顯示變更前後差異](./images/introduction/audit-log-expanded.jpg)
+![稽核日誌，第一列展開顯示變更前後差異](./images/tour/audit-log-expanded.jpg)
 
-*稽核日誌。資料裡有一筆 `auth.refresh.replayed`（操作者 system），表示寬限期確實被觸發過。展開的列只記實際變更的欄位，右邊是請求的中繼資料。*
+*稽核日誌。登入、續期、重送與重用偵測都會留下紀錄（例如寬限期內的重送記為 `auth.refresh.replayed`）。展開的列只記實際變更的欄位，右邊是請求的中繼資料。*
 
 ---
 
 ## 3. 多租戶：每個租戶一個資料庫，由網域決定租戶
 
-專案曾經用共用資料表加 `workspace_id` 做完一整套工作區隔離（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10.7），後來整個丟掉，改成實體隔離（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10）。被否決的方案也寫得很清楚：schema-per-tenant 只要 `search_path` 設錯一次就讀到別人的表；RLS 仍然是同一個資料庫裡的應用層紀律。規格見 [`architecture/05-tenancy.md`](../architecture/05-tenancy.md)。
+專案曾經用共用資料表加 `workspace_id` 做完一整套工作區隔離，後來整個丟掉，改成實體隔離（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10）。被否決的方案也寫得很清楚：schema-per-tenant 只要 `search_path` 設錯一次就讀到別人的表；RLS 仍然是同一個資料庫裡的應用層紀律。規格見 [`architecture/05-tenancy.md`](../architecture/05-tenancy.md)。
 
 | 情況 | 怎麼處理 |
 | --- | --- |
-| 沒有租戶脈絡 | `TENANT_DB` 是一個 Proxy，每次存取轉到目前租戶的 DB；沒有脈絡時直接拋錯。29 個 repository 只換了注入的 token |
+| 沒有租戶脈絡 | `TENANT_DB` 是一個 Proxy，每次存取轉到目前租戶的 DB；沒有脈絡時直接拋錯。切換時所有 repository 只換了注入的 token |
 | A 租戶的 token 拿到 B 租戶 | access token 帶 `tid`，必須等於請求網域對應的租戶 |
 | 亂造 Host 打爆記憶體 | 網域解析的三個快取都是上限 5000 筆的 LRU；不在快照裡的 Host 直接當找不到，不查平台 DB |
 | 平台管理暴露在每個網域 | 平台端點在 apps/platform 以外的網域一律回 `404 PLATFORM_ONLY`，WAF 和 IP 白名單只要套在一個網域上 |
@@ -90,9 +83,9 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 > **整合測試抓到的漏洞**：實作 [`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10 時，整合測試發現 A 租戶簽發的 token 拿到 B 租戶的網域，以 userId 為 key 的權限快取會用 A 的使用者與權限判斷 B 的請求。修正是把租戶前綴提前到解析的第 2 步，並在 access token 加上 `tid`。這段記在同一份文件 §10.6「實作時改掉的做法」表裡。
 
-![平台後台的租戶詳情頁](./images/introduction/platform-tenant-detail.jpg)
+![平台後台的租戶功能頁](./images/tour/platform-tenant-features.jpg)
 
-*平台後台的租戶詳情（apps/platform）。網域與可啟用的功能（檔案、稽核、背景工作、回收桶、系統設定、外部 IdP、切換租戶）都在這裡管。關掉某個功能，租戶的 API 對它回 `404 FEATURE_DISABLED`，前端在執行期卸載該 feature；資料不刪，重新打開即恢復。功能下方另可調整配額與上限（檔案容量、稽核熱資料天數、背景工作同時執行數、外部 IdP 連線數、Webhook 網址數）。*
+*平台後台的租戶詳情（apps/platform）。可啟用的功能（檔案、稽核、背景工作、回收桶、系統設定、外部 IdP、切換租戶、Webhook、公告）都在這裡管。關掉某個功能，租戶的 API 對它回 `404 FEATURE_DISABLED`，前端在執行期卸載該 feature；資料不刪，重新打開即恢復。功能下方另可調整配額與上限（檔案容量、稽核熱資料天數、背景工作同時執行數、外部 IdP 連線數、Webhook 網址數）。*
 
 ---
 
@@ -102,13 +95,13 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 模型刻意沒有 deny。[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §8 的理由是：一旦有 deny，「為什麼不能做 X」就變成需要推理的問題。
 
-![使用者詳情的有效權限與來源](./images/introduction/user-permission-sources.jpg)
+![使用者詳情的有效權限與來源](./images/tour/user-detail-explain.jpg)
 
 *有效權限與來源。每個權限鍵列出所有來源路徑（使用者 → 群組 → 上層群組 → 角色）；路徑上的節點依「查看者」的權限遮蔽，看不到的只顯示種類。見 [`rbac/09-explain.md`](../rbac/09-explain.md)。*
 
-![角色權限的技能樹](./images/introduction/role-permission-skill-tree.jpg)
+![角色權限的技能樹](./images/tour/role-permission.jpg)
 
-*權限技能樹。點上層權限會自動點亮前置（`file:delete ⇒ update ⇒ read`）；自己沒有的權限標成「無法授予」並鎖住，這是反提權在 UI 上的樣子。*
+*權限技能樹。點上層權限會自動點亮前置（例如「審核申請」包含「檢視審批」，路徑以橘框標出）；自己沒有的權限標成「無法授予」並鎖住，這是反提權在 UI 上的樣子。*
 
 | 情況 | 怎麼處理 |
 | --- | --- |
@@ -120,15 +113,15 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 | 審批成為後門 | 「核准等同代為執行」：審核者自己必須做得到那個操作，否則 `approval:review` 就能繞過 `user:create`。另有四眼原則，不能審自己的申請 |
 | 快取跨程序失效 | 寫 tuple 時 trigger 讓 `authz_revision` 加一，提交後透過 `NOTIFY` 廣播；收到的程序只處理更新的 revision。快取載入期間被失效，舊結果不寫回 |
 
-![權限目錄的樹狀圖](./images/introduction/permission-tree.jpg)
+![權限目錄的樹狀圖](./images/tour/permission-tree.jpg)
 
 *權限目錄的樹狀圖。基礎權限在上、包含它的在下，虛線是跨資源的依賴。用的是設計系統裡的 TreeEditor（React Flow＋dagre，[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §12），不載入 React Flow 的全域 CSS，改走 design token。*
 
-![一般成員打開 /role/create 看到 403](./images/introduction/deep-link-403.jpg)
+![一般成員打開 /role/create 看到 403](./images/tour/forbidden.jpg)
 
 *深連結的 403。一般成員直接打開 `/role/create`：登入後回到原網址、顯示 403 而不是導走，方便拿網址請人開權限；選單只列出他看得到的項目。見 [`architecture/frontend/06-permission.md`](../architecture/frontend/06-permission.md)。*
 
-![使用者列表](./images/introduction/user-list.jpg)
+![使用者列表](./images/tour/user-list.jpg)
 
 *使用者列表。RichTable 支援跨頁選取、欄位排序與釘選、篩選草稿。截圖帳號自己那一列的刪除鈕是停用的；鎖定的帳號多出解鎖鈕。*
 
@@ -148,7 +141,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 | 永久刪除被外鍵卡住 | 依外鍵順序處理，每批一個交易、每列一個 savepoint，一列刪不掉只略過它自己；keyset 往後走，每一輪一定會結束。物件儲存的內容在交易提交後才刪 |
 | 滾動部署期間誤刪檔案 | 「刪除時保留物件」拆成兩次部署，避免舊版的維護排程把新版保留的物件當成孤兒刪掉 |
 
-![角色的版本紀錄與差異](./images/introduction/role-revision-diff.jpg)
+![角色的版本紀錄與差異](./images/tour/role-revision.jpg)
 
 *角色的版本紀錄。選第 1 版、與目前內容比較：看到的就是「還原之後會變成什麼」。差異檢視用 Myers 演算法逐行比對，未變更的段落摺疊。還原會產生新的一版，歷史不被改寫。*
 
@@ -166,11 +159,11 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 | 一個租戶塞爆佇列 | 排程工作展開成每個租戶一筆，exclusive 與 throttle 以租戶區分 |
 | 通知送丟 | 通知由擁有者模組在業務交易內寫入，刻意不訂閱程序內的事件匯流排（那是 fire-and-forget）。存的是 route id 加參數而不是網址，功能被停用或路徑改名時只顯示文字、不給壞掉的連結 |
 
-![背景工作頁](./images/introduction/background-jobs.jpg)
+![背景工作頁](./images/tour/job.jpg)
 
 *背景工作。稽核封存、檔案維護、回收桶清除、版本修剪、通知清理都是排程工作；失敗自動重試，重試用完停在「失敗」可手動重試（兩人同時按，後到的回 409）。*
 
-![事件通知管理頁](./images/introduction/notification-events.jpg)
+![事件通知管理頁](./images/tour/notification-events.jpg)
 
 *事件通知。事件目錄寫在程式碼，DB 只存租戶層覆寫；可以決定是否允許個人關閉。關掉再打開不補發關閉期間的事件。*
 
@@ -189,9 +182,9 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 | 關掉分頁上傳就斷 | 檔案暫存在 IndexedDB，上傳佇列跑在 SharedWorker，其他分頁接手繼續傳 |
 | 照片洩漏位置 | sharp 產生變體時 EXIF 轉正並去除 GPS；原圖限制 128 MiB／1 億像素，不處理 SVG |
 
-![檔案管理器](./images/introduction/file-manager.jpg)
+![檔案管理器](./images/tour/file-folder.jpg)
 
-*檔案管理器。這六張縮圖就是本文的截圖，用檔案管理器上傳後由伺服器產生變體。沒有權限的資料夾也會列出並標成鎖住，可以直接申請存取。*
+*檔案管理器。縮圖是上傳後由伺服器產生的影像變體。沒有權限的資料夾也會列出並標成鎖住，可以直接申請存取。*
 
 ---
 
@@ -205,15 +198,15 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 **只有一個分頁連 WebSocket。** 可見的分頁參與 leader 選舉，只有 leader 持有 Socket.io 連線，再把「哪個來源變了」轉給其他分頁（帶 term 與序號，跳號就整批重新驗證）。背景分頁只標 stale，可見分頁延遲 150–750 ms 隨機時間再重抓來削峰。重連退避 2 秒起、上限 30 秒、±50% 抖動，api 重新部署時不會被上千條連線同時打回來。推播只是加速，斷線就退回 staleTime 與 focus 重抓。
 
-**批次操作沒有批次端點。** [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13.6 做了後端批次端點，實際用過後全部移除（[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13）：批次改成前端佇列，逐筆呼叫單筆 API，讓單筆端點是業務規則的唯一來源。每筆帶列表上的 `version`，過時的那筆個別失敗；被別人刪掉的自動移出選取。佇列 worker 刻意不自己打 API，否則會和分頁搶輪替中的 refresh token，觸發整條 family 撤銷。
+**批次操作沒有批次端點。** 一開始做了後端批次端點，實際用過後全部移除（[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13）：批次改成前端佇列，逐筆呼叫單筆 API，讓單筆端點是業務規則的唯一來源。每筆帶列表上的 `version`，過時的那筆個別失敗；被別人刪掉的自動移出選取。佇列 worker 刻意不自己打 API，否則會和分頁搶輪替中的 refresh token，觸發整條 family 撤銷。
 
-**自己的設計系統。** UI 建在 Base UI（只提供焦點管理、ARIA、彈層定位，[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §10）上，視覺全部自寫：42 個元件、43 個 Storybook story。Base UI 的 Select 需要所有項目都在 DOM 上而無法虛擬捲動，所以 Select／Menu 改成 Popover 加自製列表（`aria-activedescendant`）與 TanStack Virtual。顏色走三層 token，`contrast.test.ts` 對兩個主題各驗 WCAG 對比，`theme-init.js` 在首次繪製前設定主題，不閃白。
+**自己的設計系統。** UI 建在 Base UI（只提供焦點管理、ARIA、彈層定位，[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §10）上，視覺全部自寫：約 40 個元件，每個都有測試與 Storybook story。Base UI 的 Select 需要所有項目都在 DOM 上而無法虛擬捲動，所以 Select／Menu 改成 Popover 加自製列表（`aria-activedescendant`）與 TanStack Virtual。顏色走三層 token，`contrast.test.ts` 對兩個主題各驗 WCAG 對比，`theme-init.js` 在首次繪製前設定主題，不閃白。
 
-![深色主題的使用者列表](./images/introduction/user-list-dark.jpg)
+![深色主題的使用者列表](./images/tour/dark-user-list.jpg)
 
 *深色主題。深色只覆寫 alias 層 token；狀態色分「填色」與「前景」兩組，兩個主題都過對比測試。*
 
-![深色主題的權限樹狀圖](./images/introduction/permission-tree-dark.jpg)
+![深色主題的權限樹狀圖](./images/tour/dark-permission-tree.jpg)
 
 *同一個 TreeEditor 在深色主題。沒有載入第三方 CSS，所以元件跟著 token 一起換色。*
 
@@ -227,11 +220,11 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 - **結構測試**：後端層級依賴由 `apps/api/src/__tests__/layer-dependencies.spec.ts` 掃 import；前端 `design-system.test.ts` 擋寫死的色碼、外洩的 Base UI 型別，並要求每個元件都有測試與 story；只有一個檔案能 import socket.io-client。
 - **語系完整性**：測試比對兩個語系檔的鍵集合，並確認每個錯誤碼、每個權限鍵都有翻譯。
 - **暫時的開關會過期**：每個 feature flag 必填 `removeBy`，過期還留在目錄裡，單元測試直接失敗（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §11）。
-- **測試規模**：api 約 1,080 個案例（整合測試用 Testcontainers 起 Postgres 17，平台 DB 與租戶 DB 分開）、backstage 約 1,350、platform 約 670、E2E 11 個 spec 約 50 個案例（含 mock OIDC IdP 與 Mailpit 收信）。
+- **測試的層次**：後端整合測試用 Testcontainers 起真的 Postgres 17，平台 DB 與租戶 DB 分開；前端元件測試以 MSW 模擬權限行為；E2E 跑真的 api、backstage、apps/platform，含模擬的外部 OIDC IdP 與 Mailpit 收信。
 
 ### 9.2 敢推翻自己
 
-33 組設計決策裡有四次明確的反轉（編號為原 ADR 編號），每次都寫清楚是什麼新資訊改變了判斷：
+設計決策裡有四次明確的反轉（編號為原 ADR 編號，細節見 [`03-roadmap.md`](./03-roadmap.md) §2.1），每次都寫清楚是什麼新資訊改變了判斷：
 
 | 反轉 | 內容 |
 | --- | --- |
@@ -252,8 +245,8 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ## 10. 現況
 
-**已完成**：RBAC 骨架、SSO／OIDC、每租戶一個資料庫、群組與關係圖（含 explain）、稽核日誌、審批、系統設定、檔案管理器與影像變體、背景工作、寄信、回收桶、版本歷史與樂觀鎖、站內通知與事件管理（含個人通知設定）、服務帳號與 API token、對外 API 服務（`/v1`）、feature flag 與執行期啟用功能、深色主題。
+**已完成**：RBAC 骨架、SSO／OIDC、每租戶一個資料庫、群組與關係圖（含 explain）、稽核日誌、審批、系統設定、檔案管理器與影像變體、背景工作、寄信、回收桶、版本歷史與樂觀鎖、站內通知與事件管理、公告、Webhook、標籤、服務帳號與 API token、對外 API（`/v1`）、可由平台關閉的 feature 與 feature flag、深色主題。完整的能力地圖見 [`01-overview.md`](./01-overview.md) §3，畫面見 [`05-feature-tour.md`](./05-feature-tour.md)。
 
-**待做**：Webhook、匯入匯出、標籤／留言／關注、全域搜尋（P2）；專案層級的關係圖、MFA、可觀測性、多實例部署（P3）。每項都有提案文件在 [`features/`](../features/README.md)。進度見 [`03-roadmap.md`](./03-roadmap.md)。
+**待做**：匯入匯出、留言與關注、全域搜尋、專案層級的授權、MFA、可觀測性、多實例部署。每項都有提案文件，清單與優先度只維護在 [`features/README.md`](../features/README.md)；時間軸見 [`03-roadmap.md`](./03-roadmap.md)。
 
 **技術棧**：NestJS 12、Drizzle ORM、PostgreSQL 17、pg-boss、Socket.io、oidc-provider、sharp；React 19、Vite 8、TanStack Router／Query、Base UI、CodeMirror 6、React Flow；TypeScript 6 strict、Vitest 5、Playwright、Testcontainers、oxlint／oxfmt；Node 24、pnpm monorepo。選型理由見 [`02-technology-selection.md`](./02-technology-selection.md)。

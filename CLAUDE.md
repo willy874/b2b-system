@@ -82,6 +82,7 @@ pnpm db:drop-tenant <代碼> [--confirm]   # 清除 apps/platform 已刪除的�
 pnpm --filter @b2b-system/api openapi:generate && pnpm exec oxfmt apps/api/openapi.json apps/api/openapi.external.json && pnpm sdk:generate
                     # 改動 controller / DTO／權限鍵之後必跑；openapi.json 不經 oxfmt 會多出整份的格式 diff，pre-commit 也會擋
 pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法見 docs/architecture/frontend/07-ui-system.md §9
+pnpm --filter @b2b-system/e2e tour   # 重拍 docs/overview/05-feature-tour.md 的截圖（會重置 DB，只對隔離環境跑；docs/architecture/frontend/10-testing.md §4.6）
 ```
 
 ## 新增一個功能的順序

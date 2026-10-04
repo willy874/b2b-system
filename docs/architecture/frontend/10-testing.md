@@ -320,6 +320,25 @@ await snapshot(page, 'role-created');
   一個 test 通常 1–3 張，不要每一步都拍。
 - `name` 用 kebab-case 字面量，不以字串模板組成（同 §4.4 的 testid）。
 
+### 4.6 功能導覽的截圖
+
+文件 [`overview/05-feature-tour.md`](../../overview/05-feature-tour.md) 的截圖由另一份 Playwright 設定產生，和 E2E 共用 helper，但不是測試：
+
+| | E2E（`tests/`） | 導覽（`tour/`） |
+| --- | --- | --- |
+| 設定 | `playwright.config.ts` | `playwright.tour.config.ts`（不起 webServer、單一 worker、固定 1440×900 與 zh-TW） |
+| 起點 | `db:reset` ＋ `db:seed` ＋ `db:seed:e2e` | 多跑 `db:seed:dev`，再由 `tour/demo-data.ts` 以 API 建立示範資料 |
+| 截圖 | `apps/e2e/snapshots/`，不進版控 | `docs/overview/images/tour/`，**進版控** |
+| 失敗 | 斷言失敗就失敗 | 某一張拍不到只記下來、繼續拍，最後列出 |
+
+```bash
+pnpm --filter @b2b-system/e2e tour
+```
+
+- 會重置資料庫：只對著 §4.3 的隔離環境跑，不要對著共用 dev DB。
+- 截圖前等骨架屏消失與字型載入，不等 `networkidle`（realtime 連線與 HMR 會一直開著）。
+- 新功能上線時，在劇本加一個 `scene`、在導覽文件加一段；畫面改版後重跑，用 git diff 檢查截圖的變化。
+
 ---
 
 ## 5. 覆蓋率目標

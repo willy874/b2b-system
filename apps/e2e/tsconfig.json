@@ -6,5 +6,12 @@
     "emitDeclarationOnly": true,
     "outDir": "./dist-types"
   },
-  "include": ["tests/**/*", "helpers/**/*", "fixtures/**/*", "playwright.config.ts"]
+  "include": [
+    "tests/**/*",
+    "tour/**/*",
+    "helpers/**/*",
+    "fixtures/**/*",
+    "playwright.config.ts",
+    "playwright.tour.config.ts"
+  ]
 }

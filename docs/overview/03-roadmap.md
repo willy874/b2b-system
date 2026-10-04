@@ -1,287 +1,72 @@
-# Roadmap — Phase 0（RBAC 骨架）
+# 進度與路線
 
-> 本文件是 **架構確認後** 的實作計畫。每個里程碑有明確的驗收條件；
-> 未通過驗收不進入下一個里程碑。
+這份文件記錄 **做過什麼、做到哪裡、接下來做什麼**。
+
+- 每項能力的現況與畫面看 [`01-overview.md`](./01-overview.md) §3 與 [`05-feature-tour.md`](./05-feature-tour.md)。
+- **接下來要做的功能只有一份清單：[`features/README.md`](../features/README.md)**。這裡不重複列，避免兩邊不同步。
+- 已知問題與技術債在 [`issues/README.md`](../issues/README.md)。
 
 ---
 
-## 實作現況（2026-09-20）
+## 1. 現況（2026-10-04）
 
-M0–M5 的功能全部實作完成並跑通；以下是與驗收清單的落差，其餘項目皆已驗證。
+Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、非同步與溝通四組通用機制。各能力已在 main 上，規格寫在 `docs/architecture/`、`docs/rbac/`；
+每份規格最後的「設計決策」章節記錄當時的取捨（原本的 `docs/adr/`，2026-10-02 併入）。
 
-| 狀態 | 項目 |
+還沒做到的部分：
+
+| 項目 | 狀態 |
 | --- | --- |
-| ✅ | M0 骨架、M1 資料庫與 RBAC 核心、M3 認證、M4 使用者／角色、M5 稽核日誌與個人帳號 |
-| ✅ | 後端 73 個測試、前端 262 個測試、E2E 17 個情境（涵蓋 §4.1 的 10 條流程） |
-| ✅ | `core/permission` 100%、`core/auth` 98%、`components/` 96% 覆蓋率 |
-| ✅ | M2 全部 6 個批次的元件都已實作，每個元件都有測試；`design-system.test.ts` 守住「無寫死色碼 / 不外洩 Base UI 型別 / 支援透傳」 |
-| ⚠️ | **前端整體覆蓋率 41.9%**（目標 75%）：缺口集中在 `features/*/pages` 與 `apis/` |
-| ⚠️ | **後端整體覆蓋率 71.9%**（目標 80%）；`common/guards` 與 `core/cache` 已達 100% 的硬門檻 |
-
-實作過程中與文件不同的決定記錄在 [`../../CLAUDE.md`](../../CLAUDE.md) 最後一節，
-相關章節也已同步更新。
+| CI | repo 沒有 CI；pre-commit（lefthook）只跑 oxfmt 與 oxlint，OpenAPI 的 diff 檢查尚未自動化 |
+| 前端層級依賴 | 依賴矩陣（[`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md)）只有部分由 lint 與結構測試強制，其餘靠 review |
+| 覆蓋率 | Phase 0 訂的目標（前端 75%、後端 80%，`core/permission`、`common/guards` 100%）沒有寫成測試設定的門檻，也沒有 CI 檢查 |
+| 業務功能 | 沒有，這是骨架；第一個業務功能落地時預期會帶出 `features/` 裡的專案層級授權（G5） |
 
 ---
 
-## 總覽
+## 2. 時間軸
 
-| 里程碑 | 內容                           | 驗收核心                        |
-| ------ | ------------------------------ | ------------------------------- |
-| M0     | 專案骨架與工具鏈               | `pnpm dev` 能跑起前後端與資料庫 |
-| M1     | 資料庫與 RBAC 核心（後端）     | 授權 Guard 可運作，seed 完成    |
-| M2     | 設計系統（前端 `components/`） | 20 個元件可用，對比度測試全綠   |
-| M3     | 認證流程（前後端）             | 登入／續期／登出端到端可用      |
-| M4     | 使用者與角色管理（前後端）     | RBAC 生命週期 E2E 通過          |
-| M5     | 稽核日誌、個人帳號、收尾       | 全部驗收清單通過                |
+以合併進 main 的日期為準；細節看各規格的「設計決策」章節與 git 歷史。
 
----
+| 日期 | 加入的能力 | 規格 |
+| --- | --- | --- |
+| 09-20 | Phase 0 架構規格書；M0～M5：骨架、資料庫與 RBAC 核心、設計系統、認證、使用者與角色、稽核與個人帳號（§3） | [`rbac/`](../rbac/01-domain-model.md) |
+| 09-25 | 審批與註冊申請；深色主題；JsonEditor（CodeMirror 6）；RichTable | [`rbac/06-approval.md`](../rbac/06-approval.md)、[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) |
+| 09-27 | 表格批次操作（前端逐筆佇列） | [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13 |
+| 09-29 | 檔案資料夾與授權、背景工作（pg-boss）、寄信；SSO（apps/api 當 OIDC Provider、外部 IdP、單一登出） | [`backend/09-file.md`](../architecture/backend/09-file.md)、[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)、[`04-sso.md`](../architecture/04-sso.md) |
+| 09-29～30 | 共用表的工作區隔離被整個移除，改成每個租戶一個 database 與網域；平台管理者、租戶佈建 | [`05-tenancy.md`](../architecture/05-tenancy.md) §10 |
+| 09-30 | 系統設定；前端 feature 執行期啟用；feature flag；TreeEditor；權限關係圖 G0～G3b；樂觀鎖、回收桶與版本歷史 | [`backend/12-settings.md`](../architecture/backend/12-settings.md)、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9、[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) |
+| 10-01 | 站內通知；群組與反提權一般化（G4a）；有效權限的說明（G4b）；事件管理與個人通知設定；服務帳號、API token 與對外 API；可由平台關閉的 feature；依賴大升級（Nest 12、TS 6、Vitest 5） | [`backend/15-notification.md`](../architecture/backend/15-notification.md)、[`rbac/08-groups.md`](../rbac/08-groups.md)、[`06-external-api.md`](../architecture/06-external-api.md) |
+| 10-02 | Webhook；標籤；公告與排程通知；feature 參數（配額）；ADR 併入各規格 | [`backend/17-webhook.md`](../architecture/backend/17-webhook.md)、[`backend/18-tag.md`](../architecture/backend/18-tag.md)、[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) |
+| 10-03 | 平台後台改用 backstage 的外框與頁面，加上個人帳號頁、即時推播與站內通知 | [`apps/platform/README.md`](../../apps/platform/README.md) |
+| 10-04 | `apps/auth` 改名 `apps/platform`；功能導覽與截圖劇本 | [`05-feature-tour.md`](./05-feature-tour.md) |
 
-## M0 — 專案骨架
+### 2.1 推翻過的決定
 
-### 產出
+決定被推翻時，原文保留、在同一列註明改成什麼（[`docs/README.md`](../README.md) §4）。四次明確的反轉：
 
-```
-b2b-system/
-├── package.json / pnpm-workspace.yaml / tsconfig.base.json
-├── docker-compose.yml               postgres:17-alpine
-├── .env.example
-├── lefthook.yml / .oxlintrc.json / .oxfmtrc.jsonc
-├── apps/backstage/        Vite + React 19 + TS，空白頁能跑
-├── apps/api/        NestJS 11，/health 能回應
-├── apps/e2e/        Playwright 設定
-└── packages/
-    ├── api-sdk/     （空殼，M1 後填入）
-    └── utils/
-```
-
-### 驗收
-
-- [ ] `pnpm install` 成功
-- [ ] `pnpm dev` 同時起 postgres、api（:3000）、backstage（:5173）
-- [ ] `curl localhost:5173/api/health` 經 Vite proxy 回到 api
-- [ ] `pnpm lint` / `pnpm format:check` / `pnpm typecheck` 全部通過
-- [ ] pre-commit hook 會擋下未格式化的檔案
+| 反轉 | 內容 | 見 |
+| --- | --- | --- |
+| 後端批次端點 → 前端逐筆佇列 | 批次端點做完、用過之後全部移除，讓單筆端點成為業務規則的唯一來源 | [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13 |
+| 自製 JSON 樹狀編輯器 → CodeMirror 6 | 約 1,400 行的自製元件，在還沒有 feature 使用時換掉，因為那時換最便宜 | [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §11 |
+| 瀏覽器產生縮圖 → 伺服器產生變體 | canvas 做不出 progressive JPEG | [`backend/09-file.md`](../architecture/backend/09-file.md) |
+| 共用表的工作區隔離 → 每個租戶一個 database | 已完成的實作整個丟掉：漏一個 `WHERE` 就跨租戶外洩，schema-per-tenant 與 RLS 也都還是同一個資料庫裡的紀律 | [`05-tenancy.md`](../architecture/05-tenancy.md) §10 |
 
 ---
 
-## M1 — 資料庫與 RBAC 核心（後端）
+## 3. Phase 0：RBAC 骨架（已完成）
 
-### 產出
+Phase 0 的目標是「先把誰能做什麼一次做對」，分六個里程碑，每個都有驗收條件，未通過不進下一個。全部完成於 2026-09-20 前後；
+以下保留驗收的重點，作為之後改動時的回歸基準。完整的清單已由對應的測試與規格取代。
 
-| 項目                                             | 對應文件                                                              |
-| ------------------------------------------------ | --------------------------------------------------------------------- |
-| `db/schema/*.ts` 全部 8 張表                     | [`../architecture/backend/02-database.md`](../architecture/backend/02-database.md) §2               |
-| 手寫 migration：三個 trigger                     | 同上 §3                                                               |
-| `db/seeds/` 權限目錄、系統角色、super-admin      | [`../rbac/05-seed-and-bootstrap.md`](../rbac/05-seed-and-bootstrap.md)    |
-| `core/config`（Zod env 驗證）                    | [`../architecture/backend/01-architecture.md`](../architecture/backend/01-architecture.md) §6       |
-| `core/database`（Drizzle provider、交易輔助）    | 同上 §5                                                               |
-| `core/errors`（ErrorCode、AppException、Filter） | [`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §5 |
-| `core/http`（RequestId、Transform、分頁）        | 同上 §1–2                                                             |
-| `core/validation`（ZodValidationPipe）           | 同上 §3                                                               |
-| `common/decorators` ＋ `common/guards`           | [`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §2–3                     |
-| `PermissionService` ＋ `PermissionCacheService`  | 同上 §4–5                                                             |
-| `modules/permission`（`GET /permissions`）       | [`../rbac/04-api-spec.md`](../rbac/04-api-spec.md) §4                     |
-| **路由稽核**（啟動時檢查）                       | [`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §7                       |
-| Testcontainers 測試環境                          | [`../architecture/backend/07-testing.md`](../architecture/backend/07-testing.md) §2                 |
+| 里程碑 | 內容 | 驗收的重點（現在由誰守住） |
+| --- | --- | --- |
+| M0 | 專案骨架與工具鏈 | `pnpm dev` 起得來；lint、format、typecheck 通過；pre-commit 擋未格式化的檔案（lefthook） |
+| M1 | 資料庫與 RBAC 核心 | seed 冪等；稽核的 trigger 擋 UPDATE／DELETE；沒宣告授權方式的路由讓程序啟動失敗（`common/route-audit.ts`）；權限快取的失效順序（整合測試） |
+| M2 | 設計系統 | 每個元件有鍵盤與 disabled 的測試、Storybook story；不寫死色碼、不外洩 Base UI 型別（`design-system.test.ts`）；兩個主題的對比（`contrast.test.ts`） |
+| M3 | 認證 | access token 只在記憶體；跨分頁續期不互踢；重放舊 refresh token 撤銷整條 family；錯誤 5 次鎖定；忘記密碼不洩漏帳號是否存在（E2E `auth.spec.ts`） |
+| M4 | 使用者與角色 | 建角色 → 指派 → 看到選單；移除權限後下一次請求即 403；auditor 打開 `/user/create` 看到 403；反提權；系統角色保護；最後一位 super-admin（E2E `rbac-lifecycle.spec.ts`、`route-guard.spec.ts`） |
+| M5 | 稽核日誌、個人帳號、收尾 | `core/` 不 import `features/`、`modules/`（結構測試）；註解掉任一 feature plugin 仍能啟動；每個錯誤碼與權限鍵都有兩個語系的翻譯（語系測試） |
 
-### 驗收
-
-- [ ] `pnpm db:migrate && pnpm db:seed` 成功，且 **連續執行兩次筆數不變**
-- [ ] [`../rbac/05-seed-and-bootstrap.md`](../rbac/05-seed-and-bootstrap.md) §8 的
-      8 項斷言全部通過
-- [ ] 三個 trigger 的整合測試通過（I7 / I12 / I2）
-- [ ] 故意建立一個沒有授權宣告的路由 → **程序啟動失敗**
-- [ ] `PermissionCacheService` 的失效測試全部通過（含刪除角色的順序測試）
-- [ ] `core/cache` 與 `common/guards` 覆蓋率 100%
-
----
-
-## M2 — 設計系統（前端）
-
-**這是前端工作量最大的一段**，因為 Base UI 不帶樣式。與 M1 可並行。
-
-### 產出
-
-| 批次           | 元件                                                                                     |
-| -------------- | ---------------------------------------------------------------------------------------- |
-| Token          | `themes/` seed / alias / component 三層 ＋ `contrast.test.ts`                            |
-| 批次 1（基礎） | `Button` `IconButton` `Link` `Typography` `Icon` `Spinner` `Skeleton` `Separator` `Chip` |
-| 批次 2（表單） | `Field` `Input` `NumberField` `Select` `Combobox` `Checkbox` `Radio` `Switch` `Form`     |
-| 批次 3（彈層） | `Dialog` `AlertDialog` `Popover` `Tooltip` `Menu` `Toast`                                |
-| 批次 4（版面） | `Tabs` `Accordion` `Collapsible` `ScrollArea` `Breadcrumbs` `Empty`                      |
-| 批次 5（資料） | `Table`（TanStack Table ＋ 虛擬捲動）`Pagination` `Avatar` `Progress`                    |
-| 批次 6（延後） | `DatePicker` `DateRangePicker` `FileUpload`                                              |
-
-> 批次 6 已完成：稽核日誌的時間篩選改用 `DateRangePicker`（不再是原生 `<input type="date">`）。
-
-### 驗收
-
-- [x] 每個元件有 `.test.tsx`，涵蓋鍵盤操作與 `disabled` 狀態
-- [x] `contrast.test.ts` 全綠
-- [x] 沒有任何 `components/**/*.css` 出現十六進位色碼（由 `__tests__/design-system.test.ts` 檢查）
-- [x] 沒有任何 `components/**/*.tsx` 匯出 Base UI 型別（同上）
-- [x] 所有元件支援 `ref` / `className` / `data-testid` 透傳
-      （`__tests__/ref-forwarding.test.tsx` ＋ `design-system.test.ts`）
-
----
-
-## M3 — 認證流程
-
-### 後端
-
-| 項目                                                    | 對應文件                                                              |
-| ------------------------------------------------------- | --------------------------------------------------------------------- |
-| `modules/auth`：login / refresh / logout / profile      | [`../architecture/backend/04-auth.md`](../architecture/backend/04-auth.md)                          |
-| Refresh token 輪替 ＋ 家族撤銷 ＋ 重用偵測              | 同上 §2                                                               |
-| `JwtAuthGuard` ＋ `UserCacheService`                    | 同上 §6                                                               |
-| Argon2 密碼雜湊、強度檢查、帳號鎖定                     | 同上 §3–4                                                             |
-| 啟用 / 忘記密碼 / 重設密碼                              | 同上 §5                                                               |
-| 速率限制                                                | [`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §8 |
-| `@nestjs/swagger` → `openapi.json` → `packages/api-sdk` | [`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §12                   |
-
-### 前端
-
-| 項目                                                | 對應文件                                                                    |
-| --------------------------------------------------- | --------------------------------------------------------------------------- |
-| `shared/context`（plugin context 實作）             | [`../architecture/frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §2         |
-| `core/app`（AppContext）                            | 同上                                                                        |
-| `core/auth`（SessionStore：單飛、跨分頁、終止判定） | [`../architecture/frontend/09-state-and-storage.md`](../architecture/frontend/09-state-and-storage.md) §5 |
-| `core/client` ＋ `plugins/fetcher`（攔截器鏈）      | [`../architecture/frontend/05-data-layer.md`](../architecture/frontend/05-data-layer.md) §3               |
-| `core/cache` ＋ `plugins/app/*`                     | 同上 §6                                                                     |
-| `core/permission`（registry ＋ hooks）              | [`../architecture/frontend/06-permission.md`](../architecture/frontend/06-permission.md)                  |
-| `core/router` ＋ `app/`（Layout、權限守衛）         | [`../architecture/frontend/04-routing.md`](../architecture/frontend/04-routing.md) §4                     |
-| `features/auth`（登入、忘記密碼、重設、啟用）       | [`../architecture/frontend/03-feature-anatomy.md`](../architecture/frontend/03-feature-anatomy.md)        |
-| `features/home`（空白首頁 ＋ 側邊選單）             |                                                                             |
-| i18n scope 載入機制 ＋ 兩套語系檔                   | [`../architecture/frontend/08-i18n.md`](../architecture/frontend/08-i18n.md)                              |
-| MSW handlers                                        | [`../architecture/frontend/05-data-layer.md`](../architecture/frontend/05-data-layer.md) §10              |
-
-### 驗收
-
-- [ ] super-admin 可以登入、看到首頁、登出
-- [ ] Access token 只在記憶體（DevTools 檢查 `localStorage` 為空）
-- [ ] 重新整理頁面後自動續期，不需重新登入
-- [ ] **兩個分頁同時操作 30 分鐘不會被登出**（跨分頁協調）
-- [ ] 手動重放舊的 refresh token → 被登出 ＋ 稽核有 `reuse_detected`
-- [ ] 錯誤密碼 5 次 → 鎖定 15 分鐘
-- [ ] 忘記密碼對不存在的 email 也回 200
-- [ ] `core/permission` 覆蓋率 100%、`core/auth` ≥ 95%
-
----
-
-## M4 — 使用者與角色管理
-
-### 後端
-
-- `modules/user`：列表 / 建立 / 詳情 / 更新 / 刪除 / 指派角色 / 重設密碼 / 解鎖
-- `modules/role`：列表 / 建立 / 詳情 / 更新 / 刪除 / 權限增減 / 複製 / 持有者
-- 全部業務規則（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §8）
-- 全部稽核寫入（[`../architecture/backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) §2.1）
-
-### 前端
-
-- `features/user`：列表、建立、詳情、角色指派子頁
-- `features/role`：列表、建立（含權限挑選）、詳情、權限管理子頁、複製
-- `features/permission`：唯讀權限目錄
-- 三層 UI gating（[`../architecture/frontend/06-permission.md`](../architecture/frontend/06-permission.md) §6）
-- 反提權的前端過濾（[`../architecture/frontend/05-data-layer.md`](../architecture/frontend/05-data-layer.md) §9）
-
-### 驗收（RBAC 生命週期 E2E）
-
-- [ ] admin 建立角色 → 指派給使用者 → 該使用者登入後看到對應選單與頁面
-- [ ] admin 移除該角色的權限 → 該使用者 **下一次請求即 403**（不等 TTL）
-- [ ] 該使用者重新整理 → 選單項與按鈕消失
-- [ ] auditor 直接輸入 `/user/create` → 看到 403 頁（不是被彈回首頁）
-- [ ] admin 嘗試授予 `system:update`（自己沒有）→ `AUTHZ_ESCALATION`
-- [ ] 系統角色的刪除入口不存在；直接打 API → `ROLE_SYSTEM_PROTECTED`
-- [ ] 嘗試停用最後一個 super-admin → `LAST_SUPER_ADMIN`
-- [ ] 使用者停用 → 其開著的分頁下一次操作被登出（`AUTH_TOKEN_STALE`）
-- [ ] 每個受權限影響的 UI 元素都有「有 / 無 / 未水合」三個測試
-
----
-
-## M5 — 稽核日誌、個人帳號、收尾
-
-### 產出
-
-- `modules/audit-log` ＋ `features/audit-log`（列表、篩選、展開差異）
-- `features/account`（個人資料、變更密碼、偏好設定）
-- `core/preference` 註冊表 ＋ 至少一個 `plugins/features/*` 示範
-- M2 批次 6 的元件（`DatePicker` 等）
-- Dockerfile ＋ nginx 設定
-- `README.md`、`CLAUDE.md`
-
-### 驗收（Phase 0 總驗收）
-
-**架構**
-
-- [ ] `grep -r "features/" apps/backstage/src/core/` 為空
-- [ ] `grep -r "modules/" apps/api/src/core/` 為空
-- [ ] 註解掉 `main.tsx` 任一 feature plugin，app 仍能啟動
-- [ ] 所有 lint 相依規則通過
-
-**安全**
-
-- [ ] [`../architecture/backend/04-auth.md`](../architecture/backend/04-auth.md) §9 的 15 項檢查清單全部通過
-- [ ] [`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §10 的反面教材都不存在於程式碼中
-- [ ] [`../architecture/backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) §9 的 13 項檢查清單全部通過
-- [ ] 路由稽核通過；`@RequirePermissions` 使用的鍵全部存在於權限目錄
-
-**測試**
-
-- [ ] 前端覆蓋率 ≥ 75%，`core/permission` 100%、`core/auth` ≥ 95%
-- [ ] 後端覆蓋率 ≥ 80%，`common/guards` 100%
-- [ ] 10 條 E2E 全部通過（[`../architecture/frontend/10-testing.md`](../architecture/frontend/10-testing.md) §4.1）
-
-**契約**
-
-- [ ] `openapi.json` 與原始碼一致（重新產生無 diff）
-- [ ] 每個 `ErrorCode` 有兩個語系的翻譯
-- [ ] 每個權限有兩個語系的顯示名稱
-- [ ] `docs/rbac/04-api-spec.md` 與 `backend/05-rbac.md` §9 的端點表
-      與實際 metadata 一致（有測試比對）
-
-**文件**
-
-- [ ] `docs/` 與實作一致（本階段結束時逐章複查）
-- [ ] `README.md` 有「從零到跑起來」的完整步驟
-
----
-
-## Phase 1 之後（不在本次範圍）
-
-依序考慮，視使用這套骨架的業務功能需要：
-
-> 各項的提案、優先度與開放問題已移到 [`../features/README.md`](../features/README.md)；
-> 這裡只保留原始清單，完成狀態以 `features/` 為準。
-
-1. **資源作用域**（[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §8 的延伸路徑）
-2. ~~Dark Mode~~（已完成，見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §4.4）
-3. MFA（`users.mfa_enabled` 已預留）
-4. 批次匯入 / 匯出
-5. ~~SSO（OIDC）~~（已完成：`apps/platform` ＋ `apps/api` 當 OIDC Provider、外部 IdP、單一登出；見 [`architecture/04-sso.md`](../architecture/04-sso.md)、
-   [`architecture/04-sso.md`](../architecture/04-sso.md) §12）
-6. 稽核日誌分區表
-7. 多執行個體部署（權限快取換 Redis）
-8. ~~服務帳號 / API Token~~（已完成：服務帳號、個人與服務帳號的 API token、獨立的對外 API 服務與 `/v1` 契約、backstage 的管理畫面；見
-   [`architecture/06-external-api.md`](../architecture/06-external-api.md) §9）
-9. ~~`JsonEditor`~~（已完成：CodeMirror 6 編輯器——語法上色、行號、摺疊、復原重做、搜尋、JSON Schema 驗證；
-   `JsonViewer` 外觀與它一致；見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.12、
-   [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §11）。後續視需要補取代（`@codemirror/search` 已支援）、摺疊處的驗證錯誤標記
-10. ~~多租戶~~（已完成：每個租戶一個 database 與網域、平台管理者在 apps/platform 管理租戶；見
-    [`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10）
-11. ~~版本歷史、樂觀鎖與回收桶~~（已完成：`version` 必填的樂觀鎖、使用者／角色／檔案／資料夾的回收桶與還原、到期永久刪除、角色的版本紀錄；見
-    [`architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)、[`architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md)、
-    [`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9）
-12. ~~站內通知中心~~（已完成：每位收件人一筆、在業務交易內寫入、推播到收件人；頂列鈴鐺、列表頁與 route id 註冊表；見
-    [`architecture/backend/15-notification.md`](../architecture/backend/15-notification.md)、[`architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md)、
-    [`backend/15-notification.md`](../architecture/backend/15-notification.md) §12）
-13. ~~使用者群組~~（已完成：權限圖 G4a——巢狀群組、群組持有角色、反提權由模型宣告的能力統一比對、資料夾授權給群組；見
-    [`rbac/08-groups.md`](../rbac/08-groups.md)、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9）；「為什麼能做 X」的說明（G4b）也已完成，見 [`rbac/09-explain.md`](../rbac/09-explain.md)。專案（G5）仍在
-    [`features/permission-graph.md`](../features/permission-graph.md)
-14. ~~Webhook~~（已完成：對外事件的目錄、訂閱、背景工作投遞與重試、自動停用、投遞紀錄與重送、backstage 的管理畫面；見
-    [`architecture/backend/17-webhook.md`](../architecture/backend/17-webhook.md)、[`backend/17-webhook.md`](../architecture/backend/17-webhook.md) §9）
-15. ~~標籤~~（已完成：檔案、資料夾、使用者的標籤、依標籤篩選、標籤管理頁；見 [`architecture/backend/18-tag.md`](../architecture/backend/18-tag.md)、
-    [`backend/18-tag.md`](../architecture/backend/18-tag.md) §7）。留言與關注仍在 [`features/comments-watches.md`](../features/comments-watches.md)
-16. ~~公告與排程通知~~（已完成：通知總覽、公告的立即／指定時間／週期／事件點發送、分批寫入、撤回、收件人讀全文；見
-    [`architecture/backend/19-announcement.md`](../architecture/backend/19-announcement.md)、[`architecture/frontend/16-announcement.md`](../architecture/frontend/16-announcement.md)、
-    [`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9）
+Phase 0 刻意不做、後來補上的：SSO（09-29）、資源層級授權（檔案資料夾，09-29；一般化見 G5 提案）、深色主題（09-25）、服務帳號與 API token（10-01）。
+仍未做的（MFA、匯入匯出、多實例部署等）在 [`features/README.md`](../features/README.md)。
