@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Browser, Page } from '@playwright/test';
 
 import { ACCOUNTS, E2E_PASSWORD } from '../fixtures/accounts';
-import { AUTH_URL, expectIdpLogin, loginPlatform } from '../helpers/auth';
+import { PLATFORM_URL, expectIdpLogin, loginPlatform } from '../helpers/auth';
 import { linkIn, waitForMail } from '../helpers/mailpit';
 import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
@@ -71,7 +71,7 @@ test.describe('租戶實體隔離（兩個租戶）', () => {
   test.afterAll(async () => {
     // 收掉這次建立的租戶（database 留給 db:drop-tenant；E2E 每次重置資料庫）
     if (tenantPath) {
-      await platform.goto(`${AUTH_URL}${tenantPath}`);
+      await platform.goto(`${PLATFORM_URL}${tenantPath}`);
       const remove = platform.getByTestId('tenant-remove');
       if (await remove.isVisible().catch(() => false)) {
         await remove.click();
@@ -86,14 +86,14 @@ test.describe('租戶實體隔離（兩個租戶）', () => {
   });
 
   test('平台管理者建立租戶 → 背景佈建 → 第一位管理員從啟用信設定密碼，登入自己網域的後台', async () => {
-    await platform.goto(`${AUTH_URL}/tenant`);
+    await platform.goto(`${PLATFORM_URL}/tenant`);
     await platform.getByTestId('tenant-create-button').click();
     await platform.getByTestId('tenant-code-input').fill(CODE);
     await platform.getByTestId('tenant-name-input').fill(`E2E ${CODE}`);
     await platform.getByTestId('tenant-admin-email-input').fill(OWNER);
     await platform.getByTestId('tenant-create-submit').click();
 
-    await expect(platform).toHaveURL(new RegExp(`^${AUTH_URL}/tenant/[0-9a-f-]{36}$`));
+    await expect(platform).toHaveURL(new RegExp(`^${PLATFORM_URL}/tenant/[0-9a-f-]{36}$`));
     tenantPath = new URL(platform.url()).pathname;
     await expect(platform.getByTestId('tenant-detail-page')).toBeVisible();
     await expect(getByTestIdAndValue(platform, 'tenant-status', 'active')).toBeVisible({
@@ -104,7 +104,7 @@ test.describe('租戶實體隔離（兩個租戶）', () => {
     ).toBeVisible();
     await snapshot(platform, 'tenant-provisioned');
 
-    // 啟用信的連結在 apps/auth，帶上租戶代碼；設定完密碼回到這個租戶的登入
+    // 啟用信的連結在 apps/platform，帶上租戶代碼；設定完密碼回到這個租戶的登入
     const mail = await waitForMail(OWNER);
     const setup = linkIn(mail, '/setup');
     expect(setup).toContain(`tenant=${CODE}`);
@@ -169,7 +169,7 @@ test.describe('租戶實體隔離（兩個租戶）', () => {
       code_challenge: 'a'.repeat(43),
       code_challenge_method: 'S256',
     });
-    await page.goto(`${AUTH_URL}/api/oidc/auth?${query.toString()}`);
+    await page.goto(`${PLATFORM_URL}/api/oidc/auth?${query.toString()}`);
     // redirect URI 本身是合法的（預設租戶的網域）：依 OAuth，錯誤帶回那裡，但沒有授權碼
     await expect(page).toHaveURL(
       /^http:\/\/localhost:5173\/auth\/callback\?.*error=invalid_request/,
@@ -179,7 +179,7 @@ test.describe('租戶實體隔離（兩個租戶）', () => {
   });
 
   test('停用租戶 → 它的網域回 503，已登入的後台失效；預設租戶不受影響', async ({ browser }) => {
-    await platform.goto(`${AUTH_URL}${tenantPath}`);
+    await platform.goto(`${PLATFORM_URL}${tenantPath}`);
     await platform.getByTestId('tenant-disable').click();
     await platform.getByTestId('alert-dialog-confirm').click();
     await expect(getByTestIdAndValue(platform, 'tenant-status', 'disabled')).toBeVisible();

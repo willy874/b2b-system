@@ -20,7 +20,7 @@ import { oidcPayloads, platformAuditLogs, tenants } from './platform/schema';
  *   pnpm db:drop-tenant <租戶代碼或 id>            # 只列出會清除什麼
  *   pnpm db:drop-tenant <租戶代碼或 id> --confirm  # 真的清除
  *
- * 只處理 apps/auth 刪除過的租戶；database 名稱不是佈建產生的（`tenant_` 開頭，例如 `db:migrate` 登記的預設租戶）時拒絕。
+ * 只處理 apps/platform 刪除過的租戶；database 名稱不是佈建產生的（`tenant_` 開頭，例如 `db:migrate` 登記的預設租戶）時拒絕。
  */
 const PROVISIONED_NAME = /^tenant_[a-z0-9_]+$/;
 
@@ -39,7 +39,7 @@ async function main(): Promise<void> {
       .where(
         and(isNotNull(tenants.deletedAt), isId ? eq(tenants.id, target) : eq(tenants.code, target)),
       );
-    if (!rows.length) throw new Error(`找不到已刪除的租戶 ${target}（先在 apps/auth 刪除）`);
+    if (!rows.length) throw new Error(`找不到已刪除的租戶 ${target}（先在 apps/platform 刪除）`);
     if (rows.length > 1) {
       throw new Error(
         `有 ${rows.length} 個已刪除的租戶叫 ${target}，請改用 id：\n` +

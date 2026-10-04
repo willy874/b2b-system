@@ -163,7 +163,7 @@ export class PlatformTenantService {
     this.baseDomain =
       config.get('TENANT_BASE_DOMAIN', { infer: true }) ??
       new URL(config.get('APP_PUBLIC_URL', { infer: true })).host;
-    this.authHost = new URL(config.get('AUTH_APP_URL', { infer: true })).host.toLowerCase();
+    this.authHost = new URL(config.get('PLATFORM_APP_URL', { infer: true })).host.toLowerCase();
   }
 
   async list(query: ListPlatformTenantDto): Promise<PlatformTenantListDto> {
@@ -442,7 +442,7 @@ export class PlatformTenantService {
 
   // ── 內部 ─────────────────────────────────────────────
 
-  /** 推給 apps/auth 上的平台管理者（docs/architecture/backend/08-realtime.md §3.6）；在交易與快取失效之後呼叫。 */
+  /** 推給 apps/platform 上的平台管理者（docs/architecture/backend/08-realtime.md §3.6）；在交易與快取失效之後呼叫。 */
   private changed(kind: ChangeKind, id: string): void {
     this.events.publish(DomainEvent.PLATFORM_CHANGED, {
       changes: [{ resource: ChangeSource.PLATFORM_TENANT, kind, id }],
@@ -546,7 +546,7 @@ export class PlatformTenantService {
 
   private async assertDomainsAvailable(domains: string[]): Promise<void> {
     const taken = await this.repo.domainsTaken(domains);
-    // apps/auth 的網域不屬於任何租戶（D2）
+    // apps/platform 的網域不屬於任何租戶（D2）
     if (domains.includes(this.authHost)) taken.push(this.authHost);
     if (taken.length) throw new AppException('TENANT_DOMAIN_TAKEN', { domains: taken });
   }

@@ -45,7 +45,7 @@ async function bootstrap(): Promise<void> {
   if (import.meta.env.VITE_ENABLE_MOCK === 'true') {
     const { startMockWorker } = await import('@/mocks/browser');
     await startMockWorker();
-    // 登入頁會直接跳去真的 SSO（apps/auth）：mock 模式一律視為已登入，由 MSW 回應續期與 profile。
+    // 登入頁會直接跳去真的 SSO（apps/platform）：mock 模式一律視為已登入，由 MSW 回應續期與 profile。
     // 登出後停在登入頁；重新整理又會登入（docs/architecture/frontend/05-data-layer.md §10）
     sessionStore.presumeSession();
   }

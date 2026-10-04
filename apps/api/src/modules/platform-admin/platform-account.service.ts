@@ -13,7 +13,7 @@ import { PlatformAuthTokenRepository } from './platform-auth-token.repository';
 /**
  * 平台管理者從信中連結設定密碼（啟用、重設；同租戶的 `/auth/setup`、`/auth/reset-password`）。
  * token 無效、過期、用過一律 `AUTH_SETUP_TOKEN_INVALID`，不區分原因。
- * 另有已登入的管理者自己改名稱與密碼（apps/auth 的個人資料頁，同租戶的 `PATCH /auth/profile`、`/auth/change-password`）。
+ * 另有已登入的管理者自己改名稱與密碼（apps/platform 的個人資料頁，同租戶的 `PATCH /auth/profile`、`/auth/change-password`）。
  */
 @Injectable()
 export class PlatformAccountService {
@@ -138,7 +138,7 @@ export class PlatformAccountService {
     return { success: true };
   }
 
-  /** 推給 apps/auth 上的平台管理者（docs/architecture/backend/08-realtime.md §3.6）：管理者清單跟著更新。 */
+  /** 推給 apps/platform 上的平台管理者（docs/architecture/backend/08-realtime.md §3.6）：管理者清單跟著更新。 */
   private changed(adminId: string): void {
     this.events.publish(DomainEvent.PLATFORM_CHANGED, {
       changes: [{ resource: ChangeSource.PLATFORM_ADMIN, kind: ChangeKind.UPDATE, id: adminId }],

@@ -18,7 +18,7 @@
 | 前端架構 | **plugin-based AppContext ＋ feature-first 分層 ＋ 執行期權限註冊表**                          |
 | 前端 UI  | **Base UI**（`@base-ui/react`）＋ 專案自有的 `components/` 封裝層                              |
 | 後端     | **NestJS** + **Drizzle ORM** + **PostgreSQL**                                                  |
-| 租戶與身分 | 每個租戶一個 database 與網域；`apps/auth` 是全平台共用的登入入口，`apps/api` 當 OIDC Provider |
+| 租戶與身分 | 每個租戶一個 database 與網域；`apps/platform` 是全平台共用的登入入口，`apps/api` 當 OIDC Provider |
 | 已有範圍 | 認證與 SSO、使用者、角色、群組、權限與關係圖、稽核日誌、個人帳號、審批、系統設定、檔案、背景工作、寄信、回收桶、版本歷史、站內通知 |
 | 不在範圍 | 任何特定領域的業務功能；資源層級作用域目前只用在檔案管理器，新資源沿用同一套（見 [`rbac/07-resource-grants.md`](rbac/07-resource-grants.md) §13、[`rbac/07-resource-grants.md`](./rbac/07-resource-grants.md)） |
 
@@ -79,7 +79,7 @@ docs/
 │   ├── 01-system.md                   系統架構、部署拓撲、端到端資料流
 │   ├── 02-repository-structure.md     monorepo 結構、目錄佈局、環境變數
 │   ├── 03-file-storage.md             apps/file-storage：S3 相容的本機檔案儲存
-│   ├── 04-sso.md                      SSO：apps/api 當 OIDC Provider、apps/auth、外部 IdP、單一登出
+│   ├── 04-sso.md                      SSO：apps/api 當 OIDC Provider、apps/platform、外部 IdP、單一登出
 │   ├── 05-tenancy.md                  租戶：每個租戶一個 database 與網域、佈建與生命週期、部署
 │   ├── 06-external-api.md             對外 API：獨立的程序與網域、API token 認證、路由的分界、限流
 │   │
@@ -177,7 +177,7 @@ docs/
 
 以下三處必須永遠同步，任一處變更時必須同一批修改另外兩處：
 
-1. `apps/backstage/src/features/<name>/`（平台層級的頁面在 `apps/auth/src/features/<name>/`）— 前端功能原始碼
+1. `apps/backstage/src/features/<name>/`（平台層級的頁面在 `apps/platform/src/features/<name>/`）— 前端功能原始碼
 2. `apps/api/src/modules/<name>/` — 後端模組原始碼
 3. `docs/` 對應章節 — 規格文件
 

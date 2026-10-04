@@ -64,7 +64,7 @@ export const ChangeSource = {
    * 發送紀錄的變化（發送中、完成、撤回）也以它宣告（`update`），詳情頁的發送紀錄跟著重抓。
    */
   ANNOUNCEMENT: 'announcement',
-  // ── 平台（apps/auth 的平台管理者，只推給平台的連線；docs/architecture/backend/08-realtime.md §3.6）──
+  // ── 平台（apps/platform 的平台管理者，只推給平台的連線；docs/architecture/backend/08-realtime.md §3.6）──
   /** 租戶登記（`id` = 租戶 id）：建立、改名、網域、啟用的 feature、停用與啟用、刪除，以及背景佈建的結果。 */
   PLATFORM_TENANT: 'platformTenant',
   /** 平台管理者（`id` = 管理者 id）：新增、改名、換角色、停用、啟用。 */

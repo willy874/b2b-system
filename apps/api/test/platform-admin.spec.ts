@@ -97,7 +97,7 @@ async function waitForMail(to: string, count = 1): Promise<MailMessage> {
 function linkToken(message: MailMessage, path: string): string {
   const match = new RegExp(`${path}\\?token=([\\w-]+)`).exec(message.text);
   if (!match) throw new Error(`信裡找不到 ${path} 的連結：\n${message.text}`);
-  // 平台管理者的連結不帶租戶：apps/auth 的頁面據此走平台的端點
+  // 平台管理者的連結不帶租戶：apps/platform 的頁面據此走平台的端點
   expect(message.text).not.toContain('tenant=');
   return match[1]!;
 }
@@ -175,7 +175,7 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
       ).rejects.toMatchObject({ code: 'AUTH_INVALID_CREDENTIALS' });
 
       const token = linkToken(await waitForMail('pa-new@example.com'), '/setup');
-      // 不屬於任何租戶、也不是 apps/auth 的網域（例：直接用 IP 連反向代理）也不能用
+      // 不屬於任何租戶、也不是 apps/platform 的網域（例：直接用 IP 連反向代理）也不能用
       for (const host of ['unknown.example.test', '10.0.0.5']) {
         // oxlint-disable-next-line no-await-in-loop -- 依序檢查兩種網域
         const elsewhere = await request(http)

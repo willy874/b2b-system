@@ -36,8 +36,8 @@
 | 領域       | 內容                                                                                          |
 | ---------- | --------------------------------------------------------------------------------------------- |
 | 認證       | 登入、登出、Access Token 續期（rotating refresh token）、忘記密碼／重設密碼、首次啟用設定密碼 |
-| SSO（Phase 0 之後加入） | `apps/auth` 身分與租戶入口、`apps/api` 當 OIDC Provider、外部 IdP（OIDC）與網域導向、單一登出（[`architecture/04-sso.md`](../architecture/04-sso.md)） |
-| 租戶（Phase 0 之後加入） | 每個租戶一個 database 與網域；平台管理者在 apps/auth 建立、佈建、停用、刪除租戶，管理平台管理者、平台稽核與全平台的背景工作（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md)） |
+| SSO（Phase 0 之後加入） | `apps/platform` 身分與租戶入口、`apps/api` 當 OIDC Provider、外部 IdP（OIDC）與網域導向、單一登出（[`architecture/04-sso.md`](../architecture/04-sso.md)） |
+| 租戶（Phase 0 之後加入） | 每個租戶一個 database 與網域；平台管理者在 apps/platform 建立、佈建、停用、刪除租戶，管理平台管理者、平台稽核與全平台的背景工作（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md)） |
 | 使用者管理 | 列表（分頁／搜尋／排序）、建立、檢視、編輯、停用／啟用、刪除、指派角色                        |
 | 角色管理   | 列表、建立、檢視、編輯、刪除、授予／移除權限、系統角色保護                                    |
 | 群組（Phase 0 之後加入） | 純分組：巢狀成員、群組持有角色、資料夾授權給群組；加成員受反提權限制、群組不能持有 super-admin（[`rbac/08-groups.md`](../rbac/08-groups.md)、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D10～D16） |

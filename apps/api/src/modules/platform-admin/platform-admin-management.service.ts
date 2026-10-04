@@ -131,7 +131,7 @@ export class PlatformAdminManagementService {
       },
     });
     this.changed(ChangeKind.UPDATE, id);
-    // 停用：這個人在 apps/auth 上的即時連線一起斷掉（docs/architecture/backend/08-realtime.md §3.6）
+    // 停用：這個人在 apps/platform 上的即時連線一起斷掉（docs/architecture/backend/08-realtime.md §3.6）
     if (statusChanged && nextStatus === 'inactive') {
       this.events.publish(DomainEvent.SESSIONS_REVOKED, {
         platformAdminIds: [id],
@@ -162,7 +162,7 @@ export class PlatformAdminManagementService {
     return { purpose };
   }
 
-  /** 推給 apps/auth 上的平台管理者（docs/architecture/backend/08-realtime.md §3.6）。 */
+  /** 推給 apps/platform 上的平台管理者（docs/architecture/backend/08-realtime.md §3.6）。 */
   private changed(kind: ChangeKind, id: string): void {
     this.events.publish(DomainEvent.PLATFORM_CHANGED, {
       changes: [{ resource: ChangeSource.PLATFORM_ADMIN, kind, id }],

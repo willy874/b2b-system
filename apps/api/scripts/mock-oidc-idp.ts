@@ -4,7 +4,7 @@
  *
  *   pnpm dev:mock-idp
  *
- * 在 apps/auth 的「外部 IdP 連線」新增一筆：
+ * 在 apps/platform 的「外部 IdP 連線」新增一筆：
  *   issuer        http://localhost:4455
  *   client id     b2b-mock
  *   client secret mock-secret
@@ -15,7 +15,7 @@ import Provider from 'oidc-provider';
 
 const PORT = Number(process.env.MOCK_IDP_PORT ?? 4455);
 const ISSUER = `http://localhost:${PORT}`;
-/** api 的固定 callback（`IdentityProviderService.callbackUrl()`；瀏覽器看到的是 apps/auth 的 origin）。 */
+/** api 的固定 callback（`IdentityProviderService.callbackUrl()`；瀏覽器看到的是 apps/platform 的 origin）。 */
 const CALLBACK_URL =
   process.env.MOCK_IDP_CALLBACK_URL ??
   'http://localhost:5175/api/oidc-interaction/external/callback';

@@ -13,7 +13,7 @@ export const AuthRoute = createRoute({
   loader: localeScopeLoader(AUTH_LOCALE_SCOPE),
 });
 
-/** 登入改由 apps/auth 的 IdP 處理：這一頁只負責跳轉過去（docs/architecture/04-sso.md §12）。 */
+/** 登入改由 apps/platform 的 IdP 處理：這一頁只負責跳轉過去（docs/architecture/04-sso.md §12）。 */
 export const LoginRoute = createRoute({
   getParentRoute: () => AuthRoute,
   path: 'login',

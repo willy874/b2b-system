@@ -17,7 +17,7 @@ description: 套用本 repo 的測試規範：決定要寫哪些測試、寫在�
 
 | 改動範圍 | 讀 |
 | --- | --- |
-| `apps/backstage`、`apps/auth` 前端 | [`docs/architecture/frontend/10-testing.md`](../../../docs/architecture/frontend/10-testing.md) |
+| `apps/backstage`、`apps/platform` 前端 | [`docs/architecture/frontend/10-testing.md`](../../../docs/architecture/frontend/10-testing.md) |
 | `apps/api` | [`docs/architecture/backend/07-testing.md`](../../../docs/architecture/backend/07-testing.md) |
 | `apps/e2e` | 前端 10 §4（範圍、結構、資料隔離、選擇器） |
 | `data-testid`、i18n key | [`docs/conventions/06-literal-strings.md`](../../../docs/conventions/06-literal-strings.md) §3 |
@@ -75,7 +75,7 @@ source ~/.nvm/nvm.sh && nvm use 24
 - `apps/e2e/global-setup.ts` 會對當前的資料庫執行 **`db:reset`**。
   跑之前 **一定** 讓 `PLATFORM_DATABASE_URL` 與 `DEFAULT_TENANT_DATABASE_URL` 指向暫用的 postgres，
   否則會清掉共用的 dev DB。不確定時先問使用者，不要直接跑。
-- api 要用 `pnpm dev:e2e` 啟動（放寬速率限制、寄信走 Mailpit）；backstage、auth、mock IdP 由 Playwright 的 `webServer` 起或沿用既有的。
+- api 要用 `pnpm dev:e2e` 啟動（放寬速率限制、寄信走 Mailpit）；backstage、platform、mock IdP 由 Playwright 的 `webServer` 起或沿用既有的。
 - 3000／5173／5175 被正在跑的 `pnpm dev` 佔用時，照前端 10 §4.3「與正在跑的 dev 環境並行」另起一組換埠的服務，不要停掉別人的程序。
 - 只跑相關 spec：`pnpm --filter @b2b-system/e2e exec playwright test tests/<檔名>.spec.ts`。
 - 在 git worktree 裡不要跑 `pnpm dev`／`db:up`／`mail:up`（compose 會另起容器撞埠）。

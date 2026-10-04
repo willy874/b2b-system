@@ -342,7 +342,7 @@ pnpm db:archive-audit-logs   # 與排程工作呼叫同一個函式（modules/au
 ## 8.1 平台稽核（`platform_audit_logs`）
 
 每個租戶一個 database（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D19）：上面描述的 `audit_logs` 是 **租戶** 的稽核，
-在各租戶的 DB 裡，只記錄那個租戶裡發生的事。平台管理者（apps/auth）做的事另外寫在平台 DB 的 `platform_audit_logs`：
+在各租戶的 DB 裡，只記錄那個租戶裡發生的事。平台管理者（apps/platform）做的事另外寫在平台 DB 的 `platform_audit_logs`：
 
 | 項目 | 租戶的 `audit_logs` | 平台的 `platform_audit_logs` |
 | --- | --- | --- |

@@ -22,7 +22,7 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
   }) => {
     const email = `e2e-applicant-${Date.now()}@dev.local`;
 
-    // ① 未登入：從 IdP 的登入頁（apps/auth）進入申請頁並送出
+    // ① 未登入：從 IdP 的登入頁（apps/platform）進入申請頁並送出
     await page.goto('/auth/login');
     await page.getByTestId('login-register-link').click();
     await page.getByTestId('register-email').fill(email);

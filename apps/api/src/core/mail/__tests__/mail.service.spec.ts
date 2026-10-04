@@ -76,7 +76,7 @@ describe('MailService（docs/architecture/backend/11-mail.md §3）', () => {
     ).rejects.toThrow();
   });
 
-  it('accountLink() 帶上租戶代碼（apps/auth 的頁面以它指定租戶）', () => {
+  it('accountLink() 帶上租戶代碼（apps/platform 的頁面以它指定租戶）', () => {
     const { service } = setup();
     expect(inTenant(() => service.accountLink('/setup', { token: 'x' }))).toBe(
       'https://editor.example.com/setup?token=x&tenant=acme',

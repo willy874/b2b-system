@@ -47,10 +47,10 @@ const ACCOUNT_MENU: MenuItem[] = [
 const NARROW_QUERY = '(max-width: 767px)';
 
 /**
- * 換租戶＝換網域：回到 apps/auth 的「進入租戶」輸入代碼（docs/architecture/05-tenancy.md §10.2 D11）。
+ * 換租戶＝換網域：回到 apps/platform 的「進入租戶」輸入代碼（docs/architecture/05-tenancy.md §10.2 D11）。
  * 平台管理者可對租戶關閉這個項目（`tenantSwitch`，docs/architecture/05-tenancy.md §12.2 D6）。
  */
-const SWITCH_TENANT_URL = `${ENV.AUTH_APP_URL}/enter`;
+const SWITCH_TENANT_URL = `${ENV.PLATFORM_APP_URL}/enter`;
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();

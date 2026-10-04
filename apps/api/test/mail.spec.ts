@@ -73,7 +73,7 @@ describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
     process.env.FILE_MAINTENANCE_CRON = '';
     process.env.AUTH_RATE_LIMIT = '1000';
     process.env.APP_PUBLIC_URL = 'https://editor.example.com';
-    process.env.AUTH_APP_URL = 'https://account.example.com';
+    process.env.PLATFORM_APP_URL = 'https://account.example.com';
 
     const created = createTestDatabase();
     db = created.db;
@@ -101,7 +101,7 @@ describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
       'FILE_MAINTENANCE_CRON',
       'AUTH_RATE_LIMIT',
       'APP_PUBLIC_URL',
-      'AUTH_APP_URL',
+      'PLATFORM_APP_URL',
     ]) {
       delete process.env[key];
     }

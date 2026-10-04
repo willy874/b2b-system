@@ -38,7 +38,7 @@ const SUPER_ADMIN = { email: 'ext-root@example.com', password: 'RootPassword!202
 const MEMBER = { email: 'ext-member@example.com', password: 'MemberPassword!2026' };
 const ALICE = 'alice@acme.test';
 const BACKSTAGE = { clientId: 'backstage', redirectUri: 'http://localhost:5173/auth/callback' };
-/** IdP 的端點在 apps/auth 的網域（不屬於任何租戶；docs/architecture/05-tenancy.md §10.2 D2）。 */
+/** IdP 的端點在 apps/platform 的網域（不屬於任何租戶；docs/architecture/05-tenancy.md §10.2 D2）。 */
 const AUTH_HOST = 'localhost:5175';
 
 async function roleIdOf(slug: string): Promise<string> {
@@ -151,7 +151,7 @@ async function loginExternally(
     .expect(200);
   const redirectTo = (started.body as { data: { redirectTo: string } }).data.redirectTo;
   const state = new URL(redirectTo).searchParams.get('state')!;
-  // 外部 IdP 跳回來（不帶任何 apps/auth 的 cookie：固定路徑的 callback 不需要）
+  // 外部 IdP 跳回來（不帶任何 apps/platform 的 cookie：固定路徑的 callback 不需要）
   const back = await request(http)
     .get(`/oidc-interaction/external/callback?code=external-code&state=${state}`)
     .set('Host', AUTH_HOST)

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { ACCOUNTS, E2E_PASSWORD, PLATFORM_ADMIN } from '../fixtures/accounts';
 import {
-  AUTH_URL,
+  PLATFORM_URL,
   expectIdpLogin,
   expectSignedOut,
   login,
@@ -26,20 +26,20 @@ test.describe('認證流程', () => {
   });
 
   // 身分分屬租戶與平台（docs/architecture/05-tenancy.md §10.2 D5、D9）：租戶帳號的 IdP session
-  // 不能直接進 apps/auth；以平台管理者登入 apps/auth 之後，backstage 仍維持登入
-  test('租戶的使用者打開 apps/auth 要以平台管理者重新登入；backstage 不受影響', async ({
+  // 不能直接進 apps/platform；以平台管理者登入 apps/platform 之後，backstage 仍維持登入
+  test('租戶的使用者打開 apps/platform 要以平台管理者重新登入；backstage 不受影響', async ({
     page,
   }) => {
     await loginAndWaitForHome(page, 'superAdmin');
 
-    await page.goto(AUTH_URL);
+    await page.goto(PLATFORM_URL);
     await expectIdpLogin(page);
     await page.getByTestId('login-email').fill(PLATFORM_ADMIN);
     await page.getByTestId('login-password').fill(E2E_PASSWORD);
     await page.getByTestId('login-submit').click();
     await expect(page.getByTestId('home-display-name')).toHaveText('E2E Platform Admin');
     await snapshot(page, 'platform-home');
-    await expect(page).toHaveURL(`${AUTH_URL}/`);
+    await expect(page).toHaveURL(`${PLATFORM_URL}/`);
 
     await page.goto('/');
     await expect(page.getByTestId('home-page')).toBeVisible();

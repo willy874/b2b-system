@@ -15,7 +15,7 @@ import { PlatformNotificationService } from './platform-notification.service';
 
 /**
  * 平台管理者自己的站內通知（docs/architecture/backend/15-notification.md §6.2）。對象是自己，只需要登入；
- * 只在 apps/auth 的網域有效（`/platform/*`，租戶網域上回 `PLATFORM_ONLY`），那裡只接受平台管理者的 token。
+ * 只在 apps/platform 的網域有效（`/platform/*`，租戶網域上回 `PLATFORM_ONLY`），那裡只接受平台管理者的 token。
  */
 @ApiTags('platform-notifications')
 @Controller('platform/notifications')

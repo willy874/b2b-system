@@ -21,7 +21,7 @@ export interface MailContent {
 @Injectable()
 export class MailService {
   private readonly appUrl: string;
-  private readonly authAppUrl: string;
+  private readonly platformAppUrl: string;
 
   constructor(
     private readonly transport: MailTransport,
@@ -29,7 +29,7 @@ export class MailService {
     config: ConfigService<Env, true>,
   ) {
     this.appUrl = config.get('APP_PUBLIC_URL', { infer: true });
-    this.authAppUrl = config.get('AUTH_APP_URL', { infer: true });
+    this.platformAppUrl = config.get('PLATFORM_APP_URL', { infer: true });
   }
 
   /**
@@ -46,13 +46,17 @@ export class MailService {
   }
 
   /**
-   * 帳號流程的連結（啟用、重設密碼）：`AUTH_APP_URL` ＋ 路徑。頁面在 apps/auth
+   * 帳號流程的連結（啟用、重設密碼）：`PLATFORM_APP_URL` ＋ 路徑。頁面在 apps/platform
    * （docs/architecture/04-sso.md §12.2 D1），帳號屬於某個租戶，所以帶上目前租戶的代碼：
    * 頁面以 `X-Tenant` 送回 api（docs/architecture/05-tenancy.md §10.2 D26）。
    */
   accountLink(path: string, query: Record<string, string> = {}): string {
     const tenant = currentTenant();
-    return this.build(this.authAppUrl, path, tenant ? { ...query, tenant: tenant.code } : query);
+    return this.build(
+      this.platformAppUrl,
+      path,
+      tenant ? { ...query, tenant: tenant.code } : query,
+    );
   }
 
   private build(base: string, path: string, query: Record<string, string>): string {

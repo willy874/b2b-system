@@ -63,7 +63,7 @@ services:
       PLATFORM_DATABASE_URL: postgres://b2b_platform:${POSTGRES_PLATFORM_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
       TENANT_SECRET_KEY: ${TENANT_SECRET_KEY:?required}
       DEFAULT_TENANT_DATABASE_URL: postgres://b2b_tenant_default:${POSTGRES_TENANT_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-b2b_system}
-      # 瀏覽器看到的 host（含 port）；apps/auth（:8081）不屬於任何租戶
+      # 瀏覽器看到的 host（含 port）；apps/platform（:8081）不屬於任何租戶
       DEFAULT_TENANT_DOMAINS: ${DEFAULT_TENANT_DOMAINS:-localhost:8080}
       # 每個租戶一個 bucket（D16）；預設租戶沿用租戶化之前的 bucket（舊部署設過 FILE_STORAGE_BUCKET 的照舊）
       DEFAULT_TENANT_STORAGE_BUCKET: ${DEFAULT_TENANT_STORAGE_BUCKET:-${FILE_STORAGE_BUCKET:-b2b-system}}
@@ -137,10 +137,10 @@ services:
       MAIL_FROM: ${MAIL_FROM:?required}
       # 信裡的產品連結以瀏覽器看到的 origin 開頭；也是第一方 client `backstage` 的 redirect URI 開頭
       APP_PUBLIC_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
-      # SSO（docs/architecture/04-sso.md）：apps/auth 是獨立的 origin，issuer 在它底下的 /api/oidc。
-      # 帳號流程的信中連結（啟用、重設密碼、邀請）以 AUTH_APP_URL 開頭
-      AUTH_APP_URL: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}
-      OIDC_ISSUER: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}/api/oidc
+      # SSO（docs/architecture/04-sso.md）：apps/platform 是獨立的 origin，issuer 在它底下的 /api/oidc。
+      # 帳號流程的信中連結（啟用、重設密碼、邀請）以 PLATFORM_APP_URL 開頭
+      PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:-http://localhost:8081}
+      OIDC_ISSUER: ${PLATFORM_PUBLIC_ORIGIN:-http://localhost:8081}/api/oidc
       OIDC_JWKS: ${OIDC_JWKS:?required}
       OIDC_COOKIE_KEYS: ${OIDC_COOKIE_KEYS:?required}
       IDP_SECRET_KEY: ${IDP_SECRET_KEY:?required}
@@ -233,8 +233,8 @@ services:
       context: .
       dockerfile: apps/backstage/Dockerfile
       args:
-        VITE_OIDC_ISSUER: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}/api/oidc
-        VITE_AUTH_APP_URL: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}
+        VITE_OIDC_ISSUER: ${PLATFORM_PUBLIC_ORIGIN:-http://localhost:8081}/api/oidc
+        VITE_PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:-http://localhost:8081}
     restart: unless-stopped
     ports:
       - '8080:8080'
@@ -253,13 +253,13 @@ services:
         condition: service_healthy
 
   # 全平台共用的身分與租戶入口（docs/architecture/04-sso.md §12）：獨立的 origin，同樣反向代理到 api
-  auth:
+  platform:
     build:
       context: .
-      dockerfile: apps/auth/Dockerfile
+      dockerfile: apps/platform/Dockerfile
       args:
-        VITE_OIDC_ISSUER: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}/api/oidc
-        VITE_AUTH_APP_URL: ${AUTH_PUBLIC_ORIGIN:-http://localhost:8081}
+        VITE_OIDC_ISSUER: ${PLATFORM_PUBLIC_ORIGIN:-http://localhost:8081}/api/oidc
+        VITE_PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:-http://localhost:8081}
     restart: unless-stopped
     ports:
       - '8081:8080'

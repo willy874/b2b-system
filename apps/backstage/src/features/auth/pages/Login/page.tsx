@@ -10,7 +10,7 @@ import { startSsoLogin } from '../../sso';
 import { AuthShell } from '../AuthShell';
 
 /**
- * 登入改由 apps/auth 的 IdP 處理（docs/architecture/04-sso.md §12）：這一頁只負責頂層跳轉過去。
+ * 登入改由 apps/platform 的 IdP 處理（docs/architecture/04-sso.md §12）：這一頁只負責頂層跳轉過去。
  * 剛登出時不自動跳轉：單一登出的請求可能還沒完成，自動跳過去會被尚未銷毀的 IdP session 直接登回來。
  * session 不是使用者自己結束的（逾時、帳號停用、憑證重用、密碼已變更…）時，說明原因（`?reason=`）。
  */

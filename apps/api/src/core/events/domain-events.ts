@@ -30,7 +30,7 @@ export const DomainEvent = {
    */
   TENANT_FEATURES_CHANGED: 'tenant.featuresChanged',
   /**
-   * 平台層級的資源變了（租戶登記、平台管理者、全平台的 flag、背景工作、平台的站內通知）：推給 apps/auth 上
+   * 平台層級的資源變了（租戶登記、平台管理者、全平台的 flag、背景工作、平台的站內通知）：推給 apps/platform 上
    * 平台管理者的連線（docs/architecture/backend/08-realtime.md §3.6）。在平台的請求或工作裡發佈，沒有租戶脈絡。
    */
   PLATFORM_CHANGED: 'platform.changed',

@@ -4,7 +4,7 @@ import { defineSetting, SettingCategory } from '@/core/settings';
 
 /**
  * 租戶使用者的帳號政策（docs/architecture/backend/12-settings.md §3）。
- * 平台管理者（apps/auth）不讀這些，沿用 env 的 `LOGIN_*` 與程式常數。
+ * 平台管理者（apps/platform）不讀這些，沿用 env 的 `LOGIN_*` 與程式常數。
  */
 
 /** 連續登入失敗幾次就鎖定。下限 3：設成 0 或 1 等於關掉保護或讓人一打錯就被鎖。 */

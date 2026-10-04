@@ -144,7 +144,7 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 平台層級的變更（docs/architecture/backend/08-realtime.md §3.6）：推給 apps/auth 上平台管理者的連線，
+   * 平台層級的變更（docs/architecture/backend/08-realtime.md §3.6）：推給 apps/platform 上平台管理者的連線，
    * 有指定收件人（站內通知）時只推給他們。租戶的連線不在這些 room 裡，平台的變更不會推到租戶。
    */
   onPlatformChanged(

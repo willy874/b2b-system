@@ -26,9 +26,9 @@
       "port": 5173
     },
     {
-      "name": "auth",
+      "name": "platform",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev:auth"],
+      "runtimeArgs": ["dev:platform"],
       "port": 5175
     },
     {

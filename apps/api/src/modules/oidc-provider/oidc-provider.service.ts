@@ -110,10 +110,10 @@ function clearAccount(session: KoaContextWithOIDC['oidc']['session']): void {
  * `apps/api` 當 OIDC Provider（docs/architecture/04-sso.md §12）。以
  * [`oidc-provider`](https://github.com/panva/node-oidc-provider) 實作協定，儲存在 `oidc_payloads`。
  *
- * - 登入互動頁在 apps/auth；互動的 cookie 由 provider 設在 `/api/oidc-interaction/:uid`，
- *   所以互動網址先指向那裡（`AuthModule` 的互動 controller 再 302 到 apps/auth）。
+ * - 登入互動頁在 apps/platform；互動的 cookie 由 provider 設在 `/api/oidc-interaction/:uid`，
+ *   所以互動網址先指向那裡（`AuthModule` 的互動 controller 再 302 到 apps/platform）。
  * - 第一方產品的授權碼由 BFF 在本程序內兌換（`redeemAuthorizationCode`），不經 token 端點（D3）。
- * - 每個 cookie 都是 host-only（`Domain` 不設），只屬於 apps/auth 的 origin（D6）。
+ * - 每個 cookie 都是 host-only（`Domain` 不設），只屬於 apps/platform 的 origin（D6）。
  */
 @Injectable()
 export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
@@ -168,7 +168,7 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
   clients(): ClientMetadata[] {
     const origins: Record<OidcClientId, string> = {
       [OIDC_CLIENT.BACKSTAGE]: this.config.get('APP_PUBLIC_URL', { infer: true }),
-      [OIDC_CLIENT.AUTH]: this.config.get('AUTH_APP_URL', { infer: true }),
+      [OIDC_CLIENT.AUTH]: this.config.get('PLATFORM_APP_URL', { infer: true }),
     };
     return (Object.keys(origins) as OidcClientId[]).map((clientId) => ({
       client_id: clientId,
@@ -213,7 +213,7 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * authorize 的 `tenant` 參數（D7）：backstage 必須帶，而且 redirect URI 的網域要屬於這個租戶；
-   * apps/auth（平台管理者）不能帶。錯誤會導回 redirect URI——它已經通過網域檢查，只會是某個租戶的 backstage。
+   * apps/platform（平台管理者）不能帶。錯誤會導回 redirect URI——它已經通過網域檢查，只會是某個租戶的 backstage。
    */
   private async validateTenantParam(
     ctx: KoaContextWithOIDC,
@@ -234,7 +234,7 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /** 這次授權要求的身分範圍：backstage 是 `tenant` 參數指定的租戶，apps/auth 是平台。 */
+  /** 這次授權要求的身分範圍：backstage 是 `tenant` 參數指定的租戶，apps/platform 是平台。 */
   private async requestedRealm(
     params: Record<string, unknown> | undefined,
     clientId: string | undefined,
@@ -384,7 +384,7 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
 
   // ── 單一登出（D5）───────────────────────────────────────
 
-  /** 銷毀 IdP session：apps/auth 上的 session cookie 之後指向不存在的 session，等同登出。 */
+  /** 銷毀 IdP session：apps/platform 上的 session cookie 之後指向不存在的 session，等同登出。 */
   async destroySession(sessionUid: string): Promise<void> {
     const session = await this.provider.Session.findByUid(sessionUid);
     if (session) await session.destroy();
@@ -445,12 +445,12 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
         rpInitiatedLogout: { enabled: true },
       },
       pkce: { required: () => true },
-      // 協定錯誤（例：未註冊的 redirect URI）不能導回產品，改在 apps/auth 的錯誤頁顯示
+      // 協定錯誤（例：未註冊的 redirect URI）不能導回產品，改在 apps/platform 的錯誤頁顯示
       renderError: (ctx, out) => {
         const query = new URLSearchParams({ error: String(out.error ?? 'server_error') });
         ctx.status = 303;
         ctx.redirect(
-          `${this.config.get('AUTH_APP_URL', { infer: true })}/error?${query.toString()}`,
+          `${this.config.get('PLATFORM_APP_URL', { infer: true })}/error?${query.toString()}`,
         );
       },
       responseTypes: ['code'],

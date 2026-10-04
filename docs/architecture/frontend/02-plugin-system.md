@@ -513,7 +513,7 @@ createAppContext()
 | D5 | **側邊選單維持 `app/` 的靜態表，項目依頁面權限是否已註冊來顯示**：`usePageAccessChecker` 對未註冊的頁面回 `false`，而權限註冊表可訂閱（D4）之後，feature 安裝或卸載時選單自動出現或消失。不另做選單註冊表 | 選單的分組與順序本來就是組裝層的決定；少一個註冊表，也少一個「feature 要記得登記」的地方 |
 | D6 | **route 物件維持靜態，啟用與否在 route 上判斷**：`app/routes.tsx` 照舊 import 所有 feature 的 route 物件組成完整的 route tree，**不在執行期改 route tree**。可啟用 feature 的最上層 route **自己** 宣告 `beforeLoad: requireFeature(<ID>)`（`core/feature`；TanStack Router 不允許事後以 `route.update()` 補上 `beforeLoad`）：已安裝 → 通過；清單還沒到或安裝中 → **等待**；未啟用 → `notFound()`；安裝失敗 → 錯誤頁；沒有 session → 不擋（導向登入頁交給 `SessionWatcher`） | 解 P2。執行期重建 route tree（`router.update`）會讓 `Register` 的型別與執行期脫節、已經掛著的 match 失效；B 方案下所有 route 在編譯期都已知，沒有必要。等待是必要的：route 的 loader 會下載語系包，必須在 feature 安裝（登記語系包）之後才跑 |
 | D7 | **權限檢查不再對「屬於 feature 的路徑」放行**：`usePageAccess` 的「未註冊 → 放行」只保留給明確列出的公開前綴（`/auth`、devtools）；其他未註冊的路徑視為 **未就緒**（顯示載入中，不渲染頁面）。在 D6 之下正常情況不會發生，這是第二道防線 | 解 P3：fail-open 是這次問題裡唯一的安全性缺口 |
-| D8 | **啟用清單的來源**：平台 DB 的 `tenants.features`（可啟用 feature 的 id 陣列），由平台管理者在 apps/auth 的租戶詳情頁開關，與 `allowExternalIdp`（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D22）同一種平台層開關。api 在 `/auth/profile` 回傳 `features`，前端與權限一起水合（同一個 query），存進 `core/feature` 的 store。平台管理者變更時，api 對該租戶的所有連線推播 `resource.changed`（來源 `tenantFeature`），前端依資源依賴圖重新取得 profile。前端比對新舊清單，對新增的 `install`、對移除的 `uninstall` | 與權限同一個節奏（[`backend/05-rbac.md`](../backend/05-rbac.md) §11），不多一個請求、不多一種推播事件；決定「租戶買了哪些模組」的是平台，所以放平台 DB |
+| D8 | **啟用清單的來源**：平台 DB 的 `tenants.features`（可啟用 feature 的 id 陣列），由平台管理者在 apps/platform 的租戶詳情頁開關，與 `allowExternalIdp`（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D22）同一種平台層開關。api 在 `/auth/profile` 回傳 `features`，前端與權限一起水合（同一個 query），存進 `core/feature` 的 store。平台管理者變更時，api 對該租戶的所有連線推播 `resource.changed`（來源 `tenantFeature`），前端依資源依賴圖重新取得 profile。前端比對新舊清單，對新增的 `install`、對移除的 `uninstall` | 與權限同一個節奏（[`backend/05-rbac.md`](../backend/05-rbac.md) §11），不多一個請求、不多一種推播事件；決定「租戶買了哪些模組」的是平台，所以放平台 DB |
 | D9 | **停用時正在看的頁面**：卸載 **前** 若目前路由屬於該 feature，先導向首頁並 toast 說明；未儲存提醒（`useUnsavedChangesGuard`）**不** 攔（`ignoreBlocker`），與 session 結束時的處理一致。查詢快取不另外清除：離開頁面後沒有觀察者，由 `gcTime` 回收 | 被停用的 feature 的頁面已經不能操作（api 也會拒絕，見 D11），留在原頁只會一直報錯；先離開再卸載，頁面才不會在權限註冊撤回後以「未註冊」的狀態重新渲染 |
 | D10 | **批次佇列認不得的操作不判定失敗**：分頁連上佇列後宣告自己能執行的操作（`capabilities`），註冊表變動時重新宣告；佇列只把項目交給宣告支援的分頁，沒有分頁支援時該工作保持排隊（其他分頁安裝完成後接手）。分頁的操作 **減少**（feature 被卸載）時送 `cancel-operations`，佇列取消使用那些操作、尚未結束的工作（與使用者按取消相同，狀態 `cancelled`） | 解 P6。各分頁安裝的時間點不同（剛開的分頁要等 profile），不該因此讓工作失敗；卸載只會因為租戶停用了 feature，而那對所有分頁都成立 |
 | D11 | **前端的啟用狀態不是存取控制**：api 以 `@RequireFeature('<id>')` 標在 controller 上，由全域 guard 判斷；未啟用回 `FEATURE_DISABLED`（**404**，不暴露功能存在，與 [`architecture/05-tenancy.md`](../05-tenancy.md) §11 的 `@RequireFlag` 相同）。該 feature 的背景工作照常執行（資料仍在，重新啟用後要是一致的） | 前端的隱藏只是體驗；與權限「由伺服器判定」（[`backend/05-rbac.md`](../backend/05-rbac.md) §11）同一個原則 |
@@ -557,7 +557,7 @@ Layout 以 `useFeatureGate` 再擋一次（D7）：未定 → 骨架屏、未啟
 
 ### 9.5 原本待決、已定案的事項
 
-1. **清單存在哪裡、誰能改**：只做平台層（平台 DB 的 `tenants.features`，apps/auth 設定），見 D8。租戶內自行開關（租戶管理者在 backstage 設定）這次不做；需要時在平台的「可用」之下再加一層「開啟」。新租戶與既有租戶預設啟用全部。
+1. **清單存在哪裡、誰能改**：只做平台層（平台 DB 的 `tenants.features`，apps/platform 設定），見 D8。租戶內自行開關（租戶管理者在 backstage 設定）這次不做；需要時在平台的「可用」之下再加一層「開啟」。新租戶與既有租戶預設啟用全部。
 2. **可啟用的 feature**：當時定為 `file`、`auditLog`、`job`。其餘維持常駐：
    - `approval`：使用者註冊的審核（`user-registration.approval.ts`）依賴它，停用會讓核心流程壞掉。
    - `identity-provider`：已經由 `allowExternalIdp`（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D22）開關，不做第二套。

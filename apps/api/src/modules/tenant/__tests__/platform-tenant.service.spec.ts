@@ -92,7 +92,7 @@ function setup(initial: TenantWithDomains = tenantRow()) {
         JWT_SECRET: 'test-secret-that-is-long-enough-32ch',
         TENANT_BASE_DOMAIN: 'example.test',
         APP_PUBLIC_URL: 'http://localhost:5173',
-        AUTH_APP_URL: 'http://localhost:5175',
+        PLATFORM_APP_URL: 'http://localhost:5175',
       })[key as string],
   } as unknown as ConfigService<Env, true>;
 

@@ -31,7 +31,7 @@ const USER = { email: 'sso-user@example.com', password: 'SsoUserPassword!2026' }
 const PLATFORM_ADMIN = { email: 'sso-platform@example.com', password: 'PlatformPassword!2026' };
 
 /**
- * 與 env 預設值一致：apps/auth 在 :5175（不屬於任何租戶，IdP 的端點都在這裡）；
+ * 與 env 預設值一致：apps/platform 在 :5175（不屬於任何租戶，IdP 的端點都在這裡）；
  * 測試租戶 `test` 的網域是 127.0.0.1／localhost，所以 backstage 在 localhost:5173（test/global-setup.ts）。
  * 另一個租戶 `sso-b` 的網域是 sso-b.test。
  */
@@ -41,7 +41,7 @@ const ISSUER_PATH = '/api/oidc';
 interface Client {
   clientId: string;
   redirectUri: string;
-  /** backstage 帶的租戶代碼；apps/auth（平台管理者）不帶。 */
+  /** backstage 帶的租戶代碼；apps/platform（平台管理者）不帶。 */
   tenant?: string;
   /** BFF 的網域與路徑。 */
   host: string;
@@ -69,7 +69,7 @@ const AUTH_APP: Client = {
   callbackPath: '/platform/auth/sso/callback',
 };
 
-/** IdP 的端點在 apps/auth 的網域。 */
+/** IdP 的端點在 apps/platform 的網域。 */
 function idp(method: 'get' | 'post', path: string): request.Test {
   return request(http)[method](path).set('Host', AUTH_HOST);
 }
@@ -156,7 +156,7 @@ async function authorize(
     if (!credentials) throw new Error(`預期已有 IdP session，卻被導去登入：${location}`);
     const uid = new URL(location).pathname.split('/').pop()!;
 
-    // 互動網址先到 api，再轉到 apps/auth 的頁面
+    // 互動網址先到 api，再轉到 apps/platform 的頁面
     const toPage = await idp('get', internalPath(location));
     expect(toPage.status).toBe(302);
     expect(toPage.headers.location).toBe(`http://localhost:5175/interaction/${uid}`);
@@ -288,7 +288,7 @@ describe('SSO（docs/architecture/04-sso.md §12、0020 D5–D10）', () => {
     delete process.env.AUTH_RATE_LIMIT;
   });
 
-  it('discovery 的網址都是瀏覽器看到的（apps/auth origin ＋ /api/oidc）', async () => {
+  it('discovery 的網址都是瀏覽器看到的（apps/platform origin ＋ /api/oidc）', async () => {
     const response = await idp('get', '/oidc/.well-known/openid-configuration').expect(200);
     const body = response.body as { issuer: string; authorization_endpoint: string };
     expect(body.issuer).toBe(`http://localhost:5175${ISSUER_PATH}`);
@@ -332,7 +332,7 @@ describe('SSO（docs/architecture/04-sso.md §12、0020 D5–D10）', () => {
     const [bUser] = await tenantB.db.select().from(users).where(eq(users.email, USER.email));
     expect(payloadOf(tokenOf(inB))).toMatchObject({ sub: bUser!.id, tid: tenantB.id });
 
-    // apps/auth（平台管理者）：租戶帳號的 session 也不能沿用
+    // apps/platform（平台管理者）：租戶帳號的 session 也不能沿用
     await expect(authorize(jar, AUTH_APP)).rejects.toThrow(/卻被導去登入/);
   });
 
@@ -413,12 +413,12 @@ describe('SSO（docs/architecture/04-sso.md §12、0020 D5–D10）', () => {
       expect(location.searchParams.get('error')).toBe('invalid_request');
     });
 
-    it('apps/auth 的 client 不能帶 tenant', async () => {
+    it('apps/platform 的 client 不能帶 tenant', async () => {
       const location = await authorizeError(AUTH_APP, { tenant: 'test' });
       expect(location.searchParams.get('error')).toBe('invalid_request');
     });
 
-    it('redirect URI 不是任何租戶的網域 → apps/auth 的錯誤頁，絕不導回', async () => {
+    it('redirect URI 不是任何租戶的網域 → apps/platform 的錯誤頁，絕不導回', async () => {
       const query = authorizeQuery(
         { ...BACKSTAGE, redirectUri: 'https://evil.example.com/auth/callback' },
         pkce().challenge,
@@ -452,7 +452,7 @@ describe('SSO（docs/architecture/04-sso.md §12、0020 D5–D10）', () => {
     expect(errorCode(noCookie)).toBe('AUTH_SSO_INTERACTION_INVALID');
   });
 
-  describe('平台管理者（apps/auth，D5、D8）', () => {
+  describe('平台管理者（apps/platform，D5、D8）', () => {
     it('不帶租戶的登入互動查平台 DB；session 在 /platform/auth，token 沒有 tid', async () => {
       const jar = new CookieJar();
       const session = await callback(
@@ -491,7 +491,7 @@ describe('SSO（docs/architecture/04-sso.md §12、0020 D5–D10）', () => {
       expect(errorCode(onTenant)).toBe('PLATFORM_ONLY');
     });
 
-    it('租戶的帳密在平台的互動裡不存在；租戶的 token 在 apps/auth 的網域無效', async () => {
+    it('租戶的帳密在平台的互動裡不存在；租戶的 token 在 apps/platform 的網域無效', async () => {
       const jar = new CookieJar();
       const start = await idp(
         'get',
@@ -601,7 +601,7 @@ describe('SSO（docs/architecture/04-sso.md §12、0020 D5–D10）', () => {
     expect(errorCode(missing)).toBe('TENANT_NOT_FOUND');
   });
 
-  it('apps/auth 的帳號流程以 X-Tenant 指定租戶；租戶網域上 X-Tenant 不能換租戶', async () => {
+  it('apps/platform 的帳號流程以 X-Tenant 指定租戶；租戶網域上 X-Tenant 不能換租戶', async () => {
     const forgot = (host: string, tenant?: string) => {
       const req = request(http)
         .post('/auth/forgot-password')

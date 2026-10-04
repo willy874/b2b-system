@@ -38,7 +38,7 @@ class RecordingMailTransport extends MailTransport {
   }
 }
 
-/** apps/auth 的網域（AUTH_APP_URL 的預設值）：不屬於任何租戶。 */
+/** apps/platform 的網域（PLATFORM_APP_URL 的預設值）：不屬於任何租戶。 */
 const AUTH_HOST = 'localhost:5175';
 /** 測試租戶的網域（test/global-setup.ts）。 */
 const HOME_HOST = '127.0.0.1';
@@ -245,7 +245,7 @@ describe('租戶的建立與佈建（docs/architecture/05-tenancy.md §10.2 D12�
       .expect(401);
   });
 
-  it('代碼與網域不能重複；apps/auth 的網域不能登記給租戶', async () => {
+  it('代碼與網域不能重複；apps/platform 的網域不能登記給租戶', async () => {
     const taken = await platform('post', '/platform/tenants')
       .send({ code: 'acme', name: 'Acme 2', adminEmail: 'x@example.com' })
       .expect(409);

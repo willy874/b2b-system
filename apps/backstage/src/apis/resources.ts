@@ -140,7 +140,7 @@ export const Resource = {
    */
   ANNOUNCEMENT: 'announcement',
   /**
-   * 平台的來源（租戶登記、平台管理者、全平台 flag、平台的背景工作與通知）：後端只推給 apps/auth 的連線
+   * 平台的來源（租戶登記、平台管理者、全平台 flag、平台的背景工作與通知）：後端只推給 apps/platform 的連線
    * （docs/architecture/backend/08-realtime.md §3.6），backstage 永遠收不到；列在這裡只為了滿足 `ServerChangeSource` 的檢查。
    */
   PLATFORM_TENANT: 'platformTenant',

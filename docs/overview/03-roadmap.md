@@ -258,7 +258,7 @@ b2b-system/
 2. ~~Dark Mode~~（已完成，見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §4.4）
 3. MFA（`users.mfa_enabled` 已預留）
 4. 批次匯入 / 匯出
-5. ~~SSO（OIDC）~~（已完成：`apps/auth` ＋ `apps/api` 當 OIDC Provider、外部 IdP、單一登出；見 [`architecture/04-sso.md`](../architecture/04-sso.md)、
+5. ~~SSO（OIDC）~~（已完成：`apps/platform` ＋ `apps/api` 當 OIDC Provider、外部 IdP、單一登出；見 [`architecture/04-sso.md`](../architecture/04-sso.md)、
    [`architecture/04-sso.md`](../architecture/04-sso.md) §12）
 6. 稽核日誌分區表
 7. 多執行個體部署（權限快取換 Redis）
@@ -267,7 +267,7 @@ b2b-system/
 9. ~~`JsonEditor`~~（已完成：CodeMirror 6 編輯器——語法上色、行號、摺疊、復原重做、搜尋、JSON Schema 驗證；
    `JsonViewer` 外觀與它一致；見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.12、
    [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §11）。後續視需要補取代（`@codemirror/search` 已支援）、摺疊處的驗證錯誤標記
-10. ~~多租戶~~（已完成：每個租戶一個 database 與網域、平台管理者在 apps/auth 管理租戶；見
+10. ~~多租戶~~（已完成：每個租戶一個 database 與網域、平台管理者在 apps/platform 管理租戶；見
     [`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10）
 11. ~~版本歷史、樂觀鎖與回收桶~~（已完成：`version` 必填的樂觀鎖、使用者／角色／檔案／資料夾的回收桶與還原、到期永久刪除、角色的版本紀錄；見
     [`architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)、[`architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md)、

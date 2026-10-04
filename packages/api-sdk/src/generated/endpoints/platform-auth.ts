@@ -74,7 +74,7 @@ const platformAuthControllerSsoCallbackOperation: OperationDefinition = {
   schemas: PlatformAuthControllerSsoCallbackSchemas,
 };
 
-/** apps/auth 的 BFF：授權碼 ＋ PKCE verifier 換平台管理者的 session */
+/** apps/platform 的 BFF：授權碼 ＋ PKCE verifier 換平台管理者的 session */
 export function platformAuthControllerSsoCallback(
   input: PlatformAuthControllerSsoCallbackInput,
   options?: RequestOptions,

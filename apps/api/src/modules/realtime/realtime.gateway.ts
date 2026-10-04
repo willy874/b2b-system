@@ -59,7 +59,7 @@ function connectError(code: ErrorCode): Error {
  *
  * - 連線：`allowRequest`（Origin ＋ 每 IP handshake 次數）→ `io.use` 以網域決定租戶、驗 access token → 加入 room。
  * - 租戶：handshake 的網域決定這條連線屬於哪個租戶，之後這條連線上的每則訊息都在該租戶的脈絡裡處理
- *   （docs/architecture/05-tenancy.md §10.2 D2、D3）。apps/auth 的網域不屬於任何租戶：那裡的連線是平台管理者的，
+ *   （docs/architecture/05-tenancy.md §10.2 D2、D3）。apps/platform 的網域不屬於任何租戶：那裡的連線是平台管理者的，
  *   沒有租戶脈絡、只加入平台的 room（§3.6）。
  * - 訊息：`WsAuthGuard` 重驗使用者 → `PermissionsGuard` 看宣告；每個處理器都要有授權宣告
  *   （`common/route-audit.ts`）。
@@ -88,9 +88,9 @@ export class RealtimeGateway
   private readonly messages: FixedWindowCounter;
   /** 連線 → 它的租戶脈絡（handshake 時決定，連線期間不變）。 */
   private readonly tenants = new WeakMap<RealtimeSocket, TenantContext>();
-  /** apps/auth 網域上平台管理者的連線（§3.6）：沒有租戶脈絡。 */
+  /** apps/platform 網域上平台管理者的連線（§3.6）：沒有租戶脈絡。 */
   private readonly platform = new WeakSet<RealtimeSocket>();
-  /** apps/auth 的網域（`AUTH_APP_URL` 的 host）：同 `TenantMiddleware` 判定平台的方式。 */
+  /** apps/platform 的網域（`PLATFORM_APP_URL` 的 host）：同 `TenantMiddleware` 判定平台的方式。 */
   private readonly authHost: string;
 
   constructor(
@@ -105,7 +105,7 @@ export class RealtimeGateway
     private readonly tenancy: Tenancy,
   ) {
     this.allowedOrigins = new Set(config.get('REALTIME_ALLOWED_ORIGINS', { infer: true }));
-    this.authHost = new URL(config.get('AUTH_APP_URL', { infer: true })).host.toLowerCase();
+    this.authHost = new URL(config.get('PLATFORM_APP_URL', { infer: true })).host.toLowerCase();
     // 瀏覽器一定帶 Origin；沒帶的只會是 Node 客戶端（整合測試、腳本），production 一律拒絕
     this.allowMissingOrigin = config.get('NODE_ENV', { infer: true }) !== 'production';
     this.handshakes = new FixedWindowCounter(limits.handshakeWindowMs);
@@ -284,7 +284,7 @@ export class RealtimeGateway
   ): Promise<ErrorCode | undefined> {
     const req = socket.request;
     const host = requestHost(req.headers, req.socket.remoteAddress, this.trustProxy());
-    // apps/auth 的網域：平台管理者的連線，沒有租戶脈絡；verifier 在這裡只接受平台的 token
+    // apps/platform 的網域：平台管理者的連線，沒有租戶脈絡；verifier 在這裡只接受平台的 token
     if (host === this.authHost) {
       this.platform.add(socket);
       return this.authenticate(io, socket);

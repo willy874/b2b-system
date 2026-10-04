@@ -27,7 +27,7 @@ export class TenantController {
   @Public()
   // 可以用來猜租戶代碼：與登入同一個速率限制
   @RateLimit('auth')
-  @ApiOperation({ summary: '以代碼找租戶的登入入口（apps/auth 的進入租戶、帳號流程完成後）' })
+  @ApiOperation({ summary: '以代碼找租戶的登入入口（apps/platform 的進入租戶、帳號流程完成後）' })
   @ApiZodResponse(200, TenantLookupSchema)
   lookup(@Query(new ZodValidationPipe(TenantLookupQuerySchema)) query: TenantLookupQueryDto) {
     return this.tenants.lookup(query.code);

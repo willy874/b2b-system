@@ -104,7 +104,7 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
   [ChangeSource.NOTIFICATION_POLICY]: {
     perms: () => [PERMISSION.SYSTEM_READ],
     includesSubject: false,
-  }, // 平台的來源不經 `resource.changed`：`platform.changed` 推給 apps/auth 上平台管理者的 room
+  }, // 平台的來源不經 `resource.changed`：`platform.changed` 推給 apps/platform 上平台管理者的 room
   // （RealtimeListener.onPlatformChanged，§12）。出現在這裡代表呼叫端用錯事件，不推給租戶的任何人
   [ChangeSource.PLATFORM_TENANT]: PLATFORM_ONLY,
   [ChangeSource.PLATFORM_ADMIN]: PLATFORM_ONLY,

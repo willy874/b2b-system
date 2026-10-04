@@ -29,7 +29,7 @@ import type { LoginDto, SsoCallbackDto, SsoInteractionDto, SsoRedirectDto } from
 
 /**
  * SSO 的兩端（docs/architecture/04-sso.md §12）：
- * - **IdP 的登入互動**（apps/auth 的 `/interaction/:uid` 呼叫）：驗帳密，完成互動後回傳 resume 網址，
+ * - **IdP 的登入互動**（apps/platform 的 `/interaction/:uid` 呼叫）：驗帳密，完成互動後回傳 resume 網址，
  *   由瀏覽器頂層跳轉回 provider，provider 再帶授權碼跳回產品。
  * - **產品的 BFF**（產品自己 origin 的 `/api/auth/sso/callback`）：兌換授權碼、發 docs/architecture/backend/04-auth.md §10 的 app session（D3）。
  * 服務之間只以頂層跳轉溝通，不用跨域 cookie（D6）。

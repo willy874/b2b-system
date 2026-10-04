@@ -85,7 +85,7 @@ export const EnvSchema = z.object({
    * 因此這裡是 `/api/auth` 而不是 `/auth`。
    */
   REFRESH_COOKIE_PATH: z.string().default('/api/auth'),
-  /** 平台管理者的 refresh cookie（apps/auth 的 origin，`/platform/auth/*`；docs/architecture/05-tenancy.md §10.2 D5）。 */
+  /** 平台管理者的 refresh cookie（apps/platform 的 origin，`/platform/auth/*`；docs/architecture/05-tenancy.md §10.2 D5）。 */
   PLATFORM_REFRESH_COOKIE_PATH: z.string().default('/api/platform/auth'),
   REFRESH_COOKIE_DOMAIN: z.string().default('localhost'),
   /**
@@ -260,13 +260,13 @@ export const EnvSchema = z.object({
     .transform((value) => value.replace(/\/+$/, '')),
 
   // ── SSO：apps/api 當 OIDC Provider（docs/architecture/04-sso.md §12）──────────
-  /** apps/auth 的網址（瀏覽器看到的）：登入互動頁與第一方 client `auth` 的 redirect URI 以它開頭。 */
-  AUTH_APP_URL: z
+  /** apps/platform 的網址（瀏覽器看到的）：登入互動頁與第一方 client `auth` 的 redirect URI 以它開頭。 */
+  PLATFORM_APP_URL: z
     .string()
     .url()
     .default('http://localhost:5175')
     .transform((value) => value.replace(/\/+$/, '')),
-  /** OIDC issuer：apps/auth origin 底下的 `/api/oidc`（反向代理去掉 `/api` 後由本程序的 `/oidc` 處理）。 */
+  /** OIDC issuer：apps/platform origin 底下的 `/api/oidc`（反向代理去掉 `/api` 後由本程序的 `/oidc` 處理）。 */
   OIDC_ISSUER: z
     .string()
     .url()
@@ -339,7 +339,7 @@ export const EnvSchema = z.object({
   NOTIFICATION_CLEANUP_CRON: z.string().trim().default('0 5 * * *'),
 
   /**
-   * 第一位平台管理者（apps/auth 的租戶管理）：`db:seed` 在平台 DB 沒有任何管理者時建立。
+   * 第一位平台管理者（apps/platform 的租戶管理）：`db:seed` 在平台 DB 沒有任何管理者時建立。
    * 密碼留空 = seed 時隨機產生並印出一次。
    */
   PLATFORM_ADMIN_EMAIL: z.string().email().optional(),

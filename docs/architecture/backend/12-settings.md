@@ -104,7 +104,7 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 | --- | --- | --- |
 | `GET /system/settings` | `system:read` | 所有設定：`key`、`category`、`type`、生效值、預設值、`isOverridden`、`isPublic`、`minimum`／`maximum`、`updatedAt` |
 | `PATCH /system/settings` | `system:update` | `{ values: { <key>: <值> \| null } }`；`null` = 還原預設；一次最多 50 個 key。回傳同 `GET` |
-| `GET /system/settings/public` | `@Public()` | `{ values: { <key>: <生效值> } }`，只有 `isPublic` 的設定。需要租戶脈絡：租戶網域，或 apps/auth 帶 `X-Tenant` |
+| `GET /system/settings/public` | `@Public()` | `{ values: { <key>: <生效值> } }`，只有 `isPublic` 的設定。需要租戶脈絡：租戶網域，或 apps/platform 帶 `X-Tenant` |
 
 `PATCH` 的規則（`SystemSettingService.update`）：
 
@@ -128,7 +128,7 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
   後端新增了前端沒有的 key 時，以 key 本身當標籤顯示，不會壞掉。
 - 有覆寫的設定顯示「已修改」與「恢復預設」；沒有 `system:update` 時整頁唯讀。
 
-### 5.2 apps/auth：帳號流程
+### 5.2 apps/platform：帳號流程
 
 `features/login/hooks/useAccountPolicy.ts` 以 `X-Tenant` 讀租戶的公開設定：
 
@@ -159,4 +159,4 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 | 修改的驗證、略過沒有變化的 key、稽核、推播、公開設定 | `modules/system/__tests__/system-setting.service.spec.ts` |
 | HTTP：權限、驗證錯誤、還原預設、公開端點、關閉註冊、密碼長度、鎖定次數 | `test/system-settings.spec.ts` |
 | 設定頁的三個權限案例、草稿、adapter | `apps/backstage/src/features/system/**/__tests__` |
-| 帳號流程讀租戶設定 | `apps/auth/src/features/login/hooks/__tests__/useAccountPolicy.test.tsx`、`InteractionPage.test.tsx` |
+| 帳號流程讀租戶設定 | `apps/platform/src/features/login/hooks/__tests__/useAccountPolicy.test.tsx`、`InteractionPage.test.tsx` |

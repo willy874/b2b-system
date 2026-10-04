@@ -15,7 +15,7 @@ import { upsertPlatformAdmin } from './platform-admin';
 
 export const E2E_PASSWORD = 'E2E!Password123';
 
-/** apps/auth 的平台管理者（docs/architecture/05-tenancy.md §10.2 D5）；與租戶的帳號是兩份資料。 */
+/** apps/platform 的平台管理者（docs/architecture/05-tenancy.md §10.2 D5）；與租戶的帳號是兩份資料。 */
 export const E2E_PLATFORM_ADMIN = 'e2e-platform@dev.local';
 
 /** 固定帳號，讓 E2E 的起點永遠一致（docs/architecture/frontend/10-testing.md §4.3）。 */
