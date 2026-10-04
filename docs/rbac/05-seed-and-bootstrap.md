@@ -26,7 +26,7 @@ pnpm dev
 ```
 
 平台管理者與租戶的 super-admin 是兩份資料（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10.2 D5）：
-平台管理者登入 apps/auth，看不到任何租戶的內容；租戶的 super-admin 只在自己的租戶。
+平台管理者登入 apps/platform，看不到任何租戶的內容；租戶的 super-admin 只在自己的租戶。
 `SUPER_ADMIN_EMAIL` 只用在 `SEED_TENANT`：之後建立的租戶，第一位 super-admin 由 **佈建** 建立（`pending`，寄啟用信），
 營運方共用的帳密不會出現在客戶的租戶（[`../architecture/05-tenancy.md`](../architecture/05-tenancy.md) §5）。
 

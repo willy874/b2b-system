@@ -3,7 +3,7 @@ import { index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-cor
 
 import { platformAdmins } from './platform-admins';
 
-/** 通知的連結：apps/auth 的 route id ＋ 參數（同租戶的 `NotificationLinkValue`）。路由改名或搬移時舊通知不會壞。 */
+/** 通知的連結：apps/platform 的 route id ＋ 參數（同租戶的 `NotificationLinkValue`）。路由改名或搬移時舊通知不會壞。 */
 export interface PlatformNotificationLinkValue {
   route: string;
   params: Record<string, string>;

@@ -84,7 +84,7 @@ const tenantControllerLookupOperation: OperationDefinition = {
   schemas: TenantControllerLookupSchemas,
 };
 
-/** 以代碼找租戶的登入入口（apps/auth 的進入租戶、帳號流程完成後） */
+/** 以代碼找租戶的登入入口（apps/platform 的進入租戶、帳號流程完成後） */
 export function tenantControllerLookup(
   options?: RequestOptions,
 ): Promise<TenantControllerLookupResult> {

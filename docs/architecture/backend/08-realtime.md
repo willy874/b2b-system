@@ -177,14 +177,14 @@ this.events.publish(DomainEvent.SESSIONS_REVOKED, {
 之前被停用的人要等到「下一次 HTTP 請求」才會被擋下；現在是即時的。
 單一裝置的登出不遞增 `token_version`，由該分頁自己斷線（前端 `SessionStore` 的 `ended`）。
 
-### 3.6 平台管理者的連線（apps/auth）
+### 3.6 平台管理者的連線（apps/platform）
 
-apps/auth 的網域（`AUTH_APP_URL` 的 host）不屬於任何租戶（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D2）。
+apps/platform 的網域（`PLATFORM_APP_URL` 的 host）不屬於任何租戶（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D2）。
 在那裡建立的連線是 **平台管理者** 的，同一個 gateway、同一條 `/api/socket.io`，差別只在 handshake 與 room：
 
 | 項目 | 租戶的連線 | 平台管理者的連線 |
 | --- | --- | --- |
-| 判定 | handshake 的網域解析到租戶 | handshake 的網域等於 apps/auth 的網域（同 `TenantMiddleware` 判定 `/platform/*` 的方式） |
+| 判定 | handshake 的網域解析到租戶 | handshake 的網域等於 apps/platform 的網域（同 `TenantMiddleware` 判定 `/platform/*` 的方式） |
 | 脈絡 | 每則訊息在那個租戶的脈絡裡處理 | 沒有租戶脈絡；`AccessTokenVerifier` 只接受 `realm: 'platform'` 的 token，`checkUser` 查平台 DB 的 `platform_admins` |
 | room | `t:{tid}:user:{id}`、`t:{tid}`、`sid:{uid}`、perm room | `platform:admin:{id}`、`platform`、`sid:{uid}` |
 | 推播 | `resource.changed` 事件依來源 → 受眾表（§6.1） | `platform.changed` 事件：沒指定收件人就推 `platform` room，有 `adminIds` 只推那些人 |
@@ -251,7 +251,7 @@ WebSocket 另有三道防線：
 | `t:{tenantId}`         | 這個租戶的所有連線（停用、刪除租戶時一次斷掉；租戶啟用的 feature 變更時推 `tenantFeature`） | `tenantRoom(tenantId)`（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D13、[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §9.2 D8） |
 | `t:{tenantId}:perm:{permissionKey}` | 目前租戶裡持有該權限的使用者的連線 | `permRoom(key)`（例 `t:…:perm:role:read`；租戶取自目前的租戶脈絡） |
 | `sid:{idpSessionUid}`  | 同一個 IdP session 的連線（經 SSO 登入、token 帶 `sid` 時才加入） | `idpSessionRoom(uid)`（[`architecture/04-sso.md`](../04-sso.md) §12.2 D5） |
-| `platform`             | apps/auth 上所有平台管理者的連線（§3.6） | `PLATFORM_ROOM` |
+| `platform`             | apps/platform 上所有平台管理者的連線（§3.6） | `PLATFORM_ROOM` |
 | `platform:admin:{adminId}` | 一位平台管理者的所有連線（§3.6）      | `platformAdminRoom(id)` |
 
 super-admin 加入自己租戶的所有 perm room。
@@ -569,7 +569,7 @@ export const ChangeSource = {
   TAG: 'tag',
   /** 公告與發送紀錄（[`backend/19-announcement.md`](19-announcement.md) §9）。 */
   ANNOUNCEMENT: 'announcement',
-  /** 平台的來源：只推給 apps/auth 上平台管理者的連線（§3.6）。 */
+  /** 平台的來源：只推給 apps/platform 上平台管理者的連線（§3.6）。 */
   PLATFORM_TENANT: 'platformTenant',
   PLATFORM_ADMIN: 'platformAdmin',
   PLATFORM_FEATURE_FLAG: 'platformFeatureFlag',
@@ -693,7 +693,7 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 | 新的站內通知只推給收件人（payload 是通知 id），稽核的讀者收不到          | 整合   |
 | `DomainEventBus`：同租戶依序、跨租戶與 `sessions.revoked` 不互相阻塞、錯誤隔離、`meta` 在發佈當下擷取 | 單元   |
 | `realtime.listener`：五個領域事件各自的動作（假 bus ＋ 假 io）；`tenant.featuresChanged` 推給整個租戶的 room；`platform.changed` 推給 `platform` 或指定的平台管理者 | 單元   |
-| 平台管理者的連線（§3.6，`test/platform-realtime.spec.ts`）：apps/auth 的網域只接受平台的 token、租戶網域不接受平台的 token；租戶改名推給所有平台管理者；通知只推收件人；停用 → `session.revoked` 並斷線 | 整合 |
+| 平台管理者的連線（§3.6，`test/platform-realtime.spec.ts`）：apps/platform 的網域只接受平台的 token、租戶網域不接受平台的 token；租戶改名推給所有平台管理者；通知只推收件人；停用 → `session.revoked` 並斷線 | 整合 |
 
 ---
 

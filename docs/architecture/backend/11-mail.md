@@ -74,7 +74,7 @@ export function accountLinkMail({ purpose, locale, displayName, link, validHours
 | 語系用收件人的 `users.locale`（`toMailLocale()`），不認識的退回 `zh-TW` | 信是寄給對方看的，不是操作者 |
 | 樣式寫成行內 style、色碼寫死 | 多數收信端不支援 `<style>`；這裡沒有 Design Token |
 | `MailLayout` 的 `<Body>` 明確帶 `lang={locale}`；`<Hr>` 的顏色以整條 `borderTop` 覆寫 | `Body` 沒給 `lang` 會標成 `en`；`Hr` 預設的 `borderTop` 排在 `borderColor` 之後，只改 `borderColor` 會被蓋掉 |
-| 連結一律 `MailService.link(path, query)`（產品頁面：目前租戶的主要網域，協定沿用 `APP_PUBLIC_URL`）或 `accountLink(path, query)`（帳號流程：啟用、重設密碼，`AUTH_APP_URL` 開頭並帶 `?tenant=<代碼>`，[`architecture/04-sso.md`](../04-sso.md) §12.2 D1、[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D26） | 查詢字串正確編碼；每個租戶的連結指向自己的網域 |
+| 連結一律 `MailService.link(path, query)`（產品頁面：目前租戶的主要網域，協定沿用 `APP_PUBLIC_URL`）或 `accountLink(path, query)`（帳號流程：啟用、重設密碼，`PLATFORM_APP_URL` 開頭並帶 `?tenant=<代碼>`，[`architecture/04-sso.md`](../04-sso.md) §12.2 D1、[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D26） | 查詢字串正確編碼；每個租戶的連結指向自己的網域 |
 | 按鈕旁附上純文字網址 | 按鈕在部分收信端無法點 |
 | `MailService.send()` 同時產生 HTML 與純文字版 | 純文字版給不支援 HTML 的收信端，也是 `console` 傳輸寫進日誌的內容 |
 
@@ -87,7 +87,7 @@ export function accountLinkMail({ purpose, locale, displayName, link, validHours
 | `auth.activationMail` | `UserService.create`（建立帳號的交易內） | `{ userId }` | 使用者仍是 `pending` |
 | `auth.passwordResetMail` | `AuthService.forgotPassword`（節流：同帳號 60 秒一封）、`UserService.resetPassword`（與稽核同一交易） | `{ userId }` | 使用者存在 |
 | `approval.resultMail` | `ApprovalService.approve` / `reject`（審核的交易內） | `{ approvalId }` | 請求已審核、找得到收件人 |
-| `platformAdmin.accountMail`（平台工作） | `PlatformAdminManagementService.create`（新增平台管理者）、`sendPasswordLink`（代為寄設定密碼的連結） | `{ adminId, purpose }`（`activation`／`passwordReset`） | 管理者存在，且狀態符合用途（啟用信只寄給 `pending`）。連結到 apps/auth 的 `/setup`、`/reset-password`，不帶 `?tenant=` |
+| `platformAdmin.accountMail`（平台工作） | `PlatformAdminManagementService.create`（新增平台管理者）、`sendPasswordLink`（代為寄設定密碼的連結） | `{ adminId, purpose }`（`activation`／`passwordReset`） | 管理者存在，且狀態符合用途（啟用信只寄給 `pending`）。連結到 apps/platform 的 `/setup`、`/reset-password`，不帶 `?tenant=` |
 
 **token 在寄出當下才簽發。** 資料庫只存 token 的雜湊（[`04-auth.md`](./04-auth.md) §5.1），
 若在入列時簽發，就得把原文放進工作資料——而持有 `job:read` 的人看得到工作資料。所以工作資料只有 `userId`，
@@ -128,7 +128,7 @@ handler 執行時才呼叫 `AuthTokenService.issue()`、把原文放進連結、
 | `MAIL_SMTP_URL` | `smtp://localhost:1025` | 例：`smtps://user:pass@smtp.example.com:465` |
 | `MAIL_FROM` | `B2B System <no-reply@localhost>` | 寄件人 |
 | `APP_PUBLIC_URL` | `http://localhost:5173` | 信裡連到產品的連結開頭（例：審批結果） |
-| `AUTH_APP_URL` | `http://localhost:5175` | 帳號流程的連結開頭（apps/auth 的 `/setup`、`/reset-password`） |
+| `PLATFORM_APP_URL` | `http://localhost:5175` | 帳號流程的連結開頭（apps/platform 的 `/setup`、`/reset-password`） |
 
 ## 8. 測試
 

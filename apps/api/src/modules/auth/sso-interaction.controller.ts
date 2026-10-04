@@ -35,7 +35,7 @@ const InteractionUidPipe = new ZodValidationPipe(z.string().regex(/^[A-Za-z0-9_-
 
 /**
  * IdP 的登入互動（docs/architecture/04-sso.md §12）。
- * provider 把互動 cookie 設在 `/api/oidc-interaction/:uid`，所以互動網址先到這裡，再 302 到 apps/auth 的頁面；
+ * provider 把互動 cookie 設在 `/api/oidc-interaction/:uid`，所以互動網址先到這裡，再 302 到 apps/platform 的頁面；
  * 頁面之後呼叫同一個路徑底下的端點，瀏覽器才會帶上那個 cookie。全部是 `@Public()`：互動 cookie 就是憑證。
  */
 @ApiTags('auth')
@@ -67,10 +67,10 @@ export class SsoInteractionController {
 
   @Get(':uid')
   @Public()
-  @ApiOperation({ summary: '轉到 apps/auth 的登入互動頁（互動 cookie 已設在這個路徑）' })
+  @ApiOperation({ summary: '轉到 apps/platform 的登入互動頁（互動 cookie 已設在這個路徑）' })
   toPage(@Param('uid', InteractionUidPipe) uid: string, @Res() res: Response): void {
     // 直接寫回應：回傳值會被 TransformInterceptor 包成 `{ data }`，`@Redirect()` 不生效
-    res.redirect(302, `${this.config.get('AUTH_APP_URL', { infer: true })}/interaction/${uid}`);
+    res.redirect(302, `${this.config.get('PLATFORM_APP_URL', { infer: true })}/interaction/${uid}`);
   }
 
   @Get(':uid/details')

@@ -1,16 +1,16 @@
-# SSO 與身分平台（`apps/auth`）
+# SSO 與身分平台（`apps/platform`）
 
 決定與理由見 §12；身分分屬租戶與平台的部分見
 [`architecture/05-tenancy.md`](05-tenancy.md) §10.2 D5–D11（[`05-tenancy.md`](./05-tenancy.md)）。app session 本身（5 分鐘 JWT ＋ 輪替式 refresh cookie）不變，
 見 [`backend/04-auth.md`](backend/04-auth.md) §10 與 [`backend/04-auth.md`](./backend/04-auth.md)。
-`apps/auth` 前端的內部結構與從 backstage 複製的程式碼見 [`apps/auth/README.md`](../../apps/auth/README.md)。
+`apps/platform` 前端的內部結構與從 backstage 複製的程式碼見 [`apps/platform/README.md`](../../apps/platform/README.md)。
 
 ## 1. 全貌
 
 ```
                  頂層跳轉（授權碼、end-session）；沒有跨域 cookie、iframe、postMessage
    ┌────────────────────────┐        ┌───────────────────────────────────────────┐        ┌──────────────────┐
-   │ backstage（每個租戶一個網域）│◀──▶│ apps/auth :5175（IdP 的 origin，不屬於租戶）│◀──────▶│ 外部 IdP          │
+   │ backstage（每個租戶一個網域）│◀──▶│ apps/platform :5175（IdP 的 origin，不屬於租戶）│◀──────▶│ 外部 IdP          │
    │ （RP：public client）   │        │  /interaction/:uid  登入互動頁              │        │ Google／Azure AD │
    │ cookie：refresh（本 origin）│    │  /  平台管理者；帳號流程 ?tenant=           │        │ （OIDC）          │
    └──────────┬─────────────┘        │ cookie：IdP session、互動、refresh（本 origin）│       └──────────────────┘
@@ -18,32 +18,32 @@
               ▼                                          │ /api
    ┌────────────────────────────────────────────────────▼──────────────────────────────────────┐
    │ apps/api（同一個程序）                                                                        │
-   │  modules/oidc-provider   oidc-provider 掛在 /oidc（issuer = apps/auth origin 的 /api/oidc）    │
+   │  modules/oidc-provider   oidc-provider 掛在 /oidc（issuer = apps/platform origin 的 /api/oidc）    │
    │  modules/auth            登入互動端點、BFF（/auth/sso/callback）、外部 IdP 登入（ExternalLoginService）│
    │  modules/identity-provider  外部 IdP 連線、openid-client（RP）、帳號 ↔ 外部身分                │
    └───────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 - **我們自己當 IdP**：`apps/api` 是 OIDC Provider（[`oidc-provider`](https://github.com/panva/node-oidc-provider)），
-  `apps/auth` 提供互動頁。每個產品（backstage、之後建在骨架上的其他前端）都是它的 client。
+  `apps/platform` 提供互動頁。每個產品（backstage、之後建在骨架上的其他前端）都是它的 client。
 - **外部 IdP 是登入互動裡的一種登入方式**：產品只認識我們的 IdP，不直接接 Google／Azure AD。
 - **身分分屬租戶與平台**（[`architecture/05-tenancy.md`](05-tenancy.md) §10.2 D5–D9）：同一個 email 在每個租戶、在平台都是不同的帳號。
-  backstage 的使用者在各租戶 DB；apps/auth 只給平台管理者登入（平台 DB 的 `platform_admins`）。見 §1.1。
-- **只拆前端**：`apps/auth` 沒有自己的後端（§12.2 D2）。
+  backstage 的使用者在各租戶 DB；apps/platform 只給平台管理者登入（平台 DB 的 `platform_admins`）。見 §1.1。
+- **只拆前端**：`apps/platform` 沒有自己的後端（§12.2 D2）。
 
 ### 1.1 身分範圍（[`architecture/05-tenancy.md`](05-tenancy.md) §10.2 D6–D10）
 
 | | 租戶的使用者 | 平台管理者 |
 | --- | --- | --- |
-| 從哪裡登入 | 租戶網域的 backstage：authorize 帶 `tenant=<代碼>` | apps/auth：client `auth`，不帶 `tenant` |
+| 從哪裡登入 | 租戶網域的 backstage：authorize 帶 `tenant=<代碼>` | apps/platform：client `auth`，不帶 `tenant` |
 | 互動頁驗證 | 那個租戶的 DB（`AuthService.verifyCredentials`；外部 IdP 也在那個租戶） | 平台 DB（`PlatformAdminService.verifyCredentials`；沒有外部 IdP） |
 | IdP 帳號 id（session、授權碼、`sub`） | `t:{tenantId}:{userId}`；ID token 另有 `tenant` claim（代碼） | `p:{adminId}` |
-| BFF | 租戶網域的 `/auth/sso/callback`：授權碼的帳號必須屬於這個網域的租戶 | apps/auth 的 `/platform/auth/sso/callback`：必須是 `p:` |
-| access token | 帶 `tid`；只在那個租戶的網域有效 | 帶 `realm: 'platform'`；只在不屬於任何租戶的網域（apps/auth）有效 |
+| BFF | 租戶網域的 `/auth/sso/callback`：授權碼的帳號必須屬於這個網域的租戶 | apps/platform 的 `/platform/auth/sso/callback`：必須是 `p:` |
+| access token | 帶 `tid`；只在那個租戶的網域有效 | 帶 `realm: 'platform'`；只在不屬於任何租戶的網域（apps/platform）有效 |
 | refresh 家族 | 租戶 DB 的 `refresh_tokens`（cookie path `/api/auth`） | 平台 DB 的 `platform_refresh_tokens`（`/api/platform/auth`） |
 
 - **authorize 的 `tenant`**：backstage 必須帶，而且 redirect URI 的網域要屬於這個租戶（`validateTenantParam`）；
-  apps/auth 不能帶。backstage 的 redirect URI 是「任何租戶網域的 `/auth/callback`」（`allowTenantRedirects`，讀網域快照）。
+  apps/platform 不能帶。backstage 的 redirect URI 是「任何租戶網域的 `/auth/callback`」（`allowTenantRedirects`，讀網域快照）。
 - **換身分要重新登入**：IdP session 的帳號與這次要求的租戶（或平台）不同時，互動 policy 的 `realm_mismatch` 要求登入，
   並把舊身分從 session 拿掉（清帳號與 grant、換新的 `uid`）。舊身分的 app session 仍綁在舊的 uid 上，
   所以同時開兩個租戶的 backstage 可以，各自登出互不影響。
@@ -54,14 +54,14 @@
 
 | Cookie | 設定者 | 所在 origin | Path | 用途 |
 | --- | --- | --- | --- | --- |
-| `_session`（oidc-provider） | api | apps/auth | `/` | IdP session：「這台瀏覽器登入過平台」 |
-| `_interaction`、`_interaction_resume` | api | apps/auth | `/api/oidc-interaction/:uid`、`/api/oidc/auth/:uid` | 一次登入互動的憑證 |
+| `_session`（oidc-provider） | api | apps/platform | `/` | IdP session：「這台瀏覽器登入過平台」 |
+| `_interaction`、`_interaction_resume` | api | apps/platform | `/api/oidc-interaction/:uid`、`/api/oidc/auth/:uid` | 一次登入互動的憑證 |
 | `refresh_token` | api | 每個產品各一份 | `/api/auth` | 租戶使用者的 app session（[`backend/04-auth.md`](backend/04-auth.md) §10） |
-| `refresh_token` | api | apps/auth | `/api/platform/auth` | 平台管理者的 app session |
+| `refresh_token` | api | apps/platform | `/api/platform/auth` | 平台管理者的 app session |
 
 - 全部 **host-only**（不設 `Domain`），只有設定它的 origin 讀得到；`SameSite=Lax`、`HttpOnly`、production `Secure`。
 - 身分只經由頂層跳轉帶的一次性授權碼傳遞。**不用 iframe、不做 `prompt=none` 靜默續期、不以 `postMessage` 傳 token**。
-  產品不必和 apps/auth 同站。
+  產品不必和 apps/platform 同站。
 - 各 origin 都以自己的 `/api` 反向代理到同一個 api。oidc-provider 依 `OIDC_ISSUER` 還原被代理去掉的 `/api` 前綴與 Host，
   產生的網址與 cookie path 才是瀏覽器看到的（D16）。
 
@@ -75,7 +75,7 @@ backstage /auth/login
   └─ GET /api/tenant/current 取得這個網域的租戶代碼
   └─ 頂層跳轉 → {issuer}/auth?client_id=backstage&tenant=<代碼>&redirect_uri=…/auth/callback&code_challenge=…&state=…
        provider：redirect URI 是租戶網域、tenant 與它同一個租戶（否則帶 invalid_request 導回）
-       provider：沒有 IdP session → 303 /api/oidc-interaction/:uid（設互動 cookie）→ 302 apps/auth /interaction/:uid
+       provider：沒有 IdP session → 303 /api/oidc-interaction/:uid（設互動 cookie）→ 302 apps/platform /interaction/:uid
        （登入互動，§3.2／§3.3）
        provider：303 redirect_uri?code&state
 backstage /auth/callback
@@ -92,7 +92,7 @@ backstage /auth/callback
 
 ### 3.2 登入互動：密碼
 
-`apps/auth` 的 `/interaction/:uid` 呼叫同一路徑底下的端點（互動 cookie 就是憑證，端點是 `@Public()`）：
+`apps/platform` 的 `/interaction/:uid` 呼叫同一路徑底下的端點（互動 cookie 就是憑證，端點是 `@Public()`）：
 
 1. `GET /oidc-interaction/:uid/details`：client 名稱、`login_hint`、`tenant`（`{ code, name }`；平台管理者的登入是 `null`）
    （互動無效 → `AUTH_SSO_INTERACTION_INVALID`）。頁面顯示租戶名稱；有租戶時才有「忘記密碼」「申請帳號」（連結帶 `?tenant=`）。
@@ -105,7 +105,7 @@ backstage /auth/callback
 ### 3.3 登入互動：外部 IdP（D8–D10）
 
 ```
-apps/auth /interaction/:uid
+apps/platform /interaction/:uid
   └─ email 欄 blur → GET /oidc-interaction/:uid/discover?email=  → { provider: {id,name} | null, ssoOnly }
   └─ 「使用 X 登入」→ POST …/:uid/external { providerId } → { redirectTo }
        api：state、nonce、PKCE verifier、互動 id、租戶 id 存 oidc_payloads（type ExternalLogin，10 分鐘）
@@ -113,7 +113,7 @@ apps/auth /interaction/:uid
 外部 IdP → GET /oidc-interaction/external/callback?code&state
   api：以 state 找回登入狀態 → 進入它記下的租戶 → openid-client 兌換、驗 ID token（email 不在 ID token 時查 userinfo）→ 對應帳號
        成功 → 302 …/api/oidc-interaction/:uid/external/complete?ticket=<state>
-       失敗 → 302 apps/auth /interaction/:uid?error=<錯誤碼>（找不到登入狀態 → /error?error=AUTH_SSO_EXTERNAL_FAILED）
+       失敗 → 302 apps/platform /interaction/:uid?error=<錯誤碼>（找不到登入狀態 → /error?error=AUTH_SSO_EXTERNAL_FAILED）
 GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie）
   api：消耗 ticket（只能用一次、互動 id 要相符）→ 完成互動（amr = ['ext']）→ 303 resume，之後同 §3.1
 ```
@@ -158,7 +158,7 @@ production 下對外部 IdP 的每個請求都先解析主機名稱，解析到�
 
 - 全部在伺服器端完成，不必碰其他 origin 的 cookie；**不** 遞增 `token_version`（那會連其他裝置一起登出）。
 - 一個 IdP session 只屬於一個身分（§1.1），撤銷的是那個身分所在的 DB 的家族：租戶網域的 `/auth/logout` 撤銷那個租戶的，
-  apps/auth 的 `/platform/auth/logout` 撤銷平台的。
+  apps/platform 的 `/platform/auth/logout` 撤銷平台的。
 - 不自動跳回 IdP：頁面卸載會取消還在路上的登出請求，使用者會被尚未銷毀的 IdP session 直接登回來。
   前端的 `SessionWatcher` 只在「這個分頁曾經有 session」時才在 session 消失後導向登入頁。
 - 離線的分頁要等下一次續期失敗才發現；已發出的 access token 最多再活 5 分鐘。
@@ -174,12 +174,12 @@ production 下對外部 IdP 的每個請求都先解析主機名稱，解析到�
 | --- | --- | --- | --- |
 | * | `/oidc/*` | （oidc-provider，middleware） | discovery、`/auth`、`/token`、JWKS、end-session |
 | POST | `/auth/sso/callback` | `@Public` | 租戶網域的 BFF：授權碼 ＋ PKCE 換 app session |
-| POST | `/platform/auth/sso/callback` | `@Public` | apps/auth 的 BFF（平台管理者）；`/platform/auth/refresh`、`logout`、`profile` 同 `/auth/*`。租戶網域上回 `PLATFORM_ONLY` |
+| POST | `/platform/auth/sso/callback` | `@Public` | apps/platform 的 BFF（平台管理者）；`/platform/auth/refresh`、`logout`、`profile` 同 `/auth/*`。租戶網域上回 `PLATFORM_ONLY` |
 | PATCH | `/platform/auth/profile` | `@Authenticated` | 平台管理者改自己的顯示名稱（只有 `displayName`：語系、時區、主題只存在瀏覽器）；寫平台稽核 `platformAdmin.profileUpdate` |
 | POST | `/platform/auth/change-password` | `@Authenticated` | 以目前的密碼換新密碼（`AUTH_PASSWORD_MISMATCH`、與目前相同 `AUTH_PASSWORD_WEAK`）；結束這個人的所有 session、斷掉即時連線；寫平台稽核 `platformAdmin.passwordChange` |
 | GET | `/tenant/current` | `@Public` | 這個網域的租戶（代碼、名稱） |
 | GET | `/tenants/lookup?code=` | `@Public` | 租戶的登入入口（`loginUrl`）；找不到或停用一律 `TENANT_NOT_FOUND` |
-| GET | `/oidc-interaction/:uid` | `@Public` | 設互動 cookie 的路徑，302 到 apps/auth |
+| GET | `/oidc-interaction/:uid` | `@Public` | 設互動 cookie 的路徑，302 到 apps/platform |
 | GET | `/oidc-interaction/:uid/details` | `@Public` | 互動資訊 |
 | POST | `/oidc-interaction/:uid/login` | `@Public` | 密碼登入 |
 | POST | `/oidc-interaction/:uid/abort` | `@Public` | 取消 |
@@ -216,11 +216,11 @@ production 下對外部 IdP 的每個請求都先解析主機名稱，解析到�
 | `features/auth/pages/SsoCallback` | `/auth/callback`：換 session 後 `router.history.replace(returnTo)`；`error=access_denied` 顯示「已取消」；失敗後的「登入」帶上原本的 `returnTo` |
 | `app/App.tsx` 的 `SessionWatcher` | 單一登出或續期失敗時導向 `/auth/login?signedOut=true` |
 
-### 6.2 apps/auth
+### 6.2 apps/platform
 
 | Feature | 路由 | 說明 |
 | --- | --- | --- |
-| `login` | `/interaction/:uid`、`/error`、`/login`、`/callback`、`/forgot-password`、`/reset-password`、`/setup`、`/register`、`/enter` | IdP 的互動頁（租戶或平台，§1.1）；provider 的協定錯誤頁；apps/auth 自己的頁面經 SSO 登入（client `auth`，平台管理者）；帳號流程；進入租戶（[`architecture/05-tenancy.md`](05-tenancy.md) §10.2 D11） |
+| `login` | `/interaction/:uid`、`/error`、`/login`、`/callback`、`/forgot-password`、`/reset-password`、`/setup`、`/register`、`/enter` | IdP 的互動頁（租戶或平台，§1.1）；provider 的協定錯誤頁；apps/platform 自己的頁面經 SSO 登入（client `auth`，平台管理者）；帳號流程；進入租戶（[`architecture/05-tenancy.md`](05-tenancy.md) §10.2 D11） |
 | `home` | `/` | 目前登入的平台管理者（角色、權限數）；有 `tenant:read` 時加上各狀態的租戶數 |
 | `account` | `/profile`、`/preference` | 個人資料（改名、角色與權限、變更密碼）與偏好設定（語系、時區、主題、頂列工具；只存在瀏覽器） |
 | `notification` | `/notification` | 平台的站內通知；頂列的鈴鐺（[`backend/15-notification.md`](./backend/15-notification.md) §6.2） |
@@ -229,34 +229,34 @@ production 下對外部 IdP 的每個請求都先解析主機名稱，解析到�
 平台管理的頁面套用與 backstage 相同的外框（`app/layouts/DashboardLayout`：可收合的分組側欄、窄螢幕抽屜、頂列工具、帳號選單）
 與頁面寫法（列表用 `RichTable` 的搜尋、篩選、欄位設定與分頁；詳情用麵包屑與分頁）。登入、帳號流程與進入租戶的頁面不套外框。
 
-帳號流程的信中連結以 `AUTH_APP_URL` 開頭並帶 `?tenant=<代碼>`（`MailService.accountLink`，[`backend/11-mail.md`](./backend/11-mail.md)）。
-頁面以 `X-Tenant` 標頭把租戶送給 api（這個標頭只在 apps/auth 的網域有效，租戶網域上以網域為準），完成後以 `GET /tenants/lookup`
+帳號流程的信中連結以 `PLATFORM_APP_URL` 開頭並帶 `?tenant=<代碼>`（`MailService.accountLink`，[`backend/11-mail.md`](./backend/11-mail.md)）。
+頁面以 `X-Tenant` 標頭把租戶送給 api（這個標頭只在 apps/platform 的網域有效，租戶網域上以網域為準），完成後以 `GET /tenants/lookup`
 回到那個租戶的 backstage 登入。**平台管理者** 的啟用與重設密碼連結不帶 `?tenant=`：`/setup`、`/reset-password` 沒有租戶時改打
-`/platform/auth/setup`、`/platform/auth/reset-password`，完成後留在 apps/auth 登入。平台管理者沒有「忘記密碼」與「申請帳號」
+`/platform/auth/setup`、`/platform/auth/reset-password`，完成後留在 apps/platform 登入。平台管理者沒有「忘記密碼」與「申請帳號」
 （由其他平台管理者新增與寄重設連結），所以 `/forgot-password`、`/register` 沒有 `?tenant=` 時仍顯示「請從租戶的登入頁或信中的連結進入」。
 backstage 已經沒有這些頁面：SSO 之前寄出、指向 backstage `/auth/setup` 等的舊連結會是找不到頁面，要請管理員重寄。
-apps/auth 的平台管理者也有即時推播：連 apps/auth 網域上的 `/api/socket.io`，收平台資源的變更與自己的通知
+apps/platform 的平台管理者也有即時推播：連 apps/platform 網域上的 `/api/socket.io`，收平台資源的變更與自己的通知
 （[`backend/08-realtime.md`](./backend/08-realtime.md) §3.6）；頂列顯示連線狀態。
 IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁提供「重新開始登入」：知道租戶時到 `/enter?tenant=<代碼>`
-（自動前往那個租戶的登入），不知道時給「進入租戶」與平台管理者登入。apps/auth 的 `SessionWatcher` 在 session 中途結束時導向
+（自動前往那個租戶的登入），不知道時給「進入租戶」與平台管理者登入。apps/platform 的 `SessionWatcher` 在 session 中途結束時導向
 `/login?signedOut=true&reason=<原因>&redirect=<路徑＋查詢字串>`，登入頁依原因說明（逾時、帳號停用、憑證重用…；自己登出與單一登出顯示「已登出」）。
 
 ## 7. 設定與部署
 
 | 變數 | 用途 | production |
 | --- | --- | --- |
-| `AUTH_APP_URL` | apps/auth 的 origin：互動頁、錯誤頁、帳號流程連結；第一方 client `auth` 的 redirect URI 開頭 | 必填（compose 由 `AUTH_PUBLIC_ORIGIN` 產生） |
+| `PLATFORM_APP_URL` | apps/platform 的 origin：互動頁、錯誤頁、帳號流程連結；第一方 client `auth` 的 redirect URI 開頭 | 必填（compose 由 `PLATFORM_PUBLIC_ORIGIN` 產生） |
 | `APP_PUBLIC_URL` | 預設租戶的 backstage origin；信中連結的協定（各租戶的網域在平台 DB 的 `tenant_domains`） | 必填（`PUBLIC_ORIGIN`） |
 | `PLATFORM_REFRESH_COOKIE_PATH` | 平台管理者的 refresh cookie path | 預設 `/api/platform/auth` |
 | `PLATFORM_ADMIN_EMAIL`、`PLATFORM_ADMIN_PASSWORD` | 第一位平台管理者（`db:seed`） | compose 的 migrate 必填 email |
-| `OIDC_ISSUER` | `{AUTH_APP_URL}/api/oidc` | 必填 |
+| `OIDC_ISSUER` | `{PLATFORM_APP_URL}/api/oidc` | 必填 |
 | `OIDC_JWKS` | 簽 ID token 的私鑰（JWKS JSON）；輪替時新舊並存一個 access token TTL | 必填（沒設時啟動時產生臨時金鑰） |
 | `OIDC_COOKIE_KEYS` | 簽 IdP cookie 的金鑰，逗號分隔，第一把用來簽 | 必填 |
 | `IDP_SECRET_KEY` | AES-256-GCM 加密外部 IdP 的 client secret（32 bytes，base64） | 必填（沒設時由 `JWT_SECRET` 以 HKDF 推導，只給開發用） |
 | `OIDC_CLEANUP_CRON` | 清除過期 `oidc_payloads` | 預設 `45 3 * * *` |
-| `VITE_OIDC_ISSUER`、`VITE_AUTH_APP_URL` | 前端（backstage、apps/auth）**建置時** 寫進產物 | Dockerfile 的 build arg |
+| `VITE_OIDC_ISSUER`、`VITE_PLATFORM_APP_URL` | 前端（backstage、apps/platform）**建置時** 寫進產物 | Dockerfile 的 build arg |
 
-- `docker-compose.prod.yml`：`auth` 服務（`apps/auth/Dockerfile`，`deploy/nginx.auth.conf`）是獨立的 origin（預設 `:8081`），
+- `docker-compose.prod.yml`：`platform` 服務（`apps/platform/Dockerfile`，`deploy/nginx.platform.conf`）是獨立的 origin（預設 `:8081`），
   同樣以 `/api/*` 反向代理到 api；沒有 `/api/socket.io/` 與 `/storage/`。CSP 有 `frame-ancestors 'none'`（登入頁防點擊劫持）。
 - 金鑰產生的例子：`OIDC_COOKIE_KEYS` 與 `IDP_SECRET_KEY` 用 `openssl rand -base64 32`；`OIDC_JWKS` 用
   `node -e "import('jose').then(async j=>{const k=await j.generateKeyPair('RS256',{extractable:true});const jwk=await j.exportJWK(k.privateKey);console.log(JSON.stringify({keys:[{...jwk,alg:'RS256',use:'sig',kid:crypto.randomUUID()}]}))})"`（在 `apps/api` 目錄執行）。
@@ -266,8 +266,8 @@ IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁
 
 1. api：`oidc-provider.constants.ts` 的 `OIDC_CLIENT`、`OIDC_CLIENT_PATHS` 加一列；`OidcProviderService.clients()` 的 origin 對照加上它的 env。
 2. 產品前端：複製 backstage 的 §6.1（`sso.ts` 改 client id），`/auth/callback` 的路徑與 `OIDC_CLIENT_PATHS` 一致。
-3. 部署：產品自己的 origin 以 `/api` 反向代理到 api；refresh cookie 是它自己的 host-only cookie，不需要和 apps/auth 同站。
-4. 互動頁的 client 名稱：apps/auth `features/login/constants.ts` 的 `CLIENT_NAME_KEY` 與語系檔。
+3. 部署：產品自己的 origin 以 `/api` 反向代理到 api；refresh cookie 是它自己的 host-only cookie，不需要和 apps/platform 同站。
+4. 互動頁的 client 名稱：apps/platform `features/login/constants.ts` 的 `CLIENT_NAME_KEY` 與語系檔。
 
 第三方 client（非本平台）要有同意頁與 `oidc_clients` 表，這一版不支援。
 
@@ -275,7 +275,7 @@ IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁
 
 | 情境 | 使用者看到 |
 | --- | --- |
-| 協定錯誤（未登記的 redirect URI、不認識的 client） | apps/auth 的 `/error?error=<OIDC 錯誤>`，**絕不導回**（D7） |
+| 協定錯誤（未登記的 redirect URI、不認識的 client） | apps/platform 的 `/error?error=<OIDC 錯誤>`，**絕不導回**（D7） |
 | 互動過期、沒有互動 cookie | 互動頁顯示 `AUTH_SSO_INTERACTION_INVALID` |
 | 授權碼失效、重放、PKCE 不符 | 產品的 callback 頁顯示 `AUTH_SSO_CODE_INVALID`，可重新登入 |
 | 在互動頁按取消 | 產品的 callback 頁顯示「已取消」 |
@@ -284,15 +284,15 @@ IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁
 | backstage 的 authorize 沒帶 `tenant`、租戶不存在、或與 redirect URI 的網域不符 | 帶 `invalid_request` 導回那個 backstage 的 callback |
 | 平台的端點在租戶網域上呼叫 | `PLATFORM_ONLY` |
 | 外部 IdP 連線的管理（`/identity-providers`） | 不存在 `404 IDENTITY_PROVIDER_NOT_FOUND`；名稱重複 `409 IDENTITY_PROVIDER_NAME_DUPLICATE`；網域已屬於另一個連線 `409 IDENTITY_PROVIDER_DOMAIN_TAKEN` |
-| 平台管理者的管理（apps/auth） | 不存在或已刪除 `404 PLATFORM_ADMIN_NOT_FOUND` |
+| 平台管理者的管理（apps/platform） | 不存在或已刪除 `404 PLATFORM_ADMIN_NOT_FOUND` |
 
 ## 10. 測試
 
 | 層 | 檔案 |
 | --- | --- |
 | api 整合 | `apps/api/test/sso.spec.ts`（授權碼流程、重放、單一登出、帳號停用；[`architecture/05-tenancy.md`](05-tenancy.md) §10：tenant 參數、換租戶重新登入、BFF 的租戶檢查、平台管理者、X-Tenant、租戶公開端點）、`sso-external.spec.ts`（以假的 `ExternalOidcClient` 覆寫 provider：帳號對應、只允許 SSO、連線管理） |
-| 前端 | 兩個 app 的 `SsoCallback`、`Login` 頁；apps/auth 的 `Interaction`（含外部 IdP、租戶連結）與 `ForgotPassword`；backstage 的 `IdentityProviderList`（三個權限案例） |
-| E2E | `apps/e2e/tests/auth.spec.ts`（登入、租戶帳號進 apps/auth 要以平台管理者重新登入、從 backstage 登出）、`sso.spec.ts`（取消、協定錯誤、平台的登入頁登不進租戶帳號、平台管理者登出、外部 IdP 頁的權限）、`sso-external.spec.ts`（模擬外部 IdP 的完整登入）、`mail.spec.ts`（帳號流程） |
+| 前端 | 兩個 app 的 `SsoCallback`、`Login` 頁；apps/platform 的 `Interaction`（含外部 IdP、租戶連結）與 `ForgotPassword`；backstage 的 `IdentityProviderList`（三個權限案例） |
+| E2E | `apps/e2e/tests/auth.spec.ts`（登入、租戶帳號進 apps/platform 要以平台管理者重新登入、從 backstage 登出）、`sso.spec.ts`（取消、協定錯誤、平台的登入頁登不進租戶帳號、平台管理者登出、外部 IdP 頁的權限）、`sso-external.spec.ts`（模擬外部 IdP 的完整登入）、`mail.spec.ts`（帳號流程） |
 
 `pnpm dev:mock-idp` 啟動模擬的外部 IdP（`http://localhost:4455`，client `b2b-mock`／`mock-secret`；登入頁輸入任何 email 都算登入成功，
 `email_verified = true`）；Playwright 設定會自動啟動它。
@@ -323,7 +323,7 @@ app session 沿用 [`backend/04-auth.md`](backend/04-auth.md) §10；權限仍�
 4. 外部 IdP（Google、Azure AD）怎麼接進來？
 
 已確認的前提（提案階段的開放問題）：我們自己當 IdP，也要能接外部 IdP；
-`apps/auth` 只有前端，後端在 `apps/api`；`apps/auth` 先複製 backstage 需要的程式碼，不抽 package。
+`apps/platform` 只有前端，後端在 `apps/api`；`apps/platform` 先複製 backstage 需要的程式碼，不抽 package。
 
 ### 12.2 決定
 
@@ -347,28 +347,28 @@ app session 沿用 [`backend/04-auth.md`](backend/04-auth.md) §10；權限仍�
 
 | # | 決定 | 理由 |
 | --- | --- | --- |
-| D1 | **新增 `apps/auth`**：全平台共用、不分工作區的前端（Vite ＋ React，架構比照 backstage）。它負責 OIDC 的互動頁（登入、同意、外部 IdP 的選擇與網域導向）、帳號流程（啟用、重設密碼、接受邀請），以及平台層級的管理（租戶、外部 IdP 連線） | 登入與租戶都屬於平台，不屬於任何一個產品；放在 backstage 會讓其他產品依賴 backstage |
-| D2 | **後端不拆**：OIDC Provider（`modules/oidc-provider`）與外部 IdP（`modules/identity-provider`）都是 `apps/api` 的模組；`apps/auth` 經自己 origin 的 `/api` 反向代理呼叫 | 延續 `01-system.md` §4.3：每個請求都要驗 token 與權限，拆服務就是每個請求多一跳；帳號、角色、稽核留在同一個資料庫與交易裡 |
+| D1 | **新增 `apps/platform`**：全平台共用、不分工作區的前端（Vite ＋ React，架構比照 backstage）。它負責 OIDC 的互動頁（登入、同意、外部 IdP 的選擇與網域導向）、帳號流程（啟用、重設密碼、接受邀請），以及平台層級的管理（租戶、外部 IdP 連線） | 登入與租戶都屬於平台，不屬於任何一個產品；放在 backstage 會讓其他產品依賴 backstage |
+| D2 | **後端不拆**：OIDC Provider（`modules/oidc-provider`）與外部 IdP（`modules/identity-provider`）都是 `apps/api` 的模組；`apps/platform` 經自己 origin 的 `/api` 反向代理呼叫 | 延續 `01-system.md` §4.3：每個請求都要驗 token 與權限，拆服務就是每個請求多一跳；帳號、角色、稽核留在同一個資料庫與交易裡 |
 | D3 | **產品的 session 仍是 [`backend/04-auth.md`](backend/04-auth.md) §10 的 app session（BFF）**：第一方產品是 public client ＋ PKCE（S256，必填）。產品把授權碼與 PKCE verifier 交給自己 origin 的 `/api/auth/sso/callback`，api **在本程序內** 兌換授權碼（檢查與 token 端點相同的條件：存在、未用過、未過期、client 與 redirect URI 相符、PKCE；重放時撤銷同一個 grant），再發 5 分鐘 JWT ＋ 該 origin 的 httpOnly refresh cookie。verifier 只存在發起登入的分頁的 sessionStorage | refresh token 不落到 SPA 的 JavaScript 手上（[`backend/04-auth.md`](backend/04-auth.md) §10 理由 1）；`JwtAuthGuard`、`token_version`、權限快取、推播全部不必改。IdP 與 BFF 在同一個程序，走 HTTP 呼叫自己的 token 端點只多一跳，也讓整合測試無法在不監聽 port 的情況下執行；第三方 RP 仍用標準的 token 端點 |
-| D4 | **IdP session 與 app session 分開**：IdP session 是 `apps/auth` origin 上的 cookie（由 `oidc-provider` 管理），代表「在這台瀏覽器登入過平台」；每個產品各有自己的 refresh 家族。`refresh_tokens` 加 `client_id` 與 `idp_session_uid` | 產品之間可以分開撤銷；知道一條 refresh 家族屬於哪個 IdP session，單一登出才找得到要撤銷誰 |
-| D5 | **單一登出（伺服器端）**：任一產品登出（`POST /auth/logout`，帶自己 origin 的 refresh cookie）→ api 以該家族的 `idp_session_uid` **銷毀 IdP session**、撤銷它底下所有產品的 refresh 家族，並推播 `SESSIONS_REVOKED { idpSessionUids }`。經 SSO 發的 access token 帶 `sid`（IdP session），即時連線依它加入 `sid:{uid}` 的 room，推播只到同一個 IdP session 的分頁。**不** 遞增 `token_version`。登出後產品停在「已登出」頁、**不自動跳回 IdP** | 全部在伺服器端完成，不必碰其他 origin 的 cookie，也不需要 IdP 的登出確認頁（apps/auth 上的 session cookie 之後指向不存在的 session）。`token_version` 會連其他裝置一起登出。登出後若立刻自動跳去 IdP，頁面卸載會取消還在路上的登出請求，使用者會被尚未銷毀的 IdP session 直接登回來。第三方 RP 走 provider 的 end-session 時，同樣撤銷該 IdP session 的 app session |
-| D6 | **不使用跨域 cookie，服務之間只以頂層跳轉溝通**：每個 cookie 都是 host-only（**不設 `Domain`**），只由設定它的 origin 讀取——IdP session cookie 只在 `apps/auth` 的 origin，各產品的 refresh cookie 只在各自的 origin。身分只經由頂層跳轉帶的一次性授權碼傳遞；**不用 iframe、不做 `prompt=none` 的靜默續期、不以 `postMessage` 傳 token**。`apps/auth` 有自己的 origin（例：`auth.example.com`），issuer 是 `https://auth.example.com/api/oidc` | 瀏覽器的第三方 cookie 封鎖只影響 iframe 與跨站子請求，不影響頂層導覽；host-only cookie 讓任何一個 origin 被 XSS 時都拿不到別的 origin 的憑證。因為不依賴共享 cookie，產品也不必和 `apps/auth` 同站，不同 registrable domain 一樣能用 |
-| D7 | **第一方 client 由設定產生**（`backstage` ← `APP_PUBLIC_URL`、`auth` ← `AUTH_APP_URL`），跳過同意頁（第一次授權時直接建立 grant）；redirect URI 與 post-logout URI 以白名單比對，不接受萬用字元。這一版 **沒有** `oidc_clients` 表，第三方 client 出現時再加。協定錯誤（例：未登記的 redirect URI）轉到 apps/auth 的 `/error`，絕不導回 | 自己的產品不需要問使用者「是否允許」；redirect URI 只由部署設定決定，少一張要同步的表。白名單是 OIDC 防止授權碼外流的基本要求 |
+| D4 | **IdP session 與 app session 分開**：IdP session 是 `apps/platform` origin 上的 cookie（由 `oidc-provider` 管理），代表「在這台瀏覽器登入過平台」；每個產品各有自己的 refresh 家族。`refresh_tokens` 加 `client_id` 與 `idp_session_uid` | 產品之間可以分開撤銷；知道一條 refresh 家族屬於哪個 IdP session，單一登出才找得到要撤銷誰 |
+| D5 | **單一登出（伺服器端）**：任一產品登出（`POST /auth/logout`，帶自己 origin 的 refresh cookie）→ api 以該家族的 `idp_session_uid` **銷毀 IdP session**、撤銷它底下所有產品的 refresh 家族，並推播 `SESSIONS_REVOKED { idpSessionUids }`。經 SSO 發的 access token 帶 `sid`（IdP session），即時連線依它加入 `sid:{uid}` 的 room，推播只到同一個 IdP session 的分頁。**不** 遞增 `token_version`。登出後產品停在「已登出」頁、**不自動跳回 IdP** | 全部在伺服器端完成，不必碰其他 origin 的 cookie，也不需要 IdP 的登出確認頁（apps/platform 上的 session cookie 之後指向不存在的 session）。`token_version` 會連其他裝置一起登出。登出後若立刻自動跳去 IdP，頁面卸載會取消還在路上的登出請求，使用者會被尚未銷毀的 IdP session 直接登回來。第三方 RP 走 provider 的 end-session 時，同樣撤銷該 IdP session 的 app session |
+| D6 | **不使用跨域 cookie，服務之間只以頂層跳轉溝通**：每個 cookie 都是 host-only（**不設 `Domain`**），只由設定它的 origin 讀取——IdP session cookie 只在 `apps/platform` 的 origin，各產品的 refresh cookie 只在各自的 origin。身分只經由頂層跳轉帶的一次性授權碼傳遞；**不用 iframe、不做 `prompt=none` 的靜默續期、不以 `postMessage` 傳 token**。`apps/platform` 有自己的 origin（例：`auth.example.com`），issuer 是 `https://auth.example.com/api/oidc` | 瀏覽器的第三方 cookie 封鎖只影響 iframe 與跨站子請求，不影響頂層導覽；host-only cookie 讓任何一個 origin 被 XSS 時都拿不到別的 origin 的憑證。因為不依賴共享 cookie，產品也不必和 `apps/platform` 同站，不同 registrable domain 一樣能用 |
+| D7 | **第一方 client 由設定產生**（`backstage` ← `APP_PUBLIC_URL`、`auth` ← `PLATFORM_APP_URL`），跳過同意頁（第一次授權時直接建立 grant）；redirect URI 與 post-logout URI 以白名單比對，不接受萬用字元。這一版 **沒有** `oidc_clients` 表，第三方 client 出現時再加。協定錯誤（例：未登記的 redirect URI）轉到 apps/platform 的 `/error`，絕不導回 | 自己的產品不需要問使用者「是否允許」；redirect URI 只由部署設定決定，少一張要同步的表。白名單是 OIDC 防止授權碼外流的基本要求 |
 | D8 | **外部 IdP 是登入互動裡的一種登入方式**：api 以 [`openid-client`](https://github.com/panva/openid-client) 當 RP（Authorization Code ＋ PKCE）。外部身分以 `(provider_id, subject)` 存在 `user_identities`；第一次登入時，只以 IdP 回報 `email_verified = true` 的 email 對應既有帳號（ID token 沒有 email 時查 userinfo）。外部 IdP 的 redirect URI **固定** 是 `…/api/oidc-interaction/external/callback`；callback 兌換、對應帳號之後，跳到互動路徑底下的 `…/:uid/external/complete?ticket=` 完成互動（那裡帶得到互動 cookie）。state、nonce、PKCE verifier 與互動 id 存在 `oidc_payloads`（10 分鐘），ticket 只能用一次 | `subject` 才是外部 IdP 的穩定識別碼（email 會變）；未驗證的 email 能被拿來冒用別人的帳號。大多數外部 IdP 要求 redirect URI 完全相符，不能帶互動 id；互動 cookie 的 path 是互動網址，固定的 callback 帶不到它，所以要再跳一次 |
 | D9 | **外部 IdP 連線屬於平台、綁 email 網域**（`identity_provider_domains`）。登入頁先問 email，網域有連線就導向該 IdP（home realm discovery）；網域可設為「只允許 SSO」，這時密碼登入與忘記密碼對該網域無效 | 帳號是平台層級的，一個人可以在多個工作區，所以登入方式不能由工作區決定 |
 | D10 | **沒有對應帳號時**，依連線設定：`reject`（預設）／`auto_create`（建立沒有任何角色的已啟用帳號，**只限這個連線登記的網域**）。`approval`（走既有的 `user.register` 審批）這一版不做：現有審批以密碼建立帳號，SSO 帳號沒有密碼 | 預設拒絕最安全；自動建立不帶角色，不會因此取得任何權限。限定網域：否則任何能在該 IdP 登入的人（例：Google 的一般帳號）都能在平台建立帳號 |
 | D11 | **機密的存放**：外部 IdP 的 client secret 存資料庫，以 env 的主金鑰（AES-GCM）加密；OIDC Provider 的簽章金鑰（JWKS）放 env，輪替時新舊金鑰並存一個 access token TTL | 連線要能在管理頁新增，所以不能只放 env；主金鑰與簽章金鑰不進資料庫，資料庫外洩時仍無法偽造 token 或解出 secret |
 | D12 | **工作區不進 IdP 的 token**：IdP 只回答「你是誰」；工作區仍由路由前綴帶（[`architecture/05-tenancy.md`](05-tenancy.md) §10.7 D8） | 同一個人可以在兩個分頁開不同的工作區；身分與租戶是兩件事 |
-| D13 | **租戶管理搬進 `apps/auth`**：平台的工作區管理頁（[`architecture/05-tenancy.md`](05-tenancy.md) §10.7 D5 的範圍）與外部 IdP 連線管理都在 `apps/auth`；backstage 只保留工作區 **內** 的頁面（成員、檔案…） | 平台管理員不必進入任何產品；工作區內的頁面仍屬於產品 |
-| D14 | **`apps/auth` 先複製 backstage 需要的 `core/`、`components/`、`shared/`、`themes/`**，不抽 package。README 列出每個複製來源；兩邊修同一個問題時要一起改 | 抽 package 牽動 backstage 的 309 個檔案與所有 import，現在只有兩個前端，還看不出真正共用的邊界。出現第三個前端時再評估抽成 `packages/` |
+| D13 | **租戶管理搬進 `apps/platform`**：平台的工作區管理頁（[`architecture/05-tenancy.md`](05-tenancy.md) §10.7 D5 的範圍）與外部 IdP 連線管理都在 `apps/platform`；backstage 只保留工作區 **內** 的頁面（成員、檔案…） | 平台管理員不必進入任何產品；工作區內的頁面仍屬於產品 |
+| D14 | **`apps/platform` 先複製 backstage 需要的 `core/`、`components/`、`shared/`、`themes/`**，不抽 package。README 列出每個複製來源；兩邊修同一個問題時要一起改 | 抽 package 牽動 backstage 的 309 個檔案與所有 import，現在只有兩個前端，還看不出真正共用的邊界。出現第三個前端時再評估抽成 `packages/` |
 | D15 | **MFA 預留**：登入互動是多步驟的（`oidc-provider` 的 interaction），密碼或外部 IdP 通過之後可以插入第二步，這一版不實作 | 之後做 [`mfa.md`](../features/mfa.md) 時只加一個互動步驟，不改協定 |
-| D16 | **互動網址先經過 api**：provider 把互動 cookie 的 path 設成互動網址的路徑，所以互動網址是 `/api/oidc-interaction/:uid`（api 302 到 apps/auth 的 `/interaction/:uid`），頁面之後呼叫同一路徑底下的端點（查詢、登入、取消）。登入成功回傳 resume 網址，由頁面 **頂層跳轉**，不用 fetch 跟隨。provider 掛在本程序的 `/oidc`，依 `OIDC_ISSUER` 還原反向代理去掉的前綴與 Host，產生的網址與 cookie path 才是瀏覽器看到的 | 互動 cookie 就是互動的憑證（`@Public()` 端點靠它），path 對不上就送不出去；fetch 跟隨跳轉時 IdP session cookie 設不起來 |
+| D16 | **互動網址先經過 api**：provider 把互動 cookie 的 path 設成互動網址的路徑，所以互動網址是 `/api/oidc-interaction/:uid`（api 302 到 apps/platform 的 `/interaction/:uid`），頁面之後呼叫同一路徑底下的端點（查詢、登入、取消）。登入成功回傳 resume 網址，由頁面 **頂層跳轉**，不用 fetch 跟隨。provider 掛在本程序的 `/oidc`，依 `OIDC_ISSUER` 還原反向代理去掉的前綴與 Host，產生的網址與 cookie path 才是瀏覽器看到的 | 互動 cookie 就是互動的憑證（`@Public()` 端點靠它），path 對不上就送不出去；fetch 跟隨跳轉時 IdP session cookie 設不起來 |
 | D17 | **帳號停用、刪除、憑證失效時結束這些人的 IdP session**（訂閱 `SESSIONS_REVOKED { userIds }`）；provider 查不到 IdP session 的帳號時清掉 session 上的帳號、改走登入互動 | 否則 IdP 上留著指向不能用的帳號的 session，下一次授權時 provider 拋錯而不是要求登入 |
 
 決定當時的流程（現行流程見 §3）：
 
 ```
-使用者          backstage（RP）            apps/auth（互動頁）         apps/api
+使用者          backstage（RP）            apps/platform（互動頁）         apps/api
   │ 打開 backstage   │                          │                         │
   │─────────────────▶│ 沒有 session              │                         │
   │                  │── 302 /api/oidc/auth?client_id&redirect_uri&code_challenge&state ──▶│
@@ -400,7 +400,7 @@ app session 沿用 [`backend/04-auth.md`](backend/04-auth.md) §10；權限仍�
 | 方案 | 不採用的理由 |
 | --- | --- |
 | 產品直接用 IdP 發的 access／refresh token（純 SPA public client） | refresh token 會落在 SPA 的 JavaScript 可及範圍（[`backend/04-auth.md`](backend/04-auth.md) §10 理由 1 被推翻）；`JwtAuthGuard` 要改成驗 IdP 的 token 並另外處理 `token_version` |
-| 後端拆出獨立身分服務（`apps/auth` 帶自己的 NestJS） | 帳號、角色、稽核分散到兩個服務；每個請求都要跨服務查 `token_version` 與權限（`01-system.md` §4.3） |
+| 後端拆出獨立身分服務（`apps/platform` 帶自己的 NestJS） | 帳號、角色、稽核分散到兩個服務；每個請求都要跨服務查 `token_version` 與權限（`01-system.md` §4.3） |
 | 只接外部 IdP、不自己當 IdP（原 `sso-oidc.md`） | 產品之間仍然各自登入；多產品共用帳號的問題沒有解決 |
 
 ### 12.5 實作紀錄：實作時改掉的做法
@@ -411,7 +411,7 @@ app session 沿用 [`backend/04-auth.md`](backend/04-auth.md) §10；權限仍�
 | BFF 以 HTTP 呼叫 provider 的 token 端點 | 本程序內兌換授權碼（D3） | 多一跳，也讓整合測試必須監聽 port |
 | 單一登出走 end-session 的跳轉鏈 | 伺服器端銷毀 IdP session ＋ 撤銷家族（D5） | 不必碰其他 origin 的 cookie；跳轉鏈任一環斷掉就登出不完整 |
 | 登出後自動跳回 IdP 的登入頁 | 停在「已登出」頁（D5） | 頁面卸載會取消還在路上的登出請求，使用者被尚未銷毀的 IdP session 登回來 |
-| 互動網址直接是 apps/auth 的 `/interaction/:uid` | 先經過 api 的 `/api/oidc-interaction/:uid`（D16） | provider 把互動 cookie 的 path 設成互動網址，否則端點收不到 cookie |
+| 互動網址直接是 apps/platform 的 `/interaction/:uid` | 先經過 api 的 `/api/oidc-interaction/:uid`（D16） | provider 把互動 cookie 的 path 設成互動網址，否則端點收不到 cookie |
 | 外部 IdP 的 redirect URI 帶互動 id | 固定的 callback ＋ 互動路徑下的 `complete`（D8） | 外部 IdP 大多要求 redirect URI 完全相符 |
 | 找不到帳號時可「走審批」 | 這一版只有 `reject`／`auto_create`（D10） | 現有審批以密碼建立帳號，SSO 帳號沒有密碼 |
 | `identity_provider_domains` 有驗證狀態 | 沒有網域驗證，由平台管理員確認 | DNS TXT 驗證需要背景工作與重試，這一版的連線只由平台管理員建立 |

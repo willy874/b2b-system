@@ -253,7 +253,7 @@ export type ErrorCode = keyof typeof ErrorCode;
 ### 5.1 新增錯誤碼的流程
 
 1. 加進上面的表
-2. 在 `apps/backstage/src/app/locales/{en_US,zh_TW}.json`、`apps/auth/src/app/locales/{en_US,zh_TW}.json` 加 `error.<CODE>`，
+2. 在 `apps/backstage/src/app/locales/{en_US,zh_TW}.json`、`apps/platform/src/app/locales/{en_US,zh_TW}.json` 加 `error.<CODE>`，
    並加進兩個 app 的 `core/errors/errorMessageKey.ts`
 3. CI 檢查會驗證每個 code 都有兩個語系的翻譯
 

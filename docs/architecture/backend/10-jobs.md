@@ -102,7 +102,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `notification.cleanup` | `modules/notification` | `NOTIFICATION_CLEANUP_CRON` | `0 5 * * *`（每天 05:00 UTC；站內通知的保留清理：已讀超過 `notification.retentionDays` 天、每人超過 `notification.maxPerUser` 則的最舊通知，[`15-notification.md`](./15-notification.md) §8） |
 | `webhook.cleanup` | `modules/webhook` | `WEBHOOK_CLEANUP_CRON` | `15 5 * * *`（每天 05:15 UTC；刪除超過 30 天的對外事件，投遞紀錄隨之刪除，[`17-webhook.md`](./17-webhook.md) §4） |
 | `auth.activationMail`、`auth.passwordResetMail` | `modules/credential` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
-| `platformAdmin.accountMail`（平台） | `modules/platform-admin` | — | 由程式入列：平台管理者的啟用信與重設密碼信（連結到 apps/auth、不帶 `?tenant=`；[`11-mail.md`](./11-mail.md) §4） |
+| `platformAdmin.accountMail`（平台） | `modules/platform-admin` | — | 由程式入列：平台管理者的啟用信與重設密碼信（連結到 apps/platform、不帶 `?tenant=`；[`11-mail.md`](./11-mail.md) §4） |
 | `approval.resultMail` | `modules/approval` | — | 由程式入列 |
 | `announcement.dispatch` | `modules/announcement` | — | 送出、恢復、改時間的交易內入列，`startAfter` 是排定的時間；時間或狀態對不上就略過（[`19-announcement.md`](./19-announcement.md) §5） |
 | `announcement.eventDispatch` | `modules/announcement` | — | 事件點：擁有者在業務交易內 `fire()` 時入列（`startAfter` = 現在＋延遲）；比對受眾後建立一個人的發送（[`19-announcement.md`](./19-announcement.md) §5.3） |
@@ -166,7 +166,7 @@ await withTransaction(this.db, async (tx) => {
 | `POST /jobs/:id/retry` | `job:retry` | 只接受 `failed`；重試成功後寫稽核 `job.retry` |
 
 - 只列出程式有註冊的 **租戶** 工作，而且只看目前租戶的（信封的 `tenantId`）；平台工作、pg-boss 內部或已下線的佇列不出現。
-- **平台的監控**（apps/auth 的 `/job`，[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D23）是另一組端點
+- **平台的監控**（apps/platform 的 `/job`，[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D23）是另一組端點
   `/platform/jobs/*`（`platformJob:read` / `platformJob:retry`，平台的權限目錄）：看得到所有租戶與平台自己的工作，
   列表多了 `tenantId` / `tenantCode`，`?tenant=<代碼>` 只看那個租戶、`?tenant=platform`（保留字）只看平台工作；
   佇列卡片的筆數是所有租戶合計，並標示 `scope`。重試寫平台稽核 `platformJob.retry`。

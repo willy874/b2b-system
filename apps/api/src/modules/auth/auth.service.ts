@@ -326,7 +326,7 @@ export class AuthService {
   }
 
   /**
-   * 單一登出（docs/architecture/04-sso.md §12.2 D5）：銷毀 IdP session（apps/auth 上的 cookie 之後指向不存在的 session），
+   * 單一登出（docs/architecture/04-sso.md §12.2 D5）：銷毀 IdP session（apps/platform 上的 cookie 之後指向不存在的 session），
    * 撤銷它底下所有產品的 refresh 家族，並推播給同一個 IdP session 的分頁。全部在伺服器端完成，
    * 不需要碰其他 origin 的 cookie；**不** 遞增 `token_version`（那會連其他裝置一起登出）。
    */

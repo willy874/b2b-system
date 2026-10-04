@@ -194,7 +194,7 @@ describe('RealtimeListener（領域事件 → 推播）', () => {
     expect(emits[0]?.rooms).toEqual(['platform:admin:a1', 'platform:admin:a2']);
   });
 
-  it('平台管理者停用 → 撤銷他在 apps/auth 上的連線', () => {
+  it('平台管理者停用 → 撤銷他在 apps/platform 上的連線', () => {
     const { fire, emits, disconnected } = setup({ 'platform:admin:a1': 1 });
     fire(DomainEvent.SESSIONS_REVOKED, {
       platformAdminIds: ['a1'],

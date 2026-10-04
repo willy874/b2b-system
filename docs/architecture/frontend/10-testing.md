@@ -46,7 +46,7 @@ afterAll(() => server.close());
 而不是靜默回 404 然後在斷言時才莫名其妙。
 
 `@testing-library/jest-dom` 7 把 `vitest` 列為 peer，pnpm 在整個 workspace 只裝一份 jest-dom，
-它連到哪一份 `vitest` 取決於 peer 的組合。auth 與 backstage 的 `vitest` 若因 peer 不同被拆成兩份
+它連到哪一份 `vitest` 取決於 peer 的組合。platform 與 backstage 的 `vitest` 若因 peer 不同被拆成兩份
 （例：`@vitest/mocker` 的選用 peer `msw` 在 backstage 是 3、其他 workspace 被自動裝成 2），
 `import '@testing-library/jest-dom/vitest'` 會擴充到另一份 `vitest` 的 `expect`，
 `rejects.toThrow('…')` 之類的斷言跟著壞掉（`expected [Function] to throw error … but got ''`）。
@@ -254,7 +254,7 @@ e2e-member@dev.local       member
 
 #### 與正在跑的 dev 環境並行
 
-`pnpm dev` 佔著 3000／5173／5175 而且連著共用 dev DB 時，E2E 另起一組服務：暫用 postgres、api、backstage、auth 都換埠。
+`pnpm dev` 佔著 3000／5173／5175 而且連著共用 dev DB 時，E2E 另起一組服務：暫用 postgres、api、backstage、platform 都換埠。
 前端的埠與 api 代理目標以 shell 的環境變數覆寫（`vite.config.ts` 讀 `process.env`，見 `.env.example`「開發伺服器」）：
 
 ```bash
@@ -262,13 +262,13 @@ docker run -d --name b2b-e2e-scratch-pg -e POSTGRES_USER=b2bsystem -e POSTGRES_P
   -e POSTGRES_DB=b2b_system -p 5433:5432 postgres:17-alpine
 export PLATFORM_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5433/b2b_platform
 export DEFAULT_TENANT_DATABASE_URL=postgres://b2bsystem:b2bsystem@localhost:5433/b2b_system
-export PORT=3100 DEV_API_PROXY_TARGET=http://localhost:3100 BACKSTAGE_DEV_PORT=5273 AUTH_DEV_PORT=5275
+export PORT=3100 DEV_API_PROXY_TARGET=http://localhost:3100 BACKSTAGE_DEV_PORT=5273 PLATFORM_DEV_PORT=5275
 export DEFAULT_TENANT_DOMAINS=localhost:5273 APP_PUBLIC_URL=http://localhost:5273 \
   REALTIME_ALLOWED_ORIGINS=http://localhost:5273 FILE_STORAGE_ALLOWED_ORIGINS=http://localhost:5273
-export AUTH_APP_URL=http://localhost:5275 OIDC_ISSUER=http://localhost:5275/api/oidc \
-  VITE_AUTH_APP_URL=http://localhost:5275 VITE_OIDC_ISSUER=http://localhost:5275/api/oidc
+export PLATFORM_APP_URL=http://localhost:5275 OIDC_ISSUER=http://localhost:5275/api/oidc \
+  VITE_PLATFORM_APP_URL=http://localhost:5275 VITE_OIDC_ISSUER=http://localhost:5275/api/oidc
 export AUTH_RATE_LIMIT=1000 DEFAULT_RATE_LIMIT=10000 MAIL_TRANSPORT=smtp MAIL_SMTP_URL=smtp://127.0.0.1:1025
-export E2E_BASE_URL=http://localhost:5273 E2E_AUTH_URL=http://localhost:5275
+export E2E_BASE_URL=http://localhost:5273 E2E_PLATFORM_URL=http://localhost:5275
 # 外部 IdP（pnpm dev:mock-idp，Playwright 會起）登記的 callback 跟著換埠
 export MOCK_IDP_CALLBACK_URL=http://localhost:5275/api/oidc-interaction/external/callback
 # 物件儲存另起一份（:9100、資料放暫存目錄），不寫進 dev 的 :9000 與它的 .data
@@ -278,7 +278,7 @@ export FILE_STORAGE_PORT=9100 FILE_STORAGE_DATA_DIR=/tmp/b2b-e2e-storage \
 
 - api **不要** 在同一個目錄再跑 `nest start --watch`：`deleteOutDir` 會刪掉另一個程序正在用的 `dist`。
   改成 `cd apps/api && node --enable-source-maps dist/src/main`（沿用 dev 的 watch 已建置好的產物）。
-- backstage、auth 照常 `pnpm --filter … dev`，吃上面的環境變數換埠；Playwright 的 `webServer` 以 `E2E_BASE_URL`／`E2E_AUTH_URL` 沿用它們。
+- backstage、platform 照常 `pnpm --filter … dev`，吃上面的環境變數換埠；Playwright 的 `webServer` 以 `E2E_BASE_URL`／`E2E_PLATFORM_URL` 沿用它們。
 - `MAIL_SMTP_URL` 用 `127.0.0.1`：macOS 上連 `localhost` 每封信慢 15–20 秒，等信的測試會逾時（[`../backend/11-mail.md`](../backend/11-mail.md) §6）。
 - file-storage 以 `cd apps/file-storage && pnpm exec tsx src/main.ts` 吃上面的變數起在 :9100。backstage 的 `/storage` 代理寫死 :9000，
   所以 `FILE_STORAGE_PUBLIC_ENDPOINT` 直接給 :9100：presigned URL 讓瀏覽器直連，CORS 由 `FILE_STORAGE_ALLOWED_ORIGINS` 放行 :5273。

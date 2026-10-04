@@ -33,7 +33,7 @@ const SPECS = {
 
 /**
  * 平台管理者的啟用信與重設密碼信（同租戶的 `AuthMailJobs`）。平台工作沒有租戶脈絡，
- * `MailService.accountLink` 不會帶 `?tenant=`：apps/auth 的頁面據此走平台管理者的端點。
+ * `MailService.accountLink` 不會帶 `?tenant=`：apps/platform 的頁面據此走平台管理者的端點。
  */
 @Injectable()
 export class PlatformAccountMailJobs implements OnModuleInit {

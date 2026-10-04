@@ -25,7 +25,7 @@ test.describe('郵件（docs/architecture/backend/11-mail.md）', () => {
     expect(mail.subject).toBe('啟用你的 B2B System 帳號');
     await page.goto(linkIn(mail, '/setup'));
 
-    // ③ 設定密碼 → 回到租戶的登入（啟用頁在 apps/auth，帳號屬於租戶：連結帶 ?tenant=）→ 登入
+    // ③ 設定密碼 → 回到租戶的登入（啟用頁在 apps/platform，帳號屬於租戶：連結帶 ?tenant=）→ 登入
     expect(page.url()).toContain('tenant=default');
     await snapshot(page, 'setup-password');
     await page.getByTestId('setup-password').fill(NEW_PASSWORD);

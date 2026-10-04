@@ -46,7 +46,7 @@ export async function waitForMail(to: string, subject?: string): Promise<Receive
 
 /** 信裡指向前端某個路徑的連結 → 只取路徑與查詢字串（給 `page.goto` 用，網域以 baseURL 為準）。 */
 export function linkIn(mail: ReceivedMail, path: string): string {
-  // 完整網址：帳號流程的連結在 apps/auth（另一個 origin），不能當成 backstage 的相對路徑
+  // 完整網址：帳號流程的連結在 apps/platform（另一個 origin），不能當成 backstage 的相對路徑
   // 查詢字串帶 token 與租戶代碼（docs/architecture/05-tenancy.md §10.2 D26）
   const match = new RegExp(`https?://[^\\s]+${path}\\?[A-Za-z0-9_=&%-]+`).exec(mail.text);
   if (!match) throw new Error(`信裡找不到 ${path} 的連結：\n${mail.text}`);

@@ -661,7 +661,7 @@ const ssoInteractionControllerToPageOperation: OperationDefinition = {
   schemas: SsoInteractionControllerToPageSchemas,
 };
 
-/** 轉到 apps/auth 的登入互動頁（互動 cookie 已設在這個路徑） */
+/** 轉到 apps/platform 的登入互動頁（互動 cookie 已設在這個路徑） */
 export function ssoInteractionControllerToPage(
   input: SsoInteractionControllerToPageInput,
   options?: RequestOptions,

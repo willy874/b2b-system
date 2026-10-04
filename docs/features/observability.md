@@ -18,7 +18,7 @@
 | 存活 | `GET /health`：`{ status, uptime, timestamp }`；Dockerfile 的 HEALTHCHECK 每 30 秒打一次、逾時 3 秒 |
 | 就緒 | `GET /health/ready`：平台 DB（`select 1`）與物件儲存（`ping`），回 `ok` 或 `degraded` |
 | 即時推播 | 連線、斷線、拒絕的日誌欄位已定（`08-realtime.md` §12） |
-| 背景工作 | 管理頁看得到每個佇列的計數與失敗的工作（backstage 看租戶的、apps/auth 看平台的） |
+| 背景工作 | 管理頁看得到每個佇列的計數與失敗的工作（backstage 看租戶的、apps/platform 看平台的） |
 
 沒有的：任何指標（沒有 prom-client、OpenTelemetry、event loop 監測）、租戶 DB 與 pg-boss 的健康檢查、前端錯誤回報、bundle 大小預算。
 
@@ -31,7 +31,7 @@
 | 快取指標：權限快取、使用者快取、租戶目錄快取的命中率與大小 | |
 | 就緒檢查補上 pg-boss；存活檢查加 event loop lag 門檻 | |
 | OpenTelemetry tracing：HTTP → service → DB（span 帶租戶代碼） | |
-| 前端錯誤回報（未捕捉例外、API 5xx），backstage 與 apps/auth 都要 | |
+| 前端錯誤回報（未捕捉例外、API 5xx），backstage 與 apps/platform 都要 | |
 | CI 的 bundle 大小預算 | |
 
 ## 初步構想

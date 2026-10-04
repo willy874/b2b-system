@@ -1610,7 +1610,7 @@
             "description": ""
           }
         },
-        "summary": "轉到 apps/auth 的登入互動頁（互動 cookie 已設在這個路徑）",
+        "summary": "轉到 apps/platform 的登入互動頁（互動 cookie 已設在這個路徑）",
         "tags": ["auth"]
       }
     },
@@ -1863,7 +1863,7 @@
             }
           }
         },
-        "summary": "apps/auth 的 BFF：授權碼 ＋ PKCE verifier 換平台管理者的 session",
+        "summary": "apps/platform 的 BFF：授權碼 ＋ PKCE verifier 換平台管理者的 session",
         "tags": ["platform-auth"]
       }
     },
@@ -6266,7 +6266,7 @@
             }
           }
         },
-        "summary": "以代碼找租戶的登入入口（apps/auth 的進入租戶、帳號流程完成後）",
+        "summary": "以代碼找租戶的登入入口（apps/platform 的進入租戶、帳號流程完成後）",
         "tags": ["tenants"]
       }
     },

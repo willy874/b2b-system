@@ -3,7 +3,7 @@
 # 安全標頭、X-Forwarded-Host 被覆寫、upstream keepalive、不外露版本。以與映像相同的方式掛載設定：
 #   deploy/nginx.main.conf → /etc/nginx/nginx.conf
 #   deploy/nginx.security-headers.conf → /etc/nginx/snippets/security-headers.conf
-#   deploy/nginx.conf／nginx.auth.conf → /etc/nginx/conf.d/default.conf
+#   deploy/nginx.conf／nginx.platform.conf → /etc/nginx/conf.d/default.conf
 #
 # 用法：sh deploy/check-nginx.sh
 set -eu
@@ -39,7 +39,7 @@ docker network create "$NETWORK" >/dev/null
 docker run -d --name "$NETWORK-api" --network "$NETWORK" --network-alias api \
   "$NODE_IMAGE" node -e "$ECHO_SERVER" >/dev/null
 
-for site in nginx.conf nginx.auth.conf; do
+for site in nginx.conf nginx.platform.conf; do
   echo "── $site"
   docker rm -f "$NETWORK-nginx" >/dev/null 2>&1 || true
   docker run -d --name "$NETWORK-nginx" --network "$NETWORK" -p "$PORT:8080" \

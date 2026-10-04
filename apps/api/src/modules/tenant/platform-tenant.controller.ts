@@ -33,8 +33,8 @@ import type {
 import { PlatformTenantService } from './platform-tenant.service';
 
 /**
- * 平台管理者的租戶管理（apps/auth，docs/architecture/05-tenancy.md §10.2 D12、D13）。
- * 只在 apps/auth 的網域有效（`@RequirePlatformPermissions`），租戶網域上回 `PLATFORM_ONLY`。
+ * 平台管理者的租戶管理（apps/platform，docs/architecture/05-tenancy.md §10.2 D12、D13）。
+ * 只在 apps/platform 的網域有效（`@RequirePlatformPermissions`），租戶網域上回 `PLATFORM_ONLY`。
  */
 @ApiTags('platform-tenants')
 @Controller('platform/tenants')

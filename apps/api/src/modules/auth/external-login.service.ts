@@ -50,7 +50,7 @@ function random(bytes = 32): string {
 @Injectable()
 export class ExternalLoginService {
   private readonly logger = new Logger(ExternalLoginService.name);
-  private readonly authAppUrl: string;
+  private readonly platformAppUrl: string;
   /** 瀏覽器看到的 api 開頭（例：`https://auth.example.com/api`）。 */
   private readonly apiBase: string;
 
@@ -64,7 +64,7 @@ export class ExternalLoginService {
     private readonly tenancy: Tenancy,
     config: ConfigService<Env, true>,
   ) {
-    this.authAppUrl = config.get('AUTH_APP_URL', { infer: true });
+    this.platformAppUrl = config.get('PLATFORM_APP_URL', { infer: true });
     const issuer = new URL(config.get('OIDC_ISSUER', { infer: true }));
     this.apiBase = `${issuer.origin}${issuer.pathname.replace(/\/oidc$/, '')}`;
   }
@@ -123,7 +123,7 @@ export class ExternalLoginService {
 
   /**
    * 回傳要讓瀏覽器跳轉的網址，不拋例外：成功 → 互動路徑底下的 complete；
-   * 失敗 → apps/auth 的互動頁並帶上錯誤碼（讓使用者改用別的方式登入）。
+   * 失敗 → apps/platform 的互動頁並帶上錯誤碼（讓使用者改用別的方式登入）。
    */
   async callback(query: { state?: string; error?: string }, rawQuery: string): Promise<string> {
     const pending = query.state ? await this.oidc.findExternalLogin(query.state) : undefined;
@@ -227,8 +227,8 @@ export class ExternalLoginService {
   errorPage(uid: string | undefined, code: ErrorCode): string {
     const query = new URLSearchParams({ error: code });
     return uid
-      ? `${this.authAppUrl}/interaction/${uid}?${query.toString()}`
-      : `${this.authAppUrl}/error?${query.toString()}`;
+      ? `${this.platformAppUrl}/interaction/${uid}?${query.toString()}`
+      : `${this.platformAppUrl}/error?${query.toString()}`;
   }
 
   // ── 帳號對應（D8、D10）────────────────────────────────────

@@ -12,7 +12,7 @@
 | 範圍                | 放哪裡                                           | 副檔名          | 🔒 由誰收進來                   |
 | ------------------- | ------------------------------------------------ | --------------- | ------------------------------- |
 | backstage 單元／元件 | 受測檔旁的 `__tests__/`，或元件資料夾內同層       | `*.test.ts(x)`  | `apps/backstage/vitest.config.ts`     |
-| auth 單元／元件     | 受測檔旁的 `__tests__/`，或元件資料夾內同層       | `*.test.ts(x)`  | `apps/auth/vitest.config.ts`    |
+| platform 單元／元件 | 受測檔旁的 `__tests__/`，或元件資料夾內同層       | `*.test.ts(x)`  | `apps/platform/vitest.config.ts`    |
 | api 單元            | 受測檔旁的 `__tests__/`                           | `*.spec.ts`     | `apps/api/vitest.config.ts`     |
 | api 整合（真 DB）   | `apps/api/test/`                                 | `*.spec.ts`     | `apps/api/vitest.config.ts`     |
 | file-storage 單元   | 受測檔旁的 `__tests__/`                           | `*.spec.ts`     | `apps/file-storage/vitest.config.ts` |

@@ -1,6 +1,6 @@
 /**
  * 平台的通知類型（docs/architecture/backend/15-notification.md §6.2）。已發出的類型不改名：舊通知與前端的文案都以它對照。
- * apps/auth 的 `features/notification` 有同一張表的文案對照。
+ * apps/platform 的 `features/notification` 有同一張表的文案對照。
  */
 export const PlatformNotificationType = {
   /** 租戶佈建完成，可以使用了。收件人：能建立租戶的平台管理者。 */
@@ -14,7 +14,7 @@ export const PlatformNotificationType = {
 export type PlatformNotificationType =
   (typeof PlatformNotificationType)[keyof typeof PlatformNotificationType];
 
-/** apps/auth 的 route id（前端 `features/notification` 依它導向；已發出的 id 不改名）。 */
+/** apps/platform 的 route id（前端 `features/notification` 依它導向；已發出的 id 不改名）。 */
 export const PlatformNotificationRoute = {
   TENANT_DETAIL: 'tenant.detail',
   PROFILE: 'account.profile',

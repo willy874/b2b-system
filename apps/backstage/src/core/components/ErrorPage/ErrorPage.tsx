@@ -33,7 +33,7 @@ export function ErrorPage({ code, title, description, action, ...rest }: ErrorPa
  * 部署新版後，舊分頁 lazy 載入的舊 chunk 已經不在伺服器上。各瀏覽器的訊息不同：
  * Chrome「Failed to fetch dynamically imported module」、Firefox「error loading dynamically imported module」、
  * Safari「Importing a module script failed」；Vite 的 preload 失敗則是「Unable to preload CSS」。
- * （與 apps/auth 的 app/ErrorPages.tsx 相同）
+ * （與 apps/platform 的 app/ErrorPages.tsx 相同）
  */
 const CHUNK_ERROR_PATTERN =
   /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS/i;

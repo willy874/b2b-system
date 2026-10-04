@@ -138,7 +138,7 @@ export class PermissionsGuard implements CanActivate {
 
 ### 3.2 平台管理者的端點（`@RequirePlatformPermissions`）
 
-apps/auth 的平台管理者與租戶的使用者是兩份帳號（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D5），
+apps/platform 的平台管理者與租戶的使用者是兩份帳號（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D5），
 權限目錄也是兩份（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §8）。平台的端點宣告
 `@RequirePlatformPermissions('tenant:create')`（所有鍵都要有），同一個 `PermissionsGuard` 判斷：
 
@@ -589,7 +589,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/auth/setup/verify`        | `@Public`                        |
 | POST   | `/auth/setup`               | `@Public`                        |
 | POST   | `/auth/sso/callback`        | `@Public`（授權碼 ＋ PKCE 就是憑證，[`architecture/04-sso.md`](../04-sso.md) §12.2 D3） |
-| POST   | `/platform/auth/sso/callback` | `@Public`（apps/auth 的 BFF：平台管理者，[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D5） |
+| POST   | `/platform/auth/sso/callback` | `@Public`（apps/platform 的 BFF：平台管理者，[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D5） |
 | POST   | `/platform/auth/refresh`    | `@Public`                        |
 | POST   | `/platform/auth/logout`     | `@Authenticated`（平台管理者）   |
 | GET    | `/platform/auth/profile`    | `@Authenticated`（平台管理者）   |
@@ -605,7 +605,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/platform/jobs` | `@RequirePlatformPermissions('platformJob:read')` |
 | GET    | `/platform/jobs/:id` | `@RequirePlatformPermissions('platformJob:read')` |
 | POST   | `/platform/jobs/:id/retry` | `@RequirePlatformPermissions('platformJob:retry')` |
-| GET    | `/platform/tenants` | `@RequirePlatformPermissions('tenant:read')`（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D12、D13；只在 apps/auth 的網域） |
+| GET    | `/platform/tenants` | `@RequirePlatformPermissions('tenant:read')`（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D12、D13；只在 apps/platform 的網域） |
 | GET    | `/platform/tenants/:id` | `@RequirePlatformPermissions('tenant:read')` |
 | POST   | `/platform/tenants` | `@RequirePlatformPermissions('tenant:create')` |
 | PATCH  | `/platform/tenants/:id` | `@RequirePlatformPermissions('tenant:update')` |

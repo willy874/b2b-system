@@ -2,7 +2,7 @@
 export const OIDC_CLIENT = {
   /** apps/backstage */
   BACKSTAGE: 'backstage',
-  /** apps/auth 自己的頁面（租戶管理等）也經 SSO 登入 */
+  /** apps/platform 自己的頁面（租戶管理等）也經 SSO 登入 */
   AUTH: 'auth',
 } as const;
 

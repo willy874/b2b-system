@@ -21,7 +21,7 @@ export interface AccessTokenPayload {
   jti: string;
   /** 簽發時的租戶（docs/architecture/05-tenancy.md §10.2 D10）：拿到別的租戶的網域就無效。平台管理者沒有。 */
   tid?: string;
-  /** 平台管理者的 token（apps/auth，D5）；只在不屬於任何租戶的網域有效。 */
+  /** 平台管理者的 token（apps/platform，D5）；只在不屬於任何租戶的網域有效。 */
   realm?: 'platform';
   /** 經 SSO 登入時的 IdP session（docs/architecture/04-sso.md §12.2 D5）；密碼直接登入時沒有。 */
   sid?: string;
@@ -89,7 +89,7 @@ export class AccessTokenVerifier {
     }
 
     // 身分範圍由網域決定：租戶網域只接受那個租戶簽的 token（使用者 id 只在自己的租戶 DB 有意義）；
-    // 不屬於任何租戶的網域（apps/auth）只接受平台管理者的 token
+    // 不屬於任何租戶的網域（apps/platform）只接受平台管理者的 token
     const tenant = currentTenant();
     const matches = tenant
       ? payload.tid === tenant.id
@@ -99,7 +99,7 @@ export class AccessTokenVerifier {
 
   /**
    * 已驗過簽的身分（例：socket 上的 `userId` ＋ `tokenVersion`）是否仍有效。
-   * 有租戶脈絡時查那個租戶的使用者；沒有（apps/auth 的網域）時查平台管理者（docs/architecture/backend/08-realtime.md §3.6）。
+   * 有租戶脈絡時查那個租戶的使用者；沒有（apps/platform 的網域）時查平台管理者（docs/architecture/backend/08-realtime.md §3.6）。
    */
   async checkUser(userId: string, tokenVersion: number): Promise<UserCheckResult> {
     return this.checkIdentity(userId, tokenVersion, () =>

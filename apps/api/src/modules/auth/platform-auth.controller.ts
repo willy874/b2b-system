@@ -31,9 +31,9 @@ import type {
 import { PlatformAuthService } from './platform-auth.service';
 
 /**
- * 平台管理者在 apps/auth 的 session（docs/architecture/05-tenancy.md §10.2 D5）。
+ * 平台管理者在 apps/platform 的 session（docs/architecture/05-tenancy.md §10.2 D5）。
  * 形狀與 `/auth/*` 相同，refresh cookie 的 path 是 `PLATFORM_REFRESH_COOKIE_PATH`。
- * 只在 apps/auth 的網域有效（service 檢查），租戶網域上回 `PLATFORM_ONLY`。
+ * 只在 apps/platform 的網域有效（service 檢查），租戶網域上回 `PLATFORM_ONLY`。
  */
 @ApiTags('platform-auth')
 @Controller('platform/auth')
@@ -47,7 +47,7 @@ export class PlatformAuthController {
   @HttpCode(200)
   @Public()
   @RateLimit('auth')
-  @ApiOperation({ summary: 'apps/auth 的 BFF：授權碼 ＋ PKCE verifier 換平台管理者的 session' })
+  @ApiOperation({ summary: 'apps/platform 的 BFF：授權碼 ＋ PKCE verifier 換平台管理者的 session' })
   @ApiZodBody(SsoCallbackSchema)
   @ApiZodResponse(200, SessionSchema)
   async ssoCallback(

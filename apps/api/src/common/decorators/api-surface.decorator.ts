@@ -4,7 +4,7 @@ export const API_SURFACE = 'api:surface';
 
 /**
  * 路由屬於哪一個入口（docs/architecture/06-external-api.md §9.2 D11）：
- * - `internal`（預設，不必標）：內部 api，給 backstage 與 apps/auth，認 JWT access token
+ * - `internal`（預設，不必標）：內部 api，給 backstage 與 apps/platform，認 JWT access token
  * - `external`：對外 API（另一個程序），只認 API token；路徑一律在 `/v1/` 底下
  * - `both`：兩邊都有（只給健康檢查）
  *

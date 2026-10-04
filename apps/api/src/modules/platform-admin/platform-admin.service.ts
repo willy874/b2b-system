@@ -12,7 +12,7 @@ import { PlatformAdminRepository } from './platform-admin.repository';
 import { PlatformAuditService } from './platform-audit.service';
 
 /**
- * 平台管理者的帳號（docs/architecture/05-tenancy.md §10.2 D5、D8）：apps/auth 不帶租戶的登入互動對這裡驗證。
+ * 平台管理者的帳號（docs/architecture/05-tenancy.md §10.2 D5、D8）：apps/platform 不帶租戶的登入互動對這裡驗證。
  * 帳密檢查的規則與租戶的 `AuthService.verifyCredentials` 相同（列舉防護、鎖定、狀態、稽核）。
  */
 @Injectable()

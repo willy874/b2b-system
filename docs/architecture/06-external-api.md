@@ -143,7 +143,7 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 這帶來幾個問題：CI、美術工具、遊戲建置流程手上拿的是真人的密碼；權限等於那個人的全部權限；稽核分不出是人還是程式；
 那個人離職，整合就跟著壞；之後做 MFA，這條路會直接斷掉。
 
-另一個問題是：現在的 api **只服務內部**，對象是 backstage 與 apps/auth。路由、DTO、錯誤碼跟著前端一起改，SDK 由 `openapi.json` 產生、
+另一個問題是：現在的 api **只服務內部**，對象是 backstage 與 apps/platform。路由、DTO、錯誤碼跟著前端一起改，SDK 由 `openapi.json` 產生、
 同一個 commit 內同步。這份契約不適合直接交給外部系統：
 
 - 外部整合需要 **穩定、有版本** 的契約；內部 API 改一個欄位名稱，應該只影響同一個 repo 裡的前端。
@@ -205,7 +205,7 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 
 - OAuth2 client credentials 與第三方應用程式的授權同意畫面。
 - token 的 IP 白名單（之後可以在 `api_tokens` 加欄位，也可以在對外網域的 WAF 做）。
-- 平台管理者（apps/auth）的 token，以及平台層級的對外 API。
+- 平台管理者（apps/platform）的 token，以及平台層級的對外 API。
 - 對外的 WebSocket，以及內部 api 接受 API token。
 - scope 限制到資源層的能力（D3）。
 

@@ -34,9 +34,9 @@ import type {
 } from './dto/auth.dto';
 
 /**
- * 平台管理者在 apps/auth 的 app session（docs/architecture/05-tenancy.md §10.2 D5）：
+ * 平台管理者在 apps/platform 的 app session（docs/architecture/05-tenancy.md §10.2 D5）：
  * 規則與租戶的 app session 相同（docs/architecture/backend/04-auth.md §10：5 分鐘 access token ＋ 輪替式 refresh cookie、docs/architecture/04-sso.md §12 的 BFF 與單一登出），
- * 資料在平台 DB。只在 apps/auth 的網域提供：租戶網域上一律 `PLATFORM_ONLY`。
+ * 資料在平台 DB。只在 apps/platform 的網域提供：租戶網域上一律 `PLATFORM_ONLY`。
  *
  * access token 帶 `realm: 'platform'`、不帶 `tid`：`AccessTokenVerifier` 在沒有租戶的網域只接受這種 token。
  */

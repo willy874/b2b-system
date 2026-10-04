@@ -13,7 +13,7 @@ import {
 import type { ListPlatformJobDto } from './dto/job.dto';
 import { PlatformJobService } from './platform-job.service';
 
-/** 平台的背景工作監控（apps/auth）：所有租戶與平台自己的工作。租戶網域上回 `PLATFORM_ONLY`。 */
+/** 平台的背景工作監控（apps/platform）：所有租戶與平台自己的工作。租戶網域上回 `PLATFORM_ONLY`。 */
 @ApiTags('platform-jobs')
 @Controller('platform/jobs')
 export class PlatformJobController {

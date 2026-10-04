@@ -10,8 +10,8 @@
 
 | 領域 | 內容 |
 | --- | --- |
-| 多租戶 | 每個租戶一個 database 與網域；平台管理者在 `apps/auth` 建立、佈建、停用、刪除租戶，並為每個租戶開關模組與 feature flag |
-| 身分與登入 | `apps/api` 當 OIDC Provider、`apps/auth` 統一登入入口、外部 IdP（OIDC）與網域導向、單一登出；rotating refresh token 與重用偵測 |
+| 多租戶 | 每個租戶一個 database 與網域；平台管理者在 `apps/platform` 建立、佈建、停用、刪除租戶，並為每個租戶開關模組與 feature flag |
+| 身分與登入 | `apps/api` 當 OIDC Provider、`apps/platform` 統一登入入口、外部 IdP（OIDC）與網域導向、單一登出；rotating refresh token 與重用偵測 |
 | 權限 | 角色 × 權限鍵（`resource:action`）＋ 關係圖（ReBAC）：巢狀群組、資料夾層級授權與繼承、反提權、「為什麼能做 X」的說明 |
 | 管理功能 | 使用者、角色、群組、權限目錄、審批（註冊需核准）、個人帳號、系統設定 |
 | 稽核 | 所有寫入與授權決策的 append-only 紀錄，熱表 / 冷表自動搬移 |
@@ -35,7 +35,7 @@
 
 ```
 apps/backstage      租戶的後台（React；feature-first + plugin-based AppContext）
-apps/auth           全平台共用的身分與租戶入口：登入互動頁、帳號流程、平台管理（React）
+apps/platform           全平台共用的身分與租戶入口：登入互動頁、帳號流程、平台管理（React）
 apps/api            後端（NestJS；modules / core / common / db），同時是 OIDC Provider
 apps/file-storage   S3 相容的本機物件儲存
 apps/e2e            Playwright
@@ -63,14 +63,14 @@ pnpm db:up
 pnpm db:migrate
 pnpm db:seed          # 首次會印出初始帳號的密碼（只印這一次）
 
-# 5. 啟動：postgres + Mailpit + api + backstage + auth + file-storage
+# 5. 啟動：postgres + Mailpit + api + backstage + platform + file-storage
 pnpm dev
 ```
 
 | 服務 | 網址 |
 | --- | --- |
 | backstage（租戶後台） | http://localhost:5173 |
-| auth（登入入口、平台管理） | http://localhost:5175 |
+| platform（登入入口、平台管理） | http://localhost:5175 |
 | api（Swagger 在 `/docs`，僅非 production） | http://localhost:3000 |
 | file-storage | http://localhost:9000 |
 | Mailpit（開發用收信匣） | http://localhost:8025 |
@@ -82,11 +82,11 @@ pnpm dev
 | 指令 | 作用 |
 | --- | --- |
 | `pnpm dev` | 先 build `packages/*`，再起全部服務 |
-| `pnpm dev:api` / `dev:backstage` / `dev:auth` / `dev:storage` | 單獨啟動一個服務 |
+| `pnpm dev:api` / `dev:backstage` / `dev:platform` / `dev:storage` | 單獨啟動一個服務 |
 | `pnpm dev:mock-idp` | 模擬的外部 IdP（:4455），開發外部 IdP 登入用 |
 | `pnpm dev:e2e` | 以放寬的速率限制、寄信到 Mailpit 啟動 api（跑 E2E 時用） |
 | `pnpm storybook` | 設計系統元件（:6006） |
-| `pnpm build` | 依序建置 api-sdk → api → backstage → auth |
+| `pnpm build` | 依序建置 api-sdk → api → backstage → platform |
 | `pnpm lint` / `format` / `format:check` / `typecheck` | 全 workspace 檢查 |
 | `pnpm test` | 單元 ＋ 整合（後端整合測試用 Testcontainers 起 postgres） |
 | `pnpm test:e2e` | Playwright（首次需 `pnpm --filter @b2b-system/e2e install:browsers`） |
@@ -128,7 +128,7 @@ pnpm test        # 單元 ＋ 整合
 pnpm test:e2e    # Playwright：需要 api 已啟動，且 DB 有 E2E 帳號
 ```
 
-E2E 的完整前置（Playwright 會自己起 backstage、auth 與模擬 IdP，已在跑的會沿用）：
+E2E 的完整前置（Playwright 會自己起 backstage、platform 與模擬 IdP，已在跑的會沿用）：
 
 ```bash
 pnpm db:reset && pnpm db:seed && pnpm db:seed:e2e
@@ -142,7 +142,7 @@ pnpm test:e2e
 
 ```
 backstage（nginx，:8080）─┬→ api（REST ＋ Socket.io ＋ OIDC）→ postgres
-auth（nginx，:8081）──────┘                          └→ file-storage（S3 相容）
+platform（nginx，:8081）──────┘                          └→ file-storage（S3 相容）
 ```
 
 `migrate` 是一次性工作，migration 與冪等 seed 跑完才啟動 api。必填的環境變數（compose 會以 `:?required` 擋下）包含
@@ -154,6 +154,6 @@ auth（nginx，:8081）──────┘                          └→ fil
 docker compose -f docker-compose.prod.yml up --build
 ```
 
-- 映像：`apps/api/Dockerfile`、`apps/backstage/Dockerfile`、`apps/auth/Dockerfile`、`apps/file-storage/Dockerfile`；nginx 設定在 `deploy/`
+- 映像：`apps/api/Dockerfile`、`apps/backstage/Dockerfile`、`apps/platform/Dockerfile`、`apps/file-storage/Dockerfile`；nginx 設定在 `deploy/`
 - `REFRESH_COOKIE_PATH` 必須與反向代理對外的前綴一致（預設 `/api/auth`）
 - 租戶的網域、佈建與部署細節見 [`docs/architecture/05-tenancy.md`](./docs/architecture/05-tenancy.md)，系統拓撲見 [`docs/architecture/01-system.md`](./docs/architecture/01-system.md) §4

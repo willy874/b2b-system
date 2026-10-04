@@ -48,9 +48,9 @@
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**登入不在 backstage**：`apps/auth` 是全平台共用、不屬於任何租戶的前端（獨立的 origin），`apps/api` 當 OIDC Provider。
-backstage 以授權碼 ＋ PKCE 跳到 apps/auth 登入，再以自己 origin 的 `/api/auth/sso/callback` 換成上圖的 app session。
-平台層級的頁面（外部 IdP 連線、帳號流程；之後的租戶管理，[`architecture/05-tenancy.md`](05-tenancy.md) §10）也在 apps/auth。見 [`04-sso.md`](./04-sso.md)。
+**登入不在 backstage**：`apps/platform` 是全平台共用、不屬於任何租戶的前端（獨立的 origin），`apps/api` 當 OIDC Provider。
+backstage 以授權碼 ＋ PKCE 跳到 apps/platform 登入，再以自己 origin 的 `/api/auth/sso/callback` 換成上圖的 app session。
+平台層級的頁面（外部 IdP 連線、帳號流程；之後的租戶管理，[`architecture/05-tenancy.md`](05-tenancy.md) §10）也在 apps/platform。見 [`04-sso.md`](./04-sso.md)。
 
 ---
 
@@ -93,9 +93,9 @@ repository ✗──▶ service  （單向）
 ### 3.1 登入
 
 ```
-[backstage] /auth/login → 頂層跳轉 → {apps/auth}/api/oidc/auth?client_id=backstage&code_challenge=…&state=…
-  [api] oidc-provider：沒有 IdP session → apps/auth /interaction/:uid
-[apps/auth] 互動頁 └─▶ POST /oidc-interaction/:uid/login { email, password }（或導向外部 IdP）
+[backstage] /auth/login → 頂層跳轉 → {apps/platform}/api/oidc/auth?client_id=backstage&code_challenge=…&state=…
+  [api] oidc-provider：沒有 IdP session → apps/platform /interaction/:uid
+[apps/platform] 互動頁 └─▶ POST /oidc-interaction/:uid/login { email, password }（或導向外部 IdP）
         [api] AuthService.verifyCredentials
                 ├─ UserRepository.findByEmail          (citext 比對)
                 ├─ argon2.verify(password_hash, pw)
@@ -116,7 +116,7 @@ repository ✗──▶ service  （單向）
   └─▶ router.history.replace(returnTo)
 ```
 
-已有 IdP session 時（例：先在 apps/auth 登入過），provider 直接帶授權碼跳回，不出現登入頁。細節見 [`04-sso.md`](./04-sso.md) §3。
+已有 IdP session 時（例：先在 apps/platform 登入過），provider 直接帶授權碼跳回，不出現登入頁。細節見 [`04-sso.md`](./04-sso.md) §3。
 
 ### 3.2 一次受權限保護的寫入
 
@@ -180,7 +180,7 @@ pnpm dev
 ├─ apps/backstage     vite                     (localhost:5173)
 │                       ├─ proxy /api     → http://localhost:3000（ws: true，含 /api/socket.io）
 │                       └─ proxy /storage → http://localhost:9000（不去前綴、不改 Host：presigned URL）
-└─ apps/auth          vite                     (localhost:5175，IdP 的 origin)
+└─ apps/platform          vite                     (localhost:5175，IdP 的 origin)
                         └─ proxy /api     → http://localhost:3000
 ```
 
@@ -221,16 +221,16 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 | `api`      | `b2b-system-api`             | REST、Socket.io、權限快取                            | migrate **成功結束**、file-storage healthy |
 | `file-storage` | `apps/file-storage/Dockerfile` | S3 相容的物件儲存（[`03-file-storage.md`](./03-file-storage.md)） | —                     |
 | `backstage` | `apps/backstage/Dockerfile`（nginx）| 靜態檔、反向代理、安全標頭                 | api healthy                     |
-| `auth`     | `apps/auth/Dockerfile`（nginx，`deploy/nginx.auth.conf`）| 身分與租戶入口：**獨立的 origin**（`:8081`），`/api/*` 同樣反向代理到 api | api healthy |
+| `platform` | `apps/platform/Dockerfile`（nginx，`deploy/nginx.platform.conf`）| 身分與租戶入口：**獨立的 origin**（`:8081`），`/api/*` 同樣反向代理到 api | api healthy |
 | `external-api` | `b2b-system-api`（`node dist/src/main.external.js`） | 對外 API：只認 API token、只入列不跑背景工作（[`06-external-api.md`](./06-external-api.md)） | migrate 成功結束、file-storage healthy |
 | `external-gateway` | `nginxinc/nginx-unprivileged`（`deploy/nginx.external-api.conf`） | 對外 API 的網域（`:8082`）；在自己的 `external` 網路，碰不到內部 api | external-api healthy |
 
 - **每個租戶一個網域**（[`05-tenancy.md`](./05-tenancy.md) §7）：backstage 的 nginx 是 `server_name _`，任何網域都由它服務，
-  `Host` 原樣轉給 api 決定租戶；`*.<TENANT_BASE_DOMAIN>` 要有 wildcard DNS 與憑證。平台管理者在 apps/auth 建立租戶時，
+  `Host` 原樣轉給 api 決定租戶；`*.<TENANT_BASE_DOMAIN>` 要有 wildcard DNS 與憑證。平台管理者在 apps/platform 建立租戶時，
   api 以 `TENANT_PROVISIONING_DATABASE_URL`（預設即 `PLATFORM_DATABASE_URL`）在同一台 postgres 建立那個租戶的 database 與 DB 角色。
 - 前端是純靜態產物，SPA fallback 到 `index.html`。正式產物 **不含 sourcemap**（nginx 會原樣提供 `dist` 的每個檔案）；要上傳到錯誤追蹤服務時以
-  `BUILD_SOURCEMAP=hidden` 建置、上傳後刪掉 `.map` 再部署。MSW 只在 `VITE_ENABLE_MOCK=true` 的建置裡。SSO 的網址（`VITE_OIDC_ISSUER`、`VITE_AUTH_APP_URL`）是建置參數，
-  由 `AUTH_PUBLIC_ORIGIN` 產生；api 另需 `OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`IDP_SECRET_KEY`（[`04-sso.md`](./04-sso.md) §7）。
+  `BUILD_SOURCEMAP=hidden` 建置、上傳後刪掉 `.map` 再部署。MSW 只在 `VITE_ENABLE_MOCK=true` 的建置裡。SSO 的網址（`VITE_OIDC_ISSUER`、`VITE_PLATFORM_APP_URL`）是建置參數，
+  由 `PLATFORM_PUBLIC_ORIGIN` 產生；api 另需 `OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`IDP_SECRET_KEY`（[`04-sso.md`](./04-sso.md) §7）。
 - `/api/*` 反向代理去掉前綴後轉給 NestJS；`/api/socket.io/` 另一段 location 帶 `Upgrade` header，
   `proxy_read_timeout` 大於 Socket.io 心跳間隔。
 - **網路分三段**：`backstage` 只在 `edge`，碰不到 `postgres`；`migrate` 只在 `data`；`file-storage` 在 `edge` 與 `storage`，
@@ -266,7 +266,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | 想拆出來的東西            | 現在不拆的理由                                                               | 拆的前提                                                                 |
 | ------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | Socket.io 獨立成 realtime 服務 | 推播必須在寫入交易之後、由同一個 service 觸發；拆開就要一條可靠的事件匯流排 | 有了 outbox 或 `LISTEN/NOTIFY` 事件流；連線數大到影響 REST 的延遲        |
-| auth 獨立（後端）服務     | 每個請求都要驗 token 與權限；拆開就是每個請求多一跳。有了第二個產品之後只拆了 **前端**（`apps/auth`，[`architecture/04-sso.md`](04-sso.md) §12.2 D2），OIDC Provider 仍是 api 的模組 | 身分服務要給本平台以外的系統用，且負載或發版節奏與 api 明顯不同         |
+| auth 獨立（後端）服務     | 每個請求都要驗 token 與權限；拆開就是每個請求多一跳。有了第二個產品之後只拆了 **前端**（`apps/platform`，[`architecture/04-sso.md`](04-sso.md) §12.2 D2），OIDC Provider 仍是 api 的模組 | 身分服務要給本平台以外的系統用，且負載或發版節奏與 api 明顯不同         |
 | Redis                     | 快取與 room 都在單一程序的記憶體裡就夠                                       | 見下一段；Postgres `LISTEN/NOTIFY` 能滿足時仍不需要                      |
 
 **api 水平擴展（`replicas > 1`）要同時具備四件事**，缺一就會出錯，所以 compose 目前固定單一執行個體：

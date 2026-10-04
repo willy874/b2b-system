@@ -84,7 +84,7 @@ describe('DashboardLayout', () => {
     expect(await screen.findByRole('button', { name: '帳號選單（Mei Lin）' })).toBeInTheDocument();
   });
 
-  it('帳號選單有「切換租戶」，前往 apps/auth 的進入租戶頁（租戶啟用了 tenantSwitch）', async () => {
+  it('帳號選單有「切換租戶」，前往 apps/platform 的進入租戶頁（租戶啟用了 tenantSwitch）', async () => {
     const assign = vi.fn();
     vi.stubGlobal('location', { ...window.location, assign });
     renderShell();

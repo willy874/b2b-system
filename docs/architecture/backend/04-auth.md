@@ -483,7 +483,7 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 流程、端點、資料模型與部署見 [`../04-sso.md`](../04-sso.md)；決定與理由見 [`architecture/04-sso.md`](../04-sso.md) §12。這裡只列與本文件各節的關係。
 
 - `modules/oidc-provider`：[`oidc-provider`](https://github.com/panva/node-oidc-provider) 掛在本程序的 `/oidc`（瀏覽器看到 `OIDC_ISSUER`，
-  apps/auth origin 底下的 `/api/oidc`）；狀態存在 `oidc_payloads`，過期的列由背景工作 `oidc.cleanup` 清除。
+  apps/platform origin 底下的 `/api/oidc`）；狀態存在 `oidc_payloads`，過期的列由背景工作 `oidc.cleanup` 清除。
 - 登入互動（`AuthModule` 的 `SsoInteractionController`）：密碼檢查與 `POST /auth/login` 同一套（§3，`AuthService.verifyCredentials`）。
 - 產品的 BFF（`POST /auth/sso/callback`）：在本程序內兌換授權碼後，照 §1、§2 發 app session，refresh token 多記 `client_id`、`idp_session_uid`；
   輪替時沿用。access token 帶 `sid`。
@@ -493,7 +493,7 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 - 外部 IdP（`modules/identity-provider` ＋ `AuthModule` 的 `ExternalLoginService`，[`architecture/04-sso.md`](../04-sso.md) §12.2 D8–D11）：
   1. 互動頁以 email 查網域（`GET /oidc-interaction/:uid/discover`），`POST …/:uid/external` 回傳外部 IdP 的授權網址（PKCE、state、nonce 存在 `oidc_payloads`，10 分鐘）
   2. 外部 IdP 跳回固定的 `GET /oidc-interaction/external/callback`：兌換授權碼、驗 ID token（email 不在 ID token 時查 userinfo）、對應帳號，
-     跳到 `…/:uid/external/complete?ticket=`；失敗時帶錯誤碼回到 apps/auth 的互動頁。這一步 **不拋例外**，任何錯誤都變成跳轉
+     跳到 `…/:uid/external/complete?ticket=`；失敗時帶錯誤碼回到 apps/platform 的互動頁。這一步 **不拋例外**，任何錯誤都變成跳轉
   3. `complete` 帶得到互動 cookie：消耗 ticket、完成互動（`amr = ['ext']`），之後與密碼登入相同
   - 只允許 SSO 的網域（`identity_provider_domains.sso_only`）：`verifyCredentials` 在查帳號之前回 `AUTH_SSO_REQUIRED`（不洩漏帳號是否存在）；
     `forgotPassword` 不寄信（回應不變，§5.2）
@@ -527,7 +527,7 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 | 推播 | `serviceAccount`、`apiToken` 兩個來源（[`08-realtime.md`](./08-realtime.md) §6.1） |
 
 **直接登入**（`POST /auth/login`，§3）：`DIRECT_LOGIN_ENABLED` 沒設定時 production 關閉（回 `404 NOT_FOUND`）、其他環境開啟。
-腳本改用 API token（D15）。登入互動（apps/auth）與 BFF 不受影響。
+腳本改用 API token（D15）。登入互動（apps/platform）與 BFF 不受影響。
 
 ---
 

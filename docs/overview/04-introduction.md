@@ -52,11 +52,11 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ## 2. 登入與 token：攻擊者和網路都不可靠
 
-登入不在產品本身。`apps/api` 用經過 OpenID 認證的 `oidc-provider` 當 OIDC Provider，`apps/auth` 是全平台共用的登入入口，每個後台都是它的 client（授權碼＋PKCE＋BFF）。全部是 host-only cookie，不用 iframe、不用 `postMessage` 傳 token，產品和登入入口不必同站。規格見 [`architecture/04-sso.md`](../architecture/04-sso.md)、[`architecture/backend/04-auth.md`](../architecture/backend/04-auth.md)。
+登入不在產品本身。`apps/api` 用經過 OpenID 認證的 `oidc-provider` 當 OIDC Provider，`apps/platform` 是全平台共用的登入入口，每個後台都是它的 client（授權碼＋PKCE＋BFF）。全部是 host-only cookie，不用 iframe、不用 `postMessage` 傳 token，產品和登入入口不必同站。規格見 [`architecture/04-sso.md`](../architecture/04-sso.md)、[`architecture/backend/04-auth.md`](../architecture/backend/04-auth.md)。
 
-![apps/auth 的登入畫面](./images/introduction/sso-login.jpg)
+![apps/platform 的登入畫面](./images/introduction/sso-login.jpg)
 
-*apps/auth 的登入互動頁。從後台 `localhost:5173` 被導到 `localhost:5175/interaction/…`；畫面寫明正在登入哪個租戶、哪個產品。*
+*apps/platform 的登入互動頁。從後台 `localhost:5173` 被導到 `localhost:5175/interaction/…`；畫面寫明正在登入哪個租戶、哪個產品。*
 
 | 情況 | 怎麼處理 |
 | --- | --- |
@@ -84,7 +84,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 | 沒有租戶脈絡 | `TENANT_DB` 是一個 Proxy，每次存取轉到目前租戶的 DB；沒有脈絡時直接拋錯。29 個 repository 只換了注入的 token |
 | A 租戶的 token 拿到 B 租戶 | access token 帶 `tid`，必須等於請求網域對應的租戶 |
 | 亂造 Host 打爆記憶體 | 網域解析的三個快取都是上限 5000 筆的 LRU；不在快照裡的 Host 直接當找不到，不查平台 DB |
-| 平台管理暴露在每個網域 | 平台端點在 apps/auth 以外的網域一律回 `404 PLATFORM_ONLY`，WAF 和 IP 白名單只要套在一個網域上 |
+| 平台管理暴露在每個網域 | 平台端點在 apps/platform 以外的網域一律回 `404 PLATFORM_ONLY`，WAF 和 IP 白名單只要套在一個網域上 |
 | 滾動部署時 migration 落後 | api 不自己跑 migration；進入租戶時比對 journal，落後的租戶回 `503 TENANT_UNAVAILABLE`，其他租戶不受影響 |
 | 佈建到一半程序重啟 | 生命週期 provisioning → active／failed → disabled → deleted，每一步冪等；每 5 分鐘把卡住的租戶收成 failed。`pnpm db:drop-tenant` 不加 `--confirm` 只列出要做的事 |
 
@@ -92,7 +92,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ![平台後台的租戶詳情頁](./images/introduction/platform-tenant-detail.jpg)
 
-*平台後台的租戶詳情（apps/auth）。網域與可啟用的功能（檔案、稽核、背景工作、回收桶、系統設定、外部 IdP、切換租戶）都在這裡管。關掉某個功能，租戶的 API 對它回 `404 FEATURE_DISABLED`，前端在執行期卸載該 feature；資料不刪，重新打開即恢復。功能下方另可調整配額與上限（檔案容量、稽核熱資料天數、背景工作同時執行數、外部 IdP 連線數、Webhook 網址數）。*
+*平台後台的租戶詳情（apps/platform）。網域與可啟用的功能（檔案、稽核、背景工作、回收桶、系統設定、外部 IdP、切換租戶）都在這裡管。關掉某個功能，租戶的 API 對它回 `404 FEATURE_DISABLED`，前端在執行期卸載該 feature；資料不刪，重新打開即恢復。功能下方另可調整配額與上限（檔案容量、稽核熱資料天數、背景工作同時執行數、外部 IdP 連線數、Webhook 網址數）。*
 
 ---
 
@@ -227,7 +227,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 - **結構測試**：後端層級依賴由 `apps/api/src/__tests__/layer-dependencies.spec.ts` 掃 import；前端 `design-system.test.ts` 擋寫死的色碼、外洩的 Base UI 型別，並要求每個元件都有測試與 story；只有一個檔案能 import socket.io-client。
 - **語系完整性**：測試比對兩個語系檔的鍵集合，並確認每個錯誤碼、每個權限鍵都有翻譯。
 - **暫時的開關會過期**：每個 feature flag 必填 `removeBy`，過期還留在目錄裡，單元測試直接失敗（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §11）。
-- **測試規模**：api 約 1,080 個案例（整合測試用 Testcontainers 起 Postgres 17，平台 DB 與租戶 DB 分開）、backstage 約 1,350、auth 約 670、E2E 11 個 spec 約 50 個案例（含 mock OIDC IdP 與 Mailpit 收信）。
+- **測試規模**：api 約 1,080 個案例（整合測試用 Testcontainers 起 Postgres 17，平台 DB 與租戶 DB 分開）、backstage 約 1,350、platform 約 670、E2E 11 個 spec 約 50 個案例（含 mock OIDC IdP 與 Mailpit 收信）。
 
 ### 9.2 敢推翻自己
 

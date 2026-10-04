@@ -51,9 +51,9 @@ export const ProfileSchema = defineSchema(
   }),
 );
 
-/** 平台管理者自己的身分（apps/auth，docs/architecture/05-tenancy.md §10.2 D5）。 */
+/** 平台管理者自己的身分（apps/platform，docs/architecture/05-tenancy.md §10.2 D5）。 */
 /**
- * 平台的權限鍵：以 `PlatformPermissionKey` 出現在 OpenAPI，apps/auth 由 api-sdk 取得常數（同租戶的 `PermissionKey`，docs/architecture/backend/03-api-conventions.md §12）。
+ * 平台的權限鍵：以 `PlatformPermissionKey` 出現在 OpenAPI，apps/platform 由 api-sdk 取得常數（同租戶的 `PermissionKey`，docs/architecture/backend/03-api-conventions.md §12）。
  */
 export const PlatformPermissionKeySchema = defineSchema(
   'PlatformPermissionKey',

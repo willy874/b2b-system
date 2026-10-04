@@ -7,7 +7,7 @@
     { "path": "./apps/api" },
     { "path": "./apps/file-storage" },
     { "path": "./apps/backstage" },
-    { "path": "./apps/auth" },
+    { "path": "./apps/platform" },
     { "path": "./apps/e2e" }
   ]
 }

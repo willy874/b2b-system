@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { apiLogin, apiRequest } from '../helpers/api';
-import { AUTH_URL, expectIdpLogin, login } from '../helpers/auth';
+import { PLATFORM_URL, expectIdpLogin, login } from '../helpers/auth';
 import { openMenuGroup } from '../helpers/menu';
 import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
@@ -79,7 +79,7 @@ test.describe('外部 IdP 登入', () => {
     await expect(page.getByTestId('identity-provider-page')).toBeVisible();
     await expect(getByTestIdAndValue(page, 'identity-provider-domain', SSO_DOMAIN)).toBeVisible();
     await expect(page.getByTestId('identity-provider-callback-url')).toHaveValue(
-      `${AUTH_URL}/api/oidc-interaction/external/callback`,
+      `${PLATFORM_URL}/api/oidc-interaction/external/callback`,
     );
     await snapshot(page, 'identity-provider-page');
   });

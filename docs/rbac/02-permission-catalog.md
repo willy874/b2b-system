@@ -312,7 +312,7 @@
 | 頁面         | 路由                       | Page Key        | 進入所需權限                     | 判定  |
 | ------------ | -------------------------- | --------------- | -------------------------------- | ----- |
 | 首頁         | `/`                        | `HOME`          | 無                               | —     |
-| 登入         | `/auth/login`（跳到 apps/auth 的 IdP）、`/auth/callback` | 不受管 | 無（未登入可進）   | —     |
+| 登入         | `/auth/login`（跳到 apps/platform 的 IdP）、`/auth/callback` | 不受管 | 無（未登入可進）   | —     |
 | 個人資料     | `/profile`（含個人存取 token） | `PROFILE`   | 無                               | —     |
 | 偏好設定     | `/preference`              | `PREFERENCE`    | 無                               | —     |
 | 通知         | `/notification`（`?filter=unread`） | `NOTIFICATION` | 無（只看得到自己的；[`../architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md) §4） | — |
@@ -343,8 +343,8 @@
 | 公告全文     | `/announcement/message/$dispatchId` | `ANNOUNCEMENT_MESSAGE` | 無（只看得到自己收到的） | — |
 | 回收桶       | `/trash`（分頁依各類型的 `<resource>:delete` 過濾） | `TRASH` | 任一種 `<resource>:delete`（`user:delete`、`role:delete`、`group:delete`、`file:delete`、`announcement:delete`；[`../architecture/frontend/13-trash.md`](../architecture/frontend/13-trash.md) §3） | SOME |
 
-apps/auth 只給平台管理者登入（[`../architecture/04-sso.md`](../architecture/04-sso.md) §1.1、§6.2），這個目錄的權限不適用；
-平台管理者的權限目錄在交付順序第 4 步加上租戶管理時建立。帳號流程（申請帳號、啟用、重設密碼）也在 apps/auth，未登入可進。
+apps/platform 只給平台管理者登入（[`../architecture/04-sso.md`](../architecture/04-sso.md) §1.1、§6.2），這個目錄的權限不適用；
+平台管理者的權限目錄在交付順序第 4 步加上租戶管理時建立。帳號流程（申請帳號、啟用、重設密碼）也在 apps/platform，未登入可進。
 
 > 頁面內的 **按鈕層級** gating 另由 `usePagePermission()` 派生的
 > `canCreate/canRead/canUpdate/canDelete` 決定，見
@@ -428,10 +428,10 @@ Seed 行為：
 
 ---
 
-## 8. 平台的權限目錄（apps/auth 的平台管理者）
+## 8. 平台的權限目錄（apps/platform 的平台管理者）
 
 平台管理者（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10.2 D5）與租戶的使用者是兩份帳號，權限目錄也是兩份：
-上面 §1–§7 是 **租戶** 的目錄（存在每個租戶的 DB）；這一節是 **平台** 的目錄，只在 apps/auth 的網域有效。
+上面 §1–§7 是 **租戶** 的目錄（存在每個租戶的 DB）；這一節是 **平台** 的目錄，只在 apps/platform 的網域有效。
 
 - 端點以 `@RequirePlatformPermissions(...)` 宣告（所有鍵都要有），租戶網域上一律 `404 PLATFORM_ONLY`；
   拒絕寫平台稽核 `platform_audit_logs`（`authz.denied`）。

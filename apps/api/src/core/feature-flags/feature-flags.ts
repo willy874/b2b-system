@@ -5,7 +5,7 @@
 export interface FeatureFlagDefinition {
   /** `<模組>.<名稱>`（camelCase），例：`levelEditor.v2`。上線後不改名：改名等於新 flag，覆寫會遺失。 */
   key: string;
-  /** 給平台管理者看的說明（apps/auth 的列表頁）。 */
+  /** 給平台管理者看的說明（apps/platform 的列表頁）。 */
   description: string;
   /** 兩級覆寫都沒有時的值；全面開放時可以改成 `true` 並部署（D12 ①）。 */
   defaultEnabled: boolean;

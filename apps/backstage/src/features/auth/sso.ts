@@ -12,7 +12,7 @@ export const SSO_CLIENT: SsoClientConfig = {
 
 /**
  * 頂層跳轉到 IdP 登入（docs/architecture/04-sso.md §12.2 D6），帶上這個網域的租戶代碼：
- * apps/auth 依它顯示租戶名稱、在那個租戶的帳號裡驗證（docs/architecture/05-tenancy.md §10.2 D7、D8）。
+ * apps/platform 依它顯示租戶名稱、在那個租戶的帳號裡驗證（docs/architecture/05-tenancy.md §10.2 D7、D8）。
  */
 export async function startSsoLogin(returnTo: string | undefined): Promise<void> {
   const tenant = await fetchCurrentTenantQuery({ params: undefined });

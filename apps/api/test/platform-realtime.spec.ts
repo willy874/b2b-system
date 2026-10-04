@@ -37,7 +37,7 @@ import { testTenantContext } from './tenant';
 
 type ClientSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-/** apps/auth 的網域（`AUTH_APP_URL` 的預設值）與測試租戶的網域。 */
+/** apps/platform 的網域（`PLATFORM_APP_URL` 的預設值）與測試租戶的網域。 */
 const AUTH_HOST = 'localhost:5175';
 const HOME_HOST = '127.0.0.1';
 const PASSWORD = 'PlatformPassword!2026';
@@ -190,7 +190,7 @@ describe('平台管理者的即時推播與站內通知（docs/architecture/back
     for (const close of closers) await close();
   });
 
-  it('apps/auth 的網域只接受平台管理者的 token；租戶網域不接受平台的 token', async () => {
+  it('apps/platform 的網域只接受平台管理者的 token；租戶網域不接受平台的 token', async () => {
     const root = await signPlatformToken('pr-super-admin@example.com');
     await connect(root);
     expect(await connectError(root, HOME_HOST)).toBe('AUTH_TOKEN_INVALID');

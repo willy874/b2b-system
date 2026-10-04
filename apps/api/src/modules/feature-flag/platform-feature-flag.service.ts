@@ -17,7 +17,7 @@ import type {
 import { PlatformFeatureFlagRepository } from './platform-feature-flag.repository';
 
 /**
- * 平台管理者的 feature flag 管理（apps/auth，docs/architecture/05-tenancy.md §11.2 D7、D8）：目錄與全平台層的覆寫。
+ * 平台管理者的 feature flag 管理（apps/platform，docs/architecture/05-tenancy.md §11.2 D7、D8）：目錄與全平台層的覆寫。
  * 租戶層的覆寫在租戶詳情（`PATCH /platform/tenants/:id` 的 `flags`）。
  */
 @Injectable()

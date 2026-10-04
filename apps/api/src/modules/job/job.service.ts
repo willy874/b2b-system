@@ -74,7 +74,7 @@ export class JobService {
     return this.findOne(id);
   }
 
-  /** 租戶的管理頁只看租戶的工作；平台工作（清除 IdP 狀態、清掃 outbox）之後在 apps/auth 看。 */
+  /** 租戶的管理頁只看租戶的工作；平台工作（清除 IdP 狀態、清掃 outbox）之後在 apps/platform 看。 */
   private tenantDefinitions() {
     return this.jobs.definitions().filter((definition) => definition.scope === 'tenant');
   }
