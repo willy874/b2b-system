@@ -81,6 +81,7 @@ describe('DashboardLayout（平台）', () => {
   it('品牌下方標示平台，而不是租戶；帳號選單以管理者名稱命名', async () => {
     renderShell();
     expect(await screen.findByTestId('current-realm')).toHaveTextContent('帳號平台');
+    expect(screen.getByTestId('brand-mark')).toHaveTextContent('B2B');
     expect(await screen.findByRole('button', { name: '帳號選單（Mei Lin）' })).toBeInTheDocument();
   });
 

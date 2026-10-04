@@ -81,7 +81,10 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
     >
       <aside id={sidebarId} className="ga-shell__sidebar" data-testid="sidebar">
         <div className="ga-shell__brand" title={iconOnly ? t('app.platform') : undefined}>
-          <span className="ga-shell__brand-mark">GA</span>
+          {/* 品牌徽章取自產品名稱，與 backstage 一致 */}
+          <span className="ga-shell__brand-mark" aria-hidden="true" data-testid="brand-mark">
+            {t('app.mark')}
+          </span>
           {!iconOnly && (
             <span className="ga-shell__brand-text">
               <span>{t('app.title')}</span>

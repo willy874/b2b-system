@@ -130,6 +130,7 @@
   },
   "app": {
     "title": "B2B System",
+    "mark": "B2B",
     "subtitle": "RBAC 管理後台",
     "featureDisabled": "目前的頁面所屬的功能已被停用",
     "featureInstallFailed": "功能載入失敗，請重新整理頁面"
