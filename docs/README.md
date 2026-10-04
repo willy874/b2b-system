@@ -4,9 +4,10 @@
 不綁定任何業務領域，先把每個後台都需要的基礎能力（身分、權限、稽核、檔案、背景工作、通知）做成
 會被強制使用的機制，之後的業務功能都建立在它上面。
 
-> 狀態：Phase 0（RBAC 骨架）已完成，之後陸續加入 SSO、多租戶、群組與關係圖、回收桶與版本歷史、站內通知等通用機制。
-> 進度見 [`overview/03-roadmap.md`](./overview/03-roadmap.md)，待製作的功能見 [`features/README.md`](./features/README.md)。
-> 最後更新：2026-10-01
+> 狀態：Phase 0（RBAC 骨架）已完成，之後陸續加入 SSO、多租戶、群組與關係圖、回收桶與版本歷史、站內通知、公告、Webhook、標籤等通用機制。
+> 能力地圖見 [`overview/01-overview.md`](./overview/01-overview.md) §3，畫面見 [`overview/05-feature-tour.md`](./overview/05-feature-tour.md)，
+> 時間軸見 [`overview/03-roadmap.md`](./overview/03-roadmap.md)，待製作的功能見 [`features/README.md`](./features/README.md)。
+> 最後更新：2026-10-04
 
 ---
 
@@ -19,7 +20,7 @@
 | 前端 UI  | **Base UI**（`@base-ui/react`）＋ 專案自有的 `components/` 封裝層                              |
 | 後端     | **NestJS** + **Drizzle ORM** + **PostgreSQL**                                                  |
 | 租戶與身分 | 每個租戶一個 database 與網域；`apps/platform` 是全平台共用的登入入口，`apps/api` 當 OIDC Provider |
-| 已有範圍 | 認證與 SSO、使用者、角色、群組、權限與關係圖、稽核日誌、個人帳號、審批、系統設定、檔案、背景工作、寄信、回收桶、版本歷史、站內通知 |
+| 已有範圍 | 認證與 SSO、使用者、角色、群組、權限與關係圖、服務帳號與 API token、稽核日誌、個人帳號、審批、系統設定、檔案、標籤、背景工作、寄信、回收桶、版本歷史、站內通知、公告、Webhook；平台的租戶與 feature 管理 |
 | 不在範圍 | 任何特定領域的業務功能；資源層級作用域目前只用在檔案管理器，新資源沿用同一套（見 [`rbac/07-resource-grants.md`](rbac/07-resource-grants.md) §13、[`rbac/07-resource-grants.md`](./rbac/07-resource-grants.md)） |
 
 ---
@@ -28,14 +29,15 @@
 
 **第一次讀（決策者 / Reviewer）**
 
-想先快速了解專案，讀 [`overview/04-introduction.md`](./overview/04-introduction.md)：各機制處理的邊際情況、與常見後台的差異，附截圖。
+想先快速了解專案：看畫面讀 [`overview/05-feature-tour.md`](./overview/05-feature-tour.md)（每個功能的截圖與背後的規則）；
+看設計讀 [`overview/04-introduction.md`](./overview/04-introduction.md)（各機制處理的邊際情況、與常見後台的差異）。
 
-1. [`overview/01-overview.md`](./overview/01-overview.md) — 目標、範圍、角色定義
+1. [`overview/01-overview.md`](./overview/01-overview.md) — 定位、能力地圖、角色、名詞
 2. [`overview/02-technology-selection.md`](./overview/02-technology-selection.md) — 技術選型與理由
 3. [`architecture/01-system.md`](./architecture/01-system.md) — 系統全貌與資料流
    （登入與身分見 [`architecture/04-sso.md`](./architecture/04-sso.md)；每個租戶一個 database 與網域見 [`architecture/05-tenancy.md`](./architecture/05-tenancy.md)）
 4. [`rbac/01-domain-model.md`](./rbac/01-domain-model.md) — RBAC 領域模型與關係圖（§6.4）
-5. [`overview/03-roadmap.md`](./overview/03-roadmap.md) — 實作階段與驗收條件
+5. [`overview/03-roadmap.md`](./overview/03-roadmap.md) — 現況、時間軸、Phase 0 的驗收基準
 
 **開始寫程式之前（所有人）**
 
@@ -69,11 +71,13 @@
 docs/
 ├── README.md                          ← 你在這裡
 │
-├── overview/                          為什麼做、做什麼、何時做
-│   ├── 01-overview.md                 專案總覽、範圍、使用者角色
-│   ├── 02-technology-selection.md     技術選型與評估
-│   ├── 03-roadmap.md                  分期實作計畫與驗收條件
-│   └── 04-introduction.md             專案介紹：邊際情況的處理、與常見後台的對照（截圖在 images/introduction/）
+├── overview/                          為什麼做、做什麼、做到哪裡
+│   ├── 01-overview.md                 專案總覽：定位、系統組成、能力地圖、角色、非功能需求、名詞
+│   ├── 02-technology-selection.md     技術選型與理由
+│   ├── 03-roadmap.md                  進度與路線：現況、時間軸、推翻過的決定、Phase 0 驗收基準
+│   ├── 04-introduction.md             專案介紹：邊際情況的處理、與常見後台的對照
+│   ├── 05-feature-tour.md             功能導覽：逐頁截圖與背後的規則（截圖由 apps/e2e/tour/ 產生，在 images/tour/）
+│   └── images/tour/
 │
 ├── architecture/                      系統長什麼樣子（規格）
 │   ├── 01-system.md                   系統架構、部署拓撲、端到端資料流

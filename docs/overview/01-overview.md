@@ -1,168 +1,198 @@
 # 專案總覽
 
-## 1. 專案定位
+這份文件回答三件事：B2B System 是什麼、它提供哪些能力、誰在用它。
+想看畫面，讀 [`05-feature-tour.md`](./05-feature-tour.md)；想知道每個機制替哪些邊際情況想過答案，讀 [`04-introduction.md`](./04-introduction.md)。
 
-**B2B System** 是一套 **通用型的多租戶 B2B 後台**。它不綁定任何業務領域：
-訂單、內容、專案、工單……任何需要「一群有不同職責的人，在同一個組織裡管理資料」的系統，
-都可以把業務功能加在它上面。
+---
 
-它的價值不在某個業務功能，而在 **每個後台都會重寫一次、又最容易寫錯的那一層**：
+## 1. 定位
+
+**B2B System 是一套通用型的多租戶 B2B 後台骨架。** 它不綁定任何業務領域：訂單、內容、專案、工單……
+只要是「一群職責不同的人，在同一個組織裡管理資料」的系統，都可以把業務功能加在它上面。
+
+它的價值不在某個業務功能，而在 **每個後台都會重寫一次、又最容易寫錯的那一層**。業務功能以 feature（前端）＋ module（後端）的形式加上去，
+直接拿到下表右欄的東西：
 
 | 能力 | 業務功能拿到的是什麼 |
 | --- | --- |
 | 身分與租戶 | 不用自己做登入、SSO、多租戶隔離；每個請求已經知道「哪個租戶的哪個人」 |
-| 權限 | 宣告權限鍵與（需要時）資源的關係，就有 guard、選單過濾、反提權、「為什麼能做 X」的說明 |
-| 稽核 | 寫入時在交易內記一筆，就能在稽核頁查到前後差異 |
-| 資料保護 | 樂觀鎖、回收桶、版本歷史以註冊的方式套用到新實體 |
-| 非同步與通知 | 背景工作、排程、寄信、站內通知與推播都有現成的入口 |
+| 權限 | 宣告權限鍵，就有後端 guard、選單過濾、反提權與「為什麼能做 X」的說明；需要資源層級的授權時，掛在同一張關係圖上 |
+| 稽核 | 在業務交易內記一筆，稽核頁就查得到前後差異 |
+| 資料保護 | 樂觀鎖、回收桶、版本歷史以「註冊」的方式套到新實體 |
+| 非同步 | 背景工作、排程、寄信都有交易安全的入口 |
+| 溝通 | 站內通知、公告、Webhook 有現成的類型登記與投遞 |
+| 對外整合 | 服務帳號、API token、獨立程序的對外 API（`/v1`） |
 
-開發順序是刻意的：**先把「誰能做什麼」一次做對**（Phase 0），再陸續補上上表的通用機制，最後才是業務功能。
-權限如果是功能上線後才補，會有兩個典型後果：
+### 1.1 先把「誰能做什麼」做對
 
-1. 權限檢查散落在各個 controller 與元件裡，沒有單一事實來源，稽核時無法回答
-   「某個角色到底能做什麼」。
-2. 前端 UI 的顯示/隱藏與後端的實際授權判斷各寫一套，必然發散。
+開發順序是刻意的：先做 RBAC 骨架（Phase 0），再補上上表的通用機制，最後才是業務功能。權限如果是功能上線後才補，有兩個典型後果：
 
-因此 Phase 0 的產出不是「一個有登入功能的空殼」，而是 **一組會被強制使用的機制**：
-後端有 `@RequirePermissions()` guard，前端有頁面權限註冊表，兩邊共用同一份
-由後端產生的權限鍵（`PermissionKey`）。
+1. 權限檢查散落在各個 controller 與元件，沒有單一事實來源，稽核時答不出「某個角色到底能做什麼」。
+2. 前端的顯示／隱藏與後端的實際授權各寫一套，必然發散。
 
----
-
-## 2. 首期範圍（Phase 0）
-
-### 2.1 In scope
-
-| 領域       | 內容                                                                                          |
-| ---------- | --------------------------------------------------------------------------------------------- |
-| 認證       | 登入、登出、Access Token 續期（rotating refresh token）、忘記密碼／重設密碼、首次啟用設定密碼 |
-| SSO（Phase 0 之後加入） | `apps/platform` 身分與租戶入口、`apps/api` 當 OIDC Provider、外部 IdP（OIDC）與網域導向、單一登出（[`architecture/04-sso.md`](../architecture/04-sso.md)） |
-| 租戶（Phase 0 之後加入） | 每個租戶一個 database 與網域；平台管理者在 apps/platform 建立、佈建、停用、刪除租戶，管理平台管理者、平台稽核與全平台的背景工作（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md)） |
-| 使用者管理 | 列表（分頁／搜尋／排序）、建立、檢視、編輯、停用／啟用、刪除、指派角色                        |
-| 角色管理   | 列表、建立、檢視、編輯、刪除、授予／移除權限、系統角色保護                                    |
-| 群組（Phase 0 之後加入） | 純分組：巢狀成員、群組持有角色、資料夾授權給群組；加成員受反提權限制、群組不能持有 super-admin（[`rbac/08-groups.md`](../rbac/08-groups.md)、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D10～D16） |
-| 授權的說明（Phase 0 之後加入） | 有效權限的來源、資料夾存取的路徑；查自己不需要權限、查別人要 `authz:explain`，看不到的節點只顯示種類（[`rbac/09-explain.md`](../rbac/09-explain.md)、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D14） |
-| 權限目錄   | 唯讀的權限清單 API 與 UI（resource × action），供角色編輯時挑選                               |
-| 個人帳號   | 個人資料檢視／編輯、變更密碼、偏好設定（語系、時區）                                          |
-| 稽核日誌   | 所有寫入操作與授權決策的記錄、列表與篩選                                                      |
-| 系統設定（Phase 0 之後加入） | 每個租戶執行期可調的帳號政策、上傳上限、預設時區（[`architecture/backend/12-settings.md`](../architecture/backend/12-settings.md)） |
-| 回收桶與版本歷史（Phase 0 之後加入） | 編輯的樂觀鎖（`version` 必填）；使用者、角色、檔案與資料夾刪除後進回收桶、保留期限內可還原、到期永久刪除；角色的版本紀錄與還原到某一版（[`architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)、[`architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md)） |
-| 站內通知（Phase 0 之後加入） | 每位收件人一筆、在業務交易內寫入；審批待審／結果、角色被指派或移除；頂列鈴鐺與未讀數、列表頁、全部已讀、保留清理；管理者的通知總覽（[`architecture/backend/15-notification.md`](../architecture/backend/15-notification.md)、[`architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md)） |
-| 公告（Phase 0 之後加入） | 管理者撰寫訊息，發給指定的人、群組、角色或全租戶；立即、指定時間、週期（租戶時區）、事件點（帳號啟用、被指派角色、加入群組）；發送紀錄、已讀率、撤回；收件人讀全文（[`architecture/backend/19-announcement.md`](../architecture/backend/19-announcement.md)、[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9） |
-| 檔案（Phase 0 之後加入） | S3 相容的物件儲存、分塊上傳、圖片縮圖、檔案管理器、資料夾層級的授權與繼承（[`architecture/backend/09-file.md`](../architecture/backend/09-file.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)） |
-| 背景工作與寄信（Phase 0 之後加入） | pg-boss 佇列、排程、重試與管理頁；郵件範本與寄送（[`architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md)、[`architecture/backend/11-mail.md`](../architecture/backend/11-mail.md)） |
-| 服務帳號與對外 API（Phase 0 之後加入） | 服務帳號、個人與服務帳號的 API token（限縮 scopes、到期、撤銷）；獨立程序的對外 API（`/v1`，只認 API token）（[`architecture/06-external-api.md`](../architecture/06-external-api.md) §9） |
-| 標籤（Phase 0 之後加入） | 依資源類型分開的標籤組（檔案管理器、使用者）、貼與移除跟著目標的編輯權限、列表依標籤篩選、標籤管理頁（[`architecture/backend/18-tag.md`](../architecture/backend/18-tag.md)、[`backend/18-tag.md`](../architecture/backend/18-tag.md) §7） |
-| Webhook（Phase 0 之後加入） | 使用者、審批、檔案的對外事件；訂閱、HMAC 簽章、背景工作投遞與重試、連續失敗自動停用、投遞紀錄與重送；連線時綁定已驗證的位址（[`architecture/backend/17-webhook.md`](../architecture/backend/17-webhook.md)、[`backend/17-webhook.md`](../architecture/backend/17-webhook.md) §9） |
-| 模組開關與 feature flag（Phase 0 之後加入） | 平台管理者為每個租戶開關模組與 flag（[`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §9、[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §11） |
-| 前端骨架   | App Shell、側邊選單（依權限過濾）、路由守衛、錯誤頁、i18n、主題                               |
-
-### 2.2 Out of scope（Phase 0 明確不做）
-
-- 任何特定領域的業務功能——本 repo 只提供骨架，業務功能由使用它的產品加上去
-- **資源層級作用域** 的通用化（例如「只能編輯自己專案的資源」）——目前只有檔案資料夾，
-  其他資源沿用同一套關係圖（理由見 [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §8，現況見 [`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)）
-- LDAP、SAML 整合（OIDC 的 SSO 已在 Phase 0 之後加入，見 [`architecture/04-sso.md`](../architecture/04-sso.md)）
-- MFA（雙因素驗證）— 資料表預留欄位，流程不實作
-- 批次匯入／匯出
+所以骨架的產出是 **一組會被強制使用的機制**：每個路由沒宣告授權方式，程序就啟動失敗；
+前端有頁面權限註冊表；兩邊共用同一份由後端產生的權限鍵（`PermissionKey`）。
 
 ---
 
-## 3. 使用者角色
+## 2. 系統組成
 
-| 角色       | slug          | 描述                                                                                   | 預設權限                                                     |
-| ---------- | ------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| 超級管理員 | `super-admin` | 系統唯一的最高權限帳號，由初始化流程建立。**繞過所有權限檢查**，不可刪除、不可移除權限 | 全部（隱含）                                                 |
-| 系統管理員 | `admin`       | 管理使用者、角色與權限的日常管理者                                                     | `user:*`、`role:*`、`permission:read`、`auditLog:read`       |
-| 唯讀稽核   | `auditor`     | 只能看，不能改。供稽核與客服使用                                                       | `user:read`、`role:read`、`permission:read`、`auditLog:read` |
-| 一般成員   | `member`      | 業務功能的一般使用者。沒有被授予其他權限時只能看自己的帳號頁                           | 無（僅個人頁面）                                             |
+| 應用 | 給誰用 | 做什麼 |
+| --- | --- | --- |
+| `apps/backstage` | 租戶的使用者 | 管理後台：人員、權限、檔案、稽核、通知……，以及之後的業務功能 |
+| `apps/platform` | 平台管理者；所有人的登入入口 | 全平台共用的登入互動頁（OIDC），以及租戶、平台管理者、feature flag 的管理 |
+| `apps/api` | 前兩者 | REST API、OIDC Provider、背景工作、WebSocket；另以獨立程序提供對外 API（`/v1`，只認 API token） |
+| `apps/file-storage` | 開發環境 | S3 相容的本機物件儲存 |
 
-上述四個角色是 **系統角色（`is_system = true`）**：不可刪除、不可改名。
-`admin` / `auditor` / `member` 的權限可被超級管理員調整；`super-admin` 不可調整。
+身分分兩個範圍：租戶的 `users`（登入 backstage）與平台的 `platform_admins`（登入 apps/platform）。同一個 email 在兩邊是兩個帳號。
+每個租戶有自己的 database 與網域，請求由網域決定租戶。見 [`architecture/01-system.md`](../architecture/01-system.md)、
+[`architecture/04-sso.md`](../architecture/04-sso.md) §1.1、[`architecture/05-tenancy.md`](../architecture/05-tenancy.md)。
 
 ---
 
-## 4. 使用者故事
+## 3. 能力地圖
 
-### 4.1 認證
+每一列是一組已經上線的能力。「導覽」連到 [`05-feature-tour.md`](./05-feature-tour.md) 的畫面，「規格」連到單一事實來源。
 
-**作為一名使用者，我希望用帳號密碼登入，以便進入系統。**
+### 3.1 身分與存取
 
-- **Given** 我持有一組已啟用的帳號
-- **When** 我在登入頁輸入正確的 email 與密碼並送出
-- **Then** 系統核發一組短期 Access Token（存在記憶體）與一組 Refresh Token（`httpOnly` cookie）
-- **And** 前端向 `GET /auth/profile` 取得我的身分與 **扁平化的權限鍵集合**
-- **And** 我被導向首頁，側邊選單只列出我有權限進入的項目
+| 能力 | 內容 | 導覽 | 規格 |
+| --- | --- | --- | --- |
+| 登入與 SSO | apps/platform 的登入互動頁、外部 IdP（OIDC）與網域導向、單一登出、忘記密碼、啟用信、註冊申請 | [§1](./05-feature-tour.md#1-登入) | [`04-sso.md`](../architecture/04-sso.md)、[`backend/04-auth.md`](../architecture/backend/04-auth.md) |
+| 使用者 | 列表（搜尋、排序、篩選、跨頁選取）、建立、編輯、停用、解鎖、重設密碼、指派角色、批次操作 | [§2.1](./05-feature-tour.md#21-使用者) | [`rbac/04-api-spec.md`](../rbac/04-api-spec.md) |
+| 角色 | 建立、複製、權限技能樹、系統角色保護、版本紀錄與還原 | [§2.2](./05-feature-tour.md#22-角色) | [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) |
+| 群組 | 巢狀成員、群組持有角色、資料夾授權給群組 | [§2.3](./05-feature-tour.md#23-群組) | [`rbac/08-groups.md`](../rbac/08-groups.md) |
+| 權限目錄與說明 | 唯讀權限清單與依賴樹；有效權限的來源路徑 | [§2.4](./05-feature-tour.md#24-權限目錄與有效權限) | [`rbac/02-permission-catalog.md`](../rbac/02-permission-catalog.md)、[`rbac/09-explain.md`](../rbac/09-explain.md) |
+| 服務帳號與 API token | 個人與服務帳號的 token（scopes、到期、撤銷）、對外 API | [§2.5](./05-feature-tour.md#25-服務帳號與-api-token) | [`06-external-api.md`](../architecture/06-external-api.md) |
+| 審批 | 申請 → 核准 → 套用；核准等同代為執行、四眼原則 | [§3.2](./05-feature-tour.md#32-審批) | [`rbac/06-approval.md`](../rbac/06-approval.md) |
 
-**作為一名使用者，我希望連續操作時不會突然被登出，以便專心工作。**
+### 3.2 資料與內容
 
-- **Given** 我的 Access Token 即將到期（剩餘 < 30 秒）
-- **When** 我發出任何需要認證的請求
-- **Then** 前端會先以 Refresh Token 續期再送出請求，過程對我無感
-- **And** 多個分頁同時操作時，只有一個分頁實際執行續期，其他分頁沿用結果
+| 能力 | 內容 | 導覽 | 規格 |
+| --- | --- | --- | --- |
+| 檔案 | S3 直傳、分塊上傳、影像變體、檔案管理器、資料夾層級的授權與繼承 | [§3.1](./05-feature-tour.md#31-檔案管理器) | [`backend/09-file.md`](../architecture/backend/09-file.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) |
+| 標籤 | 依資源類型分開的標籤組、列表依標籤篩選 | [§3.3](./05-feature-tour.md#33-標籤) | [`backend/18-tag.md`](../architecture/backend/18-tag.md) |
+| 稽核日誌 | 所有寫入與授權決策；前後差異；熱冷分層 | [§4.1](./05-feature-tour.md#41-稽核日誌) | [`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) |
+| 回收桶與版本歷史 | 樂觀鎖（`version` 必填）、刪除後可還原、到期永久刪除、角色的版本差異與還原 | [§4.2](./05-feature-tour.md#42-回收桶與版本紀錄) | [`backend/13-trash.md`](../architecture/backend/13-trash.md)、[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) |
 
-**作為一名使用者，我希望登出後我的 Token 立刻失效，以便保障帳號安全。**
+### 3.3 非同步與溝通
 
-- **Given** 我已登入
-- **When** 我點擊登出
-- **Then** 後端撤銷這條 Refresh Token 家族，前端清除記憶體中的 Access Token 與所有快取
+| 能力 | 內容 | 導覽 | 規格 |
+| --- | --- | --- | --- |
+| 背景工作與寄信 | pg-boss 佇列、排程、重試與管理頁；交易內入列（outbox）；郵件範本 | [§4.3](./05-feature-tour.md#43-背景工作) | [`backend/10-jobs.md`](../architecture/backend/10-jobs.md)、[`backend/11-mail.md`](../architecture/backend/11-mail.md) |
+| 站內通知 | 鈴鐺與未讀數、列表、全部已讀、通知總覽；事件的租戶開關與個人設定 | [§5.1](./05-feature-tour.md#51-站內通知) | [`backend/15-notification.md`](../architecture/backend/15-notification.md)、[`backend/16-notification-event.md`](../architecture/backend/16-notification-event.md) |
+| 公告 | 發給人、群組、角色或全體；立即、指定時間、週期、事件點；已讀率與撤回 | [§5.2](./05-feature-tour.md#52-公告) | [`backend/19-announcement.md`](../architecture/backend/19-announcement.md) |
+| Webhook | 對外事件、HMAC 簽章、投遞與重試、連續失敗自動停用、重送；SSRF 防護 | [§5.3](./05-feature-tour.md#53-webhook) | [`backend/17-webhook.md`](../architecture/backend/17-webhook.md) |
+| 即時推播 | 權限、通知、資料變更推到瀏覽器；只有一個分頁持有連線 | — | [`backend/08-realtime.md`](../architecture/backend/08-realtime.md)、[`frontend/11-realtime.md`](../architecture/frontend/11-realtime.md) |
 
-### 4.2 角色與權限
+### 3.4 租戶與平台
 
-**作為系統管理員，我希望建立角色並授予權限，以便用職責而非個人來管理授權。**
+| 能力 | 內容 | 導覽 | 規格 |
+| --- | --- | --- | --- |
+| 系統設定 | 每個租戶執行期可調的帳號政策、上傳上限、預設時區 | [§4.4](./05-feature-tour.md#44-系統設定與外部-idp) | [`backend/12-settings.md`](../architecture/backend/12-settings.md) |
+| 租戶管理 | 建立、佈建、停用、刪除；網域；功能開關與配額 | [§6.1](./05-feature-tour.md#61-租戶) | [`05-tenancy.md`](../architecture/05-tenancy.md) |
+| 平台管理 | 平台管理者、平台稽核、全平台的背景工作、feature flag | [§6.2](./05-feature-tour.md#62-平台管理者feature-flag-與平台稽核) | [`05-tenancy.md`](../architecture/05-tenancy.md) §11 |
+| 個人帳號 | 個人資料、變更密碼、語系、時區、主題、通知設定 | [§7](./05-feature-tour.md#7-個人帳號與介面) | [`frontend/09-state-and-storage.md`](../architecture/frontend/09-state-and-storage.md) |
 
-- **Given** 我有 `role:create` 權限
-- **When** 我建立一個角色並勾選要授予的權限
-- **Then** 我 **只能勾選我自己持有的權限**（反提權保護）
-- **And** 角色建立成功後立即可指派給使用者
+### 3.5 不在範圍
 
-**作為系統管理員，我希望調整角色權限後立刻生效，以便快速回應風險。**
+- 任何特定領域的業務功能——本 repo 只提供骨架。
+- LDAP、SAML（OIDC 的外部 IdP 已支援）。
+- 還沒做、但已有提案的功能（匯入匯出、留言與關注、全域搜尋、MFA、可觀測性、多實例部署、專案層級的授權）列在
+  [`features/README.md`](../features/README.md)。
 
-- **Given** 某使用者持有角色 R，R 原本有 `user:delete`
+---
+
+## 4. 角色
+
+### 4.1 租戶的系統角色
+
+以下四個是 **系統角色（`is_system = true`）**：不可刪除、不可改名。完整的權限清單在
+[`apps/api/src/db/seeds/roles.ts`](../../apps/api/src/db/seeds/roles.ts) 與 [`rbac/05-seed-and-bootstrap.md`](../rbac/05-seed-and-bootstrap.md)。
+
+| 角色 | slug | 用途 | 權限 |
+| --- | --- | --- | --- |
+| 超級管理員 | `super-admin` | 每個租戶的最高權限，由初始化或佈建建立 | 隱含全集（一條 `superAdmin` 邊，不列權限鍵）；不可調整 |
+| 系統管理員 | `admin` | 日常管理者 | 人員、角色、群組、檔案、審批、背景工作、外部 IdP、服務帳號、Webhook、標籤、公告的管理 |
+| 稽核人員 | `auditor` | 稽核與客服：只能看，不能改 | 上述資源的 `read`、稽核日誌、`authz:explain` |
+| 一般成員 | `member` | 業務功能的一般使用者 | 只有 `file:access`：進得了檔案管理器，範圍由資料夾授權決定 |
+
+`admin`、`auditor`、`member` 的權限可以調整，但受反提權限制：任何人都不能授予自己沒有的權限。
+
+### 4.2 平台角色
+
+平台管理者的角色固定三種，權限不存資料庫（[`rbac/02-permission-catalog.md`](../rbac/02-permission-catalog.md) §8）：
+
+| 角色 | 用途 |
+| --- | --- |
+| `super-admin` | 全部，包含管理其他平台管理者 |
+| `operator` | 建立與調整租戶（不能刪除）、重試背景工作、緊急關閉 feature flag |
+| `auditor` | 唯讀 |
+
+---
+
+## 5. 核心使用者故事
+
+完整的流程與錯誤碼在 [`rbac/03-flows.md`](../rbac/03-flows.md)；E2E 涵蓋的情境在 [`frontend/10-testing.md`](../architecture/frontend/10-testing.md) §4.1。
+
+**作為管理者，我希望調整角色權限後立刻生效，以便快速回應風險。**
+
+- **Given** 使用者持有角色 R，R 原本有 `user:delete`
 - **When** 我從 R 移除 `user:delete`
-- **Then** 該使用者的下一次請求（最遲 60 秒內，見 [`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5）即被拒絕
-- **And** 該使用者重新整理頁面後，UI 上的刪除按鈕消失
+- **Then** 他的下一次請求就被拒絕（主動失效不到 1 秒；跨程序的廣播漏掉時，最遲在快取 TTL 60 秒後）
+- **And** 他停在頁面上不重新整理，推播也會讓刪除按鈕消失；若推播漏掉，下一次操作收到 403 後畫面自我修正
 
-**作為系統管理員，我希望系統角色不會被誤刪，以便系統永遠有人管得動。**
+**作為管理者，我希望只能授予我自己持有的權限，以便權限不會被層層放大。**
 
-- **Given** 角色 `super-admin` 是系統角色
-- **When** 我嘗試刪除它或修改它的權限
-- **Then** 後端回 `403 ROLE_SYSTEM_PROTECTED`，前端不提供該操作入口
+- **Given** 我有 `role:grantPermission`，但沒有 `system:update`
+- **When** 我嘗試把 `system:update` 加進某個角色
+- **Then** 技能樹上這個權限標成「無法授予」；直接打 API 回 `403 AUTHZ_ESCALATION`
+- **And** 同一條規則也套在指派角色、加群組成員、資料夾授權、還原與審批核准上
 
-### 4.3 稽核
+**作為一般成員，我希望打開別人傳來的網址時知道自己缺權限，以便請人開通。**
 
-**作為稽核人員，我希望查到每一次權限變更的紀錄，以便追溯責任。**
+- **Given** 我只有 `member` 角色
+- **When** 我打開 `/role/create`
+- **Then** 登入後回到原網址，顯示 403 而不是被導回首頁；選單只列出我看得到的項目
 
-- **Given** 我有 `auditLog:read` 權限
-- **When** 我進入稽核日誌頁並以「資源類型 = 角色」篩選
-- **Then** 我看到每一筆角色建立／修改／刪除／授權變更，含操作者、時間、前後值差異、來源 IP
+**作為稽核人員，我希望查到每一次權限變更，以便追溯責任。**
 
----
-
-## 5. 非功能需求
-
-| 項目             | 目標                                                     |
-| ---------------- | -------------------------------------------------------- |
-| 授權判斷延遲     | Guard 端到端 < 5 ms（權限集合命中快取時）                |
-| 權限變更生效時間 | ≤ 60 秒（快取 TTL），明確失效事件 < 1 秒                 |
-| 前端首屏         | 登入頁 LCP < 1.5 s（本地建置產物 + gzip）                |
-| 語系             | zh-TW（預設）、en-US，語系包隨 feature 分包載入          |
-| 瀏覽器           | 最新兩個版本的 Chrome / Edge / Firefox / Safari          |
-| Node             | >= 24（`.nvmrc`；`@sigrea/core` 的最低要求）             |
-| 稽核保存         | 稽核日誌不可修改、不可刪除（append-only），保留 ≥ 365 天 |
+- **Given** 我有 `auditLog:read`
+- **When** 我以「資源類型 = 角色」篩選稽核日誌
+- **Then** 每一筆建立、修改、刪除、授權變更都有操作者、時間、前後差異與來源 IP；即使操作者後來被刪除，紀錄仍看得懂
 
 ---
 
-## 6. 名詞定義
+## 6. 非功能需求
 
-| 名詞                           | 定義                                                                        |
-| ------------------------------ | --------------------------------------------------------------------------- |
-| **Permission（權限）**         | 一個不可再分的動作許可，鍵格式為 `resource:action`，例如 `role:update`      |
-| **Permission Key**             | 權限的字串識別碼，由後端定義、透過 OpenAPI 傳遞給前端，兩端共用             |
-| **Role（角色）**               | 一組權限的具名集合                                                          |
-| **System Role（系統角色）**    | `is_system = true` 的角色，受刪除與改名保護                                 |
-| **Subject（主體）**            | 被授權的對象，Phase 0 只有 `User`                                           |
-| **Permission Set（權限集合）** | 某使用者透過其所有角色間接持有的權限鍵扁平集合                              |
-| **反提權（Anti-escalation）**  | 一個人不能授予他自己沒有的權限                                              |
-| **Page Key**                   | 前端「一個受管頁面」的識別碼，由 feature 自行鑄造並註冊到 `core/permission` |
-| **Token Family**               | 一條 Refresh Token 的輪替鏈，重用舊 Token 會使整個家族失效                  |
+| 項目 | 目標 |
+| --- | --- |
+| 授權判斷 | 權限快取命中時 < 1 ms；每個請求都在伺服器解析，權限不進 token |
+| 權限變更生效 | 主動失效 < 1 秒；漏掉廣播時最遲 60 秒（快取 TTL） |
+| 租戶隔離 | 每個租戶一個 database 與 DB 角色；沒有租戶脈絡時直接拋錯 |
+| 稽核 | append-only（DB 角色只有 INSERT／SELECT、trigger 擋 UPDATE／DELETE）；熱表 90 天、之後搬到壓縮的冷表 |
+| 語系 | zh-TW（預設）、en-US；語系包隨 feature 分包載入，兩個語系的鍵集合由測試比對 |
+| 主題 | 淺色與深色；兩個主題都通過 WCAG 對比測試 |
+| 瀏覽器 | 最新兩個版本的 Chrome、Edge、Firefox、Safari |
+| 執行環境 | Node ≥ 24、PostgreSQL 17 |
+
+---
+
+## 7. 名詞
+
+| 名詞 | 定義 |
+| --- | --- |
+| **租戶（Tenant）** | 一個使用本系統的組織；有自己的 database、網域與 bucket |
+| **Permission（權限）** | 不可再分的動作許可，鍵格式 `resource:action`，例如 `role:update` |
+| **Permission Key** | 權限的字串識別碼，由後端定義、經 OpenAPI 傳給前端 |
+| **Role（角色）** | 一組權限的具名集合 |
+| **System Role（系統角色）** | `is_system = true` 的角色，受刪除與改名保護 |
+| **Group（群組）** | 一組使用者或子群組；可以持有角色、被授權資料夾 |
+| **Subject（主體）** | 被授權的對象：使用者或群組；服務帳號是 `kind = 'service'` 的使用者 |
+| **Relation Tuple** | 關係圖上的一條邊（`物件#關係@主體`）；角色持有、角色的權限鍵、群組成員、資料夾授權都是 tuple |
+| **有效權限（Permission Set）** | 某主體經由所有路徑（角色、群組、上層群組）持有的權限鍵扁平集合 |
+| **反提權（Anti-escalation）** | 把主體放進某個關係時，主體因此取得的能力，操作者必須全部都有 |
+| **Page Key** | 前端「一個受管頁面」的識別碼，由 feature 在 plugin 同步階段註冊 |
+| **Feature** | 前端的一個功能資料夾；可由平台管理者對單一租戶開關，關掉時 API 回 `404 FEATURE_DISABLED`、前端卸載 |
+| **Feature Flag** | 暫時的開關，必填 `removeBy`，過期未移除會讓測試失敗 |
+| **Token Family** | 一條 refresh token 的輪替鏈；拿出早已用過的 token 會撤銷整條 |

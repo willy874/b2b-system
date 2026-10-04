@@ -1,142 +1,151 @@
 # 技術選型
 
-選型的第一原則：**前端整體架構沿用一套已在規模相近、同樣以 RBAC 為核心的產品上
-驗證過的設計**——plugin-based AppContext ＋ feature-first 分層 ＋ 執行期權限註冊表
-——重新發明沒有收益。UI 函式庫則改用 Base UI。後端為全新選型。
+這份文件回答「用了什麼、為什麼是它」。每一項的細節與被否決的方案，寫在對應規格最後的「設計決策」章節；這裡只留結論與一句理由。
+
+選型的原則有三條：
+
+1. **少一個服務就少一個故障點。** 佇列、跨程序廣播、權限關係圖都放在 PostgreSQL 上，沒有 Redis、沒有外部授權服務。
+   只有在 Postgres 確定撐不住時才加元件（[`features/multi-instance.md`](../features/multi-instance.md)）。
+2. **型別從一個地方來。** 資料表的型別來自 Drizzle schema，請求的型別來自 Zod schema，前端的 API 型別與權限鍵來自後端產生的 OpenAPI。
+3. **前端架構沿用驗證過的設計。** plugin-based AppContext ＋ feature-first 分層 ＋ 執行期權限註冊表，來自一套規模相近、同樣以 RBAC 為核心的產品；重新發明沒有收益。
 
 ---
 
 ## 1. 總覽
 
-| 層         | 選擇                                                   | 版本基準         |
-| ---------- | ------------------------------------------------------ | ---------------- |
-| 套件管理   | pnpm workspace                                         | pnpm 10.x        |
-| 語言       | TypeScript（strict）                                   | 6.0+             |
-| 前端框架   | React                                                  | 19.x             |
-| 前端建置   | Vite                                                   | 7.x / 8.x        |
-| 前端路由   | TanStack Router（code-based）                          | 1.13x            |
-| 前端資料層 | TanStack Query                                         | 5.x              |
-| 前端表格   | TanStack Table + TanStack Virtual                      | 9.x / 3.x        |
-| 前端表單   | TanStack Form                                          | 1.x              |
-| 前端 UI    | **Base UI**（`@base-ui/react`）                         | 1.x              |
-| 樣式       | UnoCSS（`preset-wind4`）＋ CSS 變數 Design Token       | 66.x             |
-| 前端狀態   | 自有輕量 store（`shared/store`）＋ TanStack Query 快取 | —                |
-| i18n       | i18next（無 react-i18next，自有 hook 薄封裝）          | 26.x             |
-| 驗證       | Zod                                                    | 4.x              |
-| 前端測試   | Vitest + Testing Library + MSW                         | 5.x / 16.x / 3.x |
-| E2E        | Playwright                                             | 1.5x             |
-| 後端框架   | **NestJS**                                             | 12.x             |
-| 後端 ORM   | **Drizzle ORM** + drizzle-kit                          | 0.44+            |
-| 資料庫     | **PostgreSQL**                                         | 16 / 17          |
-| 後端驗證   | Zod（透過自訂 `ZodValidationPipe`）                    | 4.x              |
-| API 文件   | `@nestjs/swagger` → OpenAPI 3.0 → 產生前端 SDK         | 12.x             |
-| 密碼雜湊   | Argon2id（`@node-rs/argon2`）                          | —                |
-| 後端測試   | Vitest + Testcontainers（PostgreSQL）                  | —                |
-| 程式碼風格 | oxlint + oxfmt                                         | —                |
+| 層 | 選擇 | 版本 |
+| --- | --- | --- |
+| 執行環境 | Node.js | 24（`.nvmrc`） |
+| 套件管理 | pnpm workspace | 10 |
+| 語言 | TypeScript（strict） | 6.0 |
+| 後端框架 | NestJS | 12 |
+| ORM 與 migration | Drizzle ORM ＋ drizzle-kit | 0.45 ／ 0.31 |
+| 資料庫 | PostgreSQL | 17 |
+| 驗證 | Zod（後端經自訂 `ZodValidationPipe`；前端表單與網址參數也用） | 4 |
+| API 文件與 SDK | `@nestjs/swagger` → `openapi.json` → `packages/api-sdk` | — |
+| 身分 | `oidc-provider`（OpenID 認證過的 OIDC Provider）、`jose` | 9 ／ 6 |
+| 密碼雜湊 | Argon2id（`@node-rs/argon2`） | — |
+| 背景工作 | pg-boss（佇列放在平台 DB） | 12 |
+| 即時推播 | Socket.io | 4 |
+| 物件儲存 | S3 API（`@aws-sdk/client-s3`）；開發用自帶的 `apps/file-storage` | — |
+| 影像處理 | sharp | 0.35 |
+| 郵件 | nodemailer ＋ React Email 範本；開發用 Mailpit | — |
+| 日誌 | Pino | 10 |
+| 前端框架 | React | 19 |
+| 前端建置 | Vite | 8 |
+| 路由 | TanStack Router（code-based） | 1 |
+| 伺服器狀態 | TanStack Query | 5 |
+| 表格 | TanStack Table ＋ TanStack Virtual | 9 ／ 3 |
+| 表單 | TanStack Form | 1 |
+| UI 行為層 | Base UI（`@base-ui/react`） | 1.8 |
+| 樣式 | UnoCSS（`preset-wind4`）＋ CSS 變數的 Design Token | 66 |
+| 程式碼編輯器 | CodeMirror 6 | 6 |
+| 圖與樹狀圖 | React Flow（`@xyflow/react`）＋ dagre | 12 ／ 3 |
+| i18n | i18next（不用 react-i18next，自有 hook 薄封裝） | 26 |
+| 單元與元件測試 | Vitest ＋ Testing Library ＋ MSW | 5 ／ 16 ／ 3 |
+| 後端整合測試 | Vitest ＋ Testcontainers（PostgreSQL） | — |
+| E2E | Playwright | 1.63 |
+| 元件文件 | Storybook | 10 |
+| Lint ／ Format ／ Git hook | oxlint ／ oxfmt ／ lefthook | — |
 
 ---
 
-## 2. 前端
+## 2. 後端
 
-### 2.1 為什麼採用這套架構
+### 2.1 NestJS
 
-它有四個值得保留的核心決定：
+- DI 容器與 `APP_GUARD` 讓「每個路由都要被授權」可以全域強制，不靠每個人記得加 guard。
+  啟動時的路由稽核（`common/route-audit.ts`）也靠 Nest 的 metadata 掃描路由。
+- Decorator metadata 是宣告式權限（`@RequirePermissions('role:update')`）最自然的載體。
+- `@nestjs/swagger` 讓 OpenAPI 幾乎零成本，再餵給前端的 SDK 產生器。
 
-1. **Plugin-based AppContext**
-   `main.tsx` 把所有能力（快取、事件匯流排、i18n、HTTP、各 feature）串成
-   `context.use(...).use(...).load()`。新增或拿掉一個 feature 就是增刪一行，
-   `core/` 不需要認識任何 feature。詳見
-   [`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §8。
+### 2.2 Drizzle，而不是 Prisma／TypeORM
 
-2. **Feature-first 分層**
-   每個 feature 是自給自足的資料夾：自己的路由、頁面、hooks、語系包、
-   權限宣告。跨 feature 的共用能力才往 `core/` 或 `shared/` 提。
+| 維度 | Drizzle | Prisma | TypeORM |
+| --- | --- | --- | --- |
+| Schema | TypeScript（就是程式碼） | 自有 DSL（`.prisma`） | class 上的 decorator |
+| 型別 | 從 schema 推導，不必產生 | 要 `prisma generate` | 弱 |
+| SQL 掌控度 | 高，貼近 SQL | 低 | 中 |
+| 關係圖查詢（遞迴 CTE、`EXISTS`） | 直接寫 | 多半要 `$queryRaw` | 易踩坑 |
+| 執行期負擔 | 純 JS | 另有 engine | 反射開銷 |
 
-3. **執行期權限註冊表**
-   `core/permission/registry.ts` 沒有一張列舉所有頁面的靜態表；每個 feature
-   在自己的 `permission.ts` 註冊。核心不認識功能，功能也不必改核心。
+權限關係圖的解析是遞迴 CTE，回收桶與版本歷史依賴 partial unique index 與交易內的條件式更新，這些在 Drizzle 都是一句可讀的 SQL。
+見 [`architecture/backend/02-database.md`](../architecture/backend/02-database.md)。
 
-4. **API 層與 UI 層完全解耦**
-   `src/apis/<domain>/<operation>/{fetcher,query|mutation}.ts` 是唯一與後端
-   對話的地方；頁面只認識 query options，不認識 HTTP。
+### 2.3 PostgreSQL 一個就好
 
-### 2.2 為什麼是 Base UI 而不是 MUI
+Postgres 在這個專案身兼五職，每一項都省掉一個外部服務：
 
-| 維度           | MUI                        | Base UI                                 |
-| -------------- | -------------------------- | --------------------------------------- |
-| 樣式           | 內建 Emotion + theme 系統  | **完全無樣式（unstyled）**              |
-| 可近性         | 良好                       | 良好（同團隊，ARIA 行為是它唯一的產品） |
-| bundle         | 大（含樣式引擎與整套設計） | 小，只有行為與狀態機                    |
-| 客製成本       | 需要對抗既有樣式           | 從零寫，但沒有對抗成本                  |
-| 與 UnoCSS 搭配 | 衝突（兩套樣式引擎）       | **天然契合**（`className` 直接給）      |
+| 用途 | 做法 | 省掉的元件 |
+| --- | --- | --- |
+| 業務資料 | 每個租戶一個 database（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md)） | — |
+| 權限關係圖 | `relation_tuples` ＋ 遞迴 CTE（[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9） | OpenFGA／SpiceDB |
+| 佇列與排程 | pg-boss（[`architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md)） | Redis ＋ BullMQ |
+| 跨程序廣播 | `LISTEN`／`NOTIFY`（[`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.2） | Redis pub/sub |
+| 稽核不可竄改 | DB 角色只有 INSERT／SELECT ＋ trigger（[`architecture/backend/06-audit-log.md`](../architecture/backend/06-audit-log.md)） | — |
 
-B2B System 會有大量非標準 UI（畫布、屬性面板、時間軸），一套 opinionated 的
-設計系統在這種場景是負擔而不是助力。Base UI 提供的是 **行為與可近性**，
-外觀完全由我們的 Design Token 決定。詳見
-[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §10。
+最關鍵的一點是 **稽核、授權、業務寫入在同一個交易**。外部授權服務或外部佇列都會把它變成雙寫問題。
 
-> 影響：`apps/backstage/src/components/` 這層封裝會比搭配 MUI 時更重要也更厚。搭 MUI 時
-> `components/Select` 只是 MUI Select 的薄包裝；我們的 `components/Select` 會是
-> Base UI primitive ＋ 我們自己的完整樣式。這是有意的成本。
+### 2.4 Zod，而不是 class-validator
 
-### 2.3 為什麼 TanStack Router 用 code-based 而非 file-based
+`class-validator` 要寫一份型別、再寫一份 decorator。Zod 的 schema 同時是型別來源（`z.infer`）與執行期驗證，
+前後端用同一套寫法；`core/validation/zod-openapi.ts` 讓 schema 直接出現在 Swagger 文件。
 
-Feature 需要 **自己擁有** 它的 route 物件（`features/role/routes/pages.ts`），
-因為 `permission.ts` 要從 route 物件讀出 base path 來註冊。file-based routing
-會把 route 的所有權交給檔案系統，feature 就無法自我描述。
+### 2.5 自己當 OIDC Provider
 
-### 2.4 狀態管理
-
-三類狀態，三個去處，不混用：
-
-| 類型               | 去處                                    | 例                                 |
-| ------------------ | --------------------------------------- | ---------------------------------- |
-| 伺服器狀態         | TanStack Query                          | 使用者列表、角色詳情               |
-| 全域 UI / 會話狀態 | `shared/store` 建立的 signal store      | 權限集合、側邊選單開合、語系、時區 |
-| 網址狀態           | TanStack Router `validateSearch`（Zod） | 分頁、篩選、排序                   |
-
-**權限集合放在 store 而不是 Query**：它是整個 App 的前置條件，幾乎每個元件都要
-讀，且需要同步讀取（`can(key)` 不能是非同步）。
+登入集中在 `apps/platform`，`apps/api` 用 `oidc-provider` 當 OIDC Provider，每個後台都是它的 client（授權碼 ＋ PKCE ＋ BFF）。
+選它而不是自寫，是因為它通過 OpenID 認證，協定細節（PKCE、refresh、單一登出）不必自己對。
+不用 Keycloak 之類的獨立 IdP，是因為租戶、使用者、稽核都在我們自己的資料庫，外部 IdP 又會變成兩份帳號。
+見 [`architecture/04-sso.md`](../architecture/04-sso.md)。
 
 ---
 
-## 3. 後端
+## 3. 前端
 
-### 3.1 為什麼是 NestJS
+### 3.1 為什麼採用這套架構
 
-- DI 容器與模組邊界讓「權限 Guard 必須被套用」這種橫切關注點可以用
-  `APP_GUARD` 全域強制，而不是靠每個開發者記得加。
-- Decorator metadata（`Reflector`）是宣告式權限（`@RequirePermissions('role:update')`）
-  最自然的載體。
-- 與 `@nestjs/swagger` 的整合讓 OpenAPI 幾乎零成本，進而餵給前端 SDK 產生器。
+1. **Plugin-based AppContext**：`main.tsx` 用 `context.use(...).use(...).load()` 串起所有能力與 feature。
+   新增或拿掉一個 feature 就是增刪一行，`core/` 不認識任何 feature；租戶停用某個功能時，plugin 也能在執行期卸載。
+   見 [`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md)。
+2. **Feature-first 分層**：每個 feature 自帶路由、頁面、hooks、語系包與權限宣告；跨 feature 的能力才往 `core/`、`shared/` 提。
+3. **執行期權限註冊表**：`core/permission` 沒有一張列舉所有頁面的靜態表，每個 feature 在自己的 `permission.ts` 註冊。
+4. **API 層與 UI 層解耦**：`src/apis/<domain>/<operation>/` 是唯一與後端對話的地方，頁面只認識 query options；
+   mutation 之後由資源依賴圖決定要失效哪些查詢（[`frontend/05-data-layer.md`](../architecture/frontend/05-data-layer.md)）。
 
-### 3.2 為什麼是 Drizzle 而不是 Prisma / TypeORM
+### 3.2 Base UI，而不是 MUI
 
-| 維度          | Drizzle                        | Prisma                       | TypeORM            |
-| ------------- | ------------------------------ | ---------------------------- | ------------------ |
-| Schema 定義   | TypeScript（就是程式碼）       | 自有 DSL（`.prisma`）        | Decorator on class |
-| 型別推導      | 從 schema 直接推導，零產生步驟 | 需要 `prisma generate`       | 弱                 |
-| SQL 掌控度    | 高，貼近 SQL                   | 低（查詢引擎在 Rust binary） | 中                 |
-| RBAC 常見查詢 | 多表 join + `EXISTS` 好寫      | 巢狀 include 會 N+1          | 易踩坑             |
-| 執行期負擔    | 純 JS，無額外 binary           | Rust engine binary           | 反射開銷           |
+| 維度 | MUI | Base UI |
+| --- | --- | --- |
+| 樣式 | 內建 Emotion 與主題系統 | 完全無樣式 |
+| 可近性 | 良好 | 良好（焦點管理、ARIA、彈層定位是它唯一的產品） |
+| bundle | 大 | 小，只有行為與狀態機 |
+| 客製 | 要對抗既有樣式 | 從零寫，沒有對抗成本 |
+| 與 UnoCSS | 兩套樣式引擎 | 直接給 `className` |
 
-RBAC 的核心查詢是「給我這個 user 透過所有 role 間接持有的 permission key 集合」，
-那是一個三表 join + distinct。Drizzle 讓這段是一句可讀的 SQL；Prisma 需要
-兩次查詢或一段 `$queryRaw`。詳見 [`backend/02-database.md`](../architecture/backend/02-database.md) §8。
+通用型後台的業務功能會長出大量非標準介面（關係圖、樹狀編輯器、差異檢視、檔案管理器），一套 opinionated 的設計系統在這裡是負擔。
+代價是 `apps/backstage/src/components/` 這層要自己寫完整的樣式；目前約 40 個元件，各有測試與 Storybook story。
+Base UI 的 Select 無法虛擬捲動，所以 Select／Menu 改成 Popover 加自製列表（[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.10）。
 
-### 3.3 為什麼是 PostgreSQL
+### 3.3 TanStack Router 用 code-based
 
-- `citext` / `CHECK` / partial index / `gen_random_uuid()` 這些 RBAC 會用到的
-  東西都是原生能力。
-- 稽核日誌之後要做時間分區（`PARTITION BY RANGE`），Postgres 原生支援。
-- 未來若加上資源作用域，`jsonb` + GIN index 可以在不改表結構的前提下先跑。
+feature 要 **自己擁有** route 物件（`features/role/routes/pages.ts`），因為 `permission.ts` 要從 route 物件讀 base path 註冊頁面權限、
+通知要以 route id 產生連結（[`frontend/15-notification.md`](../architecture/frontend/15-notification.md)）。
+file-based routing 把 route 的所有權交給檔案系統，feature 就無法自我描述。
 
-### 3.4 驗證：Zod 而非 class-validator
+### 3.4 狀態放哪裡
 
-NestJS 預設的 `class-validator` 依賴 decorator metadata，型別與驗證是兩份宣告。
-Zod 讓 schema 同時是型別來源（`z.infer`）與執行期驗證，且與前端共用同一套心智
-模型（前端的 `validateSearch` 也是 Zod）。透過自訂 `ZodValidationPipe` 接進
-NestJS，再用 `zod-openapi` 讓 schema 自動出現在 Swagger 文件裡。
+| 類型 | 去處 | 例 |
+| --- | --- | --- |
+| 伺服器狀態 | TanStack Query | 使用者列表、角色詳情 |
+| 全域 UI 與會話 | `shared/store` 的 signal store | 權限集合、側邊選單開合、語系、主題 |
+| 網址狀態 | TanStack Router `validateSearch`（Zod） | 分頁、篩選、排序 |
+
+權限集合放在 store 而不是 Query：幾乎每個元件都要 **同步** 讀它（`can(key)` 不能是非同步）。
+
+### 3.5 主題
+
+Design Token 分 seed／alias／component 三層，深色主題只覆寫 alias 層。`contrast.test.ts` 對兩個主題各驗 WCAG 對比，
+`theme-init.js` 在首次繪製前決定主題，不閃白。見 [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §4。
 
 ---
 
@@ -145,35 +154,25 @@ NestJS，再用 `zod-openapi` 讓 schema 自動出現在 Swagger 文件裡。
 **後端是唯一事實來源。**
 
 ```
-apps/api  ──(@nestjs/swagger)──▶  openapi.json
-                                       │
-                                       ▼ (packages/api-sdk/codegen)
-                            packages/api-sdk  ──▶  apps/backstage
+apps/api ──(@nestjs/swagger)──▶ openapi.json ──(codegen)──▶ packages/api-sdk ──▶ apps/backstage、apps/platform
+                             └─▶ openapi.external.json（對外 API 的 /v1，給整合方）
 ```
 
-`PermissionKey` 這個 enum 定義在後端，經由 OpenAPI 傳到 `packages/api-sdk`，
-前端的 `core/permission/enums.ts` 只是對它做一層重新匯出，確保前後端永遠不會對
-「有哪些權限」有分歧。詳見
-[`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §12。
+權限鍵 `PermissionKey` 定義在後端，經 OpenAPI 傳到 `packages/api-sdk`，前端只做重新匯出，兩邊永遠不會對「有哪些權限」有分歧。
+改動 controller、DTO 或權限鍵後，依 `CLAUDE.md`「常用指令」重新產生 OpenAPI 與 SDK。
+見 [`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §12、[`architecture/06-external-api.md`](../architecture/06-external-api.md)。
 
 ---
 
-## 5. 主題
+## 5. 開發工具鏈
 
-Phase 0 **只做 Light Mode**，但 Design Token 一開始就分成 seed / alias / component
-三層，dark 模式只需要新增一份 alias 對照表即可補上。取捨在於：雙模式的製作與
-驗證（對比度）成本高，先把可延伸性做出來、不急著做第二套值。
-
----
-
-## 6. 開發工具鏈
-
-| 用途       | 工具                                                      |
-| ---------- | --------------------------------------------------------- |
-| Lint       | `oxlint`（比 ESLint 快一個量級，規則覆蓋足夠）            |
-| Format     | `oxfmt`                                                   |
-| Git hook   | `lefthook`（pre-commit：format + lint staged 檔）         |
-| 本機資料庫 | `docker compose up postgres`                              |
-| Migration  | `drizzle-kit generate` / `drizzle-kit migrate`            |
-| API 文件   | `http://localhost:3000/docs`（Swagger UI，僅 dev）        |
-| 型別檢查   | `tsc -b --noEmit`（每個 package 各自的 tsconfig project） |
+| 用途 | 工具 |
+| --- | --- |
+| Lint ／ Format | oxlint ／ oxfmt（比 ESLint、Prettier 快一個量級） |
+| Git hook | lefthook（pre-commit：format ＋ lint staged 檔） |
+| 型別檢查 | `tsc -b`（每個 package 各自的 project reference） |
+| 本機服務 | `docker compose`：PostgreSQL 17、Mailpit（:8025） |
+| Migration | `drizzle-kit generate`；平台 DB 與每個租戶 DB 由 `pnpm db:migrate` 一起套用 |
+| API 文件 | `http://localhost:3000/docs`（Swagger UI，只在 dev） |
+| 模擬外部 IdP | `pnpm dev:mock-idp`（:4455） |
+| 功能導覽截圖 | `pnpm --filter @b2b-system/e2e tour`（[`05-feature-tour.md`](./05-feature-tour.md)） |

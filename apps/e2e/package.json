@@ -8,7 +8,8 @@
     "test:ui": "playwright test --ui",
     "report": "playwright show-report",
     "typecheck": "tsc -b",
-    "install:browsers": "playwright install --with-deps chromium"
+    "install:browsers": "playwright install --with-deps chromium",
+    "tour": "playwright test -c playwright.tour.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0"
