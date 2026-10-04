@@ -78,6 +78,12 @@ afterEach(() => {
 });
 
 describe('DashboardLayout', () => {
+  it('品牌徽章取自產品名稱，不隨租戶改變', async () => {
+    renderShell();
+    await screen.findByTestId('current-tenant');
+    expect(screen.getByTestId('brand-mark')).toHaveTextContent('B2B');
+  });
+
   it('看得到目前的租戶；帳號選單以使用者名稱命名', async () => {
     renderShell();
     expect(await screen.findByTestId('current-tenant')).toHaveTextContent('Acme 股份有限公司');

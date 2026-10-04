@@ -118,6 +118,7 @@
   },
   "app": {
     "title": "B2B System",
+    "mark": "B2B",
     "subtitle": "RBAC console",
     "platform": "Account platform"
   },

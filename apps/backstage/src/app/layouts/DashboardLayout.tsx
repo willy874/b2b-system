@@ -90,7 +90,10 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
     >
       <aside id={sidebarId} className="ge-shell__sidebar" data-testid="sidebar">
         <div className="ge-shell__brand" title={iconOnly ? tenantName : undefined}>
-          <span className="ge-shell__brand-mark">GE</span>
+          {/* 品牌徽章取自產品名稱而非租戶名稱：apps/platform 沒有租戶，兩邊才會一致；租戶名稱另外顯示在下方 */}
+          <span className="ge-shell__brand-mark" aria-hidden="true" data-testid="brand-mark">
+            {t('app.mark')}
+          </span>
           {!iconOnly && (
             <span className="ge-shell__brand-text">
               <span>{t('app.title')}</span>

@@ -118,6 +118,7 @@
   },
   "app": {
     "title": "B2B System",
+    "mark": "B2B",
     "subtitle": "RBAC 管理後台",
     "platform": "帳號平台"
   },

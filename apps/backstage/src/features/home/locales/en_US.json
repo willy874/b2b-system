@@ -1,7 +1,7 @@
 {
   "home": {
     "title": "Home",
-    "description": "Phase 0 ships the RBAC skeleton only; editor features come later.",
+    "description": "Business features show up in the sidebar once they are enabled. Your current identity and permissions are listed below.",
     "you": {
       "title": "Your identity",
       "displayName": "Display name",

@@ -1,7 +1,7 @@
 {
   "home": {
     "title": "首頁",
-    "description": "Phase 0 只建置 RBAC 骨架，編輯器功能之後才會出現在這裡。",
+    "description": "業務功能啟用後會出現在左側選單；這裡先列出你目前的身分與權限。",
     "you": {
       "title": "你的身分",
       "displayName": "顯示名稱",
