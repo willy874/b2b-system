@@ -1,10 +1,11 @@
-import type { AppDynamicPluginFactory } from '@/core/app';
+import type { AppDynamicPluginFactory } from '@b2b-system/web-core/app';
+import { LanguageNamespace, Languages } from '@b2b-system/web-shared/constants';
+
 import {
   imageThumbnailGenerator,
   registerFileValidator,
   registerThumbnailGenerator,
 } from '@/core/file';
-import { LanguageNamespace, Languages } from '@/shared/constants/lang';
 
 import { registerFileBatchOperations } from './batch';
 import { FILE_LOCALE_SCOPE } from './locale';

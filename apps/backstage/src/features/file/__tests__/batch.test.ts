@@ -1,8 +1,7 @@
+import { getBatchOperation, resetBatchOperations } from '@b2b-system/web-core/batch';
+import type { BatchQueueClient } from '@b2b-system/web-core/batch';
+import { isAppError } from '@b2b-system/web-core/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { getBatchOperation, resetBatchOperations } from '@/core/batch';
-import type { BatchQueueClient } from '@/core/batch';
-import { isAppError } from '@/core/errors';
 
 const { uploadFile, deleteFile, deleteFolder, invalidateResources, fetchQuery } = vi.hoisted(
   () => ({
@@ -25,7 +24,7 @@ vi.mock('@/apis/resources', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   invalidateResources,
 }));
-vi.mock('@/core/cache', async (importOriginal) => ({
+vi.mock('@b2b-system/web-core/cache', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   queryClient: { fetchQuery },
 }));

@@ -1,3 +1,6 @@
+import { isVersionConflict, useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useToast } from '@b2b-system/web-core/notify';
 import { useMutation } from '@tanstack/react-query';
 
 import { invalidateResources, Resource } from '@/apis/resources';
@@ -7,9 +10,6 @@ import { getWebhookRedeliverMutationOptions } from '@/apis/webhook/redeliver-web
 import { getWebhookSecretRotateMutationOptions } from '@/apis/webhook/rotate-webhook-secret/mutation';
 import { getWebhookTestSendMutationOptions } from '@/apis/webhook/send-webhook-test/mutation';
 import { getWebhookUpdateMutationOptions } from '@/apis/webhook/update-webhook/mutation';
-import { isVersionConflict, useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { useToast } from '@/core/notify';
 import type { WebhookDelivery, WebhookTestResult } from '@/shared/api-sdk';
 
 /** 建立：錯誤由表單顯示，不彈 toast；回應的密鑰由呼叫端顯示一次。 */

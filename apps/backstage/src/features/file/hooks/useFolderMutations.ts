@@ -1,3 +1,7 @@
+import { ANY_ID } from '@b2b-system/web-core/cache';
+import { isAppError, useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useToast } from '@b2b-system/web-core/notify';
 import { useMutation } from '@tanstack/react-query';
 
 import { getFileFolderCreateMutationOptions } from '@/apis/file/create-file-folder/mutation';
@@ -6,11 +10,7 @@ import { getFileMoveMutationOptions } from '@/apis/file/move-file-items/mutation
 import { getFileFolderRestoreMutationOptions } from '@/apis/file/restore-file-folder/mutation';
 import { getFileFolderUpdateMutationOptions } from '@/apis/file/update-file-folder/mutation';
 import { invalidateResources, Resource } from '@/apis/resources';
-import { ANY_ID } from '@/core/cache';
-import { isAppError, useErrorToast } from '@/core/errors';
 import { useIsFeatureReady } from '@/core/feature';
-import { useTranslation } from '@/core/locales';
-import { useToast } from '@/core/notify';
 import { TenantFeature } from '@/shared/api-sdk';
 
 /** 建立資料夾。錯誤（同名）交給呼叫端的對話框顯示並保留輸入。 */

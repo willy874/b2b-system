@@ -1,8 +1,8 @@
+import { useHasSession } from '@b2b-system/web-core/auth';
+import { RealtimeStatus, useRealtimeStatus } from '@b2b-system/web-core/realtime';
 import { useQuery } from '@tanstack/react-query';
 
 import { getNotificationUnreadCountQueryOptions } from '@/apis/platform-notification/get-notification-unread-count/query';
-import { useHasSession } from '@/core/auth';
-import { RealtimeStatus, useRealtimeStatus } from '@/core/realtime';
 
 /** 推播斷線（或沒有推播）時多久重抓一次未讀數。 */
 const POLL_INTERVAL_MS = 60_000;

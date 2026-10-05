@@ -1,10 +1,10 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Icon } from '@b2b-system/ui/Icon';
+import { Input } from '@b2b-system/ui/Input';
+import { Select } from '@b2b-system/ui/Select';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useState } from 'react';
 
-import { Button } from '@/components/Button';
-import { Icon } from '@/components/Icon';
-import { Input } from '@/components/Input';
-import { Select } from '@/components/Select';
-import { useTranslation } from '@/core/locales';
 import type { PermissionCatalog } from '@/shared/api-sdk';
 
 import { hasPermissionFilters } from '../../../hooks/permissionCatalogFilter';

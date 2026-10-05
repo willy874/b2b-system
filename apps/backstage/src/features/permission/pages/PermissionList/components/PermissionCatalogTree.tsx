@@ -1,11 +1,12 @@
-import { Chip } from '@/components/Chip';
-import { Icon } from '@/components/Icon';
-import { TreeEditor } from '@/components/TreeEditor';
-import { useTranslation } from '@/core/locales';
+import { Chip } from '@b2b-system/ui/Chip';
+import { Icon } from '@b2b-system/ui/Icon';
+import { TreeEditor } from '@b2b-system/ui/TreeEditor';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { cn } from '@b2b-system/web-shared/utils';
+
 import { PERMISSION_NODE_SIZE } from '@/core/permission-graph';
 import type { PermissionNodeData } from '@/core/permission-graph';
 import type { PermissionCatalog } from '@/shared/api-sdk';
-import { cn } from '@/shared/utils';
 
 import { usePermissionCatalogTree } from '../../../hooks/usePermissionCatalogTree';
 

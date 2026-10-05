@@ -1,12 +1,12 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Pagination } from '@b2b-system/ui/Pagination';
+import { Tabs } from '@b2b-system/ui/Tabs';
+import { useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { getNotificationListQueryOptions } from '@/apis/platform-notification/get-notification-list/query';
-import { Button } from '@/components/Button';
-import { Pagination } from '@/components/Pagination';
-import { Tabs } from '@/components/Tabs';
-import { useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 
 import { toNotificationVM } from '../../adapter';
 import { NotificationList } from '../../components/NotificationList';

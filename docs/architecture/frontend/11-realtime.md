@@ -24,20 +24,20 @@
 
 ```
 main.tsx                                   注入 applyResourceChanges（plugins 不能 import apis）
-plugins/app/realtime.ts                    ★ 組裝：連線物件 ＋ leader 選舉 ＋ control channel ＋ 協調者
-plugins/fetcher/client-id.ts               ★ 每個請求帶 x-client-id
+web-core/plugins/app/realtime.ts                    ★ 組裝：連線物件 ＋ leader 選舉 ＋ control channel ＋ 協調者
+web-core/plugins/fetcher/client-id.ts               ★ 每個請求帶 x-client-id
 apis/resources.ts                          ＋ applyResourceChanges()：只在本分頁套用
-core/realtime/
+web-core/realtime/
 ├── RealtimeClient.ts                      ★ 連線、續期、事件分派；`setOwner()` 決定連不連。只依賴 `RealtimeTransport`
 ├── transport.ts                           ★ `RealtimeTransport` 介面：RealtimeClient 對連線的所有要求
 ├── socketIoTransport.ts                   ★ `RealtimeTransport` 的 Socket.io 實作；全 app 唯一 import socket.io-client 的檔案
 ├── RealtimeCoordinator.ts                 ★ 只讓 leader 連線、轉發變更、序號與任期、背景延後、削峰（§3.3、§3.4）
-├── activeClient.ts                        目前的連線與協調者（isRealtimeAvailable）：core/cache 不必認識 plugin
+├── activeClient.ts                        目前的連線與協調者（isRealtimeAvailable）：web-core/cache 不必認識 plugin
 ├── clientId.ts                            分頁的 instance id（也用在 x-client-id）
 ├── useRealtimeEvent.ts                    feature 訂閱伺服器事件的唯一入口
 ├── useRealtimeStatus.ts                   連線狀態（connected／disconnected／disabled）；頂列的連線燈號用
 └── index.ts
-core/cache/AppQueryClient.ts               推播可用時不再跨分頁廣播；applyInvalidation 支援只標 stale
+web-core/cache/AppQueryClient.ts               推播可用時不再跨分頁廣播；applyInvalidation 支援只標 stale
 shared/channel/leader/                     ★ 跨分頁 leader 選舉（純引擎，adapters 可注入）
 shared/utils/keyedThrottle.ts              以 key 去重、隨機延遲削峰
 shared/channel/transports/serverRelay.ts   ★ 跨裝置頻道的傳輸層（經 `ServerRelayLink`，不認識 Socket.io）
@@ -46,7 +46,7 @@ shared/websocket-sdk/                      `@b2b-system/realtime` 的唯一匯�
 
 依賴方向照 [`conventions/07`](../../conventions/07-layer-dependencies.md) §2：
 
-- **只有 `core/realtime/socketIoTransport.ts` import `socket.io-client`**（🔒 `transport-boundary.test.ts`）。
+- **只有 `web-core/realtime/socketIoTransport.ts` import `socket.io-client`**（🔒 `transport-boundary.test.ts`）。
   `RealtimeClient` 只認得 `RealtimeTransport`，對外也不交出連線本身：feature 用 `useRealtimeEvent()`，
   跨裝置頻道用 `realtime.relay`。換掉 Socket.io 時只要換掉這一個檔案（實作新的 `RealtimeTransport`）。
 
@@ -127,7 +127,7 @@ Origin 或速率限制是在 HTTP 升級階段被拒，`connect_error` 不帶 `c
 ### 3.3 連線擁有權：只有 leader 分頁連線
 
 每個分頁都連 Socket.io，成本不只是多幾條連線：每則推播在每個分頁都要解析、驗證、換算依賴圖、失效、重抓。
-所以同源的所有分頁 **共用一條連線**，由選出來的 leader 分頁持有（`shared/channel/leader` 的 `createLeaderElection`）：
+所以同源的所有分頁 **共用一條連線**，由選出來的 leader 分頁持有（`packages/web-shared/src/channel/leader` 的 `createLeaderElection`）：
 
 | 規則 | 說明 |
 | ---- | ---- |
@@ -184,7 +184,7 @@ export function applyResourceChanges(changes: readonly ResourceChangeEvent[]): v
 
 - `origin` 是本分頁（`x-client-id`）的不套用：mutation 成功時已經失效過。leader 發起的也照樣轉發給其他分頁。
 - 看不懂的推播（schema 不合）在 `RealtimeClient` 就略過。
-- 延遲與去重用 `shared/utils` 的 `createKeyedThrottle`（參考實作的 socket-event-throttle）。
+- 延遲與去重用 `@b2b-system/web-shared/utils` 的 `createKeyedThrottle`（參考實作的 socket-event-throttle）。
 
 - `isSelf`、`selfHoldsRole` 這類以登入者為視角的衍生，照樣在客戶端算——這正是伺服器不推 query key 的原因。
 - 伺服器推來的 `resource` 只會是 `ChangeSource` 裡的值；前端 `Resource` 是它的超集，
@@ -192,7 +192,7 @@ export function applyResourceChanges(changes: readonly ResourceChangeEvent[]): v
 
 ### 4.1 回音去重：`x-client-id`
 
-`plugins/fetcher/client-id.ts` 在每個請求加上 `x-client-id: <CLIENT_ID>`；伺服器把它放進推播的 `origin`。
+`web-core/plugins/fetcher/client-id.ts` 在每個請求加上 `x-client-id: <CLIENT_ID>`；伺服器把它放進推播的 `origin`。
 
 | 分頁                             | mutation 成功時               | 收到伺服器推播             |
 | -------------------------------- | ----------------------------- | -------------------------- |
@@ -206,7 +206,7 @@ export function applyResourceChanges(changes: readonly ResourceChangeEvent[]): v
 推播可用時，同瀏覽器的其他分頁會經 leader 收到同一筆變更；`broadcastInvalidation` 再廣播一次會讓它們失效兩次。
 
 ```ts
-// core/cache/AppQueryClient.ts
+// web-core/cache/AppQueryClient.ts
 broadcastInvalidation(targets: readonly InvalidationTarget[]): void {
   this.applyInvalidation(targets);
   // 推播可用時由 leader 轉給其他分頁；不可用（或推播停用）時才走本機頻道
@@ -254,7 +254,7 @@ leader 當掉時 follower 在心跳逾時後改判為不可用，mutation 自動
 
 ## 7. 跨裝置頻道：`serverRelayTransport`
 
-`shared/channel` 的頻道可以經由伺服器中繼到同一個使用者的其他裝置：
+`@b2b-system/web-shared/channel` 的頻道可以經由伺服器中繼到同一個使用者的其他裝置：
 
 ```ts
 createChannel('store:preference:theme', {
@@ -271,7 +271,7 @@ createChannel('store:preference:theme', {
 | 收訊方要自己持久化                           | 各裝置的 localStorage 不共用（[09 §5](./09-state-and-storage.md)「Store 的同步」）。偏好設定目前的 `store:preference:storage` 由 dictStorage 持有、收訊時不寫入，**只適用本機分頁**；要跨裝置時改用 `syncStore` |
 
 `RealtimeClient` 在 plugin 初始化時就建立傳輸層（只是還沒連線），所以頻道可以在啟動時就綁上 `realtime.relay`。
-`shared/channel` 只認得 `ServerRelayLink`（`isConnected` / `send` / `subscribe`），不認得 `RealtimeClient` 或 Socket.io。
+`@b2b-system/web-shared/channel` 只認得 `ServerRelayLink`（`isConnected` / `send` / `subscribe`），不認得 `RealtimeClient` 或 Socket.io。
 **只有 leader 分頁會連線**：follower 經這個傳輸層送出的訊息會被丟棄（斷線時丟棄的規則）。
 要讓 follower 也能跨裝置送出，得由 leader 代轉——接上偏好設定同步時一併設計。
 
@@ -301,7 +301,7 @@ useRealtimeEvent(ServerEvent.SOMETHING, (payload) => { … });
 
 `useRealtimeStatus()` 回傳 `connected`／`disconnected`／`disabled`（沒有註冊推播，例如 mock 模式），
 底層是 `isRealtimeAvailable()` ＋ `subscribeRealtimeAvailability()`：follower 分頁看的是 leader 回報的狀態，
-所有分頁顯示一致。頂列的連線燈號（`app/layouts/RealtimeStatusIndicator.tsx`，頂列工具 `realtimeStatus`，
+所有分頁顯示一致。頂列的連線燈號（`web-core/layout/RealtimeStatusIndicator.tsx`，頂列工具 `realtimeStatus`，
 [02 §4.4](./02-plugin-system.md)）只顯示、不能操作。
 
 隱藏的分頁不參與選舉：只開著一個背景分頁時沒有 leader，燈號會是 `disconnected`，這是預期行為。
@@ -314,7 +314,7 @@ useRealtimeEvent(ServerEvent.SOMETHING, (payload) => { … });
 | ------------ | -------------------------------------------------------------------------------------------- |
 | Mock 模式    | `ENV.ENABLE_MOCK` 時 **不註冊** `realtimePlugin`（MSW 不處理 Socket.io）；行為等同推播停用     |
 | 單元         | `RealtimeClient` 注入假的 `RealtimeTransport`：schema 不合時略過、`connected` 的 `resumed`、`setOwner` 決定連不連、`refreshed` → `session.renew` |
-| 單元         | `createLeaderElection`：假計時器 ＋ `src/test/fakeChannelHub.ts`（可控延遲、可模擬分頁當掉）；切換分頁、並排、當掉接手、同時當選、localStorage 不可用 |
+| 單元         | `createLeaderElection`：假計時器 ＋ `@b2b-system/web-shared/testing` 的 `fakeChannelHub`（可控延遲、可模擬分頁當掉）；切換分頁、並排、當掉接手、同時當選、localStorage 不可用 |
 | 單元         | `RealtimeCoordinator`：只有 leader 持有連線、轉發與 `origin`、背景只標 stale、合併、跳號與重複、舊任期、重連與交接的 `resync`、推播是否可用 |
 | 單元         | `AppQueryClient`：兩個分頁以 `fakeChannelHub` 相連；推播可用時不廣播、不可用時廣播、收到的不再轉送；`refetch: false` 只標 stale |
 | 單元         | `socketIoRealtimeTransport`：路徑、只用 websocket、`auth` 是函式、斷線原因與錯誤碼的對應      |

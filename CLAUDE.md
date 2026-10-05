@@ -13,7 +13,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 | 你要做什麼 | 先讀 |
 | --- | --- |
 | 任何事 | [`docs/README.md`](docs/README.md)、[`docs/architecture/01-system.md`](docs/architecture/01-system.md)、[`docs/conventions/01-general.md`](docs/conventions/01-general.md) |
-| 前端 | `docs/architecture/frontend/01`→`03`→`06` |
+| 前端 | `docs/architecture/frontend/01`→`03`→`06`；兩個前端共用的機制層在 `packages/web-core`，設計系統與純工具在 `packages/ui`、`packages/web-shared`（各自的 README） |
 | 租戶（每個租戶一個 database 與網域） | [`docs/architecture/05-tenancy.md`](docs/architecture/05-tenancy.md)（請求怎麼找到租戶、`Tenancy`、佈建與生命週期、部署） |
 | 後端 | `docs/architecture/backend/01`→`03`→`05`；資料庫與租戶看 `02` §6（平台 DB、`TENANT_DB`）；樂觀鎖（`version`）看 `03` §11；檔案／物件儲存看 `09`；背景工作看 `10`；寄信看 `11`；系統設定看 `12`；回收桶與還原看 `13`；版本歷史看 `14`；站內通知看 `15`；事件管理（通知的租戶開關與個人設定）看 `16`；Webhook（對外事件、投遞、對外連線的 SSRF 防護）看 `17`；標籤（擁有者登記資源類型、指派、篩選）看 `18`；公告（排程發送站內通知）看 `19` |
 | 對外 API、API token 的驗證 | [`docs/architecture/06-external-api.md`](docs/architecture/06-external-api.md)（獨立的程序；對外的 controller 標 `@ExternalApi()`、放 `modules/<name>/external/`） |
@@ -33,7 +33,8 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 
 權限變更額外要同步：`docs/rbac/02-permission-catalog.md`、
 `apps/api/src/db/seeds/permissions.ts`、前端 `features/<name>/permission.ts`、
-兩個語系檔的 `permission.<resource>.<action>`。
+該 app 兩個語系檔（`app/locales/*.json`）的 `permission.<resource>.<action>`。
+錯誤碼變更：`packages/error-codes` ＋ `packages/web-core` 的 `ERROR_MESSAGE_KEY` 與語系檔 `error.<CODE>`（app 不必改）。
 
 ## 不可違反的規則
 
@@ -54,12 +55,12 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 
 ### 前端
 
-1. `core/` 不 import `features/`；`shared/` 不 import 上層任何東西。
+1. app 的 `core/` 與 `@b2b-system/web-core` 不 import `features/`；packages 不 import app（web-core 也不呼叫 app 的 API），下層 package 不 import 上層（`web-shared` ← `ui` ← `web-core`）。
 2. Feature 之間只能經由 `routes/external.ts`（route 物件）、`apis/`、或 eventBus。
 3. 頁面權限在 plugin 的 **同步** 階段註冊，語系包在 `onInit`（非同步）階段。
 4. 元件只透過 `apis/<domain>/<operation>/` 與後端對話，不直接 `fetch`。
-5. `components/` 不出現業務名詞；業務元件放 `features/<name>/components/`。
-6. 顏色一律走 Design Token（`themes/tokens.css`），不寫十六進位色碼。
+5. 設計系統 `@b2b-system/ui`（`packages/ui`）不出現業務名詞；業務元件放 `features/<name>/components/`。
+6. 顏色一律走 Design Token（`packages/ui/src/styles/tokens.css`），不寫十六進位色碼。
 7. Access token 只存在記憶體，不進 `localStorage`。
 
 ## 常用指令
@@ -81,7 +82,7 @@ pnpm db:archive-audit-logs   # 稽核熱表 → 冷表搬移的手動補跑（�
 pnpm db:drop-tenant <代碼> [--confirm]   # 清除 apps/platform 已刪除的租戶（database、DB 角色、bucket）；不加 --confirm 只列出
 pnpm --filter @b2b-system/api openapi:generate && pnpm exec oxfmt apps/api/openapi.json apps/api/openapi.external.json && pnpm sdk:generate
                     # 改動 controller / DTO／權限鍵之後必跑；openapi.json 不經 oxfmt 會多出整份的格式 diff，pre-commit 也會擋
-pnpm storybook      # 設計系統元件的 Storybook（:6006）；story 寫法見 docs/architecture/frontend/07-ui-system.md §9
+pnpm storybook      # packages/ui 設計系統元件的 Storybook（:6006）；story 寫法見 docs/architecture/frontend/07-ui-system.md §9
 pnpm --filter @b2b-system/e2e tour   # 重拍 docs/overview/05-feature-tour.md 的截圖（會重置 DB，只對隔離環境跑；docs/architecture/frontend/10-testing.md §4.6）
 ```
 

@@ -16,7 +16,7 @@ file-based routing 把 route 的身分交給檔案系統，上述三件事都做
 ## 2. Route 樹
 
 ```
-RootRoute  (core/router/root.tsx)
+RootRoute  (web-core/router/root.ts)
 │  component: app/Layout.tsx  → 依 matcher 決定套哪個 layout
 │
 ├── /                              HomeRoute
@@ -74,7 +74,7 @@ RootRoute  (core/router/root.tsx)
 對話框時列表的篩選條件會從網址消失。這是必須記住的一點。
 
 **未儲存提醒**：關閉路由對話框（點遮罩、Esc、取消、上一頁）都是導覽，所以表單在 dirty 時呼叫
-`useUnsavedChangesGuard(isDirty)`（`core/router`，TanStack Router 的 `useBlocker` ＋ `beforeunload`）即可攔下所有途徑。
+`useUnsavedChangesGuard(isDirty)`（`web-core/router`，TanStack Router 的 `useBlocker` ＋ `beforeunload`）即可攔下所有途徑。
 儲存成功後的關閉帶 `ignoreBlocker: true`；session 結束導向登入頁時也略過。
 
 ### 2.2 `create/$roleId` 為何不掛在 `create` 之下
@@ -108,7 +108,7 @@ export type RoleSearchQuery = z.infer<typeof RoleSearchQuerySchema>;
 而不是丟出路由錯誤。列表頁不該因為一個壞參數就變成錯誤頁。
 
 網址格式不用 TanStack Router 預設的 JSON，而是在 `createRouter` 換成
-`core/router/search.ts` 的 `parseSearch` / `stringifySearch`：**重複的 key 就是陣列**，
+`web-core/router/search.ts` 的 `parseSearch` / `stringifySearch`：**重複的 key 就是陣列**，
 值一律是字串（型別交給 `validateSearch` 的 `z.coerce`）。排序與後端 API 同格式——
 `createdAt` 升冪、`-createdAt` 降冪：
 
@@ -238,7 +238,7 @@ pathname '/role/abc/permission'
 ### 4.4 404、錯誤頁與載入中
 
 `app/plugin.ts` 的 `createRouter` 設定 `defaultNotFoundComponent: NotFoundPage`、`defaultErrorComponent: RouteErrorPage`、
-`defaultPendingComponent: PageSkeleton`（`core/components/ErrorPage`）。部署新版後舊分頁 lazy 載入舊 chunk 失敗時，
+`defaultPendingComponent: PageSkeleton`（錯誤頁在 backstage 的 `core/components/ErrorPage`，`PageSkeleton` 在 `web-core/components`）。部署新版後舊分頁 lazy 載入舊 chunk 失敗時，
 `RouteErrorPage` 提示「系統已更新」並提供重新整理；403／404 有「回首頁」與「返回上一頁」。
 權限水合失敗（`/auth/profile` 5xx、`TENANT_UNAVAILABLE`）時 Layout 顯示原因與重試，不停在骨架屏。
 

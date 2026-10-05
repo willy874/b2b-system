@@ -10,7 +10,7 @@ import {
 } from '@/features/platform-admin';
 import { registerTenantPagePermissions, TENANT_PAGE } from '@/features/tenant';
 
-import { getRegisteredPageKeys, resetPagePermissionRegistry } from '../registry';
+import { getRegisteredPageKeys, resetPagePermissionRegistry } from '..';
 
 /** 取代靜態表原本提供的編譯期完整性（docs/architecture/frontend/02-plugin-system.md §8 的代價緩解）；apps/platform 的 feature 清單。 */
 describe('註冊表完整性', () => {

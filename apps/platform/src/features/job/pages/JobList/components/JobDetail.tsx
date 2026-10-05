@@ -1,8 +1,8 @@
+import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 
 import { getPlatformJobQueryOptions } from '@/apis/platform-job/get-job/query';
-import { useErrorMessage } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 
 import { isFinalJobState, toJobDetailVM } from '../adapter';
 

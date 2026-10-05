@@ -8,15 +8,36 @@
 ## 1. 模組組成
 
 ```
-core/permission/
-├── enums.ts        PermissionKey — 對 api-sdk 的唯一收斂點
-├── constants.ts    PermissionAction / PermissionResource / PageKey /
-│                   PagePermissionRule / evaluateAccess / definePageKey
+packages/web-core/src/permission/      機制（兩個 app 共用；@b2b-system/web-core/permission）
+├── register.ts     PermissionRegister — app 以 module augmentation 登記自己的權限目錄
+├── constants.ts    PermissionAction / PageKey / PagePermissionRule /
+│                   evaluateAccess / definePageKey / buildPermissionKey
 ├── registry.ts     ★ 執行期頁面註冊表
 ├── hooks.ts        usePermission / usePagePermission /
 │                   usePageAccessChecker / usePageAccess
-└── index.ts        對外的完整介面（其他地方只從這裡 import）
+└── index.ts
+
+apps/<app>/src/core/permission/        這個 app 的權限目錄
+├── enums.ts        PermissionKey — 對 api-sdk 的唯一收斂點
+├── resources.ts    PermissionResource
+└── index.ts        登記給 web-core、轉出 web-core 的機制；app 的其他地方只從 @/core/permission import
 ```
+
+```ts
+// apps/<app>/src/core/permission/index.ts
+declare module "@b2b-system/web-core/permission/register" {
+  interface PermissionRegister {
+    key: AppPermissionKey;
+    resource: AppPermissionResource;
+  }
+}
+export * from "@b2b-system/web-core/permission";
+export { ALL_PERMISSION_KEYS, PermissionKey } from "./enums";
+export { PermissionResource } from "./resources";
+```
+
+登記之後，web-core 的 `PermissionKey`／`PermissionResource` 型別（`usePermission`、`PagePermissionRule` 等）在那個 app 裡收斂成它的鍵；
+沒登記時（package 自己的型別檢查與測試）是 `string`。backstage 是租戶的目錄，apps/platform 是平台的目錄。
 
 ---
 
@@ -34,9 +55,10 @@ export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
 ---
 
-## 3. `constants.ts` — 權限的代數
+## 3. `constants.ts`、`resources.ts` — 權限的代數
 
 ```ts
+// web-core/permission/constants.ts
 export const PermissionAction = {
   CREATE: "create",
   READ: "read",
@@ -44,6 +66,7 @@ export const PermissionAction = {
   DELETE: "delete",
 } as const;
 
+// apps/<app>/src/core/permission/resources.ts
 export const PermissionResource = {
   USER: "user",
   ROLE: "role",
@@ -74,7 +97,7 @@ export function definePageKey(key: string): PageKey {
 }
 ```
 
-`core/` 只擁有 **形狀**，不擁有清單。`definePageKey('ROLE')` 由
+web-core 只擁有 **形狀**，不擁有清單。`definePageKey('ROLE')` 由
 `features/role/permission.ts` 呼叫。品牌型別讓隨手寫的字串沒辦法混進需要
 `PageKey` 的位置。
 
@@ -175,7 +198,7 @@ export function resetPagePermissionRegistry(): void {
 執行期註冊表後，這個保證由一支測試接手：
 
 ```ts
-// core/permission/registry.test.ts
+// apps/<app>/src/core/permission/__tests__/feature-registration.test.ts
 it("註冊的頁面鍵集合等於所有 feature 匯出的頁面鍵之聯集", () => {
   resetPagePermissionRegistry();
   registerAllFeaturePagePermissions(); // 呼叫每個 feature 的註冊函式
@@ -296,7 +319,7 @@ return <Outlet />;
 宣告式的寫法，供巢狀較深的地方使用：
 
 ```tsx
-// core/components/PermissionGate/PermissionGate.tsx
+// web-core/components/PermissionGate/PermissionGate.tsx
 <PermissionGate require={[PermissionKey.RoleDelete]} match="every" fallback={null}>
   <DeleteButton />
 </PermissionGate>
@@ -335,7 +358,7 @@ return <Outlet />;
 ## 9. 測試
 
 ```tsx
-// test/renderWithPermissions.tsx
+// web-core/testing/renderWithPermissions.tsx
 export function renderWithPermissions(ui: ReactElement, permissions: PermissionKey[] = []) {
   usePermissionStore.setState({ permissions: new Set(permissions), hydrated: true });
   return render(ui, { wrapper: AllProviders });

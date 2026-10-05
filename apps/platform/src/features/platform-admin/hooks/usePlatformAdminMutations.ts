@@ -1,11 +1,11 @@
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useToast } from '@b2b-system/web-core/notify';
 import { useMutation } from '@tanstack/react-query';
 
 import { getCreateAdminMutationOptions } from '@/apis/platform-admin/create-admin/mutation';
 import { getSendAdminPasswordLinkMutationOptions } from '@/apis/platform-admin/send-admin-password-link/mutation';
 import { getUpdateAdminMutationOptions } from '@/apis/platform-admin/update-admin/mutation';
 import { invalidateResources, Resource } from '@/apis/resources';
-import { useTranslation } from '@/core/locales';
-import { useToast } from '@/core/notify';
 import type { PlatformAdminPasswordLink } from '@/shared/api-sdk';
 import type { PlatformAdmin } from '@/shared/api-sdk';
 

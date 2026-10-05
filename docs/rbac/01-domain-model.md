@@ -507,7 +507,7 @@ Phase 0 **只做扁平的全域 RBAC**：
 | 檔案管理器的型別 | `apps/api/src/modules/file/file.authz.ts` |
 | `relation_tuples` 與同步 trigger、回填 | migration `0007`、`0008` |
 | 影子比對 | `AUTHZ_SHADOW`（G3a 已刪除） |
-| 角色權限的技能樹（互鎖） | `apps/backstage/src/features/role/components/PermissionSkillTree.tsx`、`components/TreeEditor` 的狀態／分組擴充 |
+| 角色權限的技能樹（互鎖） | `apps/backstage/src/features/role/components/PermissionSkillTree.tsx`、`@b2b-system/ui/TreeEditor` 的狀態／分組擴充 |
 
 與提案不同的地方：快取仍逐事件失效（`authz_revision` 與 `pg_notify` 延到 G3，寫入改經 tuple 之後才有單一的失效點）；
 `resolveHierarchyLevels` 與舊的權限查詢保留到 G3，只給影子比對用。（兩者都已在 G3a 處理，見 §9.8。）

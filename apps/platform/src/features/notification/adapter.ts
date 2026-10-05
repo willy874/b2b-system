@@ -1,4 +1,5 @@
-import type { TranslationFacade } from '@/core/locales';
+import type { TranslationFacade } from '@b2b-system/web-core/locales';
+
 import type { PlatformNotification } from '@/shared/api-sdk';
 
 import {

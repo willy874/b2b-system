@@ -1,5 +1,5 @@
-import type { AppPluginFactory } from '@/core/app';
-import { LanguageNamespace, Languages } from '@/shared/constants/lang';
+import type { AppPluginFactory } from '@b2b-system/web-core/app';
+import { LanguageNamespace, Languages } from '@b2b-system/web-shared/constants';
 
 import { FEATURE_FLAG_LOCALE_SCOPE } from './locale';
 import { registerFeatureFlagPagePermissions } from './permission';

@@ -1,13 +1,13 @@
+import { Skeleton } from '@b2b-system/ui/Skeleton';
+import { QueryError } from '@b2b-system/web-core/components';
+import { isNotFound } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 import { getAnnouncementMessageQueryOptions } from '@/apis/announcement/get-announcement-message/query';
 import { invalidateResources, Resource } from '@/apis/resources';
-import { Skeleton } from '@/components/Skeleton';
-import { QueryError } from '@/core/components';
-import { isNotFound } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { formatDateTime } from '@/shared/date';
 
 import { AnnouncementMessageRoute } from '../../routes';
 

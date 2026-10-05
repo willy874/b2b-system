@@ -1,8 +1,8 @@
+import { usePermissionStore } from '@b2b-system/web-core/store';
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { PermissionKey, resetPagePermissionRegistry } from '@/core/permission';
-import { usePermissionStore } from '@/core/store';
 
 import { registerFilePagePermissions } from '../../permission';
 import { selectionCapabilities, useFilePermission } from '../useFilePermission';

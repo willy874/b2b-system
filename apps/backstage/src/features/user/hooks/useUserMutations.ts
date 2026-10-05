@@ -1,3 +1,11 @@
+import {
+  isAppError,
+  isVersionConflict,
+  useErrorMessage,
+  useErrorToast,
+} from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useToast } from '@b2b-system/web-core/notify';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 
@@ -10,10 +18,7 @@ import { getUserResetPasswordMutationOptions } from '@/apis/user/reset-user-pass
 import { getUserRestoreMutationOptions } from '@/apis/user/restore-user/mutation';
 import { getUserUnlockMutationOptions } from '@/apis/user/unlock-user/mutation';
 import { getUserUpdateMutationOptions } from '@/apis/user/update-user/mutation';
-import { isAppError, isVersionConflict, useErrorMessage, useErrorToast } from '@/core/errors';
 import { useIsFeatureReady } from '@/core/feature';
-import { useTranslation } from '@/core/locales';
-import { useToast } from '@/core/notify';
 import { TenantFeature } from '@/shared/api-sdk';
 import type { User } from '@/shared/api-sdk';
 

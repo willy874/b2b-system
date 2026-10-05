@@ -1,7 +1,6 @@
+import { Icon } from '@b2b-system/ui/Icon';
+import { cn } from '@b2b-system/web-shared/utils';
 import { useState } from 'react';
-
-import { Icon } from '@/components/Icon';
-import { cn } from '@/shared/utils';
 
 import type { FileItemVM } from '../adapter';
 

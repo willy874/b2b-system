@@ -1,8 +1,9 @@
+import { Checkbox } from '@b2b-system/ui/Checkbox';
+import { Icon } from '@b2b-system/ui/Icon';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import type { SortEntry } from '@b2b-system/web-shared/constants';
+
 import type { FileSortField } from '@/apis/file/types';
-import { Checkbox } from '@/components/Checkbox';
-import { Icon } from '@/components/Icon';
-import { useTranslation } from '@/core/locales';
-import type { SortEntry } from '@/shared/constants';
 
 import { FILE_SORT_FIELDS } from '../../../constants';
 import type { FileListColumn } from '../layout';

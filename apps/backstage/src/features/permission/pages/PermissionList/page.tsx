@@ -1,12 +1,12 @@
+import { Empty } from '@b2b-system/ui/Empty';
+import { Icon } from '@b2b-system/ui/Icon';
+import type { IconName } from '@b2b-system/ui/Icon';
+import { Skeleton } from '@b2b-system/ui/Skeleton';
+import { Tabs, TabsPanel } from '@b2b-system/ui/Tabs';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 
 import { getPermissionListQueryOptions } from '@/apis/permission/get-permission-list/query';
-import { Empty } from '@/components/Empty';
-import { Icon } from '@/components/Icon';
-import type { IconName } from '@/components/Icon';
-import { Skeleton } from '@/components/Skeleton';
-import { Tabs, TabsPanel } from '@/components/Tabs';
-import { useTranslation } from '@/core/locales';
 import { usePermission } from '@/core/permission';
 
 import { useFilteredPermissionCatalog } from '../../hooks/useFilteredPermissionCatalog';

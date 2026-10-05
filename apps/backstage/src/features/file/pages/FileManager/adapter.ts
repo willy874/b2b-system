@@ -1,8 +1,9 @@
-import type { IconName } from '@/components/Icon';
+import type { IconName } from '@b2b-system/ui/Icon';
+import { formatBytes } from '@b2b-system/web-shared/utils';
+
 import { FILE_KIND_ICON, getFileKind, isBrowserImage } from '@/core/file';
 import type { FileKind } from '@/core/file';
 import type { FileFolder, StoredFile, TagSummary } from '@/shared/api-sdk';
-import { formatBytes } from '@/shared/utils';
 
 import { INLINE_PREVIEW_MAX_SIZE } from '../../constants';
 

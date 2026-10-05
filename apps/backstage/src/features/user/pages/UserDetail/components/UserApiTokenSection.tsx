@@ -1,5 +1,7 @@
-import { ApiTokenTable, QueryError } from '@/core/components';
-import { useTranslation } from '@/core/locales';
+import { QueryError } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
+
+import { ApiTokenTable } from '@/core/components';
 
 import { useUserApiTokens } from '../../../hooks/useUserApiTokens';
 

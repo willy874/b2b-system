@@ -1,3 +1,5 @@
+import { useLayoutStore, usePermissionStore } from '@b2b-system/web-core/store';
+import { AllProviders } from '@b2b-system/web-core/testing';
 import {
   createMemoryHistory,
   createRootRoute,
@@ -9,12 +11,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PermissionKey, resetPagePermissionRegistry } from '@/core/permission';
-import { useLayoutStore, usePermissionStore } from '@/core/store';
 import { registerAccountPagePermissions } from '@/features/account';
 import { registerAuditLogPagePermissions } from '@/features/audit-log';
 import { registerTenantPagePermissions } from '@/features/tenant';
 import { initTestI18n } from '@/test/i18n';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { DashboardLayout } from '../DashboardLayout';
 

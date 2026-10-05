@@ -1,8 +1,8 @@
+import { renderWithPermissions } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FileFolderGrantList } from '@/shared/api-sdk';
-import { renderWithPermissions } from '@/test/renderWithPermissions';
 
 import { FileShareDialog } from '../components/FileShareDialog';
 

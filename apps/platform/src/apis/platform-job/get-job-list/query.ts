@@ -1,6 +1,5 @@
+import type { HttpRequestDTO } from '@b2b-system/web-core/client';
 import { keepPreviousData, queryOptions } from '@tanstack/react-query';
-
-import type { HttpRequestDTO } from '@/core/client';
 
 import type { PlatformJobListParams } from '../types';
 import { fetchPlatformJobListQuery } from './fetcher';

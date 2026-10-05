@@ -1,8 +1,8 @@
+import { BatchProgressBar } from '@b2b-system/web-core/batch';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
-import { BatchProgressBar } from '@/core/batch';
 
 import { selectionCapabilities, useFilePermission } from '../../hooks/useFilePermission';
 import { useFileUpload } from '../../hooks/useFileUpload';

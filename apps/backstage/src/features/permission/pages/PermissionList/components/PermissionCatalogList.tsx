@@ -1,7 +1,8 @@
-import { Button } from '@/components/Button';
-import { Chip } from '@/components/Chip';
-import { Icon } from '@/components/Icon';
-import { useTranslation } from '@/core/locales';
+import { Button } from '@b2b-system/ui/Button';
+import { Chip } from '@b2b-system/ui/Chip';
+import { Icon } from '@b2b-system/ui/Icon';
+import { useTranslation } from '@b2b-system/web-core/locales';
+
 import type { PermissionCatalog } from '@/shared/api-sdk';
 
 export interface PermissionCatalogListProps {

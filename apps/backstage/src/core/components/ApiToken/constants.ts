@@ -1,4 +1,5 @@
-import type { ChipTone } from '@/components/Chip';
+import type { ChipTone } from '@b2b-system/ui/Chip';
+
 import type { ApiToken } from '@/shared/api-sdk';
 
 type ApiTokenStatus = ApiToken['status'];

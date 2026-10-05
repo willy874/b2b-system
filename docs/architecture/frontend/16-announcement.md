@@ -77,4 +77,4 @@ shared/date                            zonedDateTime()、toZonedParts()：偏好
 | 詳情：各狀態與權限的按鈕、送出與暫停帶 version、撤回、未水合 | `pages/AnnouncementDetail/__tests__/*` |
 | 全文：沒有權限也看得到、保留換行、404 沒有重試 | `pages/AnnouncementMessage/__tests__/*` |
 | 安裝後登記 route id 與回收桶分頁、卸載後撤回 | `app/__tests__/features.test.ts` |
-| 偏好時區的日期與時間（含夏令時間） | `shared/date/__tests__/date.test.ts` |
+| 偏好時區的日期與時間（含夏令時間） | `packages/web-shared/src/date/__tests__/date.test.ts` |

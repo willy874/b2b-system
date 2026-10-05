@@ -1,9 +1,10 @@
+import type { AppPluginFactory } from '@b2b-system/web-core/app';
+import { queryClient } from '@b2b-system/web-core/cache';
+import { PageSkeleton } from '@b2b-system/web-core/components';
+import { parseSearch, stringifySearch } from '@b2b-system/web-core/router';
 import { createRouter } from '@tanstack/react-router';
 
-import type { AppPluginFactory } from '@/core/app';
-import { queryClient } from '@/core/cache';
-import { NotFoundPage, PageSkeleton, RouteErrorPage } from '@/core/components';
-import { parseSearch, stringifySearch } from '@/core/router';
+import { NotFoundPage, RouteErrorPage } from '@/core/components';
 
 import { registerBuiltinHeaderTools } from './layouts/headerTools';
 import { routeTree } from './routes';
@@ -34,7 +35,7 @@ export function appContextPlugin(): AppPluginFactory {
   };
 }
 
-declare module '@/core/app/context' {
+declare module '@b2b-system/web-core/app/context' {
   interface AppPluginProperties {
     router: AppRouter;
   }

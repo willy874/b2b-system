@@ -1,10 +1,10 @@
+import { Select } from '@b2b-system/ui/Select';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
 import { getUserDetailQueryOptions } from '@/apis/user/get-user-detail/query';
 import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
-import { Select } from '@/components/Select';
-import { useTranslation } from '@/core/locales';
 
 /** 輸入停頓多久才查詢（與群組成員的搜尋相同）。 */
 const USER_SEARCH_DEBOUNCE_MS = 250;

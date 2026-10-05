@@ -1,4 +1,5 @@
-import type { ChipTone } from '@/components/Chip';
+import type { ChipTone } from '@b2b-system/ui/Chip';
+
 import type { UpdateFeatureFlagRequest } from '@/shared/api-sdk';
 
 /** 全平台層的三種狀態（docs/architecture/05-tenancy.md §11.2 D3）；`default` = 沒有覆寫。 */

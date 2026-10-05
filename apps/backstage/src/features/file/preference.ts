@@ -1,10 +1,11 @@
+import { createChannel } from '@b2b-system/web-shared/channel';
+import type { Channel, ChannelOptions } from '@b2b-system/web-shared/channel';
+import type { SortEntry } from '@b2b-system/web-shared/constants';
+import { create } from '@b2b-system/web-shared/hooks';
+import { createDictStorage } from '@b2b-system/web-shared/storage';
+import type { DictStorageMessages } from '@b2b-system/web-shared/storage';
+
 import type { FileSortField } from '@/apis/file/types';
-import { createChannel } from '@/shared/channel';
-import type { Channel, ChannelOptions } from '@/shared/channel';
-import type { SortEntry } from '@/shared/constants';
-import { create } from '@/shared/hooks';
-import { createDictStorage } from '@/shared/storage';
-import type { DictStorageMessages } from '@/shared/storage';
 
 import { FILE_PAGE_SIZES, FILE_SORT_FIELDS } from './constants';
 

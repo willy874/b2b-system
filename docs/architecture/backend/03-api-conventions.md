@@ -178,7 +178,8 @@ Zod 失敗時拋 `ZodError`，由 `HttpExceptionFilter` 轉成：
 
 ## 5. 錯誤碼
 
-`core/errors/error-code.ts` 是 **唯一定義處**：
+`packages/error-codes/src/index.ts`（`@b2b-system/error-codes`）是 **唯一定義處**，api 與兩個前端共用；
+api 的 `core/errors/error-code.ts` 只是轉出，既有的 import 不必改：
 
 ```ts
 export const ErrorCode = {
@@ -252,10 +253,10 @@ export type ErrorCode = keyof typeof ErrorCode;
 
 ### 5.1 新增錯誤碼的流程
 
-1. 加進上面的表
-2. 在 `apps/backstage/src/app/locales/{en_US,zh_TW}.json`、`apps/platform/src/app/locales/{en_US,zh_TW}.json` 加 `error.<CODE>`，
-   並加進兩個 app 的 `core/errors/errorMessageKey.ts`
-3. CI 檢查會驗證每個 code 都有兩個語系的翻譯
+1. 加進上面的表，`pnpm build:packages`（api 在執行期讀 `dist/`）
+2. 加進 `packages/web-core/src/errors/errorMessageKey.ts`（兩個前端共用）——`ERROR_MESSAGE_KEY` 以 `satisfies Record<ErrorCode, …>` 宣告，漏了就 **編譯失敗**；
+   再在 `packages/web-core/src/locales/resources/{en_US,zh_TW}.json` 加 `error.<CODE>`（某個 app 要不同措辭時才在它的 `app/locales` 覆寫）
+3. CI 檢查（`packages/web-core/src/locales/__tests__/resources.test.ts`，讀 `ALL_ERROR_CODES`）會驗證每個 code 都有兩個語系的翻譯
 
 ### 5.2 `AppException`
 
@@ -563,7 +564,7 @@ apps/api  ──(@nestjs/swagger + zod-openapi)──▶  openapi.json
 **為什麼換掉 orval**
 
 1. **只要 fetch、不要 middleware。** 攔截器（token、續期、重試、錯誤轉換）已經在
-   `apps/backstage/src/core/client` 的 `HttpContext` 實作；SDK 再帶一套 mutator / interceptor 只會重疊。
+   `@b2b-system/web-core/client` 的 `HttpContext` 實作；SDK 再帶一套 mutator / interceptor 只會重疊。
    新產生器的執行期只有 `fetch`，需要客製傳輸時以 `options.fetch` 注入，不提供攔截器鏈。
 2. **同時產出 zod schema。** 表單驗證與（可選的）回應驗證可以直接用 spec 產生的 schema，
    不必手寫一份「長得一樣」的 zod。

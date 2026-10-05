@@ -1,9 +1,8 @@
+import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
+import { AllProviders } from '@b2b-system/web-core/testing';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { parseSearch, RootRoute, stringifySearch } from '@/core/router';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { Routes } from '../../..';
 

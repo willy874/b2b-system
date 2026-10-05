@@ -1,12 +1,12 @@
+import { isVersionConflict, useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useToast } from '@b2b-system/web-core/notify';
 import { useMutation } from '@tanstack/react-query';
 
 import { invalidateResources, Resource } from '@/apis/resources';
 import { getTagCreateMutationOptions } from '@/apis/tag/create-tag/mutation';
 import { getTagDeleteMutationOptions } from '@/apis/tag/delete-tag/mutation';
 import { getTagUpdateMutationOptions } from '@/apis/tag/update-tag/mutation';
-import { isVersionConflict, useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { useToast } from '@/core/notify';
 
 /** 建立：錯誤由表單顯示（例：同名），不彈 toast。 */
 export function useTagCreateMutation() {

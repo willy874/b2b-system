@@ -1,4 +1,4 @@
-import { registerPreferenceTable } from '@/core/preference';
+import { registerPreferenceTable } from '@b2b-system/web-core/preference';
 
 import { ROLE_LOCALE_SCOPE } from './locale';
 

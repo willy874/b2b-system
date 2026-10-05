@@ -1,5 +1,6 @@
-import { defineBaseFetcher, jsonBody, withQuery } from '@/core/client';
-import type { HttpRequestDTO } from '@/core/client';
+import { defineBaseFetcher, jsonBody, withQuery } from '@b2b-system/web-core/client';
+import type { HttpRequestDTO } from '@b2b-system/web-core/client';
+
 import {
   getAuthControllerSetupUrl,
   getAuthControllerVerifySetupUrl,

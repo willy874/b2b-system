@@ -1,13 +1,13 @@
+import { AppError } from '@b2b-system/web-core/errors';
+import { RootRoute } from '@b2b-system/web-core/router';
+import { renderRoute } from '@b2b-system/web-core/testing';
 import { createRoute } from '@tanstack/react-router';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AppError } from '@/core/errors';
 import { featureStore, resetFeatureStore } from '@/core/feature';
 import type { PermissionKey } from '@/core/permission';
-import { RootRoute } from '@/core/router';
 import { initTestI18n } from '@/test/i18n';
-import { renderRoute } from '@/test/renderRoute';
 
 import { useFileDeleteMutation } from '../../hooks/useFileMutations';
 import { useFolderDeleteMutation } from '../../hooks/useFolderMutations';

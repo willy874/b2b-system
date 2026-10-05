@@ -1,16 +1,16 @@
+import { IconButton } from '@b2b-system/ui/Button';
+import { Chip } from '@b2b-system/ui/Chip';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
+import { Icon } from '@b2b-system/ui/Icon';
+import { Table } from '@b2b-system/ui/Table';
+import type { TableColumnDef } from '@b2b-system/ui/Table';
+import { Tooltip } from '@b2b-system/ui/Tooltip';
+import { Text } from '@b2b-system/ui/Typography';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime, formatRelativeTime } from '@b2b-system/web-shared/date';
 import { useMemo } from 'react';
 
-import { IconButton } from '@/components/Button';
-import { Chip } from '@/components/Chip';
-import { useConfirm } from '@/components/ConfirmDialog';
-import { Icon } from '@/components/Icon';
-import { Table } from '@/components/Table';
-import type { TableColumnDef } from '@/components/Table';
-import { Tooltip } from '@/components/Tooltip';
-import { Text } from '@/components/Typography';
-import { useTranslation } from '@/core/locales';
 import type { ApiToken } from '@/shared/api-sdk';
-import { formatDateTime, formatRelativeTime } from '@/shared/date';
 
 import { API_TOKEN_STATUS_LABEL_KEY, API_TOKEN_STATUS_TONE } from './constants';
 

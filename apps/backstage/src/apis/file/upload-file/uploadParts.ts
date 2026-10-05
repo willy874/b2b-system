@@ -1,5 +1,6 @@
-import { isNetworkError, isRequestAborted } from '@/core/client';
-import { isAppError } from '@/core/errors';
+import { isNetworkError, isRequestAborted } from '@b2b-system/web-core/client';
+import { isAppError } from '@b2b-system/web-core/errors';
+
 import type { FileMultipartUpload, FileUploadPart } from '@/shared/api-sdk';
 
 import { putToStorage } from './putToStorage';

@@ -62,12 +62,12 @@ export const USER_STATUS_LABEL_KEY = {
 | 設定物件中的完整字面量            | `{ labelKey: 'menu.role', … }` → `t(item.labelKey)` | 欄位名以 `Key` / `I18nKey` 結尾               |
 | 後端回傳的完整 key                | `t(permission.nameI18nKey)`                         | 後端以字面量存放（`db/seeds/permissions.ts`） |
 
-錯誤碼同理：`core/errors/errorMessageKey.ts` 的 `ERROR_MESSAGE_KEY` 對照表，而不是 `` `error.${code}` ``。
-新增錯誤碼時要加進這張表（🔒 `locales.test.ts` 會比對它與後端錯誤碼清單）。
+錯誤碼同理：`packages/web-core/src/errors/errorMessageKey.ts` 的 `ERROR_MESSAGE_KEY` 對照表，而不是 `` `error.${code}` ``。
+新增錯誤碼時要加進這張表（🔒 型別檢查與 web-core 的 `resources.test.ts` 會比對它與後端錯誤碼清單）。
 
 ### 3.2 className
 
-設計系統元件（`components/`）用 CSS Module，class 來自 `styles.xxx`，變體不組 class 而是寫成 `data-*` 屬性
+設計系統元件（`@b2b-system/ui`）用 CSS Module，class 來自 `styles.xxx`，變體不組 class 而是寫成 `data-*` 屬性
 （見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.3、§3.4）：
 
 ```tsx
@@ -108,7 +108,7 @@ getByTestIdAndValue(page, 'role-permission-node', 'user:read');
 
 - 值域固定的一組元素（選單、分頁），在設定物件裡寫完整字面量：
   `{ to: '/role', labelKey: 'menu.role', testId: 'menu-role' }`。
-- 設計系統元件（`components/`）渲染的列表項目統一用 `<元件>-item` ＋ `data-value`，
+- 設計系統元件（`@b2b-system/ui`）渲染的列表項目統一用 `<元件>-item` ＋ `data-value`，
   例如 `data-testid="menu-item" data-value="logout"`。
 - E2E 用 `apps/e2e/helpers/selectors.ts` 的 `getByTestIdAndValue(page, 'role-permission-node', 'user:read')`。
 

@@ -1,4 +1,5 @@
-import { defineBaseFetcher } from '@/core/client';
+import { defineBaseFetcher } from '@b2b-system/web-core/client';
+
 import { getPlatformAuthControllerRefreshUrl } from '@/shared/api-sdk';
 import type { Session } from '@/shared/api-sdk';
 

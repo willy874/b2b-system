@@ -1,14 +1,14 @@
+import { Button, IconButton } from '@b2b-system/ui/Button';
+import { Icon } from '@b2b-system/ui/Icon';
+import { Link } from '@b2b-system/ui/Link';
+import { Popover } from '@b2b-system/ui/Popover';
+import { useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Link as RouterLink } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
 import { getNotificationListQueryOptions } from '@/apis/platform-notification/get-notification-list/query';
-import { Button, IconButton } from '@/components/Button';
-import { Icon } from '@/components/Icon';
-import { Link } from '@/components/Link';
-import { Popover } from '@/components/Popover';
-import { useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 
 import { toNotificationVM } from '../adapter';
 import { NOTIFICATION_BADGE_MAX, NOTIFICATION_PANEL_LIMIT } from '../constants';

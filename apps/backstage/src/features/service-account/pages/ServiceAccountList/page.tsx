@@ -1,11 +1,11 @@
+import { AlertDialog } from '@b2b-system/ui/AlertDialog';
+import { ButtonLink } from '@b2b-system/ui/Button';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
 import { getServiceAccountListQueryOptions } from '@/apis/service-account/get-service-account-list/query';
-import { AlertDialog } from '@/components/AlertDialog';
-import { ButtonLink } from '@/components/Button';
-import { useTranslation } from '@/core/locales';
 
 import { useServiceAccountDeleteMutation } from '../../hooks/useServiceAccountMutations';
 import { useServiceAccountPermission } from '../../hooks/useServiceAccountPermission';

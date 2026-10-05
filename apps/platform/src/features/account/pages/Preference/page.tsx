@@ -1,14 +1,14 @@
-import { Field } from '@/components/Field';
-import { Select } from '@/components/Select';
-import { useTranslation } from '@/core/locales';
-import { useToast } from '@/core/notify';
-import { usePreferenceLocales, usePreferenceSections } from '@/core/preference';
-import { useLocaleStore, useThemeStore, useTimezoneStore } from '@/core/store';
-import { THEME_OPTIONS } from '@/core/theme';
-import { LANGUAGE_LABELS, SUPPORTED_LANGUAGES } from '@/shared/constants/lang';
-import type { Language } from '@/shared/constants/lang';
+import { Field } from '@b2b-system/ui/Field';
+import { Select } from '@b2b-system/ui/Select';
+import { HeaderToolbarSettings } from '@b2b-system/web-core/layout';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useToast } from '@b2b-system/web-core/notify';
+import { usePreferenceLocales, usePreferenceSections } from '@b2b-system/web-core/preference';
+import { useLocaleStore, useThemeStore, useTimezoneStore } from '@b2b-system/web-core/store';
+import { THEME_OPTIONS } from '@b2b-system/web-core/theme';
+import { LANGUAGE_LABELS, SUPPORTED_LANGUAGES } from '@b2b-system/web-shared/constants';
+import type { Language } from '@b2b-system/web-shared/constants';
 
-import { HeaderToolbarSettings } from '../../components/HeaderToolbarSettings';
 import { useChangeLocale } from '../../hooks/useChangeLocale';
 
 const TIMEZONES = ['Asia/Taipei', 'Asia/Tokyo', 'UTC', 'America/Los_Angeles'];

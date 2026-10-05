@@ -1,19 +1,19 @@
-import { Link } from '@tanstack/react-router';
-import { useMemo } from 'react';
-
-import type { ApprovalSortField } from '@/apis/approval/types';
-import { Chip } from '@/components/Chip';
-import type { TableColumnDef } from '@/components/Table';
-import { RichTable } from '@/core/components';
+import { Chip } from '@b2b-system/ui/Chip';
+import type { TableColumnDef } from '@b2b-system/ui/Table';
+import { RichTable } from '@b2b-system/web-core/components';
 import type {
   FilterBarProps,
   RichTableBatch,
   RichTablePagination,
   TableSettingsConfig,
-} from '@/core/components';
-import { useTranslation } from '@/core/locales';
-import type { SortEntry } from '@/shared/constants';
-import { formatDateTime } from '@/shared/date';
+} from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import type { SortEntry } from '@b2b-system/web-shared/constants';
+import { formatDateTime } from '@b2b-system/web-shared/date';
+import { Link } from '@tanstack/react-router';
+import { useMemo } from 'react';
+
+import type { ApprovalSortField } from '@/apis/approval/types';
 
 import {
   APPROVAL_STATUS_LABEL_KEY,

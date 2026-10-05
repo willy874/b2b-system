@@ -1,11 +1,10 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Dialog } from '@b2b-system/ui/Dialog';
+import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useNavigate } from '@tanstack/react-router';
 import { useId, useState } from 'react';
-
-import { Button } from '@/components/Button';
-import { Dialog } from '@/components/Dialog';
-import { useErrorMessage } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { useUnsavedChangesGuard } from '@/core/router';
 
 import { AnnouncementForm } from '../../components/AnnouncementForm';
 import type { AnnouncementDraft } from '../../components/AnnouncementForm';

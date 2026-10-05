@@ -1,11 +1,12 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Spinner } from '@b2b-system/ui/Spinner';
+import { QueryError } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { getUserPermissionSourcesQueryOptions } from '@/apis/user/get-user-permission-sources/query';
-import { Button } from '@/components/Button';
-import { Spinner } from '@/components/Spinner';
-import { PermissionSourceList, QueryError } from '@/core/components';
-import { useTranslation } from '@/core/locales';
+import { PermissionSourceList } from '@/core/components';
 
 interface ProfilePermissionSectionProps {
   userId: string;

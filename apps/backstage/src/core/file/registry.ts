@@ -1,6 +1,5 @@
+import { createRegistry } from '@b2b-system/web-shared/registry';
 import type { ComponentType } from 'react';
-
-import { createRegistry } from '@/shared/registry';
 
 /**
  * 檔案管理的擴充點（docs/architecture/frontend/12-file-manager.md §6）。

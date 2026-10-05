@@ -1,8 +1,7 @@
+import { renderWithPermissions } from '@b2b-system/web-core/testing';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-
-import { renderWithPermissions } from '@/test/renderWithPermissions';
 
 import { ImagePreview } from '../ImagePreview';
 

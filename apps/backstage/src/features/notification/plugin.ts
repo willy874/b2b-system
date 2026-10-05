@@ -1,7 +1,7 @@
-import type { AppPluginFactory } from '@/core/app';
-import { registerPreferenceSection } from '@/core/preference';
-import { registerHeaderTool } from '@/core/toolbar';
-import { LanguageNamespace, Languages } from '@/shared/constants/lang';
+import type { AppPluginFactory } from '@b2b-system/web-core/app';
+import { registerPreferenceSection } from '@b2b-system/web-core/preference';
+import { registerHeaderTool } from '@b2b-system/web-core/toolbar';
+import { LanguageNamespace, Languages } from '@b2b-system/web-shared/constants';
 
 import { NotificationBell } from './components/NotificationBell';
 import { NotificationPreferenceSection } from './components/NotificationPreferenceSection';

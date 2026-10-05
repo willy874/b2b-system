@@ -1,5 +1,5 @@
-import type { FilterBarProps } from '@/core/components';
-import { useTranslation } from '@/core/locales';
+import type { FilterBarProps } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
 
 import type { RoleSearchQuery } from '../../routes';
 import type { useRoleSearchFilter } from './useRoleSearchFilter';

@@ -1,11 +1,12 @@
-import { computeTreeLayout, getEdgeId } from '@/components/TreeEditor';
+import { computeTreeLayout, getEdgeId } from '@b2b-system/ui/TreeEditor';
 import type {
   TreeEditorEdge,
   TreeEditorGroup,
   TreeEditorNode,
   TreeEditorNodeSize,
   TreeEditorPosition,
-} from '@/components/TreeEditor';
+} from '@b2b-system/ui/TreeEditor';
+
 import type { Permission, PermissionGroup } from '@/shared/api-sdk';
 
 /**

@@ -1,11 +1,10 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Field } from '@b2b-system/ui/Field';
+import { NumberField } from '@b2b-system/ui/NumberField';
+import { Select } from '@b2b-system/ui/Select';
+import { Switch } from '@b2b-system/ui/Switch';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useMemo } from 'react';
-
-import { Button } from '@/components/Button';
-import { Field } from '@/components/Field';
-import { NumberField } from '@/components/NumberField';
-import { Select } from '@/components/Select';
-import { Switch } from '@/components/Switch';
-import { useTranslation } from '@/core/locales';
 
 import type { SettingFieldError } from '../../../hooks/useSettingDraft';
 import type { SettingFieldView, SettingValue } from '../../../types';

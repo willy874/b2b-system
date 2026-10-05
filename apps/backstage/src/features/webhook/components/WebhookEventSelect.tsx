@@ -1,5 +1,6 @@
-import { Select } from '@/components/Select';
-import { useTranslation } from '@/core/locales';
+import { Select } from '@b2b-system/ui/Select';
+import { useTranslation } from '@b2b-system/web-core/locales';
+
 import type { WebhookEventList } from '@/shared/api-sdk';
 
 import { WEBHOOK_EVENT_LABEL } from '../constants';

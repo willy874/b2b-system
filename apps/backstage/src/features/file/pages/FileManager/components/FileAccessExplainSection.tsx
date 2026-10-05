@@ -1,13 +1,14 @@
+import { Icon } from '@b2b-system/ui/Icon';
+import { Select } from '@b2b-system/ui/Select';
+import { Spinner } from '@b2b-system/ui/Spinner';
+import { QueryError } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
 import { getFileFolderExplainQueryOptions } from '@/apis/file/get-file-folder-explain/query';
 import { getFileGrantSubjectListQueryOptions } from '@/apis/file/get-file-grant-subjects/query';
-import { Icon } from '@/components/Icon';
-import { Select } from '@/components/Select';
-import { Spinner } from '@/components/Spinner';
-import { ExplainPath, QueryError } from '@/core/components';
-import { useTranslation } from '@/core/locales';
+import { ExplainPath } from '@/core/components';
 import type { FileAccessExplain } from '@/shared/api-sdk';
 
 /** 使用者搜尋的輸入停頓多久才查詢（與新增授權的搜尋相同）。 */

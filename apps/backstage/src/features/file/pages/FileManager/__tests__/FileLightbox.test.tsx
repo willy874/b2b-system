@@ -1,9 +1,9 @@
+import { AppError } from '@b2b-system/web-core/errors';
+import { renderWithPermissions } from '@b2b-system/web-core/testing';
 import { screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AppError } from '@/core/errors';
 import { registerFilePreviewer, resetFileRegistry } from '@/core/file';
-import { renderWithPermissions } from '@/test/renderWithPermissions';
 
 import type { FileItemVM } from '../adapter';
 import { FileLightbox } from '../components/FileLightbox';

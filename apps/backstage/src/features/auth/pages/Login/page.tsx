@@ -1,8 +1,7 @@
+import { Button } from '@b2b-system/ui/Button';
+import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useEffect, useState } from 'react';
-
-import { Button } from '@/components/Button';
-import { useErrorMessage } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 
 import { LoginRoute } from '../../routes';
 import { sessionEndMessageKey } from '../../sessionEnd';

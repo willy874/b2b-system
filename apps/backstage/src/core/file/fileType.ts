@@ -1,4 +1,4 @@
-import type { IconName } from '@/components/Icon';
+import type { IconName } from '@b2b-system/ui/Icon';
 
 /**
  * 檔案的顯示類型（決定圖示）。比後端的篩選分類（`FileCategory`）細：

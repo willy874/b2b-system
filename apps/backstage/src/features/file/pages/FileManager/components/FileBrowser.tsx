@@ -1,15 +1,15 @@
+import { Icon } from '@b2b-system/ui/Icon';
+import { Skeleton } from '@b2b-system/ui/Skeleton';
+import { Spinner } from '@b2b-system/ui/Spinner';
+import { useInfiniteScroll } from '@b2b-system/ui/VirtualList';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import type { SortEntry } from '@b2b-system/web-shared/constants';
+import { cn } from '@b2b-system/web-shared/utils';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent, KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from 'react';
 
 import type { FileSortField } from '@/apis/file/types';
-import { Icon } from '@/components/Icon';
-import { Skeleton } from '@/components/Skeleton';
-import { Spinner } from '@/components/Spinner';
-import { useInfiniteScroll } from '@/components/VirtualList';
-import { useTranslation } from '@/core/locales';
-import type { SortEntry } from '@/shared/constants';
-import { cn } from '@/shared/utils';
 
 import type { FileViewMode } from '../../../preference';
 import type { CollectedUpload } from '../../../upload/collectEntries';

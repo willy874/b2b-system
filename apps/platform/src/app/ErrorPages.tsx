@@ -1,10 +1,9 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Spinner } from '@b2b-system/ui/Spinner';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useRouter } from '@tanstack/react-router';
 import type { ErrorComponentProps } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-
-import { Button } from '@/components/Button';
-import { Spinner } from '@/components/Spinner';
-import { useTranslation } from '@/core/locales';
 
 /**
  * 部署新版後，舊分頁 lazy 載入的舊 chunk 已經不在伺服器上。各瀏覽器的訊息不同：

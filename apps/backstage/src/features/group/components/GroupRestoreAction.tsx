@@ -1,5 +1,6 @@
-import { Button } from '@/components/Button';
-import { useTranslation } from '@/core/locales';
+import { Button } from '@b2b-system/ui/Button';
+import { useTranslation } from '@b2b-system/web-core/locales';
+
 import type { TrashRestoreActionProps } from '@/core/trash';
 
 import { useGroupRestoreMutation } from '../hooks/useGroupMutations';

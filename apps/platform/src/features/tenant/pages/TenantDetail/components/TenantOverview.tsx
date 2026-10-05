@@ -1,6 +1,7 @@
-import { useTranslation } from '@/core/locales';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime } from '@b2b-system/web-shared/date';
+
 import type { PlatformTenant } from '@/shared/api-sdk';
-import { formatDateTime } from '@/shared/date';
 
 import { toTenantOverviewVM } from '../adapter';
 import { TenantDomains } from './TenantDomains';

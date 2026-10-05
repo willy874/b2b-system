@@ -1,8 +1,9 @@
-import { defineAuthFetcher, withQuery } from '@/core/client';
-import type { HttpRequestDTO } from '@/core/client';
+import { defineAuthFetcher, withQuery } from '@b2b-system/web-core/client';
+import type { HttpRequestDTO } from '@b2b-system/web-core/client';
+import { toSortParams } from '@b2b-system/web-shared/constants';
+
 import { getUserControllerListUrl } from '@/shared/api-sdk';
 import type { UserControllerListResponse } from '@/shared/api-sdk';
-import { toSortParams } from '@/shared/constants';
 
 import type { UserListParams } from '../types';
 

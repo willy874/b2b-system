@@ -1,7 +1,7 @@
+import { sortSearchSchema } from '@b2b-system/web-shared/constants';
 import { z } from 'zod';
 
 import type { GroupSortField } from '@/apis/group/types';
-import { sortSearchSchema } from '@/shared/constants';
 
 /** 列表可排序的欄位（後端白名單）。 */
 export const GROUP_SORT_FIELDS = [

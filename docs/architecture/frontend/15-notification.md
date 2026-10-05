@@ -1,13 +1,13 @@
 # 前端 15 — 站內通知
 
-> 狀態：**已實作**（`features/notification`：頂列鈴鐺、Popover、列表頁 `/notification`、通知總覽 `/notification/all`、事件管理頁 `/notification/events`、偏好頁的通知分頁；`core/route-link` 的 route id 註冊表）。
+> 狀態：**已實作**（`features/notification`：頂列鈴鐺、Popover、列表頁 `/notification`、通知總覽 `/notification/all`、事件管理頁 `/notification/events`、偏好頁的通知分頁；`web-core/route-link` 的 route id 註冊表）。
 > 後端（`notifications` 表、`NotificationService.notify()`、API、推播、保留清理）見 [`../backend/15-notification.md`](../backend/15-notification.md)；
 > 決策見 [`backend/15-notification.md`](../backend/15-notification.md) §12.2 D3、D8、D12。
 
 ## 1. 組成
 
 ```
-core/route-link/                        route id → route 的註冊表（不認識任何 feature）
+web-core/route-link/                        route id → route 的註冊表（不認識任何 feature）
 ├── registry.ts                         registerRouteLink()、resolveRouteLink()
 └── hooks.ts                            useRouteLinkResolver()：訂閱註冊表
 
@@ -67,7 +67,7 @@ apis/notification/
 | 點一則 | 未讀的呼叫 `POST /notifications/:id/read`（不等回應；失敗只提示），連結由 `<Link>` 換頁，並關閉 Popover |
 | 語系 | 鈴鐺在每一頁都看得到，不經過本 feature 的 route loader：按鈕的字（`notification.label`、`trigger`、`triggerUnread`）放 **全域** 語系包；Popover 的內容在 feature 的 scope，由 `useNotificationLocale()` 在鈴鐺掛上時載入 |
 
-## 3. 連結：route id 註冊表（`core/route-link`）
+## 3. 連結：route id 註冊表（`web-core/route-link`）
 
 後端存 `link = { route: '<route id>', params }`，不存路徑（[`backend/15-notification.md`](../backend/15-notification.md) §12.2 D3）。feature 在 plugin 的 **同步** 階段把自己的頁面登記成 route id；
 讀的一方只查註冊表，不 import 其他 feature 的 route。
@@ -145,7 +145,7 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 | `notificationPreference` update（自己的通知設定，只推給本人） | `NOTIFICATION_PREFERENCE_LIST` |
 
 - 兩個 query 都放在 `collection`：已讀一則也會讓「未讀」列表少一筆，逐筆改快取不如整個重抓（infinite query 只重抓已載入的頁數）。
-- **稽核列表不跟著失效**：`AUDIT_LOG` 的 `derivesFromAnyChange` 改成 `{ except: [Resource.NOTIFICATION] }`（`core/cache/resourceGraph.ts` 新增的形式）。
+- **稽核列表不跟著失效**：`AUDIT_LOG` 的 `derivesFromAnyChange` 改成 `{ except: [Resource.NOTIFICATION] }`（`web-core/cache/resourceGraph.ts` 新增的形式）。
   通知不寫稽核（D9），後端也不把 `notification` 推給 `auditLog:read`（[`../backend/08-realtime.md`](../backend/08-realtime.md) §6.1 的 `recordsAudit: false`）；
   不排除的話，有 `auditLog:read` 的人每收到一則自己的通知、每按一次已讀，都會重抓一次稽核列表。
 - 其他資源的寫入不直接影響通知：通知由後端在業務交易提交後另外推給收件人（例：審核者核准後，申請人收到 `notification create`）。
@@ -159,16 +159,16 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 
 | 對象 | 檔案 |
 | --- | --- |
-| route id 註冊表：path／search 參數、沒有參數、不可點的各種情況、重複與格式錯誤、params 對不上 path、卸載撤回 | `core/route-link/__tests__/registry.test.ts` |
+| route id 註冊表：path／search 參數、沒有參數、不可點的各種情況、重複與格式錯誤、params 對不上 path、卸載撤回 | `web-core/route-link/__tests__/registry.test.ts` |
 | 可啟用的檔案 feature 安裝後登記 `file.folder`、卸載後撤回 | `app/__tests__/features.test.ts` |
 | 句子：三種類型、審批類型不認得、空摘要、參數不合預期與不認得的類型退回通用文字、清單依語系 | `features/notification/__tests__/adapter.test.ts` |
 | hook：未讀數（沒有 session 不查）、列表（連結解析、篩選、游標、`enabled`、執行期登記後變可點）、已讀與全部已讀宣告的變更 | `features/notification/hooks/__tests__/*.test.tsx` |
 | 鈴鐺：徽章與可存取名稱、打開前不抓、`99+`、句子與不可點、點了標為已讀並換頁、全部已讀、查看全部、空狀態 | `features/notification/components/__tests__/NotificationBell.test.tsx` |
 | 列表頁：只需要登入的三個權限案例（沒有權限、有其他權限、未水合）、未讀分頁寫進網址、全部已讀、查詢失敗 | `features/notification/pages/NotificationList/__tests__/NotificationListPage.test.tsx` |
-| 依賴圖：`notification` 的 create／update 只失效通知、不碰稽核；其他寫入不影響通知；`except` 的引擎行為 | `apis/__tests__/resources.test.ts`、`core/cache/__tests__/resourceGraph.test.ts` |
+| 依賴圖：`notification` 的 create／update 只失效通知、不碰稽核；其他寫入不影響通知；`except` 的引擎行為 | `apis/__tests__/resources.test.ts`、`web-core/cache/__tests__/resourceGraph.test.ts` |
 | 通知總覽：三個權限案例（有 `notification:read`、沒有但仍進得了 `/notification`、未水合）、每一列的欄位與不認得的事件、網址的篩選帶進查詢、載入更多以游標接續；adapter | `features/notification/pages/NotificationOverview/__tests__/*` |
 | 頁面註冊表的鍵集合含 `NOTIFICATION_PAGE`、`NOTIFICATION_OVERVIEW_PAGE`、`NOTIFICATION_EVENT_PAGE` | `core/permission/__tests__/feature-registration.test.ts` |
-| 相對時間 | `shared/date/__tests__/date.test.ts` |
+| 相對時間 | `packages/web-shared/src/date/__tests__/date.test.ts` |
 | E2E：註冊申請 → 審核者的鈴鐺（推播）→ 點開到審批詳情、標為已讀；角色被改 → 本人收到通知（專用帳號 `e2e-notifyme`，未讀數精確斷言）→ 到個人資料頁、全部已讀、列表頁的未讀分頁 | `apps/e2e/tests/notification.spec.ts` |
 | 事件管理頁：分組與不認得的事件、草稿（切回伺服器的值移除、有覆寫而切回預設送 `null`、恢復預設、允許個人關閉與開關記在同一筆）、頁面（只送改過的、允許個人關閉、恢復預設、`mandatory` 停用、三個權限案例） | `features/notification/pages/NotificationEventList/__tests__/*`、`features/notification/hooks/__tests__/useNotificationEventDraft.test.ts` |
 | 偏好頁的通知分頁：切換即儲存只送一筆、鎖住的管道停用並顯示原因 | `features/notification/components/__tests__/NotificationPreferenceSection.test.tsx` |

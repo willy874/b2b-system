@@ -1,11 +1,11 @@
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useLocaleStore } from '@b2b-system/web-core/store';
+import type { Language } from '@b2b-system/web-shared/constants';
 import { useMutation } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
 import { getUpdateProfileMutationOptions } from '@/apis/auth/update-profile/mutation';
 import { invalidateResources, selfUpdated } from '@/apis/resources';
-import { useTranslation } from '@/core/locales';
-import { useLocaleStore } from '@/core/store';
-import type { Language } from '@/shared/constants/lang';
 
 /**
  * 切換介面語系：寫入本機偏好（跨分頁同步）、切換 i18n、同步到帳號。

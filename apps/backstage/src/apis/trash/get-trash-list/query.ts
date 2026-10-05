@@ -1,6 +1,5 @@
+import type { HttpRequestDTO } from '@b2b-system/web-core/client';
 import { keepPreviousData, queryOptions } from '@tanstack/react-query';
-
-import type { HttpRequestDTO } from '@/core/client';
 
 import type { TrashListParams } from '../types';
 import { fetchTrashListQuery } from './fetcher';

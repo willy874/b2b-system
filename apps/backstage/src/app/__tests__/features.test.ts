@@ -1,11 +1,11 @@
+import { createAppContext } from '@b2b-system/web-core/app';
+import { resetBatchOperations } from '@b2b-system/web-core/batch';
+import { getPreferenceTables, resetPreferenceRegistry } from '@b2b-system/web-core/preference';
+import { resetRouteLinkRegistry, routeLinkRegistry } from '@b2b-system/web-core/route-link';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { createAppContext } from '@/core/app';
-import { resetBatchOperations } from '@/core/batch';
 import { resetFileRegistry } from '@/core/file';
 import { getRegisteredPageKeys, resetPagePermissionRegistry } from '@/core/permission';
-import { getPreferenceTables, resetPreferenceRegistry } from '@/core/preference';
-import { resetRouteLinkRegistry, routeLinkRegistry } from '@/core/route-link';
 import { getTrashTypes, resetTrashRegistry } from '@/core/trash';
 import {
   ANNOUNCEMENT_CREATE_PAGE,

@@ -1,8 +1,8 @@
+import { localeScopeLoader } from '@b2b-system/web-core/locales';
+import { RootRoute } from '@b2b-system/web-core/router';
 import { createRoute, stripSearchParams } from '@tanstack/react-router';
 
 import { requireFeature } from '@/core/feature';
-import { localeScopeLoader } from '@/core/locales';
-import { RootRoute } from '@/core/router';
 
 import { ANNOUNCEMENT_LOCALE_SCOPE } from '../locale';
 import { AnnouncementSearchQuerySchema, DEFAULT_ANNOUNCEMENT_SEARCH } from './model';

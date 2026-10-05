@@ -499,7 +499,7 @@ api 之外還會有別的程序寫入資料：對外 API（[`architecture/06-ext
 
 ## 8. 跨裝置中繼：`channel.relay`
 
-讓前端 `shared/channel` 的頻道可以跨裝置（例：偏好設定）。伺服器不理解 payload，只轉送：
+讓前端 `@b2b-system/web-shared/channel` 的頻道可以跨裝置（例：偏好設定）。伺服器不理解 payload，只轉送：
 
 ```ts
 @Authenticated()
@@ -596,7 +596,7 @@ export interface ClientToServerEvents {
 ```
 
 - **兩端都在執行期驗證**：伺服器驗客戶端送來的，客戶端驗伺服器推來的（版本並存時不會壞掉，只會略過）。
-- 新增事件＝在這裡加名稱與 schema →（需要時）`core/events` 加領域事件 → `realtime.listener` 或 gateway → 前端 `core/realtime` 的處理，**同一批**修改。
+- 新增事件＝在這裡加名稱與 schema →（需要時）`core/events` 加領域事件 → `realtime.listener` 或 gateway → 前端 `@b2b-system/web-core/realtime` 的處理，**同一批**修改。
 - 依賴規則：`packages/realtime` 只依賴 `zod`，不依賴任何 workspace package，不使用 DOM / Node 專屬 API
   （[`conventions/07`](../../conventions/07-layer-dependencies.md) §1）。
 
@@ -751,7 +751,7 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
    都是容易寫錯、又和業務無關的部分。
 4. **NestJS 有一級支援。** `@WebSocketGateway`、`@SubscribeMessage` 讓事件處理器可以掛 decorator，
    沿用「宣告式授權 ＋ 啟動時稽核」的既有模式。
-5. **前端的傳輸層抽象已經就緒。** `shared/channel` 的傳輸層可替換，只要多寫一個
+5. **前端的傳輸層抽象已經就緒。** `@b2b-system/web-shared/channel` 的傳輸層可替換，只要多寫一個
    `serverRelayTransport()`；`createChannel` 的語意（略過自己、去重、未知 type 略過）不變。
 6. **推來源變更、不推失效目標。** 伺服器不需要知道前端有哪些 query key；
    `PROFILE` 這類「以登入者為視角」的衍生（`isSelf`、`selfHoldsRole`）只有客戶端算得出來。
@@ -764,7 +764,7 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 
 | 代價 | 緩解 |
 | --- | --- |
-| **Socket.io 是自有協定**，不是標準 WebSocket；客戶端必須用 `socket.io-client` | 對外介面不暴露 Socket.io 的型別：前端只有 `core/realtime/socketIoTransport.ts`（實作 `RealtimeTransport`）、後端只有 gateway / publisher / expiry / types 四個檔案接觸，🔒 由 boundary 測試守住；換掉時只換這幾個檔案（[`../frontend/11-realtime.md`](../frontend/11-realtime.md) §2、本章 §2.1） |
+| **Socket.io 是自有協定**，不是標準 WebSocket；客戶端必須用 `socket.io-client` | 對外介面不暴露 Socket.io 的型別：前端只有 `packages/web-core/src/realtime/socketIoTransport.ts`（實作 `RealtimeTransport`）、後端只有 gateway / publisher / expiry / types 四個檔案接觸，🔒 由 boundary 測試守住；換掉時只換這幾個檔案（[`../frontend/11-realtime.md`](../frontend/11-realtime.md) §2、本章 §2.1） |
 | 前端 bundle 增加約 15 KB（gzip） | 可接受；登入後才連線，可與 App Shell 一起分包 |
 | **`JwtAuthGuard` 對非 HTTP 直接放行**，路由稽核也看不到 `@SubscribeMessage` | 連線 middleware 驗證 token；路由稽核延伸到 gateway（§5） |
 | 長連線會比 5 分鐘的 access token 活得久 | 伺服器在 `exp` 到期時斷線；客戶端在 token 續期時送 `session.renew` |

@@ -107,7 +107,7 @@ Postgres 在這個專案身兼五職，每一項都省掉一個外部服務：
 1. **Plugin-based AppContext**：`main.tsx` 用 `context.use(...).use(...).load()` 串起所有能力與 feature。
    新增或拿掉一個 feature 就是增刪一行，`core/` 不認識任何 feature；租戶停用某個功能時，plugin 也能在執行期卸載。
    見 [`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md)。
-2. **Feature-first 分層**：每個 feature 自帶路由、頁面、hooks、語系包與權限宣告；跨 feature 的能力才往 `core/`、`shared/` 提。
+2. **Feature-first 分層**：每個 feature 自帶路由、頁面、hooks、語系包與權限宣告；跨 feature 的能力才往 `core/`、`@b2b-system/web-shared` 提。
 3. **執行期權限註冊表**：`core/permission` 沒有一張列舉所有頁面的靜態表，每個 feature 在自己的 `permission.ts` 註冊。
 4. **API 層與 UI 層解耦**：`src/apis/<domain>/<operation>/` 是唯一與後端對話的地方，頁面只認識 query options；
    mutation 之後由資源依賴圖決定要失效哪些查詢（[`frontend/05-data-layer.md`](../architecture/frontend/05-data-layer.md)）。
@@ -123,7 +123,7 @@ Postgres 在這個專案身兼五職，每一項都省掉一個外部服務：
 | 與 UnoCSS | 兩套樣式引擎 | 直接給 `className` |
 
 通用型後台的業務功能會長出大量非標準介面（關係圖、樹狀編輯器、差異檢視、檔案管理器），一套 opinionated 的設計系統在這裡是負擔。
-代價是 `apps/backstage/src/components/` 這層要自己寫完整的樣式；目前約 40 個元件，各有測試與 Storybook story。
+代價是設計系統（`packages/ui/src/components/`）這層要自己寫完整的樣式；目前約 40 個元件，各有測試與 Storybook story。
 Base UI 的 Select 無法虛擬捲動，所以 Select／Menu 改成 Popover 加自製列表（[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.10）。
 
 ### 3.3 TanStack Router 用 code-based
@@ -137,7 +137,7 @@ file-based routing 把 route 的所有權交給檔案系統，feature 就無法�
 | 類型 | 去處 | 例 |
 | --- | --- | --- |
 | 伺服器狀態 | TanStack Query | 使用者列表、角色詳情 |
-| 全域 UI 與會話 | `shared/store` 的 signal store | 權限集合、側邊選單開合、語系、主題 |
+| 全域 UI 與會話 | `@b2b-system/web-shared/store` 的 signal store | 權限集合、側邊選單開合、語系、主題 |
 | 網址狀態 | TanStack Router `validateSearch`（Zod） | 分頁、篩選、排序 |
 
 權限集合放在 store 而不是 Query：幾乎每個元件都要 **同步** 讀它（`can(key)` 不能是非同步）。

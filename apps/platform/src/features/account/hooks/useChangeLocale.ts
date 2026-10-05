@@ -1,8 +1,7 @@
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useLocaleStore } from '@b2b-system/web-core/store';
+import type { Language } from '@b2b-system/web-shared/constants';
 import { useCallback } from 'react';
-
-import { useTranslation } from '@/core/locales';
-import { useLocaleStore } from '@/core/store';
-import type { Language } from '@/shared/constants/lang';
 
 /**
  * 切換介面語系：寫入本機偏好（跨分頁同步）並切換 i18n。偏好頁與頂列的語言選單共用。

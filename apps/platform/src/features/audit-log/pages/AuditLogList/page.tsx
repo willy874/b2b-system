@@ -1,9 +1,9 @@
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { zonedDayBoundary } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 
 import { getPlatformAuditLogListQueryOptions } from '@/apis/platform-audit-log/get-audit-log-list/query';
-import { useTranslation } from '@/core/locales';
-import { zonedDayBoundary } from '@/shared/date';
 
 import { AUDIT_LOG_MAX_RANGE_DAYS } from '../../constants';
 import { toAuditLogRowVM } from './adapter';

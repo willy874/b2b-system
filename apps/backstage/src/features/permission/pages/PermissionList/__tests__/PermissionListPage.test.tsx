@@ -1,11 +1,11 @@
+import { installFlowDom } from '@b2b-system/ui/testing';
+import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
-import { installFlowDom } from '@/test/flowDom';
 import { initTestI18n } from '@/test/i18n';
-import { renderRoute } from '@/test/renderRoute';
 
 import { registerPermissionPagePermissions, Routes } from '../../..';
 import permissionZhTW from '../../../locales/zh_TW.json';

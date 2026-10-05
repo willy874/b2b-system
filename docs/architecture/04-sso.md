@@ -210,7 +210,7 @@ production 下對外部 IdP 的每個請求都先解析主機名稱，解析到�
 
 | 位置 | 內容 |
 | --- | --- |
-| `core/auth/sso.ts` | `createAuthorizationUrl`（state、PKCE S256）、`readPendingLogin`／`discardPendingLogin`（verifier 以 state 為鍵存本分頁 sessionStorage）、`safeReturnTo`（只接受同源相對路徑） |
+| `@b2b-system/web-core/auth`（`sso.ts`） | `createAuthorizationUrl`（state、PKCE S256）、`readPendingLogin`／`discardPendingLogin`（verifier 以 state 為鍵存本分頁 sessionStorage）、`safeReturnTo`（只接受同源相對路徑） |
 | `features/auth/pages/Login` | `/auth/login`：取得這個網域的租戶代碼（`GET /tenant/current`）後跳到 IdP；`?signedOut=true` 時不自動跳，顯示「再次登入」；跳轉前失敗（租戶停用、網址打錯）顯示原因並可重試 |
 | `features/identity-provider` | `/identity-provider`：這個租戶的外部 IdP 連線（`identityProvider:*`，[`architecture/05-tenancy.md`](05-tenancy.md) §10.2 D18）；顯示要登記在外部 IdP 的 redirect URI |
 | `features/auth/pages/SsoCallback` | `/auth/callback`：換 session 後 `router.history.replace(returnTo)`；`error=access_denied` 顯示「已取消」；失敗後的「登入」帶上原本的 `returnTo` |
@@ -323,7 +323,7 @@ app session 沿用 [`backend/04-auth.md`](backend/04-auth.md) §10；權限仍�
 4. 外部 IdP（Google、Azure AD）怎麼接進來？
 
 已確認的前提（提案階段的開放問題）：我們自己當 IdP，也要能接外部 IdP；
-`apps/platform` 只有前端，後端在 `apps/api`；`apps/platform` 先複製 backstage 需要的程式碼，不抽 package。
+`apps/platform` 只有前端，後端在 `apps/api`；`apps/platform` 先複製 backstage 需要的程式碼，不抽 package（後來全部抽成 `packages/`，見 D14）。
 
 ### 12.2 決定
 
@@ -360,7 +360,7 @@ app session 沿用 [`backend/04-auth.md`](backend/04-auth.md) §10；權限仍�
 | D11 | **機密的存放**：外部 IdP 的 client secret 存資料庫，以 env 的主金鑰（AES-GCM）加密；OIDC Provider 的簽章金鑰（JWKS）放 env，輪替時新舊金鑰並存一個 access token TTL | 連線要能在管理頁新增，所以不能只放 env；主金鑰與簽章金鑰不進資料庫，資料庫外洩時仍無法偽造 token 或解出 secret |
 | D12 | **工作區不進 IdP 的 token**：IdP 只回答「你是誰」；工作區仍由路由前綴帶（[`architecture/05-tenancy.md`](05-tenancy.md) §10.7 D8） | 同一個人可以在兩個分頁開不同的工作區；身分與租戶是兩件事 |
 | D13 | **租戶管理搬進 `apps/platform`**：平台的工作區管理頁（[`architecture/05-tenancy.md`](05-tenancy.md) §10.7 D5 的範圍）與外部 IdP 連線管理都在 `apps/platform`；backstage 只保留工作區 **內** 的頁面（成員、檔案…） | 平台管理員不必進入任何產品；工作區內的頁面仍屬於產品 |
-| D14 | **`apps/platform` 先複製 backstage 需要的 `core/`、`components/`、`shared/`、`themes/`**，不抽 package。README 列出每個複製來源；兩邊修同一個問題時要一起改 | 抽 package 牽動 backstage 的 309 個檔案與所有 import，現在只有兩個前端，還看不出真正共用的邊界。出現第三個前端時再評估抽成 `packages/` |
+| D14 | **`apps/platform` 先複製 backstage 需要的 `core/`、`components/`、`shared/`、`themes/`**，不抽 package。README 列出每個複製來源；兩邊修同一個問題時要一起改 | 抽 package 牽動 backstage 的 309 個檔案與所有 import，現在只有兩個前端，還看不出真正共用的邊界。出現第三個前端時再評估抽成 `packages/`。**更新（2026-10-05）**：兩邊零差異的層先抽出——`shared/` → `@b2b-system/web-shared`，`components/`、`themes/`、`assets/icons/` → `@b2b-system/ui`；錯誤碼清單 → `@b2b-system/error-codes`（api 與前端共用，`ERROR_MESSAGE_KEY` 少一個碼就編譯失敗）。`core/`、`plugins/`、`apis/auth/`、`app/` 的外框仍是複製，待抽成 `@b2b-system/web-core`；卡住的是各 app 自己的權限目錄（`core/permission/{enums,constants}.ts`）與放在 app 語系檔裡的 `core/` 翻譯鍵。**更新（2026-10-05，同日）**：`@b2b-system/web-core` 也已抽出，複製的做法整個取代——`core/` 兩邊共用的模組、`core/components` 的四個元件、`plugins/{fetcher,app}`、`app/` 的 providers 與頂列工具、測試輔助都搬進 package。權限目錄以 module augmentation（`PermissionRegister`）由 app 登記；`core/` 的翻譯鍵搬到 package 的語系檔，與 app 的深層合併。仍各自一份的是行為或端點本來就不同的部分：權限目錄、`apis/auth/*`（apps/platform 打 `/platform/auth/*`）、`app/` 的外框（選單、品牌、`SessionWatcher`、`sessionRedirect`）、各自的 feature 與 `shared/` 的收斂點；backstage 才有的 `core/{feature,file,permission-graph,trash}` 留在 backstage（[`apps/platform/README.md`](../../apps/platform/README.md)） |
 | D15 | **MFA 預留**：登入互動是多步驟的（`oidc-provider` 的 interaction），密碼或外部 IdP 通過之後可以插入第二步，這一版不實作 | 之後做 [`mfa.md`](../features/mfa.md) 時只加一個互動步驟，不改協定 |
 | D16 | **互動網址先經過 api**：provider 把互動 cookie 的 path 設成互動網址的路徑，所以互動網址是 `/api/oidc-interaction/:uid`（api 302 到 apps/platform 的 `/interaction/:uid`），頁面之後呼叫同一路徑底下的端點（查詢、登入、取消）。登入成功回傳 resume 網址，由頁面 **頂層跳轉**，不用 fetch 跟隨。provider 掛在本程序的 `/oidc`，依 `OIDC_ISSUER` 還原反向代理去掉的前綴與 Host，產生的網址與 cookie path 才是瀏覽器看到的 | 互動 cookie 就是互動的憑證（`@Public()` 端點靠它），path 對不上就送不出去；fetch 跟隨跳轉時 IdP session cookie 設不起來 |
 | D17 | **帳號停用、刪除、憑證失效時結束這些人的 IdP session**（訂閱 `SESSIONS_REVOKED { userIds }`）；provider 查不到 IdP session 的帳號時清掉 session 上的帳號、改走登入互動 | 否則 IdP 上留著指向不能用的帳號的 session，下一次授權時 provider 拋錯而不是要求登入 |
@@ -388,7 +388,7 @@ app session 沿用 [`backend/04-auth.md`](backend/04-auth.md) §10；權限仍�
 | 代價 | 評估 |
 | --- | --- |
 | 多一個前端要建置、部署、維護（nginx、Docker、E2E） | 是這次要付的主要成本；換來「登入與租戶只有一套」 |
-| 複製的 `core/`、`components/` 會各自演進（D14） | README 列出複製來源；出現第三個前端時抽 package |
+| 兩個前端共用 `@b2b-system/web-core`／`ui`／`web-shared`（D14 的更新） | 改 package 會同時影響兩個 app，兩邊都要跑測試與 build；package 不能認識任何 app，app 專屬的東西以參數或 module augmentation 傳入 |
 | 登入多了幾次跳轉（產品 → IdP → 產品 → callback） | 已有 IdP session 時是幾百毫秒的 302；比每個產品各自登入省事 |
 | `oidc-provider` 是新的大型相依，版本升級要跟著它的安全公告 | 它是 OpenID Certified、維護活躍；比自己實作規格安全 |
 | 每個 api 請求的驗證方式不變，但登入路徑多了 IdP 的狀態（interaction、grant、session） | 存在 `oidc_payloads`，過期的列由背景工作 `oidc.cleanup`（`OIDC_CLEANUP_CRON`）清除 |

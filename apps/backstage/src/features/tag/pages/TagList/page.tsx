@@ -1,21 +1,22 @@
+import { AlertDialog } from '@b2b-system/ui/AlertDialog';
+import { Button, IconButton } from '@b2b-system/ui/Button';
+import { Icon } from '@b2b-system/ui/Icon';
+import type { TableColumnDef } from '@b2b-system/ui/Table';
+import { Tabs } from '@b2b-system/ui/Tabs';
+import { Tooltip } from '@b2b-system/ui/Tooltip';
+import { RichTable } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
 import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
 import type { TagScope } from '@/apis/tag/types';
-import { AlertDialog } from '@/components/AlertDialog';
-import { Button, IconButton } from '@/components/Button';
-import { Icon } from '@/components/Icon';
-import type { TableColumnDef } from '@/components/Table';
-import { Tabs } from '@/components/Tabs';
-import { Tooltip } from '@/components/Tooltip';
-import { RichTable, TagChips } from '@/core/components';
+import { TagChips } from '@/core/components';
 import { useIsFeatureReady } from '@/core/feature';
-import { useTranslation } from '@/core/locales';
 import { TenantFeature } from '@/shared/api-sdk';
 import type { Tag } from '@/shared/api-sdk';
-import { formatDateTime } from '@/shared/date';
 
 import {
   TAG_COLOR_LABEL_KEY,

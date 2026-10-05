@@ -1,3 +1,9 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Field } from '@b2b-system/ui/Field';
+import { Input } from '@b2b-system/ui/Input';
+import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { firstError, zodFormValidator } from '@b2b-system/web-shared/hooks';
 import { useForm } from '@tanstack/react-form';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -6,12 +12,6 @@ import { z } from 'zod';
 
 import { getSetupMutationOptions } from '@/apis/auth/setup/mutation';
 import { getVerifySetupQueryOptions } from '@/apis/auth/setup/query';
-import { Button } from '@/components/Button';
-import { Field } from '@/components/Field';
-import { Input } from '@/components/Input';
-import { useErrorMessage } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { firstError, zodFormValidator } from '@/shared/hooks';
 
 import { useAccountPolicy } from '../../hooks/useAccountPolicy';
 import { LoginRoute, SetupRoute } from '../../routes';

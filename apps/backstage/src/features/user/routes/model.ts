@@ -1,7 +1,7 @@
+import { sortSearchSchema } from '@b2b-system/web-shared/constants';
 import { z } from 'zod';
 
 import type { UserSortField } from '@/apis/user/types';
-import { sortSearchSchema } from '@/shared/constants';
 
 /** 列表可排序的欄位（後端白名單）。 */
 export const USER_SORT_FIELDS = [

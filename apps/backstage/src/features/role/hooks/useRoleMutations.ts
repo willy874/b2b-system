@@ -1,3 +1,12 @@
+import {
+  ErrorCodes,
+  isAppError,
+  isVersionConflict,
+  useErrorMessage,
+  useErrorToast,
+} from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useToast } from '@b2b-system/web-core/notify';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 
@@ -9,16 +18,7 @@ import { getGrantRolePermissionsMutationOptions } from '@/apis/role/grant-role-p
 import { getRoleRestoreMutationOptions } from '@/apis/role/restore-role/mutation';
 import { getRoleRevertRevisionMutationOptions } from '@/apis/role/revert-role-revision/mutation';
 import { getRoleUpdateMutationOptions } from '@/apis/role/update-role/mutation';
-import {
-  ErrorCodes,
-  isAppError,
-  isVersionConflict,
-  useErrorMessage,
-  useErrorToast,
-} from '@/core/errors';
 import { useIsFeatureReady } from '@/core/feature';
-import { useTranslation } from '@/core/locales';
-import { useToast } from '@/core/notify';
 import { TenantFeature } from '@/shared/api-sdk';
 
 import { DEFAULT_ROLE_SEARCH, RoleDetailRoute } from '../routes';

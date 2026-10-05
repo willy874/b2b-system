@@ -1,3 +1,7 @@
+import { createAuthorizationUrl, readPendingLogin } from '@b2b-system/web-core/auth';
+import { AppError } from '@b2b-system/web-core/errors';
+import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
+import { AllProviders } from '@b2b-system/web-core/testing';
 import {
   createMemoryHistory,
   createRoute,
@@ -8,10 +12,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchCurrentTenantQuery } from '@/apis/tenant/get-current-tenant/fetcher';
-import { createAuthorizationUrl, readPendingLogin } from '@/core/auth';
-import { AppError } from '@/core/errors';
-import { parseSearch, RootRoute, stringifySearch } from '@/core/router';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { Routes } from '../../..';
 import { SSO_CLIENT } from '../../../sso';

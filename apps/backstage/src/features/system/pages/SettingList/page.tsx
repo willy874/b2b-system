@@ -1,9 +1,9 @@
+import { Skeleton } from '@b2b-system/ui/Skeleton';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { getSettingListQueryOptions } from '@/apis/system/get-setting-list/query';
-import { Skeleton } from '@/components/Skeleton';
-import { useTranslation } from '@/core/locales';
 
 import { useSettingPermission } from '../../hooks/useSettingPermission';
 import { toSettingCategories } from './adapter';

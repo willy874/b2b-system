@@ -1,13 +1,13 @@
+import { AlertDialog } from '@b2b-system/ui/AlertDialog';
+import { Breadcrumbs } from '@b2b-system/ui/Breadcrumbs';
+import { Button, IconButton } from '@b2b-system/ui/Button';
+import { Icon } from '@b2b-system/ui/Icon';
+import { Tooltip } from '@b2b-system/ui/Tooltip';
+import { useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
-import { AlertDialog } from '@/components/AlertDialog';
-import { Breadcrumbs } from '@/components/Breadcrumbs';
-import { Button, IconButton } from '@/components/Button';
-import { Icon } from '@/components/Icon';
-import { Tooltip } from '@/components/Tooltip';
-import { useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 import type { PlatformTenant } from '@/shared/api-sdk';
 
 import { TenantStatus } from '../../../components/TenantStatus';

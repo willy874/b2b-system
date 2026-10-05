@@ -1,7 +1,6 @@
+import { getBatchOperation, resetBatchOperations } from '@b2b-system/web-core/batch';
+import { AppError } from '@b2b-system/web-core/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { getBatchOperation, resetBatchOperations } from '@/core/batch';
-import { AppError } from '@/core/errors';
 
 const { updateUser, unlockUser, deleteUser, invalidateResources } = vi.hoisted(() => ({
   updateUser: vi.fn(),

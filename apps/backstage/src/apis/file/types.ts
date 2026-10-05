@@ -1,5 +1,6 @@
+import type { SortEntry } from '@b2b-system/web-shared/constants';
+
 import type { SetFileFolderGrantRequest } from '@/shared/api-sdk';
-import type { SortEntry } from '@/shared/constants';
 
 /** 後端 `ListFileSchema` 的排序白名單。 */
 export type FileSortField = 'createdAt' | 'name' | 'size';

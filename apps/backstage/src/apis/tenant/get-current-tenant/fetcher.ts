@@ -1,5 +1,6 @@
-import { defineBaseFetcher } from '@/core/client';
-import type { HttpRequestDTO } from '@/core/client';
+import { defineBaseFetcher } from '@b2b-system/web-core/client';
+import type { HttpRequestDTO } from '@b2b-system/web-core/client';
+
 import { getTenantControllerCurrentUrl } from '@/shared/api-sdk';
 import type { CurrentTenant } from '@/shared/api-sdk';
 

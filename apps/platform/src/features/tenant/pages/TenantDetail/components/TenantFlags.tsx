@@ -1,11 +1,11 @@
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
+import { Select } from '@b2b-system/ui/Select';
+import type { SelectOption } from '@b2b-system/ui/Select';
+import { useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 
 import { getFeatureFlagListQueryOptions } from '@/apis/platform-feature-flag/get-feature-flag-list/query';
-import { useConfirm } from '@/components/ConfirmDialog';
-import { Select } from '@/components/Select';
-import type { SelectOption } from '@/components/Select';
-import { useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 import { PermissionKey, usePermission } from '@/core/permission';
 import type { FeatureFlag, PlatformTenant } from '@/shared/api-sdk';
 

@@ -1,12 +1,12 @@
+import { Checkbox } from '@b2b-system/ui/Checkbox';
+import { Icon } from '@b2b-system/ui/Icon';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime } from '@b2b-system/web-shared/date';
+import { cn } from '@b2b-system/web-shared/utils';
 import { memo } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
-import { Checkbox } from '@/components/Checkbox';
-import { Icon } from '@/components/Icon';
 import { TagChips } from '@/core/components';
-import { useTranslation } from '@/core/locales';
-import { formatDateTime } from '@/shared/date';
-import { cn } from '@/shared/utils';
 
 import { FILE_FOLDER_KIND_ICON } from '../../../constants';
 import type { FolderItemVM } from '../adapter';

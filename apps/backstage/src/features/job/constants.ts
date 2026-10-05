@@ -1,5 +1,6 @@
+import type { ChipTone } from '@b2b-system/ui/Chip';
+
 import type { JobState } from '@/apis/job/types';
-import type { ChipTone } from '@/components/Chip';
 
 /** 與後端 `JOB_STATES`（apps/api/src/core/jobs/job-store.ts）一致。 */
 export const JOB_STATES = [

@@ -1,5 +1,6 @@
+import type { ChipTone } from '@b2b-system/ui/Chip';
+
 import type { PlatformJobState } from '@/apis/platform-job/types';
-import type { ChipTone } from '@/components/Chip';
 import type { PlatformJobQueue } from '@/shared/api-sdk';
 
 type JobScope = PlatformJobQueue['scope'];

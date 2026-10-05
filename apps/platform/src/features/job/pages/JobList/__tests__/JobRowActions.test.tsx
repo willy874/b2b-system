@@ -1,7 +1,6 @@
+import { renderUnhydrated, renderWithPermissions } from '@b2b-system/web-core/testing';
 import { fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-
-import { renderUnhydrated, renderWithPermissions } from '@/test/renderWithPermissions';
 
 import type { JobRowVM } from '../adapter';
 import { JobRowActions } from '../components/JobRowActions';

@@ -1,12 +1,12 @@
+import { AlertDialog } from '@b2b-system/ui/AlertDialog';
+import { ButtonLink } from '@b2b-system/ui/Button';
+import { useTableSelection } from '@b2b-system/ui/Table';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
 import { getRoleListQueryOptions } from '@/apis/role/get-role-list/query';
-import { AlertDialog } from '@/components/AlertDialog';
-import { ButtonLink } from '@/components/Button';
-import { useTableSelection } from '@/components/Table';
-import { useTranslation } from '@/core/locales';
 
 import { useRoleDeleteMutation } from '../../hooks/useRoleMutations';
 import { useRolePermission } from '../../hooks/useRolePermission';

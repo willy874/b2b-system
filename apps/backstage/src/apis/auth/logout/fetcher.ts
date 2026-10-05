@@ -1,4 +1,5 @@
-import { defineBaseFetcher } from '@/core/client';
+import { defineBaseFetcher } from '@b2b-system/web-core/client';
+
 import { getAuthControllerLogoutUrl } from '@/shared/api-sdk';
 
 export interface LogoutRequest {

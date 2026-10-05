@@ -1,8 +1,7 @@
+import { localeScopeLoader } from '@b2b-system/web-core/locales';
+import { preferenceLocaleLoader } from '@b2b-system/web-core/preference';
+import { RootRoute } from '@b2b-system/web-core/router';
 import { createRoute } from '@tanstack/react-router';
-
-import { localeScopeLoader } from '@/core/locales';
-import { preferenceLocaleLoader } from '@/core/preference';
-import { RootRoute } from '@/core/router';
 
 import { ACCOUNT_LOCALE_SCOPE } from '../locale';
 

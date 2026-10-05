@@ -1,13 +1,13 @@
+import { usePermissionStore } from '@b2b-system/web-core/store';
+import { renderRoute } from '@b2b-system/web-core/testing';
 import { renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry, usePageAccess } from '@/core/permission';
-import { usePermissionStore } from '@/core/store';
 import type { NotificationOverviewItem } from '@/shared/api-sdk';
 import { initTestI18n } from '@/test/i18n';
-import { renderRoute } from '@/test/renderRoute';
 
 import { registerNotificationPagePermissions, Routes } from '../../..';
 import zhTW from '../../../locales/zh_TW.json';

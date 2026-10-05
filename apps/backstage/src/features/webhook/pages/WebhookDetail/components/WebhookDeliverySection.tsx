@@ -1,17 +1,17 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Chip } from '@b2b-system/ui/Chip';
+import { Dialog } from '@b2b-system/ui/Dialog';
+import { TextEllipsis } from '@b2b-system/ui/Ellipsis';
+import { Select } from '@b2b-system/ui/Select';
+import type { TableColumnDef } from '@b2b-system/ui/Table';
+import { RichTable } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
 import { getWebhookDeliveriesQueryOptions } from '@/apis/webhook/get-webhook-deliveries/query';
-import { Button } from '@/components/Button';
-import { Chip } from '@/components/Chip';
-import { Dialog } from '@/components/Dialog';
-import { TextEllipsis } from '@/components/Ellipsis';
-import { Select } from '@/components/Select';
-import type { TableColumnDef } from '@/components/Table';
-import { RichTable } from '@/core/components';
-import { useTranslation } from '@/core/locales';
 import type { WebhookTarget } from '@/shared/api-sdk';
-import { formatDateTime } from '@/shared/date';
 
 import {
   WEBHOOK_DELIVERY_PAGE_SIZE,

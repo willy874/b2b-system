@@ -1,9 +1,9 @@
-import { IconButton } from '@/components/Button';
-import { useConfirm } from '@/components/ConfirmDialog';
-import { Icon } from '@/components/Icon';
-import { Tooltip } from '@/components/Tooltip';
-import { useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
+import { IconButton } from '@b2b-system/ui/Button';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
+import { Icon } from '@b2b-system/ui/Icon';
+import { Tooltip } from '@b2b-system/ui/Tooltip';
+import { useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 
 import {
   useApproveApprovalMutation,

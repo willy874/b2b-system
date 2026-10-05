@@ -1,5 +1,5 @@
-import type { FilterBarProps } from '@/core/components';
-import { useTranslation } from '@/core/locales';
+import type { FilterBarProps } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
 
 import { JOB_STATE_LABEL_KEY, JOB_STATES, PLATFORM_TENANT_FILTER } from '../../constants';
 import type { JobSearchQuery } from '../../routes';

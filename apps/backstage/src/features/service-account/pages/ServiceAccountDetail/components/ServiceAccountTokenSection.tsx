@@ -1,10 +1,11 @@
+import { Button } from '@b2b-system/ui/Button';
+import { QueryError } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { getServiceAccountTokensQueryOptions } from '@/apis/service-account/get-service-account-tokens/query';
-import { Button } from '@/components/Button';
-import { ApiTokenCreateDialog, ApiTokenTable, QueryError } from '@/core/components';
-import { useTranslation } from '@/core/locales';
+import { ApiTokenCreateDialog, ApiTokenTable } from '@/core/components';
 import type { PermissionKey } from '@/shared/api-sdk';
 
 import { SERVICE_ACCOUNT_TOKEN_MAX_DAYS } from '../../../constants';

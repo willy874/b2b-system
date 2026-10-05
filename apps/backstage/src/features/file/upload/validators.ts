@@ -1,5 +1,6 @@
+import { formatBytes } from '@b2b-system/web-shared/utils';
+
 import type { FileValidator } from '@/core/file';
-import { formatBytes } from '@/shared/utils';
 
 /** 超過後端的單檔上限：送出前就擋下，不必登記後才收到 413。 */
 export const maxSizeValidator: FileValidator = {

@@ -1,12 +1,12 @@
+import { useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useToast } from '@b2b-system/web-core/notify';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { getMyApiTokenCreateMutationOptions } from '@/apis/api-token/create-my-api-token/mutation';
 import { getMyApiTokensQueryOptions } from '@/apis/api-token/get-my-api-tokens/query';
 import { getMyApiTokenRevokeMutationOptions } from '@/apis/api-token/revoke-my-api-token/mutation';
 import { invalidateResources, Resource } from '@/apis/resources';
-import { useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { useToast } from '@/core/notify';
 import { usePermission } from '@/core/permission';
 
 /** 個人 token 的到期上限（天，docs/architecture/06-external-api.md §9.2 D8）；租戶設定更短時由後端擋下。 */

@@ -1,14 +1,13 @@
+import { IconButton } from '@b2b-system/ui/Button';
+import { Chip } from '@b2b-system/ui/Chip';
+import { Icon } from '@b2b-system/ui/Icon';
+import type { TableColumnDef } from '@b2b-system/ui/Table';
+import { Tooltip } from '@b2b-system/ui/Tooltip';
+import { RichTable } from '@b2b-system/web-core/components';
+import type { TableSearchProps, TableSettingsConfig } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useMemo } from 'react';
-
-import { IconButton } from '@/components/Button';
-import { Chip } from '@/components/Chip';
-import { Icon } from '@/components/Icon';
-import type { TableColumnDef } from '@/components/Table';
-import { Tooltip } from '@/components/Tooltip';
-import { RichTable } from '@/core/components';
-import type { TableSearchProps, TableSettingsConfig } from '@/core/components';
-import { useTranslation } from '@/core/locales';
-import { formatDateTime } from '@/shared/date';
 
 import {
   PLATFORM_ADMIN_ROLE_LABEL_KEY,

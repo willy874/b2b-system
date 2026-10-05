@@ -1,15 +1,16 @@
-import { Chip } from '@/components/Chip';
-import { Collapsible } from '@/components/Collapsible';
-import { Icon } from '@/components/Icon';
-import type { IconName } from '@/components/Icon';
-import { Select } from '@/components/Select';
-import type { SelectOption } from '@/components/Select';
-import { Skeleton } from '@/components/Skeleton';
-import { TreeEditor } from '@/components/TreeEditor';
-import { useTranslation } from '@/core/locales';
+import { Chip } from '@b2b-system/ui/Chip';
+import { Collapsible } from '@b2b-system/ui/Collapsible';
+import { Icon } from '@b2b-system/ui/Icon';
+import type { IconName } from '@b2b-system/ui/Icon';
+import { Select } from '@b2b-system/ui/Select';
+import type { SelectOption } from '@b2b-system/ui/Select';
+import { Skeleton } from '@b2b-system/ui/Skeleton';
+import { TreeEditor } from '@b2b-system/ui/TreeEditor';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { cn } from '@b2b-system/web-shared/utils';
+
 import { PERMISSION_NODE_SIZE } from '@/core/permission-graph';
 import type { PermissionNodeData } from '@/core/permission-graph';
-import { cn } from '@/shared/utils';
 
 import { SKILL_NODE_STATE } from '../hooks/permissionSkillTree';
 import type { SkillState } from '../hooks/permissionSkillTree';

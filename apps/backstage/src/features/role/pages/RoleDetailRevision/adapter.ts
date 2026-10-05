@@ -1,5 +1,6 @@
+import { formatDateTime } from '@b2b-system/web-shared/date';
+
 import type { RevisionSummary, RoleRevisionSnapshot } from '@/shared/api-sdk';
-import { formatDateTime } from '@/shared/date';
 
 export interface RoleRevisionRowVM {
   version: number;

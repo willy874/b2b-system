@@ -1,10 +1,10 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Checkbox } from '@b2b-system/ui/Checkbox';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
+import { useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useState } from 'react';
 
-import { Button } from '@/components/Button';
-import { Checkbox } from '@/components/Checkbox';
-import { useConfirm } from '@/components/ConfirmDialog';
-import { useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 import type { PlatformTenant, TenantFeature, TenantFeatureParam } from '@/shared/api-sdk';
 
 import {

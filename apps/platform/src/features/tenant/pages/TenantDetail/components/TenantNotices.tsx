@@ -1,4 +1,5 @@
-import { useTranslation } from '@/core/locales';
+import { useTranslation } from '@b2b-system/web-core/locales';
+
 import type { PlatformTenant } from '@/shared/api-sdk';
 
 interface TenantNoticesProps {

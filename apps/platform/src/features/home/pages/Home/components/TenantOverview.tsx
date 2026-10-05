@@ -1,9 +1,9 @@
+import { Skeleton } from '@b2b-system/ui/Skeleton';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { cn } from '@b2b-system/web-shared/utils';
 import { useQueries } from '@tanstack/react-query';
 
 import { getTenantListQueryOptions } from '@/apis/platform-tenant/get-tenant-list/query';
-import { Skeleton } from '@/components/Skeleton';
-import { useTranslation } from '@/core/locales';
-import { cn } from '@/shared/utils';
 
 import { TENANT_OVERVIEW_LABEL_KEY, TENANT_OVERVIEW_STATUSES } from '../../../constants';
 

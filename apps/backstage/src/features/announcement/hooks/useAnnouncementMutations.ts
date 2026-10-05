@@ -1,3 +1,6 @@
+import { isVersionConflict, useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useToast } from '@b2b-system/web-core/notify';
 import { useMutation } from '@tanstack/react-query';
 
 import { getAnnouncementCreateMutationOptions } from '@/apis/announcement/create-announcement/mutation';
@@ -9,10 +12,7 @@ import { getAnnouncementResumeMutationOptions } from '@/apis/announcement/resume
 import { getAnnouncementDispatchRevokeMutationOptions } from '@/apis/announcement/revoke-announcement-dispatch/mutation';
 import { getAnnouncementUpdateMutationOptions } from '@/apis/announcement/update-announcement/mutation';
 import { invalidateResources, Resource } from '@/apis/resources';
-import { isVersionConflict, useErrorToast } from '@/core/errors';
 import { useIsFeatureReady } from '@/core/feature';
-import { useTranslation } from '@/core/locales';
-import { useToast } from '@/core/notify';
 import { TenantFeature } from '@/shared/api-sdk';
 
 /** 建立草稿：錯誤由表單顯示，不彈 toast。 */

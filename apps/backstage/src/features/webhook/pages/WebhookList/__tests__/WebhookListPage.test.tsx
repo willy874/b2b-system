@@ -1,10 +1,10 @@
+import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
-import { renderRoute } from '@/test/renderRoute';
 
 import { registerWebhookPagePermissions, Routes } from '../../..';
 import webhookZhTW from '../../../locales/zh_TW.json';

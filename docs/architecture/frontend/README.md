@@ -3,8 +3,11 @@
 `apps/backstage` — React 19 + Vite + TanStack + Base UI。
 
 架構是 plugin-based AppContext ＋ feature-first 分層。相對於同類後台常見的
-MUI 作法，最大的差異是 **UI 函式庫改用 Base UI**，因此 `src/components/` 這層
+MUI 作法，最大的差異是 **UI 函式庫改用 Base UI**，因此設計系統 `packages/ui`（`@b2b-system/ui`）這層
 從「薄包裝」變成「真正的設計系統實作層」。
+
+兩個前端（backstage、apps/platform）共用的機制層在 `packages/web-core`（`@b2b-system/web-core`）；文件裡的 `web-core/<module>` 指 `packages/web-core/src/<module>`，
+`core/`、`app/`、`plugins/` 等指 app 自己的 `src/` 底下（[`01-architecture.md`](./01-architecture.md) §1）。
 
 ## 章節
 
@@ -29,7 +32,7 @@ MUI 作法，最大的差異是 **UI 函式庫改用 Base UI**，因此 `src/com
 
 ## 三條必須記住的規則
 
-1. **`core/` 永遠不認識任何 `features/`。** 反過來可以。
+1. **`core/` 與 `@b2b-system/web-core` 永遠不認識任何 `features/`。** 反過來可以；web-core 另外不認識任何 app。
 2. **Feature 之間不直接互相 import。** 需要連結時走 `routes/external.ts`
    （只引用對方的 route 物件）或事件匯流排。
 3. **只有 `apis/` 會發 HTTP。** 頁面與元件拿到的是 query options，不是 `fetch`。

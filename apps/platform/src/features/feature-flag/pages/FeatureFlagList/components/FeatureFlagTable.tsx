@@ -1,14 +1,13 @@
+import { Chip } from '@b2b-system/ui/Chip';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
+import { Select } from '@b2b-system/ui/Select';
+import type { SelectOption } from '@b2b-system/ui/Select';
+import type { TableColumnDef } from '@b2b-system/ui/Table';
+import { RichTable } from '@b2b-system/web-core/components';
+import type { TableSearchProps, TableSettingsConfig } from '@b2b-system/web-core/components';
+import { useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useMemo } from 'react';
-
-import { Chip } from '@/components/Chip';
-import { useConfirm } from '@/components/ConfirmDialog';
-import { Select } from '@/components/Select';
-import type { SelectOption } from '@/components/Select';
-import type { TableColumnDef } from '@/components/Table';
-import { RichTable } from '@/core/components';
-import type { TableSearchProps, TableSettingsConfig } from '@/core/components';
-import { useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 
 import {
   FEATURE_FLAG_GLOBAL_CHOICES,

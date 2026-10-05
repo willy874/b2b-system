@@ -1,7 +1,6 @@
+import { AllProviders } from '@b2b-system/web-core/testing';
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { BASE_PASSWORD_MIN_LENGTH, useAccountPolicy } from '../useAccountPolicy';
 

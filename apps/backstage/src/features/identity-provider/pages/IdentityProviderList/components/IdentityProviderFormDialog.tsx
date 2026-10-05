@@ -1,14 +1,14 @@
+import { Button, IconButton } from '@b2b-system/ui/Button';
+import { Checkbox } from '@b2b-system/ui/Checkbox';
+import { Dialog } from '@b2b-system/ui/Dialog';
+import { Field } from '@b2b-system/ui/Field';
+import { Icon } from '@b2b-system/ui/Icon';
+import { Input } from '@b2b-system/ui/Input';
+import { Select } from '@b2b-system/ui/Select';
+import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useState } from 'react';
 
-import { Button, IconButton } from '@/components/Button';
-import { Checkbox } from '@/components/Checkbox';
-import { Dialog } from '@/components/Dialog';
-import { Field } from '@/components/Field';
-import { Icon } from '@/components/Icon';
-import { Input } from '@/components/Input';
-import { Select } from '@/components/Select';
-import { useErrorMessage } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 import type { IdentityProvider, IdentityProviderDomain } from '@/shared/api-sdk';
 
 import {

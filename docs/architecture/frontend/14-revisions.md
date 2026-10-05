@@ -63,7 +63,7 @@ features/role/pages/RoleDetailRevision/
 2. feature 內照 `useRoleRevisionHistory` 寫一個 hook（列表、選中的一版、比較對象），頁面沿用同樣的版面與 `JsonDiff`。
 3. 還原的 mutation 帶實體的 `version`、處理 `*_VERSION_CONFLICT`，並在成功時宣告實體與它的關聯被改了。
 
-目前只有角色，還沒有抽出共用的元件；第二個實體加入時再把列表與差異的版面抽到 `core/` 或 `components/`（不含業務名詞的部分）。
+目前只有角色，還沒有抽出共用的元件；第二個實體加入時再把列表與差異的版面抽到 `core/` 或 `@b2b-system/ui`（不含業務名詞的部分）。
 
 ## 6. 測試
 

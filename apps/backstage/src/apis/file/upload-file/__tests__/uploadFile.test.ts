@@ -1,7 +1,7 @@
+import { isNetworkError, isRequestAborted, NetworkError } from '@b2b-system/web-core/client';
+import { isAppError } from '@b2b-system/web-core/errors';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { isNetworkError, isRequestAborted, NetworkError } from '@/core/client';
-import { isAppError } from '@/core/errors';
 import type { FileUpload, StoredFile } from '@/shared/api-sdk';
 
 import { uploadFile } from '../fetcher';

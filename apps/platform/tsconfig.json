@@ -15,5 +15,11 @@
     "verbatimModuleSyntax": true
   },
   "include": ["src/**/*", "src/**/*.json", "vite.config.ts", "uno.config.ts"],
-  "references": [{ "path": "../../packages/api-sdk" }, { "path": "../../packages/realtime" }]
+  "references": [
+    { "path": "../../packages/api-sdk" },
+    { "path": "../../packages/realtime" },
+    { "path": "../../packages/web-shared" },
+    { "path": "../../packages/ui" },
+    { "path": "../../packages/web-core" }
+  ]
 }

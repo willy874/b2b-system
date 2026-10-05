@@ -1,9 +1,8 @@
+import { Checkbox } from '@b2b-system/ui/Checkbox';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { cn } from '@b2b-system/web-shared/utils';
 import { memo } from 'react';
 import type { CSSProperties } from 'react';
-
-import { Checkbox } from '@/components/Checkbox';
-import { useTranslation } from '@/core/locales';
-import { cn } from '@/shared/utils';
 
 import type { FileItemVM } from '../adapter';
 import { FileThumbnail } from './FileThumbnail';

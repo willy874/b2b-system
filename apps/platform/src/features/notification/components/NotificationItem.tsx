@@ -1,10 +1,9 @@
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useRouteLinkResolver } from '@b2b-system/web-core/route-link';
+import { formatDateTime, formatRelativeTime } from '@b2b-system/web-shared/date';
+import { cn } from '@b2b-system/web-shared/utils';
 import { Link } from '@tanstack/react-router';
 import { memo } from 'react';
-
-import { useTranslation } from '@/core/locales';
-import { useRouteLinkResolver } from '@/core/route-link';
-import { formatDateTime, formatRelativeTime } from '@/shared/date';
-import { cn } from '@/shared/utils';
 
 import { notificationMessage } from '../adapter';
 import type { NotificationVM } from '../adapter';

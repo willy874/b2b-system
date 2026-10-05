@@ -1,8 +1,8 @@
+import { usePermissionStore } from '@b2b-system/web-core/store';
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
-import { usePermissionStore } from '@/core/store';
 import { registerTrashType, resetTrashRegistry } from '@/core/trash';
 
 import { useTrashPermission } from '../useTrashPermission';

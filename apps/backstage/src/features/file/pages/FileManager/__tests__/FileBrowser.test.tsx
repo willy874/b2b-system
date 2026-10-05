@@ -1,7 +1,6 @@
+import { renderWithPermissions } from '@b2b-system/web-core/testing';
 import { act, fireEvent, renderHook, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-
-import { renderWithPermissions } from '@/test/renderWithPermissions';
 
 import type { FileViewMode } from '../../../preference';
 import type { BrowserItemVM, FileItemVM, FolderItemVM } from '../adapter';

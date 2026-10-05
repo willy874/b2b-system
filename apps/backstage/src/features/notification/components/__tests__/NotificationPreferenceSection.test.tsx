@@ -1,8 +1,8 @@
+import { AllProviders } from '@b2b-system/web-core/testing';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { NotificationPreference } from '@/shared/api-sdk';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { NotificationPreferenceSection } from '../NotificationPreferenceSection';
 

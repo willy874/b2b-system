@@ -1,6 +1,6 @@
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { Link } from '@tanstack/react-router';
 
-import { useTranslation } from '@/core/locales';
 import type { Group, RoleControllerListUsersResponse } from '@/shared/api-sdk';
 
 import { ExternalRoutes } from '../../../routes';

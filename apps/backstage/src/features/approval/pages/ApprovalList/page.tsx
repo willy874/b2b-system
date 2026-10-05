@@ -1,10 +1,10 @@
+import { useTableSelection } from '@b2b-system/ui/Table';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
 import { getApprovalListQueryOptions } from '@/apis/approval/get-approval-list/query';
-import { useTableSelection } from '@/components/Table';
-import { useTranslation } from '@/core/locales';
 
 import { useApprovalPermission } from '../../hooks/useApprovalPermission';
 import { APPROVAL_LIST_TABLE_ID } from '../../preference';

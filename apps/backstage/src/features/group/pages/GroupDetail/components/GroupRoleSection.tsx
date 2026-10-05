@@ -1,8 +1,9 @@
-import { Button } from '@/components/Button';
-import { Chip } from '@/components/Chip';
-import { Select } from '@/components/Select';
-import { useTranslation } from '@/core/locales';
-import { useUnsavedChangesGuard } from '@/core/router';
+import { Button } from '@b2b-system/ui/Button';
+import { Chip } from '@b2b-system/ui/Chip';
+import { Select } from '@b2b-system/ui/Select';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
+
 import type { GroupRole, Role } from '@/shared/api-sdk';
 
 import { useGroupRolesUpdateMutation } from '../../../hooks/useGroupMutations';

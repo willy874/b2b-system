@@ -1,13 +1,13 @@
+import { GlobalEvents, useAppContext } from '@b2b-system/web-core/app';
+import type { AppDynamicPluginFactory, AppPluginFactory } from '@b2b-system/web-core/app';
+import { useHasSession } from '@b2b-system/web-core/auth';
+import { i18n } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
-import { GlobalEvents, useAppContext } from '@/core/app';
-import type { AppDynamicPluginFactory, AppPluginFactory } from '@/core/app';
-import { useHasSession } from '@/core/auth';
 import { FeatureActivator } from '@/core/feature';
 import type { FeatureDefinition } from '@/core/feature';
-import { i18n } from '@/core/locales';
 import {
   ANNOUNCEMENT_FEATURE,
   announcementFeaturePlugin,
@@ -134,7 +134,7 @@ export function useSyncFeatures(): void {
   }, [enabled, flags, features]);
 }
 
-declare module '@/core/app/context' {
+declare module '@b2b-system/web-core/app/context' {
   interface AppPluginProperties {
     features: FeatureActivator;
   }

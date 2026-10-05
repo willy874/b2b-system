@@ -132,7 +132,7 @@ modules/announcement/
 | `startsOn`、`endsOn` | 第一天與最後一天（含），租戶時區的日曆日 |
 | `maxOccurrences` | 最多發幾次（已建立的發送紀錄數，撤回的也算）；null＝不限 |
 
-純函式、只在後端算；時區換算用 `Intl`（Node 24 沒有 `Temporal`，不另外引入套件），與前端 `shared/date` 的 `zonedDateTime` 同一個兩次校正的做法。
+純函式、只在後端算；時區換算用 `Intl`（Node 24 沒有 `Temporal`，不另外引入套件），與前端 `@b2b-system/web-shared/date` 的 `zonedDateTime` 同一個兩次校正的做法。
 
 ### 5.2 每日維護（`announcement.maintenance`）
 
@@ -309,5 +309,5 @@ modules/announcement/
 | --- | --- |
 | A1 | 前端頁面鍵 `NOTIFICATION_OVERVIEW_PAGE`、側邊選單「系統管理 › 通知總覽」；表格以「載入更多」接續 keyset，不顯示總數。租戶 migration `0028_notification_overview_idx`、`0029_notification_read_system_roles`（既有租戶的 admin 補鍵）。端點放在獨立的 `NotificationOverviewController`，與只需要登入的 `NotificationController` 分開 |
 | A2 | 規格寫在本文與 [`../frontend/16-announcement.md`](../frontend/16-announcement.md)。與上面的決定不同或補充：撤回的端點是 `POST /announcements/:id/dispatches/:dispatchId/revoke`（掛在公告底下，與 webhook 的重送一致）；**草稿以外的公告修改要 `announcement:publish`**（路由宣告 update、service 另外檢查）、不能改成「立即」，已完成的不能改（D15、D17 的具體化）；受眾預覽要 `announcement:update`（不是 create）；暫停與恢復提前在 A2 做（只對 `once` 有意義，A3 套用到週期）；`defineNotification` 新增 `defaultAllowUserOverride`（D16 需要事件層級的預設）；發送紀錄的保留清理（D19 的 `dispatchRetentionDays`）與事件點的 `trigger_subject_id` 欄延到 A3、A4。租戶 migration `0030`、`0031`，平台 `0011` |
-| A3 | 與 D10、D11、D19 不同或補充：**時區沿用既有的系統設定 `general.defaultTimezone`**（預設 `Asia/Taipei`，原本就是租戶層的預設時區），不另加 `system.timezone`——兩個時區設定會讓「顯示的時間」與「發送的時間」不一致；定義搬到 `core/settings/general.settings.ts` 讓公告模組讀得到。**不引入 `date-fns`／`@date-fns/tz`**：時區換算用 `Intl` 兩次校正（與前端 `shared/date` 同一個做法），日曆運算在沒有時區的日期上做。`reconcile` 與發送紀錄的保留清理合成一個每日工作 `announcement.maintenance`（`ANNOUNCEMENT_MAINTENANCE_CRON`）；它也負責改了時區之後重算週期的下一次（不必在設定變更時另外掛勾子）。恢復排程時從現在起重算（暫停期間錯過的不補發）；週期沒有下一次時 `ANNOUNCEMENT_TRIGGER_IN_PAST` 帶 `details.reason: 'noOccurrence'` |
+| A3 | 與 D10、D11、D19 不同或補充：**時區沿用既有的系統設定 `general.defaultTimezone`**（預設 `Asia/Taipei`，原本就是租戶層的預設時區），不另加 `system.timezone`——兩個時區設定會讓「顯示的時間」與「發送的時間」不一致；定義搬到 `core/settings/general.settings.ts` 讓公告模組讀得到。**不引入 `date-fns`／`@date-fns/tz`**：時區換算用 `Intl` 兩次校正（與前端 `@b2b-system/web-shared/date` 同一個做法），日曆運算在沒有時區的日期上做。`reconcile` 與發送紀錄的保留清理合成一個每日工作 `announcement.maintenance`（`ANNOUNCEMENT_MAINTENANCE_CRON`）；它也負責改了時區之後重算週期的下一次（不必在設定變更時另外掛勾子）。恢復排程時從現在起重算（暫停期間錯過的不補發）；週期沒有下一次時 `ANNOUNCEMENT_TRIGGER_IN_PAST` 帶 `details.reason: 'noOccurrence'` |
 | A4 | 與 D12～D14 不同或補充：觸發點宣告時帶 **比對方式**（`scope`：`audience`／`group`／`role`），D14 的「加入的群組是受眾裡的群組」由 `group` 表達；第一批的 `user.rolesChanged` 改名為 **`user.roleAssigned`**（只算新增的角色，與既有的通知 `user.rolesChanged` 區分）；`user.activated` 也包含建立時就是 active 的帳號（外部 IdP 首次登入）。`fire()` 不快取，改以部分索引 `announcements_event_idx` 查詢；每則 × 每人入列一筆 `announcement.eventDispatch`（不是 D12 寫的 `announcement.dispatch`：事件點沒有 `next_run_at` 可比對），比對與「只發一次」在工作執行時判斷。端點 `GET /announcements/trigger-events`。租戶 migration `0032` |

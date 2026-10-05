@@ -1,4 +1,5 @@
-import type { ChipTone } from '@/components/Chip';
+import type { ChipTone } from '@b2b-system/ui/Chip';
+
 import { TenantFeature } from '@/shared/api-sdk';
 import type { PlatformTenant, TenantFeatureParam, TenantFeatureParamKey } from '@/shared/api-sdk';
 

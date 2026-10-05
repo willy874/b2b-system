@@ -1,7 +1,7 @@
-import { Button, IconButton } from '@/components/Button';
-import { Icon } from '@/components/Icon';
-import { Input } from '@/components/Input';
-import { useTranslation } from '@/core/locales';
+import { Button, IconButton } from '@b2b-system/ui/Button';
+import { Icon } from '@b2b-system/ui/Icon';
+import { Input } from '@b2b-system/ui/Input';
+import { useTranslation } from '@b2b-system/web-core/locales';
 
 import { WEBHOOK_MAX_URLS_PER_SUBSCRIPTION, WEBHOOK_URL_MAX_LENGTH } from '../constants';
 

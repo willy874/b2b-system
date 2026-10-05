@@ -1,18 +1,18 @@
+import { AlertDialog } from '@b2b-system/ui/AlertDialog';
+import { Button, IconButton } from '@b2b-system/ui/Button';
+import { Icon } from '@b2b-system/ui/Icon';
+import { Input } from '@b2b-system/ui/Input';
+import type { TableColumnDef } from '@b2b-system/ui/Table';
+import { Table } from '@b2b-system/ui/Table';
+import { Tooltip } from '@b2b-system/ui/Tooltip';
+import { useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
 import { getIdentityProviderListQueryOptions } from '@/apis/identity-provider/get-identity-provider-list/query';
-import { AlertDialog } from '@/components/AlertDialog';
-import { Button, IconButton } from '@/components/Button';
-import { Icon } from '@/components/Icon';
-import { Input } from '@/components/Input';
-import type { TableColumnDef } from '@/components/Table';
-import { Table } from '@/components/Table';
-import { Tooltip } from '@/components/Tooltip';
-import { useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 import type { IdentityProvider } from '@/shared/api-sdk';
-import { formatDateTime } from '@/shared/date';
 
 import { useDeleteIdentityProviderMutation } from '../../hooks/useIdentityProviderMutations';
 import { useIdentityProviderPermission } from '../../hooks/useIdentityProviderPermission';

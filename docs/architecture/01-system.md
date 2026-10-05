@@ -59,15 +59,16 @@ backstage 以授權碼 ＋ PKCE 跳到 apps/platform 登入，再以自己 origi
 ### 前端
 
 ```
-features/  ──▶  apis/  ──▶  core/client
+features/  ──▶  apis/  ──▶  @b2b-system/web-core/client
     │             │
     │             └──▶  packages/api-sdk
-    ├──▶  components/  ──▶  Base UI
-    ├──▶  core/        （permission · router · cache · errors · locales）
-    └──▶  shared/      （純工具，不得反向依賴 core 或 features）
+    ├──▶  core/                 （app 的：權限目錄的門面、backstage 才有的模組）
+    ├──▶  @b2b-system/web-core  （兩個 app 共用的機制：permission · router · cache · errors · locales）
+    ├──▶  @b2b-system/ui        ──▶  Base UI
+    └──▶  @b2b-system/web-shared（純工具，不得反向依賴上面任何一層）
 
 app/  ──▶  features/    （只組裝，不實作業務）
-core/  ✗──▶ features/   （核心永遠不認識功能）
+core/、web-core  ✗──▶ features/   （核心永遠不認識功能；web-core 也不認識任何 app）
 features/A  ✗──▶ features/B  （跨 feature 只能經由 routes/external.ts 或事件）
 ```
 
@@ -308,7 +309,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | 面向         | 作法                                                                                                                                                              |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 錯誤碼       | 後端回 `{ error: { code, message, details? } }`，`code` 是穩定的 SCREAMING_SNAKE 字串（見 [`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §5） |
-| 前端錯誤訊息 | `core/errors/useErrorMessage.ts` 把 `code` 對應到已本地化的訊息；沒有對應時退回通用訊息＋顯示 code                                                                |
+| 前端錯誤訊息 | `@b2b-system/web-core/errors` 的 `useErrorMessage()` 把 `code` 對應到已本地化的訊息；沒有對應時退回通用訊息＋顯示 code                                                                |
 | Request ID   | `RequestIdMiddleware` 產生 `x-request-id`，出現在回應 header、日誌與稽核紀錄中                                                                                    |
 | 結構化日誌   | Pino（JSON）：HTTP 存取日誌與應用程式日誌（`new Logger(Xxx.name)`，進入點以 `app.useLogger()` 接上）共用同一個 Pino。請求內的每一筆都帶 `requestId`（與回應的 `x-request-id`、稽核紀錄相同），應用程式日誌另有 `context`（類別名稱），存取日誌另有 `req`／`res`／`responseTime`；背景工作的日誌沒有 `requestId`。等級：development `debug`、production `info`、test 靜音 |
 | 授權失敗     | 每一次 403 都寫入 `audit_logs`（`action = 'authz.denied'`），含缺少的權限鍵                                                                                       |

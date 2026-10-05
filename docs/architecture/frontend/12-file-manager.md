@@ -42,7 +42,7 @@ features/file/                       業務：頁面、上傳入口、內建的�
 └── pages/FileManager/               page.tsx ＋ 版面計算、資料、選取、框選、拖放、資料夾樹（folderTree）、拖曳移動（useItemDrag）的 hooks ＋ 元件
 
 core/file/                           機制：檔案類型、三個擴充點的註冊表、圖片縮圖產生器（不認識任何 feature）
-core/batch/                          全域批次佇列（上傳與其他批次工作共用）
+web-core/batch/                          全域批次佇列（上傳與其他批次工作共用）
 apis/file/                           uploadFile()（單次／分塊／縮圖）、列表（分頁／無限）、詳情、內容（文字預覽）、上傳政策、
                                      資料夾（列表、建立、改名、刪除、確保路徑）、移動
 shared/storage/blobStore.ts          Blob 的鍵值儲存（記憶體 ＋ IndexedDB）
@@ -189,7 +189,7 @@ registerFilePreviewer({
 ```
 
 - **與其他批次工作共用佇列**：進度（依位元組加權）、取消（中止進行中的請求並放棄上傳）、AppHeader 的佇列面板、
-  結束時的結果彈窗都沿用 `core/batch`；主區塊上方顯示本頁送出的工作進度。
+  結束時的結果彈窗都沿用 `web-core/batch`；主區塊上方顯示本頁送出的工作進度。
 - **跨分頁接手**：發起的分頁關掉時，佇列把剩下的項目交給其他分頁；它們從 IndexedDB 讀到同一個檔案繼續上傳。
   IndexedDB 不可用（隱私模式）時接手的分頁拿不到檔案，該筆以 `FILE_UPLOAD_INCOMPLETE` 失敗，請使用者重傳。
   分頁當掉留下的暫存在下次啟動時清除（超過 24 小時）。
@@ -250,8 +250,8 @@ registerFilePreviewer({
 | `features/file/__tests__/batch.test.ts` | 送進佇列的形狀、上傳到資料夾（目的地編進 id）、上傳操作（進度、失效、清暫存、拿不到檔案）、刪除檔案與資料夾 |
 | `features/file/upload/__tests__/validators.test.ts`、`__tests__/preference.test.ts` | 內建驗證器、偏好的逐欄驗證 |
 | `core/file/__tests__/*` | 類型判斷、三個註冊表 |
-| `core/batch/__tests__/BatchQueue.test.ts` | 工作內並行、進度回報與廣播、取消時中止處理中的項目、依份量計算進度 |
-| `shared/storage/__tests__/blobStore.test.ts` | 沒有 IndexedDB 時退回記憶體、`prune` |
+| `web-core/batch/__tests__/BatchQueue.test.ts` | 工作內並行、進度回報與廣播、取消時中止處理中的項目、依份量計算進度 |
+| `packages/web-shared/src/storage/__tests__/blobStore.test.ts` | 沒有 IndexedDB 時退回記憶體、`prune` |
 
 ---
 
@@ -383,9 +383,9 @@ selectionCapabilities(items)                選取項目的能力取交集：can
 
 ### 14.5 實作紀錄
 
-- `core/batch`：`BatchJobInput.concurrency`、`BatchJobItem.weight`、`BatchJob.progress`、`BatchOperation.run(itemId, { signal, reportProgress })`；
+- `web-core/batch`：`BatchJobInput.concurrency`、`BatchJobItem.weight`、`BatchJob.progress`、`BatchOperation.run(itemId, { signal, reportProgress })`；
   協定新增 `progress`（分頁 → 佇列）與 `abort`（佇列 → 分頁）；`jobProgressRatio()` / `jobProgressAmount()`。既有操作只多收一個參數，行為不變。
 - 後端：`files` 新增 `upload_id`、`has_thumbnail`、`version` 與排序／搜尋索引（`0007_file_manager.sql`，需要 `pg_trgm`）；
   端點 `GET /files/upload-policy`、`POST /files/:id/parts`、`DELETE /files/:id/upload`；`GET /files` 回 `FileListPage`（含 `nextCursor`）；
   錯誤碼 `FILE_UPLOAD_PART_INVALID`、`FILE_VERSION_CONFLICT`；環境變數 `FILE_MULTIPART_THRESHOLD`、`FILE_MULTIPART_PART_SIZE`。
-- 前端：`core/file`（類型、擴充點）、`shared/storage/blobStore`、`features/file`。
+- 前端：`core/file`（類型、擴充點）、`packages/web-shared/src/storage/blobStore`、`features/file`。

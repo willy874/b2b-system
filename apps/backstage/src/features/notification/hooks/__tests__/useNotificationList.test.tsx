@@ -1,11 +1,11 @@
+import { sessionStore } from '@b2b-system/web-core/auth';
+import { registerRouteLink, resetRouteLinkRegistry } from '@b2b-system/web-core/route-link';
+import { AllProviders } from '@b2b-system/web-core/testing';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { sessionStore } from '@/core/auth';
-import { registerRouteLink, resetRouteLinkRegistry } from '@/core/route-link';
 import type { Notification } from '@/shared/api-sdk';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { useNotificationList } from '../useNotificationList';
 

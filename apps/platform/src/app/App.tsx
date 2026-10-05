@@ -1,13 +1,14 @@
+import type { AppContext } from '@b2b-system/web-core/app';
+import { sessionStore, useHasSession } from '@b2b-system/web-core/auth';
+import { queryClient } from '@b2b-system/web-core/cache';
+import { GlobalProvider } from '@b2b-system/web-core/shell';
+import { usePermissionStore } from '@b2b-system/web-core/store';
 import { RouterProvider } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 
-import type { AppContext } from '@/core/app';
-import { sessionStore, useHasSession } from '@/core/auth';
-import { queryClient } from '@/core/cache';
-import { usePermissionStore } from '@/core/store';
+import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
 import { useSyncPermissions } from '@/features/login';
 
-import { GlobalProvider } from './GlobalProvider';
 import { isPublic, loginSearchAfterSessionEnd } from './sessionRedirect';
 
 function SessionWatcher({ router }: { router: AppContext['router'] }) {
@@ -55,7 +56,7 @@ function SessionWatcher({ router }: { router: AppContext['router'] }) {
 
 export function App({ context }: { context: AppContext }) {
   return (
-    <GlobalProvider context={context}>
+    <GlobalProvider context={context} profileQueryKey={AUTH_PROFILE_QUERY_KEY}>
       <SessionWatcher router={context.router} />
       <RouterProvider router={context.router} />
     </GlobalProvider>

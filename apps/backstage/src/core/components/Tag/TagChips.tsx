@@ -1,8 +1,8 @@
+import { Chip } from '@b2b-system/ui/Chip';
+import { cn } from '@b2b-system/web-shared/utils';
 import type { ReactNode } from 'react';
 
-import { Chip } from '@/components/Chip';
 import type { TagSummary } from '@/shared/api-sdk';
-import { cn } from '@/shared/utils';
 
 export interface TagChipsProps {
   tags: readonly TagSummary[];

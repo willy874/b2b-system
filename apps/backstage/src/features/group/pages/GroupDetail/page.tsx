@@ -1,3 +1,9 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Dialog } from '@b2b-system/ui/Dialog';
+import { Skeleton } from '@b2b-system/ui/Skeleton';
+import { QueryError } from '@b2b-system/web-core/components';
+import { isNotFound } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 
@@ -5,12 +11,6 @@ import { getGroupDetailQueryOptions } from '@/apis/group/get-group-detail/query'
 import { getGroupMembersQueryOptions } from '@/apis/group/get-group-members/query';
 import { getGroupRolesQueryOptions } from '@/apis/group/get-group-roles/query';
 import { getRoleOptionsQueryOptions } from '@/apis/role/get-role-list/query';
-import { Button } from '@/components/Button';
-import { Dialog } from '@/components/Dialog';
-import { Skeleton } from '@/components/Skeleton';
-import { QueryError } from '@/core/components';
-import { isNotFound } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 
 import { useGroupPermission } from '../../hooks/useGroupPermission';
 import { GroupDetailRoute, GroupListRoute } from '../../routes';

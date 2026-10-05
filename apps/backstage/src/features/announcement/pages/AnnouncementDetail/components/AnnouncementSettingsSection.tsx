@@ -1,16 +1,16 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Chip } from '@b2b-system/ui/Chip';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
+import { isVersionConflict, useErrorMessage, useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
+import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 
 import { getAnnouncementDetailQueryOptions } from '@/apis/announcement/get-announcement-detail/query';
-import { Button } from '@/components/Button';
-import { Chip } from '@/components/Chip';
-import { useConfirm } from '@/components/ConfirmDialog';
 import { VersionConflictAlert } from '@/core/components';
-import { isVersionConflict, useErrorMessage, useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { useUnsavedChangesGuard } from '@/core/router';
 import type { Announcement } from '@/shared/api-sdk';
-import { formatDateTime } from '@/shared/date';
 
 import { AnnouncementForm } from '../../../components/AnnouncementForm';
 import type { AnnouncementDraft } from '../../../components/AnnouncementForm';

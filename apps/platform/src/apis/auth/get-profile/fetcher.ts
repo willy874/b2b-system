@@ -1,5 +1,6 @@
-import { defineAuthFetcher } from '@/core/client';
-import type { HttpRequestDTO } from '@/core/client';
+import { defineAuthFetcher } from '@b2b-system/web-core/client';
+import type { HttpRequestDTO } from '@b2b-system/web-core/client';
+
 import { getPlatformAuthControllerProfileUrl } from '@/shared/api-sdk';
 import type { PlatformProfile } from '@/shared/api-sdk';
 

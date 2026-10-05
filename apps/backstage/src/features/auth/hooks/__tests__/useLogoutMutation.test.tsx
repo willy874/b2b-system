@@ -1,10 +1,9 @@
+import { sessionStore } from '@b2b-system/web-core/auth';
+import type { SessionTokens } from '@b2b-system/web-core/auth';
+import { NetworkError } from '@b2b-system/web-core/client';
+import { AllProviders } from '@b2b-system/web-core/testing';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { sessionStore } from '@/core/auth';
-import type { SessionTokens } from '@/core/auth';
-import { NetworkError } from '@/core/client';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { useLogoutMutation } from '../useLogoutMutation';
 

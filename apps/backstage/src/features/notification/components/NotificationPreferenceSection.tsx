@@ -1,10 +1,10 @@
+import { Skeleton } from '@b2b-system/ui/Skeleton';
+import { Switch } from '@b2b-system/ui/Switch';
+import { useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 
 import { getNotificationPreferenceListQueryOptions } from '@/apis/notification/get-notification-preference-list/query';
-import { Skeleton } from '@/components/Skeleton';
-import { Switch } from '@/components/Switch';
-import { useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 import type { NotificationChannel } from '@/shared/api-sdk';
 
 import {

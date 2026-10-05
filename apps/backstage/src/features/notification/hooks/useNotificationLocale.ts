@@ -1,6 +1,5 @@
+import { loadLocaleScope, useTranslation } from '@b2b-system/web-core/locales';
 import { useEffect, useReducer } from 'react';
-
-import { loadLocaleScope, useTranslation } from '@/core/locales';
 
 import { NOTIFICATION_LOCALE_SCOPE } from '../locale';
 

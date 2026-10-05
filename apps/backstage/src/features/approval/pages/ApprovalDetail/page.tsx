@@ -1,13 +1,13 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Dialog } from '@b2b-system/ui/Dialog';
+import { Skeleton } from '@b2b-system/ui/Skeleton';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
 import { getApprovalDetailQueryOptions } from '@/apis/approval/get-approval-detail/query';
 import { getRoleOptionsQueryOptions } from '@/apis/role/get-role-list/query';
-import { Button } from '@/components/Button';
-import { Dialog } from '@/components/Dialog';
-import { Skeleton } from '@/components/Skeleton';
-import { useTranslation } from '@/core/locales';
 
 import { APPROVAL_TYPE_LABEL_KEY } from '../../constants';
 import { ApprovalDetailRoute, ApprovalListRoute } from '../../routes';

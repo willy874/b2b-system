@@ -1,6 +1,5 @@
+import { isBatchJobActive, useBatchJobs, useBatchQueue } from '@b2b-system/web-core/batch';
 import { useCallback, useState } from 'react';
-
-import { isBatchJobActive, useBatchJobs, useBatchQueue } from '@/core/batch';
 
 import { FILE_MANAGER_SCOPE, FileBatchOperation } from '../../batch';
 import { useFileDeleteMutation } from '../../hooks/useFileMutations';

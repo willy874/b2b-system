@@ -21,7 +21,11 @@ b2b-system/
 │
 ├── packages/
 │   ├── api-sdk/                 @b2b-system/api-sdk — 由 OpenAPI 產生的型別、zod schema 與 fetch client
-│   └── realtime/                @b2b-system/realtime — Socket.io 事件合約（事件名稱、zod schema、型別）
+│   ├── realtime/                @b2b-system/realtime — Socket.io 事件合約（事件名稱、zod schema、型別）
+│   ├── error-codes/             @b2b-system/error-codes — ErrorCode 清單與 → HTTP status 對照（api 與前端共用；需 build）
+│   ├── web-shared/              @b2b-system/web-shared — 前端的純工具：store、channel、context、registry、storage、date…（只有原始碼）
+│   ├── ui/                      @b2b-system/ui — 設計系統元件、Design Token、圖示、共用的 UnoCSS 設定與 Storybook（只有原始碼）
+│   └── web-core/                @b2b-system/web-core — 兩個前端共用的機制層：AppContext、session、client、快取、權限機制、i18n、外框、測試輔助（只有原始碼）
 │
 └── docs/                        本文件集
 ```
@@ -53,7 +57,7 @@ packages:
 | `pnpm lint` / `pnpm format` / `pnpm typecheck` | 全 workspace                                             |
 | `pnpm test`                                    | 全 workspace 單元測試                                    |
 | `pnpm test:e2e`                                | Playwright                                               |
-| `pnpm storybook` / `pnpm storybook:build`      | 設計系統元件的 Storybook（:6006）／輸出靜態站到 `apps/backstage/storybook-static/` |
+| `pnpm storybook` / `pnpm storybook:build`      | 設計系統元件的 Storybook（:6006）／輸出靜態站到 `packages/ui/storybook-static/` |
 
 ---
 
@@ -64,38 +68,29 @@ packages:
 ```
 apps/backstage/src/
 ├── main.tsx                 AppContext plugin chain ＋ createRoot
-├── index.css
+├── index.css                只有 @import '@b2b-system/ui/styles.css'
 │
-├── app/                     App Shell（只組裝，不實作業務）
-│   ├── App.tsx
+├── app/                     App Shell（只組裝，不實作業務；providers 在 @b2b-system/web-core/shell）
+│   ├── App.tsx              GlobalProvider ＋ SessionWatcher
 │   ├── Layout.tsx           依 matcher 決定套哪個 layout
-│   ├── GlobalProvider.tsx   Query / Router / Theme / Toast providers
-│   ├── ToastHost.tsx        唯一持有 toaster：eventBus 的 toast:show → 畫面
-│   ├── ConfirmDialogHost.tsx 掛上 useConfirm()，以 t() 傳入預設按鈕文案
 │   ├── plugin.ts            建立 router，掛到 AppContext
+│   ├── features.ts          執行期啟用的 feature 清單
 │   ├── routes.tsx           把各 feature 的 route 組成 route tree
+│   ├── sessionRedirect.ts   登出、session 結束後要去哪
 │   ├── layouts/
-│   │   ├── DashboardLayout.tsx   側邊選單 ＋ 頂部列 ＋ Outlet
+│   │   ├── DashboardLayout.tsx   側邊選單 ＋ 頂部列 ＋ Outlet（頂列工具在 @b2b-system/web-core/layout）
+│   │   ├── SidebarNav.tsx、headerTools.ts
+│   │   ├── LanguageMenu.tsx      把切換交給 web-core 的 LanguageMenu（同步到帳號）
 │   │   └── index.ts
-│   └── locales/{en_US,zh_TW}.json
+│   └── locales/{en_US,zh_TW}.json   這個 app 專屬的全域字串（共用的在 web-core）
 │
-├── core/                    跨 feature 的機制層（不認識任何 feature）
-│   ├── app/                 AppContext 型別、createAppContext、React context
-│   ├── auth/                SessionStore（token 生命週期、跨分頁單飛續期）
-│   ├── batch/               全域批次佇列（SharedWorker 排程、進度條、AppHeader 面板、結果彈出）
-│   ├── cache/               queryClient、跨分頁失效、store 持久化
-│   ├── client/              HttpContext / FetcherContext / defineFetcher / 攔截器
-│   ├── components/          機制性元件（ErrorPage、Empty、PermissionGate…）
-│   ├── errors/              錯誤碼、例外型別、useErrorMessage
+├── core/                    app 的機制層（不認識任何 feature；共用的在 @b2b-system/web-core）
+│   ├── components/          只有 backstage 用的元件（ErrorPage、ApiToken、ExplainPath、Tag、VersionConflictAlert）
+│   ├── feature/             執行期啟用 feature（docs/architecture/frontend/02-plugin-system.md §9）
 │   ├── file/                檔案類型、預覽解析器／檔案驗證器／縮圖產生器的註冊表
-│   ├── locales/             i18n scope loader
-│   ├── notify/              useToast()：把提示發到 eventBus
-│   ├── permission/          ★ 權限註冊表、hooks、常數
-│   ├── preference/          偏好設定註冊表（讓 feature 擴充偏好頁）
-│   ├── route-link/          route id → route 的註冊表：後端存的連結（例：通知）由擁有頁面的 feature 登記（docs/architecture/frontend/15-notification.md §3）
-│   ├── trash/               回收桶的類型註冊表（docs/architecture/frontend/13-trash.md）
-│   ├── router/              RootRoute、Router Provider
-│   └── store/               全域 store（permission / layout / timezone / locale）
+│   ├── permission/          ★ 這個 app 的權限目錄（enums、resources），登記給 web-core；轉出 web-core 的權限機制
+│   ├── permission-graph/    權限依賴樹的閉包與畫布版面（docs/rbac/02-permission-catalog.md §9）
+│   └── trash/               回收桶的類型註冊表（docs/architecture/frontend/13-trash.md）
 │
 ├── features/                ★ 業務功能，每個自給自足
 │   ├── auth/
@@ -123,28 +118,17 @@ apps/backstage/src/
 │   ├── notification/
 │   └── trash/
 │
-├── components/              ★ Base UI 封裝層（設計系統元件）
-│   ├── Button/  Input/  Select/  Dialog/  Table/  Toast/  Tooltip/ …
-│   │   └── Xxx.stories.tsx  每個元件的 Storybook story（設定在 apps/backstage/.storybook/）
-│   └── …
-│
 ├── plugins/                 可插拔的能力（非業務、非核心）
-│   ├── app/                 cache / event-bus / i18n / http-context / feature-flags
-│   ├── fetcher/             auth 標頭、refresh、retry 攔截器
+│   ├── app/                 門面：轉出 @b2b-system/web-core/plugins/app，加上自己的 i18n（語系包）與 batch-queue
 │   └── features/            擴充既有 feature 的小外掛（例如偏好頁的分頁）
 │
-├── shared/                  純工具與型別（不得依賴 core / features）
+├── shared/                  app 專屬的收斂點（其餘純工具在 @b2b-system/web-shared）
 │   ├── api-sdk/             re-export packages/api-sdk（單一收斂點）
-│   ├── constants/           env、lang、testid
-│   ├── context/             通用 plugin context 實作
-│   ├── store/               signal store 實作
-│   ├── storage/             localStorage / dictStorage 封裝
-│   ├── hooks/  date/  utils/  types/
-│   └── EventEmitter/
+│   ├── websocket-sdk/       re-export packages/realtime（單一收斂點）
+│   └── constants/           env（import.meta.env）
 │
-├── themes/                  Design Token（seed / alias / component 三層 CSS 變數）
 ├── mocks/                   MSW handlers（dev 與測試共用）
-└── test/                    測試 setup、render 輔助、fixture
+└── test/                    setup.ts、i18n.ts（render 輔助在 @b2b-system/web-core/testing）
 ```
 
 ### 2.1 Path alias
@@ -159,10 +143,16 @@ apps/backstage/src/
 
 ### 2.2 `apps/platform`
 
-資料夾分層與上面相同（`main.tsx` → `app/` → `features/` → `apis/` → `core/` → `components/` → `shared/`）。
-features 是 `login`（IdP 互動頁、帳號流程）、`home`、`identity-provider`；`core/`、`components/`、`shared/`
-大多從 backstage **複製**（[`architecture/04-sso.md`](04-sso.md) §12.2 D14），複製清單與同步規則見 [`apps/platform/README.md`](../../apps/platform/README.md)，
+資料夾分層與上面相同（`main.tsx` → `app/` → `features/` → `apis/` → `core/` → `@b2b-system/web-core` → `@b2b-system/ui` → `@b2b-system/web-shared`）。
+features 見 [`apps/platform/README.md`](../../apps/platform/README.md)；機制層、設計系統與純工具與 backstage 共用 `packages/web-core`、`packages/ui`、`packages/web-shared`
+（[`architecture/04-sso.md`](04-sso.md) §12.2 D14），`core/` 只有平台的權限目錄。刻意各自一份的部分與同步規則見該 README，
 路由與登入流程見 [`04-sso.md`](./04-sso.md) §6。
+
+### 2.3 前端共用的 packages
+
+`packages/web-shared`、`packages/ui` 與 `packages/web-core` 只有原始碼、不 build（`exports` 直接指向 `src/`），由各 app 自己的 Vite 編譯；
+所以 CSS Module 的 class 前綴仍是各 app 自己的（backstage `ge-`、platform `ga-`）。`packages/error-codes` 與 `realtime` 一樣 build 到 `dist/`
+（api 在 Node 執行時要用），新 clone 或改了它之後要 `pnpm build:packages`。各 package 的規則見各自的 README。
 
 ---
 

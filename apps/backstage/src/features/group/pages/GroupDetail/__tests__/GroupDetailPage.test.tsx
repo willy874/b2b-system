@@ -1,10 +1,10 @@
+import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
-import { renderRoute } from '@/test/renderRoute';
 
 import { registerGroupPagePermissions, Routes } from '../../..';
 import groupZhTW from '../../../locales/zh_TW.json';

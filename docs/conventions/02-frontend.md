@@ -9,14 +9,14 @@
 
 | #   | 規則                                                                                   | 理由                                             | 強度      |
 | --- | -------------------------------------------------------------------------------------- | ------------------------------------------------ | --------- |
-| 1   | `core/` 不 import `features/`；`shared/` 不 import 上層任何東西                        | 機制層要能被任何 feature 使用而不反向耦合        | 👀 Review |
+| 1   | `core/` 與 `@b2b-system/web-core` 不 import `features/`；packages 不 import app，下層 package 不 import 上層（`web-shared` ← `ui` ← `web-core`） | 機制層要能被任何 feature 使用而不反向耦合        | 👀 Review |
 | 2   | Feature 之間只經由 `routes/external.ts`（route 物件）、`apis/`、或 eventBus 互動       | 拿掉任何一個 feature，app 仍能啟動               | 👀 Review |
 | 3   | 頁面權限在 plugin 的 **同步** 階段註冊；語系包在 `onInit`（非同步）階段                 | 第一次 render 時 `requirePagePermission()` 不會 miss | 👀 Review |
 | 4   | 元件只透過 `apis/<domain>/<operation>/` 與後端對話，不直接 `fetch`                      | 攔截器（token、refresh、錯誤轉換）只在一處        | 👀 Review |
-| 5   | `components/` 不出現業務名詞；業務元件放 `features/<name>/components/`                  | 設計系統要能搬到下一個產品                        | 👀 Review |
-| 6   | 顏色一律走 Design Token（`themes/tokens.css`），不寫十六進位色碼                        | 主題與 dark mode 的前提                          | 🔒 測試（僅 `components/` 的 CSS） |
+| 5   | `@b2b-system/ui` 不出現業務名詞；業務元件放 `features/<name>/components/`               | 設計系統要能搬到下一個產品                        | 👀 Review |
+| 6   | 顏色一律走 Design Token（`packages/ui/src/styles/tokens.css`），不寫十六進位色碼        | 主題與 dark mode 的前提                          | 🔒 測試（僅 `packages/ui` 元件的 CSS） |
 | 7   | Access token 只存在記憶體，不進 `localStorage` / `sessionStorage`                       | XSS 時不外洩長效憑證（[`backend/04-auth.md`](../architecture/backend/04-auth.md) §10） | 👀 Review |
-| 8   | 只有 `core/realtime/socketIoTransport.ts` import `socket.io-client`；其他地方經由 `RealtimeTransport`、`useRealtimeEvent()`、`realtime.relay` | 換掉 Socket.io 只換一個檔案（[`architecture/frontend/11-realtime.md`](../architecture/frontend/11-realtime.md) §2） | 🔒 測試（`transport-boundary.test.ts`） |
+| 8   | 只有 `packages/web-core/src/realtime/socketIoTransport.ts` import `socket.io-client`；其他地方經由 `RealtimeTransport`、`useRealtimeEvent()`、`realtime.relay` | 換掉 Socket.io 只換一個檔案（[`architecture/frontend/11-realtime.md`](../architecture/frontend/11-realtime.md) §2） | 🔒 測試（`transport-boundary.test.ts`） |
 
 > 規則 1、2 在 [`architecture/frontend/01-architecture.md`](../architecture/frontend/01-architecture.md) §5
 > 規劃以 `no-restricted-imports` 強制，**目前 `.oxlintrc.json` 尚未設定**，先靠 review。
@@ -24,8 +24,8 @@
 >
 > 完整的依賴矩陣見 [`07-layer-dependencies.md`](./07-layer-dependencies.md)。
 >
-> `design-system.test.ts` 另外守住：`features/` 不直接 import Base UI、`components/` 不匯出 Base UI 型別、
-> `components/` 的 CSS 不出現十六進位色碼。
+> `packages/ui/src/components/__tests__/design-system.test.ts` 另外守住：元件不匯出 Base UI 型別、
+> 元件的 CSS 不出現十六進位色碼；`features/` 不直接 import Base UI 由各 app 的 `app/__tests__/no-base-ui-in-features.test.ts` 守住。
 
 ---
 
@@ -53,7 +53,7 @@
 
 ## 3. 元件
 
-### 3.1 設計系統元件（`components/`）
+### 3.1 設計系統元件（`@b2b-system/ui`，`packages/ui/src/components/`）
 
 遵守 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.1 的六條契約：
 
@@ -115,18 +115,18 @@
 
 ## 7. 樣式
 
-- 不寫十六進位色碼、`rgb()`；用 token 或 UnoCSS 對應的 token class（`components/` 的 CSS 有 🔒 測試，其餘 👀）。
+- 不寫十六進位色碼、`rgb()`；用 token 或 UnoCSS 對應的 token class（`packages/ui` 元件的 CSS 有 🔒 測試，其餘 👀）。
 - 尺寸、間距用 token；不寫魔術數字。
 - 陰影與遮罩也是顏色：用 `--shadow-tooltip` / `--shadow-popover` / `--shadow-toast` / `--shadow-dialog` / `--color-backdrop`，
-  不寫 `box-shadow: … rgb(…)`（`components/` 的 CSS 有 🔒 測試擋 `rgb()` / `hsl()`）。
+  不寫 `box-shadow: … rgb(…)`（`packages/ui` 元件的 CSS 有 🔒 測試擋 `rgb()` / `hsl()`）。
 - className 不得以字串模板組成，見 [`06-literal-strings.md`](./06-literal-strings.md)。
-- 設計系統元件（`components/`）的樣式寫在同資料夾的 `Xxx.module.css`，整份包在 `@layer components`；
+- 設計系統元件（`@b2b-system/ui`）的樣式寫在同資料夾的 `Xxx.module.css`，整份包在 `@layer components`；
   不再新增全域 `.css` 或 `ge-` 前綴的 class（🔒 `design-system.test.ts`）。寫法見
   [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.4。
 - 元件的變體、尺寸、布林外觀用 `data-*` 屬性表達（`data-variant={variant}`、`data-block={block || undefined}`），
   CSS 選 `.root[data-variant='primary']`；測試斷言屬性，不斷言 class（👀 Review）。
 - 顏色與陰影只引用 alias 層（`--color-*`、`--shadow-*`），不直接用 `--seed-gray-*` 等 seed 色——
-  深色主題只覆寫 alias（`components/` 的 CSS 有 🔒 測試）。中性底色用 `--color-fill-subtle` / `--color-fill`。
+  深色主題只覆寫 alias（`packages/ui` 元件的 CSS 有 🔒 測試）。中性底色用 `--color-fill-subtle` / `--color-fill`。
   見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §4.4。
 - 語意色：`-main` 給背景／邊框，`-text` 給文字（對比度不同）。見
   [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §4.2。
@@ -137,11 +137,12 @@
 
 - 畫面上的字一律走 `t()`，不寫死中英文字串。
   例外：
-  - `components/` 不能依賴 `core/locales`，元件的預設文案（`emptyTitle`、`labels` 等）可以寫死，
+  - `@b2b-system/ui` 不能依賴 `@b2b-system/web-core/locales`，元件的預設文案（`emptyTitle`、`labels` 等）可以寫死，
     但 `features/` 使用時 **必須** 以 `t()` 傳入。
   - 語言選單的語言名稱用該語言本身書寫（`繁體中文`、`English`），不翻譯。
 - key 不得以字串模板組成，見 [`06-literal-strings.md`](./06-literal-strings.md)。
-- 兩個語系檔（`en_US.json`、`zh_TW.json`）同一批修改；🔒 `locales.test.ts` 會比對兩邊鍵集合，並檢查每個錯誤碼與權限都有翻譯。
+- 兩個語系檔（`en_US.json`、`zh_TW.json`）同一批修改；🔒 各 `locales.test.ts`／`resources.test.ts` 會比對兩邊鍵集合，並檢查每個錯誤碼（web-core）與權限（各 app）都有翻譯。
+- 字串放哪裡：web-core 的元件與機制用的放 `packages/web-core/src/locales/resources/`；app 專屬的全域字串放 `app/locales/`；其餘放 feature 的 `locales/`（[`architecture/frontend/08-i18n.md`](../architecture/frontend/08-i18n.md) §2）。
 - 權限名稱 `permission.<resource>.<action>`、錯誤訊息 `error.<CODE>`。見
   [`architecture/frontend/08-i18n.md`](../architecture/frontend/08-i18n.md) §3。
 

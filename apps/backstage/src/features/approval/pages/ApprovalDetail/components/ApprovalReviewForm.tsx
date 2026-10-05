@@ -1,7 +1,8 @@
-import { Field } from '@/components/Field';
-import { Textarea } from '@/components/Input';
-import { Select } from '@/components/Select';
-import { useTranslation } from '@/core/locales';
+import { Field } from '@b2b-system/ui/Field';
+import { Textarea } from '@b2b-system/ui/Input';
+import { Select } from '@b2b-system/ui/Select';
+import { useTranslation } from '@b2b-system/web-core/locales';
+
 import type { Role } from '@/shared/api-sdk';
 
 import type { ApprovalDetailVM } from '../adapter';

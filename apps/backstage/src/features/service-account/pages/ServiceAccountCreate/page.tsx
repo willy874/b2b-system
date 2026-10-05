@@ -1,15 +1,15 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Dialog } from '@b2b-system/ui/Dialog';
+import { Field } from '@b2b-system/ui/Field';
+import { Input } from '@b2b-system/ui/Input';
+import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
 import { getRoleOptionsQueryOptions } from '@/apis/role/get-role-list/query';
-import { Button } from '@/components/Button';
-import { Dialog } from '@/components/Dialog';
-import { Field } from '@/components/Field';
-import { Input } from '@/components/Input';
-import { useErrorMessage } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { useUnsavedChangesGuard } from '@/core/router';
 
 import { ServiceAccountRoleSelect } from '../../components/ServiceAccountRoleSelect';
 import { useServiceAccountCreateMutation } from '../../hooks/useServiceAccountMutations';

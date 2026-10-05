@@ -1,15 +1,15 @@
+import { Button, IconButton } from '@b2b-system/ui/Button';
+import { Icon } from '@b2b-system/ui/Icon';
+import { Input } from '@b2b-system/ui/Input';
+import { Menu } from '@b2b-system/ui/Menu';
+import { Select } from '@b2b-system/ui/Select';
+import { Tooltip } from '@b2b-system/ui/Tooltip';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import type { SortEntry } from '@b2b-system/web-shared/constants';
 import { useEffect, useRef, useState } from 'react';
 
 import type { FileCategory, FileSortField } from '@/apis/file/types';
-import { Button, IconButton } from '@/components/Button';
-import { Icon } from '@/components/Icon';
-import { Input } from '@/components/Input';
-import { Menu } from '@/components/Menu';
-import { Select } from '@/components/Select';
-import { Tooltip } from '@/components/Tooltip';
-import { useTranslation } from '@/core/locales';
 import type { Tag } from '@/shared/api-sdk';
-import type { SortEntry } from '@/shared/constants';
 
 import {
   FILE_CATEGORIES,

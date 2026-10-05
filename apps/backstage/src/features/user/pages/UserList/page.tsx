@@ -1,3 +1,7 @@
+import { AlertDialog } from '@b2b-system/ui/AlertDialog';
+import { ButtonLink } from '@b2b-system/ui/Button';
+import { useTableSelection } from '@b2b-system/ui/Table';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
@@ -5,10 +9,6 @@ import { useMemo, useState } from 'react';
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
 import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
-import { AlertDialog } from '@/components/AlertDialog';
-import { ButtonLink } from '@/components/Button';
-import { useTableSelection } from '@/components/Table';
-import { useTranslation } from '@/core/locales';
 
 import { useUserDeleteMutation } from '../../hooks/useUserMutations';
 import { useUserPermission } from '../../hooks/useUserPermission';

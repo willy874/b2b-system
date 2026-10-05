@@ -1,8 +1,8 @@
+import type { HttpRequestDTO } from '@b2b-system/web-core/client';
+import { toSortParams } from '@b2b-system/web-shared/constants';
 import { infiniteQueryOptions, keepPreviousData, queryOptions } from '@tanstack/react-query';
 
-import type { HttpRequestDTO } from '@/core/client';
 import type { FileListPage } from '@/shared/api-sdk';
-import { toSortParams } from '@/shared/constants';
 
 import type { FileListFilters, FileListParams } from '../types';
 import { fetchFileListQuery } from './fetcher';

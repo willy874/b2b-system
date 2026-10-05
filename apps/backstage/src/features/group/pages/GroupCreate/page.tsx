@@ -1,16 +1,15 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Dialog } from '@b2b-system/ui/Dialog';
+import { Field } from '@b2b-system/ui/Field';
+import { Input, Textarea } from '@b2b-system/ui/Input';
+import { useErrorMessage, useServerFieldErrors } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
+import { firstError, zodFormValidator } from '@b2b-system/web-shared/hooks';
 import { useForm, useStore } from '@tanstack/react-form';
 import { useNavigate } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 import { z } from 'zod';
-
-import { Button } from '@/components/Button';
-import { Dialog } from '@/components/Dialog';
-import { Field } from '@/components/Field';
-import { Input, Textarea } from '@/components/Input';
-import { useErrorMessage, useServerFieldErrors } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { useUnsavedChangesGuard } from '@/core/router';
-import { firstError, zodFormValidator } from '@/shared/hooks';
 
 import { useGroupCreateMutation } from '../../hooks/useGroupMutations';
 import { GroupCreateRoute, GroupDetailRoute, GroupListRoute } from '../../routes';

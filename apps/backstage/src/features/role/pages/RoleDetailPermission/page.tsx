@@ -1,14 +1,14 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Dialog } from '@b2b-system/ui/Dialog';
+import { Skeleton } from '@b2b-system/ui/Skeleton';
+import { QueryError } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
 import { getRolePermissionsQueryOptions } from '@/apis/role/get-role-permissions/query';
-import { Button } from '@/components/Button';
-import { Dialog } from '@/components/Dialog';
-import { Skeleton } from '@/components/Skeleton';
-import { QueryError } from '@/core/components';
-import { useTranslation } from '@/core/locales';
-import { useUnsavedChangesGuard } from '@/core/router';
 
 import { PermissionSkillTree } from '../../components';
 import { useGrantRolePermissionsMutation } from '../../hooks/useRoleMutations';

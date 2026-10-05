@@ -1,11 +1,11 @@
+import { Spinner } from '@b2b-system/ui/Spinner';
+import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { getFileTextQueryOptions } from '@/apis/file/get-file-text/query';
-import { Spinner } from '@/components/Spinner';
-import { useErrorMessage } from '@/core/errors';
 import type { FilePreviewerProps } from '@/core/file';
-import { useTranslation } from '@/core/locales';
 
 /** 預覽只讀開頭：再長也沒人會在預覽裡捲完，完整內容請下載。 */
 export const TEXT_PREVIEW_MAX_BYTES = 256 * 1024;

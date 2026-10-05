@@ -1,3 +1,14 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Chip } from '@b2b-system/ui/Chip';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
+import { Field } from '@b2b-system/ui/Field';
+import { Input } from '@b2b-system/ui/Input';
+import { Separator } from '@b2b-system/ui/Separator';
+import { sessionStore } from '@b2b-system/web-core/auth';
+import { useErrorMessage, useErrorToast, useServerFieldErrors } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useToast } from '@b2b-system/web-core/notify';
+import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
@@ -5,17 +16,6 @@ import { getChangePasswordMutationOptions } from '@/apis/auth/change-password/mu
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getUpdateProfileMutationOptions } from '@/apis/auth/update-profile/mutation';
 import { invalidateResources, selfUpdated } from '@/apis/resources';
-import { Button } from '@/components/Button';
-import { Chip } from '@/components/Chip';
-import { useConfirm } from '@/components/ConfirmDialog';
-import { Field } from '@/components/Field';
-import { Input } from '@/components/Input';
-import { Separator } from '@/components/Separator';
-import { sessionStore } from '@/core/auth';
-import { useErrorMessage, useErrorToast, useServerFieldErrors } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { useToast } from '@/core/notify';
-import { useUnsavedChangesGuard } from '@/core/router';
 
 import { ProfileApiTokenSection } from './components/ProfileApiTokenSection';
 import { ProfilePermissionSection } from './components/ProfilePermissionSection';

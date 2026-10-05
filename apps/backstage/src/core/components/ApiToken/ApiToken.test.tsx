@@ -1,9 +1,9 @@
+import { AllProviders } from '@b2b-system/web-core/testing';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { ApiToken } from '@/shared/api-sdk';
 import { initTestI18n } from '@/test/i18n';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { ApiTokenCreateDialog } from './ApiTokenCreateDialog';
 import { ApiTokenTable } from './ApiTokenTable';

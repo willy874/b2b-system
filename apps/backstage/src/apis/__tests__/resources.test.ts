@@ -1,8 +1,8 @@
+import { queryClient } from '@b2b-system/web-core/cache';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
 import { getFileListQueryOptions } from '@/apis/file/get-file-list/query';
-import { queryClient } from '@/core/cache';
 import type { FileListPage, Profile } from '@/shared/api-sdk';
 
 import { applyResourceChanges, resolveResourceChanges, Resource } from '../resources';

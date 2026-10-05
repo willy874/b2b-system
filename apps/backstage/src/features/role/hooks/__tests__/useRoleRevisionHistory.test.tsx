@@ -1,8 +1,7 @@
+import { AppError } from '@b2b-system/web-core/errors';
+import { AllProviders } from '@b2b-system/web-core/testing';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { AppError } from '@/core/errors';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { useRoleRevisionHistory } from '../useRoleRevisionHistory';
 

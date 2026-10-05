@@ -1,10 +1,10 @@
+import { Chip } from '@b2b-system/ui/Chip';
+import { Tooltip } from '@b2b-system/ui/Tooltip';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
 import { getGroupListQueryOptions } from '@/apis/group/get-group-list/query';
-import { Chip } from '@/components/Chip';
-import { Tooltip } from '@/components/Tooltip';
-import { useTranslation } from '@/core/locales';
 
 import { ExternalRoutes } from '../../../routes';
 

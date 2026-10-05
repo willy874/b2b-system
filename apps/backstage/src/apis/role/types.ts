@@ -1,4 +1,4 @@
-import type { SortEntry } from '@/shared/constants';
+import type { SortEntry } from '@b2b-system/web-shared/constants';
 
 /** 後端 `ListRoleSchema` 的排序白名單。 */
 export type RoleSortField = 'createdAt' | 'name' | 'slug' | 'permissionCount' | 'userCount';

@@ -1,6 +1,5 @@
+import { useErrorToast } from '@b2b-system/web-core/errors';
 import { useCallback } from 'react';
-
-import { useErrorToast } from '@/core/errors';
 
 import type { NotificationVM } from '../adapter';
 import { useMarkNotificationReadMutation } from './useNotificationMutations';

@@ -138,7 +138,7 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 
 ### 5.3 預設時區
 
-`general.defaultTimezone` 由 `GET /system/settings/public` 提供，但 backstage 目前的日期格式化（`shared/date`）
+`general.defaultTimezone` 由 `GET /system/settings/public` 提供，但 backstage 目前的日期格式化（`@b2b-system/web-shared/date`）
 一律用常數 `Asia/Taipei`，連使用者的時區偏好也沒有套用。把偏好與租戶預設接進日期顯示是另一件工作。
 
 ## 6. 新增一個設定

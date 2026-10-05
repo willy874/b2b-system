@@ -1,13 +1,16 @@
+import { Chip } from '@b2b-system/ui/Chip';
+import { TextEllipsis } from '@b2b-system/ui/Ellipsis';
+import type { TableColumnDef } from '@b2b-system/ui/Table';
+import { RichTable } from '@b2b-system/web-core/components';
+import type {
+  FilterBarProps,
+  RichTablePagination,
+  TableSearchProps,
+} from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime } from '@b2b-system/web-shared/date';
 import { Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
-
-import { Chip } from '@/components/Chip';
-import { TextEllipsis } from '@/components/Ellipsis';
-import type { TableColumnDef } from '@/components/Table';
-import { RichTable } from '@/core/components';
-import type { FilterBarProps, RichTablePagination, TableSearchProps } from '@/core/components';
-import { useTranslation } from '@/core/locales';
-import { formatDateTime } from '@/shared/date';
 
 import { describeTrigger } from '../../../components/triggerSummary';
 import { ANNOUNCEMENT_STATUS_LABEL_KEY, ANNOUNCEMENT_STATUS_TONE } from '../../../constants';

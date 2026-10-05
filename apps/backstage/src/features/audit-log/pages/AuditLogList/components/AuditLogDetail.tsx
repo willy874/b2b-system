@@ -1,12 +1,12 @@
+import { JsonDiff } from '@b2b-system/ui/JsonDiff';
+import type { JsonDiffLabels } from '@b2b-system/ui/JsonDiff';
+import { JsonViewer } from '@b2b-system/ui/JsonViewer';
+import type { JsonViewerLabels } from '@b2b-system/ui/JsonViewer';
+import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 
 import { getAuditLogDetailQueryOptions } from '@/apis/audit-log/get-audit-log-detail/query';
-import { JsonDiff } from '@/components/JsonDiff';
-import type { JsonDiffLabels } from '@/components/JsonDiff';
-import { JsonViewer } from '@/components/JsonViewer';
-import type { JsonViewerLabels } from '@/components/JsonViewer';
-import { useErrorMessage } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 
 import { toAuditLogDetailVM } from '../adapter';
 

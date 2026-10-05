@@ -1,9 +1,8 @@
+import { Input } from '@b2b-system/ui/Input';
+import type { InputProps } from '@b2b-system/ui/Input';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
-
-import { Input } from '@/components/Input';
-import type { InputProps } from '@/components/Input';
-import { useTranslation } from '@/core/locales';
 
 type PasswordInputProps = Omit<InputProps, 'type'>;
 

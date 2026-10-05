@@ -1,6 +1,6 @@
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useMemo } from 'react';
 
-import { useTranslation } from '@/core/locales';
 import type { PermissionCatalog } from '@/shared/api-sdk';
 
 import type { PermissionFilters } from '../routes';

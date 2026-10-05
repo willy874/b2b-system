@@ -1,5 +1,6 @@
-import { Chip } from '@/components/Chip';
-import { useTranslation } from '@/core/locales';
+import { Chip } from '@b2b-system/ui/Chip';
+import { useTranslation } from '@b2b-system/web-core/locales';
+
 import type { RolePermissions } from '@/shared/api-sdk';
 
 interface RolePermissionSectionProps {

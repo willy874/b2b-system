@@ -1,13 +1,13 @@
+import { Empty } from '@b2b-system/ui/Empty';
+import { Pagination } from '@b2b-system/ui/Pagination';
+import type { TableColumnDef } from '@b2b-system/ui/Table';
+import { Table } from '@b2b-system/ui/Table';
+import { Tabs } from '@b2b-system/ui/Tabs';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { getTrashListQueryOptions } from '@/apis/trash/get-trash-list/query';
-import { Empty } from '@/components/Empty';
-import { Pagination } from '@/components/Pagination';
-import type { TableColumnDef } from '@/components/Table';
-import { Table } from '@/components/Table';
-import { Tabs } from '@/components/Tabs';
-import { useTranslation } from '@/core/locales';
 import type { TrashTypeRegistration } from '@/core/trash';
 
 import { useTrashPermission } from '../../hooks/useTrashPermission';

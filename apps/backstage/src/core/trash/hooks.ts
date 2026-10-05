@@ -1,6 +1,5 @@
+import { useStore } from '@b2b-system/web-shared/hooks';
 import { useMemo } from 'react';
-
-import { useStore } from '@/shared/hooks';
 
 import { sortTrashTypes, trashTypeRegistry } from './registry';
 import type { TrashTypeRegistration } from './registry';
