@@ -8,10 +8,11 @@ import { Button, IconButton } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { Select } from '@/components/Select';
 import { useTranslation } from '@/core/locales';
+import { RouteLink } from '@/core/route-link';
 import type { GroupMember } from '@/shared/api-sdk';
 
 import { useGroupMembersUpdateMutation } from '../../../hooks/useGroupMutations';
-import { ExternalRoutes, GroupDetailRoute, GroupListRoute } from '../../../routes';
+import { GroupDetailRoute, GroupListRoute } from '../../../routes';
 
 /** 使用者搜尋的輸入停頓多久才查詢（與資料夾共用對話框相同）。 */
 const USER_SEARCH_DEBOUNCE_MS = 250;
@@ -64,14 +65,13 @@ export function GroupMemberSection({ groupId, members, total, canEdit }: GroupMe
                   {member.name}
                 </Link>
               ) : (
-                <Link
-                  to={ExternalRoutes.UserDetailRoute.to}
+                <RouteLink
+                  to="user.detail"
                   params={{ userId: member.id }}
-                  search={{}}
                   className="text-[var(--color-brand)]"
                 >
                   {member.name}
-                </Link>
+                </RouteLink>
               )}
               {member.email && <span className="text-[var(--color-fg-muted)]">{member.email}</span>}
               {canEdit && (

@@ -6,7 +6,7 @@ TanStack Router 支援 file-based 與 code-based 兩種模式。本專案用
 **code-based**，原因是 feature 必須 **擁有** 它的 route 物件：
 
 - `permission.ts` 要 `routeBasePath(RoleListRoute)` 讀出 `/role` 來註冊權限
-- `routes/external.ts` 要匯出 route 物件供別的 feature 連結
+- `routeLinks.ts` 要拿 route 物件登記 route id，供別的 feature 與後端連結
 - `routes/pages.ts` 建立 route 但不綁元件，`index.tsx` 才用 `.update()` 綁 lazy 元件
 
 file-based routing 把 route 的身分交給檔案系統，上述三件事都做不到。

@@ -30,6 +30,6 @@ MUI 作法，最大的差異是 **UI 函式庫改用 Base UI**，因此 `src/com
 ## 三條必須記住的規則
 
 1. **`core/` 永遠不認識任何 `features/`。** 反過來可以。
-2. **Feature 之間不直接互相 import。** 需要連結時走 `routes/external.ts`
-   （只引用對方的 route 物件）或事件匯流排。
+2. **Feature 之間不直接互相 import。** 需要連結時用 route id（`<RouteLink to="user.detail">`，
+   [`03-feature-anatomy.md`](./03-feature-anatomy.md) §4.1），其他需求走 `apis/` 或事件匯流排。
 3. **只有 `apis/` 會發 HTTP。** 頁面與元件拿到的是 query options，不是 `fetch`。

@@ -10,13 +10,13 @@ features/role/
 ├── plugin.ts                  ★ AppContext plugin factory
 ├── permission.ts              ★ 頁面權限宣告與註冊
 ├── locale.ts                  語系 scope 名稱常數
+├── routeLinks.ts              （選用）把自己的頁面登記成 route id，供別的 feature 與後端連結
 ├── preference.ts              （選用）往偏好頁註冊分頁
 │
 ├── routes/
-│   ├── index.ts               re-export pages.ts ＋ 匯出 ExternalRoutes
+│   ├── index.ts               re-export pages.ts 與 model.ts
 │   ├── pages.ts               ★ 本 feature 擁有的 route 物件
-│   ├── model.ts               網址 search 參數的 Zod schema
-│   └── external.ts            ★ 跨 feature 連結時引用的「別人的」route
+│   └── model.ts               網址 search 參數的 Zod schema
 │
 ├── pages/
 │   ├── index.tsx              lazy 包裝：export const AsyncRoleListPage = lazyRouteComponent(...)
@@ -275,24 +275,29 @@ export function useRoleCreateMutation() {
 
 **禁止** `import { something } from '@/features/user'`。三條合法途徑：
 
-### 4.1 連結到別的 feature 的頁面 → `routes/external.ts`
+### 4.1 連結到別的 feature 的頁面 → route id（`core/route-link`）
+
+擁有頁面的 feature 在 plugin 的 **同步** 階段把頁面登記成 route id；連結的一方只寫 id，不 import 對方的任何東西：
 
 ```ts
-// features/role/routes/external.ts
-export { UserListRoute, UserDetailRoute } from "@/features/user/routes";
+// features/user/routeLinks.ts（由 user 的 plugin.ts 呼叫）
+registerRouteLink("user.detail", { route: UserDetailRoute, params: { userId: "userId" } });
 ```
 
 ```tsx
-// features/role/pages/RoleDetail/RoleUserList.tsx
-import { ExternalRoutes } from "../../routes";
+// features/role/pages/RoleDetail/components/RoleHolderSection.tsx
+import { RouteLink } from "@/core/route-link";
 
-<Link to={ExternalRoutes.UserDetailRoute.to} params={{ userId }}>
+<RouteLink to="user.detail" params={{ userId }}>
   {user.displayName}
-</Link>;
+</RouteLink>;
 ```
 
-只引用 route 物件（等同引用一個字串路徑），不引用元件、hook 或型別。
-**集中在一個檔案裡**，所以「這個 feature 依賴哪些別的 feature」一眼可見。
+- 對方沒安裝（可啟用的 feature 被停用）或 id 沒登記時，`RouteLink` 只渲染文字、不可點，不會連到 404。
+- 不必知道對方的 search 格式：目標 route 的 `validateSearch` 會補上預設值。
+- 同一張註冊表也是後端存的連結（站內通知的 `link`）的解析來源；規則見 [`15-notification.md`](./15-notification.md) §3。
+  已被後端存下的 id 不改名；只給前端用的 id 可以隨頁面調整。
+- 同一個 feature 內部的連結照常用自己的 route 物件（`RoleDetailRoute.to`），保留 TanStack 的型別檢查。
 
 ### 4.2 共用資料 → 走 `apis/`
 

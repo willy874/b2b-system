@@ -3,6 +3,7 @@ import { LanguageNamespace, Languages } from '@/shared/constants/lang';
 
 import { GROUP_LOCALE_SCOPE } from './locale';
 import { registerGroupPagePermissions } from './permission';
+import { registerGroupRouteLinks } from './routeLinks';
 import { registerGroupTrashType } from './trash';
 
 export function appContextPlugin(): AppPluginFactory {
@@ -10,6 +11,7 @@ export function appContextPlugin(): AppPluginFactory {
     // ── 同步階段 ──
     registerGroupPagePermissions();
     registerGroupTrashType(); // 回收桶的「群組」分頁
+    registerGroupRouteLinks(); // 別的 feature 連到群組頁面的 route id
     const app = context.getInstance();
 
     return {

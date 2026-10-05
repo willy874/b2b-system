@@ -9,11 +9,14 @@
 ```
 core/route-link/                        route id → route 的註冊表（不認識任何 feature）
 ├── registry.ts                         registerRouteLink()、resolveRouteLink()
-└── hooks.ts                            useRouteLinkResolver()：訂閱註冊表
+├── hooks.ts                            useRouteLinkResolver()：訂閱註冊表
+└── RouteLink.tsx                       <RouteLink to="<route id>">：前端跨 feature 的連結，解析不出來就只顯示文字
 
 features/approval/routeLinks.ts         登記 approval.detail
 features/file/routeLinks.ts             登記 file.folder（可啟用的 feature：沒啟用就沒有登記）
 features/account/routeLinks.ts          登記 account.profile
+features/user/routeLinks.ts             登記 user.detail（目前只給前端跨 feature 連結用）
+features/group/routeLinks.ts            登記 group.detail（同上）
 
 features/notification/                  只讀註冊表，不 import 其他 feature
 ├── plugin.ts                           頁面權限 ＋ registerHeaderTool('notification')（同步階段）

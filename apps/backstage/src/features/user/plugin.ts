@@ -5,6 +5,7 @@ import { registerUserBatchOperations } from './batch';
 import { USER_LOCALE_SCOPE } from './locale';
 import { registerUserPagePermissions } from './permission';
 import { registerUserPreferences } from './preference';
+import { registerUserRouteLinks } from './routeLinks';
 import { registerUserTrashType } from './trash';
 
 export function appContextPlugin(): AppPluginFactory {
@@ -13,6 +14,7 @@ export function appContextPlugin(): AppPluginFactory {
     registerUserPreferences(); // 偏好頁的列表註冊表
     registerUserBatchOperations(); // 批次佇列的操作：任何分頁都可能被交派執行
     registerUserTrashType(); // 回收桶的「使用者」分頁
+    registerUserRouteLinks(); // 別的 feature 連到使用者頁面的 route id
     const app = context.getInstance();
 
     return {
