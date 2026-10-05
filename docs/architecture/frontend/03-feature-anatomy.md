@@ -293,7 +293,21 @@ import { RouteLink } from "@/core/route-link";
 </RouteLink>;
 ```
 
-- 對方沒安裝（可啟用的 feature 被停用）或 id 沒登記時，`RouteLink` 只渲染文字、不可點，不會連到 404。
+- **渲染前就判斷能不能點**，不讓人點進 404／403（`useRouteLinkAccess()` 的四種狀態）：
+
+  | 狀態 | 什麼時候 | `fallback="text"`（預設） | `fallback="hide"` |
+  | --- | --- | --- | --- |
+  | `ready` | 已登記，且目標頁不受管制或檢視者有權限 | 連結 | 連結 |
+  | `unavailable` | id 沒登記（對方沒安裝、被停用）或缺參數 | 文字 | 不渲染 |
+  | `pending` | 目標頁受管制，權限還沒水合 | 文字 | 不渲染 |
+  | `forbidden` | 檢視者進不了目標頁 | 文字 | 不渲染 |
+
+  權限與 route guard 是同一個判斷（`usePageAccess` 比對代入參數後的路徑）。名字本身有資訊（成員、持有人）用 `text`；
+  純導覽的連結（「前往設定」）用 `hide`；要隱藏一整段（標題＋列表）時在外層呼叫 `useRouteLinkAccess()`。
+  這只是體驗：頁面 guard 與 API 照常把關，而且只看得到「能不能進頁面」，看不到資料層級的權限。
+- **`to` 必須寫完整的字面量**（`to="user.detail"`，不用變數或對照表）：執行期找不到 id 只會變成文字，
+  打錯字、忘了登記、改名沒同步都靠 🔒 `app/__tests__/route-links.test.ts` 抓——它登記所有 feature 的 `routeLinks.ts`
+  （含可啟用的），再掃原始碼裡的 `<RouteLink to>` 與 `useRouteLinkAccess()`。
 - 不必知道對方的 search 格式：目標 route 的 `validateSearch` 會補上預設值。
 - 同一張註冊表也是後端存的連結（站內通知的 `link`）的解析來源；規則見 [`15-notification.md`](./15-notification.md) §3。
   已被後端存下的 id 不改名；只給前端用的 id 可以隨頁面調整。

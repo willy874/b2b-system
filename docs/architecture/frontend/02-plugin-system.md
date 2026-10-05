@@ -346,7 +346,7 @@ export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 | 偏好分頁／列表 | `core/preference/registry.ts` | feature 或 `plugins/features/*` | 偏好頁（`usePreferenceSections`、`usePreferenceTables`） |
 | 回收桶類型 | `core/trash/registry.ts` | 擁有資源的 feature 的 `trash.ts` | 回收桶頁（`useTrashTypes`；[`13-trash.md`](./13-trash.md) §2） |
 | 頂列工具 | `core/toolbar/registry.ts` | `app/plugin.ts` 或 feature（例：`features/notification` 的鈴鐺） | `useHeaderTools` |
-| route id（跨 feature 與後端存的連結） | `core/route-link/registry.ts` | 擁有頁面的 feature 的 `routeLinks.ts` | `<RouteLink>`、`useRouteLinkResolver`（[`15-notification.md`](./15-notification.md) §3、[`03-feature-anatomy.md`](./03-feature-anatomy.md) §4.1） |
+| route id（跨 feature 與後端存的連結） | `core/route-link/registry.ts` | 擁有頁面的 feature 的 `routeLinks.ts` | `<RouteLink>`、`useRouteLinkAccess`、`useRouteLinkResolver`（[`15-notification.md`](./15-notification.md) §3、[`03-feature-anatomy.md`](./03-feature-anatomy.md) §4.1） |
 | 批次操作 | `core/batch/operations.ts` | feature 的 `batch.ts` | 批次佇列（分頁向佇列宣告能執行的操作，§7） |
 | 檔案預覽／驗證／縮圖 | `core/file/registry.ts` | `features/file` 或 plugin | 檔案管理器（使用時讀取，不訂閱） |
 | 語系包 | `core/locales/i18n.ts`（`addResourceBundle`） | 各 plugin 的 `onInit` | route loader（`localeScopeLoader`） |
