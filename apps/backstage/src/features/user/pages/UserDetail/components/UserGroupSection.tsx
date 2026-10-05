@@ -1,15 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
 
 import { getGroupListQueryOptions } from '@/apis/group/get-group-list/query';
 import { Chip } from '@/components/Chip';
 import { Tooltip } from '@/components/Tooltip';
 import { useTranslation } from '@/core/locales';
-
-import { ExternalRoutes } from '../../../routes';
-
-/** 群組列表的查詢條件（必填）；這裡只是連到詳情，用預設值。 */
-const GROUP_LIST_DEFAULT_SEARCH = { offset: 0, limit: 20, sort: [] };
+import { RouteLink } from '@/core/route-link';
 
 /** 一個人所在的群組通常很少；超過就只列前面這些。 */
 const USER_GROUP_LIMIT = 100;
@@ -46,16 +41,14 @@ export function UserGroupSection({ userId }: UserGroupSectionProps) {
         {items.length ? (
           items.map((group) => {
             const link = (
-              <Link
-                to={ExternalRoutes.GroupDetailRoute.to}
+              <RouteLink
+                to="group.detail"
                 params={{ groupId: group.id }}
-                // 群組列表的預設查詢條件（等於預設值的參數不會寫進網址）
-                search={GROUP_LIST_DEFAULT_SEARCH}
                 data-testid="user-group"
                 data-value={group.id}
               >
                 <Chip tone={group.membership === 'nested' ? 'neutral' : 'brand'}>{group.name}</Chip>
-              </Link>
+              </RouteLink>
             );
             return group.membership === 'nested' ? (
               <Tooltip key={group.id} content={t('user.detail.nestedGroup')}>

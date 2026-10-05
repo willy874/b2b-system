@@ -10,7 +10,7 @@
 | #   | 規則                                                                                   | 理由                                             | 強度      |
 | --- | -------------------------------------------------------------------------------------- | ------------------------------------------------ | --------- |
 | 1   | `core/` 不 import `features/`；`shared/` 不 import 上層任何東西                        | 機制層要能被任何 feature 使用而不反向耦合        | 👀 Review |
-| 2   | Feature 之間只經由 `routes/external.ts`（route 物件）、`apis/`、或 eventBus 互動       | 拿掉任何一個 feature，app 仍能啟動               | 👀 Review |
+| 2   | Feature 之間只經由 route id（`RouteLink`）、`apis/`、或 eventBus 互動                  | 拿掉任何一個 feature，app 仍能啟動               | 👀 Review |
 | 3   | 頁面權限在 plugin 的 **同步** 階段註冊；語系包在 `onInit`（非同步）階段                 | 第一次 render 時 `requirePagePermission()` 不會 miss | 👀 Review |
 | 4   | 元件只透過 `apis/<domain>/<operation>/` 與後端對話，不直接 `fetch`                      | 攔截器（token、refresh、錯誤轉換）只在一處        | 👀 Review |
 | 5   | `components/` 不出現業務名詞；業務元件放 `features/<name>/components/`                  | 設計系統要能搬到下一個產品                        | 👀 Review |

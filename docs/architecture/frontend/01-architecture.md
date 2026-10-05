@@ -225,7 +225,7 @@ main.tsx
 | `src/shared/**`     | `@/core/*`, `@/features/*`, `@/components/*`, `@/apis/*` |
 | `src/core/**`       | `@/features/*`, `@/app/*`                                |
 | `src/components/**` | `@/features/*`, `@/apis/*`                               |
-| `src/features/a/**` | `@/features/b/*`（`routes/external.ts` 除外）            |
+| `src/features/a/**` | `@/features/b/*`                                         |
 | 任何地方            | `../../../*`（三層以上相對路徑）                         |
 
 CI 另有一支腳本檢查 `features/*/index.tsx` 是否都匯出了 `Routes` 與

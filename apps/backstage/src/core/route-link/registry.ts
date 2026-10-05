@@ -99,6 +99,14 @@ export function resolveRouteLink(
   return { to: entry.path, params, search };
 }
 
+/** 把參數代入 path 樣板，得到實際的路徑（`/user/$userId` → `/user/u1`），供頁面權限比對。 */
+export function routeLinkPathname(link: ResolvedRouteLink): string {
+  return link.to.replaceAll(/\$([A-Za-z0-9_]+)/g, (match, name: string) => {
+    const value = link.params[name];
+    return value === undefined ? match : encodeURIComponent(value);
+  });
+}
+
 /** 測試用。 */
 export function resetRouteLinkRegistry(): void {
   routeLinkRegistry.reset();

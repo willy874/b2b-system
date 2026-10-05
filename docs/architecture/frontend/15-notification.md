@@ -9,11 +9,14 @@
 ```
 core/route-link/                        route id → route 的註冊表（不認識任何 feature）
 ├── registry.ts                         registerRouteLink()、resolveRouteLink()
-└── hooks.ts                            useRouteLinkResolver()：訂閱註冊表
+├── hooks.ts                            useRouteLinkResolver()：訂閱註冊表；useRouteLinkAccess()：登記＋頁面權限 → 能不能點
+└── RouteLink.tsx                       <RouteLink to="<route id>" fallback>：前端跨 feature 的連結，不能點時顯示文字或不渲染
 
 features/approval/routeLinks.ts         登記 approval.detail
 features/file/routeLinks.ts             登記 file.folder（可啟用的 feature：沒啟用就沒有登記）
 features/account/routeLinks.ts          登記 account.profile
+features/user/routeLinks.ts             登記 user.detail（目前只給前端跨 feature 連結用）
+features/group/routeLinks.ts            登記 group.detail（同上）
 
 features/notification/                  只讀註冊表，不 import 其他 feature
 ├── plugin.ts                           頁面權限 ＋ registerHeaderTool('notification')（同步階段）
@@ -90,7 +93,7 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 | 解析 | `resolveRouteLink(link)` → `{ to, params, search }`，直接交給 TanStack 的 `<Link>`。`params`、`search` 對照表裡的參數都是必要的 |
 | 不可點 | 沒有連結、route id 沒有登記（所屬 feature 沒安裝、被停用或 id 被改名）、缺參數、參數不是非空字串 → `undefined`，只顯示文字 |
 | 可撤回 | 註冊表以 `createRegistry` 建立：可啟用的 feature（例：檔案）卸載時撤回，連結跟著變成不可點；讀取端用 `useRouteLinkResolver()` 訂閱 |
-| 權限 | 註冊表不管權限：點進去照常經過頁面權限與 API 權限（D5），沒權限就是 403 頁 |
+| 權限 | 通知的連結不看權限：點進去照常經過頁面權限與 API 權限（D5），沒權限就是 403 頁。前端跨 feature 的 `<RouteLink>` 則在渲染前檢查頁面權限（[`03-feature-anatomy.md`](./03-feature-anatomy.md) §4.1） |
 | 改名 | 已發出的 id **不改名**（舊通知靠它）；頁面搬家時只改登記的 `route` |
 
 目前的 route id 與後端的對照見 [`../backend/15-notification.md`](../backend/15-notification.md) §4.1。

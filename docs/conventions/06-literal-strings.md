@@ -1,6 +1,6 @@
 # 06 — 識別字串必須是完整字面量
 
-適用：**i18n key**、**className**、**`data-testid`**。
+適用：**i18n key**、**className**、**`data-testid`**；route id 有更嚴格的版本（§3.4）。
 
 ---
 
@@ -111,6 +111,18 @@ getByTestIdAndValue(page, 'role-permission-node', 'user:read');
 - 設計系統元件（`components/`）渲染的列表項目統一用 `<元件>-item` ＋ `data-value`，
   例如 `data-testid="menu-item" data-value="logout"`。
 - E2E 用 `apps/e2e/helpers/selectors.ts` 的 `getByTestIdAndValue(page, 'role-permission-node', 'user:read')`。
+
+### 3.4 route id（`<RouteLink to>`、`useRouteLinkAccess()`）
+
+比前三種更嚴格：**呼叫處直接寫字面量**，連對照表也不用——
+🔒 `app/__tests__/route-links.test.ts` 掃原始碼比對已登記的 id，只認得呼叫處的字面量。
+
+| ❌ 不可以 | ✅ 改成 |
+| --- | --- |
+| ``<RouteLink to={`${type}.detail`}>`` | 依 `type` 分支，各寫 `<RouteLink to="user.detail">`、`<RouteLink to="group.detail">` |
+| `<RouteLink to={TARGET_ID}>` | `<RouteLink to="user.detail">` |
+
+見 [`architecture/frontend/03-feature-anatomy.md`](../architecture/frontend/03-feature-anatomy.md) §4.1。
 
 ---
 

@@ -3,7 +3,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { collectRegistrations } from '@/shared/registry';
 
-import { registerRouteLink, resetRouteLinkRegistry, resolveRouteLink } from '../registry';
+import {
+  registerRouteLink,
+  resetRouteLinkRegistry,
+  resolveRouteLink,
+  routeLinkPathname,
+} from '../registry';
 
 const root = createRootRoute();
 const approvalList = createRoute({ getParentRoute: () => root, path: '/approval' });
@@ -91,5 +96,12 @@ describe('route id 註冊表（docs/architecture/backend/15-notification.md §12
     expect(resolveRouteLink(link)).toBeUndefined();
     registerRouteLink('file.folder', { route: fileList, search: { folder: 'folderId' } });
     expect(resolveRouteLink(link)).toBeDefined();
+  });
+
+  it('代入參數得到實際路徑（供頁面權限比對），參數會編碼', () => {
+    expect(
+      routeLinkPathname({ to: '/approval/$approvalId', params: { approvalId: 'a 1' }, search: {} }),
+    ).toBe('/approval/a%201');
+    expect(routeLinkPathname({ to: '/profile', params: {}, search: {} })).toBe('/profile');
   });
 });
