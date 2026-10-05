@@ -1,6 +1,7 @@
+import { createAuthorizationUrl, redirectUriOf } from '@b2b-system/web-core/auth';
+import type { SsoClientConfig } from '@b2b-system/web-core/auth';
+
 import { fetchCurrentTenantQuery } from '@/apis/tenant/get-current-tenant/fetcher';
-import { createAuthorizationUrl, redirectUriOf } from '@/core/auth';
-import type { SsoClientConfig } from '@/core/auth';
 import { ENV } from '@/shared/constants';
 
 /** backstage 在 IdP 登記的第一方 client（apps/api 的 `OIDC_CLIENT.BACKSTAGE`）。 */

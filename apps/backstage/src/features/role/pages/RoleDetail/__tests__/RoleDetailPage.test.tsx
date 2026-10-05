@@ -1,11 +1,11 @@
+import { AppError } from '@b2b-system/web-core/errors';
+import { renderRoute } from '@b2b-system/web-core/testing';
 import { Outlet } from '@tanstack/react-router';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AppError } from '@/core/errors';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
-import { renderRoute } from '@/test/renderRoute';
 
 import { registerRolePagePermissions, Routes } from '../../..';
 

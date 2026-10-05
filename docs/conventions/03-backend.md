@@ -70,9 +70,9 @@
 
 ## 3. 錯誤
 
-- 新錯誤碼加在 `core/errors/error-code.ts`，同時決定它對應的 HTTP 狀態碼。
+- 新錯誤碼加在 `packages/error-codes/src/index.ts`（api 的 `core/errors/error-code.ts` 只是轉出），同時決定它對應的 HTTP 狀態碼；改完 `pnpm build:packages`。
 - 命名 `<DOMAIN>_<REASON>`（`ROLE_SYSTEM_PROTECTED`）；已發布的錯誤碼 **不改名**，前端與語系檔依賴它。
-- 同步前端 `core/errors/errorMessageKey.ts` 的 `ERROR_MESSAGE_KEY` 與兩個語系檔的 `error.<CODE>`（🔒 `locales.test.ts` 會檢查）。
+- 同步 `packages/web-core/src/errors/errorMessageKey.ts` 的 `ERROR_MESSAGE_KEY`（🔒 型別檢查）與 web-core 語系檔的 `error.<CODE>`（🔒 `locales/__tests__/resources.test.ts` 會檢查）；兩個 app 不必改。
 - 錯誤碼清單與流程見 [`architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §5。
 
 ---

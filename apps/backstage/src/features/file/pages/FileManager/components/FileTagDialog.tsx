@@ -1,8 +1,8 @@
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 
 import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
 import { TagAssignDialog } from '@/core/components';
-import { useTranslation } from '@/core/locales';
 
 import { useFileTagsMutation } from '../../../hooks/useFileTagsMutation';
 import type { BrowserItemVM } from '../adapter';

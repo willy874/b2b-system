@@ -1,8 +1,8 @@
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
 import { getFeatureFlagListQueryOptions } from '@/apis/platform-feature-flag/get-feature-flag-list/query';
-import { useTranslation } from '@/core/locales';
 
 import { useFeatureFlagPermission } from '../../hooks/useFeatureFlagPermission';
 import { matchesFeatureFlagKeyword, toFeatureFlagRowVM } from './adapter';

@@ -1,10 +1,9 @@
+import type { AppContext, AppDynamicPluginFactory } from '@b2b-system/web-core/app';
+import { RootRoute } from '@b2b-system/web-core/router';
+import { createCoreContext } from '@b2b-system/web-shared/context';
+import { createRegistry } from '@b2b-system/web-shared/registry';
 import { createRoute } from '@tanstack/react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import type { AppContext, AppDynamicPluginFactory } from '@/core/app';
-import { RootRoute } from '@/core/router';
-import { createCoreContext } from '@/shared/context';
-import { createRegistry } from '@/shared/registry';
 
 import { FeatureActivator } from '../FeatureActivator';
 import { featureStore, findFeatureByPath, resetFeatureStore } from '../store';

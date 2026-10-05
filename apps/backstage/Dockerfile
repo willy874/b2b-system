@@ -9,6 +9,10 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc tsconfig.base.json .
 RUN npm pkg delete scripts.prepare
 COPY packages/api-sdk/package.json packages/api-sdk/
 COPY packages/realtime/package.json packages/realtime/
+COPY packages/error-codes/package.json packages/error-codes/
+COPY packages/web-shared/package.json packages/web-shared/
+COPY packages/ui/package.json packages/ui/
+COPY packages/web-core/package.json packages/web-core/
 COPY apps/backstage/package.json apps/backstage/
 RUN pnpm install --frozen-lockfile --filter @b2b-system/backstage...
 
@@ -20,6 +24,7 @@ ENV VITE_OIDC_ISSUER=$VITE_OIDC_ISSUER VITE_PLATFORM_APP_URL=$VITE_PLATFORM_APP_
 COPY packages ./packages
 COPY apps/backstage ./apps/backstage
 RUN pnpm --filter @b2b-system/api-sdk build \
+ && pnpm --filter @b2b-system/error-codes build \
  && pnpm --filter @b2b-system/realtime build \
  && pnpm --filter @b2b-system/backstage build
 

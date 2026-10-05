@@ -1,6 +1,5 @@
+import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useState } from 'react';
-
-import { useErrorMessage } from '@/core/errors';
 
 import {
   useApproveApprovalMutation,

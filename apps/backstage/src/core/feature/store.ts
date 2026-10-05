@@ -1,4 +1,4 @@
-import { createStore } from '@/shared/store';
+import { createStore } from '@b2b-system/web-shared/store';
 
 /**
  * 可啟用 feature 的狀態（docs/architecture/frontend/02-plugin-system.md §9.2 D8）。

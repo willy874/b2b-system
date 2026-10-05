@@ -1,8 +1,7 @@
+import { sessionStore } from '@b2b-system/web-core/auth';
+import { AllProviders } from '@b2b-system/web-core/testing';
 import { renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { sessionStore } from '@/core/auth';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { useNotificationUnreadCount } from '../useNotificationUnreadCount';
 

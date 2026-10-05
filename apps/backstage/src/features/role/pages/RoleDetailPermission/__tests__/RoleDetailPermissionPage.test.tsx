@@ -1,13 +1,13 @@
+import { installFlowDom } from '@b2b-system/ui/testing';
+import { AppError } from '@b2b-system/web-core/errors';
+import { renderRoute } from '@b2b-system/web-core/testing';
 import { Outlet } from '@tanstack/react-router';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AppError } from '@/core/errors';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
-import { installFlowDom } from '@/test/flowDom';
 import { initTestI18n } from '@/test/i18n';
-import { renderRoute } from '@/test/renderRoute';
 
 import { registerRolePagePermissions, Routes } from '../../..';
 import roleZhTW from '../../../locales/zh_TW.json';

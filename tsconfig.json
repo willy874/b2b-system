@@ -3,6 +3,10 @@
   "references": [
     { "path": "./packages/api-sdk" },
     { "path": "./packages/realtime" },
+    { "path": "./packages/error-codes" },
+    { "path": "./packages/web-shared" },
+    { "path": "./packages/ui" },
+    { "path": "./packages/web-core" },
     { "path": "./packages/api-sdk/codegen" },
     { "path": "./apps/api" },
     { "path": "./apps/file-storage" },

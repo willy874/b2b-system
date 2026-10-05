@@ -1,10 +1,10 @@
+import { Button } from '@b2b-system/ui/Button';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
 import { getTenantListQueryOptions } from '@/apis/platform-tenant/get-tenant-list/query';
-import { Button } from '@/components/Button';
-import { useTranslation } from '@/core/locales';
 
 import { TENANT_PAGE_SIZE_OPTIONS } from '../../constants';
 import { useTenantPermission } from '../../hooks/useTenantPermission';

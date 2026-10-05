@@ -1,11 +1,10 @@
+import { NetworkError } from '@b2b-system/web-core/client';
+import { AppError } from '@b2b-system/web-core/errors';
+import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
+import { AllProviders } from '@b2b-system/web-core/testing';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { NetworkError } from '@/core/client';
-import { AppError } from '@/core/errors';
-import { parseSearch, RootRoute, stringifySearch } from '@/core/router';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { Routes } from '../../..';
 

@@ -1,7 +1,8 @@
+import { registerBatchOperation } from '@b2b-system/web-core/batch';
+
 import { getApproveApprovalMutationOptions } from '@/apis/approval/approve-approval/mutation';
 import { getRejectApprovalMutationOptions } from '@/apis/approval/reject-approval/mutation';
 import { invalidateResources, Resource } from '@/apis/resources';
-import { registerBatchOperation } from '@/core/batch';
 
 import { invalidateApprovalReviewed } from './hooks/useApprovalMutations';
 import { APPROVAL_LOCALE_SCOPE } from './locale';

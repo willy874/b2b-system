@@ -1,8 +1,8 @@
-import { Empty } from '@/components/Empty';
-import { Spinner } from '@/components/Spinner';
-import { QueryError } from '@/core/components';
-import { useTranslation } from '@/core/locales';
-import { cn } from '@/shared/utils';
+import { Empty } from '@b2b-system/ui/Empty';
+import { Spinner } from '@b2b-system/ui/Spinner';
+import { QueryError } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { cn } from '@b2b-system/web-shared/utils';
 
 import type { NotificationVM } from '../adapter';
 import { useOpenNotification } from '../hooks/useOpenNotification';

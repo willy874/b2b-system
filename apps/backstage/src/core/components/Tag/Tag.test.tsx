@@ -1,9 +1,9 @@
+import { AllProviders } from '@b2b-system/web-core/testing';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { Tag } from '@/shared/api-sdk';
 import { initTestI18n } from '@/test/i18n';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { TagAssignDialog } from './TagAssignDialog';
 import { TagChips } from './TagChips';

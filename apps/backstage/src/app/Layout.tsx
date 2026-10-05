@@ -1,10 +1,11 @@
+import { useHasSession } from '@b2b-system/web-core/auth';
+import { PageSkeleton } from '@b2b-system/web-core/components';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useRouterState } from '@tanstack/react-router';
 import { Suspense } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
-import { useHasSession } from '@/core/auth';
-import { ForbiddenPage, NotFoundPage, PageSkeleton, UnexpectedErrorPage } from '@/core/components';
+import { ForbiddenPage, NotFoundPage, UnexpectedErrorPage } from '@/core/components';
 import { useFeatureGate } from '@/core/feature';
 import { usePageAccess } from '@/core/permission';
 

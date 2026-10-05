@@ -1,10 +1,10 @@
+import { queryClient } from '@b2b-system/web-core/cache';
+import { localeScopeLoader } from '@b2b-system/web-core/locales';
+import { RootRoute } from '@b2b-system/web-core/router';
+import { EventEmitter } from '@b2b-system/web-shared/EventEmitter';
 import { createRoute, redirect, stripSearchParams } from '@tanstack/react-router';
 
 import { getRoleDetailQueryOptions } from '@/apis/role/get-role-detail/query';
-import { queryClient } from '@/core/cache';
-import { localeScopeLoader } from '@/core/locales';
-import { RootRoute } from '@/core/router';
-import { EventEmitter } from '@/shared/EventEmitter';
 
 import { ROLE_LOCALE_SCOPE } from '../locale';
 import { DEFAULT_ROLE_SEARCH, RoleSearchQuerySchema } from './model';

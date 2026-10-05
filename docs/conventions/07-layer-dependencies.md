@@ -12,8 +12,14 @@
 
 ```
 apps/backstage ─┬────▶ packages/api-sdk
-apps/platform ──────┤
-                └────▶ packages/realtime ◀──── apps/api
+apps/platform ──┤
+                ├────▶ packages/web-core ─┬──▶ packages/ui ──▶ packages/web-shared ──▶ packages/realtime ◀──── apps/api
+                │                         ├──▶ packages/web-shared
+                │                         ├──▶ packages/realtime
+                │                         └──▶ packages/error-codes ◀──── apps/api
+                ├────▶ packages/ui
+                ├────▶ packages/web-shared
+                └────▶ packages/realtime
 
 apps/e2e ┄┄┄┄┄▶ 只透過瀏覽器 / HTTP 操作執行中的系統，不 import 任何 workspace 原始碼
 
@@ -24,19 +30,25 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 | ---------------------- | ---------------------------------------- | ------------------------------------------------------------ | ---- |
 | `packages/api-sdk`     | 無                                       | 任何 workspace package；手改 `src/generated/`                 | 👀   |
 | `packages/realtime`    | 無（只依賴 `zod`）                       | 任何 workspace package；DOM / Node 專屬 API                   | 👀   |
-| `apps/backstage`             | `api-sdk`、`realtime`                     | `apps/*`                                                     | 🔒 `package.json` |
-| `apps/platform`            | `api-sdk`、`realtime`                     | `apps/*`（backstage 的程式碼是 **複製** 過來的，不 import；[`architecture/04-sso.md`](../architecture/04-sso.md) §12.2 D14） | 🔒 `package.json` |
-| `apps/api`             | `realtime`                               | `api-sdk`（後端才是型別的來源，不能反過來依賴產物）、`apps/*` | 🔒 `package.json` |
+| `packages/error-codes` | 無（零依賴）                             | 任何依賴；常數以外的程式碼                                    | 👀   |
+| `packages/web-shared`  | `realtime`                               | `ui`、`api-sdk`、`apps/*`                                     | 🔒 `package.json` |
+| `packages/ui`          | `web-shared`                             | `web-core`、`api-sdk`、`realtime`、`apps/*`；業務名詞         | 🔒 `package.json` |
+| `packages/web-core`    | `ui`、`web-shared`、`error-codes`、`realtime` | `api-sdk`（各 app 的端點不同）、`apps/*`；業務名詞            | 🔒 `package.json` |
+| `apps/backstage`       | `api-sdk`、`realtime`、`web-core`、`web-shared`、`ui` | `apps/*`（錯誤碼經由 `web-core/errors`）             | 🔒 `package.json` |
+| `apps/platform`        | `api-sdk`、`realtime`、`web-core`、`web-shared`、`ui` | `apps/*`（兩個前端共用的機制都在 `web-core`；[`architecture/04-sso.md`](../architecture/04-sso.md) §12.2 D14） | 🔒 `package.json` |
+| `apps/api`             | `realtime`、`error-codes`                | `api-sdk`（後端才是型別的來源，不能反過來依賴產物）、`web-shared`、`ui`、`apps/*` | 🔒 `package.json` |
 | `apps/e2e`             | 無                                       | 任何 `apps/*` 原始碼；只透過瀏覽器與 HTTP 操作系統            | 👀   |
 | `apps/file-storage`    | 無                                       | 任何 workspace package；其他 app 只透過 S3 HTTP API 與它溝通 | 🔒 `package.json` |
 
-- `apps/*` 之間 **永不互相 import**；packages 永不 import apps。
+- `apps/*` 之間 **永不互相 import**；packages 永不 import apps；下層 package 永不 import 上層（`web-shared` ✗ `ui` ✗ `web-core`）。
 - 新增 workspace 依賴要先在 `package.json` 宣告；pnpm 的隔離會讓未宣告的 import 解析失敗。
 - `apps/platform` 的資料夾層級與 §2 的 `apps/backstage` 相同，§2 的矩陣同樣適用。
 - `apps/backstage` 只在 `src/shared/api-sdk/` 這 **一個地方** import `@b2b-system/api-sdk`，其餘一律 `@/shared/api-sdk`。
-  `@b2b-system/realtime` 同理，只經由 `src/shared/websocket-sdk/`。
-- `@sigrea/core` 只在 `src/shared/store/` import，其餘一律 `@/shared/store`（React 綁定 `@/shared/hooks`）；
-  `shared/store/` 與 `shared/context/` 不 import React。🔒 oxlint `no-restricted-imports`
+  `@b2b-system/realtime` 同理，只經由 `src/shared/websocket-sdk/`（`packages/web-shared` 內部直接 import `@b2b-system/realtime`）。
+- `@sigrea/core` 只在 `packages/web-shared/src/store/` import，其餘一律 `@b2b-system/web-shared/store`（React 綁定 `@b2b-system/web-shared/hooks`）；
+  `web-shared` 的 `store/` 與 `context/` 不 import React。🔒 oxlint `no-restricted-imports`
+- 前端共用的 packages 以子路徑匯入（`@b2b-system/web-shared/<module>`、`@b2b-system/ui/<Component>`、`@b2b-system/web-core/<module>`），不深入 `src/` 的內部檔案
+  （例外：module augmentation 指向定義的檔案 `@b2b-system/web-core/app/context`、`@b2b-system/web-core/permission/register`）。
 
 ---
 
@@ -51,30 +63,38 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
    │
  features/<name>/         業務功能（彼此隔離）
    │
- plugins/   apis/         可插拔能力／通訊層
+ plugins/   apis/         可插拔能力（多為 web-core 的門面）／通訊層
    │         │
- core/                    機制層
+ core/                    app 的機制層：權限目錄的門面（core/permission）、backstage 才有的模組
    │
- components/              設計系統
+ @b2b-system/web-core     兩個前端共用的機制層（packages/web-core；不認識任何 app）
    │
- shared/  themes/  assets/   純工具、Design Token、靜態資源
+ @b2b-system/ui           設計系統元件、Design Token、圖示（packages/ui；不出現業務名詞）
+   │
+ @b2b-system/web-shared   純工具（packages/web-shared；store/、context/ 不依賴 React）
+ shared/                  app 專屬的收斂點：api-sdk、websocket-sdk、constants（env）
 ```
+
+`@b2b-system/web-core`、`@b2b-system/ui` 與 `@b2b-system/web-shared` 是原本 app 內的 `core/`（兩個前端共用的模組，連同 `plugins/{app,fetcher}`、
+`app/` 的 providers 與頂列工具、`test/` 的輔助）、`components/`（含 `themes/`、`assets/icons/`）與 `shared/` 抽成的 workspace package，
+在矩陣裡仍佔原本的位置；它們不可能 import app 的 `@/` 路徑（🔒 package 邊界）。`web-core` 的模組之間也照 `core/` 的規則：不認識 feature、apis、app。
 
 ### 2.2 依賴矩陣
 
 列 = import 的一方，欄 = 被 import 的一方。✅ 可以、❌ 不可以、⚠️ 有條件。
 
-| from ＼ to        | shared / themes / assets | components | core | apis | plugins | features | app | mocks |
-| ----------------- | :----------------------: | :--------: | :--: | :--: | :-----: | :------: | :-: | :---: |
-| `shared/`         | ✅（同層）               | ❌         | ❌   | ❌   | ❌      | ❌       | ❌  | ❌    |
-| `components/`     | ✅                       | ✅（同層） | ❌   | ❌   | ❌      | ❌       | ❌  | ❌    |
-| `core/`           | ✅                       | ✅         | ✅   | ❌   | ❌      | ❌       | ❌  | ❌    |
-| `apis/`           | ✅                       | ❌         | ✅   | ⚠️¹  | ❌      | ❌       | ❌  | ❌    |
-| `plugins/`        | ✅                       | ❌         | ✅   | ❌   | ✅      | ❌       | ❌  | ❌    |
-| `features/<a>/`   | ✅                       | ✅         | ✅   | ✅   | ❌      | ⚠️²      | ❌  | ❌    |
-| `app/`            | ✅                       | ✅         | ✅   | ✅   | ❌      | ⚠️³      | ✅  | ❌    |
-| `main.tsx`        | ✅                       | ✅         | ✅   | ✅   | ✅      | ⚠️³      | ✅  | ⚠️⁴   |
-| `mocks/`          | ✅                       | ❌         | ❌   | ❌   | ❌      | ❌       | ❌  | ✅    |
+| from ＼ to        | web-shared / shared | ui | web-core | core | apis | plugins | features | app | mocks |
+| ----------------- | :-----------------: | :--------: | :------: | :--: | :--: | :-----: | :------: | :-: | :---: |
+| `web-shared`      | ✅（同層）               | ❌         | ❌       | ❌   | ❌   | ❌      | ❌       | ❌  | ❌    |
+| `ui`              | ✅⁵                      | ✅（同層） | ❌       | ❌   | ❌   | ❌      | ❌       | ❌  | ❌    |
+| `web-core`        | ✅⁵                      | ✅         | ✅（同層）| ❌   | ❌   | ❌      | ❌       | ❌  | ❌    |
+| `core/`           | ✅                       | ✅         | ✅       | ✅   | ❌   | ❌      | ❌       | ❌  | ❌    |
+| `apis/`           | ✅                       | ❌         | ✅       | ✅   | ⚠️¹  | ❌      | ❌       | ❌  | ❌    |
+| `plugins/`        | ✅                       | ❌         | ✅       | ✅   | ❌   | ✅      | ❌       | ❌  | ❌    |
+| `features/<a>/`   | ✅                       | ✅         | ✅       | ✅   | ✅   | ❌      | ⚠️²      | ❌  | ❌    |
+| `app/`            | ✅                       | ✅         | ✅       | ✅   | ✅   | ❌      | ⚠️³      | ✅  | ❌    |
+| `main.tsx`        | ✅                       | ✅         | ✅       | ✅   | ✅   | ✅      | ⚠️³      | ✅  | ⚠️⁴   |
+| `mocks/`          | ✅                       | ❌         | ❌       | ❌   | ❌   | ❌      | ❌       | ❌  | ✅    |
 
 1. `apis/<domain>/` 之間只能共用 `apis/<domain>/types.ts`；操作資料夾彼此不 import。
    唯一例外是 `apis/resources.ts`（資源依賴圖）：它可以 import 各操作 `query.ts` 的 key 常數；
@@ -82,16 +102,17 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 2. 只能在自己的 `routes/external.ts` 裡 re-export 對方的 **route 物件**；其他需求走 `apis/` 或 eventBus。
 3. 只能 import 對方的 `index.tsx`（`@/features/<name>`），不可深入內部檔案。
 4. 只能在 `import.meta.env.VITE_ENABLE_MOCK` 判斷下以動態 `import()` 載入。
+5. 只有 `@b2b-system/web-shared`；app 的 `shared/`（api-sdk、websocket-sdk、env）不在 package 裡，`ui`、`web-core` 碰不到（`web-core` 直接依賴 `@b2b-system/realtime`、`@b2b-system/error-codes`）。
 
 測試檔（`__tests__/`、`*.test.*`、`*.spec.*`）與 `src/test/` 不受矩陣限制（整合測試需要組裝多層），
-但正式程式碼不可 import 任何測試檔或 `src/test/`。
+但正式程式碼不可 import 任何測試檔、`src/test/` 或 `@b2b-system/web-core/testing`。
 
 ### 2.3 同層規則
 
 | 層              | 規則                                                                     |
 | --------------- | ------------------------------------------------------------------------ |
-| `components/`   | 元件之間可以互相組合（`Dialog` 用 `Button`），但不可形成循環             |
-| `core/<module>/` | 經由該模組的 `index.ts` 匯入，不深入內部檔案                             |
+| `ui`            | 元件之間可以互相組合（`Dialog` 用 `Button`），但不可形成循環；package 內用相對路徑 |
+| `core/<module>/`、`web-core/<module>` | 經由該模組的 `index.ts`（`@b2b-system/web-core/<module>`）匯入，不深入內部檔案；package 內用相對路徑 |
 | `features/`     | 彼此隔離；拿掉任何一個 feature，其他 feature 仍能編譯                     |
 
 ---
@@ -146,13 +167,16 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 跨模組不 import repository / controller；葉節點（`permission`、`audit-log`、`platform-admin`、`platform-notification`、`credential`）只依賴彼此；
 模組之間以資料夾計不循環（`import/no-cycle` 只看檔案，抓不到「A 的 service → B、B 的純函式 → A」）；不用 `forwardRef`。
 
-**backstage** 目前由 `.oxlintrc.json` 的 `no-restricted-imports` 擋一部分，其餘用搜尋自查：
+**前端**（兩個 app 與 `packages/web-core`）目前由 `.oxlintrc.json` 的 `no-restricted-imports` 擋一部分，其餘用搜尋自查：
 
 ```bash
-# backstage：shared / components 往上依賴
-git grep -nE "from '@/(core|apis|plugins|features|app)" -- apps/backstage/src/shared apps/backstage/src/components ':!*__tests__*'
-# backstage：core 依賴 features / app / apis
-git grep -nE "from '@/(features|app|apis|plugins)" -- apps/backstage/src/core ':!*__tests__*'
+# packages：下層依賴上層（packages 往上 import app 會直接解析失敗，不必搜）
+git grep -nE "from '@b2b-system/(ui|web-core)" -- packages/web-shared
+git grep -nE "from '@b2b-system/web-core" -- packages/ui
+# web-core：依賴 api-sdk（各 app 的端點不同）或 app 的 @/ 路徑
+git grep -nE "from '(@b2b-system/api-sdk|@/)" -- packages/web-core
+# app：core 依賴 features / app / apis
+git grep -nE "from '@/(features|app|apis|plugins)" -- apps/backstage/src/core apps/platform/src/core ':!*__tests__*'
 # backstage：feature 深入其他 feature（routes/external.ts 以外）
 git grep -nE "from '@/features/[a-z-]+/" -- apps/backstage/src/features ':!*/routes/external.ts' ':!*__tests__*'
 ```

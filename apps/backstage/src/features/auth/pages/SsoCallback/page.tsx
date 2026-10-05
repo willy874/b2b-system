@@ -1,10 +1,9 @@
+import { Button } from '@b2b-system/ui/Button';
+import { discardPendingLogin, readPendingLogin } from '@b2b-system/web-core/auth';
+import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-
-import { Button } from '@/components/Button';
-import { discardPendingLogin, readPendingLogin } from '@/core/auth';
-import { useErrorMessage } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 
 import { useSsoCallbackMutation } from '../../hooks/useSsoCallbackMutation';
 import { SsoCallbackRoute } from '../../routes';

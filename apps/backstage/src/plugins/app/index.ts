@@ -1,7 +1,3 @@
+export * from '@b2b-system/web-core/plugins/app';
 export * from './batch-queue';
-export * from './cache';
-export * from './event-bus';
-export * from './http-context';
-export * from './i18n';
-export * from './realtime';
-export * from './theme';
+export { i18nPlugin } from './i18n';

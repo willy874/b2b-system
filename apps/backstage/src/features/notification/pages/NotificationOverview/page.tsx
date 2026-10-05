@@ -1,6 +1,6 @@
-import { Button } from '@/components/Button';
-import { useTranslation } from '@/core/locales';
-import { zonedDayBoundary } from '@/shared/date';
+import { Button } from '@b2b-system/ui/Button';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { zonedDayBoundary } from '@b2b-system/web-shared/date';
 
 import { NotificationOverviewTable } from './components/NotificationOverviewTable';
 import { useNotificationOverview } from './useNotificationOverview';

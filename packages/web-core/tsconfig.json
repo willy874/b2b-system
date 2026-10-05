@@ -1,0 +1,25 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": [
+      "vite/client",
+      "vite-plugin-svgr/client",
+      "vitest/globals",
+      "@testing-library/jest-dom",
+      "node"
+    ],
+    "jsx": "react-jsx",
+    "emitDeclarationOnly": true,
+    "outDir": "./dist-types",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["src/**/*", "src/**/*.json", "vitest.config.ts", "vitest.setup.ts"],
+  "references": [
+    { "path": "../error-codes" },
+    { "path": "../realtime" },
+    { "path": "../web-shared" },
+    { "path": "../ui" }
+  ]
+}

@@ -1,16 +1,15 @@
+import { IconButton } from '@b2b-system/ui/Button';
+import { Chip } from '@b2b-system/ui/Chip';
+import { TextEllipsis } from '@b2b-system/ui/Ellipsis';
+import { Icon } from '@b2b-system/ui/Icon';
+import type { TableColumnDef } from '@b2b-system/ui/Table';
+import { Tooltip } from '@b2b-system/ui/Tooltip';
+import { RichTable } from '@b2b-system/web-core/components';
+import type { RichTablePagination, TableSearchProps } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime } from '@b2b-system/web-shared/date';
 import { Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
-
-import { IconButton } from '@/components/Button';
-import { Chip } from '@/components/Chip';
-import { TextEllipsis } from '@/components/Ellipsis';
-import { Icon } from '@/components/Icon';
-import type { TableColumnDef } from '@/components/Table';
-import { Tooltip } from '@/components/Tooltip';
-import { RichTable } from '@/core/components';
-import type { RichTablePagination, TableSearchProps } from '@/core/components';
-import { useTranslation } from '@/core/locales';
-import { formatDateTime } from '@/shared/date';
 
 import { WEBHOOK_STATUS_LABEL_KEY, WEBHOOK_STATUS_TONE } from '../../../constants';
 import { WebhookDetailRoute } from '../../../routes';

@@ -1,6 +1,6 @@
-import { Button } from '@/components/Button';
-import { Icon } from '@/components/Icon';
-import { useTranslation } from '@/core/locales';
+import { Button } from '@b2b-system/ui/Button';
+import { Icon } from '@b2b-system/ui/Icon';
+import { useTranslation } from '@b2b-system/web-core/locales';
 
 interface FileLockedNoticeProps {
   /** 已經有一筆待審的申請。 */

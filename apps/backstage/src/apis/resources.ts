@@ -1,3 +1,6 @@
+import { ANY_ID, createResourceGraph, queryClient } from '@b2b-system/web-core/cache';
+import type { ApplyInvalidationOptions, ResourceChange } from '@b2b-system/web-core/cache';
+
 import { ANNOUNCEMENT_DETAIL_QUERY_KEY } from '@/apis/announcement/get-announcement-detail/query';
 import { ANNOUNCEMENT_DISPATCHES_QUERY_KEY } from '@/apis/announcement/get-announcement-dispatches/query';
 import { ANNOUNCEMENT_LIST_QUERY_KEY } from '@/apis/announcement/get-announcement-list/query';
@@ -65,8 +68,6 @@ import { USER_ROLES_QUERY_KEY } from '@/apis/user/get-user-roles/query';
 import { WEBHOOK_DELIVERIES_QUERY_KEY } from '@/apis/webhook/get-webhook-deliveries/query';
 import { WEBHOOK_DETAIL_QUERY_KEY } from '@/apis/webhook/get-webhook-detail/query';
 import { WEBHOOK_LIST_QUERY_KEY } from '@/apis/webhook/get-webhook-list/query';
-import { ANY_ID, createResourceGraph, queryClient } from '@/core/cache';
-import type { ApplyInvalidationOptions, ResourceChange } from '@/core/cache';
 import type { Profile } from '@/shared/api-sdk';
 import type { ChangeSource } from '@/shared/websocket-sdk';
 

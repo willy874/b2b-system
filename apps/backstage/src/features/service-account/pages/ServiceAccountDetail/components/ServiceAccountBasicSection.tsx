@@ -1,18 +1,18 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Chip } from '@b2b-system/ui/Chip';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
+import { Field } from '@b2b-system/ui/Field';
+import { Input } from '@b2b-system/ui/Input';
+import { isVersionConflict, useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
+import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { getServiceAccountDetailQueryOptions } from '@/apis/service-account/get-service-account-detail/query';
-import { Button } from '@/components/Button';
-import { Chip } from '@/components/Chip';
-import { useConfirm } from '@/components/ConfirmDialog';
-import { Field } from '@/components/Field';
-import { Input } from '@/components/Input';
 import { VersionConflictAlert } from '@/core/components';
-import { isVersionConflict, useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { useUnsavedChangesGuard } from '@/core/router';
 import type { ServiceAccount } from '@/shared/api-sdk';
-import { formatDateTime } from '@/shared/date';
 
 import { SERVICE_ACCOUNT_STATUS_LABEL_KEY, SERVICE_ACCOUNT_STATUS_TONE } from '../../../constants';
 import { useServiceAccountUpdateMutation } from '../../../hooks/useServiceAccountMutations';

@@ -1,8 +1,9 @@
+import { Button } from '@b2b-system/ui/Button';
+import { QueryError } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useState } from 'react';
 
-import { Button } from '@/components/Button';
-import { ApiTokenCreateDialog, ApiTokenTable, QueryError } from '@/core/components';
-import { useTranslation } from '@/core/locales';
+import { ApiTokenCreateDialog, ApiTokenTable } from '@/core/components';
 
 import { PERSONAL_TOKEN_MAX_DAYS, useMyApiTokens } from '../../../hooks/useMyApiTokens';
 

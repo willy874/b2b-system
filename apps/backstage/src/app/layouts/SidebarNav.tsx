@@ -1,8 +1,11 @@
+import { Icon } from '@b2b-system/ui/Icon';
+import { isMenuItemActive, useMenuItems } from '@b2b-system/web-core/layout';
+import type { MenuItem } from '@b2b-system/web-core/layout';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { cn } from '@b2b-system/web-shared/utils';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { useId, useMemo, useState } from 'react';
 
-import { Icon } from '@/components/Icon';
-import { useTranslation } from '@/core/locales';
 import { usePageAccessChecker } from '@/core/permission';
 import { ANNOUNCEMENT_PAGE } from '@/features/announcement';
 import { APPROVAL_PAGE } from '@/features/approval';
@@ -21,10 +24,6 @@ import { TAG_PAGE } from '@/features/tag';
 import { TRASH_PAGE } from '@/features/trash';
 import { USER_PAGE } from '@/features/user';
 import { WEBHOOK_PAGE } from '@/features/webhook';
-import { cn } from '@/shared/utils';
-
-import { isMenuItemActive, useMenuItems } from './menu';
-import type { MenuItem } from './menu';
 
 interface NavItem extends MenuItem {
   /** 完整字面量（docs/conventions/06-literal-strings.md §3.3），E2E 以此定位側邊選單項 */

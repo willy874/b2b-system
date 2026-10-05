@@ -1,5 +1,5 @@
-import type { AppDynamicPluginFactory } from '@/core/app';
-import { LanguageNamespace, Languages } from '@/shared/constants/lang';
+import type { AppDynamicPluginFactory } from '@b2b-system/web-core/app';
+import { LanguageNamespace, Languages } from '@b2b-system/web-shared/constants';
 
 import { JOB_LOCALE_SCOPE } from './locale';
 import { registerJobPagePermissions } from './permission';

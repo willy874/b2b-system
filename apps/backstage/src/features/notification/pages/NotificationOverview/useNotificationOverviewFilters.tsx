@@ -1,8 +1,7 @@
+import { formatDate } from '@b2b-system/ui/DatePicker';
+import type { DateRangeFilterValue, FilterBarProps } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import dayjs from 'dayjs';
-
-import { formatDate } from '@/components/DatePicker';
-import type { DateRangeFilterValue, FilterBarProps } from '@/core/components';
-import { useTranslation } from '@/core/locales';
 
 import { NOTIFICATION_EVENT_LABEL } from '../../constants';
 import { NotificationOverviewRoute } from '../../routes';

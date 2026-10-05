@@ -1,7 +1,6 @@
+import { renderWithPermissions } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { renderWithPermissions } from '@/test/renderWithPermissions';
 
 import { FileAccessRequestDialog } from '../components/FileAccessRequestDialog';
 import { FileLockedNotice } from '../components/FileLockedNotice';

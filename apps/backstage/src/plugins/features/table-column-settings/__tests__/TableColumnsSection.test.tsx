@@ -1,9 +1,8 @@
+import { registerPreferenceTable, resetPreferenceRegistry } from '@b2b-system/web-core/preference';
+import { useTableColumnSettingsStore } from '@b2b-system/web-core/store';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
-
-import { registerPreferenceTable, resetPreferenceRegistry } from '@/core/preference';
-import { useTableColumnSettingsStore } from '@/core/store';
 
 import { TableColumnsSection } from '../TableColumnsSection';
 

@@ -1,8 +1,7 @@
+import { Button } from '@b2b-system/ui/Button';
+import { isAppError, useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useId, useState } from 'react';
-
-import { Button } from '@/components/Button';
-import { isAppError, useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 
 import { useSettingDraft } from '../../../hooks/useSettingDraft';
 import { useUpdateSettingsMutation } from '../../../hooks/useUpdateSettingsMutation';

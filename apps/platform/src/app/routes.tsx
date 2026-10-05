@@ -1,4 +1,5 @@
-import { RootRoute } from '@/core/router';
+import { RootRoute } from '@b2b-system/web-core/router';
+
 import { Routes as AccountRoutes } from '@/features/account';
 import { Routes as AuditLogRoutes } from '@/features/audit-log';
 import { Routes as FeatureFlagRoutes } from '@/features/feature-flag';

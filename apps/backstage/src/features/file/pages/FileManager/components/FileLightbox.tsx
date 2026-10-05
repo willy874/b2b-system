@@ -1,18 +1,18 @@
+import { Button, IconButton } from '@b2b-system/ui/Button';
+import { Dialog } from '@b2b-system/ui/Dialog';
+import { Empty } from '@b2b-system/ui/Empty';
+import { Icon } from '@b2b-system/ui/Icon';
+import { Spinner } from '@b2b-system/ui/Spinner';
+import { isAppError } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 
 import { getFileDetailQueryOptions } from '@/apis/file/get-file-detail/query';
-import { Button, IconButton } from '@/components/Button';
-import { Dialog } from '@/components/Dialog';
-import { Empty } from '@/components/Empty';
-import { Icon } from '@/components/Icon';
-import { Spinner } from '@/components/Spinner';
 import { TagChips } from '@/core/components';
-import { isAppError } from '@/core/errors';
 import { resolveFilePreviewer } from '@/core/file';
-import { useTranslation } from '@/core/locales';
-import { formatDateTime } from '@/shared/date';
 
 import { FILE_KIND_LABEL_KEY } from '../../../constants';
 import { toFileItemVM } from '../adapter';

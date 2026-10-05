@@ -1,20 +1,21 @@
+import { Button } from '@b2b-system/ui/Button';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
+import { Dialog } from '@b2b-system/ui/Dialog';
+import { Empty } from '@b2b-system/ui/Empty';
+import { JsonDiff } from '@b2b-system/ui/JsonDiff';
+import type { JsonDiffLabels } from '@b2b-system/ui/JsonDiff';
+import { Skeleton } from '@b2b-system/ui/Skeleton';
+import { Tabs } from '@b2b-system/ui/Tabs';
+import { QueryError } from '@b2b-system/web-core/components';
+import { isVersionConflict } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { invalidateResources, Resource } from '@/apis/resources';
 import { getRoleDetailQueryOptions } from '@/apis/role/get-role-detail/query';
-import { Button } from '@/components/Button';
-import { useConfirm } from '@/components/ConfirmDialog';
-import { Dialog } from '@/components/Dialog';
-import { Empty } from '@/components/Empty';
-import { JsonDiff } from '@/components/JsonDiff';
-import type { JsonDiffLabels } from '@/components/JsonDiff';
-import { Skeleton } from '@/components/Skeleton';
-import { Tabs } from '@/components/Tabs';
-import { QueryError, VersionConflictAlert } from '@/core/components';
-import { isVersionConflict } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
+import { VersionConflictAlert } from '@/core/components';
 
 import { useRoleRevertRevisionMutation } from '../../hooks/useRoleMutations';
 import { useRolePermission } from '../../hooks/useRolePermission';

@@ -7,8 +7,8 @@ import {
   PermissionAction,
   PermissionMatch,
   PermissionResource,
-} from '../constants';
-import type { PagePermissionRule } from '../constants';
+} from '..';
+import type { PagePermissionRule } from '..';
 import { ALL_PERMISSION_KEYS, PermissionKey } from '../enums';
 
 describe('權限的代數', () => {

@@ -1,5 +1,6 @@
-import { AbortReason, NetworkError, RequestAbortedError } from '@/core/client';
-import { AppError } from '@/core/errors';
+import { AbortReason, NetworkError, RequestAbortedError } from '@b2b-system/web-core/client';
+import { AppError } from '@b2b-system/web-core/errors';
+
 import type { FileUploadTarget } from '@/shared/api-sdk';
 
 export interface UploadProgress {

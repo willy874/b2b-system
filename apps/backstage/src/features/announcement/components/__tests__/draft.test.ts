@@ -1,7 +1,7 @@
+import { setDateTimeDefaults } from '@b2b-system/web-shared/date';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { Announcement } from '@/shared/api-sdk';
-import { setDateTimeDefaults } from '@/shared/date';
 
 import { EMPTY_AUDIENCE, EMPTY_DRAFT, toDraft, toRequest } from '../draft';
 import { EMPTY_TRIGGER_DRAFT } from '../TriggerField';

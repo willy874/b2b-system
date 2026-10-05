@@ -1,6 +1,6 @@
-import type { AppPluginFactory } from '@/core/app';
-import { registerPreferenceSection } from '@/core/preference';
-import { LanguageNamespace, Languages } from '@/shared/constants/lang';
+import type { AppPluginFactory } from '@b2b-system/web-core/app';
+import { registerPreferenceSection } from '@b2b-system/web-core/preference';
+import { LanguageNamespace, Languages } from '@b2b-system/web-shared/constants';
 
 import { TABLE_COLUMN_SETTINGS_LOCALE_SCOPE } from './locale';
 import { TableColumnsSection } from './TableColumnsSection';

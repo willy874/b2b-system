@@ -6,23 +6,35 @@
 ┌──────────────────────────────────────────────────────────┐
 │ features/*/components/       業務元件（RoleTable、UserStatusChip）│
 ├──────────────────────────────────────────────────────────┤
-│ src/components/              ★ 設計系統元件（我們寫的）         │
+│ @b2b-system/ui               ★ 設計系統元件（我們寫的）         │
 │                              Button · Input · Select · Dialog … │
 ├──────────────────────────────────────────────────────────┤
 │ @base-ui/react               行為與可近性（無樣式）             │
 │                              焦點管理 · 鍵盤 · ARIA · 定位      │
 ├──────────────────────────────────────────────────────────┤
-│ src/themes/                  Design Token（CSS 變數，三層）     │
+│ @b2b-system/ui 的 styles/    Design Token（CSS 變數，三層）     │
 │ UnoCSS                       工具類                           │
 └──────────────────────────────────────────────────────────┘
 ```
 
-Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/components/` 是我們把它
+Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`@b2b-system/ui` 是我們把它
 變成「B2B System 的樣子」的地方。這一層會比搭配 MUI 時厚得多——搭 MUI 時
 `components/Select` 只是薄包裝，我們的要自己寫完整外觀。
 
 這是有意識的成本，換來的是：**沒有要對抗的既有樣式**，而且未來畫布、屬性面板、
 時間軸這些非標準 UI 不會與設計系統打架。
+
+設計系統放在 workspace package `packages/ui`（`@b2b-system/ui`，只有原始碼，由各 app 的 Vite 編譯），backstage 與 platform 共用：
+
+| 位置 | 內容 | 匯入 |
+| --- | --- | --- |
+| `packages/ui/src/components/<Name>/` | 元件（含測試與 story） | `@b2b-system/ui/<Name>`（例：`@b2b-system/ui/Button`）；`labels`、`slots`、`types`、`useControllableState`、`useLatestRef` 同樣以子路徑匯入 |
+| `packages/ui/src/styles/` | `tokens.css`、`contrast.test.ts`；`index.css` = token ＋ 全域 base 層 | app 的 `src/index.css` 只寫 `@import '@b2b-system/ui/styles.css';` |
+| `packages/ui/src/icons/` | SVG 圖示（§7） | `@b2b-system/ui/icons/x.svg?react` |
+| `packages/ui/src/testing/` | `fakeLayout`、`flowDom` 等測試替身 | `@b2b-system/ui/testing` |
+| `packages/ui/uno.config.ts` | 共用的 UnoCSS 設定 | app 的 `uno.config.ts` 轉出 `@b2b-system/ui/uno.config` |
+
+本文其餘提到的 `components/<Name>/` 都指 `packages/ui/src/components/<Name>/`；`themes/` 指 `packages/ui/src/styles/`。
 
 ---
 
@@ -84,7 +96,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`src/componen
 
 ## 3. 包裝的契約
 
-每個 `src/components/<Name>/` 遵循同一個形狀：
+每個 `packages/ui/src/components/<Name>/` 遵循同一個形狀：
 
 ```
 components/Button/
@@ -146,7 +158,7 @@ Base UI 的 Dialog 是複合元件（`Root` / `Trigger` / `Portal` / `Backdrop` 
 ```tsx
 // components/Dialog/Dialog.tsx
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
-import { cn } from "@/shared/utils";
+import { cn } from "@b2b-system/web-shared/utils";
 import styles from "./Dialog.module.css";
 
 export interface DialogProps {
@@ -275,7 +287,7 @@ import styles from './Button.module.css';
 **`@layer` 決定覆寫順序。** `index.html` 的 `<head>` 以內嵌 `<style>` 宣告
 `@layer reset, base, components, utilities;`：
 
-- 元件模組、`app/` 與 `core/` 的版面 CSS 都包在 `@layer components`。
+- 元件模組、`app/`、`core/` 與 web-core 的版面 CSS 都包在 `@layer components`。
 - UnoCSS 以 `outputToCssLayers` 輸出到 `utilities`，排在元件之後，
   所以 `classNames={{ body: 'grid gap-4' }}` 這類工具類 **一定** 蓋得過元件預設值，與選擇器權重、CSS 載入順序無關。
 - 順序宣告必須是頁面上第一個出現的 `@layer`，所以放在 `index.html`，不放在任何 CSS 檔：
@@ -318,15 +330,15 @@ TanStack Router 的 `Link` 塞進 Menu item 而不失去鍵盤行為：
 useToast().success(…)  ─┐
 plugin / 攔截器         ─┼─ eventBus.emit(GlobalEvents.TOAST_SHOW, options)
                          │
-app/ToastHost ◀──────────┘ eventBus.on(TOAST_SHOW) → toaster.show(options)
+web-core/shell/ToastHost ◀──────────┘ eventBus.on(TOAST_SHOW) → toaster.show(options)
   └─ <ToastProvider toaster={toaster}>   components/Toast（Base UI 的 toast manager）
 ```
 
 - `components/Toast` 只提供 `createToaster()`（可在 React 樹外呼叫的 `show` / `close`）與 `ToastProvider`，
   不認識 eventBus；Base UI 的 manager 不出現在公開型別上。
-- `core/notify` 的 `useToast()` 是 React 裡的入口；React 之外直接 `eventBus.emit(GlobalEvents.TOAST_SHOW, …)`。
-- 整個 app 只有 `app/ToastHost` 持有 toaster；各類型的預設停留時間在 `DEFAULT_TOAST_TIMEOUT`（錯誤 8 秒，其餘 4 秒）。
-- 測試用 `src/test/renderWithPermissions.tsx` 的 `AllProviders`，它已經掛好 eventBus 與 `ToastHost`。
+- `web-core/notify` 的 `useToast()` 是 React 裡的入口；React 之外直接 `eventBus.emit(GlobalEvents.TOAST_SHOW, …)`。
+- 整個 app 只有 `web-core/shell/ToastHost` 持有 toaster；各類型的預設停留時間在 `DEFAULT_TOAST_TIMEOUT`（錯誤 8 秒，其餘 4 秒）。
+- 測試用 `web-core/testing/renderWithPermissions.tsx` 的 `AllProviders`，它已經掛好 eventBus 與 `ToastHost`。
 
 ### 3.8 省略號：`TextEllipsis` / `BoxEllipsis` / `ButtonEllipsis`
 
@@ -372,7 +384,7 @@ app/ToastHost ◀──────────┘ eventBus.on(TOAST_SHOW) → t
   `ResizeObserver` 的回呼以 `flushSync` 重算，縮放時不會先閃出一幀溢出的版面。
 - 狀態以 `data-truncated`、`data-collapsed`、`data-overflowing` 表達。
 - 提示框切換用 `Tooltip` 的 `disabled`，而不是清空 `content`——後者會讓觸發元素重新掛載，量測狀態跟著遺失。
-- 測試用 `src/test/fakeLayout.ts`：以 `data-testid` 指定元素尺寸並手動觸發 `ResizeObserver`（jsdom 沒有布局）。
+- 測試用 `@b2b-system/ui/testing` 的 `fakeLayout`：以 `data-testid` 指定元素尺寸並手動觸發 `ResizeObserver`（jsdom 沒有布局）。
 
 ### 3.9 文字：`Typography` / `Title` / `Text` / `Paragraph`
 
@@ -462,7 +474,7 @@ const handleDelete = async (row: RoleRowVM) => {
 | 預設文案 | `ConfirmDialogProvider` 的 `confirmLabel` / `cancelLabel`；每次呼叫可覆寫 |
 | 覆寫內層 | Provider 收 `AlertDialogSlot` 的 `classNames` / `styles` / `testIds`；每次呼叫的 `className` / `data-testid` 落在彈窗 |
 
-- `app/ConfirmDialogHost` 掛在 `GlobalProvider`（`ToastHost` 內側），以 `t('common.confirm')` / `t('common.cancel')` 當預設文案；
+- `web-core/shell/ConfirmDialogHost` 掛在 `GlobalProvider`（`ToastHost` 內側），以 `t('common.confirm')` / `t('common.cancel')` 當預設文案；
   測試的 `AllProviders` 也已經掛好。
 - 按鈕的 testid 與 `AlertDialog` 相同：`alert-dialog-confirm`、`alert-dialog-cancel`。
 - 需要在對話框裡放表單或其他內容時，仍用宣告式的 `AlertDialog`（`children`）或 `Dialog`。
@@ -665,7 +677,7 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 - `textValue`：分頁的純文字。`label` 不是字串（例如帶圖示）時給它，下拉的 typeahead 才找得到；文字改變（切換語系）時也會重新量寬度。
 - props：`fit`（預設 `true`）、`moreLabel`（預設「更多」，`features/` 以 `t('common.more')` 傳入）；slot 多了 `bar` / `more` / `menuItem`；testid `tabs-more`。
 
-**頂列工具**（`app/layouts/HeaderToolbar.tsx`，[`02-plugin-system.md`](./02-plugin-system.md) §4.4）
+**頂列工具**（`web-core/layout/HeaderToolbar.tsx`，[`02-plugin-system.md`](./02-plugin-system.md) §4.4）
 
 - `BoxEllipsis` 佔滿頂列剩下的寬度並靠右；放不下的工具收進「更多」彈層（`Popover`，`header-toolbar-more` / `header-toolbar-overflow`）。
 - 工具是任意元件（語言、主題本身就是下拉），沒辦法轉成選單項目，所以彈層裡直接渲染被收起的工具元件，行為不變。
@@ -678,8 +690,9 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 三層 CSS 變數。
 
 ```
-themes/
+packages/ui/src/styles/
 ├── tokens.css        ① seed ② alias（淺色 :root ＋ 深色 :root[data-theme='dark']）③ component
+├── index.css         tokens.css ＋ 全域 base 層（app 以 @b2b-system/ui/styles.css 引入）
 └── contrast.test.ts  兩個主題各自的對比度驗證
 ```
 
@@ -733,7 +746,7 @@ themes/
 --ge-color-danger-text: #b3261e; /* 前景：在所有 surface 上 >= 4.5:1 */
 ```
 
-`themes/contrast.test.ts` 對每一組 `-text` × 每一種 surface 斷言對比度 ≥ 4.5:1，
+`styles/contrast.test.ts` 對每一組 `-text` × 每一種 surface 斷言對比度 ≥ 4.5:1，
 CI 會擋下不合格的調色。
 
 ### 4.3 UnoCSS 的角色
@@ -750,7 +763,7 @@ UnoCSS 負責 **排版**（flex、grid、間距、尺寸），**不負責顏色*
 </div>
 ```
 
-`uno.config.ts` 裡把顏色相關的工具類 **關掉**，讓錯誤用法無法通過建置。
+`packages/ui/uno.config.ts`（各 app 共用）裡把顏色相關的工具類 **關掉**，讓錯誤用法無法通過建置。
 
 UnoCSS 的輸出放在 `utilities` 層，排在元件的 `components` 層之後（§3.4），
 所以傳進元件的工具類不必加 `!` 就能覆寫元件預設值。
@@ -766,8 +779,8 @@ seed、尺寸、字型、z-index 與 component 層都沿用淺色。
 | 偏好 | `light` / `dark` / `system`（預設），存在 `preference` dictStorage 的 `theme` 鍵；**只存本機**，不同步到帳號 |
 | 跟隨系統 | 在 JS 解析 `prefers-color-scheme` 後寫入 `data-theme`；CSS 不寫 `@media (prefers-color-scheme)`，深色對照表才不必寫兩份 |
 | 首次繪製 | `public/theme-init.js` 在 `<head>` 同步執行，先設好 `data-theme`，避免先閃白；獨立成檔是因為正式環境的 CSP 不允許 inline script |
-| 之後的變化 | `plugins/app/theme.ts`：使用者切換、其他分頁同步、系統深淺色變化（只在 `system` 時） |
-| 入口 | 頂列的主題選單（`app/layouts/ThemeMenu.tsx`）與偏好頁；選項表 `THEME_OPTIONS` 在 `core/theme` |
+| 之後的變化 | `web-core/plugins/app/theme.ts`：使用者切換、其他分頁同步、系統深淺色變化（只在 `system` 時） |
+| 入口 | 頂列的主題選單（`web-core/layout/ThemeMenu.tsx`）與偏好頁；選項表 `THEME_OPTIONS` 在 `web-core/theme` |
 | Storybook | 工具列的 **Theme** 切換 |
 
 深色主題的調色原則：
@@ -786,7 +799,7 @@ seed、尺寸、字型、z-index 與 component 層都沿用淺色。
 
 ### 4.5 疊放層級（z-index）
 
-z-index 也是 token（`themes/tokens.css`），元件不寫數字：
+z-index 也是 token（`packages/ui/src/styles/tokens.css`），元件不寫數字：
 
 | token              | 值  | 用在                                             |
 | ------------------ | --- | ------------------------------------------------ |
@@ -847,7 +860,7 @@ components/Table/
 以及跨頁保留的 `selectedIds`、`selectedRows`（勾選當下的資料，列還在目前頁時換成最新的一筆）與 `clear()`。
 批次操作直接拿 `selectedRows` 送出；篩選條件改變時由呼叫端 `clear()`。列表頁的完整批次流程見 §6.2。
 
-欄位定義用 `TableColumnDef<TData>`（`@/components/Table` 匯出），不直接寫 TanStack 的 `ColumnDef`：
+欄位定義用 `TableColumnDef<TData>`（`@b2b-system/ui/Table` 匯出），不直接寫 TanStack 的 `ColumnDef`：
 TanStack Table v9 的型別多了第一個型別參數 `TFeatures`（登記了哪些功能），`features.ts` 的 `TABLE_FEATURES`
 只登記 `Table` 用到的功能——欄位固定、欄寬（`size`）、列釘選、勾選、排序（只為了欄位的 `enableSorting`；
 排序與分頁都交給伺服器，不登記 row model）。欄位的 `meta` 型別是 `TableColumnMeta`（以 `columnMeta` 登記，不再全域擴充 `ColumnMeta`）。
@@ -902,9 +915,9 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 - 點擊列內的按鈕、連結或勾選框 **只觸發該元件**——`TableRow` 會略過來自互動元素的點擊，
   呼叫端不必各自 `stopPropagation`
 
-### 6.1 列表頁用 `RichTable`（`core/components/RichTable/`）
+### 6.1 列表頁用 `RichTable`（`web-core/components/RichTable/`）
 
-`Table` 不依賴語系與 store；列表頁實際使用的是 `core/` 的 `RichTable`，它在 `Table` 外面加上：
+`Table` 不依賴語系與 store；列表頁實際使用的是 `@b2b-system/web-core/components` 的 `RichTable`，它在 `Table` 外面加上：
 
 | 功能 | 元件 | 說明 |
 | ---- | ---- | ---- |
@@ -914,7 +927,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 | 搜尋 | `search` | `search={{ value, onChange, placeholder }}`：表格上方常駐的搜尋框，停止輸入 300ms 或按 Enter 才送出 |
 | 篩選 Chip | `ActiveFilters` | 套用中的篩選（排序除外）以可移除的 Chip 列在表格上方；有篩選卻沒有結果時空狀態改成「沒有符合條件的結果」並提供「清除篩選」 |
 | 查詢失敗 | `error` ＋ `onRetry` | 沒有資料時以錯誤訊息＋重試取代表格（不會落到「沒有資料」）；有舊資料時保留表格並在上方提示 |
-| 欄位設定 | `TableSettings` | 齒輪按鈕點開的下拉清單：拖曳（dnd-kit，含鍵盤）排序、勾選顯示；依 `tableId` 存在 `core/store/tableColumnSettings`，偏好頁的「表格欄位」分頁改的是同一份 |
+| 欄位設定 | `TableSettings` | 齒輪按鈕點開的下拉清單：拖曳（dnd-kit，含鍵盤）排序、勾選顯示；依 `tableId` 存在 `web-core/store/tableColumnSettings`，偏好頁的「表格欄位」分頁改的是同一份 |
 
 表頭可以直接設定多欄排序：`sorting` 是 `TableSorting[]`（陣列順序即優先順序），每一欄循環
 **不排（`arrow-up-down`，淡化）→ 升冪（`arrow-up`）→ 降冪（`arrow-down`）→ 不排**。新排序的欄位加到最後，
@@ -933,7 +946,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 該欄的標題與按鈕都算進最小欄寬（grid `max-content auto`），標題不會被裁切——儲存格不換行後，寬度不夠時整張表水平捲動，欄位不會被擠到比內容窄。
 `actions`（操作欄）固定在原位、不列入欄位設定。
 
-**所有 Pin 都記在偏好裡**（`core/store/tableColumnSettings`，依 `tableId` 分開、存 localStorage、跨分頁同步）：
+**所有 Pin 都記在偏好裡**（`web-core/store/tableColumnSettings`，依 `tableId` 分開、存 localStorage、跨分頁同步）：
 
 | 固定 | 在哪裡改 | 存在哪 | 預設 |
 | ---- | -------- | ------ | ---- |
@@ -952,7 +965,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 要做批次操作的頁面自己呼叫 `useTableSelection(data, getRowId)` 並把 `rowSelection` / `onRowSelectionChange` 傳進來接手，
 再用 `selectedRows` 送出。沒有 `getRowId` 時與 TanStack 相同，以索引當列 id（換頁後同索引會被視為同一列，因此建議都提供 `getRowId`）。
 
-預設值寫在 `core/store/tableColumnSettings` 的 `DEFAULT_PINNED_COLUMNS` / `DEFAULT_HIDDEN_COLUMNS`；
+預設值寫在 `web-core/store/tableColumnSettings` 的 `DEFAULT_PINNED_COLUMNS` / `DEFAULT_HIDDEN_COLUMNS`；
 已存過設定的表遇到新加的欄位時，也套用這些預設（新欄位不會突然出現或沒被固定）。
 各表另外要預設隱藏的欄位放在 `settings.defaultHidden`，並在 `registerPreferenceTable` 的 `defaultHidden` 登記同一份（兩處共用一個常數），
 偏好頁的「恢復預設」才會一致。
@@ -980,8 +993,8 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 | 層 | 檔案 | 職責 |
 | -- | ---- | ---- |
 | 設計系統 | `components/Table/BatchActionBar` | `role="toolbar"`：已選筆數（`batch-action-bar-count`，`data-value` 是筆數）、清除選取、呼叫端放進來的按鈕；不認識任何業務操作，文案由 `labels` 傳入 |
-| 機制 | `core/batch` | 佇列：`BatchQueueHost`（在 SharedWorker / dedicated worker 裡）、`BatchQueueClient`（每個分頁一個，由 `batchQueuePlugin` 建立）、`connectBatchQueue()`；操作註冊表 `registerBatchOperation`；UI：`BatchProgressBar`、`BatchQueueIndicator`（AppHeader）、`BatchQueueNotifier`（結束時彈出）、`BatchResultDialog` |
-| 列表 | `core/components/RichTable/BatchBar.tsx` | `batch` prop 的接線：勾選後顯示操作列，每個動作一顆按鈕（`data-testid="batch-action"`，`data-value` 是動作 id；顏色依 `tone`：`primary` / `success` / `warning` / `danger`，省略時 secondary；確認框在 `danger` / `warning` 時用危險色）；這張表（`batch.scope`）的工作進行中時換成進度條 |
+| 機制 | `web-core/batch` | 佇列：`BatchQueueHost`（在 SharedWorker / dedicated worker 裡）、`BatchQueueClient`（每個分頁一個，由 `batchQueuePlugin` 建立）、`connectBatchQueue()`；操作註冊表 `registerBatchOperation`；UI：`BatchProgressBar`、`BatchQueueIndicator`（AppHeader）、`BatchQueueNotifier`（結束時彈出）、`BatchResultDialog` |
+| 列表 | `web-core/components/RichTable/BatchBar.tsx` | `batch` prop 的接線：勾選後顯示操作列，每個動作一顆按鈕（`data-testid="batch-action"`，`data-value` 是動作 id；顏色依 `tone`：`primary` / `success` / `warning` / `danger`，省略時 secondary；確認框在 `danger` / `warning` 時用危險色）；這張表（`batch.scope`）的工作進行中時換成進度條 |
 | feature | `batch.ts` | 在 plugin 的同步階段註冊操作：每筆呼叫一次單筆 fetcher ＋ 失效快取（同單筆 mutation hook），**不發 toast**；失敗直接拋出 |
 | feature | `pages/<List>/use<Name>BatchActions.ts` | 宣告這張表有哪些批次動作；`operation` 引用註冊的操作 id |
 
@@ -1042,14 +1055,14 @@ const batchActions = useUserBatchActions();
 - 略過的列（不適用、沒送出）保留勾選，可以接著做別的批次動作。
 - `batch` 提供時由 `batch.selection` 控制勾選欄，不必另外傳 `rowSelection` / `onRowSelectionChange`。
 - 篩選條件（不含排序）改變時頁面呼叫 `selection.clear()`：勾選的列可能已不在結果裡。
-- 佇列沒有啟用（`batchQueuePlugin` 未註冊，例如元件測試）時不顯示批次操作；測試用 `@/test/fakeBatchQueue` 建一個同行程的佇列並 `setActiveBatchQueue()`。
+- 佇列沒有啟用（`batchQueuePlugin` 未註冊，例如元件測試）時不顯示批次操作；測試用 `@b2b-system/web-core/testing` 建一個同行程的佇列並 `setActiveBatchQueue()`。
 
 ---
 
 ## 7. 圖示
 
-- 來源：一套 SVG（建議 Lucide 或自繪），放在 `src/assets/icons/`
-- 透過 `vite-plugin-svgr` 以 `import Icon from './x.svg?react'` 取得 React 元件
+- 來源：一套 SVG（建議 Lucide 或自繪），放在 `packages/ui/src/icons/`
+- 透過 `vite-plugin-svgr` 以 `import Icon from '@b2b-system/ui/icons/x.svg?react'` 取得 React 元件
 - `components/Icon/Icon.tsx` 統一尺寸（16 / 20 / 24）與 `currentColor` 著色
 - **禁止**在元件裡內嵌 `<svg>` 字面量——圖示要可替換
 
@@ -1057,33 +1070,33 @@ const batchActions = useUserBatchActions();
 
 ## 8. 這一層的驗收
 
-- [ ] 任何 `src/components/**/*.tsx` 都不 export Base UI 的型別
-- [ ] 任何 `src/components/**/*.css` 都不出現十六進位色碼
+- [ ] 任何 `packages/ui/src/components/**/*.tsx` 都不 export Base UI 的型別
+- [ ] 任何 `packages/ui/src/components/**/*.css` 都不出現十六進位色碼
 - [ ] 任何 `src/features/**` 都不直接 import `@base-ui/react`
-      （由 lint 規則 `no-restricted-imports` 強制）
+      （🔒 各 app 的 `src/app/__tests__/no-base-ui-in-features.test.ts`）
 - [ ] `contrast.test.ts` 全綠
 - [ ] 每個元件都有 `.test.tsx`，至少涵蓋鍵盤操作與 disabled 狀態
-- [ ] 每個元件都有 `.stories.tsx`（§9，🔒 `design-system.test.ts`）
+- [ ] 每個元件都有 `.stories.tsx`（§9，🔒 `packages/ui/src/components/__tests__/design-system.test.ts`）
 
 ---
 
 ## 9. Storybook
 
-設計系統元件的目錄與互動沙盒。只收 `src/components/`；業務元件（`features/*/components/`）不寫 story——
+設計系統元件的目錄與互動沙盒。只收 `packages/ui/src/components/`；業務元件（`features/*/components/`）不寫 story——
 它們依賴權限、API 與 i18n，要看就開 app。
 
 ```bash
-pnpm storybook          # http://localhost:6006
-pnpm storybook:build    # 靜態站輸出到 apps/backstage/storybook-static/（已 gitignore）
+pnpm storybook          # http://localhost:6006（= pnpm --filter @b2b-system/ui storybook）
+pnpm storybook:build    # 靜態站輸出到 packages/ui/storybook-static/（已 gitignore）
 ```
 
 | 檔案 | 內容 |
 | --- | --- |
-| `apps/backstage/.storybook/main.ts` | 收 `src/components/**/*.stories.tsx`；addon：docs、a11y |
-| `apps/backstage/.storybook/preview.tsx` | 載入 `virtual:uno.css` 與 `src/index.css`（token）；全域 `autodocs`；`router` decorator |
-| `apps/backstage/.storybook/preview-head.html` | 與 `index.html` 相同的 `@layer` 順序宣告（§3.4），否則工具類蓋不過元件預設值 |
+| `packages/ui/.storybook/main.ts` | 收 `src/components/**/*.stories.tsx`；addon：docs、a11y |
+| `packages/ui/.storybook/preview.tsx` | 載入 `virtual:uno.css` 與 `src/styles/index.css`（token）；全域 `autodocs`；`router` decorator |
+| `packages/ui/.storybook/preview-head.html` | 與 app 的 `index.html` 相同的 `@layer` 順序宣告（§3.4），否則工具類蓋不過元件預設值 |
 
-Vite 設定直接沿用 `apps/backstage/vite.config.ts`（UnoCSS、svgr、`@/` alias、CSS Module 命名），不另外維護一份。
+Vite 設定是 `packages/ui/vite.config.ts`（UnoCSS、svgr、CSS Module 命名），只給 Storybook 用；app 以自己的 `vite.config.ts` 編譯這個 package。
 
 ### 9.1 寫法
 
@@ -1095,7 +1108,7 @@ Vite 設定直接沿用 `apps/backstage/vite.config.ts`（UnoCSS、svgr、`@/` a
 - 回呼用 `storybook/test` 的 `fn()`，會出現在 Actions 面板。
 - 需要 TanStack Router context 的元件（`ButtonLink`、`render` 接 router `Link`）設 `parameters: { router: true }`，
   由 `preview.tsx` 的 decorator 包一層記憶體 router。
-- 跟元件本身一樣只 import `components/`、`shared/`，不 import `core/`、`features/`、`apis/`；範例資料用中性內容，不出現業務名詞。
+- 跟元件本身一樣只 import `@b2b-system/ui` 的元件與 `@b2b-system/web-shared`，不 import app 的程式碼；範例資料用中性內容，不出現業務名詞。
 - `design-system.test.ts` 的規則（不寫色碼、不用 `ge-` class）同樣套用在 story 上。
 
 ---
@@ -1112,8 +1125,8 @@ Vite 設定直接沿用 `apps/backstage/vite.config.ts`（UnoCSS、svgr、`@/` a
 ### 10.2 決定
 
 - UI 基礎採用 **Base UI**（`@base-ui/react` 1.x）
-- `src/components/` 是完整的設計系統實作層，不是薄封裝
-- 樣式來自 `src/themes/` 的三層 CSS 變數 ＋ UnoCSS 的排版工具類
+- `src/components/`（現為 `packages/ui/src/components/`）是完整的設計系統實作層，不是薄封裝
+- 樣式來自 `src/themes/`（現為 `packages/ui/src/styles/`）的三層 CSS 變數 ＋ UnoCSS 的排版工具類
 - Base UI 沒有的元件（Table、Pagination、DatePicker、Breadcrumbs…）自己實作
 
 ### 10.3 理由
@@ -1358,9 +1371,9 @@ tree／text／table 三種模式、修復、查詢、JSON Schema 驗證。當時
 ### 13.5 實作紀錄
 
 - 後端移除 `POST /users/batch-delete`、`/users/batch-unlock`、`/users/batch-status`、`/roles/batch-delete`、
-  `/approvals/batch-approve`、`/approvals/batch-reject` 與 `core/batch`（`runBatch`、`BatchIdsSchema`、`BatchResultSchema`）、
+  `/approvals/batch-approve`、`/approvals/batch-reject` 與 api 的 `core/batch`（`runBatch`、`BatchIdsSchema`、`BatchResultSchema`）、
   稽核的 `metadata.batch`；單筆 service 回到原本的形狀。
-- 前端 `core/batch` 改為佇列（`BatchQueueHost` / `BatchQueueClient` / `connectBatchQueue` / worker 入口）與 UI
+- 前端 `web-core/batch` 改為佇列（`BatchQueueHost` / `BatchQueueClient` / `connectBatchQueue` / worker 入口）與 UI
   （`BatchProgressBar`、`BatchQueueIndicator`、`BatchQueueNotifier`、`BatchResultDialog`）；`useBatchRunner` 與 `apis/*/batch-*` 移除。
 - feature 以 `features/<name>/batch.ts` 註冊操作（每筆呼叫單筆 fetcher ＋ 失效快取、不發 toast），
   列表的 `BatchAction` 以 `operation` 引用它，`RichTable` 的 `batch` 多了 `scope`（這張表在佇列裡的識別）。
@@ -1372,7 +1385,7 @@ tree／text／table 三種模式、修復、查詢、JSON Schema 驗證。當時
 當時的決定是由 **後端提供批次端點**：`POST /<resources>/batch-<action>`（例：`POST /users/batch-delete`），請求 `{ ids: uuid[] }`（1–200 筆，＝分頁 `limit` 的上限），
 回應 `200 { data: { succeeded: string[], failed: { id, code, details? }[] } }`。依 `ids` 的順序 **依序**、**逐筆獨立交易**執行、允許部分成功；
 整批結束後合併發佈一次領域事件；不新增權限鍵（沿用單筆的 `user:delete` 等）；每筆一條稽核、同一批共用 `metadata.requestId` 並加 `metadata.batch`。
-為了讓單筆與批次共用檢查，單筆 service 方法拆成 `prepare → apply(tx) → invalidate → publish` 四段，由 `core/batch` 的 `runBatch()` 串起來。
+為了讓單筆與批次共用檢查，單筆 service 方法拆成 `prepare → apply(tx) → invalidate → publish` 四段，由 `web-core/batch` 的 `runBatch()` 串起來。
 前端是 `BatchActionBar` ＋ `RichTable` 的 `batch` ＋ `useBatchRunner`（確認 → 執行 → 結果），並以 `isEligible(row)` 預先分出「可執行／會略過」。
 範圍是使用者的刪除／解鎖／停用啟用、角色刪除，第二期加上審批單的批次核准／駁回。
 

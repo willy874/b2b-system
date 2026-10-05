@@ -1,3 +1,13 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Chip } from '@b2b-system/ui/Chip';
+import { DatePicker } from '@b2b-system/ui/DatePicker';
+import { Dialog } from '@b2b-system/ui/Dialog';
+import { Icon } from '@b2b-system/ui/Icon';
+import { Select } from '@b2b-system/ui/Select';
+import type { SelectOption } from '@b2b-system/ui/Select';
+import { Spinner } from '@b2b-system/ui/Spinner';
+import { Switch } from '@b2b-system/ui/Switch';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -6,16 +16,6 @@ import { getFileAccessRequestListQueryOptions } from '@/apis/file/get-file-acces
 import { getFileFolderGrantListQueryOptions } from '@/apis/file/get-file-folder-grants/query';
 import { getFileGrantSubjectListQueryOptions } from '@/apis/file/get-file-grant-subjects/query';
 import type { FileGrantLevel, FileGrantSubjectType } from '@/apis/file/types';
-import { Button } from '@/components/Button';
-import { Chip } from '@/components/Chip';
-import { DatePicker } from '@/components/DatePicker';
-import { Dialog } from '@/components/Dialog';
-import { Icon } from '@/components/Icon';
-import { Select } from '@/components/Select';
-import type { SelectOption } from '@/components/Select';
-import { Spinner } from '@/components/Spinner';
-import { Switch } from '@/components/Switch';
-import { useTranslation } from '@/core/locales';
 import type { FileAccessRequest, FileFolderGrant } from '@/shared/api-sdk';
 
 import {

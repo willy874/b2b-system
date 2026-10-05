@@ -1,3 +1,4 @@
+import { AllProviders } from '@b2b-system/web-core/testing';
 import {
   createMemoryHistory,
   createRootRoute,
@@ -10,7 +11,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { initTestI18n } from '@/test/i18n';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { ForbiddenPage, isChunkLoadError, NotFoundPage, RouteErrorPage } from '../ErrorPage';
 

@@ -12,7 +12,7 @@ apis/role/get-role-list/query.ts        ← TanStack Query options（query key�
 apis/role/get-role-list/fetcher.ts      ← defineAuthFetcher，呼叫 api-sdk
     │
     ▼
-core/client (HttpContext + 攔截器鏈)     ← 認證、續期、重試、錯誤轉換
+web-core/client (HttpContext + 攔截器鏈)     ← 認證、續期、重試、錯誤轉換
     │
     ▼
 packages/api-sdk                        ← 由 OpenAPI 產生
@@ -62,8 +62,8 @@ apis/role/
 
 ```ts
 // apis/role/get-role-list/fetcher.ts
-import { defineAuthFetcher, withQuery } from '@/core/client';
-import type { HttpRequestDTO } from '@/core/client';
+import { defineAuthFetcher, withQuery } from '@b2b-system/web-core/client';
+import type { HttpRequestDTO } from '@b2b-system/web-core/client';
 import { getRoleControllerListUrl } from '@/shared/api-sdk';
 import type { RoleControllerListResponse } from '@/shared/api-sdk';
 
@@ -119,7 +119,7 @@ export interface HttpRequestDTO<P = unknown> {
   │  httpContextPlugin 訂閱
   ▼
 abortRequests({ reason: 'session-ended', contexts: ['<後端>:auth'], detail: <原因碼> })
-  │  requestAbortBus（core/client/abort.ts）
+  │  requestAbortBus（web-core/client/abort.ts）
   ▼
 該後端每個進行中的 auth 請求 → controller.abort(new RequestAbortedError(...))
   ├─ fetch 立刻 reject
@@ -205,7 +205,7 @@ export const getRoleListQueryOptions = (options: HttpRequestDTO<ListRolesRequest
   });
 
 // 型別化的 query key 註冊（讓失效工具能推導）
-declare module "@/core/cache/queryClient" {
+declare module "@b2b-system/web-core/cache/queryClient" {
   interface QueryKeysMap {
     role_list: ReturnType<typeof getRoleListQueryKeys>;
   }
@@ -254,7 +254,7 @@ export const getRoleCreateMutationOptions = () =>
 
 ## 6. 快取策略
 
-`core/cache/queryClient.tsx`：
+`web-core/cache/queryClient.ts`：
 
 ```ts
 export const queryClient = new QueryClient({
@@ -262,7 +262,7 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 30_000, // 30 秒內視為新鮮，不重取
       gcTime: 5 * 60_000,
-      retry: false, // 重試交給 plugins/fetcher/retry.ts（它懂哪些該重試）
+      retry: false, // 重試交給 web-core/plugins/fetcher/retry.ts（它懂哪些該重試）
       refetchOnWindowFocus: true,
       throwOnError: false, // 錯誤由 UI 呈現，不炸到 error boundary
     },
@@ -293,9 +293,9 @@ onSuccess: (role) => {
 
 | 檔案                              | 職責                                                                 |
 | --------------------------------- | -------------------------------------------------------------------- |
-| `core/cache/resourceGraph.ts`     | 通用引擎：來源變更 → 失效目標（不認識任何業務 key）                  |
+| `web-core/cache/resourceGraph.ts`     | 通用引擎：來源變更 → 失效目標（不認識任何業務 key）                  |
 | `apis/resources.ts`               | 本專案的依賴宣告：每個資源有哪些 query、由哪些來源衍生               |
-| `core/cache/AppQueryClient.ts`    | `queryClient` 的 class：套用失效目標並跨分頁廣播（§6.3）            |
+| `web-core/cache/AppQueryClient.ts`    | `queryClient` 的 class：套用失效目標並跨分頁廣播（§6.3）            |
 
 #### 邏輯線
 
@@ -375,7 +375,7 @@ mutation 成功
 
 ### 6.3 跨分頁失效
 
-`queryClient` 是 `core/cache/AppQueryClient.ts` 的實例：繼承 TanStack 的 `QueryClient`，
+`queryClient` 是 `web-core/cache/AppQueryClient.ts` 的實例：繼承 TanStack 的 `QueryClient`，
 並持有 `query-invalidate` 頻道（[09 §5](./09-state-and-storage.md) 的持有者規則）。
 廣播的是 **換算後的失效目標**，不是來源變更，收到的分頁直接套用、不再廣播（避免迴圈）。
 
@@ -406,7 +406,7 @@ export class AppQueryClient extends QueryClient {
 ### 7.1 後端錯誤信封 → `AppError`
 
 ```ts
-// plugins/fetcher/api-adapter.ts
+// web-core/plugins/fetcher/api-adapter.ts
 // { error: { code, message, details } } → AppError
 export class AppError extends Error {
   constructor(
@@ -431,7 +431,7 @@ export class AppError extends Error {
 | **連線**     | `NetworkError`                            | toast `error.network`（§3.4）                |
 
 ```ts
-// core/errors/useErrorMessage.ts
+// web-core/errors/useErrorMessage.ts
 export function useErrorMessage() {
   const { t } = useTranslation();
   return useCallback(
@@ -459,7 +459,7 @@ export function useErrorMessage() {
 通常是權限剛被改掉。全域處理：
 
 ```ts
-// app/GlobalProvider.tsx（mutation 與 query 都監看）
+// web-core/shell/GlobalProvider.tsx（mutation 與 query 都監看）
 queryClient.getMutationCache().subscribe((event) => {
   // 只看「這次變成錯誤」：observer 增減也會發事件，而 state.error 仍在，只看它會重複提示
   if (event.type === "updated" && event.action.type === "error") onError(event.action.error);

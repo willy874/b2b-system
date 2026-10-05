@@ -1,7 +1,7 @@
+import { RootRoute } from '@b2b-system/web-core/router';
 import { createRoute, stripSearchParams } from '@tanstack/react-router';
 
 import { requireFeature } from '@/core/feature';
-import { RootRoute } from '@/core/router';
 import { trashLocaleLoader } from '@/core/trash';
 
 import { TRASH_LOCALE_SCOPE } from '../locale';

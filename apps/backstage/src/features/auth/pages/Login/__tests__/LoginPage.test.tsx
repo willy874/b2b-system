@@ -1,8 +1,8 @@
+import { renderRoute } from '@b2b-system/web-core/testing';
 import { screen } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { initTestI18n } from '@/test/i18n';
-import { renderRoute } from '@/test/renderRoute';
 
 import { Routes } from '../../..';
 import authZhTW from '../../../locales/zh_TW.json';

@@ -1,10 +1,10 @@
+import { Button } from '@b2b-system/ui/Button';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
-import { Button } from '@/components/Button';
 import { TagAssignDialog, TagChips } from '@/core/components';
-import { useTranslation } from '@/core/locales';
 import type { User } from '@/shared/api-sdk';
 
 import { useUserTagsReplaceMutation } from '../../../hooks/useUserMutations';

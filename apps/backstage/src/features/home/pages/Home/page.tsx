@@ -1,8 +1,8 @@
+import { Chip } from '@b2b-system/ui/Chip';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
-import { Chip } from '@/components/Chip';
-import { useTranslation } from '@/core/locales';
 
 export default function HomePage() {
   const { t } = useTranslation();

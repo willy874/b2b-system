@@ -1,10 +1,10 @@
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useToast } from '@b2b-system/web-core/notify';
 import { useMutation } from '@tanstack/react-query';
 
 import { getApproveApprovalMutationOptions } from '@/apis/approval/approve-approval/mutation';
 import { getRejectApprovalMutationOptions } from '@/apis/approval/reject-approval/mutation';
 import { invalidateResources, Resource } from '@/apis/resources';
-import { useTranslation } from '@/core/locales';
-import { useToast } from '@/core/notify';
 import type { ApprovalRequest } from '@/shared/api-sdk';
 
 /** 審核通過後的失效：單筆 mutation 與批次操作（`batch.ts`）共用。 */

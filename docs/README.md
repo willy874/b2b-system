@@ -17,7 +17,7 @@
 | -------- | ---------------------------------------------------------------------------------------------- |
 | 定位     | 通用型後台骨架；業務功能以 feature（前端）＋ module（後端）的形式加上去，沿用既有的權限、稽核、回收桶、通知等機制 |
 | 前端架構 | **plugin-based AppContext ＋ feature-first 分層 ＋ 執行期權限註冊表**                          |
-| 前端 UI  | **Base UI**（`@base-ui/react`）＋ 專案自有的 `components/` 封裝層                              |
+| 前端 UI  | **Base UI**（`@base-ui/react`）＋ 專案自有的設計系統 `@b2b-system/ui`（`packages/ui`）                              |
 | 後端     | **NestJS** + **Drizzle ORM** + **PostgreSQL**                                                  |
 | 租戶與身分 | 每個租戶一個 database 與網域；`apps/platform` 是全平台共用的登入入口，`apps/api` 當 OIDC Provider |
 | 已有範圍 | 認證與 SSO、使用者、角色、群組、權限與關係圖、服務帳號與 API token、稽核日誌、個人帳號、審批、系統設定、檔案、標籤、背景工作、寄信、回收桶、版本歷史、站內通知、公告、Webhook；平台的租戶與 feature 管理 |
@@ -103,7 +103,7 @@ docs/
 │   │   ├── 12-file-manager.md         檔案管理器：排版、選取、上傳佇列、預覽擴充點
 │   │   ├── 13-trash.md                回收桶頁：類型註冊表、權限、使用者、角色、檔案與資料夾的還原
 │   │   ├── 14-revisions.md            版本紀錄：版本列表、與目前或前一版的差異、還原到某一版（角色）
-│   │   ├── 15-notification.md         站內通知：頂列鈴鐺、列表頁、通知總覽、route id 註冊表（core/route-link）、事件管理頁
+│   │   ├── 15-notification.md         站內通知：頂列鈴鐺、列表頁、通知總覽、route id 註冊表（web-core/route-link）、事件管理頁
 │   │   └── 16-announcement.md         公告：列表、建立、詳情與發送紀錄、收件人看全文
 │   │
 │   └── backend/

@@ -1,10 +1,10 @@
+import { ButtonLink } from '@b2b-system/ui/Button';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
 import { getAnnouncementListQueryOptions } from '@/apis/announcement/get-announcement-list/query';
-import { ButtonLink } from '@/components/Button';
-import { useTranslation } from '@/core/locales';
 
 import { ANNOUNCEMENT_STATUS_LABEL_KEY, ANNOUNCEMENT_STATUSES } from '../../constants';
 import { useAnnouncementPermission } from '../../hooks/useAnnouncementPermission';

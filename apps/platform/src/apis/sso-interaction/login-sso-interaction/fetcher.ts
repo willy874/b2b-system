@@ -1,5 +1,6 @@
-import { defineBaseFetcher, jsonBody } from '@/core/client';
-import type { HttpRequestDTO } from '@/core/client';
+import { defineBaseFetcher, jsonBody } from '@b2b-system/web-core/client';
+import type { HttpRequestDTO } from '@b2b-system/web-core/client';
+
 import { getSsoInteractionControllerLoginUrl } from '@/shared/api-sdk';
 import type { LoginRequest, SsoRedirect } from '@/shared/api-sdk';
 

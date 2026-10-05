@@ -76,7 +76,7 @@ MSW handler 要模擬權限行為（無權限回 403），不能一律回 200。
 | 新增 feature hook                     | hook 測試                                                |
 | 新增 / 修改 service 業務規則          | 對應的單元測試（成功 ＋ 每個 `AppException` 分支）        |
 | 新增 DB 約束或 trigger                | 整合測試證明它真的擋得住                                 |
-| 新增 `components/` 元件               | 🔒 `design-system.test.ts` 會要求資料夾內有測試檔與 `.stories.tsx` |
+| 新增 `@b2b-system/ui` 元件            | 🔒 `packages/ui` 的 `design-system.test.ts` 會要求資料夾內有測試檔與 `.stories.tsx` |
 | E2E 需要新 testid                     | testid 與測試在 **同一個 PR** 加進原始碼                 |
 | 新增 E2E 流程                         | 在關鍵狀態呼叫 `snapshot(page, '<name>')`（前端 10 §4.5） |
 

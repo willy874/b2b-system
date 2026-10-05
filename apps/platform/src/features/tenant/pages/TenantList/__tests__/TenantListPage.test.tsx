@@ -1,12 +1,12 @@
+import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
+import { usePermissionStore } from '@b2b-system/web-core/store';
+import { AllProviders } from '@b2b-system/web-core/testing';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
-import { parseSearch, RootRoute, stringifySearch } from '@/core/router';
-import { usePermissionStore } from '@/core/store';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { registerTenantPagePermissions, Routes } from '../../..';
 import { tenantFixture } from '../../../test-fixtures';

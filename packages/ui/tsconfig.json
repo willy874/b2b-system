@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": [
+      "vite/client",
+      "vite-plugin-svgr/client",
+      "vitest/globals",
+      "@testing-library/jest-dom",
+      "node"
+    ],
+    "jsx": "react-jsx",
+    "emitDeclarationOnly": true,
+    "outDir": "./dist-types",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": [
+    "src/**/*",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "vitest.setup.ts",
+    "uno.config.ts",
+    ".storybook/**/*"
+  ],
+  "references": [{ "path": "../web-shared" }]
+}

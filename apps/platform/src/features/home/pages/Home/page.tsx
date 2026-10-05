@@ -1,9 +1,9 @@
+import { Chip } from '@b2b-system/ui/Chip';
+import { useHasSession } from '@b2b-system/web-core/auth';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
-import { Chip } from '@/components/Chip';
-import { useHasSession } from '@/core/auth';
-import { useTranslation } from '@/core/locales';
 
 import { HOME_ROLE_LABEL_KEY } from '../../constants';
 import { useHomePermission } from '../../hooks/useHomePermission';

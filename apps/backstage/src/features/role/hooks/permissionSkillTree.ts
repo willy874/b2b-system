@@ -1,4 +1,5 @@
-import type { TreeEditorNodeState } from '@/components/TreeEditor';
+import type { TreeEditorNodeState } from '@b2b-system/ui/TreeEditor';
+
 import { permissionClosure } from '@/core/permission-graph';
 import type { PermissionCatalogGraph } from '@/core/permission-graph';
 

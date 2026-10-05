@@ -1,24 +1,25 @@
-import { Link } from '@tanstack/react-router';
-import { useMemo } from 'react';
-
-import type { UserSortField } from '@/apis/user/types';
-import { IconButton } from '@/components/Button';
-import { Chip } from '@/components/Chip';
-import { useConfirm } from '@/components/ConfirmDialog';
-import { Icon } from '@/components/Icon';
-import type { TableColumnDef } from '@/components/Table';
-import { Tooltip } from '@/components/Tooltip';
-import { RichTable, TagChips } from '@/core/components';
+import { IconButton } from '@b2b-system/ui/Button';
+import { Chip } from '@b2b-system/ui/Chip';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
+import { Icon } from '@b2b-system/ui/Icon';
+import type { TableColumnDef } from '@b2b-system/ui/Table';
+import { Tooltip } from '@b2b-system/ui/Tooltip';
+import { RichTable } from '@b2b-system/web-core/components';
 import type {
   FilterBarProps,
   RichTableBatch,
   RichTablePagination,
   TableSearchProps,
   TableSettingsConfig,
-} from '@/core/components';
-import { useTranslation } from '@/core/locales';
-import type { SortEntry } from '@/shared/constants';
-import { formatDateTime } from '@/shared/date';
+} from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import type { SortEntry } from '@b2b-system/web-shared/constants';
+import { formatDateTime } from '@b2b-system/web-shared/date';
+import { Link } from '@tanstack/react-router';
+import { useMemo } from 'react';
+
+import type { UserSortField } from '@/apis/user/types';
+import { TagChips } from '@/core/components';
 
 import { USER_STATUS_LABEL_KEY, USER_STATUS_TONE } from '../../../constants';
 import {

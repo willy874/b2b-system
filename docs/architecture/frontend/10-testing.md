@@ -17,32 +17,27 @@
 ## 2. 設定
 
 ```
-apps/backstage/src/test/
-├── setup.ts              全域 setup（MSW server、jest-dom、清理）
-├── render.tsx            AllProviders ＋ renderWithPermissions
-├── fixtures/             固定的測試資料
-└── helpers/              常用斷言與操作
+apps/<app>/src/test/
+├── setup.ts              全域 setup（jest-dom、cleanup、等待逾時）
+└── i18n.ts               initTestI18n：web-core 的共用字串＋這個 app 的 app/locales/zh_TW.json＋傳入的 feature 語系包
+
+packages/web-core/src/testing/       @b2b-system/web-core/testing（兩個 app 與 package 自己的測試共用）
+├── renderWithPermissions.tsx        AllProviders、renderWithPermissions、renderUnhydrated、createTestQueryClient
+├── renderRoute.tsx                  以真的 router 渲染一段 route（含 loader 與權限守衛）
+├── fakeBatchQueue.ts                同行程的批次佇列（不起 worker）
+└── i18n.ts                          initTestI18n（只載 web-core 的語系檔；app 的 test/i18n.ts 包它）
 ```
 
 ```ts
-// test/setup.ts
-import "@testing-library/jest-dom/vitest";
-import { server } from "@/mocks/server";
-import { queryClient } from "@/core/cache";
-import { usePermissionStore } from "@/core/store/permission";
-import { resetPagePermissionRegistry } from "@/core/permission/registry";
-
-beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
-afterEach(() => {
-  server.resetHandlers();
-  queryClient.clear();
-  usePermissionStore.getState().clear();
-  resetPagePermissionRegistry();
-});
-afterAll(() => server.close());
+// 測試裡
+import { renderWithPermissions } from "@b2b-system/web-core/testing";
+import { initTestI18n } from "@/test/i18n";
+import { PermissionKey } from "@/core/permission";
 ```
 
-`onUnhandledFrame: 'error'`（MSW 2 叫 `onUnhandledRequest`）是刻意的：漏寫 handler 的請求會讓測試失敗，
+web-core 有自己的 `vitest.setup.ts`，內容與 app 的 `setup.ts` 相同。
+
+用 MSW 的測試以 `server.listen({ onUnhandledFrame: 'error' })` 啟動（MSW 2 叫 `onUnhandledRequest`），這是刻意的：漏寫 handler 的請求會讓測試失敗，
 而不是靜默回 404 然後在斷言時才莫名其妙。
 
 `@testing-library/jest-dom` 7 把 `vitest` 列為 peer，pnpm 在整個 workspace 只裝一份 jest-dom，
@@ -56,19 +51,19 @@ afterAll(() => server.close());
 ### 2.1 `renderWithPermissions`
 
 ```tsx
-// test/render.tsx
+// packages/web-core/src/testing/renderWithPermissions.tsx
 export function renderWithPermissions(
   ui: ReactElement,
-  permissions: PermissionKey[] = [],
-  options?: { hydrated?: boolean; route?: string },
-) {
-  usePermissionStore.setState({
-    permissions: new Set(permissions),
-    hydrated: options?.hydrated ?? true,
-  });
-  return render(ui, { wrapper: (p) => <AllProviders route={options?.route} {...p} /> });
+  permissions: PermissionKey[] = [], // app 裡收斂成該 app 的權限鍵（module augmentation）
+  options?: RenderOptions,
+): RenderResult {
+  usePermissionStore.setState({ permissions: new Set(permissions), hydrated: true });
+  return render(ui, { wrapper: AllProviders, ...options });
 }
+// 權限未水合的第三態用 renderUnhydrated(ui)
 ```
+
+`AllProviders` 掛好 AppContext（含 eventBus）、`QueryClient`、`ToastHost`、`ConfirmDialogHost`。
 
 ---
 
@@ -134,7 +129,7 @@ describe("RoleListToolbar", () => {
   });
 
   it("權限未水合 → 不閃現任何操作按鈕", () => {
-    renderWithPermissions(<RoleListToolbar />, [], { hydrated: false });
+    renderUnhydrated(<RoleListToolbar />);
     expect(screen.queryByRole("button", { name: "建立角色" })).not.toBeInTheDocument();
   });
 });
@@ -345,14 +340,14 @@ pnpm --filter @b2b-system/e2e tour
 
 | 範圍                            | 目標                              |
 | ------------------------------- | --------------------------------- |
-| `core/permission/**`            | **100%** — 這是安全相關的核心邏輯 |
-| `core/auth/**`                  | **≥ 95%**                         |
+| `packages/web-core/src/permission/**`、各 app 的 `core/permission/**` | **100%** — 這是安全相關的核心邏輯 |
+| `packages/web-core/src/auth/**` | **≥ 95%**                         |
 | `features/*/hooks/**`           | ≥ 85%                             |
 | `features/*/pages/*/adapter.ts` | ≥ 90%                             |
-| `components/**`                 | ≥ 70%                             |
+| `packages/ui/src/components/**` | ≥ 70%                             |
 | 整體                            | ≥ 75%                             |
 
-覆蓋率不是目的，但 `core/permission` 與 `core/auth` 的 100% / 95% 是硬門檻：
+覆蓋率不是目的，但 `permission` 與 `auth` 的 100% / 95% 是硬門檻：
 這兩個模組出錯的後果是安全事件。
 
 ---

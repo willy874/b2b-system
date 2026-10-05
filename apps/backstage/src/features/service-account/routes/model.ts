@@ -1,7 +1,7 @@
+import { sortSearchSchema } from '@b2b-system/web-shared/constants';
 import { z } from 'zod';
 
 import type { ServiceAccountSortField } from '@/apis/service-account/types';
-import { sortSearchSchema } from '@/shared/constants';
 
 /** 列表可排序的欄位（後端白名單）。 */
 export const SERVICE_ACCOUNT_SORT_FIELDS = [

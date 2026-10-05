@@ -1,11 +1,11 @@
+import { AlertDialog } from '@b2b-system/ui/AlertDialog';
+import { ButtonLink } from '@b2b-system/ui/Button';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
 import { getWebhookListQueryOptions } from '@/apis/webhook/get-webhook-list/query';
-import { AlertDialog } from '@/components/AlertDialog';
-import { ButtonLink } from '@/components/Button';
-import { useTranslation } from '@/core/locales';
 
 import { useWebhookDeleteMutation } from '../../hooks/useWebhookMutations';
 import { useWebhookPermission } from '../../hooks/useWebhookPermission';

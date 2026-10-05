@@ -1,10 +1,11 @@
+import type { IconName } from '@b2b-system/ui/Icon';
+
 import type {
   FileCategory,
   FileGrantLevel,
   FileGrantSubjectType,
   FileSortField,
 } from '@/apis/file/types';
-import type { IconName } from '@/components/Icon';
 import type { FileKind } from '@/core/file';
 import type { FileFolder } from '@/shared/api-sdk';
 

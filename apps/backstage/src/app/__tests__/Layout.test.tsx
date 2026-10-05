@@ -1,3 +1,7 @@
+import type * as Auth from '@b2b-system/web-core/auth';
+import { AppError } from '@b2b-system/web-core/errors';
+import { usePermissionStore } from '@b2b-system/web-core/store';
+import { AllProviders } from '@b2b-system/web-core/testing';
 import {
   createMemoryHistory,
   createRootRoute,
@@ -8,8 +12,6 @@ import {
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type * as Auth from '@/core/auth';
-import { AppError } from '@/core/errors';
 import { featureStore, resetFeatureStore } from '@/core/feature';
 import type { FeatureStatus } from '@/core/feature';
 import {
@@ -19,15 +21,13 @@ import {
   registerPagePermission,
   resetPagePermissionRegistry,
 } from '@/core/permission';
-import { usePermissionStore } from '@/core/store';
 import { initTestI18n } from '@/test/i18n';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { Layout } from '../Layout';
 
 const { fetchProfile } = vi.hoisted(() => ({ fetchProfile: vi.fn() }));
 vi.mock('@/apis/auth/get-profile/fetcher', () => ({ fetchProfileQuery: fetchProfile }));
-vi.mock('@/core/auth', async (importOriginal) => ({
+vi.mock('@b2b-system/web-core/auth', async (importOriginal) => ({
   ...(await importOriginal<typeof Auth>()),
   useHasSession: () => true,
 }));

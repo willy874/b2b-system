@@ -1,7 +1,7 @@
-import { Chip } from '@/components/Chip';
-import { Pagination } from '@/components/Pagination';
-import { useTranslation } from '@/core/locales';
-import { cn } from '@/shared/utils';
+import { Chip } from '@b2b-system/ui/Chip';
+import { Pagination } from '@b2b-system/ui/Pagination';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { cn } from '@b2b-system/web-shared/utils';
 
 import type { RoleRevisionRowVM } from '../adapter';
 

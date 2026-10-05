@@ -1,5 +1,5 @@
-import { AlertDialog } from '@/components/AlertDialog';
-import { useTranslation } from '@/core/locales';
+import { AlertDialog } from '@b2b-system/ui/AlertDialog';
+import { useTranslation } from '@b2b-system/web-core/locales';
 
 import type { BrowserItemVM } from '../adapter';
 

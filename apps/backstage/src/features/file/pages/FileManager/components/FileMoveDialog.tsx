@@ -1,11 +1,10 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Collapsible } from '@b2b-system/ui/Collapsible';
+import { Dialog } from '@b2b-system/ui/Dialog';
+import { Select } from '@b2b-system/ui/Select';
+import type { SelectOption } from '@b2b-system/ui/Select';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useState } from 'react';
-
-import { Button } from '@/components/Button';
-import { Collapsible } from '@/components/Collapsible';
-import { Dialog } from '@/components/Dialog';
-import { Select } from '@/components/Select';
-import type { SelectOption } from '@/components/Select';
-import { useTranslation } from '@/core/locales';
 
 import { canMoveFoldersTo, childFolders, folderPath, ROOT_FOLDER } from '../folderTree';
 import type { FolderIndex } from '../folderTree';

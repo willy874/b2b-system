@@ -1,21 +1,21 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Chip } from '@b2b-system/ui/Chip';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
+import { Dialog } from '@b2b-system/ui/Dialog';
+import { TextEllipsis } from '@b2b-system/ui/Ellipsis';
+import { Field } from '@b2b-system/ui/Field';
+import { Input } from '@b2b-system/ui/Input';
+import { isVersionConflict, useErrorMessage, useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
+import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { getWebhookDetailQueryOptions } from '@/apis/webhook/get-webhook-detail/query';
 import { getWebhookEventsQueryOptions } from '@/apis/webhook/get-webhook-events/query';
-import { Button } from '@/components/Button';
-import { Chip } from '@/components/Chip';
-import { useConfirm } from '@/components/ConfirmDialog';
-import { Dialog } from '@/components/Dialog';
-import { TextEllipsis } from '@/components/Ellipsis';
-import { Field } from '@/components/Field';
-import { Input } from '@/components/Input';
 import { VersionConflictAlert } from '@/core/components';
-import { isVersionConflict, useErrorMessage, useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { useUnsavedChangesGuard } from '@/core/router';
 import type { Webhook } from '@/shared/api-sdk';
-import { formatDateTime } from '@/shared/date';
 
 import { WebhookEventSelect } from '../../../components/WebhookEventSelect';
 import { WebhookSecretNotice } from '../../../components/WebhookSecretNotice';

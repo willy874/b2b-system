@@ -1,6 +1,5 @@
+import { sessionStore } from '@b2b-system/web-core/auth';
 import { notFound } from '@tanstack/react-router';
-
-import { sessionStore } from '@/core/auth';
 
 import { featureStore } from './store';
 import type { FeatureStatus } from './store';

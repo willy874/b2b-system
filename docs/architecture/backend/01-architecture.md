@@ -54,7 +54,7 @@ apps/api/src/
 │   │   ├── permission-cache.service.ts   ★ 權限集合快取
 │   │   └── user-cache.service.ts         使用者基本資料快取（給 JwtAuthGuard）
 │   ├── errors/
-│   │   ├── error-code.ts                 ErrorCode enum ＋ → HTTP status 對照
+│   │   ├── error-code.ts                 轉出 @b2b-system/error-codes（ErrorCode ＋ → HTTP status 對照）
 │   │   ├── app.exception.ts
 │   │   └── http-exception.filter.ts
 │   ├── http/

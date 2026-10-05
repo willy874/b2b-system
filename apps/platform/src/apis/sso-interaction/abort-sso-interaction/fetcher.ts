@@ -1,5 +1,6 @@
-import { defineBaseFetcher } from '@/core/client';
-import type { HttpRequestDTO } from '@/core/client';
+import { defineBaseFetcher } from '@b2b-system/web-core/client';
+import type { HttpRequestDTO } from '@b2b-system/web-core/client';
+
 import { getSsoInteractionControllerAbortUrl } from '@/shared/api-sdk';
 import type { SsoRedirect } from '@/shared/api-sdk';
 

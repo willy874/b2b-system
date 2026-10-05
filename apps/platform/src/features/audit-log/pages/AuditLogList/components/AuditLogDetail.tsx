@@ -1,4 +1,4 @@
-import { useTranslation } from '@/core/locales';
+import { useTranslation } from '@b2b-system/web-core/locales';
 
 import type { AuditLogRowVM } from '../adapter';
 

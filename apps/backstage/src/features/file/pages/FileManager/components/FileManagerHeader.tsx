@@ -1,4 +1,4 @@
-import { useTranslation } from '@/core/locales';
+import { useTranslation } from '@b2b-system/web-core/locales';
 
 /** 頁首：標題、說明、目前資料夾的檔案總數。 */
 export function FileManagerHeader({ total }: { total: number }) {

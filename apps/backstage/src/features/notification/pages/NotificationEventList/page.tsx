@@ -1,11 +1,11 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Skeleton } from '@b2b-system/ui/Skeleton';
+import { useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { getNotificationEventListQueryOptions } from '@/apis/notification/get-notification-event-list/query';
-import { Button } from '@/components/Button';
-import { Skeleton } from '@/components/Skeleton';
-import { useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 
 import { useNotificationEventDraft } from '../../hooks/useNotificationEventDraft';
 import { useNotificationEventPermission } from '../../hooks/useNotificationEventPermission';

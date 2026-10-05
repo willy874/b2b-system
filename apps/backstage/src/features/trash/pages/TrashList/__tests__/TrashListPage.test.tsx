@@ -1,3 +1,4 @@
+import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -6,7 +7,6 @@ import { resetPagePermissionRegistry } from '@/core/permission';
 import { registerTrashType, resetTrashRegistry } from '@/core/trash';
 import type { TrashRestoreActionProps } from '@/core/trash';
 import { initTestI18n } from '@/test/i18n';
-import { renderRoute } from '@/test/renderRoute';
 
 import { registerTrashPagePermissions, Routes } from '../../..';
 import trashZhTW from '../../../locales/zh_TW.json';

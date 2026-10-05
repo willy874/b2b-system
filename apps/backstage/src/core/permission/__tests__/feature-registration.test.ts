@@ -19,7 +19,7 @@ import { registerRolePagePermissions, ROLE_CREATE_PAGE, ROLE_PAGE } from '@/feat
 import { registerTrashPagePermissions, TRASH_PAGE } from '@/features/trash';
 import { registerUserPagePermissions, USER_CREATE_PAGE, USER_PAGE } from '@/features/user';
 
-import { getRegisteredPageKeys, resetPagePermissionRegistry, resolvePageKey } from '../registry';
+import { getRegisteredPageKeys, resetPagePermissionRegistry, resolvePageKey } from '..';
 
 /** 取代靜態表原本提供的編譯期完整性（docs/architecture/frontend/02-plugin-system.md §8 的代價緩解）。 */
 describe('註冊表完整性', () => {

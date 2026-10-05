@@ -1,9 +1,9 @@
+import { renderUnhydrated, renderWithPermissions } from '@b2b-system/web-core/testing';
 import { screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PermissionKey, resetPagePermissionRegistry } from '@/core/permission';
 import type { Role } from '@/shared/api-sdk';
-import { renderUnhydrated, renderWithPermissions } from '@/test/renderWithPermissions';
 
 import { registerApprovalPagePermissions } from '../../../permission';
 import type { ApprovalDetailVM } from '../adapter';

@@ -1,4 +1,4 @@
-import { useStore } from '@/shared/hooks';
+import { useStore } from '@b2b-system/web-shared/hooks';
 
 import { featureStore, findFeatureByPath } from './store';
 

@@ -1,7 +1,7 @@
-import { Button } from '@/components/Button';
-import { useErrorMessage } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { cn } from '@/shared/utils';
+import { Button } from '@b2b-system/ui/Button';
+import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { cn } from '@b2b-system/web-shared/utils';
 
 export interface VersionConflictAlertProps {
   /** 樂觀鎖衝突的錯誤（`isVersionConflict(error)`）；訊息取自 `error.<CODE>`。 */

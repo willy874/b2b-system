@@ -1,4 +1,5 @@
-import type { ResolvedRouteLink, RouteLinkRef } from '@/core/route-link';
+import type { ResolvedRouteLink, RouteLinkRef } from '@b2b-system/web-core/route-link';
+
 import type { Notification } from '@/shared/api-sdk';
 
 import {

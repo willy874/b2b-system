@@ -8,7 +8,7 @@
 - **獨立的 origin**（dev `localhost:5175`、prod 例：`auth.example.com`）。**不使用跨域 cookie**：每個 cookie 都是 host-only，
   服務之間只以頂層跳轉（OIDC 授權碼、end-session）溝通；不用 iframe、靜默續期或 `postMessage`（D6）。
 - 架構比照 `apps/backstage`（[`docs/architecture/frontend/`](../../docs/architecture/frontend/README.md)）：
-  `main.tsx` 的 plugin chain → `app/` → `features/` → `apis/` → `core/` → `components/` → `shared/`，層級依賴規則相同
+  `main.tsx` 的 plugin chain → `app/` → `features/` → `apis/` → `core/`（權限目錄的門面）→ `@b2b-system/web-core` → `@b2b-system/ui` → `@b2b-system/web-shared`，層級依賴規則相同
   （[`docs/conventions/07-layer-dependencies.md`](../../docs/conventions/07-layer-dependencies.md) §2）。
 
 ```bash
@@ -33,42 +33,40 @@ pnpm --filter @b2b-system/platform build
 | `app/` | 自己寫的 App Shell：`App.tsx`（沒有 session 時導向 `/login`；登出後停在「已登出」頁，帶上結束原因與原本的網址，見 `sessionRedirect.ts`）、`Layout.tsx`（頁面權限守衛；登入相關頁面不套外框）、`ErrorPages.tsx`（403／404、router 的預設錯誤頁與載入中；部署後舊 chunk 載入失敗提示重新整理）、`layouts/`（與 backstage 相同結構的 `DashboardLayout`：分組側欄 `SidebarNav`、頂列工具 `headerTools.ts`） |
 
 有即時推播（平台管理者的連線，[`backend/08-realtime.md`](../../docs/architecture/backend/08-realtime.md) §3.6）。
-沒有批次佇列的畫面、執行期啟用的 feature、MSW mock 與 Storybook；需要時再從 backstage 帶過來。
+沒有批次佇列的畫面、執行期啟用的 feature 與 MSW mock；需要時再從 backstage 帶過來（Storybook 在 `packages/ui`）。
 
-## 從 apps/backstage 複製的程式碼（D14）
+## 與 backstage 共用的 packages
 
-這一版 **複製**、不抽 package。下列模組整個資料夾（含測試）複製自 `apps/backstage/src` 的同一路徑：
+兩個前端 import 同一份 workspace package，不再複製程式碼（[`architecture/04-sso.md`](../../docs/architecture/04-sso.md) §12.2 D14 的兩次更新）：
 
-| 位置 | 模組 |
+| package | 內容 |
 | --- | --- |
-| `core/` | `app`、`auth`、`batch`、`cache`、`client`、`errors`、`locales`、`notify`、`permission`、`preference`、`realtime`、`route-link`、`router`、`store`、`theme`、`toolbar`；`components/` 的 `PageSkeleton`、`PermissionGate`、`QueryError`、`RichTable` |
-| `components/` | `AlertDialog`、`Avatar`、`Breadcrumbs`、`Button`、`Checkbox`、`Chip`、`ConfirmDialog`、`DatePicker`、`Dialog`、`Ellipsis`、`Empty`、`Field`、`Icon`、`Input`、`Link`、`Menu`、`Pagination`、`Popover`、`Progress`、`Select`、`Separator`、`Skeleton`、`Spinner`、`Switch`、`Table`、`Tabs`、`Toast`、`Toolbar`、`Tooltip`、`VirtualList`，以及 `labels.ts`、`slots.ts`、`useControllableState.ts`、`useLatestRef.ts`、`types.ts` |
-| `shared/` | `EventEmitter`、`api-sdk`、`channel`、`constants`、`context`、`date`、`hooks`、`registry`、`storage`、`store`、`utils`、`websocket-sdk` |
-| `plugins/` | `fetcher/`；`app/` 的 `cache`、`event-bus`、`http-context`、`i18n`、`realtime`、`theme` |
-| `apis/auth/` | `get-profile`、`login`、`logout`、`refresh`（apps/platform 改打 `/platform/auth/*`：平台管理者的 session） |
-| 其他 | `themes/`、`assets/icons/`、`index.css`、`public/theme-init.js`、`test/`（setup 與假物件）、`app/GlobalProvider.tsx`、`ToastHost.tsx`、`ConfirmDialogHost.tsx`、`plugin.ts`、`layouts/`（`DashboardLayout.css` 的前綴改成 `ga-shell`；`DashboardLayout.tsx`、`SidebarNav.tsx`、`headerTools.ts` 的選單與品牌是 apps/platform 自己的）、`app/locales/*.json` 的共用鍵 |
-| `features/account` | 與 backstage 同結構；個人資料打 `PATCH /platform/auth/profile`、`POST /platform/auth/change-password`，偏好不同步到帳號、沒有 API token 與權限來源 |
-| `features/notification` | 鈴鐺、項目與列表頁的結構同 backstage；打 `/platform/notifications`，offset 分頁、不用虛擬捲動 |
-| `features/login` | `hooks/`（`useLogoutMutation`、`useSyncPermissions`、`useSsoCallbackMutation`）、`pages/AuthShell.tsx`、`pages/Login/page.tsx` 與 `pages/SsoCallback/page.tsx`（與 backstage `features/auth` 的同名頁面相同流程，改過文案鍵與路由）、`sso.ts`（client id 不同） |
-| 帳號流程（搬移，backstage 已刪除） | `features/login/pages/{ForgotPassword,ResetPassword,Setup,Register}`、`apis/auth/{forgot-password,reset-password,setup,register}`；只存在 apps/platform，不需要同步（`apis/auth/tenant.ts` 的 `X-Tenant`、`apis/tenant/lookup-tenant` 也是）。`apis/resources.ts` 是 apps/platform 自己的精簡版 |
-| SSO 的瀏覽器端 | `core/auth/sso.ts`（PKCE、授權網址、verifier）、`apis/auth/sso-callback/`、`shared/constants/env.ts` 的 `OIDC_ISSUER` |
+| `@b2b-system/web-core` | 機制層：AppContext、session、HTTP client 與攔截器（`plugins/fetcher`）、基礎設施 plugin（`plugins/app`）、快取、權限機制、i18n 與共用字串、推播、批次佇列、路由、全域 store、外框（`shell`、`layout`）、`RichTable` 等元件、測試輔助（[README](../../packages/web-core/README.md)） |
+| `@b2b-system/ui` | 設計系統元件、Design Token、圖示 |
+| `@b2b-system/web-shared` | 純工具：store、channel、context、registry、storage、date |
+| `@b2b-system/error-codes` | 錯誤碼清單；前端的翻譯與 `ERROR_MESSAGE_KEY` 在 web-core |
 
-`core/feature`（執行期啟用 feature，[`frontend/02-plugin-system.md`](../../docs/architecture/frontend/02-plugin-system.md) §9）只在 backstage；這裡只複製它依賴的機制（`shared/context` 的 `install` / `uninstall`、`shared/registry`、可訂閱的權限註冊表），apps/platform 沒有可啟用的 feature。
+`src/index.css` 只 `@import '@b2b-system/ui/styles.css'`；`uno.config.ts` 轉出 `@b2b-system/ui/uno.config`。
+package 的原始碼由這個 app 的 Vite 編譯，CSS Module 的 class 前綴是 `ga-`（backstage 是 `ge-`），DevTools 裡分得出是哪個 app。
 
-`core/batch` 只是被 `RichTable` 的批次列依賴而一起帶進來的：平台的列表沒有批次操作。
+## 刻意各自一份的部分
 
-與 backstage 不同的地方：
+| 位置 | 說明 |
+| --- | --- |
+| `core/permission/` | `enums.ts`、`resources.ts` 是 **平台** 的權限目錄（api-sdk 的 `PlatformPermissionKey`，[`docs/rbac/02-permission-catalog.md`](../../docs/rbac/02-permission-catalog.md) §8），`index.ts` 以 module augmentation 登記給 web-core；機制在 `@b2b-system/web-core/permission`。權限由 `GET /platform/auth/profile` 的 `permissions` 水合 |
+| `apis/auth/` | 與 backstage 同結構，端點不同：打 `/platform/auth/*`（平台管理者的 session）。帳號流程（`forgot-password`、`reset-password`、`setup`、`register`）與 `tenant.ts` 的 `X-Tenant` 只在這裡 |
+| `app/` | `App.tsx`、`Layout.tsx`、`ErrorPages.tsx`、`plugin.ts`、`sessionRedirect.ts`、`layouts/`（`DashboardLayout`、`SidebarNav`、`headerTools.ts` 的選單與品牌；`LanguageMenu.tsx` 只把切換交給 web-core 的 `LanguageMenu`，不同步到帳號）、`app/locales/*.json`（只有 app 專屬的區段與少數覆寫） |
+| `plugins/app/` | 門面：轉出 web-core 的 plugin，`i18n.ts` 傳入自己的語系包 |
+| `features/` | `account`（打 `/platform/auth/*`，偏好不同步到帳號、沒有 API token 與權限來源）、`notification`（打 `/platform/notifications`，offset 分頁、不用虛擬捲動）、`login`（`sso.ts` 的 client id 與 backstage 不同）等，都是這個 app 的功能 |
+| `shared/` | `api-sdk`、`websocket-sdk` 的收斂點；`constants/env.ts`（含 `OIDC_ISSUER`） |
+| `public/theme-init.js` | Vite 的 public 目錄，兩邊各一份（測試在 `app/__tests__/theme-init.test.ts`） |
+| `test/` | `setup.ts`；`i18n.ts` 包 web-core 的 `initTestI18n`，加上自己的 `app/locales/zh_TW.json` |
 
-- `components/__tests__/design-system.test.ts` 拿掉「每個元件都有 story」：Storybook 只在 backstage。
-- `components/__tests__/ref-forwarding.test.tsx`、`slots.test.tsx` 只留有複製的元件；`core/permission/__tests__/feature-registration.test.ts` 改成 apps/platform 的 feature 清單。
-- CSS Module 的 class 前綴是 `ga-`（backstage 是 `ge-`），DevTools 裡分得出是哪個 app。
-- `core/components/index.ts` 只匯出複製過來的四個；`PermissionGate.test.tsx` 改用平台的權限鍵。
-- `core/permission` 的 `enums.ts` 與 `constants.ts` 的 `PermissionResource` 是 **平台** 的權限目錄（api-sdk 的 `PlatformPermissionKey`，[`docs/rbac/02-permission-catalog.md`](../../docs/rbac/02-permission-catalog.md) §8）；
-  其餘（hooks、registry、`evaluateAccess`）與 backstage 相同，同步時只比對這兩處以外的程式。權限由 `GET /platform/auth/profile` 的 `permissions` 水合。
+`core/feature`（執行期啟用 feature）、`core/file`、`core/trash` 等只在 backstage：apps/platform 沒有可啟用的 feature、檔案與回收桶。
+web-core 的批次佇列在這裡沒有接上（沒有 `batchQueuePlugin`），平台的列表沒有批次操作。
 
 ### 同步規則
 
-- 在任一邊修改上表的檔案時，**同一批** 檢查另一邊要不要一起改；安全相關（`core/auth`（含 `sso.ts`）、`core/client`、`plugins/fetcher`）與 `app/App.tsx` 的 `SessionWatcher`（登出後不自動跳回 IdP，[`architecture/04-sso.md`](../../docs/architecture/04-sso.md) §12.2 D5）一律一起改。
-- **新增錯誤碼**：除了 backstage 的 `ERROR_MESSAGE_KEY` 與語系檔，這裡的 `core/errors/errorMessageKey.ts`、`app/locales/*.json` 也要加。
-  兩邊的 `app/__tests__/locales.test.ts` 都直接讀後端的 `ALL_ERROR_CODES`，漏了任一邊都會失敗。
-- 出現第三個前端時，評估把上表抽成 `packages/`（[`architecture/04-sso.md`](../../docs/architecture/04-sso.md) §12.2 D14）。
+- 修 web-core 就是兩邊一起修；改完兩個 app 都要跑測試與 build。
+- 安全相關的 app 程式仍要兩邊一起看：`app/App.tsx` 的 `SessionWatcher`（登出後不自動跳回 IdP，[`architecture/04-sso.md`](../../docs/architecture/04-sso.md) §12.2 D5）、`app/sessionRedirect.ts`、`apis/auth/*`（結構相同、端點不同）。
+- 新增錯誤碼只動 `@b2b-system/error-codes` 與 web-core（[`packages/error-codes/README.md`](../../packages/error-codes/README.md)），這個 app 不必改。

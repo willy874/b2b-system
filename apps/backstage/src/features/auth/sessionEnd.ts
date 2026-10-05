@@ -1,4 +1,4 @@
-import { getErrorMessageKey } from '@/core/errors';
+import { getErrorMessageKey } from '@b2b-system/web-core/errors';
 
 /** 使用者自己按登出（`useLogoutMutation`）：網址上不帶原因。 */
 export const LOGOUT_REASON = 'logout';

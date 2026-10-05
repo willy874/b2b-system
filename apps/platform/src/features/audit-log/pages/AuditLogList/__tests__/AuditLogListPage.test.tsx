@@ -1,12 +1,12 @@
+import { renderRoute } from '@b2b-system/web-core/testing';
+import { zonedDayBoundary } from '@b2b-system/web-shared/date';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PlatformAuditLogListParams } from '@/apis/platform-audit-log/types';
 import { resetPagePermissionRegistry } from '@/core/permission';
-import { zonedDayBoundary } from '@/shared/date';
 import { initTestI18n } from '@/test/i18n';
-import { renderRoute } from '@/test/renderRoute';
 
 import { registerAuditLogPagePermissions, Routes } from '../../..';
 import auditLogZhTW from '../../../locales/zh_TW.json';

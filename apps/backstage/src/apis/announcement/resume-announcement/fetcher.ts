@@ -1,5 +1,6 @@
-import { defineAuthFetcher, jsonBody } from '@/core/client';
-import type { HttpRequestDTO } from '@/core/client';
+import { defineAuthFetcher, jsonBody } from '@b2b-system/web-core/client';
+import type { HttpRequestDTO } from '@b2b-system/web-core/client';
+
 import { getAnnouncementControllerResumeUrl } from '@/shared/api-sdk';
 import type { Announcement, AnnouncementActionRequest } from '@/shared/api-sdk';
 

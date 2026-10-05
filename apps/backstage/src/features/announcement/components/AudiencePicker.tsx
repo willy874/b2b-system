@@ -1,3 +1,7 @@
+import { Field } from '@b2b-system/ui/Field';
+import { Select } from '@b2b-system/ui/Select';
+import { Switch } from '@b2b-system/ui/Switch';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
@@ -6,10 +10,6 @@ import { getGroupOptionsQueryOptions } from '@/apis/group/get-group-list/query';
 import { getRoleOptionsQueryOptions } from '@/apis/role/get-role-list/query';
 import { getUserDetailQueryOptions } from '@/apis/user/get-user-detail/query';
 import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
-import { Field } from '@/components/Field';
-import { Select } from '@/components/Select';
-import { Switch } from '@/components/Switch';
-import { useTranslation } from '@/core/locales';
 import type { AnnouncementAudience } from '@/shared/api-sdk';
 
 /** 使用者搜尋的輸入停頓多久才查詢（與群組成員的搜尋相同）。 */

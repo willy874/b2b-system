@@ -1,6 +1,6 @@
-import { Button } from '@/components/Button';
-import { Empty } from '@/components/Empty';
-import { useTranslation } from '@/core/locales';
+import { Button } from '@b2b-system/ui/Button';
+import { Empty } from '@b2b-system/ui/Empty';
+import { useTranslation } from '@b2b-system/web-core/locales';
 
 interface FileEmptyStateProps {
   hasFilters: boolean;

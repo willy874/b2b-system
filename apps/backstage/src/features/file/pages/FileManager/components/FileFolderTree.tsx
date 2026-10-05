@@ -1,8 +1,7 @@
+import { Icon } from '@b2b-system/ui/Icon';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { cn } from '@b2b-system/web-shared/utils';
 import { useMemo, useState } from 'react';
-
-import { Icon } from '@/components/Icon';
-import { useTranslation } from '@/core/locales';
-import { cn } from '@/shared/utils';
 
 import { FILE_FOLDER_KIND_ICON } from '../../../constants';
 import { childFolders, folderPath } from '../folderTree';

@@ -1,11 +1,11 @@
+import { AppError } from '@b2b-system/web-core/errors';
+import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AppError } from '@/core/errors';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
-import { renderRoute } from '@/test/renderRoute';
 
 import { registerUserPagePermissions, Routes } from '../../..';
 import userZhTW from '../../../locales/zh_TW.json';

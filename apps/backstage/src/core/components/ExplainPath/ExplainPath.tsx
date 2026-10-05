@@ -1,8 +1,8 @@
+import { Icon } from '@b2b-system/ui/Icon';
+import type { IconName } from '@b2b-system/ui/Icon';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { Fragment } from 'react';
 
-import { Icon } from '@/components/Icon';
-import type { IconName } from '@/components/Icon';
-import { useTranslation } from '@/core/locales';
 import type { ExplainNode } from '@/shared/api-sdk';
 
 /** 節點型別 → 圖示。 */

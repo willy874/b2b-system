@@ -1,24 +1,24 @@
+import { Avatar } from '@b2b-system/ui/Avatar';
+import { Button } from '@b2b-system/ui/Button';
+import { IconButton } from '@b2b-system/ui/Button';
+import { Icon } from '@b2b-system/ui/Icon';
+import { Menu } from '@b2b-system/ui/Menu';
+import { HeaderToolbar } from '@b2b-system/web-core/layout';
+import { useMenuItems } from '@b2b-system/web-core/layout';
+import type { MenuItem } from '@b2b-system/web-core/layout';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useLayoutStore } from '@b2b-system/web-core/store';
+import { useMediaQuery } from '@b2b-system/web-shared/hooks';
+import { cn } from '@b2b-system/web-shared/utils';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
-import { Avatar } from '@/components/Avatar';
-import { Button } from '@/components/Button';
-import { IconButton } from '@/components/Button';
-import { Icon } from '@/components/Icon';
-import { Menu } from '@/components/Menu';
-import { useTranslation } from '@/core/locales';
-import { useLayoutStore } from '@/core/store';
 import { PREFERENCE_PAGE, PROFILE_PAGE } from '@/features/account';
 import { useLogoutMutation } from '@/features/login';
-import { useMediaQuery } from '@/shared/hooks';
-import { cn } from '@/shared/utils';
 
-import { HeaderToolbar } from './HeaderToolbar';
-import { useMenuItems } from './menu';
-import type { MenuItem } from './menu';
 import { SidebarNav } from './SidebarNav';
 
 import './DashboardLayout.css';

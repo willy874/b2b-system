@@ -1,10 +1,10 @@
+import { AppError, isVersionConflict } from '@b2b-system/web-core/errors';
+import { AllProviders } from '@b2b-system/web-core/testing';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { AppError, isVersionConflict } from '@/core/errors';
 import { initTestI18n } from '@/test/i18n';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { VersionConflictAlert } from './VersionConflictAlert';
 

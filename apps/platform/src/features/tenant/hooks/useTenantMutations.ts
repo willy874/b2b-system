@@ -1,3 +1,5 @@
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useToast } from '@b2b-system/web-core/notify';
 import { useMutation } from '@tanstack/react-query';
 
 import { getAddTenantDomainMutationOptions } from '@/apis/platform-tenant/add-tenant-domain/mutation';
@@ -9,8 +11,6 @@ import { getRemoveTenantDomainMutationOptions } from '@/apis/platform-tenant/rem
 import { getRetryTenantProvisioningMutationOptions } from '@/apis/platform-tenant/retry-tenant-provisioning/mutation';
 import { getUpdateTenantMutationOptions } from '@/apis/platform-tenant/update-tenant/mutation';
 import { invalidateResources, Resource } from '@/apis/resources';
-import { useTranslation } from '@/core/locales';
-import { useToast } from '@/core/notify';
 import type { PlatformTenant } from '@/shared/api-sdk';
 
 type ChangeKind = 'create' | 'update' | 'delete';

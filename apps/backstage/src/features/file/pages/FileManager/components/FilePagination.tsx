@@ -1,5 +1,5 @@
-import { Pagination } from '@/components/Pagination';
-import { useTranslation } from '@/core/locales';
+import { Pagination } from '@b2b-system/ui/Pagination';
+import { useTranslation } from '@b2b-system/web-core/locales';
 
 import { FILE_PAGE_SIZES } from '../../../constants';
 

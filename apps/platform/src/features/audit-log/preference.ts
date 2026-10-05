@@ -1,5 +1,5 @@
-import { SELECT_COLUMN_ID } from '@/components/Table';
-import { registerPreferenceTable } from '@/core/preference';
+import { SELECT_COLUMN_ID } from '@b2b-system/ui/Table';
+import { registerPreferenceTable } from '@b2b-system/web-core/preference';
 
 import { AUDIT_LOG_LOCALE_SCOPE } from './locale';
 

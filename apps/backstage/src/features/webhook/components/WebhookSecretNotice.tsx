@@ -1,5 +1,5 @@
-import { Text } from '@/components/Typography';
-import { useTranslation } from '@/core/locales';
+import { Text } from '@b2b-system/ui/Typography';
+import { useTranslation } from '@b2b-system/web-core/locales';
 
 interface WebhookSecretNoticeProps {
   secret: string;

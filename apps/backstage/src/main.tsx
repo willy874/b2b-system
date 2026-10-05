@@ -1,18 +1,19 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createAppContext } from '@b2b-system/web-core/app';
+import { sessionStore } from '@b2b-system/web-core/auth';
 
 import 'virtual:uno.css';
 import './index.css';
+
+import { MAIN_BACKEND } from '@b2b-system/web-core/client';
+import { hydratePreferences } from '@b2b-system/web-core/store';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
 
 import { fetchRefreshMutation } from '@/apis/auth/refresh/fetcher';
 import { applyResourceChanges } from '@/apis/resources';
 import { App } from '@/app/App';
 import { featureActivationPlugin } from '@/app/features';
 import { appContextPlugin } from '@/app/plugin';
-import { createAppContext } from '@/core/app';
-import { sessionStore } from '@/core/auth';
-import { MAIN_BACKEND } from '@/core/client';
-import { hydratePreferences } from '@/core/store';
 import { accountFeaturePlugin } from '@/features/account';
 import { approvalFeaturePlugin } from '@/features/approval';
 import { authFeaturePlugin } from '@/features/auth';

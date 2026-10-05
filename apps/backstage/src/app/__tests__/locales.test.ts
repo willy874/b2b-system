@@ -1,25 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { ERROR_MESSAGE_KEY } from '@/core/errors';
-
 import enUS from '../locales/en_US.json';
 import zhTW from '../locales/zh_TW.json';
 
 /**
- * 後端的 `ErrorCode` 與 `PERMISSION_SEED` 是這兩份翻譯的來源。
+ * 後端的 `PERMISSION_SEED` 是這兩份翻譯的來源。
  * 缺翻譯會靜默降級成通用訊息，所以用測試擋下（docs/architecture/frontend/08-i18n.md §3.1）。
  *
- * 錯誤碼清單直接讀後端的 `ALL_ERROR_CODES`，不手抄：後端新增錯誤碼而前端忘了翻譯時這裡就會失敗
- * 以動態 import 載入，是因為前端的 tsc 專案不收 api 的原始碼；
- * 該檔沒有任何 import，vitest 可以直接轉譯。路徑先以 `import.meta.url` 解析成絕對位置：
- * Vitest 5 的 module runner 把變數形式的相對路徑當成相對於專案根目錄，而不是這個檔案。
+ * 錯誤訊息（`error.*`）與其他共用字串在 `@b2b-system/web-core` 的語系包，由那邊的測試檢查。
  */
-const API_ERROR_CODE_MODULE = '../../../../api/src/core/errors/error-code.ts';
-const { ALL_ERROR_CODES: ERROR_CODES } = (await import(
-  /* @vite-ignore */ new URL(API_ERROR_CODE_MODULE, import.meta.url).href
-)) as {
-  ALL_ERROR_CODES: string[];
-};
 
 const PERMISSION_KEYS = [
   ['user', 'create'],
@@ -70,18 +59,6 @@ function lookup(bundle: Record<string, unknown>, path: string[]): unknown {
 
 describe('語系檔完整性', () => {
   for (const [name, bundle] of Object.entries(bundles)) {
-    it(`${name}：每個 ErrorCode 都有翻譯`, () => {
-      const missing = ERROR_CODES.filter((code) => !lookup(bundle, ['error', code]));
-      expect(missing, `缺少：${missing.join(', ')}`).toEqual([]);
-    });
-
-    it(`${name}：ERROR_MESSAGE_KEY 的每個語系鍵都有翻譯`, () => {
-      const missing = Object.values(ERROR_MESSAGE_KEY).filter(
-        (key) => !lookup(bundle, key.split('.')),
-      );
-      expect(missing, `缺少：${missing.join(', ')}`).toEqual([]);
-    });
-
     it(`${name}：每個權限都有顯示名稱`, () => {
       const missing = PERMISSION_KEYS.filter(
         ([resource, action]) => !lookup(bundle, ['permission', resource, action]),
@@ -97,10 +74,6 @@ describe('語系檔完整性', () => {
       expect(missing, `缺少：${missing.join(', ')}`).toEqual([]);
     });
   }
-
-  it('ERROR_MESSAGE_KEY 涵蓋每個 ErrorCode，且不多不少', () => {
-    expect(new Set(Object.keys(ERROR_MESSAGE_KEY))).toEqual(new Set(ERROR_CODES));
-  });
 
   it('兩個語系的鍵集合一致', () => {
     const flatten = (value: unknown, prefix = ''): string[] =>

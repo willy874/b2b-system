@@ -1,10 +1,10 @@
-import { BatchQueueIndicator } from '@/core/batch';
-import { registerHeaderTool } from '@/core/toolbar';
-import { SUPPORTED_LANGUAGES } from '@/shared/constants/lang';
+import { BatchQueueIndicator } from '@b2b-system/web-core/batch';
+import { RealtimeStatusIndicator } from '@b2b-system/web-core/layout';
+import { ThemeMenu } from '@b2b-system/web-core/layout';
+import { registerHeaderTool } from '@b2b-system/web-core/toolbar';
+import { SUPPORTED_LANGUAGES } from '@b2b-system/web-shared/constants';
 
 import { LanguageMenu } from './LanguageMenu';
-import { RealtimeStatusIndicator } from './RealtimeStatusIndicator';
-import { ThemeMenu } from './ThemeMenu';
 
 /**
  * 頂列的內建工具。之後追加的工具在這裡或 feature 的 plugin 登記，偏好頁會自動列出。

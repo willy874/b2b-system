@@ -1,7 +1,6 @@
+import type { BatchAction } from '@b2b-system/web-core/batch';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useMemo } from 'react';
-
-import type { BatchAction } from '@/core/batch';
-import { useTranslation } from '@/core/locales';
 
 import { RoleBatchOperation } from '../../batch';
 import { useRolePermission } from '../../hooks/useRolePermission';

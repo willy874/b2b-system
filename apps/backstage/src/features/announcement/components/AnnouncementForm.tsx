@@ -1,6 +1,7 @@
-import { Field } from '@/components/Field';
-import { Input, Textarea } from '@/components/Input';
-import { useTranslation } from '@/core/locales';
+import { Field } from '@b2b-system/ui/Field';
+import { Input, Textarea } from '@b2b-system/ui/Input';
+import { useTranslation } from '@b2b-system/web-core/locales';
+
 import type { AnnouncementAudience } from '@/shared/api-sdk';
 
 import { ANNOUNCEMENT_BODY_MAX, ANNOUNCEMENT_TITLE_MAX } from '../constants';

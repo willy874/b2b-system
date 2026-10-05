@@ -1,12 +1,11 @@
+import { usePermissionStore } from '@b2b-system/web-core/store';
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { usePermissionStore } from '@/core/store';
-
-import { definePageKey, PermissionMatch, PermissionResource } from '../constants';
+import { definePageKey, PermissionMatch, PermissionResource } from '..';
+import { usePageAccess, usePageAccessChecker, usePagePermission, usePermission } from '..';
+import { registerPagePermission, resetPagePermissionRegistry } from '..';
 import { PermissionKey } from '../enums';
-import { usePageAccess, usePageAccessChecker, usePagePermission, usePermission } from '../hooks';
-import { registerPagePermission, resetPagePermissionRegistry } from '../registry';
 
 const TENANT_PAGE_KEY = definePageKey('TENANT');
 const HOME_PAGE = definePageKey('HOME');

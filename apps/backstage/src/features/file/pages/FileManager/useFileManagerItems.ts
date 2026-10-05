@@ -1,7 +1,7 @@
+import type { SortEntry } from '@b2b-system/web-shared/constants';
 import { useMemo } from 'react';
 
 import type { FileCategory, FileSortField } from '@/apis/file/types';
-import type { SortEntry } from '@/shared/constants';
 
 import type { FilePagingMode } from '../../preference';
 import type { BrowserItemVM } from './adapter';

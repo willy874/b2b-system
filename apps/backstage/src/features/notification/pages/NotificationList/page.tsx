@@ -1,7 +1,7 @@
-import { Button } from '@/components/Button';
-import { Tabs } from '@/components/Tabs';
-import { useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
+import { Button } from '@b2b-system/ui/Button';
+import { Tabs } from '@b2b-system/ui/Tabs';
+import { useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 
 import { NotificationList } from '../../components/NotificationList';
 import { useMarkAllNotificationsReadMutation } from '../../hooks/useNotificationMutations';

@@ -49,7 +49,7 @@
 | 列舉值                   | `as const` 物件 ＋ 推導聯集型別；不用 TS `enum`（例外：由 OpenAPI 產生的） |
 | 型別 import（backstage / packages） | `import type`，🔒 `typescript/consistent-type-imports`         |
 | 匯出                     | 具名匯出；**只有** `pages/<Page>/page.tsx`（給 lazy 用）、Storybook 的 `*.stories.tsx`（CSF 規定）與工具設定檔用 `export default` |
-| 回傳型別                 | `core/`、`shared/`、`common/` 等跨層匯出的函式明確標註；hook 與元件可交給推導 |
+| 回傳型別                 | `core/`、`common/`、`packages/*` 等跨層匯出的函式明確標註；hook 與元件可交給推導 |
 
 ---
 
@@ -95,9 +95,9 @@ i18n key、className、`data-testid` 一律寫完整字面量，見 [`06-literal
 import { useQuery } from '@tanstack/react-query';
 // 2. workspace 套件
 import { RolesApi } from '@b2b-system/api-sdk';
-// 3. 專案內 alias（shared → core → components → apis）
-import { usePagePermission } from '@/core/permission';
-import { Button } from '@/components/Button';
+import { Button } from '@b2b-system/ui/Button';
+// 3. 專案內 alias（shared → core → apis）
+import { usePagePermission } from '@/core/permission'; // app 的門面（機制在 @b2b-system/web-core/permission）
 import { getRoleListQueryOptions } from '@/apis/role/get-role-list/query';
 // 4. 同 feature 內（相對路徑）
 import { RoleFilter } from './components/RoleFilter';
@@ -111,7 +111,7 @@ import { RoleFilter } from './components/RoleFilter';
 - 引用規格時寫出處：`（docs/architecture/backend/05-rbac.md §7）`。搬動文件時要一起改。
 - 與文件不同的實作決定，在程式碼註解說明原因，並登記到根目錄 `CLAUDE.md`
   的「與文件不同的實作決定」表。
-- 公開 API（`core/`、`shared/`、`components/`、`common/` 匯出的東西）用 `/** */`，
+- 公開 API（`core/`、`common/`、`packages/web-shared`、`packages/ui`、`packages/web-core` 匯出的東西）用 `/** */`，
   讓 IDE hover 看得到。
 - 全文 zh-TW；程式碼識別字、錯誤碼、權限鍵保持原文。
 - 不留被註解掉的程式碼；要留紀錄就交給 git。`TODO` 要附上追蹤方式（issue 或里程碑）。
@@ -125,7 +125,7 @@ import { RoleFilter } from './components/RoleFilter';
 | 後端業務錯誤       | `throw new AppException(ErrorCode.XXX)`，見 [`03-backend.md`](./03-backend.md) §3              |
 | 後端啟動 / 腳本錯誤 | `throw new Error('…')`，訊息用 zh-TW 並指出下一步（例：「請先跑 db:seed」）                  |
 | 前端 API 錯誤      | fetcher 轉成 `AppError`；畫面訊息一律經過 `useErrorMessage()`，不顯示原始 `code` 或 `message` |
-| 新增錯誤碼         | 後端 `ErrorCode` ＋ 前端 `ERROR_MESSAGE_KEY` ＋ 兩個語系檔 `error.<CODE>`（前端要分支處理時再加進 `ErrorCodes`） |
+| 新增錯誤碼         | `@b2b-system/error-codes` 的 `ErrorCode` ＋ `@b2b-system/web-core` 的 `ERROR_MESSAGE_KEY`（漏了編譯失敗）與語系檔 `error.<CODE>`（前端要分支處理時再加進 `ErrorCodes`）；兩個 app 不必改 |
 
 - 不吞例外：`catch` 裡至少要轉型、重拋或記錄其一；空的 `catch {}` 必須有註解說明為何安全。
 - 🔒 `no-console` 為 warn；正式程式碼的紀錄走後端 Pino logger，前端不留 `console.log`。

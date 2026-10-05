@@ -1,8 +1,8 @@
+import { AllProviders } from '@b2b-system/web-core/testing';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { initTestI18n } from '@/test/i18n';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import type { NotificationVM } from '../../adapter';
 import zhTW from '../../locales/zh_TW.json';

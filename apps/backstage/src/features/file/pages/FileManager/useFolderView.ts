@@ -1,9 +1,9 @@
+import type { SortEntry } from '@b2b-system/web-shared/constants';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 
 import { getFileFolderListQueryOptions } from '@/apis/file/get-file-folder-list/query';
 import type { FileCategory, FileSortField } from '@/apis/file/types';
-import type { SortEntry } from '@/shared/constants';
 
 import { toFolderItemVM } from './adapter';
 import type { FolderItemVM } from './adapter';

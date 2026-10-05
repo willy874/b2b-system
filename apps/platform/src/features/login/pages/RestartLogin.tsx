@@ -1,5 +1,5 @@
-import { ButtonLink } from '@/components/Button';
-import { useTranslation } from '@/core/locales';
+import { ButtonLink } from '@b2b-system/ui/Button';
+import { useTranslation } from '@b2b-system/web-core/locales';
 
 import { EnterTenantRoute, LoginRoute } from '../routes';
 

@@ -1,6 +1,6 @@
-import { Chip } from '@/components/Chip';
-import { useTranslation } from '@/core/locales';
-import { cn } from '@/shared/utils';
+import { Chip } from '@b2b-system/ui/Chip';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { cn } from '@b2b-system/web-shared/utils';
 
 import type { JobQueueVM } from '../adapter';
 

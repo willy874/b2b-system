@@ -1,10 +1,9 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Dialog } from '@b2b-system/ui/Dialog';
+import { Input } from '@b2b-system/ui/Input';
+import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useEffect, useRef, useState } from 'react';
-
-import { Button } from '@/components/Button';
-import { Dialog } from '@/components/Dialog';
-import { Input } from '@/components/Input';
-import { useErrorMessage } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 
 import { useFileRenameMutation } from '../../../hooks/useFileMutations';
 import type { FileItemVM } from '../adapter';

@@ -1,15 +1,15 @@
+import { sessionStore } from '@b2b-system/web-core/auth';
+import { resetLocaleRegistry } from '@b2b-system/web-core/locales';
+import { registerRouteLink, resetRouteLinkRegistry } from '@b2b-system/web-core/route-link';
+import { RootRoute } from '@b2b-system/web-core/router';
+import { renderRoute } from '@b2b-system/web-core/testing';
 import { createRoute } from '@tanstack/react-router';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { sessionStore } from '@/core/auth';
-import { resetLocaleRegistry } from '@/core/locales';
-import { registerRouteLink, resetRouteLinkRegistry } from '@/core/route-link';
-import { RootRoute } from '@/core/router';
 import type { Notification } from '@/shared/api-sdk';
 import { initTestI18n } from '@/test/i18n';
-import { renderRoute } from '@/test/renderRoute';
 
 import { Routes } from '../..';
 import zhTW from '../../locales/zh_TW.json';

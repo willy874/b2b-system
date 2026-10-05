@@ -1,8 +1,8 @@
+import { renderWithPermissions } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { FileFolder } from '@/shared/api-sdk';
-import { renderWithPermissions } from '@/test/renderWithPermissions';
 
 import { FileMoveDialog } from '../components/FileMoveDialog';
 import { buildFolderIndex } from '../folderTree';

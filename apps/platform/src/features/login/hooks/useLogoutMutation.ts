@@ -1,7 +1,7 @@
+import { sessionStore } from '@b2b-system/web-core/auth';
 import { useMutation } from '@tanstack/react-query';
 
 import { getLogoutMutationOptions } from '@/apis/auth/logout/mutation';
-import { sessionStore } from '@/core/auth';
 
 import { LOGOUT_REASON } from '../sessionEnd';
 

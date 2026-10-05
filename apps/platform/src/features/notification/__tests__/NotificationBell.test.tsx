@@ -1,11 +1,11 @@
+import { sessionStore } from '@b2b-system/web-core/auth';
+import { resetRouteLinkRegistry } from '@b2b-system/web-core/route-link';
+import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { sessionStore } from '@/core/auth';
 import { resetPagePermissionRegistry } from '@/core/permission';
-import { resetRouteLinkRegistry } from '@/core/route-link';
 import { initTestI18n } from '@/test/i18n';
-import { renderRoute } from '@/test/renderRoute';
 
 import { registerNotificationPagePermissions, Routes } from '..';
 import { NotificationBell } from '../components/NotificationBell';

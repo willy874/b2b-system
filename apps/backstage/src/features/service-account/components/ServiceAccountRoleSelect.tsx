@@ -1,8 +1,8 @@
+import { Select } from '@b2b-system/ui/Select';
+import type { SelectOption } from '@b2b-system/ui/Select';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useMemo } from 'react';
 
-import { Select } from '@/components/Select';
-import type { SelectOption } from '@/components/Select';
-import { useTranslation } from '@/core/locales';
 import type { Role } from '@/shared/api-sdk';
 
 import { MAX_SERVICE_ACCOUNT_ROLES } from '../constants';

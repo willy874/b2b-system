@@ -45,7 +45,7 @@
 
 ### 前端（backstage）
 
-- 列表頁的「匯出」「匯入」按鈕由各 feature 提供；共用的上傳、預覽（逐列錯誤表）、進度 UI 放 `core/` 或 `components/`
+- 列表頁的「匯出」「匯入」按鈕由各 feature 提供；共用的上傳、預覽（逐列錯誤表）、進度 UI 放 `core/` 或 `@b2b-system/ui`
   （feature 之間不能直接共用元件，[`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md) §2.2）。
 - 進度：transfer 的狀態變更經 realtime 推播（新增 `ChangeSource`），不輪詢。
 

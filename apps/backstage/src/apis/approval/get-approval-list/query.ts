@@ -1,7 +1,6 @@
+import type { HttpRequestDTO } from '@b2b-system/web-core/client';
+import { toSortParams } from '@b2b-system/web-shared/constants';
 import { keepPreviousData, queryOptions } from '@tanstack/react-query';
-
-import type { HttpRequestDTO } from '@/core/client';
-import { toSortParams } from '@/shared/constants';
 
 import type { ApprovalListParams } from '../types';
 import { fetchApprovalListQuery } from './fetcher';

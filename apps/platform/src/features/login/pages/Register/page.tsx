@@ -1,13 +1,12 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Field } from '@b2b-system/ui/Field';
+import { Input, Textarea } from '@b2b-system/ui/Input';
+import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { firstError, zodFormValidator } from '@b2b-system/web-shared/hooks';
 import { useForm } from '@tanstack/react-form';
 import { useMemo, useState } from 'react';
 import { z } from 'zod';
-
-import { Button } from '@/components/Button';
-import { Field } from '@/components/Field';
-import { Input, Textarea } from '@/components/Input';
-import { useErrorMessage } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { firstError, zodFormValidator } from '@/shared/hooks';
 
 import { useAccountPolicy } from '../../hooks/useAccountPolicy';
 import { useRegisterMutation } from '../../hooks/useRegisterMutation';

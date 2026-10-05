@@ -1,3 +1,6 @@
+import { createResourceGraph, queryClient } from '@b2b-system/web-core/cache';
+import type { ApplyInvalidationOptions, ResourceChange } from '@b2b-system/web-core/cache';
+
 /**
  * apps/platform 的資源依賴圖（機制見 `core/cache/resourceGraph.ts`，寫法同 apps/backstage 的 `apis/resources.ts`）。
  *
@@ -18,8 +21,6 @@ import { PLATFORM_NOTIFICATION_LIST_QUERY_KEY } from '@/apis/platform-notificati
 import { PLATFORM_NOTIFICATION_UNREAD_COUNT_QUERY_KEY } from '@/apis/platform-notification/get-notification-unread-count/query';
 import { TENANT_LIST_QUERY_KEY } from '@/apis/platform-tenant/get-tenant-list/query';
 import { TENANT_DETAIL_QUERY_KEY } from '@/apis/platform-tenant/get-tenant/query';
-import { createResourceGraph, queryClient } from '@/core/cache';
-import type { ApplyInvalidationOptions, ResourceChange } from '@/core/cache';
 import type { PlatformProfile } from '@/shared/api-sdk';
 import { ChangeSource } from '@/shared/websocket-sdk';
 import type { ResourceChangeWire } from '@/shared/websocket-sdk';

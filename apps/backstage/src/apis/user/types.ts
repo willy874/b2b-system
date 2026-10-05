@@ -1,5 +1,6 @@
+import type { SortEntry } from '@b2b-system/web-shared/constants';
+
 import type { UserStatus } from '@/shared/api-sdk';
-import type { SortEntry } from '@/shared/constants';
 
 /** 後端 `ListUserSchema` 的排序白名單。 */
 export type UserSortField = 'createdAt' | 'email' | 'displayName' | 'lastLoginAt';

@@ -1,9 +1,10 @@
+import { Empty } from '@b2b-system/ui/Empty';
+import { Spinner } from '@b2b-system/ui/Spinner';
+import { VirtualList } from '@b2b-system/ui/VirtualList';
+import { QueryError } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
+
 import type { NotificationFilter } from '@/apis/notification/types';
-import { Empty } from '@/components/Empty';
-import { Spinner } from '@/components/Spinner';
-import { VirtualList } from '@/components/VirtualList';
-import { QueryError } from '@/core/components';
-import { useTranslation } from '@/core/locales';
 
 import { useNotificationList } from '../hooks/useNotificationList';
 import { useOpenNotification } from '../hooks/useOpenNotification';

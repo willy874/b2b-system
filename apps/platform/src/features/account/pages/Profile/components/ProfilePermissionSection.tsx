@@ -1,5 +1,6 @@
-import { Chip } from '@/components/Chip';
-import { useTranslation } from '@/core/locales';
+import { Chip } from '@b2b-system/ui/Chip';
+import { useTranslation } from '@b2b-system/web-core/locales';
+
 import type { PermissionKey } from '@/core/permission';
 
 import { PLATFORM_PERMISSION_LABEL_KEY } from '../../../constants';

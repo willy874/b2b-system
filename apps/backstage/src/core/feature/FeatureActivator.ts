@@ -1,4 +1,5 @@
-import type { AppContext, AppDynamicPluginFactory } from '@/core/app';
+import type { AppContext, AppDynamicPluginFactory } from '@b2b-system/web-core/app';
+
 import { routeBasePath } from '@/core/permission';
 
 import { featureStore } from './store';

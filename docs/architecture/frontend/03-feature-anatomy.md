@@ -92,7 +92,7 @@ import {
   PermissionResource,
   registerPagePermission,
   routeBasePath,
-} from "@/core/permission";
+} from "@/core/permission"; // app 的門面：權限機制（web-core）＋ 這個 app 的權限目錄
 import { RoleListRoute } from "./routes";
 
 /** 本 feature 在全域權限註冊表中的頁面識別碼 */
@@ -117,9 +117,9 @@ router 建立前是 `undefined`，而 plugin 註冊發生在那之前）。
 
 ```ts
 import { createRoute } from "@tanstack/react-router";
-import { EventEmitter } from "@/shared/EventEmitter";
-import { localeScopeLoader } from "@/core/locales";
-import { RootRoute } from "@/core/router";
+import { EventEmitter } from "@b2b-system/web-shared/EventEmitter";
+import { localeScopeLoader } from "@b2b-system/web-core/locales";
+import { RootRoute } from "@b2b-system/web-core/router";
 import { RoleEvents } from "../enums/events";
 import { ROLE_LOCALE_SCOPE } from "../locale";
 import { RoleSearchQuerySchema } from "./model";
@@ -253,7 +253,7 @@ export function toRoleRowVM(dto: RoleListItem, perm: RolePermissionFacade): Role
 
 ```ts
 export function useRoleCreateMutation() {
-  const toast = useToast(); // @/core/notify：發到 eventBus，由 app/ToastHost 渲染
+  const toast = useToast(); // @b2b-system/web-core/notify：發到 eventBus，由 ToastHost（web-core/shell）渲染
   const { t } = useTranslation();
 
   return useMutation({
@@ -302,8 +302,8 @@ import { ExternalRoutes } from "../../routes";
 
 ### 4.3 共用 UI → 往上提
 
-兩個 feature 都需要的業務元件，提到 `core/components/`；如果它不含業務語彙，
-提到 `components/`。**不要**從 A feature import 到 B feature。
+兩個 feature 都需要的業務元件，提到 app 的 `core/components/`；如果它不含業務語彙，
+提到 `@b2b-system/ui`（`packages/ui`）；兩個 app 都要用、依賴語系或 store 的機制性元件放 `@b2b-system/web-core/components`。**不要**從 A feature import 到 B feature。
 
 ### 4.4 事件通知 → `eventBus`
 
@@ -315,7 +315,7 @@ eventBus.emit(GlobalEvents.USER_ROLES_CHANGED, { userId });
 useEffect(() => eventBus.on(GlobalEvents.USER_ROLES_CHANGED, refetch), []);
 ```
 
-事件名稱定義在 `core/app/events.ts`（跨 feature）或
+事件名稱定義在 `web-core/app/events.ts`（跨 feature）或
 `features/<name>/enums/events.ts`（feature 內）。
 
 ---
@@ -409,7 +409,7 @@ apps/backstage/src/features/session/
 | ------------------------------------------------------------- | -------------------------------------------------- |
 | `import { UserStatusChip } from '@/features/user/components'` | 提到 `core/components/`，或在自己的 feature 裡重寫 |
 | 在 `page.tsx` 直接 `fetch('/api/roles')`                      | 走 `apis/role/...`                                 |
-| 在 `core/permission/constants.ts` 加 `ROLE_PAGE`              | feature 自己 `definePageKey()`                     |
+| 在 `web-core/permission/constants.ts` 加 `ROLE_PAGE`          | feature 自己 `definePageKey()`                     |
 | 語系包在 `plugin.ts` 不帶 `scope`                             | 帶上 scope，讓它隨路由載入                         |
 | `routes/pages.ts` 直接 import 頁面元件                        | 在 `index.tsx` 用 `.update()` 綁 lazy 元件         |
 | 一個 `role.api.ts` 放所有操作                                 | 一操作一資料夾                                     |

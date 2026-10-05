@@ -1,9 +1,9 @@
+import { i18n, loadLocaleScope } from '@b2b-system/web-core/locales';
+import { createRegistry } from '@b2b-system/web-shared/registry';
 import type { ComponentType } from 'react';
 
-import { i18n, loadLocaleScope } from '@/core/locales';
 import type { PermissionKey } from '@/core/permission';
 import type { TrashItem, TrashResourceType } from '@/shared/api-sdk';
-import { createRegistry } from '@/shared/registry';
 
 /** 還原按鈕收到的一列；元件自己決定怎麼呼叫還原 API、怎麼呈現錯誤。 */
 export interface TrashRestoreActionProps {

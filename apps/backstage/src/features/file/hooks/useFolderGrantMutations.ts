@@ -1,3 +1,6 @@
+import { useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useToast } from '@b2b-system/web-core/notify';
 import { useMutation } from '@tanstack/react-query';
 
 import { getFileAccessRequestCreateMutationOptions } from '@/apis/file/create-file-access-request/mutation';
@@ -6,9 +9,6 @@ import { getFileAccessRequestReviewMutationOptions } from '@/apis/file/review-fi
 import { getFileFolderGrantSetMutationOptions } from '@/apis/file/set-file-folder-grant/mutation';
 import { getFileFolderAccessUpdateMutationOptions } from '@/apis/file/update-file-folder-access/mutation';
 import { invalidateResources, Resource } from '@/apis/resources';
-import { useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { useToast } from '@/core/notify';
 
 /**
  * 資料夾授權變了：資料夾清單的能力旗標、授權清單、檔案的能力都可能跟著變

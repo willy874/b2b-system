@@ -1,9 +1,9 @@
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 
 import { getPlatformJobListQueryOptions } from '@/apis/platform-job/get-job-list/query';
 import { getPlatformJobQueuesQueryOptions } from '@/apis/platform-job/get-job-queues/query';
-import { useTranslation } from '@/core/locales';
 
 import { useJobPermission } from '../../hooks/useJobPermission';
 import { toJobQueueVM, toJobRowVM } from './adapter';

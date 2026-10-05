@@ -1,8 +1,12 @@
-import type { AppPluginFactory } from '@/core/app';
-import { getSessionStore } from '@/core/auth';
-import { BatchQueueClient, connectBatchQueue, setActiveBatchQueue } from '@/core/batch';
-import type { BatchQueueConnection } from '@/core/batch';
-import { CLIENT_ID } from '@/core/realtime';
+import type { AppPluginFactory } from '@b2b-system/web-core/app';
+import { getSessionStore } from '@b2b-system/web-core/auth';
+import {
+  BatchQueueClient,
+  connectBatchQueue,
+  setActiveBatchQueue,
+} from '@b2b-system/web-core/batch';
+import type { BatchQueueConnection } from '@b2b-system/web-core/batch';
+import { CLIENT_ID } from '@b2b-system/web-core/realtime';
 
 export interface BatchQueuePluginOptions {
   /** 佇列要跟著哪個後端的 session：session 結束時取消所有進行中的工作。 */
@@ -61,7 +65,7 @@ export function batchQueuePlugin(options: BatchQueuePluginOptions): AppPluginFac
   };
 }
 
-declare module '@/core/app/context' {
+declare module '@b2b-system/web-core/app/context' {
   interface AppPluginProperties {
     batchQueue?: BatchQueueClient;
   }

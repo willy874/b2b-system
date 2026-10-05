@@ -1,9 +1,9 @@
+import { Icon } from '@b2b-system/ui/Icon';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { cn } from '@b2b-system/web-shared/utils';
 import { Fragment } from 'react';
 
-import { Icon } from '@/components/Icon';
-import { useTranslation } from '@/core/locales';
 import type { FileFolder } from '@/shared/api-sdk';
-import { cn } from '@/shared/utils';
 
 import type { ItemDrag } from '../useItemDrag';
 

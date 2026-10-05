@@ -1,20 +1,20 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Chip } from '@b2b-system/ui/Chip';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
+import { Field } from '@b2b-system/ui/Field';
+import { Input } from '@b2b-system/ui/Input';
+import { Select } from '@b2b-system/ui/Select';
+import { Tooltip } from '@b2b-system/ui/Tooltip';
+import { isVersionConflict, useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
+import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
 import { getUserDetailQueryOptions } from '@/apis/user/get-user-detail/query';
-import { Button } from '@/components/Button';
-import { Chip } from '@/components/Chip';
-import { useConfirm } from '@/components/ConfirmDialog';
-import { Field } from '@/components/Field';
-import { Input } from '@/components/Input';
-import { Select } from '@/components/Select';
-import { Tooltip } from '@/components/Tooltip';
 import { VersionConflictAlert } from '@/core/components';
-import { isVersionConflict, useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { useUnsavedChangesGuard } from '@/core/router';
 import type { UpdateUserRequest, User } from '@/shared/api-sdk';
-import { formatDateTime } from '@/shared/date';
 
 import { USER_STATUS_LABEL_KEY, USER_STATUS_TONE } from '../../../constants';
 import { useUserUnlockMutation, useUserUpdateMutation } from '../../../hooks/useUserMutations';

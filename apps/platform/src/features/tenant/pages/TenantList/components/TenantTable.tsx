@@ -1,16 +1,15 @@
-import { Link } from '@tanstack/react-router';
-import { useMemo } from 'react';
-
-import type { TableColumnDef } from '@/components/Table';
-import { RichTable } from '@/core/components';
+import type { TableColumnDef } from '@b2b-system/ui/Table';
+import { RichTable } from '@b2b-system/web-core/components';
 import type {
   FilterBarProps,
   RichTablePagination,
   TableSearchProps,
   TableSettingsConfig,
-} from '@/core/components';
-import { useTranslation } from '@/core/locales';
-import { formatDateTime } from '@/shared/date';
+} from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime } from '@b2b-system/web-shared/date';
+import { Link } from '@tanstack/react-router';
+import { useMemo } from 'react';
 
 import { TenantStatus } from '../../../components/TenantStatus';
 import { TENANT_LIST_TABLE_ID } from '../../../preference';

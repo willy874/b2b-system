@@ -1,14 +1,14 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Field } from '@b2b-system/ui/Field';
+import { Input, Textarea } from '@b2b-system/ui/Input';
+import { isVersionConflict, useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
 import { getGroupDetailQueryOptions } from '@/apis/group/get-group-detail/query';
-import { Button } from '@/components/Button';
-import { Field } from '@/components/Field';
-import { Input, Textarea } from '@/components/Input';
 import { VersionConflictAlert } from '@/core/components';
-import { isVersionConflict, useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
-import { useUnsavedChangesGuard } from '@/core/router';
 import type { Group } from '@/shared/api-sdk';
 
 import { useGroupUpdateMutation } from '../../../hooks/useGroupMutations';

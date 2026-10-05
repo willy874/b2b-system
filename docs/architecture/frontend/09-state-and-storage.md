@@ -6,7 +6,7 @@
 | -------------- | --------------------------- | ------------ | ------------------------------ |
 | 伺服器狀態     | TanStack Query              | 快取管理     | 使用者列表、角色詳情           |
 | 網址狀態       | Router `validateSearch`     | 跟著網址     | 分頁、篩選、排序               |
-| 全域客戶端狀態 | `shared/store` signal store | 整個 session | 權限集合、語系、時區、選單開合 |
+| 全域客戶端狀態 | `@b2b-system/web-shared/store` signal store | 整個 session | 權限集合、語系、時區、選單開合 |
 | 區域狀態       | `useState` / `useReducer`   | 元件         | 對話框內的表單草稿、hover      |
 
 **選擇順序**：能放網址就放網址 → 能放 Query 就放 Query → 需要同步讀取且跨元件
@@ -19,14 +19,14 @@
 
 ## 2. Signal store
 
-`shared/store` 以 [`@sigrea/core`](https://github.com/sigrea/core) 的 signal 為底，分成兩層：
+`@b2b-system/web-shared/store` 以 [`@sigrea/core`](https://github.com/sigrea/core) 的 signal 為底，分成兩層：
 
 | 入口 | 內容 | 依賴 |
 | --- | --- | --- |
-| `@/shared/store` | `createStore`、`watch`、`computed`、`untracked`、`syncStore`、`shareStore` | 只有 `@sigrea/core`，**不依賴 React** |
-| `@/shared/hooks`（`shared/hooks/store.ts`） | `create`（Zustand 相容的 bound hook）、`useStore`、`useValue`、`useComputed` | React |
+| `@b2b-system/web-shared/store` | `createStore`、`watch`、`computed`、`untracked`、`syncStore`、`shareStore` | 只有 `@sigrea/core`，**不依賴 React** |
+| `@b2b-system/web-shared/hooks`（`packages/web-shared/src/hooks/store.ts`） | `create`（Zustand 相容的 bound hook）、`useStore`、`useValue`、`useComputed` | React |
 
-`@sigrea/core` 只在 `shared/store/` 裡 import；`shared/store/` 與 `shared/context/` 不 import React。兩者都由 oxlint 的 `no-restricted-imports` 強制。
+`@sigrea/core` 只在 `packages/web-shared/src/store/` 裡 import；`store/` 與 `context/` 不 import React。兩者都由 oxlint 的 `no-restricted-imports` 強制。
 
 ### 2.0 底層：依賴追蹤的 store
 
@@ -69,7 +69,7 @@ const canEdit = useComputed(
 ```
 
 `create()` 回傳的 hook 本身也是 `StoreApi`（`getState` / `setState` / `subscribe` / `state` / `select`），
-所以非 React 程式碼（plugin、`syncStore`）直接拿它用。不需要 hook 的 store（例：`shared/channel/leader` 的選舉狀態）用 `createStore`。
+所以非 React 程式碼（plugin、`syncStore`）直接拿它用。不需要 hook 的 store（例：`packages/web-shared/src/channel/leader` 的選舉狀態）用 `createStore`。
 
 ### 2.0.2 CoreContext 的狀態
 
@@ -77,7 +77,7 @@ const canEdit = useComputed(
 `context.state`、`context.prop(key, value?)`、`context.watch(getter, callback)`，plugin 的 `ctx.watch` 在該 plugin destroy 時自動停止。
 React 端以 `useStore(context.state, (s) => s.x)` 讀取。
 
-### 2.1 `core/store/` 的清單
+### 2.1 `web-core/store/` 的清單
 
 | Store                 | 內容                             | 持久化                      |
 | --------------------- | -------------------------------- | --------------------------- |
@@ -146,7 +146,7 @@ Store 用參照比較來決定是否通知訂閱者，原地修改不會觸發�
 
 ## 4. 儲存層
 
-### 4.1 `shared/storage`
+### 4.1 `@b2b-system/web-shared/storage`
 
 ```ts
 /** 命名空間化的 localStorage，值自動 JSON 序列化，讀取失敗時回 fallback */
@@ -195,7 +195,7 @@ Refresh Token  → httpOnly cookie，JavaScript 讀不到
 
 ## 5. 跨分頁同步
 
-所有同步訊息都經過 `shared/channel` 的 `createChannel()`，**不直接 `new BroadcastChannel()`、
+所有同步訊息都經過 `@b2b-system/web-shared/channel` 的 `createChannel()`，**不直接 `new BroadcastChannel()`、
 不直接聽 `storage` 事件、不直接在 WebSocket / worker 上自訂訊息格式**：
 
 ```ts
@@ -227,7 +227,7 @@ channel.close();
 plugin 的 `onDestroy` 只 `stop()`，不 `dispose()`——app 重新建立時還要再 `start()`。
 
 ```ts
-// 持有者（core/cache/AppQueryClient.ts）
+// 持有者（web-core/cache/AppQueryClient.ts）
 export type QueryInvalidateMessages = { invalidate: readonly InvalidationTarget[] };
 export function createQueryInvalidateChannel(options?: ChannelOptions) {
   return createChannel<QueryInvalidateMessages>('query-invalidate', options);
@@ -289,7 +289,7 @@ WebSocket 的連線由呼叫端建立、重連與關閉；頻道 `close()` 只�
 會寫進 localStorage 的狀態（偏好設定），由 **dictStorage 持有頻道**：寫入即廣播，其他分頁經 `subscribe` 收到值再放進 store。
 
 ```ts
-// core/store/preference.ts
+// web-core/store/preference.ts
 const storage = createDictStorage('preference', { channel: createPreferenceChannel() });
 
 storage.subscribe('locale', (value) => {
@@ -303,7 +303,7 @@ storage.subscribe('locale', (value) => {
 
 ### Store 的同步
 
-signal store（不經 dictStorage）要在所有參與者保持一致時，用 `shared/store` 的 `syncStore()`，不自己訂閱頻道：
+signal store（不經 dictStorage）要在所有參與者保持一致時，用 `@b2b-system/web-shared/store` 的 `syncStore()`，不自己訂閱頻道：
 
 ```ts
 const stop = syncStore(useLayoutStore, ['collapsed'], createChannel('store:layout'));
@@ -319,7 +319,7 @@ const stop = syncStore(useLayoutStore, ['collapsed'], createChannel('store:layou
 ### 跨分頁的單一狀態：`shareStore`
 
 `syncStore` 只同步「之後的變更」，而且同時修改時各分頁以最後收到的為準、可能不一致。
-狀態 **不持久化**、但所有分頁必須看到 **同一份** 時，改用 `shared/store` 的 `shareStore()`：
+狀態 **不持久化**、但所有分頁必須看到 **同一份** 時，改用 `@b2b-system/web-shared/store` 的 `shareStore()`：
 
 ```ts
 const stop = shareStore(
@@ -337,7 +337,7 @@ const stop = shareStore(
 | 同時修改           | 各自以最後收到的為準                     | **版本號 ＋ 寫入者 id**，所有分頁收斂到同一個值           |
 | 適合               | 會寫進 localStorage 的狀態（本機分頁可直接用帶頻道的 `dictStorage`） | 不持久化、但必須全域一致的執行期狀態 |
 
-規則（實作在 `shared/store/shareStore.ts`）：
+規則（實作在 `packages/web-shared/src/store/shareStore.ts`）：
 
 - 本地改到同步欄位 → 版本 +1 並廣播。收到的版本 **較新**（同版本時寫入者 id 較大）才套用，並採用對方的版本，
   所以之後的本地修改一定比收到的新（Lamport clock）；亂序晚到的舊版本會被略過。
@@ -350,13 +350,13 @@ const stop = shareStore(
 
 | 頻道（`ge:` 之後）          | 訊息                            | 傳輸層             | 工廠 → 持有者                                 | 收訊期間 |
 | --------------------------- | ------------------------------- | ------------------ | --------------------------------------------- | -------- |
-| `session:<後端>`            | `refresh-done`、`session-ended` | BroadcastChannel（釘死） | `createSessionChannel` → `core/auth/SessionStore` | 建立起到 `dispose()` |
-| `query-invalidate`          | `invalidate`                    | 預設（推播可用時不送） | `createQueryInvalidateChannel` → `core/cache/AppQueryClient` | cache plugin 的 `start()` / `stop()` |
-| `leader:realtime:<後端>`    | `request-leader`、`leader-announcement`、`leader-heartbeat`、`leader-release` | 預設 | `createLeaderChannel` → `shared/channel/leader` 的 `LeaderElection`（[11 §3.3](./11-realtime.md)） | realtime plugin |
-| `realtime-control:<後端>`   | `resource-changed`、`resync`、`status`、`status-request` | 預設 | `createRealtimeControlChannel` → `core/realtime/RealtimeCoordinator`（[11 §3.4](./11-realtime.md)） | realtime plugin |
-| `store:preference:storage`  | `set`、`remove`（`DictStorageMessages`） | 預設 | `createPreferenceChannel` → `core/store/preference` 的 dictStorage | 寫入即送；i18n plugin 訂閱（`syncPreferencesAcrossTabs`，含語系、時區、主題）；主題由 theme plugin 訂閱 store 套用 |
-| `store:table-column-settings:storage` | `set`、`remove`（`DictStorageMessages`） | 預設（不經伺服器中繼） | `createTableColumnSettingsChannel` → `core/store/tableColumnSettings` 的 dictStorage | 寫入即送；表格掛載期間訂閱（`syncTableColumnSettings`） |
-| `batch-queue`               | `snapshot`、`snapshot-request`、`host-closed` | 預設（BroadcastChannel，不經伺服器；項目名稱含 email） | `createBatchQueueChannel` → `core/batch` 的 `BatchQueueHost`（worker 內，送快照）與每個分頁的 `BatchQueueClient`（收快照、送 request） | batch-queue plugin 的 `start()` / `stop()`；指令與逐筆執行走 worker 的 port，不走頻道（[`frontend/07-ui-system.md`](07-ui-system.md) §13） |
+| `session:<後端>`            | `refresh-done`、`session-ended` | BroadcastChannel（釘死） | `createSessionChannel` → `web-core/auth/SessionStore` | 建立起到 `dispose()` |
+| `query-invalidate`          | `invalidate`                    | 預設（推播可用時不送） | `createQueryInvalidateChannel` → `web-core/cache/AppQueryClient` | cache plugin 的 `start()` / `stop()` |
+| `leader:realtime:<後端>`    | `request-leader`、`leader-announcement`、`leader-heartbeat`、`leader-release` | 預設 | `createLeaderChannel` → `packages/web-shared/src/channel/leader` 的 `LeaderElection`（[11 §3.3](./11-realtime.md)） | realtime plugin |
+| `realtime-control:<後端>`   | `resource-changed`、`resync`、`status`、`status-request` | 預設 | `createRealtimeControlChannel` → `web-core/realtime/RealtimeCoordinator`（[11 §3.4](./11-realtime.md)） | realtime plugin |
+| `store:preference:storage`  | `set`、`remove`（`DictStorageMessages`） | 預設 | `createPreferenceChannel` → `web-core/store/preference` 的 dictStorage | 寫入即送；i18n plugin 訂閱（`syncPreferencesAcrossTabs`，含語系、時區、主題）；主題由 theme plugin 訂閱 store 套用 |
+| `store:table-column-settings:storage` | `set`、`remove`（`DictStorageMessages`） | 預設（不經伺服器中繼） | `createTableColumnSettingsChannel` → `web-core/store/tableColumnSettings` 的 dictStorage | 寫入即送；表格掛載期間訂閱（`syncTableColumnSettings`） |
+| `batch-queue`               | `snapshot`、`snapshot-request`、`host-closed` | 預設（BroadcastChannel，不經伺服器；項目名稱含 email） | `createBatchQueueChannel` → `web-core/batch` 的 `BatchQueueHost`（worker 內，送快照）與每個分頁的 `BatchQueueClient`（收快照、送 request） | batch-queue plugin 的 `start()` / `stop()`；指令與逐筆執行走 worker 的 port，不走頻道（[`frontend/07-ui-system.md`](07-ui-system.md) §13） |
 
 目前沒有 store 使用 `syncStore` / `shareStore`（偏好設定由 dictStorage 同步）；新增時把頻道補進上表。
 

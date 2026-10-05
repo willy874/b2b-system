@@ -1,8 +1,7 @@
+import { Chip } from '@b2b-system/ui/Chip';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime } from '@b2b-system/web-shared/date';
 import type { ReactNode } from 'react';
-
-import { Chip } from '@/components/Chip';
-import { useTranslation } from '@/core/locales';
-import { formatDateTime } from '@/shared/date';
 
 import {
   APPROVAL_STATUS_LABEL_KEY,

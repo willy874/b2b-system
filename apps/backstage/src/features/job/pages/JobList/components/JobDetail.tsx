@@ -1,10 +1,10 @@
+import { JsonViewer } from '@b2b-system/ui/JsonViewer';
+import type { JsonViewerLabels } from '@b2b-system/ui/JsonViewer';
+import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 
 import { getJobDetailQueryOptions } from '@/apis/job/get-job-detail/query';
-import { JsonViewer } from '@/components/JsonViewer';
-import type { JsonViewerLabels } from '@/components/JsonViewer';
-import { useErrorMessage } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 
 import { isFinalJobState, toJobDetailVM } from '../adapter';
 

@@ -51,7 +51,7 @@
       "runtimeExecutable": "zsh",
       "runtimeArgs": [
         "-c",
-        "export PATH=$HOME/.nvm/versions/node/v24.21.0/bin:$PATH && pnpm --filter @b2b-system/backstage exec storybook dev -p 6007 --no-open"
+        "export PATH=$HOME/.nvm/versions/node/v24.21.0/bin:$PATH && pnpm --filter @b2b-system/ui exec storybook dev -p 6007 --no-open"
       ],
       "port": 6007
     }

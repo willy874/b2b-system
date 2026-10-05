@@ -1,0 +1,18 @@
+export const PermissionResource = {
+  USER: 'user',
+  ROLE: 'role',
+  PERMISSION: 'permission',
+  AUDIT_LOG: 'auditLog',
+  SYSTEM: 'system',
+  APPROVAL: 'approval',
+  FILE: 'file',
+  JOB: 'job',
+  IDENTITY_PROVIDER: 'identityProvider',
+  GROUP: 'group',
+  SERVICE_ACCOUNT: 'serviceAccount',
+  WEBHOOK: 'webhook',
+  TAG: 'tag',
+  NOTIFICATION: 'notification',
+  ANNOUNCEMENT: 'announcement',
+} as const;
+export type PermissionResource = (typeof PermissionResource)[keyof typeof PermissionResource];

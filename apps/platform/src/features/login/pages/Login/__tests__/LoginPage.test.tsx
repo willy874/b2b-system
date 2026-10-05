@@ -1,17 +1,16 @@
+import { readPendingLogin } from '@b2b-system/web-core/auth';
+import type * as Auth from '@b2b-system/web-core/auth';
+import type * as Locales from '@b2b-system/web-core/locales';
+import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
+import { AllProviders } from '@b2b-system/web-core/testing';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { readPendingLogin } from '@/core/auth';
-import type * as Auth from '@/core/auth';
-import type * as Locales from '@/core/locales';
-import { parseSearch, RootRoute, stringifySearch } from '@/core/router';
-import { AllProviders } from '@/test/renderWithPermissions';
-
 import { Routes } from '../../..';
 
 // 測試環境沒有載入語系：t() 回傳語系鍵，才看得出顯示的是哪一則說明
-vi.mock('@/core/locales', async (importOriginal) => {
+vi.mock('@b2b-system/web-core/locales', async (importOriginal) => {
   const actual = await importOriginal<typeof Locales>();
   const t = (key: string) => key;
   return {
@@ -21,7 +20,7 @@ vi.mock('@/core/locales', async (importOriginal) => {
 });
 
 const { createUrl } = vi.hoisted(() => ({ createUrl: vi.fn() }));
-vi.mock('@/core/auth', async (importOriginal) => {
+vi.mock('@b2b-system/web-core/auth', async (importOriginal) => {
   const actual = await importOriginal<typeof Auth>();
   createUrl.mockImplementation(actual.createAuthorizationUrl);
   return { ...actual, createAuthorizationUrl: createUrl };

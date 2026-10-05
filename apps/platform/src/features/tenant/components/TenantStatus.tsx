@@ -1,5 +1,6 @@
-import { Chip } from '@/components/Chip';
-import { useTranslation } from '@/core/locales';
+import { Chip } from '@b2b-system/ui/Chip';
+import { useTranslation } from '@b2b-system/web-core/locales';
+
 import type { PlatformTenant } from '@/shared/api-sdk';
 
 import { TENANT_STATUS_LABEL_KEY, TENANT_STATUS_TONE } from '../constants';

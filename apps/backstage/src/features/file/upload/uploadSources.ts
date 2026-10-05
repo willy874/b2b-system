@@ -1,4 +1,4 @@
-import { createBlobStore } from '@/shared/storage';
+import { createBlobStore } from '@b2b-system/web-shared/storage';
 
 /**
  * 排隊中的上傳檔案。佇列項目只帶 id（要能跨 worker、跨分頁傳遞），檔案本身放在這裡：

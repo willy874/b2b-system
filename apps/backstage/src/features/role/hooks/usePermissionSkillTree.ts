@@ -1,6 +1,6 @@
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useMemo, useState } from 'react';
 
-import { useTranslation } from '@/core/locales';
 import {
   activeEdgeIds,
   layoutPermissionTree,

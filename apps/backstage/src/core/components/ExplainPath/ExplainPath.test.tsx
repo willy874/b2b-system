@@ -1,9 +1,9 @@
+import { AllProviders } from '@b2b-system/web-core/testing';
 import { render, screen } from '@testing-library/react';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import type { ExplainNode } from '@/shared/api-sdk';
 import { initTestI18n } from '@/test/i18n';
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import { ExplainPath } from './ExplainPath';
 

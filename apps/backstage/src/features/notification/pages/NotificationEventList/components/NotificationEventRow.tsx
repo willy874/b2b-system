@@ -1,8 +1,8 @@
-import { Button } from '@/components/Button';
-import { Checkbox } from '@/components/Checkbox';
-import { Icon } from '@/components/Icon';
-import { Switch } from '@/components/Switch';
-import { useTranslation } from '@/core/locales';
+import { Button } from '@b2b-system/ui/Button';
+import { Checkbox } from '@b2b-system/ui/Checkbox';
+import { Icon } from '@b2b-system/ui/Icon';
+import { Switch } from '@b2b-system/ui/Switch';
+import { useTranslation } from '@b2b-system/web-core/locales';
 
 import { NOTIFICATION_CHANNEL_LABEL_KEY } from '../../../constants';
 import type { NotificationChannel, NotificationEventView } from '../../../types';

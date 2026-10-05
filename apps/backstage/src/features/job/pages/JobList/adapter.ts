@@ -1,5 +1,6 @@
+import type { ChipTone } from '@b2b-system/ui/Chip';
+
 import type { JobState } from '@/apis/job/types';
-import type { ChipTone } from '@/components/Chip';
 import type { Job, JobQueue, JobSummary } from '@/shared/api-sdk';
 
 import { JOB_NAME_LABEL_KEY, JOB_STATE_LABEL_KEY, JOB_STATE_TONE } from '../../constants';

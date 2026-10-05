@@ -1,6 +1,7 @@
+import { registerBatchOperation } from '@b2b-system/web-core/batch';
+
 import { invalidateResources, Resource } from '@/apis/resources';
 import { getRoleDeleteMutationOptions } from '@/apis/role/delete-role/mutation';
-import { registerBatchOperation } from '@/core/batch';
 
 import { ROLE_LOCALE_SCOPE } from './locale';
 

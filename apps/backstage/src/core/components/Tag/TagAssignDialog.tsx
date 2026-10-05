@@ -1,10 +1,10 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Dialog } from '@b2b-system/ui/Dialog';
+import { Select } from '@b2b-system/ui/Select';
+import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useState } from 'react';
 
-import { Button } from '@/components/Button';
-import { Dialog } from '@/components/Dialog';
-import { Select } from '@/components/Select';
-import { useErrorMessage } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 import type { Tag, TagSummary } from '@/shared/api-sdk';
 
 /** 一個資源最多貼幾個標籤；與後端的 `TAG_MAX_PER_RESOURCE` 一致（docs/architecture/backend/18-tag.md §7.2 D11）。 */

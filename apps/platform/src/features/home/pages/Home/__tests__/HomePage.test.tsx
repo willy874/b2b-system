@@ -1,10 +1,10 @@
+import { sessionStore } from '@b2b-system/web-core/auth';
+import { renderRoute } from '@b2b-system/web-core/testing';
 import { screen, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { sessionStore } from '@/core/auth';
 import { PermissionKey, resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
-import { renderRoute } from '@/test/renderRoute';
 
 import { registerHomePagePermissions, Routes } from '../../..';
 import homeZhTW from '../../../locales/zh_TW.json';

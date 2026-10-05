@@ -1,5 +1,6 @@
-import { createAuthorizationUrl, redirectUriOf } from '@/core/auth';
-import type { SsoClientConfig } from '@/core/auth';
+import { createAuthorizationUrl, redirectUriOf } from '@b2b-system/web-core/auth';
+import type { SsoClientConfig } from '@b2b-system/web-core/auth';
+
 import { ENV } from '@/shared/constants';
 
 /** apps/platform 自己的頁面也是 IdP 的第一方 client（apps/api 的 `OIDC_CLIENT.AUTH`）。 */

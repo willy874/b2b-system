@@ -1,5 +1,6 @@
+import { formatDateTime } from '@b2b-system/web-shared/date';
+
 import type { Announcement } from '@/shared/api-sdk';
-import { formatDateTime } from '@/shared/date';
 
 import {
   ANNOUNCEMENT_EVENT_LABEL,

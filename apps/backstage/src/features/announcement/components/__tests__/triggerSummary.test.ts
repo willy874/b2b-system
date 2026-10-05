@@ -1,7 +1,7 @@
+import { i18n } from '@b2b-system/web-core/locales';
+import { setDateTimeDefaults } from '@b2b-system/web-shared/date';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { i18n } from '@/core/locales';
-import { setDateTimeDefaults } from '@/shared/date';
 import { initTestI18n } from '@/test/i18n';
 
 import zhTW from '../../locales/zh_TW.json';

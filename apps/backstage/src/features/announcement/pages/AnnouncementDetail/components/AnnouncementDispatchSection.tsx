@@ -1,15 +1,15 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Chip } from '@b2b-system/ui/Chip';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
+import type { TableColumnDef } from '@b2b-system/ui/Table';
+import { RichTable } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
 import { getAnnouncementDispatchesQueryOptions } from '@/apis/announcement/get-announcement-dispatches/query';
-import { Button } from '@/components/Button';
-import { Chip } from '@/components/Chip';
-import { useConfirm } from '@/components/ConfirmDialog';
-import type { TableColumnDef } from '@/components/Table';
-import { RichTable } from '@/core/components';
-import { useTranslation } from '@/core/locales';
 import type { AnnouncementDispatch } from '@/shared/api-sdk';
-import { formatDateTime } from '@/shared/date';
 
 import {
   ANNOUNCEMENT_DISPATCH_PAGE_SIZE,

@@ -1,11 +1,11 @@
+import { ButtonLink } from '@b2b-system/ui/Button';
+import { Tabs } from '@b2b-system/ui/Tabs';
+import { PageSkeleton, QueryError } from '@b2b-system/web-core/components';
+import { isNotFound } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 
 import { getTenantQueryOptions } from '@/apis/platform-tenant/get-tenant/query';
-import { ButtonLink } from '@/components/Button';
-import { Tabs } from '@/components/Tabs';
-import { PageSkeleton, QueryError } from '@/core/components';
-import { isNotFound } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 
 import { TENANT_DETAIL_TAB_LABEL_KEY } from '../../constants';
 import { useTenantPermission } from '../../hooks/useTenantPermission';

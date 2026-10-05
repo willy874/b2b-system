@@ -237,7 +237,7 @@ modules/platform-notification/            葉節點：只依賴 core、credentia
 | 推播 | `platform.changed`（`platformNotification`，`adminIds` 是收件人），只推給收件人在 apps/platform 上的連線（[`08-realtime.md`](./08-realtime.md) §3.6） |
 | 偏好 | 沒有事件管理與個人設定（[`16-notification-event.md`](./16-notification-event.md)）：類型少，都是要處理的事 |
 | 保留 | 已讀超過 30 天、或建立超過 180 天的刪除（固定值，平台沒有系統設定） |
-| 前端 | apps/platform 的 `features/notification`：頂列的鈴鐺（`registerHeaderTool`，order 400）與 `/notification` 列表頁；連結以 `core/route-link` 的 route id（`tenant.detail`、`account.profile`）解析 |
+| 前端 | apps/platform 的 `features/notification`：頂列的鈴鐺（`registerHeaderTool`，order 400）與 `/notification` 列表頁；連結以 `@b2b-system/web-core/route-link` 的 route id（`tenant.detail`、`account.profile`）解析 |
 
 ---
 
@@ -339,7 +339,7 @@ modules/platform-notification/            葉節點：只依賴 core、credentia
 | D1 | **租戶 DB 的 `notifications` 表，每位收件人一筆**：`id`、`recipient_id`（→ `users.id`，`ON DELETE CASCADE`）、`type`（`<模組>.<事件>`，與 `defineJob` 同一種命名）、`params jsonb`（組句子用的參數，名稱快照）、`link jsonb`（D3，可為 null）、`actor_id`（null＝系統）、`read_at`、`created_at`；索引 `(recipient_id, read_at, created_at desc)`（實作改成三個索引，見 §12.6）。平台管理者不適用 | 通知跟著租戶走；每人一筆讓已讀、刪除、保留都是單列操作。`params` 只放顯示需要的名稱，不存整份資料，也不存權限相關的東西 |
 | D2 | **由擁有者模組在自己的業務交易內寫入**：`modules/notification` 提供 `NotificationService.notify(input \| input[], tx)`，寫入後在交易提交後發佈推播。通知模組 **不 import 業務模組**；通知類型與參數型別定義在擁有者模組的 `<name>.notifications.ts`。**不訂閱 `DomainEventBus`** | 與稽核同一條規則：業務寫入成功，通知就一定在。`DomainEventBus` 是程序內、fire-and-forget、錯誤吞掉，也沒有「給誰」的語意（`08-realtime.md` §7） |
 | D3 | **連結存 route id ＋ 參數**（提案開放問題 1）：`link = { route: '<route id>', params: {...} }`。前端有一張 route id → route 物件的註冊表，feature 在 plugin 的 **同步階段** 註冊（與 `registerPagePermission` 同一種做法）；notification feature 不 import 其他 feature 的 route。找不到 route id 時只顯示文字、不可點 | 路由改名或搬移時舊通知不會壞；存路徑字串則每次改路由都要考慮歷史資料 |
-| D4 | **第一版不做通知偏好**（提案開放問題 2；已由 [`backend/16-notification-event.md`](16-notification-event.md) §9 接續：租戶層的事件管理，個人層的形狀亦已定）：只有站內通知，既有的信（審批結果、啟用、重設密碼）照舊。之後要做時另加後端的偏好表，不沿用前端的 `core/preference` | 偏好需要後端的偏好表與設定頁，範圍會翻倍；第一批類型量少，還沒有「太吵」的問題 |
+| D4 | **第一版不做通知偏好**（提案開放問題 2；已由 [`backend/16-notification-event.md`](16-notification-event.md) §9 接續：租戶層的事件管理，個人層的形狀亦已定）：只有站內通知，既有的信（審批結果、啟用、重設密碼）照舊。之後要做時另加後端的偏好表，不沿用前端的 `web-core/preference` | 偏好需要後端的偏好表與設定頁，範圍會翻倍；第一批類型量少，還沒有「太吵」的問題 |
 | D5 | **收件人由擁有者模組在寫入當下計算，是快照**（提案開放問題 3）：例如「審批待審」＝送出時持有 `approval:review` 的使用者（透過 `PermissionService` 查，不交給通知模組）。之後權限變動 **不補發也不收回**；點進去照常經過頁面權限與 API 權限，權限已被收回就是 403 | 補發或收回要訂閱權限變化並重算所有未處理的事件，複雜度遠高於價值；通知本身不授予任何權限 |
 | D6 | **第一版不做廣播模型**（提案開放問題 4）：一律每位收件人一筆。`notify` 單次的收件人數有上限（常數，暫定 1000），超過時記 warn 並截斷——需要全租戶公告時再加「一筆廣播 ＋ 每人已讀表」 | 第一批類型的收件人都不多（審核者、申請人、被指派的人）；先不讓列表查詢合併兩個來源 |
 | D7 | **操作者就是收件人時不通知**（例如自己改自己的角色）。`actor_id` 仍記錄，前端顯示「由誰觸發」 | 自己做的事不需要提醒自己 |
@@ -389,7 +389,7 @@ modules/platform-notification/            葉節點：只依賴 core、credentia
 | N1 | 已讀的推播（D8） | 標為已讀、全部已讀也推 `notification update` 給自己，其他裝置與分頁的未讀數跟著更新（發起的分頁以 `origin` 略過） |
 | N1 | 不通知的操作（D11） | 刪除或還原角色時持有者的角色跟著消失或出現，但不發 `user.rolesChanged`（角色層級的操作、可能影響上千人） |
 | N1 | `fileFolder.access` 的待審（D11） | 只通知 `approval:review` 的持有者；只在該資料夾有 `share` 的管理者也能審核但收不到 |
-| N2 | route id 註冊表（D3） | `core/route-link`：`registerRouteLink(id, { route, params?, search? })` 以對照表宣告「route 的參數 ← 連結參數」，登記時檢查 id 格式與 path 的 `$參數`；可啟用的 feature 卸載時撤回，連結變成不可點 |
+| N2 | route id 註冊表（D3） | `core/route-link`（現為 `@b2b-system/web-core/route-link`）：`registerRouteLink(id, { route, params?, search? })` 以對照表宣告「route 的參數 ← 連結參數」，登記時檢查 id 格式與 path 的 `$參數`；可啟用的 feature 卸載時撤回，連結變成不可點 |
 | N2 | 稽核列表的失效（D8） | 前端依賴圖的 `derivesFromAnyChange` 改成可以排除來源，稽核列表排除 `notification`——與後端 `recordsAudit: false` 對稱；否則收到通知、按已讀都會重抓稽核列表 |
 | N2 | 推播不可用時（D12） | 未讀數在推播斷線或停用時每 60 秒重抓一次 |
 | N2 | 語系包（D12） | 鈴鐺在每一頁都看得到：按鈕的字放全域語系包，Popover 的內容由鈴鐺掛上時自己載入 feature 的 scope |

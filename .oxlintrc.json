@@ -32,13 +32,22 @@
   },
   "overrides": [
     {
-      "files": ["apps/backstage/**/*.{ts,tsx}", "apps/platform/**/*.{ts,tsx}", "packages/**/*.ts"],
+      "files": [
+        "apps/backstage/**/*.{ts,tsx}",
+        "apps/platform/**/*.{ts,tsx}",
+        "packages/**/*.{ts,tsx}"
+      ],
       "rules": {
         "typescript/consistent-type-imports": "error"
       }
     },
     {
-      "files": ["apps/backstage/src/**/*.{ts,tsx}", "apps/platform/src/**/*.{ts,tsx}"],
+      "files": [
+        "apps/backstage/src/**/*.{ts,tsx}",
+        "apps/platform/src/**/*.{ts,tsx}",
+        "packages/ui/src/**/*.{ts,tsx}",
+        "packages/web-core/src/**/*.{ts,tsx}"
+      ],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -46,7 +55,7 @@
             "paths": [
               {
                 "name": "@sigrea/core",
-                "message": "只經由 @/shared/store（React 綁定在 @/shared/hooks）使用 signal。"
+                "message": "只經由 @b2b-system/web-shared/store（React 綁定在 @b2b-system/web-shared/hooks）使用 signal。"
               }
             ]
           }
@@ -54,7 +63,7 @@
       }
     },
     {
-      "files": ["apps/backstage/src/shared/context/**", "apps/platform/src/shared/context/**"],
+      "files": ["packages/web-shared/src/context/**"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -62,11 +71,11 @@
             "paths": [
               {
                 "name": "@sigrea/core",
-                "message": "只經由 @/shared/store（React 綁定在 @/shared/hooks）使用 signal。"
+                "message": "只經由 @b2b-system/web-shared/store（React 綁定在 @b2b-system/web-shared/hooks）使用 signal。"
               },
               {
                 "name": "react",
-                "message": "這一層不依賴 React；React 綁定放 @/shared/hooks 或 core/app/react.tsx。"
+                "message": "這一層不依賴 React；React 綁定放 web-shared 的 hooks/ 或 core/app/react.tsx。"
               }
             ]
           }
@@ -74,7 +83,7 @@
       }
     },
     {
-      "files": ["apps/backstage/src/shared/store/**", "apps/platform/src/shared/store/**"],
+      "files": ["packages/web-shared/src/store/**"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -82,7 +91,7 @@
             "paths": [
               {
                 "name": "react",
-                "message": "這一層不依賴 React；React 綁定放 @/shared/hooks 或 core/app/react.tsx。"
+                "message": "這一層不依賴 React；React 綁定放 web-shared 的 hooks/ 或 core/app/react.tsx。"
               }
             ]
           }
@@ -90,10 +99,7 @@
       }
     },
     {
-      "files": [
-        "apps/backstage/src/shared/store/__tests__/**",
-        "apps/platform/src/shared/store/__tests__/**"
-      ],
+      "files": ["packages/web-shared/src/store/__tests__/**"],
       "rules": {
         "no-restricted-imports": "off"
       }
@@ -116,7 +122,7 @@
       }
     },
     {
-      "files": ["apps/backstage/src/components/Table/**", "apps/platform/src/components/Table/**"],
+      "files": ["packages/ui/src/components/Table/**"],
       "rules": {
         "react/incompatible-library": "off",
         "react/no-array-index-key": "off"

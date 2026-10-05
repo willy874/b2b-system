@@ -33,7 +33,7 @@ export interface PluginHooks {
 
 /** plugin factory 收到的東西：狀態、事件、以及取得整個 context 的逃生口 */
 export interface PluginContext<State, Events, Instance> {
-  state: StoreApi<Partial<State>>;      // @/shared/store 的 createStore，與 CoreContext.state 同一個
+  state: StoreApi<Partial<State>>;      // @b2b-system/web-shared/store 的 createStore，與 CoreContext.state 同一個
   prop: <K extends keyof State>(key: K, value?: State[K]) => State[K] | undefined; // 讀取會被追蹤
   watch: <T>(getter: (state) => T, callback: (value: T, previous: T) => void) => () => void; // plugin destroy 時自動停止
   on / emit / off: EventEmitter<Events>;
@@ -63,7 +63,7 @@ destroy(): void;
 ```
 
 ```ts
-// core/app/context.ts — app 專用的具體化
+// web-core/app/context.ts — app 專用的具體化
 export interface AppPluginProperties {} // 由各 plugin 用 declaration merging 擴充
 export interface AppPluginHooks {}
 export interface AppContextState {}
@@ -89,7 +89,7 @@ export function getAppContext(): AppContext; // 給 fetcher 等非 React 程式�
 這是整個機制的關鍵技巧。plugin 在自己的檔案裡宣告它往 context 上加了什麼：
 
 ```ts
-// plugins/app/i18n.ts
+// web-core/plugins/app/i18n.ts（app 的 plugins/app/i18n.ts 只傳入自己的語系包）
 export function i18nPlugin(): AppPluginFactory {
   return (context) => ({
     name: 'i18n',
@@ -102,7 +102,7 @@ export function i18nPlugin(): AppPluginFactory {
   });
 }
 
-declare module '@/core/app/context' {
+declare module '../../app/context' { // app 裡寫 '@b2b-system/web-core/app/context'
   interface AppPluginProperties {
     i18n: typeof i18nInstance;
     addResourceBundle: typeof addResourceBundle;
@@ -112,7 +112,8 @@ declare module '@/core/app/context' {
 ```
 
 從此 `getAppContext().addResourceBundle(...)` 在任何地方都有完整型別。
-**`core/app/context.ts` 完全不需要知道有 i18n 這個東西。**
+**`web-core/app/context.ts` 完全不需要知道有 i18n 這個東西。**
+app 擴充時指向定義的檔案 `@b2b-system/web-core/app/context`；指向 `@b2b-system/web-core/app`（index）不會合併到同一個介面。
 
 ---
 
@@ -148,7 +149,7 @@ context.destroy()        ← ③ 逆向清理：逐一卸載每個 plugin（每�
 ```
 
 factory 與 `onInit` **同步部分** 裡的註冊表登記，會被容器以 `collectRegistrations()`
-（`shared/registry`）收集起來，卸載時一併撤回。feature 照舊呼叫 `registerXxx()`，
+（`@b2b-system/web-shared/registry`）收集起來，卸載時一併撤回。feature 照舊呼叫 `registerXxx()`，
 不必自己保存回傳的反註冊函式。`onInit` 裡 `await` 之後才做的登記收不到，不要這樣寫。
 
 ### 3.1 兩個階段的分工（重要）
@@ -181,15 +182,18 @@ plugin 常持有 context 摸不到的資源：`BroadcastChannel`、`setInterval`
 
 ### 4.1 `plugins/app/` — 基礎設施
 
+實作在 `@b2b-system/web-core/plugins/app`；app 的 `src/plugins/app/index.ts` 是門面：轉出 package 的 plugin，
+`i18n.ts` 以 `i18nPlugin({ locales })` 傳入自己的全域語系包，backstage 另有 `batch-queue.ts`。
+
 | Plugin              | `attrs` 提供                                  | `onInit` 做什麼                                                      |
 | ------------------- | --------------------------------------------- | -------------------------------------------------------------------- |
 | `cachePlugin`       | `queryClient`, `dictStorage`                  | `queryClient.start()`：開始收其他分頁的失效（`onDestroy` 時 `stop()`） |
-| `eventBusPlugin`    | `eventBus`                                    | 建立全域 `EventEmitter<GlobalEventMap>`（事件與 payload 定義在 `core/app/events.ts`） |
+| `eventBusPlugin`    | `eventBus`                                    | 建立全域 `EventEmitter<GlobalEventMap>`（事件與 payload 定義在 `web-core/app/events.ts`） |
 | `i18nPlugin`        | `i18n`, `addResourceBundle`, `changeLanguage` | `i18next.init()`、載入 app 層語系包                                  |
 | `httpContextPlugin` | `sessionStore`（主後端）                      | 依傳入的後端清單，每個後端建立一個 `SessionStore` 與 `<後端>:base` / `<後端>:auth` 兩個 HttpContext（30 秒逾時）並掛上攔截器鏈；某個 session 結束只中止該後端的 `auth` 請求；主 session 結束時一併結束其他後端的 session（[05 §3.3、§3.5](./05-data-layer.md)） |
 | `componentPlugin`   | `componentRegistry`                           | 建立元件註冊表（讓 feature 覆寫核心元件）                            |
 
-### 4.2 `plugins/fetcher/` — HTTP 攔截器
+### 4.2 `web-core/plugins/fetcher/` — HTTP 攔截器
 
 這些不是 AppContext plugin，是 `HttpContext` 的攔截器，由 `httpContextPlugin`
 組裝：
@@ -213,7 +217,7 @@ plugin 常持有 context 摸不到的資源：`BroadcastChannel`、`setInterval`
 // plugins/features/table-column-settings/plugin.ts
 export function tableColumnSettingsPlugin(): AppPluginFactory {
   return (context) => {
-    // 同步階段：往 core/preference 的註冊表插一個分頁
+    // 同步階段：往 web-core/preference 的註冊表插一個分頁
     registerPreferenceSection({
       key: 'table-columns',
       order: 200,
@@ -233,20 +237,20 @@ export function tableColumnSettingsPlugin(): AppPluginFactory {
 渲染。**拿掉 `main.tsx` 裡那一行，這個分頁就消失了。** 目前的分頁：`notification`（100，`features/notification`，
 [`15-notification.md`](./15-notification.md) §10）、`table-columns`（200）。
 
-分頁要列出「有哪些表、各有哪些欄位」，但不能 import 各 feature。所以 `core/preference` 另有一份
+分頁要列出「有哪些表、各有哪些欄位」，但不能 import 各 feature。所以 `web-core/preference` 另有一份
 **列表註冊表**：feature 在 plugin 的同步階段呼叫 `registerPreferenceTable({ id, labelI18nKey, columnLabelKeys, localeScope })`
 （見各 feature 的 `preference.ts`），分頁用 `getPreferenceTables()` 列出，並用列表上同一個 `TableSettings` 調整。
-`id` 與 `RichTable` 的 `settings.tableId` 相同，兩邊讀寫同一份 `core/store/tableColumnSettings`。
+`id` 與 `RichTable` 的 `settings.tableId` 相同，兩邊讀寫同一份 `web-core/store/tableColumnSettings`。
 偏好頁的 route loader 是 `preferenceLocaleLoader()`：各分頁與各列表名稱所在的 scope 都會先載入。
 loader 只看得到進頁當下的註冊表：可啟用的 feature（§7、§9）在 profile 回來後才安裝，它的列表會晚一步出現在偏好頁，
 所以頁面另外呼叫 `usePreferenceLocales()`，依註冊表的目前內容要求語系包（還沒登記的在登記時補載）；載完後 `useTranslation` 換新 `t`，
 畫面跟著更新（否則直接打開 `/preference` 時只會看到語系 key，[`08-i18n.md`](./08-i18n.md) §2.2）。
 
-### 4.4 頂列工具（`core/toolbar`）
+### 4.4 頂列工具（`web-core/toolbar`）
 
 頂列（Header）的工具（語言、主題切換……）也是註冊表：在 plugin 的同步階段呼叫
-`registerHeaderTool({ key, order, labelI18nKey, icon, Component })`，頂列（`app/layouts/HeaderToolbar.tsx`）
-與偏好頁的「頂列工具」區塊（`features/account/components/HeaderToolbarSettings.tsx`）都只讀註冊表，
+`registerHeaderTool({ key, order, labelI18nKey, icon, Component })`，頂列（`web-core/layout/HeaderToolbar.tsx`）
+與偏好頁的「頂列工具」區塊（`web-core/layout/HeaderToolbarSettings.tsx`，由 `features/account` 放進偏好頁）都只讀註冊表，
 **追加工具不必改這兩處**。內建工具在 `app/layouts/headerTools.ts` 登記，由 `app/plugin.ts` 呼叫；
 屬於某個 feature 的工具在該 feature 的 plugin 登記。
 
@@ -257,7 +261,7 @@ loader 只看得到進頁當下的註冊表：可啟用的 feature（§7、§9�
 | 新追加的工具 | 不在已存 `order` 裡的工具接在最後、預設顯示（`resolveHeaderTools`），不必遷移使用者的設定 |
 | 移除的工具 | 已存設定裡找不到的 key 直接略過 |
 | `key` | 存進設定的鍵，發佈後不要改名 |
-| `labelI18nKey` | 放在全域語系包（`app/locales`），偏好頁之外的 scope 未必載入 |
+| `labelI18nKey` | 放在全域語系包（web-core 的 `locales/resources` 或 app 的 `app/locales`），偏好頁之外的 scope 未必載入 |
 | 放不下時 | 頂列從尾端把工具收進「更多」彈層，工具在彈層裡照常運作（[`07-ui-system.md`](./07-ui-system.md) §3.14）；偏好頁的順序因此也決定窄螢幕時誰先被收起 |
 
 內建工具依序是批次佇列（`batchQueue`，關掉只是不顯示按鈕，批次結果仍由 `BatchQueueNotifier` 彈出）、即時連線狀態（`realtimeStatus`，[11 §8.1](./11-realtime.md)）、語言（`language`）、主題（`theme`）。
@@ -270,8 +274,8 @@ feature 登記的工具：站內通知的鈴鐺（`notification`，order 400，[
 
 ```ts
 // features/role/plugin.ts
-import { LanguageNamespace, Languages } from "@/shared/constants/lang";
-import type { AppPluginFactory } from "@/core/app";
+import { LanguageNamespace, Languages } from "@b2b-system/web-shared/constants";
+import type { AppPluginFactory } from "@b2b-system/web-core/app";
 import { ROLE_LOCALE_SCOPE } from "./locale";
 import { registerRolePagePermissions } from "./permission";
 import { registerRolePreferences } from "./preference";
@@ -305,7 +309,7 @@ export function appContextPlugin(): AppPluginFactory {
 }
 
 // 語系資源的型別
-declare module "@/core/locales" {
+declare module "@b2b-system/web-core/locales" {
   interface LocaleResourceMap {
     feature_role: typeof import("./locales/en_US.json");
   }
@@ -335,21 +339,21 @@ export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 
 ## 6. 註冊表（Registry）模式
 
-`core/` 的註冊表都用 `shared/registry` 的 `createRegistry(describe)` 建立：
+`web-core` 與 `core/` 的註冊表都用 `@b2b-system/web-shared/registry` 的 `createRegistry(describe)` 建立：
 一個可訂閱的 store（`entries` 是 `ReadonlyMap`，每次變更換新）＋ 註冊函式（回傳反註冊函式）＋ 讀取函式
 ＋ 測試用的 reset。可訂閱與可撤回是為了 App 啟動後才安裝或被移除的 feature
 （§9.2 D4）。
 
 | 註冊表 | 位置 | 誰註冊 | 誰讀取（React 端訂閱的方式） |
 | --- | --- | --- | --- |
-| 頁面權限 | `core/permission/registry.ts` | 各 feature 的 `permission.ts` | 權限 hooks（`usePageAccess`、`usePageAccessChecker` 訂閱）、選單、Layout |
-| 偏好分頁／列表 | `core/preference/registry.ts` | feature 或 `plugins/features/*` | 偏好頁（`usePreferenceSections`、`usePreferenceTables`） |
-| 回收桶類型 | `core/trash/registry.ts` | 擁有資源的 feature 的 `trash.ts` | 回收桶頁（`useTrashTypes`；[`13-trash.md`](./13-trash.md) §2） |
-| 頂列工具 | `core/toolbar/registry.ts` | `app/plugin.ts` 或 feature（例：`features/notification` 的鈴鐺） | `useHeaderTools` |
-| route id（後端存的連結） | `core/route-link/registry.ts` | 擁有頁面的 feature 的 `routeLinks.ts` | `useRouteLinkResolver`（[`15-notification.md`](./15-notification.md) §3） |
-| 批次操作 | `core/batch/operations.ts` | feature 的 `batch.ts` | 批次佇列（分頁向佇列宣告能執行的操作，§7） |
-| 檔案預覽／驗證／縮圖 | `core/file/registry.ts` | `features/file` 或 plugin | 檔案管理器（使用時讀取，不訂閱） |
-| 語系包 | `core/locales/i18n.ts`（`addResourceBundle`） | 各 plugin 的 `onInit` | route loader（`localeScopeLoader`） |
+| 頁面權限 | `web-core/permission/registry.ts` | 各 feature 的 `permission.ts` | 權限 hooks（`usePageAccess`、`usePageAccessChecker` 訂閱）、選單、Layout |
+| 偏好分頁／列表 | `web-core/preference/registry.ts` | feature 或 `plugins/features/*` | 偏好頁（`usePreferenceSections`、`usePreferenceTables`） |
+| 回收桶類型 | `core/trash/registry.ts`（backstage） | 擁有資源的 feature 的 `trash.ts` | 回收桶頁（`useTrashTypes`；[`13-trash.md`](./13-trash.md) §2） |
+| 頂列工具 | `web-core/toolbar/registry.ts` | `app/plugin.ts` 或 feature（例：`features/notification` 的鈴鐺） | `useHeaderTools` |
+| route id（後端存的連結） | `web-core/route-link/registry.ts` | 擁有頁面的 feature 的 `routeLinks.ts` | `useRouteLinkResolver`（[`15-notification.md`](./15-notification.md) §3） |
+| 批次操作 | `web-core/batch/operations.ts` | feature 的 `batch.ts` | 批次佇列（分頁向佇列宣告能執行的操作，§7） |
+| 檔案預覽／驗證／縮圖 | `core/file/registry.ts`（backstage） | `features/file` 或 plugin | 檔案管理器（使用時讀取，不訂閱） |
+| 語系包 | `web-core/locales/i18n.ts`（`addResourceBundle`） | 各 plugin 的 `onInit` | route loader（`localeScopeLoader`） |
 
 共同規則：
 
@@ -442,8 +446,8 @@ createAppContext()
 
 1. **增刪一個功能 = 增刪一行。** 註解掉 `.use(roleFeaturePlugin())`，角色功能的
    路由、語系、權限、選單全部一起消失，不留殘骸。
-2. **核心不認識功能。** `core/permission/registry.ts` 沒有列舉頁面的靜態表，
-   每個 feature 註冊自己的。新增 feature 不需要改 `core/` 任何一行。
+2. **核心不認識功能。** `web-core/permission/registry.ts` 沒有列舉頁面的靜態表，
+   每個 feature 註冊自己的。新增 feature 不需要改 `core/` 或 web-core 任何一行。
 3. **功能可以擴充功能。** `plugins/features/*` 讓 A 功能往 B 功能的註冊表插東西，
    B 完全不知道 A 存在。偏好頁的分頁就是這樣做的。
 4. **已驗證。** 這套機制已在一個承載 14 個 feature 的管理後台上實際運行過。
@@ -509,7 +513,7 @@ createAppContext()
 | D1 | **feature 分兩種**：**常駐**（沒有它 App 就不成立的）維持同步 `use()`；**可啟用** 的 feature 登記在 `app/features.ts` 的 `FEATURE_CATALOG`：`{ [id]: { plugin, routes } }`，以 `satisfies Record<TenantFeature, …>` 對齊後端的 id。catalog 是 `app/` 的一部分，仍是唯一認識所有 feature 的組裝層。程式碼照樣在主 bundle（route 物件本來就要靜態組進 route tree，頁面本來就是 lazy），這裡不做 dynamic import | 不把所有 feature 都改成動態；常駐的部分行為不變，改動集中在可啟用的那些 |
 | D2 | **context 支援啟動後安裝與移除**：新增 `context.install(factory): Promise<void>` 與 `context.uninstall(name)`。`install` 同步執行 factory（註冊表寫入）後，立刻 await 這一個 plugin 的 `onInit`；每個 plugin 記錄狀態 `registered → initializing → ready \| failed`，`load()` 只初始化尚未初始化的（可重入）。`onInit` 失敗 → 自動 `uninstall`、記 log，**不影響其他 feature** | 解 P1；把「單一 plugin 的完整生命週期」變成可以單獨執行的單位 |
 | D3 | **可啟用的 feature 不得提供 `attrs`**：型別上以 `DynamicFeaturePluginFactory`（結果沒有 `attrs`）限制；需要對外提供能力就走註冊表或 eventBus | 解 P7：`attrs` 的型別透過 declaration merging 永遠存在，執行期卻可能不存在，是型別說謊 |
-| D4 | **註冊表改成可訂閱、可反註冊**：`core/*/registry.ts` 改用 `@/shared/store` 的 store；`registerXxx()` 回傳反註冊函式，plugin 以 `clearup` 收集，`uninstall` 時自動執行。讀取端改用 `useStore` 訂閱（`useHeaderTools`、偏好頁、`TableColumnsSection`、權限 hooks）。**重複註冊仍丟例外**（§8 的規則不變）——有了反註冊，重新安裝不會再撞到 | 解 P4、P5 |
+| D4 | **註冊表改成可訂閱、可反註冊**：`core/*/registry.ts` 改用 `@b2b-system/web-shared/store` 的 store；`registerXxx()` 回傳反註冊函式，plugin 以 `clearup` 收集，`uninstall` 時自動執行。讀取端改用 `useStore` 訂閱（`useHeaderTools`、偏好頁、`TableColumnsSection`、權限 hooks）。**重複註冊仍丟例外**（§8 的規則不變）——有了反註冊，重新安裝不會再撞到 | 解 P4、P5 |
 | D5 | **側邊選單維持 `app/` 的靜態表，項目依頁面權限是否已註冊來顯示**：`usePageAccessChecker` 對未註冊的頁面回 `false`，而權限註冊表可訂閱（D4）之後，feature 安裝或卸載時選單自動出現或消失。不另做選單註冊表 | 選單的分組與順序本來就是組裝層的決定；少一個註冊表，也少一個「feature 要記得登記」的地方 |
 | D6 | **route 物件維持靜態，啟用與否在 route 上判斷**：`app/routes.tsx` 照舊 import 所有 feature 的 route 物件組成完整的 route tree，**不在執行期改 route tree**。可啟用 feature 的最上層 route **自己** 宣告 `beforeLoad: requireFeature(<ID>)`（`core/feature`；TanStack Router 不允許事後以 `route.update()` 補上 `beforeLoad`）：已安裝 → 通過；清單還沒到或安裝中 → **等待**；未啟用 → `notFound()`；安裝失敗 → 錯誤頁；沒有 session → 不擋（導向登入頁交給 `SessionWatcher`） | 解 P2。執行期重建 route tree（`router.update`）會讓 `Register` 的型別與執行期脫節、已經掛著的 match 失效；B 方案下所有 route 在編譯期都已知，沒有必要。等待是必要的：route 的 loader 會下載語系包，必須在 feature 安裝（登記語系包）之後才跑 |
 | D7 | **權限檢查不再對「屬於 feature 的路徑」放行**：`usePageAccess` 的「未註冊 → 放行」只保留給明確列出的公開前綴（`/auth`、devtools）；其他未註冊的路徑視為 **未就緒**（顯示載入中，不渲染頁面）。在 D6 之下正常情況不會發生，這是第二道防線 | 解 P3：fail-open 是這次問題裡唯一的安全性缺口 |
@@ -549,7 +553,7 @@ Layout 以 `useFeatureGate` 再擋一次（D7）：未定 → 骨架屏、未啟
 
 | 代價 | 緩解 |
 | --- | --- |
-| 註冊表從 `Map` 改成 store，每個讀取端都要改成訂閱 | 共用的 `createRegistry()`（`shared/registry`）；plugin 容器以 `collectRegistrations()` 包住 factory 與 `onInit`，feature 的註冊寫法完全不變 |
+| 註冊表從 `Map` 改成 store，每個讀取端都要改成訂閱 | 共用的 `createRegistry()`（`@b2b-system/web-shared/registry`）；plugin 容器以 `collectRegistrations()` 包住 factory 與 `onInit`，feature 的註冊寫法完全不變 |
 | 可啟用 feature 的程式碼仍在主 bundle 裡 | route 物件不含頁面元件，量很小；真正的頁面仍是 lazy |
 | 「安裝中」多了一個狀態：選單項目與頁面會在登入後才出現 | 選單在權限水合前本來就是空的（`useMenuItems`），清單與權限並行取得，使用者看到的時間點不變 |
 | 可啟用 feature 不能提供 `attrs` | 決定當時沒有 feature 提供 `attrs`；需要時走註冊表 |

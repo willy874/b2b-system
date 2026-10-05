@@ -1,11 +1,11 @@
+import { Checkbox } from '@b2b-system/ui/Checkbox';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime } from '@b2b-system/web-shared/date';
+import { cn } from '@b2b-system/web-shared/utils';
 import { memo } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
-import { Checkbox } from '@/components/Checkbox';
 import { TagChips } from '@/core/components';
-import { useTranslation } from '@/core/locales';
-import { formatDateTime } from '@/shared/date';
-import { cn } from '@/shared/utils';
 
 import { FILE_KIND_LABEL_KEY } from '../../../constants';
 import type { FileItemVM } from '../adapter';

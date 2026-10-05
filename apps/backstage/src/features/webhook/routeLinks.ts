@@ -1,4 +1,4 @@
-import { registerRouteLink } from '@/core/route-link';
+import { registerRouteLink } from '@b2b-system/web-core/route-link';
 
 import { WebhookDetailRoute } from './routes/pages';
 

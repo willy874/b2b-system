@@ -1,3 +1,11 @@
+import {
+  isAppError,
+  isVersionConflict,
+  useErrorMessage,
+  useErrorToast,
+} from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useToast } from '@b2b-system/web-core/notify';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 
@@ -8,10 +16,7 @@ import { getGroupMembersUpdateMutationOptions } from '@/apis/group/update-group-
 import { getGroupRolesUpdateMutationOptions } from '@/apis/group/update-group-roles/mutation';
 import { getGroupUpdateMutationOptions } from '@/apis/group/update-group/mutation';
 import { invalidateResources, Resource } from '@/apis/resources';
-import { isAppError, isVersionConflict, useErrorMessage, useErrorToast } from '@/core/errors';
 import { useIsFeatureReady } from '@/core/feature';
-import { useTranslation } from '@/core/locales';
-import { useToast } from '@/core/notify';
 import { TenantFeature } from '@/shared/api-sdk';
 
 import { DEFAULT_GROUP_SEARCH, GroupDetailRoute } from '../routes';

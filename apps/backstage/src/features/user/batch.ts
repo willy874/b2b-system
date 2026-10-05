@@ -1,8 +1,9 @@
+import { registerBatchOperation } from '@b2b-system/web-core/batch';
+
 import { invalidateResources, Resource } from '@/apis/resources';
 import { getUserDeleteMutationOptions } from '@/apis/user/delete-user/mutation';
 import { getUserUnlockMutationOptions } from '@/apis/user/unlock-user/mutation';
 import { getUserUpdateMutationOptions } from '@/apis/user/update-user/mutation';
-import { registerBatchOperation } from '@/core/batch';
 
 import { roleRefs } from './hooks/useUserMutations';
 import { USER_LOCALE_SCOPE } from './locale';

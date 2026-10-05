@@ -1,7 +1,6 @@
+import { sessionStore } from '@b2b-system/web-core/auth';
 import { isNotFound } from '@tanstack/react-router';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import { sessionStore } from '@/core/auth';
 
 import { requireFeature } from '../requireFeature';
 import { featureStore, resetFeatureStore } from '../store';

@@ -1,12 +1,12 @@
+import { AlertDialog } from '@b2b-system/ui/AlertDialog';
+import { Button } from '@b2b-system/ui/Button';
+import { useErrorToast } from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getAdminListQueryOptions } from '@/apis/platform-admin/get-admin-list/query';
-import { AlertDialog } from '@/components/AlertDialog';
-import { Button } from '@/components/Button';
-import { useErrorToast } from '@/core/errors';
-import { useTranslation } from '@/core/locales';
 
 import { useSendPlatformAdminPasswordLinkMutation } from '../../hooks/usePlatformAdminMutations';
 import { usePlatformAdminPermission } from '../../hooks/usePlatformAdminPermission';

@@ -1,9 +1,9 @@
+import { Progress } from '@b2b-system/ui/Progress';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatBytes } from '@b2b-system/web-shared/utils';
 import { useQuery } from '@tanstack/react-query';
 
 import { getFileStorageUsageQueryOptions } from '@/apis/file/get-upload-policy/query';
-import { Progress } from '@/components/Progress';
-import { useTranslation } from '@/core/locales';
-import { formatBytes } from '@/shared/utils';
 
 /** 用到九成以上改成警示色：提醒在上傳失敗之前整理檔案。 */
 const NEARLY_FULL = 0.9;

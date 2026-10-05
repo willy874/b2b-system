@@ -1,10 +1,10 @@
+import { useHasSession } from '@b2b-system/web-core/auth';
+import { useRouteLinkResolver } from '@b2b-system/web-core/route-link';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { getNotificationListQueryOptions } from '@/apis/notification/get-notification-list/query';
 import type { NotificationFilter } from '@/apis/notification/types';
-import { useHasSession } from '@/core/auth';
-import { useRouteLinkResolver } from '@/core/route-link';
 
 import { toNotificationVM } from '../adapter';
 import type { NotificationVM } from '../adapter';

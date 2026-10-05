@@ -1,3 +1,4 @@
+import { AllProviders } from '@b2b-system/web-core/testing';
 import {
   createMemoryHistory,
   createRoute,
@@ -7,8 +8,6 @@ import {
 } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { AllProviders } from '@/test/renderWithPermissions';
 
 import {
   ForbiddenPage,

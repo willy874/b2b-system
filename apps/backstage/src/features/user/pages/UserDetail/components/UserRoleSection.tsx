@@ -1,7 +1,8 @@
-import { Button } from '@/components/Button';
-import { Chip } from '@/components/Chip';
-import { useTranslation } from '@/core/locales';
-import { useUnsavedChangesGuard } from '@/core/router';
+import { Button } from '@b2b-system/ui/Button';
+import { Chip } from '@b2b-system/ui/Chip';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
+
 import type { Role, User } from '@/shared/api-sdk';
 
 import { UserRoleSelect } from '../../../components/UserRoleSelect';

@@ -1,11 +1,10 @@
+import { Chip } from '@b2b-system/ui/Chip';
+import type { TableColumnDef } from '@b2b-system/ui/Table';
+import { RichTable } from '@b2b-system/web-core/components';
+import type { FilterBarProps, RichTablePagination } from '@b2b-system/web-core/components';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useMemo } from 'react';
-
-import { Chip } from '@/components/Chip';
-import type { TableColumnDef } from '@/components/Table';
-import { RichTable } from '@/core/components';
-import type { FilterBarProps, RichTablePagination } from '@/core/components';
-import { useTranslation } from '@/core/locales';
-import { formatDateTime } from '@/shared/date';
 
 import type { JobRowVM } from '../adapter';
 import type { JobFilterValues } from '../useJobFilters';

@@ -1,6 +1,5 @@
+import { useTranslation } from '@b2b-system/web-core/locales';
 import type { ReactNode } from 'react';
-
-import { useTranslation } from '@/core/locales';
 
 export interface AuthShellProps {
   title: string;
