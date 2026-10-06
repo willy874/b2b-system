@@ -333,5 +333,16 @@
     "toggleSidebar": "側邊選單",
     "closeSidebar": "關閉側邊選單",
     "accountMenu": "帳號選單（{{name}}）"
+  },
+  "changePassword": {
+    "title": "變更密碼",
+    "hint": "變更密碼後，所有裝置都會被登出。",
+    "submit": "變更密碼",
+    "changed": "密碼已變更，請重新登入。",
+    "confirmTitle": "要變更密碼嗎？",
+    "lengthHint_other": "至少 {{min}} 個字元（目前 {{count}} 個）。",
+    "currentPassword": "目前密碼",
+    "newPassword": "新密碼",
+    "confirmPassword": "確認新密碼"
   }
 }

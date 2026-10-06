@@ -1,4 +1,5 @@
 export * from './AuthShell';
+export * from './ChangePasswordSection';
 export * from './ErrorPage';
 export * from './PageSkeleton';
 export * from './PermissionGate';

@@ -129,5 +129,8 @@
     "authz": {
       "explain": "檢視授權來源"
     }
+  },
+  "changePassword": {
+    "hint": "變更密碼後，所有裝置都會被登出。"
   }
 }

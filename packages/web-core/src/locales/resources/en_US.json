@@ -346,5 +346,17 @@
     "toggleSidebar": "Side menu",
     "closeSidebar": "Close side menu",
     "accountMenu": "Account menu ({{name}})"
+  },
+  "changePassword": {
+    "title": "Change password",
+    "hint": "Changing your password signs you out of every device.",
+    "submit": "Change password",
+    "changed": "Password changed. Please sign in again.",
+    "confirmTitle": "Change your password?",
+    "lengthHint_one": "At least {{min}} characters ({{count}} so far).",
+    "lengthHint_other": "At least {{min}} characters ({{count}} so far).",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password"
   }
 }

@@ -116,7 +116,7 @@ declare module '@b2b-system/web-core/app/context' {
 
 ### 3.3 全域語系包（合併）
 
-web-core 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有它自己用到的區段：`common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`。
+web-core 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有它自己用到的區段：`common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`、`changePassword`。
 app 的 `src/app/locales/*.json` 只放自己的區段（`menu`、`app`、`permission`…）與少數覆寫。
 
 app 的 `plugins/app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlugin({ locales })`，兩者以 `mergeLocaleImporters` 深層合併，**app 的鍵優先**。

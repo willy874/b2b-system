@@ -25,7 +25,7 @@ import { renderWithPermissions } from '@b2b-system/web-core/testing'; // 只給�
 | `batch` | 全域批次佇列（SharedWorker 排程、進度條、頂列面板、結果彈出） |
 | `cache` | `queryClient`（`AppQueryClient`）、依賴圖引擎（`resourceGraph`）、跨分頁失效 |
 | `client` | `HttpContext`／`FetcherContext`／`defineFetcher`／攔截器鏈 |
-| `components` | 錯誤頁：`ErrorPage`（外框；`variant` 由 app 決定：backstage `centered`、apps/platform `compact`）、`ForbiddenPage`、`NotFoundPage`、`UnexpectedErrorPage`、`RouteErrorPage`（router 的 `defaultErrorComponent`；舊 chunk 載入失敗提示重新整理）、`isChunkLoadError`；`AuthShell`（登入等不套外框的頁面，產品名由 app 傳入）、`PageSkeleton`、`PermissionGate`、`QueryError`、`RichTable` |
+| `components` | 錯誤頁：`ErrorPage`（外框；`variant` 由 app 決定：backstage `centered`、apps/platform `compact`）、`ForbiddenPage`、`NotFoundPage`、`UnexpectedErrorPage`、`RouteErrorPage`（router 的 `defaultErrorComponent`；舊 chunk 載入失敗提示重新整理）、`isChunkLoadError`；`AuthShell`（登入等不套外框的頁面，產品名由 app 傳入）、`ChangePasswordSection`＋`useChangePasswordForm`（個人資料頁的變更密碼；mutation options 與結束 session 的原因由 app 傳入，狀態留在頁面以便合併未儲存提醒）、`PASSWORD_MIN_LENGTH`／`PASSWORD_MAX_LENGTH`、`PageSkeleton`、`PermissionGate`、`QueryError`、`RichTable` |
 | `errors` | `AppError`、`ErrorCodes`、`ERROR_MESSAGE_KEY`、`useErrorMessage()` 等 |
 | `layout` | 登入後的外框 `DashboardShell`（側欄、頂列、帳號選單；品牌、選單資料與帳號選單的項目由 app 傳入）與分組側欄 `SideNav`；頂列：`HeaderToolbar`、`ThemeMenu`、`LanguageMenu`（`onChange` 由 app 傳入）、`RealtimeStatusIndicator`；偏好頁的 `HeaderToolbarSettings`；選單型別 |
 | `locales` | i18n、scope loader、`useTranslation`、Zod 錯誤訊息、`CORE_LOCALES` 與合併工具 |
@@ -61,7 +61,7 @@ export { PermissionResource } from './resources';
 
 **plugin 屬性**：擴充 `AppPluginProperties` 時指向定義的檔案 `@b2b-system/web-core/app/context`（指向 `/app` 的 index 不會合併）。
 
-**全域語系包**：package 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有 `common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`；
+**全域語系包**：package 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有 `common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`、`changePassword`；
 app 的 `plugins/app/i18n.ts` 以 `i18nPlugin({ locales })` 傳入自己的 `app/locales/*.json`，兩者深層合併、app 的鍵優先。
 測試由 app 的 `src/test/i18n.ts` 包一層 `initTestI18n(zhTW, …)`。
 
