@@ -33,22 +33,23 @@ describe('createBlobStore（沒有 IndexedDB 時退回記憶體）', () => {
   });
 });
 
+/** 假的 IDBRequest：在下一個 microtask 完成（呼叫端先拿到 request 才掛 listener）。 */
+function fakeRequest<T>(compute: () => T): IDBRequest<T> {
+  const request = new EventTarget() as EventTarget & { result?: T; error: null };
+  request.error = null;
+  queueMicrotask(() => {
+    request.result = compute();
+    request.dispatchEvent(new Event('success'));
+  });
+  return request as unknown as IDBRequest<T>;
+}
+
 /**
  * 最小的 IndexedDB（只有 blobStore 用到的部分）：每個資料庫一個 object store，請求在下一個 microtask 完成。
  * 同一個 factory 建立的多個 BlobStore 共用資料，相當於同源的多個分頁。
  */
 function createFakeIndexedDB() {
   const databases = new Map<string, Map<IDBValidKey, unknown>>();
-
-  function fakeRequest<T>(compute: () => T): IDBRequest<T> {
-    const request = new EventTarget() as EventTarget & { result?: T; error: null };
-    request.error = null;
-    queueMicrotask(() => {
-      request.result = compute();
-      request.dispatchEvent(new Event('success'));
-    });
-    return request as unknown as IDBRequest<T>;
-  }
 
   const factory = {
     open(name: string) {
