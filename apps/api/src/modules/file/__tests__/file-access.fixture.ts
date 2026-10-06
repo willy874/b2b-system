@@ -95,5 +95,5 @@ export function createFileAccess(options: AccessFixtureOptions = {}) {
     authz as unknown as AuthzService,
     { register: vi.fn(), model: () => model } as unknown as AuthzRegistry,
   );
-  return { access, audit, permissions };
+  return { access, audit, permissions, tree, authz };
 }

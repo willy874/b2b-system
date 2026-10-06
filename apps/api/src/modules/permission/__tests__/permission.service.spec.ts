@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PermissionKey } from '@/common/types';
 import type { AuthzRevision, AuthzService, TenantPermissions } from '@/core/authz';
 import type { PermissionCacheService } from '@/core/cache';
+import type { DbOrTx } from '@/core/database';
 import { permissionClosure } from '@/db/seeds/permissions';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 
@@ -144,6 +145,45 @@ function createBatchService(cached: Record<string, { keys: PermissionKey[] }> = 
   );
   return { service, authz, cache };
 }
+
+describe('PermissionService.getPermissionSet（交易內，docs/architecture/backend/02-database.md §6.2）', () => {
+  it('帶 tx、快取沒命中：以同一個交易查，不寫回快取（可能含這個交易自己的寫入）', async () => {
+    const cache = { get: vi.fn(), set: vi.fn(), ticket: vi.fn(() => 0) };
+    const authz = fakeAuthz(() => ({
+      keys: ['user:read'] as PermissionKey[],
+      isSuperAdmin: false,
+    }));
+    const service = new PermissionService(
+      {} as PermissionRepository,
+      cache as unknown as PermissionCacheService,
+      authz as unknown as AuthzService,
+      REVISION,
+      NO_AUDIT,
+    );
+    const tx = { name: 'tx' } as unknown as DbOrTx;
+    const { permissions } = await service.getPermissionSet('u1', tx);
+    expect(permissions.has('user:read')).toBe(true);
+    expect(authz.tenantPermissionsOf).toHaveBeenCalledWith(['u1'], { withDependencies: true, tx });
+    expect(cache.set).not.toHaveBeenCalled();
+  });
+
+  it('帶 tx、快取命中：直接用快取，不查', async () => {
+    const cached = { permissions: new Set(['user:read']), isSuperAdmin: false, subjects: [] };
+    const cache = { get: vi.fn(() => cached), set: vi.fn(), ticket: vi.fn(() => 0) };
+    const authz = fakeAuthz(() => ({ keys: [], isSuperAdmin: false }));
+    const service = new PermissionService(
+      {} as PermissionRepository,
+      cache as unknown as PermissionCacheService,
+      authz as unknown as AuthzService,
+      REVISION,
+      NO_AUDIT,
+    );
+    await expect(service.getPermissionSet('u1', { name: 'tx' } as unknown as DbOrTx)).resolves.toBe(
+      cached,
+    );
+    expect(authz.tenantPermissionsOf).not.toHaveBeenCalled();
+  });
+});
 
 describe('PermissionService.getPermissionSets（批次解析）', () => {
   it('多人一次解析：每人一個集合，沒有角色的人是空集合，super-admin 有標記', async () => {
@@ -301,7 +341,7 @@ describe('PermissionService.assertNoSelfLockout（docs/architecture/backend/05-r
     subjects?: string[];
     otherRoleKeys?: PermissionKey[];
   }) {
-    const { service, repo } = createService({
+    const { service, repo, authz } = createService({
       keys: options.keys,
       isSuperAdmin: options.isSuperAdmin ?? false,
       subjects: options.subjects ?? [R1],
@@ -310,7 +350,7 @@ describe('PermissionService.assertNoSelfLockout（docs/architecture/backend/05-r
       findPermissionKeysOfRoles: vi.fn().mockResolvedValue(options.otherRoleKeys ?? []),
     };
     Object.assign(repo, extra);
-    return { service, repo: { ...repo, ...extra } };
+    return { service, repo: { ...repo, ...extra }, authz };
   }
 
   it('移除自己角色上唯一來源的管理權限 → ROLE_SELF_LOCKOUT 帶出失去的權限', async () => {
@@ -354,7 +394,24 @@ describe('PermissionService.assertNoSelfLockout（docs/architecture/backend/05-r
       otherRoleKeys: GUARDED,
     });
     await expect(service.assertNoSelfLockout('actor', 'r1', [], GUARDED)).resolves.toBeUndefined();
-    expect(repo.findPermissionKeysOfRoles).toHaveBeenCalledWith(['r2']);
+    expect(repo.findPermissionKeysOfRoles).toHaveBeenCalledWith(['r2'], undefined);
+  });
+
+  it('在交易內（鎖住角色列之後）呼叫：權限與其他角色的鍵都以同一個交易查', async () => {
+    const { service, repo, authz } = createLockoutService({
+      keys: GUARDED,
+      subjects: [R1, R2],
+      otherRoleKeys: GUARDED,
+    });
+    const tx = { name: 'tx' } as unknown as DbOrTx;
+    await expect(
+      service.assertNoSelfLockout('actor', 'r1', [], GUARDED, tx),
+    ).resolves.toBeUndefined();
+    expect(authz.tenantPermissionsOf).toHaveBeenCalledWith(['actor'], {
+      withDependencies: true,
+      tx,
+    });
+    expect(repo.findPermissionKeysOfRoles).toHaveBeenCalledWith(['r2'], tx);
   });
 
   it('沒有持有這個角色 → 通過，不查其他角色', async () => {

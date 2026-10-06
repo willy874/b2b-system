@@ -74,6 +74,8 @@ export interface PermissionCheckContext {
   route: string;
   /** 另外記進稽核 `metadata` 的資訊（例：`{ roleId }`）；`route`、`required`、`missing` 由這裡填。 */
   metadata?: Record<string, unknown>;
+  /** 在呼叫端的交易內判斷時傳入：權限集合沒有快取時以同一個交易查（`getPermissionSet`）。拒絕的稽核仍不跟著交易。 */
+  tx?: DbOrTx;
 }
 
 /** 角色實際持有的一個鍵（docs/rbac/02-permission-catalog.md §9）。 */
@@ -93,9 +95,20 @@ export class PermissionService {
     private readonly audit: AuditService,
   ) {}
 
-  async getPermissionSet(userId: string): Promise<PermissionSet> {
+  /**
+   * 一位使用者的權限集合（快取，載入期間被失效過就不寫回）。
+   *
+   * 在呼叫端的交易內（持有鎖）判斷時傳 `tx`：快取沒命中就以同一個交易查，不從連線池另取一條連線
+   * （池子滿時會與等鎖的交易互相等待，docs/architecture/backend/02-database.md §6.2）。交易內讀到的可能含這個交易自己的寫入，
+   * 所以 **不寫回快取**。能在交易之前取好的就先取好（例：資料夾結構的寫入，`FileAccessService.permissionsOf`）。
+   */
+  async getPermissionSet(userId: string, tx?: DbOrTx): Promise<PermissionSet> {
     const cached = this.cache.get(userId);
     if (cached) return withTokenScopes(userId, cached);
+    if (tx) {
+      const loaded = await this.loadBatch([userId], tx);
+      return withTokenScopes(userId, loaded.get(userId) as PermissionSet);
+    }
 
     // 查詢期間若被失效（撤銷權限的交易剛提交），讀到的可能是舊值：不寫回快取
     const ticket = this.cache.ticket();
@@ -134,8 +147,11 @@ export class PermissionService {
   }
 
   /** 一批人的權限：由關係圖解析，含權限依賴樹的閉包（docs/rbac/01-domain-model.md §9）。 */
-  private async loadBatch(batch: readonly string[]): Promise<Map<string, PermissionSet>> {
-    const resolved = await this.authz.tenantPermissionsOf(batch, { withDependencies: true });
+  private async loadBatch(
+    batch: readonly string[],
+    tx?: DbOrTx,
+  ): Promise<Map<string, PermissionSet>> {
+    const resolved = await this.authz.tenantPermissionsOf(batch, { withDependencies: true, tx });
     return new Map(
       [...resolved].map(([id, { effective, isSuperAdmin, subjects }]) => [
         id,
@@ -180,7 +196,7 @@ export class PermissionService {
     context: PermissionCheckContext,
   ): Promise<void> {
     if (keys.length === 0) return;
-    const { permissions, isSuperAdmin } = await this.getPermissionSet(actor.id);
+    const { permissions, isSuperAdmin } = await this.getPermissionSet(actor.id, context.tx);
     if (isSuperAdmin) return;
     const granted =
       match === 'every'
@@ -215,7 +231,7 @@ export class PermissionService {
     tx?: DbOrTx,
   ): Promise<void> {
     if (targets.length === 0) return;
-    const { permissions, isSuperAdmin } = await this.getPermissionSet(actorId);
+    const { permissions, isSuperAdmin } = await this.getPermissionSet(actorId, tx);
     if (isSuperAdmin) return;
     const capabilities = await this.authz.grantedCapabilities(targets, { tx });
     const missing = new Set<string>();
@@ -242,11 +258,16 @@ export class PermissionService {
     }
   }
 
-  /** 反提權：待授予的權限必須是 actor 已持有的。 */
-  async assertGrantable(actorId: string, keys: readonly PermissionKey[]): Promise<void> {
+  /** 反提權：待授予的權限必須是 actor 已持有的。在交易內呼叫時傳 `tx`（見 `getPermissionSet`）。 */
+  async assertGrantable(
+    actorId: string,
+    keys: readonly PermissionKey[],
+    tx?: DbOrTx,
+  ): Promise<void> {
     await this.assertCanGrant(
       actorId,
       keys.map((key) => ({ object: TENANT_OBJECT, relation: key })),
+      tx,
     );
   }
 
@@ -273,15 +294,16 @@ export class PermissionService {
    *
    * 「持有」與「剩下的權限」都以 actor 的主體閉包判斷（`PermissionSet.subjects` 裡的 `role:<id>#holder`），
    * 經由群組（含巢狀）持有的角色與直接持有的一樣算（docs/rbac/08-groups.md §1）：只經由群組持有 R 的人改 R 也會被擋，
-   * 另外經由群組持有同樣權限的人不會被誤擋。
+   * 另外經由群組持有同樣權限的人不會被誤擋。在交易內（鎖住角色列之後）呼叫時傳 `tx`：讀取都走同一個交易。
    */
   async assertNoSelfLockout(
     actorId: string,
     roleId: string,
     nextRoleKeys: readonly string[],
     guarded: readonly PermissionKey[],
+    tx?: DbOrTx,
   ): Promise<void> {
-    const { permissions, isSuperAdmin, subjects = [] } = await this.getPermissionSet(actorId);
+    const { permissions, isSuperAdmin, subjects = [] } = await this.getPermissionSet(actorId, tx);
     if (isSuperAdmin) return;
     const held = guarded.filter((key) => permissions.has(key));
     if (held.length === 0) return;
@@ -291,7 +313,7 @@ export class PermissionService {
     // 剩下的鍵也要套上依賴樹的閉包：拿掉 file:update 時，file:delete 仍會帶回它
     const others = heldRoleIds.filter((id) => id !== roleId);
     const remaining = permissionClosure([
-      ...(await this.repo.findPermissionKeysOfRoles(others)),
+      ...(await this.repo.findPermissionKeysOfRoles(others, tx)),
       ...(nextRoleKeys as PermissionKey[]),
     ]);
     const lost = held.filter((key) => !remaining.has(key));

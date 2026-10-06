@@ -486,13 +486,15 @@ export class RoleService {
       const remove = before.filter((key) => !targetSet.has(key));
       const changesKeys = add.length > 0 || remove.length > 0;
       if (changesKeys) {
-        await this.assertCanGrantPermissions(actor, id);
-        await this.permissionService.assertGrantable(actor.id, add);
+        // 交易內的讀取都帶 tx：不在鎖住角色列的交易內從連線池另取連線（docs/architecture/backend/02-database.md §6.2）
+        await this.assertCanGrantPermissions(actor, id, tx);
+        await this.permissionService.assertGrantable(actor.id, add, tx);
         await this.permissionService.assertNoSelfLockout(
           actor.id,
           id,
           targetKeys,
           ROLE_MANAGEMENT_PERMISSIONS,
+          tx,
         );
       }
 
@@ -567,10 +569,11 @@ export class RoleService {
    * 還原會改變權限鍵時，另外要有 `role:grantPermission`（與 `PATCH /roles/:id/permissions` 的路由宣告相同）。
    * 拒絕照 `PermissionsGuard` 的形狀：`403 AUTHZ_FORBIDDEN` ＋ `authz.denied` 稽核（`PermissionService.assertHasAll`）。
    */
-  private assertCanGrantPermissions(actor: AuthUser, roleId: string): Promise<void> {
+  private assertCanGrantPermissions(actor: AuthUser, roleId: string, tx: DbOrTx): Promise<void> {
     return this.permissionService.assertHasAll(actor, [PERMISSION.ROLE_GRANT_PERMISSION], {
       route: 'POST /roles/:id/revisions/:version/revert',
       metadata: { roleId },
+      tx,
     });
   }
 

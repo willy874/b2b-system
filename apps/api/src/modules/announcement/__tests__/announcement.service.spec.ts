@@ -387,7 +387,8 @@ describe('AnnouncementService.update（docs/architecture/backend/19-announcement
           missing: [PERMISSION.ANNOUNCEMENT_PUBLISH],
         },
       );
-      expect(ctx.permissions.getPermissionSet).toHaveBeenCalledWith(ACTOR.id);
+      // 不在交易內判斷：沒有帶 tx
+      expect(ctx.permissions.getPermissionSet).toHaveBeenCalledWith(ACTOR.id, undefined);
       expect(ctx.denials.recordSafely).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'authz.denied',

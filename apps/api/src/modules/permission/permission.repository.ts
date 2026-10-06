@@ -24,9 +24,12 @@ export class PermissionRepository {
    * 這些角色（未刪除的）帶的權限鍵，去重。自我鎖定用：actor 主體閉包裡「這個角色以外」的角色還帶來哪些鍵。
    * 不含 `superAdmin`（`isRolePermissionTuple`）：持有 super-admin 的人在呼叫端已豁免。
    */
-  async findPermissionKeysOfRoles(roleIds: readonly string[]): Promise<PermissionKey[]> {
+  async findPermissionKeysOfRoles(
+    roleIds: readonly string[],
+    db: DbOrTx = this.db,
+  ): Promise<PermissionKey[]> {
     if (roleIds.length === 0) return [];
-    const rows = await this.db
+    const rows = await db
       .selectDistinct({ key: relationTuples.relation })
       .from(relationTuples)
       .innerJoin(roles, and(eq(sql`${roles.id}::text`, relationTuples.subjectId), isActiveRole()))

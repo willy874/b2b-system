@@ -3,6 +3,7 @@ import type { OnModuleInit } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
 import { AuthzRegistry, AuthzService, capabilitiesOf } from '@/core/authz';
+import type { PermissionSet } from '@/core/cache';
 import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { AuditService } from '@/modules/audit-log/audit.service';
@@ -42,12 +43,32 @@ export class FileAccessService implements OnModuleInit {
   }
 
   /**
-   * 建立操作者這次請求的存取判斷。結構寫入（移動、刪除）要在取得樹鎖的交易內呼叫並傳入 `tx`，
-   * 檢查與寫入之間結構才不會變。同一個交易的查詢依序執行。
+   * 操作者的權限集合：結構寫入要在進樹鎖的交易 **之前** 取好，再交給 `contextFor(actor, tx, permissions)`。
+   * 權限集合不在樹鎖保護的範圍內，提前讀與 guard 的判斷一致。
    */
-  /** `actor` 只用到 id：說明別人的存取時（G4b）以目標使用者建立。 */
-  async contextFor(actor: Pick<AuthUser, 'id'>, tx?: DbOrTx): Promise<FileAccessContext> {
-    const set = await this.permissions.getPermissionSet(actor.id);
+  permissionsOf(actor: Pick<AuthUser, 'id'>): Promise<PermissionSet> {
+    return this.permissions.getPermissionSet(actor.id);
+  }
+
+  /**
+   * 建立操作者這次請求的存取判斷（`actor` 只用到 id：說明別人的存取時（G4b）以目標使用者建立）。
+   *
+   * 結構寫入（建立、移動、刪除、授權）要在取得樹鎖的交易內呼叫並傳入 `tx`，檢查與寫入之間結構才不會變；
+   * 這時一定要同時傳入交易前取好的 `permissions`（`permissionsOf`）：權限快取沒命中時，`getPermissionSet` 會從連線池另取一條連線，
+   * 而持有樹鎖的交易已經佔著一條、等鎖的交易也各佔一條——池子滿了就互相等到 `statement_timeout`
+   * （docs/architecture/backend/09-file.md §11.1）。同一個交易的查詢依序執行。
+   */
+  async contextFor(
+    actor: Pick<AuthUser, 'id'>,
+    tx?: DbOrTx,
+    permissions?: PermissionSet,
+  ): Promise<FileAccessContext> {
+    if (tx && !permissions) {
+      throw new Error(
+        '在交易內建立存取判斷要傳入交易前取好的權限集合（FileAccessService.permissionsOf）',
+      );
+    }
+    const set = permissions ?? (await this.permissions.getPermissionSet(actor.id));
     // 交易外讀快取；交易內（持有樹鎖）直接查
     const nodes = await this.tree.nodes(tx);
     const folders = new Map(nodes.map((node) => [node.id, node]));

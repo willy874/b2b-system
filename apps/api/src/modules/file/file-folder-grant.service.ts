@@ -58,8 +58,9 @@ export class FileFolderGrantService {
     dto: SetFileFolderGrantDto,
     actor: AuthUser,
   ): Promise<FileFolderGrantListDto> {
+    const permissions = await this.access.permissionsOf(actor);
     await this.writeGrants(async (tx) => {
-      const ctx = await this.access.contextFor(actor, tx);
+      const ctx = await this.access.contextFor(actor, tx, permissions);
       const folder = await this.assertCanShare(ctx, actor, folderId, tx);
       if (!(await this.grants.subjectExists(dto.subjectType, dto.subjectId, tx))) {
         throw new AppException('FILE_GRANT_SUBJECT_NOT_FOUND', {
@@ -106,8 +107,9 @@ export class FileFolderGrantService {
     subjectId: string,
     actor: AuthUser,
   ): Promise<void> {
+    const permissions = await this.access.permissionsOf(actor);
     await this.writeGrants(async (tx) => {
-      const ctx = await this.access.contextFor(actor, tx);
+      const ctx = await this.access.contextFor(actor, tx, permissions);
       const folder = await this.assertCanShare(ctx, actor, folderId, tx);
       const key = this.keyOf(folderId, subjectType, subjectId);
       const existing = await this.grants.find(key, tx);
@@ -140,8 +142,9 @@ export class FileFolderGrantService {
     dto: UpdateFileFolderAccessDto,
     actor: AuthUser,
   ): Promise<FileFolderGrantListDto> {
+    const permissions = await this.access.permissionsOf(actor);
     const changed = await this.writeGrants(async (tx) => {
-      const ctx = await this.access.contextFor(actor, tx);
+      const ctx = await this.access.contextFor(actor, tx, permissions);
       const folder = await this.assertCanShare(ctx, actor, folderId, tx);
       if (folder.inheritGrants === dto.inheritGrants) return false;
       if (dto.inheritGrants) await this.assertInheritable(ctx, folder, tx);

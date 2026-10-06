@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { AuthUser } from '@/common/types';
+import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 
 import type { FolderNode } from '../file-access.context';
@@ -18,6 +19,37 @@ const ART: FolderNode = { id: 'art', parentId: null, inheritGrants: true, create
 const UI: FolderNode = { id: 'ui', parentId: 'art', inheritGrants: true, createdBy: ALICE.id };
 const SECRET: FolderNode = { id: 'secret', parentId: null, inheritGrants: true, createdBy: BOB };
 const NODES = [ART, UI, SECRET];
+
+describe('FileAccessService.contextFor 在樹鎖的交易內（docs/architecture/backend/09-file.md §11.1）', () => {
+  const TX = { name: 'tree-lock-tx' } as unknown as DbOrTx;
+
+  it('帶 tx 與交易前取好的權限集合：不另外載入權限（不從連線池另取連線），結構與授權都走同一個交易', async () => {
+    const { access, permissions, tree, authz } = createFileAccess({
+      global: ['read', 'create'],
+      nodes: () => NODES,
+    });
+    const preloaded = await access.permissionsOf(ALICE);
+    permissions.getPermissionSet.mockClear();
+
+    const ctx = await access.contextFor(ALICE, TX, preloaded);
+    expect(ctx.can('create', 'art')).toBe(true);
+    expect(permissions.getPermissionSet).not.toHaveBeenCalled();
+    expect(tree.nodes).toHaveBeenCalledWith(TX);
+    expect(authz.checkerFor).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ tx: TX }),
+      undefined,
+    );
+  });
+
+  it('帶 tx 卻沒有傳權限集合 → 拋錯（程式錯誤：交易內不能再去載入權限）', async () => {
+    const { access, permissions } = createFileAccess({ nodes: () => NODES });
+    await expect(access.contextFor(ALICE, TX)).rejects.toThrow(/permissionsOf/);
+    expect(permissions.getPermissionSet).not.toHaveBeenCalled();
+  });
+});
 
 describe('FileAccessContext（docs/rbac/07-resource-grants.md §3、§4）', () => {
   it('全域權限鍵涵蓋所有資料夾與根目錄，不看資料夾授權', async () => {
