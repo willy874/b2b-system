@@ -54,8 +54,8 @@ test.describe('改密碼與忘記密碼', () => {
       .getByTestId('alert-dialog-confirm')
       .click();
 
-    // 原因可能被 session.revoked 推播搶先（docs/issues/password-change-signout-reason-race.md）：只斷言已登出
-    await expect(page).toHaveURL(/\/auth\/login\?.*signedOut=true/);
+    // session.revoked 推播比回應先到也一樣是 password_changed（SessionStore.expectSessionEnd）
+    await expect(page).toHaveURL(/\/auth\/login\?.*signedOut=true.*reason=password_changed/);
     await expect(page.getByTestId('login-sso')).toBeVisible();
     await snapshot(page, 'signed-out-after-change');
 

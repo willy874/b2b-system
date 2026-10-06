@@ -234,6 +234,8 @@ pathname '/role/abc/permission'
 
 登入成功後讀 `search.redirect` 導回原本要去的頁面（含查詢字串）。`reason` 是 `endSession(reason)` 的原因，
 登入頁以 `features/auth/sessionEnd.ts` 對到說明（逾時、帳號停用、憑證重用、密碼已變更…；自己登出不帶）。
+自己觸發的結束（改密碼會撤銷所有 session）在送出請求前呼叫 `sessionStore.expectSessionEnd('password_changed')`：
+後端的 `session.revoked` 推播或其他請求的 `401 AUTH_TOKEN_STALE` 比回應先到時，原因仍是 `password_changed`；請求失敗就呼叫回傳的取消函式。
 
 ### 4.4 404、錯誤頁與載入中
 

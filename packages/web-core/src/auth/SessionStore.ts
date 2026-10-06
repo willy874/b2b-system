@@ -77,6 +77,8 @@ export class SessionStore {
   private inFlight: Promise<string | undefined> | undefined;
   private refreshFn: RefreshFn | undefined;
   private ended = false; // latched：只觸發一次
+  /** `expectSessionEnd()` 預告的原因：結束時取代實際先到的原因，用過即清。 */
+  private expectedEndReason: string | undefined;
   /** 每次清空 session 就 +1：續期回來時世代不同，代表中途登出過，結果要丟掉。 */
   private epoch = 0;
   private readonly runExclusive: RunExclusive;
@@ -155,13 +157,27 @@ export class SessionStore {
     this.notify();
   }
 
+  /**
+   * 預告 session 即將因為 `reason` 結束（例：改密碼會撤銷所有 session）。之後不論是推播的 `session.revoked`、
+   * 請求的 `401 AUTH_TOKEN_STALE` 還是呼叫端自己先呼叫 `endSession`，都以 `reason` 結束，登入頁顯示對的原因。
+   * 回傳取消函式：觸發結束的請求失敗時呼叫。
+   */
+  expectSessionEnd(reason: string): () => void {
+    this.expectedEndReason = reason;
+    return () => {
+      if (this.expectedEndReason === reason) this.expectedEndReason = undefined;
+    };
+  }
+
   /** session 終止是 latched 的：只會觸發一次登出流程。 */
   endSession(reason: string, broadcast = true): void {
     if (this.ended) return;
+    const finalReason = this.expectedEndReason ?? reason;
+    this.expectedEndReason = undefined;
     this.ended = true;
     this.clear();
-    if (broadcast) this.channel.post('session-ended', { reason });
-    this.events.emit('ended', reason);
+    if (broadcast) this.channel.post('session-ended', { reason: finalReason });
+    this.events.emit('ended', finalReason);
     this.notify();
   }
 
