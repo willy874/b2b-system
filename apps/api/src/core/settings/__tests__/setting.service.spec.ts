@@ -1,10 +1,11 @@
+import { Logger } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { BroadcastHub, flushBroadcast } from '../../broadcast/__tests__/broadcast-hub';
 import type { Env } from '../../config/env.schema';
-import type { Database } from '../../database';
+import type { Database, DbOrTx } from '../../database';
 import { runInTenantContext } from '../../tenant';
 import type { TenantContext } from '../../tenant';
 import { defineSetting, SettingCategory } from '../setting-definition';
@@ -35,6 +36,8 @@ function setup(
     listAll: vi.fn(async () =>
       rows.map((row) => ({ ...row, updatedAt: new Date('2026-09-30T00:00:00Z'), updatedBy: null })),
     ),
+    upsert: vi.fn(async () => {}),
+    remove: vi.fn(async () => {}),
   };
   const config = {
     get: vi.fn((key: keyof Env) => ({ FILE_UPLOAD_MAX_SIZE: 1000 })[key as string]),
@@ -141,5 +144,153 @@ describe('SettingService（docs/architecture/backend/12-settings.md §1）', () 
     await runInTenantContext(tenant('t2'), () => b.service.get(MAX_ATTEMPTS));
     // t1 重新查一次；t2 仍命中
     expect(b.repo.listAll).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('SettingService：登記、寫入與快取（docs/architecture/backend/12-settings.md）', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('list() 依登記順序回傳所有設定（env 相依的部分已算好）', () => {
+    const { service } = setup();
+    service.register([UPLOAD_MAX, MAX_ATTEMPTS]);
+    expect(service.list().map(({ key, defaultValue }) => ({ key, defaultValue }))).toEqual([
+      { key: 'file.uploadMaxSize', defaultValue: 1000 },
+      { key: 'auth.loginMaxAttempts', defaultValue: 5 },
+    ]);
+  });
+
+  it('find() 以 key 找到登記的設定；沒登記的回 undefined', () => {
+    const { service } = setup();
+    service.register([MAX_ATTEMPTS]);
+    expect(service.find('auth.loginMaxAttempts')?.defaultValue).toBe(5);
+    expect(service.find('auth.unknown')).toBeUndefined();
+  });
+
+  it('一批登記中途有重複的 key：前面的仍已登記', () => {
+    const { service } = setup();
+    expect(() => service.register([MAX_ATTEMPTS, UPLOAD_MAX, MAX_ATTEMPTS])).toThrow(/重複登記/);
+    expect(service.list().map(({ key }) => key)).toEqual([
+      'auth.loginMaxAttempts',
+      'file.uploadMaxSize',
+    ]);
+  });
+
+  it('save() 寫入覆寫值並帶上操作者與交易', async () => {
+    const { service, repo } = setup();
+    const tx = {} as DbOrTx;
+    await service.save('auth.loginMaxAttempts', 8, 'u1', tx);
+    expect(repo.upsert).toHaveBeenCalledWith('auth.loginMaxAttempts', 8, 'u1', tx);
+  });
+
+  it('reset() 刪掉覆寫值（還原預設）並帶上交易', async () => {
+    const { service, repo } = setup();
+    const tx = {} as DbOrTx;
+    await service.reset('auth.loginMaxAttempts', tx);
+    expect(repo.remove).toHaveBeenCalledWith('auth.loginMaxAttempts', tx);
+  });
+
+  it('save() 不會自己失效快取：要等呼叫端在交易提交後 invalidate()', async () => {
+    const { service, repo } = setup();
+    service.register([MAX_ATTEMPTS]);
+    await service.get(MAX_ATTEMPTS);
+    await service.save('auth.loginMaxAttempts', 8, 'u1');
+    await service.get(MAX_ATTEMPTS);
+    expect(repo.listAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('TTL（30 秒）到期後重新查資料庫', async () => {
+    vi.useFakeTimers({ now: new Date('2026-10-01T00:00:00Z') });
+    const { service, repo } = setup();
+    service.register([MAX_ATTEMPTS]);
+    await service.get(MAX_ATTEMPTS);
+
+    vi.advanceTimersByTime(29_999);
+    await service.get(MAX_ATTEMPTS);
+    expect(repo.listAll).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(1);
+    await service.get(MAX_ATTEMPTS);
+    expect(repo.listAll).toHaveBeenCalledTimes(2);
+  });
+
+  it('stored() 回傳覆寫值與最後修改時間', async () => {
+    const { service } = setup([{ key: 'auth.loginMaxAttempts', value: 8 }]);
+    expect(await service.stored()).toEqual(
+      new Map([
+        ['auth.loginMaxAttempts', { value: 8, updatedAt: new Date('2026-09-30T00:00:00Z') }],
+      ]),
+    );
+  });
+
+  it('存的值不合 schema 時記 warn（含 key 與租戶）', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+    const { service } = setup([{ key: 'auth.loginMaxAttempts', value: 'x' }]);
+    service.register([MAX_ATTEMPTS]);
+    await runInTenantContext(tenant('t1'), () => service.get(MAX_ATTEMPTS));
+    expect(warn).toHaveBeenCalledWith(
+      { key: 'auth.loginMaxAttempts', tenantId: 't1' },
+      expect.any(String),
+    );
+  });
+
+  it('存的值經 schema 轉換後才回傳', async () => {
+    const trimmed = defineSetting({
+      key: 'general.name',
+      category: SettingCategory.GENERAL,
+      schema: z.string().trim(),
+      defaultValue: 'Acme',
+      isPublic: true,
+    });
+    const { service } = setup([{ key: 'general.name', value: '  Beta ' }]);
+    service.register([trimmed]);
+    await expect(service.get(trimmed)).resolves.toBe('Beta');
+  });
+
+  it('其他程序的監聽連線重連 → 該程序所有租戶的快取都丟掉', async () => {
+    const hub = new BroadcastHub();
+    const b = setup([], hub);
+    b.service.register([MAX_ATTEMPTS]);
+    b.service.onModuleInit();
+    await b.broadcast.onApplicationBootstrap();
+    await runInTenantContext(tenant('t1'), () => b.service.get(MAX_ATTEMPTS));
+    await runInTenantContext(tenant('t2'), () => b.service.get(MAX_ATTEMPTS));
+
+    hub.reconnect();
+    await flushBroadcast();
+
+    await runInTenantContext(tenant('t1'), () => b.service.get(MAX_ATTEMPTS));
+    await runInTenantContext(tenant('t2'), () => b.service.get(MAX_ATTEMPTS));
+    expect(b.repo.listAll).toHaveBeenCalledTimes(4);
+  });
+
+  it('invalidate() 廣播目前租戶的 id；本程序不會因為自己的廣播再失效一次', async () => {
+    const hub = new BroadcastHub();
+    const a = setup([], hub);
+    a.service.register([MAX_ATTEMPTS]);
+    a.service.onModuleInit();
+    await a.broadcast.onApplicationBootstrap();
+
+    // 失效後、廣播分派前就重新載入；之後收到自己送出的訊息也不該把它丟掉
+    await runInTenantContext(tenant('t1'), async () => {
+      a.service.invalidate();
+      await a.service.get(MAX_ATTEMPTS);
+    });
+    await flushBroadcast();
+    expect(hub.messages('settings')).toEqual([{ tenant: 't1' }]);
+
+    await runInTenantContext(tenant('t1'), () => a.service.get(MAX_ATTEMPTS));
+    expect(a.repo.listAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('還沒 onModuleInit（沒有廣播頻道）時 invalidate() 仍清掉本機快取', async () => {
+    const { service, repo } = setup();
+    service.register([MAX_ATTEMPTS]);
+    await service.get(MAX_ATTEMPTS);
+    expect(() => service.invalidate()).not.toThrow();
+    await service.get(MAX_ATTEMPTS);
+    expect(repo.listAll).toHaveBeenCalledTimes(2);
   });
 });

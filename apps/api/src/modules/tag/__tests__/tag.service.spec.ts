@@ -9,7 +9,7 @@ import type { TenantContext, TenantFeature } from '@/core/tenant';
 import type { TagRow } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 
-import { TAG_MAX_PER_SCOPE } from '../tag.constants';
+import { TAG_MAX_PER_RESOURCE, TAG_MAX_PER_SCOPE } from '../tag.constants';
 import type { AssignedTag, TagRepository } from '../tag.repository';
 import { TagService } from '../tag.service';
 
@@ -274,5 +274,49 @@ describe('TagService.tagsOf（給擁有者的批次讀取，D6）', () => {
     const result = await ctx.service.tagsOf('file', ['f1', 'f2']);
     expect(result.get('f1')).toEqual([{ id: 'a', name: '標籤 a', color: 'neutral' }]);
     expect(result.get('f2')).toEqual([]);
+  });
+});
+
+describe('TagService 其他分支（docs/architecture/backend/18-tag.md §7.2 D3、D9、D11）', () => {
+  it('改名：條件式 UPDATE 沒命中、交易內重讀還在 → TAG_VERSION_CONFLICT 帶最新的 version，不寫稽核', async () => {
+    const ctx = setup();
+    ctx.repo.update.mockResolvedValue(undefined as never);
+    ctx.repo.findById
+      .mockResolvedValueOnce(tag('t1'))
+      .mockResolvedValueOnce(tag('t1', { version: 5 }));
+    await expectCode(
+      inTenant(() => ctx.service.update('t1', { name: 'x', version: 1 }, ACTOR)),
+      'TAG_VERSION_CONFLICT',
+      { current: 5 },
+    );
+    expect(ctx.audit.record).not.toHaveBeenCalled();
+    expect(ctx.events.publish).not.toHaveBeenCalled();
+  });
+
+  it('改名：條件式 UPDATE 沒命中、交易內重讀已不在 → TAG_NOT_FOUND', async () => {
+    const ctx = setup();
+    ctx.repo.update.mockResolvedValue(undefined as never);
+    ctx.repo.findById.mockResolvedValueOnce(tag('t1')).mockResolvedValueOnce(undefined);
+    await expectCode(
+      inTenant(() => ctx.service.update('t1', { name: 'x', version: 1 }, ACTOR)),
+      'TAG_NOT_FOUND',
+    );
+  });
+
+  it(`一個資源超過 ${TAG_MAX_PER_RESOURCE} 個標籤 → TAG_LIMIT_REACHED，不寫入`, async () => {
+    const ctx = setup();
+    const tagIds = Array.from({ length: TAG_MAX_PER_RESOURCE + 1 }, (_, i) => `t${i}`);
+    await expectCode(
+      inTenant(() => ctx.service.replaceFor('file', 'f1', { tagIds }, ACTOR)),
+      'TAG_LIMIT_REACHED',
+      { max: TAG_MAX_PER_RESOURCE },
+    );
+    expect(ctx.repo.replace).not.toHaveBeenCalled();
+  });
+
+  it('資源永久刪除時，在擁有者的交易內清掉它們的指派', async () => {
+    const ctx = setup();
+    await ctx.service.removeAllFor('file', ['f1', 'f2'], ctx.tx as never);
+    expect(ctx.repo.removeAllFor).toHaveBeenCalledWith('file', ['f1', 'f2'], ctx.tx);
   });
 });

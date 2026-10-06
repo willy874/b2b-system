@@ -247,6 +247,22 @@ describe('WebhookDeliveryService.deliver（docs/architecture/backend/17-webhook.
     });
   });
 
+  it('到達門檻但沒有人持有 webhook:update：照樣停用與寫稽核，不寫通知', async () => {
+    const ctx = setup(received(500));
+    ctx.repo.recordFailure.mockResolvedValue({
+      consecutiveFailures: WEBHOOK_AUTO_DISABLE_AFTER_FAILURES,
+      disabledNow: true,
+    });
+    ctx.permissions.findActiveUserIdsWithPermission.mockResolvedValue([]);
+    const output = await inTenant(() => ctx.service.deliver(JOB));
+    expect(output).toMatchObject({ disabledSubscription: true });
+    expect(ctx.audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'webhook.autoDisable' }),
+      ctx.tx,
+    );
+    expect(ctx.notifications.notify).not.toHaveBeenCalled();
+  });
+
   it('離門檻還遠：不查收件人', async () => {
     const ctx = setup(received(500));
     await expect(inTenant(() => ctx.service.deliver(JOB))).rejects.toThrow();

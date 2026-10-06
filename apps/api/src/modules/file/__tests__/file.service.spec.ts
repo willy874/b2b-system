@@ -1,3 +1,5 @@
+import { ChangeKind } from '@b2b-system/realtime';
+import { Logger } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -5,6 +7,7 @@ import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
 import { AppException } from '@/core/errors';
+import { DomainEvent } from '@/core/events';
 import type { DomainEventBus } from '@/core/events';
 import type { SettingService } from '@/core/settings';
 import type { ObjectStorage, StoredObjectHead } from '@/core/storage';
@@ -1017,5 +1020,123 @@ describe('FileService：檔案容量（docs/architecture/05-tenancy.md §13.3 D8
     repo.storageUsed.mockResolvedValue(123);
     const policy = await inTenant(() => service.getUploadPolicy());
     expect(policy).toMatchObject({ storageQuota: 2048 * MIB, storageUsed: 123 });
+  });
+});
+
+function readyFile(): FileWithUploader {
+  return fileRow({ status: 'ready', etag: 'abc', uploadedAt: new Date() });
+}
+
+describe('FileService 的其他錯誤分支（docs/architecture/backend/09-file.md §4、§5.2）', () => {
+  const big = {
+    name: 'level.pak',
+    contentType: 'application/octet-stream',
+    size: 20 * 1024 * 1024,
+  };
+
+  it('刪除：檢查之後被別人搶先刪除（UPDATE 沒命中）→ FILE_NOT_FOUND，不推播', async () => {
+    const { service, repo, events } = setup({ file: readyFile() });
+    repo.softDelete.mockResolvedValueOnce(undefined as unknown as FileWithUploader);
+    await expectAppError(service.remove(FILE_ID, ALICE), 'FILE_NOT_FOUND');
+    expect(events.publish).not.toHaveBeenCalled();
+  });
+
+  it('分塊上傳登記失敗（交易內的容量確認）→ 取消已要到的 uploadId，拋出原本的錯誤', async () => {
+    const { service, repo, storage } = setup();
+    repo.storageUsed.mockResolvedValueOnce(0).mockResolvedValueOnce(Number.MAX_SAFE_INTEGER);
+    await expectAppError(
+      inTenant(() => service.createUpload(big, ALICE)),
+      'FILE_STORAGE_QUOTA_EXCEEDED',
+    );
+    expect(storage.abortMultipartUpload).toHaveBeenCalledWith(
+      expect.stringMatching(/^files\//),
+      'upload-1',
+    );
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('取消分塊上傳也失敗 → 只記警告，仍拋出原本的錯誤', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const { service, storage, folders } = setup();
+    folders.insideFolder.mockRejectedValueOnce(new AppException('FILE_FOLDER_NOT_FOUND'));
+    storage.abortMultipartUpload.mockRejectedValueOnce(new Error('storage down'));
+    await expectAppError(
+      inTenant(() => service.createUpload(big, ALICE)),
+      'FILE_FOLDER_NOT_FOUND',
+    );
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('單次 PUT 的登記失敗 → 沒有 uploadId，不呼叫取消', async () => {
+    const { service, storage, folders } = setup();
+    folders.insideFolder.mockRejectedValueOnce(new AppException('FILE_FOLDER_NOT_FOUND'));
+    await expectAppError(
+      inTenant(() => service.createUpload({ ...big, size: 10 }, ALICE)),
+      'FILE_FOLDER_NOT_FOUND',
+    );
+    expect(storage.abortMultipartUpload).not.toHaveBeenCalled();
+  });
+
+  it('complete：物件儲存回非預期的錯誤 → 原樣拋出，不查物件、不標記 ready', async () => {
+    const { service, storage, repo } = setup({
+      file: fileRow({ uploadId: 'upload-1', size: 30 }),
+    });
+    storage.completeMultipartUpload.mockRejectedValueOnce(new Error('network'));
+    await expect(
+      service.completeUpload(FILE_ID, { parts: [{ partNumber: 1, etag: 'a' }] }, ALICE),
+    ).rejects.toThrow('network');
+    expect(storage.head).not.toHaveBeenCalled();
+    expect(repo.markReady).not.toHaveBeenCalled();
+  });
+
+  it('complete：塊不對、物件在但大小不符 → FILE_UPLOAD_INCOMPLETE', async () => {
+    const { service, storage, repo } = setup({
+      file: fileRow({ uploadId: 'upload-1', size: 30 }),
+      head: { size: 29, etag: 'abc-2', contentType: 'application/octet-stream' },
+    });
+    storage.completeMultipartUpload.mockRejectedValueOnce(
+      new AppException('FILE_UPLOAD_INCOMPLETE'),
+    );
+    await expectAppError(
+      service.completeUpload(FILE_ID, { parts: [{ partNumber: 1, etag: 'a' }] }, ALICE),
+      'FILE_UPLOAD_INCOMPLETE',
+    );
+    expect(repo.markReady).not.toHaveBeenCalled();
+  });
+
+  describe('assertTaggable（docs/architecture/backend/18-tag.md §7.2 D5）', () => {
+    it('已完成、能改名 → 回傳檔名', async () => {
+      const { service } = setup({ file: readyFile() });
+      await expect(service.assertTaggable(FILE_ID, ALICE)).resolves.toEqual({ name: 'hero.png' });
+    });
+
+    it('上傳中（pending）→ FILE_NOT_FOUND', async () => {
+      const { service } = setup({ file: fileRow() });
+      await expectAppError(service.assertTaggable(FILE_ID, ALICE), 'FILE_NOT_FOUND');
+    });
+
+    it('別人上傳、自己只有 file:read ＋ file:create → AUTHZ_FORBIDDEN', async () => {
+      const { service } = setup({
+        file: fileRow({ status: 'ready', etag: 'abc', uploadedAt: new Date(), createdBy: BOB.id }),
+        access: { global: ['read', 'create'] },
+      });
+      await expectAppError(service.assertTaggable(FILE_ID, ALICE), 'AUTHZ_FORBIDDEN');
+    });
+  });
+
+  it('publishTagsChanged：檔案存在 → 推一筆 file update；不存在 → 不推播', async () => {
+    const present = setup({ file: readyFile() });
+    await present.service.publishTagsChanged(FILE_ID);
+    expect(present.events.publish).toHaveBeenCalledWith(
+      DomainEvent.RESOURCE_CHANGED,
+      expect.objectContaining({
+        changes: [expect.objectContaining({ kind: ChangeKind.UPDATE, id: FILE_ID })],
+      }),
+    );
+
+    const missing = setup();
+    await missing.service.publishTagsChanged(FILE_ID);
+    expect(missing.events.publish).not.toHaveBeenCalled();
   });
 });

@@ -1,14 +1,30 @@
 import type { ConfigService } from '@nestjs/config';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
+import * as http from '@/core/http';
+import { OutboundRequestError } from '@/core/http';
 
 import { WebhookEventCatalog } from '../webhook-event.catalog';
-import { WEBHOOK_PING_EVENT } from '../webhook.constants';
+import {
+  WEBHOOK_DELIVERY_TIMEOUT_MS,
+  WEBHOOK_PING_EVENT,
+  WEBHOOK_RESPONSE_EXCERPT_BYTES,
+} from '../webhook.constants';
 import { defineWebhookEvent } from '../webhook.definition';
 import { generateWebhookSecret, signWebhook } from '../webhook.signature';
 import { WebhookTransport } from '../webhook.transport';
+
+// 只換掉送出與 DNS 檢查的出口，預設行為與真的相同（其他測試仍走真的 SSRF 判斷）
+vi.mock('@/core/http', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/core/http')>();
+  return {
+    ...actual,
+    sendOutboundRequest: vi.fn(actual.sendOutboundRequest),
+    assertPublicDestination: vi.fn(actual.assertPublicDestination),
+  };
+});
 
 function transport(nodeEnv: Env['NODE_ENV']): WebhookTransport {
   const values: Partial<Env> = {
@@ -104,5 +120,72 @@ describe('對外事件的目錄（D1）', () => {
     expect(() => catalog.assertRegistered('webhook.ping')).not.toThrow();
     expect(catalog.isSubscribable('webhook.ping')).toBe(false);
     expect(catalog.subscribable(['webhook'])).toEqual([]);
+  });
+});
+
+describe('WebhookTransport.normalizeUrl：DNS（docs/architecture/backend/17-webhook.md §9.2 D15）', () => {
+  beforeEach(() => {
+    vi.mocked(http.assertPublicDestination).mockClear();
+  });
+
+  it('production：解析不到的主機 → unresolvable', async () => {
+    vi.mocked(http.assertPublicDestination).mockRejectedValueOnce(new Error('ENOTFOUND'));
+    expect(await reasonOf(transport('production').normalizeUrl('https://nowhere.invalid/'))).toBe(
+      'unresolvable',
+    );
+  });
+
+  it('production：公開位址 → 回傳正規化後的網址', async () => {
+    vi.mocked(http.assertPublicDestination).mockResolvedValueOnce(undefined as never);
+    expect(await transport('production').normalizeUrl('https://Hooks.Example.com')).toBe(
+      'https://hooks.example.com/',
+    );
+  });
+
+  it('開發環境：不做 DNS 檢查', async () => {
+    await transport('development').normalizeUrl('https://hooks.example.com/');
+    expect(http.assertPublicDestination).not.toHaveBeenCalled();
+  });
+});
+
+describe('WebhookTransport.send（docs/architecture/backend/17-webhook.md §9.2 D11、D15）', () => {
+  const send = vi.mocked(http.sendOutboundRequest);
+
+  beforeEach(() => {
+    send.mockReset();
+  });
+
+  it('POST、10 秒逾時、回應只讀前 1 KB；production 才擋私有位址', async () => {
+    send.mockResolvedValue({ status: 204, body: '' });
+    await transport('production').send('https://hooks.example.com/b2b', { a: 'b' }, '{}');
+    await transport('development').send('http://localhost:4000/hook', {}, '{}');
+    expect(send).toHaveBeenNthCalledWith(1, {
+      method: 'POST',
+      url: new URL('https://hooks.example.com/b2b'),
+      headers: { a: 'b' },
+      body: '{}',
+      timeoutMs: WEBHOOK_DELIVERY_TIMEOUT_MS,
+      maxResponseBytes: WEBHOOK_RESPONSE_EXCERPT_BYTES,
+      blockPrivateNetworks: true,
+    });
+    expect(send.mock.calls[1]?.[0]).toMatchObject({ blockPrivateNetworks: false });
+  });
+
+  it('有回應（不論狀態碼）→ received: true 帶回應', async () => {
+    send.mockResolvedValue({ status: 500, body: 'boom' });
+    await expect(transport('development').send('https://h.example.com', {}, '{}')).resolves.toEqual(
+      { received: true, response: { status: 500, body: 'boom' } },
+    );
+  });
+
+  it.each([
+    ['連線層的已知失敗', new OutboundRequestError('TIMEOUT', 'timeout'), 'TIMEOUT'],
+    ['投遞時才發現指向內網', new OutboundRequestError('BLOCKED', 'blocked'), 'BLOCKED'],
+    ['其他例外', new Error('socket hang up'), 'REQUEST_FAILED'],
+  ])('%s → 不拋出，回傳原因代碼 %s', async (_label, error, code) => {
+    send.mockRejectedValue(error);
+    await expect(transport('development').send('https://h.example.com', {}, '{}')).resolves.toEqual(
+      { received: false, error: code },
+    );
   });
 });

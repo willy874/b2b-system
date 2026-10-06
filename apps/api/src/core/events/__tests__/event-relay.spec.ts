@@ -209,4 +209,89 @@ describe('DomainEventRelay（docs/architecture/06-external-api.md §9.2 D18）',
 
     expect(handler).not.toHaveBeenCalled();
   });
+
+  it('撤銷連線的名單放不進一則廣播：每種名單各自分批，原因帶在每一則', async () => {
+    const hub = new BroadcastHub();
+    const [a, b] = [await processOn(hub), await processOn(hub)];
+    const received: unknown[] = [];
+    b.bus.subscribe(DomainEvent.SESSIONS_REVOKED, (payload) => void received.push(payload), {
+      remote: true,
+    });
+    const users = Array.from({ length: 250 }, (_, index) => `user-${`${index}`.padStart(31, '0')}`);
+    const sessions = Array.from({ length: 20 }, (_, index) => `sid-${index}`);
+
+    runInTenantContext(tenantContext('t1'), () =>
+      a.bus.publish(DomainEvent.SESSIONS_REVOKED, {
+        userIds: users,
+        idpSessionUids: sessions,
+        reason: 'AUTH_TOKEN_STALE',
+      }),
+    );
+    await settle(a.bus, b.bus);
+
+    expect(received).toEqual([
+      { reason: 'AUTH_TOKEN_STALE', userIds: users.slice(0, 150) },
+      { reason: 'AUTH_TOKEN_STALE', userIds: users.slice(150) },
+      { reason: 'AUTH_TOKEN_STALE', idpSessionUids: sessions },
+    ]);
+  });
+
+  it('放得進一則廣播的事件原樣送出一則', async () => {
+    const hub = new BroadcastHub();
+    const [a, b] = [await processOn(hub), await processOn(hub)];
+    a.bus.publish(DomainEvent.TENANT_FEATURES_CHANGED, { tenantId: 't9' });
+    await settle(a.bus, b.bus);
+
+    expect(hub.messages(DOMAIN_EVENT_CHANNEL)).toEqual([
+      expect.objectContaining({
+        type: DomainEvent.TENANT_FEATURES_CHANGED,
+        tenant: null,
+        payload: { tenantId: 't9' },
+      }),
+    ]);
+  });
+
+  it.each([
+    ['permissions.changed（AuthzRevision 自己廣播）', DomainEvent.PERMISSIONS_CHANGED, {}],
+    ['tenant.activated（寫資料庫，整個系統做一次）', DomainEvent.TENANT_ACTIVATED, {}],
+  ] as const)('不轉送 %s', async (_name, type, payload) => {
+    const hub = new BroadcastHub();
+    const a = await processOn(hub);
+    runInTenantContext(tenantContext('t1'), () => a.bus.publish(type, payload));
+    await settle(a.bus);
+    expect(hub.messages(DOMAIN_EVENT_CHANNEL)).toEqual([]);
+  });
+
+  it('信封正確但 payload 不符合該事件的格式 → 略過', async () => {
+    const hub = new BroadcastHub();
+    const b = await processOn(hub);
+    const handler = vi.fn();
+    b.bus.subscribe(DomainEvent.SESSIONS_REVOKED, handler, { remote: true });
+    const other = hub.instance();
+    const publish = other.channel(DOMAIN_EVENT_CHANNEL, { parse: () => null, onMessage: vi.fn() });
+    await other.onApplicationBootstrap();
+
+    await publish({
+      type: DomainEvent.SESSIONS_REVOKED,
+      tenant: null,
+      payload: { userIds: ['u1'], reason: 'NOT_A_REASON' },
+      occurredAt: new Date().toISOString(),
+    });
+    await settle(b.bus);
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('onModuleDestroy 之後本機的事件不再轉送', async () => {
+    const hub = new BroadcastHub();
+    const a = await processOn(hub);
+    a.relay.onModuleDestroy();
+
+    runInTenantContext(tenantContext('t1'), () =>
+      a.bus.publish(DomainEvent.RESOURCE_CHANGED, fileCreated),
+    );
+    await settle(a.bus);
+
+    expect(hub.messages(DOMAIN_EVENT_CHANNEL)).toEqual([]);
+  });
 });

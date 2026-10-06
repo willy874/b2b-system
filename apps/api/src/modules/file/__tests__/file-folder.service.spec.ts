@@ -1,9 +1,11 @@
+import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AuthUser } from '@/common/types';
 import { BroadcastHub } from '@/core/broadcast/__tests__/broadcast-hub';
 import type { Database } from '@/core/database';
 import { AppException } from '@/core/errors';
+import { DomainEvent } from '@/core/events';
 import type { DomainEventBus } from '@/core/events';
 import type { FileFolderRow, FileRow } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
@@ -781,5 +783,160 @@ describe('FileFolderService.restore（docs/architecture/backend/13-trash.md §7.
     const error = await env.service.restore(env.idOf('mixed'), ALICE).catch((e: unknown) => e);
     expect((error as AppException).code).toBe('AUTHZ_FORBIDDEN');
     expect((error as AppException).details).toMatchObject({ reason: 'not-owner' });
+  });
+});
+
+/** 只有 `file:access`，範圍全靠資料夾授權（同上方的 scoped）。 */
+function scopedEnv(
+  initial: { name: string; parent?: string; createdBy?: string }[],
+  grants: { name: string; level: GrantLevel }[],
+) {
+  const holder: LevelGrant[] = [];
+  const env = setup(initial, { global: [], grants: holder });
+  for (const grant of grants) holder.push({ resourceId: env.idOf(grant.name), level: grant.level });
+  return env;
+}
+
+describe('FileFolderService 的其他錯誤分支（docs/architecture/backend/09-file.md §4.2、docs/rbac/07-resource-grants.md §4、§12）', () => {
+  it('結構寫入撞到唯一索引（鎖以外的競態）→ FILE_FOLDER_NAME_CONFLICT', async () => {
+    const { service, repo } = setup();
+    repo.create.mockRejectedValueOnce(Object.assign(new Error('duplicate'), { code: '23505' }));
+    await expectAppError(
+      service.create({ name: 'x', parentId: null }, ALICE),
+      'FILE_FOLDER_NAME_CONFLICT',
+    );
+  });
+
+  it('結構寫入的其他錯誤照原樣拋出', async () => {
+    const { service, repo } = setup();
+    repo.create.mockRejectedValueOnce(new Error('db down'));
+    await expect(service.create({ name: 'x', parentId: null }, ALICE)).rejects.toThrow('db down');
+  });
+
+  it('改名系統資料夾 → FILE_FOLDER_SYSTEM_PROTECTED', async () => {
+    const { service, idOf, all } = setup([{ name: '共用' }]);
+    const row = all.get(idOf('共用'));
+    if (row) row.kind = 'shared';
+    await expectAppError(
+      service.rename(idOf('共用'), { name: 'x' }, ALICE),
+      'FILE_FOLDER_SYSTEM_PROTECTED',
+    );
+  });
+
+  it('移動：看得到但不能改名的檔案（別人上傳、只有 viewer）→ AUTHZ_FORBIDDEN，不移動', async () => {
+    const { service, idOf, repo, denials } = scopedEnv(
+      [{ name: 'src' }, { name: 'dst' }],
+      [
+        { name: 'src', level: 'viewer' },
+        { name: 'dst', level: 'contributor' },
+      ],
+    );
+    repo.findMovableFiles.mockResolvedValueOnce([
+      { id: 'file-1', folderId: idOf('src'), createdBy: BOB_ID },
+    ]);
+    await expectAppError(
+      service.move({ fileIds: ['file-1'], folderIds: [], targetFolderId: idOf('dst') }, ALICE),
+      'AUTHZ_FORBIDDEN',
+    );
+    expect(denials.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: { action: 'update', resourceType: 'file', resourceId: 'file-1' },
+      }),
+    );
+    expect(repo.moveFiles).not.toHaveBeenCalled();
+  });
+
+  it('移動：看不到的檔案（鎖住的資料夾裡）略過，不讓整批失敗', async () => {
+    const { service, idOf, repo } = scopedEnv(
+      [{ name: 'locked' }, { name: 'dst' }],
+      [{ name: 'dst', level: 'contributor' }],
+    );
+    repo.findMovableFiles.mockResolvedValueOnce([
+      { id: 'file-1', folderId: idOf('locked'), createdBy: BOB_ID },
+    ]);
+    await service.move({ fileIds: ['file-1'], folderIds: [], targetFolderId: idOf('dst') }, ALICE);
+    expect(repo.moveFiles).toHaveBeenCalledWith([], idOf('dst'), ALICE.id, 'tx');
+  });
+
+  it('移動：自己沒有改名權的資料夾（別人建立、只有 contributor）→ AUTHZ_FORBIDDEN', async () => {
+    const { service, idOf, repo } = scopedEnv(
+      [{ name: 'src' }, { name: 'theirs', parent: 'src', createdBy: BOB_ID }, { name: 'dst' }],
+      [
+        { name: 'src', level: 'contributor' },
+        { name: 'dst', level: 'contributor' },
+      ],
+    );
+    await expectAppError(
+      service.move(
+        { fileIds: [], folderIds: [idOf('theirs')], targetFolderId: idOf('dst') },
+        ALICE,
+      ),
+      'AUTHZ_FORBIDDEN',
+    );
+    expect(repo.move).not.toHaveBeenCalled();
+  });
+
+  it('移動系統資料夾 → FILE_FOLDER_SYSTEM_PROTECTED', async () => {
+    const { service, idOf, all } = setup([{ name: '私人' }]);
+    const row = all.get(idOf('私人'));
+    if (row) row.kind = 'privateRoot';
+    await expectAppError(
+      service.move({ fileIds: [], folderIds: [idOf('私人')], targetFolderId: null }, ALICE),
+      'FILE_FOLDER_SYSTEM_PROTECTED',
+    );
+  });
+
+  it('沒有任何東西真的移動 → 不寫稽核、不推播', async () => {
+    const { service, idOf, audit, events } = setup([{ name: 'a' }]);
+    const result = await service.move(
+      { fileIds: [], folderIds: [idOf('a')], targetFolderId: null },
+      ALICE,
+    );
+    expect(result).toEqual({ movedFolders: 0, movedFiles: 0 });
+    expect(audit.record).not.toHaveBeenCalled();
+    expect(events.publish).not.toHaveBeenCalled();
+  });
+
+  describe('assertTaggable（docs/architecture/backend/18-tag.md §7.2 D5）', () => {
+    it('讀得到、能改名 → 回傳資料夾名稱', async () => {
+      const { service, idOf } = setup([{ name: 'a' }]);
+      await expect(service.assertTaggable(idOf('a'), ALICE)).resolves.toEqual({ name: 'a' });
+    });
+
+    it('不存在 → FILE_FOLDER_NOT_FOUND', async () => {
+      const { service } = setup();
+      await expectAppError(service.assertTaggable(uuid(), ALICE), 'FILE_FOLDER_NOT_FOUND');
+    });
+
+    it('鎖住的資料夾 → AUTHZ_FORBIDDEN', async () => {
+      const { service, idOf } = scopedEnv([{ name: 'locked' }], []);
+      await expectAppError(service.assertTaggable(idOf('locked'), ALICE), 'AUTHZ_FORBIDDEN');
+    });
+
+    it('系統資料夾 → FILE_FOLDER_SYSTEM_PROTECTED', async () => {
+      const { service, idOf, all } = setup([{ name: '共用' }]);
+      const row = all.get(idOf('共用'));
+      if (row) row.kind = 'shared';
+      await expectAppError(
+        service.assertTaggable(idOf('共用'), ALICE),
+        'FILE_FOLDER_SYSTEM_PROTECTED',
+      );
+    });
+
+    it('讀得到但不能改名（別人建立、只有 contributor）→ AUTHZ_FORBIDDEN', async () => {
+      const { service, idOf } = scopedEnv(
+        [{ name: 'art' }, { name: 'theirs', parent: 'art', createdBy: BOB_ID }],
+        [{ name: 'art', level: 'contributor' }],
+      );
+      await expectAppError(service.assertTaggable(idOf('theirs'), ALICE), 'AUTHZ_FORBIDDEN');
+    });
+  });
+
+  it('publishTagsChanged：推一筆 fileFolder update', () => {
+    const { service, events } = setup();
+    service.publishTagsChanged('folder-1');
+    expect(events.publish).toHaveBeenCalledWith(DomainEvent.RESOURCE_CHANGED, {
+      changes: [{ resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.UPDATE, id: 'folder-1' }],
+    });
   });
 });

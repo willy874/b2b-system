@@ -131,6 +131,48 @@ describe('SharpImageProcessor', () => {
     expect(await spooled()).toEqual([]);
   });
 
+  it('Buffer 輸入超過位元組上限：不解碼直接拋 ImageDecodeError', async () => {
+    const buffer = await solid(20, 10).png().toBuffer();
+    await expect(processor.decode(buffer, { maxBytes: buffer.length - 1 })).rejects.toThrow(
+      ImageDecodeError,
+    );
+    await expect(processor.decode(buffer, { maxBytes: buffer.length })).resolves.toMatchObject({
+      info: { width: 20, height: 10 },
+    });
+  });
+
+  it('來源串流本身出錯：包成 ImageDecodeError（原因放在 cause），不留下暫存檔', async () => {
+    const cause = new Error('socket hang up');
+    const input = new Readable({
+      read() {
+        this.destroy(cause);
+      },
+    });
+    const error = await processor.decode(input, { maxBytes: MAX_BYTES }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ImageDecodeError);
+    expect((error as ImageDecodeError).cause).toBe(cause);
+    expect(await spooled()).toEqual([]);
+  });
+
+  it('標頭正常但內容截斷：輸出時拋 ImageDecodeError', async () => {
+    const full = await solid(400, 400).jpeg().toBuffer();
+    const decoded = await processor.decode(full.subarray(0, Math.floor(full.length / 2)), {
+      maxBytes: MAX_BYTES,
+    });
+    await expect(decoded.render({ format: 'png' })).rejects.toThrow(ImageDecodeError);
+  });
+
+  it('沒給 maxEdge 時維持原尺寸；PNG 輸出的型別正確', async () => {
+    const decoded = await processor.decode(await solid(30, 20).jpeg().toBuffer(), {
+      maxBytes: MAX_BYTES,
+    });
+    await expect(decoded.render({ format: 'png' })).resolves.toMatchObject({
+      contentType: 'image/png',
+      width: 30,
+      height: 20,
+    });
+  });
+
   it('限制 libvips 的執行緒數與操作快取：與 WebSocket 同一個程序，不能吃滿核心與記憶體', () => {
     expect(sharp.concurrency()).toBeLessThanOrEqual(2);
     expect(sharp.cache().memory.max).toBeLessThanOrEqual(16);

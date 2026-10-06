@@ -14,7 +14,11 @@ import type { WebhookDeliveryService } from '../webhook-delivery.service';
 import { WebhookEventCatalog } from '../webhook-event.catalog';
 import { WEBHOOK_MAX_SUBSCRIPTIONS, WEBHOOK_PING_EVENT } from '../webhook.constants';
 import { defineWebhookEvent } from '../webhook.definition';
-import type { WebhookRepository, WebhookSubscriptionWithCreator } from '../webhook.repository';
+import type {
+  WebhookDeliveryWithEvent,
+  WebhookRepository,
+  WebhookSubscriptionWithCreator,
+} from '../webhook.repository';
 import { WebhookService } from '../webhook.service';
 import type { WebhookTransport } from '../webhook.transport';
 
@@ -92,6 +96,11 @@ function setup() {
       async () => undefined as { eventId: string; targetId: string | null } | undefined,
     ),
     findEvent: vi.fn(async () => undefined as object | undefined),
+    list: vi.fn(async () => ({
+      items: [] as WebhookSubscriptionWithCreator[],
+      total: 0,
+    })),
+    listDeliveries: vi.fn(async () => ({ items: [] as WebhookDeliveryWithEvent[], total: 0 })),
   };
   const catalog = new WebhookEventCatalog();
   catalog.register([USER_CREATED, FILE_UPLOADED, WEBHOOK_PING_EVENT]);
@@ -506,5 +515,87 @@ describe('WebhookService：多個目標網址（docs/architecture/05-tenancy.md 
       inTenant(() => ctx.service.redeliver('wh-1', 'd1')),
       'WEBHOOK_DELIVERY_NOT_FOUND',
     );
+  });
+});
+
+describe('WebhookService 讀取（docs/architecture/backend/17-webhook.md §9、§10.2 D14）', () => {
+  it('列表：目錄上已經沒有的事件不列出', async () => {
+    const ctx = setup();
+    ctx.repo.list.mockResolvedValue({
+      items: [subscription({ events: ['user.created', 'role.removedFromCode', 'webhook.ping'] })],
+      total: 1,
+    });
+    const page = await ctx.service.list({ offset: 0, limit: 20 });
+    expect(page.items[0]?.events).toEqual(['user.created']);
+    expect(page.pagination).toEqual({ offset: 0, limit: 20, total: 1 });
+  });
+
+  it('列表：失敗次數取所有網址裡最多的；沒有網址時是 0', async () => {
+    const ctx = setup();
+    ctx.repo.list.mockResolvedValue({
+      items: [
+        subscription({
+          targets: [
+            target({ id: 'a', consecutiveFailures: 2 }),
+            target({ id: 'b', consecutiveFailures: 7 }),
+          ],
+        }),
+        subscription({ id: 'wh-2', targets: [] }),
+      ],
+      total: 2,
+    });
+    const page = await ctx.service.list({ offset: 0, limit: 20 });
+    expect(page.items.map((item) => item.consecutiveFailures)).toEqual([7, 0]);
+  });
+
+  it('列表：資料庫裡認不得的狀態視為 active、停用原因視為 null', async () => {
+    const ctx = setup();
+    ctx.repo.list.mockResolvedValue({
+      items: [subscription({ status: 'legacy', disabledReason: 'legacy' })],
+      total: 1,
+    });
+    const page = await ctx.service.list({ offset: 0, limit: 20 });
+    expect(page.items[0]).toMatchObject({ status: 'active', disabledReason: null });
+  });
+
+  it('投遞紀錄：訂閱不存在 → WEBHOOK_NOT_FOUND，不查紀錄', async () => {
+    const ctx = setup();
+    ctx.repo.findById.mockResolvedValue(undefined);
+    await expectCode(
+      ctx.service.listDeliveries('missing', { offset: 0, limit: 20 }),
+      'WEBHOOK_NOT_FOUND',
+    );
+    expect(ctx.repo.listDeliveries).not.toHaveBeenCalled();
+  });
+
+  it('投遞紀錄：帶事件內容；trigger 不是 manual 的都視為 auto', async () => {
+    const ctx = setup();
+    const occurredAt = new Date('2026-10-02T00:00:00Z');
+    const row = {
+      id: 'del-1',
+      subscriptionId: 'wh-1',
+      eventId: 'ev-1',
+      targetId: 'tg-1',
+      url: 'https://hooks.example.com/b2b',
+      attempt: 2,
+      trigger: 'retry',
+      succeeded: false,
+      responseStatus: 500,
+      durationMs: 12,
+      responseBody: 'boom',
+      error: null,
+      createdAt: occurredAt,
+      event: { type: 'user.created', data: { userId: 'u1' }, occurredAt },
+    } as unknown as WebhookDeliveryWithEvent;
+    ctx.repo.listDeliveries.mockResolvedValue({ items: [row], total: 1 });
+    const page = await ctx.service.listDeliveries('wh-1', { offset: 0, limit: 20 });
+    expect(page.items[0]).toMatchObject({
+      eventType: 'user.created',
+      eventData: { userId: 'u1' },
+      occurredAt: occurredAt.toISOString(),
+      trigger: 'auto',
+      attempt: 2,
+    });
+    expect(ctx.repo.listDeliveries).toHaveBeenCalledWith('wh-1', { offset: 0, limit: 20 });
   });
 });
