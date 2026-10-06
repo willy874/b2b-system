@@ -19,7 +19,6 @@
 | --- | --- | --- | --- |
 | 高 | 平台端點的網域限制可用大小寫不同的路徑繞過 | [`platform-path-case-insensitive-bypass.md`](./platform-path-case-insensitive-bypass.md) | 2026-10-06（全面檢測：程式資安） |
 | 高 | 直傳網址未綁定大小、完成後仍可覆寫，繞過上限與容量 | [`presigned-upload-size-not-bound.md`](./presigned-upload-size-not-bound.md) | 2026-10-06（全面檢測：程式資安） |
-| 高 | 平台管理者改密碼、重設或停用後，IdP session 不會結束 | [`platform-admin-idp-session-survives-credential-change.md`](./platform-admin-idp-session-survives-credential-change.md) | 2026-10-06（全面檢測：流程資安） |
 | 高 | 檔案已用量每次全表加總，上傳登記與檔案變動推播都會觸發 | [`file-storage-usage-full-table-sum.md`](./file-storage-usage-full-table-sum.md) | 2026-10-06（全面檢測：效能） |
 | 高 | 編輯中的草稿以即時資料為基準，會蓋掉別人同時做的變更 | [`edit-drafts-use-live-baseline.md`](./edit-drafts-use-live-baseline.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 還原使用者時反提權漏看他的群組成員資格 | [`user-restore-revives-group-roles.md`](./user-restore-revives-group-roles.md) | 2026-10-06（全面檢測：程式資安） |
@@ -32,7 +31,6 @@
 | 中 | 登出後批次佇列仍保留前一人的項目與上傳暫存 | [`batch-queue-survives-logout.md`](./batch-queue-survives-logout.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 釘選列把整筆伺服器資料存進 localStorage，登出不清 | [`pinned-rows-persist-server-data.md`](./pinned-rows-persist-server-data.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 平台管理者被登入鎖定時改寫 status，任何人可踢人下線 | [`platform-admin-lockout-revokes-sessions.md`](./platform-admin-lockout-revokes-sessions.md) | 2026-10-06（全面檢測：流程資安） |
-| 中 | 密碼步驟已完成的互動，改密碼後仍可 resume 換到有效 session | [`interaction-resume-after-password-change.md`](./interaction-resume-after-password-change.md) | 2026-10-06（全面檢測：流程資安） |
 | 中 | 平台「最後一位 super-admin」檢查在交易外，可被並行繞過 | [`platform-last-super-admin-race.md`](./platform-last-super-admin-race.md) | 2026-10-06（全面檢測：流程資安） |
 | 中 | 平台管理者帳號流程沒有交易：稽核在提交後寫、token 可重複使用 | [`platform-account-flows-not-transactional.md`](./platform-account-flows-not-transactional.md) | 2026-10-06（全面檢測：流程資安） |
 | 中 | 沒有 CI，main 未保護，檢查只靠人 | [`no-ci-pipeline.md`](./no-ci-pipeline.md) | 2026-10-06（全面檢測：流程資安） |

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 
 import type { PlatformDatabase } from '@/core/database';
 import { PLATFORM_DB } from '@/core/database';
@@ -94,15 +94,26 @@ export class OidcPayloadRepository {
     await this.db.delete(oidcPayloads).where(eq(oidcPayloads.grantId, grantId));
   }
 
-  /** 這些人的 IdP session（帳號停用、刪除、憑證失效時一併結束）。回傳刪除筆數。 */
+  /**
+   * 結束這些帳號在 IdP 上的登入狀態：session，以及密碼步驟已完成、還沒 resume 的互動（`result.login.accountId`）。
+   * 憑證失效（停用、刪除、改密碼、重設密碼）時用：只刪 session 的話，握著 resume 網址的人仍能在互動的 TTL 內
+   * 換到授權碼（docs/architecture/04-sso.md §3.5）。回傳刪除筆數。
+   */
   async destroySessionsOf(accountIds: readonly string[]): Promise<number> {
     if (accountIds.length === 0) return 0;
+    const ids = [...accountIds];
     const rows = await this.db
       .delete(oidcPayloads)
       .where(
-        and(
-          eq(oidcPayloads.type, 'Session'),
-          inArray(sql<string>`${oidcPayloads.payload}->>'accountId'`, [...accountIds]),
+        or(
+          and(
+            eq(oidcPayloads.type, 'Session'),
+            inArray(sql<string>`${oidcPayloads.payload}->>'accountId'`, ids),
+          ),
+          and(
+            eq(oidcPayloads.type, 'Interaction'),
+            inArray(sql<string>`${oidcPayloads.payload}->'result'->'login'->>'accountId'`, ids),
+          ),
         ),
       )
       .returning({ id: oidcPayloads.id });

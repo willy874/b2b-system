@@ -23,7 +23,7 @@ import type { TenantRecord } from '@/core/tenant';
 import { PlatformAdminService } from '@/modules/platform-admin/platform-admin.service';
 import { UserService } from '@/modules/user/user.service';
 
-import { parseAccountId, tenantAccountId } from './oidc-account';
+import { parseAccountId, platformAccountId, tenantAccountId } from './oidc-account';
 import type { OidcAccount } from './oidc-account';
 import { DrizzleOidcAdapter } from './oidc-adapter';
 import { OidcPayloadRepository } from './oidc-payload.repository';
@@ -145,17 +145,24 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
     this.allowTenantRedirects(provider);
     this.provider = provider;
 
-    // 帳號停用、刪除、改密碼（token_version 遞增）時，這些人的 IdP session 一起結束：
+    // 帳號停用、刪除、改密碼、重設密碼（token_version 遞增）時，這些人的 IdP session 與還沒 resume 的互動一起結束：
     // 否則 IdP 上還留著一個指向不能用的帳號的 session（單一登出只帶 idpSessionUids、停用租戶只帶 tenantIds，
-    // 這兩種由發佈端直接處理：`destroySession`、`endTenantSessions`，docs/architecture/backend/01-architecture.md §4）
-    // 事件在租戶的脈絡裡發佈：userIds 是這個租戶的使用者，IdP 上的帳號 id 要帶上租戶（D6）
-    this.unsubscribe = this.events.subscribe(DomainEvent.SESSIONS_REVOKED, ({ userIds }) => {
-      const tenant = currentTenant();
-      if (!userIds?.length || !tenant) return;
-      void this.repo
-        .destroySessionsOf(userIds.map((userId) => tenantAccountId(tenant.id, userId)))
-        .catch((error: unknown) => this.logger.error({ err: error }, '結束 IdP session 失敗'));
-    });
+    // 這兩種由發佈端直接處理：`destroySession`、`endTenantSessions`，docs/architecture/backend/01-architecture.md §4）。
+    // userIds 在租戶的脈絡裡發佈，IdP 上的帳號 id 要帶上租戶（D6）；平台管理者沒有租戶脈絡，帳號 id 是 `p:{adminId}`
+    this.unsubscribe = this.events.subscribe(
+      DomainEvent.SESSIONS_REVOKED,
+      ({ userIds, platformAdminIds }) => {
+        const tenant = currentTenant();
+        const accountIds = [
+          ...(tenant ? (userIds ?? []).map((userId) => tenantAccountId(tenant.id, userId)) : []),
+          ...(platformAdminIds ?? []).map(platformAccountId),
+        ];
+        if (!accountIds.length) return;
+        void this.repo
+          .destroySessionsOf(accountIds)
+          .catch((error: unknown) => this.logger.error({ err: error }, '結束 IdP session 失敗'));
+      },
+    );
   }
 
   onModuleDestroy(): void {

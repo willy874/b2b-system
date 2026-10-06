@@ -3,15 +3,16 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import cookieParser from 'cookie-parser';
-import { eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ObjectStorage } from '@/core/storage';
-import { platformRefreshTokens } from '@/db/platform/schema';
+import { oidcPayloads, platformAdmins, platformRefreshTokens } from '@/db/platform/schema';
 import { refreshTokens, users } from '@/db/schema';
 import { upsertPlatformAdmin } from '@/db/seeds/platform-admin';
+import { PlatformAuthTokenRepository } from '@/modules/platform-admin/platform-auth-token.repository';
 
 import type { PlatformTestDatabase, TestDatabase } from './db';
 import { createPlatformTestDatabase, createTestDatabase, truncateAll } from './db';
@@ -595,6 +596,135 @@ describe('SSO（docs/architecture/04-sso.md §12、0020 D5–D10）', () => {
       await expect(authorize(jar, AUTH_APP)).rejects.toThrow(/卻被導去登入/);
       expect(tokenOf(refreshed)).toBeTruthy();
     });
+  });
+
+  describe('平台管理者的憑證失效：IdP session 一起結束（docs/architecture/04-sso.md §3.5、§12.2 D17）', () => {
+    const OPS = { email: 'sso-platform-ops@example.com', password: 'Ops-Harbor-Lantern-26' };
+    let opsId = '';
+
+    /** 這位平台管理者在 IdP 上已經沒有 session（SESSIONS_REVOKED 的處理是非同步的）。 */
+    async function sessionsGone(adminId: string): Promise<void> {
+      await vi.waitFor(async () => {
+        const rows = await platformDb
+          .select({ id: oidcPayloads.id })
+          .from(oidcPayloads)
+          .where(
+            and(
+              eq(oidcPayloads.type, 'Session'),
+              sql`${oidcPayloads.payload}->>'accountId' = ${`p:${adminId}`}`,
+            ),
+          );
+        expect(rows).toEqual([]);
+      });
+    }
+
+    async function signIn(jar: CookieJar, credentials = OPS): Promise<string> {
+      return tokenOf(
+        await callback(AUTH_APP, await authorize(jar, AUTH_APP, credentials)).expect(200),
+      );
+    }
+
+    beforeEach(async () => {
+      // 每個案例從同一組密碼、active 開始
+      await upsertPlatformAdmin(platformDb, { displayName: 'Ops', ...OPS });
+      const [row] = await platformDb
+        .select({ id: platformAdmins.id })
+        .from(platformAdmins)
+        .where(eq(platformAdmins.email, OPS.email));
+      opsId = row!.id;
+    });
+
+    it('本人改密碼之後，同一個瀏覽器不帶密碼再 authorize 會被導回登入', async () => {
+      const jar = new CookieJar();
+      const token = await signIn(jar);
+      await request(http)
+        .post('/platform/auth/change-password')
+        .set('Host', AUTH_HOST)
+        .set('authorization', `Bearer ${token}`)
+        .send({ currentPassword: OPS.password, newPassword: 'Changed-Harbor-Lantern-27' })
+        .expect(200);
+
+      await sessionsGone(opsId);
+      await expect(authorize(jar, AUTH_APP)).rejects.toThrow(/卻被導去登入/);
+    });
+
+    it('由別人寄的重設連結重設密碼之後也一樣', async () => {
+      const jar = new CookieJar();
+      await signIn(jar);
+      const { raw } = await app.get(PlatformAuthTokenRepository).issue(opsId, 'password_reset');
+      await request(http)
+        .post('/platform/auth/reset-password')
+        .set('Host', AUTH_HOST)
+        .send({ token: raw, newPassword: 'Reset-Harbor-Lantern-28' })
+        .expect(200);
+
+      await sessionsGone(opsId);
+      await expect(authorize(jar, AUTH_APP)).rejects.toThrow(/卻被導去登入/);
+    });
+
+    it('先停用再啟用之後也一樣', async () => {
+      const jar = new CookieJar();
+      await signIn(jar);
+      const root = await signIn(new CookieJar(), PLATFORM_ADMIN);
+      for (const status of ['inactive', 'active'] as const) {
+        // oxlint-disable-next-line no-await-in-loop -- 依序停用、啟用
+        await request(http)
+          .patch(`/platform/admins/${opsId}`)
+          .set('Host', AUTH_HOST)
+          .set('authorization', `Bearer ${root}`)
+          .send({ status })
+          .expect(200);
+      }
+
+      await sessionsGone(opsId);
+      await expect(authorize(jar, AUTH_APP)).rejects.toThrow(/卻被導去登入/);
+    });
+  });
+
+  it('密碼步驟完成、還沒 resume 時本人改了密碼：resume 換不到授權碼（04-sso.md §3.5）', async () => {
+    const { hashPassword } = await import('@/modules/credential/password');
+    const resumer = { email: 'sso-resume@example.com', password: 'Resume-Harbor-Lantern-26' };
+    await db.insert(users).values({
+      email: resumer.email,
+      displayName: 'Resume',
+      passwordHash: await hashPassword(resumer.password),
+      status: 'active',
+    });
+
+    // 持有舊密碼的人完成密碼步驟，先不跟隨 resume
+    const stale = new CookieJar();
+    const start = await idp(
+      'get',
+      `/oidc/auth?${authorizeQuery(BACKSTAGE, pkce().challenge, 'x').toString()}`,
+    );
+    stale.store(start);
+    const uid = new URL(start.headers.location as string).pathname.split('/').pop()!;
+    const login = await idp('post', `/oidc-interaction/${uid}/login`)
+      .set('cookie', stale.header())
+      .send(resumer)
+      .expect(200);
+    const resumeUrl = (login.body as { data: { redirectTo: string } }).data.redirectTo;
+
+    // 本人在另一個瀏覽器改密碼
+    const own = tokenOf(
+      await callback(BACKSTAGE, await authorize(new CookieJar(), BACKSTAGE, resumer)),
+    );
+    await request(http)
+      .post('/auth/change-password')
+      .set('Host', BACKSTAGE.host)
+      .set('authorization', `Bearer ${own}`)
+      .send({ currentPassword: resumer.password, newPassword: 'Kestrel-Orbit-Window-58' })
+      .expect(200);
+    await vi.waitFor(async () => {
+      const pending = await platformDb
+        .select({ id: oidcPayloads.id })
+        .from(oidcPayloads)
+        .where(and(eq(oidcPayloads.type, 'Interaction'), eq(oidcPayloads.id, uid)));
+      expect(pending).toEqual([]);
+    });
+
+    const resumed = await idp('get', internalPath(resumeUrl)).set('cookie', stale.header());
+    expect(String(resumed.headers.location ?? '')).not.toContain('code=');
   });
 
   it('帳號停用 → IdP session 一起結束；重新啟用後要重新登入（docs/architecture/04-sso.md §12.2 D17）', async () => {
