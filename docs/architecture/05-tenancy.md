@@ -246,6 +246,8 @@ key 以 `TenantFeatureParamKey` 出現在 OpenAPI。
 - **同源**：每個租戶的頁面、`/api`、`/storage`、WebSocket 都在自己的網域，CSP 維持 `connect-src 'self'`。
 - **單一 api 執行個體**：租戶狀態的變更（停用、網域）經廣播在每個程序立即生效（漏掉時最多晚 `TENANT_CACHE_TTL` 秒）；
   其他程序寫入的推播經事件轉送送到每個程序（[`backend/08-realtime.md`](./backend/08-realtime.md) §7.6）。擴成多個執行個體的前提見 [`01-system.md`](./01-system.md) §4.3。
+- **備份與還原**：平台 DB 與每個租戶的 database 各自 `pg_dump`，DB 角色另外一份（租戶角色的密碼只存在加密的連線字串裡），
+  每個租戶可以單獨還原；`TENANT_SECRET_KEY` 與資料備份分開保存。步驟見 [`01-system.md`](./01-system.md) §4.5。
 
 | 環境變數 | 用途 |
 | --- | --- |

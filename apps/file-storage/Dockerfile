@@ -2,7 +2,7 @@
 # esbuild 把程式與 zod 打成單一檔案，runtime 映像不需要 node_modules。
 
 # ── build ────────────────────────────────────────────────────────────
-FROM node:24-alpine AS build
+FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS build
 WORKDIR /repo
 
 RUN corepack enable
@@ -17,7 +17,7 @@ COPY apps/file-storage ./apps/file-storage
 RUN pnpm --filter @b2b-system/file-storage build
 
 # ── runtime ──────────────────────────────────────────────────────────
-FROM node:24-alpine AS runtime
+FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     FILE_STORAGE_HOST=0.0.0.0 \

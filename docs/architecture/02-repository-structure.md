@@ -271,6 +271,7 @@ PLATFORM_ADMIN_PASSWORD=                      # 留空 = seed 時隨機產生並
 PORT=3000
 EXTERNAL_API_PORT=3001             # 對外 API 的程序（pnpm dev:external-api；[`architecture/06-external-api.md`](06-external-api.md) §9.2 D9）
 NODE_ENV=development
+LISTEN_HOST=                       # 留空 = 開發只聽 127.0.0.1（同網段連不到）、production 聽所有介面；手機測試時設 0.0.0.0
 
 JWT_SECRET=change-me-in-production-min-32-chars
 JWT_ACCESS_TTL=300                 # 秒
@@ -280,7 +281,6 @@ REFRESH_REUSE_GRACE_SECONDS=30     # 剛用過的 refresh token 在這段時間�
 REFRESH_COOKIE_NAME=refresh_token
 REFRESH_COOKIE_PATH=/api/auth    # 瀏覽器看到的前綴（前端一律打 /api/*）
 PLATFORM_REFRESH_COOKIE_PATH=/api/platform/auth   # 平台管理者的 refresh cookie（apps/platform 的 origin）
-REFRESH_COOKIE_DOMAIN=localhost
 API_PUBLIC_BASE_URL=/api         # 瀏覽器看到的 api 位址；影像 API 的網址以它開頭
 
 ARGON2_MEMORY_COST=19456
@@ -374,6 +374,16 @@ VITE_ENABLE_MOCK=false
 [`backend/09-file.md`](./backend/09-file.md) §8。
 
 env 由 `core/config` 以 Zod schema 驗證，**缺少必要變數時啟動即失敗**，不容許
-執行到一半才發現。
-`NODE_ENV=production` 另外檢查：`JWT_SECRET`、`FILE_STORAGE_*` 不能是上面的範例值或低熵字串（含 `change-me`、不同字元少於 10 個），
-`MAIL_TRANSPORT` 必須是 `smtp`（`console` 會把啟用／重設連結寫進日誌），OIDC 與加密金鑰必填。
+執行到一半才發現。`NODE_ENV=production` 另外拒絕低熵的值與開發用的網址：
+
+| 變數 | production 的檢查 |
+| --- | --- |
+| `JWT_SECRET`、`FILE_STORAGE_SECRET_ACCESS_KEY` | 不能是上面的範例值或低熵字串（含 `change-me`、不同字元少於 10 個）；`FILE_STORAGE_ACCESS_KEY_ID` 只擋範例值 |
+| `TENANT_SECRET_KEY`、`IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY` | 必填；base64 解開要是 32 bytes，而且不同的位元組至少 16 個（擋 32 個 0x00 之類手填的值）。以 `openssl rand -base64 32` 產生 |
+| `OIDC_COOKIE_KEYS` | 必填；每一把都要至少 32 字元，而且不是低熵字串 |
+| `OIDC_JWKS` | 必填；要是 `{"keys":[…]}`，至少一把含私鑰（`d`） |
+| `APP_PUBLIC_URL`、`PLATFORM_APP_URL`、`OIDC_ISSUER` | 必須是 `https:`，主機不能是 `localhost`、`*.localhost`、`127.*`、`::1`；`OIDC_ISSUER` 要與 `PLATFORM_APP_URL` 同源 |
+| `MAIL_TRANSPORT` | 必須是 `smtp`（`console` 會把啟用／重設連結寫進日誌） |
+
+對外 API 的程序（`API_SURFACE=external`，由 `main.external.ts` 固定）不要求 OIDC、外部 IdP、webhook 的金鑰，給了才檢查強度
+（[`06-external-api.md`](./06-external-api.md) §6）。production 不再由 `JWT_SECRET` 推導這些金鑰：沒有金鑰的程序要加解密時直接失敗。

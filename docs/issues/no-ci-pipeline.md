@@ -18,7 +18,7 @@
 ## 影響
 
 - 問題已經發生：prod compose 漏傳 `WEBHOOK_SECRET_KEY`，從 10-02 起讓 production 部署起不來，沒有任何檢查發現（2026-10-06 修正，並以 `prod-compose-env.spec.ts` 守住）。
-- 依賴與基底映像的漏洞沒有人會被提醒（見 [`nginx-image-eol.md`](./nginx-image-eol.md)）。
+- 依賴與基底映像的漏洞沒有人會被提醒：基底映像以 digest 釘住（2026-10-06），沒有自動提更新的工具就只能定期手動更新（[`01-system.md`](../architecture/01-system.md) §4.2）。
   2026-10-06 人工跑的 `pnpm audit --prod` 是 0 個；含開發依賴則有 1 個中度（drizzle-kit 帶的舊 esbuild，只影響開發伺服器）。但這只是一次人工檢查。
 - repo 是 public：不小心 commit 的金鑰，沒有任何掃描能在合併前擋下。
 - main 沒有保護：任何有寫入權限的人（或代理）都能直接 push，不經過任何檢查。
@@ -32,7 +32,7 @@
    4. `pnpm audit --prod --audit-level=high`。
    5. 秘密掃描（例如 gitleaks），同時開啟 GitHub 的 secret scanning 與 push protection。
 2. 另開一個 job：
-   - 以假值的 env 跑 `docker compose -f docker-compose.prod.yml config` 與 `build`。
+   - 以假值的 env 檔跑 `docker compose --env-file <檔案> -f docker-compose.prod.yml config` 與 `build`。
    - 起整組服務後打 api 的 `/health`，再跑 `sh deploy/check-nginx.sh`。
 3. `main` 開啟 branch protection：要求經過 PR、上述檢查都通過，並禁止 force push。
 4. 加 Renovate（或 Dependabot），涵蓋 npm 與 docker。

@@ -26,9 +26,6 @@
 | 中 | 登出後批次佇列仍保留前一人的項目與上傳暫存 | [`batch-queue-survives-logout.md`](./batch-queue-survives-logout.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 釘選列把整筆伺服器資料存進 localStorage，登出不清 | [`pinned-rows-persist-server-data.md`](./pinned-rows-persist-server-data.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 沒有 CI，main 未保護，檢查只靠人 | [`no-ci-pipeline.md`](./no-ci-pipeline.md) | 2026-10-06（全面檢測：流程資安） |
-| 中 | nginx 映像釘在停止更新的 1.27，基底映像未釘 digest | [`nginx-image-eol.md`](./nginx-image-eol.md) | 2026-10-06（全面檢測：部署） |
-| 中 | XFF 信任鏈依賴前置 LB，每 IP 限流可能失效 | [`trust-proxy-depends-on-load-balancer.md`](./trust-proxy-depends-on-load-balancer.md) | 2026-10-06（全面檢測：部署） |
-| 中 | prod compose 公開網址預設 localhost 且不檢查 | [`prod-compose-localhost-defaults.md`](./prod-compose-localhost-defaults.md) | 2026-10-06（全面檢測：部署） |
 | 中 | 每筆租戶背景工作開始前都全表掃描 pgboss.job | [`job-active-ahead-full-scan.md`](./job-active-ahead-full-scan.md) | 2026-10-06（全面檢測：效能） |
 | 中 | outbox 最舊 100 列都未註冊時 relayOutbox 無窮迴圈 | [`outbox-relay-infinite-loop.md`](./outbox-relay-infinite-loop.md) | 2026-10-06（全面檢測：效能） |
 | 中 | 批次逐筆失效重抓且不處理 429，大批次可能用光限流額度 | [`batch-invalidation-and-rate-limit.md`](./batch-invalidation-and-rate-limit.md) | 2026-10-06（全面檢測：效能） |
@@ -48,11 +45,7 @@
 | 中 | 平台 session 結束時被未儲存提醒擋下（改密碼必現） | [`platform-session-end-blocked-by-guard.md`](./platform-session-end-blocked-by-guard.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 低 | safeReturnTo 遇到 ./.. 路徑段會回傳 //外站 | [`safe-return-to-dot-segments.md`](./safe-return-to-dot-segments.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | 頁面權限守衛分大小寫，/USER 等路徑繞過 403 頁 | [`route-guard-case-sensitivity.md`](./route-guard-case-sensitivity.md) | 2026-10-06（全面檢測：程式資安） |
-| 低 | 映像帶開發腳本與 CLI 依賴，.dockerignore 不全 | [`docker-image-and-context-hygiene.md`](./docker-image-and-context-hygiene.md) | 2026-10-06（全面檢測：部署） |
-| 低 | 對外 API 容器繼承 api 全部秘密 | [`external-api-inherits-all-secrets.md`](./external-api-inherits-all-secrets.md) | 2026-10-06（全面檢測：部署） |
-| 低 | production 只檢查部分秘密的強度 | [`weak-production-secret-checks.md`](./weak-production-secret-checks.md) | 2026-10-06（全面檢測：部署） |
-| 低 | 開發 compose 的 postgres、Mailpit 綁所有介面 | [`dev-compose-binds-all-interfaces.md`](./dev-compose-binds-all-interfaces.md) | 2026-10-06（全面檢測：部署） |
-| 低 | 沒有備份、還原程序與日誌輪替 | [`no-backup-or-log-rotation.md`](./no-backup-or-log-rotation.md) | 2026-10-06（全面檢測：部署） |
+| 低 | api 映像帶著 react-email 的 CLI 依賴 | [`docker-image-and-context-hygiene.md`](./docker-image-and-context-hygiene.md) | 2026-10-06（全面檢測：部署） |
 | 低 | 同一交易入列 N 筆工作，提交後跑 N 次 outbox 搬移 | [`outbox-relay-per-enqueue.md`](./outbox-relay-per-enqueue.md) | 2026-10-06（全面檢測：效能） |
 | 低 | 站內通知每位收件人一個事件，逐一經 NOTIFY 轉送 | [`notification-event-per-recipient.md`](./notification-event-per-recipient.md) | 2026-10-06（全面檢測：效能） |
 | 低 | user.activated 事件點每個人都解析整個公告受眾 | [`announcement-activation-resolves-audience.md`](./announcement-activation-resolves-audience.md) | 2026-10-06（全面檢測：效能） |
@@ -63,7 +56,6 @@
 | 低 | 英文介面：html lang 固定中文、沒有複數形、寫死全形標點 | [`i18n-english-polish.md`](./i18n-english-polish.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 低 | 資料夾授權到期日與公告的「今天」用瀏覽器時區 | [`dates-use-browser-timezone.md`](./dates-use-browser-timezone.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 低 | 頂列的即時連線狀態只靠顏色區分 | [`realtime-status-color-only.md`](./realtime-status-color-only.md) | 2026-10-06（全面檢測：使用者體驗） |
-| 低 | 設定與腳本殘留（未用變數、錯的 start 指令等） | [`config-and-script-leftovers.md`](./config-and-script-leftovers.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 架構文件過時；記載的 cli:reset-super-admin 不存在 | [`backend-architecture-docs-drift.md`](./backend-architecture-docs-drift.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 服務帳號樂觀鎖未命中時回舊版本／409，判斷複製七份 | [`optimistic-lock-miss-path-duplicated.md`](./optimistic-lock-miss-path-duplicated.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 後端殘留：租戶 locked 分支、工具複本、沒人用的匯出 | [`backend-dead-code-and-duplicates.md`](./backend-dead-code-and-duplicates.md) | 2026-10-06（全面檢測：可讀性） |

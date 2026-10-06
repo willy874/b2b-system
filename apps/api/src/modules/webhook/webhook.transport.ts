@@ -30,10 +30,12 @@ export class WebhookTransport {
   private readonly secrets: SecretBox;
 
   constructor(config: ConfigService<Env, true>) {
-    this.blockPrivateNetworks = config.get('NODE_ENV', { infer: true }) === 'production';
+    const production = config.get('NODE_ENV', { infer: true }) === 'production';
+    this.blockPrivateNetworks = production;
     this.secrets = SecretBox.fromConfig(
       config.get('WEBHOOK_SECRET_KEY', { infer: true }),
-      config.get('JWT_SECRET', { infer: true }),
+      // production 不推導：對外 API 的程序不持有這把金鑰（docs/architecture/06-external-api.md §6）
+      production ? null : config.get('JWT_SECRET', { infer: true }),
       WEBHOOK_SECRET_PURPOSE,
     );
   }
