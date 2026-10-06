@@ -17,7 +17,6 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
-| 高 | 平台端點的網域限制可用大小寫不同的路徑繞過 | [`platform-path-case-insensitive-bypass.md`](./platform-path-case-insensitive-bypass.md) | 2026-10-06（全面檢測：程式資安） |
 | 高 | 平台管理者改密碼、重設或停用後，IdP session 不會結束 | [`platform-admin-idp-session-survives-credential-change.md`](./platform-admin-idp-session-survives-credential-change.md) | 2026-10-06（全面檢測：流程資安） |
 | 高 | 編輯中的草稿以即時資料為基準，會蓋掉別人同時做的變更 | [`edit-drafts-use-live-baseline.md`](./edit-drafts-use-live-baseline.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 還原使用者時反提權漏看他的群組成員資格 | [`user-restore-revives-group-roles.md`](./user-restore-revives-group-roles.md) | 2026-10-06（全面檢測：程式資安） |
@@ -61,7 +60,6 @@
 | 中 | 警告色與成功色按鈕的白字對比不足，測試只要求 3:1 | [`button-color-contrast.md`](./button-color-contrast.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 平台 session 結束時被未儲存提醒擋下（改密碼必現） | [`platform-session-end-blocked-by-guard.md`](./platform-session-end-blocked-by-guard.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 檔案管理器切換排列方式或他分頁改偏好時清空選取 | [`file-manager-selection-cleared-by-preference.md`](./file-manager-selection-cleared-by-preference.md) | 2026-10-06（全面檢測：使用者體驗） |
-| 低 | apps/platform 上的 X-Tenant 對所有路由生效 | [`platform-host-x-tenant-all-routes.md`](./platform-host-x-tenant-all-routes.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | safeReturnTo 遇到 ./.. 路徑段會回傳 //外站 | [`safe-return-to-dot-segments.md`](./safe-return-to-dot-segments.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | 頁面權限守衛分大小寫，/USER 等路徑繞過 403 頁 | [`route-guard-case-sensitivity.md`](./route-guard-case-sensitivity.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | 映像帶開發腳本與 CLI 依賴，.dockerignore 不全 | [`docker-image-and-context-hygiene.md`](./docker-image-and-context-hygiene.md) | 2026-10-06（全面檢測：部署） |

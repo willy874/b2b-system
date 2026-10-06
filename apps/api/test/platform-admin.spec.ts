@@ -191,6 +191,23 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
           .set('authorization', `Bearer ${root}`)
           .expect(404);
         expect(errorCodeOf(admins)).toBe('PLATFORM_ONLY');
+        // Express 的路由不分大小寫：換了大小寫的路徑一樣擋下（不以「沒有租戶」代替網域的判斷）
+        for (const path of ['/PLATFORM/tenants', '/Platform/auth/profile']) {
+          // oxlint-disable-next-line no-await-in-loop -- 同上
+          const upper = await request(http)
+            .get(path)
+            .set('Host', host)
+            .set('authorization', `Bearer ${root}`)
+            .expect(404);
+          expect(errorCodeOf(upper)).toBe('PLATFORM_ONLY');
+        }
+        // IdP 也只在 apps/platform 的網域（issuer 本來就在那裡）
+        // oxlint-disable-next-line no-await-in-loop -- 同上
+        const discovery = await request(http)
+          .get('/oidc/.well-known/openid-configuration')
+          .set('Host', host)
+          .expect(404);
+        expect(errorCodeOf(discovery)).toBe('PLATFORM_ONLY');
       }
       // 租戶網域上不能用
       const onTenant = await request(http)

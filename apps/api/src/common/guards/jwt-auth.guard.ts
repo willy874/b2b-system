@@ -3,7 +3,7 @@ import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
 import { AppException } from '@/core/errors';
-import { setContextUser } from '@/core/http';
+import { isPlatformHostRequest, setContextUser } from '@/core/http';
 import { currentTenant } from '@/core/tenant';
 
 import { AccessTokenVerifier } from '../auth/access-token.verifier';
@@ -32,10 +32,11 @@ export class JwtAuthGuard implements CanActivate {
       return true;
     }
 
-    // 平台管理者的端點在租戶網域上等同不存在（docs/architecture/05-tenancy.md §10.2 D5），不必先驗 token
+    // 平台管理者的端點只在 apps/platform 的網域、沒有租戶時存在（docs/architecture/05-tenancy.md §10.2 D5），
+    // 不必先驗 token。未登記的網域、直接用 IP 連線也沒有租戶，所以看的是 Host，不是「沒有租戶」
     const targets = [ctx.getHandler(), ctx.getClass()];
     if (
-      currentTenant() &&
+      (currentTenant() || !isPlatformHostRequest()) &&
       this.reflector.getAllAndOverride(REQUIRED_PLATFORM_PERMISSIONS, targets)
     ) {
       throw new AppException('PLATFORM_ONLY');

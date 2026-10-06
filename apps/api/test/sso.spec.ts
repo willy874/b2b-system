@@ -652,6 +652,30 @@ describe('SSO（docs/architecture/04-sso.md §12、0020 D5–D10）', () => {
     // 租戶網域上以網域為準：帶了不存在的租戶代碼也一樣在自己的租戶執行
     await forgot(BACKSTAGE.host, 'no-such-tenant').expect(200);
   });
+
+  it('apps/platform 網域上的 X-Tenant 只給帳號流程：租戶的 access token 不能經由平台網域使用（04-sso.md §1.1）', async () => {
+    const jar = new CookieJar();
+    const session = await callback(BACKSTAGE, await authorize(jar, BACKSTAGE, USER)).expect(200);
+    const { accessToken } = (session.body as { data: { accessToken: string } }).data;
+    await request(http)
+      .get('/auth/profile')
+      .set('Host', BACKSTAGE.host)
+      .set('authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const viaPlatform = await request(http)
+      .get('/users')
+      .set('Host', AUTH_HOST)
+      .set('X-Tenant', 'test')
+      .set('authorization', `Bearer ${accessToken}`);
+    expect(viaPlatform.status).toBe(401);
+    const profile = await request(http)
+      .get('/auth/profile')
+      .set('Host', AUTH_HOST)
+      .set('X-Tenant', 'test')
+      .set('authorization', `Bearer ${accessToken}`);
+    expect(profile.status).toBe(401);
+  });
 });
 
 function sha256Of(cookie: string): string {

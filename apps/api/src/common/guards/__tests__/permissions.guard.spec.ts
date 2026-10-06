@@ -12,6 +12,7 @@ import {
 } from '@/common/decorators';
 import type { PermissionKey, PlatformPermissionKey } from '@/common/types';
 import { AppException } from '@/core/errors';
+import { runWithRequestContext } from '@/core/http';
 import { runInTenantContext } from '@/core/tenant';
 import type { TenantContext } from '@/core/tenant';
 import type { AuditService } from '@/modules/audit-log/audit.service';
@@ -175,14 +176,31 @@ describe('PermissionsGuard：平台管理者的端點（docs/architecture/05-ten
     featureParams: {},
   } as unknown as TenantContext;
 
+  /** 從 apps/platform 的網域進來的請求（`TenantMiddleware` 記在請求脈絡）。 */
+  const onPlatformHost = <T>(fn: () => T): T =>
+    runWithRequestContext({ requestId: 'r1', platformHost: true }, fn);
+
   it('持有平台權限時放行（不查租戶的權限）', async () => {
     const { guard } = createGuard([], true, ['tenant:create']);
-    await expect(guard.canActivate(createContext('createTenant'))).resolves.toBe(true);
+    await expect(
+      onPlatformHost(() => guard.canActivate(createContext('createTenant'))),
+    ).resolves.toBe(true);
+  });
+
+  it('不是從 apps/platform 的網域進來（未登記的網域、直接用 IP）→ PLATFORM_ONLY，即使沒有租戶', async () => {
+    const { guard } = createGuard([], true, ['tenant:create']);
+    await expect(
+      runWithRequestContext({ requestId: 'r1', platformHost: false }, () =>
+        guard.canActivate(createContext('createTenant')),
+      ),
+    ).rejects.toMatchObject({ code: 'PLATFORM_ONLY' });
   });
 
   it('缺平台權限 → AUTHZ_FORBIDDEN，寫平台稽核（不寫租戶稽核）', async () => {
     const { guard, audit, platformAudit } = createGuard([], true, ['tenant:read']);
-    await expect(guard.canActivate(createContext('createTenant'))).rejects.toMatchObject({
+    await expect(
+      onPlatformHost(() => guard.canActivate(createContext('createTenant'))),
+    ).rejects.toMatchObject({
       code: 'AUTHZ_FORBIDDEN',
       details: { missing: ['tenant:create'] },
     });
@@ -195,7 +213,9 @@ describe('PermissionsGuard：平台管理者的端點（docs/architecture/05-ten
   it('租戶網域上 → PLATFORM_ONLY（租戶的 super-admin 也一樣）', async () => {
     const { guard } = createGuard([], true, ['tenant:create']);
     await expect(
-      runInTenantContext(tenant, () => guard.canActivate(createContext('createTenant'))),
+      onPlatformHost(() =>
+        runInTenantContext(tenant, () => guard.canActivate(createContext('createTenant'))),
+      ),
     ).rejects.toMatchObject({ code: 'PLATFORM_ONLY' });
   });
 

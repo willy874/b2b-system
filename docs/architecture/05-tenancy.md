@@ -24,19 +24,24 @@
 
 ## 2. 請求怎麼找到租戶（`core/tenant`）
 
-`TenantMiddleware` 在所有路由之前執行（含 `/oidc/*`）：
+`TenantMiddleware` 在 Nest 的路由之前執行（`/oidc/*` 由 provider 的 middleware 自己處理，見下方）：
 
 | 請求的網域 | 結果 |
 | --- | --- |
 | 登記在 `tenant_domains` 的網域（先比 `host:port`，再比主機名稱） | 進入那個租戶的脈絡 |
-| apps/platform 的網域（`PLATFORM_APP_URL` 的 host） | 沒有租戶；帳號流程以 `X-Tenant: <代碼>` 指定租戶（D26，這個標頭只在 apps/platform 的網域有效） |
+| apps/platform 的網域（`PLATFORM_APP_URL` 的 host） | 沒有租戶；帳號流程以 `X-Tenant: <代碼>` 指定租戶（D26）。這個標頭只在 apps/platform 的網域、而且只對帳號流程的端點有效（`/auth/setup`、`/auth/setup/verify`、`/auth/register`、`/auth/forgot-password`、`/auth/reset-password`、`/system/settings/public`，不分大小寫）；其他路由不採用，租戶的 access token 因此不能經由平台網域使用 |
 | 其他 | 沒有租戶；需要租戶的程式第一次存取 `TENANT_DB` 時拋 `404 TENANT_NOT_FOUND`，健康檢查照常 |
 
 對外 API（另一個程序，[`06-external-api.md`](./06-external-api.md)）不看網域：`TokenTenantMiddleware` 以 API token 的租戶代碼
 找租戶（`findByCode`），全平台只有一個對外網域。
 
-平台管理者的端點（`/platform/*`）**只在 apps/platform 的網域有效**：租戶網域、未登記的網域、直接以 IP 連線一律在 `TenantMiddleware`
-回 `404 PLATFORM_ONLY`，只套在 apps/platform 網域上的網路控制（WAF、IP 白名單）才保護得到平台管理。
+平台管理者的端點（`/platform/*`）與 IdP（`/oidc/*`、`/oidc-interaction/*`）**只在 apps/platform 的網域有效**：租戶網域、未登記的網域、
+直接以 IP 連線一律回 `404 PLATFORM_ONLY`，只套在 apps/platform 網域上的網路控制（WAF、IP 白名單）才保護得到平台管理與登入。
+
+- 路徑比對不分大小寫：Express 的路由不分大小寫，`/PLATFORM/tenants` 也會進到 `platform/tenants` 的 handler。
+- `TenantMiddleware` 把「是不是 apps/platform 的網域」記在請求脈絡（`isPlatformHostRequest()`）；`JwtAuthGuard`、
+  `PermissionsGuard` 的平台端點與平台的帳號端點（`assertPlatformHost`）看它，不以「沒有租戶」代替——未登記的網域也沒有租戶。
+- `/oidc/*` 不是 Nest 的路由，provider 的 middleware 比 `TenantMiddleware` 先執行，所以它自己比對 Host。
 
 - Host 取自 `requestHost()`：只有受信任的代理（`TRUST_PROXY`）帶來的 `X-Forwarded-Host` 才採用，不能靠標頭換租戶。
   所以受信任的代理 **必須覆寫** 這個標頭：兩份 nginx 設定都 `proxy_set_header X-Forwarded-Host $http_host`
