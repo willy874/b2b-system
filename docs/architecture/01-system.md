@@ -30,7 +30,7 @@
 │  ┌── 全域管線（每個請求都會經過） ─────────────────────────────────┐  │
 │  │ RequestIdMiddleware → JwtAuthGuard → PermissionsGuard          │  │
 │  │   → ZodValidationPipe → Controller → Service → Repository      │  │
-│  │   → TransformInterceptor → AuditInterceptor                    │  │
+│  │   → TransformInterceptor（稽核由 service 在交易內寫入）        │  │
 │  │   → HttpExceptionFilter                                        │  │
 │  └────────────────────────────────────────────────────────────────┘  │
 │                                                                     │

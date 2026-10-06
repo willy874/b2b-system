@@ -27,7 +27,6 @@
 
 - 01-architecture §4.1（L264–272）寫「單向依賴：`UserModule → RoleModule`」。實際上 `modules/user` 沒有 import `modules/role` 的任何檔案。
 - 01-architecture §3.1 的 guard 清單（L203–211）少了排在第一個的 `SurfaceGuard`（`app.module.ts` L131）。
-- 01-architecture §3 的第 ⑦ 步 `AuditInterceptor` 不存在，見 [`audit-decorator-without-interceptor.md`](./audit-decorator-without-interceptor.md)。
 - [`backend/13-trash.md`](../architecture/backend/13-trash.md) 開頭（L8）與 §3 的 `type`（L80）只列使用者、角色、檔案、資料夾。`TRASH_RESOURCE_TYPES`（`modules/trash/trash.constants.ts` L10–17）還有 `group`、`announcement`。
 - [`backend/15-notification.md`](../architecture/backend/15-notification.md) L7「目前的類型」只列三種。同一份文件 §4 的表格是五種，另有 `announcement.published`、`webhook.disabled`。
 

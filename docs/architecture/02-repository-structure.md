@@ -180,7 +180,7 @@ apps/api/src/
 │   └── validation/          ZodValidationPipe、zod ↔ OpenAPI
 │
 ├── common/                  跨模組的 decorator / guard（薄）
-│   ├── decorators/          @Public @CurrentUser @RequirePermissions @Audit
+│   ├── decorators/          @Public @CurrentUser @RequirePermissions
 │   ├── guards/              JwtAuthGuard、PermissionsGuard、ThrottlerGuard
 │   └── types/
 │

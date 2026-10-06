@@ -39,7 +39,6 @@
 - `RoleModule`、`PermissionModule` 把 repository 放進 `exports`（`role.module.ts` L15、`permission.module.ts` L15；後者還是 `@Global`）。
   - [`conventions/03-backend.md`](../conventions/03-backend.md) §1 第 8 條：跨模組只注入對方 `exports` 的 service。
   - 現在沒有別的模組注入它們（`layer-dependencies.spec.ts` 擋下了 import），所以這個匯出是多餘的。
-- `common/decorators` 的 `@Audit()`：見 [`audit-decorator-without-interceptor.md`](./audit-decorator-without-interceptor.md)。
 
 ## 影響
 

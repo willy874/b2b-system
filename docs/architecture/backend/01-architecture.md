@@ -101,8 +101,7 @@ apps/api/src/
 │   │   ├── require-permissions.decorator.ts
 │   │   ├── require-feature.decorator.ts  @RequireFeature：端點屬於可啟用的 feature（[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §9.2 D11）
 │   │   ├── require-flag.decorator.ts     @RequireFlag：端點還在以 feature flag 試行（[`architecture/05-tenancy.md`](../05-tenancy.md) §11.2 D5）
-│   │   ├── current-user.decorator.ts
-│   │   └── audit.decorator.ts
+│   │   └── current-user.decorator.ts
 │   ├── guards/
 │   │   ├── jwt-auth.guard.ts
 │   │   ├── feature.guard.ts              租戶沒有啟用 → FEATURE_DISABLED（404）
@@ -183,15 +182,13 @@ HTTP Request
      body / query / params 依宣告的 schema 驗證與轉型
   │
   ▼ ⑥ Controller → Service → Repository → PostgreSQL
+     稽核一律由 service 在業務的交易內寫入（與變更同生共死），沒有宣告式的稽核：
+     interceptor 要等 handler 回傳之後才執行，不可能和業務寫入在同一個交易（docs/conventions/03-backend.md §1 第 6 條）
   │
-  ▼ ⑦ AuditInterceptor
-     @Audit(...) 標記的 handler：成功後寫入 audit_logs
-     （大多數稽核由 service 主動寫入，這個 interceptor 只處理單純的 CRUD）
-  │
-  ▼ ⑧ TransformInterceptor
+  ▼ ⑦ TransformInterceptor
      回傳值包成 { data: ... }
   │
-  ▼ ⑨ HttpExceptionFilter
+  ▼ ⑧ HttpExceptionFilter
      AppException / ZodError / 未知錯誤 → { error: { code, message, details } }
      5xx 只回 requestId，不回堆疊
   │
