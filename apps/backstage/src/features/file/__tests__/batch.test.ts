@@ -1,18 +1,15 @@
 import { sessionStore } from '@b2b-system/web-core/auth';
 import { getBatchOperation, resetBatchOperations } from '@b2b-system/web-core/batch';
 import type { BatchQueueClient } from '@b2b-system/web-core/batch';
-import { isAppError } from '@b2b-system/web-core/errors';
+import { AppError, isAppError } from '@b2b-system/web-core/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { uploadFile, deleteFile, deleteFolder, invalidateResources, fetchQuery } = vi.hoisted(
-  () => ({
-    uploadFile: vi.fn(),
-    deleteFile: vi.fn(),
-    deleteFolder: vi.fn(),
-    invalidateResources: vi.fn(),
-    fetchQuery: vi.fn(),
-  }),
-);
+const { uploadFile, deleteFile, deleteFolder, fetchQuery } = vi.hoisted(() => ({
+  uploadFile: vi.fn(),
+  deleteFile: vi.fn(),
+  deleteFolder: vi.fn(),
+  fetchQuery: vi.fn(),
+}));
 
 vi.mock('@/apis/file/upload-file/fetcher', () => ({ uploadFile }));
 vi.mock('@/apis/file/delete-file/mutation', () => ({
@@ -20,10 +17,6 @@ vi.mock('@/apis/file/delete-file/mutation', () => ({
 }));
 vi.mock('@/apis/file/delete-file-folder/mutation', () => ({
   getFileFolderDeleteMutationOptions: () => ({ mutationFn: deleteFolder }),
-}));
-vi.mock('@/apis/resources', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  invalidateResources,
 }));
 vi.mock('@b2b-system/web-core/cache', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -34,7 +27,13 @@ const { registerFileBatchOperations, enqueueFileUploads, FileBatchOperation, FIL
   await import('../batch');
 const { uploadSources, clearUploadSourcesOnSessionEnd } = await import('../upload/uploadSources');
 
-const context = () => ({ signal: new AbortController().signal, reportProgress: vi.fn() });
+/** 操作宣告的變更（`BatchRunContext.invalidate`；佇列合併後才交給依賴圖） */
+const invalidate = vi.fn();
+const context = () => ({
+  signal: new AbortController().signal,
+  reportProgress: vi.fn(),
+  invalidate,
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -62,7 +61,7 @@ describe('檔案的批次操作（docs/architecture/frontend/12-file-manager.md 
     await expect(uploadSources.get(item?.id ?? '')).resolves.toBe(file);
   });
 
-  it('上傳：從 uploadSources 取檔、回報進度、失效列表，完成後清掉暫存的檔案', async () => {
+  it('上傳：從 uploadSources 取檔、回報進度、宣告新檔案（帶目的地資料夾），完成後清掉暫存的檔案', async () => {
     const file = new File(['abc'], 'a.txt', { type: 'text/plain' });
     await uploadSources.put('src-1', file);
     uploadFile.mockImplementation(async ({ onProgress }: { onProgress: (p: unknown) => void }) => {
@@ -75,8 +74,9 @@ describe('檔案的批次操作（docs/architecture/frontend/12-file-manager.md 
 
     expect(uploadFile).toHaveBeenCalledWith(expect.objectContaining({ file }), ctx.signal);
     expect(ctx.reportProgress).toHaveBeenCalledWith({ loaded: 3, total: 3 });
-    expect(invalidateResources).toHaveBeenCalledWith([
-      { resource: 'file', kind: 'create', id: 'file-1' },
+    // 根目錄：只失效根目錄與不分資料夾的列表（apis/resources.ts 的 scopedCollection）
+    expect(invalidate).toHaveBeenCalledWith([
+      { resource: 'file', kind: 'create', id: 'file-1', refs: { fileFolder: ['root'] } },
     ]);
     await expect(uploadSources.get('src-1')).resolves.toBeUndefined();
   });
@@ -91,7 +91,7 @@ describe('檔案的批次操作（docs/architecture/frontend/12-file-manager.md 
       ?.run('src-fail', context())
       .catch(() => undefined);
 
-    const usageCalls = invalidateResources.mock.calls.filter(([changes]) =>
+    const usageCalls = invalidate.mock.calls.filter(([changes]) =>
       (changes as Array<{ resource: string }>).some(
         (change) => change.resource === 'fileStorageUsage',
       ),
@@ -116,6 +116,9 @@ describe('檔案的批次操作（docs/architecture/frontend/12-file-manager.md 
       expect.objectContaining({ file, folderId: 'folder-1' }),
       expect.anything(),
     );
+    expect(invalidate).toHaveBeenCalledWith([
+      { resource: 'file', kind: 'create', id: 'file-2', refs: { fileFolder: ['folder-1'] } },
+    ]);
   });
 
   it('上傳：接手的分頁拿不到檔案 → FILE_UPLOAD_INCOMPLETE（請使用者重傳）', async () => {
@@ -151,15 +154,23 @@ describe('檔案的批次操作（docs/architecture/frontend/12-file-manager.md 
     await expect(uploadSources.get('src-2')).resolves.toBeUndefined();
   });
 
+  it('被限流（RATE_LIMITED）時保留暫存的檔案：佇列時間到會重送同一筆（07-ui-system.md §13.4）', async () => {
+    await uploadSources.put('src-limited', new File(['x'], 'c.txt'));
+    uploadFile.mockRejectedValueOnce(new AppError('RATE_LIMITED', 429, { retryAfterSeconds: 3 }));
+    await expect(
+      getBatchOperation(FileBatchOperation.UPLOAD)?.run('src-limited', context()),
+    ).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+    await expect(uploadSources.get('src-limited')).resolves.toBeInstanceOf(File);
+    await uploadSources.delete('src-limited');
+  });
+
   it('刪除：呼叫單筆 API 並失效該檔案', async () => {
     deleteFile.mockResolvedValue(undefined);
     await getBatchOperation(FileBatchOperation.DELETE)?.run('file-9', context());
     expect(deleteFile).toHaveBeenCalledWith(
       expect.objectContaining({ params: { fileId: 'file-9' } }),
     );
-    expect(invalidateResources).toHaveBeenCalledWith([
-      { resource: 'file', kind: 'delete', id: 'file-9' },
-    ]);
+    expect(invalidate).toHaveBeenCalledWith([{ resource: 'file', kind: 'delete', id: 'file-9' }]);
   });
 
   it('刪除資料夾：呼叫單筆 API，失效資料夾與所有檔案（其中的檔案一起刪除了）', async () => {
@@ -168,7 +179,7 @@ describe('檔案的批次操作（docs/architecture/frontend/12-file-manager.md 
     expect(deleteFolder).toHaveBeenCalledWith(
       expect.objectContaining({ params: { folderId: 'folder-3' } }),
     );
-    expect(invalidateResources).toHaveBeenCalledWith([
+    expect(invalidate).toHaveBeenCalledWith([
       { resource: 'fileFolder', kind: 'delete', id: 'folder-3' },
       { resource: 'file', kind: 'delete', id: '*' },
     ]);

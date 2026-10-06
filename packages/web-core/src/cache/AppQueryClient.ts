@@ -1,7 +1,7 @@
 import { createChannel } from '@b2b-system/web-shared/channel';
 import type { Channel, ChannelOptions } from '@b2b-system/web-shared/channel';
 import { QueryClient } from '@tanstack/react-query';
-import type { QueryClientConfig } from '@tanstack/react-query';
+import type { Query, QueryClientConfig } from '@tanstack/react-query';
 
 import { isRealtimeAvailable } from '../realtime';
 import type { InvalidationTarget } from './resourceGraph';
@@ -46,6 +46,8 @@ export class AppQueryClient extends QueryClient {
   private readonly channel: Channel<QueryInvalidateMessages>;
   private readonly isRealtimeAvailable: () => boolean;
   private offChannel: (() => void) | undefined;
+  /** 進行中的請求回來後要再重抓一次的 query（`applyInvalidation`）；同一個只排一次。 */
+  private readonly awaitingRefetch = new WeakSet<Query>();
 
   constructor({
     channel,
@@ -73,15 +75,56 @@ export class AppQueryClient extends QueryClient {
     this.channel.close();
   }
 
-  /** 只在本分頁套用失效，不通知其他分頁。 */
+  /**
+   * 只在本分頁套用失效，不通知其他分頁。
+   *
+   * 不取消進行中的請求（`cancelRefetch: false`，TanStack 預設會取消再重送）：被取消的請求已經送出，
+   * 伺服器照樣計入每人的限流額度，連續的失效（批次、推播）會讓同一個列表一再重送。
+   * 進行中的請求可能早於這次寫入，所以等它回來再重抓一次——不論中間失效幾次都只多一次（docs/architecture/frontend/05-data-layer.md §6.3）。
+   */
   applyInvalidation(
     targets: readonly InvalidationTarget[],
     { refetch = true }: ApplyInvalidationOptions = {},
   ): void {
+    const inFlight = new Set<Query>();
     for (const { queryKey, action } of targets) {
-      if (action === 'remove') this.removeQueries({ queryKey });
-      else void this.invalidateQueries({ queryKey, refetchType: refetch ? 'active' : 'none' });
+      if (action === 'remove') {
+        this.removeQueries({ queryKey });
+        continue;
+      }
+      if (refetch) {
+        for (const query of this.getQueryCache().findAll({
+          queryKey,
+          type: 'active',
+          fetchStatus: 'fetching',
+        })) {
+          inFlight.add(query);
+        }
+      }
+      void this.invalidateQueries(
+        { queryKey, refetchType: refetch ? 'active' : 'none' },
+        { cancelRefetch: false },
+      );
     }
+    for (const query of inFlight) this.refetchWhenSettled(query);
+  }
+
+  private refetchWhenSettled(query: Query): void {
+    if (this.awaitingRefetch.has(query)) return;
+    this.awaitingRefetch.add(query);
+    // 進行中時 `fetch` 回傳同一個請求的 promise，不會另外送出
+    void query
+      .fetch(undefined, { cancelRefetch: false })
+      .catch(() => undefined)
+      .finally(() => {
+        this.awaitingRefetch.delete(query);
+        // 期間被移除（刪除、登出時的 clear）就不必再抓
+        if (this.getQueryCache().get(query.queryHash) !== query) return;
+        void this.invalidateQueries(
+          { queryKey: query.queryKey, exact: true, refetchType: 'active' },
+          { cancelRefetch: false },
+        );
+      });
   }
 
   /**

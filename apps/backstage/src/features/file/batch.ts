@@ -1,13 +1,13 @@
 import { registerBatchOperation } from '@b2b-system/web-core/batch';
 import type { BatchQueueClient, BatchRunContext } from '@b2b-system/web-core/batch';
 import { ANY_ID, queryClient } from '@b2b-system/web-core/cache';
-import { AppError } from '@b2b-system/web-core/errors';
+import { AppError, ErrorCodes, isAppError } from '@b2b-system/web-core/errors';
 
 import { getFileFolderDeleteMutationOptions } from '@/apis/file/delete-file-folder/mutation';
 import { getFileDeleteMutationOptions } from '@/apis/file/delete-file/mutation';
 import { getFileUploadPolicyQueryOptions } from '@/apis/file/get-upload-policy/query';
 import { uploadFile } from '@/apis/file/upload-file/fetcher';
-import { invalidateResources, Resource } from '@/apis/resources';
+import { Resource } from '@/apis/resources';
 import { createThumbnail } from '@/core/file';
 
 import {
@@ -16,6 +16,7 @@ import {
   UPLOAD_CONCURRENCY,
 } from './constants';
 import { FILE_LOCALE_SCOPE } from './locale';
+import { ROOT_FOLDER } from './pages/FileManager/folderTree';
 import { uploadSources } from './upload/uploadSources';
 
 /** 檔案的批次操作 id（`BatchAction.operation`、`enqueueFileUploads`）。 */
@@ -64,7 +65,7 @@ async function thumbnailFor(file: File, signal: AbortSignal): Promise<Blob | und
  */
 async function runUpload(
   itemId: string,
-  { signal, reportProgress }: BatchRunContext,
+  { signal, reportProgress, invalidate }: BatchRunContext,
 ): Promise<void> {
   const { sourceKey, folderId } = parseUploadItemId(itemId);
   const source = await uploadSources.get(sourceKey);
@@ -72,23 +73,36 @@ async function runUpload(
   if (!(source instanceof File)) {
     throw new AppError('FILE_UPLOAD_INCOMPLETE', 0, { reason: 'source-unavailable' });
   }
+  let willRetry = false;
   try {
     const thumbnail = await thumbnailFor(source, signal);
     const stored = await uploadFile(
       { file: source, folderId, thumbnail, onProgress: reportProgress },
       signal,
     );
-    invalidateResources([{ resource: Resource.FILE, kind: 'create', id: stored.id }]);
+    // 帶目的地資料夾：只重抓那個資料夾與不分資料夾的列表（同後端推播的 refs，apis/resources.ts 的 scopedCollection）
+    invalidate([
+      {
+        resource: Resource.FILE,
+        kind: 'create',
+        id: stored.id,
+        refs: { [Resource.FILE_FOLDER]: [folderId ?? ROOT_FOLDER] },
+      },
+    ]);
+  } catch (error) {
+    // 被限流的那一筆由佇列在時間到後重送（docs/architecture/frontend/07-ui-system.md §13.4）：檔案要留著
+    willRetry = isAppError(error) && error.code === ErrorCodes.RATE_LIMITED;
+    throw error;
   } finally {
     // 登記就佔用了容量（失敗、取消的上傳也要到永久刪除才釋出）：成功與否都重抓已用量
-    invalidateResources([{ resource: Resource.FILE_STORAGE_USAGE, kind: 'update' }]);
-    // 成功或失敗都不會再用到（佇列不自動重試；重傳由使用者重新選檔）
-    await uploadSources.delete(sourceKey);
+    invalidate([{ resource: Resource.FILE_STORAGE_USAGE, kind: 'update' }]);
+    // 其餘情況都不會再用到（佇列只重送被限流的；其他失敗由使用者重新選檔）
+    if (!willRetry) await uploadSources.delete(sourceKey);
   }
 }
 
 /**
- * 在 plugin 的同步階段呼叫。每一筆呼叫一次單筆 API、失效快取（同單筆 mutation hook），
+ * 在 plugin 的同步階段呼叫。每一筆呼叫一次單筆 API、以 `invalidate` 宣告變更（同單筆 mutation hook，由佇列合併套用），
  * 不發 toast：結果由批次佇列在整批結束時彈出（docs/architecture/frontend/07-ui-system.md §13）。
  */
 export function registerFileBatchOperations(): void {
@@ -104,9 +118,9 @@ export function registerFileBatchOperations(): void {
     labelKey: 'file.batch.delete.title',
     localeScope: FILE_LOCALE_SCOPE,
     successKey: 'file.batch.delete.success',
-    run: async (fileId, { signal }) => {
+    run: async (fileId, { signal, invalidate }) => {
       await deleteFile({ params: { fileId }, signal });
-      invalidateResources([{ resource: Resource.FILE, kind: 'delete', id: fileId }]);
+      invalidate([{ resource: Resource.FILE, kind: 'delete', id: fileId }]);
     },
   });
   registerBatchOperation({
@@ -114,10 +128,10 @@ export function registerFileBatchOperations(): void {
     labelKey: 'file.batch.deleteFolder.title',
     localeScope: FILE_LOCALE_SCOPE,
     successKey: 'file.batch.deleteFolder.success',
-    run: async (folderId, { signal }) => {
+    run: async (folderId, { signal, invalidate }) => {
       await deleteFolder({ params: { folderId }, signal });
       // 其中的檔案一起刪除了：檔案端無法逐筆得知
-      invalidateResources([
+      invalidate([
         { resource: Resource.FILE_FOLDER, kind: 'delete', id: folderId },
         { resource: Resource.FILE, kind: 'delete', id: ANY_ID },
       ]);

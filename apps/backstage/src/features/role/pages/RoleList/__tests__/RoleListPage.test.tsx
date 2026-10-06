@@ -9,13 +9,21 @@ import { initTestI18n } from '@/test/i18n';
 
 import { registerRolePagePermissions, Routes } from '../../..';
 import roleZhTW from '../../../locales/zh_TW.json';
+import type * as adapter from '../adapter';
 
-const { fetchRoles, deleteRole } = vi.hoisted(() => ({
+const { fetchRoles, deleteRole, toRoleRowVM } = vi.hoisted(() => ({
   fetchRoles: vi.fn(),
   deleteRole: vi.fn(),
+  toRoleRowVM: vi.fn(),
 }));
 vi.mock('@/apis/role/get-role-list/fetcher', () => ({ fetchRoleListQuery: fetchRoles }));
 vi.mock('@/apis/role/delete-role/fetcher', () => ({ fetchRoleDeleteMutation: deleteRole }));
+// 計算 adapter 被呼叫幾次：列是否在與資料、權限無關的重繪時重建
+vi.mock('../adapter', async (importOriginal) => {
+  const actual = await importOriginal<typeof adapter>();
+  toRoleRowVM.mockImplementation(actual.toRoleRowVM);
+  return { ...actual, toRoleRowVM };
+});
 
 const role = (id: string, name: string, userCount: number) => ({
   id,
@@ -110,5 +118,16 @@ describe('RoleListPage', () => {
     await screen.findByText('Editor', undefined, { timeout: 5000 });
 
     expect(screen.queryByTestId('role-delete-button')).not.toBeInTheDocument();
+  });
+
+  it('與資料、權限無關的重繪（打開刪除確認框）不重建列（docs/architecture/frontend/06-permission.md）', async () => {
+    renderRoute(routes, '/role', MANAGER);
+    await screen.findByText('Viewer', undefined, { timeout: 5000 });
+    const built = toRoleRowVM.mock.calls.length;
+
+    fireEvent.click(deleteButtonOf('Viewer'));
+    await screen.findByTestId('role-delete-confirm');
+
+    expect(toRoleRowVM.mock.calls.length).toBe(built);
   });
 });

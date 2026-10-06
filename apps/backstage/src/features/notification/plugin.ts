@@ -2,11 +2,18 @@ import type { AppPluginFactory } from '@b2b-system/web-core/app';
 import { registerPreferenceSection } from '@b2b-system/web-core/preference';
 import { registerHeaderTool } from '@b2b-system/web-core/toolbar';
 import { LanguageNamespace, Languages } from '@b2b-system/web-shared/constants';
+import { lazy } from 'react';
 
 import { NotificationBell } from './components/NotificationBell';
-import { NotificationPreferenceSection } from './components/NotificationPreferenceSection';
 import { NOTIFICATION_LOCALE_SCOPE } from './locale';
 import { registerNotificationPagePermissions } from './permission';
+
+// 只有偏好頁會渲染：登記 lazy 元件，本體不進首屏（docs/architecture/frontend/02-plugin-system.md §4.3）
+const NotificationPreferenceSection = lazy(() =>
+  import('./components/NotificationPreferenceSection').then((module) => ({
+    default: module.NotificationPreferenceSection,
+  })),
+);
 
 export function appContextPlugin(): AppPluginFactory {
   return (context) => {

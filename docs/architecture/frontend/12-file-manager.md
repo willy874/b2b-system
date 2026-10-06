@@ -240,6 +240,7 @@ registerFilePreviewer({
 | `…/__tests__/FileBrowser.test.tsx` | 點擊與勾選框、雙擊（檔案／資料夾）、鍵盤、拖放上傳（含放在資料夾卡片上、無權限）、拖曳移動（整批、只拖一個、放進自己被擋、無權限不可拖）、列表表頭排序、空狀態 |
 | `…/__tests__/FileMoveDialog.test.tsx` | 樹狀下拉選單選目的地（自己與子孫停用、目前位置不能送出）、資料夾樹預設收合且與選單連動 |
 | `…/__tests__/folderTree.test.ts` | 自然排序、孤兒不掛到根目錄、路徑、`isWithin`、移動的合法性（含目的地的 canCreate） |
+| `…/__tests__/FileBatchProgress.test.tsx` | 進度條只顯示檔案管理器的工作；`useFileActions()` 不訂閱佇列，進度快照不讓整頁重繪 |
 | `…/components/__tests__/FileAccessRequestDialog.test.tsx` | 送出等級與理由、已送出的狀態 |
 | `features/file/upload/__tests__/collectEntries.test.ts` | `webkitRelativePath` 還原結構、略過系統檔、拖放的遞迴展開（含空資料夾、分批的 `readEntries`） |
 | `…/__tests__/FileLightbox.test.tsx` | 依註冊表選解析器、無解析器、超過大小上限、解析器壞掉、上一個／下一個、已刪除、權限 |
@@ -247,10 +248,10 @@ registerFilePreviewer({
 | `features/file/preview/__tests__/ImagePreview.test.tsx` | 預設顯示全螢幕預覽、原始大小才載入原圖、沒有預覽時用原圖 |
 | `features/file/hooks/__tests__/useFilePermission.test.tsx` | 目前位置的能力（根目錄、資料夾）、選取項目的能力取交集、未水合 |
 | `…/components/__tests__/FileShareDialog.test.tsx` | 列出直接與繼承的授權、新增／變更等級／移除、中斷繼承、反提權錯誤、無權限 |
-| `features/file/__tests__/batch.test.ts` | 送進佇列的形狀、上傳到資料夾（目的地編進 id）、上傳操作（進度、失效、清暫存、拿不到檔案）、刪除檔案與資料夾 |
+| `features/file/__tests__/batch.test.ts` | 送進佇列的形狀、上傳到資料夾（目的地編進 id）、上傳操作（進度、帶目的地資料夾的失效、清暫存、被限流時保留檔案、拿不到檔案）、刪除檔案與資料夾 |
 | `features/file/upload/__tests__/validators.test.ts`、`__tests__/preference.test.ts` | 內建驗證器、偏好的逐欄驗證 |
 | `core/file/__tests__/*` | 類型判斷、三個註冊表 |
-| `web-core/batch/__tests__/BatchQueue.test.ts` | 工作內並行、進度回報與廣播、取消時中止處理中的項目、依份量計算進度 |
+| `web-core/batch/__tests__/BatchQueue.test.ts` | 工作內並行、進度回報與廣播（進度快照的節流）、取消時中止處理中的項目、依份量計算進度（兩萬筆的耗時）、合併失效、限流時暫停重送 |
 | `packages/web-shared/src/storage/__tests__/blobStore.test.ts` | 沒有 IndexedDB 時退回記憶體、`prune` |
 
 ---
@@ -387,6 +388,8 @@ selectionCapabilities(items)                選取項目的能力取交集：can
 
 - `web-core/batch`：`BatchJobInput.concurrency`、`BatchJobItem.weight`、`BatchJob.progress`、`BatchOperation.run(itemId, { signal, reportProgress })`；
   協定新增 `progress`（分頁 → 佇列）與 `abort`（佇列 → 分頁）；`jobProgressRatio()` / `jobProgressAmount()`。既有操作只多收一個參數，行為不變。
+- 2026-10-07：上傳的變更改以 `run` 的 `invalidate` 宣告並帶目的地資料夾（`refs.fileFolder`，根目錄是 `root`），由佇列合併後每秒最多失效一次；
+  被限流（`429`）的那一筆保留 `uploadSources` 裡的檔案，由佇列在時間到後重送（[`07-ui-system.md`](07-ui-system.md) §13.4）。
 - 後端：`files` 新增 `upload_id`、`has_thumbnail`、`version` 與排序／搜尋索引（`0007_file_manager.sql`，需要 `pg_trgm`）；
   端點 `GET /files/upload-policy`、`POST /files/:id/parts`、`DELETE /files/:id/upload`；`GET /files` 回 `FileListPage`（含 `nextCursor`）；
   錯誤碼 `FILE_UPLOAD_PART_INVALID`、`FILE_VERSION_CONFLICT`；環境變數 `FILE_MULTIPART_THRESHOLD`、`FILE_MULTIPART_PART_SIZE`。

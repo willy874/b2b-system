@@ -2,9 +2,13 @@
  * 產生的 endpoint 共用的執行期：只有 `fetch`，沒有攔截器／middleware。
  * 需要認證標頭、續期、重試的應用，自行包一層（或透過 `options.fetch` 注入自己的 fetch）。
  *
+ * 執行期只由 `@b2b-system/api-sdk/schemas` 匯出；主入口只以 `import type` 取用這裡的型別（`ApiResponse`），
+ * URL builder 用的 `buildUrl()` 在零依賴的 `url.ts`。
  * 這個檔案由產生器原樣複製到輸出目錄，讓每一份 SDK 自給自足、各自持有自己的設定。
  */
 import type { ZodType } from 'zod';
+
+import { buildUrl, serializeQuery } from './url';
 
 export type BodyType = 'json' | 'form-data' | 'url-encoded' | 'text' | 'binary';
 export type ResponseType = 'json' | 'text' | 'blob' | 'none';
@@ -107,43 +111,6 @@ export function getSdkConfig(): Readonly<SdkConfig> {
 
 export function resetSdkConfig(): void {
   config = { ...DEFAULT_CONFIG };
-}
-
-/** 路徑樣板 ＋ 參數 → 相對 URL（不含 baseUrl）。 */
-export function buildUrl(template: string, path?: object, query?: object): string {
-  const values = (path ?? {}) as Record<string, unknown>;
-  const resolved = template.replace(/\{([^}]+)\}/g, (_, name: string) => {
-    const value = values[name];
-    if (value === undefined || value === null)
-      throw new Error(`缺少 path 參數「${name}」（${template}）`);
-    return encodeURIComponent(String(value));
-  });
-  return `${resolved}${serializeQuery(query)}`;
-}
-
-/**
- * OpenAPI 預設的 `form` + `explode`：陣列展開成重複的 key；物件以 `deepObject`（`a[b]=c`）表示。
- * `undefined` / `null` 略過。
- */
-export function serializeQuery(query?: object): string {
-  if (!query) return '';
-  const search = new URLSearchParams();
-  const append = (key: string, value: unknown): void => {
-    if (value === undefined || value === null) return;
-    if (Array.isArray(value)) {
-      for (const item of value) append(key, item);
-    } else if (value instanceof Date) {
-      search.append(key, value.toISOString());
-    } else if (typeof value === 'object') {
-      for (const [child, childValue] of Object.entries(value))
-        append(`${key}[${child}]`, childValue);
-    } else {
-      search.append(key, String(value));
-    }
-  };
-  for (const [key, value] of Object.entries(query)) append(key, value);
-  const text = search.toString();
-  return text ? `?${text}` : '';
 }
 
 /** 產生的 endpoint 函式都呼叫這支。 */

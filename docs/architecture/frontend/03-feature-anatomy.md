@@ -171,18 +171,24 @@ export function useRolePermission() {
   const page = usePagePermission(ROLE_PAGE);
   const { can } = usePermission();
 
-  return {
-    ...page, // canAccess/canCreate/canRead/canUpdate/canDelete
-    /** 是否能進入權限子頁（role:read ＋ permission:read；沒有 role:grantPermission 時唯讀） */
-    canManagePermission: page.canRead && can(PermissionKey.PermissionRead),
-    /** 是否能授予／移除角色權限 */
-    canGrantPermission: can(PermissionKey.RoleGrantPermission),
-  };
+  // 權限沒變時回傳同一個物件（列表的 rows 等 memo 以它或它的欄位為依賴）
+  return useMemo(
+    () => ({
+      ...page, // canAccess/canCreate/canRead/canUpdate/canDelete
+      /** 是否能進入權限子頁（role:read ＋ permission:read；沒有 role:grantPermission 時唯讀） */
+      canManagePermission: page.canRead && can(PermissionKey.PermissionRead),
+      /** 是否能授予／移除角色權限 */
+      canGrantPermission: can(PermissionKey.RoleGrantPermission),
+    }),
+    [page, can],
+  );
 }
 ```
 
 **頁面元件只呼叫這一個 hook**，不直接碰 `usePermission()`。好處：權限規則變了
 只改一處，而且「這個 feature 有哪些權限概念」一眼看得完。
+`usePagePermission()` 與 `usePermission()` 的參考在權限沒變時是穩定的（[`06-permission.md`](./06-permission.md) §5.1），
+facade 以 `useMemo` 回傳，下游的 memo 才不會每次 render 都失效。
 
 ### 2.5 `pages/index.tsx` — lazy 邊界
 
@@ -232,6 +238,18 @@ export function toRoleRowVM(dto: RoleListItem, perm: RolePermissionFacade): Role
 
 **adapter 是後端契約變動的緩衝層。** 欄位改名、型別改變時，只有 adapter 要改，
 表格與元件不動。
+
+頁面以 `useMemo` 呼叫 adapter 時，依賴放 adapter 實際用到的值，不放整個 facade：
+
+```ts
+const { canDelete, canUpdate } = permission;
+const rows = useMemo(
+  () => (data?.items ?? []).map((role) => toRoleRowVM(role, { canDelete, canUpdate })),
+  [data, canDelete, canUpdate],
+);
+```
+
+`rows` 換新會讓 `useTableSelection()`、表格的 row model 跟著重建、每一列重繪；與資料、這幾個權限無關的重繪（查詢狀態、對話框）不該觸發它。
 
 ---
 

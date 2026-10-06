@@ -1,4 +1,3 @@
-import { BatchProgressBar } from '@b2b-system/web-core/batch';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -11,6 +10,7 @@ import type { CollectedUpload } from '../../upload/collectEntries';
 import { isFileItem } from './adapter';
 import type { BrowserItemVM } from './adapter';
 import { FileAccessRequestDialog } from './components/FileAccessRequestDialog';
+import { FileBatchProgress } from './components/FileBatchProgress';
 import { FileBreadcrumb } from './components/FileBreadcrumb';
 import { FileBrowser } from './components/FileBrowser';
 import { FileDeleteDialog } from './components/FileDeleteDialog';
@@ -131,9 +131,7 @@ export default function FileManagerPage() {
           onRequest={() => setRequestTarget(currentFolder)}
         />
       )}
-      {actions.activeJobs.length > 0 && (
-        <BatchProgressBar jobs={actions.activeJobs} onCancel={actions.cancelJob} />
-      )}
+      <FileBatchProgress />
       {items.length > 0 && (
         <FileSelectionBar
           count={selectedItems.length}

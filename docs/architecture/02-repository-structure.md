@@ -20,7 +20,7 @@ b2b-system/
 │   └── e2e/                     @b2b-system/e2e — Playwright
 │
 ├── packages/
-│   ├── api-sdk/                 @b2b-system/api-sdk — 由 OpenAPI 產生的型別、zod schema 與 fetch client
+│   ├── api-sdk/                 @b2b-system/api-sdk — 由 OpenAPI 產生：主入口是型別與 URL builder（零 zod），`/schemas` 是 zod schema 與 fetch client
 │   ├── realtime/                @b2b-system/realtime — Socket.io 事件合約（事件名稱、zod schema、型別）
 │   ├── error-codes/             @b2b-system/error-codes — ErrorCode 清單與 → HTTP status 對照（api 與前端共用；需 build）
 │   ├── web-shared/              @b2b-system/web-shared — 前端的純工具：store、channel、context、registry、storage、date…（只有原始碼）

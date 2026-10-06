@@ -1,8 +1,6 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
 // 來源：B2B System API 0.0.0（OpenAPI 3.0.0）
 
-import { z } from 'zod';
-
 import type {
   CreateUserRequest,
   PermissionSources,
@@ -11,21 +9,8 @@ import type {
   User,
   UserRoles,
 } from '../models';
-import { buildUrl, request } from '../runtime';
-import type {
-  ApiResponse,
-  OperationDefinition,
-  OperationSchemas,
-  RequestOptions,
-} from '../runtime';
-import {
-  CreateUserRequestSchema,
-  PermissionSourcesSchema,
-  ReplaceUserRolesRequestSchema,
-  UpdateUserRequestSchema,
-  UserRolesSchema,
-  UserSchema,
-} from '../schemas';
+import type { ApiResponse } from '../runtime';
+import { buildUrl } from '../url';
 
 // GET /users
 
@@ -46,36 +31,8 @@ export type UserControllerListResponse = UserControllerListResponses[200];
 
 export type UserControllerListResult = ApiResponse<200, UserControllerListResponses[200]>;
 
-export const UserControllerListSchemas = {
-  responses: {
-    200: z.object({
-      data: z.object({
-        items: z.array(UserSchema),
-        pagination: z.object({
-          offset: z.int(),
-          limit: z.int(),
-          total: z.int(),
-        }),
-      }),
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getUserControllerListUrl(): string {
   return buildUrl('/users');
-}
-
-const userControllerListOperation: OperationDefinition = {
-  id: 'UserController_list',
-  method: 'GET',
-  path: '/users',
-  responseTypes: { 200: 'json' },
-  schemas: UserControllerListSchemas,
-};
-
-/** 使用者列表 */
-export function userControllerList(options?: RequestOptions): Promise<UserControllerListResult> {
-  return request<UserControllerListResult>(userControllerListOperation, {}, options);
 }
 
 // POST /users
@@ -96,35 +53,8 @@ export type UserControllerCreateResponse = UserControllerCreateResponses[201];
 
 export type UserControllerCreateResult = ApiResponse<201, UserControllerCreateResponses[201]>;
 
-export const UserControllerCreateSchemas = {
-  body: CreateUserRequestSchema,
-  responses: {
-    201: z.object({
-      data: UserSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getUserControllerCreateUrl(): string {
   return buildUrl('/users');
-}
-
-const userControllerCreateOperation: OperationDefinition = {
-  id: 'UserController_create',
-  method: 'POST',
-  path: '/users',
-  bodyType: 'json',
-  contentType: 'application/json',
-  responseTypes: { 201: 'json' },
-  schemas: UserControllerCreateSchemas,
-};
-
-/** 建立使用者（status = pending，寄啟用信） */
-export function userControllerCreate(
-  input: UserControllerCreateInput,
-  options?: RequestOptions,
-): Promise<UserControllerCreateResult> {
-  return request<UserControllerCreateResult>(userControllerCreateOperation, input, options);
 }
 
 // GET /users/{id}
@@ -147,34 +77,8 @@ export type UserControllerFindOneResponse = UserControllerFindOneResponses[200];
 
 export type UserControllerFindOneResult = ApiResponse<200, UserControllerFindOneResponses[200]>;
 
-export const UserControllerFindOneSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-  responses: {
-    200: z.object({
-      data: UserSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getUserControllerFindOneUrl(path: UserControllerFindOnePathParams): string {
   return buildUrl('/users/{id}', path);
-}
-
-const userControllerFindOneOperation: OperationDefinition = {
-  id: 'UserController_findOne',
-  method: 'GET',
-  path: '/users/{id}',
-  responseTypes: { 200: 'json' },
-  schemas: UserControllerFindOneSchemas,
-};
-
-export function userControllerFindOne(
-  input: UserControllerFindOneInput,
-  options?: RequestOptions,
-): Promise<UserControllerFindOneResult> {
-  return request<UserControllerFindOneResult>(userControllerFindOneOperation, input, options);
 }
 
 // DELETE /users/{id}
@@ -195,29 +99,8 @@ export type UserControllerRemoveResponse = UserControllerRemoveResponses[204];
 
 export type UserControllerRemoveResult = ApiResponse<204, UserControllerRemoveResponses[204]>;
 
-export const UserControllerRemoveSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-} satisfies OperationSchemas;
-
 export function getUserControllerRemoveUrl(path: UserControllerRemovePathParams): string {
   return buildUrl('/users/{id}', path);
-}
-
-const userControllerRemoveOperation: OperationDefinition = {
-  id: 'UserController_remove',
-  method: 'DELETE',
-  path: '/users/{id}',
-  responseTypes: { 204: 'none' },
-  schemas: UserControllerRemoveSchemas,
-};
-
-export function userControllerRemove(
-  input: UserControllerRemoveInput,
-  options?: RequestOptions,
-): Promise<UserControllerRemoveResult> {
-  return request<UserControllerRemoveResult>(userControllerRemoveOperation, input, options);
 }
 
 // PATCH /users/{id}
@@ -243,37 +126,8 @@ export type UserControllerUpdateResponse = UserControllerUpdateResponses[200];
 
 export type UserControllerUpdateResult = ApiResponse<200, UserControllerUpdateResponses[200]>;
 
-export const UserControllerUpdateSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-  body: UpdateUserRequestSchema,
-  responses: {
-    200: z.object({
-      data: UserSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getUserControllerUpdateUrl(path: UserControllerUpdatePathParams): string {
   return buildUrl('/users/{id}', path);
-}
-
-const userControllerUpdateOperation: OperationDefinition = {
-  id: 'UserController_update',
-  method: 'PATCH',
-  path: '/users/{id}',
-  bodyType: 'json',
-  contentType: 'application/json',
-  responseTypes: { 200: 'json' },
-  schemas: UserControllerUpdateSchemas,
-};
-
-export function userControllerUpdate(
-  input: UserControllerUpdateInput,
-  options?: RequestOptions,
-): Promise<UserControllerUpdateResult> {
-  return request<UserControllerUpdateResult>(userControllerUpdateOperation, input, options);
 }
 
 // POST /users/{id}/restore
@@ -296,35 +150,8 @@ export type UserControllerRestoreResponse = UserControllerRestoreResponses[200];
 
 export type UserControllerRestoreResult = ApiResponse<200, UserControllerRestoreResponses[200]>;
 
-export const UserControllerRestoreSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-  responses: {
-    200: z.object({
-      data: UserSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getUserControllerRestoreUrl(path: UserControllerRestorePathParams): string {
   return buildUrl('/users/{id}/restore', path);
-}
-
-const userControllerRestoreOperation: OperationDefinition = {
-  id: 'UserController_restore',
-  method: 'POST',
-  path: '/users/{id}/restore',
-  responseTypes: { 200: 'json' },
-  schemas: UserControllerRestoreSchemas,
-};
-
-/** 還原刪除的使用者 */
-export function userControllerRestore(
-  input: UserControllerRestoreInput,
-  options?: RequestOptions,
-): Promise<UserControllerRestoreResult> {
-  return request<UserControllerRestoreResult>(userControllerRestoreOperation, input, options);
 }
 
 // GET /users/{id}/roles
@@ -347,34 +174,8 @@ export type UserControllerListRolesResponse = UserControllerListRolesResponses[2
 
 export type UserControllerListRolesResult = ApiResponse<200, UserControllerListRolesResponses[200]>;
 
-export const UserControllerListRolesSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-  responses: {
-    200: z.object({
-      data: UserRolesSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getUserControllerListRolesUrl(path: UserControllerListRolesPathParams): string {
   return buildUrl('/users/{id}/roles', path);
-}
-
-const userControllerListRolesOperation: OperationDefinition = {
-  id: 'UserController_listRoles',
-  method: 'GET',
-  path: '/users/{id}/roles',
-  responseTypes: { 200: 'json' },
-  schemas: UserControllerListRolesSchemas,
-};
-
-export function userControllerListRoles(
-  input: UserControllerListRolesInput,
-  options?: RequestOptions,
-): Promise<UserControllerListRolesResult> {
-  return request<UserControllerListRolesResult>(userControllerListRolesOperation, input, options);
 }
 
 // PUT /users/{id}/roles
@@ -403,44 +204,10 @@ export type UserControllerReplaceRolesResult = ApiResponse<
   UserControllerReplaceRolesResponses[200]
 >;
 
-export const UserControllerReplaceRolesSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-  body: ReplaceUserRolesRequestSchema,
-  responses: {
-    200: z.object({
-      data: UserRolesSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getUserControllerReplaceRolesUrl(
   path: UserControllerReplaceRolesPathParams,
 ): string {
   return buildUrl('/users/{id}/roles', path);
-}
-
-const userControllerReplaceRolesOperation: OperationDefinition = {
-  id: 'UserController_replaceRoles',
-  method: 'PUT',
-  path: '/users/{id}/roles',
-  bodyType: 'json',
-  contentType: 'application/json',
-  responseTypes: { 200: 'json' },
-  schemas: UserControllerReplaceRolesSchemas,
-};
-
-/** 整批取代使用者的角色 */
-export function userControllerReplaceRoles(
-  input: UserControllerReplaceRolesInput,
-  options?: RequestOptions,
-): Promise<UserControllerReplaceRolesResult> {
-  return request<UserControllerReplaceRolesResult>(
-    userControllerReplaceRolesOperation,
-    input,
-    options,
-  );
 }
 
 // GET /users/{id}/permissions
@@ -464,36 +231,10 @@ export type UserControllerListPermissionsResult = ApiResponse<
   UserControllerListPermissionsResponses[200]
 >;
 
-export const UserControllerListPermissionsSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-} satisfies OperationSchemas;
-
 export function getUserControllerListPermissionsUrl(
   path: UserControllerListPermissionsPathParams,
 ): string {
   return buildUrl('/users/{id}/permissions', path);
-}
-
-const userControllerListPermissionsOperation: OperationDefinition = {
-  id: 'UserController_listPermissions',
-  method: 'GET',
-  path: '/users/{id}/permissions',
-  responseTypes: { 200: 'none' },
-  schemas: UserControllerListPermissionsSchemas,
-};
-
-/** 該使用者的有效權限集合（除錯／稽核用） */
-export function userControllerListPermissions(
-  input: UserControllerListPermissionsInput,
-  options?: RequestOptions,
-): Promise<UserControllerListPermissionsResult> {
-  return request<UserControllerListPermissionsResult>(
-    userControllerListPermissionsOperation,
-    input,
-    options,
-  );
 }
 
 // POST /users/{id}/reset-password
@@ -517,35 +258,10 @@ export type UserControllerResetPasswordResult = ApiResponse<
   UserControllerResetPasswordResponses[200]
 >;
 
-export const UserControllerResetPasswordSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-} satisfies OperationSchemas;
-
 export function getUserControllerResetPasswordUrl(
   path: UserControllerResetPasswordPathParams,
 ): string {
   return buildUrl('/users/{id}/reset-password', path);
-}
-
-const userControllerResetPasswordOperation: OperationDefinition = {
-  id: 'UserController_resetPassword',
-  method: 'POST',
-  path: '/users/{id}/reset-password',
-  responseTypes: { 200: 'none' },
-  schemas: UserControllerResetPasswordSchemas,
-};
-
-export function userControllerResetPassword(
-  input: UserControllerResetPasswordInput,
-  options?: RequestOptions,
-): Promise<UserControllerResetPasswordResult> {
-  return request<UserControllerResetPasswordResult>(
-    userControllerResetPasswordOperation,
-    input,
-    options,
-  );
 }
 
 // POST /users/{id}/unlock
@@ -568,34 +284,8 @@ export type UserControllerUnlockResponse = UserControllerUnlockResponses[200];
 
 export type UserControllerUnlockResult = ApiResponse<200, UserControllerUnlockResponses[200]>;
 
-export const UserControllerUnlockSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-  responses: {
-    200: z.object({
-      data: UserSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getUserControllerUnlockUrl(path: UserControllerUnlockPathParams): string {
   return buildUrl('/users/{id}/unlock', path);
-}
-
-const userControllerUnlockOperation: OperationDefinition = {
-  id: 'UserController_unlock',
-  method: 'POST',
-  path: '/users/{id}/unlock',
-  responseTypes: { 200: 'json' },
-  schemas: UserControllerUnlockSchemas,
-};
-
-export function userControllerUnlock(
-  input: UserControllerUnlockInput,
-  options?: RequestOptions,
-): Promise<UserControllerUnlockResult> {
-  return request<UserControllerUnlockResult>(userControllerUnlockOperation, input, options);
 }
 
 // GET /users/{id}/permission-sources
@@ -622,39 +312,8 @@ export type AuthzExplainControllerPermissionSourcesResult = ApiResponse<
   AuthzExplainControllerPermissionSourcesResponses[200]
 >;
 
-export const AuthzExplainControllerPermissionSourcesSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-  responses: {
-    200: z.object({
-      data: PermissionSourcesSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getAuthzExplainControllerPermissionSourcesUrl(
   path: AuthzExplainControllerPermissionSourcesPathParams,
 ): string {
   return buildUrl('/users/{id}/permission-sources', path);
-}
-
-const authzExplainControllerPermissionSourcesOperation: OperationDefinition = {
-  id: 'AuthzExplainController_permissionSources',
-  method: 'GET',
-  path: '/users/{id}/permission-sources',
-  responseTypes: { 200: 'json' },
-  schemas: AuthzExplainControllerPermissionSourcesSchemas,
-};
-
-/** 使用者的有效權限與來源（自己，或需要 authz:explain） */
-export function authzExplainControllerPermissionSources(
-  input: AuthzExplainControllerPermissionSourcesInput,
-  options?: RequestOptions,
-): Promise<AuthzExplainControllerPermissionSourcesResult> {
-  return request<AuthzExplainControllerPermissionSourcesResult>(
-    authzExplainControllerPermissionSourcesOperation,
-    input,
-    options,
-  );
 }

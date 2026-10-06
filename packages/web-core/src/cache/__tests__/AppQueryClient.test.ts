@@ -1,4 +1,5 @@
 import { createFakeChannelHub } from '@b2b-system/web-shared/testing';
+import { QueryObserver } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AppQueryClient, createQueryInvalidateChannel } from '../AppQueryClient';
@@ -43,15 +44,15 @@ describe('AppQueryClient.broadcastInvalidation（docs/architecture/frontend/11-r
     a.broadcastInvalidation(targets);
 
     expect(a.removeQueries).toHaveBeenCalledWith({ queryKey: ['role-detail', 'role-1'] });
-    expect(a.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['role-list'],
-      refetchType: 'active',
-    });
+    expect(a.invalidateQueries).toHaveBeenCalledWith(
+      { queryKey: ['role-list'], refetchType: 'active' },
+      { cancelRefetch: false },
+    );
     await vi.waitFor(() =>
-      expect(b.invalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['role-list'],
-        refetchType: 'active',
-      }),
+      expect(b.invalidateQueries).toHaveBeenCalledWith(
+        { queryKey: ['role-list'], refetchType: 'active' },
+        { cancelRefetch: false },
+      ),
     );
     expect(b.removeQueries).toHaveBeenCalledWith({ queryKey: ['role-detail', 'role-1'] });
   });
@@ -101,10 +102,65 @@ describe('AppQueryClient.applyInvalidation', () => {
 
     tabs[0]?.applyInvalidation(targets, { refetch: false });
 
-    expect(tabs[0]?.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['role-list'],
-      refetchType: 'none',
-    });
+    expect(tabs[0]?.invalidateQueries).toHaveBeenCalledWith(
+      { queryKey: ['role-list'], refetchType: 'none' },
+      { cancelRefetch: false },
+    );
+  });
+});
+
+/** 真的 QueryClient ＋ 一個有 observer（active）的 query；每次 queryFn 都等測試放行 */
+function activeQuery() {
+  const client = new AppQueryClient({
+    channel: createQueryInvalidateChannel({ transport: createFakeChannelHub().transport() }),
+    isRealtimeAvailable: () => false,
+  });
+  clients.push(client);
+  const calls: Array<{ signal: AbortSignal; resolve: (value: number) => void }> = [];
+  const observer = new QueryObserver(client, {
+    queryKey: ['role-list'],
+    queryFn: ({ signal }) =>
+      new Promise<number>((resolve) => {
+        calls.push({ signal, resolve });
+      }),
+  });
+  const unsubscribe = observer.subscribe(() => undefined);
+  return { client, calls, observer, unsubscribe };
+}
+
+describe('AppQueryClient.applyInvalidation：進行中的重抓（docs/architecture/frontend/05-data-layer.md §6.3）', () => {
+  it('不取消進行中的請求；連續失效只在它回來後再重抓一次', async () => {
+    const { client, calls, observer, unsubscribe } = activeQuery();
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
+
+    // 批次與推播：同一個請求進行中又失效了三次
+    client.applyInvalidation([{ queryKey: ['role-list'], action: 'invalidate' }]);
+    client.applyInvalidation([{ queryKey: ['role-list'], action: 'invalidate' }]);
+    client.applyInvalidation([{ queryKey: ['role-list'], action: 'invalidate' }]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.signal.aborted).toBe(false);
+
+    // 第一個請求可能早於這幾次寫入：回來後再重抓一次，畫面最後顯示的是之後的結果
+    calls[0]?.resolve(1);
+    await vi.waitFor(() => expect(calls).toHaveLength(2));
+    calls[1]?.resolve(2);
+    await vi.waitFor(() => expect(observer.getCurrentResult().data).toBe(2));
+    expect(calls).toHaveLength(2);
+    unsubscribe();
+  });
+
+  it('沒有進行中的請求時照常立刻重抓', async () => {
+    const { client, calls, observer, unsubscribe } = activeQuery();
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
+    calls[0]?.resolve(1);
+    await vi.waitFor(() => expect(observer.getCurrentResult().data).toBe(1));
+
+    client.applyInvalidation([{ queryKey: ['role-list'], action: 'invalidate' }]);
+
+    await vi.waitFor(() => expect(calls).toHaveLength(2));
+    calls[1]?.resolve(2);
+    await vi.waitFor(() => expect(observer.getCurrentResult().data).toBe(2));
+    unsubscribe();
   });
 });
 

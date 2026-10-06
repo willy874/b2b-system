@@ -65,7 +65,8 @@
         "running": "處理中 {{done}} / {{total}}",
         "done": "已完成 {{done}} / {{total}}",
         "cancelled": "已取消，處理了 {{done}} / {{total}}",
-        "failed": "失敗 {{count}} 筆"
+        "failed": "失敗 {{count}} 筆",
+        "paused": "已達請求上限，稍後自動繼續"
       },
       "queue": {
         "title": "批次處理佇列",

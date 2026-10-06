@@ -3,7 +3,7 @@ import { Select } from '@b2b-system/ui/Select';
 import { HeaderToolbarSettings } from '@b2b-system/web-core/layout';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useToast } from '@b2b-system/web-core/notify';
-import { usePreferenceLocales, usePreferenceSections } from '@b2b-system/web-core/preference';
+import { PreferenceSections, usePreferenceLocales } from '@b2b-system/web-core/preference';
 import { useLocaleStore, useThemeStore, useTimezoneStore } from '@b2b-system/web-core/store';
 import { THEME_OPTIONS } from '@b2b-system/web-core/theme';
 import { LANGUAGE_LABELS, SUPPORTED_LANGUAGES } from '@b2b-system/web-shared/constants';
@@ -27,8 +27,7 @@ export default function PreferencePage() {
   const theme = useThemeStore((state) => state.theme);
   const setTheme = useThemeStore((state) => state.setTheme);
 
-  // feature 註冊的分頁與列表；偏好頁不需要認識它們
-  const sections = usePreferenceSections();
+  // feature 註冊的分頁（<PreferenceSections />）與列表；偏好頁不需要認識它們。這裡補載它們的語系包
   usePreferenceLocales();
 
   return (
@@ -95,12 +94,7 @@ export default function PreferencePage() {
         <HeaderToolbarSettings />
       </section>
 
-      {sections.map((section) => (
-        <section key={section.key} data-testid="preference-section" data-value={section.key}>
-          <h2 className="mb-2 text-base font-medium">{t(section.labelI18nKey)}</h2>
-          <section.Component />
-        </section>
-      ))}
+      <PreferenceSections />
     </div>
   );
 }

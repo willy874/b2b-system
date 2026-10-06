@@ -369,6 +369,7 @@ mutation 成功
    把範圍放在 key 的第二個元素並宣告 `scopedCollection`，別的範圍的列表就不會跟著重抓。
 2. 新的衍生關係：在 **被影響的資源** 上加 `derivesFrom`，並註解「為什麼」。
 3. 新寫入：在 feature hook 的 `onSuccess` 呼叫 `invalidateResources()`，只描述後端改了什麼。
+   批次操作（`features/<name>/batch.ts`）改用 `run` 第二個參數的 `invalidate()`：同樣的變更，由佇列合併後交給 `invalidateResources()`（[`07-ui-system.md`](07-ui-system.md) §13.4）。
 4. `apis/__tests__/resources.test.ts` 補一個案例，鎖住換算結果。
 
 > 登入時 `queryClient.clear()`、收到 `AUTHZ_FORBIDDEN` 時重抓 profile 屬於 **重新同步**，
@@ -393,6 +394,11 @@ export class AppQueryClient extends QueryClient {
 ```
 
 收訊由 cache plugin 管理：`onInit` 呼叫 `start()`、`onDestroy` 呼叫 `stop()`。
+
+**不取消進行中的重抓**：`applyInvalidation` 以 `cancelRefetch: false` 失效（TanStack 預設會取消進行中的請求再重送）。
+被取消的請求已經送出，伺服器照樣計入每人的限流額度；批次、推播連續失效同一個列表時，預設行為會讓它一再重送。
+進行中的請求可能早於這次寫入，所以等它回來後再重抓一次（同一個 query 只排一次）——不論期間失效幾次，都只多一個請求，而且最後的資料一定晚於寫入。
+批次佇列另外把每一筆的變更合併、每秒最多套用一次（[`07-ui-system.md`](07-ui-system.md) §13.4）。
 
 在 A 分頁刪掉一個角色，B 分頁的列表立刻更新。
 

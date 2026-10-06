@@ -1,9 +1,14 @@
 import type { AppPluginFactory } from '@b2b-system/web-core/app';
 import { registerPreferenceSection } from '@b2b-system/web-core/preference';
 import { LanguageNamespace, Languages } from '@b2b-system/web-shared/constants';
+import { lazy } from 'react';
 
 import { TABLE_COLUMN_SETTINGS_LOCALE_SCOPE } from './locale';
-import { TableColumnsSection } from './TableColumnsSection';
+
+// 只有偏好頁會渲染；登記本體會把 TableSettings（dnd-kit）帶進首屏（docs/architecture/frontend/02-plugin-system.md §4.3）
+const TableColumnsSection = lazy(() =>
+  import('./TableColumnsSection').then((module) => ({ default: module.TableColumnsSection })),
+);
 
 /**
  * 表格欄位設定的偏好分頁（docs/architecture/frontend/02-plugin-system.md §4.3）。
