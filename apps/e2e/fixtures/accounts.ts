@@ -10,6 +10,10 @@ export const ACCOUNTS = {
   revokeTarget: 'e2e-revokeme@dev.local',
   roleHolder: 'e2e-roleholder@dev.local',
   notifyTarget: 'e2e-notifyme@dev.local',
+  groupTarget: 'e2e-groupme@dev.local',
+  passwordTarget: 'e2e-passwordme@dev.local',
+  announceTarget: 'e2e-announceme@dev.local',
+  shareTarget: 'e2e-shareme@dev.local',
 } as const;
 
 export type AccountKey = keyof typeof ACCOUNTS;

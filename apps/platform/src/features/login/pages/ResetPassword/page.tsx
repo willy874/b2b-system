@@ -114,8 +114,22 @@ export default function ResetPasswordPage() {
             </Field>
           )}
         </form.Field>
-        {formError && <p className="m-0 text-sm text-[var(--color-danger-text)]">{formError}</p>}
-        <Button type="submit" variant="primary" block loading={reset.isPending}>
+        {formError && (
+          <p
+            role="alert"
+            className="m-0 text-sm text-[var(--color-danger-text)]"
+            data-testid="reset-password-error"
+          >
+            {formError}
+          </p>
+        )}
+        <Button
+          type="submit"
+          variant="primary"
+          block
+          loading={reset.isPending}
+          data-testid="reset-password-submit"
+        >
           {t('common.confirm')}
         </Button>
       </form>

@@ -34,6 +34,14 @@ export const E2E_ACCOUNTS = [
   { email: 'e2e-roleholder@dev.local', displayName: 'E2E Role Holder', role: 'member' },
   // 專門給站內通知的測試用：角色會被增減（user.rolesChanged），未讀數要能精確斷言，不能和其他測試共用（tests/notification.spec.ts）
   { email: 'e2e-notifyme@dev.local', displayName: 'E2E Notify Target', role: 'member' },
+  // 專門給群組的測試用：經群組取得、失去角色，不能和其他測試共用（tests/group.spec.ts）
+  { email: 'e2e-groupme@dev.local', displayName: 'E2E Group Target', role: 'member' },
+  // 專門給改密碼、忘記密碼的測試用：密碼會被改掉（tests/account.spec.ts）
+  { email: 'e2e-passwordme@dev.local', displayName: 'E2E Password Target', role: 'member' },
+  // 專門給公告的收件人用：收到的通知與其他測試分開（tests/announcement.spec.ts）
+  { email: 'e2e-announceme@dev.local', displayName: 'E2E Announce Target', role: 'member' },
+  // 專門給資料夾分享的測試用：被授予、撤銷資料夾的存取（tests/file.spec.ts）
+  { email: 'e2e-shareme@dev.local', displayName: 'E2E Share Target', role: 'member' },
 ] as const;
 
 export async function seedE2eData(db: ScriptDatabase): Promise<void> {

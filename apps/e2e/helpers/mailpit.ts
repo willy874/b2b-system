@@ -6,6 +6,7 @@ const MAILPIT_URL = process.env.E2E_MAILPIT_URL ?? 'http://localhost:8025';
 interface MailpitSummary {
   ID: string;
   Subject: string;
+  Created: string;
 }
 
 export interface ReceivedMail {
@@ -17,8 +18,13 @@ export interface ReceivedMail {
  * 等到寄給 `to` 的信出現，回傳最新一封。寄信在背景工作裡跑，要輪詢。
  * 每個測試用獨一無二的收件地址，就不必清空信箱、也不會互相干擾。
  * 同一個地址會收到多封信（例：註冊核准同時寄審核結果與啟用信）時，以 `subject` 指定要哪一封。
+ * 固定帳號（例：`passwordTarget`）的信箱會留著之前執行的信（Mailpit 不隨 db:reset 清空）：以 `since` 只看觸發之後收到的。
  */
-export async function waitForMail(to: string, subject?: string): Promise<ReceivedMail> {
+export async function waitForMail(
+  to: string,
+  subject?: string,
+  since?: Date,
+): Promise<ReceivedMail> {
   const context = await request.newContext({ baseURL: MAILPIT_URL });
   let latest: MailpitSummary | undefined;
   await expect
@@ -28,7 +34,11 @@ export async function waitForMail(to: string, subject?: string): Promise<Receive
           params: { query: `to:"${to}"` },
         });
         const body = (await response.json()) as { messages: MailpitSummary[] };
-        const matched = body.messages.filter((m) => subject === undefined || m.Subject === subject);
+        const matched = body.messages.filter(
+          (m) =>
+            (subject === undefined || m.Subject === subject) &&
+            (since === undefined || new Date(m.Created) >= since),
+        );
         latest = matched[0];
         return matched.length;
       },

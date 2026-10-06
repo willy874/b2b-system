@@ -132,6 +132,7 @@
 | 整合 | `test/external-api-v1.spec.ts`：檔案的單次與分塊上傳、列表、資訊、放棄、在內部 api 看得到；**限縮成 `file:read` 的 token 不能上傳**（帳號有全域 `file:create`）；使用者唯讀只列人 |
 | 整合 | `test/external-api.spec.ts`：同一個測試程序裡起內部 api 與對外 API 兩個 app。`/v1/me`、各種無效 token、JWT 與 API token 互不通用、`SurfaceGuard` 的兩個方向、scope 的交集、在內部 api 撤銷或停用後對外 API 立即拒絕、過期、`last_used_at`、驗證失敗的 429 |
 | 路由稽核 | `test/route-audit.spec.ts`：三種寫錯的入口宣告會讓啟動失敗；對外路由的清單 |
+| E2E | `apps/e2e/tests/api-token.spec.ts`：在 backstage 建服務帳號、發 token（只顯示一次）→ 打對外 API → 撤銷、停用後立即拒絕；scopes 收窄；個人 token；token 打不進內部 API、對外 API 沒有內部的路由 |
 
 ## 9. 設計決策：服務帳號、API token 與對外 API
 

@@ -213,6 +213,17 @@ export const authHandlers = [
 | 12  | 刪除使用者／角色／資料夾 → 提示的「復原」或回收桶還原；角色還原後持有者恢復權限 | 軟刪除、持有者邊與檔案物件跨前後端（[`backend/14-revisions.md`](../backend/14-revisions.md) §9） |
 | 13  | 角色的版本紀錄看差異 → 還原到某一版；兩人同時編輯同一筆 → 後送出的看到衝突提示 | 版本歷史與樂觀鎖（[`backend/14-revisions.md`](../backend/14-revisions.md) §9） |
 | 14  | 註冊申請 → 審核者的鈴鐺（推播）→ 點開到審批詳情並標為已讀；角色被改 → 本人收到通知 → 全部已讀 | 業務交易內寫入、推播到 user room、route id 連結（[`backend/15-notification.md`](../backend/15-notification.md) §12） |
+| 15  | 群組綁角色、加成員 → 成員看得到頁面與權限來源（經群組、遮蔽讀不到的角色）；移出群組或子群組被刪 → 失去權限 | 關係圖的間接授權跨前後端（[`rbac/08-groups.md`](../../rbac/08-groups.md)、[`rbac/09-explain.md`](../../rbac/09-explain.md)） |
+| 16  | 改密碼 → 所有裝置登出；忘記密碼 → 重設信 → 新密碼登入（不洩漏帳號是否存在）；重放已輪替的 refresh token → 整條 family 撤銷 | 真實 cookie、Mailpit、跨 origin（[`backend/04-auth.md`](../backend/04-auth.md)） |
+| 17  | 服務帳號發 token（只顯示一次）→ 打對外 API → 撤銷或停用後立刻失效；scopes 收窄權限；個人 token | 兩個程序共用資料與快取失效（[`06-external-api.md`](../06-external-api.md)） |
+| 18  | Webhook 建立 → 測試投遞與真實事件（背景工作）送到接收端、簽章驗得過；接收端 5xx 記成失敗並可重送 | 背景工作、對外 HTTP、只顯示一次的密鑰（[`backend/17-webhook.md`](../backend/17-webhook.md)） |
+| 19  | 公告立即發布 → 收件人的鈴鐺收到、點開看內文；租戶允許個人調整 → 個人關掉後不再收到 | 展開工作、推播、事件管理與個人設定（[`backend/19-announcement.md`](../backend/19-announcement.md)、[`backend/16-notification-event.md`](../backend/16-notification-event.md)） |
+| 20  | 上傳 → 預覽、下載；別人的資料夾鎖住 → 申請存取 → 擁有者核准 → 看得到；撤銷後又鎖住 | presigned URL 直傳物件儲存、資源層級授權（[`backend/09-file.md`](../backend/09-file.md)、[`rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)） |
+| 21  | 建標籤 → 貼到使用者 → 列表以標籤篩選；刪除後一起消失 | 標籤與資源的關聯（[`backend/18-tag.md`](../backend/18-tag.md)） |
+| 22  | super-admin 改設定 → 重新整理後保留 → 稽核日誌看得到差異；admin 只能讀 | 設定與稽核的寫入（[`backend/12-settings.md`](../backend/12-settings.md)） |
+| 23  | 平台關掉租戶的 feature → 停在那頁的人被推播帶回首頁、選單消失、端點 404；再打開後恢復 | 平台 DB → 租戶推播（[`05-tenancy.md`](../05-tenancy.md) §12） |
+| 24  | 平台新增 operator → 啟用信設定密碼 → 登入 apps/platform，看得到租戶但不能管理平台管理者 | 平台 DB 的帳號、權限不同的平台角色 |
+| 25  | super-admin 不能刪除、停用自己或拿掉自己的 super-admin；admin 不能動 super-admin | 最後一位 super-admin 的保護（`LAST_SUPER_ADMIN` 走不到，由 api 整合測試守住） |
 
 ### 4.2 結構
 
@@ -227,8 +238,10 @@ apps/e2e/
     ├── auth.spec.ts
     ├── rbac-lifecycle.spec.ts
     ├── permission-propagation.spec.ts
-    └── route-guard.spec.ts
+    ├── route-guard.spec.ts
+    └── …                 一個功能一份（group、webhook、announcement、api-token、file、tag、system…）
 ```
+helpers/ 另有 `webhook-receiver.ts`（測試程序內的 webhook 接收端）與 `api.ts` 的 `externalRequest()`（對外 API）。
 
 ### 4.3 資料隔離
 
@@ -244,8 +257,21 @@ e2e-member@dev.local       member
 ```
 
 會改變帳號狀態（鎖定、停用、整批改寫角色）的案例各有專用帳號（`e2e-lockme`、`e2e-disableme`、`e2e-revokeme`、`e2e-roleholder`、
-`e2e-notifyme`（站內通知：角色被增減、未讀數要精確斷言；同一個案例不能並行跑兩份，`--repeat-each` 要搭配 `--workers=1`），
-見 `apps/api/src/db/seeds/e2e.ts`），不和其他並行的案例共用。
+`e2e-notifyme`（站內通知：角色被增減、未讀數要精確斷言；同一個案例不能並行跑兩份，`--repeat-each` 要搭配 `--workers=1`）、
+`e2e-groupme`（經群組取得、失去權限）、`e2e-passwordme`（密碼被改掉，案例結束時改回）、`e2e-announceme`（公告的收件人與個人通知設定）、
+`e2e-shareme`（被授予、撤銷資料夾存取），見 `apps/api/src/db/seeds/e2e.ts`），不和其他並行的案例共用。
+
+會動到 **整個租戶** 的設定的案例，挑其他 spec 不碰的對象，並在 `finally` 還原：系統設定改 `trash.retentionDays`、
+平台關閉的 feature 用 `job`、事件管理只改 `announcement.published`（與公告的案例放在同一個檔案、依序執行）。
+Webhook 的租戶預設只允許 1 個不重複的目標網址（`webhook.maxUrls`），所以整個 `webhook.spec.ts` 共用一個接收端、依序執行，
+每個案例在 `afterEach` 刪掉自己的訂閱。
+
+global-setup 在 api 已經跑著的時候重灌資料庫，api 啟動時才做的準備不會補上：種子帳號一開始 **沒有個人資料夾**
+（`FileSystemFolderService` 在啟動與 `permissions.changed` 時補建），檔案的案例改用 admin 在根目錄建的資料夾。
+固定帳號的信箱會留著之前執行的信（Mailpit 不隨 `db:reset` 清空），等信時以 `waitForMail(to, subject, since)` 只看觸發之後的。
+
+`api-token.spec.ts` 要對外 API（`pnpm dev:external-api`，:3001）；Playwright 的 `webServer` 會起它或沿用已在跑的，
+換埠時以 `EXTERNAL_API_PORT` 與 `E2E_EXTERNAL_API_URL` 指定。
 
 #### 與正在跑的 dev 環境並行
 
@@ -264,6 +290,8 @@ export PLATFORM_APP_URL=http://localhost:5275 OIDC_ISSUER=http://localhost:5275/
   VITE_PLATFORM_APP_URL=http://localhost:5275 VITE_OIDC_ISSUER=http://localhost:5275/api/oidc
 export AUTH_RATE_LIMIT=1000 DEFAULT_RATE_LIMIT=10000 MAIL_TRANSPORT=smtp MAIL_SMTP_URL=smtp://127.0.0.1:1025
 export E2E_BASE_URL=http://localhost:5273 E2E_PLATFORM_URL=http://localhost:5275
+# 對外 API（api-token.spec.ts）
+export EXTERNAL_API_PORT=3101 E2E_EXTERNAL_API_URL=http://localhost:3101
 # 外部 IdP（pnpm dev:mock-idp，Playwright 會起）登記的 callback 跟著換埠
 export MOCK_IDP_CALLBACK_URL=http://localhost:5275/api/oidc-interaction/external/callback
 # 物件儲存另起一份（:9100、資料放暫存目錄），不寫進 dev 的 :9000 與它的 .data

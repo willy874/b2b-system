@@ -23,7 +23,7 @@ import { ApprovalService } from '@/modules/approval/approval.service';
 import { userRegistrationRequest } from '@/modules/user/user-registration.approval';
 
 import type { TestDatabase } from './db';
-import { createTestDatabase, expectDbError, truncateAll } from './db';
+import { createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
 import { inTestTenant, testTenantContext } from './tenant';
 
@@ -257,6 +257,37 @@ describe('事件管理（docs/architecture/backend/16-notification-event.md、do
       expect(await db.select().from(notificationPolicies)).toEqual([]);
     });
 
+    // 預設不允許個人調整的事件（announcement.published，docs/architecture/backend/19-announcement.md §9 D16）：
+    // 「允許」才是覆寫值，`enabled` 跟著預設（null）也要存得進去；改回預設就刪掉那一列
+    it('預設不允許個人調整的事件改成允許 → 存成覆寫；改回預設刪掉那一列', async () => {
+      const allowed = await patchAsRoot([
+        { type: 'announcement.published', channel: 'inApp', allowUserOverride: true },
+      ]);
+      expect(eventOf(allowed.body, 'announcement.published')?.channels[0]).toMatchObject({
+        enabled: true,
+        isOverridden: false,
+        allowUserOverride: true,
+      });
+      expect(
+        await db
+          .select()
+          .from(notificationPolicies)
+          .where(eq(notificationPolicies.type, 'announcement.published')),
+      ).toEqual([
+        expect.objectContaining({ channel: 'inApp', enabled: null, allowUserOverride: true }),
+      ]);
+
+      await patchAsRoot([
+        { type: 'announcement.published', channel: 'inApp', allowUserOverride: false },
+      ]);
+      expect(
+        await db
+          .select()
+          .from(notificationPolicies)
+          .where(eq(notificationPolicies.type, 'announcement.published')),
+      ).toEqual([]);
+    });
+
     it('沒有登記的事件、不支援的管道 → 404 NOTIFICATION_EVENT_NOT_FOUND，什麼都不寫', async () => {
       for (const change of [
         { type: 'sample.unknown', channel: 'inApp', enabled: false },
@@ -486,13 +517,7 @@ describe('事件管理（docs/architecture/backend/16-notification-event.md、do
         .expect(409);
     });
 
-    it('DB 約束：租戶政策不能存一列兩欄都是預設的；使用者被永久刪除時個人設定一起刪', async () => {
-      await expectDbError(
-        db
-          .insert(notificationPolicies)
-          .values({ type: 'approval.pending', channel: 'inApp', enabled: null }),
-        /notification_policies_has_override/,
-      );
+    it('DB 約束：使用者被永久刪除時個人設定一起刪', async () => {
       const member = await createUser('pref-purged@example.com', ['member']);
       await db
         .insert(notificationPreferences)
