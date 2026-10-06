@@ -193,8 +193,15 @@ export function Dialog({
     <BaseDialog.Root
       open={open}
       defaultOpen={defaultOpen}
-      onOpenChange={onOpenChange}
-      dismissible={dismissible}
+      // Base UI 的 disablePointerDismissal 只擋點遮罩；Esc 要在 onOpenChange 依 reason 擋下
+      onOpenChange={(next, details) => {
+        if (!next && !dismissible && DISMISS_REASONS.has(details.reason)) {
+          details.cancel(); // 'escape-key'、'outside-press'、'close-watcher'
+          return;
+        }
+        onOpenChange?.(next);
+      }}
+      disablePointerDismissal={!dismissible}
     >
       <BaseDialog.Portal>
         <BaseDialog.Backdrop className={styles.backdrop} />
@@ -225,6 +232,10 @@ export const DialogPrimitive = BaseDialog;
 
 **`dismissible` 的預設值是產品決定**：刪除確認對話框設 `false`，避免誤觸遮罩
 造成「以為取消了但其實什麼都沒發生」的困惑。
+
+`dismissible={false}` 同時擋 **點遮罩與 Esc**（對話框內的按鈕照常關閉）。只顯示一次的內容也用它：
+建立 API token、建立 Webhook 與輪替簽章密鑰之後，明文顯示中只剩「我已保存」能關閉，誤按 Esc 不會讓密鑰消失
+（[`06-external-api.md`](../06-external-api.md) §9.2 D7、[`backend/17-webhook.md`](../backend/17-webhook.md) §6）。
 
 ### 3.3 Base UI 的狀態屬性
 

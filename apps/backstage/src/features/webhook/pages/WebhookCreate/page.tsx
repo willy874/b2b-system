@@ -76,6 +76,8 @@ export default function WebhookCreatePage() {
     <Dialog
       open
       onOpenChange={(open) => !open && close()}
+      // 密鑰只出現這一次：顯示中 Esc、點遮罩不關閉，只能按「我已保存密鑰」
+      dismissible={!created}
       title={created ? t('webhook.create.createdTitle') : t('webhook.create.title')}
       description={created ? undefined : t('webhook.create.description')}
       size="md"

@@ -1,5 +1,5 @@
 import { AllProviders } from '@b2b-system/web-core/testing';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { ApiToken } from '@/shared/api-sdk';
@@ -72,5 +72,26 @@ describe('ApiTokenCreateDialog', () => {
     fireEvent.click(screen.getByTestId('api-token-create-submit'));
     expect(await screen.findByRole('alert')).not.toBeEmptyDOMElement();
     expect(screen.queryByTestId('api-token-value')).toBeNull();
+  });
+
+  it('建立成功後按 Esc：token 仍在畫面上；按「我已保存」才關閉（docs/architecture/06-external-api.md §9.2 D7）', async () => {
+    const onOpenChange = vi.fn();
+    const onCreate = vi
+      .fn()
+      .mockResolvedValue({ token: 'b2bt_secret', apiToken: token('a', 'active') });
+    render(
+      <ApiTokenCreateDialog open onOpenChange={onOpenChange} maxDays={90} onCreate={onCreate} />,
+      { wrapper: AllProviders },
+    );
+    fireEvent.change(screen.getByTestId('api-token-name-input'), { target: { value: '部署' } });
+    fireEvent.click(screen.getByTestId('api-token-create-submit'));
+    const value = await screen.findByTestId('api-token-value');
+
+    fireEvent.keyDown(value, { key: 'Escape' });
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByTestId('api-token-value')).toHaveTextContent('b2bt_secret');
+
+    fireEvent.click(screen.getByTestId('api-token-done'));
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 });

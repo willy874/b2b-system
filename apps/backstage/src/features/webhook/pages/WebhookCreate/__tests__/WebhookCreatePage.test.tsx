@@ -151,10 +151,20 @@ describe('WebhookCreatePage（docs/architecture/backend/17-webhook.md §9.2 D14�
       await waitFor(() => expect(screen.queryByTestId('webhook-create-dialog')).toBeNull());
     });
 
-    it('建立成功後按 Esc：先確認，說明密鑰還沒保存', async () => {
+    it('建立成功後按 Esc：不關閉，密鑰仍在（docs/architecture/backend/17-webhook.md §9.2 D14）', async () => {
       renderRoute(routes, '/webhook/create', CREATOR);
       await create();
       fireEvent.keyDown(screen.getByTestId('webhook-secret-value'), { key: 'Escape' });
+
+      expect(screen.getByTestId('webhook-secret-value')).toHaveTextContent('whsec_once');
+      expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+    });
+
+    it('建立成功後以其他途徑離開（上一頁、側邊選單）：先確認，說明密鑰還沒保存', async () => {
+      const { router } = renderRoute(routes, '/webhook/create', CREATOR);
+      await create();
+      // 瀏覽器上一頁、側邊選單都是導覽
+      router.history.push('/webhook');
 
       const confirm = await screen.findByTestId('unsaved-changes-confirm');
       expect(confirm).toHaveTextContent('簽章密鑰保存了嗎？');

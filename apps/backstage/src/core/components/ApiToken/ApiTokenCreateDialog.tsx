@@ -92,6 +92,8 @@ export function ApiTokenCreateDialog({
     <Dialog
       open={open}
       onOpenChange={changeOpen}
+      // 完整的 token 只出現這一次：顯示中 Esc、點遮罩不關閉，只能按「我已保存」
+      dismissible={!created}
       title={created ? t('apiToken.created.title') : t('apiToken.create.title')}
       description={created ? undefined : t('apiToken.create.description')}
       size="md"
