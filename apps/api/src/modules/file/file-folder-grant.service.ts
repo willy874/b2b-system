@@ -139,10 +139,10 @@ export class FileFolderGrantService {
     dto: UpdateFileFolderAccessDto,
     actor: AuthUser,
   ): Promise<FileFolderGrantListDto> {
-    await this.writeGrants(async (tx) => {
+    const changed = await this.writeGrants(async (tx) => {
       const ctx = await this.access.contextFor(actor, tx);
       const folder = await this.assertCanShare(ctx, actor, folderId, tx);
-      if (folder.inheritGrants === dto.inheritGrants) return;
+      if (folder.inheritGrants === dto.inheritGrants) return false;
 
       const copied = dto.inheritGrants ? [] : await this.copyInherited(ctx, folderId, actor, tx);
       await this.folders.setInheritGrants(
@@ -163,8 +163,10 @@ export class FileFolderGrantService {
         },
         tx,
       );
+      return true;
     });
-    this.publish(folderId);
+    // 與目前狀態相同時沒有寫入，不推播（set／revoke 不是寫入就是拋錯，不必判斷）
+    if (changed) this.publish(folderId);
     return this.buildList(await this.access.contextFor(actor), folderId);
   }
 

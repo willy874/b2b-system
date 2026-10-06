@@ -538,12 +538,13 @@ describe('FileFolderGrantService.revoke（docs/rbac/07-resource-grants.md §6.1�
 });
 
 describe('FileFolderGrantService.setInheritance（docs/rbac/07-resource-grants.md §3.3）', () => {
-  it('與目前狀態相同 → 不寫入、不寫稽核', async () => {
-    const { service, folders, audit, grants } = setup();
+  it('與目前狀態相同 → 不寫入、不寫稽核、不推播', async () => {
+    const { service, folders, audit, grants, events } = setup();
     await service.setInheritance(CHILD, { inheritGrants: true }, ACTOR);
     expect(folders.setInheritGrants).not.toHaveBeenCalled();
     expect(audit.record).not.toHaveBeenCalled();
     expect(grants.set).not.toHaveBeenCalled();
+    expect(events.publish).not.toHaveBeenCalled();
   });
 
   it('沒有 share → AUTHZ_FORBIDDEN，不中斷', async () => {
