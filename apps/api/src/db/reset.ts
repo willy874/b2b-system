@@ -1,16 +1,20 @@
 import { sql } from 'drizzle-orm';
 
-import { createPlatformScriptClient, forEachScriptTenant, loadScriptEnv } from './client';
+import {
+  assertDisposableScriptTargets,
+  createPlatformScriptClient,
+  forEachScriptTenant,
+  loadScriptEnv,
+} from './client';
 
 /**
- * 清空所有業務資料（保留 schema、migration 紀錄與租戶登記）。production 禁止執行。
- * 平台 DB 只清 IdP 的協定狀態；每個租戶的 DB 各自清空。
+ * 清空所有業務資料（保留 schema、migration 紀錄與租戶登記）。平台 DB 只清 IdP 的協定狀態；每個租戶的 DB 各自清空。
+ * 動手前先檢查目標：正式環境的平台 DB 一律拒絕，不在本機的 DB 要加 `--confirm <平台 database 名稱>`
+ * （`script-guard.ts`，docs/architecture/backend/02-database.md §6.1）。
  */
 async function main(): Promise<void> {
   loadScriptEnv();
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('db:reset 不可在 production 執行');
-  }
+  await assertDisposableScriptTargets('db:reset');
   const platform = createPlatformScriptClient();
   await platform.db.execute(
     sql`TRUNCATE oidc_payloads, platform_refresh_tokens, platform_auth_tokens`,

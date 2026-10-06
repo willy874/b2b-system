@@ -676,8 +676,9 @@ db/platform/migrations/                 平台 DB（schema 在 db/platform/schem
 
 ### 5.3 啟動時檢查每個租戶的版本（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D14）
 
-`pnpm db:migrate` 先跑平台 DB，再依序跑每個 `active` 租戶；單一租戶失敗不影響其他租戶，最後列出失敗的租戶並以非零結束。
-api 不自己跑 migration，而是比對版本（`core/tenant/tenant-schema.ts`）：
+`pnpm db:migrate` 先跑平台 DB，再依序跑每個未刪除、而且不是佈建中（`provisioning`）或佈建失敗（`failed`）的租戶；單一租戶失敗不影響其他租戶，
+最後列出失敗的租戶。結束碼：只有平台 DB 失敗才非零（`--strict` 時租戶失敗也非零，給 CI 用）——部署時 api 依賴 migrate 成功結束，
+一個租戶壞掉不能擋住所有租戶。api 不自己跑 migration，而是比對版本（`core/tenant/tenant-schema.ts`）：
 
 | 情況 | 行為 |
 | --- | --- |
@@ -749,8 +750,25 @@ postgres 端的調校（`docker-compose.prod.yml` 的 `command`）：`max_connec
 
 `db:migrate`、`db:seed`、`db:reset`、`db:archive-audit-logs` 走遍平台 DB 登記的每個租戶（`db/client.ts` 的 `forEachScriptTenant`）；
 `db:seed:dev`、`db:seed:e2e` 只跑 `SEED_TENANT`（預設 `DEFAULT_TENANT_CODE`）。`db:migrate` 先跑平台 DB，
-設定了 `DEFAULT_TENANT_DATABASE_URL` 時登記預設租戶（`DEFAULT_TENANT_CODE`、`DEFAULT_TENANT_DOMAINS`），
-資料庫不存在時嘗試建立；單一租戶失敗不影響其他租戶，結束時列出失敗的租戶並以非零結束。
+平台 DB **一個租戶都沒有（含已刪除的）** 而且設定了 `DEFAULT_TENANT_DATABASE_URL` 時登記預設租戶（`DEFAULT_TENANT_CODE`、`DEFAULT_TENANT_DOMAINS`）——
+也就是只有第一次部署，預設租戶被刪除後不會再被登記回來；資料庫不存在時嘗試建立。
+`db:migrate` 與 `db:seed` 的單一租戶失敗不影響其他租戶，結束碼的規則見 §5.3。
+
+**會清空資料或寫入測試資料的腳本**（`db:reset`、`db:seed:dev`、`db:seed:e2e`）在任何寫入之前檢查 **目標**，不只看執行者的 `NODE_ENV`
+（`db/script-guard.ts`）：
+
+| 檢查 | 結果 |
+| --- | --- |
+| 執行者的 `NODE_ENV=production` | 拒絕（在建立任何連線之前） |
+| 平台 DB 的環境標記 `platform_environment.name = 'production'`（production 的 `db:migrate` 寫入，之後不會被改回來） | 拒絕，任何參數都不能略過 |
+| 要動到的平台或租戶 DB 不在本機（`localhost`、`127.0.0.1`、`::1`、開發用 compose 的 `postgres` 以外） | 要加 `--confirm <平台 database 名稱>` |
+
+所以開發機帶著正式環境的連線字串（開了 tunnel、臨時改過 `.env`）執行 `pnpm db:reset`，也會在清空之前被擋下。
+E2E 的 global setup 另外要求明確指定 E2E 用的 DB（[`../frontend/10-testing.md`](../frontend/10-testing.md) §4.3）。
+
+執行期（`core/`、`common/`、`modules/`）只能 import `db/` 底下的 schema、`db/connect.ts`、`db/provision.ts`、`db/bootstrap/`
+（權限目錄、系統角色、第一位管理員；`db:seed` 與租戶佈建共用）與權限目錄的定義，seed 與其他 CLI 腳本不進 api 程序
+（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2 註 1）。
 
 ---
 

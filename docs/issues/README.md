@@ -23,10 +23,6 @@
 | 高 | 外部 IdP 登入的 state／ticket 沒綁定瀏覽器，可被接管成別人的 session | [`external-idp-state-not-bound-to-browser.md`](./external-idp-state-not-bound-to-browser.md) | 2026-10-06（全面檢測：流程資安） |
 | 高 | 鎖定期間登入仍洩漏密碼對錯，且密碼正確但不可登入時不寫稽核 | [`login-lockout-reveals-correct-password.md`](./login-lockout-reveals-correct-password.md) | 2026-10-06（全面檢測：流程資安） |
 | 高 | 平台管理者改密碼、重設或停用後，IdP session 不會結束 | [`platform-admin-idp-session-survives-credential-change.md`](./platform-admin-idp-session-survives-credential-change.md) | 2026-10-06（全面檢測：流程資安） |
-| 高 | db:seed:e2e 在防呆前建立已知密碼的平台管理者 | [`e2e-seed-creates-platform-admin-before-guard.md`](./e2e-seed-creates-platform-admin-before-guard.md) | 2026-10-06（全面檢測：流程資安） |
-| 高 | prod compose 缺 WEBHOOK_SECRET_KEY 無法啟動 | [`prod-compose-missing-webhook-secret-key.md`](./prod-compose-missing-webhook-secret-key.md) | 2026-10-06（全面檢測：部署） |
-| 高 | 一個租戶 migrate 失敗就讓 api 無法啟動 | [`tenant-migrate-failure-blocks-startup.md`](./tenant-migrate-failure-blocks-startup.md) | 2026-10-06（全面檢測：部署） |
-| 高 | 刪除預設租戶後每次部署 migrate 都失敗 | [`deleted-default-tenant-reregistered.md`](./deleted-default-tenant-reregistered.md) | 2026-10-06（全面檢測：部署） |
 | 高 | 檔案已用量每次全表加總，上傳登記與檔案變動推播都會觸發 | [`file-storage-usage-full-table-sum.md`](./file-storage-usage-full-table-sum.md) | 2026-10-06（全面檢測：效能） |
 | 高 | 編輯中的草稿以即時資料為基準，會蓋掉別人同時做的變更 | [`edit-drafts-use-live-baseline.md`](./edit-drafts-use-live-baseline.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 還原使用者時反提權漏看他的群組成員資格 | [`user-restore-revives-group-roles.md`](./user-restore-revives-group-roles.md) | 2026-10-06（全面檢測：程式資安） |
@@ -44,7 +40,6 @@
 | 中 | 密碼步驟已完成的互動，改密碼後仍可 resume 換到有效 session | [`interaction-resume-after-password-change.md`](./interaction-resume-after-password-change.md) | 2026-10-06（全面檢測：流程資安） |
 | 中 | 平台「最後一位 super-admin」檢查在交易外，可被並行繞過 | [`platform-last-super-admin-race.md`](./platform-last-super-admin-race.md) | 2026-10-06（全面檢測：流程資安） |
 | 中 | 平台管理者帳號流程沒有交易：稽核在提交後寫、token 可重複使用 | [`platform-account-flows-not-transactional.md`](./platform-account-flows-not-transactional.md) | 2026-10-06（全面檢測：流程資安） |
-| 中 | 初始平台管理者密碼明文寫進部署日誌 | [`platform-admin-bootstrap-password-logged.md`](./platform-admin-bootstrap-password-logged.md) | 2026-10-06（全面檢測：流程資安） |
 | 中 | 沒有 CI，main 未保護，檢查只靠人 | [`no-ci-pipeline.md`](./no-ci-pipeline.md) | 2026-10-06（全面檢測：流程資安） |
 | 中 | nginx 映像釘在停止更新的 1.27，基底映像未釘 digest | [`nginx-image-eol.md`](./nginx-image-eol.md) | 2026-10-06（全面檢測：部署） |
 | 中 | XFF 信任鏈依賴前置 LB，每 IP 限流可能失效 | [`trust-proxy-depends-on-load-balancer.md`](./trust-proxy-depends-on-load-balancer.md) | 2026-10-06（全面檢測：部署） |
@@ -81,7 +76,6 @@
 | 低 | 啟用連結檢查與改密碼端點缺少登入類限流 | [`auth-endpoints-missing-rate-limit.md`](./auth-endpoints-missing-rate-limit.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | safeReturnTo 遇到 ./.. 路徑段會回傳 //外站 | [`safe-return-to-dot-segments.md`](./safe-return-to-dot-segments.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | 頁面權限守衛分大小寫，/USER 等路徑繞過 403 頁 | [`route-guard-case-sensitivity.md`](./route-guard-case-sensitivity.md) | 2026-10-06（全面檢測：程式資安） |
-| 低 | 破壞性 DB 腳本只看 NODE_ENV 防呆 | [`destructive-db-scripts-env-guard.md`](./destructive-db-scripts-env-guard.md) | 2026-10-06（全面檢測：流程資安） |
 | 低 | 映像帶開發腳本與 CLI 依賴，.dockerignore 不全 | [`docker-image-and-context-hygiene.md`](./docker-image-and-context-hygiene.md) | 2026-10-06（全面檢測：部署） |
 | 低 | 對外 API 容器繼承 api 全部秘密 | [`external-api-inherits-all-secrets.md`](./external-api-inherits-all-secrets.md) | 2026-10-06（全面檢測：部署） |
 | 低 | production 只檢查部分秘密的強度 | [`weak-production-secret-checks.md`](./weak-production-secret-checks.md) | 2026-10-06（全面檢測：部署） |
@@ -94,7 +88,6 @@
 | 低 | usePermission 每次回傳新物件，權限相關的 memo 全部失效 | [`use-permission-unstable-reference.md`](./use-permission-unstable-reference.md) | 2026-10-06（全面檢測：效能） |
 | 低 | useTranslation 在任何語系包載入時都讓所有元件重繪 | [`use-translation-extra-rerenders.md`](./use-translation-extra-rerenders.md) | 2026-10-06（全面檢測：效能） |
 | 低 | 平台列表 offset 無上限、驗證錯誤的 details 有兩種形狀 | [`api-validation-inconsistencies.md`](./api-validation-inconsistencies.md) | 2026-10-06（全面檢測：架構） |
-| 低 | 租戶佈建在執行期 import seed 腳本，違反層級規則 | [`provisioner-imports-seed-scripts.md`](./provisioner-imports-seed-scripts.md) | 2026-10-06（全面檢測：架構） |
 | 低 | 英文介面：html lang 固定中文、沒有複數形、寫死全形標點 | [`i18n-english-polish.md`](./i18n-english-polish.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 低 | 資料夾授權到期日與公告的「今天」用瀏覽器時區 | [`dates-use-browser-timezone.md`](./dates-use-browser-timezone.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 低 | 頂列的即時連線狀態只靠顏色區分 | [`realtime-status-color-only.md`](./realtime-status-color-only.md) | 2026-10-06（全面檢測：使用者體驗） |

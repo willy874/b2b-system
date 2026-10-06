@@ -24,7 +24,7 @@ let externalHttp: App;
 let db: TestDatabase;
 let closeDb: () => Promise<void>;
 
-const ROOT = { email: 'ext-root@example.com', password: 'RootPassword!2026' };
+const ROOT = { email: 'ext-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const ADMIN = { email: 'ext-admin@example.com', password: 'AdminPassword!2026' };
 /** 認證失敗的上限調小，最後一個測試才測得到 429（前面的測試也會用掉幾次）。 */
 const AUTH_FAILURE_LIMIT = 25;

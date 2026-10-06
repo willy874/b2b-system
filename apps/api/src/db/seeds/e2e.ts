@@ -4,6 +4,7 @@ import { hashPassword } from '@/modules/credential/password';
 
 import type { ScriptDatabase } from '../client';
 import {
+  assertDisposableScriptTargets,
   createPlatformScriptClient,
   forEachScriptTenant,
   loadScriptEnv,
@@ -45,6 +46,7 @@ export const E2E_ACCOUNTS = [
 ] as const;
 
 export async function seedE2eData(db: ScriptDatabase): Promise<void> {
+  // 第二道防線：seedE2e() 已在寫入平台管理者之前檢查過目標
   if (process.env.NODE_ENV === 'production') {
     throw new Error('db:seed:e2e 不可在 production 執行');
   }
@@ -88,8 +90,13 @@ export async function seedE2eData(db: ScriptDatabase): Promise<void> {
   for (const account of E2E_ACCOUNTS) console.info(`  ${account.email} → ${account.role}`);
 }
 
-async function main(): Promise<void> {
-  loadScriptEnv();
+/**
+ * `db:seed:e2e`：E2E 的平台管理者與租戶帳號。防呆在任何寫入之前——平台管理者的帳密是公開的，
+ * 先寫入再被擋下等於在正式環境留下一位已知密碼的 super-admin（`script-guard.ts`）。
+ */
+export async function seedE2e(): Promise<void> {
+  const code = seedTenantCode();
+  await assertDisposableScriptTargets('db:seed:e2e', { code });
   const platform = createPlatformScriptClient();
   try {
     await upsertPlatformAdmin(platform.db, {
@@ -106,8 +113,13 @@ async function main(): Promise<void> {
       await runSeed(db);
       await seedE2eData(db);
     },
-    { code: seedTenantCode() },
+    { code },
   );
+}
+
+async function main(): Promise<void> {
+  loadScriptEnv();
+  await seedE2e();
 }
 
 if (require.main === module) {

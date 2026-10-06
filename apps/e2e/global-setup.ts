@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
 
+import { assertE2eDatabaseIsDisposable } from './helpers/reset-guard';
 import { SNAPSHOT_DIR } from './helpers/snapshot';
 
 /**
@@ -10,11 +11,9 @@ import { SNAPSHOT_DIR } from './helpers/snapshot';
 export default function globalSetup(): void {
   rmSync(SNAPSHOT_DIR, { recursive: true, force: true });
   if (process.env.E2E_SKIP_SEED === '1') return;
-  const run = (script: string) =>
-    execSync(`pnpm ${script}`, {
-      cwd: new URL('../../', import.meta.url).pathname,
-      stdio: 'inherit',
-    });
+  const rootDir = new URL('../../', import.meta.url).pathname;
+  assertE2eDatabaseIsDisposable(rootDir);
+  const run = (script: string) => execSync(`pnpm ${script}`, { cwd: rootDir, stdio: 'inherit' });
   run('db:reset');
   run('db:seed');
   run('db:seed:e2e');

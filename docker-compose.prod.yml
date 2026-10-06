@@ -62,16 +62,21 @@ services:
       # 平台 DB 與預設租戶的 DB 都由 10-roles.sh 建立，擁有者是各自的角色（不是超級使用者；05-tenancy.md §7.1）
       PLATFORM_DATABASE_URL: postgres://b2b_platform:${POSTGRES_PLATFORM_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
       TENANT_SECRET_KEY: ${TENANT_SECRET_KEY:?required}
+      # 預設租戶只在平台 DB 一個租戶都沒有（含已刪除的）時登記，也就是第一次部署；之後這三個變數不再有作用，
+      # 刪除預設租戶也不會被登記回來（docs/architecture/05-tenancy.md §8）
       DEFAULT_TENANT_DATABASE_URL: postgres://b2b_tenant_default:${POSTGRES_TENANT_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-b2b_system}
       # 瀏覽器看到的 host（含 port）；apps/platform（:8081）不屬於任何租戶
       DEFAULT_TENANT_DOMAINS: ${DEFAULT_TENANT_DOMAINS:-localhost:8080}
       # 每個租戶一個 bucket（D16）；預設租戶沿用租戶化之前的 bucket（舊部署設過 FILE_STORAGE_BUCKET 的照舊）
       DEFAULT_TENANT_STORAGE_BUCKET: ${DEFAULT_TENANT_STORAGE_BUCKET:-${FILE_STORAGE_BUCKET:-b2b-system}}
       PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:?required}
+      # 留空：第一位平台管理者建成 pending，migrate 的日誌印出一次性的設定連結（不印密碼；rbac/05-seed-and-bootstrap.md §5.1）
       PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-}
+      PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:-http://localhost:8081}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
-    # seed 是冪等的（權限目錄 upsert、系統角色已存在就略過），每次部署都跑
+    # seed 是冪等的（權限目錄 upsert、系統角色已存在就略過），每次部署都跑。
+    # 只有平台 DB 失敗才以非零結束；單一租戶失敗只列在日誌，不擋 api 啟動（05-tenancy.md §10.2 D14）
     command: ['sh', '-c', 'node dist/src/db/migrate.js && node dist/src/db/seeds/index.js']
     networks: [data]
     depends_on:
@@ -144,6 +149,8 @@ services:
       OIDC_JWKS: ${OIDC_JWKS:?required}
       OIDC_COOKIE_KEYS: ${OIDC_COOKIE_KEYS:?required}
       IDP_SECRET_KEY: ${IDP_SECRET_KEY:?required}
+      # Webhook 簽章密鑰的加密金鑰（backend/17-webhook.md §9.2 D14）
+      WEBHOOK_SECRET_KEY: ${WEBHOOK_SECRET_KEY:?required}
     networks: [edge, data, storage]
     mem_limit: ${API_MEM_LIMIT:-2g}
     security_opt: ['no-new-privileges:true']

@@ -32,7 +32,7 @@
 ## 影響
 
 - 正式容器裡可以直接執行開發與 E2E 的腳本：
-  - e2e seed 的 production 檢查位置有問題，會建立已知密碼的平台管理者（見 [`e2e-seed-creates-platform-admin-before-guard.md`](./e2e-seed-creates-platform-admin-before-guard.md)）。
+  - e2e seed 會建立已知密碼的平台管理者。它的防呆已移到任何寫入之前、並檢查目標 DB（2026-10-06 修正），但腳本本來就不該出現在正式映像裡。
   - mock IdP 在 production 連不上（api 對外部 IdP 要求 https 與公網位址），但本來就不該出現在映像裡。
 - 多出來的 CLI 依賴讓映像變大、漏洞掃描的範圍變廣。程式不會執行它們，但每一個 CVE 都要有人判斷。
 - build context：legacy builder 或遠端 builder 會收到整個 context，包含備份的 `.env`。之後只要有人寫 `COPY . .`，備份的 `.env` 就會進映像。目前沒有實際外洩。

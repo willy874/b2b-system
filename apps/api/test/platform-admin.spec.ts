@@ -37,7 +37,7 @@ class RecordingMailTransport extends MailTransport {
 const AUTH_HOST = 'localhost:5175';
 const HOME_HOST = '127.0.0.1';
 const PASSWORD = 'PlatformPassword!2026';
-const ROOT = { email: 'pa-root@example.com', password: 'RootPassword!2026' };
+const ROOT = { email: 'pa-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 /** 新租戶預設啟用全部（db/platform/schema/tenants.ts 的預設值）。 */
 const ALL_FEATURES: string[] = [...TENANT_FEATURES];
 

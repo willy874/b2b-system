@@ -231,7 +231,9 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
   api 以 `TENANT_PROVISIONING_DATABASE_URL`（預設即 `PLATFORM_DATABASE_URL`）在同一台 postgres 建立那個租戶的 database 與 DB 角色。
 - 前端是純靜態產物，SPA fallback 到 `index.html`。正式產物 **不含 sourcemap**（nginx 會原樣提供 `dist` 的每個檔案）；要上傳到錯誤追蹤服務時以
   `BUILD_SOURCEMAP=hidden` 建置、上傳後刪掉 `.map` 再部署。MSW 只在 `VITE_ENABLE_MOCK=true` 的建置裡。SSO 的網址（`VITE_OIDC_ISSUER`、`VITE_PLATFORM_APP_URL`）是建置參數，
-  由 `PLATFORM_PUBLIC_ORIGIN` 產生；api 另需 `OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`IDP_SECRET_KEY`（[`04-sso.md`](./04-sso.md) §7）。
+  由 `PLATFORM_PUBLIC_ORIGIN` 產生；api 另需 `OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`IDP_SECRET_KEY`（[`04-sso.md`](./04-sso.md) §7）、
+  `TENANT_SECRET_KEY`（[`05-tenancy.md`](./05-tenancy.md) §7）與 `WEBHOOK_SECRET_KEY`（[`backend/17-webhook.md`](./backend/17-webhook.md) §9.2 D14）。
+  完整清單見 [`02-repository-structure.md`](./02-repository-structure.md) §5；compose 給 api 的變數由 `prod-compose-env.spec.ts` 以 production 的規則驗證。
 - `/api/*` 反向代理去掉前綴後轉給 NestJS；`/api/socket.io/` 另一段 location 帶 `Upgrade` header，
   `proxy_read_timeout` 大於 Socket.io 心跳間隔。
 - **網路分三段**：`backstage` 只在 `edge`，碰不到 `postgres`；`migrate` 只在 `data`；`file-storage` 在 `edge` 與 `storage`，

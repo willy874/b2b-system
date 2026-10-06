@@ -256,6 +256,11 @@ e2e-member@dev.local       member
 密碼統一：E2E!Password123
 ```
 
+global setup 的 `db:reset` 會 **清空** `PLATFORM_DATABASE_URL` 與它登記的每個租戶 DB，所以它先確認目標是刻意指定的
+（`apps/e2e/helpers/reset-guard.ts`）：環境變數的 `PLATFORM_DATABASE_URL` 與根目錄 `.env` 的不同（下方「與正在跑的 dev 環境並行」的做法）才執行；
+要清空 `.env` 指向的那一個，加上 `E2E_RESET_CONFIRM=<平台 database 名稱>`（例：`E2E_RESET_CONFIRM=b2b_platform pnpm test:e2e`）。
+資料已經準備好時以 `E2E_SKIP_SEED=1` 跳過重置。`db:reset` 本身另有目標檢查（[`backend/02-database.md`](../backend/02-database.md) §6.1）。
+
 會改變帳號狀態（鎖定、停用、整批改寫角色）的案例各有專用帳號（`e2e-lockme`、`e2e-disableme`、`e2e-revokeme`、`e2e-roleholder`、
 `e2e-notifyme`（站內通知：角色被增減、未讀數要精確斷言；同一個案例不能並行跑兩份，`--repeat-each` 要搭配 `--workers=1`）、
 `e2e-groupme`（經群組取得、失去權限）、`e2e-passwordme`（密碼被改掉，案例結束時改回）、`e2e-announceme`（公告的收件人與個人通知設定）、

@@ -35,7 +35,7 @@ let db: TestDatabase;
 let closeDb: () => Promise<void>;
 
 const PASSWORD = 'AnnouncePassword!2026';
-const ROOT = { email: 'an-root@example.com', password: 'RootPassword!2026' };
+const ROOT = { email: 'an-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const AUDITOR = { email: 'an-auditor@example.com', password: PASSWORD };
 /** 能寫草稿、不能發送（沒有 announcement:publish）。 */
 const EDITOR = { email: 'an-editor@example.com', password: PASSWORD };

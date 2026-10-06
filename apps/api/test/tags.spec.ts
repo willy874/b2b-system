@@ -36,7 +36,7 @@ let closeDb: () => Promise<void>;
 const storage = new InMemoryObjectStorage();
 
 const PASSWORD = 'TagsPassword!2026';
-const ROOT = { email: 'tags-root@example.com', password: 'RootPassword!2026' };
+const ROOT = { email: 'tags-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const ADMIN = 'tags-admin@example.com';
 const MEMBER = 'tags-member@example.com';
 const READER = 'tags-reader@example.com';

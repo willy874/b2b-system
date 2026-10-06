@@ -4,7 +4,7 @@ import { sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 
-import { createScriptClient } from './client';
+import { createScriptClient } from './connect';
 
 /** 租戶與平台的 migration 資料夾（build 之後由 nest-cli 的 assets 複製到 `dist/src/db/`）。 */
 export const TENANT_MIGRATIONS_FOLDER = resolve(__dirname, 'migrations');

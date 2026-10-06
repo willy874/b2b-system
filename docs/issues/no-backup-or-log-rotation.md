@@ -22,7 +22,7 @@ repo 裡沒有備份服務、沒有 WAL 封存設定，repo 與 docs 也都沒�
 
 - compose 的服務都沒有 `logging:` 設定。Docker 預設的 json-file driver 不會輪替，除非主機的 `daemon.json` 另外設定。
 - nginx 的存取日誌與 api 的 pino 日誌都寫到 stdout，每個請求一筆。
-- migrate 的日誌裡可能有初始平台管理者的明文密碼（見 [`platform-admin-bootstrap-password-logged.md`](./platform-admin-bootstrap-password-logged.md)）。
+- migrate 的日誌裡可能有初始平台管理者的一次性設定連結（1 小時有效；2026-10-06 起不再印密碼）。
 - Docker 的 named volume 預設都在 `/var/lib/docker`，與日誌在同一顆磁碟上。
 
 ## 影響

@@ -34,7 +34,7 @@ async function tableCount(
 describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
   beforeAll(async () => {
     process.env.SUPER_ADMIN_EMAIL = 'seed-admin@example.com';
-    process.env.SUPER_ADMIN_PASSWORD = 'SeedPassword!2026';
+    process.env.SUPER_ADMIN_PASSWORD = 'Quiet-Harbor-Lantern-26';
     const created = createTestDatabase();
     db = created.db;
     close = async () => created.client.end();
@@ -138,5 +138,17 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
     ]);
     await runSeed(db as never);
     expect(await implied()).toHaveLength(1);
+  });
+
+  it('⑩ SUPER_ADMIN_PASSWORD 不符合密碼政策時失敗，不靜默換成隨機密碼（rbac/05-seed-and-bootstrap.md §5.1）', async () => {
+    await truncateAll(db);
+    const password = process.env.SUPER_ADMIN_PASSWORD;
+    process.env.SUPER_ADMIN_PASSWORD = 'short-pw';
+    try {
+      await expect(runSeed(db as never)).rejects.toThrow('SUPER_ADMIN_PASSWORD');
+      expect(await tableCount(db, 'users')).toBe(0);
+    } finally {
+      process.env.SUPER_ADMIN_PASSWORD = password;
+    }
   });
 });

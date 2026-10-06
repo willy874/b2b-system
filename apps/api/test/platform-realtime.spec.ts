@@ -146,7 +146,7 @@ describe('平台管理者的即時推播與站內通知（docs/architecture/back
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = 'pr-tenant-root@example.com';
-    process.env.SUPER_ADMIN_PASSWORD = 'TenantRoot!2026';
+    process.env.SUPER_ADMIN_PASSWORD = 'Quiet-Harbor-Lantern-26';
 
     const platform = createPlatformTestDatabase();
     platformDb = platform.db;

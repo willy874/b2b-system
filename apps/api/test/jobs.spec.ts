@@ -81,7 +81,7 @@ let jobs: JobQueue;
 let store: JobStore;
 let tenantId: string;
 
-const SUPER_ADMIN = { email: 'jobs-root@example.com', password: 'RootPassword!2026' };
+const SUPER_ADMIN = { email: 'jobs-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const AUDITOR = { email: 'jobs-auditor@example.com', password: 'AuditorPassword!2026' };
 
 async function login(credentials: { email: string; password: string }): Promise<string> {

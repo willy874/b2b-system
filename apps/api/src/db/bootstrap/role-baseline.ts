@@ -1,6 +1,6 @@
 import { toRoleRevision } from '@/modules/role/role-revision';
 
-import type { ScriptDatabase } from '../client';
+import type { ScriptDatabase } from '../connect';
 import { revisions } from '../schema';
 
 /**

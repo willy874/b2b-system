@@ -56,7 +56,7 @@ describe('refresh token 輪替的併發（docs/architecture/backend/04-auth.md�
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = 'root@example.com';
-    process.env.SUPER_ADMIN_PASSWORD = 'RootPassword!2026';
+    process.env.SUPER_ADMIN_PASSWORD = 'Quiet-Harbor-Lantern-26';
 
     const created = createTestDatabase();
     db = created.db;

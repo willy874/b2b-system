@@ -9,11 +9,10 @@ import { DomainEvent, DomainEventBus } from '@/core/events';
 import { defineJob, JobQueue } from '@/core/jobs';
 import { ObjectStorage } from '@/core/storage';
 import { Tenancy, TenantDirectory } from '@/core/tenant';
-import { createScriptClient } from '@/db/client';
+import { seedPermissions, seedRoles, seedTenantAdmin } from '@/db/bootstrap';
+import { createScriptClient } from '@/db/connect';
 import type { TenantRow } from '@/db/platform/schema';
 import { ensureTenantDatabase, migrateTenantDatabase } from '@/db/provision';
-import { seedPermissions, seedRoles } from '@/db/seeds';
-import { seedTenantAdmin } from '@/db/seeds/super-admin';
 import { ACTIVATION_MAIL_JOB } from '@/modules/credential/auth-mail.constants';
 import { PlatformAuditService } from '@/modules/platform-admin/platform-audit.service';
 import {
@@ -195,8 +194,12 @@ export class TenantProvisioner implements OnModuleInit {
   ): Promise<{ id: string; status: string } | undefined> {
     const { client, db } = createScriptClient(url);
     try {
-      await seedPermissions(db);
-      await seedRoles(db);
+      const catalog = await seedPermissions(db);
+      const roles = await seedRoles(db);
+      this.logger.log(
+        { tenant: tenant.code, permissions: catalog.count, createdRoles: roles.created },
+        '租戶的權限目錄與系統角色已就緒',
+      );
       if (!tenant.adminEmail) return undefined;
       return await seedTenantAdmin(db, {
         email: tenant.adminEmail,

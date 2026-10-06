@@ -128,7 +128,7 @@ describe('站內通知（docs/architecture/backend/15-notification.md、docs/arc
   beforeAll(async () => {
     process.env.JWT_SECRET = JWT_SECRET;
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN_EMAIL;
-    process.env.SUPER_ADMIN_PASSWORD = 'NotifyRoot!2026';
+    process.env.SUPER_ADMIN_PASSWORD = 'Quiet-Harbor-Lantern-26';
 
     const created = createTestDatabase();
     db = created.db;

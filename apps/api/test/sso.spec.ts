@@ -26,7 +26,7 @@ let db: TestDatabase;
 let platformDb: PlatformTestDatabase;
 const closers: Array<() => Promise<void>> = [];
 
-const SUPER_ADMIN = { email: 'sso-root@example.com', password: 'RootPassword!2026' };
+const SUPER_ADMIN = { email: 'sso-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const USER = { email: 'sso-user@example.com', password: 'SsoUserPassword!2026' };
 const PLATFORM_ADMIN = { email: 'sso-platform@example.com', password: 'PlatformPassword!2026' };
 

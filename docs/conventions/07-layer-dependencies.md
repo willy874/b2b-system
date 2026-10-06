@@ -133,8 +133,11 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
  core/                                    機制層
    │
  db/schema/  db/relations.ts              表定義
+ db/connect.ts  db/provision.ts  db/bootstrap/
+                                          不經 DI 的連線、租戶 DB 的建立與 migration、租戶的初始資料
+                                          （CLI 與租戶佈建共用；不讀 .env、不用 console）
 
- db/seeds/  db/migrations/  scripts/      獨立入口（CLI），不被執行期程式 import
+ db/seeds/  db/migrations/  scripts/      獨立入口（CLI），不被執行期程式 import（註 1 的白名單除外）
 ```
 
 ### 3.2 依賴矩陣
@@ -148,7 +151,11 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 | 組裝根            | ✅        | ✅   | ✅     | ✅                              | ❌       |
 | `db/seeds/`、`scripts/` | ✅  | ✅   | ✅     | ⚠️³                             | ✅       |
 
-1. 只允許 import **權限目錄** `db/seeds/permissions.ts`（它是權限鍵的唯一來源）。
+1. 執行期（`core/`、`common/`、`modules/`）能 import 的 `db/` 檔案只有白名單：schema（`db/schema/`、`db/platform/schema/`、`db/relations.ts`）、
+   權限目錄與系統角色的定義（`db/seeds/permissions.ts`、`db/seeds/platform-permissions.ts`、`db/seeds/roles.ts`，權限鍵的唯一來源）、
+   `db/connect.ts`、`db/provision.ts`、`db/bootstrap/`，以及版本檢查讀的 `db/migrations/meta/_journal.json`。
+   白名單裡的檔案自己 import 的 `db/` 檔案也要在白名單裡。其他的 `db/`（seed、migrate、reset 等 CLI）讀 `.env`、用 `console`，
+   改它們不該變成 api 程序的行為。
 2. 跨模組只能 import 對方的 `*.module.ts`、`*.service.ts`、`dto/`、`*.constants.ts`、`*.types.ts`（只限 `import type`）與純函式；
    **不可 import 對方的 `*.repository.ts`、`*.controller.ts`**；不用 `forwardRef`。
 3. 只能 import 不依賴 DI 的純函式（例：`modules/credential/password.ts`）。
@@ -165,7 +172,7 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 ## 4. 檢查方式
 
 **api** 的規則由 🔒 `apps/api/src/__tests__/layer-dependencies.spec.ts` 強制（`pnpm test` 會跑）：
-`core/` 不依賴 `modules/`、`common/`；`common/` 只有 guard 能注入 §3.2 註 4 的四個 service；
+`core/` 不依賴 `modules/`、`common/`；執行期只 import §3.2 註 1 白名單裡的 `db/` 檔案；`common/` 只有 guard 能注入 §3.2 註 4 的四個 service；
 跨模組不 import repository / controller；葉節點（`permission`、`audit-log`、`platform-admin`、`platform-notification`、`credential`）只依賴彼此；
 模組之間以資料夾計不循環（`import/no-cycle` 只看檔案，抓不到「A 的 service → B、B 的純函式 → A」）；不用 `forwardRef`。
 

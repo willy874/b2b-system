@@ -19,7 +19,7 @@ let db: TestDatabase;
 let closeDb: () => Promise<void>;
 let token: string;
 
-const ROOT = { email: 'lock-root@example.com', password: 'RootPassword!2026' };
+const ROOT = { email: 'lock-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 
 interface VersionedBody {
   id: string;

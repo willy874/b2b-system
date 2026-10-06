@@ -30,7 +30,7 @@ let http: App;
 let db: TestDatabase;
 let closeDb: () => Promise<void>;
 
-const ROOT = { email: 'sec-root@example.com', password: 'RootPassword!2026' };
+const ROOT = { email: 'sec-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const ROOT_2 = { email: 'sec-root2@example.com', password: 'SecondRootPassword!2026' };
 const ADMIN = { email: 'sec-admin@example.com', password: 'AdminPassword!2026' };
 /** 租戶的預設鎖定門檻（系統設定 auth.loginMaxAttempts）。 */

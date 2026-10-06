@@ -31,7 +31,7 @@ let home: TestDatabase;
 let other: TestDatabase;
 const closers: Array<() => Promise<void>> = [];
 
-const ROOT = { email: 'tenancy-root@example.com', password: 'RootPassword!2026' };
+const ROOT = { email: 'tenancy-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const ALICE = { email: 'alice@example.com', password: 'AlicePassword!2026' };
 
 async function migrateTenantDatabase(url: string): Promise<void> {
