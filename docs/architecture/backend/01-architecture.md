@@ -81,7 +81,7 @@ apps/api/src/
 │   ├── credential/                       token 的儲存、密碼雜湊與政策、帳號連結信（§4.2）
 │   ├── oidc-provider/                    api 當 OIDC Provider（04-sso.md §12）
 │   ├── identity-provider/                外部 IdP 連線（04-sso.md §12.2 D8–D11）
-│   ├── user/                             使用者管理；登入流程要用的帳號讀寫也由它匯出
+│   ├── user/                             使用者管理（UserService）與登入流程等其他模組用的帳號讀寫（UserAccountService）
 │   ├── role/ · group/ · permission/      角色、群組、權限目錄與權限集合（05-rbac.md、rbac/08-groups.md）
 │   ├── authz-explain/                    「為什麼能做 X」（rbac/09-explain.md）
 │   ├── service-account/ · api-token/     服務帳號與 API token（06-external-api.md）
@@ -268,13 +268,17 @@ app.module
 
 ### 4.2 憑證基礎設施與登入流程
 
-登入流程（`AuthModule`）要用 `UserService` 找帳號；帳號管理（`UserModule`）停用人時要撤銷他的 refresh token、
+登入流程（`AuthModule`）要用 `UserModule` 找帳號；帳號管理（`UserModule`）停用人時要撤銷他的 refresh token、
 寄啟用信要簽發 token。若 token 的儲存也放在 `AuthModule`，就成了 `Auth → User → Auth`。
 
 解法：把「token 的儲存、密碼雜湊與政策、帳號連結信」抽成葉節點 `CredentialModule`，
 `AuthModule`、`UserModule`、`TenantModule`（停用租戶時撤銷所有 session）都往下依賴它；
 `AuthModule` 只留下流程（登入、續期、SSO、外部 IdP）。平台端同理：平台 DB 的表（含 `platform_refresh_tokens`）
 都歸 `PlatformAdminModule`，平台的登入流程經 `PlatformRefreshTokenService` 存取。
+
+`UserModule` 這一側也分成兩個 service：管理端點在 `UserService`；登入流程、OIDC Provider、註冊審批要的帳號讀寫
+（`findAccountById`、`updateAccount`、`recordFailedLogin`、`createAccount`、`emitStatusChanged`…）在 `UserAccountService`，
+`AuthModule`、`OidcProviderModule` 與審批的 handler 只注入它。改登入用到的帳號規則時不必讀整個使用者管理。
 
 ---
 

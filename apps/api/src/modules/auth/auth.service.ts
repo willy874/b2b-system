@@ -47,8 +47,9 @@ import { RefreshTokenService } from '@/modules/credential/refresh-token.service'
 import { IdentityProviderService } from '@/modules/identity-provider/identity-provider.service';
 import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
 import { PermissionService } from '@/modules/permission/permission.service';
+import { UserAccountService } from '@/modules/user/user-account.service';
 import { userRegistrationRequest } from '@/modules/user/user-registration.approval';
-import { isLoginLocked, UserService, userUpdated } from '@/modules/user/user.service';
+import { isLoginLocked, userUpdated } from '@/modules/user/user.service';
 
 import type {
   ChangePasswordDto,
@@ -92,7 +93,7 @@ export class AuthService {
     @Inject(TENANT_DB) private readonly db: Database,
     private readonly config: ConfigService<Env, true>,
     private readonly jwt: JwtService,
-    private readonly users: UserService,
+    private readonly users: UserAccountService,
     private readonly refreshTokens: RefreshTokenService,
     private readonly authTokens: AuthTokenService,
     private readonly permissionService: PermissionService,

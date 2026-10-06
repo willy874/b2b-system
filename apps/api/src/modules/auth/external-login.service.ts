@@ -26,7 +26,7 @@ import type {
   InteractionSummary,
 } from '@/modules/oidc-provider/oidc-provider.service';
 import { MEMBER_SLUG } from '@/modules/permission/permission.constants';
-import { UserService } from '@/modules/user/user.service';
+import { UserAccountService } from '@/modules/user/user-account.service';
 
 import type { SsoDiscoveryDto, SsoRedirectDto } from './dto/auth.dto';
 
@@ -83,7 +83,7 @@ export class ExternalLoginService {
     private readonly providers: IdentityProviderService,
     private readonly client: ExternalOidcClient,
     private readonly oidc: OidcProviderService,
-    private readonly users: UserService,
+    private readonly users: UserAccountService,
     private readonly audit: AuditService,
     private readonly tenancy: Tenancy,
     config: ConfigService<Env, true>,
