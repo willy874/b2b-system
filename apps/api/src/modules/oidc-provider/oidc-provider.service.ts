@@ -32,8 +32,9 @@ import type { OidcClientId } from './oidc-provider.constants';
 import { isTenantRedirectAllowed } from './tenant-redirect';
 
 /**
- * 外部 IdP 登入的暫存（以 `state` 為鍵）：發起時記下互動、PKCE verifier 與 nonce；
- * 外部 IdP 回來、驗證通過後補上 `accountId`，再由互動路徑底下的端點完成互動。
+ * 外部 IdP 登入的暫存：發起時以 `state` 為鍵記下互動、PKCE verifier、nonce 與綁定 cookie 的雜湊；
+ * 外部 IdP 回來、驗證通過後作廢 `state`，改以另一張隨機 ticket（只存雜湊）為鍵、補上 `accountId`，
+ * 再由互動路徑底下的端點完成互動（docs/architecture/04-sso.md §3.3）。
  */
 const ExternalLoginStateSchema = z.object({
   interactionUid: z.string(),
@@ -42,6 +43,8 @@ const ExternalLoginStateSchema = z.object({
   providerId: z.string(),
   codeVerifier: z.string(),
   nonce: z.string(),
+  /** 發起登入的瀏覽器拿到的綁定 cookie 的 SHA-256：callback 必須來自同一個瀏覽器。 */
+  bindingHash: z.string().optional(),
   /** 驗證通過、對應到帳號之後才有。 */
   accountId: z.string().optional(),
 });

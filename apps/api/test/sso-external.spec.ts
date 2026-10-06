@@ -10,6 +10,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { ObjectStorage } from '@/core/storage';
 import {
+  groupMemberTuple,
+  groupRoleTuple,
+  groups,
   identityProviders,
   relationTuples,
   roleHolderTuple,
@@ -22,6 +25,7 @@ import type {
   ExternalIdentity,
   ExternalProviderConfig,
 } from '@/modules/identity-provider/external-oidc.client';
+import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
 
 import { heldRoleIds } from './authz';
 import type { TestDatabase } from './db';
@@ -138,8 +142,8 @@ async function beginInteraction() {
   return { jar, uid, verifier };
 }
 
-/** 互動頁按「以 X 登入」→ 外部 IdP 帶授權碼回到 callback；回傳 callback 的跳轉目標。 */
-async function loginExternally(
+/** 互動頁按「以 X 登入」：回傳外部 IdP 的 state；發起登入的綁定 cookie 存進這個互動的 jar。 */
+async function startExternal(
   interaction: { jar: CookieJar; uid: string },
   providerId: string,
 ): Promise<string> {
@@ -149,14 +153,28 @@ async function loginExternally(
     .set('cookie', interaction.jar.header())
     .send({ providerId })
     .expect(200);
+  interaction.jar.store(started);
   const redirectTo = (started.body as { data: { redirectTo: string } }).data.redirectTo;
-  const state = new URL(redirectTo).searchParams.get('state')!;
-  // 外部 IdP 跳回來（不帶任何 apps/platform 的 cookie：固定路徑的 callback 不需要）
+  return new URL(redirectTo).searchParams.get('state')!;
+}
+
+/** 外部 IdP 帶授權碼跳回固定的 callback；`cookie` 是這個瀏覽器送出的 cookie。回傳 callback 的跳轉目標。 */
+async function externalCallback(state: string, cookie = ''): Promise<string> {
   const back = await request(http)
     .get(`/oidc-interaction/external/callback?code=external-code&state=${state}`)
     .set('Host', AUTH_HOST)
+    .set('cookie', cookie)
     .expect(302);
   return back.headers.location as string;
+}
+
+/** 互動頁按「以 X 登入」→ 同一個瀏覽器在外部 IdP 驗證後回到 callback；回傳 callback 的跳轉目標。 */
+async function loginExternally(
+  interaction: { jar: CookieJar; uid: string },
+  providerId: string,
+): Promise<string> {
+  const state = await startExternal(interaction, providerId);
+  return externalCallback(state, interaction.jar.header());
 }
 
 /** complete → resume → 產品的授權碼 → BFF；回傳 app session 的使用者 id。 */
@@ -383,6 +401,54 @@ describe('外部 IdP 登入（docs/architecture/04-sso.md §12.2 D8–D11）', (
       expect(identity?.userId).toBe(aliceId);
     });
 
+    describe('登入流程綁定發起的瀏覽器（04-sso.md §3.3；RFC 9700 §4.7）', () => {
+      it('callback 沒有發起登入時的綁定 cookie → 錯誤頁，不兌換授權碼，也不寫 accountId', async () => {
+        external.nextIdentity = {
+          subject: 'acme-sub-1',
+          email: ALICE,
+          emailVerified: true,
+          name: null,
+        };
+        const exchanges = external.exchanges.length;
+        // 發起者在自己的瀏覽器開始外部登入；受害者的瀏覽器（沒有綁定 cookie）在外部 IdP 驗證後跳回來
+        const initiator = await beginInteraction();
+        const state = await startExternal(initiator, acmeId);
+        expect(await externalCallback(state)).toBe(
+          `http://localhost:5175/interaction/${initiator.uid}?error=AUTH_SSO_EXTERNAL_FAILED`,
+        );
+        expect(external.exchanges).toHaveLength(exchanges);
+        // state 已作廢：發起者帶著自己的綁定 cookie 再跳一次也沒用
+        expect(await externalCallback(state, initiator.jar.header())).toContain(
+          'error=AUTH_SSO_EXTERNAL_FAILED',
+        );
+        expect(await app.get(OidcProviderService).findExternalLogin(state)).toBeUndefined();
+      });
+
+      it('完成互動的 ticket 不是 state：拿已知的 state 去 complete → AUTH_SSO_EXTERNAL_FAILED', async () => {
+        external.nextIdentity = {
+          subject: 'acme-sub-1',
+          email: ALICE,
+          emailVerified: true,
+          name: null,
+        };
+        const interaction = await beginInteraction();
+        const state = await startExternal(interaction, acmeId);
+        const next = await externalCallback(state, interaction.jar.header());
+
+        const withState = await request(http)
+          .get(`/oidc-interaction/${interaction.uid}/external/complete?ticket=${state}`)
+          .set('Host', AUTH_HOST)
+          .set('cookie', interaction.jar.header())
+          .expect(302);
+        expect(withState.headers.location).toBe(
+          `http://localhost:5175/interaction/${interaction.uid}?error=AUTH_SSO_EXTERNAL_FAILED`,
+        );
+        expect(new URL(next).searchParams.get('ticket')).not.toBe(state);
+        // 真正的 ticket 照常完成
+        expect(await finishToProduct(interaction, next)).toBe(aliceId);
+      });
+    });
+
     it('之後以 subject 對應：即使 email 變了、甚至沒有 email，還是同一個帳號', async () => {
       external.nextIdentity = {
         subject: 'acme-sub-1',
@@ -515,6 +581,69 @@ describe('外部 IdP 登入（docs/architecture/04-sso.md §12.2 D8–D11）', (
         expect(await loginExternally(interaction, acmeId)).toContain(
           'error=AUTH_SSO_LINK_NOT_ALLOWED',
         );
+      });
+
+      /** 只經由群組（`via` 依序是外層到內層的群組名稱）持有某個系統角色的帳號。 */
+      async function userHoldingViaGroups(email: string, roleSlug: string, via: string[]) {
+        const [user] = await db
+          .insert(users)
+          .values({ email, displayName: email, status: 'active' })
+          .returning();
+        const created = await db
+          .insert(groups)
+          .values(via.map((name) => ({ name })))
+          .returning();
+        await db.insert(relationTuples).values([
+          groupRoleTuple(await roleIdOf(roleSlug), created[0]!.id),
+          // 外層群組的成員是下一層群組，最內層的成員是這個帳號
+          ...created.map((group, index) =>
+            groupMemberTuple(
+              group.id,
+              created[index + 1]
+                ? { type: 'group', id: created[index + 1]!.id }
+                : { type: 'user', id: user!.id },
+            ),
+          ),
+        ]);
+        return user!;
+      }
+
+      it('只經由群組持有 admin 的帳號也不自動連結（rbac/08-groups.md §1：群組的成員都持有）', async () => {
+        await userHoldingViaGroups('group-boss@acme.test', 'admin', ['Admins']);
+        external.nextIdentity = {
+          subject: 'acme-group-boss',
+          email: 'group-boss@acme.test',
+          emailVerified: true,
+          name: null,
+        };
+        const interaction = await beginInteraction();
+        expect(await loginExternally(interaction, acmeId)).toContain(
+          'error=AUTH_SSO_LINK_NOT_ALLOWED',
+        );
+        const linked = await db
+          .select()
+          .from(userIdentities)
+          .where(eq(userIdentities.subject, 'acme-group-boss'));
+        expect(linked).toEqual([]);
+      });
+
+      it('巢狀群組（帳號在 H、H 在 G、G 持有 auditor）同樣不自動連結', async () => {
+        await userHoldingViaGroups('nested-auditor@acme.test', 'auditor', ['G', 'H']);
+        external.nextIdentity = {
+          subject: 'acme-nested-auditor',
+          email: 'nested-auditor@acme.test',
+          emailVerified: true,
+          name: null,
+        };
+        const interaction = await beginInteraction();
+        expect(await loginExternally(interaction, acmeId)).toContain(
+          'error=AUTH_SSO_LINK_NOT_ALLOWED',
+        );
+        const linked = await db
+          .select()
+          .from(userIdentities)
+          .where(eq(userIdentities.subject, 'acme-nested-auditor'));
+        expect(linked).toEqual([]);
       });
 
       it('換掉連線的 issuer：既有的連結全部作廢，舊的 subject 不能再登入', async () => {

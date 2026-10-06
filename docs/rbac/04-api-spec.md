@@ -108,7 +108,7 @@
 | GET    | `/users`                    | 🛡 `user:read`          | 列表（分頁／搜尋／排序／篩選）         |
 | POST   | `/users`                    | 🛡 `user:create`        | 建立（status = `pending`，寄啟用信）   |
 | GET    | `/users/:id`                | 🛡 `user:read`          | 詳情（含角色）                         |
-| PATCH  | `/users/:id`                | 🛡 `user:update`        | 修改基本資料 / 狀態（`active`／`inactive`；不能改回 `pending`） |
+| PATCH  | `/users/:id`                | 🛡 `user:update`        | 修改基本資料 / 狀態（`active`／`inactive`；不能改回 `pending`，`pending` 也不能直接改成 `active`） |
 | DELETE | `/users/:id`                | 🛡 `user:delete`        | 軟刪除                                 |
 | GET    | `/users/:id/roles`          | 🛡 `user:read`          | 該使用者的角色                         |
 | PUT    | `/users/:id/roles`          | 🛡 `user:assignRole`    | **整批取代** 角色                      |
@@ -179,6 +179,9 @@
   不帶 → `400 VALIDATION_FAILED`（[`architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11）。只帶 `version` 沒有其他欄位 → `400`
 
 - 改 `status` 為 `inactive` → 撤銷該使用者所有 refresh token 並 `token_version + 1`
+- `pending` 只能靠啟用信離開（收得到信才證明擁有這個 email，[`06-approval.md`](./06-approval.md) §5）：
+  `pending` → `active` 回 `400 VALIDATION_FAILED`（`fields.status`）；`pending` → `inactive` 照常，但一併清掉註冊申請時存的密碼，
+  之後改回 `active` 也只能經「重設密碼」設定密碼
 - `actorId === :id` → `403 AUTHZ_SELF_MODIFY`
 
 ### 2.4 `PUT /users/:id/roles`

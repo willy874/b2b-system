@@ -17,21 +17,15 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
-| 高 | 外部 IdP 自動連結漏看經由群組持有的 admin／auditor | [`external-idp-autolink-ignores-group-roles.md`](./external-idp-autolink-ignores-group-roles.md) | 2026-10-06（全面檢測：程式資安） |
-| 高 | 平台端點的網域限制可用大小寫不同的路徑繞過 | [`platform-path-case-insensitive-bypass.md`](./platform-path-case-insensitive-bypass.md) | 2026-10-06（全面檢測：程式資安） |
-| 高 | 外部 IdP 登入的 state／ticket 沒綁定瀏覽器，可被接管成別人的 session | [`external-idp-state-not-bound-to-browser.md`](./external-idp-state-not-bound-to-browser.md) | 2026-10-06（全面檢測：流程資安） |
-| 高 | 鎖定期間登入仍洩漏密碼對錯，且密碼正確但不可登入時不寫稽核 | [`login-lockout-reveals-correct-password.md`](./login-lockout-reveals-correct-password.md) | 2026-10-06（全面檢測：流程資安） |
 | 高 | 平台管理者改密碼、重設或停用後，IdP session 不會結束 | [`platform-admin-idp-session-survives-credential-change.md`](./platform-admin-idp-session-survives-credential-change.md) | 2026-10-06（全面檢測：流程資安） |
 | 中 | 還原使用者時反提權漏看他的群組成員資格 | [`user-restore-revives-group-roles.md`](./user-restore-revives-group-roles.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 恢復資料夾繼承沒有反提權，可流入高於自己能授予的等級 | [`folder-inheritance-restore-escalation.md`](./folder-inheritance-restore-escalation.md) | 2026-10-06（全面檢測：程式資安） |
-| 中 | /auth/sso/callback 可被跨站表單送出（登入 CSRF） | [`sso-callback-login-csrf.md`](./sso-callback-login-csrf.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 請求日誌的 query 仍記下 code／state／ticket 原文 | [`request-log-query-not-redacted.md`](./request-log-query-not-redacted.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | DB 錯誤把查詢參數寫進日誌與背景工作 output | [`db-error-log-leaks-params.md`](./db-error-log-leaks-params.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | SSRF 封鎖清單漏了內嵌 IPv4 的 IPv6 前綴 | [`ssrf-blocklist-misses-ipv6-embedded-ipv4.md`](./ssrf-blocklist-misses-ipv6-embedded-ipv4.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 登出的後端撤銷失敗被吞掉，IdP session 仍有效 | [`logout-failure-leaves-sessions.md`](./logout-failure-leaves-sessions.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 登出後批次佇列仍保留前一人的項目與上傳暫存 | [`batch-queue-survives-logout.md`](./batch-queue-survives-logout.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 釘選列把整筆伺服器資料存進 localStorage，登出不清 | [`pinned-rows-persist-server-data.md`](./pinned-rows-persist-server-data.md) | 2026-10-06（全面檢測：程式資安） |
-| 中 | pending 帳號能直接改成 active，略過 email 驗證 | [`user-pending-to-active-via-patch.md`](./user-pending-to-active-via-patch.md) | 2026-10-06（全面檢測：流程資安） |
 | 中 | 平台管理者被登入鎖定時改寫 status，任何人可踢人下線 | [`platform-admin-lockout-revokes-sessions.md`](./platform-admin-lockout-revokes-sessions.md) | 2026-10-06（全面檢測：流程資安） |
 | 中 | 密碼步驟已完成的互動，改密碼後仍可 resume 換到有效 session | [`interaction-resume-after-password-change.md`](./interaction-resume-after-password-change.md) | 2026-10-06（全面檢測：流程資安） |
 | 中 | 平台「最後一位 super-admin」檢查在交易外，可被並行繞過 | [`platform-last-super-admin-race.md`](./platform-last-super-admin-race.md) | 2026-10-06（全面檢測：流程資安） |
@@ -57,8 +51,6 @@
 | 中 | 日期選擇器、TreeEditor、Spinner 的預設文案沒跟著語系 | [`ui-component-default-labels-not-localized.md`](./ui-component-default-labels-not-localized.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 警告色與成功色按鈕的白字對比不足，測試只要求 3:1 | [`button-color-contrast.md`](./button-color-contrast.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 平台 session 結束時被未儲存提醒擋下（改密碼必現） | [`platform-session-end-blocked-by-guard.md`](./platform-session-end-blocked-by-guard.md) | 2026-10-06（全面檢測：使用者體驗） |
-| 低 | apps/platform 上的 X-Tenant 對所有路由生效 | [`platform-host-x-tenant-all-routes.md`](./platform-host-x-tenant-all-routes.md) | 2026-10-06（全面檢測：程式資安） |
-| 低 | 啟用連結檢查與改密碼端點缺少登入類限流 | [`auth-endpoints-missing-rate-limit.md`](./auth-endpoints-missing-rate-limit.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | safeReturnTo 遇到 ./.. 路徑段會回傳 //外站 | [`safe-return-to-dot-segments.md`](./safe-return-to-dot-segments.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | 頁面權限守衛分大小寫，/USER 等路徑繞過 403 頁 | [`route-guard-case-sensitivity.md`](./route-guard-case-sensitivity.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | 映像帶開發腳本與 CLI 依賴，.dockerignore 不全 | [`docker-image-and-context-hygiene.md`](./docker-image-and-context-hygiene.md) | 2026-10-06（全面檢測：部署） |

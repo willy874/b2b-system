@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { accountOf, rateLimitBucketsOf, rateLimitSettingsOf } from '../rate-limit';
+import { AuthController } from '@/modules/auth/auth.controller';
+import { PlatformAuthController } from '@/modules/auth/platform-auth.controller';
+
+import {
+  accountOf,
+  RATE_LIMIT_POLICY,
+  rateLimitBucketsOf,
+  rateLimitSettingsOf,
+} from '../rate-limit';
 
 const ENV = {
   DEFAULT_RATE_LIMIT: 600,
@@ -60,6 +68,13 @@ describe('rateLimitBucketsOf', () => {
     ]);
   });
 
+  it('登入類、已登入但 body 沒有 email（改密碼）：IP 桶 ＋ 以身分計的帳號桶（不分 IP）', () => {
+    expect(rateLimitBucketsOf('auth', { ip: '1.1.1.1', principal: 't:a:u' }, settings)).toEqual([
+      { name: 'auth-ip', key: '1.1.1.1', limit: 300 },
+      { name: 'auth-principal', key: 't:a:u', limit: 10 },
+    ]);
+  });
+
   it('續期：IP 桶 ＋ session 桶', () => {
     expect(rateLimitBucketsOf('refresh', { ip: '1.1.1.1', session: 'h' }, settings)).toEqual([
       { name: 'refresh-ip', key: '1.1.1.1', limit: 2000 },
@@ -84,5 +99,15 @@ describe('accountOf', () => {
     [{ email: 'a'.repeat(256) }],
   ])('取不到 email（%j）時回 undefined', (body) => {
     expect(accountOf(body, 'platform')).toBeUndefined();
+  });
+});
+
+describe('帳號類端點的限流類別（docs/architecture/backend/03-api-conventions.md §8）', () => {
+  it.each([
+    ['GET /auth/setup/verify', AuthController.prototype.verifySetup],
+    ['POST /auth/change-password', AuthController.prototype.changePassword],
+    ['POST /platform/auth/change-password', PlatformAuthController.prototype.changePassword],
+  ])('%s 標 @RateLimit(auth)', (_route, handler) => {
+    expect(Reflect.getMetadata(RATE_LIMIT_POLICY, handler)).toBe('auth');
   });
 });

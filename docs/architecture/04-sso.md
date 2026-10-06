@@ -108,11 +108,13 @@ backstage /auth/callback
 apps/platform /interaction/:uid
   └─ email 欄 blur → GET /oidc-interaction/:uid/discover?email=  → { provider: {id,name} | null, ssoOnly }
   └─ 「使用 X 登入」→ POST …/:uid/external { providerId } → { redirectTo }
-       api：state、nonce、PKCE verifier、互動 id、租戶 id 存 oidc_payloads（type ExternalLogin，10 分鐘）
+       api：state、nonce、PKCE verifier、互動 id、租戶 id、綁定 cookie 的雜湊存 oidc_payloads（type ExternalLogin，10 分鐘）；
+            回應設定綁定 cookie（ext_login_<state 雜湊>，HttpOnly、SameSite=Lax、path 只到固定的 callback）
   └─ 頂層跳轉 → 外部 IdP 的授權端點（redirect_uri = 固定的 …/api/oidc-interaction/external/callback）
 外部 IdP → GET /oidc-interaction/external/callback?code&state
-  api：以 state 找回登入狀態 → 進入它記下的租戶 → openid-client 兌換、驗 ID token（email 不在 ID token 時查 userinfo）→ 對應帳號
-       成功 → 302 …/api/oidc-interaction/:uid/external/complete?ticket=<state>
+  api：以 state 找回登入狀態 → 比對綁定 cookie（不是發起登入的瀏覽器就拒絕，不兌換授權碼）→ 進入它記下的租戶
+       → openid-client 兌換、驗 ID token（email 不在 ID token 時查 userinfo）→ 對應帳號
+       成功 → 作廢 state，另發一張隨機 ticket（只存雜湊）→ 302 …/api/oidc-interaction/:uid/external/complete?ticket=<ticket>
        失敗 → 302 apps/platform /interaction/:uid?error=<錯誤碼>（找不到登入狀態 → /error?error=AUTH_SSO_EXTERNAL_FAILED）
 GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie）
   api：消耗 ticket（只能用一次、互動 id 要相符）→ 完成互動（amr = ['ext']）→ 303 resume，之後同 §3.1
@@ -134,6 +136,7 @@ GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie�
 第 2 步的限制：持 `identityProvider:create`／`update` 的人可以自架 IdP（或把連線的 issuer
 改成它），對任何 email 簽出 `email_verified = true`。不限網域的話，就能把自己的外部身分連到租戶裡任何人（包括 super-admin）的帳號。
 所以 email 網域必須屬於這個連線；持有 super-admin、admin、auditor 的帳號即使網域相符也不自動連結，要由本人以密碼登入（或由管理員處理）。
+「持有」含經由群組（含巢狀）持有的角色（[`../rbac/08-groups.md`](../rbac/08-groups.md) §1），以權限解析的主體閉包判斷。
 修改連線的 `issuer` 或 `client_id` 會在同一個交易內刪除它所有的連結（稽核 `metadata.identitiesCleared`、`severity: high`）：
 新的 IdP 發的 `subject` 不代表同一個人。刪除帳號時也一併刪除它的連結（帳號是軟刪除，不會觸發 cascade），同 email 重建的帳號才能再連結。
 
@@ -355,7 +358,7 @@ app session 沿用 [`backend/04-auth.md`](backend/04-auth.md) §10；權限仍�
 | D5 | **單一登出（伺服器端）**：任一產品登出（`POST /auth/logout`，帶自己 origin 的 refresh cookie）→ api 以該家族的 `idp_session_uid` **銷毀 IdP session**、撤銷它底下所有產品的 refresh 家族，並推播 `SESSIONS_REVOKED { idpSessionUids }`。經 SSO 發的 access token 帶 `sid`（IdP session），即時連線依它加入 `sid:{uid}` 的 room，推播只到同一個 IdP session 的分頁。**不** 遞增 `token_version`。登出後產品停在「已登出」頁、**不自動跳回 IdP** | 全部在伺服器端完成，不必碰其他 origin 的 cookie，也不需要 IdP 的登出確認頁（apps/platform 上的 session cookie 之後指向不存在的 session）。`token_version` 會連其他裝置一起登出。登出後若立刻自動跳去 IdP，頁面卸載會取消還在路上的登出請求，使用者會被尚未銷毀的 IdP session 直接登回來。第三方 RP 走 provider 的 end-session 時，同樣撤銷該 IdP session 的 app session |
 | D6 | **不使用跨域 cookie，服務之間只以頂層跳轉溝通**：每個 cookie 都是 host-only（**不設 `Domain`**），只由設定它的 origin 讀取——IdP session cookie 只在 `apps/platform` 的 origin，各產品的 refresh cookie 只在各自的 origin。身分只經由頂層跳轉帶的一次性授權碼傳遞；**不用 iframe、不做 `prompt=none` 的靜默續期、不以 `postMessage` 傳 token**。`apps/platform` 有自己的 origin（例：`auth.example.com`），issuer 是 `https://auth.example.com/api/oidc` | 瀏覽器的第三方 cookie 封鎖只影響 iframe 與跨站子請求，不影響頂層導覽；host-only cookie 讓任何一個 origin 被 XSS 時都拿不到別的 origin 的憑證。因為不依賴共享 cookie，產品也不必和 `apps/platform` 同站，不同 registrable domain 一樣能用 |
 | D7 | **第一方 client 由設定產生**（`backstage` ← `APP_PUBLIC_URL`、`auth` ← `PLATFORM_APP_URL`），跳過同意頁（第一次授權時直接建立 grant）；redirect URI 與 post-logout URI 以白名單比對，不接受萬用字元。這一版 **沒有** `oidc_clients` 表，第三方 client 出現時再加。協定錯誤（例：未登記的 redirect URI）轉到 apps/platform 的 `/error`，絕不導回 | 自己的產品不需要問使用者「是否允許」；redirect URI 只由部署設定決定，少一張要同步的表。白名單是 OIDC 防止授權碼外流的基本要求 |
-| D8 | **外部 IdP 是登入互動裡的一種登入方式**：api 以 [`openid-client`](https://github.com/panva/openid-client) 當 RP（Authorization Code ＋ PKCE）。外部身分以 `(provider_id, subject)` 存在 `user_identities`；第一次登入時，只以 IdP 回報 `email_verified = true` 的 email 對應既有帳號（ID token 沒有 email 時查 userinfo）。外部 IdP 的 redirect URI **固定** 是 `…/api/oidc-interaction/external/callback`；callback 兌換、對應帳號之後，跳到互動路徑底下的 `…/:uid/external/complete?ticket=` 完成互動（那裡帶得到互動 cookie）。state、nonce、PKCE verifier 與互動 id 存在 `oidc_payloads`（10 分鐘），ticket 只能用一次 | `subject` 才是外部 IdP 的穩定識別碼（email 會變）；未驗證的 email 能被拿來冒用別人的帳號。大多數外部 IdP 要求 redirect URI 完全相符，不能帶互動 id；互動 cookie 的 path 是互動網址，固定的 callback 帶不到它，所以要再跳一次 |
+| D8 | **外部 IdP 是登入互動裡的一種登入方式**：api 以 [`openid-client`](https://github.com/panva/openid-client) 當 RP（Authorization Code ＋ PKCE）。外部身分以 `(provider_id, subject)` 存在 `user_identities`；第一次登入時，只以 IdP 回報 `email_verified = true` 的 email 對應既有帳號（ID token 沒有 email 時查 userinfo）。外部 IdP 的 redirect URI **固定** 是 `…/api/oidc-interaction/external/callback`；callback 兌換、對應帳號之後，跳到互動路徑底下的 `…/:uid/external/complete?ticket=` 完成互動（那裡帶得到互動 cookie）。state、nonce、PKCE verifier 與互動 id 存在 `oidc_payloads`（10 分鐘），ticket 只能用一次。**state 綁定發起登入的瀏覽器**：發起時設一個只送往固定 callback 的綁定 cookie，callback 在兌換之前比對；完成互動的 ticket 是 callback 之後另發的隨機值，不是 state | `subject` 才是外部 IdP 的穩定識別碼（email 會變）；未驗證的 email 能被拿來冒用別人的帳號。大多數外部 IdP 要求 redirect URI 完全相符，不能帶互動 id；互動 cookie 的 path 是互動網址，固定的 callback 帶不到它，所以要再跳一次。state 不綁定瀏覽器時，發起者可以讓別人在外部 IdP 驗證、再以已知的 state 完成自己的互動，拿到別人的 session（RFC 9700 §4.7） |
 | D9 | **外部 IdP 連線屬於平台、綁 email 網域**（`identity_provider_domains`）。登入頁先問 email，網域有連線就導向該 IdP（home realm discovery）；網域可設為「只允許 SSO」，這時密碼登入與忘記密碼對該網域無效 | 帳號是平台層級的，一個人可以在多個工作區，所以登入方式不能由工作區決定 |
 | D10 | **沒有對應帳號時**，依連線設定：`reject`（預設）／`auto_create`（建立沒有任何角色的已啟用帳號，**只限這個連線登記的網域**）。`approval`（走既有的 `user.register` 審批）這一版不做：現有審批以密碼建立帳號，SSO 帳號沒有密碼 | 預設拒絕最安全；自動建立不帶角色，不會因此取得任何權限。限定網域：否則任何能在該 IdP 登入的人（例：Google 的一般帳號）都能在平台建立帳號 |
 | D11 | **機密的存放**：外部 IdP 的 client secret 存資料庫，以 env 的主金鑰（AES-GCM）加密；OIDC Provider 的簽章金鑰（JWKS）放 env，輪替時新舊金鑰並存一個 access token TTL | 連線要能在管理頁新增，所以不能只放 env；主金鑰與簽章金鑰不進資料庫，資料庫外洩時仍無法偽造 token 或解出 secret |

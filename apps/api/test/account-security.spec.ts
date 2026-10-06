@@ -72,6 +72,17 @@ async function userOf(email: string) {
   return user!;
 }
 
+/** 密碼正確、但不能登入時留下的稽核（auth.login.failure ＋ credentialsValid）。 */
+async function rejectedLoginsOf(userId: string) {
+  const rows = await db
+    .select()
+    .from(auditLogs)
+    .where(and(eq(auditLogs.action, 'auth.login.failure'), eq(auditLogs.resourceId, userId)));
+  return rows.filter(
+    (row) => (row.metadata as { credentialsValid?: boolean } | null)?.credentialsValid,
+  );
+}
+
 function login(credentials: { email: string; password: string }) {
   return request(http).post('/auth/login').send(credentials);
 }
@@ -155,11 +166,16 @@ describe('帳號安全', () => {
       expect(after.failedLoginCount).toBe(before.failedLoginCount);
     });
 
-    it('鎖定中：正確的密碼才會看到 AUTH_ACCOUNT_LOCKED 與剩餘秒數', async () => {
-      const response = await login(VICTIM).expect(403);
-      expect(response.body).toMatchObject({
-        error: { code: 'AUTH_ACCOUNT_LOCKED', details: { retryAfterSeconds: expect.any(Number) } },
-      });
+    it('鎖定中：正確的密碼也回 AUTH_INVALID_CREDENTIALS（不透露猜中了），並留一筆失敗的稽核', async () => {
+      const victim = await userOf(VICTIM.email);
+      const response = await login(VICTIM).expect(401);
+      expect(errorCode(response)).toBe('AUTH_INVALID_CREDENTIALS');
+      expect(await rejectedLoginsOf(victim.id)).toEqual([
+        expect.objectContaining({
+          errorCode: 'AUTH_INVALID_CREDENTIALS',
+          metadata: expect.objectContaining({ reason: 'locked', credentialsValid: true }),
+        }),
+      ]);
     });
 
     it('鎖定到期後自動解除：正確密碼可以登入，計數與到期時間歸零', async () => {
@@ -243,6 +259,23 @@ describe('帳號安全', () => {
       }).expect(403);
       expect(errorCode(inactive)).toBe('AUTH_ACCOUNT_DISABLED');
     });
+
+    it('密碼正確但未啟用、停用：各留一筆失敗的稽核（憑證外洩的訊號要查得到）', async () => {
+      const pending = await userOf('pending-enum@example.com');
+      const inactive = await userOf('inactive-enum@example.com');
+      expect(await rejectedLoginsOf(pending.id)).toContainEqual(
+        expect.objectContaining({
+          errorCode: 'AUTH_ACCOUNT_PENDING',
+          metadata: expect.objectContaining({ reason: 'pending', credentialsValid: true }),
+        }),
+      );
+      expect(await rejectedLoginsOf(inactive.id)).toContainEqual(
+        expect.objectContaining({
+          errorCode: 'AUTH_ACCOUNT_DISABLED',
+          metadata: expect.objectContaining({ reason: 'disabled', credentialsValid: true }),
+        }),
+      );
+    });
   });
 
   describe('啟用與重設 token', () => {
@@ -316,6 +349,43 @@ describe('帳號安全', () => {
   });
 
   describe('還沒啟用的人', () => {
+    it('管理員不能把 pending 直接改成 active：仍要靠啟用信證明擁有這個 email', async () => {
+      const admin = await tokenOf(ADMIN);
+      const credentials = { email: 'claimed@example.com', password: 'ApplicantPassword!2026' };
+      // 註冊申請核准後的帳號：pending，但已經存了申請人設定的密碼
+      const id = await createUser(credentials.email, credentials.password, { status: 'pending' });
+
+      const response = await request(http)
+        .patch(`/users/${id}`)
+        .set('authorization', `Bearer ${admin}`)
+        .send({ status: 'active', version: await userVersion(db, id) })
+        .expect(400);
+
+      expect(response.body).toMatchObject({
+        error: { code: 'VALIDATION_FAILED', details: { fields: { status: 'pending' } } },
+      });
+      expect((await userOf(credentials.email)).status).toBe('pending');
+      expect(errorCode(await login(credentials).expect(401))).toBe('AUTH_ACCOUNT_PENDING');
+    });
+
+    it('pending 先停用再啟用：申請時存的密碼已清掉，不能拿來登入', async () => {
+      const admin = await tokenOf(ADMIN);
+      const credentials = { email: 'detour@example.com', password: 'ApplicantPassword!2026' };
+      const id = await createUser(credentials.email, credentials.password, { status: 'pending' });
+
+      for (const status of ['inactive', 'active'] as const) {
+        // oxlint-disable-next-line no-await-in-loop -- 依序改兩次狀態
+        await request(http)
+          .patch(`/users/${id}`)
+          .set('authorization', `Bearer ${admin}`)
+          .send({ status, version: await userVersion(db, id) })
+          .expect(200);
+      }
+
+      expect((await userOf(credentials.email)).passwordHash).toBeNull();
+      expect(errorCode(await login(credentials).expect(401))).toBe('AUTH_INVALID_CREDENTIALS');
+    });
+
     it('不能把人改回 pending（改了就再也沒有啟用 token）', async () => {
       const admin = await tokenOf(ADMIN);
       const target = await createUser('to-pending@example.com', 'ToPendingPassword!2026');

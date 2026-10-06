@@ -9,6 +9,8 @@
 export const ErrorCode = {
   // ── 驗證 ──
   VALIDATION_FAILED: { status: 400 },
+  /** 會設定 session cookie 的端點只接受 `application/json`（擋跨站表單送出；docs/architecture/backend/04-auth.md §2.5）。 */
+  UNSUPPORTED_MEDIA_TYPE: { status: 415 },
 
   // ── 租戶（docs/architecture/05-tenancy.md §10.2 D2） ──
   /** 請求的網域不屬於任何租戶（或程式在沒有租戶脈絡的地方存取租戶 DB）。 */

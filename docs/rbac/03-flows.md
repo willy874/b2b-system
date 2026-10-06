@@ -82,7 +82,9 @@
 - 帳號不存在與密碼錯誤 **回傳相同的錯誤碼與相同的回應時間**（對不存在的帳號也
   執行一次 dummy argon2 驗證），避免帳號列舉。
 - `status = 'pending'` 回 `AUTH_ACCOUNT_PENDING`（這個可以區分，因為使用者需要
-  知道要去收啟用信）；`inactive` / `locked` 回 `AUTH_ACCOUNT_DISABLED` / `AUTH_ACCOUNT_LOCKED`。
+  知道要去收啟用信）；`inactive` 回 `AUTH_ACCOUNT_DISABLED`。
+- 登入失敗鎖定中（`locked_until` 未到期）一律回 `AUTH_INVALID_CREDENTIALS`，連密碼正確也一樣：
+  否則鎖定期間猜密碼的人看得到哪一個猜中了（[`architecture/backend/04-auth.md`](../architecture/backend/04-auth.md) §3.2）。
 
 ---
 
@@ -387,7 +389,7 @@ PATCH /users/:id { status: 'inactive' }   或   DELETE /users/:id
 | 帳密錯誤                        | 401  | `AUTH_INVALID_CREDENTIALS`                     | 表單內顯示錯誤                       |
 | 帳號未啟用                      | 401  | `AUTH_ACCOUNT_PENDING`                         | 提示去收啟用信                       |
 | 帳號停用                        | 403  | `AUTH_ACCOUNT_DISABLED`                        | 提示聯絡管理員                       |
-| 帳號鎖定                        | 403  | `AUTH_ACCOUNT_LOCKED`                          | 顯示剩餘鎖定時間                     |
+| 帳號鎖定（登入失敗次數用完）    | 401  | `AUTH_INVALID_CREDENTIALS`                     | 與帳密錯誤相同（不透露鎖定）；外部 IdP 遇到舊版的 `status = locked` 才會是 `AUTH_ACCOUNT_LOCKED` |
 | access token 失效               | 401  | `AUTH_TOKEN_INVALID`                           | 觸發一次續期，失敗則登出             |
 | access token 陳舊（被強制登出） | 401  | `AUTH_TOKEN_STALE`                             | **直接登出**，不嘗試續期             |
 | refresh 重用偵測                | 401  | `AUTH_REFRESH_REUSED`                          | 直接登出 ＋ 顯示安全提示             |

@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
+import { isPlatformHostRequest } from '@/core/http';
 import { currentTenant } from '@/core/tenant';
 import type { PlatformAdminRow } from '@/db/platform/schema';
 import { PLATFORM_ROLE_PERMISSIONS } from '@/db/seeds/platform-permissions';
@@ -234,8 +235,9 @@ export class PlatformAuthService implements OnModuleInit {
     return this.accounts.resetPassword(dto.token, dto.newPassword);
   }
 
+  /** 平台的帳號端點只在 apps/platform 的網域、沒有租戶時有效（不以「沒有租戶」代替網域的判斷）。 */
   private assertPlatformHost(): void {
-    if (currentTenant()) throw new AppException('PLATFORM_ONLY');
+    if (currentTenant() || !isPlatformHostRequest()) throw new AppException('PLATFORM_ONLY');
   }
 
   private async recordRedeemFailure(clientId: string, reason: string): Promise<void> {

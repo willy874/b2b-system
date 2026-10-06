@@ -168,7 +168,17 @@ Set-Cookie: refresh_token=<value>;
 
 ### 2.5 CSRF
 
-`/auth/refresh` 是唯一靠 cookie 認證的端點，因此是唯一的 CSRF 標的。防護：
+CSRF 的標的有兩種：**靠 cookie 認證** 的端點（`/auth/refresh`），以及會 **設定** session cookie 的公開端點
+（`POST /auth/sso/callback`、`POST /platform/auth/sso/callback`、`POST /auth/login`）。後者的風險是登入 CSRF：
+攻擊者以自己的授權碼（或帳密）組一個自動送出的跨站表單，`SameSite` 只限制「送出」cookie，不限制頂層導覽的回應「設定」cookie，
+受害者的瀏覽器就收下攻擊者的 refresh cookie，之後的操作都落在攻擊者的帳號裡。
+
+會設定 session cookie 的端點標 `@JsonBodyOnly()`：只接受 `Content-Type: application/json`，其他回 `415 UNSUPPORTED_MEDIA_TYPE`。
+跨站的 HTML 表單只能送 urlencoded、multipart、text/plain；跨站的 fetch 帶 `application/json` 要先過 preflight，而 api 不回其他來源的 CORS。
+不全域關掉 urlencoded：`/oidc/token` 依規格要它。前端另有縱深防禦：`SessionStore` 已經有身分時，
+續期（含其他分頁的 `refresh-done`）拿到的 access token 若是另一個身分（`sub`／`tid` 不同），不採用並以 `identity_changed` 結束 session。
+
+`/auth/refresh` 的防護：
 
 1. `SameSite=Lax` — 阻擋跨站的 `POST`
 2. **要求自訂標頭 `x-refresh-request: 1`** — 帶自訂標頭的跨站請求會觸發
@@ -219,13 +229,19 @@ async login(dto: LoginDto, ctx: RequestContext) {
     throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS);
   }
 
+  // 鎖定中連密碼正確也不透露；密碼正確但不能登入的三種情況都寫失敗的稽核
   if (locked) {
-    throw new AppException(ErrorCode.AUTH_ACCOUNT_LOCKED, {
-      retryAfterSeconds: Math.ceil((+user.lockedUntil - Date.now()) / 1000),
-    });
+    await this.audit.loginRejected(user, 'locked', ctx);
+    throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS);
   }
-  if (user.status === 'pending')  throw new AppException(ErrorCode.AUTH_ACCOUNT_PENDING);
-  if (user.status !== 'active')   throw new AppException(ErrorCode.AUTH_ACCOUNT_DISABLED);
+  if (user.status === 'pending') {
+    await this.audit.loginRejected(user, 'pending', ctx);
+    throw new AppException(ErrorCode.AUTH_ACCOUNT_PENDING);
+  }
+  if (user.status !== 'active') {
+    await this.audit.loginRejected(user, 'disabled', ctx);
+    throw new AppException(ErrorCode.AUTH_ACCOUNT_DISABLED);
+  }
 
   await this.userRepo.update(user.id, {
     failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date(),
@@ -243,10 +259,14 @@ async login(dto: LoginDto, ctx: RequestContext) {
 | 帳號不存在     | `AUTH_INVALID_CREDENTIALS`（跑 dummy hash 保持時間一致）         |
 | 密碼錯誤       | `AUTH_INVALID_CREDENTIALS`                                       |
 | 帳號未啟用（密碼正確） | `AUTH_ACCOUNT_PENDING` ← **刻意可區分**                  |
-| 帳號停用／鎖定（密碼正確） | `AUTH_ACCOUNT_DISABLED` / `AUTH_ACCOUNT_LOCKED` ← **刻意可區分** |
-| 帳號未啟用、停用、鎖定（密碼錯誤） | `AUTH_INVALID_CREDENTIALS`                    |
+| 帳號停用（密碼正確）   | `AUTH_ACCOUNT_DISABLED` ← **刻意可區分**                 |
+| 登入失敗鎖定中（不論密碼對錯） | `AUTH_INVALID_CREDENTIALS` ← **不可區分**        |
+| 帳號未啟用、停用（密碼錯誤） | `AUTH_INVALID_CREDENTIALS`                         |
 
-密碼錯誤時一律不可區分。密碼正確時才告知狀態，因為使用者需要知道該怎麼辦——
+密碼錯誤時一律不可區分。鎖定中連密碼正確也不可區分：鎖定期間的嘗試不計數、不延長鎖定（避免知道 email 的人把人一直鎖死），
+所以鎖定並不阻止繼續猜；若對正確密碼回另一個錯誤碼，就等於告訴猜密碼的人「這一個猜中了」。
+密碼正確、但帳號鎖定中、未啟用或停用時都寫一筆 `auth.login.failure`（`metadata.credentialsValid: true`）：
+帳號被鎖或停用之後還有人拿正確的密碼來試，是憑證外洩的強訊號。其餘狀態在密碼正確時才告知，因為使用者需要知道該怎麼辦——
 這些分支都在驗證密碼 **之後**，只有知道密碼的人看得到，不能拿來列舉帳號
 （還沒設定密碼的 `pending` 帳號對 dummy hash 驗證，一樣是 `AUTH_INVALID_CREDENTIALS`）。
 「帳號不存在」與「帳號沒有密碼」都以 **實際設定的** `ARGON2_*` 參數算 dummy hash，耗時與真正的驗證一致。
@@ -265,6 +285,8 @@ WHERE id = $1 AND (locked_until IS NULL OR locked_until <= now())   -- 鎖定中
 RETURNING failed_login_count, locked_until;
 ```
 
+- **鎖定是輔助，猜測的防線是速率限制**：「帳號 ＋ IP」與每 IP 兩個桶（[`03-api-conventions.md`](./03-api-conventions.md) §8）在鎖定期間照常計數；
+  鎖定只讓同一個帳號在鎖定期間不能登入，回應與密碼錯誤相同（§3.2）。
 - **只寫 `locked_until`，不改 `status`**：鎖定是擋猜密碼，不撤銷既有 session、不推 `session.revoked`。
   否則任何知道 email 的人錯 5 次就能把線上的人（包括最後一位 super-admin）踢下線。API 對外顯示的狀態在
   `locked_until` 還沒到期時是 `locked`（`displayStatusOf`；列表以 `status=locked` 篩選也看 `locked_until`），到期自動回到 `active`。

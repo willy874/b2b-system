@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 
-import { Authenticated, CurrentUser, Public } from '@/common/decorators';
+import { Authenticated, CurrentUser, JsonBodyOnly, Public } from '@/common/decorators';
 import { RateLimit } from '@/common/rate-limit';
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
@@ -47,6 +47,7 @@ export class PlatformAuthController {
   @HttpCode(200)
   @Public()
   @RateLimit('auth')
+  @JsonBodyOnly()
   @ApiOperation({ summary: 'apps/platform 的 BFF：授權碼 ＋ PKCE verifier 換平台管理者的 session' })
   @ApiZodBody(SsoCallbackSchema)
   @ApiZodResponse(200, SessionSchema)
@@ -146,6 +147,7 @@ export class PlatformAuthController {
   @Post('change-password')
   @HttpCode(200)
   @Authenticated()
+  @RateLimit('auth')
   @ApiOperation({ summary: '平台管理者以目前的密碼換新密碼（結束所有 session）' })
   @ApiZodBody(ChangePasswordSchema)
   changePassword(

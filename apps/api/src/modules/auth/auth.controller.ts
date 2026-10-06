@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 
-import { Authenticated, CurrentUser, Public } from '@/common/decorators';
+import { Authenticated, CurrentUser, JsonBodyOnly, Public } from '@/common/decorators';
 import { RateLimit } from '@/common/rate-limit';
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
@@ -51,6 +51,7 @@ export class AuthController {
   @HttpCode(200)
   @Public()
   @RateLimit('auth')
+  @JsonBodyOnly()
   @ApiOperation({ summary: '帳密登入' })
   @ApiZodBody(LoginSchema)
   @ApiZodResponse(200, SessionSchema)
@@ -122,6 +123,7 @@ export class AuthController {
   @Post('change-password')
   @HttpCode(200)
   @Authenticated()
+  @RateLimit('auth')
   @ApiZodBody(ChangePasswordSchema)
   changePassword(
     @Body(new ZodValidationPipe(ChangePasswordSchema)) dto: ChangePasswordDto,
@@ -164,6 +166,7 @@ export class AuthController {
   @HttpCode(200)
   @Public()
   @RateLimit('auth')
+  @JsonBodyOnly()
   @ApiOperation({
     summary:
       '產品的 BFF：授權碼 ＋ PKCE verifier 換 app session（docs/architecture/04-sso.md §12.2 D3）',
@@ -184,6 +187,7 @@ export class AuthController {
 
   @Get('setup/verify')
   @Public()
+  @RateLimit('auth')
   verifySetup(@Query(new ZodValidationPipe(VerifySetupSchema)) query: { token: string }) {
     return this.authService.verifySetupToken(query.token);
   }

@@ -376,6 +376,43 @@ describe('SSO（docs/architecture/04-sso.md §12、0020 D5–D10）', () => {
     expect(errorCode(replay)).toBe('AUTH_SSO_CODE_INVALID');
   });
 
+  it('會設定 session cookie 的端點只接受 JSON：跨站表單送出回 415、不設 cookie（登入 CSRF，backend/04-auth.md §2.5）', async () => {
+    const jar = new CookieJar();
+    const authorized = await authorize(jar, BACKSTAGE, USER);
+    const form = {
+      code: authorized.code,
+      codeVerifier: authorized.verifier,
+      clientId: BACKSTAGE.clientId,
+      redirectUri: BACKSTAGE.redirectUri,
+    };
+    const forged = await request(http)
+      .post(BACKSTAGE.callbackPath)
+      .set('Host', BACKSTAGE.host)
+      .type('form')
+      .send(form)
+      .expect(415);
+    expect(errorCode(forged)).toBe('UNSUPPORTED_MEDIA_TYPE');
+    expect(forged.headers['set-cookie']).toBeUndefined();
+    // 被擋下的請求沒有用掉授權碼：同一個碼以 JSON 照常兌換
+    await callback(BACKSTAGE, authorized).expect(200);
+
+    const login = await request(http)
+      .post('/auth/login')
+      .set('Host', BACKSTAGE.host)
+      .type('form')
+      .send(USER)
+      .expect(415);
+    expect(login.headers['set-cookie']).toBeUndefined();
+
+    const platform = await request(http)
+      .post(AUTH_APP.callbackPath)
+      .set('Host', AUTH_APP.host)
+      .type('form')
+      .send({ ...form, clientId: AUTH_APP.clientId, redirectUri: AUTH_APP.redirectUri })
+      .expect(415);
+    expect(platform.headers['set-cookie']).toBeUndefined();
+  });
+
   it('同一個授權碼的併發兌換只有一個成功', async () => {
     const jar = new CookieJar();
     const authorized = await authorize(jar, BACKSTAGE, USER);
@@ -614,6 +651,30 @@ describe('SSO（docs/architecture/04-sso.md §12、0020 D5–D10）', () => {
     await forgot(AUTH_HOST, 'sso-b').expect(200);
     // 租戶網域上以網域為準：帶了不存在的租戶代碼也一樣在自己的租戶執行
     await forgot(BACKSTAGE.host, 'no-such-tenant').expect(200);
+  });
+
+  it('apps/platform 網域上的 X-Tenant 只給帳號流程：租戶的 access token 不能經由平台網域使用（04-sso.md §1.1）', async () => {
+    const jar = new CookieJar();
+    const session = await callback(BACKSTAGE, await authorize(jar, BACKSTAGE, USER)).expect(200);
+    const { accessToken } = (session.body as { data: { accessToken: string } }).data;
+    await request(http)
+      .get('/auth/profile')
+      .set('Host', BACKSTAGE.host)
+      .set('authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const viaPlatform = await request(http)
+      .get('/users')
+      .set('Host', AUTH_HOST)
+      .set('X-Tenant', 'test')
+      .set('authorization', `Bearer ${accessToken}`);
+    expect(viaPlatform.status).toBe(401);
+    const profile = await request(http)
+      .get('/auth/profile')
+      .set('Host', AUTH_HOST)
+      .set('X-Tenant', 'test')
+      .set('authorization', `Bearer ${accessToken}`);
+    expect(profile.status).toBe(401);
   });
 });
 

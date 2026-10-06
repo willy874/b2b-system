@@ -32,13 +32,13 @@ function setup() {
   const next = vi.fn(() => {
     seen.push(currentTenant());
   });
-  const use = (host: string, headers: Record<string, string> = {}) =>
+  const use = (host: string, headers: Record<string, string> = {}, originalUrl = '/files') =>
     middleware.use(
       {
         headers: { host, ...headers },
         socket: { remoteAddress: '127.0.0.1' },
         app: { get: () => () => false },
-        originalUrl: '/files',
+        originalUrl,
         header: (name: string) => headers[name.toLowerCase()],
       } as unknown as Request,
       {} as Response,
@@ -62,7 +62,7 @@ describe('TenantMiddleware：記下比對到的網域（docs/architecture/backen
 
   it('apps/platform 的網域以 X-Tenant 指定租戶：那不是租戶的網域，不帶 domain（退回主要網域）', async () => {
     const ctx = setup();
-    await ctx.use(PLATFORM_HOST, { 'x-tenant': 'acme' });
+    await ctx.use(PLATFORM_HOST, { 'x-tenant': 'acme' }, '/auth/forgot-password');
     expect(ctx.seen).toEqual([ACME_CONTEXT]);
     expect(ctx.seen[0]?.domain).toBeUndefined();
   });
@@ -71,5 +71,47 @@ describe('TenantMiddleware：記下比對到的網域（docs/architecture/backen
     const ctx = setup();
     await ctx.use('unknown.example.com');
     expect(ctx.seen).toEqual([undefined]);
+  });
+});
+
+describe('TenantMiddleware：apps/platform 網域上的 X-Tenant 只給帳號流程（docs/architecture/05-tenancy.md §10.2 D26）', () => {
+  it.each([
+    '/auth/setup',
+    '/auth/setup/verify?token=x',
+    '/auth/register',
+    '/auth/forgot-password',
+    '/auth/reset-password',
+    '/system/settings/public',
+    '/Auth/Forgot-Password',
+  ])('%s：以標頭進入租戶', async (url) => {
+    const ctx = setup();
+    await ctx.use(PLATFORM_HOST, { 'x-tenant': 'acme' }, url);
+    expect(ctx.seen).toEqual([ACME_CONTEXT]);
+  });
+
+  it.each(['/users', '/auth/login', '/auth/refresh', '/auth/sso/callback', '/files'])(
+    '%s：不採用標頭，沒有租戶（租戶的 token 不能經由平台網域使用）',
+    async (url) => {
+      const ctx = setup();
+      await ctx.use(PLATFORM_HOST, { 'x-tenant': 'acme' }, url);
+      expect(ctx.seen).toEqual([undefined]);
+    },
+  );
+});
+
+describe('TenantMiddleware：平台端點只在 apps/platform 的網域（docs/architecture/05-tenancy.md §2）', () => {
+  it.each([
+    '/platform/tenants',
+    '/PLATFORM/tenants',
+    '/Platform/auth/profile',
+    '/oidc-interaction/x',
+  ])('其他網域的 %s → PLATFORM_ONLY（比對不分大小寫，與 Express 的路由一致）', async (url) => {
+    const ctx = setup();
+    await expect(ctx.use('unknown.example.com', {}, url)).rejects.toMatchObject({
+      code: 'PLATFORM_ONLY',
+    });
+    await expect(ctx.use('acme.example.com', {}, url)).rejects.toMatchObject({
+      code: 'PLATFORM_ONLY',
+    });
   });
 });

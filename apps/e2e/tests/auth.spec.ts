@@ -62,14 +62,16 @@ test.describe('認證流程', () => {
     await expect(page).not.toHaveURL(/\/auth\/login/);
   });
 
-  // ② 錯誤密碼 5 次 → 帳號鎖定
+  // ② 錯誤密碼 5 次 → 帳號鎖定：鎖定中連正確的密碼也不能登入，而且不透露密碼對錯（backend/04-auth.md §3.2）
   test('連續 5 次錯誤密碼後帳號被鎖定', async ({ page }) => {
     for (let attempt = 1; attempt <= 5; attempt += 1) {
       await login(page, 'lockTarget', 'WrongPassword!1');
       await expect(page.getByTestId('login-error')).toBeVisible();
     }
     await login(page, 'lockTarget');
-    await expect(getByTestIdAndValue(page, 'login-error', 'AUTH_ACCOUNT_LOCKED')).toBeVisible();
+    await expect(
+      getByTestIdAndValue(page, 'login-error', 'AUTH_INVALID_CREDENTIALS'),
+    ).toBeVisible();
     await snapshot(page, 'account-locked');
   });
 });

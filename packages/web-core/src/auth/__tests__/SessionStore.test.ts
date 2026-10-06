@@ -1,8 +1,11 @@
+import { createChannel } from '@b2b-system/web-shared/channel';
+import { createFakeChannelHub } from '@b2b-system/web-shared/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NetworkError } from '../../client';
 import { AppError } from '../../errors';
-import { SessionStore } from '../SessionStore';
+import { IDENTITY_CHANGED_REASON, SessionStore } from '../SessionStore';
+import type { SessionMessages } from '../SessionStore';
 
 function createStore(): SessionStore {
   return new SessionStore('test');
@@ -282,5 +285,79 @@ describe('SessionStore', () => {
     store.endSession('logout');
     expect(listener).toHaveBeenCalledTimes(3); // setTokens + clear + endSession 的 notify
     store.dispose();
+  });
+
+  describe('換成別的身分時不採用（登入 CSRF 的縱深防禦，backend/04-auth.md §2.5）', () => {
+    /** 只有 payload 有意義的假 JWT。 */
+    const jwt = (claims: { sub: string; tid?: string }) =>
+      `h.${btoa(JSON.stringify(claims)).replaceAll('=', '').replaceAll('+', '-').replaceAll('/', '_')}.s`;
+
+    it('續期回來的 token 是另一個人：結束 session（identity_changed），不把它交給請求', async () => {
+      const store = createStore();
+      const ended = vi.fn();
+      store.events.on('ended', ended);
+      store.setRefreshFn(
+        vi
+          .fn()
+          .mockResolvedValue({ accessToken: jwt({ sub: 'attacker', tid: 't1' }), expiresIn: 300 }),
+      );
+      store.setTokens({ accessToken: jwt({ sub: 'victim', tid: 't1' }), expiresIn: 1 });
+
+      await expect(store.ensureAccessToken()).resolves.toBeUndefined();
+      expect(ended).toHaveBeenCalledWith(IDENTITY_CHANGED_REASON);
+      expect(store.getAccessToken()).toBeUndefined();
+      store.dispose();
+    });
+
+    it('同一個人在另一個租戶也算換人（tid 不同）', async () => {
+      const store = createStore();
+      const ended = vi.fn();
+      store.events.on('ended', ended);
+      store.setRefreshFn(
+        vi.fn().mockResolvedValue({ accessToken: jwt({ sub: 'u1', tid: 't2' }), expiresIn: 300 }),
+      );
+      store.setTokens({ accessToken: jwt({ sub: 'u1', tid: 't1' }), expiresIn: 1 });
+
+      await store.ensureAccessToken();
+      expect(ended).toHaveBeenCalledWith(IDENTITY_CHANGED_REASON);
+      store.dispose();
+    });
+
+    it('其他分頁的 refresh-done 帶來另一個人：一樣結束', async () => {
+      const hub = createFakeChannelHub();
+      const channel = createChannel<SessionMessages>('session:test', {
+        transport: hub.transport(),
+      });
+      const other = createChannel<SessionMessages>('session:test', { transport: hub.transport() });
+      const store = new SessionStore('test', { channel });
+      const ended = vi.fn();
+      store.events.on('ended', ended);
+      store.setTokens({ accessToken: jwt({ sub: 'victim', tid: 't1' }), expiresIn: 300 });
+
+      other.post('refresh-done', {
+        accessToken: jwt({ sub: 'attacker', tid: 't1' }),
+        expiresAt: Date.now() + 300_000,
+      });
+
+      await vi.waitFor(() => expect(ended).toHaveBeenCalledWith(IDENTITY_CHANGED_REASON));
+      store.dispose();
+      other.close();
+    });
+
+    it('同一個人續期、或原本沒有身分（剛登入）時照常採用', async () => {
+      const store = createStore();
+      const ended = vi.fn();
+      store.events.on('ended', ended);
+      store.setTokens({ accessToken: jwt({ sub: 'u1', tid: 't1' }), expiresIn: 1 });
+      const renewed = jwt({ sub: 'u1', tid: 't1' }).replace('.s', '.s2');
+      store.setRefreshFn(vi.fn().mockResolvedValue({ accessToken: renewed, expiresIn: 300 }));
+
+      await expect(store.ensureAccessToken()).resolves.toBe(renewed);
+      store.endSession('logout');
+      store.setTokens({ accessToken: jwt({ sub: 'u2', tid: 't1' }), expiresIn: 300 });
+      expect(store.getAccessToken()).toBe(jwt({ sub: 'u2', tid: 't1' }));
+      expect(ended).toHaveBeenCalledTimes(1);
+      store.dispose();
+    });
   });
 });
